@@ -1,0 +1,243 @@
+// Anchor App - Database Schema
+// PostgreSQL 15+ with Prisma ORM
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ============================================================================
+// User Management
+// ============================================================================
+
+model User {
+  id                    String   @id @default(uuid())
+  email                 String   @unique
+  displayName           String?
+  authProvider          String   // 'email', 'google', 'apple'
+  authUid               String   @unique
+  subscriptionStatus    String   @default("free") // 'free', 'pro', 'pro_annual'
+  subscriptionId        String?
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+  lastSeenAt            DateTime?
+
+  // Stats
+  totalAnchorsCreated   Int      @default(0)
+  totalActivations      Int      @default(0)
+  currentStreak         Int      @default(0)
+  longestStreak         Int      @default(0)
+
+  // Relations
+  anchors               Anchor[]
+  activations           Activation[]
+  charges               Charge[]
+  orders                Order[]
+  settings              UserSettings?
+
+  @@map("users")
+}
+
+// ============================================================================
+// Core Anchor System
+// ============================================================================
+
+model Anchor {
+  id                    String   @id @default(uuid())
+  userId                String
+  user                  User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // Intention & Category
+  intentionText         String
+  category              String   // 'career', 'health', 'wealth', 'relationships', 'personal_growth', 'custom'
+
+  // Distillation & Base Sigil
+  distilledLetters      String[]
+  baseSigilSvg          String?  @db.Text
+  generationMethod      String   @default("automated") // 'automated', 'manual'
+
+  // AI Enhancement
+  enhancementStatus     String   @default("pending") // 'pending', 'generating', 'complete', 'error'
+  selectedSymbols       Json?    // Array of symbols selected by intention analysis
+  aiStyle               String?  // 'grimoire', 'minimal', 'cosmic', etc.
+  enhancedImageUrl      String?  // Final selected enhanced image
+  variationUrls         Json?    // Array of generated variation URLs
+
+  // Mantra
+  mantraText            String?
+  mantraPronunciation   String?
+  mantraAudioUrl        String?
+
+  // Charging Status
+  isCharged             Boolean  @default(false)
+  chargedAt             DateTime?
+  chargeMethod          String?  // 'quick', 'deep'
+
+  // Activation Stats
+  activationCount       Int      @default(0)
+  lastActivatedAt       DateTime?
+
+  // Sharing & Archiving
+  isShared              Boolean  @default(false)
+  sharedAt              DateTime?
+  isArchived            Boolean  @default(false)
+  archivedAt            DateTime?
+
+  // Timestamps
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+
+  // Relations
+  activations           Activation[]
+  charges               Charge[]
+
+  @@index([userId])
+  @@index([category])
+  @@index([isShared])
+  @@map("anchors")
+}
+
+// ============================================================================
+// Activation & Charging
+// ============================================================================
+
+model Activation {
+  id                    String   @id @default(uuid())
+  userId                String
+  user                  User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  anchorId              String
+  anchor                Anchor   @relation(fields: [anchorId], references: [id], onDelete: Cascade)
+
+  activationType        String   // 'visual', 'mantra', 'deep'
+  durationSeconds       Int?
+  activatedAt           DateTime @default(now())
+
+  @@index([userId, anchorId])
+  @@index([activatedAt])
+  @@map("activations")
+}
+
+model Charge {
+  id                    String   @id @default(uuid())
+  userId                String
+  user                  User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  anchorId              String
+  anchor                Anchor   @relation(fields: [anchorId], references: [id], onDelete: Cascade)
+
+  chargeType            String   // 'initial_quick', 'initial_deep', 'recharge'
+  durationSeconds       Int?
+  ambientSound          String?
+  completed             Boolean  @default(false)
+  chargedAt             DateTime @default(now())
+
+  @@index([userId, anchorId])
+  @@map("charges")
+}
+
+// ============================================================================
+// Burned Anchors Archive
+// ============================================================================
+
+model BurnedAnchor {
+  id                    String   @id @default(uuid())
+  originalAnchorId      String   @unique
+  userId                String
+  intentionText         String
+  category              String
+  distilledLetters      String[]
+  baseSigilSvg          String?  @db.Text
+  enhancedImageUrl      String?
+  activationCount       Int
+  createdAt             DateTime
+  burnedAt              DateTime @default(now())
+
+  @@index([userId])
+  @@map("burned_anchors")
+}
+
+// ============================================================================
+// E-commerce (Merch)
+// ============================================================================
+
+model Order {
+  id                    String   @id @default(uuid())
+  userId                String
+  user                  User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // Printful Integration
+  printfulOrderId       String?
+  status                String   @default("pending") // 'pending', 'processing', 'shipped', 'delivered', 'cancelled'
+
+  // Product Details
+  productType           String   // 'hoodie', 't-shirt', 'keychain', 'print', 'phone-case'
+  productVariant        String   // Size, color, etc.
+  quantity              Int      @default(1)
+  anchorImageUrl        String?  // URL of the anchor design used
+
+  // Pricing (in cents)
+  subtotalCents         Int
+  shippingCents         Int
+  taxCents              Int
+  totalCents            Int
+  currency              String   @default("USD")
+
+  // Shipping
+  shippingName          String?
+  shippingAddress       Json?
+  trackingNumber        String?
+
+  // Timestamps
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+
+  @@index([userId])
+  @@index([status])
+  @@map("orders")
+}
+
+// ============================================================================
+// User Settings & Preferences
+// ============================================================================
+
+model UserSettings {
+  userId                String   @id
+  user                  User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // Notifications
+  notificationsEnabled  Boolean  @default(true)
+  dailyReminderTime     String   @default("08:00") // HH:MM format
+  streakProtection      Boolean  @default(true)
+
+  // Defaults
+  defaultChargeDuration Int      @default(300) // seconds
+  hapticIntensity       Int      @default(3)   // 1-5 scale
+
+  // UI Preferences
+  vaultViewType         String   @default("grid") // 'grid' or 'list'
+
+  updatedAt             DateTime @updatedAt
+
+  @@map("user_settings")
+}
+
+// ============================================================================
+// Sync Queue (for Offline Mode)
+// ============================================================================
+
+model SyncQueue {
+  id                    String   @id @default(uuid())
+  userId                String
+  action                String   // 'create_anchor', 'activate', 'charge', etc.
+  entityType            String   // 'anchor', 'activation', 'charge'
+  entityData            Json
+  status                String   @default("pending") // 'pending', 'synced', 'failed'
+  createdAt             DateTime @default(now())
+  syncedAt              DateTime?
+
+  @@index([userId, status])
+  @@map("sync_queue")
+}
