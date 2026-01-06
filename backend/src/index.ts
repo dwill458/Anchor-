@@ -7,6 +7,8 @@
 import express, { Application, Request, Response } from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
+import authRoutes from './api/routes/auth';
+import { errorHandler, notFoundHandler } from './api/middleware/errorHandler';
 
 // Load environment variables
 dotenv.config();
@@ -57,39 +59,24 @@ app.get('/', (_req: Request, res: Response) => {
   });
 });
 
-// TODO: Add route handlers
-// app.use('/api/auth', authRoutes);
+// Authentication routes
+app.use('/api/auth', authRoutes);
+
+// TODO: Add additional route handlers
 // app.use('/api/anchors', anchorRoutes);
 // app.use('/api/users', userRoutes);
+// app.use('/api/discover', discoverRoutes);
+// app.use('/api/shop', shopRoutes);
 
 // ============================================================================
 // Error Handling
 // ============================================================================
 
-// 404 handler
-app.use((_req: Request, res: Response) => {
-  res.status(404).json({
-    success: false,
-    error: {
-      code: 'NOT_FOUND',
-      message: 'Endpoint not found',
-    },
-  });
-});
+// 404 handler - must come after all routes
+app.use(notFoundHandler);
 
-// Global error handler
-app.use((err: Error, _req: Request, res: Response) => {
-  console.error('Error:', err);
-  res.status(500).json({
-    success: false,
-    error: {
-      code: 'INTERNAL_SERVER_ERROR',
-      message: process.env.NODE_ENV === 'production'
-        ? 'An unexpected error occurred'
-        : err.message,
-    },
-  });
-});
+// Global error handler - must be last
+app.use(errorHandler);
 
 // ============================================================================
 // Start Server
