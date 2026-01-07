@@ -8,6 +8,7 @@ import express, { Application, Request, Response } from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
 import authRoutes from './api/routes/auth';
+import anchorRoutes from './api/routes/anchors';
 import { errorHandler, notFoundHandler } from './api/middleware/errorHandler';
 
 // Load environment variables
@@ -62,8 +63,10 @@ app.get('/', (_req: Request, res: Response) => {
 // Authentication routes
 app.use('/api/auth', authRoutes);
 
+// Anchor routes
+app.use('/api/anchors', anchorRoutes);
+
 // TODO: Add additional route handlers
-// app.use('/api/anchors', anchorRoutes);
 // app.use('/api/users', userRoutes);
 // app.use('/api/discover', discoverRoutes);
 // app.use('/api/shop', shopRoutes);
