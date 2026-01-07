@@ -159,7 +159,7 @@ export const SigilSelectionScreen: React.FC = () => {
             >
                 {/* Header */}
                 <View style={styles.header}>
-                    <Text style={styles.title}>Choose Your Sigil</Text>
+                    <Text style={styles.title}>Choose Your Anchor</Text>
                     <Text style={styles.subtitle}>
                         Each variation channels your intention "{intentionText}" in a unique visual form.
                     </Text>
