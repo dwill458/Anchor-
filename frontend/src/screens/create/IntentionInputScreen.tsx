@@ -196,7 +196,7 @@ export const IntentionInputScreen: React.FC = () => {
                         disabled={!showPreview || !!validationError}
                     >
                         <Text style={styles.continueButtonText}>
-                            Continue to Sigil
+                            Continue
                         </Text>
                     </TouchableOpacity>
                 </View>
