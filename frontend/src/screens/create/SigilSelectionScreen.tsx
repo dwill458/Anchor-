@@ -82,9 +82,8 @@ export const SigilSelectionScreen: React.FC = () => {
 
         const selectedSvg = sigilResult.svgs[selectedVariant];
 
-        // Navigate to charging screen (to be created)
-        // @ts-expect-error - Navigation will be properly typed once we set up the stack
-        navigation.navigate('ChargingRitual', {
+        // Navigate to Enhancement Choice screen (Phase 2)
+        navigation.navigate('EnhancementChoice', {
             intentionText,
             distilledLetters,
             sigilSvg: selectedSvg,
