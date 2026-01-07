@@ -7,7 +7,15 @@
 import React from 'react';
 import { createStackNavigator } from '@react-navigation/stack';
 import { VaultScreen, AnchorDetailScreen } from '../screens/vault';
-import { IntentionInputScreen, SigilSelectionScreen } from '../screens/create';
+import {
+  IntentionInputScreen,
+  SigilSelectionScreen,
+  EnhancementChoiceScreen,
+  AIAnalysisScreen,
+  AIGeneratingScreen,
+  AIVariationPickerScreen,
+  MantraCreationScreen,
+} from '../screens/create';
 import {
   ChargeChoiceScreen,
   QuickChargeScreen,
@@ -54,6 +62,38 @@ export const VaultStackNavigator: React.FC = () => {
         name="SigilSelection"
         component={SigilSelectionScreen}
         options={{ title: 'Select Your Symbol' }}
+      />
+      {/* Phase 2: AI Enhancement Flow */}
+      <Stack.Screen
+        name="EnhancementChoice"
+        component={EnhancementChoiceScreen}
+        options={{ title: 'Enhance Your Anchor' }}
+      />
+      <Stack.Screen
+        name="AIAnalysis"
+        component={AIAnalysisScreen}
+        options={{ title: 'AI Analysis' }}
+      />
+      <Stack.Screen
+        name="AIGenerating"
+        component={AIGeneratingScreen}
+        options={{ title: 'Generating...', headerShown: false }}
+      />
+      <Stack.Screen
+        name="AIVariationPicker"
+        component={AIVariationPickerScreen}
+        options={{ title: 'Choose Variation' }}
+      />
+      <Stack.Screen
+        name="MantraCreation"
+        component={MantraCreationScreen}
+        options={{ title: 'Create Mantra' }}
+      />
+      {/* Charging Rituals */}
+      <Stack.Screen
+        name="ChargeChoice"
+        component={ChargeChoiceScreen}
+        options={{ title: 'Charge Anchor' }}
       />
       <Stack.Screen
         name="ChargingRitual"

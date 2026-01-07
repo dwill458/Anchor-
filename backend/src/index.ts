@@ -9,6 +9,7 @@ import cors from 'cors';
 import dotenv from 'dotenv';
 import authRoutes from './api/routes/auth';
 import anchorRoutes from './api/routes/anchors';
+import aiRoutes from './api/routes/ai';
 import { errorHandler, notFoundHandler } from './api/middleware/errorHandler';
 
 // Load environment variables
@@ -65,6 +66,9 @@ app.use('/api/auth', authRoutes);
 
 // Anchor routes
 app.use('/api/anchors', anchorRoutes);
+
+// AI Enhancement routes (Phase 2)
+app.use('/api/ai', aiRoutes);
 
 // TODO: Add additional route handlers
 // app.use('/api/users', userRoutes);

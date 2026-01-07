@@ -206,6 +206,44 @@ export type RootStackParamList = {
     category: AnchorCategory;
     distilledLetters: string[];
   };
+
+  // Phase 2: AI Enhancement Flow
+  EnhancementChoice: {
+    intentionText: string;
+    distilledLetters: string[];
+    sigilSvg: string;
+    sigilVariant: string;
+  };
+  AIAnalysis: {
+    intentionText: string;
+    distilledLetters: string[];
+    sigilSvg: string;
+    sigilVariant: string;
+  };
+  AIGenerating: {
+    intentionText: string;
+    distilledLetters: string[];
+    sigilSvg: string;
+    sigilVariant: string;
+    analysis: any; // AnalysisResult from backend
+  };
+  AIVariationPicker: {
+    intentionText: string;
+    distilledLetters: string[];
+    sigilSvg: string;
+    sigilVariant: string;
+    variations: string[]; // Array of image URLs
+    prompt: string;
+  };
+  MantraCreation: {
+    intentionText: string;
+    distilledLetters: string[];
+    sigilSvg: string;
+    finalImageUrl?: string; // Optional - will use SVG if not provided
+  };
+
+  // Charging and Activation
+  ChargeChoice: { anchorId: string };
   ChargingRitual: { anchorId: string; chargeType: ChargeType };
   QuickCharge: { anchorId: string; chargeType: ChargeType };
   DeepCharge: { anchorId: string; chargeType: ChargeType };
