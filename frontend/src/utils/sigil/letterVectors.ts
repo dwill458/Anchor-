@@ -1,0 +1,109 @@
+/**
+ * Anchor App - Letter Vectors
+ *
+ * SVG path data for uppercase letters A-Z in 3 distinct artistic styles.
+ * All paths are designed on a 100x100 grid and centered for overlapping.
+ *
+ * DENSE: Geometric, angular, bold forms (sharp corners, heavy presence)
+ * BALANCED: Classic, serif-inspired, traditional (elegant proportions)
+ * MINIMAL: Simplified, abstract, essential (bare minimum strokes)
+ */
+
+/**
+ * DENSE STYLE - Geometric, angular, bold
+ * Sharp corners, thick presence, architectural feel
+ */
+export const DENSE_VECTORS: Record<string, string> = {
+    A: 'M50 10 L80 90 M50 10 L20 90 M30 70 L70 70 M30 70 L35 60 M70 70 L65 60 M35 60 L65 60',
+    B: 'M25 10 L25 90 M25 10 L65 10 L65 50 L25 50 M25 50 L65 50 L65 90 L25 90',
+    C: 'M75 15 L30 15 L30 85 L75 85',
+    D: 'M25 10 L25 90 M25 10 L60 10 L80 30 L80 70 L60 90 L25 90',
+    E: 'M75 10 L25 10 L25 90 L75 90 M25 50 L65 50',
+    F: 'M75 10 L25 10 L25 90 M25 50 L65 50',
+    G: 'M75 15 L30 15 L30 85 L75 85 L75 50 L50 50',
+    H: 'M25 10 L25 90 M75 10 L75 90 M25 50 L75 50',
+    I: 'M50 10 L50 90 M30 10 L70 10 M30 90 L70 90',
+    J: 'M70 10 L70 70 L50 90 L30 70',
+    K: 'M25 10 L25 90 M80 10 L25 50 M25 50 L80 90',
+    L: 'M25 10 L25 90 L80 90',
+    M: 'M20 90 L20 10 L50 45 L80 10 L80 90',
+    N: 'M25 90 L25 10 L75 90 L75 10',
+    O: 'M30 10 L70 10 L70 90 L30 90 L30 10',
+    P: 'M25 10 L25 90 M25 10 L65 10 L65 50 L25 50',
+    Q: 'M30 10 L70 10 L70 90 L30 90 L30 10 M60 70 L80 90',
+    R: 'M25 10 L25 90 M25 10 L65 10 L65 50 L25 50 M50 50 L80 90',
+    S: 'M75 15 L30 15 L30 50 L70 50 L70 85 L25 85',
+    T: 'M20 10 L80 10 M50 10 L50 90',
+    U: 'M25 10 L25 70 L50 90 L75 70 L75 10',
+    V: 'M20 10 L50 90 L80 10',
+    W: 'M15 10 L30 90 L50 50 L70 90 L85 10',
+    X: 'M25 10 L75 90 M75 10 L25 90',
+    Y: 'M25 10 L50 50 L75 10 M50 50 L50 90',
+    Z: 'M25 10 L75 10 L25 90 L75 90',
+};
+
+/**
+ * BALANCED STYLE - Classic, serif-inspired
+ * Elegant proportions, traditional letterforms
+ */
+export const BALANCED_VECTORS: Record<string, string> = {
+    A: 'M50 15 L20 85 M50 15 L80 85 M30 65 L70 65',
+    B: 'M30 15 L30 85 M30 15 L60 15 Q80 15 80 35 Q80 50 60 50 M30 50 L60 50 Q80 50 80 67.5 Q80 85 60 85 M30 85 L60 85',
+    C: 'M70 20 Q30 20 30 50 Q30 80 70 80',
+    D: 'M30 15 L30 85 M30 15 L50 15 Q80 15 80 50 Q80 85 50 85 M30 85 L50 85',
+    E: 'M70 15 L30 15 L30 85 L70 85 M30 50 L60 50',
+    F: 'M70 15 L30 15 L30 85 M30 50 L60 50',
+    G: 'M70 20 Q30 20 30 50 Q30 80 70 80 L70 50 L50 50',
+    H: 'M30 15 L30 85 M70 15 L70 85 M30 50 L70 50',
+    I: 'M50 15 L50 85 M30 15 L70 15 M30 85 L70 85',
+    J: 'M70 15 L70 65 Q70 85 50 85 Q30 85 30 65',
+    K: 'M30 15 L30 85 M80 15 L30 50 L80 85',
+    L: 'M30 15 L30 85 L80 85',
+    M: 'M30 85 L30 15 L50 50 L70 15 L70 85',
+    N: 'M30 85 L30 15 L70 85 L70 15',
+    O: 'M50 15 Q80 15 80 50 Q80 85 50 85 Q20 85 20 50 Q20 15 50 15',
+    P: 'M30 15 L30 85 M30 15 L60 15 Q80 15 80 35 Q80 55 60 55 L30 55',
+    Q: 'M50 15 Q80 15 80 50 Q80 85 50 85 Q20 85 20 50 Q20 15 50 15 M60 65 L80 85',
+    R: 'M30 15 L30 85 M30 15 L60 15 Q80 15 80 35 Q80 55 60 55 L30 55 M50 55 L80 85',
+    S: 'M70 20 Q30 15 30 35 Q30 55 70 55 Q70 85 30 80',
+    T: 'M20 15 L80 15 M50 15 L50 85',
+    U: 'M30 15 L30 65 Q30 85 50 85 Q70 85 70 65 L70 15',
+    V: 'M30 15 L50 85 L70 15',
+    W: 'M20 15 L35 85 L50 50 L65 85 L80 15',
+    X: 'M30 15 L70 85 M70 15 L30 85',
+    Y: 'M30 15 L50 50 L70 15 M50 50 L50 85',
+    Z: 'M30 15 L70 15 L30 85 L70 85',
+};
+
+/**
+ * MINIMAL STYLE - Simplified, abstract, essential
+ * Bare minimum strokes, modern and clean
+ */
+export const MINIMAL_VECTORS: Record<string, string> = {
+    A: 'M50 20 L35 80 M50 20 L65 80 M40 65 L60 65',
+    B: 'M35 20 L35 80 M35 20 L55 20 Q70 25 70 38 Q70 50 55 50 Q70 50 70 62 Q70 75 55 80 L35 80',
+    C: 'M65 25 Q40 25 40 50 Q40 75 65 75',
+    D: 'M35 20 L35 80 M35 20 Q75 25 75 50 Q75 75 35 80',
+    E: 'M65 20 L35 20 L35 80 L65 80 M35 50 L55 50',
+    F: 'M65 20 L35 20 L35 80 M35 50 L55 50',
+    G: 'M65 25 Q40 25 40 50 Q40 75 65 75 L65 52',
+    H: 'M35 20 L35 80 M65 20 L65 80 M35 50 L65 50',
+    I: 'M50 20 L50 80',
+    J: 'M60 20 L60 65 Q60 80 45 80 Q35 80 35 70',
+    K: 'M35 20 L35 80 M70 20 L35 50 L70 80',
+    L: 'M35 20 L35 80 L70 80',
+    M: 'M35 80 L35 20 L50 55 L65 20 L65 80',
+    N: 'M35 80 L35 20 L65 80 L65 20',
+    O: 'M50 20 Q70 20 70 50 Q70 80 50 80 Q30 80 30 50 Q30 20 50 20',
+    P: 'M35 20 L35 80 M35 20 Q70 25 70 40 Q70 55 35 55',
+    Q: 'M50 20 Q70 20 70 50 Q70 80 50 80 Q30 80 30 50 Q30 20 50 20 M58 68 L72 82',
+    R: 'M35 20 L35 80 M35 20 Q70 25 70 40 Q70 55 35 55 M50 55 L70 80',
+    S: 'M65 25 Q35 20 35 35 Q35 50 65 50 Q65 75 35 75',
+    T: 'M25 20 L75 20 M50 20 L50 80',
+    U: 'M35 20 L35 65 Q35 80 50 80 Q65 80 65 65 L65 20',
+    V: 'M35 20 L50 80 L65 20',
+    W: 'M30 20 L40 80 L50 50 L60 80 L70 20',
+    X: 'M35 20 L65 80 M65 20 L35 80',
+    Y: 'M35 20 L50 50 L65 20 M50 50 L50 80',
+    Z: 'M35 20 L65 20 L35 80 L65 80',
+};
