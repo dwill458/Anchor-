@@ -334,7 +334,7 @@ describe('validateIntention', () => {
     });
 
     it('should accept 100-character maximum', () => {
-      const string100 = 'a'.repeat(50) + 'b'.repeat(50);
+      const string100 = 'b'.repeat(50) + 'c'.repeat(50);
       const validation = validateIntention(string100);
 
       expect(validation.isValid).toBe(true);
