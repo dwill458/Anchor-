@@ -12,6 +12,11 @@ import { analyzeIntention } from '../../services/IntentionAnalyzer';
 import { enhanceSigil, estimateGenerationTime, getCostEstimate } from '../../services/AIEnhancer';
 import { generateMantra, getRecommendedMantraStyle } from '../../services/MantraGenerator';
 import { uploadImageFromUrl } from '../../services/StorageService';
+import {
+  generateAllMantraAudio,
+  isTTSAvailable,
+  getAvailableVoicePresets,
+} from '../../services/TTSService';
 
 const router = express.Router();
 
@@ -145,6 +150,63 @@ router.post('/mantra', async (req: Request, res: Response): Promise<void> => {
 });
 
 /**
+ * POST /api/ai/mantra/audio
+ * Generate audio for mantras using Google TTS
+ */
+router.post('/mantra/audio', async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { mantras, userId, anchorId, voicePreset } = req.body;
+
+    if (!mantras || !userId || !anchorId) {
+      res.status(400).json({ error: 'Missing required fields: mantras, userId, anchorId' });
+      return;
+    }
+
+    if (!isTTSAvailable()) {
+      res.status(503).json({
+        error: 'Text-to-Speech service not configured',
+        message: 'Google Cloud TTS credentials are missing. Audio generation is unavailable.',
+      });
+      return;
+    }
+
+    console.log('[AI] Generating mantra audio for anchor:', anchorId);
+
+    const audioUrls = await generateAllMantraAudio(
+      mantras,
+      userId,
+      anchorId,
+      voicePreset || 'neutral_calm'
+    );
+
+    res.json({
+      success: true,
+      audioUrls,
+    });
+  } catch (error) {
+    console.error('[AI] Audio generation error:', error);
+    res.status(500).json({
+      error: 'Failed to generate audio',
+      message: error instanceof Error ? error.message : 'Unknown error',
+    });
+  }
+});
+
+/**
+ * GET /api/ai/voices
+ * Get available TTS voice presets
+ */
+router.get('/voices', (req: Request, res: Response): void => {
+  const voices = getAvailableVoicePresets();
+
+  res.json({
+    success: true,
+    voices,
+    available: isTTSAvailable(),
+  });
+});
+
+/**
  * GET /api/ai/estimate
  * Get time and cost estimates for AI enhancement
  */
@@ -170,13 +232,15 @@ router.get('/health', (req: Request, res: Response): void => {
     process.env.CLOUDFLARE_R2_ACCESS_KEY_ID &&
     process.env.CLOUDFLARE_R2_SECRET_ACCESS_KEY
   );
+  const hasTTS = isTTSAvailable();
 
   const status = {
     replicate: hasReplicateToken ? 'configured' : 'missing_token',
     storage: hasR2Config ? 'configured' : 'missing_credentials',
+    tts: hasTTS ? 'configured' : 'optional_not_configured',
   };
 
-  const isHealthy = hasReplicateToken && hasR2Config;
+  const isHealthy = hasReplicateToken && hasR2Config; // TTS is optional
 
   res.status(isHealthy ? 200 : 503).json({
     success: isHealthy,

@@ -1,11 +1,11 @@
 /**
- * Anchor App - Mantra Creation Screen
+ * Anchor App - Mantra Creation Screen (Phase 2.5)
  *
  * Step 8 in anchor creation flow (after AIVariationPicker or EnhancementChoice-Traditional).
- * User generates and selects from 3 mantra styles.
+ * User generates and selects from 3 mantra styles with audio playback.
  */
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import {
   View,
   Text,
@@ -17,6 +17,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
+import { Audio } from 'expo-av';
 import { colors, spacing, typography } from '@/theme';
 import { RootStackParamList } from '@/types';
 
@@ -33,7 +34,16 @@ interface MantraResult {
   phonetic: string;
 }
 
-type MantraStyle = keyof MantraResult;
+/**
+ * Audio URLs for each mantra style
+ */
+interface MantraAudioUrls {
+  syllabic: string | null;
+  rhythmic: string | null;
+  phonetic: string | null;
+}
+
+type MantraStyle = keyof Omit<MantraResult, 'letterByLetter'>;
 
 /**
  * Mantra style info
@@ -77,15 +87,46 @@ export const MantraCreationScreen: React.FC = () => {
 
   const [loading, setLoading] = useState(true);
   const [mantra, setMantra] = useState<MantraResult | null>(null);
+  const [audioUrls, setAudioUrls] = useState<MantraAudioUrls | null>(null);
   const [selectedStyle, setSelectedStyle] = useState<MantraStyle>('phonetic');
   const [error, setError] = useState<string | null>(null);
+
+  // Audio playback state
+  const [playingStyle, setPlayingStyle] = useState<MantraStyle | null>(null);
+  const [loadingAudio, setLoadingAudio] = useState<MantraStyle | null>(null);
+  const soundRef = useRef<Audio.Sound | null>(null);
 
   /**
    * Generate mantra on mount
    */
   useEffect(() => {
+    configureAudio();
     generateMantra();
+
+    return () => {
+      // Cleanup audio on unmount
+      if (soundRef.current) {
+        soundRef.current.unloadAsync();
+      }
+    };
   }, []);
+
+  /**
+   * Configure audio settings
+   */
+  const configureAudio = async (): Promise<void> => {
+    try {
+      await Audio.setAudioModeAsync({
+        allowsRecordingIOS: false,
+        staysActiveInBackground: false,
+        playsInSilentModeIOS: true,
+        shouldDuckAndroid: true,
+        playThroughEarpieceAndroid: false,
+      });
+    } catch (err) {
+      console.error('Failed to configure audio:', err);
+    }
+  };
 
   /**
    * Call backend to generate mantra
@@ -114,6 +155,9 @@ export const MantraCreationScreen: React.FC = () => {
       const data = await response.json();
       setMantra(data.mantra);
       setSelectedStyle(data.recommended || 'phonetic');
+
+      // Generate audio (optional - will gracefully degrade if TTS not configured)
+      generateAudio(data.mantra);
     } catch (err) {
       console.error('Mantra generation error:', err);
       setError(err instanceof Error ? err.message : 'Unknown error');
@@ -123,10 +167,112 @@ export const MantraCreationScreen: React.FC = () => {
   };
 
   /**
+   * Generate audio for all mantra styles
+   */
+  const generateAudio = async (mantras: MantraResult): Promise<void> => {
+    try {
+      const API_URL = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:3000';
+
+      const response = await fetch(`${API_URL}/api/ai/mantra/audio`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          mantras: {
+            syllabic: mantras.syllabic,
+            rhythmic: mantras.rhythmic,
+            phonetic: mantras.phonetic,
+          },
+          userId: 'temp-user-id', // TODO: Get from auth store
+          anchorId: `anchor-${Date.now()}`, // TODO: Generate proper ID
+          voicePreset: 'neutral_calm',
+        }),
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        setAudioUrls(data.audioUrls);
+        console.log('Audio generated successfully');
+      } else {
+        // TTS not configured - that's okay, audio is optional
+        console.log('Audio generation skipped (TTS not configured)');
+        setAudioUrls({ syllabic: null, rhythmic: null, phonetic: null });
+      }
+    } catch (err) {
+      console.log('Audio generation failed (optional feature):', err);
+      setAudioUrls({ syllabic: null, rhythmic: null, phonetic: null });
+    }
+  };
+
+  /**
+   * Play mantra audio
+   */
+  const handlePlayAudio = async (style: MantraStyle): Promise<void> => {
+    try {
+      // If TTS not available, show message
+      if (!audioUrls || !audioUrls[style]) {
+        alert('Audio playback not available. Enable Google TTS in backend configuration.');
+        return;
+      }
+
+      // Stop currently playing audio
+      if (soundRef.current) {
+        await soundRef.current.stopAsync();
+        await soundRef.current.unloadAsync();
+        soundRef.current = null;
+        setPlayingStyle(null);
+      }
+
+      // If clicking same style that was playing, just stop
+      if (playingStyle === style) {
+        return;
+      }
+
+      setLoadingAudio(style);
+
+      // Load and play new audio
+      const { sound } = await Audio.Sound.createAsync(
+        { uri: audioUrls[style]! },
+        { shouldPlay: true },
+        onPlaybackStatusUpdate
+      );
+
+      soundRef.current = sound;
+      setPlayingStyle(style);
+      setLoadingAudio(null);
+    } catch (err) {
+      console.error('Audio playback error:', err);
+      setLoadingAudio(null);
+      alert('Failed to play audio. Please try again.');
+    }
+  };
+
+  /**
+   * Handle playback status updates
+   */
+  const onPlaybackStatusUpdate = (status: any): void => {
+    if (status.didJustFinish) {
+      setPlayingStyle(null);
+      if (soundRef.current) {
+        soundRef.current.unloadAsync();
+        soundRef.current = null;
+      }
+    }
+  };
+
+  /**
    * Continue to charging (save anchor first)
    */
   const handleContinue = async (): Promise<void> => {
     if (!mantra) return;
+
+    // Stop any playing audio
+    if (soundRef.current) {
+      await soundRef.current.stopAsync();
+      await soundRef.current.unloadAsync();
+      soundRef.current = null;
+    }
 
     const selectedMantraText = mantra[selectedStyle];
 
@@ -135,17 +281,14 @@ export const MantraCreationScreen: React.FC = () => {
 
     navigation.navigate('ChargeChoice', {
       anchorId: `temp-${Date.now()}`, // TODO: Replace with real anchor ID from backend
-      // TODO: Pass additional anchor data if needed
     });
   };
 
   /**
-   * Play mantra audio (future feature with TTS)
+   * Retry if generation failed
    */
-  const handlePlayAudio = (style: MantraStyle): void => {
-    // TODO: Implement audio playback with Google TTS
-    console.log('Playing audio for style:', style);
-    alert('Audio playback coming in Phase 2.5! (Google TTS integration)');
+  const handleRetry = (): void => {
+    generateMantra();
   };
 
   /**
@@ -172,7 +315,7 @@ export const MantraCreationScreen: React.FC = () => {
           <Text style={styles.errorIcon}>⚠️</Text>
           <Text style={styles.errorTitle}>Mantra Generation Failed</Text>
           <Text style={styles.errorMessage}>{error || 'Unknown error'}</Text>
-          <TouchableOpacity style={styles.retryButton} onPress={generateMantra}>
+          <TouchableOpacity style={styles.retryButton} onPress={handleRetry}>
             <Text style={styles.retryButtonText}>Try Again</Text>
           </TouchableOpacity>
         </View>
@@ -186,6 +329,9 @@ export const MantraCreationScreen: React.FC = () => {
   const renderMantraCard = (styleInfo: MantraStyleInfo): React.JSX.Element => {
     const isSelected = selectedStyle === styleInfo.id;
     const mantraText = mantra[styleInfo.id];
+    const isPlaying = playingStyle === styleInfo.id;
+    const isLoadingAudio = loadingAudio === styleInfo.id;
+    const hasAudio = audioUrls && audioUrls[styleInfo.id];
 
     return (
       <TouchableOpacity
@@ -218,10 +364,17 @@ export const MantraCreationScreen: React.FC = () => {
 
           {/* Play Button */}
           <TouchableOpacity
-            style={styles.playButton}
+            style={[styles.playButton, isPlaying && styles.playButtonActive]}
             onPress={() => handlePlayAudio(styleInfo.id)}
+            disabled={isLoadingAudio}
           >
-            <Text style={styles.playButtonText}>▶️ Play Audio</Text>
+            {isLoadingAudio ? (
+              <ActivityIndicator size="small" color={colors.gold} />
+            ) : (
+              <Text style={styles.playButtonText}>
+                {isPlaying ? '⏸️ Pause' : hasAudio ? '▶️ Play Audio' : '▶️ Audio (Not Available)'}
+              </Text>
+            )}
           </TouchableOpacity>
         </View>
 
@@ -276,6 +429,16 @@ export const MantraCreationScreen: React.FC = () => {
             focused intention. The repetition creates a powerful vibrational resonance.
           </Text>
         </View>
+
+        {/* Audio Status */}
+        {audioUrls && !audioUrls.syllabic && !audioUrls.rhythmic && !audioUrls.phonetic && (
+          <View style={styles.audioNoticeSection}>
+            <Text style={styles.audioNoticeText}>
+              ℹ️ Audio playback not available. Enable Google TTS in backend configuration to hear
+              your mantras spoken aloud.
+            </Text>
+          </View>
+        )}
       </ScrollView>
 
       {/* Continue Button */}
@@ -459,6 +622,11 @@ const styles = StyleSheet.create({
   playButton: {
     alignSelf: 'flex-start',
     paddingVertical: spacing.xs,
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  playButtonActive: {
+    opacity: 0.8,
   },
   playButtonText: {
     fontSize: typography.sizes.body2,
@@ -486,6 +654,7 @@ const styles = StyleSheet.create({
     padding: spacing.md,
     borderLeftWidth: 4,
     borderLeftColor: colors.deepPurple,
+    marginBottom: spacing.md,
   },
   instructionsTitle: {
     fontSize: typography.sizes.body1,
@@ -494,6 +663,19 @@ const styles = StyleSheet.create({
     marginBottom: spacing.sm,
   },
   instructionsText: {
+    fontSize: typography.sizes.body2,
+    fontFamily: typography.fonts.body,
+    color: colors.text.secondary,
+    lineHeight: typography.lineHeights.body2,
+  },
+  audioNoticeSection: {
+    backgroundColor: colors.background.card,
+    borderRadius: 12,
+    padding: spacing.md,
+    borderLeftWidth: 4,
+    borderLeftColor: colors.bronze,
+  },
+  audioNoticeText: {
     fontSize: typography.sizes.body2,
     fontFamily: typography.fonts.body,
     color: colors.text.secondary,
