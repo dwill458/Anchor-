@@ -5,3 +5,4 @@
  */
 
 export { VaultScreen } from './VaultScreen';
+export { AnchorDetailScreen } from './AnchorDetailScreen';

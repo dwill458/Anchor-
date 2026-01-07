@@ -8,6 +8,7 @@ import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Dimensions } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
+import { StackNavigationProp } from '@react-navigation/stack';
 import Svg, { SvgXml } from 'react-native-svg';
 import { useAnchorStore } from '../../stores/anchorStore';
 import type { RootStackParamList } from '@/types';
@@ -17,11 +18,12 @@ const { width } = Dimensions.get('window');
 const SIGIL_SIZE = width * 0.5;
 
 type ChargeChoiceRouteProp = RouteProp<RootStackParamList, 'ChargingRitual'>;
+type ChargeChoiceNavigationProp = StackNavigationProp<RootStackParamList, 'ChargingRitual'>;
 
 export const ChargeChoiceScreen: React.FC = () => {
-  const navigation = useNavigation();
+  const navigation = useNavigation<ChargeChoiceNavigationProp>();
   const route = useRoute<ChargeChoiceRouteProp>();
-  const { anchorId } = route.params;
+  const { anchorId, chargeType } = route.params;
 
   const { getAnchorById } = useAnchorStore();
   const anchor = getAnchorById(anchorId);
@@ -30,16 +32,14 @@ export const ChargeChoiceScreen: React.FC = () => {
    * Navigate to Quick Charge (30s)
    */
   const handleQuickCharge = (): void => {
-    // @ts-expect-error - Navigation types will be set up later
-    navigation.navigate('QuickCharge', { anchorId });
+    navigation.navigate('QuickCharge', { anchorId, chargeType });
   };
 
   /**
    * Navigate to Deep Charge (5min)
    */
   const handleDeepCharge = (): void => {
-    // @ts-expect-error - Navigation types will be set up later
-    navigation.navigate('DeepCharge', { anchorId });
+    navigation.navigate('DeepCharge', { anchorId, chargeType });
   };
 
   if (!anchor) {

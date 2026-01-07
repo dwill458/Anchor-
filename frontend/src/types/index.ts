@@ -197,11 +197,18 @@ export type MantraStyle = 'syllabic' | 'rhythmic' | 'letter_by_letter';
  * Navigation stack parameter lists
  */
 export type RootStackParamList = {
-  Auth: undefined;
-  Main: undefined;
-  CreateAnchor: undefined;
+  // Vault Stack Screens
+  Vault: undefined;
   AnchorDetail: { anchorId: string };
+  CreateAnchor: undefined;
+  SigilSelection: {
+    intentionText: string;
+    category: AnchorCategory;
+    distilledLetters: string[];
+  };
   ChargingRitual: { anchorId: string; chargeType: ChargeType };
+  QuickCharge: { anchorId: string; chargeType: ChargeType };
+  DeepCharge: { anchorId: string; chargeType: ChargeType };
   ActivationRitual: { anchorId: string; activationType: ActivationType };
 };
 

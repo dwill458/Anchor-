@@ -17,10 +17,11 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
+import { StackNavigationProp } from '@react-navigation/stack';
 import { AnchorCard } from '../../components/cards/AnchorCard';
 import { useAnchorStore } from '../../stores/anchorStore';
 import { useAuthStore } from '../../stores/authStore';
-import type { Anchor } from '@/types';
+import type { Anchor, RootStackParamList } from '@/types';
 import { colors, spacing, typography } from '@/theme';
 
 const { width } = Dimensions.get('window');
@@ -28,8 +29,10 @@ const CARD_PADDING = spacing.md;
 const COLUMN_GAP = spacing.md;
 const CARD_WIDTH = (width - CARD_PADDING * 2 - COLUMN_GAP) / 2;
 
+type VaultScreenNavigationProp = StackNavigationProp<RootStackParamList, 'Vault'>;
+
 export const VaultScreen: React.FC = () => {
-  const navigation = useNavigation();
+  const navigation = useNavigation<VaultScreenNavigationProp>();
   const { user } = useAuthStore();
   const { anchors, isLoading, setLoading, setError } = useAnchorStore();
   const [refreshing, setRefreshing] = useState(false);
@@ -80,7 +83,6 @@ export const VaultScreen: React.FC = () => {
    * Navigate to anchor detail screen
    */
   const handleAnchorPress = (anchor: Anchor): void => {
-    // @ts-expect-error - Navigation types will be set up with React Navigation
     navigation.navigate('AnchorDetail', { anchorId: anchor.id });
   };
 
@@ -88,7 +90,6 @@ export const VaultScreen: React.FC = () => {
    * Navigate to create new anchor
    */
   const handleCreateAnchor = (): void => {
-    // @ts-expect-error - Navigation types will be set up with React Navigation
     navigation.navigate('CreateAnchor');
   };
 
