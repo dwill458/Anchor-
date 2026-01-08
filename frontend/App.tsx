@@ -1,27 +1,17 @@
-/**
- * Anchor App - Main Application Entry Point
- */
-
-import React from 'react';
 import 'react-native-gesture-handler';
-import { StatusBar } from 'react-native';
+import React from 'react';
 import { NavigationContainer } from '@react-navigation/native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
+import { StatusBar } from 'expo-status-bar';
 import { RootNavigator } from './src/navigation';
-import { colors } from './src/theme';
 
-function App(): React.JSX.Element {
+export default function App() {
   return (
     <SafeAreaProvider>
       <NavigationContainer>
-        <StatusBar
-          barStyle="light-content"
-          backgroundColor={colors.background.primary}
-        />
+        <StatusBar style="light" />
         <RootNavigator />
       </NavigationContainer>
     </SafeAreaProvider>
   );
 }
-
-export default App;
