@@ -1,4 +1,6 @@
 {
+  "name": "AnchorApp",
+  "displayName": "Anchor",
   "expo": {
     "name": "Anchor",
     "slug": "anchor-app",
@@ -17,6 +19,9 @@
       "bundleIdentifier": "com.anchor.app"
     },
     "android": {
+      "adaptiveIcon": {
+        "backgroundColor": "#1A1A1D"
+      },
       "package": "com.anchor.app"
     }
   }
