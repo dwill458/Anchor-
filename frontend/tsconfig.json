@@ -6,7 +6,7 @@
     ],
     "jsx": "react-native",
     "module": "commonjs",
-    "moduleResolution": "node",
+    "moduleResolution": "bundler",
     "resolveJsonModule": true,
     "noEmit": true,
     "isolatedModules": true,
@@ -61,6 +61,5 @@
     "jest.config.js",
     "**/*.spec.ts",
     "**/*.test.ts"
-  ],
-  "extends": "expo/tsconfig.base"
+  ]
 }
