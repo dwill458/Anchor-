@@ -1,4 +1,6 @@
 {
+  "name": "Anchor",
+  "displayName": "Anchor",
   "expo": {
     "name": "Anchor",
     "slug": "anchor-app",
