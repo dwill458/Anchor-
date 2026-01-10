@@ -1,8 +1,0 @@
-Starting project at C:\Users\dwill\.gemini\antigravity\scratch\Anchor\frontend
-Warning: Root-level "expo" object found. Ignoring extra keys in Expo config: "name", "displayName"
-Learn more: https://expo.fyi/root-expo-object
-ΓÇ║ Port 8081 is being used by another process
-Input is required, but 'npx expo' is in non-interactive mode.
-Required input:
-> Use port 8082 instead?
-ΓÇ║ Skipping dev server

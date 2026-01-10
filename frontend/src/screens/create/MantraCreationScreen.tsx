@@ -17,24 +17,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
-// import Sound from 'react-native-sound';
-// Mock Sound for build
-class Sound {
-  static setCategory(category: string) { console.log('Mock Sound setCategory', category); }
-  constructor(url: string, error: any, callback: (err: any) => void) {
-    console.log('Mock Sound created', url);
-    if (callback) setTimeout(() => callback(null), 100);
-  }
-  play(cb: (success: boolean) => void) {
-    console.log('Mock Sound play');
-    if (cb) setTimeout(() => cb(true), 1000);
-  }
-  stop(cb: () => void) {
-    console.log('Mock Sound stop');
-    if (cb) cb();
-  }
-  release() { console.log('Mock Sound release'); }
-}
+import { Audio } from 'expo-av';
 import { colors, spacing, typography } from '@/theme';
 import { RootStackParamList } from '@/types';
 
@@ -111,23 +94,33 @@ export const MantraCreationScreen: React.FC = () => {
   // Audio playback state
   const [playingStyle, setPlayingStyle] = useState<MantraStyle | null>(null);
   const [loadingAudio, setLoadingAudio] = useState<MantraStyle | null>(null);
-  const soundRef = useRef<Sound | null>(null);
+  const soundRef = useRef<Audio.Sound | null>(null);
 
   /**
    * Generate mantra on mount and setup audio
    */
   useEffect(() => {
-    // Enable playback in silence mode (iOS)
-    Sound.setCategory('Playback');
+    // Configure audio mode for playback
+    const setupAudio = async () => {
+      await Audio.setAudioModeAsync({
+        playsInSilentModeIOS: true,
+        staysActiveInBackground: false,
+        shouldDuckAndroid: true,
+      });
+    };
+    setupAudio();
 
     generateMantra();
 
     return () => {
       // Cleanup audio on unmount
-      if (soundRef.current) {
-        soundRef.current.release();
-        soundRef.current = null;
-      }
+      const cleanup = async () => {
+        if (soundRef.current) {
+          await soundRef.current.unloadAsync();
+          soundRef.current = null;
+        }
+      };
+      cleanup();
     };
   }, []);
 
@@ -211,7 +204,7 @@ export const MantraCreationScreen: React.FC = () => {
   /**
    * Play mantra audio
    */
-  const handlePlayAudio = (style: MantraStyle): void => {
+  const handlePlayAudio = async (style: MantraStyle): Promise<void> => {
     try {
       // If TTS not available, show message
       if (!audioUrls || !audioUrls[style]) {
@@ -221,10 +214,9 @@ export const MantraCreationScreen: React.FC = () => {
 
       // Stop currently playing audio
       if (soundRef.current) {
-        soundRef.current.stop(() => {
-          soundRef.current?.release();
-          soundRef.current = null;
-        });
+        await soundRef.current.stopAsync();
+        await soundRef.current.unloadAsync();
+        soundRef.current = null;
         setPlayingStyle(null);
       }
 
@@ -235,30 +227,24 @@ export const MantraCreationScreen: React.FC = () => {
 
       setLoadingAudio(style);
 
-      // Load and play new audio
-      const sound = new Sound(audioUrls[style]!, '', (error) => {
-        if (error) {
-          console.error('Failed to load audio:', error);
-          setLoadingAudio(null);
-          alert('Failed to play audio. Please try again.');
-          return;
-        }
-
-        // Play the sound
-        sound.play((success) => {
-          if (!success) {
-            console.error('Playback failed');
+      // Load and play new audio using expo-av
+      const { sound } = await Audio.Sound.createAsync(
+        { uri: audioUrls[style]! },
+        { shouldPlay: true },
+        (status) => {
+          // Callback for playback status updates
+          if (status.isLoaded && status.didJustFinish) {
+            // Cleanup after playback finishes
+            setPlayingStyle(null);
+            sound.unloadAsync();
+            soundRef.current = null;
           }
-          // Cleanup after playback finishes
-          setPlayingStyle(null);
-          sound.release();
-          soundRef.current = null;
-        });
+        }
+      );
 
-        soundRef.current = sound;
-        setPlayingStyle(style);
-        setLoadingAudio(null);
-      });
+      soundRef.current = sound;
+      setPlayingStyle(style);
+      setLoadingAudio(null);
     } catch (err) {
       console.error('Audio playback error:', err);
       setLoadingAudio(null);
@@ -269,18 +255,15 @@ export const MantraCreationScreen: React.FC = () => {
   /**
    * Continue to charging (save anchor first)
    */
-  const handleContinue = (): void => {
+  const handleContinue = async (): Promise<void> => {
     if (!mantra) return;
 
     // Stop any playing audio
     if (soundRef.current) {
-      soundRef.current.stop(() => {
-        soundRef.current?.release();
-        soundRef.current = null;
-      });
+      await soundRef.current.stopAsync();
+      await soundRef.current.unloadAsync();
+      soundRef.current = null;
     }
-
-    const selectedMantraText = mantra[selectedStyle];
 
     // TODO: Save anchor to backend and get anchor ID
     // For now, navigate to ChargeChoice with temporary data
