@@ -9,7 +9,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { View, Text, StyleSheet, Dimensions } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
-import ReactNativeHapticFeedback from 'react-native-haptic-feedback';
+import * as Haptics from 'expo-haptics';
 import Svg, { SvgXml } from 'react-native-svg';
 import { useAnchorStore } from '../../stores/anchorStore';
 import type { RootStackParamList } from '@/types';
@@ -40,7 +40,7 @@ export const ActivationScreen: React.FC = () => {
    */
   useEffect(() => {
     // Initial haptic feedback
-    ReactNativeHapticFeedback.trigger('impactMedium');
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
 
     intervalRef.current = setInterval(() => {
       setSecondsRemaining((prev) => {
@@ -48,7 +48,7 @@ export const ActivationScreen: React.FC = () => {
 
         // Haptic pulse every 2 seconds
         if (newValue > 0 && newValue % HAPTIC_INTERVAL === 0) {
-          ReactNativeHapticFeedback.trigger('impactLight');
+          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
         }
 
         // Complete at 0
@@ -77,7 +77,7 @@ export const ActivationScreen: React.FC = () => {
     }
 
     // Success haptic
-    ReactNativeHapticFeedback.trigger('notificationSuccess');
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     setIsComplete(true);
 
     // Update backend

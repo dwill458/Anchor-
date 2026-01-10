@@ -9,7 +9,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { View, Text, StyleSheet, Dimensions } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
-import ReactNativeHapticFeedback from 'react-native-haptic-feedback';
+import * as Haptics from 'expo-haptics';
 import Svg, { SvgXml } from 'react-native-svg';
 import { useAnchorStore } from '../../stores/anchorStore';
 import type { RootStackParamList } from '@/types';
@@ -87,7 +87,7 @@ export const DeepChargeScreen: React.FC = () => {
    */
   useEffect(() => {
     // Initial haptic feedback
-    ReactNativeHapticFeedback.trigger('impactMedium');
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
 
     intervalRef.current = setInterval(() => {
       setSecondsRemaining((prev) => {
@@ -95,7 +95,7 @@ export const DeepChargeScreen: React.FC = () => {
 
         // Pulse every 10 seconds
         if (newValue > 0 && newValue % 10 === 0) {
-          ReactNativeHapticFeedback.trigger('impactLight');
+          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
         }
 
         // Move to next phase or complete
@@ -123,7 +123,7 @@ export const DeepChargeScreen: React.FC = () => {
 
     if (nextPhaseIndex < PHASES.length) {
       // Move to next phase
-      ReactNativeHapticFeedback.trigger('impactMedium');
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
       setCurrentPhaseIndex(nextPhaseIndex);
       setSecondsRemaining(PHASES[nextPhaseIndex].durationSeconds);
     } else {
@@ -141,7 +141,7 @@ export const DeepChargeScreen: React.FC = () => {
     }
 
     // Success haptic
-    ReactNativeHapticFeedback.trigger('notificationSuccess');
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     setIsComplete(true);
 
     // Update backend
