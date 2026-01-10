@@ -17,7 +17,24 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
-import Sound from 'react-native-sound';
+// import Sound from 'react-native-sound';
+// Mock Sound for build
+class Sound {
+  static setCategory(category: string) { console.log('Mock Sound setCategory', category); }
+  constructor(url: string, error: any, callback: (err: any) => void) {
+    console.log('Mock Sound created', url);
+    if (callback) setTimeout(() => callback(null), 100);
+  }
+  play(cb: (success: boolean) => void) {
+    console.log('Mock Sound play');
+    if (cb) setTimeout(() => cb(true), 1000);
+  }
+  stop(cb: () => void) {
+    console.log('Mock Sound stop');
+    if (cb) cb();
+  }
+  release() { console.log('Mock Sound release'); }
+}
 import { colors, spacing, typography } from '@/theme';
 import { RootStackParamList } from '@/types';
 
