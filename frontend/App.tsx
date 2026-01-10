@@ -6,6 +6,7 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { RootNavigator } from './src/navigation';
 
 export default function App() {
+  console.log("Anchor App is Alive!");
   return (
     <SafeAreaProvider>
       <NavigationContainer>

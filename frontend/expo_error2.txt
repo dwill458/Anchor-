@@ -1,0 +1,15 @@
+Starting project at C:\Users\dwill\.gemini\antigravity\scratch\Anchor\frontend
+Warning: Root-level "expo" object found. Ignoring extra keys in Expo config: "name", "displayName"
+Learn more: https://expo.fyi/root-expo-object
+Error [ERR_PACKAGE_PATH_NOT_EXPORTED]: Package subpath './src/lib/TerminalReporter' is not defined by "exports" in C:\Users\dwill\.gemini\antigravity\scratch\Anchor\frontend\node_modules\metro\package.json
+Error: Package subpath './src/lib/TerminalReporter' is not defined by "exports" in C:\Users\dwill\.gemini\antigravity\scratch\Anchor\frontend\node_modules\metro\package.json
+    at exportsNotFound (node:internal/modules/esm/resolve:313:10)
+    at packageExportsResolve (node:internal/modules/esm/resolve:661:9)
+    at resolveExports (node:internal/modules/cjs/loader:679:36)
+    at Module._findPath (node:internal/modules/cjs/loader:746:31)
+    at Module._resolveFilename (node:internal/modules/cjs/loader:1406:27)
+    at defaultResolveImpl (node:internal/modules/cjs/loader:1059:19)
+    at resolveForCJSWithHooks (node:internal/modules/cjs/loader:1064:22)
+    at Module._load (node:internal/modules/cjs/loader:1227:37)
+    at TracingChannel.traceSync (node:diagnostics_channel:328:14)
+    at wrapModuleLoad (node:internal/modules/cjs/loader:245:24)

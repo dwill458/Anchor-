@@ -61,5 +61,6 @@
     "jest.config.js",
     "**/*.spec.ts",
     "**/*.test.ts"
-  ]
+  ],
+  "extends": "expo/tsconfig.base"
 }

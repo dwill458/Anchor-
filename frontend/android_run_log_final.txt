@@ -1,0 +1,29 @@
+
+> anchor-app@0.1.0 android
+> react-native run-android
+
+warn Package react-native-sqlite-storage contains invalid configuration: "dependency.platforms.ios.project" is not allowed. Please verify it's properly linked using "npx react-native config" command and contact the package maintainers about this.
+info A dev server is already running for this project on port 8081.
+info Installing the app...
+
+info ≡ƒÆí Tip: Make sure that you have set up your development environment correctly, by running npx react-native doctor. To read more about doctor command visit: https://github.com/react-native-community/cli/blob/main/packages/cli-doctor/README.md#doctor 
+
+
+FAILURE: Build failed with an exception.
+
+* Where:
+Settings file 'C:\Users\dwill\.gemini\antigravity\scratch\Anchor\frontend\android\settings.gradle' line: 11
+
+* What went wrong:
+A problem occurred evaluating settings 'android'.
+> Process 'command 'C:\Program Files\nodejs\node.exe'' finished with non-zero exit value 1
+
+* Try:
+> Run with --stacktrace option to get the stack trace.
+> Run with --info or --debug option to get more log output.
+> Run with --scan to get full insights.
+> Get more help at https://help.gradle.org.
+
+BUILD FAILED in 1s
+error Failed to install the app. Command failed with exit code 1: gradlew.bat app:installDebug -PreactNativeDevServerPort=8081 FAILURE: Build failed with an exception. * Where: Settings file 'C:\Users\dwill\.gemini\antigravity\scratch\Anchor\frontend\android\settings.gradle' line: 11 * What went wrong: A problem occurred evaluating settings 'android'. > Process 'command 'C:\Program Files\nodejs\node.exe'' finished with non-zero exit value 1 * Try: > Run with --stacktrace option to get the stack trace. > Run with --info or --debug option to get more log output. > Run with --scan to get full insights. > Get more help at https://help.gradle.org. BUILD FAILED in 1s.
+info Run CLI with --verbose flag for more details.

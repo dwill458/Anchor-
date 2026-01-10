@@ -40,7 +40,7 @@ export const useAuthStore = create<AuthState>()(
       token: null,
       isAuthenticated: false,
       isLoading: false,
-      hasCompletedOnboarding: false,
+      hasCompletedOnboarding: true,
 
       // Actions
       setUser: (user) =>
