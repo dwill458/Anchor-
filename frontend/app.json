@@ -23,6 +23,11 @@
         "backgroundColor": "#1A1A1D"
       },
       "package": "com.anchor.app"
-    }
+    },
+    "plugins": [
+      "expo-av",
+      "expo-haptics"
+    ],
+    "newArchEnabled": false
   }
 }
