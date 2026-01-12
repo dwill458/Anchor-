@@ -20,6 +20,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import { colors, spacing, typography } from '@/theme';
 import { distillIntention, validateIntention } from '@/utils/sigil/distillation';
+import { IntentFormatFeedback } from '@/components/IntentFormatFeedback';
 
 /**
  * IntentionInputScreen Component
@@ -31,6 +32,7 @@ export const IntentionInputScreen: React.FC = () => {
     const [intentionText, setIntentionText] = useState('');
     const [showPreview, setShowPreview] = useState(false);
     const [validationError, setValidationError] = useState<string | null>(null);
+    const [showTips, setShowTips] = useState(false);
 
     // Live distillation preview
     const distillationResult = intentionText.length > 0
@@ -115,6 +117,42 @@ export const IntentionInputScreen: React.FC = () => {
                         <Text style={styles.charCount}>
                             {intentionText.length} / 100
                         </Text>
+
+                        {/* Intent Formatting Helper */}
+                        {intentionText.length > 0 && (
+                            <View style={styles.formattingSection}>
+                                {/* Collapsible tips */}
+                                <TouchableOpacity
+                                    onPress={() => setShowTips(!showTips)}
+                                    style={styles.tipsHeader}
+                                >
+                                    <Text style={styles.tipsTitle}>💡 Intent Formatting Tips</Text>
+                                    <Text style={styles.expandIcon}>{showTips ? '▼' : '▶'}</Text>
+                                </TouchableOpacity>
+
+                                {showTips && (
+                                    <View style={styles.tipsContent}>
+                                        <Text style={styles.tipsLabel}>✅ Use Present Tense:</Text>
+                                        <Text style={styles.tipsExample}>
+                                            "I am closing the deal" (not "I will close")
+                                        </Text>
+
+                                        <Text style={styles.tipsLabel}>✅ Be Declarative:</Text>
+                                        <Text style={styles.tipsExample}>
+                                            "I have perfect health" (not "I want health")
+                                        </Text>
+
+                                        <Text style={styles.tipsLabel}>✅ Remove Doubt:</Text>
+                                        <Text style={styles.tipsExample}>
+                                            "Success flows to me" (not "I hope to succeed")
+                                        </Text>
+                                    </View>
+                                )}
+
+                                {/* Real-time feedback */}
+                                <IntentFormatFeedback intentionText={intentionText} />
+                            </View>
+                        )}
 
                         {/* Validation Error */}
                         {validationError && (
@@ -346,7 +384,6 @@ const styles = StyleSheet.create({
     },
     footer: {
         padding: spacing.lg,
-        paddingBottom: 110, // Account for floating tab bar (height 70 + bottom 25 + padding)
         backgroundColor: colors.background.secondary,
         borderTopWidth: 1,
         borderTopColor: colors.navy,
@@ -367,5 +404,50 @@ const styles = StyleSheet.create({
         fontSize: typography.sizes.button,
         fontFamily: typography.fonts.bodyBold,
         color: colors.charcoal,
+    },
+    formattingSection: {
+        marginTop: spacing.md,
+    },
+    tipsHeader: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        paddingVertical: spacing.sm,
+        paddingHorizontal: spacing.md,
+        backgroundColor: colors.background.card,
+        borderRadius: 8,
+        borderWidth: 1,
+        borderColor: colors.gold,
+    },
+    tipsTitle: {
+        fontSize: typography.sizes.body2,
+        fontFamily: typography.fonts.body,
+        color: colors.gold,
+        fontWeight: '600',
+    },
+    expandIcon: {
+        fontSize: typography.sizes.body2,
+        color: colors.gold,
+    },
+    tipsContent: {
+        marginTop: spacing.sm,
+        padding: spacing.md,
+        backgroundColor: `${colors.gold}10`,
+        borderRadius: 8,
+    },
+    tipsLabel: {
+        fontSize: typography.sizes.body2,
+        fontFamily: typography.fonts.body,
+        color: colors.text.primary,
+        fontWeight: '600',
+        marginTop: spacing.sm,
+    },
+    tipsExample: {
+        fontSize: typography.sizes.body2,
+        fontFamily: typography.fonts.body,
+        color: colors.text.secondary,
+        marginTop: spacing.xs,
+        marginLeft: spacing.md,
+        fontStyle: 'italic',
     },
 });
