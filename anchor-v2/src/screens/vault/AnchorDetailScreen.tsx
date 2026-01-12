@@ -80,6 +80,14 @@ export const AnchorDetailScreen: React.FC = () => {
     });
   };
 
+  const handleBurnPress = (): void => {
+    navigation.navigate('ConfirmBurn', {
+      anchorId: anchor.id,
+      intention: anchor.intentionText,
+      sigilSvg: anchor.baseSigilSvg,
+    });
+  };
+
   return (
     <SafeAreaView style={styles.container}>
       <ScrollView style={styles.scrollView} contentContainerStyle={styles.scrollContent}>
@@ -170,6 +178,13 @@ export const AnchorDetailScreen: React.FC = () => {
                 onPress={handleChargePress}
               >
                 <Text style={styles.secondaryButtonText}>Charge Again</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={styles.burnButton}
+                onPress={handleBurnPress}
+              >
+                <Text style={styles.burnButtonText}>🔥 Burn & Release</Text>
               </TouchableOpacity>
             </>
           )}
@@ -307,6 +322,22 @@ const styles = StyleSheet.create({
     fontSize: typography.sizes.body1,
     fontFamily: typography.fonts.body,
     color: colors.gold,
+    fontWeight: '600',
+  },
+  burnButton: {
+    backgroundColor: 'transparent',
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.xl,
+    borderRadius: 8,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: colors.error,
+    marginTop: spacing.md,
+  },
+  burnButtonText: {
+    fontSize: typography.sizes.body1,
+    fontFamily: typography.fonts.body,
+    color: colors.error,
     fontWeight: '600',
   },
   createdText: {

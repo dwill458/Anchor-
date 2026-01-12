@@ -7,9 +7,12 @@ import {
   Dimensions,
   StatusBar,
   PanResponder,
+  Alert,
 } from 'react-native';
 import Svg, { Path, Line } from 'react-native-svg';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
+import { StackNavigationProp } from '@react-navigation/stack';
+import { RootStackParamList } from '@/types';
 
 const { width, height } = Dimensions.get('window');
 
@@ -35,8 +38,14 @@ interface PathData {
   strokeWidth: number;
 }
 
+type ManualForgeRouteProp = RouteProp<RootStackParamList, 'ManualForge'>;
+type ManualForgeNavigationProp = StackNavigationProp<RootStackParamList, 'ManualForge'>;
+
 const ManualForgeScreen = () => {
-  const navigation = useNavigation();
+  const navigation = useNavigation<ManualForgeNavigationProp>();
+  const route = useRoute<ManualForgeRouteProp>();
+
+  const { intentionText, distilledLetters, sigilSvg } = route.params;
   // Use ref for paths to avoid stale closure issues entirely
   const pathsRef = useRef<PathData[]>([]);
   const [, forceUpdate] = useState(0); // Counter to force re-renders
@@ -137,9 +146,49 @@ const ManualForgeScreen = () => {
     forceUpdate(n => n + 1);
   };
 
+  /**
+   * Convert drawn paths to SVG string
+   */
+  const pathsToSvgString = (): string => {
+    const svgPaths = pathsRef.current.map((pathData) => {
+      const pathString = pointsToPath(pathData.points);
+      return `<path d="${pathString}" stroke="${pathData.color}" stroke-width="${pathData.strokeWidth}" fill="none" stroke-linecap="round" stroke-linejoin="round" />`;
+    }).join('\n    ');
+
+    return `<svg viewBox="0 0 ${width} ${height - 300}" xmlns="http://www.w3.org/2000/svg">
+    ${svgPaths}
+  </svg>`;
+  };
+
   const handleSave = () => {
-    // This would export the sigil and continue to the next step
-    console.log('Saving manual sigil...');
+    // Check if user has drawn anything
+    if (pathsRef.current.length === 0) {
+      Alert.alert(
+        'No Drawing',
+        'Please draw your sigil before saving.',
+        [{ text: 'OK' }]
+      );
+      return;
+    }
+
+    try {
+      // Convert paths to SVG string
+      const manualSigilSvg = pathsToSvgString();
+
+      // Navigate to PostForgeChoice to let user decide: keep as-is or AI enhance
+      navigation.navigate('PostForgeChoice', {
+        intentionText,
+        distilledLetters,
+        sigilSvg: manualSigilSvg,
+      });
+    } catch (error) {
+      console.error('Error saving manual sigil:', error);
+      Alert.alert(
+        'Save Error',
+        'Failed to save your sigil. Please try again.',
+        [{ text: 'OK' }]
+      );
+    }
   };
 
   return (
