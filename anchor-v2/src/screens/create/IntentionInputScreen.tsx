@@ -98,6 +98,19 @@ export const IntentionInputScreen: React.FC = () => {
 
                     {/* Input Section */}
                     <View style={styles.inputSection}>
+                        {/* Intent Formatting Warning - Always visible */}
+                        <View style={styles.warningBanner}>
+                            <Text style={styles.warningBannerIcon}>⚠️</Text>
+                            <View style={styles.warningBannerContent}>
+                                <Text style={styles.warningBannerTitle}>Intent Formatting Tips</Text>
+                                <Text style={styles.warningBannerText}>
+                                    Use present tense: "I am" not "I will"{'\n'}
+                                    Be declarative: "I have" not "I want"{'\n'}
+                                    Remove doubt: Avoid "maybe/might/try"
+                                </Text>
+                            </View>
+                        </View>
+
                         <TextInput
                             style={[
                                 styles.input,
@@ -118,40 +131,9 @@ export const IntentionInputScreen: React.FC = () => {
                             {intentionText.length} / 100
                         </Text>
 
-                        {/* Intent Formatting Helper */}
+                        {/* Real-time feedback - shows warnings when weak language detected */}
                         {intentionText.length > 0 && (
-                            <View style={styles.formattingSection}>
-                                {/* Collapsible tips */}
-                                <TouchableOpacity
-                                    onPress={() => setShowTips(!showTips)}
-                                    style={styles.tipsHeader}
-                                >
-                                    <Text style={styles.tipsTitle}>💡 Intent Formatting Tips</Text>
-                                    <Text style={styles.expandIcon}>{showTips ? '▼' : '▶'}</Text>
-                                </TouchableOpacity>
-
-                                {showTips && (
-                                    <View style={styles.tipsContent}>
-                                        <Text style={styles.tipsLabel}>✅ Use Present Tense:</Text>
-                                        <Text style={styles.tipsExample}>
-                                            "I am closing the deal" (not "I will close")
-                                        </Text>
-
-                                        <Text style={styles.tipsLabel}>✅ Be Declarative:</Text>
-                                        <Text style={styles.tipsExample}>
-                                            "I have perfect health" (not "I want health")
-                                        </Text>
-
-                                        <Text style={styles.tipsLabel}>✅ Remove Doubt:</Text>
-                                        <Text style={styles.tipsExample}>
-                                            "Success flows to me" (not "I hope to succeed")
-                                        </Text>
-                                    </View>
-                                )}
-
-                                {/* Real-time feedback */}
-                                <IntentFormatFeedback intentionText={intentionText} />
-                            </View>
+                            <IntentFormatFeedback intentionText={intentionText} />
                         )}
 
                         {/* Validation Error */}
@@ -221,23 +203,23 @@ export const IntentionInputScreen: React.FC = () => {
                             <Text style={styles.exampleText}>💰 Attract abundance</Text>
                         </TouchableOpacity>
                     </View>
-                </ScrollView>
 
-                {/* Continue Button */}
-                <View style={styles.footer}>
-                    <TouchableOpacity
-                        style={[
-                            styles.continueButton,
-                            (!showPreview || validationError) ? styles.continueButtonDisabled : undefined,
-                        ]}
-                        onPress={handleContinue}
-                        disabled={!showPreview || !!validationError}
-                    >
-                        <Text style={styles.continueButtonText}>
-                            Continue
-                        </Text>
-                    </TouchableOpacity>
-                </View>
+                    {/* Continue Button - at bottom of scroll content */}
+                    <View style={styles.continueButtonContainer}>
+                        <TouchableOpacity
+                            style={[
+                                styles.continueButton,
+                                (!showPreview || validationError) ? styles.continueButtonDisabled : undefined,
+                            ]}
+                            onPress={handleContinue}
+                            disabled={!showPreview || !!validationError}
+                        >
+                            <Text style={styles.continueButtonText}>
+                                Continue
+                            </Text>
+                        </TouchableOpacity>
+                    </View>
+                </ScrollView>
             </KeyboardAvoidingView>
         </SafeAreaView>
     );
@@ -382,11 +364,9 @@ const styles = StyleSheet.create({
         fontFamily: typography.fonts.body,
         color: colors.text.secondary,
     },
-    footer: {
-        padding: spacing.lg,
-        backgroundColor: colors.background.secondary,
-        borderTopWidth: 1,
-        borderTopColor: colors.navy,
+    continueButtonContainer: {
+        marginTop: spacing.xl,
+        paddingBottom: 100, // Clear the floating tab bar
     },
     continueButton: {
         backgroundColor: colors.gold,
@@ -449,5 +429,33 @@ const styles = StyleSheet.create({
         marginTop: spacing.xs,
         marginLeft: spacing.md,
         fontStyle: 'italic',
+    },
+    warningBanner: {
+        flexDirection: 'row',
+        backgroundColor: 'rgba(244, 67, 54, 0.1)',
+        borderWidth: 1,
+        borderColor: '#F44336',
+        borderRadius: 8,
+        padding: spacing.md,
+        marginBottom: spacing.md,
+    },
+    warningBannerIcon: {
+        fontSize: 24,
+        marginRight: spacing.sm,
+    },
+    warningBannerContent: {
+        flex: 1,
+    },
+    warningBannerTitle: {
+        fontSize: typography.sizes.body1,
+        fontFamily: typography.fonts.bodyBold,
+        color: '#F44336',
+        marginBottom: spacing.xs,
+    },
+    warningBannerText: {
+        fontSize: typography.sizes.caption,
+        fontFamily: typography.fonts.body,
+        color: colors.text.secondary,
+        lineHeight: 18,
     },
 });
