@@ -23,11 +23,13 @@ type DeepChargeRouteProp = RouteProp<RootStackParamList, 'ChargingRitual'>;
 
 /**
  * Phase configuration with clean language
+ * Phase 2.6: Added emotional cues for each phase
  */
 interface Phase {
   number: number;
   title: string;
   instruction: string;
+  emotionalCue: string; // Phase 2.6: Emotional guidance
   durationSeconds: number;
 }
 
@@ -36,30 +38,35 @@ const PHASES: Phase[] = [
     number: 1,
     title: 'Breathe and Center',
     instruction: 'Take slow, deep breaths. Clear your mind and prepare to focus.',
+    emotionalCue: 'Feel yourself becoming calm and ready. Release all distractions.',
     durationSeconds: 30,
   },
   {
     number: 2,
     title: 'Repeat Your Intention',
     instruction: 'Silently or aloud, repeat your intention with conviction.',
+    emotionalCue: 'Say it like you MEAN it. Feel the truth of these words.',
     durationSeconds: 60,
   },
   {
     number: 3,
     title: 'Visualize Success',
     instruction: 'See yourself achieving this goal. Make it vivid and real.',
+    emotionalCue: 'Feel the joy of success NOW. Let it overwhelm you.',
     durationSeconds: 90,
   },
   {
     number: 4,
     title: 'Connect to Symbol',
     instruction: 'Touch the screen. Feel your intention flowing into the symbol.',
+    emotionalCue: 'Your energy is pouring into this anchor. Feel the connection.',
     durationSeconds: 30,
   },
   {
     number: 5,
     title: 'Hold Focus',
     instruction: 'Maintain your focus on the symbol. Feel the connection.',
+    emotionalCue: 'This moment is everything. Pure. Total. Complete focus.',
     durationSeconds: 90,
   },
 ];
@@ -219,6 +226,13 @@ export const DeepChargeScreen: React.FC = () => {
         <View style={styles.instructionsContainer}>
           <Text style={styles.intentionText}>"{anchor.intentionText}"</Text>
           <Text style={styles.instructionsText}>{currentPhase.instruction}</Text>
+
+          {/* Phase 2.6: Emotional Cue */}
+          {currentPhase.emotionalCue && (
+            <View style={styles.emotionalCueContainer}>
+              <Text style={styles.emotionalCueText}>{currentPhase.emotionalCue}</Text>
+            </View>
+          )}
         </View>
       )}
     </SafeAreaView>
@@ -309,5 +323,22 @@ const styles = StyleSheet.create({
     color: colors.error,
     textAlign: 'center',
     marginTop: spacing.xxl,
+  },
+  // Phase 2.6: Emotional cue styles
+  emotionalCueContainer: {
+    marginTop: spacing.md,
+    padding: spacing.md,
+    backgroundColor: `${colors.warning}15`, // 15% opacity
+    borderLeftWidth: 3,
+    borderLeftColor: colors.warning,
+    borderRadius: spacing.sm,
+  },
+  emotionalCueText: {
+    fontFamily: typography.fonts.body,
+    fontSize: typography.sizes.body2,
+    color: colors.warning,
+    lineHeight: 20,
+    fontStyle: 'italic',
+    textAlign: 'center',
   },
 });

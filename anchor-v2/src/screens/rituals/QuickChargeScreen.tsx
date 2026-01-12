@@ -6,7 +6,7 @@
  */
 
 import React, { useState, useEffect, useRef } from 'react';
-import { View, Text, StyleSheet, Dimensions } from 'react-native';
+import { View, Text, StyleSheet, Dimensions, Animated } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import * as Haptics from 'expo-haptics';
@@ -21,6 +21,15 @@ const SIGIL_SIZE = width * 0.7;
 const DURATION_SECONDS = 30;
 const HAPTIC_INTERVAL = 5; // Haptic pulse every 5 seconds
 
+// Phase 2.6: Intensity prompts for emotional crescendo
+const INTENSITY_PROMPTS = [
+  { time: 25, text: 'Feel it with every fiber', haptic: Haptics.ImpactFeedbackStyle.Medium },
+  { time: 20, text: 'This is REAL', haptic: Haptics.ImpactFeedbackStyle.Medium },
+  { time: 15, text: 'Channel pure desire', haptic: Haptics.ImpactFeedbackStyle.Heavy },
+  { time: 10, text: 'Make it undeniable', haptic: Haptics.ImpactFeedbackStyle.Heavy },
+  { time: 5, text: 'BELIEVE IT NOW', haptic: Haptics.ImpactFeedbackStyle.Heavy },
+];
+
 type QuickChargeRouteProp = RouteProp<RootStackParamList, 'ChargingRitual'>;
 
 export const QuickChargeScreen: React.FC = () => {
@@ -33,7 +42,12 @@ export const QuickChargeScreen: React.FC = () => {
 
   const [secondsRemaining, setSecondsRemaining] = useState(DURATION_SECONDS);
   const [isComplete, setIsComplete] = useState(false);
+  const [currentPrompt, setCurrentPrompt] = useState<string | null>(null);
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Phase 2.6: Animation values for intensity prompt
+  const promptOpacity = useRef(new Animated.Value(0)).current;
+  const promptScale = useRef(new Animated.Value(0.8)).current;
 
   /**
    * Start countdown timer
@@ -46,9 +60,45 @@ export const QuickChargeScreen: React.FC = () => {
       setSecondsRemaining((prev) => {
         const newValue = prev - 1;
 
-        // Haptic pulse every 5 seconds
-        if (newValue > 0 && newValue % HAPTIC_INTERVAL === 0) {
-          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+        // Phase 2.6: Check for intensity prompt at this second
+        const prompt = INTENSITY_PROMPTS.find(p => p.time === newValue);
+
+        if (prompt) {
+          // Trigger prompt
+          setCurrentPrompt(prompt.text);
+          Haptics.impactAsync(prompt.haptic);
+
+          // Animate in
+          Animated.parallel([
+            Animated.timing(promptOpacity, {
+              toValue: 1,
+              duration: 300,
+              useNativeDriver: true,
+            }),
+            Animated.spring(promptScale, {
+              toValue: 1,
+              tension: 50,
+              friction: 7,
+              useNativeDriver: true,
+            }),
+          ]).start();
+
+          // Fade out after 2 seconds
+          setTimeout(() => {
+            Animated.timing(promptOpacity, {
+              toValue: 0,
+              duration: 400,
+              useNativeDriver: true,
+            }).start(() => {
+              setCurrentPrompt(null);
+              promptScale.setValue(0.8);
+            });
+          }, 2000);
+        } else {
+          // Regular haptic pulse every 5 seconds (only if no prompt)
+          if (newValue > 0 && newValue % HAPTIC_INTERVAL === 0) {
+            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+          }
         }
 
         // Complete at 0
@@ -141,6 +191,21 @@ export const QuickChargeScreen: React.FC = () => {
         )}
       </View>
 
+      {/* Phase 2.6: Intensity Prompt */}
+      {currentPrompt && !isComplete && (
+        <Animated.View
+          style={[
+            styles.intensityPrompt,
+            {
+              opacity: promptOpacity,
+              transform: [{ scale: promptScale }],
+            },
+          ]}
+        >
+          <Text style={styles.intensityText}>{currentPrompt}</Text>
+        </Animated.View>
+      )}
+
       {/* Instructions */}
       {!isComplete && (
         <View style={styles.instructionsContainer}>
@@ -219,5 +284,31 @@ const styles = StyleSheet.create({
     color: colors.error,
     textAlign: 'center',
     marginTop: spacing.xxl,
+  },
+  // Phase 2.6: Intensity prompt styles
+  intensityPrompt: {
+    marginTop: spacing.xl,
+    marginBottom: spacing.md,
+    marginHorizontal: spacing.lg,
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.md,
+    backgroundColor: `${colors.gold}20`, // 20% opacity
+    borderWidth: 2,
+    borderColor: colors.gold,
+    borderRadius: spacing.md,
+    // Glow effect
+    shadowColor: colors.gold,
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.5,
+    shadowRadius: 10,
+    elevation: 10,
+  },
+  intensityText: {
+    fontFamily: typography.fonts.heading,
+    fontSize: typography.sizes.h3,
+    color: colors.gold,
+    textAlign: 'center',
+    fontWeight: '700',
+    letterSpacing: 1,
   },
 });
