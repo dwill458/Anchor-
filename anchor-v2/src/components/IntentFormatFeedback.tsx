@@ -66,16 +66,10 @@ export const IntentFormatFeedback: React.FC<IntentFormatFeedbackProps> = ({
 }) => {
   // Don't show feedback until user has typed something meaningful
   if (!intentionText || intentionText.length < 3) {
-    console.log('[IntentFormatFeedback] Text too short:', intentionText.length);
     return null;
   }
 
   const analysis = analyzeIntent(intentionText);
-  console.log('[IntentFormatFeedback] Analysis:', {
-    text: intentionText,
-    isOptimal: analysis.isOptimal,
-    suggestions: analysis.suggestions.length
-  });
 
   if (analysis.isOptimal) {
     return (
@@ -93,11 +87,11 @@ export const IntentFormatFeedback: React.FC<IntentFormatFeedbackProps> = ({
   }
 
   return (
-    <View style={[styles.feedbackContainer, styles.suggestionFeedback]}>
-      <Text style={styles.suggestionIcon}>💡</Text>
+    <View style={[styles.feedbackContainer, styles.warningFeedback]}>
+      <Text style={styles.warningIcon}>❗</Text>
       <View style={styles.suggestionTextContainer}>
         {analysis.suggestions.map((suggestion, index) => (
-          <Text key={index} style={styles.suggestionText}>
+          <Text key={index} style={styles.warningText}>
             • {suggestion}
           </Text>
         ))}
@@ -119,9 +113,9 @@ const styles = StyleSheet.create({
     backgroundColor: `${colors.success}15`, // 15% opacity
     borderColor: colors.success,
   },
-  suggestionFeedback: {
-    backgroundColor: `${colors.warning}15`,
-    borderColor: colors.warning,
+  warningFeedback: {
+    backgroundColor: 'rgba(244, 67, 54, 0.15)', // Red 15% opacity
+    borderColor: '#F44336',
   },
   successIcon: {
     fontSize: 20,
@@ -134,17 +128,17 @@ const styles = StyleSheet.create({
     color: colors.success,
     fontWeight: '600',
   },
-  suggestionIcon: {
+  warningIcon: {
     fontSize: 20,
     marginRight: spacing.sm,
   },
   suggestionTextContainer: {
     flex: 1,
   },
-  suggestionText: {
+  warningText: {
     fontFamily: typography.fonts.body,
     fontSize: typography.sizes.body2,
-    color: colors.warning,
+    color: '#F44336',
     marginBottom: spacing.xs,
     lineHeight: 20,
   },

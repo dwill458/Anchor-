@@ -49,22 +49,22 @@ interface MantraStyleInfo {
 
 const MANTRA_STYLES: MantraStyleInfo[] = [
   {
+    id: 'rhythmic',
+    title: 'Rhythmic "V-C-V"',
+    description: 'Focuses on flow. Follows a Vowel-Consonant-Vowel pattern ensuring words loop without "tripping" your tongue.',
+    icon: '🌊',
+  },
+  {
     id: 'syllabic',
-    title: 'Syllabic',
-    description: 'Short, rhythmic power chants.',
-    icon: '⚡',
+    title: 'Ancient Guttural',
+    description: 'Heavy and grounded. Uses deep vowels like U, O, and A to create a vibrating sound in the chest.',
+    icon: '🌋',
   },
   {
     id: 'phonetic',
-    title: 'Phonetic',
-    description: 'Flowing and easy to speak.',
-    icon: '🗣️',
-  },
-  {
-    id: 'rhythmic',
-    title: 'Rhythmic',
-    description: 'Meditative cycles of sound.',
-    icon: '🌊',
+    title: 'Light & Airy',
+    description: 'Speed and clarity. Uses high vowels like I and E to resonate in the throat and head.',
+    icon: '🌬️',
   },
 ];
 
@@ -97,13 +97,34 @@ export const MantraCreationScreen: React.FC = () => {
       // Mock API call for MVP - later replace with real backend
       await new Promise(resolve => setTimeout(resolve, 1500));
 
-      // Simple mock generation algorithm for demo purposes
-      const seed = distilledLetters.join('');
+      const letters = distilledLetters.slice(0, 4); // Use first 4 letters for consistency
+
+      // 1. Rhythmic V-C-V: AS-AG-EL pattern
+      const rhythmic = letters.map((l, i) => {
+        const vowels = ['A', 'E', 'I', 'O', 'U'];
+        const v1 = vowels[i % vowels.length];
+        return `${v1}${l}${vowels[(i + 1) % vowels.length]}`;
+      }).join('-').toUpperCase();
+
+      // 2. Ancient Guttural: SOG-UL-AR pattern (U, O, A)
+      const gutturalVowels = ['U', 'O', 'A'];
+      const syllabic = letters.map((l, i) => {
+        const v = gutturalVowels[i % gutturalVowels.length];
+        return `${l}${v}${letters[(i + 1) % letters.length] || 'R'}`;
+      }).join('-').toUpperCase();
+
+      // 3. Light & Airy: SIE-GIL-IE pattern (I, E)
+      const lightVowels = ['I', 'E'];
+      const phonetic = letters.map((l, i) => {
+        const v = lightVowels[i % lightVowels.length];
+        return `${l}${v}${lightVowels[(i + 1) % lightVowels.length]}`;
+      }).join('-').toUpperCase();
+
       setMantra({
-        syllabic: seed.match(/.{1,2}/g)?.join(' - ') || seed,
-        rhythmic: seed.match(/.{1,3}/g)?.join(' ... ') || seed,
-        phonetic: seed.split('').join('-').toLowerCase(),
-        letterByLetter: seed.split('').join(' '),
+        syllabic,
+        rhythmic,
+        phonetic,
+        letterByLetter: distilledLetters.join(' '),
       });
     } catch (error) {
       Alert.alert('Error', 'Failed to generate mantra');
@@ -190,57 +211,85 @@ export const MantraCreationScreen: React.FC = () => {
 
   const renderMantraSelection = () => (
     <View style={styles.selectionContainer}>
-      <View style={styles.educationCard}>
-        <View style={styles.educationHeader}>
-          <Info size={18} color={colors.gold} />
-          <Text style={styles.educationTitle}>Why use a Mantra?</Text>
-        </View>
-        <Text style={styles.educationText}>
-          Chanting your mantra during the activation ritual creates a vibrational resonance that
-          helps embed your intention into your subconscious mind.
-        </Text>
+      <View style={styles.heroSection}>
+        <LinearGradient
+          colors={['rgba(62, 44, 91, 0.8)', 'rgba(15, 20, 25, 1)']}
+          style={styles.heroGradient}
+        >
+          <View style={styles.heroHeader}>
+            <Info size={20} color={colors.gold} />
+            <Text style={styles.heroTitle}>Mantra Mastery</Text>
+          </View>
+          <Text style={styles.heroText}>
+            Vibrational anchors bridge the conscious and subconscious. Select a resonance pattern that aligns with your intent.
+          </Text>
+
+          <View style={styles.tabContainer}>
+            <View style={[styles.tab, styles.tabActive]}>
+              <Text style={styles.tabTextActive}>Sonic</Text>
+            </View>
+            <View style={styles.tab}>
+              <Text style={styles.tabText}>Visual</Text>
+            </View>
+            <View style={styles.tab}>
+              <Text style={styles.tabText}>Somatic</Text>
+            </View>
+          </View>
+        </LinearGradient>
       </View>
 
-      <View style={styles.distilledContainer}>
-        <Text style={styles.distilledLabel}>Source: </Text>
-        <Text style={styles.distilledValue}>{distilledLetters.join(' ')}</Text>
+      <View style={styles.sourceContainer}>
+        <Text style={styles.sourceLabel}>CORE RESONANCE: </Text>
+        <Text style={styles.sourceValue}>{distilledLetters.join(' ')}</Text>
       </View>
 
-      <Text style={styles.sectionTitle}>Choose Style</Text>
+      <View style={styles.stylesList}>
+        {MANTRA_STYLES.map((style) => {
+          const isActive = selectedStyle === style.id;
+          const mantraText = mantra?.[style.id] || '...';
+          const isSpeaking = speakingStyle === style.id;
 
-      {MANTRA_STYLES.map((style) => {
-        const isActive = selectedStyle === style.id;
-        const mantraText = mantra?.[style.id] || '...';
-        const isSpeaking = speakingStyle === style.id;
-
-        return (
-          <TouchableOpacity
-            key={style.id}
-            style={[styles.styleCard, isActive && styles.styleCardActive]}
-            onPress={() => setSelectedStyle(style.id)}
-            activeOpacity={0.9}
-          >
-            <View style={styles.cardHeader}>
-              <Text style={styles.styleIcon}>{style.icon}</Text>
-              <View style={styles.headerText}>
-                <Text style={[styles.styleTitle, isActive && styles.textActive]}>{style.title}</Text>
-                <Text style={styles.styleDesc}>{style.description}</Text>
+          return (
+            <TouchableOpacity
+              key={style.id}
+              style={[styles.premiumCard, isActive && styles.premiumCardActive]}
+              onPress={() => setSelectedStyle(style.id)}
+              activeOpacity={0.9}
+            >
+              <View style={styles.premiumCardContent}>
+                <View style={styles.premiumIconContainer}>
+                  <Text style={styles.premiumIcon}>{style.icon}</Text>
+                </View>
+                <View style={styles.premiumTextContainer}>
+                  <Text style={[styles.premiumTitle, isActive && styles.textActive]}>{style.title}</Text>
+                  <Text style={styles.premiumDesc} numberOfLines={2}>{style.description}</Text>
+                </View>
+                {isActive && (
+                  <View style={styles.premiumCheck}>
+                    <Play size={12} fill={colors.gold} color={colors.gold} />
+                  </View>
+                )}
               </View>
-              {isActive && <View style={styles.checkCircle}><View style={styles.checkDot} /></View>}
-            </View>
 
-            <View style={styles.mantraDisplay}>
-              <Text style={[styles.mantraText, isActive && styles.textActive]}>{mantraText}</Text>
-              <TouchableOpacity
-                style={styles.speakerButton}
-                onPress={() => handleSpeak(mantraText, style.id)}
-              >
-                {isSpeaking ? <RefreshCw size={20} color={colors.gold} /> : <Volume2 size={20} color={isActive ? colors.gold : colors.text.secondary} />}
-              </TouchableOpacity>
-            </View>
-          </TouchableOpacity>
-        );
-      })}
+              <View style={styles.premiumMantraBox}>
+                <Text style={[styles.premiumMantraText, isActive && styles.textActive]}>{mantraText}</Text>
+                <TouchableOpacity
+                  style={styles.premiumSpeaker}
+                  onPress={() => handleSpeak(mantraText, style.id)}
+                >
+                  {isSpeaking ? (
+                    <ActivityIndicator size="small" color={colors.gold} />
+                  ) : (
+                    <Volume2 size={20} color={isActive ? colors.gold : colors.text.tertiary} />
+                  )}
+                </TouchableOpacity>
+              </View>
+
+              {isActive && <View style={styles.activeIndicator} />}
+            </TouchableOpacity>
+          );
+        })}
+      </View>
     </View>
   );
 
@@ -379,157 +428,194 @@ const styles = StyleSheet.create({
     textDecorationLine: 'underline',
   },
   // Selection State
+  // New Premium Design Styles
   selectionContainer: {
-    gap: spacing.md,
+    gap: spacing.lg,
   },
-  distilledContainer: {
+  heroSection: {
+    borderRadius: 24,
+    overflow: 'hidden',
+    marginBottom: spacing.md,
+    borderWidth: 1,
+    borderColor: 'rgba(212, 175, 55, 0.2)',
+  },
+  heroGradient: {
+    padding: spacing.xl,
+  },
+  heroHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: spacing.sm,
+  },
+  heroTitle: {
+    fontSize: 20,
+    fontFamily: typography.fonts.heading,
+    color: colors.gold,
+    marginLeft: spacing.xs,
+  },
+  heroText: {
+    fontSize: 14,
+    color: colors.text.secondary,
+    lineHeight: 22,
+    fontFamily: typography.fonts.body,
+    marginBottom: spacing.lg,
+  },
+  tabContainer: {
+    flexDirection: 'row',
+    gap: spacing.sm,
+  },
+  tab: {
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.xs,
+    borderRadius: 20,
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+  },
+  tabActive: {
+    backgroundColor: colors.gold,
+  },
+  tabText: {
+    fontSize: 12,
+    color: colors.text.tertiary,
+    fontFamily: typography.fonts.bodyBold,
+  },
+  tabTextActive: {
+    fontSize: 12,
+    color: colors.charcoal,
+    fontFamily: typography.fonts.bodyBold,
+  },
+  sourceContainer: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: spacing.md,
-    opacity: 0.7,
+    paddingVertical: spacing.sm,
+    backgroundColor: 'rgba(0,0,0,0.3)',
+    borderRadius: 12,
   },
-  distilledLabel: {
+  sourceLabel: {
+    fontSize: 10,
     color: colors.text.tertiary,
-    fontFamily: typography.fonts.body,
+    fontFamily: typography.fonts.bodyBold,
+    letterSpacing: 1,
   },
-  distilledValue: {
+  sourceValue: {
+    fontSize: 14,
     color: colors.gold,
     fontFamily: typography.fonts.mono,
-    letterSpacing: 2,
+    letterSpacing: 4,
   },
-  sectionTitle: {
-    fontSize: typography.sizes.h4,
-    fontFamily: typography.fonts.heading,
-    color: colors.text.primary,
-    marginBottom: spacing.sm,
-    marginLeft: spacing.xs,
+  stylesList: {
+    gap: spacing.md,
   },
-  styleCard: {
+  premiumCard: {
     backgroundColor: colors.background.card,
-    borderRadius: 16,
-    padding: spacing.md,
-    borderWidth: 2,
-    borderColor: 'transparent',
-    marginBottom: spacing.sm,
+    borderRadius: 20,
+    padding: spacing.lg,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.05)',
   },
-  styleCardActive: {
+  premiumCardActive: {
     borderColor: colors.gold,
-    backgroundColor: 'rgba(62, 44, 91, 0.3)', // deepPurple with opacity
+    backgroundColor: 'rgba(212, 175, 55, 0.05)',
   },
-  cardHeader: {
+  premiumCardContent: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: spacing.md,
+    marginBottom: spacing.lg,
   },
-  styleIcon: {
-    fontSize: 24,
+  premiumIconContainer: {
+    width: 48,
+    height: 48,
+    borderRadius: 14,
+    backgroundColor: 'rgba(255,255,255,0.05)',
+    justifyContent: 'center',
+    alignItems: 'center',
     marginRight: spacing.md,
   },
-  headerText: {
+  premiumIcon: {
+    fontSize: 24,
+  },
+  premiumTextContainer: {
     flex: 1,
   },
-  styleTitle: {
-    fontSize: 16,
+  premiumTitle: {
+    fontSize: 17,
     fontFamily: typography.fonts.heading,
     color: colors.text.primary,
-    marginBottom: 2,
+    marginBottom: 4,
   },
-  styleDesc: {
+  premiumDesc: {
     fontSize: 12,
     color: colors.text.tertiary,
     fontFamily: typography.fonts.body,
+    lineHeight: 18,
+  },
+  premiumCheck: {
+    width: 24,
+    height: 24,
+    borderRadius: 6,
+    backgroundColor: 'rgba(212, 175, 55, 0.1)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  premiumMantraBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(0,0,0,0.4)',
+    borderRadius: 16,
+    padding: spacing.md,
+    height: 64,
+  },
+  premiumMantraText: {
+    flex: 1,
+    fontSize: 20,
+    fontFamily: typography.fonts.heading,
+    color: colors.text.secondary,
+    textAlign: 'center',
+    letterSpacing: 2,
+  },
+  premiumSpeaker: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: 'rgba(255,255,255,0.05)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  activeIndicator: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    bottom: 0,
+    width: 4,
+    backgroundColor: colors.gold,
+    borderTopLeftRadius: 20,
+    borderBottomLeftRadius: 20,
   },
   textActive: {
     color: colors.gold,
   },
-  checkCircle: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
-    borderWidth: 2,
-    borderColor: colors.gold,
-    padding: 4,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  checkDot: {
-    width: 10,
-    height: 10,
-    borderRadius: 5,
-    backgroundColor: colors.gold,
-  },
-  mantraDisplay: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: 'rgba(0,0,0,0.2)',
-    borderRadius: 12,
-    padding: spacing.md,
-  },
-  mantraText: {
-    flex: 1,
-    fontSize: 18,
-    fontFamily: typography.fonts.heading,
-    color: colors.text.secondary,
-    textAlign: 'center',
-    letterSpacing: 1,
-  },
-  speakerButton: {
-    padding: spacing.sm,
-    backgroundColor: 'rgba(255,255,255,0.05)',
-    borderRadius: 8,
-    marginLeft: spacing.sm,
-  },
-  educationCard: {
-    backgroundColor: 'rgba(212, 175, 55, 0.1)', // Gold with low opacity
-    padding: spacing.md,
-    borderRadius: 12,
-    marginTop: spacing.md,
-    borderLeftWidth: 3,
-    borderLeftColor: colors.gold,
-  },
-  educationHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: spacing.xs,
-  },
-  educationTitle: {
-    fontSize: 14,
-    fontFamily: typography.fonts.bodyBold,
-    color: colors.gold,
-    marginLeft: spacing.xs,
-  },
-  educationText: {
-    fontSize: 13,
-    color: colors.text.secondary,
-    lineHeight: 20,
-    fontFamily: typography.fonts.body,
-  },
   footer: {
     marginTop: spacing.xl,
-    paddingVertical: spacing.md,
-    backgroundColor: 'transparent',
+    paddingBottom: spacing.xl,
   },
   continueButton: {
     backgroundColor: colors.gold,
-    height: 56,
-    borderRadius: 28,
+    height: 60,
+    borderRadius: 30,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     shadowColor: colors.gold,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 4,
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.4,
+    shadowRadius: 15,
+    elevation: 8,
   },
   continueText: {
     fontSize: 16,
     fontFamily: typography.fonts.bodyBold,
     color: colors.charcoal,
     marginRight: spacing.xs,
-    textTransform: 'uppercase',
-    letterSpacing: 1,
+    letterSpacing: 1.5,
   },
 });
-
