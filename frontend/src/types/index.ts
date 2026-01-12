@@ -245,6 +245,14 @@ export type RootStackParamList = {
   // Charging and Activation
   ChargeChoice: { anchorId: string };
   ChargingRitual: { anchorId: string; chargeType: ChargeType };
+
+  // Phase 2.6: Emotional Intensity
+  EmotionalPriming: {
+    anchorId: string;
+    intention: string;
+    chargeType: 'quick' | 'deep';
+  };
+
   QuickCharge: { anchorId: string; chargeType: ChargeType };
   DeepCharge: { anchorId: string; chargeType: ChargeType };
   ActivationRitual: { anchorId: string; activationType: ActivationType };
