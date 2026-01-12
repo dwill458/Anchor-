@@ -9,3 +9,5 @@ export { EmotionalPrimingScreen } from './EmotionalPrimingScreen';
 export { QuickChargeScreen } from './QuickChargeScreen';
 export { DeepChargeScreen } from './DeepChargeScreen';
 export { ActivationScreen } from './ActivationScreen';
+export { ConfirmBurnScreen } from './ConfirmBurnScreen';
+export { BurningRitualScreen } from './BurningRitualScreen';

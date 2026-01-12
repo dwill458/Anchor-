@@ -23,6 +23,8 @@ import {
   QuickChargeScreen,
   DeepChargeScreen,
   ActivationScreen,
+  ConfirmBurnScreen,
+  BurningRitualScreen,
 } from '../screens/rituals';
 import type { RootStackParamList } from '@/types';
 import { colors } from '@/theme';
@@ -127,6 +129,17 @@ export const VaultStackNavigator: React.FC = () => {
         name="ActivationRitual"
         component={ActivationScreen}
         options={{ title: 'Activate', headerShown: false }}
+      />
+      {/* Phase 3: Burning Ritual */}
+      <Stack.Screen
+        name="ConfirmBurn"
+        component={ConfirmBurnScreen}
+        options={{ title: '🔥 Burn & Release' }}
+      />
+      <Stack.Screen
+        name="BurningRitual"
+        component={BurningRitualScreen}
+        options={{ title: 'Releasing...', headerShown: false }}
       />
     </Stack.Navigator>
   );

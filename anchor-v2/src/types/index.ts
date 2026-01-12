@@ -261,6 +261,19 @@ export type RootStackParamList = {
   QuickCharge: { anchorId: string; chargeType: ChargeType };
   DeepCharge: { anchorId: string; chargeType: ChargeType };
   ActivationRitual: { anchorId: string; activationType: ActivationType };
+
+  // Phase 3: Burning Ritual
+  ConfirmBurn: {
+    anchorId: string;
+    intention: string;
+    sigilSvg: string;
+  };
+
+  BurningRitual: {
+    anchorId: string;
+    intention: string;
+    sigilSvg: string;
+  };
 };
 
 export type MainTabParamList = {
