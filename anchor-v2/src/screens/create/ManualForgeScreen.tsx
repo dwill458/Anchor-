@@ -9,6 +9,7 @@ import {
   PanResponder,
 } from 'react-native';
 import Svg, { Path, Line } from 'react-native-svg';
+import { useNavigation } from '@react-navigation/native';
 
 const { width, height } = Dimensions.get('window');
 
@@ -35,6 +36,7 @@ interface PathData {
 }
 
 const ManualForgeScreen = () => {
+  const navigation = useNavigation();
   // Use ref for paths to avoid stale closure issues entirely
   const pathsRef = useRef<PathData[]>([]);
   const [, forceUpdate] = useState(0); // Counter to force re-renders
@@ -146,7 +148,7 @@ const ManualForgeScreen = () => {
 
       {/* Header */}
       <View style={styles.header}>
-        <TouchableOpacity style={styles.backButton}>
+        <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()}>
           <Text style={styles.backText}>←</Text>
         </TouchableOpacity>
         <Text style={styles.title}>Manual Forge</Text>
