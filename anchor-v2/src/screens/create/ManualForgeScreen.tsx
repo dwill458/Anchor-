@@ -35,11 +35,16 @@ interface PathData {
 }
 
 const ManualForgeScreen = () => {
-  const [paths, setPaths] = useState<PathData[]>([]);
+  // Use ref for paths to avoid stale closure issues entirely
+  const pathsRef = useRef<PathData[]>([]);
+  const [, forceUpdate] = useState(0); // Counter to force re-renders
   const [currentPoints, setCurrentPoints] = useState<Point[]>([]);
   const [selectedColor, setSelectedColor] = useState(COLORS.gold);
   const [strokeWidth, setStrokeWidth] = useState(3);
   const [isErasing, setIsErasing] = useState(false);
+
+  // Getter for paths (for rendering)
+  const paths = pathsRef.current;
 
   const colors = [
     COLORS.gold,
@@ -54,29 +59,57 @@ const ManualForgeScreen = () => {
 
   const strokeWidths = [2, 4, 6, 8];
 
+  // Current stroke ref
+  const strokeRef = useRef<Point[]>([]);
+
+  // Style refs to avoid stale closures
+  const styleRef = useRef({ color: selectedColor, width: strokeWidth, isErasing });
+  styleRef.current = { color: selectedColor, width: strokeWidth, isErasing };
+
   const panResponder = useRef(
     PanResponder.create({
       onStartShouldSetPanResponder: () => true,
       onMoveShouldSetPanResponder: () => true,
       onPanResponderGrant: (evt) => {
         const { locationX, locationY } = evt.nativeEvent;
+        strokeRef.current = [{ x: locationX, y: locationY }];
         setCurrentPoints([{ x: locationX, y: locationY }]);
       },
       onPanResponderMove: (evt) => {
         const { locationX, locationY } = evt.nativeEvent;
-        setCurrentPoints((prev) => [...prev, { x: locationX, y: locationY }]);
+        strokeRef.current.push({ x: locationX, y: locationY });
+        setCurrentPoints([...strokeRef.current]);
       },
       onPanResponderRelease: () => {
-        if (currentPoints.length > 0) {
-          setPaths([
-            ...paths,
+        if (strokeRef.current.length > 0) {
+          const { color, width, isErasing } = styleRef.current;
+          pathsRef.current = [
+            ...pathsRef.current,
             {
-              points: currentPoints,
-              color: isErasing ? COLORS.navy : selectedColor,
-              strokeWidth: isErasing ? strokeWidth * 3 : strokeWidth,
+              points: [...strokeRef.current],
+              color: isErasing ? COLORS.navy : color,
+              strokeWidth: isErasing ? width * 3 : width,
             },
-          ]);
+          ];
+          strokeRef.current = [];
           setCurrentPoints([]);
+          forceUpdate(n => n + 1); // Trigger re-render to show new path
+        }
+      },
+      onPanResponderTerminate: () => {
+        if (strokeRef.current.length > 0) {
+          const { color, width, isErasing } = styleRef.current;
+          pathsRef.current = [
+            ...pathsRef.current,
+            {
+              points: [...strokeRef.current],
+              color: isErasing ? COLORS.navy : color,
+              strokeWidth: isErasing ? width * 3 : width,
+            },
+          ];
+          strokeRef.current = [];
+          setCurrentPoints([]);
+          forceUpdate(n => n + 1);
         }
       },
     })
@@ -84,7 +117,7 @@ const ManualForgeScreen = () => {
 
   const pointsToPath = (points: Point[]): string => {
     if (points.length === 0) return '';
-    
+
     let path = `M ${points[0].x} ${points[0].y}`;
     for (let i = 1; i < points.length; i++) {
       path += ` L ${points[i].x} ${points[i].y}`;
@@ -93,11 +126,13 @@ const ManualForgeScreen = () => {
   };
 
   const handleUndo = () => {
-    setPaths(paths.slice(0, -1));
+    pathsRef.current = pathsRef.current.slice(0, -1);
+    forceUpdate(n => n + 1);
   };
 
   const handleClear = () => {
-    setPaths([]);
+    pathsRef.current = [];
+    forceUpdate(n => n + 1);
   };
 
   const handleSave = () => {
@@ -108,7 +143,7 @@ const ManualForgeScreen = () => {
   return (
     <View style={styles.container}>
       <StatusBar barStyle="light-content" />
-      
+
       {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity style={styles.backButton}>
@@ -184,7 +219,7 @@ const ManualForgeScreen = () => {
                 <View
                   style={[
                     styles.strokeWidthIndicator,
-                    { 
+                    {
                       width: width * 2,
                       height: width * 2,
                       backgroundColor: strokeWidth === width ? COLORS.gold : COLORS.silver,

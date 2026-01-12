@@ -60,7 +60,7 @@ const ENHANCEMENT_OPTIONS: EnhancementOption[] = [
     description:
       'Unlock the Manual Forge to draw your anchor by hand using our mystical canvas. Full creative control for advanced practitioners.',
     badge: '🎨',
-    isPro: true,
+    isPro: false, // Unlocked for testing
   },
 ];
 
@@ -78,9 +78,12 @@ export const EnhancementChoiceScreen: React.FC = () => {
    */
   const handleSelect = (optionId: 'ai' | 'traditional' | 'manual'): void => {
     if (optionId === 'manual') {
-      // TODO: Check if user has Pro subscription
-      // For now, show locked message
-      alert('Manual Forge is a Pro feature. Upgrade to unlock! (Phase 4)');
+      // Navigate to Manual Forge screen
+      navigation.navigate('ManualForge', {
+        intentionText,
+        distilledLetters,
+        sigilSvg,
+      });
       return;
     }
 
@@ -206,7 +209,7 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     padding: spacing.lg,
-    paddingBottom: spacing.xxxl,
+    paddingBottom: 110, // Account for floating tab bar
   },
   header: {
     marginBottom: spacing.xl,

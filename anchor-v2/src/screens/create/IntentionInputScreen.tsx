@@ -346,6 +346,7 @@ const styles = StyleSheet.create({
     },
     footer: {
         padding: spacing.lg,
+        paddingBottom: 110, // Account for floating tab bar (height 70 + bottom 25 + padding)
         backgroundColor: colors.background.secondary,
         borderTopWidth: 1,
         borderTopColor: colors.navy,
