@@ -66,10 +66,16 @@ export const IntentFormatFeedback: React.FC<IntentFormatFeedbackProps> = ({
 }) => {
   // Don't show feedback until user has typed something meaningful
   if (!intentionText || intentionText.length < 3) {
+    console.log('[IntentFormatFeedback] Text too short:', intentionText.length);
     return null;
   }
 
   const analysis = analyzeIntent(intentionText);
+  console.log('[IntentFormatFeedback] Analysis:', {
+    text: intentionText,
+    isOptimal: analysis.isOptimal,
+    suggestions: analysis.suggestions.length
+  });
 
   if (analysis.isOptimal) {
     return (

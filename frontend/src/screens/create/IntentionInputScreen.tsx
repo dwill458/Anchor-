@@ -121,6 +121,11 @@ export const IntentionInputScreen: React.FC = () => {
                         {/* Intent Formatting Helper */}
                         {intentionText.length > 0 && (
                             <View style={styles.formattingSection}>
+                                {/* Debug: Show that section is rendering */}
+                                <Text style={styles.charCount}>
+                                    [DEBUG: Helper active, length: {intentionText.length}]
+                                </Text>
+
                                 {/* Collapsible tips */}
                                 <TouchableOpacity
                                     onPress={() => setShowTips(!showTips)}
