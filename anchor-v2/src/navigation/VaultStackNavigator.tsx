@@ -15,6 +15,7 @@ import {
   AIGeneratingScreen,
   AIVariationPickerScreen,
   MantraCreationScreen,
+  ManualForgeScreen,
 } from '../screens/create';
 import {
   ChargeChoiceScreen,
@@ -68,6 +69,11 @@ export const VaultStackNavigator: React.FC = () => {
         name="EnhancementChoice"
         component={EnhancementChoiceScreen}
         options={{ title: 'Enhance Your Anchor' }}
+      />
+      <Stack.Screen
+        name="ManualForge"
+        component={ManualForgeScreen}
+        options={{ title: 'Forge Your Sigil', headerShown: false }}
       />
       <Stack.Screen
         name="AIAnalysis"

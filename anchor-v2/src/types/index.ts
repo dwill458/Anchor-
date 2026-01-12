@@ -214,6 +214,11 @@ export type RootStackParamList = {
     sigilSvg: string;
     sigilVariant: string;
   };
+  ManualForge: {
+    intentionText: string;
+    distilledLetters: string[];
+    sigilSvg: string;
+  };
   AIAnalysis: {
     intentionText: string;
     distilledLetters: string[];

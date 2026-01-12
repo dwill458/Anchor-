@@ -4,21 +4,23 @@
     "slug": "anchor-v2",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/icon.png",
+    "icon": "./assets/anchor-icon.jpg",
     "userInterfaceStyle": "dark",
     "splash": {
-      "image": "./assets/splash.png",
+      "image": "./assets/anchor-icon.jpg",
       "resizeMode": "contain",
       "backgroundColor": "#1A1A1D"
     },
-    "assetBundlePatterns": ["**/*"],
+    "assetBundlePatterns": [
+      "**/*"
+    ],
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.anchor.app"
     },
     "android": {
       "adaptiveIcon": {
-        "foregroundImage": "./assets/adaptive-icon.png",
+        "foregroundImage": "./assets/anchor-icon.jpg",
         "backgroundColor": "#1A1A1D"
       },
       "package": "com.anchor.app"
@@ -27,7 +29,8 @@
       "favicon": "./assets/favicon.png"
     },
     "plugins": [
-      "expo-av"
+      "expo-av",
+      "expo-asset"
     ]
   }
 }
