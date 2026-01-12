@@ -219,6 +219,11 @@ export type RootStackParamList = {
     distilledLetters: string[];
     sigilSvg: string;
   };
+  PostForgeChoice: {
+    intentionText: string;
+    distilledLetters: string[];
+    sigilSvg: string;
+  };
   AIAnalysis: {
     intentionText: string;
     distilledLetters: string[];

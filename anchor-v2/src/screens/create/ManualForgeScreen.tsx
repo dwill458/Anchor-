@@ -175,12 +175,11 @@ const ManualForgeScreen = () => {
       // Convert paths to SVG string
       const manualSigilSvg = pathsToSvgString();
 
-      // Navigate to MantraCreation with the manual sigil
-      navigation.navigate('MantraCreation', {
+      // Navigate to PostForgeChoice to let user decide: keep as-is or AI enhance
+      navigation.navigate('PostForgeChoice', {
         intentionText,
         distilledLetters,
         sigilSvg: manualSigilSvg,
-        finalImageUrl: undefined, // Will use SVG
       });
     } catch (error) {
       console.error('Error saving manual sigil:', error);
