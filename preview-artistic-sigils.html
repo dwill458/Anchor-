@@ -1,0 +1,454 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Anchor - Artistic Sigil Styles</title>
+    <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700&family=Inter:wght@400;600&display=swap"
+        rel="stylesheet">
+    <style>
+        :root {
+            --charcoal: #1A1A1D;
+            --navy: #0F1419;
+            --gold: #D4AF37;
+            --deep-purple: #3E2C5B;
+            --bg-card: #252529;
+            --text-primary: #F5F5DC;
+            --text-secondary: #C0C0C0;
+            --text-tertiary: #9E9E9E;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            background-color: var(--navy);
+            color: var(--text-primary);
+            font-family: 'Inter', sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .phone-container {
+            width: 375px;
+            height: 812px;
+            background-color: var(--navy);
+            border: 8px solid var(--charcoal);
+            border-radius: 40px;
+            overflow: hidden;
+            box-shadow: 0 50px 100px rgba(0, 0, 0, 0.5);
+            display: flex;
+            flex-direction: column;
+        }
+
+        .status-bar {
+            height: 44px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0 24px;
+            font-size: 14px;
+        }
+
+        .screen {
+            flex: 1;
+            overflow-y: auto;
+            padding: 24px;
+        }
+
+        .header {
+            margin-bottom: 32px;
+        }
+
+        .title {
+            font-family: 'Cinzel', serif;
+            font-size: 24px;
+            color: var(--gold);
+            margin-bottom: 8px;
+        }
+
+        .subtitle {
+            font-size: 16px;
+            color: var(--text-secondary);
+            line-height: 1.5;
+        }
+
+        .letters-section {
+            margin-bottom: 32px;
+        }
+
+        .letters-label {
+            font-size: 14px;
+            color: var(--text-tertiary);
+            margin-bottom: 8px;
+        }
+
+        .letters-container {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+        }
+
+        .letter-box {
+            background-color: var(--deep-purple);
+            padding: 8px 16px;
+            border-radius: 8px;
+        }
+
+        .letter-text {
+            font-family: 'Cinzel', serif;
+            font-size: 18px;
+            color: var(--gold);
+        }
+
+        .preview-section {
+            margin-bottom: 32px;
+            text-align: center;
+        }
+
+        .preview-container {
+            width: 100%;
+            aspect-ratio: 1;
+            background-color: var(--bg-card);
+            border-radius: 16px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            margin-bottom: 16px;
+            border: 2px solid var(--gold);
+        }
+
+        .preview-container svg {
+            width: 95%;
+            height: 95%;
+        }
+
+        .preview-label {
+            font-size: 16px;
+            font-weight: 600;
+            color: var(--gold);
+        }
+
+        .variants-title {
+            font-family: 'Cinzel', serif;
+            font-size: 20px;
+            color: var(--text-primary);
+            margin-bottom: 16px;
+        }
+
+        .variant-card {
+            background-color: var(--bg-card);
+            border-radius: 12px;
+            padding: 16px;
+            display: flex;
+            align-items: center;
+            margin-bottom: 16px;
+            border: 2px solid transparent;
+            cursor: pointer;
+            transition: all 0.3s;
+            position: relative;
+        }
+
+        .variant-card:hover {
+            transform: translateY(-2px);
+        }
+
+        .variant-card.selected {
+            border-color: var(--gold);
+            background-color: rgba(212, 175, 55, 0.06);
+        }
+
+        .sigil-container {
+            width: 120px;
+            height: 120px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            margin-right: 16px;
+        }
+
+        .sigil-container svg {
+            width: 100%;
+            height: 100%;
+        }
+
+        .variant-info {
+            flex: 1;
+        }
+
+        .variant-title {
+            font-family: 'Cinzel', serif;
+            font-size: 18px;
+            color: var(--text-primary);
+            margin-bottom: 4px;
+        }
+
+        .variant-card.selected .variant-title {
+            color: var(--gold);
+        }
+
+        .variant-description {
+            font-size: 14px;
+            color: var(--text-secondary);
+            line-height: 1.4;
+        }
+
+        .selected-indicator {
+            position: absolute;
+            top: 8px;
+            right: 8px;
+            width: 32px;
+            height: 32px;
+            border-radius: 16px;
+            background-color: var(--gold);
+            display: none;
+            justify-content: center;
+            align-items: center;
+            font-size: 18px;
+            color: var(--charcoal);
+        }
+
+        .variant-card.selected .selected-indicator {
+            display: flex;
+        }
+
+        .footer {
+            padding: 24px;
+            background-color: var(--charcoal);
+            border-top: 1px solid var(--navy);
+        }
+
+        .continue-button {
+            background-color: var(--gold);
+            color: var(--charcoal);
+            height: 56px;
+            border-radius: 12px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-weight: 600;
+            font-size: 16px;
+            cursor: pointer;
+            border: none;
+            width: 100%;
+            transition: transform 0.2s;
+        }
+
+        .continue-button:hover {
+            transform: translateY(-2px);
+        }
+    </style>
+</head>
+
+<body>
+    <div class="phone-container">
+        <div class="status-bar">
+            <span>9:41</span>
+            <div>🔋 Signal Wifi</div>
+        </div>
+
+        <div class="screen">
+            <div class="header">
+                <h1 class="title">Choose Your Sigil</h1>
+                <p class="subtitle">Each style creates a mystical seal with your letters arranged artistically.</p>
+            </div>
+
+            <div class="letters-section">
+                <div class="letters-label">Your Distilled Letters</div>
+                <div class="letters-container" id="letters"></div>
+            </div>
+
+            <div class="preview-section">
+                <div class="preview-container" id="preview"></div>
+                <div class="preview-label" id="preview-label">Balanced Style</div>
+            </div>
+
+            <div class="variants-section">
+                <h2 class="variants-title">Select a Style</h2>
+
+                <div class="variant-card" data-variant="dense" onclick="selectVariant('dense')">
+                    <div class="sigil-container" id="sigil-dense"></div>
+                    <div class="variant-info">
+                        <div class="variant-title">Dense</div>
+                        <div class="variant-description">Star pattern with radial energy</div>
+                    </div>
+                    <div class="selected-indicator">✓</div>
+                </div>
+
+                <div class="variant-card selected" data-variant="balanced" onclick="selectVariant('balanced')">
+                    <div class="sigil-container" id="sigil-balanced"></div>
+                    <div class="variant-info">
+                        <div class="variant-title">Balanced</div>
+                        <div class="variant-description">Circular flow with inner core</div>
+                    </div>
+                    <div class="selected-indicator">✓</div>
+                </div>
+
+                <div class="variant-card" data-variant="minimal" onclick="selectVariant('minimal')">
+                    <div class="sigil-container" id="sigil-minimal"></div>
+                    <div class="variant-info">
+                        <div class="variant-title">Minimal</div>
+                        <div class="variant-description">Clean circle, no connections</div>
+                    </div>
+                    <div class="selected-indicator">✓</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="footer">
+            <button class="continue-button" onclick="handleContinue()">
+                Continue to Charging Ritual
+            </button>
+        </div>
+    </div>
+
+    <script>
+        const letters = ['L', 'N', 'C', 'H', 'M', 'Y', 'S', 'T', 'R', 'P'];
+        let selectedVariant = 'balanced';
+
+        const DENSE_VECTORS = {
+            L: 'M25 10 L25 90 L80 90',
+            N: 'M25 90 L25 10 L75 90 L75 10',
+            C: 'M75 15 L30 15 L30 85 L75 85',
+            H: 'M25 10 L25 90 M75 10 L75 90 M25 50 L75 50',
+            M: 'M20 90 L20 10 L50 45 L80 10 L80 90',
+            Y: 'M25 10 L50 50 L75 10 M50 50 L50 90',
+            S: 'M75 15 L30 15 L30 50 L70 50 L70 85 L25 85',
+            T: 'M20 10 L80 10 M50 10 L50 90',
+            R: 'M25 10 L25 90 M25 10 L65 10 L65 50 L25 50 M50 50 L80 90',
+            P: 'M25 10 L25 90 M25 10 L65 10 L65 50 L25 50',
+        };
+
+        const BALANCED_VECTORS = {
+            L: 'M30 15 L30 85 L80 85',
+            N: 'M30 85 L30 15 L70 85 L70 15',
+            C: 'M70 20 Q30 20 30 50 Q30 80 70 80',
+            H: 'M30 15 L30 85 M70 15 L70 85 M30 50 L70 50',
+            M: 'M30 85 L30 15 L50 50 L70 15 L70 85',
+            Y: 'M30 15 L50 50 L70 15 M50 50 L50 85',
+            S: 'M70 20 Q30 15 30 35 Q30 55 70 55 Q70 85 30 80',
+            T: 'M20 15 L80 15 M50 15 L50 85',
+            R: 'M30 15 L30 85 M30 15 L60 15 Q80 15 80 35 Q80 55 60 55 L30 55 M50 55 L80 85',
+            P: 'M30 15 L30 85 M30 15 L60 15 Q80 15 80 35 Q80 55 60 55 L30 55',
+        };
+
+        const MINIMAL_VECTORS = {
+            L: 'M35 20 L35 80 L70 80',
+            N: 'M35 80 L35 20 L65 80 L65 20',
+            C: 'M65 25 Q40 25 40 50 Q40 75 65 75',
+            H: 'M35 20 L35 80 M65 20 L65 80 M35 50 L65 50',
+            M: 'M35 80 L35 20 L50 55 L65 20 L65 80',
+            Y: 'M35 20 L50 50 L65 20 M50 50 L50 80',
+            S: 'M65 25 Q35 20 35 35 Q35 50 65 50 Q65 75 35 75',
+            T: 'M25 20 L75 20 M50 20 L50 80',
+            R: 'M35 20 L35 80 M35 20 Q70 25 70 40 Q70 55 35 55 M50 55 L70 80',
+            P: 'M35 20 L35 80 M35 20 Q70 25 70 40 Q70 55 35 55',
+        };
+
+        function getVectorSet(variant) {
+            return variant === 'dense' ? DENSE_VECTORS : variant === 'balanced' ? BALANCED_VECTORS : MINIMAL_VECTORS;
+        }
+
+        function generateArtisticSigil(letters, variant) {
+            const configs = {
+                dense: { strokeWidth: 3, opacity: 0.8, scale: 1 },
+                balanced: { strokeWidth: 2, opacity: 0.9, scale: 0.9 },
+                minimal: { strokeWidth: 1.5, opacity: 1, scale: 0.8 }
+            };
+
+            const config = configs[variant];
+            const vectorSet = getVectorSet(variant);
+            const size = 200;
+            const center = size / 2;
+            const radius = 60;
+            const angleStep = (Math.PI * 2) / letters.length;
+
+            const letterPaths = [];
+            const connectionPoints = [];
+
+            letters.forEach((letter, index) => {
+                const pathData = vectorSet[letter];
+                if (!pathData) return;
+
+                const angle = angleStep * index;
+                const offsetX = Math.cos(angle) * radius;
+                const offsetY = Math.sin(angle) * radius;
+                const rotation = variant === 'minimal' ?
+                    (angle * 180 / Math.PI) :
+                    (angle * 180 / Math.PI) + 180;
+                const letterScale = config.scale * 0.4;
+                const transform = `translate(${center + offsetX}, ${center + offsetY}) rotate(${rotation}, 0, 0) scale(${letterScale}) translate(-50, -50)`;
+
+                letterPaths.push(`<path d="${pathData}" stroke="currentColor" stroke-width="${config.strokeWidth}" fill="none" opacity="${config.opacity}" transform="${transform}" stroke-linecap="round" stroke-linejoin="round" />`);
+                connectionPoints.push({ x: center + offsetX, y: center + offsetY });
+            });
+
+            let connectionLines = '';
+            if (variant !== 'minimal') {
+                connectionLines = connectionPoints.map((point, i) => {
+                    const nextPoint = connectionPoints[(i + 1) % connectionPoints.length];
+                    return `<line x1="${point.x}" y1="${point.y}" x2="${nextPoint.x}" y2="${nextPoint.y}" stroke="currentColor" stroke-width="${config.strokeWidth * 0.5}" opacity="${config.opacity * 0.3}" />`;
+                }).join('');
+            }
+
+            let centerElement = '';
+            if (variant === 'dense') {
+                centerElement = connectionPoints.map(point =>
+                    `<line x1="${center}" y1="${center}" x2="${point.x}" y2="${point.y}" stroke="currentColor" stroke-width="${config.strokeWidth * 0.3}" opacity="${config.opacity * 0.2}" />`
+                ).join('');
+            }
+
+            const borderRadius = radius + 45;
+            const borderOpacity = variant === 'minimal' ? 0.5 : 0.7;
+            const border = `<circle cx="${center}" cy="${center}" r="${borderRadius}" stroke="currentColor" stroke-width="${config.strokeWidth}" fill="none" opacity="${borderOpacity}" />`;
+
+            let innerCircle = '';
+            if (variant === 'balanced') {
+                innerCircle = `<circle cx="${center}" cy="${center}" r="${radius * 0.3}" stroke="currentColor" stroke-width="${config.strokeWidth * 0.5}" fill="none" opacity="${config.opacity * 0.3}" />`;
+            }
+
+            return `<svg viewBox="0 0 ${size} ${size}" xmlns="http://www.w3.org/2000/svg">${[centerElement, connectionLines, innerCircle, ...letterPaths, border].filter(Boolean).join('')}</svg>`;
+        }
+
+        function selectVariant(variant) {
+            selectedVariant = variant;
+            document.querySelectorAll('.variant-card').forEach(card => card.classList.remove('selected'));
+            document.querySelector(`[data-variant="${variant}"]`).classList.add('selected');
+            document.getElementById('preview').innerHTML = generateArtisticSigil(letters, variant);
+            const labels = {
+                dense: 'Dense Style - Star Pattern',
+                balanced: 'Balanced Style - Circular Flow',
+                minimal: 'Minimal Style - Clean \u0026 Pure'
+            };
+            document.getElementById('preview-label').textContent = labels[variant];
+        }
+
+        function handleContinue() {
+            alert(`Perfect! Your ${selectedVariant} sigil creates an artistic seal.\n\nNotice how the letters are now arranged in a circle with connecting elements - just like traditional magical seals!`);
+        }
+
+        window.onload = () => {
+            letters.forEach(letter => {
+                const box = document.createElement('div');
+                box.className = 'letter-box';
+                box.innerHTML = `<div class="letter-text">${letter}</div>`;
+                document.getElementById('letters').appendChild(box);
+            });
+
+            ['dense', 'balanced', 'minimal'].forEach(variant => {
+                document.getElementById(`sigil-${variant}`).innerHTML = generateArtisticSigil(letters, variant);
+            });
+
+            selectVariant('balanced');
+        };
+    </script>
+</body>
+
+</html>
