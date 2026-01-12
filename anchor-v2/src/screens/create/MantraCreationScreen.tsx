@@ -1,8 +1,9 @@
 /**
  * Anchor App - Mantra Creation Screen (Phase 2.5)
  *
- * Step 8 in anchor creation flow (after AIVariationPicker or EnhancementChoice-Traditional).
- * User generates and selects from 3 mantra styles with audio playback.
+ * Step 8 in anchor creation flow.
+ * User generates and selects from 3 mantra styles.
+ * Features: Pro gating, TTS playback, educational content.
  */
 
 import React, { useEffect, useState, useRef } from 'react';
@@ -13,11 +14,14 @@ import {
   TouchableOpacity,
   ScrollView,
   ActivityIndicator,
+  Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
-import { Audio } from 'expo-av';
+import * as Speech from 'expo-speech';
+import { LinearGradient } from 'expo-linear-gradient';
+import { Lock, Volume2, Play, Pause, RefreshCw, ChevronRight, Info } from 'lucide-react-native';
 import { colors, spacing, typography } from '@/theme';
 import { RootStackParamList } from '@/types';
 
@@ -34,20 +38,8 @@ interface MantraResult {
   phonetic: string;
 }
 
-/**
- * Audio URLs for each mantra style
- */
-interface MantraAudioUrls {
-  syllabic: string | null;
-  rhythmic: string | null;
-  phonetic: string | null;
-}
-
 type MantraStyle = keyof Omit<MantraResult, 'letterByLetter'>;
 
-/**
- * Mantra style info
- */
 interface MantraStyleInfo {
   id: MantraStyle;
   title: string;
@@ -59,388 +51,233 @@ const MANTRA_STYLES: MantraStyleInfo[] = [
   {
     id: 'syllabic',
     title: 'Syllabic',
-    description: '2-letter chunks for rhythmic chanting. Short and powerful.',
-    icon: '🎵',
+    description: 'Short, rhythmic power chants.',
+    icon: '⚡',
   },
   {
     id: 'phonetic',
     title: 'Phonetic',
-    description: 'Simplified pronunciation with vowels. Easy to speak aloud.',
+    description: 'Flowing and easy to speak.',
     icon: '🗣️',
   },
   {
     id: 'rhythmic',
     title: 'Rhythmic',
-    description: '3-letter groups with pauses. Meditative and flowing.',
+    description: 'Meditative cycles of sound.',
     icon: '🌊',
   },
 ];
 
-/**
- * MantraCreationScreen Component
- */
 export const MantraCreationScreen: React.FC = () => {
   const navigation = useNavigation<MantraCreationNavigationProp>();
   const route = useRoute<MantraCreationRouteProp>();
+  const { intentionText, distilledLetters } = route.params;
 
-  const { intentionText, distilledLetters, sigilSvg, finalImageUrl } = route.params;
+  // Mock User State (Replace with real auth/subscription context later)
+  const [isPro, setIsPro] = useState(false); // Default to FREE for testing
+  const [isUnlocked, setIsUnlocked] = useState(false); // Temporary unlock for session
 
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [mantra, setMantra] = useState<MantraResult | null>(null);
-  const [audioUrls, setAudioUrls] = useState<MantraAudioUrls | null>(null);
   const [selectedStyle, setSelectedStyle] = useState<MantraStyle>('phonetic');
-  const [error, setError] = useState<string | null>(null);
+  const [speakingStyle, setSpeakingStyle] = useState<MantraStyle | null>(null);
 
-  // Audio playback state
-  const [playingStyle, setPlayingStyle] = useState<MantraStyle | null>(null);
-  const [loadingAudio, setLoadingAudio] = useState<MantraStyle | null>(null);
-  const soundRef = useRef<Audio.Sound | null>(null);
-
-  /**
-   * Generate mantra on mount and setup audio
-   */
   useEffect(() => {
-    // Configure audio mode for playback
-    const setupAudio = async () => {
-      await Audio.setAudioModeAsync({
-        playsInSilentModeIOS: true,
-        staysActiveInBackground: false,
-        shouldDuckAndroid: true,
-      });
-    };
-    setupAudio();
+    // Determine if we should auto-generate
+    // If Pro or Unlocked, generate immediately.
+    // If Free, show the "Locked" state first.
+    if (isPro || isUnlocked) {
+      generateMantra();
+    }
+  }, [isPro, isUnlocked]);
 
-    generateMantra();
-
-    return () => {
-      // Cleanup audio on unmount
-      const cleanup = async () => {
-        if (soundRef.current) {
-          await soundRef.current.unloadAsync();
-          soundRef.current = null;
-        }
-      };
-      cleanup();
-    };
-  }, []);
-
-  /**
-   * Call backend to generate mantra
-   */
-  const generateMantra = async (): Promise<void> => {
+  const generateMantra = async () => {
+    setLoading(true);
     try {
-      setLoading(true);
-      setError(null);
+      // Mock API call for MVP - later replace with real backend
+      await new Promise(resolve => setTimeout(resolve, 1500));
 
-      const API_URL = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:3000';
-
-      const response = await fetch(`${API_URL}/api/ai/mantra`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          distilledLetters,
-        }),
+      // Simple mock generation algorithm for demo purposes
+      const seed = distilledLetters.join('');
+      setMantra({
+        syllabic: seed.match(/.{1,2}/g)?.join(' - ') || seed,
+        rhythmic: seed.match(/.{1,3}/g)?.join(' ... ') || seed,
+        phonetic: seed.split('').join('-').toLowerCase(),
+        letterByLetter: seed.split('').join(' '),
       });
-
-      if (!response.ok) {
-        throw new Error('Failed to generate mantra');
-      }
-
-      const data = await response.json();
-      setMantra(data.mantra);
-      setSelectedStyle(data.recommended || 'phonetic');
-
-      // Generate audio (optional - will gracefully degrade if TTS not configured)
-      generateAudio(data.mantra);
-    } catch (err) {
-      console.error('Mantra generation error:', err);
-      setError(err instanceof Error ? err.message : 'Unknown error');
+    } catch (error) {
+      Alert.alert('Error', 'Failed to generate mantra');
     } finally {
       setLoading(false);
     }
   };
 
-  /**
-   * Generate audio for all mantra styles
-   */
-  const generateAudio = async (mantras: MantraResult): Promise<void> => {
-    try {
-      const API_URL = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:3000';
-
-      const response = await fetch(`${API_URL}/api/ai/mantra/audio`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          mantras: {
-            syllabic: mantras.syllabic,
-            rhythmic: mantras.rhythmic,
-            phonetic: mantras.phonetic,
-          },
-          userId: 'temp-user-id', // TODO: Get from auth store
-          anchorId: `anchor-${Date.now()}`, // TODO: Generate proper ID
-          voicePreset: 'neutral_calm',
-        }),
-      });
-
-      if (response.ok) {
-        const data = await response.json();
-        setAudioUrls(data.audioUrls);
-        console.log('Audio generated successfully');
-      } else {
-        // TTS not configured - that's okay, audio is optional
-        console.log('Audio generation skipped (TTS not configured)');
-        setAudioUrls({ syllabic: null, rhythmic: null, phonetic: null });
-      }
-    } catch (err) {
-      console.log('Audio generation failed (optional feature):', err);
-      setAudioUrls({ syllabic: null, rhythmic: null, phonetic: null });
-    }
-  };
-
-  /**
-   * Play mantra audio
-   */
-  const handlePlayAudio = async (style: MantraStyle): Promise<void> => {
-    try {
-      // If TTS not available, show message
-      if (!audioUrls || !audioUrls[style]) {
-        alert('Audio playback not available. Enable Google TTS in backend configuration.');
-        return;
-      }
-
-      // Stop currently playing audio
-      if (soundRef.current) {
-        await soundRef.current.stopAsync();
-        await soundRef.current.unloadAsync();
-        soundRef.current = null;
-        setPlayingStyle(null);
-      }
-
-      // If clicking same style that was playing, just stop
-      if (playingStyle === style) {
-        return;
-      }
-
-      setLoadingAudio(style);
-
-      // Load and play new audio using expo-av
-      const { sound } = await Audio.Sound.createAsync(
-        { uri: audioUrls[style]! },
-        { shouldPlay: true },
-        (status) => {
-          // Callback for playback status updates
-          if (status.isLoaded && status.didJustFinish) {
-            // Cleanup after playback finishes
-            setPlayingStyle(null);
-            sound.unloadAsync();
-            soundRef.current = null;
+  const handleUnlock = () => {
+    Alert.alert(
+      "Unlock Mantra Forge",
+      "Mantras are a Pro feature. Upgrade to Anchor Pro to create unlimited custom mantras for your rituals.",
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Upgrade to Pro ($4.99/mo)",
+          onPress: () => {
+            // Mock upgrade flow
+            Alert.alert("Welcome to Pro!", "You now have access to Mantra creation.", [
+              { text: "Let's Go", onPress: () => setIsPro(true) }
+            ]);
           }
+        },
+        {
+          text: "One-Time Unlock (Demo)",
+          onPress: () => setIsUnlocked(true)
         }
-      );
+      ]
+    );
+  };
 
-      soundRef.current = sound;
-      setPlayingStyle(style);
-      setLoadingAudio(null);
-    } catch (err) {
-      console.error('Audio playback error:', err);
-      setLoadingAudio(null);
-      alert('Failed to play audio. Please try again.');
+  const handleSpeak = (text: string, style: MantraStyle) => {
+    if (speakingStyle === style) {
+      Speech.stop();
+      setSpeakingStyle(null);
+    } else {
+      setSpeakingStyle(style);
+      Speech.speak(text, {
+        language: 'en',
+        rate: 0.8,
+        pitch: 0.9,
+        onDone: () => setSpeakingStyle(null),
+        onError: () => setSpeakingStyle(null),
+      });
     }
   };
 
-  /**
-   * Continue to charging (save anchor first)
-   */
-  const handleContinue = async (): Promise<void> => {
+  const handleContinue = () => {
     if (!mantra) return;
-
-    // Stop any playing audio
-    if (soundRef.current) {
-      await soundRef.current.stopAsync();
-      await soundRef.current.unloadAsync();
-      soundRef.current = null;
-    }
-
-    // TODO: Save anchor to backend and get anchor ID
-    // For now, navigate to ChargeChoice with temporary data
-
     navigation.navigate('ChargeChoice', {
-      anchorId: `temp-${Date.now()}`, // TODO: Replace with real anchor ID from backend
+      anchorId: `temp-${Date.now()}`,
     });
   };
 
-  /**
-   * Retry if generation failed
-   */
-  const handleRetry = (): void => {
-    generateMantra();
-  };
+  const renderLockedState = () => (
+    <View style={styles.lockedContainer}>
+      <View style={styles.lockIconContainer}>
+        <Lock size={64} color={colors.gold} />
+      </View>
+      <Text style={styles.lockedTitle}>Unlock Your Mantra</Text>
+      <Text style={styles.lockedText}>
+        Mantras are powerful sonic anchors that amplify your intention during rituals.
+        Generate custom mantras based on your specific sigil.
+      </Text>
 
-  /**
-   * Loading state
-   */
-  if (loading) {
-    return (
-      <SafeAreaView style={styles.container}>
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color={colors.gold} />
-          <Text style={styles.loadingText}>Generating your mantra...</Text>
-        </View>
-      </SafeAreaView>
-    );
-  }
-
-  /**
-   * Error state
-   */
-  if (error || !mantra) {
-    return (
-      <SafeAreaView style={styles.container}>
-        <View style={styles.errorContainer}>
-          <Text style={styles.errorIcon}>⚠️</Text>
-          <Text style={styles.errorTitle}>Mantra Generation Failed</Text>
-          <Text style={styles.errorMessage}>{error || 'Unknown error'}</Text>
-          <TouchableOpacity style={styles.retryButton} onPress={handleRetry}>
-            <Text style={styles.retryButtonText}>Try Again</Text>
-          </TouchableOpacity>
-        </View>
-      </SafeAreaView>
-    );
-  }
-
-  /**
-   * Render mantra style card
-   */
-  const renderMantraCard = (styleInfo: MantraStyleInfo): React.JSX.Element => {
-    const isSelected = selectedStyle === styleInfo.id;
-    const mantraText = mantra[styleInfo.id];
-    const isPlaying = playingStyle === styleInfo.id;
-    const isLoadingAudio = loadingAudio === styleInfo.id;
-    const hasAudio = audioUrls && audioUrls[styleInfo.id];
-
-    return (
       <TouchableOpacity
-        key={styleInfo.id}
-        style={[
-          styles.mantraCard,
-          isSelected && styles.mantraCardSelected,
-        ]}
-        onPress={() => setSelectedStyle(styleInfo.id)}
+        style={styles.unlockButton}
+        onPress={handleUnlock}
         activeOpacity={0.8}
       >
-        {/* Icon */}
-        <View style={styles.mantraIcon}>
-          <Text style={styles.mantraIconText}>{styleInfo.icon}</Text>
-        </View>
-
-        {/* Content */}
-        <View style={styles.mantraContent}>
-          <Text style={[styles.mantraTitle, isSelected && styles.mantraTitleSelected]}>
-            {styleInfo.title}
-          </Text>
-          <Text style={styles.mantraDescription}>{styleInfo.description}</Text>
-
-          {/* Mantra Text */}
-          <View style={styles.mantraTextContainer}>
-            <Text style={[styles.mantraText, isSelected && styles.mantraTextSelected]}>
-              {mantraText}
-            </Text>
-          </View>
-
-          {/* Play Button */}
-          <TouchableOpacity
-            style={[styles.playButton, isPlaying && styles.playButtonActive]}
-            onPress={() => handlePlayAudio(styleInfo.id)}
-            disabled={isLoadingAudio}
-          >
-            {isLoadingAudio ? (
-              <ActivityIndicator size="small" color={colors.gold} />
-            ) : (
-              <Text style={styles.playButtonText}>
-                {isPlaying ? '⏸️ Pause' : hasAudio ? '▶️ Play Audio' : '▶️ Audio (Not Available)'}
-              </Text>
-            )}
-          </TouchableOpacity>
-        </View>
-
-        {/* Selection Indicator */}
-        {isSelected && (
-          <View style={styles.selectedIndicator}>
-            <Text style={styles.selectedIcon}>✓</Text>
-          </View>
-        )}
+        <LinearGradient
+          colors={[colors.gold, '#B8860B']}
+          style={styles.gradientButton}
+        >
+          <Text style={styles.unlockButtonText}>Generate Mantras (Pro)</Text>
+        </LinearGradient>
       </TouchableOpacity>
-    );
-  };
+
+      <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backLink}>
+        <Text style={styles.backLinkText}>Maybe later</Text>
+      </TouchableOpacity>
+    </View>
+  );
+
+  const renderMantraSelection = () => (
+    <View style={styles.selectionContainer}>
+      <View style={styles.educationCard}>
+        <View style={styles.educationHeader}>
+          <Info size={18} color={colors.gold} />
+          <Text style={styles.educationTitle}>Why use a Mantra?</Text>
+        </View>
+        <Text style={styles.educationText}>
+          Chanting your mantra during the activation ritual creates a vibrational resonance that
+          helps embed your intention into your subconscious mind.
+        </Text>
+      </View>
+
+      <View style={styles.distilledContainer}>
+        <Text style={styles.distilledLabel}>Source: </Text>
+        <Text style={styles.distilledValue}>{distilledLetters.join(' ')}</Text>
+      </View>
+
+      <Text style={styles.sectionTitle}>Choose Style</Text>
+
+      {MANTRA_STYLES.map((style) => {
+        const isActive = selectedStyle === style.id;
+        const mantraText = mantra?.[style.id] || '...';
+        const isSpeaking = speakingStyle === style.id;
+
+        return (
+          <TouchableOpacity
+            key={style.id}
+            style={[styles.styleCard, isActive && styles.styleCardActive]}
+            onPress={() => setSelectedStyle(style.id)}
+            activeOpacity={0.9}
+          >
+            <View style={styles.cardHeader}>
+              <Text style={styles.styleIcon}>{style.icon}</Text>
+              <View style={styles.headerText}>
+                <Text style={[styles.styleTitle, isActive && styles.textActive]}>{style.title}</Text>
+                <Text style={styles.styleDesc}>{style.description}</Text>
+              </View>
+              {isActive && <View style={styles.checkCircle}><View style={styles.checkDot} /></View>}
+            </View>
+
+            <View style={styles.mantraDisplay}>
+              <Text style={[styles.mantraText, isActive && styles.textActive]}>{mantraText}</Text>
+              <TouchableOpacity
+                style={styles.speakerButton}
+                onPress={() => handleSpeak(mantraText, style.id)}
+              >
+                {isSpeaking ? <RefreshCw size={20} color={colors.gold} /> : <Volume2 size={20} color={isActive ? colors.gold : colors.text.secondary} />}
+              </TouchableOpacity>
+            </View>
+          </TouchableOpacity>
+        );
+      })}
+    </View>
+  );
 
   return (
     <SafeAreaView style={styles.container}>
-      <ScrollView
-        contentContainerStyle={styles.scrollContent}
-        showsVerticalScrollIndicator={false}
-      >
-        {/* Header */}
+      <ScrollView contentContainerStyle={styles.scrollContent}>
         <View style={styles.header}>
-          <Text style={styles.title}>Create Your Mantra</Text>
+          <Text style={styles.title}>Sonic Anchor</Text>
           <Text style={styles.subtitle}>
-            Mantras are spoken chants that activate your anchor's power. Choose the style that
-            feels most natural to you.
+            Create a unique sound resonance for your intention.
           </Text>
         </View>
 
-        {/* Distilled Letters */}
-        <View style={styles.lettersSection}>
-          <Text style={styles.lettersLabel}>From Your Distilled Letters</Text>
-          <View style={styles.lettersContainer}>
-            {distilledLetters.map((letter, index) => (
-              <View key={index} style={styles.letterBox}>
-                <Text style={styles.letterText}>{letter}</Text>
+        {(isPro || isUnlocked) ? (
+          loading ? (
+            <View style={styles.loadingContainer}>
+              <ActivityIndicator size="large" color={colors.gold} />
+              <Text style={styles.loadingText}>Synthesizing resonance...</Text>
+            </View>
+          ) : (
+            <>
+              {renderMantraSelection()}
+              <View style={styles.footer}>
+                <TouchableOpacity
+                  style={styles.continueButton}
+                  onPress={handleContinue}
+                >
+                  <Text style={styles.continueText}>Continue to Ritual</Text>
+                  <ChevronRight size={20} color={colors.charcoal} />
+                </TouchableOpacity>
               </View>
-            ))}
-          </View>
-        </View>
-
-        {/* Mantra Styles */}
-        <View style={styles.mantrasSection}>
-          <Text style={styles.mantrasTitle}>Choose Your Mantra Style</Text>
-          {MANTRA_STYLES.map(renderMantraCard)}
-        </View>
-
-        {/* Usage Instructions */}
-        <View style={styles.instructionsSection}>
-          <Text style={styles.instructionsTitle}>💡 How to Use Your Mantra</Text>
-          <Text style={styles.instructionsText}>
-            During activation rituals, you'll chant your mantra 7 times to charge the anchor with
-            focused intention. The repetition creates a powerful vibrational resonance.
-          </Text>
-        </View>
-
-        {/* Audio Status */}
-        {audioUrls && !audioUrls.syllabic && !audioUrls.rhythmic && !audioUrls.phonetic && (
-          <View style={styles.audioNoticeSection}>
-            <Text style={styles.audioNoticeText}>
-              ℹ️ Audio playback not available. Enable Google TTS in backend configuration to hear
-              your mantras spoken aloud.
-            </Text>
-          </View>
+            </>
+          )
+        ) : (
+          renderLockedState()
         )}
       </ScrollView>
-
-      {/* Continue Button */}
-      <View style={styles.footer}>
-        <TouchableOpacity
-          style={styles.continueButton}
-          onPress={handleContinue}
-        >
-          <Text style={styles.continueButtonText}>
-            Continue to Charging Ritual
-          </Text>
-        </TouchableOpacity>
-      </View>
     </SafeAreaView>
   );
 };
@@ -451,242 +288,248 @@ const styles = StyleSheet.create({
     backgroundColor: colors.background.primary,
   },
   scrollContent: {
-    padding: spacing.lg,
-    paddingBottom: spacing.xxxl,
-  },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  loadingText: {
-    fontSize: typography.sizes.h4,
-    fontFamily: typography.fonts.heading,
-    color: colors.gold,
-    marginTop: spacing.lg,
-  },
-  errorContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: spacing.xl,
-  },
-  errorIcon: {
-    fontSize: 64,
-    marginBottom: spacing.lg,
-  },
-  errorTitle: {
-    fontSize: typography.sizes.h3,
-    fontFamily: typography.fonts.heading,
-    color: colors.text.primary,
-    marginBottom: spacing.sm,
-  },
-  errorMessage: {
-    fontSize: typography.sizes.body1,
-    fontFamily: typography.fonts.body,
-    color: colors.text.secondary,
-    textAlign: 'center',
-    marginBottom: spacing.xl,
-  },
-  retryButton: {
-    backgroundColor: colors.gold,
-    paddingHorizontal: spacing.xl,
-    paddingVertical: spacing.md,
-    borderRadius: 12,
-  },
-  retryButtonText: {
-    fontSize: typography.sizes.button,
-    fontFamily: typography.fonts.bodyBold,
-    color: colors.charcoal,
+    padding: spacing.md,
+    paddingBottom: 150, // Increased to ensure footer clears tab bar
   },
   header: {
+    marginTop: spacing.md,
     marginBottom: spacing.xl,
+    alignItems: 'center',
   },
   title: {
     fontSize: typography.sizes.h2,
     fontFamily: typography.fonts.heading,
     color: colors.gold,
-    marginBottom: spacing.sm,
+    marginBottom: spacing.xs,
   },
   subtitle: {
     fontSize: typography.sizes.body1,
     fontFamily: typography.fonts.body,
     color: colors.text.secondary,
-    lineHeight: typography.lineHeights.body1,
+    textAlign: 'center',
   },
-  lettersSection: {
-    marginBottom: spacing.xl,
+  loadingContainer: {
+    padding: spacing.xxl,
+    alignItems: 'center',
   },
-  lettersLabel: {
-    fontSize: typography.sizes.caption,
-    fontFamily: typography.fonts.bodyBold,
+  loadingText: {
+    marginTop: spacing.md,
     color: colors.text.tertiary,
-    marginBottom: spacing.sm,
-    textTransform: 'uppercase',
+    fontFamily: typography.fonts.body,
   },
-  lettersContainer: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: spacing.sm,
+  // Locked State
+  lockedContainer: {
+    backgroundColor: colors.background.card,
+    borderRadius: 24,
+    padding: spacing.xl,
+    alignItems: 'center',
+    marginVertical: spacing.md,
+    borderWidth: 1,
+    borderColor: colors.deepPurple,
   },
-  letterBox: {
-    backgroundColor: colors.deepPurple,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-    borderRadius: 8,
+  lockIconContainer: {
+    width: 100,
+    height: 100,
+    borderRadius: 50,
+    backgroundColor: 'rgba(212, 175, 55, 0.1)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: spacing.lg,
   },
-  letterText: {
-    fontSize: typography.sizes.h4,
-    fontFamily: typography.fonts.heading,
-    color: colors.gold,
-  },
-  mantrasSection: {
-    marginBottom: spacing.xl,
-  },
-  mantrasTitle: {
+  lockedTitle: {
     fontSize: typography.sizes.h3,
     fontFamily: typography.fonts.heading,
     color: colors.text.primary,
     marginBottom: spacing.md,
   },
-  mantraCard: {
-    backgroundColor: colors.background.card,
-    borderRadius: 16,
-    padding: spacing.lg,
-    marginBottom: spacing.md,
-    borderWidth: 2,
-    borderColor: 'transparent',
-    flexDirection: 'row',
-    position: 'relative',
-  },
-  mantraCardSelected: {
-    borderColor: colors.gold,
-    backgroundColor: `${colors.gold}08`,
-  },
-  mantraIcon: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
-    backgroundColor: colors.background.secondary,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: spacing.md,
-  },
-  mantraIconText: {
-    fontSize: 32,
-  },
-  mantraContent: {
-    flex: 1,
-  },
-  mantraTitle: {
-    fontSize: typography.sizes.h4,
-    fontFamily: typography.fonts.heading,
-    color: colors.text.primary,
-    marginBottom: spacing.xs,
-  },
-  mantraTitleSelected: {
-    color: colors.gold,
-  },
-  mantraDescription: {
-    fontSize: typography.sizes.body2,
-    fontFamily: typography.fonts.body,
-    color: colors.text.secondary,
-    marginBottom: spacing.sm,
-  },
-  mantraTextContainer: {
-    backgroundColor: colors.background.secondary,
-    borderRadius: 8,
-    padding: spacing.md,
-    marginBottom: spacing.sm,
-  },
-  mantraText: {
-    fontSize: typography.sizes.h4,
-    fontFamily: typography.fonts.heading,
-    color: colors.text.primary,
-    textAlign: 'center',
-  },
-  mantraTextSelected: {
-    color: colors.gold,
-  },
-  playButton: {
-    alignSelf: 'flex-start',
-    paddingVertical: spacing.xs,
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  playButtonActive: {
-    opacity: 0.8,
-  },
-  playButtonText: {
-    fontSize: typography.sizes.body2,
-    fontFamily: typography.fonts.bodyBold,
-    color: colors.gold,
-  },
-  selectedIndicator: {
-    position: 'absolute',
-    top: spacing.sm,
-    right: spacing.sm,
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: colors.gold,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  selectedIcon: {
-    fontSize: 18,
-    color: colors.charcoal,
-  },
-  instructionsSection: {
-    backgroundColor: colors.background.card,
-    borderRadius: 12,
-    padding: spacing.md,
-    borderLeftWidth: 4,
-    borderLeftColor: colors.deepPurple,
-    marginBottom: spacing.md,
-  },
-  instructionsTitle: {
+  lockedText: {
     fontSize: typography.sizes.body1,
-    fontFamily: typography.fonts.bodyBold,
-    color: colors.gold,
-    marginBottom: spacing.sm,
-  },
-  instructionsText: {
-    fontSize: typography.sizes.body2,
     fontFamily: typography.fonts.body,
     color: colors.text.secondary,
-    lineHeight: typography.lineHeights.body2,
+    textAlign: 'center',
+    marginBottom: spacing.xl,
+    lineHeight: 24,
   },
-  audioNoticeSection: {
-    backgroundColor: colors.background.card,
-    borderRadius: 12,
-    padding: spacing.md,
-    borderLeftWidth: 4,
-    borderLeftColor: colors.bronze,
-  },
-  audioNoticeText: {
-    fontSize: typography.sizes.body2,
-    fontFamily: typography.fonts.body,
-    color: colors.text.secondary,
-    lineHeight: typography.lineHeights.body2,
-  },
-  footer: {
-    padding: spacing.lg,
-    backgroundColor: colors.background.secondary,
-    borderTopWidth: 1,
-    borderTopColor: colors.navy,
-  },
-  continueButton: {
-    backgroundColor: colors.gold,
-    borderRadius: 12,
-    padding: spacing.md,
-    alignItems: 'center',
+  unlockButton: {
+    width: '100%',
     height: 56,
-    justifyContent: 'center',
+    borderRadius: 28,
+    overflow: 'hidden',
+    marginBottom: spacing.md,
   },
-  continueButtonText: {
+  gradientButton: {
+    width: '100%',
+    height: '100%',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  unlockButtonText: {
     fontSize: typography.sizes.button,
     fontFamily: typography.fonts.bodyBold,
     color: colors.charcoal,
+    textTransform: 'uppercase',
+    letterSpacing: 1,
+  },
+  backLink: {
+    padding: spacing.sm,
+  },
+  backLinkText: {
+    color: colors.text.tertiary,
+    fontFamily: typography.fonts.body,
+    textDecorationLine: 'underline',
+  },
+  // Selection State
+  selectionContainer: {
+    gap: spacing.md,
+  },
+  distilledContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: spacing.md,
+    opacity: 0.7,
+  },
+  distilledLabel: {
+    color: colors.text.tertiary,
+    fontFamily: typography.fonts.body,
+  },
+  distilledValue: {
+    color: colors.gold,
+    fontFamily: typography.fonts.mono,
+    letterSpacing: 2,
+  },
+  sectionTitle: {
+    fontSize: typography.sizes.h4,
+    fontFamily: typography.fonts.heading,
+    color: colors.text.primary,
+    marginBottom: spacing.sm,
+    marginLeft: spacing.xs,
+  },
+  styleCard: {
+    backgroundColor: colors.background.card,
+    borderRadius: 16,
+    padding: spacing.md,
+    borderWidth: 2,
+    borderColor: 'transparent',
+    marginBottom: spacing.sm,
+  },
+  styleCardActive: {
+    borderColor: colors.gold,
+    backgroundColor: 'rgba(62, 44, 91, 0.3)', // deepPurple with opacity
+  },
+  cardHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: spacing.md,
+  },
+  styleIcon: {
+    fontSize: 24,
+    marginRight: spacing.md,
+  },
+  headerText: {
+    flex: 1,
+  },
+  styleTitle: {
+    fontSize: 16,
+    fontFamily: typography.fonts.heading,
+    color: colors.text.primary,
+    marginBottom: 2,
+  },
+  styleDesc: {
+    fontSize: 12,
+    color: colors.text.tertiary,
+    fontFamily: typography.fonts.body,
+  },
+  textActive: {
+    color: colors.gold,
+  },
+  checkCircle: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    borderWidth: 2,
+    borderColor: colors.gold,
+    padding: 4,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  checkDot: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    backgroundColor: colors.gold,
+  },
+  mantraDisplay: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(0,0,0,0.2)',
+    borderRadius: 12,
+    padding: spacing.md,
+  },
+  mantraText: {
+    flex: 1,
+    fontSize: 18,
+    fontFamily: typography.fonts.heading,
+    color: colors.text.secondary,
+    textAlign: 'center',
+    letterSpacing: 1,
+  },
+  speakerButton: {
+    padding: spacing.sm,
+    backgroundColor: 'rgba(255,255,255,0.05)',
+    borderRadius: 8,
+    marginLeft: spacing.sm,
+  },
+  educationCard: {
+    backgroundColor: 'rgba(212, 175, 55, 0.1)', // Gold with low opacity
+    padding: spacing.md,
+    borderRadius: 12,
+    marginTop: spacing.md,
+    borderLeftWidth: 3,
+    borderLeftColor: colors.gold,
+  },
+  educationHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: spacing.xs,
+  },
+  educationTitle: {
+    fontSize: 14,
+    fontFamily: typography.fonts.bodyBold,
+    color: colors.gold,
+    marginLeft: spacing.xs,
+  },
+  educationText: {
+    fontSize: 13,
+    color: colors.text.secondary,
+    lineHeight: 20,
+    fontFamily: typography.fonts.body,
+  },
+  footer: {
+    marginTop: spacing.xl,
+    paddingVertical: spacing.md,
+    backgroundColor: 'transparent',
+  },
+  continueButton: {
+    backgroundColor: colors.gold,
+    height: 56,
+    borderRadius: 28,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: colors.gold,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 4,
+  },
+  continueText: {
+    fontSize: 16,
+    fontFamily: typography.fonts.bodyBold,
+    color: colors.charcoal,
+    marginRight: spacing.xs,
+    textTransform: 'uppercase',
+    letterSpacing: 1,
   },
 });
+
