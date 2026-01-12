@@ -11,3 +11,4 @@ export { AIAnalysisScreen } from './AIAnalysisScreen';
 export { AIGeneratingScreen } from './AIGeneratingScreen';
 export { AIVariationPickerScreen } from './AIVariationPickerScreen';
 export { MantraCreationScreen } from './MantraCreationScreen';
+export { default as ManualForgeScreen } from './ManualForgeScreen';
