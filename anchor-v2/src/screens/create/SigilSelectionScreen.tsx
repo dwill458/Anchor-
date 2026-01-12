@@ -61,6 +61,7 @@ export const SigilSelectionScreen: React.FC = () => {
     // State
     const [selectedVariant, setSelectedVariant] = useState<SigilVariant>('balanced');
     const [sigilResult, setSigilResult] = useState<ReturnType<typeof generateSigil> | null>(null);
+    const [error, setError] = useState<string | null>(null);
 
     /**
      * Generate sigils on mount
@@ -69,10 +70,27 @@ export const SigilSelectionScreen: React.FC = () => {
         try {
             const result = generateSigil(distilledLetters);
             setSigilResult(result);
+            setError(null);
         } catch (error) {
             console.error('Failed to generate sigil:', error);
+            setError(error instanceof Error ? error.message : 'Failed to generate sigil. Please try again.');
         }
     }, [distilledLetters]);
+
+    /**
+     * Handle retry after error
+     */
+    const handleRetry = (): void => {
+        setError(null);
+        setSigilResult(null);
+        try {
+            const result = generateSigil(distilledLetters);
+            setSigilResult(result);
+        } catch (error) {
+            console.error('Failed to generate sigil on retry:', error);
+            setError(error instanceof Error ? error.message : 'Failed to generate sigil. Please try again.');
+        }
+    };
 
     /**
      * Handle continue button press
@@ -140,6 +158,34 @@ export const SigilSelectionScreen: React.FC = () => {
         );
     };
 
+    // Show error state if generation failed
+    if (error) {
+        return (
+            <SafeAreaView style={styles.container}>
+                <View style={styles.errorContainer}>
+                    <Text style={styles.errorIcon}>⚠️</Text>
+                    <Text style={styles.errorTitle}>Generation Failed</Text>
+                    <Text style={styles.errorText}>{error}</Text>
+                    <TouchableOpacity
+                        style={styles.retryButton}
+                        onPress={handleRetry}
+                        activeOpacity={0.8}
+                    >
+                        <Text style={styles.retryButtonText}>Try Again</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                        style={styles.backButton}
+                        onPress={() => navigation.goBack()}
+                        activeOpacity={0.8}
+                    >
+                        <Text style={styles.backButtonText}>Go Back</Text>
+                    </TouchableOpacity>
+                </View>
+            </SafeAreaView>
+        );
+    }
+
+    // Show loading state while generating
     if (!sigilResult) {
         return (
             <SafeAreaView style={styles.container}>
@@ -207,7 +253,7 @@ export const SigilSelectionScreen: React.FC = () => {
                     onPress={handleContinue}
                 >
                     <Text style={styles.continueButtonText}>
-                        Continue to Charging Ritual
+                        Continue
                     </Text>
                 </TouchableOpacity>
             </View>
@@ -233,6 +279,55 @@ const styles = StyleSheet.create({
         fontSize: typography.sizes.body1,
         fontFamily: typography.fonts.body,
         color: colors.text.secondary,
+    },
+    errorContainer: {
+        flex: 1,
+        justifyContent: 'center',
+        alignItems: 'center',
+        paddingHorizontal: spacing.xl,
+    },
+    errorIcon: {
+        fontSize: 64,
+        marginBottom: spacing.lg,
+    },
+    errorTitle: {
+        fontSize: typography.sizes.h2,
+        fontFamily: typography.fonts.heading,
+        color: colors.error,
+        marginBottom: spacing.md,
+        textAlign: 'center',
+    },
+    errorText: {
+        fontSize: typography.sizes.body1,
+        fontFamily: typography.fonts.body,
+        color: colors.text.secondary,
+        textAlign: 'center',
+        marginBottom: spacing.xl,
+        lineHeight: typography.lineHeights.body1,
+    },
+    retryButton: {
+        backgroundColor: colors.gold,
+        borderRadius: 12,
+        paddingVertical: spacing.md,
+        paddingHorizontal: spacing.xl,
+        marginBottom: spacing.md,
+        minWidth: 200,
+    },
+    retryButtonText: {
+        fontSize: typography.sizes.button,
+        fontFamily: typography.fonts.bodyBold,
+        color: colors.charcoal,
+        textAlign: 'center',
+    },
+    backButton: {
+        paddingVertical: spacing.md,
+        paddingHorizontal: spacing.xl,
+    },
+    backButtonText: {
+        fontSize: typography.sizes.button,
+        fontFamily: typography.fonts.body,
+        color: colors.text.secondary,
+        textAlign: 'center',
     },
     header: {
         marginBottom: spacing.xl,
