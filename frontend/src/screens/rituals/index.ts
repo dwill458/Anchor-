@@ -5,6 +5,7 @@
  */
 
 export { ChargeChoiceScreen } from './ChargeChoiceScreen';
+export { EmotionalPrimingScreen } from './EmotionalPrimingScreen';
 export { QuickChargeScreen } from './QuickChargeScreen';
 export { DeepChargeScreen } from './DeepChargeScreen';
 export { ActivationScreen } from './ActivationScreen';

@@ -29,17 +29,25 @@ export const ChargeChoiceScreen: React.FC = () => {
   const anchor = getAnchorById(anchorId);
 
   /**
-   * Navigate to Quick Charge (30s)
+   * Navigate to Quick Charge (30s) via Emotional Priming
    */
   const handleQuickCharge = (): void => {
-    navigation.navigate('QuickCharge', { anchorId, chargeType });
+    navigation.navigate('EmotionalPriming', {
+      anchorId,
+      intention: anchor?.intentionText || '',
+      chargeType: 'quick'
+    });
   };
 
   /**
-   * Navigate to Deep Charge (5min)
+   * Navigate to Deep Charge (5min) via Emotional Priming
    */
   const handleDeepCharge = (): void => {
-    navigation.navigate('DeepCharge', { anchorId, chargeType });
+    navigation.navigate('EmotionalPriming', {
+      anchorId,
+      intention: anchor?.intentionText || '',
+      chargeType: 'deep'
+    });
   };
 
   if (!anchor) {
