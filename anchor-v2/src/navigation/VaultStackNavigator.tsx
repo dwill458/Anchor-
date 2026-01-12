@@ -19,6 +19,7 @@ import {
 } from '../screens/create';
 import {
   ChargeChoiceScreen,
+  EmotionalPrimingScreen,
   QuickChargeScreen,
   DeepChargeScreen,
   ActivationScreen,
@@ -105,6 +106,12 @@ export const VaultStackNavigator: React.FC = () => {
         name="ChargingRitual"
         component={ChargeChoiceScreen}
         options={{ title: 'Charge Anchor' }}
+      />
+      {/* Phase 2.6: Emotional Priming */}
+      <Stack.Screen
+        name="EmotionalPriming"
+        component={EmotionalPrimingScreen}
+        options={{ title: 'Prepare', headerShown: false }}
       />
       <Stack.Screen
         name="QuickCharge"
