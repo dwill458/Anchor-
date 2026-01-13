@@ -23,7 +23,8 @@ import * as Speech from 'expo-speech';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Lock, Volume2, Play, Pause, RefreshCw, ChevronRight, Info } from 'lucide-react-native';
 import { colors, spacing, typography } from '@/theme';
-import { RootStackParamList } from '@/types';
+import { RootStackParamList, Anchor } from '@/types';
+import { useAnchorStore } from '../../stores/anchorStore';
 
 type MantraCreationRouteProp = RouteProp<RootStackParamList, 'MantraCreation'>;
 type MantraCreationNavigationProp = StackNavigationProp<RootStackParamList, 'MantraCreation'>;
@@ -71,7 +72,8 @@ const MANTRA_STYLES: MantraStyleInfo[] = [
 export const MantraCreationScreen: React.FC = () => {
   const navigation = useNavigation<MantraCreationNavigationProp>();
   const route = useRoute<MantraCreationRouteProp>();
-  const { intentionText, distilledLetters } = route.params;
+  const { intentionText, distilledLetters, sigilSvg } = route.params;
+  const { addAnchor } = useAnchorStore();
 
   // Mock User State (Replace with real auth/subscription context later)
   const [isPro, setIsPro] = useState(false); // Default to FREE for testing
@@ -174,8 +176,28 @@ export const MantraCreationScreen: React.FC = () => {
 
   const handleContinue = () => {
     if (!mantra) return;
+
+    const anchorId = `temp-${Date.now()}`;
+
+    // Create the final anchor object and save to store
+    const newAnchor: Anchor = {
+      id: anchorId,
+      userId: 'user-123', // Mock user ID for MVP
+      intentionText,
+      category: 'custom',
+      distilledLetters,
+      baseSigilSvg: sigilSvg,
+      mantraText: mantra[selectedStyle],
+      isCharged: false,
+      activationCount: 0,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
+
+    addAnchor(newAnchor);
+
     navigation.navigate('ChargeChoice', {
-      anchorId: `temp-${Date.now()}`,
+      anchorId: anchorId,
     });
   };
 

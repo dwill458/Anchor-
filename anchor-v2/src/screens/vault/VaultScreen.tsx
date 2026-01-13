@@ -15,6 +15,7 @@ import {
   TouchableOpacity,
   Dimensions,
 } from 'react-native';
+import { Plus } from 'lucide-react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
@@ -159,8 +160,9 @@ export const VaultScreen: React.FC = () => {
 
       {/* Floating Create Button */}
       {anchors.length > 0 && (
-        <TouchableOpacity style={styles.fab} onPress={handleCreateAnchor}>
-          <Text style={styles.fabIcon}>+</Text>
+        <TouchableOpacity style={styles.fab} onPress={handleCreateAnchor} activeOpacity={0.9}>
+          <Plus color={colors.charcoal} size={20} style={styles.fabIcon} />
+          <Text style={styles.fabText}>Forge Anchor</Text>
         </TouchableOpacity>
       )}
     </SafeAreaView>
@@ -236,14 +238,14 @@ const styles = StyleSheet.create({
   },
   fab: {
     position: 'absolute',
-    bottom: spacing.xl,
-    right: spacing.xl,
-    width: 56,
-    height: 56,
-    borderRadius: 28,
+    bottom: 120, // Raised to clear the floating tab bar
+    right: spacing.lg,
     backgroundColor: colors.gold,
+    flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.md,
+    borderRadius: 30,
     elevation: 8,
     shadowColor: colors.charcoal,
     shadowOffset: { width: 0, height: 4 },
@@ -251,8 +253,13 @@ const styles = StyleSheet.create({
     shadowRadius: 8,
   },
   fabIcon: {
-    fontSize: 32,
+    marginRight: spacing.xs,
+  },
+  fabText: {
+    fontSize: typography.sizes.body1,
+    fontFamily: typography.fonts.bodyBold,
     color: colors.charcoal,
-    fontWeight: 'bold',
+    textTransform: 'uppercase',
+    letterSpacing: 1,
   },
 });

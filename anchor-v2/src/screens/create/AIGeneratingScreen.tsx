@@ -63,7 +63,8 @@ export const AIGeneratingScreen: React.FC = () => {
   useEffect(() => {
     startAnimations();
     startGeneration();
-    startMessageRotation();
+    const cleanup = startMessageRotation();
+    return () => cleanup();
   }, []);
 
   /**
@@ -99,7 +100,7 @@ export const AIGeneratingScreen: React.FC = () => {
   /**
    * Rotate loading messages
    */
-  const startMessageRotation = (): void => {
+  const startMessageRotation = (): (() => void) => {
     const interval = setInterval(() => {
       // Fade out
       Animated.timing(fadeAnim, {

@@ -51,7 +51,7 @@ export const VaultStackNavigator: React.FC = () => {
       <Stack.Screen
         name="Vault"
         component={VaultScreen}
-        options={{ title: 'My Anchors' }}
+        options={{ headerShown: false }}
       />
       <Stack.Screen
         name="AnchorDetail"
