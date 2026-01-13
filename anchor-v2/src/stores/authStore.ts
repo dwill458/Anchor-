@@ -26,6 +26,8 @@ interface AuthState {
   setToken: (token: string | null) => void;
   setLoading: (loading: boolean) => void;
   completeOnboarding: () => void;
+  setAuthenticated: (isAuthenticated: boolean) => void;
+  setHasCompletedOnboarding: (completed: boolean) => void;
   signOut: () => void;
 }
 
@@ -62,6 +64,16 @@ export const useAuthStore = create<AuthState>()(
       completeOnboarding: () =>
         set({
           hasCompletedOnboarding: true,
+        }),
+
+      setAuthenticated: (isAuthenticated) =>
+        set({
+          isAuthenticated,
+        }),
+
+      setHasCompletedOnboarding: (hasCompletedOnboarding) =>
+        set({
+          hasCompletedOnboarding,
         }),
 
       signOut: () =>
