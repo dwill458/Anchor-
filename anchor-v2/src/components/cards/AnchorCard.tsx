@@ -1,13 +1,11 @@
 /**
- * Anchor App - Anchor Card Component
- *
- * Displays a single anchor in the Vault grid.
- * Shows sigil, intention text, category badge, and charged status.
+ * Anchor App - Anchor Card (Premium Redesign)
  */
 
 import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
-import Svg, { SvgXml } from 'react-native-svg';
+import { View, Text, StyleSheet, TouchableOpacity, Platform } from 'react-native';
+import { SvgXml } from 'react-native-svg';
+import { BlurView } from 'expo-blur';
 import type { Anchor } from '@/types';
 import { colors, spacing, typography } from '@/theme';
 
@@ -16,13 +14,7 @@ interface AnchorCardProps {
   onPress: (anchor: Anchor) => void;
 }
 
-/**
- * Category display names and colors
- */
-const CATEGORY_CONFIG: Record<
-  string,
-  { label: string; color: string }
-> = {
+const CATEGORY_CONFIG: Record<string, { label: string; color: string }> = {
   career: { label: 'Career', color: colors.gold },
   health: { label: 'Health', color: colors.success },
   wealth: { label: 'Wealth', color: colors.bronze },
@@ -36,113 +28,119 @@ export const AnchorCard: React.FC<AnchorCardProps> = ({ anchor, onPress }) => {
 
   return (
     <TouchableOpacity
-      style={styles.card}
+      style={styles.container}
       onPress={() => onPress(anchor)}
-      activeOpacity={0.7}
+      activeOpacity={0.8}
     >
-      {/* Charged Badge */}
-      {anchor.isCharged && (
-        <View style={styles.chargedBadge}>
-          <Text style={styles.chargedText}>⚡</Text>
-        </View>
-      )}
-
-      {/* Sigil Display */}
-      <View style={styles.sigilContainer}>
-        <SvgXml
-          xml={anchor.baseSigilSvg}
-          width="100%"
-          height="100%"
-        />
-      </View>
-
-      {/* Intention Text */}
-      <View style={styles.textContainer}>
-        <Text style={styles.intentionText} numberOfLines={2}>
-          {anchor.intentionText}
-        </Text>
-      </View>
-
-      {/* Footer */}
-      <View style={styles.footer}>
-        {/* Category Badge */}
-        <View style={[styles.categoryBadge, { borderColor: categoryConfig.color }]}>
-          <Text style={[styles.categoryText, { color: categoryConfig.color }]}>
-            {categoryConfig.label}
-          </Text>
-        </View>
-
-        {/* Activation Count */}
-        {anchor.activationCount > 0 && (
-          <Text style={styles.activationCount}>
-            {anchor.activationCount} {anchor.activationCount === 1 ? 'use' : 'uses'}
-          </Text>
+      <View style={[styles.card, Platform.OS === 'android' && styles.androidCard]}>
+        {Platform.OS === 'ios' && (
+          <BlurView intensity={20} tint="dark" style={StyleSheet.absoluteFill} />
         )}
+
+        <View style={styles.content}>
+          <View style={styles.sigilContainer}>
+            <View style={styles.sigilWrapper}>
+              <SvgXml xml={anchor.baseSigilSvg} width="100%" height="100%" />
+            </View>
+            {anchor.isCharged && (
+              <View style={styles.chargedIndicator}>
+                <Text style={styles.chargedIcon}>⚡</Text>
+              </View>
+            )}
+          </View>
+
+          <Text style={styles.intentionText} numberOfLines={2}>
+            {anchor.intentionText}
+          </Text>
+
+          <View style={styles.footer}>
+            <View style={[styles.badge, { borderColor: categoryConfig.color }]}>
+              <Text style={[styles.badgeText, { color: categoryConfig.color }]}>
+                {categoryConfig.label}
+              </Text>
+            </View>
+            {anchor.activationCount > 0 && (
+              <Text style={styles.usesText}>{anchor.activationCount}⚡</Text>
+            )}
+          </View>
+        </View>
       </View>
     </TouchableOpacity>
   );
 };
 
 const styles = StyleSheet.create({
-  card: {
-    backgroundColor: colors.background.card,
-    borderRadius: 12,
-    padding: spacing.md,
+  container: {
     marginBottom: spacing.md,
+  },
+  card: {
+    borderRadius: 20,
+    overflow: 'hidden',
     borderWidth: 1,
-    borderColor: colors.navy,
-    position: 'relative',
+    borderColor: 'rgba(212, 175, 55, 0.15)',
+    backgroundColor: 'transparent',
   },
-  chargedBadge: {
-    position: 'absolute',
-    top: spacing.sm,
-    right: spacing.sm,
-    backgroundColor: colors.gold,
-    borderRadius: 12,
-    width: 24,
-    height: 24,
-    alignItems: 'center',
-    justifyContent: 'center',
-    zIndex: 1,
+  androidCard: {
+    backgroundColor: 'rgba(26, 26, 29, 0.9)',
   },
-  chargedText: {
-    fontSize: 12,
+  content: {
+    padding: 12,
   },
   sigilContainer: {
     aspectRatio: 1,
-    backgroundColor: colors.background.secondary,
+    backgroundColor: 'rgba(255, 255, 255, 0.03)',
+    borderRadius: 12,
+    padding: 12,
+    marginBottom: 12,
+    position: 'relative',
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.05)',
+  },
+  sigilWrapper: {
+    width: '100%',
+    height: '100%',
+  },
+  chargedIndicator: {
+    position: 'absolute',
+    top: 8,
+    right: 8,
+    backgroundColor: 'rgba(212, 175, 55, 0.2)',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
     borderRadius: 8,
-    padding: spacing.sm,
-    marginBottom: spacing.md,
+    borderWidth: 1,
+    borderColor: colors.gold,
   },
-  textContainer: {
-    minHeight: 44,
-    marginBottom: spacing.sm,
-  },
+  chargedIcon: { fontSize: 10, color: colors.gold },
   intentionText: {
-    fontSize: typography.sizes.body2,
+    fontSize: 14,
     fontFamily: typography.fonts.body,
-    color: colors.text.primary,
-    lineHeight: typography.lineHeights.body2,
+    color: colors.bone,
+    lineHeight: 18,
+    marginBottom: 12,
+    height: 36,
   },
   footer: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
   },
-  categoryBadge: {
+  badge: {
     borderWidth: 1,
-    borderRadius: 4,
-    paddingHorizontal: spacing.sm,
-    paddingVertical: spacing.xs,
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 6,
   },
-  categoryText: {
-    fontSize: typography.sizes.caption,
+  badgeText: {
+    fontSize: 10,
     fontFamily: typography.fonts.bodyBold,
+    textTransform: 'uppercase',
   },
-  activationCount: {
-    fontSize: typography.sizes.caption,
+  usesText: {
+    fontSize: 11,
+    color: colors.silver,
     fontFamily: typography.fonts.body,
-    color: colors.text.tertiary,
   },
 });
