@@ -61,7 +61,7 @@ export const PostForgeChoiceScreen: React.FC = () => {
   const navigation = useNavigation<PostForgeChoiceNavigationProp>();
   const route = useRoute<PostForgeChoiceRouteProp>();
 
-  const { intentionText, distilledLetters, sigilSvg } = route.params;
+  const { intentionText, distilledLetters, sigilSvg, category } = route.params;
 
   const handleSelect = (optionId: 'keep' | 'ai'): void => {
     if (optionId === 'ai') {
@@ -71,6 +71,7 @@ export const PostForgeChoiceScreen: React.FC = () => {
         distilledLetters,
         sigilSvg,
         sigilVariant: 'manual' as any, // Mark as manual for tracking
+        category,
       });
     } else {
       // Keep manual sigil, go directly to mantra creation
@@ -79,6 +80,7 @@ export const PostForgeChoiceScreen: React.FC = () => {
         distilledLetters,
         sigilSvg,
         finalImageUrl: undefined, // Will use SVG
+        category,
       });
     }
   };

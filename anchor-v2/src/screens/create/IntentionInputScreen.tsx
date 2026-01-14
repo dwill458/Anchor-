@@ -1,615 +1,740 @@
-/**
- * Anchor App - Intention Input Screen (Premium Redesign)
- */
-
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
     View,
-    ScrollView,
+    Text,
     TextInput,
     TouchableOpacity,
-    Text,
-    Animated,
-    Platform,
-    KeyboardAvoidingView,
-    Dimensions,
     StyleSheet,
+    SafeAreaView,
+    ScrollView,
+    KeyboardAvoidingView,
+    Platform,
+    Animated,
+    Dimensions,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { LinearGradient } from 'expo-linear-gradient';
 import { BlurView } from 'expo-blur';
+import { StatusBar } from 'expo-status-bar';
 import { useNavigation } from '@react-navigation/native';
-import type { StackNavigationProp } from '@react-navigation/stack';
+import { StackNavigationProp } from '@react-navigation/stack';
+import { RootStackParamList, AnchorCategory } from '@/types';
+import { distillIntention } from '@/utils/sigil/distillation';
 
-// Theme and types
-import { colors, spacing, typography } from '@/theme';
-import type { RootStackParamList, AnchorCategory } from '@/types';
-import { distillIntention, validateIntention } from '@/utils/sigil/distillation';
+const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
-type NavigationProp = StackNavigationProp<RootStackParamList, 'CreateAnchor'>;
+// Design System Colors (Zen Architect)
+const colors = {
+    navy: '#0F1419',
+    charcoal: '#1A1A1D',
+    gold: '#D4AF37',
+    bone: '#F5F5DC',
+    silver: '#C0C0C0',
+    deepPurple: '#3E2C5B',
+    bronze: '#CD7F32',
+    success: '#4CAF50',
+    warning: '#FF8C00',
+};
 
-interface FormattingFeedback {
-    type: 'error' | 'warning' | 'success';
-    message: string;
-}
-
-interface CategoryOption {
+interface CategoryData {
     id: AnchorCategory;
     label: string;
-    icon: string;
+    emoji: string;
     color: string;
 }
 
-const CATEGORIES: CategoryOption[] = [
-    { id: 'career', label: 'Career', icon: '💼', color: colors.gold },
-    { id: 'health', label: 'Health', icon: '🧘', color: colors.success },
-    { id: 'wealth', label: 'Wealth', icon: '💰', color: colors.bronze },
-    { id: 'relationships', label: 'Love', icon: '💕', color: colors.deepPurple },
-    { id: 'personal_growth', label: 'Growth', icon: '🌱', color: colors.silver },
+const CATEGORIES: CategoryData[] = [
+    { id: 'career', label: 'Career', emoji: '💼', color: colors.gold },
+    { id: 'health', label: 'Health', emoji: '⚕️', color: colors.success },
+    { id: 'wealth', label: 'Wealth', emoji: '💰', color: colors.bronze },
+    { id: 'relationships', label: 'Love', emoji: '💕', color: colors.deepPurple },
+    { id: 'personal_growth', label: 'Growth', emoji: '🌱', color: colors.silver },
 ];
 
 const EXAMPLE_INTENTIONS = [
-    { text: 'I am confident and capable', category: 'personal_growth' as AnchorCategory },
-    { text: 'My business thrives with abundance', category: 'wealth' as AnchorCategory },
-    { text: 'I attract meaningful relationships', category: 'relationships' as AnchorCategory },
-    { text: 'I am healthy and vibrant', category: 'health' as AnchorCategory },
-    { text: 'I excel in my career', category: 'career' as AnchorCategory },
+    'I am confident and capable',
+    'My business thrives with abundance',
+    'I attract meaningful relationships',
+    'I excel in my career',
+    'I embrace healthy habits daily',
 ];
 
-const FORMATTING_TIPS = [
-    'Use present tense: "I am" not "I will be"',
-    'Be declarative: "I attract" not "I want"',
-    'Avoid uncertainty: "I am" not "I might be"',
-    'Feel the emotion: Make it emotionally vivid',
-    'Keep it concise: 3-15 words works best',
-];
+type NavigationProp = StackNavigationProp<RootStackParamList, 'CreateAnchor'>;
 
-export const IntentionInputScreen: React.FC = () => {
+export default function IntentionInputScreen() {
     const navigation = useNavigation<NavigationProp>();
+
     const [intention, setIntention] = useState('');
     const [selectedCategory, setSelectedCategory] = useState<AnchorCategory>('personal_growth');
     const [showTips, setShowTips] = useState(false);
-    const [formattingFeedback, setFormattingFeedback] = useState<FormattingFeedback | null>(null);
-    const [distillation, setDistillation] = useState<ReturnType<typeof distillIntention> | null>(null);
+    const [charCount, setCharCount] = useState(0);
 
-    const [tipsHeight] = useState(new Animated.Value(0));
-    const [orbOpacity] = useState(new Animated.Value(0));
+    const fadeAnim = useRef(new Animated.Value(0)).current;
+    const slideAnim = useRef(new Animated.Value(30)).current;
+    const inputRef = useRef<TextInput>(null);
 
-    // Animate floating orbs on mount (iOS Only)
+    const maxChars = 100;
+    const minChars = 3;
+    const isValid = charCount >= minChars && charCount <= maxChars;
+
     useEffect(() => {
-        if (Platform.OS === 'ios') {
-            Animated.loop(
-                Animated.sequence([
-                    Animated.timing(orbOpacity, {
-                        toValue: 0.3,
-                        duration: 3000,
-                        useNativeDriver: true,
-                    }),
-                    Animated.timing(orbOpacity, {
-                        toValue: 0.1,
-                        duration: 3000,
-                        useNativeDriver: true,
-                    }),
-                ])
-            ).start();
+        Animated.parallel([
+            Animated.timing(fadeAnim, {
+                toValue: 1,
+                duration: 600,
+                useNativeDriver: true,
+            }),
+            Animated.spring(slideAnim, {
+                toValue: 0,
+                tension: 50,
+                friction: 8,
+                useNativeDriver: true,
+            }),
+        ]).start();
+    }, []);
+
+    const handleIntentionChange = (text: string) => {
+        if (text.length <= maxChars) {
+            setIntention(text);
+            setCharCount(text.length);
         }
-    }, [orbOpacity]);
-
-    // Check formatting and validation
-    useEffect(() => {
-        if (intention.length === 0) {
-            setFormattingFeedback(null);
-            setDistillation(null);
-            return;
-        }
-
-        const validation = validateIntention(intention);
-
-        if (!validation.isValid) {
-            setFormattingFeedback({
-                type: 'error',
-                message: validation.error || 'Invalid intention',
-            });
-            setDistillation(null);
-            return;
-        }
-
-        // Check formatting
-        const weakPatterns = [
-            { pattern: /\b(want|wish|hope|try|might|maybe|could|should)\b/i, message: 'Use present tense instead' },
-            { pattern: /\bI will\b/i, message: 'Use "I am" instead of "I will"' },
-            { pattern: /\b(possibly|probably|maybe)\b/i, message: 'Avoid uncertainty words' },
-        ];
-
-        let feedback: FormattingFeedback | null = null;
-        for (const { pattern, message } of weakPatterns) {
-            if (pattern.test(intention)) {
-                feedback = { type: 'warning', message };
-                break;
-            }
-        }
-
-        if (!feedback) {
-            feedback = { type: 'success', message: '✨ Perfect phrasing!' };
-        }
-
-        setFormattingFeedback(feedback);
-
-        // Distill the intention
-        const result = distillIntention(intention);
-        setDistillation(result);
-    }, [intention]);
-
-    const toggleTips = () => {
-        Animated.timing(tipsHeight, {
-            toValue: showTips ? 0 : 1,
-            duration: 300,
-            useNativeDriver: false,
-        }).start();
-        setShowTips(!showTips);
     };
 
-    const handleSelectExample = (example: (typeof EXAMPLE_INTENTIONS)[0]) => {
-        setIntention(example.text);
-        setSelectedCategory(example.category);
+    const handleExamplePress = (example: string) => {
+        setIntention(example);
+        setCharCount(example.length);
     };
 
     const handleContinue = () => {
-        if (!distillation || !validateIntention(intention).isValid) {
-            return;
-        }
+        if (isValid) {
+            const distillation = distillIntention(intention);
 
-        navigation.navigate('SigilSelection', {
-            intentionText: intention,
-            category: selectedCategory,
-            distilledLetters: distillation.finalLetters,
-        });
+            // Navigate to SigilSelection with required params
+            navigation.navigate('SigilSelection', {
+                intentionText: intention,
+                category: selectedCategory,
+                distilledLetters: distillation.finalLetters,
+            });
+        }
     };
 
-    const canContinue = !!(distillation && validateIntention(intention).isValid);
-    const screenHeight = Dimensions.get('window').height;
+    const handleBack = () => {
+        navigation.goBack();
+    };
 
     return (
-        <SafeAreaView style={styles.container} edges={['top', 'left', 'right']}>
+        <View style={styles.container}>
+            <StatusBar style="light" />
+
             {/* Animated Background */}
-            <View style={StyleSheet.absoluteFill}>
-                <View style={[StyleSheet.absoluteFill, { backgroundColor: colors.navy }]} />
+            <LinearGradient
+                colors={[colors.navy, colors.deepPurple, colors.charcoal]}
+                style={styles.background}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+            />
 
-                {/* Floating Orbs (iOS Only) */}
-                {Platform.OS === 'ios' && (
-                    <>
-                        <Animated.View
-                            style={[
-                                styles.orb,
-                                {
-                                    width: 300,
-                                    height: 300,
-                                    borderRadius: 150,
-                                    backgroundColor: colors.deepPurple,
-                                    top: -100,
-                                    right: -100,
-                                    opacity: orbOpacity,
-                                },
-                            ]}
-                        />
-                        <Animated.View
-                            style={[
-                                styles.orb,
-                                {
-                                    width: 200,
-                                    height: 200,
-                                    borderRadius: 100,
-                                    backgroundColor: colors.gold,
-                                    bottom: -50,
-                                    left: -50,
-                                    opacity: orbOpacity,
-                                },
-                            ]}
-                        />
-                    </>
-                )}
-            </View>
+            {/* Floating Orbs */}
+            <Animated.View
+                style={[
+                    styles.orb,
+                    styles.orb1,
+                    {
+                        opacity: fadeAnim.interpolate({
+                            inputRange: [0, 1],
+                            outputRange: [0, 0.12],
+                        }),
+                    },
+                ]}
+            />
+            <Animated.View
+                style={[
+                    styles.orb,
+                    styles.orb2,
+                    {
+                        opacity: fadeAnim.interpolate({
+                            inputRange: [0, 1],
+                            outputRange: [0, 0.08],
+                        }),
+                    },
+                ]}
+            />
 
-            {/* Content */}
-            <KeyboardAvoidingView
-                behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-                style={{ flex: 1 }}
-            >
-                <ScrollView
-                    contentContainerStyle={{ flexGrow: 1, paddingBottom: 120 }}
-                    showsVerticalScrollIndicator={false}
-                    keyboardShouldPersistTaps="handled"
+            <SafeAreaView style={styles.safeArea}>
+                <KeyboardAvoidingView
+                    behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+                    style={styles.keyboardView}
                 >
-                    <View style={{ paddingHorizontal: spacing.lg, paddingTop: spacing.lg }}>
-                        {/* Header */}
-                        <View style={{ marginBottom: spacing.xl }}>
+                    {/* Header */}
+                    <View style={styles.header}>
+                        <TouchableOpacity
+                            onPress={handleBack}
+                            style={styles.backButton}
+                            activeOpacity={0.7}
+                        >
+                            <Text style={styles.backIcon}>←</Text>
+                        </TouchableOpacity>
+                        <Text style={styles.headerTitle}>Create Anchor</Text>
+                        <View style={styles.backButton} />
+                    </View>
+
+                    <ScrollView
+                        style={styles.scrollView}
+                        contentContainerStyle={styles.scrollContent}
+                        showsVerticalScrollIndicator={false}
+                        keyboardShouldPersistTaps="handled"
+                    >
+                        {/* Title Section */}
+                        <Animated.View
+                            style={[
+                                styles.titleSection,
+                                {
+                                    opacity: fadeAnim,
+                                    transform: [{ translateY: slideAnim }],
+                                },
+                            ]}
+                        >
                             <Text style={styles.title}>What is your intention?</Text>
                             <Text style={styles.subtitle}>
-                                Enter a clear, focused intention. This could be a goal, affirmation, or desire.
+                                Enter a clear, focused intention. This could be a goal,
+                                affirmation, or desire.
                             </Text>
-                        </View>
+                        </Animated.View>
 
                         {/* Category Selection */}
-                        <View style={{ marginBottom: spacing.lg }}>
+                        <Animated.View
+                            style={[
+                                styles.section,
+                                {
+                                    opacity: fadeAnim,
+                                    transform: [
+                                        {
+                                            translateY: slideAnim.interpolate({
+                                                inputRange: [0, 30],
+                                                outputRange: [0, 40],
+                                            }),
+                                        },
+                                    ],
+                                },
+                            ]}
+                        >
                             <Text style={styles.sectionLabel}>CATEGORY</Text>
-                            <View style={styles.categoryContainer}>
-                                {CATEGORIES.map((cat) => (
+                            <View style={styles.categoriesContainer}>
+                                {CATEGORIES.map((category) => (
                                     <TouchableOpacity
-                                        key={cat.id}
-                                        onPress={() => setSelectedCategory(cat.id)}
-                                        style={[
-                                            styles.categoryButton,
-                                            {
-                                                backgroundColor: selectedCategory === cat.id ? cat.color : colors.background.secondary,
-                                                borderColor: selectedCategory === cat.id ? colors.gold : colors.background.secondary,
-                                            },
-                                        ]}
+                                        key={category.id}
+                                        onPress={() => setSelectedCategory(category.id)}
                                         activeOpacity={0.7}
                                     >
-                                        <Text style={[styles.categoryText, { color: selectedCategory === cat.id ? colors.charcoal : colors.text.primary }]}>
-                                            {cat.icon} {cat.label}
-                                        </Text>
+                                        <BlurView
+                                            intensity={
+                                                selectedCategory === category.id ? 20 : 10
+                                            }
+                                            tint="dark"
+                                            style={[
+                                                styles.categoryChip,
+                                                selectedCategory === category.id &&
+                                                styles.categoryChipSelected,
+                                            ]}
+                                        >
+                                            <Text style={styles.categoryEmoji}>
+                                                {category.emoji}
+                                            </Text>
+                                            <Text
+                                                style={[
+                                                    styles.categoryLabel,
+                                                    selectedCategory === category.id &&
+                                                    styles.categoryLabelSelected,
+                                                ]}
+                                            >
+                                                {category.label}
+                                            </Text>
+                                        </BlurView>
                                     </TouchableOpacity>
                                 ))}
                             </View>
-                        </View>
+                        </Animated.View>
 
-                        {/* Input Area - Glass Card */}
-                        <View style={styles.glassContainer}>
-                            {Platform.OS === 'ios' ? (
-                                <BlurView intensity={20} tint="dark" style={styles.blurContainer}>
-                                    <TextInput
-                                        style={styles.input}
-                                        placeholder="e.g., I am confident and capable"
-                                        placeholderTextColor={colors.text.tertiary}
-                                        multiline
-                                        maxLength={100}
-                                        value={intention}
-                                        onChangeText={setIntention}
-                                    />
-                                </BlurView>
-                            ) : (
-                                <View style={[styles.blurContainer, { backgroundColor: 'rgba(26,26,29,0.95)' }]}>
-                                    <TextInput
-                                        style={styles.input}
-                                        placeholder="e.g., I am confident and capable"
-                                        placeholderTextColor={colors.text.tertiary}
-                                        multiline
-                                        maxLength={100}
-                                        value={intention}
-                                        onChangeText={setIntention}
-                                    />
-                                </View>
-                            )}
-                        </View>
-
-                        {/* Character Count */}
-                        <View style={styles.charCountContainer}>
-                            <Text style={styles.charCountText}>
-                                {intention.length} / 100
-                            </Text>
-                        </View>
-
-                        {/* Formatting Feedback */}
-                        {formattingFeedback && (
-                            <View
-                                style={[
-                                    styles.feedbackBanner,
-                                    {
-                                        backgroundColor:
-                                            formattingFeedback.type === 'error'
-                                                ? 'rgba(244, 67, 54, 0.1)'
-                                                : formattingFeedback.type === 'warning'
-                                                    ? 'rgba(255, 152, 0, 0.1)'
-                                                    : 'rgba(76, 175, 80, 0.1)',
-                                        borderLeftColor:
-                                            formattingFeedback.type === 'error'
-                                                ? colors.error
-                                                : formattingFeedback.type === 'warning'
-                                                    ? colors.warning
-                                                    : colors.success,
-                                    },
-                                ]}
-                            >
-                                <Text
-                                    style={[
-                                        styles.feedbackText,
+                        {/* Intention Input */}
+                        <Animated.View
+                            style={[
+                                styles.section,
+                                {
+                                    opacity: fadeAnim,
+                                    transform: [
                                         {
-                                            color:
-                                                formattingFeedback.type === 'error'
-                                                    ? colors.error
-                                                    : formattingFeedback.type === 'warning'
-                                                        ? colors.warning
-                                                        : colors.success,
+                                            translateY: slideAnim.interpolate({
+                                                inputRange: [0, 30],
+                                                outputRange: [0, 50],
+                                            }),
                                         },
-                                    ]}
-                                >
-                                    {formattingFeedback.message}
-                                </Text>
-                            </View>
-                        )}
+                                    ],
+                                },
+                            ]}
+                        >
+                            <BlurView intensity={12} tint="dark" style={styles.inputCard}>
+                                <TextInput
+                                    ref={inputRef}
+                                    style={styles.textInput}
+                                    value={intention}
+                                    onChangeText={handleIntentionChange}
+                                    placeholder="e.g., I am confident and capable"
+                                    placeholderTextColor={`${colors.silver}60`}
+                                    multiline
+                                    maxLength={maxChars}
+                                    autoCapitalize="sentences"
+                                    autoCorrect={true}
+                                />
 
-                        {/* Distillation Preview */}
-                        {distillation && (
-                            <View style={styles.distillationContainer}>
-                                {Platform.OS === 'ios' ? (
-                                    <BlurView intensity={10} tint="dark" style={styles.distillationContent}>
-                                        <Text style={styles.sectionLabel}>DISTILLED LETTERS</Text>
-                                        <View style={styles.lettersGrid}>
-                                            {distillation.finalLetters.map((letter, i) => (
-                                                <View key={i} style={styles.letterBox}>
-                                                    <Text style={styles.letterText}>{letter}</Text>
-                                                </View>
-                                            ))}
-                                        </View>
-                                        <View style={styles.distillationStats}>
-                                            <Text style={styles.statText}>🗑️ {distillation.removedVowels.length} vowels</Text>
-                                            <Text style={styles.statText}>♻️ {distillation.removedDuplicates.length} duplicates</Text>
-                                        </View>
-                                    </BlurView>
-                                ) : (
-                                    <View style={[styles.distillationContent, { backgroundColor: 'rgba(25,25,30,0.9)' }]}>
-                                        <Text style={styles.sectionLabel}>DISTILLED LETTERS</Text>
-                                        <View style={styles.lettersGrid}>
-                                            {distillation.finalLetters.map((letter, i) => (
-                                                <View key={i} style={styles.letterBox}>
-                                                    <Text style={styles.letterText}>{letter}</Text>
-                                                </View>
-                                            ))}
-                                        </View>
-                                        <View style={styles.distillationStats}>
-                                            <Text style={styles.statText}>🗑️ {distillation.removedVowels.length} vowels</Text>
-                                            <Text style={styles.statText}>♻️ {distillation.removedDuplicates.length} duplicates</Text>
-                                        </View>
+                                {/* Character Counter */}
+                                <View style={styles.inputFooter}>
+                                    <View style={styles.validationDot}>
+                                        {charCount > 0 && (
+                                            <View
+                                                style={[
+                                                    styles.dot,
+                                                    {
+                                                        backgroundColor: isValid
+                                                            ? colors.success
+                                                            : colors.warning,
+                                                    },
+                                                ]}
+                                            />
+                                        )}
                                     </View>
-                                )}
-                            </View>
-                        )}
+                                    <Text
+                                        style={[
+                                            styles.charCounter,
+                                            charCount > maxChars * 0.9 && styles.charCounterWarning,
+                                        ]}
+                                    >
+                                        {charCount} / {maxChars}
+                                    </Text>
+                                </View>
+                            </BlurView>
+                        </Animated.View>
 
-                        {/* Formatting Tips */}
-                        <View style={{ marginBottom: spacing.lg }}>
-                            <TouchableOpacity onPress={toggleTips} activeOpacity={0.7} style={styles.tipsToggle}>
-                                <Text style={styles.tipsToggleText}>
-                                    💡 Intent Formatting Tips {showTips ? '▼' : '▶'}
-                                </Text>
+                        {/* Intent Formatting Tips */}
+                        <Animated.View
+                            style={[
+                                styles.section,
+                                {
+                                    opacity: fadeAnim,
+                                    transform: [
+                                        {
+                                            translateY: slideAnim.interpolate({
+                                                inputRange: [0, 30],
+                                                outputRange: [0, 60],
+                                            }),
+                                        },
+                                    ],
+                                },
+                            ]}
+                        >
+                            <TouchableOpacity
+                                onPress={() => setShowTips(!showTips)}
+                                activeOpacity={0.7}
+                                style={styles.tipsToggle}
+                            >
+                                <Text style={styles.tipsIcon}>💡</Text>
+                                <Text style={styles.tipsText}>Intent Formatting Tips</Text>
+                                <Text style={styles.tipsArrow}>{showTips ? '▼' : '▶'}</Text>
                             </TouchableOpacity>
 
                             {showTips && (
-                                <View style={styles.tipsContainer}>
-                                    {FORMATTING_TIPS.map((tip, i) => (
-                                        <View key={i} style={styles.tipRow}>
-                                            <Text style={styles.tipBullet}>•</Text>
-                                            <Text style={styles.tipText}>{tip}</Text>
-                                        </View>
-                                    ))}
-                                </View>
+                                <BlurView intensity={10} tint="dark" style={styles.tipsCard}>
+                                    <View style={styles.tipItem}>
+                                        <Text style={styles.tipBullet}>✓</Text>
+                                        <Text style={styles.tipText}>
+                                            Use present tense: "I am" instead of "I will"
+                                        </Text>
+                                    </View>
+                                    <View style={styles.tipItem}>
+                                        <Text style={styles.tipBullet}>✓</Text>
+                                        <Text style={styles.tipText}>
+                                            Be specific and clear about what you want
+                                        </Text>
+                                    </View>
+                                    <View style={styles.tipItem}>
+                                        <Text style={styles.tipBullet}>✓</Text>
+                                        <Text style={styles.tipText}>
+                                            Focus on the positive outcome you desire
+                                        </Text>
+                                    </View>
+                                </BlurView>
                             )}
-                        </View>
+                        </Animated.View>
 
                         {/* Example Intentions */}
-                        <View style={{ marginBottom: spacing.xl, paddingBottom: 40 }}>
-                            <Text style={[styles.sectionLabel, { marginBottom: spacing.md }]}>EXAMPLE INTENTIONS</Text>
-                            {EXAMPLE_INTENTIONS.map((example, i) => (
+                        <Animated.View
+                            style={[
+                                styles.section,
+                                {
+                                    opacity: fadeAnim,
+                                    transform: [
+                                        {
+                                            translateY: slideAnim.interpolate({
+                                                inputRange: [0, 30],
+                                                outputRange: [0, 70],
+                                            }),
+                                        },
+                                    ],
+                                },
+                            ]}
+                        >
+                            <Text style={styles.sectionLabel}>EXAMPLE INTENTIONS</Text>
+                            {EXAMPLE_INTENTIONS.map((example, index) => (
                                 <TouchableOpacity
-                                    key={i}
-                                    onPress={() => handleSelectExample(example)}
-                                    style={styles.exampleButton}
-                                    activeOpacity={0.8}
+                                    key={index}
+                                    onPress={() => handleExamplePress(example)}
+                                    activeOpacity={0.7}
+                                    style={styles.exampleItem}
                                 >
-                                    <View style={styles.exampleInner}>
-                                        <Text style={styles.exampleText}>"{example.text}"</Text>
-                                    </View>
+                                    <Text style={styles.exampleQuote}>"</Text>
+                                    <Text style={styles.exampleText}>{example}</Text>
                                 </TouchableOpacity>
                             ))}
-                        </View>
-                        {/* Continue Button - Moved inside ScrollView for better accessibility */}
-                        <View style={styles.footer}>
-                            <TouchableOpacity
-                                onPress={handleContinue}
-                                disabled={!canContinue}
-                                style={[
-                                    styles.continueButton,
-                                    { backgroundColor: canContinue ? colors.gold : 'rgba(212, 175, 55, 0.2)' },
-                                ]}
-                                activeOpacity={0.8}
+                        </Animated.View>
+
+                        {/* Bottom Spacer */}
+                        <View style={styles.bottomSpacer} />
+                    </ScrollView>
+
+                    {/* Continue Button - Fixed */}
+                    <Animated.View
+                        style={[
+                            styles.continueContainer,
+                            {
+                                opacity: fadeAnim,
+                                transform: [
+                                    {
+                                        translateY: slideAnim.interpolate({
+                                            inputRange: [0, 30],
+                                            outputRange: [0, 50],
+                                        }),
+                                    },
+                                ],
+                            },
+                        ]}
+                    >
+                        <TouchableOpacity
+                            onPress={handleContinue}
+                            activeOpacity={0.9}
+                            disabled={!isValid}
+                            style={styles.continueButton}
+                        >
+                            <LinearGradient
+                                colors={
+                                    isValid
+                                        ? [colors.gold, '#B8941F']
+                                        : ['rgba(192,192,192,0.3)', 'rgba(158,158,158,0.3)']
+                                }
+                                style={styles.continueGradient}
+                                start={{ x: 0, y: 0 }}
+                                end={{ x: 1, y: 0 }}
                             >
-                                <Text style={[styles.continueButtonText, { color: canContinue ? colors.charcoal : colors.text.tertiary }]}>
-                                    Continue to Anchor Selection
+                                <Text
+                                    style={[
+                                        styles.continueText,
+                                        !isValid && styles.continueTextDisabled,
+                                    ]}
+                                >
+                                    Continue to Sigil
                                 </Text>
-                            </TouchableOpacity>
-                        </View>
-                    </View>
-                </ScrollView>
-            </KeyboardAvoidingView>
-        </SafeAreaView>
+                                <Text
+                                    style={[
+                                        styles.continueArrow,
+                                        !isValid && styles.continueTextDisabled,
+                                    ]}
+                                >
+                                    →
+                                </Text>
+                            </LinearGradient>
+                        </TouchableOpacity>
+                    </Animated.View>
+                </KeyboardAvoidingView>
+            </SafeAreaView>
+        </View>
     );
-};
+}
 
 const styles = StyleSheet.create({
-    container: { flex: 1, backgroundColor: colors.navy },
-    orb: { position: 'absolute' },
-    title: {
-        fontSize: typography.sizes.h2,
-        fontFamily: typography.fonts.heading,
-        color: colors.gold,
-        marginBottom: spacing.sm,
+    container: {
+        flex: 1,
+        backgroundColor: colors.navy,
     },
-    subtitle: {
-        fontSize: typography.sizes.body2,
-        fontFamily: typography.fonts.body,
-        color: colors.text.secondary,
-        lineHeight: 22,
+    background: {
+        position: 'absolute',
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
     },
-    sectionLabel: {
-        fontSize: typography.sizes.caption,
-        fontFamily: typography.fonts.bodyBold,
-        color: colors.text.tertiary,
-        marginBottom: spacing.sm,
-        letterSpacing: 1,
+    orb: {
+        position: 'absolute',
+        borderRadius: 300,
+        backgroundColor: colors.gold,
     },
-    categoryContainer: {
-        flexDirection: 'row',
-        gap: spacing.sm,
-        flexWrap: 'wrap',
+    orb1: {
+        width: 280,
+        height: 280,
+        top: -80,
+        right: -100,
     },
-    categoryButton: {
-        paddingVertical: spacing.sm,
-        paddingHorizontal: spacing.md,
-        borderRadius: 8,
-        borderWidth: 1,
+    orb2: {
+        width: 220,
+        height: 220,
+        bottom: 200,
+        left: -60,
     },
-    categoryText: {
-        fontSize: typography.sizes.body2,
-        fontFamily: typography.fonts.body,
-    },
-    glassContainer: {
-        marginBottom: spacing.lg,
-        overflow: 'hidden',
-        borderRadius: 16,
-        borderWidth: 1,
-        borderColor: 'rgba(212, 175, 55, 0.3)',
-    },
-    blurContainer: {
-        padding: spacing.md,
-        minHeight: 120,
-    },
-    input: {
-        color: colors.text.primary,
-        fontSize: typography.sizes.body1,
-        fontFamily: typography.fonts.body,
-        textAlignVertical: 'top',
-        padding: 0,
+    safeArea: {
         flex: 1,
     },
-    charCountContainer: {
+    keyboardView: {
+        flex: 1,
+    },
+    header: {
         flexDirection: 'row',
-        justifyContent: 'flex-end',
-        marginBottom: spacing.md,
-    },
-    charCountText: {
-        fontSize: typography.sizes.caption,
-        fontFamily: typography.fonts.body,
-        color: colors.text.tertiary,
-    },
-    feedbackBanner: {
-        paddingHorizontal: spacing.md,
-        paddingVertical: spacing.sm,
-        borderRadius: 8,
-        marginBottom: spacing.lg,
-        borderLeftWidth: 4,
-    },
-    feedbackText: {
-        fontSize: typography.sizes.body2,
-        fontFamily: typography.fonts.bodyBold,
-    },
-    distillationContainer: {
-        marginBottom: spacing.lg,
-        overflow: 'hidden',
-        borderRadius: 12,
-        borderWidth: 1,
-        borderColor: 'rgba(212, 175, 55, 0.2)',
-    },
-    distillationContent: {
-        padding: spacing.md,
-    },
-    lettersGrid: {
-        flexDirection: 'row',
-        flexWrap: 'wrap',
-        gap: spacing.sm,
-    },
-    letterBox: {
-        paddingVertical: spacing.xs,
-        paddingHorizontal: spacing.md,
-        backgroundColor: colors.deepPurple,
-        borderRadius: 6,
-        borderWidth: 1,
-        borderColor: 'rgba(212, 175, 55, 0.2)',
-    },
-    letterText: {
-        fontSize: typography.sizes.body1,
-        fontFamily: typography.fonts.heading,
-        color: colors.gold,
-    },
-    distillationStats: {
-        marginTop: spacing.md,
-        paddingTop: spacing.md,
-        borderTopWidth: 1,
-        borderTopColor: 'rgba(255, 255, 255, 0.05)',
-        flexDirection: 'row',
+        alignItems: 'center',
         justifyContent: 'space-between',
+        paddingHorizontal: 20,
+        paddingVertical: 16,
     },
-    statText: {
-        fontSize: typography.sizes.caption,
-        fontFamily: typography.fonts.body,
-        color: colors.text.secondary,
-    },
-    tipsToggle: {
-        marginBottom: spacing.sm,
-    },
-    tipsToggleText: {
-        fontSize: typography.sizes.body2,
-        fontFamily: typography.fonts.bodyBold,
-        color: colors.gold,
-    },
-    tipsContainer: {
-        borderRadius: 12,
-        marginBottom: spacing.md,
-        backgroundColor: 'rgba(255, 193, 7, 0.08)',
-        padding: spacing.md,
-        borderWidth: 1,
-        borderColor: 'rgba(255, 193, 7, 0.2)',
-    },
-    tipRow: {
-        marginBottom: spacing.sm,
-        flexDirection: 'row',
-    },
-    tipBullet: {
-        color: colors.warning,
-        marginRight: spacing.sm,
-        fontSize: 16,
-    },
-    tipText: {
-        color: colors.text.secondary,
-        fontSize: typography.sizes.body2,
-        fontFamily: typography.fonts.body,
-        flex: 1,
-    },
-    exampleButton: {
-        marginBottom: spacing.sm,
-        borderRadius: 12,
-        backgroundColor: 'rgba(255, 255, 255, 0.03)',
-        borderWidth: 1,
-        borderColor: 'rgba(255, 255, 255, 0.05)',
-        overflow: 'hidden',
-    },
-    exampleInner: {
-        padding: spacing.md,
-    },
-    exampleText: {
-        fontSize: typography.sizes.body2,
-        fontFamily: typography.fonts.body,
-        color: colors.text.secondary,
-        fontStyle: 'italic',
-    },
-    footer: {
-        padding: spacing.lg,
-        paddingBottom: spacing.xl,
-        marginTop: spacing.md,
-    },
-    continueButton: {
-        height: 56,
-        borderRadius: 12,
+    backButton: {
+        width: 40,
+        height: 40,
         justifyContent: 'center',
         alignItems: 'center',
-        shadowColor: colors.gold,
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.3,
-        shadowRadius: 8,
-        elevation: 4,
     },
-    continueButtonText: {
-        fontSize: typography.sizes.button,
-        fontFamily: typography.fonts.bodyBold,
+    backIcon: {
+        fontSize: 24,
+        color: colors.gold,
+    },
+    headerTitle: {
+        fontSize: 18,
+        fontWeight: '600',
+        color: colors.gold,
+        letterSpacing: 0.5,
+    },
+    scrollView: {
+        flex: 1,
+    },
+    scrollContent: {
+        paddingHorizontal: 24,
+        paddingBottom: 120,
+    },
+    titleSection: {
+        paddingTop: 8,
+        paddingBottom: 32,
+    },
+    title: {
+        fontSize: 28,
+        // fontFamily: 'Cinzel-Regular',
+        fontWeight: '600',
+        color: colors.gold,
+        marginBottom: 12,
+        letterSpacing: 0.5,
+    },
+    subtitle: {
+        fontSize: 15,
+        color: colors.silver,
+        lineHeight: 22,
+    },
+    section: {
+        marginBottom: 32,
+    },
+    sectionLabel: {
+        fontSize: 11,
+        fontWeight: '700',
+        color: colors.silver,
+        letterSpacing: 1.5,
+        marginBottom: 16,
+        opacity: 0.7,
+    },
+    categoriesContainer: {
+        flexDirection: 'row',
+        flexWrap: 'wrap',
+        gap: 12,
+    },
+    categoryChip: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        paddingVertical: 12,
+        paddingHorizontal: 16,
+        borderRadius: 20,
+        borderWidth: 1,
+        borderColor: 'rgba(192, 192, 192, 0.2)',
+        backgroundColor: 'rgba(26, 26, 29, 0.3)',
+    },
+    categoryChipSelected: {
+        borderColor: colors.gold,
+        backgroundColor: 'rgba(212, 175, 55, 0.15)',
+    },
+    categoryEmoji: {
+        fontSize: 18,
+        marginRight: 8,
+    },
+    categoryLabel: {
+        fontSize: 15,
+        fontWeight: '600',
+        color: colors.silver,
+    },
+    categoryLabelSelected: {
+        color: colors.gold,
+        fontWeight: '700',
+    },
+    inputCard: {
+        borderRadius: 20,
+        padding: 20,
+        borderWidth: 1,
+        borderColor: 'rgba(212, 175, 55, 0.2)',
+        backgroundColor: 'rgba(26, 26, 29, 0.4)',
+        minHeight: 140,
+    },
+    textInput: {
+        fontSize: 17,
+        color: colors.bone,
+        lineHeight: 26,
+        minHeight: 80,
+        textAlignVertical: 'top',
+    },
+    inputFooter: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        marginTop: 12,
+        paddingTop: 12,
+        borderTopWidth: 1,
+        borderTopColor: 'rgba(192, 192, 192, 0.1)',
+    },
+    validationDot: {
+        width: 24,
+        height: 24,
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    dot: {
+        width: 8,
+        height: 8,
+        borderRadius: 4,
+    },
+    charCounter: {
+        fontSize: 13,
+        color: colors.silver,
+        opacity: 0.6,
+    },
+    charCounterWarning: {
+        color: colors.warning,
+        opacity: 1,
+    },
+    tipsToggle: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        paddingVertical: 12,
+    },
+    tipsIcon: {
+        fontSize: 20,
+        marginRight: 8,
+    },
+    tipsText: {
+        fontSize: 15,
+        fontWeight: '600',
+        color: colors.gold,
+        flex: 1,
+    },
+    tipsArrow: {
+        fontSize: 14,
+        color: colors.gold,
+    },
+    tipsCard: {
+        borderRadius: 16,
+        padding: 20,
+        marginTop: 12,
+        borderWidth: 1,
+        borderColor: 'rgba(192, 192, 192, 0.15)',
+        backgroundColor: 'rgba(26, 26, 29, 0.3)',
+    },
+    tipItem: {
+        flexDirection: 'row',
+        marginBottom: 12,
+    },
+    tipBullet: {
+        fontSize: 14,
+        color: colors.success,
+        marginRight: 12,
+        marginTop: 2,
+    },
+    tipText: {
+        fontSize: 14,
+        color: colors.silver,
+        lineHeight: 20,
+        flex: 1,
+    },
+    exampleItem: {
+        flexDirection: 'row',
+        paddingVertical: 16,
+        paddingHorizontal: 20,
+        marginBottom: 8,
+        borderRadius: 12,
+        backgroundColor: 'rgba(26, 26, 29, 0.4)',
+        borderWidth: 1,
+        borderColor: 'rgba(192, 192, 192, 0.1)',
+    },
+    exampleQuote: {
+        fontSize: 24,
+        color: colors.gold,
+        marginRight: 12,
+        marginTop: -4,
+        opacity: 0.5,
+    },
+    exampleText: {
+        fontSize: 15,
+        fontStyle: 'italic',
+        color: colors.bone,
+        lineHeight: 22,
+        flex: 1,
+    },
+    bottomSpacer: {
+        height: 20,
+    },
+    continueContainer: {
+        position: 'absolute',
+        bottom: 0,
+        left: 0,
+        right: 0,
+        paddingHorizontal: 24,
+        paddingBottom: 100,
+        paddingTop: 16,
+    },
+    continueButton: {
+        borderRadius: 20,
+        overflow: 'hidden',
+        shadowColor: colors.gold,
+        shadowOffset: { width: 0, height: 8 },
+        shadowOpacity: 0.4,
+        shadowRadius: 16,
+        elevation: 10,
+    },
+    continueGradient: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        paddingVertical: 18,
+        paddingHorizontal: 32,
+    },
+    continueText: {
+        fontSize: 17,
+        fontWeight: '700',
+        color: colors.charcoal,
+        letterSpacing: 0.5,
+        marginRight: 8,
+    },
+    continueTextDisabled: {
+        color: colors.silver,
+        opacity: 0.5,
+    },
+    continueArrow: {
+        fontSize: 20,
+        color: colors.charcoal,
+        fontWeight: '300',
     },
 });
-
-export default IntentionInputScreen;

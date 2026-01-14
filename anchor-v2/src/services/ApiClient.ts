@@ -9,7 +9,8 @@ import axios, { AxiosError, AxiosInstance, InternalAxiosRequestConfig } from 'ax
 import { AuthService } from './AuthService';
 import type { ApiResponse } from '@/types';
 
-const API_BASE_URL = process.env.API_BASE_URL || 'http://localhost:3000';
+// Use 10.0.2.2 for Android emulator to access host localhost
+const API_BASE_URL = process.env.API_BASE_URL || 'http://10.0.2.2:3000';
 
 /**
  * Configured Axios instance for API calls
@@ -64,7 +65,8 @@ apiClient.interceptors.response.use(
     // Handle API errors with standard format
     if (error.response.data?.error) {
       const apiError = error.response.data.error;
-      throw new Error(apiError.message || 'An error occurred');
+      const message = typeof apiError === 'string' ? apiError : apiError.message;
+      throw new Error(message || 'An error occurred');
     }
 
     // Handle HTTP status codes

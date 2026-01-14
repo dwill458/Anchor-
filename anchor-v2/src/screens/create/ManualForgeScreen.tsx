@@ -45,7 +45,7 @@ const ManualForgeScreen = () => {
   const navigation = useNavigation<ManualForgeNavigationProp>();
   const route = useRoute<ManualForgeRouteProp>();
 
-  const { intentionText, distilledLetters, sigilSvg } = route.params;
+  const { intentionText, distilledLetters, sigilSvg, category } = route.params;
   // Use ref for paths to avoid stale closure issues entirely
   const pathsRef = useRef<PathData[]>([]);
   const [, forceUpdate] = useState(0); // Counter to force re-renders
@@ -180,6 +180,7 @@ const ManualForgeScreen = () => {
         intentionText,
         distilledLetters,
         sigilSvg: manualSigilSvg,
+        category,
       });
     } catch (error) {
       console.error('Error saving manual sigil:', error);
