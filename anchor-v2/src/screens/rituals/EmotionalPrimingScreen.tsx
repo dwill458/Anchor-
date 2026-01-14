@@ -1,9 +1,9 @@
 /**
- * Anchor App - Emotional Priming Screen
+ * Anchor App - Mental Alignment Screen
  *
  * 15-second preparation screen before charging ritual.
- * Builds emotional intensity and prepares user for optimal charging.
- * Based on Phil Cooper's methodology - emotional intensity is key.
+ * Builds mental alignment and prepares user for optimal priming.
+ * Based on Phil Cooper's methodology - mental focus is key.
  */
 
 import React, { useState, useEffect, useRef } from 'react';
@@ -146,7 +146,7 @@ export const EmotionalPrimingScreen: React.FC = () => {
         <Text style={styles.title}>Before we begin...</Text>
 
         <Text style={styles.instruction}>
-          Charging requires emotional intensity.
+          Priming requires mental alignment.
           {'\n\n'}
           Take a moment to FEEL your desire.
           {'\n'}

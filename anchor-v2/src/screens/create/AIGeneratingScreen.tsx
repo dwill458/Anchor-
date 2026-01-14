@@ -19,6 +19,7 @@ import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { colors, spacing, typography } from '@/theme';
 import { RootStackParamList } from '@/types';
+import { mockGenerateVariations } from '@/services/MockAIService';
 
 type AIGeneratingRouteProp = RouteProp<RootStackParamList, 'AIGenerating'>;
 type AIGeneratingNavigationProp = StackNavigationProp<RootStackParamList, 'AIGenerating'>;
@@ -29,13 +30,13 @@ const { width: SCREEN_WIDTH } = Dimensions.get('window');
  * Mystical loading messages (rotate every 8 seconds)
  */
 const LOADING_MESSAGES = [
-  'Consulting ancient grimoires...',
-  'Channeling mystical energies...',
-  'Weaving sacred geometry...',
-  'Invoking planetary forces...',
+  'Consulting design patterns...',
+  'Channeling creative energies...',
+  'Weaving alignment patterns...',
+  'Invoking archetypal forces...',
   'Crystallizing your intention...',
   'Forging symbolic power...',
-  'Merging sigil and symbol...',
+  'Merging anchor and symbol...',
   'Birthing your anchor...',
 ];
 
@@ -128,40 +129,10 @@ export const AIGeneratingScreen: React.FC = () => {
    */
   const startGeneration = async (): Promise<void> => {
     try {
-      // TODO: Replace with actual API call
-      const API_URL = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:3000';
+      // Use mock service for robust demo/testing
+      const data = await mockGenerateVariations();
 
-      // Simulate progress (actual generation time: 40-80 seconds)
-      const progressInterval = setInterval(() => {
-        setProgress((prev) => {
-          if (prev >= 95) {
-            clearInterval(progressInterval);
-            return 95;
-          }
-          return prev + 1;
-        });
-      }, 800); // Update every 800ms for ~60s total
 
-      const response = await fetch(`${API_URL}/api/ai/enhance`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          sigilSvg,
-          analysis,
-          userId: 'temp-user-id', // TODO: Get from auth store
-          anchorId: `anchor-${Date.now()}`, // TODO: Generate proper anchor ID
-        }),
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to generate AI variations');
-      }
-
-      const data = await response.json();
-
-      clearInterval(progressInterval);
       setProgress(100);
 
       // Wait a moment to show completion, then navigate

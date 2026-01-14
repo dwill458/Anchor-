@@ -41,16 +41,16 @@ const ENHANCEMENT_OPTIONS: EnhancementOption[] = [
     title: 'Let AI Decide',
     subtitle: 'Intelligent Symbol Selection',
     description:
-      'AI analyzes your intention and selects mystical symbols from ancient traditions (planetary seals, runes, sacred geometry) to create 4 stunning variations.',
+      'AI analyzes your intention and selects archetypal elements from ancient traditions (achievement seals, resonance glyphs, alignment patterns) to create 4 stunning variations.',
     badge: '✨',
     recommended: true,
   },
   {
     id: 'traditional',
     title: 'Keep Traditional',
-    subtitle: 'Classic Sigil Magick',
+    subtitle: 'Classic Anchor Design',
     description:
-      'Use your traditional sigil exactly as generated. Pure Austin Osman Spare methodology without AI enhancement.',
+      'Use your traditional anchor exactly as generated. Pure geometric methodology without AI enhancement.',
     badge: '📜',
   },
   {
@@ -58,7 +58,7 @@ const ENHANCEMENT_OPTIONS: EnhancementOption[] = [
     title: 'Manual Forge',
     subtitle: 'Draw Your Own (Pro)',
     description:
-      'Unlock the Manual Forge to draw your anchor by hand using our mystical canvas. Full creative control for advanced practitioners.',
+      'Unlock the Manual Forge to draw your anchor by hand using our creative canvas. Full creative control for advanced practitioners.',
     badge: '🎨',
     isPro: false, // Unlocked for testing
   },

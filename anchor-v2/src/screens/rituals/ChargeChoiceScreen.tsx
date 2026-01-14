@@ -5,7 +5,7 @@
  */
 
 import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Dimensions } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Dimensions, ScrollView } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
@@ -15,7 +15,7 @@ import type { RootStackParamList } from '@/types';
 import { colors, spacing, typography } from '@/theme';
 
 const { width } = Dimensions.get('window');
-const SIGIL_SIZE = width * 0.5;
+const SIGIL_SIZE = width * 0.15; // Very small to save space
 
 type ChargeChoiceRouteProp = RouteProp<RootStackParamList, 'ChargingRitual'>;
 type ChargeChoiceNavigationProp = StackNavigationProp<RootStackParamList, 'ChargingRitual'>;
@@ -50,6 +50,19 @@ export const ChargeChoiceScreen: React.FC = () => {
     });
   };
 
+  /**
+   * Navigate to Custom Prime (user-selected time)
+   */
+  const handleCustomPrime = (): void => {
+    // TODO: Navigate to custom time selection screen
+    // For now, default to Deep Prime
+    navigation.navigate('EmotionalPriming', {
+      anchorId,
+      intention: anchor?.intentionText || '',
+      chargeType: 'deep'
+    });
+  };
+
   if (!anchor) {
     return (
       <SafeAreaView style={styles.container}>
@@ -60,61 +73,86 @@ export const ChargeChoiceScreen: React.FC = () => {
 
   return (
     <SafeAreaView style={styles.container}>
-      {/* Header */}
-      <View style={styles.header}>
-        <Text style={styles.title}>Charge Your Anchor</Text>
-        <Text style={styles.subtitle}>Choose your focus session</Text>
-      </View>
+      <ScrollView
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
+      >
+        {/* Header */}
+        <View style={styles.header}>
+          <Text style={styles.title}>Prime Your Anchor</Text>
+          <Text style={styles.subtitle}>Choose your focus session</Text>
+        </View>
 
-      {/* Sigil Preview */}
-      <View style={styles.sigilContainer}>
-        <SvgXml
-          xml={anchor.baseSigilSvg}
-          width={SIGIL_SIZE}
-          height={SIGIL_SIZE}
-        />
-      </View>
-
-      {/* Intention */}
-      <View style={styles.intentionContainer}>
-        <Text style={styles.intentionLabel}>Your Intention</Text>
-        <Text style={styles.intentionText}>"{anchor.intentionText}"</Text>
-      </View>
-
-      {/* Options */}
-      <View style={styles.optionsContainer}>
-        {/* Quick Charge */}
-        <TouchableOpacity
-          style={[styles.optionCard, styles.quickOption]}
-          onPress={handleQuickCharge}
-          activeOpacity={0.8}
-        >
-          <View style={styles.optionIcon}>
-            <Text style={styles.iconText}>⚡</Text>
+        {/* Educational Content - Why Prime? */}
+        <View style={styles.educationCard}>
+          <View style={styles.educationIconContainer}>
+            <Text style={styles.educationIcon}>💡</Text>
           </View>
-          <Text style={styles.optionTitle}>Quick Charge</Text>
-          <Text style={styles.optionDuration}>30 seconds</Text>
-          <Text style={styles.optionDescription}>
-            Fast focused session. Perfect for a quick boost.
+          <Text style={styles.educationTitle}>Why Prime Your Anchor?</Text>
+          <Text style={styles.educationText}>
+            Priming activates your anchor through focused intention and emotional resonance.
+            This process strengthens the neural connection between the symbol and your goal,
+            making it a powerful trigger for motivation and clarity.
           </Text>
-        </TouchableOpacity>
+        </View>
 
-        {/* Deep Charge */}
-        <TouchableOpacity
-          style={[styles.optionCard, styles.deepOption]}
-          onPress={handleDeepCharge}
-          activeOpacity={0.8}
-        >
-          <View style={styles.optionIcon}>
-            <Text style={styles.iconText}>🔥</Text>
-          </View>
-          <Text style={styles.optionTitle}>Deep Charge</Text>
-          <Text style={styles.optionDuration}>~5 minutes</Text>
-          <Text style={styles.optionDescription}>
-            Guided 5-phase session. Stronger, longer-lasting results.
-          </Text>
-        </TouchableOpacity>
-      </View>
+        {/* Intention */}
+        <View style={styles.intentionContainer}>
+          <Text style={styles.intentionLabel}>Your Intention</Text>
+          <Text style={styles.intentionText}>"{anchor.intentionText}"</Text>
+        </View>
+
+        {/* Options */}
+        <View style={styles.optionsContainer}>
+          {/* Quick Charge */}
+          <TouchableOpacity
+            style={[styles.optionCard, styles.quickOption]}
+            onPress={handleQuickCharge}
+            activeOpacity={0.8}
+          >
+            <View style={styles.optionIcon}>
+              <Text style={styles.iconText}>⚡</Text>
+            </View>
+            <Text style={styles.optionTitle}>Quick Prime</Text>
+            <Text style={styles.optionDuration}>30 seconds</Text>
+            <Text style={styles.optionDescription}>
+              Fast focused session. Perfect for a quick boost.
+            </Text>
+          </TouchableOpacity>
+
+          {/* Deep Charge */}
+          <TouchableOpacity
+            style={[styles.optionCard, styles.deepOption]}
+            onPress={handleDeepCharge}
+            activeOpacity={0.8}
+          >
+            <View style={styles.optionIcon}>
+              <Text style={styles.iconText}>🔥</Text>
+            </View>
+            <Text style={styles.optionTitle}>Deep Prime</Text>
+            <Text style={styles.optionDuration}>~5 minutes</Text>
+            <Text style={styles.optionDescription}>
+              Guided 5-phase session. Stronger, longer-lasting results.
+            </Text>
+          </TouchableOpacity>
+
+          {/* Custom Prime */}
+          <TouchableOpacity
+            style={[styles.optionCard, styles.customOption]}
+            onPress={handleCustomPrime}
+            activeOpacity={0.8}
+          >
+            <View style={styles.optionIcon}>
+              <Text style={styles.iconText}>⏱️</Text>
+            </View>
+            <Text style={styles.optionTitle}>Custom Prime</Text>
+            <Text style={styles.optionDuration}>Choose your time</Text>
+            <Text style={styles.optionDescription}>
+              Set a custom duration for your priming session.
+            </Text>
+          </TouchableOpacity>
+        </View>
+      </ScrollView>
     </SafeAreaView>
   );
 };
@@ -124,11 +162,14 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: colors.background.primary,
   },
+  scrollContent: {
+    paddingBottom: 120, // ample space for scrolling
+  },
   header: {
     alignItems: 'center',
     paddingHorizontal: spacing.xl,
-    paddingTop: spacing.xl,
-    paddingBottom: spacing.lg,
+    paddingTop: 0,
+    paddingBottom: 0,
   },
   title: {
     fontSize: typography.sizes.h2,
@@ -143,11 +184,39 @@ const styles = StyleSheet.create({
   },
   sigilContainer: {
     alignItems: 'center',
-    paddingVertical: spacing.lg,
+    paddingVertical: 0,
+  },
+  educationCard: {
+    marginHorizontal: spacing.lg,
+    marginVertical: spacing.md,
+    padding: spacing.lg,
+    backgroundColor: 'rgba(212, 175, 55, 0.05)',
+    borderLeftWidth: 3,
+    borderLeftColor: colors.gold,
+    borderRadius: spacing.sm,
+  },
+  educationIconContainer: {
+    marginBottom: spacing.xs,
+  },
+  educationIcon: {
+    fontSize: 24,
+  },
+  educationTitle: {
+    fontSize: typography.sizes.body1,
+    fontFamily: typography.fonts.bodyBold,
+    color: colors.gold,
+    marginBottom: spacing.xs,
+  },
+  educationText: {
+    fontSize: typography.sizes.body2,
+    fontFamily: typography.fonts.body,
+    color: colors.text.secondary,
+    lineHeight: typography.lineHeights.body2,
   },
   intentionContainer: {
     paddingHorizontal: spacing.xl,
-    paddingBottom: spacing.lg,
+    paddingBottom: 0,
+    paddingTop: spacing.xs,
     alignItems: 'center',
   },
   intentionLabel: {
@@ -166,9 +235,7 @@ const styles = StyleSheet.create({
     lineHeight: typography.lineHeights.body1,
   },
   optionsContainer: {
-    flex: 1,
     paddingHorizontal: spacing.lg,
-    paddingBottom: spacing.xl,
     gap: spacing.md,
   },
   optionCard: {
@@ -183,6 +250,9 @@ const styles = StyleSheet.create({
   },
   deepOption: {
     borderColor: colors.bronze,
+  },
+  customOption: {
+    borderColor: colors.deepPurple,
   },
   optionIcon: {
     marginBottom: spacing.md,

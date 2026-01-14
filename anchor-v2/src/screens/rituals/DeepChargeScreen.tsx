@@ -1,7 +1,7 @@
 /**
- * Anchor App - Deep Charge Screen
+ * Anchor App - Deep Prime Screen
  *
- * 5-phase guided session (~5 minutes) to deeply charge an anchor.
+ * 5-phase guided session (~5 minutes) to deeply prime an anchor.
  * Clean, minimal language - no mystical terminology.
  */
 
@@ -196,7 +196,7 @@ export const DeepChargeScreen: React.FC = () => {
             <Text style={styles.phaseTitle}>{currentPhase.title}</Text>
           </>
         ) : (
-          <Text style={styles.phaseTitle}>Charged!</Text>
+          <Text style={styles.phaseTitle}>Primed!</Text>
         )}
       </View>
 

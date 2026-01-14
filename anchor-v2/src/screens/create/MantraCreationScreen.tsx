@@ -1,8 +1,8 @@
 /**
- * Anchor App - Mantra Creation Screen (Phase 2.5)
+ * Anchor App - Focus Phrase Creation Screen (Phase 2.5)
  *
  * Step 8 in anchor creation flow.
- * User generates and selects from 3 mantra styles.
+ * User generates and selects from 3 vocal anchor styles.
  * Features: Pro gating, TTS playback, educational content.
  */
 
@@ -57,13 +57,13 @@ const MANTRA_STYLES: MantraStyleInfo[] = [
   },
   {
     id: 'syllabic',
-    title: 'Ancient Guttural',
+    title: 'Resonant',
     description: 'Heavy and grounded. Uses deep vowels like U, O, and A to create a vibrating sound in the chest.',
     icon: '🌋',
   },
   {
     id: 'phonetic',
-    title: 'Light & Airy',
+    title: 'Flowing',
     description: 'Speed and clarity. Uses high vowels like I and E to resonate in the throat and head.',
     icon: '🌬️',
   },
@@ -137,8 +137,8 @@ export const MantraCreationScreen: React.FC = () => {
 
   const handleUnlock = () => {
     Alert.alert(
-      "Unlock Mantra Forge",
-      "Mantras are a Pro feature. Upgrade to Anchor Pro to create unlimited custom mantras for your rituals.",
+      "Unlock Focus Phrase Forge",
+      "Vocal Anchors are a Pro feature. Upgrade to Anchor Pro to create unlimited custom phrases for your rituals.",
       [
         { text: "Cancel", style: "cancel" },
         {
@@ -206,10 +206,10 @@ export const MantraCreationScreen: React.FC = () => {
       <View style={styles.lockIconContainer}>
         <Lock size={64} color={colors.gold} />
       </View>
-      <Text style={styles.lockedTitle}>Unlock Your Mantra</Text>
+      <Text style={styles.lockedTitle}>Unlock Your Vocal Anchor</Text>
       <Text style={styles.lockedText}>
-        Mantras are powerful sonic anchors that amplify your intention during rituals.
-        Generate custom mantras based on your specific sigil.
+        Focus Phrases are powerful sonic anchors that amplify your intention during rituals.
+        Generate custom phrases based on your specific anchor.
       </Text>
 
       <TouchableOpacity
@@ -221,7 +221,7 @@ export const MantraCreationScreen: React.FC = () => {
           colors={[colors.gold, '#B8860B']}
           style={styles.gradientButton}
         >
-          <Text style={styles.unlockButtonText}>Generate Mantras (Pro)</Text>
+          <Text style={styles.unlockButtonText}>Generate Phrases (Pro)</Text>
         </LinearGradient>
       </TouchableOpacity>
 
@@ -240,7 +240,7 @@ export const MantraCreationScreen: React.FC = () => {
         >
           <View style={styles.heroHeader}>
             <Info size={20} color={colors.gold} />
-            <Text style={styles.heroTitle}>Mantra Mastery</Text>
+            <Text style={styles.heroTitle}>Vocal Mastery</Text>
           </View>
           <Text style={styles.heroText}>
             Vibrational anchors bridge the conscious and subconscious. Select a resonance pattern that aligns with your intent.
@@ -319,7 +319,7 @@ export const MantraCreationScreen: React.FC = () => {
     <SafeAreaView style={styles.container}>
       <ScrollView contentContainerStyle={styles.scrollContent}>
         <View style={styles.header}>
-          <Text style={styles.title}>Sonic Anchor</Text>
+          <Text style={styles.title}>Visual & Vocal Alignment</Text>
           <Text style={styles.subtitle}>
             Create a unique sound resonance for your intention.
           </Text>

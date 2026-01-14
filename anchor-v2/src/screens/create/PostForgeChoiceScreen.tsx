@@ -41,9 +41,9 @@ const CHOICE_OPTIONS: ChoiceOption[] = [
   {
     id: 'ai',
     title: 'Enhance with AI',
-    subtitle: 'Add Mystical Symbols',
+    subtitle: 'Add Archetypal Elements',
     description:
-      'AI will analyze your manual sigil and intention, then select mystical symbols to create 4 enhanced variations combining your artwork with ancient symbolism.',
+      'AI will analyze your manual sigil and intention, then select archetypal elements to create 4 enhanced variations combining your artwork with symbolic depth.',
     badge: '✨',
     recommended: true,
   },
@@ -131,7 +131,7 @@ export const PostForgeChoiceScreen: React.FC = () => {
         <View style={styles.header}>
           <Text style={styles.title}>Enhance Your Creation?</Text>
           <Text style={styles.subtitle}>
-            Your manual sigil is complete. You can keep it as-is or enhance it with AI-selected mystical symbols.
+            Your manual sigil is complete. You can keep it as-is or enhance it with AI-selected archetypal elements.
           </Text>
         </View>
 

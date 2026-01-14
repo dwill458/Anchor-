@@ -69,7 +69,7 @@ export const MainTabNavigator: React.FC = () => {
         name="Vault"
         component={VaultStackNavigator}
         options={{
-          tabBarLabel: 'Home',
+          tabBarLabel: 'Sanctuary',
           tabBarIcon: ({ color, size }) => <Home color={color} size={24} />,
         }}
       />

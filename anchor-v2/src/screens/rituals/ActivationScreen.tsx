@@ -1,7 +1,7 @@
 /**
  * Anchor App - Activation Screen
  *
- * 10-second focused session to activate a charged anchor.
+ * 10-second focused session for your anchor.
  * Simple countdown with haptic feedback.
  */
 
@@ -117,7 +117,7 @@ export const ActivationScreen: React.FC = () => {
       {/* Header */}
       <View style={styles.header}>
         <Text style={styles.title}>
-          {isComplete ? 'Activated!' : 'Activate Your Anchor'}
+          {isComplete ? 'Session Complete!' : 'Focus Session'}
         </Text>
         <Text style={styles.intentionText}>"{anchor.intentionText}"</Text>
       </View>
@@ -147,7 +147,7 @@ export const ActivationScreen: React.FC = () => {
       {!isComplete && (
         <View style={styles.instructionsContainer}>
           <Text style={styles.instructionsText}>
-            Focus on your intention. Feel it activating.
+            Focus on your intention. Feel it empowering you.
           </Text>
         </View>
       )}

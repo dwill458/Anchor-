@@ -215,8 +215,7 @@ export const IntentionInputScreen: React.FC = () => {
                 style={{ flex: 1 }}
             >
                 <ScrollView
-                    contentContainerStyle={{ flexGrow: 1 }}
-                    scrollEnabled={screenHeight < 800}
+                    contentContainerStyle={{ flexGrow: 1, paddingBottom: 120 }}
                     showsVerticalScrollIndicator={false}
                     keyboardShouldPersistTaps="handled"
                 >
@@ -402,26 +401,25 @@ export const IntentionInputScreen: React.FC = () => {
                                 </TouchableOpacity>
                             ))}
                         </View>
+                        {/* Continue Button - Moved inside ScrollView for better accessibility */}
+                        <View style={styles.footer}>
+                            <TouchableOpacity
+                                onPress={handleContinue}
+                                disabled={!canContinue}
+                                style={[
+                                    styles.continueButton,
+                                    { backgroundColor: canContinue ? colors.gold : 'rgba(212, 175, 55, 0.2)' },
+                                ]}
+                                activeOpacity={0.8}
+                            >
+                                <Text style={[styles.continueButtonText, { color: canContinue ? colors.charcoal : colors.text.tertiary }]}>
+                                    Continue to Anchor Selection
+                                </Text>
+                            </TouchableOpacity>
+                        </View>
                     </View>
                 </ScrollView>
             </KeyboardAvoidingView>
-
-            {/* Continue Button - Fixed at Bottom */}
-            <View style={styles.footer}>
-                <TouchableOpacity
-                    onPress={handleContinue}
-                    disabled={!canContinue}
-                    style={[
-                        styles.continueButton,
-                        { backgroundColor: canContinue ? colors.gold : 'rgba(212, 175, 55, 0.2)' },
-                    ]}
-                    activeOpacity={0.8}
-                >
-                    <Text style={[styles.continueButtonText, { color: canContinue ? colors.charcoal : colors.text.tertiary }]}>
-                        Continue to Sigil Selection
-                    </Text>
-                </TouchableOpacity>
-            </View>
         </SafeAreaView>
     );
 };
@@ -594,10 +592,8 @@ const styles = StyleSheet.create({
     },
     footer: {
         padding: spacing.lg,
-        paddingBottom: Platform.OS === 'ios' ? spacing.lg : spacing.xl,
-        backgroundColor: colors.navy,
-        borderTopWidth: 1,
-        borderTopColor: 'rgba(255, 255, 255, 0.05)',
+        paddingBottom: spacing.xl,
+        marginTop: spacing.md,
     },
     continueButton: {
         height: 56,

@@ -210,28 +210,33 @@ export type RootStackParamList = {
   // Phase 2: AI Enhancement Flow
   EnhancementChoice: {
     intentionText: string;
+    category: AnchorCategory;
     distilledLetters: string[];
     sigilSvg: string;
     sigilVariant: string;
   };
   ManualForge: {
     intentionText: string;
+    category: AnchorCategory;
     distilledLetters: string[];
     sigilSvg: string;
   };
   PostForgeChoice: {
     intentionText: string;
+    category: AnchorCategory;
     distilledLetters: string[];
     sigilSvg: string;
   };
   AIAnalysis: {
     intentionText: string;
+    category: AnchorCategory;
     distilledLetters: string[];
     sigilSvg: string;
     sigilVariant: string;
   };
   AIGenerating: {
     intentionText: string;
+    category: AnchorCategory;
     distilledLetters: string[];
     sigilSvg: string;
     sigilVariant: string;
@@ -239,6 +244,7 @@ export type RootStackParamList = {
   };
   AIVariationPicker: {
     intentionText: string;
+    category: AnchorCategory;
     distilledLetters: string[];
     sigilSvg: string;
     sigilVariant: string;
@@ -247,6 +253,7 @@ export type RootStackParamList = {
   };
   MantraCreation: {
     intentionText: string;
+    category: AnchorCategory;
     distilledLetters: string[];
     sigilSvg: string;
     finalImageUrl?: string; // Optional - will use SVG if not provided
