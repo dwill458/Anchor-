@@ -72,7 +72,7 @@ const MANTRA_STYLES: MantraStyleInfo[] = [
 export const MantraCreationScreen: React.FC = () => {
   const navigation = useNavigation<MantraCreationNavigationProp>();
   const route = useRoute<MantraCreationRouteProp>();
-  const { intentionText, distilledLetters, sigilSvg } = route.params;
+  const { intentionText, distilledLetters, sigilSvg, category } = route.params;
   const { addAnchor } = useAnchorStore();
 
   // Mock User State (Replace with real auth/subscription context later)
@@ -184,7 +184,7 @@ export const MantraCreationScreen: React.FC = () => {
       id: anchorId,
       userId: 'user-123', // Mock user ID for MVP
       intentionText,
-      category: 'custom',
+      category,
       distilledLetters,
       baseSigilSvg: sigilSvg,
       mantraText: mantra[selectedStyle],
