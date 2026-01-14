@@ -393,43 +393,40 @@ export const AIAnalysisScreen: React.FC = () => {
             </BlurView>
           </Animated.View>
 
-          {/* Spacer for button */}
-          <View style={styles.bottomSpacer} />
-        </ScrollView>
-
-        {/* Floating CTA Button */}
-        <Animated.View
-          style={[
-            styles.ctaContainer,
-            {
-              opacity: fadeAnim,
-              transform: [
-                {
-                  translateY: slideAnim.interpolate({
-                    inputRange: [0, 30],
-                    outputRange: [0, 50],
-                  }),
-                },
-              ],
-            },
-          ]}
-        >
-          <TouchableOpacity
-            onPress={handleGenerateVariations}
-            activeOpacity={0.9}
-            style={styles.ctaButton}
+          {/* Floating CTA Button - Now Static inside ScrollView */}
+          <Animated.View
+            style={[
+              styles.ctaContainer,
+              {
+                opacity: fadeAnim,
+                transform: [
+                  {
+                    translateY: slideAnim.interpolate({
+                      inputRange: [0, 30],
+                      outputRange: [0, 50],
+                    }),
+                  },
+                ],
+              },
+            ]}
           >
-            <LinearGradient
-              colors={[designColors.gold, '#B8941F']}
-              style={styles.ctaGradient}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 0 }}
+            <TouchableOpacity
+              onPress={handleGenerateVariations}
+              activeOpacity={0.9}
+              style={styles.ctaButton}
             >
-              <Text style={styles.ctaText}>Generate AI Variations</Text>
-              <Text style={styles.ctaArrow}>→</Text>
-            </LinearGradient>
-          </TouchableOpacity>
-        </Animated.View>
+              <LinearGradient
+                colors={[designColors.gold, '#B8941F']}
+                style={styles.ctaGradient}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 0 }}
+              >
+                <Text style={styles.ctaText}>Generate AI Variations</Text>
+                <Text style={styles.ctaArrow}>→</Text>
+              </LinearGradient>
+            </TouchableOpacity>
+          </Animated.View>
+        </ScrollView>
       </SafeAreaView>
     </View>
   );
@@ -741,13 +738,10 @@ const styles = StyleSheet.create({
     height: 20,
   },
   ctaContainer: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
     paddingHorizontal: 24,
-    paddingBottom: 24, // Added padding for better placement
+    paddingBottom: 24,
     paddingTop: 16,
+    marginBottom: 100, // Ensure space for scrolling
   },
   ctaButton: {
     borderRadius: 20,
