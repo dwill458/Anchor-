@@ -53,7 +53,7 @@ export const AIVariationPickerScreen: React.FC = () => {
   const route = useRoute<AIVariationPickerRouteProp>();
 
   // Extract params from route
-  const { intentionText, distilledLetters, sigilSvg, variations, prompt } = route.params;
+  const { intentionText, distilledLetters, sigilSvg, variations, prompt, category, sigilVariant } = route.params;
 
   // Selected variation index (0-3)
   const [selectedIndex, setSelectedIndex] = useState<number>(0);
@@ -87,6 +87,7 @@ export const AIVariationPickerScreen: React.FC = () => {
       distilledLetters,
       sigilSvg,
       finalImageUrl: selectedImageUrl,
+      category,
     });
   };
 

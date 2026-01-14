@@ -53,7 +53,7 @@ interface AnalysisResult {
 export default function AIAnalysisScreen() {
   const navigation = useNavigation<AIAnalysisNavigationProp>();
   const route = useRoute<AIAnalysisRouteProp>();
-  const { intentionText, distilledLetters, sigilSvg, sigilVariant } = route.params;
+  const { intentionText, distilledLetters, sigilSvg, sigilVariant, category } = route.params;
 
   // Animation Refs
   const fadeAnim = useRef(new Animated.Value(0)).current;
@@ -115,6 +115,7 @@ export default function AIAnalysisScreen() {
       sigilSvg,
       sigilVariant,
       analysis,
+      category,
     });
   };
 
