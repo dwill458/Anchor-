@@ -19,6 +19,7 @@ import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { colors, spacing, typography } from '@/theme';
 import { generateSigil, SigilVariant } from '@/utils/sigil/traditional-generator';
 import { SvgXml } from 'react-native-svg';
+import { AnchorCategory } from '@/types';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const SIGIL_SIZE = SCREEN_WIDTH - spacing.xl * 2;
@@ -28,6 +29,7 @@ const SIGIL_SIZE = SCREEN_WIDTH - spacing.xl * 2;
  */
 type SigilSelectionRouteParams = {
     intentionText: string;
+    category: AnchorCategory;
     distilledLetters: string[];
 };
 
@@ -56,7 +58,7 @@ export const SigilSelectionScreen: React.FC = () => {
     const navigation = useNavigation();
     const route = useRoute<RouteProp<{ params: SigilSelectionRouteParams }, 'params'>>();
 
-    const { intentionText, distilledLetters } = route.params;
+    const { intentionText, distilledLetters, category } = route.params;
 
     // State
     const [selectedVariant, setSelectedVariant] = useState<SigilVariant>('balanced');
@@ -103,6 +105,7 @@ export const SigilSelectionScreen: React.FC = () => {
         // Navigate to Enhancement Choice screen (Phase 2)
         navigation.navigate('EnhancementChoice', {
             intentionText,
+            category,
             distilledLetters,
             sigilSvg: selectedSvg,
             sigilVariant: selectedVariant,
@@ -197,7 +200,17 @@ export const SigilSelectionScreen: React.FC = () => {
     }
 
     return (
-        <SafeAreaView style={styles.container}>
+        <SafeAreaView style={styles.container} edges={['top', 'left', 'right']}>
+            {/* Animated Background */}
+            <View style={StyleSheet.absoluteFill}>
+                <View style={[StyleSheet.absoluteFill, { backgroundColor: colors.navy }]} />
+                {Platform.OS === 'ios' && (
+                    <View style={StyleSheet.absoluteFill}>
+                        <View style={[styles.orb, { width: 300, height: 300, borderRadius: 150, backgroundColor: colors.deepPurple, top: -100, right: -100, opacity: 0.1 }]} />
+                        <View style={[styles.orb, { width: 200, height: 200, borderRadius: 100, backgroundColor: colors.gold, bottom: -50, left: -50, opacity: 0.1 }]} />
+                    </View>
+                )}
+            </View>
             <ScrollView
                 contentContainerStyle={styles.scrollContent}
                 showsVerticalScrollIndicator={false}
@@ -264,7 +277,10 @@ export const SigilSelectionScreen: React.FC = () => {
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: colors.background.primary,
+        backgroundColor: colors.navy,
+    },
+    orb: {
+        position: 'absolute',
     },
     scrollContent: {
         padding: spacing.lg,
