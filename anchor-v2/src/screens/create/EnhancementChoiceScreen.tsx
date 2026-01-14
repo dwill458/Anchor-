@@ -71,7 +71,7 @@ export const EnhancementChoiceScreen: React.FC = () => {
   const navigation = useNavigation<EnhancementChoiceNavigationProp>();
   const route = useRoute<EnhancementChoiceRouteProp>();
 
-  const { intentionText, distilledLetters, sigilSvg, sigilVariant } = route.params;
+  const { intentionText, distilledLetters, sigilSvg, sigilVariant, category } = route.params;
 
   /**
    * Handle option selection
@@ -83,6 +83,7 @@ export const EnhancementChoiceScreen: React.FC = () => {
         intentionText,
         distilledLetters,
         sigilSvg,
+        category,
       });
       return;
     }
@@ -94,6 +95,7 @@ export const EnhancementChoiceScreen: React.FC = () => {
         distilledLetters,
         sigilSvg,
         sigilVariant,
+        category,
       });
     } else if (optionId === 'traditional') {
       // Skip AI enhancement, go directly to mantra creation
@@ -102,6 +104,7 @@ export const EnhancementChoiceScreen: React.FC = () => {
         distilledLetters,
         sigilSvg,
         finalImageUrl: undefined, // Will use SVG
+        category,
       });
     }
   };

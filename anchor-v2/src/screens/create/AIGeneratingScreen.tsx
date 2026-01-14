@@ -48,7 +48,7 @@ export const AIGeneratingScreen: React.FC = () => {
   const navigation = useNavigation<AIGeneratingNavigationProp>();
   const route = useRoute<AIGeneratingRouteProp>();
 
-  const { intentionText, distilledLetters, sigilSvg, sigilVariant, analysis } = route.params;
+  const { intentionText, distilledLetters, sigilSvg, sigilVariant, analysis, category } = route.params;
 
   const [currentMessage, setCurrentMessage] = useState(0);
   const [progress, setProgress] = useState(0);
@@ -153,6 +153,7 @@ export const AIGeneratingScreen: React.FC = () => {
           sigilVariant,
           variations, // These will be real URLs now
           prompt,
+          category,
         });
       }, 1000);
     } catch (err) {
