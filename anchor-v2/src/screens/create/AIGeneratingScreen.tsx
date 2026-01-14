@@ -19,7 +19,8 @@ import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { colors, spacing, typography } from '@/theme';
 import { RootStackParamList } from '@/types';
-import { mockGenerateVariations } from '@/services/MockAIService';
+import { apiClient } from '@/services/ApiClient';
+// import { mockGenerateVariations } from '@/services/MockAIService'; // Removed mock
 
 type AIGeneratingRouteProp = RouteProp<RootStackParamList, 'AIGenerating'>;
 type AIGeneratingNavigationProp = StackNavigationProp<RootStackParamList, 'AIGenerating'>;
@@ -129,9 +130,17 @@ export const AIGeneratingScreen: React.FC = () => {
    */
   const startGeneration = async (): Promise<void> => {
     try {
-      // Use mock service for robust demo/testing
-      const data = await mockGenerateVariations();
+      // Use real API
+      // TODO: Get actual userId from auth store
+      const response = await apiClient.post<any>('/api/ai/enhance', {
+        sigilSvg,
+        analysis,
+        userId: 'temp-user-id',
+        anchorId: `anchor-${Date.now()}`,
+      });
 
+      console.log('Generation response:', response.data);
+      const { variations, prompt } = response.data;
 
       setProgress(100);
 
@@ -142,8 +151,8 @@ export const AIGeneratingScreen: React.FC = () => {
           distilledLetters,
           sigilSvg,
           sigilVariant,
-          variations: data.variations,
-          prompt: data.prompt,
+          variations, // These will be real URLs now
+          prompt,
         });
       }, 1000);
     } catch (err) {

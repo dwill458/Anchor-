@@ -17,7 +17,8 @@ import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { colors as themeColors, spacing, typography } from '@/theme'; // Rename to avoid conflict
 import { RootStackParamList } from '@/types';
-import { mockAnalyzeIntention, AnalysisResult } from '@/services/MockAIService';
+import { apiClient } from '@/services/ApiClient';
+import { AnalysisResult } from '@/services/MockAIService'; // Keep type definition or move to centralized types
 
 // Design System Colors (Zen Architect) - Keeping specific design colors for the premium feel
 const designColors = {
@@ -76,9 +77,13 @@ export const AIAnalysisScreen: React.FC = () => {
     try {
       setLoading(true);
       setError(null);
-      // Use mock service
-      const result = await mockAnalyzeIntention(intentionText);
-      setAnalysis(result);
+      console.log('Analyzing intention:', intentionText);
+      // Use real API
+      const response = await apiClient.post<{ analysis: AnalysisResult }>('/api/ai/analyze', {
+        intentionText,
+      });
+      console.log('Analysis response:', response.data);
+      setAnalysis(response.data.analysis);
     } catch (err) {
       console.error('Analysis error:', err);
       setError(err instanceof Error ? err.message : 'Unknown error');
