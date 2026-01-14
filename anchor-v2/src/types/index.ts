@@ -219,6 +219,11 @@ export type RootStackParamList = {
     distilledLetters: string[];
     sigilSvg: string;
   };
+  PostForgeChoice: {
+    intentionText: string;
+    distilledLetters: string[];
+    sigilSvg: string;
+  };
   AIAnalysis: {
     intentionText: string;
     distilledLetters: string[];
@@ -250,9 +255,30 @@ export type RootStackParamList = {
   // Charging and Activation
   ChargeChoice: { anchorId: string };
   ChargingRitual: { anchorId: string; chargeType: ChargeType };
+
+  // Phase 2.6: Emotional Priming
+  EmotionalPriming: {
+    anchorId: string;
+    intention: string;
+    chargeType: 'quick' | 'deep';
+  };
+
   QuickCharge: { anchorId: string; chargeType: ChargeType };
   DeepCharge: { anchorId: string; chargeType: ChargeType };
   ActivationRitual: { anchorId: string; activationType: ActivationType };
+
+  // Phase 3: Burning Ritual
+  ConfirmBurn: {
+    anchorId: string;
+    intention: string;
+    sigilSvg: string;
+  };
+
+  BurningRitual: {
+    anchorId: string;
+    intention: string;
+    sigilSvg: string;
+  };
 };
 
 export type MainTabParamList = {

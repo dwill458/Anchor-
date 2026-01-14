@@ -16,12 +16,16 @@ import {
   AIVariationPickerScreen,
   MantraCreationScreen,
   ManualForgeScreen,
+  PostForgeChoiceScreen,
 } from '../screens/create';
 import {
   ChargeChoiceScreen,
+  EmotionalPrimingScreen,
   QuickChargeScreen,
   DeepChargeScreen,
   ActivationScreen,
+  ConfirmBurnScreen,
+  BurningRitualScreen,
 } from '../screens/rituals';
 import type { RootStackParamList } from '@/types';
 import { colors } from '@/theme';
@@ -47,7 +51,7 @@ export const VaultStackNavigator: React.FC = () => {
       <Stack.Screen
         name="Vault"
         component={VaultScreen}
-        options={{ title: 'My Anchors' }}
+        options={{ headerShown: false }}
       />
       <Stack.Screen
         name="AnchorDetail"
@@ -74,6 +78,11 @@ export const VaultStackNavigator: React.FC = () => {
         name="ManualForge"
         component={ManualForgeScreen}
         options={{ title: 'Forge Your Sigil', headerShown: false }}
+      />
+      <Stack.Screen
+        name="PostForgeChoice"
+        component={PostForgeChoiceScreen}
+        options={{ title: 'Enhance Your Creation?' }}
       />
       <Stack.Screen
         name="AIAnalysis"
@@ -106,6 +115,12 @@ export const VaultStackNavigator: React.FC = () => {
         component={ChargeChoiceScreen}
         options={{ title: 'Charge Anchor' }}
       />
+      {/* Phase 2.6: Emotional Priming */}
+      <Stack.Screen
+        name="EmotionalPriming"
+        component={EmotionalPrimingScreen}
+        options={{ title: 'Prepare', headerShown: false }}
+      />
       <Stack.Screen
         name="QuickCharge"
         component={QuickChargeScreen}
@@ -120,6 +135,17 @@ export const VaultStackNavigator: React.FC = () => {
         name="ActivationRitual"
         component={ActivationScreen}
         options={{ title: 'Activate', headerShown: false }}
+      />
+      {/* Phase 3: Burning Ritual */}
+      <Stack.Screen
+        name="ConfirmBurn"
+        component={ConfirmBurnScreen}
+        options={{ title: '🔥 Burn & Release' }}
+      />
+      <Stack.Screen
+        name="BurningRitual"
+        component={BurningRitualScreen}
+        options={{ title: 'Releasing...', headerShown: false }}
       />
     </Stack.Navigator>
   );

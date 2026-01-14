@@ -14,6 +14,7 @@ import {
   Animated,
   Platform,
 } from 'react-native';
+import { Plus } from 'lucide-react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { BlurView } from 'expo-blur';
@@ -153,13 +154,15 @@ export const VaultScreen: React.FC = () => {
           />
         </Animated.View>
 
+        {/* Floating Create Button - Positioned to clear floating tab bar */}
         {anchors.length > 0 && (
           <TouchableOpacity style={styles.fab} onPress={handleCreateAnchor} activeOpacity={0.9}>
             <LinearGradient
               colors={[colors.gold, '#B8941F']}
               style={styles.fabGradient}
             >
-              <Text style={styles.fabIcon}>+</Text>
+              <Plus color={colors.charcoal} size={20} style={styles.fabIcon} />
+              <Text style={styles.fabText}>Forge Anchor</Text>
             </LinearGradient>
           </TouchableOpacity>
         )}
@@ -208,7 +211,7 @@ const styles = StyleSheet.create({
   avatarText: { color: colors.gold, fontWeight: '700', fontSize: 18 },
   listContent: {
     paddingHorizontal: spacing.lg,
-    paddingBottom: 100,
+    paddingBottom: 160, // Increased to clear FAB and Tab Bar
     flexGrow: 1,
   },
   columnWrapper: {
@@ -241,17 +244,33 @@ const styles = StyleSheet.create({
   createButtonText: { color: colors.charcoal, fontWeight: '700', fontSize: 16 },
   fab: {
     position: 'absolute',
-    bottom: 30,
-    right: 30,
-    width: 64,
-    height: 64,
-    borderRadius: 32,
+    bottom: 120, // Raised to clear the floating tab bar
+    right: spacing.lg,
+    height: 56,
+    borderRadius: 28,
     elevation: 8,
     shadowColor: colors.gold,
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.5,
     shadowRadius: 10,
+    overflow: 'hidden',
   },
-  fabGradient: { flex: 1, borderRadius: 32, justifyContent: 'center', alignItems: 'center' },
-  fabIcon: { fontSize: 36, color: colors.charcoal, fontWeight: '300' },
+  fabGradient: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: spacing.lg,
+  },
+  fabIcon: {
+    marginRight: spacing.xs,
+  },
+  fabText: {
+    fontSize: 14,
+    fontFamily: typography.fonts.bodyBold,
+    color: colors.charcoal,
+    textTransform: 'uppercase',
+    letterSpacing: 1,
+  },
 });
+
+export default VaultScreen;
