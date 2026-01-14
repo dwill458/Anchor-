@@ -15,13 +15,11 @@ import { BlurView } from 'expo-blur';
 import { StatusBar } from 'expo-status-bar';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
-import { colors as themeColors, spacing, typography } from '@/theme'; // Rename to avoid conflict
-import { RootStackParamList } from '@/types';
+import { RootStackParamList } from '@/types'; // Ensure this path is correct
 import { apiClient } from '@/services/ApiClient';
-import { AnalysisResult } from '@/services/MockAIService'; // Keep type definition or move to centralized types
 
-// Design System Colors (Zen Architect) - Keeping specific design colors for the premium feel
-const designColors = {
+// Design System Colors (Zen Architect)
+const colors = {
   navy: '#0F1419',
   charcoal: '#1A1A1D',
   gold: '#D4AF37',
@@ -31,12 +29,28 @@ const designColors = {
   bronze: '#CD7F32',
 };
 
-const { width: SCREEN_WIDTH } = Dimensions.get('window');
-
+// Types for Navigation and Route
 type AIAnalysisRouteProp = RouteProp<RootStackParamList, 'AIAnalysis'>;
 type AIAnalysisNavigationProp = StackNavigationProp<RootStackParamList, 'AIAnalysis'>;
 
-export const AIAnalysisScreen: React.FC = () => {
+// Types for AI Analysis Result
+interface SymbolData {
+  id?: string;
+  name: string;
+  description: string;
+  unicode: string; // Real API uses 'unicode'
+}
+
+interface AnalysisResult {
+  intentionText?: string; // API might return this
+  keywords: string[];
+  themes: string[];
+  selectedSymbols: SymbolData[];
+  aesthetic: string;
+  explanation: string;
+}
+
+export default function AIAnalysisScreen() {
   const navigation = useNavigation<AIAnalysisNavigationProp>();
   const route = useRoute<AIAnalysisRouteProp>();
   const { intentionText, distilledLetters, sigilSvg, sigilVariant } = route.params;
@@ -78,10 +92,11 @@ export const AIAnalysisScreen: React.FC = () => {
       setLoading(true);
       setError(null);
       console.log('Analyzing intention:', intentionText);
-      // Use real API
+
       const response = await apiClient.post<{ analysis: AnalysisResult }>('/api/ai/analyze', {
         intentionText,
       });
+
       console.log('Analysis response:', response.data);
       setAnalysis(response.data.analysis);
     } catch (err) {
@@ -111,18 +126,19 @@ export const AIAnalysisScreen: React.FC = () => {
     analyzeIntention();
   };
 
+  // Loading State
   if (loading) {
     return (
       <View style={styles.container}>
         <StatusBar style="light" />
         <LinearGradient
-          colors={[designColors.navy, designColors.deepPurple, designColors.charcoal]}
+          colors={[colors.navy, colors.deepPurple, colors.charcoal]}
           style={styles.background}
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 1 }}
         />
         <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color={designColors.gold} />
+          <ActivityIndicator size="large" color={colors.gold} />
           <Text style={styles.loadingText}>Analyzing your intention...</Text>
           <Text style={styles.loadingSubtext}>
             The AI is examining archetypal themes and selecting symbolic elements
@@ -132,12 +148,13 @@ export const AIAnalysisScreen: React.FC = () => {
     );
   }
 
+  // Error State
   if (error || !analysis) {
     return (
       <View style={styles.container}>
         <StatusBar style="light" />
         <LinearGradient
-          colors={[designColors.navy, designColors.deepPurple, designColors.charcoal]}
+          colors={[colors.navy, colors.deepPurple, colors.charcoal]}
           style={styles.background}
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 1 }}
@@ -149,6 +166,9 @@ export const AIAnalysisScreen: React.FC = () => {
             <Text style={styles.errorMessage}>{error || 'Unknown error occurred'}</Text>
             <TouchableOpacity style={styles.retryButton} onPress={handleRetry}>
               <Text style={styles.retryButtonText}>Try Again</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.backButtonSimple} onPress={handleBack}>
+              <Text style={styles.backButtonText}>Go Back</Text>
             </TouchableOpacity>
           </View>
         </SafeAreaView>
@@ -162,7 +182,7 @@ export const AIAnalysisScreen: React.FC = () => {
 
       {/* Animated Background */}
       <LinearGradient
-        colors={[designColors.navy, designColors.deepPurple, designColors.charcoal]}
+        colors={[colors.navy, colors.deepPurple, colors.charcoal]}
         style={styles.background}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 1 }}
@@ -225,7 +245,7 @@ export const AIAnalysisScreen: React.FC = () => {
           >
             <View style={styles.successIconContainer}>
               <LinearGradient
-                colors={[designColors.gold, designColors.bronze]}
+                colors={[colors.gold, colors.bronze]}
                 style={styles.successIcon}
               >
                 <Text style={styles.successEmoji}>✨</Text>
@@ -257,11 +277,11 @@ export const AIAnalysisScreen: React.FC = () => {
             <Text style={styles.sectionLabel}>YOUR INTENTION</Text>
             <BlurView intensity={15} tint="dark" style={styles.intentionCard}>
               <View style={styles.intentionBorder} />
-              <Text style={styles.intentionText}>"{analysis.intentionText}"</Text>
+              <Text style={styles.intentionText}>"{intentionText}"</Text>
             </BlurView>
           </Animated.View>
 
-          {/* Key Elements (Keywords) - Flowing Pills */}
+          {/* Key Elements - Flowing Pills */}
           <Animated.View
             style={[
               styles.section,
@@ -366,81 +386,77 @@ export const AIAnalysisScreen: React.FC = () => {
             ))}
           </Animated.View>
 
-          {/* Aesthetic Approach */}
-          <Animated.View
-            style={[
-              styles.section,
-              {
-                opacity: fadeAnim,
-                transform: [{ translateY: slideAnim }],
-              },
-            ]}
-          >
-            <Text style={styles.sectionLabel}>VISUAL AESTHETIC</Text>
-            <BlurView intensity={10} tint="dark" style={styles.aestheticCard}>
-              <Text style={styles.aestheticText}>{analysis.aesthetic}</Text>
-            </BlurView>
-          </Animated.View>
-
-          {/* Explanation */}
-          <Animated.View
-            style={[
-              styles.section,
-              {
-                opacity: fadeAnim,
-                transform: [{ translateY: slideAnim }],
-              },
-            ]}
-          >
-            <Text style={styles.sectionLabel}>WHY THESE CHOICES?</Text>
-            <BlurView intensity={15} tint="dark" style={styles.explanationCard}>
-              <Text style={styles.explanationText}>{analysis.explanation}</Text>
-            </BlurView>
-          </Animated.View>
-
-          {/* Floating CTA Button - Now Static inside ScrollView */}
-          <Animated.View
-            style={[
-              styles.ctaContainer,
-              {
-                opacity: fadeAnim,
-                transform: [
-                  {
-                    translateY: slideAnim.interpolate({
-                      inputRange: [0, 30],
-                      outputRange: [0, 50],
-                    }),
-                  },
-                ],
-              },
-            ]}
-          >
-            <TouchableOpacity
-              onPress={handleGenerateVariations}
-              activeOpacity={0.9}
-              style={styles.ctaButton}
+          {/* Bonus: Explanation Section (Adapted using Intention Card Style) */}
+          {analysis.explanation && (
+            <Animated.View
+              style={[
+                styles.section,
+                {
+                  opacity: fadeAnim,
+                  transform: [
+                    {
+                      translateY: slideAnim.interpolate({
+                        inputRange: [0, 30],
+                        outputRange: [0, 80],
+                      }),
+                    },
+                  ],
+                },
+              ]}
             >
-              <LinearGradient
-                colors={[designColors.gold, '#B8941F']}
-                style={styles.ctaGradient}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 0 }}
-              >
-                <Text style={styles.ctaText}>Generate AI Variations</Text>
-                <Text style={styles.ctaArrow}>→</Text>
-              </LinearGradient>
-            </TouchableOpacity>
-          </Animated.View>
+              <Text style={styles.sectionLabel}>WHY THESE CHOICES?</Text>
+              <BlurView intensity={10} tint="dark" style={styles.explanationCard}>
+                <Text style={styles.explanationText}>{analysis.explanation}</Text>
+              </BlurView>
+            </Animated.View>
+          )}
+
+          {/* Spacer for button */}
+          <View style={styles.bottomSpacer} />
         </ScrollView>
+
+        {/* Floating CTA Button */}
+        <Animated.View
+          style={[
+            styles.ctaContainer,
+            {
+              opacity: fadeAnim,
+              transform: [
+                {
+                  translateY: slideAnim.interpolate({
+                    inputRange: [0, 30],
+                    outputRange: [0, 50],
+                  }),
+                },
+              ],
+            },
+          ]}
+        >
+          <TouchableOpacity
+            onPress={handleGenerateVariations}
+            activeOpacity={0.9}
+            style={styles.ctaButton}
+          >
+            <LinearGradient
+              colors={[colors.gold, '#B8941F']}
+              style={styles.ctaGradient}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 0 }}
+            >
+              <Text style={styles.ctaText}>Generate AI Variations</Text>
+              <Text style={styles.ctaArrow}>→</Text>
+            </LinearGradient>
+          </TouchableOpacity>
+        </Animated.View>
       </SafeAreaView>
     </View>
   );
-};
+}
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: designColors.navy,
+    backgroundColor: colors.navy,
   },
   background: {
     position: 'absolute',
@@ -449,63 +465,10 @@ const styles = StyleSheet.create({
     right: 0,
     bottom: 0,
   },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 20,
-  },
-  loadingText: {
-    fontSize: 20,
-    fontWeight: '600',
-    color: designColors.gold,
-    marginTop: 20,
-    textAlign: 'center',
-  },
-  loadingSubtext: {
-    fontSize: 14,
-    color: designColors.silver,
-    marginTop: 8,
-    textAlign: 'center',
-    maxWidth: '80%',
-  },
-  errorContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 24,
-  },
-  errorIcon: {
-    fontSize: 64,
-    marginBottom: 24,
-  },
-  errorTitle: {
-    fontSize: 24,
-    fontWeight: '700',
-    color: designColors.bone,
-    marginBottom: 8,
-  },
-  errorMessage: {
-    fontSize: 16,
-    color: designColors.silver,
-    textAlign: 'center',
-    marginBottom: 32,
-  },
-  retryButton: {
-    backgroundColor: designColors.gold,
-    paddingHorizontal: 24,
-    paddingVertical: 12,
-    borderRadius: 12,
-  },
-  retryButtonText: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: designColors.charcoal,
-  },
   orb: {
     position: 'absolute',
     borderRadius: 300,
-    backgroundColor: designColors.gold,
+    backgroundColor: colors.gold,
   },
   orb1: {
     width: 280,
@@ -537,12 +500,12 @@ const styles = StyleSheet.create({
   },
   backIcon: {
     fontSize: 24,
-    color: designColors.gold,
+    color: colors.gold,
   },
   headerTitle: {
     fontSize: 18,
     fontWeight: '600',
-    color: designColors.gold,
+    color: colors.gold,
     letterSpacing: 0.5,
   },
   scrollView: {
@@ -550,7 +513,7 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     paddingHorizontal: 24,
-    paddingBottom: 150, // Updated to 150 to ensure clearance of tab bar
+    paddingBottom: 120,
   },
   successSection: {
     alignItems: 'center',
@@ -565,7 +528,7 @@ const styles = StyleSheet.create({
     borderRadius: 40,
     justifyContent: 'center',
     alignItems: 'center',
-    shadowColor: designColors.gold,
+    shadowColor: colors.gold,
     shadowOffset: { width: 0, height: 8 },
     shadowOpacity: 0.3,
     shadowRadius: 16,
@@ -576,15 +539,15 @@ const styles = StyleSheet.create({
   },
   successTitle: {
     fontSize: 28,
-    // fontFamily: 'Cinzel-Regular', // Reverting to system font if custom font load isn't guaranteed
+    // fontFamily: 'Cinzel-Regular', 
     fontWeight: '600',
-    color: designColors.gold,
+    color: colors.gold,
     marginBottom: 8,
     textAlign: 'center',
   },
   successSubtitle: {
     fontSize: 15,
-    color: designColors.silver,
+    color: colors.silver,
     textAlign: 'center',
     lineHeight: 22,
     paddingHorizontal: 20,
@@ -595,7 +558,7 @@ const styles = StyleSheet.create({
   sectionLabel: {
     fontSize: 11,
     fontWeight: '700',
-    color: designColors.silver,
+    color: colors.silver,
     letterSpacing: 1.5,
     marginBottom: 16,
     opacity: 0.7,
@@ -615,13 +578,13 @@ const styles = StyleSheet.create({
     top: 0,
     bottom: 0,
     width: 4,
-    backgroundColor: designColors.gold,
+    backgroundColor: colors.gold,
     opacity: 0.8,
   },
   intentionText: {
     fontSize: 20,
     fontStyle: 'italic',
-    color: designColors.bone,
+    color: colors.bone,
     lineHeight: 30,
     letterSpacing: 0.3,
   },
@@ -644,7 +607,7 @@ const styles = StyleSheet.create({
   pillText: {
     fontSize: 14,
     fontWeight: '600',
-    color: designColors.gold,
+    color: colors.gold,
     letterSpacing: 0.3,
   },
   themesContainer: {
@@ -664,14 +627,14 @@ const styles = StyleSheet.create({
   themeText: {
     fontSize: 15,
     fontWeight: '600',
-    color: designColors.bone,
+    color: colors.bone,
     letterSpacing: 0.3,
   },
   themeDot: {
     width: 8,
     height: 8,
     borderRadius: 4,
-    backgroundColor: designColors.gold,
+    backgroundColor: colors.gold,
     opacity: 0.6,
   },
   symbolCard: {
@@ -704,54 +667,31 @@ const styles = StyleSheet.create({
   symbolName: {
     fontSize: 17,
     fontWeight: '700',
-    color: designColors.gold,
+    color: colors.gold,
     marginBottom: 4,
     letterSpacing: 0.3,
   },
   symbolDescription: {
     fontSize: 13,
-    color: designColors.silver,
+    color: colors.silver,
     lineHeight: 18,
-  },
-  aestheticCard: {
-    borderRadius: 16,
-    padding: 20,
-    borderWidth: 1,
-    borderColor: 'rgba(212, 175, 55, 0.15)',
-    backgroundColor: 'rgba(26, 26, 29, 0.3)',
-  },
-  aestheticText: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: designColors.gold,
-    textTransform: 'capitalize',
-    textAlign: 'center',
-  },
-  explanationCard: {
-    borderRadius: 20,
-    padding: 24,
-    borderLeftWidth: 4,
-    borderLeftColor: designColors.deepPurple,
-    backgroundColor: 'rgba(26, 26, 29, 0.3)',
-  },
-  explanationText: {
-    fontSize: 15,
-    color: designColors.silver,
-    lineHeight: 24,
   },
   bottomSpacer: {
     height: 20,
   },
   ctaContainer: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
     paddingHorizontal: 24,
     paddingBottom: 24,
     paddingTop: 16,
-    marginBottom: 100, // Ensure space for scrolling
   },
   ctaButton: {
     borderRadius: 20,
     overflow: 'hidden',
-    shadowColor: designColors.gold,
+    shadowColor: colors.gold,
     shadowOffset: { width: 0, height: 8 },
     shadowOpacity: 0.4,
     shadowRadius: 16,
@@ -767,13 +707,87 @@ const styles = StyleSheet.create({
   ctaText: {
     fontSize: 17,
     fontWeight: '700',
-    color: designColors.charcoal,
+    color: colors.charcoal,
     letterSpacing: 0.5,
     marginRight: 8,
   },
   ctaArrow: {
     fontSize: 20,
-    color: designColors.charcoal,
+    color: colors.charcoal,
     fontWeight: '300',
+  },
+  // Loading & Error Styles
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  loadingText: {
+    fontSize: 20,
+    fontWeight: '600',
+    color: colors.gold,
+    marginTop: 20,
+    textAlign: 'center',
+  },
+  loadingSubtext: {
+    fontSize: 14,
+    color: colors.silver,
+    marginTop: 8,
+    textAlign: 'center',
+    maxWidth: '80%',
+  },
+  errorContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 24,
+  },
+  errorIcon: {
+    fontSize: 64,
+    marginBottom: 24,
+  },
+  errorTitle: {
+    fontSize: 24,
+    fontWeight: '700',
+    color: colors.bone,
+    marginBottom: 8,
+  },
+  errorMessage: {
+    fontSize: 16,
+    color: colors.silver,
+    textAlign: 'center',
+    marginBottom: 32,
+  },
+  retryButton: {
+    backgroundColor: colors.gold,
+    paddingHorizontal: 24,
+    paddingVertical: 12,
+    borderRadius: 12,
+    marginBottom: 16,
+  },
+  retryButtonText: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: colors.charcoal,
+  },
+  backButtonSimple: {
+    padding: 12,
+  },
+  backButtonText: {
+    color: colors.silver,
+    fontSize: 14,
+  },
+  explanationCard: {
+    borderRadius: 20,
+    padding: 24,
+    borderLeftWidth: 4,
+    borderLeftColor: colors.deepPurple,
+    backgroundColor: 'rgba(26, 26, 29, 0.3)',
+  },
+  explanationText: {
+    fontSize: 15,
+    color: colors.silver,
+    lineHeight: 24,
   },
 });
