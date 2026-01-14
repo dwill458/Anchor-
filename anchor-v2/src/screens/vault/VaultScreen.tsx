@@ -1,8 +1,5 @@
 /**
- * Anchor App - Vault Screen
- *
- * Main screen displaying user's anchor collection in a grid layout.
- * Features: grid view, pull-to-refresh, empty state, navigation to detail.
+ * Anchor App - Vault Screen (Premium Redesign)
  */
 
 import React, { useEffect, useState, useCallback } from 'react';
@@ -14,9 +11,13 @@ import {
   RefreshControl,
   TouchableOpacity,
   Dimensions,
+  Animated,
+  Platform,
 } from 'react-native';
 import { Plus } from 'lucide-react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { LinearGradient } from 'expo-linear-gradient';
+import { BlurView } from 'expo-blur';
 import { useNavigation } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { AnchorCard } from '../../components/cards/AnchorCard';
@@ -26,9 +27,8 @@ import type { Anchor, RootStackParamList } from '@/types';
 import { colors, spacing, typography } from '@/theme';
 
 const { width } = Dimensions.get('window');
-const CARD_PADDING = spacing.md;
 const COLUMN_GAP = spacing.md;
-const CARD_WIDTH = (width - CARD_PADDING * 2 - COLUMN_GAP) / 2;
+const CARD_WIDTH = (width - spacing.lg * 2 - COLUMN_GAP) / 2;
 
 type VaultScreenNavigationProp = StackNavigationProp<RootStackParamList, 'Vault'>;
 
@@ -38,25 +38,23 @@ export const VaultScreen: React.FC = () => {
   const { anchors, isLoading, setLoading, setError } = useAnchorStore();
   const [refreshing, setRefreshing] = useState(false);
 
-  /**
-   * Fetch anchors from backend
-   */
+  const fadeAnim = React.useRef(new Animated.Value(0)).current;
+
+  React.useEffect(() => {
+    Animated.timing(fadeAnim, {
+      toValue: 1,
+      duration: 800,
+      useNativeDriver: true,
+    }).start();
+  }, []);
+
   const fetchAnchors = useCallback(async (): Promise<void> => {
     if (!user) return;
-
     setLoading(true);
     setError(null);
-
     try {
-      // TODO: Call API to fetch anchors
-      // const response = await apiClient.get<ApiResponse<Anchor[]>>('/api/anchors');
-      // if (response.success && response.data) {
-      //   setAnchors(response.data);
-      //   markSynced();
-      // }
-
-      // For now, just clear loading state
-      // Anchors will be populated when user creates them
+      // API call placeholder - logic remains in store
+      await new Promise(resolve => setTimeout(resolve, 1000));
     } catch (error) {
       setError((error as Error).message);
     } finally {
@@ -64,202 +62,215 @@ export const VaultScreen: React.FC = () => {
     }
   }, [user, setLoading, setError]);
 
-  /**
-   * Initial fetch on mount
-   */
   useEffect(() => {
     fetchAnchors();
   }, [fetchAnchors]);
 
-  /**
-   * Handle pull-to-refresh
-   */
   const onRefresh = useCallback(async (): Promise<void> => {
     setRefreshing(true);
     await fetchAnchors();
     setRefreshing(false);
   }, [fetchAnchors]);
 
-  /**
-   * Navigate to anchor detail screen
-   */
   const handleAnchorPress = (anchor: Anchor): void => {
     navigation.navigate('AnchorDetail', { anchorId: anchor.id });
   };
 
-  /**
-   * Navigate to create new anchor
-   */
   const handleCreateAnchor = (): void => {
     navigation.navigate('CreateAnchor');
   };
 
-  /**
-   * Render individual anchor card in grid
-   */
   const renderAnchorCard = ({ item }: { item: Anchor }): React.JSX.Element => (
-    <View style={styles.cardWrapper}>
+    <View style={{ width: CARD_WIDTH }}>
       <AnchorCard anchor={item} onPress={handleAnchorPress} />
     </View>
   );
 
-  /**
-   * Render empty state
-   */
   const renderEmptyState = (): React.JSX.Element => (
     <View style={styles.emptyState}>
       <Text style={styles.emptyIcon}>⚓</Text>
       <Text style={styles.emptyTitle}>No Anchors Yet</Text>
       <Text style={styles.emptyDescription}>
-        Create your first anchor to begin your journey of intentional living
+        Begin your journey of intentional living by forging your first anchor.
       </Text>
       <TouchableOpacity style={styles.createButton} onPress={handleCreateAnchor}>
-        <Text style={styles.createButtonText}>Create Your First Anchor</Text>
+        <LinearGradient colors={[colors.gold, '#B8941F']} style={styles.buttonGradient}>
+          <Text style={styles.createButtonText}>Forge First Anchor</Text>
+        </LinearGradient>
       </TouchableOpacity>
     </View>
   );
 
-  /**
-   * Render header with title and stats
-   */
   const renderHeader = (): React.JSX.Element => (
     <View style={styles.header}>
-      <Text style={styles.title}>Vault</Text>
-      {anchors.length > 0 && (
-        <Text style={styles.subtitle}>
-          {anchors.length} {anchors.length === 1 ? 'Anchor' : 'Anchors'}
+      <View>
+        <Text style={styles.headerTitle}>Vault</Text>
+        <Text style={styles.headerSubtitle}>
+          {anchors.length} {anchors.length === 1 ? 'Sacred Anchor' : 'Sacred Anchors'}
         </Text>
-      )}
+      </View>
+      <TouchableOpacity style={styles.profileButton} onPress={() => navigation.navigate('Profile')}>
+        <View style={styles.avatarPlaceholder}>
+          <Text style={styles.avatarText}>{user?.name?.charAt(0) || 'U'}</Text>
+        </View>
+      </TouchableOpacity>
     </View>
   );
 
   return (
-    <SafeAreaView style={styles.container} edges={['top']}>
-      {/* Header */}
-      {renderHeader()}
-
-      {/* Anchor Grid */}
-      <FlatList
-        data={anchors}
-        renderItem={renderAnchorCard}
-        keyExtractor={(item) => item.id}
-        numColumns={2}
-        contentContainerStyle={styles.gridContainer}
-        columnWrapperStyle={styles.row}
-        ListEmptyComponent={!isLoading ? renderEmptyState : null}
-        refreshControl={
-          <RefreshControl
-            refreshing={refreshing}
-            onRefresh={onRefresh}
-            tintColor={colors.gold}
-            colors={[colors.gold]}
-          />
-        }
-        showsVerticalScrollIndicator={false}
+    <View style={styles.container}>
+      <LinearGradient
+        colors={[colors.navy, colors.deepPurple, colors.charcoal]}
+        style={StyleSheet.absoluteFill}
       />
 
-      {/* Floating Create Button */}
-      {anchors.length > 0 && (
-        <TouchableOpacity style={styles.fab} onPress={handleCreateAnchor} activeOpacity={0.9}>
-          <Plus color={colors.charcoal} size={20} style={styles.fabIcon} />
-          <Text style={styles.fabText}>Forge Anchor</Text>
-        </TouchableOpacity>
+      {Platform.OS === 'ios' && (
+        <View style={styles.orbContainer}>
+          <View style={[styles.orb, styles.orb1]} />
+          <View style={[styles.orb, styles.orb2]} />
+        </View>
       )}
-    </SafeAreaView>
+
+      <SafeAreaView style={{ flex: 1 }} edges={['top']}>
+        {renderHeader()}
+
+        <Animated.View style={{ flex: 1, opacity: fadeAnim }}>
+          <FlatList
+            data={anchors}
+            renderItem={renderAnchorCard}
+            keyExtractor={(item) => item.id}
+            numColumns={2}
+            contentContainerStyle={styles.listContent}
+            columnWrapperStyle={styles.columnWrapper}
+            ListEmptyComponent={!isLoading ? renderEmptyState : null}
+            refreshControl={
+              <RefreshControl
+                refreshing={refreshing}
+                onRefresh={onRefresh}
+                tintColor={colors.gold}
+              />
+            }
+            showsVerticalScrollIndicator={false}
+          />
+        </Animated.View>
+
+        {/* Floating Create Button - Positioned to clear floating tab bar */}
+        {anchors.length > 0 && (
+          <TouchableOpacity style={styles.fab} onPress={handleCreateAnchor} activeOpacity={0.9}>
+            <LinearGradient
+              colors={[colors.gold, '#B8941F']}
+              style={styles.fabGradient}
+            >
+              <Plus color={colors.charcoal} size={20} style={styles.fabIcon} />
+              <Text style={styles.fabText}>Forge Anchor</Text>
+            </LinearGradient>
+          </TouchableOpacity>
+        )}
+      </SafeAreaView>
+    </View>
   );
 };
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: colors.background.primary,
-  },
+  container: { flex: 1, backgroundColor: colors.navy },
+  orbContainer: { ...StyleSheet.absoluteFillObject, overflow: 'hidden' },
+  orb: { position: 'absolute', borderRadius: 200, backgroundColor: colors.gold, opacity: 0.1 },
+  orb1: { width: 400, height: 400, top: -200, right: -150 },
+  orb2: { width: 300, height: 300, bottom: 50, left: -100 },
   header: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
     paddingHorizontal: spacing.lg,
-    paddingTop: spacing.md,
-    paddingBottom: spacing.lg,
+    paddingVertical: spacing.md,
+    marginBottom: spacing.sm,
   },
-  title: {
-    fontSize: typography.sizes.h1,
+  headerTitle: {
+    fontSize: 32,
     fontFamily: typography.fonts.heading,
     color: colors.gold,
-    marginBottom: spacing.xs,
+    letterSpacing: 1,
   },
-  subtitle: {
-    fontSize: typography.sizes.body2,
+  headerSubtitle: {
+    fontSize: 14,
+    color: colors.silver,
     fontFamily: typography.fonts.body,
-    color: colors.text.secondary,
+    marginTop: -4,
   },
-  gridContainer: {
-    padding: spacing.md,
+  profileButton: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    borderWidth: 1,
+    borderColor: 'rgba(212, 175, 55, 0.3)',
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  avatarPlaceholder: { justifyContent: 'center', alignItems: 'center' },
+  avatarText: { color: colors.gold, fontWeight: '700', fontSize: 18 },
+  listContent: {
+    paddingHorizontal: spacing.lg,
+    paddingBottom: 160, // Increased to clear FAB and Tab Bar
     flexGrow: 1,
   },
-  row: {
+  columnWrapper: {
     justifyContent: 'space-between',
-  },
-  cardWrapper: {
-    width: CARD_WIDTH,
+    marginBottom: spacing.md,
   },
   emptyState: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
     paddingHorizontal: spacing.xl,
+    marginTop: 60,
   },
-  emptyIcon: {
-    fontSize: 64,
-    marginBottom: spacing.lg,
-  },
+  emptyIcon: { fontSize: 80, marginBottom: 20 },
   emptyTitle: {
-    fontSize: typography.sizes.h2,
+    fontSize: 24,
     fontFamily: typography.fonts.heading,
-    color: colors.text.primary,
-    marginBottom: spacing.md,
-    textAlign: 'center',
+    color: colors.gold,
+    marginBottom: 12,
   },
   emptyDescription: {
-    fontSize: typography.sizes.body1,
-    fontFamily: typography.fonts.body,
-    color: colors.text.secondary,
+    fontSize: 16,
+    color: colors.silver,
     textAlign: 'center',
-    marginBottom: spacing.xl,
-    lineHeight: typography.lineHeights.body1,
+    lineHeight: 24,
+    marginBottom: 32,
   },
-  createButton: {
-    backgroundColor: colors.gold,
-    borderRadius: 8,
-    paddingHorizontal: spacing.xl,
-    paddingVertical: spacing.md,
-  },
-  createButtonText: {
-    fontSize: typography.sizes.button,
-    fontFamily: typography.fonts.bodyBold,
-    color: colors.charcoal,
-  },
+  createButton: { borderRadius: 12, overflow: 'hidden', width: '100%' },
+  buttonGradient: { height: 56, justifyContent: 'center', alignItems: 'center' },
+  createButtonText: { color: colors.charcoal, fontWeight: '700', fontSize: 16 },
   fab: {
     position: 'absolute',
     bottom: 120, // Raised to clear the floating tab bar
     right: spacing.lg,
-    backgroundColor: colors.gold,
+    height: 56,
+    borderRadius: 28,
+    elevation: 8,
+    shadowColor: colors.gold,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.5,
+    shadowRadius: 10,
+    overflow: 'hidden',
+  },
+  fabGradient: {
+    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.md,
-    borderRadius: 30,
-    elevation: 8,
-    shadowColor: colors.charcoal,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
   },
   fabIcon: {
     marginRight: spacing.xs,
   },
   fabText: {
-    fontSize: typography.sizes.body1,
+    fontSize: 14,
     fontFamily: typography.fonts.bodyBold,
     color: colors.charcoal,
     textTransform: 'uppercase',
     letterSpacing: 1,
   },
 });
+
+export default VaultScreen;
