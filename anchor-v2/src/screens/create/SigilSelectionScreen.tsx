@@ -12,6 +12,7 @@ import {
     StyleSheet,
     TouchableOpacity,
     ScrollView,
+    Platform,
     Dimensions,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -19,7 +20,8 @@ import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { colors, spacing, typography } from '@/theme';
 import { generateSigil, SigilVariant } from '@/utils/sigil/traditional-generator';
 import { SvgXml } from 'react-native-svg';
-import { AnchorCategory } from '@/types';
+import { AnchorCategory, RootStackParamList } from '@/types';
+import { StackNavigationProp } from '@react-navigation/stack';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const SIGIL_SIZE = SCREEN_WIDTH - spacing.xl * 2;
@@ -55,7 +57,7 @@ const VARIANT_INFO: Record<SigilVariant, { title: string; description: string }>
  * SigilSelectionScreen Component
  */
 export const SigilSelectionScreen: React.FC = () => {
-    const navigation = useNavigation();
+    const navigation = useNavigation<StackNavigationProp<RootStackParamList>>();
     const route = useRoute<RouteProp<{ params: SigilSelectionRouteParams }, 'params'>>();
 
     const { intentionText, distilledLetters, category } = route.params;
@@ -75,7 +77,7 @@ export const SigilSelectionScreen: React.FC = () => {
             setError(null);
         } catch (error) {
             console.error('Failed to generate sigil:', error);
-            setError(error instanceof Error ? error.message : 'Failed to generate sigil. Please try again.');
+            setError(error instanceof Error ? error.message : 'Failed to forge Anchor. Please try again.');
         }
     }, [distilledLetters]);
 
@@ -90,7 +92,7 @@ export const SigilSelectionScreen: React.FC = () => {
             setSigilResult(result);
         } catch (error) {
             console.error('Failed to generate sigil on retry:', error);
-            setError(error instanceof Error ? error.message : 'Failed to generate sigil. Please try again.');
+            setError(error instanceof Error ? error.message : 'Failed to forge Anchor. Please try again.');
         }
     };
 
@@ -193,7 +195,7 @@ export const SigilSelectionScreen: React.FC = () => {
         return (
             <SafeAreaView style={styles.container}>
                 <View style={styles.loadingContainer}>
-                    <Text style={styles.loadingText}>Generating your sigil...</Text>
+                    <Text style={styles.loadingText}>Forging your Anchor...</Text>
                 </View>
             </SafeAreaView>
         );

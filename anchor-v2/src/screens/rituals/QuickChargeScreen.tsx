@@ -1,7 +1,7 @@
 /**
  * Anchor App - Quick Charge Screen
  *
- * 30-second focused session to charge an anchor with intention.
+ * 30-second focused session to prime an anchor with intention.
  * Simple countdown with haptic feedback.
  */
 
@@ -165,7 +165,7 @@ export const QuickChargeScreen: React.FC = () => {
       {/* Header */}
       <View style={styles.header}>
         <Text style={styles.title}>
-          {isComplete ? 'Charged!' : 'Focus on Your Intention'}
+          {isComplete ? 'Primed!' : 'Focus on Your Intention'}
         </Text>
         <Text style={styles.intentionText}>{anchor.intentionText}</Text>
       </View>

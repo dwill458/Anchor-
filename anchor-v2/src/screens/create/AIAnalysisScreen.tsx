@@ -19,31 +19,10 @@ import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { colors, spacing, typography } from '@/theme';
 import { RootStackParamList } from '@/types';
+import { mockAnalyzeIntention, AnalysisResult } from '@/services/MockAIService';
 
 type AIAnalysisRouteProp = RouteProp<RootStackParamList, 'AIAnalysis'>;
 type AIAnalysisNavigationProp = StackNavigationProp<RootStackParamList, 'AIAnalysis'>;
-
-/**
- * Analysis result from backend
- */
-interface AnalysisResult {
-  intentionText: string;
-  keywords: string[];
-  themes: string[];
-  selectedSymbols: Array<{
-    id: string;
-    name: string;
-    category: string;
-    description: string;
-    unicode?: string;
-  }>;
-  aesthetic: string;
-  explanation: string;
-}
-
-/**
- * AIAnalysisScreen Component
- */
 export const AIAnalysisScreen: React.FC = () => {
   const navigation = useNavigation<AIAnalysisNavigationProp>();
   const route = useRoute<AIAnalysisRouteProp>();
@@ -69,25 +48,9 @@ export const AIAnalysisScreen: React.FC = () => {
       setLoading(true);
       setError(null);
 
-      // TODO: Replace with actual API call
-      const API_URL = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:3000';
-
-      const response = await fetch(`${API_URL}/api/ai/analyze`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          intentionText,
-        }),
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to analyze intention');
-      }
-
-      const data = await response.json();
-      setAnalysis(data.analysis);
+      // Use mock service for robust demo/testing
+      const result = await mockAnalyzeIntention(intentionText);
+      setAnalysis(result);
     } catch (err) {
       console.error('Analysis error:', err);
       setError(err instanceof Error ? err.message : 'Unknown error');
@@ -128,7 +91,7 @@ export const AIAnalysisScreen: React.FC = () => {
           <ActivityIndicator size="large" color={colors.gold} />
           <Text style={styles.loadingText}>Analyzing your intention...</Text>
           <Text style={styles.loadingSubtext}>
-            The AI is examining archetypal themes and selecting mystical symbols
+            The AI is examining archetypal themes and selecting symbolic elements
           </Text>
         </View>
       </SafeAreaView>
@@ -159,6 +122,7 @@ export const AIAnalysisScreen: React.FC = () => {
   return (
     <SafeAreaView style={styles.container}>
       <ScrollView
+        style={{ flex: 1 }}
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
@@ -434,6 +398,7 @@ const styles = StyleSheet.create({
   },
   footer: {
     padding: spacing.lg,
+    paddingBottom: 120, // Clear floating tab bar
     backgroundColor: colors.background.secondary,
     borderTopWidth: 1,
     borderTopColor: colors.navy,

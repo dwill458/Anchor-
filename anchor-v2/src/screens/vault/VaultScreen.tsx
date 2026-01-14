@@ -89,7 +89,7 @@ export const VaultScreen: React.FC = () => {
   const renderEmptyState = (): React.JSX.Element => (
     <View style={styles.emptyState}>
       <Text style={styles.emptyIcon}>⚓</Text>
-      <Text style={styles.emptyTitle}>No Anchors Yet</Text>
+      <Text style={styles.emptyTitle}>Sanctuary Awaits</Text>
       <Text style={styles.emptyDescription}>
         Begin your journey of intentional living by forging your first anchor.
       </Text>
@@ -104,7 +104,7 @@ export const VaultScreen: React.FC = () => {
   const renderHeader = (): React.JSX.Element => (
     <View style={styles.header}>
       <View>
-        <Text style={styles.headerTitle}>Vault</Text>
+        <Text style={styles.headerTitle}>Sanctuary</Text>
         <Text style={styles.headerSubtitle}>
           {anchors.length} {anchors.length === 1 ? 'Sacred Anchor' : 'Sacred Anchors'}
         </Text>

@@ -1,5 +1,5 @@
 /**
- * Anchor App - Confirm Burn Screen
+ * Anchor App - Confirm Completion Screen
  *
  * Warning screen before permanently archiving an anchor.
  * Explains Phil Cooper's chaos magick principle of destruction after success.
@@ -62,7 +62,7 @@ export const ConfirmBurnScreen: React.FC = () => {
             <Text style={styles.warningText}>
               This will permanently archive this anchor.
               {'\n\n'}
-              According to chaos magick, destroying a sigil after success helps the unconscious work freely.
+              According to chaos magick, completing a sigil after success helps the unconscious work freely.
             </Text>
           </View>
         </View>
@@ -80,7 +80,7 @@ export const ConfirmBurnScreen: React.FC = () => {
           onPress={handleConfirm}
           activeOpacity={0.7}
         >
-          <Text style={styles.burnButtonText}>🔥 BURN & RELEASE</Text>
+          <Text style={styles.burnButtonText}>✅ COMPLETE & RELEASE</Text>
         </TouchableOpacity>
 
         <TouchableOpacity

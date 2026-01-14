@@ -1,7 +1,7 @@
 /**
- * Anchor App - Burning Ritual Screen
+ * Anchor App - Completion Ritual Screen
  *
- * 6-second burning animation for anchor release.
+ * 6-second completion animation for anchor release.
  * Fades and shrinks sigil with emotional prompts.
  */
 
@@ -28,7 +28,7 @@ type BurningRitualNavigationProp = StackNavigationProp<RootStackParamList, 'Burn
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const SIGIL_SIZE = SCREEN_WIDTH * 0.6;
 
-const BURN_DURATION = 6000; // 6 seconds
+const COMPLETION_DURATION = 6000; // 6 seconds
 const PROMPTS = [
   { text: 'Let go.', delay: 2000 },
   { text: 'Trust the process.', delay: 3500 },
@@ -50,10 +50,10 @@ export const BurningRitualScreen: React.FC = () => {
   const promptOpacity = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
-    startBurningSequence();
+    startCompletionSequence();
   }, []);
 
-  const startBurningSequence = async () => {
+  const startCompletionSequence = async () => {
     // Initial deep haptic
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
 
@@ -61,12 +61,12 @@ export const BurningRitualScreen: React.FC = () => {
     Animated.parallel([
       Animated.timing(fadeAnim, {
         toValue: 0,
-        duration: BURN_DURATION,
+        duration: COMPLETION_DURATION,
         useNativeDriver: true,
       }),
       Animated.timing(scaleAnim, {
         toValue: 0.8,
-        duration: BURN_DURATION,
+        duration: COMPLETION_DURATION,
         useNativeDriver: true,
       }),
     ]).start();
@@ -93,7 +93,7 @@ export const BurningRitualScreen: React.FC = () => {
     // Complete after burn duration
     setTimeout(() => {
       handleComplete();
-    }, BURN_DURATION + 1000);
+    }, COMPLETION_DURATION + 1000);
   };
 
   const handleComplete = async () => {
