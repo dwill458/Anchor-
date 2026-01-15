@@ -28,8 +28,12 @@ export interface AIEnhancementResult {
 function getReplicateClient(): Replicate {
   const apiToken = process.env.REPLICATE_API_TOKEN;
 
-  if (!apiToken) {
-    throw new Error('REPLICATE_API_TOKEN environment variable not set');
+  // Check for missing or placeholder token
+  if (!apiToken || apiToken === 'your-replicate-token') {
+    // Return null or throw specific error to handled by caller?
+    // Better: let caller handle "mock mode" or throw here.
+    // In this case, we'll let it throw, and handle it in enhanceSigil
+    throw new Error('REPLICATE_API_TOKEN environment variable not set or invalid');
   }
 
   return new Replicate({
@@ -115,11 +119,38 @@ export async function enhanceSigil(
   const startTime = Date.now();
 
   try {
-    const replicate = getReplicateClient();
-
     // Build prompts
     const prompt = buildPrompt(request.analysis);
     const negativePrompt = buildNegativePrompt();
+
+    // Check if we should run in mock mode
+    const apiToken = process.env.REPLICATE_API_TOKEN;
+    const isMockMode = !apiToken || apiToken === 'your-replicate-token';
+
+    if (isMockMode) {
+      console.log('[AI Enhancement] Running in MOCK MODE (No valid API Token)');
+      console.log('[AI Enhancement] Prompt:', prompt);
+
+      // Simulate generation delay (3 seconds)
+      await new Promise(resolve => setTimeout(resolve, 3000));
+
+      const variations = [
+        `https://api.dicebear.com/7.x/shapes/png?seed=${request.userId}-1&backgroundColor=1a1a1d&shape1Color=d4af37`,
+        `https://api.dicebear.com/7.x/shapes/png?seed=${request.userId}-2&backgroundColor=0f1419&shape1Color=cd7f32`,
+        `https://api.dicebear.com/7.x/shapes/png?seed=${request.userId}-3&backgroundColor=3e2c5b&shape1Color=f5f5dc`,
+        `https://api.dicebear.com/7.x/shapes/png?seed=${request.userId}-4&backgroundColor=1a1a1d&shape1Color=c0c0c0`,
+      ];
+
+      return {
+        variations,
+        prompt,
+        negativePrompt,
+        model: 'mock-model-v1',
+        generationTime: 3,
+      };
+    }
+
+    const replicate = getReplicateClient();
 
     console.log('[AI Enhancement] Starting generation...');
     console.log('[AI Enhancement] Prompt:', prompt);

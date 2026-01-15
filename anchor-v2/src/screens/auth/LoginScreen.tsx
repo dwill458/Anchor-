@@ -219,7 +219,7 @@ const styles = StyleSheet.create({
   button: { borderRadius: 12, overflow: 'hidden', marginTop: 10 },
   buttonGradient: { height: 56, justifyContent: 'center', alignItems: 'center' },
   buttonText: { color: colors.charcoal, fontSize: 16, fontWeight: '700' },
-  divider: { flexDirection: 'row', alignItems: 'center', my: 24, marginVertical: 20 },
+  divider: { flexDirection: 'row', alignItems: 'center', marginVertical: 20 },
   dividerLine: { flex: 1, height: 1, backgroundColor: 'rgba(192, 192, 192, 0.2)' },
   dividerText: { color: colors.silver, marginHorizontal: 16 },
   socialButton: { height: 56, borderRadius: 12, borderWidth: 2, borderColor: 'rgba(192, 192, 192, 0.2)', flexDirection: 'row', alignItems: 'center', justifyContent: 'center', marginBottom: 12 },

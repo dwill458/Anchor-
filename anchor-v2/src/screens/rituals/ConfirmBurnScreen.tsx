@@ -24,7 +24,7 @@ type ConfirmBurnRouteProp = RouteProp<RootStackParamList, 'ConfirmBurn'>;
 type ConfirmBurnNavigationProp = StackNavigationProp<RootStackParamList, 'ConfirmBurn'>;
 
 const { width } = Dimensions.get('window');
-const SIGIL_SIZE = width * 0.5;
+const ANCHOR_SIZE = width * 0.5;
 
 export const ConfirmBurnScreen: React.FC = () => {
   const route = useRoute<ConfirmBurnRouteProp>();
@@ -47,9 +47,9 @@ export const ConfirmBurnScreen: React.FC = () => {
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.content}>
-        {/* Sigil preview */}
-        <View style={styles.sigilContainer}>
-          <SvgXml xml={sigilSvg} width={SIGIL_SIZE} height={SIGIL_SIZE} />
+        {/* Anchor preview */}
+        <View style={styles.anchorContainer}>
+          <SvgXml xml={sigilSvg} width={ANCHOR_SIZE} height={ANCHOR_SIZE} />
         </View>
 
         <Text style={styles.intention}>"{intention}"</Text>
@@ -62,7 +62,7 @@ export const ConfirmBurnScreen: React.FC = () => {
             <Text style={styles.warningText}>
               This will permanently archive this anchor.
               {'\n\n'}
-              According to chaos magick, completing a sigil after success helps the unconscious work freely.
+              According to chaos magick, completing an anchor after success helps the unconscious work freely.
             </Text>
           </View>
         </View>
@@ -105,11 +105,11 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.lg,
     paddingTop: spacing.xl,
   },
-  sigilContainer: {
+  anchorContainer: {
     alignSelf: 'center',
     marginBottom: spacing.lg,
     padding: spacing.md,
-    borderRadius: SIGIL_SIZE / 2,
+    borderRadius: ANCHOR_SIZE / 2,
     borderWidth: 2,
     borderColor: colors.gold,
   },

@@ -1,0 +1,168 @@
+src/screens/auth/LoginScreen.tsx(222,58): error TS2345: Argument of type '{ container: { flex: number; backgroundColor: "#0F1419"; }; backgroundGradient: { position: "absolute"; left: 0; right: 0; top: 0; bottom: 0; }; safeArea: { flex: number; }; keyboardAvoid: { flex: number; }; ... 24 more ...; footerLink: { ...; }; }' is not assignable to parameter of type '{ container: { flex: number; backgroundColor: "#0F1419"; }; backgroundGradient: { position: "absolute"; left: 0; right: 0; top: 0; bottom: 0; }; safeArea: { flex: number; }; keyboardAvoid: { flex: number; }; ... 24 more ...; footerLink: { ...; }; } & NamedStyles<...>'.
+  Property 'divider' is incompatible with index signature.
+    Object literal may only specify known properties, and 'my' does not exist in type 'ViewStyle | TextStyle | ImageStyle'.
+src/screens/vault/VaultScreen.tsx(112,89): error TS2769: No overload matches this call.
+  Argument of type '["Profile"]' is not assignable to parameter of type '[screen: "Vault"] | [screen: "Vault", params: undefined] | [screen: "AnchorDetail", params: { anchorId: string; }] | [screen: "CreateAnchor"] | [screen: "CreateAnchor", params: undefined] | [screen: "SigilSelection", params: { intentionText: string; category: AnchorCategory; distilledLetters: string[]; }] | ... 14 m...'.
+    Type '["Profile"]' is not assignable to type '[screen: "Vault"] | [screen: "CreateAnchor"]'.
+      Type '["Profile"]' is not assignable to type '[screen: "CreateAnchor"]'.
+        Type '"Profile"' is not assignable to type '"CreateAnchor"'.
+  Overload 2 of 2, '(options: { key: string; params?: undefined; merge?: boolean | undefined; } | { name: "Vault"; key?: string | undefined; params: undefined; merge?: boolean | undefined; } | { key: string; params?: { ...; } | undefined; merge?: boolean | undefined; } | ... 34 more ... | { ...; }): void', gave the following error.
+    Argument of type 'string' is not assignable to parameter of type '{ key: string; params?: undefined; merge?: boolean | undefined; } | { name: "Vault"; key?: string | undefined; params: undefined; merge?: boolean | undefined; } | { key: string; params?: { anchorId: string; } | undefined; merge?: boolean | undefined; } | ... 34 more ... | { ...; }'.
+src/screens/vault/VaultScreen.tsx(114,50): error TS2339: Property 'name' does not exist on type 'User'.
+src/utils/sigil/distillation.test.ts(14,1): error TS2582: Cannot find name 'describe'. Do you need to install type definitions for a test runner? Try `npm i --save-dev @types/jest` or `npm i --save-dev @types/mocha`.
+src/utils/sigil/distillation.test.ts(15,3): error TS2582: Cannot find name 'describe'. Do you need to install type definitions for a test runner? Try `npm i --save-dev @types/jest` or `npm i --save-dev @types/mocha`.
+src/utils/sigil/distillation.test.ts(16,5): error TS2582: Cannot find name 'it'. Do you need to install type definitions for a test runner? Try `npm i --save-dev @types/jest` or `npm i --save-dev @types/mocha`.
+src/utils/sigil/distillation.test.ts(20,7): error TS2304: Cannot find name 'expect'.
+src/utils/sigil/distillation.test.ts(21,7): error TS2304: Cannot find name 'expect'.
+src/utils/sigil/distillation.test.ts(24,5): error TS2582: Cannot find name 'it'. Do you need to install type definitions for a test runner? Try `npm i --save-dev @types/jest` or `npm i --save-dev @types/mocha`.
+src/utils/sigil/distillation.test.ts(28,7): error TS2304: Cannot find name 'expect'.
+src/utils/sigil/distillation.test.ts(29,7): error TS2304: Cannot find name 'expect'.
+src/utils/sigil/distillation.test.ts(32,5): error TS2582: Cannot find name 'it'. Do you need to install type definitions for a test runner? Try `npm i --save-dev @types/jest` or `npm i --save-dev @types/mocha`.
+src/utils/sigil/distillation.test.ts(36,7): error TS2304: Cannot find name 'expect'.
+src/utils/sigil/distillation.test.ts(37,7): error TS2304: Cannot find name 'expect'.
+src/utils/sigil/distillation.test.ts(41,3): error TS2582: Cannot find name 'describe'. Do you need to install type definitions for a test runner? Try `npm i --save-dev @types/jest` or `npm i --save-dev @types/mocha`.
+src/utils/sigil/distillation.test.ts(42,5): error TS2582: Cannot find name 'it'. Do you need to install type definitions for a test runner? Try `npm i --save-dev @types/jest` or `npm i --save-dev @types/mocha`.
+src/utils/sigil/distillation.test.ts(45,7): error TS2304: Cannot find name 'expect'.
+src/utils/sigil/distillation.test.ts(46,7): error TS2304: Cannot find name 'expect'.
+src/utils/sigil/distillation.test.ts(49,5): error TS2582: Cannot find name 'it'. Do you need to install type definitions for a test runner? Try `npm i --save-dev @types/jest` or `npm i --save-dev @types/mocha`.
+src/utils/sigil/distillation.test.ts(53,7): error TS2304: Cannot find name 'expect'.
+src/utils/sigil/distillation.test.ts(54,7): error TS2304: Cannot find name 'expect'.
+src/utils/sigil/distillation.test.ts(55,7): error TS2304: Cannot find name 'expect'.
+src/utils/sigil/distillation.test.ts(58,5): error TS2582: Cannot find name 'it'. Do you need to install type definitions for a test runner? Try `npm i --save-dev @types/jest` or `npm i --save-dev @types/mocha`.
+src/utils/sigil/distillation.test.ts(61,7): error TS2304: Cannot find name 'expect'.
+src/utils/sigil/distillation.test.ts(62,7): error TS2304: Cannot find name 'expect'.
+src/utils/sigil/distillation.test.ts(66,3): error TS2582: Cannot find name 'describe'. Do you need to install type definitions for a test runner? Try `npm i --save-dev @types/jest` or `npm i --save-dev @types/mocha`.
+src/utils/sigil/distillation.test.ts(67,5): error TS2582: Cannot find name 'it'. Do you need to install type definitions for a test runner? Try `npm i --save-dev @types/jest` or `npm i --save-dev @types/mocha`.
+src/utils/sigil/distillation.test.ts(71,7): error TS2304: Cannot find name 'expect'.
+src/utils/sigil/distillation.test.ts(72,7): error TS2304: Cannot find name 'expect'.
+src/utils/sigil/distillation.test.ts(73,7): error TS2304: Cannot find name 'expect'.
+src/utils/sigil/distillation.test.ts(76,5): error TS2582: Cannot find name 'it'. Do you need to install type definitions for a test runner? Try `npm i --save-dev @types/jest` or `npm i --save-dev @types/mocha`.
+src/utils/sigil/distillation.test.ts(80,7): error TS2304: Cannot find name 'expect'.
+src/utils/sigil/distillation.test.ts(81,7): error TS2304: Cannot find name 'expect'.
+src/utils/sigil/distillation.test.ts(84,5): error TS2582: Cannot find name 'it'. Do you need to install type definitions for a test runner? Try `npm i --save-dev @types/jest` or `npm i --save-dev @types/mocha`.
+src/utils/sigil/distillation.test.ts(88,7): error TS2304: Cannot find name 'expect'.
+src/utils/sigil/distillation.test.ts(91,5): error TS2582: Cannot find name 'it'. Do you need to install type definitions for a test runner? Try `npm i --save-dev @types/jest` or `npm i --save-dev @types/mocha`.
+src/utils/sigil/distillation.test.ts(95,7): error TS2304: Cannot find name 'expect'.
+src/utils/sigil/distillation.test.ts(96,7): error TS2304: Cannot find name 'expect'.
+src/utils/sigil/distillation.test.ts(100,3): error TS2582: Cannot find name 'describe'. Do you need to install type definitions for a test runner? Try `npm i --save-dev @types/jest` or `npm i --save-dev @types/mocha`.
+src/utils/sigil/distillation.test.ts(101,5): error TS2582: Cannot find name 'it'. Do you need to install type definitions for a test runner? Try `npm i --save-dev @types/jest` or `npm i --save-dev @types/mocha`.
+src/utils/sigil/distillation.test.ts(104,7): error TS2304: Cannot find name 'expect'.
+src/utils/sigil/distillation.test.ts(106,9): error TS2304: Cannot find name 'expect'.
+src/utils/sigil/distillation.test.ts(110,5): error TS2582: Cannot find name 'it'. Do you need to install type definitions for a test runner? Try `npm i --save-dev @types/jest` or `npm i --save-dev @types/mocha`.
+src/utils/sigil/distillation.test.ts(113,7): error TS2304: Cannot find name 'expect'.
+src/utils/sigil/distillation.test.ts(116,5): error TS2582: Cannot find name 'it'. Do you need to install type definitions for a test runner? Try `npm i --save-dev @types/jest` or `npm i --save-dev @types/mocha`.
+src/utils/sigil/distillation.test.ts(119,7): error TS2304: Cannot find name 'expect'.
+src/utils/sigil/distillation.test.ts(122,5): error TS2582: Cannot find name 'it'. Do you need to install type definitions for a test runner? Try `npm i --save-dev @types/jest` or `npm i --save-dev @types/mocha`.
+src/utils/sigil/distillation.test.ts(125,7): error TS2304: Cannot find name 'expect'.
+src/utils/sigil/distillation.test.ts(129,3): error TS2582: Cannot find name 'describe'. Do you need to install type definitions for a test runner? Try `npm i --save-dev @types/jest` or `npm i --save-dev @types/mocha`.
+src/utils/sigil/distillation.test.ts(130,5): error TS2582: Cannot find name 'it'. Do you need to install type definitions for a test runner? Try `npm i --save-dev @types/jest` or `npm i --save-dev @types/mocha`.
+src/utils/sigil/distillation.test.ts(133,7): error TS2304: Cannot find name 'expect'.
+src/utils/sigil/distillation.test.ts(136,5): error TS2582: Cannot find name 'it'. Do you need to install type definitions for a test runner? Try `npm i --save-dev @types/jest` or `npm i --save-dev @types/mocha`.
+src/utils/sigil/distillation.test.ts(139,7): error TS2304: Cannot find name 'expect'.
+src/utils/sigil/distillation.test.ts(142,5): error TS2582: Cannot find name 'it'. Do you need to install type definitions for a test runner? Try `npm i --save-dev @types/jest` or `npm i --save-dev @types/mocha`.
+src/utils/sigil/distillation.test.ts(145,7): error TS2304: Cannot find name 'expect'.
+src/utils/sigil/distillation.test.ts(148,5): error TS2582: Cannot find name 'it'. Do you need to install type definitions for a test runner? Try `npm i --save-dev @types/jest` or `npm i --save-dev @types/mocha`.
+src/utils/sigil/distillation.test.ts(151,7): error TS2304: Cannot find name 'expect'.
+src/utils/sigil/distillation.test.ts(155,3): error TS2582: Cannot find name 'describe'. Do you need to install type definitions for a test runner? Try `npm i --save-dev @types/jest` or `npm i --save-dev @types/mocha`.
+src/utils/sigil/distillation.test.ts(156,5): error TS2582: Cannot find name 'it'. Do you need to install type definitions for a test runner? Try `npm i --save-dev @types/jest` or `npm i --save-dev @types/mocha`.
+src/utils/sigil/distillation.test.ts(159,7): error TS2304: Cannot find name 'expect'.
+src/utils/sigil/distillation.test.ts(160,7): error TS2304: Cannot find name 'expect'.
+src/utils/sigil/distillation.test.ts(161,7): error TS2304: Cannot find name 'expect'.
+src/utils/sigil/distillation.test.ts(162,7): error TS2304: Cannot find name 'expect'.
+src/utils/sigil/distillation.test.ts(165,5): error TS2582: Cannot find name 'it'. Do you need to install type definitions for a test runner? Try `npm i --save-dev @types/jest` or `npm i --save-dev @types/mocha`.
+src/utils/sigil/distillation.test.ts(168,7): error TS2304: Cannot find name 'expect'.
+src/utils/sigil/distillation.test.ts(169,7): error TS2304: Cannot find name 'expect'.
+src/utils/sigil/distillation.test.ts(170,7): error TS2304: Cannot find name 'expect'.
+src/utils/sigil/distillation.test.ts(173,5): error TS2582: Cannot find name 'it'. Do you need to install type definitions for a test runner? Try `npm i --save-dev @types/jest` or `npm i --save-dev @types/mocha`.
+src/utils/sigil/distillation.test.ts(176,7): error TS2304: Cannot find name 'expect'.
+src/utils/sigil/distillation.test.ts(177,7): error TS2304: Cannot find name 'expect'.
+src/utils/sigil/distillation.test.ts(178,7): error TS2304: Cannot find name 'expect'.
+src/utils/sigil/distillation.test.ts(182,3): error TS2582: Cannot find name 'describe'. Do you need to install type definitions for a test runner? Try `npm i --save-dev @types/jest` or `npm i --save-dev @types/mocha`.
+src/utils/sigil/distillation.test.ts(183,5): error TS2582: Cannot find name 'it'. Do you need to install type definitions for a test runner? Try `npm i --save-dev @types/jest` or `npm i --save-dev @types/mocha`.
+src/utils/sigil/distillation.test.ts(186,7): error TS2304: Cannot find name 'expect'.
+src/utils/sigil/distillation.test.ts(187,7): error TS2304: Cannot find name 'expect'.
+src/utils/sigil/distillation.test.ts(190,5): error TS2582: Cannot find name 'it'. Do you need to install type definitions for a test runner? Try `npm i --save-dev @types/jest` or `npm i --save-dev @types/mocha`.
+src/utils/sigil/distillation.test.ts(193,7): error TS2304: Cannot find name 'expect'.
+src/utils/sigil/distillation.test.ts(196,5): error TS2582: Cannot find name 'it'. Do you need to install type definitions for a test runner? Try `npm i --save-dev @types/jest` or `npm i --save-dev @types/mocha`.
+src/utils/sigil/distillation.test.ts(199,7): error TS2304: Cannot find name 'expect'.
+src/utils/sigil/distillation.test.ts(200,7): error TS2304: Cannot find name 'expect'.
+src/utils/sigil/distillation.test.ts(203,5): error TS2582: Cannot find name 'it'. Do you need to install type definitions for a test runner? Try `npm i --save-dev @types/jest` or `npm i --save-dev @types/mocha`.
+src/utils/sigil/distillation.test.ts(206,7): error TS2304: Cannot find name 'expect'.
+src/utils/sigil/distillation.test.ts(209,5): error TS2582: Cannot find name 'it'. Do you need to install type definitions for a test runner? Try `npm i --save-dev @types/jest` or `npm i --save-dev @types/mocha`.
+src/utils/sigil/distillation.test.ts(212,7): error TS2304: Cannot find name 'expect'.
+src/utils/sigil/distillation.test.ts(215,5): error TS2582: Cannot find name 'it'. Do you need to install type definitions for a test runner? Try `npm i --save-dev @types/jest` or `npm i --save-dev @types/mocha`.
+src/utils/sigil/distillation.test.ts(218,7): error TS2304: Cannot find name 'expect'.
+src/utils/sigil/distillation.test.ts(219,7): error TS2304: Cannot find name 'expect'.
+src/utils/sigil/distillation.test.ts(223,3): error TS2582: Cannot find name 'describe'. Do you need to install type definitions for a test runner? Try `npm i --save-dev @types/jest` or `npm i --save-dev @types/mocha`.
+src/utils/sigil/distillation.test.ts(224,5): error TS2582: Cannot find name 'it'. Do you need to install type definitions for a test runner? Try `npm i --save-dev @types/jest` or `npm i --save-dev @types/mocha`.
+src/utils/sigil/distillation.test.ts(227,7): error TS2304: Cannot find name 'expect'.
+src/utils/sigil/distillation.test.ts(228,7): error TS2304: Cannot find name 'expect'.
+src/utils/sigil/distillation.test.ts(229,7): error TS2304: Cannot find name 'expect'.
+src/utils/sigil/distillation.test.ts(230,7): error TS2304: Cannot find name 'expect'.
+src/utils/sigil/distillation.test.ts(233,5): error TS2582: Cannot find name 'it'. Do you need to install type definitions for a test runner? Try `npm i --save-dev @types/jest` or `npm i --save-dev @types/mocha`.
+src/utils/sigil/distillation.test.ts(236,7): error TS2304: Cannot find name 'expect'.
+src/utils/sigil/distillation.test.ts(237,7): error TS2304: Cannot find name 'expect'.
+src/utils/sigil/distillation.test.ts(238,7): error TS2304: Cannot find name 'expect'.
+src/utils/sigil/distillation.test.ts(243,1): error TS2582: Cannot find name 'describe'. Do you need to install type definitions for a test runner? Try `npm i --save-dev @types/jest` or `npm i --save-dev @types/mocha`.
+src/utils/sigil/distillation.test.ts(244,3): error TS2582: Cannot find name 'it'. Do you need to install type definitions for a test runner? Try `npm i --save-dev @types/jest` or `npm i --save-dev @types/mocha`.
+src/utils/sigil/distillation.test.ts(248,5): error TS2304: Cannot find name 'expect'.
+src/utils/sigil/distillation.test.ts(249,5): error TS2304: Cannot find name 'expect'.
+src/utils/sigil/distillation.test.ts(252,3): error TS2582: Cannot find name 'it'. Do you need to install type definitions for a test runner? Try `npm i --save-dev @types/jest` or `npm i --save-dev @types/mocha`.
+src/utils/sigil/distillation.test.ts(256,5): error TS2304: Cannot find name 'expect'.
+src/utils/sigil/distillation.test.ts(260,1): error TS2582: Cannot find name 'describe'. Do you need to install type definitions for a test runner? Try `npm i --save-dev @types/jest` or `npm i --save-dev @types/mocha`.
+src/utils/sigil/distillation.test.ts(261,3): error TS2582: Cannot find name 'describe'. Do you need to install type definitions for a test runner? Try `npm i --save-dev @types/jest` or `npm i --save-dev @types/mocha`.
+src/utils/sigil/distillation.test.ts(262,5): error TS2582: Cannot find name 'it'. Do you need to install type definitions for a test runner? Try `npm i --save-dev @types/jest` or `npm i --save-dev @types/mocha`.
+src/utils/sigil/distillation.test.ts(265,7): error TS2304: Cannot find name 'expect'.
+src/utils/sigil/distillation.test.ts(266,7): error TS2304: Cannot find name 'expect'.
+src/utils/sigil/distillation.test.ts(269,5): error TS2582: Cannot find name 'it'. Do you need to install type definitions for a test runner? Try `npm i --save-dev @types/jest` or `npm i --save-dev @types/mocha`.
+src/utils/sigil/distillation.test.ts(272,7): error TS2304: Cannot find name 'expect'.
+src/utils/sigil/distillation.test.ts(275,5): error TS2582: Cannot find name 'it'. Do you need to install type definitions for a test runner? Try `npm i --save-dev @types/jest` or `npm i --save-dev @types/mocha`.
+src/utils/sigil/distillation.test.ts(278,7): error TS2304: Cannot find name 'expect'.
+src/utils/sigil/distillation.test.ts(282,3): error TS2582: Cannot find name 'describe'. Do you need to install type definitions for a test runner? Try `npm i --save-dev @types/jest` or `npm i --save-dev @types/mocha`.
+src/utils/sigil/distillation.test.ts(283,5): error TS2582: Cannot find name 'it'. Do you need to install type definitions for a test runner? Try `npm i --save-dev @types/jest` or `npm i --save-dev @types/mocha`.
+src/utils/sigil/distillation.test.ts(286,7): error TS2304: Cannot find name 'expect'.
+src/utils/sigil/distillation.test.ts(287,7): error TS2304: Cannot find name 'expect'.
+src/utils/sigil/distillation.test.ts(290,5): error TS2582: Cannot find name 'it'. Do you need to install type definitions for a test runner? Try `npm i --save-dev @types/jest` or `npm i --save-dev @types/mocha`.
+src/utils/sigil/distillation.test.ts(293,7): error TS2304: Cannot find name 'expect'.
+src/utils/sigil/distillation.test.ts(294,7): error TS2304: Cannot find name 'expect'.
+src/utils/sigil/distillation.test.ts(297,5): error TS2582: Cannot find name 'it'. Do you need to install type definitions for a test runner? Try `npm i --save-dev @types/jest` or `npm i --save-dev @types/mocha`.
+src/utils/sigil/distillation.test.ts(300,7): error TS2304: Cannot find name 'expect'.
+src/utils/sigil/distillation.test.ts(301,7): error TS2304: Cannot find name 'expect'.
+src/utils/sigil/distillation.test.ts(304,5): error TS2582: Cannot find name 'it'. Do you need to install type definitions for a test runner? Try `npm i --save-dev @types/jest` or `npm i --save-dev @types/mocha`.
+src/utils/sigil/distillation.test.ts(307,7): error TS2304: Cannot find name 'expect'.
+src/utils/sigil/distillation.test.ts(308,7): error TS2304: Cannot find name 'expect'.
+src/utils/sigil/distillation.test.ts(311,5): error TS2582: Cannot find name 'it'. Do you need to install type definitions for a test runner? Try `npm i --save-dev @types/jest` or `npm i --save-dev @types/mocha`.
+src/utils/sigil/distillation.test.ts(315,7): error TS2304: Cannot find name 'expect'.
+src/utils/sigil/distillation.test.ts(316,7): error TS2304: Cannot find name 'expect'.
+src/utils/sigil/distillation.test.ts(319,5): error TS2582: Cannot find name 'it'. Do you need to install type definitions for a test runner? Try `npm i --save-dev @types/jest` or `npm i --save-dev @types/mocha`.
+src/utils/sigil/distillation.test.ts(322,7): error TS2304: Cannot find name 'expect'.
+src/utils/sigil/distillation.test.ts(323,7): error TS2304: Cannot find name 'expect'.
+src/utils/sigil/distillation.test.ts(329,3): error TS2582: Cannot find name 'describe'. Do you need to install type definitions for a test runner? Try `npm i --save-dev @types/jest` or `npm i --save-dev @types/mocha`.
+src/utils/sigil/distillation.test.ts(330,5): error TS2582: Cannot find name 'it'. Do you need to install type definitions for a test runner? Try `npm i --save-dev @types/jest` or `npm i --save-dev @types/mocha`.
+src/utils/sigil/distillation.test.ts(333,7): error TS2304: Cannot find name 'expect'.
+src/utils/sigil/distillation.test.ts(336,5): error TS2582: Cannot find name 'it'. Do you need to install type definitions for a test runner? Try `npm i --save-dev @types/jest` or `npm i --save-dev @types/mocha`.
+src/utils/sigil/distillation.test.ts(340,7): error TS2304: Cannot find name 'expect'.
+src/utils/sigil/distillation.test.ts(343,5): error TS2582: Cannot find name 'it'. Do you need to install type definitions for a test runner? Try `npm i --save-dev @types/jest` or `npm i --save-dev @types/mocha`.
+src/utils/sigil/distillation.test.ts(347,7): error TS2304: Cannot find name 'expect'.
+src/utils/sigil/traditional-generator.test.ts(7,1): error TS2582: Cannot find name 'describe'. Do you need to install type definitions for a test runner? Try `npm i --save-dev @types/jest` or `npm i --save-dev @types/mocha`.
+src/utils/sigil/traditional-generator.test.ts(8,5): error TS2582: Cannot find name 'it'. Do you need to install type definitions for a test runner? Try `npm i --save-dev @types/jest` or `npm i --save-dev @types/mocha`.
+src/utils/sigil/traditional-generator.test.ts(12,9): error TS2304: Cannot find name 'expect'.
+src/utils/sigil/traditional-generator.test.ts(13,9): error TS2304: Cannot find name 'expect'.
+src/utils/sigil/traditional-generator.test.ts(14,9): error TS2304: Cannot find name 'expect'.
+src/utils/sigil/traditional-generator.test.ts(15,9): error TS2304: Cannot find name 'expect'.
+src/utils/sigil/traditional-generator.test.ts(18,5): error TS2582: Cannot find name 'it'. Do you need to install type definitions for a test runner? Try `npm i --save-dev @types/jest` or `npm i --save-dev @types/mocha`.
+src/utils/sigil/traditional-generator.test.ts(22,9): error TS2304: Cannot find name 'expect'.
+src/utils/sigil/traditional-generator.test.ts(23,9): error TS2304: Cannot find name 'expect'.
+src/utils/sigil/traditional-generator.test.ts(24,9): error TS2304: Cannot find name 'expect'.
+src/utils/sigil/traditional-generator.test.ts(25,9): error TS2304: Cannot find name 'expect'.
+src/utils/sigil/traditional-generator.test.ts(28,5): error TS2582: Cannot find name 'it'. Do you need to install type definitions for a test runner? Try `npm i --save-dev @types/jest` or `npm i --save-dev @types/mocha`.
+src/utils/sigil/traditional-generator.test.ts(34,9): error TS2304: Cannot find name 'expect'.
+src/utils/sigil/traditional-generator.test.ts(37,5): error TS2582: Cannot find name 'it'. Do you need to install type definitions for a test runner? Try `npm i --save-dev @types/jest` or `npm i --save-dev @types/mocha`.
+src/utils/sigil/traditional-generator.test.ts(41,9): error TS2304: Cannot find name 'expect'.
+src/utils/sigil/traditional-generator.test.ts(44,9): error TS2304: Cannot find name 'expect'.
+src/utils/sigil/traditional-generator.test.ts(47,5): error TS2582: Cannot find name 'it'. Do you need to install type definitions for a test runner? Try `npm i --save-dev @types/jest` or `npm i --save-dev @types/mocha`.
+src/utils/sigil/traditional-generator.test.ts(51,9): error TS2304: Cannot find name 'expect'.
+src/utils/sigil/traditional-generator.test.ts(53,9): error TS2304: Cannot find name 'expect'.
+src/utils/sigil/traditional-generator.test.ts(56,5): error TS2582: Cannot find name 'it'. Do you need to install type definitions for a test runner? Try `npm i --save-dev @types/jest` or `npm i --save-dev @types/mocha`.
+src/utils/sigil/traditional-generator.test.ts(57,9): error TS2304: Cannot find name 'expect'.
+src/utils/sigil/traditional-generator.test.ts(58,9): error TS2304: Cannot find name 'expect'.

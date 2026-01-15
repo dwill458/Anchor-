@@ -23,14 +23,19 @@ import { StackNavigationProp } from '@react-navigation/stack';
 import { AnchorCard } from '../../components/cards/AnchorCard';
 import { useAnchorStore } from '../../stores/anchorStore';
 import { useAuthStore } from '../../stores/authStore';
-import type { Anchor, RootStackParamList } from '@/types';
+import type { Anchor, RootStackParamList, MainTabParamList } from '@/types';
+import { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
+import { CompositeNavigationProp } from '@react-navigation/native';
 import { colors, spacing, typography } from '@/theme';
 
 const { width } = Dimensions.get('window');
 const COLUMN_GAP = spacing.md;
 const CARD_WIDTH = (width - spacing.lg * 2 - COLUMN_GAP) / 2;
 
-type VaultScreenNavigationProp = StackNavigationProp<RootStackParamList, 'Vault'>;
+type VaultScreenNavigationProp = CompositeNavigationProp<
+  StackNavigationProp<RootStackParamList, 'Vault'>,
+  BottomTabNavigationProp<MainTabParamList>
+>;
 
 export const VaultScreen: React.FC = () => {
   const navigation = useNavigation<VaultScreenNavigationProp>();
@@ -111,7 +116,7 @@ export const VaultScreen: React.FC = () => {
       </View>
       <TouchableOpacity style={styles.profileButton} onPress={() => navigation.navigate('Profile')}>
         <View style={styles.avatarPlaceholder}>
-          <Text style={styles.avatarText}>{user?.name?.charAt(0) || 'U'}</Text>
+          <Text style={styles.avatarText}>{user?.displayName?.charAt(0) || 'U'}</Text>
         </View>
       </TouchableOpacity>
     </View>
