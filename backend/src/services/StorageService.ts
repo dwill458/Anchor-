@@ -19,7 +19,10 @@ function getR2Client(): S3Client {
   const secretAccessKey = process.env.CLOUDFLARE_R2_SECRET_ACCESS_KEY;
 
   if (!accountId || !accessKeyId || !secretAccessKey) {
-    throw new Error('Cloudflare R2 credentials not configured');
+    // Allow mock mode if credentials missing
+    // throw new Error('Cloudflare R2 credentials not configured');
+    console.warn('[Storage] R2 credentials missing. Running in mock mode.');
+    return null as any;
   }
 
   // R2 endpoint format: https://<account_id>.r2.cloudflarestorage.com
@@ -54,6 +57,13 @@ export async function uploadImageFromUrl(
 ): Promise<string> {
   try {
     const client = getR2Client();
+
+    // Check if client is mocked (null/undefined check though getR2Client returns any in mock case)
+    if (!process.env.CLOUDFLARE_ACCOUNT_ID) {
+      console.log('[Storage] Mock Mode: Skipping upload, returning original URL');
+      return imageUrl;
+    }
+
     const bucket = getBucketName();
 
     // Download image from Replicate URL

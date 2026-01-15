@@ -1,57 +1,81 @@
 /**
- * Anchor App - Sigil Selection Screen
+ * Anchor App - Anchor Selection Screen
  *
  * Second step in the anchor creation flow.
- * Users view and select from 3 generated sigil variations.
+ * Users view and select from 3 generated anchor variations.
  */
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
     View,
     Text,
     StyleSheet,
     TouchableOpacity,
     ScrollView,
-    Platform,
+    Animated,
     Dimensions,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
-import { colors, spacing, typography } from '@/theme';
+import { colors as themeColors, spacing, typography } from '@/theme';
 import { generateSigil, SigilVariant } from '@/utils/sigil/traditional-generator';
 import { SvgXml } from 'react-native-svg';
 import { AnchorCategory, RootStackParamList } from '@/types';
 import { StackNavigationProp } from '@react-navigation/stack';
+import { LinearGradient } from 'expo-linear-gradient';
+import { BlurView } from 'expo-blur';
+import { StatusBar } from 'expo-status-bar';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
-const SIGIL_SIZE = SCREEN_WIDTH - spacing.xl * 2;
 
-/**
- * Route params for this screen
- */
+// Data Types
 type SigilSelectionRouteParams = {
     intentionText: string;
     category: AnchorCategory;
     distilledLetters: string[];
 };
 
-/**
- * Variant info for display
- */
-const VARIANT_INFO: Record<SigilVariant, { title: string; description: string }> = {
-    dense: {
-        title: 'Dense',
-        description: 'Bold and powerful, maximum visual impact',
-    },
-    balanced: {
-        title: 'Balanced',
-        description: 'Harmonious blend of strength and clarity',
-    },
-    minimal: {
-        title: 'Minimal',
-        description: 'Clean and focused, subtle elegance',
-    },
+// --- REDESIGN CONFIGURATION ---
+// User-provided colors and styles
+const colors = {
+    navy: '#0F1419',
+    charcoal: '#1A1A1D',
+    gold: '#D4AF37',
+    bone: '#F5F5DC',
+    silver: '#C0C0C0',
+    deepPurple: '#3E2C5B',
+    bronze: '#CD7F32',
+    // Fallback/Integration with existing theme
+    error: themeColors.error,
 };
+
+interface StyleOption {
+    id: SigilVariant;
+    name: string;
+    description: string;
+    aesthetic: string;
+}
+
+const STYLE_OPTIONS: StyleOption[] = [
+    {
+        id: 'dense',
+        name: 'Dense',
+        description: 'Bold and powerful, maximum visual impact',
+        aesthetic: 'Geometric · Angular · Bold',
+    },
+    {
+        id: 'balanced',
+        name: 'Balanced',
+        description: 'Harmonious blend of strength and clarity',
+        aesthetic: 'Classic · Elegant · Traditional',
+    },
+    {
+        id: 'minimal',
+        name: 'Minimal',
+        description: 'Clean and focused, subtle elegance',
+        aesthetic: 'Simplified · Abstract · Essential',
+    },
+];
 
 /**
  * SigilSelectionScreen Component
@@ -59,13 +83,17 @@ const VARIANT_INFO: Record<SigilVariant, { title: string; description: string }>
 export const SigilSelectionScreen: React.FC = () => {
     const navigation = useNavigation<StackNavigationProp<RootStackParamList>>();
     const route = useRoute<RouteProp<{ params: SigilSelectionRouteParams }, 'params'>>();
-
     const { intentionText, distilledLetters, category } = route.params;
 
     // State
-    const [selectedVariant, setSelectedVariant] = useState<SigilVariant>('balanced');
+    const [selectedStyle, setSelectedStyle] = useState<SigilVariant>('balanced');
     const [sigilResult, setSigilResult] = useState<ReturnType<typeof generateSigil> | null>(null);
     const [error, setError] = useState<string | null>(null);
+
+    // Animations
+    const fadeAnim = useRef(new Animated.Value(0)).current;
+    const slideAnim = useRef(new Animated.Value(30)).current;
+    const scaleAnim = useRef(new Animated.Value(0.9)).current;
 
     /**
      * Generate sigils on mount
@@ -75,15 +103,34 @@ export const SigilSelectionScreen: React.FC = () => {
             const result = generateSigil(distilledLetters);
             setSigilResult(result);
             setError(null);
+
+            // Start entrance animations
+            Animated.parallel([
+                Animated.timing(fadeAnim, {
+                    toValue: 1,
+                    duration: 600,
+                    useNativeDriver: true,
+                }),
+                Animated.spring(slideAnim, {
+                    toValue: 0,
+                    tension: 50,
+                    friction: 8,
+                    useNativeDriver: true,
+                }),
+                Animated.spring(scaleAnim, {
+                    toValue: 1,
+                    tension: 40,
+                    friction: 7,
+                    useNativeDriver: true,
+                }),
+            ]).start();
+
         } catch (error) {
             console.error('Failed to generate sigil:', error);
             setError(error instanceof Error ? error.message : 'Failed to forge Anchor. Please try again.');
         }
     }, [distilledLetters]);
 
-    /**
-     * Handle retry after error
-     */
     const handleRetry = (): void => {
         setError(null);
         setSigilResult(null);
@@ -91,188 +138,409 @@ export const SigilSelectionScreen: React.FC = () => {
             const result = generateSigil(distilledLetters);
             setSigilResult(result);
         } catch (error) {
-            console.error('Failed to generate sigil on retry:', error);
-            setError(error instanceof Error ? error.message : 'Failed to forge Anchor. Please try again.');
+            setError(error instanceof Error ? error.message : 'Failed');
         }
     };
 
-    /**
-     * Handle continue button press
-     */
-    const handleContinue = (): void => {
+    const handleStyleSelect = (style: SigilVariant) => {
+        setSelectedStyle(style);
+        // Small scale animation on selection
+        Animated.sequence([
+            Animated.timing(scaleAnim, {
+                toValue: 0.95,
+                duration: 100,
+                useNativeDriver: true,
+            }),
+            Animated.spring(scaleAnim, {
+                toValue: 1,
+                tension: 60,
+                friction: 6,
+                useNativeDriver: true,
+            }),
+        ]).start();
+    };
+
+    const handleContinue = () => {
         if (!sigilResult) return;
+        const selectedSvg = sigilResult.svgs[selectedStyle];
 
-        const selectedSvg = sigilResult.svgs[selectedVariant];
-
-        // Navigate to Enhancement Choice screen (Phase 2)
         navigation.navigate('EnhancementChoice', {
             intentionText,
             category,
             distilledLetters,
             sigilSvg: selectedSvg,
-            sigilVariant: selectedVariant,
+            sigilVariant: selectedStyle,
         });
     };
 
-    /**
-     * Render individual sigil variant card
-     */
-    const renderVariantCard = (variant: SigilVariant): React.JSX.Element => {
-        const isSelected = selectedVariant === variant;
-        const info = VARIANT_INFO[variant];
-
-        return (
-            <TouchableOpacity
-                key={variant}
-                style={[
-                    styles.variantCard,
-                    isSelected && styles.variantCardSelected,
-                ]}
-                onPress={() => setSelectedVariant(variant)}
-                activeOpacity={0.8}
-            >
-                {/* Sigil Preview */}
-                <View style={styles.sigilContainer}>
-                    {sigilResult && (
-                        <SvgXml
-                            xml={sigilResult.svgs[variant]}
-                            width={120}
-                            height={120}
-                            color={isSelected ? colors.gold : colors.text.primary}
-                        />
-                    )}
-                </View>
-
-                {/* Variant Info */}
-                <View style={styles.variantInfo}>
-                    <Text style={[styles.variantTitle, isSelected && styles.variantTitleSelected]}>
-                        {info.title}
-                    </Text>
-                    <Text style={styles.variantDescription}>
-                        {info.description}
-                    </Text>
-                </View>
-
-                {/* Selection Indicator */}
-                {isSelected && (
-                    <View style={styles.selectedIndicator}>
-                        <Text style={styles.selectedIcon}>✓</Text>
-                    </View>
-                )}
-            </TouchableOpacity>
-        );
+    const handleBack = () => {
+        navigation.goBack();
     };
 
-    // Show error state if generation failed
+    // Error State
     if (error) {
         return (
             <SafeAreaView style={styles.container}>
+                <StatusBar style="light" />
                 <View style={styles.errorContainer}>
                     <Text style={styles.errorIcon}>⚠️</Text>
                     <Text style={styles.errorTitle}>Generation Failed</Text>
                     <Text style={styles.errorText}>{error}</Text>
-                    <TouchableOpacity
-                        style={styles.retryButton}
-                        onPress={handleRetry}
-                        activeOpacity={0.8}
-                    >
-                        <Text style={styles.retryButtonText}>Try Again</Text>
+                    <TouchableOpacity style={styles.retryButton} onPress={handleRetry}>
+                        <Text style={styles.buttonText}>Try Again</Text>
                     </TouchableOpacity>
-                    <TouchableOpacity
-                        style={styles.backButton}
-                        onPress={() => navigation.goBack()}
-                        activeOpacity={0.8}
-                    >
-                        <Text style={styles.backButtonText}>Go Back</Text>
+                    <TouchableOpacity style={styles.backButtonSimple} onPress={handleBack}>
+                        <Text style={styles.backButtonTextSimple}>Go Back</Text>
                     </TouchableOpacity>
                 </View>
             </SafeAreaView>
         );
     }
 
-    // Show loading state while generating
+    // Loading State
     if (!sigilResult) {
         return (
-            <SafeAreaView style={styles.container}>
+            <View style={styles.container}>
+                <StatusBar style="light" />
+                <LinearGradient
+                    colors={[colors.navy, colors.deepPurple, colors.charcoal]}
+                    style={styles.background}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 1 }}
+                />
                 <View style={styles.loadingContainer}>
                     <Text style={styles.loadingText}>Forging your Anchor...</Text>
                 </View>
-            </SafeAreaView>
+            </View>
         );
     }
 
     return (
-        <SafeAreaView style={styles.container} edges={['top', 'left', 'right']}>
+        <View style={styles.container}>
+            <StatusBar style="light" />
+
             {/* Animated Background */}
-            <View style={StyleSheet.absoluteFill}>
-                <View style={[StyleSheet.absoluteFill, { backgroundColor: colors.navy }]} />
-                {Platform.OS === 'ios' && (
-                    <View style={StyleSheet.absoluteFill}>
-                        <View style={[styles.orb, { width: 300, height: 300, borderRadius: 150, backgroundColor: colors.deepPurple, top: -100, right: -100, opacity: 0.1 }]} />
-                        <View style={[styles.orb, { width: 200, height: 200, borderRadius: 100, backgroundColor: colors.gold, bottom: -50, left: -50, opacity: 0.1 }]} />
-                    </View>
-                )}
-            </View>
-            <ScrollView
-                contentContainerStyle={styles.scrollContent}
-                showsVerticalScrollIndicator={false}
-            >
+            <LinearGradient
+                colors={[colors.navy, colors.deepPurple, colors.charcoal]}
+                style={styles.background}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+            />
+
+            {/* Floating Orbs */}
+            <Animated.View
+                style={[
+                    styles.orb,
+                    styles.orb1,
+                    {
+                        opacity: fadeAnim.interpolate({
+                            inputRange: [0, 1],
+                            outputRange: [0, 0.12],
+                        }),
+                    },
+                ]}
+            />
+            <Animated.View
+                style={[
+                    styles.orb,
+                    styles.orb2,
+                    {
+                        opacity: fadeAnim.interpolate({
+                            inputRange: [0, 1],
+                            outputRange: [0, 0.08],
+                        }),
+                    },
+                ]}
+            />
+
+            <SafeAreaView style={styles.safeArea}>
                 {/* Header */}
                 <View style={styles.header}>
-                    <Text style={styles.title}>Choose Your Anchor</Text>
-                    <Text style={styles.subtitle}>
-                        Each variation channels your intention "{intentionText}" in a unique visual form.
-                    </Text>
+                    <TouchableOpacity
+                        onPress={handleBack}
+                        style={styles.backButton}
+                        activeOpacity={0.7}
+                    >
+                        <Text style={styles.backIcon}>←</Text>
+                    </TouchableOpacity>
+                    <Text style={styles.headerTitle}>Select Your Symbol</Text>
+                    <View style={styles.backButton} />
                 </View>
 
-                {/* Distilled Letters Display */}
-                <View style={styles.lettersSection}>
-                    <Text style={styles.lettersLabel}>Your Distilled Letters</Text>
-                    <View style={styles.lettersContainer}>
-                        {distilledLetters.map((letter, index) => (
-                            <View key={index} style={styles.letterBox}>
-                                <Text style={styles.letterText}>{letter}</Text>
-                            </View>
-                        ))}
-                    </View>
-                </View>
-
-                {/* Large Preview of Selected Sigil */}
-                <View style={styles.previewSection}>
-                    <View style={styles.previewContainer}>
-                        <SvgXml
-                            xml={sigilResult.svgs[selectedVariant]}
-                            width={SIGIL_SIZE}
-                            height={SIGIL_SIZE}
-                            color={colors.gold}
-                        />
-                    </View>
-                    <Text style={styles.previewLabel}>
-                        {VARIANT_INFO[selectedVariant].title} Style
-                    </Text>
-                </View>
-
-                {/* Variant Selection Grid */}
-                <View style={styles.variantsSection}>
-                    <Text style={styles.variantsTitle}>Select a Style</Text>
-                    <View style={styles.variantsGrid}>
-                        {(['dense', 'balanced', 'minimal'] as SigilVariant[]).map(renderVariantCard)}
-                    </View>
-                </View>
-            </ScrollView>
-
-            {/* Continue Button */}
-            <View style={styles.footer}>
-                <TouchableOpacity
-                    style={styles.continueButton}
-                    onPress={handleContinue}
+                <ScrollView
+                    style={styles.scrollView}
+                    contentContainerStyle={styles.scrollContent}
+                    showsVerticalScrollIndicator={false}
                 >
-                    <Text style={styles.continueButtonText}>
-                        Continue
-                    </Text>
-                </TouchableOpacity>
-            </View>
-        </SafeAreaView>
+                    {/* Title Section */}
+                    <Animated.View
+                        style={[
+                            styles.titleSection,
+                            {
+                                opacity: fadeAnim,
+                                transform: [{ translateY: slideAnim }],
+                            },
+                        ]}
+                    >
+                        <Text style={styles.title}>Choose Your Anchor</Text>
+                        <Text style={styles.subtitle}>
+                            Each style creates a unique visual expression of your intention.
+                            Select the one that resonates with you.
+                        </Text>
+                    </Animated.View>
+
+                    {/* Intention Card - Compact */}
+                    <Animated.View
+                        style={[
+                            styles.intentionSection,
+                            {
+                                opacity: fadeAnim,
+                                transform: [
+                                    {
+                                        translateY: slideAnim.interpolate({
+                                            inputRange: [0, 30],
+                                            outputRange: [0, 40],
+                                        }),
+                                    },
+                                ],
+                            },
+                        ]}
+                    >
+                        <BlurView intensity={10} tint="dark" style={styles.intentionCard}>
+                            <View style={styles.intentionContent}>
+                                <Text style={styles.intentionLabel}>YOUR INTENTION</Text>
+                                <Text style={styles.intentionText}>"{intentionText}"</Text>
+                            </View>
+                            <View style={styles.intentionBorder} />
+                        </BlurView>
+                    </Animated.View>
+
+                    {/* Distilled Letters - Flowing Pills */}
+                    <Animated.View
+                        style={[
+                            styles.lettersSection,
+                            {
+                                opacity: fadeAnim,
+                                transform: [
+                                    {
+                                        translateY: slideAnim.interpolate({
+                                            inputRange: [0, 30],
+                                            outputRange: [0, 45],
+                                        }),
+                                    },
+                                ],
+                            },
+                        ]}
+                    >
+                        <Text style={styles.sectionLabel}>DISTILLED LETTERS</Text>
+                        <View style={styles.lettersContainer}>
+                            {distilledLetters.map((letter, index) => (
+                                <View key={index} style={styles.letterPill}>
+                                    <LinearGradient
+                                        colors={[
+                                            'rgba(212, 175, 55, 0.2)',
+                                            'rgba(212, 175, 55, 0.05)',
+                                        ]}
+                                        style={styles.letterGradient}
+                                    >
+                                        <Text style={styles.letterText}>{letter}</Text>
+                                    </LinearGradient>
+                                </View>
+                            ))}
+                        </View>
+                    </Animated.View>
+
+                    {/* Large Sigil Preview */}
+                    <Animated.View
+                        style={[
+                            styles.previewSection,
+                            {
+                                opacity: fadeAnim,
+                                transform: [
+                                    {
+                                        translateY: slideAnim.interpolate({
+                                            inputRange: [0, 30],
+                                            outputRange: [0, 50],
+                                        }),
+                                    },
+                                    { scale: scaleAnim },
+                                ],
+                            },
+                        ]}
+                    >
+                        <BlurView intensity={8} tint="dark" style={styles.previewCard}>
+                            <View style={styles.previewContainer}>
+                                <LinearGradient
+                                    colors={[colors.gold, colors.bronze]}
+                                    style={styles.sigilPlaceholder}
+                                >
+                                    {/* ACTUAL SVG RENDER */}
+                                    <View style={styles.svgWrapper}>
+                                        <SvgXml
+                                            xml={sigilResult.svgs[selectedStyle]}
+                                            width={SCREEN_WIDTH * 0.5}
+                                            height={SCREEN_WIDTH * 0.5}
+                                            color={colors.charcoal} // Dark color for visibility on gold bg
+                                        />
+                                    </View>
+                                </LinearGradient>
+                            </View>
+
+                            {/* Style Badge */}
+                            <View style={styles.styleBadge}>
+                                <LinearGradient
+                                    colors={[colors.gold, colors.bronze]}
+                                    style={styles.styleBadgeGradient}
+                                >
+                                    <Text style={styles.styleBadgeText}>
+                                        {selectedStyle.toUpperCase()}
+                                    </Text>
+                                </LinearGradient>
+                            </View>
+                        </BlurView>
+                    </Animated.View>
+
+                    {/* Style Options */}
+                    <Animated.View
+                        style={[
+                            styles.stylesSection,
+                            {
+                                opacity: fadeAnim,
+                                transform: [
+                                    {
+                                        translateY: slideAnim.interpolate({
+                                            inputRange: [0, 30],
+                                            outputRange: [0, 60],
+                                        }),
+                                    },
+                                ],
+                            },
+                        ]}
+                    >
+                        <Text style={styles.sectionLabel}>SELECT STYLE</Text>
+                        {STYLE_OPTIONS.map((style, index) => (
+                            <TouchableOpacity
+                                key={style.id}
+                                onPress={() => handleStyleSelect(style.id)}
+                                activeOpacity={0.8}
+                                style={styles.styleOptionWrapper}
+                            >
+                                <BlurView
+                                    intensity={selectedStyle === style.id ? 18 : 10}
+                                    tint="dark"
+                                    style={[
+                                        styles.styleCard,
+                                        selectedStyle === style.id && styles.styleCardSelected,
+                                    ]}
+                                >
+                                    {/* Mini Preview Circle */}
+                                    <View style={styles.miniPreview}>
+                                        <LinearGradient
+                                            colors={
+                                                selectedStyle === style.id
+                                                    ? [colors.gold, colors.bronze]
+                                                    : ['rgba(192, 192, 192, 0.3)', 'rgba(158, 158, 158, 0.2)']
+                                            }
+                                            style={styles.miniPreviewGradient}
+                                        >
+                                            {/* Mini SVG Preview */}
+                                            <SvgXml
+                                                xml={sigilResult.svgs[style.id]}
+                                                width={32}
+                                                height={32}
+                                                color={selectedStyle === style.id ? colors.charcoal : colors.silver}
+                                            />
+                                        </LinearGradient>
+                                    </View>
+
+                                    {/* Style Info */}
+                                    <View style={styles.styleInfo}>
+                                        <Text
+                                            style={[
+                                                styles.styleName,
+                                                selectedStyle === style.id && styles.styleNameSelected,
+                                            ]}
+                                        >
+                                            {style.name}
+                                        </Text>
+                                        <Text style={styles.styleDescription}>
+                                            {style.description}
+                                        </Text>
+                                        <View style={styles.aestheticTags}>
+                                            {style.aesthetic.split(' · ').map((tag, i) => (
+                                                <View key={i} style={styles.aestheticTag}>
+                                                    <Text style={styles.aestheticText}>{tag}</Text>
+                                                </View>
+                                            ))}
+                                        </View>
+                                    </View>
+
+                                    {/* Selection Indicator */}
+                                    <View style={styles.selectionIndicator}>
+                                        {selectedStyle === style.id ? (
+                                            <View style={styles.selectedCircle}>
+                                                <LinearGradient
+                                                    colors={[colors.gold, colors.bronze]}
+                                                    style={styles.selectedCircleGradient}
+                                                >
+                                                    <Text style={styles.checkIcon}>✓</Text>
+                                                </LinearGradient>
+                                            </View>
+                                        ) : (
+                                            <View style={styles.unselectedCircle} />
+                                        )}
+                                    </View>
+
+                                    {/* Glow Effect */}
+                                    {selectedStyle === style.id && (
+                                        <View style={styles.selectedGlow} />
+                                    )}
+                                </BlurView>
+                            </TouchableOpacity>
+                        ))}
+                    </Animated.View>
+
+                    {/* Bottom Spacer */}
+                    <View style={styles.bottomSpacer} />
+                </ScrollView>
+
+                {/* Continue Button - Fixed */}
+                <Animated.View
+                    style={[
+                        styles.continueContainer,
+                        {
+                            opacity: fadeAnim,
+                            transform: [
+                                {
+                                    translateY: slideAnim.interpolate({
+                                        inputRange: [0, 30],
+                                        outputRange: [0, 50],
+                                    }),
+                                },
+                            ],
+                        },
+                    ]}
+                >
+                    <TouchableOpacity
+                        onPress={handleContinue}
+                        activeOpacity={0.9}
+                        style={styles.continueButton}
+                    >
+                        <LinearGradient
+                            colors={[colors.gold, '#B8941F']}
+                            style={styles.continueGradient}
+                            start={{ x: 0, y: 0 }}
+                            end={{ x: 1, y: 0 }}
+                        >
+                            <Text style={styles.continueText}>
+                                Continue with {selectedStyle}
+                            </Text>
+                            <Text style={styles.continueArrow}>→</Text>
+                        </LinearGradient>
+                    </TouchableOpacity>
+                </Animated.View>
+            </SafeAreaView>
+        </View>
     );
 };
 
@@ -281,12 +549,352 @@ const styles = StyleSheet.create({
         flex: 1,
         backgroundColor: colors.navy,
     },
+    background: {
+        position: 'absolute',
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
+    },
     orb: {
         position: 'absolute',
+        borderRadius: 300,
+        backgroundColor: colors.gold,
+    },
+    orb1: {
+        width: 280,
+        height: 280,
+        top: -80,
+        right: -100,
+    },
+    orb2: {
+        width: 220,
+        height: 220,
+        bottom: 200,
+        left: -60,
+    },
+    safeArea: {
+        flex: 1,
+    },
+    header: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        paddingHorizontal: 20,
+        paddingVertical: 16,
+    },
+    backButton: {
+        width: 40,
+        height: 40,
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    backIcon: {
+        fontSize: 24,
+        color: colors.gold,
+    },
+    headerTitle: {
+        fontSize: 18,
+        fontWeight: '600',
+        color: colors.gold,
+        letterSpacing: 0.5,
+    },
+    scrollView: {
+        flex: 1,
     },
     scrollContent: {
-        padding: spacing.lg,
-        paddingBottom: spacing.xxxl,
+        paddingHorizontal: 24,
+        paddingBottom: 120,
+    },
+    titleSection: {
+        paddingTop: 8,
+        paddingBottom: 24,
+    },
+    title: {
+        fontSize: 28,
+        // fontFamily: 'Cinzel-Regular', // Revert to system font if custom font not loaded
+        fontWeight: 'bold',
+        color: colors.gold,
+        marginBottom: 12,
+        letterSpacing: 0.5,
+    },
+    subtitle: {
+        fontSize: 15,
+        color: colors.silver,
+        lineHeight: 22,
+    },
+    intentionSection: {
+        marginBottom: 24,
+    },
+    intentionCard: {
+        borderRadius: 16,
+        overflow: 'hidden',
+        borderWidth: 1,
+        borderColor: 'rgba(212, 175, 55, 0.2)',
+        backgroundColor: 'rgba(26, 26, 29, 0.4)',
+        position: 'relative',
+    },
+    intentionContent: {
+        padding: 16,
+    },
+    intentionLabel: {
+        fontSize: 10,
+        fontWeight: '700',
+        color: colors.silver,
+        letterSpacing: 1.2,
+        marginBottom: 8,
+        opacity: 0.6,
+    },
+    intentionText: {
+        fontSize: 15,
+        fontStyle: 'italic',
+        color: colors.bone,
+        lineHeight: 22,
+    },
+    intentionBorder: {
+        position: 'absolute',
+        left: 0,
+        top: 0,
+        bottom: 0,
+        width: 3,
+        backgroundColor: colors.gold,
+    },
+    lettersSection: {
+        marginBottom: 32,
+    },
+    sectionLabel: {
+        fontSize: 11,
+        fontWeight: '700',
+        color: colors.silver,
+        letterSpacing: 1.5,
+        marginBottom: 16,
+        opacity: 0.7,
+    },
+    lettersContainer: {
+        flexDirection: 'row',
+        flexWrap: 'wrap',
+        gap: 10,
+    },
+    letterPill: {
+        borderRadius: 12,
+        overflow: 'hidden',
+    },
+    letterGradient: {
+        paddingHorizontal: 14,
+        paddingVertical: 8,
+        borderWidth: 1,
+        borderColor: 'rgba(212, 175, 55, 0.3)',
+        borderRadius: 12,
+    },
+    letterText: {
+        fontSize: 16,
+        fontWeight: '700',
+        color: colors.gold,
+        letterSpacing: 1,
+    },
+    previewSection: {
+        marginBottom: 32,
+    },
+    previewCard: {
+        borderRadius: 24,
+        overflow: 'hidden',
+        borderWidth: 1,
+        borderColor: 'rgba(212, 175, 55, 0.2)',
+        backgroundColor: 'rgba(26, 26, 29, 0.3)',
+        position: 'relative',
+    },
+    previewContainer: {
+        aspectRatio: 1,
+        padding: 32,
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    sigilPlaceholder: {
+        width: '100%',
+        height: '100%',
+        borderRadius: 200,
+        justifyContent: 'center',
+        alignItems: 'center',
+        shadowColor: colors.gold,
+        shadowOffset: { width: 0, height: 8 },
+        shadowOpacity: 0.3,
+        shadowRadius: 24,
+        elevation: 12,
+    },
+    svgWrapper: {
+        opacity: 0.85,
+    },
+    sigilEmoji: {
+        fontSize: 96,
+        opacity: 0.8,
+    },
+    styleBadge: {
+        position: 'absolute',
+        bottom: 20,
+        right: 20,
+        borderRadius: 12,
+        overflow: 'hidden',
+    },
+    styleBadgeGradient: {
+        paddingHorizontal: 16,
+        paddingVertical: 8,
+    },
+    styleBadgeText: {
+        fontSize: 12,
+        fontWeight: '700',
+        color: colors.charcoal,
+        letterSpacing: 1.5,
+    },
+    stylesSection: {
+        marginBottom: 24,
+    },
+    styleOptionWrapper: {
+        marginBottom: 16,
+    },
+    styleCard: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        padding: 16,
+        borderRadius: 20,
+        borderWidth: 2,
+        borderColor: 'rgba(192, 192, 192, 0.15)',
+        backgroundColor: 'rgba(26, 26, 29, 0.3)',
+        position: 'relative',
+    },
+    styleCardSelected: {
+        borderColor: colors.gold,
+        backgroundColor: 'rgba(212, 175, 55, 0.08)',
+    },
+    miniPreview: {
+        width: 64,
+        height: 64,
+        marginRight: 16,
+        borderRadius: 32,
+        overflow: 'hidden',
+    },
+    miniPreviewGradient: {
+        flex: 1,
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    miniSigilEmoji: {
+        fontSize: 32,
+        opacity: 0.8,
+    },
+    styleInfo: {
+        flex: 1,
+    },
+    styleName: {
+        fontSize: 18,
+        fontWeight: '700',
+        color: colors.bone,
+        marginBottom: 4,
+        letterSpacing: 0.3,
+    },
+    styleNameSelected: {
+        color: colors.gold,
+    },
+    styleDescription: {
+        fontSize: 13,
+        color: colors.silver,
+        lineHeight: 18,
+        marginBottom: 8,
+    },
+    aestheticTags: {
+        flexDirection: 'row',
+        flexWrap: 'wrap',
+        gap: 6,
+    },
+    aestheticTag: {
+        paddingHorizontal: 8,
+        paddingVertical: 3,
+        borderRadius: 8,
+        backgroundColor: 'rgba(192, 192, 192, 0.1)',
+    },
+    aestheticText: {
+        fontSize: 10,
+        fontWeight: '600',
+        color: colors.silver,
+        opacity: 0.8,
+    },
+    selectionIndicator: {
+        marginLeft: 12,
+    },
+    selectedCircle: {
+        width: 32,
+        height: 32,
+        borderRadius: 16,
+        overflow: 'hidden',
+    },
+    selectedCircleGradient: {
+        flex: 1,
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    checkIcon: {
+        fontSize: 16,
+        fontWeight: '700',
+        color: colors.charcoal,
+    },
+    unselectedCircle: {
+        width: 32,
+        height: 32,
+        borderRadius: 16,
+        borderWidth: 2,
+        borderColor: 'rgba(192, 192, 192, 0.3)',
+    },
+    selectedGlow: {
+        position: 'absolute',
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
+        borderRadius: 20,
+        shadowColor: colors.gold,
+        shadowOffset: { width: 0, height: 0 },
+        shadowOpacity: 0.4,
+        shadowRadius: 16,
+        elevation: 8,
+    },
+    bottomSpacer: {
+        height: 20,
+    },
+    continueContainer: {
+        position: 'absolute',
+        bottom: 0,
+        left: 0,
+        right: 0,
+        paddingHorizontal: 24,
+        paddingBottom: 100,
+        paddingTop: 16,
+    },
+    continueButton: {
+        borderRadius: 20,
+        overflow: 'hidden',
+        shadowColor: colors.gold,
+        shadowOffset: { width: 0, height: 8 },
+        shadowOpacity: 0.4,
+        shadowRadius: 16,
+        elevation: 10,
+    },
+    continueGradient: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        paddingVertical: 18,
+        paddingHorizontal: 32,
+    },
+    continueText: {
+        fontSize: 17,
+        fontWeight: '700',
+        color: colors.charcoal,
+        letterSpacing: 0.5,
+        marginRight: 8,
+    },
+    continueArrow: {
+        fontSize: 20,
+        color: colors.charcoal,
+        fontWeight: '300',
     },
     loadingContainer: {
         flex: 1,
@@ -295,8 +903,7 @@ const styles = StyleSheet.create({
     },
     loadingText: {
         fontSize: typography.sizes.body1,
-        fontFamily: typography.fonts.body,
-        color: colors.text.secondary,
+        color: colors.bone,
     },
     errorContainer: {
         flex: 1,
@@ -310,18 +917,15 @@ const styles = StyleSheet.create({
     },
     errorTitle: {
         fontSize: typography.sizes.h2,
-        fontFamily: typography.fonts.heading,
         color: colors.error,
         marginBottom: spacing.md,
         textAlign: 'center',
     },
     errorText: {
         fontSize: typography.sizes.body1,
-        fontFamily: typography.fonts.body,
-        color: colors.text.secondary,
+        color: colors.silver,
         textAlign: 'center',
         marginBottom: spacing.xl,
-        lineHeight: typography.lineHeights.body1,
     },
     retryButton: {
         backgroundColor: colors.gold,
@@ -331,167 +935,19 @@ const styles = StyleSheet.create({
         marginBottom: spacing.md,
         minWidth: 200,
     },
-    retryButtonText: {
+    buttonText: {
         fontSize: typography.sizes.button,
-        fontFamily: typography.fonts.bodyBold,
         color: colors.charcoal,
         textAlign: 'center',
+        fontWeight: 'bold',
     },
-    backButton: {
+    backButtonSimple: {
         paddingVertical: spacing.md,
         paddingHorizontal: spacing.xl,
     },
-    backButtonText: {
+    backButtonTextSimple: {
         fontSize: typography.sizes.button,
-        fontFamily: typography.fonts.body,
-        color: colors.text.secondary,
+        color: colors.silver,
         textAlign: 'center',
-    },
-    header: {
-        marginBottom: spacing.xl,
-    },
-    title: {
-        fontSize: typography.sizes.h2,
-        fontFamily: typography.fonts.heading,
-        color: colors.gold,
-        marginBottom: spacing.sm,
-    },
-    subtitle: {
-        fontSize: typography.sizes.body1,
-        fontFamily: typography.fonts.body,
-        color: colors.text.secondary,
-        lineHeight: typography.lineHeights.body1,
-    },
-    lettersSection: {
-        marginBottom: spacing.xl,
-    },
-    lettersLabel: {
-        fontSize: typography.sizes.body2,
-        fontFamily: typography.fonts.body,
-        color: colors.text.tertiary,
-        marginBottom: spacing.sm,
-    },
-    lettersContainer: {
-        flexDirection: 'row',
-        flexWrap: 'wrap',
-    },
-    letterBox: {
-        backgroundColor: colors.deepPurple,
-        paddingHorizontal: spacing.md,
-        paddingVertical: spacing.sm,
-        borderRadius: 8,
-        marginRight: spacing.sm,
-        marginBottom: spacing.sm,
-    },
-    letterText: {
-        fontSize: typography.sizes.h4,
-        fontFamily: typography.fonts.heading,
-        color: colors.gold,
-    },
-    previewSection: {
-        alignItems: 'center',
-        marginBottom: spacing.xl,
-    },
-    previewContainer: {
-        width: SIGIL_SIZE,
-        height: SIGIL_SIZE,
-        backgroundColor: colors.background.card,
-        borderRadius: 16,
-        justifyContent: 'center',
-        alignItems: 'center',
-        marginBottom: spacing.md,
-        borderWidth: 2,
-        borderColor: colors.gold,
-    },
-    previewLabel: {
-        fontSize: typography.sizes.body1,
-        fontFamily: typography.fonts.bodyBold,
-        color: colors.gold,
-    },
-    variantsSection: {
-        marginBottom: spacing.xl,
-    },
-    variantsTitle: {
-        fontSize: typography.sizes.h3,
-        fontFamily: typography.fonts.heading,
-        color: colors.text.primary,
-        marginBottom: spacing.md,
-    },
-    variantsGrid: {
-        gap: spacing.md,
-    },
-    variantCard: {
-        backgroundColor: colors.background.card,
-        borderRadius: 12,
-        padding: spacing.md,
-        flexDirection: 'row',
-        alignItems: 'center',
-        borderWidth: 2,
-        borderColor: 'transparent',
-        position: 'relative',
-    },
-    variantCardSelected: {
-        borderColor: colors.gold,
-        backgroundColor: `${colors.gold}10`,
-    },
-    sigilContainer: {
-        width: 120,
-        height: 120,
-        justifyContent: 'center',
-        alignItems: 'center',
-        marginRight: spacing.md,
-    },
-    variantInfo: {
-        flex: 1,
-    },
-    variantTitle: {
-        fontSize: typography.sizes.h4,
-        fontFamily: typography.fonts.heading,
-        color: colors.text.primary,
-        marginBottom: spacing.xs,
-    },
-    variantTitleSelected: {
-        color: colors.gold,
-    },
-    variantDescription: {
-        fontSize: typography.sizes.body2,
-        fontFamily: typography.fonts.body,
-        color: colors.text.secondary,
-        lineHeight: typography.lineHeights.body2,
-    },
-    selectedIndicator: {
-        position: 'absolute',
-        top: spacing.sm,
-        right: spacing.sm,
-        width: 32,
-        height: 32,
-        borderRadius: 16,
-        backgroundColor: colors.gold,
-        justifyContent: 'center',
-        alignItems: 'center',
-    },
-    selectedIcon: {
-        fontSize: 18,
-        color: colors.charcoal,
-    },
-    footer: {
-        padding: spacing.lg,
-        paddingBottom: 110, // Account for floating tab bar (height 70 + bottom 25 + padding)
-        backgroundColor: colors.background.secondary,
-        borderTopWidth: 1,
-        borderTopColor: colors.navy,
-    },
-    continueButton: {
-        backgroundColor: colors.gold,
-        borderRadius: 12,
-        padding: spacing.md,
-        alignItems: 'center',
-        height: 56,
-        justifyContent: 'center',
-    },
-    continueButtonText: {
-        fontSize: typography.sizes.button,
-        fontFamily: typography.fonts.bodyBold,
-        color: colors.charcoal,
     },
 });

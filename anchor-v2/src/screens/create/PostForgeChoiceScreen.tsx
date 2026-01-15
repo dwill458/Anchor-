@@ -1,8 +1,8 @@
 /**
  * Anchor App - Post-Forge Choice Screen
  *
- * After manual sigil creation, user chooses whether to:
- * 1. Keep the manual sigil as-is
+ * After manual anchor creation, user chooses whether to:
+ * 1. Keep the manual anchor as-is
  * 2. Enhance it with AI
  */
 
@@ -26,7 +26,7 @@ type PostForgeChoiceRouteProp = RouteProp<RootStackParamList, 'PostForgeChoice'>
 type PostForgeChoiceNavigationProp = StackNavigationProp<RootStackParamList, 'PostForgeChoice'>;
 
 const { width } = Dimensions.get('window');
-const SIGIL_SIZE = width * 0.6;
+const ANCHOR_SIZE = width * 0.6;
 
 interface ChoiceOption {
   id: 'keep' | 'ai';
@@ -43,7 +43,7 @@ const CHOICE_OPTIONS: ChoiceOption[] = [
     title: 'Enhance with AI',
     subtitle: 'Add Archetypal Elements',
     description:
-      'AI will analyze your manual sigil and intention, then select archetypal elements to create 4 enhanced variations combining your artwork with symbolic depth.',
+      'AI will analyze your manual anchor and intention, then select archetypal elements to create 4 enhanced variations combining your artwork with symbolic depth.',
     badge: '✨',
     recommended: true,
   },
@@ -52,7 +52,7 @@ const CHOICE_OPTIONS: ChoiceOption[] = [
     title: 'Keep As-Is',
     subtitle: 'Pure Manual Creation',
     description:
-      'Use your hand-drawn sigil exactly as you created it. Pure personal expression without AI modification.',
+      'Use your hand-drawn anchor exactly as you created it. Pure personal expression without AI modification.',
     badge: '🎨',
   },
 ];
@@ -133,15 +133,15 @@ export const PostForgeChoiceScreen: React.FC = () => {
         <View style={styles.header}>
           <Text style={styles.title}>Enhance Your Creation?</Text>
           <Text style={styles.subtitle}>
-            Your manual sigil is complete. You can keep it as-is or enhance it with AI-selected archetypal elements.
+            Your manual anchor is complete. You can keep it as-is or enhance it with AI-selected archetypal elements.
           </Text>
         </View>
 
-        {/* Sigil Preview */}
-        <View style={styles.sigilPreview}>
-          <Text style={styles.previewLabel}>Your Manual Sigil</Text>
-          <View style={styles.sigilContainer}>
-            <SvgXml xml={sigilSvg} width={SIGIL_SIZE} height={SIGIL_SIZE} />
+        {/* Anchor Preview */}
+        <View style={styles.anchorPreview}>
+          <Text style={styles.previewLabel}>Your Manual Anchor</Text>
+          <View style={styles.anchorContainer}>
+            <SvgXml xml={sigilSvg} width={ANCHOR_SIZE} height={ANCHOR_SIZE} />
           </View>
           <Text style={styles.intentionText}>"{intentionText}"</Text>
         </View>
@@ -179,7 +179,7 @@ const styles = StyleSheet.create({
     color: colors.text.secondary,
     lineHeight: typography.lineHeights.body1,
   },
-  sigilPreview: {
+  anchorPreview: {
     alignItems: 'center',
     marginBottom: spacing.xl,
   },
@@ -191,9 +191,9 @@ const styles = StyleSheet.create({
     textTransform: 'uppercase',
     letterSpacing: 1,
   },
-  sigilContainer: {
-    width: SIGIL_SIZE,
-    height: SIGIL_SIZE,
+  anchorContainer: {
+    width: ANCHOR_SIZE,
+    height: ANCHOR_SIZE,
     backgroundColor: colors.background.card,
     borderRadius: 16,
     justifyContent: 'center',

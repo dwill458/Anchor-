@@ -23,7 +23,7 @@ import { colors, spacing, typography } from '@/theme';
 import { format } from 'date-fns';
 
 const { width } = Dimensions.get('window');
-const SIGIL_SIZE = width * 0.6;
+const ANCHOR_SIZE = width * 0.6;
 
 type AnchorDetailRouteProp = RouteProp<RootStackParamList, 'AnchorDetail'>;
 type AnchorDetailNavigationProp = StackNavigationProp<
@@ -122,12 +122,12 @@ export const AnchorDetailScreen: React.FC = () => {
           )}
         </View>
 
-        {/* Sigil Display */}
-        <View style={styles.sigilContainer}>
+        {/* Anchor Display */}
+        <View style={styles.anchorContainer}>
           <SvgXml
             xml={anchor.baseSigilSvg}
-            width={SIGIL_SIZE}
-            height={SIGIL_SIZE}
+            width={ANCHOR_SIZE}
+            height={ANCHOR_SIZE}
           />
         </View>
 
@@ -265,7 +265,7 @@ const styles = StyleSheet.create({
     fontFamily: typography.fonts.body,
     color: colors.text.tertiary,
   },
-  sigilContainer: {
+  anchorContainer: {
     alignItems: 'center',
     paddingVertical: spacing.xl,
   },

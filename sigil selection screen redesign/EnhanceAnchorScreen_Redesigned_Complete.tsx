@@ -13,9 +13,6 @@ import {
 import { LinearGradient } from 'expo-linear-gradient';
 import { BlurView } from 'expo-blur';
 import { StatusBar } from 'expo-status-bar';
-import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
-import { StackNavigationProp } from '@react-navigation/stack';
-import { RootStackParamList } from '@/types';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const IS_ANDROID = Platform.OS === 'android';
@@ -95,18 +92,22 @@ const ENHANCEMENT_OPTIONS: EnhancementOption[] = [
   },
 ];
 
-type EnhancementChoiceRouteProp = RouteProp<RootStackParamList, 'EnhancementChoice'>;
-type EnhancementChoiceNavigationProp = StackNavigationProp<RootStackParamList, 'EnhancementChoice'>;
+interface EnhanceAnchorScreenProps {
+  navigation: any;
+  route: any;
+}
 
-export const EnhancementChoiceScreen: React.FC = () => {
-  const navigation = useNavigation<EnhancementChoiceNavigationProp>();
-  const route = useRoute<EnhancementChoiceRouteProp>();
-
+export default function EnhanceAnchorScreen({
+  navigation,
+  route,
+}: EnhanceAnchorScreenProps) {
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const slideAnim = useRef(new Animated.Value(30)).current;
   const [selectedOption, setSelectedOption] = useState<string | null>(null);
 
-  const { intentionText, distilledLetters } = route.params;
+  // Mock data - replace with actual data from route.params
+  const intention = route.params?.intention || 'Attract abundance';
+  const distilledLetters = route.params?.distilledLetters || ['T', 'R', 'C', 'T', 'B', 'N', 'D', 'N', 'C'];
 
   useEffect(() => {
     Animated.parallel([
@@ -131,28 +132,27 @@ export const EnhancementChoiceScreen: React.FC = () => {
     setTimeout(() => {
       if (optionId === 'ai') {
         navigation.navigate('AIAnalysis', {
+          intention,
+          distilledLetters,
           ...route.params,
         });
       } else if (optionId === 'traditional') {
         navigation.navigate('MantraCreation', {
+          intention,
+          distilledLetters,
+          skipAI: true,
           ...route.params,
-          finalImageUrl: undefined, // Will use SVG
         });
       } else if (optionId === 'manual') {
         // Check if user has Pro access
         const hasPro = false; // TODO: Check from user store
-        // For testing/demo purposes, we allow access or show alert
-        // navigation.navigate('ManualForge', { ...route.params });
         if (!hasPro) {
-          // Uncomment in production
-          // alert('Manual Forge requires Anchor Pro subscription');
-
-          // For now, allow navigation for testing
-          navigation.navigate('ManualForge', {
-            ...route.params,
-          });
+          // Show Pro upgrade modal
+          alert('Manual Forge requires Anchor Pro subscription');
         } else {
           navigation.navigate('ManualForge', {
+            intention,
+            distilledLetters,
             ...route.params,
           });
         }
@@ -264,7 +264,7 @@ export const EnhancementChoiceScreen: React.FC = () => {
               <View style={[styles.intentionCard, styles.intentionCardAndroid]}>
                 <View style={styles.intentionContent}>
                   <Text style={styles.intentionLabel}>YOUR INTENTION</Text>
-                  <Text style={styles.intentionText}>"{intentionText}"</Text>
+                  <Text style={styles.intentionText}>"{intention}"</Text>
                   <View style={styles.lettersRow}>
                     <Text style={styles.lettersLabel}>Letters: </Text>
                     <Text style={styles.lettersText}>{distilledLetters.join(' ')}</Text>
@@ -276,7 +276,7 @@ export const EnhancementChoiceScreen: React.FC = () => {
               <BlurView intensity={10} tint="dark" style={styles.intentionCard}>
                 <View style={styles.intentionContent}>
                   <Text style={styles.intentionLabel}>YOUR INTENTION</Text>
-                  <Text style={styles.intentionText}>"{intentionText}"</Text>
+                  <Text style={styles.intentionText}>"{intention}"</Text>
                   <View style={styles.lettersRow}>
                     <Text style={styles.lettersLabel}>Letters: </Text>
                     <Text style={styles.lettersText}>{distilledLetters.join(' ')}</Text>
@@ -323,8 +323,8 @@ export const EnhancementChoiceScreen: React.FC = () => {
                       selectedOption === option.id && styles.optionCardSelected,
                     ]}
                   >
-                    <OptionCardContent
-                      option={option}
+                    <OptionCardContent 
+                      option={option} 
                       index={index}
                       isSelected={selectedOption === option.id}
                     />
@@ -339,8 +339,8 @@ export const EnhancementChoiceScreen: React.FC = () => {
                       selectedOption === option.id && styles.optionCardSelected,
                     ]}
                   >
-                    <OptionCardContent
-                      option={option}
+                    <OptionCardContent 
+                      option={option} 
                       index={index}
                       isSelected={selectedOption === option.id}
                     />
@@ -392,15 +392,15 @@ export const EnhancementChoiceScreen: React.FC = () => {
       </SafeAreaView>
     </View>
   );
-};
+}
 
 // Extracted component for option card content
-function OptionCardContent({
-  option,
+function OptionCardContent({ 
+  option, 
   index,
-  isSelected
-}: {
-  option: EnhancementOption;
+  isSelected 
+}: { 
+  option: EnhancementOption; 
   index: number;
   isSelected: boolean;
 }) {
@@ -429,8 +429,8 @@ function OptionCardContent({
               index === 0
                 ? [colors.gold, colors.bronze]
                 : index === 1
-                  ? ['rgba(192, 192, 192, 0.3)', 'rgba(158, 158, 158, 0.2)']
-                  : [colors.deepPurple, 'rgba(62, 44, 91, 0.5)']
+                ? ['rgba(192, 192, 192, 0.3)', 'rgba(158, 158, 158, 0.2)']
+                : [colors.deepPurple, 'rgba(62, 44, 91, 0.5)']
             }
             style={styles.emojiGradient}
           >
@@ -567,8 +567,7 @@ const styles = StyleSheet.create({
   },
   title: {
     fontSize: 32,
-    // fontFamily: 'Cinzel-Regular',
-    fontWeight: 'bold',
+    fontFamily: 'Cinzel-Regular',
     color: colors.gold,
     marginBottom: 12,
     letterSpacing: 0.5,
@@ -621,8 +620,7 @@ const styles = StyleSheet.create({
   },
   lettersText: {
     fontSize: 12,
-    // fontFamily: 'Cinzel-Regular',
-    fontWeight: 'bold',
+    fontFamily: 'Cinzel-Regular',
     color: colors.gold,
     letterSpacing: 2,
   },

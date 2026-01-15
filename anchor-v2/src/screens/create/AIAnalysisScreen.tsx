@@ -514,7 +514,7 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     paddingHorizontal: 24,
-    paddingBottom: 120,
+    paddingBottom: 200, // Increased to ensure content clears the raised button
   },
   successSection: {
     alignItems: 'center',
@@ -682,7 +682,7 @@ const styles = StyleSheet.create({
   },
   ctaContainer: {
     position: 'absolute',
-    bottom: 0,
+    bottom: 80, // Raised to clear the floating tab bar
     left: 0,
     right: 0,
     paddingHorizontal: 24,
@@ -697,6 +697,7 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.4,
     shadowRadius: 16,
     elevation: 10,
+    marginTop: 10, // Added margin for spacing
   },
   ctaGradient: {
     flexDirection: 'row',
@@ -711,11 +712,13 @@ const styles = StyleSheet.create({
     color: colors.charcoal,
     letterSpacing: 0.5,
     marginRight: 8,
+    textAlign: 'center', // Ensure text center
   },
   ctaArrow: {
     fontSize: 20,
     color: colors.charcoal,
     fontWeight: '300',
+    marginTop: -2, // Micro-adjustment for vertical alignment
   },
   // Loading & Error Styles
   loadingContainer: {

@@ -11,6 +11,7 @@ import {
     Platform,
     Animated,
     Dimensions,
+    Modal,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { BlurView } from 'expo-blur';
@@ -58,6 +59,10 @@ const EXAMPLE_INTENTIONS = [
     'I embrace healthy habits daily',
 ];
 
+const WEAK_WORDS = ['want', 'needs', 'need', 'wish', 'hope', 'try', 'maybe', 'perhaps', 'might', 'should', 'would', 'could'];
+const FUTURE_TENSE = ['will', 'shall', 'going to', 'gonna'];
+const PAST_TENSE = ['was', 'were', 'did', 'had', 'been'];
+
 type NavigationProp = StackNavigationProp<RootStackParamList, 'CreateAnchor'>;
 
 export default function IntentionInputScreen() {
@@ -67,6 +72,8 @@ export default function IntentionInputScreen() {
     const [selectedCategory, setSelectedCategory] = useState<AnchorCategory>('personal_growth');
     const [showTips, setShowTips] = useState(false);
     const [charCount, setCharCount] = useState(0);
+    const [warningMessage, setWarningMessage] = useState<string | null>(null);
+    const [showWarningModal, setShowWarningModal] = useState(false);
 
     const fadeAnim = useRef(new Animated.Value(0)).current;
     const slideAnim = useRef(new Animated.Value(30)).current;
@@ -106,15 +113,51 @@ export default function IntentionInputScreen() {
 
     const handleContinue = () => {
         if (isValid) {
-            const distillation = distillIntention(intention);
-
-            // Navigate to SigilSelection with required params
-            navigation.navigate('SigilSelection', {
-                intentionText: intention,
-                category: selectedCategory,
-                distilledLetters: distillation.finalLetters,
-            });
+            const issues = validateIntention(intention);
+            if (issues.length > 0) {
+                setWarningMessage(issues[0]);
+                setShowWarningModal(true);
+                return;
+            }
+            proceedToAnchor();
         }
+    };
+
+    const validateIntention = (text: string) => {
+        const lowerText = text.toLowerCase();
+        const words = lowerText.split(/[^a-zA-Z]+/).filter(Boolean);
+        let issues = [];
+
+        if (WEAK_WORDS.some(word => words.includes(word))) {
+            issues.push("Avoid 'weak' words like want, need, or wish. State your intention as a present fact.");
+        }
+
+        if (FUTURE_TENSE.some(phrase => lowerText.includes(phrase))) {
+            issues.push("State your intention in the present tense (I am) rather than the future (I will).");
+        }
+
+        if (PAST_TENSE.some(word => words.includes(word))) {
+            issues.push("State your intention in the active present. Avoid references to the past.");
+        }
+
+        // Simple check for past tense verbs ending in 'ed'
+        if (words.some(word => word.length > 3 && word.endsWith('ed') && !['need', 'seed', 'feed', 'bleed', 'speed'].includes(word))) {
+            if (!issues.some(i => i.includes("present tense"))) {
+                issues.push("Ensure your intention is in the active present tense.");
+            }
+        }
+
+        return issues;
+    };
+
+    const proceedToAnchor = () => {
+        const distillation = distillIntention(intention);
+        setShowWarningModal(false);
+        navigation.navigate('SigilSelection', {
+            intentionText: intention,
+            category: selectedCategory,
+            distilledLetters: distillation.finalLetters,
+        });
     };
 
     const handleBack = () => {
@@ -438,7 +481,7 @@ export default function IntentionInputScreen() {
                                         !isValid && styles.continueTextDisabled,
                                     ]}
                                 >
-                                    Continue to Sigil
+                                    Continue to Anchor
                                 </Text>
                                 <Text
                                     style={[
@@ -453,6 +496,54 @@ export default function IntentionInputScreen() {
                     </Animated.View>
                 </KeyboardAvoidingView>
             </SafeAreaView>
+
+            {/* Warning Modal */}
+            <Modal
+                transparent
+                visible={showWarningModal}
+                animationType="fade"
+                onRequestClose={() => setShowWarningModal(false)}
+            >
+                <View style={styles.modalOverlay}>
+                    <BlurView intensity={30} tint="dark" style={styles.modalBlur}>
+                        <View style={styles.modalContent}>
+                            <View style={styles.warningHeader}>
+                                <Text style={styles.warningIcon}>⚠️</Text>
+                                <Text style={styles.warningTitle}>Refine Your Intent</Text>
+                            </View>
+
+                            <Text style={styles.warningBody}>
+                                {warningMessage}
+                            </Text>
+
+                            <Text style={styles.warningHint}>
+                                Anchors are most powerful when stated as a current reality.
+                            </Text>
+
+                            <View style={styles.modalButtons}>
+                                <TouchableOpacity
+                                    style={styles.modalSecondaryButton}
+                                    onPress={() => setShowWarningModal(false)}
+                                >
+                                    <Text style={styles.modalSecondaryButtonText}>Edit Mindfully</Text>
+                                </TouchableOpacity>
+
+                                <TouchableOpacity
+                                    style={styles.modalPrimaryButton}
+                                    onPress={proceedToAnchor}
+                                >
+                                    <LinearGradient
+                                        colors={[colors.gold, '#B8941F']}
+                                        style={styles.modalPrimaryGradient}
+                                    >
+                                        <Text style={styles.modalPrimaryButtonText}>Forging Anyway</Text>
+                                    </LinearGradient>
+                                </TouchableOpacity>
+                            </View>
+                        </View>
+                    </BlurView>
+                </View>
+            </Modal>
         </View>
     );
 }
@@ -736,5 +827,84 @@ const styles = StyleSheet.create({
         fontSize: 20,
         color: colors.charcoal,
         fontWeight: '300',
+    },
+    modalOverlay: {
+        flex: 1,
+        backgroundColor: 'rgba(0,0,0,0.8)',
+        justifyContent: 'center',
+        padding: 24,
+    },
+    modalBlur: {
+        borderRadius: 24,
+        overflow: 'hidden',
+        borderWidth: 1,
+        borderColor: 'rgba(212, 175, 55, 0.3)',
+    },
+    modalContent: {
+        padding: 24,
+        backgroundColor: 'rgba(26, 26, 29, 0.8)',
+    },
+    warningHeader: {
+        alignItems: 'center',
+        marginBottom: 16,
+    },
+    warningIcon: {
+        fontSize: 32,
+        marginBottom: 8,
+    },
+    warningTitle: {
+        fontSize: 20,
+        fontWeight: '700',
+        color: colors.gold,
+        letterSpacing: 0.5,
+    },
+    warningBody: {
+        fontSize: 16,
+        color: colors.bone,
+        textAlign: 'center',
+        lineHeight: 24,
+        marginBottom: 12,
+    },
+    warningHint: {
+        fontSize: 13,
+        color: colors.silver,
+        textAlign: 'center',
+        fontStyle: 'italic',
+        marginBottom: 24,
+        opacity: 0.8,
+    },
+    modalButtons: {
+        flexDirection: 'row',
+        gap: 12,
+    },
+    modalSecondaryButton: {
+        flex: 1,
+        height: 50,
+        borderRadius: 12,
+        borderWidth: 1,
+        borderColor: 'rgba(192, 192, 192, 0.3)',
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    modalSecondaryButtonText: {
+        color: colors.silver,
+        fontSize: 14,
+        fontWeight: '600',
+    },
+    modalPrimaryButton: {
+        flex: 1,
+        height: 50,
+        borderRadius: 12,
+        overflow: 'hidden',
+    },
+    modalPrimaryGradient: {
+        flex: 1,
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    modalPrimaryButtonText: {
+        color: colors.charcoal,
+        fontSize: 14,
+        fontWeight: '700',
     },
 });
