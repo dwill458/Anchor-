@@ -4,7 +4,7 @@
  * Detailed view of a single anchor with charge/activate actions
  */
 
-import React from 'react';
+import React, { useEffect } from 'react';
 import {
   View,
   Text,
@@ -21,6 +21,8 @@ import { useAnchorStore } from '../../stores/anchorStore';
 import type { RootStackParamList, ChargeType, ActivationType } from '@/types';
 import { colors, spacing, typography } from '@/theme';
 import { format } from 'date-fns';
+import { AnalyticsService, AnalyticsEvents } from '../../services/AnalyticsService';
+import { ErrorTrackingService } from '../../services/ErrorTrackingService';
 
 const { width } = Dimensions.get('window');
 const ANCHOR_SIZE = width * 0.6;
@@ -51,6 +53,29 @@ export const AnchorDetailScreen: React.FC = () => {
   const { getAnchorById } = useAnchorStore();
   const anchor = getAnchorById(anchorId);
 
+  useEffect(() => {
+    if (anchor) {
+      AnalyticsService.track(AnalyticsEvents.ANCHOR_DETAIL_VIEWED, {
+        anchor_id: anchor.id,
+        category: anchor.category,
+        is_charged: anchor.isCharged,
+        activation_count: anchor.activationCount,
+      });
+
+      ErrorTrackingService.addBreadcrumb('Anchor detail viewed', 'navigation', {
+        anchor_id: anchor.id,
+      });
+    } else {
+      ErrorTrackingService.captureException(
+        new Error('Anchor not found'),
+        {
+          screen: 'AnchorDetailScreen',
+          anchor_id: anchorId,
+        }
+      );
+    }
+  }, [anchor, anchorId]);
+
   if (!anchor) {
     return (
       <SafeAreaView style={styles.container}>
@@ -62,17 +87,43 @@ export const AnchorDetailScreen: React.FC = () => {
   const categoryConfig = CATEGORY_CONFIG[anchor.category] || CATEGORY_CONFIG.custom;
 
   const handleChargePress = (): void => {
+    const chargeType = anchor.isCharged ? 'recharge' : 'initial_quick';
+
+    AnalyticsService.track(AnalyticsEvents.CHARGE_STARTED, {
+      anchor_id: anchor.id,
+      charge_type: chargeType,
+      source: 'anchor_detail',
+    });
+
+    ErrorTrackingService.addBreadcrumb('Charge initiated', 'navigation', {
+      anchor_id: anchor.id,
+      charge_type: chargeType,
+    });
+
     navigation.navigate('ChargingRitual', {
       anchorId: anchor.id,
-      chargeType: anchor.isCharged ? ('recharge' as ChargeType) : ('initial_quick' as ChargeType),
+      chargeType: chargeType as ChargeType,
     });
   };
 
   const handleActivatePress = (): void => {
     if (!anchor.isCharged) {
-      // Show message or disable button
+      AnalyticsService.track(AnalyticsEvents.ACTIVATION_ATTEMPTED_UNCHARGED, {
+        anchor_id: anchor.id,
+      });
       return;
     }
+
+    AnalyticsService.track(AnalyticsEvents.ACTIVATION_STARTED, {
+      anchor_id: anchor.id,
+      activation_type: 'visual',
+      source: 'anchor_detail',
+      activation_count: anchor.activationCount,
+    });
+
+    ErrorTrackingService.addBreadcrumb('Activation initiated', 'navigation', {
+      anchor_id: anchor.id,
+    });
 
     navigation.navigate('ActivationRitual', {
       anchorId: anchor.id,
@@ -81,6 +132,18 @@ export const AnchorDetailScreen: React.FC = () => {
   };
 
   const handleBurnPress = (): void => {
+    AnalyticsService.track(AnalyticsEvents.BURN_INITIATED, {
+      anchor_id: anchor.id,
+      activation_count: anchor.activationCount,
+      days_since_created: Math.floor(
+        (Date.now() - new Date(anchor.createdAt).getTime()) / (1000 * 60 * 60 * 24)
+      ),
+    });
+
+    ErrorTrackingService.addBreadcrumb('Burn ritual initiated', 'navigation', {
+      anchor_id: anchor.id,
+    });
+
     navigation.navigate('ConfirmBurn', {
       anchorId: anchor.id,
       intention: anchor.intentionText,
