@@ -8,6 +8,7 @@
 import textToSpeech from '@google-cloud/text-to-speech';
 import { formatMantraForTTS } from './MantraGenerator';
 import { uploadAudio } from './StorageService';
+import { logger } from '../utils/logger';
 
 /**
  * Voice configuration options
@@ -57,7 +58,7 @@ function getTTSClient(): textToSpeech.TextToSpeechClient | null {
 
   // TTS is optional - gracefully degrade if not configured
   if (!projectId || !privateKey || !clientEmail) {
-    console.warn('[TTS] Google Cloud TTS not configured. Audio generation disabled.');
+    logger.warn('[TTS] Google Cloud TTS not configured. Audio generation disabled.');
     return null;
   }
 
@@ -70,7 +71,7 @@ function getTTSClient(): textToSpeech.TextToSpeechClient | null {
       projectId,
     });
   } catch (error) {
-    console.error('[TTS] Failed to initialize Google TTS client:', error);
+    logger.error('[TTS] Failed to initialize Google TTS client', error);
     return null;
   }
 }
@@ -88,7 +89,7 @@ export async function generateMantraAudio(
   const client = getTTSClient();
 
   if (!client) {
-    console.warn('[TTS] Audio generation skipped - service not configured');
+    logger.warn('[TTS] Audio generation skipped - service not configured');
     return null;
   }
 
@@ -98,8 +99,7 @@ export async function generateMantraAudio(
     // Format mantra for better TTS pronunciation
     const formattedText = formatMantraForTTS(mantraText, mantraStyle as any);
 
-    console.log('[TTS] Generating audio for mantra:', formattedText);
-    console.log('[TTS] Voice:', voiceConfig.name);
+    logger.info('[TTS] Generating audio for mantra', { formattedText, voice: voiceConfig.name });
 
     // Build TTS request
     const request = {
@@ -129,11 +129,11 @@ export async function generateMantraAudio(
     const audioBuffer = Buffer.from(response.audioContent as Uint8Array);
     const audioUrl = await uploadAudio(audioBuffer, userId, anchorId, mantraStyle);
 
-    console.log('[TTS] Audio generated and uploaded:', audioUrl);
+    logger.info('[TTS] Audio generated and uploaded', { audioUrl });
 
     return audioUrl;
   } catch (error) {
-    console.error('[TTS] Audio generation failed:', error);
+    logger.error('[TTS] Audio generation failed', error);
     throw new Error(`Failed to generate audio: ${error instanceof Error ? error.message : 'Unknown error'}`);
   }
 }
@@ -154,7 +154,7 @@ export async function generateAllMantraAudio(
   const client = getTTSClient();
 
   if (!client) {
-    console.warn('[TTS] Audio generation skipped - service not configured');
+    logger.warn('[TTS] Audio generation skipped - service not configured');
     return {
       syllabic: null,
       rhythmic: null,
@@ -170,7 +170,7 @@ export async function generateAllMantraAudio(
       const url = await generateMantraAudio(text, style, userId, anchorId, voicePreset);
       audioUrls[style] = url;
     } catch (error) {
-      console.error(`[TTS] Failed to generate audio for ${style}:`, error);
+      logger.error(`[TTS] Failed to generate audio for style`, error, { style });
       audioUrls[style] = null; // Graceful degradation
     }
   }

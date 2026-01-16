@@ -5,24 +5,27 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { NavigationContainer } from '@react-navigation/native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { RootNavigator } from './src/navigation';
+import { ErrorBoundary } from './src/components/ErrorBoundary';
 
 const { width } = Dimensions.get('window');
 const isWeb = Platform.OS === 'web';
 
 export default function App() {
   return (
-    <GestureHandlerRootView style={{ flex: 1 }}>
-      <SafeAreaProvider>
-        <View style={styles.webContainer}>
-          <View style={styles.appContainer}>
-            <NavigationContainer>
-              <StatusBar barStyle="light-content" backgroundColor="#1A1A1D" />
-              <RootNavigator />
-            </NavigationContainer>
+    <ErrorBoundary>
+      <GestureHandlerRootView style={{ flex: 1 }}>
+        <SafeAreaProvider>
+          <View style={styles.webContainer}>
+            <View style={styles.appContainer}>
+              <NavigationContainer>
+                <StatusBar barStyle="light-content" backgroundColor="#1A1A1D" />
+                <RootNavigator />
+              </NavigationContainer>
+            </View>
           </View>
-        </View>
-      </SafeAreaProvider>
-    </GestureHandlerRootView>
+        </SafeAreaProvider>
+      </GestureHandlerRootView>
+    </ErrorBoundary>
   );
 }
 

@@ -72,6 +72,17 @@ export interface User {
 export type SubscriptionStatus = 'free' | 'pro' | 'pro_annual';
 
 /**
+ * Firebase User object (subset of properties)
+ */
+export interface FirebaseUser {
+  uid: string;
+  email: string | null;
+  displayName: string | null;
+  photoURL?: string | null;
+  emailVerified?: boolean;
+}
+
+/**
  * Activation event - tracks when user activates an anchor
  */
 export interface Activation {
@@ -190,6 +201,32 @@ export type SigilVariationStyle = 'dense' | 'balanced' | 'minimal';
 export type MantraStyle = 'syllabic' | 'rhythmic' | 'letter_by_letter';
 
 // ============================================================================
+// AI Analysis Types
+// ============================================================================
+
+/**
+ * Symbol from the symbol database
+ */
+export interface Symbol {
+  name: string;
+  description: string;
+  themes: string[];
+  origin: string;
+}
+
+/**
+ * Result of AI intention analysis
+ */
+export interface AnalysisResult {
+  intentionText: string;
+  keywords: string[];
+  themes: string[];
+  selectedSymbols: Symbol[];
+  aesthetic: AIStyle;
+  explanation: string;
+}
+
+// ============================================================================
 // Navigation Types
 // ============================================================================
 
@@ -238,7 +275,7 @@ export type RootStackParamList = {
     distilledLetters: string[];
     sigilSvg?: string;
     sigilVariant?: string;
-    analysis: any; // AnalysisResult from backend
+    analysis: AnalysisResult;
   };
   AIVariationPicker: {
     intentionText: string;

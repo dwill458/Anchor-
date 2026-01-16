@@ -11,12 +11,16 @@ import authRoutes from './api/routes/auth';
 import anchorRoutes from './api/routes/anchors';
 import aiRoutes from './api/routes/ai';
 import { errorHandler, notFoundHandler } from './api/middleware/errorHandler';
+import { logger } from './utils/logger';
+import { env } from './config/env';
 
 // Load environment variables
 dotenv.config();
 
+// Validate environment variables (imported env.ts automatically validates)
+
 const app: Application = express();
-const PORT = process.env.PORT || 3000;
+const PORT = env.PORT;
 
 // ============================================================================
 // Middleware
@@ -28,8 +32,7 @@ app.use(express.urlencoded({ extended: true }));
 
 // Request logging middleware
 app.use((req: Request, _res: Response, next) => {
-  const timestamp = new Date().toISOString();
-  console.log(`[${timestamp}] ${req.method} ${req.path}`);
+  logger.request(req.method, req.path);
   next();
 });
 
@@ -70,10 +73,7 @@ app.use('/api/anchors', anchorRoutes);
 // AI Enhancement routes (Phase 2)
 app.use('/api/ai', aiRoutes);
 
-// TODO: Add additional route handlers
-// app.use('/api/users', userRoutes);
-// app.use('/api/discover', discoverRoutes);
-// app.use('/api/shop', shopRoutes);
+// Note: Additional routes (users, discover, shop) will be added in future phases
 
 // ============================================================================
 // Error Handling
@@ -90,9 +90,9 @@ app.use(errorHandler);
 // ============================================================================
 
 app.listen(PORT, () => {
-  console.log(`🚀 Anchor API running on port ${PORT}`);
-  console.log(`📍 Environment: ${process.env.NODE_ENV || 'development'}`);
-  console.log(`🏥 Health check: http://localhost:${PORT}/health`);
+  logger.info(`🚀 Anchor API running on port ${PORT}`);
+  logger.info(`📍 Environment: ${env.NODE_ENV}`);
+  logger.info(`🏥 Health check: http://localhost:${PORT}/health`);
 });
 
 export default app;

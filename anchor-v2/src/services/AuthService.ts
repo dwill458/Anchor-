@@ -4,7 +4,7 @@
  * Mocked version to bypass native Firebase dependencies in Expo Go.
  */
 
-import type { User } from '@/types';
+import type { User, FirebaseUser } from '@/types';
 
 export interface AuthResult {
   user: User;
@@ -84,7 +84,7 @@ export class AuthService {
     await new Promise(resolve => setTimeout(resolve, 500));
   }
 
-  static getCurrentFirebaseUser(): any {
+  static getCurrentFirebaseUser(): FirebaseUser | null {
     return {
       uid: 'mock-uid-123',
       email: 'guest@example.com',
@@ -102,7 +102,7 @@ export class AuthService {
   }
 
   static onAuthStateChanged(
-    callback: (user: any | null) => void
+    callback: (user: FirebaseUser | null) => void
   ): () => void {
     setTimeout(() => callback(null), 1000);
     return () => { };

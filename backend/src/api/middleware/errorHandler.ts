@@ -5,6 +5,7 @@
  */
 
 import { Request, Response, NextFunction } from 'express';
+import { logger } from '../../utils/logger';
 
 /**
  * Custom error class with status code
@@ -33,13 +34,12 @@ export const errorHandler = (
   err: Error | AppError,
   req: Request,
   res: Response,
+  // Express error handlers must have 4 parameters, even if unused
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  next: NextFunction
+  _next: NextFunction
 ): void => {
   // Log error for debugging
-  console.error('Error:', {
-    message: err.message,
-    stack: err.stack,
+  logger.error('Request error', err, {
     path: req.path,
     method: req.method,
   });

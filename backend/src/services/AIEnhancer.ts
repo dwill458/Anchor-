@@ -7,6 +7,7 @@
 
 import Replicate from 'replicate';
 import { AnalysisResult, getAestheticPrompt } from './IntentionAnalyzer';
+import { logger } from '../utils/logger';
 
 export interface AIEnhancementRequest {
   sigilSvg: string; // Traditional sigil SVG
@@ -128,8 +129,8 @@ export async function enhanceSigil(
     const isMockMode = !apiToken || apiToken === 'your-replicate-token';
 
     if (isMockMode) {
-      console.log('[AI Enhancement] Running in MOCK MODE (No valid API Token)');
-      console.log('[AI Enhancement] Prompt:', prompt);
+      logger.warn('[AI Enhancement] Running in MOCK MODE (No valid API Token)');
+      logger.debug('[AI Enhancement] Prompt', { prompt });
 
       // Simulate generation delay (3 seconds)
       await new Promise(resolve => setTimeout(resolve, 3000));
@@ -152,8 +153,8 @@ export async function enhanceSigil(
 
     const replicate = getReplicateClient();
 
-    console.log('[AI Enhancement] Starting generation...');
-    console.log('[AI Enhancement] Prompt:', prompt);
+    logger.info('[AI Enhancement] Starting generation');
+    logger.debug('[AI Enhancement] Prompt', { prompt });
 
     // Model: Stable Diffusion XL
     const model = 'stability-ai/sdxl:39ed52f2a78e934b3ba6e2a89f5b1c712de7dfea535525255b1aa35c5565e08b';
@@ -162,7 +163,7 @@ export async function enhanceSigil(
     const variations: string[] = [];
 
     for (let i = 0; i < 4; i++) {
-      console.log(`[AI Enhancement] Generating variation ${i + 1}/4...`);
+      logger.info(`[AI Enhancement] Generating variation`, { current: i + 1, total: 4 });
 
       const output = await replicate.run(model, {
         input: {
@@ -188,7 +189,7 @@ export async function enhanceSigil(
 
     const generationTime = Math.round((Date.now() - startTime) / 1000);
 
-    console.log(`[AI Enhancement] Complete! Generated 4 variations in ${generationTime}s`);
+    logger.info('[AI Enhancement] Complete', { variations: 4, generationTime });
 
     return {
       variations,
@@ -198,7 +199,7 @@ export async function enhanceSigil(
       generationTime,
     };
   } catch (error) {
-    console.error('[AI Enhancement] Error:', error);
+    logger.error('[AI Enhancement] Error', error);
     throw new Error(`AI enhancement failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
   }
 }
