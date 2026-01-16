@@ -25,6 +25,9 @@ import { useAnchorStore } from '../../stores/anchorStore';
 import { useAuthStore } from '../../stores/authStore';
 import { useToast } from '../../components/ToastProvider';
 import { AnchorGridSkeleton } from '../../components/skeletons/AnchorCardSkeleton';
+import { AnalyticsService, AnalyticsEvents } from '../../services/AnalyticsService';
+import { ErrorTrackingService } from '../../services/ErrorTrackingService';
+import { PerformanceMonitoring } from '../../services/PerformanceMonitoring';
 import type { Anchor, RootStackParamList, MainTabParamList } from '@/types';
 import { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
 import { CompositeNavigationProp } from '@react-navigation/native';
@@ -58,19 +61,34 @@ export const VaultScreen: React.FC = () => {
 
   const fetchAnchors = useCallback(async (): Promise<void> => {
     if (!user) return;
+
+    const trace = PerformanceMonitoring.startTrace('fetch_anchors');
     setLoading(true);
     setError(null);
+
     try {
       // API call placeholder - logic remains in store
       await new Promise(resolve => setTimeout(resolve, 1000));
+
+      trace.putMetric('anchor_count', anchors.length);
+      AnalyticsService.track(AnalyticsEvents.VAULT_VIEWED, {
+        anchor_count: anchors.length,
+      });
     } catch (error) {
       const errorMessage = (error as Error).message;
       setError(errorMessage);
       toast.error(`Failed to load anchors: ${errorMessage}`);
+
+      ErrorTrackingService.captureException(error as Error, {
+        screen: 'VaultScreen',
+        action: 'fetch_anchors',
+        user_id: user.id,
+      });
     } finally {
       setLoading(false);
+      trace.stop();
     }
-  }, [user, setLoading, setError, toast]);
+  }, [user, setLoading, setError, toast, anchors.length]);
 
   useEffect(() => {
     fetchAnchors();
@@ -83,10 +101,32 @@ export const VaultScreen: React.FC = () => {
   }, [fetchAnchors]);
 
   const handleAnchorPress = (anchor: Anchor): void => {
+    AnalyticsService.track(AnalyticsEvents.ANCHOR_VIEWED, {
+      anchor_id: anchor.id,
+      category: anchor.category,
+      is_charged: anchor.isCharged,
+      activation_count: anchor.activationCount,
+      source: 'vault',
+    });
+
+    ErrorTrackingService.addBreadcrumb('Anchor pressed', 'navigation', {
+      anchor_id: anchor.id,
+      category: anchor.category,
+    });
+
     navigation.navigate('AnchorDetail', { anchorId: anchor.id });
   };
 
   const handleCreateAnchor = (): void => {
+    AnalyticsService.track(AnalyticsEvents.ANCHOR_CREATION_STARTED, {
+      source: 'vault',
+      has_existing_anchors: anchors.length > 0,
+    });
+
+    ErrorTrackingService.addBreadcrumb('Create anchor initiated', 'navigation', {
+      source: 'vault',
+    });
+
     navigation.navigate('CreateAnchor');
   };
 
