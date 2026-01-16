@@ -23,6 +23,8 @@ import { StackNavigationProp } from '@react-navigation/stack';
 import { AnchorCard } from '../../components/cards/AnchorCard';
 import { useAnchorStore } from '../../stores/anchorStore';
 import { useAuthStore } from '../../stores/authStore';
+import { useToast } from '../../components/ToastProvider';
+import { AnchorGridSkeleton } from '../../components/skeletons/AnchorCardSkeleton';
 import type { Anchor, RootStackParamList, MainTabParamList } from '@/types';
 import { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
 import { CompositeNavigationProp } from '@react-navigation/native';
@@ -40,8 +42,9 @@ type VaultScreenNavigationProp = CompositeNavigationProp<
 export const VaultScreen: React.FC = () => {
   const navigation = useNavigation<VaultScreenNavigationProp>();
   const { user } = useAuthStore();
-  const { anchors, isLoading, setLoading, setError } = useAnchorStore();
+  const { anchors, isLoading, error, setLoading, setError } = useAnchorStore();
   const [refreshing, setRefreshing] = useState(false);
+  const toast = useToast();
 
   const fadeAnim = React.useRef(new Animated.Value(0)).current;
 
@@ -61,11 +64,13 @@ export const VaultScreen: React.FC = () => {
       // API call placeholder - logic remains in store
       await new Promise(resolve => setTimeout(resolve, 1000));
     } catch (error) {
-      setError((error as Error).message);
+      const errorMessage = (error as Error).message;
+      setError(errorMessage);
+      toast.error(`Failed to load anchors: ${errorMessage}`);
     } finally {
       setLoading(false);
     }
-  }, [user, setLoading, setError]);
+  }, [user, setLoading, setError, toast]);
 
   useEffect(() => {
     fetchAnchors();
@@ -93,12 +98,19 @@ export const VaultScreen: React.FC = () => {
 
   const renderEmptyState = (): React.JSX.Element => (
     <View style={styles.emptyState}>
-      <Text style={styles.emptyIcon}>⚓</Text>
-      <Text style={styles.emptyTitle}>Sanctuary Awaits</Text>
+      <Text style={styles.emptyIcon} accessibilityLabel="Anchor icon">⚓</Text>
+      <Text style={styles.emptyTitle} accessibilityRole="header">Sanctuary Awaits</Text>
       <Text style={styles.emptyDescription}>
         Begin your journey of intentional living by forging your first anchor.
       </Text>
-      <TouchableOpacity style={styles.createButton} onPress={handleCreateAnchor}>
+      <TouchableOpacity
+        style={styles.createButton}
+        onPress={handleCreateAnchor}
+        accessibilityRole="button"
+        accessibilityLabel="Forge your first anchor"
+        accessibilityHint="Opens the anchor creation screen"
+        activeOpacity={0.8}
+      >
         <LinearGradient colors={[colors.gold, '#B8941F']} style={styles.buttonGradient}>
           <Text style={styles.createButtonText}>Forge First Anchor</Text>
         </LinearGradient>
@@ -109,12 +121,19 @@ export const VaultScreen: React.FC = () => {
   const renderHeader = (): React.JSX.Element => (
     <View style={styles.header}>
       <View>
-        <Text style={styles.headerTitle}>Sanctuary</Text>
-        <Text style={styles.headerSubtitle}>
+        <Text style={styles.headerTitle} accessibilityRole="header">Sanctuary</Text>
+        <Text style={styles.headerSubtitle} accessibilityLabel={`You have ${anchors.length} sacred ${anchors.length === 1 ? 'anchor' : 'anchors'}`}>
           {anchors.length} {anchors.length === 1 ? 'Sacred Anchor' : 'Sacred Anchors'}
         </Text>
       </View>
-      <TouchableOpacity style={styles.profileButton} onPress={() => navigation.navigate('Profile')}>
+      <TouchableOpacity
+        style={styles.profileButton}
+        onPress={() => navigation.navigate('Profile')}
+        accessibilityRole="button"
+        accessibilityLabel={`Profile for ${user?.displayName || 'User'}`}
+        accessibilityHint="Opens your profile settings"
+        activeOpacity={0.8}
+      >
         <View style={styles.avatarPlaceholder}>
           <Text style={styles.avatarText}>{user?.displayName?.charAt(0) || 'U'}</Text>
         </View>
@@ -140,28 +159,41 @@ export const VaultScreen: React.FC = () => {
         {renderHeader()}
 
         <Animated.View style={{ flex: 1, opacity: fadeAnim }}>
-          <FlatList
-            data={anchors}
-            renderItem={renderAnchorCard}
-            keyExtractor={(item) => item.id}
-            numColumns={2}
-            contentContainerStyle={styles.listContent}
-            columnWrapperStyle={styles.columnWrapper}
-            ListEmptyComponent={!isLoading ? renderEmptyState : null}
-            refreshControl={
-              <RefreshControl
-                refreshing={refreshing}
-                onRefresh={onRefresh}
-                tintColor={colors.gold}
-              />
-            }
-            showsVerticalScrollIndicator={false}
-          />
+          {isLoading && anchors.length === 0 ? (
+            <AnchorGridSkeleton count={6} />
+          ) : (
+            <FlatList
+              data={anchors}
+              renderItem={renderAnchorCard}
+              keyExtractor={(item) => item.id}
+              numColumns={2}
+              contentContainerStyle={styles.listContent}
+              columnWrapperStyle={styles.columnWrapper}
+              ListEmptyComponent={!isLoading ? renderEmptyState : null}
+              refreshControl={
+                <RefreshControl
+                  refreshing={refreshing}
+                  onRefresh={onRefresh}
+                  tintColor={colors.gold}
+                  accessibilityLabel="Pull to refresh anchors"
+                />
+              }
+              showsVerticalScrollIndicator={false}
+              accessibilityLabel={`List of ${anchors.length} anchors`}
+            />
+          )}
         </Animated.View>
 
         {/* Floating Create Button - Positioned to clear floating tab bar */}
         {anchors.length > 0 && (
-          <TouchableOpacity style={styles.fab} onPress={handleCreateAnchor} activeOpacity={0.9}>
+          <TouchableOpacity
+            style={styles.fab}
+            onPress={handleCreateAnchor}
+            accessibilityRole="button"
+            accessibilityLabel="Forge new anchor"
+            accessibilityHint="Opens the anchor creation screen"
+            activeOpacity={0.9}
+          >
             <LinearGradient
               colors={[colors.gold, '#B8941F']}
               style={styles.fabGradient}
