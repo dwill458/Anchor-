@@ -26,11 +26,18 @@ const CATEGORY_CONFIG: Record<string, { label: string; color: string }> = {
 export const AnchorCard: React.FC<AnchorCardProps> = ({ anchor, onPress }) => {
   const categoryConfig = CATEGORY_CONFIG[anchor.category] || CATEGORY_CONFIG.custom;
 
+  const accessibilityLabel = `${anchor.intentionText}. ${categoryConfig.label} anchor. ${
+    anchor.isCharged ? 'Charged. ' : ''
+  }${anchor.activationCount > 0 ? `Activated ${anchor.activationCount} times.` : ''}`;
+
   return (
     <TouchableOpacity
       style={styles.container}
       onPress={() => onPress(anchor)}
       activeOpacity={0.8}
+      accessibilityRole="button"
+      accessibilityLabel={accessibilityLabel}
+      accessibilityHint="Double tap to view anchor details"
     >
       <View style={[styles.card, Platform.OS === 'android' && styles.androidCard]}>
         {Platform.OS === 'ios' && (

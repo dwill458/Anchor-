@@ -6,6 +6,7 @@ import { NavigationContainer } from '@react-navigation/native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { RootNavigator } from './src/navigation';
 import { ErrorBoundary } from './src/components/ErrorBoundary';
+import { ToastProvider } from './src/components/ToastProvider';
 
 const { width } = Dimensions.get('window');
 const isWeb = Platform.OS === 'web';
@@ -13,18 +14,20 @@ const isWeb = Platform.OS === 'web';
 export default function App() {
   return (
     <ErrorBoundary>
-      <GestureHandlerRootView style={{ flex: 1 }}>
-        <SafeAreaProvider>
-          <View style={styles.webContainer}>
-            <View style={styles.appContainer}>
-              <NavigationContainer>
-                <StatusBar barStyle="light-content" backgroundColor="#1A1A1D" />
-                <RootNavigator />
-              </NavigationContainer>
+      <ToastProvider>
+        <GestureHandlerRootView style={{ flex: 1 }}>
+          <SafeAreaProvider>
+            <View style={styles.webContainer}>
+              <View style={styles.appContainer}>
+                <NavigationContainer>
+                  <StatusBar barStyle="light-content" backgroundColor="#1A1A1D" />
+                  <RootNavigator />
+                </NavigationContainer>
+              </View>
             </View>
-          </View>
-        </SafeAreaProvider>
-      </GestureHandlerRootView>
+          </SafeAreaProvider>
+        </GestureHandlerRootView>
+      </ToastProvider>
     </ErrorBoundary>
   );
 }
