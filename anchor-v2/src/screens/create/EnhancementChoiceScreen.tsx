@@ -134,9 +134,8 @@ export const EnhancementChoiceScreen: React.FC = () => {
           ...route.params,
         });
       } else if (optionId === 'traditional') {
-        navigation.navigate('MantraCreation', {
+        navigation.navigate('SigilSelection', {
           ...route.params,
-          finalImageUrl: undefined, // Will use SVG
         });
       } else if (optionId === 'manual') {
         // Check if user has Pro access

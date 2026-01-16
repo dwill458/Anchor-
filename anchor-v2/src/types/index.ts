@@ -212,14 +212,12 @@ export type RootStackParamList = {
     intentionText: string;
     category: AnchorCategory;
     distilledLetters: string[];
-    sigilSvg: string;
-    sigilVariant: string;
   };
   ManualForge: {
     intentionText: string;
     category: AnchorCategory;
     distilledLetters: string[];
-    sigilSvg: string;
+    sigilSvg?: string;
   };
   PostForgeChoice: {
     intentionText: string;
@@ -231,15 +229,15 @@ export type RootStackParamList = {
     intentionText: string;
     category: AnchorCategory;
     distilledLetters: string[];
-    sigilSvg: string;
-    sigilVariant: string;
+    sigilSvg?: string;
+    sigilVariant?: string;
   };
   AIGenerating: {
     intentionText: string;
     category: AnchorCategory;
     distilledLetters: string[];
-    sigilSvg: string;
-    sigilVariant: string;
+    sigilSvg?: string;
+    sigilVariant?: string;
     analysis: any; // AnalysisResult from backend
   };
   AIVariationPicker: {
