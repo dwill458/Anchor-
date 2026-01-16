@@ -17,6 +17,7 @@ import {
   isTTSAvailable,
   getAvailableVoicePresets,
 } from '../../services/TTSService';
+import { logger } from '../../utils/logger';
 
 const router = express.Router();
 
@@ -38,7 +39,7 @@ router.post('/analyze', async (req: Request, res: Response): Promise<void> => {
       return;
     }
 
-    console.log('[AI] Analyzing intention:', intentionText);
+    logger.info('[AI] Analyzing intention', { intentionText });
 
     const analysis = analyzeIntention(intentionText);
 
@@ -47,7 +48,7 @@ router.post('/analyze', async (req: Request, res: Response): Promise<void> => {
       analysis,
     });
   } catch (error) {
-    console.error('[AI] Analysis error:', error);
+    logger.error('[AI] Analysis error', error);
     res.status(500).json({
       error: 'Failed to analyze intention',
       message: error instanceof Error ? error.message : 'Unknown error',
@@ -69,10 +70,12 @@ router.post('/enhance', async (req: Request, res: Response): Promise<void> => {
       return;
     }
 
-    console.log('[AI] Enhancing sigil for anchor:', anchorId);
-    console.log('[AI] Intention:', analysis.intentionText);
-    console.log('[AI] Themes:', analysis.themes);
-    console.log('[AI] Aesthetic:', analysis.aesthetic);
+    logger.info('[AI] Enhancing sigil', {
+      anchorId,
+      intention: analysis.intentionText,
+      themes: analysis.themes,
+      aesthetic: analysis.aesthetic,
+    });
 
     // Generate AI variations
     const enhancementResult = await enhanceSigil({
@@ -81,7 +84,7 @@ router.post('/enhance', async (req: Request, res: Response): Promise<void> => {
       userId,
     });
 
-    console.log('[AI] Generated', enhancementResult.variations.length, 'variations');
+    logger.info('[AI] Generated variations', { count: enhancementResult.variations.length });
 
     // Upload variations to R2 and get permanent URLs
     const permanentUrls: string[] = [];
@@ -104,7 +107,7 @@ router.post('/enhance', async (req: Request, res: Response): Promise<void> => {
       model: enhancementResult.model,
     });
   } catch (error) {
-    console.error('[AI] Enhancement error:', error);
+    logger.error('[AI] Enhancement error', error);
     res.status(500).json({
       error: 'Failed to enhance sigil',
       message: error instanceof Error ? error.message : 'Unknown error',
@@ -130,7 +133,7 @@ router.post('/mantra', async (req: Request, res: Response): Promise<void> => {
       return;
     }
 
-    console.log('[AI] Generating mantra from letters:', distilledLetters);
+    logger.info('[AI] Generating mantra', { letters: distilledLetters });
 
     const mantra = generateMantra(distilledLetters);
     const recommended = getRecommendedMantraStyle(distilledLetters.length);
@@ -141,7 +144,7 @@ router.post('/mantra', async (req: Request, res: Response): Promise<void> => {
       recommended,
     });
   } catch (error) {
-    console.error('[AI] Mantra generation error:', error);
+    logger.error('[AI] Mantra generation error', error);
     res.status(500).json({
       error: 'Failed to generate mantra',
       message: error instanceof Error ? error.message : 'Unknown error',
@@ -170,7 +173,7 @@ router.post('/mantra/audio', async (req: Request, res: Response): Promise<void> 
       return;
     }
 
-    console.log('[AI] Generating mantra audio for anchor:', anchorId);
+    logger.info('[AI] Generating mantra audio', { anchorId, voicePreset: voicePreset || 'neutral_calm' });
 
     const audioUrls = await generateAllMantraAudio(
       mantras,
@@ -184,7 +187,7 @@ router.post('/mantra/audio', async (req: Request, res: Response): Promise<void> 
       audioUrls,
     });
   } catch (error) {
-    console.error('[AI] Audio generation error:', error);
+    logger.error('[AI] Audio generation error', error);
     res.status(500).json({
       error: 'Failed to generate audio',
       message: error instanceof Error ? error.message : 'Unknown error',

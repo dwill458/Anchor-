@@ -9,6 +9,7 @@ import { S3Client, PutObjectCommand, GetObjectCommand, DeleteObjectCommand } fro
 import { Upload } from '@aws-sdk/lib-storage';
 import { v4 as uuidv4 } from 'uuid';
 import axios from 'axios';
+import { logger } from '../utils/logger';
 
 /**
  * Initialize R2 client (S3-compatible)
@@ -21,7 +22,7 @@ function getR2Client(): S3Client {
   if (!accountId || !accessKeyId || !secretAccessKey) {
     // Allow mock mode if credentials missing
     // throw new Error('Cloudflare R2 credentials not configured');
-    console.warn('[Storage] R2 credentials missing. Running in mock mode.');
+    logger.warn('[Storage] R2 credentials missing. Running in mock mode.');
     return null as any;
   }
 
@@ -60,14 +61,14 @@ export async function uploadImageFromUrl(
 
     // Check if client is mocked (null/undefined check though getR2Client returns any in mock case)
     if (!process.env.CLOUDFLARE_ACCOUNT_ID) {
-      console.log('[Storage] Mock Mode: Skipping upload, returning original URL');
+      logger.info('[Storage] Mock Mode: Skipping upload, returning original URL');
       return imageUrl;
     }
 
     const bucket = getBucketName();
 
     // Download image from Replicate URL
-    console.log('[Storage] Downloading image from:', imageUrl);
+    logger.debug('[Storage] Downloading image', { imageUrl });
     const response = await axios.get(imageUrl, {
       responseType: 'arraybuffer',
     });
@@ -79,7 +80,7 @@ export async function uploadImageFromUrl(
     const fileExtension = contentType.includes('png') ? 'png' : 'jpg';
     const fileName = `anchors/${userId}/${anchorId}/variation-${variationIndex}.${fileExtension}`;
 
-    console.log('[Storage] Uploading to R2:', fileName);
+    logger.info('[Storage] Uploading to R2', { fileName });
 
     // Upload to R2
     const upload = new Upload({
@@ -105,7 +106,7 @@ export async function uploadImageFromUrl(
     // Fallback: return R2 URL (requires authentication)
     return `https://${bucket}.r2.cloudflarestorage.com/${fileName}`;
   } catch (error) {
-    console.error('[Storage] Upload failed:', error);
+    logger.error('[Storage] Upload failed', error);
     throw new Error(`Failed to upload image: ${error instanceof Error ? error.message : 'Unknown error'}`);
   }
 }
@@ -126,7 +127,7 @@ export async function uploadAudio(
     // Generate unique filename
     const fileName = `mantras/${userId}/${anchorId}/${mantraStyle}.mp3`;
 
-    console.log('[Storage] Uploading audio to R2:', fileName);
+    logger.info('[Storage] Uploading audio to R2', { fileName });
 
     const upload = new Upload({
       client,
@@ -149,7 +150,7 @@ export async function uploadAudio(
 
     return `https://${bucket}.r2.cloudflarestorage.com/${fileName}`;
   } catch (error) {
-    console.error('[Storage] Audio upload failed:', error);
+    logger.error('[Storage] Audio upload failed', error);
     throw new Error(`Failed to upload audio: ${error instanceof Error ? error.message : 'Unknown error'}`);
   }
 }
@@ -191,9 +192,9 @@ export async function deleteAnchorFiles(userId: string, anchorId: string): Promi
       }
     }
 
-    console.log('[Storage] Deleted files for anchor:', anchorId);
+    logger.info('[Storage] Deleted files for anchor', { anchorId });
   } catch (error) {
-    console.error('[Storage] Delete failed:', error);
+    logger.error('[Storage] Delete failed', error);
     // Don't throw - deletion is best-effort
   }
 }
