@@ -23,6 +23,15 @@ export const colors = {
   warning: '#FFC107',
   error: '#F44336',
 
+  // Drawing Palette Colors (for ManualForge screen)
+  white: '#FFFFFF',
+  cyan: '#00CED1',
+  coral: '#FF7F50',
+  mint: '#98D8C8',
+  rose: '#FF69B4',
+  amber: '#FFBF00',
+  turquoise: '#40E0D0',
+
   // Background Shades
   background: {
     primary: '#0F1419',

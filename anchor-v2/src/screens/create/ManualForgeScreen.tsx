@@ -4,7 +4,6 @@ import {
   Text,
   TouchableOpacity,
   StyleSheet,
-  SafeAreaView,
   Dimensions,
   Animated,
   ScrollView,
@@ -12,6 +11,7 @@ import {
   Modal,
   Alert,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { BlurView } from 'expo-blur';
 import { StatusBar } from 'expo-status-bar';
@@ -22,28 +22,10 @@ import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { RootStackParamList } from '@/types';
 import { ZenBackground } from '@/components/common';
+import { colors } from '@/theme';
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 const IS_ANDROID = Platform.OS === 'android';
-
-// Design System Colors (Zen Architect)
-const colors = {
-  navy: '#0F1419',
-  charcoal: '#1A1A1D',
-  gold: '#D4AF37',
-  bone: '#F5F5DC',
-  silver: '#C0C0C0',
-  deepPurple: '#3E2C5B',
-  bronze: '#CD7F32',
-  success: '#4CAF50',
-  white: '#FFFFFF',
-  cyan: '#00CED1',
-  coral: '#FF7F50',
-  mint: '#98D8C8',
-  rose: '#FF69B4',
-  amber: '#FFBF00',
-  turquoise: '#40E0D0',
-};
 
 // Canvas size - reduced to make room for tools panel
 const CANVAS_SIZE = SCREEN_WIDTH - 48;
