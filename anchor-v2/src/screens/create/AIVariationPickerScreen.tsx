@@ -30,6 +30,7 @@ import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { RootStackParamList } from '@/types';
 import { colors } from '@/theme';
+import { ScreenHeader, ZenBackground } from '@/components/common';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const IMAGE_SIZE = (SCREEN_WIDTH - 80) / 2; // 2 columns with proper spacing (24px padding * 2 + 16px gap)
@@ -80,49 +81,14 @@ export const AIVariationPickerScreen: React.FC = () => {
     });
   };
 
-  const handleBack = () => {
-    navigation.goBack();
-  };
-
   return (
     <View style={styles.container}>
       <StatusBar style="light" />
 
-      {/* Animated Background */}
-      <LinearGradient
-        colors={[colors.navy, colors.deepPurple, colors.charcoal]}
-        style={styles.background}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 1 }}
-      />
-
-      {/* Floating Orb Effect */}
-      <Animated.View
-        style={[
-          styles.orb,
-          styles.orb1,
-          {
-            opacity: fadeAnim.interpolate({
-              inputRange: [0, 1],
-              outputRange: [0, 0.15],
-            }),
-          },
-        ]}
-      />
+      <ZenBackground orbOpacity={0.15} />
 
       <SafeAreaView style={styles.safeArea}>
-        {/* Header */}
-        <View style={styles.header}>
-          <TouchableOpacity
-            onPress={handleBack}
-            style={styles.backButton}
-            activeOpacity={0.7}
-          >
-            <Text style={styles.backIcon}>←</Text>
-          </TouchableOpacity>
-          <Text style={styles.headerTitle}>Choose Variation</Text>
-          <View style={styles.backButton} />
-        </View>
+        <ScreenHeader title="Choose Variation" />
 
         <ScrollView
           style={styles.scrollView}
@@ -326,49 +292,8 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: colors.navy,
   },
-  background: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-  },
-  orb: {
-    position: 'absolute',
-    borderRadius: 300,
-    backgroundColor: colors.gold,
-  },
-  orb1: {
-    width: 280,
-    height: 280,
-    top: -100,
-    right: -120,
-  },
   safeArea: {
     flex: 1,
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 20,
-    paddingVertical: 16,
-  },
-  backButton: {
-    width: 40,
-    height: 40,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  backIcon: {
-    fontSize: 24,
-    color: colors.gold,
-  },
-  headerTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: colors.gold,
-    letterSpacing: 0.5,
   },
   scrollView: {
     flex: 1,
