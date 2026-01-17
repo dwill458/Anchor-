@@ -29,12 +29,12 @@ type DistillationAnimationNavigationProp = StackNavigationProp<RootStackParamLis
 export default function DistillationAnimationScreen() {
   const route = useRoute<DistillationAnimationRouteProp>();
   const navigation = useNavigation<DistillationAnimationNavigationProp>();
-  
+
   const { intentionText, category, distilledLetters } = route.params;
 
   const [currentPhase, setCurrentPhase] = useState(0);
   const [displayText, setDisplayText] = useState(intentionText);
-  
+
   // Animation values
   const fadeAnim = useRef(new Animated.Value(1)).current;
   const scaleAnim = useRef(new Animated.Value(1)).current;
@@ -190,7 +190,7 @@ export default function DistillationAnimationScreen() {
       if (phaseIndex >= phases.length) {
         // All phases complete - navigate to SigilSelection
         setTimeout(() => {
-          navigation.navigate('SigilSelection', {
+          navigation.navigate('EnhancementChoice', {
             intentionText,
             category,
             distilledLetters,

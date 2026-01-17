@@ -153,7 +153,7 @@ export default function IntentionInputScreen() {
     const proceedToAnchor = () => {
         const distillation = distillIntention(intention);
         setShowWarningModal(false);
-        navigation.navigate('EnhancementChoice', {
+        navigation.navigate('DistillationAnimation', {
             intentionText: intention,
             category: selectedCategory,
             distilledLetters: distillation.finalLetters,

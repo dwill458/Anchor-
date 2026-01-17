@@ -243,6 +243,11 @@ export type RootStackParamList = {
     category: AnchorCategory;
     distilledLetters: string[];
   };
+  DistillationAnimation: {
+    intentionText: string;
+    category: AnchorCategory;
+    distilledLetters: string[];
+  };
 
   // Phase 2: AI Enhancement Flow
   EnhancementChoice: {
