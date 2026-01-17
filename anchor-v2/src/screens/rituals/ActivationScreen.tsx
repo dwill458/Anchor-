@@ -15,6 +15,8 @@ import { useAnchorStore } from '../../stores/anchorStore';
 import type { RootStackParamList } from '@/types';
 import { colors, spacing, typography } from '@/theme';
 import { apiClient } from '@/services/ApiClient';
+import { ErrorTrackingService } from '@/services/ErrorTrackingService';
+import { useToast } from '@/components/ToastProvider';
 
 const { width } = Dimensions.get('window');
 const SIGIL_SIZE = width * 0.7;
@@ -27,6 +29,7 @@ export const ActivationScreen: React.FC = () => {
   const navigation = useNavigation();
   const route = useRoute<ActivationRouteProp>();
   const { anchorId, activationType } = route.params;
+  const toast = useToast();
 
   const { getAnchorById, updateAnchor } = useAnchorStore();
   const anchor = getAnchorById(anchorId);
@@ -94,8 +97,21 @@ export const ActivationScreen: React.FC = () => {
           lastActivatedAt: new Date(response.data.data.lastActivatedAt),
         });
       }
+
+      toast.success('Activation logged successfully');
     } catch (error) {
-      console.error('Failed to log activation:', error);
+      // Log error to tracking service
+      ErrorTrackingService.captureException(
+        error instanceof Error ? error : new Error('Unknown error during anchor activation'),
+        {
+          screen: 'ActivationScreen',
+          action: 'activate_anchor',
+          anchor_id: anchorId,
+        }
+      );
+
+      // Show error toast but don't block navigation
+      toast.error('Activation completed but failed to sync. Will retry later.');
     }
 
     // Navigate back after 1.5 seconds (shorter than charging)

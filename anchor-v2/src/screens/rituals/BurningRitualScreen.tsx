@@ -21,6 +21,10 @@ import * as Haptics from 'expo-haptics';
 import { colors, typography, spacing } from '@/theme';
 import { RootStackParamList } from '@/types';
 import { useAnchorStore } from '@/stores/anchorStore';
+import { del } from '@/services/ApiClient';
+import { ErrorTrackingService } from '@/services/ErrorTrackingService';
+import { useToast } from '@/components/ToastProvider';
+import { AnalyticsService, AnalyticsEvents } from '@/services/AnalyticsService';
 
 type BurningRitualRouteProp = RouteProp<RootStackParamList, 'BurningRitual'>;
 type BurningRitualNavigationProp = StackNavigationProp<RootStackParamList, 'BurningRitual'>;
@@ -38,11 +42,13 @@ const PROMPTS = [
 export const BurningRitualScreen: React.FC = () => {
   const route = useRoute<BurningRitualRouteProp>();
   const navigation = useNavigation<BurningRitualNavigationProp>();
+  const toast = useToast();
 
   const { anchorId, intention, sigilSvg } = route.params;
   const { removeAnchor } = useAnchorStore();
 
   const [currentPrompt, setCurrentPrompt] = useState<string>('');
+  const [isArchiving, setIsArchiving] = useState<boolean>(false);
 
   // Animation values
   const fadeAnim = useRef(new Animated.Value(1)).current;
@@ -96,21 +102,62 @@ export const BurningRitualScreen: React.FC = () => {
     }, COMPLETION_DURATION + 1000);
   };
 
-  const handleComplete = async () => {
+  const handleComplete = async (): Promise<void> => {
+    if (isArchiving) return; // Prevent duplicate calls
+
+    setIsArchiving(true);
+
     try {
-      // Note: API archiving would go here
-      // For now, just remove from local store
+      // Track burn completion
+      AnalyticsService.track(AnalyticsEvents.BURN_COMPLETED, {
+        anchor_id: anchorId,
+      });
+
+      ErrorTrackingService.addBreadcrumb('Archiving anchor via API', 'api', {
+        anchor_id: anchorId,
+      });
+
+      // Call backend API to archive anchor
+      await del(`/api/anchors/${anchorId}`);
+
+      // Remove from local store
       removeAnchor(anchorId);
 
       // Success haptic
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
 
+      // Show success toast
+      toast.success('Anchor released and archived successfully');
+
       // Navigate back to vault
       navigation.navigate('Vault');
     } catch (error) {
-      console.error('Error burning anchor:', error);
+      // Log error to tracking service
+      ErrorTrackingService.captureException(
+        error instanceof Error ? error : new Error('Unknown error during anchor archiving'),
+        {
+          screen: 'BurningRitualScreen',
+          action: 'archive_anchor',
+          anchor_id: anchorId,
+        }
+      );
+
+      AnalyticsService.track(AnalyticsEvents.BURN_FAILED, {
+        anchor_id: anchorId,
+        error: error instanceof Error ? error.message : 'Unknown error',
+      });
+
+      // Show error toast
+      toast.error(
+        error instanceof Error
+          ? error.message
+          : 'Failed to archive anchor. Please try again.'
+      );
+
       // Still navigate back even if there's an error
       navigation.navigate('Vault');
+    } finally {
+      setIsArchiving(false);
     }
   };
 

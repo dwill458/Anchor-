@@ -199,18 +199,25 @@ export const AnalyticsEvents = {
 
   // Anchor usage
   ANCHOR_VIEWED: 'anchor_viewed',
+  ANCHOR_DETAIL_VIEWED: 'anchor_detail_viewed',
   ANCHOR_CHARGED: 'anchor_charged',
   ANCHOR_ACTIVATED: 'anchor_activated',
   ANCHOR_DELETED: 'anchor_deleted',
   ANCHOR_BURNED: 'anchor_burned',
 
   // Rituals
+  CHARGE_STARTED: 'charge_started',
   QUICK_CHARGE_STARTED: 'quick_charge_started',
   QUICK_CHARGE_COMPLETED: 'quick_charge_completed',
   DEEP_CHARGE_STARTED: 'deep_charge_started',
   DEEP_CHARGE_COMPLETED: 'deep_charge_completed',
+  ACTIVATION_STARTED: 'activation_started',
+  ACTIVATION_ATTEMPTED_UNCHARGED: 'activation_attempted_uncharged',
   ACTIVATION_RITUAL_STARTED: 'activation_ritual_started',
   ACTIVATION_RITUAL_COMPLETED: 'activation_ritual_completed',
+  BURN_INITIATED: 'burn_initiated',
+  BURN_COMPLETED: 'burn_completed',
+  BURN_FAILED: 'burn_failed',
 
   // Features
   MANUAL_FORGE_OPENED: 'manual_forge_opened',

@@ -19,6 +19,8 @@ import { StackNavigationProp } from '@react-navigation/stack';
 import { SvgXml } from 'react-native-svg';
 import { colors, typography, spacing } from '@/theme';
 import { RootStackParamList } from '@/types';
+import { AnalyticsService, AnalyticsEvents } from '@/services/AnalyticsService';
+import { ErrorTrackingService } from '@/services/ErrorTrackingService';
 
 type ConfirmBurnRouteProp = RouteProp<RootStackParamList, 'ConfirmBurn'>;
 type ConfirmBurnNavigationProp = StackNavigationProp<RootStackParamList, 'ConfirmBurn'>;
@@ -32,7 +34,17 @@ export const ConfirmBurnScreen: React.FC = () => {
 
   const { anchorId, intention, sigilSvg } = route.params;
 
-  const handleConfirm = () => {
+  const handleConfirm = (): void => {
+    // Track burn confirmation
+    AnalyticsService.track(AnalyticsEvents.BURN_INITIATED, {
+      anchor_id: anchorId,
+      source: 'confirm_burn_screen',
+    });
+
+    ErrorTrackingService.addBreadcrumb('User confirmed burn ritual', 'navigation', {
+      anchor_id: anchorId,
+    });
+
     navigation.navigate('BurningRitual', {
       anchorId,
       intention,
@@ -40,7 +52,17 @@ export const ConfirmBurnScreen: React.FC = () => {
     });
   };
 
-  const handleCancel = () => {
+  const handleCancel = (): void => {
+    // Track cancellation
+    AnalyticsService.track('burn_cancelled', {
+      anchor_id: anchorId,
+      source: 'confirm_burn_screen',
+    });
+
+    ErrorTrackingService.addBreadcrumb('User cancelled burn ritual', 'navigation', {
+      anchor_id: anchorId,
+    });
+
     navigation.goBack();
   };
 
