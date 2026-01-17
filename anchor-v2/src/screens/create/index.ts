@@ -5,7 +5,8 @@
  */
 
 export { default as IntentionInputScreen } from './IntentionInputScreen';
-export { SigilSelectionScreen } from './SigilSelectionScreen';
+export { default as DistillationAnimationScreen } from './DistillationAnimationScreen';
+export { default as SigilSelectionScreen } from './SigilSelectionScreen';
 export { EnhancementChoiceScreen } from './EnhancementChoiceScreen';
 export { default as AIAnalysisScreen } from './AIAnalysisScreen';
 export { default as AIGeneratingScreen } from './AIGeneratingScreen';

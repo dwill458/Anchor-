@@ -9,6 +9,7 @@ import { createStackNavigator } from '@react-navigation/stack';
 import { VaultScreen, AnchorDetailScreen } from '../screens/vault';
 import {
   IntentionInputScreen,
+  DistillationAnimationScreen,
   SigilSelectionScreen,
   EnhancementChoiceScreen,
   AIAnalysisScreen,
@@ -62,6 +63,11 @@ export const VaultStackNavigator: React.FC = () => {
         name="CreateAnchor"
         component={IntentionInputScreen}
         options={{ title: 'Create Anchor' }}
+      />
+      <Stack.Screen
+        name="DistillationAnimation"
+        component={DistillationAnimationScreen}
+        options={{ headerShown: false }}
       />
       <Stack.Screen
         name="SigilSelection"
