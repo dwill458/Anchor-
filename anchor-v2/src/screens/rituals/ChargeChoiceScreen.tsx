@@ -99,6 +99,15 @@ export const ChargeChoiceScreen: React.FC = () => {
           <Text style={styles.subtitle}>Choose your focus session</Text>
         </View>
 
+        {/* Sigil Preview */}
+        <View style={styles.sigilContainer}>
+          <SvgXml
+            xml={anchor.baseSigilSvg}
+            width={SIGIL_SIZE * 2.5}
+            height={SIGIL_SIZE * 2.5}
+          />
+        </View>
+
         {/* Educational Content - Why Prime? */}
         <View style={styles.educationCard}>
           <View style={styles.educationIconContainer}>
@@ -220,7 +229,8 @@ const styles = StyleSheet.create({
   },
   sigilContainer: {
     alignItems: 'center',
-    paddingVertical: 0,
+    paddingVertical: spacing.lg,
+    marginBottom: spacing.sm,
   },
   educationCard: {
     marginHorizontal: spacing.lg,
