@@ -142,7 +142,7 @@ export default function IntentionInputScreen() {
     const proceedToAnchor = () => {
         const distillation = distillIntention(intention);
         setShowWarningModal(false);
-        navigation.navigate('EnhancementChoice', {
+        navigation.navigate('DistillationAnimation', {
             intentionText: intention,
             category: selectedCategory,
             distilledLetters: distillation.finalLetters,
@@ -688,7 +688,7 @@ const styles = StyleSheet.create({
         left: 0,
         right: 0,
         paddingHorizontal: 24,
-        paddingBottom: 100,
+        paddingBottom: 150,
         paddingTop: 16,
     },
     continueButton: {

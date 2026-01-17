@@ -5,10 +5,11 @@
  */
 
 export { default as IntentionInputScreen } from './IntentionInputScreen';
-export { SigilSelectionScreen } from './SigilSelectionScreen';
+export { default as DistillationAnimationScreen } from './DistillationAnimationScreen';
+export { default as SigilSelectionScreen } from './SigilSelectionScreen';
 export { EnhancementChoiceScreen } from './EnhancementChoiceScreen';
 export { default as AIAnalysisScreen } from './AIAnalysisScreen';
-export { AIGeneratingScreen } from './AIGeneratingScreen';
+export { default as AIGeneratingScreen } from './AIGeneratingScreen';
 export { AIVariationPickerScreen } from './AIVariationPickerScreen';
 export { MantraCreationScreen } from './MantraCreationScreen';
 export { default as ManualForgeScreen } from './ManualForgeScreen';
