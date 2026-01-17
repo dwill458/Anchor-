@@ -44,8 +44,8 @@ const colors = {
   turquoise: '#40E0D0',
 };
 
-// Canvas size
-const CANVAS_SIZE = SCREEN_WIDTH - 32;
+// Canvas size - reduced to make room for tools panel
+const CANVAS_SIZE = SCREEN_WIDTH - 48;
 
 // Brush types
 const BRUSH_TYPES = [
@@ -137,6 +137,30 @@ export default function ManualForgeScreen() {
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const toolsPanelAnim = useRef(new Animated.Value(1)).current;
 
+  // Refs to store current values for panResponder (prevents stale closure issues)
+  const currentStrokeRef = useRef<Point[]>([]);
+  const selectedColorRef = useRef(selectedColor);
+  const brushSizeRef = useRef(brushSize);
+  const brushOpacityRef = useRef(brushOpacity);
+  const selectedBrushRef = useRef(selectedBrush);
+
+  // Update refs when state changes
+  useEffect(() => {
+    selectedColorRef.current = selectedColor;
+  }, [selectedColor]);
+
+  useEffect(() => {
+    brushSizeRef.current = brushSize;
+  }, [brushSize]);
+
+  useEffect(() => {
+    brushOpacityRef.current = brushOpacity;
+  }, [brushOpacity]);
+
+  useEffect(() => {
+    selectedBrushRef.current = selectedBrush;
+  }, [selectedBrush]);
+
   useEffect(() => {
     Animated.timing(fadeAnim, {
       toValue: 1,
@@ -152,37 +176,41 @@ export default function ManualForgeScreen() {
       onMoveShouldSetPanResponder: () => true,
       onPanResponderGrant: (evt) => {
         const { locationX, locationY } = evt.nativeEvent;
+        currentStrokeRef.current = [{ x: locationX, y: locationY }];
         setCurrentStroke([{ x: locationX, y: locationY }]);
       },
       onPanResponderMove: (evt) => {
         const { locationX, locationY } = evt.nativeEvent;
+        currentStrokeRef.current = [...currentStrokeRef.current, { x: locationX, y: locationY }];
         setCurrentStroke((prev) => [...prev, { x: locationX, y: locationY }]);
       },
       onPanResponderRelease: () => {
-        if (currentStroke.length > 0) {
+        if (currentStrokeRef.current.length > 0) {
           const newStroke: Stroke = {
-            points: currentStroke,
-            color: selectedColor,
-            size: brushSize,
-            opacity: brushOpacity / 100,
-            brushType: selectedBrush,
+            points: currentStrokeRef.current,
+            color: selectedColorRef.current,
+            size: brushSizeRef.current,
+            opacity: brushOpacityRef.current / 100,
+            brushType: selectedBrushRef.current,
           };
           setStrokes((prev) => [...prev, newStroke]);
           setCurrentStroke([]);
+          currentStrokeRef.current = [];
           setRedoStack([]); // Clear redo stack on new stroke
         }
       },
       onPanResponderTerminate: () => {
-        if (currentStroke.length > 0) {
+        if (currentStrokeRef.current.length > 0) {
           const newStroke: Stroke = {
-            points: currentStroke,
-            color: selectedColor,
-            size: brushSize,
-            opacity: brushOpacity / 100,
-            brushType: selectedBrush,
+            points: currentStrokeRef.current,
+            color: selectedColorRef.current,
+            size: brushSizeRef.current,
+            opacity: brushOpacityRef.current / 100,
+            brushType: selectedBrushRef.current,
           };
           setStrokes((prev) => [...prev, newStroke]);
           setCurrentStroke([]);
+          currentStrokeRef.current = [];
           setRedoStack([]);
         }
       }
@@ -947,7 +975,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 16,
-    paddingVertical: 12,
+    paddingTop: 20,
+    paddingBottom: 12,
   },
   headerButton: {
     width: 44,
@@ -996,7 +1025,8 @@ const styles = StyleSheet.create({
   },
   instructionsContainer: {
     paddingHorizontal: 16,
-    paddingVertical: 8,
+    paddingTop: 4,
+    paddingBottom: 6,
   },
   instructionsCard: {
     borderRadius: 12,
@@ -1034,7 +1064,8 @@ const styles = StyleSheet.create({
   },
   canvasContainer: {
     alignItems: 'center',
-    paddingVertical: 12,
+    paddingTop: 8,
+    paddingBottom: 8,
   },
   canvas: {
     width: CANVAS_SIZE,
@@ -1112,9 +1143,10 @@ const styles = StyleSheet.create({
     color: colors.gold,
   },
   toolsPanel: {
-    flex: 1,
     paddingHorizontal: 16,
     paddingTop: 8,
+    paddingBottom: 100, // Space for bottom navigation bar
+    maxHeight: 320, // Limit height to prevent blocking
   },
   toolTabs: {
     flexDirection: 'row',
@@ -1153,7 +1185,7 @@ const styles = StyleSheet.create({
     marginTop: 12,
   },
   toolContentInner: {
-    paddingBottom: 20,
+    paddingBottom: 24,
   },
   sectionLabel: {
     fontSize: 11,
