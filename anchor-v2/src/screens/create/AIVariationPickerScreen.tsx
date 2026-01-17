@@ -29,18 +29,7 @@ import { StatusBar } from 'expo-status-bar';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { RootStackParamList } from '@/types';
-
-// Design System Colors (Zen Architect)
-// Using local definition to match the redesign spec exactly
-const localColors = {
-  navy: '#0F1419',
-  charcoal: '#1A1A1D',
-  gold: '#D4AF37',
-  bone: '#F5F5DC',
-  silver: '#C0C0C0',
-  deepPurple: '#3E2C5B',
-  bronze: '#CD7F32',
-};
+import { colors } from '@/theme';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const IMAGE_SIZE = (SCREEN_WIDTH - 80) / 2; // 2 columns with proper spacing (24px padding * 2 + 16px gap)
@@ -101,7 +90,7 @@ export const AIVariationPickerScreen: React.FC = () => {
 
       {/* Animated Background */}
       <LinearGradient
-        colors={[localColors.navy, localColors.deepPurple, localColors.charcoal]}
+        colors={[colors.navy, colors.deepPurple, colors.charcoal]}
         style={styles.background}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 1 }}
@@ -232,7 +221,7 @@ export const AIVariationPickerScreen: React.FC = () => {
                       {isSelected && (
                         <View style={styles.selectedBadge}>
                           <LinearGradient
-                            colors={[localColors.gold, localColors.bronze]}
+                            colors={[colors.gold, colors.bronze]}
                             style={styles.selectedBadgeGradient}
                           >
                             <Text style={styles.checkIcon}>✓</Text>
@@ -315,7 +304,7 @@ export const AIVariationPickerScreen: React.FC = () => {
             style={styles.continueButton}
           >
             <LinearGradient
-              colors={[localColors.gold, '#B8941F']}
+              colors={[colors.gold, '#B8941F']}
               style={styles.continueGradient}
               start={{ x: 0, y: 0 }}
               end={{ x: 1, y: 0 }}
@@ -335,7 +324,7 @@ export const AIVariationPickerScreen: React.FC = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: localColors.navy,
+    backgroundColor: colors.navy,
   },
   background: {
     position: 'absolute',
@@ -347,7 +336,7 @@ const styles = StyleSheet.create({
   orb: {
     position: 'absolute',
     borderRadius: 300,
-    backgroundColor: localColors.gold,
+    backgroundColor: colors.gold,
   },
   orb1: {
     width: 280,
@@ -373,12 +362,12 @@ const styles = StyleSheet.create({
   },
   backIcon: {
     fontSize: 24,
-    color: localColors.gold,
+    color: colors.gold,
   },
   headerTitle: {
     fontSize: 18,
     fontWeight: '600',
-    color: localColors.gold,
+    color: colors.gold,
     letterSpacing: 0.5,
   },
   scrollView: {
@@ -396,13 +385,13 @@ const styles = StyleSheet.create({
     fontSize: 28,
     // fontFamily: 'Cinzel-Regular', // Font might not be loaded, fallback safely
     fontWeight: '600',
-    color: localColors.gold,
+    color: colors.gold,
     marginBottom: 12,
     letterSpacing: 0.5,
   },
   subtitle: {
     fontSize: 15,
-    color: localColors.silver,
+    color: colors.silver,
     lineHeight: 22,
   },
   intentionSection: {
@@ -411,7 +400,7 @@ const styles = StyleSheet.create({
   intentionLabel: {
     fontSize: 11,
     fontWeight: '700',
-    color: localColors.silver,
+    color: colors.silver,
     letterSpacing: 1.5,
     marginBottom: 12,
     opacity: 0.7,
@@ -431,12 +420,12 @@ const styles = StyleSheet.create({
     top: 0,
     bottom: 0,
     width: 3,
-    backgroundColor: localColors.gold,
+    backgroundColor: colors.gold,
   },
   intentionText: {
     fontSize: 17,
     fontStyle: 'italic',
-    color: localColors.bone,
+    color: colors.bone,
     lineHeight: 26,
   },
   gridSection: {
@@ -458,11 +447,11 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
     borderWidth: 2,
     borderColor: 'rgba(212, 175, 55, 0.15)',
-    backgroundColor: localColors.charcoal,
+    backgroundColor: colors.charcoal,
     position: 'relative',
   },
   variationCardSelected: {
-    borderColor: localColors.gold,
+    borderColor: colors.gold,
     borderWidth: 3,
   },
   imageContainer: {
@@ -488,7 +477,7 @@ const styles = StyleSheet.create({
   numberText: {
     fontSize: 16,
     fontWeight: '700',
-    color: localColors.gold,
+    color: colors.gold,
   },
   selectedBadge: {
     position: 'absolute',
@@ -498,7 +487,7 @@ const styles = StyleSheet.create({
     height: 36,
     borderRadius: 18,
     overflow: 'hidden',
-    shadowColor: localColors.gold,
+    shadowColor: colors.gold,
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.5,
     shadowRadius: 8,
@@ -512,7 +501,7 @@ const styles = StyleSheet.create({
   checkIcon: {
     fontSize: 20,
     fontWeight: '700',
-    color: localColors.charcoal,
+    color: colors.charcoal,
   },
   selectedGlow: {
     position: 'absolute',
@@ -521,7 +510,7 @@ const styles = StyleSheet.create({
     right: 0,
     bottom: 0,
     borderRadius: 20,
-    shadowColor: localColors.gold,
+    shadowColor: colors.gold,
     shadowOffset: { width: 0, height: 0 },
     shadowOpacity: 0.6,
     shadowRadius: 16,
@@ -530,12 +519,12 @@ const styles = StyleSheet.create({
   variationLabel: {
     fontSize: 14,
     fontWeight: '600',
-    color: localColors.silver,
+    color: colors.silver,
     textAlign: 'center',
     marginTop: 12,
   },
   variationLabelSelected: {
-    color: localColors.gold,
+    color: colors.gold,
     fontWeight: '700',
   },
   detailsSection: {
@@ -551,7 +540,7 @@ const styles = StyleSheet.create({
   detailsLabel: {
     fontSize: 11,
     fontWeight: '700',
-    color: localColors.silver,
+    color: colors.silver,
     letterSpacing: 1.5,
     marginBottom: 12,
     opacity: 0.7,
@@ -559,7 +548,7 @@ const styles = StyleSheet.create({
   detailsText: {
     fontSize: 13,
     fontStyle: 'italic',
-    color: localColors.silver,
+    color: colors.silver,
     lineHeight: 20,
     opacity: 0.8,
   },
@@ -579,7 +568,7 @@ const styles = StyleSheet.create({
   continueButton: {
     borderRadius: 20,
     overflow: 'hidden',
-    shadowColor: localColors.gold,
+    shadowColor: colors.gold,
     shadowOffset: { width: 0, height: 8 },
     shadowOpacity: 0.4,
     shadowRadius: 16,
@@ -595,13 +584,13 @@ const styles = StyleSheet.create({
   continueText: {
     fontSize: 16,
     fontWeight: '700',
-    color: localColors.charcoal,
+    color: colors.charcoal,
     letterSpacing: 0.5,
     marginRight: 8,
   },
   continueArrow: {
     fontSize: 20,
-    color: localColors.charcoal,
+    color: colors.charcoal,
     fontWeight: '300',
   },
 });

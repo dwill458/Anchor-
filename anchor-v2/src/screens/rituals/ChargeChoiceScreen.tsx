@@ -71,15 +71,31 @@ export const ChargeChoiceScreen: React.FC = () => {
     );
   }
 
+  const handleBack = (): void => {
+    navigation.goBack();
+  };
+
   return (
     <SafeAreaView style={styles.container}>
+      {/* Header with Back Button */}
+      <View style={styles.headerBar}>
+        <TouchableOpacity
+          onPress={handleBack}
+          style={styles.backButton}
+          activeOpacity={0.7}
+        >
+          <Text style={styles.backIcon}>←</Text>
+        </TouchableOpacity>
+        <Text style={styles.headerTitle}>Prime Your Anchor</Text>
+        <View style={styles.backButton} />
+      </View>
+
       <ScrollView
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
-        {/* Header */}
-        <View style={styles.header}>
-          <Text style={styles.title}>Prime Your Anchor</Text>
+        {/* Title Section */}
+        <View style={styles.titleSection}>
           <Text style={styles.subtitle}>Choose your focus session</Text>
         </View>
 
@@ -165,22 +181,42 @@ const styles = StyleSheet.create({
   scrollContent: {
     paddingBottom: 120, // ample space for scrolling
   },
-  header: {
+  headerBar: {
+    flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: spacing.xl,
-    paddingTop: 0,
-    paddingBottom: 0,
+    justifyContent: 'space-between',
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.md,
+    marginBottom: spacing.xs,
   },
-  title: {
-    fontSize: typography.sizes.h2,
+  backButton: {
+    width: 44,
+    height: 44,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderRadius: 22,
+    backgroundColor: 'rgba(26, 26, 29, 0.6)',
+  },
+  backIcon: {
+    fontSize: 22,
+    color: colors.gold,
+  },
+  headerTitle: {
+    fontSize: typography.sizes.h3,
     fontFamily: typography.fonts.heading,
     color: colors.gold,
-    marginBottom: spacing.sm,
+    letterSpacing: 0.5,
+  },
+  titleSection: {
+    alignItems: 'center',
+    paddingHorizontal: spacing.xl,
+    paddingBottom: spacing.sm,
   },
   subtitle: {
     fontSize: typography.sizes.body2,
     fontFamily: typography.fonts.body,
     color: colors.text.secondary,
+    textAlign: 'center',
   },
   sigilContainer: {
     alignItems: 'center',

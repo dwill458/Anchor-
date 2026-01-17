@@ -17,7 +17,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
-import { colors as themeColors, spacing, typography } from '@/theme';
+import { colors, spacing, typography } from '@/theme';
 import { generateSigil, SigilVariant } from '@/utils/sigil/traditional-generator';
 import { SvgXml } from 'react-native-svg';
 import { AnchorCategory, RootStackParamList } from '@/types';
@@ -33,20 +33,6 @@ type SigilSelectionRouteParams = {
     intentionText: string;
     category: AnchorCategory;
     distilledLetters: string[];
-};
-
-// --- REDESIGN CONFIGURATION ---
-// User-provided colors and styles
-const colors = {
-    navy: '#0F1419',
-    charcoal: '#1A1A1D',
-    gold: '#D4AF37',
-    bone: '#F5F5DC',
-    silver: '#C0C0C0',
-    deepPurple: '#3E2C5B',
-    bronze: '#CD7F32',
-    // Fallback/Integration with existing theme
-    error: themeColors.error,
 };
 
 interface StyleOption {
@@ -164,7 +150,7 @@ export const SigilSelectionScreen: React.FC = () => {
         if (!sigilResult) return;
         const selectedSvg = sigilResult.svgs[selectedStyle];
 
-        navigation.navigate('EnhancementChoice', {
+        navigation.navigate('MantraCreation', {
             intentionText,
             category,
             distilledLetters,

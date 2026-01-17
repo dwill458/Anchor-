@@ -16,21 +16,10 @@ import { StatusBar } from 'expo-status-bar';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { RootStackParamList } from '@/types';
+import { colors } from '@/theme';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const IS_ANDROID = Platform.OS === 'android';
-
-// Design System Colors (Zen Architect)
-const colors = {
-  navy: '#0F1419',
-  charcoal: '#1A1A1D',
-  gold: '#D4AF37',
-  bone: '#F5F5DC',
-  silver: '#C0C0C0',
-  deepPurple: '#3E2C5B',
-  bronze: '#CD7F32',
-  success: '#4CAF50',
-};
 
 interface EnhancementOption {
   id: 'ai' | 'traditional' | 'manual';
