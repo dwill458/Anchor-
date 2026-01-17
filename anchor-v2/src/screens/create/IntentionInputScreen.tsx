@@ -5,7 +5,6 @@ import {
     TextInput,
     TouchableOpacity,
     StyleSheet,
-    SafeAreaView,
     ScrollView,
     KeyboardAvoidingView,
     Platform,
@@ -13,6 +12,7 @@ import {
     Dimensions,
     Modal,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { BlurView } from 'expo-blur';
 import { StatusBar } from 'expo-status-bar';
@@ -20,21 +20,10 @@ import { useNavigation } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { RootStackParamList, AnchorCategory } from '@/types';
 import { distillIntention } from '@/utils/sigil/distillation';
+import { colors } from '@/theme';
+import { ScreenHeader, ZenBackground } from '@/components/common';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
-
-// Design System Colors (Zen Architect)
-const colors = {
-    navy: '#0F1419',
-    charcoal: '#1A1A1D',
-    gold: '#D4AF37',
-    bone: '#F5F5DC',
-    silver: '#C0C0C0',
-    deepPurple: '#3E2C5B',
-    bronze: '#CD7F32',
-    success: '#4CAF50',
-    warning: '#FF8C00',
-};
 
 interface CategoryData {
     id: AnchorCategory;
@@ -160,65 +149,18 @@ export default function IntentionInputScreen() {
         });
     };
 
-    const handleBack = () => {
-        navigation.goBack();
-    };
-
     return (
         <View style={styles.container}>
             <StatusBar style="light" />
 
-            {/* Animated Background */}
-            <LinearGradient
-                colors={[colors.navy, colors.deepPurple, colors.charcoal]}
-                style={styles.background}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 1 }}
-            />
-
-            {/* Floating Orbs */}
-            <Animated.View
-                style={[
-                    styles.orb,
-                    styles.orb1,
-                    {
-                        opacity: fadeAnim.interpolate({
-                            inputRange: [0, 1],
-                            outputRange: [0, 0.12],
-                        }),
-                    },
-                ]}
-            />
-            <Animated.View
-                style={[
-                    styles.orb,
-                    styles.orb2,
-                    {
-                        opacity: fadeAnim.interpolate({
-                            inputRange: [0, 1],
-                            outputRange: [0, 0.08],
-                        }),
-                    },
-                ]}
-            />
+            <ZenBackground />
 
             <SafeAreaView style={styles.safeArea}>
                 <KeyboardAvoidingView
                     behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
                     style={styles.keyboardView}
                 >
-                    {/* Header */}
-                    <View style={styles.header}>
-                        <TouchableOpacity
-                            onPress={handleBack}
-                            style={styles.backButton}
-                            activeOpacity={0.7}
-                        >
-                            <Text style={styles.backIcon}>←</Text>
-                        </TouchableOpacity>
-                        <Text style={styles.headerTitle}>Create Anchor</Text>
-                        <View style={styles.backButton} />
-                    </View>
+                    <ScreenHeader title="Create Anchor" />
 
                     <ScrollView
                         style={styles.scrollView}
@@ -553,58 +495,11 @@ const styles = StyleSheet.create({
         flex: 1,
         backgroundColor: colors.navy,
     },
-    background: {
-        position: 'absolute',
-        top: 0,
-        left: 0,
-        right: 0,
-        bottom: 0,
-    },
-    orb: {
-        position: 'absolute',
-        borderRadius: 300,
-        backgroundColor: colors.gold,
-    },
-    orb1: {
-        width: 280,
-        height: 280,
-        top: -80,
-        right: -100,
-    },
-    orb2: {
-        width: 220,
-        height: 220,
-        bottom: 200,
-        left: -60,
-    },
     safeArea: {
         flex: 1,
     },
     keyboardView: {
         flex: 1,
-    },
-    header: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        paddingHorizontal: 20,
-        paddingVertical: 16,
-    },
-    backButton: {
-        width: 40,
-        height: 40,
-        justifyContent: 'center',
-        alignItems: 'center',
-    },
-    backIcon: {
-        fontSize: 24,
-        color: colors.gold,
-    },
-    headerTitle: {
-        fontSize: 18,
-        fontWeight: '600',
-        color: colors.gold,
-        letterSpacing: 0.5,
     },
     scrollView: {
         flex: 1,

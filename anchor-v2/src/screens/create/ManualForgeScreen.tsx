@@ -4,7 +4,6 @@ import {
   Text,
   TouchableOpacity,
   StyleSheet,
-  SafeAreaView,
   Dimensions,
   Animated,
   ScrollView,
@@ -12,6 +11,7 @@ import {
   Modal,
   Alert,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { BlurView } from 'expo-blur';
 import { StatusBar } from 'expo-status-bar';
@@ -21,28 +21,11 @@ import Slider from '@react-native-community/slider';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { RootStackParamList } from '@/types';
+import { ZenBackground } from '@/components/common';
+import { colors } from '@/theme';
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 const IS_ANDROID = Platform.OS === 'android';
-
-// Design System Colors (Zen Architect)
-const colors = {
-  navy: '#0F1419',
-  charcoal: '#1A1A1D',
-  gold: '#D4AF37',
-  bone: '#F5F5DC',
-  silver: '#C0C0C0',
-  deepPurple: '#3E2C5B',
-  bronze: '#CD7F32',
-  success: '#4CAF50',
-  white: '#FFFFFF',
-  cyan: '#00CED1',
-  coral: '#FF7F50',
-  mint: '#98D8C8',
-  rose: '#FF69B4',
-  amber: '#FFBF00',
-  turquoise: '#40E0D0',
-};
 
 // Canvas size - reduced to make room for tools panel
 const CANVAS_SIZE = SCREEN_WIDTH - 48;
@@ -367,43 +350,7 @@ export default function ManualForgeScreen() {
     <View style={styles.container}>
       <StatusBar style="light" />
 
-      {/* Animated Background */}
-      <LinearGradient
-        colors={[colors.navy, colors.deepPurple, colors.charcoal]}
-        style={styles.background}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 1 }}
-      />
-
-      {/* Floating Orbs (iOS only) */}
-      {!IS_ANDROID && (
-        <>
-          <Animated.View
-            style={[
-              styles.orb,
-              styles.orb1,
-              {
-                opacity: fadeAnim.interpolate({
-                  inputRange: [0, 1],
-                  outputRange: [0, 0.08],
-                }),
-              },
-            ]}
-          />
-          <Animated.View
-            style={[
-              styles.orb,
-              styles.orb2,
-              {
-                opacity: fadeAnim.interpolate({
-                  inputRange: [0, 1],
-                  outputRange: [0, 0.05],
-                }),
-              },
-            ]}
-          />
-        </>
-      )}
+      <ZenBackground orbOpacity={0.08} />
 
       <SafeAreaView style={styles.safeArea}>
         {/* Header */}
@@ -942,30 +889,6 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: colors.navy,
-  },
-  background: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-  },
-  orb: {
-    position: 'absolute',
-    borderRadius: 200,
-    backgroundColor: colors.gold,
-  },
-  orb1: {
-    width: 250,
-    height: 250,
-    top: -80,
-    right: -80,
-  },
-  orb2: {
-    width: 180,
-    height: 180,
-    bottom: 100,
-    left: -60,
   },
   safeArea: {
     flex: 1,

@@ -17,30 +17,20 @@ import {
   Text,
   TouchableOpacity,
   StyleSheet,
-  SafeAreaView,
   ScrollView,
   Animated,
   Dimensions,
   Image,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { BlurView } from 'expo-blur';
 import { StatusBar } from 'expo-status-bar';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { RootStackParamList } from '@/types';
-
-// Design System Colors (Zen Architect)
-// Using local definition to match the redesign spec exactly
-const localColors = {
-  navy: '#0F1419',
-  charcoal: '#1A1A1D',
-  gold: '#D4AF37',
-  bone: '#F5F5DC',
-  silver: '#C0C0C0',
-  deepPurple: '#3E2C5B',
-  bronze: '#CD7F32',
-};
+import { colors } from '@/theme';
+import { ScreenHeader, ZenBackground } from '@/components/common';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const IMAGE_SIZE = (SCREEN_WIDTH - 80) / 2; // 2 columns with proper spacing (24px padding * 2 + 16px gap)
@@ -91,49 +81,14 @@ export const AIVariationPickerScreen: React.FC = () => {
     });
   };
 
-  const handleBack = () => {
-    navigation.goBack();
-  };
-
   return (
     <View style={styles.container}>
       <StatusBar style="light" />
 
-      {/* Animated Background */}
-      <LinearGradient
-        colors={[localColors.navy, localColors.deepPurple, localColors.charcoal]}
-        style={styles.background}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 1 }}
-      />
-
-      {/* Floating Orb Effect */}
-      <Animated.View
-        style={[
-          styles.orb,
-          styles.orb1,
-          {
-            opacity: fadeAnim.interpolate({
-              inputRange: [0, 1],
-              outputRange: [0, 0.15],
-            }),
-          },
-        ]}
-      />
+      <ZenBackground orbOpacity={0.15} />
 
       <SafeAreaView style={styles.safeArea}>
-        {/* Header */}
-        <View style={styles.header}>
-          <TouchableOpacity
-            onPress={handleBack}
-            style={styles.backButton}
-            activeOpacity={0.7}
-          >
-            <Text style={styles.backIcon}>←</Text>
-          </TouchableOpacity>
-          <Text style={styles.headerTitle}>Choose Variation</Text>
-          <View style={styles.backButton} />
-        </View>
+        <ScreenHeader title="Choose Variation" />
 
         <ScrollView
           style={styles.scrollView}
@@ -232,7 +187,7 @@ export const AIVariationPickerScreen: React.FC = () => {
                       {isSelected && (
                         <View style={styles.selectedBadge}>
                           <LinearGradient
-                            colors={[localColors.gold, localColors.bronze]}
+                            colors={[colors.gold, colors.bronze]}
                             style={styles.selectedBadgeGradient}
                           >
                             <Text style={styles.checkIcon}>✓</Text>
@@ -315,7 +270,7 @@ export const AIVariationPickerScreen: React.FC = () => {
             style={styles.continueButton}
           >
             <LinearGradient
-              colors={[localColors.gold, '#B8941F']}
+              colors={[colors.gold, '#B8941F']}
               style={styles.continueGradient}
               start={{ x: 0, y: 0 }}
               end={{ x: 1, y: 0 }}
@@ -335,51 +290,10 @@ export const AIVariationPickerScreen: React.FC = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: localColors.navy,
-  },
-  background: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-  },
-  orb: {
-    position: 'absolute',
-    borderRadius: 300,
-    backgroundColor: localColors.gold,
-  },
-  orb1: {
-    width: 280,
-    height: 280,
-    top: -100,
-    right: -120,
+    backgroundColor: colors.navy,
   },
   safeArea: {
     flex: 1,
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 20,
-    paddingVertical: 16,
-  },
-  backButton: {
-    width: 40,
-    height: 40,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  backIcon: {
-    fontSize: 24,
-    color: localColors.gold,
-  },
-  headerTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: localColors.gold,
-    letterSpacing: 0.5,
   },
   scrollView: {
     flex: 1,
@@ -396,13 +310,13 @@ const styles = StyleSheet.create({
     fontSize: 28,
     // fontFamily: 'Cinzel-Regular', // Font might not be loaded, fallback safely
     fontWeight: '600',
-    color: localColors.gold,
+    color: colors.gold,
     marginBottom: 12,
     letterSpacing: 0.5,
   },
   subtitle: {
     fontSize: 15,
-    color: localColors.silver,
+    color: colors.silver,
     lineHeight: 22,
   },
   intentionSection: {
@@ -411,7 +325,7 @@ const styles = StyleSheet.create({
   intentionLabel: {
     fontSize: 11,
     fontWeight: '700',
-    color: localColors.silver,
+    color: colors.silver,
     letterSpacing: 1.5,
     marginBottom: 12,
     opacity: 0.7,
@@ -431,12 +345,12 @@ const styles = StyleSheet.create({
     top: 0,
     bottom: 0,
     width: 3,
-    backgroundColor: localColors.gold,
+    backgroundColor: colors.gold,
   },
   intentionText: {
     fontSize: 17,
     fontStyle: 'italic',
-    color: localColors.bone,
+    color: colors.bone,
     lineHeight: 26,
   },
   gridSection: {
@@ -458,11 +372,11 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
     borderWidth: 2,
     borderColor: 'rgba(212, 175, 55, 0.15)',
-    backgroundColor: localColors.charcoal,
+    backgroundColor: colors.charcoal,
     position: 'relative',
   },
   variationCardSelected: {
-    borderColor: localColors.gold,
+    borderColor: colors.gold,
     borderWidth: 3,
   },
   imageContainer: {
@@ -488,7 +402,7 @@ const styles = StyleSheet.create({
   numberText: {
     fontSize: 16,
     fontWeight: '700',
-    color: localColors.gold,
+    color: colors.gold,
   },
   selectedBadge: {
     position: 'absolute',
@@ -498,7 +412,7 @@ const styles = StyleSheet.create({
     height: 36,
     borderRadius: 18,
     overflow: 'hidden',
-    shadowColor: localColors.gold,
+    shadowColor: colors.gold,
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.5,
     shadowRadius: 8,
@@ -512,7 +426,7 @@ const styles = StyleSheet.create({
   checkIcon: {
     fontSize: 20,
     fontWeight: '700',
-    color: localColors.charcoal,
+    color: colors.charcoal,
   },
   selectedGlow: {
     position: 'absolute',
@@ -521,7 +435,7 @@ const styles = StyleSheet.create({
     right: 0,
     bottom: 0,
     borderRadius: 20,
-    shadowColor: localColors.gold,
+    shadowColor: colors.gold,
     shadowOffset: { width: 0, height: 0 },
     shadowOpacity: 0.6,
     shadowRadius: 16,
@@ -530,12 +444,12 @@ const styles = StyleSheet.create({
   variationLabel: {
     fontSize: 14,
     fontWeight: '600',
-    color: localColors.silver,
+    color: colors.silver,
     textAlign: 'center',
     marginTop: 12,
   },
   variationLabelSelected: {
-    color: localColors.gold,
+    color: colors.gold,
     fontWeight: '700',
   },
   detailsSection: {
@@ -551,7 +465,7 @@ const styles = StyleSheet.create({
   detailsLabel: {
     fontSize: 11,
     fontWeight: '700',
-    color: localColors.silver,
+    color: colors.silver,
     letterSpacing: 1.5,
     marginBottom: 12,
     opacity: 0.7,
@@ -559,7 +473,7 @@ const styles = StyleSheet.create({
   detailsText: {
     fontSize: 13,
     fontStyle: 'italic',
-    color: localColors.silver,
+    color: colors.silver,
     lineHeight: 20,
     opacity: 0.8,
   },
@@ -579,7 +493,7 @@ const styles = StyleSheet.create({
   continueButton: {
     borderRadius: 20,
     overflow: 'hidden',
-    shadowColor: localColors.gold,
+    shadowColor: colors.gold,
     shadowOffset: { width: 0, height: 8 },
     shadowOpacity: 0.4,
     shadowRadius: 16,
@@ -595,13 +509,13 @@ const styles = StyleSheet.create({
   continueText: {
     fontSize: 16,
     fontWeight: '700',
-    color: localColors.charcoal,
+    color: colors.charcoal,
     letterSpacing: 0.5,
     marginRight: 8,
   },
   continueArrow: {
     fontSize: 20,
-    color: localColors.charcoal,
+    color: colors.charcoal,
     fontWeight: '300',
   },
 });

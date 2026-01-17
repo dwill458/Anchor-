@@ -18,6 +18,8 @@ import {
   SigilGenerationResult,
   VARIANT_METADATA,
 } from '@/utils/sigil/traditional-generator';
+import { colors, spacing, typography } from '@/theme';
+import { ZenBackground } from '@/components/common';
 
 type SigilSelectionRouteProp = RouteProp<RootStackParamList, 'SigilSelection'>;
 type SigilSelectionNavigationProp = StackNavigationProp<RootStackParamList, 'SigilSelection'>;
@@ -53,17 +55,19 @@ export default function SigilSelectionScreen() {
     const selected = variants.find(v => v.variant === selectedVariant);
     if (!selected) return;
 
-    navigation.navigate('PostForgeChoice', {
+    navigation.navigate('MantraCreation', {
       intentionText,
       category,
       distilledLetters,
       sigilSvg: selected.svg,
+      sigilVariant: selectedVariant,
     });
   };
 
   if (loading) {
     return (
       <SafeAreaView style={styles.container}>
+        <ZenBackground />
         <View style={styles.loadingContainer}>
           <Text style={styles.loadingText}>Crafting your sigils...</Text>
         </View>
@@ -73,6 +77,7 @@ export default function SigilSelectionScreen() {
 
   return (
     <SafeAreaView style={styles.container}>
+      <ZenBackground />
       <ScrollView
         style={styles.scrollView}
         contentContainerStyle={styles.scrollContent}
@@ -173,14 +178,14 @@ export default function SigilSelectionScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#0F1419', // Navy
+    backgroundColor: 'transparent',
   },
   scrollView: {
     flex: 1,
   },
   scrollContent: {
-    paddingHorizontal: 24,
-    paddingTop: 16,
+    paddingHorizontal: spacing.lg,
+    paddingTop: spacing.md,
     paddingBottom: 100,
   },
   loadingContainer: {
@@ -189,130 +194,130 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   loadingText: {
-    fontFamily: 'Cinzel-Regular',
-    fontSize: 18,
-    color: '#D4AF37', // Gold
+    fontFamily: typography.fontFamily.serif,
+    fontSize: typography.fontSize.lg,
+    color: colors.gold,
   },
   header: {
-    marginBottom: 32,
+    marginBottom: spacing.xl,
   },
   title: {
-    fontFamily: 'Cinzel-Regular',
-    fontSize: 28,
-    color: '#D4AF37', // Gold
-    marginBottom: 8,
+    fontFamily: typography.fontFamily.serif,
+    fontSize: typography.fontSize.xxl,
+    color: colors.gold,
+    marginBottom: spacing.xs,
     textAlign: 'center',
   },
   subtitle: {
-    fontFamily: 'Inter-Regular',
-    fontSize: 16,
-    color: '#C0C0C0', // Secondary text
+    fontFamily: typography.fontFamily.sans,
+    fontSize: typography.fontSize.md,
+    color: colors.smoke,
     textAlign: 'center',
     lineHeight: 24,
   },
   lettersSection: {
-    marginBottom: 32,
+    marginBottom: spacing.xl,
   },
   lettersLabel: {
-    fontFamily: 'Inter-Regular',
-    fontSize: 14,
-    color: '#9E9E9E', // Tertiary text
-    marginBottom: 8,
+    fontFamily: typography.fontFamily.sans,
+    fontSize: typography.fontSize.sm,
+    color: colors.mist,
+    marginBottom: spacing.xs,
   },
   lettersContainer: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 8,
+    gap: spacing.xs,
   },
   letterBox: {
-    backgroundColor: '#3E2C5B', // Deep purple
-    paddingVertical: 8,
-    paddingHorizontal: 16,
-    borderRadius: 8,
+    backgroundColor: colors.deepPurple,
+    paddingVertical: spacing.xs,
+    paddingHorizontal: spacing.md,
+    borderRadius: spacing.xs,
   },
   letterText: {
-    fontFamily: 'Cinzel-Regular',
-    fontSize: 18,
-    color: '#D4AF37', // Gold
+    fontFamily: typography.fontFamily.serif,
+    fontSize: typography.fontSize.lg,
+    color: colors.gold,
   },
   previewSection: {
     alignItems: 'center',
-    marginBottom: 32,
+    marginBottom: spacing.xl,
   },
   previewContainer: {
     width: CARD_WIDTH,
     aspectRatio: 1,
-    backgroundColor: '#252529', // Card background
-    borderRadius: 16,
+    backgroundColor: colors.slate,
+    borderRadius: spacing.md,
     justifyContent: 'center',
     alignItems: 'center',
     borderWidth: 2,
-    borderColor: '#D4AF37', // Gold
-    padding: 16,
-    marginBottom: 16,
+    borderColor: colors.gold,
+    padding: spacing.md,
+    marginBottom: spacing.md,
   },
   previewLabel: {
-    fontFamily: 'Cinzel-Regular',
-    fontSize: 18,
-    color: '#D4AF37', // Gold
+    fontFamily: typography.fontFamily.serif,
+    fontSize: typography.fontSize.lg,
+    color: colors.gold,
   },
   variantsSection: {
-    marginBottom: 24,
+    marginBottom: spacing.lg,
   },
   variantsTitle: {
-    fontFamily: 'Cinzel-Regular',
-    fontSize: 20,
-    color: '#F5F5DC', // Bone
-    marginBottom: 16,
+    fontFamily: typography.fontFamily.serif,
+    fontSize: typography.fontSize.xl,
+    color: colors.bone,
+    marginBottom: spacing.md,
   },
   variantCard: {
-    backgroundColor: '#252529', // Card background
-    borderRadius: 12,
-    padding: 16,
+    backgroundColor: colors.slate,
+    borderRadius: spacing.sm,
+    padding: spacing.md,
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 16,
+    marginBottom: spacing.md,
     borderWidth: 2,
     borderColor: 'transparent',
   },
   variantCardSelected: {
-    borderColor: '#D4AF37', // Gold
+    borderColor: colors.gold,
     backgroundColor: 'rgba(212, 175, 55, 0.06)',
   },
   sigilContainer: {
     width: 120,
     height: 120,
-    marginRight: 16,
+    marginRight: spacing.md,
   },
   variantInfo: {
     flex: 1,
   },
   variantTitle: {
-    fontFamily: 'Cinzel-Regular',
-    fontSize: 18,
-    color: '#F5F5DC', // Bone
+    fontFamily: typography.fontFamily.serif,
+    fontSize: typography.fontSize.lg,
+    color: colors.bone,
     marginBottom: 4,
   },
   variantTitleSelected: {
-    color: '#D4AF37', // Gold
+    color: colors.gold,
   },
   variantDescription: {
-    fontFamily: 'Inter-Regular',
-    fontSize: 14,
-    color: '#C0C0C0', // Secondary text
+    fontFamily: typography.fontFamily.sans,
+    fontSize: typography.fontSize.sm,
+    color: colors.smoke,
     lineHeight: 20,
   },
   selectedIndicator: {
     width: 32,
     height: 32,
     borderRadius: 16,
-    backgroundColor: '#D4AF37', // Gold
+    backgroundColor: colors.gold,
     justifyContent: 'center',
     alignItems: 'center',
   },
   checkmark: {
-    fontSize: 18,
-    color: '#1A1A1D', // Charcoal
+    fontSize: typography.fontSize.lg,
+    color: colors.charcoal,
     fontWeight: 'bold',
   },
   footer: {
@@ -320,22 +325,22 @@ const styles = StyleSheet.create({
     bottom: 0,
     left: 0,
     right: 0,
-    padding: 24,
-    backgroundColor: '#1A1A1D', // Charcoal
+    padding: spacing.lg,
+    backgroundColor: colors.charcoal,
     borderTopWidth: 1,
-    borderTopColor: '#0F1419', // Navy
+    borderTopColor: colors.navy,
   },
   continueButton: {
-    backgroundColor: '#D4AF37', // Gold
+    backgroundColor: colors.gold,
     height: 56,
-    borderRadius: 12,
+    borderRadius: spacing.sm,
     justifyContent: 'center',
     alignItems: 'center',
   },
   continueButtonText: {
-    fontFamily: 'Inter-Regular',
-    fontSize: 16,
+    fontFamily: typography.fontFamily.sans,
+    fontSize: typography.fontSize.md,
     fontWeight: '600',
-    color: '#1A1A1D', // Charcoal
+    color: colors.charcoal,
   },
 });
