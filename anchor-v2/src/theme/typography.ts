@@ -10,6 +10,7 @@
  */
 
 export const typography = {
+  // Legacy font names (keeping for backward compatibility)
   fonts: {
     heading: 'Cinzel-Regular',
     headingBold: 'Cinzel-Bold',
@@ -18,6 +19,29 @@ export const typography = {
     bodyBold: 'Inter-SemiBold',
     mono: 'RobotoMono-Regular',
   },
+
+  // Font families (new structure)
+  fontFamily: {
+    serif: 'Cinzel-Regular',
+    serifBold: 'Cinzel-Bold',
+    serifSemiBold: 'Cinzel-SemiBold',
+    sans: 'Inter-Regular',
+    sansBold: 'Inter-SemiBold',
+    mono: 'RobotoMono-Regular',
+  },
+
+  // Font sizes (new structure)
+  fontSize: {
+    xs: 12,
+    sm: 14,
+    md: 16,
+    lg: 18,
+    xl: 20,
+    xxl: 24,
+    xxxl: 32,
+  },
+
+  // Legacy sizes (keeping for backward compatibility)
   sizes: {
     h1: 32,
     h2: 24,
@@ -28,6 +52,7 @@ export const typography = {
     caption: 12,
     button: 16,
   },
+
   lineHeights: {
     h1: 40,
     h2: 32,

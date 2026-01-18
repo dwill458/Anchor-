@@ -7,6 +7,8 @@ import React from 'react';
  * Ready for integration with Firebase Performance or custom backend.
  */
 
+import React from 'react';
+
 interface PerformanceMetric {
   name: string;
   startTime: number;
@@ -233,7 +235,11 @@ export const trackScreenPerformance = (screenName: string) => {
 
 /**
  * HOC to track component render performance
+ * 
+ * NOTE: This function is commented out because .ts files cannot contain JSX.
+ * If you need this HOC, move it to a separate .tsx file.
  */
+/*
 export const withPerformanceTracking = <P extends object>(
   Component: React.ComponentType<P>,
   componentName: string
@@ -247,3 +253,4 @@ export const withPerformanceTracking = <P extends object>(
     return <Component { ...props } />;
   };
 };
+*/
