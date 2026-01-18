@@ -17,7 +17,7 @@ import {
   SigilVariant,
   SigilGenerationResult,
   VARIANT_METADATA,
-} from '@/utils/sigil/abstract-symbol-generator';
+} from '@/utils/sigil/traditional-generator';
 import { colors, spacing, typography } from '@/theme';
 import { ZenBackground } from '@/components/common';
 
@@ -46,10 +46,7 @@ export default function SigilSelectionScreen() {
 
   useEffect(() => {
     // Generate all three variants
-    console.log('--- GENERATING TRUE SIGILS (VECTOR BASED) ---');
-    console.log('Distilled letters:', distilledLetters);
     const generated = generateAllVariants(distilledLetters);
-    console.log('First sigil SVG start:', generated[0]?.svg.substring(0, 100));
     setVariants(generated);
     setLoading(false);
   }, [distilledLetters]);
@@ -63,6 +60,7 @@ export default function SigilSelectionScreen() {
       category,
       distilledLetters,
       sigilSvg: selected.svg,
+      sigilVariant: selectedVariant,
     });
   };
 
@@ -213,7 +211,7 @@ const styles = StyleSheet.create({
   subtitle: {
     fontFamily: typography.fontFamily.sans,
     fontSize: typography.fontSize.md,
-    color: colors.text.tertiary,
+    color: colors.smoke,
     textAlign: 'center',
     lineHeight: 24,
   },
@@ -223,7 +221,7 @@ const styles = StyleSheet.create({
   lettersLabel: {
     fontFamily: typography.fontFamily.sans,
     fontSize: typography.fontSize.sm,
-    color: colors.text.secondary,
+    color: colors.mist,
     marginBottom: spacing.xs,
   },
   lettersContainer: {
@@ -249,7 +247,7 @@ const styles = StyleSheet.create({
   previewContainer: {
     width: CARD_WIDTH,
     aspectRatio: 1,
-    backgroundColor: colors.background.card,
+    backgroundColor: colors.slate,
     borderRadius: spacing.md,
     justifyContent: 'center',
     alignItems: 'center',
@@ -273,7 +271,7 @@ const styles = StyleSheet.create({
     marginBottom: spacing.md,
   },
   variantCard: {
-    backgroundColor: colors.background.card,
+    backgroundColor: colors.slate,
     borderRadius: spacing.sm,
     padding: spacing.md,
     flexDirection: 'row',
@@ -306,7 +304,7 @@ const styles = StyleSheet.create({
   variantDescription: {
     fontFamily: typography.fontFamily.sans,
     fontSize: typography.fontSize.sm,
-    color: colors.text.tertiary,
+    color: colors.smoke,
     lineHeight: 20,
   },
   selectedIndicator: {
