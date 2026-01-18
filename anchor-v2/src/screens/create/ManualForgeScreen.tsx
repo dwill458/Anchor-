@@ -27,9 +27,9 @@ import { colors } from '@/theme';
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 const IS_ANDROID = Platform.OS === 'android';
 
-// Canvas size - use most of the screen, avoiding top and bottom areas
-const CANVAS_WIDTH = SCREEN_WIDTH - 100; // Leave room for floating buttons on side
-const CANVAS_HEIGHT = Math.min(CANVAS_WIDTH, SCREEN_HEIGHT * 0.65); // Taller, more drawing space
+// Canvas size - reduced height to ensure controls clear system navigation
+const CANVAS_WIDTH = SCREEN_WIDTH - 24;
+const CANVAS_HEIGHT = SCREEN_HEIGHT * 0.58;
 
 // Brush types
 const BRUSH_TYPES = [
@@ -253,16 +253,33 @@ export default function ManualForgeScreen() {
     if (points.length === 0) return '';
 
     if (brushType === 'calligraphy') {
-      // Calligraphy uses quadratic curves for smoother lines
-      let path = `M ${points[0].x} ${points[0].y}`;
-      for (let i = 1; i < points.length - 1; i++) {
-        const xc = (points[i].x + points[i + 1].x) / 2;
-        const yc = (points[i].y + points[i + 1].y) / 2;
-        path += ` Q ${points[i].x} ${points[i].y} ${xc} ${yc}`;
+      // Calligraphy creates a "ribbon" to simulate a chisel-tip pen
+      if (points.length < 2) return '';
+
+      const width = 6; // Bolder chisel tip
+      const angle = Math.PI / 4; // 45 degree angle for the chisel
+
+      const offset = {
+        x: Math.cos(angle) * width,
+        y: Math.sin(angle) * width
+      };
+
+      let topPath = `M ${points[0].x + offset.x} ${points[0].y - offset.y}`;
+      let bottomPath = `L ${points[0].x - offset.x} ${points[0].y + offset.y}`;
+
+      for (let i = 1; i < points.length; i++) {
+        topPath += ` L ${points[i].x + offset.x} ${points[i].y - offset.y}`;
+        bottomPath = ` L ${points[i].x - offset.x} ${points[i].y + offset.y}` + bottomPath;
       }
-      if (points.length > 1) {
-        const last = points[points.length - 1];
-        path += ` L ${last.x} ${last.y}`;
+
+      return topPath + bottomPath + ' Z';
+    } else if (brushType === 'pencil') {
+      // Pencil adds tiny jitter for a sketchy feel
+      let path = `M ${points[0].x} ${points[0].y}`;
+      for (let i = 1; i < points.length; i++) {
+        const jitterX = (Math.random() - 0.5) * 0.8;
+        const jitterY = (Math.random() - 0.5) * 0.8;
+        path += ` L ${points[i].x + jitterX} ${points[i].y + jitterY}`;
       }
       return path;
     } else {
@@ -277,14 +294,56 @@ export default function ManualForgeScreen() {
 
   // Get stroke properties based on brush type
   const getStrokeProperties = (brushType: string, size: number) => {
-    // Basic mapping, can be enhanced
     switch (brushType) {
-      case 'brush': return { strokeWidth: size * 1.2, strokeLinecap: 'round' as const, strokeLinejoin: 'round' as const };
-      case 'marker': return { strokeWidth: size * 1.5, strokeLinecap: 'butt' as const, strokeLinejoin: 'miter' as const };
-      case 'pencil': return { strokeWidth: size * 0.8, strokeLinecap: 'round' as const, strokeLinejoin: 'round' as const };
-      case 'calligraphy': return { strokeWidth: size * 1.3, strokeLinecap: 'round' as const, strokeLinejoin: 'round' as const };
-      case 'airbrush': return { strokeWidth: size * 2, strokeLinecap: 'round' as const, strokeLinejoin: 'round' as const };
-      default: return { strokeWidth: size, strokeLinecap: 'round' as const, strokeLinejoin: 'round' as const };
+      case 'brush':
+        return {
+          strokeWidth: size * 1.5,
+          strokeLinecap: 'round' as const,
+          strokeLinejoin: 'round' as const,
+          strokeDasharray: undefined,
+          opacityMultiplier: 0.9
+        };
+      case 'marker':
+        return {
+          strokeWidth: size * 2.5,
+          strokeLinecap: 'square' as const,
+          strokeLinejoin: 'bevel' as const,
+          strokeDasharray: undefined,
+          opacityMultiplier: 0.6
+        };
+      case 'pencil':
+        return {
+          strokeWidth: size * 0.6,
+          strokeLinecap: 'round' as const,
+          strokeLinejoin: 'round' as const,
+          strokeDasharray: "1, 2",
+          opacityMultiplier: 0.8
+        };
+      case 'calligraphy':
+        return {
+          strokeWidth: 0.5, // Thin fallback stroke
+          strokeLinecap: 'butt' as const,
+          strokeLinejoin: 'miter' as const,
+          strokeDasharray: undefined,
+          opacityMultiplier: 1.0,
+          useFill: true
+        };
+      case 'airbrush':
+        return {
+          strokeWidth: size * 4.0,
+          strokeLinecap: 'round' as const,
+          strokeLinejoin: 'round' as const,
+          strokeDasharray: "0.5, 4",
+          opacityMultiplier: 0.4
+        };
+      default:
+        return {
+          strokeWidth: size,
+          strokeLinecap: 'round' as const,
+          strokeLinejoin: 'round' as const,
+          strokeDasharray: undefined,
+          opacityMultiplier: 1.0
+        };
     }
   };
 
@@ -437,7 +496,8 @@ export default function ManualForgeScreen() {
                           fill="none"
                           strokeLinecap={props.strokeLinecap}
                           strokeLinejoin={props.strokeLinejoin}
-                          opacity={symStroke.opacity}
+                          strokeDasharray={props.strokeDasharray}
+                          opacity={symStroke.opacity * props.opacityMultiplier}
                         />
                       );
                     });
@@ -458,12 +518,13 @@ export default function ManualForgeScreen() {
                         <Path
                           key={`current-${symIndex}`}
                           d={pointsToPath(symStroke.points, symStroke.brushType)}
-                          stroke={symStroke.color}
+                          stroke={props.useFill ? "none" : symStroke.color}
                           strokeWidth={props.strokeWidth}
-                          fill="none"
+                          fill={props.useFill ? symStroke.color : "none"}
                           strokeLinecap={props.strokeLinecap}
                           strokeLinejoin={props.strokeLinejoin}
-                          opacity={symStroke.opacity}
+                          strokeDasharray={props.strokeDasharray}
+                          opacity={symStroke.opacity * (props.opacityMultiplier || 1)}
                         />
                       );
                     });
@@ -485,12 +546,13 @@ export default function ManualForgeScreen() {
                         <Path
                           key={`stroke-${index}-${symIndex}`}
                           d={pointsToPath(symStroke.points, symStroke.brushType)}
-                          stroke={symStroke.color}
+                          stroke={props.useFill ? "none" : symStroke.color}
                           strokeWidth={props.strokeWidth}
-                          fill="none"
+                          fill={props.useFill ? symStroke.color : "none"}
                           strokeLinecap={props.strokeLinecap}
                           strokeLinejoin={props.strokeLinejoin}
-                          opacity={symStroke.opacity}
+                          strokeDasharray={props.strokeDasharray}
+                          opacity={symStroke.opacity * (props.opacityMultiplier || 1)}
                         />
                       );
                     });
@@ -510,12 +572,13 @@ export default function ManualForgeScreen() {
                         <Path
                           key={`current-${symIndex}`}
                           d={pointsToPath(symStroke.points, symStroke.brushType)}
-                          stroke={symStroke.color}
+                          stroke={props.useFill ? "none" : symStroke.color}
                           strokeWidth={props.strokeWidth}
-                          fill="none"
+                          fill={props.useFill ? symStroke.color : "none"}
                           strokeLinecap={props.strokeLinecap}
                           strokeLinejoin={props.strokeLinejoin}
-                          opacity={symStroke.opacity}
+                          strokeDasharray={props.strokeDasharray}
+                          opacity={symStroke.opacity * (props.opacityMultiplier || 1)}
                         />
                       );
                     });
@@ -1058,8 +1121,8 @@ const styles = StyleSheet.create({
   },
   instructionsContainer: {
     paddingHorizontal: 16,
-    paddingTop: 4,
-    paddingBottom: 6,
+    paddingTop: 0,
+    paddingBottom: 4,
   },
   instructionsCard: {
     borderRadius: 12,
@@ -1097,8 +1160,8 @@ const styles = StyleSheet.create({
   },
   canvasContainer: {
     alignItems: 'center',
-    paddingTop: 8,
-    paddingBottom: 8,
+    paddingTop: 0,
+    paddingBottom: 4,
   },
   canvas: {
     width: CANVAS_WIDTH,
@@ -1442,8 +1505,8 @@ const styles = StyleSheet.create({
   // Floating Tools Button
   floatingToolsButton: {
     position: 'absolute',
-    right: 16,
-    bottom: 100,
+    right: 12,
+    bottom: 120,
     width: 64,
     height: 64,
     borderRadius: 32,

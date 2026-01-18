@@ -1,0 +1,14 @@
+src/__tests__/utils/testUtils.ts(39,3): error TS2322: Type 'null' is not assignable to type 'Date | undefined'.
+src/components/__tests__/ErrorBoundary.test.tsx(124,32): error TS2339: Property '__DEV__' does not exist on type 'typeof globalThis'.
+src/components/__tests__/ErrorBoundary.test.tsx(125,12): error TS2339: Property '__DEV__' does not exist on type 'typeof globalThis'.
+src/components/__tests__/ErrorBoundary.test.tsx(136,12): error TS2339: Property '__DEV__' does not exist on type 'typeof globalThis'.
+src/components/__tests__/ErrorBoundary.test.tsx(141,32): error TS2339: Property '__DEV__' does not exist on type 'typeof globalThis'.
+src/components/__tests__/ErrorBoundary.test.tsx(142,12): error TS2339: Property '__DEV__' does not exist on type 'typeof globalThis'.
+src/components/__tests__/ErrorBoundary.test.tsx(153,12): error TS2339: Property '__DEV__' does not exist on type 'typeof globalThis'.
+src/components/LoadingSpinner.tsx(111,19): error TS2339: Property 'body' does not exist on type '{ readonly fonts: { readonly heading: "Cinzel-Regular"; readonly headingBold: "Cinzel-Bold"; readonly headingSemiBold: "Cinzel-SemiBold"; readonly body: "Inter-Regular"; readonly bodyBold: "Inter-SemiBold"; readonly mono: "RobotoMono-Regular"; }; readonly sizes: { ...; }; readonly lineHeights: { ...; }; }'.
+src/components/Toast.tsx(178,19): error TS2339: Property 'body' does not exist on type '{ readonly fonts: { readonly heading: "Cinzel-Regular"; readonly headingBold: "Cinzel-Bold"; readonly headingSemiBold: "Cinzel-SemiBold"; readonly body: "Inter-Regular"; readonly bodyBold: "Inter-SemiBold"; readonly mono: "RobotoMono-Regular"; }; readonly sizes: { ...; }; readonly lineHeights: { ...; }; }'.
+src/screens/create/AIAnalysisScreen.tsx(117,7): error TS2322: Type 'AnalysisResult' is not assignable to type 'import("C:/Users/dwill/.gemini/antigravity/scratch/Anchor/anchor-v2/src/types/index").AnalysisResult'.
+  Types of property 'intentionText' are incompatible.
+    Type 'string | undefined' is not assignable to type 'string'.
+      Type 'undefined' is not assignable to type 'string'.
+src/screens/create/SigilSelectionScreen.tsx(63,7): error TS2353: Object literal may only specify known properties, and 'sigilVariant' does not exist in type '{ intentionText: string; category: AnchorCategory; distilledLetters: string[]; sigilSvg: string; finalImageUrl?: string | undefined; }'.

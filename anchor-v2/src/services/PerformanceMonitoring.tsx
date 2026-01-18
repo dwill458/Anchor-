@@ -1,3 +1,5 @@
+import React from 'react';
+
 /**
  * Anchor App - Performance Monitoring
  *
@@ -242,6 +244,6 @@ export const withPerformanceTracking = <P extends object>(
       return () => trace.stop();
     }, []);
 
-    return <Component {...props} />;
+    return <Component { ...props } />;
   };
 };

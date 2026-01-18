@@ -70,7 +70,7 @@ export const VaultScreen: React.FC = () => {
       // API call placeholder - logic remains in store
       await new Promise(resolve => setTimeout(resolve, 1000));
 
-      trace.putMetric('anchor_count', anchors.length);
+      trace.putAttribute('anchor_count', anchors.length);
       AnalyticsService.track(AnalyticsEvents.VAULT_VIEWED, {
         anchor_count: anchors.length,
       });

@@ -1,60 +1,67 @@
 /**
- * Anchor App - Traditional Sigil Generator Tests
+ * Anchor App - Traditional Sigil Generator Tests (TRUE Sigil / Kamea Method)
  */
 
-import { generateSigil } from './traditional-generator';
+import { generateTrueSigil, generateAllVariants } from './traditional-generator';
 
-describe('generateSigil', () => {
-    it('should generate SVGs for valid input', () => {
+describe('TRUE Sigil Generator', () => {
+    it('should generate a valid result for balanced variant', () => {
         const letters = ['A', 'B', 'C'];
-        const result = generateSigil(letters);
+        const result = generateTrueSigil(letters, 'balanced');
 
-        expect(result.letters).toEqual(['A', 'B', 'C']);
-        expect(result.svgs.dense).toBeDefined();
-        expect(result.svgs.balanced).toBeDefined();
-        expect(result.svgs.minimal).toBeDefined();
+        expect(result.variant).toBe('balanced');
+        expect(result.svg).toContain('<svg');
+        expect(result.svg).toContain('viewBox="0 0 100 100"');
+        expect(result.svg).toContain('<path');
+        expect(result.svg).toContain('stroke="currentColor"');
+        expect(result.svg).toContain('id="ink-bleed"');
     });
 
-    it('should return valid SVG strings', () => {
-        const result = generateSigil(['X']);
+    it('should generate all 3 variants correctly', () => {
+        const letters = ['T', 'E', 'S', 'T'];
+        const results = generateAllVariants(letters);
 
-        const svg = result.svgs.dense;
-        expect(svg).toContain('<svg');
-        expect(svg).toContain('viewBox="0 0 200 200"');
-        expect(svg).toContain('<path');
-        expect(svg).toContain('stroke="currentColor"');
+        expect(results).toHaveLength(3);
+        expect(results.some(r => r.variant === 'dense')).toBe(true);
+        expect(results.some(r => r.variant === 'balanced')).toBe(true);
+        expect(results.some(r => r.variant === 'minimal')).toBe(true);
     });
 
-    it('should include all input letters in the SVG', () => {
-        // 3 letters -> 3 paths
-        const result = generateSigil(['A', 'B', 'C']);
-        const svg = result.svgs.dense;
+    it('should apply specific stroke widths for variants', () => {
+        const letters = ['H', 'E', 'L', 'L', 'O'];
+        const dense = generateTrueSigil(letters, 'dense');
+        const balanced = generateTrueSigil(letters, 'balanced');
 
-        const pathCount = (svg.match(/<path/g) || []).length;
-        expect(pathCount).toBe(3);
+        expect(dense.svg).toContain('stroke-width="3"');
+        expect(balanced.svg).toContain('stroke-width="2"');
     });
 
-    it('should apply different visual properties for variants', () => {
-        const result = generateSigil(['A']);
+    it('should include border for dense/balanced but not minimal', () => {
+        const letters = ['X'];
+        const dense = generateTrueSigil(letters, 'dense');
+        const minimal = generateTrueSigil(letters, 'minimal');
 
-        // Dense should have stroke-width 3
-        expect(result.svgs.dense).toContain('stroke-width="3"');
+        // Dense has border path + main path (plus maybe others like double ring)
+        expect((dense.svg.match(/<path/g) || []).length).toBeGreaterThanOrEqual(2);
 
-        // Minimal should have stroke-width 1.5
-        expect(result.svgs.minimal).toContain('stroke-width="1.5"');
+        // Minimal has no border, only the main path
+        expect((minimal.svg.match(/<path/g) || []).length).toBe(1);
     });
 
-    it('should ignore invalid characters', () => {
-        // only A is valid
-        const result = generateSigil(['A', '1', '@']);
+    it('should include markers for balanced but not minimal', () => {
+        const letters = ['A', 'Z'];
+        const balanced = generateTrueSigil(letters, 'balanced');
+        const minimal = generateTrueSigil(letters, 'minimal');
 
-        expect(result.letters).toEqual(['A']);
-        const pathCount = (result.svgs.dense.match(/<path/g) || []).length;
-        expect(pathCount).toBe(1);
+        expect(balanced.svg).toContain('marker-start="url(#dot-start)"');
+        expect(balanced.svg).toContain('marker-end="url(#bar-end)"');
+        expect(minimal.svg).not.toContain('marker-start');
+        expect(minimal.svg).not.toContain('marker-end');
     });
 
-    it('should throw error if no valid letters provided', () => {
-        expect(() => generateSigil([])).toThrow();
-        expect(() => generateSigil(['1', '@'])).toThrow();
+    it('should handle empty or invalid input gracefully (processIntent adds fallback)', () => {
+        // processIntent maps unknown/empty to 5 (Center of grid)
+        const result = generateTrueSigil([], 'balanced');
+        expect(result.svg).toContain('<path'); // Should still have a path (likely a single point M ... L ...)
     });
 });

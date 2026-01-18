@@ -45,10 +45,15 @@ export default function SigilSelectionScreen() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Generate all three variants
-    const generated = generateAllVariants(distilledLetters);
-    setVariants(generated);
-    setLoading(false);
+    try {
+      // Generate all three variants
+      const generated = generateAllVariants(distilledLetters);
+      setVariants(generated);
+    } catch (error) {
+      console.error('Sigil selection generation failed:', error);
+    } finally {
+      setLoading(false);
+    }
   }, [distilledLetters]);
 
   const handleContinue = () => {
@@ -60,7 +65,6 @@ export default function SigilSelectionScreen() {
       category,
       distilledLetters,
       sigilSvg: selected.svg,
-      sigilVariant: selectedVariant,
     });
   };
 
@@ -194,24 +198,24 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   loadingText: {
-    fontFamily: typography.fontFamily.serif,
-    fontSize: typography.fontSize.lg,
+    fontFamily: typography.fonts.heading,
+    fontSize: typography.sizes.h3,
     color: colors.gold,
   },
   header: {
     marginBottom: spacing.xl,
   },
   title: {
-    fontFamily: typography.fontFamily.serif,
-    fontSize: typography.fontSize.xxl,
+    fontFamily: typography.fonts.heading,
+    fontSize: 32,
     color: colors.gold,
     marginBottom: spacing.xs,
     textAlign: 'center',
   },
   subtitle: {
-    fontFamily: typography.fontFamily.sans,
-    fontSize: typography.fontSize.md,
-    color: colors.smoke,
+    fontFamily: typography.fonts.body,
+    fontSize: typography.sizes.body1,
+    color: colors.text.tertiary,
     textAlign: 'center',
     lineHeight: 24,
   },
@@ -219,9 +223,9 @@ const styles = StyleSheet.create({
     marginBottom: spacing.xl,
   },
   lettersLabel: {
-    fontFamily: typography.fontFamily.sans,
-    fontSize: typography.fontSize.sm,
-    color: colors.mist,
+    fontFamily: typography.fonts.body,
+    fontSize: typography.sizes.body2,
+    color: colors.text.secondary,
     marginBottom: spacing.xs,
   },
   lettersContainer: {
@@ -236,8 +240,8 @@ const styles = StyleSheet.create({
     borderRadius: spacing.xs,
   },
   letterText: {
-    fontFamily: typography.fontFamily.serif,
-    fontSize: typography.fontSize.lg,
+    fontFamily: typography.fonts.heading,
+    fontSize: typography.sizes.h3,
     color: colors.gold,
   },
   previewSection: {
@@ -247,7 +251,7 @@ const styles = StyleSheet.create({
   previewContainer: {
     width: CARD_WIDTH,
     aspectRatio: 1,
-    backgroundColor: colors.slate,
+    backgroundColor: colors.background.card,
     borderRadius: spacing.md,
     justifyContent: 'center',
     alignItems: 'center',
@@ -257,21 +261,21 @@ const styles = StyleSheet.create({
     marginBottom: spacing.md,
   },
   previewLabel: {
-    fontFamily: typography.fontFamily.serif,
-    fontSize: typography.fontSize.lg,
+    fontFamily: typography.fonts.heading,
+    fontSize: typography.sizes.h3,
     color: colors.gold,
   },
   variantsSection: {
     marginBottom: spacing.lg,
   },
   variantsTitle: {
-    fontFamily: typography.fontFamily.serif,
-    fontSize: typography.fontSize.xl,
+    fontFamily: typography.fonts.heading,
+    fontSize: typography.sizes.h2,
     color: colors.bone,
     marginBottom: spacing.md,
   },
   variantCard: {
-    backgroundColor: colors.slate,
+    backgroundColor: colors.background.card,
     borderRadius: spacing.sm,
     padding: spacing.md,
     flexDirection: 'row',
@@ -293,8 +297,8 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   variantTitle: {
-    fontFamily: typography.fontFamily.serif,
-    fontSize: typography.fontSize.lg,
+    fontFamily: typography.fonts.heading,
+    fontSize: typography.sizes.h3,
     color: colors.bone,
     marginBottom: 4,
   },
@@ -302,9 +306,9 @@ const styles = StyleSheet.create({
     color: colors.gold,
   },
   variantDescription: {
-    fontFamily: typography.fontFamily.sans,
-    fontSize: typography.fontSize.sm,
-    color: colors.smoke,
+    fontFamily: typography.fonts.body,
+    fontSize: typography.sizes.body2,
+    color: colors.text.tertiary,
     lineHeight: 20,
   },
   selectedIndicator: {
@@ -316,7 +320,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   checkmark: {
-    fontSize: typography.fontSize.lg,
+    fontSize: typography.sizes.h3,
     color: colors.charcoal,
     fontWeight: 'bold',
   },
@@ -338,8 +342,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   continueButtonText: {
-    fontFamily: typography.fontFamily.sans,
-    fontSize: typography.fontSize.md,
+    fontFamily: typography.fonts.body,
+    fontSize: typography.sizes.body1,
     fontWeight: '600',
     color: colors.charcoal,
   },
