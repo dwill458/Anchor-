@@ -28,7 +28,7 @@ const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 const IS_ANDROID = Platform.OS === 'android';
 
 // Canvas size - reduced to make room for tools panel
-const CANVAS_SIZE = SCREEN_WIDTH - 48;
+const CANVAS_SIZE = Math.min(SCREEN_WIDTH - 48, SCREEN_HEIGHT * 0.4);
 
 // Brush types
 const BRUSH_TYPES = [
@@ -1068,8 +1068,8 @@ const styles = StyleSheet.create({
   toolsPanel: {
     paddingHorizontal: 16,
     paddingTop: 8,
-    paddingBottom: 100, // Space for bottom navigation bar
-    maxHeight: 320, // Limit height to prevent blocking
+    paddingBottom: 16,
+    height: 360,
   },
   toolTabs: {
     flexDirection: 'row',
@@ -1104,8 +1104,8 @@ const styles = StyleSheet.create({
     color: colors.gold,
   },
   toolContent: {
-    flex: 1,
     marginTop: 12,
+    height: 280,
   },
   toolContentInner: {
     paddingBottom: 24,
