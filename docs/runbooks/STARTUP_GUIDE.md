@@ -20,7 +20,7 @@
 
 2. **Start the development server**:
    ```bash
-   cd frontend
+   cd apps/mobile
    npm start
    ```
 
@@ -34,14 +34,14 @@
 ### Option 2: Android Emulator
 
 ```bash
-cd frontend
+cd apps/mobile
 npm run android
 ```
 
 ### Option 3: iOS Simulator (Mac only)
 
 ```bash
-cd frontend
+cd apps/mobile
 npm run ios
 ```
 
@@ -74,7 +74,7 @@ If testing on a **physical device** (not emulator):
    ipconfig
    ```
 
-2. Create `frontend/.env`:
+2. Create `apps/mobile/.env`:
    ```bash
    EXPO_PUBLIC_API_URL=http://YOUR_COMPUTER_IP:3000
    ```
@@ -120,13 +120,13 @@ GOOGLE_CLOUD_CLIENT_EMAIL=your-service-account-email
 
 ### "Cannot connect to Metro"
 ```bash
-cd frontend
+cd apps/mobile
 npx expo start --clear
 ```
 
 ### "Module not found"
 ```bash
-cd frontend
+cd apps/mobile
 rm -rf node_modules
 npm install
 ```
@@ -138,8 +138,8 @@ npx expo start --port 8082
 
 ### "Network request failed"
 - Make sure backend is running
-- Check `EXPO_PUBLIC_API_URL` in frontend/.env
-- Try restarting both frontend and backend
+- Check `EXPO_PUBLIC_API_URL` in apps/mobile/.env
+- Try restarting both apps/mobile and backend
 
 ### "Expo fetch failed"
 ```bash
@@ -174,7 +174,7 @@ All these features are **optional** for testing the UI/UX!
 
 ## 🎯 Quick Test Flow
 
-1. Start frontend: `cd frontend && npm start`
+1. Start apps/mobile: `cd apps/mobile && npm start`
 2. Open Expo Go on phone → Scan QR code
 3. Create account (fake email works fine)
 4. Create your first anchor:

@@ -2,23 +2,25 @@
 
 ## ⚠️ IMPORTANT: Project Directory
 
-**All code changes must be made in the `anchor-v2/` directory.**
+**All code changes must be made in the `/apps/mobile/` directory.**
 
-This repository contains multiple directories, but **only `anchor-v2/` is the active, production codebase**:
+This repository contains multiple directories, but **only `/apps/mobile/` is the active, production codebase**:
 
 ```
 Anchor/
-├── anchor-v2/          ← ✅ ACTIVE PROJECT - Make all changes here
-├── frontend/           ← ❌ DEPRECATED - Do not use
+├── apps/
+│   └── mobile/         ← ✅ ACTIVE PROJECT - Make all changes here
+├── legacy/
+│   └── frontend/       ← ❌ DEPRECATED - Do not use
 ├── backend/            ← Backend API (separate deployment)
 └── ...
 ```
 
 ## Why?
 
-- `anchor-v2/` is the Expo-managed React Native project that runs on devices.
-- `frontend/` was an earlier version and is no longer maintained.
-- Changes to `frontend/` will NOT appear in the app.
+- `/apps/mobile/` is the production-ready React Native project (Expo 52) that runs on devices.
+- `/legacy/frontend/` was an earlier version and is no longer maintained.
+- Changes to `/legacy/frontend/` will NOT appear in the app.
 
 ## Development Workflow
 
@@ -30,7 +32,7 @@ Anchor/
 
 2. **Navigate to the active project**
    ```bash
-   cd anchor-v2
+   cd apps/mobile
    ```
 
 3. **Install dependencies**
@@ -43,7 +45,7 @@ Anchor/
    npx expo start --clear
    ```
 
-5. **Make your changes** in `anchor-v2/src/`
+5. **Make your changes** in `apps/mobile/src/`
 
 6. **Commit and push**
    ```bash
@@ -52,10 +54,10 @@ Anchor/
    git push origin your-branch-name
    ```
 
-## Directory Structure (anchor-v2)
+## Directory Structure (apps/mobile)
 
 ```
-anchor-v2/src/
+apps/mobile/src/
 ├── components/         # Reusable UI components
 ├── screens/
 │   ├── create/         # Anchor creation flow
