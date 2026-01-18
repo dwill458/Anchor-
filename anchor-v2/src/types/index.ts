@@ -208,10 +208,12 @@ export type MantraStyle = 'syllabic' | 'rhythmic' | 'letter_by_letter';
  * Symbol from the symbol database
  */
 export interface Symbol {
+  id?: string;
   name: string;
   description: string;
   themes: string[];
-  origin: string;
+  origin?: string;
+  unicode: string;
 }
 
 /**
@@ -222,7 +224,7 @@ export interface AnalysisResult {
   keywords: string[];
   themes: string[];
   selectedSymbols: Symbol[];
-  aesthetic: AIStyle;
+  aesthetic: AIStyle | string;
   explanation: string;
 }
 

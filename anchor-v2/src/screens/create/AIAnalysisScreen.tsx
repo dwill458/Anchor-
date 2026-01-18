@@ -15,7 +15,7 @@ import { BlurView } from 'expo-blur';
 import { StatusBar } from 'expo-status-bar';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
-import { RootStackParamList } from '@/types'; // Ensure this path is correct
+import { RootStackParamList, Symbol, AnalysisResult } from '@/types'; // Ensure this path is correct
 import { apiClient } from '@/services/ApiClient';
 
 // Design System Colors (Zen Architect)
@@ -33,22 +33,7 @@ const colors = {
 type AIAnalysisRouteProp = RouteProp<RootStackParamList, 'AIAnalysis'>;
 type AIAnalysisNavigationProp = StackNavigationProp<RootStackParamList, 'AIAnalysis'>;
 
-// Types for AI Analysis Result
-interface SymbolData {
-  id?: string;
-  name: string;
-  description: string;
-  unicode: string; // Real API uses 'unicode'
-}
-
-interface AnalysisResult {
-  intentionText?: string; // API might return this
-  keywords: string[];
-  themes: string[];
-  selectedSymbols: SymbolData[];
-  aesthetic: string;
-  explanation: string;
-}
+// Local types removed in favor of global definitions in @/types
 
 export default function AIAnalysisScreen() {
   const navigation = useNavigation<AIAnalysisNavigationProp>();
@@ -98,7 +83,14 @@ export default function AIAnalysisScreen() {
       });
 
       console.log('Analysis response:', response.data);
-      setAnalysis(response.data.analysis);
+      setAnalysis(response.data.analysis || {
+        intentionText: intentionText || '',
+        keywords: [],
+        themes: [],
+        selectedSymbols: [],
+        aesthetic: 'minimal',
+        explanation: ''
+      });
     } catch (err) {
       console.error('Analysis error:', err);
       setError(err instanceof Error ? err.message : 'Unknown error');
@@ -369,7 +361,7 @@ export default function AIAnalysisScreen() {
             <Text style={styles.sectionLabel}>SELECTED SYMBOLS</Text>
             {analysis.selectedSymbols.map((symbol, index) => (
               <BlurView
-                key={symbol.id || index}
+                key={symbol.id || symbol.name || index}
                 intensity={12}
                 tint="dark"
                 style={styles.symbolCard}

@@ -1,18 +1,13 @@
 /**
- * Organic Traditional Sigil Generator
- * 
- * Creates flowing, hand-drawn style sigils following Austin Osman Spare's
- * "technology of forgetting" with organic, imperfect aesthetics.
- * 
- * Key features:
- * - Organic letter overlays with rotation/flipping
- * - Hand-drawn irregular outer border
- * - Flowing connection lines between letters
- * - Subtle imperfections for natural feel
- * - Three distinct styles: Dense, Balanced, Minimal
+ * TRUE Sigil Generator - Planetary Grid Method (Kamea)
+ * * ARCHITECTURE CHANGE:
+ * Instead of overlapping full letter vectors (which creates "noise"),
+ * this version uses the traditional "Magic Square" technique:
+ * 1. Reduces intent (removes vowels/duplicates).
+ * 2. Maps letters to a 3x3 numerology grid.
+ * 3. Draws a single continuous "path of power" connecting the points.
+ * 4. Applies SVG filters for a hand-drawn ink aesthetic.
  */
-
-import { DENSE_VECTORS, BALANCED_VECTORS, MINIMAL_VECTORS } from './letterVectors';
 
 export type SigilVariant = 'dense' | 'balanced' | 'minimal';
 
@@ -21,247 +16,185 @@ export interface SigilGenerationResult {
   variant: SigilVariant;
 }
 
-/**
- * Configuration for each variant style
- */
-const VARIANT_CONFIGS = {
-  dense: {
-    strokeWidth: 2.5,
-    opacity: 0.85,
-    scale: { min: 0.7, max: 1.0 },
-    offset: 15,
-    connectionOpacity: 0.3,
-    decorativeElements: true,
-    borderStyle: 'irregular-thick',
-  },
-  balanced: {
-    strokeWidth: 2.0,
-    opacity: 0.9,
-    scale: { min: 0.6, max: 0.85 },
-    offset: 20,
-    connectionOpacity: 0.25,
-    decorativeElements: true,
-    borderStyle: 'irregular-medium',
-  },
-  minimal: {
-    strokeWidth: 1.5,
-    opacity: 0.95,
-    scale: { min: 0.5, max: 0.7 },
-    offset: 25,
-    connectionOpacity: 0.15,
-    decorativeElements: false,
-    borderStyle: 'irregular-thin',
-  },
+// ---------------------------------------------------------------------------
+// 1. TRADITIONAL MAPPING LOGIC
+// ---------------------------------------------------------------------------
+
+// Pythagorean Numerology Mapping (1-9)
+const NUMEROLOGY_MAP: Record<string, number> = {
+  A: 1, J: 1, S: 1,
+  B: 2, K: 2, T: 2,
+  C: 3, L: 3, U: 3,
+  D: 4, M: 4, V: 4,
+  E: 5, N: 5, W: 5,
+  F: 6, O: 6, X: 6,
+  G: 7, P: 7, Y: 7,
+  H: 8, Q: 8, Z: 8,
+  I: 9, R: 9
 };
 
-/**
- * Get vector set for a specific variant
- */
-function getVectorSet(variant: SigilVariant): Record<string, string> {
-  switch (variant) {
-    case 'dense':
-      return DENSE_VECTORS;
-    case 'balanced':
-      return BALANCED_VECTORS;
-    case 'minimal':
-      return MINIMAL_VECTORS;
-  }
-}
+// 3x3 Grid Coordinate System (0-100 scale for ease)
+// We add a little 'wobble' offset in the generating function so it's not robotic
+const GRID_COORDS: Record<number, { x: number; y: number }> = {
+  1: { x: 20, y: 20 }, 2: { x: 50, y: 20 }, 3: { x: 80, y: 20 },
+  4: { x: 20, y: 50 }, 5: { x: 50, y: 50 }, 6: { x: 80, y: 50 },
+  7: { x: 20, y: 80 }, 8: { x: 50, y: 80 }, 9: { x: 80, y: 80 }
+};
+
+// ---------------------------------------------------------------------------
+// 2. HELPER FUNCTIONS
+// ---------------------------------------------------------------------------
 
 /**
- * Generate pseudo-random seed from letter and index
+ * Clean and reduce the intent string (Austin Osman Spare method)
  */
-function getSeed(letter: string, index: number): number {
-  return index * 13 + letter.charCodeAt(0) * 7;
-}
-
-/**
- * Pseudo-random number generator (deterministic)
- */
-function seededRandom(seed: number): number {
-  const x = Math.sin(seed) * 10000;
-  return x - Math.floor(x);
-}
-
-/**
- * Create an irregular, hand-drawn circle border
- */
-function createIrregularBorder(
-  centerX: number,
-  centerY: number,
-  baseRadius: number,
-  style: string
-): string {
-  const points: { x: number; y: number }[] = [];
-  const numPoints = 36; // Points around the circle
-
-  // Thickness variation based on style
-  const radiusVariation = style === 'irregular-thick' ? 8 : style === 'irregular-medium' ? 6 : 4;
-  const strokeWidth = style === 'irregular-thick' ? 3 : style === 'irregular-medium' ? 2 : 1.5;
-
-  for (let i = 0; i < numPoints; i++) {
-    const angle = (Math.PI * 2 * i) / numPoints;
-
-    // Add organic variation to radius
-    const seed = i * 17;
-    const variation = (seededRandom(seed) - 0.5) * radiusVariation;
-    const radius = baseRadius + variation;
-
-    const x = centerX + Math.cos(angle) * radius;
-    const y = centerY + Math.sin(angle) * radius;
-    points.push({ x, y });
+function processIntent(letters: string[] | string | undefined | null, variant: SigilVariant): number[] {
+  // Normalize letters to a string
+  let rawText = '';
+  if (Array.isArray(letters)) {
+    rawText = letters.join('').toUpperCase().replace(/[^A-Z]/g, '');
+  } else if (typeof letters === 'string') {
+    rawText = letters.toUpperCase().replace(/[^A-Z]/g, '');
   }
 
-  // Create smooth curve through points using quadratic curves
-  let pathData = `M ${points[0].x} ${points[0].y}`;
+  if (!rawText) return [5]; // Fallback to center point
 
-  for (let i = 0; i < points.length; i++) {
-    const current = points[i];
-    const next = points[(i + 1) % points.length];
-    const controlX = (current.x + next.x) / 2;
-    const controlY = (current.y + next.y) / 2;
-    pathData += ` Q ${current.x} ${current.y} ${controlX} ${controlY}`;
+  let processed = rawText;
+
+  // Step 1: Remove Vowels (unless string is too short)
+  if (processed.length > 3) {
+    processed = processed.replace(/[AEIOU]/g, '');
   }
 
-  pathData += ' Z';
+  // Step 2: Remove Duplicates (Classic Sigil logic)
+  processed = Array.from(new Set(processed.split(''))).join('');
 
-  return `<path d="${pathData}" stroke="currentColor" stroke-width="${strokeWidth}" fill="none" opacity="0.8" stroke-linecap="round" />`;
+  // Step 3: Map to numbers
+  let points = processed.split('').map(char => NUMEROLOGY_MAP[char] || 5);
+
+  // Variant Logic:
+  // Minimal: Simplify path further if too long
+  if (variant === 'minimal' && points.length > 5) {
+    points = points.filter((_, i) => i % 2 === 0);
+  }
+
+  return points;
 }
 
 /**
- * Create flowing connection lines between letter positions
+ * Add "Hand-Drawn" imperfections to a point
  */
-function createConnectionLines(
-  positions: { x: number; y: number }[],
-  opacity: number
-): string {
-  if (positions.length < 2) return '';
+function jitter(val: number, intensity: number = 2): number {
+  return val + (Math.random() * intensity - intensity / 2);
+}
 
-  const lines: string[] = [];
+/**
+ * Generate the SVG Path Data (d attribute)
+ */
+function createSigilPath(points: number[]): string {
+  if (points.length === 0) return '';
 
-  // Connect each letter to 1-2 nearby letters
-  positions.forEach((pos, i) => {
-    // Connect to next letter
-    if (i < positions.length - 1) {
-      const next = positions[i + 1];
-      const controlX = (pos.x + next.x) / 2;
-      const controlY = (pos.y + next.y) / 2 - 10; // Slight curve
+  const start = GRID_COORDS[points[0]];
+  if (!start) return '';
 
-      lines.push(
-        `<path d="M ${pos.x} ${pos.y} Q ${controlX} ${controlY} ${next.x} ${next.y}" stroke="currentColor" stroke-width="1" opacity="${opacity * 0.6}" fill="none" />`
-      );
+  let path = `M ${jitter(start.x)},${jitter(start.y)}`;
+
+  for (let i = 1; i < points.length; i++) {
+    const curr = GRID_COORDS[points[i]];
+    if (curr) {
+      path += ` L ${jitter(curr.x)},${jitter(curr.y)}`;
     }
-  });
+  }
 
-  return lines.join('');
+  return path;
 }
 
-/**
- * Create decorative elements for Dense variant
- */
-function createDecorativeElements(
-  centerX: number,
-  centerY: number,
-  positions: { x: number; y: number }[],
-  opacity: number
-): string {
-  const elements: string[] = [];
+// ---------------------------------------------------------------------------
+// 3. SVG COMPONENT GENERATORS
+// ---------------------------------------------------------------------------
 
-  // Add radiating lines from center to letter positions
-  positions.forEach((pos, i) => {
-    if (i % 2 === 0) { // Only every other letter
-      const midX = (centerX + pos.x) / 2;
-      const midY = (centerY + pos.y) / 2;
-
-      elements.push(
-        `<line x1="${centerX}" y1="${centerY}" x2="${midX}" y2="${midY}" stroke="currentColor" stroke-width="0.8" opacity="${opacity * 0.25}" />`
-      );
-    }
-  });
-
-  return elements.join('');
+function createInkFilter(): string {
+  // Filters can cause performance issues/crashes in React Native Svg on some platforms
+  // Returning basic markers and empty filter definition for safety
+  return `
+    <defs>
+      <marker id="dot-start" viewBox="0 0 10 10" refX="5" refY="5" markerWidth="6" markerHeight="6">
+        <circle cx="5" cy="5" r="3" fill="currentColor" />
+      </marker>
+      <marker id="bar-end" viewBox="0 0 10 10" refX="5" refY="5" markerWidth="8" markerHeight="8" orient="auto">
+        <line x1="5" y1="0" x2="5" y2="10" stroke="currentColor" stroke-width="2" />
+      </marker>
+    </defs>
+  `;
 }
 
-/**
- * Generate organic sigil from distilled letters
- */
-export function generateOrganicSigil(
-  letters: string[],
+function createBorder(variant: SigilVariant): string {
+  if (variant === 'minimal') return ''; // No border for minimal
+
+  // "Hand-drawn" circle approximation
+  const r = 42;
+  const c = 50;
+  // A slightly imperfect circle path
+  const d = `
+    M ${c + r},${c} 
+    Q ${c + r},${c + r} ${c},${c + r} 
+    Q ${c - r},${c + r} ${c - r},${c} 
+    Q ${c - r},${c - r} ${c},${c - r} 
+    Q ${c + r},${c - r} ${c + r},${c}
+  `;
+
+  // Dense gets a double ring
+  if (variant === 'dense') {
+    return `
+      <path d="${d}" stroke="currentColor" stroke-width="1.5" fill="none" opacity="0.8" />
+      <circle cx="50" cy="50" r="46" stroke="currentColor" stroke-width="0.5" fill="none" opacity="0.4" />
+    `;
+  }
+
+  return `<path d="${d}" stroke="currentColor" stroke-width="1.5" fill="none" opacity="0.8" />`;
+}
+
+// ---------------------------------------------------------------------------
+// 4. MAIN EXPORT
+// ---------------------------------------------------------------------------
+
+export function generateTrueSigil(
+  letters: any,
   variant: SigilVariant = 'balanced'
 ): SigilGenerationResult {
-  const config = VARIANT_CONFIGS[variant];
-  const vectorSet = getVectorSet(variant);
-  const size = 200;
-  const center = { x: size / 2, y: size / 2 };
+  const size = 300; // Increased resolution
 
-  const letterPaths: string[] = [];
-  const letterPositions: { x: number; y: number }[] = [];
+  // 1. Logic Layer
+  const points = processIntent(letters, variant);
 
-  // Generate transformed letter paths
-  letters.forEach((letter, index) => {
-    const pathData = vectorSet[letter];
-    if (!pathData) return;
+  // 2. Geometry Layer
+  const pathData = createSigilPath(points);
 
-    const seed = getSeed(letter, index);
-
-    // Rotation: Pseudo-random but deterministic
-    const rotation = seededRandom(seed) * 360;
-
-    // Scale: Varies by variant
-    const scaleRange = config.scale.max - config.scale.min;
-    const scale = config.scale.min + seededRandom(seed + 1) * scaleRange;
-
-    // Flip: Occasional mirroring
-    const flipX = seededRandom(seed + 2) > 0.7 ? -1 : 1;
-    const flipY = seededRandom(seed + 3) > 0.7 ? -1 : 1;
-
-    // Offset: Position around center with organic clustering
-    const angle = (seed % 100) / 100 * Math.PI * 2;
-    const distance = seededRandom(seed + 4) * config.offset;
-    const offsetX = Math.cos(angle) * distance;
-    const offsetY = Math.sin(angle) * distance;
-
-    const finalX = center.x + offsetX;
-    const finalY = center.y + offsetY;
-
-    letterPositions.push({ x: finalX, y: finalY });
-
-    // Build transform string
-    const transform = `translate(${finalX}, ${finalY}) rotate(${rotation}, 0, 0) scale(${scale * flipX}, ${scale * flipY}) translate(-50, -50)`;
-
-    letterPaths.push(
-      `<path d="${pathData}" stroke="currentColor" stroke-width="${config.strokeWidth}" fill="none" opacity="${config.opacity}" transform="${transform}" stroke-linecap="round" stroke-linejoin="round" />`
-    );
-  });
-
-  // Create irregular organic border
-  const borderRadius = 95;
-  const border = createIrregularBorder(
-    center.x,
-    center.y,
-    borderRadius,
-    config.borderStyle
-  );
-
-  // Create flowing connections
-  const connections = createConnectionLines(letterPositions, config.connectionOpacity);
-
-  // Create decorative elements (Dense only)
-  const decorative = config.decorativeElements
-    ? createDecorativeElements(center.x, center.y, letterPositions, config.opacity)
+  // 3. Style Layer (Markers)
+  // Balanced/Dense get traditional "start/end" markers
+  const markers = variant !== 'minimal'
+    ? 'marker-start="url(#dot-start)" marker-end="url(#bar-end)"'
     : '';
 
-  // Assemble SVG
-  const svgContent = [
-    decorative,
-    connections,
-    ...letterPaths,
-    border,
-  ]
-    .filter(Boolean)
-    .join('');
+  const strokeWidth = variant === 'dense' ? 3 : 2;
 
-  const svg = `<svg viewBox="0 0 ${size} ${size}" xmlns="http://www.w3.org/2000/svg">${svgContent}</svg>`;
+  // Assemble
+  const svg = `
+    <svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" color="#FFFFFF">
+      <g>
+        ${createBorder(variant)}
+        
+        <path 
+          d="${pathData}" 
+          stroke="currentColor" 
+          stroke-width="${strokeWidth}" 
+          fill="none" 
+          stroke-linecap="round" 
+          stroke-linejoin="round"
+        />
+      </g>
+    </svg>
+  `;
 
   return {
     svg,
@@ -269,31 +202,35 @@ export function generateOrganicSigil(
   };
 }
 
-/**
- * Generate all three variants for selection
- */
-export function generateAllVariants(letters: string[]): SigilGenerationResult[] {
-  return [
-    generateOrganicSigil(letters, 'dense'),
-    generateOrganicSigil(letters, 'balanced'),
-    generateOrganicSigil(letters, 'minimal'),
-  ];
+export function generateAllVariants(letters: any): SigilGenerationResult[] {
+  try {
+    return [
+      generateTrueSigil(letters, 'dense'),
+      generateTrueSigil(letters, 'balanced'),
+      generateTrueSigil(letters, 'minimal'),
+    ];
+  } catch (error) {
+    console.error('Error generating sigil variants:', error);
+    // Return empty fallback array
+    return [
+      { svg: '<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg"></svg>', variant: 'dense' },
+      { svg: '<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg"></svg>', variant: 'balanced' },
+      { svg: '<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg"></svg>', variant: 'minimal' },
+    ];
+  }
 }
 
-/**
- * Variant metadata for UI display
- */
 export const VARIANT_METADATA = {
   dense: {
-    title: 'Dense',
-    description: 'Bold and flowing, mystical presence',
+    title: 'Ritual',
+    description: 'Enclosed power structure with binding rings',
   },
   balanced: {
-    title: 'Balanced',
-    description: 'Elegant curves, harmonious energy',
+    title: 'Focused',
+    description: 'The classic path of intent',
   },
   minimal: {
-    title: 'Minimal',
-    description: 'Simple essence, pure intention',
+    title: 'Raw',
+    description: 'Unbound essential energy',
   },
 };

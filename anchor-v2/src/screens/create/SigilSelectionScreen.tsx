@@ -17,7 +17,7 @@ import {
   SigilVariant,
   SigilGenerationResult,
   VARIANT_METADATA,
-} from '@/utils/sigil/abstract-symbol-generator';
+} from '@/utils/sigil/traditional-generator';
 import { colors, spacing, typography } from '@/theme';
 import { ZenBackground } from '@/components/common';
 
@@ -45,13 +45,15 @@ export default function SigilSelectionScreen() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Generate all three variants
-    console.log('--- GENERATING TRUE SIGILS (VECTOR BASED) ---');
-    console.log('Distilled letters:', distilledLetters);
-    const generated = generateAllVariants(distilledLetters);
-    console.log('First sigil SVG start:', generated[0]?.svg.substring(0, 100));
-    setVariants(generated);
-    setLoading(false);
+    try {
+      // Generate all three variants
+      const generated = generateAllVariants(distilledLetters);
+      setVariants(generated);
+    } catch (error) {
+      console.error('Sigil selection generation failed:', error);
+    } finally {
+      setLoading(false);
+    }
   }, [distilledLetters]);
 
   const handleContinue = () => {
@@ -196,23 +198,23 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   loadingText: {
-    fontFamily: typography.fontFamily.serif,
-    fontSize: typography.fontSize.lg,
+    fontFamily: typography.fonts.heading,
+    fontSize: typography.sizes.h3,
     color: colors.gold,
   },
   header: {
     marginBottom: spacing.xl,
   },
   title: {
-    fontFamily: typography.fontFamily.serif,
-    fontSize: typography.fontSize.xxl,
+    fontFamily: typography.fonts.heading,
+    fontSize: 32,
     color: colors.gold,
     marginBottom: spacing.xs,
     textAlign: 'center',
   },
   subtitle: {
-    fontFamily: typography.fontFamily.sans,
-    fontSize: typography.fontSize.md,
+    fontFamily: typography.fonts.body,
+    fontSize: typography.sizes.body1,
     color: colors.text.tertiary,
     textAlign: 'center',
     lineHeight: 24,
@@ -221,8 +223,8 @@ const styles = StyleSheet.create({
     marginBottom: spacing.xl,
   },
   lettersLabel: {
-    fontFamily: typography.fontFamily.sans,
-    fontSize: typography.fontSize.sm,
+    fontFamily: typography.fonts.body,
+    fontSize: typography.sizes.body2,
     color: colors.text.secondary,
     marginBottom: spacing.xs,
   },
@@ -238,8 +240,8 @@ const styles = StyleSheet.create({
     borderRadius: spacing.xs,
   },
   letterText: {
-    fontFamily: typography.fontFamily.serif,
-    fontSize: typography.fontSize.lg,
+    fontFamily: typography.fonts.heading,
+    fontSize: typography.sizes.h3,
     color: colors.gold,
   },
   previewSection: {
@@ -259,16 +261,16 @@ const styles = StyleSheet.create({
     marginBottom: spacing.md,
   },
   previewLabel: {
-    fontFamily: typography.fontFamily.serif,
-    fontSize: typography.fontSize.lg,
+    fontFamily: typography.fonts.heading,
+    fontSize: typography.sizes.h3,
     color: colors.gold,
   },
   variantsSection: {
     marginBottom: spacing.lg,
   },
   variantsTitle: {
-    fontFamily: typography.fontFamily.serif,
-    fontSize: typography.fontSize.xl,
+    fontFamily: typography.fonts.heading,
+    fontSize: typography.sizes.h2,
     color: colors.bone,
     marginBottom: spacing.md,
   },
@@ -295,8 +297,8 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   variantTitle: {
-    fontFamily: typography.fontFamily.serif,
-    fontSize: typography.fontSize.lg,
+    fontFamily: typography.fonts.heading,
+    fontSize: typography.sizes.h3,
     color: colors.bone,
     marginBottom: 4,
   },
@@ -304,8 +306,8 @@ const styles = StyleSheet.create({
     color: colors.gold,
   },
   variantDescription: {
-    fontFamily: typography.fontFamily.sans,
-    fontSize: typography.fontSize.sm,
+    fontFamily: typography.fonts.body,
+    fontSize: typography.sizes.body2,
     color: colors.text.tertiary,
     lineHeight: 20,
   },
@@ -318,7 +320,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   checkmark: {
-    fontSize: typography.fontSize.lg,
+    fontSize: typography.sizes.h3,
     color: colors.charcoal,
     fontWeight: 'bold',
   },
@@ -340,8 +342,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   continueButtonText: {
-    fontFamily: typography.fontFamily.sans,
-    fontSize: typography.fontSize.md,
+    fontFamily: typography.fonts.body,
+    fontSize: typography.sizes.body1,
     fontWeight: '600',
     color: colors.charcoal,
   },

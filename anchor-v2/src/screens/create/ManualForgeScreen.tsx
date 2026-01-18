@@ -27,8 +27,9 @@ import { colors } from '@/theme';
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 const IS_ANDROID = Platform.OS === 'android';
 
-// Canvas size - reduced to make room for tools panel
-const CANVAS_SIZE = Math.min(SCREEN_WIDTH - 48, SCREEN_HEIGHT * 0.4);
+// Canvas size - reduced height to ensure controls clear system navigation
+const CANVAS_WIDTH = SCREEN_WIDTH - 24;
+const CANVAS_HEIGHT = SCREEN_HEIGHT * 0.58;
 
 // Brush types
 const BRUSH_TYPES = [
@@ -116,6 +117,7 @@ export default function ManualForgeScreen() {
   // UI state
   const [activeToolTab, setActiveToolTab] = useState<ToolTab>('brush');
   const [showSaveModal, setShowSaveModal] = useState(false);
+  const [showToolsModal, setShowToolsModal] = useState(false);
 
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const toolsPanelAnim = useRef(new Animated.Value(1)).current;
@@ -251,16 +253,33 @@ export default function ManualForgeScreen() {
     if (points.length === 0) return '';
 
     if (brushType === 'calligraphy') {
-      // Calligraphy uses quadratic curves for smoother lines
-      let path = `M ${points[0].x} ${points[0].y}`;
-      for (let i = 1; i < points.length - 1; i++) {
-        const xc = (points[i].x + points[i + 1].x) / 2;
-        const yc = (points[i].y + points[i + 1].y) / 2;
-        path += ` Q ${points[i].x} ${points[i].y} ${xc} ${yc}`;
+      // Calligraphy creates a "ribbon" to simulate a chisel-tip pen
+      if (points.length < 2) return '';
+
+      const width = 6; // Bolder chisel tip
+      const angle = Math.PI / 4; // 45 degree angle for the chisel
+
+      const offset = {
+        x: Math.cos(angle) * width,
+        y: Math.sin(angle) * width
+      };
+
+      let topPath = `M ${points[0].x + offset.x} ${points[0].y - offset.y}`;
+      let bottomPath = `L ${points[0].x - offset.x} ${points[0].y + offset.y}`;
+
+      for (let i = 1; i < points.length; i++) {
+        topPath += ` L ${points[i].x + offset.x} ${points[i].y - offset.y}`;
+        bottomPath = ` L ${points[i].x - offset.x} ${points[i].y + offset.y}` + bottomPath;
       }
-      if (points.length > 1) {
-        const last = points[points.length - 1];
-        path += ` L ${last.x} ${last.y}`;
+
+      return topPath + bottomPath + ' Z';
+    } else if (brushType === 'pencil') {
+      // Pencil adds tiny jitter for a sketchy feel
+      let path = `M ${points[0].x} ${points[0].y}`;
+      for (let i = 1; i < points.length; i++) {
+        const jitterX = (Math.random() - 0.5) * 0.8;
+        const jitterY = (Math.random() - 0.5) * 0.8;
+        path += ` L ${points[i].x + jitterX} ${points[i].y + jitterY}`;
       }
       return path;
     } else {
@@ -275,14 +294,56 @@ export default function ManualForgeScreen() {
 
   // Get stroke properties based on brush type
   const getStrokeProperties = (brushType: string, size: number) => {
-    // Basic mapping, can be enhanced
     switch (brushType) {
-      case 'brush': return { strokeWidth: size * 1.2, strokeLinecap: 'round' as const, strokeLinejoin: 'round' as const };
-      case 'marker': return { strokeWidth: size * 1.5, strokeLinecap: 'butt' as const, strokeLinejoin: 'miter' as const };
-      case 'pencil': return { strokeWidth: size * 0.8, strokeLinecap: 'round' as const, strokeLinejoin: 'round' as const };
-      case 'calligraphy': return { strokeWidth: size * 1.3, strokeLinecap: 'round' as const, strokeLinejoin: 'round' as const };
-      case 'airbrush': return { strokeWidth: size * 2, strokeLinecap: 'round' as const, strokeLinejoin: 'round' as const };
-      default: return { strokeWidth: size, strokeLinecap: 'round' as const, strokeLinejoin: 'round' as const };
+      case 'brush':
+        return {
+          strokeWidth: size * 1.5,
+          strokeLinecap: 'round' as const,
+          strokeLinejoin: 'round' as const,
+          strokeDasharray: undefined,
+          opacityMultiplier: 0.9
+        };
+      case 'marker':
+        return {
+          strokeWidth: size * 2.5,
+          strokeLinecap: 'square' as const,
+          strokeLinejoin: 'bevel' as const,
+          strokeDasharray: undefined,
+          opacityMultiplier: 0.6
+        };
+      case 'pencil':
+        return {
+          strokeWidth: size * 0.6,
+          strokeLinecap: 'round' as const,
+          strokeLinejoin: 'round' as const,
+          strokeDasharray: "1, 2",
+          opacityMultiplier: 0.8
+        };
+      case 'calligraphy':
+        return {
+          strokeWidth: 0.5, // Thin fallback stroke
+          strokeLinecap: 'butt' as const,
+          strokeLinejoin: 'miter' as const,
+          strokeDasharray: undefined,
+          opacityMultiplier: 1.0,
+          useFill: true
+        };
+      case 'airbrush':
+        return {
+          strokeWidth: size * 4.0,
+          strokeLinecap: 'round' as const,
+          strokeLinejoin: 'round' as const,
+          strokeDasharray: "0.5, 4",
+          opacityMultiplier: 0.4
+        };
+      default:
+        return {
+          strokeWidth: size,
+          strokeLinecap: 'round' as const,
+          strokeLinejoin: 'round' as const,
+          strokeDasharray: undefined,
+          opacityMultiplier: 1.0
+        };
     }
   };
 
@@ -290,19 +351,20 @@ export default function ManualForgeScreen() {
   const getSymmetryStrokes = (stroke: Stroke): Stroke[] => {
     if (symmetryMode === 'none') return [stroke];
 
-    const center = CANVAS_SIZE / 2;
+    const centerX = CANVAS_WIDTH / 2;
+    const centerY = CANVAS_HEIGHT / 2;
     const result: Stroke[] = [stroke];
 
     if (symmetryMode === 'horizontal' || symmetryMode === 'radial') {
-      result.push({ ...stroke, points: stroke.points.map(p => ({ ...p, x: center * 2 - p.x })) });
+      result.push({ ...stroke, points: stroke.points.map(p => ({ ...p, x: centerX * 2 - p.x })) });
     }
 
     if (symmetryMode === 'vertical' || symmetryMode === 'radial') {
-      result.push({ ...stroke, points: stroke.points.map(p => ({ ...p, y: center * 2 - p.y })) });
+      result.push({ ...stroke, points: stroke.points.map(p => ({ ...p, y: centerY * 2 - p.y })) });
     }
 
     if (symmetryMode === 'radial') {
-      result.push({ ...stroke, points: stroke.points.map(p => ({ x: center * 2 - p.x, y: center * 2 - p.y })) });
+      result.push({ ...stroke, points: stroke.points.map(p => ({ x: centerX * 2 - p.x, y: centerY * 2 - p.y })) });
     }
 
     return result;
@@ -327,7 +389,7 @@ export default function ManualForgeScreen() {
         });
       });
 
-      const sigilSvg = `<svg width="${CANVAS_SIZE}" height="${CANVAS_SIZE}" viewBox="0 0 ${CANVAS_SIZE} ${CANVAS_SIZE}" xmlns="http://www.w3.org/2000/svg">
+      const sigilSvg = `<svg width="${CANVAS_WIDTH}" height="${CANVAS_HEIGHT}" viewBox="0 0 ${CANVAS_WIDTH} ${CANVAS_HEIGHT}" xmlns="http://www.w3.org/2000/svg">
       ${pathsContent}
       </svg>`;
 
@@ -419,7 +481,7 @@ export default function ManualForgeScreen() {
             <View style={[styles.canvas, styles.canvasAndroid]}>
               {showGrid && <GridOverlay />}
               <View {...panResponder.panHandlers} style={styles.drawingArea}>
-                <Svg width={CANVAS_SIZE} height={CANVAS_SIZE}>
+                <Svg width={CANVAS_WIDTH} height={CANVAS_HEIGHT}>
                   {/* Render all strokes with symmetry */}
                   {strokes.map((stroke, index) => {
                     const symmetryStrokes = getSymmetryStrokes(stroke);
@@ -434,7 +496,8 @@ export default function ManualForgeScreen() {
                           fill="none"
                           strokeLinecap={props.strokeLinecap}
                           strokeLinejoin={props.strokeLinejoin}
-                          opacity={symStroke.opacity}
+                          strokeDasharray={props.strokeDasharray}
+                          opacity={symStroke.opacity * props.opacityMultiplier}
                         />
                       );
                     });
@@ -455,12 +518,13 @@ export default function ManualForgeScreen() {
                         <Path
                           key={`current-${symIndex}`}
                           d={pointsToPath(symStroke.points, symStroke.brushType)}
-                          stroke={symStroke.color}
+                          stroke={props.useFill ? "none" : symStroke.color}
                           strokeWidth={props.strokeWidth}
-                          fill="none"
+                          fill={props.useFill ? symStroke.color : "none"}
                           strokeLinecap={props.strokeLinecap}
                           strokeLinejoin={props.strokeLinejoin}
-                          opacity={symStroke.opacity}
+                          strokeDasharray={props.strokeDasharray}
+                          opacity={symStroke.opacity * (props.opacityMultiplier || 1)}
                         />
                       );
                     });
@@ -473,7 +537,7 @@ export default function ManualForgeScreen() {
             <BlurView intensity={8} tint="dark" style={styles.canvas}>
               {showGrid && <GridOverlay />}
               <View {...panResponder.panHandlers} style={styles.drawingArea}>
-                <Svg width={CANVAS_SIZE} height={CANVAS_SIZE}>
+                <Svg width={CANVAS_WIDTH} height={CANVAS_HEIGHT}>
                   {strokes.map((stroke, index) => {
                     const symmetryStrokes = getSymmetryStrokes(stroke);
                     return symmetryStrokes.map((symStroke, symIndex) => {
@@ -482,12 +546,13 @@ export default function ManualForgeScreen() {
                         <Path
                           key={`stroke-${index}-${symIndex}`}
                           d={pointsToPath(symStroke.points, symStroke.brushType)}
-                          stroke={symStroke.color}
+                          stroke={props.useFill ? "none" : symStroke.color}
                           strokeWidth={props.strokeWidth}
-                          fill="none"
+                          fill={props.useFill ? symStroke.color : "none"}
                           strokeLinecap={props.strokeLinecap}
                           strokeLinejoin={props.strokeLinejoin}
-                          opacity={symStroke.opacity}
+                          strokeDasharray={props.strokeDasharray}
+                          opacity={symStroke.opacity * (props.opacityMultiplier || 1)}
                         />
                       );
                     });
@@ -507,12 +572,13 @@ export default function ManualForgeScreen() {
                         <Path
                           key={`current-${symIndex}`}
                           d={pointsToPath(symStroke.points, symStroke.brushType)}
-                          stroke={symStroke.color}
+                          stroke={props.useFill ? "none" : symStroke.color}
                           strokeWidth={props.strokeWidth}
-                          fill="none"
+                          fill={props.useFill ? symStroke.color : "none"}
                           strokeLinecap={props.strokeLinecap}
                           strokeLinejoin={props.strokeLinejoin}
-                          opacity={symStroke.opacity}
+                          strokeDasharray={props.strokeDasharray}
+                          opacity={symStroke.opacity * (props.opacityMultiplier || 1)}
                         />
                       );
                     });
@@ -562,84 +628,19 @@ export default function ManualForgeScreen() {
           </View>
         </View>
 
-        {/* Tools Panel */}
-        <Animated.View style={[styles.toolsPanel, { opacity: toolsPanelAnim }]}>
-          {/* Tool Tabs */}
-          <View style={styles.toolTabs}>
-            <TouchableOpacity
-              onPress={() => setActiveToolTab('brush')}
-              style={[styles.toolTab, activeToolTab === 'brush' && styles.toolTabActive]}
-              activeOpacity={0.7}
-            >
-              <Text style={[styles.toolTabIcon, activeToolTab === 'brush' && styles.toolTabIconActive]}>
-                ✎
-              </Text>
-              <Text style={[styles.toolTabText, activeToolTab === 'brush' && styles.toolTabTextActive]}>
-                Brush
-              </Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              onPress={() => setActiveToolTab('color')}
-              style={[styles.toolTab, activeToolTab === 'color' && styles.toolTabActive]}
-              activeOpacity={0.7}
-            >
-              <Text style={[styles.toolTabIcon, activeToolTab === 'color' && styles.toolTabIconActive]}>
-                🎨
-              </Text>
-              <Text style={[styles.toolTabText, activeToolTab === 'color' && styles.toolTabTextActive]}>
-                Color
-              </Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              onPress={() => setActiveToolTab('effects')}
-              style={[styles.toolTab, activeToolTab === 'effects' && styles.toolTabActive]}
-              activeOpacity={0.7}
-            >
-              <Text style={[styles.toolTabIcon, activeToolTab === 'effects' && styles.toolTabIconActive]}>
-                ✨
-              </Text>
-              <Text style={[styles.toolTabText, activeToolTab === 'effects' && styles.toolTabTextActive]}>
-                Effects
-              </Text>
-            </TouchableOpacity>
-          </View>
-
-          {/* Tool Content */}
-          <ScrollView
-            style={styles.toolContent}
-            contentContainerStyle={styles.toolContentInner}
-            showsVerticalScrollIndicator={false}
+        {/* Floating Tools Button */}
+        <TouchableOpacity
+          onPress={() => setShowToolsModal(true)}
+          style={styles.floatingToolsButton}
+          activeOpacity={0.85}
+        >
+          <LinearGradient
+            colors={[colors.gold, colors.bronze]}
+            style={styles.floatingButtonGradient}
           >
-            {activeToolTab === 'brush' && (
-              <BrushTab
-                brushTypes={BRUSH_TYPES}
-                selectedBrush={selectedBrush}
-                onSelectBrush={setSelectedBrush}
-                brushSize={brushSize}
-                onBrushSizeChange={setBrushSize}
-                brushOpacity={brushOpacity}
-                onOpacityChange={setBrushOpacity}
-              />
-            )}
-
-            {activeToolTab === 'color' && (
-              <ColorTab
-                colors={COLOR_PALETTE}
-                selectedColor={selectedColor}
-                onSelectColor={setSelectedColor}
-              />
-            )}
-
-            {activeToolTab === 'effects' && (
-              <EffectsTab
-                symmetryMode={symmetryMode}
-                onSymmetryChange={setSymmetryMode}
-              />
-            )}
-          </ScrollView>
-        </Animated.View>
+            <Text style={styles.floatingButtonIcon}>🎨</Text>
+          </LinearGradient>
+        </TouchableOpacity>
       </SafeAreaView>
 
       {/* Save Confirmation Modal */}
@@ -683,7 +684,173 @@ export default function ManualForgeScreen() {
           </BlurView>
         </View>
       </Modal>
+
+      {/* Tools Modal */}
+      <Modal
+        visible={showToolsModal}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setShowToolsModal(false)}
+      >
+        <View style={styles.toolsModalOverlay}>
+          <TouchableOpacity
+            style={styles.toolsModalBackdrop}
+            activeOpacity={1}
+            onPress={() => setShowToolsModal(false)}
+          />
+          <View style={styles.toolsModalContainer}>
+            {IS_ANDROID ? (
+              <View style={styles.toolsModalContent}>
+                <ToolsModalContent
+                  activeToolTab={activeToolTab}
+                  setActiveToolTab={setActiveToolTab}
+                  brushTypes={BRUSH_TYPES}
+                  selectedBrush={selectedBrush}
+                  setSelectedBrush={setSelectedBrush}
+                  brushSize={brushSize}
+                  setBrushSize={setBrushSize}
+                  brushOpacity={brushOpacity}
+                  setBrushOpacity={setBrushOpacity}
+                  colorPalette={COLOR_PALETTE}
+                  selectedColor={selectedColor}
+                  setSelectedColor={setSelectedColor}
+                  symmetryMode={symmetryMode}
+                  setSymmetryMode={setSymmetryMode}
+                  onClose={() => setShowToolsModal(false)}
+                />
+              </View>
+            ) : (
+              <BlurView intensity={30} tint="dark" style={styles.toolsModalContent}>
+                <ToolsModalContent
+                  activeToolTab={activeToolTab}
+                  setActiveToolTab={setActiveToolTab}
+                  brushTypes={BRUSH_TYPES}
+                  selectedBrush={selectedBrush}
+                  setSelectedBrush={setSelectedBrush}
+                  brushSize={brushSize}
+                  setBrushSize={setBrushSize}
+                  brushOpacity={brushOpacity}
+                  setBrushOpacity={setBrushOpacity}
+                  colorPalette={COLOR_PALETTE}
+                  selectedColor={selectedColor}
+                  setSelectedColor={setSelectedColor}
+                  symmetryMode={symmetryMode}
+                  setSymmetryMode={setSymmetryMode}
+                  onClose={() => setShowToolsModal(false)}
+                />
+              </BlurView>
+            )}
+          </View>
+        </View>
+      </Modal>
     </View>
+  );
+}
+
+// Tools Modal Content Component
+function ToolsModalContent({
+  activeToolTab,
+  setActiveToolTab,
+  brushTypes,
+  selectedBrush,
+  setSelectedBrush,
+  brushSize,
+  setBrushSize,
+  brushOpacity,
+  setBrushOpacity,
+  colorPalette,
+  selectedColor,
+  setSelectedColor,
+  symmetryMode,
+  setSymmetryMode,
+  onClose,
+}: any) {
+  return (
+    <>
+      {/* Header */}
+      <View style={styles.toolsModalHeader}>
+        <Text style={styles.toolsModalTitle}>Drawing Tools</Text>
+        <TouchableOpacity onPress={onClose} style={styles.toolsModalCloseButton}>
+          <Text style={styles.toolsModalCloseIcon}>✕</Text>
+        </TouchableOpacity>
+      </View>
+
+      {/* Tool Tabs */}
+      <View style={styles.toolTabs}>
+        <TouchableOpacity
+          onPress={() => setActiveToolTab('brush')}
+          style={[styles.toolTab, activeToolTab === 'brush' && styles.toolTabActive]}
+          activeOpacity={0.7}
+        >
+          <Text style={[styles.toolTabIcon, activeToolTab === 'brush' && styles.toolTabIconActive]}>
+            ✎
+          </Text>
+          <Text style={[styles.toolTabText, activeToolTab === 'brush' && styles.toolTabTextActive]}>
+            Brush
+          </Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          onPress={() => setActiveToolTab('color')}
+          style={[styles.toolTab, activeToolTab === 'color' && styles.toolTabActive]}
+          activeOpacity={0.7}
+        >
+          <Text style={[styles.toolTabIcon, activeToolTab === 'color' && styles.toolTabIconActive]}>
+            🎨
+          </Text>
+          <Text style={[styles.toolTabText, activeToolTab === 'color' && styles.toolTabTextActive]}>
+            Color
+          </Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          onPress={() => setActiveToolTab('effects')}
+          style={[styles.toolTab, activeToolTab === 'effects' && styles.toolTabActive]}
+          activeOpacity={0.7}
+        >
+          <Text style={[styles.toolTabIcon, activeToolTab === 'effects' && styles.toolTabIconActive]}>
+            ✨
+          </Text>
+          <Text style={[styles.toolTabText, activeToolTab === 'effects' && styles.toolTabTextActive]}>
+            Effects
+          </Text>
+        </TouchableOpacity>
+      </View>
+
+      {/* Tool Content */}
+      <ScrollView
+        style={styles.toolsModalScrollView}
+        contentContainerStyle={styles.toolContentInner}
+        showsVerticalScrollIndicator={false}
+      >
+        {activeToolTab === 'brush' && (
+          <BrushTab
+            brushTypes={brushTypes}
+            selectedBrush={selectedBrush}
+            onSelectBrush={setSelectedBrush}
+            brushSize={brushSize}
+            onBrushSizeChange={setBrushSize}
+            brushOpacity={brushOpacity}
+            onOpacityChange={setBrushOpacity}
+          />
+        )}
+
+        {activeToolTab === 'color' && (
+          <ColorTab
+            colors={colorPalette}
+            selectedColor={selectedColor}
+            onSelectColor={setSelectedColor}
+          />
+        )}
+
+        {activeToolTab === 'effects' && (
+          <EffectsTab
+            symmetryMode={symmetryMode}
+            onSymmetryChange={setSymmetryMode}
+          />
+        )}
+      </ScrollView>
+    </>
   );
 }
 
@@ -866,7 +1033,8 @@ function GridOverlay() {
   const gridSize = 30;
   const lines = [];
 
-  for (let i = 0; i <= CANVAS_SIZE / gridSize; i++) {
+  // Horizontal lines
+  for (let i = 0; i <= CANVAS_HEIGHT / gridSize; i++) {
     const pos = i * gridSize;
     lines.push(
       <View
@@ -874,6 +1042,11 @@ function GridOverlay() {
         style={[styles.gridLine, styles.gridLineH, { top: pos }]}
       />
     );
+  }
+
+  // Vertical lines
+  for (let i = 0; i <= CANVAS_WIDTH / gridSize; i++) {
+    const pos = i * gridSize;
     lines.push(
       <View
         key={`v-${i}`}
@@ -948,8 +1121,8 @@ const styles = StyleSheet.create({
   },
   instructionsContainer: {
     paddingHorizontal: 16,
-    paddingTop: 4,
-    paddingBottom: 6,
+    paddingTop: 0,
+    paddingBottom: 4,
   },
   instructionsCard: {
     borderRadius: 12,
@@ -987,12 +1160,12 @@ const styles = StyleSheet.create({
   },
   canvasContainer: {
     alignItems: 'center',
-    paddingTop: 8,
-    paddingBottom: 8,
+    paddingTop: 0,
+    paddingBottom: 4,
   },
   canvas: {
-    width: CANVAS_SIZE,
-    height: CANVAS_SIZE,
+    width: CANVAS_WIDTH,
+    height: CANVAS_HEIGHT,
     borderRadius: 20,
     borderWidth: 2,
     borderColor: 'rgba(212, 175, 55, 0.3)',
@@ -1328,5 +1501,79 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '600',
     color: colors.silver,
+  },
+  // Floating Tools Button
+  floatingToolsButton: {
+    position: 'absolute',
+    right: 12,
+    bottom: 120,
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    overflow: 'hidden',
+    shadowColor: colors.gold,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.4,
+    shadowRadius: 8,
+    elevation: 8,
+  },
+  floatingButtonGradient: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  floatingButtonIcon: {
+    fontSize: 28,
+  },
+  // Tools Modal
+  toolsModalOverlay: {
+    flex: 1,
+    justifyContent: 'flex-end',
+  },
+  toolsModalBackdrop: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+  },
+  toolsModalContainer: {
+    maxHeight: SCREEN_HEIGHT * 0.75,
+  },
+  toolsModalContent: {
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    backgroundColor: colors.charcoal,
+    paddingTop: 16,
+    paddingBottom: 40,
+    paddingHorizontal: 16,
+  },
+  toolsModalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 16,
+    paddingHorizontal: 8,
+  },
+  toolsModalTitle: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: colors.gold,
+    letterSpacing: 0.5,
+  },
+  toolsModalCloseButton: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: 'rgba(192, 192, 192, 0.2)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  toolsModalCloseIcon: {
+    fontSize: 18,
+    color: colors.silver,
+    fontWeight: '600',
+  },
+  toolsModalScrollView: {
+    maxHeight: SCREEN_HEIGHT * 0.55,
   },
 });
