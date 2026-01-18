@@ -1,6 +1,11 @@
 # Anchor
 ### *Manifesting Intent through Intelligence*
 
+> **📍 New to this repo?** Start with `/docs/START_HERE.md` for a complete orientation guide.
+>
+> **🚀 Current Mobile App:** `/apps/mobile/` (production-ready, all features)
+> **🧟 Legacy Code:** `/legacy/frontend/` (deprecated, do not use)
+
 Anchor is a mobile platform that transforms abstract goals into tangible, AI-generated visual sigils. By fusing ancient sigil magick methodology with modern generative AI, Anchor allows users to embed intentions into their daily subconscious through ritualistic charging and activation.
 
 Built with React Native (Expo 52), TypeScript, and backed by Supabase + Prisma, Anchor combines chaos magick principles from Austin Osman Spare and Phil Cooper with Stable Diffusion XL for intelligent symbol generation.
@@ -9,8 +14,8 @@ Built with React Native (Expo 52), TypeScript, and backed by Supabase + Prisma, 
 
 ## 🚀 Project Status: **Production-Ready (Mid-Month Audit Complete)**
 
-**Current Version**: `v1.0.0` (anchor-v2)
-**Active Development Branch**: `claude/audit-anchor-app-2QAdA`
+**Current Version**: `v1.0.0` (apps/mobile)
+**Active Development Branch**: `claude/restructure-anchor-repo-K9hPw`
 **Last Updated**: January 2026
 **Code Health Score**: 9.0/10 (up from 5.5/10)
 **Test Coverage**: 35% (48 passing tests, target: 70%)
@@ -51,7 +56,7 @@ Built with React Native (Expo 52), TypeScript, and backed by Supabase + Prisma, 
 ✅ **AI Enhancement** - Stable Diffusion XL integration with intelligent symbol selection
 ✅ **Emotional Intensity** - Intent formatting helpers and enhanced charging rituals
 ✅ **Audio Mantras** - Google TTS integration with 3 voice presets
-✅ **Manual Forge** - Interactive sigil drawing canvas (anchor-v2 only)
+✅ **Manual Forge** - Interactive sigil drawing canvas
 ✅ **Backend API** - Complete REST API with authentication and anchor management
 ✅ **Production Monitoring** - Analytics, error tracking, and performance monitoring ready
 ✅ **Accessibility** - Full screen reader support and WCAG compliance
@@ -131,56 +136,49 @@ Built with React Native (Expo 52), TypeScript, and backed by Supabase + Prisma, 
 
 ```
 Anchor/
-├── frontend/           # Original implementation (Phase 1 + 2.6 partial)
+├── apps/
+│   └── mobile/          ✅ Current Mobile App (Production-ready)
+│       ├── src/
+│       │   ├── screens/    # All UI screens + ManualForgeScreen
+│       │   ├── components/ # Reusable components + Toast, LoadingSpinner, ErrorBoundary
+│       │   ├── services/   # AnalyticsService, ErrorTrackingService, PerformanceMonitoring
+│       │   ├── stores/     # Zustand state management
+│       │   ├── __tests__/  # Test suites (48 tests, 35% coverage)
+│       │   └── ...
+│       ├── TESTING.md      # Complete testing guide (300+ lines)
+│       └── MONITORING.md   # Analytics & monitoring guide (400+ lines)
+│
+├── backend/             ✅ Current Backend API
 │   └── src/
-│       ├── screens/    # All UI screens
-│       ├── components/ # Reusable components (IntentFormatFeedback, etc.)
-│       ├── navigation/ # React Navigation setup
-│       ├── theme/      # Design system (colors, typography, spacing)
-│       ├── services/   # API client, auth
-│       ├── stores/     # Zustand state management
-│       └── utils/      # Sigil generation, helpers
+│       ├── api/routes/  # REST endpoints (/auth, /anchors, /ai)
+│       ├── services/    # AI, TTS, Storage services
+│       ├── data/        # Symbol database (30+ mystical symbols)
+│       └── prisma/      # Database schema & migrations
 │
-├── anchor-v2/          # Enhanced version (Phase 1 + 2.6 complete + Production-ready)
-│   ├── src/
-│   │   ├── screens/    # All screens + ManualForgeScreen
-│   │   ├── components/ # Reusable components + Toast, LoadingSpinner, ErrorBoundary
-│   │   ├── services/   # AnalyticsService, ErrorTrackingService, PerformanceMonitoring
-│   │   ├── stores/     # Zustand state management
-│   │   ├── __tests__/  # Test suites (48 tests, 35% coverage)
-│   │   └── ...
-│   ├── TESTING.md      # Complete testing guide (300+ lines)
-│   └── MONITORING.md   # Analytics & monitoring guide (400+ lines)
+├── legacy/
+│   └── frontend/        🧟 Deprecated - Do not use
+│       └── src/         # Original implementation (archived)
 │
-└── backend/            # Node.js + Express API
-    └── src/
-        ├── api/routes/ # REST endpoints (/auth, /anchors, /ai)
-        ├── services/   # AI, TTS, Storage services
-        ├── data/       # Symbol database (30+ mystical symbols)
-        └── prisma/     # Database schema & migrations
+├── docs/                📚 Documentation
+│   ├── prs/             # Pull request documentation
+│   ├── product/         # Product specs & flows (PDFs)
+│   ├── sessions/        # Development session summaries
+│   ├── runbooks/        # Setup and operational guides
+│   └── START_HERE.md    # 🎯 Start reading here!
+│
+└── design/              🎨 Design Assets
+    └── previews/        # Interactive HTML component previews
 ```
 
-### **Version Differences**
+### **What to Use**
 
-| Feature | frontend/ | anchor-v2/ |
-|---------|-----------|------------|
-| **Base Features** | ✅ Phase 1 + 2 | ✅ Phase 1 + 2 |
-| **Intent Formatting** | ✅ | ✅ |
-| **Emotional Priming Screen** | ✅ 15s countdown | ❌ Not used |
-| **Quick Charge Intensity** | ✅ 5 prompts | ✅ 5 prompts |
-| **Deep Charge Cues** | ✅ 5 phases | ✅ 5 phases |
-| **Manual Forge** | ❌ Not implemented | ✅ Interactive canvas |
-| **Code Quality** | ❌ 'any' types, console.log | ✅ Type-safe, custom logger |
-| **Error Handling** | ❌ Basic | ✅ ErrorBoundary + tracking |
-| **Accessibility** | ❌ No screen reader support | ✅ WCAG 2.1 Level A |
-| **UX Components** | ❌ Basic | ✅ Toast, loading states, skeletons |
-| **Testing** | ❌ No tests | ✅ 48 tests, 35% coverage |
-| **Monitoring** | ❌ No observability | ✅ Analytics, errors, performance |
-| **Documentation** | ❌ Basic | ✅ TESTING.md, MONITORING.md |
-| **React Native** | 0.75.1 | 0.76.9 |
-| **Status** | Legacy | **Active & Production-Ready** |
+| Directory | Status | Use For |
+|-----------|--------|---------|
+| **`/apps/mobile/`** | ✅ **Active & Production-Ready** | All mobile app development |
+| **`/backend/`** | ✅ **Active** | All backend API development |
+| **`/legacy/frontend/`** | 🧟 **Deprecated** | Reference only - DO NOT USE |
 
-**Recommended Version**: Use `anchor-v2/` for latest features and production-ready infrastructure.
+**New to the project?** Start with `/docs/START_HERE.md` for a complete orientation guide.
 
 ---
 
@@ -290,9 +288,9 @@ npx prisma migrate dev
 npm run dev
 ```
 
-3. **Frontend setup** (use anchor-v2)
+3. **Frontend setup** (use apps/mobile)
 ```bash
-cd anchor-v2
+cd apps/mobile
 npm install
 cp .env.example .env
 # Edit .env with API URL
@@ -303,7 +301,7 @@ npx expo start
 - Scan QR code with Expo Go (iOS/Android)
 - Or press `i` for iOS Simulator, `a` for Android Emulator
 
-See `STARTUP_GUIDE.md` for detailed instructions.
+See `/docs/runbooks/STARTUP_GUIDE.md` for detailed instructions.
 
 ---
 
@@ -334,7 +332,7 @@ See `STARTUP_GUIDE.md` for detailed instructions.
 
 ## 🧪 Testing Status
 
-### **Frontend (anchor-v2)**
+### **Frontend (apps/mobile)**
 - ✅ **48 passing tests** across 7 test suites
 - ✅ **35% coverage** (on track for 70% target)
 - ✅ Jest configured for Expo 52
@@ -483,7 +481,6 @@ The mid-month audit (Phase 2.7) transformed Anchor from a feature-complete MVP i
 2. **Firebase/Google Sign-In**: Requires native credentials configuration
 3. **TTS Audio**: Requires Google Cloud project setup
 4. **Stable Diffusion**: Requires Replicate API token ($0.01/image)
-5. **Frontend/Anchor-v2 Divergence**: Two versions have different feature sets
 
 ---
 
