@@ -55,39 +55,71 @@ model Anchor {
   intentionText         String
   category              String   // 'career', 'health', 'wealth', 'relationships', 'personal_growth', 'custom'
 
-  // Distillation & Base Sigil
-  distilledLetters      String[]
+  // ───────────────────────────────────────────────────
+  // STRUCTURE LINEAGE (New Architecture)
+  // ───────────────────────────────────────────────────
+  // Deterministic structure from traditional generator (source of truth)
   baseSigilSvg          String?  @db.Text
-  generationMethod      String   @default("automated") // 'automated', 'manual'
 
-  // AI Enhancement
+  // User-traced reinforcement version (if manual reinforcement completed)
+  reinforcedSigilSvg    String?  @db.Text
+
+  // AI-styled appearance image URL (if AI enhancement applied)
+  enhancedImageUrl      String?
+
+  // ───────────────────────────────────────────────────
+  // CREATION PATH METADATA (New Architecture)
+  // ───────────────────────────────────────────────────
+  // Which deterministic variant was chosen: 'dense' | 'balanced' | 'minimal'
+  structureVariant      String   @default("balanced")
+
+  // Manual reinforcement session data (if user traced the structure)
+  reinforcementMetadata Json?
+
+  // AI enhancement details (if AI styling was applied)
+  enhancementMetadata   Json?
+
+  // ───────────────────────────────────────────────────
+  // LEGACY FIELDS (Deprecated - kept for backward compatibility)
+  // ───────────────────────────────────────────────────
+  distilledLetters      String[]
+  generationMethod      String   @default("automated") // 'automated', 'manual'
   enhancementStatus     String   @default("pending") // 'pending', 'generating', 'complete', 'error'
   selectedSymbols       Json?    // Array of symbols selected by intention analysis
   aiStyle               String?  // 'grimoire', 'minimal', 'cosmic', etc.
-  enhancedImageUrl      String?  // Final selected enhanced image
   variationUrls         Json?    // Array of generated variation URLs
 
-  // Mantra
+  // ───────────────────────────────────────────────────
+  // MANTRA
+  // ───────────────────────────────────────────────────
   mantraText            String?
   mantraPronunciation   String?
   mantraAudioUrl        String?
 
-  // Charging Status
+  // ───────────────────────────────────────────────────
+  // CHARGING STATUS
+  // ───────────────────────────────────────────────────
   isCharged             Boolean  @default(false)
   chargedAt             DateTime?
   chargeMethod          String?  // 'quick', 'deep'
 
-  // Activation Stats
+  // ───────────────────────────────────────────────────
+  // ACTIVATION STATS
+  // ───────────────────────────────────────────────────
   activationCount       Int      @default(0)
   lastActivatedAt       DateTime?
 
-  // Sharing & Archiving
+  // ───────────────────────────────────────────────────
+  // SHARING & ARCHIVING
+  // ───────────────────────────────────────────────────
   isShared              Boolean  @default(false)
   sharedAt              DateTime?
   isArchived            Boolean  @default(false)
   archivedAt            DateTime?
 
-  // Timestamps
+  // ───────────────────────────────────────────────────
+  // TIMESTAMPS
+  // ───────────────────────────────────────────────────
   createdAt             DateTime @default(now())
   updatedAt             DateTime @updatedAt
 
