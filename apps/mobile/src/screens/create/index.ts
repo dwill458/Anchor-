@@ -6,7 +6,9 @@
 
 export { default as IntentionInputScreen } from './IntentionInputScreen';
 export { default as DistillationAnimationScreen } from './DistillationAnimationScreen';
-export { default as SigilSelectionScreen } from './SigilSelectionScreen';
+export { default as StructureForgeScreen } from './StructureForgeScreen';
+export { default as ManualReinforcementScreen } from './ManualReinforcementScreen';
+export { default as LockStructureScreen } from './LockStructureScreen';
 export { EnhancementChoiceScreen } from './EnhancementChoiceScreen';
 export { default as AIAnalysisScreen } from './AIAnalysisScreen';
 export { default as AIGeneratingScreen } from './AIGeneratingScreen';

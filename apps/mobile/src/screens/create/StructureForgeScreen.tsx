@@ -21,22 +21,27 @@ import {
 import { colors, spacing, typography } from '@/theme';
 import { ZenBackground } from '@/components/common';
 
-type SigilSelectionRouteProp = RouteProp<RootStackParamList, 'SigilSelection'>;
-type SigilSelectionNavigationProp = StackNavigationProp<RootStackParamList, 'SigilSelection'>;
+type StructureForgeRouteProp = RouteProp<RootStackParamList, 'StructureForge'>;
+type StructureForgeNavigationProp = StackNavigationProp<RootStackParamList, 'StructureForge'>;
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const CARD_WIDTH = SCREEN_WIDTH - 48;
 
 /**
- * SigilSelectionScreen
- * 
- * Displays three organic sigil variants (Dense, Balanced, Minimal)
- * for user selection. Uses the new organic traditional generator
- * with flowing, hand-drawn aesthetic.
+ * StructureForgeScreen
+ *
+ * Step 3 in the new architecture: Choose deterministic structure variant.
+ *
+ * Displays three sigil structure variants (Dense, Balanced, Minimal) generated
+ * deterministically from the distilled letters. User selects the "bones" of their
+ * anchor, which will serve as the source of truth for manual reinforcement and
+ * optional AI enhancement.
+ *
+ * Next: ManualReinforcementScreen (guided tracing over the chosen structure)
  */
-export default function SigilSelectionScreen() {
-  const route = useRoute<SigilSelectionRouteProp>();
-  const navigation = useNavigation<SigilSelectionNavigationProp>();
+export default function StructureForgeScreen() {
+  const route = useRoute<StructureForgeRouteProp>();
+  const navigation = useNavigation<StructureForgeNavigationProp>();
 
   const { intentionText, category, distilledLetters } = route.params;
 
@@ -60,11 +65,12 @@ export default function SigilSelectionScreen() {
     const selected = variants.find(v => v.variant === selectedVariant);
     if (!selected) return;
 
-    navigation.navigate('MantraCreation', {
+    navigation.navigate('ManualReinforcement', {
       intentionText,
       category,
       distilledLetters,
-      sigilSvg: selected.svg,
+      baseSigilSvg: selected.svg,
+      structureVariant: selectedVariant,
     });
   };
 
@@ -89,9 +95,9 @@ export default function SigilSelectionScreen() {
       >
         {/* Header */}
         <View style={styles.header}>
-          <Text style={styles.title}>Choose Your Anchor</Text>
+          <Text style={styles.title}>Choose Your Structure</Text>
           <Text style={styles.subtitle}>
-            Each style channels your intention in a unique way
+            Each structure forms the bones of your anchor—the foundation that will hold your intention
           </Text>
         </View>
 

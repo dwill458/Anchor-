@@ -12,12 +12,13 @@ Built with React Native (Expo 52), TypeScript, and backed by Supabase + Prisma, 
 
 ---
 
-## 🚀 Project Status: **Production-Ready (Mid-Month Audit Complete)**
+## 🚀 Project Status: **Architecture Refactor In Progress**
 
-**Current Version**: `v1.0.0` (apps/mobile)
-**Active Development Branch**: `claude/restructure-anchor-repo-K9hPw`
+**Current Version**: `v2.0.0-alpha` (apps/mobile)
+**Active Development Branch**: `claude/anchor-sigil-architecture-mW59Z`
 **Last Updated**: January 2026
-**Code Health Score**: 9.0/10 (up from 5.5/10)
+**Architecture Refactor**: Phase 2 of 3 Complete
+**Code Health Score**: 9.0/10 (maintained)
 **Test Coverage**: 35% (48 passing tests, target: 70%)
 
 ### 🎉 Recent Improvements (Mid-Month Audit)
@@ -50,13 +51,45 @@ Built with React Native (Expo 52), TypeScript, and backed by Supabase + Prisma, 
 - ✅ 40+ predefined event constants
 - ✅ Comprehensive MONITORING.md guide (400+ lines)
 
+### 🏗️ Architecture Refactor (January 2026)
+
+**Critical Change**: Transitioning from AI-first to **Deterministic Structure + Optional Enhancement**
+
+Previously, AI generated the entire sigil structure. The new architecture separates concerns:
+- **Structure** (immutable, deterministic) = The "bones" of the anchor
+- **Reinforcement** (optional, manual) = User traces over structure
+- **Enhancement** (optional, AI) = Visual styling that preserves structure
+
+**Why?** This ensures users always have a reproducible, reliable anchor foundation, with AI only affecting aesthetics (never the core structure).
+
+**Phase 1: Foundation & Data Model** (✅ Complete)
+- ✅ Added new database fields: `baseSigilSvg`, `reinforcedSigilSvg`, `structureVariant`, `reinforcementMetadata`, `enhancementMetadata`
+- ✅ Created production-ready database migration with rollback script
+- ✅ Updated TypeScript types (frontend + backend) for new architecture
+- ✅ Updated API routes to accept new fields
+- ✅ Validated spike phase: ControlNet preserves structure (60/60 tests passed)
+
+**Phase 2: Structure Forge & Reinforcement UI** (✅ Complete)
+- ✅ **StructureForgeScreen**: Choose from 3 deterministic structure variants (Dense, Balanced, Minimal)
+- ✅ **ManualReinforcementScreen**: Canvas-based guided tracing with fidelity tracking, skippable with encouragement
+- ✅ **LockStructureScreen**: Celebration screen confirming structure immutability
+- ✅ Updated **EnhancementChoiceScreen**: "Keep Pure" vs "Enhance Appearance" (structure already locked)
+- ✅ Updated navigation flow: Distillation → StructureForge → ManualReinforcement → LockStructure → EnhancementChoice
+
+**Phase 3: AI Style Selection & ControlNet** (🟡 In Progress)
+- ⏳ **AIStyleSelectionScreen**: Choose from 6 mystical art styles (watercolor, sacred_geometry, ink_brush, gold_leaf, cosmic, minimal_line)
+- ⏳ **ControlNet Integration**: Structure-preserving AI enhancement using SDXL ControlNet
+- ⏳ **Backend Enhancement API**: SVG rasterization + ControlNet generation with Replicate
+- ⏳ **Complete Flow Testing**: End-to-end anchor creation with all options
+
 ### What's Working Now
 
-✅ **Complete MVP** - Full anchor creation, charging, and activation flows
-✅ **AI Enhancement** - Stable Diffusion XL integration with intelligent symbol selection
+✅ **Deterministic Structure Generation** - 3 variants (Dense, Balanced, Minimal) from letter distillation
+✅ **Manual Reinforcement** - Canvas-based guided tracing with fidelity tracking (NEW in v2.0)
+✅ **Structure Immutability** - Locked foundation before enhancement choices (NEW in v2.0)
+✅ **AI Enhancement** - Being refactored to preserve structure via ControlNet (Phase 3)
 ✅ **Emotional Intensity** - Intent formatting helpers and enhanced charging rituals
 ✅ **Audio Mantras** - Google TTS integration with 3 voice presets
-✅ **Manual Forge** - Interactive sigil drawing canvas
 ✅ **Backend API** - Complete REST API with authentication and anchor management
 ✅ **Production Monitoring** - Analytics, error tracking, and performance monitoring ready
 ✅ **Accessibility** - Full screen reader support and WCAG compliance
@@ -73,27 +106,48 @@ Built with React Native (Expo 52), TypeScript, and backed by Supabase + Prisma, 
 - Suggests optimal phrasing (present tense, declarative statements)
 - Based on Phil Cooper's methodology from "Basic Sigil Magic"
 
-### **2. Multi-Path Sigil Creation**
+### **2. Deterministic Structure + Optional Enhancement** (v2.0 Architecture)
 
-#### **Traditional Path** (Phase 1)
-- Austin Osman Spare's letter distillation algorithm
+#### **Step 1: Letter Distillation**
+- Austin Osman Spare's methodology
 - Removes vowels and duplicate consonants
-- 3 artistic variants: Dense, Balanced, Minimal
-- Deterministic pseudo-randomness (same input = same sigil)
+- Deterministic process (same input = same letters)
 
-#### **AI-Enhanced Path** (Phase 2)
-- NLP-powered intention analysis with Compromise.js
-- Intelligent symbol selection from 30+ mystical archetypes
-- Stable Diffusion XL generates 4 unique artistic variations
-- 5 aesthetic approaches: grimoire, minimal, cosmic, geometric, organic
-- Cloudflare R2 storage for generated artwork
+#### **Step 2: Structure Forge**
+- Generate 3 deterministic variants from distilled letters
+- **Dense**: Complex, overlapping design (high visual density)
+- **Balanced**: Medium complexity (recommended default)
+- **Minimal**: Sparse, clean lines (minimalist aesthetic)
+- User selects the "bones" of their anchor (immutable foundation)
 
-#### **Manual Forge Path** (Phase 2.6)
-- Interactive drawing canvas with touch gestures
-- Real-time sigil preview
-- Premium feature (subscription gated)
+#### **Step 3: Manual Reinforcement** (Optional)
+- Canvas-based guided tracing over faint base structure
+- Real-time fidelity score tracking (overlap percentage)
+- Skippable with encouragement dialog
+- Captures user's intentional energy through manual effort
 
-### **3. Enhanced Charging Rituals** (Phase 2.6)
+#### **Step 4: Structure Lock**
+- Celebration screen confirming structure immutability
+- Structure is now permanent (base or reinforced)
+- AI enhancement can only affect appearance, never structure
+
+#### **Step 5: Enhancement Choice**
+- **Keep Pure**: No enhancement, instant completion (traditional chaos magick)
+- **Enhance Appearance**: Apply AI style transfer (6 mystical art styles)
+  - Uses ControlNet to preserve structure while adding artistic styling
+  - Styles: watercolor, sacred_geometry, ink_brush, gold_leaf, cosmic, minimal_line
+  - Structure preservation validated (60/60 tests passed)
+
+### **3. Mantra Generation & Audio**
+- 4 mantra styles from distilled letters:
+  - Syllabic (CLO-STH-D)
+  - Rhythmic (CLO / STH / D)
+  - Letter-by-letter (C-L-O-S-T-H-D)
+  - Phonetic (klo-seth-duh)
+- Google Cloud TTS with 3 neural voice presets
+- Play/pause controls with visual feedback
+
+### **4. Enhanced Charging Rituals**
 
 #### **Quick Charge** (30 seconds)
 - 5 dynamic emotional intensity prompts
@@ -108,15 +162,6 @@ Built with React Native (Expo 52), TypeScript, and backed by Supabase + Prisma, 
 - Connect to Symbol (30s)
 - Hold Focus (90s)
 - Each phase includes emotional guidance text
-
-### **4. Mantra Generation & Audio**
-- 4 mantra styles from distilled letters:
-  - Syllabic (CLO-STH-D)
-  - Rhythmic (CLO / STH / D)
-  - Letter-by-letter (C-L-O-S-T-H-D)
-  - Phonetic (klo-seth-duh)
-- Google Cloud TTS with 3 neural voice presets
-- Play/pause controls with visual feedback
 
 ### **5. Activation Tracking**
 - Visual activation (view sigil)
@@ -184,6 +229,7 @@ Anchor/
 
 ## 🗺️ Development Roadmap
 
+### **Legacy Phases (v1.0)** - Complete
 | Phase | Status | Features |
 |-------|--------|----------|
 | **Phase 0: Foundation** | 🟢 **Complete** | Architecture, design system, navigation, database schema |
@@ -192,16 +238,22 @@ Anchor/
 | **Phase 2.5: Audio** | 🟢 **Complete** | Google TTS integration, 3 voice presets, audio playback |
 | **Phase 2.6: Emotional Intensity** | 🟢 **Complete** | Intent formatting, enhanced charging rituals, Manual Forge |
 | **Phase 2.7: Production Readiness** | 🟢 **Complete** | Code quality, accessibility, testing, monitoring (Mid-Month Audit) |
-| **Phase 3: Burning Ritual** | 🟡 **In Progress** | Confirm burn screen, burning animation, archive functionality |
+
+### **Architecture Refactor (v2.0)** - In Progress
+| Phase | Status | Features |
+|-------|--------|----------|
+| **Refactor Phase 1: Foundation** | 🟢 **Complete** | Data model changes, database migration, API updates, ControlNet validation |
+| **Refactor Phase 2: Structure & Reinforcement UI** | 🟢 **Complete** | StructureForge, ManualReinforcement, LockStructure screens, navigation updates |
+| **Refactor Phase 3: AI Style & ControlNet** | 🟡 **In Progress** | AIStyleSelection screen, ControlNet integration, backend enhancement API |
+| **Refactor Phase 4: End-to-End Testing** | 🔴 **Planned** | Complete flow testing, migration validation, user acceptance testing |
+
+### **Future Phases (Post-Refactor)**
+| Phase | Status | Features |
+|-------|--------|----------|
+| **Phase 3: Burning Ritual** | 🔴 **Planned** | Confirm burn screen, burning animation, archive functionality |
 | **Phase 4: Advanced Features** | 🔴 **Planned** | Discover feed, daily streaks, vault search/filters |
 | **Phase 5: Monetization** | 🔴 **Planned** | RevenueCat subscriptions, Printful merch, premium features |
 | **Phase 6: Polish & Deploy** | 🔴 **Planned** | Performance optimization, App Store submission |
-
-### **Phase 2.7 Breakdown (Mid-Month Audit)**
-- **Week 1**: Code quality (logger, type safety, error boundaries, junk code cleanup)
-- **Week 2**: Accessibility & UX (toast, loading states, WCAG compliance, screen readers)
-- **Week 3**: Testing foundation (Jest setup, 48 tests, test utilities, TESTING.md)
-- **Week 4**: Monitoring & analytics (AnalyticsService, ErrorTrackingService, PerformanceMonitoring, MONITORING.md)
 
 ---
 
@@ -307,14 +359,14 @@ See `/docs/runbooks/STARTUP_GUIDE.md` for detailed instructions.
 
 ## 📊 Current Statistics
 
-### **Core Features**
+### **Core Features (v2.0 Architecture)**
 - **Backend API Endpoints**: 20+
-- **Frontend Screens**: 23
+- **Frontend Screens**: 26 (3 new in Phase 2: StructureForge, ManualReinforcement, LockStructure)
 - **Reusable Components**: 20+ (including Toast, LoadingSpinner, ErrorBoundary, Skeletons)
-- **Mystical Symbols Database**: 30+
+- **Structure Variants**: 3 (Dense, Balanced, Minimal)
+- **AI Style Options**: 6 (watercolor, sacred_geometry, ink_brush, gold_leaf, cosmic, minimal_line)
 - **Mantra Styles**: 4
 - **Voice Presets**: 3
-- **AI Variations per Anchor**: 4
 - **Charging Modes**: 2 (Quick 30s, Deep 5min)
 - **Activation Types**: 3 (Visual, Mantra, Deep)
 
