@@ -11,6 +11,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { BlurView } from 'expo-blur';
 import { StatusBar } from 'expo-status-bar';
 import Svg, { Circle, G, Path } from 'react-native-svg';
+import { mockGenerateVariations, GenerationResult } from '@/services/MockAIService';
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 const IS_ANDROID = Platform.OS === 'android';
@@ -40,6 +41,7 @@ export default function AIGeneratingScreen({
 }: AIGeneratingScreenProps) {
   const [progress, setProgress] = useState(0);
   const [currentPhrase, setCurrentPhrase] = useState(0);
+  const [generationResult, setGenerationResult] = useState<GenerationResult | null>(null);
 
   // Animations
   const fadeAnim = useRef(new Animated.Value(0)).current;
@@ -158,31 +160,71 @@ export default function AIGeneratingScreen({
       ])
     ).start();
 
+    // Start generation
+    const generate = async () => {
+      try {
+        const result = await mockGenerateVariations();
+        setGenerationResult(result);
+      } catch (error) {
+        console.error('Generation failed:', error);
+        // Fallback result to prevent getting stuck
+        setGenerationResult({
+          prompt: 'Fallback',
+          variations: [
+            'https://via.placeholder.com/400x400.png?text=Error',
+            'https://via.placeholder.com/400x400.png?text=Error',
+            'https://via.placeholder.com/400x400.png?text=Error',
+            'https://via.placeholder.com/400x400.png?text=Error',
+          ],
+        });
+      }
+    };
+    generate();
+
     // Simulate progress
     const progressInterval = setInterval(() => {
       setProgress((prev) => {
+        // If we have result, finish fast
+        if (generationResult && prev < 100) {
+          return prev + 5;
+        }
+
+        // If not ready, slow down at 90%
+        if (!generationResult && prev >= 90) {
+          return prev;
+        }
+
+        // Complete
         if (prev >= 100) {
           clearInterval(progressInterval);
           // Navigate to next screen after completion
-          setTimeout(() => {
-            navigation.replace('AIVariationPicker', route.params);
-          }, 500);
+          // Ensure we have result before navigating
+          if (generationResult) {
+            setTimeout(() => {
+              navigation.replace('AIVariationPicker', {
+                ...route.params,
+                ...generationResult
+              });
+            }, 500);
+          }
           return 100;
         }
         return prev + 1;
       });
-    }, 600); // 60 seconds total (600ms * 100)
+    }, 100);
 
     // Rotate loading phrases
     const phraseInterval = setInterval(() => {
       setCurrentPhrase((prev) => (prev + 1) % loadingPhrases.length);
-    }, 5000);
+    }, 2500);
 
     return () => {
       clearInterval(progressInterval);
       clearInterval(phraseInterval);
     };
-  }, []);
+  }, [generationResult]); // Re-run effect when result comes in to speed up progress
+
+
 
   const rotation = rotateAnim.interpolate({
     inputRange: [0, 1],
