@@ -11,6 +11,11 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import type { User } from '@/types';
 
 /**
+ * Onboarding segment type
+ */
+export type OnboardingSegment = 'athlete' | 'entrepreneur' | 'wellness';
+
+/**
  * Authentication state interface
  */
 interface AuthState {
@@ -20,6 +25,7 @@ interface AuthState {
   isAuthenticated: boolean;
   isLoading: boolean;
   hasCompletedOnboarding: boolean;
+  onboardingSegment: OnboardingSegment | null;
 
   // Actions
   setUser: (user: User | null) => void;
@@ -28,6 +34,7 @@ interface AuthState {
   completeOnboarding: () => void;
   setAuthenticated: (isAuthenticated: boolean) => void;
   setHasCompletedOnboarding: (completed: boolean) => void;
+  setOnboardingSegment: (segment: OnboardingSegment) => void;
   signOut: () => void;
 }
 
@@ -42,7 +49,8 @@ export const useAuthStore = create<AuthState>()(
       token: null,
       isAuthenticated: false,
       isLoading: false,
-      hasCompletedOnboarding: true,
+      hasCompletedOnboarding: false,
+      onboardingSegment: null,
 
       // Actions
       setUser: (user) =>
@@ -76,6 +84,11 @@ export const useAuthStore = create<AuthState>()(
           hasCompletedOnboarding,
         }),
 
+      setOnboardingSegment: (onboardingSegment) =>
+        set({
+          onboardingSegment,
+        }),
+
       signOut: () =>
         set({
           user: null,
@@ -92,6 +105,7 @@ export const useAuthStore = create<AuthState>()(
         token: state.token,
         isAuthenticated: state.isAuthenticated,
         hasCompletedOnboarding: state.hasCompletedOnboarding,
+        onboardingSegment: state.onboardingSegment,
       }),
     }
   )

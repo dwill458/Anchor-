@@ -538,3 +538,17 @@ export type MainTabParamList = {
   Shop: undefined;
   Profile: undefined;
 };
+
+export type OnboardingStackParamList = {
+  Welcome: undefined;
+  Reframe: undefined;
+  HowItWorks: undefined;
+  DailyLoop: undefined;
+  SaveProgress: undefined;
+};
+
+export type AuthStackParamList = {
+  Login: undefined;
+  SignUp: undefined;
+  Onboarding: undefined;
+};
