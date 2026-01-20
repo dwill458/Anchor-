@@ -7,7 +7,7 @@ import {
   TouchableOpacity,
   Dimensions,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { SvgXml } from 'react-native-svg';
@@ -37,6 +37,7 @@ const CARD_WIDTH = SCREEN_WIDTH - 48;
 export default function SigilSelectionScreen() {
   const route = useRoute<SigilSelectionRouteProp>();
   const navigation = useNavigation<SigilSelectionNavigationProp>();
+  const insets = useSafeAreaInsets();
 
   const { intentionText, category, distilledLetters } = route.params;
 
@@ -170,7 +171,14 @@ export default function SigilSelectionScreen() {
       </ScrollView>
 
       {/* Continue Button */}
-      <View style={styles.footer}>
+      <View
+        style={[
+          styles.footer,
+          {
+            paddingBottom: Math.max(insets.bottom + 24, 48),
+          },
+        ]}
+      >
         <TouchableOpacity style={styles.continueButton} onPress={handleContinue}>
           <Text style={styles.continueButtonText}>Continue</Text>
         </TouchableOpacity>
@@ -190,7 +198,7 @@ const styles = StyleSheet.create({
   scrollContent: {
     paddingHorizontal: spacing.lg,
     paddingTop: spacing.md,
-    paddingBottom: 100,
+    paddingBottom: 140, // Increased to clear absolutely positioned footer
   },
   loadingContainer: {
     flex: 1,

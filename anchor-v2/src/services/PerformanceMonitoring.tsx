@@ -7,7 +7,7 @@ import React from 'react';
  * Ready for integration with Firebase Performance or custom backend.
  */
 
-import React from 'react';
+
 
 interface PerformanceMetric {
   name: string;

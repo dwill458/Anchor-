@@ -22,7 +22,7 @@ import {
   Dimensions,
   Image,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { BlurView } from 'expo-blur';
 import { StatusBar } from 'expo-status-bar';
@@ -41,6 +41,7 @@ type AIVariationPickerNavigationProp = StackNavigationProp<RootStackParamList, '
 export const AIVariationPickerScreen: React.FC = () => {
   const navigation = useNavigation<AIVariationPickerNavigationProp>();
   const route = useRoute<AIVariationPickerRouteProp>();
+  const insets = useSafeAreaInsets();
 
   // Extract params from route
   const { intentionText, distilledLetters, sigilSvg, variations, prompt, category, sigilVariant } = route.params;
@@ -247,11 +248,11 @@ export const AIVariationPickerScreen: React.FC = () => {
           <View style={styles.bottomSpacer} />
         </ScrollView>
 
-        {/* Continue Button - Fixed at bottom */}
         <Animated.View
           style={[
             styles.continueContainer,
             {
+              paddingBottom: Math.max(insets.bottom + 24, 48),
               opacity: fadeAnim,
               transform: [
                 {
@@ -486,7 +487,6 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     paddingHorizontal: 24,
-    paddingBottom: 100, // Space above nav bar (80px nav + 20px padding)
     paddingTop: 16,
     backgroundColor: 'transparent',
   },

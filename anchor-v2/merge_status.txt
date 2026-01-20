@@ -1,0 +1,24 @@
+On branch claude/debug-forge-screen-missing-iPkZL
+Your branch is up to date with 'origin/claude/debug-forge-screen-missing-iPkZL'.
+
+You have unmerged paths.
+  (fix conflicts and run "git commit")
+  (use "git merge --abort" to abort the merge)
+
+Changes to be committed:
+	new file:   src/screens/create/SigilSelectionScreen.backup.tsx
+	modified:   src/services/PerformanceMonitoring.tsx
+	modified:   src/theme/typography.ts
+	new file:   src/utils/sigil/abstract-symbol-generator.ts
+	new file:   src/utils/sigil/index.ts
+
+Unmerged paths:
+  (use "git add <file>..." to mark resolution)
+	both modified:   src/screens/create/SigilSelectionScreen.tsx
+
+Untracked files:
+  (use "git add <file>..." to include in what will be committed)
+	merge_status.txt
+	remote_branches.txt
+	../yu/
+

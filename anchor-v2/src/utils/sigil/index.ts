@@ -5,5 +5,5 @@
  */
 
 export { distillIntention } from './distillation';
-export { generateAbstractSigil, generateAllVariants, VARIANT_METADATA } from './abstract-symbol-generator';
-export type { SigilVariant, SigilGenerationResult } from './abstract-symbol-generator';
+export { generateTrueSigil, generateAllVariants, VARIANT_METADATA } from './traditional-generator';
+export type { SigilVariant, SigilGenerationResult } from './traditional-generator';

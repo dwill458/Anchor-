@@ -1,0 +1,10 @@
+A  anchor-v2/src/screens/create/SigilSelectionScreen.backup.tsx
+UU anchor-v2/src/screens/create/SigilSelectionScreen.tsx
+M  anchor-v2/src/services/PerformanceMonitoring.tsx
+M  anchor-v2/src/theme/typography.ts
+A  anchor-v2/src/utils/sigil/abstract-symbol-generator.ts
+A  anchor-v2/src/utils/sigil/index.ts
+?? anchor-v2/full_status.txt
+?? anchor-v2/merge_status.txt
+?? anchor-v2/remote_branches.txt
+?? yu/
