@@ -18,13 +18,23 @@ router.use(authMiddleware);
 /**
  * POST /api/anchors
  *
- * Create a new anchor
+ * Create a new anchor (updated for new architecture)
  *
- * Body:
+ * Required Body Fields:
  * - intentionText: User's intention
  * - category: Anchor category
  * - distilledLetters: Array of distilled letters
- * - baseSigilSvg: SVG string of the sigil
+ * - baseSigilSvg: SVG string of the deterministic structure
+ * - structureVariant: Which variant chosen ('dense' | 'balanced' | 'minimal')
+ *
+ * Optional Body Fields (New Architecture):
+ * - reinforcedSigilSvg: User-traced reinforcement version
+ * - reinforcementMetadata: Manual reinforcement session data
+ * - enhancedImageUrl: AI-styled image URL
+ * - enhancementMetadata: AI enhancement details
+ * - mantraText: Generated mantra
+ * - mantraPronunciation: Mantra pronunciation guide
+ * - mantraAudioUrl: URL to mantra audio file
  */
 router.post('/', async (req: AuthRequest, res: Response) => {
   try {
@@ -32,9 +42,22 @@ router.post('/', async (req: AuthRequest, res: Response) => {
       throw new AppError('User not authenticated', 401, 'UNAUTHORIZED');
     }
 
-    const { intentionText, category, distilledLetters, baseSigilSvg } = req.body;
+    const {
+      intentionText,
+      category,
+      distilledLetters,
+      baseSigilSvg,
+      structureVariant,
+      reinforcedSigilSvg,
+      reinforcementMetadata,
+      enhancedImageUrl,
+      enhancementMetadata,
+      mantraText,
+      mantraPronunciation,
+      mantraAudioUrl,
+    } = req.body;
 
-    // Validation
+    // Validation - required fields
     if (!intentionText || !category || !distilledLetters || !baseSigilSvg) {
       throw new AppError(
         'Missing required fields: intentionText, category, distilledLetters, baseSigilSvg',
@@ -52,15 +75,31 @@ router.post('/', async (req: AuthRequest, res: Response) => {
       throw new AppError('User not found', 404, 'USER_NOT_FOUND');
     }
 
-    // Create anchor
+    // Create anchor with new architecture fields
     const anchor = await prisma.anchor.create({
       data: {
         userId: user.id,
         intentionText,
         category,
         distilledLetters,
+
+        // Structure lineage
         baseSigilSvg,
-        generationMethod: 'automated',
+        reinforcedSigilSvg: reinforcedSigilSvg || null,
+        enhancedImageUrl: enhancedImageUrl || null,
+
+        // Creation path metadata
+        structureVariant: structureVariant || 'balanced',
+        reinforcementMetadata: reinforcementMetadata || null,
+        enhancementMetadata: enhancementMetadata || null,
+
+        // Mantra
+        mantraText: mantraText || null,
+        mantraPronunciation: mantraPronunciation || null,
+        mantraAudioUrl: mantraAudioUrl || null,
+
+        // Legacy fields (for backward compatibility)
+        generationMethod: reinforcedSigilSvg ? 'manual' : 'automated',
       },
     });
 
@@ -215,13 +254,21 @@ router.get('/:id', async (req: AuthRequest, res: Response) => {
 /**
  * PUT /api/anchors/:id
  *
- * Update an anchor
+ * Update an anchor (supports new architecture fields)
  *
  * Body (all optional):
  * - intentionText
  * - category
  * - mantraText
  * - mantraPronunciation
+ * - mantraAudioUrl
+ * - reinforcedSigilSvg
+ * - reinforcementMetadata
+ * - enhancedImageUrl
+ * - enhancementMetadata
+ * - structureVariant
+ * - isCharged
+ * - isArchived
  */
 router.put('/:id', async (req: AuthRequest, res: Response) => {
   try {
