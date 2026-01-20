@@ -1,0 +1,25 @@
+
+    <svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" color="#FFFFFF">
+      <g>
+        
+      <path d="
+    M 92,50
+    Q 92,92 50,92
+    Q 8,92 8,50
+    Q 8,8 50,8
+    Q 92,8 92,50
+  " stroke="currentColor" stroke-width="1.5" fill="none" opacity="0.8" />
+      <circle cx="50" cy="50" r="46" stroke="currentColor" stroke-width="0.5" fill="none" opacity="0.4" />
+    
+
+        <path
+          d="M 19.612925388464365,20.594841631372727 L 80.59886248310914,19.644109564798512 L 80.16621519213159,49.889528921721 L 80.5143845428746,19.592052217352077 L 50.61499363617392,49.9820759229066"
+          stroke="currentColor"
+          stroke-width="3"
+          fill="none"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+        />
+      </g>
+    </svg>
+  
