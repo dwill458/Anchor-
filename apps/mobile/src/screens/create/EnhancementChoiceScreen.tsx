@@ -124,7 +124,7 @@ export const EnhancementChoiceScreen: React.FC = () => {
         });
       } else if (optionId === 'enhance') {
         // Enhance appearance - navigate to AI style selection
-        navigation.navigate('AIStyleSelection', {
+        navigation.navigate('StyleSelection', {
           intentionText,
           category,
           distilledLetters,

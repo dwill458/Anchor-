@@ -6,11 +6,18 @@ import {
   Animated,
   Dimensions,
   Platform,
+  Alert,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { BlurView } from 'expo-blur';
 import { StatusBar } from 'expo-status-bar';
 import Svg, { Circle, G, Path } from 'react-native-svg';
+import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
+import { StackNavigationProp } from '@react-navigation/stack';
+import { RootStackParamList, AIStyle } from '@/types';
+import { API_URL } from '@/config';
+import { useAuthStore } from '@/stores/authStore';
+import { logger } from '@/utils/logger';
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 const IS_ANDROID = Platform.OS === 'android';
@@ -26,20 +33,73 @@ const colors = {
   bronze: '#CD7F32',
 };
 
-interface AIGeneratingScreenProps {
-  navigation: any;
-  route: any;
-}
+type AIGeneratingRouteProp = RouteProp<RootStackParamList, 'AIGenerating'>;
+type AIGeneratingNavigationProp = StackNavigationProp<RootStackParamList, 'AIGenerating'>;
 
 const AnimatedCircle = Animated.createAnimatedComponent(Circle);
 const AnimatedG = Animated.createAnimatedComponent(G);
 
-export default function AIGeneratingScreen({
-  navigation,
-  route,
-}: AIGeneratingScreenProps) {
+/**
+ * Style-specific loading phrases for each AI style
+ */
+const STYLE_PHRASES: Record<AIStyle, string[]> = {
+  watercolor: [
+    'Mixing translucent washes...',
+    'Flowing watercolor across canvas...',
+    'Blending soft artistic edges...',
+    'Creating fluid brushstrokes...',
+  ],
+  sacred_geometry: [
+    'Calculating golden ratios...',
+    'Aligning geometric perfection...',
+    'Etching precise sacred lines...',
+    'Manifesting mathematical harmony...',
+  ],
+  ink_brush: [
+    'Preparing traditional ink...',
+    'Flowing zen brushstrokes...',
+    'Channeling sumi-e spirit...',
+    'Capturing calligraphic essence...',
+  ],
+  gold_leaf: [
+    'Applying precious gilding...',
+    'Illuminating medieval manuscript...',
+    'Layering gold leaf texture...',
+    'Crafting luxurious ornament...',
+  ],
+  cosmic: [
+    'Harnessing nebula energy...',
+    'Weaving starlight patterns...',
+    'Manifesting celestial magic...',
+    'Channeling cosmic forces...',
+  ],
+  minimal_line: [
+    'Drawing clean precise lines...',
+    'Refining minimalist essence...',
+    'Perfecting graphic clarity...',
+    'Crafting modern simplicity...',
+  ],
+};
+
+export default function AIGeneratingScreen() {
+  const route = useRoute<AIGeneratingRouteProp>();
+  const navigation = useNavigation<AIGeneratingNavigationProp>();
+  const currentUser = useAuthStore((state) => state.currentUser);
+
+  const {
+    intentionText,
+    category,
+    distilledLetters,
+    baseSigilSvg,
+    reinforcedSigilSvg,
+    structureVariant,
+    styleChoice,
+    reinforcementMetadata,
+  } = route.params;
+
   const [progress, setProgress] = useState(0);
   const [currentPhrase, setCurrentPhrase] = useState(0);
+  const [isGenerating, setIsGenerating] = useState(false);
 
   // Animations
   const fadeAnim = useRef(new Animated.Value(0)).current;
@@ -50,17 +110,111 @@ export default function AIGeneratingScreen({
   const orb1Anim = useRef(new Animated.Value(0)).current;
   const orb2Anim = useRef(new Animated.Value(0)).current;
 
-  const intention = route.params?.intention || 'I am confident and capable';
-
-  // Mystical loading phrases
-  const loadingPhrases = [
+  // Get style-specific phrases or fallback to generic
+  const loadingPhrases = STYLE_PHRASES[styleChoice] || [
     'Channeling creative energies...',
     'Consulting the ancient symbols...',
     'Weaving mystical patterns...',
-    'Infusing sacred geometry...',
     'Manifesting your vision...',
-    'Aligning cosmic forces...',
   ];
+
+  /**
+   * Generate ControlNet-enhanced variations
+   */
+  const generateControlNetVariations = async () => {
+    if (isGenerating || !currentUser) return;
+
+    setIsGenerating(true);
+
+    try {
+      logger.info('[AIGenerating] Starting ControlNet generation', {
+        style: styleChoice,
+        user: currentUser.id,
+      });
+
+      // Simulate progress (60-100 seconds for ControlNet)
+      const progressInterval = setInterval(() => {
+        setProgress((prev) => {
+          if (prev >= 95) {
+            clearInterval(progressInterval);
+            return 95; // Hold at 95% until API completes
+          }
+          return prev + 1;
+        });
+      }, 900); // ~85 seconds to reach 95%
+
+      // Use reinforced SVG if available, otherwise use base structure
+      const sigilToEnhance = reinforcedSigilSvg || baseSigilSvg;
+
+      // Call ControlNet enhancement API
+      const response = await fetch(`${API_URL}/api/ai/enhance-controlnet`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          sigilSvg: sigilToEnhance,
+          styleChoice,
+          userId: currentUser.id,
+          anchorId: `temp-${Date.now()}`, // Temporary ID for uploads
+        }),
+      });
+
+      clearInterval(progressInterval);
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.message || 'ControlNet enhancement failed');
+      }
+
+      const result = await response.json();
+
+      logger.info('[AIGenerating] ControlNet generation complete', {
+        variations: result.variations?.length,
+        style: result.styleApplied,
+      });
+
+      // Complete progress
+      setProgress(100);
+
+      // Navigate to variation picker
+      setTimeout(() => {
+        navigation.replace('EnhancedVersionPicker', {
+          intentionText,
+          category,
+          distilledLetters,
+          baseSigilSvg,
+          reinforcedSigilSvg,
+          structureVariant,
+          styleChoice,
+          variations: result.variations, // Array of 4 image URLs
+          reinforcementMetadata,
+        });
+      }, 500);
+    } catch (error) {
+      logger.error('[AIGenerating] ControlNet generation error', error);
+
+      Alert.alert(
+        'Enhancement Failed',
+        error instanceof Error ? error.message : 'Failed to enhance sigil. Please try again.',
+        [
+          {
+            text: 'Try Again',
+            onPress: () => {
+              setProgress(0);
+              setIsGenerating(false);
+              generateControlNetVariations();
+            },
+          },
+          {
+            text: 'Go Back',
+            style: 'cancel',
+            onPress: () => navigation.goBack(),
+          },
+        ]
+      );
+    }
+  };
 
   useEffect(() => {
     // Entrance animation
@@ -158,20 +312,8 @@ export default function AIGeneratingScreen({
       ])
     ).start();
 
-    // Simulate progress
-    const progressInterval = setInterval(() => {
-      setProgress((prev) => {
-        if (prev >= 100) {
-          clearInterval(progressInterval);
-          // Navigate to next screen after completion
-          setTimeout(() => {
-            navigation.replace('AIVariationPicker', route.params);
-          }, 500);
-          return 100;
-        }
-        return prev + 1;
-      });
-    }, 600); // 60 seconds total (600ms * 100)
+    // Start ControlNet generation
+    generateControlNetVariations();
 
     // Rotate loading phrases
     const phraseInterval = setInterval(() => {
@@ -179,7 +321,6 @@ export default function AIGeneratingScreen({
     }, 5000);
 
     return () => {
-      clearInterval(progressInterval);
       clearInterval(phraseInterval);
     };
   }, []);
@@ -387,13 +528,13 @@ export default function AIGeneratingScreen({
           {IS_ANDROID ? (
             <View style={[styles.intentionCard, styles.intentionCardAndroid]}>
               <Text style={styles.intentionLabel}>MANIFESTING</Text>
-              <Text style={styles.intentionText}>"{intention}"</Text>
+              <Text style={styles.intentionText}>"{intentionText}"</Text>
               <View style={styles.intentionBorder} />
             </View>
           ) : (
             <BlurView intensity={12} tint="dark" style={styles.intentionCard}>
               <Text style={styles.intentionLabel}>MANIFESTING</Text>
-              <Text style={styles.intentionText}>"{intention}"</Text>
+              <Text style={styles.intentionText}>"{intentionText}"</Text>
               <View style={styles.intentionBorder} />
             </BlurView>
           )}
@@ -411,7 +552,7 @@ export default function AIGeneratingScreen({
           >
             <Text style={styles.timeIconText}>⏱</Text>
           </Animated.View>
-          <Text style={styles.timeText}>This usually takes 40-80 seconds</Text>
+          <Text style={styles.timeText}>This usually takes 60-100 seconds</Text>
         </View>
       </Animated.View>
     </View>

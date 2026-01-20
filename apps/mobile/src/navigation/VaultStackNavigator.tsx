@@ -14,6 +14,7 @@ import {
   ManualReinforcementScreen,
   LockStructureScreen,
   EnhancementChoiceScreen,
+  StyleSelectionScreen,
   AIAnalysisScreen,
   AIGeneratingScreen,
   AIVariationPickerScreen,
@@ -92,6 +93,12 @@ export const VaultStackNavigator: React.FC = () => {
         component={EnhancementChoiceScreen}
         options={{ title: 'Finalize Anchor' }}
       />
+      {/* Phase 3: Style Selection & ControlNet Enhancement */}
+      <Stack.Screen
+        name="StyleSelection"
+        component={StyleSelectionScreen}
+        options={{ title: 'Choose Style' }}
+      />
       <Stack.Screen
         name="ManualForge"
         component={ManualForgeScreen}
@@ -114,6 +121,11 @@ export const VaultStackNavigator: React.FC = () => {
       />
       <Stack.Screen
         name="AIVariationPicker"
+        component={AIVariationPickerScreen}
+        options={{ title: 'Choose Variation' }}
+      />
+      <Stack.Screen
+        name="EnhancedVersionPicker"
         component={AIVariationPickerScreen}
         options={{ title: 'Choose Variation' }}
       />

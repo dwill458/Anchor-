@@ -1,14 +1,15 @@
 /**
- * Anchor App - AI Variation Picker Screen (Redesigned)
+ * Anchor App - Enhanced Version Picker Screen (Phase 3)
  *
- * Step 7 in anchor creation flow (after AIGenerating).
- * User selects from 4 AI-generated anchor variations.
+ * Step 7c in anchor creation flow (after AIGenerating with ControlNet).
+ * User selects from 4 ControlNet-enhanced variations that preserve
+ * the structure while applying the chosen artistic style.
  *
- * Redesign Features:
- * - Proper button positioning (not covered by nav bar)
- * - Zen Architect styling (gradients, blur, gold accents)
- * - Entrance and selection animations
- * - 2x2 Grid layout
+ * Features:
+ * - Displays 4 variations in 2x2 grid
+ * - Shows selected style applied
+ * - Structure preservation indicator
+ * - Zen Architect styling with entrance animations
  */
 
 import React, { useState, useEffect, useRef } from 'react';
@@ -35,15 +36,37 @@ import { ScreenHeader, ZenBackground } from '@/components/common';
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const IMAGE_SIZE = (SCREEN_WIDTH - 80) / 2; // 2 columns with proper spacing (24px padding * 2 + 16px gap)
 
-type AIVariationPickerRouteProp = RouteProp<RootStackParamList, 'AIVariationPicker'>;
-type AIVariationPickerNavigationProp = StackNavigationProp<RootStackParamList, 'AIVariationPicker'>;
+type EnhancedVersionPickerRouteProp = RouteProp<RootStackParamList, 'EnhancedVersionPicker'>;
+type EnhancedVersionPickerNavigationProp = StackNavigationProp<RootStackParamList, 'EnhancedVersionPicker'>;
+
+/**
+ * Style display names
+ */
+const STYLE_NAMES: Record<string, string> = {
+  watercolor: 'Watercolor',
+  sacred_geometry: 'Sacred Geometry',
+  ink_brush: 'Ink Brush',
+  gold_leaf: 'Gold Leaf',
+  cosmic: 'Cosmic',
+  minimal_line: 'Minimal Line',
+};
 
 export const AIVariationPickerScreen: React.FC = () => {
-  const navigation = useNavigation<AIVariationPickerNavigationProp>();
-  const route = useRoute<AIVariationPickerRouteProp>();
+  const navigation = useNavigation<EnhancedVersionPickerNavigationProp>();
+  const route = useRoute<EnhancedVersionPickerRouteProp>();
 
-  // Extract params from route
-  const { intentionText, distilledLetters, sigilSvg, variations, prompt, category, sigilVariant } = route.params;
+  // Extract params from route (Phase 3 ControlNet flow)
+  const {
+    intentionText,
+    category,
+    distilledLetters,
+    baseSigilSvg,
+    reinforcedSigilSvg,
+    structureVariant,
+    styleChoice,
+    variations,
+    reinforcementMetadata,
+  } = route.params;
 
   // Selected variation index (0-3)
   const [selectedIndex, setSelectedIndex] = useState<number>(0);
@@ -72,12 +95,20 @@ export const AIVariationPickerScreen: React.FC = () => {
   const handleContinue = () => {
     const selectedImageUrl = variations[selectedIndex];
 
+    // Navigate to MantraCreation with full context including enhancement metadata
     navigation.navigate('MantraCreation', {
       intentionText,
-      distilledLetters,
-      sigilSvg,
-      finalImageUrl: selectedImageUrl,
       category,
+      distilledLetters,
+      baseSigilSvg,
+      reinforcedSigilSvg,
+      structureVariant,
+      reinforcementMetadata,
+      enhancedImageUrl: selectedImageUrl,
+      enhancementMetadata: {
+        styleApplied: styleChoice,
+        selectedVariationIndex: selectedIndex,
+      },
     });
   };
 
@@ -107,9 +138,29 @@ export const AIVariationPickerScreen: React.FC = () => {
           >
             <Text style={styles.title}>Choose Your Anchor</Text>
             <Text style={styles.subtitle}>
-              The AI has created 4 unique variations. Select the one that
-              resonates most powerfully with your intention.
+              ControlNet has created 4 variations in {STYLE_NAMES[styleChoice] || styleChoice} style,
+              preserving your structure while adding artistic enhancement.
             </Text>
+          </Animated.View>
+
+          {/* Style Info Box */}
+          <Animated.View
+            style={[
+              styles.styleInfoBox,
+              {
+                opacity: fadeAnim,
+                transform: [{ translateY: slideAnim }],
+              },
+            ]}
+          >
+            <Text style={styles.styleInfoIcon}>✨</Text>
+            <View style={styles.styleInfoContent}>
+              <Text style={styles.styleInfoLabel}>Style Applied</Text>
+              <Text style={styles.styleInfoValue}>{STYLE_NAMES[styleChoice] || styleChoice}</Text>
+            </View>
+            <View style={styles.styleInfoBadge}>
+              <Text style={styles.styleInfoBadgeText}>🔒 Structure Preserved</Text>
+            </View>
           </Animated.View>
 
           {/* Intention Card */}
@@ -318,6 +369,49 @@ const styles = StyleSheet.create({
     fontSize: 15,
     color: colors.silver,
     lineHeight: 22,
+  },
+  styleInfoBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(212, 175, 55, 0.1)',
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 24,
+    borderWidth: 1,
+    borderColor: 'rgba(212, 175, 55, 0.3)',
+  },
+  styleInfoIcon: {
+    fontSize: 24,
+    marginRight: 12,
+  },
+  styleInfoContent: {
+    flex: 1,
+  },
+  styleInfoLabel: {
+    fontSize: 11,
+    color: colors.silver,
+    fontWeight: '600',
+    letterSpacing: 0.5,
+    marginBottom: 4,
+    textTransform: 'uppercase',
+  },
+  styleInfoValue: {
+    fontSize: 16,
+    color: colors.gold,
+    fontWeight: '600',
+  },
+  styleInfoBadge: {
+    backgroundColor: 'rgba(76, 175, 80, 0.2)',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: 'rgba(76, 175, 80, 0.4)',
+  },
+  styleInfoBadgeText: {
+    fontSize: 11,
+    color: '#4CAF50',
+    fontWeight: '600',
   },
   intentionSection: {
     marginBottom: 32,
