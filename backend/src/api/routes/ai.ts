@@ -9,7 +9,14 @@
 
 import express, { Request, Response } from 'express';
 import { analyzeIntention } from '../../services/IntentionAnalyzer';
-import { enhanceSigil, estimateGenerationTime, getCostEstimate } from '../../services/AIEnhancer';
+import {
+  enhanceSigil,
+  estimateGenerationTime,
+  getCostEstimate,
+  enhanceSigilWithControlNet,
+  estimateControlNetGenerationTime,
+  AIStyle,
+} from '../../services/AIEnhancer';
 import { generateMantra, getRecommendedMantraStyle } from '../../services/MantraGenerator';
 import { uploadImageFromUrl } from '../../services/StorageService';
 import {
@@ -116,6 +123,93 @@ router.post('/enhance', async (req: Request, res: Response): Promise<void> => {
 });
 
 /**
+ * POST /api/ai/enhance-controlnet
+ * Generate AI-enhanced sigil variations using ControlNet (Phase 3)
+ *
+ * ControlNet preserves the structure while applying artistic style transfer.
+ * Supports 6 validated styles: watercolor, sacred_geometry, ink_brush,
+ * gold_leaf, cosmic, minimal_line
+ */
+router.post('/enhance-controlnet', async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { sigilSvg, styleChoice, userId, anchorId } = req.body;
+
+    // Validation
+    if (!sigilSvg || !styleChoice || !userId || !anchorId) {
+      res.status(400).json({
+        error: 'Missing required fields: sigilSvg, styleChoice, userId, anchorId',
+      });
+      return;
+    }
+
+    // Validate style choice
+    const validStyles: AIStyle[] = [
+      'watercolor',
+      'sacred_geometry',
+      'ink_brush',
+      'gold_leaf',
+      'cosmic',
+      'minimal_line',
+    ];
+
+    if (!validStyles.includes(styleChoice as AIStyle)) {
+      res.status(400).json({
+        error: `Invalid styleChoice. Must be one of: ${validStyles.join(', ')}`,
+      });
+      return;
+    }
+
+    logger.info('[ControlNet] Enhancing sigil', {
+      anchorId,
+      style: styleChoice,
+    });
+
+    // Generate ControlNet variations
+    const enhancementResult = await enhanceSigilWithControlNet({
+      sigilSvg,
+      styleChoice: styleChoice as AIStyle,
+      userId,
+    });
+
+    logger.info('[ControlNet] Generated variations', {
+      count: enhancementResult.variations.length,
+      style: enhancementResult.styleApplied,
+      method: enhancementResult.controlMethod,
+    });
+
+    // Upload variations to R2 and get permanent URLs
+    const permanentUrls: string[] = [];
+
+    for (let i = 0; i < enhancementResult.variations.length; i++) {
+      const url = await uploadImageFromUrl(
+        enhancementResult.variations[i],
+        userId,
+        anchorId,
+        i
+      );
+      permanentUrls.push(url);
+    }
+
+    res.json({
+      success: true,
+      variations: permanentUrls,
+      prompt: enhancementResult.prompt,
+      negativePrompt: enhancementResult.negativePrompt,
+      generationTime: enhancementResult.generationTime,
+      model: enhancementResult.model,
+      controlMethod: enhancementResult.controlMethod,
+      styleApplied: enhancementResult.styleApplied,
+    });
+  } catch (error) {
+    logger.error('[ControlNet] Enhancement error', error);
+    res.status(500).json({
+      error: 'Failed to enhance sigil with ControlNet',
+      message: error instanceof Error ? error.message : 'Unknown error',
+    });
+  }
+});
+
+/**
  * POST /api/ai/mantra
  * Generate mantra from distilled letters
  */
@@ -214,13 +308,23 @@ router.get('/voices', (req: Request, res: Response): void => {
  * Get time and cost estimates for AI enhancement
  */
 router.get('/estimate', (req: Request, res: Response): void => {
-  const timeEstimate = estimateGenerationTime();
+  const { method } = req.query;
+
+  let timeEstimate;
+
+  if (method === 'controlnet') {
+    timeEstimate = estimateControlNetGenerationTime();
+  } else {
+    timeEstimate = estimateGenerationTime();
+  }
+
   const costEstimate = getCostEstimate();
 
   res.json({
     success: true,
     timeEstimate,
     costEstimate,
+    method: method || 'legacy',
   });
 });
 

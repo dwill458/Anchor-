@@ -10,6 +10,7 @@ export { default as StructureForgeScreen } from './StructureForgeScreen';
 export { default as ManualReinforcementScreen } from './ManualReinforcementScreen';
 export { default as LockStructureScreen } from './LockStructureScreen';
 export { EnhancementChoiceScreen } from './EnhancementChoiceScreen';
+export { default as StyleSelectionScreen } from './StyleSelectionScreen';
 export { default as AIAnalysisScreen } from './AIAnalysisScreen';
 export { default as AIGeneratingScreen } from './AIGeneratingScreen';
 export { AIVariationPickerScreen } from './AIVariationPickerScreen';
