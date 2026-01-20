@@ -188,9 +188,9 @@ export default function DistillationAnimationScreen() {
 
     const runPhase = () => {
       if (phaseIndex >= phases.length) {
-        // All phases complete - navigate to SigilSelection
+        // All phases complete - navigate to StructureForge
         setTimeout(() => {
-          navigation.navigate('EnhancementChoice', {
+          navigation.navigate('StructureForge', {
             intentionText,
             category,
             distilledLetters,

@@ -23,7 +23,7 @@ const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const IS_ANDROID = Platform.OS === 'android';
 
 interface EnhancementOption {
-  id: 'ai' | 'traditional' | 'manual';
+  id: 'pure' | 'enhance';
   name: string;
   subtitle: string;
   description: string;
@@ -36,51 +36,34 @@ interface EnhancementOption {
 
 const ENHANCEMENT_OPTIONS: EnhancementOption[] = [
   {
-    id: 'ai',
-    name: 'AI Enhancement',
-    subtitle: 'Intelligent Symbol Selection',
+    id: 'enhance',
+    name: 'Enhance Appearance',
+    subtitle: 'AI Style Transfer',
     description:
-      'AI analyzes your intention and selects mystical symbols from ancient traditions to create 4 stunning variations.',
+      'Apply artistic styling while preserving your structure. Choose from 6 mystical art styles—each maintains your anchor\'s foundation.',
     emoji: '✨',
-    badge: 'RECOMMENDED',
-    estimatedTime: '40-80 seconds',
+    badge: 'PRESERVES STRUCTURE',
+    estimatedTime: '30-60 seconds',
     features: [
-      'Intelligent symbol analysis',
-      '4 unique AI variations',
-      'Mystical symbol integration',
-      'Professional artwork quality',
+      'Structure-preserving AI',
+      '6 unique artistic styles',
+      'Watercolor, sacred geometry, cosmic',
+      'ControlNet technology',
     ],
   },
   {
-    id: 'traditional',
-    name: 'Keep Traditional',
-    subtitle: 'Classic Sigil Magick',
+    id: 'pure',
+    name: 'Keep Pure',
+    subtitle: 'Untouched Structure',
     description:
-      'Use the traditional geometric sigil created from your distilled letters. Pure, simple, powerful.',
-    emoji: '📜',
+      'Preserve your structure exactly as forged. No embellishments, no modifications—just the raw, powerful geometry of your intention.',
+    emoji: '🔷',
     estimatedTime: 'Instant',
     features: [
-      'Austin Osman Spare method',
-      'Letter-based sacred geometry',
-      'Instantly available',
-      'Time-tested methodology',
-    ],
-  },
-  {
-    id: 'manual',
-    name: 'Manual Forge',
-    subtitle: 'Draw Your Own Symbol',
-    description:
-      'Create a completely custom anchor by hand. Full creative control with professional drawing tools.',
-    emoji: '✍️',
-    badge: 'PRO ONLY',
-    isPro: true,
-    estimatedTime: '5-15 minutes',
-    features: [
-      'Interactive drawing canvas',
-      'Professional tools & effects',
-      'Complete creative freedom',
-      'Export & share options',
+      'Pure deterministic structure',
+      'Unaltered sacred geometry',
+      'Traditional chaos magick',
+      'Instant completion',
     ],
   },
 ];
@@ -96,7 +79,15 @@ export const EnhancementChoiceScreen: React.FC = () => {
   const slideAnim = useRef(new Animated.Value(30)).current;
   const [selectedOption, setSelectedOption] = useState<string | null>(null);
 
-  const { intentionText, distilledLetters } = route.params;
+  const {
+    intentionText,
+    category,
+    distilledLetters,
+    baseSigilSvg,
+    reinforcedSigilSvg,
+    structureVariant,
+    reinforcementMetadata,
+  } = route.params;
 
   useEffect(() => {
     Animated.parallel([
@@ -119,32 +110,29 @@ export const EnhancementChoiceScreen: React.FC = () => {
 
     // Add slight delay for visual feedback
     setTimeout(() => {
-      if (optionId === 'ai') {
-        navigation.navigate('AIAnalysis', {
-          ...route.params,
+      if (optionId === 'pure') {
+        // Keep pure - go straight to MantraCreation with locked structure
+        navigation.navigate('MantraCreation', {
+          intentionText,
+          category,
+          distilledLetters,
+          baseSigilSvg,
+          reinforcedSigilSvg,
+          structureVariant,
+          reinforcementMetadata,
+          // No enhancedImageUrl or enhancementMetadata - keeping it pure
         });
-      } else if (optionId === 'traditional') {
-        navigation.navigate('SigilSelection', {
-          ...route.params,
+      } else if (optionId === 'enhance') {
+        // Enhance appearance - navigate to AI style selection
+        navigation.navigate('AIStyleSelection', {
+          intentionText,
+          category,
+          distilledLetters,
+          baseSigilSvg,
+          reinforcedSigilSvg,
+          structureVariant,
+          reinforcementMetadata,
         });
-      } else if (optionId === 'manual') {
-        // Check if user has Pro access
-        const hasPro = false; // TODO: Check from user store
-        // For testing/demo purposes, we allow access or show alert
-        // navigation.navigate('ManualForge', { ...route.params });
-        if (!hasPro) {
-          // Uncomment in production
-          // alert('Manual Forge requires Anchor Pro subscription');
-
-          // For now, allow navigation for testing
-          navigation.navigate('ManualForge', {
-            ...route.params,
-          });
-        } else {
-          navigation.navigate('ManualForge', {
-            ...route.params,
-          });
-        }
       }
       setSelectedOption(null);
     }, 150);
@@ -157,7 +145,7 @@ export const EnhancementChoiceScreen: React.FC = () => {
       <ZenBackground />
 
       <SafeAreaView style={styles.safeArea}>
-        <ScreenHeader title="Enhance Your Anchor" />
+        <ScreenHeader title="Finalize Your Anchor" />
 
         <ScrollView
           style={styles.scrollView}
@@ -174,10 +162,9 @@ export const EnhancementChoiceScreen: React.FC = () => {
               },
             ]}
           >
-            <Text style={styles.title}>Choose Your Path</Text>
+            <Text style={styles.title}>Appearance Choice</Text>
             <Text style={styles.subtitle}>
-              You've created the foundation. Now choose how to amplify your
-              intention's power.
+              Your structure is locked. Choose whether to keep it pure or enhance its appearance with mystical styling.
             </Text>
           </Animated.View>
 
@@ -307,18 +294,16 @@ export const EnhancementChoiceScreen: React.FC = () => {
           >
             {IS_ANDROID ? (
               <View style={[styles.infoCard, styles.infoCardAndroid]}>
-                <Text style={styles.infoIcon}>💡</Text>
+                <Text style={styles.infoIcon}>🔒</Text>
                 <Text style={styles.infoText}>
-                  You can always regenerate or try different approaches later.
-                  Each path creates a unique expression of your intention.
+                  Your structure is permanently locked. AI enhancement only affects appearance—the foundation remains unchanged.
                 </Text>
               </View>
             ) : (
               <BlurView intensity={8} tint="dark" style={styles.infoCard}>
-                <Text style={styles.infoIcon}>💡</Text>
+                <Text style={styles.infoIcon}>🔒</Text>
                 <Text style={styles.infoText}>
-                  You can always regenerate or try different approaches later.
-                  Each path creates a unique expression of your intention.
+                  Your structure is permanently locked. AI enhancement only affects appearance—the foundation remains unchanged.
                 </Text>
               </BlurView>
             )}
@@ -364,11 +349,9 @@ function OptionCardContent({
         <View style={styles.emojiContainer}>
           <LinearGradient
             colors={
-              index === 0
+              option.id === 'enhance'
                 ? [colors.gold, colors.bronze]
-                : index === 1
-                  ? ['rgba(192, 192, 192, 0.3)', 'rgba(158, 158, 158, 0.2)']
-                  : [colors.deepPurple, 'rgba(62, 44, 91, 0.5)']
+                : ['rgba(100, 181, 246, 0.3)', 'rgba(66, 165, 245, 0.2)']
             }
             style={styles.emojiGradient}
           >

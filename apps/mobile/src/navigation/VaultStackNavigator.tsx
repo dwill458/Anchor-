@@ -10,7 +10,9 @@ import { VaultScreen, AnchorDetailScreen } from '../screens/vault';
 import {
   IntentionInputScreen,
   DistillationAnimationScreen,
-  SigilSelectionScreen,
+  StructureForgeScreen,
+  ManualReinforcementScreen,
+  LockStructureScreen,
   EnhancementChoiceScreen,
   AIAnalysisScreen,
   AIGeneratingScreen,
@@ -70,15 +72,25 @@ export const VaultStackNavigator: React.FC = () => {
         options={{ headerShown: false }}
       />
       <Stack.Screen
-        name="SigilSelection"
-        component={SigilSelectionScreen}
-        options={{ title: 'Select Your Symbol' }}
+        name="StructureForge"
+        component={StructureForgeScreen}
+        options={{ title: 'Choose Structure' }}
+      />
+      <Stack.Screen
+        name="ManualReinforcement"
+        component={ManualReinforcementScreen}
+        options={{ title: 'Reinforce Structure', headerShown: false }}
+      />
+      <Stack.Screen
+        name="LockStructure"
+        component={LockStructureScreen}
+        options={{ title: 'Structure Locked', headerShown: false }}
       />
       {/* Phase 2: AI Enhancement Flow */}
       <Stack.Screen
         name="EnhancementChoice"
         component={EnhancementChoiceScreen}
-        options={{ title: 'Enhance Your Anchor' }}
+        options={{ title: 'Finalize Anchor' }}
       />
       <Stack.Screen
         name="ManualForge"
