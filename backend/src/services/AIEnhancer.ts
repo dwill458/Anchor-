@@ -6,7 +6,8 @@
  */
 
 import Replicate from 'replicate';
-import { AnalysisResult, getAestheticPrompt } from './IntentionAnalyzer';
+// Legacy import - IntentionAnalyzer removed in Phase 3
+// import { AnalysisResult, getAestheticPrompt } from './IntentionAnalyzer';
 import { logger } from '../utils/logger';
 import { rasterizeSVG } from '../utils/svgRasterizer';
 
