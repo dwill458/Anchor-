@@ -8,7 +8,6 @@
  */
 
 import express, { Request, Response } from 'express';
-import { analyzeIntention } from '../../services/IntentionAnalyzer';
 import {
   enhanceSigil,
   estimateGenerationTime,
@@ -30,38 +29,13 @@ const router = express.Router();
 
 /**
  * POST /api/ai/analyze
- * Analyze intention text and select appropriate symbols
+ * @deprecated - Legacy endpoint, no longer used in Phase 3+ flow
+ * This endpoint was part of the old AI analysis flow that has been replaced
+ * by StyleSelectionScreen and ControlNet enhancement.
  */
-router.post('/analyze', async (req: Request, res: Response): Promise<void> => {
-  try {
-    const { intentionText } = req.body;
-
-    if (!intentionText || typeof intentionText !== 'string') {
-      res.status(400).json({ error: 'intentionText is required' });
-      return;
-    }
-
-    if (intentionText.length < 3) {
-      res.status(400).json({ error: 'intentionText must be at least 3 characters' });
-      return;
-    }
-
-    logger.info('[AI] Analyzing intention', { intentionText });
-
-    const analysis = analyzeIntention(intentionText);
-
-    res.json({
-      success: true,
-      analysis,
-    });
-  } catch (error) {
-    logger.error('[AI] Analysis error', error);
-    res.status(500).json({
-      error: 'Failed to analyze intention',
-      message: error instanceof Error ? error.message : 'Unknown error',
-    });
-  }
-});
+// router.post('/analyze', async (req: Request, res: Response): Promise<void> => {
+//   ... (removed - legacy code)
+// });
 
 /**
  * POST /api/ai/enhance
