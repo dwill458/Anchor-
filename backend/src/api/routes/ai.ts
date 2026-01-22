@@ -9,8 +9,6 @@
 
 import express, { Request, Response } from 'express';
 import {
-  enhanceSigil,
-  estimateGenerationTime,
   getCostEstimate,
   enhanceSigilWithControlNet,
   estimateControlNetGenerationTime,
@@ -279,26 +277,17 @@ router.get('/voices', (req: Request, res: Response): void => {
 
 /**
  * GET /api/ai/estimate
- * Get time and cost estimates for AI enhancement
+ * Get time and cost estimates for AI enhancement (ControlNet)
  */
 router.get('/estimate', (req: Request, res: Response): void => {
-  const { method } = req.query;
-
-  let timeEstimate;
-
-  if (method === 'controlnet') {
-    timeEstimate = estimateControlNetGenerationTime();
-  } else {
-    timeEstimate = estimateGenerationTime();
-  }
-
+  const timeEstimate = estimateControlNetGenerationTime();
   const costEstimate = getCostEstimate();
 
   res.json({
     success: true,
     timeEstimate,
     costEstimate,
-    method: method || 'legacy',
+    method: 'controlnet',
   });
 });
 

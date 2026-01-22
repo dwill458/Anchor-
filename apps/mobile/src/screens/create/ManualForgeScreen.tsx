@@ -393,13 +393,16 @@ export default function ManualForgeScreen() {
       ${pathsContent}
       </svg>`;
 
-      // Navigate to PostForgeChoice (preserving existing flow)
-      // This allows the user to decide if they want to enhance their manual drawing with AI or keep it as is.
-      navigation.navigate('PostForgeChoice', {
+      // Navigate to EnhancementChoice - user can choose to keep pure or enhance with AI
+      // The manual drawing becomes the "base structure" for ControlNet if AI enhancement is chosen
+      navigation.navigate('EnhancementChoice', {
         intentionText,
-        distilledLetters,
-        sigilSvg,
         category,
+        distilledLetters,
+        baseSigilSvg: sigilSvg, // Manual drawing is the base structure
+        structureVariant: 'balanced', // Default variant (not used for manual, but required by type)
+        // No reinforcedSigilSvg - manual drawing is already "reinforced"
+        // No reinforcementMetadata - manual forge doesn't track overlap
       });
 
     } catch (error) {
