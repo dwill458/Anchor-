@@ -223,14 +223,14 @@ export function generateAllVariants(letters: any): SigilGenerationResult[] {
 export const VARIANT_METADATA = {
   dense: {
     title: 'Ritual',
-    description: 'Enclosed power structure with binding rings',
+    description: 'Dense geometry with containing circles',
   },
   balanced: {
     title: 'Focused',
-    description: 'The classic path of intent',
+    description: 'Continuous lines, centered structure',
   },
   minimal: {
     title: 'Raw',
-    description: 'Unbound essential energy',
+    description: 'Simplified path, open structure',
   },
 };

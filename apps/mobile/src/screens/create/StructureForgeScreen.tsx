@@ -30,12 +30,14 @@ const CARD_WIDTH = SCREEN_WIDTH - 48;
 /**
  * StructureForgeScreen
  *
- * Step 3 in the new architecture: Choose deterministic structure variant.
+ * Step 3 in the new architecture: Set the foundation for the anchor.
  *
- * Displays three sigil structure variants (Dense, Balanced, Minimal) generated
- * deterministically from the distilled letters. User selects the "bones" of their
- * anchor, which will serve as the source of truth for manual reinforcement and
- * optional AI enhancement.
+ * This is a commitment moment, not a customization screen. First-time users
+ * should feel guided and safe, with a pre-selected recommended structure.
+ * Returning users can explore alternatives, but the default is always valid.
+ *
+ * Design philosophy: This feels like "This is how it becomes real,"
+ * not "Which one do I like?"
  *
  * Next: ManualReinforcementScreen (guided tracing over the chosen structure)
  */
@@ -48,6 +50,10 @@ export default function StructureForgeScreen() {
   const [variants, setVariants] = useState<SigilGenerationResult[]>([]);
   const [selectedVariant, setSelectedVariant] = useState<SigilVariant>('balanced');
   const [loading, setLoading] = useState(true);
+
+  // TODO: In future, detect if this is user's first anchor
+  // For now, assume all users are first-time users
+  const isFirstAnchor = true;
 
   useEffect(() => {
     try {
@@ -79,7 +85,7 @@ export default function StructureForgeScreen() {
       <SafeAreaView style={styles.container}>
         <ZenBackground />
         <View style={styles.loadingContainer}>
-          <Text style={styles.loadingText}>Crafting your sigils...</Text>
+          <Text style={styles.loadingText}>Forming your foundation...</Text>
         </View>
       </SafeAreaView>
     );
@@ -95,9 +101,12 @@ export default function StructureForgeScreen() {
       >
         {/* Header */}
         <View style={styles.header}>
-          <Text style={styles.title}>Choose Your Structure</Text>
+          <Text style={styles.title}>Set the Foundation</Text>
           <Text style={styles.subtitle}>
-            Each structure forms the bones of your anchor—the foundation that will hold your intention
+            Each structure forms the bones of your Anchor—the foundation that holds your intention together.
+          </Text>
+          <Text style={styles.subtitle2}>
+            This determines how your symbol holds its shape.
           </Text>
         </View>
 
@@ -137,6 +146,7 @@ export default function StructureForgeScreen() {
           {variants.map((result) => {
             const metadata = VARIANT_METADATA[result.variant];
             const isSelected = result.variant === selectedVariant;
+            const isRecommended = isFirstAnchor && result.variant === 'balanced';
 
             return (
               <TouchableOpacity
@@ -145,6 +155,13 @@ export default function StructureForgeScreen() {
                 onPress={() => setSelectedVariant(result.variant)}
                 activeOpacity={0.7}
               >
+                {/* Recommended Badge (FTUE only) */}
+                {isRecommended && (
+                  <View style={styles.recommendedBadge}>
+                    <Text style={styles.recommendedText}>Recommended for your first Anchor</Text>
+                  </View>
+                )}
+
                 {/* Sigil Thumbnail */}
                 <View style={styles.sigilContainer}>
                   <SvgXml
@@ -175,10 +192,10 @@ export default function StructureForgeScreen() {
         </View>
       </ScrollView>
 
-      {/* Continue Button */}
+      {/* Foundation Button */}
       <View style={styles.footer}>
         <TouchableOpacity style={styles.continueButton} onPress={handleContinue}>
-          <Text style={styles.continueButtonText}>Continue</Text>
+          <Text style={styles.continueButtonText}>Set Foundation</Text>
         </TouchableOpacity>
       </View>
     </SafeAreaView>
@@ -219,6 +236,14 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   subtitle: {
+    fontFamily: typography.fonts.body,
+    fontSize: typography.sizes.body1,
+    color: colors.text.tertiary,
+    textAlign: 'center',
+    lineHeight: 24,
+    marginBottom: spacing.xs,
+  },
+  subtitle2: {
     fontFamily: typography.fonts.body,
     fontSize: typography.sizes.body1,
     color: colors.text.tertiary,
@@ -289,10 +314,27 @@ const styles = StyleSheet.create({
     marginBottom: spacing.md,
     borderWidth: 2,
     borderColor: 'transparent',
+    position: 'relative',
   },
   variantCardSelected: {
     borderColor: colors.gold,
     backgroundColor: 'rgba(212, 175, 55, 0.06)',
+  },
+  recommendedBadge: {
+    position: 'absolute',
+    top: -8,
+    left: spacing.md,
+    backgroundColor: colors.background.secondary,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 4,
+    borderRadius: 4,
+    zIndex: 1,
+  },
+  recommendedText: {
+    fontFamily: typography.fonts.body,
+    fontSize: 12,
+    color: colors.bone,
+    letterSpacing: 0.5,
   },
   sigilContainer: {
     width: 120,
