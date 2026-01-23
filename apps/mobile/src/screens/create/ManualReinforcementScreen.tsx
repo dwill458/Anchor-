@@ -12,6 +12,7 @@ import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
 import Svg, { Path, G, SvgXml } from 'react-native-svg';
 import { GestureDetector, Gesture } from 'react-native-gesture-handler';
+import { runOnJS } from 'react-native-reanimated';
 import { RootStackParamList, AnchorCategory, SigilVariant } from '@/types';
 import { colors, spacing, typography } from '@/theme';
 import { ZenBackground } from '@/components/common';
@@ -90,35 +91,61 @@ export default function ManualReinforcementScreen() {
     return Math.round(coverage);
   }, []);
 
+  // Use refs to track current stroke without causing re-renders
+  const currentStrokeRef = useRef<Point[]>([]);
+  const updateCounterRef = useRef(0);
+
+  // Handlers that will be called from UI thread
+  const handleGestureStart = (x: number, y: number) => {
+    currentStrokeRef.current = [{ x, y }];
+    updateCounterRef.current = 0;
+    setIsDrawing(true);
+    setCurrentStroke([{ x, y }]);
+  };
+
+  const handleGestureUpdate = (x: number, y: number) => {
+    currentStrokeRef.current.push({ x, y });
+
+    // Only update visual state every 3rd point to reduce re-renders
+    updateCounterRef.current++;
+    if (updateCounterRef.current % 3 === 0) {
+      setCurrentStroke([...currentStrokeRef.current]);
+    }
+  };
+
+  const handleGestureEnd = () => {
+    const points = currentStrokeRef.current;
+
+    if (points.length > 1) {
+      const newStroke: Stroke = {
+        points: [...points],
+        pathData: pointsToPathData(points),
+      };
+
+      const updatedStrokes = [...strokes, newStroke];
+      setStrokes(updatedStrokes);
+      setStrokeCount(updatedStrokes.length);
+
+      // Calculate new fidelity score
+      const newFidelity = calculateFidelity(updatedStrokes);
+      setFidelityScore(newFidelity);
+    }
+
+    currentStrokeRef.current = [];
+    setCurrentStroke([]);
+    setIsDrawing(false);
+  };
+
   // Handle drawing gestures
   const panGesture = Gesture.Pan()
     .onStart((event) => {
-      setIsDrawing(true);
-      setCurrentStroke([{ x: event.x, y: event.y }]);
+      runOnJS(handleGestureStart)(event.x, event.y);
     })
     .onUpdate((event) => {
-      if (isDrawing) {
-        setCurrentStroke((prev) => [...prev, { x: event.x, y: event.y }]);
-      }
+      runOnJS(handleGestureUpdate)(event.x, event.y);
     })
     .onEnd(() => {
-      if (currentStroke.length > 1) {
-        const newStroke: Stroke = {
-          points: currentStroke,
-          pathData: pointsToPathData(currentStroke),
-        };
-
-        const updatedStrokes = [...strokes, newStroke];
-        setStrokes(updatedStrokes);
-        setStrokeCount(updatedStrokes.length);
-
-        // Calculate new fidelity score
-        const newFidelity = calculateFidelity(updatedStrokes);
-        setFidelityScore(newFidelity);
-      }
-
-      setCurrentStroke([]);
-      setIsDrawing(false);
+      runOnJS(handleGestureEnd)();
     });
 
   // Convert user strokes to SVG string
