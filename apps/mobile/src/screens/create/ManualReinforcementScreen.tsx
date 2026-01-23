@@ -27,7 +27,6 @@ const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 const CANVAS_SIZE = Math.min(SCREEN_WIDTH - 48, SCREEN_HEIGHT * 0.5);
 const STROKE_WIDTH = 3;
 const GLOW_DISTANCE = 20; // Distance in pixels to trigger glow effect
-const MIN_FIDELITY_THRESHOLD = 75; // 75% overlap for "good" reinforcement
 
 interface Point {
   x: number;
@@ -184,40 +183,23 @@ export default function ManualReinforcementScreen() {
   };
 
   const handleSkip = () => {
-    // Show encouragement before allowing skip
-    Alert.alert(
-      'Skip Reinforcement?',
-      'Tracing your anchor helps you connect with your intention. Are you sure you want to skip this step?',
-      [
-        {
-          text: 'Keep Tracing',
-          style: 'cancel',
-        },
-        {
-          text: 'Skip Anyway',
-          style: 'destructive',
-          onPress: () => {
-            const timeSpentMs = Date.now() - startTime.current;
+    const timeSpentMs = Date.now() - startTime.current;
 
-            navigation.navigate('LockStructure', {
-              intentionText,
-              category,
-              distilledLetters,
-              baseSigilSvg,
-              reinforcedSigilSvg: undefined,
-              structureVariant,
-              reinforcementMetadata: {
-                completed: false,
-                skipped: true,
-                strokeCount: 0,
-                fidelityScore: 0,
-                timeSpentMs,
-              },
-            });
-          },
-        },
-      ]
-    );
+    navigation.navigate('LockStructure', {
+      intentionText,
+      category,
+      distilledLetters,
+      baseSigilSvg,
+      reinforcedSigilSvg: undefined,
+      structureVariant,
+      reinforcementMetadata: {
+        completed: false,
+        skipped: true,
+        strokeCount: 0,
+        fidelityScore: 0,
+        timeSpentMs,
+      },
+    });
   };
 
   const handleClearLast = () => {
@@ -233,7 +215,7 @@ export default function ManualReinforcementScreen() {
     Alert.alert('Clear All Strokes?', 'This will remove all your tracing progress.', [
       { text: 'Cancel', style: 'cancel' },
       {
-        text: 'Clear All',
+        text: 'Start Over',
         style: 'destructive',
         onPress: () => {
           setStrokes([]);
@@ -244,39 +226,16 @@ export default function ManualReinforcementScreen() {
     ]);
   };
 
-  const getFidelityColor = () => {
-    if (fidelityScore >= MIN_FIDELITY_THRESHOLD) return colors.success;
-    if (fidelityScore >= 50) return colors.gold;
-    return colors.text.tertiary;
-  };
-
-  const getFidelityMessage = () => {
-    if (fidelityScore >= MIN_FIDELITY_THRESHOLD) return 'Excellent reinforcement!';
-    if (fidelityScore >= 50) return 'Good progress, keep going...';
-    return 'Trace over the faint lines to reinforce your anchor';
-  };
-
   return (
     <SafeAreaView style={styles.container}>
       <ZenBackground />
 
       {/* Header */}
       <View style={styles.header}>
-        <Text style={styles.title}>Reinforce Your Structure</Text>
+        <Text style={styles.title}>Trace Your Structure</Text>
         <Text style={styles.subtitle}>
-          Trace over the faint lines to channel your intention into the structure
+          Move slowly over the lines. Let your hand remember.
         </Text>
-      </View>
-
-      {/* Fidelity Score Display */}
-      <View style={styles.scoreContainer}>
-        <View style={styles.scoreRow}>
-          <Text style={styles.scoreLabel}>Fidelity:</Text>
-          <Text style={[styles.scoreValue, { color: getFidelityColor() }]}>
-            {fidelityScore}%
-          </Text>
-        </View>
-        <Text style={styles.scoreMessage}>{getFidelityMessage()}</Text>
       </View>
 
       {/* Drawing Canvas */}
@@ -285,7 +244,7 @@ export default function ManualReinforcementScreen() {
           <View style={styles.canvas}>
             <Svg width={CANVAS_SIZE} height={CANVAS_SIZE} style={styles.svg}>
               {/* Base structure (faint underlay) */}
-              <G opacity={0.2}>
+              <G opacity={0.3}>
                 <SvgXml xml={baseSigilSvg} width="100%" height="100%" color="#D4AF37" />
               </G>
 
@@ -294,8 +253,8 @@ export default function ManualReinforcementScreen() {
                 <Path
                   key={index}
                   d={stroke.pathData}
-                  stroke={colors.gold}
-                  strokeWidth={STROKE_WIDTH}
+                  stroke="rgba(212, 175, 55, 0.85)"
+                  strokeWidth={STROKE_WIDTH + 1}
                   fill="none"
                   strokeLinecap="round"
                   strokeLinejoin="round"
@@ -306,8 +265,8 @@ export default function ManualReinforcementScreen() {
               {currentStroke.length > 0 && (
                 <Path
                   d={pointsToPathData(currentStroke)}
-                  stroke={colors.gold}
-                  strokeWidth={STROKE_WIDTH}
+                  stroke="rgba(212, 175, 55, 0.85)"
+                  strokeWidth={STROKE_WIDTH + 1}
                   fill="none"
                   strokeLinecap="round"
                   strokeLinejoin="round"
@@ -341,27 +300,20 @@ export default function ManualReinforcementScreen() {
             onPress={handleClearAll}
             disabled={strokes.length === 0}
           >
-            <Text style={styles.controlButtonText}>Clear All</Text>
+            <Text style={styles.controlButtonText}>Start Over</Text>
           </TouchableOpacity>
         </View>
 
         <TouchableOpacity
-          style={[
-            styles.completeButton,
-            fidelityScore >= MIN_FIDELITY_THRESHOLD && styles.completeButtonReady,
-          ]}
+          style={styles.completeButton}
           onPress={handleComplete}
           disabled={strokeCount === 0}
         >
-          <Text style={styles.completeButtonText}>
-            {fidelityScore >= MIN_FIDELITY_THRESHOLD
-              ? 'Lock Structure ✓'
-              : 'Lock Structure'}
-          </Text>
+          <Text style={styles.completeButtonText}>Lock Structure</Text>
         </TouchableOpacity>
 
         <TouchableOpacity style={styles.skipButton} onPress={handleSkip}>
-          <Text style={styles.skipButtonText}>Skip Reinforcement</Text>
+          <Text style={styles.skipButtonText}>Continue without tracing</Text>
         </TouchableOpacity>
       </View>
     </SafeAreaView>
@@ -391,33 +343,6 @@ const styles = StyleSheet.create({
     color: colors.text.tertiary,
     textAlign: 'center',
     lineHeight: 20,
-  },
-  scoreContainer: {
-    paddingHorizontal: spacing.lg,
-    marginBottom: spacing.md,
-    alignItems: 'center',
-  },
-  scoreRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 4,
-  },
-  scoreLabel: {
-    fontFamily: typography.fonts.body,
-    fontSize: typography.sizes.body1,
-    color: colors.text.secondary,
-    marginRight: spacing.xs,
-  },
-  scoreValue: {
-    fontFamily: typography.fonts.heading,
-    fontSize: typography.sizes.h2,
-    fontWeight: 'bold',
-  },
-  scoreMessage: {
-    fontFamily: typography.fonts.body,
-    fontSize: typography.sizes.body2,
-    color: colors.text.tertiary,
-    textAlign: 'center',
   },
   canvasContainer: {
     alignItems: 'center',
@@ -485,11 +410,8 @@ const styles = StyleSheet.create({
     borderRadius: spacing.sm,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: colors.navy,
-    marginBottom: spacing.sm,
-  },
-  completeButtonReady: {
     backgroundColor: colors.gold,
+    marginBottom: spacing.sm,
   },
   completeButtonText: {
     fontFamily: typography.fonts.body,
@@ -501,11 +423,14 @@ const styles = StyleSheet.create({
     height: 44,
     justifyContent: 'center',
     alignItems: 'center',
+    backgroundColor: 'transparent',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.2)',
+    borderRadius: spacing.sm,
   },
   skipButtonText: {
     fontFamily: typography.fonts.body,
     fontSize: typography.sizes.body2,
-    color: colors.text.tertiary,
-    textDecoration: 'underline',
+    color: colors.text.secondary,
   },
 });

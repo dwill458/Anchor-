@@ -227,7 +227,7 @@ export const VARIANT_METADATA = {
   },
   balanced: {
     title: 'Focused',
-    description: 'Continuous lines, centered structure',
+    description: 'Clear paths, steady center',
   },
   minimal: {
     title: 'Raw',
