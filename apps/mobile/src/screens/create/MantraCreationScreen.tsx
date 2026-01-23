@@ -51,20 +51,20 @@ interface MantraStyleInfo {
 const MANTRA_STYLES: MantraStyleInfo[] = [
   {
     id: 'rhythmic',
-    title: 'Rhythmic "V-C-V"',
-    description: 'Focuses on flow. Follows a Vowel-Consonant-Vowel pattern ensuring words loop without "tripping" your tongue.',
+    title: 'Rhythmic',
+    description: 'Smooth and cyclical. Flows without catching.',
     icon: '🌊',
   },
   {
     id: 'syllabic',
     title: 'Resonant',
-    description: 'Heavy and grounded. Uses deep vowels like U, O, and A to create a vibrating sound in the chest.',
+    description: 'Deep and grounding. Vibrates in your chest.',
     icon: '🌋',
   },
   {
     id: 'phonetic',
     title: 'Flowing',
-    description: 'Speed and clarity. Uses high vowels like I and E to resonate in the throat and head.',
+    description: 'Light and crisp. Resonates in throat and head.',
     icon: '🌬️',
   },
 ];
@@ -208,8 +208,7 @@ export const MantraCreationScreen: React.FC = () => {
       </View>
       <Text style={styles.lockedTitle}>Unlock Your Vocal Anchor</Text>
       <Text style={styles.lockedText}>
-        Focus Phrases are powerful sonic anchors that amplify your intention during rituals.
-        Generate custom phrases based on your specific anchor.
+        Create sound patterns that amplify your intention during rituals. Pro members unlock custom vocal anchors.
       </Text>
 
       <TouchableOpacity
@@ -221,7 +220,7 @@ export const MantraCreationScreen: React.FC = () => {
           colors={[colors.gold, '#B8860B']}
           style={styles.gradientButton}
         >
-          <Text style={styles.unlockButtonText}>Generate Phrases (Pro)</Text>
+          <Text style={styles.unlockButtonText}>Unlock Vocal Anchors</Text>
         </LinearGradient>
       </TouchableOpacity>
 
@@ -240,10 +239,10 @@ export const MantraCreationScreen: React.FC = () => {
         >
           <View style={styles.heroHeader}>
             <Info size={20} color={colors.gold} />
-            <Text style={styles.heroTitle}>Vocal Mastery</Text>
+            <Text style={styles.heroTitle}>Sound Signature</Text>
           </View>
           <Text style={styles.heroText}>
-            Vibrational anchors bridge the conscious and subconscious. Select a resonance pattern that aligns with your intent.
+            Each pattern shapes how your body holds the sound.
           </Text>
 
           <View style={styles.tabContainer}>
@@ -252,9 +251,11 @@ export const MantraCreationScreen: React.FC = () => {
             </View>
             <View style={styles.tab}>
               <Text style={styles.tabText}>Visual</Text>
+              <Text style={styles.tabSoon}>Soon</Text>
             </View>
             <View style={styles.tab}>
               <Text style={styles.tabText}>Somatic</Text>
+              <Text style={styles.tabSoon}>Soon</Text>
             </View>
           </View>
         </LinearGradient>
@@ -319,9 +320,9 @@ export const MantraCreationScreen: React.FC = () => {
     <SafeAreaView style={styles.container}>
       <ScrollView contentContainerStyle={styles.scrollContent}>
         <View style={styles.header}>
-          <Text style={styles.title}>Visual & Vocal Alignment</Text>
+          <Text style={styles.title}>Your Vocal Anchor</Text>
           <Text style={styles.subtitle}>
-            Create a unique sound resonance for your intention.
+            Choose the sound that holds your intention.
           </Text>
         </View>
 
@@ -329,7 +330,7 @@ export const MantraCreationScreen: React.FC = () => {
           loading ? (
             <View style={styles.loadingContainer}>
               <ActivityIndicator size="large" color={colors.gold} />
-              <Text style={styles.loadingText}>Synthesizing resonance...</Text>
+              <Text style={styles.loadingText}>Generating your patterns...</Text>
             </View>
           ) : (
             <>
@@ -504,6 +505,13 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: colors.charcoal,
     fontFamily: typography.fonts.bodyBold,
+  },
+  tabSoon: {
+    fontSize: 9,
+    color: colors.text.tertiary,
+    fontFamily: typography.fonts.body,
+    marginLeft: 4,
+    opacity: 0.6,
   },
   sourceContainer: {
     flexDirection: 'row',
