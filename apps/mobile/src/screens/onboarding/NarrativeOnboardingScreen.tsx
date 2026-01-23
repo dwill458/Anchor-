@@ -15,6 +15,7 @@ import {
     Animated,
     StatusBar,
     StatusBarProps,
+    Easing,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as Haptics from 'expo-haptics';
@@ -65,11 +66,13 @@ export const NarrativeOnboardingScreen: React.FC<Props> = ({ navigation }) => {
             Animated.timing(contentOpacity, {
                 toValue: 1,
                 duration: duration,
+                easing: Easing.out(Easing.cubic),
                 useNativeDriver: true,
             }),
             Animated.timing(contentTranslateY, {
                 toValue: 0,
                 duration: duration,
+                easing: Easing.out(Easing.cubic),
                 useNativeDriver: true,
             }),
         ]);
@@ -105,11 +108,13 @@ export const NarrativeOnboardingScreen: React.FC<Props> = ({ navigation }) => {
                 Animated.timing(contentOpacity, {
                     toValue: 0,
                     duration: 300,
+                    easing: Easing.in(Easing.cubic),
                     useNativeDriver: true,
                 }),
                 Animated.timing(contentTranslateY, {
                     toValue: -10,
                     duration: 300,
+                    easing: Easing.in(Easing.cubic),
                     useNativeDriver: true,
                 }),
             ]).start(() => {
@@ -122,11 +127,11 @@ export const NarrativeOnboardingScreen: React.FC<Props> = ({ navigation }) => {
         <View style={styles.container}>
             <StatusBar barStyle="light-content" />
 
-            {/* Background - Subtle shift based on step */}
+            {/* Background - Static atmospheric gradient */}
             <LinearGradient
                 colors={[
                     colors.background.primary,
-                    stepIndex % 2 === 0 ? '#151920' : '#0A0C0F',
+                    '#1A1625',
                     colors.background.primary
                 ]}
                 style={StyleSheet.absoluteFill}
@@ -182,15 +187,16 @@ export const NarrativeOnboardingScreen: React.FC<Props> = ({ navigation }) => {
                             let borderRadius = 2;
 
                             if (isActive) {
-                                // Active logic
-                                width = 24;
-                                opacity = 1;
+                                // Active logic - subtle elongation
+                                width = 16;
+                                opacity = 0.7;
 
                                 if (isLastDot) {
-                                    // Final step active: Gold, heavy
+                                    // Final step active: Gold, subtle
                                     dotColor = colors.gold;
+                                    opacity = 0.8;
                                 } else {
-                                    // Normal step active: Neutral gold/white mix or just gold
+                                    // Normal step active: Muted gold
                                     dotColor = colors.gold;
                                 }
                             } else {
@@ -198,16 +204,16 @@ export const NarrativeOnboardingScreen: React.FC<Props> = ({ navigation }) => {
                                 if (isFinalStepActive) {
                                     // If we are on the final step, previous dots fade to neutral
                                     dotColor = colors.text.tertiary;
-                                    opacity = 0.2; // Fade them out more
+                                    opacity = 0.15; // Very faded
                                 }
 
                                 if (isLastDot) {
                                     // The "Goal" dot when not active yet
-                                    dotColor = colors.text.secondary;
-                                    width = 6;
-                                    height = 6;
-                                    borderRadius = 3;
-                                    opacity = 0.6;
+                                    dotColor = colors.text.tertiary;
+                                    width = 4;
+                                    height = 4;
+                                    borderRadius = 2;
+                                    opacity = 0.4;
                                 }
                             }
 
@@ -281,33 +287,34 @@ const styles = StyleSheet.create({
         flex: 1,
         justifyContent: 'center',
         paddingHorizontal: spacing.xl,
-        paddingTop: height * 0.1, // Push down slightly from center
+        paddingTop: height * 0.15, // Push down for breathing room
     },
     textBlock: {
         alignItems: 'flex-start',
     },
     headline: {
         ...typography.heading,
-        fontSize: 32,
-        lineHeight: 42,
+        fontSize: 34,
+        lineHeight: 44,
         color: colors.gold,
         marginBottom: spacing.lg,
-        letterSpacing: 0.5,
+        letterSpacing: 0.3,
     },
     body: {
         ...typography.body,
-        fontSize: 18,
-        lineHeight: 30,
+        fontSize: 17,
+        lineHeight: 28,
         color: colors.text.secondary,
         maxWidth: width * 0.85,
     },
     micro: {
         ...typography.body,
-        fontSize: 14,
+        fontSize: 13,
         color: colors.text.tertiary,
         marginTop: spacing.lg,
-        fontFamily: typography.fonts.bodyBold,
-        letterSpacing: 1,
+        fontFamily: typography.fonts.body,
+        letterSpacing: 0.3,
+        opacity: 0.7,
     },
     footer: {
         paddingHorizontal: spacing.lg,
@@ -330,19 +337,20 @@ const styles = StyleSheet.create({
     },
     buttonCommit: {
         backgroundColor: colors.gold,
-        alignItems: 'center',
-        borderRadius: 12,
-        paddingVertical: spacing.md + 4,
+        alignItems: 'flex-start',
+        borderRadius: 8,
+        paddingVertical: spacing.md + 2,
+        paddingHorizontal: spacing.lg,
     },
     buttonText: {
         ...typography.heading,
-        fontSize: 18,
+        fontSize: 17,
         color: colors.text.primary,
-        letterSpacing: 1,
+        letterSpacing: 0.5,
     },
     buttonTextCommit: {
         color: colors.navy,
-        fontWeight: '700',
+        fontWeight: '600',
     },
     secondaryButton: {
         marginTop: spacing.md,
