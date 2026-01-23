@@ -232,7 +232,7 @@ export default function StyleSelectionScreen() {
         </TouchableOpacity>
 
         {/* Bottom Padding */}
-        <View style={{ height: spacing.xl }} />
+        <View style={{ height: spacing.sm }} />
       </ScrollView>
     </SafeAreaView>
   );
@@ -251,28 +251,28 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     paddingHorizontal: spacing.lg,
-    paddingTop: spacing.xl,
+    paddingTop: spacing.sm,
   },
   header: {
-    marginBottom: spacing.lg,
+    marginBottom: spacing.sm,
     alignItems: 'center',
   },
   title: {
     fontFamily: typography.heading.fontFamily,
-    fontSize: 28,
+    fontSize: 24,
     fontWeight: '500',
     color: '#E8E8E8',
-    marginBottom: spacing.sm,
+    marginBottom: spacing.xs,
     textAlign: 'center',
   },
   subtitle: {
     fontFamily: typography.body.fontFamily,
-    fontSize: 15,
+    fontSize: 14,
     color: colors.text.secondary,
     textAlign: 'center',
-    lineHeight: 22,
+    lineHeight: 20,
     paddingHorizontal: spacing.md,
-    marginBottom: spacing.xs,
+    marginBottom: 4,
   },
   subtitleSecondary: {
     fontFamily: typography.body.fontFamily,
@@ -285,8 +285,8 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     backgroundColor: colors.background.secondary,
     borderRadius: 12,
-    padding: spacing.md,
-    marginBottom: spacing.lg,
+    padding: spacing.sm,
+    marginBottom: spacing.md,
     borderWidth: 1,
     borderColor: colors.gold + '20',
   },
@@ -306,11 +306,11 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     flexWrap: 'wrap',
     justifyContent: 'space-between',
-    marginBottom: spacing.lg,
+    marginBottom: spacing.sm,
   },
   card: {
     width: CARD_WIDTH,
-    marginBottom: spacing.md,
+    marginBottom: spacing.sm,
     borderRadius: 16,
     backgroundColor: colors.background.secondary,
     overflow: 'hidden',
@@ -326,10 +326,10 @@ const styles = StyleSheet.create({
     elevation: 8,
   },
   cardGradient: {
-    height: 120,
+    height: 100,
     justifyContent: 'center',
     alignItems: 'center',
-    paddingVertical: spacing.md,
+    paddingVertical: spacing.sm,
   },
   emoji: {
     fontSize: 32,
@@ -357,8 +357,8 @@ const styles = StyleSheet.create({
     letterSpacing: 0.5,
   },
   cardContent: {
-    padding: spacing.md,
-    minHeight: 70,
+    padding: spacing.sm,
+    minHeight: 60,
   },
   description: {
     fontFamily: typography.body.fontFamily,
@@ -397,7 +397,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.lg,
     borderRadius: 12,
     alignItems: 'center',
-    marginTop: spacing.md,
+    marginTop: spacing.sm,
   },
   continueButtonDisabled: {
     backgroundColor: colors.text.disabled,
