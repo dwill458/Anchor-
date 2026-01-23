@@ -24,9 +24,9 @@ export const ONBOARDING_FLOW = [
     },
     {
         id: 'method',
-        headline: 'We remove the noise so only the essence remains.',
-        body: 'Anchor distills it, reshapes it, and turns it into a unique visual form you can return to without overthinking it.',
-        micro: 'Simple input. Powerful output.',
+        headline: 'Your words become visual form.',
+        body: 'Describe your intention in a few words. Anchor creates a symbol from it. That's the process.',
+        micro: 'You provide the meaning. We provide the form.',
         cta: 'Continue',
         theme: 'process',
     },
