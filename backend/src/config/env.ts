@@ -1,10 +1,8 @@
-/**
- * Anchor App - Environment Variable Validation
- *
- * Validates required environment variables at startup to fail fast.
- */
-
+import dotenv from 'dotenv';
 import { logger } from '../utils/logger';
+
+// Load environment variables
+dotenv.config();
 
 export interface EnvConfig {
   // Server

@@ -9,6 +9,7 @@ import { View, StyleSheet, Platform } from 'react-native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Home, Compass, ShoppingBag, User } from 'lucide-react-native';
+import { getFocusedRouteNameFromRoute } from '@react-navigation/native';
 import { VaultStackNavigator } from './VaultStackNavigator';
 import { DiscoverScreen } from '../screens/discover';
 import { ShopScreen } from '../screens/shop';
@@ -68,9 +69,16 @@ export const MainTabNavigator: React.FC = () => {
       <Tab.Screen
         name="Vault"
         component={VaultStackNavigator}
-        options={{
-          tabBarLabel: 'Sanctuary',
-          tabBarIcon: ({ color, size }) => <Home color={color} size={24} />,
+        options={({ route }) => {
+          const routeName = getFocusedRouteNameFromRoute(route) ?? 'Vault';
+          // Hide tab bar for any screen other than the main 'Vault' list
+          const isTabBarVisible = routeName === 'Vault';
+
+          return {
+            tabBarLabel: 'Sanctuary',
+            tabBarIcon: ({ color, size }) => <Home color={color} size={24} />,
+            tabBarStyle: isTabBarVisible ? undefined : { display: 'none' },
+          };
         }}
       />
       <Tab.Screen

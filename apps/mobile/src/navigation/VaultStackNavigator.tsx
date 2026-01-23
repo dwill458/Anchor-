@@ -63,7 +63,7 @@ export const VaultStackNavigator: React.FC = () => {
       <Stack.Screen
         name="CreateAnchor"
         component={IntentionInputScreen}
-        options={{ title: 'Create Anchor' }}
+        options={{ headerShown: false }}
       />
       <Stack.Screen
         name="DistillationAnimation"
