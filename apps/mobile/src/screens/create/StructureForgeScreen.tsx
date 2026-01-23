@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   View,
   Text,
@@ -6,6 +6,8 @@ import {
   ScrollView,
   TouchableOpacity,
   Dimensions,
+  Animated,
+  Easing,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
@@ -50,6 +52,11 @@ export default function StructureForgeScreen() {
   const [variants, setVariants] = useState<SigilGenerationResult[]>([]);
   const [selectedVariant, setSelectedVariant] = useState<SigilVariant>('balanced');
   const [loading, setLoading] = useState(true);
+  const [isTransitioning, setIsTransitioning] = useState(false);
+
+  // Animation values for fade transitions
+  const previewFadeAnim = useRef(new Animated.Value(1)).current;
+  const labelFadeAnim = useRef(new Animated.Value(1)).current;
 
   // TODO: In future, detect if this is user's first anchor
   // For now, assume all users are first-time users
@@ -66,6 +73,53 @@ export default function StructureForgeScreen() {
       setLoading(false);
     }
   }, [distilledLetters]);
+
+  // Handle variant selection with deliberate fade transition
+  const handleVariantSelect = (variant: SigilVariant) => {
+    // Prevent rapid switching during transition
+    if (isTransitioning || variant === selectedVariant) return;
+
+    setIsTransitioning(true);
+
+    // Fade out current preview and label
+    Animated.parallel([
+      Animated.timing(previewFadeAnim, {
+        toValue: 0,
+        duration: 400,
+        easing: Easing.out(Easing.cubic),
+        useNativeDriver: true,
+      }),
+      Animated.timing(labelFadeAnim, {
+        toValue: 0,
+        duration: 300,
+        easing: Easing.out(Easing.cubic),
+        useNativeDriver: true,
+      }),
+    ]).start(() => {
+      // Change variant after fade out
+      setSelectedVariant(variant);
+
+      // Fade in new preview and label
+      Animated.parallel([
+        Animated.timing(previewFadeAnim, {
+          toValue: 1,
+          duration: 600,
+          easing: Easing.in(Easing.cubic),
+          useNativeDriver: true,
+        }),
+        Animated.timing(labelFadeAnim, {
+          toValue: 1,
+          duration: 500,
+          delay: 100,
+          easing: Easing.in(Easing.cubic),
+          useNativeDriver: true,
+        }),
+      ]).start(() => {
+        // Allow next transition after 1000ms total (400 + 600)
+        setIsTransitioning(false);
+      });
+    });
+  };
 
   const handleContinue = () => {
     const selected = variants.find(v => v.variant === selectedVariant);
@@ -112,7 +166,12 @@ export default function StructureForgeScreen() {
 
         {/* Large Preview of Selected Variant */}
         <View style={styles.previewSection}>
-          <View style={styles.previewContainer}>
+          <Animated.View
+            style={[
+              styles.previewContainer,
+              { opacity: previewFadeAnim }
+            ]}
+          >
             {variants.find(v => v.variant === selectedVariant) && (
               <SvgXml
                 xml={variants.find(v => v.variant === selectedVariant)!.svg}
@@ -121,10 +180,15 @@ export default function StructureForgeScreen() {
                 color="#D4AF37" // Gold
               />
             )}
-          </View>
-          <Text style={styles.previewLabel}>
+          </Animated.View>
+          <Animated.Text
+            style={[
+              styles.previewLabel,
+              { opacity: labelFadeAnim }
+            ]}
+          >
             {VARIANT_METADATA[selectedVariant].title}
-          </Text>
+          </Animated.Text>
         </View>
 
         {/* Variant Selection Cards */}
@@ -144,8 +208,9 @@ export default function StructureForgeScreen() {
                   isSelected && styles.variantCardSelected,
                   !isSelected && styles.variantCardDimmed,
                 ]}
-                onPress={() => setSelectedVariant(result.variant)}
+                onPress={() => handleVariantSelect(result.variant)}
                 activeOpacity={0.7}
+                disabled={isTransitioning}
               >
                 {/* Recommended Badge (FTUE only) */}
                 {isRecommended && (
