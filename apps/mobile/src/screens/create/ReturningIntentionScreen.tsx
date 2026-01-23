@@ -35,14 +35,14 @@ export default function ReturningIntentionScreen() {
     const fadeAnim = useRef(new Animated.Value(0)).current;
 
     const PLACEHOLDER_POOL = [
-        "Stay focused during training",
-        "Respond calmly under pressure",
-        "Be present with my family",
-        "Trust my decisions",
-        "Listen before reacting"
+        "Lead with clarity today",
+        "Stay grounded during conflict",
+        "Release perfectionism",
+        "Move forward with confidence",
+        "Honor my boundaries"
     ];
 
-    // Entrance animation with locked system easing + Random Placeholder
+    // Faster entrance animation for returning users + Random Placeholder
     useEffect(() => {
         // Pick random placeholder
         const randomIndex = Math.floor(Math.random() * PLACEHOLDER_POOL.length);
@@ -50,7 +50,7 @@ export default function ReturningIntentionScreen() {
 
         Animated.timing(fadeAnim, {
             toValue: 1,
-            duration: 800,
+            duration: 600,
             easing: Easing.out(Easing.cubic),
             useNativeDriver: true,
         }).start();
@@ -74,12 +74,12 @@ export default function ReturningIntentionScreen() {
     const minChars = 3;
     const isValid = charCount >= minChars && charCount <= maxChars;
 
-    // 300ms delay before enabling CTA (as per requirements)
+    // 200ms delay before enabling CTA (faster for returning users)
     useEffect(() => {
         if (isValid) {
             const timer = setTimeout(() => {
                 setCanSubmit(true);
-            }, 300);
+            }, 200);
             return () => clearTimeout(timer);
         } else {
             setCanSubmit(false);
@@ -133,9 +133,9 @@ export default function ReturningIntentionScreen() {
                                 { opacity: fadeAnim },
                             ]}
                         >
-                            <Text style={styles.title}>What are you anchoring right now?</Text>
+                            <Text style={styles.title}>Create Another Anchor</Text>
                             <Text style={styles.subtitle}>
-                                Write a short, clear intention.{'\n'}One sentence is enough.
+                                What intention needs your focus right now?
                             </Text>
                         </Animated.View>
 
@@ -172,7 +172,7 @@ export default function ReturningIntentionScreen() {
 
                             {/* Reassurance Micro-copy */}
                             <Text style={styles.microCopy}>
-                                You can refine or release this later.
+                                As always, you can refine or release later.
                             </Text>
                         </Animated.View>
 
@@ -198,7 +198,7 @@ export default function ReturningIntentionScreen() {
                                 styles.continueText,
                                 !canSubmit && styles.continueTextDisabled
                             ]}>
-                                Continue
+                                Begin
                             </Text>
                         </TouchableOpacity>
                     </Animated.View>
