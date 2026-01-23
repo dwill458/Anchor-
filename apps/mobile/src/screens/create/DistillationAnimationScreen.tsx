@@ -99,13 +99,13 @@ export default function DistillationAnimationScreen() {
         Animated.timing(breathAnim, {
           toValue: 1.015,
           duration: 1000,
-          easing: Easing.inOut(Easing.sine),
+          easing: Easing.inOut(Easing.sin),
           useNativeDriver: true,
         }),
         Animated.timing(breathAnim, {
           toValue: 1,
           duration: 1000,
-          easing: Easing.inOut(Easing.sine),
+          easing: Easing.inOut(Easing.sin),
           useNativeDriver: true,
         }),
       ])
@@ -171,7 +171,7 @@ export default function DistillationAnimationScreen() {
           Animated.timing(duplicate.translateX, {
             toValue: driftX,
             duration: 1200,
-            easing: Easing.inOut(Easing.sine),
+            easing: Easing.inOut(Easing.sin),
             useNativeDriver: true,
           }),
           Animated.timing(duplicate.opacity, {
@@ -255,13 +255,13 @@ export default function DistillationAnimationScreen() {
           Animated.timing(glowAnim, {
             toValue: 1,
             duration: 1500,
-            easing: Easing.inOut(Easing.sine),
+            easing: Easing.inOut(Easing.sin),
             useNativeDriver: false,
           }),
           Animated.timing(glowAnim, {
             toValue: 0,
             duration: 1500,
-            easing: Easing.inOut(Easing.sine),
+            easing: Easing.inOut(Easing.sin),
             useNativeDriver: false,
           }),
         ])
