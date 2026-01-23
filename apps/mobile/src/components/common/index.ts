@@ -6,3 +6,4 @@
 
 export { ScreenHeader } from './ScreenHeader';
 export { ZenBackground } from './ZenBackground';
+export { LogoBreath } from './LogoBreath';
