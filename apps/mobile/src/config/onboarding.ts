@@ -33,8 +33,8 @@ export const ONBOARDING_FLOW = [
     {
         id: 'application',
         headline: 'One symbol. Used daily.',
-        body: 'Your Anchor becomes a visual focus point you can activate in seconds. A reminder of what matters, when it matters.',
-        micro: 'Most people return once per day. It takes less than a minute.',
+        body: 'You'll see your symbol. Hold the intention it carries. Return to your day.',
+        micro: 'Most people return once a day. Whenever feels right.',
         cta: 'Continue',
         theme: 'ritual',
     },
