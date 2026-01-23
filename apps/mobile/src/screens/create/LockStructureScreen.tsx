@@ -79,7 +79,12 @@ export default function LockStructureScreen() {
         duration: 300,
         delay: 100,
         useNativeDriver: true,
-      }).start();
+      }).start(() => {
+        // Auto-advance after brief pause (total ~2.5 seconds)
+        setTimeout(() => {
+          handleContinue();
+        }, 1500);
+      });
     });
   }, []);
 

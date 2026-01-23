@@ -156,12 +156,9 @@ export default function StructureForgeScreen() {
       >
         {/* Header */}
         <View style={styles.header}>
-          <Text style={styles.title}>Set the Foundation</Text>
+          <Text style={styles.title}>Choose Structure</Text>
           <Text style={styles.subtitle}>
-            Each structure forms the bones of your Anchor—the foundation that holds your intention together.
-          </Text>
-          <Text style={styles.subtitle2}>
-            This determines how your symbol holds its shape.
+            This is the frame that will hold your intention.
           </Text>
         </View>
 
