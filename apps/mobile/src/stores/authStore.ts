@@ -27,6 +27,7 @@ interface AuthState {
   hasCompletedOnboarding: boolean;
   onboardingSegment: OnboardingSegment | null;
   shouldRedirectToCreation: boolean;
+  anchorCount: number;
 
   // Actions
   setUser: (user: User | null) => void;
@@ -37,6 +38,7 @@ interface AuthState {
   setHasCompletedOnboarding: (completed: boolean) => void;
   setOnboardingSegment: (segment: OnboardingSegment) => void;
   setShouldRedirectToCreation: (should: boolean) => void;
+  incrementAnchorCount: () => void;
   signOut: () => void;
 }
 
@@ -54,6 +56,7 @@ export const useAuthStore = create<AuthState>()(
       hasCompletedOnboarding: false,
       onboardingSegment: null,
       shouldRedirectToCreation: false,
+      anchorCount: 0,
 
       // Actions
       setUser: (user) =>
@@ -97,11 +100,17 @@ export const useAuthStore = create<AuthState>()(
           shouldRedirectToCreation,
         }),
 
+      incrementAnchorCount: () =>
+        set((state) => ({
+          anchorCount: state.anchorCount + 1,
+        })),
+
       signOut: () =>
         set({
           user: null,
           token: null,
           isAuthenticated: false,
+          anchorCount: 0,
         }),
     }),
     {
@@ -115,6 +124,7 @@ export const useAuthStore = create<AuthState>()(
         hasCompletedOnboarding: state.hasCompletedOnboarding,
         onboardingSegment: state.onboardingSegment,
         shouldRedirectToCreation: state.shouldRedirectToCreation,
+        anchorCount: state.anchorCount,
       }),
     }
   )

@@ -22,6 +22,7 @@ import {
 } from '@/utils/sigil/traditional-generator';
 import { colors, spacing, typography } from '@/theme';
 import { ZenBackground } from '@/components/common';
+import { useAuthStore } from '@/stores/authStore';
 
 type StructureForgeRouteProp = RouteProp<RootStackParamList, 'StructureForge'>;
 type StructureForgeNavigationProp = StackNavigationProp<RootStackParamList, 'StructureForge'>;
@@ -58,9 +59,9 @@ export default function StructureForgeScreen() {
   const previewFadeAnim = useRef(new Animated.Value(1)).current;
   const labelFadeAnim = useRef(new Animated.Value(1)).current;
 
-  // TODO: In future, detect if this is user's first anchor
-  // For now, assume all users are first-time users
-  const isFirstAnchor = true;
+  // Detect if this is user's first anchor
+  const { anchorCount, incrementAnchorCount } = useAuthStore();
+  const isFirstAnchor = anchorCount === 0;
 
   useEffect(() => {
     try {
