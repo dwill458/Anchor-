@@ -540,6 +540,7 @@ export type MainTabParamList = {
 };
 
 export type OnboardingStackParamList = {
+  LogoBreath: undefined;
   Welcome: undefined;
   Reframe: undefined;
   HowItWorks: undefined;
