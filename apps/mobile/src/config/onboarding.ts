@@ -25,7 +25,7 @@ export const ONBOARDING_FLOW = [
     {
         id: 'method',
         headline: 'Your words become visual form.',
-        body: 'Describe your intention in a few words. Anchor creates a symbol from it. That's the process.',
+        body: 'Describe your intention in a few words. Anchor creates a symbol from it. That\'s the process.',
         micro: 'You provide the meaning. We provide the form.',
         cta: 'Continue',
         theme: 'process',
@@ -33,7 +33,7 @@ export const ONBOARDING_FLOW = [
     {
         id: 'application',
         headline: 'One symbol. Used daily.',
-        body: 'You'll see your symbol. Hold the intention it carries. Return to your day.',
+        body: 'You\'ll see your symbol. Hold the intention it carries. Return to your day.',
         micro: 'Most people return once a day. Whenever feels right.',
         cta: 'Continue',
         theme: 'ritual',
@@ -41,7 +41,7 @@ export const ONBOARDING_FLOW = [
     {
         id: 'commitment',
         headline: 'Ready to create your first Anchor.',
-        body: 'Choose one intention that matters to you right now.\nYou don't need to perfect it.',
+        body: 'Choose one intention that matters to you right now.\nYou don\'t need to perfect it.',
         micro: '',
         cta: 'Begin',
         theme: 'final',
