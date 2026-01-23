@@ -9,6 +9,7 @@ import { createStackNavigator } from '@react-navigation/stack';
 import { VaultScreen, AnchorDetailScreen } from '../screens/vault';
 import {
   IntentionInputScreen,
+  ReturningIntentionScreen,
   DistillationAnimationScreen,
   StructureForgeScreen,
   ManualReinforcementScreen,
@@ -31,10 +32,18 @@ import {
 } from '../screens/rituals';
 import type { RootStackParamList } from '@/types';
 import { colors } from '@/theme';
+import { useAuthStore } from '@/stores/authStore';
 
 const Stack = createStackNavigator<RootStackParamList>();
 
 export const VaultStackNavigator: React.FC = () => {
+  // Determine which intention screen to show
+  // shouldRedirectToCreation = true means they just completed onboarding (first time)
+  const { shouldRedirectToCreation } = useAuthStore();
+  const IntentionScreen = shouldRedirectToCreation
+    ? IntentionInputScreen
+    : ReturningIntentionScreen;
+
   return (
     <Stack.Navigator
       screenOptions={{
@@ -62,7 +71,7 @@ export const VaultStackNavigator: React.FC = () => {
       />
       <Stack.Screen
         name="CreateAnchor"
-        component={IntentionInputScreen}
+        component={IntentionScreen}
         options={{ headerShown: false }}
       />
       <Stack.Screen
