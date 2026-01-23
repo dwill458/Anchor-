@@ -15,11 +15,11 @@ export const ONBOARDING_FLOW = [
     },
     {
         id: 'insight',
-        headline: 'Your mind responds faster to images than explanations.',
-        body: 'A symbol can hold meaning without needing constant thought. That’s what makes it easy to return to, even on busy days.',
-        micro: 'Less effort. More alignment.',
+        headline: 'Your mind holds images more easily than words.',
+        body: 'A symbol can carry your intention without needing analysis. You can return to it in seconds, even when time is short.',
+        micro: 'Less thinking. More focus.',
         cta: 'Continue',
-        secondaryCta: 'Why this works',
+        secondaryCta: 'More on this',
         theme: 'psychology',
     },
     {
