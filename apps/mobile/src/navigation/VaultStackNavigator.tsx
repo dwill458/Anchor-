@@ -104,7 +104,7 @@ export const VaultStackNavigator: React.FC = () => {
       <Stack.Screen
         name="StyleSelection"
         component={StyleSelectionScreen}
-        options={{ title: 'Choose Style' }}
+        options={{ headerShown: false }}
       />
       <Stack.Screen
         name="ManualForge"
