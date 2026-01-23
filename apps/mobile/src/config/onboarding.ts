@@ -40,8 +40,8 @@ export const ONBOARDING_FLOW = [
     },
     {
         id: 'commitment',
-        headline: 'Let’s set your first Anchor.',
-        body: 'Choose one intention you’re ready to carry forward.\nYou don’t need to perfect it.',
+        headline: 'Ready to create your first Anchor.',
+        body: 'Choose one intention that matters to you right now.\nYou don't need to perfect it.',
         micro: '',
         cta: 'Begin',
         theme: 'final',
