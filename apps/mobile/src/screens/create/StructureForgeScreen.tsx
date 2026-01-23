@@ -110,18 +110,6 @@ export default function StructureForgeScreen() {
           </Text>
         </View>
 
-        {/* Distilled Letters Display */}
-        <View style={styles.lettersSection}>
-          <Text style={styles.lettersLabel}>Distilled Letters</Text>
-          <View style={styles.lettersContainer}>
-            {distilledLetters.map((letter, index) => (
-              <View key={index} style={styles.letterBox}>
-                <Text style={styles.letterText}>{letter}</Text>
-              </View>
-            ))}
-          </View>
-        </View>
-
         {/* Large Preview of Selected Variant */}
         <View style={styles.previewSection}>
           <View style={styles.previewContainer}>
@@ -135,7 +123,7 @@ export default function StructureForgeScreen() {
             )}
           </View>
           <Text style={styles.previewLabel}>
-            {VARIANT_METADATA[selectedVariant].title} Style
+            {VARIANT_METADATA[selectedVariant].title}
           </Text>
         </View>
 
@@ -151,7 +139,11 @@ export default function StructureForgeScreen() {
             return (
               <TouchableOpacity
                 key={result.variant}
-                style={[styles.variantCard, isSelected && styles.variantCardSelected]}
+                style={[
+                  styles.variantCard,
+                  isSelected && styles.variantCardSelected,
+                  !isSelected && styles.variantCardDimmed,
+                ]}
                 onPress={() => setSelectedVariant(result.variant)}
                 activeOpacity={0.7}
               >
@@ -226,11 +218,11 @@ const styles = StyleSheet.create({
     color: colors.gold,
   },
   header: {
-    marginBottom: spacing.xl,
+    marginBottom: spacing.lg,
   },
   title: {
     fontFamily: typography.fonts.heading,
-    fontSize: 32,
+    fontSize: 28,
     color: colors.gold,
     marginBottom: spacing.xs,
     textAlign: 'center',
@@ -250,59 +242,35 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     lineHeight: 24,
   },
-  lettersSection: {
-    marginBottom: spacing.xl,
-  },
-  lettersLabel: {
-    fontFamily: typography.fonts.body,
-    fontSize: typography.sizes.body2,
-    color: colors.text.secondary,
-    marginBottom: spacing.xs,
-  },
-  lettersContainer: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: spacing.xs,
-  },
-  letterBox: {
-    backgroundColor: colors.deepPurple,
-    paddingVertical: spacing.xs,
-    paddingHorizontal: spacing.md,
-    borderRadius: spacing.xs,
-  },
-  letterText: {
-    fontFamily: typography.fonts.heading,
-    fontSize: typography.sizes.h3,
-    color: colors.gold,
-  },
   previewSection: {
     alignItems: 'center',
-    marginBottom: spacing.xl,
+    marginBottom: spacing.xxxl,
+    marginTop: spacing.lg,
   },
   previewContainer: {
-    width: CARD_WIDTH,
+    width: SCREEN_WIDTH - 32,
     aspectRatio: 1,
     backgroundColor: colors.background.card,
     borderRadius: spacing.md,
     justifyContent: 'center',
     alignItems: 'center',
-    borderWidth: 2,
+    borderWidth: 1,
     borderColor: colors.gold,
-    padding: spacing.md,
+    padding: spacing.lg,
     marginBottom: spacing.md,
   },
   previewLabel: {
-    fontFamily: typography.fonts.heading,
-    fontSize: typography.sizes.h3,
-    color: colors.gold,
+    fontFamily: typography.fonts.body,
+    fontSize: 18,
+    color: colors.bone,
   },
   variantsSection: {
     marginBottom: spacing.lg,
   },
   variantsTitle: {
-    fontFamily: typography.fonts.heading,
-    fontSize: typography.sizes.h2,
-    color: colors.bone,
+    fontFamily: typography.fonts.body,
+    fontSize: 14,
+    color: colors.text.tertiary,
     marginBottom: spacing.md,
   },
   variantCard: {
@@ -319,6 +287,9 @@ const styles = StyleSheet.create({
   variantCardSelected: {
     borderColor: colors.gold,
     backgroundColor: 'rgba(212, 175, 55, 0.06)',
+  },
+  variantCardDimmed: {
+    opacity: 0.7,
   },
   recommendedBadge: {
     position: 'absolute',
@@ -337,8 +308,8 @@ const styles = StyleSheet.create({
     letterSpacing: 0.5,
   },
   sigilContainer: {
-    width: 120,
-    height: 120,
+    width: 80,
+    height: 80,
     marginRight: spacing.md,
   },
   variantInfo: {
