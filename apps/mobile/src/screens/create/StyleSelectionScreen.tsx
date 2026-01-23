@@ -1,20 +1,18 @@
 /**
- * StyleSelectionScreen
+ * StyleSelectionScreen (FTUE Version)
  *
- * Phase 3: AI Style Selection for ControlNet enhancement
+ * First-time user enhancement: Visual refinement step
  *
- * User chooses from 6 validated mystical art styles:
- * - Watercolor (organic, flowing)
- * - Sacred Geometry (precise, mathematical)
- * - Ink Brush (traditional, zen)
- * - Gold Leaf (luxurious, medieval)
- * - Cosmic (ethereal, celestial)
- * - Minimal Line (clean, modern)
+ * FTUE-focused design with 4 core styles only:
+ * - Minimal Line (default, recommended)
+ * - Ink Brush
+ * - Sacred Geometry
+ * - Watercolor
  *
- * Each style uses ControlNet to preserve structure while applying
- * artistic style transfer.
+ * This screen prioritizes completion over exploration.
+ * Uses grounded language and pre-selects Minimal Line to reduce hesitation.
  *
- * Next: AIGeneratingScreen (ControlNet enhancement with selected style)
+ * Next: AIGeneratingScreen (enhancement with selected style)
  */
 
 import React, { useState } from 'react';
@@ -32,7 +30,6 @@ import { StackNavigationProp } from '@react-navigation/stack';
 import { LinearGradient } from 'expo-linear-gradient';
 import { RootStackParamList, AIStyle } from '@/types';
 import { colors, spacing, typography } from '@/theme';
-import { ZenBackground } from '@/components/common';
 
 type StyleSelectionRouteProp = RouteProp<RootStackParamList, 'StyleSelection'>;
 type StyleSelectionNavigationProp = StackNavigationProp<RootStackParamList, 'StyleSelection'>;
@@ -52,54 +49,42 @@ interface StyleOption {
   emoji: string;
 }
 
+/**
+ * FTUE Style Options - Reduced to 4 core styles
+ * Minimal Line is listed first and will be pre-selected
+ */
 const STYLE_OPTIONS: StyleOption[] = [
   {
-    id: 'watercolor',
-    name: 'Watercolor',
-    description: 'Flowing washes, soft edges, translucent artistic brushstrokes',
-    category: 'Organic',
-    gradient: ['#4A90E2', '#7B68EE'],
-    emoji: '🎨',
-  },
-  {
-    id: 'sacred_geometry',
-    name: 'Sacred Geometry',
-    description: 'Precise golden lines, geometric perfection, mathematical mysticism',
+    id: 'minimal_line',
+    name: 'Minimal Line',
+    description: 'Clean · precise · distraction-free',
     category: 'Geometric',
-    gradient: ['#D4AF37', '#FFD700'],
-    emoji: '✨',
+    gradient: ['#374151', '#4B5563'],
+    emoji: '━',
   },
   {
     id: 'ink_brush',
     name: 'Ink Brush',
-    description: 'Traditional calligraphy, zen aesthetic, Japanese sumi-e style',
+    description: 'Hand-drawn · fluid · expressive',
     category: 'Organic',
     gradient: ['#2C3E50', '#34495E'],
     emoji: '🖌️',
   },
   {
-    id: 'gold_leaf',
-    name: 'Gold Leaf',
-    description: 'Illuminated manuscript, medieval gilding, precious metal texture',
-    category: 'Hybrid',
-    gradient: ['#C9A961', '#D4AF37'],
-    emoji: '📜',
-  },
-  {
-    id: 'cosmic',
-    name: 'Cosmic',
-    description: 'Nebula starlight, glowing ethereal energy, celestial magic',
-    category: 'Organic',
-    gradient: ['#5B21B6', '#7C3AED'],
-    emoji: '🌌',
-  },
-  {
-    id: 'minimal_line',
-    name: 'Minimal Line',
-    description: 'Clean precise lines, modern minimalist, graphic design aesthetic',
+    id: 'sacred_geometry',
+    name: 'Sacred Geometry',
+    description: 'Structured · balanced · exact',
     category: 'Geometric',
-    gradient: ['#374151', '#4B5563'],
-    emoji: '━',
+    gradient: ['#D4AF37', '#FFD700'],
+    emoji: '✨',
+  },
+  {
+    id: 'watercolor',
+    name: 'Watercolor',
+    description: 'Soft · organic · atmospheric',
+    category: 'Organic',
+    gradient: ['#4A90E2', '#7B68EE'],
+    emoji: '🎨',
   },
 ];
 
@@ -120,7 +105,8 @@ export default function StyleSelectionScreen() {
     reinforcementMetadata,
   } = route.params;
 
-  const [selectedStyle, setSelectedStyle] = useState<AIStyle | null>(null);
+  // Pre-select Minimal Line for FTUE (first style in array)
+  const [selectedStyle, setSelectedStyle] = useState<AIStyle | null>('minimal_line');
 
   /**
    * Handle style selection and navigate to AI generating screen
@@ -143,8 +129,9 @@ export default function StyleSelectionScreen() {
   /**
    * Render individual style card
    */
-  const renderStyleCard = (style: StyleOption) => {
+  const renderStyleCard = (style: StyleOption, index: number) => {
     const isSelected = selectedStyle === style.id;
+    const isRecommended = style.id === 'minimal_line';
 
     return (
       <TouchableOpacity
@@ -179,6 +166,13 @@ export default function StyleSelectionScreen() {
           <Text style={styles.description} numberOfLines={3}>
             {style.description}
           </Text>
+
+          {/* Recommended Badge for Minimal Line */}
+          {isRecommended && (
+            <Text style={styles.recommendedBadge}>
+              Recommended for your first Anchor
+            </Text>
+          )}
         </View>
 
         {/* Selection Indicator */}
@@ -193,7 +187,6 @@ export default function StyleSelectionScreen() {
 
   return (
     <SafeAreaView style={styles.container}>
-      <ZenBackground />
       <ScrollView
         style={styles.scrollView}
         contentContainerStyle={styles.scrollContent}
@@ -201,24 +194,26 @@ export default function StyleSelectionScreen() {
       >
         {/* Header */}
         <View style={styles.header}>
-          <Text style={styles.title}>Choose Your Style</Text>
+          <Text style={styles.title}>Refine the expression</Text>
           <Text style={styles.subtitle}>
-            Select a mystical art style to enhance your anchor's appearance.
-            ControlNet technology preserves your structure while applying artistic styling.
+            This step refines how your Anchor appears — without changing its structure.
+          </Text>
+          <Text style={styles.subtitleSecondary}>
+            The foundation is already set.
           </Text>
         </View>
 
-        {/* Info Box */}
+        {/* Lock Reassurance */}
         <View style={styles.infoBox}>
           <Text style={styles.infoIcon}>🔒</Text>
           <Text style={styles.infoText}>
-            Your structure is locked and protected. AI enhancement only affects visual appearance—never the core geometry.
+            Structure protected. Visual refinement only.
           </Text>
         </View>
 
         {/* Style Grid */}
         <View style={styles.gridContainer}>
-          {STYLE_OPTIONS.map(renderStyleCard)}
+          {STYLE_OPTIONS.map((style, index) => renderStyleCard(style, index))}
         </View>
 
         {/* Continue Button */}
@@ -232,7 +227,7 @@ export default function StyleSelectionScreen() {
           activeOpacity={0.8}
         >
           <Text style={styles.continueButtonText}>
-            {selectedStyle ? `Enhance with ${STYLE_OPTIONS.find(s => s.id === selectedStyle)?.name}` : 'Select a Style'}
+            Apply enhancement
           </Text>
         </TouchableOpacity>
 
@@ -249,7 +244,7 @@ export default function StyleSelectionScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colors.background.primary,
+    backgroundColor: colors.charcoal,
   },
   scrollView: {
     flex: 1,
@@ -265,17 +260,26 @@ const styles = StyleSheet.create({
   title: {
     fontFamily: typography.heading.fontFamily,
     fontSize: 28,
-    color: colors.gold,
+    fontWeight: '500',
+    color: '#E8E8E8',
     marginBottom: spacing.sm,
     textAlign: 'center',
   },
   subtitle: {
     fontFamily: typography.body.fontFamily,
-    fontSize: 14,
+    fontSize: 15,
     color: colors.text.secondary,
     textAlign: 'center',
-    lineHeight: 20,
+    lineHeight: 22,
     paddingHorizontal: spacing.md,
+    marginBottom: spacing.xs,
+  },
+  subtitleSecondary: {
+    fontFamily: typography.body.fontFamily,
+    fontSize: 13,
+    color: '#626262',
+    textAlign: 'center',
+    fontStyle: 'italic',
   },
   infoBox: {
     flexDirection: 'row',
@@ -294,8 +298,9 @@ const styles = StyleSheet.create({
     flex: 1,
     fontFamily: typography.body.fontFamily,
     fontSize: 13,
-    color: colors.text.tertiary,
+    color: colors.text.secondary,
     lineHeight: 18,
+    fontWeight: '500',
   },
   gridContainer: {
     flexDirection: 'row',
@@ -361,6 +366,14 @@ const styles = StyleSheet.create({
     color: colors.text.secondary,
     lineHeight: 16,
     textAlign: 'center',
+  },
+  recommendedBadge: {
+    fontFamily: typography.body.fontFamily,
+    fontSize: 10,
+    color: colors.gold,
+    textAlign: 'center',
+    marginTop: spacing.xs,
+    fontWeight: '600',
   },
   selectedIndicator: {
     position: 'absolute',
