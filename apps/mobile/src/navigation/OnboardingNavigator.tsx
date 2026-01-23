@@ -8,11 +8,7 @@ import React from 'react';
 import { createStackNavigator } from '@react-navigation/stack';
 import type { OnboardingStackParamList } from '@/types';
 import {
-  WelcomeScreen,
-  ReframeScreen,
-  HowItWorksScreen,
-  DailyLoopScreen,
-  SaveProgressScreen,
+  NarrativeOnboardingScreen,
 } from '@/screens/onboarding';
 
 const Stack = createStackNavigator<OnboardingStackParamList>();
@@ -27,11 +23,7 @@ export const OnboardingNavigator: React.FC = () => {
         gestureEnabled: false, // Disable swipe back during onboarding
       }}
     >
-      <Stack.Screen name="Welcome" component={WelcomeScreen} />
-      <Stack.Screen name="Reframe" component={ReframeScreen} />
-      <Stack.Screen name="HowItWorks" component={HowItWorksScreen} />
-      <Stack.Screen name="DailyLoop" component={DailyLoopScreen} />
-      <Stack.Screen name="SaveProgress" component={SaveProgressScreen} />
+      <Stack.Screen name="Welcome" component={NarrativeOnboardingScreen} />
     </Stack.Navigator>
   );
 };

@@ -62,6 +62,20 @@ export const typography = {
     body2: 20,
     caption: 16,
   },
+
+  // Shorthand styles for spreading
+  h1: { fontFamily: 'Cinzel-Regular', fontSize: 32, lineHeight: 40 },
+  h2: { fontFamily: 'Cinzel-Regular', fontSize: 24, lineHeight: 32 },
+  h3: { fontFamily: 'Cinzel-Regular', fontSize: 20, lineHeight: 28 },
+  h4: { fontFamily: 'Cinzel-Regular', fontSize: 18, lineHeight: 24 },
+  body: { fontFamily: 'Inter-Regular', fontSize: 16, lineHeight: 24 },
+  bodyBold: { fontFamily: 'Inter-SemiBold', fontSize: 16, lineHeight: 24 },
+  caption: { fontFamily: 'Inter-Regular', fontSize: 12, lineHeight: 16 },
+
+  // Compatibility objects for components accessing .fontFamily
+  heading: { fontFamily: 'Cinzel-Regular' },
+  headingBold: { fontFamily: 'Cinzel-Bold' },
+  headingSemiBold: { fontFamily: 'Cinzel-SemiBold' },
 } as const;
 
 export type FontFamily = keyof typeof typography.fonts;

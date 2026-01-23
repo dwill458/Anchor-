@@ -59,6 +59,18 @@ export const VaultScreen: React.FC = () => {
     }).start();
   }, []);
 
+  // Handle redirect from onboarding
+  useEffect(() => {
+    const { shouldRedirectToCreation, setShouldRedirectToCreation } = useAuthStore.getState();
+
+    if (shouldRedirectToCreation) {
+      // Reset flag immediately
+      setShouldRedirectToCreation(false);
+      // Navigate to creation
+      navigation.navigate('CreateAnchor');
+    }
+  }, [navigation]);
+
   const fetchAnchors = useCallback(async (): Promise<void> => {
     if (!user) return;
 

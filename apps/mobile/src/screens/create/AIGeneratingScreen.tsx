@@ -84,7 +84,7 @@ const STYLE_PHRASES: Record<AIStyle, string[]> = {
 export default function AIGeneratingScreen() {
   const route = useRoute<AIGeneratingRouteProp>();
   const navigation = useNavigation<AIGeneratingNavigationProp>();
-  const currentUser = useAuthStore((state) => state.currentUser);
+  const user = useAuthStore((state) => state.user);
 
   const {
     intentionText,
@@ -118,18 +118,15 @@ export default function AIGeneratingScreen() {
     'Manifesting your vision...',
   ];
 
-  /**
-   * Generate ControlNet-enhanced variations
-   */
   const generateControlNetVariations = async () => {
-    if (isGenerating || !currentUser) return;
+    if (isGenerating || !user) return;
 
     setIsGenerating(true);
 
     try {
       logger.info('[AIGenerating] Starting ControlNet generation', {
         style: styleChoice,
-        user: currentUser.id,
+        user: user.id,
       });
 
       // Simulate progress (60-100 seconds for ControlNet)
@@ -155,7 +152,7 @@ export default function AIGeneratingScreen() {
         body: JSON.stringify({
           sigilSvg: sigilToEnhance,
           styleChoice,
-          userId: currentUser.id,
+          userId: user.id,
           anchorId: `temp-${Date.now()}`, // Temporary ID for uploads
         }),
       });

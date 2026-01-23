@@ -44,6 +44,7 @@ export const colors = {
     primary: '#F5F5DC',
     secondary: '#C0C0C0',
     tertiary: '#9E9E9E',
+    disabled: '#757575',
   },
 } as const;
 
