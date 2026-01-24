@@ -37,33 +37,30 @@ interface EnhancementOption {
 const ENHANCEMENT_OPTIONS: EnhancementOption[] = [
   {
     id: 'enhance',
-    name: 'Enhance Appearance',
-    subtitle: 'AI Style Transfer',
+    name: 'Add Styling',
+    subtitle: '',
     description:
-      'Apply artistic styling while preserving your structure. Choose from 6 mystical art styles—each maintains your anchor\'s foundation.',
+      'Apply visual style to your structure. Choose from 6 artistic interpretations—watercolor, line art, geometric, and more.',
     emoji: '✨',
-    badge: 'PRESERVES STRUCTURE',
     estimatedTime: '30-60 seconds',
     features: [
-      'Structure-preserving AI',
-      '6 unique artistic styles',
-      'Watercolor, sacred geometry, cosmic',
-      'ControlNet technology',
+      '6 visual styles to choose from',
+      'Adds depth and character',
+      'Takes 30-60 seconds',
     ],
   },
   {
     id: 'pure',
-    name: 'Keep Pure',
-    subtitle: 'Untouched Structure',
+    name: 'Keep as Forged',
+    subtitle: '',
     description:
-      'Preserve your structure exactly as forged. No embellishments, no modifications—just the raw, powerful geometry of your intention.',
+      'Keep the geometric form you traced. Clean, direct, unmodified.',
     emoji: '🔷',
     estimatedTime: 'Instant',
     features: [
-      'Pure deterministic structure',
-      'Unaltered sacred geometry',
-      'Traditional chaos magick',
-      'Instant completion',
+      'The form you created',
+      'No additional processing',
+      'Ready immediately',
     ],
   },
 ];
@@ -145,7 +142,7 @@ export const EnhancementChoiceScreen: React.FC = () => {
       <ZenBackground />
 
       <SafeAreaView style={styles.safeArea}>
-        <ScreenHeader title="Finalize Your Anchor" />
+        <ScreenHeader title="Finalize Anchor" />
 
         <ScrollView
           style={styles.scrollView}
@@ -162,9 +159,9 @@ export const EnhancementChoiceScreen: React.FC = () => {
               },
             ]}
           >
-            <Text style={styles.title}>Appearance Choice</Text>
+            <Text style={styles.title}>Choose Appearance</Text>
             <Text style={styles.subtitle}>
-              Your structure is locked. Choose whether to keep it pure or enhance its appearance with mystical styling.
+              Your structure is set. Choose how it appears.
             </Text>
           </Animated.View>
 
@@ -244,7 +241,8 @@ export const EnhancementChoiceScreen: React.FC = () => {
                     style={[
                       styles.optionCard,
                       styles.optionCardAndroid,
-                      index === 0 && styles.optionCardRecommended,
+                      option.id === 'enhance' && styles.optionCardEnhance,
+                      option.id === 'pure' && styles.optionCardPure,
                       selectedOption === option.id && styles.optionCardSelected,
                     ]}
                   >
@@ -256,11 +254,12 @@ export const EnhancementChoiceScreen: React.FC = () => {
                   </View>
                 ) : (
                   <BlurView
-                    intensity={index === 0 ? 18 : 12}
+                    intensity={12}
                     tint="dark"
                     style={[
                       styles.optionCard,
-                      index === 0 && styles.optionCardRecommended,
+                      option.id === 'enhance' && styles.optionCardEnhance,
+                      option.id === 'pure' && styles.optionCardPure,
                       selectedOption === option.id && styles.optionCardSelected,
                     ]}
                   >
@@ -296,14 +295,14 @@ export const EnhancementChoiceScreen: React.FC = () => {
               <View style={[styles.infoCard, styles.infoCardAndroid]}>
                 <Text style={styles.infoIcon}>🔒</Text>
                 <Text style={styles.infoText}>
-                  Your structure is permanently locked. AI enhancement only affects appearance—the foundation remains unchanged.
+                  Your structure is complete. Any styling you add is visual only—your foundation stays intact.
                 </Text>
               </View>
             ) : (
               <BlurView intensity={8} tint="dark" style={styles.infoCard}>
                 <Text style={styles.infoIcon}>🔒</Text>
                 <Text style={styles.infoText}>
-                  Your structure is permanently locked. AI enhancement only affects appearance—the foundation remains unchanged.
+                  Your structure is complete. Any styling you add is visual only—your foundation stays intact.
                 </Text>
               </BlurView>
             )}
@@ -329,29 +328,14 @@ function OptionCardContent({
 }) {
   return (
     <>
-      {/* Badge */}
-      {option.badge && (
-        <View
-          style={[
-            styles.badge,
-            option.isPro ? styles.badgePro : styles.badgeRecommended,
-          ]}
-        >
-          <Text style={styles.badgeText}>{option.badge}</Text>
-        </View>
-      )}
-
-      {/* Glow effect for recommended */}
-      {index === 0 && <View style={styles.recommendedGlow} />}
-
       {/* Header */}
       <View style={styles.optionHeader}>
         <View style={styles.emojiContainer}>
           <LinearGradient
             colors={
               option.id === 'enhance'
-                ? [colors.gold, colors.bronze]
-                : ['rgba(100, 181, 246, 0.3)', 'rgba(66, 165, 245, 0.2)']
+                ? ['rgba(140, 100, 200, 0.4)', 'rgba(120, 80, 180, 0.3)']
+                : ['rgba(80, 200, 220, 0.4)', 'rgba(60, 180, 200, 0.3)']
             }
             style={styles.emojiGradient}
           >
@@ -360,17 +344,14 @@ function OptionCardContent({
         </View>
 
         <View style={styles.titleContainer}>
-          <Text
-            style={[
-              styles.optionName,
-              index === 0 && styles.optionNameRecommended,
-            ]}
-          >
+          <Text style={styles.optionName}>
             {option.name}
           </Text>
-          <Text style={styles.optionSubtitle}>
-            {option.subtitle}
-          </Text>
+          {option.subtitle && (
+            <Text style={styles.optionSubtitle}>
+              {option.subtitle}
+            </Text>
+          )}
         </View>
       </View>
 
@@ -402,16 +383,10 @@ function OptionCardContent({
         <View
           style={[
             styles.arrowCircle,
-            index === 0 && styles.arrowCircleGold,
             isSelected && styles.arrowCircleSelected,
           ]}
         >
-          <Text
-            style={[
-              styles.arrowIcon,
-              index === 0 && styles.arrowIconGold,
-            ]}
-          >
+          <Text style={styles.arrowIcon}>
             →
           </Text>
         </View>
@@ -528,34 +503,17 @@ const styles = StyleSheet.create({
   optionCardAndroid: {
     backgroundColor: 'rgba(26, 26, 29, 0.85)',
   },
-  optionCardRecommended: {
-    borderColor: colors.gold,
-    backgroundColor: 'rgba(212, 175, 55, 0.08)',
+  optionCardEnhance: {
+    borderColor: 'rgba(180, 120, 220, 0.6)',
+    backgroundColor: 'rgba(80, 60, 120, 0.15)',
+  },
+  optionCardPure: {
+    borderColor: 'rgba(80, 200, 220, 0.6)',
+    backgroundColor: 'rgba(40, 80, 100, 0.15)',
   },
   optionCardSelected: {
     borderColor: colors.gold,
     transform: [{ scale: 0.98 }],
-  },
-  badge: {
-    position: 'absolute',
-    top: 16,
-    right: 16,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 12,
-    zIndex: 10,
-  },
-  badgeRecommended: {
-    backgroundColor: colors.gold,
-  },
-  badgePro: {
-    backgroundColor: colors.deepPurple,
-  },
-  badgeText: {
-    fontSize: 10,
-    fontWeight: '700',
-    color: colors.charcoal,
-    letterSpacing: 1,
   },
   optionHeader: {
     flexDirection: 'row',
@@ -591,9 +549,6 @@ const styles = StyleSheet.create({
     color: colors.bone,
     marginBottom: 4,
     letterSpacing: 0.3,
-  },
-  optionNameRecommended: {
-    color: colors.gold,
   },
   optionSubtitle: {
     fontSize: 14,
@@ -656,10 +611,6 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: 'rgba(192, 192, 192, 0.3)',
   },
-  arrowCircleGold: {
-    backgroundColor: 'rgba(212, 175, 55, 0.2)',
-    borderColor: colors.gold,
-  },
   arrowCircleSelected: {
     backgroundColor: colors.gold,
     borderColor: colors.gold,
@@ -667,22 +618,6 @@ const styles = StyleSheet.create({
   arrowIcon: {
     fontSize: 20,
     color: colors.silver,
-  },
-  arrowIconGold: {
-    color: colors.gold,
-  },
-  recommendedGlow: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    borderRadius: 24,
-    shadowColor: colors.gold,
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.3,
-    shadowRadius: 20,
-    elevation: 8,
   },
   infoSection: {
     marginBottom: 24,
