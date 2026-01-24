@@ -40,45 +40,24 @@ const AnimatedCircle = Animated.createAnimatedComponent(Circle);
 const AnimatedG = Animated.createAnimatedComponent(G);
 
 /**
- * Style-specific loading phrases for each AI style
+ * Style-specific refinement phrases for ritual experience
  */
-const STYLE_PHRASES: Record<AIStyle, string[]> = {
-  watercolor: [
-    'Mixing translucent washes...',
-    'Flowing watercolor across canvas...',
-    'Blending soft artistic edges...',
-    'Creating fluid brushstrokes...',
-  ],
-  sacred_geometry: [
-    'Calculating golden ratios...',
-    'Aligning geometric perfection...',
-    'Etching precise sacred lines...',
-    'Manifesting mathematical harmony...',
-  ],
-  ink_brush: [
-    'Preparing traditional ink...',
-    'Flowing zen brushstrokes...',
-    'Channeling sumi-e spirit...',
-    'Capturing calligraphic essence...',
-  ],
-  gold_leaf: [
-    'Applying precious gilding...',
-    'Illuminating medieval manuscript...',
-    'Layering gold leaf texture...',
-    'Crafting luxurious ornament...',
-  ],
-  cosmic: [
-    'Harnessing nebula energy...',
-    'Weaving starlight patterns...',
-    'Manifesting celestial magic...',
-    'Channeling cosmic forces...',
-  ],
-  minimal_line: [
-    'Drawing clean precise lines...',
-    'Refining minimalist essence...',
-    'Perfecting graphic clarity...',
-    'Crafting modern simplicity...',
-  ],
+const STYLE_REFINEMENT_PHRASES: Record<AIStyle, string> = {
+  minimal_line: 'Clarifying lines and balance',
+  ink_brush: 'Introducing flow and motion',
+  sacred_geometry: 'Aligning structure and proportion',
+  watercolor: 'Blending tone and atmosphere',
+  gold_leaf: 'Layering luminous essence',
+  cosmic: 'Attuning celestial energies',
+};
+
+/**
+ * Progress phases for ritual progression
+ */
+const PROGRESS_PHASES = {
+  beginning: { threshold: 0, label: 'Beginning' },
+  aligning: { threshold: 30, label: 'Aligning' },
+  finalizing: { threshold: 80, label: 'Finalizing' },
 };
 
 export default function AIGeneratingScreen() {
@@ -98,7 +77,6 @@ export default function AIGeneratingScreen() {
   } = route.params;
 
   const [progress, setProgress] = useState(0);
-  const [currentPhrase, setCurrentPhrase] = useState(0);
   const [isGenerating, setIsGenerating] = useState(false);
 
   // Animations
@@ -110,13 +88,318 @@ export default function AIGeneratingScreen() {
   const orb1Anim = useRef(new Animated.Value(0)).current;
   const orb2Anim = useRef(new Animated.Value(0)).current;
 
-  // Get style-specific phrases or fallback to generic
-  const loadingPhrases = STYLE_PHRASES[styleChoice] || [
-    'Channeling creative energies...',
-    'Consulting the ancient symbols...',
-    'Weaving mystical patterns...',
-    'Manifesting your vision...',
-  ];
+  // Get the current progress phase label
+  const getProgressPhase = () => {
+    if (progress >= PROGRESS_PHASES.finalizing.threshold) {
+      return PROGRESS_PHASES.finalizing.label;
+    } else if (progress >= PROGRESS_PHASES.aligning.threshold) {
+      return PROGRESS_PHASES.aligning.label;
+    } else {
+      return PROGRESS_PHASES.beginning.label;
+    }
+  };
+
+  // Get style-specific refinement phrase
+  const refinementPhrase = STYLE_REFINEMENT_PHRASES[styleChoice] || 'Refining your expression';
+
+  /**
+   * Render style-specific refinement seal
+   * Each style has a unique visual representation and animation
+   */
+  const renderRefinementSeal = () => {
+    const baseOpacity = 0.5;
+
+    switch (styleChoice) {
+      case 'minimal_line':
+        // Minimal: Clean concentric circles with subtle snapping alignment
+        return (
+          <Svg width={120} height={120} viewBox="0 0 120 120">
+            {/* Outer circle */}
+            <Circle
+              cx="60"
+              cy="60"
+              r="50"
+              stroke={colors.gold}
+              strokeWidth="2"
+              fill="none"
+              opacity={0.4}
+            />
+            {/* Middle circle */}
+            <Circle
+              cx="60"
+              cy="60"
+              r="35"
+              stroke={colors.gold}
+              strokeWidth="2"
+              fill="none"
+              opacity={0.5}
+            />
+            {/* Inner circle */}
+            <Circle
+              cx="60"
+              cy="60"
+              r="20"
+              stroke={colors.gold}
+              strokeWidth="2.5"
+              fill="none"
+              opacity={0.6}
+            />
+            {/* Center dot */}
+            <AnimatedCircle
+              cx="60"
+              cy="60"
+              r="4"
+              fill={colors.gold}
+              opacity={sparkleOpacity}
+            />
+          </Svg>
+        );
+
+      case 'ink_brush':
+        // Ink Brush: Organic flowing strokes with motion
+        return (
+          <Svg width={120} height={120} viewBox="0 0 120 120">
+            {/* Flowing brush circle with varying thickness */}
+            <Circle
+              cx="60"
+              cy="60"
+              r="45"
+              stroke={colors.gold}
+              strokeWidth="3"
+              fill="none"
+              opacity={baseOpacity}
+              strokeDasharray="5,3"
+            />
+            {/* Inner flowing strokes */}
+            <AnimatedG opacity={glowOpacity}>
+              <Path
+                d="M 35 60 Q 60 35, 85 60 Q 60 85, 35 60"
+                stroke={colors.gold}
+                strokeWidth="2"
+                fill="none"
+              />
+              <Path
+                d="M 40 60 Q 60 45, 80 60 Q 60 75, 40 60"
+                stroke={colors.gold}
+                strokeWidth="1.5"
+                fill="none"
+                opacity={0.6}
+              />
+            </AnimatedG>
+          </Svg>
+        );
+
+      case 'sacred_geometry':
+        // Sacred Geometry: Precise geometric patterns with alignment
+        return (
+          <Svg width={120} height={120} viewBox="0 0 120 120">
+            {/* Outer hexagon */}
+            <Path
+              d="M 60 10 L 95 30 L 95 70 L 60 90 L 25 70 L 25 30 Z"
+              stroke={colors.gold}
+              strokeWidth="2"
+              fill="none"
+              opacity={0.4}
+            />
+            {/* Inner circle */}
+            <Circle
+              cx="60"
+              cy="60"
+              r="35"
+              stroke={colors.gold}
+              strokeWidth="2"
+              fill="none"
+              opacity={0.5}
+            />
+            {/* Center triangle */}
+            <AnimatedG opacity={sparkleOpacity}>
+              <Path
+                d="M 60 35 L 75 65 L 45 65 Z"
+                stroke={colors.gold}
+                strokeWidth="2"
+                fill="none"
+              />
+            </AnimatedG>
+            {/* Radial lines */}
+            <Path
+              d="M 60 10 L 60 30 M 95 30 L 85 40 M 95 70 L 85 60 M 60 90 L 60 70 M 25 70 L 35 60 M 25 30 L 35 40"
+              stroke={colors.gold}
+              strokeWidth="1"
+              opacity={0.3}
+            />
+          </Svg>
+        );
+
+      case 'watercolor':
+        // Watercolor: Soft blooming circles with diffusion effect
+        return (
+          <Svg width={120} height={120} viewBox="0 0 120 120">
+            {/* Outer diffused circle */}
+            <AnimatedCircle
+              cx="60"
+              cy="60"
+              r="50"
+              stroke={colors.gold}
+              strokeWidth="4"
+              fill="none"
+              opacity={glowOpacity.interpolate({
+                inputRange: [0, 1],
+                outputRange: [0.2, 0.4],
+              })}
+            />
+            {/* Middle bloom */}
+            <AnimatedCircle
+              cx="60"
+              cy="60"
+              r="35"
+              stroke={colors.gold}
+              strokeWidth="3"
+              fill="none"
+              opacity={glowOpacity.interpolate({
+                inputRange: [0, 1],
+                outputRange: [0.3, 0.5],
+              })}
+            />
+            {/* Inner essence */}
+            <AnimatedCircle
+              cx="60"
+              cy="60"
+              r="20"
+              fill={colors.gold}
+              opacity={sparkleOpacity.interpolate({
+                inputRange: [0, 1],
+                outputRange: [0.15, 0.3],
+              })}
+            />
+          </Svg>
+        );
+
+      case 'gold_leaf':
+        // Gold Leaf: Illuminated circle with luxurious glow
+        return (
+          <Svg width={120} height={120} viewBox="0 0 120 120">
+            {/* Outer ornate circle */}
+            <Circle
+              cx="60"
+              cy="60"
+              r="50"
+              stroke={colors.gold}
+              strokeWidth="2.5"
+              fill="none"
+              opacity={0.5}
+            />
+            {/* Decorative inner ring */}
+            <Circle
+              cx="60"
+              cy="60"
+              r="40"
+              stroke={colors.gold}
+              strokeWidth="1"
+              strokeDasharray="4,4"
+              fill="none"
+              opacity={0.4}
+            />
+            {/* Center medallion */}
+            <AnimatedCircle
+              cx="60"
+              cy="60"
+              r="25"
+              stroke={colors.gold}
+              strokeWidth="3"
+              fill="none"
+              opacity={glowOpacity}
+            />
+            {/* Inner glow */}
+            <AnimatedCircle
+              cx="60"
+              cy="60"
+              r="12"
+              fill={colors.gold}
+              opacity={sparkleOpacity.interpolate({
+                inputRange: [0, 1],
+                outputRange: [0.2, 0.5],
+              })}
+            />
+          </Svg>
+        );
+
+      case 'cosmic':
+        // Cosmic: Ethereal orbital patterns with celestial energy
+        return (
+          <Svg width={120} height={120} viewBox="0 0 120 120">
+            {/* Outer orbit */}
+            <AnimatedCircle
+              cx="60"
+              cy="60"
+              r="50"
+              stroke={colors.gold}
+              strokeWidth="1.5"
+              strokeDasharray="6,6"
+              fill="none"
+              opacity={glowOpacity.interpolate({
+                inputRange: [0, 1],
+                outputRange: [0.3, 0.5],
+              })}
+            />
+            {/* Middle orbit */}
+            <AnimatedCircle
+              cx="60"
+              cy="60"
+              r="35"
+              stroke={colors.gold}
+              strokeWidth="1.5"
+              strokeDasharray="4,4"
+              fill="none"
+              opacity={sparkleOpacity}
+            />
+            {/* Inner core */}
+            <AnimatedCircle
+              cx="60"
+              cy="60"
+              r="18"
+              fill={colors.gold}
+              opacity={glowOpacity.interpolate({
+                inputRange: [0, 1],
+                outputRange: [0.2, 0.4],
+              })}
+            />
+            {/* Center star */}
+            <AnimatedCircle
+              cx="60"
+              cy="60"
+              r="6"
+              fill={colors.bone}
+              opacity={sparkleOpacity}
+            />
+          </Svg>
+        );
+
+      default:
+        // Fallback: Simple refined circle
+        return (
+          <Svg width={120} height={120} viewBox="0 0 120 120">
+            <Circle
+              cx="60"
+              cy="60"
+              r="50"
+              stroke={colors.gold}
+              strokeWidth="2"
+              fill="none"
+              opacity={0.4}
+            />
+            <AnimatedCircle
+              cx="60"
+              cy="60"
+              r="30"
+              stroke={colors.gold}
+              strokeWidth="2.5"
+              fill="none"
+              opacity={sparkleOpacity}
+            />
+          </Svg>
+        );
+    }
+  };
 
   const generateControlNetVariations = async () => {
     if (isGenerating || !user) return;
@@ -237,11 +520,30 @@ export default function AIGeneratingScreen() {
       ])
     ).start();
 
-    // Continuous rotation for outer circle
+    // Style-specific rotation for outer circle
+    const getRotationDuration = () => {
+      switch (styleChoice) {
+        case 'minimal_line':
+          return 6000; // Slower, more deliberate
+        case 'ink_brush':
+          return 10000; // Organic, flowing
+        case 'sacred_geometry':
+          return 12000; // Precise, measured
+        case 'watercolor':
+          return 15000; // Gentle, diffused
+        case 'gold_leaf':
+          return 20000; // Majestic, slow
+        case 'cosmic':
+          return 8000; // Continuous orbital
+        default:
+          return 8000;
+      }
+    };
+
     Animated.loop(
       Animated.timing(rotateAnim, {
         toValue: 1,
-        duration: 8000,
+        duration: getRotationDuration(),
         useNativeDriver: true,
       })
     ).start();
@@ -311,21 +613,45 @@ export default function AIGeneratingScreen() {
 
     // Start ControlNet generation
     generateControlNetVariations();
-
-    // Rotate loading phrases
-    const phraseInterval = setInterval(() => {
-      setCurrentPhrase((prev) => (prev + 1) % loadingPhrases.length);
-    }, 5000);
-
-    return () => {
-      clearInterval(phraseInterval);
-    };
   }, []);
 
+  // Style-specific rotation interpolation
   const rotation = rotateAnim.interpolate({
     inputRange: [0, 1],
-    outputRange: ['0deg', '360deg'],
+    outputRange:
+      styleChoice === 'minimal_line'
+        ? ['0deg', '360deg'] // Will apply snapping via discrete steps
+        : ['0deg', '360deg'],
   });
+
+  // For minimal_line, create snapping alignment effect
+  const getRotationTransform = () => {
+    if (styleChoice === 'minimal_line') {
+      // Create 12 snapping points (every 30 degrees)
+      const snappedRotation = rotateAnim.interpolate({
+        inputRange: [
+          0, 0.083, 0.166, 0.25, 0.333, 0.416, 0.5, 0.583, 0.666, 0.75, 0.833, 0.916, 1,
+        ],
+        outputRange: [
+          '0deg',
+          '30deg',
+          '60deg',
+          '90deg',
+          '120deg',
+          '150deg',
+          '180deg',
+          '210deg',
+          '240deg',
+          '270deg',
+          '300deg',
+          '330deg',
+          '360deg',
+        ],
+      });
+      return [{ rotate: snappedRotation }];
+    }
+    return [{ rotate: rotation }];
+  };
 
   const sparkleOpacity = sparkleAnim.interpolate({
     inputRange: [0, 0.5, 1],
@@ -406,8 +732,8 @@ export default function AIGeneratingScreen() {
             ]}
           />
 
-          {/* Rotating outer circle */}
-          <Animated.View style={{ transform: [{ rotate: rotation }] }}>
+          {/* Rotating outer circle with style-specific animation */}
+          <Animated.View style={{ transform: getRotationTransform() }}>
             <Svg width={200} height={200} viewBox="0 0 200 200">
               {/* Dashed outer circle */}
               <Circle
@@ -418,12 +744,12 @@ export default function AIGeneratingScreen() {
                 strokeWidth="2"
                 strokeDasharray="8,8"
                 fill="none"
-                opacity={0.4}
+                opacity={0.3}
               />
             </Svg>
           </Animated.View>
 
-          {/* Center solid circle with stars */}
+          {/* Refinement Seal - Style-responsive center visual */}
           <Animated.View
             style={[
               styles.centerIcon,
@@ -434,90 +760,51 @@ export default function AIGeneratingScreen() {
           >
             {IS_ANDROID ? (
               <View style={[styles.centerCircle, styles.centerCircleAndroid]}>
-                <Svg width={120} height={120} viewBox="0 0 120 120">
-                  {/* Inner circle */}
-                  <Circle
-                    cx="60"
-                    cy="60"
-                    r="50"
-                    stroke={colors.gold}
-                    strokeWidth="3"
-                    fill="none"
-                  />
-                  {/* Stars */}
-                  <AnimatedG opacity={sparkleOpacity}>
-                    {/* Large star */}
-                    <Path
-                      d="M 60 25 L 64 44 L 83 44 L 68 55 L 73 74 L 60 63 L 47 74 L 52 55 L 37 44 L 56 44 Z"
-                      fill={colors.gold}
-                    />
-                    {/* Small star 1 */}
-                    <Path
-                      d="M 75 40 L 77 45 L 82 45 L 78 48 L 80 53 L 75 50 L 70 53 L 72 48 L 68 45 L 73 45 Z"
-                      fill={colors.gold}
-                    />
-                    {/* Small star 2 */}
-                    <Path
-                      d="M 45 40 L 47 45 L 52 45 L 48 48 L 50 53 L 45 50 L 40 53 L 42 48 L 38 45 L 43 45 Z"
-                      fill={colors.gold}
-                    />
-                  </AnimatedG>
-                </Svg>
+                {renderRefinementSeal()}
               </View>
             ) : (
               <BlurView intensity={15} tint="dark" style={styles.centerCircle}>
-                <Svg width={120} height={120} viewBox="0 0 120 120">
-                  <Circle
-                    cx="60"
-                    cy="60"
-                    r="50"
-                    stroke={colors.gold}
-                    strokeWidth="3"
-                    fill="none"
-                  />
-                  <AnimatedG opacity={sparkleOpacity}>
-                    <Path
-                      d="M 60 25 L 64 44 L 83 44 L 68 55 L 73 74 L 60 63 L 47 74 L 52 55 L 37 44 L 56 44 Z"
-                      fill={colors.gold}
-                    />
-                    <Path
-                      d="M 75 40 L 77 45 L 82 45 L 78 48 L 80 53 L 75 50 L 70 53 L 72 48 L 68 45 L 73 45 Z"
-                      fill={colors.gold}
-                    />
-                    <Path
-                      d="M 45 40 L 47 45 L 52 45 L 48 48 L 50 53 L 45 50 L 40 53 L 42 48 L 38 45 L 43 45 Z"
-                      fill={colors.gold}
-                    />
-                  </AnimatedG>
-                </Svg>
+                {renderRefinementSeal()}
               </BlurView>
             )}
           </Animated.View>
         </View>
 
         {/* Loading Text */}
-        <Animated.Text
-          style={[
-            styles.loadingText,
-            {
-              opacity: fadeAnim,
-            },
-          ]}
-        >
-          {loadingPhrases[currentPhrase]}
-        </Animated.Text>
+        <View style={styles.loadingTextContainer}>
+          <Animated.Text
+            style={[
+              styles.loadingTextPrimary,
+              {
+                opacity: fadeAnim,
+              },
+            ]}
+          >
+            Refining your Anchor…
+          </Animated.Text>
+          <Animated.Text
+            style={[
+              styles.loadingTextSecondary,
+              {
+                opacity: fadeAnim,
+              },
+            ]}
+          >
+            {refinementPhrase}
+          </Animated.Text>
+        </View>
 
         {/* Progress Bar */}
         <View style={styles.progressContainer}>
           <View style={styles.progressBarBg}>
-            <LinearGradient
-              colors={[colors.gold, colors.bronze, colors.gold]}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 0 }}
-              style={[styles.progressBarFill, { width: `${progress}%` }]}
+            <View
+              style={[
+                styles.progressBarFill,
+                { width: `${progress}%`, opacity: 0.4 },
+              ]}
             />
           </View>
-          <Text style={styles.progressText}>{progress}%</Text>
+          <Text style={styles.progressPhaseText}>{getProgressPhase()}</Text>
         </View>
 
         {/* Intention Card */}
@@ -549,7 +836,7 @@ export default function AIGeneratingScreen() {
           >
             <Text style={styles.timeIconText}>⏱</Text>
           </Animated.View>
-          <Text style={styles.timeText}>This usually takes 60-100 seconds</Text>
+          <Text style={styles.timeText}>This usually takes about a minute</Text>
         </View>
       </Animated.View>
     </View>
@@ -631,13 +918,25 @@ const styles = StyleSheet.create({
   centerCircleAndroid: {
     backgroundColor: 'rgba(26, 26, 29, 0.9)',
   },
-  loadingText: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: colors.gold,
-    marginBottom: 32,
+  loadingTextContainer: {
+    alignItems: 'center',
+    marginBottom: 40,
+  },
+  loadingTextPrimary: {
+    fontSize: 22,
+    fontWeight: '500',
+    color: colors.bone,
+    marginBottom: 12,
     letterSpacing: 0.5,
     textAlign: 'center',
+  },
+  loadingTextSecondary: {
+    fontSize: 16,
+    fontWeight: '400',
+    color: colors.gold,
+    letterSpacing: 0.3,
+    textAlign: 'center',
+    opacity: 0.8,
   },
   progressContainer: {
     width: '100%',
@@ -645,24 +944,26 @@ const styles = StyleSheet.create({
   },
   progressBarBg: {
     width: '100%',
-    height: 6,
-    backgroundColor: 'rgba(26, 26, 29, 0.8)',
-    borderRadius: 3,
+    height: 3,
+    backgroundColor: 'rgba(26, 26, 29, 0.5)',
+    borderRadius: 1.5,
     overflow: 'hidden',
-    marginBottom: 12,
-    borderWidth: 1,
-    borderColor: 'rgba(212, 175, 55, 0.2)',
+    marginBottom: 16,
+    borderWidth: 0,
   },
   progressBarFill: {
     height: '100%',
-    borderRadius: 3,
+    borderRadius: 1.5,
+    backgroundColor: colors.gold,
   },
-  progressText: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: colors.bone,
+  progressPhaseText: {
+    fontSize: 13,
+    fontWeight: '500',
+    color: colors.silver,
     textAlign: 'center',
-    letterSpacing: 1,
+    letterSpacing: 1.2,
+    marginTop: 8,
+    opacity: 0.7,
   },
   intentionContainer: {
     width: '100%',
