@@ -187,11 +187,17 @@ export const AnchorDetailScreen: React.FC = () => {
 
         {/* Anchor Display */}
         <View style={styles.anchorContainer}>
-          <SvgXml
-            xml={anchor.baseSigilSvg}
-            width={ANCHOR_SIZE}
-            height={ANCHOR_SIZE}
-          />
+          {anchor.baseSigilSvg ? (
+            <SvgXml
+              xml={anchor.baseSigilSvg}
+              width={ANCHOR_SIZE}
+              height={ANCHOR_SIZE}
+            />
+          ) : (
+            <View style={{ width: ANCHOR_SIZE, height: ANCHOR_SIZE, justifyContent: 'center', alignItems: 'center' }}>
+              <Text style={{ fontSize: 72, color: 'rgba(212, 175, 55, 0.3)' }}>◈</Text>
+            </View>
+          )}
         </View>
 
         {/* Stats */}

@@ -393,7 +393,7 @@ const styles = StyleSheet.create({
   },
   canvasContainer: {
     alignItems: 'center',
-    marginBottom: spacing.lg,
+    marginBottom: spacing.xxl,
     position: 'relative',
   },
   canvas: {
@@ -410,7 +410,7 @@ const styles = StyleSheet.create({
   },
   hintOverlay: {
     position: 'absolute',
-    bottom: -spacing.xl,
+    bottom: -spacing.lg - 8,
     left: 0,
     right: 0,
     alignItems: 'center',

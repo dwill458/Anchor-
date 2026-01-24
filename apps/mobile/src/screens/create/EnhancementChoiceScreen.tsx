@@ -18,6 +18,7 @@ import { StackNavigationProp } from '@react-navigation/stack';
 import { RootStackParamList } from '@/types';
 import { colors } from '@/theme';
 import { ScreenHeader, ZenBackground } from '@/components/common';
+import { useAuthStore } from '@/stores/authStore';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const IS_ANDROID = Platform.OS === 'android';
@@ -34,36 +35,7 @@ interface EnhancementOption {
   estimatedTime?: string;
 }
 
-const ENHANCEMENT_OPTIONS: EnhancementOption[] = [
-  {
-    id: 'enhance',
-    name: 'Add Styling',
-    subtitle: '',
-    description:
-      'Apply visual style to your structure. Choose from 6 artistic interpretations—watercolor, line art, geometric, and more.',
-    emoji: '✨',
-    estimatedTime: '30-60 seconds',
-    features: [
-      '6 visual styles to choose from',
-      'Adds depth and character',
-      'Takes 30-60 seconds',
-    ],
-  },
-  {
-    id: 'pure',
-    name: 'Keep as Forged',
-    subtitle: '',
-    description:
-      'Keep the geometric form you traced. Clean, direct, unmodified.',
-    emoji: '🔷',
-    estimatedTime: 'Instant',
-    features: [
-      'The form you created',
-      'No additional processing',
-      'Ready immediately',
-    ],
-  },
-];
+
 
 type EnhancementChoiceRouteProp = RouteProp<RootStackParamList, 'EnhancementChoice'>;
 type EnhancementChoiceNavigationProp = StackNavigationProp<RootStackParamList, 'EnhancementChoice'>;
@@ -71,6 +43,38 @@ type EnhancementChoiceNavigationProp = StackNavigationProp<RootStackParamList, '
 export const EnhancementChoiceScreen: React.FC = () => {
   const navigation = useNavigation<EnhancementChoiceNavigationProp>();
   const route = useRoute<EnhancementChoiceRouteProp>();
+  const { anchorCount } = useAuthStore();
+  const isFirstAnchor = anchorCount === 0;
+  const styleCount = isFirstAnchor ? 4 : 6;
+
+  const ENHANCEMENT_OPTIONS: EnhancementOption[] = [
+    {
+      id: 'enhance',
+      name: 'Add Styling',
+      subtitle: '',
+      description: `Apply visual style to your structure. Choose from ${styleCount} artistic interpretations—watercolor, line art, geometric, and more.`,
+      emoji: '✨',
+      estimatedTime: '30-60 seconds',
+      features: [
+        `${styleCount} visual styles to choose from`,
+        'Adds depth and character',
+        'Takes 30-60 seconds',
+      ],
+    },
+    {
+      id: 'pure',
+      name: 'Keep as Forged',
+      subtitle: '',
+      description: 'Keep the geometric form you traced. Clean, direct, unmodified.',
+      emoji: '🔷',
+      estimatedTime: 'Instant',
+      features: [
+        'The form you created',
+        'No additional processing',
+        'Ready immediately',
+      ],
+    },
+  ];
 
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const slideAnim = useRef(new Animated.Value(30)).current;
@@ -142,8 +146,6 @@ export const EnhancementChoiceScreen: React.FC = () => {
       <ZenBackground />
 
       <SafeAreaView style={styles.safeArea}>
-        <ScreenHeader title="Finalize Anchor" />
-
         <ScrollView
           style={styles.scrollView}
           contentContainerStyle={styles.scrollContent}
@@ -411,7 +413,7 @@ const styles = StyleSheet.create({
     paddingBottom: 100,
   },
   titleSection: {
-    paddingTop: 8,
+    paddingTop: 64,
     paddingBottom: 24,
   },
   title: {

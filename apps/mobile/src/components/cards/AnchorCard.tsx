@@ -26,9 +26,8 @@ const CATEGORY_CONFIG: Record<string, { label: string; color: string }> = {
 export const AnchorCard: React.FC<AnchorCardProps> = ({ anchor, onPress }) => {
   const categoryConfig = CATEGORY_CONFIG[anchor.category] || CATEGORY_CONFIG.custom;
 
-  const accessibilityLabel = `${anchor.intentionText}. ${categoryConfig.label} anchor. ${
-    anchor.isCharged ? 'Charged. ' : ''
-  }${anchor.activationCount > 0 ? `Activated ${anchor.activationCount} times.` : ''}`;
+  const accessibilityLabel = `${anchor.intentionText}. ${categoryConfig.label} anchor. ${anchor.isCharged ? 'Charged. ' : ''
+    }${anchor.activationCount > 0 ? `Activated ${anchor.activationCount} times.` : ''}`;
 
   return (
     <TouchableOpacity
@@ -47,7 +46,13 @@ export const AnchorCard: React.FC<AnchorCardProps> = ({ anchor, onPress }) => {
         <View style={styles.content}>
           <View style={styles.sigilContainer}>
             <View style={styles.sigilWrapper}>
-              <SvgXml xml={anchor.baseSigilSvg} width="100%" height="100%" />
+              {anchor.baseSigilSvg ? (
+                <SvgXml xml={anchor.baseSigilSvg} width="100%" height="100%" />
+              ) : (
+                <View style={styles.placeholderSigil}>
+                  <Text style={styles.placeholderText}>◈</Text>
+                </View>
+              )}
             </View>
             {anchor.isCharged && (
               <View style={styles.chargedIndicator}>
@@ -149,5 +154,14 @@ const styles = StyleSheet.create({
     fontSize: 11,
     color: colors.silver,
     fontFamily: typography.fonts.body,
+  },
+  placeholderSigil: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  placeholderText: {
+    fontSize: 48,
+    color: 'rgba(212, 175, 55, 0.3)',
   },
 });
