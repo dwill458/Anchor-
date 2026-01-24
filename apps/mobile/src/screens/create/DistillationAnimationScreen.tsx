@@ -24,13 +24,13 @@ type DistillationAnimationNavigationProp = StackNavigationProp<RootStackParamLis
  * Transforms written intention into symbolic letters through gentle,
  * inevitable motion—never mechanical or forced.
  *
- * Phase 0: Rest - Full intention appears with gentle breath (2s)
- * Phase 1: Vowel Fade - Vowels dissolve individually (3s)
- * Phase 2: Consonant Merge - Duplicates drift together magnetically (3.5s)
- * Phase 3: Drift Inward - Letters converge toward center (3s)
- * Phase 4: Settle & Resolve - Final glyph settles into stillness (3.5s)
+ * Phase 0: Rest - Full intention appears with gentle breath (1s)
+ * Phase 1: Vowel Fade - Vowels dissolve individually (1.5s)
+ * Phase 2: Consonant Merge - Duplicates drift together magnetically (2s)
+ * Phase 3: Drift Inward - Letters converge toward center (1.5s)
+ * Phase 4: Settle & Resolve - Final glyph settles into stillness (2s)
  *
- * Total duration: ~15 seconds
+ * Total duration: ~8 seconds
  * Design tone: Zen, ritualistic, minimal, premium
  */
 interface LetterState {
@@ -136,10 +136,10 @@ export default function DistillationAnimationScreen() {
       .filter(letter => letter.isVowel)
       .map((letter, idx) =>
         Animated.sequence([
-          Animated.delay(idx * 100), // Stagger
+          Animated.delay(idx * 50), // Faster stagger
           Animated.timing(letter.opacity, {
             toValue: 0,
-            duration: 800,
+            duration: 400,
             easing: Easing.out(Easing.cubic),
             useNativeDriver: true,
           }),
@@ -149,7 +149,7 @@ export default function DistillationAnimationScreen() {
     Animated.parallel(vowelAnimations).start();
   };
 
-  // Phase 2: Merge duplicate consonants
+  // Phase 2: Merge duplicate consonants with magnetic attraction
   const mergeDuplicates = () => {
     const duplicates = letters.filter(l => l.isDuplicate);
 
@@ -166,18 +166,35 @@ export default function DistillationAnimationScreen() {
       const driftX = (firstOccurrence.index - duplicate.index) * 20;
 
       return Animated.sequence([
-        Animated.delay(idx * 150), // Stagger
+        Animated.delay(idx * 75), // Faster stagger
         Animated.parallel([
+          // Magnetic pull - starts slow, accelerates toward target
           Animated.timing(duplicate.translateX, {
             toValue: driftX,
-            duration: 1200,
-            easing: Easing.inOut(Easing.sin),
+            duration: 800,
+            easing: Easing.in(Easing.cubic), // Accelerate (magnetic pull)
             useNativeDriver: true,
           }),
+          // Scale up slightly before merging (absorption effect)
+          Animated.sequence([
+            Animated.timing(duplicate.scale, {
+              toValue: 1.15,
+              duration: 400,
+              easing: Easing.out(Easing.quad),
+              useNativeDriver: true,
+            }),
+            Animated.timing(duplicate.scale, {
+              toValue: 0.8,
+              duration: 400,
+              easing: Easing.in(Easing.quad),
+              useNativeDriver: true,
+            }),
+          ]),
+          // Fade out in final portion
           Animated.timing(duplicate.opacity, {
             toValue: 0,
-            duration: 300,
-            delay: 900, // Fade out in final 300ms
+            duration: 200,
+            delay: 600, // Fade out in final 200ms
             easing: Easing.out(Easing.cubic),
             useNativeDriver: true,
           }),
@@ -199,13 +216,13 @@ export default function DistillationAnimationScreen() {
       return Animated.parallel([
         Animated.timing(letter.translateX, {
           toValue: driftAmount,
-          duration: 1500,
+          duration: 800,
           easing: Easing.out(Easing.quad),
           useNativeDriver: true,
         }),
         Animated.timing(letter.scale, {
           toValue: 0.95,
-          duration: 1500,
+          duration: 800,
           easing: Easing.out(Easing.quad),
           useNativeDriver: true,
         }),
@@ -217,7 +234,7 @@ export default function DistillationAnimationScreen() {
       ...driftAnimations,
       Animated.timing(letterSpacing, {
         toValue: 4,
-        duration: 1500,
+        duration: 800,
         easing: Easing.out(Easing.quad),
         useNativeDriver: false,
       }),
@@ -230,37 +247,37 @@ export default function DistillationAnimationScreen() {
       // Merge letter spacing to 0
       Animated.timing(letterSpacing, {
         toValue: 0,
-        duration: 1000,
+        duration: 600,
         easing: Easing.out(Easing.quad),
         useNativeDriver: false,
       }),
       // Scale up to final size
       Animated.timing(finalScale, {
         toValue: 1.15,
-        duration: 1000,
+        duration: 600,
         easing: Easing.out(Easing.quad),
         useNativeDriver: true,
       }),
       // Transition to gold color
       Animated.timing(finalColor, {
         toValue: 1,
-        duration: 1000,
+        duration: 600,
         easing: Easing.out(Easing.quad),
         useNativeDriver: false,
       }),
     ]).start(() => {
-      // Start gentle glow pulse
+      // Start gentle glow pulse (faster)
       Animated.loop(
         Animated.sequence([
           Animated.timing(glowAnim, {
             toValue: 1,
-            duration: 1500,
+            duration: 1000,
             easing: Easing.inOut(Easing.sin),
             useNativeDriver: false,
           }),
           Animated.timing(glowAnim, {
             toValue: 0,
-            duration: 1500,
+            duration: 1000,
             easing: Easing.inOut(Easing.sin),
             useNativeDriver: false,
           }),
@@ -274,45 +291,45 @@ export default function DistillationAnimationScreen() {
     if (letters.length === 0) return;
 
     const phases = [
-      // Phase 0: Rest with gentle breath (2s)
+      // Phase 0: Rest with gentle breath (1s)
       {
-        duration: 2000,
+        duration: 1000,
         haptic: Haptics.ImpactFeedbackStyle.Light,
         action: () => {
           animateBreath();
           pulsePhaseLabel();
         },
       },
-      // Phase 1: Vowel Fade (3s)
+      // Phase 1: Vowel Fade (1.5s)
       {
-        duration: 3000,
+        duration: 1500,
         haptic: Haptics.ImpactFeedbackStyle.Light,
         action: () => {
           fadeVowels();
           pulsePhaseLabel();
         },
       },
-      // Phase 2: Consonant Merge (3.5s)
+      // Phase 2: Consonant Merge (2s)
       {
-        duration: 3500,
+        duration: 2000,
         haptic: Haptics.ImpactFeedbackStyle.Medium,
         action: () => {
           mergeDuplicates();
           pulsePhaseLabel();
         },
       },
-      // Phase 3: Drift Inward (3s)
+      // Phase 3: Drift Inward (1.5s)
       {
-        duration: 3000,
+        duration: 1500,
         haptic: Haptics.ImpactFeedbackStyle.Medium,
         action: () => {
           driftInward();
           pulsePhaseLabel();
         },
       },
-      // Phase 4: Settle & Resolve (3.5s)
+      // Phase 4: Settle & Resolve (2s)
       {
-        duration: 3500,
+        duration: 2000,
         haptic: Haptics.ImpactFeedbackStyle.Heavy,
         action: () => {
           settleFinal();
