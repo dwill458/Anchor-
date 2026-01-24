@@ -13,6 +13,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { SvgXml } from 'react-native-svg';
+import * as Haptics from 'expo-haptics';
 import { RootStackParamList, AnchorCategory } from '@/types';
 import {
   generateAllVariants,
@@ -21,7 +22,7 @@ import {
   VARIANT_METADATA,
 } from '@/utils/sigil/traditional-generator';
 import { colors, spacing, typography } from '@/theme';
-import { ZenBackground } from '@/components/common';
+import { ZenBackground, BottomDock, DOCK_HEIGHT } from '@/components/common';
 import { useAuthStore } from '@/stores/authStore';
 
 type StructureForgeRouteProp = RouteProp<RootStackParamList, 'StructureForge'>;
@@ -51,13 +52,14 @@ export default function StructureForgeScreen() {
   const { intentionText, category, distilledLetters } = route.params;
 
   const [variants, setVariants] = useState<SigilGenerationResult[]>([]);
-  const [selectedVariant, setSelectedVariant] = useState<SigilVariant>('balanced');
+  const [selectedVariant, setSelectedVariant] = useState<SigilVariant | null>(null);
   const [loading, setLoading] = useState(true);
   const [isTransitioning, setIsTransitioning] = useState(false);
 
   // Animation values for fade transitions
   const previewFadeAnim = useRef(new Animated.Value(1)).current;
   const labelFadeAnim = useRef(new Animated.Value(1)).current;
+  const selectionScaleAnim = useRef(new Animated.Value(1)).current;
 
   // Detect if this is user's first anchor
   const { anchorCount, incrementAnchorCount } = useAuthStore();
@@ -76,34 +78,57 @@ export default function StructureForgeScreen() {
       ].filter(Boolean) as SigilGenerationResult[];
 
       setVariants(orderedVariants);
+
+      // Pre-select 'balanced' for first-time users
+      if (isFirstAnchor) {
+        setSelectedVariant('balanced');
+      }
     } catch (error) {
       console.error('Sigil selection generation failed:', error);
     } finally {
       setLoading(false);
     }
-  }, [distilledLetters]);
+  }, [distilledLetters, isFirstAnchor]);
 
-  // Handle variant selection with deliberate fade transition
+  // Handle variant selection with deliberate fade transition + haptics
   const handleVariantSelect = (variant: SigilVariant) => {
     // Prevent rapid switching during transition
     if (isTransitioning || variant === selectedVariant) return;
 
+    // Trigger selection haptic
+    Haptics.selectionAsync();
+
     setIsTransitioning(true);
 
-    // Fade out current preview and label
+    // Fade out current preview and label, pulse selection
     Animated.parallel([
       Animated.timing(previewFadeAnim, {
-        toValue: 0,
-        duration: 400,
-        easing: Easing.out(Easing.cubic),
-        useNativeDriver: true,
-      }),
-      Animated.timing(labelFadeAnim, {
         toValue: 0,
         duration: 300,
         easing: Easing.out(Easing.cubic),
         useNativeDriver: true,
       }),
+      Animated.timing(labelFadeAnim, {
+        toValue: 0,
+        duration: 250,
+        easing: Easing.out(Easing.cubic),
+        useNativeDriver: true,
+      }),
+      // Selection scale pulse (subtle 1.02)
+      Animated.sequence([
+        Animated.timing(selectionScaleAnim, {
+          toValue: 1.02,
+          duration: 180,
+          easing: Easing.out(Easing.quad),
+          useNativeDriver: true,
+        }),
+        Animated.timing(selectionScaleAnim, {
+          toValue: 1,
+          duration: 200,
+          easing: Easing.out(Easing.quad),
+          useNativeDriver: true,
+        }),
+      ]),
     ]).start(() => {
       // Change variant after fade out
       setSelectedVariant(variant);
@@ -112,27 +137,31 @@ export default function StructureForgeScreen() {
       Animated.parallel([
         Animated.timing(previewFadeAnim, {
           toValue: 1,
-          duration: 600,
+          duration: 400,
           easing: Easing.in(Easing.cubic),
           useNativeDriver: true,
         }),
         Animated.timing(labelFadeAnim, {
           toValue: 1,
-          duration: 500,
+          duration: 350,
           delay: 100,
           easing: Easing.in(Easing.cubic),
           useNativeDriver: true,
         }),
       ]).start(() => {
-        // Allow next transition after 1000ms total (400 + 600)
         setIsTransitioning(false);
       });
     });
   };
 
   const handleContinue = () => {
+    if (!selectedVariant) return;
+
     const selected = variants.find(v => v.variant === selectedVariant);
     if (!selected) return;
+
+    // Subtle confirmation haptic
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
 
     navigation.navigate('ManualReinforcement', {
       intentionText,
@@ -154,12 +183,19 @@ export default function StructureForgeScreen() {
     );
   }
 
+  const selectedMetadata = selectedVariant ? VARIANT_METADATA[selectedVariant] : null;
+  const ctaLabel = 'Continue'; // Simple, premium
+  const selectedLabel = selectedMetadata?.title;
+
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={styles.container} edges={['top']}>
       <ZenBackground />
       <ScrollView
         style={styles.scrollView}
-        contentContainerStyle={styles.scrollContent}
+        contentContainerStyle={[
+          styles.scrollContent,
+          { paddingBottom: DOCK_HEIGHT + spacing.xl },
+        ]}
         showsVerticalScrollIndicator={false}
       >
         {/* Header */}
@@ -178,7 +214,7 @@ export default function StructureForgeScreen() {
               { opacity: previewFadeAnim }
             ]}
           >
-            {variants.find(v => v.variant === selectedVariant) && (
+            {selectedVariant && variants.find(v => v.variant === selectedVariant) && (
               <SvgXml
                 xml={variants.find(v => v.variant === selectedVariant)!.svg}
                 width="90%"
@@ -193,13 +229,13 @@ export default function StructureForgeScreen() {
               { opacity: labelFadeAnim }
             ]}
           >
-            {VARIANT_METADATA[selectedVariant].title}
+            {selectedMetadata?.title || 'Select a structure'}
           </Animated.Text>
         </View>
 
         {/* Variant Selection Cards */}
         <View style={styles.variantsSection}>
-          <Text style={styles.variantsTitle}>Select a Style</Text>
+          <Text style={styles.variantsTitle}>Available Structures</Text>
 
           {variants.map((result, index) => {
             const metadata = VARIANT_METADATA[result.variant];
@@ -208,60 +244,72 @@ export default function StructureForgeScreen() {
             const isFirst = index === 0;
 
             return (
-              <TouchableOpacity
+              <Animated.View
                 key={result.variant}
                 style={[
-                  styles.variantCard,
-                  isSelected && styles.variantCardSelected,
-                  !isSelected && styles.variantCardDimmed,
+                  { transform: [{ scale: isSelected ? selectionScaleAnim : 1 }] },
                 ]}
-                onPress={() => handleVariantSelect(result.variant)}
-                activeOpacity={0.7}
-                disabled={isTransitioning}
               >
-                {/* Recommended Badge (show on first item for first-time users) */}
-                {isFirst && isFirstAnchor && (
-                  <View style={styles.recommendedBadge}>
-                    <Text style={styles.recommendedText}>Recommended for first Anchor</Text>
+                <TouchableOpacity
+                  style={[
+                    styles.variantCard,
+                    isSelected && styles.variantCardSelected,
+                    !isSelected && styles.variantCardDimmed,
+                  ]}
+                  onPress={() => handleVariantSelect(result.variant)}
+                  activeOpacity={0.7}
+                  disabled={isTransitioning}
+                  accessibilityRole="button"
+                  accessibilityLabel={`${metadata.title} structure`}
+                  accessibilityState={{ selected: isSelected }}
+                  accessibilityHint={metadata.description}
+                >
+                  {/* Recommended Badge (show on first item for first-time users) */}
+                  {isFirst && isFirstAnchor && (
+                    <View style={styles.recommendedBadge}>
+                      <Text style={styles.recommendedText}>Recommended for first Anchor</Text>
+                    </View>
+                  )}
+
+                  {/* Sigil Thumbnail */}
+                  <View style={styles.sigilContainer}>
+                    <SvgXml
+                      xml={result.svg}
+                      width="100%"
+                      height="100%"
+                      color="#D4AF37" // Gold
+                    />
                   </View>
-                )}
 
-                {/* Sigil Thumbnail */}
-                <View style={styles.sigilContainer}>
-                  <SvgXml
-                    xml={result.svg}
-                    width="100%"
-                    height="100%"
-                    color="#D4AF37" // Gold
-                  />
-                </View>
-
-                {/* Variant Info */}
-                <View style={styles.variantInfo}>
-                  <Text style={[styles.variantTitle, isSelected && styles.variantTitleSelected]}>
-                    {metadata.title}
-                  </Text>
-                  <Text style={styles.variantDescription}>{metadata.description}</Text>
-                </View>
-
-                {/* Selection Indicator */}
-                {isSelected && (
-                  <View style={styles.selectedIndicator}>
-                    <Text style={styles.checkmark}>✓</Text>
+                  {/* Variant Info */}
+                  <View style={styles.variantInfo}>
+                    <Text style={[styles.variantTitle, isSelected && styles.variantTitleSelected]}>
+                      {metadata.title}
+                    </Text>
+                    <Text style={styles.variantDescription}>{metadata.description}</Text>
                   </View>
-                )}
-              </TouchableOpacity>
+
+                  {/* Selection Indicator */}
+                  {isSelected && (
+                    <View style={styles.selectedIndicator}>
+                      <Text style={styles.checkmark}>✓</Text>
+                    </View>
+                  )}
+                </TouchableOpacity>
+              </Animated.View>
             );
           })}
         </View>
       </ScrollView>
 
-      {/* Foundation Button */}
-      <View style={styles.footer}>
-        <TouchableOpacity style={styles.continueButton} onPress={handleContinue}>
-          <Text style={styles.continueButtonText}>Set Foundation</Text>
-        </TouchableOpacity>
-      </View>
+      {/* Luxury Docked Bottom Bar */}
+      <BottomDock
+        visible={true}
+        selectedLabel={selectedLabel}
+        ctaLabel={ctaLabel}
+        disabled={!selectedVariant}
+        onPress={handleContinue}
+      />
     </SafeAreaView>
   );
 }
@@ -277,7 +325,6 @@ const styles = StyleSheet.create({
   scrollContent: {
     paddingHorizontal: spacing.lg,
     paddingTop: spacing.md,
-    paddingBottom: 100,
   },
   loadingContainer: {
     flex: 1,
@@ -290,6 +337,7 @@ const styles = StyleSheet.create({
     color: colors.gold,
   },
   header: {
+    paddingTop: 64,
     marginBottom: spacing.lg,
   },
   title: {
@@ -357,8 +405,14 @@ const styles = StyleSheet.create({
     position: 'relative',
   },
   variantCardSelected: {
-    borderColor: colors.gold,
-    backgroundColor: 'rgba(212, 175, 55, 0.06)',
+    borderColor: 'rgba(212, 175, 55, 0.85)', // Stronger gold ring
+    backgroundColor: 'rgba(212, 175, 55, 0.04)', // Very subtle gold tint
+    // Subtle gold glow
+    shadowColor: colors.gold,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.15,
+    shadowRadius: 6,
+    elevation: 3,
   },
   variantCardDimmed: {
     opacity: 0.7,
@@ -414,28 +468,5 @@ const styles = StyleSheet.create({
     fontSize: typography.sizes.h3,
     color: colors.charcoal,
     fontWeight: 'bold',
-  },
-  footer: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    padding: spacing.lg,
-    backgroundColor: colors.charcoal,
-    borderTopWidth: 1,
-    borderTopColor: colors.navy,
-  },
-  continueButton: {
-    backgroundColor: colors.gold,
-    height: 56,
-    borderRadius: spacing.sm,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  continueButtonText: {
-    fontFamily: typography.fonts.body,
-    fontSize: typography.sizes.body1,
-    fontWeight: '600',
-    color: colors.charcoal,
   },
 });

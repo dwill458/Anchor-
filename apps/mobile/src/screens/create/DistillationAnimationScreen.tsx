@@ -157,7 +157,7 @@ export default function DistillationAnimationScreen() {
       // Find first occurrence of this letter
       const firstOccurrence = letters.find(
         l => !l.isVowel && !l.isDuplicate &&
-        l.char.toUpperCase() === duplicate.char.toUpperCase()
+          l.char.toUpperCase() === duplicate.char.toUpperCase()
       );
 
       if (!firstOccurrence) return null;
@@ -499,7 +499,7 @@ export default function DistillationAnimationScreen() {
           </View>
 
           {/* Mystical Subtitle */}
-          <Text style={styles.subtitle}>The Technology of Forgetting</Text>
+          <Text style={styles.subtitle}>Let it settle</Text>
         </View>
       </SafeAreaView>
     </View>

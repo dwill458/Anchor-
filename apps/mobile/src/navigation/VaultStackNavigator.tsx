@@ -82,7 +82,11 @@ export const VaultStackNavigator: React.FC = () => {
       <Stack.Screen
         name="StructureForge"
         component={StructureForgeScreen}
-        options={{ title: 'Choose Structure' }}
+        options={{
+          headerTransparent: true,
+          title: '',
+          headerTintColor: colors.gold,
+        }}
       />
       <Stack.Screen
         name="ManualReinforcement"
@@ -98,7 +102,11 @@ export const VaultStackNavigator: React.FC = () => {
       <Stack.Screen
         name="EnhancementChoice"
         component={EnhancementChoiceScreen}
-        options={{ title: 'Finalize Anchor' }}
+        options={{
+          headerTransparent: true,
+          title: '',
+          headerTintColor: colors.gold,
+        }}
       />
       {/* Phase 3: Style Selection & ControlNet Enhancement */}
       <Stack.Screen

@@ -1,99 +1,65 @@
 /**
- * StyleSelectionScreen (FTUE Version)
+ * StyleSelectionScreen - Refine Expression
  *
- * First-time user enhancement: Visual refinement step
+ * A ritual refinement moment.
+ * This is choosing how a symbol will speak, not configuring settings.
  *
- * FTUE-focused design with 4 core styles only:
- * - Minimal Line (default, recommended)
- * - Ink Brush
- * - Sacred Geometry
- * - Watercolor
- *
- * This screen prioritizes completion over exploration.
- * Uses grounded language and pre-selects Minimal Line to reduce hesitation.
- *
- * Next: AIGeneratingScreen (enhancement with selected style)
+ * Design: 2×2 centered grid, minimal cards, ceremonial selection.
  */
 
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import {
   View,
   Text,
   StyleSheet,
-  ScrollView,
   TouchableOpacity,
   Dimensions,
+  Animated,
+  Easing,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
-import { LinearGradient } from 'expo-linear-gradient';
+import { BlurView } from 'expo-blur';
+import * as Haptics from 'expo-haptics';
 import { RootStackParamList, AIStyle } from '@/types';
 import { colors, spacing, typography } from '@/theme';
+import {
+  MinimalLineIcon,
+  InkBrushIcon,
+  SacredGeometryIcon,
+  WatercolorIcon,
+} from '@/components/icons/StyleIcons';
+import { LockIcon } from '@/components/icons/LockIcon';
 
 type StyleSelectionRouteProp = RouteProp<RootStackParamList, 'StyleSelection'>;
 type StyleSelectionNavigationProp = StackNavigationProp<RootStackParamList, 'StyleSelection'>;
 
-const { width: SCREEN_WIDTH } = Dimensions.get('window');
-const CARD_WIDTH = (SCREEN_WIDTH - 64) / 2; // Two columns with padding
+const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 
-/**
- * Style metadata for each AI style option
- */
+// Card size for 2×2 grid with spacing
+const GAP = 16;
+const GRID_PADDING = 24;
+const CARD_SIZE = (SCREEN_WIDTH - (GRID_PADDING * 2) - GAP) / 2;
+
 interface StyleOption {
   id: AIStyle;
   name: string;
-  description: string;
-  category: 'Organic' | 'Geometric' | 'Hybrid';
-  gradient: [string, string];
-  emoji: string;
+  category: 'Geometric' | 'Organic';
+  isSuggested?: boolean;
 }
 
-/**
- * FTUE Style Options - Reduced to 4 core styles
- * Minimal Line is listed first and will be pre-selected
- */
-const STYLE_OPTIONS: StyleOption[] = [
-  {
-    id: 'minimal_line',
-    name: 'Minimal Line',
-    description: 'Clean · precise · distraction-free',
-    category: 'Geometric',
-    gradient: ['#374151', '#4B5563'],
-    emoji: '━',
-  },
-  {
-    id: 'ink_brush',
-    name: 'Ink Brush',
-    description: 'Hand-drawn · fluid · expressive',
-    category: 'Organic',
-    gradient: ['#2C3E50', '#34495E'],
-    emoji: '🖌️',
-  },
-  {
-    id: 'sacred_geometry',
-    name: 'Sacred Geometry',
-    description: 'Structured · balanced · exact',
-    category: 'Geometric',
-    gradient: ['#D4AF37', '#FFD700'],
-    emoji: '✨',
-  },
-  {
-    id: 'watercolor',
-    name: 'Watercolor',
-    description: 'Soft · organic · atmospheric',
-    category: 'Organic',
-    gradient: ['#4A90E2', '#7B68EE'],
-    emoji: '🎨',
-  },
+const STYLES: StyleOption[] = [
+  { id: 'minimal_line', name: 'Minimal Line', category: 'Geometric', isSuggested: true },
+  { id: 'ink_brush', name: 'Ink Brush', category: 'Organic' },
+  { id: 'sacred_geometry', name: 'Sacred Geometry', category: 'Geometric' },
+  { id: 'watercolor', name: 'Watercolor', category: 'Organic' },
 ];
 
-/**
- * StyleSelectionScreen Component
- */
 export default function StyleSelectionScreen() {
   const route = useRoute<StyleSelectionRouteProp>();
   const navigation = useNavigation<StyleSelectionNavigationProp>();
+  const insets = useSafeAreaInsets();
 
   const {
     intentionText,
@@ -105,14 +71,132 @@ export default function StyleSelectionScreen() {
     reinforcementMetadata,
   } = route.params;
 
-  // Pre-select Minimal Line for FTUE (first style in array)
-  const [selectedStyle, setSelectedStyle] = useState<AIStyle | null>('minimal_line');
+  const [selected, setSelected] = useState<AIStyle | null>('minimal_line');
+
+  // Scale animations for each card
+  const scaleAnims = useRef<Record<string, Animated.Value>>(
+    STYLES.reduce((acc, s) => {
+      acc[s.id] = new Animated.Value(1);
+      return acc;
+    }, {} as Record<string, Animated.Value>)
+  ).current;
+
+  // Ambient background response (4-8% opacity, barely noticeable)
+  const ambientOpacity = useRef(new Animated.Value(0)).current;
+
+  // Whisper text fade (150-200ms)
+  const whisperOpacity = useRef(new Animated.Value(0)).current;
 
   /**
-   * Handle style selection and navigate to AI generating screen
+   * Style whisper copy - meaning feedback
    */
+  const WHISPERS: Partial<Record<AIStyle, string>> = {
+    minimal_line: 'Clarity through restraint.',
+    ink_brush: 'Motion carries intent.',
+    sacred_geometry: 'Order reveals meaning.',
+    watercolor: 'Emotion softens form.',
+  };
+
+  /**
+   * Ambient background variations (subtle environmental shift)
+   * Opacity: 4-8% max, transition: 300-500ms
+   */
+  const getAmbientStyle = (styleId: AIStyle | null): any => {
+    if (!styleId) return {};
+
+    switch (styleId) {
+      case 'minimal_line':
+        // Slight increase in contrast, sharp vignette
+        return {
+          backgroundColor: 'rgba(0, 0, 0, 0.05)', // 5% darker for focus
+        };
+      case 'ink_brush':
+        // Soft organic noise/blur diffusion
+        return {
+          backgroundColor: 'rgba(45, 55, 72, 0.06)', // 6% warm organic tint
+        };
+      case 'sacred_geometry':
+        // Faint geometric halo
+        return {
+          backgroundColor: 'rgba(212, 175, 55, 0.04)', // 4% gold radial glow
+        };
+      case 'watercolor':
+        // Gentle color bloom
+        return {
+          backgroundColor: 'rgba(74, 144, 226, 0.05)', // 5% soft blue bloom
+        };
+      default:
+        return {};
+    }
+  };
+
+  const getIcon = (id: string) => {
+    const props = { size: 48 };
+    switch (id) {
+      case 'minimal_line': return <MinimalLineIcon {...props} />;
+      case 'ink_brush': return <InkBrushIcon {...props} />;
+      case 'sacred_geometry': return <SacredGeometryIcon {...props} />;
+      case 'watercolor': return <WatercolorIcon {...props} />;
+      default: return <MinimalLineIcon {...props} />;
+    }
+  };
+
+  const handleSelect = (id: AIStyle) => {
+    if (selected === id) return;
+
+    Haptics.selectionAsync();
+
+    // Selection breath animation: 1 → 1.02 → 1
+    Animated.sequence([
+      Animated.timing(scaleAnims[id], {
+        toValue: 1.02,
+        duration: 200,
+        useNativeDriver: true,
+      }),
+      Animated.timing(scaleAnims[id], {
+        toValue: 1,
+        duration: 200,
+        useNativeDriver: true,
+      }),
+    ]).start();
+
+    // Fade out whisper and ambient
+    Animated.parallel([
+      Animated.timing(whisperOpacity, {
+        toValue: 0,
+        duration: 150,
+        useNativeDriver: true,
+      }),
+      Animated.timing(ambientOpacity, {
+        toValue: 0,
+        duration: 300,
+        useNativeDriver: true,
+      }),
+    ]).start(() => {
+      // Update selection
+      setSelected(id);
+
+      // Fade in new whisper and ambient (inevitable, not decorative)
+      Animated.parallel([
+        Animated.timing(whisperOpacity, {
+          toValue: 1,
+          duration: 200,
+          useNativeDriver: true,
+        }),
+        Animated.timing(ambientOpacity, {
+          toValue: 1,
+          duration: 400,
+          easing: Easing.inOut(Easing.ease),
+          useNativeDriver: true,
+        }),
+      ]).start();
+    });
+  };
+
   const handleContinue = () => {
-    if (!selectedStyle) return;
+    if (!selected) return;
+
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
 
     navigation.navigate('AIGenerating', {
       intentionText,
@@ -121,292 +205,324 @@ export default function StyleSelectionScreen() {
       baseSigilSvg,
       reinforcedSigilSvg,
       structureVariant,
-      styleChoice: selectedStyle,
       reinforcementMetadata,
+      styleChoice: selected, // Fixed: use styleChoice not selectedStyle
     });
   };
 
-  /**
-   * Render individual style card
-   */
-  const renderStyleCard = (style: StyleOption, index: number) => {
-    const isSelected = selectedStyle === style.id;
-    const isRecommended = style.id === 'minimal_line';
-
-    return (
-      <TouchableOpacity
-        key={style.id}
-        style={[
-          styles.card,
-          isSelected && styles.cardSelected,
-        ]}
-        onPress={() => setSelectedStyle(style.id)}
-        activeOpacity={0.7}
-      >
-        <LinearGradient
-          colors={style.gradient}
-          style={styles.cardGradient}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
-        >
-          {/* Emoji Icon */}
-          <Text style={styles.emoji}>{style.emoji}</Text>
-
-          {/* Style Name */}
-          <Text style={styles.styleName}>{style.name}</Text>
-
-          {/* Category Badge */}
-          <View style={styles.categoryBadge}>
-            <Text style={styles.categoryText}>{style.category}</Text>
-          </View>
-        </LinearGradient>
-
-        {/* Description */}
-        <View style={styles.cardContent}>
-          <Text style={styles.description} numberOfLines={3}>
-            {style.description}
-          </Text>
-
-          {/* Recommended Badge for Minimal Line */}
-          {isRecommended && (
-            <Text style={styles.recommendedBadge}>
-              Recommended for your first Anchor
-            </Text>
-          )}
-        </View>
-
-        {/* Selection Indicator */}
-        {isSelected && (
-          <View style={styles.selectedIndicator}>
-            <Text style={styles.checkmark}>✓</Text>
-          </View>
-        )}
-      </TouchableOpacity>
-    );
-  };
+  const hasSuggested = STYLES.some(s => s.isSuggested);
 
   return (
-    <SafeAreaView style={styles.container}>
-      <ScrollView
-        style={styles.scrollView}
-        contentContainerStyle={styles.scrollContent}
-        showsVerticalScrollIndicator={false}
-      >
-        {/* Header */}
-        <View style={styles.header}>
-          <Text style={styles.title}>Refine the expression</Text>
-          <Text style={styles.subtitle}>
-            This step refines how your Anchor appears — without changing its structure.
-          </Text>
-          <Text style={styles.subtitleSecondary}>
-            The foundation is already set.
-          </Text>
-        </View>
+    <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
+      {/* Header */}
+      <View style={styles.header}>
+        <Text style={styles.title}>Refine Expression</Text>
+        <Text style={styles.subtitle}>
+          Adjust the finish. The structure remains unchanged.
+        </Text>
+      </View>
 
-        {/* Lock Reassurance */}
-        <View style={styles.infoBox}>
-          <Text style={styles.infoIcon}>🔒</Text>
-          <Text style={styles.infoText}>
-            Structure protected. Visual refinement only.
-          </Text>
-        </View>
+      {/* Lock indicator - thin divider */}
+      <View style={styles.lockDivider}>
+        <LockIcon size={16} color="#D4AF37" />
+        <Text style={styles.lockText}>
+          Structure locked · Visual refinement only
+        </Text>
+      </View>
 
-        {/* Style Grid */}
-        <View style={styles.gridContainer}>
-          {STYLE_OPTIONS.map((style, index) => renderStyleCard(style, index))}
-        </View>
-
-        {/* Continue Button */}
-        <TouchableOpacity
+      {/* 2×2 Grid - Centered vertically */}
+      <View style={styles.gridContainer}>
+        {/* Ambient background response - subtle environmental shift */}
+        <Animated.View
           style={[
-            styles.continueButton,
-            !selectedStyle && styles.continueButtonDisabled,
+            StyleSheet.absoluteFill,
+            getAmbientStyle(selected),
+            { opacity: ambientOpacity },
           ]}
+          pointerEvents="none"
+        />
+
+        <View style={styles.grid}>
+          {STYLES.map((style) => {
+            const isSelected = selected === style.id;
+            const isSuggested = style.isSuggested;
+
+            return (
+              <Animated.View
+                key={style.id}
+                style={[
+                  styles.cardWrapper,
+                  { transform: [{ scale: scaleAnims[style.id] }] },
+                ]}
+              >
+                <TouchableOpacity
+                  style={[
+                    styles.card,
+                    isSelected && styles.cardSelected,
+                    isSuggested && !isSelected && styles.cardSuggested,
+                  ]}
+                  onPress={() => handleSelect(style.id)}
+                  activeOpacity={0.9}
+                  accessibilityRole="button"
+                  accessibilityLabel={`${style.name}, ${style.category}`}
+                  accessibilityState={{ selected: isSelected }}
+                >
+                  <BlurView intensity={10} tint="dark" style={styles.cardContent}>
+                    {/* Icon - centered */}
+                    <View style={styles.iconContainer}>
+                      {getIcon(style.id)}
+                    </View>
+
+                    {/* Name */}
+                    <Text style={styles.styleName}>{style.name}</Text>
+
+                    {/* Category tag */}
+                    <View style={styles.categoryTag}>
+                      <Text style={styles.categoryText}>
+                        {style.category.toUpperCase()}
+                      </Text>
+                    </View>
+                  </BlurView>
+                </TouchableOpacity>
+              </Animated.View>
+            );
+          })}
+        </View>
+
+        {/* Style whisper - meaning feedback (appears after selection) */}
+        {selected && (
+          <Animated.Text
+            style={[
+              styles.whisperText,
+              { opacity: whisperOpacity },
+            ]}
+          >
+            {WHISPERS[selected]}
+          </Animated.Text>
+        )}
+
+        {/* Suggestion microcopy - BELOW whisper */}
+        {hasSuggested && (
+          <Text style={styles.suggestionText}>
+            Suggested for first Anchor
+          </Text>
+        )}
+      </View>
+
+      {/* Bottom CTA */}
+      <View style={[styles.ctaContainer, { paddingBottom: insets.bottom + spacing.md }]}>
+        <Text style={styles.helperText}>You can change this later</Text>
+
+        <TouchableOpacity
+          style={[styles.ctaButton, !selected && styles.ctaButtonDisabled]}
           onPress={handleContinue}
-          disabled={!selectedStyle}
-          activeOpacity={0.8}
+          disabled={!selected}
+          activeOpacity={0.85}
+          accessibilityRole="button"
+          accessibilityLabel="Refine Anchor"
+          accessibilityState={{ disabled: !selected }}
         >
-          <Text style={styles.continueButtonText}>
-            Apply enhancement
+          <Text style={[styles.ctaText, !selected && styles.ctaTextDisabled]}>
+            Refine Anchor
           </Text>
         </TouchableOpacity>
-
-        {/* Bottom Padding */}
-        <View style={{ height: spacing.sm }} />
-      </ScrollView>
+      </View>
     </SafeAreaView>
   );
 }
 
-/**
- * Styles
- */
 const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: colors.charcoal,
   },
-  scrollView: {
-    flex: 1,
-  },
-  scrollContent: {
-    paddingHorizontal: spacing.lg,
-    paddingTop: spacing.sm,
-  },
+
+  // Header - simplified
   header: {
-    marginBottom: spacing.sm,
-    alignItems: 'center',
+    paddingHorizontal: GRID_PADDING,
+    paddingTop: 80, // Space for transparent nav
+    marginBottom: spacing.lg,
   },
   title: {
-    fontFamily: typography.heading.fontFamily,
-    fontSize: 24,
+    fontFamily: typography.fonts.heading,
+    fontSize: 28,
     fontWeight: '500',
-    color: '#E8E8E8',
+    color: colors.bone,
     marginBottom: spacing.xs,
+    letterSpacing: 0.3,
     textAlign: 'center',
   },
   subtitle: {
-    fontFamily: typography.body.fontFamily,
+    fontFamily: typography.fonts.body,
     fontSize: 14,
     color: colors.text.secondary,
-    textAlign: 'center',
     lineHeight: 20,
-    paddingHorizontal: spacing.md,
-    marginBottom: 4,
-  },
-  subtitleSecondary: {
-    fontFamily: typography.body.fontFamily,
-    fontSize: 13,
-    color: '#626262',
     textAlign: 'center',
-    fontStyle: 'italic',
   },
-  infoBox: {
+
+  // Lock divider - informational, not cautionary
+  lockDivider: {
     flexDirection: 'row',
-    backgroundColor: colors.background.secondary,
-    borderRadius: 12,
-    padding: spacing.sm,
-    marginBottom: spacing.md,
-    borderWidth: 1,
-    borderColor: colors.gold + '20',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: GRID_PADDING,
+    paddingVertical: spacing.sm,
+    marginBottom: spacing.xl,
+    borderTopWidth: 1,
+    borderBottomWidth: 1,
+    borderColor: 'rgba(212, 175, 55, 0.15)',
   },
-  infoIcon: {
-    fontSize: 20,
-    marginRight: spacing.sm,
+  lockText: {
+    fontFamily: typography.fonts.body,
+    fontSize: 12,
+    color: colors.text.tertiary,
+    marginLeft: spacing.sm,
+    letterSpacing: 0.3,
   },
-  infoText: {
-    flex: 1,
-    fontFamily: typography.body.fontFamily,
-    fontSize: 13,
-    color: colors.text.secondary,
-    lineHeight: 18,
-    fontWeight: '500',
-  },
+
+  // Grid container - vertically centered
   gridContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    paddingHorizontal: GRID_PADDING,
+  },
+
+  // 2×2 Grid
+  grid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     justifyContent: 'space-between',
-    marginBottom: spacing.sm,
+    gap: GAP,
   },
+
+  cardWrapper: {
+    width: CARD_SIZE,
+    height: CARD_SIZE,
+  },
+
+  // Card - minimal, ceremonial
   card: {
-    width: CARD_WIDTH,
-    marginBottom: spacing.sm,
+    flex: 1,
     borderRadius: 16,
-    backgroundColor: colors.background.secondary,
-    overflow: 'hidden',
     borderWidth: 2,
-    borderColor: 'transparent',
+    borderColor: 'rgba(255, 255, 255, 0.08)',
+    overflow: 'hidden',
   },
-  cardSelected: {
-    borderColor: colors.gold,
+
+  // Suggested - whisper (brighter border, softer glow)
+  cardSuggested: {
+    borderColor: 'rgba(212, 175, 55, 0.3)',
     shadowColor: colors.gold,
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.5,
-    shadowRadius: 8,
-    elevation: 8,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 6,
+    elevation: 2,
   },
-  cardGradient: {
-    height: 100,
+
+  // Selected - gold ring + glow
+  cardSelected: {
+    borderColor: 'rgba(212, 175, 55, 0.9)',
+    shadowColor: colors.gold,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 12,
+    elevation: 6,
+  },
+
+  cardContent: {
+    flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    paddingVertical: spacing.sm,
+    padding: spacing.sm,
   },
-  emoji: {
-    fontSize: 32,
-    marginBottom: spacing.xs,
+
+  iconContainer: {
+    marginBottom: spacing.md,
   },
+
   styleName: {
-    fontFamily: typography.heading.fontFamily,
-    fontSize: 16,
-    color: colors.text.primary,
+    fontFamily: typography.fonts.heading,
+    fontSize: 15,
+    color: colors.bone,
     marginBottom: spacing.xs,
+    letterSpacing: 0.2,
     textAlign: 'center',
   },
-  categoryBadge: {
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
-    paddingHorizontal: spacing.sm,
-    paddingVertical: spacing.xs / 2,
-    borderRadius: 8,
+
+  categoryTag: {
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 6,
   },
+
   categoryText: {
-    fontFamily: typography.body.fontFamily,
-    fontSize: 10,
-    color: colors.text.primary,
+    fontFamily: typography.fonts.body,
+    fontSize: 9,
+    color: colors.text.tertiary,
     fontWeight: '600',
-    textTransform: 'uppercase',
+    letterSpacing: 0.8,
+  },
+
+  // Whisper text - meaning feedback (centered below grid)
+  whisperText: {
+    fontFamily: typography.fonts.body,
+    fontSize: 13, // Slightly smaller than body
+    color: colors.text.secondary, // Silver/muted bone
+    textAlign: 'center',
+    marginTop: spacing.md,
+    letterSpacing: 0.3,
+  },
+
+  // Suggestion text - BELOW whisper
+  suggestionText: {
+    fontFamily: typography.fonts.body,
+    fontSize: 11,
+    color: 'rgba(212, 175, 55, 0.6)',
+    textAlign: 'center',
+    marginTop: spacing.md,
+    fontStyle: 'italic',
+  },
+
+  // Bottom CTA - seal
+  ctaContainer: {
+    paddingHorizontal: GRID_PADDING,
+    paddingTop: spacing.lg,
+  },
+
+  helperText: {
+    fontFamily: typography.fonts.body,
+    fontSize: 12,
+    color: colors.text.tertiary,
+    textAlign: 'center',
+    marginBottom: spacing.sm,
+    opacity: 0.7,
+  },
+
+  ctaButton: {
+    height: 54,
+    borderRadius: 12,
+    borderWidth: 1.5,
+    borderColor: 'rgba(212, 175, 55, 0.7)',
+    backgroundColor: 'transparent',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+
+  ctaButtonDisabled: {
+    borderColor: 'rgba(212, 175, 55, 0.25)',
+    opacity: 0.4,
+  },
+
+  ctaText: {
+    fontFamily: typography.fonts.body,
+    fontSize: typography.sizes.body1,
+    fontWeight: '600',
+    color: colors.bone,
     letterSpacing: 0.5,
   },
-  cardContent: {
-    padding: spacing.sm,
-    minHeight: 60,
-  },
-  description: {
-    fontFamily: typography.body.fontFamily,
-    fontSize: 12,
-    color: colors.text.secondary,
-    lineHeight: 16,
-    textAlign: 'center',
-  },
-  recommendedBadge: {
-    fontFamily: typography.body.fontFamily,
-    fontSize: 10,
-    color: colors.gold,
-    textAlign: 'center',
-    marginTop: spacing.xs,
-    fontWeight: '600',
-  },
-  selectedIndicator: {
-    position: 'absolute',
-    top: 8,
-    right: 8,
-    backgroundColor: colors.gold,
-    width: 28,
-    height: 28,
-    borderRadius: 14,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  checkmark: {
-    color: colors.background.primary,
-    fontSize: 16,
-    fontWeight: 'bold',
-  },
-  continueButton: {
-    backgroundColor: colors.gold,
-    paddingVertical: spacing.md,
-    paddingHorizontal: spacing.lg,
-    borderRadius: 12,
-    alignItems: 'center',
-    marginTop: spacing.sm,
-  },
-  continueButtonDisabled: {
-    backgroundColor: colors.text.disabled,
-    opacity: 0.5,
-  },
-  continueButtonText: {
-    fontFamily: typography.heading.fontFamily,
-    fontSize: 16,
-    color: colors.background.primary,
-    fontWeight: '600',
+
+  ctaTextDisabled: {
+    // Opacity handled by parent
   },
 });
