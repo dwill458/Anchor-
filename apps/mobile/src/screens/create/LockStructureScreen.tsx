@@ -80,10 +80,10 @@ export default function LockStructureScreen() {
         delay: 100,
         useNativeDriver: true,
       }).start(() => {
-        // Auto-advance after brief pause (total ~2.5 seconds)
+        // Auto-advance after pause for comfortable reading (total ~4 seconds)
         setTimeout(() => {
           handleContinue();
-        }, 1500);
+        }, 2500);
       });
     });
   }, []);
@@ -146,13 +146,6 @@ export default function LockStructureScreen() {
             {getVariantDisplayName(structureVariant)} structure · Letters: {distilledLetters.join(' ')}
           </Text>
         </View>
-      </View>
-
-      {/* Continue Button */}
-      <View style={styles.footer}>
-        <TouchableOpacity style={styles.continueButton} onPress={handleContinue}>
-          <Text style={styles.continueButtonText}>Continue to Enhancement</Text>
-        </TouchableOpacity>
       </View>
     </SafeAreaView>
   );
@@ -236,22 +229,5 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: '#626262',
     textAlign: 'center',
-  },
-  footer: {
-    padding: spacing.lg,
-    backgroundColor: colors.charcoal,
-  },
-  continueButton: {
-    backgroundColor: colors.gold,
-    height: 56,
-    borderRadius: spacing.sm,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  continueButtonText: {
-    fontFamily: typography.fonts.body,
-    fontSize: typography.sizes.body1,
-    fontWeight: '600',
-    color: '#000000',
   },
 });

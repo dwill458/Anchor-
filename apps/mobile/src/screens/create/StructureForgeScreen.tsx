@@ -67,7 +67,15 @@ export default function StructureForgeScreen() {
     try {
       // Generate all three variants
       const generated = generateAllVariants(distilledLetters);
-      setVariants(generated);
+
+      // Reorder variants: recommended (balanced) first, then others
+      const orderedVariants = [
+        generated.find(v => v.variant === 'balanced'),
+        generated.find(v => v.variant === 'dense'),
+        generated.find(v => v.variant === 'minimal'),
+      ].filter(Boolean) as SigilGenerationResult[];
+
+      setVariants(orderedVariants);
     } catch (error) {
       console.error('Sigil selection generation failed:', error);
     } finally {
@@ -193,10 +201,11 @@ export default function StructureForgeScreen() {
         <View style={styles.variantsSection}>
           <Text style={styles.variantsTitle}>Select a Style</Text>
 
-          {variants.map((result) => {
+          {variants.map((result, index) => {
             const metadata = VARIANT_METADATA[result.variant];
             const isSelected = result.variant === selectedVariant;
-            const isRecommended = isFirstAnchor && result.variant === 'balanced';
+            const isRecommended = result.variant === 'balanced';
+            const isFirst = index === 0;
 
             return (
               <TouchableOpacity
@@ -210,10 +219,10 @@ export default function StructureForgeScreen() {
                 activeOpacity={0.7}
                 disabled={isTransitioning}
               >
-                {/* Recommended Badge (FTUE only) */}
-                {isRecommended && (
+                {/* Recommended Badge (show on first item for first-time users) */}
+                {isFirst && isFirstAnchor && (
                   <View style={styles.recommendedBadge}>
-                    <Text style={styles.recommendedText}>Recommended for your first Anchor</Text>
+                    <Text style={styles.recommendedText}>Recommended for first Anchor</Text>
                   </View>
                 )}
 

@@ -6,6 +6,7 @@ import {
   TouchableOpacity,
   Dimensions,
   Alert,
+  Modal,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
@@ -16,6 +17,7 @@ import { runOnJS } from 'react-native-reanimated';
 import { RootStackParamList, AnchorCategory, SigilVariant } from '@/types';
 import { colors, spacing, typography } from '@/theme';
 import { ZenBackground } from '@/components/common';
+import { useAuthStore } from '@/stores/authStore';
 
 type ManualReinforcementRouteProp = RouteProp<RootStackParamList, 'ManualReinforcement'>;
 type ManualReinforcementNavigationProp = StackNavigationProp<
@@ -69,7 +71,13 @@ export default function ManualReinforcementScreen() {
   const [isDrawing, setIsDrawing] = useState(false);
   const [fidelityScore, setFidelityScore] = useState(0);
   const [strokeCount, setStrokeCount] = useState(0);
+  const [hasStartedDrawing, setHasStartedDrawing] = useState(false);
+  const [showSkipModal, setShowSkipModal] = useState(false);
   const startTime = useRef(Date.now());
+
+  // Detect first-time user for subtle guidance
+  const { anchorCount } = useAuthStore();
+  const isFirstAnchor = anchorCount === 0;
 
   // Convert points array to SVG path data
   const pointsToPathData = (points: Point[]): string => {
@@ -100,6 +108,11 @@ export default function ManualReinforcementScreen() {
     updateCounterRef.current = 0;
     setIsDrawing(true);
     setCurrentStroke([{ x, y }]);
+
+    // Hide hint on first touch
+    if (!hasStartedDrawing) {
+      setHasStartedDrawing(true);
+    }
   };
 
   const handleGestureUpdate = (x: number, y: number) => {
@@ -183,8 +196,13 @@ export default function ManualReinforcementScreen() {
   };
 
   const handleSkip = () => {
+    setShowSkipModal(true);
+  };
+
+  const handleConfirmSkip = () => {
     const timeSpentMs = Date.now() - startTime.current;
 
+    setShowSkipModal(false);
     navigation.navigate('LockStructure', {
       intentionText,
       category,
@@ -200,6 +218,10 @@ export default function ManualReinforcementScreen() {
         timeSpentMs,
       },
     });
+  };
+
+  const handleCancelSkip = () => {
+    setShowSkipModal(false);
   };
 
   const handleClearLast = () => {
@@ -276,10 +298,10 @@ export default function ManualReinforcementScreen() {
           </View>
         </GestureDetector>
 
-        {/* Drawing hint overlay */}
-        {strokeCount === 0 && (
+        {/* Subtle guidance for first-time users */}
+        {isFirstAnchor && !hasStartedDrawing && (
           <View style={styles.hintOverlay}>
-            <Text style={styles.hintText}>Touch and drag to trace</Text>
+            <Text style={styles.hintText}>Touch and draw over the lines</Text>
           </View>
         )}
       </View>
@@ -316,6 +338,31 @@ export default function ManualReinforcementScreen() {
           <Text style={styles.skipButtonText}>Continue without tracing</Text>
         </TouchableOpacity>
       </View>
+
+      {/* Skip Confirmation Modal */}
+      <Modal
+        visible={showSkipModal}
+        transparent
+        animationType="fade"
+        onRequestClose={handleCancelSkip}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <Text style={styles.modalTitle}>Continue Without Tracing</Text>
+            <Text style={styles.modalBody}>
+              Some find tracing deepens their focus. It's completely optional.
+            </Text>
+
+            <TouchableOpacity style={styles.modalPrimaryButton} onPress={handleCancelSkip}>
+              <Text style={styles.modalPrimaryButtonText}>Stay and Trace</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity style={styles.modalSecondaryButton} onPress={handleConfirmSkip}>
+              <Text style={styles.modalSecondaryButtonText}>Continue</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -363,19 +410,17 @@ const styles = StyleSheet.create({
   },
   hintOverlay: {
     position: 'absolute',
-    top: '50%',
-    left: '50%',
-    transform: [{ translateX: -100 }, { translateY: -20 }],
-    backgroundColor: 'rgba(0, 0, 0, 0.7)',
-    paddingVertical: spacing.sm,
-    paddingHorizontal: spacing.lg,
-    borderRadius: spacing.sm,
+    bottom: -spacing.xl,
+    left: 0,
+    right: 0,
+    alignItems: 'center',
     pointerEvents: 'none',
   },
   hintText: {
     fontFamily: typography.fonts.body,
-    fontSize: typography.sizes.body2,
-    color: colors.gold,
+    fontSize: 14,
+    color: colors.text.tertiary,
+    opacity: 0.7,
   },
   controls: {
     paddingHorizontal: spacing.lg,
@@ -432,5 +477,65 @@ const styles = StyleSheet.create({
     fontFamily: typography.fonts.body,
     fontSize: typography.sizes.body2,
     color: colors.text.secondary,
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(20, 20, 30, 0.95)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: spacing.lg,
+  },
+  modalContent: {
+    backgroundColor: 'rgba(40, 40, 50, 1)',
+    borderRadius: 16,
+    padding: 32,
+    width: '100%',
+    maxWidth: 400,
+    borderWidth: 1,
+    borderColor: 'rgba(212, 175, 55, 0.2)',
+  },
+  modalTitle: {
+    fontFamily: typography.fonts.heading,
+    fontSize: 20,
+    color: '#E8E8E8',
+    textAlign: 'center',
+    marginBottom: 16,
+  },
+  modalBody: {
+    fontFamily: typography.fonts.body,
+    fontSize: 15,
+    color: '#9B9B9B',
+    textAlign: 'center',
+    lineHeight: 22,
+    marginBottom: 24,
+  },
+  modalPrimaryButton: {
+    backgroundColor: colors.gold,
+    height: 52,
+    borderRadius: 8,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  modalPrimaryButtonText: {
+    fontFamily: typography.fonts.body,
+    fontSize: typography.sizes.body1,
+    fontWeight: '600',
+    color: '#1A1A1A',
+  },
+  modalSecondaryButton: {
+    backgroundColor: 'transparent',
+    height: 52,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.2)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  modalSecondaryButtonText: {
+    fontFamily: typography.fonts.body,
+    fontSize: typography.sizes.body1,
+    fontWeight: '400',
+    color: '#9B9B9B',
   },
 });
