@@ -138,7 +138,7 @@ export default function AIGeneratingScreen() {
           }
           return prev + 1;
         });
-      }, 900); // ~85 seconds to reach 95%
+      }, 400); // ~38 seconds to reach 95% (matched to parallel API performance)
 
       // Use reinforced SVG if available, otherwise use base structure
       const sigilToEnhance = reinforcedSigilSvg || baseSigilSvg;
