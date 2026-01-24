@@ -22,7 +22,7 @@ import {
   VARIANT_METADATA,
 } from '@/utils/sigil/traditional-generator';
 import { colors, spacing, typography } from '@/theme';
-import { ZenBackground, BottomDock, DOCK_HEIGHT } from '@/components/common';
+import { ZenBackground } from '@/components/common';
 import { useAuthStore } from '@/stores/authStore';
 
 type StructureForgeRouteProp = RouteProp<RootStackParamList, 'StructureForge'>;
@@ -188,55 +188,55 @@ export default function StructureForgeScreen() {
   const selectedLabel = selectedMetadata?.title;
 
   return (
-    <SafeAreaView style={styles.container} edges={['top']}>
+    <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
       <ZenBackground />
-      <ScrollView
-        style={styles.scrollView}
-        contentContainerStyle={[
-          styles.scrollContent,
-          { paddingBottom: DOCK_HEIGHT + spacing.xl },
-        ]}
-        showsVerticalScrollIndicator={false}
-      >
-        {/* Header */}
-        <View style={styles.header}>
-          <Text style={styles.title}>Choose Structure</Text>
-          <Text style={styles.subtitle}>
-            This is the frame that will hold your intention.
-          </Text>
-        </View>
 
-        {/* Large Preview of Selected Variant */}
-        <View style={styles.previewSection}>
-          <Animated.View
-            style={[
-              styles.previewContainer,
-              { opacity: previewFadeAnim }
-            ]}
-          >
-            {selectedVariant && variants.find(v => v.variant === selectedVariant) && (
-              <SvgXml
-                xml={variants.find(v => v.variant === selectedVariant)!.svg}
-                width="90%"
-                height="90%"
-                color="#D4AF37" // Gold
-              />
-            )}
-          </Animated.View>
-          <Animated.Text
-            style={[
-              styles.previewLabel,
-              { opacity: labelFadeAnim }
-            ]}
-          >
-            {selectedMetadata?.title || 'Select a structure'}
-          </Animated.Text>
-        </View>
+      {/* Header */}
+      <View style={styles.header}>
+        <Text style={styles.title}>Choose Structure</Text>
+        <Text style={styles.subtitle}>
+          This is the frame that will hold your intention.
+        </Text>
+      </View>
 
-        {/* Variant Selection Cards */}
-        <View style={styles.variantsSection}>
-          <Text style={styles.variantsTitle}>Available Structures</Text>
+      {/* Main Preview Area */}
+      <View style={styles.previewSection}>
+        <Animated.View
+          style={[
+            styles.previewContainer,
+            { opacity: previewFadeAnim }
+          ]}
+        >
+          {selectedVariant && variants.find(v => v.variant === selectedVariant) && (
+            <SvgXml
+              xml={variants.find(v => v.variant === selectedVariant)!.svg}
+              width="90%"
+              height="90%"
+              color="#D4AF37" // Gold
+            />
+          )}
+        </Animated.View>
+        <Animated.Text
+          style={[
+            styles.previewLabel,
+            { opacity: labelFadeAnim }
+          ]}
+        >
+          {selectedMetadata?.title || 'Select a structure'}
+        </Animated.Text>
+      </View>
 
+      {/* Available Structures Section */}
+      <View style={styles.structuresSection}>
+        <Text style={styles.sectionTitle}>Available Structures</Text>
+
+        {/* Structure Cards */}
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          style={styles.structuresList}
+          contentContainerStyle={styles.structuresListContent}
+        >
           {variants.map((result, index) => {
             const metadata = VARIANT_METADATA[result.variant];
             const isSelected = result.variant === selectedVariant;
@@ -244,72 +244,72 @@ export default function StructureForgeScreen() {
             const isFirst = index === 0;
 
             return (
-              <Animated.View
+              <TouchableOpacity
                 key={result.variant}
                 style={[
-                  { transform: [{ scale: isSelected ? selectionScaleAnim : 1 }] },
+                  styles.structureCard,
+                  isSelected && styles.structureCardSelected
                 ]}
+                onPress={() => handleVariantSelect(result.variant)}
+                activeOpacity={0.7}
+                disabled={isTransitioning}
+                accessibilityRole="button"
+                accessibilityLabel={`${metadata.title} structure`}
+                accessibilityState={{ selected: isSelected }}
+                accessibilityHint={metadata.description}
               >
-                <TouchableOpacity
-                  style={[
-                    styles.variantCard,
-                    isSelected && styles.variantCardSelected,
-                    !isSelected && styles.variantCardDimmed,
-                  ]}
-                  onPress={() => handleVariantSelect(result.variant)}
-                  activeOpacity={0.7}
-                  disabled={isTransitioning}
-                  accessibilityRole="button"
-                  accessibilityLabel={`${metadata.title} structure`}
-                  accessibilityState={{ selected: isSelected }}
-                  accessibilityHint={metadata.description}
-                >
-                  {/* Recommended Badge (show on first item for first-time users) */}
-                  {isFirst && isFirstAnchor && (
-                    <View style={styles.recommendedBadge}>
-                      <Text style={styles.recommendedText}>Recommended for first Anchor</Text>
-                    </View>
-                  )}
-
-                  {/* Sigil Thumbnail */}
-                  <View style={styles.sigilContainer}>
-                    <SvgXml
-                      xml={result.svg}
-                      width="100%"
-                      height="100%"
-                      color="#D4AF37" // Gold
-                    />
+                {/* Checkmark for selected */}
+                {isSelected && (
+                  <View style={styles.checkmark}>
+                    <Text style={styles.checkmarkIcon}>✓</Text>
                   </View>
+                )}
 
-                  {/* Variant Info */}
-                  <View style={styles.variantInfo}>
-                    <Text style={[styles.variantTitle, isSelected && styles.variantTitleSelected]}>
-                      {metadata.title}
-                    </Text>
-                    <Text style={styles.variantDescription}>{metadata.description}</Text>
+                {/* Structure Preview */}
+                <View style={styles.structurePreview}>
+                  <SvgXml
+                    xml={result.svg}
+                    width="85%"
+                    height="85%"
+                    color="#D4AF37" // Gold
+                  />
+                </View>
+
+                {/* Structure Info */}
+                <Text style={styles.structureName}>{metadata.title}</Text>
+                <Text style={styles.structureDesc}>{metadata.description}</Text>
+
+                {/* Badge (only for recommended) */}
+                {isRecommended && isFirstAnchor && (
+                  <View style={styles.recommendedBadge}>
+                    <Text style={styles.recommendedText}>Recommended</Text>
                   </View>
-
-                  {/* Selection Indicator */}
-                  {isSelected && (
-                    <View style={styles.selectedIndicator}>
-                      <Text style={styles.checkmark}>✓</Text>
-                    </View>
-                  )}
-                </TouchableOpacity>
-              </Animated.View>
+                )}
+              </TouchableOpacity>
             );
           })}
-        </View>
-      </ScrollView>
+        </ScrollView>
+      </View>
 
-      {/* Luxury Docked Bottom Bar */}
-      <BottomDock
-        visible={true}
-        selectedLabel={selectedLabel}
-        ctaLabel={ctaLabel}
-        disabled={!selectedVariant}
-        onPress={handleContinue}
-      />
+      {/* Fixed CTA Footer */}
+      <View style={styles.footer}>
+        <TouchableOpacity
+          style={[
+            styles.continueButton,
+            !selectedVariant && styles.continueButtonDisabled
+          ]}
+          onPress={handleContinue}
+          disabled={!selectedVariant}
+          activeOpacity={0.8}
+        >
+          <Text style={[
+            styles.continueText,
+            !selectedVariant && styles.continueTextDisabled
+          ]}>
+            Continue to Forge
+          </Text>
+        </TouchableOpacity>
+      </View>
     </SafeAreaView>
   );
 }
@@ -317,14 +317,7 @@ export default function StructureForgeScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: 'transparent',
-  },
-  scrollView: {
-    flex: 1,
-  },
-  scrollContent: {
-    paddingHorizontal: spacing.lg,
-    paddingTop: spacing.md,
+    backgroundColor: colors.navy,
   },
   loadingContainer: {
     flex: 1,
@@ -337,8 +330,9 @@ const styles = StyleSheet.create({
     color: colors.gold,
   },
   header: {
-    paddingTop: 64,
-    marginBottom: spacing.lg,
+    paddingTop: spacing.xl,
+    paddingHorizontal: spacing.lg,
+    paddingBottom: spacing.md,
   },
   title: {
     fontFamily: typography.fonts.heading,
@@ -350,123 +344,162 @@ const styles = StyleSheet.create({
   subtitle: {
     fontFamily: typography.fonts.body,
     fontSize: typography.sizes.body1,
-    color: colors.text.tertiary,
-    textAlign: 'center',
-    lineHeight: 24,
-    marginBottom: spacing.xs,
-  },
-  subtitle2: {
-    fontFamily: typography.fonts.body,
-    fontSize: typography.sizes.body1,
-    color: colors.text.tertiary,
+    color: colors.text.secondary,
     textAlign: 'center',
     lineHeight: 24,
   },
+
+  // Preview Section (flex: 1)
   previewSection: {
+    flex: 1,
+    padding: spacing.lg,
     alignItems: 'center',
-    marginBottom: spacing.xxxl,
-    marginTop: spacing.lg,
+    justifyContent: 'center',
   },
   previewContainer: {
-    width: SCREEN_WIDTH - 32,
+    width: SCREEN_WIDTH - 80,
     aspectRatio: 1,
     backgroundColor: colors.background.card,
     borderRadius: spacing.md,
     justifyContent: 'center',
     alignItems: 'center',
-    borderWidth: 1,
+    borderWidth: 2,
     borderColor: colors.gold,
     padding: spacing.lg,
-    marginBottom: spacing.md,
   },
   previewLabel: {
-    fontFamily: typography.fonts.body,
+    fontFamily: typography.fonts.heading,
     fontSize: 18,
-    color: colors.bone,
+    color: colors.gold,
+    marginTop: spacing.md,
   },
-  variantsSection: {
-    marginBottom: spacing.lg,
+
+  // Structures Section
+  structuresSection: {
+    paddingTop: spacing.lg,
+    paddingBottom: spacing.md,
+    backgroundColor: colors.charcoal,
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
   },
-  variantsTitle: {
-    fontFamily: typography.fonts.body,
-    fontSize: 14,
-    color: colors.text.tertiary,
+  sectionTitle: {
+    fontFamily: typography.fonts.heading,
+    fontSize: 16,
+    color: colors.text.secondary,
     marginBottom: spacing.md,
+    paddingHorizontal: spacing.lg,
   },
-  variantCard: {
+  structuresList: {
+    paddingHorizontal: spacing.lg,
+  },
+  structuresListContent: {
+    paddingRight: spacing.lg,
+  },
+
+  // Structure Cards
+  structureCard: {
+    width: 140,
     backgroundColor: colors.background.card,
-    borderRadius: spacing.sm,
+    borderRadius: 12,
     padding: spacing.md,
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: spacing.md,
+    marginRight: spacing.md,
     borderWidth: 2,
     borderColor: 'transparent',
     position: 'relative',
   },
-  variantCardSelected: {
-    borderColor: 'rgba(212, 175, 55, 0.85)', // Stronger gold ring
-    backgroundColor: 'rgba(212, 175, 55, 0.04)', // Very subtle gold tint
-    // Subtle gold glow
-    shadowColor: colors.gold,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.15,
-    shadowRadius: 6,
-    elevation: 3,
+  structureCardSelected: {
+    borderColor: colors.gold,
+    backgroundColor: `${colors.gold}08`, // 8% opacity
   },
-  variantCardDimmed: {
-    opacity: 0.7,
-  },
-  recommendedBadge: {
-    position: 'absolute',
-    top: -8,
-    left: spacing.md,
-    backgroundColor: colors.background.secondary,
-    paddingHorizontal: spacing.sm,
-    paddingVertical: 4,
-    borderRadius: 4,
-    zIndex: 1,
-  },
-  recommendedText: {
-    fontFamily: typography.fonts.body,
-    fontSize: 12,
-    color: colors.bone,
-    letterSpacing: 0.5,
-  },
-  sigilContainer: {
-    width: 80,
-    height: 80,
-    marginRight: spacing.md,
-  },
-  variantInfo: {
-    flex: 1,
-  },
-  variantTitle: {
-    fontFamily: typography.fonts.heading,
-    fontSize: typography.sizes.h3,
-    color: colors.bone,
-    marginBottom: 4,
-  },
-  variantTitleSelected: {
-    color: colors.gold,
-  },
-  variantDescription: {
-    fontFamily: typography.fonts.body,
-    fontSize: typography.sizes.body2,
-    color: colors.text.tertiary,
-    lineHeight: 20,
-  },
-  selectedIndicator: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: colors.gold,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
+
+  // Checkmark
   checkmark: {
-    fontSize: typography.sizes.h3,
+    position: 'absolute',
+    top: 8,
+    right: 8,
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: colors.gold,
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: 10,
+  },
+  checkmarkIcon: {
+    fontSize: 14,
     color: colors.charcoal,
     fontWeight: 'bold',
+  },
+
+  // Structure Preview
+  structurePreview: {
+    width: '100%',
+    aspectRatio: 1,
+    backgroundColor: colors.navy,
+    borderRadius: 8,
+    marginBottom: spacing.sm,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+
+  // Structure Info
+  structureName: {
+    fontFamily: typography.fonts.heading,
+    fontSize: 16,
+    color: colors.text.primary,
+    marginBottom: spacing.xs,
+    textAlign: 'center',
+  },
+  structureDesc: {
+    fontSize: 12,
+    color: colors.text.tertiary,
+    textAlign: 'center',
+    lineHeight: 16,
+  },
+
+  // Recommended Badge
+  recommendedBadge: {
+    marginTop: spacing.xs,
+    paddingVertical: 4,
+    paddingHorizontal: 8,
+    backgroundColor: colors.gold,
+    borderRadius: 6,
+    alignSelf: 'center',
+  },
+  recommendedText: {
+    fontSize: 10,
+    color: colors.charcoal,
+    fontWeight: '600',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+
+  // Fixed CTA Footer
+  footer: {
+    padding: spacing.lg,
+    paddingBottom: spacing.xl, // Extra padding for safe area
+    backgroundColor: colors.charcoal,
+    borderTopWidth: 1,
+    borderTopColor: colors.navy,
+  },
+  continueButton: {
+    height: 56,
+    backgroundColor: colors.gold,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  continueButtonDisabled: {
+    backgroundColor: `${colors.gold}40`, // 40% opacity
+    opacity: 0.5,
+  },
+  continueText: {
+    fontFamily: typography.fonts.body,
+    fontSize: 16,
+    color: colors.charcoal,
+    fontWeight: '600',
+  },
+  continueTextDisabled: {
+    opacity: 0.6,
   },
 });
