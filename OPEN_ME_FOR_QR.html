@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <title>Anchor V2 - Connect QR Code</title>
+    <style>
+        body {
+            font-family: sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            background: #0F1419;
+            color: #F5F5DC;
+        }
+
+        .card {
+            background: #1A1A1D;
+            padding: 40px;
+            border-radius: 20px;
+            border: 1px solid #D4AF37;
+            text-align: center;
+        }
+
+        h1 {
+            margin-bottom: 20px;
+            color: #D4AF37;
+        }
+
+        p {
+            margin-bottom: 30px;
+            font-size: 18px;
+        }
+
+        img {
+            border: 10px solid white;
+            border-radius: 10px;
+        }
+
+        .url {
+            margin-top: 20px;
+            font-family: monospace;
+            color: #C0C0C0;
+        }
+
+        .urgent {
+            color: #ff6b6b;
+            font-weight: bold;
+            margin-bottom: 10px;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="card">
+        <h1>Scan to Connect (Fresh Install)</h1>
+        <p class="urgent">⚠️ CLEAR EXPO GO DATA BEFORE SCANNING! ⚠️</p>
+        <p>Open <strong>Expo Go</strong> on your phone and scan this code:</p>
+
+        <!-- QR Code for exp://192.168.0.4:8081 -->
+        <img src="https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=exp://192.168.0.4:8081" alt="QR Code">
+
+        <div class="url">exp://192.168.0.4:8081</div>
+        <p style="font-size: 14px; margin-top: 20px; opacity: 0.7;">Make sure your phone is on the same Wi-Fi!</p>
+    </div>
+</body>
+
+</html>

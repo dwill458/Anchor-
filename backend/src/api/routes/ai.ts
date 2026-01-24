@@ -37,62 +37,10 @@ const router = express.Router();
 
 /**
  * POST /api/ai/enhance
- * Generate AI-enhanced sigil variations using Stable Diffusion
+ * @deprecated - Legacy endpoint, replaced by /enhance-controlnet
+ * The enhanceSigil function was removed in Phase 4 cleanup.
  */
-router.post('/enhance', async (req: Request, res: Response): Promise<void> => {
-  try {
-    const { sigilSvg, analysis, userId, anchorId } = req.body;
-
-    // Validation
-    if (!sigilSvg || !analysis || !userId || !anchorId) {
-      res.status(400).json({ error: 'Missing required fields: sigilSvg, analysis, userId, anchorId' });
-      return;
-    }
-
-    logger.info('[AI] Enhancing sigil', {
-      anchorId,
-      intention: analysis.intentionText,
-      themes: analysis.themes,
-      aesthetic: analysis.aesthetic,
-    });
-
-    // Generate AI variations
-    const enhancementResult = await enhanceSigil({
-      sigilSvg,
-      analysis,
-      userId,
-    });
-
-    logger.info('[AI] Generated variations', { count: enhancementResult.variations.length });
-
-    // Upload variations to R2 and get permanent URLs
-    const permanentUrls: string[] = [];
-
-    for (let i = 0; i < enhancementResult.variations.length; i++) {
-      const url = await uploadImageFromUrl(
-        enhancementResult.variations[i],
-        userId,
-        anchorId,
-        i
-      );
-      permanentUrls.push(url);
-    }
-
-    res.json({
-      success: true,
-      variations: permanentUrls,
-      prompt: enhancementResult.prompt,
-      generationTime: enhancementResult.generationTime,
-      model: enhancementResult.model,
-    });
-  } catch (error) {
-    logger.error('[AI] Enhancement error', error);
-    res.status(500).json({
-      error: 'Failed to enhance sigil',
-      message: error instanceof Error ? error.message : 'Unknown error',
-    });
-  }
-});
+// Legacy route commented out - use /enhance-controlnet instead
 
 /**
  * POST /api/ai/enhance-controlnet
@@ -111,11 +59,23 @@ router.post('/enhance', async (req: Request, res: Response): Promise<void> => {
  * - bestVariationIndex: Index of highest scoring variation
  */
 router.post('/enhance-controlnet', async (req: Request, res: Response): Promise<void> => {
+  console.log('[API] /enhance-controlnet POST received');
+  console.log('[API] Request body keys:', Object.keys(req.body));
+
   try {
     const { sigilSvg, styleChoice, userId, anchorId, validateStructure, autoComposite } = req.body;
+    console.log('[API] Parsed request:', {
+      sigilSvgLength: sigilSvg?.length || 0,
+      styleChoice,
+      userId,
+      anchorId,
+      validateStructure,
+      autoComposite
+    });
 
     // Validation
     if (!sigilSvg || !styleChoice || !userId || !anchorId) {
+      console.log('[API] Validation failed - missing fields');
       res.status(400).json({
         error: 'Missing required fields: sigilSvg, styleChoice, userId, anchorId',
       });

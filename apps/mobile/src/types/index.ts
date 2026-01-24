@@ -438,6 +438,7 @@ export type RootStackParamList = {
     styleChoice: AIStyle;
     variations: string[];
     reinforcementMetadata?: ReinforcementMetadata;
+    prompt?: string;
   };
 
   /** Step 8: Mantra Creation */

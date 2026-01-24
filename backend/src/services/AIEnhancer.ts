@@ -14,7 +14,7 @@
 
 import Replicate from 'replicate';
 import { logger } from '../utils/logger';
-import { rasterizeSVG, RasterizeResult } from '../utils/svgRasterizer';
+import { rasterizeSVG } from '../utils/svgRasterizer';
 
 // ============================================================================
 // LEGACY CODE REMOVED (Phase 4 Cleanup)
@@ -393,13 +393,19 @@ export async function enhanceSigilWithControlNet(
       strength,
     });
 
-    // Step 6: Generate 4 variations in parallel
-    logger.info(`[ControlNet Enhancement] Generating 4 variations in parallel for style: ${request.styleChoice}`);
+    // Step 6: Generate variations SEQUENTIALLY to avoid rate limiting
+    // Replicate limits free/low-credit accounts to 1 concurrent request
+    logger.info(`[ControlNet Enhancement] Generating variations sequentially for style: ${request.styleChoice}`);
+    console.log('[Replicate] Starting SEQUENTIAL generation (rate limit safe)');
 
-    const variationPromises = [0, 1, 2, 3].map(async (i) => {
+    const rawResults: { imageUrl: string; seed: number; index: number }[] = [];
+    const numVariations = 2; // Reduced from 4 to 2 for speed (can increase with higher credits)
+
+    for (let i = 0; i < numVariations; i++) {
       const variationStart = Date.now();
       const seed = 2000 + i * 456;
-      logger.info(`[ControlNet Enhancement] Starting variation ${i + 1}/4 (seed: ${seed})`);
+      logger.info(`[ControlNet Enhancement] Starting variation ${i + 1}/${numVariations} (seed: ${seed})`);
+      console.log(`[Replicate] Calling ControlNet model for variation ${i + 1}/${numVariations}`);
 
       try {
         const output = await replicate.run(model, {
@@ -423,26 +429,34 @@ export async function enhanceSigilWithControlNet(
         });
 
         const variationTime = Math.round((Date.now() - variationStart) / 1000);
-        logger.info(`[ControlNet Enhancement] Variation ${i + 1}/4 complete (${variationTime}s)`);
+        logger.info(`[ControlNet Enhancement] Variation ${i + 1}/${numVariations} complete (${variationTime}s)`);
+        console.log(`[Replicate] Variation ${i + 1}/${numVariations} complete in ${variationTime}s`);
 
         // Extract URL from output
         let imageUrl: string;
         if (Array.isArray(output) && output.length > 0) {
           imageUrl = output[0] as string;
+          console.log(`[Replicate] Got URL for variation ${i + 1}:`, imageUrl.substring(0, 60) + '...');
         } else if (typeof output === 'string') {
           imageUrl = output;
         } else {
+          console.error(`[Replicate] Unexpected output format for variation ${i + 1}:`, typeof output);
           throw new Error(`Invalid output format for variation ${i + 1}`);
         }
 
-        return { imageUrl, seed, index: i };
-      } catch (err) {
+        rawResults.push({ imageUrl, seed, index: i });
+
+        // Wait 12 seconds before next request to avoid rate limiting (6 req/min limit)
+        if (i < numVariations - 1) {
+          console.log(`[Replicate] Waiting 12s before next request (rate limit)...`);
+          await new Promise(resolve => setTimeout(resolve, 12000));
+        }
+      } catch (err: any) {
         logger.error(`[ControlNet Enhancement] Error in variation ${i + 1}`, err);
+        console.error(`[Replicate] Error in variation ${i + 1}:`, err?.message || err);
         throw err;
       }
-    });
-
-    const rawResults = await Promise.all(variationPromises);
+    }
 
     // Step 7: Build variation results with structure scores
     // Note: In production, you would call the Python AI service for actual IoU calculation
@@ -515,9 +529,9 @@ export async function enhanceSigilWithControlNet(
  */
 export function estimateControlNetGenerationTime(): { min: number; max: number } {
   // ControlNet typically takes 15-25 seconds per image
-  // 4 variations = 60-100 seconds total
+  // 2 variations with rate limiting = ~40-60 seconds total
   return {
-    min: 60,
-    max: 100,
+    min: 40,
+    max: 60,
   };
 }

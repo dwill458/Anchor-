@@ -8,9 +8,10 @@
 import axios, { AxiosError, AxiosInstance, InternalAxiosRequestConfig } from 'axios';
 import { AuthService } from './AuthService';
 import type { ApiResponse } from '@/types';
+import { API_URL } from '@/config';
 
-// Use 10.0.2.2 for Android emulator to access host localhost
-const API_BASE_URL = process.env.API_BASE_URL || 'http://10.0.2.2:3000';
+// Use the centralized API_URL from config (handles emulator vs physical device)
+const API_BASE_URL = API_URL;
 
 /**
  * Configured Axios instance for API calls
