@@ -6,6 +6,7 @@ import {
   TouchableOpacity,
   Dimensions,
   Alert,
+  Modal,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
@@ -71,6 +72,7 @@ export default function ManualReinforcementScreen() {
   const [fidelityScore, setFidelityScore] = useState(0);
   const [strokeCount, setStrokeCount] = useState(0);
   const [hasStartedDrawing, setHasStartedDrawing] = useState(false);
+  const [showSkipModal, setShowSkipModal] = useState(false);
   const startTime = useRef(Date.now());
 
   // Detect first-time user for subtle guidance
@@ -194,8 +196,13 @@ export default function ManualReinforcementScreen() {
   };
 
   const handleSkip = () => {
+    setShowSkipModal(true);
+  };
+
+  const handleConfirmSkip = () => {
     const timeSpentMs = Date.now() - startTime.current;
 
+    setShowSkipModal(false);
     navigation.navigate('LockStructure', {
       intentionText,
       category,
@@ -211,6 +218,10 @@ export default function ManualReinforcementScreen() {
         timeSpentMs,
       },
     });
+  };
+
+  const handleCancelSkip = () => {
+    setShowSkipModal(false);
   };
 
   const handleClearLast = () => {
@@ -327,6 +338,31 @@ export default function ManualReinforcementScreen() {
           <Text style={styles.skipButtonText}>Continue without tracing</Text>
         </TouchableOpacity>
       </View>
+
+      {/* Skip Confirmation Modal */}
+      <Modal
+        visible={showSkipModal}
+        transparent
+        animationType="fade"
+        onRequestClose={handleCancelSkip}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <Text style={styles.modalTitle}>Continue Without Tracing</Text>
+            <Text style={styles.modalBody}>
+              Some find tracing deepens their focus. It's completely optional.
+            </Text>
+
+            <TouchableOpacity style={styles.modalPrimaryButton} onPress={handleCancelSkip}>
+              <Text style={styles.modalPrimaryButtonText}>Stay and Trace</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity style={styles.modalSecondaryButton} onPress={handleConfirmSkip}>
+              <Text style={styles.modalSecondaryButtonText}>Continue</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -441,5 +477,65 @@ const styles = StyleSheet.create({
     fontFamily: typography.fonts.body,
     fontSize: typography.sizes.body2,
     color: colors.text.secondary,
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(20, 20, 30, 0.95)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: spacing.lg,
+  },
+  modalContent: {
+    backgroundColor: 'rgba(40, 40, 50, 1)',
+    borderRadius: 16,
+    padding: 32,
+    width: '100%',
+    maxWidth: 400,
+    borderWidth: 1,
+    borderColor: 'rgba(212, 175, 55, 0.2)',
+  },
+  modalTitle: {
+    fontFamily: typography.fonts.heading,
+    fontSize: 20,
+    color: '#E8E8E8',
+    textAlign: 'center',
+    marginBottom: 16,
+  },
+  modalBody: {
+    fontFamily: typography.fonts.body,
+    fontSize: 15,
+    color: '#9B9B9B',
+    textAlign: 'center',
+    lineHeight: 22,
+    marginBottom: 24,
+  },
+  modalPrimaryButton: {
+    backgroundColor: colors.gold,
+    height: 52,
+    borderRadius: 8,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  modalPrimaryButtonText: {
+    fontFamily: typography.fonts.body,
+    fontSize: typography.sizes.body1,
+    fontWeight: '600',
+    color: '#1A1A1A',
+  },
+  modalSecondaryButton: {
+    backgroundColor: 'transparent',
+    height: 52,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.2)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  modalSecondaryButtonText: {
+    fontFamily: typography.fonts.body,
+    fontSize: typography.sizes.body1,
+    fontWeight: '400',
+    color: '#9B9B9B',
   },
 });
