@@ -15,6 +15,7 @@
 import Replicate from 'replicate';
 import { logger } from '../utils/logger';
 import { rasterizeSVG } from '../utils/svgRasterizer';
+import { computeStructureMatch, StructureMatchResult } from '../utils/structureMatching';
 
 // ============================================================================
 // LEGACY CODE REMOVED (Phase 4 Cleanup)
@@ -458,33 +459,56 @@ export async function enhanceSigilWithControlNet(
       }
     }
 
-    // Step 7: Build variation results with structure scores
-    // Note: In production, you would call the Python AI service for actual IoU calculation
-    // For now, we estimate based on parameters used (strict params = likely good preservation)
-    const variations: VariationResult[] = rawResults.map((result) => {
-      // Estimated structure scores based on strict parameters
-      // In production, call Python service: POST /structure-match
-      const estimatedScore = 0.85 + Math.random() * 0.10;  // 85-95% with strict params
+    // Step 7: Build variation results with REAL structure scores
+    // Uses actual pixel comparison between original control image and generated output
+    logger.info('[ControlNet Enhancement] Computing real structure match scores...');
+    console.log('[StructureMatch] Computing IoU scores for generated images...');
 
-      const structureMatch: StructureMatchScore = {
-        iouScore: estimatedScore,
-        edgeOverlapScore: estimatedScore - 0.02,
-        combinedScore: estimatedScore - 0.01,
-        structurePreserved: estimatedScore >= STRUCTURE_THRESHOLDS.preserved,
-        classification: estimatedScore >= STRUCTURE_THRESHOLDS.preserved
-          ? 'Structure Preserved'
-          : estimatedScore >= STRUCTURE_THRESHOLDS.artistic
-            ? 'More Artistic'
-            : 'Style Drift',
-      };
+    const variations: VariationResult[] = [];
 
-      return {
-        imageUrl: result.imageUrl,
-        structureMatch,
-        seed: result.seed,
-        wasComposited: false,
-      };
-    });
+    for (const result of rawResults) {
+      try {
+        // Compute actual structure match using pixel comparison
+        const matchResult = await computeStructureMatch(
+          rasterResult.buffer,  // Original control image
+          result.imageUrl       // Generated image URL
+        );
+
+        const structureMatch: StructureMatchScore = {
+          iouScore: matchResult.iouScore,
+          edgeOverlapScore: matchResult.edgeOverlapScore,
+          combinedScore: matchResult.combinedScore,
+          structurePreserved: matchResult.structurePreserved,
+          classification: matchResult.classification,
+        };
+
+        console.log(`[StructureMatch] Variation ${result.index + 1}: IoU=${matchResult.iouScore.toFixed(3)}, ` +
+                   `Combined=${matchResult.combinedScore.toFixed(3)}, Class=${matchResult.classification}`);
+
+        variations.push({
+          imageUrl: result.imageUrl,
+          structureMatch,
+          seed: result.seed,
+          wasComposited: false,
+        });
+      } catch (error) {
+        // On error, use conservative fallback score
+        logger.warn(`[ControlNet Enhancement] Structure match failed for variation ${result.index + 1}`, error);
+
+        variations.push({
+          imageUrl: result.imageUrl,
+          structureMatch: {
+            iouScore: 0.5,
+            edgeOverlapScore: 0.5,
+            combinedScore: 0.5,
+            structurePreserved: false,
+            classification: 'More Artistic',
+          },
+          seed: result.seed,
+          wasComposited: false,
+        });
+      }
+    }
 
     // Step 8: Calculate summary statistics
     const passingCount = variations.filter(v => v.structureMatch.structurePreserved).length;
