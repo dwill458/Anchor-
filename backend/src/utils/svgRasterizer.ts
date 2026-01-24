@@ -24,6 +24,12 @@ export interface RasterizeOptions {
 
   /** Apply edge enhancement (helps with Canny detection) */
   enhanceEdges?: boolean;
+
+  /** Stroke thickness multiplier for edge survival during diffusion (1.5-2.5 recommended) */
+  strokeMultiplier?: number;
+
+  /** Padding as fraction of image size (0.10-0.18 recommended) */
+  padding?: number;
 }
 
 export interface RasterizeResult {
@@ -49,6 +55,8 @@ const DEFAULT_OPTIONS: Required<RasterizeOptions> = {
   backgroundColor: '#000000',
   strokeColor: '#FFFFFF',
   enhanceEdges: true,
+  strokeMultiplier: 1.0,  // No thickening by default (set 2.0 for structure preservation)
+  padding: 0.0,           // No padding by default (set 0.12 for structure preservation)
 };
 
 /**
@@ -130,6 +138,7 @@ export async function rasterizeSVG(
 
 /**
  * Preprocess SVG to ensure high contrast and proper formatting
+ * Now supports stroke thickening for better edge survival during diffusion.
  *
  * @param svgString - Original SVG markup
  * @param config - Configuration options
@@ -141,18 +150,28 @@ function preprocessSVG(
 ): string {
   let processed = svgString;
 
-  // Ensure SVG has viewBox for proper scaling
-  if (!processed.includes('viewBox')) {
+  // Extract or create viewBox for proper scaling
+  let viewBoxW = 100;
+  let viewBoxH = 100;
+
+  const viewBoxMatch = processed.match(/viewBox="([^"]+)"/);
+  if (viewBoxMatch) {
+    const parts = viewBoxMatch[1].split(/\s+/).map(Number);
+    if (parts.length >= 4) {
+      viewBoxW = parts[2];
+      viewBoxH = parts[3];
+    }
+  } else {
     // Try to extract width/height and create viewBox
     const widthMatch = processed.match(/width="(\d+)"/);
     const heightMatch = processed.match(/height="(\d+)"/);
 
     if (widthMatch && heightMatch) {
-      const w = widthMatch[1];
-      const h = heightMatch[1];
+      viewBoxW = parseInt(widthMatch[1]);
+      viewBoxH = parseInt(heightMatch[1]);
       processed = processed.replace(
         '<svg',
-        `<svg viewBox="0 0 ${w} ${h}"`
+        `<svg viewBox="0 0 ${viewBoxW} ${viewBoxH}"`
       );
     } else {
       // Default viewBox if dimensions not found
@@ -163,14 +182,24 @@ function preprocessSVG(
     }
   }
 
+  // Apply padding by adjusting viewBox (negative margins = zoom out)
+  if (config.padding > 0) {
+    const padX = viewBoxW * config.padding;
+    const padY = viewBoxH * config.padding;
+    const newViewBox = `${-padX} ${-padY} ${viewBoxW + 2 * padX} ${viewBoxH + 2 * padY}`;
+    processed = processed.replace(
+      /viewBox="[^"]*"/,
+      `viewBox="${newViewBox}"`
+    );
+  }
+
   // Add background rectangle for solid color
   if (config.backgroundColor !== 'transparent') {
-    const bgRect = `<rect width="100%" height="100%" fill="${config.backgroundColor}"/>`;
+    const bgRect = `<rect x="-50%" y="-50%" width="200%" height="200%" fill="${config.backgroundColor}"/>`;
     processed = processed.replace('<svg', `<svg`).replace('>', `>${bgRect}`);
   }
 
   // Force stroke color to white (or specified color)
-  // Replace all stroke attributes
   processed = processed.replace(
     /stroke="[^"]*"/g,
     `stroke="${config.strokeColor}"`
@@ -182,13 +211,47 @@ function preprocessSVG(
     'fill="none"'
   );
 
-  // Ensure stroke-width is visible
-  if (!processed.includes('stroke-width')) {
+  // Calculate stroke width with multiplier for edge survival
+  const baseStrokeWidth = 2;
+  const thickenedWidth = Math.round(baseStrokeWidth * config.strokeMultiplier);
+
+  // Apply stroke thickening - update existing stroke-width or add new ones
+  if (config.strokeMultiplier > 1.0) {
+    // Replace existing stroke-width values with thickened version
     processed = processed.replace(
-      /<path /g,
-      '<path stroke-width="2" '
+      /stroke-width="(\d+(?:\.\d+)?)"/g,
+      (match, width) => {
+        const newWidth = Math.round(parseFloat(width) * config.strokeMultiplier);
+        return `stroke-width="${newWidth}"`;
+      }
     );
+
+    // Add stroke-width to paths that don't have it
+    processed = processed.replace(
+      /<path(?![^>]*stroke-width)/g,
+      `<path stroke-width="${thickenedWidth}" `
+    );
+
+    // Also handle other stroke elements (line, polyline, polygon, circle, rect)
+    processed = processed.replace(
+      /<(line|polyline|polygon|circle|rect|ellipse)(?![^>]*stroke-width)/g,
+      `<$1 stroke-width="${thickenedWidth}" `
+    );
+  } else {
+    // No thickening - just ensure stroke-width exists
+    if (!processed.includes('stroke-width')) {
+      processed = processed.replace(
+        /<path /g,
+        '<path stroke-width="2" '
+      );
+    }
   }
+
+  // Add stroke-linecap and stroke-linejoin for cleaner lines
+  processed = processed.replace(
+    /<path /g,
+    '<path stroke-linecap="round" stroke-linejoin="round" '
+  );
 
   return processed;
 }

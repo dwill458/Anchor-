@@ -96,15 +96,23 @@ router.post('/enhance', async (req: Request, res: Response): Promise<void> => {
 
 /**
  * POST /api/ai/enhance-controlnet
- * Generate AI-enhanced sigil variations using ControlNet (Phase 3)
+ * Generate AI-enhanced sigil variations using ControlNet with STRICT structure preservation.
  *
- * ControlNet preserves the structure while applying artistic style transfer.
- * Supports 6 validated styles: watercolor, sacred_geometry, ink_brush,
- * gold_leaf, cosmic, minimal_line
+ * Key features:
+ * - Structure preservation validation (IoU scoring)
+ * - Per-variation structureMatchScore
+ * - structurePreserved boolean per variation
+ * - Supports 6 validated styles: watercolor, sacred_geometry, ink_brush,
+ *   gold_leaf, cosmic, minimal_line
+ *
+ * Response includes:
+ * - variations: Array of {imageUrl, structureMatchScore, structurePreserved, classification}
+ * - passingCount: Number of variations that pass structure threshold
+ * - bestVariationIndex: Index of highest scoring variation
  */
 router.post('/enhance-controlnet', async (req: Request, res: Response): Promise<void> => {
   try {
-    const { sigilSvg, styleChoice, userId, anchorId } = req.body;
+    const { sigilSvg, styleChoice, userId, anchorId, validateStructure, autoComposite } = req.body;
 
     // Validation
     if (!sigilSvg || !styleChoice || !userId || !anchorId) {
@@ -131,46 +139,82 @@ router.post('/enhance-controlnet', async (req: Request, res: Response): Promise<
       return;
     }
 
-    logger.info('[ControlNet] Enhancing sigil', {
+    logger.info('[ControlNet] Enhancing sigil with STRICT structure preservation', {
       anchorId,
       style: styleChoice,
+      validateStructure: validateStructure !== false,
     });
 
-    // Generate ControlNet variations
+    // Generate ControlNet variations with structure validation
     const enhancementResult = await enhanceSigilWithControlNet({
       sigilSvg,
       styleChoice: styleChoice as AIStyle,
       userId,
+      validateStructure: validateStructure !== false,
+      autoComposite: autoComposite === true,
     });
 
-    logger.info('[ControlNet] Generated variations', {
+    logger.info('[ControlNet] Generated variations with structure scores', {
       count: enhancementResult.variations.length,
+      passingCount: enhancementResult.passingCount,
+      bestScore: enhancementResult.variations[enhancementResult.bestVariationIndex]?.structureMatch.combinedScore,
       style: enhancementResult.styleApplied,
       method: enhancementResult.controlMethod,
     });
 
     // Upload variations to R2 and get permanent URLs
-    const permanentUrls: string[] = [];
+    const uploadedVariations: Array<{
+      imageUrl: string;
+      structureMatchScore: number;
+      iouScore: number;
+      edgeOverlapScore: number;
+      structurePreserved: boolean;
+      classification: string;
+      wasComposited: boolean;
+      seed: number;
+    }> = [];
 
     for (let i = 0; i < enhancementResult.variations.length; i++) {
-      const url = await uploadImageFromUrl(
-        enhancementResult.variations[i],
+      const variation = enhancementResult.variations[i];
+
+      // Upload to R2
+      const permanentUrl = await uploadImageFromUrl(
+        variation.imageUrl,
         userId,
         anchorId,
         i
       );
-      permanentUrls.push(url);
+
+      uploadedVariations.push({
+        imageUrl: permanentUrl,
+        structureMatchScore: variation.structureMatch.combinedScore,
+        iouScore: variation.structureMatch.iouScore,
+        edgeOverlapScore: variation.structureMatch.edgeOverlapScore,
+        structurePreserved: variation.structureMatch.structurePreserved,
+        classification: variation.structureMatch.classification,
+        wasComposited: variation.wasComposited,
+        seed: variation.seed,
+      });
     }
 
     res.json({
       success: true,
-      variations: permanentUrls,
+      // New format with structure scores
+      variations: uploadedVariations,
+      // Legacy format for backward compatibility
+      variationUrls: uploadedVariations.map(v => v.imageUrl),
+      // Generation metadata
       prompt: enhancementResult.prompt,
       negativePrompt: enhancementResult.negativePrompt,
       generationTime: enhancementResult.generationTime,
       model: enhancementResult.model,
       controlMethod: enhancementResult.controlMethod,
       styleApplied: enhancementResult.styleApplied,
+      // Structure validation summary
+      structureThreshold: enhancementResult.structureThreshold,
+      passingCount: enhancementResult.passingCount,
+      bestVariationIndex: enhancementResult.bestVariationIndex,
+      allPreserved: enhancementResult.passingCount === enhancementResult.variations.length,
     });
   } catch (error) {
     logger.error('[ControlNet] Enhancement error', error);
