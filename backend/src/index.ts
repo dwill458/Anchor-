@@ -36,6 +36,10 @@ app.use((req: Request, _res: Response, next) => {
   next();
 });
 
+// Serve uploaded files statically (fallback storage)
+const path = require('path');
+app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
+
 // ============================================================================
 // Health Check
 // ============================================================================

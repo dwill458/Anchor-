@@ -37,8 +37,11 @@ const router = express.Router();
 
 /**
  * POST /api/ai/enhance
- * Generate AI-enhanced sigil variations using Stable Diffusion
+ * @deprecated - Legacy endpoint, replaced by /enhance-controlnet
+ * The enhanceSigil function was removed in Phase 4 cleanup.
  */
+// Legacy route commented out - use /enhance-controlnet instead
+/*
 router.post('/enhance', async (req: Request, res: Response): Promise<void> => {
   try {
     const { sigilSvg, analysis, userId, anchorId } = req.body;
@@ -93,6 +96,7 @@ router.post('/enhance', async (req: Request, res: Response): Promise<void> => {
     });
   }
 });
+*/
 
 /**
  * POST /api/ai/enhance-controlnet
@@ -103,11 +107,21 @@ router.post('/enhance', async (req: Request, res: Response): Promise<void> => {
  * gold_leaf, cosmic, minimal_line
  */
 router.post('/enhance-controlnet', async (req: Request, res: Response): Promise<void> => {
+  console.log('[API] /enhance-controlnet POST received');
+  console.log('[API] Request body keys:', Object.keys(req.body));
+
   try {
     const { sigilSvg, styleChoice, userId, anchorId } = req.body;
+    console.log('[API] Parsed request:', {
+      sigilSvgLength: sigilSvg?.length || 0,
+      styleChoice,
+      userId,
+      anchorId
+    });
 
     // Validation
     if (!sigilSvg || !styleChoice || !userId || !anchorId) {
+      console.log('[API] Validation failed - missing fields');
       res.status(400).json({
         error: 'Missing required fields: sigilSvg, styleChoice, userId, anchorId',
       });

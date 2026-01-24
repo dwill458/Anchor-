@@ -66,6 +66,7 @@ export const AIVariationPickerScreen: React.FC = () => {
     styleChoice,
     variations,
     reinforcementMetadata,
+    prompt, // Fix: Destructure prompt so it's defined in scope (optional)
   } = route.params;
 
   // Selected variation index (0-3)

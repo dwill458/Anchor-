@@ -38,6 +38,7 @@ type AIGeneratingNavigationProp = StackNavigationProp<RootStackParamList, 'AIGen
 
 const AnimatedCircle = Animated.createAnimatedComponent(Circle);
 const AnimatedG = Animated.createAnimatedComponent(G);
+const AnimatedPath = Animated.createAnimatedComponent(Path);
 
 /**
  * Style-specific refinement phrases for ritual experience
@@ -191,85 +192,160 @@ export default function AIGeneratingScreen() {
 
       case 'sacred_geometry':
         // Sacred Geometry: Precise geometric patterns with alignment
+        // Sacred Geometry: Merkaba / Star of David visualization
         return (
           <Svg width={120} height={120} viewBox="0 0 120 120">
-            {/* Outer hexagon */}
-            <Path
-              d="M 60 10 L 95 30 L 95 70 L 60 90 L 25 70 L 25 30 Z"
-              stroke={colors.gold}
-              strokeWidth="2"
-              fill="none"
-              opacity={0.4}
-            />
-            {/* Inner circle */}
+            {/* Outer circle */}
             <Circle
               cx="60"
               cy="60"
-              r="35"
+              r="50"
               stroke={colors.gold}
-              strokeWidth="2"
+              strokeWidth="1"
               fill="none"
-              opacity={0.5}
+              opacity={0.3}
             />
-            {/* Center triangle */}
-            <AnimatedG opacity={sparkleOpacity}>
+
+            {/* Star of David (Merkaba Projection) */}
+            <AnimatedG opacity={glowOpacity}>
+              {/* Upward Triangle */}
               <Path
-                d="M 60 35 L 75 65 L 45 65 Z"
+                d="M 60 15 L 99 82 L 21 82 Z"
+                stroke={colors.gold}
+                strokeWidth="2"
+                fill="none"
+              />
+              {/* Downward Triangle */}
+              <Path
+                d="M 60 105 L 21 38 L 99 38 Z"
                 stroke={colors.gold}
                 strokeWidth="2"
                 fill="none"
               />
             </AnimatedG>
-            {/* Radial lines */}
+
+            {/* Central 3D Connection Point (Merkaba Core) */}
+            <AnimatedCircle
+              cx="60"
+              cy="60"
+              r="4"
+              fill={colors.gold}
+              opacity={sparkleOpacity}
+            />
+
+            {/* Connecting lines for 3D effect */}
             <Path
-              d="M 60 10 L 60 30 M 95 30 L 85 40 M 95 70 L 85 60 M 60 90 L 60 70 M 25 70 L 35 60 M 25 30 L 35 40"
+              d="M 60 60 L 60 15 M 60 60 L 99 82 M 60 60 L 21 82"
               stroke={colors.gold}
               strokeWidth="1"
-              opacity={0.3}
+              opacity={0.4}
+            />
+            <Path
+              d="M 60 60 L 60 105 M 60 60 L 21 38 M 60 60 L 99 38"
+              stroke={colors.gold}
+              strokeWidth="1"
+              opacity={0.4}
             />
           </Svg>
         );
 
       case 'watercolor':
-        // Watercolor: Soft blooming circles with diffusion effect
+        // Watercolor: Flowing liquid forms and organic ripples
         return (
           <Svg width={120} height={120} viewBox="0 0 120 120">
-            {/* Outer diffused circle */}
-            <AnimatedCircle
-              cx="60"
-              cy="60"
-              r="50"
+            {/* Deep water background flow */}
+            <AnimatedG opacity={glowOpacity}>
+              <Path
+                d="M 0 60 C 30 40, 90 80, 120 60"
+                stroke={colors.gold}
+                strokeWidth="8"
+                fill="none"
+                opacity={0.1}
+              />
+              <Path
+                d="M 0 75 C 40 55, 80 95, 120 75"
+                stroke={colors.gold}
+                strokeWidth="6"
+                fill="none"
+                opacity={0.15}
+              />
+            </AnimatedG>
+
+            {/* Middle stream currents */}
+            <Path
+              d="M 10 55 Q 35 35, 60 55 T 110 55"
               stroke={colors.gold}
-              strokeWidth="4"
+              strokeWidth="2"
               fill="none"
-              opacity={glowOpacity.interpolate({
-                inputRange: [0, 1],
-                outputRange: [0.2, 0.4],
-              })}
+              opacity={0.4}
             />
-            {/* Middle bloom */}
-            <AnimatedCircle
-              cx="60"
-              cy="60"
-              r="35"
+            <Path
+              d="M 10 65 Q 35 45, 60 65 T 110 65"
               stroke={colors.gold}
-              strokeWidth="3"
+              strokeWidth="2"
               fill="none"
-              opacity={glowOpacity.interpolate({
-                inputRange: [0, 1],
-                outputRange: [0.3, 0.5],
-              })}
+              opacity={0.3}
             />
-            {/* Inner essence */}
-            <AnimatedCircle
+            <Path
+              d="M 10 75 Q 35 55, 60 75 T 110 75"
+              stroke={colors.gold}
+              strokeWidth="1.5"
+              fill="none"
+              opacity={0.2}
+            />
+
+            {/* Water Pouring into Paint Vessel */}
+            <AnimatedG>
+              {/* The Stream (Vertical flow) */}
+              <AnimatedPath
+                d="M 60 20 C 62 40, 58 50, 60 72"
+                stroke={colors.gold}
+                strokeWidth="3"
+                fill="none"
+                opacity={sparkleOpacity}
+                strokeLinecap="round"
+              />
+
+              {/* Water Surface / Splash */}
+              <AnimatedCircle
+                cx="60"
+                cy="72"
+                r="12"
+                fill={colors.gold}
+                opacity={0.3}
+                transform={[{ scale: pulseAnim }]}
+              />
+
+              {/* The Vessel / Paint Pot */}
+              <Path
+                d="M 40 72 Q 40 95, 60 95 Q 80 95, 80 72 L 80 65 Q 60 65, 40 65 Z"
+                stroke={colors.gold}
+                strokeWidth="2"
+                fill="none"
+                strokeLinejoin="round"
+                opacity={0.6}
+              />
+
+              {/* Vessel Rim Detail */}
+              <Path
+                d="M 40 72 Q 60 82, 80 72"
+                stroke={colors.gold}
+                strokeWidth="1"
+                fill="none"
+                opacity={0.4}
+              />
+            </AnimatedG>
+
+            {/* Outer Ripple Rings */}
+            <Circle
               cx="60"
-              cy="60"
-              r="20"
-              fill={colors.gold}
-              opacity={sparkleOpacity.interpolate({
-                inputRange: [0, 1],
-                outputRange: [0.15, 0.3],
-              })}
+              cy="65"
+              r="40"
+              stroke={colors.gold}
+              strokeWidth="1"
+              fill="none"
+              opacity={0.1}
+              strokeDasharray="10,5"
             />
           </Svg>
         );
@@ -402,31 +478,51 @@ export default function AIGeneratingScreen() {
   };
 
   const generateControlNetVariations = async () => {
-    if (isGenerating || !user) return;
+    console.log('[AIGenerating] generateControlNetVariations called', { isGenerating, user: user?.id });
+
+    if (isGenerating) {
+      console.log('[AIGenerating] Already generating, skipping');
+      return;
+    }
+
+    // Use fallback userId for development if user is not authenticated
+    const userId = user?.id || `dev-user-${Date.now()}`;
+    console.log('[AIGenerating] Using userId:', userId);
 
     setIsGenerating(true);
+    let progressInterval: ReturnType<typeof setInterval> | null = null;
+
+    // Create abort controller for timeout
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => {
+      console.log('[AIGenerating] Request timed out after 120 seconds');
+      controller.abort();
+    }, 120000); // 120 second timeout
 
     try {
+      console.log('[AIGenerating] Starting API call to:', `${API_URL}/api/ai/enhance-controlnet`);
       logger.info('[AIGenerating] Starting ControlNet generation', {
         style: styleChoice,
-        user: user.id,
+        userId,
+        apiUrl: API_URL,
       });
 
-      // Simulate progress (60-100 seconds for ControlNet)
-      const progressInterval = setInterval(() => {
+      // Simulate progress (~25 seconds for 2 sequential images + rate limit delay)
+      progressInterval = setInterval(() => {
         setProgress((prev) => {
           if (prev >= 95) {
-            clearInterval(progressInterval);
+            if (progressInterval) clearInterval(progressInterval);
             return 95; // Hold at 95% until API completes
           }
-          return prev + 1;
+          return prev + 3; // Pace for ~30 seconds to 95%
         });
-      }, 400); // ~38 seconds to reach 95% (matched to parallel API performance)
+      }, 800); // Update every 800ms
 
       // Use reinforced SVG if available, otherwise use base structure
       const sigilToEnhance = reinforcedSigilSvg || baseSigilSvg;
+      console.log('[AIGenerating] SVG to enhance length:', sigilToEnhance?.length || 0);
 
-      // Call ControlNet enhancement API
+      // Call ControlNet enhancement API with timeout
       const response = await fetch(`${API_URL}/api/ai/enhance-controlnet`, {
         method: 'POST',
         headers: {
@@ -435,16 +531,19 @@ export default function AIGeneratingScreen() {
         body: JSON.stringify({
           sigilSvg: sigilToEnhance,
           styleChoice,
-          userId: user.id,
+          userId,
           anchorId: `temp-${Date.now()}`, // Temporary ID for uploads
         }),
+        signal: controller.signal, // Attach abort signal for timeout
       });
 
-      clearInterval(progressInterval);
+      console.log('[AIGenerating] Response received:', response.status, response.statusText);
+      if (progressInterval) clearInterval(progressInterval);
+      clearTimeout(timeoutId);
 
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.message || 'ControlNet enhancement failed');
+        throw new Error(errorData.message || errorData.error || 'ControlNet enhancement failed');
       }
 
       const result = await response.json();
@@ -469,20 +568,37 @@ export default function AIGeneratingScreen() {
           styleChoice,
           variations: result.variations, // Array of 4 image URLs
           reinforcementMetadata,
+          prompt: result.prompt || '', // Pass the enhanced prompt for display
         });
       }, 500);
     } catch (error) {
+      // Clear timers on error
+      if (progressInterval) clearInterval(progressInterval);
+      clearTimeout(timeoutId);
+      setProgress(0);
+      setIsGenerating(false);
+
+      // Determine error message
+      let errorMessage = 'Failed to enhance sigil. Please try again.';
+      if (error instanceof Error) {
+        if (error.name === 'AbortError') {
+          errorMessage = 'Generation timed out. The AI is taking too long. Please try again.';
+        } else if (error.message.includes('Network')) {
+          errorMessage = 'Network error. Please check your connection and try again.';
+        } else {
+          errorMessage = error.message;
+        }
+      }
+
       logger.error('[AIGenerating] ControlNet generation error', error);
 
       Alert.alert(
         'Enhancement Failed',
-        error instanceof Error ? error.message : 'Failed to enhance sigil. Please try again.',
+        errorMessage,
         [
           {
             text: 'Try Again',
             onPress: () => {
-              setProgress(0);
-              setIsGenerating(false);
               generateControlNetVariations();
             },
           },
