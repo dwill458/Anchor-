@@ -116,3 +116,4 @@ pnpm-debug.log*
 .turbo/
 *.tgz
 .next/
+backend/uploads/
