@@ -255,34 +255,45 @@ export async function enhanceSigilWithControlNet(
       style: request.styleChoice,
     });
 
-    // Step 5: Generate 4 variations with different seeds
-    const variations: string[] = [];
+    // Step 5: Generate 4 variations in parallel
+    logger.info(`[ControlNet Enhancement] Generating 4 variations in parallel for style: ${request.styleChoice}`);
 
-    for (let i = 0; i < 4; i++) {
-      logger.info(`[ControlNet Enhancement] Generating variation ${i + 1}/4`);
+    const variationPromises = [0, 1, 2, 3].map(async (i) => {
+      const variationStart = Date.now();
+      logger.info(`[ControlNet Enhancement] Starting variation ${i + 1}/4`);
 
-      const output = await replicate.run(model, {
-        input: {
-          image: dataUrl,                             // Structure conditioning image
-          prompt: styleConfig.prompt,                  // Style prompt
-          negative_prompt: styleConfig.negativePrompt, // What to avoid
-          num_outputs: 1,                              // One image per call
-          width: 1024,
-          height: 1024,
-          conditioning_scale: CONTROLNET_CONFIG.conditioning_scale,
-          guidance_scale: CONTROLNET_CONFIG.guidance_scale,
-          num_inference_steps: CONTROLNET_CONFIG.num_inference_steps,
-          seed: 2000 + i * 456, // Different seed per variation
-        },
-      });
+      try {
+        const output = await replicate.run(model, {
+          input: {
+            image: dataUrl,                             // Structure conditioning image
+            prompt: styleConfig.prompt,                  // Style prompt
+            negative_prompt: styleConfig.negativePrompt, // What to avoid
+            num_outputs: 1,                              // One image per call
+            width: 1024,
+            height: 1024,
+            conditioning_scale: CONTROLNET_CONFIG.conditioning_scale,
+            guidance_scale: CONTROLNET_CONFIG.guidance_scale,
+            num_inference_steps: CONTROLNET_CONFIG.num_inference_steps,
+            seed: 2000 + i * 456, // Different seed per variation
+          },
+        });
 
-      // Extract URL from output
-      if (Array.isArray(output) && output.length > 0) {
-        variations.push(output[0] as string);
-      } else {
-        throw new Error(`Failed to generate variation ${i + 1}`);
+        const variationTime = Math.round((Date.now() - variationStart) / 1000);
+        logger.info(`[ControlNet Enhancement] Variation ${i + 1}/4 complete (${variationTime}s)`);
+
+        // Extract URL from output
+        if (Array.isArray(output) && output.length > 0) {
+          return output[0] as string;
+        } else {
+          throw new Error(`Invalid output format for variation ${i + 1}`);
+        }
+      } catch (err) {
+        logger.error(`[ControlNet Enhancement] Error in variation ${i + 1}`, err);
+        throw err;
       }
-    }
+    });
+
+    const variations = await Promise.all(variationPromises);
 
     const generationTime = Math.round((Date.now() - startTime) / 1000);
 
