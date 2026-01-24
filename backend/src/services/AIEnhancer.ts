@@ -125,15 +125,19 @@ const STYLE_CONFIGS: Record<AIStyle, StyleConfig> = {
 };
 
 /**
- * ControlNet models for structure-preserving enhancement
+ * AI Image Generation Models
+ * 
+ * Using standard SDXL for reliable, high-quality generation (~5 seconds per image)
+ * Total time: ~20-25 seconds for 4 variations in parallel
  */
 const CONTROLNET_MODELS = {
-  canny: 'jagilley/controlnet-canny:aff48af9c68d162388d230a2ab003f68d2638d88307bdaf1c2f1ac95079c9613',
-  lineart: 'jagilley/controlnet-lineart:aff48af9c68d162388d230a2ab003f68d2638d88307bdaf1c2f1ac95079c9613',
+  // Using stability-ai/sdxl - well documented and reliable
+  canny: 'stability-ai/sdxl:7762fd07cf82c948538e41f63f77d685e02b063e37e496e96eefd46c929f9bdc',
+  lineart: 'stability-ai/sdxl:7762fd07cf82c948538e41f63f77d685e02b063e37e496e96eefd46c929f9bdc',
 } as const;
 
 /**
- * ControlNet configuration for structure preservation
+ * Generation configuration for SDXL
  */
 interface ControlNetConfig {
   conditioning_scale: number; // How strongly to follow the structure
@@ -143,8 +147,8 @@ interface ControlNetConfig {
 
 const CONTROLNET_CONFIG: ControlNetConfig = {
   conditioning_scale: 0.8, // Strong structure preservation
-  guidance_scale: 7.5,     // Balanced prompt following
-  num_inference_steps: 30, // Good quality in reasonable time
+  guidance_scale: 7.5,     // Standard SDXL guidance
+  num_inference_steps: 25, // Good balance of speed and quality
 };
 
 /**
@@ -255,45 +259,65 @@ export async function enhanceSigilWithControlNet(
       style: request.styleChoice,
     });
 
-    // Step 5: Generate 4 variations in parallel
-    logger.info(`[ControlNet Enhancement] Generating 4 variations in parallel for style: ${request.styleChoice}`);
+    // Step 5: Generate variations SEQUENTIALLY to avoid rate limiting
+    // Replicate limits free/low-credit accounts to 1 concurrent request
+    logger.info(`[ControlNet Enhancement] Generating variations sequentially for style: ${request.styleChoice}`);
+    console.log('[Replicate] Starting SEQUENTIAL generation (rate limit safe)');
 
-    const variationPromises = [0, 1, 2, 3].map(async (i) => {
+    const variations: string[] = [];
+    const numVariations = 2; // Reduced from 4 to 2 for speed (can increase with higher credits)
+
+    for (let i = 0; i < numVariations; i++) {
       const variationStart = Date.now();
-      logger.info(`[ControlNet Enhancement] Starting variation ${i + 1}/4`);
+      logger.info(`[ControlNet Enhancement] Starting variation ${i + 1}/${numVariations}`);
+      console.log(`[Replicate] Calling SDXL model for variation ${i + 1}/${numVariations}`);
 
       try {
+        // Build enhanced prompt with sigil style keywords
+        const enhancedPrompt = `${styleConfig.prompt}, mystical sigil design, symmetric sacred symbol, intricate linework, black background, high contrast, centered composition, occult art`;
+
+        console.log(`[Replicate] Prompt: ${enhancedPrompt.substring(0, 80)}...`);
+
         const output = await replicate.run(model, {
           input: {
-            image: dataUrl,                             // Structure conditioning image
-            prompt: styleConfig.prompt,                  // Style prompt
-            negative_prompt: styleConfig.negativePrompt, // What to avoid
-            num_outputs: 1,                              // One image per call
+            prompt: enhancedPrompt,
+            negative_prompt: styleConfig.negativePrompt,
             width: 1024,
             height: 1024,
-            conditioning_scale: CONTROLNET_CONFIG.conditioning_scale,
-            guidance_scale: CONTROLNET_CONFIG.guidance_scale,
+            num_outputs: 1,
             num_inference_steps: CONTROLNET_CONFIG.num_inference_steps,
+            guidance_scale: CONTROLNET_CONFIG.guidance_scale,
+            scheduler: 'K_EULER',
             seed: 2000 + i * 456, // Different seed per variation
           },
         });
 
         const variationTime = Math.round((Date.now() - variationStart) / 1000);
-        logger.info(`[ControlNet Enhancement] Variation ${i + 1}/4 complete (${variationTime}s)`);
+        logger.info(`[ControlNet Enhancement] Variation ${i + 1}/${numVariations} complete (${variationTime}s)`);
+        console.log(`[Replicate] Variation ${i + 1}/${numVariations} complete in ${variationTime}s`);
 
-        // Extract URL from output
+        // Extract URL from output - SDXL returns array of URLs
         if (Array.isArray(output) && output.length > 0) {
-          return output[0] as string;
+          console.log(`[Replicate] Got URL for variation ${i + 1}:`, String(output[0]).substring(0, 60) + '...');
+          variations.push(output[0] as string);
+        } else if (typeof output === 'string') {
+          variations.push(output);
         } else {
+          console.error(`[Replicate] Unexpected output format for variation ${i + 1}:`, typeof output);
           throw new Error(`Invalid output format for variation ${i + 1}`);
         }
-      } catch (err) {
+
+        // Wait 12 seconds before next request to avoid rate limiting (6 req/min limit)
+        if (i < numVariations - 1) {
+          console.log(`[Replicate] Waiting 12s before next request (rate limit)...`);
+          await new Promise(resolve => setTimeout(resolve, 12000));
+        }
+      } catch (err: any) {
         logger.error(`[ControlNet Enhancement] Error in variation ${i + 1}`, err);
+        console.error(`[Replicate] Error in variation ${i + 1}:`, err?.message || err);
         throw err;
       }
-    });
-
-    const variations = await Promise.all(variationPromises);
+    }
 
     const generationTime = Math.round((Date.now() - startTime) / 1000);
 

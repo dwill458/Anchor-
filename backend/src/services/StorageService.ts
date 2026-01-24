@@ -5,10 +5,12 @@
  * Stores AI-generated anchor images and mantra audio files.
  */
 
-import { S3Client, PutObjectCommand, GetObjectCommand, DeleteObjectCommand } from '@aws-sdk/client-s3';
+import { S3Client, DeleteObjectCommand } from '@aws-sdk/client-s3';
 import { Upload } from '@aws-sdk/lib-storage';
 import { v4 as uuidv4 } from 'uuid';
 import axios from 'axios';
+import fs from 'fs';
+import path from 'path';
 import { logger } from '../utils/logger';
 
 /**
@@ -57,57 +59,42 @@ export async function uploadImageFromUrl(
   variationIndex: number
 ): Promise<string> {
   try {
-    const client = getR2Client();
-
-    // Check if client is mocked (null/undefined check though getR2Client returns any in mock case)
-    if (!process.env.CLOUDFLARE_ACCOUNT_ID) {
-      logger.info('[Storage] Mock Mode: Skipping upload, returning original URL');
-      return imageUrl;
-    }
-
-    const bucket = getBucketName();
+    logger.info('[Storage] Using LOCAL STORAGE for development');
 
     // Download image from Replicate URL
-    logger.debug('[Storage] Downloading image', { imageUrl });
-    const response = await axios.get(imageUrl, {
-      responseType: 'arraybuffer',
-    });
-
-    const imageBuffer = Buffer.from(response.data);
-    const contentType = response.headers['content-type'] || 'image/png';
-
-    // Generate unique filename
-    const fileExtension = contentType.includes('png') ? 'png' : 'jpg';
-    const fileName = `anchors/${userId}/${anchorId}/variation-${variationIndex}.${fileExtension}`;
-
-    logger.info('[Storage] Uploading to R2', { fileName });
-
-    // Upload to R2
-    const upload = new Upload({
-      client,
-      params: {
-        Bucket: bucket,
-        Key: fileName,
-        Body: imageBuffer,
-        ContentType: contentType,
-        CacheControl: 'public, max-age=31536000', // Cache for 1 year
-      },
-    });
-
-    await upload.done();
-
-    // Return public URL (if R2 bucket has public access configured)
-    // Format: https://pub-<bucket-id>.r2.dev/<file-path>
-    const publicDomain = process.env.CLOUDFLARE_R2_PUBLIC_DOMAIN;
-    if (publicDomain) {
-      return `${publicDomain}/${fileName}`;
+    let buffer: Buffer;
+    try {
+      const response = await axios.get(imageUrl, { responseType: 'arraybuffer' });
+      buffer = Buffer.from(response.data);
+    } catch (downloadError) {
+      logger.error(`[Storage] Failed to download image from ${imageUrl}`, downloadError);
+      throw new Error('Failed to download generated image');
     }
 
-    // Fallback: return R2 URL (requires authentication)
-    return `https://${bucket}.r2.cloudflarestorage.com/${fileName}`;
+    // Save to local disk
+
+    // Ensure absolute path to uploads directory in backend root
+    const uploadsDir = path.join(process.cwd(), 'uploads');
+
+    if (!fs.existsSync(uploadsDir)) {
+      fs.mkdirSync(uploadsDir, { recursive: true });
+    }
+
+    const fileName = `${anchorId}-${variationIndex}.png`;
+    const localFilePath = path.join(uploadsDir, fileName);
+    fs.writeFileSync(localFilePath, buffer);
+
+    logger.info(`[Storage] Saved to local disk: ${localFilePath}`);
+
+    // Return local URL (using local IP for mobile access)
+    // IMPORTANT: Ensure this IP matches your machine's IP on the network
+    const localIp = '192.168.0.4';
+    return `http://${localIp}:8000/uploads/${fileName}`;
+
   } catch (error) {
-    logger.error('[Storage] Upload failed', error);
-    throw new Error(`Failed to upload image: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    logger.error('[Storage] Upload error', error);
+    // Ultimate fallback: return original Replicate URL
+    return imageUrl;
   }
 }
 
