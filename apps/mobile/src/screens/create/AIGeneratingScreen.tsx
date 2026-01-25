@@ -507,14 +507,15 @@ export default function AIGeneratingScreen() {
         apiUrl: API_URL,
       });
 
-      // Simulate progress (~25 seconds for 2 sequential images + rate limit delay)
+      // Simulate progress (~30 seconds for 4 parallel images with Google Vertex AI)
+      // Falls back to ~40-60s with Replicate if Google unavailable
       progressInterval = setInterval(() => {
         setProgress((prev) => {
           if (prev >= 95) {
             if (progressInterval) clearInterval(progressInterval);
             return 95; // Hold at 95% until API completes
           }
-          return prev + 3; // Pace for ~30 seconds to 95%
+          return prev + 3.5; // Pace for ~27 seconds to 95% (3.5% per 800ms)
         });
       }, 800); // Update every 800ms
 
@@ -952,7 +953,7 @@ export default function AIGeneratingScreen() {
           >
             <Text style={styles.timeIconText}>⏱</Text>
           </Animated.View>
-          <Text style={styles.timeText}>This usually takes about a minute</Text>
+          <Text style={styles.timeText}>This usually takes about 30 seconds</Text>
         </View>
       </Animated.View>
     </View>
