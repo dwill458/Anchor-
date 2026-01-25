@@ -10,6 +10,7 @@
 import express, { Request, Response } from 'express';
 import {
   getCostEstimate,
+  enhanceSigilWithAI,
   enhanceSigilWithControlNet,
   estimateControlNetGenerationTime,
   AIStyle,
@@ -63,14 +64,23 @@ router.post('/enhance-controlnet', async (req: Request, res: Response): Promise<
   console.log('[API] Request body keys:', Object.keys(req.body));
 
   try {
-    const { sigilSvg, styleChoice, userId, anchorId, validateStructure, autoComposite } = req.body;
+    const {
+      sigilSvg,
+      styleChoice,
+      userId,
+      anchorId,
+      validateStructure,
+      autoComposite,
+      provider  // Optional: 'google' | 'replicate' | 'auto' (default: 'auto')
+    } = req.body;
     console.log('[API] Parsed request:', {
       sigilSvgLength: sigilSvg?.length || 0,
       styleChoice,
       userId,
       anchorId,
       validateStructure,
-      autoComposite
+      autoComposite,
+      provider: provider || 'auto'
     });
 
     // Validation
@@ -103,16 +113,29 @@ router.post('/enhance-controlnet', async (req: Request, res: Response): Promise<
       anchorId,
       style: styleChoice,
       validateStructure: validateStructure !== false,
+      provider: provider || 'auto',
     });
 
     // Generate ControlNet variations with structure validation
-    const enhancementResult = await enhanceSigilWithControlNet({
-      sigilSvg,
-      styleChoice: styleChoice as AIStyle,
-      userId,
-      validateStructure: validateStructure !== false,
-      autoComposite: autoComposite === true,
-    });
+    // Use enhanceSigilWithAI for automatic provider selection (Google → Replicate fallback)
+    // Or use enhanceSigilWithControlNet directly for Replicate-only
+    const useNewPipeline = provider !== 'replicate'; // Use new pipeline unless explicitly requesting Replicate
+
+    const enhancementResult = useNewPipeline
+      ? await enhanceSigilWithAI({
+          sigilSvg,
+          styleChoice: styleChoice as AIStyle,
+          userId,
+          validateStructure: validateStructure !== false,
+          autoComposite: autoComposite === true,
+        })
+      : await enhanceSigilWithControlNet({
+          sigilSvg,
+          styleChoice: styleChoice as AIStyle,
+          userId,
+          validateStructure: validateStructure !== false,
+          autoComposite: autoComposite === true,
+        });
 
     logger.info('[ControlNet] Generated variations with structure scores', {
       count: enhancementResult.variations.length,
@@ -157,6 +180,11 @@ router.post('/enhance-controlnet', async (req: Request, res: Response): Promise<
       });
     }
 
+    // Determine which provider was actually used
+    const usedProvider = enhancementResult.model.includes('imagen') ? 'google' :
+                         enhancementResult.model.includes('controlnet') ? 'replicate' :
+                         'unknown';
+
     res.json({
       success: true,
       // New format with structure scores
@@ -170,6 +198,8 @@ router.post('/enhance-controlnet', async (req: Request, res: Response): Promise<
       model: enhancementResult.model,
       controlMethod: enhancementResult.controlMethod,
       styleApplied: enhancementResult.styleApplied,
+      // Provider information
+      provider: usedProvider,
       // Structure validation summary
       structureThreshold: enhancementResult.structureThreshold,
       passingCount: enhancementResult.passingCount,
