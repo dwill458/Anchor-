@@ -224,7 +224,7 @@ export const AIVariationPickerScreen: React.FC = () => {
                       {/* Image Container */}
                       <View style={styles.imageContainer}>
                         <Image
-                          source={{ uri: imageUrl }}
+                          source={{ uri: typeof imageUrl === 'string' ? imageUrl : (imageUrl as any).imageUrl }}
                           style={styles.variationImage}
                           resizeMode="cover"
                         />
