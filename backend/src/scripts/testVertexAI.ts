@@ -87,7 +87,7 @@ async function checkEnvironment(): Promise<boolean> {
 
   // Check GOOGLE_CLOUD_CREDENTIALS_JSON
   const credentialsJson = process.env.GOOGLE_CLOUD_CREDENTIALS_JSON;
-  if (credentialsJson) {
+  if (credentialsJson && credentialsJson.trim() !== '') {
     try {
       const credentials = JSON.parse(credentialsJson);
       if (credentials.type === 'service_account') {
@@ -103,8 +103,20 @@ async function checkEnvironment(): Promise<boolean> {
       allGood = false;
     }
   } else {
-    print('✗ GOOGLE_CLOUD_CREDENTIALS_JSON not set', 'red');
-    allGood = false;
+    print('⚠ GOOGLE_CLOUD_CREDENTIALS_JSON not set', 'yellow');
+    print('  Using Application Default Credentials (ADC)', 'cyan');
+    print('  Make sure you ran: gcloud auth application-default login', 'cyan');
+
+    // Check if ADC file exists
+    const adcPath = process.env.HOME + '/.config/gcloud/application_default_credentials.json';
+    try {
+      await fs.access(adcPath);
+      print(`✓ ADC file found: ${adcPath}`, 'green');
+    } catch {
+      print(`✗ ADC file not found: ${adcPath}`, 'red');
+      print('  Run: gcloud auth application-default login', 'yellow');
+      allGood = false;
+    }
   }
 
   return allGood;

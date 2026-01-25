@@ -188,7 +188,11 @@ export class GoogleVertexAI {
   }
 
   /**
-   * Initialize Vertex AI client with service account credentials
+   * Initialize Vertex AI client with service account credentials or ADC
+   *
+   * Supports two authentication methods:
+   * 1. Service Account JSON (production) - via GOOGLE_CLOUD_CREDENTIALS_JSON
+   * 2. Application Default Credentials (local dev) - via `gcloud auth application-default login`
    */
   private initializeClient(): void {
     // Check for required environment variables
@@ -197,33 +201,44 @@ export class GoogleVertexAI {
     }
 
     const credentialsJson = process.env.GOOGLE_CLOUD_CREDENTIALS_JSON;
-    if (!credentialsJson) {
-      throw new Error('GOOGLE_CLOUD_CREDENTIALS_JSON environment variable not set');
-    }
 
-    // Parse credentials JSON
-    let credentials;
-    try {
-      credentials = JSON.parse(credentialsJson);
-    } catch (error) {
-      throw new Error('Invalid GOOGLE_CLOUD_CREDENTIALS_JSON format');
+    // Two authentication paths:
+    if (credentialsJson && credentialsJson.trim() !== '') {
+      // Path 1: Use explicit service account credentials (production)
+      logger.info('[GoogleVertexAI] Using explicit service account credentials');
+
+      let credentials;
+      try {
+        credentials = JSON.parse(credentialsJson);
+      } catch (error) {
+        throw new Error('Invalid GOOGLE_CLOUD_CREDENTIALS_JSON format');
+      }
+
+      // Set credentials as environment variable for Google SDK
+      process.env.GOOGLE_APPLICATION_CREDENTIALS = JSON.stringify(credentials);
+    } else {
+      // Path 2: Use Application Default Credentials (local development)
+      logger.info('[GoogleVertexAI] Using Application Default Credentials (ADC)');
+      logger.info('[GoogleVertexAI] Make sure you ran: gcloud auth application-default login');
+
+      // Don't set GOOGLE_APPLICATION_CREDENTIALS - let SDK use ADC
+      // The SDK will automatically look for credentials in:
+      // 1. GOOGLE_APPLICATION_CREDENTIALS env var
+      // 2. gcloud ADC (~/.config/gcloud/application_default_credentials.json)
+      // 3. Compute Engine metadata server
     }
 
     // Initialize Vertex AI client
-    // Note: The SDK will automatically use GOOGLE_APPLICATION_CREDENTIALS if set,
-    // or we can pass credentials directly
     this.vertexAI = new VertexAI({
       project: this.projectId,
       location: this.location,
     });
 
-    // Set credentials as environment variable for Google SDK
-    process.env.GOOGLE_APPLICATION_CREDENTIALS = JSON.stringify(credentials);
-
     this.isConfigured = true;
-    logger.info('[GoogleVertexAI] Client initialized', {
+    logger.info('[GoogleVertexAI] Client initialized successfully', {
       project: this.projectId,
       location: this.location,
+      authMethod: credentialsJson ? 'service-account' : 'adc',
     });
   }
 
