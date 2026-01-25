@@ -50,6 +50,43 @@ function getBucketName(): string {
 }
 
 /**
+ * Upload image from Buffer to local storage
+ * Used for Google Vertex AI images that come as base64
+ */
+export async function uploadImageFromBuffer(
+  imageBuffer: Buffer,
+  userId: string,
+  anchorId: string,
+  variationIndex: number
+): Promise<string> {
+  try {
+    logger.info('[Storage] Uploading image from buffer (LOCAL STORAGE for development)');
+
+    // Ensure absolute path to uploads directory in backend root
+    const uploadsDir = path.join(process.cwd(), 'uploads');
+
+    if (!fs.existsSync(uploadsDir)) {
+      fs.mkdirSync(uploadsDir, { recursive: true });
+    }
+
+    const fileName = `${anchorId}-${variationIndex}.png`;
+    const localFilePath = path.join(uploadsDir, fileName);
+    fs.writeFileSync(localFilePath, imageBuffer);
+
+    logger.info(`[Storage] Saved buffer to local disk: ${localFilePath}`);
+
+    // Return local URL (using local IP for mobile access)
+    // IMPORTANT: Ensure this IP matches your machine's IP on the network
+    const localIp = '192.168.0.4';
+    return `http://${localIp}:8000/uploads/${fileName}`;
+
+  } catch (error) {
+    logger.error('[Storage] Upload from buffer error', error);
+    throw new Error(`Failed to upload image from buffer: ${error instanceof Error ? error.message : 'Unknown error'}`);
+  }
+}
+
+/**
  * Upload image from URL to R2
  */
 export async function uploadImageFromUrl(
@@ -71,25 +108,8 @@ export async function uploadImageFromUrl(
       throw new Error('Failed to download generated image');
     }
 
-    // Save to local disk
-
-    // Ensure absolute path to uploads directory in backend root
-    const uploadsDir = path.join(process.cwd(), 'uploads');
-
-    if (!fs.existsSync(uploadsDir)) {
-      fs.mkdirSync(uploadsDir, { recursive: true });
-    }
-
-    const fileName = `${anchorId}-${variationIndex}.png`;
-    const localFilePath = path.join(uploadsDir, fileName);
-    fs.writeFileSync(localFilePath, buffer);
-
-    logger.info(`[Storage] Saved to local disk: ${localFilePath}`);
-
-    // Return local URL (using local IP for mobile access)
-    // IMPORTANT: Ensure this IP matches your machine's IP on the network
-    const localIp = '192.168.0.4';
-    return `http://${localIp}:8000/uploads/${fileName}`;
+    // Delegate to uploadImageFromBuffer
+    return uploadImageFromBuffer(buffer, userId, anchorId, variationIndex);
 
   } catch (error) {
     logger.error('[Storage] Upload error', error);

@@ -247,6 +247,10 @@ function preprocessSVG(
     }
   }
 
+  // Clean up any existing stroke-linecap/linejoin to prevent duplicates
+  processed = processed.replace(/stroke-linecap="[^"]*"/g, '');
+  processed = processed.replace(/stroke-linejoin="[^"]*"/g, '');
+
   // Add stroke-linecap and stroke-linejoin for cleaner lines
   processed = processed.replace(
     /<path /g,

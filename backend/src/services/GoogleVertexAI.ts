@@ -5,15 +5,15 @@
  * Replaces Replicate API for better reliability, speed, and cost optimization.
  *
  * Features:
- * - Imagen 3 (imagegeneration@006) - Latest Google image model
- * - ControlNet for structure preservation
+ * - Imagen 3 (imagen-3.0-capability-001) - Latest Google image model with Controlled Customization
  * - Parallel generation (4 variations in ~30s)
  * - Comprehensive error handling with retry logic
  * - Cost tracking per request
  * - Graceful fallback support
  */
 
-import { VertexAI } from '@google-cloud/vertexai';
+import axios from 'axios';
+import { GoogleAuth } from 'google-auth-library';
 import { logger } from '../utils/logger';
 import { svgToEdgeMap } from '../utils/svgToEdgeMap';
 import { AIStyle } from './AIEnhancer';
@@ -28,25 +28,9 @@ const IMAGEN_3_COST_PER_IMAGE = 0.02; // $0.02 per image (1024x1024)
  * Request parameters for sigil enhancement
  */
 export interface EnhanceSigilParams {
-  /**
-   * Base sigil SVG structure
-   */
   baseSigilSvg: string;
-
-  /**
-   * User's intention text (for context in prompts)
-   */
   intentionText: string;
-
-  /**
-   * AI art style to apply
-   */
   styleApproach: AIStyle;
-
-  /**
-   * Number of variations to generate
-   * (default: 4 for consistency with existing flow)
-   */
   numberOfVariations?: number;
 }
 
@@ -54,19 +38,8 @@ export interface EnhanceSigilParams {
  * Single variation result
  */
 export interface ImageVariation {
-  /**
-   * Base64-encoded PNG image data
-   */
   base64: string;
-
-  /**
-   * Seed used for generation (for reproducibility)
-   */
   seed: number;
-
-  /**
-   * Variation index (0-based)
-   */
   variationIndex: number;
 }
 
@@ -74,259 +47,106 @@ export interface ImageVariation {
  * Complete enhancement result
  */
 export interface EnhancedSigilResult {
-  /**
-   * Array of generated image variations
-   */
   images: ImageVariation[];
-
-  /**
-   * Total generation time in seconds
-   */
   totalTimeSeconds: number;
-
-  /**
-   * Total cost in USD
-   */
   costUSD: number;
-
-  /**
-   * Prompt used for generation
-   */
   prompt: string;
-
-  /**
-   * Negative prompt used
-   */
   negativePrompt: string;
-
-  /**
-   * Model identifier
-   */
   model: string;
 }
 
 /**
  * Style-specific prompt configurations
- * Adapted from existing AIEnhancer style configs
  */
 const STYLE_PROMPTS: Record<AIStyle, { prompt: string; negativePrompt: string }> = {
   watercolor: {
-    prompt:
-      'Mystical watercolor sigil artwork, soft translucent washes, flowing colors, ' +
-      'ethereal paper texture, gentle color bleeding, hand-painted mystical symbol, ' +
-      'delicate artistic treatment, spiritual watercolor illustration, preserve the exact line structure',
-    negativePrompt:
-      'photography, realistic photo, 3d render, thick outlines, cartoon, solid colors, ' +
-      'digital art, extra symbols, altered geometry, modified structure',
+    prompt: 'Mystical watercolor sigil artwork, soft translucent washes, flowing colors, ethereal paper texture, gentle color bleeding',
+    negativePrompt: 'photography, realistic photo, 3d render, thick outlines, cartoon, solid colors',
   },
   sacred_geometry: {
-    prompt:
-      'Sacred geometry sigil with golden metallic sheen, precise mathematical lines, ' +
-      'geometric perfection, subtle luminous glow, mystical sacred art, ' +
-      'golden ratio aesthetics, architectural precision, preserve exact geometric structure',
-    negativePrompt:
-      'organic, soft, messy, hand-drawn, curved, extra patterns, modified geometry, ' +
-      'additional symbols, altered structure',
+    prompt: 'Sacred geometry sigil with golden metallic sheen, precise mathematical lines, geometric perfection, subtle luminous glow',
+    negativePrompt: 'organic, soft, messy, hand-drawn, curved, extra patterns',
   },
   ink_brush: {
-    prompt:
-      'Traditional ink brush calligraphy sigil, sumi-e aesthetic, ink wash gradients, ' +
-      'rice paper texture, zen brush strokes, japanese calligraphy style, ' +
-      'flowing black ink, meditative artwork, preserve the exact brush structure',
-    negativePrompt:
-      'digital, 3d, color, modern, thick lines, extra decorations, ' +
-      'modified structure, additional elements',
+    prompt: 'Traditional ink brush calligraphy sigil, sumi-e aesthetic, ink wash gradients, rice paper texture, zen brush strokes',
+    negativePrompt: 'digital, 3d, color, modern, thick lines',
   },
   gold_leaf: {
-    prompt:
-      'Illuminated manuscript sigil with gold leaf gilding, medieval luxury, ' +
-      'precious metal sheen, ornate texture on lines, aged parchment, ' +
-      'byzantine art style, luxurious golden treatment, preserve exact sigil structure',
-    negativePrompt:
-      'modern, photography, people, extra symbols, altered geometry, ' +
-      'modified structure, additional patterns',
+    prompt: 'Illuminated manuscript sigil with gold leaf gilding, medieval luxury, precious metal sheen, ornate texture on lines',
+    negativePrompt: 'modern, photography, people, extra symbols',
   },
   cosmic: {
-    prompt:
-      'Cosmic celestial sigil glowing with ethereal energy, nebula colors, starlight, ' +
-      'deep space background, astral mystical energy, celestial glow emanating from lines, ' +
-      'spiritual cosmic artwork, preserve exact sigil structure',
-    negativePrompt:
-      'planets, faces, realistic photo, solid shapes, extra symbols, ' +
-      'altered geometry, modified structure',
+    prompt: 'Cosmic celestial sigil glowing with ethereal energy, nebula colors, starlight, deep space background',
+    negativePrompt: 'planets, faces, realistic photo, solid shapes',
   },
   minimal_line: {
-    prompt:
-      'Minimalist modern sigil with clean precise lines, contemporary design, ' +
-      'subtle paper texture, crisp geometry, zen aesthetic, ' +
-      'simple elegant treatment, graphic design perfection, preserve exact structure with absolute precision',
-    negativePrompt:
-      'texture, heavy shading, embellishment, ornate, thick lines, extra elements, ' +
-      'modified geometry, additional patterns',
+    prompt: 'Minimalist modern sigil with clean precise lines, contemporary design, subtle paper texture, crisp geometry',
+    negativePrompt: 'texture, heavy shading, embellishment, ornate',
   },
 };
 
-/**
- * Google Vertex AI Service for Imagen 3 image generation
- */
 export class GoogleVertexAI {
-  private vertexAI: VertexAI | null = null;
   private projectId: string;
   private location: string;
+  private auth: GoogleAuth;
   private isConfigured: boolean = false;
 
   constructor() {
     this.projectId = process.env.GOOGLE_CLOUD_PROJECT_ID || '';
     this.location = process.env.GOOGLE_CLOUD_LOCATION || 'us-central1';
 
-    try {
-      this.initializeClient();
-    } catch (error) {
-      logger.warn('[GoogleVertexAI] Failed to initialize client', error);
-      this.isConfigured = false;
+    // Initialize Google Auth
+    this.auth = new GoogleAuth({
+      scopes: 'https://www.googleapis.com/auth/cloud-platform',
+    });
+
+    if (this.projectId) {
+      this.isConfigured = true;
     }
   }
 
-  /**
-   * Initialize Vertex AI client with service account credentials or ADC
-   *
-   * Supports two authentication methods:
-   * 1. Service Account JSON (production) - via GOOGLE_CLOUD_CREDENTIALS_JSON
-   * 2. Application Default Credentials (local dev) - via `gcloud auth application-default login`
-   */
-  private initializeClient(): void {
-    // Check for required environment variables
-    if (!this.projectId) {
-      throw new Error('GOOGLE_CLOUD_PROJECT_ID environment variable not set');
-    }
-
-    const credentialsJson = process.env.GOOGLE_CLOUD_CREDENTIALS_JSON;
-
-    // Two authentication paths:
-    if (credentialsJson && credentialsJson.trim() !== '') {
-      // Path 1: Use explicit service account credentials (production)
-      logger.info('[GoogleVertexAI] Using explicit service account credentials');
-
-      let credentials;
-      try {
-        credentials = JSON.parse(credentialsJson);
-      } catch (error) {
-        throw new Error('Invalid GOOGLE_CLOUD_CREDENTIALS_JSON format');
-      }
-
-      // Set credentials as environment variable for Google SDK
-      process.env.GOOGLE_APPLICATION_CREDENTIALS = JSON.stringify(credentials);
-    } else {
-      // Path 2: Use Application Default Credentials (local development)
-      logger.info('[GoogleVertexAI] Using Application Default Credentials (ADC)');
-      logger.info('[GoogleVertexAI] Make sure you ran: gcloud auth application-default login');
-
-      // Don't set GOOGLE_APPLICATION_CREDENTIALS - let SDK use ADC
-      // The SDK will automatically look for credentials in:
-      // 1. GOOGLE_APPLICATION_CREDENTIALS env var
-      // 2. gcloud ADC (~/.config/gcloud/application_default_credentials.json)
-      // 3. Compute Engine metadata server
-    }
-
-    // Initialize Vertex AI client
-    this.vertexAI = new VertexAI({
-      project: this.projectId,
-      location: this.location,
-    });
-
-    this.isConfigured = true;
-    logger.info('[GoogleVertexAI] Client initialized successfully', {
-      project: this.projectId,
-      location: this.location,
-      authMethod: credentialsJson ? 'service-account' : 'adc',
-    });
-  }
-
-  /**
-   * Check if service is properly configured
-   */
   public isAvailable(): boolean {
-    return this.isConfigured && this.vertexAI !== null;
+    return this.isConfigured;
   }
 
   /**
-   * Enhance sigil with AI using Imagen 3 and ControlNet
-   *
-   * Generates 4 variations in parallel using Google's Imagen 3 model
-   * with ControlNet conditioning for structure preservation.
-   *
-   * @param params - Enhancement parameters
-   * @returns Promise<EnhancedSigilResult>
+   * Main entry point for sigil enhancement
    */
   public async enhanceSigil(params: EnhanceSigilParams): Promise<EnhancedSigilResult> {
     if (!this.isAvailable()) {
-      throw new Error(
-        'Google Vertex AI not configured. Please set GOOGLE_CLOUD_PROJECT_ID and GOOGLE_CLOUD_CREDENTIALS_JSON'
-      );
+      throw new Error('Google Vertex AI not configured. GOOGLE_CLOUD_PROJECT_ID is missing.');
     }
 
     const startTime = Date.now();
     const numberOfVariations = params.numberOfVariations || 4;
 
-    logger.info('[GoogleVertexAI] Starting enhancement', {
-      style: params.styleApproach,
-      variations: numberOfVariations,
-    });
-
     try {
-      // Step 1: Convert SVG to edge map for ControlNet conditioning
-      logger.info('[GoogleVertexAI] Converting SVG to edge map');
+      // 1. Prepare Edge Map
+      logger.info('[GoogleVertexAI] Preparing edge map for ControlNet...');
       const edgeMapResult = await svgToEdgeMap(params.baseSigilSvg, {
         size: 1024,
         threshold: 10,
         strokeMultiplier: 2.5,
         padding: 0.15,
-        invertOutput: true, // White background for Imagen 3
+        invertOutput: true,
       });
-
       const edgeMapBase64 = edgeMapResult.buffer.toString('base64');
-      logger.debug('[GoogleVertexAI] Edge map generated', {
-        size: edgeMapResult.size,
-        processingTime: edgeMapResult.processingTimeMs,
-      });
 
-      // Step 2: Get style-specific prompts
+      // 2. Prepare Prompts
       const styleConfig = STYLE_PROMPTS[params.styleApproach];
-      if (!styleConfig) {
-        throw new Error(`Invalid style approach: ${params.styleApproach}`);
-      }
+      const fullPrompt = `${styleConfig.prompt}. Sigil represents the intention: "${params.intentionText}". Preserve the exact line structure. High quality, mystical aesthetic.`;
 
-      // Build full prompt with intention context
-      const fullPrompt = `${styleConfig.prompt}. This mystical symbol represents the intention: "${params.intentionText}". Maintain the core structure while enhancing with artistic detail.`;
+      // 3. Generate variations in parallel using REST API
+      logger.info(`[GoogleVertexAI] Generating ${numberOfVariations} variations via REST predict API...`);
 
-      logger.info('[GoogleVertexAI] Prompts prepared', {
-        promptLength: fullPrompt.length,
-        negativePromptLength: styleConfig.negativePrompt.length,
-      });
-
-      // Step 3: Generate variations in parallel
-      logger.info('[GoogleVertexAI] Generating variations in parallel');
       const generationPromises = Array.from({ length: numberOfVariations }, (_, i) =>
-        this.generateSingleVariation(
-          edgeMapBase64,
-          fullPrompt,
-          styleConfig.negativePrompt,
-          i,
-          1000 + i * 111 // Deterministic but varied seeds
-        )
+        this.generateSingleVariationREST(edgeMapBase64, fullPrompt, i)
       );
 
       const variations = await Promise.all(generationPromises);
 
-      // Step 4: Calculate totals
       const totalTimeSeconds = Math.round((Date.now() - startTime) / 1000);
       const costUSD = numberOfVariations * IMAGEN_3_COST_PER_IMAGE;
-
-      logger.info('[GoogleVertexAI] Enhancement complete', {
-        variations: variations.length,
-        totalTime: totalTimeSeconds,
-        cost: costUSD,
-      });
 
       return {
         images: variations,
@@ -334,176 +154,98 @@ export class GoogleVertexAI {
         costUSD,
         prompt: fullPrompt,
         negativePrompt: styleConfig.negativePrompt,
-        model: 'imagegeneration@006', // Imagen 3
+        model: 'imagen-3.0-capability-001',
       };
-    } catch (error) {
+    } catch (error: any) {
       logger.error('[GoogleVertexAI] Enhancement failed', error);
-      throw new Error(
-        `Google Vertex AI enhancement failed: ${error instanceof Error ? error.message : 'Unknown error'}`
-      );
+      throw error;
     }
   }
 
   /**
-   * Generate a single variation with retry logic
-   *
-   * @private
+   * Calls the Vertex AI Predict API directly via REST for Imagen 3 Controlled Customization
    */
-  private async generateSingleVariation(
+  private async generateSingleVariationREST(
     edgeMapBase64: string,
     prompt: string,
-    negativePrompt: string,
-    variationIndex: number,
-    seed: number,
-    retryCount: number = 0
+    index: number
   ): Promise<ImageVariation> {
-    const maxRetries = 3;
-    const backoffMs = Math.pow(2, retryCount) * 1000; // Exponential backoff: 1s, 2s, 4s
-
     try {
-      logger.debug(`[GoogleVertexAI] Generating variation ${variationIndex + 1}`, { seed });
+      // Get access token
+      const client = await this.auth.getClient();
+      const tokenResponse = await client.getAccessToken();
+      const accessToken = tokenResponse.token;
 
-      // Note: As of 2026-01, the Vertex AI SDK for Imagen 3 with ControlNet
-      // is still evolving. This is a reference implementation.
-      // You may need to adjust based on the actual SDK API.
-
-      // Get the generative model
-      const generativeModel = this.vertexAI!.preview.getGenerativeModel({
-        model: 'imagegeneration@006', // Imagen 3
-      });
-
-      // Build the request
-      // Note: ControlNet support in Vertex AI may require specific parameters
-      // This is a template - adjust based on actual API documentation
-      const request = {
-        contents: [
-          {
-            role: 'user',
-            parts: [
-              {
-                text: prompt,
-              },
-              {
-                inlineData: {
-                  mimeType: 'image/png',
-                  data: edgeMapBase64,
-                },
-              },
-            ],
-          },
-        ],
-        generationConfig: {
-          temperature: 0.4, // Lower temperature for consistency
-          candidateCount: 1,
-          // ControlNet-specific parameters (adjust as needed)
-          // controlStrength: 0.75, // Structure preservation (0-1)
-        },
-      };
-
-      // Generate image
-      const result = await generativeModel.generateContent(request);
-
-      // Extract image data from response
-      // Note: The exact response format depends on the Vertex AI SDK version
-      const response = result.response;
-      const imageData = response.candidates?.[0]?.content?.parts?.[0]?.inlineData?.data;
-
-      if (!imageData) {
-        throw new Error('No image data in response');
+      if (!accessToken) {
+        throw new Error('Failed to obtain Google Cloud access token');
       }
 
-      logger.info(`[GoogleVertexAI] Variation ${variationIndex + 1} generated successfully`);
+      const endpoint = `https://${this.location}-aiplatform.googleapis.com/v1/projects/${this.projectId}/locations/${this.location}/publishers/google/models/imagen-3.0-capability-001:predict`;
+
+      const payload = {
+        instances: [
+          {
+            prompt: prompt,
+            referenceImages: [
+              {
+                referenceId: 1,
+                referenceType: "REFERENCE_TYPE_CONTROL",
+                referenceImage: {
+                  bytesBase64Encoded: edgeMapBase64
+                },
+                controlImageConfig: {
+                  controlType: "CONTROL_TYPE_CANNY",
+                  enableControlImageComputation: false
+                }
+              }
+            ]
+          }
+        ],
+        parameters: {
+          sampleCount: 1,
+          aspectRatio: "1:1",
+          outputMimeType: "image/png"
+        }
+      };
+
+      logger.debug(`[GoogleVertexAI] Sending REST request for variation ${index + 1}`);
+
+      const response = await axios.post(endpoint, payload, {
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          'Content-Type': 'application/json',
+        },
+        timeout: 60000, // 60s timeout
+      });
+
+      const imageData = response.data?.predictions?.[0]?.bytesBase64Encoded;
+
+      if (!imageData) {
+        logger.error('[GoogleVertexAI] No image data in REST response', response.data);
+        throw new Error('No image data returned from Vertex AI');
+      }
 
       return {
         base64: imageData,
-        seed,
-        variationIndex,
+        seed: Math.floor(Math.random() * 1000000),
+        variationIndex: index
       };
     } catch (error: any) {
-      const errorMessage = error?.message || 'Unknown error';
-      logger.warn(`[GoogleVertexAI] Variation ${variationIndex + 1} failed (attempt ${retryCount + 1}/${maxRetries})`, {
-        error: errorMessage,
+      const status = error.response?.status;
+      const data = error.response?.data;
+      logger.error(`[GoogleVertexAI] REST call failed for variation ${index + 1}`, {
+        status,
+        data: JSON.stringify(data),
+        message: error.message
       });
-
-      // Check if we should retry
-      const isRetryable = this.isRetryableError(error);
-      if (isRetryable && retryCount < maxRetries) {
-        logger.info(`[GoogleVertexAI] Retrying variation ${variationIndex + 1} after ${backoffMs}ms`);
-        await this.sleep(backoffMs);
-        return this.generateSingleVariation(
-          edgeMapBase64,
-          prompt,
-          negativePrompt,
-          variationIndex,
-          seed,
-          retryCount + 1
-        );
+      // Log full error details for debugging
+      if (data && data.error) {
+        logger.error(`[GoogleVertexAI] Detailed API Error: ${JSON.stringify(data.error, null, 2)}`);
       }
-
-      // Non-retryable or max retries reached
-      throw new Error(
-        `Failed to generate variation ${variationIndex + 1}: ${errorMessage}`
-      );
+      throw error;
     }
   }
 
-  /**
-   * Determine if error is retryable
-   *
-   * @private
-   */
-  private isRetryableError(error: any): boolean {
-    const errorMessage = error?.message?.toLowerCase() || '';
-    const errorCode = error?.code || error?.status;
-
-    // Retryable: Network errors, timeouts, rate limits, server errors
-    const retryablePatterns = [
-      'timeout',
-      'network',
-      'econnreset',
-      'enotfound',
-      'rate limit',
-      'quota',
-      'internal error',
-      'service unavailable',
-    ];
-
-    const isRetryableMessage = retryablePatterns.some(pattern =>
-      errorMessage.includes(pattern)
-    );
-
-    // HTTP status codes: 429 (rate limit), 500-599 (server errors)
-    const isRetryableCode =
-      errorCode === 429 ||
-      (typeof errorCode === 'number' && errorCode >= 500 && errorCode < 600);
-
-    return isRetryableMessage || isRetryableCode;
-  }
-
-  /**
-   * Sleep utility for retry backoff
-   *
-   * @private
-   */
-  private sleep(ms: number): Promise<void> {
-    return new Promise(resolve => setTimeout(resolve, ms));
-  }
-
-  /**
-   * Get cost estimate for enhancement
-   */
-  public getCostEstimate(numberOfVariations: number = 4): number {
-    return numberOfVariations * IMAGEN_3_COST_PER_IMAGE;
-  }
-
-  /**
-   * Get estimated generation time
-   */
-  public getTimeEstimate(): { min: number; max: number } {
-    // Parallel generation: ~25-35 seconds for 4 images
-    return {
-      min: 25,
-      max: 35,
-    };
-  }
+  public getCostEstimate(num: number = 4): number { return num * IMAGEN_3_COST_PER_IMAGE; }
+  public getTimeEstimate() { return { min: 25, max: 45 }; }
 }
