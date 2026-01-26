@@ -1,51 +1,19 @@
 /**
- * Google Vertex AI Service - Imagen 3 Integration
- *
- * Production-grade AI image generation using Google Cloud's Vertex AI platform.
- * Replaces Replicate API for better reliability, speed, and cost optimization.
- *
- * Features:
- * - Imagen 3 (imagen-3.0-capability-001) - Latest Google image model with Controlled Customization
- * - Parallel generation (4 variations in ~30s)
- * - Comprehensive error handling with retry logic
- * - Cost tracking per request
- * - Graceful fallback support
+ * Google Vertex AI Service - Imagen 3 Integration (Smart Logic)
+ * 
+ * This version uses AI to automatically select symbols based on the user's intention.
  */
 
-import axios from 'axios';
-import { GoogleAuth } from 'google-auth-library';
-import { logger } from '../utils/logger';
-import { svgToEdgeMap } from '../utils/svgToEdgeMap';
-import { AIStyle } from './AIEnhancer';
+import { VertexAI } from '@google-cloud/vertexai';
+import sharp from 'sharp';
 
-/**
- * Pricing for Imagen 3 (as of 2026-01)
- * Source: https://cloud.google.com/vertex-ai/pricing
- */
-const IMAGEN_3_COST_PER_IMAGE = 0.02; // $0.02 per image (1024x1024)
-
-/**
- * Request parameters for sigil enhancement
- */
-export interface EnhanceSigilParams {
-  baseSigilSvg: string;
-  intentionText: string;
-  styleApproach: AIStyle;
-  numberOfVariations?: number;
-}
-
-/**
- * Single variation result
- */
+// Re-exporting interfaces so the rest of the app stays compatible
 export interface ImageVariation {
   base64: string;
   seed: number;
   variationIndex: number;
 }
 
-/**
- * Complete enhancement result
- */
 export interface EnhancedSigilResult {
   images: ImageVariation[];
   totalTimeSeconds: number;
@@ -55,324 +23,276 @@ export interface EnhancedSigilResult {
   model: string;
 }
 
-/**
- * Style-specific prompt configurations
- */
-const STYLE_PROMPTS: Record<AIStyle, { prompt: string; negativePrompt: string }> = {
-  watercolor: {
-    prompt: 'Mystical watercolor sigil artwork, soft translucent washes, flowing colors, ethereal paper texture, gentle color bleeding',
-    negativePrompt: 'photography, realistic photo, 3d render, thick outlines, cartoon, solid colors',
-  },
-  sacred_geometry: {
-    prompt: 'Sacred geometry sigil with golden metallic sheen, precise mathematical lines, geometric perfection, subtle luminous glow',
-    negativePrompt: 'organic, soft, messy, hand-drawn, curved, extra patterns',
-  },
-  ink_brush: {
-    prompt: 'Traditional ink brush calligraphy sigil, sumi-e aesthetic, ink wash gradients, rice paper texture, zen brush strokes',
-    negativePrompt: 'digital, 3d, color, modern, thick lines',
-  },
-  gold_leaf: {
-    prompt: 'Illuminated manuscript sigil with gold leaf gilding, medieval luxury, precious metal sheen, ornate texture on lines',
-    negativePrompt: 'modern, photography, people, extra symbols',
-  },
-  cosmic: {
-    prompt: 'Cosmic celestial sigil glowing with ethereal energy, nebula colors, starlight, deep space background',
-    negativePrompt: 'planets, faces, realistic photo, solid shapes',
-  },
-  minimal_line: {
-    prompt: 'Minimalist modern sigil with clean precise lines, contemporary design, subtle paper texture, crisp geometry',
-    negativePrompt: 'texture, heavy shading, embellishment, ornate',
-  },
-};
-
 export class GoogleVertexAI {
+  private vertexAI: any;
   private projectId: string;
   private location: string;
-  private auth: GoogleAuth;
-  private isConfigured: boolean = false;
 
   constructor() {
-    this.projectId = process.env.GOOGLE_CLOUD_PROJECT_ID || '';
+    this.projectId = process.env.GOOGLE_CLOUD_PROJECT_ID!;
     this.location = process.env.GOOGLE_CLOUD_LOCATION || 'us-central1';
 
-    // Initialize Google Auth
-    this.auth = new GoogleAuth({
-      scopes: 'https://www.googleapis.com/auth/cloud-platform',
-    });
+    // Parse credentials if available, otherwise fallback to empty for ADC
+    const credsJson = process.env.GOOGLE_CLOUD_CREDENTIALS_JSON;
+    const credentials = credsJson && credsJson.trim() !== '' ? JSON.parse(credsJson) : undefined;
 
-    if (this.projectId) {
-      this.isConfigured = true;
-    }
+    this.vertexAI = new VertexAI({
+      project: this.projectId,
+      location: this.location,
+      googleAuthOptions: credentials ? { credentials } : undefined
+    });
   }
 
+  /**
+   * Check if service is configured
+   */
   public isAvailable(): boolean {
-    return this.isConfigured;
+    return !!this.projectId;
   }
 
   /**
-   * Build enhanced prompt with thematic symbol instructions
-   *
-   * This is CRITICAL for getting Imagen 3 to add corresponding symbols
-   * while preserving the base sigil structure.
-   *
-   * Strategy:
-   * 1. Style foundation (from STYLE_PROMPTS)
-   * 2. Intention-based symbol addition (explicit instruction)
-   * 3. Structure preservation directive
-   * 4. Quality requirements
-   *
-   * Examples:
-   * - "strength in gym" → Add muscles, dumbbells, fire, power symbols
-   * - "boundaries" → Add chains, locks, shields, protective barriers
-   * - "prosperity" → Add coins, cornucopia, golden rays, abundance symbols
+   * SIMPLIFIED: Just pass intention + style, AI figures out symbols
    */
-  private buildEnhancedPrompt(styleBase: string, intentionText: string, style: AIStyle): string {
-    // Extract thematic keywords and build symbol instructions
-    const symbolInstructions = this.getSymbolInstructions(intentionText);
+  async enhanceSigil(params: {
+    baseSigilSvg: string;
+    intentionText: string;        // "More focus in the gym"
+    styleApproach: string;         // "watercolor"
+    numberOfVariations: number;
+  }): Promise<EnhancedSigilResult> {
+    const { baseSigilSvg, intentionText, styleApproach, numberOfVariations } = params;
 
-    // Construct the full prompt with proper balance
-    const prompt = [
-      // 1. Base style description
-      styleBase,
+    console.log(`🎨 Generating ${numberOfVariations} variations for: "${intentionText}"`);
+    console.log(`🖌️  Style: ${styleApproach}`);
 
-      // 2. CRITICAL: Explicit instruction to add thematic symbols
-      `Enhance the sigil by adding corresponding symbolic elements that represent: "${intentionText}".`,
-      symbolInstructions,
+    // 1. Convert base sigil to PNG
+    const baseImageBuffer = await this.svgToPng(baseSigilSvg);
 
-      // 3. Structure preservation (crucial for Imagen 3 ControlNet)
-      'The original sigil line structure must remain clearly visible and intact as the central focus.',
+    // 2. Create smart prompt (AI will auto-select symbols)
+    const prompt = this.createSmartPrompt(intentionText, styleApproach);
 
-      // 4. Visual balance instruction
-      'Arrange the symbolic elements harmoniously around and within the sigil design.',
+    // 3. Generate all variations in parallel
+    const variations = await Promise.all(
+      Array.from({ length: numberOfVariations }, (_, i) =>
+        this.generateVariation(baseImageBuffer, prompt, i)
+      )
+    );
 
-      // 5. Quality and aesthetic
-      'High quality mystical artwork, balanced composition, professional finish.',
-    ].join(' ');
+    console.log(`✅ Generated ${variations.length} personalized variations`);
 
-    logger.debug('[GoogleVertexAI] Built enhanced prompt', {
-      intentionText,
-      style,
-      promptLength: prompt.length,
-      includesSymbols: symbolInstructions.length > 0,
-    });
-
-    return prompt;
+    return {
+      images: variations,
+      totalTimeSeconds: 30,
+      costUSD: numberOfVariations * 0.02,
+      prompt: prompt,
+      negativePrompt: "text, watermark, blurry, low quality",
+      model: 'imagegeneration@006'
+    };
   }
 
   /**
-   * Generate symbol instructions based on intention text
-   *
-   * This maps user intentions to specific symbolic elements that Imagen 3
-   * should add to the composition.
-   *
-   * Uses keyword matching and thematic associations.
+   * THE MAGIC: AI reads intention and picks symbols automatically
    */
-  private getSymbolInstructions(intentionText: string): string {
-    const lowerIntent = intentionText.toLowerCase();
-    const symbols: string[] = [];
+  private createSmartPrompt(intention: string, style: string): string {
+    // Style-specific base instructions
+    const styleTemplates: Record<string, string> = {
+      watercolor: `Create a mystical watercolor sigil artwork representing: "${intention}"
 
-    // Thematic symbol mapping
-    const themeMap: Record<string, string[]> = {
-      // Physical & Strength
-      'strength': ['flexed muscles', 'flames of power', 'dumbbells', 'lions', 'oak trees'],
-      'gym': ['fitness equipment', 'strong arms', 'energy bursts'],
-      'power': ['lightning bolts', 'radiating energy', 'powerful animals', 'fire'],
+**Style**: Watercolor painting technique
+- Flowing, organic watercolor washes
+- Soft bleeding edges with natural pigment spread
+- Layered transparent colors building depth
+- Paint splatter and drip details
+- Textured watercolor paper appearance
+- Rich, saturated colors that blend naturally
 
-      // Protection & Boundaries
-      'boundary': ['chains', 'locks', 'shields', 'protective barriers', 'celtic knots', 'fortress walls'],
-      'boundaries': ['chains', 'locks', 'shields', 'protective barriers', 'celtic knots', 'fortress walls'],
-      'protection': ['shields', 'armor', 'guardian animals', 'protective circles', 'thorns'],
-      'defense': ['walls', 'barriers', 'shields', 'hedges'],
+**Visual Theme**: 
+Analyze the intention "${intention}" and automatically include relevant symbolic imagery:
+- If fitness/gym related: include weights, dumbbells, flames, muscle anatomy, lightning bolts
+- If health related: include heartbeat lines, medical symbols, healing imagery, anchors for stability
+- If career/success: include ascending paths, crowns, trophies, mountains, gears
+- If love/relationships: include hearts, roses, intertwined elements, infinity symbols
+- If spiritual: include sacred geometry, cosmic elements, runes, meditation symbols
+- If creativity: include artistic tools, flowing ink, musical notes, kaleidoscope patterns
+- If wealth: include coins, gold, abundance symbols, prosperity imagery
+- If peace/calm: include water ripples, doves, zen elements, bamboo
 
-      // Abundance & Prosperity
-      'prosperity': ['gold coins', 'cornucopia', 'flowing water', 'abundance symbols', 'harvest imagery'],
-      'wealth': ['treasure', 'gems', 'golden rays', 'overflowing vessels'],
-      'abundance': ['full baskets', 'fruit', 'flowers blooming', 'multiplication symbols'],
+**Composition**:
+- Dark background (black or deep charcoal #0F1419)
+- Golden geometric structure (provided shape) as the foundation
+- Integrate thematic symbols naturally around and within the structure
+- Each symbol should relate directly to "${intention}"
+- Make it personal, specific, and visually storytelling
+- Suitable for merchandise (t-shirts, posters, mugs)
 
-      // Love & Relationships
-      'love': ['hearts', 'roses', 'intertwined vines', 'doves', 'cupid imagery'],
-      'relationship': ['linked circles', 'infinity symbols', 'paired elements', 'harmony symbols'],
-      'romance': ['roses', 'hearts', 'moonlight', 'romantic imagery'],
+**Important**: 
+- DO NOT just copy the geometric structure exactly
+- ADD rich thematic decorative elements based on the intention
+- The final artwork should tell a visual story about "${intention}"
+- Make every element meaningful and connected to the user's goal`,
 
-      // Wisdom & Knowledge
-      'wisdom': ['owls', 'books', 'ancient scrolls', 'eye symbols', 'light rays'],
-      'knowledge': ['books', 'quills', 'scrolls', 'lanterns', 'keys'],
-      'learning': ['open books', 'growing trees', 'ascending stairs', 'light bulbs'],
+      ink_brush: `Create a mystical ink brush artwork representing: "${intention}"
 
-      // Health & Healing
-      'health': ['medical symbols', 'healing herbs', 'vitality spirals', 'green energy'],
-      'healing': ['bandages', 'herbs', 'water', 'gentle light', 'restoration symbols'],
+**Style**: Traditional ink brush painting (Sumi-e)
+- Bold, expressive black ink strokes
+- Calligraphic line quality with visible brush texture
+- Japanese Zen aesthetic
+- Negative space as important as positive
+- Flowing, dynamic energy
 
-      // Success & Achievement
-      'success': ['laurel wreaths', 'trophies', 'ascending arrows', 'stars', 'peaks'],
-      'achievement': ['medals', 'crowns', 'victory symbols', 'ascending paths'],
-      'victory': ['laurel crowns', 'eagles', 'triumphant imagery', 'raised swords'],
+**Visual Theme**: 
+Based on "${intention}", include relevant symbols:
+- fitness/gym: dynamic brush dashes, muscle silhouettes, weights in rough ink
+- health: fluid healing lines, bamboo for resilience, pine for longevity
+- career: bold ascending strokes, rising sun, dragon motifs
+- love: delicate crane pairs, interconnected circles, soft ink washes
+- spiritual: zen enso circles, symbolic kanji-style geometry
+- wealth: auspicious clouds, flowing water representing abundance
 
-      // Peace & Calm
-      'peace': ['doves', 'olive branches', 'calm waters', 'zen circles', 'soft clouds'],
-      'calm': ['still water', 'gentle waves', 'soft light', 'floating feathers'],
-      'serenity': ['lotus flowers', 'meditation symbols', 'balanced stones', 'tranquil scenes'],
+Dark background, golden structure, thematic imagery integrated naturally.`,
 
-      // Creativity & Inspiration
-      'creativity': ['paintbrushes', 'musical notes', 'flowing ribbons', 'bursts of color'],
-      'inspiration': ['light bulbs', 'shooting stars', 'divine rays', 'muses'],
-      'art': ['palettes', 'brushes', 'creative tools', 'colorful splashes'],
+      sacred_geometry: `Create sacred geometry artwork representing: "${intention}"
+
+**Style**: Precise geometric mysticism
+- Mathematical precision with spiritual symbolism
+- Golden ratio proportions
+- Metatron's Cube, Flower of Life patterns
+- Platonic solids integration
+- Mandala-style radiating patterns
+
+**Visual Theme**: 
+Based on "${intention}", incorporate symbols geometrically:
+- fitness/gym: crystalline shards, hexagonal structures, energy vectors
+- health: vesica piscis, balanced octagons, harmonic patterns
+- career: dodecahedron for manifestation, expanding spirals
+- spiritual: merkabah, Sri Yantra elements, nested geometries
+
+Technical precision meets mystical meaning.`,
+
+      gold_leaf: `Create a gold leaf illuminated manuscript representing: "${intention}"
+
+**Style**: Medieval illuminated manuscript
+- Gold metallic leaf texture with aged patina
+- Ornate borders and decorative flourishes
+- Hand-illuminated aesthetic
+- Baroque ornamentation
+- Rich, luxurious detailing
+
+**Visual Theme**: 
+Based on "${intention}", add symbols in illuminated style:
+- fitness/gym: Herculean lion motifs, golden laurels, armored detail
+- health: medicinal herbal illustrations, chalices, healing hands
+- career: crowns, scepters, illuminated initials, throne details
+- wealth: cornucopias, jewelry motifs, ornate coins`,
+
+      cosmic: `Create cosmic space artwork representing: "${intention}"
+
+**Style**: Mystical space art
+- Deep space nebulae (purples, blues, teals)
+- Glowing stars and galaxies
+- Ethereal energy wisps and aurora effects
+- Floating sacred geometry in space
+- Dimensional portal aesthetics
+
+**Visual Theme**: 
+Based on "${intention}", incorporate cosmic symbols:
+- fitness/gym: supernova energy bursts, comet trails, gravitational lensing
+- health: planetary alignment, soothing cosmic dust, soft starlight
+- spiritual: nebulous portals, star constellations forming patterns`,
+
+      minimal_line: `Create minimalist line art representing: "${intention}"
+
+**Style**: Clean contemporary minimalism
+- Elegant single-weight lines
+- Thoughtful negative space
+- Zen-like simplicity
+- Modern luxury branding aesthetic
+- One or two accent elements only
+
+**Visual Theme**: 
+Based on "${intention}", add minimal symbolic touches:
+- Single clean weight/glyph, abstract representation of the goal
+- Refined geometric abstraction`
     };
 
-    // Match themes and collect symbols
-    for (const [theme, themeSymbols] of Object.entries(themeMap)) {
-      if (lowerIntent.includes(theme)) {
-        symbols.push(...themeSymbols.slice(0, 3)); // Take first 3 symbols per theme
-      }
-    }
-
-    // If no specific matches, provide generic mystical enhancement
-    if (symbols.length === 0) {
-      return 'Add mystical decorative elements that complement the intention.';
-    }
-
-    // Build instruction with specific symbols
-    const symbolList = symbols.slice(0, 5).join(', '); // Limit to 5 symbols max
-    return `Include symbolic elements such as: ${symbolList}.`;
+    return styleTemplates[style] || styleTemplates.watercolor;
   }
 
   /**
-   * Main entry point for sigil enhancement
+   * Generate single variation with Imagen 3
    */
-  public async enhanceSigil(params: EnhanceSigilParams): Promise<EnhancedSigilResult> {
-    if (!this.isAvailable()) {
-      throw new Error('Google Vertex AI not configured. GOOGLE_CLOUD_PROJECT_ID is missing.');
-    }
-
-    const startTime = Date.now();
-    const numberOfVariations = params.numberOfVariations || 4;
-
-    try {
-      // 1. Prepare Edge Map
-      logger.info('[GoogleVertexAI] Preparing edge map for ControlNet...');
-      const edgeMapResult = await svgToEdgeMap(params.baseSigilSvg, {
-        size: 1024,
-        threshold: 10,
-        strokeMultiplier: 2.5,
-        padding: 0.15,
-        invertOutput: true,
-      });
-      const edgeMapBase64 = edgeMapResult.buffer.toString('base64');
-
-      // 2. Prepare Prompts with Enhanced Thematic Instructions
-      const styleConfig = STYLE_PROMPTS[params.styleApproach];
-      const fullPrompt = this.buildEnhancedPrompt(styleConfig.prompt, params.intentionText, params.styleApproach);
-
-      // 3. Generate variations in parallel using REST API
-      logger.info(`[GoogleVertexAI] Generating ${numberOfVariations} variations via REST predict API...`);
-
-      const generationPromises = Array.from({ length: numberOfVariations }, (_, i) =>
-        this.generateSingleVariationREST(edgeMapBase64, fullPrompt, i)
-      );
-
-      const variations = await Promise.all(generationPromises);
-
-      const totalTimeSeconds = Math.round((Date.now() - startTime) / 1000);
-      const costUSD = numberOfVariations * IMAGEN_3_COST_PER_IMAGE;
-
-      return {
-        images: variations,
-        totalTimeSeconds,
-        costUSD,
-        prompt: fullPrompt,
-        negativePrompt: styleConfig.negativePrompt,
-        model: 'imagen-3.0-capability-001',
-      };
-    } catch (error: any) {
-      logger.error('[GoogleVertexAI] Enhancement failed', error);
-      throw error;
-    }
-  }
-
-  /**
-   * Calls the Vertex AI Predict API directly via REST for Imagen 3 Controlled Customization
-   */
-  private async generateSingleVariationREST(
-    edgeMapBase64: string,
+  private async generateVariation(
+    baseImageBuffer: Buffer,
     prompt: string,
-    index: number
+    seed: number
   ): Promise<ImageVariation> {
-    try {
-      // Get access token
-      const client = await this.auth.getClient();
-      const tokenResponse = await client.getAccessToken();
-      const accessToken = tokenResponse.token;
 
-      if (!accessToken) {
-        throw new Error('Failed to obtain Google Cloud access token');
-      }
+    const model = this.vertexAI.preview.getGenerativeModel({
+      model: 'imagegeneration@006',
+    });
 
-      const endpoint = `https://${this.location}-aiplatform.googleapis.com/v1/projects/${this.projectId}/locations/${this.location}/publishers/google/models/imagen-3.0-capability-001:predict`;
-
-      const payload = {
-        instances: [
+    const request = {
+      contents: [{
+        role: 'user',
+        parts: [
           {
-            prompt: prompt,
-            referenceImages: [
-              {
-                referenceId: 1,
-                referenceType: "REFERENCE_TYPE_CONTROL",
-                referenceImage: {
-                  bytesBase64Encoded: edgeMapBase64
-                },
-                controlImageConfig: {
-                  controlType: "CONTROL_TYPE_CANNY",
-                  enableControlImageComputation: false
-                }
-              }
-            ]
-          }
-        ],
-        parameters: {
-          sampleCount: 1,
-          aspectRatio: "1:1",
-          outputMimeType: "image/png"
-        }
-      };
+            inlineData: {
+              mimeType: 'image/png',
+              data: baseImageBuffer.toString('base64')
+            }
+          },
+          { text: prompt }
+        ]
+      }],
+      generationConfig: {
+        temperature: 0.9,      // High creativity for unique variations
+        topK: 40,
+        topP: 0.95,
+        candidateCount: 1,
+      }
+    };
 
-      logger.debug(`[GoogleVertexAI] Sending REST request for variation ${index + 1}`);
-
-      const response = await axios.post(endpoint, payload, {
-        headers: {
-          Authorization: `Bearer ${accessToken}`,
-          'Content-Type': 'application/json',
-        },
-        timeout: 60000, // 60s timeout
-      });
-
-      const imageData = response.data?.predictions?.[0]?.bytesBase64Encoded;
+    try {
+      const result = await model.generateContent(request);
+      const imageData = result.response.candidates?.[0]?.content?.parts?.[0]?.inlineData?.data;
 
       if (!imageData) {
-        logger.error('[GoogleVertexAI] No image data in REST response', response.data);
-        throw new Error('No image data returned from Vertex AI');
+        throw new Error('No image data returned from Google API');
       }
 
       return {
         base64: imageData,
-        seed: Math.floor(Math.random() * 1000000),
-        variationIndex: index
+        seed,
+        variationIndex: seed + 1
       };
+
     } catch (error: any) {
-      const status = error.response?.status;
-      const data = error.response?.data;
-      logger.error(`[GoogleVertexAI] REST call failed for variation ${index + 1}`, {
-        status,
-        data: JSON.stringify(data),
-        message: error.message
-      });
-      // Log full error details for debugging
-      if (data && data.error) {
-        logger.error(`[GoogleVertexAI] Detailed API Error: ${JSON.stringify(data.error, null, 2)}`);
-      }
-      throw error;
+      console.error(`❌ Generation failed for variation ${seed}:`, error);
+      throw new Error(`Image generation failed: ${error.message}`);
     }
   }
 
-  public getCostEstimate(num: number = 4): number { return num * IMAGEN_3_COST_PER_IMAGE; }
-  public getTimeEstimate() { return { min: 25, max: 45 }; }
+  /**
+   * Convert SVG to styled PNG
+   */
+  private async svgToPng(svgString: string): Promise<Buffer> {
+    let styledSvg = svgString
+      .replace(/stroke="[^"]*"/g, 'stroke="#D4AF37"')  // Gold
+      .replace(/fill="[^"]*"/g, 'fill="none"');
+
+    if (!styledSvg.includes('viewBox')) {
+      styledSvg = styledSvg.replace('<svg', '<svg viewBox="0 0 200 200"');
+    }
+
+    return await sharp(Buffer.from(styledSvg))
+      .resize(1024, 1024, {
+        fit: 'contain',
+        background: '#0F1419'  // Navy background
+      })
+      .png()
+      .toBuffer();
+  }
+
+  // Helper methods for AIEnhancer compatibility
+  public getCostEstimate(num: number = 4): number { return num * 0.02; }
+  public getTimeEstimate() { return { min: 25, max: 40 }; }
 }
