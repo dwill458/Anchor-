@@ -220,3 +220,26 @@ export async function getSignedUrl(filePath: string, expiresIn: number = 3600): 
   const bucket = getBucketName();
   return `https://${bucket}.r2.cloudflarestorage.com/${filePath}`;
 }
+
+/**
+ * Storage Service Class
+ * Class-based wrapper for the storage functions to support the new API style.
+ */
+export class StorageService {
+  /**
+   * Upload image buffer to storage
+   */
+  async uploadImage(buffer: Buffer, fileName: string): Promise<string> {
+    const anchorId = fileName.split('-')[1] || `temp-${Date.now()}`;
+    const index = parseInt(fileName.split('-').pop() || '0');
+
+    return uploadImageFromBuffer(buffer, 'default-user', anchorId, index);
+  }
+
+  /**
+   * Delete files
+   */
+  async deleteFiles(userId: string, anchorId: string): Promise<void> {
+    return deleteAnchorFiles(userId, anchorId);
+  }
+}

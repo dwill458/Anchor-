@@ -23,6 +23,9 @@ import {
   getAvailableVoicePresets,
 } from '../../services/TTSService';
 import { logger } from '../../utils/logger';
+import { GoogleImagenV3 } from '../../services/GoogleImagenV3';
+import { StorageService } from '../../services/StorageService';
+import { authMiddleware as authenticateToken } from '../middleware/auth';
 
 const router = express.Router();
 
@@ -38,10 +41,107 @@ const router = express.Router();
 
 /**
  * POST /api/ai/enhance
- * @deprecated - Legacy endpoint, replaced by /enhance-controlnet
- * The enhanceSigil function was removed in Phase 4 cleanup.
+ * 
+ * Enhance a base sigil with AI-generated symbolic imagery
  */
-// Legacy route commented out - use /enhance-controlnet instead
+router.post('/enhance', authenticateToken, async (req: Request, res: Response): Promise<void> => {
+  try {
+    const {
+      baseSigilSvg,
+      intentionText,
+      styleApproach
+    } = req.body;
+
+    // Validation
+    if (!baseSigilSvg) {
+      res.status(400).json({
+        success: false,
+        error: 'baseSigilSvg is required'
+      });
+      return;
+    }
+
+    if (!intentionText) {
+      res.status(400).json({
+        success: false,
+        error: 'intentionText is required'
+      });
+      return;
+    }
+
+    if (!styleApproach) {
+      res.status(400).json({
+        success: false,
+        error: 'styleApproach is required'
+      });
+      return;
+    }
+
+    console.log(`\n🎯 AI Enhancement Request`);
+    console.log(`   Intention: "${intentionText}"`);
+    console.log(`   Style: ${styleApproach}`);
+
+    // Initialize services
+    const imagenService = new GoogleImagenV3();
+    const storageService = new StorageService();
+
+    // Generate enhanced variations
+    const result = await imagenService.enhanceSigil({
+      baseSigilSvg,
+      intentionText,
+      styleApproach,
+      numberOfVariations: 4
+    });
+
+    console.log(`📤 Uploading ${result.images.length} images to R2...`);
+
+    // Upload all images to Cloudflare R2
+    const uploadedVariations = await Promise.all(
+      result.images.map(async (img: any, index: number) => {
+        const filename = `anchor-${Date.now()}-variation-${index + 1}.png`;
+        const imageBuffer = Buffer.from(img.base64, 'base64');
+
+        const imageUrl = await storageService.uploadImage(
+          imageBuffer,
+          filename
+        );
+
+        return {
+          imageUrl,
+          seed: img.seed,
+          variationIndex: img.variationIndex
+        };
+      })
+    );
+
+    console.log(`✅ All images uploaded successfully\n`);
+
+    // Return response
+    res.json({
+      success: true,
+      data: {
+        variations: uploadedVariations,
+        generationTimeSeconds: result.totalTimeSeconds,
+        costUSD: result.costUSD,
+        provider: 'google-imagen3',
+        metadata: {
+          intention: intentionText,
+          style: styleApproach,
+          numberOfVariations: result.images.length
+        }
+      }
+    });
+
+  } catch (error: any) {
+    console.error('❌ AI enhancement failed:', error);
+
+    res.status(500).json({
+      success: false,
+      error: error.message || 'Failed to enhance sigil',
+      details: process.env.NODE_ENV === 'development' ? error.stack : undefined
+    });
+  }
+});
 
 /**
  * POST /api/ai/enhance-controlnet
@@ -123,19 +223,19 @@ router.post('/enhance-controlnet', async (req: Request, res: Response): Promise<
 
     const enhancementResult = useNewPipeline
       ? await enhanceSigilWithAI({
-          sigilSvg,
-          styleChoice: styleChoice as AIStyle,
-          userId,
-          validateStructure: validateStructure !== false,
-          autoComposite: autoComposite === true,
-        })
+        sigilSvg,
+        styleChoice: styleChoice as AIStyle,
+        userId,
+        validateStructure: validateStructure !== false,
+        autoComposite: autoComposite === true,
+      })
       : await enhanceSigilWithControlNet({
-          sigilSvg,
-          styleChoice: styleChoice as AIStyle,
-          userId,
-          validateStructure: validateStructure !== false,
-          autoComposite: autoComposite === true,
-        });
+        sigilSvg,
+        styleChoice: styleChoice as AIStyle,
+        userId,
+        validateStructure: validateStructure !== false,
+        autoComposite: autoComposite === true,
+      });
 
     logger.info('[ControlNet] Generated variations with structure scores', {
       count: enhancementResult.variations.length,
@@ -182,8 +282,8 @@ router.post('/enhance-controlnet', async (req: Request, res: Response): Promise<
 
     // Determine which provider was actually used
     const usedProvider = enhancementResult.model.includes('imagen') ? 'google' :
-                         enhancementResult.model.includes('controlnet') ? 'replicate' :
-                         'unknown';
+      enhancementResult.model.includes('controlnet') ? 'replicate' :
+        'unknown';
 
     res.json({
       success: true,
