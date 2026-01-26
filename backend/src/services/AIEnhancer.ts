@@ -244,6 +244,7 @@ export interface ControlNetEnhancementRequest {
   sigilSvg: string;         // Base or reinforced SVG structure
   styleChoice: AIStyle;     // Selected art style
   userId: string;           // For tracking
+  intentionText?: string;   // Optional: User's intention for thematic symbol generation
   validateStructure?: boolean;  // Enable structure validation (default: true)
   autoComposite?: boolean;      // Auto-composite if structure drifts (default: false)
 }
@@ -311,7 +312,7 @@ export async function enhanceSigilWithAI(
 
       const result = await googleAI.enhanceSigil({
         baseSigilSvg: request.sigilSvg,
-        intentionText: 'mystical sigil', // Could extract from context if available
+        intentionText: request.intentionText || 'personal intention and purpose',
         styleApproach: request.styleChoice,
         numberOfVariations: 4,
       });

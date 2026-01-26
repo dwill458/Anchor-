@@ -69,6 +69,7 @@ router.post('/enhance-controlnet', async (req: Request, res: Response): Promise<
       styleChoice,
       userId,
       anchorId,
+      intentionText,  // Optional: User's intention for thematic symbol generation
       validateStructure,
       autoComposite,
       provider  // Optional: 'google' | 'replicate' | 'auto' (default: 'auto')
@@ -78,6 +79,7 @@ router.post('/enhance-controlnet', async (req: Request, res: Response): Promise<
       styleChoice,
       userId,
       anchorId,
+      intentionText: intentionText || '(not provided)',
       validateStructure,
       autoComposite,
       provider: provider || 'auto'
@@ -126,6 +128,7 @@ router.post('/enhance-controlnet', async (req: Request, res: Response): Promise<
           sigilSvg,
           styleChoice: styleChoice as AIStyle,
           userId,
+          intentionText,  // Pass through intention for thematic symbols
           validateStructure: validateStructure !== false,
           autoComposite: autoComposite === true,
         })
@@ -133,6 +136,7 @@ router.post('/enhance-controlnet', async (req: Request, res: Response): Promise<
           sigilSvg,
           styleChoice: styleChoice as AIStyle,
           userId,
+          intentionText,  // Pass through intention for thematic symbols
           validateStructure: validateStructure !== false,
           autoComposite: autoComposite === true,
         });

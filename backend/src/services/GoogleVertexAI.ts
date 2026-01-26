@@ -110,6 +110,133 @@ export class GoogleVertexAI {
   }
 
   /**
+   * Build enhanced prompt with thematic symbol instructions
+   *
+   * This is CRITICAL for getting Imagen 3 to add corresponding symbols
+   * while preserving the base sigil structure.
+   *
+   * Strategy:
+   * 1. Style foundation (from STYLE_PROMPTS)
+   * 2. Intention-based symbol addition (explicit instruction)
+   * 3. Structure preservation directive
+   * 4. Quality requirements
+   *
+   * Examples:
+   * - "strength in gym" → Add muscles, dumbbells, fire, power symbols
+   * - "boundaries" → Add chains, locks, shields, protective barriers
+   * - "prosperity" → Add coins, cornucopia, golden rays, abundance symbols
+   */
+  private buildEnhancedPrompt(styleBase: string, intentionText: string, style: AIStyle): string {
+    // Extract thematic keywords and build symbol instructions
+    const symbolInstructions = this.getSymbolInstructions(intentionText);
+
+    // Construct the full prompt with proper balance
+    const prompt = [
+      // 1. Base style description
+      styleBase,
+
+      // 2. CRITICAL: Explicit instruction to add thematic symbols
+      `Enhance the sigil by adding corresponding symbolic elements that represent: "${intentionText}".`,
+      symbolInstructions,
+
+      // 3. Structure preservation (crucial for Imagen 3 ControlNet)
+      'The original sigil line structure must remain clearly visible and intact as the central focus.',
+
+      // 4. Visual balance instruction
+      'Arrange the symbolic elements harmoniously around and within the sigil design.',
+
+      // 5. Quality and aesthetic
+      'High quality mystical artwork, balanced composition, professional finish.',
+    ].join(' ');
+
+    logger.debug('[GoogleVertexAI] Built enhanced prompt', {
+      intentionText,
+      style,
+      promptLength: prompt.length,
+      includesSymbols: symbolInstructions.length > 0,
+    });
+
+    return prompt;
+  }
+
+  /**
+   * Generate symbol instructions based on intention text
+   *
+   * This maps user intentions to specific symbolic elements that Imagen 3
+   * should add to the composition.
+   *
+   * Uses keyword matching and thematic associations.
+   */
+  private getSymbolInstructions(intentionText: string): string {
+    const lowerIntent = intentionText.toLowerCase();
+    const symbols: string[] = [];
+
+    // Thematic symbol mapping
+    const themeMap: Record<string, string[]> = {
+      // Physical & Strength
+      'strength': ['flexed muscles', 'flames of power', 'dumbbells', 'lions', 'oak trees'],
+      'gym': ['fitness equipment', 'strong arms', 'energy bursts'],
+      'power': ['lightning bolts', 'radiating energy', 'powerful animals', 'fire'],
+
+      // Protection & Boundaries
+      'boundary': ['chains', 'locks', 'shields', 'protective barriers', 'celtic knots', 'fortress walls'],
+      'boundaries': ['chains', 'locks', 'shields', 'protective barriers', 'celtic knots', 'fortress walls'],
+      'protection': ['shields', 'armor', 'guardian animals', 'protective circles', 'thorns'],
+      'defense': ['walls', 'barriers', 'shields', 'hedges'],
+
+      // Abundance & Prosperity
+      'prosperity': ['gold coins', 'cornucopia', 'flowing water', 'abundance symbols', 'harvest imagery'],
+      'wealth': ['treasure', 'gems', 'golden rays', 'overflowing vessels'],
+      'abundance': ['full baskets', 'fruit', 'flowers blooming', 'multiplication symbols'],
+
+      // Love & Relationships
+      'love': ['hearts', 'roses', 'intertwined vines', 'doves', 'cupid imagery'],
+      'relationship': ['linked circles', 'infinity symbols', 'paired elements', 'harmony symbols'],
+      'romance': ['roses', 'hearts', 'moonlight', 'romantic imagery'],
+
+      // Wisdom & Knowledge
+      'wisdom': ['owls', 'books', 'ancient scrolls', 'eye symbols', 'light rays'],
+      'knowledge': ['books', 'quills', 'scrolls', 'lanterns', 'keys'],
+      'learning': ['open books', 'growing trees', 'ascending stairs', 'light bulbs'],
+
+      // Health & Healing
+      'health': ['medical symbols', 'healing herbs', 'vitality spirals', 'green energy'],
+      'healing': ['bandages', 'herbs', 'water', 'gentle light', 'restoration symbols'],
+
+      // Success & Achievement
+      'success': ['laurel wreaths', 'trophies', 'ascending arrows', 'stars', 'peaks'],
+      'achievement': ['medals', 'crowns', 'victory symbols', 'ascending paths'],
+      'victory': ['laurel crowns', 'eagles', 'triumphant imagery', 'raised swords'],
+
+      // Peace & Calm
+      'peace': ['doves', 'olive branches', 'calm waters', 'zen circles', 'soft clouds'],
+      'calm': ['still water', 'gentle waves', 'soft light', 'floating feathers'],
+      'serenity': ['lotus flowers', 'meditation symbols', 'balanced stones', 'tranquil scenes'],
+
+      // Creativity & Inspiration
+      'creativity': ['paintbrushes', 'musical notes', 'flowing ribbons', 'bursts of color'],
+      'inspiration': ['light bulbs', 'shooting stars', 'divine rays', 'muses'],
+      'art': ['palettes', 'brushes', 'creative tools', 'colorful splashes'],
+    };
+
+    // Match themes and collect symbols
+    for (const [theme, themeSymbols] of Object.entries(themeMap)) {
+      if (lowerIntent.includes(theme)) {
+        symbols.push(...themeSymbols.slice(0, 3)); // Take first 3 symbols per theme
+      }
+    }
+
+    // If no specific matches, provide generic mystical enhancement
+    if (symbols.length === 0) {
+      return 'Add mystical decorative elements that complement the intention.';
+    }
+
+    // Build instruction with specific symbols
+    const symbolList = symbols.slice(0, 5).join(', '); // Limit to 5 symbols max
+    return `Include symbolic elements such as: ${symbolList}.`;
+  }
+
+  /**
    * Main entry point for sigil enhancement
    */
   public async enhanceSigil(params: EnhanceSigilParams): Promise<EnhancedSigilResult> {
@@ -132,9 +259,9 @@ export class GoogleVertexAI {
       });
       const edgeMapBase64 = edgeMapResult.buffer.toString('base64');
 
-      // 2. Prepare Prompts
+      // 2. Prepare Prompts with Enhanced Thematic Instructions
       const styleConfig = STYLE_PROMPTS[params.styleApproach];
-      const fullPrompt = `${styleConfig.prompt}. Sigil represents the intention: "${params.intentionText}". Preserve the exact line structure. High quality, mystical aesthetic.`;
+      const fullPrompt = this.buildEnhancedPrompt(styleConfig.prompt, params.intentionText, params.styleApproach);
 
       // 3. Generate variations in parallel using REST API
       logger.info(`[GoogleVertexAI] Generating ${numberOfVariations} variations via REST predict API...`);
