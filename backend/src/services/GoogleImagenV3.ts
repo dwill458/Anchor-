@@ -102,26 +102,101 @@ export class GoogleImagenV3 {
 
         const styleDesc = styleDescriptions[style] || 'watercolor';
 
-        // THE MAGIC PROMPT: Detailed and symbolic
+        // THE MAGIC PROMPT: Detailed and symbolic (COMPREHENSIVE MAPPING)
         const symbols: Record<string, string> = {
+            // Physical & Strength
             gym: 'barbells, dumbbells, flames, muscular aesthetics, powerlifting anatomy, lightning bolts',
+            strength: 'flexed muscles, iron weights, fire bursts, lions, oak trees, power symbols',
+
+            // Stability & Grounding
+            grounded: 'deep roots, tree trunks, mountains, anchors, solid foundations, earth elements, rocks, stable base',
+            stability: 'balanced stones, pillars, foundations, sturdy oak, mountain peaks, anchors, geometric stability',
+            foundation: 'stone foundations, pillars, bedrock, architectural base, supporting columns, earth layers',
+
+            // Protection & Boundaries
+            boundaries: 'chains, locks, shields, protective barriers, fortress walls, celtic knots, thorned vines',
+            protection: 'shields, armor, guardian animals, protective circles, defensive walls, safe harbor',
+
+            // Health & Healing
             health: 'healing light, organic growth, anchors for stability, heartbeat patterns, herbal motifs',
-            focus: 'geometric clarity, centered energy, laser-like precision, intricate mandalas',
-            success: 'crowns, ascending paths, mountain peaks, golden trophies, trophies',
-            relationship: 'intertwined elements, hearts, blossoms, infinity knots',
-            spiritual: 'runes, cosmic portals, meditation glyphs, auras of light'
+            healing: 'gentle light, flowing water, medicinal herbs, restoration symbols, soft energy',
+
+            // Mental & Focus
+            focus: 'geometric clarity, centered energy, laser-like precision, intricate mandalas, concentrated beams',
+            clarity: 'clear crystals, sharp lines, focused light, lens flares, precision geometry',
+            mind: 'brain patterns, neural networks, thought waves, consciousness symbols, mental clarity',
+
+            // Success & Achievement
+            success: 'crowns, ascending paths, mountain peaks, golden trophies, victory laurels, rising arrows',
+            achievement: 'medals, awards, summit peaks, podiums, triumph symbols, accomplishment badges',
+
+            // Relationships & Love
+            relationship: 'intertwined elements, hearts, blossoms, infinity knots, paired symbols, connection bonds',
+            love: 'roses, hearts, cupid imagery, romantic vines, paired doves, infinity loops',
+
+            // Spiritual & Mystical
+            spiritual: 'runes, cosmic portals, meditation glyphs, auras of light, sacred geometry, chakra symbols',
+            magic: 'mystical runes, spell circles, ethereal wisps, magical glyphs, arcane symbols',
+
+            // Prosperity & Abundance
+            prosperity: 'gold coins, cornucopia, overflowing vessels, harvest abundance, wealth symbols, flowing rivers',
+            wealth: 'gold bullion, gem stones, treasure chests, golden rays, prosperity coins',
+            abundance: 'cornucopia, bountiful harvest, flowing water, multiplying symbols, full baskets',
+
+            // Peace & Calm
+            peace: 'doves, olive branches, calm waters, zen circles, soft clouds, tranquil scenes',
+            calm: 'still water, gentle waves, soft light, floating feathers, peaceful meditation',
+            serenity: 'lotus flowers, meditation symbols, balanced stones, tranquil ponds, zen gardens',
+
+            // Creativity & Inspiration
+            creativity: 'paintbrushes, flowing ink, musical notes, artistic tools, color bursts, creative spirals',
+            inspiration: 'light bulbs, shooting stars, divine rays, muse symbols, spark of genius',
+
+            // Growth & Transformation
+            growth: 'sprouting seeds, growing vines, expanding spirals, ascending paths, blooming flowers',
+            transformation: 'butterfly metamorphosis, phoenix rising, evolving forms, alchemical symbols',
+
+            // Confidence & Power
+            confidence: 'standing lion, raised sword, bold flames, strong pillars, empowered stance',
+            power: 'lightning bolts, radiating energy, powerful animals, explosive force, dominant presence'
         };
 
-        // Auto-detect a theme from intention
+        // Auto-detect theme from intention (EXPANDED KEYWORD MATCHING)
         const lowerIntention = intention.toLowerCase();
         let selectedSymbols = 'mystical ornaments, ornate filigree, floating sacred geometry, celestial energy';
 
-        if (lowerIntention.includes('gym') || lowerIntention.includes('fitness') || lowerIntention.includes('workout')) selectedSymbols = symbols.gym;
-        else if (lowerIntention.includes('health') || lowerIntention.includes('healing')) selectedSymbols = symbols.health;
-        else if (lowerIntention.includes('focus') || lowerIntention.includes('mind')) selectedSymbols = symbols.focus;
-        else if (lowerIntention.includes('success') || lowerIntention.includes('money') || lowerIntention.includes('career')) selectedSymbols = symbols.success;
-        else if (lowerIntention.includes('love') || lowerIntention.includes('relationship')) selectedSymbols = symbols.relationship;
-        else if (lowerIntention.includes('spirit') || lowerIntention.includes('magic')) selectedSymbols = symbols.spiritual;
+        // Prioritize more specific matches first
+        if (lowerIntention.includes('grounded') || lowerIntention.includes('ground')) selectedSymbols = symbols.grounded;
+        else if (lowerIntention.includes('stability') || lowerIntention.includes('stable')) selectedSymbols = symbols.stability;
+        else if (lowerIntention.includes('foundation') || lowerIntention.includes('foundational')) selectedSymbols = symbols.foundation;
+        else if (lowerIntention.includes('boundaries') || lowerIntention.includes('boundary')) selectedSymbols = symbols.boundaries;
+        else if (lowerIntention.includes('protection') || lowerIntention.includes('protect')) selectedSymbols = symbols.protection;
+        else if (lowerIntention.includes('gym') || lowerIntention.includes('fitness') || lowerIntention.includes('workout')) selectedSymbols = symbols.gym;
+        else if (lowerIntention.includes('strength') || lowerIntention.includes('strong')) selectedSymbols = symbols.strength;
+        else if (lowerIntention.includes('health') || lowerIntention.includes('healthy')) selectedSymbols = symbols.health;
+        else if (lowerIntention.includes('healing') || lowerIntention.includes('heal')) selectedSymbols = symbols.healing;
+        else if (lowerIntention.includes('focus') || lowerIntention.includes('focused') || lowerIntention.includes('concentration')) selectedSymbols = symbols.focus;
+        else if (lowerIntention.includes('clarity') || lowerIntention.includes('clear')) selectedSymbols = symbols.clarity;
+        else if (lowerIntention.includes('mind') || lowerIntention.includes('mental')) selectedSymbols = symbols.mind;
+        else if (lowerIntention.includes('success') || lowerIntention.includes('successful')) selectedSymbols = symbols.success;
+        else if (lowerIntention.includes('achievement') || lowerIntention.includes('achieve')) selectedSymbols = symbols.achievement;
+        else if (lowerIntention.includes('money') || lowerIntention.includes('career') || lowerIntention.includes('job')) selectedSymbols = symbols.success;
+        else if (lowerIntention.includes('love') || lowerIntention.includes('romance') || lowerIntention.includes('romantic')) selectedSymbols = symbols.love;
+        else if (lowerIntention.includes('relationship') || lowerIntention.includes('connection')) selectedSymbols = symbols.relationship;
+        else if (lowerIntention.includes('spirit') || lowerIntention.includes('spiritual')) selectedSymbols = symbols.spiritual;
+        else if (lowerIntention.includes('magic') || lowerIntention.includes('magical')) selectedSymbols = symbols.magic;
+        else if (lowerIntention.includes('prosperity') || lowerIntention.includes('prosperous')) selectedSymbols = symbols.prosperity;
+        else if (lowerIntention.includes('wealth') || lowerIntention.includes('wealthy') || lowerIntention.includes('rich')) selectedSymbols = symbols.wealth;
+        else if (lowerIntention.includes('abundance') || lowerIntention.includes('abundant')) selectedSymbols = symbols.abundance;
+        else if (lowerIntention.includes('peace') || lowerIntention.includes('peaceful')) selectedSymbols = symbols.peace;
+        else if (lowerIntention.includes('calm') || lowerIntention.includes('calming')) selectedSymbols = symbols.calm;
+        else if (lowerIntention.includes('serenity') || lowerIntention.includes('serene')) selectedSymbols = symbols.serenity;
+        else if (lowerIntention.includes('creativity') || lowerIntention.includes('creative')) selectedSymbols = symbols.creativity;
+        else if (lowerIntention.includes('inspiration') || lowerIntention.includes('inspire')) selectedSymbols = symbols.inspiration;
+        else if (lowerIntention.includes('growth') || lowerIntention.includes('grow')) selectedSymbols = symbols.growth;
+        else if (lowerIntention.includes('transformation') || lowerIntention.includes('transform') || lowerIntention.includes('change')) selectedSymbols = symbols.transformation;
+        else if (lowerIntention.includes('confidence') || lowerIntention.includes('confident')) selectedSymbols = symbols.confidence;
+        else if (lowerIntention.includes('power') || lowerIntention.includes('powerful')) selectedSymbols = symbols.power;
 
         return `Create a high-quality ${styleDesc} artwork based on this sigil which represents "${intention}". 
         Integrate ${selectedSymbols} around and through the structure. 

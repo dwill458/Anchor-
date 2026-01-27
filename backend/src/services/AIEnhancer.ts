@@ -250,6 +250,128 @@ export interface ControlNetEnhancementRequest {
 }
 
 /**
+ * Get symbol instructions for Replicate prompts based on intention text
+ * Matches GoogleImagenV3 keyword mapping for consistency
+ */
+function getReplicateSymbolInstructions(intentionText?: string): string {
+  if (!intentionText || intentionText.trim() === '') {
+    return ''; // No intention provided
+  }
+
+  const lowerIntent = intentionText.toLowerCase();
+
+  // Comprehensive keyword → symbol mapping
+  const symbolMap: Record<string, string> = {
+    // Stability & Grounding
+    grounded: 'deep roots, tree trunks, mountains, anchors, solid foundations, earth elements',
+    ground: 'deep roots, tree trunks, mountains, anchors, solid foundations, earth elements',
+    stability: 'balanced stones, pillars, foundations, sturdy oak, mountain peaks, anchors',
+    stable: 'balanced stones, pillars, foundations, sturdy oak, mountain peaks, anchors',
+    foundation: 'stone foundations, pillars, bedrock, architectural base, supporting columns',
+    foundational: 'stone foundations, pillars, bedrock, architectural base, supporting columns',
+
+    // Protection & Boundaries
+    boundaries: 'chains, locks, shields, protective barriers, fortress walls, celtic knots',
+    boundary: 'chains, locks, shields, protective barriers, fortress walls, celtic knots',
+    protection: 'shields, armor, guardian animals, protective circles, defensive walls',
+    protect: 'shields, armor, guardian animals, protective circles, defensive walls',
+
+    // Physical & Strength
+    gym: 'barbells, dumbbells, flames, muscular aesthetics, powerlifting anatomy, lightning bolts',
+    fitness: 'barbells, dumbbells, flames, muscular aesthetics, powerlifting anatomy, lightning bolts',
+    workout: 'barbells, dumbbells, flames, muscular aesthetics, powerlifting anatomy, lightning bolts',
+    strength: 'flexed muscles, iron weights, fire bursts, lions, oak trees, power symbols',
+    strong: 'flexed muscles, iron weights, fire bursts, lions, oak trees, power symbols',
+
+    // Health & Healing
+    health: 'healing light, organic growth, heartbeat patterns, herbal motifs, vitality spirals',
+    healthy: 'healing light, organic growth, heartbeat patterns, herbal motifs, vitality spirals',
+    healing: 'gentle light, flowing water, medicinal herbs, restoration symbols, soft energy',
+    heal: 'gentle light, flowing water, medicinal herbs, restoration symbols, soft energy',
+
+    // Mental & Focus
+    focus: 'geometric clarity, centered energy, laser-like precision, intricate mandalas',
+    focused: 'geometric clarity, centered energy, laser-like precision, intricate mandalas',
+    concentration: 'geometric clarity, centered energy, laser-like precision, intricate mandalas',
+    clarity: 'clear crystals, sharp lines, focused light, lens flares, precision geometry',
+    clear: 'clear crystals, sharp lines, focused light, lens flares, precision geometry',
+    mind: 'brain patterns, neural networks, thought waves, consciousness symbols, mental clarity',
+    mental: 'brain patterns, neural networks, thought waves, consciousness symbols, mental clarity',
+
+    // Success & Achievement
+    success: 'crowns, ascending paths, mountain peaks, golden trophies, victory laurels',
+    successful: 'crowns, ascending paths, mountain peaks, golden trophies, victory laurels',
+    achievement: 'medals, awards, summit peaks, podiums, triumph symbols, accomplishment badges',
+    achieve: 'medals, awards, summit peaks, podiums, triumph symbols, accomplishment badges',
+    career: 'ascending corporate ladders, briefcases, professional symbols, success markers',
+    job: 'ascending corporate ladders, briefcases, professional symbols, success markers',
+
+    // Relationships & Love
+    love: 'roses, hearts, cupid imagery, romantic vines, paired doves, infinity loops',
+    romance: 'roses, hearts, cupid imagery, romantic vines, paired doves, infinity loops',
+    romantic: 'roses, hearts, cupid imagery, romantic vines, paired doves, infinity loops',
+    relationship: 'intertwined elements, hearts, blossoms, infinity knots, paired symbols',
+    connection: 'intertwined elements, hearts, blossoms, infinity knots, paired symbols',
+
+    // Spiritual & Mystical
+    spirit: 'runes, cosmic portals, meditation glyphs, auras of light, sacred geometry',
+    spiritual: 'runes, cosmic portals, meditation glyphs, auras of light, sacred geometry',
+    magic: 'mystical runes, spell circles, ethereal wisps, magical glyphs, arcane symbols',
+    magical: 'mystical runes, spell circles, ethereal wisps, magical glyphs, arcane symbols',
+
+    // Prosperity & Abundance
+    prosperity: 'gold coins, cornucopia, overflowing vessels, harvest abundance, wealth symbols',
+    prosperous: 'gold coins, cornucopia, overflowing vessels, harvest abundance, wealth symbols',
+    wealth: 'gold bullion, gem stones, treasure chests, golden rays, prosperity coins',
+    wealthy: 'gold bullion, gem stones, treasure chests, golden rays, prosperity coins',
+    rich: 'gold bullion, gem stones, treasure chests, golden rays, prosperity coins',
+    money: 'currency symbols, flowing coins, gold reserves, financial prosperity',
+    abundance: 'cornucopia, bountiful harvest, flowing water, multiplying symbols, full baskets',
+    abundant: 'cornucopia, bountiful harvest, flowing water, multiplying symbols, full baskets',
+
+    // Peace & Calm
+    peace: 'doves, olive branches, calm waters, zen circles, soft clouds, tranquil scenes',
+    peaceful: 'doves, olive branches, calm waters, zen circles, soft clouds, tranquil scenes',
+    calm: 'still water, gentle waves, soft light, floating feathers, peaceful meditation',
+    calming: 'still water, gentle waves, soft light, floating feathers, peaceful meditation',
+    serenity: 'lotus flowers, meditation symbols, balanced stones, tranquil ponds, zen gardens',
+    serene: 'lotus flowers, meditation symbols, balanced stones, tranquil ponds, zen gardens',
+
+    // Creativity & Inspiration
+    creativity: 'paintbrushes, flowing ink, musical notes, artistic tools, color bursts',
+    creative: 'paintbrushes, flowing ink, musical notes, artistic tools, color bursts',
+    inspiration: 'light bulbs, shooting stars, divine rays, muse symbols, spark of genius',
+    inspire: 'light bulbs, shooting stars, divine rays, muse symbols, spark of genius',
+
+    // Growth & Transformation
+    growth: 'sprouting seeds, growing vines, expanding spirals, ascending paths, blooming flowers',
+    grow: 'sprouting seeds, growing vines, expanding spirals, ascending paths, blooming flowers',
+    transformation: 'butterfly metamorphosis, phoenix rising, evolving forms, alchemical symbols',
+    transform: 'butterfly metamorphosis, phoenix rising, evolving forms, alchemical symbols',
+    change: 'butterfly metamorphosis, phoenix rising, evolving forms, alchemical symbols',
+
+    // Confidence & Power
+    confidence: 'standing lion, raised sword, bold flames, strong pillars, empowered stance',
+    confident: 'standing lion, raised sword, bold flames, strong pillars, empowered stance',
+    power: 'lightning bolts, radiating energy, powerful animals, explosive force, dominant presence',
+    powerful: 'lightning bolts, radiating energy, powerful animals, explosive force, dominant presence',
+  };
+
+  // Find matching keywords (prioritize longer/more specific matches first)
+  const keywords = Object.keys(symbolMap).sort((a, b) => b.length - a.length);
+
+  for (const keyword of keywords) {
+    if (lowerIntent.includes(keyword)) {
+      const symbols = symbolMap[keyword];
+      return ` Add thematic symbolic elements representing "${intentionText}": ${symbols}. Integrate these symbols organically around and within the sigil structure.`;
+    }
+  }
+
+  // Fallback: generic enhancement with intention context
+  return ` Enhance the sigil with decorative elements that symbolically represent "${intentionText}". Add meaningful mystical imagery that reflects this intention.`;
+}
+
+/**
  * Structure match result for a single variation
  */
 export interface StructureMatchScore {
@@ -437,13 +559,22 @@ export async function enhanceSigilWithControlNet(
       validateStructure,
     });
 
+    // Build intention-aware prompt BEFORE mock mode check
+    const basePrompt = styleConfig.prompt;
+    const symbolInstructions = getReplicateSymbolInstructions(request.intentionText);
+    const enhancedPrompt = basePrompt + symbolInstructions;
+
     // Check for mock mode
     const apiToken = process.env.REPLICATE_API_TOKEN;
     const isMockMode = !apiToken || apiToken === 'your-replicate-token';
 
     if (isMockMode) {
       logger.warn('[ControlNet Enhancement] Running in MOCK MODE (No valid API Token)');
-      logger.debug('[ControlNet Enhancement] Style Config', { styleConfig });
+      logger.debug('[ControlNet Enhancement] Enhanced prompt with intention', {
+        style: request.styleChoice,
+        intentionText: request.intentionText || '(none)',
+        hasSymbols: symbolInstructions.length > 0,
+      });
 
       // Simulate generation delay (5 seconds for ControlNet)
       await new Promise(resolve => setTimeout(resolve, 5000));
@@ -472,7 +603,7 @@ export async function enhanceSigilWithControlNet(
       return {
         variations: mockVariations,
         variationUrls: mockUrls,
-        prompt: styleConfig.prompt,
+        prompt: enhancedPrompt,  // Return enhanced prompt even in mock mode
         negativePrompt: styleConfig.negativePrompt,
         model: `mock-controlnet-${styleConfig.method}`,
         controlMethod: styleConfig.method,
@@ -517,9 +648,14 @@ export async function enhanceSigilWithControlNet(
     const guidanceScale = styleConfig.guidance_scale || CONTROLNET_CONFIG.guidance_scale;
     const strength = styleConfig.strength || CONTROLNET_CONFIG.strength;
 
+    // Note: enhancedPrompt already built before mock mode check (line ~574)
+
     logger.info('[ControlNet Enhancement] Generating variations with STRICT params', {
       model: styleConfig.method,
       style: request.styleChoice,
+      intentionText: request.intentionText || '(none)',
+      hasSymbolInstructions: symbolInstructions.length > 0,
+      promptLength: enhancedPrompt.length,
       conditioningScale,
       guidanceScale,
       strength,
@@ -543,7 +679,7 @@ export async function enhanceSigilWithControlNet(
         const output = await replicate.run(model, {
           input: {
             image: dataUrl,                                   // Structure conditioning image
-            prompt: styleConfig.prompt,                        // Style prompt with geometry emphasis
+            prompt: enhancedPrompt,                           // ENHANCED: Style + Intention + Symbols
             negative_prompt: styleConfig.negativePrompt,       // Strict negative prompt
             num_outputs: 1,
             width: 1024,
@@ -663,7 +799,7 @@ export async function enhanceSigilWithControlNet(
     return {
       variations,
       variationUrls: variations.map(v => v.imageUrl),
-      prompt: styleConfig.prompt,
+      prompt: enhancedPrompt,  // Return enhanced prompt with intention + symbols
       negativePrompt: styleConfig.negativePrompt,
       model,
       controlMethod: styleConfig.method,
