@@ -32,9 +32,36 @@ export class GoogleVertexAI {
     this.projectId = process.env.GOOGLE_CLOUD_PROJECT_ID!;
     this.location = process.env.GOOGLE_CLOUD_LOCATION || 'us-central1';
 
-    // Parse credentials if available, otherwise fallback to empty for ADC
+    let credentials;
+
+    // 1. Try environment variable JSON (explicit override)
     const credsJson = process.env.GOOGLE_CLOUD_CREDENTIALS_JSON;
-    const credentials = credsJson && credsJson.trim() !== '' ? JSON.parse(credsJson) : undefined;
+    if (credsJson && credsJson.trim() !== '') {
+      try {
+        credentials = JSON.parse(credsJson);
+      } catch (error: any) {
+        console.warn('⚠️ GOOGLE_CLOUD_CREDENTIALS_JSON is set but invalid JSON. Ignoring.', error.message);
+      }
+    }
+
+    // 2. Try local file (service-account.json) - Easier for local dev
+    if (!credentials) {
+      if (typeof process !== 'undefined' && process.cwd) {
+        const fs = require('fs');
+        const path = require('path');
+        const keyFilePath = path.join(process.cwd(), 'service-account.json');
+
+        if (fs.existsSync(keyFilePath)) {
+          try {
+            const keyFileContent = fs.readFileSync(keyFilePath, 'utf-8');
+            credentials = JSON.parse(keyFileContent);
+            console.log('✅ Loaded Google Cloud credentials from service-account.json');
+          } catch (error: any) {
+            console.error('❌ Found service-account.json but failed to parse it:', error.message);
+          }
+        }
+      }
+    }
 
     this.vertexAI = new VertexAI({
       project: this.projectId,
@@ -85,136 +112,35 @@ export class GoogleVertexAI {
       costUSD: numberOfVariations * 0.02,
       prompt: prompt,
       negativePrompt: "text, watermark, blurry, low quality",
-      model: 'imagegeneration@006'
+      model: 'imagen-3.0-generate-001'
     };
   }
 
   /**
-   * THE MAGIC: AI reads intention and picks symbols automatically
+   * THE WINNING PROMPT - Based on your successful Gemini test
+   */
+  /**
+   * THE FORCEFUL PROMPT - Designed to force style transfer
    */
   private createSmartPrompt(intention: string, style: string): string {
-    // Style-specific base instructions
-    const styleTemplates: Record<string, string> = {
-      watercolor: `Create a mystical watercolor sigil artwork representing: "${intention}"
-
-**Style**: Watercolor painting technique
-- Flowing, organic watercolor washes
-- Soft bleeding edges with natural pigment spread
-- Layered transparent colors building depth
-- Paint splatter and drip details
-- Textured watercolor paper appearance
-- Rich, saturated colors that blend naturally
-
-**Visual Theme**: 
-Analyze the intention "${intention}" and automatically include relevant symbolic imagery:
-- If fitness/gym related: include weights, dumbbells, flames, muscle anatomy, lightning bolts
-- If health related: include heartbeat lines, medical symbols, healing imagery, anchors for stability
-- If career/success: include ascending paths, crowns, trophies, mountains, gears
-- If love/relationships: include hearts, roses, intertwined elements, infinity symbols
-- If spiritual: include sacred geometry, cosmic elements, runes, meditation symbols
-- If creativity: include artistic tools, flowing ink, musical notes, kaleidoscope patterns
-- If wealth: include coins, gold, abundance symbols, prosperity imagery
-- If peace/calm: include water ripples, doves, zen elements, bamboo
-
-**Composition**:
-- Dark background (black or deep charcoal #0F1419)
-- Golden geometric structure (provided shape) as the foundation
-- Integrate thematic symbols naturally around and within the structure
-- Each symbol should relate directly to "${intention}"
-- Make it personal, specific, and visually storytelling
-- Suitable for merchandise (t-shirts, posters, mugs)
-
-**Important**: 
-- DO NOT just copy the geometric structure exactly
-- ADD rich thematic decorative elements based on the intention
-- The final artwork should tell a visual story about "${intention}"
-- Make every element meaningful and connected to the user's goal`,
-
-      ink_brush: `Create a mystical ink brush artwork representing: "${intention}"
-
-**Style**: Traditional ink brush painting (Sumi-e)
-- Bold, expressive black ink strokes
-- Calligraphic line quality with visible brush texture
-- Japanese Zen aesthetic
-- Negative space as important as positive
-- Flowing, dynamic energy
-
-**Visual Theme**: 
-Based on "${intention}", include relevant symbols:
-- fitness/gym: dynamic brush dashes, muscle silhouettes, weights in rough ink
-- health: fluid healing lines, bamboo for resilience, pine for longevity
-- career: bold ascending strokes, rising sun, dragon motifs
-- love: delicate crane pairs, interconnected circles, soft ink washes
-- spiritual: zen enso circles, symbolic kanji-style geometry
-- wealth: auspicious clouds, flowing water representing abundance
-
-Dark background, golden structure, thematic imagery integrated naturally.`,
-
-      sacred_geometry: `Create sacred geometry artwork representing: "${intention}"
-
-**Style**: Precise geometric mysticism
-- Mathematical precision with spiritual symbolism
-- Golden ratio proportions
-- Metatron's Cube, Flower of Life patterns
-- Platonic solids integration
-- Mandala-style radiating patterns
-
-**Visual Theme**: 
-Based on "${intention}", incorporate symbols geometrically:
-- fitness/gym: crystalline shards, hexagonal structures, energy vectors
-- health: vesica piscis, balanced octagons, harmonic patterns
-- career: dodecahedron for manifestation, expanding spirals
-- spiritual: merkabah, Sri Yantra elements, nested geometries
-
-Technical precision meets mystical meaning.`,
-
-      gold_leaf: `Create a gold leaf illuminated manuscript representing: "${intention}"
-
-**Style**: Medieval illuminated manuscript
-- Gold metallic leaf texture with aged patina
-- Ornate borders and decorative flourishes
-- Hand-illuminated aesthetic
-- Baroque ornamentation
-- Rich, luxurious detailing
-
-**Visual Theme**: 
-Based on "${intention}", add symbols in illuminated style:
-- fitness/gym: Herculean lion motifs, golden laurels, armored detail
-- health: medicinal herbal illustrations, chalices, healing hands
-- career: crowns, scepters, illuminated initials, throne details
-- wealth: cornucopias, jewelry motifs, ornate coins`,
-
-      cosmic: `Create cosmic space artwork representing: "${intention}"
-
-**Style**: Mystical space art
-- Deep space nebulae (purples, blues, teals)
-- Glowing stars and galaxies
-- Ethereal energy wisps and aurora effects
-- Floating sacred geometry in space
-- Dimensional portal aesthetics
-
-**Visual Theme**: 
-Based on "${intention}", incorporate cosmic symbols:
-- fitness/gym: supernova energy bursts, comet trails, gravitational lensing
-- health: planetary alignment, soothing cosmic dust, soft starlight
-- spiritual: nebulous portals, star constellations forming patterns`,
-
-      minimal_line: `Create minimalist line art representing: "${intention}"
-
-**Style**: Clean contemporary minimalism
-- Elegant single-weight lines
-- Thoughtful negative space
-- Zen-like simplicity
-- Modern luxury branding aesthetic
-- One or two accent elements only
-
-**Visual Theme**: 
-Based on "${intention}", add minimal symbolic touches:
-- Single clean weight/glyph, abstract representation of the goal
-- Refined geometric abstraction`
+    const styleInstructions: Record<string, string> = {
+      watercolor: 'Make this look like a watercolor painting. Use soft, translucent washes of color with bleeding edges. Add paint splatter and paper texture. The lines should look like painted brushstrokes, not digital lines.',
+      ink_brush: 'Make this look like a traditional Japanese Sumi-e ink painting. Use bold, expressive black ink strokes with visible bristle texture. Add ink splatters and rice paper texture.',
+      sacred_geometry: 'Make this look like a glowing sacred geometry diagram. The lines should be made of thin, precise light beams. Add a subtle hexagonal grid background and lens flare effects.',
+      gold_leaf: 'Make this look like a medieval illuminated manuscript. The lines should be raised gold leaf with a metallic shine and aged patina. Add ornate filigree details around the edges.',
+      cosmic: 'Make this look like a nebula in deep space. The lines should be made of stardust and glowing gas. Add stars and lens flares in the background.',
+      minimal_line: 'Make this look like a high-end luxury brand logo. Use ultra-thin, precise lines in matte black or gold. Keep it extremely clean and minimal with plenty of negative space.'
     };
 
-    return styleTemplates[style] || styleTemplates.watercolor;
+    const coreInstruction = styleInstructions[style] || styleInstructions.watercolor;
+
+    return `${coreInstruction} 
+    
+    IMPORTANT:
+    - This is a magical sigil representing "${intention}".
+    - Completely transform the texture and material of the image.
+    - Do NOT just copy the input image. Evolve it into a piece of art.
+    - Keep the general shape of the symbol, but make it look fully hand-crafted in the requested style.`;
   }
 
   /**
@@ -227,7 +153,7 @@ Based on "${intention}", add minimal symbolic touches:
   ): Promise<ImageVariation> {
 
     const model = this.vertexAI.preview.getGenerativeModel({
-      model: 'imagegeneration@006',
+      model: 'imagen-3.0-generate-001',
     });
 
     const request = {

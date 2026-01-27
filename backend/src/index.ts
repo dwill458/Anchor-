@@ -14,7 +14,7 @@ import { errorHandler, notFoundHandler } from './api/middleware/errorHandler';
 import { logger } from './utils/logger';
 import { env } from './config/env';
 
-// Load environment variables
+// Load environment variables (forced restart)
 dotenv.config();
 
 // Validate environment variables (imported env.ts automatically validates)

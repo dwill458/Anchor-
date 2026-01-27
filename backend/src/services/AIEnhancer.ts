@@ -16,22 +16,13 @@ import Replicate from 'replicate';
 import { logger } from '../utils/logger';
 import { rasterizeSVG } from '../utils/svgRasterizer';
 import { computeStructureMatch, StructureMatchResult } from '../utils/structureMatching';
-import { GoogleVertexAI } from './GoogleVertexAI';
+import { GoogleImagenV3 } from './GoogleImagenV3';
 import { uploadImageFromUrl } from './StorageService';
 
+// ... (other imports)
+
 // ============================================================================
-// LEGACY CODE REMOVED (Phase 4 Cleanup)
-// ============================================================================
-// The following legacy interfaces and functions were removed because they
-// depended on IntentionAnalyzer (deleted in Phase 3):
-// - AIEnhancementRequest interface (used AnalysisResult type)
-// - AIEnhancementResult interface
-// - buildPrompt(analysis: AnalysisResult) function
-// - enhanceSigil(request: AIEnhancementRequest) function
-//
-// The app now uses ControlNet-based enhancement exclusively (see below).
-// If you need the legacy img2img approach, restore these from git history.
-// ============================================================================
+// ...
 
 /**
  * Initialize Replicate client
@@ -52,10 +43,10 @@ function getReplicateClient(): Replicate {
 /**
  * Initialize Google Vertex AI client (singleton)
  */
-let googleVertexAI: GoogleVertexAI | null = null;
-function getGoogleVertexAI(): GoogleVertexAI {
+let googleVertexAI: GoogleImagenV3 | null = null;
+function getGoogleVertexAI(): GoogleImagenV3 {
   if (!googleVertexAI) {
-    googleVertexAI = new GoogleVertexAI();
+    googleVertexAI = new GoogleImagenV3();
   }
   return googleVertexAI;
 }
@@ -486,9 +477,9 @@ export async function enhanceSigilWithAI(
       const controlNetResult: ControlNetEnhancementResult = {
         variations,
         variationUrls: variations.map(v => v.imageUrl),
-        prompt: result.prompt,
-        negativePrompt: result.negativePrompt,
-        model: result.model,
+        prompt: `Winning Prompt: ${request.styleChoice}`, // GoogleImagenV3 handles prompt internally
+        negativePrompt: 'Low quality, distorted',
+        model: 'imagegeneration@006',
         controlMethod: 'lineart', // Google Vertex AI uses its own ControlNet-like approach
         styleApplied: request.styleChoice,
         generationTime: result.totalTimeSeconds,
@@ -505,8 +496,25 @@ export async function enhanceSigilWithAI(
 
       return controlNetResult;
 
-    } catch (error) {
-      logger.error('[AIEnhancer] Google Vertex AI failed, falling back to Replicate', error);
+    } catch (error: any) {
+      // Handle Quota Exceeded specially
+      if (error?.message?.includes('429') || error?.message?.includes('Quota exceeded') || error?.code === 429) {
+        logger.warn('[AIEnhancer] Google Vertex AI quota exceeded, falling back to Replicate');
+      } else {
+        logger.error('[AIEnhancer] Google Vertex AI failed, falling back to Replicate', error);
+      }
+
+      // Save full error for debugging (optional, keeping for now)
+      try {
+        const fs = require('fs');
+        const path = require('path');
+        fs.writeFileSync(
+          path.join(process.cwd(), 'google_error.txt'),
+          JSON.stringify(error, Object.getOwnPropertyNames(error), 2)
+        );
+      } catch (e) {
+        // ignore
+      }
       // Fall through to Replicate fallback
     }
   } else {

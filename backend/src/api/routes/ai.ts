@@ -125,21 +125,21 @@ router.post('/enhance-controlnet', async (req: Request, res: Response): Promise<
 
     const enhancementResult = useNewPipeline
       ? await enhanceSigilWithAI({
-          sigilSvg,
-          styleChoice: styleChoice as AIStyle,
-          userId,
-          intentionText,  // Pass through intention for thematic symbols
-          validateStructure: validateStructure !== false,
-          autoComposite: autoComposite === true,
-        })
+        sigilSvg,
+        styleChoice: styleChoice as AIStyle,
+        userId,
+        intentionText,  // Pass through intention for thematic symbols
+        validateStructure: validateStructure !== false,
+        autoComposite: autoComposite === true,
+      })
       : await enhanceSigilWithControlNet({
-          sigilSvg,
-          styleChoice: styleChoice as AIStyle,
-          userId,
-          intentionText,  // Pass through intention for thematic symbols
-          validateStructure: validateStructure !== false,
-          autoComposite: autoComposite === true,
-        });
+        sigilSvg,
+        styleChoice: styleChoice as AIStyle,
+        userId,
+        intentionText,  // Pass through intention for thematic symbols
+        validateStructure: validateStructure !== false,
+        autoComposite: autoComposite === true,
+      });
 
     logger.info('[ControlNet] Generated variations with structure scores', {
       count: enhancementResult.variations.length,
@@ -185,9 +185,9 @@ router.post('/enhance-controlnet', async (req: Request, res: Response): Promise<
     }
 
     // Determine which provider was actually used
-    const usedProvider = enhancementResult.model.includes('imagen') ? 'google' :
-                         enhancementResult.model.includes('controlnet') ? 'replicate' :
-                         'unknown';
+    const usedProvider = enhancementResult.model.includes('imagegeneration') ? 'google' :
+      enhancementResult.model.includes('controlnet') || enhancementResult.controlMethod ? 'replicate' :
+        'unknown';
 
     res.json({
       success: true,

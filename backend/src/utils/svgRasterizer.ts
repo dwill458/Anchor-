@@ -154,7 +154,7 @@ function preprocessSVG(
   let viewBoxW = 100;
   let viewBoxH = 100;
 
-  const viewBoxMatch = processed.match(/viewBox="([^"]+)"/);
+  const viewBoxMatch = processed.match(/viewBox=["']([^"']+)["']/);
   if (viewBoxMatch) {
     const parts = viewBoxMatch[1].split(/\s+/).map(Number);
     if (parts.length >= 4) {
@@ -163,8 +163,8 @@ function preprocessSVG(
     }
   } else {
     // Try to extract width/height and create viewBox
-    const widthMatch = processed.match(/width="(\d+)"/);
-    const heightMatch = processed.match(/height="(\d+)"/);
+    const widthMatch = processed.match(/width=["'](\d+)["']/);
+    const heightMatch = processed.match(/height=["'](\d+)["']/);
 
     if (widthMatch && heightMatch) {
       viewBoxW = parseInt(widthMatch[1]);
@@ -188,7 +188,7 @@ function preprocessSVG(
     const padY = viewBoxH * config.padding;
     const newViewBox = `${-padX} ${-padY} ${viewBoxW + 2 * padX} ${viewBoxH + 2 * padY}`;
     processed = processed.replace(
-      /viewBox="[^"]*"/,
+      /viewBox=["'][^"']*["']/,
       `viewBox="${newViewBox}"`
     );
   }
@@ -201,13 +201,13 @@ function preprocessSVG(
 
   // Force stroke color to white (or specified color)
   processed = processed.replace(
-    /stroke="[^"]*"/g,
+    /stroke=["'][^"']*["']/g,
     `stroke="${config.strokeColor}"`
   );
 
   // Replace all fill attributes in paths (sigils use stroke, not fill)
   processed = processed.replace(
-    /fill="[^"]*"/g,
+    /fill=["'][^"']*["']/g,
     'fill="none"'
   );
 
@@ -219,7 +219,7 @@ function preprocessSVG(
   if (config.strokeMultiplier > 1.0) {
     // Replace existing stroke-width values with thickened version
     processed = processed.replace(
-      /stroke-width="(\d+(?:\.\d+)?)"/g,
+      /stroke-width=["'](\d+(?:\.\d+)?)["']/g,
       (match, width) => {
         const newWidth = Math.round(parseFloat(width) * config.strokeMultiplier);
         return `stroke-width="${newWidth}"`;
@@ -248,8 +248,8 @@ function preprocessSVG(
   }
 
   // Clean up any existing stroke-linecap/linejoin to prevent duplicates
-  processed = processed.replace(/stroke-linecap="[^"]*"/g, '');
-  processed = processed.replace(/stroke-linejoin="[^"]*"/g, '');
+  processed = processed.replace(/stroke-linecap=["'][^"']*["']/g, '');
+  processed = processed.replace(/stroke-linejoin=["'][^"']*["']/g, '');
 
   // Add stroke-linecap and stroke-linejoin for cleaner lines
   processed = processed.replace(

@@ -20,16 +20,43 @@ export class GoogleImagenV3 {
     private location: string;
     private auth: GoogleAuth;
 
+    public isAvailable(): boolean {
+        return !!this.projectId;
+    }
+
     constructor() {
         this.projectId = process.env.GOOGLE_CLOUD_PROJECT_ID!;
         this.location = process.env.GOOGLE_CLOUD_LOCATION || 'us-central1';
 
-        const credentials = JSON.parse(
-            process.env.GOOGLE_CLOUD_CREDENTIALS_JSON || '{}'
-        );
+        let credentials;
+
+        // 1. Try environment variable JSON
+        const credsJson = process.env.GOOGLE_CLOUD_CREDENTIALS_JSON;
+        if (credsJson && credsJson.trim() !== '') {
+            try {
+                credentials = JSON.parse(credsJson);
+            } catch (e) {
+                console.warn('Invalid GOOGLE_CLOUD_CREDENTIALS_JSON, ignoring.');
+            }
+        }
+
+        // 2. Try local file (service-account.json)
+        if (!credentials) {
+            try {
+                const fs = require('fs');
+                const path = require('path');
+                const keyFilePath = path.join(process.cwd(), 'service-account.json');
+                if (fs.existsSync(keyFilePath)) {
+                    credentials = JSON.parse(fs.readFileSync(keyFilePath, 'utf-8'));
+                    console.log('✅ Loaded credentials from service-account.json');
+                }
+            } catch (e) {
+                // Ignore file errors
+            }
+        }
 
         this.auth = new GoogleAuth({
-            credentials,
+            credentials, // undefined triggers ADC (gcloud auth login)
             scopes: ['https://www.googleapis.com/auth/cloud-platform']
         });
     }
@@ -223,33 +250,20 @@ export class GoogleImagenV3 {
         }
 
         // Imagen 3 Edit endpoint
-        const endpoint = `https://${this.location}-aiplatform.googleapis.com/v1/projects/${this.projectId}/locations/${this.location}/publishers/google/models/imagegeneration@006:predict`;
+        const endpoint = `https://${this.location}-aiplatform.googleapis.com/v1/projects/${this.projectId}/locations/${this.location}/publishers/google/models/imagen-3.0-generate-001:predict`;
 
-        // Request payload for EDIT mode with MASK
+        // Request payload for VARIATION / STYLE TRANSFER mode (No Mask)
         const requestBody = {
             instances: [{
                 prompt: prompt,
                 image: {
                     bytesBase64Encoded: baseImageBuffer.toString('base64')
-                },
-                mask: {
-                    image: {
-                        bytesBase64Encoded: maskImageBuffer.toString('base64')
-                    }
                 }
             }],
             parameters: {
-                // IMPROVED: Mask-based editing
-                editConfig: {
-                    editMode: 'INPAINTING_INSERT',
-                    // maskMode: 'MASK_MODE_USER_PROVIDED', // Implicit when mask is provided
-                    guidanceScale: 12,               // Strong adherence to the prompt's theme
-                    numberOfImages: 1
-                },
-
                 // Creative settings
                 sampleCount: 1,
-                aspectRatio: '1:1',
+                // aspectRatio: '1:1', // Aspect ratio not allowed when image is provided
 
                 // Quality
                 safetyFilterLevel: 'block_few',
@@ -347,6 +361,9 @@ export class GoogleImagenV3 {
 
         return { baseImage, maskImage };
     }
+    // Helper methods for AIEnhancer compatibility
+    public getCostEstimate(num: number = 4): number { return num * 0.02; }
+    public getTimeEstimate() { return { min: 10, max: 20 }; }
 }
 
 export default GoogleImagenV3;
