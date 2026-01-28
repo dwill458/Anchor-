@@ -29,6 +29,10 @@ import {
   ActivationScreen,
   ConfirmBurnScreen,
   BurningRitualScreen,
+  ChargeSetupScreen,
+  RitualScreen,
+  SealAnchorScreen,
+  ChargeCompleteScreen,
 } from '../screens/rituals';
 import type { RootStackParamList } from '@/types';
 import { colors } from '@/theme';
@@ -139,7 +143,29 @@ export const VaultStackNavigator: React.FC = () => {
         component={MantraCreationScreen}
         options={{ title: 'Create Mantra' }}
       />
-      {/* Charging Rituals */}
+      {/* NEW Redesigned Ritual Flow (Phase 2.7) */}
+      <Stack.Screen
+        name="ChargeSetup"
+        component={ChargeSetupScreen}
+        options={{ headerShown: false }}
+      />
+      <Stack.Screen
+        name="Ritual"
+        component={RitualScreen}
+        options={{ headerShown: false }}
+      />
+      <Stack.Screen
+        name="SealAnchor"
+        component={SealAnchorScreen}
+        options={{ headerShown: false }}
+      />
+      <Stack.Screen
+        name="ChargeComplete"
+        component={ChargeCompleteScreen}
+        options={{ headerShown: false }}
+      />
+
+      {/* Legacy Charging Rituals (kept for backward compatibility) */}
       <Stack.Screen
         name="ChargeChoice"
         component={ChargeChoiceScreen}
@@ -150,7 +176,7 @@ export const VaultStackNavigator: React.FC = () => {
         component={ChargeChoiceScreen}
         options={{ title: 'Charge Anchor' }}
       />
-      {/* Phase 2.6: Emotional Priming */}
+      {/* Phase 2.6: Emotional Priming (legacy) */}
       <Stack.Screen
         name="EmotionalPriming"
         component={EmotionalPrimingScreen}

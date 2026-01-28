@@ -100,9 +100,9 @@ export const AnchorDetailScreen: React.FC = () => {
       charge_type: chargeType,
     });
 
-    navigation.navigate('ChargingRitual', {
+    // Navigate to new redesigned ritual flow
+    navigation.navigate('ChargeSetup', {
       anchorId: anchor.id,
-      chargeType: chargeType as ChargeType,
     });
   };
 
