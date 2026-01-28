@@ -507,6 +507,7 @@ export type RootStackParamList = {
   // NEW Redesigned Ritual Flow (Phase 2.7)
   ChargeSetup: { anchorId: string };
   Ritual: { anchorId: string; ritualType: 'quick' | 'deep' };
+  SealAnchor: { anchorId: string };
   ChargeComplete: { anchorId: string };
 
   // Legacy Charging Routes (kept for backward compatibility)

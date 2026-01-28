@@ -31,6 +31,7 @@ import {
   BurningRitualScreen,
   ChargeSetupScreen,
   RitualScreen,
+  SealAnchorScreen,
   ChargeCompleteScreen,
 } from '../screens/rituals';
 import type { RootStackParamList } from '@/types';
@@ -151,6 +152,11 @@ export const VaultStackNavigator: React.FC = () => {
       <Stack.Screen
         name="Ritual"
         component={RitualScreen}
+        options={{ headerShown: false }}
+      />
+      <Stack.Screen
+        name="SealAnchor"
+        component={SealAnchorScreen}
         options={{ headerShown: false }}
       />
       <Stack.Screen
