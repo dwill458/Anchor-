@@ -501,14 +501,19 @@ export type RootStackParamList = {
   };
 
   // ═══════════════════════════════════════════════════
-  // CHARGING & ACTIVATION (Unchanged)
+  // CHARGING & ACTIVATION
   // ═══════════════════════════════════════════════════
 
-  // Charging and Activation
+  // NEW Redesigned Ritual Flow (Phase 2.7)
+  ChargeSetup: { anchorId: string };
+  Ritual: { anchorId: string; ritualType: 'quick' | 'deep' };
+  ChargeComplete: { anchorId: string };
+
+  // Legacy Charging Routes (kept for backward compatibility)
   ChargeChoice: { anchorId: string };
   ChargingRitual: { anchorId: string; chargeType: ChargeType };
 
-  // Phase 2.6: Emotional Priming
+  // Phase 2.6: Emotional Priming (legacy)
   EmotionalPriming: {
     anchorId: string;
     intention: string;
@@ -517,6 +522,8 @@ export type RootStackParamList = {
 
   QuickCharge: { anchorId: string; chargeType: ChargeType };
   DeepCharge: { anchorId: string; chargeType: ChargeType };
+
+  // Activation
   ActivationRitual: { anchorId: string; activationType: ActivationType };
 
   // Phase 3: Burning Ritual
