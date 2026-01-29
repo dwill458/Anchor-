@@ -69,12 +69,16 @@ router.post('/enhance-controlnet', async (req: Request, res: Response): Promise<
       styleChoice,
       userId,
       anchorId,
-      intentionText,  // Optional: User's intention for thematic symbol generation
+      intentionText: bodyIntentionText,
+      intention: bodyIntention,
       validateStructure,
       autoComposite,
       provider,  // Optional: 'gemini' | 'replicate' | 'auto' (default: 'auto')
       tier       // Optional: 'draft' | 'premium' (default: 'premium')
     } = req.body;
+
+    // Support both field names for maximum compatibility
+    const intentionText = bodyIntentionText || bodyIntention;
     console.log('[API] Parsed request:', {
       sigilSvgLength: sigilSvg?.length || 0,
       styleChoice,

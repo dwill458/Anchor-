@@ -347,6 +347,9 @@ STYLE: Minimalist line art
       // Confidence & Power
       confidence: 'SYMBOLS TO ADD: standing lion, raised sword, bold flames, strong pillars, empowered stance, crowns',
       power: 'SYMBOLS TO ADD: lightning bolts, radiating energy, powerful animals, explosive force, scepters',
+      strength: 'SYMBOLS TO ADD: clenched fist, heavy iron chains, stone pillars, bull or lion head, muscular forms, mountain peaks',
+      gym: 'SYMBOLS TO ADD: iron weights, dumbbells, kettlebells, anatomical muscle patterns, victory laurels, power lightning',
+      fitness: 'SYMBOLS TO ADD: pulse lines, anatomical geometry, vitality spirals, movement lines, energetic aura',
     };
 
     // Find matching keywords (prioritize longer/more specific matches first)

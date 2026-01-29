@@ -533,7 +533,9 @@ export default function AIGeneratingScreen() {
           sigilSvg: sigilToEnhance,
           styleChoice,
           userId,
-          anchorId: `temp-${Date.now()}`, // Temporary ID for uploads
+          intentionText, // Critical: Pass the user's actual intention
+          anchorId: `temp-${Date.now()}`,
+          tier: 'draft',
         }),
         signal: controller.signal, // Attach abort signal for timeout
       });
