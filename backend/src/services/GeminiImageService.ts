@@ -36,16 +36,16 @@ interface ModelConfig {
 
 const MODEL_CONFIGS: Record<QualityTier, ModelConfig> = {
   draft: {
-    modelId: 'gemini-3-pro-image-preview',
-    displayName: 'Gemini 3 Pro Image (Nano Banana - Draft)',
+    modelId: 'imagen-3.0-generate-001',
+    displayName: 'Imagen 3 (Draft)',
     costPerImage: 0.02,
-    estimatedTimeSeconds: 4,
+    estimatedTimeSeconds: 5,
   },
   premium: {
-    modelId: 'gemini-3-pro-image-preview',
-    displayName: 'Gemini 3 Pro Image (Nano Banana - Premium)',
+    modelId: 'imagen-3.0-generate-001',
+    displayName: 'Imagen 3 (Premium)',
     costPerImage: 0.04,
-    estimatedTimeSeconds: 5,
+    estimatedTimeSeconds: 8,
   },
 };
 
@@ -209,22 +209,13 @@ export class GeminiImageService {
       // Prepare image for the API
       const base64Image = baseImageBuffer.toString('base64');
 
-      // Use Gemini 3 Pro Image's native generateImages with reference images
-      // This model supports up to 14 reference images for structural preservation
+      // TEMPORARY: Test without reference images first
+      // TODO: Add reference images back once we confirm the model works
+      logger.warn('[GeminiImageService] Testing without reference images - structural preservation may be limited');
+
       const response = await this.client.models.generateImages({
         model: modelConfig.modelId,
-        prompt: prompt,
-        // @ts-ignore - Gemini 3 Pro Image supports reference images but SDK types may not be updated yet
-        referenceImages: [
-          {
-            referenceId: 1,
-            referenceType: 'OBJECT' as const, // Use OBJECT type for structural preservation
-            referenceImage: {
-              imageBytes: base64Image,
-              mimeType: 'image/png' as const,
-            },
-          }
-        ],
+        prompt: `${prompt}\n\nIMPORTANT: Preserve the exact geometric structure and lines of the sigil design. Do not distort or warp the core shapes.`,
         config: {
           numberOfImages: 1,
           aspectRatio: '1:1',
