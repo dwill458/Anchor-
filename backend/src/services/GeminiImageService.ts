@@ -36,14 +36,14 @@ interface ModelConfig {
 
 const MODEL_CONFIGS: Record<QualityTier, ModelConfig> = {
   draft: {
-    modelId: 'imagen-4.0-generate-001',
-    displayName: 'Imagen 4 (Draft)',
+    modelId: 'imagen-3.0-generate-001',
+    displayName: 'Imagen 3 (Draft)',
     costPerImage: 0.02,
     estimatedTimeSeconds: 5,
   },
   premium: {
-    modelId: 'imagen-4.0-generate-001',
-    displayName: 'Imagen 4 (Premium)',
+    modelId: 'imagen-3.0-generate-001',
+    displayName: 'Imagen 3 (Premium)',
     costPerImage: 0.04,
     estimatedTimeSeconds: 8,
   },
@@ -204,18 +204,37 @@ export class GeminiImageService {
     const maxRetries = 3;
 
     try {
-      logger.info(`[GeminiImageService] Generating variation ${variationIndex + 1} with Imagen 4`);
+      logger.info(`[GeminiImageService] Generating variation ${variationIndex + 1} with ${modelConfig.modelId}`);
 
-      // Use the generateImages API with Imagen 4
-      const response = await this.client.models.generateImages({
-        model: 'imagen-4.0-generate-001',
+      // Prepare image for the API
+      const base64Image = baseImageBuffer.toString('base64');
+
+      // Create a ControlReferenceImage using the SDK class
+      const controlImage = {
+        referenceId: 1,
+        referenceType: 'CONTROL' as const,
+        referenceImage: {
+          imageBytes: base64Image,
+          mimeType: 'image/png' as const,
+        },
+        config: {
+          controlType: 'CONTROL_TYPE_CANNY' as const,
+          enableControlImageComputation: true,
+        }
+      };
+
+      // Use the editImage API with a ControlReferenceImage (Canny edge detection)
+      // This ensures the sigil's structure is preserved.
+      const response = await this.client.models.editImage({
+        model: modelConfig.modelId,
         prompt: prompt,
+        referenceImages: [controlImage as any], // Type assertion needed due to SDK complexity
         config: {
           numberOfImages: 1,
           aspectRatio: '1:1',
+          includeRaiReason: true,
         }
       });
-
 
       // Extract image data from Imagen response
       const generatedImage = response.generatedImages?.[0];
@@ -228,13 +247,13 @@ export class GeminiImageService {
         );
       }
 
-      // imageBytes is a Uint8Array, convert to base64
-      const base64Data = Buffer.from(generatedImage.image.imageBytes).toString('base64');
-
+      // Convert imageBytes to base64
+      const imageBytes = generatedImage.image.imageBytes;
+      const base64Data = typeof imageBytes === 'string' ? imageBytes : Buffer.from(imageBytes).toString('base64');
 
       return {
         base64: base64Data,
-        seed: variationIndex * 1000 + Date.now() % 1000,
+        seed: Math.floor(Math.random() * 1000000),
         variationIndex: variationIndex + 1,
       };
 

@@ -127,23 +127,23 @@ router.post('/enhance-controlnet', async (req: Request, res: Response): Promise<
 
     const enhancementResult = useNewPipeline
       ? await enhanceSigilWithAI({
-          sigilSvg,
-          styleChoice: styleChoice as AIStyle,
-          userId,
-          intentionText,  // Pass through intention for thematic symbols
-          validateStructure: validateStructure !== false,
-          autoComposite: autoComposite === true,
-          tier: (tier as 'draft' | 'premium') || 'premium',
-        })
+        sigilSvg,
+        styleChoice: styleChoice as AIStyle,
+        userId,
+        intentionText,  // Pass through intention for thematic symbols
+        validateStructure: validateStructure !== false,
+        autoComposite: autoComposite === true,
+        tier: (tier as 'draft' | 'premium') || 'premium',
+      })
       : await enhanceSigilWithControlNet({
-          sigilSvg,
-          styleChoice: styleChoice as AIStyle,
-          userId,
-          intentionText,  // Pass through intention for thematic symbols
-          validateStructure: validateStructure !== false,
-          autoComposite: autoComposite === true,
-          tier: (tier as 'draft' | 'premium') || 'premium',
-        });
+        sigilSvg,
+        styleChoice: styleChoice as AIStyle,
+        userId,
+        intentionText,  // Pass through intention for thematic symbols
+        validateStructure: validateStructure !== false,
+        autoComposite: autoComposite === true,
+        tier: (tier as 'draft' | 'premium') || 'premium',
+      });
 
     logger.info('[ControlNet] Generated variations with structure scores', {
       count: enhancementResult.variations.length,
@@ -189,9 +189,10 @@ router.post('/enhance-controlnet', async (req: Request, res: Response): Promise<
     }
 
     // Determine which provider was actually used
-    const usedProvider = enhancementResult.model.includes('gemini') ? 'gemini' :
-                         enhancementResult.model.includes('controlnet') ? 'replicate' :
-                         'unknown';
+    const modelLower = enhancementResult.model.toLowerCase();
+    const usedProvider = (modelLower.includes('gemini') || modelLower.includes('imagen')) ? 'gemini' :
+      modelLower.includes('controlnet') ? 'replicate' :
+        'unknown';
 
     res.json({
       success: true,
