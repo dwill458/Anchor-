@@ -26,6 +26,7 @@ import * as Haptics from 'expo-haptics';
 import { useAnchorStore } from '@/stores/anchorStore';
 import { useRitualController } from '@/hooks/useRitualController';
 import { getRitualConfig } from '@/config/ritualConfigs';
+import { apiClient } from '@/services/ApiClient';
 import type { RootStackParamList } from '@/types';
 import { colors, spacing, typography } from '@/theme';
 
@@ -171,8 +172,18 @@ export const RitualScreen: React.FC = () => {
   }
 
   async function handleSealComplete() {
-    // Mark anchor as charged
+    // Mark anchor as charged (backend + local)
     try {
+      // Determine charge type based on ritual type
+      const chargeType = ritualType === 'quick' ? 'initial_quick' : 'initial_deep';
+
+      // CRITICAL: Update backend first (for cross-device sync)
+      await apiClient.post(`/api/anchors/${anchorId}/charge`, {
+        chargeType,
+        durationSeconds: config.totalDurationSeconds,
+      });
+
+      // Then update local state
       await updateAnchor(anchorId, {
         isCharged: true,
         chargedAt: new Date(),
