@@ -72,7 +72,8 @@ router.post('/enhance-controlnet', async (req: Request, res: Response): Promise<
       intentionText,  // Optional: User's intention for thematic symbol generation
       validateStructure,
       autoComposite,
-      provider  // Optional: 'google' | 'replicate' | 'auto' (default: 'auto')
+      provider,  // Optional: 'gemini' | 'replicate' | 'auto' (default: 'auto')
+      tier       // Optional: 'draft' | 'premium' (default: 'premium')
     } = req.body;
     console.log('[API] Parsed request:', {
       sigilSvgLength: sigilSvg?.length || 0,
@@ -82,7 +83,8 @@ router.post('/enhance-controlnet', async (req: Request, res: Response): Promise<
       intentionText: intentionText || '(not provided)',
       validateStructure,
       autoComposite,
-      provider: provider || 'auto'
+      provider: provider || 'auto',
+      tier: tier || 'premium'
     });
 
     // Validation
@@ -131,6 +133,7 @@ router.post('/enhance-controlnet', async (req: Request, res: Response): Promise<
           intentionText,  // Pass through intention for thematic symbols
           validateStructure: validateStructure !== false,
           autoComposite: autoComposite === true,
+          tier: (tier as 'draft' | 'premium') || 'premium',
         })
       : await enhanceSigilWithControlNet({
           sigilSvg,
@@ -139,6 +142,7 @@ router.post('/enhance-controlnet', async (req: Request, res: Response): Promise<
           intentionText,  // Pass through intention for thematic symbols
           validateStructure: validateStructure !== false,
           autoComposite: autoComposite === true,
+          tier: (tier as 'draft' | 'premium') || 'premium',
         });
 
     logger.info('[ControlNet] Generated variations with structure scores', {
@@ -185,7 +189,7 @@ router.post('/enhance-controlnet', async (req: Request, res: Response): Promise<
     }
 
     // Determine which provider was actually used
-    const usedProvider = enhancementResult.model.includes('imagen') ? 'google' :
+    const usedProvider = enhancementResult.model.includes('gemini') ? 'gemini' :
                          enhancementResult.model.includes('controlnet') ? 'replicate' :
                          'unknown';
 
