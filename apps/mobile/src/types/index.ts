@@ -105,6 +105,20 @@ export interface User {
 export type SubscriptionStatus = 'free' | 'pro' | 'pro_annual';
 
 /**
+ * User settings and preferences
+ */
+export interface UserSettings {
+  userId: string;
+  notificationsEnabled: boolean;
+  dailyReminderTime: string; // HH:MM format
+  streakProtection: boolean;
+  defaultChargeDuration: number; // in seconds
+  hapticIntensity: number; // 1-5 scale
+  vaultViewType: 'grid' | 'list';
+  updatedAt: Date;
+}
+
+/**
  * Firebase User object (subset of properties)
  */
 export interface FirebaseUser {
@@ -525,6 +539,11 @@ export type RootStackParamList = {
     intention: string;
     sigilSvg: string;
   };
+
+  // ═══════════════════════════════════════════════════
+  // PROFILE & SETTINGS
+  // ═══════════════════════════════════════════════════
+  Settings: undefined;
 };
 
 export type MainTabParamList = {

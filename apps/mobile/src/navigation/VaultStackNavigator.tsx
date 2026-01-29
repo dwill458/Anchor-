@@ -30,6 +30,7 @@ import {
   SealAnchorScreen,
   ChargeCompleteScreen,
 } from '../screens/rituals';
+import { SettingsScreen } from '../screens/profile';
 import type { RootStackParamList } from '@/types';
 import { colors } from '@/theme';
 import { useAuthStore } from '@/stores/authStore';
@@ -177,6 +178,12 @@ export const VaultStackNavigator: React.FC = () => {
         name="BurningRitual"
         component={BurningRitualScreen}
         options={{ title: 'Releasing...', headerShown: false }}
+      />
+      {/* Profile & Settings */}
+      <Stack.Screen
+        name="Settings"
+        component={SettingsScreen}
+        options={{ headerShown: false }}
       />
     </Stack.Navigator>
   );
