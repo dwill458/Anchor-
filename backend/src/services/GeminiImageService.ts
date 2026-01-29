@@ -185,8 +185,12 @@ export class GeminiImageService {
   }
 
   private createPrompt(intention: string, style: string): string {
+    // Get intention-specific symbols
+    const symbolInstructions = this.getIntentionSymbols(intention);
+
     // Base instruction for structural preservation and symbol enhancement
-    const baseInstruction = `This is a magical sigil representing: "${intention}".
+    const baseInstruction = intention && intention.trim()
+      ? `This is a magical sigil representing: "${intention}".
 
 CRITICAL RULES:
 1. PRESERVE the exact geometric structure of the sigil - the main lines, circles, and shapes must remain EXACTLY as shown
@@ -194,15 +198,18 @@ CRITICAL RULES:
 3. Add relevant icons, symbols, and decorative elements that reinforce the sigil's meaning
 4. The core sigil shape is SACRED and must not be distorted, warped, or altered
 
-Examples of symbolic enhancements:
-- For "strength/gym": add dumbbells, flames, phoenix, muscles, weights
-- For "boundaries": add chains, locks, thorns, shields, walls, fences
-- For "love": add hearts, roses, doves, intertwined elements
-- For "wealth": add coins, keys, crowns, flowing abundance symbols
-- For "protection": add shields, armor, guardian figures, barriers
-- For "healing": add herbs, light rays, caduceus, gentle flowing energy
+${symbolInstructions}
 
-Add symbols that correspond to "${intention}" while keeping the main sigil structure intact.`;
+Add symbols that correspond to "${intention}" while keeping the main sigil structure intact.`
+      : `This is a magical sigil for personal empowerment.
+
+CRITICAL RULES:
+1. PRESERVE the exact geometric structure of the sigil - the main lines, circles, and shapes must remain EXACTLY as shown
+2. ENHANCE the sigil by adding mystical decorative elements around it
+3. Add magical symbols, sacred geometry patterns, and ethereal decorations
+4. The core sigil shape is SACRED and must not be distorted, warped, or altered
+
+Add mystical enhancement elements while keeping the main sigil structure intact.`;
 
     const styleTemplates: Record<string, string> = {
       watercolor: `${baseInstruction}
@@ -255,6 +262,104 @@ STYLE: Minimalist line art
     };
 
     return styleTemplates[style] || styleTemplates.watercolor;
+  }
+
+  /**
+   * Map intention text to specific symbolic elements
+   * Returns instruction string for adding relevant symbols
+   */
+  private getIntentionSymbols(intention: string): string {
+    if (!intention || intention.trim() === '') {
+      return '';
+    }
+
+    const lowerIntent = intention.toLowerCase();
+
+    // Comprehensive keyword → symbol mapping
+    const symbolMap: Record<string, string> = {
+      // Physical & Strength
+      gym: 'SYMBOLS TO ADD: dumbbells, barbells, flames, phoenix rising, flexed muscles, lightning bolts, iron weights, fire bursts',
+      fitness: 'SYMBOLS TO ADD: dumbbells, barbells, flames, phoenix rising, flexed muscles, lightning bolts, iron weights',
+      workout: 'SYMBOLS TO ADD: dumbbells, barbells, flames, muscular anatomy, powerlifting weights, energy bolts',
+      strength: 'SYMBOLS TO ADD: flexed muscles, iron weights, fire bursts, lions, oak trees, power symbols, lightning',
+      strong: 'SYMBOLS TO ADD: flexed muscles, iron weights, fire bursts, lions, oak trees, power symbols',
+      muscle: 'SYMBOLS TO ADD: anatomical muscles, barbells, protein shakes, gym equipment, fire, power',
+
+      // Protection & Boundaries
+      boundaries: 'SYMBOLS TO ADD: chains, locks, thorns, shields, fortress walls, celtic knots, protective barriers, fences',
+      boundary: 'SYMBOLS TO ADD: chains, locks, thorns, shields, fortress walls, celtic knots, protective barriers',
+      protection: 'SYMBOLS TO ADD: shields, armor, guardian animals, protective circles, defensive walls, helmets',
+      protect: 'SYMBOLS TO ADD: shields, armor, guardian animals, protective circles, defensive walls',
+      safe: 'SYMBOLS TO ADD: shields, locks, guardian figures, protective barriers, safe boxes, fortress walls',
+      safety: 'SYMBOLS TO ADD: shields, locks, guardian figures, protective barriers, safe boxes, fortress walls',
+
+      // Stability & Grounding
+      grounded: 'SYMBOLS TO ADD: deep roots, tree trunks, mountains, anchors, solid foundations, earth elements',
+      ground: 'SYMBOLS TO ADD: deep roots, tree trunks, mountains, anchors, solid foundations, earth elements',
+      stability: 'SYMBOLS TO ADD: balanced stones, pillars, foundations, sturdy oak, mountain peaks, anchors',
+      stable: 'SYMBOLS TO ADD: balanced stones, pillars, foundations, sturdy oak, mountain peaks, anchors',
+
+      // Relationships & Love
+      love: 'SYMBOLS TO ADD: hearts, roses, doves, cupid arrows, romantic vines, paired doves, infinity loops',
+      romance: 'SYMBOLS TO ADD: hearts, roses, doves, cupid imagery, romantic vines, paired doves, infinity loops',
+      relationship: 'SYMBOLS TO ADD: intertwined elements, hearts, blossoms, infinity knots, paired symbols, rings',
+      connection: 'SYMBOLS TO ADD: intertwined elements, hearts, infinity knots, paired symbols, linked chains',
+
+      // Prosperity & Abundance
+      wealth: 'SYMBOLS TO ADD: gold coins, gem stones, treasure chests, golden rays, prosperity coins, crowns',
+      money: 'SYMBOLS TO ADD: currency symbols, flowing coins, gold reserves, financial prosperity, dollar signs',
+      prosperity: 'SYMBOLS TO ADD: gold coins, cornucopia, overflowing vessels, harvest abundance, wealth symbols',
+      abundance: 'SYMBOLS TO ADD: cornucopia, bountiful harvest, flowing water, multiplying symbols, full baskets',
+      rich: 'SYMBOLS TO ADD: gold bullion, gem stones, treasure chests, golden rays, prosperity coins',
+
+      // Success & Achievement
+      success: 'SYMBOLS TO ADD: crowns, ascending paths, mountain peaks, golden trophies, victory laurels, medals',
+      career: 'SYMBOLS TO ADD: ascending ladders, briefcases, professional symbols, success markers, stars',
+      achievement: 'SYMBOLS TO ADD: medals, awards, summit peaks, podiums, triumph symbols, accomplishment badges',
+
+      // Peace & Calm
+      peace: 'SYMBOLS TO ADD: doves, olive branches, calm waters, zen circles, soft clouds, tranquil lotus',
+      calm: 'SYMBOLS TO ADD: still water, gentle waves, soft light, floating feathers, peaceful meditation poses',
+      serenity: 'SYMBOLS TO ADD: lotus flowers, meditation symbols, balanced stones, tranquil ponds, zen gardens',
+      anxiety: 'SYMBOLS TO ADD: calming waves, peaceful clouds, meditation poses, zen circles, soothing light',
+
+      // Mental & Focus
+      focus: 'SYMBOLS TO ADD: geometric clarity, centered energy, laser beams, intricate mandalas, sharp crystals',
+      clarity: 'SYMBOLS TO ADD: clear crystals, sharp lines, focused light, lens flares, precision geometry',
+      mind: 'SYMBOLS TO ADD: brain patterns, neural networks, thought waves, consciousness symbols, third eye',
+      concentration: 'SYMBOLS TO ADD: geometric clarity, centered energy, focused light, meditation symbols',
+
+      // Creativity & Inspiration
+      creativity: 'SYMBOLS TO ADD: paintbrushes, flowing ink, musical notes, artistic tools, color bursts, palettes',
+      creative: 'SYMBOLS TO ADD: paintbrushes, flowing ink, musical notes, artistic tools, color bursts',
+      inspiration: 'SYMBOLS TO ADD: light bulbs, shooting stars, divine rays, muse symbols, spark of genius',
+
+      // Health & Healing
+      health: 'SYMBOLS TO ADD: healing light, organic growth, heartbeat patterns, herbal motifs, vitality spirals',
+      healing: 'SYMBOLS TO ADD: gentle light, flowing water, medicinal herbs, caduceus, restoration symbols',
+      wellness: 'SYMBOLS TO ADD: healing herbs, balanced elements, vitality symbols, healthy heart, natural growth',
+
+      // Growth & Transformation
+      growth: 'SYMBOLS TO ADD: sprouting seeds, growing vines, expanding spirals, ascending paths, blooming flowers',
+      transformation: 'SYMBOLS TO ADD: butterfly metamorphosis, phoenix rising, evolving forms, alchemical symbols',
+      change: 'SYMBOLS TO ADD: butterfly wings, phoenix, evolving forms, transformation spirals, new growth',
+
+      // Confidence & Power
+      confidence: 'SYMBOLS TO ADD: standing lion, raised sword, bold flames, strong pillars, empowered stance, crowns',
+      power: 'SYMBOLS TO ADD: lightning bolts, radiating energy, powerful animals, explosive force, scepters',
+    };
+
+    // Find matching keywords (prioritize longer/more specific matches first)
+    const keywords = Object.keys(symbolMap).sort((a, b) => b.length - a.length);
+
+    for (const keyword of keywords) {
+      if (lowerIntent.includes(keyword)) {
+        return symbolMap[keyword];
+      }
+    }
+
+    // Fallback: return intention-based instruction
+    return `SYMBOLS TO ADD: Add symbolic elements that represent "${intention}" - choose relevant mystical imagery, icons, and decorative elements that reinforce this intention.`;
   }
 
   private async generateVariation(
