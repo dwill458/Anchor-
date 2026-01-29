@@ -143,7 +143,10 @@ export const VaultStackNavigator: React.FC = () => {
         component={MantraCreationScreen}
         options={{ title: 'Create Mantra' }}
       />
-      {/* NEW Redesigned Ritual Flow (Phase 2.7) */}
+      {/* ════════════════════════════════════════════════════════ */}
+      {/* NEW Redesigned Ritual Flow (Phase 2.7) - Zen Architect  */}
+      {/* All charging flows now route through these screens      */}
+      {/* ════════════════════════════════════════════════════════ */}
       <Stack.Screen
         name="ChargeSetup"
         component={ChargeSetupScreen}
@@ -165,7 +168,12 @@ export const VaultStackNavigator: React.FC = () => {
         options={{ headerShown: false }}
       />
 
-      {/* Legacy Charging Rituals (kept for backward compatibility) */}
+      {/* ════════════════════════════════════════════════════════ */}
+      {/* LEGACY Charging Rituals (Phase 2.6)                     */}
+      {/* These are kept for backward compatibility only.         */}
+      {/* All legacy screens now redirect to new flow.            */}
+      {/* TODO: Remove after confirming no active references.     */}
+      {/* ════════════════════════════════════════════════════════ */}
       <Stack.Screen
         name="ChargeChoice"
         component={ChargeChoiceScreen}
@@ -176,7 +184,6 @@ export const VaultStackNavigator: React.FC = () => {
         component={ChargeChoiceScreen}
         options={{ title: 'Charge Anchor' }}
       />
-      {/* Phase 2.6: Emotional Priming (legacy) */}
       <Stack.Screen
         name="EmotionalPriming"
         component={EmotionalPrimingScreen}

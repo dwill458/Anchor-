@@ -121,23 +121,17 @@ export const EmotionalPrimingScreen: React.FC = () => {
 
   /**
    * Complete priming and navigate to charging screen
+   * DEPRECATED: This screen is legacy. Use ChargeSetupScreen → RitualScreen flow instead.
    */
   const handleComplete = () => {
     // Success haptic
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
 
-    // Navigate to appropriate charging screen
-    if (chargeType === 'quick') {
-      navigation.replace('QuickCharge', {
-        anchorId,
-        chargeType: 'initial_quick'
-      });
-    } else {
-      navigation.replace('DeepCharge', {
-        anchorId,
-        chargeType: 'initial_deep'
-      });
-    }
+    // Navigate to new redesigned ritual screen (Phase 2.7)
+    navigation.replace('Ritual', {
+      anchorId,
+      ritualType: chargeType === 'quick' ? 'quick' : 'deep',
+    });
   };
 
   return (
