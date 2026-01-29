@@ -185,13 +185,73 @@ export class GeminiImageService {
   }
 
   private createPrompt(intention: string, style: string): string {
+    // Base instruction for structural preservation and symbol enhancement
+    const baseInstruction = `This is a magical sigil representing: "${intention}".
+
+CRITICAL RULES:
+1. PRESERVE the exact geometric structure of the sigil - the main lines, circles, and shapes must remain EXACTLY as shown
+2. ENHANCE the sigil by adding corresponding symbolic elements around and within it that relate to "${intention}"
+3. Add relevant icons, symbols, and decorative elements that reinforce the sigil's meaning
+4. The core sigil shape is SACRED and must not be distorted, warped, or altered
+
+Examples of symbolic enhancements:
+- For "strength/gym": add dumbbells, flames, phoenix, muscles, weights
+- For "boundaries": add chains, locks, thorns, shields, walls, fences
+- For "love": add hearts, roses, doves, intertwined elements
+- For "wealth": add coins, keys, crowns, flowing abundance symbols
+- For "protection": add shields, armor, guardian figures, barriers
+- For "healing": add herbs, light rays, caduceus, gentle flowing energy
+
+Add symbols that correspond to "${intention}" while keeping the main sigil structure intact.`;
+
     const styleTemplates: Record<string, string> = {
-      watercolor: `Transform this sigil into a mystical watercolor artwork representing: "${intention}". Style: flowing organic washes, soft edges, textured paper. Keep core structure EXACT.`,
-      ink_brush: `Transform this sigil into traditional ink brush artwork representing: "${intention}". Style: Sumi-e, bold black ink strokes, Zen minimalism. Keep core structure EXACT.`,
-      sacred_geometry: `Transform this sigil into sacred geometry artwork representing: "${intention}". Style: Golden ratio, Metatron's Cube, precise lines. Keep core structure EXACT.`,
-      gold_leaf: `Transform this sigil into illuminated manuscript artwork representing: "${intention}". Style: Gold leaf gilding, ornate borders, medieval luxury. Keep core structure EXACT.`,
-      cosmic: `Transform this sigil into cosmic space artwork representing: "${intention}". Style: Deep space nebulae, glowing stars, ethereal energy. Keep core structure EXACT.`,
-      minimal_line: `Transform this sigil into minimalist line art representing: "${intention}". Style: Clean single-weight lines, negative space, modern luxury. Keep core structure EXACT.`,
+      watercolor: `${baseInstruction}
+
+STYLE: Mystical watercolor artwork
+- Flowing organic color washes behind and around the sigil
+- Soft edges on decorative elements, sharp edges on the main sigil
+- Rich pigment bleeds and textured paper appearance
+- The symbolic elements should flow naturally in watercolor style`,
+
+      ink_brush: `${baseInstruction}
+
+STYLE: Traditional ink brush artwork (Sumi-e)
+- Bold black ink strokes for the main sigil
+- Symbolic elements rendered in brush stroke style
+- Zen minimalism with meaningful negative space
+- Occasional red seal stamps as accents`,
+
+      sacred_geometry: `${baseInstruction}
+
+STYLE: Sacred geometry artwork
+- Golden ratio proportions in decorative elements
+- Metatron's Cube, Flower of Life patterns as backgrounds
+- Precise geometric lines and mathematical harmony
+- Symbolic elements integrated through geometric forms`,
+
+      gold_leaf: `${baseInstruction}
+
+STYLE: Illuminated manuscript / Gold leaf artwork
+- Rich gold leaf gilding on the main sigil
+- Ornate medieval-style borders with symbolic elements
+- Deep jewel-tone colors (ruby, sapphire, emerald)
+- Intricate Celtic or Gothic decorative motifs`,
+
+      cosmic: `${baseInstruction}
+
+STYLE: Cosmic space artwork
+- Deep space nebulae and stellar backgrounds
+- Glowing ethereal energy emanating from the sigil
+- Celestial symbolic elements (stars, moons, planets)
+- Luminous, mystical atmosphere`,
+
+      minimal_line: `${baseInstruction}
+
+STYLE: Minimalist line art
+- Clean single-weight lines for the sigil
+- Subtle symbolic elements in negative space
+- Modern luxury aesthetic with restraint
+- Elegant simplicity with meaningful details`,
     };
 
     return styleTemplates[style] || styleTemplates.watercolor;
@@ -285,7 +345,9 @@ export class GeminiImageService {
             role: 'user',
             parts: [
               {
-                text: `${prompt}\n\nIMPORTANT: Preserve the exact geometric structure and lines of the reference image.`
+                text: `${prompt}
+
+REFERENCE IMAGE INSTRUCTION: The attached image shows the sigil structure that must be preserved. Keep the main lines, circles, and geometric shapes EXACTLY as shown. Add symbolic enhancements AROUND and BEHIND the sigil, not by altering its core geometry.`
               },
               {
                 inlineData: {
