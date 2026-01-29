@@ -5,7 +5,7 @@
  * Supports multiple voice configurations optimized for ritual chanting.
  */
 
-import textToSpeech from '@google-cloud/text-to-speech';
+import { TextToSpeechClient } from '@google-cloud/text-to-speech';
 import { formatMantraForTTS } from './MantraGenerator';
 import { uploadAudio } from './StorageService';
 import { logger } from '../utils/logger';
@@ -51,7 +51,7 @@ export const MANTRA_VOICE_PRESETS: Record<string, VoiceConfig> = {
 /**
  * Initialize Google TTS client
  */
-function getTTSClient(): textToSpeech.TextToSpeechClient | null {
+function getTTSClient(): TextToSpeechClient | null {
   const projectId = process.env.GOOGLE_CLOUD_PROJECT_ID;
   const privateKey = process.env.GOOGLE_CLOUD_PRIVATE_KEY;
   const clientEmail = process.env.GOOGLE_CLOUD_CLIENT_EMAIL;
@@ -63,7 +63,7 @@ function getTTSClient(): textToSpeech.TextToSpeechClient | null {
   }
 
   try {
-    return new textToSpeech.TextToSpeechClient({
+    return new TextToSpeechClient({
       credentials: {
         client_email: clientEmail,
         private_key: privateKey.replace(/\\n/g, '\n'), // Handle escaped newlines

@@ -75,10 +75,12 @@ export async function uploadImageFromBuffer(
 
     logger.info(`[Storage] Saved buffer to local disk: ${localFilePath}`);
 
-    // Return local URL (using local IP for mobile access)
-    // IMPORTANT: Ensure this IP matches your machine's IP on the network
-    const localIp = '192.168.0.4';
-    return `http://${localIp}:8000/uploads/${fileName}`;
+    // Use environment variable for local IP or fallback to localhost
+    const localIp = process.env.LOCAL_IP || '192.168.0.4';
+    const port = process.env.PORT || '8000';
+
+    // In production, you would use a proper public URL or cloud storage URL
+    return `http://${localIp}:${port}/uploads/${fileName}`;
 
   } catch (error) {
     logger.error('[Storage] Upload from buffer error', error);
