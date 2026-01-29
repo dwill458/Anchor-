@@ -187,4 +187,90 @@ router.put('/profile', authMiddleware, async (req: AuthRequest, res: Response) =
   }
 });
 
+/**
+ * PUT /api/auth/settings
+ *
+ * Update user settings
+ * Requires authentication
+ *
+ * Body:
+ * - notificationsEnabled: Boolean (optional)
+ * - dailyReminderTime: String in HH:MM format (optional)
+ * - streakProtection: Boolean (optional)
+ * - defaultChargeDuration: Number in seconds (optional)
+ * - hapticIntensity: Number 1-5 (optional)
+ * - vaultViewType: 'grid' | 'list' (optional)
+ */
+router.put('/settings', authMiddleware, async (req: AuthRequest, res: Response) => {
+  try {
+    if (!req.user) {
+      throw new AppError('User not authenticated', 401, 'UNAUTHORIZED');
+    }
+
+    const {
+      notificationsEnabled,
+      dailyReminderTime,
+      streakProtection,
+      defaultChargeDuration,
+      hapticIntensity,
+      vaultViewType,
+    } = req.body;
+
+    // Validation
+    if (dailyReminderTime && !/^([01]\d|2[0-3]):([0-5]\d)$/.test(dailyReminderTime)) {
+      throw new AppError('Invalid dailyReminderTime format. Use HH:MM', 400, 'VALIDATION_ERROR');
+    }
+
+    if (hapticIntensity !== undefined && (hapticIntensity < 1 || hapticIntensity > 5)) {
+      throw new AppError('hapticIntensity must be between 1 and 5', 400, 'VALIDATION_ERROR');
+    }
+
+    if (vaultViewType && !['grid', 'list'].includes(vaultViewType)) {
+      throw new AppError('vaultViewType must be "grid" or "list"', 400, 'VALIDATION_ERROR');
+    }
+
+    // Find user to get their ID
+    const user = await prisma.user.findUnique({
+      where: { authUid: req.user.uid },
+    });
+
+    if (!user) {
+      throw new AppError('User not found', 404, 'USER_NOT_FOUND');
+    }
+
+    // Update settings (upsert in case they don't exist yet)
+    const settings = await prisma.userSettings.upsert({
+      where: { userId: user.id },
+      update: {
+        ...(notificationsEnabled !== undefined && { notificationsEnabled }),
+        ...(dailyReminderTime && { dailyReminderTime }),
+        ...(streakProtection !== undefined && { streakProtection }),
+        ...(defaultChargeDuration !== undefined && { defaultChargeDuration }),
+        ...(hapticIntensity !== undefined && { hapticIntensity }),
+        ...(vaultViewType && { vaultViewType }),
+        updatedAt: new Date(),
+      },
+      create: {
+        userId: user.id,
+        ...(notificationsEnabled !== undefined && { notificationsEnabled }),
+        ...(dailyReminderTime && { dailyReminderTime }),
+        ...(streakProtection !== undefined && { streakProtection }),
+        ...(defaultChargeDuration !== undefined && { defaultChargeDuration }),
+        ...(hapticIntensity !== undefined && { hapticIntensity }),
+        ...(vaultViewType && { vaultViewType }),
+      },
+    });
+
+    res.json({
+      success: true,
+      data: settings,
+    });
+  } catch (error) {
+    if (error instanceof AppError) {
+      throw error;
+    }
+    throw new AppError('Failed to update settings', 500, 'UPDATE_ERROR');
+  }
+});
+
 export default router;
