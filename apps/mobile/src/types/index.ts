@@ -504,25 +504,11 @@ export type RootStackParamList = {
   // CHARGING & ACTIVATION
   // ═══════════════════════════════════════════════════
 
-  // NEW Redesigned Ritual Flow (Phase 2.7)
+  // Zen Architect Ritual Flow (Phase 2.7)
   ChargeSetup: { anchorId: string };
   Ritual: { anchorId: string; ritualType: 'quick' | 'deep' };
   SealAnchor: { anchorId: string };
   ChargeComplete: { anchorId: string };
-
-  // Legacy Charging Routes (kept for backward compatibility)
-  ChargeChoice: { anchorId: string };
-  ChargingRitual: { anchorId: string; chargeType: ChargeType };
-
-  // Phase 2.6: Emotional Priming (legacy)
-  EmotionalPriming: {
-    anchorId: string;
-    intention: string;
-    chargeType: 'quick' | 'deep';
-  };
-
-  QuickCharge: { anchorId: string; chargeType: ChargeType };
-  DeepCharge: { anchorId: string; chargeType: ChargeType };
 
   // Activation
   ActivationRitual: { anchorId: string; activationType: ActivationType };

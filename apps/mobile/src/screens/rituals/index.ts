@@ -10,12 +10,6 @@ export { RitualScreen } from './RitualScreen';
 export { SealAnchorScreen } from './SealAnchorScreen';
 export { ChargeCompleteScreen } from './ChargeCompleteScreen';
 
-// Legacy Charging Screens
-export { ChargeChoiceScreen } from './ChargeChoiceScreen';
-export { EmotionalPrimingScreen } from './EmotionalPrimingScreen';
-export { QuickChargeScreen } from './QuickChargeScreen';
-export { DeepChargeScreen } from './DeepChargeScreen';
-
 // Activation & Burning
 export { ActivationScreen } from './ActivationScreen';
 export { ConfirmBurnScreen } from './ConfirmBurnScreen';

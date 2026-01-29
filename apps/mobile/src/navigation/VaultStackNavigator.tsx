@@ -22,10 +22,6 @@ import {
   ManualForgeScreen,
 } from '../screens/create';
 import {
-  ChargeChoiceScreen,
-  EmotionalPrimingScreen,
-  QuickChargeScreen,
-  DeepChargeScreen,
   ActivationScreen,
   ConfirmBurnScreen,
   BurningRitualScreen,
@@ -144,8 +140,7 @@ export const VaultStackNavigator: React.FC = () => {
         options={{ title: 'Create Mantra' }}
       />
       {/* ════════════════════════════════════════════════════════ */}
-      {/* NEW Redesigned Ritual Flow (Phase 2.7) - Zen Architect  */}
-      {/* All charging flows now route through these screens      */}
+      {/* Charging & Activation - Zen Architect (Phase 2.7)       */}
       {/* ════════════════════════════════════════════════════════ */}
       <Stack.Screen
         name="ChargeSetup"
@@ -166,38 +161,6 @@ export const VaultStackNavigator: React.FC = () => {
         name="ChargeComplete"
         component={ChargeCompleteScreen}
         options={{ headerShown: false }}
-      />
-
-      {/* ════════════════════════════════════════════════════════ */}
-      {/* LEGACY Charging Rituals (Phase 2.6)                     */}
-      {/* These are kept for backward compatibility only.         */}
-      {/* All legacy screens now redirect to new flow.            */}
-      {/* TODO: Remove after confirming no active references.     */}
-      {/* ════════════════════════════════════════════════════════ */}
-      <Stack.Screen
-        name="ChargeChoice"
-        component={ChargeChoiceScreen}
-        options={{ title: 'Charge Anchor' }}
-      />
-      <Stack.Screen
-        name="ChargingRitual"
-        component={ChargeChoiceScreen}
-        options={{ title: 'Charge Anchor' }}
-      />
-      <Stack.Screen
-        name="EmotionalPriming"
-        component={EmotionalPrimingScreen}
-        options={{ title: 'Prepare', headerShown: false }}
-      />
-      <Stack.Screen
-        name="QuickCharge"
-        component={QuickChargeScreen}
-        options={{ title: 'Quick Charge', headerShown: false }}
-      />
-      <Stack.Screen
-        name="DeepCharge"
-        component={DeepChargeScreen}
-        options={{ title: 'Deep Charge', headerShown: false }}
       />
       <Stack.Screen
         name="ActivationRitual"
