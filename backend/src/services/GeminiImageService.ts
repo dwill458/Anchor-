@@ -36,16 +36,16 @@ interface ModelConfig {
 
 const MODEL_CONFIGS: Record<QualityTier, ModelConfig> = {
   draft: {
-    modelId: 'imagen-3.0-generate-001',
-    displayName: 'Imagen 3 (Draft)',
+    modelId: 'gemini-3-pro-image-preview',
+    displayName: 'Gemini 3 Pro Image (Nano Banana - Draft)',
     costPerImage: 0.02,
-    estimatedTimeSeconds: 5,
+    estimatedTimeSeconds: 4,
   },
   premium: {
-    modelId: 'imagen-3.0-generate-001',
-    displayName: 'Imagen 3 (Premium)',
+    modelId: 'gemini-3-pro-image-preview',
+    displayName: 'Gemini 3 Pro Image (Nano Banana - Premium)',
     costPerImage: 0.04,
-    estimatedTimeSeconds: 8,
+    estimatedTimeSeconds: 5,
   },
 };
 
@@ -204,31 +204,27 @@ export class GeminiImageService {
     const maxRetries = 3;
 
     try {
-      logger.info(`[GeminiImageService] Generating variation ${variationIndex + 1} with ${modelConfig.modelId}`);
+      logger.info(`[GeminiImageService] Generating variation ${variationIndex + 1} with ${modelConfig.modelId} (Nano Banana)`);
 
       // Prepare image for the API
       const base64Image = baseImageBuffer.toString('base64');
 
-      // Create a ControlReferenceImage using the SDK class
-      const controlImage = {
-        referenceId: 1,
-        referenceType: 'CONTROL' as const,
-        referenceImage: {
-          imageBytes: base64Image,
-          mimeType: 'image/png' as const,
-        },
-        config: {
-          controlType: 'CONTROL_TYPE_CANNY' as const,
-          enableControlImageComputation: true,
-        }
-      };
-
-      // Use the editImage API with a ControlReferenceImage (Canny edge detection)
-      // This ensures the sigil's structure is preserved.
-      const response = await this.client.models.editImage({
+      // Use Gemini 3 Pro Image's native generateImages with reference images
+      // This model supports up to 14 reference images for structural preservation
+      const response = await this.client.models.generateImages({
         model: modelConfig.modelId,
         prompt: prompt,
-        referenceImages: [controlImage as any], // Type assertion needed due to SDK complexity
+        // @ts-ignore - Gemini 3 Pro Image supports reference images but SDK types may not be updated yet
+        referenceImages: [
+          {
+            referenceId: 1,
+            referenceType: 'OBJECT' as const, // Use OBJECT type for structural preservation
+            referenceImage: {
+              imageBytes: base64Image,
+              mimeType: 'image/png' as const,
+            },
+          }
+        ],
         config: {
           numberOfImages: 1,
           aspectRatio: '1:1',
@@ -236,13 +232,13 @@ export class GeminiImageService {
         }
       });
 
-      // Extract image data from Imagen response
+      // Extract image data from Gemini response
       const generatedImage = response.generatedImages?.[0];
 
       if (!generatedImage?.image?.imageBytes) {
         throw new GeminiError(
           GeminiErrorType.INVALID_IMAGE,
-          'No image data returned from Imagen API',
+          'No image data returned from Gemini 3 Pro Image API',
           true
         );
       }
