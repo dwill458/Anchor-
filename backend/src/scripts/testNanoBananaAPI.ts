@@ -5,9 +5,14 @@
  * to understand the exact response structure.
  */
 
+import * as dotenv from 'dotenv';
+import * as path from 'path';
+
+// Load environment variables
+dotenv.config({ path: path.join(__dirname, '../../.env') });
+
 import { GoogleGenAI } from '@google/genai';
 import * as fs from 'fs';
-import * as path from 'path';
 
 async function testNanoBananaAPI() {
     console.log('🍌 Testing Gemini 3 Pro Image (Nano Banana) API\n');
