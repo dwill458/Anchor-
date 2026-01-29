@@ -196,7 +196,8 @@ export const MantraCreationScreen: React.FC = () => {
 
     addAnchor(newAnchor);
 
-    navigation.navigate('ChargeChoice', {
+    // Navigate to new redesigned charging flow (Phase 2.7)
+    navigation.navigate('ChargeSetup', {
       anchorId: anchorId,
     });
   };

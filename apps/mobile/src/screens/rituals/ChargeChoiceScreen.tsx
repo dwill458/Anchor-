@@ -29,37 +29,35 @@ export const ChargeChoiceScreen: React.FC = () => {
   const anchor = getAnchorById(anchorId);
 
   /**
-   * Navigate to Quick Charge (30s) via Emotional Priming
+   * Navigate to Quick Charge (30s) - UPDATED to use new flow
+   * DEPRECATED: This entire screen is legacy. Direct users to ChargeSetupScreen instead.
    */
   const handleQuickCharge = (): void => {
-    navigation.navigate('EmotionalPriming', {
+    // Bypass old flow, go directly to new ChargeSetup screen
+    navigation.replace('ChargeSetup', {
       anchorId,
-      intention: anchor?.intentionText || '',
-      chargeType: 'quick'
     });
   };
 
   /**
-   * Navigate to Deep Charge (5min) via Emotional Priming
+   * Navigate to Deep Charge (5min) - UPDATED to use new flow
+   * DEPRECATED: This entire screen is legacy. Direct users to ChargeSetupScreen instead.
    */
   const handleDeepCharge = (): void => {
-    navigation.navigate('EmotionalPriming', {
+    // Bypass old flow, go directly to new ChargeSetup screen
+    navigation.replace('ChargeSetup', {
       anchorId,
-      intention: anchor?.intentionText || '',
-      chargeType: 'deep'
     });
   };
 
   /**
    * Navigate to Custom Prime (user-selected time)
+   * DEPRECATED: Use new ChargeSetup flow instead
    */
   const handleCustomPrime = (): void => {
-    // TODO: Navigate to custom time selection screen
-    // For now, default to Deep Prime
-    navigation.navigate('EmotionalPriming', {
+    // Bypass old flow, go directly to new ChargeSetup screen
+    navigation.replace('ChargeSetup', {
       anchorId,
-      intention: anchor?.intentionText || '',
-      chargeType: 'deep'
     });
   };
 
