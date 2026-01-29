@@ -31,6 +31,7 @@ export interface EnvConfig {
   GOOGLE_CLOUD_PROJECT_ID?: string;
   GOOGLE_CLOUD_PRIVATE_KEY?: string;
   GOOGLE_CLOUD_CLIENT_EMAIL?: string;
+  GOOGLE_API_KEY?: string;
 
   // JWT
   JWT_SECRET?: string;
@@ -125,6 +126,7 @@ export function validateEnv(): EnvConfig {
       GOOGLE_CLOUD_PROJECT_ID: validateString('GOOGLE_CLOUD_PROJECT_ID', process.env.GOOGLE_CLOUD_PROJECT_ID),
       GOOGLE_CLOUD_PRIVATE_KEY: validateString('GOOGLE_CLOUD_PRIVATE_KEY', process.env.GOOGLE_CLOUD_PRIVATE_KEY),
       GOOGLE_CLOUD_CLIENT_EMAIL: validateString('GOOGLE_CLOUD_CLIENT_EMAIL', process.env.GOOGLE_CLOUD_CLIENT_EMAIL),
+      GOOGLE_API_KEY: validateString('GOOGLE_API_KEY', process.env.GOOGLE_API_KEY),
 
       // JWT (optional - will use default)
       JWT_SECRET: validateString('JWT_SECRET', process.env.JWT_SECRET),
