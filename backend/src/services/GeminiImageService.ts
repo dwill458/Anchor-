@@ -36,15 +36,15 @@ interface ModelConfig {
 
 const MODEL_CONFIGS: Record<QualityTier, ModelConfig> = {
   draft: {
-    modelId: 'gemini-2.0-flash-exp',
-    displayName: 'Gemini 2.0 Flash (Draft)',
-    costPerImage: 0.005,
+    modelId: 'imagen-4.0-generate-001',
+    displayName: 'Imagen 4 (Draft)',
+    costPerImage: 0.02,
     estimatedTimeSeconds: 5,
   },
   premium: {
-    modelId: 'gemini-2.0-flash-exp', // Using same model for now as Pro image gen might not be public
-    displayName: 'Gemini 2.0 Flash (Premium)',
-    costPerImage: 0.02,
+    modelId: 'imagen-4.0-generate-001',
+    displayName: 'Imagen 4 (Premium)',
+    costPerImage: 0.04,
     estimatedTimeSeconds: 8,
   },
 };
@@ -204,59 +204,33 @@ export class GeminiImageService {
     const maxRetries = 3;
 
     try {
-      // Gemini 2.0 Flash configuration for image generation
-      const response = await this.client.models.generateContent({
-        model: modelConfig.modelId,
+      logger.info(`[GeminiImageService] Generating variation ${variationIndex + 1} with Imagen 4`);
+
+      // Use the generateImages API with Imagen 4
+      const response = await this.client.models.generateImages({
+        model: 'imagen-4.0-generate-001',
+        prompt: prompt,
         config: {
-          systemInstruction: STRUCTURAL_PRESERVATION_SYSTEM_INSTRUCTION,
-          temperature: 0.9,
-          candidateCount: 1,
-        },
-        contents: [
-          {
-            role: 'user',
-            parts: [
-              {
-                inlineData: {
-                  mimeType: 'image/png',
-                  data: baseImageBuffer.toString('base64')
-                }
-              },
-              { text: prompt + " Generate an image." }
-            ]
-          }
-        ]
+          numberOfImages: 1,
+          aspectRatio: '1:1',
+        }
       });
 
-      // Extract image data
-      // API 2.0 typically returns images in candidates[0].content.parts
-      // Look for inlineData or similar
-      const candidate = response.candidates?.[0];
-      const parts = candidate?.content?.parts;
 
-      let base64Data = '';
-      if (parts) {
-        for (const part of parts) {
-          if (part.inlineData && part.inlineData.data) {
-            base64Data = part.inlineData.data;
-            break;
-          }
-          // Sometimes it might be in a different executable code result if tools were used, 
-          // but for native generation it should be inlineData
-        }
-      }
+      // Extract image data from Imagen response
+      const generatedImage = response.generatedImages?.[0];
 
-      if (!base64Data) {
-        // Warning: if the model returned text instead of an image
-        const textPart = parts?.find(p => p.text)?.text;
-        if (textPart) logger.warn(`[Gemini] Model returned text instead of image: ${textPart.substring(0, 100)}...`);
-
+      if (!generatedImage?.image?.imageBytes) {
         throw new GeminiError(
           GeminiErrorType.INVALID_IMAGE,
-          'No image data returned from Gemini API',
+          'No image data returned from Imagen API',
           true
         );
       }
+
+      // imageBytes is a Uint8Array, convert to base64
+      const base64Data = Buffer.from(generatedImage.image.imageBytes).toString('base64');
+
 
       return {
         base64: base64Data,
