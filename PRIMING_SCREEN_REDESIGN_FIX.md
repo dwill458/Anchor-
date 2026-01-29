@@ -165,10 +165,96 @@ Manages:
 
 ## Files Modified
 
-1. `apps/mobile/src/screens/create/MantraCreationScreen.tsx`
-2. `apps/mobile/src/screens/rituals/ChargeChoiceScreen.tsx`
-3. `apps/mobile/src/screens/rituals/EmotionalPrimingScreen.tsx`
-4. `apps/mobile/src/navigation/VaultStackNavigator.tsx`
+1. `apps/mobile/src/screens/create/MantraCreationScreen.tsx` - Fixed navigation to new flow
+2. `apps/mobile/src/screens/rituals/ChargeChoiceScreen.tsx` - Redirects to new flow
+3. `apps/mobile/src/screens/rituals/EmotionalPrimingScreen.tsx` - Redirects to new flow
+4. `apps/mobile/src/navigation/VaultStackNavigator.tsx` - Updated documentation
+5. `apps/mobile/src/screens/rituals/RitualScreen.tsx` - **CRITICAL: Added backend sync**
+
+---
+
+## CRITICAL Backend Sync Fix
+
+### Issue Discovered (Post-Commit)
+
+After initial implementation, a code review bot (Codex) identified that the new `RitualScreen` was **only updating local state** and not calling the backend API. This would cause:
+
+1. ❌ Charges only saved locally (Zustand store)
+2. ❌ Backend unaware of charge
+3. ❌ Cross-device sync broken
+4. ❌ Server-driven features not reflecting charge
+
+### Root Cause
+
+**Old screens (QuickChargeScreen/DeepChargeScreen) were calling:**
+```typescript
+// 1. Backend first
+await apiClient.post(`/api/anchors/${anchorId}/charge`, {
+  chargeType: 'initial_quick',
+  durationSeconds: 30,
+});
+
+// 2. Then local state
+updateAnchor(anchorId, {
+  isCharged: true,
+  chargedAt: new Date(),
+});
+```
+
+**New RitualScreen was only calling:**
+```typescript
+// WRONG: Only local state, no backend sync
+await updateAnchor(anchorId, {
+  isCharged: true,
+  chargedAt: new Date(),
+});
+```
+
+### Fix Applied
+
+**File: `apps/mobile/src/screens/rituals/RitualScreen.tsx`**
+
+Added backend API call before local state update:
+
+```typescript
+async function handleSealComplete() {
+  try {
+    // Determine charge type based on ritual type
+    const chargeType = ritualType === 'quick' ? 'initial_quick' : 'initial_deep';
+
+    // CRITICAL: Update backend first (for cross-device sync)
+    await apiClient.post(`/api/anchors/${anchorId}/charge`, {
+      chargeType,
+      durationSeconds: config.totalDurationSeconds,
+    });
+
+    // Then update local state
+    await updateAnchor(anchorId, {
+      isCharged: true,
+      chargedAt: new Date(),
+    });
+
+    // Navigate to completion screen
+    navigation.replace('ChargeComplete', { anchorId });
+  } catch (error) {
+    console.error('Failed to update anchor:', error);
+    Alert.alert('Error', 'Failed to save charge. Please try again.');
+  }
+}
+```
+
+**Changes:**
+- Line 29: Added `import { apiClient } from '@/services/ApiClient';`
+- Lines 174-198: Updated `handleSealComplete` to call backend API first
+- Matches old screen behavior: backend → local → navigate
+
+### Verification
+
+✅ Backend receives charge event
+✅ Cross-device sync works
+✅ Server-driven features reflect charge
+✅ Local state still updated as fallback
+✅ Error handling preserved
 
 ---
 
@@ -195,6 +281,13 @@ Manages:
 - [ ] Graceful fallback if anchor is null
 - [ ] Back button shows exit confirmation
 - [ ] Doesn't crash if navigation params missing
+
+### Backend Sync (CRITICAL)
+- [ ] After completing ritual, check backend database for charge record
+- [ ] Verify charge appears on other devices (cross-device sync)
+- [ ] Confirm chargeType is 'initial_quick' or 'initial_deep'
+- [ ] Verify durationSeconds matches ritual config (30 for quick, 300 for deep)
+- [ ] If API call fails, error alert appears (not silent failure)
 
 ### Accessibility
 - [ ] Large tap targets (44x44 minimum)
