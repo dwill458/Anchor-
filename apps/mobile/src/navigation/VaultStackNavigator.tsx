@@ -20,6 +20,7 @@ import {
   AIVariationPickerScreen,
   MantraCreationScreen,
   ManualForgeScreen,
+  AnchorRevealScreen,
 } from '../screens/create';
 import {
   ActivationScreen,
@@ -134,6 +135,11 @@ export const VaultStackNavigator: React.FC = () => {
         name="EnhancedVersionPicker"
         component={AIVariationPickerScreen}
         options={{ title: 'Choose Variation' }}
+      />
+      <Stack.Screen
+        name="AnchorReveal"
+        component={AnchorRevealScreen}
+        options={{ headerShown: false }}
       />
       <Stack.Screen
         name="MantraCreation"

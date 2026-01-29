@@ -16,3 +16,4 @@ export { default as AIGeneratingScreen } from './AIGeneratingScreen';
 export { AIVariationPickerScreen } from './AIVariationPickerScreen';
 export { MantraCreationScreen } from './MantraCreationScreen';
 export { default as ManualForgeScreen } from './ManualForgeScreen';
+export { AnchorRevealScreen } from './AnchorRevealScreen';

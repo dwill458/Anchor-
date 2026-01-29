@@ -455,6 +455,19 @@ export type RootStackParamList = {
     prompt?: string;
   };
 
+  /** Step 7d: Anchor Reveal (Show selected anchor before mantra) */
+  AnchorReveal: {
+    intentionText: string;
+    category: AnchorCategory;
+    distilledLetters: string[];
+    baseSigilSvg: string;
+    reinforcedSigilSvg?: string;
+    structureVariant: SigilVariant;
+    enhancedImageUrl: string;
+    reinforcementMetadata?: ReinforcementMetadata;
+    enhancementMetadata: EnhancementMetadata;
+  };
+
   /** Step 8: Mantra Creation */
   MantraCreation: {
     intentionText: string;

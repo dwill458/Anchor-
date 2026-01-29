@@ -12,7 +12,7 @@
  * - Zen Architect styling with entrance animations
  */
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useLayoutEffect } from 'react';
 import {
   View,
   Text,
@@ -93,11 +93,17 @@ export const AIVariationPickerScreen: React.FC = () => {
     ]).start();
   }, []);
 
+  useLayoutEffect(() => {
+    navigation.setOptions({
+      headerShown: false,
+    });
+  }, [navigation]);
+
   const handleContinue = () => {
     const selectedImageUrl = variations[selectedIndex];
 
     // Navigate to MantraCreation with full context including enhancement metadata
-    navigation.navigate('MantraCreation', {
+    navigation.navigate('AnchorReveal', {
       intentionText,
       category,
       distilledLetters,
@@ -108,7 +114,12 @@ export const AIVariationPickerScreen: React.FC = () => {
       enhancedImageUrl: selectedImageUrl,
       enhancementMetadata: {
         styleApplied: styleChoice,
-        selectedVariationIndex: selectedIndex,
+        modelUsed: 'sdxl-controlnet',
+        controlMethod: 'canny',
+        generationTimeMs: 0,
+        promptUsed: prompt || '',
+        negativePrompt: '',
+        appliedAt: new Date(),
       },
     });
   };
@@ -120,7 +131,7 @@ export const AIVariationPickerScreen: React.FC = () => {
       <ZenBackground orbOpacity={0.15} />
 
       <SafeAreaView style={styles.safeArea}>
-        <ScreenHeader title="Choose Variation" />
+        <ScreenHeader title="Refine Your Anchor" />
 
         <ScrollView
           style={styles.scrollView}
@@ -137,10 +148,9 @@ export const AIVariationPickerScreen: React.FC = () => {
               },
             ]}
           >
-            <Text style={styles.title}>Choose Your Anchor</Text>
+            <Text style={styles.title}>Select Your Expression</Text>
             <Text style={styles.subtitle}>
-              ControlNet has created 4 variations in {STYLE_NAMES[styleChoice] || styleChoice} style,
-              preserving your structure while adding artistic enhancement.
+              The structure of your intention is fixed. Choose the visual resonance that grounds your focus.
             </Text>
           </Animated.View>
 
@@ -156,11 +166,11 @@ export const AIVariationPickerScreen: React.FC = () => {
           >
             <Text style={styles.styleInfoIcon}>✨</Text>
             <View style={styles.styleInfoContent}>
-              <Text style={styles.styleInfoLabel}>Style Applied</Text>
+              <Text style={styles.styleInfoLabel}>Visual Resonance</Text>
               <Text style={styles.styleInfoValue}>{STYLE_NAMES[styleChoice] || styleChoice}</Text>
             </View>
             <View style={styles.styleInfoBadge}>
-              <Text style={styles.styleInfoBadgeText}>🔒 Structure Preserved</Text>
+              <Text style={styles.styleInfoBadgeText}>✓ Structure Preserved</Text>
             </View>
           </Animated.View>
 
@@ -181,7 +191,7 @@ export const AIVariationPickerScreen: React.FC = () => {
               },
             ]}
           >
-            <Text style={styles.intentionLabel}>YOUR INTENTION</Text>
+            <Text style={styles.intentionLabel}>ROOTED IN YOUR INTENTION</Text>
             <BlurView intensity={20} tint="dark" style={styles.intentionCard}>
               <View style={styles.intentionBorder} />
               <Text style={styles.intentionText}>"{intentionText}"</Text>
@@ -205,6 +215,7 @@ export const AIVariationPickerScreen: React.FC = () => {
               },
             ]}
           >
+            <Text style={styles.guidanceText}>Trust your first instinct. Choose the form that feels most visceral.</Text>
             <View style={styles.grid}>
               {variations.map((imageUrl, index) => {
                 const isSelected = selectedIndex === index;
@@ -268,32 +279,30 @@ export const AIVariationPickerScreen: React.FC = () => {
             </View>
           </Animated.View>
 
-          {/* AI Generation Details - Collapsible */}
-          {prompt && (
-            <Animated.View
-              style={[
-                styles.detailsSection,
-                {
-                  opacity: fadeAnim,
-                  transform: [
-                    {
-                      translateY: slideAnim.interpolate({
-                        inputRange: [0, 30],
-                        outputRange: [0, 60],
-                      }),
-                    },
-                  ],
-                },
-              ]}
-            >
-              <BlurView intensity={15} tint="dark" style={styles.detailsCard}>
-                <Text style={styles.detailsLabel}>AI GENERATION DETAILS</Text>
-                <Text style={styles.detailsText} numberOfLines={4}>
-                  {prompt}
-                </Text>
-              </BlurView>
-            </Animated.View>
-          )}
+          {/* Symbolic Structure Details */}
+          <Animated.View
+            style={[
+              styles.detailsSection,
+              {
+                opacity: fadeAnim,
+                transform: [
+                  {
+                    translateY: slideAnim.interpolate({
+                      inputRange: [0, 30],
+                      outputRange: [0, 60],
+                    }),
+                  },
+                ],
+              },
+            ]}
+          >
+            <BlurView intensity={15} tint="dark" style={styles.detailsCard}>
+              <Text style={styles.detailsLabel}>SYMBOLIC STRUCTURE</Text>
+              <Text style={styles.detailsText}>
+                This Anchor preserves the geometry of your intention: "{intentionText}". The unique structure holds your focus, while the aesthetic amplifies its resonance.
+              </Text>
+            </BlurView>
+          </Animated.View>
 
           {/* Bottom spacer for button */}
           <View style={styles.bottomSpacer} />
@@ -328,7 +337,7 @@ export const AIVariationPickerScreen: React.FC = () => {
               end={{ x: 1, y: 0 }}
             >
               <Text style={styles.continueText}>
-                Select Variation {selectedIndex + 1}
+                Set Anchor
               </Text>
               <Text style={styles.continueArrow}>→</Text>
             </LinearGradient>
@@ -450,6 +459,15 @@ const styles = StyleSheet.create({
   },
   gridSection: {
     marginBottom: 24,
+  },
+  guidanceText: {
+    fontSize: 14,
+    color: colors.silver,
+    fontStyle: 'italic',
+    textAlign: 'center',
+    marginBottom: 20,
+    opacity: 0.9,
+    paddingHorizontal: 12,
   },
   grid: {
     flexDirection: 'row',
