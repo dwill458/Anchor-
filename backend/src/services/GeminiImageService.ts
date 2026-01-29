@@ -32,20 +32,23 @@ interface ModelConfig {
   displayName: string;
   costPerImage: number;
   estimatedTimeSeconds: number;
+  useNanoBanana?: boolean;
 }
 
 const MODEL_CONFIGS: Record<QualityTier, ModelConfig> = {
   draft: {
-    modelId: 'imagen-3.0-generate-001',
-    displayName: 'Imagen 3 (Draft)',
+    modelId: 'gemini-3-pro-image-preview',
+    displayName: 'Gemini 3 Pro Image (Nano Banana - Draft)',
     costPerImage: 0.02,
-    estimatedTimeSeconds: 5,
+    estimatedTimeSeconds: 4,
+    useNanoBanana: true,
   },
   premium: {
-    modelId: 'imagen-3.0-generate-001',
-    displayName: 'Imagen 3 (Premium)',
+    modelId: 'gemini-3-pro-image-preview',
+    displayName: 'Gemini 3 Pro Image (Nano Banana - Premium)',
     costPerImage: 0.04,
-    estimatedTimeSeconds: 8,
+    estimatedTimeSeconds: 5,
+    useNanoBanana: true,
   },
 };
 
@@ -201,17 +204,22 @@ export class GeminiImageService {
     modelConfig: ModelConfig,
     retryCount: number = 0
   ): Promise<ImageVariation> {
+    // Route to Nano Banana if configured
+    if (modelConfig.useNanoBanana) {
+      return this.generateVariationWithNanoBanana(
+        baseImageBuffer,
+        prompt,
+        variationIndex,
+        modelConfig,
+        retryCount
+      );
+    }
+
+    // Fallback to Imagen (legacy)
     const maxRetries = 3;
 
     try {
-      logger.info(`[GeminiImageService] Generating variation ${variationIndex + 1} with ${modelConfig.modelId} (Nano Banana)`);
-
-      // Prepare image for the API
-      const base64Image = baseImageBuffer.toString('base64');
-
-      // TEMPORARY: Test without reference images first
-      // TODO: Add reference images back once we confirm the model works
-      logger.warn('[GeminiImageService] Testing without reference images - structural preservation may be limited');
+      logger.info(`[GeminiImageService] Generating variation ${variationIndex + 1} with ${modelConfig.modelId} (Imagen)`);
 
       const response = await this.client.models.generateImages({
         model: modelConfig.modelId,
@@ -223,18 +231,16 @@ export class GeminiImageService {
         }
       });
 
-      // Extract image data from Gemini response
       const generatedImage = response.generatedImages?.[0];
 
       if (!generatedImage?.image?.imageBytes) {
         throw new GeminiError(
           GeminiErrorType.INVALID_IMAGE,
-          'No image data returned from Gemini 3 Pro Image API',
+          'No image data returned from Imagen API',
           true
         );
       }
 
-      // Convert imageBytes to base64
       const imageBytes = generatedImage.image.imageBytes;
       const base64Data = typeof imageBytes === 'string' ? imageBytes : Buffer.from(imageBytes).toString('base64');
 
@@ -254,6 +260,83 @@ export class GeminiImageService {
       }
 
       logger.error(`[GeminiImageService] Failed to generate variation ${variationIndex + 1}: ${geminiError.message}`);
+      throw geminiError;
+    }
+  }
+
+  private async generateVariationWithNanoBanana(
+    baseImageBuffer: Buffer,
+    prompt: string,
+    variationIndex: number,
+    modelConfig: ModelConfig,
+    retryCount: number = 0
+  ): Promise<ImageVariation> {
+    const maxRetries = 3;
+
+    try {
+      logger.info(`[GeminiImageService] Generating variation ${variationIndex + 1} with Nano Banana (${modelConfig.modelId})`);
+
+      const base64Image = baseImageBuffer.toString('base64');
+
+      const response = await this.client.models.generateContent({
+        model: modelConfig.modelId,
+        contents: [
+          {
+            role: 'user',
+            parts: [
+              {
+                text: `${prompt}\n\nIMPORTANT: Preserve the exact geometric structure and lines of the reference image.`
+              },
+              {
+                inlineData: {
+                  mimeType: 'image/png',
+                  data: base64Image
+                }
+              }
+            ]
+          }
+        ],
+        config: {
+          responseModalities: ['IMAGE'],
+          imageConfig: {
+            aspectRatio: '1:1'
+          }
+        }
+      });
+
+      // Extract image from response
+      const imageData = response.candidates?.[0]?.content?.parts?.[0]?.inlineData?.data;
+
+      if (!imageData) {
+        throw new GeminiError(
+          GeminiErrorType.INVALID_IMAGE,
+          'No image data in Nano Banana response',
+          true
+        );
+      }
+
+      return {
+        base64: imageData,
+        seed: Math.floor(Math.random() * 1000000),
+        variationIndex: variationIndex + 1,
+      };
+
+    } catch (error: any) {
+      const geminiError = this.parseError(error);
+
+      if (geminiError.retryable && retryCount < maxRetries) {
+        const waitTime = geminiError.retryAfterMs || Math.pow(2, retryCount) * 1000;
+        await new Promise((resolve) => setTimeout(resolve, waitTime));
+        return this.generateVariationWithNanoBanana(
+          baseImageBuffer,
+          prompt,
+          variationIndex,
+          modelConfig,
+          retryCount + 1
+        );
+      }
+
+      logger.error(`[GeminiImageService] Nano Banana failed for variation ${variationIndex + 1}: ${geminiError.message}`);
       throw geminiError;
     }
   }
