@@ -67,12 +67,13 @@ function getGeminiImageService(): GeminiImageService {
 export function getCostEstimate(tier: 'draft' | 'premium' = 'premium'): number {
   const geminiService = getGeminiImageService();
   if (geminiService.isAvailable()) {
-    // Gemini 3 Pro Image: $0.02 per image × 4 variations = $0.08 (premium)
-    // Gemini 3 Flash: $0.005 per image × 4 variations = $0.02 (draft)
-    return geminiService.getCostEstimate(4, tier);
+    // Draft: 2 variations × $0.02 = $0.04 (free users)
+    // Premium: 4 variations × $0.04 = $0.16 (paid users)
+    const numVariations = tier === 'draft' ? 2 : 4;
+    return geminiService.getCostEstimate(numVariations, tier);
   }
-  // Fallback to Replicate: ~$0.01 per image × 4 variations = $0.04
-  return 0.04;
+  // Fallback to Replicate: ~$0.01 per image × 2 variations = $0.02
+  return tier === 'draft' ? 0.02 : 0.04;
 }
 
 // ============================================================================
@@ -437,11 +438,14 @@ export async function enhanceSigilWithAI(
     try {
       logger.info('[AIEnhancer] Using Gemini 3 Pro Image as primary provider', { tier });
 
+      // Draft tier gets 2 variations (free users), Premium gets 4 (paid users)
+      const numberOfVariations = tier === 'draft' ? 2 : 4;
+
       const result = await geminiService.enhanceSigil({
         baseSigilSvg: request.sigilSvg,
-        intentionText: request.intentionText || 'personal intention and purpose',
+        intentionText: request.intentionText || '',  // Pass empty if not provided - prompt handles it
         styleApproach: request.styleChoice,
-        numberOfVariations: 4,
+        numberOfVariations,
         tier,
       });
 
