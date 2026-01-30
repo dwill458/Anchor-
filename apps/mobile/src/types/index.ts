@@ -580,3 +580,42 @@ export type AuthStackParamList = {
   SignUp: undefined;
   Onboarding: undefined;
 };
+
+// ============================================================================
+// Profile Types (Phase 1: Private Profile)
+// ============================================================================
+
+/**
+ * User statistics for profile display
+ */
+export interface UserStats {
+  totalAnchorsCreated: number;
+  totalCharged: number; // Derived client-side from charged anchors count
+  totalActivations: number;
+  currentStreak: number;
+  longestStreak: number;
+}
+
+/**
+ * Privacy-safe anchor representation for profile display
+ * Intention text is redacted as displayLabel to protect user privacy
+ */
+export interface RedactedAnchor {
+  id: string;
+  displayLabel: string; // Redacted label (e.g., "Career Anchor")
+  category: AnchorCategory | null;
+  isCharged: boolean;
+  activationCount: number;
+  enhancedImageUrl?: string;
+  baseSigilSvg: string;
+  createdAt: Date;
+}
+
+/**
+ * Complete profile data structure combining user info, stats, and active anchors
+ */
+export interface ProfileData {
+  user: User; // Existing User type
+  stats: UserStats;
+  activeAnchors: RedactedAnchor[];
+}

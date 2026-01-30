@@ -36,24 +36,17 @@ export default function ReturningIntentionScreen() {
 
     const PLACEHOLDER_POOL = [
         "Lead with clarity today",
-        "I stay grounded during conflict",
-        "My work reflects quiet confidence",
-        "I move forward with purpose",
-        "Boundaries protect my energy"
+        "Stay grounded during conflict",
+        "Release perfectionism",
+        "Move forward with confidence",
+        "Honor my boundaries"
     ];
 
-    // Faster entrance animation for returning users + Rotating Placeholder
+    // Faster entrance animation for returning users + Random Placeholder
     useEffect(() => {
-        let currentIndex = 0;
-
-        // Set initial placeholder
-        setPlaceholder(PLACEHOLDER_POOL[0]);
-
-        // Rotate placeholder every 4 seconds
-        const rotationInterval = setInterval(() => {
-            currentIndex = (currentIndex + 1) % PLACEHOLDER_POOL.length;
-            setPlaceholder(PLACEHOLDER_POOL[currentIndex]);
-        }, 4000);
+        // Pick random placeholder
+        const randomIndex = Math.floor(Math.random() * PLACEHOLDER_POOL.length);
+        setPlaceholder(`e.g. ${PLACEHOLDER_POOL[randomIndex]}`);
 
         Animated.timing(fadeAnim, {
             toValue: 1,
@@ -61,8 +54,6 @@ export default function ReturningIntentionScreen() {
             easing: Easing.out(Easing.cubic),
             useNativeDriver: true,
         }).start();
-
-        return () => clearInterval(rotationInterval);
     }, []);
 
     const [isFocused, setIsFocused] = useState(false);

@@ -11,7 +11,7 @@
  */
 
 import React, { useEffect, useRef } from 'react';
-import { View, Animated, StyleSheet, Easing } from 'react-native';
+import { View, Animated, StyleSheet, Easing, Image } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { colors } from '@/theme';
 
@@ -79,8 +79,12 @@ export const LogoBreath: React.FC<LogoBreathProps> = ({ onComplete }) => {
                     },
                 ]}
             >
-                {/* Placeholder: Simple "A" mark until actual logo is provided */}
-                <Animated.Text style={styles.logoText}>A</Animated.Text>
+                {/* Official Logo */}
+                <Image
+                    source={require('../../../assets/anchor-logo-official.jpg')}
+                    style={styles.logoImage}
+                    resizeMode="contain"
+                />
             </Animated.View>
         </View>
     );
@@ -97,10 +101,8 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         justifyContent: 'center',
     },
-    logoText: {
-        fontSize: 90,
-        fontFamily: 'Cinzel-Regular',
-        color: colors.gold,
-        letterSpacing: 0,
+    logoImage: {
+        width: 160,
+        height: 160,
     },
 });

@@ -1,13 +1,14 @@
 /**
  * Anchor App - Main Tab Navigator
  *
- * Bottom tab navigation for main app sections
+ * Bottom tab navigation with glassmorphic design
  */
 
 import React from 'react';
-import { View, StyleSheet, Platform, TouchableOpacity } from 'react-native';
+import { View, StyleSheet, Platform } from 'react-native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { LinearGradient } from 'expo-linear-gradient';
+import { BlurView } from 'expo-blur';
 import { Home, Compass, ShoppingBag, User } from 'lucide-react-native';
 import { getFocusedRouteNameFromRoute } from '@react-navigation/native';
 import { VaultStackNavigator } from './VaultStackNavigator';
@@ -22,6 +23,7 @@ const Tab = createBottomTabNavigator<MainTabParamList>();
 export const MainTabNavigator: React.FC = () => {
   return (
     <Tab.Navigator
+      sceneContainerStyle={{ backgroundColor: 'transparent' }} // Fix white background issue
       screenOptions={{
         headerShown: false,
         tabBarStyle: {
@@ -34,23 +36,36 @@ export const MainTabNavigator: React.FC = () => {
           borderRadius: 30,
           height: 70,
           borderTopWidth: 0,
-          // Shadow for iOS
+          overflow: 'hidden', // Ensure proper corner clipping
+          // Premium shadow
           shadowColor: '#000',
           shadowOffset: {
             width: 0,
-            height: 4,
+            height: 8,
           },
-          shadowOpacity: 0.3,
-          shadowRadius: 4.65,
+          shadowOpacity: 0.4,
+          shadowRadius: 12,
+          // Border for glassmorphic effect
+          borderWidth: 1,
+          borderColor: 'rgba(212, 175, 55, 0.15)',
         },
         tabBarBackground: () => (
           <View style={styles.tabBarBackgroundContainer}>
-            <LinearGradient
-              colors={[colors.deepPurple, colors.background.secondary]}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 0 }}
-              style={styles.tabBarGradient}
-            />
+            <BlurView
+              intensity={Platform.OS === 'ios' ? 40 : 80}
+              tint="dark"
+              style={styles.blurView}
+            >
+              <LinearGradient
+                colors={[
+                  'rgba(62, 44, 91, 0.85)',  // deepPurple with transparency
+                  'rgba(26, 26, 29, 0.75)',  // background.secondary with transparency
+                ]}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 0 }}
+                style={styles.tabBarGradient}
+              />
+            </BlurView>
           </View>
         ),
         tabBarActiveTintColor: colors.text.primary,
@@ -122,10 +137,17 @@ const styles = StyleSheet.create({
     right: 0,
     bottom: 0,
     borderRadius: 30,
-    overflow: 'hidden',
+    overflow: 'hidden', // Critical for clipping corners
+    backgroundColor: 'transparent',
+  },
+  blurView: {
+    flex: 1,
+    borderRadius: 30,
+    overflow: 'hidden', // Ensure blur respects border radius
   },
   tabBarGradient: {
     flex: 1,
+    borderRadius: 30,
   },
   sanctuaryIconContainer: {
     alignItems: 'center',
@@ -137,9 +159,18 @@ const styles = StyleSheet.create({
     width: 48,
     height: 48,
     borderRadius: 24,
-    backgroundColor: 'rgba(212, 175, 55, 0.12)', // Subtle gold glow
+    backgroundColor: 'rgba(212, 175, 55, 0.25)', // More visible gold glow
     borderWidth: 1,
-    borderColor: 'rgba(212, 175, 55, 0.20)', // Gentle gold outline
+    borderColor: 'rgba(212, 175, 55, 0.45)', // Stronger gold outline
     zIndex: 1,
+    // Subtle shadow for depth
+    shadowColor: colors.gold,
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+    elevation: 3, // Android shadow
   },
 });

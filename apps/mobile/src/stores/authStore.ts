@@ -8,7 +8,8 @@
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import type { User } from '@/types';
+import type { User, ProfileData } from '@/types';
+import { fetchCompleteProfile } from '@/services/ApiClient';
 
 /**
  * Onboarding segment type
@@ -29,6 +30,10 @@ interface AuthState {
   shouldRedirectToCreation: boolean;
   anchorCount: number;
 
+  // NEW: Profile caching fields
+  profileData: ProfileData | null;
+  profileLastFetched: number | null;
+
   // Actions
   setUser: (user: User | null) => void;
   setToken: (token: string | null) => void;
@@ -40,6 +45,11 @@ interface AuthState {
   setShouldRedirectToCreation: (should: boolean) => void;
   incrementAnchorCount: () => void;
   signOut: () => void;
+
+  // NEW: Profile actions
+  fetchProfile: () => Promise<void>;
+  refreshProfile: () => Promise<void>;
+  clearProfile: () => void;
 }
 
 /**
@@ -47,7 +57,7 @@ interface AuthState {
  */
 export const useAuthStore = create<AuthState>()(
   persist(
-    (set) => ({
+    (set, get) => ({
       // Initial state
       user: null,
       token: null,
@@ -57,6 +67,10 @@ export const useAuthStore = create<AuthState>()(
       onboardingSegment: null,
       shouldRedirectToCreation: false,
       anchorCount: 0,
+
+      // NEW: Profile caching initial state
+      profileData: null,
+      profileLastFetched: null,
 
       // Actions
       setUser: (user) =>
@@ -105,12 +119,49 @@ export const useAuthStore = create<AuthState>()(
           anchorCount: state.anchorCount + 1,
         })),
 
+      // NEW: Fetch profile with 5-minute cache TTL
+      fetchProfile: async () => {
+        try {
+          const CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
+          const { profileLastFetched } = get();
+          const now = Date.now();
+
+          // Return cached data if still fresh
+          if (profileLastFetched && (now - profileLastFetched) < CACHE_DURATION) {
+            return;
+          }
+
+          const profileData = await fetchCompleteProfile();
+          set({
+            profileData,
+            profileLastFetched: now,
+            user: profileData.user, // Keep user in sync
+          });
+        } catch (error) {
+          console.error('Failed to fetch profile:', error);
+          throw error;
+        }
+      },
+
+      // NEW: Force refresh profile (bypasses cache)
+      refreshProfile: async () => {
+        set({ profileLastFetched: null }); // Invalidate cache
+        await get().fetchProfile();
+      },
+
+      // NEW: Clear profile data (on logout)
+      clearProfile: () => {
+        set({ profileData: null, profileLastFetched: null });
+      },
+
       signOut: () =>
         set({
           user: null,
           token: null,
           isAuthenticated: false,
           anchorCount: 0,
+          profileData: null,
+          profileLastFetched: null,
         }),
     }),
     {
@@ -125,6 +176,8 @@ export const useAuthStore = create<AuthState>()(
         onboardingSegment: state.onboardingSegment,
         shouldRedirectToCreation: state.shouldRedirectToCreation,
         anchorCount: state.anchorCount,
+        profileData: state.profileData,
+        profileLastFetched: state.profileLastFetched,
       }),
     }
   )
