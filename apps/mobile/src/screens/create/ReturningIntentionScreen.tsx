@@ -36,17 +36,24 @@ export default function ReturningIntentionScreen() {
 
     const PLACEHOLDER_POOL = [
         "Lead with clarity today",
-        "Stay grounded during conflict",
-        "Release perfectionism",
-        "Move forward with confidence",
-        "Honor my boundaries"
+        "I stay grounded during conflict",
+        "My work reflects quiet confidence",
+        "I move forward with purpose",
+        "Boundaries protect my energy"
     ];
 
-    // Faster entrance animation for returning users + Random Placeholder
+    // Faster entrance animation for returning users + Rotating Placeholder
     useEffect(() => {
-        // Pick random placeholder
-        const randomIndex = Math.floor(Math.random() * PLACEHOLDER_POOL.length);
-        setPlaceholder(`e.g. ${PLACEHOLDER_POOL[randomIndex]}`);
+        let currentIndex = 0;
+
+        // Set initial placeholder
+        setPlaceholder(PLACEHOLDER_POOL[0]);
+
+        // Rotate placeholder every 4 seconds
+        const rotationInterval = setInterval(() => {
+            currentIndex = (currentIndex + 1) % PLACEHOLDER_POOL.length;
+            setPlaceholder(PLACEHOLDER_POOL[currentIndex]);
+        }, 4000);
 
         Animated.timing(fadeAnim, {
             toValue: 1,
@@ -54,6 +61,8 @@ export default function ReturningIntentionScreen() {
             easing: Easing.out(Easing.cubic),
             useNativeDriver: true,
         }).start();
+
+        return () => clearInterval(rotationInterval);
     }, []);
 
     const [isFocused, setIsFocused] = useState(false);
@@ -174,6 +183,11 @@ export default function ReturningIntentionScreen() {
                             <Text style={styles.microCopy}>
                                 As always, you can refine or release later.
                             </Text>
+
+                            {/* Subtle Guidance Hint */}
+                            <Text style={styles.hintText}>
+                                Short. Present. Felt.
+                            </Text>
                         </Animated.View>
 
                     </ScrollView>
@@ -271,6 +285,15 @@ const styles = StyleSheet.create({
         letterSpacing: 0.3,
         opacity: 0.7,
         textAlign: 'left', // Left-aligned per locked system
+    },
+    hintText: {
+        ...typography.body,
+        fontSize: 11, // Smaller, quieter
+        color: colors.text.tertiary,
+        marginTop: spacing.sm, // 8px
+        letterSpacing: 0.5,
+        opacity: 0.4, // Very low contrast
+        textAlign: 'left',
     },
     continueContainer: {
         paddingHorizontal: spacing.xl, // 32px
