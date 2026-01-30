@@ -5,7 +5,7 @@
  */
 
 import React from 'react';
-import { View, StyleSheet, Platform } from 'react-native';
+import { View, StyleSheet, Platform, TouchableOpacity } from 'react-native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Home, Compass, ShoppingBag, User } from 'lucide-react-native';
@@ -76,7 +76,12 @@ export const MainTabNavigator: React.FC = () => {
 
           return {
             tabBarLabel: 'Sanctuary',
-            tabBarIcon: ({ color, size }) => <Home color={color} size={24} />,
+            tabBarIcon: ({ color, size, focused }) => (
+              <View style={styles.sanctuaryIconContainer}>
+                {focused && <View style={styles.sanctuaryPill} />}
+                <Home color={color} size={24} style={{ zIndex: 2 }} />
+              </View>
+            ),
             tabBarStyle: isTabBarVisible ? undefined : { display: 'none' },
           };
         }}
@@ -121,5 +126,20 @@ const styles = StyleSheet.create({
   },
   tabBarGradient: {
     flex: 1,
+  },
+  sanctuaryIconContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    position: 'relative',
+  },
+  sanctuaryPill: {
+    position: 'absolute',
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: 'rgba(212, 175, 55, 0.12)', // Subtle gold glow
+    borderWidth: 1,
+    borderColor: 'rgba(212, 175, 55, 0.20)', // Gentle gold outline
+    zIndex: 1,
   },
 });

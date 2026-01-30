@@ -35,18 +35,25 @@ export default function IntentionInputScreen() {
     const fadeAnim = useRef(new Animated.Value(0)).current;
 
     const PLACEHOLDER_POOL = [
-        "Stay focused during training",
         "Respond calmly under pressure",
-        "Be present with my family",
-        "Trust my decisions",
-        "Listen before reacting"
+        "I focus deeply on one task at a time",
+        "My body moves light and strong",
+        "I act decisively when it matters",
+        "Opportunities meet me when I'm prepared"
     ];
 
-    // Entrance animation with locked system easing + Random Placeholder
+    // Entrance animation with locked system easing + Rotating Placeholder
     useEffect(() => {
-        // Pick random placeholder
-        const randomIndex = Math.floor(Math.random() * PLACEHOLDER_POOL.length);
-        setPlaceholder(`e.g. ${PLACEHOLDER_POOL[randomIndex]}`);
+        let currentIndex = 0;
+
+        // Set initial placeholder
+        setPlaceholder(PLACEHOLDER_POOL[0]);
+
+        // Rotate placeholder every 4 seconds
+        const rotationInterval = setInterval(() => {
+            currentIndex = (currentIndex + 1) % PLACEHOLDER_POOL.length;
+            setPlaceholder(PLACEHOLDER_POOL[currentIndex]);
+        }, 4000);
 
         Animated.timing(fadeAnim, {
             toValue: 1,
@@ -54,6 +61,8 @@ export default function IntentionInputScreen() {
             easing: Easing.out(Easing.cubic),
             useNativeDriver: true,
         }).start();
+
+        return () => clearInterval(rotationInterval);
     }, []);
 
     const [isFocused, setIsFocused] = useState(false);
@@ -174,6 +183,11 @@ export default function IntentionInputScreen() {
                             <Text style={styles.microCopy}>
                                 You can refine or release this later.
                             </Text>
+
+                            {/* Subtle Guidance Hint */}
+                            <Text style={styles.hintText}>
+                                Short. Present. Felt.
+                            </Text>
                         </Animated.View>
 
                     </ScrollView>
@@ -271,6 +285,15 @@ const styles = StyleSheet.create({
         letterSpacing: 0.3,
         opacity: 0.7,
         textAlign: 'left', // Left-aligned per locked system
+    },
+    hintText: {
+        ...typography.body,
+        fontSize: 11, // Smaller, quieter
+        color: colors.text.tertiary,
+        marginTop: spacing.sm, // 8px
+        letterSpacing: 0.5,
+        opacity: 0.4, // Very low contrast
+        textAlign: 'left',
     },
     continueContainer: {
         paddingHorizontal: spacing.xl, // 32px
