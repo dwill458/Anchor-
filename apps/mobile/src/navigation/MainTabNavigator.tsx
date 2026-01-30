@@ -137,9 +137,18 @@ const styles = StyleSheet.create({
     width: 48,
     height: 48,
     borderRadius: 24,
-    backgroundColor: 'rgba(212, 175, 55, 0.12)', // Subtle gold glow
+    backgroundColor: 'rgba(212, 175, 55, 0.25)', // More visible gold glow
     borderWidth: 1,
-    borderColor: 'rgba(212, 175, 55, 0.20)', // Gentle gold outline
+    borderColor: 'rgba(212, 175, 55, 0.45)', // Stronger gold outline
     zIndex: 1,
+    // Subtle shadow for depth
+    shadowColor: colors.gold,
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+    elevation: 3, // Android shadow
   },
 });

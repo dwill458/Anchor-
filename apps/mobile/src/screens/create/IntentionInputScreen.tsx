@@ -35,25 +35,18 @@ export default function IntentionInputScreen() {
     const fadeAnim = useRef(new Animated.Value(0)).current;
 
     const PLACEHOLDER_POOL = [
+        "Stay focused during training",
         "Respond calmly under pressure",
-        "I focus deeply on one task at a time",
-        "My body moves light and strong",
-        "I act decisively when it matters",
-        "Opportunities meet me when I'm prepared"
+        "Be present with my family",
+        "Trust my decisions",
+        "Listen before reacting"
     ];
 
-    // Entrance animation with locked system easing + Rotating Placeholder
+    // Entrance animation with locked system easing + Random Placeholder
     useEffect(() => {
-        let currentIndex = 0;
-
-        // Set initial placeholder
-        setPlaceholder(PLACEHOLDER_POOL[0]);
-
-        // Rotate placeholder every 4 seconds
-        const rotationInterval = setInterval(() => {
-            currentIndex = (currentIndex + 1) % PLACEHOLDER_POOL.length;
-            setPlaceholder(PLACEHOLDER_POOL[currentIndex]);
-        }, 4000);
+        // Pick random placeholder
+        const randomIndex = Math.floor(Math.random() * PLACEHOLDER_POOL.length);
+        setPlaceholder(`e.g. ${PLACEHOLDER_POOL[randomIndex]}`);
 
         Animated.timing(fadeAnim, {
             toValue: 1,
@@ -61,8 +54,6 @@ export default function IntentionInputScreen() {
             easing: Easing.out(Easing.cubic),
             useNativeDriver: true,
         }).start();
-
-        return () => clearInterval(rotationInterval);
     }, []);
 
     const [isFocused, setIsFocused] = useState(false);
