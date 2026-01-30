@@ -13,6 +13,7 @@ import {
   ScrollView,
   Platform,
   Alert,
+  RefreshControl,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -34,8 +35,14 @@ import { useToast } from '@/components/ToastProvider';
 import { useNavigation } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { RootStackParamList } from '@/types';
-import { colors, spacing, typography } from '@/theme';
+import { colors, spacing } from '@/theme';
 import { ZenBackground } from '@/components/common';
+import { ProfileHeader } from '@/components/profile/ProfileHeader';
+import { StatsGrid } from '@/components/profile/StatsGrid';
+import { ActiveAnchorsGrid } from '@/components/profile/ActiveAnchorsGrid';
+import { ProfileEmptyState } from '@/components/profile/ProfileEmptyState';
+import { ProfileErrorState } from '@/components/profile/ProfileErrorState';
+import { LoadingSpinner } from '@/components/LoadingSpinner';
 
 const IS_ANDROID = Platform.OS === 'android';
 
@@ -110,9 +117,11 @@ const MenuItem: React.FC<MenuItemProps> = ({
 
 export const ProfileScreen: React.FC = () => {
   const navigation = useNavigation<ProfileNavigationProp>();
-  const { user, signOut, setHasCompletedOnboarding } = useAuthStore();
+  const { user, signOut, setHasCompletedOnboarding, profileData, fetchProfile, refreshProfile } = useAuthStore();
   const toast = useToast();
   const [isLoading, setIsLoading] = useState(false);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [profileError, setProfileError] = useState<string | null>(null);
 
   // Mock user data - replace with actual API call
   const displayName = user?.displayName || 'Practitioner';
@@ -122,6 +131,47 @@ export const ProfileScreen: React.FC = () => {
   const totalActivations = user?.totalActivations || 0;
   const currentStreak = user?.currentStreak || 0;
   const longestStreak = user?.longestStreak || 0;
+
+  // Load profile data on mount
+  useEffect(() => {
+    loadProfileData();
+  }, []);
+
+  const loadProfileData = async () => {
+    try {
+      setIsLoading(true);
+      setProfileError(null);
+      await fetchProfile();
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Failed to load profile';
+      setProfileError(message);
+      console.error('Profile load error:', error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleRefresh = async () => {
+    try {
+      setIsRefreshing(true);
+      setProfileError(null);
+      await refreshProfile();
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Failed to refresh profile';
+      setProfileError(message);
+      console.error('Profile refresh error:', error);
+    } finally {
+      setIsRefreshing(false);
+    }
+  };
+
+  const handleCreateAnchor = () => {
+    navigation.navigate('CreateAnchor');
+  };
+
+  const handleAnchorPress = (anchorId: string) => {
+    navigation.navigate('AnchorDetail', { anchorId });
+  };
 
   const handleSettings = () => {
     navigation.navigate('Settings');
@@ -184,10 +234,47 @@ export const ProfileScreen: React.FC = () => {
           style={styles.scrollView}
           contentContainerStyle={styles.scrollContent}
           showsVerticalScrollIndicator={false}
+          refreshControl={
+            <RefreshControl refreshing={isRefreshing} onRefresh={handleRefresh} tintColor={colors.gold} />
+          }
         >
           {/* Header */}
           <View style={styles.header}>
-            <Text style={styles.title}>Profile</Text>
+            <Text style={styles.title}>Your Practice</Text>
+          </View>
+
+          {/* Private Profile Section (Phase 1) */}
+          {isLoading && !profileData ? (
+            <View style={styles.loadingContainer}>
+              <LoadingSpinner />
+            </View>
+          ) : profileError && !profileData ? (
+            <ProfileErrorState error={profileError} onRetry={loadProfileData} />
+          ) : profileData && profileData.stats.totalAnchorsCreated === 0 ? (
+            <>
+              <ProfileHeader
+                displayName={profileData.user.displayName}
+                subscriptionStatus={profileData.user.subscriptionStatus}
+              />
+              <ProfileEmptyState onCreateAnchor={handleCreateAnchor} />
+            </>
+          ) : profileData ? (
+            <>
+              <ProfileHeader
+                displayName={profileData.user.displayName}
+                subscriptionStatus={profileData.user.subscriptionStatus}
+              />
+              <StatsGrid stats={profileData.stats} />
+              <ActiveAnchorsGrid anchors={profileData.activeAnchors} onAnchorPress={handleAnchorPress} />
+            </>
+          ) : null}
+
+          {/* Divider */}
+          {profileData && <View style={styles.sectionDivider} />}
+
+          {/* Account Settings Section */}
+          <View style={styles.header}>
+            <Text style={styles.title}>Account</Text>
           </View>
 
           {/* User Info Card */}
@@ -196,7 +283,7 @@ export const ProfileScreen: React.FC = () => {
               <View style={styles.userCard}>
                 <View style={styles.avatarContainer}>
                   <LinearGradient
-                    colors={[colors.gold, colors.copper]}
+                    colors={[colors.gold, colors.bronze]}
                     style={styles.avatarGradient}
                   >
                     <User color={colors.navy} size={32} strokeWidth={2} />
@@ -218,7 +305,7 @@ export const ProfileScreen: React.FC = () => {
               <BlurView intensity={12} tint="dark" style={styles.userCard}>
                 <View style={styles.avatarContainer}>
                   <LinearGradient
-                    colors={[colors.gold, colors.copper]}
+                    colors={[colors.gold, colors.bronze]}
                     style={styles.avatarGradient}
                   >
                     <User color={colors.navy} size={32} strokeWidth={2} />
@@ -525,5 +612,16 @@ const styles = StyleSheet.create({
   },
   bottomSpacer: {
     height: 20,
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    minHeight: 200,
+  },
+  sectionDivider: {
+    height: 1,
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    marginVertical: spacing.xl,
   },
 });

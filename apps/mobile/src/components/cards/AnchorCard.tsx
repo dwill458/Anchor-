@@ -3,7 +3,7 @@
  */
 
 import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Platform } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Platform, Image } from 'react-native';
 import { SvgXml } from 'react-native-svg';
 import { BlurView } from 'expo-blur';
 import type { Anchor } from '@/types';
@@ -46,7 +46,13 @@ export const AnchorCard: React.FC<AnchorCardProps> = ({ anchor, onPress }) => {
         <View style={styles.content}>
           <View style={styles.sigilContainer}>
             <View style={styles.sigilWrapper}>
-              {anchor.baseSigilSvg ? (
+              {anchor.enhancedImageUrl ? (
+                <Image
+                  source={{ uri: anchor.enhancedImageUrl }}
+                  style={styles.sigilImage}
+                  resizeMode="cover"
+                />
+              ) : anchor.baseSigilSvg ? (
                 <SvgXml xml={anchor.baseSigilSvg} width="100%" height="100%" />
               ) : (
                 <View style={styles.placeholderSigil}>
@@ -113,6 +119,11 @@ const styles = StyleSheet.create({
   sigilWrapper: {
     width: '100%',
     height: '100%',
+  },
+  sigilImage: {
+    width: '100%',
+    height: '100%',
+    borderRadius: 8,
   },
   chargedIndicator: {
     position: 'absolute',

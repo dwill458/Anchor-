@@ -11,6 +11,18 @@ import { ToastProvider } from './src/components/ToastProvider';
 const { width } = Dimensions.get('window');
 const isWeb = Platform.OS === 'web';
 
+const AppTheme = {
+  dark: true,
+  colors: {
+    primary: '#D4AF37', // Gold
+    background: 'transparent',
+    card: '#1A1625',
+    text: '#F5F5F1',
+    border: 'rgba(212, 175, 55, 0.15)',
+    notification: '#FF4444',
+  },
+};
+
 export default function App() {
   return (
     <ErrorBoundary>
@@ -19,7 +31,7 @@ export default function App() {
           <SafeAreaProvider>
             <View style={styles.webContainer}>
               <View style={styles.appContainer}>
-                <NavigationContainer>
+                <NavigationContainer theme={AppTheme}>
                   <StatusBar barStyle="light-content" backgroundColor="#1A1A1D" />
                   <RootNavigator />
                 </NavigationContainer>

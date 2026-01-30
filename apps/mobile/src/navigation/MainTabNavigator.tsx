@@ -23,6 +23,7 @@ const Tab = createBottomTabNavigator<MainTabParamList>();
 export const MainTabNavigator: React.FC = () => {
   return (
     <Tab.Navigator
+      sceneContainerStyle={{ backgroundColor: 'transparent' }} // Fix white background issue
       screenOptions={{
         headerShown: false,
         tabBarStyle: {

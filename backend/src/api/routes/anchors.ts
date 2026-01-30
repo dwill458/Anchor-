@@ -133,6 +133,9 @@ router.post('/', async (req: AuthRequest, res: Response) => {
  * Query params (optional):
  * - category: Filter by category
  * - isCharged: Filter by charged status
+ * - limit: Maximum number of anchors to return
+ * - orderBy: Field to sort by (default: 'updatedAt')
+ * - order: Sort direction 'asc' | 'desc' (default: 'desc')
  */
 router.get('/', async (req: AuthRequest, res: Response) => {
   try {
@@ -168,12 +171,18 @@ router.get('/', async (req: AuthRequest, res: Response) => {
       where.isCharged = req.query.isCharged === 'true';
     }
 
-    // Fetch anchors
+    // Parse sorting and pagination parameters
+    const orderBy = (req.query.orderBy as string) || 'updatedAt';
+    const order = ((req.query.order as string) || 'desc') as 'asc' | 'desc';
+    const limit = req.query.limit ? parseInt(req.query.limit as string) : undefined;
+
+    // Fetch anchors with optional sorting and limiting
     const anchors = await prisma.anchor.findMany({
       where,
       orderBy: {
-        createdAt: 'desc', // Most recent first
+        [orderBy]: order,
       },
+      ...(limit && { take: limit }),
     });
 
     res.json({

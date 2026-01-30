@@ -132,3 +132,79 @@ export async function del<T = unknown>(url: string): Promise<T> {
   const response = await apiClient.delete<T>(url);
   return response.data;
 }
+
+// ============================================================================
+// Profile API Functions (Phase 1: Private Profile)
+// ============================================================================
+
+import { Anchor, ProfileData, User, UserStats } from '@/types';
+import { redactAnchors } from '@/utils/privacyHelpers';
+
+/**
+ * Fetch current user profile and stats.
+ * Uses existing GET /api/auth/me endpoint.
+ *
+ * @returns User profile with stats fields
+ */
+export async function fetchUserProfile(): Promise<User> {
+  const response = await apiClient.get<ApiResponse<User>>('/api/auth/me');
+  if (!response.data.success || !response.data.data) {
+    throw new Error(response.data.error?.message || 'Failed to fetch profile');
+  }
+  return response.data.data;
+}
+
+/**
+ * Fetch active (charged) anchors for profile display.
+ * Uses existing GET /api/anchors endpoint with query parameters.
+ *
+ * @param limit - Maximum number of anchors to return (default: 20)
+ * @returns Array of charged anchors ordered by recent first
+ */
+export async function fetchActiveAnchors(limit: number = 20): Promise<Anchor[]> {
+  const response = await apiClient.get<ApiResponse<Anchor[]>>('/api/anchors', {
+    params: {
+      isCharged: 'true',
+      limit,
+      orderBy: 'updatedAt',
+      order: 'desc',
+    },
+  });
+
+  if (!response.data.success || !response.data.data) {
+    throw new Error(response.data.error?.message || 'Failed to fetch anchors');
+  }
+  return response.data.data;
+}
+
+/**
+ * Fetch complete profile data (user + stats + active anchors).
+ * Combines multiple API calls in parallel and applies privacy redaction.
+ *
+ * @returns ProfileData with user, computed stats, and redacted active anchors
+ */
+export async function fetchCompleteProfile(): Promise<ProfileData> {
+  // Fetch both user and anchors in parallel
+  const [user, anchors] = await Promise.all([
+    fetchUserProfile(),
+    fetchActiveAnchors(20),
+  ]);
+
+  // Compute stats from raw data
+  const stats: UserStats = {
+    totalAnchorsCreated: user.totalAnchorsCreated,
+    totalCharged: anchors.filter((a) => a.isCharged).length,
+    totalActivations: user.totalActivations,
+    currentStreak: user.currentStreak,
+    longestStreak: user.longestStreak,
+  };
+
+  // Redact anchors for privacy
+  const redactedAnchors = redactAnchors(anchors);
+
+  return {
+    user,
+    stats,
+    activeAnchors: redactedAnchors,
+  };
+}
