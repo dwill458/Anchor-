@@ -12,7 +12,7 @@ import { Home, Compass, ShoppingBag, User } from 'lucide-react-native';
 import { VaultStackNavigator } from './VaultStackNavigator';
 import { DiscoverScreen } from '../screens/discover';
 import { ShopScreen } from '../screens/shop';
-import { ProfileScreen } from '../screens/profile';
+import { SettingsScreen } from '../screens/profile';
 import type { MainTabParamList } from '@/types';
 import { colors, spacing } from '@/theme';
 
@@ -91,7 +91,7 @@ export const MainTabNavigator: React.FC = () => {
       />
       <Tab.Screen
         name="Profile"
-        component={ProfileScreen}
+        component={SettingsScreen}
         options={{
           tabBarLabel: 'Profile',
           tabBarIcon: ({ color, size }) => <User color={color} size={24} />,
