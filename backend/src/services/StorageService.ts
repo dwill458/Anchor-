@@ -75,8 +75,8 @@ export async function uploadImageFromBuffer(
 
     logger.info(`[Storage] Saved buffer to local disk: ${localFilePath}`);
 
-    // Use environment variable for local IP or fallback to localhost
-    const localIp = process.env.LOCAL_IP || '192.168.0.4';
+    // Use environment variable for local IP
+    const localIp = process.env.LOCAL_IP || '127.0.0.1';
     const port = process.env.PORT || '8000';
 
     // In production, you would use a proper public URL or cloud storage URL

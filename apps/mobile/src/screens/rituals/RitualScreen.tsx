@@ -103,7 +103,7 @@ export const RitualScreen: React.FC = () => {
     Animated.timing(progressAnim, {
       toValue: state.progress,
       duration: 300,
-      useNativeDriver: true,
+      useNativeDriver: false, // SVG properties (strokeDashoffset) do not support native driver
     }).start();
   }, [state.progress]);
 
@@ -302,9 +302,8 @@ export const RitualScreen: React.FC = () => {
                 strokeDashoffset={sealStrokeDashoffset}
                 strokeLinecap="round"
                 rotation="-90"
-                origin={`${RING_RADIUS + RING_STROKE_WIDTH * 2}, ${
-                  RING_RADIUS + RING_STROKE_WIDTH * 2
-                }`}
+                origin={`${RING_RADIUS + RING_STROKE_WIDTH * 2}, ${RING_RADIUS + RING_STROKE_WIDTH * 2
+                  }`}
               />
             )}
 
@@ -320,16 +319,19 @@ export const RitualScreen: React.FC = () => {
               strokeDashoffset={strokeDashoffset}
               strokeLinecap="round"
               rotation="-90"
-              origin={`${RING_RADIUS + RING_STROKE_WIDTH * 2}, ${
-                RING_RADIUS + RING_STROKE_WIDTH * 2
-              }`}
+              origin={`${RING_RADIUS + RING_STROKE_WIDTH * 2}, ${RING_RADIUS + RING_STROKE_WIDTH * 2
+                }`}
               opacity={ringOpacity}
             />
           </Svg>
 
           {/* Anchor Symbol (centered inside ring) */}
           <View style={styles.symbolContainer}>
-            <SvgXml xml={anchor.baseSigilSvg} width={SYMBOL_SIZE} height={SYMBOL_SIZE} />
+            {anchor.baseSigilSvg ? (
+              <SvgXml xml={anchor.baseSigilSvg} width={SYMBOL_SIZE} height={SYMBOL_SIZE} />
+            ) : (
+              <View style={{ width: SYMBOL_SIZE, height: SYMBOL_SIZE, backgroundColor: `${colors.gold}30`, borderRadius: SYMBOL_SIZE / 2 }} />
+            )}
           </View>
         </View>
 
