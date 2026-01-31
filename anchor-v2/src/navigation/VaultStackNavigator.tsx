@@ -28,6 +28,11 @@ import {
   ConfirmBurnScreen,
   BurningRitualScreen,
 } from '../screens/rituals';
+import {
+  ProductSelectionScreen,
+  ProductMockupScreen,
+  CheckoutScreen,
+} from '../screens/shop';
 import type { RootStackParamList } from '@/types';
 import { colors } from '@/theme';
 
@@ -146,12 +151,35 @@ export const VaultStackNavigator: React.FC = () => {
       <Stack.Screen
         name="ConfirmBurn"
         component={ConfirmBurnScreen}
-        options={{ title: '🔥 Burn & Release' }}
+        options={{
+          headerShown: false,
+          gestureEnabled: false,
+          presentation: 'modal',
+        }}
       />
       <Stack.Screen
         name="BurningRitual"
         component={BurningRitualScreen}
-        options={{ title: 'Releasing...', headerShown: false }}
+        options={{
+          headerShown: false,
+          gestureEnabled: false,
+        }}
+      />
+      {/* Phase 4: Physical Manifestation */}
+      <Stack.Screen
+        name="ProductSelection"
+        component={ProductSelectionScreen}
+        options={{ title: 'Physical Anchor' }}
+      />
+      <Stack.Screen
+        name="ProductMockup"
+        component={ProductMockupScreen}
+        options={{ title: 'Preview' }}
+      />
+      <Stack.Screen
+        name="Checkout"
+        component={CheckoutScreen}
+        options={{ title: 'Complete Your Order' }}
       />
     </Stack.Navigator>
   );

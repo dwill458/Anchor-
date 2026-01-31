@@ -326,6 +326,27 @@ export type RootStackParamList = {
     intention: string;
     sigilSvg: string;
   };
+
+  // Phase 4: Physical Manifestation (Merchandise)
+  ProductSelection: {
+    anchorId: string;
+    sigilSvg: string;
+    intentionText: string;
+  };
+
+  ProductMockup: {
+    anchorId: string;
+    sigilSvg: string;
+    intentionText: string;
+    productType: 'print' | 'hoodie' | 't-shirt' | 'keychain' | 'phone-case';
+  };
+
+  Checkout: {
+    anchorId: string;
+    productType: 'print' | 'hoodie' | 't-shirt' | 'keychain' | 'phone-case';
+    size: string;
+    color: string;
+  };
 };
 
 export type MainTabParamList = {

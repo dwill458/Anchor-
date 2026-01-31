@@ -405,22 +405,17 @@ router.post('/:id/charge', async (req: AuthRequest, res: Response) => {
 });
 
 /**
- * POST /api/anchors/:id/activate
+ * POST /api/anchors/:id/burn
  *
- * Log an activation event
- *
- * Body:
- * - activationType: 'visual' | 'mantra' | 'deep'
- * - durationSeconds: Duration of activation
+ * Perform the burning ritual: Archive to burned_anchors and remove from active vault.
  */
-router.post('/:id/activate', async (req: AuthRequest, res: Response) => {
+router.post('/:id/burn', async (req: AuthRequest, res: Response) => {
   try {
     if (!req.user) {
       throw new AppError('User not authenticated', 401, 'UNAUTHORIZED');
     }
 
     const { id } = req.params;
-    const { activationType, durationSeconds } = req.body;
 
     // Get user from database
     const user = await prisma.user.findUnique({
@@ -431,58 +426,55 @@ router.post('/:id/activate', async (req: AuthRequest, res: Response) => {
       throw new AppError('User not found', 404, 'USER_NOT_FOUND');
     }
 
-    // Check if anchor exists and user owns it
-    const existingAnchor = await prisma.anchor.findFirst({
+    // Fetch anchor to be burned
+    const anchor = await prisma.anchor.findFirst({
       where: {
         id,
         userId: user.id,
       },
     });
 
-    if (!existingAnchor) {
+    if (!anchor) {
       throw new AppError('Anchor not found', 404, 'ANCHOR_NOT_FOUND');
     }
 
-    // Create activation record
-    await prisma.activation.create({
-      data: {
-        userId: user.id,
-        anchorId: id,
-        activationType,
-        durationSeconds,
-        activatedAt: new Date(),
-      },
-    });
-
-    // Update anchor and user stats
-    const anchor = await prisma.anchor.update({
-      where: { id },
-      data: {
-        activationCount: {
-          increment: 1,
+    // Use a transaction to ensure atomicity
+    const result = await prisma.$transaction(async (tx) => {
+      // 1. Create entry in burned_anchors
+      const burnedAnchor = await tx.burnedAnchor.create({
+        data: {
+          originalAnchorId: anchor.id,
+          userId: user.id,
+          intentionText: anchor.intentionText,
+          category: anchor.category,
+          distilledLetters: anchor.distilledLetters,
+          baseSigilSvg: anchor.baseSigilSvg,
+          enhancedImageUrl: anchor.enhancedImageUrl,
+          activationCount: anchor.activationCount,
+          createdAt: anchor.createdAt,
+          burnedAt: new Date(),
         },
-        lastActivatedAt: new Date(),
-      },
-    });
+      });
 
-    await prisma.user.update({
-      where: { id: user.id },
-      data: {
-        totalActivations: {
-          increment: 1,
-        },
-      },
+      // 2. Delete original anchor (cascades to activations/charges)
+      await tx.anchor.delete({
+        where: { id: anchor.id },
+      });
+
+      return burnedAnchor;
     });
 
     res.json({
       success: true,
-      data: anchor,
+      data: result,
+      message: 'Anchor burned and archived successfully',
     });
   } catch (error) {
     if (error instanceof AppError) {
       throw error;
     }
-    throw new AppError('Failed to log activation', 500, 'ACTIVATION_ERROR');
+    console.error('Burn error:', error);
+    throw new AppError('Failed to burn anchor', 500, 'BURN_ERROR');
   }
 });
 

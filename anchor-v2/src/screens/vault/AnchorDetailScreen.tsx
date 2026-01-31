@@ -23,6 +23,7 @@ import { colors, spacing, typography } from '@/theme';
 import { format } from 'date-fns';
 import { AnalyticsService, AnalyticsEvents } from '../../services/AnalyticsService';
 import { ErrorTrackingService } from '../../services/ErrorTrackingService';
+import { PhysicalAnchorCTA } from '../../components/PhysicalAnchorCTA';
 
 const { width } = Dimensions.get('window');
 const ANCHOR_SIZE = width * 0.6;
@@ -151,6 +152,22 @@ export const AnchorDetailScreen: React.FC = () => {
     });
   };
 
+  const handlePhysicalAnchor = (): void => {
+    AnalyticsService.track('physical_anchor_initiated', {
+      anchor_id: anchor.id,
+    });
+
+    ErrorTrackingService.addBreadcrumb('Physical manifestation initiated', 'navigation', {
+      anchor_id: anchor.id,
+    });
+
+    navigation.navigate('ProductSelection', {
+      anchorId: anchor.id,
+      sigilSvg: anchor.baseSigilSvg,
+      intentionText: anchor.intentionText,
+    });
+  };
+
   return (
     <SafeAreaView style={styles.container}>
       <ScrollView style={styles.scrollView} contentContainerStyle={styles.scrollContent}>
@@ -217,6 +234,12 @@ export const AnchorDetailScreen: React.FC = () => {
             <Text style={styles.statLabel}>Distilled Letters</Text>
           </View>
         </View>
+
+        {/* Physical Anchor CTA */}
+        <PhysicalAnchorCTA
+          isCharged={anchor.isCharged}
+          onPress={handlePhysicalAnchor}
+        />
 
         {/* Action Buttons */}
         <View style={styles.actionContainer}>
