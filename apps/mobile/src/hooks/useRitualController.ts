@@ -84,11 +84,11 @@ export function useRitualController({
   const [sealProgress, setSealProgress] = useState(0);
   const [isSealComplete, setIsSealComplete] = useState(false);
 
-  // Refs for intervals
-  const timerIntervalRef = useRef<NodeJS.Timeout | null>(null);
-  const hapticIntervalRef = useRef<NodeJS.Timeout | null>(null);
-  const instructionIntervalRef = useRef<NodeJS.Timeout | null>(null);
-  const sealIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  // Refs for intervals - Use any for cross-platform compatibility
+  const timerIntervalRef = useRef<any>(null);
+  const hapticIntervalRef = useRef<any>(null);
+  const instructionIntervalRef = useRef<any>(null);
+  const sealIntervalRef = useRef<any>(null);
   const lastPhaseIndexRef = useRef(-1);
 
   // ══════════════════════════════════════════════════════════════
@@ -102,16 +102,18 @@ export function useRitualController({
   const progress = calculateProgress(config.totalDurationSeconds, elapsedSeconds);
   const phaseData = getCurrentPhase(config, elapsedSeconds);
   const currentPhase = phaseData?.phase || null;
-  const currentPhaseIndex = phaseData?.phaseIndex ?? -1;
+  const currentPhaseIndex = phaseData?.phaseIndex ?? (isComplete ? config.phases.length - 1 : -1);
   const phaseElapsed = phaseData?.phaseElapsed ?? 0;
-  const isSealPhase = remainingSeconds <= config.sealDurationSeconds && remainingSeconds > 0;
+
+  // FIXED: Seal phase should remain active even after time hits 0:00 until the seal is complete
+  const isSealPhase = (remainingSeconds <= config.sealDurationSeconds || isComplete) && !isSealComplete;
 
   // Get current instruction text
   const currentInstruction = currentPhase
     ? currentPhase.instructions[
-        currentInstructionIndex % currentPhase.instructions.length
-      ]
-    : '';
+    currentInstructionIndex % currentPhase.instructions.length
+    ]
+    : (isComplete && !isSealComplete ? 'Ritual charged. Now seal your intention.' : '');
 
   // ══════════════════════════════════════════════════════════════
   // LIFECYCLE: Timer
@@ -121,7 +123,7 @@ export function useRitualController({
     if (!isActive) return;
 
     timerIntervalRef.current = setInterval(() => {
-      setElapsedSeconds((prev) => {
+      setElapsedSeconds((prev: number) => {
         const next = prev + 1;
 
         // Check if ritual is complete
@@ -198,7 +200,7 @@ export function useRitualController({
     }
 
     instructionIntervalRef.current = setInterval(() => {
-      setCurrentInstructionIndex((prev) => prev + 1);
+      setCurrentInstructionIndex((prev: number) => prev + 1);
     }, currentPhase.instructionRotationMs);
 
     return () => {
