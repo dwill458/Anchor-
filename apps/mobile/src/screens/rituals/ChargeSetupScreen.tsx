@@ -48,7 +48,25 @@ type Step = 'default' | 'mode' | 'duration';
 export const ChargeSetupScreen: React.FC = () => {
   const navigation = useNavigation<ChargeSetupNavigationProp>();
   const route = useRoute<ChargeSetupRouteProp>();
-  const { anchorId } = route.params;
+  const { anchorId } = route.params || {};
+
+  // Guard against missing anchorId
+  if (!anchorId) {
+    return (
+      <SafeAreaView style={styles.container}>
+        <View style={styles.errorContainer}>
+          <Text style={styles.errorTitle}>Anchor Not Found</Text>
+          <Text style={styles.errorText}>Unable to load anchor details. Please try again.</Text>
+          <TouchableOpacity
+            style={styles.errorButton}
+            onPress={() => navigation.goBack()}
+          >
+            <Text style={styles.errorButtonText}>Go Back</Text>
+          </TouchableOpacity>
+        </View>
+      </SafeAreaView>
+    );
+  }
 
   // ══════════════════════════════════════════════════════════════
   // STORES
