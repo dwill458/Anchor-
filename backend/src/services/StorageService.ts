@@ -133,6 +133,14 @@ export async function uploadAudio(
     const client = getR2Client();
     const bucket = getBucketName();
 
+    // Handle mock mode (no R2 credentials)
+    if (!client) {
+      logger.warn('[Storage] R2 client not available, using local fallback for audio');
+      // Return a deterministic local URI for development/CI environments
+      // In production, R2 credentials will always be available
+      return `local://mantras/${userId}/${anchorId}/${mantraStyle}.mp3`;
+    }
+
     // Generate unique filename
     const fileName = `mantras/${userId}/${anchorId}/${mantraStyle}.mp3`;
 
