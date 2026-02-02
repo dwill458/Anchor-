@@ -9,7 +9,7 @@
  * - Displays 4 variations in 2x2 grid
  * - Shows selected style applied
  * - Structure preservation indicator
- * - Zen Architect styling with entrance animations
+ *      Zen Architect styling with entrance animations
  */
 
 import React, { useState, useEffect, useRef, useLayoutEffect } from 'react';
@@ -22,6 +22,7 @@ import {
   Animated,
   Dimensions,
   Image,
+  Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -32,6 +33,7 @@ import { StackNavigationProp } from '@react-navigation/stack';
 import { RootStackParamList } from '@/types';
 import { colors } from '@/theme';
 import { ScreenHeader, ZenBackground } from '@/components/common';
+import { useTempStore } from '@/stores/anchorStore';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const IMAGE_SIZE = (SCREEN_WIDTH - 80) / 2; // 2 columns with proper spacing (24px padding * 2 + 16px gap)
@@ -99,29 +101,64 @@ export const AIVariationPickerScreen: React.FC = () => {
     });
   }, [navigation]);
 
-  const handleContinue = () => {
-    const selectedImageUrl = variations[selectedIndex];
-
-    // Navigate to MantraCreation with full context including enhancement metadata
-    navigation.navigate('AnchorReveal', {
-      intentionText,
-      category,
-      distilledLetters,
-      baseSigilSvg,
-      reinforcedSigilSvg,
-      structureVariant,
-      reinforcementMetadata,
-      enhancedImageUrl: selectedImageUrl,
-      enhancementMetadata: {
-        styleApplied: styleChoice,
-        modelUsed: 'sdxl-controlnet',
-        controlMethod: 'canny',
-        generationTimeMs: 0,
-        promptUsed: prompt || '',
-        negativePrompt: '',
-        appliedAt: new Date(),
-      },
+  useLayoutEffect(() => {
+    navigation.setOptions({
+      headerShown: false,
     });
+  }, [navigation]);
+
+  const setTempEnhancedImage = useTempStore((state) => state.setTempEnhancedImage);
+
+  const handleContinue = () => {
+    try {
+      const selectedVariation = variations[selectedIndex];
+
+      // Normalize image data (handle object vs string)
+      let imageUrl = '';
+      if (typeof selectedVariation === 'string') {
+        imageUrl = selectedVariation;
+      } else if (selectedVariation && typeof selectedVariation === 'object' && 'imageUrl' in selectedVariation) {
+        imageUrl = (selectedVariation as any).imageUrl;
+      }
+
+      if (!imageUrl) {
+        Alert.alert('Error', 'Invalid variation selected. Please try again.');
+        return;
+      }
+
+      // Safety check for Base64
+      if (!imageUrl.startsWith('http') && !imageUrl.startsWith('data:image')) {
+        // Assume base64 png if missing header
+        imageUrl = `data:image/png;base64,${imageUrl}`;
+      }
+
+      // Store in global temp state instead of passing huge string
+      setTempEnhancedImage(imageUrl);
+
+      // Navigate to MantraCreation with full context including enhancement metadata
+      navigation.navigate('AnchorReveal', {
+        intentionText,
+        category,
+        distilledLetters,
+        baseSigilSvg,
+        reinforcedSigilSvg,
+        structureVariant,
+        reinforcementMetadata,
+        // enhancedImageUrl: imageUrl, // CAUTION: Passing this crashes if too big
+        enhancementMetadata: {
+          styleApplied: styleChoice,
+          modelUsed: 'sdxl-controlnet',
+          controlMethod: 'canny',
+          generationTimeMs: 0,
+          promptUsed: prompt || '',
+          negativePrompt: '',
+          appliedAt: new Date(),
+        },
+      });
+    } catch (err) {
+      console.error('Selection Error:', err);
+      Alert.alert('Selection Failed', 'Could not process selection. Please try again.');
+    }
   };
 
   return (

@@ -1,0 +1,544 @@
+/**
+ * Anchor App - Default Activation Screen
+ * Premium Zen Architect Design
+ */
+
+import React, { useState, useEffect } from 'react';
+import {
+    View,
+    Text,
+    StyleSheet,
+    ScrollView,
+    TouchableOpacity,
+    TextInput,
+    Alert,
+    Platform,
+} from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { useNavigation } from '@react-navigation/native';
+import { Check, Eye, MessageCircle, Wind } from 'lucide-react-native';
+import { BlurView } from 'expo-blur';
+import { LinearGradient } from 'expo-linear-gradient';
+import {
+    useSettingsStore,
+    ActivationType,
+} from '@/stores/settingsStore';
+import { colors, spacing } from '@/theme';
+import { ZenBackground } from '@/components/common';
+
+const IS_ANDROID = Platform.OS === 'android';
+
+type PresetOption = {
+    value: number;
+    label: string;
+};
+
+export const DefaultActivationScreen: React.FC = () => {
+    const navigation = useNavigation();
+    const { defaultActivation, setDefaultActivation } = useSettingsStore();
+
+    const [type, setType] = useState<ActivationType>(defaultActivation.type);
+    const [selectedValue, setSelectedValue] = useState<number>(defaultActivation.value);
+    const [customInput, setCustomInput] = useState<string>(
+        defaultActivation.value.toString()
+    );
+    const [isCustom, setIsCustom] = useState(false);
+
+    // Define presets for each activation type
+    const visualPresets: PresetOption[] = [
+        { value: 10, label: '10 seconds' },
+        { value: 30, label: '30 seconds' },
+        { value: 60, label: '60 seconds' },
+    ];
+
+    const mantraPresets: PresetOption[] = [
+        { value: 3, label: '3 reps' },
+        { value: 7, label: '7 reps' },
+        { value: 11, label: '11 reps' },
+    ];
+
+    const breathPresets: PresetOption[] = [
+        { value: 3, label: '3 breaths' },
+        { value: 1, label: '1 minute' },
+        { value: 2, label: '2 minutes' },
+    ];
+
+    const getCurrentPresets = (): PresetOption[] => {
+        switch (type) {
+            case 'visual':
+                return visualPresets;
+            case 'mantra':
+                return mantraPresets;
+            case 'breath_visual':
+                return breathPresets;
+            default:
+                return visualPresets;
+        }
+    };
+
+    // Reset to first preset when switching types
+    useEffect(() => {
+        const presets = getCurrentPresets();
+        const isValueInPresets = presets.some((p) => p.value === selectedValue);
+        if (!isValueInPresets) {
+            setSelectedValue(presets[0].value);
+            setIsCustom(false);
+        }
+    }, [type]);
+
+    const handleValueSelect = (value: number) => {
+        setSelectedValue(value);
+        setIsCustom(false);
+    };
+
+    const handleCustomSelect = () => {
+        setIsCustom(true);
+        setCustomInput(selectedValue.toString());
+    };
+
+    const getValidationRange = (): { min: number; max: number; unit: string } => {
+        switch (type) {
+            case 'visual':
+                return { min: 5, max: 300, unit: 'seconds' };
+            case 'mantra':
+                return { min: 1, max: 33, unit: 'reps' };
+            case 'breath_visual':
+                return { min: 1, max: 10, unit: 'minutes' };
+            default:
+                return { min: 1, max: 100, unit: '' };
+        }
+    };
+
+    const getUnit = (): 'seconds' | 'reps' | 'minutes' | 'breaths' => {
+        if (type === 'visual') return 'seconds';
+        if (type === 'mantra') return 'reps';
+        return isCustom || selectedValue <= 3 ? 'breaths' : 'minutes';
+    };
+
+    const handleSave = () => {
+        let finalValue = selectedValue;
+
+        if (isCustom) {
+            const parsedValue = parseInt(customInput, 10);
+            const { min, max, unit } = getValidationRange();
+
+            if (isNaN(parsedValue) || parsedValue < min || parsedValue > max) {
+                Alert.alert(
+                    'Invalid Input',
+                    `Please enter a value between ${min} and ${max} ${unit}.`
+                );
+                return;
+            }
+            finalValue = parsedValue;
+        }
+
+        setDefaultActivation({
+            type,
+            value: finalValue,
+            unit: getUnit(),
+        });
+        navigation.goBack();
+    };
+
+    const CardWrapper = IS_ANDROID ? View : BlurView;
+    const cardProps = IS_ANDROID ? {} : { intensity: 10, tint: 'dark' as const };
+
+    const MethodCard = ({
+        targetType,
+        title,
+        icon: Icon,
+        description,
+    }: {
+        targetType: ActivationType;
+        title: string;
+        icon: any;
+        description: string;
+    }) => {
+        const isSelected = type === targetType;
+        return (
+            <TouchableOpacity
+                onPress={() => setType(targetType)}
+                activeOpacity={0.8}
+                style={styles.methodCardWrapper}
+            >
+                <CardWrapper
+                    {...cardProps}
+                    style={[
+                        styles.methodCard,
+                        isSelected && styles.methodCardSelected,
+                    ]}
+                >
+                    <View style={styles.methodIconContainer}>
+                        <Icon
+                            size={24}
+                            color={isSelected ? colors.gold : colors.silver}
+                        />
+                    </View>
+                    <View style={styles.methodTextContainer}>
+                        <Text
+                            style={[
+                                styles.methodTitle,
+                                isSelected && styles.methodTitleSelected,
+                            ]}
+                        >
+                            {title}
+                        </Text>
+                        <Text style={styles.methodDescription}>{description}</Text>
+                    </View>
+                    {isSelected && (
+                        <View style={styles.checkCircle}>
+                            <Check size={14} color={colors.navy} />
+                        </View>
+                    )}
+                </CardWrapper>
+            </TouchableOpacity>
+        );
+    };
+
+    const ValueOption = ({
+        value,
+        label,
+    }: {
+        value: number;
+        label: string;
+    }) => {
+        const isSelected = !isCustom && selectedValue === value;
+        return (
+            <TouchableOpacity
+                style={[
+                    styles.valueOption,
+                    isSelected && styles.valueOptionSelected,
+                ]}
+                onPress={() => handleValueSelect(value)}
+            >
+                <View style={[styles.radioButton, isSelected && styles.radioButtonSelected]}>
+                    {isSelected && <View style={styles.radioButtonInner} />}
+                </View>
+                <Text
+                    style={[
+                        styles.valueLabel,
+                        isSelected && styles.valueLabelSelected,
+                    ]}
+                >
+                    {label}
+                </Text>
+            </TouchableOpacity>
+        );
+    };
+
+    return (
+        <View style={styles.container}>
+            <ZenBackground />
+            <SafeAreaView style={styles.safeArea} edges={['top']}>
+                <ScrollView
+                    style={styles.scrollView}
+                    showsVerticalScrollIndicator={false}
+                    contentContainerStyle={styles.scrollContent}
+                >
+                    <View style={styles.header}>
+                        <Text style={styles.title}>Default Activation</Text>
+                        <Text style={styles.subtitle}>
+                            Choose how you prefer to engage with your anchor during daily practice.
+                        </Text>
+                    </View>
+
+                    <View style={styles.section}>
+                        <Text style={styles.sectionTitle}>Activation Method</Text>
+                        <MethodCard
+                            targetType="visual"
+                            title="Visual Focus"
+                            icon={Eye}
+                            description="Gaze at your anchor symbol in focused, meditative silence."
+                        />
+                        <MethodCard
+                            targetType="mantra"
+                            title="Mantra"
+                            icon={MessageCircle}
+                            description="Repeat your personalized mantra for focused repetitions."
+                        />
+                        <MethodCard
+                            targetType="breath_visual"
+                            title="Breath + Visual"
+                            icon={Wind}
+                            description="Synchronize your rhythmic breathing with visual geometry."
+                        />
+                    </View>
+
+                    <View style={styles.section}>
+                        <Text style={styles.sectionTitle}>
+                            {type === 'visual' && 'Duration'}
+                            {type === 'mantra' && 'Repetitions'}
+                            {type === 'breath_visual' && 'Duration / Breaths'}
+                        </Text>
+                        <CardWrapper {...cardProps} style={styles.optionsContainer}>
+                            {getCurrentPresets().map((preset) => (
+                                <ValueOption
+                                    key={preset.value}
+                                    value={preset.value}
+                                    label={preset.label}
+                                />
+                            ))}
+                            <TouchableOpacity
+                                style={[
+                                    styles.valueOption,
+                                    isCustom && styles.valueOptionSelected,
+                                ]}
+                                onPress={handleCustomSelect}
+                            >
+                                <View style={[styles.radioButton, isCustom && styles.radioButtonSelected]}>
+                                    {isCustom && <View style={styles.radioButtonInner} />}
+                                </View>
+                                <Text
+                                    style={[
+                                        styles.valueLabel,
+                                        isCustom && styles.valueLabelSelected,
+                                    ]}
+                                >
+                                    Custom
+                                </Text>
+                            </TouchableOpacity>
+                        </CardWrapper>
+
+                        {isCustom && (
+                            <CardWrapper {...cardProps} style={styles.customInputContainer}>
+                                <Text style={styles.customLabel}>
+                                    {type === 'visual' && 'Seconds:'}
+                                    {type === 'mantra' && 'Reps:'}
+                                    {type === 'breath_visual' && 'Minutes:'}
+                                </Text>
+                                <TextInput
+                                    style={styles.customInput}
+                                    value={customInput}
+                                    onChangeText={(text) =>
+                                        setCustomInput(text.replace(/[^0-9]/g, ''))
+                                    }
+                                    keyboardType="numeric"
+                                    maxLength={3}
+                                    placeholder={
+                                        type === 'visual'
+                                            ? '5-300'
+                                            : type === 'mantra'
+                                                ? '1-33'
+                                                : '1-10'
+                                    }
+                                    placeholderTextColor={colors.silver}
+                                />
+                            </CardWrapper>
+                        )}
+                    </View>
+
+                    <Text style={styles.helperFooter}>
+                        This setting controls the default experience when you activate your anchor from the Vault.
+                    </Text>
+                </ScrollView>
+
+                <View style={styles.footer}>
+                    <TouchableOpacity style={styles.saveButtonWrapper} onPress={handleSave} activeOpacity={0.8}>
+                        <LinearGradient
+                            colors={[colors.gold, colors.bronze]}
+                            style={styles.saveButton}
+                            start={{ x: 0, y: 0 }}
+                            end={{ x: 1, y: 0 }}
+                        >
+                            <Text style={styles.saveButtonText}>Save Default</Text>
+                        </LinearGradient>
+                    </TouchableOpacity>
+                </View>
+            </SafeAreaView>
+        </View>
+    );
+};
+
+const styles = StyleSheet.create({
+    container: {
+        flex: 1,
+        backgroundColor: colors.navy,
+    },
+    safeArea: {
+        flex: 1,
+    },
+    scrollView: {
+        flex: 1,
+    },
+    scrollContent: {
+        paddingBottom: spacing.xxl,
+    },
+    header: {
+        padding: spacing.lg,
+        paddingTop: spacing.xl,
+    },
+    title: {
+        fontSize: 28,
+        fontWeight: 'bold',
+        color: colors.gold,
+        marginBottom: spacing.xs,
+        letterSpacing: 0.5,
+    },
+    subtitle: {
+        fontSize: 14,
+        color: colors.silver,
+        lineHeight: 20,
+        opacity: 0.8,
+    },
+    section: {
+        paddingHorizontal: spacing.lg,
+        marginBottom: spacing.xl,
+    },
+    sectionTitle: {
+        fontSize: 12,
+        fontWeight: '700',
+        color: colors.silver,
+        textTransform: 'uppercase',
+        letterSpacing: 1.2,
+        marginBottom: spacing.md,
+        opacity: 0.6,
+    },
+    methodCardWrapper: {
+        marginBottom: spacing.md,
+    },
+    methodCard: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        padding: spacing.lg,
+        borderRadius: 16,
+        borderWidth: 1,
+        borderColor: 'rgba(212, 175, 55, 0.15)',
+        backgroundColor: IS_ANDROID ? 'rgba(26, 26, 29, 0.9)' : 'rgba(26, 26, 29, 0.3)',
+    },
+    methodCardSelected: {
+        borderColor: colors.gold,
+        backgroundColor: 'rgba(212, 175, 55, 0.08)',
+    },
+    methodIconContainer: {
+        marginRight: spacing.lg,
+        width: 44,
+        height: 44,
+        borderRadius: 22,
+        backgroundColor: 'rgba(255, 255, 255, 0.05)',
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    methodTextContainer: {
+        flex: 1,
+    },
+    methodTitle: {
+        fontSize: 17,
+        fontWeight: '600',
+        color: colors.bone,
+        marginBottom: 4,
+    },
+    methodTitleSelected: {
+        color: colors.gold,
+    },
+    methodDescription: {
+        fontSize: 13,
+        color: colors.silver,
+        lineHeight: 18,
+        opacity: 0.7,
+    },
+    checkCircle: {
+        width: 20,
+        height: 20,
+        borderRadius: 10,
+        backgroundColor: colors.gold,
+        alignItems: 'center',
+        justifyContent: 'center',
+        marginLeft: spacing.md,
+    },
+    optionsContainer: {
+        backgroundColor: IS_ANDROID ? 'rgba(26, 26, 29, 0.9)' : 'rgba(26, 26, 29, 0.3)',
+        borderRadius: 16,
+        overflow: 'hidden',
+        borderWidth: 1,
+        borderColor: 'rgba(212, 175, 55, 0.15)',
+    },
+    valueOption: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        padding: spacing.lg,
+        borderBottomWidth: 1,
+        borderBottomColor: 'rgba(255, 255, 255, 0.05)',
+    },
+    valueOptionSelected: {
+        backgroundColor: 'rgba(212, 175, 55, 0.05)',
+    },
+    radioButton: {
+        width: 22,
+        height: 22,
+        borderRadius: 11,
+        borderWidth: 2,
+        borderColor: 'rgba(255, 255, 255, 0.2)',
+        alignItems: 'center',
+        justifyContent: 'center',
+        marginRight: spacing.md,
+    },
+    radioButtonSelected: {
+        borderColor: colors.gold,
+    },
+    radioButtonInner: {
+        width: 10,
+        height: 10,
+        borderRadius: 5,
+        backgroundColor: colors.gold,
+    },
+    valueLabel: {
+        fontSize: 16,
+        color: colors.silver,
+    },
+    valueLabelSelected: {
+        color: colors.gold,
+        fontWeight: '600',
+    },
+    customInputContainer: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        marginTop: spacing.md,
+        padding: spacing.lg,
+        borderRadius: 16,
+        backgroundColor: IS_ANDROID ? 'rgba(26, 26, 29, 0.9)' : 'rgba(26, 26, 29, 0.3)',
+        borderWidth: 1,
+        borderColor: 'rgba(212, 175, 55, 0.15)',
+    },
+    customLabel: {
+        fontSize: 16,
+        color: colors.bone,
+        marginRight: spacing.md,
+    },
+    customInput: {
+        flex: 1,
+        backgroundColor: 'rgba(255, 255, 255, 0.05)',
+        color: colors.gold,
+        padding: spacing.md,
+        borderRadius: 8,
+        fontSize: 18,
+        fontWeight: '600',
+        textAlign: 'center',
+    },
+    helperFooter: {
+        paddingHorizontal: spacing.xl,
+        fontSize: 12,
+        color: colors.silver,
+        textAlign: 'center',
+        marginTop: spacing.xl,
+        opacity: 0.5,
+    },
+    footer: {
+        padding: spacing.lg,
+        paddingBottom: Platform.OS === 'ios' ? spacing.xl : spacing.lg,
+        backgroundColor: 'transparent',
+    },
+    saveButtonWrapper: {
+        borderRadius: 12,
+        overflow: 'hidden',
+    },
+    saveButton: {
+        paddingVertical: spacing.md,
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    saveButtonText: {
+        fontSize: 18,
+        fontWeight: 'bold',
+        color: colors.navy,
+    },
+});

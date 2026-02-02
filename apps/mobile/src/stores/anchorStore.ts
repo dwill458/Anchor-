@@ -62,10 +62,10 @@ export const useAnchorStore = create<AnchorState>()(
           anchors: state.anchors.map((anchor) =>
             anchor.id === id
               ? {
-                  ...anchor,
-                  ...updates,
-                  updatedAt: new Date(),
-                }
+                ...anchor,
+                ...updates,
+                updatedAt: new Date(),
+              }
               : anchor
           ),
           error: null,
@@ -116,3 +116,17 @@ export const useAnchorStore = create<AnchorState>()(
     }
   )
 );
+
+/**
+ * Temporary storage for large assets that shouldn't be passed via navigation params
+ * (e.g., base64 generated images)
+ */
+interface TempState {
+  tempEnhancedImage: string | null;
+  setTempEnhancedImage: (image: string | null) => void;
+}
+
+export const useTempStore = create<TempState>((set) => ({
+  tempEnhancedImage: null,
+  setTempEnhancedImage: (image) => set({ tempEnhancedImage: image }),
+}));

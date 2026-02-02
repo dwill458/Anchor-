@@ -20,7 +20,6 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
-import { SvgXml } from 'react-native-svg';
 import Svg, { Circle } from 'react-native-svg';
 import * as Haptics from 'expo-haptics';
 import { useAnchorStore } from '@/stores/anchorStore';
@@ -29,6 +28,8 @@ import { getRitualConfig } from '@/config/ritualConfigs';
 import { apiClient } from '@/services/ApiClient';
 import type { RootStackParamList } from '@/types';
 import { colors, spacing, typography } from '@/theme';
+import { SigilSvg, OptimizedImage } from '@/components/common';
+import { logger } from '@/utils/logger';
 
 const { width, height } = Dimensions.get('window');
 const SYMBOL_SIZE = 200;
@@ -44,12 +45,28 @@ const AnimatedCircle = Animated.createAnimatedComponent(Circle);
 export const RitualScreen: React.FC = () => {
   const navigation = useNavigation<RitualNavigationProp>();
   const route = useRoute<RitualRouteProp>();
-  const { anchorId, ritualType } = route.params;
+  const { anchorId, ritualType, durationSeconds } = route.params;
+  const isMountedRef = useRef(true);
+  const isCompletingRef = useRef(false);
 
   const { getAnchorById, updateAnchor } = useAnchorStore();
   const anchor = getAnchorById(anchorId);
 
-  const config = getRitualConfig(ritualType);
+  // DEBUG: Log visual asset state
+  useEffect(() => {
+    if (anchor) {
+      console.log('🔍 [RitualScreen] Anchor visual state:', {
+        id: anchor.id,
+        baseSigilSvg: anchor.baseSigilSvg ? `${anchor.baseSigilSvg.substring(0, 50)}...` : 'MISSING ❌',
+        reinforcedSigilSvg: anchor.reinforcedSigilSvg ? 'present' : 'none',
+        enhancedImageUrl: anchor.enhancedImageUrl || 'none',
+      });
+    }
+  }, [anchor?.id]);
+
+  // Get ritual config - handles both legacy (quick/deep) and new (focus/ritual) types
+  // If custom durationSeconds provided, uses dynamic config generator
+  const config = getRitualConfig(ritualType, durationSeconds);
 
   // Animated values for charging ring
   const progressAnim = useRef(new Animated.Value(0)).current;
@@ -88,9 +105,11 @@ export const RitualScreen: React.FC = () => {
   // ══════════════════════════════════════════════════════════════
 
   useEffect(() => {
+    isMountedRef.current = true;
     actions.start();
 
     return () => {
+      isMountedRef.current = false;
       actions.reset();
     };
   }, []);
@@ -103,7 +122,7 @@ export const RitualScreen: React.FC = () => {
     Animated.timing(progressAnim, {
       toValue: state.progress,
       duration: 300,
-      useNativeDriver: false, // SVG properties (strokeDashoffset) do not support native driver
+      useNativeDriver: true,
     }).start();
   }, [state.progress]);
 
@@ -113,7 +132,7 @@ export const RitualScreen: React.FC = () => {
 
   useEffect(() => {
     if (state.isSealPhase && !state.isSealComplete) {
-      Animated.loop(
+      const glowLoop = Animated.loop(
         Animated.sequence([
           Animated.timing(glowAnim, {
             toValue: 1,
@@ -126,7 +145,10 @@ export const RitualScreen: React.FC = () => {
             useNativeDriver: true,
           }),
         ])
-      ).start();
+      );
+      glowLoop.start();
+
+      return () => glowLoop.stop();
     } else {
       glowAnim.setValue(0);
     }
@@ -163,19 +185,29 @@ export const RitualScreen: React.FC = () => {
 
   function handlePhaseChange(phase: any, index: number) {
     // Phase change haptic is already handled in useRitualController
-    console.log(`Phase ${index + 1}: ${phase.title}`);
+    logger.info('Ritual phase change', { index: index + 1, title: phase.title });
   }
 
   function handleRitualComplete() {
     // Navigation will happen after seal gesture completes
-    console.log('Ritual time complete, waiting for seal...');
+    logger.info('Ritual time complete, waiting for seal...');
   }
 
   async function handleSealComplete() {
+    if (isCompletingRef.current) return;
+    isCompletingRef.current = true;
     // Mark anchor as charged (backend + local)
     try {
-      // Determine charge type based on ritual type
-      const chargeType = ritualType === 'quick' ? 'initial_quick' : 'initial_deep';
+      // Determine charge type based on ritual type (handles both legacy and new types)
+      // Legacy: 'quick' -> 'initial_quick', 'deep' -> 'initial_deep'
+      // New: 'focus' -> 'initial_quick', 'ritual' -> 'initial_deep'
+      let chargeType: 'initial_quick' | 'initial_deep' | 'recharge' = 'initial_quick';
+
+      if (ritualType === 'quick' || ritualType === 'focus') {
+        chargeType = 'initial_quick';
+      } else if (ritualType === 'deep' || ritualType === 'ritual') {
+        chargeType = 'initial_deep';
+      }
 
       // CRITICAL: Update backend first (for cross-device sync)
       await apiClient.post(`/api/anchors/${anchorId}/charge`, {
@@ -190,9 +222,12 @@ export const RitualScreen: React.FC = () => {
       });
 
       // Navigate to completion screen
-      navigation.replace('ChargeComplete', { anchorId });
+      if (isMountedRef.current) {
+        navigation.replace('ChargeComplete', { anchorId });
+      }
     } catch (error) {
-      console.error('Failed to update anchor:', error);
+      isCompletingRef.current = false;
+      logger.error('Failed to update anchor', error);
       Alert.alert('Error', 'Failed to save charge. Please try again.');
     }
   }
@@ -302,8 +337,9 @@ export const RitualScreen: React.FC = () => {
                 strokeDashoffset={sealStrokeDashoffset}
                 strokeLinecap="round"
                 rotation="-90"
-                origin={`${RING_RADIUS + RING_STROKE_WIDTH * 2}, ${RING_RADIUS + RING_STROKE_WIDTH * 2
-                  }`}
+                origin={`${RING_RADIUS + RING_STROKE_WIDTH * 2}, ${
+                  RING_RADIUS + RING_STROKE_WIDTH * 2
+                }`}
               />
             )}
 
@@ -319,18 +355,23 @@ export const RitualScreen: React.FC = () => {
               strokeDashoffset={strokeDashoffset}
               strokeLinecap="round"
               rotation="-90"
-              origin={`${RING_RADIUS + RING_STROKE_WIDTH * 2}, ${RING_RADIUS + RING_STROKE_WIDTH * 2
-                }`}
+              origin={`${RING_RADIUS + RING_STROKE_WIDTH * 2}, ${
+                RING_RADIUS + RING_STROKE_WIDTH * 2
+              }`}
               opacity={ringOpacity}
             />
           </Svg>
 
           {/* Anchor Symbol (centered inside ring) */}
           <View style={styles.symbolContainer}>
-            {anchor.baseSigilSvg ? (
-              <SvgXml xml={anchor.baseSigilSvg} width={SYMBOL_SIZE} height={SYMBOL_SIZE} />
+            {anchor.enhancedImageUrl ? (
+              <OptimizedImage
+                uri={anchor.enhancedImageUrl}
+                style={{ width: SYMBOL_SIZE, height: SYMBOL_SIZE, borderRadius: 8 }}
+                resizeMode="cover"
+              />
             ) : (
-              <View style={{ width: SYMBOL_SIZE, height: SYMBOL_SIZE, backgroundColor: `${colors.gold}30`, borderRadius: SYMBOL_SIZE / 2 }} />
+              <SigilSvg xml={anchor.baseSigilSvg} width={SYMBOL_SIZE} height={SYMBOL_SIZE} />
             )}
           </View>
         </View>

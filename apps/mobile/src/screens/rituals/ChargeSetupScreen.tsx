@@ -1,12 +1,11 @@
 /**
- * Anchor App - Charge Setup Screen
+ * Anchor App - Charge Setup Screen (Refactored)
  *
- * Consolidated entry point for charging ritual.
- * Replaces separate priming + charge choice screens.
- * Zen Architect theme: glassmorphic cards, gold accents, centered symbol.
+ * Premium meditation ritual entry point with two-step flow.
+ * Orchestrates: Mode Selection → Duration Selection → Breathing Animation → Ritual
  */
 
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -16,17 +15,25 @@ import {
   Dimensions,
   Modal,
   ScrollView,
-  Platform,
+  BackHandler,
+  Easing,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
+import { useNavigation, useRoute, RouteProp, useFocusEffect } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
-import { SvgXml } from 'react-native-svg';
 import { BlurView } from 'expo-blur';
 import * as Haptics from 'expo-haptics';
 import { useAnchorStore } from '@/stores/anchorStore';
+import { useAuthStore } from '@/stores/authStore';
+import { useSettingsStore, ChargeDurationPreset } from '@/stores/settingsStore';
 import type { RootStackParamList } from '@/types';
 import { colors, spacing, typography } from '@/theme';
+import { SigilSvg } from '@/components/common';
+import { InfoIcon } from '@/components/icons/InfoIcon';
+import { ModeSelectionStep } from './components/ModeSelectionStep';
+import { DurationSelectionStep } from './components/DurationSelectionStep';
+import { DefaultChargeDisplay } from './components/DefaultChargeDisplay';
+import { safeHaptics } from '@/utils/haptics';
 
 const { width } = Dimensions.get('window');
 
@@ -36,21 +43,80 @@ type ChargeSetupNavigationProp = StackNavigationProp<
   'ChargeSetup'
 >;
 
+type Step = 'default' | 'mode' | 'duration';
+
 export const ChargeSetupScreen: React.FC = () => {
   const navigation = useNavigation<ChargeSetupNavigationProp>();
   const route = useRoute<ChargeSetupRouteProp>();
   const { anchorId } = route.params;
 
+  // ══════════════════════════════════════════════════════════════
+  // STORES
+  // ══════════════════════════════════════════════════════════════
+
   const { getAnchorById } = useAnchorStore();
+  const { anchorCount } = useAuthStore();
+  const {
+    defaultCharge,
+    setDefaultCharge,
+  } = useSettingsStore();
+
+  const { mode: defaultChargeMode } = defaultCharge;
+
+  // Convert preset to seconds for compatibility with this screen's internal logic
+  const getDurationSeconds = (preset: ChargeDurationPreset) => {
+    switch (preset) {
+      case '30s': return 30;
+      case '2m': return 120;
+      case '5m': return 300;
+      case '10m': return 600;
+      case 'custom': return (defaultCharge.customMinutes || 12) * 60;
+      default: return 120;
+    }
+  };
+
+  const defaultChargeDuration = getDurationSeconds(defaultCharge.preset);
+
   const anchor = getAnchorById(anchorId);
 
-  const [infoSheetVisible, setInfoSheetVisible] = useState(false);
+  // ══════════════════════════════════════════════════════════════
+  // STATE
+  // ══════════════════════════════════════════════════════════════
 
-  // Subtle idle pulse animation for symbol
+  const [currentStep, setCurrentStep] = useState<Step>('default');
+  const [selectedMode, setSelectedMode] = useState<'focus' | 'ritual' | null>(null);
+  const [selectedDuration, setSelectedDuration] = useState<number | null>(null);
+  const [isFirstTime, setIsFirstTime] = useState(true);
+  const [infoSheetVisible, setInfoSheetVisible] = useState(false);
+  const isNavigatingRef = useRef(false);
+
+  // Animation refs
   const pulseAnim = useRef(new Animated.Value(1)).current;
+  const fadeAnim = useRef(new Animated.Value(1)).current;
+
+  // ══════════════════════════════════════════════════════════════
+  // INITIALIZATION
+  // ══════════════════════════════════════════════════════════════
 
   useEffect(() => {
-    Animated.loop(
+    // Determine if user is first-time or returning
+    const firstTime = anchorCount === 0;
+    setIsFirstTime(firstTime);
+
+    // Set initial step based on user type
+    if (firstTime) {
+      setCurrentStep('mode');
+    } else {
+      setCurrentStep('default');
+      // Pre-populate selections from defaults
+      setSelectedMode(defaultChargeMode);
+      setSelectedDuration(defaultChargeDuration);
+    }
+  }, [anchorCount, defaultChargeMode, defaultChargeDuration]);
+
+  // Subtle idle pulse animation for symbol
+  useEffect(() => {
+    const pulseLoop = Animated.loop(
       Animated.sequence([
         Animated.timing(pulseAnim, {
           toValue: 1.02,
@@ -63,11 +129,146 @@ export const ChargeSetupScreen: React.FC = () => {
           useNativeDriver: true,
         }),
       ])
-    ).start();
+    );
+    pulseLoop.start();
+
+    return () => pulseLoop.stop();
   }, []);
 
   // ══════════════════════════════════════════════════════════════
-  // NULL SAFETY: Defensive handling if anchor is missing
+  // ANDROID BACK BUTTON HANDLING
+  // ══════════════════════════════════════════════════════════════
+
+  useFocusEffect(
+    useCallback(() => {
+      isNavigatingRef.current = false;
+      const onBackPress = () => {
+        if (currentStep === 'duration') {
+          // Go back to mode selection
+          setCurrentStep('mode');
+          setSelectedDuration(null);
+          return true; // Handled
+        } else if (currentStep === 'mode' && !isFirstTime) {
+          // Go back to default display for returning users
+          setCurrentStep('default');
+          setSelectedMode(defaultChargeMode);
+          setSelectedDuration(defaultChargeDuration);
+          return true; // Handled
+        }
+        // Let default behavior (back in nav stack) handle it
+        return false;
+      };
+
+      BackHandler.addEventListener('hardwareBackPress', onBackPress);
+      return () => BackHandler.removeEventListener('hardwareBackPress', onBackPress);
+    }, [currentStep, isFirstTime, defaultChargeMode, defaultChargeDuration])
+  );
+
+  // ══════════════════════════════════════════════════════════════
+  // STEP HANDLERS
+  // ══════════════════════════════════════════════════════════════
+
+  const handleSelectMode = (mode: 'focus' | 'ritual') => {
+    setSelectedMode(mode);
+    // Animate transition to duration step
+    Animated.timing(fadeAnim, {
+      toValue: 0,
+      duration: 300,
+      easing: Easing.out(Easing.cubic),
+      useNativeDriver: true,
+    }).start(() => {
+      setCurrentStep('duration');
+      Animated.timing(fadeAnim, {
+        toValue: 1,
+        duration: 300,
+        easing: Easing.in(Easing.cubic),
+        useNativeDriver: true,
+      }).start();
+    });
+  };
+
+  const handleSelectDuration = (durationSeconds: number) => {
+    setSelectedDuration(durationSeconds);
+  };
+
+  const handleContinueFromDefault = () => {
+    // Returning user continuing with default
+    navigateToBreathing();
+  };
+
+  const handleChangeDefault = () => {
+    // Returning user wants to change their default
+    setSelectedMode(null);
+    setSelectedDuration(null);
+    setCurrentStep('mode');
+  };
+
+  const handleContinueFromDuration = () => {
+    // First-time or user who changed their selection
+    if (selectedMode && selectedDuration) {
+      navigateToBreathing();
+    }
+  };
+
+  // ══════════════════════════════════════════════════════════════
+  // NAVIGATION HANDLERS
+  // ══════════════════════════════════════════════════════════════
+
+  const navigateToBreathing = () => {
+    if (!selectedMode || !selectedDuration) return;
+    if (isNavigatingRef.current) return;
+    isNavigatingRef.current = true;
+
+    // Save selection as default for next time
+    if (selectedMode !== defaultChargeMode || selectedDuration !== defaultChargeDuration) {
+      // Find matching preset
+      let preset: ChargeDurationPreset = 'custom';
+      if (selectedDuration === 30) preset = '30s';
+      else if (selectedDuration === 120) preset = '2m';
+      else if (selectedDuration === 300) preset = '5m';
+      else if (selectedDuration === 600) preset = '10m';
+
+      setDefaultCharge({
+        mode: selectedMode,
+        preset,
+        customMinutes: preset === 'custom' ? Math.round(selectedDuration / 60) : undefined
+      });
+    }
+
+    // Navigate to breathing animation with serializable params
+    navigation.navigate('BreathingAnimation', {
+      source: 'charge',
+      anchorId,
+      mode: selectedMode,
+      duration: selectedDuration,
+    });
+  };
+
+  const navigateToRitual = () => {
+    if (!selectedMode || !selectedDuration) return;
+
+    navigation.navigate('Ritual', {
+      anchorId,
+      ritualType: selectedMode,
+      durationSeconds: selectedDuration,
+    });
+  };
+
+  const handleBack = () => {
+    navigation.goBack();
+  };
+
+  const openInfoSheet = () => {
+    void safeHaptics.impact(Haptics.ImpactFeedbackStyle.Light);
+    setInfoSheetVisible(true);
+  };
+
+  const closeInfoSheet = () => {
+    setInfoSheetVisible(false);
+  };
+
+  // ══════════════════════════════════════════════════════════════
+  // ERROR HANDLING: NULL SAFETY
   // ══════════════════════════════════════════════════════════════
 
   if (!anchor) {
@@ -80,7 +281,7 @@ export const ChargeSetupScreen: React.FC = () => {
           </Text>
           <TouchableOpacity
             style={styles.errorButton}
-            onPress={() => navigation.goBack()}
+            onPress={handleBack}
             activeOpacity={0.8}
           >
             <Text style={styles.errorButtonText}>Go Back</Text>
@@ -89,39 +290,6 @@ export const ChargeSetupScreen: React.FC = () => {
       </SafeAreaView>
     );
   }
-
-  // ══════════════════════════════════════════════════════════════
-  // HANDLERS
-  // ══════════════════════════════════════════════════════════════
-
-  const handleQuickCharge = () => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    navigation.navigate('Ritual', {
-      anchorId,
-      ritualType: 'quick',
-    });
-  };
-
-  const handleDeepCharge = () => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    navigation.navigate('Ritual', {
-      anchorId,
-      ritualType: 'deep',
-    });
-  };
-
-  const handleBack = () => {
-    navigation.goBack();
-  };
-
-  const openInfoSheet = () => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    setInfoSheetVisible(true);
-  };
-
-  const closeInfoSheet = () => {
-    setInfoSheetVisible(false);
-  };
 
   // ══════════════════════════════════════════════════════════════
   // RENDER
@@ -142,9 +310,10 @@ export const ChargeSetupScreen: React.FC = () => {
         <View style={styles.backButton} />
       </BlurView>
 
-      <ScrollView
+      <Animated.ScrollView
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
+        style={{ opacity: fadeAnim }}
       >
         {/* Hero Symbol */}
         <View style={styles.symbolSection}>
@@ -154,11 +323,7 @@ export const ChargeSetupScreen: React.FC = () => {
               { transform: [{ scale: pulseAnim }] },
             ]}
           >
-            <SvgXml
-              xml={anchor.baseSigilSvg}
-              width={180}
-              height={180}
-            />
+            <SigilSvg xml={anchor.baseSigilSvg} width={180} height={180} />
           </Animated.View>
         </View>
 
@@ -170,45 +335,30 @@ export const ChargeSetupScreen: React.FC = () => {
           </Text>
         </View>
 
-        {/* Option Cards */}
-        <View style={styles.optionsContainer}>
-          {/* Quick Charge Card */}
-          <TouchableOpacity
-            style={styles.optionCard}
-            onPress={handleQuickCharge}
-            activeOpacity={0.8}
-          >
-            <BlurView intensity={10} tint="dark" style={styles.cardBlur}>
-              <View style={[styles.cardContent, styles.quickCardBorder]}>
-                <Text style={styles.optionIcon}>⚡</Text>
-                <Text style={styles.optionTitle}>Quick Charge</Text>
-                <Text style={styles.optionDuration}>30 seconds</Text>
-                <Text style={styles.optionDescription}>
-                  Instant focus boost
-                </Text>
-              </View>
-            </BlurView>
-          </TouchableOpacity>
+        {/* Step Content */}
+        <View style={styles.stepContent}>
+          {currentStep === 'default' && selectedMode && selectedDuration && (
+            <DefaultChargeDisplay
+              mode={selectedMode}
+              durationSeconds={selectedDuration}
+              onContinue={handleContinueFromDefault}
+              onChange={handleChangeDefault}
+            />
+          )}
 
-          {/* Deep Charge Card */}
-          <TouchableOpacity
-            style={styles.optionCard}
-            onPress={handleDeepCharge}
-            activeOpacity={0.8}
-          >
-            <BlurView intensity={10} tint="dark" style={styles.cardBlur}>
-              <View style={[styles.cardContent, styles.deepCardBorder]}>
-                <Text style={styles.optionIcon}>🔥</Text>
-                <Text style={styles.optionTitle}>Deep Charge</Text>
-                <Text style={styles.optionDuration}>~5 minutes</Text>
-                <Text style={styles.optionDescription}>
-                  5 phases for lasting impact
-                </Text>
-              </View>
-            </BlurView>
-          </TouchableOpacity>
+          {currentStep === 'mode' && (
+            <ModeSelectionStep onSelectMode={handleSelectMode} />
+          )}
+
+          {currentStep === 'duration' && selectedMode && (
+            <DurationSelectionStep
+              mode={selectedMode}
+              onSelectDuration={handleSelectDuration}
+              onContinue={handleContinueFromDuration}
+            />
+          )}
         </View>
-      </ScrollView>
+      </Animated.ScrollView>
 
       {/* Info Button (Floating) */}
       <TouchableOpacity
@@ -217,7 +367,7 @@ export const ChargeSetupScreen: React.FC = () => {
         activeOpacity={0.8}
       >
         <BlurView intensity={20} tint="dark" style={styles.infoBlur}>
-          <Text style={styles.infoIcon}>ⓘ</Text>
+          <InfoIcon size={24} color={colors.gold} />
         </BlurView>
       </TouchableOpacity>
 
@@ -239,26 +389,31 @@ export const ChargeSetupScreen: React.FC = () => {
               contentContainerStyle={styles.sheetContent}
               showsVerticalScrollIndicator={false}
             >
-              <Text style={styles.sheetTitle}>Why Charge Your Anchor?</Text>
+              <Text style={styles.sheetTitle}>Charging Modes</Text>
               <Text style={styles.sheetText}>
                 Charging is the process of linking your intention to the anchor
                 symbol through focused attention and emotional resonance.
               </Text>
+
+              <Text style={styles.sheetSubtitle}>Focus Charge</Text>
               <Text style={styles.sheetText}>
-                This ritual strengthens the neural pathway between the visual
-                symbol and your desired outcome, making it a powerful trigger
-                for motivation and clarity when you need it most.
+                A brief moment of alignment. Choose between 30 seconds, 2 minutes,
+                or 5 minutes for a focused energy boost.
               </Text>
-              <Text style={styles.sheetSubtitle}>Quick vs Deep</Text>
+
+              <Text style={styles.sheetSubtitle}>Ritual Charge</Text>
               <Text style={styles.sheetText}>
-                <Text style={styles.sheetBold}>Quick Charge</Text> is a 30-second
-                focused session — perfect for a fast boost.
+                A guided, immersive experience. Multi-phase ceremony with 5 minutes,
+                10 minutes, or custom durations. Perfect for deeper transformation.
               </Text>
+
+              <Text style={styles.sheetSubtitle}>Your Defaults</Text>
               <Text style={styles.sheetText}>
-                <Text style={styles.sheetBold}>Deep Charge</Text> is a 5-minute
-                guided ritual with breathwork, mantra, visualization, and sealing
-                — ideal for maximum impact.
+                Your most recent charge selection is automatically saved as your
+                default. You can change it anytime by selecting a different mode
+                or duration.
               </Text>
+
               <TouchableOpacity
                 style={styles.sheetButton}
                 onPress={closeInfoSheet}
@@ -274,10 +429,6 @@ export const ChargeSetupScreen: React.FC = () => {
   );
 };
 
-// ══════════════════════════════════════════════════════════════
-// STYLES
-// ══════════════════════════════════════════════════════════════
-
 const styles = StyleSheet.create({
   container: {
     flex: 1,
@@ -286,10 +437,6 @@ const styles = StyleSheet.create({
   scrollContent: {
     paddingBottom: spacing.xxxl,
   },
-
-  // ────────────────────────────────────────────────────────────
-  // Header
-  // ────────────────────────────────────────────────────────────
   headerBar: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -317,10 +464,6 @@ const styles = StyleSheet.create({
     color: colors.gold,
     letterSpacing: 0.5,
   },
-
-  // ────────────────────────────────────────────────────────────
-  // Symbol Section
-  // ────────────────────────────────────────────────────────────
   symbolSection: {
     alignItems: 'center',
     paddingTop: spacing.xxxl + spacing.lg,
@@ -328,10 +471,6 @@ const styles = StyleSheet.create({
   symbolContainer: {
     padding: spacing.md,
   },
-
-  // ────────────────────────────────────────────────────────────
-  // Intention Section
-  // ────────────────────────────────────────────────────────────
   intentionSection: {
     alignItems: 'center',
     paddingHorizontal: spacing.xl,
@@ -352,70 +491,11 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     lineHeight: typography.lineHeights.body1,
   },
-
-  // ────────────────────────────────────────────────────────────
-  // Option Cards
-  // ────────────────────────────────────────────────────────────
-  optionsContainer: {
+  stepContent: {
     paddingHorizontal: spacing.lg,
-    gap: spacing.md,
+    marginTop: spacing.xl,
+    minHeight: 400,
   },
-  optionCard: {
-    borderRadius: 16,
-    overflow: 'hidden',
-  },
-  cardBlur: {
-    overflow: 'hidden',
-    borderRadius: 16,
-  },
-  cardContent: {
-    padding: spacing.xl,
-    alignItems: 'center',
-    borderWidth: 2,
-    borderRadius: 16,
-  },
-  quickCardBorder: {
-    borderColor: colors.gold,
-    shadowColor: colors.gold,
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.3,
-    shadowRadius: 12,
-    elevation: 8,
-  },
-  deepCardBorder: {
-    borderColor: colors.bronze,
-    shadowColor: colors.bronze,
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.3,
-    shadowRadius: 12,
-    elevation: 8,
-  },
-  optionIcon: {
-    fontSize: 48,
-    marginBottom: spacing.md,
-  },
-  optionTitle: {
-    fontSize: typography.sizes.h3,
-    fontFamily: typography.fonts.heading,
-    color: colors.text.primary,
-    marginBottom: spacing.xs,
-  },
-  optionDuration: {
-    fontSize: typography.sizes.body2,
-    fontFamily: typography.fonts.bodyBold,
-    color: colors.gold,
-    marginBottom: spacing.sm,
-  },
-  optionDescription: {
-    fontSize: typography.sizes.body2,
-    fontFamily: typography.fonts.body,
-    color: colors.text.secondary,
-    textAlign: 'center',
-  },
-
-  // ────────────────────────────────────────────────────────────
-  // Info Button
-  // ────────────────────────────────────────────────────────────
   infoButton: {
     position: 'absolute',
     bottom: spacing.xl,
@@ -437,14 +517,6 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: `${colors.gold}40`,
   },
-  infoIcon: {
-    fontSize: 28,
-    color: colors.gold,
-  },
-
-  // ────────────────────────────────────────────────────────────
-  // Bottom Sheet Modal
-  // ────────────────────────────────────────────────────────────
   modalOverlay: {
     flex: 1,
     backgroundColor: 'rgba(0, 0, 0, 0.7)',
@@ -489,10 +561,6 @@ const styles = StyleSheet.create({
     lineHeight: typography.lineHeights.body2,
     marginBottom: spacing.md,
   },
-  sheetBold: {
-    fontFamily: typography.fonts.bodyBold,
-    color: colors.text.primary,
-  },
   sheetButton: {
     marginTop: spacing.lg,
     paddingVertical: spacing.md,
@@ -506,10 +574,6 @@ const styles = StyleSheet.create({
     fontFamily: typography.fonts.bodyBold,
     color: colors.navy,
   },
-
-  // ────────────────────────────────────────────────────────────
-  // Error State
-  // ────────────────────────────────────────────────────────────
   errorContainer: {
     flex: 1,
     justifyContent: 'center',

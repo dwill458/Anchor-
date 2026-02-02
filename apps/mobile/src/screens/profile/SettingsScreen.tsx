@@ -1,362 +1,489 @@
 /**
  * Anchor App - Settings Screen
- *
- * User preferences and app settings
+ * Finalized Zen Architect Design
  */
 
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import {
   View,
   Text,
   StyleSheet,
-  TouchableOpacity,
   ScrollView,
+  TouchableOpacity,
   Switch,
-  Platform,
   Alert,
+  Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { BlurView } from 'expo-blur';
-import { StatusBar } from 'expo-status-bar';
-import {
-  Bell,
-  Clock,
-  Shield,
-  Grid,
-  Vibrate,
-  ChevronRight,
-  Info,
-} from 'lucide-react-native';
 import { useNavigation } from '@react-navigation/native';
-import { StackNavigationProp } from '@react-navigation/stack';
-import { RootStackParamList } from '@/types';
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import {
+  ChevronRight,
+  Bell,
+  Zap,
+  Sliders,
+  ShieldCheck,
+  Palette,
+  Info,
+  Code,
+  LogOut,
+  Trash2,
+  Volume2,
+  Clock,
+  User,
+  Crown
+} from 'lucide-react-native';
+import { BlurView } from 'expo-blur';
+import { LinearGradient } from 'expo-linear-gradient';
+import { useAuthStore } from '@/stores/authStore';
+import { useSettingsStore } from '@/stores/settingsStore';
+import type { RootStackParamList } from '@/types';
 import { colors, spacing } from '@/theme';
-import { ZenBackground, ScreenHeader } from '@/components/common';
-import { useToast } from '@/components/ToastProvider';
+import { ZenBackground } from '@/components/common';
 
 const IS_ANDROID = Platform.OS === 'android';
 
-type SettingsNavigationProp = StackNavigationProp<RootStackParamList>;
-
-interface ToggleSettingProps {
-  icon: React.ReactNode;
+type SettingItemProps = {
   label: string;
-  description?: string;
+  helperText?: string;
+  value?: string;
+  onPress?: () => void;
+  showChevron?: boolean;
+  isDestructive?: boolean;
+};
+
+type ToggleItemProps = {
+  label: string;
+  helperText?: string;
   value: boolean;
   onValueChange: (value: boolean) => void;
-}
-
-const ToggleSetting: React.FC<ToggleSettingProps> = ({
-  icon,
-  label,
-  description,
-  value,
-  onValueChange,
-}) => {
-  const ItemWrapper = IS_ANDROID ? View : BlurView;
-  const itemProps = IS_ANDROID ? {} : { intensity: 8, tint: 'dark' as const };
-
-  return (
-    <View style={styles.settingWrapper}>
-      <ItemWrapper {...itemProps} style={styles.settingItem}>
-        <View style={styles.settingLeft}>
-          <View style={styles.settingIconContainer}>{icon}</View>
-          <View style={styles.settingTextContainer}>
-            <Text style={styles.settingLabel}>{label}</Text>
-            {description && (
-              <Text style={styles.settingDescription}>{description}</Text>
-            )}
-          </View>
-        </View>
-        <Switch
-          value={value}
-          onValueChange={onValueChange}
-          trackColor={{ false: '#3e3e3e', true: colors.gold + '80' }}
-          thumbColor={value ? colors.gold : '#f4f3f4'}
-          ios_backgroundColor="#3e3e3e"
-        />
-      </ItemWrapper>
-    </View>
-  );
 };
 
-interface SelectSettingProps {
-  icon: React.ReactNode;
-  label: string;
-  description?: string;
-  value: string;
-  onPress: () => void;
-}
-
-const SelectSetting: React.FC<SelectSettingProps> = ({
-  icon,
+const SettingItem: React.FC<SettingItemProps> = ({
   label,
-  description,
+  helperText,
   value,
   onPress,
-}) => {
-  const ItemWrapper = IS_ANDROID ? View : BlurView;
-  const itemProps = IS_ANDROID ? {} : { intensity: 8, tint: 'dark' as const };
+  showChevron = true,
+  isDestructive = false,
+}) => (
+  <TouchableOpacity
+    style={styles.settingItem}
+    onPress={onPress}
+    disabled={!onPress}
+    activeOpacity={onPress ? 0.7 : 1}
+  >
+    <View style={styles.settingContent}>
+      <Text style={[styles.settingLabel, isDestructive && styles.destructiveText]}>
+        {label}
+      </Text>
+      {helperText && <Text style={styles.helperText}>{helperText}</Text>}
+      {value && <Text style={styles.settingValue}>{value}</Text>}
+    </View>
+    {showChevron && onPress && (
+      <ChevronRight color={isDestructive ? colors.error : colors.silver} size={20} />
+    )}
+  </TouchableOpacity>
+);
 
-  return (
-    <TouchableOpacity
-      style={styles.settingWrapper}
-      onPress={onPress}
-      activeOpacity={0.7}
-    >
-      <ItemWrapper {...itemProps} style={styles.settingItem}>
-        <View style={styles.settingLeft}>
-          <View style={styles.settingIconContainer}>{icon}</View>
-          <View style={styles.settingTextContainer}>
-            <Text style={styles.settingLabel}>{label}</Text>
-            {description && (
-              <Text style={styles.settingDescription}>{description}</Text>
-            )}
-          </View>
-        </View>
-        <View style={styles.settingRight}>
-          <Text style={styles.settingValue}>{value}</Text>
-          <ChevronRight color={colors.silver} size={20} />
-        </View>
-      </ItemWrapper>
-    </TouchableOpacity>
-  );
-};
+const ToggleItem: React.FC<ToggleItemProps> = ({
+  label,
+  helperText,
+  value,
+  onValueChange,
+}) => (
+  <View style={styles.settingItem}>
+    <View style={styles.settingContent}>
+      <Text style={styles.settingLabel}>{label}</Text>
+      {helperText && <Text style={styles.helperText}>{helperText}</Text>}
+    </View>
+    <Switch
+      value={value}
+      onValueChange={onValueChange}
+      trackColor={{ false: 'rgba(255, 255, 255, 0.1)', true: colors.gold }}
+      thumbColor={value ? colors.navy : colors.silver}
+      ios_backgroundColor="rgba(255, 255, 255, 0.1)"
+    />
+  </View>
+);
+
+const SectionHeader: React.FC<{ title: string; description?: string }> = ({
+  title,
+  description,
+}) => (
+  <View style={styles.sectionHeader}>
+    <Text style={styles.sectionTitle}>{title}</Text>
+    {description && <Text style={styles.sectionDescription}>{description}</Text>}
+  </View>
+);
 
 export const SettingsScreen: React.FC = () => {
-  const navigation = useNavigation<SettingsNavigationProp>();
-  const toast = useToast();
+  const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
+  const { user, signOut, setHasCompletedOnboarding } = useAuthStore();
+  const { defaultCharge, defaultActivation } = useSettingsStore();
 
-  // Settings state - would come from API in production
-  const [notificationsEnabled, setNotificationsEnabled] = useState(true);
+  // Developer Mode
+  const [devModeEnabled, setDevModeEnabled] = useState(false);
+
+  // Practice Settings
+  const [autoOpenDaily, setAutoOpenDaily] = useState(false);
+  const [reduceVisibility, setReduceVisibility] = useState(false);
+
+  // Notifications
+  const [dailyReminder, setDailyReminder] = useState(true);
   const [streakProtection, setStreakProtection] = useState(true);
-  const [dailyReminderTime, setDailyReminderTime] = useState('08:00');
-  const [defaultChargeDuration, setDefaultChargeDuration] = useState(5); // minutes
-  const [hapticIntensity, setHapticIntensity] = useState(3);
-  const [vaultViewType, setVaultViewType] = useState<'grid' | 'list'>('grid');
+  const [weeklySummary, setWeeklySummary] = useState(true);
 
-  const handleBack = () => {
-    navigation.goBack();
+  // Audio & Haptics
+  const [soundEffects, setSoundEffects] = useState(true);
+
+  const formatActivationValue = () => {
+    const typeLabels: Record<string, string> = {
+      visual: 'Visual Focus',
+      mantra: 'Mantra',
+      full: 'Full Activation',
+      breath_visual: 'Breath + Visual',
+    };
+
+    const unitLabels: Record<string, string> = {
+      seconds: 's',
+      reps: ' reps',
+      minutes: 'min',
+      breaths: ' breaths',
+    };
+
+    return `${typeLabels[defaultActivation.type]} · ${defaultActivation.value}${unitLabels[defaultActivation.unit]}`;
   };
 
-  const handleNotificationsToggle = (value: boolean) => {
-    setNotificationsEnabled(value);
-    toast.success(`Notifications ${value ? 'enabled' : 'disabled'}`);
-    // TODO: Call API to update settings
-  };
-
-  const handleStreakProtectionToggle = (value: boolean) => {
-    setStreakProtection(value);
-    toast.success(`Streak protection ${value ? 'enabled' : 'disabled'}`);
-    // TODO: Call API to update settings
-  };
-
-  const handleReminderTimePress = () => {
-    // TODO: Open time picker
-    toast.info('Time picker coming soon');
-  };
-
-  const handleChargeDurationPress = () => {
+  const handleSignOut = () => {
     Alert.alert(
-      'Default Charge Duration',
-      'Select default duration for charging rituals',
+      'Sign Out',
+      'Are you sure you want to sign out?',
       [
+        { text: 'Cancel', style: 'cancel' },
         {
-          text: '1 minute',
-          onPress: () => {
-            setDefaultChargeDuration(1);
-            toast.success('Default duration set to 1 minute');
-          },
-        },
-        {
-          text: '5 minutes',
-          onPress: () => {
-            setDefaultChargeDuration(5);
-            toast.success('Default duration set to 5 minutes');
-          },
-        },
-        {
-          text: '10 minutes',
-          onPress: () => {
-            setDefaultChargeDuration(10);
-            toast.success('Default duration set to 10 minutes');
-          },
-        },
-        {
-          text: 'Cancel',
-          style: 'cancel',
+          text: 'Sign Out',
+          style: 'destructive',
+          onPress: () => signOut(),
         },
       ]
     );
   };
 
-  const handleHapticIntensityPress = () => {
+  const handleDeleteAccount = () => {
     Alert.alert(
-      'Haptic Intensity',
-      'Select vibration strength for rituals',
+      'Delete Account',
+      'This permanently deletes your account and all associated data.\nThis action cannot be undone.',
       [
+        { text: 'Cancel', style: 'cancel' },
         {
-          text: 'Light (1)',
+          text: 'Delete Account',
+          style: 'destructive',
           onPress: () => {
-            setHapticIntensity(1);
-            toast.success('Haptic intensity set to light');
+            Alert.alert('Feature Coming Soon', 'Account deletion will be available in a future update.');
           },
-        },
-        {
-          text: 'Medium (3)',
-          onPress: () => {
-            setHapticIntensity(3);
-            toast.success('Haptic intensity set to medium');
-          },
-        },
-        {
-          text: 'Strong (5)',
-          onPress: () => {
-            setHapticIntensity(5);
-            toast.success('Haptic intensity set to strong');
-          },
-        },
-        {
-          text: 'Cancel',
-          style: 'cancel',
         },
       ]
     );
   };
 
-  const handleVaultViewPress = () => {
+  const handleResetOnboarding = () => {
     Alert.alert(
-      'Vault View',
-      'Choose how to display your anchors',
+      'Reset Onboarding',
+      'This will take you back to the initial welcome screen. Your anchors and account data will be preserved.',
       [
+        { text: 'Cancel', style: 'cancel' },
         {
-          text: 'Grid',
+          text: 'Reset',
+          style: 'destructive',
           onPress: () => {
-            setVaultViewType('grid');
-            toast.success('Vault view set to grid');
+            setHasCompletedOnboarding(false);
           },
-        },
-        {
-          text: 'List',
-          onPress: () => {
-            setVaultViewType('list');
-            toast.success('Vault view set to list');
-          },
-        },
-        {
-          text: 'Cancel',
-          style: 'cancel',
         },
       ]
-    );
+    )
   };
 
-  const getHapticLabel = (intensity: number) => {
-    if (intensity <= 1) return 'Light';
-    if (intensity >= 5) return 'Strong';
-    return 'Medium';
-  };
+  const CardWrapper = IS_ANDROID ? View : BlurView;
+  const cardProps = IS_ANDROID ? {} : { intensity: 10, tint: 'dark' as const };
 
   return (
     <View style={styles.container}>
-      <StatusBar style="light" />
       <ZenBackground />
-
-      <SafeAreaView style={styles.safeArea}>
-        <ScreenHeader title="Settings" onBackPress={handleBack} />
-
+      <SafeAreaView style={styles.safeArea} edges={['top']}>
         <ScrollView
           style={styles.scrollView}
-          contentContainerStyle={styles.scrollContent}
           showsVerticalScrollIndicator={false}
+          contentContainerStyle={styles.scrollContent}
         >
-          {/* Notifications Section */}
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Notifications</Text>
-
-            <ToggleSetting
-              icon={<Bell color={colors.silver} size={20} />}
-              label="Enable Notifications"
-              description="Receive reminders and streak alerts"
-              value={notificationsEnabled}
-              onValueChange={handleNotificationsToggle}
-            />
-
-            {notificationsEnabled && (
-              <>
-                <SelectSetting
-                  icon={<Clock color={colors.silver} size={20} />}
-                  label="Daily Reminder Time"
-                  description="When to receive your daily reminder"
-                  value={dailyReminderTime}
-                  onPress={handleReminderTimePress}
-                />
-
-                <ToggleSetting
-                  icon={<Shield color={colors.silver} size={20} />}
-                  label="Streak Protection"
-                  description="Get reminders before losing your streak"
-                  value={streakProtection}
-                  onValueChange={handleStreakProtectionToggle}
-                />
-              </>
-            )}
+          {/* Header */}
+          <View style={styles.header}>
+            <Text style={styles.title}>Settings</Text>
+            <Text style={styles.subtitle}>
+              Personalize your path with Anchor's core configurations.
+            </Text>
           </View>
 
-          {/* Ritual Defaults Section */}
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Ritual Preferences</Text>
-
-            <SelectSetting
-              icon={<Clock color={colors.silver} size={20} />}
-              label="Default Charge Duration"
-              description="Suggested time for charging rituals"
-              value={`${defaultChargeDuration} minutes`}
-              onPress={handleChargeDurationPress}
+          {/* 1. PRACTICE SETTINGS */}
+          <SectionHeader
+            title="Practice Settings"
+            description="Control how your anchors are created, charged, and activated."
+          />
+          <CardWrapper {...cardProps} style={styles.section}>
+            <SettingItem
+              label="Default Charge"
+              helperText="Choose how much time you want to spend when charging a new anchor."
+              value={`${defaultCharge.mode === 'focus' ? 'Focus' : 'Ritual'} · ${defaultCharge.preset === 'custom'
+                ? `Custom (${defaultCharge.customMinutes}m)`
+                : defaultCharge.preset
+                }`}
+              onPress={() => navigation.navigate('DefaultCharge')}
+              showChevron={true}
             />
-
-            <SelectSetting
-              icon={<Vibrate color={colors.silver} size={20} />}
-              label="Haptic Intensity"
-              description="Vibration strength during rituals"
-              value={getHapticLabel(hapticIntensity)}
-              onPress={handleHapticIntensityPress}
+            <SettingItem
+              label="Default Activation"
+              helperText="How you prefer to engage with your anchor during daily practice."
+              value={formatActivationValue()}
+              onPress={() => navigation.navigate('DefaultActivation')}
+              showChevron={true}
             />
-          </View>
+            <ToggleItem
+              label="Open Daily Anchor Automatically"
+              helperText="When enabled, your primary anchor opens when you launch the app."
+              value={autoOpenDaily}
+              onValueChange={setAutoOpenDaily}
+            />
+            <SettingItem
+              label="Daily Practice Goal"
+              helperText="Set how many activations you aim for each day."
+              value="3 activations per day"
+              onPress={() => {/* TODO: Open stepper */ }}
+            />
+            <ToggleItem
+              label="Reduce Intention Visibility"
+              helperText="Gradually hides original intention text to support focus without overthinking."
+              value={reduceVisibility}
+              onValueChange={setReduceVisibility}
+            />
+          </CardWrapper>
 
-          {/* Display Section */}
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Display</Text>
+          {/* 2. NOTIFICATIONS */}
+          <SectionHeader
+            title="Notifications"
+            description="Gentle reminders to support consistency."
+          />
+          <CardWrapper {...cardProps} style={styles.section}>
+            <ToggleItem
+              label="Daily Reminder"
+              helperText="Receive a reminder to activate your anchor."
+              value={dailyReminder}
+              onValueChange={setDailyReminder}
+            />
+            <ToggleItem
+              label="Streak Protection Alerts"
+              helperText="Get notified before a streak is broken."
+              value={streakProtection}
+              onValueChange={setStreakProtection}
+            />
+            <ToggleItem
+              label="Weekly Summary"
+              helperText="A short overview of your practice each week."
+              value={weeklySummary}
+              onValueChange={setWeeklySummary}
+            />
+          </CardWrapper>
 
-            <SelectSetting
-              icon={<Grid color={colors.silver} size={20} />}
+          {/* 3. APPEARANCE */}
+          <SectionHeader
+            title="Appearance"
+            description="Adjust how Anchor looks and feels."
+          />
+          <CardWrapper {...cardProps} style={styles.section}>
+            <SettingItem
+              label="Theme"
+              value="Zen Architect"
+              onPress={() => {/* TODO: Open theme picker */ }}
+            />
+            <SettingItem
+              label="Accent Color"
+              value="Gold"
+              onPress={() => {/* TODO: Open color picker */ }}
+            />
+            <SettingItem
               label="Vault View"
-              description="How your anchors are displayed"
-              value={vaultViewType === 'grid' ? 'Grid' : 'List'}
-              onPress={handleVaultViewPress}
+              value="Grid"
+              onPress={() => {/* TODO: Toggle vault view */ }}
             />
-          </View>
+          </CardWrapper>
 
-          {/* Info Section */}
-          <View style={styles.infoSection}>
-            {IS_ANDROID ? (
-              <View style={styles.infoCard}>
-                <Info color={colors.silver} size={20} />
-                <Text style={styles.infoText}>
-                  Settings are automatically saved to your account.
-                </Text>
-              </View>
-            ) : (
-              <BlurView intensity={8} tint="dark" style={styles.infoCard}>
-                <Info color={colors.silver} size={20} />
-                <Text style={styles.infoText}>
-                  Settings are automatically saved to your account.
-                </Text>
-              </BlurView>
+          {/* 4. AUDIO & HAPTICS */}
+          <SectionHeader
+            title="Audio & Haptics"
+            description="Personalize the sensory experience."
+          />
+          <CardWrapper {...cardProps} style={styles.section}>
+            <SettingItem
+              label="Mantra Voice"
+              value="Voice One"
+              onPress={() => {/* TODO: Open voice picker */ }}
+            />
+            <SettingItem
+              label="Voice Style"
+              value="Calm"
+              onPress={() => {/* TODO: Open style picker */ }}
+            />
+            <SettingItem
+              label="Haptic Feedback"
+              helperText="Adjust the strength of physical feedback."
+              value="Medium"
+              onPress={() => {/* TODO: Open intensity slider */ }}
+            />
+            <ToggleItem
+              label="Sound Effects"
+              helperText="Charging, activation, and completion sounds."
+              value={soundEffects}
+              onValueChange={setSoundEffects}
+            />
+          </CardWrapper>
+
+          {/* 5. ACCOUNT */}
+          <SectionHeader
+            title="Account"
+            description="Manage your account and access."
+          />
+          <CardWrapper {...cardProps} style={styles.section}>
+            <SettingItem
+              label="Email Address"
+              value={user?.email || 'Not signed in'}
+              showChevron={false}
+            />
+            <SettingItem
+              label="Sign Out"
+              onPress={handleSignOut}
+              showChevron={false}
+            />
+            <SettingItem
+              label="Delete Account"
+              onPress={handleDeleteAccount}
+              isDestructive
+              showChevron={false}
+            />
+          </CardWrapper>
+
+          {/* 6. SUBSCRIPTION */}
+          <SectionHeader
+            title="Subscription"
+            description="Manage your plan and access premium features."
+          />
+          <CardWrapper {...cardProps} style={styles.section}>
+            <SettingItem
+              label="Current Plan"
+              value="Free"
+              showChevron={false}
+            />
+            <View style={styles.proBenefits}>
+              <Text style={styles.proBenefitsTitle}>Pro Benefits</Text>
+              <Text style={styles.proBenefitItem}>• Unlimited anchors</Text>
+              <Text style={styles.proBenefitItem}>• Advanced customization</Text>
+              <Text style={styles.proBenefitItem}>• Manual creation tools</Text>
+            </View>
+            <TouchableOpacity style={styles.upgradeButton} activeOpacity={0.8}>
+              <LinearGradient
+                colors={[colors.gold, colors.bronze]}
+                style={styles.upgradeGradient}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 0 }}
+              >
+                <Text style={styles.upgradeButtonText}>Upgrade to Pro</Text>
+              </LinearGradient>
+            </TouchableOpacity>
+            <SettingItem
+              label="Restore Purchase"
+              onPress={() => {/* TODO: Restore purchases */ }}
+              showChevron={false}
+            />
+          </CardWrapper>
+
+          {/* 7. DATA & PRIVACY */}
+          <SectionHeader
+            title="Data & Privacy"
+            description="Control your data and storage."
+          />
+          <CardWrapper {...cardProps} style={styles.section}>
+            <SettingItem
+              label="Export My Data"
+              helperText="Download a copy of your account data."
+              onPress={() => {/* TODO: Export data */ }}
+            />
+            <SettingItem
+              label="Clear Local Cache"
+              helperText="Removes temporary files stored on this device."
+              onPress={() => {/* TODO: Clear cache */ }}
+            />
+            <SettingItem
+              label="Offline Status"
+              helperText="View pending actions waiting to sync."
+              value="All synced"
+              onPress={() => {/* TODO: Show offline status */ }}
+            />
+            <SettingItem
+              label="Privacy Policy"
+              onPress={() => {/* TODO: Open privacy policy */ }}
+            />
+            <SettingItem
+              label="Terms of Service"
+              onPress={() => {/* TODO: Open terms */ }}
+            />
+          </CardWrapper>
+
+          {/* 8. ABOUT ANCHOR */}
+          <SectionHeader
+            title="About Anchor"
+            description="Product information and support."
+          />
+          <CardWrapper {...cardProps} style={styles.section}>
+            <View style={styles.philosophyBox}>
+              <Text style={styles.philosophyText}>
+                Anchor is a visual focus tool built on proven psychological and symbolic principles.
+                It exists to help you clarify intention, stay consistent, and release overthinking.
+              </Text>
+            </View>
+            <SettingItem
+              label="App Version"
+              value="1.0.0"
+              showChevron={false}
+            />
+            <SettingItem
+              label="Contact Support"
+              onPress={() => {/* TODO: Open support */ }}
+            />
+            <SettingItem
+              label="Credits"
+              onPress={() => {/* TODO: Show credits */ }}
+            />
+          </CardWrapper>
+
+          {/* 9. DEVELOPER TOOLS */}
+          <SectionHeader
+            title="Developer Tools"
+          />
+          <CardWrapper {...cardProps} style={styles.section}>
+            <ToggleItem
+              label="Enable Developer Mode"
+              helperText="Unlock internal tools and testing utilities."
+              value={devModeEnabled}
+              onValueChange={setDevModeEnabled}
+            />
+            {devModeEnabled && (
+              <SettingItem
+                label="Reset Onboarding"
+                helperText="Restart the initial onboarding flow."
+                onPress={handleResetOnboarding}
+                isDestructive
+              />
             )}
-          </View>
+          </CardWrapper>
 
-          {/* Bottom Spacer */}
           <View style={styles.bottomSpacer} />
         </ScrollView>
       </SafeAreaView>
@@ -376,11 +503,30 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   scrollContent: {
-    paddingHorizontal: spacing.lg,
-    paddingBottom: 40,
+    paddingBottom: spacing.xxl,
   },
-  section: {
-    marginBottom: spacing.xl,
+  header: {
+    paddingHorizontal: spacing.lg,
+    paddingTop: spacing.xl,
+    paddingBottom: spacing.md,
+  },
+  title: {
+    fontSize: 32,
+    fontWeight: 'bold',
+    color: colors.gold,
+    marginBottom: spacing.xs,
+    letterSpacing: 0.5,
+  },
+  subtitle: {
+    fontSize: 14,
+    color: colors.silver,
+    lineHeight: 20,
+    opacity: 0.8,
+  },
+  sectionHeader: {
+    paddingHorizontal: spacing.lg,
+    paddingTop: spacing.xl,
+    paddingBottom: spacing.sm,
   },
   sectionTitle: {
     fontSize: 12,
@@ -388,81 +534,105 @@ const styles = StyleSheet.create({
     color: colors.silver,
     textTransform: 'uppercase',
     letterSpacing: 1.2,
-    marginBottom: spacing.md,
+    marginBottom: spacing.xs,
     opacity: 0.6,
   },
-  settingWrapper: {
-    marginBottom: spacing.sm,
+  sectionDescription: {
+    fontSize: 13,
+    color: colors.silver,
+    lineHeight: 18,
+    opacity: 0.6,
+  },
+  section: {
+    backgroundColor: IS_ANDROID ? 'rgba(26, 26, 29, 0.9)' : 'rgba(26, 26, 29, 0.3)',
+    marginHorizontal: spacing.lg,
+    borderRadius: 16,
+    overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: 'rgba(212, 175, 55, 0.15)',
   },
   settingItem: {
-    borderRadius: 16,
-    padding: spacing.lg,
-    borderWidth: 1,
-    borderColor: 'rgba(192, 192, 192, 0.15)',
-    backgroundColor: IS_ANDROID ? 'rgba(26, 26, 29, 0.85)' : 'rgba(26, 26, 29, 0.3)',
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+    paddingVertical: spacing.lg,
+    paddingHorizontal: spacing.lg,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(255, 255, 255, 0.05)',
   },
-  settingLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
+  settingContent: {
     flex: 1,
-  },
-  settingIconContainer: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: 'rgba(192, 192, 192, 0.1)',
-    justifyContent: 'center',
-    alignItems: 'center',
     marginRight: spacing.md,
-  },
-  settingTextContainer: {
-    flex: 1,
   },
   settingLabel: {
     fontSize: 16,
     fontWeight: '600',
     color: colors.bone,
-    marginBottom: 2,
+    marginBottom: 4,
   },
-  settingDescription: {
+  helperText: {
     fontSize: 13,
     color: colors.silver,
+    lineHeight: 18,
     opacity: 0.7,
-  },
-  settingRight: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginLeft: spacing.sm,
+    marginTop: 2,
   },
   settingValue: {
     fontSize: 14,
-    color: colors.silver,
-    marginRight: spacing.sm,
+    color: colors.gold,
+    fontWeight: '500',
+    marginTop: 6,
   },
-  infoSection: {
-    marginTop: spacing.lg,
+  destructiveText: {
+    color: colors.error,
   },
-  infoCard: {
-    flexDirection: 'row',
-    padding: spacing.lg,
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: 'rgba(192, 192, 192, 0.1)',
-    backgroundColor: IS_ANDROID ? 'rgba(26, 26, 29, 0.85)' : 'rgba(26, 26, 29, 0.3)',
-    alignItems: 'flex-start',
+  proBenefits: {
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.md,
   },
-  infoText: {
-    flex: 1,
+  proBenefitsTitle: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: colors.bone,
+    marginBottom: spacing.sm,
+  },
+  proBenefitItem: {
     fontSize: 13,
     color: colors.silver,
-    lineHeight: 19,
+    lineHeight: 22,
+    opacity: 0.8,
+  },
+  upgradeButton: {
+    marginHorizontal: spacing.lg,
+    marginVertical: spacing.md,
+    borderRadius: 12,
+    overflow: 'hidden',
+  },
+  upgradeGradient: {
+    paddingVertical: spacing.md,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  upgradeButtonText: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: colors.navy,
+  },
+  philosophyBox: {
+    backgroundColor: 'rgba(212, 175, 55, 0.05)',
+    padding: spacing.lg,
+    borderRadius: 12,
+    margin: spacing.lg,
+    borderLeftWidth: 3,
+    borderLeftColor: colors.gold,
+  },
+  philosophyText: {
+    fontSize: 14,
+    color: colors.silver,
+    lineHeight: 22,
     fontStyle: 'italic',
-    marginLeft: spacing.md,
   },
   bottomSpacer: {
-    height: 20,
+    height: 100,
   },
 });

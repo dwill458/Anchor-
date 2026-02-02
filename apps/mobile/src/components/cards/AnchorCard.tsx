@@ -3,11 +3,12 @@
  */
 
 import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Platform, Image } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Platform } from 'react-native';
 import { SvgXml } from 'react-native-svg';
 import { BlurView } from 'expo-blur';
 import type { Anchor } from '@/types';
 import { colors, spacing, typography } from '@/theme';
+import { OptimizedImage } from '@/components/common/OptimizedImage';
 
 interface AnchorCardProps {
   anchor: Anchor;
@@ -47,8 +48,8 @@ export const AnchorCard: React.FC<AnchorCardProps> = ({ anchor, onPress }) => {
           <View style={styles.sigilContainer}>
             <View style={styles.sigilWrapper}>
               {anchor.enhancedImageUrl ? (
-                <Image
-                  source={{ uri: anchor.enhancedImageUrl }}
+                <OptimizedImage
+                  uri={anchor.enhancedImageUrl}
                   style={styles.sigilImage}
                   resizeMode="cover"
                 />

@@ -159,39 +159,17 @@ export const VaultScreen: React.FC = () => {
         style={styles.createButton}
         onPress={handleCreateAnchor}
         accessibilityRole="button"
-        accessibilityLabel="Forge your first anchor"
+        accessibilityLabel="Create your first anchor"
         accessibilityHint="Opens the anchor creation screen"
         activeOpacity={0.8}
       >
         <LinearGradient colors={[colors.gold, '#B8941F']} style={styles.buttonGradient}>
-          <Text style={styles.createButtonText}>Forge First Anchor</Text>
+          <Text style={styles.createButtonText}>Create your first anchor</Text>
         </LinearGradient>
       </TouchableOpacity>
     </View>
   );
 
-  const renderHeader = (): React.JSX.Element => (
-    <View style={styles.header}>
-      <View>
-        <Text style={styles.headerTitle} accessibilityRole="header">Sanctuary</Text>
-        <Text style={styles.headerSubtitle} accessibilityLabel={`You have ${anchors.length} sacred ${anchors.length === 1 ? 'anchor' : 'anchors'}`}>
-          {anchors.length} {anchors.length === 1 ? 'Sacred Anchor' : 'Sacred Anchors'}
-        </Text>
-      </View>
-      <TouchableOpacity
-        style={styles.profileButton}
-        onPress={() => navigation.navigate('Profile')}
-        accessibilityRole="button"
-        accessibilityLabel={`Profile for ${user?.displayName || 'User'}`}
-        accessibilityHint="Opens your profile settings"
-        activeOpacity={0.8}
-      >
-        <View style={styles.avatarPlaceholder}>
-          <Text style={styles.avatarText}>{user?.displayName?.charAt(0) || 'U'}</Text>
-        </View>
-      </TouchableOpacity>
-    </View>
-  );
 
   return (
     <View style={styles.container}>
@@ -208,8 +186,6 @@ export const VaultScreen: React.FC = () => {
       )}
 
       <SafeAreaView style={{ flex: 1 }} edges={['top']}>
-        {renderHeader()}
-
         <Animated.View style={{ flex: 1, opacity: fadeAnim }}>
           {isLoading && anchors.length === 0 ? (
             <AnchorGridSkeleton count={6} />
@@ -266,38 +242,6 @@ const styles = StyleSheet.create({
   orb: { position: 'absolute', borderRadius: 200, backgroundColor: colors.gold, opacity: 0.1 },
   orb1: { width: 400, height: 400, top: -200, right: -150 },
   orb2: { width: 300, height: 300, bottom: 50, left: -100 },
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.md,
-    marginBottom: spacing.sm,
-  },
-  headerTitle: {
-    fontSize: 32,
-    fontFamily: typography.fonts.heading,
-    color: colors.gold,
-    letterSpacing: 1,
-  },
-  headerSubtitle: {
-    fontSize: 14,
-    color: colors.silver,
-    fontFamily: typography.fonts.body,
-    marginTop: -4,
-  },
-  profileButton: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    borderWidth: 1,
-    borderColor: 'rgba(212, 175, 55, 0.3)',
-    backgroundColor: 'rgba(255, 255, 255, 0.05)',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  avatarPlaceholder: { justifyContent: 'center', alignItems: 'center' },
-  avatarText: { color: colors.gold, fontWeight: '700', fontSize: 18 },
   listContent: {
     paddingHorizontal: spacing.lg,
     paddingBottom: 160, // Increased to clear FAB and Tab Bar
