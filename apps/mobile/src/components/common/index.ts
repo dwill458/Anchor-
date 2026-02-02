@@ -9,3 +9,6 @@ export { ZenBackground } from './ZenBackground';
 export { LogoBreath } from './LogoBreath';
 export { BottomCtaBar, BOTTOM_BAR_HEIGHT } from './BottomCtaBar';
 export { BottomDock, DOCK_HEIGHT } from './BottomDock';
+export { SigilSvg } from './SigilSvg';
+export { TimerPicker } from './TimerPicker';
+export { OptimizedImage } from './OptimizedImage';

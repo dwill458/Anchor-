@@ -2,22 +2,26 @@
  * Anchor App - Root Navigator
  *
  * Top-level navigator that switches between Onboarding and Main flows
+ * Now includes ProfileStack for modal access to account/settings
  *
  * Flow:
  * - First-time users: Onboarding → Main
  * - Returning users: Main
+ * - Profile: Accessed via header avatar (modal)
  */
 
 import React from 'react';
 import { createStackNavigator } from '@react-navigation/stack';
 import { OnboardingNavigator } from './OnboardingNavigator';
 import { MainTabNavigator } from './MainTabNavigator';
+import { ProfileStackNavigator } from './ProfileStackNavigator';
 import { useAuthStore } from '../stores/authStore';
+import type { ProfileStackParamList } from './ProfileStackNavigator';
 
 export type RootNavigatorParamList = {
   Onboarding: undefined;
   Main: undefined;
-};
+} & ProfileStackParamList; // Merge ProfileStack routes into root
 
 const Stack = createStackNavigator<RootNavigatorParamList>();
 
@@ -29,7 +33,17 @@ export const RootNavigator: React.FC = () => {
       {!hasCompletedOnboarding ? (
         <Stack.Screen name="Onboarding" component={OnboardingNavigator} />
       ) : (
-        <Stack.Screen name="Main" component={MainTabNavigator} />
+        <>
+          <Stack.Screen name="Main" component={MainTabNavigator} />
+          {/* Profile/Settings as modal */}
+          <Stack.Screen
+            name="Settings"
+            component={ProfileStackNavigator}
+            options={{
+              presentation: 'modal',
+            }}
+          />
+        </>
       )}
     </Stack.Navigator>
   );

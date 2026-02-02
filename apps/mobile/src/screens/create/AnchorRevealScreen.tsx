@@ -17,6 +17,7 @@ import { RootStackParamList } from '@/types';
 import { colors } from '@/theme';
 import { ScreenHeader, ZenBackground } from '@/components/common';
 import { BlurView } from 'expo-blur';
+import { useTempStore } from '@/stores/anchorStore';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const IMAGE_SIZE = SCREEN_WIDTH - 64; // Large centered image
@@ -35,10 +36,14 @@ export const AnchorRevealScreen: React.FC = () => {
         baseSigilSvg,
         reinforcedSigilSvg,
         structureVariant,
-        enhancedImageUrl,
+        enhancedImageUrl: paramImageUrl,
         reinforcementMetadata,
         enhancementMetadata,
     } = route.params;
+
+    // Retrieve from store if not in params (handle large base64)
+    const tempEnhancedImage = useTempStore((state) => state.tempEnhancedImage);
+    const enhancedImageUrl = paramImageUrl || tempEnhancedImage;
 
     // Animations
     const fadeAnim = useRef(new Animated.Value(0)).current;
@@ -76,7 +81,7 @@ export const AnchorRevealScreen: React.FC = () => {
             structureVariant,
             reinforcementMetadata,
             enhancementMetadata,
-            finalImageUrl: enhancedImageUrl,
+            finalImageUrl: enhancedImageUrl || '',
         });
     };
 
@@ -100,7 +105,7 @@ export const AnchorRevealScreen: React.FC = () => {
                     >
                         <View style={styles.imageCard}>
                             <Image
-                                source={{ uri: enhancedImageUrl }}
+                                source={{ uri: enhancedImageUrl || '' }}
                                 style={styles.image}
                                 resizeMode="cover"
                             />

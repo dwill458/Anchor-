@@ -6,6 +6,7 @@
 
 import React from 'react';
 import { createStackNavigator } from '@react-navigation/stack';
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { VaultScreen, AnchorDetailScreen } from '../screens/vault';
 import {
   IntentionInputScreen,
@@ -31,12 +32,16 @@ import {
   SealAnchorScreen,
   ChargeCompleteScreen,
 } from '../screens/rituals';
-import { SettingsScreen } from '../screens/profile';
+import { SettingsScreen, DefaultChargeSettings, DefaultActivationSettings } from '../screens/profile';
+import { SettingsButton } from '../components/header/SettingsButton';
 import type { RootStackParamList } from '@/types';
 import { colors } from '@/theme';
 import { useAuthStore } from '@/stores/authStore';
 
 const Stack = createStackNavigator<RootStackParamList>();
+
+// Navigation type for accessing Settings from header
+type RootNavigationProp = NativeStackNavigationProp<RootStackParamList>;
 
 export const VaultStackNavigator: React.FC = () => {
   // Determine which intention screen to show
@@ -50,6 +55,7 @@ export const VaultStackNavigator: React.FC = () => {
     <Stack.Navigator
       screenOptions={{
         headerShown: true,
+        detachInactiveScreens: true,
         headerStyle: {
           backgroundColor: colors.background.secondary,
         },
@@ -64,7 +70,28 @@ export const VaultStackNavigator: React.FC = () => {
       <Stack.Screen
         name="Vault"
         component={VaultScreen}
-        options={{ headerShown: false }}
+        options={({ navigation }) => ({
+          headerShown: true,
+          headerStyle: {
+            backgroundColor: colors.background.primary,
+            shadowColor: 'transparent',
+            elevation: 0,
+          },
+          headerTintColor: colors.gold,
+          headerTitle: 'Sanctuary',
+          headerTitleStyle: {
+            fontWeight: '600',
+            fontSize: 18,
+          },
+          headerRight: () => {
+            const nav = navigation as unknown as RootNavigationProp;
+            return (
+              <SettingsButton
+                onPress={() => nav?.navigate('Settings')}
+              />
+            );
+          },
+        })}
       />
       <Stack.Screen
         name="AnchorDetail"
@@ -190,6 +217,30 @@ export const VaultStackNavigator: React.FC = () => {
         name="Settings"
         component={SettingsScreen}
         options={{ headerShown: false }}
+      />
+      <Stack.Screen
+        name="DefaultCharge"
+        component={DefaultChargeSettings}
+        options={{
+          title: 'Default Charge',
+          headerShown: true,
+          headerStyle: {
+            backgroundColor: colors.background.secondary,
+          },
+          headerTintColor: colors.gold,
+        }}
+      />
+      <Stack.Screen
+        name="DefaultActivation"
+        component={DefaultActivationSettings}
+        options={{
+          title: 'Default Activation',
+          headerShown: true,
+          headerStyle: {
+            backgroundColor: colors.background.secondary,
+          },
+          headerTintColor: colors.gold,
+        }}
       />
     </Stack.Navigator>
   );

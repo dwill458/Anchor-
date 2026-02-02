@@ -2,6 +2,8 @@
  * Anchor App - Main Tab Navigator
  *
  * Bottom tab navigation with glassmorphic design
+ * Three tabs: Sanctuary, Practice, Discover
+ * Profile accessible via top-right avatar on all screens
  */
 
 import React from 'react';
@@ -9,21 +11,26 @@ import { View, StyleSheet, Platform } from 'react-native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { LinearGradient } from 'expo-linear-gradient';
 import { BlurView } from 'expo-blur';
-import { Home, Compass, ShoppingBag, User } from 'lucide-react-native';
+import { Home, Compass, Zap } from 'lucide-react-native';
 import { getFocusedRouteNameFromRoute } from '@react-navigation/native';
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { VaultStackNavigator } from './VaultStackNavigator';
 import { DiscoverScreen } from '../screens/discover';
-import { ShopScreen } from '../screens/shop';
-import { SettingsScreen } from '../screens/profile';
-import type { MainTabParamList } from '@/types';
-import { colors, spacing } from '@/theme';
+import { PracticeScreen } from '../screens/practice';
+import { SettingsButton } from '../components/header/SettingsButton';
+import type { MainTabParamList, RootStackParamList } from '@/types';
+import { colors } from '@/theme';
 
 const Tab = createBottomTabNavigator<MainTabParamList>();
+
+// Navigation hook type for accessing ProfileStack
+type RootNavigationProp = NativeStackNavigationProp<RootStackParamList>;
 
 export const MainTabNavigator: React.FC = () => {
   return (
     <Tab.Navigator
-      sceneContainerStyle={{ backgroundColor: 'transparent' }} // Fix white background issue
+      detachInactiveScreens
+      sceneContainerStyle={{ backgroundColor: 'transparent' }}
       screenOptions={{
         headerShown: false,
         tabBarStyle: {
@@ -36,7 +43,7 @@ export const MainTabNavigator: React.FC = () => {
           borderRadius: 30,
           height: 70,
           borderTopWidth: 0,
-          overflow: 'hidden', // Ensure proper corner clipping
+          overflow: 'hidden',
           // Premium shadow
           shadowColor: '#000',
           shadowOffset: {
@@ -68,12 +75,12 @@ export const MainTabNavigator: React.FC = () => {
             </BlurView>
           </View>
         ),
-        tabBarActiveTintColor: colors.text.primary,
-        tabBarInactiveTintColor: 'rgba(255, 255, 255, 0.5)',
+        tabBarActiveTintColor: colors.gold,
+        tabBarInactiveTintColor: 'rgba(192, 192, 192, 0.6)',
         tabBarShowLabel: true,
         tabBarLabelStyle: {
           fontSize: 10,
-          fontFamily: Platform.select({ ios: 'System', android: 'Roboto' }), // Fallback font
+          fontFamily: Platform.select({ ios: 'System', android: 'Roboto' }),
           marginBottom: 8,
         },
         tabBarItemStyle: {
@@ -91,39 +98,70 @@ export const MainTabNavigator: React.FC = () => {
 
           return {
             tabBarLabel: 'Sanctuary',
-            tabBarIcon: ({ color, size, focused }) => (
+            tabBarIcon: ({ color, size }) => (
               <View style={styles.sanctuaryIconContainer}>
-                {focused && <View style={styles.sanctuaryPill} />}
-                <Home color={color} size={24} style={{ zIndex: 2 }} />
+                <Home color={color} size={24} />
               </View>
             ),
-            tabBarStyle: isTabBarVisible ? undefined : { display: 'none' },
+            ...(isTabBarVisible ? {} : { tabBarStyle: { display: 'none' } }),
           };
         }}
       />
       <Tab.Screen
+        name="Practice"
+        component={PracticeScreen}
+        options={({ navigation }) => ({
+          headerShown: true,
+          headerStyle: {
+            backgroundColor: colors.background.primary,
+            shadowColor: 'transparent',
+            elevation: 0,
+          },
+          headerTintColor: colors.gold,
+          headerTitleStyle: {
+            fontWeight: '600',
+            fontSize: 18,
+          },
+          headerTitle: 'Practice',
+          headerRight: () => {
+            const nav = navigation.getParent<RootNavigationProp>();
+            return (
+              <SettingsButton
+                onPress={() => nav?.navigate('Settings')}
+              />
+            );
+          },
+          tabBarLabel: 'Practice',
+          tabBarIcon: ({ color, size }) => <Zap color={color} size={24} />,
+        })}
+      />
+      <Tab.Screen
         name="Discover"
         component={DiscoverScreen}
-        options={{
+        options={({ navigation }) => ({
+          headerShown: true,
+          headerStyle: {
+            backgroundColor: colors.background.primary,
+            shadowColor: 'transparent',
+            elevation: 0,
+          },
+          headerTintColor: colors.gold,
+          headerTitleStyle: {
+            fontWeight: '600',
+            fontSize: 18,
+          },
+          headerTitle: 'Discover',
+          headerRight: () => {
+            const nav = navigation.getParent<RootNavigationProp>();
+            return (
+              <SettingsButton
+                onPress={() => nav?.navigate('Settings')}
+              />
+            );
+          },
           tabBarLabel: 'Discover',
           tabBarIcon: ({ color, size }) => <Compass color={color} size={24} />,
-        }}
-      />
-      <Tab.Screen
-        name="Shop"
-        component={ShopScreen}
-        options={{
-          tabBarLabel: 'Shop',
-          tabBarIcon: ({ color, size }) => <ShoppingBag color={color} size={24} />,
-        }}
-      />
-      <Tab.Screen
-        name="Profile"
-        component={SettingsScreen}
-        options={{
-          tabBarLabel: 'Profile',
-          tabBarIcon: ({ color, size }) => <User color={color} size={24} />,
-        }}
+        })}
       />
     </Tab.Navigator>
   );
@@ -137,13 +175,13 @@ const styles = StyleSheet.create({
     right: 0,
     bottom: 0,
     borderRadius: 30,
-    overflow: 'hidden', // Critical for clipping corners
+    overflow: 'hidden',
     backgroundColor: 'transparent',
   },
   blurView: {
     flex: 1,
     borderRadius: 30,
-    overflow: 'hidden', // Ensure blur respects border radius
+    overflow: 'hidden',
   },
   tabBarGradient: {
     flex: 1,
@@ -153,24 +191,5 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     position: 'relative',
-  },
-  sanctuaryPill: {
-    position: 'absolute',
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    backgroundColor: 'rgba(212, 175, 55, 0.25)', // More visible gold glow
-    borderWidth: 1,
-    borderColor: 'rgba(212, 175, 55, 0.45)', // Stronger gold outline
-    zIndex: 1,
-    // Subtle shadow for depth
-    shadowColor: colors.gold,
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.3,
-    shadowRadius: 4,
-    elevation: 3, // Android shadow
   },
 });

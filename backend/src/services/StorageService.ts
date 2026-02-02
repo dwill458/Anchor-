@@ -75,8 +75,8 @@ export async function uploadImageFromBuffer(
 
     logger.info(`[Storage] Saved buffer to local disk: ${localFilePath}`);
 
-    // Use environment variable for local IP or fallback to localhost
-    const localIp = process.env.LOCAL_IP || '192.168.0.4';
+    // Use environment variable for local IP
+    const localIp = process.env.LOCAL_IP || '127.0.0.1';
     const port = process.env.PORT || '8000';
 
     // In production, you would use a proper public URL or cloud storage URL
@@ -132,6 +132,14 @@ export async function uploadAudio(
   try {
     const client = getR2Client();
     const bucket = getBucketName();
+
+    // Handle mock mode (no R2 credentials)
+    if (!client) {
+      logger.warn('[Storage] R2 client not available, using local fallback for audio');
+      // Return a deterministic local URI for development/CI environments
+      // In production, R2 credentials will always be available
+      return `local://mantras/${userId}/${anchorId}/${mantraStyle}.mp3`;
+    }
 
     // Generate unique filename
     const fileName = `mantras/${userId}/${anchorId}/${mantraStyle}.mp3`;

@@ -72,7 +72,17 @@ const MANTRA_STYLES: MantraStyleInfo[] = [
 export const MantraCreationScreen: React.FC = () => {
   const navigation = useNavigation<MantraCreationNavigationProp>();
   const route = useRoute<MantraCreationRouteProp>();
-  const { intentionText, distilledLetters, sigilSvg, category } = route.params;
+  const {
+    intentionText,
+    distilledLetters,
+    baseSigilSvg,
+    reinforcedSigilSvg,
+    structureVariant,
+    reinforcementMetadata,
+    enhancementMetadata,
+    finalImageUrl,
+    category,
+  } = route.params;
   const { addAnchor } = useAnchorStore();
 
   // Mock User State (Replace with real auth/subscription context later)
@@ -186,13 +196,26 @@ export const MantraCreationScreen: React.FC = () => {
       intentionText,
       category,
       distilledLetters,
-      baseSigilSvg: sigilSvg,
+      baseSigilSvg,
+      reinforcedSigilSvg,
+      structureVariant: structureVariant || 'balanced',
+      reinforcementMetadata,
+      enhancementMetadata,
+      enhancedImageUrl: finalImageUrl,
       mantraText: mantra[selectedStyle],
       isCharged: false,
       activationCount: 0,
       createdAt: new Date(),
       updatedAt: new Date(),
     };
+
+    // DEBUG: Log visual asset state
+    console.log('🔍 [MantraCreation] Creating anchor with visuals:', {
+      baseSigilSvg: baseSigilSvg ? `${baseSigilSvg.substring(0, 50)}...` : 'MISSING',
+      reinforcedSigilSvg: reinforcedSigilSvg ? 'present' : 'none',
+      enhancedImageUrl: finalImageUrl || 'none',
+      structureVariant: structureVariant || 'balanced',
+    });
 
     addAnchor(newAnchor);
 

@@ -23,6 +23,7 @@ import { colors, spacing, typography } from '@/theme';
 import { format } from 'date-fns';
 import { AnalyticsService, AnalyticsEvents } from '../../services/AnalyticsService';
 import { ErrorTrackingService } from '../../services/ErrorTrackingService';
+import { OptimizedImage } from '@/components/common';
 
 const { width } = Dimensions.get('window');
 const ANCHOR_SIZE = width * 0.6;
@@ -187,7 +188,13 @@ export const AnchorDetailScreen: React.FC = () => {
 
         {/* Anchor Display */}
         <View style={styles.anchorContainer}>
-          {anchor.baseSigilSvg ? (
+          {anchor.enhancedImageUrl ? (
+            <OptimizedImage
+              uri={anchor.enhancedImageUrl}
+              style={{ width: ANCHOR_SIZE, height: ANCHOR_SIZE, borderRadius: 8 }}
+              resizeMode="cover"
+            />
+          ) : anchor.baseSigilSvg ? (
             <SvgXml
               xml={anchor.baseSigilSvg}
               width={ANCHOR_SIZE}

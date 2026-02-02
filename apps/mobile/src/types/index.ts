@@ -533,7 +533,17 @@ export type RootStackParamList = {
 
   // Zen Architect Ritual Flow (Phase 2.7)
   ChargeSetup: { anchorId: string };
-  Ritual: { anchorId: string; ritualType: 'quick' | 'deep' };
+  BreathingAnimation: {
+    source?: 'charge' | 'practice';
+    anchorId?: string;
+    mode?: string;
+    duration?: number;
+  };
+  Ritual: {
+    anchorId: string;
+    ritualType: 'focus' | 'ritual' | 'quick' | 'deep'; // Legacy types for compatibility
+    durationSeconds?: number; // Optional custom duration for focus/ritual modes
+  };
   SealAnchor: { anchorId: string };
   ChargeComplete: { anchorId: string };
 
@@ -557,13 +567,14 @@ export type RootStackParamList = {
   // PROFILE & SETTINGS
   // ═══════════════════════════════════════════════════
   Settings: undefined;
+  DefaultCharge: undefined;
+  DefaultActivation: undefined;
 };
 
 export type MainTabParamList = {
   Vault: undefined;
+  Practice: undefined;
   Discover: undefined;
-  Shop: undefined;
-  Profile: undefined;
 };
 
 export type OnboardingStackParamList = {

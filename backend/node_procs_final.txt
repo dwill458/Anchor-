@@ -1,0 +1,19 @@
+CommandLine                                                                                                                                                        ProcessId  
+"C:\Program Files\nodejs\\node.exe"  "C:\Program Files\nodejs\\node_modules\npm\bin\npm-cli.js" run dev                                                            53952      
+"node"   "C:\Users\dwill\.gemini\antigravity\scratch\Anchor-V2\backend\node_modules\.bin\\..\nodemon\bin\nodemon.js" --exec ts-node --transpile-only src/index.ts  33496      
+"C:\Program Files\nodejs\\node.exe"  "C:\Program Files\nodejs\\node_modules\npm\bin\npx-cli.js" expo start --clear                                                 43552      
+"node"   "C:\Users\dwill\.gemini\antigravity\scratch\Anchor-V2\apps\mobile\node_modules\.bin\\..\expo\bin\cli" start --clear                                       74352      
+"C:\Program Files\nodejs\node.exe" C:\Users\dwill\.gemini\antigravity\scratch\Anchor-V2\apps\mobile\node_modules\jest-worker\build\workers\processChild.js         34620      
+"C:\Program Files\nodejs\node.exe" C:\Users\dwill\.gemini\antigravity\scratch\Anchor-V2\apps\mobile\node_modules\jest-worker\build\workers\processChild.js         59588      
+"C:\Program Files\nodejs\node.exe" C:\Users\dwill\.gemini\antigravity\scratch\Anchor-V2\apps\mobile\node_modules\jest-worker\build\workers\processChild.js         63376      
+"C:\Program Files\nodejs\node.exe" C:\Users\dwill\.gemini\antigravity\scratch\Anchor-V2\apps\mobile\node_modules\jest-worker\build\workers\processChild.js         16556      
+"C:\Program Files\nodejs\node.exe" C:\Users\dwill\.gemini\antigravity\scratch\Anchor-V2\apps\mobile\node_modules\jest-worker\build\workers\processChild.js         76696      
+"C:\Program Files\nodejs\node.exe" C:\Users\dwill\.gemini\antigravity\scratch\Anchor-V2\apps\mobile\node_modules\jest-worker\build\workers\processChild.js         61608      
+"C:\Program Files\nodejs\node.exe" C:\Users\dwill\.gemini\antigravity\scratch\Anchor-V2\apps\mobile\node_modules\jest-worker\build\workers\processChild.js         21500      
+"C:\Program Files\nodejs\node.exe" C:\Users\dwill\.gemini\antigravity\scratch\Anchor-V2\apps\mobile\node_modules\jest-worker\build\workers\processChild.js         58484      
+"C:\Program Files\nodejs\node.exe" C:\Users\dwill\.gemini\antigravity\scratch\Anchor-V2\apps\mobile\node_modules\jest-worker\build\workers\processChild.js         12876      
+"C:\Program Files\nodejs\node.exe" C:\Users\dwill\.gemini\antigravity\scratch\Anchor-V2\apps\mobile\node_modules\jest-worker\build\workers\processChild.js         48068      
+"C:\Program Files\nodejs\\node.exe"  "C:\Program Files\nodejs\\node_modules\npm\bin\npm-cli.js" run dev                                                            43584      
+"node"   "C:\Users\dwill\.gemini\antigravity\scratch\Anchor-V2\backend\node_modules\.bin\\..\nodemon\bin\nodemon.js" --exec ts-node --transpile-only src/index.ts  57628      
+"node"   "C:\Users\dwill\.gemini\antigravity\scratch\Anchor-V2\backend\node_modules\.bin\\..\ts-node\dist\bin.js" --transpile-only src/index.ts                    63756      
+

@@ -10,13 +10,32 @@ import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
+export type ChargeMode = 'focus' | 'ritual';
+export type ChargeDurationPreset = '30s' | '2m' | '5m' | '10m' | 'custom';
+
+export interface DefaultChargeSetting {
+  mode: ChargeMode;
+  preset: ChargeDurationPreset;
+  customMinutes?: number;
+}
+
+export type ActivationType = 'visual' | 'mantra' | 'full' | 'breath_visual';
+export type ActivationUnit = 'seconds' | 'reps' | 'minutes' | 'breaths';
+
+export interface DefaultActivationSetting {
+  type: ActivationType;
+  value: number;
+  unit: ActivationUnit;
+}
+
 /**
  * Settings state interface
  */
 export interface SettingsState {
   // Practice Settings
-  defaultChargeType: 'quick' | 'deep';
-  defaultActivationType: 'visual' | 'mantra' | 'full';
+  defaultCharge: DefaultChargeSetting;
+  defaultActivation: DefaultActivationSetting;
+
   autoOpenDailyAnchor: boolean;
   dailyPracticeGoal: number;
   reduceIntentionVisibility: boolean;
@@ -39,8 +58,8 @@ export interface SettingsState {
   soundEffectsEnabled: boolean;
 
   // Actions - Practice Settings
-  setDefaultChargeType: (type: 'quick' | 'deep') => void;
-  setDefaultActivationType: (type: 'visual' | 'mantra' | 'full') => void;
+  setDefaultCharge: (setting: DefaultChargeSetting) => void;
+  setDefaultActivation: (setting: DefaultActivationSetting) => void;
   setAutoOpenDailyAnchor: (enabled: boolean) => void;
   setDailyPracticeGoal: (goal: number) => void;
   setReduceIntentionVisibility: (enabled: boolean) => void;
@@ -70,8 +89,15 @@ export interface SettingsState {
  * Default settings values
  */
 const DEFAULT_SETTINGS = {
-  defaultChargeType: 'quick' as const,
-  defaultActivationType: 'visual' as const,
+  defaultCharge: {
+    mode: 'focus' as ChargeMode,
+    preset: '30s' as ChargeDurationPreset,
+  },
+  defaultActivation: {
+    type: 'visual' as ActivationType,
+    value: 10,
+    unit: 'seconds' as ActivationUnit,
+  },
   autoOpenDailyAnchor: false,
   dailyPracticeGoal: 3,
   reduceIntentionVisibility: false,
@@ -98,14 +124,14 @@ export const useSettingsStore = create<SettingsState>()(
       ...DEFAULT_SETTINGS,
 
       // Practice Settings Actions
-      setDefaultChargeType: (type) =>
+      setDefaultCharge: (setting) =>
         set({
-          defaultChargeType: type,
+          defaultCharge: setting,
         }),
 
-      setDefaultActivationType: (type) =>
+      setDefaultActivation: (setting) =>
         set({
-          defaultActivationType: type,
+          defaultActivation: setting,
         }),
 
       setAutoOpenDailyAnchor: (enabled) =>
@@ -190,10 +216,35 @@ export const useSettingsStore = create<SettingsState>()(
     {
       name: 'anchor-settings-storage',
       storage: createJSONStorage(() => AsyncStorage),
+      version: 1,
+      // Handle migration from old flat structure to nested structure
+      migrate: (persistedState: any, version: number) => {
+        if (version === 0) {
+          // Map old flat properties to new nested objects if they exist
+          const defaultCharge = {
+            mode: persistedState.defaultChargeMode || 'focus',
+            preset: persistedState.defaultChargePreset || '30s',
+            customMinutes: persistedState.defaultChargeCustomMinutes,
+          };
+
+          const defaultActivation = {
+            type: persistedState.defaultActivationType || 'visual',
+            value: persistedState.defaultActivationValue || 10,
+            unit: persistedState.defaultActivationUnit || 'seconds',
+          };
+
+          return {
+            ...persistedState,
+            defaultCharge,
+            defaultActivation,
+          };
+        }
+        return persistedState;
+      },
       // Only persist user preference settings
       partialize: (state) => ({
-        defaultChargeType: state.defaultChargeType,
-        defaultActivationType: state.defaultActivationType,
+        defaultCharge: state.defaultCharge,
+        defaultActivation: state.defaultActivation,
         autoOpenDailyAnchor: state.autoOpenDailyAnchor,
         dailyPracticeGoal: state.dailyPracticeGoal,
         reduceIntentionVisibility: state.reduceIntentionVisibility,

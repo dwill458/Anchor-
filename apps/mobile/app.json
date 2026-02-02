@@ -32,10 +32,6 @@
     },
     "web": {
       "favicon": "./assets/favicon.png"
-    },
-    "plugins": [
-      "expo-av",
-      "expo-asset"
-    ]
+    }
   }
 }
