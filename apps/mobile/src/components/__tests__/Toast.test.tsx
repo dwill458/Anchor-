@@ -5,7 +5,7 @@
  */
 
 import React from 'react';
-import { render, fireEvent } from '@testing-library/react-native';
+import { render, fireEvent, waitFor } from '@testing-library/react-native';
 import { Toast } from '../Toast';
 import * as Haptics from 'expo-haptics';
 
@@ -63,7 +63,7 @@ describe('Toast Component', () => {
     );
   });
 
-  it('should call onDismiss when pressed', () => {
+  it('should call onDismiss when pressed', async () => {
     const onDismiss = jest.fn();
     const { getByRole } = render(
       <Toast message="Test" onDismiss={onDismiss} />
@@ -73,9 +73,9 @@ describe('Toast Component', () => {
     fireEvent.press(button);
 
     // Wait for animation to complete
-    setTimeout(() => {
+    await waitFor(() => {
       expect(onDismiss).toHaveBeenCalled();
-    }, 300);
+    }, { timeout: 500 });
   });
 
   it('should have proper accessibility label', () => {
@@ -93,14 +93,13 @@ describe('Toast Component', () => {
     expect(alert.props.accessibilityLiveRegion).toBe('polite');
   });
 
-  it('should auto-dismiss after duration', (done) => {
+  it('should auto-dismiss after duration', async () => {
     const onDismiss = jest.fn();
     render(<Toast message="Test" duration={100} onDismiss={onDismiss} />);
 
-    setTimeout(() => {
+    await waitFor(() => {
       expect(onDismiss).toHaveBeenCalled();
-      done();
-    }, 150);
+    }, { timeout: 200 });
   });
 
   it('should truncate long messages to 3 lines', () => {
