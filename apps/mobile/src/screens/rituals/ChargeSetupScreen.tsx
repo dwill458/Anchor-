@@ -28,7 +28,7 @@ import { useAuthStore } from '@/stores/authStore';
 import { useSettingsStore, ChargeDurationPreset } from '@/stores/settingsStore';
 import type { RootStackParamList } from '@/types';
 import { colors, spacing, typography } from '@/theme';
-import { SigilSvg } from '@/components/common';
+import { SigilSvg, OptimizedImage } from '@/components/common';
 import { InfoIcon } from '@/components/icons/InfoIcon';
 import { ModeSelectionStep } from './components/ModeSelectionStep';
 import { DurationSelectionStep } from './components/DurationSelectionStep';
@@ -48,7 +48,25 @@ type Step = 'default' | 'mode' | 'duration';
 export const ChargeSetupScreen: React.FC = () => {
   const navigation = useNavigation<ChargeSetupNavigationProp>();
   const route = useRoute<ChargeSetupRouteProp>();
-  const { anchorId } = route.params;
+  const { anchorId } = route.params || {};
+
+  // Guard against missing anchorId
+  if (!anchorId) {
+    return (
+      <SafeAreaView style={styles.container}>
+        <View style={styles.errorContainer}>
+          <Text style={styles.errorTitle}>Anchor Not Found</Text>
+          <Text style={styles.errorText}>Unable to load anchor details. Please try again.</Text>
+          <TouchableOpacity
+            style={styles.errorButton}
+            onPress={() => navigation.goBack()}
+          >
+            <Text style={styles.errorButtonText}>Go Back</Text>
+          </TouchableOpacity>
+        </View>
+      </SafeAreaView>
+    );
+  }
 
   // ══════════════════════════════════════════════════════════════
   // STORES
@@ -323,7 +341,15 @@ export const ChargeSetupScreen: React.FC = () => {
               { transform: [{ scale: pulseAnim }] },
             ]}
           >
-            <SigilSvg xml={anchor.baseSigilSvg} width={180} height={180} />
+            {anchor.enhancedImageUrl ? (
+              <OptimizedImage
+                uri={anchor.enhancedImageUrl}
+                style={{ width: 180, height: 180, borderRadius: 8 }}
+                resizeMode="cover"
+              />
+            ) : (
+              <SigilSvg xml={anchor.baseSigilSvg} width={180} height={180} />
+            )}
           </Animated.View>
         </View>
 

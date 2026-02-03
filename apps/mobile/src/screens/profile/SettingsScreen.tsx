@@ -35,11 +35,13 @@ import {
 } from 'lucide-react-native';
 import { BlurView } from 'expo-blur';
 import { LinearGradient } from 'expo-linear-gradient';
+import DateTimePicker, { DateTimePickerEvent } from '@react-native-community/datetimepicker';
 import { useAuthStore } from '@/stores/authStore';
 import { useSettingsStore } from '@/stores/settingsStore';
 import type { RootStackParamList } from '@/types';
 import { colors, spacing } from '@/theme';
 import { ZenBackground } from '@/components/common';
+import NotificationService from '@/services/NotificationService';
 
 const IS_ANDROID = Platform.OS === 'android';
 
@@ -120,22 +122,97 @@ const SectionHeader: React.FC<{ title: string; description?: string }> = ({
 export const SettingsScreen: React.FC = () => {
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const { user, signOut, setHasCompletedOnboarding } = useAuthStore();
-  const { defaultCharge, defaultActivation } = useSettingsStore();
+  const {
+    defaultCharge,
+    defaultActivation,
+    openDailyAnchorAutomatically,
+    dailyPracticeGoal,
+    reduceIntentionVisibility,
+    dailyReminderEnabled,
+    dailyReminderTime,
+    streakProtectionAlerts,
+    weeklySummaryEnabled,
+    soundEffectsEnabled,
+    theme,
+    accentColor,
+    vaultView,
+    mantraVoice,
+    generatedVoiceStyle,
+    hapticIntensity,
+    setOpenDailyAnchorAutomatically,
+    setReduceIntentionVisibility,
+    setDailyReminderEnabled,
+    setDailyReminderTime,
+    setStreakProtectionAlerts,
+    setWeeklySummaryEnabled,
+    setSoundEffectsEnabled
+  } = useSettingsStore();
 
   // Developer Mode
   const [devModeEnabled, setDevModeEnabled] = useState(false);
 
-  // Practice Settings
-  const [autoOpenDaily, setAutoOpenDaily] = useState(false);
-  const [reduceVisibility, setReduceVisibility] = useState(false);
+  // Time Picker State
+  const [showTimePicker, setShowTimePicker] = useState(false);
 
-  // Notifications
-  const [dailyReminder, setDailyReminder] = useState(true);
-  const [streakProtection, setStreakProtection] = useState(true);
-  const [weeklySummary, setWeeklySummary] = useState(true);
+  const onTimeChange = (event: DateTimePickerEvent, selectedDate?: Date) => {
+    setShowTimePicker(false);
+    if (selectedDate && event.type === 'set') {
+      const hours = selectedDate.getHours().toString().padStart(2, '0');
+      const minutes = selectedDate.getMinutes().toString().padStart(2, '0');
+      const timeString = `${hours}:${minutes}`;
+      setDailyReminderTime(timeString);
 
-  // Audio & Haptics
-  const [soundEffects, setSoundEffects] = useState(true);
+      // Update scheduled notification if enabled
+      if (dailyReminderEnabled) {
+        NotificationService.scheduleDailyReminder(timeString);
+      }
+    }
+  };
+
+  const handleToggleDailyReminder = async (value: boolean) => {
+    setDailyReminderEnabled(value);
+    if (value) {
+      const granted = await NotificationService.requestPermissions();
+      if (granted) {
+        await NotificationService.scheduleDailyReminder(dailyReminderTime);
+      } else {
+        setDailyReminderEnabled(false);
+        Alert.alert('Permission Denied', 'Please enable notifications in your device settings.');
+      }
+    } else {
+      await NotificationService.cancelDailyReminder();
+    }
+  };
+
+  const handleToggleStreakProtection = async (value: boolean) => {
+    setStreakProtectionAlerts(value);
+    if (value) {
+      const granted = await NotificationService.requestPermissions();
+      if (granted) {
+        await NotificationService.scheduleStreakProtectionAlert();
+      } else {
+        setStreakProtectionAlerts(false);
+        Alert.alert('Permission Denied', 'Please enable notifications in your device settings.');
+      }
+    } else {
+      await NotificationService.cancelStreakProtectionAlert();
+    }
+  };
+
+  const handleToggleWeeklySummary = async (value: boolean) => {
+    setWeeklySummaryEnabled(value);
+    if (value) {
+      const granted = await NotificationService.requestPermissions();
+      if (granted) {
+        await NotificationService.scheduleWeeklySummary();
+      } else {
+        setWeeklySummaryEnabled(false);
+        Alert.alert('Permission Denied', 'Please enable notifications in your device settings.');
+      }
+    } else {
+      await NotificationService.cancelWeeklySummary();
+    }
+  };
 
   const formatActivationValue = () => {
     const typeLabels: Record<string, string> = {
@@ -153,6 +230,39 @@ export const SettingsScreen: React.FC = () => {
     };
 
     return `${typeLabels[defaultActivation.type]} · ${defaultActivation.value}${unitLabels[defaultActivation.unit]}`;
+  };
+
+  const getThemeLabel = () => {
+    if (theme === 'zen_architect') return 'Zen Architect';
+    return 'Unknown';
+  };
+
+  const getAccentColorLabel = () => {
+    if (accentColor === '#D4AF37') return 'Gold';
+    return 'Custom';
+  };
+
+  const getVaultViewLabel = () => {
+    return vaultView === 'grid' ? 'Grid' : 'List';
+  };
+
+  const getMantraVoiceLabel = () => {
+    return mantraVoice === 'generated' ? 'Voice One' : 'Silent';
+  };
+
+  const getVoiceStyleLabel = () => {
+    const labels: Record<string, string> = {
+      calm: 'Calm',
+      neutral: 'Neutral',
+      intense: 'Intense',
+    };
+    return labels[generatedVoiceStyle] || 'Calm';
+  };
+
+  const getHapticIntensityLabel = () => {
+    if (hapticIntensity < 34) return 'Light';
+    if (hapticIntensity < 67) return 'Medium';
+    return 'Strong';
   };
 
   const handleSignOut = () => {
@@ -250,20 +360,20 @@ export const SettingsScreen: React.FC = () => {
             <ToggleItem
               label="Open Daily Anchor Automatically"
               helperText="When enabled, your primary anchor opens when you launch the app."
-              value={autoOpenDaily}
-              onValueChange={setAutoOpenDaily}
+              value={openDailyAnchorAutomatically}
+              onValueChange={setOpenDailyAnchorAutomatically}
             />
             <SettingItem
               label="Daily Practice Goal"
               helperText="Set how many activations you aim for each day."
-              value="3 activations per day"
-              onPress={() => {/* TODO: Open stepper */ }}
+              value={`${dailyPracticeGoal} activations per day`}
+              onPress={() => navigation.navigate('DailyPracticeGoal')}
             />
             <ToggleItem
               label="Reduce Intention Visibility"
               helperText="Gradually hides original intention text to support focus without overthinking."
-              value={reduceVisibility}
-              onValueChange={setReduceVisibility}
+              value={reduceIntentionVisibility}
+              onValueChange={setReduceIntentionVisibility}
             />
           </CardWrapper>
 
@@ -276,20 +386,28 @@ export const SettingsScreen: React.FC = () => {
             <ToggleItem
               label="Daily Reminder"
               helperText="Receive a reminder to activate your anchor."
-              value={dailyReminder}
-              onValueChange={setDailyReminder}
+              value={dailyReminderEnabled}
+              onValueChange={handleToggleDailyReminder}
             />
+            {dailyReminderEnabled && (
+              <SettingItem
+                label="Reminder Time"
+                value={dailyReminderTime}
+                onPress={() => setShowTimePicker(true)}
+                showChevron={true}
+              />
+            )}
             <ToggleItem
               label="Streak Protection Alerts"
               helperText="Get notified before a streak is broken."
-              value={streakProtection}
-              onValueChange={setStreakProtection}
+              value={streakProtectionAlerts}
+              onValueChange={handleToggleStreakProtection}
             />
             <ToggleItem
               label="Weekly Summary"
               helperText="A short overview of your practice each week."
-              value={weeklySummary}
-              onValueChange={setWeeklySummary}
+              value={weeklySummaryEnabled}
+              onValueChange={handleToggleWeeklySummary}
             />
           </CardWrapper>
 
@@ -301,18 +419,18 @@ export const SettingsScreen: React.FC = () => {
           <CardWrapper {...cardProps} style={styles.section}>
             <SettingItem
               label="Theme"
-              value="Zen Architect"
-              onPress={() => {/* TODO: Open theme picker */ }}
+              value={getThemeLabel()}
+              onPress={() => navigation.navigate('ThemeSelection')}
             />
             <SettingItem
               label="Accent Color"
-              value="Gold"
-              onPress={() => {/* TODO: Open color picker */ }}
+              value={getAccentColorLabel()}
+              onPress={() => navigation.navigate('AccentColor')}
             />
             <SettingItem
               label="Vault View"
-              value="Grid"
-              onPress={() => {/* TODO: Toggle vault view */ }}
+              value={getVaultViewLabel()}
+              onPress={() => navigation.navigate('VaultView')}
             />
           </CardWrapper>
 
@@ -324,25 +442,25 @@ export const SettingsScreen: React.FC = () => {
           <CardWrapper {...cardProps} style={styles.section}>
             <SettingItem
               label="Mantra Voice"
-              value="Voice One"
-              onPress={() => {/* TODO: Open voice picker */ }}
+              value={getMantraVoiceLabel()}
+              onPress={() => navigation.navigate('MantraVoice')}
             />
             <SettingItem
               label="Voice Style"
-              value="Calm"
-              onPress={() => {/* TODO: Open style picker */ }}
+              value={getVoiceStyleLabel()}
+              onPress={() => navigation.navigate('VoiceStyle')}
             />
             <SettingItem
               label="Haptic Feedback"
               helperText="Adjust the strength of physical feedback."
-              value="Medium"
-              onPress={() => {/* TODO: Open intensity slider */ }}
+              value={getHapticIntensityLabel()}
+              onPress={() => navigation.navigate('HapticIntensity')}
             />
             <ToggleItem
               label="Sound Effects"
               helperText="Charging, activation, and completion sounds."
-              value={soundEffects}
-              onValueChange={setSoundEffects}
+              value={soundEffectsEnabled}
+              onValueChange={setSoundEffectsEnabled}
             />
           </CardWrapper>
 
@@ -411,28 +529,17 @@ export const SettingsScreen: React.FC = () => {
           />
           <CardWrapper {...cardProps} style={styles.section}>
             <SettingItem
-              label="Export My Data"
-              helperText="Download a copy of your account data."
-              onPress={() => {/* TODO: Export data */ }}
-            />
-            <SettingItem
-              label="Clear Local Cache"
-              helperText="Removes temporary files stored on this device."
-              onPress={() => {/* TODO: Clear cache */ }}
-            />
-            <SettingItem
-              label="Offline Status"
-              helperText="View pending actions waiting to sync."
-              value="All synced"
-              onPress={() => {/* TODO: Show offline status */ }}
+              label="Data Management"
+              helperText="Export data, clear cache, and view sync status."
+              onPress={() => navigation.navigate('DataPrivacy')}
             />
             <SettingItem
               label="Privacy Policy"
-              onPress={() => {/* TODO: Open privacy policy */ }}
+              onPress={() => navigation.navigate('DataPrivacy')}
             />
             <SettingItem
               label="Terms of Service"
-              onPress={() => {/* TODO: Open terms */ }}
+              onPress={() => navigation.navigate('DataPrivacy')}
             />
           </CardWrapper>
 
@@ -486,6 +593,20 @@ export const SettingsScreen: React.FC = () => {
 
           <View style={styles.bottomSpacer} />
         </ScrollView>
+        {showTimePicker && (
+          <DateTimePicker
+            value={(() => {
+              const [h, m] = dailyReminderTime.split(':').map(Number);
+              const d = new Date();
+              d.setHours(h, m, 0, 0);
+              return d;
+            })()}
+            mode="time"
+            is24Hour={true}
+            display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+            onChange={onTimeChange}
+          />
+        )}
       </SafeAreaView>
     </View>
   );

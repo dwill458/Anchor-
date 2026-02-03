@@ -1,14 +1,7 @@
-/**
- * Anchor App - Settings Store
- *
- * Global state management for user settings and preferences using Zustand.
- * Handles all settings across Practice, Notifications, Appearance, Audio & Haptics,
- * and Data & Privacy sections.
- */
-
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import * as Haptics from 'expo-haptics';
 
 export type ChargeMode = 'focus' | 'ritual';
 export type ChargeDurationPreset = '30s' | '2m' | '5m' | '10m' | 'custom';
@@ -36,15 +29,15 @@ export interface SettingsState {
   defaultCharge: DefaultChargeSetting;
   defaultActivation: DefaultActivationSetting;
 
-  autoOpenDailyAnchor: boolean;
+  openDailyAnchorAutomatically: boolean;
   dailyPracticeGoal: number;
   reduceIntentionVisibility: boolean;
 
   // Notifications
   dailyReminderEnabled: boolean;
   dailyReminderTime: string; // Format: "HH:MM"
-  streakProtectionEnabled: boolean;
-  weeklyReflectionEnabled: boolean;
+  streakProtectionAlerts: boolean;
+  weeklySummaryEnabled: boolean;
 
   // Appearance
   theme: 'zen_architect' | 'dark' | 'light';
@@ -60,15 +53,15 @@ export interface SettingsState {
   // Actions - Practice Settings
   setDefaultCharge: (setting: DefaultChargeSetting) => void;
   setDefaultActivation: (setting: DefaultActivationSetting) => void;
-  setAutoOpenDailyAnchor: (enabled: boolean) => void;
+  setOpenDailyAnchorAutomatically: (enabled: boolean) => void;
   setDailyPracticeGoal: (goal: number) => void;
   setReduceIntentionVisibility: (enabled: boolean) => void;
 
   // Actions - Notifications
   setDailyReminderEnabled: (enabled: boolean) => void;
   setDailyReminderTime: (time: string) => void;
-  setStreakProtectionEnabled: (enabled: boolean) => void;
-  setWeeklyReflectionEnabled: (enabled: boolean) => void;
+  setStreakProtectionAlerts: (enabled: boolean) => void;
+  setWeeklySummaryEnabled: (enabled: boolean) => void;
 
   // Actions - Appearance
   setTheme: (theme: 'zen_architect' | 'dark' | 'light') => void;
@@ -98,13 +91,13 @@ const DEFAULT_SETTINGS = {
     value: 10,
     unit: 'seconds' as ActivationUnit,
   },
-  autoOpenDailyAnchor: false,
+  openDailyAnchorAutomatically: false,
   dailyPracticeGoal: 3,
   reduceIntentionVisibility: false,
   dailyReminderEnabled: false,
   dailyReminderTime: '09:00',
-  streakProtectionEnabled: false,
-  weeklyReflectionEnabled: false,
+  streakProtectionAlerts: false,
+  weeklySummaryEnabled: false,
   theme: 'zen_architect' as const,
   accentColor: '#D4AF37',
   vaultView: 'grid' as const,
@@ -112,6 +105,13 @@ const DEFAULT_SETTINGS = {
   generatedVoiceStyle: 'calm' as const,
   hapticIntensity: 70,
   soundEffectsEnabled: true,
+};
+
+/**
+ * Trigger light haptic if enabled
+ */
+const triggerHaptic = () => {
+  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
 };
 
 /**
@@ -124,103 +124,145 @@ export const useSettingsStore = create<SettingsState>()(
       ...DEFAULT_SETTINGS,
 
       // Practice Settings Actions
-      setDefaultCharge: (setting) =>
+      setDefaultCharge: (setting) => {
+        triggerHaptic();
         set({
           defaultCharge: setting,
-        }),
+        });
+      },
 
-      setDefaultActivation: (setting) =>
+      setDefaultActivation: (setting) => {
+        triggerHaptic();
         set({
           defaultActivation: setting,
-        }),
+        });
+      },
 
-      setAutoOpenDailyAnchor: (enabled) =>
+      setOpenDailyAnchorAutomatically: (enabled) => {
+        triggerHaptic();
         set({
-          autoOpenDailyAnchor: enabled,
-        }),
+          openDailyAnchorAutomatically: enabled,
+        });
+      },
 
-      setDailyPracticeGoal: (goal) =>
+      setDailyPracticeGoal: (goal) => {
+        triggerHaptic();
         set({
-          dailyPracticeGoal: Math.max(1, Math.min(10, goal)),
-        }),
+          dailyPracticeGoal: Math.max(1, Math.min(20, goal)),
+        });
+      },
 
-      setReduceIntentionVisibility: (enabled) =>
+      setReduceIntentionVisibility: (enabled) => {
+        triggerHaptic();
         set({
           reduceIntentionVisibility: enabled,
-        }),
+        });
+      },
 
       // Notifications Actions
-      setDailyReminderEnabled: (enabled) =>
+      setDailyReminderEnabled: (enabled) => {
+        triggerHaptic();
         set({
           dailyReminderEnabled: enabled,
-        }),
+        });
+      },
 
-      setDailyReminderTime: (time) =>
+      setDailyReminderTime: (time) => {
+        triggerHaptic();
         set({
           dailyReminderTime: time,
-        }),
+        });
+      },
 
-      setStreakProtectionEnabled: (enabled) =>
+      setStreakProtectionAlerts: (enabled) => {
+        triggerHaptic();
         set({
-          streakProtectionEnabled: enabled,
-        }),
+          streakProtectionAlerts: enabled,
+        });
+      },
 
-      setWeeklyReflectionEnabled: (enabled) =>
+      setWeeklySummaryEnabled: (enabled) => {
+        triggerHaptic();
         set({
-          weeklyReflectionEnabled: enabled,
-        }),
+          weeklySummaryEnabled: enabled,
+        });
+      },
 
       // Appearance Actions
-      setTheme: (theme) =>
+      setTheme: (theme) => {
+        triggerHaptic();
         set({
           theme,
-        }),
+        });
+      },
 
-      setAccentColor: (color) =>
+      setAccentColor: (color) => {
+        triggerHaptic();
         set({
           accentColor: color,
-        }),
+        });
+      },
 
-      setVaultView: (view) =>
+      setVaultView: (view) => {
+        triggerHaptic();
         set({
           vaultView: view,
-        }),
+        });
+      },
 
       // Audio & Haptics Actions
-      setMantraVoice: (voice) =>
+      setMantraVoice: (voice) => {
+        triggerHaptic();
         set({
           mantraVoice: voice,
-        }),
+        });
+      },
 
-      setGeneratedVoiceStyle: (style) =>
+      setGeneratedVoiceStyle: (style) => {
+        triggerHaptic();
         set({
           generatedVoiceStyle: style,
-        }),
+        });
+      },
 
-      setHapticIntensity: (intensity) =>
+      setHapticIntensity: (intensity) => {
         set({
           hapticIntensity: Math.max(0, Math.min(100, intensity)),
-        }),
+        });
+      },
 
-      setSoundEffectsEnabled: (enabled) =>
+      setSoundEffectsEnabled: (enabled) => {
+        triggerHaptic();
         set({
           soundEffectsEnabled: enabled,
-        }),
+        });
+      },
 
       // Utility Actions
-      resetToDefaults: () =>
+      resetToDefaults: () => {
+        triggerHaptic();
         set({
           ...DEFAULT_SETTINGS,
-        }),
+        });
+      },
     }),
     {
       name: 'anchor-settings-storage',
       storage: createJSONStorage(() => AsyncStorage),
-      version: 1,
-      // Handle migration from old flat structure to nested structure
+      version: 2,
+      // Handle migration
       migrate: (persistedState: any, version: number) => {
+        if (version === 1) {
+          // Migration from version 1 to 2 (renaming fields)
+          return {
+            ...persistedState,
+            openDailyAnchorAutomatically: persistedState.autoOpenDailyAnchor ?? false,
+            streakProtectionAlerts: persistedState.streakProtectionEnabled ?? false,
+            weeklySummaryEnabled: persistedState.weeklyReflectionEnabled ?? false,
+          };
+        }
         if (version === 0) {
-          // Map old flat properties to new nested objects if they exist
+          // Legacy migration
           const defaultCharge = {
             mode: persistedState.defaultChargeMode || 'focus',
             preset: persistedState.defaultChargePreset || '30s',
@@ -237,6 +279,9 @@ export const useSettingsStore = create<SettingsState>()(
             ...persistedState,
             defaultCharge,
             defaultActivation,
+            openDailyAnchorAutomatically: persistedState.autoOpenDailyAnchor ?? false,
+            streakProtectionAlerts: persistedState.streakProtectionEnabled ?? false,
+            weeklySummaryEnabled: persistedState.weeklyReflectionEnabled ?? false,
           };
         }
         return persistedState;
@@ -245,13 +290,13 @@ export const useSettingsStore = create<SettingsState>()(
       partialize: (state) => ({
         defaultCharge: state.defaultCharge,
         defaultActivation: state.defaultActivation,
-        autoOpenDailyAnchor: state.autoOpenDailyAnchor,
+        openDailyAnchorAutomatically: state.openDailyAnchorAutomatically,
         dailyPracticeGoal: state.dailyPracticeGoal,
         reduceIntentionVisibility: state.reduceIntentionVisibility,
         dailyReminderEnabled: state.dailyReminderEnabled,
         dailyReminderTime: state.dailyReminderTime,
-        streakProtectionEnabled: state.streakProtectionEnabled,
-        weeklyReflectionEnabled: state.weeklyReflectionEnabled,
+        streakProtectionAlerts: state.streakProtectionAlerts,
+        weeklySummaryEnabled: state.weeklySummaryEnabled,
         theme: state.theme,
         accentColor: state.accentColor,
         vaultView: state.vaultView,

@@ -20,13 +20,37 @@ import { PracticeScreen } from '../screens/practice';
 import { SettingsButton } from '../components/header/SettingsButton';
 import type { MainTabParamList, RootStackParamList } from '@/types';
 import { colors } from '@/theme';
+import { useSettingsStore } from '@/stores/settingsStore';
+import { useAnchorStore } from '@/stores/anchorStore';
+import { useEffect, useRef } from 'react';
+import { useNavigation } from '@react-navigation/native';
+import { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
 
 const Tab = createBottomTabNavigator<MainTabParamList>();
 
-// Navigation hook type for accessing ProfileStack
+// Navigation hook type for accessing RootStack (Settings modal)
 type RootNavigationProp = NativeStackNavigationProp<RootStackParamList>;
 
 export const MainTabNavigator: React.FC = () => {
+  const navigation = useNavigation<BottomTabNavigationProp<MainTabParamList>>();
+  const { openDailyAnchorAutomatically } = useSettingsStore();
+  const { anchors } = useAnchorStore();
+  const hasCheckedAutoOpen = useRef(false);
+
+  useEffect(() => {
+    if (openDailyAnchorAutomatically && anchors.length > 0 && !hasCheckedAutoOpen.current) {
+      hasCheckedAutoOpen.current = true;
+      // Navigate to the primary (first) anchor detail
+      setTimeout(() => {
+        // @ts-ignore - navigation might not be fully typed here but we know the route exists
+        navigation.navigate('Vault', {
+          screen: 'AnchorDetail',
+          params: { anchorId: anchors[0].id }
+        });
+      }, 500);
+    }
+  }, []);
+
   return (
     <Tab.Navigator
       detachInactiveScreens
@@ -124,7 +148,7 @@ export const MainTabNavigator: React.FC = () => {
           },
           headerTitle: 'Practice',
           headerRight: () => {
-            const nav = navigation.getParent<RootNavigationProp>();
+            const nav = (navigation as any).getParent();
             return (
               <SettingsButton
                 onPress={() => nav?.navigate('Settings')}
@@ -152,7 +176,7 @@ export const MainTabNavigator: React.FC = () => {
           },
           headerTitle: 'Discover',
           headerRight: () => {
-            const nav = navigation.getParent<RootNavigationProp>();
+            const nav = (navigation as any).getParent();
             return (
               <SettingsButton
                 onPress={() => nav?.navigate('Settings')}
