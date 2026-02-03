@@ -42,6 +42,8 @@ import type { RootStackParamList } from '@/types';
 import { colors, spacing } from '@/theme';
 import { ZenBackground } from '@/components/common';
 import NotificationService from '@/services/NotificationService';
+import { apiClient } from '@/services/ApiClient';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const IS_ANDROID = Platform.OS === 'android';
 
@@ -289,8 +291,34 @@ export const SettingsScreen: React.FC = () => {
         {
           text: 'Delete Account',
           style: 'destructive',
-          onPress: () => {
-            Alert.alert('Feature Coming Soon', 'Account deletion will be available in a future update.');
+          onPress: async () => {
+            try {
+              // Show loading alert
+              Alert.alert('Deleting Account', 'Please wait...');
+
+              // Call the DELETE /api/auth/me endpoint
+              await apiClient.delete('/auth/me');
+
+              // Clear all local storage
+              await AsyncStorage.clear();
+
+              // Sign out the user
+              signOut();
+
+              // Show success message
+              Alert.alert(
+                'Account Deleted',
+                'Your account has been permanently deleted.',
+                [{ text: 'OK' }]
+              );
+            } catch (error: any) {
+              // Show error message
+              Alert.alert(
+                'Deletion Failed',
+                error.message || 'Failed to delete account. Please try again.',
+                [{ text: 'OK' }]
+              );
+            }
           },
         },
       ]

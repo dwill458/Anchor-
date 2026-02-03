@@ -16,6 +16,7 @@ const createMockUser = (overrides: Partial<User> = {}): User => ({
   id: 'mock-uid-123',
   email: 'guest@example.com',
   displayName: 'Guest User',
+  hasCompletedOnboarding: false,
   subscriptionStatus: 'free',
   totalAnchorsCreated: 5,
   totalActivations: 20,
@@ -35,7 +36,7 @@ export class AuthService {
     await new Promise(resolve => setTimeout(resolve, 1000));
 
     return {
-      user: createMockUser({ email }),
+      user: createMockUser({ email, hasCompletedOnboarding: true }),
       token: 'mock-jwt-token',
       isNewUser: false
     };
@@ -54,6 +55,7 @@ export class AuthService {
         id: 'mock-uid-new',
         email,
         displayName: displayName || 'New User',
+        hasCompletedOnboarding: false,
         totalAnchorsCreated: 0,
         totalActivations: 0,
         currentStreak: 0,
@@ -68,11 +70,14 @@ export class AuthService {
     console.log('Mock signInWithGoogle');
     await new Promise(resolve => setTimeout(resolve, 1000));
 
+    // In a real implementation, this would check if user exists in backend
+    // For mock, we'll simulate returning user (hasCompletedOnboarding: true)
     return {
       user: createMockUser({
         id: 'mock-uid-google',
         email: 'google-user@example.com',
         displayName: 'Google Guest',
+        hasCompletedOnboarding: true,
       }),
       token: 'mock-jwt-token',
       isNewUser: false
