@@ -19,7 +19,13 @@ describe('authStore', () => {
     id: 'user-123',
     email: 'test@example.com',
     displayName: 'Test User',
-    createdAt: new Date().toISOString(),
+    hasCompletedOnboarding: true,
+    subscriptionStatus: 'free',
+    totalAnchorsCreated: 0,
+    totalActivations: 0,
+    currentStreak: 0,
+    longestStreak: 0,
+    createdAt: new Date(),
     ...overrides,
   });
 
@@ -31,6 +37,11 @@ describe('authStore', () => {
       isAuthenticated: false,
       isLoading: false,
       hasCompletedOnboarding: true,
+      onboardingSegment: null,
+      shouldRedirectToCreation: false,
+      anchorCount: 0,
+      profileData: null,
+      profileLastFetched: null,
     });
     jest.clearAllMocks();
   });

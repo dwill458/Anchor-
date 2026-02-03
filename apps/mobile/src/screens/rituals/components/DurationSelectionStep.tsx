@@ -70,19 +70,20 @@ export const DurationSelectionStep: React.FC<DurationSelectionStepProps> = ({
       setShowTimerPicker(true);
     } else {
       setSelectedDuration(option.seconds);
+      onSelectDuration(option.seconds);
     }
   };
 
   const handleCustomDurationConfirm = (minutes: number) => {
     const durationSeconds = minutes * 60;
     setSelectedDuration(durationSeconds);
+    onSelectDuration(durationSeconds);
     setShowTimerPicker(false);
   };
 
   const handleContinue = () => {
     if (selectedDuration !== null) {
       void safeHaptics.impact(Haptics.ImpactFeedbackStyle.Medium);
-      onSelectDuration(selectedDuration);
       onContinue();
     }
   };

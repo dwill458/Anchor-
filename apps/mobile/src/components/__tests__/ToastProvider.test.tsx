@@ -102,7 +102,7 @@ describe('ToastProvider', () => {
       });
 
       expect(getByText('Success message')).toBeTruthy();
-      expect(getByTestID('toast-success')).toBeTruthy();
+      expect(getByTestId('toast-success')).toBeTruthy();
     });
 
     it('should display error toast', () => {
