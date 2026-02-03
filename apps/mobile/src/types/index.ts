@@ -569,6 +569,20 @@ export type RootStackParamList = {
   Settings: undefined;
   DefaultCharge: undefined;
   DefaultActivation: undefined;
+  DailyPracticeGoal: undefined;
+
+  // Appearance Settings
+  ThemeSelection: undefined;
+  AccentColor: undefined;
+  VaultView: undefined;
+
+  // Audio & Haptics Settings
+  MantraVoice: undefined;
+  VoiceStyle: undefined;
+  HapticIntensity: undefined;
+
+  // Data & Privacy Settings
+  DataPrivacy: undefined;
 };
 
 export type MainTabParamList = {

@@ -32,7 +32,7 @@ import {
   SealAnchorScreen,
   ChargeCompleteScreen,
 } from '../screens/rituals';
-import { SettingsScreen, DefaultChargeSettings, DefaultActivationSettings } from '../screens/profile';
+import { SettingsScreen, DefaultChargeSettings, DefaultActivationSettings, DailyPracticeGoalScreen } from '../screens/profile';
 import { SettingsButton } from '../components/header/SettingsButton';
 import type { RootStackParamList } from '@/types';
 import { colors } from '@/theme';
@@ -53,9 +53,9 @@ export const VaultStackNavigator: React.FC = () => {
 
   return (
     <Stack.Navigator
+      detachInactiveScreens={true}
       screenOptions={{
         headerShown: true,
-        detachInactiveScreens: true,
         headerStyle: {
           backgroundColor: colors.background.secondary,
         },
@@ -87,7 +87,7 @@ export const VaultStackNavigator: React.FC = () => {
             const nav = navigation as unknown as RootNavigationProp;
             return (
               <SettingsButton
-                onPress={() => nav?.navigate('Settings')}
+                onPress={() => (navigation as any).getParent()?.getParent()?.navigate('Settings')}
               />
             );
           },
@@ -235,6 +235,18 @@ export const VaultStackNavigator: React.FC = () => {
         component={DefaultActivationSettings}
         options={{
           title: 'Default Activation',
+          headerShown: true,
+          headerStyle: {
+            backgroundColor: colors.background.secondary,
+          },
+          headerTintColor: colors.gold,
+        }}
+      />
+      <Stack.Screen
+        name="DailyPracticeGoal"
+        component={DailyPracticeGoalScreen}
+        options={{
+          title: 'Daily Practice Goal',
           headerShown: true,
           headerStyle: {
             backgroundColor: colors.background.secondary,

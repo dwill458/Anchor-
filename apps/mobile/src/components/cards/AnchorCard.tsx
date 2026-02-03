@@ -9,6 +9,7 @@ import { BlurView } from 'expo-blur';
 import type { Anchor } from '@/types';
 import { colors, spacing, typography } from '@/theme';
 import { OptimizedImage } from '@/components/common/OptimizedImage';
+import { useSettingsStore } from '@/stores/settingsStore';
 
 interface AnchorCardProps {
   anchor: Anchor;
@@ -25,6 +26,7 @@ const CATEGORY_CONFIG: Record<string, { label: string; color: string }> = {
 };
 
 export const AnchorCard: React.FC<AnchorCardProps> = ({ anchor, onPress }) => {
+  const { reduceIntentionVisibility } = useSettingsStore();
   const categoryConfig = CATEGORY_CONFIG[anchor.category] || CATEGORY_CONFIG.custom;
 
   const accessibilityLabel = `${anchor.intentionText}. ${categoryConfig.label} anchor. ${anchor.isCharged ? 'Charged. ' : ''
@@ -69,7 +71,10 @@ export const AnchorCard: React.FC<AnchorCardProps> = ({ anchor, onPress }) => {
           </View>
 
           <Text style={styles.intentionText} numberOfLines={2}>
-            {anchor.intentionText}
+            {reduceIntentionVisibility
+              ? (anchor.mantraText || `Anchor · ${categoryConfig.label}`)
+              : anchor.intentionText
+            }
           </Text>
 
           <View style={styles.footer}>

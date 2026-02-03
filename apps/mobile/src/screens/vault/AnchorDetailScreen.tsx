@@ -18,6 +18,7 @@ import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { SvgXml } from 'react-native-svg';
 import { useAnchorStore } from '../../stores/anchorStore';
+import { useSettingsStore } from '@/stores/settingsStore';
 import type { RootStackParamList, ChargeType, ActivationType } from '@/types';
 import { colors, spacing, typography } from '@/theme';
 import { format } from 'date-fns';
@@ -52,6 +53,7 @@ export const AnchorDetailScreen: React.FC = () => {
   const { anchorId } = route.params;
 
   const { getAnchorById } = useAnchorStore();
+  const { reduceIntentionVisibility } = useSettingsStore();
   const anchor = getAnchorById(anchorId);
 
   useEffect(() => {
@@ -157,7 +159,12 @@ export const AnchorDetailScreen: React.FC = () => {
       <ScrollView style={styles.scrollView} contentContainerStyle={styles.scrollContent}>
         {/* Header */}
         <View style={styles.header}>
-          <Text style={styles.intentionText}>"{anchor.intentionText}"</Text>
+          <Text style={styles.intentionText}>
+            {reduceIntentionVisibility
+              ? `“${anchor.mantraText || 'Intention Obscured'}”`
+              : `“${anchor.intentionText}”`
+            }
+          </Text>
 
           {/* Category Badge */}
           <View
