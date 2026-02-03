@@ -5,7 +5,7 @@
  */
 
 import React from 'react';
-import { render, waitFor } from '@testing-library/react-native';
+import { render, waitFor, act } from '@testing-library/react-native';
 import { BurningRitualScreen } from '../BurningRitualScreen';
 import { useAnchorStore } from '@/stores/anchorStore';
 import { del } from '@/services/ApiClient';
@@ -82,23 +82,23 @@ describe('BurningRitualScreen', () => {
     const { getByText } = render(<BurningRitualScreen />);
 
     // Fast-forward to first prompt
-    jest.advanceTimersByTime(2000);
-    await waitFor(() => {
-      expect(getByText('Let go.')).toBeTruthy();
+    await act(async () => {
+      jest.advanceTimersByTime(2000);
     });
+    expect(getByText('Let go.')).toBeTruthy();
 
     // Fast-forward to second prompt
-    jest.advanceTimersByTime(1500);
-    await waitFor(() => {
-      expect(getByText('Trust the process.')).toBeTruthy();
+    await act(async () => {
+      jest.advanceTimersByTime(1500);
     });
+    expect(getByText('Trust the process.')).toBeTruthy();
 
     // Fast-forward to third prompt
-    jest.advanceTimersByTime(1500);
-    await waitFor(() => {
-      expect(getByText('Your intention has been released.')).toBeTruthy();
+    await act(async () => {
+      jest.advanceTimersByTime(1500);
     });
-  });
+    expect(getByText('Your intention has been released.')).toBeTruthy();
+  }, 15000);
 
   it('should trigger heavy haptic feedback on start', () => {
     render(<BurningRitualScreen />);
