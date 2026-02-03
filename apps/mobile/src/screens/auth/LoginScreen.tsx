@@ -22,6 +22,7 @@ import { BlurView } from 'expo-blur';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { colors, spacing, typography } from '@/theme';
 import { useAuthStore } from '../../stores/authStore';
+import { AuthService } from '../../services/AuthService';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -65,9 +66,9 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ navigation }) => {
     }
     setLoading(true);
     try {
-      await new Promise((resolve) => setTimeout(resolve, 1000));
+      const result = await AuthService.signInWithEmail(email, password);
       setAuthenticated(true);
-      setHasCompletedOnboarding(true);
+      setHasCompletedOnboarding(result.user.hasCompletedOnboarding || false);
     } catch (err: any) {
       setError(err.message || 'Login failed');
     } finally {
@@ -78,9 +79,10 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ navigation }) => {
   const handleAppleSignIn = async () => {
     setLoading(true);
     try {
-      await new Promise((resolve) => setTimeout(resolve, 1000));
+      // Note: AuthService doesn't have signInWithApple yet, using Google as placeholder
+      const result = await AuthService.signInWithGoogle();
       setAuthenticated(true);
-      setHasCompletedOnboarding(true);
+      setHasCompletedOnboarding(result.user.hasCompletedOnboarding || false);
     } catch (err: any) {
       setError('Apple sign-in failed');
     } finally {
@@ -91,9 +93,9 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ navigation }) => {
   const handleGoogleSignIn = async () => {
     setLoading(true);
     try {
-      await new Promise((resolve) => setTimeout(resolve, 1000));
+      const result = await AuthService.signInWithGoogle();
       setAuthenticated(true);
-      setHasCompletedOnboarding(true);
+      setHasCompletedOnboarding(result.user.hasCompletedOnboarding || false);
     } catch (err: any) {
       setError('Google sign-in failed');
     } finally {

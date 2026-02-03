@@ -78,6 +78,7 @@ router.post('/sync', async (req: AuthRequest, res: Response) => {
         id: user.id,
         email: user.email,
         displayName: user.displayName,
+        hasCompletedOnboarding: user.hasCompletedOnboarding,
         subscriptionStatus: user.subscriptionStatus,
         totalAnchorsCreated: user.totalAnchorsCreated,
         totalActivations: user.totalActivations,
@@ -123,6 +124,7 @@ router.get('/me', authMiddleware, async (req: AuthRequest, res: Response) => {
         id: user.id,
         email: user.email,
         displayName: user.displayName,
+        hasCompletedOnboarding: user.hasCompletedOnboarding,
         subscriptionStatus: user.subscriptionStatus,
         totalAnchorsCreated: user.totalAnchorsCreated,
         totalActivations: user.totalActivations,
@@ -171,6 +173,7 @@ router.put('/profile', authMiddleware, async (req: AuthRequest, res: Response) =
         id: user.id,
         email: user.email,
         displayName: user.displayName,
+        hasCompletedOnboarding: user.hasCompletedOnboarding,
         subscriptionStatus: user.subscriptionStatus,
         totalAnchorsCreated: user.totalAnchorsCreated,
         totalActivations: user.totalActivations,
@@ -270,6 +273,65 @@ router.put('/settings', authMiddleware, async (req: AuthRequest, res: Response) 
       throw error;
     }
     throw new AppError('Failed to update settings', 500, 'UPDATE_ERROR');
+  }
+});
+
+/**
+ * DELETE /api/auth/me
+ *
+ * Delete user account and all associated data (GDPR/CCPA compliant)
+ * Requires authentication
+ *
+ * Cascade deletes:
+ * - All anchors (with charges, activations)
+ * - User settings
+ * - Orders
+ * - Sync queue entries
+ * - User record
+ */
+router.delete('/me', authMiddleware, async (req: AuthRequest, res: Response) => {
+  try {
+    if (!req.user) {
+      throw new AppError('User not authenticated', 401, 'UNAUTHORIZED');
+    }
+
+    // Find user
+    const user = await prisma.user.findUnique({
+      where: { authUid: req.user.uid },
+    });
+
+    if (!user) {
+      throw new AppError('User not found', 404, 'USER_NOT_FOUND');
+    }
+
+    // Delete user (cascades handled by Prisma schema onDelete: Cascade)
+    // This will automatically delete:
+    // - anchors (which cascade to activations and charges)
+    // - activations
+    // - charges
+    // - orders
+    // - settings
+    await prisma.user.delete({
+      where: { id: user.id },
+    });
+
+    // Also clean up sync queue (not in schema relations)
+    await prisma.syncQueue.deleteMany({
+      where: { userId: user.id },
+    });
+
+    res.json({
+      success: true,
+      data: {
+        message: 'Account successfully deleted',
+        deletedUserId: user.id,
+      },
+    });
+  } catch (error) {
+    if (error instanceof AppError) {
+      throw error;
+    }
+    throw new AppError('Failed to delete account', 500, 'DELETE_ERROR');
   }
 });
 
