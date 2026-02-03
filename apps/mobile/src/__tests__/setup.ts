@@ -41,20 +41,49 @@ jest.mock('expo-blur', () => ({
   BlurView: 'BlurView',
 }));
 
-// Mock React Navigation
-jest.mock('@react-navigation/native', () => ({
-  ...jest.requireActual('@react-navigation/native'),
-  useNavigation: () => ({
-    navigate: jest.fn(),
-    goBack: jest.fn(),
-    reset: jest.fn(),
-    setOptions: jest.fn(),
-  }),
-  useRoute: () => ({
-    params: {},
-  }),
-  useFocusEffect: jest.fn(),
+jest.mock('@react-native-community/datetimepicker', () => ({
+  __esModule: true,
+  default: 'DateTimePicker',
 }));
+
+jest.mock('react-native-safe-area-context', () => ({
+  SafeAreaView: 'SafeAreaView',
+  SafeAreaProvider: ({ children }: any) => children,
+  useSafeAreaInsets: () => ({ top: 0, right: 0, bottom: 0, left: 0 }),
+}));
+
+// Mock React Navigation
+jest.mock('@react-navigation/native', () => {
+  const actualNav = jest.requireActual('@react-navigation/native');
+  return {
+    ...actualNav,
+    useNavigation: () => ({
+      navigate: jest.fn(),
+      goBack: jest.fn(),
+      reset: jest.fn(),
+      setOptions: jest.fn(),
+      setParams: jest.fn(),
+      dispatch: jest.fn(),
+      canGoBack: jest.fn(() => true),
+      isFocused: jest.fn(() => true),
+      addListener: jest.fn(() => jest.fn()),
+      removeListener: jest.fn(),
+    }),
+    useRoute: () => ({
+      params: {},
+      key: 'test-route-key',
+      name: 'TestScreen',
+    }),
+    useFocusEffect: jest.fn((callback) => {
+      if (typeof callback === 'function') {
+        callback();
+      }
+      return jest.fn();
+    }),
+    useIsFocused: jest.fn(() => true),
+    NavigationContainer: ({ children }: any) => children,
+  };
+});
 
 // Mock react-native-svg
 jest.mock('react-native-svg', () => ({
@@ -65,13 +94,18 @@ jest.mock('react-native-svg', () => ({
   G: 'G',
 }));
 
-// Mock Lucide icons
-jest.mock('lucide-react-native', () => ({
-  Plus: 'Plus',
-  X: 'X',
-  Check: 'Check',
-  AlertCircle: 'AlertCircle',
-}));
+// Mock Lucide icons - comprehensive mock for all commonly used icons
+jest.mock('lucide-react-native', () => {
+  const mockIcon = (name: string) => name;
+  return new Proxy({}, {
+    get: (target, prop) => {
+      if (typeof prop === 'string') {
+        return mockIcon(prop);
+      }
+      return undefined;
+    }
+  });
+});
 
 // Silence console warnings in tests
 global.console = {

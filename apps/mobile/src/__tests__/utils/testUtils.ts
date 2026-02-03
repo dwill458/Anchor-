@@ -13,6 +13,7 @@ export const createMockUser = (overrides?: Partial<User>): User => ({
   id: 'test-user-123',
   email: 'test@example.com',
   displayName: 'Test User',
+  hasCompletedOnboarding: true,
   subscriptionStatus: 'free' as SubscriptionStatus,
   totalAnchorsCreated: 5,
   totalActivations: 20,
@@ -32,12 +33,11 @@ export const createMockAnchor = (overrides?: Partial<Anchor>): Anchor => ({
   category: 'career' as AnchorCategory,
   distilledLetters: ['B', 'L', 'D', 'M', 'Y', 'C', 'R', 'R', 'N', 'T', 'C', 'H'],
   baseSigilSvg: '<svg></svg>',
-  sigilVariant: 'balanced',
+  structureVariant: 'balanced',
   isCharged: false,
-  isActivated: false,
   activationCount: 0,
-  lastActivatedAt: null,
   createdAt: new Date('2024-01-15'),
+  updatedAt: new Date('2024-01-15'),
   ...overrides,
 });
 
