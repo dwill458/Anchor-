@@ -118,6 +118,7 @@ function createInkFilter(): string {
   // Returning basic markers and empty filter definition for safety
   return `
     <defs>
+      <filter id="ink-bleed"></filter>
       <marker id="dot-start" viewBox="0 0 10 10" refX="5" refY="5" markerWidth="6" markerHeight="6">
         <circle cx="5" cy="5" r="3" fill="currentColor" />
       </marker>
@@ -181,6 +182,7 @@ export function generateTrueSigil(
   // Assemble
   const svg = `
     <svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" color="#FFFFFF">
+      ${createInkFilter()}
       <g>
         ${createBorder(variant)}
         
@@ -191,6 +193,7 @@ export function generateTrueSigil(
           fill="none" 
           stroke-linecap="round" 
           stroke-linejoin="round"
+          ${markers}
         />
       </g>
     </svg>

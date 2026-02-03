@@ -24,6 +24,7 @@ import { ONBOARDING_FLOW } from '@/config/onboarding';
 import { colors, spacing, typography } from '@/theme';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { OnboardingStackParamList } from '@/types';
+import { safeHaptics } from '@/utils/haptics';
 
 type Props = NativeStackScreenProps<OnboardingStackParamList, 'Welcome'>; // Reusing Welcome alias for now
 
@@ -84,14 +85,14 @@ export const NarrativeOnboardingScreen: React.FC<Props> = ({ navigation }) => {
 
         // Special case: Micro-haptic on ARRIVAL at Screen 5 (Index 4)
         if (stepIndex === 4) {
-            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+            void safeHaptics.impact(Haptics.ImpactFeedbackStyle.Light);
         }
     }, [stepIndex]);
 
     const handleNext = async () => {
         if (isLastStep) {
             // "Begin" - Significant action
-            await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+            await safeHaptics.notification(Haptics.NotificationFeedbackType.Success);
 
             // Mark as done and signal redirect
             setShouldRedirectToCreation(true);
@@ -99,7 +100,7 @@ export const NarrativeOnboardingScreen: React.FC<Props> = ({ navigation }) => {
         } else {
             // "Create your first Anchor" (Step 0) - Significant action
             if (stepIndex === 0) {
-                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                void safeHaptics.impact(Haptics.ImpactFeedbackStyle.Medium);
             }
             // Standard "Continue" screens - No Haptics (Silent flow)
 
@@ -261,7 +262,7 @@ export const NarrativeOnboardingScreen: React.FC<Props> = ({ navigation }) => {
                             style={styles.secondaryButton}
                             onPress={() => {
                                 // For now, simple haptic feedback as placeholder for "How it works"
-                                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                                void safeHaptics.impact(Haptics.ImpactFeedbackStyle.Light);
                                 // In future: Navigation or Modal logic here
                             }}
                             activeOpacity={0.6}

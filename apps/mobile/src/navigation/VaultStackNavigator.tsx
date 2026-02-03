@@ -6,6 +6,7 @@
 
 import React from 'react';
 import { createStackNavigator } from '@react-navigation/stack';
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { VaultScreen, AnchorDetailScreen } from '../screens/vault';
 import {
   IntentionInputScreen,
@@ -27,16 +28,29 @@ import {
   ConfirmBurnScreen,
   BurningRitualScreen,
   ChargeSetupScreen,
+  BreathingAnimation,
   RitualScreen,
   SealAnchorScreen,
   ChargeCompleteScreen,
 } from '../screens/rituals';
-import { SettingsScreen } from '../screens/profile';
+import {
+  SettingsScreen,
+  ExportDataScreen,
+  OfflineStatusScreen,
+  LegalWebViewScreen,
+  MantraVoiceScreen,
+  VoiceStyleScreen,
+  HapticFeedbackScreen,
+} from '../screens/profile';
+import { HeaderAvatarButton } from '../components/navigation';
 import type { RootStackParamList } from '@/types';
 import { colors } from '@/theme';
 import { useAuthStore } from '@/stores/authStore';
 
 const Stack = createStackNavigator<RootStackParamList>();
+
+// Navigation type for accessing Settings from header
+type RootNavigationProp = NativeStackNavigationProp<RootStackParamList>;
 
 export const VaultStackNavigator: React.FC = () => {
   // Determine which intention screen to show
@@ -50,6 +64,7 @@ export const VaultStackNavigator: React.FC = () => {
     <Stack.Navigator
       screenOptions={{
         headerShown: true,
+        detachInactiveScreens: true,
         headerStyle: {
           backgroundColor: colors.background.secondary,
         },
@@ -64,7 +79,29 @@ export const VaultStackNavigator: React.FC = () => {
       <Stack.Screen
         name="Vault"
         component={VaultScreen}
-        options={{ headerShown: false }}
+        options={({ navigation }) => ({
+          headerShown: true,
+          headerStyle: {
+            backgroundColor: colors.background.primary,
+            shadowColor: 'transparent',
+            elevation: 0,
+          },
+          headerTintColor: colors.gold,
+          headerTitle: 'Sanctuary',
+          headerTitleStyle: {
+            fontWeight: '600',
+            fontSize: 18,
+          },
+          headerRight: () => {
+            const nav = navigation as unknown as RootNavigationProp;
+            return (
+              <HeaderAvatarButton
+                onPress={() => nav?.navigate('Settings')}
+                fallbackInitials="A"
+              />
+            );
+          },
+        })}
       />
       <Stack.Screen
         name="AnchorDetail"
@@ -155,6 +192,11 @@ export const VaultStackNavigator: React.FC = () => {
         options={{ headerShown: false }}
       />
       <Stack.Screen
+        name="BreathingAnimation"
+        component={BreathingAnimation}
+        options={{ headerShown: false }}
+      />
+      <Stack.Screen
         name="Ritual"
         component={RitualScreen}
         options={{ headerShown: false }}
@@ -190,6 +232,36 @@ export const VaultStackNavigator: React.FC = () => {
         name="Settings"
         component={SettingsScreen}
         options={{ headerShown: false }}
+      />
+      <Stack.Screen
+        name="ExportData"
+        component={ExportDataScreen}
+        options={{ headerShown: false }}
+      />
+      <Stack.Screen
+        name="OfflineStatus"
+        component={OfflineStatusScreen}
+        options={{ headerShown: false }}
+      />
+      <Stack.Screen
+        name="LegalWebView"
+        component={LegalWebViewScreen}
+        options={{ headerShown: false }}
+      />
+      <Stack.Screen
+        name="MantraVoice"
+        component={MantraVoiceScreen}
+        options={{ title: 'Mantra Voice' }}
+      />
+      <Stack.Screen
+        name="VoiceStyle"
+        component={VoiceStyleScreen}
+        options={{ title: 'Voice Style' }}
+      />
+      <Stack.Screen
+        name="HapticFeedback"
+        component={HapticFeedbackScreen}
+        options={{ title: 'Haptic Feedback' }}
       />
     </Stack.Navigator>
   );

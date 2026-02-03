@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { memo } from 'react';
 import Svg, { Path, Rect, Circle } from 'react-native-svg';
 
 interface LockIconProps {
@@ -6,7 +6,7 @@ interface LockIconProps {
     color?: string;
 }
 
-export const LockIcon: React.FC<LockIconProps> = ({
+export const LockIcon: React.FC<LockIconProps> = memo(({
     size = 20,
     color = '#D4AF37'
 }) => (
@@ -29,4 +29,4 @@ export const LockIcon: React.FC<LockIconProps> = ({
         />
         <Circle cx="12" cy="15.5" r="1.5" fill={color} />
     </Svg>
-);
+));

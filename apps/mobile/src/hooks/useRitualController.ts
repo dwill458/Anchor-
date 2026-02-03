@@ -6,7 +6,6 @@
  */
 
 import { useState, useEffect, useRef, useCallback } from 'react';
-import * as Haptics from 'expo-haptics';
 import {
   RitualConfig,
   RitualPhase,
@@ -14,6 +13,8 @@ import {
   calculateProgress,
   formatTime,
 } from '@/config/ritualConfigs';
+import * as Haptics from 'expo-haptics';
+import { safeHaptics } from '@/utils/haptics';
 
 export interface RitualState {
   // Time tracking
@@ -157,7 +158,7 @@ export function useRitualController({
       }
 
       // Medium haptic on phase transition
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+      void safeHaptics.impact(Haptics.ImpactFeedbackStyle.Medium);
 
       // Reset instruction index for new phase
       setCurrentInstructionIndex(0);
@@ -177,7 +178,7 @@ export function useRitualController({
     }
 
     hapticIntervalRef.current = setInterval(() => {
-      Haptics.impactAsync(currentPhase.hapticStyle);
+      void safeHaptics.impact(currentPhase.hapticStyle);
     }, currentPhase.hapticIntervalMs);
 
     return () => {
@@ -220,7 +221,7 @@ export function useRitualController({
     setIsComplete(false);
     setIsSealComplete(false);
     setSealProgress(0);
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    void safeHaptics.impact(Haptics.ImpactFeedbackStyle.Medium);
   }, []);
 
   const pause = useCallback(() => {
@@ -301,7 +302,7 @@ export function useRitualController({
     }
 
     // Success haptic
-    Haptics.notificationAsync(config.sealSuccessHaptic);
+    void safeHaptics.notification(config.sealSuccessHaptic);
 
     // Trigger completion callback
     if (onSealComplete) {

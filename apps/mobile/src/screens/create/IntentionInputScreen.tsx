@@ -20,6 +20,7 @@ import { RootStackParamList } from '@/types';
 import { distillIntention } from '@/utils/sigil/distillation';
 import { colors, spacing, typography } from '@/theme';
 import { ZenBackground } from '@/components/common';
+import { logger } from '@/utils/logger';
 
 const { height } = Dimensions.get('window');
 
@@ -59,6 +60,15 @@ export default function IntentionInputScreen() {
     const [isFocused, setIsFocused] = useState(false);
     const [canSubmit, setCanSubmit] = useState(false);
     const focusAnim = useRef(new Animated.Value(0)).current;
+    const isSubmittingRef = useRef(false);
+
+    useEffect(() => {
+        if (typeof navigation.addListener !== 'function') return;
+        const unsubscribe = navigation.addListener('focus', () => {
+            isSubmittingRef.current = false;
+        });
+        return unsubscribe;
+    }, [navigation]);
 
     // Subtle focus glow animation (locked system easing)
     useEffect(() => {
@@ -94,13 +104,19 @@ export default function IntentionInputScreen() {
     };
 
     const handleContinue = () => {
-        if (canSubmit) {
+        if (!canSubmit || isSubmittingRef.current) return;
+
+        isSubmittingRef.current = true;
+        try {
             const distillation = distillIntention(intention);
             navigation.navigate('DistillationAnimation', {
                 intentionText: intention,
                 category: 'personal_growth',
                 distilledLetters: distillation.finalLetters,
             });
+        } catch (error) {
+            isSubmittingRef.current = false;
+            logger.error('Failed to distill intention', error);
         }
     };
 
@@ -194,6 +210,10 @@ export default function IntentionInputScreen() {
                             onPress={handleContinue}
                             activeOpacity={0.8}
                             disabled={!canSubmit}
+                            accessibilityRole="button"
+                            accessibilityLabel="Continue"
+                            accessibilityState={{ disabled: !canSubmit }}
+                            testID="continue-button"
                             style={[
                                 styles.continueButton,
                                 !canSubmit && styles.continueButtonDisabled

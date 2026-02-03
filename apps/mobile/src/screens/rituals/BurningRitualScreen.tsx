@@ -16,7 +16,6 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { RouteProp, useRoute, useNavigation } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
-import { SvgXml } from 'react-native-svg';
 import * as Haptics from 'expo-haptics';
 import { colors, typography, spacing } from '@/theme';
 import { RootStackParamList } from '@/types';
@@ -25,6 +24,8 @@ import { del } from '@/services/ApiClient';
 import { ErrorTrackingService } from '@/services/ErrorTrackingService';
 import { useToast } from '@/components/ToastProvider';
 import { AnalyticsService, AnalyticsEvents } from '@/services/AnalyticsService';
+import { SigilSvg } from '@/components/common';
+import { safeHaptics } from '@/utils/haptics';
 
 type BurningRitualRouteProp = RouteProp<RootStackParamList, 'BurningRitual'>;
 type BurningRitualNavigationProp = StackNavigationProp<RootStackParamList, 'BurningRitual'>;
@@ -49,6 +50,8 @@ export const BurningRitualScreen: React.FC = () => {
 
   const [currentPrompt, setCurrentPrompt] = useState<string>('');
   const [isArchiving, setIsArchiving] = useState<boolean>(false);
+  const timeoutsRef = useRef<NodeJS.Timeout[]>([]);
+  const isMountedRef = useRef(true);
 
   // Animation values
   const fadeAnim = useRef(new Animated.Value(1)).current;
@@ -57,11 +60,17 @@ export const BurningRitualScreen: React.FC = () => {
 
   useEffect(() => {
     startCompletionSequence();
+
+    return () => {
+      isMountedRef.current = false;
+      timeoutsRef.current.forEach((timeoutId) => clearTimeout(timeoutId));
+      timeoutsRef.current = [];
+    };
   }, []);
 
   const startCompletionSequence = async () => {
     // Initial deep haptic
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
+    void safeHaptics.impact(Haptics.ImpactFeedbackStyle.Heavy);
 
     // Sigil fade/scale animation
     Animated.parallel([
@@ -79,7 +88,8 @@ export const BurningRitualScreen: React.FC = () => {
 
     // Show prompts at timed intervals
     PROMPTS.forEach((prompt) => {
-      setTimeout(() => {
+      const promptTimeout = setTimeout(() => {
+        if (!isMountedRef.current) return;
         setCurrentPrompt(prompt.text);
 
         // Fade in prompt
@@ -92,14 +102,17 @@ export const BurningRitualScreen: React.FC = () => {
         ]).start();
 
         // Light haptic with each prompt
-        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+        void safeHaptics.impact(Haptics.ImpactFeedbackStyle.Light);
       }, prompt.delay);
+      timeoutsRef.current.push(promptTimeout);
     });
 
     // Complete after burn duration
-    setTimeout(() => {
+    const completeTimeout = setTimeout(() => {
+      if (!isMountedRef.current) return;
       handleComplete();
     }, COMPLETION_DURATION + 1000);
+    timeoutsRef.current.push(completeTimeout);
   };
 
   const handleComplete = async (): Promise<void> => {
@@ -124,7 +137,7 @@ export const BurningRitualScreen: React.FC = () => {
       removeAnchor(anchorId);
 
       // Success haptic
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      void safeHaptics.notification(Haptics.NotificationFeedbackType.Success);
 
       // Show success toast
       toast.success('Anchor released and archived successfully');
@@ -174,7 +187,7 @@ export const BurningRitualScreen: React.FC = () => {
             },
           ]}
         >
-          <SvgXml xml={sigilSvg} width={SIGIL_SIZE} height={SIGIL_SIZE} />
+          <SigilSvg xml={sigilSvg} width={SIGIL_SIZE} height={SIGIL_SIZE} />
         </Animated.View>
 
         {/* Prompts */}

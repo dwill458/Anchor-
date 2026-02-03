@@ -9,6 +9,7 @@ import { View, Text, StyleSheet, Animated, TouchableOpacity } from 'react-native
 import { LinearGradient } from 'expo-linear-gradient';
 import * as Haptics from 'expo-haptics';
 import { colors, spacing, typography } from '@/theme';
+import { safeHaptics } from '@/utils/haptics';
 
 export type ToastType = 'success' | 'error' | 'info' | 'warning';
 
@@ -31,11 +32,11 @@ export const Toast: React.FC<ToastProps> = ({
   useEffect(() => {
     // Haptic feedback on show
     if (type === 'success') {
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      void safeHaptics.notification(Haptics.NotificationFeedbackType.Success);
     } else if (type === 'error') {
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+      void safeHaptics.notification(Haptics.NotificationFeedbackType.Error);
     } else {
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+      void safeHaptics.impact(Haptics.ImpactFeedbackStyle.Medium);
     }
 
     // Animate in
@@ -121,6 +122,7 @@ export const Toast: React.FC<ToastProps> = ({
           transform: [{ translateY }],
         },
       ]}
+      accessible
       accessibilityRole="alert"
       accessibilityLabel={getAccessibilityLabel()}
       accessibilityLiveRegion="polite"
@@ -131,6 +133,7 @@ export const Toast: React.FC<ToastProps> = ({
         accessibilityRole="button"
         accessibilityLabel="Dismiss notification"
         accessibilityHint="Double tap to dismiss this notification"
+        testID="toast-dismiss-button"
       >
         <LinearGradient
           colors={getColors()}

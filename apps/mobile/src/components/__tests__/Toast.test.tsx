@@ -6,6 +6,7 @@
 
 import React from 'react';
 import { render, fireEvent } from '@testing-library/react-native';
+import { Animated } from 'react-native';
 import { Toast } from '../Toast';
 import * as Haptics from 'expo-haptics';
 
@@ -13,8 +14,28 @@ import * as Haptics from 'expo-haptics';
 jest.mock('expo-haptics');
 
 describe('Toast Component', () => {
+  let timingSpy: jest.SpyInstance;
+  let springSpy: jest.SpyInstance;
+  let parallelSpy: jest.SpyInstance;
+
   beforeEach(() => {
     jest.clearAllMocks();
+
+    timingSpy = jest
+      .spyOn(Animated, 'timing')
+      .mockImplementation(() => ({ start: (cb?: () => void) => cb && cb() }) as any);
+    springSpy = jest
+      .spyOn(Animated, 'spring')
+      .mockImplementation(() => ({ start: (cb?: () => void) => cb && cb() }) as any);
+    parallelSpy = jest
+      .spyOn(Animated, 'parallel')
+      .mockImplementation(() => ({ start: (cb?: () => void) => cb && cb() }) as any);
+  });
+
+  afterEach(() => {
+    timingSpy.mockRestore();
+    springSpy.mockRestore();
+    parallelSpy.mockRestore();
   });
 
   it('should render with message', () => {
@@ -65,17 +86,13 @@ describe('Toast Component', () => {
 
   it('should call onDismiss when pressed', () => {
     const onDismiss = jest.fn();
-    const { getByRole } = render(
+    const { getByTestId } = render(
       <Toast message="Test" onDismiss={onDismiss} />
     );
 
-    const button = getByRole('button');
+    const button = getByTestId('toast-dismiss-button');
     fireEvent.press(button);
-
-    // Wait for animation to complete
-    setTimeout(() => {
-      expect(onDismiss).toHaveBeenCalled();
-    }, 300);
+    expect(onDismiss).toHaveBeenCalled();
   });
 
   it('should have proper accessibility label', () => {
@@ -100,7 +117,7 @@ describe('Toast Component', () => {
     setTimeout(() => {
       expect(onDismiss).toHaveBeenCalled();
       done();
-    }, 150);
+    }, 350);
   });
 
   it('should truncate long messages to 3 lines', () => {

@@ -4,7 +4,7 @@
  * Global toast notification manager with context.
  */
 
-import React, { createContext, useContext, useState, ReactNode } from 'react';
+import React, { createContext, useContext, useRef, useState, ReactNode } from 'react';
 import { View, StyleSheet } from 'react-native';
 import { Toast, ToastProps, ToastType } from './Toast';
 
@@ -24,9 +24,10 @@ interface ToastItem extends ToastProps {
 
 export const ToastProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const [toasts, setToasts] = useState<ToastItem[]>([]);
+  const toastIdRef = useRef(0);
 
   const showToast = (message: string, type: ToastType = 'info', duration: number = 3000) => {
-    const id = Date.now().toString();
+    const id = `${Date.now()}-${toastIdRef.current++}`;
     const newToast: ToastItem = {
       id,
       message,

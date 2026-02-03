@@ -1,15 +1,30 @@
 import 'react-native-gesture-handler';
-import React from 'react';
+import React, { useEffect } from 'react';
 import { StatusBar, View, StyleSheet, Platform, Dimensions } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { NavigationContainer } from '@react-navigation/native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
+import { enableFreeze, enableScreens } from 'react-native-screens';
 import { RootNavigator } from './src/navigation';
 import { ErrorBoundary } from './src/components/ErrorBoundary';
 import { ToastProvider } from './src/components/ToastProvider';
+import { AnalyticsService } from './src/services/AnalyticsService';
+import { ErrorTrackingService, setupGlobalErrorHandler } from './src/services/ErrorTrackingService';
+import { PerformanceMonitoring } from './src/services/PerformanceMonitoring';
+import { SubscriptionService } from './src/services/SubscriptionService';
+import { useAuthStore } from './src/stores/authStore';
+
+declare const process: {
+  env: Record<string, string | undefined>;
+};
 
 const { width } = Dimensions.get('window');
 const isWeb = Platform.OS === 'web';
+
+if (!isWeb) {
+  enableScreens(true);
+  enableFreeze(true);
+}
 
 const AppTheme = {
   dark: true,
@@ -24,6 +39,37 @@ const AppTheme = {
 };
 
 export default function App() {
+  const user = useAuthStore((state) => state.user);
+
+  useEffect(() => {
+    if (process.env.NODE_ENV === 'test') return;
+    AnalyticsService.initialize();
+    ErrorTrackingService.initialize();
+    PerformanceMonitoring.initialize();
+    SubscriptionService.initialize({ userId: user?.id });
+    setupGlobalErrorHandler();
+  }, []);
+
+  useEffect(() => {
+    if (process.env.NODE_ENV === 'test') return;
+    if (!user) {
+      AnalyticsService.reset();
+      ErrorTrackingService.clearUser();
+      void SubscriptionService.logOut();
+      return;
+    }
+
+    AnalyticsService.identify(user.id, {
+      email: user.email,
+      displayName: user.displayName,
+      subscriptionStatus: user.subscriptionStatus,
+      totalAnchorsCreated: user.totalAnchorsCreated,
+      currentStreak: user.currentStreak,
+    });
+    ErrorTrackingService.setUser(user.id, user.email, user.displayName);
+    void SubscriptionService.setUser(user.id);
+  }, [user]);
+
   return (
     <ErrorBoundary>
       <ToastProvider>

@@ -11,6 +11,7 @@ import { LucideIcon } from 'lucide-react-native';
 import * as Haptics from 'expo-haptics';
 import { SettingsRow } from './SettingsRow';
 import { colors } from '@/theme';
+import { safeHaptics } from '@/utils/haptics';
 
 interface ToggleSettingProps {
   label: string;
@@ -35,7 +36,7 @@ export const ToggleSetting: React.FC<ToggleSettingProps> = ({
     if (!disabled) {
       onToggle(newValue);
       // Haptic feedback
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+      void safeHaptics.impact(Haptics.ImpactFeedbackStyle.Light);
     }
   };
 

@@ -1,11 +1,11 @@
-import React from 'react';
+import React, { memo } from 'react';
 import Svg, { Path, Circle, Ellipse } from 'react-native-svg';
 
 interface StyleIconProps {
     size?: number;
 }
 
-export const MinimalLineIcon: React.FC<StyleIconProps> = ({ size = 48 }) => (
+export const MinimalLineIcon: React.FC<StyleIconProps> = memo(({ size = 48 }) => (
     <Svg width={size} height={size} viewBox="0 0 48 48" fill="none">
         <Path
             d="M12 36L21 18L28 27L36 10"
@@ -15,9 +15,9 @@ export const MinimalLineIcon: React.FC<StyleIconProps> = ({ size = 48 }) => (
             strokeLinejoin="round"
         />
     </Svg>
-);
+));
 
-export const InkBrushIcon: React.FC<StyleIconProps> = ({ size = 48 }) => (
+export const InkBrushIcon: React.FC<StyleIconProps> = memo(({ size = 48 }) => (
     <Svg width={size} height={size} viewBox="0 0 48 48" fill="none">
         <Path
             d="M10 34C14 28 20 16 24 12C27 9 32 10 35 14C37 17 36 22 32 26"
@@ -28,9 +28,9 @@ export const InkBrushIcon: React.FC<StyleIconProps> = ({ size = 48 }) => (
         />
         <Circle cx="35" cy="31" r="3" fill="#D4AF37" />
     </Svg>
-);
+));
 
-export const SacredGeometryIcon: React.FC<StyleIconProps> = ({ size = 48 }) => (
+export const SacredGeometryIcon: React.FC<StyleIconProps> = memo(({ size = 48 }) => (
     <Svg width={size} height={size} viewBox="0 0 48 48" fill="none">
         <Circle cx="24" cy="24" r="14" stroke="#F5F5DC" strokeWidth="2.25" />
         <Path
@@ -42,9 +42,9 @@ export const SacredGeometryIcon: React.FC<StyleIconProps> = ({ size = 48 }) => (
         />
         <Circle cx="24" cy="24" r="3.6" fill="#D4AF37" />
     </Svg>
-);
+));
 
-export const WatercolorIcon: React.FC<StyleIconProps> = ({ size = 48 }) => (
+export const WatercolorIcon: React.FC<StyleIconProps> = memo(({ size = 48 }) => (
     <Svg width={size} height={size} viewBox="0 0 48 48" fill="none">
         <Path
             d="M24 12C20 12 20 16 22 20C23 22 25 22 26 20C28 16 28 12 24 12Z"
@@ -57,4 +57,4 @@ export const WatercolorIcon: React.FC<StyleIconProps> = ({ size = 48 }) => (
         <Ellipse cx="24.6" cy="32" rx="7.6" ry="7" stroke="#F5F5DC" strokeWidth="2.25" />
         <Circle cx="24" cy="31" r="3" fill="#D4AF37" />
     </Svg>
-);
+));

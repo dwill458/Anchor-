@@ -99,7 +99,7 @@ export default function ManualForgeScreen() {
   // Params
   const intentionText = route.params?.intentionText || (route.params as any)?.intention || 'Manifest destiny';
   const distilledLetters = route.params?.distilledLetters || ['M', 'N', 'F', 'S', 'T', 'D', 'S', 'T', 'N', 'Y'];
-  const category = route.params?.category;
+  const category = route.params?.category ?? 'personal_growth';
 
   // Drawing state
   const [strokes, setStrokes] = useState<Stroke[]>([]);

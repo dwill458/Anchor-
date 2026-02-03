@@ -168,6 +168,15 @@ export const OnboardingScreen: React.FC = () => {
         onViewableItemsChanged={onViewableItemsChanged}
         viewabilityConfig={viewabilityConfig}
         bounces={false}
+        removeClippedSubviews
+        initialNumToRender={2}
+        maxToRenderPerBatch={2}
+        windowSize={3}
+        getItemLayout={(_, index) => ({
+          length: SCREEN_WIDTH,
+          offset: SCREEN_WIDTH * index,
+          index,
+        })}
       />
 
       {/* Footer */}

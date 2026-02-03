@@ -1,4 +1,5 @@
-import React from 'react';
+import perf, { FirebasePerformanceTypes } from '@react-native-firebase/perf';
+import { MobileEnv } from '@/config/env';
 
 /**
  * Anchor App - Performance Monitoring
@@ -40,21 +41,68 @@ interface PerformanceMetric {
 class Performance {
   private enabled: boolean = true;
   private traces: Map<string, PerformanceMetric> = new Map();
+  private firebaseTraces: Map<string, Promise<FirebasePerformanceTypes.Trace> | FirebasePerformanceTypes.Trace> = new Map();
+
+  private normalizeTraceName(name: string): string {
+    const normalized = name.replace(/[^a-zA-Z0-9_]/g, '_');
+    const withPrefix = /^[A-Za-z]/.test(normalized) ? normalized : `trace_${normalized}`;
+    return withPrefix.slice(0, 100);
+  }
+
+  private normalizeAttributeKey(key: string): string {
+    return key.replace(/[^a-zA-Z0-9_]/g, '_').slice(0, 40);
+  }
+
+  private recordFirebaseTrace(
+    traceName: string,
+    attributes?: Record<string, any>,
+    metrics?: Record<string, number>
+  ): void {
+    const normalizedName = this.normalizeTraceName(traceName);
+    try {
+      const tracePromise = perf().startTrace(normalizedName);
+      this.firebaseTraces.set(normalizedName, tracePromise);
+
+      void tracePromise
+        .then((trace) => {
+          if (attributes) {
+            Object.entries(attributes).forEach(([key, value]) => {
+              trace.putAttribute(this.normalizeAttributeKey(key), String(value));
+            });
+          }
+          if (metrics) {
+            Object.entries(metrics).forEach(([key, value]) => {
+              trace.putMetric(this.normalizeAttributeKey(key), Math.round(value));
+            });
+          }
+          this.firebaseTraces.set(normalizedName, trace);
+          return trace.stop();
+        })
+        .catch((error) => {
+          console.warn('[Performance] Firebase trace failed', error);
+          this.firebaseTraces.delete(normalizedName);
+        });
+    } catch (error) {
+      console.warn('[Performance] Firebase trace start failed', error);
+      this.firebaseTraces.delete(normalizedName);
+    }
+  }
 
   /**
    * Initialize performance monitoring
    */
   initialize(config?: { enabled?: boolean }): void {
-    this.enabled = config?.enabled ?? true;
+    this.enabled = config?.enabled ?? MobileEnv.FIREBASE_PERF_ENABLED;
 
     if (__DEV__) {
       console.log('[Performance] Initialized', { enabled: this.enabled });
     }
 
-    // TODO: Initialize Firebase Performance
-    // Example:
-    // import perf from '@react-native-firebase/perf';
-    // await perf().setPerformanceCollectionEnabled(this.enabled);
+    try {
+      void perf().setPerformanceCollectionEnabled(this.enabled);
+    } catch (error) {
+      console.warn('[Performance] Failed to configure Firebase Performance', error);
+    }
   }
 
   /**
@@ -77,14 +125,27 @@ class Performance {
       console.log('[Performance] Trace started', traceName);
     }
 
-    // TODO: Start trace in Firebase Performance
-    // Example:
-    // const trace = await perf().startTrace(traceName);
-    // if (metadata) {
-    //   Object.entries(metadata).forEach(([key, value]) => {
-    //     trace.putAttribute(key, String(value));
-    //   });
-    // }
+    const normalizedName = this.normalizeTraceName(traceName);
+    try {
+      const tracePromise = perf().startTrace(normalizedName);
+      this.firebaseTraces.set(normalizedName, tracePromise);
+
+      void tracePromise
+        .then((trace) => {
+          if (metadata) {
+            Object.entries(metadata).forEach(([key, value]) => {
+              trace.putAttribute(this.normalizeAttributeKey(key), String(value));
+            });
+          }
+          this.firebaseTraces.set(normalizedName, trace);
+        })
+        .catch((error) => {
+          console.warn('[Performance] Firebase trace start failed', error);
+          this.firebaseTraces.delete(normalizedName);
+        });
+    } catch (error) {
+      console.warn('[Performance] Firebase trace start failed', error);
+    }
 
     return new PerformanceTrace(traceName, this.enabled, this);
   }
@@ -116,9 +177,30 @@ class Performance {
     // Clean up
     this.traces.delete(traceName);
 
-    // TODO: Stop trace in Firebase Performance
-    // Example:
-    // await trace.stop();
+    const normalizedName = this.normalizeTraceName(traceName);
+    const traceEntry = this.firebaseTraces.get(normalizedName);
+    if (traceEntry) {
+      const finalizeTrace = (trace: FirebasePerformanceTypes.Trace) => {
+        if (metric.metadata) {
+          Object.entries(metric.metadata).forEach(([key, value]) => {
+            trace.putAttribute(this.normalizeAttributeKey(key), String(value));
+          });
+        }
+        trace.putMetric('duration_ms', Math.round(duration));
+        return trace.stop();
+      };
+
+      if (traceEntry instanceof Promise) {
+        void traceEntry
+          .then((trace) => finalizeTrace(trace))
+          .catch((error) => {
+            console.warn('[Performance] Firebase trace stop failed', error);
+          });
+      } else {
+        void finalizeTrace(traceEntry);
+      }
+      this.firebaseTraces.delete(normalizedName);
+    }
   }
 
   /**
@@ -131,10 +213,7 @@ class Performance {
       console.log('[Performance] Screen load', { screenName, duration: `${duration}ms` });
     }
 
-    // TODO: Record in Firebase Performance or analytics
-    // Example:
-    // const trace = await perf().startTrace(`screen_${screenName}`);
-    // await trace.stop();
+    this.recordFirebaseTrace(`screen_${screenName}`, { screen: screenName }, { duration_ms: duration });
   }
 
   /**
@@ -151,11 +230,11 @@ class Performance {
       });
     }
 
-    // TODO: Record in Firebase Performance
-    // Example:
-    // const trace = await perf().startTrace(`api_${endpoint.replace(/\//g, '_')}`);
-    // trace.putAttribute('success', String(success));
-    // await trace.stop();
+    this.recordFirebaseTrace(
+      `api_${endpoint.replace(/\//g, '_')}`,
+      { endpoint, success },
+      { duration_ms: duration }
+    );
   }
 
   /**
@@ -168,7 +247,7 @@ class Performance {
       console.log('[Performance] App startup', { duration: `${duration}ms` });
     }
 
-    // TODO: Record in Firebase Performance
+    this.recordFirebaseTrace('app_startup', { phase: 'startup' }, { duration_ms: duration });
   }
 
   /**

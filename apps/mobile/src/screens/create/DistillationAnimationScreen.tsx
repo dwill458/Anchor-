@@ -13,6 +13,7 @@ import { StackNavigationProp } from '@react-navigation/stack';
 import * as Haptics from 'expo-haptics';
 import { RootStackParamList } from '@/types';
 import { colors } from '@/theme';
+import { safeHaptics } from '@/utils/haptics';
 
 type DistillationAnimationRouteProp = RouteProp<RootStackParamList, 'DistillationAnimation'>;
 type DistillationAnimationNavigationProp = StackNavigationProp<RootStackParamList, 'DistillationAnimation'>;
@@ -48,7 +49,23 @@ export default function DistillationAnimationScreen() {
   const route = useRoute<DistillationAnimationRouteProp>();
   const navigation = useNavigation<DistillationAnimationNavigationProp>();
 
-  const { intentionText, category, distilledLetters } = route.params;
+  const params = route.params as RootStackParamList['DistillationAnimation'] | undefined;
+
+  if (!params || !params.intentionText || !Array.isArray(params.distilledLetters)) {
+    return (
+      <SafeAreaView style={styles.safeArea}>
+        <View style={styles.content}>
+          <Text style={styles.phaseLabel}>We lost your intention.</Text>
+          <Text style={styles.subtitle}>Please go back and try again.</Text>
+          <Text style={styles.subtitle} onPress={() => navigation.goBack()}>
+            Go Back
+          </Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  const { intentionText, category, distilledLetters } = params;
 
   const [currentPhase, setCurrentPhase] = useState(0);
   const [letters, setLetters] = useState<LetterState[]>([]);
@@ -339,12 +356,13 @@ export default function DistillationAnimationScreen() {
     ];
 
     let phaseIndex = 0;
-    let timeout: NodeJS.Timeout;
+    let timeout: NodeJS.Timeout | null = null;
+    let navigateTimeout: NodeJS.Timeout | null = null;
 
     const runPhase = () => {
       if (phaseIndex >= phases.length) {
         // All phases complete - navigate to StructureForge
-        setTimeout(() => {
+        navigateTimeout = setTimeout(() => {
           navigation.navigate('StructureForge', {
             intentionText,
             category,
@@ -358,7 +376,7 @@ export default function DistillationAnimationScreen() {
       setCurrentPhase(phaseIndex);
 
       // Trigger haptic feedback
-      Haptics.impactAsync(phase.haptic);
+      void safeHaptics.impact(phase.haptic);
 
       // Run phase action
       phase.action();
@@ -374,7 +392,8 @@ export default function DistillationAnimationScreen() {
     runPhase();
 
     return () => {
-      clearTimeout(timeout);
+      if (timeout) clearTimeout(timeout);
+      if (navigateTimeout) clearTimeout(navigateTimeout);
       breathAnim.stopAnimation();
       glowAnim.stopAnimation();
     };

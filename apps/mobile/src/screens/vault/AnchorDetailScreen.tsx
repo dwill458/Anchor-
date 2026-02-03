@@ -16,13 +16,13 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
-import { SvgXml } from 'react-native-svg';
 import { useAnchorStore } from '../../stores/anchorStore';
 import type { RootStackParamList, ChargeType, ActivationType } from '@/types';
 import { colors, spacing, typography } from '@/theme';
 import { format } from 'date-fns';
 import { AnalyticsService, AnalyticsEvents } from '../../services/AnalyticsService';
 import { ErrorTrackingService } from '../../services/ErrorTrackingService';
+import { SigilSvg, OptimizedImage } from '@/components/common';
 
 const { width } = Dimensions.get('window');
 const ANCHOR_SIZE = width * 0.6;
@@ -187,8 +187,18 @@ export const AnchorDetailScreen: React.FC = () => {
 
         {/* Anchor Display */}
         <View style={styles.anchorContainer}>
-          {anchor.baseSigilSvg ? (
-            <SvgXml
+          {anchor.enhancedImageUrl ? (
+            <OptimizedImage
+              source={{ uri: anchor.enhancedImageUrl }}
+              style={{ width: ANCHOR_SIZE, height: ANCHOR_SIZE, borderRadius: 8 }}
+              contentFit="cover"
+              recyclingKey={anchor.id}
+              priority="high"
+              trackLoad
+              perfLabel={`anchor_detail_${anchor.id}`}
+            />
+          ) : anchor.baseSigilSvg ? (
+            <SigilSvg
               xml={anchor.baseSigilSvg}
               width={ANCHOR_SIZE}
               height={ANCHOR_SIZE}

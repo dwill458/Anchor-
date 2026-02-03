@@ -3,11 +3,11 @@
  */
 
 import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Platform, Image } from 'react-native';
-import { SvgXml } from 'react-native-svg';
+import { View, Text, StyleSheet, TouchableOpacity, Platform } from 'react-native';
 import { BlurView } from 'expo-blur';
 import type { Anchor } from '@/types';
 import { colors, spacing, typography } from '@/theme';
+import { OptimizedImage, SigilSvg } from '@/components/common';
 
 interface AnchorCardProps {
   anchor: Anchor;
@@ -23,8 +23,18 @@ const CATEGORY_CONFIG: Record<string, { label: string; color: string }> = {
   custom: { label: 'Custom', color: colors.text.tertiary },
 };
 
-export const AnchorCard: React.FC<AnchorCardProps> = ({ anchor, onPress }) => {
+export const AnchorCard: React.FC<AnchorCardProps> = React.memo(({ anchor, onPress }) => {
   const categoryConfig = CATEGORY_CONFIG[anchor.category] || CATEGORY_CONFIG.custom;
+
+  // DEBUG: Log visual state on first render
+  React.useEffect(() => {
+    console.log('🔍 [AnchorCard] Rendering anchor:', {
+      id: anchor.id,
+      intention: anchor.intentionText.substring(0, 30),
+      enhancedImageUrl: anchor.enhancedImageUrl || 'none',
+      baseSigilSvg: anchor.baseSigilSvg ? `${anchor.baseSigilSvg.substring(0, 50)}...` : 'MISSING ❌',
+    });
+  }, []);
 
   const accessibilityLabel = `${anchor.intentionText}. ${categoryConfig.label} anchor. ${anchor.isCharged ? 'Charged. ' : ''
     }${anchor.activationCount > 0 ? `Activated ${anchor.activationCount} times.` : ''}`;
@@ -47,13 +57,17 @@ export const AnchorCard: React.FC<AnchorCardProps> = ({ anchor, onPress }) => {
           <View style={styles.sigilContainer}>
             <View style={styles.sigilWrapper}>
               {anchor.enhancedImageUrl ? (
-                <Image
+                <OptimizedImage
                   source={{ uri: anchor.enhancedImageUrl }}
                   style={styles.sigilImage}
-                  resizeMode="cover"
+                  contentFit="cover"
+                  recyclingKey={anchor.id}
+                  priority="normal"
+                  trackLoad
+                  perfLabel={`anchor_card_${anchor.id}`}
                 />
               ) : anchor.baseSigilSvg ? (
-                <SvgXml xml={anchor.baseSigilSvg} width="100%" height="100%" />
+                <SigilSvg xml={anchor.baseSigilSvg} width="100%" height="100%" />
               ) : (
                 <View style={styles.placeholderSigil}>
                   <Text style={styles.placeholderText}>◈</Text>
@@ -85,7 +99,17 @@ export const AnchorCard: React.FC<AnchorCardProps> = ({ anchor, onPress }) => {
       </View>
     </TouchableOpacity>
   );
-};
+}, (prev, next) => (
+  prev.onPress === next.onPress &&
+  prev.anchor.id === next.anchor.id &&
+  prev.anchor.updatedAt === next.anchor.updatedAt &&
+  prev.anchor.isCharged === next.anchor.isCharged &&
+  prev.anchor.activationCount === next.anchor.activationCount &&
+  prev.anchor.enhancedImageUrl === next.anchor.enhancedImageUrl &&
+  prev.anchor.baseSigilSvg === next.anchor.baseSigilSvg &&
+  prev.anchor.category === next.anchor.category &&
+  prev.anchor.intentionText === next.anchor.intentionText
+));
 
 const styles = StyleSheet.create({
   container: {

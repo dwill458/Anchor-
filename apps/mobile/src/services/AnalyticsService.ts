@@ -2,8 +2,12 @@
  * Anchor App - Analytics Service
  *
  * Centralized analytics tracking for user behavior and feature usage.
- * Ready for integration with Mixpanel, Amplitude, or Firebase Analytics.
+ * Supports Mixpanel and Amplitude (or both) with runtime configuration.
  */
+
+import { Mixpanel } from 'mixpanel-react-native';
+import { createInstance, Identify } from '@amplitude/analytics-react-native';
+import { MobileEnv, type AnalyticsProvider } from '@/config/env';
 
 export interface AnalyticsEvent {
   name: string;
@@ -41,20 +45,80 @@ class Analytics {
   private enabled: boolean = true;
   private userId: string | null = null;
   private userProperties: UserProperties = {};
+  private provider: AnalyticsProvider = 'mixpanel';
+  private mixpanel?: Mixpanel;
+  private amplitude = createInstance();
+  private initialized = false;
+
+  private ensureInitialized(): boolean {
+    if (!this.initialized) {
+      this.initialize();
+    }
+    return this.enabled;
+  }
+
+  private sanitizeProperties(properties?: Record<string, any>): Record<string, any> {
+    if (!properties) return {};
+    return Object.entries(properties).reduce<Record<string, any>>((acc, [key, value]) => {
+      if (value === undefined) return acc;
+      if (value instanceof Date) {
+        acc[key] = value.toISOString();
+        return acc;
+      }
+      acc[key] = value;
+      return acc;
+    }, {});
+  }
+
+  private shouldUseMixpanel(): boolean {
+    return this.provider === 'mixpanel' || this.provider === 'both';
+  }
+
+  private shouldUseAmplitude(): boolean {
+    return this.provider === 'amplitude' || this.provider === 'both';
+  }
 
   /**
    * Initialize analytics
    */
-  initialize(config?: { enabled?: boolean }): void {
-    this.enabled = config?.enabled ?? true;
+  initialize(config?: {
+    enabled?: boolean;
+    provider?: AnalyticsProvider;
+    mixpanelToken?: string;
+    amplitudeApiKey?: string;
+  }): void {
+    this.enabled = config?.enabled ?? MobileEnv.ANALYTICS_ENABLED;
+    this.provider = config?.provider ?? MobileEnv.ANALYTICS_PROVIDER;
 
     if (__DEV__) {
-      console.log('[Analytics] Initialized', { enabled: this.enabled });
+      console.log('[Analytics] Initialized', { enabled: this.enabled, provider: this.provider });
     }
 
-    // TODO: Initialize your analytics provider here
-    // Example: Mixpanel.init('YOUR_TOKEN');
-    // Example: amplitude.getInstance().init('YOUR_API_KEY');
+    if (!this.enabled) {
+      return;
+    }
+
+    const mixpanelToken = config?.mixpanelToken ?? MobileEnv.MIXPANEL_TOKEN;
+    const amplitudeApiKey = config?.amplitudeApiKey ?? MobileEnv.AMPLITUDE_API_KEY;
+
+    if (this.shouldUseMixpanel()) {
+      if (!mixpanelToken) {
+        console.warn('[Analytics] Mixpanel token missing; Mixpanel disabled.');
+      } else {
+        this.mixpanel = new Mixpanel(mixpanelToken, true);
+        void this.mixpanel.init();
+      }
+    }
+
+    if (this.shouldUseAmplitude()) {
+      if (!amplitudeApiKey) {
+        console.warn('[Analytics] Amplitude API key missing; Amplitude disabled.');
+      } else {
+        this.amplitude.init(amplitudeApiKey, this.userId ?? undefined);
+      }
+    }
+
+    this.initialized = true;
   }
 
   /**
@@ -62,6 +126,7 @@ class Analytics {
    */
   identify(userId: string, properties?: UserProperties): void {
     if (!this.enabled) return;
+    if (!this.ensureInitialized()) return;
 
     this.userId = userId;
     this.userProperties = { ...this.userProperties, ...properties };
@@ -70,9 +135,25 @@ class Analytics {
       console.log('[Analytics] Identify', { userId, properties });
     }
 
-    // TODO: Identify user in your analytics provider
-    // Example: Mixpanel.identify(userId);
-    // Example: Mixpanel.getPeople().set(properties);
+    const sanitized = this.sanitizeProperties(properties);
+
+    if (this.shouldUseMixpanel() && this.mixpanel) {
+      this.mixpanel.identify(userId);
+      if (Object.keys(sanitized).length > 0) {
+        this.mixpanel.getPeople().set(sanitized);
+      }
+    }
+
+    if (this.shouldUseAmplitude()) {
+      this.amplitude.setUserId(userId);
+      if (Object.keys(sanitized).length > 0) {
+        const identify = new Identify();
+        Object.entries(sanitized).forEach(([key, value]) => {
+          identify.set(key, value);
+        });
+        this.amplitude.identify(identify);
+      }
+    }
   }
 
   /**
@@ -80,11 +161,13 @@ class Analytics {
    */
   track(eventName: string, properties?: Record<string, any>): void {
     if (!this.enabled) return;
+    if (!this.ensureInitialized()) return;
 
+    const sanitizedProperties = this.sanitizeProperties(properties);
     const event: AnalyticsEvent = {
       name: eventName,
       properties: {
-        ...properties,
+        ...sanitizedProperties,
         userId: this.userId,
         timestamp: new Date().toISOString(),
       },
@@ -95,9 +178,13 @@ class Analytics {
       console.log('[Analytics] Track', event);
     }
 
-    // TODO: Track event in your analytics provider
-    // Example: Mixpanel.track(eventName, properties);
-    // Example: amplitude.getInstance().logEvent(eventName, properties);
+    if (this.shouldUseMixpanel() && this.mixpanel) {
+      this.mixpanel.track(eventName, event.properties);
+    }
+
+    if (this.shouldUseAmplitude()) {
+      this.amplitude.track(eventName, event.properties);
+    }
   }
 
   /**
@@ -115,6 +202,7 @@ class Analytics {
    */
   setUserProperties(properties: UserProperties): void {
     if (!this.enabled) return;
+    if (!this.ensureInitialized()) return;
 
     this.userProperties = { ...this.userProperties, ...properties };
 
@@ -122,8 +210,19 @@ class Analytics {
       console.log('[Analytics] Set user properties', properties);
     }
 
-    // TODO: Set user properties in your analytics provider
-    // Example: Mixpanel.getPeople().set(properties);
+    const sanitized = this.sanitizeProperties(properties);
+
+    if (this.shouldUseMixpanel() && this.mixpanel) {
+      this.mixpanel.getPeople().set(sanitized);
+    }
+
+    if (this.shouldUseAmplitude()) {
+      const identify = new Identify();
+      Object.entries(sanitized).forEach(([key, value]) => {
+        identify.set(key, value);
+      });
+      this.amplitude.identify(identify);
+    }
   }
 
   /**
@@ -131,13 +230,21 @@ class Analytics {
    */
   incrementProperty(property: string, value: number = 1): void {
     if (!this.enabled) return;
+    if (!this.ensureInitialized()) return;
 
     if (__DEV__) {
       console.log('[Analytics] Increment', { property, value });
     }
 
-    // TODO: Increment property in your analytics provider
-    // Example: Mixpanel.getPeople().increment(property, value);
+    if (this.shouldUseMixpanel() && this.mixpanel) {
+      this.mixpanel.getPeople().increment(property, value);
+    }
+
+    if (this.shouldUseAmplitude()) {
+      const identify = new Identify();
+      identify.add(property, value);
+      this.amplitude.identify(identify);
+    }
   }
 
   /**
@@ -145,6 +252,7 @@ class Analytics {
    */
   reset(): void {
     if (!this.enabled) return;
+    if (!this.ensureInitialized()) return;
 
     this.userId = null;
     this.userProperties = {};
@@ -153,8 +261,13 @@ class Analytics {
       console.log('[Analytics] Reset');
     }
 
-    // TODO: Reset in your analytics provider
-    // Example: Mixpanel.reset();
+    if (this.shouldUseMixpanel() && this.mixpanel) {
+      this.mixpanel.reset();
+    }
+
+    if (this.shouldUseAmplitude()) {
+      this.amplitude.reset();
+    }
   }
 
   /**

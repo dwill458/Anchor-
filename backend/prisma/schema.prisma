@@ -20,6 +20,7 @@ model User {
   displayName           String?
   authProvider          String   // 'email', 'google', 'apple'
   authUid               String   @unique
+  passwordHash          String?  // Required for email/password auth
   subscriptionStatus    String   @default("free") // 'free', 'pro', 'pro_annual'
   subscriptionId        String?
   createdAt             DateTime @default(now())

@@ -12,7 +12,6 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
-import { SvgXml } from 'react-native-svg';
 import * as Haptics from 'expo-haptics';
 import { RootStackParamList, AnchorCategory } from '@/types';
 import {
@@ -22,8 +21,10 @@ import {
   VARIANT_METADATA,
 } from '@/utils/sigil/traditional-generator';
 import { colors, spacing, typography } from '@/theme';
-import { ZenBackground } from '@/components/common';
+import { ZenBackground, SigilSvg } from '@/components/common';
 import { useAuthStore } from '@/stores/authStore';
+import { logger } from '@/utils/logger';
+import { safeHaptics } from '@/utils/haptics';
 
 type StructureForgeRouteProp = RouteProp<RootStackParamList, 'StructureForge'>;
 type StructureForgeNavigationProp = StackNavigationProp<RootStackParamList, 'StructureForge'>;
@@ -55,6 +56,15 @@ export default function StructureForgeScreen() {
   const [selectedVariant, setSelectedVariant] = useState<SigilVariant | null>(null);
   const [loading, setLoading] = useState(true);
   const [isTransitioning, setIsTransitioning] = useState(false);
+  const isSubmittingRef = useRef(false);
+
+  useEffect(() => {
+    if (typeof navigation.addListener !== 'function') return;
+    const unsubscribe = navigation.addListener('focus', () => {
+      isSubmittingRef.current = false;
+    });
+    return unsubscribe;
+  }, [navigation]);
 
   // Animation values for fade transitions
   const previewFadeAnim = useRef(new Animated.Value(1)).current;
@@ -84,7 +94,7 @@ export default function StructureForgeScreen() {
         setSelectedVariant('balanced');
       }
     } catch (error) {
-      console.error('Sigil selection generation failed:', error);
+      logger.error('Sigil selection generation failed', error);
     } finally {
       setLoading(false);
     }
@@ -96,7 +106,7 @@ export default function StructureForgeScreen() {
     if (isTransitioning || variant === selectedVariant) return;
 
     // Trigger selection haptic
-    Haptics.selectionAsync();
+    void safeHaptics.selection();
 
     setIsTransitioning(true);
 
@@ -155,13 +165,15 @@ export default function StructureForgeScreen() {
   };
 
   const handleContinue = () => {
+    if (isSubmittingRef.current) return;
     if (!selectedVariant) return;
 
     const selected = variants.find(v => v.variant === selectedVariant);
     if (!selected) return;
 
+    isSubmittingRef.current = true;
     // Subtle confirmation haptic
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    void safeHaptics.impact(Haptics.ImpactFeedbackStyle.Light);
 
     navigation.navigate('ManualReinforcement', {
       intentionText,
@@ -208,7 +220,7 @@ export default function StructureForgeScreen() {
           ]}
         >
           {selectedVariant && variants.find(v => v.variant === selectedVariant) && (
-            <SvgXml
+            <SigilSvg
               xml={variants.find(v => v.variant === selectedVariant)!.svg}
               width="90%"
               height="90%"
@@ -267,7 +279,7 @@ export default function StructureForgeScreen() {
 
                 {/* Structure Preview */}
                 <View style={styles.structurePreview}>
-                  <SvgXml
+                  <SigilSvg
                     xml={result.svg}
                     width="85%"
                     height="85%"
@@ -301,6 +313,10 @@ export default function StructureForgeScreen() {
           onPress={handleContinue}
           disabled={!selectedVariant}
           activeOpacity={0.8}
+          accessibilityRole="button"
+          accessibilityLabel="Continue to Forge"
+          accessibilityState={{ disabled: !selectedVariant }}
+          testID="continue-forge-button"
         >
           <Text style={[
             styles.continueText,

@@ -88,6 +88,9 @@ export class ErrorBoundary extends Component<Props, State> {
               style={styles.button}
               onPress={this.handleReset}
               activeOpacity={0.8}
+              accessibilityRole="button"
+              accessibilityLabel="Try Again"
+              testID="error-boundary-try-again"
             >
               <LinearGradient
                 colors={[colors.gold, '#B8941F']}

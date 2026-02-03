@@ -22,12 +22,14 @@ import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { LinearGradient } from 'expo-linear-gradient';
 import { BlurView } from 'expo-blur';
-import { SvgXml } from 'react-native-svg';
-import Svg, { Circle, Defs, ClipPath, G } from 'react-native-svg';
+import Svg, { Circle } from 'react-native-svg';
 import * as Haptics from 'expo-haptics';
 import { useAnchorStore } from '@/stores/anchorStore';
 import type { RootStackParamList } from '@/types';
 import { colors, spacing, typography } from '@/theme';
+import { SigilSvg } from '@/components/common';
+import { logger } from '@/utils/logger';
+import { safeHaptics } from '@/utils/haptics';
 
 const { width, height } = Dimensions.get('window');
 
@@ -73,6 +75,8 @@ export const SealAnchorScreen: React.FC = () => {
   const holdTimerRef = useRef<NodeJS.Timeout | null>(null);
   const hapticIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const holdStartTimeRef = useRef<number>(0);
+  const orbLoopRef = useRef<Animated.CompositeAnimation | null>(null);
+  const navTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   // ══════════════════════════════════════════════════════════════
   // NULL SAFETY: Defensive handling
@@ -106,7 +110,7 @@ export const SealAnchorScreen: React.FC = () => {
     holdStartTimeRef.current = Date.now();
 
     // Initial haptic
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    void safeHaptics.impact(Haptics.ImpactFeedbackStyle.Light);
 
     // Start progress animation
     Animated.timing(progressAnim, {
@@ -130,7 +134,7 @@ export const SealAnchorScreen: React.FC = () => {
     ]).start();
 
     // Start orb scale pulse
-    Animated.loop(
+    orbLoopRef.current = Animated.loop(
       Animated.sequence([
         Animated.timing(orbScaleAnim, {
           toValue: 1.08,
@@ -143,11 +147,12 @@ export const SealAnchorScreen: React.FC = () => {
           useNativeDriver: true,
         }),
       ])
-    ).start();
+    );
+    orbLoopRef.current.start();
 
     // Periodic haptics during hold
     hapticIntervalRef.current = setInterval(() => {
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+      void safeHaptics.impact(Haptics.ImpactFeedbackStyle.Light);
     }, HAPTIC_INTERVAL);
 
     // Set timer for completion
@@ -179,6 +184,7 @@ export const SealAnchorScreen: React.FC = () => {
     glowScaleAnim.stopAnimation();
     glowOpacityAnim.stopAnimation();
     orbScaleAnim.stopAnimation();
+    orbLoopRef.current?.stop();
 
     Animated.parallel([
       Animated.timing(progressAnim, {
@@ -206,12 +212,13 @@ export const SealAnchorScreen: React.FC = () => {
 
   const handleSealComplete = async () => {
     setIsComplete(true);
+    orbLoopRef.current?.stop();
 
     // Clear intervals
     if (hapticIntervalRef.current) clearInterval(hapticIntervalRef.current);
 
     // Success haptic
-    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    void safeHaptics.notification(Haptics.NotificationFeedbackType.Success);
 
     // Bloom effect
     Animated.parallel([
@@ -242,11 +249,12 @@ export const SealAnchorScreen: React.FC = () => {
       });
 
       // Navigate to completion screen after bloom
-      setTimeout(() => {
+      if (navTimeoutRef.current) clearTimeout(navTimeoutRef.current);
+      navTimeoutRef.current = setTimeout(() => {
         navigation.replace('ChargeComplete', { anchorId });
       }, 800);
     } catch (error) {
-      console.error('Failed to update anchor:', error);
+      logger.error('Failed to update anchor', error);
       Alert.alert('Error', 'Failed to save seal. Please try again.');
     }
   };
@@ -280,6 +288,8 @@ export const SealAnchorScreen: React.FC = () => {
     return () => {
       if (holdTimerRef.current) clearTimeout(holdTimerRef.current);
       if (hapticIntervalRef.current) clearInterval(hapticIntervalRef.current);
+      if (navTimeoutRef.current) clearTimeout(navTimeoutRef.current);
+      orbLoopRef.current?.stop();
     };
   }, []);
 
@@ -352,7 +362,7 @@ export const SealAnchorScreen: React.FC = () => {
                 <View style={styles.orbInner}>
                   {/* Sigil (masked, low opacity) */}
                   <View style={styles.sigilContainer}>
-                    <SvgXml
+                    <SigilSvg
                       xml={anchor.baseSigilSvg}
                       width={SIGIL_SIZE}
                       height={SIGIL_SIZE}

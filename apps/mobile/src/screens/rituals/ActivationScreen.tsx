@@ -10,13 +10,15 @@ import { View, Text, StyleSheet, Dimensions } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import * as Haptics from 'expo-haptics';
-import Svg, { SvgXml } from 'react-native-svg';
 import { useAnchorStore } from '../../stores/anchorStore';
 import type { RootStackParamList } from '@/types';
 import { colors, spacing, typography } from '@/theme';
 import { apiClient } from '@/services/ApiClient';
 import { ErrorTrackingService } from '@/services/ErrorTrackingService';
 import { useToast } from '@/components/ToastProvider';
+import { SigilSvg } from '@/components/common';
+import { safeHaptics } from '@/utils/haptics';
+import { playSoundEffect } from '@/utils/soundEffects';
 
 const { width } = Dimensions.get('window');
 const SIGIL_SIZE = width * 0.7;
@@ -37,13 +39,17 @@ export const ActivationScreen: React.FC = () => {
   const [secondsRemaining, setSecondsRemaining] = useState(DURATION_SECONDS);
   const [isComplete, setIsComplete] = useState(false);
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
+  const timeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const isMountedRef = useRef(true);
+  const isCompletingRef = useRef(false);
 
   /**
    * Start countdown timer
    */
   useEffect(() => {
+    void playSoundEffect('activation');
     // Initial haptic feedback
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    void safeHaptics.impact(Haptics.ImpactFeedbackStyle.Medium);
 
     intervalRef.current = setInterval(() => {
       setSecondsRemaining((prev) => {
@@ -51,7 +57,7 @@ export const ActivationScreen: React.FC = () => {
 
         // Haptic pulse every 2 seconds
         if (newValue > 0 && newValue % HAPTIC_INTERVAL === 0) {
-          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+          void safeHaptics.impact(Haptics.ImpactFeedbackStyle.Light);
         }
 
         // Complete at 0
@@ -65,8 +71,12 @@ export const ActivationScreen: React.FC = () => {
     }, 1000);
 
     return () => {
+      isMountedRef.current = false;
       if (intervalRef.current) {
         clearInterval(intervalRef.current);
+      }
+      if (timeoutRef.current) {
+        clearTimeout(timeoutRef.current);
       }
     };
   }, []);
@@ -75,12 +85,14 @@ export const ActivationScreen: React.FC = () => {
    * Handle activation completion
    */
   const handleComplete = async (): Promise<void> => {
+    if (isCompletingRef.current) return;
+    isCompletingRef.current = true;
     if (intervalRef.current) {
       clearInterval(intervalRef.current);
     }
 
     // Success haptic
-    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    void safeHaptics.notification(Haptics.NotificationFeedbackType.Success);
     setIsComplete(true);
 
     // Update backend
@@ -115,7 +127,8 @@ export const ActivationScreen: React.FC = () => {
     }
 
     // Navigate back after 1.5 seconds (shorter than charging)
-    setTimeout(() => {
+    timeoutRef.current = setTimeout(() => {
+      if (!isMountedRef.current) return;
       navigation.goBack();
     }, 1500);
   };
@@ -140,7 +153,7 @@ export const ActivationScreen: React.FC = () => {
 
       {/* Sigil Display */}
       <View style={styles.sigilContainer}>
-        <SvgXml
+        <SigilSvg
           xml={anchor.baseSigilSvg}
           width={SIGIL_SIZE}
           height={SIGIL_SIZE}

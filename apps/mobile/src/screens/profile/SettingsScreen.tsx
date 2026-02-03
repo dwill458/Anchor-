@@ -8,7 +8,7 @@
  * Fully wired to settingsStore with all interactive controls.
  */
 
-import React from 'react';
+import React, { useState } from 'react';
 import {
   View,
   Text,
@@ -18,6 +18,8 @@ import {
   Alert,
   Linking,
 } from 'react-native';
+import { useNavigation } from '@react-navigation/native';
+import { StackNavigationProp } from '@react-navigation/stack';
 import {
   Zap,
   Bell,
@@ -27,6 +29,7 @@ import {
   Crown,
   Shield,
   Info,
+  ChevronRight,
 } from 'lucide-react-native';
 import {
   SettingsSection,
@@ -36,11 +39,26 @@ import {
   PickerSetting,
   ButtonSetting,
 } from '@/components/settings';
-import { useSettingsStore } from '@/stores/settingsStore';
+import {
+  getHapticStrengthLabel,
+  getMantraVoiceLabel,
+  getVoiceStyleLabel,
+  useSettingsStore,
+} from '@/stores/settingsStore';
 import { useAuthStore } from '@/stores/authStore';
+import { useToast } from '@/components/ToastProvider';
+import { useOfflineStatus } from '@/hooks/useOfflineStatus';
+import { CacheService } from '@/services/CacheService';
+import { LEGAL_URLS } from '@/config';
 import { colors, spacing, typography } from '@/theme';
+import type { RootStackParamList } from '@/types';
 
 export const SettingsScreen: React.FC = () => {
+  const navigation = useNavigation<StackNavigationProp<RootStackParamList>>();
+  const toast = useToast();
+  const { isOnline, pendingActions } = useOfflineStatus();
+  const [isClearingCache, setIsClearingCache] = useState(false);
+
   // Settings state
   const {
     defaultChargeType,
@@ -64,16 +82,20 @@ export const SettingsScreen: React.FC = () => {
     vaultView,
     setVaultView,
     mantraVoice,
-    setMantraVoice,
-    generatedVoiceStyle,
-    setGeneratedVoiceStyle,
-    hapticIntensity,
-    setHapticIntensity,
+    voiceStyle,
+    hapticStrength,
     soundEffectsEnabled,
     setSoundEffectsEnabled,
   } = useSettingsStore();
 
   const { user, signOut } = useAuthStore();
+  const pendingCount = pendingActions.length;
+  const offlineSubtitle = pendingCount > 0 ? `${pendingCount} pending` : 'All synced';
+  const connectionLabel = isOnline ? 'Online' : 'Offline';
+
+  const mantraVoiceLabel = getMantraVoiceLabel(mantraVoice);
+  const voiceStyleLabel = getVoiceStyleLabel(voiceStyle);
+  const hapticStrengthLabel = getHapticStrengthLabel(hapticStrength);
 
   // Handlers
   const handleSignOut = () => {
@@ -99,6 +121,37 @@ export const SettingsScreen: React.FC = () => {
           text: 'Delete',
           onPress: () => {},
           style: 'destructive',
+        },
+      ]
+    );
+  };
+
+  const handleClearCache = () => {
+    Alert.alert(
+      'Clear local cache?',
+      'This removes temporary files. Your anchors and account remain safe.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Clear Cache',
+          style: 'destructive',
+          onPress: async () => {
+            if (isClearingCache) return;
+            setIsClearingCache(true);
+            try {
+              const result = await CacheService.clearLocalCache();
+              if (result.failed.length > 0) {
+                toast.warning('Cache cleared with some items skipped.');
+              } else {
+                toast.success('Cache cleared.');
+              }
+            } catch (error) {
+              console.error('Failed to clear cache:', error);
+              toast.error('Unable to clear cache.');
+            } finally {
+              setIsClearingCache(false);
+            }
+          },
         },
       ]
     );
@@ -266,38 +319,25 @@ export const SettingsScreen: React.FC = () => {
           icon={Volume2}
           defaultExpanded={true}
         >
-          <PickerSetting
+          <SettingsRow
             label="Mantra Voice"
-            description="Choose how your mantra is played."
-            value={mantraVoice}
-            onValueChange={setMantraVoice}
-            options={[
-              { label: 'My Voice', value: 'my_voice' },
-              { label: 'Generated Voice', value: 'generated' },
-            ]}
+            description={mantraVoiceLabel}
+            onPress={() => navigation.navigate('MantraVoice')}
+            rightElement={<ChevronRight color={colors.gold} size={16} />}
             showDivider={true}
           />
-          <PickerSetting
+          <SettingsRow
             label="Voice Style"
-            description="Tone for mantra pronunciation."
-            value={generatedVoiceStyle}
-            onValueChange={setGeneratedVoiceStyle}
-            options={[
-              { label: 'Calm', value: 'calm' },
-              { label: 'Neutral', value: 'neutral' },
-              { label: 'Intense', value: 'intense' },
-            ]}
+            description={voiceStyleLabel}
+            onPress={() => navigation.navigate('VoiceStyle')}
+            rightElement={<ChevronRight color={colors.gold} size={16} />}
             showDivider={true}
           />
-          <SliderSetting
+          <SettingsRow
             label="Haptic Feedback"
-            description="Adjust the strength of physical feedback."
-            value={hapticIntensity}
-            onValueChange={setHapticIntensity}
-            minimumValue={0}
-            maximumValue={100}
-            step={10}
-            valueFormatter={(val) => `${val}%`}
+            description={hapticStrengthLabel}
+            onPress={() => navigation.navigate('HapticFeedback')}
+            rightElement={<ChevronRight color={colors.gold} size={16} />}
             showDivider={true}
           />
           <ToggleSetting
@@ -382,33 +422,47 @@ export const SettingsScreen: React.FC = () => {
           <ButtonSetting
             label="Export My Data"
             description="Download a copy of your account data."
-            onPress={() => {}}
+            onPress={() => navigation.navigate('ExportData')}
             showDivider={true}
           />
           <ButtonSetting
             label="Clear Local Cache"
             description="Removes temporary files stored on this device."
-            onPress={() => {}}
+            onPress={handleClearCache}
+            isLoading={isClearingCache}
             showDivider={true}
           />
           <SettingsRow
             label="Offline Status"
-            description="View pending actions waiting to sync."
+            description={offlineSubtitle}
+            onPress={() => navigation.navigate('OfflineStatus')}
             rightElement={
-              <Text style={styles.value}>Connected</Text>
+              <Text style={[styles.value, isOnline ? styles.statusOnline : styles.statusOffline]}>
+                {connectionLabel}
+              </Text>
             }
             showDivider={true}
           />
           <ButtonSetting
             label="Privacy Policy"
             description="Our commitment to your data."
-            onPress={() => handleOpenURL('https://anchor.app/privacy')}
+            onPress={() =>
+              navigation.navigate('LegalWebView', {
+                title: 'Privacy Policy',
+                url: LEGAL_URLS.privacyPolicy,
+              })
+            }
             showDivider={true}
           />
           <ButtonSetting
             label="Terms of Service"
             description="Legal terms for using Anchor."
-            onPress={() => handleOpenURL('https://anchor.app/terms')}
+            onPress={() =>
+              navigation.navigate('LegalWebView', {
+                title: 'Terms of Service',
+                url: LEGAL_URLS.termsOfService,
+              })
+            }
             showDivider={false}
           />
         </SettingsSection>
@@ -492,6 +546,12 @@ const styles = StyleSheet.create({
     fontFamily: typography.fonts.body,
     color: colors.gold,
     fontWeight: '500',
+  },
+  statusOnline: {
+    color: colors.success,
+  },
+  statusOffline: {
+    color: colors.error,
   },
   colorSwatch: {
     width: 24,

@@ -79,6 +79,9 @@ export const EnhancementChoiceScreen: React.FC = () => {
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const slideAnim = useRef(new Animated.Value(30)).current;
   const [selectedOption, setSelectedOption] = useState<string | null>(null);
+  const isNavigatingRef = useRef(false);
+  const navTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const isMountedRef = useRef(true);
 
   const {
     intentionText,
@@ -104,13 +107,32 @@ export const EnhancementChoiceScreen: React.FC = () => {
         useNativeDriver: true,
       }),
     ]).start();
+
+    return () => {
+      isMountedRef.current = false;
+      if (navTimeoutRef.current) {
+        clearTimeout(navTimeoutRef.current);
+      }
+    };
   }, []);
 
+  useEffect(() => {
+    if (typeof navigation.addListener !== 'function') return;
+    const unsubscribe = navigation.addListener('focus', () => {
+      isNavigatingRef.current = false;
+    });
+
+    return unsubscribe;
+  }, [navigation]);
+
   const handleOptionSelect = (optionId: string) => {
+    if (isNavigatingRef.current) return;
+    isNavigatingRef.current = true;
     setSelectedOption(optionId);
 
     // Add slight delay for visual feedback
-    setTimeout(() => {
+    navTimeoutRef.current = setTimeout(() => {
+      if (!isMountedRef.current) return;
       if (optionId === 'pure') {
         // Keep pure - go straight to MantraCreation with locked structure
         navigation.navigate('MantraCreation', {
@@ -136,6 +158,7 @@ export const EnhancementChoiceScreen: React.FC = () => {
         });
       }
       setSelectedOption(null);
+      isNavigatingRef.current = false;
     }, 150);
   };
 
@@ -233,6 +256,7 @@ export const EnhancementChoiceScreen: React.FC = () => {
                 key={option.id}
                 onPress={() => handleOptionSelect(option.id)}
                 activeOpacity={0.85}
+                disabled={selectedOption !== null}
                 style={[
                   styles.optionCardWrapper,
                   index === 0 && styles.firstCard,

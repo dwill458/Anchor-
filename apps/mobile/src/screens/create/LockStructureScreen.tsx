@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import {
   View,
   Text,
@@ -10,9 +10,9 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
-import { SvgXml } from 'react-native-svg';
 import { RootStackParamList, ReinforcementMetadata } from '@/types';
 import { colors, spacing, typography } from '@/theme';
+import { SigilSvg } from '@/components/common';
 
 type LockStructureRouteProp = RouteProp<RootStackParamList, 'LockStructure'>;
 type LockStructureNavigationProp = StackNavigationProp<RootStackParamList, 'LockStructure'>;
@@ -51,6 +51,8 @@ export default function LockStructureScreen() {
   const [fadeAnim] = useState(new Animated.Value(0));
   const [scaleAnim] = useState(new Animated.Value(0.98));
   const [lockFadeAnim] = useState(new Animated.Value(0));
+  const autoAdvanceRef = useRef<NodeJS.Timeout | null>(null);
+  const isMountedRef = useRef(true);
 
   const wasReinforced = reinforcementMetadata?.completed ?? false;
   const wasSkipped = reinforcementMetadata?.skipped ?? false;
@@ -58,6 +60,7 @@ export default function LockStructureScreen() {
   const displaySvg = reinforcedSigilSvg || baseSigilSvg;
 
   useEffect(() => {
+    isMountedRef.current = true;
     // Phase 1 & 2: Symbol appears (200-600ms)
     Animated.parallel([
       Animated.timing(fadeAnim, {
@@ -81,11 +84,19 @@ export default function LockStructureScreen() {
         useNativeDriver: true,
       }).start(() => {
         // Auto-advance after pause for comfortable reading (total ~4 seconds)
-        setTimeout(() => {
+        autoAdvanceRef.current = setTimeout(() => {
+          if (!isMountedRef.current) return;
           handleContinue();
         }, 2500);
       });
     });
+
+    return () => {
+      isMountedRef.current = false;
+      if (autoAdvanceRef.current) {
+        clearTimeout(autoAdvanceRef.current);
+      }
+    };
   }, []);
 
   const handleContinue = () => {
@@ -124,7 +135,7 @@ export default function LockStructureScreen() {
           ]}
         >
           <View style={styles.structureFrame}>
-            <SvgXml xml={displaySvg} width="90%" height="90%" color={colors.gold} />
+            <SigilSvg xml={displaySvg} width="90%" height="90%" color={colors.gold} />
           </View>
 
           {/* Lock Icon Overlay */}

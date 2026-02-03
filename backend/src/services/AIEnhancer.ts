@@ -60,6 +60,13 @@ function getGeminiImageService(): GeminiImageService {
   return geminiImageService;
 }
 
+// Test-only reset to avoid singleton contamination across unit tests.
+export function __resetGeminiImageServiceForTests(): void {
+  if (process.env.NODE_ENV === 'test') {
+    geminiImageService = null;
+  }
+}
+
 /**
  * Get cost estimate for AI enhancement
  * Now returns estimate for Gemini 3 Pro Image (primary) or Replicate (fallback)
@@ -587,8 +594,9 @@ export async function enhanceSigilWithControlNet(
         hasSymbols: symbolInstructions.length > 0,
       });
 
-      // Simulate generation delay (5 seconds for ControlNet)
-      await new Promise(resolve => setTimeout(resolve, 5000));
+      // Simulate generation delay (skip in tests)
+      const mockDelayMs = process.env.NODE_ENV === 'test' ? 0 : 5000;
+      await new Promise(resolve => setTimeout(resolve, mockDelayMs));
 
       const mockUrls = [
         `https://api.dicebear.com/7.x/shapes/png?seed=${request.userId}-${request.styleChoice}-1&backgroundColor=1a1a1d&shape1Color=d4af37`,

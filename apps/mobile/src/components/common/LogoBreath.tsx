@@ -11,9 +11,10 @@
  */
 
 import React, { useEffect, useRef } from 'react';
-import { View, Animated, StyleSheet, Easing, Image } from 'react-native';
+import { View, Animated, StyleSheet, Easing } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { colors } from '@/theme';
+import { OptimizedImage } from './OptimizedImage';
 
 interface LogoBreathProps {
     onComplete: () => void;
@@ -80,10 +81,10 @@ export const LogoBreath: React.FC<LogoBreathProps> = ({ onComplete }) => {
                 ]}
             >
                 {/* Official Logo */}
-                <Image
+                <OptimizedImage
                     source={require('../../../assets/anchor-logo-official.jpg')}
                     style={styles.logoImage}
-                    resizeMode="contain"
+                    contentFit="contain"
                 />
             </Animated.View>
         </View>

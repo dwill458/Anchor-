@@ -23,7 +23,7 @@ module.exports = {
     '!src/types/**',
     '!src/theme/**',
   ],
-  coverageThresholds: {
+  coverageThreshold: {
     global: {
       statements: 70,
       branches: 60,

@@ -43,6 +43,7 @@ import { ActiveAnchorsGrid } from '@/components/profile/ActiveAnchorsGrid';
 import { ProfileEmptyState } from '@/components/profile/ProfileEmptyState';
 import { ProfileErrorState } from '@/components/profile/ProfileErrorState';
 import { LoadingSpinner } from '@/components/LoadingSpinner';
+import { SubscriptionService } from '@/services/SubscriptionService';
 
 const IS_ANDROID = Platform.OS === 'android';
 
@@ -177,9 +178,25 @@ export const ProfileScreen: React.FC = () => {
     navigation.navigate('Settings');
   };
 
-  const handleSubscription = () => {
-    // TODO: Navigate to subscription screen
-    toast.info('Subscription management coming soon');
+  const handleSubscription = async () => {
+    try {
+      if (subscriptionStatus === 'free') {
+        const result = await SubscriptionService.presentPaywall();
+        if (result?.status && result.status !== 'free') {
+          toast.success('Subscription activated!');
+          await refreshProfile();
+        }
+        return;
+      }
+
+      const opened = await SubscriptionService.openManageSubscriptions();
+      if (!opened) {
+        toast.info('Manage your subscription in the App Store / Play Store.');
+      }
+    } catch (error) {
+      console.error('Subscription action failed:', error);
+      toast.error('Unable to update subscription');
+    }
   };
 
   const handleResetOnboarding = () => {

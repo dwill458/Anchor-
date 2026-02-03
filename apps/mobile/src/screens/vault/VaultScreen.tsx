@@ -17,7 +17,6 @@ import {
 import { Plus } from 'lucide-react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
-import { BlurView } from 'expo-blur';
 import { useNavigation } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { AnchorCard } from '../../components/cards/AnchorCard';
@@ -28,6 +27,7 @@ import { AnchorGridSkeleton } from '../../components/skeletons/AnchorCardSkeleto
 import { AnalyticsService, AnalyticsEvents } from '../../services/AnalyticsService';
 import { ErrorTrackingService } from '../../services/ErrorTrackingService';
 import { PerformanceMonitoring } from '../../services/PerformanceMonitoring';
+import { prefetchImages } from '@/utils/image';
 import type { Anchor, RootStackParamList, MainTabParamList } from '@/types';
 import { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
 import { CompositeNavigationProp } from '@react-navigation/native';
@@ -106,13 +106,17 @@ export const VaultScreen: React.FC = () => {
     fetchAnchors();
   }, [fetchAnchors]);
 
+  useEffect(() => {
+    prefetchImages(anchors.map((anchor) => anchor.enhancedImageUrl), 6);
+  }, [anchors]);
+
   const onRefresh = useCallback(async (): Promise<void> => {
     setRefreshing(true);
     await fetchAnchors();
     setRefreshing(false);
   }, [fetchAnchors]);
 
-  const handleAnchorPress = (anchor: Anchor): void => {
+  const handleAnchorPress = useCallback((anchor: Anchor): void => {
     AnalyticsService.track(AnalyticsEvents.ANCHOR_VIEWED, {
       anchor_id: anchor.id,
       category: anchor.category,
@@ -127,9 +131,9 @@ export const VaultScreen: React.FC = () => {
     });
 
     navigation.navigate('AnchorDetail', { anchorId: anchor.id });
-  };
+  }, [navigation]);
 
-  const handleCreateAnchor = (): void => {
+  const handleCreateAnchor = useCallback((): void => {
     AnalyticsService.track(AnalyticsEvents.ANCHOR_CREATION_STARTED, {
       source: 'vault',
       has_existing_anchors: anchors.length > 0,
@@ -140,12 +144,15 @@ export const VaultScreen: React.FC = () => {
     });
 
     navigation.navigate('CreateAnchor');
-  };
+  }, [anchors.length, navigation]);
 
-  const renderAnchorCard = ({ item }: { item: Anchor }): React.JSX.Element => (
-    <View style={{ width: CARD_WIDTH }}>
-      <AnchorCard anchor={item} onPress={handleAnchorPress} />
-    </View>
+  const renderAnchorCard = useCallback(
+    ({ item }: { item: Anchor }): React.JSX.Element => (
+      <View style={{ width: CARD_WIDTH }}>
+        <AnchorCard anchor={item} onPress={handleAnchorPress} />
+      </View>
+    ),
+    [handleAnchorPress]
   );
 
   const renderEmptyState = (): React.JSX.Element => (
@@ -170,28 +177,6 @@ export const VaultScreen: React.FC = () => {
     </View>
   );
 
-  const renderHeader = (): React.JSX.Element => (
-    <View style={styles.header}>
-      <View>
-        <Text style={styles.headerTitle} accessibilityRole="header">Sanctuary</Text>
-        <Text style={styles.headerSubtitle} accessibilityLabel={`You have ${anchors.length} sacred ${anchors.length === 1 ? 'anchor' : 'anchors'}`}>
-          {anchors.length} {anchors.length === 1 ? 'Sacred Anchor' : 'Sacred Anchors'}
-        </Text>
-      </View>
-      <TouchableOpacity
-        style={styles.profileButton}
-        onPress={() => navigation.navigate('Profile')}
-        accessibilityRole="button"
-        accessibilityLabel={`Profile for ${user?.displayName || 'User'}`}
-        accessibilityHint="Opens your profile settings"
-        activeOpacity={0.8}
-      >
-        <View style={styles.avatarPlaceholder}>
-          <Text style={styles.avatarText}>{user?.displayName?.charAt(0) || 'U'}</Text>
-        </View>
-      </TouchableOpacity>
-    </View>
-  );
 
   return (
     <View style={styles.container}>
@@ -208,8 +193,6 @@ export const VaultScreen: React.FC = () => {
       )}
 
       <SafeAreaView style={{ flex: 1 }} edges={['top']}>
-        {renderHeader()}
-
         <Animated.View style={{ flex: 1, opacity: fadeAnim }}>
           {isLoading && anchors.length === 0 ? (
             <AnchorGridSkeleton count={6} />
@@ -222,6 +205,11 @@ export const VaultScreen: React.FC = () => {
               contentContainerStyle={styles.listContent}
               columnWrapperStyle={styles.columnWrapper}
               ListEmptyComponent={!isLoading ? renderEmptyState : null}
+              removeClippedSubviews
+              initialNumToRender={6}
+              maxToRenderPerBatch={6}
+              windowSize={5}
+              updateCellsBatchingPeriod={50}
               refreshControl={
                 <RefreshControl
                   refreshing={refreshing}
@@ -266,38 +254,6 @@ const styles = StyleSheet.create({
   orb: { position: 'absolute', borderRadius: 200, backgroundColor: colors.gold, opacity: 0.1 },
   orb1: { width: 400, height: 400, top: -200, right: -150 },
   orb2: { width: 300, height: 300, bottom: 50, left: -100 },
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.md,
-    marginBottom: spacing.sm,
-  },
-  headerTitle: {
-    fontSize: 32,
-    fontFamily: typography.fonts.heading,
-    color: colors.gold,
-    letterSpacing: 1,
-  },
-  headerSubtitle: {
-    fontSize: 14,
-    color: colors.silver,
-    fontFamily: typography.fonts.body,
-    marginTop: -4,
-  },
-  profileButton: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    borderWidth: 1,
-    borderColor: 'rgba(212, 175, 55, 0.3)',
-    backgroundColor: 'rgba(255, 255, 255, 0.05)',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  avatarPlaceholder: { justifyContent: 'center', alignItems: 'center' },
-  avatarText: { color: colors.gold, fontWeight: '700', fontSize: 18 },
   listContent: {
     paddingHorizontal: spacing.lg,
     paddingBottom: 160, // Increased to clear FAB and Tab Bar

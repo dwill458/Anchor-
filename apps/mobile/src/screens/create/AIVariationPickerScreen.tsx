@@ -12,7 +12,7 @@
  * - Zen Architect styling with entrance animations
  */
 
-import React, { useState, useEffect, useRef, useLayoutEffect } from 'react';
+import React, { useState, useEffect, useRef, useLayoutEffect, useMemo } from 'react';
 import {
   View,
   Text,
@@ -21,7 +21,6 @@ import {
   ScrollView,
   Animated,
   Dimensions,
-  Image,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -31,13 +30,26 @@ import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { RootStackParamList } from '@/types';
 import { colors } from '@/theme';
-import { ScreenHeader, ZenBackground } from '@/components/common';
+import { ScreenHeader, ZenBackground, OptimizedImage } from '@/components/common';
+import { prefetchImages } from '@/utils/image';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const IMAGE_SIZE = (SCREEN_WIDTH - 80) / 2; // 2 columns with proper spacing (24px padding * 2 + 16px gap)
 
 type EnhancedVersionPickerRouteProp = RouteProp<RootStackParamList, 'EnhancedVersionPicker'>;
 type EnhancedVersionPickerNavigationProp = StackNavigationProp<RootStackParamList, 'EnhancedVersionPicker'>;
+
+type VariationRouteParams =
+  | RootStackParamList['EnhancedVersionPicker']
+  | RootStackParamList['AIVariationPicker'];
+
+type VariationItem = string | { imageUrl?: string; url?: string };
+
+const getVariationUrl = (item: VariationItem): string | null => {
+  if (!item) return null;
+  if (typeof item === 'string') return item;
+  return item.imageUrl ?? item.url ?? null;
+};
 
 /**
  * Style display names
@@ -55,22 +67,45 @@ export const AIVariationPickerScreen: React.FC = () => {
   const navigation = useNavigation<EnhancedVersionPickerNavigationProp>();
   const route = useRoute<EnhancedVersionPickerRouteProp>();
 
-  // Extract params from route (Phase 3 ControlNet flow)
+  const rawParams = route.params as VariationRouteParams | undefined;
+
   const {
     intentionText,
     category,
     distilledLetters,
-    baseSigilSvg,
     reinforcedSigilSvg,
-    structureVariant,
-    styleChoice,
-    variations,
     reinforcementMetadata,
-    prompt, // Fix: Destructure prompt so it's defined in scope (optional)
-  } = route.params;
+  } = rawParams ?? ({} as RootStackParamList['EnhancedVersionPicker']);
+
+  const baseSigilSvg =
+    rawParams && 'baseSigilSvg' in rawParams ? rawParams.baseSigilSvg : rawParams?.sigilSvg;
+
+  const structureVariant =
+    rawParams && 'structureVariant' in rawParams
+      ? rawParams.structureVariant
+      : (rawParams?.sigilVariant as RootStackParamList['EnhancedVersionPicker']['structureVariant']);
+  const resolvedStructureVariant = structureVariant ?? 'balanced';
+
+  const styleChoice =
+    rawParams && 'styleChoice' in rawParams ? rawParams.styleChoice : undefined;
+
+  const prompt = rawParams && 'prompt' in rawParams ? rawParams.prompt : undefined;
+
+  const normalizedVariations = useMemo(
+    () =>
+      (rawParams?.variations ?? [])
+        .map((item) => getVariationUrl(item as VariationItem))
+        .filter((item): item is string => Boolean(item)),
+    [rawParams]
+  );
 
   // Selected variation index (0-3)
   const [selectedIndex, setSelectedIndex] = useState<number>(0);
+  useEffect(() => {
+    if (selectedIndex >= normalizedVariations.length) {
+      setSelectedIndex(0);
+    }
+  }, [normalizedVariations.length, selectedIndex]);
 
   // Animations
   const fadeAnim = useRef(new Animated.Value(0)).current;
@@ -93,14 +128,34 @@ export const AIVariationPickerScreen: React.FC = () => {
     ]).start();
   }, []);
 
+  useEffect(() => {
+    prefetchImages(normalizedVariations, 4);
+  }, [normalizedVariations]);
+
   useLayoutEffect(() => {
     navigation.setOptions({
       headerShown: false,
     });
   }, [navigation]);
 
+  const isNavigatingRef = useRef(false);
+  useEffect(() => {
+    if (typeof navigation.addListener !== 'function') return;
+    const unsubscribe = navigation.addListener('focus', () => {
+      isNavigatingRef.current = false;
+    });
+
+    return unsubscribe;
+  }, [navigation]);
+
   const handleContinue = () => {
-    const selectedImageUrl = variations[selectedIndex];
+    if (isNavigatingRef.current) return;
+    if (normalizedVariations.length === 0) return;
+    if (selectedIndex < 0 || selectedIndex >= normalizedVariations.length) return;
+    if (!baseSigilSvg || !intentionText || !category || !distilledLetters) return;
+
+    isNavigatingRef.current = true;
+    const selectedImageUrl = normalizedVariations[selectedIndex];
 
     // Navigate to MantraCreation with full context including enhancement metadata
     navigation.navigate('AnchorReveal', {
@@ -109,11 +164,11 @@ export const AIVariationPickerScreen: React.FC = () => {
       distilledLetters,
       baseSigilSvg,
       reinforcedSigilSvg,
-      structureVariant,
+      structureVariant: resolvedStructureVariant,
       reinforcementMetadata,
       enhancedImageUrl: selectedImageUrl,
       enhancementMetadata: {
-        styleApplied: styleChoice,
+        styleApplied: styleChoice || 'minimal_line',
         modelUsed: 'sdxl-controlnet',
         controlMethod: 'canny',
         generationTimeMs: 0,
@@ -123,6 +178,27 @@ export const AIVariationPickerScreen: React.FC = () => {
       },
     });
   };
+
+  if (!rawParams || normalizedVariations.length === 0 || !intentionText) {
+    return (
+      <SafeAreaView style={styles.safeArea}>
+        <View style={styles.container}>
+          <Text style={styles.title}>No variations found</Text>
+          <Text style={styles.subtitle}>Please go back and try again.</Text>
+          <TouchableOpacity onPress={() => navigation.goBack()} style={styles.continueButton}>
+            <LinearGradient
+              colors={[colors.gold, '#B8941F']}
+              style={styles.continueGradient}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 0 }}
+            >
+              <Text style={styles.continueText}>Go Back</Text>
+            </LinearGradient>
+          </TouchableOpacity>
+        </View>
+      </SafeAreaView>
+    );
+  }
 
   return (
     <View style={styles.container}>
@@ -167,7 +243,9 @@ export const AIVariationPickerScreen: React.FC = () => {
             <Text style={styles.styleInfoIcon}>✨</Text>
             <View style={styles.styleInfoContent}>
               <Text style={styles.styleInfoLabel}>Visual Resonance</Text>
-              <Text style={styles.styleInfoValue}>{STYLE_NAMES[styleChoice] || styleChoice}</Text>
+              <Text style={styles.styleInfoValue}>
+                {styleChoice ? (STYLE_NAMES[styleChoice] || styleChoice) : 'Custom'}
+              </Text>
             </View>
             <View style={styles.styleInfoBadge}>
               <Text style={styles.styleInfoBadgeText}>✓ Structure Preserved</Text>
@@ -217,7 +295,7 @@ export const AIVariationPickerScreen: React.FC = () => {
           >
             <Text style={styles.guidanceText}>Trust your first instinct. Choose the form that feels most visceral.</Text>
             <View style={styles.grid}>
-              {variations.map((imageUrl, index) => {
+              {normalizedVariations.map((imageUrl, index) => {
                 const isSelected = selectedIndex === index;
                 return (
                   <TouchableOpacity
@@ -234,10 +312,14 @@ export const AIVariationPickerScreen: React.FC = () => {
                     >
                       {/* Image Container */}
                       <View style={styles.imageContainer}>
-                        <Image
-                          source={{ uri: typeof imageUrl === 'string' ? imageUrl : (imageUrl as any).imageUrl }}
+                        <OptimizedImage
+                          source={{ uri: imageUrl }}
                           style={styles.variationImage}
-                          resizeMode="cover"
+                          contentFit="cover"
+                          recyclingKey={`${index}-${imageUrl}`}
+                          priority={isSelected ? 'high' : 'normal'}
+                          trackLoad
+                          perfLabel={`variation_${index + 1}`}
                         />
                       </View>
 
@@ -329,6 +411,7 @@ export const AIVariationPickerScreen: React.FC = () => {
             onPress={handleContinue}
             activeOpacity={0.9}
             style={styles.continueButton}
+            disabled={normalizedVariations.length === 0}
           >
             <LinearGradient
               colors={[colors.gold, '#B8941F']}

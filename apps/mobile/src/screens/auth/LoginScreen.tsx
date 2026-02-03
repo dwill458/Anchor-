@@ -22,6 +22,7 @@ import { BlurView } from 'expo-blur';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { colors, spacing, typography } from '@/theme';
 import { useAuthStore } from '../../stores/authStore';
+import { AuthService } from '@/services/AuthService';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -44,7 +45,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ navigation }) => {
   const [error, setError] = useState('');
   const [focusedField, setFocusedField] = useState<string | null>(null);
 
-  const { setAuthenticated, setHasCompletedOnboarding } = useAuthStore();
+  const { setAuthenticated, setHasCompletedOnboarding, setUser, setToken } = useAuthStore();
 
   // Simple fade-in only for better performance
   const fadeAnim = React.useRef(new Animated.Value(0)).current;
@@ -65,7 +66,9 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ navigation }) => {
     }
     setLoading(true);
     try {
-      await new Promise((resolve) => setTimeout(resolve, 1000));
+      const result = await AuthService.signInWithEmail(email.trim(), password);
+      setUser(result.user);
+      setToken(result.token);
       setAuthenticated(true);
       setHasCompletedOnboarding(true);
     } catch (err: any) {
@@ -78,11 +81,13 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ navigation }) => {
   const handleAppleSignIn = async () => {
     setLoading(true);
     try {
-      await new Promise((resolve) => setTimeout(resolve, 1000));
+      const result = await AuthService.signInWithApple();
+      setUser(result.user);
+      setToken(result.token);
       setAuthenticated(true);
       setHasCompletedOnboarding(true);
     } catch (err: any) {
-      setError('Apple sign-in failed');
+      setError(err.message || 'Apple sign-in failed');
     } finally {
       setLoading(false);
     }
@@ -91,11 +96,13 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ navigation }) => {
   const handleGoogleSignIn = async () => {
     setLoading(true);
     try {
-      await new Promise((resolve) => setTimeout(resolve, 1000));
+      const result = await AuthService.signInWithGoogle();
+      setUser(result.user);
+      setToken(result.token);
       setAuthenticated(true);
       setHasCompletedOnboarding(true);
     } catch (err: any) {
-      setError('Google sign-in failed');
+      setError(err.message || 'Google sign-in failed');
     } finally {
       setLoading(false);
     }

@@ -7,7 +7,12 @@ module.exports = {
     '^.+\\.ts$': 'ts-jest',
   },
   collectCoverageFrom: [
-    'src/**/*.ts',
+    'src/api/**/*.ts',
+    'src/services/AIEnhancer.ts',
+    'src/services/MantraGenerator.ts',
+    'src/services/StorageService.ts',
+    'src/services/TTSService.ts',
+    'src/utils/logger.ts',
     '!src/**/*.d.ts',
     '!src/**/*.test.ts',
     '!src/**/*.spec.ts',

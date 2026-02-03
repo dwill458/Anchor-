@@ -25,6 +25,7 @@ import { Lock, Volume2, Play, Pause, RefreshCw, ChevronRight, Info } from 'lucid
 import { colors, spacing, typography } from '@/theme';
 import { RootStackParamList, Anchor } from '@/types';
 import { useAnchorStore } from '../../stores/anchorStore';
+import { useSettingsStore } from '@/stores/settingsStore';
 
 type MantraCreationRouteProp = RouteProp<RootStackParamList, 'MantraCreation'>;
 type MantraCreationNavigationProp = StackNavigationProp<RootStackParamList, 'MantraCreation'>;
@@ -72,7 +73,32 @@ const MANTRA_STYLES: MantraStyleInfo[] = [
 export const MantraCreationScreen: React.FC = () => {
   const navigation = useNavigation<MantraCreationNavigationProp>();
   const route = useRoute<MantraCreationRouteProp>();
-  const { intentionText, distilledLetters, sigilSvg, category } = route.params;
+  const params = route.params as RootStackParamList['MantraCreation'] | undefined;
+  const isMountedRef = useRef(true);
+  const isSubmittingRef = useRef(false);
+  const { mantraVoice, voiceStyle } = useSettingsStore();
+
+  if (!params || !params.intentionText || !params.baseSigilSvg || !Array.isArray(params.distilledLetters)) {
+    return (
+      <SafeAreaView style={styles.container}>
+        <View style={styles.loadingContainer}>
+          <Text style={styles.loadingText}>Missing anchor details. Please go back.</Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  const {
+    intentionText,
+    distilledLetters,
+    baseSigilSvg,
+    reinforcedSigilSvg,
+    structureVariant,
+    reinforcementMetadata,
+    enhancementMetadata,
+    finalImageUrl,
+    category,
+  } = params;
   const { addAnchor } = useAnchorStore();
 
   // Mock User State (Replace with real auth/subscription context later)
@@ -93,7 +119,30 @@ export const MantraCreationScreen: React.FC = () => {
     }
   }, [isPro, isUnlocked]);
 
+  useEffect(() => {
+    if (typeof navigation.addListener !== 'function') return;
+    const unsubscribe = navigation.addListener('focus', () => {
+      isSubmittingRef.current = false;
+    });
+
+    return unsubscribe;
+  }, [navigation]);
+
+  useEffect(() => {
+    return () => {
+      isMountedRef.current = false;
+      Speech.stop();
+    };
+  }, []);
+
+  useEffect(() => {
+    if (mantraVoice !== 'silent') return;
+    Speech.stop();
+    setSpeakingStyle(null);
+  }, [mantraVoice]);
+
   const generateMantra = async () => {
+    if (!isMountedRef.current) return;
     setLoading(true);
     try {
       // Mock API call for MVP - later replace with real backend
@@ -122,6 +171,7 @@ export const MantraCreationScreen: React.FC = () => {
         return `${l}${v}${lightVowels[(i + 1) % lightVowels.length]}`;
       }).join('-').toUpperCase();
 
+      if (!isMountedRef.current) return;
       setMantra({
         syllabic,
         rhythmic,
@@ -129,9 +179,13 @@ export const MantraCreationScreen: React.FC = () => {
         letterByLetter: distilledLetters.join(' '),
       });
     } catch (error) {
-      Alert.alert('Error', 'Failed to generate mantra');
+      if (isMountedRef.current) {
+        Alert.alert('Error', 'Failed to generate mantra');
+      }
     } finally {
-      setLoading(false);
+      if (isMountedRef.current) {
+        setLoading(false);
+      }
     }
   };
 
@@ -158,16 +212,33 @@ export const MantraCreationScreen: React.FC = () => {
     );
   };
 
-  const handleSpeak = (text: string, style: MantraStyle) => {
-    if (speakingStyle === style) {
+  const getSpeechOptions = () => {
+    switch (voiceStyle) {
+      case 'focused':
+        return { rate: 0.9, pitch: 1.0 };
+      case 'intense':
+        return { rate: 1.0, pitch: 1.08 };
+      case 'calm':
+      default:
+        return { rate: 0.8, pitch: 0.9 };
+    }
+  };
+
+  const handleSpeak = (text: string, mantraStyleId: MantraStyle) => {
+    if (mantraVoice === 'silent') {
+      Speech.stop();
+      setSpeakingStyle(null);
+      return;
+    }
+
+    if (speakingStyle === mantraStyleId) {
       Speech.stop();
       setSpeakingStyle(null);
     } else {
-      setSpeakingStyle(style);
+      setSpeakingStyle(mantraStyleId);
       Speech.speak(text, {
         language: 'en',
-        rate: 0.8,
-        pitch: 0.9,
+        ...getSpeechOptions(),
         onDone: () => setSpeakingStyle(null),
         onError: () => setSpeakingStyle(null),
       });
@@ -176,6 +247,8 @@ export const MantraCreationScreen: React.FC = () => {
 
   const handleContinue = () => {
     if (!mantra) return;
+    if (isSubmittingRef.current) return;
+    isSubmittingRef.current = true;
 
     const anchorId = `temp-${Date.now()}`;
 
@@ -186,13 +259,26 @@ export const MantraCreationScreen: React.FC = () => {
       intentionText,
       category,
       distilledLetters,
-      baseSigilSvg: sigilSvg,
+      baseSigilSvg,
+      reinforcedSigilSvg,
+      structureVariant,
+      reinforcementMetadata,
+      enhancementMetadata,
+      enhancedImageUrl: finalImageUrl,
       mantraText: mantra[selectedStyle],
       isCharged: false,
       activationCount: 0,
       createdAt: new Date(),
       updatedAt: new Date(),
     };
+
+    // DEBUG: Log visual asset state
+    console.log('🔍 [MantraCreation] Creating anchor with visuals:', {
+      baseSigilSvg: baseSigilSvg ? `${baseSigilSvg.substring(0, 50)}...` : 'MISSING',
+      reinforcedSigilSvg: reinforcedSigilSvg ? 'present' : 'none',
+      enhancedImageUrl: finalImageUrl || 'none',
+      structureVariant,
+    });
 
     addAnchor(newAnchor);
 

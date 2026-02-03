@@ -7,6 +7,7 @@
 import axios from 'axios';
 import MockAdapter from 'axios-mock-adapter';
 import { apiClient, get, post, put, del } from '../ApiClient';
+import { API_URL } from '@/config';
 import { AuthService } from '../AuthService';
 
 // Mock AuthService
@@ -31,7 +32,7 @@ describe('ApiClient', () => {
 
   describe('Configuration', () => {
     it('should be configured with correct base URL', () => {
-      expect(apiClient.defaults.baseURL).toBe('http://10.0.2.2:3000');
+      expect(apiClient.defaults.baseURL).toBe(API_URL);
     });
 
     it('should have correct timeout', () => {

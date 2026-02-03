@@ -12,6 +12,7 @@ import { LucideIcon } from 'lucide-react-native';
 import * as Haptics from 'expo-haptics';
 import { SettingsRow } from './SettingsRow';
 import { colors, spacing } from '@/theme';
+import { safeHaptics } from '@/utils/haptics';
 
 interface SliderSettingProps {
   label: string;
@@ -42,7 +43,7 @@ export const SliderSetting: React.FC<SliderSettingProps> = ({
     const snappedValue = Math.round(newValue / step) * step;
     onValueChange(snappedValue);
     // Haptic feedback on value changes
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    void safeHaptics.impact(Haptics.ImpactFeedbackStyle.Light);
   };
 
   const displayValue = valueFormatter ? valueFormatter(value) : String(value);

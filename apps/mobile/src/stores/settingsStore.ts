@@ -9,13 +9,16 @@
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import type { HapticStrength, MantraVoice, VoiceStyle } from '@/types';
 
 /**
  * Settings state interface
  */
 export interface SettingsState {
   // Practice Settings
-  defaultChargeType: 'quick' | 'deep';
+  defaultChargeType: 'quick' | 'deep'; // DEPRECATED: use defaultChargeMode + defaultChargeDuration
+  defaultChargeMode: 'focus' | 'ritual';
+  defaultChargeDuration: number; // in seconds
   defaultActivationType: 'visual' | 'mantra' | 'full';
   autoOpenDailyAnchor: boolean;
   dailyPracticeGoal: number;
@@ -33,13 +36,15 @@ export interface SettingsState {
   vaultView: 'grid' | 'list';
 
   // Audio & Haptics
-  mantraVoice: 'my_voice' | 'generated';
-  generatedVoiceStyle: 'calm' | 'neutral' | 'intense';
-  hapticIntensity: number; // 0-100
+  mantraVoice: MantraVoice;
+  voiceStyle: VoiceStyle;
+  hapticStrength: HapticStrength;
   soundEffectsEnabled: boolean;
 
   // Actions - Practice Settings
   setDefaultChargeType: (type: 'quick' | 'deep') => void;
+  setDefaultChargeMode: (mode: 'focus' | 'ritual') => void;
+  setDefaultChargeDuration: (duration: number) => void;
   setDefaultActivationType: (type: 'visual' | 'mantra' | 'full') => void;
   setAutoOpenDailyAnchor: (enabled: boolean) => void;
   setDailyPracticeGoal: (goal: number) => void;
@@ -57,9 +62,9 @@ export interface SettingsState {
   setVaultView: (view: 'grid' | 'list') => void;
 
   // Actions - Audio & Haptics
-  setMantraVoice: (voice: 'my_voice' | 'generated') => void;
-  setGeneratedVoiceStyle: (style: 'calm' | 'neutral' | 'intense') => void;
-  setHapticIntensity: (intensity: number) => void;
+  setMantraVoice: (voice: MantraVoice) => void;
+  setVoiceStyle: (style: VoiceStyle) => void;
+  setHapticStrength: (strength: HapticStrength) => void;
   setSoundEffectsEnabled: (enabled: boolean) => void;
 
   // Utility Actions
@@ -71,6 +76,8 @@ export interface SettingsState {
  */
 const DEFAULT_SETTINGS = {
   defaultChargeType: 'quick' as const,
+  defaultChargeMode: 'focus' as const,
+  defaultChargeDuration: 120, // 2 minutes
   defaultActivationType: 'visual' as const,
   autoOpenDailyAnchor: false,
   dailyPracticeGoal: 3,
@@ -82,10 +89,70 @@ const DEFAULT_SETTINGS = {
   theme: 'zen_architect' as const,
   accentColor: '#D4AF37',
   vaultView: 'grid' as const,
-  mantraVoice: 'generated' as const,
-  generatedVoiceStyle: 'calm' as const,
-  hapticIntensity: 70,
+  mantraVoice: 'voice_one' as const,
+  voiceStyle: 'calm' as const,
+  hapticStrength: 'medium' as const,
   soundEffectsEnabled: true,
+};
+
+export const MANTRA_VOICE_OPTIONS: Array<{ label: string; value: MantraVoice }> = [
+  { label: 'Voice One', value: 'voice_one' },
+  { label: 'Silent', value: 'silent' },
+];
+
+export const VOICE_STYLE_OPTIONS: Array<{ label: string; value: VoiceStyle }> = [
+  { label: 'Calm', value: 'calm' },
+  { label: 'Focused', value: 'focused' },
+  { label: 'Intense', value: 'intense' },
+];
+
+export const HAPTIC_STRENGTH_OPTIONS: Array<{ label: string; value: HapticStrength }> = [
+  { label: 'Off', value: 'off' },
+  { label: 'Low', value: 'low' },
+  { label: 'Medium', value: 'medium' },
+  { label: 'High', value: 'high' },
+];
+
+const getOptionLabel = <T extends string>(
+  options: Array<{ label: string; value: T }>,
+  value: T | string,
+  fallback: string
+): string => options.find((option) => option.value === value)?.label ?? fallback;
+
+export const getMantraVoiceLabel = (value: MantraVoice | string): string =>
+  getOptionLabel(MANTRA_VOICE_OPTIONS, value, 'Voice One');
+
+export const getVoiceStyleLabel = (value: VoiceStyle | string): string =>
+  getOptionLabel(VOICE_STYLE_OPTIONS, value, 'Calm');
+
+export const getHapticStrengthLabel = (value: HapticStrength | string): string =>
+  getOptionLabel(HAPTIC_STRENGTH_OPTIONS, value, 'Medium');
+
+const normalizeMantraVoice = (value: unknown): MantraVoice => {
+  if (value === 'voice_one' || value === 'silent') return value;
+  if (value === 'my_voice' || value === 'generated') return 'voice_one';
+  return DEFAULT_SETTINGS.mantraVoice;
+};
+
+const normalizeVoiceStyle = (value: unknown): VoiceStyle => {
+  if (value === 'calm' || value === 'focused' || value === 'intense') return value;
+  if (value === 'neutral') return 'calm';
+  return DEFAULT_SETTINGS.voiceStyle;
+};
+
+const normalizeHapticStrength = (value: unknown): HapticStrength => {
+  if (value === 'off' || value === 'low' || value === 'medium' || value === 'high') {
+    return value;
+  }
+
+  if (typeof value === 'number') {
+    if (value <= 0) return 'off';
+    if (value <= 40) return 'low';
+    if (value <= 75) return 'medium';
+    return 'high';
+  }
+
+  return DEFAULT_SETTINGS.hapticStrength;
 };
 
 /**
@@ -101,6 +168,16 @@ export const useSettingsStore = create<SettingsState>()(
       setDefaultChargeType: (type) =>
         set({
           defaultChargeType: type,
+        }),
+
+      setDefaultChargeMode: (mode) =>
+        set({
+          defaultChargeMode: mode,
+        }),
+
+      setDefaultChargeDuration: (duration) =>
+        set({
+          defaultChargeDuration: Math.max(30, Math.min(1800, duration)), // 30s - 30m
         }),
 
       setDefaultActivationType: (type) =>
@@ -166,14 +243,14 @@ export const useSettingsStore = create<SettingsState>()(
           mantraVoice: voice,
         }),
 
-      setGeneratedVoiceStyle: (style) =>
+      setVoiceStyle: (style) =>
         set({
-          generatedVoiceStyle: style,
+          voiceStyle: style,
         }),
 
-      setHapticIntensity: (intensity) =>
+      setHapticStrength: (strength) =>
         set({
-          hapticIntensity: Math.max(0, Math.min(100, intensity)),
+          hapticStrength: strength,
         }),
 
       setSoundEffectsEnabled: (enabled) =>
@@ -190,9 +267,34 @@ export const useSettingsStore = create<SettingsState>()(
     {
       name: 'anchor-settings-storage',
       storage: createJSONStorage(() => AsyncStorage),
+      version: 2,
+      migrate: (persistedState) => {
+        const state = (persistedState || {}) as Partial<SettingsState> & {
+          generatedVoiceStyle?: unknown;
+          hapticIntensity?: unknown;
+        };
+
+        return {
+          ...DEFAULT_SETTINGS,
+          ...state,
+          mantraVoice: normalizeMantraVoice(state.mantraVoice),
+          voiceStyle: normalizeVoiceStyle(
+            (state as Partial<SettingsState>).voiceStyle ?? state.generatedVoiceStyle
+          ),
+          hapticStrength: normalizeHapticStrength(
+            (state as Partial<SettingsState>).hapticStrength ?? state.hapticIntensity
+          ),
+          soundEffectsEnabled:
+            typeof state.soundEffectsEnabled === 'boolean'
+              ? state.soundEffectsEnabled
+              : DEFAULT_SETTINGS.soundEffectsEnabled,
+        };
+      },
       // Only persist user preference settings
       partialize: (state) => ({
         defaultChargeType: state.defaultChargeType,
+        defaultChargeMode: state.defaultChargeMode,
+        defaultChargeDuration: state.defaultChargeDuration,
         defaultActivationType: state.defaultActivationType,
         autoOpenDailyAnchor: state.autoOpenDailyAnchor,
         dailyPracticeGoal: state.dailyPracticeGoal,
@@ -205,8 +307,8 @@ export const useSettingsStore = create<SettingsState>()(
         accentColor: state.accentColor,
         vaultView: state.vaultView,
         mantraVoice: state.mantraVoice,
-        generatedVoiceStyle: state.generatedVoiceStyle,
-        hapticIntensity: state.hapticIntensity,
+        voiceStyle: state.voiceStyle,
+        hapticStrength: state.hapticStrength,
         soundEffectsEnabled: state.soundEffectsEnabled,
       }),
     }

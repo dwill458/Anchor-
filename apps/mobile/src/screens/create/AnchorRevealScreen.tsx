@@ -4,7 +4,6 @@ import {
     Text,
     TouchableOpacity,
     StyleSheet,
-    Image,
     Animated,
     Dimensions,
 } from 'react-native';
@@ -15,7 +14,7 @@ import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { RootStackParamList } from '@/types';
 import { colors } from '@/theme';
-import { ScreenHeader, ZenBackground } from '@/components/common';
+import { ScreenHeader, ZenBackground, OptimizedImage, SigilSvg } from '@/components/common';
 import { BlurView } from 'expo-blur';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
@@ -28,6 +27,29 @@ export const AnchorRevealScreen: React.FC = () => {
     const navigation = useNavigation<AnchorRevealNavigationProp>();
     const route = useRoute<AnchorRevealRouteProp>();
 
+    const params = route.params as RootStackParamList['AnchorReveal'] | undefined;
+
+    if (!params || !params.intentionText || !params.baseSigilSvg) {
+        return (
+            <SafeAreaView style={styles.safeArea}>
+                <View style={styles.content}>
+                    <Text style={styles.label}>Anchor not found</Text>
+                    <Text style={styles.subtitle}>Please go back and try again.</Text>
+                    <TouchableOpacity onPress={() => navigation.goBack()} style={styles.continueButton}>
+                        <LinearGradient
+                            colors={[colors.gold, '#B8941F']}
+                            style={styles.continueGradient}
+                            start={{ x: 0, y: 0 }}
+                            end={{ x: 1, y: 0 }}
+                        >
+                            <Text style={styles.continueText}>Go Back</Text>
+                        </LinearGradient>
+                    </TouchableOpacity>
+                </View>
+            </SafeAreaView>
+        );
+    }
+
     const {
         intentionText,
         category,
@@ -38,7 +60,18 @@ export const AnchorRevealScreen: React.FC = () => {
         enhancedImageUrl,
         reinforcementMetadata,
         enhancementMetadata,
-    } = route.params;
+    } = params;
+
+    const imageUrl = typeof enhancedImageUrl === 'string' ? enhancedImageUrl : '';
+    const isNavigatingRef = useRef(false);
+
+    useEffect(() => {
+        if (typeof navigation.addListener !== 'function') return;
+        const unsubscribe = navigation.addListener('focus', () => {
+            isNavigatingRef.current = false;
+        });
+        return unsubscribe;
+    }, [navigation]);
 
     // Animations
     const fadeAnim = useRef(new Animated.Value(0)).current;
@@ -67,6 +100,8 @@ export const AnchorRevealScreen: React.FC = () => {
     }, [navigation]);
 
     const handleContinue = () => {
+        if (isNavigatingRef.current) return;
+        isNavigatingRef.current = true;
         navigation.navigate('MantraCreation', {
             intentionText,
             category,
@@ -99,11 +134,18 @@ export const AnchorRevealScreen: React.FC = () => {
                         ]}
                     >
                         <View style={styles.imageCard}>
-                            <Image
-                                source={{ uri: enhancedImageUrl }}
-                                style={styles.image}
-                                resizeMode="cover"
-                            />
+                            {imageUrl ? (
+                                <OptimizedImage
+                                    source={{ uri: imageUrl }}
+                                    style={styles.image}
+                                    contentFit="cover"
+                                    priority="high"
+                                    trackLoad
+                                    perfLabel="anchor_reveal"
+                                />
+                            ) : (
+                                <SigilSvg xml={baseSigilSvg} width="90%" height="90%" color={colors.gold} />
+                            )}
                             <View style={styles.glowOverlay} />
                         </View>
                     </Animated.View>
@@ -205,6 +247,13 @@ const styles = StyleSheet.create({
         letterSpacing: 1.5,
         marginBottom: 12,
         textAlign: 'center',
+        opacity: 0.8,
+    },
+    subtitle: {
+        fontSize: 14,
+        color: colors.silver,
+        textAlign: 'center',
+        marginBottom: 16,
         opacity: 0.8,
     },
     intentionCard: {

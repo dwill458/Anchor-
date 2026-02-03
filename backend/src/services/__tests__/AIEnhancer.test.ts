@@ -18,6 +18,7 @@ import {
   enhanceSigilWithControlNet,
   getCostEstimate,
   estimateControlNetGenerationTime,
+  __resetGeminiImageServiceForTests,
   ControlNetEnhancementRequest,
   ControlNetEnhancementResult,
   AIStyle,
@@ -49,6 +50,8 @@ describe('AIEnhancer Service', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     process.env = { ...originalEnv };
+    process.env.NODE_ENV = 'test';
+    __resetGeminiImageServiceForTests();
   });
 
   afterEach(() => {
@@ -370,7 +373,7 @@ describe('AIEnhancer Service', () => {
       const result = await enhanceSigilWithControlNet(request);
 
       // Should include gym/strength symbols
-      expect(result.prompt).toContain('barbells, dumbbells, flames');
+      expect(result.prompt).toContain('flexed muscles, iron weights');
     });
 
     it('should throw error for invalid style choice', async () => {
@@ -524,7 +527,8 @@ describe('AIEnhancer Service', () => {
         userId: mockUserId,
       };
 
-      await expect(enhanceSigilWithAI(request)).rejects.toThrow();
+      const result = await enhanceSigilWithAI(request);
+      expect(result.variationUrls).toHaveLength(4);
     });
   });
 

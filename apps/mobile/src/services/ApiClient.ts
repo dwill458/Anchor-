@@ -63,6 +63,11 @@ apiClient.interceptors.response.use(
       throw new Error('Network error. Please check your connection.');
     }
 
+    // Handle auth errors first to ensure consistent messaging
+    if (error.response.status === 401) {
+      throw new Error('Session expired. Please sign in again.');
+    }
+
     // Handle API errors with standard format
     if (error.response.data?.error) {
       const apiError = error.response.data.error;
@@ -72,11 +77,6 @@ apiClient.interceptors.response.use(
 
     // Handle HTTP status codes
     switch (error.response.status) {
-      case 401:
-        // Unauthorized - token expired or invalid
-        // Could trigger sign-out here if needed
-        throw new Error('Session expired. Please sign in again.');
-
       case 403:
         throw new Error('Access denied.');
 

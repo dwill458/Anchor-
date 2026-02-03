@@ -18,12 +18,14 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
-import { SvgXml } from 'react-native-svg';
 import { BlurView } from 'expo-blur';
 import * as Haptics from 'expo-haptics';
 import { useAnchorStore } from '@/stores/anchorStore';
 import type { RootStackParamList } from '@/types';
 import { colors, spacing, typography } from '@/theme';
+import { SigilSvg } from '@/components/common';
+import { safeHaptics } from '@/utils/haptics';
+import { playSoundEffect } from '@/utils/soundEffects';
 
 const { width } = Dimensions.get('window');
 const SYMBOL_SIZE = 160;
@@ -52,8 +54,9 @@ export const ChargeCompleteScreen: React.FC = () => {
   // ══════════════════════════════════════════════════════════════
 
   useEffect(() => {
+    void playSoundEffect('completion');
     // Success haptic
-    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    void safeHaptics.notification(Haptics.NotificationFeedbackType.Success);
 
     // Fade in + scale up
     Animated.parallel([
@@ -71,7 +74,7 @@ export const ChargeCompleteScreen: React.FC = () => {
     ]).start();
 
     // Glow pulse loop
-    Animated.loop(
+    const glowLoop = Animated.loop(
       Animated.sequence([
         Animated.timing(glowAnim, {
           toValue: 1,
@@ -84,7 +87,10 @@ export const ChargeCompleteScreen: React.FC = () => {
           useNativeDriver: true,
         }),
       ])
-    ).start();
+    );
+    glowLoop.start();
+
+    return () => glowLoop.stop();
   }, []);
 
   // ══════════════════════════════════════════════════════════════
@@ -108,13 +114,13 @@ export const ChargeCompleteScreen: React.FC = () => {
   // ══════════════════════════════════════════════════════════════
 
   const handleSaveToVault = () => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    void safeHaptics.impact(Haptics.ImpactFeedbackStyle.Medium);
     // Navigate back to vault (anchor is already saved by RitualScreen)
     navigation.navigate('Vault');
   };
 
   const handleActivateNow = () => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    void safeHaptics.impact(Haptics.ImpactFeedbackStyle.Light);
     navigation.navigate('ActivationRitual', {
       anchorId,
       activationType: 'visual',
@@ -150,7 +156,7 @@ export const ChargeCompleteScreen: React.FC = () => {
         {/* Hero Symbol with Glow */}
         <Animated.View style={[styles.symbolWrapper, { opacity: glowOpacity }]}>
           <View style={styles.glowContainer}>
-            <SvgXml xml={anchor.baseSigilSvg} width={SYMBOL_SIZE} height={SYMBOL_SIZE} />
+            <SigilSvg xml={anchor.baseSigilSvg} width={SYMBOL_SIZE} height={SYMBOL_SIZE} />
           </View>
         </Animated.View>
 

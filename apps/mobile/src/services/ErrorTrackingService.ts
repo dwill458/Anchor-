@@ -1,9 +1,11 @@
 /**
  * Anchor App - Error Tracking Service
  *
- * Centralized error tracking and reporting.
- * Ready for integration with Sentry, Bugsnag, or similar services.
+ * Centralized error tracking and reporting using Sentry.
  */
+
+import * as Sentry from '@sentry/react-native';
+import { MobileEnv } from '@/config/env';
 
 export interface ErrorContext {
   userId?: string;
@@ -48,6 +50,7 @@ class ErrorTracking {
   private enabled: boolean = true;
   private userId: string | null = null;
   private context: ErrorContext = {};
+  private initialized: boolean = false;
 
   /**
    * Initialize error tracking
@@ -56,17 +59,23 @@ class ErrorTracking {
     // Only enable in production by default
     this.enabled = config?.enabled ?? !__DEV__;
 
-    if (this.enabled) {
-      console.log('[ErrorTracking] Initialized');
+    if (this.enabled && !this.initialized) {
+      const dsn = config?.dsn || MobileEnv.SENTRY_DSN;
+      if (!dsn) {
+        console.warn('[ErrorTracking] Sentry DSN missing; error tracking disabled.');
+        this.enabled = false;
+        return;
+      }
 
-      // TODO: Initialize Sentry
-      // Example:
-      // import * as Sentry from '@sentry/react-native';
-      // Sentry.init({
-      //   dsn: config?.dsn || process.env.SENTRY_DSN,
-      //   enableInExpoDevelopment: false,
-      //   debug: __DEV__,
-      // });
+      Sentry.init({
+        dsn,
+        environment: MobileEnv.SENTRY_ENVIRONMENT,
+        enableInExpoDevelopment: false,
+        debug: __DEV__,
+      });
+
+      this.initialized = true;
+      console.log('[ErrorTracking] Initialized');
     }
   }
 
@@ -82,13 +91,11 @@ class ErrorTracking {
       console.log('[ErrorTracking] Set user', { userId, email, displayName });
     }
 
-    // TODO: Set user in Sentry
-    // Example:
-    // Sentry.setUser({
-    //   id: userId,
-    //   email,
-    //   username: displayName,
-    // });
+    Sentry.setUser({
+      id: userId,
+      email,
+      username: displayName,
+    });
   }
 
   /**
@@ -103,9 +110,7 @@ class ErrorTracking {
       console.log('[ErrorTracking] Set context', { key, value });
     }
 
-    // TODO: Set context in Sentry
-    // Example:
-    // Sentry.setContext(key, value);
+    Sentry.setContext(key, value);
   }
 
   /**
@@ -118,14 +123,12 @@ class ErrorTracking {
       console.log('[ErrorTracking] Breadcrumb', { message, category, data });
     }
 
-    // TODO: Add breadcrumb in Sentry
-    // Example:
-    // Sentry.addBreadcrumb({
-    //   message,
-    //   category,
-    //   data,
-    //   level: 'info',
-    // });
+    Sentry.addBreadcrumb({
+      message,
+      category,
+      data,
+      level: 'info',
+    });
   }
 
   /**
@@ -148,9 +151,7 @@ class ErrorTracking {
       });
     }
 
-    // TODO: Capture in Sentry
-    // Example:
-    // Sentry.captureException(error);
+    Sentry.captureException(error);
   }
 
   /**
@@ -166,9 +167,15 @@ class ErrorTracking {
 
     console.log('[ErrorTracking] Capturing message', { message, severity });
 
-    // TODO: Capture in Sentry
-    // Example:
-    // Sentry.captureMessage(message, severity);
+    const levelMap: Record<ErrorSeverity, Sentry.SeverityLevel> = {
+      [ErrorSeverity.Fatal]: 'fatal',
+      [ErrorSeverity.Error]: 'error',
+      [ErrorSeverity.Warning]: 'warning',
+      [ErrorSeverity.Info]: 'info',
+      [ErrorSeverity.Debug]: 'debug',
+    };
+
+    Sentry.captureMessage(message, levelMap[severity]);
   }
 
   /**
@@ -184,9 +191,7 @@ class ErrorTracking {
       console.log('[ErrorTracking] Clear user');
     }
 
-    // TODO: Clear user in Sentry
-    // Example:
-    // Sentry.setUser(null);
+    Sentry.setUser(null);
   }
 
   /**

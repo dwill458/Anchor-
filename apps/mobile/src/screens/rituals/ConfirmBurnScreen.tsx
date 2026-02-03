@@ -16,11 +16,11 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { RouteProp, useRoute, useNavigation } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
-import { SvgXml } from 'react-native-svg';
 import { colors, typography, spacing } from '@/theme';
 import { RootStackParamList } from '@/types';
 import { AnalyticsService, AnalyticsEvents } from '@/services/AnalyticsService';
 import { ErrorTrackingService } from '@/services/ErrorTrackingService';
+import { SigilSvg } from '@/components/common';
 
 type ConfirmBurnRouteProp = RouteProp<RootStackParamList, 'ConfirmBurn'>;
 type ConfirmBurnNavigationProp = StackNavigationProp<RootStackParamList, 'ConfirmBurn'>;
@@ -71,7 +71,7 @@ export const ConfirmBurnScreen: React.FC = () => {
       <View style={styles.content}>
         {/* Anchor preview */}
         <View style={styles.anchorContainer}>
-          <SvgXml xml={sigilSvg} width={ANCHOR_SIZE} height={ANCHOR_SIZE} />
+          <SigilSvg xml={sigilSvg} width={ANCHOR_SIZE} height={ANCHOR_SIZE} />
         </View>
 
         <Text style={styles.intention}>"{intention}"</Text>

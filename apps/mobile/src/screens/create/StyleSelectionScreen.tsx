@@ -31,6 +31,7 @@ import {
   WatercolorIcon,
 } from '@/components/icons/StyleIcons';
 import { LockIcon } from '@/components/icons/LockIcon';
+import { safeHaptics } from '@/utils/haptics';
 
 type StyleSelectionRouteProp = RouteProp<RootStackParamList, 'StyleSelection'>;
 type StyleSelectionNavigationProp = StackNavigationProp<RootStackParamList, 'StyleSelection'>;
@@ -72,6 +73,16 @@ export default function StyleSelectionScreen() {
   } = route.params;
 
   const [selected, setSelected] = useState<AIStyle | null>('minimal_line');
+  const isNavigatingRef = useRef(false);
+
+  React.useEffect(() => {
+    if (typeof navigation.addListener !== 'function') return;
+    const unsubscribe = navigation.addListener('focus', () => {
+      isNavigatingRef.current = false;
+    });
+
+    return unsubscribe;
+  }, [navigation]);
 
   // Scale animations for each card
   const scaleAnims = useRef<Record<string, Animated.Value>>(
@@ -144,7 +155,7 @@ export default function StyleSelectionScreen() {
   const handleSelect = (id: AIStyle) => {
     if (selected === id) return;
 
-    Haptics.selectionAsync();
+    void safeHaptics.selection();
 
     // Selection breath animation: 1 → 1.02 → 1
     Animated.sequence([
@@ -195,8 +206,10 @@ export default function StyleSelectionScreen() {
 
   const handleContinue = () => {
     if (!selected) return;
+    if (isNavigatingRef.current) return;
+    isNavigatingRef.current = true;
 
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    void safeHaptics.impact(Haptics.ImpactFeedbackStyle.Light);
 
     navigation.navigate('AIGenerating', {
       intentionText,

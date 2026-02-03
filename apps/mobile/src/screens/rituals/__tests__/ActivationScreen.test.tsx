@@ -113,11 +113,11 @@ describe('ActivationScreen', () => {
     expect(getByText('Anchor not found')).toBeTruthy();
   });
 
-  it('should trigger heavy haptic on start', () => {
+  it('should trigger medium haptic on start', () => {
     render(<ActivationScreen />);
 
     expect(Haptics.impactAsync).toHaveBeenCalledWith(
-      Haptics.ImpactFeedbackStyle.Heavy
+      Haptics.ImpactFeedbackStyle.Medium
     );
   });
 
@@ -154,7 +154,7 @@ describe('ActivationScreen', () => {
     jest.advanceTimersByTime(10000);
 
     await waitFor(() => {
-      expect(getByText('✓ Activated ✓')).toBeTruthy();
+      expect(getByText('Session Complete!')).toBeTruthy();
     });
   });
 
@@ -213,7 +213,9 @@ describe('ActivationScreen', () => {
   it('should navigate back after completion', async () => {
     render(<ActivationScreen />);
 
-    jest.advanceTimersByTime(11500); // 10s + 1.5s delay
+    jest.advanceTimersByTime(10000);
+    await Promise.resolve();
+    jest.advanceTimersByTime(1500);
 
     await waitFor(() => {
       expect(mockGoBack).toHaveBeenCalled();
@@ -260,7 +262,9 @@ describe('ActivationScreen', () => {
 
     render(<ActivationScreen />);
 
-    jest.advanceTimersByTime(11500);
+    jest.advanceTimersByTime(10000);
+    await Promise.resolve();
+    jest.advanceTimersByTime(1500);
 
     await waitFor(() => {
       expect(mockGoBack).toHaveBeenCalled();
@@ -297,7 +301,7 @@ describe('ActivationScreen', () => {
 
   it('should display activation instruction', () => {
     const { getByText } = render(<ActivationScreen />);
-    expect(getByText('Focus on your intention')).toBeTruthy();
+    expect(getByText(/Focus on your intention/)).toBeTruthy();
   });
 
   it('should handle different activation types', () => {
@@ -353,7 +357,7 @@ describe('ActivationScreen', () => {
 
     // Start state
     expect(getByText('10')).toBeTruthy();
-    expect(getByText('Focus on your intention')).toBeTruthy();
+    expect(getByText(/Focus on your intention/)).toBeTruthy();
 
     // Mid-ritual
     jest.advanceTimersByTime(5000);
@@ -361,7 +365,7 @@ describe('ActivationScreen', () => {
 
     // Completion
     jest.advanceTimersByTime(5000);
-    await waitFor(() => expect(getByText('✓ Activated ✓')).toBeTruthy());
+    await waitFor(() => expect(getByText('Session Complete!')).toBeTruthy());
 
     // API called
     await waitFor(() => {
@@ -370,6 +374,7 @@ describe('ActivationScreen', () => {
     });
 
     // Navigation
+    await Promise.resolve();
     jest.advanceTimersByTime(1500);
     await waitFor(() => expect(mockGoBack).toHaveBeenCalled());
   });

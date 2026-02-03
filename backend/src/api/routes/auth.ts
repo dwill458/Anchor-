@@ -5,12 +5,150 @@
  */
 
 import { Router, Response } from 'express';
+import bcrypt from 'bcryptjs';
+import jwt, { SignOptions } from 'jsonwebtoken';
 import { PrismaClient } from '@prisma/client';
 import { AuthRequest, authMiddleware } from '../middleware/auth';
 import { AppError } from '../middleware/errorHandler';
 
 const router = Router();
 const prisma = new PrismaClient();
+
+const TOKEN_SECRET = process.env.JWT_SECRET || 'secret';
+const TOKEN_EXPIRES_IN = (process.env.JWT_EXPIRES_IN || '7d') as SignOptions['expiresIn'];
+
+const buildUserResponse = (user: any) => ({
+  id: user.id,
+  email: user.email,
+  displayName: user.displayName,
+  subscriptionStatus: user.subscriptionStatus,
+  totalAnchorsCreated: user.totalAnchorsCreated,
+  totalActivations: user.totalActivations,
+  currentStreak: user.currentStreak,
+  longestStreak: user.longestStreak,
+  createdAt: user.createdAt,
+});
+
+const signToken = (authUid: string, email: string) =>
+  jwt.sign({ uid: authUid, email }, TOKEN_SECRET, { expiresIn: TOKEN_EXPIRES_IN });
+
+/**
+ * POST /api/auth/register
+ *
+ * Email/password registration (JWT-based)
+ *
+ * Body:
+ * - email
+ * - password
+ * - displayName (optional)
+ */
+router.post('/register', async (req: AuthRequest, res: Response) => {
+  try {
+    const { email, password, displayName } = req.body;
+
+    if (!email || !password) {
+      throw new AppError('Email and password are required', 400, 'VALIDATION_ERROR');
+    }
+
+    if (typeof password !== 'string' || password.length < 8) {
+      throw new AppError('Password must be at least 8 characters', 400, 'VALIDATION_ERROR');
+    }
+
+    const normalizedEmail = String(email).trim().toLowerCase();
+
+    const existing = await prisma.user.findUnique({
+      where: { email: normalizedEmail },
+    });
+
+    if (existing) {
+      throw new AppError('User already exists', 409, 'USER_EXISTS');
+    }
+
+    const passwordHash = await bcrypt.hash(password, 10);
+    const authUid = normalizedEmail; // Stable UID for email auth
+
+    const user = await prisma.user.create({
+      data: {
+        email: normalizedEmail,
+        displayName: displayName || null,
+        authProvider: 'email',
+        authUid,
+        passwordHash,
+        lastSeenAt: new Date(),
+      },
+    });
+
+    await prisma.userSettings.create({
+      data: {
+        userId: user.id,
+      },
+    });
+
+    const token = signToken(user.authUid, user.email);
+
+    res.status(201).json({
+      success: true,
+      data: {
+        user: buildUserResponse(user),
+        token,
+      },
+    });
+  } catch (error) {
+    if (error instanceof AppError) {
+      throw error;
+    }
+    throw new AppError('Failed to register user', 500, 'REGISTER_ERROR');
+  }
+});
+
+/**
+ * POST /api/auth/login
+ *
+ * Email/password login (JWT-based)
+ *
+ * Body:
+ * - email
+ * - password
+ */
+router.post('/login', async (req: AuthRequest, res: Response) => {
+  try {
+    const { email, password } = req.body;
+
+    if (!email || !password) {
+      throw new AppError('Email and password are required', 400, 'VALIDATION_ERROR');
+    }
+
+    const normalizedEmail = String(email).trim().toLowerCase();
+
+    const user = await prisma.user.findUnique({
+      where: { email: normalizedEmail },
+    });
+
+    if (!user || !user.passwordHash) {
+      throw new AppError('Invalid email or password', 401, 'INVALID_CREDENTIALS');
+    }
+
+    const isValid = await bcrypt.compare(password, user.passwordHash);
+    if (!isValid) {
+      throw new AppError('Invalid email or password', 401, 'INVALID_CREDENTIALS');
+    }
+
+    const token = signToken(user.authUid, user.email);
+
+    res.json({
+      success: true,
+      data: {
+        user: buildUserResponse(user),
+        token,
+      },
+    });
+  } catch (error) {
+    if (error instanceof AppError) {
+      throw error;
+    }
+    throw new AppError('Failed to login', 500, 'LOGIN_ERROR');
+  }
+});
 
 /**
  * POST /api/auth/sync

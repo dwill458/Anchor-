@@ -71,7 +71,7 @@ describe('ErrorBoundary Component', () => {
   });
 
   it('should reset error state when "Try Again" is pressed', () => {
-    const { getByText, rerender } = render(
+    const { getByText, getByLabelText, rerender } = render(
       <ErrorBoundary>
         <ThrowError shouldThrow={true} />
       </ErrorBoundary>
@@ -80,16 +80,15 @@ describe('ErrorBoundary Component', () => {
     // Error UI should be visible
     expect(getByText('Something Went Wrong')).toBeTruthy();
 
-    // Press Try Again
-    const tryAgainButton = getByText('Try Again');
-    fireEvent.press(tryAgainButton);
-
     // Re-render with no error
     rerender(
       <ErrorBoundary>
         <ThrowError shouldThrow={false} />
       </ErrorBoundary>
     );
+
+    // Press Try Again
+    fireEvent.press(getByLabelText('Try Again'));
 
     // Should show children again
     expect(getByText('No error')).toBeTruthy();

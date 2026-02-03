@@ -246,6 +246,43 @@ node --inspect-brk node_modules/.bin/jest --runInBand
 
 Then open `chrome://inspect` in Chrome.
 
+## Performance Testing (iPhone 8 + Galaxy A52)
+
+### Device Targets
+
+- iPhone 8 (iOS 16.x)
+- Galaxy A52 (Android 13/14)
+
+### Image Loading (Target: <2s on 3G)
+
+1. Launch the app on device.
+2. Open **Vault** (list) and **Anchor Reveal** (hero image).
+3. Simulate **3G**:
+   - iOS: Xcode → Device & Simulators → “Network Link Conditioner” → 3G.
+   - Android: Android Studio → Network Profiler → 3G preset.
+4. Verify first image visible within 2 seconds.
+
+### SVG Rendering + Animation FPS (Target: 60fps)
+
+1. Navigate to **Ritual**, **Seal**, and **AI Generating** screens.
+2. Enable Performance Monitor:
+   - iOS: Xcode → Debug → View Debugging → Show Performance Monitor.
+   - Android: Dev Menu → “Perf Monitor”.
+3. Confirm FPS stays near 60 with no sustained drops.
+
+### Memory (Target: <200MB peak)
+
+1. Open Vault, scroll the list, open detail → ritual → return.
+2. iOS: Instruments → Allocations (check peak).
+3. Android: Android Studio Profiler → Memory (check peak).
+
+### Bundle Size (Target: <30MB)
+
+1. Create a production build:
+   - iOS: `eas build -p ios --profile production`
+   - Android: `eas build -p android --profile production`
+2. Verify IPA/AAB size in the build artifacts.
+
 ## CI/CD Integration
 
 ```yaml

@@ -47,11 +47,30 @@ export const SaveProgressScreen: React.FC<Props> = ({ navigation }) => {
   const toast = useToast();
   const [isLoading, setIsLoading] = useState(false);
 
+  const navigateToAuth = (routeName: 'SignUp' | 'Login'): boolean => {
+    const parent = navigation.getParent();
+    const currentRoutes = navigation.getState().routeNames;
+    const parentRoutes = parent?.getState().routeNames || [];
+    const canNavigate = currentRoutes.includes(routeName) || parentRoutes.includes(routeName);
+
+    if (!canNavigate) return false;
+
+    if (parentRoutes.includes(routeName)) {
+      parent?.navigate(routeName as never);
+    } else {
+      navigation.navigate(routeName as never);
+    }
+    return true;
+  };
+
   const handleCreateAccount = async () => {
     try {
       setIsLoading(true);
-      // TODO: Navigate to SignUp screen or implement inline signup
-      // For now, we'll just mark as authenticated and complete onboarding
+      if (navigateToAuth('SignUp')) {
+        return;
+      }
+
+      // Fallback: allow onboarding completion without account creation
       await new Promise((resolve) => setTimeout(resolve, 500));
       setAuthenticated(true);
       completeOnboarding();
@@ -67,7 +86,11 @@ export const SaveProgressScreen: React.FC<Props> = ({ navigation }) => {
   const handleSignIn = async () => {
     try {
       setIsLoading(true);
-      // TODO: Navigate to Login screen or implement inline login
+      if (navigateToAuth('Login')) {
+        return;
+      }
+
+      // Fallback: allow onboarding completion without login
       await new Promise((resolve) => setTimeout(resolve, 500));
       setAuthenticated(true);
       completeOnboarding();

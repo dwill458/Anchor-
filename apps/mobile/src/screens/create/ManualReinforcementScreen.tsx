@@ -11,12 +11,12 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
-import Svg, { Path, G, SvgXml } from 'react-native-svg';
+import Svg, { Path, G } from 'react-native-svg';
 import { GestureDetector, Gesture } from 'react-native-gesture-handler';
 import { runOnJS } from 'react-native-reanimated';
 import { RootStackParamList, AnchorCategory, SigilVariant } from '@/types';
 import { colors, spacing, typography } from '@/theme';
-import { ZenBackground } from '@/components/common';
+import { ZenBackground, SigilSvg } from '@/components/common';
 import { useAuthStore } from '@/stores/authStore';
 
 type ManualReinforcementRouteProp = RouteProp<RootStackParamList, 'ManualReinforcement'>;
@@ -267,7 +267,7 @@ export default function ManualReinforcementScreen() {
             <Svg width={CANVAS_SIZE} height={CANVAS_SIZE} style={styles.svg}>
               {/* Base structure (faint underlay) */}
               <G opacity={0.3}>
-                <SvgXml xml={baseSigilSvg} width="100%" height="100%" color="#D4AF37" />
+                <SigilSvg xml={baseSigilSvg} width="100%" height="100%" color="#D4AF37" />
               </G>
 
               {/* Completed strokes */}
@@ -313,6 +313,8 @@ export default function ManualReinforcementScreen() {
             style={[styles.controlButton, styles.secondaryButton]}
             onPress={handleClearLast}
             disabled={strokes.length === 0}
+            accessibilityRole="button"
+            accessibilityState={{ disabled: strokes.length === 0 }}
           >
             <Text style={styles.controlButtonText}>Undo</Text>
           </TouchableOpacity>
@@ -321,6 +323,8 @@ export default function ManualReinforcementScreen() {
             style={[styles.controlButton, styles.secondaryButton]}
             onPress={handleClearAll}
             disabled={strokes.length === 0}
+            accessibilityRole="button"
+            accessibilityState={{ disabled: strokes.length === 0 }}
           >
             <Text style={styles.controlButtonText}>Start Over</Text>
           </TouchableOpacity>
@@ -330,6 +334,8 @@ export default function ManualReinforcementScreen() {
           style={styles.completeButton}
           onPress={handleComplete}
           disabled={strokeCount === 0}
+          accessibilityRole="button"
+          accessibilityState={{ disabled: strokeCount === 0 }}
         >
           <Text style={styles.completeButtonText}>Lock Structure</Text>
         </TouchableOpacity>

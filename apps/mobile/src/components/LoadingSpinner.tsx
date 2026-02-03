@@ -58,6 +58,7 @@ export const LoadingSpinner: React.FC<LoadingSpinnerProps> = ({
   return (
     <View
       style={styles.container}
+      accessible
       accessibilityRole="progressbar"
       accessibilityLabel={message || 'Loading'}
       accessibilityLiveRegion="polite"
