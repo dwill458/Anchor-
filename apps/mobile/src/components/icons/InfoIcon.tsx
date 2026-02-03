@@ -7,6 +7,7 @@
 
 import React from 'react';
 import { View } from 'react-native';
+import Svg, { Circle, Line } from 'react-native-svg';
 import { colors } from '@/theme';
 
 export interface InfoIconProps {
@@ -27,15 +28,14 @@ export const InfoIcon: React.FC<InfoIconProps> = ({
         alignItems: 'center',
       }}
     >
-      <svg
+      <Svg
         width={size}
         height={size}
         viewBox="0 0 24 24"
         fill="none"
-        xmlns="http://www.w3.org/2000/svg"
       >
         {/* Outer circle */}
-        <circle
+        <Circle
           cx="12"
           cy="12"
           r="10"
@@ -45,10 +45,10 @@ export const InfoIcon: React.FC<InfoIconProps> = ({
         />
 
         {/* Info dot at top */}
-        <circle cx="12" cy="8" r="1.2" fill={color} />
+        <Circle cx="12" cy="8" r="1.2" fill={color} />
 
         {/* Info line at bottom */}
-        <line
+        <Line
           x1="12"
           y1="11"
           x2="12"
@@ -57,7 +57,7 @@ export const InfoIcon: React.FC<InfoIconProps> = ({
           strokeWidth="1.5"
           strokeLinecap="round"
         />
-      </svg>
+      </Svg>
     </View>
   );
 };
