@@ -1,15 +1,65 @@
-/**
- * Anchor App - Authentication Store
- *
- * Global state management for authentication using Zustand.
- * Handles user session, onboarding status, and auth state persistence.
- */
-
 import { create } from 'zustand';
-import { persist, createJSONStorage } from 'zustand/middleware';
+import { persist, createJSONStorage, StateStorage } from 'zustand/middleware';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import * as SecureStore from 'expo-secure-store';
 import type { User, ProfileData } from '@/types';
 import { fetchCompleteProfile } from '@/services/ApiClient';
+
+/**
+ * Hybrid storage engine that selectively routes sensitive data to SecureStore
+ */
+const SECURE_KEYS = ['token'];
+
+const hybridStorage: StateStorage = {
+  getItem: async (name: string): Promise<string | null> => {
+    const baseData = await AsyncStorage.getItem(name);
+    if (!baseData) return null;
+
+    try {
+      const parsed = JSON.parse(baseData);
+
+      // Hydrate secure keys from SecureStore
+      for (const key of SECURE_KEYS) {
+        const securedValue = await SecureStore.getItemAsync(`${name}_${key}`);
+        if (securedValue) {
+          parsed.state[key] = securedValue;
+        }
+      }
+
+      return JSON.stringify(parsed);
+    } catch (error) {
+      console.error('Failed to parse auth storage data:', error);
+      return null;
+    }
+  },
+  setItem: async (name: string, value: string): Promise<void> => {
+    try {
+      const parsed = JSON.parse(value);
+      const state = { ...parsed.state };
+
+      // Extract and save secure keys to SecureStore
+      for (const key of SECURE_KEYS) {
+        if (state[key]) {
+          await SecureStore.setItemAsync(`${name}_${key}`, state[key]);
+          delete state[key]; // Don't save in AsyncStorage
+        } else {
+          await SecureStore.deleteItemAsync(`${name}_${key}`);
+        }
+      }
+
+      // Save the sanitized state in AsyncStorage
+      await AsyncStorage.setItem(name, JSON.stringify({ ...parsed, state }));
+    } catch (error) {
+      console.error('Failed to save auth storage data:', error);
+    }
+  },
+  removeItem: async (name: string): Promise<void> => {
+    await AsyncStorage.removeItem(name);
+    for (const key of SECURE_KEYS) {
+      await SecureStore.deleteItemAsync(`${name}_${key}`);
+    }
+  },
+};
 
 /**
  * Onboarding segment type
@@ -53,7 +103,7 @@ interface AuthState {
 }
 
 /**
- * Authentication store with persistence
+ * Authentication store with hybrid persistence (AsyncStorage + SecureStore)
  */
 export const useAuthStore = create<AuthState>()(
   persist(
@@ -166,7 +216,7 @@ export const useAuthStore = create<AuthState>()(
     }),
     {
       name: 'anchor-auth-storage',
-      storage: createJSONStorage(() => AsyncStorage),
+      storage: createJSONStorage(() => hybridStorage),
       // Only persist certain fields
       partialize: (state) => ({
         user: state.user,

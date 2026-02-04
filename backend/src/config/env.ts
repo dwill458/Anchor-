@@ -12,6 +12,9 @@ export interface EnvConfig {
   // Database
   DATABASE_URL: string;
 
+  // Security
+  ALLOWED_ORIGINS?: string; // Comma-separated list of allowed origins
+
   // Auth (Optional - for future Firebase Admin integration)
   FIREBASE_PROJECT_ID?: string;
   FIREBASE_PRIVATE_KEY?: string;
@@ -128,9 +131,16 @@ export function validateEnv(): EnvConfig {
       GOOGLE_CLOUD_CLIENT_EMAIL: validateString('GOOGLE_CLOUD_CLIENT_EMAIL', process.env.GOOGLE_CLOUD_CLIENT_EMAIL),
       GOOGLE_API_KEY: validateString('GOOGLE_API_KEY', process.env.GOOGLE_API_KEY),
 
-      // JWT (optional - will use default)
-      JWT_SECRET: validateString('JWT_SECRET', process.env.JWT_SECRET),
-      JWT_EXPIRES_IN: validateString('JWT_EXPIRES_IN', process.env.JWT_EXPIRES_IN),
+      // JWT (required in production)
+      JWT_SECRET: validateString(
+        'JWT_SECRET',
+        process.env.JWT_SECRET,
+        process.env.NODE_ENV === 'production'
+      ),
+      JWT_EXPIRES_IN: validateString('JWT_EXPIRES_IN', process.env.JWT_EXPIRES_IN) || '7d',
+
+      // Security
+      ALLOWED_ORIGINS: validateString('ALLOWED_ORIGINS', process.env.ALLOWED_ORIGINS) || '*',
     };
 
     // Warn about missing optional but recommended variables
@@ -146,7 +156,7 @@ export function validateEnv(): EnvConfig {
       logger.info('Google Cloud TTS not configured - audio generation disabled');
     }
 
-    if (!config.JWT_SECRET) {
+    if (!config.JWT_SECRET && config.NODE_ENV !== 'production') {
       logger.warn('JWT_SECRET not configured - using default (NOT SECURE FOR PRODUCTION)');
     }
 
