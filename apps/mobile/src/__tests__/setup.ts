@@ -41,11 +41,6 @@ jest.mock('expo-blur', () => ({
   BlurView: 'BlurView',
 }));
 
-jest.mock('@react-native-community/datetimepicker', () => ({
-  __esModule: true,
-  default: 'DateTimePicker',
-}));
-
 jest.mock('react-native-safe-area-context', () => ({
   SafeAreaView: 'SafeAreaView',
   SafeAreaProvider: ({ children }: any) => children,

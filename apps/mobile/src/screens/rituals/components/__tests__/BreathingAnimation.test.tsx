@@ -6,7 +6,7 @@
 
 import React from 'react';
 import { render, screen, waitFor } from '@testing-library/react-native';
-import { BreathingAnimation } from '../BreathingAnimation';
+import { BreathingAnimation } from '../../BreathingAnimation';
 import { useNavigation, useRoute } from '@react-navigation/native';
 
 // Mock navigation

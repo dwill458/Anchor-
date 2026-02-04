@@ -10,65 +10,65 @@ import { LoadingSpinner, LoadingOverlay } from '../LoadingSpinner';
 
 describe('LoadingSpinner Component', () => {
   it('should render without crashing', () => {
-    const { getByRole } = render(<LoadingSpinner />);
-    expect(getByRole('progressbar')).toBeTruthy();
+    const { getByLabelText } = render(<LoadingSpinner />);
+    expect(getByLabelText('Loading')).toBeTruthy();
   });
 
   it('should render with custom message', () => {
-    const { getByText, getByRole } = render(
+    const { getByText, getByLabelText } = render(
       <LoadingSpinner message="Loading anchors..." />
     );
 
     expect(getByText('Loading anchors...')).toBeTruthy();
-    expect(getByRole('progressbar')).toBeTruthy();
+    expect(getByLabelText('Loading anchors...')).toBeTruthy();
   });
 
   it('should have proper accessibility label with message', () => {
-    const { getByRole } = render(
+    const { getByLabelText } = render(
       <LoadingSpinner message="Loading data" />
     );
 
-    const progressbar = getByRole('progressbar');
+    const progressbar = getByLabelText('Loading data');
     expect(progressbar.props.accessibilityLabel).toBe('Loading data');
   });
 
   it('should have default accessibility label without message', () => {
-    const { getByRole } = render(<LoadingSpinner />);
-    const progressbar = getByRole('progressbar');
+    const { getByLabelText } = render(<LoadingSpinner />);
+    const progressbar = getByLabelText('Loading');
     expect(progressbar.props.accessibilityLabel).toBe('Loading');
   });
 
   it('should have accessibility live region', () => {
-    const { getByRole } = render(<LoadingSpinner />);
-    const progressbar = getByRole('progressbar');
+    const { getByLabelText } = render(<LoadingSpinner />);
+    const progressbar = getByLabelText('Loading');
     expect(progressbar.props.accessibilityLiveRegion).toBe('polite');
   });
 
   it('should render small size correctly', () => {
-    const { getByRole } = render(<LoadingSpinner size="small" />);
-    expect(getByRole('progressbar')).toBeTruthy();
+    const { getByLabelText } = render(<LoadingSpinner size="small" />);
+    expect(getByLabelText('Loading')).toBeTruthy();
   });
 
   it('should render medium size correctly', () => {
-    const { getByRole } = render(<LoadingSpinner size="medium" />);
-    expect(getByRole('progressbar')).toBeTruthy();
+    const { getByLabelText } = render(<LoadingSpinner size="medium" />);
+    expect(getByLabelText('Loading')).toBeTruthy();
   });
 
   it('should render large size correctly', () => {
-    const { getByRole } = render(<LoadingSpinner size="large" />);
-    expect(getByRole('progressbar')).toBeTruthy();
+    const { getByLabelText } = render(<LoadingSpinner size="large" />);
+    expect(getByLabelText('Loading')).toBeTruthy();
   });
 
   it('should accept custom color', () => {
-    const { getByRole } = render(<LoadingSpinner color="#FF0000" />);
-    expect(getByRole('progressbar')).toBeTruthy();
+    const { getByLabelText } = render(<LoadingSpinner color="#FF0000" />);
+    expect(getByLabelText('Loading')).toBeTruthy();
   });
 });
 
 describe('LoadingOverlay Component', () => {
   it('should render LoadingOverlay', () => {
-    const { getByRole } = render(<LoadingOverlay />);
-    expect(getByRole('progressbar')).toBeTruthy();
+    const { getByLabelText } = render(<LoadingOverlay />);
+    expect(getByLabelText('Loading')).toBeTruthy();
   });
 
   it('should render with message', () => {
