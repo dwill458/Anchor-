@@ -60,7 +60,7 @@ export const authMiddleware = async (
     // Verify token
     // Note: In production, you would verify Firebase ID tokens using Firebase Admin SDK
     // For now, we'll use a simple JWT verification as placeholder
-    const decoded = jwt.verify(token, process.env.JWT_SECRET || 'secret') as JWTPayload;
+    const decoded = jwt.verify(token, process.env.JWT_SECRET!) as JWTPayload;
 
     // Attach user info to request
     req.user = {
