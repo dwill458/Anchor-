@@ -6,6 +6,8 @@
 
 import express, { Application, Request, Response } from 'express';
 import cors from 'cors';
+import helmet from 'helmet';
+import rateLimit from 'express-rate-limit';
 import dotenv from 'dotenv';
 import authRoutes from './api/routes/auth';
 import anchorRoutes from './api/routes/anchors';
@@ -26,9 +28,45 @@ const PORT = env.PORT;
 // Middleware
 // ============================================================================
 
-app.use(cors());
+// High-level security headers
+app.use(helmet());
+
+// CORS configuration - restricted in production
+const allowedOrigins = env.ALLOWED_ORIGINS?.split(',') || ['*'];
+app.use(
+  cors({
+    origin: (origin, callback) => {
+      if (!origin || allowedOrigins.includes('*') || allowedOrigins.includes(origin)) {
+        callback(null, true);
+      } else {
+        callback(new Error('Not allowed by CORS'));
+      }
+    },
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization'],
+  })
+);
+
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+
+// Global rate limiting
+const limiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 100, // Limit each IP to 100 requests per windowMs
+  standardHeaders: true, // Return rate limit info in the `RateLimit-*` headers
+  legacyHeaders: false, // Disable the `X-RateLimit-*` headers
+  message: {
+    success: false,
+    error: {
+      code: 'TOO_MANY_REQUESTS',
+      message: 'Too many requests from this IP, please try again after 15 minutes',
+    },
+  },
+});
+
+// Apply rate limiter to all api routes
+app.use('/api/', limiter);
 
 // Request logging middleware
 app.use((req: Request, _res: Response, next) => {

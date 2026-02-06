@@ -33,9 +33,44 @@ class Logger {
     return new Date().toISOString();
   }
 
+  /**
+   * Redacts sensitive information from metadata objects
+   */
+  private redact(obj: any): any {
+    if (!obj || typeof obj !== 'object') return obj;
+
+    const SENSITIVE_KEYS = [
+      'password',
+      'token',
+      'secret',
+      'authorization',
+      'key',
+      'email',
+      'distilledLetters',
+      'intentionText',
+    ];
+
+    if (Array.isArray(obj)) {
+      return obj.map((item) => this.redact(item));
+    }
+
+    const redacted: any = {};
+    for (const key in obj) {
+      if (SENSITIVE_KEYS.includes(key.toLowerCase())) {
+        redacted[key] = '[REDACTED]';
+      } else if (typeof obj[key] === 'object') {
+        redacted[key] = this.redact(obj[key]);
+      } else {
+        redacted[key] = obj[key];
+      }
+    }
+    return redacted;
+  }
+
   private formatMessage(level: string, message: string, meta?: unknown): string {
     const timestamp = this.config.enableTimestamps ? `[${this.getTimestamp()}]` : '';
-    const metaStr = meta ? ` ${JSON.stringify(meta)}` : '';
+    const redactedMeta = meta ? this.redact(meta) : null;
+    const metaStr = redactedMeta ? ` ${JSON.stringify(redactedMeta)}` : '';
     return `${timestamp} [${level}] ${message}${metaStr}`;
   }
 
