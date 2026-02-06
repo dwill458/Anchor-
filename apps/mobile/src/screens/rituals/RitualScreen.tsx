@@ -72,6 +72,12 @@ export const RitualScreen: React.FC = () => {
   const progressAnim = useRef(new Animated.Value(0)).current;
   const glowAnim = useRef(new Animated.Value(0)).current;
 
+  // Entry fade-in animations (for threshold transition continuity)
+  const ringOpacityAnim = useRef(new Animated.Value(0)).current;
+  const phaseIndicatorOpacityAnim = useRef(new Animated.Value(0)).current;
+  const instructionContainerOpacityAnim = useRef(new Animated.Value(0)).current;
+  const bottomSectionOpacityAnim = useRef(new Animated.Value(0)).current;
+
   // Instruction fade animation
   const instructionFadeAnim = useRef(new Animated.Value(1)).current;
   const [displayedInstruction, setDisplayedInstruction] = useState('');
@@ -99,6 +105,41 @@ export const RitualScreen: React.FC = () => {
       </SafeAreaView>
     );
   }
+
+  // ══════════════════════════════════════════════════════════════
+  // LIFECYCLE: Entry fade-in sequence (threshold transition continuity)
+  // ══════════════════════════════════════════════════════════════
+
+  useEffect(() => {
+    // Staggered fade-in: ring → phase indicator → instructions → bottom section
+    // Creates seamless continuity from ChargeSetupScreen anchor
+    Animated.stagger(200, [
+      Animated.timing(ringOpacityAnim, {
+        toValue: 1,
+        duration: 500,
+        easing: Easing.out(Easing.cubic),
+        useNativeDriver: true,
+      }),
+      Animated.timing(phaseIndicatorOpacityAnim, {
+        toValue: 1,
+        duration: 500,
+        easing: Easing.out(Easing.cubic),
+        useNativeDriver: true,
+      }),
+      Animated.timing(instructionContainerOpacityAnim, {
+        toValue: 1,
+        duration: 500,
+        easing: Easing.out(Easing.cubic),
+        useNativeDriver: true,
+      }),
+      Animated.timing(bottomSectionOpacityAnim, {
+        toValue: 1,
+        duration: 500,
+        easing: Easing.out(Easing.cubic),
+        useNativeDriver: true,
+      }),
+    ]).start();
+  }, []);
 
   // ══════════════════════════════════════════════════════════════
   // LIFECYCLE: Auto-start ritual on mount
@@ -297,11 +338,11 @@ export const RitualScreen: React.FC = () => {
 
       {/* Phase Indicator (Deep only) */}
       {config.phases.length > 1 && state.currentPhase && (
-        <View style={styles.phaseIndicator}>
+        <Animated.View style={[styles.phaseIndicator, { opacity: phaseIndicatorOpacityAnim }]}>
           <Text style={styles.phaseText}>
             Phase {state.currentPhaseIndex + 1} of {state.totalPhases}
           </Text>
-        </View>
+        </Animated.View>
       )}
 
       {/* Center Content */}
@@ -309,11 +350,12 @@ export const RitualScreen: React.FC = () => {
         {/* Charging Ring + Symbol */}
         <View style={styles.symbolWrapper}>
           {/* SVG Charging Ring */}
-          <Svg
-            width={RING_RADIUS * 2 + RING_STROKE_WIDTH * 4}
-            height={RING_RADIUS * 2 + RING_STROKE_WIDTH * 4}
-            style={styles.ringContainer}
-          >
+          <Animated.View style={{ opacity: ringOpacityAnim }}>
+            <Svg
+              width={RING_RADIUS * 2 + RING_STROKE_WIDTH * 4}
+              height={RING_RADIUS * 2 + RING_STROKE_WIDTH * 4}
+              style={styles.ringContainer}
+            >
             {/* Background ring */}
             <Circle
               cx={RING_RADIUS + RING_STROKE_WIDTH * 2}
@@ -361,6 +403,7 @@ export const RitualScreen: React.FC = () => {
               opacity={ringOpacity}
             />
           </Svg>
+          </Animated.View>
 
           {/* Anchor Symbol (centered inside ring) */}
           <View style={styles.symbolContainer}>
@@ -383,14 +426,22 @@ export const RitualScreen: React.FC = () => {
 
         {/* Instruction Text */}
         <Animated.View
-          style={[styles.instructionContainer, { opacity: instructionFadeAnim }]}
+          style={[
+            styles.instructionContainer,
+            {
+              opacity: Animated.multiply(
+                instructionFadeAnim,
+                instructionContainerOpacityAnim
+              ),
+            },
+          ]}
         >
           <Text style={styles.instructionText}>{displayedInstruction}</Text>
         </Animated.View>
       </View>
 
       {/* Bottom Section: Timer or Seal Gesture */}
-      <View style={styles.bottomSection}>
+      <Animated.View style={[styles.bottomSection, { opacity: bottomSectionOpacityAnim }]}>
         {state.isSealPhase && !state.isSealComplete ? (
           // Seal Gesture Prompt
           <TouchableOpacity
@@ -409,7 +460,7 @@ export const RitualScreen: React.FC = () => {
             <Text style={styles.timerText}>{state.formattedRemaining} remaining</Text>
           </View>
         )}
-      </View>
+      </Animated.View>
     </SafeAreaView>
   );
 };

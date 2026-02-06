@@ -28,6 +28,7 @@
     "expo-blur": "~14.0.3",
     "expo-haptics": "~14.0.0",
     "expo-linear-gradient": "~14.0.1",
+    "expo-local-authentication": "~15.0.2",
     "expo-notifications": "~0.29.14",
     "expo-speech": "~13.0.1",
     "expo-status-bar": "~2.0.0",
