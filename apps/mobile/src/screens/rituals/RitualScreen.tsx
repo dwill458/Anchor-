@@ -13,6 +13,7 @@ import {
   StyleSheet,
   TouchableOpacity,
   Animated,
+  Easing,
   Dimensions,
   Alert,
   Platform,
@@ -52,6 +53,22 @@ export const RitualScreen: React.FC = () => {
   const { getAnchorById, updateAnchor } = useAnchorStore();
   const anchor = getAnchorById(anchorId);
 
+  // ══════════════════════════════════════════════════════════════
+  // NULL SAFETY: Early return before any hooks
+  // ══════════════════════════════════════════════════════════════
+
+  if (!anchor) {
+    return (
+      <SafeAreaView style={styles.container}>
+        <View style={styles.errorContainer}>
+          <Text style={styles.errorText}>
+            Anchor not found. Returning to vault...
+          </Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
   // DEBUG: Log visual asset state
   useEffect(() => {
     if (anchor) {
@@ -89,22 +106,6 @@ export const RitualScreen: React.FC = () => {
     onPhaseChange: handlePhaseChange,
     onSealComplete: handleSealComplete,
   });
-
-  // ══════════════════════════════════════════════════════════════
-  // NULL SAFETY: Defensive handling
-  // ══════════════════════════════════════════════════════════════
-
-  if (!anchor) {
-    return (
-      <SafeAreaView style={styles.container}>
-        <View style={styles.errorContainer}>
-          <Text style={styles.errorText}>
-            Anchor not found. Returning to vault...
-          </Text>
-        </View>
-      </SafeAreaView>
-    );
-  }
 
   // ══════════════════════════════════════════════════════════════
   // LIFECYCLE: Entry fade-in sequence (threshold transition continuity)
