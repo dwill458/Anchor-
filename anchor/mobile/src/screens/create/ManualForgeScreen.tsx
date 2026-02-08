@@ -15,7 +15,8 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { BlurView } from 'expo-blur';
 import { StatusBar } from 'expo-status-bar';
-import Svg, { Path, Defs, RadialGradient, Stop } from 'react-native-svg';
+import Svg, { Path, Defs, RadialGradient, Stop, G } from 'react-native-svg';
+import { SvgXml } from 'react-native-svg';
 import { PanResponder } from 'react-native';
 import Slider from '@react-native-community/slider';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
@@ -100,6 +101,8 @@ export default function ManualForgeScreen() {
   const intentionText = route.params?.intentionText || (route.params as any)?.intention || 'Manifest destiny';
   const distilledLetters = route.params?.distilledLetters || ['M', 'N', 'F', 'S', 'T', 'D', 'S', 'T', 'N', 'Y'];
   const category = route.params?.category;
+  const baseSigilSvg = route.params?.sigilSvg; // Optional background sigil for tracing mode
+  const isFromScratch = route.params?.isFromScratch ?? !baseSigilSvg; // Blank canvas mode if true
 
   // Drawing state
   const [strokes, setStrokes] = useState<Stroke[]>([]);
@@ -429,8 +432,12 @@ export default function ManualForgeScreen() {
           </TouchableOpacity>
 
           <View style={styles.headerCenter}>
-            <Text style={styles.headerTitle}>Manual Forge</Text>
-            <Text style={styles.headerSubtitle}>Create Your Sacred Symbol</Text>
+            <Text style={styles.headerTitle}>
+              {isFromScratch ? 'Forge from Scratch' : 'Manual Forge'}
+            </Text>
+            <Text style={styles.headerSubtitle}>
+              {isFromScratch ? 'Create Your Sacred Symbol' : 'Trace Your Foundation'}
+            </Text>
           </View>
 
           <TouchableOpacity
@@ -482,6 +489,17 @@ export default function ManualForgeScreen() {
         <View style={styles.canvasContainer}>
           {IS_ANDROID ? (
             <View style={[styles.canvas, styles.canvasAndroid]}>
+              {/* Background sigil for tracing mode */}
+              {!isFromScratch && baseSigilSvg && (
+                <View style={StyleSheet.absoluteFill} pointerEvents="none">
+                  <SvgXml
+                    xml={baseSigilSvg}
+                    width={CANVAS_WIDTH}
+                    height={CANVAS_HEIGHT}
+                    opacity={0.15}
+                  />
+                </View>
+              )}
               {showGrid && <GridOverlay />}
               <View {...panResponder.panHandlers} style={styles.drawingArea}>
                 <Svg width={CANVAS_WIDTH} height={CANVAS_HEIGHT}>
@@ -538,6 +556,17 @@ export default function ManualForgeScreen() {
             </View>
           ) : (
             <BlurView intensity={8} tint="dark" style={styles.canvas}>
+              {/* Background sigil for tracing mode */}
+              {!isFromScratch && baseSigilSvg && (
+                <View style={StyleSheet.absoluteFill} pointerEvents="none">
+                  <SvgXml
+                    xml={baseSigilSvg}
+                    width={CANVAS_WIDTH}
+                    height={CANVAS_HEIGHT}
+                    opacity={0.15}
+                  />
+                </View>
+              )}
               {showGrid && <GridOverlay />}
               <View {...panResponder.panHandlers} style={styles.drawingArea}>
                 <Svg width={CANVAS_WIDTH} height={CANVAS_HEIGHT}>

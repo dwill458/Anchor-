@@ -58,3 +58,35 @@ export const WatercolorIcon: React.FC<StyleIconProps> = ({ size = 48 }) => (
         <Circle cx="24" cy="31" r="3" fill="#D4AF37" />
     </Svg>
 );
+
+export const GoldLeafIcon: React.FC<StyleIconProps> = ({ size = 48 }) => (
+    <Svg width={size} height={size} viewBox="0 0 48 48" fill="none">
+        <Path
+            d="M12 30C16 34 22 36 26 32C30 28 32 20 28 14C24 8 16 10 12 16"
+            stroke="#D4AF37"
+            strokeWidth="2.25"
+            strokeLinecap="round"
+        />
+        <Path
+            d="M20 20L28 28M15 25L23 33"
+            stroke="#F5F5DC"
+            strokeWidth="1.5"
+            strokeLinecap="round"
+        />
+    </Svg>
+);
+
+export const CosmicIcon: React.FC<StyleIconProps> = ({ size = 48 }) => (
+    <Svg width={size} height={size} viewBox="0 0 48 48" fill="none">
+        <Circle cx="24" cy="24" r="18" stroke="#F5F5DC" strokeWidth="1" strokeDasharray="4 4" />
+        <Circle cx="24" cy="24" r="8" stroke="#D4AF37" strokeWidth="2.25" />
+        <Path
+            d="M24 4V8M24 40V44M4 24H8M40 24H44"
+            stroke="#F5F5DC"
+            strokeWidth="1.5"
+            strokeLinecap="round"
+        />
+        <Circle cx="36" cy="12" r="2" fill="#F5F5DC" />
+        <Circle cx="12" cy="36" r="1.5" fill="#F5F5DC" />
+    </Svg>
+);

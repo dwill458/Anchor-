@@ -1,37 +1,53 @@
 /**
- * Anchor App - Focus Phrase Creation Screen (Phase 2.5)
+ * Anchor App - Mantra Creation Screen
  *
  * Step 8 in anchor creation flow.
- * User generates and selects from 3 vocal anchor styles.
- * Features: Pro gating, TTS playback, educational content.
+ * Redesigned as a ritual tuning moment focused on embodied resonance.
  */
 
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
-  View,
-  Text,
-  StyleSheet,
-  TouchableOpacity,
-  ScrollView,
   ActivityIndicator,
   Alert,
+  Platform,
+  Pressable,
+  ScrollView,
+  StyleProp,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+  ViewStyle,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
+import * as Haptics from 'expo-haptics';
 import * as Speech from 'expo-speech';
+import { BlurView } from 'expo-blur';
 import { LinearGradient } from 'expo-linear-gradient';
-import { Lock, Volume2, Play, Pause, RefreshCw, ChevronRight, Info } from 'lucide-react-native';
+import { ChevronRight, Info, Lock, Pause, Play, Volume2 } from 'lucide-react-native';
+import Animated, {
+  Easing,
+  cancelAnimation,
+  interpolate,
+  interpolateColor,
+  useAnimatedStyle,
+  useSharedValue,
+  withRepeat,
+  withSequence,
+  withTiming,
+} from 'react-native-reanimated';
 import { colors, spacing, typography } from '@/theme';
 import { RootStackParamList, Anchor } from '@/types';
 import { useAnchorStore } from '../../stores/anchorStore';
+import { useSubscriptionStore } from '../../stores/subscriptionStore';
+import { useAuthStore } from '../../stores/authStore';
+import { safeHaptics } from '@/utils/haptics';
 
 type MantraCreationRouteProp = RouteProp<RootStackParamList, 'MantraCreation'>;
 type MantraCreationNavigationProp = StackNavigationProp<RootStackParamList, 'MantraCreation'>;
 
-/**
- * Mantra result from backend
- */
 interface MantraResult {
   syllabic: string;
   rhythmic: string;
@@ -40,34 +56,79 @@ interface MantraResult {
 }
 
 type MantraStyle = keyof Omit<MantraResult, 'letterByLetter'>;
+type VoiceTimbre = 'masculine' | 'feminine' | 'neutral';
+type ResonanceMode = 'grounding' | 'energizing' | 'calming';
 
 interface MantraStyleInfo {
   id: MantraStyle;
   title: string;
   description: string;
-  icon: string;
+}
+
+interface ResonancePlaybackProfile {
+  timbre: VoiceTimbre;
+  mode: ResonanceMode;
+  rate: number;
+  pitch: number;
+  vowelStretch: number;
+  roomSize: 'small-warm' | 'none';
 }
 
 const MANTRA_STYLES: MantraStyleInfo[] = [
   {
     id: 'rhythmic',
-    title: 'Rhythmic',
-    description: 'Smooth and cyclical. Flows without catching.',
-    icon: '🌊',
+    title: 'Rhythmic Flow',
+    description: 'Smooth and cyclical. Encourages steady breath and momentum.',
   },
   {
     id: 'syllabic',
-    title: 'Resonant',
-    description: 'Deep and grounding. Vibrates in your chest.',
-    icon: '🌋',
+    title: 'Deep Current',
+    description: 'Low and grounding. Settles your breath into your chest and core.',
   },
   {
     id: 'phonetic',
-    title: 'Flowing',
-    description: 'Light and crisp. Resonates in throat and head.',
-    icon: '🌬️',
+    title: 'Clear Lift',
+    description: 'Open and airy. Creates space without breaking your focus.',
   },
 ];
+
+const BASE_PLAYBACK_PROFILE: ResonancePlaybackProfile = {
+  timbre: 'neutral',
+  mode: 'grounding',
+  rate: 0.48,
+  pitch: 0.72,
+  vowelStretch: 1.45,
+  roomSize: 'small-warm',
+};
+
+const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
+
+const formatMantraForDisplay = (text: string) => text.replace(/\s*-\s*/g, ' \u00b7 ');
+
+const buildVoicedResonanceText = (text: string, profile: ResonancePlaybackProfile) => {
+  const compact = text.replace(/\s*-\s*/g, '').replace(/\s*\u00b7\s*/g, '').toLowerCase();
+  return compact.replace(/[aeiou]/g, (vowel) => vowel.repeat(Math.max(2, Math.round(profile.vowelStretch))));
+};
+
+const buildSpeechOptions = (profile: ResonancePlaybackProfile) => {
+  const modeRateAdjust: Record<ResonanceMode, number> = {
+    grounding: -0.02,
+    calming: -0.05,
+    energizing: 0.06,
+  };
+
+  const timbrePitchAdjust: Record<VoiceTimbre, number> = {
+    masculine: -0.08,
+    neutral: 0,
+    feminine: 0.1,
+  };
+
+  return {
+    language: 'en-US',
+    rate: Math.max(0.35, Math.min(0.7, profile.rate + modeRateAdjust[profile.mode])),
+    pitch: Math.max(0.55, Math.min(1.0, profile.pitch + timbrePitchAdjust[profile.timbre])),
+  };
+};
 
 export const MantraCreationScreen: React.FC = () => {
   const navigation = useNavigation<MantraCreationNavigationProp>();
@@ -83,63 +144,124 @@ export const MantraCreationScreen: React.FC = () => {
     finalImageUrl,
     category,
   } = route.params;
+
   const { addAnchor } = useAnchorStore();
+  const { getEffectiveTier, setDevTierOverride, setDevOverrideEnabled } = useSubscriptionStore();
+  const { anchorCount, incrementAnchorCount } = useAuthStore();
 
-  // Mock User State (Replace with real auth/subscription context later)
-  const [isPro, setIsPro] = useState(false); // Default to FREE for testing
-  const [isUnlocked, setIsUnlocked] = useState(false); // Temporary unlock for session
+  const isPro = getEffectiveTier() === 'pro';
+  const isFirstTime = anchorCount === 0;
 
+  const [isUnlocked, setIsUnlocked] = useState(false);
   const [loading, setLoading] = useState(false);
   const [mantra, setMantra] = useState<MantraResult | null>(null);
-  const [selectedStyle, setSelectedStyle] = useState<MantraStyle>('phonetic');
+  const [selectedStyle, setSelectedStyle] = useState<MantraStyle>('rhythmic');
   const [speakingStyle, setSpeakingStyle] = useState<MantraStyle | null>(null);
 
+  // Future-ready wiring for timbre/mode expansion.
+  const [playbackProfile] = useState<ResonancePlaybackProfile>(BASE_PLAYBACK_PROFILE);
+
+  const coreResonance = useMemo(() => {
+    const normalizedLetters = distilledLetters
+      .map((letter) => letter.replace(/[^a-z]/gi, '').charAt(0).toUpperCase())
+      .filter(Boolean);
+
+    if (normalizedLetters.length >= 4) {
+      return normalizedLetters.slice(0, 4);
+    }
+
+    return [...normalizedLetters, 'L', 'R', 'N', 'T'].slice(0, 4);
+  }, [distilledLetters]);
+
   useEffect(() => {
-    // Determine if we should auto-generate
-    // If Pro or Unlocked, generate immediately.
-    // If Free, show the "Locked" state first.
-    if (isPro || isUnlocked) {
+    if (!isPro && !isFirstTime && !isUnlocked) {
+      handleSkip();
+      return;
+    }
+
+    if ((isPro && !isFirstTime) || isUnlocked) {
       generateMantra();
     }
-  }, [isPro, isUnlocked]);
+  }, [isPro, isUnlocked, isFirstTime]);
+
+  useEffect(() => {
+    return () => {
+      Speech.stop();
+    };
+  }, []);
+
+  const handleSkip = () => {
+    const anchorId = `temp-${Date.now()}`;
+    const newAnchor: Anchor = {
+      id: anchorId,
+      userId: 'user-123',
+      intentionText,
+      category,
+      distilledLetters,
+      baseSigilSvg,
+      reinforcedSigilSvg,
+      structureVariant: structureVariant || 'balanced',
+      reinforcementMetadata,
+      enhancementMetadata,
+      enhancedImageUrl: finalImageUrl,
+      mantraText: '',
+      isCharged: false,
+      activationCount: 0,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
+
+    addAnchor(newAnchor);
+    incrementAnchorCount();
+    navigation.navigate('ChargeSetup', { anchorId });
+  };
+
+  const buildPattern = (letters: string[], vowels: [string, string][]) =>
+    letters
+      .map((letter, index) => {
+        const [start, end] = vowels[index % vowels.length];
+        return `${start}${letter}${end}`;
+      })
+      .join('-')
+      .toUpperCase();
 
   const generateMantra = async () => {
     setLoading(true);
+
     try {
-      // Mock API call for MVP - later replace with real backend
-      await new Promise(resolve => setTimeout(resolve, 1500));
+      await new Promise((resolve) => setTimeout(resolve, 1300));
 
-      const letters = distilledLetters.slice(0, 4); // Use first 4 letters for consistency
+      const letters = coreResonance;
 
-      // 1. Rhythmic V-C-V: AS-AG-EL pattern
-      const rhythmic = letters.map((l, i) => {
-        const vowels = ['A', 'E', 'I', 'O', 'U'];
-        const v1 = vowels[i % vowels.length];
-        return `${v1}${l}${vowels[(i + 1) % vowels.length]}`;
-      }).join('-').toUpperCase();
+      const rhythmic = buildPattern(letters, [
+        ['A', 'E'],
+        ['E', 'I'],
+        ['I', 'O'],
+        ['O', 'U'],
+      ]);
 
-      // 2. Ancient Guttural: SOG-UL-AR pattern (U, O, A)
-      const gutturalVowels = ['U', 'O', 'A'];
-      const syllabic = letters.map((l, i) => {
-        const v = gutturalVowels[i % gutturalVowels.length];
-        return `${l}${v}${letters[(i + 1) % letters.length] || 'R'}`;
-      }).join('-').toUpperCase();
+      const syllabic = buildPattern(letters, [
+        ['U', 'O'],
+        ['O', 'A'],
+        ['A', 'U'],
+        ['O', 'O'],
+      ]);
 
-      // 3. Light & Airy: SIE-GIL-IE pattern (I, E)
-      const lightVowels = ['I', 'E'];
-      const phonetic = letters.map((l, i) => {
-        const v = lightVowels[i % lightVowels.length];
-        return `${l}${v}${lightVowels[(i + 1) % lightVowels.length]}`;
-      }).join('-').toUpperCase();
+      const phonetic = buildPattern(letters, [
+        ['E', 'I'],
+        ['I', 'E'],
+        ['E', 'E'],
+        ['I', 'I'],
+      ]);
 
       setMantra({
         syllabic,
         rhythmic,
         phonetic,
-        letterByLetter: distilledLetters.join(' '),
+        letterByLetter: coreResonance.join(' '),
       });
     } catch (error) {
-      Alert.alert('Error', 'Failed to generate mantra');
+      Alert.alert('Error', 'Failed to shape your resonance options.');
     } finally {
       setLoading(false);
     }
@@ -147,52 +269,80 @@ export const MantraCreationScreen: React.FC = () => {
 
   const handleUnlock = () => {
     Alert.alert(
-      "Unlock Focus Phrase Forge",
-      "Vocal Anchors are a Pro feature. Upgrade to Anchor Pro to create unlimited custom phrases for your rituals.",
+      'Unlock Voice Tuning',
+      'Voice tuning is part of Anchor Pro. Upgrade to access full vocal resonance tools.',
       [
-        { text: "Cancel", style: "cancel" },
+        { text: 'Cancel', style: 'cancel' },
         {
-          text: "Upgrade to Pro ($4.99/mo)",
+          text: 'Upgrade to Pro ($4.99/mo)',
           onPress: () => {
-            // Mock upgrade flow
-            Alert.alert("Welcome to Pro!", "You now have access to Mantra creation.", [
-              { text: "Let's Go", onPress: () => setIsPro(true) }
+            Alert.alert('Welcome to Pro', 'Voice tuning is now available.', [
+              {
+                text: 'Continue',
+                onPress: () => {
+                  setDevTierOverride('pro');
+                  setDevOverrideEnabled(true);
+                },
+              },
             ]);
-          }
+          },
         },
         {
-          text: "One-Time Unlock (Demo)",
-          onPress: () => setIsUnlocked(true)
-        }
+          text: 'One-Time Unlock (Demo)',
+          onPress: () => setIsUnlocked(true),
+        },
       ]
     );
   };
 
-  const handleSpeak = (text: string, style: MantraStyle) => {
-    if (speakingStyle === style) {
-      Speech.stop();
-      setSpeakingStyle(null);
-    } else {
-      setSpeakingStyle(style);
-      Speech.speak(text, {
-        language: 'en',
-        rate: 0.8,
-        pitch: 0.9,
-        onDone: () => setSpeakingStyle(null),
-        onError: () => setSpeakingStyle(null),
-      });
+  const handleSelectStyle = async (style: MantraStyle) => {
+    setSelectedStyle(style);
+    await safeHaptics.selection();
+  };
+
+  const stopSpeaking = () => {
+    Speech.stop();
+    setSpeakingStyle(null);
+  };
+
+  const handleSpeak = async (text: string, style: MantraStyle) => {
+    if (!text || text === '...') {
+      return;
     }
+
+    if (speakingStyle === style) {
+      stopSpeaking();
+      await safeHaptics.selection();
+      return;
+    }
+
+    stopSpeaking();
+    setSelectedStyle(style);
+    setSpeakingStyle(style);
+
+    await safeHaptics.impact(Haptics.ImpactFeedbackStyle.Soft);
+
+    const voicedText = buildVoicedResonanceText(text, playbackProfile);
+    const speechOptions = buildSpeechOptions(playbackProfile);
+
+    Speech.speak(voicedText, {
+      ...speechOptions,
+      onDone: () => setSpeakingStyle(null),
+      onStopped: () => setSpeakingStyle(null),
+      onError: () => setSpeakingStyle(null),
+    });
   };
 
   const handleContinue = () => {
-    if (!mantra) return;
+    if (!mantra) {
+      return;
+    }
 
     const anchorId = `temp-${Date.now()}`;
 
-    // Create the final anchor object and save to store
     const newAnchor: Anchor = {
       id: anchorId,
-      userId: 'user-123', // Mock user ID for MVP
+      userId: 'user-123',
       intentionText,
       category,
       distilledLetters,
@@ -209,161 +359,132 @@ export const MantraCreationScreen: React.FC = () => {
       updatedAt: new Date(),
     };
 
-    // DEBUG: Log visual asset state
-    console.log('🔍 [MantraCreation] Creating anchor with visuals:', {
-      baseSigilSvg: baseSigilSvg ? `${baseSigilSvg.substring(0, 50)}...` : 'MISSING',
-      reinforcedSigilSvg: reinforcedSigilSvg ? 'present' : 'none',
-      enhancedImageUrl: finalImageUrl || 'none',
-      structureVariant: structureVariant || 'balanced',
-    });
-
     addAnchor(newAnchor);
-
-    // Navigate to new redesigned charging flow (Phase 2.7)
-    navigation.navigate('ChargeSetup', {
-      anchorId: anchorId,
-    });
+    incrementAnchorCount();
+    navigation.navigate('ChargeSetup', { anchorId });
   };
 
-  const renderLockedState = () => (
+  const renderIntroductionState = () => (
     <View style={styles.lockedContainer}>
-      <View style={styles.lockIconContainer}>
-        <Lock size={64} color={colors.gold} />
-      </View>
-      <Text style={styles.lockedTitle}>Unlock Your Vocal Anchor</Text>
-      <Text style={styles.lockedText}>
-        Create sound patterns that amplify your intention during rituals. Pro members unlock custom vocal anchors.
-      </Text>
+      <GlassCard style={styles.lockedGlass}>
+        <View style={styles.lockIconContainer}>
+          {isPro ? <Volume2 size={40} color={colors.gold} /> : <Lock size={40} color={colors.gold} />}
+        </View>
 
-      <TouchableOpacity
-        style={styles.unlockButton}
-        onPress={handleUnlock}
-        activeOpacity={0.8}
-      >
-        <LinearGradient
-          colors={[colors.gold, '#B8860B']}
-          style={styles.gradientButton}
+        <Text style={styles.lockedTitle}>{isPro ? 'Tune Your Voice Anchor' : 'Unlock Voice Tuning'}</Text>
+        <Text style={styles.lockedText}>
+          {isPro
+            ? 'This is a quiet tuning moment. Listen for the resonance your body accepts first.'
+            : 'Voice tuning is available in Pro for a full resonance selection experience.'}
+        </Text>
+
+        <TouchableOpacity
+          style={styles.unlockButton}
+          onPress={isPro ? generateMantra : handleUnlock}
+          activeOpacity={0.85}
         >
-          <Text style={styles.unlockButtonText}>Unlock Vocal Anchors</Text>
-        </LinearGradient>
-      </TouchableOpacity>
+          <LinearGradient colors={[colors.gold, '#B8860B']} style={styles.gradientButton}>
+            <Text style={styles.unlockButtonText}>{isPro ? 'Begin Tuning' : 'Unlock Voice Tuning'}</Text>
+          </LinearGradient>
+        </TouchableOpacity>
 
-      <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backLink}>
-        <Text style={styles.backLinkText}>Maybe later</Text>
-      </TouchableOpacity>
+        <TouchableOpacity onPress={handleSkip} style={styles.backLink}>
+          <Text style={styles.backLinkText}>Maybe later</Text>
+        </TouchableOpacity>
+      </GlassCard>
     </View>
   );
 
   const renderMantraSelection = () => (
     <View style={styles.selectionContainer}>
-      <View style={styles.heroSection}>
-        <LinearGradient
-          colors={['rgba(62, 44, 91, 0.8)', 'rgba(15, 20, 25, 1)']}
-          style={styles.heroGradient}
-        >
-          <View style={styles.heroHeader}>
-            <Info size={20} color={colors.gold} />
-            <Text style={styles.heroTitle}>Sound Signature</Text>
+      <View style={styles.primerSection}>
+        <GlassCard style={styles.primerCard}>
+          <View style={styles.primerHeader}>
+            <Info size={16} color={colors.gold} />
+            <Text style={styles.primerTitle}>Sound Signature</Text>
           </View>
-          <Text style={styles.heroText}>
-            Each pattern shapes how your body holds the sound.
+
+          <Text style={styles.primerText}>
+            Each sound pattern carries a different resonance. Listen, feel, and choose the one that
+            settles you.
           </Text>
 
           <View style={styles.tabContainer}>
             <View style={[styles.tab, styles.tabActive]}>
               <Text style={styles.tabTextActive}>Sonic</Text>
             </View>
-            <View style={styles.tab}>
+            <View style={styles.tabMuted}>
               <Text style={styles.tabText}>Visual</Text>
-              <Text style={styles.tabSoon}>Soon</Text>
+              <Text style={styles.tabMeta}>Coming Soon</Text>
             </View>
-            <View style={styles.tab}>
+            <View style={styles.tabMuted}>
               <Text style={styles.tabText}>Somatic</Text>
-              <Text style={styles.tabSoon}>Soon</Text>
+              <Text style={styles.tabMeta}>Coming Soon</Text>
             </View>
           </View>
-        </LinearGradient>
+        </GlassCard>
       </View>
 
-      <View style={styles.sourceContainer}>
-        <Text style={styles.sourceLabel}>CORE RESONANCE: </Text>
-        <Text style={styles.sourceValue}>{distilledLetters.join(' ')}</Text>
+      <View style={styles.coreStrip}>
+        <Text style={styles.coreLabel}>Core Resonance</Text>
+        <Text style={styles.coreValue}>{coreResonance.join('   ')}</Text>
       </View>
 
-      <View style={styles.stylesList}>
-        {MANTRA_STYLES.map((style) => {
-          const isActive = selectedStyle === style.id;
-          const mantraText = mantra?.[style.id] || '...';
-          const isSpeaking = speakingStyle === style.id;
+      <View>
+        <View style={styles.tileList}>
+          {MANTRA_STYLES.map((style) => {
+            const mantraText = mantra?.[style.id] || '...';
+            const isPlaying = speakingStyle === style.id;
+            const isDimmed = Boolean(speakingStyle && speakingStyle !== style.id);
 
-          return (
-            <TouchableOpacity
-              key={style.id}
-              style={[styles.premiumCard, isActive && styles.premiumCardActive]}
-              onPress={() => setSelectedStyle(style.id)}
-              activeOpacity={0.9}
-            >
-              <View style={styles.premiumCardContent}>
-                <View style={styles.premiumIconContainer}>
-                  <Text style={styles.premiumIcon}>{style.icon}</Text>
-                </View>
-                <View style={styles.premiumTextContainer}>
-                  <Text style={[styles.premiumTitle, isActive && styles.textActive]}>{style.title}</Text>
-                  <Text style={styles.premiumDesc} numberOfLines={2}>{style.description}</Text>
-                </View>
-                {isActive && (
-                  <View style={styles.premiumCheck}>
-                    <Play size={12} fill={colors.gold} color={colors.gold} />
-                  </View>
-                )}
-              </View>
-
-              <View style={styles.premiumMantraBox}>
-                <Text style={[styles.premiumMantraText, isActive && styles.textActive]}>{mantraText}</Text>
-                <TouchableOpacity
-                  style={styles.premiumSpeaker}
-                  onPress={() => handleSpeak(mantraText, style.id)}
-                >
-                  {isSpeaking ? (
-                    <ActivityIndicator size="small" color={colors.gold} />
-                  ) : (
-                    <Volume2 size={20} color={isActive ? colors.gold : colors.text.tertiary} />
-                  )}
-                </TouchableOpacity>
-              </View>
-
-              {isActive && <View style={styles.activeIndicator} />}
-            </TouchableOpacity>
-          );
-        })}
+            return (
+              <ResonanceTile
+                key={style.id}
+                styleInfo={style}
+                mantraText={mantraText}
+                isActive={selectedStyle === style.id}
+                isPlaying={isPlaying}
+                isDimmed={isDimmed}
+                onSelect={() => handleSelectStyle(style.id)}
+                onPlay={() => handleSpeak(mantraText, style.id)}
+              />
+            );
+          })}
+        </View>
       </View>
     </View>
   );
 
+  const showSelection = (isPro && !isFirstTime) || isUnlocked || (mantra && !loading);
+
   return (
     <SafeAreaView style={styles.container}>
-      <ScrollView contentContainerStyle={styles.scrollContent}>
+      <LinearGradient
+        colors={['#06090F', '#0F1419', '#151C27']}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={StyleSheet.absoluteFillObject}
+      />
+
+      <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
         <View style={styles.header}>
-          <Text style={styles.title}>Your Vocal Anchor</Text>
-          <Text style={styles.subtitle}>
-            Choose the sound that holds your intention.
-          </Text>
+          <Text style={styles.title}>Tune Your Voice Anchor</Text>
+          <Text style={styles.subtitle}>Choose the sound your body responds to.</Text>
         </View>
 
-        {(isPro || isUnlocked) ? (
+        {showSelection ? (
           loading ? (
             <View style={styles.loadingContainer}>
-              <ActivityIndicator size="large" color={colors.gold} />
-              <Text style={styles.loadingText}>Generating your patterns...</Text>
+              <GlassCard style={styles.loadingCard}>
+                <ActivityIndicator size="large" color={colors.gold} />
+                <Text style={styles.loadingText}>Shaping your resonance options...</Text>
+              </GlassCard>
             </View>
           ) : (
             <>
               {renderMantraSelection()}
               <View style={styles.footer}>
-                <TouchableOpacity
-                  style={styles.continueButton}
-                  onPress={handleContinue}
-                >
+                <TouchableOpacity style={styles.continueButton} onPress={handleContinue} activeOpacity={0.9}>
                   <Text style={styles.continueText}>Continue to Ritual</Text>
                   <ChevronRight size={20} color={colors.charcoal} />
                 </TouchableOpacity>
@@ -371,12 +492,150 @@ export const MantraCreationScreen: React.FC = () => {
             </>
           )
         ) : (
-          renderLockedState()
+          renderIntroductionState()
         )}
       </ScrollView>
     </SafeAreaView>
   );
 };
+
+function GlassCard({ children, style }: { children: React.ReactNode; style?: StyleProp<ViewStyle> }) {
+  if (Platform.OS === 'android') {
+    return <View style={[styles.glassFallback, style]}>{children}</View>;
+  }
+
+  return (
+    <BlurView intensity={18} tint="dark" style={[styles.glassCard, style]}>
+      {children}
+    </BlurView>
+  );
+}
+
+function ResonanceTile({
+  styleInfo,
+  mantraText,
+  isActive,
+  isPlaying,
+  isDimmed,
+  onSelect,
+  onPlay,
+}: {
+  styleInfo: MantraStyleInfo;
+  mantraText: string;
+  isActive: boolean;
+  isPlaying: boolean;
+  isDimmed: boolean;
+  onSelect: () => void;
+  onPlay: () => void;
+}) {
+  const selectionProgress = useSharedValue(isActive ? 1 : 0);
+  const playbackProgress = useSharedValue(isPlaying ? 1 : 0);
+  const dimProgress = useSharedValue(isDimmed ? 1 : 0);
+  const pressScale = useSharedValue(1);
+  const pulseProgress = useSharedValue(0.2);
+
+  useEffect(() => {
+    selectionProgress.value = withTiming(isActive ? 1 : 0, {
+      duration: 450,
+      easing: Easing.out(Easing.cubic),
+    });
+  }, [isActive, selectionProgress]);
+
+  useEffect(() => {
+    dimProgress.value = withTiming(isDimmed ? 1 : 0, {
+      duration: 380,
+      easing: Easing.out(Easing.cubic),
+    });
+  }, [isDimmed, dimProgress]);
+
+  useEffect(() => {
+    if (isPlaying) {
+      playbackProgress.value = withTiming(1, { duration: 380, easing: Easing.out(Easing.cubic) });
+      pulseProgress.value = withRepeat(
+        withSequence(
+          withTiming(1, { duration: 1500, easing: Easing.inOut(Easing.sin) }),
+          withTiming(0.35, { duration: 1500, easing: Easing.inOut(Easing.sin) })
+        ),
+        -1,
+        true
+      );
+    } else {
+      playbackProgress.value = withTiming(0, { duration: 320, easing: Easing.out(Easing.cubic) });
+      cancelAnimation(pulseProgress);
+      pulseProgress.value = withTiming(0.2, { duration: 280, easing: Easing.out(Easing.cubic) });
+    }
+  }, [isPlaying, playbackProgress, pulseProgress]);
+
+  const cardStyle = useAnimatedStyle(() => {
+    const borderColor = interpolateColor(
+      selectionProgress.value,
+      [0, 1],
+      ['rgba(255, 255, 255, 0.08)', 'rgba(212, 175, 55, 0.82)']
+    );
+
+    return {
+      opacity: interpolate(dimProgress.value, [0, 1], [1, 0.42]),
+      borderColor,
+      transform: [
+        { scale: pressScale.value * interpolate(selectionProgress.value, [0, 1], [1, 1.02]) },
+      ],
+      shadowOpacity: interpolate(selectionProgress.value, [0, 1], [0.08, 0.28]) +
+        interpolate(playbackProgress.value, [0, 1], [0, 0.15]),
+      shadowRadius: interpolate(selectionProgress.value, [0, 1], [8, 16]),
+      elevation: interpolate(selectionProgress.value, [0, 1], [1, 8]),
+    };
+  });
+
+  const haloStyle = useAnimatedStyle(() => ({
+    opacity: interpolate(playbackProgress.value, [0, 1], [0.08, 0.34]) * pulseProgress.value,
+    transform: [{ scale: interpolate(pulseProgress.value, [0.2, 1], [0.96, 1.04]) }],
+  }));
+
+  const playButtonStyle = useAnimatedStyle(() => ({
+    backgroundColor: interpolateColor(
+      playbackProgress.value,
+      [0, 1],
+      ['rgba(255, 255, 255, 0.06)', 'rgba(212, 175, 55, 0.22)']
+    ),
+    borderColor: interpolateColor(
+      playbackProgress.value,
+      [0, 1],
+      ['rgba(255, 255, 255, 0.16)', 'rgba(212, 175, 55, 0.9)']
+    ),
+    transform: [{ scale: interpolate(playbackProgress.value, [0, 1], [1, 1.04]) }],
+  }));
+
+  return (
+    <AnimatedPressable
+      onPress={onSelect}
+      onPressIn={() => {
+        pressScale.value = withTiming(0.99, { duration: 120, easing: Easing.out(Easing.cubic) });
+      }}
+      onPressOut={() => {
+        pressScale.value = withTiming(1, { duration: 180, easing: Easing.out(Easing.cubic) });
+      }}
+      style={[styles.resonanceTile, cardStyle]}
+    >
+      <GlassCard style={styles.resonanceTileGlass}>
+        <View style={styles.tileHeader}>
+          <Text style={styles.tileTitle}>{styleInfo.title}</Text>
+          {isActive ? <Text style={styles.tileActiveLabel}>Selected</Text> : null}
+        </View>
+
+        <Text style={styles.tileDescription}>{styleInfo.description}</Text>
+
+        <View style={styles.mantraStage}>
+          <Animated.View style={[styles.mantraHalo, haloStyle]} />
+          <Text style={styles.mantraText}>{formatMantraForDisplay(mantraText)}</Text>
+        </View>
+
+        <AnimatedPressable style={[styles.playButton, playButtonStyle]} onPress={onPlay}>
+          {isPlaying ? <Pause size={20} color={colors.gold} /> : <Play size={20} color={colors.bone} fill={colors.bone} />}
+        </AnimatedPressable>
+      </GlassCard>
+    </AnimatedPressable>
+  );
+}
 
 const styles = StyleSheet.create({
   container: {
@@ -384,12 +643,12 @@ const styles = StyleSheet.create({
     backgroundColor: colors.background.primary,
   },
   scrollContent: {
-    padding: spacing.md,
-    paddingBottom: 150, // Increased to ensure footer clears tab bar
+    paddingHorizontal: spacing.md,
+    paddingBottom: 140,
   },
   header: {
     marginTop: spacing.md,
-    marginBottom: spacing.xl,
+    marginBottom: spacing.lg,
     alignItems: 'center',
   },
   title: {
@@ -397,279 +656,287 @@ const styles = StyleSheet.create({
     fontFamily: typography.fonts.heading,
     color: colors.gold,
     marginBottom: spacing.xs,
+    textAlign: 'center',
   },
   subtitle: {
-    fontSize: typography.sizes.body1,
+    fontSize: typography.sizes.body2,
     fontFamily: typography.fonts.body,
     color: colors.text.secondary,
     textAlign: 'center',
+    lineHeight: 22,
+    maxWidth: 320,
   },
   loadingContainer: {
-    padding: spacing.xxl,
+    marginTop: spacing.md,
+  },
+  loadingCard: {
+    borderRadius: 24,
+    paddingVertical: spacing.xl,
+    paddingHorizontal: spacing.lg,
     alignItems: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(212, 175, 55, 0.2)',
   },
   loadingText: {
     marginTop: spacing.md,
-    color: colors.text.tertiary,
+    color: colors.text.secondary,
     fontFamily: typography.fonts.body,
+    fontSize: typography.sizes.body2,
   },
-  // Locked State
   lockedContainer: {
-    backgroundColor: colors.background.card,
+    marginTop: spacing.md,
+  },
+  lockedGlass: {
     borderRadius: 24,
-    padding: spacing.xl,
+    paddingVertical: spacing.xl,
+    paddingHorizontal: spacing.lg,
     alignItems: 'center',
-    marginVertical: spacing.md,
     borderWidth: 1,
-    borderColor: colors.deepPurple,
+    borderColor: 'rgba(212, 175, 55, 0.24)',
   },
   lockIconContainer: {
-    width: 100,
-    height: 100,
-    borderRadius: 50,
-    backgroundColor: 'rgba(212, 175, 55, 0.1)',
-    justifyContent: 'center',
+    width: 82,
+    height: 82,
+    borderRadius: 41,
     alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(212, 175, 55, 0.1)',
     marginBottom: spacing.lg,
   },
   lockedTitle: {
     fontSize: typography.sizes.h3,
     fontFamily: typography.fonts.heading,
     color: colors.text.primary,
-    marginBottom: spacing.md,
+    marginBottom: spacing.sm,
+    textAlign: 'center',
   },
   lockedText: {
-    fontSize: typography.sizes.body1,
+    fontSize: typography.sizes.body2,
     fontFamily: typography.fonts.body,
     color: colors.text.secondary,
     textAlign: 'center',
+    lineHeight: 22,
     marginBottom: spacing.xl,
-    lineHeight: 24,
   },
   unlockButton: {
     width: '100%',
-    height: 56,
     borderRadius: 28,
+    height: 56,
     overflow: 'hidden',
     marginBottom: spacing.md,
   },
   gradientButton: {
-    width: '100%',
-    height: '100%',
-    justifyContent: 'center',
+    flex: 1,
     alignItems: 'center',
+    justifyContent: 'center',
   },
   unlockButtonText: {
-    fontSize: typography.sizes.button,
+    fontSize: typography.sizes.body2,
     fontFamily: typography.fonts.bodyBold,
     color: colors.charcoal,
-    textTransform: 'uppercase',
-    letterSpacing: 1,
+    letterSpacing: 0.8,
   },
   backLink: {
-    padding: spacing.sm,
+    paddingVertical: spacing.xs,
   },
   backLinkText: {
     color: colors.text.tertiary,
     fontFamily: typography.fonts.body,
     textDecorationLine: 'underline',
   },
-  // Selection State
-  // New Premium Design Styles
   selectionContainer: {
-    gap: spacing.lg,
+    gap: spacing.md,
   },
-  heroSection: {
-    borderRadius: 24,
-    overflow: 'hidden',
-    marginBottom: spacing.md,
+  primerSection: {
+    marginTop: spacing.xs,
+  },
+  primerCard: {
+    borderRadius: 22,
+    padding: spacing.lg,
     borderWidth: 1,
-    borderColor: 'rgba(212, 175, 55, 0.2)',
+    borderColor: 'rgba(212, 175, 55, 0.22)',
   },
-  heroGradient: {
-    padding: spacing.xl,
-  },
-  heroHeader: {
+  primerHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     marginBottom: spacing.sm,
   },
-  heroTitle: {
-    fontSize: 20,
+  primerTitle: {
+    marginLeft: spacing.xs,
+    fontSize: typography.sizes.h3,
     fontFamily: typography.fonts.heading,
     color: colors.gold,
-    marginLeft: spacing.xs,
   },
-  heroText: {
-    fontSize: 14,
+  primerText: {
+    fontSize: typography.sizes.body2,
+    fontFamily: typography.fonts.body,
     color: colors.text.secondary,
     lineHeight: 22,
-    fontFamily: typography.fonts.body,
-    marginBottom: spacing.lg,
+    marginBottom: spacing.md,
   },
   tabContainer: {
     flexDirection: 'row',
+    alignItems: 'center',
     gap: spacing.sm,
   },
   tab: {
+    borderRadius: 999,
     paddingHorizontal: spacing.md,
-    paddingVertical: spacing.xs,
-    borderRadius: 20,
-    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    paddingVertical: 7,
   },
   tabActive: {
     backgroundColor: colors.gold,
   },
+  tabMuted: {
+    borderRadius: 999,
+    paddingHorizontal: spacing.md,
+    paddingVertical: 7,
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.09)',
+  },
   tabText: {
     fontSize: 12,
-    color: colors.text.tertiary,
     fontFamily: typography.fonts.bodyBold,
+    color: 'rgba(245, 245, 220, 0.72)',
   },
   tabTextActive: {
     fontSize: 12,
+    fontFamily: typography.fonts.bodyBold,
     color: colors.charcoal,
-    fontFamily: typography.fonts.bodyBold,
   },
-  tabSoon: {
+  tabMeta: {
     fontSize: 9,
-    color: colors.text.tertiary,
     fontFamily: typography.fonts.body,
-    marginLeft: 4,
-    opacity: 0.6,
+    color: 'rgba(245, 245, 220, 0.42)',
+    marginTop: 1,
   },
-  sourceContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: spacing.sm,
-    backgroundColor: 'rgba(0,0,0,0.3)',
-    borderRadius: 12,
-  },
-  sourceLabel: {
-    fontSize: 10,
-    color: colors.text.tertiary,
-    fontFamily: typography.fonts.bodyBold,
-    letterSpacing: 1,
-  },
-  sourceValue: {
-    fontSize: 14,
-    color: colors.gold,
-    fontFamily: typography.fonts.mono,
-    letterSpacing: 4,
-  },
-  stylesList: {
-    gap: spacing.md,
-  },
-  premiumCard: {
-    backgroundColor: colors.background.card,
-    borderRadius: 20,
-    padding: spacing.lg,
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.05)',
-  },
-  premiumCardActive: {
-    borderColor: colors.gold,
-    backgroundColor: 'rgba(212, 175, 55, 0.05)',
-  },
-  premiumCardContent: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: spacing.lg,
-  },
-  premiumIconContainer: {
-    width: 48,
-    height: 48,
+  coreStrip: {
     borderRadius: 14,
-    backgroundColor: 'rgba(255,255,255,0.05)',
-    justifyContent: 'center',
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.md,
+    borderWidth: 1,
+    borderColor: 'rgba(212, 175, 55, 0.16)',
+    backgroundColor: 'rgba(4, 8, 14, 0.65)',
     alignItems: 'center',
-    marginRight: spacing.md,
   },
-  premiumIcon: {
-    fontSize: 24,
-  },
-  premiumTextContainer: {
-    flex: 1,
-  },
-  premiumTitle: {
-    fontSize: 17,
-    fontFamily: typography.fonts.heading,
-    color: colors.text.primary,
+  coreLabel: {
+    fontSize: 10,
+    letterSpacing: 1.25,
+    textTransform: 'uppercase',
+    color: 'rgba(245, 245, 220, 0.62)',
+    fontFamily: typography.fonts.bodyBold,
     marginBottom: 4,
   },
-  premiumDesc: {
-    fontSize: 12,
-    color: colors.text.tertiary,
-    fontFamily: typography.fonts.body,
-    lineHeight: 18,
+  coreValue: {
+    fontSize: 15,
+    letterSpacing: 6,
+    color: 'rgba(245, 245, 220, 0.68)',
+    fontFamily: typography.fonts.mono,
   },
-  premiumCheck: {
-    width: 24,
-    height: 24,
-    borderRadius: 6,
-    backgroundColor: 'rgba(212, 175, 55, 0.1)',
-    justifyContent: 'center',
-    alignItems: 'center',
+  tileList: {
+    gap: spacing.md,
   },
-  premiumMantraBox: {
+  resonanceTile: {
+    borderRadius: 22,
+    borderWidth: 1,
+    backgroundColor: colors.ritual.glass,
+    shadowColor: colors.gold,
+    shadowOffset: { width: 0, height: 8 },
+  },
+  resonanceTileGlass: {
+    borderRadius: 22,
+    padding: spacing.lg,
+    borderWidth: 1,
+    borderColor: 'rgba(212, 175, 55, 0.12)',
+  },
+  tileHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(0,0,0,0.4)',
-    borderRadius: 16,
-    padding: spacing.md,
-    height: 64,
+    justifyContent: 'space-between',
+    marginBottom: spacing.xs,
   },
-  premiumMantraText: {
-    flex: 1,
-    fontSize: 20,
+  tileTitle: {
+    fontSize: typography.sizes.h4,
     fontFamily: typography.fonts.heading,
-    color: colors.text.secondary,
-    textAlign: 'center',
-    letterSpacing: 2,
+    color: colors.text.primary,
   },
-  premiumSpeaker: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: 'rgba(255,255,255,0.05)',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  activeIndicator: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    bottom: 0,
-    width: 4,
-    backgroundColor: colors.gold,
-    borderTopLeftRadius: 20,
-    borderBottomLeftRadius: 20,
-  },
-  textActive: {
+  tileActiveLabel: {
+    fontSize: 10,
+    letterSpacing: 1,
+    textTransform: 'uppercase',
     color: colors.gold,
+    fontFamily: typography.fonts.bodyBold,
+  },
+  tileDescription: {
+    fontSize: typography.sizes.caption,
+    fontFamily: typography.fonts.body,
+    color: colors.text.secondary,
+    lineHeight: 18,
+    marginBottom: spacing.md,
+  },
+  mantraStage: {
+    height: 78,
+    borderRadius: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.08)',
+    backgroundColor: 'rgba(8, 12, 19, 0.75)',
+    overflow: 'hidden',
+  },
+  mantraHalo: {
+    position: 'absolute',
+    width: '84%',
+    height: '78%',
+    borderRadius: 999,
+    backgroundColor: 'rgba(212, 175, 55, 0.26)',
+  },
+  mantraText: {
+    fontSize: 26,
+    fontFamily: typography.fonts.heading,
+    color: colors.bone,
+    letterSpacing: 1.6,
+    textAlign: 'center',
+  },
+  playButton: {
+    alignSelf: 'center',
+    marginTop: spacing.md,
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
   },
   footer: {
-    marginTop: spacing.xl,
+    marginTop: spacing.lg,
     paddingBottom: spacing.xl,
   },
   continueButton: {
-    backgroundColor: colors.gold,
-    height: 60,
+    height: 58,
     borderRadius: 30,
-    flexDirection: 'row',
+    backgroundColor: colors.gold,
     alignItems: 'center',
     justifyContent: 'center',
+    flexDirection: 'row',
     shadowColor: colors.gold,
     shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 0.4,
-    shadowRadius: 15,
-    elevation: 8,
+    shadowOpacity: 0.34,
+    shadowRadius: 14,
+    elevation: 7,
   },
   continueText: {
-    fontSize: 16,
-    fontFamily: typography.fonts.bodyBold,
     color: colors.charcoal,
+    fontSize: typography.sizes.body1,
+    fontFamily: typography.fonts.bodyBold,
     marginRight: spacing.xs,
-    letterSpacing: 1.5,
+    letterSpacing: 0.7,
+  },
+  glassCard: {
+    overflow: 'hidden',
+  },
+  glassFallback: {
+    backgroundColor: 'rgba(18, 24, 32, 0.82)',
   },
 });

@@ -5,8 +5,8 @@
 >
 > **📍 New to this repo?** Start with `/docs/START_HERE.md` for a complete orientation guide.
 >
-> **🚀 Current Mobile App:** `/apps/mobile/` (production-ready, all features)
-> **🧟 Legacy Code:** `/legacy/frontend/` (deprecated, do not use)
+> **🚀 Current Mobile App:** `/anchor/mobile/` (v2.0 - production-ready, all features)
+> **🧟 Legacy Code:** `/archive/legacy-frontend/` (deprecated, do not use)
 > **📊 Audit Status:** Comprehensive end-of-week audit complete (Jan 25, 2026)
 
 Anchor is a mobile platform that transforms abstract goals into tangible, AI-generated visual sigils. By fusing ancient sigil magick methodology with modern generative AI, Anchor allows users to embed intentions into their daily subconscious through ritualistic charging and activation.
@@ -17,7 +17,7 @@ Built with React Native (Expo 52), TypeScript, and backed by Supabase + Prisma, 
 
 ## 🚀 Project Status: **FULL GRIND MODE - Launch Window: February 20th**
 
-**Current Version**: `v2.0.0-alpha` (apps/mobile)
+**Current Version**: `v2.0.0-alpha` (anchor/mobile)
 **Active Development Branch**: `claude/update-project-status-ePl6j`
 **Last Updated**: January 25, 2026 (End-of-Week Audit)
 **Architecture Refactor**: Phase 3 of 4 Complete ✅

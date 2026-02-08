@@ -39,6 +39,15 @@ export const colors = {
     card: '#252529',
   },
 
+  // Ritual Surface Tokens
+  ritual: {
+    overlay: 'rgba(8, 10, 14, 0.72)',
+    glass: 'rgba(15, 20, 25, 0.62)',
+    glassStrong: 'rgba(12, 17, 24, 0.82)',
+    border: 'rgba(212, 175, 55, 0.24)',
+    softGlow: 'rgba(212, 175, 55, 0.14)',
+  },
+
   // Text Shades
   text: {
     primary: '#F5F5DC',

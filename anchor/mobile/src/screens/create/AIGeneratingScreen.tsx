@@ -18,6 +18,7 @@ import { RootStackParamList, AIStyle } from '@/types';
 import { API_URL } from '@/config';
 import { useAuthStore } from '@/stores/authStore';
 import { logger } from '@/utils/logger';
+import { useSubscription } from '@/hooks/useSubscription';
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 const IS_ANDROID = Platform.OS === 'android';
@@ -50,6 +51,12 @@ const STYLE_REFINEMENT_PHRASES: Record<AIStyle, string> = {
   watercolor: 'Blending tone and atmosphere',
   gold_leaf: 'Layering luminous essence',
   cosmic: 'Attuning celestial energies',
+  obsidian_mono: 'Carving contrast and stillness',
+  aurora_glow: 'Diffusing spectral light',
+  ember_trace: 'Igniting warm edge detail',
+  echo_chamber: 'Layering resonant echoes',
+  monolith_ink: 'Grounding bold structural weight',
+  celestial_grid: 'Synchronizing astral geometry',
 };
 
 /**
@@ -65,6 +72,7 @@ export default function AIGeneratingScreen() {
   const route = useRoute<AIGeneratingRouteProp>();
   const navigation = useNavigation<AIGeneratingNavigationProp>();
   const user = useAuthStore((state) => state.user);
+  const { isPro } = useSubscription();
 
   const {
     intentionText,
@@ -535,7 +543,7 @@ export default function AIGeneratingScreen() {
           userId,
           intentionText, // Critical: Pass the user's actual intention
           anchorId: `temp-${Date.now()}`,
-          tier: 'draft',
+          tier: isPro ? 'premium' : 'draft',
         }),
         signal: controller.signal, // Attach abort signal for timeout
       });

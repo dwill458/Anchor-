@@ -19,15 +19,12 @@ import {
   StyleSheet,
   TouchableOpacity,
   Animated,
-  Dimensions,
   ScrollView,
   AccessibilityInfo,
   BackHandler,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation, useRoute, RouteProp, useFocusEffect } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
-import { BlurView } from 'expo-blur';
 import { useAnchorStore } from '@/stores/anchorStore';
 import { useAuthStore } from '@/stores/authStore';
 import { useSettingsStore, ChargeDurationPreset } from '@/stores/settingsStore';
@@ -38,10 +35,10 @@ import { DepthCard } from './components/DepthCard';
 import { DurationPicker } from './components/DurationPicker';
 import { CommitmentGate } from './components/CommitmentGate';
 import { DefaultChargeDisplay } from './components/DefaultChargeDisplay';
+import { RitualScaffold } from './components/RitualScaffold';
+import { RitualTopBar } from './components/RitualTopBar';
 import { useRitualTransition } from './hooks/useRitualTransition';
 import { TIMING, EASING, type TransitionPhase, type DepthType } from './utils/transitionConstants';
-
-const { width, height } = Dimensions.get('window');
 
 type ChargeSetupRouteProp = RouteProp<RootStackParamList, 'ChargeSetup'>;
 type ChargeSetupNavigationProp = StackNavigationProp<RootStackParamList, 'ChargeSetup'>;
@@ -232,7 +229,7 @@ export const ChargeSetupScreen: React.FC = () => {
 
   if (!anchorId || !anchor) {
     return (
-      <SafeAreaView style={styles.container}>
+      <RitualScaffold>
         <View style={styles.errorContainer}>
           <Text style={styles.errorTitle}>Anchor Not Found</Text>
           <Text style={styles.errorText}>We could not load your anchor. Please try again.</Text>
@@ -240,30 +237,23 @@ export const ChargeSetupScreen: React.FC = () => {
             <Text style={styles.errorButtonText}>Go Back</Text>
           </TouchableOpacity>
         </View>
-      </SafeAreaView>
+      </RitualScaffold>
     );
   }
 
   return (
-    <SafeAreaView style={styles.container}>
+    <RitualScaffold>
       <Animated.View
         style={[StyleSheet.absoluteFill, { backgroundColor: colors.background.primary, opacity: backgroundDarken }]}
         pointerEvents="none"
       />
 
       <Animated.View style={{ opacity: uiOpacity }}>
-        <BlurView intensity={20} tint="dark" style={styles.headerBar}>
-          <TouchableOpacity
-            onPress={handleBack}
-            style={styles.backButton}
-            activeOpacity={0.7}
-            disabled={transitionPhase === 'transitioning'}
-          >
-            <Text style={styles.backIcon}>←</Text>
-          </TouchableOpacity>
-          <Text style={styles.headerTitle}>Charge Your Anchor</Text>
-          <View style={styles.backButton} />
-        </BlurView>
+        <RitualTopBar
+          onBack={handleBack}
+          title="Charge Your Anchor"
+          disableBack={transitionPhase === 'transitioning'}
+        />
       </Animated.View>
 
       <ScrollView
@@ -334,26 +324,12 @@ export const ChargeSetupScreen: React.FC = () => {
         glowValue={ctaGlow}
         buttonTextOpacity={buttonTextOpacity}
       />
-    </SafeAreaView>
+    </RitualScaffold>
   );
 };
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: colors.background.primary },
   scrollContent: { paddingBottom: spacing.xxxl },
-  headerBar: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.md,
-    borderBottomWidth: 1,
-    borderBottomColor: 'rgba(212, 175, 55, 0.2)',
-    overflow: 'hidden'
-  },
-  backButton: { width: 44, height: 44, justifyContent: 'center', alignItems: 'center', borderRadius: 22 },
-  backIcon: { fontSize: 24, color: colors.gold },
-  headerTitle: { fontSize: typography.sizes.h3, fontFamily: typography.fonts.heading, color: colors.gold, letterSpacing: 0.5 },
   promptSection: { paddingHorizontal: spacing.xl, paddingVertical: spacing.lg, alignItems: 'center' },
   promptText: {
     fontSize: typography.sizes.h3,

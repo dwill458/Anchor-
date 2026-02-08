@@ -13,23 +13,21 @@ import {
   StyleSheet,
   Pressable,
   Animated,
-  Dimensions,
   TouchableOpacity,
   Alert,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
-import { LinearGradient } from 'expo-linear-gradient';
 import { BlurView } from 'expo-blur';
 import { SvgXml } from 'react-native-svg';
-import Svg, { Circle, Defs, ClipPath, G } from 'react-native-svg';
+import Svg, { Circle } from 'react-native-svg';
 import * as Haptics from 'expo-haptics';
 import { useAnchorStore } from '@/stores/anchorStore';
 import type { RootStackParamList } from '@/types';
 import { colors, spacing, typography } from '@/theme';
-
-const { width, height } = Dimensions.get('window');
+import { logger } from '@/utils/logger';
+import { RitualScaffold } from './components/RitualScaffold';
+import { InstructionGlassCard } from './components/InstructionGlassCard';
 
 // Visual constants
 const ORB_SIZE = 240;
@@ -80,18 +78,13 @@ export const SealAnchorScreen: React.FC = () => {
 
   if (!anchor) {
     return (
-      <LinearGradient
-        colors={['#0F1419', '#0A0A0C']}
-        style={styles.container}
-      >
-        <SafeAreaView style={styles.safeArea}>
-          <View style={styles.errorContainer}>
-            <Text style={styles.errorText}>
-              Anchor not found. Returning to vault...
-            </Text>
-          </View>
-        </SafeAreaView>
-      </LinearGradient>
+      <RitualScaffold>
+        <View style={styles.errorContainer}>
+          <Text style={styles.errorText}>
+            Anchor not found. Returning to vault...
+          </Text>
+        </View>
+      </RitualScaffold>
     );
   }
 
@@ -246,7 +239,7 @@ export const SealAnchorScreen: React.FC = () => {
         navigation.replace('ChargeComplete', { anchorId });
       }, 800);
     } catch (error) {
-      console.error('Failed to update anchor:', error);
+      logger.warn('Failed to update anchor locally', error);
       Alert.alert('Error', 'Failed to save seal. Please try again.');
     }
   };
@@ -297,126 +290,125 @@ export const SealAnchorScreen: React.FC = () => {
   // ══════════════════════════════════════════════════════════════
 
   return (
-    <LinearGradient
-      colors={['#0F1419', '#0A0A0C']}
-      style={styles.container}
-    >
-      <SafeAreaView style={styles.safeArea}>
+    <RitualScaffold>
+      <View style={styles.topBar}>
         {/* Skip Button */}
         {!isHolding && !isComplete && (
           <TouchableOpacity
             style={styles.skipButton}
             onPress={handleSkip}
-            activeOpacity={0.7}
+            activeOpacity={0.8}
           >
             <Text style={styles.skipText}>Skip</Text>
           </TouchableOpacity>
         )}
+      </View>
 
-        {/* Center Content */}
-        <View style={styles.centerContent}>
-          {/* Glow Halo (behind orb) */}
+      {/* Center Content */}
+      <View style={styles.centerContent}>
+        {/* Glow Halo (behind orb) */}
+        <Animated.View
+          style={[
+            styles.glowContainer,
+            {
+              transform: [{ scale: glowScaleAnim }],
+              opacity: glowOpacityAnim,
+            },
+          ]}
+        >
+          <View style={styles.glowHalo} />
+        </Animated.View>
+
+        {/* Orb + Sigil (Pressable) */}
+        <Pressable
+          onPressIn={handlePressIn}
+          onPressOut={handlePressOut}
+          disabled={isComplete}
+          style={styles.orbPressable}
+        >
           <Animated.View
             style={[
-              styles.glowContainer,
+              styles.orbContainer,
               {
-                transform: [{ scale: glowScaleAnim }],
-                opacity: glowOpacityAnim,
+                transform: [{ scale: orbScaleAnim }],
               },
             ]}
           >
-            <View style={styles.glowHalo} />
-          </Animated.View>
-
-          {/* Orb + Sigil (Pressable) */}
-          <Pressable
-            onPressIn={handlePressIn}
-            onPressOut={handlePressOut}
-            disabled={isComplete}
-            style={styles.orbPressable}
-          >
-            <Animated.View
-              style={[
-                styles.orbContainer,
-                {
-                  transform: [{ scale: orbScaleAnim }],
-                },
-              ]}
+            {/* Frosted Glass Orb */}
+            <AnimatedBlurView
+              intensity={40}
+              tint="dark"
+              style={styles.orbBlur}
             >
-              {/* Frosted Glass Orb */}
-              <AnimatedBlurView
-                intensity={40}
-                tint="dark"
-                style={styles.orbBlur}
-              >
-                <View style={styles.orbInner}>
-                  {/* Sigil (masked, low opacity) */}
-                  <View style={styles.sigilContainer}>
-                    <SvgXml
-                      xml={anchor.baseSigilSvg}
-                      width={SIGIL_SIZE}
-                      height={SIGIL_SIZE}
-                      opacity={0.4}
-                    />
-                  </View>
+              <View style={styles.orbInner}>
+                {/* Sigil (masked, low opacity) */}
+                <View style={styles.sigilContainer}>
+                  <SvgXml
+                    xml={anchor.baseSigilSvg}
+                    width={SIGIL_SIZE}
+                    height={SIGIL_SIZE}
+                    opacity={0.4}
+                  />
                 </View>
-              </AnimatedBlurView>
+              </View>
+            </AnimatedBlurView>
 
-              {/* Progress Ring (SVG overlay) */}
-              <Svg
-                width={ORB_SIZE}
-                height={ORB_SIZE}
-                style={styles.progressRing}
-              >
-                {/* Background ring (subtle) */}
-                <Circle
-                  cx={ORB_SIZE / 2}
-                  cy={ORB_SIZE / 2}
-                  r={RING_RADIUS}
-                  stroke={`${colors.gold}20`}
-                  strokeWidth={RING_STROKE_WIDTH}
-                  fill="none"
-                />
+            {/* Progress Ring (SVG overlay) */}
+            <Svg
+              width={ORB_SIZE}
+              height={ORB_SIZE}
+              style={styles.progressRing}
+            >
+              {/* Background ring (subtle) */}
+              <Circle
+                cx={ORB_SIZE / 2}
+                cy={ORB_SIZE / 2}
+                r={RING_RADIUS}
+                stroke={`${colors.gold}20`}
+                strokeWidth={RING_STROKE_WIDTH}
+                fill="none"
+              />
 
-                {/* Progress ring */}
-                <AnimatedCircle
-                  cx={ORB_SIZE / 2}
-                  cy={ORB_SIZE / 2}
-                  r={RING_RADIUS}
-                  stroke={colors.gold}
-                  strokeWidth={RING_STROKE_WIDTH}
-                  fill="none"
-                  strokeDasharray={RING_CIRCUMFERENCE}
-                  strokeDashoffset={strokeDashoffset}
-                  strokeLinecap="round"
-                  rotation="-90"
-                  origin={`${ORB_SIZE / 2}, ${ORB_SIZE / 2}`}
-                />
-              </Svg>
-            </Animated.View>
-          </Pressable>
-
-          {/* Instruction Text */}
-          {!isComplete && (
-            <Text style={styles.instructionText}>Hold to seal</Text>
-          )}
-
-          {/* Bloom Effect (on completion) */}
-          <Animated.View
-            style={[
-              styles.bloomContainer,
-              {
-                transform: [{ scale: bloomScaleAnim }],
-                opacity: bloomOpacityAnim,
-              },
-            ]}
-            pointerEvents="none"
-          >
-            <View style={styles.bloomCircle} />
+              {/* Progress ring */}
+              <AnimatedCircle
+                cx={ORB_SIZE / 2}
+                cy={ORB_SIZE / 2}
+                r={RING_RADIUS}
+                stroke={colors.gold}
+                strokeWidth={RING_STROKE_WIDTH}
+                fill="none"
+                strokeDasharray={RING_CIRCUMFERENCE}
+                strokeDashoffset={strokeDashoffset}
+                strokeLinecap="round"
+                rotation="-90"
+                origin={`${ORB_SIZE / 2}, ${ORB_SIZE / 2}`}
+              />
+            </Svg>
           </Animated.View>
-        </View>
-      </SafeAreaView>
-    </LinearGradient>
+        </Pressable>
+
+        {/* Instruction Text */}
+        {!isComplete && (
+          <View style={styles.instructionCardWrap}>
+            <InstructionGlassCard text="Hold to seal" emphasized />
+          </View>
+        )}
+
+        {/* Bloom Effect (on completion) */}
+        <Animated.View
+          style={[
+            styles.bloomContainer,
+            {
+              transform: [{ scale: bloomScaleAnim }],
+              opacity: bloomOpacityAnim,
+            },
+          ]}
+          pointerEvents="none"
+        >
+          <View style={styles.bloomCircle} />
+        </Animated.View>
+      </View>
+    </RitualScaffold>
   );
 };
 
@@ -425,28 +417,31 @@ export const SealAnchorScreen: React.FC = () => {
 // ══════════════════════════════════════════════════════════════
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
-  safeArea: {
-    flex: 1,
+  topBar: {
+    minHeight: 60,
+    paddingHorizontal: spacing.lg,
+    paddingTop: spacing.sm,
+    alignItems: 'flex-end',
+    justifyContent: 'center',
   },
 
   // ────────────────────────────────────────────────────────────
   // Skip Button
   // ────────────────────────────────────────────────────────────
   skipButton: {
-    position: 'absolute',
-    top: spacing.lg,
-    right: spacing.lg,
+    borderRadius: 999,
     paddingVertical: spacing.sm,
     paddingHorizontal: spacing.md,
     zIndex: 10,
+    borderWidth: 1,
+    borderColor: colors.ritual.border,
+    backgroundColor: colors.ritual.glass,
   },
   skipText: {
     fontSize: typography.sizes.body2,
-    fontFamily: typography.fonts.body,
-    color: colors.text.tertiary,
+    fontFamily: typography.fonts.bodyBold,
+    color: colors.text.secondary,
+    letterSpacing: 0.3,
   },
 
   // ────────────────────────────────────────────────────────────
@@ -520,15 +515,10 @@ const styles = StyleSheet.create({
     left: 0,
   },
 
-  // ────────────────────────────────────────────────────────────
-  // Instruction Text
-  // ────────────────────────────────────────────────────────────
-  instructionText: {
-    marginTop: spacing.xxl,
-    fontSize: typography.sizes.h4,
-    fontFamily: typography.fonts.heading,
-    color: colors.gold,
-    letterSpacing: 1,
+  instructionCardWrap: {
+    width: '100%',
+    maxWidth: 280,
+    marginTop: spacing.xl,
   },
 
   // ────────────────────────────────────────────────────────────

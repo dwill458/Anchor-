@@ -24,6 +24,8 @@ import {
 import { colors, spacing, typography } from '@/theme';
 import { ZenBackground } from '@/components/common';
 import { useAuthStore } from '@/stores/authStore';
+import { useSubscription } from '@/hooks/useSubscription';
+import { ProPaywallModal } from '@/components/modals/ProPaywallModal';
 
 type StructureForgeRouteProp = RouteProp<RootStackParamList, 'StructureForge'>;
 type StructureForgeNavigationProp = StackNavigationProp<RootStackParamList, 'StructureForge'>;
@@ -55,6 +57,10 @@ export default function StructureForgeScreen() {
   const [selectedVariant, setSelectedVariant] = useState<SigilVariant | null>(null);
   const [loading, setLoading] = useState(true);
   const [isTransitioning, setIsTransitioning] = useState(false);
+  const [showProPaywall, setShowProPaywall] = useState(false);
+
+  // Subscription hook for Pro feature gating
+  const { features } = useSubscription();
 
   // Animation values for fade transitions
   const previewFadeAnim = useRef(new Animated.Value(1)).current;
@@ -172,6 +178,23 @@ export default function StructureForgeScreen() {
     });
   };
 
+  const handleForgeFromScratch = () => {
+    // Check if user has access to Forge feature
+    if (!features.canForgeAnchor) {
+      setShowProPaywall(true);
+      return;
+    }
+
+    // Pro user - navigate directly to ManualForge with blank canvas
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    navigation.navigate('ManualForge', {
+      intentionText,
+      category,
+      distilledLetters,
+      isFromScratch: true, // No base sigil - blank canvas
+    });
+  };
+
   if (loading) {
     return (
       <SafeAreaView style={styles.container}>
@@ -193,10 +216,27 @@ export default function StructureForgeScreen() {
 
       {/* Header */}
       <View style={styles.header}>
-        <Text style={styles.title}>Choose Structure</Text>
-        <Text style={styles.subtitle}>
-          This is the frame that will hold your intention.
-        </Text>
+        <View style={styles.headerContent}>
+          <View style={styles.headerTextContainer}>
+            <Text style={styles.title}>Choose Structure</Text>
+            <Text style={styles.subtitle}>
+              This is the frame that will hold your intention.
+            </Text>
+          </View>
+
+          {/* Forge Button - Top Right */}
+          <TouchableOpacity
+            style={styles.forgeButton}
+            onPress={handleForgeFromScratch}
+            activeOpacity={0.8}
+          >
+            <Text style={styles.forgeIcon}>🔥</Text>
+            <Text style={styles.forgeText}>Forge</Text>
+            <View style={styles.proMicroBadge}>
+              <Text style={styles.proMicroBadgeText}>PRO</Text>
+            </View>
+          </TouchableOpacity>
+        </View>
       </View>
 
       {/* Main Preview Area */}
@@ -310,6 +350,18 @@ export default function StructureForgeScreen() {
           </Text>
         </TouchableOpacity>
       </View>
+
+      {/* Pro Paywall Modal */}
+      <ProPaywallModal
+        visible={showProPaywall}
+        feature="manual_forge"
+        onClose={() => setShowProPaywall(false)}
+        onUpgrade={() => {
+          setShowProPaywall(false);
+          // Navigate to Settings (future: subscription screen)
+          navigation.navigate('Settings');
+        }}
+      />
     </SafeAreaView>
   );
 }
@@ -501,5 +553,49 @@ const styles = StyleSheet.create({
   },
   continueTextDisabled: {
     opacity: 0.6,
+  },
+
+  // Header with Forge Button
+  headerContent: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+  },
+  headerTextContainer: {
+    flex: 1,
+    marginRight: spacing.md,
+  },
+  forgeButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.background.card,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: colors.gold + '60',
+    gap: 4,
+  },
+  forgeIcon: {
+    fontSize: 16,
+  },
+  forgeText: {
+    fontSize: 13,
+    fontFamily: typography.fonts.heading,
+    color: colors.gold,
+    fontWeight: '600',
+  },
+  proMicroBadge: {
+    backgroundColor: colors.gold,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 3,
+    marginLeft: 2,
+  },
+  proMicroBadgeText: {
+    fontSize: 8,
+    fontWeight: '700',
+    color: colors.charcoal,
+    letterSpacing: 0.5,
   },
 });

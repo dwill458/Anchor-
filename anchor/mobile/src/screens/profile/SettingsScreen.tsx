@@ -38,6 +38,8 @@ import { LinearGradient } from 'expo-linear-gradient';
 import DateTimePicker, { DateTimePickerEvent } from '@react-native-community/datetimepicker';
 import { useAuthStore } from '@/stores/authStore';
 import { useSettingsStore } from '@/stores/settingsStore';
+import { useSubscriptionStore } from '@/stores/subscriptionStore';
+import { useSubscription } from '@/hooks/useSubscription';
 import type { RootStackParamList } from '@/types';
 import { colors, spacing } from '@/theme';
 import { ZenBackground } from '@/components/common';
@@ -124,31 +126,9 @@ const SectionHeader: React.FC<{ title: string; description?: string }> = ({
 export const SettingsScreen: React.FC = () => {
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const { user, signOut, setHasCompletedOnboarding } = useAuthStore();
-  const {
-    defaultCharge,
-    defaultActivation,
-    openDailyAnchorAutomatically,
-    dailyPracticeGoal,
-    reduceIntentionVisibility,
-    dailyReminderEnabled,
-    dailyReminderTime,
-    streakProtectionAlerts,
-    weeklySummaryEnabled,
-    soundEffectsEnabled,
-    theme,
-    accentColor,
-    vaultView,
-    mantraVoice,
-    generatedVoiceStyle,
-    hapticIntensity,
-    setOpenDailyAnchorAutomatically,
-    setReduceIntentionVisibility,
-    setDailyReminderEnabled,
-    setDailyReminderTime,
-    setStreakProtectionAlerts,
-    setWeeklySummaryEnabled,
-    setSoundEffectsEnabled
-  } = useSettingsStore();
+  const settings = useSettingsStore();
+  const subStore = useSubscriptionStore();
+  const { tier, isPro } = useSubscription();
 
   // Developer Mode
   const [devModeEnabled, setDevModeEnabled] = useState(false);
@@ -162,57 +142,26 @@ export const SettingsScreen: React.FC = () => {
       const hours = selectedDate.getHours().toString().padStart(2, '0');
       const minutes = selectedDate.getMinutes().toString().padStart(2, '0');
       const timeString = `${hours}:${minutes}`;
-      setDailyReminderTime(timeString);
+      settings.setDailyReminderTime(timeString);
 
-      // Update scheduled notification if enabled
-      if (dailyReminderEnabled) {
+      if (settings.dailyReminderEnabled) {
         NotificationService.scheduleDailyReminder(timeString);
       }
     }
   };
 
   const handleToggleDailyReminder = async (value: boolean) => {
-    setDailyReminderEnabled(value);
+    settings.setDailyReminderEnabled(value);
     if (value) {
       const granted = await NotificationService.requestPermissions();
       if (granted) {
-        await NotificationService.scheduleDailyReminder(dailyReminderTime);
+        await NotificationService.scheduleDailyReminder(settings.dailyReminderTime);
       } else {
-        setDailyReminderEnabled(false);
+        settings.setDailyReminderEnabled(false);
         Alert.alert('Permission Denied', 'Please enable notifications in your device settings.');
       }
     } else {
       await NotificationService.cancelDailyReminder();
-    }
-  };
-
-  const handleToggleStreakProtection = async (value: boolean) => {
-    setStreakProtectionAlerts(value);
-    if (value) {
-      const granted = await NotificationService.requestPermissions();
-      if (granted) {
-        await NotificationService.scheduleStreakProtectionAlert();
-      } else {
-        setStreakProtectionAlerts(false);
-        Alert.alert('Permission Denied', 'Please enable notifications in your device settings.');
-      }
-    } else {
-      await NotificationService.cancelStreakProtectionAlert();
-    }
-  };
-
-  const handleToggleWeeklySummary = async (value: boolean) => {
-    setWeeklySummaryEnabled(value);
-    if (value) {
-      const granted = await NotificationService.requestPermissions();
-      if (granted) {
-        await NotificationService.scheduleWeeklySummary();
-      } else {
-        setWeeklySummaryEnabled(false);
-        Alert.alert('Permission Denied', 'Please enable notifications in your device settings.');
-      }
-    } else {
-      await NotificationService.cancelWeeklySummary();
     }
   };
 
@@ -223,123 +172,46 @@ export const SettingsScreen: React.FC = () => {
       full: 'Full Activation',
       breath_visual: 'Breath + Visual',
     };
-
     const unitLabels: Record<string, string> = {
       seconds: 's',
       reps: ' reps',
       minutes: 'min',
       breaths: ' breaths',
     };
-
-    return `${typeLabels[defaultActivation.type]} · ${defaultActivation.value}${unitLabels[defaultActivation.unit]}`;
-  };
-
-  const getThemeLabel = () => {
-    if (theme === 'zen_architect') return 'Zen Architect';
-    return 'Unknown';
-  };
-
-  const getAccentColorLabel = () => {
-    if (accentColor === '#D4AF37') return 'Gold';
-    return 'Custom';
-  };
-
-  const getVaultViewLabel = () => {
-    return vaultView === 'grid' ? 'Grid' : 'List';
-  };
-
-  const getMantraVoiceLabel = () => {
-    return mantraVoice === 'generated' ? 'Voice One' : 'Silent';
-  };
-
-  const getVoiceStyleLabel = () => {
-    const labels: Record<string, string> = {
-      calm: 'Calm',
-      neutral: 'Neutral',
-      intense: 'Intense',
-    };
-    return labels[generatedVoiceStyle] || 'Calm';
-  };
-
-  const getHapticIntensityLabel = () => {
-    if (hapticIntensity < 34) return 'Light';
-    if (hapticIntensity < 67) return 'Medium';
-    return 'Strong';
+    return `${typeLabels[settings.defaultActivation.type]} · ${settings.defaultActivation.value}${unitLabels[settings.defaultActivation.unit]}`;
   };
 
   const handleSignOut = () => {
-    Alert.alert(
-      'Sign Out',
-      'Are you sure you want to sign out?',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Sign Out',
-          style: 'destructive',
-          onPress: () => signOut(),
-        },
-      ]
-    );
+    Alert.alert('Sign Out', 'Are you sure you want to sign out?', [
+      { text: 'Cancel', style: 'cancel' },
+      { text: 'Sign Out', style: 'destructive', onPress: () => signOut() },
+    ]);
   };
 
   const handleDeleteAccount = () => {
-    Alert.alert(
-      'Delete Account',
-      'This permanently deletes your account and all associated data.\nThis action cannot be undone.',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Delete Account',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              // Show loading alert
-              Alert.alert('Deleting Account', 'Please wait...');
-
-              // Call the DELETE /api/auth/me endpoint
-              await apiClient.delete('/auth/me');
-
-              // Clear all local storage
-              await AsyncStorage.clear();
-
-              // Sign out the user
-              signOut();
-
-              // Show success message
-              Alert.alert(
-                'Account Deleted',
-                'Your account has been permanently deleted.',
-                [{ text: 'OK' }]
-              );
-            } catch (error: any) {
-              // Show error message
-              Alert.alert(
-                'Deletion Failed',
-                error.message || 'Failed to delete account. Please try again.',
-                [{ text: 'OK' }]
-              );
-            }
-          },
+    Alert.alert('Delete Account', 'This permanently deletes your account and all associated data.', [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Delete Account',
+        style: 'destructive',
+        onPress: async () => {
+          try {
+            await apiClient.delete('/auth/me');
+            await AsyncStorage.clear();
+            signOut();
+          } catch (error: any) {
+            Alert.alert('Deletion Failed', error.message || 'Failed to delete account.');
+          }
         },
-      ]
-    );
+      },
+    ]);
   };
 
   const handleResetOnboarding = () => {
-    Alert.alert(
-      'Reset Onboarding',
-      'This will take you back to the initial welcome screen. Your anchors and account data will be preserved.',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Reset',
-          style: 'destructive',
-          onPress: () => {
-            setHasCompletedOnboarding(false);
-          },
-        },
-      ]
-    )
+    Alert.alert('Reset Onboarding', 'Restart the welcome screen?', [
+      { text: 'Cancel', style: 'cancel' },
+      { text: 'Reset', style: 'destructive', onPress: () => setHasCompletedOnboarding(false) },
+    ]);
   };
 
   const CardWrapper = IS_ANDROID ? View : BlurView;
@@ -349,289 +221,136 @@ export const SettingsScreen: React.FC = () => {
     <View style={styles.container}>
       <ZenBackground />
       <SafeAreaView style={styles.safeArea} edges={['top']}>
-        <ScrollView
-          style={styles.scrollView}
-          showsVerticalScrollIndicator={false}
-          contentContainerStyle={styles.scrollContent}
-        >
-          {/* Header */}
+        <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
           <View style={styles.header}>
             <Text style={styles.title}>Settings</Text>
-            <Text style={styles.subtitle}>
-              Personalize your path with Anchor's core configurations.
-            </Text>
+            <Text style={styles.subtitle}>Personalize your path with Anchor's core configurations.</Text>
           </View>
 
           {/* 1. PRACTICE SETTINGS */}
-          <SectionHeader
-            title="Practice Settings"
-            description="Control how your anchors are created, charged, and activated."
-          />
+          <SectionHeader title="Practice Settings" description="Control how your anchors are created, charged, and activated." />
           <CardWrapper {...cardProps} style={styles.section}>
             <SettingItem
               label="Default Charge"
-              helperText="Choose how much time you want to spend when charging a new anchor."
-              value={`${defaultCharge.mode === 'focus' ? 'Focus' : 'Ritual'} · ${defaultCharge.preset === 'custom'
-                ? `Custom (${defaultCharge.customMinutes}m)`
-                : defaultCharge.preset
-                }`}
+              value={`${settings.defaultCharge.mode === 'focus' ? 'Focus' : 'Ritual'} · ${settings.defaultCharge.preset === 'custom' ? `Custom (${settings.defaultCharge.customMinutes}m)` : settings.defaultCharge.preset}`}
               onPress={() => navigation.navigate('DefaultCharge')}
-              showChevron={true}
             />
-            <SettingItem
-              label="Default Activation"
-              helperText="How you prefer to engage with your anchor during daily practice."
-              value={formatActivationValue()}
-              onPress={() => navigation.navigate('DefaultActivation')}
-              showChevron={true}
-            />
-            <ToggleItem
-              label="Open Daily Anchor Automatically"
-              helperText="When enabled, your primary anchor opens when you launch the app."
-              value={openDailyAnchorAutomatically}
-              onValueChange={setOpenDailyAnchorAutomatically}
-            />
-            <SettingItem
-              label="Daily Practice Goal"
-              helperText="Set how many activations you aim for each day."
-              value={`${dailyPracticeGoal} activations per day`}
-              onPress={() => navigation.navigate('DailyPracticeGoal')}
-            />
-            <ToggleItem
-              label="Reduce Intention Visibility"
-              helperText="Gradually hides original intention text to support focus without overthinking."
-              value={reduceIntentionVisibility}
-              onValueChange={setReduceIntentionVisibility}
-            />
+            <SettingItem label="Default Activation" value={formatActivationValue()} onPress={() => navigation.navigate('DefaultActivation')} />
+            <ToggleItem label="Open Daily Anchor Automatically" value={settings.openDailyAnchorAutomatically} onValueChange={settings.setOpenDailyAnchorAutomatically} />
+            <SettingItem label="Daily Practice Goal" value={`${settings.dailyPracticeGoal} activations per day`} onPress={() => navigation.navigate('DailyPracticeGoal')} />
+            <ToggleItem label="Reduce Intention Visibility" value={settings.reduceIntentionVisibility} onValueChange={settings.setReduceIntentionVisibility} />
           </CardWrapper>
 
           {/* 2. NOTIFICATIONS */}
-          <SectionHeader
-            title="Notifications"
-            description="Gentle reminders to support consistency."
-          />
+          <SectionHeader title="Notifications" description="Gentle reminders to support consistency." />
           <CardWrapper {...cardProps} style={styles.section}>
-            <ToggleItem
-              label="Daily Reminder"
-              helperText="Receive a reminder to activate your anchor."
-              value={dailyReminderEnabled}
-              onValueChange={handleToggleDailyReminder}
-            />
-            {dailyReminderEnabled && (
-              <SettingItem
-                label="Reminder Time"
-                value={dailyReminderTime}
-                onPress={() => setShowTimePicker(true)}
-                showChevron={true}
-              />
+            <ToggleItem label="Daily Reminder" value={settings.dailyReminderEnabled} onValueChange={handleToggleDailyReminder} />
+            {settings.dailyReminderEnabled && (
+              <SettingItem label="Reminder Time" value={settings.dailyReminderTime} onPress={() => setShowTimePicker(true)} />
             )}
-            <ToggleItem
-              label="Streak Protection Alerts"
-              helperText="Get notified before a streak is broken."
-              value={streakProtectionAlerts}
-              onValueChange={handleToggleStreakProtection}
-            />
-            <ToggleItem
-              label="Weekly Summary"
-              helperText="A short overview of your practice each week."
-              value={weeklySummaryEnabled}
-              onValueChange={handleToggleWeeklySummary}
-            />
+            <ToggleItem label="Streak Protection Alerts" value={settings.streakProtectionAlerts} onValueChange={settings.setStreakProtectionAlerts} />
+            <ToggleItem label="Weekly Summary" value={settings.weeklySummaryEnabled} onValueChange={settings.setWeeklySummaryEnabled} />
           </CardWrapper>
 
           {/* 3. APPEARANCE */}
-          <SectionHeader
-            title="Appearance"
-            description="Adjust how Anchor looks and feels."
-          />
+          <SectionHeader title="Appearance" />
           <CardWrapper {...cardProps} style={styles.section}>
-            <SettingItem
-              label="Theme"
-              value={getThemeLabel()}
-              onPress={() => navigation.navigate('ThemeSelection')}
-            />
-            <SettingItem
-              label="Accent Color"
-              value={getAccentColorLabel()}
-              onPress={() => navigation.navigate('AccentColor')}
-            />
-            <SettingItem
-              label="Vault View"
-              value={getVaultViewLabel()}
-              onPress={() => navigation.navigate('VaultView')}
-            />
+            <SettingItem label="Theme" value={settings.theme === 'zen_architect' ? 'Zen Architect' : 'System'} onPress={() => navigation.navigate('ThemeSelection')} />
+            <SettingItem label="Accent Color" value={settings.accentColor === '#D4AF37' ? 'Gold' : 'Custom'} onPress={() => navigation.navigate('AccentColor')} />
           </CardWrapper>
 
           {/* 4. AUDIO & HAPTICS */}
-          <SectionHeader
-            title="Audio & Haptics"
-            description="Personalize the sensory experience."
-          />
+          <SectionHeader title="Audio & Haptics" />
           <CardWrapper {...cardProps} style={styles.section}>
-            <SettingItem
-              label="Mantra Voice"
-              value={getMantraVoiceLabel()}
-              onPress={() => navigation.navigate('MantraVoice')}
-            />
-            <SettingItem
-              label="Voice Style"
-              value={getVoiceStyleLabel()}
-              onPress={() => navigation.navigate('VoiceStyle')}
-            />
-            <SettingItem
-              label="Haptic Feedback"
-              helperText="Adjust the strength of physical feedback."
-              value={getHapticIntensityLabel()}
-              onPress={() => navigation.navigate('HapticIntensity')}
-            />
-            <ToggleItem
-              label="Sound Effects"
-              helperText="Charging, activation, and completion sounds."
-              value={soundEffectsEnabled}
-              onValueChange={setSoundEffectsEnabled}
-            />
+            <SettingItem label="Haptic Feedback" value={settings.hapticIntensity < 34 ? 'Light' : settings.hapticIntensity < 67 ? 'Medium' : 'Strong'} onPress={() => navigation.navigate('HapticIntensity')} />
+            <ToggleItem label="Sound Effects" value={settings.soundEffectsEnabled} onValueChange={settings.setSoundEffectsEnabled} />
           </CardWrapper>
 
           {/* 5. ACCOUNT */}
-          <SectionHeader
-            title="Account"
-            description="Manage your account and access."
-          />
+          <SectionHeader title="Account" />
           <CardWrapper {...cardProps} style={styles.section}>
-            <SettingItem
-              label="Email Address"
-              value={user?.email || 'Not signed in'}
-              showChevron={false}
-            />
-            <SettingItem
-              label="Sign Out"
-              onPress={handleSignOut}
-              showChevron={false}
-            />
-            <SettingItem
-              label="Delete Account"
-              onPress={handleDeleteAccount}
-              isDestructive
-              showChevron={false}
-            />
+            <SettingItem label="Email Address" value={user?.email || 'Not signed in'} showChevron={false} />
+            <SettingItem label="Sign Out" onPress={handleSignOut} showChevron={false} />
+            <SettingItem label="Delete Account" onPress={handleDeleteAccount} isDestructive showChevron={false} />
           </CardWrapper>
 
           {/* 6. SUBSCRIPTION */}
-          <SectionHeader
-            title="Subscription"
-            description="Manage your plan and access premium features."
-          />
+          <SectionHeader title="Subscription" description="Manage your plan and access premium features." />
           <CardWrapper {...cardProps} style={styles.section}>
-            <SettingItem
-              label="Current Plan"
-              value="Free"
-              showChevron={false}
-            />
+            <SettingItem label="Current Plan" value={tier.charAt(0).toUpperCase() + tier.slice(1)} showChevron={false} />
             <View style={styles.proBenefits}>
               <Text style={styles.proBenefitsTitle}>Pro Benefits</Text>
               <Text style={styles.proBenefitItem}>• Unlimited anchors</Text>
               <Text style={styles.proBenefitItem}>• Advanced customization</Text>
               <Text style={styles.proBenefitItem}>• Manual creation tools</Text>
             </View>
-            <TouchableOpacity style={styles.upgradeButton} activeOpacity={0.8}>
-              <LinearGradient
-                colors={[colors.gold, colors.bronze]}
-                style={styles.upgradeGradient}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 0 }}
-              >
-                <Text style={styles.upgradeButtonText}>Upgrade to Pro</Text>
-              </LinearGradient>
-            </TouchableOpacity>
-            <SettingItem
-              label="Restore Purchase"
-              onPress={() => {/* TODO: Restore purchases */ }}
-              showChevron={false}
-            />
+            {!isPro && (
+              <TouchableOpacity style={styles.upgradeButton} activeOpacity={0.8}>
+                <LinearGradient colors={[colors.gold, colors.bronze]} style={styles.upgradeGradient} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}>
+                  <Text style={styles.upgradeButtonText}>Upgrade to Pro</Text>
+                </LinearGradient>
+              </TouchableOpacity>
+            )}
+            <SettingItem label="Restore Purchase" onPress={() => { }} showChevron={false} />
           </CardWrapper>
 
           {/* 7. DATA & PRIVACY */}
-          <SectionHeader
-            title="Data & Privacy"
-            description="Control your data and storage."
-          />
+          <SectionHeader title="Data & Privacy" />
           <CardWrapper {...cardProps} style={styles.section}>
-            <SettingItem
-              label="Data Management"
-              helperText="Export data, clear cache, and view sync status."
-              onPress={() => navigation.navigate('DataPrivacy')}
-            />
-            <SettingItem
-              label="Privacy Policy"
-              onPress={() => navigation.navigate('DataPrivacy')}
-            />
-            <SettingItem
-              label="Terms of Service"
-              onPress={() => navigation.navigate('DataPrivacy')}
-            />
+            <SettingItem label="Data Management" onPress={() => navigation.navigate('DataPrivacy')} />
+            <SettingItem label="Privacy Policy" onPress={() => navigation.navigate('DataPrivacy')} />
           </CardWrapper>
 
           {/* 8. ABOUT ANCHOR */}
-          <SectionHeader
-            title="About Anchor"
-            description="Product information and support."
-          />
+          <SectionHeader title="About Anchor" />
           <CardWrapper {...cardProps} style={styles.section}>
-            <View style={styles.philosophyBox}>
-              <Text style={styles.philosophyText}>
-                Anchor is a visual focus tool built on proven psychological and symbolic principles.
-                It exists to help you clarify intention, stay consistent, and release overthinking.
-              </Text>
-            </View>
-            <SettingItem
-              label="App Version"
-              value="1.0.0"
-              showChevron={false}
-            />
-            <SettingItem
-              label="Contact Support"
-              onPress={() => {/* TODO: Open support */ }}
-            />
-            <SettingItem
-              label="Credits"
-              onPress={() => {/* TODO: Show credits */ }}
-            />
+            <SettingItem label="App Version" value="1.0.0" showChevron={false} />
+            <SettingItem label="Contact Support" onPress={() => { }} />
           </CardWrapper>
 
           {/* 9. DEVELOPER TOOLS */}
-          <SectionHeader
-            title="Developer Tools"
-          />
-          <CardWrapper {...cardProps} style={styles.section}>
-            <ToggleItem
-              label="Enable Developer Mode"
-              helperText="Unlock internal tools and testing utilities."
-              value={devModeEnabled}
-              onValueChange={setDevModeEnabled}
-            />
-            {devModeEnabled && (
-              <SettingItem
-                label="Reset Onboarding"
-                helperText="Restart the initial onboarding flow."
-                onPress={handleResetOnboarding}
-                isDestructive
-              />
-            )}
-          </CardWrapper>
+          {(__DEV__ || process.env.EXPO_PUBLIC_DEV_TOOLS === 'true') && (
+            <>
+              <SectionHeader title="Developer Tools" description="Simulate subscription state for UI testing" />
+              <CardWrapper {...cardProps} style={styles.section}>
+                <ToggleItem label="Enable Developer Overrides" value={subStore.devOverrideEnabled} onValueChange={subStore.setDevOverrideEnabled} />
+                {subStore.devOverrideEnabled && (
+                  <View style={styles.segmentedContainer}>
+                    <Text style={styles.segmentedLabel}>Simulated Subscription Tier</Text>
+                    <View style={styles.segments}>
+                      {(['free', 'pro'] as const).map((t) => (
+                        <TouchableOpacity
+                          key={t}
+                          style={[styles.segmentButton, subStore.devTierOverride === t && styles.activeSegment]}
+                          onPress={() => subStore.setDevTierOverride(t)}
+                        >
+                          <Text style={[styles.segmentText, subStore.devTierOverride === t && styles.activeSegmentText]}>{t.toUpperCase()}</Text>
+                        </TouchableOpacity>
+                      ))}
+                    </View>
+                  </View>
+                )}
+                <ToggleItem label="Developer Mode" value={devModeEnabled} onValueChange={setDevModeEnabled} />
+                {devModeEnabled && <SettingItem label="Reset Onboarding" onPress={handleResetOnboarding} isDestructive />}
+                <TouchableOpacity style={styles.devResetButton} onPress={() => subStore.resetOverrides()}>
+                  <Text style={styles.devResetText}>Reset Developer Overrides</Text>
+                </TouchableOpacity>
+              </CardWrapper>
+            </>
+          )}
 
           <View style={styles.bottomSpacer} />
         </ScrollView>
         {showTimePicker && (
           <DateTimePicker
             value={(() => {
-              const [h, m] = dailyReminderTime.split(':').map(Number);
+              const [h, m] = settings.dailyReminderTime.split(':').map(Number);
               const d = new Date();
               d.setHours(h, m, 0, 0);
               return d;
             })()}
             mode="time"
             is24Hour={true}
-            display={Platform.OS === 'ios' ? 'spinner' : 'default'}
             onChange={onTimeChange}
           />
         )}
@@ -641,147 +360,37 @@ export const SettingsScreen: React.FC = () => {
 };
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: colors.navy,
-  },
-  safeArea: {
-    flex: 1,
-  },
-  scrollView: {
-    flex: 1,
-  },
-  scrollContent: {
-    paddingBottom: spacing.xxl,
-  },
-  header: {
-    paddingHorizontal: spacing.lg,
-    paddingTop: spacing.xl,
-    paddingBottom: spacing.md,
-  },
-  title: {
-    fontSize: 32,
-    fontWeight: 'bold',
-    color: colors.gold,
-    marginBottom: spacing.xs,
-    letterSpacing: 0.5,
-  },
-  subtitle: {
-    fontSize: 14,
-    color: colors.silver,
-    lineHeight: 20,
-    opacity: 0.8,
-  },
-  sectionHeader: {
-    paddingHorizontal: spacing.lg,
-    paddingTop: spacing.xl,
-    paddingBottom: spacing.sm,
-  },
-  sectionTitle: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: colors.silver,
-    textTransform: 'uppercase',
-    letterSpacing: 1.2,
-    marginBottom: spacing.xs,
-    opacity: 0.6,
-  },
-  sectionDescription: {
-    fontSize: 13,
-    color: colors.silver,
-    lineHeight: 18,
-    opacity: 0.6,
-  },
-  section: {
-    backgroundColor: IS_ANDROID ? 'rgba(26, 26, 29, 0.9)' : 'rgba(26, 26, 29, 0.3)',
-    marginHorizontal: spacing.lg,
-    borderRadius: 16,
-    overflow: 'hidden',
-    borderWidth: 1,
-    borderColor: 'rgba(212, 175, 55, 0.15)',
-  },
-  settingItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingVertical: spacing.lg,
-    paddingHorizontal: spacing.lg,
-    borderBottomWidth: 1,
-    borderBottomColor: 'rgba(255, 255, 255, 0.05)',
-  },
-  settingContent: {
-    flex: 1,
-    marginRight: spacing.md,
-  },
-  settingLabel: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: colors.bone,
-    marginBottom: 4,
-  },
-  helperText: {
-    fontSize: 13,
-    color: colors.silver,
-    lineHeight: 18,
-    opacity: 0.7,
-    marginTop: 2,
-  },
-  settingValue: {
-    fontSize: 14,
-    color: colors.gold,
-    fontWeight: '500',
-    marginTop: 6,
-  },
-  destructiveText: {
-    color: colors.error,
-  },
-  proBenefits: {
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.md,
-  },
-  proBenefitsTitle: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: colors.bone,
-    marginBottom: spacing.sm,
-  },
-  proBenefitItem: {
-    fontSize: 13,
-    color: colors.silver,
-    lineHeight: 22,
-    opacity: 0.8,
-  },
-  upgradeButton: {
-    marginHorizontal: spacing.lg,
-    marginVertical: spacing.md,
-    borderRadius: 12,
-    overflow: 'hidden',
-  },
-  upgradeGradient: {
-    paddingVertical: spacing.md,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  upgradeButtonText: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: colors.navy,
-  },
-  philosophyBox: {
-    backgroundColor: 'rgba(212, 175, 55, 0.05)',
-    padding: spacing.lg,
-    borderRadius: 12,
-    margin: spacing.lg,
-    borderLeftWidth: 3,
-    borderLeftColor: colors.gold,
-  },
-  philosophyText: {
-    fontSize: 14,
-    color: colors.silver,
-    lineHeight: 22,
-    fontStyle: 'italic',
-  },
-  bottomSpacer: {
-    height: 100,
-  },
+  container: { flex: 1, backgroundColor: colors.navy },
+  safeArea: { flex: 1 },
+  scrollView: { flex: 1 },
+  scrollContent: { paddingBottom: spacing.xxl },
+  header: { paddingHorizontal: spacing.lg, paddingTop: spacing.xl, paddingBottom: spacing.md },
+  title: { fontSize: 32, fontWeight: 'bold', color: colors.gold, marginBottom: spacing.xs, letterSpacing: 0.5 },
+  subtitle: { fontSize: 14, color: colors.silver, lineHeight: 20, opacity: 0.8 },
+  sectionHeader: { paddingHorizontal: spacing.lg, paddingTop: spacing.xl, paddingBottom: spacing.sm },
+  sectionTitle: { fontSize: 12, fontWeight: '700', color: colors.silver, textTransform: 'uppercase', letterSpacing: 1.2, marginBottom: spacing.xs, opacity: 0.6 },
+  sectionDescription: { fontSize: 13, color: colors.silver, lineHeight: 18, opacity: 0.6 },
+  section: { backgroundColor: IS_ANDROID ? 'rgba(26, 26, 29, 0.9)' : 'rgba(26, 26, 29, 0.3)', marginHorizontal: spacing.lg, borderRadius: 16, overflow: 'hidden', borderWidth: 1, borderColor: 'rgba(212, 175, 55, 0.15)' },
+  settingItem: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: spacing.lg, paddingHorizontal: spacing.lg, borderBottomWidth: 1, borderBottomColor: 'rgba(255, 255, 255, 0.05)' },
+  settingContent: { flex: 1, marginRight: spacing.md },
+  settingLabel: { fontSize: 16, fontWeight: '600', color: colors.bone, marginBottom: 4 },
+  helperText: { fontSize: 13, color: colors.silver, lineHeight: 18, opacity: 0.7, marginTop: 2 },
+  settingValue: { fontSize: 14, color: colors.gold, fontWeight: '500', marginTop: 6 },
+  destructiveText: { color: colors.error },
+  proBenefits: { paddingHorizontal: spacing.lg, paddingVertical: spacing.md },
+  proBenefitsTitle: { fontSize: 14, fontWeight: '600', color: colors.bone, marginBottom: spacing.sm },
+  proBenefitItem: { fontSize: 13, color: colors.silver, lineHeight: 22, opacity: 0.8 },
+  upgradeButton: { marginHorizontal: spacing.lg, marginTop: spacing.md, borderRadius: 12, overflow: 'hidden' },
+  upgradeGradient: { height: 50, justifyContent: 'center', alignItems: 'center' },
+  upgradeButtonText: { color: colors.navy, fontWeight: 'bold', fontSize: 16 },
+  segmentedContainer: { padding: spacing.lg, borderBottomWidth: 1, borderBottomColor: 'rgba(255, 255, 255, 0.05)' },
+  segmentedLabel: { fontSize: 13, color: colors.silver, marginBottom: spacing.md, opacity: 0.8 },
+  segments: { flexDirection: 'row', backgroundColor: 'rgba(255, 255, 255, 0.05)', borderRadius: 8, padding: 2 },
+  segmentButton: { flex: 1, paddingVertical: 8, alignItems: 'center', borderRadius: 6 },
+  activeSegment: { backgroundColor: 'rgba(255, 255, 255, 0.1)', borderWidth: 1, borderColor: 'rgba(255, 255, 255, 0.2)' },
+  segmentText: { fontSize: 12, fontWeight: '700', color: colors.silver, opacity: 0.6 },
+  activeSegmentText: { color: colors.bone, opacity: 1 },
+  devResetButton: { padding: spacing.lg, alignItems: 'center' },
+  devResetText: { fontSize: 13, color: colors.silver, opacity: 0.5, textDecorationLine: 'underline' },
+  bottomSpacer: { height: 100 },
 });

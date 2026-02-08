@@ -19,6 +19,8 @@ import { RootStackParamList } from '@/types';
 import { colors } from '@/theme';
 import { ScreenHeader, ZenBackground } from '@/components/common';
 import { useAuthStore } from '@/stores/authStore';
+import * as Haptics from 'expo-haptics';
+import { typography } from '@/theme';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const IS_ANDROID = Platform.OS === 'android';
@@ -50,29 +52,23 @@ export const EnhancementChoiceScreen: React.FC = () => {
   const ENHANCEMENT_OPTIONS: EnhancementOption[] = [
     {
       id: 'enhance',
-      name: 'Add Styling',
-      subtitle: '',
-      description: `Apply visual style to your structure. Choose from ${styleCount} artistic interpretations—watercolor, line art, geometric, and more.`,
+      name: 'Refine Expression',
+      subtitle: 'Add visual resonance while preserving structure.',
+      description: 'Choose from watercolor, line art, or geometric interpretations.',
       emoji: '✨',
-      estimatedTime: '30-60 seconds',
-      features: [
-        `${styleCount} visual styles to choose from`,
-        'Adds depth and character',
-        'Takes 30-60 seconds',
-      ],
+      estimatedTime: '~30–60 seconds',
+      features: [],
+      badge: 'Refine Anchor →',
     },
     {
       id: 'pure',
       name: 'Keep as Forged',
-      subtitle: '',
-      description: 'Keep the geometric form you traced. Clean, direct, unmodified.',
+      subtitle: 'The clean, minimal form you created.',
+      description: 'Focus-first option. Pure geometry.',
       emoji: '🔷',
       estimatedTime: 'Instant',
-      features: [
-        'The form you created',
-        'No additional processing',
-        'Ready immediately',
-      ],
+      features: [],
+      badge: 'Set Anchor →',
     },
   ];
 
@@ -108,11 +104,11 @@ export const EnhancementChoiceScreen: React.FC = () => {
 
   const handleOptionSelect = (optionId: string) => {
     setSelectedOption(optionId);
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
 
     // Add slight delay for visual feedback
     setTimeout(() => {
       if (optionId === 'pure') {
-        // Keep pure - go straight to MantraCreation with locked structure
         navigation.navigate('MantraCreation', {
           intentionText,
           category,
@@ -121,10 +117,8 @@ export const EnhancementChoiceScreen: React.FC = () => {
           reinforcedSigilSvg,
           structureVariant,
           reinforcementMetadata,
-          // No enhancedImageUrl or enhancementMetadata - keeping it pure
         });
       } else if (optionId === 'enhance') {
-        // Enhance appearance - navigate to AI style selection
         navigation.navigate('StyleSelection', {
           intentionText,
           category,
@@ -136,7 +130,7 @@ export const EnhancementChoiceScreen: React.FC = () => {
         });
       }
       setSelectedOption(null);
-    }, 150);
+    }, 300);
   };
 
   return (
@@ -151,7 +145,7 @@ export const EnhancementChoiceScreen: React.FC = () => {
           contentContainerStyle={styles.scrollContent}
           showsVerticalScrollIndicator={false}
         >
-          {/* Title Section */}
+          {/* Header Section */}
           <Animated.View
             style={[
               styles.titleSection,
@@ -161,9 +155,9 @@ export const EnhancementChoiceScreen: React.FC = () => {
               },
             ]}
           >
-            <Text style={styles.title}>Choose Appearance</Text>
+            <Text style={styles.title}>Choose Expression</Text>
             <Text style={styles.subtitle}>
-              Your structure is set. Choose how it appears.
+              “Your structure is set. Choose how it speaks.”
             </Text>
           </Animated.View>
 
@@ -187,23 +181,25 @@ export const EnhancementChoiceScreen: React.FC = () => {
             {IS_ANDROID ? (
               <View style={[styles.intentionCard, styles.intentionCardAndroid]}>
                 <View style={styles.intentionContent}>
-                  <Text style={styles.intentionLabel}>YOUR INTENTION</Text>
-                  <Text style={styles.intentionText}>"{intentionText}"</Text>
+                  <Text style={styles.intentionLabel}>ROOTED INTENTION</Text>
+                  <Text style={styles.intentionText}>“{intentionText}”</Text>
                   <View style={styles.lettersRow}>
-                    <Text style={styles.lettersLabel}>Letters: </Text>
-                    <Text style={styles.lettersText}>{distilledLetters.join(' ')}</Text>
+                    <Text style={styles.lettersText}>
+                      {distilledLetters.join('  ')}
+                    </Text>
                   </View>
                 </View>
                 <View style={styles.intentionBorder} />
               </View>
             ) : (
-              <BlurView intensity={10} tint="dark" style={styles.intentionCard}>
+              <BlurView intensity={15} tint="dark" style={styles.intentionCard}>
                 <View style={styles.intentionContent}>
-                  <Text style={styles.intentionLabel}>YOUR INTENTION</Text>
-                  <Text style={styles.intentionText}>"{intentionText}"</Text>
+                  <Text style={styles.intentionLabel}>ROOTED INTENTION</Text>
+                  <Text style={styles.intentionText}>“{intentionText}”</Text>
                   <View style={styles.lettersRow}>
-                    <Text style={styles.lettersLabel}>Letters: </Text>
-                    <Text style={styles.lettersText}>{distilledLetters.join(' ')}</Text>
+                    <Text style={styles.lettersText}>
+                      {distilledLetters.join('  ')}
+                    </Text>
                   </View>
                 </View>
                 <View style={styles.intentionBorder} />
@@ -293,21 +289,15 @@ export const EnhancementChoiceScreen: React.FC = () => {
               },
             ]}
           >
-            {IS_ANDROID ? (
-              <View style={[styles.infoCard, styles.infoCardAndroid]}>
-                <Text style={styles.infoIcon}>🔒</Text>
+            <View style={styles.infoCard}>
+              <Text style={styles.infoIcon}>🔒</Text>
+              <View style={styles.infoTextContainer}>
+                <Text style={styles.infoLabel}>Structure locked</Text>
                 <Text style={styles.infoText}>
-                  Your structure is complete. Any styling you add is visual only—your foundation stays intact.
+                  “Styling affects appearance only. Your foundation and intention remain unchanged.”
                 </Text>
               </View>
-            ) : (
-              <BlurView intensity={8} tint="dark" style={styles.infoCard}>
-                <Text style={styles.infoIcon}>🔒</Text>
-                <Text style={styles.infoText}>
-                  Your structure is complete. Any styling you add is visual only—your foundation stays intact.
-                </Text>
-              </BlurView>
-            )}
+            </View>
           </Animated.View>
 
           {/* Bottom Spacer */}
@@ -318,7 +308,6 @@ export const EnhancementChoiceScreen: React.FC = () => {
   );
 };
 
-// Extracted component for option card content
 function OptionCardContent({
   option,
   index,
@@ -329,15 +318,18 @@ function OptionCardContent({
   isSelected: boolean;
 }) {
   return (
-    <>
+    <View style={[
+      styles.cardContent,
+      option.id === 'enhance' && styles.cardContentGlow
+    ]}>
       {/* Header */}
       <View style={styles.optionHeader}>
         <View style={styles.emojiContainer}>
           <LinearGradient
             colors={
               option.id === 'enhance'
-                ? ['rgba(140, 100, 200, 0.4)', 'rgba(120, 80, 180, 0.3)']
-                : ['rgba(80, 200, 220, 0.4)', 'rgba(60, 180, 200, 0.3)']
+                ? ['rgba(212, 175, 55, 0.3)', 'rgba(212, 175, 55, 0.1)']
+                : ['rgba(192, 192, 192, 0.2)', 'rgba(192, 192, 192, 0.05)']
             }
             style={styles.emojiGradient}
           >
@@ -346,54 +338,31 @@ function OptionCardContent({
         </View>
 
         <View style={styles.titleContainer}>
-          <Text style={styles.optionName}>
-            {option.name}
-          </Text>
-          {option.subtitle && (
-            <Text style={styles.optionSubtitle}>
-              {option.subtitle}
-            </Text>
-          )}
+          <Text style={styles.optionName}>{option.name}</Text>
+          <Text style={styles.optionSubtitle}>{option.subtitle}</Text>
         </View>
       </View>
 
       {/* Description */}
-      <Text style={styles.optionDescription}>
-        {option.description}
-      </Text>
+      <Text style={styles.optionDescriptionCompact}>{option.description}</Text>
 
-      {/* Features */}
-      <View style={styles.featuresContainer}>
-        {option.features.map((feature, idx) => (
-          <View key={idx} style={styles.featureItem}>
-            <Text style={styles.featureBullet}>•</Text>
-            <Text style={styles.featureText}>{feature}</Text>
-          </View>
-        ))}
-      </View>
-
-      {/* Time estimate */}
-      {option.estimatedTime && (
-        <View style={styles.timeContainer}>
+      {/* Footer: Time + Arrow */}
+      <View style={styles.optionFooter}>
+        <View style={styles.timeContainerCompact}>
           <Text style={styles.timeIcon}>⏱</Text>
           <Text style={styles.timeText}>{option.estimatedTime}</Text>
         </View>
-      )}
 
-      {/* Arrow */}
-      <View style={styles.arrowContainer}>
-        <View
-          style={[
-            styles.arrowCircle,
-            isSelected && styles.arrowCircleSelected,
-          ]}
-        >
-          <Text style={styles.arrowIcon}>
-            →
+        <View style={styles.ctaContainer}>
+          <Text style={[
+            styles.ctaText,
+            option.id === 'enhance' && styles.ctaTextGold
+          ]}>
+            {option.badge}
           </Text>
         </View>
       </View>
-    </>
+    </View>
   );
 }
 
@@ -410,72 +379,72 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     paddingHorizontal: 24,
-    paddingBottom: 100,
+    paddingBottom: 40,
   },
   titleSection: {
-    paddingTop: 64,
+    paddingTop: 50,
     paddingBottom: 24,
   },
   title: {
-    fontSize: 32,
-    // fontFamily: 'Cinzel-Regular',
+    fontSize: 34,
+    fontFamily: typography.fonts.heading,
     fontWeight: 'bold',
     color: colors.gold,
-    marginBottom: 12,
-    letterSpacing: 0.5,
+    marginBottom: 8,
+    letterSpacing: 2,
+    textTransform: 'uppercase',
   },
   subtitle: {
-    fontSize: 15,
+    fontSize: 16,
+    fontFamily: typography.fonts.body,
     color: colors.silver,
-    lineHeight: 22,
+    lineHeight: 24,
+    fontStyle: 'italic',
+    opacity: 0.8,
   },
   intentionSection: {
     marginBottom: 32,
   },
   intentionCard: {
-    borderRadius: 16,
+    borderRadius: 20,
     overflow: 'hidden',
     borderWidth: 1,
-    borderColor: 'rgba(212, 175, 55, 0.2)',
-    backgroundColor: 'rgba(26, 26, 29, 0.4)',
+    borderColor: 'rgba(212, 175, 55, 0.15)',
+    backgroundColor: 'rgba(26, 26, 29, 0.3)',
     position: 'relative',
   },
   intentionCardAndroid: {
     backgroundColor: 'rgba(26, 26, 29, 0.9)',
   },
   intentionContent: {
-    padding: 20,
+    padding: 24,
   },
   intentionLabel: {
     fontSize: 10,
     fontWeight: '700',
+    fontFamily: typography.fonts.body,
     color: colors.silver,
-    letterSpacing: 1.2,
-    marginBottom: 8,
-    opacity: 0.6,
+    letterSpacing: 1.5,
+    marginBottom: 12,
+    opacity: 0.5,
   },
   intentionText: {
-    fontSize: 18,
-    fontStyle: 'italic',
+    fontSize: 22,
+    fontFamily: typography.fonts.heading,
     color: colors.bone,
-    lineHeight: 26,
-    marginBottom: 12,
+    lineHeight: 32,
+    marginBottom: 16,
   },
   lettersRow: {
     flexDirection: 'row',
     alignItems: 'center',
   },
-  lettersLabel: {
-    fontSize: 12,
-    color: colors.silver,
-    opacity: 0.7,
-  },
   lettersText: {
-    fontSize: 12,
-    // fontFamily: 'Cinzel-Regular',
-    fontWeight: 'bold',
+    fontSize: 13,
+    fontFamily: typography.fonts.mono,
     color: colors.gold,
-    letterSpacing: 2,
+    letterSpacing: 4,
+    opacity: 0.5,
   },
   intentionBorder: {
     position: 'absolute',
@@ -484,6 +453,7 @@ const styles = StyleSheet.create({
     bottom: 0,
     width: 3,
     backgroundColor: colors.gold,
+    opacity: 0.6,
   },
   optionsSection: {
     marginBottom: 24,
@@ -492,30 +462,37 @@ const styles = StyleSheet.create({
     marginBottom: 20,
   },
   firstCard: {
-    marginBottom: 24,
+    marginBottom: 20,
   },
   optionCard: {
     borderRadius: 24,
-    padding: 24,
-    borderWidth: 2,
-    borderColor: 'rgba(192, 192, 192, 0.15)',
-    backgroundColor: 'rgba(26, 26, 29, 0.3)',
-    position: 'relative',
+    overflow: 'hidden',
+    borderWidth: 1.5,
+    borderColor: 'rgba(212, 175, 55, 0.1)',
+    backgroundColor: 'rgba(255, 255, 255, 0.03)',
   },
   optionCardAndroid: {
-    backgroundColor: 'rgba(26, 26, 29, 0.85)',
+    backgroundColor: 'rgba(26, 26, 29, 0.95)',
   },
   optionCardEnhance: {
-    borderColor: 'rgba(180, 120, 220, 0.6)',
-    backgroundColor: 'rgba(80, 60, 120, 0.15)',
+    borderColor: 'rgba(212, 175, 55, 0.25)',
   },
   optionCardPure: {
-    borderColor: 'rgba(80, 200, 220, 0.6)',
-    backgroundColor: 'rgba(40, 80, 100, 0.15)',
+    borderColor: 'rgba(192, 192, 192, 0.1)',
   },
   optionCardSelected: {
     borderColor: colors.gold,
-    transform: [{ scale: 0.98 }],
+    shadowColor: colors.gold,
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.3,
+    shadowRadius: 15,
+    elevation: 10,
+  },
+  cardContent: {
+    padding: 24,
+  },
+  cardContentGlow: {
+    backgroundColor: 'rgba(212, 175, 55, 0.02)',
   },
   optionHeader: {
     flexDirection: 'row',
@@ -523,16 +500,11 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   emojiContainer: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
+    width: 52,
+    height: 52,
+    borderRadius: 26,
     marginRight: 16,
     overflow: 'hidden',
-    shadowColor: colors.gold,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.2,
-    shadowRadius: 8,
-    elevation: 4,
   },
   emojiGradient: {
     flex: 1,
@@ -540,115 +512,111 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   emoji: {
-    fontSize: 32,
+    fontSize: 26,
   },
   titleContainer: {
     flex: 1,
   },
   optionName: {
     fontSize: 20,
+    fontFamily: typography.fonts.heading,
     fontWeight: '700',
     color: colors.bone,
     marginBottom: 4,
-    letterSpacing: 0.3,
+    letterSpacing: 0.5,
   },
   optionSubtitle: {
     fontSize: 14,
-    fontWeight: '600',
+    fontFamily: typography.fonts.body,
+    color: colors.silver,
+    lineHeight: 20,
+    opacity: 0.8,
+  },
+  optionDescriptionCompact: {
+    fontSize: 14,
+    fontFamily: typography.fonts.body,
+    color: colors.silver,
+    lineHeight: 22,
+    marginBottom: 20,
+    opacity: 0.7,
+  },
+  optionFooter: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginTop: 8,
+  },
+  timeContainerCompact: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 20,
+  },
+  timeIcon: {
+    fontSize: 14,
+    marginRight: 6,
+    opacity: 0.8,
+  },
+  timeText: {
+    fontSize: 12,
+    fontFamily: typography.fonts.body,
     color: colors.silver,
     opacity: 0.8,
   },
-  optionDescription: {
+  ctaContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  ctaText: {
     fontSize: 14,
+    fontFamily: typography.fonts.bodyBold,
     color: colors.silver,
-    lineHeight: 21,
-    marginBottom: 16,
-  },
-  featuresContainer: {
-    marginBottom: 16,
-  },
-  featureItem: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    marginBottom: 8,
-  },
-  featureBullet: {
-    fontSize: 16,
-    color: colors.gold,
-    marginRight: 12,
-    marginTop: -2,
-  },
-  featureText: {
-    fontSize: 13,
-    color: colors.silver,
-    lineHeight: 19,
-    flex: 1,
-  },
-  timeContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 12,
-    paddingTop: 4,
-  },
-  timeIcon: {
-    fontSize: 16,
     marginRight: 8,
+    opacity: 0.9,
   },
-  timeText: {
-    fontSize: 13,
-    color: colors.silver,
-    fontStyle: 'italic',
-    opacity: 0.7,
-  },
-  arrowContainer: {
-    alignItems: 'flex-end',
-  },
-  arrowCircle: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: 'rgba(192, 192, 192, 0.2)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: 'rgba(192, 192, 192, 0.3)',
-  },
-  arrowCircleSelected: {
-    backgroundColor: colors.gold,
-    borderColor: colors.gold,
-  },
-  arrowIcon: {
-    fontSize: 20,
-    color: colors.silver,
+  ctaTextGold: {
+    color: colors.gold,
   },
   infoSection: {
-    marginBottom: 24,
+    marginTop: 10,
+    marginBottom: 30,
   },
   infoCard: {
     flexDirection: 'row',
     padding: 20,
     borderRadius: 16,
-    borderWidth: 1,
-    borderColor: 'rgba(192, 192, 192, 0.1)',
-    backgroundColor: 'rgba(26, 26, 29, 0.3)',
+    backgroundColor: 'rgba(255, 255, 255, 0.02)',
     alignItems: 'flex-start',
-  },
-  infoCardAndroid: {
-    backgroundColor: 'rgba(26, 26, 29, 0.85)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.05)',
   },
   infoIcon: {
-    fontSize: 24,
-    marginRight: 12,
-    marginTop: -2,
+    fontSize: 20,
+    marginRight: 16,
+    opacity: 0.6,
+  },
+  infoTextContainer: {
+    flex: 1,
+  },
+  infoLabel: {
+    fontSize: 12,
+    fontFamily: typography.fonts.bodyBold,
+    color: colors.bone,
+    marginBottom: 4,
+    textTransform: 'uppercase',
+    letterSpacing: 1,
   },
   infoText: {
-    flex: 1,
     fontSize: 13,
+    fontFamily: typography.fonts.body,
     color: colors.silver,
-    lineHeight: 19,
+    lineHeight: 18,
     fontStyle: 'italic',
+    opacity: 0.6,
   },
   bottomSpacer: {
-    height: 20,
+    height: 40,
   },
 });

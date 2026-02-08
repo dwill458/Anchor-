@@ -294,7 +294,13 @@ export type AIStyle =
   | 'ink_brush'
   | 'gold_leaf'
   | 'cosmic'
-  | 'minimal_line';
+  | 'minimal_line'
+  | 'obsidian_mono'
+  | 'aurora_glow'
+  | 'ember_trace'
+  | 'echo_chamber'
+  | 'monolith_ink'
+  | 'celestial_grid';
 
 /**
  * Legacy AI styles (deprecated, kept for backward compatibility)
@@ -492,12 +498,13 @@ export type RootStackParamList = {
     distilledLetters: string[];
   };
 
-  /** @deprecated Use ManualReinforcement instead */
+  /** Pro-only feature: Advanced manual anchor creation with blank canvas */
   ManualForge: {
     intentionText: string;
     category: AnchorCategory;
     distilledLetters: string[];
     sigilSvg?: string;
+    isFromScratch?: boolean; // If true, start with blank canvas; if false, use sigilSvg as background
   };
 
   /** @deprecated No longer used in new flow */
