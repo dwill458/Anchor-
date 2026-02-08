@@ -17,6 +17,7 @@ import {
   ScrollView,
   TouchableOpacity,
   AccessibilityInfo,
+  Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
@@ -30,6 +31,7 @@ import { format } from 'date-fns';
 import { AnalyticsService, AnalyticsEvents } from '../../services/AnalyticsService';
 import { ErrorTrackingService } from '../../services/ErrorTrackingService';
 import { safeHaptics } from '@/utils/haptics';
+import { del } from '@/services/ApiClient';
 
 // New components
 import { SigilHeroCard } from './components/SigilHeroCard';
@@ -66,8 +68,12 @@ export const AnchorDetailScreen: React.FC = () => {
   const route = useRoute<AnchorDetailRouteProp>();
   const { anchorId } = route.params;
 
-  const { getAnchorById } = useAnchorStore();
-  const { reduceIntentionVisibility } = useSettingsStore();
+  const { getAnchorById, removeAnchor } = useAnchorStore();
+  const {
+    reduceIntentionVisibility,
+    developerModeEnabled,
+    developerDeleteWithoutBurnEnabled,
+  } = useSettingsStore();
   const anchor = getAnchorById(anchorId);
 
   // State
@@ -198,12 +204,52 @@ export const AnchorDetailScreen: React.FC = () => {
       anchor_id: anchor.id,
     });
 
-    navigation.navigate('ConfirmBurn', {
+    (navigation as any).navigate('ConfirmBurn', {
       anchorId: anchor.id,
       intention: anchor.intentionText,
       sigilSvg: anchor.baseSigilSvg,
+      enhancedImageUrl: anchor.enhancedImageUrl,
     });
   }, [anchor, navigation]);
+
+  const handleDeveloperDeletePress = useCallback((): void => {
+    if (!anchor || !developerModeEnabled || !developerDeleteWithoutBurnEnabled) return;
+
+    Alert.alert(
+      'Delete Anchor (Developer)',
+      'Delete this anchor immediately without burn ritual?',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await del(`/api/anchors/${anchor.id}`);
+              removeAnchor(anchor.id);
+
+              AnalyticsService.track(AnalyticsEvents.ANCHOR_DELETED, {
+                anchor_id: anchor.id,
+                source: 'developer_settings',
+              });
+
+              navigation.navigate('Vault');
+            } catch (error) {
+              ErrorTrackingService.captureException(
+                error instanceof Error ? error : new Error('Unknown developer delete error'),
+                {
+                  screen: 'AnchorDetailScreen',
+                  action: 'developer_delete_anchor',
+                  anchor_id: anchor.id,
+                }
+              );
+              Alert.alert('Delete Failed', 'Failed to delete anchor.');
+            }
+          },
+        },
+      ]
+    );
+  }, [anchor, developerDeleteWithoutBurnEnabled, developerModeEnabled, navigation, removeAnchor]);
 
   // Error state
   if (!anchor) {
@@ -313,6 +359,11 @@ export const AnchorDetailScreen: React.FC = () => {
               </TouchableOpacity>
             </>
           )}
+          {developerModeEnabled && developerDeleteWithoutBurnEnabled && (
+            <TouchableOpacity style={styles.devDeleteButton} onPress={handleDeveloperDeletePress}>
+              <Text style={styles.devDeleteButtonText}>Delete Anchor (Dev)</Text>
+            </TouchableOpacity>
+          )}
         </View>
 
         {/* NEW: Practice Path Card */}
@@ -413,7 +464,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   meaningText: {
-    fontSize: typography.sizes.lg,
+    fontSize: typography.fontSize.lg,
     fontFamily: typography.fonts.heading,
     color: colors.gold,
     marginBottom: spacing.lg,
@@ -434,7 +485,7 @@ const styles = StyleSheet.create({
     letterSpacing: 0.5,
   },
   statValue: {
-    fontSize: typography.sizes.md,
+    fontSize: typography.fontSize.md,
     fontFamily: typography.fonts.body,
     color: colors.text.primary,
     fontWeight: '600',
@@ -443,7 +494,7 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.sm,
   },
   distilledLabel: {
-    fontSize: typography.sizes.sm,
+    fontSize: typography.fontSize.sm,
     fontFamily: typography.fonts.body,
     color: colors.text.secondary,
   },
@@ -510,6 +561,23 @@ const styles = StyleSheet.create({
     fontFamily: typography.fonts.body,
     color: colors.error,
     fontWeight: '600',
+  },
+  devDeleteButton: {
+    backgroundColor: 'rgba(239, 68, 68, 0.15)',
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.xl,
+    borderRadius: 8,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(239, 68, 68, 0.35)',
+    marginTop: spacing.md,
+    width: '100%',
+  },
+  devDeleteButtonText: {
+    fontSize: typography.sizes.body1,
+    fontFamily: typography.fonts.body,
+    color: colors.error,
+    fontWeight: '700',
   },
   createdText: {
     fontSize: typography.sizes.caption,

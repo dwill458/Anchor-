@@ -49,6 +49,8 @@ export interface SettingsState {
   generatedVoiceStyle: 'calm' | 'neutral' | 'intense';
   hapticIntensity: number; // 0-100
   soundEffectsEnabled: boolean;
+  developerModeEnabled: boolean;
+  developerDeleteWithoutBurnEnabled: boolean;
 
   // Actions - Practice Settings
   setDefaultCharge: (setting: DefaultChargeSetting) => void;
@@ -73,6 +75,8 @@ export interface SettingsState {
   setGeneratedVoiceStyle: (style: 'calm' | 'neutral' | 'intense') => void;
   setHapticIntensity: (intensity: number) => void;
   setSoundEffectsEnabled: (enabled: boolean) => void;
+  setDeveloperModeEnabled: (enabled: boolean) => void;
+  setDeveloperDeleteWithoutBurnEnabled: (enabled: boolean) => void;
 
   // Utility Actions
   resetToDefaults: () => void;
@@ -105,6 +109,8 @@ const DEFAULT_SETTINGS = {
   generatedVoiceStyle: 'calm' as const,
   hapticIntensity: 70,
   soundEffectsEnabled: true,
+  developerModeEnabled: false,
+  developerDeleteWithoutBurnEnabled: false,
 };
 
 /**
@@ -238,6 +244,20 @@ export const useSettingsStore = create<SettingsState>()(
         });
       },
 
+      setDeveloperModeEnabled: (enabled) => {
+        triggerHaptic();
+        set({
+          developerModeEnabled: enabled,
+        });
+      },
+
+      setDeveloperDeleteWithoutBurnEnabled: (enabled) => {
+        triggerHaptic();
+        set({
+          developerDeleteWithoutBurnEnabled: enabled,
+        });
+      },
+
       // Utility Actions
       resetToDefaults: () => {
         triggerHaptic();
@@ -304,6 +324,8 @@ export const useSettingsStore = create<SettingsState>()(
         generatedVoiceStyle: state.generatedVoiceStyle,
         hapticIntensity: state.hapticIntensity,
         soundEffectsEnabled: state.soundEffectsEnabled,
+        developerModeEnabled: state.developerModeEnabled,
+        developerDeleteWithoutBurnEnabled: state.developerDeleteWithoutBurnEnabled,
       }),
     }
   )

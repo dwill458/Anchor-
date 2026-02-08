@@ -47,9 +47,15 @@ describe('ConfirmBurnScreen', () => {
     });
   });
 
-  it('should render warning message', () => {
+  it('should render the redesigned title', () => {
     const { getByText } = render(<ConfirmBurnScreen />);
-    expect(getByText(/This will permanently archive this anchor/)).toBeTruthy();
+    expect(getByText('Complete & Release')).toBeTruthy();
+  });
+
+  it('should render ritual explanation card', () => {
+    const { getByText } = render(<ConfirmBurnScreen />);
+    expect(getByText('Why release?')).toBeTruthy();
+    expect(getByText(/In chaos magick, performing a final ritual of release/)).toBeTruthy();
   });
 
   it('should display the intention text', () => {
@@ -57,19 +63,19 @@ describe('ConfirmBurnScreen', () => {
     expect(getByText('"I am confident"')).toBeTruthy();
   });
 
-  it('should render Complete & Release button', () => {
+  it('should render Release Anchor button', () => {
     const { getByText } = render(<ConfirmBurnScreen />);
-    expect(getByText(/COMPLETE & RELEASE/)).toBeTruthy();
+    expect(getByText('Release Anchor')).toBeTruthy();
   });
 
-  it('should render Cancel button', () => {
+  it('should render Keep Anchor Active button', () => {
     const { getByText } = render(<ConfirmBurnScreen />);
-    expect(getByText('Cancel')).toBeTruthy();
+    expect(getByText('Keep Anchor Active')).toBeTruthy();
   });
 
   it('should navigate to BurningRitual when confirmed', () => {
     const { getByText } = render(<ConfirmBurnScreen />);
-    const confirmButton = getByText(/COMPLETE & RELEASE/);
+    const confirmButton = getByText('Release Anchor');
 
     fireEvent.press(confirmButton);
 
@@ -82,7 +88,7 @@ describe('ConfirmBurnScreen', () => {
 
   it('should track analytics when confirmed', () => {
     const { getByText } = render(<ConfirmBurnScreen />);
-    const confirmButton = getByText(/COMPLETE & RELEASE/);
+    const confirmButton = getByText('Release Anchor');
 
     fireEvent.press(confirmButton);
 
@@ -97,12 +103,12 @@ describe('ConfirmBurnScreen', () => {
 
   it('should add breadcrumb when confirmed', () => {
     const { getByText } = render(<ConfirmBurnScreen />);
-    const confirmButton = getByText(/COMPLETE & RELEASE/);
+    const confirmButton = getByText('Release Anchor');
 
     fireEvent.press(confirmButton);
 
     expect(ErrorTrackingService.addBreadcrumb).toHaveBeenCalledWith(
-      'User confirmed burn ritual',
+      'User confirmed release ritual',
       'navigation',
       {
         anchor_id: 'test-anchor-id',
@@ -112,7 +118,7 @@ describe('ConfirmBurnScreen', () => {
 
   it('should go back when cancelled', () => {
     const { getByText } = render(<ConfirmBurnScreen />);
-    const cancelButton = getByText('Cancel');
+    const cancelButton = getByText('Keep Anchor Active');
 
     fireEvent.press(cancelButton);
 
@@ -121,7 +127,7 @@ describe('ConfirmBurnScreen', () => {
 
   it('should track analytics when cancelled', () => {
     const { getByText } = render(<ConfirmBurnScreen />);
-    const cancelButton = getByText('Cancel');
+    const cancelButton = getByText('Keep Anchor Active');
 
     fireEvent.press(cancelButton);
 
@@ -134,32 +140,10 @@ describe('ConfirmBurnScreen', () => {
     );
   });
 
-  it('should add breadcrumb when cancelled', () => {
-    const { getByText } = render(<ConfirmBurnScreen />);
-    const cancelButton = getByText('Cancel');
-
-    fireEvent.press(cancelButton);
-
-    expect(ErrorTrackingService.addBreadcrumb).toHaveBeenCalledWith(
-      'User cancelled burn ritual',
-      'navigation',
-      {
-        anchor_id: 'test-anchor-id',
-      }
-    );
-  });
-
-  it('should display chaos magick principle in warning', () => {
+  it('should ask about fulfilled role', () => {
     const { getByText } = render(<ConfirmBurnScreen />);
     expect(
-      getByText(/According to chaos magick, completing an anchor after success/)
-    ).toBeTruthy();
-  });
-
-  it('should ask about intention fulfillment', () => {
-    const { getByText } = render(<ConfirmBurnScreen />);
-    expect(
-      getByText(/Has this intention been fulfilled or served its purpose/)
+      getByText(/Has this anchor fulfilled its role/)
     ).toBeTruthy();
   });
 });

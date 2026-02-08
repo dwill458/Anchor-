@@ -31,6 +31,7 @@ import {
   ChevronRight,
 } from 'lucide-react-native';
 import { useAuthStore } from '@/stores/authStore';
+import { useSettingsStore } from '@/stores/settingsStore';
 import { useToast } from '@/components/ToastProvider';
 import { useNavigation } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
@@ -118,6 +119,7 @@ const MenuItem: React.FC<MenuItemProps> = ({
 export const ProfileScreen: React.FC = () => {
   const navigation = useNavigation<ProfileNavigationProp>();
   const { user, signOut, setHasCompletedOnboarding, profileData, fetchProfile, refreshProfile } = useAuthStore();
+  const { developerModeEnabled } = useSettingsStore();
   const toast = useToast();
   const [isLoading, setIsLoading] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
@@ -385,7 +387,7 @@ export const ProfileScreen: React.FC = () => {
           </View>
 
           {/* Dev Tools (conditional) */}
-          {__DEV__ && (
+          {__DEV__ && developerModeEnabled && (
             <View style={styles.menuSection}>
               <Text style={styles.sectionTitle}>Developer</Text>
               <MenuItem

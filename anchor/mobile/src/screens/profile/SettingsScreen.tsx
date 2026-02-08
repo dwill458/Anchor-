@@ -130,9 +130,6 @@ export const SettingsScreen: React.FC = () => {
   const subStore = useSubscriptionStore();
   const { tier, isPro } = useSubscription();
 
-  // Developer Mode
-  const [devModeEnabled, setDevModeEnabled] = useState(false);
-
   // Time Picker State
   const [showTimePicker, setShowTimePicker] = useState(false);
 
@@ -313,28 +310,38 @@ export const SettingsScreen: React.FC = () => {
             <>
               <SectionHeader title="Developer Tools" description="Simulate subscription state for UI testing" />
               <CardWrapper {...cardProps} style={styles.section}>
-                <ToggleItem label="Enable Developer Overrides" value={subStore.devOverrideEnabled} onValueChange={subStore.setDevOverrideEnabled} />
-                {subStore.devOverrideEnabled && (
-                  <View style={styles.segmentedContainer}>
-                    <Text style={styles.segmentedLabel}>Simulated Subscription Tier</Text>
-                    <View style={styles.segments}>
-                      {(['free', 'pro'] as const).map((t) => (
-                        <TouchableOpacity
-                          key={t}
-                          style={[styles.segmentButton, subStore.devTierOverride === t && styles.activeSegment]}
-                          onPress={() => subStore.setDevTierOverride(t)}
-                        >
-                          <Text style={[styles.segmentText, subStore.devTierOverride === t && styles.activeSegmentText]}>{t.toUpperCase()}</Text>
-                        </TouchableOpacity>
-                      ))}
-                    </View>
-                  </View>
+                <ToggleItem label="Developer Mode" value={settings.developerModeEnabled} onValueChange={settings.setDeveloperModeEnabled} />
+                {settings.developerModeEnabled && (
+                  <>
+                    <ToggleItem label="Enable Developer Overrides" value={subStore.devOverrideEnabled} onValueChange={subStore.setDevOverrideEnabled} />
+                    {subStore.devOverrideEnabled && (
+                      <View style={styles.segmentedContainer}>
+                        <Text style={styles.segmentedLabel}>Simulated Subscription Tier</Text>
+                        <View style={styles.segments}>
+                          {(['free', 'pro'] as const).map((t) => (
+                            <TouchableOpacity
+                              key={t}
+                              style={[styles.segmentButton, subStore.devTierOverride === t && styles.activeSegment]}
+                              onPress={() => subStore.setDevTierOverride(t)}
+                            >
+                              <Text style={[styles.segmentText, subStore.devTierOverride === t && styles.activeSegmentText]}>{t.toUpperCase()}</Text>
+                            </TouchableOpacity>
+                          ))}
+                        </View>
+                      </View>
+                    )}
+                    <ToggleItem
+                      label="Allow Direct Anchor Delete"
+                      helperText="Show a developer-only delete action on anchor detail without burn ritual."
+                      value={settings.developerDeleteWithoutBurnEnabled}
+                      onValueChange={settings.setDeveloperDeleteWithoutBurnEnabled}
+                    />
+                    <SettingItem label="Reset Onboarding" onPress={handleResetOnboarding} isDestructive />
+                    <TouchableOpacity style={styles.devResetButton} onPress={() => subStore.resetOverrides()}>
+                      <Text style={styles.devResetText}>Reset Developer Overrides</Text>
+                    </TouchableOpacity>
+                  </>
                 )}
-                <ToggleItem label="Developer Mode" value={devModeEnabled} onValueChange={setDevModeEnabled} />
-                {devModeEnabled && <SettingItem label="Reset Onboarding" onPress={handleResetOnboarding} isDestructive />}
-                <TouchableOpacity style={styles.devResetButton} onPress={() => subStore.resetOverrides()}>
-                  <Text style={styles.devResetText}>Reset Developer Overrides</Text>
-                </TouchableOpacity>
               </CardWrapper>
             </>
           )}

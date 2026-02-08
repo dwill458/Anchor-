@@ -1,16 +1,15 @@
 /**
- * Anchor App - Completion Ritual Screen
+ * Anchor App - Final Release Ritual Screen
  *
- * 6-second completion animation for anchor release.
- * Fades and shrinks sigil with emotional prompts.
+ * Zen Architect redesign: transform "burning" into a calm release ritual.
+ * Features: Gold ring pulse, upward embers, inward fade.
  */
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
   StyleSheet,
-  Animated,
   Dimensions,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -18,6 +17,19 @@ import { RouteProp, useRoute, useNavigation } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { SvgXml } from 'react-native-svg';
 import * as Haptics from 'expo-haptics';
+import Animated, {
+  useSharedValue,
+  useAnimatedStyle,
+  withTiming,
+  withDelay,
+  withSequence,
+  withRepeat,
+  Easing,
+  runOnJS,
+  interpolate,
+  Extrapolate,
+  FadeIn,
+} from 'react-native-reanimated';
 import { colors, typography, spacing } from '@/theme';
 import { RootStackParamList } from '@/types';
 import { useAnchorStore } from '@/stores/anchorStore';
@@ -29,15 +41,9 @@ import { AnalyticsService, AnalyticsEvents } from '@/services/AnalyticsService';
 type BurningRitualRouteProp = RouteProp<RootStackParamList, 'BurningRitual'>;
 type BurningRitualNavigationProp = StackNavigationProp<RootStackParamList, 'BurningRitual'>;
 
-const { width: SCREEN_WIDTH } = Dimensions.get('window');
+const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 const SIGIL_SIZE = SCREEN_WIDTH * 0.6;
-
-const COMPLETION_DURATION = 6000; // 6 seconds
-const PROMPTS = [
-  { text: 'Let go.', delay: 2000 },
-  { text: 'Trust the process.', delay: 3500 },
-  { text: 'Your intention has been released.', delay: 5000 },
-];
+const PARTICLE_COUNT = 15;
 
 export const BurningRitualScreen: React.FC = () => {
   const route = useRoute<BurningRitualRouteProp>();
@@ -47,148 +53,179 @@ export const BurningRitualScreen: React.FC = () => {
   const { anchorId, intention, sigilSvg } = route.params;
   const { removeAnchor } = useAnchorStore();
 
-  const [currentPrompt, setCurrentPrompt] = useState<string>('');
-  const [isArchiving, setIsArchiving] = useState<boolean>(false);
+  const [isReleased, setIsReleased] = useState(false);
+  const [showReleasedText, setShowReleasedText] = useState(false);
 
-  // Animation values
-  const fadeAnim = useRef(new Animated.Value(1)).current;
-  const scaleAnim = useRef(new Animated.Value(1)).current;
-  const promptOpacity = useRef(new Animated.Value(0)).current;
+  // Animation Values
+  const ringScale = useSharedValue(1);
+  const ringOpacity = useSharedValue(0.4);
+  const sigilOpacity = useSharedValue(1);
+  const sigilScale = useSharedValue(1);
+  const ritualProgress = useSharedValue(0); // 0 to 1
 
   useEffect(() => {
-    startCompletionSequence();
+    startRitual();
   }, []);
 
-  const startCompletionSequence = async () => {
-    // Initial deep haptic
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
+  const startRitual = useCallback(() => {
+    // 1. Initial haptic & pulse animation
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
 
-    // Sigil fade/scale animation
-    Animated.parallel([
-      Animated.timing(fadeAnim, {
-        toValue: 0,
-        duration: COMPLETION_DURATION,
-        useNativeDriver: true,
-      }),
-      Animated.timing(scaleAnim, {
-        toValue: 0.8,
-        duration: COMPLETION_DURATION,
-        useNativeDriver: true,
-      }),
-    ]).start();
+    // Slow pulse of gold ring
+    ringScale.value = withRepeat(
+      withTiming(1.3, { duration: 3000, easing: Easing.inOut(Easing.sin) }),
+      -1,
+      true
+    );
+    ringOpacity.value = withRepeat(
+      withSequence(
+        withTiming(0.6, { duration: 3000 }),
+        withTiming(0.2, { duration: 3000 })
+      ),
+      -1,
+      true
+    );
 
-    // Show prompts at timed intervals
-    PROMPTS.forEach((prompt) => {
-      setTimeout(() => {
-        setCurrentPrompt(prompt.text);
-
-        // Fade in prompt
-        Animated.sequence([
-          Animated.timing(promptOpacity, {
-            toValue: 1,
-            duration: 500,
-            useNativeDriver: true,
-          }),
-        ]).start();
-
-        // Light haptic with each prompt
-        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-      }, prompt.delay);
+    // 2. Start overall ritual progression (6 seconds)
+    ritualProgress.value = withTiming(1, {
+      duration: 5000,
+      easing: Easing.linear,
+    }, (finished) => {
+      if (finished) {
+        runOnJS(completeRitual)();
+      }
     });
 
-    // Complete after burn duration
-    setTimeout(() => {
-      handleComplete();
-    }, COMPLETION_DURATION + 1000);
-  };
+    // 3. Sequential fade inward
+    sigilOpacity.value = withDelay(4000, withTiming(0, { duration: 1500 }));
+    sigilScale.value = withDelay(4000, withTiming(0.3, { duration: 1500 }));
 
-  const handleComplete = async (): Promise<void> => {
-    if (isArchiving) return; // Prevent duplicate calls
+    // Ring also fades and shrinks inward at the end
+    ringOpacity.value = withDelay(4000, withTiming(0, { duration: 1500 }));
+    ringScale.value = withDelay(4000, withTiming(0.1, { duration: 1500 }));
+  }, []);
 
-    setIsArchiving(true);
+  const completeRitual = async () => {
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    setShowReleasedText(true);
 
     try {
-      // Track burn completion
-      AnalyticsService.track(AnalyticsEvents.BURN_COMPLETED, {
-        anchor_id: anchorId,
-      });
-
-      ErrorTrackingService.addBreadcrumb('Archiving anchor via API', 'api', {
-        anchor_id: anchorId,
-      });
-
-      // Call backend API to archive anchor
+      // API call & state update
       await del(`/api/anchors/${anchorId}`);
-
-      // Remove from local store
       removeAnchor(anchorId);
 
-      // Success haptic
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      AnalyticsService.track(AnalyticsEvents.BURN_COMPLETED, { anchor_id: anchorId });
 
-      // Show success toast
-      toast.success('Anchor released and archived successfully');
-
-      // Navigate back to vault
-      navigation.navigate('Vault');
+      // Navigate away after a brief moment
+      setTimeout(() => {
+        navigation.navigate('Vault');
+      }, 1500);
     } catch (error) {
-      // Log error to tracking service
       ErrorTrackingService.captureException(
-        error instanceof Error ? error : new Error('Unknown error during anchor archiving'),
-        {
-          screen: 'BurningRitualScreen',
-          action: 'archive_anchor',
-          anchor_id: anchorId,
-        }
+        error instanceof Error ? error : new Error('Unknown error during anchor release'),
+        { screen: 'BurningRitualScreen' }
       );
-
-      AnalyticsService.track(AnalyticsEvents.BURN_FAILED, {
-        anchor_id: anchorId,
-        error: error instanceof Error ? error.message : 'Unknown error',
-      });
-
-      // Show error toast
-      toast.error(
-        error instanceof Error
-          ? error.message
-          : 'Failed to archive anchor. Please try again.'
-      );
-
-      // Still navigate back even if there's an error
+      toast.error('Ritual completed, but failed to sync. Anchor removed locally.');
+      removeAnchor(anchorId);
       navigation.navigate('Vault');
-    } finally {
-      setIsArchiving(false);
     }
   };
+
+  const ringStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: ringScale.value }],
+    opacity: ringOpacity.value,
+  }));
+
+  const sigilStyle = useAnimatedStyle(() => ({
+    opacity: sigilOpacity.value,
+    transform: [{ scale: sigilScale.value }],
+  }));
+
+  // Render particles
+  const particles = Array.from({ length: PARTICLE_COUNT }).map((_, i) => (
+    <EmberParticle key={i} index={i} progress={ritualProgress} />
+  ));
 
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.content}>
-        {/* Burning sigil */}
-        <Animated.View
-          style={[
-            styles.sigilContainer,
-            {
-              opacity: fadeAnim,
-              transform: [{ scale: scaleAnim }],
-            },
-          ]}
-        >
-          <SvgXml xml={sigilSvg} width={SIGIL_SIZE} height={SIGIL_SIZE} />
-        </Animated.View>
+        <Text style={styles.title}>Complete & Release</Text>
 
-        {/* Prompts */}
-        <Animated.View
-          style={[
-            styles.promptContainer,
-            { opacity: promptOpacity },
-          ]}
-        >
-          <Text style={styles.promptText}>{currentPrompt}</Text>
-        </Animated.View>
+        <View style={styles.ritualContainer}>
+          {/* Pulsing Gold Ring */}
+          <Animated.View style={[styles.ring, ringStyle]} />
+
+          {/* Upward Embers */}
+          <View style={StyleSheet.absoluteFill}>
+            {particles}
+          </View>
+
+          {/* Sigil */}
+          <Animated.View style={[styles.sigilContainer, sigilStyle]}>
+            <SvgXml xml={sigilSvg} width={SIGIL_SIZE} height={SIGIL_SIZE} />
+          </Animated.View>
+        </View>
+
+        {showReleasedText && (
+          <Animated.Text entering={FadeIn.duration(800)} style={styles.releasedText}>
+            Released
+          </Animated.Text>
+        )}
       </View>
     </SafeAreaView>
   );
+};
+
+interface ParticleProps {
+  index: number;
+  progress: Animated.SharedValue<number>;
+}
+
+const EmberParticle: React.FC<ParticleProps> = ({ index, progress }) => {
+  const seed = Math.sin(index * 1337);
+  const startX = (seed * SIGIL_SIZE) / 2;
+  const horizontalDrift = Math.cos(index * 42) * 40;
+
+  const animatedStyle = useAnimatedStyle(() => {
+    // Particles start emerging after 10% progress
+    const localProgress = interpolate(
+      progress.value,
+      [0.2, 0.9],
+      [0, 1],
+      Extrapolate.CLAMP
+    );
+
+    const translateY = interpolate(
+      localProgress,
+      [0, 1],
+      [0, -SCREEN_HEIGHT * 0.4]
+    );
+
+    const translateX = startX + (localProgress * horizontalDrift);
+
+    const opacity = interpolate(
+      localProgress,
+      [0, 0.2, 0.8, 1],
+      [0, 1, 1, 0]
+    );
+
+    const scale = interpolate(
+      localProgress,
+      [0, 0.2, 1],
+      [1, 1.5, 0.5]
+    );
+
+    return {
+      transform: [
+        { translateX },
+        { translateY },
+        { scale },
+      ],
+      opacity,
+    };
+  });
+
+  return <Animated.View style={[styles.particle, animatedStyle]} />;
 };
 
 const styles = StyleSheet.create({
@@ -198,21 +235,55 @@ const styles = StyleSheet.create({
   },
   content: {
     flex: 1,
+    alignItems: 'center',
+    paddingTop: spacing.xxl,
+  },
+  title: {
+    fontFamily: typography.fonts.heading,
+    fontSize: typography.sizes.h3,
+    color: colors.gold,
+    opacity: 0.6,
+    letterSpacing: 2,
+  },
+  ritualContainer: {
+    flex: 1,
+    width: '100%',
     justifyContent: 'center',
     alignItems: 'center',
-    paddingHorizontal: spacing.lg,
+  },
+  ring: {
+    position: 'absolute',
+    width: SIGIL_SIZE,
+    height: SIGIL_SIZE,
+    borderRadius: SIGIL_SIZE / 2,
+    borderWidth: 2,
+    borderColor: colors.gold,
+    shadowColor: colors.gold,
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.5,
+    shadowRadius: 20,
   },
   sigilContainer: {
-    marginBottom: spacing.xxxl,
+    shadowColor: colors.gold,
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.4,
+    shadowRadius: 15,
   },
-  promptContainer: {
-    paddingHorizontal: spacing.xl,
+  particle: {
+    position: 'absolute',
+    width: 4,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: colors.gold,
+    top: '50%',
+    left: '50%',
   },
-  promptText: {
-    fontFamily: typography.fonts.body,
-    fontSize: typography.sizes.h3,
-    color: colors.text.primary,
-    textAlign: 'center',
-    lineHeight: 32,
+  releasedText: {
+    position: 'absolute',
+    bottom: spacing.xxxl,
+    fontFamily: typography.fonts.heading,
+    fontSize: typography.sizes.h2,
+    color: colors.gold,
+    letterSpacing: 4,
   },
 });
