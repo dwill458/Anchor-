@@ -8,7 +8,7 @@ import { SvgXml, Svg, Circle, Path } from 'react-native-svg';
 import { BlurView } from 'expo-blur';
 import type { Anchor } from '@/types';
 import { colors, spacing, typography } from '@/theme';
-import { OptimizedImage } from '@/components/common/OptimizedImage';
+import { OptimizedImage, SacredRing } from '@/components/common';
 import { useSettingsStore } from '@/stores/settingsStore';
 
 interface AnchorCardProps {
@@ -24,26 +24,6 @@ const CATEGORY_CONFIG: Record<string, { label: string; color: string }> = {
   personal_growth: { label: 'Growth', color: colors.silver },
   custom: { label: 'Custom', color: colors.text.tertiary },
 };
-
-// Simple Sacred Geometry Component for the Ring
-const SacredRing: React.FC<{ size: number }> = ({ size }) => (
-  <Svg width={size} height={size} viewBox="0 0 100 100" fill="none">
-    <Circle cx="50" cy="50" r="45" stroke={colors.gold} strokeWidth="0.5" strokeOpacity="0.4" />
-    <Circle cx="50" cy="50" r="35" stroke={colors.gold} strokeWidth="0.3" strokeOpacity="0.2" />
-    <Path
-      d="M50 5L63 38L95 50L63 62L50 95L37 62L5 50L37 38L50 5Z"
-      stroke={colors.gold}
-      strokeWidth="0.5"
-      strokeOpacity="0.3"
-    />
-    <Path
-      d="M20 20L80 80M80 20L20 80"
-      stroke={colors.gold}
-      strokeWidth="0.2"
-      strokeOpacity="0.1"
-    />
-  </Svg>
-);
 
 export const AnchorCard: React.FC<AnchorCardProps> = ({ anchor, onPress }) => {
   const { reduceIntentionVisibility } = useSettingsStore();
@@ -243,7 +223,7 @@ const styles = StyleSheet.create({
   sigilImage: {
     width: '100%',
     height: '100%',
-    borderRadius: 12,
+    borderRadius: 100,
   },
   chargedPill: {
     position: 'absolute',

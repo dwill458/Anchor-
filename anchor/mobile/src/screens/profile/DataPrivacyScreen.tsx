@@ -24,7 +24,8 @@ import {
     CloudCheck,
     ExternalLink,
     ChevronRight,
-    Info
+    Info,
+    LucideIcon
 } from 'lucide-react-native';
 import { BlurView } from 'expo-blur';
 import { colors, spacing } from '@/theme';
@@ -38,7 +39,7 @@ type PrivacyItemProps = {
     helperText?: string;
     value?: string;
     onPress?: () => void;
-    icon: React.ComponentType<{ color: string; size: number }>;
+    icon: LucideIcon;
     isDestructive?: boolean;
 };
 

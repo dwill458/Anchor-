@@ -180,7 +180,7 @@ export const NarrativeOnboardingScreen: React.FC<Props> = ({ navigation }) => {
                             const isFinalStepActive = stepIndex === ONBOARDING_FLOW.length - 1;
 
                             // Dynamic styles based on completion status
-                            let dotColor = colors.text.tertiary;
+                            let dotColor: string = colors.text.tertiary;
                             let opacity = 0.3;
                             let width = 4;
                             let height = 4; // Default small

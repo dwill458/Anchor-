@@ -10,7 +10,11 @@
     }
   },
   "include": [
+    "**/*.d.ts",
     "**/*.ts",
     "**/*.tsx"
+  ],
+  "exclude": [
+    "src/screens/create/SigilSelectionScreen.backup.tsx"
   ]
 }

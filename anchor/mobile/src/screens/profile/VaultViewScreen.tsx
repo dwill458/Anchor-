@@ -16,7 +16,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
-import { Check, Grid as GridIcon, List as ListIcon } from 'lucide-react-native';
+import { Check, Grid as GridIcon, List as ListIcon, LucideIcon } from 'lucide-react-native';
 import { BlurView } from 'expo-blur';
 import { useSettingsStore } from '@/stores/settingsStore';
 import { colors, spacing } from '@/theme';
@@ -29,7 +29,7 @@ type VaultViewOption = {
   id: 'grid' | 'list';
   name: string;
   description: string;
-  icon: React.ComponentType<{ color: string; size: number }>;
+  icon: LucideIcon;
 };
 
 const VAULT_VIEW_OPTIONS: VaultViewOption[] = [

@@ -25,6 +25,8 @@ import { useAnchorStore } from '../../stores/anchorStore';
 import { useAuthStore } from '../../stores/authStore';
 import { useToast } from '../../components/ToastProvider';
 import { AnchorGridSkeleton } from '../../components/skeletons/AnchorCardSkeleton';
+import { AnchorLimitModal } from '../../components/modals/AnchorLimitModal';
+import { useSubscription } from '../../hooks/useSubscription';
 import { AnalyticsService, AnalyticsEvents } from '../../services/AnalyticsService';
 import { ErrorTrackingService } from '../../services/ErrorTrackingService';
 import { PerformanceMonitoring } from '../../services/PerformanceMonitoring';
@@ -46,7 +48,9 @@ export const VaultScreen: React.FC = () => {
   const navigation = useNavigation<VaultScreenNavigationProp>();
   const { user } = useAuthStore();
   const { anchors, isLoading, error, setLoading, setError } = useAnchorStore();
+  const { isFree, features } = useSubscription();
   const [refreshing, setRefreshing] = useState(false);
+  const [showAnchorLimitModal, setShowAnchorLimitModal] = useState(false);
   const toast = useToast();
 
   const fadeAnim = React.useRef(new Animated.Value(0)).current;
@@ -66,10 +70,17 @@ export const VaultScreen: React.FC = () => {
     if (shouldRedirectToCreation) {
       // Reset flag immediately
       setShouldRedirectToCreation(false);
+
+      // Check limit before redirecting
+      if (isFree && anchors.length >= features.maxAnchors) {
+        setShowAnchorLimitModal(true);
+        return;
+      }
+
       // Navigate to creation
       navigation.navigate('CreateAnchor');
     }
-  }, [navigation]);
+  }, [navigation, isFree, anchors.length, features.maxAnchors]);
 
   const fetchAnchors = useCallback(async (): Promise<void> => {
     if (!user) return;
@@ -130,6 +141,28 @@ export const VaultScreen: React.FC = () => {
   };
 
   const handleCreateAnchor = (): void => {
+    // Debug logging
+    console.log('🔍 Anchor Creation Check:', {
+      isFree,
+      anchorsLength: anchors.length,
+      maxAnchors: features.maxAnchors,
+      willBlock: isFree && anchors.length >= features.maxAnchors,
+    });
+
+    // Check anchor limit for free users
+    if (isFree && anchors.length >= features.maxAnchors) {
+      console.log('🚫 BLOCKING: Free user at limit');
+      AnalyticsService.track(AnalyticsEvents.ANCHOR_LIMIT_REACHED, {
+        current_count: anchors.length,
+        max_count: features.maxAnchors,
+        tier: 'free',
+      });
+
+      setShowAnchorLimitModal(true);
+      return; // Block creation
+    }
+
+    // Existing analytics and navigation
     AnalyticsService.track(AnalyticsEvents.ANCHOR_CREATION_STARTED, {
       source: 'vault',
       has_existing_anchors: anchors.length > 0,
@@ -140,6 +173,28 @@ export const VaultScreen: React.FC = () => {
     });
 
     navigation.navigate('CreateAnchor');
+  };
+
+  const handleUpgradeFromLimit = (): void => {
+    setShowAnchorLimitModal(false);
+
+    AnalyticsService.track(AnalyticsEvents.UPGRADE_INITIATED, {
+      source: 'anchor_limit_modal',
+      trigger: 'max_anchors_reached',
+    });
+
+    navigation.navigate('Settings');
+  };
+
+  const handleBurnFromLimit = (): void => {
+    setShowAnchorLimitModal(false);
+
+    AnalyticsService.track(AnalyticsEvents.BURN_TO_MAKE_ROOM_INITIATED, {
+      source: 'anchor_limit_modal',
+      current_count: anchors.length,
+    });
+
+    toast.info('Select an anchor to release and make room for a new one');
   };
 
   const renderAnchorCard = ({ item }: { item: Anchor }): React.JSX.Element => (
@@ -231,6 +286,16 @@ export const VaultScreen: React.FC = () => {
             </LinearGradient>
           </TouchableOpacity>
         )}
+
+        {/* Anchor Limit Modal */}
+        <AnchorLimitModal
+          visible={showAnchorLimitModal}
+          currentCount={anchors.length}
+          maxCount={features.maxAnchors}
+          onClose={() => setShowAnchorLimitModal(false)}
+          onUpgrade={handleUpgradeFromLimit}
+          onBurnAnchor={handleBurnFromLimit}
+        />
       </SafeAreaView>
     </View>
   );

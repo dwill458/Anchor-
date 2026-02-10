@@ -25,7 +25,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Anchor } from '@/types';
 import { colors, spacing } from '@/theme';
 import { AnchorState } from '../utils/anchorStateHelpers';
-import { OptimizedImage } from '@/components/common';
+import { OptimizedImage, SacredRing } from '@/components/common';
 
 const { width } = Dimensions.get('window');
 const SIGIL_SIZE = width * 0.6;
@@ -50,6 +50,7 @@ export const SigilHeroCard: React.FC<SigilHeroCardProps> = ({
   const breathScale = useRef(new Animated.Value(1.0)).current;
   const glowOpacity = useRef(new Animated.Value(0.3 * glowIntensity)).current;
   const shimmerX = useRef(new Animated.Value(-300)).current;
+  const rotateAnim = useRef(new Animated.Value(0)).current;
   const isMountedRef = useRef(true);
 
   // Breathing animation (continuous loop)
@@ -104,6 +105,27 @@ export const SigilHeroCard: React.FC<SigilHeroCardProps> = ({
     };
   }, [reduceMotionEnabled, breathingDuration, glowIntensity]);
 
+  // Rotation animation for the ring
+  useEffect(() => {
+    if (anchor.isCharged && !reduceMotionEnabled) {
+      Animated.loop(
+        Animated.timing(rotateAnim, {
+          toValue: 1,
+          duration: 30000,
+          easing: Easing.linear,
+          useNativeDriver: true,
+        })
+      ).start();
+    } else {
+      rotateAnim.setValue(0);
+    }
+  }, [anchor.isCharged, reduceMotionEnabled]);
+
+  const spin = rotateAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: ['0deg', '360deg'],
+  });
+
   // Shimmer sweep animation (periodic)
   useEffect(() => {
     if (reduceMotionEnabled) {
@@ -140,9 +162,12 @@ export const SigilHeroCard: React.FC<SigilHeroCardProps> = ({
 
   return (
     <View style={styles.container}>
-      <View style={styles.glassmorphicCard}>
+      <View style={[
+        styles.glassmorphicCard,
+        anchor.isCharged && styles.chargedCard
+      ]}>
         {Platform.OS === 'ios' ? (
-          <BlurView intensity={20} tint="dark" style={StyleSheet.absoluteFill}>
+          <BlurView intensity={anchor.isCharged ? 30 : 20} tint="dark" style={StyleSheet.absoluteFill}>
             {renderSigilContent()}
           </BlurView>
         ) : (
@@ -155,22 +180,30 @@ export const SigilHeroCard: React.FC<SigilHeroCardProps> = ({
   function renderSigilContent() {
     return (
       <View style={styles.content}>
-        {/* Radial glow background */}
+        {/* Radial glow background (Enhanced for charged) */}
         <Animated.View
           style={[
             styles.glowContainer,
             {
               opacity: glowOpacity,
+              transform: [{ scale: anchor.isCharged ? 1.4 : 1.0 }]
             },
           ]}
         >
           <LinearGradient
-            colors={[`${colors.gold}60`, `${colors.gold}00`]}
+            colors={[`${colors.gold}${anchor.isCharged ? '80' : '60'}`, `${colors.gold}00`]}
             style={StyleSheet.absoluteFill}
             start={{ x: 0.5, y: 0.5 }}
             end={{ x: 1, y: 1 }}
           />
         </Animated.View>
+
+        {/* Animated Sacred Ring (New for details) */}
+        {anchor.isCharged && (
+          <Animated.View style={[styles.ringWrapper, { transform: [{ rotate: spin }] }]}>
+            <SacredRing size={SIGIL_SIZE * 1.3} />
+          </Animated.View>
+        )}
 
         {/* Shimmer sweep overlay */}
         {!reduceMotionEnabled && (
@@ -214,10 +247,12 @@ export const SigilHeroCard: React.FC<SigilHeroCardProps> = ({
               <Animated.Text
                 style={[
                   styles.placeholderText,
-                  { opacity: glowOpacity.interpolate({
-                    inputRange: [0, 1],
-                    outputRange: [0.3, 0.6],
-                  })},
+                  {
+                    opacity: glowOpacity.interpolate({
+                      inputRange: [0, 1],
+                      outputRange: [0.3, 0.6],
+                    })
+                  },
                 ]}
               >
                 ◈
@@ -243,6 +278,14 @@ const styles = StyleSheet.create({
     backgroundColor:
       Platform.OS === 'ios' ? 'transparent' : 'rgba(26, 26, 29, 0.9)',
   },
+  chargedCard: {
+    borderColor: `rgba(212, 175, 55, 0.4)`,
+    shadowColor: colors.gold,
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.2,
+    shadowRadius: 20,
+    elevation: 15,
+  },
   androidFallback: {
     backgroundColor: 'rgba(26, 26, 29, 0.9)',
   },
@@ -257,6 +300,12 @@ const styles = StyleSheet.create({
     width: SIGIL_SIZE * 1.5,
     height: SIGIL_SIZE * 1.5,
     borderRadius: SIGIL_SIZE * 0.75,
+  },
+  ringWrapper: {
+    position: 'absolute',
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 1,
   },
   shimmerContainer: {
     position: 'absolute',
@@ -277,7 +326,7 @@ const styles = StyleSheet.create({
   sigilImage: {
     width: SIGIL_SIZE,
     height: SIGIL_SIZE,
-    borderRadius: 8,
+    borderRadius: SIGIL_SIZE / 2,
   },
   placeholderContainer: {
     width: SIGIL_SIZE,
