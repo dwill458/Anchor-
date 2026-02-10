@@ -443,7 +443,7 @@ const styles = StyleSheet.create({
   symbolImage: {
     width: SYMBOL_SIZE,
     height: SYMBOL_SIZE,
-    borderRadius: 14,
+    borderRadius: SYMBOL_SIZE / 2,
   },
   phaseTitle: {
     fontSize: typography.sizes.h3,

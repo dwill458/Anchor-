@@ -120,7 +120,8 @@ export class StorageService {
         return Array.from(StorageService.mockStore.keys());
       }
 
-      return await AsyncStorage.getAllKeys();
+      // AsyncStorage typings may return a readonly array; clone to a mutable array.
+      return [...(await AsyncStorage.getAllKeys())];
     } catch (error) {
       throw new ServiceError('storage/keys-failed', 'Failed to get storage keys.', error);
     }

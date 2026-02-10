@@ -216,7 +216,7 @@ const styles = StyleSheet.create({
     marginBottom: spacing.md,
   },
   title: {
-    fontSize: typography.sizes.lg,
+    fontSize: typography.fontSize.lg,
     fontFamily: typography.fonts.heading,
     color: colors.gold,
   },
@@ -256,7 +256,7 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   checklistText: {
-    fontSize: typography.sizes.md,
+    fontSize: typography.fontSize.md,
     fontFamily: typography.fonts.body,
     color: colors.text.primary,
   },
@@ -284,7 +284,7 @@ const styles = StyleSheet.create({
     marginVertical: spacing.lg,
   },
   sectionTitle: {
-    fontSize: typography.sizes.sm,
+    fontSize: typography.fontSize.sm,
     fontFamily: typography.fonts.body,
     color: colors.text.secondary,
     marginBottom: spacing.sm,
@@ -306,7 +306,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.gold,
   },
   historyDate: {
-    fontSize: typography.sizes.sm,
+    fontSize: typography.fontSize.sm,
     fontFamily: typography.fonts.body,
     color: colors.text.primary,
   },
@@ -318,7 +318,7 @@ const styles = StyleSheet.create({
     marginTop: spacing.xs,
   },
   emptyText: {
-    fontSize: typography.sizes.sm,
+    fontSize: typography.fontSize.sm,
     fontFamily: typography.fonts.body,
     color: colors.text.tertiary,
     fontStyle: 'italic',
@@ -330,12 +330,12 @@ const styles = StyleSheet.create({
     marginTop: spacing.md,
   },
   streakLabel: {
-    fontSize: typography.sizes.sm,
+    fontSize: typography.fontSize.sm,
     fontFamily: typography.fonts.body,
     color: colors.text.secondary,
   },
   streakValue: {
-    fontSize: typography.sizes.sm,
+    fontSize: typography.fontSize.sm,
     fontFamily: typography.fonts.body,
     color: colors.gold,
     fontWeight: '600',

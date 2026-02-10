@@ -306,7 +306,7 @@ const styles = StyleSheet.create({
   anchorImage: {
     width: ANCHOR_SIZE,
     height: ANCHOR_SIZE,
-    borderRadius: 12,
+    borderRadius: ANCHOR_SIZE / 2,
   },
 
   placeholderContainer: {

@@ -72,7 +72,7 @@ export const AnchorRevealScreen: React.FC = () => {
     }, [navigation]);
 
     const handleContinue = () => {
-        navigation.navigate('MantraCreation', {
+        (navigation as any).navigate('MantraCreation', {
             intentionText,
             category,
             distilledLetters,
@@ -184,7 +184,7 @@ const styles = StyleSheet.create({
     imageCard: {
         width: '100%',
         height: '100%',
-        borderRadius: 32,
+        borderRadius: IMAGE_SIZE / 2,
         overflow: 'hidden',
         borderWidth: 1,
         borderColor: 'rgba(212, 175, 55, 0.3)',
@@ -196,7 +196,7 @@ const styles = StyleSheet.create({
     },
     glowOverlay: {
         ...StyleSheet.absoluteFillObject,
-        borderRadius: 32,
+        borderRadius: IMAGE_SIZE / 2,
         borderWidth: 2,
         borderColor: 'rgba(212, 175, 55, 0.1)',
     },

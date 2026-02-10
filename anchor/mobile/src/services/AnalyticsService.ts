@@ -219,6 +219,11 @@ export const AnalyticsEvents = {
   BURN_COMPLETED: 'burn_completed',
   BURN_FAILED: 'burn_failed',
 
+  // Subscription & Limits
+  ANCHOR_LIMIT_REACHED: 'anchor_limit_reached',
+  UPGRADE_INITIATED: 'upgrade_initiated',
+  BURN_TO_MAKE_ROOM_INITIATED: 'burn_to_make_room_initiated',
+
   // Features
   MANUAL_FORGE_OPENED: 'manual_forge_opened',
   MANUAL_FORGE_COMPLETED: 'manual_forge_completed',
@@ -229,6 +234,11 @@ export const AnalyticsEvents = {
   DISCOVER_VIEWED: 'discover_viewed',
   SHOP_VIEWED: 'shop_viewed',
   PROFILE_VIEWED: 'profile_viewed',
+
+  // Merch / Physical Anchors
+  MERCH_INITIATED_FROM_ANCHOR_DETAILS: 'merch_initiated_from_anchor_details',
+  MERCH_PRODUCT_SELECTED: 'merch_product_selected',
+  MERCH_PRODUCT_VIEWED: 'merch_product_viewed',
 
   // Errors
   ERROR_OCCURRED: 'error_occurred',

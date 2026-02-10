@@ -1,57 +1,166 @@
-/**
- * Anchor App - Practice Screen
- *
- * Daily practice hub for activating anchors and building streaks.
- */
-
-import React from 'react';
-import { View, Text, StyleSheet, ScrollView } from 'react-native';
+import React, { useMemo } from 'react';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { BlurView } from 'expo-blur';
 import { colors, spacing, typography } from '@/theme';
+import { useNavigation } from '@react-navigation/native';
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import type { RootStackParamList, Anchor } from '@/types';
+import * as Haptics from 'expo-haptics';
+import { useAuthStore } from '@/stores/authStore';
+import { useAnchorStore } from '@/stores/anchorStore';
 import { ZenBackground } from '@/components/common';
+import { safeHaptics } from '@/utils/haptics';
+
+// Practice Components
+import { PracticeHeader } from './components/PracticeHeader';
+import { StreakCard } from './components/StreakCard';
+import { PracticeModeCard } from './components/PracticeModeCard';
+import { UpgradeNudge } from './components/UpgradeNudge';
+
+type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
 
 export const PracticeScreen: React.FC = () => {
-  return (
-    <View style={styles.root}>
-      <ZenBackground showOrbs orbOpacity={0.1} />
-      <View style={styles.overlay} />
+  console.log('DEBUG: PracticeScreen Rendered - REDESIGN ACTIVE');
+  const navigation = useNavigation<NavigationProp>();
+  const user = useAuthStore((state) => state.user);
+  const { anchors } = useAnchorStore();
 
-      <SafeAreaView style={styles.container} edges={['top']}>
+  const activeAnchors = anchors; // Use all anchors for now since getActiveAnchors is missing
+  const hasAnchors = activeAnchors.length > 0;
+  const isPro = user?.subscriptionStatus === 'pro' || user?.subscriptionStatus === 'pro_annual';
+  const streakCount = user?.currentStreak || 0;
+
+  // Soft Tension Footer Logic
+  const footerText = useMemo(() => {
+    if (!isPro) return 'Your practice begins with a single anchor.';
+
+    // Pro logic: check for stale anchors
+    const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
+    const hasStaleAnchor = activeAnchors.some((a: Anchor) =>
+      !a.lastActivatedAt || new Date(a.lastActivatedAt) < oneDayAgo
+    );
+
+    return hasStaleAnchor
+      ? 'One anchor hasn’t been activated recently.'
+      : 'Your strongest anchor is ready.';
+  }, [isPro, activeAnchors]);
+
+  const handleCreateAnchor = () => {
+    safeHaptics.impact(Haptics.ImpactFeedbackStyle.Light);
+    navigation.navigate('CreateAnchor');
+  };
+
+  const handleActivateLast = () => {
+    if (hasAnchors) {
+      safeHaptics.impact(Haptics.ImpactFeedbackStyle.Medium);
+      // Navigate to last activated or most recent anchor ritual
+      const lastAnchor = activeAnchors[0]; // Assuming first is most recent
+      navigation.navigate('Ritual', {
+        anchorId: lastAnchor.id,
+        ritualType: 'quick'
+      });
+    }
+  };
+
+  // Memory-based context for the last anchor
+  const lastActivatedText = useMemo(() => {
+    if (!hasAnchors) return 'A single moment of focus is enough.';
+    const lastAnchor = activeAnchors[0];
+    if (!lastAnchor.lastActivatedAt) return 'Ready for first activation.';
+
+    const lastDate = new Date(lastAnchor.lastActivatedAt);
+    const now = new Date();
+    const diffMs = now.getTime() - lastDate.getTime();
+    const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
+
+    if (diffHours < 1) return 'Last rejoined moments ago.';
+    if (diffHours < 24) return `Last rejoined ${diffHours}h ago.`;
+    return `Last rejoined ${Math.floor(diffHours / 24)}d ago.`;
+  }, [hasAnchors, activeAnchors]);
+
+  // Today Context Logic (Simplified)
+  const todayContext = useMemo(() => {
+    const lines = ['clarity', 'momentum', 'integration', 'ease', 'focus'];
+    const dayOfYear = Math.floor((Date.now() - new Date(new Date().getFullYear(), 0, 0).getTime()) / 86400000);
+    return lines[dayOfYear % lines.length];
+  }, []);
+
+  return (
+    <View style={styles.container}>
+      <ZenBackground />
+      <SafeAreaView style={styles.safeArea} edges={['top']}>
         <ScrollView
           contentContainerStyle={styles.scrollContent}
           showsVerticalScrollIndicator={false}
         >
-          <View style={styles.header}>
-            <Text style={styles.title}>Practice</Text>
-            <Text style={styles.subtitle}>Activate an anchor, build your streak</Text>
-          </View>
-
-          <View style={styles.cardShell}>
-            <BlurView intensity={18} tint="dark" style={styles.blurCard}>
-              <Text style={styles.streakLabel}>Current Streak</Text>
-              <Text style={styles.streakValue}>0 days</Text>
-              <Text style={styles.streakSubtext}>
-                Start your daily practice to build momentum
-              </Text>
-            </BlurView>
-          </View>
-
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Quick Practice</Text>
-
-            <View style={styles.cardShell}>
-              <BlurView intensity={16} tint="dark" style={[styles.blurCard, styles.disabledCard]}>
-                <Text style={styles.actionTitle}>Activate Last Anchor</Text>
-                <Text style={styles.actionSubtext}>No active anchors yet</Text>
-              </BlurView>
+          <View style={styles.headerRow}>
+            <PracticeHeader subhead="Return to your signal" />
+            <View style={styles.todayTag}>
+              <Text style={styles.todayText}>{todayContext}</Text>
             </View>
           </View>
 
-          <View style={styles.infoCard}>
-            <Text style={styles.infoText}>
-              Create your first anchor to begin your practice journey.
+          <StreakCard streakCount={streakCount} isPro={isPro} />
+
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>
+              {isPro ? 'Practice Evolution' : 'Daily Practice'}
             </Text>
+
+            {!isPro ? (
+              <>
+                <PracticeModeCard
+                  title="Resume Ritual"
+                  subtext={hasAnchors
+                    ? lastActivatedText
+                    : 'A single moment of focus is enough.'
+                  }
+                  cta={hasAnchors ? 'Reconnect' : undefined}
+                  onPress={hasAnchors ? handleActivateLast : handleCreateAnchor}
+                />
+                <PracticeModeCard
+                  title="Stabilize (30s)"
+                  subtext="Breath, focus, and reset."
+                  isLocked={true}
+                  lockCopy="Deepen Practice"
+                />
+              </>
+            ) : (
+              <>
+                <PracticeModeCard
+                  title="Ignite"
+                  subtext="Instant activation. Sharp focus."
+                  meta="~10 seconds"
+                  onPress={() => { }} // TODO: Navigate to Ignite ritual
+                />
+                <PracticeModeCard
+                  title="Stabilize"
+                  subtext="Breath, gaze, and grounding."
+                  meta="30–60 seconds"
+                  onPress={() => { }} // TODO: Navigate to Stabilize ritual
+                />
+                <PracticeModeCard
+                  title="Deepen"
+                  subtext="Guided ritual and visualization."
+                  meta="5–10 minutes"
+                  onPress={() => { }} // TODO: Navigate to Deepen ritual
+                />
+              </>
+            )}
+          </View>
+
+          {!isPro && <UpgradeNudge />}
+
+          <View style={styles.footer}>
+            <Text style={styles.footerText}>{footerText}</Text>
+            {!isPro && (
+              <TouchableOpacity
+                style={styles.createButton}
+                onPress={handleCreateAnchor}
+              >
+                <Text style={styles.createButtonText}>New Intent</Text>
+              </TouchableOpacity>
+            )}
           </View>
         </ScrollView>
       </SafeAreaView>
@@ -60,102 +169,72 @@ export const PracticeScreen: React.FC = () => {
 };
 
 const styles = StyleSheet.create({
-  root: {
+  container: {
     flex: 1,
     backgroundColor: colors.background.primary,
   },
-  overlay: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: colors.ritual.overlay,
-  },
-  container: {
+  safeArea: {
     flex: 1,
   },
-  scrollContent: {
-    paddingHorizontal: spacing.lg,
-    paddingBottom: spacing.xxl,
+  headerRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingRight: spacing.lg,
   },
-  header: {
-    marginTop: spacing.lg,
-    marginBottom: spacing.xl,
+  todayTag: {
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 2,
+    borderRadius: 4,
+    borderWidth: 1,
+    borderColor: 'rgba(212, 175, 55, 0.3)',
   },
-  title: {
-    fontSize: typography.sizes.h1,
-    fontFamily: typography.fonts.heading,
+  todayText: {
+    fontSize: 10,
+    fontFamily: typography.fonts.bodyBold,
     color: colors.gold,
-    marginBottom: spacing.xs,
-    letterSpacing: 0.5,
+    textTransform: 'uppercase',
+    letterSpacing: 1,
   },
-  subtitle: {
-    fontSize: typography.sizes.body1,
-    fontFamily: typography.fonts.body,
-    color: colors.text.secondary,
-    lineHeight: typography.lineHeights.body1,
+  scrollContent: {
+    paddingVertical: spacing.lg,
   },
   section: {
+    paddingHorizontal: spacing.lg,
     marginBottom: spacing.xl,
   },
   sectionTitle: {
-    fontSize: typography.sizes.h4,
-    fontFamily: typography.fonts.heading,
-    color: colors.text.primary,
+    fontSize: 14,
+    fontFamily: typography.fonts.bodyBold,
+    color: colors.text.tertiary,
+    textTransform: 'uppercase',
+    letterSpacing: 1.5,
     marginBottom: spacing.md,
   },
-  cardShell: {
-    borderRadius: 18,
-    overflow: 'hidden',
+  footer: {
+    paddingHorizontal: spacing.lg,
+    paddingBottom: spacing.xxl,
+    alignItems: 'center',
+  },
+  footerText: {
+    fontSize: 14,
+    fontFamily: typography.fonts.body,
+    color: colors.text.secondary,
+    textAlign: 'center',
+    opacity: 0.8,
+    marginBottom: spacing.lg,
+  },
+  createButton: {
+    paddingHorizontal: spacing.xl,
+    paddingVertical: spacing.md,
+    borderRadius: 12,
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
     borderWidth: 1,
-    borderColor: colors.ritual.border,
-    backgroundColor: colors.ritual.glass,
+    borderColor: 'rgba(255, 255, 255, 0.1)',
   },
-  blurCard: {
-    padding: spacing.lg,
-  },
-  streakLabel: {
-    fontSize: typography.sizes.caption,
+  createButtonText: {
+    fontSize: 14,
     fontFamily: typography.fonts.bodyBold,
-    color: colors.text.secondary,
-    textTransform: 'uppercase',
-    letterSpacing: 1.1,
-    marginBottom: spacing.sm,
-  },
-  streakValue: {
-    fontSize: 44,
-    fontFamily: typography.fonts.headingBold,
-    color: colors.gold,
-    marginBottom: spacing.sm,
-  },
-  streakSubtext: {
-    fontSize: typography.sizes.body2,
-    fontFamily: typography.fonts.body,
-    color: colors.text.secondary,
-    lineHeight: typography.lineHeights.body2,
-  },
-  disabledCard: {
-    opacity: 0.7,
-  },
-  actionTitle: {
-    fontSize: typography.sizes.h4,
-    fontFamily: typography.fonts.heading,
-    color: colors.text.primary,
-    marginBottom: spacing.xs,
-  },
-  actionSubtext: {
-    fontSize: typography.sizes.body2,
-    fontFamily: typography.fonts.body,
-    color: colors.text.secondary,
-  },
-  infoCard: {
-    borderRadius: 14,
-    padding: spacing.md,
-    backgroundColor: colors.ritual.glass,
-    borderWidth: 1,
-    borderColor: colors.ritual.border,
-  },
-  infoText: {
-    fontSize: typography.sizes.body2,
-    fontFamily: typography.fonts.body,
-    color: colors.text.secondary,
-    lineHeight: typography.lineHeights.body2,
+    color: colors.bone,
   },
 });

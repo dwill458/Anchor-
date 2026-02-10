@@ -72,7 +72,7 @@ const ModeCard: React.FC<ModeCardProps> = ({
 
         {isSelected && (
           <View style={styles.checkContainer}>
-            <Check color={colors.gold} size={20} weight="bold" />
+            <Check color={colors.gold} size={20} />
           </View>
         )}
       </CardWrapper>

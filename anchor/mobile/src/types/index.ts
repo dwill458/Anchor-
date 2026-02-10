@@ -470,7 +470,7 @@ export type RootStackParamList = {
     baseSigilSvg: string;
     reinforcedSigilSvg?: string;
     structureVariant: SigilVariant;
-    enhancedImageUrl: string;
+    enhancedImageUrl?: string;
     reinforcementMetadata?: ReinforcementMetadata;
     enhancementMetadata: EnhancementMetadata;
   };

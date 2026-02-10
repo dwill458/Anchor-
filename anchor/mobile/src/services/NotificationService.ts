@@ -1,6 +1,7 @@
 import * as Notifications from 'expo-notifications';
 import type {
   Notification,
+  NotificationRequest,
   NotificationContentInput,
   NotificationResponse,
   NotificationTrigger,
@@ -57,11 +58,7 @@ export type NotificationClickAction =
 
 type NotificationEvent = Notification | NotificationResponse;
 
-type MockScheduledNotification = {
-  identifier: string;
-  content: NotificationContentInput;
-  trigger: NotificationTrigger;
-};
+type MockScheduledNotification = NotificationRequest;
 
 /**
  * Notification Service
@@ -160,13 +157,13 @@ class NotificationService {
         body: 'A moment to return to your anchor.',
         sound: true,
         data: this.buildPayload('daily_reminder'),
-        channelId: NOTIFICATION_CHANNELS.DAILY_REMINDERS,
       },
       trigger: {
         type: Notifications.SchedulableTriggerInputTypes.CALENDAR,
         hour: parsed.hour,
         minute: parsed.minute,
         repeats: true,
+        channelId: NOTIFICATION_CHANNELS.DAILY_REMINDERS,
       },
     });
   }
@@ -206,7 +203,6 @@ class NotificationService {
           anchorId,
           reminderId,
         }),
-        channelId: NOTIFICATION_CHANNELS.RITUAL_REMINDERS,
       },
       trigger,
     });
@@ -243,13 +239,13 @@ class NotificationService {
         body: 'You haven’t met your ritual goal today. A quick activation will keep your momentum.',
         sound: true,
         data: this.buildPayload('streak_protection'),
-        channelId: NOTIFICATION_CHANNELS.STREAK_PROTECTION,
       },
       trigger: {
         type: Notifications.SchedulableTriggerInputTypes.CALENDAR,
         hour: 20,
         minute: 0,
         repeats: true,
+        channelId: NOTIFICATION_CHANNELS.STREAK_PROTECTION,
       },
     });
   }
@@ -275,7 +271,6 @@ class NotificationService {
         body: 'A short overview of your practice this week is ready.',
         sound: true,
         data: this.buildPayload('weekly_summary'),
-        channelId: NOTIFICATION_CHANNELS.WEEKLY_SUMMARY,
       },
       trigger: {
         type: Notifications.SchedulableTriggerInputTypes.CALENDAR,
@@ -283,6 +278,7 @@ class NotificationService {
         hour: 19,
         minute: 0,
         repeats: true,
+        channelId: NOTIFICATION_CHANNELS.WEEKLY_SUMMARY,
       },
     });
   }
@@ -441,7 +437,11 @@ class NotificationService {
 
   private buildRitualTrigger(time: string | Date): NotificationTriggerInput | null {
     if (time instanceof Date) {
-      return time;
+      return {
+        type: Notifications.SchedulableTriggerInputTypes.DATE,
+        date: time,
+        channelId: NOTIFICATION_CHANNELS.RITUAL_REMINDERS,
+      };
     }
 
     const parsed = this.parseTime(time);
@@ -451,6 +451,7 @@ class NotificationService {
       hour: parsed.hour,
       minute: parsed.minute,
       repeats: true,
+      channelId: NOTIFICATION_CHANNELS.RITUAL_REMINDERS,
     };
   }
 
@@ -462,10 +463,24 @@ class NotificationService {
     if (this.mockEnabled) {
       const identifier =
         request.identifier || `${NOTIFICATION_IDS.RITUAL_REMINDER_PREFIX}-${this.mockCounter++}`;
+      const mockTrigger: NotificationTrigger =
+        request.trigger === null ? { type: 'unknown' } : (request.trigger as NotificationTrigger);
+
       this.mockScheduled.set(identifier, {
         identifier,
-        content: request.content,
-        trigger: request.trigger,
+        content: {
+          title: request.content.title ?? null,
+          subtitle: request.content.subtitle ?? null,
+          body: request.content.body ?? null,
+          data: request.content.data ?? {},
+          sound: this.normalizeMockSound(request.content.sound),
+          launchImageName: request.content.launchImageName ?? null,
+          badge: request.content.badge ?? null,
+          attachments: request.content.attachments ?? [],
+          categoryIdentifier: request.content.categoryIdentifier ?? null,
+          threadIdentifier: null,
+        },
+        trigger: mockTrigger,
       });
       return identifier;
     }
@@ -514,6 +529,15 @@ class NotificationService {
     }
 
     return contentData as NotificationPayload;
+  }
+
+  private normalizeMockSound(
+    sound: NotificationContentInput['sound']
+  ): MockScheduledNotification['content']['sound'] {
+    if (sound === true || sound === 'default') return 'default';
+    if (sound === 'defaultCritical') return 'defaultCritical';
+    if (typeof sound === 'string') return 'custom';
+    return null;
   }
 }
 

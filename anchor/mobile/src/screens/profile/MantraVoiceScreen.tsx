@@ -16,7 +16,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
-import { Check, Volume2, VolumeX } from 'lucide-react-native';
+import { Check, Volume2, VolumeX, LucideIcon } from 'lucide-react-native';
 import { BlurView } from 'expo-blur';
 import { useSettingsStore } from '@/stores/settingsStore';
 import { colors, spacing } from '@/theme';
@@ -29,7 +29,7 @@ type MantraVoiceOption = {
   id: 'generated' | 'my_voice';
   name: string;
   description: string;
-  icon: React.ComponentType<{ color: string; size: number }>;
+  icon: LucideIcon;
 };
 
 const MANTRA_VOICE_OPTIONS: MantraVoiceOption[] = [

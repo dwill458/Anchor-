@@ -135,26 +135,7 @@ export const MainTabNavigator: React.FC = () => {
         name="Practice"
         component={PracticeScreen}
         options={({ navigation }) => ({
-          headerShown: true,
-          headerStyle: {
-            backgroundColor: colors.background.primary,
-            shadowColor: 'transparent',
-            elevation: 0,
-          },
-          headerTintColor: colors.gold,
-          headerTitleStyle: {
-            fontWeight: '600',
-            fontSize: 18,
-          },
-          headerTitle: 'Practice',
-          headerRight: () => {
-            const nav = (navigation as any).getParent();
-            return (
-              <SettingsButton
-                onPress={() => nav?.navigate('Settings')}
-              />
-            );
-          },
+          headerShown: false,
           tabBarLabel: 'Practice',
           tabBarIcon: ({ color, size }) => <Zap color={color} size={24} />,
         })}

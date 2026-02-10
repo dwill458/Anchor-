@@ -16,7 +16,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
-import { Check, Waves, Minus, Flame } from 'lucide-react-native';
+import { Check, Waves, Minus, Flame, LucideIcon } from 'lucide-react-native';
 import { BlurView } from 'expo-blur';
 import { useSettingsStore } from '@/stores/settingsStore';
 import { colors, spacing } from '@/theme';
@@ -29,7 +29,7 @@ type VoiceStyleOption = {
   id: 'calm' | 'neutral' | 'intense';
   name: string;
   description: string;
-  icon: React.ComponentType<{ color: string; size: number }>;
+  icon: LucideIcon;
 };
 
 const VOICE_STYLE_OPTIONS: VoiceStyleOption[] = [

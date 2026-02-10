@@ -524,7 +524,7 @@ const styles = StyleSheet.create({
   variationCard: {
     width: IMAGE_SIZE,
     aspectRatio: 1,
-    borderRadius: 20,
+    borderRadius: IMAGE_SIZE / 2,
     overflow: 'hidden',
     borderWidth: 2,
     borderColor: 'rgba(212, 175, 55, 0.15)',
@@ -590,7 +590,7 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     bottom: 0,
-    borderRadius: 20,
+    borderRadius: IMAGE_SIZE / 2,
     shadowColor: colors.gold,
     shadowOffset: { width: 0, height: 0 },
     shadowOpacity: 0.6,

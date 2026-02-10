@@ -29,13 +29,14 @@ import type { RootStackParamList, ActivationType } from '@/types';
 import { colors, spacing, typography } from '@/theme';
 import { format } from 'date-fns';
 import { AnalyticsService, AnalyticsEvents } from '../../services/AnalyticsService';
-import { ErrorTrackingService } from '../../services/ErrorTrackingService';
+import { ErrorSeverity, ErrorTrackingService } from '../../services/ErrorTrackingService';
 import { safeHaptics } from '@/utils/haptics';
 import { del } from '@/services/ApiClient';
 
 // New components
 import { SigilHeroCard } from './components/SigilHeroCard';
 import { PracticePathCard } from './components/PracticePathCard';
+import { PhysicalAnchorCard } from './components/PhysicalAnchorCard';
 import { DistilledLettersModal } from './components/DistilledLettersModal';
 
 // Helper utilities
@@ -79,6 +80,7 @@ export const AnchorDetailScreen: React.FC = () => {
   // State
   const [reduceMotionEnabled, setReduceMotionEnabled] = useState(false);
   const [distilledModalVisible, setDistilledModalVisible] = useState(false);
+  const [isDeletingAnchor, setIsDeletingAnchor] = useState(false);
 
   // Detect reduce motion setting
   useEffect(() => {
@@ -105,13 +107,13 @@ export const AnchorDetailScreen: React.FC = () => {
       ErrorTrackingService.addBreadcrumb('Anchor detail viewed', 'navigation', {
         anchor_id: anchor.id,
       });
-    } else {
+    } else if (!isDeletingAnchor) {
       ErrorTrackingService.captureException(new Error('Anchor not found'), {
         screen: 'AnchorDetailScreen',
         anchor_id: anchorId,
       });
     }
-  }, [anchor, anchorId]);
+  }, [anchor, anchorId, isDeletingAnchor]);
 
   // Derived state (memoized)
   const anchorState = useMemo(() => {
@@ -224,6 +226,7 @@ export const AnchorDetailScreen: React.FC = () => {
           text: 'Delete',
           style: 'destructive',
           onPress: async () => {
+            setIsDeletingAnchor(true);
             try {
               await del(`/api/anchors/${anchor.id}`);
               removeAnchor(anchor.id);
@@ -231,19 +234,30 @@ export const AnchorDetailScreen: React.FC = () => {
               AnalyticsService.track(AnalyticsEvents.ANCHOR_DELETED, {
                 anchor_id: anchor.id,
                 source: 'developer_settings',
+                sync: 'server',
               });
 
-              navigation.navigate('Vault');
+              navigation.popToTop();
             } catch (error) {
-              ErrorTrackingService.captureException(
-                error instanceof Error ? error : new Error('Unknown developer delete error'),
-                {
-                  screen: 'AnchorDetailScreen',
-                  action: 'developer_delete_anchor',
-                  anchor_id: anchor.id,
-                }
+              const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+
+              ErrorTrackingService.captureMessage(
+                `Developer delete fell back to local-only removal: ${errorMessage}`,
+                ErrorSeverity.Warning
               );
-              Alert.alert('Delete Failed', 'Failed to delete anchor.');
+
+              // Dev delete should still succeed locally when backend sync is unavailable.
+              removeAnchor(anchor.id);
+              AnalyticsService.track(AnalyticsEvents.ANCHOR_DELETED, {
+                anchor_id: anchor.id,
+                source: 'developer_settings',
+                sync: 'local_fallback',
+              });
+              Alert.alert(
+                'Deleted Locally',
+                'Anchor was deleted on this device but failed to sync to backend.'
+              );
+              navigation.popToTop();
             }
           },
         },
@@ -253,6 +267,10 @@ export const AnchorDetailScreen: React.FC = () => {
 
   // Error state
   if (!anchor) {
+    if (isDeletingAnchor) {
+      return <SafeAreaView style={styles.container} />;
+    }
+
     return (
       <SafeAreaView style={styles.container}>
         <Text style={styles.errorText}>Anchor not found</Text>
@@ -371,6 +389,12 @@ export const AnchorDetailScreen: React.FC = () => {
           anchor={anchor}
           anchorState={anchorState}
           activationsThisWeek={activationsThisWeek}
+        />
+
+        {/* Physical Anchor Card */}
+        <PhysicalAnchorCard
+          anchor={anchor}
+          hasActivations={anchor.activationCount >= 1}
         />
 
         {/* Footer */}

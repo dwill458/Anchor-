@@ -47,16 +47,32 @@ describe('NotificationService', () => {
   });
 
   it('maps notification taps to routing actions', () => {
-    const response = NotificationService.handleNotificationClick({
+    const notification: Notification = {
+      date: Date.now(),
       request: {
+        identifier: 'test-notification',
         content: {
+          title: null,
+          subtitle: null,
+          body: null,
           data: {
             type: 'ritual_reminder',
             anchorId: 'anchor-1',
           },
+          sound: null,
+          launchImageName: null,
+          badge: null,
+          attachments: [],
+          categoryIdentifier: null,
+          threadIdentifier: null,
+        },
+        trigger: {
+          type: 'unknown',
         },
       },
-    } as Notification);
+    };
+
+    const response = NotificationService.handleNotificationClick(notification);
 
     expect(response).toEqual({ action: 'open_ritual_reminder', anchorId: 'anchor-1' });
   });

@@ -144,17 +144,18 @@ export const DistilledLettersModal: React.FC<DistilledLettersModalProps> = ({
           ))}
         </View>
 
-        {/* Explanation */}
-        <Text style={styles.explanation}>
-          These are the core consonants your intention was distilled into using the
-          Austin Osman Spare method.
+        {/* Body Copy */}
+        <Text style={styles.bodyText}>
+          These letters are the essence of your intention.
+          We’ve removed excess language to reveal its core structure.
         </Text>
 
-        <Text style={styles.explanation}>
-          This process removes vowels and duplicate letters, leaving only the essential
-          structure of your intention. These letters form the foundation of your sigil's
-          geometric pattern.
+        <Text style={[styles.bodyText, { marginBottom: spacing.xl }]}>
+          This distilled form becomes the blueprint for your anchor’s shape.
         </Text>
+
+        {/* Helper Text */}
+        <Text style={styles.helperText}>Based on traditional sigil methods</Text>
       </View>
     );
   }
@@ -175,15 +176,15 @@ const styles = StyleSheet.create({
     maxWidth: 400,
   },
   glassmorphicCard: {
-    borderRadius: 20,
+    borderRadius: 24,
     overflow: 'hidden',
     borderWidth: 1,
-    borderColor: `rgba(212, 175, 55, 0.3)`,
+    borderColor: `rgba(212, 175, 55, 0.2)`,
     backgroundColor:
-      Platform.OS === 'ios' ? 'transparent' : 'rgba(26, 26, 29, 0.95)',
+      Platform.OS === 'ios' ? 'transparent' : 'rgba(15, 15, 18, 0.95)',
   },
   androidFallback: {
-    backgroundColor: 'rgba(26, 26, 29, 0.95)',
+    backgroundColor: 'rgba(15, 15, 18, 0.95)',
   },
   content: {
     padding: spacing.xl,
@@ -192,54 +193,65 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: spacing.lg,
+    marginBottom: spacing.xl,
   },
   title: {
-    fontSize: typography.sizes.h3,
-    fontFamily: typography.fonts.heading,
+    fontSize: 22,
+    fontFamily: typography.fonts.headingSemiBold,
     color: colors.gold,
+    letterSpacing: 0.5,
   },
   closeButton: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: `${colors.gold}20`,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: 'rgba(212, 175, 55, 0.1)',
     alignItems: 'center',
     justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(212, 175, 55, 0.2)',
   },
   closeButtonText: {
-    fontSize: 20,
+    fontSize: 18,
     color: colors.gold,
-    fontWeight: '400',
+    fontWeight: '300',
   },
   lettersContainer: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     justifyContent: 'center',
-    gap: spacing.sm,
-    marginBottom: spacing.xl,
+    gap: spacing.md,
+    marginBottom: spacing.xxl,
   },
   letterBox: {
-    width: 48,
-    height: 48,
-    borderRadius: 8,
-    backgroundColor: `${colors.gold}20`,
+    width: 52,
+    height: 52,
+    borderRadius: 12,
+    backgroundColor: 'rgba(212, 175, 55, 0.05)',
     borderWidth: 1,
-    borderColor: `${colors.gold}40`,
+    borderColor: 'rgba(212, 175, 55, 0.2)',
     alignItems: 'center',
     justifyContent: 'center',
   },
   letterText: {
     fontSize: 24,
-    fontFamily: typography.fonts.heading,
+    fontFamily: typography.fonts.headingSemiBold,
     color: colors.gold,
-    fontWeight: '600',
   },
-  explanation: {
-    fontSize: typography.sizes.sm,
+  bodyText: {
+    fontSize: 16,
     fontFamily: typography.fonts.body,
-    color: colors.text.secondary,
-    lineHeight: 20,
-    marginBottom: spacing.md,
+    color: 'rgba(255, 255, 255, 0.85)',
+    lineHeight: 26,
+    marginBottom: spacing.lg,
+    textAlign: 'left',
+  },
+  helperText: {
+    fontSize: 12,
+    fontFamily: typography.fonts.body,
+    color: 'rgba(255, 255, 255, 0.4)',
+    textAlign: 'center',
+    marginTop: spacing.sm,
+    fontStyle: 'italic',
   },
 });
