@@ -45,9 +45,21 @@ export enum ErrorSeverity {
  * ```
  */
 class ErrorTracking {
-  private enabled: boolean = true;
+  private enabled: boolean = !__DEV__;
   private userId: string | null = null;
   private context: ErrorContext = {};
+
+  private formatError(error: Error): {
+    name: string;
+    message: string;
+    stack?: string;
+  } {
+    return {
+      name: error.name,
+      message: error.message,
+      stack: error.stack,
+    };
+  }
 
   /**
    * Initialize error tracking
@@ -132,14 +144,21 @@ class ErrorTracking {
    * Capture an exception
    */
   captureException(error: Error, context?: ErrorContext): void {
+    const formattedError = this.formatError(error);
+
     if (!this.enabled) {
       if (__DEV__) {
-        console.error('[ErrorTracking] Exception (dev mode)', error, context);
+        console.warn('[ErrorTracking] Exception (dev mode)', formattedError, context);
       }
       return;
     }
 
-    console.error('[ErrorTracking] Capturing exception', error);
+    if (__DEV__) {
+      // Use warn in development so handled exceptions do not trigger LogBox console-error overlays.
+      console.warn('[ErrorTracking] Capturing exception', formattedError, context);
+    } else {
+      console.error('[ErrorTracking] Capturing exception', error);
+    }
 
     // Add context
     if (context) {
