@@ -97,16 +97,11 @@ describe('BurningRitualScreen', () => {
 
   it('should show "Released" text after ritual completion', async () => {
     (del as jest.Mock).mockResolvedValue({ success: true });
-    const { getByText, queryByText } = render(<BurningRitualScreen />);
+    const { getByText } = render(<BurningRitualScreen />);
 
-    expect(queryByText('Released')).toBeNull();
-
-    // Fast-forward ritual duration (5s) + small buffer
-    await act(async () => {
-      jest.advanceTimersByTime(5500);
+    await waitFor(() => {
+      expect(getByText('Released')).toBeTruthy();
     });
-
-    expect(getByText('Released')).toBeTruthy();
   });
 
   it('should trigger medium haptic feedback on start', () => {
@@ -122,11 +117,6 @@ describe('BurningRitualScreen', () => {
 
     render(<BurningRitualScreen />);
 
-    // Fast-forward to completion
-    await act(async () => {
-      jest.advanceTimersByTime(5500);
-    });
-
     await waitFor(() => {
       expect(del).toHaveBeenCalledWith('/api/anchors/test-anchor-id');
     });
@@ -136,11 +126,6 @@ describe('BurningRitualScreen', () => {
     (del as jest.Mock).mockResolvedValue({ success: true });
 
     render(<BurningRitualScreen />);
-
-    // Fast-forward to completion
-    await act(async () => {
-      jest.advanceTimersByTime(5500);
-    });
 
     await waitFor(() => {
       expect(mockRemoveAnchor).toHaveBeenCalledWith('test-anchor-id');
@@ -152,9 +137,12 @@ describe('BurningRitualScreen', () => {
 
     render(<BurningRitualScreen />);
 
-    // Fast-forward to completion + navigation delay
+    await waitFor(() => {
+      expect(del).toHaveBeenCalledWith('/api/anchors/test-anchor-id');
+    });
+
     await act(async () => {
-      jest.advanceTimersByTime(7500); // 5s ritual + 1.5s delay + buffer
+      jest.advanceTimersByTime(1600);
     });
 
     await waitFor(() => {
@@ -167,11 +155,6 @@ describe('BurningRitualScreen', () => {
 
     render(<BurningRitualScreen />);
 
-    // Fast-forward to completion
-    await act(async () => {
-      jest.advanceTimersByTime(5500);
-    });
-
     await waitFor(() => {
       expect(Haptics.notificationAsync).toHaveBeenCalledWith(
         Haptics.NotificationFeedbackType.Success
@@ -183,11 +166,6 @@ describe('BurningRitualScreen', () => {
     (del as jest.Mock).mockResolvedValue({ success: true });
 
     render(<BurningRitualScreen />);
-
-    // Fast-forward to completion
-    await act(async () => {
-      jest.advanceTimersByTime(5500);
-    });
 
     await waitFor(() => {
       expect(AnalyticsService.track).toHaveBeenCalledWith(
@@ -205,11 +183,6 @@ describe('BurningRitualScreen', () => {
 
     render(<BurningRitualScreen />);
 
-    // Fast-forward to completion
-    await act(async () => {
-      jest.advanceTimersByTime(5500);
-    });
-
     await waitFor(() => {
       expect(ErrorTrackingService.captureException).toHaveBeenCalledWith(
         expect.any(Error),
@@ -224,11 +197,6 @@ describe('BurningRitualScreen', () => {
 
     render(<BurningRitualScreen />);
 
-    // Fast-forward to completion
-    await act(async () => {
-      jest.advanceTimersByTime(5500);
-    });
-
     await waitFor(() => {
       expect(mockToastError).toHaveBeenCalledWith('Ritual completed, but failed to sync. Anchor removed locally.');
     });
@@ -239,11 +207,6 @@ describe('BurningRitualScreen', () => {
     (del as jest.Mock).mockRejectedValue(error);
 
     render(<BurningRitualScreen />);
-
-    // Fast-forward to completion + navigation delay
-    await act(async () => {
-      jest.advanceTimersByTime(7500);
-    });
 
     await waitFor(() => {
       expect(mockNavigate).toHaveBeenCalledWith('Vault');

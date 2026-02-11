@@ -120,7 +120,7 @@ export const PhysicalAnchorCard: React.FC<PhysicalAnchorCardProps> = ({
           <Text style={styles.sectionSubtitle}>Make this symbol tangible.</Text>
           {hasActivations && (
             <Text style={styles.activatedCaption}>
-              Activated anchors are often made physical.
+              You've activated this anchor. Make it tangible.
             </Text>
           )}
         </View>
@@ -159,10 +159,7 @@ export const PhysicalAnchorCard: React.FC<PhysicalAnchorCardProps> = ({
           {/* Right: Text Content + CTA */}
           <View style={styles.textContainer}>
             <Text style={styles.cardTitle}>Carry your anchor</Text>
-            <Text style={styles.cardBody}>
-              Some anchors are meant to live beyond the screen. Create a physical
-              form of this symbol as a quiet reminder.
-            </Text>
+            <Text style={styles.cardBody}>A quiet reminder you can carry.</Text>
 
             {/* CTA Button */}
             <TouchableOpacity

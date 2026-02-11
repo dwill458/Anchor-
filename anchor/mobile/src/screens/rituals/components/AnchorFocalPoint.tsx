@@ -18,14 +18,12 @@ import {
   StyleSheet,
   Animated,
   Dimensions,
-  Platform,
 } from 'react-native';
-import { LinearGradient } from 'expo-linear-gradient';
 import { SvgXml } from 'react-native-svg';
 import type { Anchor } from '@/types';
 import { colors, spacing } from '@/theme';
-import { OptimizedImage } from '@/components/common';
-import { TIMING, EASING, GLOW_COLORS } from '../utils/transitionConstants';
+import { OptimizedImage, PremiumAnchorGlow } from '@/components/common';
+import { TIMING, EASING } from '../utils/transitionConstants';
 
 const { width } = Dimensions.get('window');
 
@@ -36,7 +34,6 @@ interface AnchorFocalPointProps {
   anchor: Anchor;
   breathScale: Animated.Value;
   glowOpacity: Animated.Value;
-  shimmerX: Animated.Value;
   opacity: Animated.Value;
   scale: Animated.Value;
   translateY: Animated.Value;
@@ -48,7 +45,6 @@ export const AnchorFocalPoint: React.FC<AnchorFocalPointProps> = ({
   anchor,
   breathScale,
   glowOpacity,
-  shimmerX,
   opacity,
   scale,
   translateY,
@@ -113,43 +109,6 @@ export const AnchorFocalPoint: React.FC<AnchorFocalPointProps> = ({
   }, [reduceMotionEnabled]);
 
   // ══════════════════════════════════════════════════════════════
-  // SHIMMER SWEEP ANIMATION (Periodic)
-  // ══════════════════════════════════════════════════════════════
-
-  useEffect(() => {
-    if (reduceMotionEnabled) {
-      shimmerX.setValue(-300);
-      return;
-    }
-
-    const shimmerSequence = Animated.loop(
-      Animated.sequence([
-        // Sweep across anchor (left to right)
-        Animated.timing(shimmerX, {
-          toValue: 400,
-          duration: TIMING.SHIMMER_SWEEP_DURATION,
-          easing: EASING.LINEAR,
-          useNativeDriver: true,
-        }),
-        // Long pause (9 seconds)
-        Animated.delay(TIMING.SHIMMER_PAUSE_DURATION),
-        // Reset instantly to start position
-        Animated.timing(shimmerX, {
-          toValue: -300,
-          duration: 0,
-          useNativeDriver: true,
-        }),
-      ])
-    );
-
-    shimmerSequence.start();
-
-    return () => {
-      shimmerSequence.stop();
-    };
-  }, [reduceMotionEnabled]);
-
-  // ══════════════════════════════════════════════════════════════
   // RENDER
   // ══════════════════════════════════════════════════════════════
 
@@ -167,41 +126,21 @@ export const AnchorFocalPoint: React.FC<AnchorFocalPointProps> = ({
       ]}
       onLayout={onLayout}
     >
-      {/* Radial glow background */}
       <Animated.View
         style={[
-          styles.glowContainer,
+          styles.glowWrapper,
           {
             opacity: glowOpacity,
           },
         ]}
       >
-        <LinearGradient
-          colors={[GLOW_COLORS.RADIAL_CENTER, GLOW_COLORS.RADIAL_EDGE]}
-          style={StyleSheet.absoluteFill}
-          start={{ x: 0.5, y: 0.5 }}
-          end={{ x: 1, y: 1 }}
+        <PremiumAnchorGlow
+          size={ANCHOR_SIZE}
+          state="active"
+          variant="ritual"
+          reduceMotionEnabled={reduceMotionEnabled}
         />
       </Animated.View>
-
-      {/* Shimmer sweep overlay */}
-      {!reduceMotionEnabled && (
-        <Animated.View
-          style={[
-            styles.shimmerContainer,
-            {
-              transform: [{ translateX: shimmerX }],
-            },
-          ]}
-        >
-          <LinearGradient
-            colors={GLOW_COLORS.SHIMMER}
-            style={styles.shimmerGradient}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 0 }}
-          />
-        </Animated.View>
-      )}
 
       {/* Animated anchor symbol */}
       <Animated.View
@@ -276,23 +215,10 @@ const styles = StyleSheet.create({
     position: 'relative',
   },
 
-  glowContainer: {
+  glowWrapper: {
     position: 'absolute',
     width: ANCHOR_SIZE * 1.6,
     height: ANCHOR_SIZE * 1.6,
-    borderRadius: ANCHOR_SIZE * 0.8,
-  },
-
-  shimmerContainer: {
-    position: 'absolute',
-    width: 220,
-    height: ANCHOR_SIZE * 1.3,
-    overflow: 'visible',
-  },
-
-  shimmerGradient: {
-    width: '100%',
-    height: '100%',
   },
 
   anchorContainer: {

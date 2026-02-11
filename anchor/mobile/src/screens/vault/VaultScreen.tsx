@@ -27,6 +27,7 @@ import { useToast } from '../../components/ToastProvider';
 import { AnchorGridSkeleton } from '../../components/skeletons/AnchorCardSkeleton';
 import { AnchorLimitModal } from '../../components/modals/AnchorLimitModal';
 import { useSubscription } from '../../hooks/useSubscription';
+import { useReduceMotionEnabled } from '@/hooks/useReduceMotionEnabled';
 import { AnalyticsService, AnalyticsEvents } from '../../services/AnalyticsService';
 import { ErrorTrackingService } from '../../services/ErrorTrackingService';
 import { PerformanceMonitoring } from '../../services/PerformanceMonitoring';
@@ -51,6 +52,7 @@ export const VaultScreen: React.FC = () => {
   const { isFree, features } = useSubscription();
   const [refreshing, setRefreshing] = useState(false);
   const [showAnchorLimitModal, setShowAnchorLimitModal] = useState(false);
+  const reduceMotionEnabled = useReduceMotionEnabled();
   const toast = useToast();
 
   const fadeAnim = React.useRef(new Animated.Value(0)).current;
@@ -199,7 +201,11 @@ export const VaultScreen: React.FC = () => {
 
   const renderAnchorCard = ({ item }: { item: Anchor }): React.JSX.Element => (
     <View style={{ width: CARD_WIDTH }}>
-      <AnchorCard anchor={item} onPress={handleAnchorPress} />
+      <AnchorCard
+        anchor={item}
+        onPress={handleAnchorPress}
+        reduceMotionEnabled={reduceMotionEnabled}
+      />
     </View>
   );
 

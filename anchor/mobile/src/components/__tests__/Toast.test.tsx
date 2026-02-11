@@ -5,7 +5,7 @@
  */
 
 import React from 'react';
-import { render, fireEvent, waitFor } from '@testing-library/react-native';
+import { render, fireEvent, waitFor, act } from '@testing-library/react-native';
 import { Toast } from '../Toast';
 import * as Haptics from 'expo-haptics';
 
@@ -94,12 +94,19 @@ describe('Toast Component', () => {
   });
 
   it('should auto-dismiss after duration', async () => {
+    jest.useFakeTimers();
     const onDismiss = jest.fn();
     render(<Toast message="Test" duration={100} onDismiss={onDismiss} />);
 
+    act(() => {
+      jest.advanceTimersByTime(350);
+    });
+
     await waitFor(() => {
       expect(onDismiss).toHaveBeenCalled();
-    }, { timeout: 200 });
+    }, { timeout: 500 });
+
+    jest.useRealTimers();
   });
 
   it('should truncate long messages to 3 lines', () => {

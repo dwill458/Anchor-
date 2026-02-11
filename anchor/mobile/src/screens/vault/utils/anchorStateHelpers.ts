@@ -6,9 +6,31 @@
  */
 
 import { Anchor } from '@/types';
-import { differenceInDays, format } from 'date-fns';
+import { differenceInDays, differenceInHours, differenceInMinutes, format } from 'date-fns';
 
 export type AnchorState = 'dormant' | 'charged' | 'active' | 'stale';
+
+/**
+ * True once an anchor has had its first ignition/charge.
+ */
+export function hasIgnited(anchor: Anchor): boolean {
+  return Boolean(
+    anchor.firstChargedAt ||
+      anchor.chargedAt ||
+      anchor.ignitedAt ||
+      (anchor.chargeCount ?? 0) > 0 ||
+      anchor.isCharged ||
+      anchor.activationCount > 0 ||
+      anchor.lastActivatedAt
+  );
+}
+
+/**
+ * Released/archived anchors should not allow activation/reinforcement.
+ */
+export function isAnchorReleased(anchor: Anchor): boolean {
+  return Boolean(anchor.isReleased || anchor.releasedAt || anchor.archivedAt);
+}
 
 /**
  * Determines anchor state based on activation history and charge status
@@ -95,39 +117,78 @@ export interface MeaningCopy {
 /**
  * Generates contextual messaging based on anchor state
  */
-export function getMeaningCopy(anchor: Anchor, state: AnchorState): MeaningCopy {
-  let activationStatus: string;
-
-  // Generate activation status message
-  if (anchor.activationCount === 0) {
-    activationStatus = 'Waiting for first ignition';
-  } else if (anchor.activationCount === 1) {
-    activationStatus = 'Awakened · 1 time';
-  } else if (anchor.activationCount >= 10) {
-    activationStatus = `Integrated · ${anchor.activationCount} activations`;
-  } else {
-    activationStatus = `Activated ${anchor.activationCount} times`;
-  }
-
-  // Format last activated text
-  const lastActivatedText = anchor.lastActivatedAt
-    ? format(new Date(anchor.lastActivatedAt), 'MMM d, yyyy')
-    : 'Not yet';
-
-  // Determine CTA label based on state
-  let ctaLabel: string;
-  if (state === 'active') {
-    ctaLabel = 'Activate Again';
-  } else if (anchor.isCharged) {
-    ctaLabel = 'Begin Activation';
-  } else {
-    ctaLabel = 'Begin Charging';
-  }
+export function getMeaningCopy(anchor: Anchor, _state: AnchorState): MeaningCopy {
+  const ignited = hasIgnited(anchor);
+  const activationStatus = ignited ? 'Anchor is live' : 'Ready to ignite';
+  const lastActivatedText = getLastActivatedText(anchor.lastActivatedAt);
+  const ctaLabel = ignited ? 'Activate' : 'Ignite Anchor';
+  const ctaMicrocopy = ignited
+    ? '10-60 seconds · enter focus'
+    : '1-10 minutes · first charge';
 
   return {
     activationStatus,
     lastActivatedText,
     ctaLabel,
-    ctaMicrocopy: '1–10 minutes · quiet focus',
+    ctaMicrocopy,
   };
+}
+
+/**
+ * Returns a concise headline for the Ritual Dashboard card based on anchor state.
+ */
+export function getDashboardHeadline(state: AnchorState, ignited: boolean): string {
+  if (!ignited) return 'Ready to ignite';
+  switch (state) {
+    case 'active': return '✦ Live';
+    case 'charged': return 'Charged';
+    case 'stale': return 'Fading — recharge soon';
+    default: return 'Ready';
+  }
+}
+
+export function getDeepChargeMicrocopy(lastActivatedAt?: Date | string): string {
+  if (!lastActivatedAt) return 'Your anchor may be dim. Recharge it.';
+
+  const activationDate =
+    typeof lastActivatedAt === 'string' ? new Date(lastActivatedAt) : lastActivatedAt;
+
+  if (Number.isNaN(activationDate.getTime())) {
+    return 'Your anchor may be dim. Recharge it.';
+  }
+
+  const now = new Date();
+  const minutesSinceActivation = differenceInMinutes(now, activationDate);
+  if (minutesSinceActivation >= 0 && minutesSinceActivation <= 10) {
+    return 'Optional: deepen what you just started.';
+  }
+
+  const hoursSinceActivation = differenceInHours(now, activationDate);
+  if (hoursSinceActivation >= 24) {
+    return 'Your anchor may be dim. Recharge it.';
+  }
+
+  return 'Best when your intention feels dim.';
+}
+
+function getLastActivatedText(lastActivatedAt?: Date | string): string {
+  if (!lastActivatedAt) return 'Not yet';
+
+  const activationDate =
+    typeof lastActivatedAt === 'string' ? new Date(lastActivatedAt) : lastActivatedAt;
+
+  if (Number.isNaN(activationDate.getTime())) return 'Not yet';
+
+  const now = new Date();
+  const minutes = differenceInMinutes(now, activationDate);
+  if (minutes <= 0) return 'just now';
+  if (minutes < 60) return `${minutes}m ago`;
+
+  const hours = differenceInHours(now, activationDate);
+  if (hours < 24) return `${hours}h ago`;
+
+  const days = differenceInDays(now, activationDate);
+  if (days < 7) return `${days}d ago`;
+
+  return format(activationDate, 'MMM d, yyyy');
 }

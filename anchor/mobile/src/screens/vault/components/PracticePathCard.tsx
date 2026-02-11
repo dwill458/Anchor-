@@ -68,7 +68,7 @@ export const PracticePathCard: React.FC<PracticePathCardProps> = ({
 
   const expandedHeight = heightAnim.interpolate({
     inputRange: [0, 1],
-    outputRange: [0, 200], // Adjust based on content
+    outputRange: [0, 240],
   });
 
   return (
@@ -93,18 +93,27 @@ export const PracticePathCard: React.FC<PracticePathCardProps> = ({
           style={styles.header}
           onPress={toggleExpanded}
           activeOpacity={0.7}
+          accessibilityRole="button"
+          accessibilityLabel={`Your Practice. Streak: ${activationsThisWeek > 0 ? '1 day' : '0 days'}. ${isExpanded ? 'Collapse' : 'Expand'}`}
         >
           <Text style={styles.title}>Your Practice</Text>
-          <Animated.Text
-            style={[
-              styles.chevron,
-              {
-                transform: [{ rotate: chevronRotation }],
-              },
-            ]}
-          >
-            ▼
-          </Animated.Text>
+          <View style={styles.headerRight}>
+            {activationsThisWeek > 0 && (
+              <Text style={styles.headerStreak}>
+                {activationsThisWeek > 0 ? '1 day' : '0 days'} streak
+              </Text>
+            )}
+            <Animated.Text
+              style={[
+                styles.chevron,
+                {
+                  transform: [{ rotate: chevronRotation }],
+                },
+              ]}
+            >
+              ▼
+            </Animated.Text>
+          </View>
         </TouchableOpacity>
 
         {/* Collapsed: 3-step checklist */}
@@ -159,18 +168,19 @@ export const PracticePathCard: React.FC<PracticePathCardProps> = ({
 
           {anchor.activationCount > 0 && anchor.lastActivatedAt ? (
             <View style={styles.historyList}>
-              {/* Placeholder: Show last activation (real implementation would iterate history array) */}
               <View style={styles.historyItem}>
                 <View style={styles.historyDot} />
                 <Text style={styles.historyDate}>
                   {format(new Date(anchor.lastActivatedAt), 'MMM d, yyyy')}
                 </Text>
               </View>
-
-              {/* TODO: Replace with actual activation history when available */}
-              <Text style={styles.placeholderText}>
-                Full activation history coming soon
-              </Text>
+              <TouchableOpacity
+                style={styles.viewAllLink}
+                accessibilityRole="button"
+                accessibilityLabel="View all activations, coming soon"
+              >
+                <Text style={styles.viewAllText}>View all activations (soon)</Text>
+              </TouchableOpacity>
             </View>
           ) : (
             <Text style={styles.emptyText}>No activations yet</Text>
@@ -339,5 +349,27 @@ const styles = StyleSheet.create({
     fontFamily: typography.fonts.body,
     color: colors.gold,
     fontWeight: '600',
+  },
+  headerRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+  },
+  headerStreak: {
+    fontSize: typography.sizes.caption,
+    fontFamily: typography.fonts.body,
+    color: colors.gold,
+    fontWeight: '600',
+    opacity: 0.85,
+  },
+  viewAllLink: {
+    paddingVertical: spacing.xs,
+    marginTop: spacing.xs,
+  },
+  viewAllText: {
+    fontSize: typography.sizes.caption,
+    fontFamily: typography.fonts.body,
+    color: colors.gold,
+    opacity: 0.7,
   },
 });

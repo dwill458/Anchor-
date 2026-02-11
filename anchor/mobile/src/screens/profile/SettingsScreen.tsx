@@ -165,17 +165,38 @@ export const SettingsScreen: React.FC = () => {
   const formatActivationValue = () => {
     const typeLabels: Record<string, string> = {
       visual: 'Visual Focus',
-      mantra: 'Mantra',
-      full: 'Full Activation',
-      breath_visual: 'Breath + Visual',
+      mantra: 'Mantra Focus',
+      full: 'Full Focus',
+      breath_visual: 'Full Focus',
     };
-    const unitLabels: Record<string, string> = {
-      seconds: 's',
-      reps: ' reps',
-      minutes: 'min',
-      breaths: ' breaths',
-    };
-    return `${typeLabels[settings.defaultActivation.type]} · ${settings.defaultActivation.value}${unitLabels[settings.defaultActivation.unit]}`;
+    if (settings.defaultActivation.unit === 'seconds') {
+      const clampedSeconds = Math.min(60, Math.max(10, Math.round(settings.defaultActivation.value)));
+      return `${typeLabels[settings.defaultActivation.type]} • ${clampedSeconds}s`;
+    }
+
+    const unit = settings.defaultActivation.unit === 'reps' ? ' reps' : ' min';
+    return `${typeLabels[settings.defaultActivation.type]} • ${settings.defaultActivation.value}${unit}`;
+  };
+
+  const formatChargeValue = () => {
+    const modeLabel = settings.defaultCharge.mode === 'focus' ? 'Quick Charge' : 'Ritual Charge';
+    let durationLabel = '';
+
+    if (settings.defaultCharge.preset === 'custom') {
+      const customMinutes = Math.min(30, Math.max(1, Math.round(settings.defaultCharge.customMinutes ?? 5)));
+      durationLabel = `${customMinutes} min`;
+    } else {
+      const presetLabels: Record<string, string> = {
+        '30s': '30s',
+        '1m': '1 min',
+        '2m': '2 min',
+        '5m': '5 min',
+        '10m': '10 min',
+      };
+      durationLabel = presetLabels[settings.defaultCharge.preset] || settings.defaultCharge.preset;
+    }
+
+    return `${modeLabel} • ${durationLabel}`;
   };
 
   const handleSignOut = () => {
@@ -228,13 +249,13 @@ export const SettingsScreen: React.FC = () => {
           <SectionHeader title="Practice Settings" description="Control how your anchors are created, charged, and activated." />
           <CardWrapper {...cardProps} style={styles.section}>
             <SettingItem
-              label="Default Charge"
-              value={`${settings.defaultCharge.mode === 'focus' ? 'Focus' : 'Ritual'} · ${settings.defaultCharge.preset === 'custom' ? `Custom (${settings.defaultCharge.customMinutes}m)` : settings.defaultCharge.preset}`}
+              label="Deep Charge Defaults"
+              value={formatChargeValue()}
               onPress={() => navigation.navigate('DefaultCharge')}
             />
-            <SettingItem label="Default Activation" value={formatActivationValue()} onPress={() => navigation.navigate('DefaultActivation')} />
+            <SettingItem label="Enter Focus Mode" value={formatActivationValue()} onPress={() => navigation.navigate('DefaultActivation')} />
             <ToggleItem label="Open Daily Anchor Automatically" value={settings.openDailyAnchorAutomatically} onValueChange={settings.setOpenDailyAnchorAutomatically} />
-            <SettingItem label="Daily Practice Goal" value={`${settings.dailyPracticeGoal} activations per day`} onPress={() => navigation.navigate('DailyPracticeGoal')} />
+            <SettingItem label="Daily Focus Goal" value={`${settings.dailyPracticeGoal} Focus Bursts / day`} onPress={() => navigation.navigate('DailyPracticeGoal')} />
             <ToggleItem label="Reduce Intention Visibility" value={settings.reduceIntentionVisibility} onValueChange={settings.setReduceIntentionVisibility} />
           </CardWrapper>
 

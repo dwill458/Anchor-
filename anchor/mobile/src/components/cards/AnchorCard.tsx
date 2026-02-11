@@ -2,18 +2,19 @@
  * Anchor App - Anchor Card (Premium Redesign)
  */
 
-import React, { useEffect, useRef } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Platform, Animated, Easing, Dimensions } from 'react-native';
-import { SvgXml, Svg, Circle, Path } from 'react-native-svg';
+import React from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, Platform, Dimensions } from 'react-native';
+import { SvgXml } from 'react-native-svg';
 import { BlurView } from 'expo-blur';
 import type { Anchor } from '@/types';
 import { colors, spacing, typography } from '@/theme';
-import { OptimizedImage, SacredRing } from '@/components/common';
+import { OptimizedImage, PremiumAnchorGlow } from '@/components/common';
 import { useSettingsStore } from '@/stores/settingsStore';
 
 interface AnchorCardProps {
   anchor: Anchor;
   onPress: (anchor: Anchor) => void;
+  reduceMotionEnabled?: boolean;
 }
 
 const CATEGORY_CONFIG: Record<string, { label: string; color: string }> = {
@@ -25,32 +26,13 @@ const CATEGORY_CONFIG: Record<string, { label: string; color: string }> = {
   custom: { label: 'Custom', color: colors.text.tertiary },
 };
 
-export const AnchorCard: React.FC<AnchorCardProps> = ({ anchor, onPress }) => {
+export const AnchorCard: React.FC<AnchorCardProps> = ({
+  anchor,
+  onPress,
+  reduceMotionEnabled = false,
+}) => {
   const { reduceIntentionVisibility } = useSettingsStore();
   const categoryConfig = CATEGORY_CONFIG[anchor.category] || CATEGORY_CONFIG.custom;
-
-  // Animation for the sacred ring
-  const rotateAnim = useRef(new Animated.Value(0)).current;
-
-  useEffect(() => {
-    if (anchor.isCharged) {
-      Animated.loop(
-        Animated.timing(rotateAnim, {
-          toValue: 1,
-          duration: 20000,
-          easing: Easing.linear,
-          useNativeDriver: true,
-        })
-      ).start();
-    } else {
-      rotateAnim.setValue(0);
-    }
-  }, [anchor.isCharged, rotateAnim]);
-
-  const spin = rotateAnim.interpolate({
-    inputRange: [0, 1],
-    outputRange: ['0deg', '360deg'],
-  });
 
   const accessibilityLabel = `${anchor.intentionText}. ${categoryConfig.label} anchor. ${anchor.isCharged ? 'Charged. ' : ''
     }${anchor.activationCount > 0 ? `Activated ${anchor.activationCount} times.` : ''}`;
@@ -82,15 +64,12 @@ export const AnchorCard: React.FC<AnchorCardProps> = ({ anchor, onPress }) => {
             styles.sigilContainer,
             anchor.isCharged && styles.chargedSigilContainer
           ]}>
-            {/* Soft Gold Halo Glow (Behind) */}
-            {anchor.isCharged && <View style={styles.haloGlow} />}
-
-            {/* Animated Sacred Ring */}
-            {anchor.isCharged && (
-              <Animated.View style={[styles.ringWrapper, { transform: [{ rotate: spin }] }]}>
-                <SacredRing size={CARD_WIDTH * 0.8} />
-              </Animated.View>
-            )}
+            <PremiumAnchorGlow
+              size={CARD_WIDTH * 0.72}
+              variant="card"
+              state={anchor.isCharged ? 'charged' : 'dormant'}
+              reduceMotionEnabled={reduceMotionEnabled}
+            />
 
             <View style={styles.sigilWrapper}>
               {anchor.enhancedImageUrl ? (
@@ -198,22 +177,6 @@ const styles = StyleSheet.create({
   chargedSigilContainer: {
     backgroundColor: 'rgba(212, 175, 55, 0.03)',
     borderColor: 'rgba(212, 175, 55, 0.1)',
-  },
-  haloGlow: {
-    position: 'absolute',
-    width: '100%',
-    height: '100%',
-    borderRadius: 100,
-    backgroundColor: colors.gold,
-    opacity: 0.1,
-    transform: [{ scale: 1.2 }],
-    filter: Platform.OS === 'ios' ? 'blur(20px)' : undefined, // Native blur not easy on Android View without special lib
-  },
-  ringWrapper: {
-    position: 'absolute',
-    justifyContent: 'center',
-    alignItems: 'center',
-    zIndex: 1,
   },
   sigilWrapper: {
     width: '100%',

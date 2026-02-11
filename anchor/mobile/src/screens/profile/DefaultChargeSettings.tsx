@@ -3,7 +3,7 @@
  * Redesigned to match Zen Architect premium aesthetic
  */
 
-import React from 'react';
+import React, { useMemo, useState } from 'react';
 import {
   View,
   Text,
@@ -13,7 +13,6 @@ import {
   Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useNavigation } from '@react-navigation/native';
 import {
   Zap,
   Clock,
@@ -21,11 +20,29 @@ import {
   Info
 } from 'lucide-react-native';
 import { BlurView } from 'expo-blur';
-import { ZenBackground } from '@/components/common';
+import { CustomDurationSheet, ZenBackground } from '@/components/common';
 import { useSettingsStore, ChargeMode, ChargeDurationPreset } from '@/stores/settingsStore';
 import { colors, spacing } from '@/theme';
 
 const IS_ANDROID = Platform.OS === 'android';
+const CHARGE_MINUTES_MIN = 1;
+const CHARGE_MINUTES_MAX = 30;
+
+const FOCUS_PRESETS: Array<{ label: string; value: ChargeDurationPreset }> = [
+  { label: '30s', value: '30s' },
+  { label: '2 min', value: '2m' },
+  { label: '5 min', value: '5m' },
+];
+
+const RITUAL_PRESETS: Array<{ label: string; value: ChargeDurationPreset }> = [
+  { label: '1 min', value: '1m' },
+  { label: '5 min', value: '5m' },
+  { label: '10 min', value: '10m' },
+  { label: 'Custom', value: 'custom' },
+];
+
+const clampChargeMinutes = (value: number): number =>
+  Math.min(CHARGE_MINUTES_MAX, Math.max(CHARGE_MINUTES_MIN, Math.round(value)));
 
 type ModeCardProps = {
   mode: ChargeMode;
@@ -81,29 +98,50 @@ const ModeCard: React.FC<ModeCardProps> = ({
 };
 
 export const DefaultChargeSettings: React.FC = () => {
-  const navigation = useNavigation();
   const { defaultCharge, setDefaultCharge } = useSettingsStore();
+  const [customSheetVisible, setCustomSheetVisible] = useState(false);
+
+  const currentPresets = defaultCharge.mode === 'ritual' ? RITUAL_PRESETS : FOCUS_PRESETS;
+
+  const customMinutes = useMemo(
+    () => clampChargeMinutes(defaultCharge.customMinutes ?? 5),
+    [defaultCharge.customMinutes]
+  );
 
   const handleSelectMode = (mode: ChargeMode) => {
+    const modePresets = mode === 'ritual' ? RITUAL_PRESETS : FOCUS_PRESETS;
+    const fallbackPreset: ChargeDurationPreset = mode === 'ritual' ? '5m' : '30s';
+    const hasCurrentPreset = modePresets.some((preset) => preset.value === defaultCharge.preset);
+    const nextPreset = hasCurrentPreset ? defaultCharge.preset : fallbackPreset;
+
     setDefaultCharge({
-      ...defaultCharge,
       mode,
+      preset: nextPreset,
+      customMinutes: nextPreset === 'custom' ? customMinutes : undefined,
     });
   };
 
   const handleSelectPreset = (preset: ChargeDurationPreset) => {
+    if (preset === 'custom') {
+      setCustomSheetVisible(true);
+      return;
+    }
+
     setDefaultCharge({
       ...defaultCharge,
       preset,
+      customMinutes: undefined,
     });
   };
 
-  const PRESETS: Array<{ label: string, value: ChargeDurationPreset }> = [
-    { label: '30s', value: '30s' },
-    { label: '2 min', value: '2m' },
-    { label: '5 min', value: '5m' },
-    { label: '10 min', value: '10m' },
-  ];
+  const handleCustomConfirm = (minutes: number) => {
+    setDefaultCharge({
+      mode: 'ritual',
+      preset: 'custom',
+      customMinutes: clampChargeMinutes(minutes),
+    });
+    setCustomSheetVisible(false);
+  };
 
   const InfoBoxWrapper = IS_ANDROID ? View : BlurView;
   const infoProps = IS_ANDROID ? {} : { intensity: 5, tint: 'dark' as const };
@@ -148,25 +186,36 @@ export const DefaultChargeSettings: React.FC = () => {
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>Default Duration</Text>
             <Text style={styles.sectionDescription}>
-              Sessions will automatically start with this duration
+              {defaultCharge.mode === 'ritual'
+                ? 'Deep Charge defaults support 1-30 minutes.'
+                : 'Quick Charge uses faster preset durations.'}
             </Text>
 
             <View style={styles.presetGrid}>
-              {PRESETS.map((preset) => (
+              {currentPresets.map((preset) => (
                 <TouchableOpacity
                   key={preset.value}
                   activeOpacity={0.7}
                   onPress={() => handleSelectPreset(preset.value)}
                   style={[
                     styles.presetButton,
-                    defaultCharge.preset === preset.value && styles.presetButtonSelected
+                    defaultCharge.preset === preset.value && styles.presetButtonSelected,
                   ]}
+                  accessibilityRole="button"
+                  accessibilityLabel={
+                    preset.value === 'custom'
+                      ? `Custom deep charge duration. Current ${customMinutes} minutes`
+                      : `Set default duration to ${preset.label}`
+                  }
+                  accessibilityState={{ selected: defaultCharge.preset === preset.value }}
                 >
                   <Text style={[
                     styles.presetText,
-                    defaultCharge.preset === preset.value && styles.presetTextSelected
+                    defaultCharge.preset === preset.value && styles.presetTextSelected,
                   ]}>
-                    {preset.label}
+                    {preset.value === 'custom' && defaultCharge.preset === 'custom'
+                      ? `Custom ${customMinutes}m`
+                      : preset.label}
                   </Text>
                 </TouchableOpacity>
               ))}
@@ -186,6 +235,14 @@ export const DefaultChargeSettings: React.FC = () => {
             </InfoBoxWrapper>
           </View>
         </ScrollView>
+
+        <CustomDurationSheet
+          visible={customSheetVisible}
+          mode="charge"
+          initialValue={customMinutes}
+          onCancel={() => setCustomSheetVisible(false)}
+          onConfirm={handleCustomConfirm}
+        />
       </SafeAreaView>
     </View>
   );

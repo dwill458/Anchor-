@@ -25,6 +25,8 @@ import * as Haptics from 'expo-haptics';
 import { useAnchorStore } from '@/stores/anchorStore';
 import type { RootStackParamList } from '@/types';
 import { colors, spacing, typography } from '@/theme';
+import { PremiumAnchorGlow } from '@/components/common';
+import { useReduceMotionEnabled } from '@/hooks/useReduceMotionEnabled';
 import { logger } from '@/utils/logger';
 import { RitualScaffold } from './components/RitualScaffold';
 import { InstructionGlassCard } from './components/InstructionGlassCard';
@@ -54,6 +56,7 @@ export const SealAnchorScreen: React.FC = () => {
 
   const { getAnchorById, updateAnchor } = useAnchorStore();
   const anchor = getAnchorById(anchorId);
+  const reduceMotionEnabled = useReduceMotionEnabled();
 
   // State
   const [isHolding, setIsHolding] = useState(false);
@@ -316,7 +319,12 @@ export const SealAnchorScreen: React.FC = () => {
             },
           ]}
         >
-          <View style={styles.glowHalo} />
+          <PremiumAnchorGlow
+            size={ORB_SIZE}
+            state={isHolding ? 'active' : 'charged'}
+            variant="ritual"
+            reduceMotionEnabled={reduceMotionEnabled}
+          />
         </Animated.View>
 
         {/* Orb + Sigil (Pressable) */}
@@ -462,17 +470,6 @@ const styles = StyleSheet.create({
     height: GLOW_SIZE,
     justifyContent: 'center',
     alignItems: 'center',
-  },
-  glowHalo: {
-    width: '100%',
-    height: '100%',
-    borderRadius: GLOW_SIZE / 2,
-    backgroundColor: `${colors.gold}30`,
-    shadowColor: colors.gold,
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.8,
-    shadowRadius: 60,
-    elevation: 20,
   },
 
   // ────────────────────────────────────────────────────────────

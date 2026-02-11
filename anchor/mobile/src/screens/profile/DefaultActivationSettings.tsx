@@ -3,7 +3,7 @@
  * Redesigned to match Zen Architect premium aesthetic
  */
 
-import React from 'react';
+import React, { useMemo, useState } from 'react';
 import {
   View,
   Text,
@@ -13,7 +13,6 @@ import {
   Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useNavigation } from '@react-navigation/native';
 import {
   Eye,
   Volume2,
@@ -21,11 +20,17 @@ import {
   Info
 } from 'lucide-react-native';
 import { BlurView } from 'expo-blur';
-import { ZenBackground } from '@/components/common';
+import { CustomDurationSheet, ZenBackground } from '@/components/common';
 import { useSettingsStore, ActivationType } from '@/stores/settingsStore';
 import { colors, spacing } from '@/theme';
 
 const IS_ANDROID = Platform.OS === 'android';
+const FOCUS_MIN_SECONDS = 10;
+const FOCUS_MAX_SECONDS = 60;
+const FOCUS_PRESETS = [10, 30, 60] as const;
+
+const clampFocusSeconds = (value: number): number =>
+  Math.min(FOCUS_MAX_SECONDS, Math.max(FOCUS_MIN_SECONDS, Math.round(value)));
 
 type OptionCardProps = {
   type: ActivationType;
@@ -85,14 +90,40 @@ const OptionCard: React.FC<OptionCardProps> = ({
 };
 
 export const DefaultActivationSettings: React.FC = () => {
-  const navigation = useNavigation();
   const { defaultActivation, setDefaultActivation } = useSettingsStore();
+  const [customSheetVisible, setCustomSheetVisible] = useState(false);
 
   const handleSelectType = (type: ActivationType) => {
     setDefaultActivation({
       ...defaultActivation,
       type,
     });
+  };
+
+  const focusSeconds = useMemo(() => {
+    if (defaultActivation.unit === 'seconds') {
+      return clampFocusSeconds(defaultActivation.value);
+    }
+    return 30;
+  }, [defaultActivation.unit, defaultActivation.value]);
+
+  const isCustomDuration = !(FOCUS_PRESETS as readonly number[]).includes(focusSeconds);
+
+  const handleSelectPreset = (seconds: number) => {
+    setDefaultActivation({
+      ...defaultActivation,
+      unit: 'seconds',
+      value: seconds,
+    });
+  };
+
+  const handleCustomConfirm = (seconds: number) => {
+    setDefaultActivation({
+      ...defaultActivation,
+      unit: 'seconds',
+      value: clampFocusSeconds(seconds),
+    });
+    setCustomSheetVisible(false);
   };
 
   const OPTIONS: Array<{
@@ -154,6 +185,46 @@ export const DefaultActivationSettings: React.FC = () => {
             </View>
           </View>
 
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Focus Duration</Text>
+            <Text style={styles.sectionDescription}>
+              Enter Focus runs for 10-60 seconds. Choose a preset or set a custom duration.
+            </Text>
+
+            <View style={styles.durationChipRow}>
+              {FOCUS_PRESETS.map((seconds) => {
+                const selected = focusSeconds === seconds;
+                return (
+                  <TouchableOpacity
+                    key={seconds}
+                    activeOpacity={0.8}
+                    onPress={() => handleSelectPreset(seconds)}
+                    style={[styles.durationChip, selected && styles.durationChipSelected]}
+                    accessibilityRole="button"
+                    accessibilityLabel={`Set focus duration to ${seconds} seconds`}
+                    accessibilityState={{ selected }}
+                  >
+                    <Text style={[styles.durationChipText, selected && styles.durationChipTextSelected]}>
+                      {seconds}s
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
+              <TouchableOpacity
+                activeOpacity={0.8}
+                onPress={() => setCustomSheetVisible(true)}
+                style={[styles.durationChip, isCustomDuration && styles.durationChipSelected]}
+                accessibilityRole="button"
+                accessibilityLabel={`Custom duration. Current ${focusSeconds} seconds`}
+                accessibilityState={{ selected: isCustomDuration }}
+              >
+                <Text style={[styles.durationChipText, isCustomDuration && styles.durationChipTextSelected]}>
+                  {isCustomDuration ? `Custom ${focusSeconds}s` : 'Custom'}
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+
           <View style={styles.infoSection}>
             <InfoBoxWrapper {...infoProps} style={styles.infoBox}>
               <View style={styles.infoTitleRow}>
@@ -166,6 +237,14 @@ export const DefaultActivationSettings: React.FC = () => {
             </InfoBoxWrapper>
           </View>
         </ScrollView>
+
+        <CustomDurationSheet
+          visible={customSheetVisible}
+          mode="focus"
+          initialValue={focusSeconds}
+          onCancel={() => setCustomSheetVisible(false)}
+          onConfirm={handleCustomConfirm}
+        />
       </SafeAreaView>
     </View>
   );
@@ -253,6 +332,31 @@ const styles = StyleSheet.create({
   },
   checkContainer: {
     marginLeft: spacing.sm,
+  },
+  durationChipRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: spacing.sm,
+  },
+  durationChip: {
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: 'rgba(212, 175, 55, 0.3)',
+    backgroundColor: 'rgba(255, 255, 255, 0.04)',
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.lg,
+  },
+  durationChipSelected: {
+    borderColor: colors.gold,
+    backgroundColor: 'rgba(212, 175, 55, 0.16)',
+  },
+  durationChipText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: colors.silver,
+  },
+  durationChipTextSelected: {
+    color: colors.gold,
   },
   infoSection: {
     marginTop: spacing.xl,

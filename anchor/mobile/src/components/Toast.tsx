@@ -121,6 +121,7 @@ export const Toast: React.FC<ToastProps> = ({
           transform: [{ translateY }],
         },
       ]}
+      accessible
       accessibilityRole="alert"
       accessibilityLabel={getAccessibilityLabel()}
       accessibilityLiveRegion="polite"

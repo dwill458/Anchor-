@@ -1,27 +1,21 @@
 /**
  * Anchor App - Activation Screen
  *
- * 10-second focused session for your anchor.
+ * Focused session for your anchor.
  */
 
-import React, { useState, useEffect, useRef } from 'react';
-import { View, Text, StyleSheet, Dimensions } from 'react-native';
+import React, { useMemo, useCallback } from 'react';
+import { View, Text, StyleSheet } from 'react-native';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
-import * as Haptics from 'expo-haptics';
-import { SvgXml } from 'react-native-svg';
 import { useAnchorStore } from '../../stores/anchorStore';
+import { useSettingsStore } from '@/stores/settingsStore';
 import type { RootStackParamList } from '@/types';
 import { colors, spacing, typography } from '@/theme';
 import { apiClient } from '@/services/ApiClient';
 import { ErrorTrackingService } from '@/services/ErrorTrackingService';
 import { useToast } from '@/components/ToastProvider';
 import { RitualScaffold } from './components/RitualScaffold';
-import { InstructionGlassCard } from './components/InstructionGlassCard';
-
-const { width } = Dimensions.get('window');
-const SIGIL_SIZE = width * 0.62;
-const DURATION_SECONDS = 10;
-const HAPTIC_INTERVAL = 2;
+import { FocusSession } from './components/FocusSession';
 
 type ActivationRouteProp = RouteProp<RootStackParamList, 'ActivationRitual'>;
 
@@ -32,51 +26,36 @@ export const ActivationScreen: React.FC = () => {
   const toast = useToast();
 
   const { getAnchorById, updateAnchor } = useAnchorStore();
+  const { defaultActivation } = useSettingsStore();
   const anchor = getAnchorById(anchorId);
 
-  const [secondsRemaining, setSecondsRemaining] = useState(DURATION_SECONDS);
-  const [isComplete, setIsComplete] = useState(false);
-  const intervalRef = useRef<NodeJS.Timeout | null>(null);
-
-  useEffect(() => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-
-    intervalRef.current = setInterval(() => {
-      setSecondsRemaining((prev) => {
-        const newValue = prev - 1;
-
-        if (newValue > 0 && newValue % HAPTIC_INTERVAL === 0) {
-          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-        }
-
-        if (newValue <= 0) {
-          handleComplete();
-          return 0;
-        }
-
-        return newValue;
-      });
-    }, 1000);
-
-    return () => {
-      if (intervalRef.current) {
-        clearInterval(intervalRef.current);
-      }
-    };
-  }, []);
-
-  const handleComplete = async (): Promise<void> => {
-    if (intervalRef.current) {
-      clearInterval(intervalRef.current);
+  const activationDurationSeconds = useMemo(() => {
+    if (defaultActivation.unit === 'minutes') {
+      const clampedMinutes = Math.max(1, Math.min(30, Math.round(defaultActivation.value)));
+      return clampedMinutes * 60;
     }
 
-    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-    setIsComplete(true);
+    if (defaultActivation.unit === 'seconds') {
+      const clampedValue = Math.max(1, Math.min(600, Math.round(defaultActivation.value)));
+      return clampedValue;
+    }
+
+    return 10;
+  }, [defaultActivation]);
+
+  const logActivationInBackground = useCallback(async (): Promise<void> => {
+    const localActivationTime = new Date();
+    const currentActivationCount = anchor?.activationCount ?? 0;
+
+    updateAnchor(anchorId, {
+      activationCount: currentActivationCount + 1,
+      lastActivatedAt: localActivationTime,
+    });
 
     try {
       const response = await apiClient.post(`/api/anchors/${anchorId}/activate`, {
         activationType: activationType || 'visual',
-        durationSeconds: DURATION_SECONDS,
+        durationSeconds: activationDurationSeconds,
       });
 
       if (response.data.data) {
@@ -99,11 +78,12 @@ export const ActivationScreen: React.FC = () => {
 
       toast.error('Activation completed but failed to sync. Will retry later.');
     }
+  }, [activationDurationSeconds, activationType, anchor?.activationCount, anchorId, toast, updateAnchor]);
 
-    setTimeout(() => {
-      navigation.goBack();
-    }, 1500);
-  };
+  const handleComplete = useCallback(() => {
+    navigation.goBack();
+    void logActivationInBackground();
+  }, [logActivationInBackground, navigation]);
 
   if (!anchor) {
     return (
@@ -116,102 +96,17 @@ export const ActivationScreen: React.FC = () => {
   }
 
   return (
-    <RitualScaffold>
-      <View style={styles.container}>
-        <View style={styles.header}>
-          <Text style={styles.title}>{isComplete ? 'Session Complete!' : 'Focus Session'}</Text>
-          <InstructionGlassCard text={`"${anchor.intentionText}"`} containerStyle={styles.intentionCard} />
-        </View>
-
-        <View style={styles.sigilContainer}>
-          <View style={styles.sigilHalo} />
-          <SvgXml xml={anchor.baseSigilSvg} width={SIGIL_SIZE} height={SIGIL_SIZE} />
-        </View>
-
-        <View style={styles.timerContainer}>
-          {!isComplete ? (
-            <>
-              <Text style={styles.timerText}>{secondsRemaining}</Text>
-              <Text style={styles.timerLabel}>seconds</Text>
-            </>
-          ) : (
-            <Text style={styles.completeText}>✓</Text>
-          )}
-        </View>
-
-        {!isComplete && (
-          <View style={styles.instructionsContainer}>
-            <InstructionGlassCard text="Focus on your intention. Feel it empowering you." />
-          </View>
-        )}
-      </View>
-    </RitualScaffold>
+    <FocusSession
+      intentionText={anchor.intentionText}
+      anchorImageUri={anchor.enhancedImageUrl || anchor.baseSigilSvg || ''}
+      durationSeconds={activationDurationSeconds}
+      onComplete={handleComplete}
+      onDismiss={() => navigation.goBack()}
+    />
   );
 };
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    paddingHorizontal: spacing.lg,
-  },
-  header: {
-    alignItems: 'center',
-    paddingTop: spacing.xl,
-    paddingBottom: spacing.md,
-  },
-  title: {
-    fontSize: typography.sizes.h3,
-    fontFamily: typography.fonts.heading,
-    color: colors.gold,
-    textAlign: 'center',
-    marginBottom: spacing.md,
-  },
-  intentionCard: {
-    width: '100%',
-    maxWidth: 460,
-  },
-  sigilContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  sigilHalo: {
-    position: 'absolute',
-    width: SIGIL_SIZE * 1.18,
-    height: SIGIL_SIZE * 1.18,
-    borderRadius: (SIGIL_SIZE * 1.18) / 2,
-    backgroundColor: colors.ritual.softGlow,
-    shadowColor: colors.gold,
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.28,
-    shadowRadius: 16,
-    elevation: 7,
-  },
-  timerContainer: {
-    alignItems: 'center',
-    paddingVertical: spacing.xl,
-  },
-  timerText: {
-    fontSize: 68,
-    fontFamily: typography.fonts.heading,
-    color: colors.gold,
-    lineHeight: 74,
-  },
-  timerLabel: {
-    fontSize: typography.sizes.body2,
-    fontFamily: typography.fonts.body,
-    color: colors.text.secondary,
-    marginTop: spacing.xs,
-  },
-  completeText: {
-    fontSize: 72,
-    color: colors.success,
-    lineHeight: 74,
-  },
-  instructionsContainer: {
-    paddingBottom: spacing.xl,
-    alignItems: 'center',
-  },
   errorContainer: {
     flex: 1,
     justifyContent: 'center',

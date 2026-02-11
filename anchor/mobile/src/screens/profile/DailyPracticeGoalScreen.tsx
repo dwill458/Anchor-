@@ -15,7 +15,8 @@ import {
     Info,
     Plus,
     Minus,
-    Target
+    Target,
+    Zap
 } from 'lucide-react-native';
 import { BlurView } from 'expo-blur';
 import { ZenBackground } from '@/components/common';
@@ -72,10 +73,10 @@ export const DailyPracticeGoalScreen: React.FC = () => {
     const [isCustomMode, setIsCustomMode] = useState(![1, 3, 5, 7].includes(dailyPracticeGoal));
 
     const OPTIONS = [
-        { value: 1, label: '1 activation per day' },
-        { value: 3, label: '3 activations per day' },
-        { value: 5, label: '5 activations per day' },
-        { value: 7, label: '7 activations per day' },
+        { value: 1, label: '1 Focus Burst / day' },
+        { value: 3, label: '3 Focus Bursts / day' },
+        { value: 5, label: '5 Focus Bursts / day' },
+        { value: 7, label: '7 Focus Bursts / day' },
     ];
 
     const handleSelectGoal = (val: number) => {
@@ -101,9 +102,12 @@ export const DailyPracticeGoalScreen: React.FC = () => {
                     showsVerticalScrollIndicator={false}
                 >
                     <View style={styles.header}>
-                        <Text style={styles.title}>Daily Practice Goal</Text>
+                        <Text style={styles.title}>Daily Focus Goal</Text>
                         <Text style={styles.subtitle}>
                             Set a gentle target for consistency.
+                        </Text>
+                        <Text style={styles.clarifier}>
+                            Counts Enter Focus sessions (10–60s). Deep Charge is optional.
                         </Text>
                     </View>
 
@@ -131,10 +135,13 @@ export const DailyPracticeGoalScreen: React.FC = () => {
                                 <CardWrapper {...cardProps} style={styles.cardContent}>
                                     <View style={styles.customRow}>
                                         <View style={styles.textContainer}>
-                                            <Text style={[styles.cardLabel, isCustomMode && styles.goldText]}>
-                                                Custom
-                                            </Text>
-                                            <Text style={styles.helperLabel}>1–20 activations</Text>
+                                            <View style={styles.labelWithIcon}>
+                                                <Zap color={isCustomMode ? colors.gold : colors.bone} size={16} style={{ marginRight: 8 }} />
+                                                <Text style={[styles.cardLabel, isCustomMode && styles.goldText]}>
+                                                    Custom
+                                                </Text>
+                                            </View>
+                                            <Text style={styles.helperLabel}>1–20 Focus Bursts</Text>
                                         </View>
 
                                         <View style={styles.stepperContainer}>
@@ -171,7 +178,7 @@ export const DailyPracticeGoalScreen: React.FC = () => {
                                 <Text style={styles.infoTitle}>Gentle Targets</Text>
                             </View>
                             <Text style={styles.infoText}>
-                                This is a target, not a rule. It is used to help you maintain consistency and visualize your progress without pressure.
+                                A target, not a rule. Used to visualize consistency without pressure.
                             </Text>
                         </CardWrapper>
                     </View>
@@ -209,6 +216,13 @@ const styles = StyleSheet.create({
         fontSize: 16,
         color: colors.silver,
         opacity: 0.8,
+    },
+    clarifier: {
+        fontSize: 12,
+        color: colors.gold,
+        opacity: 0.6,
+        marginTop: 4,
+        fontStyle: 'italic',
     },
     section: {
         marginBottom: spacing.xxl,
@@ -252,6 +266,10 @@ const styles = StyleSheet.create({
     },
     checkContainer: {
         marginLeft: spacing.sm,
+    },
+    labelWithIcon: {
+        flexDirection: 'row',
+        alignItems: 'center',
     },
     customRow: {
         flex: 1,

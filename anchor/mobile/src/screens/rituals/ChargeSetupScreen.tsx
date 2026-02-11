@@ -42,6 +42,7 @@ import { TIMING, EASING, type TransitionPhase, type DepthType } from './utils/tr
 
 type ChargeSetupRouteProp = RouteProp<RootStackParamList, 'ChargeSetup'>;
 type ChargeSetupNavigationProp = StackNavigationProp<RootStackParamList, 'ChargeSetup'>;
+const clampChargeMinutes = (value: number): number => Math.min(30, Math.max(1, Math.round(value)));
 
 export const ChargeSetupScreen: React.FC = () => {
   const navigation = useNavigation<ChargeSetupNavigationProp>();
@@ -68,7 +69,6 @@ export const ChargeSetupScreen: React.FC = () => {
 
   const breathScale = useRef(new Animated.Value(1.0)).current;
   const glowOpacity = useRef(new Animated.Value(TIMING.GLOW_OPACITY_MIN)).current;
-  const shimmerX = useRef(new Animated.Value(-300)).current;
 
   const breathAnimationRef = useRef<Animated.CompositeAnimation | null>(null);
   const shimmerAnimationRef = useRef<Animated.CompositeAnimation | null>(null);
@@ -182,6 +182,7 @@ export const ChargeSetupScreen: React.FC = () => {
 
     let preset: ChargeDurationPreset = 'custom';
     if (selectedDuration === 30) preset = '30s';
+    else if (selectedDuration === 60) preset = '1m';
     else if (selectedDuration === 120) preset = '2m';
     else if (selectedDuration === 300) preset = '5m';
     else if (selectedDuration === 600) preset = '10m';
@@ -190,7 +191,7 @@ export const ChargeSetupScreen: React.FC = () => {
     setDefaultCharge({
       mode,
       preset,
-      customMinutes: preset === 'custom' ? Math.round(selectedDuration / 60) : undefined,
+      customMinutes: preset === 'custom' ? clampChargeMinutes(selectedDuration / 60) : undefined,
     });
   };
 
@@ -219,10 +220,11 @@ export const ChargeSetupScreen: React.FC = () => {
   const getDurationSeconds = (preset: ChargeDurationPreset): number => {
     switch (preset) {
       case '30s': return 30;
+      case '1m': return 60;
       case '2m': return 120;
       case '5m': return 300;
       case '10m': return 600;
-      case 'custom': return (defaultCharge.customMinutes || 12) * 60;
+      case 'custom': return clampChargeMinutes(defaultCharge.customMinutes || 12) * 60;
       default: return 120;
     }
   };
@@ -265,7 +267,6 @@ export const ChargeSetupScreen: React.FC = () => {
           anchor={anchor}
           breathScale={breathScale}
           glowOpacity={glowOpacity}
-          shimmerX={shimmerX}
           opacity={anchorOpacity}
           scale={anchorScale}
           translateY={anchorTranslateY}

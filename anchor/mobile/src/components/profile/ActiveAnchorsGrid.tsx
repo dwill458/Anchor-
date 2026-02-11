@@ -11,6 +11,7 @@ import { View, Text, FlatList, StyleSheet, TouchableOpacity } from 'react-native
 import { colors, typography, spacing } from '@/theme';
 import { AnchorCard } from '../cards/AnchorCard';
 import { RedactedAnchor, Anchor } from '@/types';
+import { useReduceMotionEnabled } from '@/hooks/useReduceMotionEnabled';
 
 interface ActiveAnchorsGridProps {
   anchors: RedactedAnchor[];
@@ -21,6 +22,8 @@ export const ActiveAnchorsGrid: React.FC<ActiveAnchorsGridProps> = ({
   anchors,
   onAnchorPress,
 }) => {
+  const reduceMotionEnabled = useReduceMotionEnabled();
+
   if (anchors.length === 0) {
     return null;
   }
@@ -61,6 +64,7 @@ export const ActiveAnchorsGrid: React.FC<ActiveAnchorsGridProps> = ({
                 updatedAt: item.createdAt,
               } as Anchor}
               onPress={handleAnchorPress}
+              reduceMotionEnabled={reduceMotionEnabled}
             />
           </TouchableOpacity>
         )}

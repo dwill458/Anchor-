@@ -1,19 +1,18 @@
 /**
  * Anchor App - ActivationScreen Tests
  *
- * Unit tests for the 10-second activation ritual
+ * Unit tests for focus session activation flow.
  */
 
 import React from 'react';
-import { render, waitFor } from '@testing-library/react-native';
+import { render, waitFor, fireEvent } from '@testing-library/react-native';
 import { ActivationScreen } from '../ActivationScreen';
 import { useAnchorStore } from '@/stores/anchorStore';
+import { useSettingsStore } from '@/stores/settingsStore';
 import { apiClient } from '@/services/ApiClient';
 import { ErrorTrackingService } from '@/services/ErrorTrackingService';
-import * as Haptics from 'expo-haptics';
 import { createMockAnchor } from '@/__tests__/utils/testUtils';
 
-// Mock dependencies
 jest.mock('@react-navigation/native', () => ({
   useRoute: jest.fn(() => ({
     params: {
@@ -26,7 +25,14 @@ jest.mock('@react-navigation/native', () => ({
   })),
 }));
 
+jest.mock('react-native-reanimated', () => {
+  const Reanimated = require('react-native-reanimated/mock');
+  Reanimated.default.call = () => { };
+  return Reanimated;
+});
+
 jest.mock('@/stores/anchorStore');
+jest.mock('@/stores/settingsStore');
 jest.mock('@/services/ApiClient');
 jest.mock('@/services/ErrorTrackingService');
 jest.mock('@/components/ToastProvider', () => ({
@@ -35,13 +41,9 @@ jest.mock('@/components/ToastProvider', () => ({
     error: jest.fn(),
   })),
 }));
-jest.mock('expo-haptics');
-jest.mock('react-native-svg', () => ({
-  SvgXml: 'SvgXml',
-}));
 
-// Mock timers
-jest.useFakeTimers();
+const TEST_ACTIVATION_DURATION_SECONDS = 2;
+const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
 describe('ActivationScreen', () => {
   let mockGoBack: jest.Mock;
@@ -53,6 +55,7 @@ describe('ActivationScreen', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
+
     mockGoBack = jest.fn();
     mockGetAnchorById = jest.fn();
     mockUpdateAnchor = jest.fn();
@@ -77,6 +80,14 @@ describe('ActivationScreen', () => {
       updateAnchor: mockUpdateAnchor,
     });
 
+    (useSettingsStore as unknown as jest.Mock).mockReturnValue({
+      defaultActivation: {
+        type: 'visual',
+        value: TEST_ACTIVATION_DURATION_SECONDS,
+        unit: 'seconds',
+      },
+    });
+
     const toastProvider = require('@/components/ToastProvider');
     toastProvider.useToast.mockReturnValue({
       success: mockToastSuccess,
@@ -94,141 +105,162 @@ describe('ActivationScreen', () => {
   });
 
   afterEach(() => {
-    jest.clearAllTimers();
+    jest.restoreAllMocks();
   });
 
-  it('should render with correct duration', () => {
+  it('renders redesigned focus session with required copy', () => {
     const { getByText } = render(<ActivationScreen />);
-    expect(getByText('10')).toBeTruthy();
+
+    expect(getByText('Focus Session')).toBeTruthy();
+    expect(getByText('Intention')).toBeTruthy();
+    expect(getByText('remaining')).toBeTruthy();
+    expect(getByText('Hold the symbol. Let the words fade.')).toBeTruthy();
+    expect(getByText('00:02')).toBeTruthy();
   });
 
-  it('should display intention text', () => {
+  it('displays intention text', () => {
     const { getByText } = render(<ActivationScreen />);
-    expect(getByText('"I am confident"')).toBeTruthy();
+    expect(getByText('I am confident')).toBeTruthy();
   });
 
-  it('should render anchor not found when anchor is missing', () => {
+  it('renders anchor not found when anchor is missing', () => {
     mockGetAnchorById.mockReturnValue(undefined);
     const { getByText } = render(<ActivationScreen />);
     expect(getByText('Anchor not found')).toBeTruthy();
   });
 
-  it('should trigger medium haptic on start', () => {
-    render(<ActivationScreen />);
-
-    expect(Haptics.impactAsync).toHaveBeenCalledWith(
-      Haptics.ImpactFeedbackStyle.Medium
-    );
-  });
-
-  it('should countdown from 10 seconds', async () => {
+  it('counts down in mm:ss format', async () => {
     const { getByText } = render(<ActivationScreen />);
 
-    expect(getByText('10')).toBeTruthy();
+    expect(getByText('00:02')).toBeTruthy();
+    await sleep(1100);
 
-    jest.advanceTimersByTime(1000);
-    await waitFor(() => expect(getByText('9')).toBeTruthy());
-
-    jest.advanceTimersByTime(1000);
-    await waitFor(() => expect(getByText('8')).toBeTruthy());
+    await waitFor(() => expect(getByText('00:01')).toBeTruthy(), { timeout: 2000 });
   });
 
-  it('should trigger haptics every 2 seconds', async () => {
-    render(<ActivationScreen />);
+  it('pauses and resumes countdown', async () => {
+    const { getByTestId, getByText } = render(<ActivationScreen />);
 
-    jest.clearAllMocks();
+    fireEvent.press(getByTestId('focus-session-pause'));
 
-    // Should trigger at 2, 4, 6, 8 seconds
-    for (let i = 0; i < 4; i++) {
-      jest.advanceTimersByTime(2000);
-      await waitFor(() => {
-        expect(Haptics.impactAsync).toHaveBeenCalled();
-      });
-      jest.clearAllMocks();
-    }
+    await sleep(1200);
+
+    await waitFor(() => expect(getByText('Paused')).toBeTruthy());
+    expect(getByText('00:02')).toBeTruthy();
+
+    fireEvent.press(getByTestId('focus-session-resume'));
+
+    await sleep(1100);
+
+    await waitFor(() => expect(getByText('00:01')).toBeTruthy(), { timeout: 2000 });
   });
 
-  it('should show completion state when finished', async () => {
+  it('shows completion state when timer reaches zero', async () => {
     const { getByText } = render(<ActivationScreen />);
-
-    jest.advanceTimersByTime(10000);
 
     await waitFor(() => {
-      expect(getByText('✓')).toBeTruthy();
+      expect(getByText('Sealed.')).toBeTruthy();
+      expect(getByText('Continue')).toBeTruthy();
+    }, { timeout: 4000 });
+  });
+
+  it('calls API only after tapping Continue', async () => {
+    const { getByTestId } = render(<ActivationScreen />);
+
+    await waitFor(() => expect(getByTestId('focus-session-continue')).toBeTruthy(), { timeout: 4000 });
+    expect(apiClient.post).not.toHaveBeenCalled();
+
+    fireEvent.press(getByTestId('focus-session-continue'));
+
+    expect(mockGoBack).toHaveBeenCalled();
+
+    await waitFor(() => expect(apiClient.post).toHaveBeenCalledWith(
+      '/api/anchors/test-anchor-id/activate',
+      {
+        activationType: 'visual',
+        durationSeconds: TEST_ACTIVATION_DURATION_SECONDS,
+      }
+    ));
+  });
+
+  it('updates local activation immediately on Continue', async () => {
+    const { getByTestId } = render(<ActivationScreen />);
+
+    await waitFor(() => expect(getByTestId('focus-session-continue')).toBeTruthy(), { timeout: 4000 });
+    fireEvent.press(getByTestId('focus-session-continue'));
+
+    expect(mockUpdateAnchor).toHaveBeenCalledWith('test-anchor-id', {
+      activationCount: 1,
+      lastActivatedAt: expect.any(Date),
     });
   });
 
-  it('should call backend API on completion', async () => {
-    render(<ActivationScreen />);
+  it('dismiss button exits without activating', () => {
+    const { getByTestId } = render(<ActivationScreen />);
 
-    jest.advanceTimersByTime(10000);
+    fireEvent.press(getByTestId('focus-session-dismiss'));
+
+    expect(mockGoBack).toHaveBeenCalled();
+    expect(apiClient.post).not.toHaveBeenCalled();
+  });
+
+  it('uses provided activation type', async () => {
+    const navigation = require('@react-navigation/native');
+    navigation.useRoute.mockReturnValue({
+      params: {
+        anchorId: 'test-anchor-id',
+        activationType: 'audio',
+      },
+    });
+
+    const { getByTestId } = render(<ActivationScreen />);
+
+    await waitFor(() => expect(getByTestId('focus-session-continue')).toBeTruthy(), { timeout: 4000 });
+    fireEvent.press(getByTestId('focus-session-continue'));
+
+    await waitFor(() => {
+      expect(apiClient.post).toHaveBeenCalledWith(
+        '/api/anchors/test-anchor-id/activate',
+        {
+          activationType: 'audio',
+          durationSeconds: TEST_ACTIVATION_DURATION_SECONDS,
+        }
+      );
+    });
+  });
+
+  it('uses visual as fallback activation type', async () => {
+    const navigation = require('@react-navigation/native');
+    navigation.useRoute.mockReturnValue({
+      params: {
+        anchorId: 'test-anchor-id',
+      },
+    });
+
+    const { getByTestId } = render(<ActivationScreen />);
+
+    await waitFor(() => expect(getByTestId('focus-session-continue')).toBeTruthy(), { timeout: 4000 });
+    fireEvent.press(getByTestId('focus-session-continue'));
 
     await waitFor(() => {
       expect(apiClient.post).toHaveBeenCalledWith(
         '/api/anchors/test-anchor-id/activate',
         {
           activationType: 'visual',
-          durationSeconds: 10,
+          durationSeconds: TEST_ACTIVATION_DURATION_SECONDS,
         }
       );
     });
   });
 
-  it('should update local store with activation data', async () => {
-    render(<ActivationScreen />);
-
-    jest.advanceTimersByTime(10000);
-
-    await waitFor(() => {
-      expect(mockUpdateAnchor).toHaveBeenCalledWith('test-anchor-id', {
-        activationCount: 5,
-        lastActivatedAt: expect.any(Date),
-      });
-    });
-  });
-
-  it('should show success toast on successful activation', async () => {
-    render(<ActivationScreen />);
-
-    jest.advanceTimersByTime(10000);
-
-    await waitFor(() => {
-      expect(mockToastSuccess).toHaveBeenCalledWith('Activation logged successfully');
-    });
-  });
-
-  it('should trigger success haptic on completion', async () => {
-    render(<ActivationScreen />);
-
-    jest.clearAllMocks();
-    jest.advanceTimersByTime(10000);
-
-    await waitFor(() => {
-      expect(Haptics.notificationAsync).toHaveBeenCalledWith(
-        Haptics.NotificationFeedbackType.Success
-      );
-    });
-  });
-
-  it('should navigate back after completion', async () => {
-    render(<ActivationScreen />);
-
-    jest.advanceTimersByTime(10000);
-    await waitFor(() => expect(apiClient.post).toHaveBeenCalled());
-    jest.advanceTimersByTime(1500);
-
-    await waitFor(() => {
-      expect(mockGoBack).toHaveBeenCalled();
-    });
-  });
-
-  it('should handle API errors gracefully', async () => {
+  it('handles API errors gracefully after Continue', async () => {
     const error = new Error('Network error');
     (apiClient.post as jest.Mock).mockRejectedValue(error);
 
-    render(<ActivationScreen />);
+    const { getByTestId } = render(<ActivationScreen />);
 
-    jest.advanceTimersByTime(10000);
+    await waitFor(() => expect(getByTestId('focus-session-continue')).toBeTruthy(), { timeout: 4000 });
+    fireEvent.press(getByTestId('focus-session-continue'));
 
     await waitFor(() => {
       expect(ErrorTrackingService.captureException).toHaveBeenCalledWith(
@@ -240,141 +272,10 @@ describe('ActivationScreen', () => {
         }
       );
     });
-  });
 
-  it('should show error toast on API failure', async () => {
-    const error = new Error('Network error');
-    (apiClient.post as jest.Mock).mockRejectedValue(error);
-
-    render(<ActivationScreen />);
-
-    jest.advanceTimersByTime(10000);
-
-    await waitFor(() => {
-      expect(mockToastError).toHaveBeenCalledWith(
-        'Activation completed but failed to sync. Will retry later.'
-      );
-    });
-  });
-
-  it('should still navigate back even on API error', async () => {
-    (apiClient.post as jest.Mock).mockRejectedValue(new Error('Network error'));
-
-    render(<ActivationScreen />);
-
-    jest.advanceTimersByTime(10000);
-    await waitFor(() => expect(mockToastError).toHaveBeenCalled());
-    jest.advanceTimersByTime(1500);
-
-    await waitFor(() => {
-      expect(mockGoBack).toHaveBeenCalled();
-    });
-  });
-
-  it('should cleanup timer on unmount', () => {
-    const { unmount } = render(<ActivationScreen />);
-
-    jest.advanceTimersByTime(5000);
-    unmount();
-
-    // Should not crash or throw errors
-    expect(() => jest.advanceTimersByTime(10000)).not.toThrow();
-  });
-
-  it('should handle missing activation data in response', async () => {
-    (apiClient.post as jest.Mock).mockResolvedValue({
-      data: {},
-    });
-
-    render(<ActivationScreen />);
-
-    jest.advanceTimersByTime(10000);
-
-    // Should not crash
-    await waitFor(() => {
-      expect(mockToastSuccess).toHaveBeenCalledWith('Activation logged successfully');
-    });
-
-    // Should not try to update store with missing data
-    expect(mockUpdateAnchor).not.toHaveBeenCalled();
-  });
-
-  it('should display activation instruction', () => {
-    const { getByText } = render(<ActivationScreen />);
-    expect(getByText('Focus on your intention. Feel it empowering you.')).toBeTruthy();
-  });
-
-  it('should handle different activation types', () => {
-    const navigation = require('@react-navigation/native');
-    navigation.useRoute.mockReturnValue({
-      params: {
-        anchorId: 'test-anchor-id',
-        activationType: 'audio',
-      },
-    });
-
-    render(<ActivationScreen />);
-
-    jest.advanceTimersByTime(10000);
-
-    waitFor(() => {
-      expect(apiClient.post).toHaveBeenCalledWith(
-        '/api/anchors/test-anchor-id/activate',
-        {
-          activationType: 'audio',
-          durationSeconds: 10,
-        }
-      );
-    });
-  });
-
-  it('should use visual as default activation type', () => {
-    const navigation = require('@react-navigation/native');
-    navigation.useRoute.mockReturnValue({
-      params: {
-        anchorId: 'test-anchor-id',
-        // No activationType provided
-      },
-    });
-
-    render(<ActivationScreen />);
-
-    jest.advanceTimersByTime(10000);
-
-    waitFor(() => {
-      expect(apiClient.post).toHaveBeenCalledWith(
-        '/api/anchors/test-anchor-id/activate',
-        {
-          activationType: 'visual',
-          durationSeconds: 10,
-        }
-      );
-    });
-  });
-
-  it('should complete full activation ritual flow', async () => {
-    const { getByText } = render(<ActivationScreen />);
-
-    // Start state
-    expect(getByText('10')).toBeTruthy();
-    expect(getByText('Focus on your intention. Feel it empowering you.')).toBeTruthy();
-
-    // Mid-ritual
-    jest.advanceTimersByTime(5000);
-    await waitFor(() => expect(getByText('5')).toBeTruthy());
-
-    // Completion
-    jest.advanceTimersByTime(5000);
-    await waitFor(() => expect(getByText('✓')).toBeTruthy());
-
-    // API called
-    await waitFor(() => {
-      expect(apiClient.post).toHaveBeenCalled();
-      expect(mockToastSuccess).toHaveBeenCalled();
-    });
-
-    // Navigation
-    jest.advanceTimersByTime(1500);
-    await waitFor(() => expect(mockGoBack).toHaveBeenCalled());
+    expect(mockGoBack).toHaveBeenCalled();
+    expect(mockToastError).toHaveBeenCalledWith(
+      'Activation completed but failed to sync. Will retry later.'
+    );
   });
 });

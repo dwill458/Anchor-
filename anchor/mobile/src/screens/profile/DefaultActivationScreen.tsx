@@ -16,7 +16,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
-import { Check, Eye, MessageCircle, Wind } from 'lucide-react-native';
+import { Check, Eye, MessageCircle, Wind, Info } from 'lucide-react-native';
 import { BlurView } from 'expo-blur';
 import { LinearGradient } from 'expo-linear-gradient';
 import {
@@ -44,45 +44,18 @@ export const DefaultActivationScreen: React.FC = () => {
     );
     const [isCustom, setIsCustom] = useState(false);
 
-    // Define presets for each activation type
-    const visualPresets: PresetOption[] = [
-        { value: 10, label: '10 seconds' },
-        { value: 30, label: '30 seconds' },
-        { value: 60, label: '60 seconds' },
+    // Unified presets for Enter Focus
+    const focusPresets: PresetOption[] = [
+        { value: 10, label: '10s' },
+        { value: 30, label: '30s' },
+        { value: 60, label: '60s' },
     ];
 
-    const mantraPresets: PresetOption[] = [
-        { value: 3, label: '3 reps' },
-        { value: 7, label: '7 reps' },
-        { value: 11, label: '11 reps' },
-    ];
-
-    const breathPresets: PresetOption[] = [
-        { value: 3, label: '3 breaths' },
-        { value: 1, label: '1 minute' },
-        { value: 2, label: '2 minutes' },
-    ];
-
-    const getCurrentPresets = (): PresetOption[] => {
-        switch (type) {
-            case 'visual':
-                return visualPresets;
-            case 'mantra':
-                return mantraPresets;
-            case 'breath_visual':
-                return breathPresets;
-            default:
-                return visualPresets;
-        }
-    };
-
-    // Reset to first preset when switching types
+    // Reset to first preset when switching types if current value not supported
     useEffect(() => {
-        const presets = getCurrentPresets();
-        const isValueInPresets = presets.some((p) => p.value === selectedValue);
-        if (!isValueInPresets) {
-            setSelectedValue(presets[0].value);
-            setIsCustom(false);
+        const isValueInPresets = focusPresets.some((p) => p.value === selectedValue);
+        if (!isValueInPresets && !isCustom) {
+            setSelectedValue(focusPresets[1].value); // Default to 30s
         }
     }, [type]);
 
@@ -236,48 +209,41 @@ export const DefaultActivationScreen: React.FC = () => {
                     contentContainerStyle={styles.scrollContent}
                 >
                     <View style={styles.header}>
-                        <Text style={styles.title}>Default Activation</Text>
+                        <Text style={styles.title}>Enter Focus Mode</Text>
                         <Text style={styles.subtitle}>
-                            Choose how you prefer to engage with your anchor during daily practice.
+                            Choose how you enter focus during daily practice.
                         </Text>
                     </View>
 
                     <View style={styles.section}>
-                        <Text style={styles.sectionTitle}>Activation Method</Text>
+                        <Text style={styles.sectionTitle}>ENTER FOCUS MODE</Text>
                         <MethodCard
                             targetType="visual"
                             title="Visual Focus"
                             icon={Eye}
-                            description="Gaze at your anchor symbol in focused, meditative silence."
+                            description="Gaze at your anchor symbol"
                         />
                         <MethodCard
                             targetType="mantra"
-                            title="Mantra"
+                            title="Mantra Focus"
                             icon={MessageCircle}
-                            description="Repeat your personalized mantra for focused repetitions."
+                            description="Recite your mantra"
                         />
                         <MethodCard
-                            targetType="breath_visual"
-                            title="Breath + Visual"
+                            targetType="full"
+                            title="Full Focus"
                             icon={Wind}
-                            description="Synchronize your rhythmic breathing with visual geometry."
+                            description="Symbol + mantra together"
                         />
                     </View>
 
                     <View style={styles.section}>
-                        <Text style={styles.sectionTitle}>
-                            {type === 'visual' && 'Duration'}
-                            {type === 'mantra' && 'Repetitions'}
-                            {type === 'breath_visual' && 'Duration / Breaths'}
-                        </Text>
+                        <Text style={styles.sectionTitle}>DEFAULT DURATION</Text>
+                        <Text style={styles.sectionHelper}>Enter Focus sessions start with this duration.</Text>
                         <CardWrapper {...cardProps} style={styles.optionsContainer}>
-                            {getCurrentPresets().map((preset) => (
-                                <ValueOption
-                                    key={preset.value}
-                                    value={preset.value}
-                                    label={preset.label}
-                                />
-                            ))}
+                            <ValueOption value={10} label="10s" />
+                            <ValueOption value={30} label="30s" />
+                            <ValueOption value={60} label="60s" />
                             <TouchableOpacity
                                 style={[
                                     styles.valueOption,
@@ -327,9 +293,17 @@ export const DefaultActivationScreen: React.FC = () => {
                         )}
                     </View>
 
-                    <Text style={styles.helperFooter}>
-                        This setting controls the default experience when you activate your anchor from the Vault.
-                    </Text>
+                    <View style={isCustom ? styles.infoSectionHidden : styles.infoSection}>
+                        <CardWrapper {...cardProps} style={styles.infoBox}>
+                            <View style={styles.infoTitleRow}>
+                                <Info color={colors.gold} size={18} style={{ marginRight: spacing.sm }} />
+                                <Text style={styles.infoTitle}>About Enter Focus</Text>
+                            </View>
+                            <Text style={styles.infoText}>
+                                Enter Focus is a quick ritual (10–60s) to reconnect and lock in. This sets your default mode and duration.
+                            </Text>
+                        </CardWrapper>
+                    </View>
                 </ScrollView>
 
                 <View style={styles.footer}>
@@ -390,8 +364,15 @@ const styles = StyleSheet.create({
         color: colors.silver,
         textTransform: 'uppercase',
         letterSpacing: 1.2,
-        marginBottom: spacing.md,
+        marginBottom: spacing.xs,
         opacity: 0.6,
+    },
+    sectionHelper: {
+        fontSize: 13,
+        color: colors.silver,
+        lineHeight: 18,
+        opacity: 0.7,
+        marginBottom: spacing.md,
     },
     methodCardWrapper: {
         marginBottom: spacing.md,
@@ -444,6 +425,36 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         justifyContent: 'center',
         marginLeft: spacing.md,
+    },
+    infoSection: {
+        paddingHorizontal: spacing.lg,
+        marginTop: spacing.md,
+    },
+    infoSectionHidden: {
+        display: 'none',
+    },
+    infoBox: {
+        borderRadius: 16,
+        padding: spacing.lg,
+        borderWidth: 1,
+        borderColor: 'rgba(212, 175, 55, 0.15)',
+        backgroundColor: IS_ANDROID ? 'rgba(26, 26, 29, 0.3)' : 'transparent',
+    },
+    infoTitleRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        marginBottom: spacing.sm,
+    },
+    infoTitle: {
+        fontSize: 16,
+        fontWeight: '600',
+        color: colors.gold,
+    },
+    infoText: {
+        fontSize: 13,
+        color: colors.silver,
+        lineHeight: 18,
+        opacity: 0.9,
     },
     optionsContainer: {
         backgroundColor: IS_ANDROID ? 'rgba(26, 26, 29, 0.9)' : 'rgba(26, 26, 29, 0.3)',

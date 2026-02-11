@@ -3,9 +3,8 @@
  *
  * Premium animated sigil display with:
  * - Glassmorphic container
- * - Breathing animation (scale 1.0 → 1.02 → 1.0)
- * - Glow pulse synchronized with breathing
- * - Periodic shimmer sweep effect
+ * - Breathing animation
+ * - Shared premium glow ring treatment
  * - State-based visual intensity
  * - Reduce motion support
  */
@@ -19,13 +18,21 @@ import {
   Easing,
   Platform,
 } from 'react-native';
+import Reanimated, {
+  Easing as ReanimatedEasing,
+  cancelAnimation,
+  interpolate,
+  useAnimatedStyle,
+  useSharedValue,
+  withRepeat,
+  withTiming,
+} from 'react-native-reanimated';
 import { BlurView } from 'expo-blur';
 import { SvgXml } from 'react-native-svg';
-import { LinearGradient } from 'expo-linear-gradient';
 import { Anchor } from '@/types';
 import { colors, spacing } from '@/theme';
 import { AnchorState } from '../utils/anchorStateHelpers';
-import { OptimizedImage, SacredRing } from '@/components/common';
+import { OptimizedImage, PremiumAnchorGlow, PremiumGlowState } from '@/components/common';
 
 const { width } = Dimensions.get('window');
 const SIGIL_SIZE = width * 0.6;
@@ -34,138 +41,116 @@ interface SigilHeroCardProps {
   anchor: Anchor;
   anchorState: AnchorState;
   reduceMotionEnabled: boolean;
+  activationRippleNonce?: number;
+  deepChargeHaloActive?: boolean;
 }
+
+const mapAnchorStateToGlowState = (state: AnchorState): PremiumGlowState => {
+  if (state === 'active') return 'active';
+  if (state === 'charged') return 'charged';
+  if (state === 'stale') return 'stale';
+  return 'dormant';
+};
 
 export const SigilHeroCard: React.FC<SigilHeroCardProps> = ({
   anchor,
   anchorState,
   reduceMotionEnabled,
+  activationRippleNonce = 0,
+  deepChargeHaloActive = false,
 }) => {
-  // Determine animation intensity based on state
-  const isHighIntensity = anchorState === 'active' || anchorState === 'charged';
-  const breathingDuration = isHighIntensity ? 2000 : 3000;
-  const glowIntensity = isHighIntensity ? 1.0 : 0.5;
+  const breathScale = useRef(new Animated.Value(1)).current;
+  const rippleProgress = useSharedValue(0);
+  const haloProgress = useSharedValue(0);
 
-  // Animation refs
-  const breathScale = useRef(new Animated.Value(1.0)).current;
-  const glowOpacity = useRef(new Animated.Value(0.3 * glowIntensity)).current;
-  const shimmerX = useRef(new Animated.Value(-300)).current;
-  const rotateAnim = useRef(new Animated.Value(0)).current;
-  const isMountedRef = useRef(true);
-
-  // Breathing animation (continuous loop)
   useEffect(() => {
     if (reduceMotionEnabled) {
-      // Static state for reduce motion
-      breathScale.setValue(1.0);
-      glowOpacity.setValue(0.5 * glowIntensity);
+      breathScale.setValue(1);
       return;
     }
 
-    const breathSequence = Animated.loop(
+    const breathing = Animated.loop(
       Animated.sequence([
-        // Inhale phase
-        Animated.parallel([
-          Animated.timing(breathScale, {
-            toValue: 1.02,
-            duration: breathingDuration,
-            easing: Easing.inOut(Easing.sin),
-            useNativeDriver: true,
-          }),
-          Animated.timing(glowOpacity, {
-            toValue: 0.6 * glowIntensity,
-            duration: breathingDuration,
-            easing: Easing.inOut(Easing.sin),
-            useNativeDriver: true,
-          }),
-        ]),
-        // Exhale phase
-        Animated.parallel([
-          Animated.timing(breathScale, {
-            toValue: 1.0,
-            duration: breathingDuration,
-            easing: Easing.inOut(Easing.sin),
-            useNativeDriver: true,
-          }),
-          Animated.timing(glowOpacity, {
-            toValue: 0.3 * glowIntensity,
-            duration: breathingDuration,
-            easing: Easing.inOut(Easing.sin),
-            useNativeDriver: true,
-          }),
-        ]),
+        Animated.timing(breathScale, {
+          toValue: 1.02,
+          duration: 2100,
+          easing: Easing.inOut(Easing.sin),
+          useNativeDriver: true,
+        }),
+        Animated.timing(breathScale, {
+          toValue: 1,
+          duration: 2100,
+          easing: Easing.inOut(Easing.sin),
+          useNativeDriver: true,
+        }),
       ])
     );
 
-    breathSequence.start();
+    breathing.start();
+    return () => breathing.stop();
+  }, [breathScale, reduceMotionEnabled]);
+
+  useEffect(() => {
+    if (reduceMotionEnabled || activationRippleNonce === 0) {
+      cancelAnimation(rippleProgress);
+      rippleProgress.value = 0;
+      return;
+    }
+
+    rippleProgress.value = 0;
+    rippleProgress.value = withTiming(1, {
+      duration: 360,
+      easing: ReanimatedEasing.out(ReanimatedEasing.cubic),
+    });
+  }, [activationRippleNonce, reduceMotionEnabled, rippleProgress]);
+
+  useEffect(() => {
+    if (reduceMotionEnabled || !deepChargeHaloActive) {
+      cancelAnimation(haloProgress);
+      haloProgress.value = 0;
+      return;
+    }
+
+    haloProgress.value = withRepeat(
+      withTiming(1, {
+        duration: 4000,
+        easing: ReanimatedEasing.inOut(ReanimatedEasing.sin),
+      }),
+      -1,
+      true
+    );
 
     return () => {
-      isMountedRef.current = false;
-      breathSequence.stop();
+      cancelAnimation(haloProgress);
+      haloProgress.value = 0;
     };
-  }, [reduceMotionEnabled, breathingDuration, glowIntensity]);
+  }, [deepChargeHaloActive, reduceMotionEnabled, haloProgress]);
 
-  // Rotation animation for the ring
-  useEffect(() => {
-    if (anchor.isCharged && !reduceMotionEnabled) {
-      Animated.loop(
-        Animated.timing(rotateAnim, {
-          toValue: 1,
-          duration: 30000,
-          easing: Easing.linear,
-          useNativeDriver: true,
-        })
-      ).start();
-    } else {
-      rotateAnim.setValue(0);
-    }
-  }, [anchor.isCharged, reduceMotionEnabled]);
+  const rippleStyle = useAnimatedStyle(() => {
+    const scale = interpolate(rippleProgress.value, [0, 1], [0.92, 1.88]);
+    const opacity = interpolate(rippleProgress.value, [0, 0.16, 1], [0, 0.72, 0]);
 
-  const spin = rotateAnim.interpolate({
-    inputRange: [0, 1],
-    outputRange: ['0deg', '360deg'],
+    return {
+      opacity,
+      transform: [{ scale }],
+    };
   });
 
-  // Shimmer sweep animation (periodic)
-  useEffect(() => {
-    if (reduceMotionEnabled) {
-      shimmerX.setValue(-300);
-      return;
-    }
+  const breathingHaloStyle = useAnimatedStyle(() => {
+    const scale = interpolate(haloProgress.value, [0, 1], [1, 1.16]);
+    const opacity = interpolate(haloProgress.value, [0, 1], [0.12, 0.32]);
 
-    const shimmerSequence = Animated.loop(
-      Animated.sequence([
-        // Sweep across
-        Animated.timing(shimmerX, {
-          toValue: 300,
-          duration: 3000,
-          easing: Easing.linear,
-          useNativeDriver: true,
-        }),
-        // Pause
-        Animated.delay(9000),
-        // Reset instantly
-        Animated.timing(shimmerX, {
-          toValue: -300,
-          duration: 0,
-          useNativeDriver: true,
-        }),
-      ])
-    );
-
-    shimmerSequence.start();
-
-    return () => {
-      shimmerSequence.stop();
+    return {
+      opacity,
+      transform: [{ scale }],
     };
-  }, [reduceMotionEnabled]);
+  });
+
+  const glowState = mapAnchorStateToGlowState(anchorState);
 
   return (
     <View style={styles.container}>
-      <View style={[
-        styles.glassmorphicCard,
-        anchor.isCharged && styles.chargedCard
-      ]}>
+      <View style={[styles.glassmorphicCard, anchor.isCharged && styles.chargedCard]}>
         {Platform.OS === 'ios' ? (
           <BlurView intensity={anchor.isCharged ? 30 : 20} tint="dark" style={StyleSheet.absoluteFill}>
             {renderSigilContent()}
@@ -180,51 +165,21 @@ export const SigilHeroCard: React.FC<SigilHeroCardProps> = ({
   function renderSigilContent() {
     return (
       <View style={styles.content}>
-        {/* Radial glow background (Enhanced for charged) */}
-        <Animated.View
-          style={[
-            styles.glowContainer,
-            {
-              opacity: glowOpacity,
-              transform: [{ scale: anchor.isCharged ? 1.4 : 1.0 }]
-            },
-          ]}
-        >
-          <LinearGradient
-            colors={[`${colors.gold}${anchor.isCharged ? '80' : '60'}`, `${colors.gold}00`]}
-            style={StyleSheet.absoluteFill}
-            start={{ x: 0.5, y: 0.5 }}
-            end={{ x: 1, y: 1 }}
-          />
-        </Animated.View>
+        <PremiumAnchorGlow
+          size={SIGIL_SIZE}
+          state={glowState}
+          variant="detail"
+          reduceMotionEnabled={reduceMotionEnabled}
+        />
 
-        {/* Animated Sacred Ring (New for details) */}
-        {anchor.isCharged && (
-          <Animated.View style={[styles.ringWrapper, { transform: [{ rotate: spin }] }]}>
-            <SacredRing size={SIGIL_SIZE * 1.3} />
-          </Animated.View>
+        {!reduceMotionEnabled && deepChargeHaloActive && (
+          <Reanimated.View pointerEvents="none" style={[styles.deepChargeHalo, breathingHaloStyle]} />
         )}
 
-        {/* Shimmer sweep overlay */}
-        {!reduceMotionEnabled && (
-          <Animated.View
-            style={[
-              styles.shimmerContainer,
-              {
-                transform: [{ translateX: shimmerX }],
-              },
-            ]}
-          >
-            <LinearGradient
-              colors={['transparent', `${colors.gold}40`, 'transparent']}
-              style={styles.shimmerGradient}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 0 }}
-            />
-          </Animated.View>
+        {!reduceMotionEnabled && activationRippleNonce > 0 && (
+          <Reanimated.View pointerEvents="none" style={[styles.activateRipple, rippleStyle]} />
         )}
 
-        {/* Animated sigil */}
         <Animated.View
           style={[
             styles.sigilContainer,
@@ -242,21 +197,8 @@ export const SigilHeroCard: React.FC<SigilHeroCardProps> = ({
           ) : anchor.baseSigilSvg ? (
             <SvgXml xml={anchor.baseSigilSvg} width={SIGIL_SIZE} height={SIGIL_SIZE} />
           ) : (
-            // Fallback placeholder
             <View style={styles.placeholderContainer}>
-              <Animated.Text
-                style={[
-                  styles.placeholderText,
-                  {
-                    opacity: glowOpacity.interpolate({
-                      inputRange: [0, 1],
-                      outputRange: [0.3, 0.6],
-                    })
-                  },
-                ]}
-              >
-                ◈
-              </Animated.Text>
+              <Animated.Text style={styles.placeholderText}>◈</Animated.Text>
             </View>
           )}
         </Animated.View>
@@ -295,27 +237,22 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     position: 'relative',
   },
-  glowContainer: {
+  deepChargeHalo: {
     position: 'absolute',
-    width: SIGIL_SIZE * 1.5,
-    height: SIGIL_SIZE * 1.5,
-    borderRadius: SIGIL_SIZE * 0.75,
+    width: SIGIL_SIZE * 1.28,
+    height: SIGIL_SIZE * 1.28,
+    borderRadius: (SIGIL_SIZE * 1.28) / 2,
+    borderWidth: 2,
+    borderColor: `${colors.gold}66`,
+    backgroundColor: `${colors.gold}14`,
   },
-  ringWrapper: {
+  activateRipple: {
     position: 'absolute',
-    justifyContent: 'center',
-    alignItems: 'center',
-    zIndex: 1,
-  },
-  shimmerContainer: {
-    position: 'absolute',
-    width: 200,
-    height: SIGIL_SIZE * 1.2,
-    overflow: 'visible',
-  },
-  shimmerGradient: {
-    width: '100%',
-    height: '100%',
+    width: SIGIL_SIZE * 1.06,
+    height: SIGIL_SIZE * 1.06,
+    borderRadius: (SIGIL_SIZE * 1.06) / 2,
+    borderWidth: 2,
+    borderColor: `${colors.gold}CC`,
   },
   sigilContainer: {
     width: SIGIL_SIZE,
@@ -337,5 +274,6 @@ const styles = StyleSheet.create({
   placeholderText: {
     fontSize: 72,
     color: colors.gold,
+    opacity: 0.6,
   },
 });
