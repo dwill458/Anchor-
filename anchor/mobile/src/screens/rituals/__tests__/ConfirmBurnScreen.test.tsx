@@ -60,7 +60,7 @@ describe('ConfirmBurnScreen', () => {
 
   it('should display the intention text', () => {
     const { getByText } = render(<ConfirmBurnScreen />);
-    expect(getByText('"I am confident"')).toBeTruthy();
+    expect(getByText('“I am confident”')).toBeTruthy();
   });
 
   it('should render Release Anchor button', () => {
@@ -68,14 +68,17 @@ describe('ConfirmBurnScreen', () => {
     expect(getByText('Release Anchor')).toBeTruthy();
   });
 
-  it('should render Keep Anchor Active button', () => {
+  it('should show modal actions after pressing Release Anchor', () => {
     const { getByText } = render(<ConfirmBurnScreen />);
-    expect(getByText('Keep Anchor Active')).toBeTruthy();
+    fireEvent.press(getByText('Release Anchor'));
+    expect(getByText('Release Forever')).toBeTruthy();
+    expect(getByText('Return')).toBeTruthy();
   });
 
   it('should navigate to BurningRitual when confirmed', () => {
     const { getByText } = render(<ConfirmBurnScreen />);
-    const confirmButton = getByText('Release Anchor');
+    fireEvent.press(getByText('Release Anchor'));
+    const confirmButton = getByText('Release Forever');
 
     fireEvent.press(confirmButton);
 
@@ -88,7 +91,8 @@ describe('ConfirmBurnScreen', () => {
 
   it('should track analytics when confirmed', () => {
     const { getByText } = render(<ConfirmBurnScreen />);
-    const confirmButton = getByText('Release Anchor');
+    fireEvent.press(getByText('Release Anchor'));
+    const confirmButton = getByText('Release Forever');
 
     fireEvent.press(confirmButton);
 
@@ -103,7 +107,8 @@ describe('ConfirmBurnScreen', () => {
 
   it('should add breadcrumb when confirmed', () => {
     const { getByText } = render(<ConfirmBurnScreen />);
-    const confirmButton = getByText('Release Anchor');
+    fireEvent.press(getByText('Release Anchor'));
+    const confirmButton = getByText('Release Forever');
 
     fireEvent.press(confirmButton);
 
@@ -116,27 +121,27 @@ describe('ConfirmBurnScreen', () => {
     );
   });
 
-  it('should go back when cancelled', () => {
-    const { getByText } = render(<ConfirmBurnScreen />);
-    const cancelButton = getByText('Keep Anchor Active');
+  it('should close modal when cancelled', () => {
+    const { getByText, queryByText } = render(<ConfirmBurnScreen />);
+    fireEvent.press(getByText('Release Anchor'));
+    const cancelButton = getByText('Return');
 
     fireEvent.press(cancelButton);
 
-    expect(mockGoBack).toHaveBeenCalled();
+    expect(queryByText('Release Forever')).toBeNull();
+    expect(mockNavigate).not.toHaveBeenCalled();
   });
 
-  it('should track analytics when cancelled', () => {
+  it('should not track burn analytics when cancelled', () => {
     const { getByText } = render(<ConfirmBurnScreen />);
-    const cancelButton = getByText('Keep Anchor Active');
+    fireEvent.press(getByText('Release Anchor'));
+    const cancelButton = getByText('Return');
 
     fireEvent.press(cancelButton);
 
-    expect(AnalyticsService.track).toHaveBeenCalledWith(
-      'burn_cancelled',
-      {
-        anchor_id: 'test-anchor-id',
-        source: 'confirm_burn_screen',
-      }
+    expect(AnalyticsService.track).not.toHaveBeenCalledWith(
+      AnalyticsEvents.BURN_INITIATED,
+      expect.anything()
     );
   });
 

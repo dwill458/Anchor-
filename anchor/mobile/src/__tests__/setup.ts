@@ -41,6 +41,12 @@ jest.mock('expo-blur', () => ({
   BlurView: 'BlurView',
 }));
 
+jest.mock('expo-speech', () => ({
+  speak: jest.fn(),
+  stop: jest.fn(),
+  isSpeakingAsync: jest.fn(() => Promise.resolve(false)),
+}));
+
 jest.mock('react-native-safe-area-context', () => ({
   SafeAreaView: 'SafeAreaView',
   SafeAreaProvider: ({ children }: any) => children,
@@ -82,11 +88,19 @@ jest.mock('@react-navigation/native', () => {
 
 // Mock react-native-svg
 jest.mock('react-native-svg', () => ({
+  __esModule: true,
+  default: 'Svg',
   SvgXml: 'SvgXml',
   Svg: 'Svg',
   Circle: 'Circle',
   Path: 'Path',
   G: 'G',
+  Line: 'Line',
+  Rect: 'Rect',
+  Defs: 'Defs',
+  Stop: 'Stop',
+  LinearGradient: 'LinearGradient',
+  RadialGradient: 'RadialGradient',
 }));
 
 // Mock Lucide icons - comprehensive mock for all commonly used icons

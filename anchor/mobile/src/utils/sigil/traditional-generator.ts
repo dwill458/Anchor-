@@ -114,18 +114,10 @@ function createSigilPath(points: number[]): string {
 // ---------------------------------------------------------------------------
 
 function createInkFilter(): string {
-  // Filters can cause performance issues/crashes in React Native Svg on some platforms
-  // Returning basic markers and empty filter definition for safety
-  return `
-    <defs>
-      <marker id="dot-start" viewBox="0 0 10 10" refX="5" refY="5" markerWidth="6" markerHeight="6">
-        <circle cx="5" cy="5" r="3" fill="currentColor" />
-      </marker>
-      <marker id="bar-end" viewBox="0 0 10 10" refX="5" refY="5" markerWidth="8" markerHeight="8" orient="auto">
-        <line x1="5" y1="0" x2="5" y2="10" stroke="currentColor" stroke-width="2" />
-      </marker>
-    </defs>
-  `;
+  // NOTE: <filter> and <marker> elements are NOT reliably supported by react-native-svg
+  // and can cause crashes on both iOS and Android. Do not add filter or marker elements here.
+  // This function is intentionally left as a no-op placeholder.
+  return '';
 }
 
 function createBorder(variant: SigilVariant): string {
@@ -162,34 +154,28 @@ export function generateTrueSigil(
   letters: any,
   variant: SigilVariant = 'balanced'
 ): SigilGenerationResult {
-  const size = 300; // Increased resolution
-
   // 1. Logic Layer
   const points = processIntent(letters, variant);
 
   // 2. Geometry Layer
   const pathData = createSigilPath(points);
 
-  // 3. Style Layer (Markers)
-  // Balanced/Dense get traditional "start/end" markers
-  const markers = variant !== 'minimal'
-    ? 'marker-start="url(#dot-start)" marker-end="url(#bar-end)"'
-    : '';
-
   const strokeWidth = variant === 'dense' ? 3 : 2;
 
   // Assemble
+  // NOTE: Do not add <filter>, <marker>, or marker-start/marker-end here.
+  // react-native-svg does not reliably support these and they cause crashes.
   const svg = `
     <svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" color="#FFFFFF">
       <g>
         ${createBorder(variant)}
-        
-        <path 
-          d="${pathData}" 
-          stroke="currentColor" 
-          stroke-width="${strokeWidth}" 
-          fill="none" 
-          stroke-linecap="round" 
+
+        <path
+          d="${pathData}"
+          stroke="currentColor"
+          stroke-width="${strokeWidth}"
+          fill="none"
+          stroke-linecap="round"
           stroke-linejoin="round"
         />
       </g>

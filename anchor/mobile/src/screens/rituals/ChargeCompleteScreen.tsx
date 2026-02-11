@@ -20,7 +20,8 @@ import * as Haptics from 'expo-haptics';
 import { useAnchorStore } from '@/stores/anchorStore';
 import type { RootStackParamList } from '@/types';
 import { colors, spacing, typography } from '@/theme';
-import { OptimizedImage } from '@/components/common';
+import { OptimizedImage, PremiumAnchorGlow } from '@/components/common';
+import { useReduceMotionEnabled } from '@/hooks/useReduceMotionEnabled';
 import { RitualScaffold } from './components/RitualScaffold';
 import { InstructionGlassCard } from './components/InstructionGlassCard';
 
@@ -39,6 +40,7 @@ export const ChargeCompleteScreen: React.FC = () => {
   const { anchorId } = route.params;
 
   const { getAnchorById } = useAnchorStore();
+  const reduceMotionEnabled = useReduceMotionEnabled();
   const anchor = getAnchorById(anchorId);
 
   const fadeAnim = useRef(new Animated.Value(0)).current;
@@ -127,7 +129,12 @@ export const ChargeCompleteScreen: React.FC = () => {
         <Text style={styles.statusSubtitle}>Your intention is locked in</Text>
 
         <Animated.View style={[styles.symbolWrapper, { opacity: glowOpacity }]}>
-          <View style={styles.symbolHalo} />
+          <PremiumAnchorGlow
+            size={SYMBOL_SIZE}
+            state="charged"
+            variant="ritual"
+            reduceMotionEnabled={reduceMotionEnabled}
+          />
           {anchor.enhancedImageUrl ? (
             <OptimizedImage
               uri={anchor.enhancedImageUrl}
@@ -209,18 +216,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: spacing.xl,
-  },
-  symbolHalo: {
-    position: 'absolute',
-    width: SYMBOL_SIZE * 1.2,
-    height: SYMBOL_SIZE * 1.2,
-    borderRadius: (SYMBOL_SIZE * 1.2) / 2,
-    backgroundColor: colors.ritual.softGlow,
-    shadowColor: colors.gold,
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.4,
-    shadowRadius: 20,
-    elevation: 10,
   },
   symbolImage: {
     width: SYMBOL_SIZE,

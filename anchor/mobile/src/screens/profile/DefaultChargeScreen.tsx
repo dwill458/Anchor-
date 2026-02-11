@@ -13,10 +13,11 @@ import {
     TextInput,
     Alert,
     Platform,
+    Switch,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
-import { Check, Clock, Zap, BookOpen } from 'lucide-react-native';
+import { Check, Clock, Zap, BookOpen, Info } from 'lucide-react-native';
 import { BlurView } from 'expo-blur';
 import { LinearGradient } from 'expo-linear-gradient';
 import {
@@ -176,38 +177,37 @@ export const DefaultChargeScreen: React.FC = () => {
                     contentContainerStyle={styles.scrollContent}
                 >
                     <View style={styles.header}>
-                        <Text style={styles.title}>Default Charge</Text>
+                        <Text style={styles.title}>Deep Charge Defaults</Text>
                         <Text style={styles.subtitle}>
-                            Set your preferred depth and duration for new anchors.
+                            Choose your preferred approach for deep charging.
                         </Text>
                     </View>
 
                     <View style={styles.section}>
-                        <Text style={styles.sectionTitle}>Charge Mode</Text>
+                        <Text style={styles.sectionTitle}>DEEP CHARGE STYLE</Text>
                         <ModeCard
                             targetMode="focus"
-                            title="Focus Charge"
+                            title="Quick Charge"
                             icon={Zap}
-                            description="Quick, intense visual focus session designed to prime your subconscious."
+                            description="Brief, regular reinforcement"
                         />
                         <ModeCard
                             targetMode="ritual"
                             title="Ritual Charge"
                             icon={BookOpen}
-                            description="Longer, deeply immersive session with guided atmospheric elements."
+                            description="Meditative, ceremonial session"
                         />
                     </View>
 
                     <View style={styles.section}>
                         <Text style={styles.sectionTitle}>Default Duration</Text>
+                        <Text style={styles.sectionHelper}>Deep Charge sessions start with this duration.</Text>
                         <CardWrapper {...cardProps} style={styles.optionsContainer}>
-                            {currentPresets.map((p) => (
-                                <DurationOption
-                                    key={p.preset}
-                                    targetPreset={p.preset}
-                                    label={p.label}
-                                />
-                            ))}
+                            {preset === '30s' && <DurationOption targetPreset="30s" label="30s (Legacy)" />}
+                            <DurationOption targetPreset="1m" label="1 min" />
+                            <DurationOption targetPreset="5m" label="5 min" />
+                            <DurationOption targetPreset="10m" label="10 min" />
+                            <DurationOption targetPreset="custom" label="Custom" />
                         </CardWrapper>
 
                         {preset === 'custom' && (
@@ -226,9 +226,35 @@ export const DefaultChargeScreen: React.FC = () => {
                         )}
                     </View>
 
-                    <Text style={styles.helperFooter}>
-                        These defaults will be used for every new anchor you forge and charge in the future.
-                    </Text>
+                    <View style={styles.section}>
+                        <Text style={styles.sectionTitle}>Audio Settings</Text>
+                        <CardWrapper {...cardProps} style={styles.optionsContainer}>
+                            <View style={styles.toggleRow}>
+                                <View style={styles.toggleTextContainer}>
+                                    <Text style={styles.toggleLabel}>Mantra audio by default</Text>
+                                    <Text style={styles.toggleHelperText}>Automatically play your mantra guidance.</Text>
+                                </View>
+                                <Switch
+                                    value={useSettingsStore.getState().mantraAudioByDefault}
+                                    onValueChange={(val) => useSettingsStore.getState().setMantraAudioByDefault(val)}
+                                    trackColor={{ false: 'rgba(255, 255, 255, 0.1)', true: colors.gold }}
+                                    thumbColor={useSettingsStore.getState().mantraAudioByDefault ? colors.navy : colors.silver}
+                                />
+                            </View>
+                        </CardWrapper>
+                    </View>
+
+                    <View style={preset === 'custom' ? styles.infoSectionHidden : styles.infoSection}>
+                        <CardWrapper {...cardProps} style={styles.infoBox}>
+                            <View style={styles.infoTitleRow}>
+                                <Info color={colors.gold} size={18} style={{ marginRight: spacing.sm }} />
+                                <Text style={styles.infoTitle}>About Deep Charge</Text>
+                            </View>
+                            <Text style={styles.infoText}>
+                                Deep Charge strengthens the bond between symbol and intention over time. This sets your default style and duration for Reinforce.
+                            </Text>
+                        </CardWrapper>
+                    </View>
                 </ScrollView>
 
                 <View style={styles.footer}>
@@ -289,8 +315,15 @@ const styles = StyleSheet.create({
         color: colors.silver,
         textTransform: 'uppercase',
         letterSpacing: 1.2,
-        marginBottom: spacing.md,
+        marginBottom: spacing.xs,
         opacity: 0.6,
+    },
+    sectionHelper: {
+        fontSize: 13,
+        color: colors.silver,
+        lineHeight: 18,
+        opacity: 0.7,
+        marginBottom: spacing.md,
     },
     modeCardWrapper: {
         marginBottom: spacing.md,
@@ -439,5 +472,57 @@ const styles = StyleSheet.create({
         fontSize: 18,
         fontWeight: 'bold',
         color: colors.navy,
+    },
+    toggleRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        padding: spacing.lg,
+    },
+    toggleTextContainer: {
+        flex: 1,
+        marginRight: spacing.md,
+    },
+    toggleLabel: {
+        fontSize: 16,
+        fontWeight: '600',
+        color: colors.bone,
+        marginBottom: 4,
+    },
+    toggleHelperText: {
+        fontSize: 13,
+        color: colors.silver,
+        lineHeight: 18,
+        opacity: 0.7,
+    },
+    infoSection: {
+        paddingHorizontal: spacing.lg,
+        marginTop: spacing.md,
+    },
+    infoSectionHidden: {
+        display: 'none',
+    },
+    infoBox: {
+        borderRadius: 16,
+        padding: spacing.lg,
+        borderWidth: 1,
+        borderColor: 'rgba(212, 175, 55, 0.15)',
+        backgroundColor: IS_ANDROID ? 'rgba(26, 26, 29, 0.3)' : 'transparent',
+    },
+    infoTitleRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        marginBottom: spacing.sm,
+    },
+    infoTitle: {
+        fontSize: 16,
+        fontWeight: '600',
+        color: colors.gold,
+    },
+    infoText: {
+        fontSize: 13,
+        color: colors.silver,
+        lineHeight: 18,
+        opacity: 0.9,
     },
 });

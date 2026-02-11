@@ -5,12 +5,13 @@
  * Keeps existing ritual behavior while upgrading the surface language.
  */
 
-import React, { useRef, useEffect, useState } from 'react';
+import React, { useRef, useEffect, useState, useCallback } from 'react';
 import {
   View,
   Text,
   StyleSheet,
   TouchableOpacity,
+  Pressable,
   Animated,
   Alert,
   Dimensions,
@@ -19,19 +20,21 @@ import {
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { useAnchorStore } from '@/stores/anchorStore';
+import { useSettingsStore } from '@/stores/settingsStore';
 import { useRitualController } from '@/hooks/useRitualController';
 import { getRitualConfig } from '@/config/ritualConfigs';
 import { apiClient } from '@/services/ApiClient';
 import { AuthService } from '@/services/AuthService';
 import type { RootStackParamList } from '@/types';
 import { colors, spacing, typography } from '@/theme';
-import { SigilSvg, OptimizedImage } from '@/components/common';
+import { SigilSvg, OptimizedImage, PremiumAnchorGlow } from '@/components/common';
 import { logger } from '@/utils/logger';
 import { RitualScaffold } from './components/RitualScaffold';
 import { RitualTopBar } from './components/RitualTopBar';
 import { InstructionGlassCard } from './components/InstructionGlassCard';
 import { ProgressHaloRing } from './components/ProgressHaloRing';
 import { TIMING, EASING } from './utils/transitionConstants';
+import * as Speech from 'expo-speech';
 
 const { width } = Dimensions.get('window');
 
@@ -46,11 +49,13 @@ type RitualNavigationProp = StackNavigationProp<RootStackParamList, 'Ritual'>;
 export const RitualScreen: React.FC = () => {
   const navigation = useNavigation<RitualNavigationProp>();
   const route = useRoute<RitualRouteProp>();
-  const { anchorId, ritualType, durationSeconds } = route.params;
+  const { anchorId, ritualType, durationSeconds, mantraAudioEnabled } = route.params;
   const isMountedRef = useRef(true);
   const isCompletingRef = useRef(false);
+  const mantraIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const { getAnchorById, updateAnchor } = useAnchorStore();
+  const { soundEffectsEnabled } = useSettingsStore();
   const anchor = getAnchorById(anchorId);
 
   const [reduceMotionEnabled, setReduceMotionEnabled] = useState(false);
@@ -63,6 +68,7 @@ export const RitualScreen: React.FC = () => {
   const glowAnim = useRef(new Animated.Value(0)).current;
 
   const ringOpacityAnim = useRef(new Animated.Value(0)).current;
+  const pressScaleAnim = useRef(new Animated.Value(1)).current;
   const phaseIndicatorOpacityAnim = useRef(new Animated.Value(0)).current;
   const instructionContainerOpacityAnim = useRef(new Animated.Value(0)).current;
   const bottomSectionOpacityAnim = useRef(new Animated.Value(0)).current;
@@ -142,6 +148,51 @@ export const RitualScreen: React.FC = () => {
       actions.reset();
     };
   }, [actions.start, actions.reset]);
+
+  const speakMantra = useCallback(() => {
+    if (!anchor) return;
+
+    const phrase = (anchor.mantraText ?? anchor.intentionText).trim();
+    if (!phrase) return;
+
+    Speech.stop();
+    Speech.speak(phrase, {
+      language: 'en-US',
+      rate: 0.43,
+      pitch: 0.8,
+    });
+  }, [anchor]);
+
+  useEffect(() => {
+    if (!mantraAudioEnabled || !soundEffectsEnabled || !anchor || !state.isActive || state.isComplete) {
+      if (mantraIntervalRef.current) {
+        clearInterval(mantraIntervalRef.current);
+        mantraIntervalRef.current = null;
+      }
+      Speech.stop();
+      return;
+    }
+
+    speakMantra();
+    mantraIntervalRef.current = setInterval(() => {
+      speakMantra();
+    }, 13000);
+
+    return () => {
+      if (mantraIntervalRef.current) {
+        clearInterval(mantraIntervalRef.current);
+        mantraIntervalRef.current = null;
+      }
+      Speech.stop();
+    };
+  }, [
+    anchor,
+    mantraAudioEnabled,
+    soundEffectsEnabled,
+    speakMantra,
+    state.isActive,
+    state.isComplete,
+  ]);
 
   useEffect(() => {
     Animated.timing(progressAnim, {
@@ -281,12 +332,22 @@ export const RitualScreen: React.FC = () => {
   const handleSealPressIn = () => {
     if (state.isSealPhase && !state.isSealComplete) {
       actions.startSeal();
+      Animated.timing(pressScaleAnim, {
+        toValue: 0.98,
+        duration: 80,
+        useNativeDriver: true,
+      }).start();
     }
   };
 
   const handleSealPressOut = () => {
     if (!state.isSealComplete) {
       actions.cancelSeal();
+      Animated.timing(pressScaleAnim, {
+        toValue: 1,
+        duration: 80,
+        useNativeDriver: true,
+      }).start();
     }
   };
 
@@ -339,9 +400,24 @@ export const RitualScreen: React.FC = () => {
           <Animated.View
             style={[
               styles.symbolWrapper,
-              { opacity: ringOpacityAnim, transform: [{ scale: ringScale }] },
+              { opacity: ringOpacityAnim, transform: [{ scale: ringScale }, { scale: pressScaleAnim }] },
             ]}
           >
+          <Pressable
+            onPressIn={handleSealPressIn}
+            onPressOut={handleSealPressOut}
+            disabled={!state.isSealPhase || state.isSealComplete}
+            style={{ alignItems: 'center', justifyContent: 'center' }}
+          >
+            <View style={styles.premiumGlowLayer}>
+              <PremiumAnchorGlow
+                size={SYMBOL_SIZE}
+                state="active"
+                variant="ritual"
+                reduceMotionEnabled={reduceMotionEnabled}
+              />
+            </View>
+
             <ProgressHaloRing
               radius={RING_RADIUS}
               strokeWidth={RING_STROKE_WIDTH}
@@ -363,6 +439,7 @@ export const RitualScreen: React.FC = () => {
                 <SigilSvg xml={anchor.baseSigilSvg} width={SYMBOL_SIZE} height={SYMBOL_SIZE} />
               )}
             </View>
+          </Pressable>
           </Animated.View>
 
           {state.currentPhase ? (
@@ -380,34 +457,16 @@ export const RitualScreen: React.FC = () => {
               },
             ]}
           >
-            <InstructionGlassCard text={displayedInstruction} />
+            {state.isSealPhase ? (
+              <Text style={styles.sealPhaseInstruction}>{displayedInstruction}</Text>
+            ) : (
+              <InstructionGlassCard text={displayedInstruction} />
+            )}
           </Animated.View>
         </View>
 
         <Animated.View style={[styles.bottomSection, { opacity: bottomSectionOpacityAnim }]}>
-          {state.isSealPhase && !state.isSealComplete ? (
-            <TouchableOpacity
-              style={styles.sealGesture}
-              onPressIn={handleSealPressIn}
-              onPressOut={handleSealPressOut}
-              activeOpacity={1}
-            >
-              <Animated.View
-                style={[
-                  styles.sealCardWrap,
-                  {
-                    opacity: glowAnim.interpolate({
-                      inputRange: [0, 1],
-                      outputRange: [0.75, 1],
-                    }),
-                    transform: [{ scale: sealScale }],
-                  },
-                ]}
-              >
-                <InstructionGlassCard text="Press and hold to seal" emphasized />
-              </Animated.View>
-            </TouchableOpacity>
-          ) : (
+          {!state.isSealPhase && (
             <View style={styles.timerPill}>
               <Text style={styles.timerText}>{state.formattedRemaining} remaining</Text>
             </View>
@@ -434,6 +493,11 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: spacing.xl,
+  },
+  premiumGlowLayer: {
+    position: 'absolute',
+    width: SYMBOL_SIZE * 1.72,
+    height: SYMBOL_SIZE * 1.72,
   },
   symbolContainer: {
     position: 'absolute',
@@ -481,13 +545,13 @@ const styles = StyleSheet.create({
     color: colors.text.secondary,
     letterSpacing: 0.3,
   },
-  sealGesture: {
-    width: '100%',
-    alignItems: 'center',
-  },
-  sealCardWrap: {
-    width: '100%',
-    maxWidth: 460,
+  sealPhaseInstruction: {
+    fontSize: typography.sizes.h3,
+    fontFamily: typography.fonts.heading,
+    color: colors.white,
+    textAlign: 'center',
+    letterSpacing: 0.5,
+    lineHeight: typography.lineHeights.h3,
   },
   errorContainer: {
     flex: 1,

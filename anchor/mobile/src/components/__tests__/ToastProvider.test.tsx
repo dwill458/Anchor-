@@ -10,15 +10,14 @@ import { Text } from 'react-native';
 import { ToastProvider, useToast } from '../ToastProvider';
 
 // Mock the Toast component
-const MockToast = jest.fn(({ message, type }) => {
+jest.mock('../Toast', () => {
   const React = require('react');
   const { Text } = require('react-native');
-  return React.createElement(Text, { testID: `toast-${type}` }, message);
+  return {
+    Toast: ({ message, type }: { message: string; type?: string }) =>
+      React.createElement(Text, { testID: `toast-${type || 'info'}` }, message),
+  };
 });
-
-jest.mock('../Toast', () => ({
-  Toast: MockToast,
-}));
 
 // Enable fake timers
 jest.useFakeTimers();

@@ -4,7 +4,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Haptics from 'expo-haptics';
 
 export type ChargeMode = 'focus' | 'ritual';
-export type ChargeDurationPreset = '30s' | '2m' | '5m' | '10m' | 'custom';
+export type ChargeDurationPreset = '30s' | '1m' | '2m' | '5m' | '10m' | 'custom';
 
 export interface DefaultChargeSetting {
   mode: ChargeMode;
@@ -20,6 +20,62 @@ export interface DefaultActivationSetting {
   value: number;
   unit: ActivationUnit;
 }
+
+const clampNumber = (value: number, min: number, max: number): number =>
+  Math.min(max, Math.max(min, Math.round(value)));
+
+const normalizeDefaultCharge = (setting: DefaultChargeSetting): DefaultChargeSetting => {
+  if (setting.preset !== 'custom') {
+    return {
+      mode: setting.mode,
+      preset: setting.preset,
+      customMinutes: undefined,
+    };
+  }
+
+  return {
+    mode: setting.mode,
+    preset: 'custom',
+    customMinutes: clampNumber(setting.customMinutes ?? 5, 1, 30),
+  };
+};
+
+const normalizeDefaultActivation = (setting: DefaultActivationSetting): DefaultActivationSetting => {
+  if (setting.unit === 'seconds') {
+    return {
+      ...setting,
+      value: clampNumber(setting.value, 10, 60),
+    };
+  }
+
+  return {
+    ...setting,
+    value: Math.max(1, Math.round(setting.value)),
+  };
+};
+
+const clampPersistedSettings = (persistedState: any) => {
+  if (!persistedState) return persistedState;
+  const nextState = { ...persistedState };
+
+  if (persistedState.defaultCharge) {
+    nextState.defaultCharge = normalizeDefaultCharge({
+      mode: persistedState.defaultCharge.mode ?? 'focus',
+      preset: persistedState.defaultCharge.preset ?? '30s',
+      customMinutes: persistedState.defaultCharge.customMinutes,
+    });
+  }
+
+  if (persistedState.defaultActivation) {
+    nextState.defaultActivation = normalizeDefaultActivation({
+      type: persistedState.defaultActivation.type ?? 'visual',
+      unit: persistedState.defaultActivation.unit ?? 'seconds',
+      value: persistedState.defaultActivation.value ?? 10,
+    });
+  }
+
+  return nextState;
+};
 
 /**
  * Settings state interface
@@ -49,6 +105,7 @@ export interface SettingsState {
   generatedVoiceStyle: 'calm' | 'neutral' | 'intense';
   hapticIntensity: number; // 0-100
   soundEffectsEnabled: boolean;
+  mantraAudioByDefault: boolean;
   developerModeEnabled: boolean;
   developerDeleteWithoutBurnEnabled: boolean;
 
@@ -75,6 +132,7 @@ export interface SettingsState {
   setGeneratedVoiceStyle: (style: 'calm' | 'neutral' | 'intense') => void;
   setHapticIntensity: (intensity: number) => void;
   setSoundEffectsEnabled: (enabled: boolean) => void;
+  setMantraAudioByDefault: (enabled: boolean) => void;
   setDeveloperModeEnabled: (enabled: boolean) => void;
   setDeveloperDeleteWithoutBurnEnabled: (enabled: boolean) => void;
 
@@ -82,9 +140,6 @@ export interface SettingsState {
   resetToDefaults: () => void;
 }
 
-/**
- * Default settings values
- */
 const DEFAULT_SETTINGS = {
   defaultCharge: {
     mode: 'focus' as ChargeMode,
@@ -109,6 +164,7 @@ const DEFAULT_SETTINGS = {
   generatedVoiceStyle: 'calm' as const,
   hapticIntensity: 70,
   soundEffectsEnabled: true,
+  mantraAudioByDefault: true,
   developerModeEnabled: false,
   developerDeleteWithoutBurnEnabled: false,
 };
@@ -133,14 +189,14 @@ export const useSettingsStore = create<SettingsState>()(
       setDefaultCharge: (setting) => {
         triggerHaptic();
         set({
-          defaultCharge: setting,
+          defaultCharge: normalizeDefaultCharge(setting),
         });
       },
 
       setDefaultActivation: (setting) => {
         triggerHaptic();
         set({
-          defaultActivation: setting,
+          defaultActivation: normalizeDefaultActivation(setting),
         });
       },
 
@@ -243,6 +299,12 @@ export const useSettingsStore = create<SettingsState>()(
           soundEffectsEnabled: enabled,
         });
       },
+      setMantraAudioByDefault: (enabled) => {
+        triggerHaptic();
+        set({
+          mantraAudioByDefault: enabled,
+        });
+      },
 
       setDeveloperModeEnabled: (enabled) => {
         triggerHaptic();
@@ -269,17 +331,23 @@ export const useSettingsStore = create<SettingsState>()(
     {
       name: 'anchor-settings-storage',
       storage: createJSONStorage(() => AsyncStorage),
-      version: 2,
+      version: 4,
       // Handle migration
       migrate: (persistedState: any, version: number) => {
+        if (version === 3) {
+          return clampPersistedSettings(persistedState);
+        }
+        if (version === 2) {
+          return clampPersistedSettings(persistedState);
+        }
         if (version === 1) {
           // Migration from version 1 to 2 (renaming fields)
-          return {
+          return clampPersistedSettings({
             ...persistedState,
             openDailyAnchorAutomatically: persistedState.autoOpenDailyAnchor ?? false,
             streakProtectionAlerts: persistedState.streakProtectionEnabled ?? false,
             weeklySummaryEnabled: persistedState.weeklyReflectionEnabled ?? false,
-          };
+          });
         }
         if (version === 0) {
           // Legacy migration
@@ -295,16 +363,16 @@ export const useSettingsStore = create<SettingsState>()(
             unit: persistedState.defaultActivationUnit || 'seconds',
           };
 
-          return {
+          return clampPersistedSettings({
             ...persistedState,
             defaultCharge,
             defaultActivation,
             openDailyAnchorAutomatically: persistedState.autoOpenDailyAnchor ?? false,
             streakProtectionAlerts: persistedState.streakProtectionEnabled ?? false,
             weeklySummaryEnabled: persistedState.weeklyReflectionEnabled ?? false,
-          };
+          });
         }
-        return persistedState;
+        return clampPersistedSettings(persistedState);
       },
       // Only persist user preference settings
       partialize: (state) => ({
@@ -324,6 +392,7 @@ export const useSettingsStore = create<SettingsState>()(
         generatedVoiceStyle: state.generatedVoiceStyle,
         hapticIntensity: state.hapticIntensity,
         soundEffectsEnabled: state.soundEffectsEnabled,
+        mantraAudioByDefault: state.mantraAudioByDefault,
         developerModeEnabled: state.developerModeEnabled,
         developerDeleteWithoutBurnEnabled: state.developerDeleteWithoutBurnEnabled,
       }),

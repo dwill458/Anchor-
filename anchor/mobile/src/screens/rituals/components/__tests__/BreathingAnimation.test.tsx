@@ -33,23 +33,22 @@ jest.mock('expo-haptics', () => ({
 }));
 
 describe('BreathingAnimation', () => {
-  const mockOnComplete = jest.fn();
   const mockNavigationGoBack = jest.fn();
+  const mockNavigationNavigate = jest.fn();
 
   beforeEach(() => {
-    mockOnComplete.mockClear();
     mockNavigationGoBack.mockClear();
+    mockNavigationNavigate.mockClear();
 
     // Mock useNavigation
     (useNavigation as jest.Mock).mockReturnValue({
       goBack: mockNavigationGoBack,
+      navigate: mockNavigationNavigate,
     });
 
     // Mock useRoute
     (useRoute as jest.Mock).mockReturnValue({
-      params: {
-        onComplete: mockOnComplete,
-      },
+      params: {},
     });
   });
 
@@ -84,39 +83,39 @@ describe('BreathingAnimation', () => {
     );
   });
 
-  it('calls onComplete callback after 3 seconds', async () => {
-    jest.useFakeTimers();
-
+  it('navigates back after completion by default', async () => {
     render(<BreathingAnimation />);
 
-    // Fast-forward 3 seconds
-    jest.advanceTimersByTime(3000);
-
-    await waitFor(() => {
-      expect(mockOnComplete).toHaveBeenCalled();
-    });
-
-    jest.useRealTimers();
+    await waitFor(
+      () => {
+        expect(mockNavigationGoBack).toHaveBeenCalled();
+      },
+      { timeout: 4000 }
+    );
   });
 
-  it('navigates back if no onComplete callback provided', async () => {
-    jest.useFakeTimers();
-
+  it('navigates to Ritual for charge source params', async () => {
     (useRoute as jest.Mock).mockReturnValue({
       params: {
-        onComplete: undefined,
+        source: 'charge',
+        anchorId: 'anchor-123',
+        mode: 'focus',
+        duration: 30,
       },
     });
 
     render(<BreathingAnimation />);
 
-    jest.advanceTimersByTime(3000);
-
-    await waitFor(() => {
-      expect(mockNavigationGoBack).toHaveBeenCalled();
-    });
-
-    jest.useRealTimers();
+    await waitFor(
+      () => {
+        expect(mockNavigationNavigate).toHaveBeenCalledWith('Ritual', {
+          anchorId: 'anchor-123',
+          ritualType: 'focus',
+          durationSeconds: 30,
+        });
+      },
+      { timeout: 4000 }
+    );
   });
 
   it('renders progress indicator dots', () => {
@@ -146,17 +145,13 @@ describe('BreathingAnimation', () => {
   });
 
   it('only triggers animation sequence once on mount', async () => {
-    jest.useFakeTimers();
-
     render(<BreathingAnimation />);
 
-    // Verify onComplete is called only once
-    jest.advanceTimersByTime(3000);
-
-    await waitFor(() => {
-      expect(mockOnComplete).toHaveBeenCalledTimes(1);
-    });
-
-    jest.useRealTimers();
+    await waitFor(
+      () => {
+        expect(mockNavigationGoBack).toHaveBeenCalledTimes(1);
+      },
+      { timeout: 4000 }
+    );
   });
 });

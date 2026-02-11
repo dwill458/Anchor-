@@ -8,6 +8,7 @@ import axios from 'axios';
 import MockAdapter from 'axios-mock-adapter';
 import { apiClient, get, post, put, del } from '../ApiClient';
 import { AuthService } from '../AuthService';
+import { API_URL } from '@/config';
 
 // Mock AuthService
 jest.mock('../AuthService', () => ({
@@ -31,7 +32,7 @@ describe('ApiClient', () => {
 
   describe('Configuration', () => {
     it('should be configured with correct base URL', () => {
-      expect(apiClient.defaults.baseURL).toBe('http://10.0.2.2:3000');
+      expect(apiClient.defaults.baseURL).toBe(API_URL);
     });
 
     it('should have correct timeout', () => {
@@ -402,7 +403,7 @@ describe('ApiClient', () => {
       expect(result).toEqual(responseData);
     });
 
-    it('should retry with fresh token on 401', async () => {
+    it('should surface API-provided 401 error message', async () => {
       let callCount = 0;
 
       mock.onGet('/api/anchors').reply(() => {
@@ -415,7 +416,7 @@ describe('ApiClient', () => {
 
       // First call will fail with 401
       await expect(get('/api/anchors')).rejects.toThrow(
-        'Session expired. Please sign in again.'
+        'Token expired'
       );
 
       expect(callCount).toBe(1);

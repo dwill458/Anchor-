@@ -80,16 +80,15 @@ describe('ErrorBoundary Component', () => {
     // Error UI should be visible
     expect(getByText('Something Went Wrong')).toBeTruthy();
 
-    // Press Try Again
-    const tryAgainButton = getByText('Try Again');
-    fireEvent.press(tryAgainButton);
-
-    // Re-render with no error
+    // Re-render children with no error, then reset boundary
     rerender(
       <ErrorBoundary>
         <ThrowError shouldThrow={false} />
       </ErrorBoundary>
     );
+
+    const tryAgainButton = getByText('Try Again');
+    fireEvent.press(tryAgainButton);
 
     // Should show children again
     expect(getByText('No error')).toBeTruthy();

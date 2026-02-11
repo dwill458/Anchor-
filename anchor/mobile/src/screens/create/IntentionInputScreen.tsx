@@ -18,6 +18,7 @@ import { useNavigation } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { RootStackParamList } from '@/types';
 import { distillIntention } from '@/utils/sigil/distillation';
+import { detectCategoryFromText } from '@/utils/categoryDetection';
 import { colors, spacing, typography } from '@/theme';
 import { ZenBackground } from '@/components/common';
 
@@ -96,9 +97,10 @@ export default function IntentionInputScreen() {
     const handleContinue = () => {
         if (canSubmit) {
             const distillation = distillIntention(intention);
+            const category = detectCategoryFromText(intention);
             navigation.navigate('DistillationAnimation', {
                 intentionText: intention,
-                category: 'personal_growth',
+                category,
                 distilledLetters: distillation.finalLetters,
             });
         }

@@ -52,9 +52,15 @@ export interface Anchor {
   mantraPronunciation?: string;
   mantraAudioUrl?: string;
   isCharged: boolean;
+  chargeCount?: number;
   chargedAt?: Date;
+  firstChargedAt?: Date;
+  ignitedAt?: Date;
   activationCount: number;
   lastActivatedAt?: Date;
+  isReleased?: boolean;
+  releasedAt?: Date;
+  archivedAt?: Date;
 
   // ───────────────────────────────────────────────────
   // TIMESTAMPS
@@ -551,6 +557,7 @@ export type RootStackParamList = {
     anchorId: string;
     ritualType: 'focus' | 'ritual' | 'quick' | 'deep'; // Legacy types for compatibility
     durationSeconds?: number; // Optional custom duration for focus/ritual modes
+    mantraAudioEnabled?: boolean;
   };
   SealAnchor: { anchorId: string };
   ChargeComplete: { anchorId: string };

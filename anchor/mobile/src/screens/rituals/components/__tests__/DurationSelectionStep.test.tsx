@@ -140,7 +140,8 @@ describe('DurationSelectionStep', () => {
       );
 
       const continueButton = screen.getByText('Continue');
-      expect(continueButton.parent?.props?.disabled).toBe(true);
+      fireEvent.press(continueButton);
+      expect(mockOnContinue).not.toHaveBeenCalled();
     });
 
     it('calls onContinue when Continue pressed after selection', async () => {
