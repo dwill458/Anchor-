@@ -192,7 +192,7 @@ export const PhysicalAnchorModal: React.FC<PhysicalAnchorModalProps> = ({
                 {renderModalContent()}
               </BlurView>
             ) : (
-              <View style={styles.androidContainer}>
+              <View style={[styles.androidContainer, { backgroundColor: 'rgba(12, 17, 24, 0.92)' }]}>
                 {renderModalContent()}
               </View>
             )}

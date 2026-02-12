@@ -382,13 +382,20 @@ export const MantraCreationScreen: React.FC = () => {
           style={styles.unlockButton}
           onPress={isPro ? generateMantra : handleUnlock}
           activeOpacity={0.85}
+          accessibilityRole="button"
+          accessibilityLabel={isPro ? "Begin Tuning" : "Unlock Voice Tuning"}
         >
           <LinearGradient colors={[colors.gold, '#B8860B']} style={styles.gradientButton}>
             <Text style={styles.unlockButtonText}>{isPro ? 'Begin Tuning' : 'Unlock Voice Tuning'}</Text>
           </LinearGradient>
         </TouchableOpacity>
 
-        <TouchableOpacity onPress={handleSkip} style={styles.backLink}>
+        <TouchableOpacity
+          onPress={handleSkip}
+          style={styles.backLink}
+          accessibilityRole="button"
+          accessibilityLabel="Maybe later"
+        >
           <Text style={styles.backLinkText}>Maybe later</Text>
         </TouchableOpacity>
       </GlassCard>
@@ -484,7 +491,13 @@ export const MantraCreationScreen: React.FC = () => {
             <>
               {renderMantraSelection()}
               <View style={styles.footer}>
-                <TouchableOpacity style={styles.continueButton} onPress={handleContinue} activeOpacity={0.9}>
+                <TouchableOpacity
+                  style={styles.continueButton}
+                  onPress={handleContinue}
+                  activeOpacity={0.9}
+                  accessibilityRole="button"
+                  accessibilityLabel="Continue to Ritual"
+                >
                   <Text style={styles.continueText}>Continue to Ritual</Text>
                   <ChevronRight size={20} color={colors.charcoal} />
                 </TouchableOpacity>
@@ -615,6 +628,9 @@ function ResonanceTile({
         pressScale.value = withTiming(1, { duration: 180, easing: Easing.out(Easing.cubic) });
       }}
       style={[styles.resonanceTile, cardStyle]}
+      accessibilityRole="button"
+      accessibilityLabel={styleInfo.title}
+      accessibilityState={{ selected: isActive }}
     >
       <GlassCard style={styles.resonanceTileGlass}>
         <View style={styles.tileHeader}>
@@ -629,7 +645,12 @@ function ResonanceTile({
           <Text style={styles.mantraText}>{formatMantraForDisplay(mantraText)}</Text>
         </View>
 
-        <AnimatedPressable style={[styles.playButton, playButtonStyle]} onPress={onPlay}>
+        <AnimatedPressable
+          style={[styles.playButton, playButtonStyle]}
+          onPress={onPlay}
+          accessibilityRole="button"
+          accessibilityLabel={isPlaying ? "Pause" : "Play"}
+        >
           {isPlaying ? <Pause size={20} color={colors.gold} /> : <Play size={20} color={colors.bone} fill={colors.bone} />}
         </AnimatedPressable>
       </GlassCard>

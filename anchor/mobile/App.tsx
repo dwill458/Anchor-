@@ -1,12 +1,13 @@
 import 'react-native-gesture-handler';
-import React from 'react';
-import { StatusBar, View, StyleSheet, Platform, Dimensions } from 'react-native';
+import React, { useEffect } from 'react';
+import { AppState, StatusBar, View, StyleSheet, Platform, Dimensions } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { NavigationContainer } from '@react-navigation/native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { RootNavigator } from './src/navigation';
 import { ErrorBoundary } from './src/components/ErrorBoundary';
 import { ToastProvider } from './src/components/ToastProvider';
+import { useAuthStore } from './src/stores/authStore';
 
 const { width } = Dimensions.get('window');
 const isWeb = Platform.OS === 'web';
@@ -24,6 +25,17 @@ const AppTheme = {
 };
 
 export default function App() {
+  const computeStreak = useAuthStore((state) => state.computeStreak);
+
+  useEffect(() => {
+    const subscription = AppState.addEventListener('change', (nextState) => {
+      if (nextState === 'active') {
+        computeStreak();
+      }
+    });
+    return () => subscription.remove();
+  }, [computeStreak]);
+
   return (
     <ErrorBoundary>
       <ToastProvider>

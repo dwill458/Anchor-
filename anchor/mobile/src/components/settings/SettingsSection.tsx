@@ -79,8 +79,10 @@ export const SettingsSection: React.FC<SettingsSectionProps> = ({
       {/* Section Content */}
       {expanded && (
         <View style={styles.content}>
-          {Platform.OS === 'ios' && (
+          {Platform.OS === 'ios' ? (
             <BlurView intensity={20} tint="dark" style={StyleSheet.absoluteFill} />
+          ) : (
+            <View style={[StyleSheet.absoluteFill, { backgroundColor: 'rgba(12, 17, 24, 0.92)' }]} />
           )}
           <View style={styles.contentInner}>{children}</View>
         </View>

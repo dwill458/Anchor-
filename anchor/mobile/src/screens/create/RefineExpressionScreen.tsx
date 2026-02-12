@@ -148,6 +148,8 @@ export default function RefineExpressionScreen() {
             style={styles.upsellButton}
             onPress={() => setShowProPaywall(true)}
             activeOpacity={0.85}
+            accessibilityRole="button"
+            accessibilityLabel="Go Pro"
           >
             <Text style={styles.upsellButtonText}>Go Pro</Text>
           </TouchableOpacity>
@@ -196,7 +198,13 @@ export default function RefineExpressionScreen() {
 
         <View style={[styles.footer, { paddingBottom: footerPaddingBottom }]}>
           <Text style={styles.selectedStyleText}>Selected style: {selectedStyle.title}</Text>
-          <TouchableOpacity style={styles.ctaButton} onPress={handleContinue} activeOpacity={0.85}>
+          <TouchableOpacity
+            style={styles.ctaButton}
+            onPress={handleContinue}
+            activeOpacity={0.85}
+            accessibilityRole="button"
+            accessibilityLabel="Refine Anchor"
+          >
             <Text style={styles.ctaText}>Refine Anchor</Text>
           </TouchableOpacity>
         </View>

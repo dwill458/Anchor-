@@ -564,307 +564,312 @@ export const AnchorDetailScreen: React.FC = () => {
       <ZenBackground showOrbs={true} orbOpacity={0.1} animationDuration={800} />
       <SafeAreaView style={styles.safeArea} edges={['top', 'bottom']}>
         <ScrollView style={styles.scrollView} contentContainerStyle={styles.scrollContent}>
-        {/* Header Card */}
-        <View style={styles.headerCard}>
-          {Platform.OS === 'ios' ? (
-            <BlurView intensity={20} tint="dark" style={StyleSheet.absoluteFill}>
-              <View style={styles.goldLeftBorder} />
-              <View style={styles.headerContent}>
-                <Text style={styles.intentionText}>
-                  {reduceIntentionVisibility
-                    ? `"${anchor.mantraText || 'Intention Obscured'}"`
-                    : `"${anchor.intentionText}"`}
-                </Text>
+          {/* Header Card */}
+          <View style={styles.headerCard}>
+            {Platform.OS === 'ios' ? (
+              <BlurView intensity={20} tint="dark" style={StyleSheet.absoluteFill}>
+                <View style={styles.goldLeftBorder} />
+                <View style={styles.headerContent}>
+                  <Text style={styles.intentionText}>
+                    {reduceIntentionVisibility
+                      ? `"${anchor.mantraText || 'Intention Obscured'}"`
+                      : `"${anchor.intentionText}"`}
+                  </Text>
 
-                <View style={styles.badgeRow}>
-                  <View style={styles.badgeWrapper}>
-                    <BlurView intensity={18} tint="dark" style={styles.blurBadge}>
-                      <View style={[styles.badgeInner, { backgroundColor: `${categoryConfig.color}15` }]}>
-                        <Text style={styles.categoryEmoji}>{categoryConfig.emoji}</Text>
-                        <Text style={[styles.categoryText, { color: categoryConfig.color }]}>
-                          {categoryConfig.label}
-                        </Text>
-                      </View>
-                    </BlurView>
-                  </View>
-
-                  <View style={styles.badgeWrapper}>
-                    <BlurView intensity={18} tint="dark" style={styles.blurBadge}>
-                      <View style={[styles.badgeInner, { backgroundColor: `${statusChip.color}18` }]}>
-                        <Text style={styles.categoryEmoji}>{statusChip.icon}</Text>
-                        <Text style={[styles.categoryText, { color: statusChip.color }]}>
-                          {statusChip.label}
-                        </Text>
-                      </View>
-                    </BlurView>
-                  </View>
-                </View>
-              </View>
-            </BlurView>
-          ) : (
-            <View style={styles.androidHeaderFallback}>
-              <View style={styles.goldLeftBorder} />
-              <View style={styles.headerContent}>
-                <Text style={styles.intentionText}>
-                  {reduceIntentionVisibility
-                    ? `"${anchor.mantraText || 'Intention Obscured'}"`
-                    : `"${anchor.intentionText}"`}
-                </Text>
-
-                <View style={styles.badgeRow}>
-                  <View
-                    style={[styles.categoryBadgeCompact, { backgroundColor: categoryConfig.color + '20' }]}
-                  >
-                    <Text style={styles.categoryEmoji}>{categoryConfig.emoji}</Text>
-                    <Text style={[styles.categoryText, { color: categoryConfig.color }]}>
-                      {categoryConfig.label}
-                    </Text>
-                  </View>
-
-                  <View style={[styles.categoryBadgeCompact, { backgroundColor: `${statusChip.color}20` }]}>
-                    <Text style={styles.categoryEmoji}>{statusChip.icon}</Text>
-                    <Text style={[styles.categoryText, { color: statusChip.color }]}>
-                      {statusChip.label}
-                    </Text>
-                  </View>
-                </View>
-              </View>
-            </View>
-          )}
-        </View>
-
-        {/* NEW: Animated Sigil Hero Card */}
-        <SigilHeroCard
-          anchor={anchor}
-          anchorState={anchorState}
-          reduceMotionEnabled={reduceMotionEnabled}
-          activationRippleNonce={activationRippleNonce}
-          deepChargeHaloActive={hasIgnited && !isReleased && (isDeepChargeExpanded || anchorState === 'active')}
-        />
-
-        {/* Ritual Dashboard */}
-        <View style={styles.statsCard}>
-          {Platform.OS === 'ios' ? (
-            <BlurView intensity={20} tint="dark" style={StyleSheet.absoluteFill}>
-              <View style={styles.goldLeftBorder} />
-              <View style={styles.statsContent}>
-                {renderDashboardContent()}
-              </View>
-            </BlurView>
-          ) : (
-            <View style={styles.androidStatsFallback}>
-              <View style={styles.goldLeftBorder} />
-              <View style={styles.statsContent}>
-                {renderDashboardContent()}
-              </View>
-            </View>
-          )}
-          {hasIgnited && !isReleased && !reduceMotionEnabled && (
-            <Animated.View
-              pointerEvents="none"
-              style={[
-                styles.liveShimmerOverlay,
-                { transform: [{ translateX: shimmerTranslateX }] },
-              ]}
-            >
-              <LinearGradient
-                colors={['transparent', 'rgba(212, 175, 55, 0.16)', 'transparent']}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 0 }}
-                style={StyleSheet.absoluteFill}
-              />
-            </Animated.View>
-          )}
-        </View>
-
-        {/* Ritual Actions */}
-        <View style={styles.actionContainer}>
-          <Text style={styles.actionsTitle}>Ritual Actions</Text>
-          {isReleased ? (
-            <>
-              <View style={[styles.primaryButtonContainer, styles.disabledButton]}>
-                <Text style={styles.disabledButtonText}>Anchor released</Text>
-              </View>
-              <Text style={styles.microcopy}>
-                This closes the loop. You can't reactivate this anchor after release.
-              </Text>
-            </>
-          ) : !hasIgnited ? (
-            <>
-              <View style={styles.primaryButtonContainer}>
-                {!reduceMotionEnabled && (
-                  <Animated.View
-                    pointerEvents="none"
-                    style={[styles.primaryButtonPulse, { opacity: primaryButtonPulseOpacity }]}
-                  />
-                )}
-                <TouchableOpacity
-                  style={styles.primaryButton}
-                  onPress={handleChargePress}
-                  accessibilityRole="button"
-                  accessibilityLabel="Ignite Anchor"
-                  accessibilityHint="Starts your first 1 to 30 minute charge."
-                >
-                  <Text style={styles.primaryButtonText}>Ignite Anchor</Text>
-                </TouchableOpacity>
-              </View>
-              <Text style={styles.microcopy}>1–30 minutes · first charge</Text>
-            </>
-          ) : (
-            <>
-              <View style={styles.primaryButtonContainer}>
-                {!reduceMotionEnabled && (
-                  <Animated.View
-                    pointerEvents="none"
-                    style={[styles.primaryButtonPulse, { opacity: primaryButtonPulseOpacity }]}
-                  />
-                )}
-                <TouchableOpacity
-                  style={styles.primaryButton}
-                  onPress={handleActivatePress}
-                  accessibilityRole="button"
-                  accessibilityLabel="Enter Focus"
-                  accessibilityHint="Starts a fast focus burst in one tap."
-                >
-                  <View style={styles.primaryButtonInner}>
-                    <Zap size={18} color={colors.charcoal} />
-                    <Text style={styles.primaryButtonText}>Enter Focus</Text>
-                  </View>
-                </TouchableOpacity>
-              </View>
-              <Text style={styles.actionHelperText}>10–60s • ignite focus now</Text>
-              <Text style={styles.microcopy}>Fast reset. One clean start.</Text>
-
-              <View style={styles.deepChargeModule}>
-                <TouchableOpacity
-                  style={styles.deepChargeHeader}
-                  onPress={handleDeepChargeExpandPress}
-                  accessibilityRole="button"
-                  accessibilityLabel="Reinforce"
-                  accessibilityHint="Expands reinforcement options including duration and mantra audio."
-                >
-                  <View style={styles.deepChargeHeaderContent}>
-                    <Text style={styles.deepChargeTitle}>Reinforce</Text>
-                    <Text style={styles.deepChargeHelperText}>1–30m • deepen the charge</Text>
-                  </View>
-                  {isDeepChargeExpanded ? (
-                    <ChevronUp size={20} color={colors.gold} />
-                  ) : (
-                    <ChevronDown size={20} color={colors.gold} />
-                  )}
-                </TouchableOpacity>
-                <Text style={styles.deepChargeMicrocopy}>{deepChargeMicrocopy}</Text>
-
-                {isDeepChargeExpanded && (
-                  <>
-                    <View style={styles.durationChipsRow}>
-                      {DEEP_CHARGE_PRESETS.map((preset) => {
-                        const isSelected = deepChargePreset === preset.key;
-                        return (
-                          <TouchableOpacity
-                            key={preset.key}
-                            style={[styles.durationChip, isSelected && styles.durationChipSelected]}
-                            onPress={() => handleDeepChargePresetPress(preset.key)}
-                            accessibilityRole="button"
-                            accessibilityLabel={`${preset.label} duration`}
-                            accessibilityState={{ selected: isSelected }}
-                          >
-                            <Text style={[styles.durationChipText, isSelected && styles.durationChipTextSelected]}>
-                              {preset.key === 'custom' && isSelected
-                                ? `Custom ${clampDeepChargeMinutes(customDeepChargeMinutes)}m`
-                                : preset.label}
-                            </Text>
-                          </TouchableOpacity>
-                        );
-                      })}
+                  <View style={styles.badgeRow}>
+                    <View style={styles.badgeWrapper}>
+                      <BlurView intensity={18} tint="dark" style={styles.blurBadge}>
+                        <View style={[styles.badgeInner, { backgroundColor: `${categoryConfig.color}15` }]}>
+                          <Text style={styles.categoryEmoji}>{categoryConfig.emoji}</Text>
+                          <Text style={[styles.categoryText, { color: categoryConfig.color }]}>
+                            {categoryConfig.label}
+                          </Text>
+                        </View>
+                      </BlurView>
                     </View>
 
-                    <View style={styles.mantraToggleRow}>
-                      <View style={styles.mantraToggleCopy}>
-                        <Text style={styles.mantraToggleTitle}>Mantra audio</Text>
-                        <Text style={styles.mantraToggleDescription}>Repeat softly during session</Text>
-                      </View>
-                      <Switch
-                        value={mantraAudioEnabled}
-                        onValueChange={setMantraAudioEnabled}
-                        thumbColor={colors.bone}
-                        trackColor={{
-                          false: 'rgba(255, 255, 255, 0.2)',
-                          true: colors.gold,
-                        }}
-                        ios_backgroundColor="rgba(255, 255, 255, 0.2)"
-                        accessibilityRole="switch"
-                        accessibilityState={{ checked: mantraAudioEnabled }}
-                        accessibilityLabel="Mantra audio"
-                        accessibilityHint="When enabled, your mantra repeats during deep charge."
-                      />
+                    <View style={styles.badgeWrapper}>
+                      <BlurView intensity={18} tint="dark" style={styles.blurBadge}>
+                        <View style={[styles.badgeInner, { backgroundColor: `${statusChip.color}18` }]}>
+                          <Text style={styles.categoryEmoji}>{statusChip.icon}</Text>
+                          <Text style={[styles.categoryText, { color: statusChip.color }]}>
+                            {statusChip.label}
+                          </Text>
+                        </View>
+                      </BlurView>
                     </View>
+                  </View>
+                </View>
+              </BlurView>
+            ) : (
+            <View style={[styles.androidHeaderFallback, { backgroundColor: 'rgba(12, 17, 24, 0.92)' }]}>
+              <View style={styles.goldLeftBorder} />
+              <View style={styles.headerContent}>
+                  <Text style={styles.intentionText}>
+                    {reduceIntentionVisibility
+                      ? `"${anchor.mantraText || 'Intention Obscured'}"`
+                      : `"${anchor.intentionText}"`}
+                  </Text>
 
-                    <TouchableOpacity
-                      style={styles.deepChargeStartButton}
-                      onPress={handleBeginDeepCharge}
-                      accessibilityRole="button"
-                      accessibilityLabel="Begin Deep Charge"
-                      accessibilityHint="Starts a longer deep charge session with selected options."
+                  <View style={styles.badgeRow}>
+                    <View
+                      style={[styles.categoryBadgeCompact, { backgroundColor: categoryConfig.color + '20' }]}
                     >
-                      <Text style={styles.deepChargeStartButtonText}>Begin Deep Charge</Text>
-                    </TouchableOpacity>
-                  </>
-                )}
+                      <Text style={styles.categoryEmoji}>{categoryConfig.emoji}</Text>
+                      <Text style={[styles.categoryText, { color: categoryConfig.color }]}>
+                        {categoryConfig.label}
+                      </Text>
+                    </View>
+
+                    <View style={[styles.categoryBadgeCompact, { backgroundColor: `${statusChip.color}20` }]}>
+                      <Text style={styles.categoryEmoji}>{statusChip.icon}</Text>
+                      <Text style={[styles.categoryText, { color: statusChip.color }]}>
+                        {statusChip.label}
+                      </Text>
+                    </View>
+                  </View>
+                </View>
               </View>
+            )}
+          </View>
 
-              <View style={styles.burnDivider} />
-              <TouchableOpacity
-                style={styles.burnButton}
-                onPress={handleBurnPress}
-                accessibilityRole="button"
-                accessibilityLabel="Burn and Release"
-                accessibilityHint="Permanently closes this anchor."
+          {/* NEW: Animated Sigil Hero Card */}
+          <SigilHeroCard
+            anchor={anchor}
+            anchorState={anchorState}
+            reduceMotionEnabled={reduceMotionEnabled}
+            activationRippleNonce={activationRippleNonce}
+            deepChargeHaloActive={hasIgnited && !isReleased && (isDeepChargeExpanded || anchorState === 'active')}
+          />
+
+          {/* Ritual Dashboard */}
+          <View style={styles.statsCard}>
+            {Platform.OS === 'ios' ? (
+              <BlurView intensity={20} tint="dark" style={StyleSheet.absoluteFill}>
+                <View style={styles.goldLeftBorder} />
+                <View style={styles.statsContent}>
+                  {renderDashboardContent()}
+                </View>
+              </BlurView>
+            ) : (
+            <View style={[styles.androidStatsFallback, { backgroundColor: 'rgba(12, 17, 24, 0.92)' }]}>
+              <View style={styles.goldLeftBorder} />
+              <View style={styles.statsContent}>
+                {renderDashboardContent()}
+                </View>
+              </View>
+            )}
+            {hasIgnited && !isReleased && !reduceMotionEnabled && (
+              <Animated.View
+                pointerEvents="none"
+                style={[
+                  styles.liveShimmerOverlay,
+                  { transform: [{ translateX: shimmerTranslateX }] },
+                ]}
               >
-                <Text style={styles.burnButtonText}>🔥 Burn & Release</Text>
+                <LinearGradient
+                  colors={['transparent', 'rgba(212, 175, 55, 0.16)', 'transparent']}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 0 }}
+                  style={StyleSheet.absoluteFill}
+                />
+              </Animated.View>
+            )}
+          </View>
+
+          {/* Ritual Actions */}
+          <View style={styles.actionContainer}>
+            <Text style={styles.actionsTitle}>Ritual Actions</Text>
+            {isReleased ? (
+              <>
+                <View style={[styles.primaryButtonContainer, styles.disabledButton]}>
+                  <Text style={styles.disabledButtonText}>Anchor released</Text>
+                </View>
+                <Text style={styles.microcopy}>
+                  This closes the loop. You can't reactivate this anchor after release.
+                </Text>
+              </>
+            ) : !hasIgnited ? (
+              <>
+                <View style={styles.primaryButtonContainer}>
+                  {!reduceMotionEnabled && (
+                    <Animated.View
+                      pointerEvents="none"
+                      style={[styles.primaryButtonPulse, { opacity: primaryButtonPulseOpacity }]}
+                    />
+                  )}
+                  <TouchableOpacity
+                    style={styles.primaryButton}
+                    onPress={handleChargePress}
+                    accessibilityRole="button"
+                    accessibilityLabel="Ignite Anchor"
+                    accessibilityHint="Starts your first 1 to 30 minute charge."
+                  >
+                    <Text style={styles.primaryButtonText}>Ignite Anchor</Text>
+                  </TouchableOpacity>
+                </View>
+                <Text style={styles.microcopy}>1–30 minutes · first charge</Text>
+              </>
+            ) : (
+              <>
+                <View style={styles.primaryButtonContainer}>
+                  {!reduceMotionEnabled && (
+                    <Animated.View
+                      pointerEvents="none"
+                      style={[styles.primaryButtonPulse, { opacity: primaryButtonPulseOpacity }]}
+                    />
+                  )}
+                  <TouchableOpacity
+                    style={styles.primaryButton}
+                    onPress={handleActivatePress}
+                    accessibilityRole="button"
+                    accessibilityLabel="Enter Focus"
+                    accessibilityHint="Starts a fast focus burst in one tap."
+                  >
+                    <View style={styles.primaryButtonInner}>
+                      <Zap size={18} color={colors.charcoal} />
+                      <Text style={styles.primaryButtonText}>Enter Focus</Text>
+                    </View>
+                  </TouchableOpacity>
+                </View>
+                <Text style={styles.actionHelperText}>10–60s • ignite focus now</Text>
+                <Text style={styles.microcopy}>Fast reset. One clean start.</Text>
+
+                <View style={styles.deepChargeModule}>
+                  <TouchableOpacity
+                    style={styles.deepChargeHeader}
+                    onPress={handleDeepChargeExpandPress}
+                    accessibilityRole="button"
+                    accessibilityLabel="Reinforce"
+                    accessibilityHint="Expands reinforcement options including duration and mantra audio."
+                  >
+                    <View style={styles.deepChargeHeaderContent}>
+                      <Text style={styles.deepChargeTitle}>Reinforce</Text>
+                      <Text style={styles.deepChargeHelperText}>1–30m • deepen the charge</Text>
+                    </View>
+                    {isDeepChargeExpanded ? (
+                      <ChevronUp size={20} color={colors.gold} />
+                    ) : (
+                      <ChevronDown size={20} color={colors.gold} />
+                    )}
+                  </TouchableOpacity>
+                  <Text style={styles.deepChargeMicrocopy}>{deepChargeMicrocopy}</Text>
+
+                  {isDeepChargeExpanded && (
+                    <>
+                      <View style={styles.durationChipsRow}>
+                        {DEEP_CHARGE_PRESETS.map((preset) => {
+                          const isSelected = deepChargePreset === preset.key;
+                          return (
+                            <TouchableOpacity
+                              key={preset.key}
+                              style={[styles.durationChip, isSelected && styles.durationChipSelected]}
+                              onPress={() => handleDeepChargePresetPress(preset.key)}
+                              accessibilityRole="button"
+                              accessibilityLabel={`${preset.label} duration`}
+                              accessibilityState={{ selected: isSelected }}
+                            >
+                              <Text style={[styles.durationChipText, isSelected && styles.durationChipTextSelected]}>
+                                {preset.key === 'custom' && isSelected
+                                  ? `Custom ${clampDeepChargeMinutes(customDeepChargeMinutes)}m`
+                                  : preset.label}
+                              </Text>
+                            </TouchableOpacity>
+                          );
+                        })}
+                      </View>
+
+                      <View style={styles.mantraToggleRow}>
+                        <View style={styles.mantraToggleCopy}>
+                          <Text style={styles.mantraToggleTitle}>Mantra audio</Text>
+                          <Text style={styles.mantraToggleDescription}>Repeat softly during session</Text>
+                        </View>
+                        <Switch
+                          value={mantraAudioEnabled}
+                          onValueChange={setMantraAudioEnabled}
+                          thumbColor={colors.bone}
+                          trackColor={{
+                            false: 'rgba(255, 255, 255, 0.2)',
+                            true: colors.gold,
+                          }}
+                          ios_backgroundColor="rgba(255, 255, 255, 0.2)"
+                          accessibilityRole="switch"
+                          accessibilityState={{ checked: mantraAudioEnabled }}
+                          accessibilityLabel="Mantra audio"
+                          accessibilityHint="When enabled, your mantra repeats during deep charge."
+                        />
+                      </View>
+
+                      <TouchableOpacity
+                        style={styles.deepChargeStartButton}
+                        onPress={handleBeginDeepCharge}
+                        accessibilityRole="button"
+                        accessibilityLabel="Begin Deep Charge"
+                        accessibilityHint="Starts a longer deep charge session with selected options."
+                      >
+                        <Text style={styles.deepChargeStartButtonText}>Begin Deep Charge</Text>
+                      </TouchableOpacity>
+                    </>
+                  )}
+                </View>
+
+                <View style={styles.burnDivider} />
+                <TouchableOpacity
+                  style={styles.burnButton}
+                  onPress={handleBurnPress}
+                  accessibilityRole="button"
+                  accessibilityLabel="Burn and Release"
+                  accessibilityHint="Permanently closes this anchor."
+                >
+                  <Text style={styles.burnButtonText}>🔥 Burn & Release</Text>
+                </TouchableOpacity>
+              </>
+            )}
+            {developerModeEnabled && developerDeleteWithoutBurnEnabled && (
+              <TouchableOpacity
+                style={styles.devDeleteButton}
+                onPress={handleDeveloperDeletePress}
+                accessibilityRole="button"
+                accessibilityLabel="Delete Anchor (Developer)"
+              >
+                <Text style={styles.devDeleteButtonText}>Delete Anchor (Dev)</Text>
               </TouchableOpacity>
-            </>
-          )}
-          {developerModeEnabled && developerDeleteWithoutBurnEnabled && (
-            <TouchableOpacity style={styles.devDeleteButton} onPress={handleDeveloperDeletePress}>
-              <Text style={styles.devDeleteButtonText}>Delete Anchor (Dev)</Text>
-            </TouchableOpacity>
-          )}
-        </View>
+            )}
+          </View>
 
-        {/* NEW: Practice Path Card */}
-        <PracticePathCard
-          anchor={anchor}
-          anchorState={anchorState}
-          activationsThisWeek={activationsThisWeek}
+          {/* NEW: Practice Path Card */}
+          <PracticePathCard
+            anchor={anchor}
+            anchorState={anchorState}
+            activationsThisWeek={activationsThisWeek}
+          />
+
+          {/* Physical Anchor Card */}
+          <PhysicalAnchorCard
+            anchor={anchor}
+            hasActivations={anchor.activationCount >= 1}
+          />
+
+          {/* Footer */}
+          <Text style={styles.createdText}>
+            Created {format(new Date(anchor.createdAt), 'MMMM d, yyyy')}
+          </Text>
+        </ScrollView>
+
+        {/* NEW: Distilled Letters Modal */}
+        <DistilledLettersModal
+          visible={distilledModalVisible}
+          onClose={() => setDistilledModalVisible(false)}
+          distilledLetters={anchor.distilledLetters}
         />
-
-        {/* Physical Anchor Card */}
-        <PhysicalAnchorCard
-          anchor={anchor}
-          hasActivations={anchor.activationCount >= 1}
+        <CustomDurationSheet
+          visible={customDurationSheetVisible}
+          mode="charge"
+          initialValue={clampDeepChargeMinutes(customDeepChargeMinutes)}
+          onCancel={() => setCustomDurationSheetVisible(false)}
+          onConfirm={handleCustomDurationConfirm}
+          reduceMotion={reduceMotionEnabled}
         />
-
-        {/* Footer */}
-        <Text style={styles.createdText}>
-          Created {format(new Date(anchor.createdAt), 'MMMM d, yyyy')}
-        </Text>
-      </ScrollView>
-
-      {/* NEW: Distilled Letters Modal */}
-      <DistilledLettersModal
-        visible={distilledModalVisible}
-        onClose={() => setDistilledModalVisible(false)}
-        distilledLetters={anchor.distilledLetters}
-      />
-      <CustomDurationSheet
-        visible={customDurationSheetVisible}
-        mode="charge"
-        initialValue={clampDeepChargeMinutes(customDeepChargeMinutes)}
-        onCancel={() => setCustomDurationSheetVisible(false)}
-        onConfirm={handleCustomDurationConfirm}
-        reduceMotion={reduceMotionEnabled}
-      />
       </SafeAreaView>
     </View>
   );

@@ -71,37 +71,71 @@ export const BottomCtaBar: React.FC<BottomCtaBarProps> = ({
             ]}
             pointerEvents={visible ? 'auto' : 'none'}
         >
-            <BlurView intensity={20} tint="dark" style={styles.blurContainer}>
-                <View style={[styles.content, { paddingBottom: bottomPadding }]}>
-                    {helperText && (
-                        <Text style={styles.helperText} accessibilityLabel={helperText}>
-                            {helperText}
-                        </Text>
-                    )}
+            {Platform.OS === 'ios' ? (
+                <BlurView intensity={20} tint="dark" style={styles.blurContainer}>
+                    <View style={[styles.content, { paddingBottom: bottomPadding }]}>
+                        {helperText && (
+                            <Text style={styles.helperText} accessibilityLabel={helperText}>
+                                {helperText}
+                            </Text>
+                        )}
 
-                    <TouchableOpacity
-                        style={[
-                            styles.ctaButton,
-                            disabled && styles.ctaButtonDisabled,
-                        ]}
-                        onPress={onPress}
-                        disabled={disabled}
-                        activeOpacity={0.8}
-                        accessibilityRole="button"
-                        accessibilityLabel={ctaText}
-                        accessibilityState={{ disabled }}
-                    >
-                        <Text
+                        <TouchableOpacity
                             style={[
-                                styles.ctaText,
-                                disabled && styles.ctaTextDisabled,
+                                styles.ctaButton,
+                                disabled && styles.ctaButtonDisabled,
                             ]}
+                            onPress={onPress}
+                            disabled={disabled}
+                            activeOpacity={0.8}
+                            accessibilityRole="button"
+                            accessibilityLabel={ctaText}
+                            accessibilityState={{ disabled }}
                         >
-                            {ctaText}
-                        </Text>
-                    </TouchableOpacity>
+                            <Text
+                                style={[
+                                    styles.ctaText,
+                                    disabled && styles.ctaTextDisabled,
+                                ]}
+                            >
+                                {ctaText}
+                            </Text>
+                        </TouchableOpacity>
+                    </View>
+                </BlurView>
+            ) : (
+                <View style={[styles.blurContainer, { backgroundColor: 'rgba(12, 17, 24, 0.92)' }]}>
+                    <View style={[styles.content, { paddingBottom: bottomPadding }]}>
+                        {helperText && (
+                            <Text style={styles.helperText} accessibilityLabel={helperText}>
+                                {helperText}
+                            </Text>
+                        )}
+
+                        <TouchableOpacity
+                            style={[
+                                styles.ctaButton,
+                                disabled && styles.ctaButtonDisabled,
+                            ]}
+                            onPress={onPress}
+                            disabled={disabled}
+                            activeOpacity={0.8}
+                            accessibilityRole="button"
+                            accessibilityLabel={ctaText}
+                            accessibilityState={{ disabled }}
+                        >
+                            <Text
+                                style={[
+                                    styles.ctaText,
+                                    disabled && styles.ctaTextDisabled,
+                                ]}
+                            >
+                                {ctaText}
+                            </Text>
+                        </TouchableOpacity>
+                    </View>
                 </View>
-            </BlurView>
+            )}
         </Animated.View>
     );
 };

@@ -34,8 +34,7 @@ export const AnchorCard: React.FC<AnchorCardProps> = ({
   const { reduceIntentionVisibility } = useSettingsStore();
   const categoryConfig = CATEGORY_CONFIG[anchor.category] || CATEGORY_CONFIG.custom;
 
-  const accessibilityLabel = `${anchor.intentionText}. ${categoryConfig.label} anchor. ${anchor.isCharged ? 'Charged. ' : ''
-    }${anchor.activationCount > 0 ? `Activated ${anchor.activationCount} times.` : ''}`;
+  const accessibilityLabel = `${anchor.intentionText}, ${anchor.activationCount} activations`;
 
   return (
     <TouchableOpacity
@@ -51,12 +50,14 @@ export const AnchorCard: React.FC<AnchorCardProps> = ({
         anchor.isCharged ? styles.chargedCard : styles.unchargedCard,
         Platform.OS === 'android' && styles.androidCard
       ]}>
-        {Platform.OS === 'ios' && (
+        {Platform.OS === 'ios' ? (
           <BlurView
             intensity={anchor.isCharged ? 30 : 15}
             tint="dark"
             style={StyleSheet.absoluteFill}
           />
+        ) : (
+          <View style={[StyleSheet.absoluteFill, { backgroundColor: 'rgba(12, 17, 24, 0.92)' }]} />
         )}
 
         <View style={styles.content}>
@@ -91,7 +92,11 @@ export const AnchorCard: React.FC<AnchorCardProps> = ({
             {anchor.isCharged && (
               <View style={styles.chargedPill}>
                 <View style={styles.pillGlass}>
-                  {Platform.OS === 'ios' && <BlurView intensity={40} tint="light" style={StyleSheet.absoluteFill} />}
+                  {Platform.OS === 'ios' ? (
+                    <BlurView intensity={40} tint="light" style={StyleSheet.absoluteFill} />
+                  ) : (
+                    <View style={[StyleSheet.absoluteFill, { backgroundColor: 'rgba(12, 17, 24, 0.92)' }]} />
+                  )}
                   <Text style={styles.pillText}>CHARGED</Text>
                   <Text style={styles.pillIcon}>✧</Text>
                 </View>

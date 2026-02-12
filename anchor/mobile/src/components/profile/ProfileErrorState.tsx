@@ -6,7 +6,7 @@
  */
 
 import React from 'react';
-import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, Platform } from 'react-native';
 import { BlurView } from 'expo-blur';
 import { colors, typography, spacing } from '@/theme';
 
@@ -17,20 +17,37 @@ interface ProfileErrorStateProps {
 
 export const ProfileErrorState: React.FC<ProfileErrorStateProps> = ({ error, onRetry }) => {
   return (
-    <BlurView intensity={20} tint="dark" style={styles.container}>
-      <Text style={styles.title}>Connection Lost</Text>
-      <Text style={styles.message}>
-        {error || 'Unable to load your profile. Please try again.'}
-      </Text>
+    Platform.OS === 'ios' ? (
+      <BlurView intensity={20} tint="dark" style={styles.container}>
+        <Text style={styles.title}>Connection Lost</Text>
+        <Text style={styles.message}>
+          {error || 'Unable to load your profile. Please try again.'}
+        </Text>
 
-      <TouchableOpacity
-        style={styles.button}
-        onPress={onRetry}
-        activeOpacity={0.8}
-      >
-        <Text style={styles.buttonText}>Retry</Text>
-      </TouchableOpacity>
-    </BlurView>
+        <TouchableOpacity
+          style={styles.button}
+          onPress={onRetry}
+          activeOpacity={0.8}
+        >
+          <Text style={styles.buttonText}>Retry</Text>
+        </TouchableOpacity>
+      </BlurView>
+    ) : (
+      <View style={[styles.container, { backgroundColor: 'rgba(12, 17, 24, 0.92)' }]}>
+        <Text style={styles.title}>Connection Lost</Text>
+        <Text style={styles.message}>
+          {error || 'Unable to load your profile. Please try again.'}
+        </Text>
+
+        <TouchableOpacity
+          style={styles.button}
+          onPress={onRetry}
+          activeOpacity={0.8}
+        >
+          <Text style={styles.buttonText}>Retry</Text>
+        </TouchableOpacity>
+      </View>
+    )
   );
 };
 

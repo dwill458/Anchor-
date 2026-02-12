@@ -164,7 +164,7 @@ export function ProPaywallModal({
                 {renderContent()}
               </BlurView>
             ) : (
-              <View style={[styles.glassmorphicCard, styles.androidFallback]}>
+              <View style={[styles.glassmorphicCard, styles.androidFallback, { backgroundColor: 'rgba(12, 17, 24, 0.92)' }]}>
                 {renderContent()}
               </View>
             )}

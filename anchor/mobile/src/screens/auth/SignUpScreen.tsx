@@ -78,31 +78,7 @@ export const SignUpScreen: React.FC<SignUpScreenProps> = ({ navigation }) => {
     }
   };
 
-  const handleAppleSignUp = async () => {
-    setLoading(true);
-    try {
-      await new Promise((resolve) => setTimeout(resolve, 1000));
-      setAuthenticated(true);
-      setHasCompletedOnboarding(false);
-    } catch (err: any) {
-      setError('Apple sign-up failed');
-    } finally {
-      setLoading(false);
-    }
-  };
 
-  const handleGoogleSignUp = async () => {
-    setLoading(true);
-    try {
-      await new Promise((resolve) => setTimeout(resolve, 1000));
-      setAuthenticated(true);
-      setHasCompletedOnboarding(false);
-    } catch (err: any) {
-      setError('Google sign-up failed');
-    } finally {
-      setLoading(false);
-    }
-  };
 
   return (
     <View style={styles.container}>
@@ -197,21 +173,7 @@ export const SignUpScreen: React.FC<SignUpScreenProps> = ({ navigation }) => {
                     </LinearGradient>
                   </TouchableOpacity>
 
-                  <View style={styles.divider}>
-                    <View style={styles.dividerLine} />
-                    <Text style={styles.dividerText}>OR</Text>
-                    <View style={styles.dividerLine} />
-                  </View>
 
-                  <TouchableOpacity style={styles.socialButton} onPress={handleGoogleSignUp}>
-                    <Text style={styles.socialIcon}>G</Text>
-                    <Text style={styles.socialText}>Continue with Google</Text>
-                  </TouchableOpacity>
-
-                  <TouchableOpacity style={styles.socialButton} onPress={handleAppleSignUp}>
-                    <Text style={styles.socialIcon}>🍎</Text>
-                    <Text style={styles.socialText}>Continue with Apple</Text>
-                  </TouchableOpacity>
                 </View>
               </View>
 
@@ -250,12 +212,7 @@ const styles = StyleSheet.create({
   button: { borderRadius: 12, overflow: 'hidden', marginTop: 10 },
   buttonGradient: { height: 56, justifyContent: 'center', alignItems: 'center' },
   buttonText: { color: colors.charcoal, fontSize: 16, fontWeight: '700' },
-  divider: { flexDirection: 'row', alignItems: 'center', marginVertical: 20 },
-  dividerLine: { flex: 1, height: 1, backgroundColor: 'rgba(192, 192, 192, 0.2)' },
-  dividerText: { color: colors.silver, marginHorizontal: 16 },
-  socialButton: { height: 56, borderRadius: 12, borderWidth: 2, borderColor: 'rgba(192, 192, 192, 0.2)', flexDirection: 'row', alignItems: 'center', justifyContent: 'center', marginBottom: 12 },
-  socialIcon: { fontSize: 20, color: colors.bone, marginRight: 10, fontWeight: '700' },
-  socialText: { color: colors.bone, fontSize: 16, fontWeight: '600' },
+
   footer: { flexDirection: 'row', justifyContent: 'center', marginTop: 24 },
   footerText: { color: colors.silver, fontSize: 16 },
   footerLink: { color: colors.gold, fontWeight: '700', fontSize: 16 },

@@ -23,9 +23,9 @@ export const PracticeScreen: React.FC = () => {
   console.log('DEBUG: PracticeScreen Rendered - REDESIGN ACTIVE');
   const navigation = useNavigation<NavigationProp>();
   const user = useAuthStore((state) => state.user);
-  const { anchors } = useAnchorStore();
+  const { getActiveAnchors } = useAnchorStore();
 
-  const activeAnchors = anchors; // Use all anchors for now since getActiveAnchors is missing
+  const activeAnchors = getActiveAnchors();
   const hasAnchors = activeAnchors.length > 0;
   const isPro = user?.subscriptionStatus === 'pro' || user?.subscriptionStatus === 'pro_annual';
   const streakCount = user?.currentStreak || 0;
@@ -57,7 +57,7 @@ export const PracticeScreen: React.FC = () => {
       const lastAnchor = activeAnchors[0]; // Assuming first is most recent
       navigation.navigate('Ritual', {
         anchorId: lastAnchor.id,
-        ritualType: 'quick'
+        ritualType: 'focus'
       });
     }
   };

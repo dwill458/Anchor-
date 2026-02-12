@@ -76,8 +76,10 @@ export const PickerSetting: React.FC<PickerSettingProps> = ({
       {/* Picker Modal */}
       <Modal visible={modalVisible} animationType="slide" transparent={true}>
         <View style={styles.modalOverlay}>
-          {Platform.OS === 'ios' && (
+          {Platform.OS === 'ios' ? (
             <BlurView intensity={80} tint="dark" style={StyleSheet.absoluteFill} />
+          ) : (
+            <View style={[StyleSheet.absoluteFill, { backgroundColor: 'rgba(12, 17, 24, 0.92)' }]} />
           )}
 
           <View

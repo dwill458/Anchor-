@@ -111,6 +111,8 @@ export const HowItWorksScreen: React.FC<Props> = ({ navigation }) => {
             style={styles.continueButton}
             onPress={handleContinue}
             activeOpacity={0.8}
+            accessibilityRole="button"
+            accessibilityLabel="Next"
           >
             <LinearGradient
               colors={[colors.gold, '#B89B2F']}

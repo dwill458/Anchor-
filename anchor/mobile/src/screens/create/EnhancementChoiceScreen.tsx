@@ -233,6 +233,8 @@ export const EnhancementChoiceScreen: React.FC = () => {
                   styles.optionCardWrapper,
                   index === 0 && styles.firstCard,
                 ]}
+                accessibilityRole="button"
+                accessibilityLabel={option.name}
               >
                 {IS_ANDROID ? (
                   <View

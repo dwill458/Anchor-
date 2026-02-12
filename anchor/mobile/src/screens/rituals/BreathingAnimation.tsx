@@ -22,6 +22,7 @@ import {
   Animated,
   Easing,
   Dimensions,
+  Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
@@ -146,7 +147,11 @@ export const BreathingAnimation: React.FC = () => {
     <SafeAreaView style={styles.container}>
       {/* Background gradient */}
       <View style={styles.background}>
-        <BlurView intensity={10} tint="dark" style={StyleSheet.absoluteFill} />
+        {Platform.OS === 'ios' ? (
+          <BlurView intensity={10} tint="dark" style={StyleSheet.absoluteFill} />
+        ) : (
+          <View style={[StyleSheet.absoluteFill, { backgroundColor: 'rgba(12, 17, 24, 0.92)' }]} />
+        )}
       </View>
 
       {/* Centered breathing circle */}

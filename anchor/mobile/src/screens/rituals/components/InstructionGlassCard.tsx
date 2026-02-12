@@ -52,7 +52,7 @@ export const InstructionGlassCard: React.FC<InstructionGlassCardProps> = ({
           {content}
         </BlurView>
       ) : (
-        <View style={styles.androidFallback}>{content}</View>
+        <View style={[styles.androidFallback, { backgroundColor: 'rgba(12, 17, 24, 0.92)' }]}>{content}</View>
       )}
     </View>
   );

@@ -6,7 +6,7 @@
  */
 
 import React from 'react';
-import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, Platform } from 'react-native';
 import { BlurView } from 'expo-blur';
 import { colors, typography, spacing } from '@/theme';
 
@@ -16,20 +16,37 @@ interface ProfileEmptyStateProps {
 
 export const ProfileEmptyState: React.FC<ProfileEmptyStateProps> = ({ onCreateAnchor }) => {
   return (
-    <BlurView intensity={20} tint="dark" style={styles.container}>
-      <Text style={styles.title}>Begin Your Journey</Text>
-      <Text style={styles.message}>
-        Create your first Anchor to start building your practice.
-      </Text>
+    Platform.OS === 'ios' ? (
+      <BlurView intensity={20} tint="dark" style={styles.container}>
+        <Text style={styles.title}>Begin Your Journey</Text>
+        <Text style={styles.message}>
+          Create your first Anchor to start building your practice.
+        </Text>
 
-      <TouchableOpacity
-        style={styles.button}
-        onPress={onCreateAnchor}
-        activeOpacity={0.8}
-      >
-        <Text style={styles.buttonText}>Create Anchor</Text>
-      </TouchableOpacity>
-    </BlurView>
+        <TouchableOpacity
+          style={styles.button}
+          onPress={onCreateAnchor}
+          activeOpacity={0.8}
+        >
+          <Text style={styles.buttonText}>Create Anchor</Text>
+        </TouchableOpacity>
+      </BlurView>
+    ) : (
+      <View style={[styles.container, { backgroundColor: 'rgba(12, 17, 24, 0.92)' }]}>
+        <Text style={styles.title}>Begin Your Journey</Text>
+        <Text style={styles.message}>
+          Create your first Anchor to start building your practice.
+        </Text>
+
+        <TouchableOpacity
+          style={styles.button}
+          onPress={onCreateAnchor}
+          activeOpacity={0.8}
+        >
+          <Text style={styles.buttonText}>Create Anchor</Text>
+        </TouchableOpacity>
+      </View>
+    )
   );
 };
 

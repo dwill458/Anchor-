@@ -229,6 +229,8 @@ export default function StructureForgeScreen() {
             style={styles.forgeButton}
             onPress={handleForgeFromScratch}
             activeOpacity={0.8}
+            accessibilityRole="button"
+            accessibilityLabel="Forge from scratch"
           >
             <Text style={styles.forgeIcon}>🔥</Text>
             <Text style={styles.forgeText}>Forge</Text>
@@ -341,6 +343,9 @@ export default function StructureForgeScreen() {
           onPress={handleContinue}
           disabled={!selectedVariant}
           activeOpacity={0.8}
+          accessibilityRole="button"
+          accessibilityLabel="Continue to Forge"
+          accessibilityState={{ disabled: !selectedVariant }}
         >
           <Text style={[
             styles.continueText,
