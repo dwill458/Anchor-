@@ -79,7 +79,7 @@ export const PracticePathCard: React.FC<PracticePathCardProps> = ({
             {renderCardContent()}
           </BlurView>
         ) : (
-          <View style={styles.androidFallback}>{renderCardContent()}</View>
+          <View style={[styles.androidFallback, { backgroundColor: 'rgba(12, 17, 24, 0.92)' }]}>{renderCardContent()}</View>
         )}
       </View>
     </View>

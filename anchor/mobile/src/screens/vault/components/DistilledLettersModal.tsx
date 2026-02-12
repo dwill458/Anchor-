@@ -107,11 +107,11 @@ export const DistilledLettersModal: React.FC<DistilledLettersModalProps> = ({
           <TouchableOpacity activeOpacity={1}>
             <View style={styles.glassmorphicCard}>
               {Platform.OS === 'ios' ? (
-                <BlurView intensity={40} tint="dark" style={StyleSheet.absoluteFill}>
+              <BlurView intensity={40} tint="dark" style={StyleSheet.absoluteFill}>
                   {renderModalContent()}
                 </BlurView>
               ) : (
-                <View style={styles.androidFallback}>{renderModalContent()}</View>
+                <View style={[styles.androidFallback, { backgroundColor: 'rgba(12, 17, 24, 0.92)' }]}>{renderModalContent()}</View>
               )}
             </View>
           </TouchableOpacity>

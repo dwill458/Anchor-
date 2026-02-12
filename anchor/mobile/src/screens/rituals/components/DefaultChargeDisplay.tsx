@@ -13,6 +13,7 @@ import {
   TouchableOpacity,
   Animated,
   Easing,
+  Platform,
 } from 'react-native';
 import { BlurView } from 'expo-blur';
 import * as Haptics from 'expo-haptics';
@@ -79,38 +80,79 @@ export const DefaultChargeDisplay: React.FC<DefaultChargeDisplayProps> = ({
         },
       ]}
     >
-      <BlurView intensity={10} tint="dark" style={styles.blur}>
-        <View style={styles.content}>
-          {/* Main message */}
-          <Text style={styles.mainText}>Using your default charge:</Text>
+      {Platform.OS === 'ios' ? (
+        <BlurView intensity={10} tint="dark" style={styles.blur}>
+          <View style={styles.content}>
+            {/* Main message */}
+            <Text style={styles.mainText}>Using your default charge:</Text>
 
-          {/* Default display */}
-          <View style={styles.defaultContainer}>
-            <Text style={styles.modeText}>{formatMode(mode)}</Text>
-            <Text style={styles.separator}>·</Text>
-            <Text style={styles.durationText}>{formatDuration(durationSeconds)}</Text>
+            {/* Default display */}
+            <View style={styles.defaultContainer}>
+              <Text style={styles.modeText}>{formatMode(mode)}</Text>
+              <Text style={styles.separator}>·</Text>
+              <Text style={styles.durationText}>{formatDuration(durationSeconds)}</Text>
+            </View>
+
+            {/* Action buttons */}
+            <View style={styles.actions}>
+              <TouchableOpacity
+                style={[styles.button, styles.continueButton]}
+                onPress={handleContinue}
+                accessibilityRole="button"
+                accessibilityLabel="Continue with default charge"
+              >
+                <Text style={styles.continueButtonText}>Continue</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[styles.button, styles.changeButton]}
+                onPress={handleChange}
+                activeOpacity={0.8}
+                accessibilityRole="button"
+                accessibilityLabel="Change charge settings"
+              >
+                <Text style={styles.changeButtonText}>Change</Text>
+              </TouchableOpacity>
+            </View>
           </View>
+        </BlurView>
+      ) : (
+        <View style={[styles.blur, { backgroundColor: 'rgba(12, 17, 24, 0.92)' }]}>
+          <View style={styles.content}>
+            {/* Main message */}
+            <Text style={styles.mainText}>Using your default charge:</Text>
 
-          {/* Action buttons */}
-          <View style={styles.actions}>
-            <TouchableOpacity
-              style={[styles.button, styles.continueButton]}
-              onPress={handleContinue}
-              activeOpacity={0.8}
-            >
-              <Text style={styles.continueButtonText}>Continue</Text>
-            </TouchableOpacity>
+            {/* Default display */}
+            <View style={styles.defaultContainer}>
+              <Text style={styles.modeText}>{formatMode(mode)}</Text>
+              <Text style={styles.separator}>·</Text>
+              <Text style={styles.durationText}>{formatDuration(durationSeconds)}</Text>
+            </View>
 
-            <TouchableOpacity
-              style={[styles.button, styles.changeButton]}
-              onPress={handleChange}
-              activeOpacity={0.8}
-            >
-              <Text style={styles.changeButtonText}>Change</Text>
-            </TouchableOpacity>
+            {/* Action buttons */}
+            <View style={styles.actions}>
+              <TouchableOpacity
+                style={[styles.button, styles.continueButton]}
+                onPress={handleContinue}
+                accessibilityRole="button"
+                accessibilityLabel="Continue with default charge"
+              >
+                <Text style={styles.continueButtonText}>Continue</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[styles.button, styles.changeButton]}
+                onPress={handleChange}
+                activeOpacity={0.8}
+                accessibilityRole="button"
+                accessibilityLabel="Change charge settings"
+              >
+                <Text style={styles.changeButtonText}>Change</Text>
+              </TouchableOpacity>
+            </View>
           </View>
         </View>
-      </BlurView>
+      )}
     </Animated.View>
   );
 };

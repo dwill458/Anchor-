@@ -6,7 +6,7 @@
  */
 
 import React from 'react';
-import { View, Text, StyleSheet } from 'react-native';
+import { View, Text, StyleSheet, Platform } from 'react-native';
 import { BlurView } from 'expo-blur';
 import { colors, typography, spacing } from '@/theme';
 import { SubscriptionStatus } from '@/types';
@@ -28,17 +28,31 @@ export const ProfileHeader: React.FC<ProfileHeaderProps> = ({
   const avatarInitial = displayName?.[0]?.toUpperCase() || 'S';
 
   return (
-    <BlurView intensity={20} tint="dark" style={styles.container}>
-      <View style={[styles.avatarPlaceholder, { borderColor: badgeColor }]}>
-        <Text style={[styles.avatarText, { color: badgeColor }]}>{avatarInitial}</Text>
-      </View>
+    Platform.OS === 'ios' ? (
+      <BlurView intensity={20} tint="dark" style={styles.container}>
+        <View style={[styles.avatarPlaceholder, { borderColor: badgeColor }]}>
+          <Text style={[styles.avatarText, { color: badgeColor }]}>{avatarInitial}</Text>
+        </View>
 
-      <Text style={styles.displayName}>{displayName || 'Seeker'}</Text>
+        <Text style={styles.displayName}>{displayName || 'Seeker'}</Text>
 
-      <View style={[styles.badge, { borderColor: badgeColor }]}>
-        <Text style={[styles.badgeText, { color: badgeColor }]}>{membershipLabel}</Text>
+        <View style={[styles.badge, { borderColor: badgeColor }]}>
+          <Text style={[styles.badgeText, { color: badgeColor }]}>{membershipLabel}</Text>
+        </View>
+      </BlurView>
+    ) : (
+      <View style={[styles.container, { backgroundColor: 'rgba(12, 17, 24, 0.92)' }]}>
+        <View style={[styles.avatarPlaceholder, { borderColor: badgeColor }]}>
+          <Text style={[styles.avatarText, { color: badgeColor }]}>{avatarInitial}</Text>
+        </View>
+
+        <Text style={styles.displayName}>{displayName || 'Seeker'}</Text>
+
+        <View style={[styles.badge, { borderColor: badgeColor }]}>
+          <Text style={[styles.badgeText, { color: badgeColor }]}>{membershipLabel}</Text>
+        </View>
       </View>
-    </BlurView>
+    )
   );
 };
 

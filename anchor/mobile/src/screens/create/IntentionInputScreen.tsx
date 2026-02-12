@@ -169,6 +169,7 @@ export default function IntentionInputScreen() {
                                     returnKeyType="none"
                                     blurOnSubmit={false}
                                     enablesReturnKeyAutomatically={false}
+                                    accessibilityLabel="What are you anchoring right now?"
                                 />
                             </Animated.View>
 
@@ -200,6 +201,9 @@ export default function IntentionInputScreen() {
                                 styles.continueButton,
                                 !canSubmit && styles.continueButtonDisabled
                             ]}
+                            accessibilityRole="button"
+                            accessibilityLabel="Continue"
+                            accessibilityState={{ disabled: !canSubmit }}
                         >
                             <Text style={[
                                 styles.continueText,
@@ -285,7 +289,7 @@ const styles = StyleSheet.create({
         color: colors.text.tertiary,
         marginTop: spacing.sm, // 8px
         letterSpacing: 0.5,
-        opacity: 0.4, // Very low contrast
+        opacity: 0.65, // Very low contrast
         textAlign: 'left',
     },
     continueContainer: {
@@ -295,7 +299,7 @@ const styles = StyleSheet.create({
     },
     continueButton: {
         backgroundColor: colors.gold,
-        alignItems: 'flex-start', // Left-aligned per locked system
+        alignItems: 'center', // Left-aligned per locked system
         borderRadius: 8, // Locked system
         paddingVertical: spacing.md + 2, // 18px - locked system
         paddingHorizontal: spacing.lg, // 24px - locked system

@@ -140,6 +140,8 @@ export const AnchorRevealScreen: React.FC = () => {
                         onPress={handleContinue}
                         activeOpacity={0.9}
                         style={styles.continueButton}
+                        accessibilityRole="button"
+                        accessibilityLabel="Begin Mantra"
                     >
                         <LinearGradient
                             colors={[colors.gold, '#B8941F']}

@@ -154,7 +154,8 @@ export const ChargeCompleteScreen: React.FC = () => {
           <TouchableOpacity
             style={styles.primaryButton}
             onPress={handleSaveToVault}
-            activeOpacity={0.85}
+            accessibilityRole="button"
+            accessibilityLabel="Save to Vault"
           >
             <Text style={styles.primaryButtonText}>Save to Vault</Text>
           </TouchableOpacity>
@@ -163,6 +164,8 @@ export const ChargeCompleteScreen: React.FC = () => {
             style={styles.secondaryButton}
             onPress={handleActivateNow}
             activeOpacity={0.75}
+            accessibilityRole="button"
+            accessibilityLabel="Activate Now"
           >
             <Text style={styles.secondaryButtonText}>Activate Now</Text>
           </TouchableOpacity>

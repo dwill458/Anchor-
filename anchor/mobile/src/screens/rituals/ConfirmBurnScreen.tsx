@@ -130,7 +130,7 @@ export const ConfirmBurnScreen: React.FC = () => {
                 {renderRitualText()}
               </BlurView>
             ) : (
-              <View style={[styles.glassCard, styles.androidCard]}>
+              <View style={[styles.glassCard, { backgroundColor: 'rgba(12, 17, 24, 0.92)' }]}>
                 {renderRitualText()}
               </View>
             )}
@@ -149,6 +149,8 @@ export const ConfirmBurnScreen: React.FC = () => {
             style={styles.primaryButton}
             onPress={handleShowConfirmation}
             activeOpacity={0.8}
+            accessibilityRole="button"
+            accessibilityLabel="Release Anchor"
           >
             <Text style={styles.primaryButtonText}>Release Anchor</Text>
           </TouchableOpacity>
@@ -163,7 +165,11 @@ export const ConfirmBurnScreen: React.FC = () => {
             style={styles.modalOverlay}
             onPress={handleCancel}
           >
-            {Platform.OS === 'ios' && <BlurView intensity={40} tint="dark" style={StyleSheet.absoluteFill} />}
+            {Platform.OS === 'ios' ? (
+              <BlurView intensity={40} tint="dark" style={StyleSheet.absoluteFill} />
+            ) : (
+              <View style={[StyleSheet.absoluteFill, { backgroundColor: 'rgba(12, 17, 24, 0.92)' }]} />
+            )}
             <View
               style={styles.modalContent}
             >
@@ -179,6 +185,8 @@ export const ConfirmBurnScreen: React.FC = () => {
                     style={styles.modalConfirmButton}
                     onPress={handleFinalConfirm}
                     activeOpacity={0.8}
+                    accessibilityRole="button"
+                    accessibilityLabel="Release Forever"
                   >
                     <Text style={styles.modalConfirmText}>Release Forever</Text>
                   </TouchableOpacity>
@@ -187,6 +195,8 @@ export const ConfirmBurnScreen: React.FC = () => {
                     style={styles.modalCancelButton}
                     onPress={handleCancel}
                     activeOpacity={0.7}
+                    accessibilityRole="button"
+                    accessibilityLabel="Return"
                   >
                     <Text style={styles.modalCancelText}>Return</Text>
                   </TouchableOpacity>

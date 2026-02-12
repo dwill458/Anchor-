@@ -48,6 +48,12 @@ type VaultScreenNavigationProp = CompositeNavigationProp<
 export const VaultScreen: React.FC = () => {
   const navigation = useNavigation<VaultScreenNavigationProp>();
   const { user } = useAuthStore();
+  const shouldRedirectToCreation = useAuthStore(
+    (state) => state.shouldRedirectToCreation
+  );
+  const setShouldRedirectToCreation = useAuthStore(
+    (state) => state.setShouldRedirectToCreation
+  );
   const { anchors, isLoading, error, setLoading, setError } = useAnchorStore();
   const { isFree, features } = useSubscription();
   const [refreshing, setRefreshing] = useState(false);
@@ -67,8 +73,6 @@ export const VaultScreen: React.FC = () => {
 
   // Handle redirect from onboarding
   useEffect(() => {
-    const { shouldRedirectToCreation, setShouldRedirectToCreation } = useAuthStore.getState();
-
     if (shouldRedirectToCreation) {
       // Reset flag immediately
       setShouldRedirectToCreation(false);
@@ -82,7 +86,7 @@ export const VaultScreen: React.FC = () => {
       // Navigate to creation
       navigation.navigate('CreateAnchor');
     }
-  }, [navigation, isFree, anchors.length, features.maxAnchors]);
+  }, [shouldRedirectToCreation, navigation, isFree, anchors.length, features.maxAnchors]);
 
   const fetchAnchors = useCallback(async (): Promise<void> => {
     if (!user) return;

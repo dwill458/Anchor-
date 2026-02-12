@@ -87,50 +87,97 @@ export const BottomDock: React.FC<BottomDockProps> = ({
             ]}
             pointerEvents={visible ? 'auto' : 'none'}
         >
-            <BlurView intensity={24} tint="dark" style={styles.blurContainer}>
-                <View style={styles.content}>
-                    {/* Selected Line */}
-                    {selectedLabel ? (
-                        <Text style={styles.selectedLine}>
-                            <Text style={styles.selectedLabel}>Selected</Text>
-                            <Text style={styles.selectedDot}> · </Text>
-                            <Text style={styles.selectedValue}>{selectedLabel}</Text>
-                        </Text>
-                    ) : (
-                        <Text style={styles.helperText}>Choose a structure</Text>
-                    )}
-
-                    {/* Outline CTA Button */}
-                    <Animated.View style={{ transform: [{ scale: scaleAnim }] }}>
-                        <TouchableOpacity
-                            style={[
-                                styles.ctaButton,
-                                disabled && styles.ctaButtonDisabled,
-                            ]}
-                            onPress={onPress}
-                            onPressIn={handlePressIn}
-                            onPressOut={handlePressOut}
-                            disabled={disabled}
-                            activeOpacity={0.85}
-                            accessibilityRole="button"
-                            accessibilityLabel={ctaLabel}
-                            accessibilityState={{ disabled }}
-                        >
-                            {/* Subtle internal highlight */}
-                            <View style={styles.buttonHighlight} />
-
-                            <Text
-                                style={[
-                                    styles.ctaText,
-                                    disabled && styles.ctaTextDisabled,
-                                ]}
-                            >
-                                {ctaLabel}
+            {Platform.OS === 'ios' ? (
+                <BlurView intensity={24} tint="dark" style={styles.blurContainer}>
+                    <View style={styles.content}>
+                        {/* Selected Line */}
+                        {selectedLabel ? (
+                            <Text style={styles.selectedLine}>
+                                <Text style={styles.selectedLabel}>Selected</Text>
+                                <Text style={styles.selectedDot}> · </Text>
+                                <Text style={styles.selectedValue}>{selectedLabel}</Text>
                             </Text>
-                        </TouchableOpacity>
-                    </Animated.View>
+                        ) : (
+                            <Text style={styles.helperText}>Choose a structure</Text>
+                        )}
+
+                        {/* Outline CTA Button */}
+                        <Animated.View style={{ transform: [{ scale: scaleAnim }] }}>
+                            <TouchableOpacity
+                                style={[
+                                    styles.ctaButton,
+                                    disabled && styles.ctaButtonDisabled,
+                                ]}
+                                onPress={onPress}
+                                onPressIn={handlePressIn}
+                                onPressOut={handlePressOut}
+                                disabled={disabled}
+                                activeOpacity={0.85}
+                                accessibilityRole="button"
+                                accessibilityLabel={ctaLabel}
+                                accessibilityState={{ disabled }}
+                            >
+                                {/* Subtle internal highlight */}
+                                <View style={styles.buttonHighlight} />
+
+                                <Text
+                                    style={[
+                                        styles.ctaText,
+                                        disabled && styles.ctaTextDisabled,
+                                    ]}
+                                >
+                                    {ctaLabel}
+                                </Text>
+                            </TouchableOpacity>
+                        </Animated.View>
+                    </View>
+                </BlurView>
+            ) : (
+                <View style={[styles.blurContainer, { backgroundColor: 'rgba(12, 17, 24, 0.92)' }]}>
+                    <View style={styles.content}>
+                        {/* Selected Line */}
+                        {selectedLabel ? (
+                            <Text style={styles.selectedLine}>
+                                <Text style={styles.selectedLabel}>Selected</Text>
+                                <Text style={styles.selectedDot}> · </Text>
+                                <Text style={styles.selectedValue}>{selectedLabel}</Text>
+                            </Text>
+                        ) : (
+                            <Text style={styles.helperText}>Choose a structure</Text>
+                        )}
+
+                        {/* Outline CTA Button */}
+                        <Animated.View style={{ transform: [{ scale: scaleAnim }] }}>
+                            <TouchableOpacity
+                                style={[
+                                    styles.ctaButton,
+                                    disabled && styles.ctaButtonDisabled,
+                                ]}
+                                onPress={onPress}
+                                onPressIn={handlePressIn}
+                                onPressOut={handlePressOut}
+                                disabled={disabled}
+                                activeOpacity={0.85}
+                                accessibilityRole="button"
+                                accessibilityLabel={ctaLabel}
+                                accessibilityState={{ disabled }}
+                            >
+                                {/* Subtle internal highlight */}
+                                <View style={styles.buttonHighlight} />
+
+                                <Text
+                                    style={[
+                                        styles.ctaText,
+                                        disabled && styles.ctaTextDisabled,
+                                    ]}
+                                >
+                                    {ctaLabel}
+                                </Text>
+                            </TouchableOpacity>
+                        </Animated.View>
+                    </View>
                 </View>
-            </BlurView>
+            )}
         </Animated.View>
     );
 };

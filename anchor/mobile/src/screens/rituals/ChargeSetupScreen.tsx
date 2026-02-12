@@ -114,27 +114,26 @@ export const ChargeSetupScreen: React.FC = () => {
       return;
     }
 
-    Animated.timing(anchorOpacity, {
-      toValue: 1,
-      duration: TIMING.ANCHOR_FADE_IN,
-      easing: EASING.ENTRY,
-      useNativeDriver: true,
-    }).start(() => {
-      setTimeout(() => {
-        Animated.timing(promptOpacity, {
-          toValue: 1,
-          duration: TIMING.PROMPT_FADE_IN,
-          easing: EASING.ENTRY,
-          useNativeDriver: true,
-        }).start(() => {
-          Animated.timing(depthCardsOpacity, {
-            toValue: 1,
-            duration: TIMING.DEPTH_CARDS_FADE_IN,
-            easing: EASING.ENTRY,
-            useNativeDriver: true,
-          }).start(() => setTransitionPhase('idle'));
-        });
-      }, TIMING.ENTRY_STILLNESS);
+    Animated.parallel([
+      Animated.timing(anchorOpacity, {
+        toValue: 1,
+        duration: TIMING.ANCHOR_FADE_IN,
+        easing: EASING.ENTRY,
+        useNativeDriver: true,
+      }),
+      Animated.timing(promptOpacity, {
+        toValue: 1,
+        duration: TIMING.PROMPT_FADE_IN,
+        easing: EASING.ENTRY,
+        useNativeDriver: true,
+      }),
+    ]).start(() => {
+      Animated.timing(depthCardsOpacity, {
+        toValue: 1,
+        duration: TIMING.DEPTH_CARDS_FADE_IN,
+        easing: EASING.ENTRY,
+        useNativeDriver: true,
+      }).start(() => setTransitionPhase('idle'));
     });
   }, [reduceMotionEnabled]);
 
@@ -235,7 +234,13 @@ export const ChargeSetupScreen: React.FC = () => {
         <View style={styles.errorContainer}>
           <Text style={styles.errorTitle}>Anchor Not Found</Text>
           <Text style={styles.errorText}>We could not load your anchor. Please try again.</Text>
-          <TouchableOpacity style={styles.errorButton} onPress={handleBack} activeOpacity={0.8}>
+          <TouchableOpacity
+            style={styles.errorButton}
+            onPress={handleBack}
+            activeOpacity={0.8}
+            accessibilityRole="button"
+            accessibilityLabel="Go Back"
+          >
             <Text style={styles.errorButtonText}>Go Back</Text>
           </TouchableOpacity>
         </View>
@@ -276,6 +281,9 @@ export const ChargeSetupScreen: React.FC = () => {
 
         <Animated.View style={[styles.promptSection, { opacity: promptOpacity }]}>
           <Text style={styles.promptText}>How long do you want to stay with this symbol?</Text>
+          <Text style={styles.promptSubtext}>
+            Charging means returning your focus to your Anchor through breath and attention.
+          </Text>
         </Animated.View>
 
         {showQuickPath && selectedDepth && selectedDuration && (
@@ -339,6 +347,16 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     letterSpacing: 0.3,
     lineHeight: typography.lineHeights.h3
+  },
+  promptSubtext: {
+    fontSize: typography.sizes.body1,
+    fontFamily: typography.fonts.body,
+    color: colors.text.secondary,
+    textAlign: 'center',
+    opacity: 0.7,
+    marginTop: 8,
+    paddingHorizontal: spacing.xl,
+    lineHeight: 22,
   },
   quickPathSection: { paddingHorizontal: spacing.lg, marginTop: spacing.md },
   depthSection: { paddingHorizontal: spacing.lg, marginTop: spacing.lg },

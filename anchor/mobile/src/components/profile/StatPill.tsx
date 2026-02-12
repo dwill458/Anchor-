@@ -6,7 +6,7 @@
  */
 
 import React from 'react';
-import { View, Text, StyleSheet, ViewStyle } from 'react-native';
+import { View, Text, StyleSheet, ViewStyle, Platform } from 'react-native';
 import { BlurView } from 'expo-blur';
 import { colors, typography, spacing } from '@/theme';
 
@@ -26,17 +26,27 @@ export const StatPill: React.FC<StatPillProps> = ({
   style,
 }) => {
   return (
-    <BlurView
-      intensity={20}
-      tint="dark"
-      style={[styles.container, highlight && styles.highlighted, style]}
-    >
-      <Text style={styles.value}>
-        {value}
-        {unit ? ` ${unit}` : ''}
-      </Text>
-      <Text style={styles.label}>{label}</Text>
-    </BlurView>
+    Platform.OS === 'ios' ? (
+      <BlurView
+        intensity={20}
+        tint="dark"
+        style={[styles.container, highlight && styles.highlighted, style]}
+      >
+        <Text style={styles.value}>
+          {value}
+          {unit ? ` ${unit}` : ''}
+        </Text>
+        <Text style={styles.label}>{label}</Text>
+      </BlurView>
+    ) : (
+      <View style={[styles.container, highlight && styles.highlighted, style, { backgroundColor: 'rgba(12, 17, 24, 0.92)' }]}>
+        <Text style={styles.value}>
+          {value}
+          {unit ? ` ${unit}` : ''}
+        </Text>
+        <Text style={styles.label}>{label}</Text>
+      </View>
+    )
   );
 };
 

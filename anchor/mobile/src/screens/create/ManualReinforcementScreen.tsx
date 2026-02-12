@@ -313,6 +313,9 @@ export default function ManualReinforcementScreen() {
             style={[styles.controlButton, styles.secondaryButton]}
             onPress={handleClearLast}
             disabled={strokes.length === 0}
+            accessibilityRole="button"
+            accessibilityLabel="Undo"
+            accessibilityState={{ disabled: strokes.length === 0 }}
           >
             <Text style={styles.controlButtonText}>Undo</Text>
           </TouchableOpacity>
@@ -321,6 +324,9 @@ export default function ManualReinforcementScreen() {
             style={[styles.controlButton, styles.secondaryButton]}
             onPress={handleClearAll}
             disabled={strokes.length === 0}
+            accessibilityRole="button"
+            accessibilityLabel="Start over"
+            accessibilityState={{ disabled: strokes.length === 0 }}
           >
             <Text style={styles.controlButtonText}>Start Over</Text>
           </TouchableOpacity>
@@ -330,11 +336,19 @@ export default function ManualReinforcementScreen() {
           style={styles.completeButton}
           onPress={handleComplete}
           disabled={strokeCount === 0}
+          accessibilityRole="button"
+          accessibilityLabel="Lock Structure"
+          accessibilityState={{ disabled: strokeCount === 0 }}
         >
           <Text style={styles.completeButtonText}>Lock Structure</Text>
         </TouchableOpacity>
 
-        <TouchableOpacity style={styles.skipButton} onPress={handleSkip}>
+        <TouchableOpacity
+          style={styles.skipButton}
+          onPress={handleSkip}
+          accessibilityRole="button"
+          accessibilityLabel="Continue without tracing"
+        >
           <Text style={styles.skipButtonText}>Continue without tracing</Text>
         </TouchableOpacity>
       </View>
@@ -353,11 +367,21 @@ export default function ManualReinforcementScreen() {
               Some find tracing deepens their focus. It's completely optional.
             </Text>
 
-            <TouchableOpacity style={styles.modalPrimaryButton} onPress={handleCancelSkip}>
+            <TouchableOpacity
+              style={styles.modalPrimaryButton}
+              onPress={handleCancelSkip}
+              accessibilityRole="button"
+              accessibilityLabel="Stay and Trace"
+            >
               <Text style={styles.modalPrimaryButtonText}>Stay and Trace</Text>
             </TouchableOpacity>
 
-            <TouchableOpacity style={styles.modalSecondaryButton} onPress={handleConfirmSkip}>
+            <TouchableOpacity
+              style={styles.modalSecondaryButton}
+              onPress={handleConfirmSkip}
+              accessibilityRole="button"
+              accessibilityLabel="Continue"
+            >
               <Text style={styles.modalSecondaryButtonText}>Continue</Text>
             </TouchableOpacity>
           </View>

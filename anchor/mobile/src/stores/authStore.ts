@@ -4,6 +4,8 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as SecureStore from 'expo-secure-store';
 import type { User, ProfileData } from '@/types';
 import { fetchCompleteProfile } from '@/services/ApiClient';
+import { useAnchorStore } from '@/stores/anchorStore';
+import { calculateStreak } from '@/utils/streakHelpers';
 
 /**
  * Hybrid storage engine that selectively routes sensitive data to SecureStore
@@ -100,6 +102,9 @@ interface AuthState {
   fetchProfile: () => Promise<void>;
   refreshProfile: () => Promise<void>;
   clearProfile: () => void;
+
+  // Streak
+  computeStreak: () => void;
 }
 
 /**
@@ -204,6 +209,27 @@ export const useAuthStore = create<AuthState>()(
         set({ profileData: null, profileLastFetched: null });
       },
 
+      computeStreak: () => {
+        const { user } = get();
+        if (!user) return;
+
+        const anchors = useAnchorStore.getState().anchors;
+
+        // Use lastActivatedAt per anchor as the activation proxy (no full
+        // activation history is stored client-side).
+        const activationProxies = anchors
+          .filter((a) => a.lastActivatedAt != null)
+          .map((a) => ({ createdAt: a.lastActivatedAt as Date }));
+
+        const { currentStreak, longestStreak } = calculateStreak(activationProxies);
+
+        set((state) => ({
+          user: state.user
+            ? { ...state.user, currentStreak, longestStreak }
+            : null,
+        }));
+      },
+
       signOut: () =>
         set({
           user: null,
@@ -217,6 +243,13 @@ export const useAuthStore = create<AuthState>()(
     {
       name: 'anchor-auth-storage',
       storage: createJSONStorage(() => hybridStorage),
+      onRehydrateStorage: () => (state) => {
+        if (state) {
+          // Recompute streak immediately after store hydrates from disk
+          state.computeStreak();
+        }
+      },
+
       // Only persist certain fields
       partialize: (state) => ({
         user: state.user,

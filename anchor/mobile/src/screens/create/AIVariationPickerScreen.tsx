@@ -107,12 +107,6 @@ export const AIVariationPickerScreen: React.FC = () => {
     });
   }, [navigation]);
 
-  useLayoutEffect(() => {
-    navigation.setOptions({
-      headerShown: false,
-    });
-  }, [navigation]);
-
   const setTempEnhancedImage = useTempStore((state) => state.setTempEnhancedImage);
 
   const handleContinue = () => {
@@ -268,6 +262,9 @@ export const AIVariationPickerScreen: React.FC = () => {
                     onPress={() => setSelectedIndex(index)}
                     activeOpacity={0.85}
                     style={styles.variationWrapper}
+                    accessibilityRole="button"
+                    accessibilityLabel={`Variation ${index + 1}`}
+                    accessibilityState={{ selected: isSelected }}
                   >
                     <Animated.View
                       style={[
@@ -372,6 +369,8 @@ export const AIVariationPickerScreen: React.FC = () => {
             onPress={handleContinue}
             activeOpacity={0.9}
             style={styles.continueButton}
+            accessibilityRole="button"
+            accessibilityLabel="Set Anchor"
           >
             <LinearGradient
               colors={[colors.gold, '#B8941F']}

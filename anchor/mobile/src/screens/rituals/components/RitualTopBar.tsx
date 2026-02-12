@@ -31,6 +31,7 @@ export const RitualTopBar: React.FC<RitualTopBarProps> = ({
         disabled={disableBack}
         accessibilityRole="button"
         accessibilityLabel="Exit ritual"
+        accessibilityState={{ disabled: disableBack }}
       >
         <Text style={styles.backIcon}>×</Text>
       </TouchableOpacity>

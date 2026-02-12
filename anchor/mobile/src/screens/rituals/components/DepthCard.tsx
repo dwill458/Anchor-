@@ -96,9 +96,8 @@ export const DepthCard: React.FC<DepthCardProps> = ({
       <TouchableOpacity
         onPress={handlePress}
         activeOpacity={0.8}
-        accessibilityRole="button"
-        accessibilityLabel={`${settings.label}: ${settings.subtitle}`}
-        accessibilityHint={`Select ${type} charging mode`}
+        accessibilityRole="radio"
+        accessibilityLabel={type === 'light' ? 'Focus mode' : 'Ritual mode'}
         accessibilityState={{ selected: isSelected }}
         style={styles.touchable}
       >
@@ -121,7 +120,7 @@ export const DepthCard: React.FC<DepthCardProps> = ({
               {renderCardContent()}
             </BlurView>
           ) : (
-            <View style={styles.androidFallback}>
+            <View style={[styles.androidFallback, { backgroundColor: 'rgba(12, 17, 24, 0.92)' }]}>
               {renderCardContent()}
             </View>
           )}

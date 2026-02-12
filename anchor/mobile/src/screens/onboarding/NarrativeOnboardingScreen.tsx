@@ -82,6 +82,7 @@ export const NarrativeOnboardingScreen: React.FC<Props> = ({ navigation }) => {
         // NO Haptic on simple "Continue" progress - only on meaning/action
         // Handled in handleNext for specific buttons
 
+
         // Special case: Micro-haptic on ARRIVAL at Screen 5 (Index 4)
         if (stepIndex === 4) {
             Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -243,6 +244,8 @@ export const NarrativeOnboardingScreen: React.FC<Props> = ({ navigation }) => {
                         ]}
                         onPress={handleNext}
                         activeOpacity={0.8}
+                        accessibilityRole="button"
+                        accessibilityLabel={currentStep.cta}
                     >
                         <Text
                             style={[
@@ -254,24 +257,7 @@ export const NarrativeOnboardingScreen: React.FC<Props> = ({ navigation }) => {
                         </Text>
                     </TouchableOpacity>
 
-                    {/* Secondary CTA (for first screen) */}
-                    {/* @ts-ignore - Dynamic property check */}
-                    {!!currentStep.secondaryCta && (
-                        <TouchableOpacity
-                            style={styles.secondaryButton}
-                            onPress={() => {
-                                // For now, simple haptic feedback as placeholder for "How it works"
-                                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                                // In future: Navigation or Modal logic here
-                            }}
-                            activeOpacity={0.6}
-                        >
-                            <Text style={styles.secondaryButtonText}>
-                                {/* @ts-ignore */}
-                                {currentStep.secondaryCta}
-                            </Text>
-                        </TouchableOpacity>
-                    )}
+
                 </Animated.View>
             </View>
         </View>
@@ -352,16 +338,5 @@ const styles = StyleSheet.create({
         color: colors.navy,
         fontWeight: '600',
     },
-    secondaryButton: {
-        marginTop: spacing.md,
-        paddingBottom: spacing.sm,
-        alignItems: 'flex-start',
-    },
-    secondaryButtonText: {
-        ...typography.body,
-        fontSize: 14,
-        color: colors.text.secondary,
-        textDecorationLine: 'underline',
-        opacity: 0.6,
-    },
+
 });

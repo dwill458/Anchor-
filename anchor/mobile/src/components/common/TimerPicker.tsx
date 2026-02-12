@@ -21,6 +21,7 @@ import {
   TouchableOpacity,
   ScrollView,
   Dimensions,
+  Platform,
 } from 'react-native';
 import { BlurView } from 'expo-blur';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -108,7 +109,11 @@ export const TimerPicker: React.FC<TimerPickerProps> = ({
         activeOpacity={1}
         onPress={handleCancel}
       >
-        <BlurView intensity={80} tint="dark" style={StyleSheet.absoluteFill} />
+        {Platform.OS === 'ios' ? (
+          <BlurView intensity={80} tint="dark" style={StyleSheet.absoluteFill} />
+        ) : (
+          <View style={[StyleSheet.absoluteFill, { backgroundColor: 'rgba(12, 17, 24, 0.92)' }]} />
+        )}
       </TouchableOpacity>
 
       {/* Bottom sheet container */}

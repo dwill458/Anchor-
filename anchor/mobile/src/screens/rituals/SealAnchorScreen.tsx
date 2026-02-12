@@ -15,6 +15,7 @@ import {
   Animated,
   TouchableOpacity,
   Alert,
+  Platform,
 } from 'react-native';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
@@ -343,23 +344,39 @@ export const SealAnchorScreen: React.FC = () => {
             ]}
           >
             {/* Frosted Glass Orb */}
-            <AnimatedBlurView
-              intensity={40}
-              tint="dark"
-              style={styles.orbBlur}
-            >
-              <View style={styles.orbInner}>
-                {/* Sigil (masked, low opacity) */}
-                <View style={styles.sigilContainer}>
-                  <SvgXml
-                    xml={anchor.baseSigilSvg}
-                    width={SIGIL_SIZE}
-                    height={SIGIL_SIZE}
-                    opacity={0.4}
-                  />
+            {Platform.OS === 'ios' ? (
+              <AnimatedBlurView
+                intensity={40}
+                tint="dark"
+                style={styles.orbBlur}
+              >
+                <View style={styles.orbInner}>
+                  {/* Sigil (masked, low opacity) */}
+                  <View style={styles.sigilContainer}>
+                    <SvgXml
+                      xml={anchor.baseSigilSvg}
+                      width={SIGIL_SIZE}
+                      height={SIGIL_SIZE}
+                      opacity={0.4}
+                    />
+                  </View>
                 </View>
-              </View>
-            </AnimatedBlurView>
+              </AnimatedBlurView>
+            ) : (
+              <Animated.View style={[styles.orbBlur, { backgroundColor: 'rgba(12, 17, 24, 0.92)' }]}>
+                <View style={styles.orbInner}>
+                  {/* Sigil (masked, low opacity) */}
+                  <View style={styles.sigilContainer}>
+                    <SvgXml
+                      xml={anchor.baseSigilSvg}
+                      width={SIGIL_SIZE}
+                      height={SIGIL_SIZE}
+                      opacity={0.4}
+                    />
+                  </View>
+                </View>
+              </Animated.View>
+            )}
 
             {/* Progress Ring (SVG overlay) */}
             <Svg

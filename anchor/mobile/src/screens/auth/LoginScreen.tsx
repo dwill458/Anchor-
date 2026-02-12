@@ -68,7 +68,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ navigation }) => {
     try {
       const result = await AuthService.signInWithEmail(email, password);
       setAuthenticated(true);
-      setHasCompletedOnboarding(result.user.hasCompletedOnboarding || false);
+      setHasCompletedOnboarding(result.user?.hasCompletedOnboarding ?? false);
     } catch (err: any) {
       setError(err.message || 'Login failed');
     } finally {
@@ -76,32 +76,6 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ navigation }) => {
     }
   };
 
-  const handleAppleSignIn = async () => {
-    setLoading(true);
-    try {
-      // Note: AuthService doesn't have signInWithApple yet, using Google as placeholder
-      const result = await AuthService.signInWithGoogle();
-      setAuthenticated(true);
-      setHasCompletedOnboarding(result.user.hasCompletedOnboarding || false);
-    } catch (err: any) {
-      setError('Apple sign-in failed');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleGoogleSignIn = async () => {
-    setLoading(true);
-    try {
-      const result = await AuthService.signInWithGoogle();
-      setAuthenticated(true);
-      setHasCompletedOnboarding(result.user.hasCompletedOnboarding || false);
-    } catch (err: any) {
-      setError('Google sign-in failed');
-    } finally {
-      setLoading(false);
-    }
-  };
 
   return (
     <View style={styles.container}>
@@ -168,21 +142,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ navigation }) => {
                     </LinearGradient>
                   </TouchableOpacity>
 
-                  <View style={styles.divider}>
-                    <View style={styles.dividerLine} />
-                    <Text style={styles.dividerText}>OR</Text>
-                    <View style={styles.dividerLine} />
-                  </View>
 
-                  <TouchableOpacity style={styles.socialButton} onPress={handleGoogleSignIn}>
-                    <Text style={styles.socialIcon}>G</Text>
-                    <Text style={styles.socialText}>Continue with Google</Text>
-                  </TouchableOpacity>
-
-                  <TouchableOpacity style={styles.socialButton} onPress={handleAppleSignIn}>
-                    <Text style={styles.socialIcon}>🍎</Text>
-                    <Text style={styles.socialText}>Continue with Apple</Text>
-                  </TouchableOpacity>
                 </View>
               </View>
 
@@ -221,12 +181,6 @@ const styles = StyleSheet.create({
   button: { borderRadius: 12, overflow: 'hidden', marginTop: 10 },
   buttonGradient: { height: 56, justifyContent: 'center', alignItems: 'center' },
   buttonText: { color: colors.charcoal, fontSize: 16, fontWeight: '700' },
-  divider: { flexDirection: 'row', alignItems: 'center', marginVertical: 20 },
-  dividerLine: { flex: 1, height: 1, backgroundColor: 'rgba(192, 192, 192, 0.2)' },
-  dividerText: { color: colors.silver, marginHorizontal: 16 },
-  socialButton: { height: 56, borderRadius: 12, borderWidth: 2, borderColor: 'rgba(192, 192, 192, 0.2)', flexDirection: 'row', alignItems: 'center', justifyContent: 'center', marginBottom: 12 },
-  socialIcon: { fontSize: 20, color: colors.bone, marginRight: 10, fontWeight: '700' },
-  socialText: { color: colors.bone, fontSize: 16, fontWeight: '600' },
   footer: { flexDirection: 'row', justifyContent: 'center', marginTop: 30 },
   footerText: { color: colors.silver, fontSize: 16 },
   footerLink: { color: colors.gold, fontWeight: '700', fontSize: 16 },

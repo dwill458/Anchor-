@@ -8,6 +8,7 @@ import React, { useMemo, useCallback } from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { useAnchorStore } from '../../stores/anchorStore';
+import { useAuthStore } from '@/stores/authStore';
 import { useSettingsStore } from '@/stores/settingsStore';
 import type { RootStackParamList } from '@/types';
 import { colors, spacing, typography } from '@/theme';
@@ -26,6 +27,7 @@ export const ActivationScreen: React.FC = () => {
   const toast = useToast();
 
   const { getAnchorById, updateAnchor } = useAnchorStore();
+  const computeStreak = useAuthStore((state) => state.computeStreak);
   const { defaultActivation } = useSettingsStore();
   const anchor = getAnchorById(anchorId);
 
@@ -51,6 +53,9 @@ export const ActivationScreen: React.FC = () => {
       activationCount: currentActivationCount + 1,
       lastActivatedAt: localActivationTime,
     });
+
+    // Recompute streak now that lastActivatedAt has been updated locally
+    computeStreak();
 
     try {
       const response = await apiClient.post(`/api/anchors/${anchorId}/activate`, {
@@ -78,7 +83,7 @@ export const ActivationScreen: React.FC = () => {
 
       toast.error('Activation completed but failed to sync. Will retry later.');
     }
-  }, [activationDurationSeconds, activationType, anchor?.activationCount, anchorId, toast, updateAnchor]);
+  }, [activationDurationSeconds, activationType, anchor?.activationCount, anchorId, computeStreak, toast, updateAnchor]);
 
   const handleComplete = useCallback(() => {
     navigation.goBack();

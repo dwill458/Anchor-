@@ -95,7 +95,7 @@ const GlassSurface: React.FC<GlassSurfaceProps> = ({
     );
   }
 
-  return <View style={[styles.glassSurface, styles.androidGlassFallback, style]}>{children}</View>;
+  return <View style={[styles.glassSurface, styles.androidGlassFallback, style, { backgroundColor: 'rgba(12, 17, 24, 0.92)' }]}>{children}</View>;
 };
 
 const GlassIconButton: React.FC<GlassIconButtonProps> = ({

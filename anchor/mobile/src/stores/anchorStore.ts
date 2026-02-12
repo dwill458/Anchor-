@@ -26,6 +26,7 @@ interface AnchorState {
   updateAnchor: (id: string, updates: Partial<Anchor>) => void;
   removeAnchor: (id: string) => void;
   getAnchorById: (id: string) => Anchor | undefined;
+  getActiveAnchors: () => Anchor[];
   setLoading: (loading: boolean) => void;
   setError: (error: string | null) => void;
   markSynced: () => void;
@@ -80,6 +81,13 @@ export const useAnchorStore = create<AnchorState>()(
       getAnchorById: (id) => {
         const state = get();
         return state.anchors.find((anchor) => anchor.id === id);
+      },
+
+      getActiveAnchors: () => {
+        const state = get();
+        return state.anchors.filter(
+          (anchor) => !anchor.isReleased && !anchor.archivedAt
+        );
       },
 
       setLoading: (loading) =>

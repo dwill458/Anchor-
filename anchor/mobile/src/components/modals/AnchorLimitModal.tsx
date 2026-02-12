@@ -79,73 +79,143 @@ export function AnchorLimitModal({
           exiting={FadeOut.duration(200)}
           style={styles.modalContainer}
         >
-          <BlurView intensity={60} tint="dark" style={styles.glassmorphicCard}>
-            <View style={styles.content}>
-              {/* Icon Header */}
-              <View style={styles.iconMedallion}>
-                <LinearGradient
-                  colors={[colors.gold + '30', 'transparent']}
-                  style={styles.iconGlow}
-                />
-                <Anchor color={colors.gold} size={32} strokeWidth={1.5} />
-              </View>
-
-              {/* Header Text */}
-              <Text style={styles.title}>Anchor Vault Full</Text>
-              <Text style={styles.subtitle}>Capacity reached</Text>
-
-              {/* Capacity Indicator */}
-              <View style={styles.capacityContainer}>
-                <View style={styles.capacityPill}>
-                  <Text style={styles.capacityText}>{currentCount} / {maxCount} used</Text>
-                </View>
-                <View style={styles.progressBarBg}>
-                  <Animated.View
-                    style={[
-                      styles.progressBarFill,
-                      { width: `${(currentCount / maxCount) * 100}%` }
-                    ]}
+          {Platform.OS === 'ios' ? (
+            <BlurView intensity={60} tint="dark" style={styles.glassmorphicCard}>
+              <View style={styles.content}>
+                {/* Icon Header */}
+                <View style={styles.iconMedallion}>
+                  <LinearGradient
+                    colors={[colors.gold + '30', 'transparent']}
+                    style={styles.iconGlow}
                   />
+                  <Anchor color={colors.gold} size={32} strokeWidth={1.5} />
+                </View>
+
+                {/* Header Text */}
+                <Text style={styles.title}>Anchor Vault Full</Text>
+                <Text style={styles.subtitle}>Capacity reached</Text>
+
+                {/* Capacity Indicator */}
+                <View style={styles.capacityContainer}>
+                  <View style={styles.capacityPill}>
+                    <Text style={styles.capacityText}>{currentCount} / {maxCount} used</Text>
+                  </View>
+                  <View style={styles.progressBarBg}>
+                    <Animated.View
+                      style={[
+                        styles.progressBarFill,
+                        { width: `${(currentCount / maxCount) * 100}%` }
+                      ]}
+                    />
+                  </View>
+                </View>
+
+                {/* Body Text */}
+                <Text style={styles.bodyText}>
+                  You have reached the limit for free anchors. Upgrade for unlimited space or release one to continue.
+                </Text>
+
+                {/* Action Blocks */}
+                <View style={styles.actions}>
+                  {/* Upgrade to Pro Button */}
+                  <ActionButton
+                    onPress={onUpgrade}
+                    primary
+                    title="Upgrade to Pro"
+                    supportingLine="Unlimited storage and premium features"
+                    priceLine="$4.99/month or $39.99/year"
+                  />
+
+                  {/* Burn an Anchor Button */}
+                  <ActionButton
+                    onPress={onBurnAnchor}
+                    title="Burn an Anchor"
+                    supportingLine="Release one to create space"
+                    reassurance="Select which anchor to let go."
+                  />
+
+                  {/* Maybe Later */}
+                  <TouchableOpacity
+                    style={styles.tertiaryButton}
+                    onPress={onClose}
+                    activeOpacity={0.7}
+                    accessibilityRole="button"
+                    accessibilityLabel="Maybe later"
+                  >
+                    <Text style={styles.tertiaryText}>Maybe later</Text>
+                  </TouchableOpacity>
                 </View>
               </View>
+            </BlurView>
+          ) : (
+            <View style={[styles.glassmorphicCard, { backgroundColor: 'rgba(12, 17, 24, 0.92)' }]}>
+              <View style={styles.content}>
+                {/* Icon Header */}
+                <View style={styles.iconMedallion}>
+                  <LinearGradient
+                    colors={[colors.gold + '30', 'transparent']}
+                    style={styles.iconGlow}
+                  />
+                  <Anchor color={colors.gold} size={32} strokeWidth={1.5} />
+                </View>
 
-              {/* Body Text */}
-              <Text style={styles.bodyText}>
-                You have reached the limit for free anchors. Upgrade for unlimited space or release one to continue.
-              </Text>
+                {/* Header Text */}
+                <Text style={styles.title}>Anchor Vault Full</Text>
+                <Text style={styles.subtitle}>Capacity reached</Text>
 
-              {/* Action Blocks */}
-              <View style={styles.actions}>
-                {/* Upgrade to Pro Button */}
-                <ActionButton
-                  onPress={onUpgrade}
-                  primary
-                  title="Upgrade to Pro"
-                  supportingLine="Unlimited storage and premium features"
-                  priceLine="$4.99/month or $39.99/year"
-                />
+                {/* Capacity Indicator */}
+                <View style={styles.capacityContainer}>
+                  <View style={styles.capacityPill}>
+                    <Text style={styles.capacityText}>{currentCount} / {maxCount} used</Text>
+                  </View>
+                  <View style={styles.progressBarBg}>
+                    <Animated.View
+                      style={[
+                        styles.progressBarFill,
+                        { width: `${(currentCount / maxCount) * 100}%` }
+                      ]}
+                    />
+                  </View>
+                </View>
 
-                {/* Burn an Anchor Button */}
-                <ActionButton
-                  onPress={onBurnAnchor}
-                  title="Burn an Anchor"
-                  supportingLine="Release one to create space"
-                  reassurance="Select which anchor to let go."
-                />
+                {/* Body Text */}
+                <Text style={styles.bodyText}>
+                  You have reached the limit for free anchors. Upgrade for unlimited space or release one to continue.
+                </Text>
 
-                {/* Maybe Later */}
-                <TouchableOpacity
-                  style={styles.tertiaryButton}
-                  onPress={onClose}
-                  activeOpacity={0.7}
-                  accessibilityRole="button"
-                  accessibilityLabel="Maybe later"
-                >
-                  <Text style={styles.tertiaryText}>Maybe later</Text>
-                </TouchableOpacity>
+                {/* Action Blocks */}
+                <View style={styles.actions}>
+                  {/* Upgrade to Pro Button */}
+                  <ActionButton
+                    onPress={onUpgrade}
+                    primary
+                    title="Upgrade to Pro"
+                    supportingLine="Unlimited storage and premium features"
+                    priceLine="$4.99/month or $39.99/year"
+                  />
+
+                  {/* Burn an Anchor Button */}
+                  <ActionButton
+                    onPress={onBurnAnchor}
+                    title="Burn an Anchor"
+                    supportingLine="Release one to create space"
+                    reassurance="Select which anchor to let go."
+                  />
+
+                  {/* Maybe Later */}
+                  <TouchableOpacity
+                    style={styles.tertiaryButton}
+                    onPress={onClose}
+                    activeOpacity={0.7}
+                    accessibilityRole="button"
+                    accessibilityLabel="Maybe later"
+                  >
+                    <Text style={styles.tertiaryText}>Maybe later</Text>
+                  </TouchableOpacity>
+                </View>
               </View>
             </View>
-          </BlurView>
+          )}
         </Animated.View>
       </View>
     </Modal>

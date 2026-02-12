@@ -288,7 +288,11 @@ export const CustomDurationSheet: React.FC<CustomDurationSheetProps> = ({
           accessibilityRole="button"
           accessibilityLabel="Close custom duration picker"
         >
-          {Platform.OS === 'ios' && <BlurView intensity={30} tint="dark" style={StyleSheet.absoluteFill} />}
+          {Platform.OS === 'ios' ? (
+            <BlurView intensity={30} tint="dark" style={StyleSheet.absoluteFill} />
+          ) : (
+            <View style={[StyleSheet.absoluteFill, { backgroundColor: 'rgba(12, 17, 24, 0.92)' }]} />
+          )}
         </AnimatedPressable>
 
         <Animated.View
@@ -301,7 +305,11 @@ export const CustomDurationSheet: React.FC<CustomDurationSheetProps> = ({
           ]}
           accessibilityViewIsModal
         >
-          {Platform.OS === 'ios' && <BlurView intensity={38} tint="dark" style={StyleSheet.absoluteFill} />}
+          {Platform.OS === 'ios' ? (
+            <BlurView intensity={38} tint="dark" style={StyleSheet.absoluteFill} />
+          ) : (
+            <View style={[StyleSheet.absoluteFill, { backgroundColor: 'rgba(12, 17, 24, 0.92)' }]} />
+          )}
           <LinearGradient
             colors={['rgba(212, 175, 55, 0.16)', 'rgba(212, 175, 55, 0.05)', 'rgba(212, 175, 55, 0.01)']}
             start={{ x: 0.2, y: 0 }}

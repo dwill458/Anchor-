@@ -14,6 +14,7 @@ import {
   StyleSheet,
   TouchableOpacity,
   ScrollView,
+  Platform,
 } from 'react-native';
 import { BlurView } from 'expo-blur';
 import * as Haptics from 'expo-haptics';
@@ -64,29 +65,55 @@ export const ModeSelectionStep: React.FC<ModeSelectionStepProps> = ({
           onPress={handleFocusSelect}
           activeOpacity={0.8}
         >
-          <BlurView intensity={10} tint="dark" style={styles.cardBlur}>
-            <View style={[styles.cardContent, styles.focusCard]}>
-              {/* Icon */}
-              <View style={styles.iconContainer}>
-                <FocusChargeIcon size={64} />
+          {Platform.OS === 'ios' ? (
+            <BlurView intensity={10} tint="dark" style={styles.cardBlur}>
+              <View style={[styles.cardContent, styles.focusCard]}>
+                {/* Icon */}
+                <View style={styles.iconContainer}>
+                  <FocusChargeIcon size={64} />
+                </View>
+
+                {/* Title */}
+                <Text style={styles.cardTitle}>Focus Charge</Text>
+
+                {/* Description */}
+                <Text style={styles.cardDescription}>
+                  A brief moment of alignment
+                </Text>
+
+                {/* Benefits */}
+                <View style={styles.benefits}>
+                  <Text style={styles.benefitItem}>30 sec, 2 min, or 5 min</Text>
+                  <Text style={styles.benefitItem}>Single phase practice</Text>
+                  <Text style={styles.benefitItem}>Quick energy boost</Text>
+                </View>
               </View>
+            </BlurView>
+          ) : (
+            <View style={[styles.cardBlur, { backgroundColor: 'rgba(12, 17, 24, 0.92)' }]}>
+              <View style={[styles.cardContent, styles.focusCard]}>
+                {/* Icon */}
+                <View style={styles.iconContainer}>
+                  <FocusChargeIcon size={64} />
+                </View>
 
-              {/* Title */}
-              <Text style={styles.cardTitle}>Focus Charge</Text>
+                {/* Title */}
+                <Text style={styles.cardTitle}>Focus Charge</Text>
 
-              {/* Description */}
-              <Text style={styles.cardDescription}>
-                A brief moment of alignment
-              </Text>
+                {/* Description */}
+                <Text style={styles.cardDescription}>
+                  A brief moment of alignment
+                </Text>
 
-              {/* Benefits */}
-              <View style={styles.benefits}>
-                <Text style={styles.benefitItem}>30 sec, 2 min, or 5 min</Text>
-                <Text style={styles.benefitItem}>Single phase practice</Text>
-                <Text style={styles.benefitItem}>Quick energy boost</Text>
+                {/* Benefits */}
+                <View style={styles.benefits}>
+                  <Text style={styles.benefitItem}>30 sec, 2 min, or 5 min</Text>
+                  <Text style={styles.benefitItem}>Single phase practice</Text>
+                  <Text style={styles.benefitItem}>Quick energy boost</Text>
+                </View>
               </View>
             </View>
-          </BlurView>
+          )}
         </TouchableOpacity>
 
         {/* Ritual Charge Card */}
@@ -95,29 +122,55 @@ export const ModeSelectionStep: React.FC<ModeSelectionStepProps> = ({
           onPress={handleRitualSelect}
           activeOpacity={0.8}
         >
-          <BlurView intensity={10} tint="dark" style={styles.cardBlur}>
-            <View style={[styles.cardContent, styles.ritualCard]}>
-              {/* Icon */}
-              <View style={styles.iconContainer}>
-                <RitualChargeIcon size={64} />
+          {Platform.OS === 'ios' ? (
+            <BlurView intensity={10} tint="dark" style={styles.cardBlur}>
+              <View style={[styles.cardContent, styles.ritualCard]}>
+                {/* Icon */}
+                <View style={styles.iconContainer}>
+                  <RitualChargeIcon size={64} />
+                </View>
+
+                {/* Title */}
+                <Text style={styles.cardTitle}>Ritual Charge</Text>
+
+                {/* Description */}
+                <Text style={styles.cardDescription}>
+                  A guided, immersive experience
+                </Text>
+
+                {/* Benefits */}
+                <View style={styles.benefits}>
+                  <Text style={styles.benefitItem}>5 min, 10 min, or custom</Text>
+                  <Text style={styles.benefitItem}>Multi-phase ceremony</Text>
+                  <Text style={styles.benefitItem}>Lasting transformation</Text>
+                </View>
               </View>
+            </BlurView>
+          ) : (
+            <View style={[styles.cardBlur, { backgroundColor: 'rgba(12, 17, 24, 0.92)' }]}>
+              <View style={[styles.cardContent, styles.ritualCard]}>
+                {/* Icon */}
+                <View style={styles.iconContainer}>
+                  <RitualChargeIcon size={64} />
+                </View>
 
-              {/* Title */}
-              <Text style={styles.cardTitle}>Ritual Charge</Text>
+                {/* Title */}
+                <Text style={styles.cardTitle}>Ritual Charge</Text>
 
-              {/* Description */}
-              <Text style={styles.cardDescription}>
-                A guided, immersive experience
-              </Text>
+                {/* Description */}
+                <Text style={styles.cardDescription}>
+                  A guided, immersive experience
+                </Text>
 
-              {/* Benefits */}
-              <View style={styles.benefits}>
-                <Text style={styles.benefitItem}>5 min, 10 min, or custom</Text>
-                <Text style={styles.benefitItem}>Multi-phase ceremony</Text>
-                <Text style={styles.benefitItem}>Lasting transformation</Text>
+                {/* Benefits */}
+                <View style={styles.benefits}>
+                  <Text style={styles.benefitItem}>5 min, 10 min, or custom</Text>
+                  <Text style={styles.benefitItem}>Multi-phase ceremony</Text>
+                  <Text style={styles.benefitItem}>Lasting transformation</Text>
+                </View>
               </View>
             </View>
-          </BlurView>
+          )}
         </TouchableOpacity>
       </View>
     </ScrollView>

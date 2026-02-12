@@ -156,7 +156,7 @@ export const SigilHeroCard: React.FC<SigilHeroCardProps> = ({
             {renderSigilContent()}
           </BlurView>
         ) : (
-          <View style={styles.androidFallback}>{renderSigilContent()}</View>
+          <View style={[styles.androidFallback, { backgroundColor: 'rgba(12, 17, 24, 0.92)' }]}>{renderSigilContent()}</View>
         )}
       </View>
     </View>
