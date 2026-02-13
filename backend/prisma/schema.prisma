@@ -32,6 +32,9 @@ model User {
   totalActivations      Int      @default(0)
   currentStreak         Int      @default(0)
   longestStreak         Int      @default(0)
+  stabilizesTotal       Int      @default(0)
+  stabilizeStreakDays   Int      @default(0)
+  lastStabilizeAt       DateTime?
 
   // Relations
   anchors               Anchor[]

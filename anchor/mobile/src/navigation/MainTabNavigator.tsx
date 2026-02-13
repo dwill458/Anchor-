@@ -16,7 +16,7 @@ import { getFocusedRouteNameFromRoute } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { VaultStackNavigator } from './VaultStackNavigator';
 import { DiscoverScreen } from '../screens/discover';
-import { PracticeScreen } from '../screens/practice';
+import { PracticeStackNavigator } from './PracticeStackNavigator';
 import { SettingsButton } from '../components/header/SettingsButton';
 import type { MainTabParamList, RootStackParamList } from '@/types';
 import { colors } from '@/theme';
@@ -133,12 +133,18 @@ export const MainTabNavigator: React.FC = () => {
       />
       <Tab.Screen
         name="Practice"
-        component={PracticeScreen}
-        options={({ navigation }) => ({
-          headerShown: false,
-          tabBarLabel: 'Practice',
-          tabBarIcon: ({ color, size }) => <Zap color={color} size={24} />,
-        })}
+        component={PracticeStackNavigator}
+        options={({ route }) => {
+          const routeName = getFocusedRouteNameFromRoute(route) ?? 'PracticeHome';
+          const isTabBarVisible = routeName === 'PracticeHome';
+
+          return {
+            headerShown: false,
+            tabBarLabel: 'Practice',
+            tabBarIcon: ({ color }) => <Zap color={color} size={24} />,
+            ...(isTabBarVisible ? {} : { tabBarStyle: { display: 'none' } }),
+          };
+        }}
       />
       <Tab.Screen
         name="Discover"

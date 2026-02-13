@@ -103,6 +103,9 @@ export interface User {
   totalActivations: number;
   currentStreak: number;
   longestStreak: number;
+  stabilizesTotal: number;
+  stabilizeStreakDays: number;
+  lastStabilizeAt?: Date;
   createdAt: Date;
 }
 
@@ -570,12 +573,14 @@ export type RootStackParamList = {
     anchorId: string;
     intention: string;
     sigilSvg: string;
+    enhancedImageUrl?: string;
   };
 
   BurningRitual: {
     anchorId: string;
     intention: string;
     sigilSvg: string;
+    enhancedImageUrl?: string;
   };
 
   // ═══════════════════════════════════════════════════
@@ -598,6 +603,12 @@ export type RootStackParamList = {
 
   // Data & Privacy Settings
   DataPrivacy: undefined;
+};
+
+export type PracticeStackParamList = {
+  PracticeHome: undefined;
+  StabilizeRitual: { anchorId: string };
+  Evolve: undefined;
 };
 
 export type MainTabParamList = {

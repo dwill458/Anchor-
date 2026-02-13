@@ -386,39 +386,26 @@ export const AnchorDetailScreen: React.FC = () => {
   const handleBurnPress = useCallback((): void => {
     if (!anchor || isReleased) return;
 
-    Alert.alert(
-      'Burn & Release',
-      'This closes the loop. You can\'t reactivate this anchor after release.',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Continue',
-          style: 'destructive',
-          onPress: () => {
-            safeHaptics.impact(Haptics.ImpactFeedbackStyle.Light);
+    void safeHaptics.impact(Haptics.ImpactFeedbackStyle.Light);
 
-            AnalyticsService.track(AnalyticsEvents.BURN_INITIATED, {
-              anchor_id: anchor.id,
-              activation_count: anchor.activationCount,
-              days_since_created: Math.floor(
-                (Date.now() - new Date(anchor.createdAt).getTime()) / (1000 * 60 * 60 * 24)
-              ),
-            });
+    AnalyticsService.track(AnalyticsEvents.BURN_INITIATED, {
+      anchor_id: anchor.id,
+      activation_count: anchor.activationCount,
+      days_since_created: Math.floor(
+        (Date.now() - new Date(anchor.createdAt).getTime()) / (1000 * 60 * 60 * 24)
+      ),
+    });
 
-            ErrorTrackingService.addBreadcrumb('Burn ritual initiated', 'navigation', {
-              anchor_id: anchor.id,
-            });
+    ErrorTrackingService.addBreadcrumb('Burn ritual initiated', 'navigation', {
+      anchor_id: anchor.id,
+    });
 
-            (navigation as any).navigate('ConfirmBurn', {
-              anchorId: anchor.id,
-              intention: anchor.intentionText,
-              sigilSvg: anchor.baseSigilSvg,
-              enhancedImageUrl: anchor.enhancedImageUrl,
-            });
-          },
-        },
-      ]
-    );
+    (navigation as any).navigate('ConfirmBurn', {
+      anchorId: anchor.id,
+      intention: anchor.intentionText,
+      sigilSvg: anchor.baseSigilSvg,
+      enhancedImageUrl: anchor.enhancedImageUrl,
+    });
   }, [anchor, isReleased, navigation]);
 
   const handleDeveloperDeletePress = useCallback((): void => {

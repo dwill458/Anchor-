@@ -1,89 +1,91 @@
-import React, { useMemo } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
+import React from 'react';
+import { View, Text, StyleSheet, ScrollView } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { colors, spacing, typography } from '@/theme';
 import { useNavigation } from '@react-navigation/native';
-import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import type { RootStackParamList, Anchor } from '@/types';
+import type { StackNavigationProp } from '@react-navigation/stack';
+import type { PracticeStackParamList } from '@/types';
 import * as Haptics from 'expo-haptics';
 import { useAuthStore } from '@/stores/authStore';
 import { useAnchorStore } from '@/stores/anchorStore';
 import { ZenBackground } from '@/components/common';
 import { safeHaptics } from '@/utils/haptics';
+import { getDayDiffLocal, getEffectiveStabilizeStreakDays, toDateOrNull } from '@/utils/stabilizeStats';
 
 // Practice Components
 import { PracticeHeader } from './components/PracticeHeader';
 import { StreakCard } from './components/StreakCard';
 import { PracticeModeCard } from './components/PracticeModeCard';
-import { UpgradeNudge } from './components/UpgradeNudge';
+import { SanctuaryCandleIndicator } from './components/SanctuaryCandleIndicator';
 
-type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
+type PracticeNavigationProp = StackNavigationProp<PracticeStackParamList, 'PracticeHome'>;
 
 export const PracticeScreen: React.FC = () => {
-  console.log('DEBUG: PracticeScreen Rendered - REDESIGN ACTIVE');
-  const navigation = useNavigation<NavigationProp>();
+  const navigation = useNavigation<PracticeNavigationProp>();
   const user = useAuthStore((state) => state.user);
   const { getActiveAnchors } = useAnchorStore();
 
   const activeAnchors = getActiveAnchors();
   const hasAnchors = activeAnchors.length > 0;
-  const isPro = user?.subscriptionStatus === 'pro' || user?.subscriptionStatus === 'pro_annual';
-  const streakCount = user?.currentStreak || 0;
+  const mostRecentAnchor = React.useMemo(() => {
+    if (!hasAnchors) return undefined;
 
-  // Soft Tension Footer Logic
-  const footerText = useMemo(() => {
-    if (!isPro) return 'Your practice begins with a single anchor.';
+    const toMillis = (value?: Date | string): number => {
+      if (!value) return 0;
+      const parsed = value instanceof Date ? value : new Date(value);
+      return Number.isNaN(parsed.getTime()) ? 0 : parsed.getTime();
+    };
 
-    // Pro logic: check for stale anchors
-    const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
-    const hasStaleAnchor = activeAnchors.some((a: Anchor) =>
-      !a.lastActivatedAt || new Date(a.lastActivatedAt) < oneDayAgo
-    );
+    return [...activeAnchors].sort((a, b) => {
+      const aRecency = Math.max(toMillis(a.lastActivatedAt), toMillis(a.updatedAt), toMillis(a.createdAt));
+      const bRecency = Math.max(toMillis(b.lastActivatedAt), toMillis(b.updatedAt), toMillis(b.createdAt));
+      return bRecency - aRecency;
+    })[0];
+  }, [activeAnchors, hasAnchors]);
 
-    return hasStaleAnchor
-      ? 'One anchor hasn’t been activated recently.'
-      : 'Your strongest anchor is ready.';
-  }, [isPro, activeAnchors]);
+  const now = new Date();
+  const lastStabilizeAt = toDateOrNull(user?.lastStabilizeAt);
+  const hasStabilizedToday = getDayDiffLocal(now, lastStabilizeAt) === 0;
+  const stabilizeStreakDays = getEffectiveStabilizeStreakDays(
+    user?.stabilizeStreakDays ?? 0,
+    lastStabilizeAt,
+    now
+  );
 
   const handleCreateAnchor = () => {
     safeHaptics.impact(Haptics.ImpactFeedbackStyle.Light);
-    navigation.navigate('CreateAnchor');
+    const tabNav = navigation.getParent?.() as any;
+    tabNav?.navigate('Vault', { screen: 'CreateAnchor' });
   };
 
-  const handleActivateLast = () => {
-    if (hasAnchors) {
-      safeHaptics.impact(Haptics.ImpactFeedbackStyle.Medium);
-      // Navigate to last activated or most recent anchor ritual
-      const lastAnchor = activeAnchors[0]; // Assuming first is most recent
-      navigation.navigate('Ritual', {
-        anchorId: lastAnchor.id,
-        ritualType: 'focus'
-      });
+  const handleReconnect = () => {
+    safeHaptics.impact(Haptics.ImpactFeedbackStyle.Medium);
+    if (!mostRecentAnchor) {
+      handleCreateAnchor();
+      return;
     }
+
+    const tabNav = navigation.getParent?.() as any;
+    tabNav?.navigate('Vault', {
+      screen: 'Ritual',
+      params: { anchorId: mostRecentAnchor.id, ritualType: 'focus' },
+    });
   };
 
-  // Memory-based context for the last anchor
-  const lastActivatedText = useMemo(() => {
-    if (!hasAnchors) return 'A single moment of focus is enough.';
-    const lastAnchor = activeAnchors[0];
-    if (!lastAnchor.lastActivatedAt) return 'Ready for first activation.';
+  const handleStabilize = () => {
+    safeHaptics.selection();
+    if (!mostRecentAnchor) {
+      handleCreateAnchor();
+      return;
+    }
 
-    const lastDate = new Date(lastAnchor.lastActivatedAt);
-    const now = new Date();
-    const diffMs = now.getTime() - lastDate.getTime();
-    const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
+    navigation.navigate('StabilizeRitual', { anchorId: mostRecentAnchor.id });
+  };
 
-    if (diffHours < 1) return 'Last rejoined moments ago.';
-    if (diffHours < 24) return `Last rejoined ${diffHours}h ago.`;
-    return `Last rejoined ${Math.floor(diffHours / 24)}d ago.`;
-  }, [hasAnchors, activeAnchors]);
-
-  // Today Context Logic (Simplified)
-  const todayContext = useMemo(() => {
-    const lines = ['clarity', 'momentum', 'integration', 'ease', 'focus'];
-    const dayOfYear = Math.floor((Date.now() - new Date(new Date().getFullYear(), 0, 0).getTime()) / 86400000);
-    return lines[dayOfYear % lines.length];
-  }, []);
+  const handleEvolve = () => {
+    safeHaptics.selection();
+    navigation.navigate('Evolve');
+  };
 
   return (
     <View style={styles.container}>
@@ -95,72 +97,34 @@ export const PracticeScreen: React.FC = () => {
         >
           <View style={styles.headerRow}>
             <PracticeHeader subhead="Return to your signal" />
-            <View style={styles.todayTag}>
-              <Text style={styles.todayText}>{todayContext}</Text>
-            </View>
+            <SanctuaryCandleIndicator isLit={hasStabilizedToday} streakDays={stabilizeStreakDays} />
           </View>
 
-          <StreakCard streakCount={streakCount} isPro={isPro} />
+          <StreakCard streakDays={stabilizeStreakDays} hasStabilizedToday={hasStabilizedToday} />
 
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>
-              {isPro ? 'Practice Evolution' : 'Daily Practice'}
-            </Text>
+            <Text style={styles.sectionTitle}>Daily Practice</Text>
 
-            {!isPro ? (
-              <>
-                <PracticeModeCard
-                  title="Resume Ritual"
-                  subtext={hasAnchors
-                    ? lastActivatedText
-                    : 'A single moment of focus is enough.'
-                  }
-                  cta={hasAnchors ? 'Reconnect' : undefined}
-                  onPress={hasAnchors ? handleActivateLast : handleCreateAnchor}
-                />
-                <PracticeModeCard
-                  title="Stabilize (30s)"
-                  subtext="Breath, focus, and reset."
-                  isLocked={true}
-                  lockCopy="Deepen Practice"
-                />
-              </>
-            ) : (
-              <>
-                <PracticeModeCard
-                  title="Ignite"
-                  subtext="Instant activation. Sharp focus."
-                  meta="~10 seconds"
-                  onPress={() => { }} // TODO: Navigate to Ignite ritual
-                />
-                <PracticeModeCard
-                  title="Stabilize"
-                  subtext="Breath, gaze, and grounding."
-                  meta="30–60 seconds"
-                  onPress={() => { }} // TODO: Navigate to Stabilize ritual
-                />
-                <PracticeModeCard
-                  title="Deepen"
-                  subtext="Guided ritual and visualization."
-                  meta="5–10 minutes"
-                  onPress={() => { }} // TODO: Navigate to Deepen ritual
-                />
-              </>
-            )}
-          </View>
+            <PracticeModeCard
+              title="Resume Ritual"
+              subtext="Pick up your thread."
+              cta="Reconnect"
+              onPress={handleReconnect}
+            />
 
-          {!isPro && <UpgradeNudge />}
+            <PracticeModeCard
+              title="Stabilize (30s)"
+              subtext="Breathe. Return. Seal the state."
+              cta="Stabilize"
+              onPress={handleStabilize}
+            />
 
-          <View style={styles.footer}>
-            <Text style={styles.footerText}>{footerText}</Text>
-            {!isPro && (
-              <TouchableOpacity
-                style={styles.createButton}
-                onPress={handleCreateAnchor}
-              >
-                <Text style={styles.createButtonText}>New Intent</Text>
-              </TouchableOpacity>
-            )}
+            <PracticeModeCard
+              title="Expand Your Sanctuary"
+              subtext="Unlock deeper rituals, pattern tracking, and longer sessions."
+              cta="Evolve"
+              onPress={handleEvolve}
+            />
           </View>
         </ScrollView>
       </SafeAreaView>
@@ -182,20 +146,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingRight: spacing.lg,
   },
-  todayTag: {
-    paddingHorizontal: spacing.sm,
-    paddingVertical: 2,
-    borderRadius: 4,
-    borderWidth: 1,
-    borderColor: 'rgba(212, 175, 55, 0.3)',
-  },
-  todayText: {
-    fontSize: 10,
-    fontFamily: typography.fonts.bodyBold,
-    color: colors.gold,
-    textTransform: 'uppercase',
-    letterSpacing: 1,
-  },
   scrollContent: {
     paddingVertical: spacing.lg,
   },
@@ -210,31 +160,5 @@ const styles = StyleSheet.create({
     textTransform: 'uppercase',
     letterSpacing: 1.5,
     marginBottom: spacing.md,
-  },
-  footer: {
-    paddingHorizontal: spacing.lg,
-    paddingBottom: spacing.xxl,
-    alignItems: 'center',
-  },
-  footerText: {
-    fontSize: 14,
-    fontFamily: typography.fonts.body,
-    color: colors.text.secondary,
-    textAlign: 'center',
-    opacity: 0.8,
-    marginBottom: spacing.lg,
-  },
-  createButton: {
-    paddingHorizontal: spacing.xl,
-    paddingVertical: spacing.md,
-    borderRadius: 12,
-    backgroundColor: 'rgba(255, 255, 255, 0.05)',
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.1)',
-  },
-  createButtonText: {
-    fontSize: 14,
-    fontFamily: typography.fonts.bodyBold,
-    color: colors.bone,
   },
 });
