@@ -4,19 +4,15 @@ import { BlurView } from 'expo-blur';
 import { colors, spacing, typography } from '@/theme';
 
 interface StreakCardProps {
-    streakCount: number;
-    isPro: boolean;
+    streakDays: number;
+    hasStabilizedToday: boolean;
 }
 
-export const StreakCard: React.FC<StreakCardProps> = ({ streakCount, isPro }) => {
-    const getPhase = (count: number) => {
-        if (count <= 7) return 'Foundation';
-        if (count <= 21) return 'Alignment';
-        if (count <= 90) return 'Momentum';
-        return 'Integration';
-    };
-
-    const phase = getPhase(streakCount);
+export const StreakCard: React.FC<StreakCardProps> = ({ streakDays, hasStabilizedToday }) => {
+    const primaryLabel =
+        streakDays === 0
+            ? 'Fresh Start'
+            : `${streakDays} ${streakDays === 1 ? 'day' : 'days'}`;
 
     return (
         <View style={styles.container}>
@@ -26,31 +22,23 @@ export const StreakCard: React.FC<StreakCardProps> = ({ streakCount, isPro }) =>
                 )}
 
                 <View style={styles.content}>
-                    <Text style={styles.label}>CURRENT PATTERN</Text>
+                    <Text style={styles.label}>SANCTUARY CANDLE</Text>
 
-                    <Text style={styles.primaryText}>
-                        {streakCount === 0 ? 'Fresh Start' : `${streakCount} ${streakCount === 1 ? 'day' : 'days'}`}
+                    <Text style={[styles.primaryText, streakDays === 0 ? styles.primaryTextSmall : null]}>
+                        {primaryLabel}
                     </Text>
 
-                    {isPro && streakCount > 0 && (
-                        <Text style={styles.phaseLine}>Phase: {phase}</Text>
-                    )}
-
                     <Text style={styles.supportCopy}>
-                        {streakCount === 0
-                            ? 'A fresh moment to return.'
-                            : isPro
-                                ? 'Your pattern is strengthening.'
-                                : 'Consistency compounds quietly.'}
+                        {hasStabilizedToday
+                            ? 'Flame lit today.'
+                            : 'Keep the flame lit with a 30s return.'}
                     </Text>
 
                     <View style={styles.microFeedbackContainer}>
                         <Text style={styles.microFeedback}>
-                            {streakCount === 0
-                                ? 'Every ritual begins with a single return.'
-                                : isPro
-                                    ? 'You usually practice in the evening. Welcome back.'
-                                    : `You've returned for ${streakCount} ${streakCount === 1 ? 'day' : 'days'} in a row.`}
+                            {hasStabilizedToday
+                                ? 'Return complete. Hold what matters.'
+                                : 'A single return is enough.'}
                         </Text>
                     </View>
                 </View>
@@ -91,11 +79,8 @@ const styles = StyleSheet.create({
         color: colors.gold,
         marginBottom: spacing.xs,
     },
-    phaseLine: {
-        fontSize: 14,
-        fontFamily: typography.fonts.bodyBold,
-        color: colors.bone,
-        marginBottom: spacing.sm,
+    primaryTextSmall: {
+        fontSize: 34,
     },
     supportCopy: {
         fontSize: 14,
