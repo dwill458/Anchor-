@@ -1,8 +1,8 @@
 /**
  * RitualRail
  *
- * Left-side vertical step indicator for the Burn & Release 3-step ceremony.
- * Reflect → Confirm → Release with animated gold dots.
+ * Left-side vertical step indicator for the Burn & Release 2-step ceremony.
+ * Reflect → Release with animated gold dots.
  */
 
 import React, { useEffect } from 'react';
@@ -16,7 +16,7 @@ import Animated, {
 } from 'react-native-reanimated';
 import { colors, spacing, typography } from '@/theme';
 
-export type RitualRailStep = 'reflect' | 'confirm' | 'release';
+export type RitualRailStep = 'reflect' | 'release';
 
 export interface RitualRailProps {
   currentStep: RitualRailStep;
@@ -24,14 +24,12 @@ export interface RitualRailProps {
 
 const STEPS: { key: RitualRailStep; label: string }[] = [
   { key: 'reflect', label: 'Reflect' },
-  { key: 'confirm', label: 'Confirm' },
   { key: 'release', label: 'Release' },
 ];
 
 const STEP_ORDER: Record<RitualRailStep, number> = {
   reflect: 0,
-  confirm: 1,
-  release: 2,
+  release: 1,
 };
 
 type StepStatus = 'completed' | 'active' | 'pending';

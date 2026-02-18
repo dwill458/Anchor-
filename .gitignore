@@ -88,8 +88,10 @@ frontend/android/app/build/
 # ----------------------------------------------------------------------------
 # Prisma
 # ----------------------------------------------------------------------------
-backend/prisma/migrations/
+backend/prisma/migrations/*
 !backend/prisma/migrations/.gitkeep
+!backend/prisma/migrations/20260213000000_add_stabilize_stats/
+!backend/prisma/migrations/20260213000000_add_stabilize_stats/**
 
 # ----------------------------------------------------------------------------
 # Temporary Files
@@ -104,6 +106,7 @@ temp/
 # ----------------------------------------------------------------------------
 logs
 *.log
+backend/*_backend_log.txt
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*

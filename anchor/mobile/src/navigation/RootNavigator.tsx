@@ -11,7 +11,7 @@
  */
 
 import React from 'react';
-import { createStackNavigator } from '@react-navigation/stack';
+import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { OnboardingNavigator } from './OnboardingNavigator';
 import { MainTabNavigator } from './MainTabNavigator';
 import { ProfileStackNavigator } from './ProfileStackNavigator';
@@ -23,7 +23,7 @@ export type RootNavigatorParamList = {
   Main: undefined;
 } & ProfileStackParamList; // Merge ProfileStack routes into root
 
-const Stack = createStackNavigator<RootNavigatorParamList>();
+const Stack = createNativeStackNavigator<RootNavigatorParamList>();
 
 export const RootNavigator: React.FC = () => {
   const { hasCompletedOnboarding } = useAuthStore();
@@ -40,7 +40,10 @@ export const RootNavigator: React.FC = () => {
             name="Settings"
             component={ProfileStackNavigator}
             options={{
-              presentation: 'modal',
+              presentation: 'transparentModal',
+              animation: 'none',
+              gestureEnabled: false,
+              contentStyle: { backgroundColor: 'transparent' },
             }}
           />
         </>

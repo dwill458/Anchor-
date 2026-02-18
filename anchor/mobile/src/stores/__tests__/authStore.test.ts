@@ -25,6 +25,8 @@ describe('authStore', () => {
     totalActivations: 0,
     currentStreak: 0,
     longestStreak: 0,
+    stabilizesTotal: 0,
+    stabilizeStreakDays: 0,
     createdAt: new Date(),
     ...overrides,
   });

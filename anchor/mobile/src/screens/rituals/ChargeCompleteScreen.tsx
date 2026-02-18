@@ -1,10 +1,12 @@
 /**
  * Anchor App - Charge Complete Screen
  *
- * Completion screen after successful charging ritual.
+ * Completion screen after successful charging / reinforce ritual.
+ * Shows CompletionModal first for one-word reflection, then reveals
+ * the standard vault/activate CTAs.
  */
 
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   View,
   Text,
@@ -18,12 +20,15 @@ import { StackNavigationProp } from '@react-navigation/stack';
 import { SvgXml } from 'react-native-svg';
 import * as Haptics from 'expo-haptics';
 import { useAnchorStore } from '@/stores/anchorStore';
+import { useSessionStore } from '@/stores/sessionStore';
+import { useSettingsStore } from '@/stores/settingsStore';
 import type { RootStackParamList } from '@/types';
 import { colors, spacing, typography } from '@/theme';
 import { OptimizedImage, PremiumAnchorGlow } from '@/components/common';
 import { useReduceMotionEnabled } from '@/hooks/useReduceMotionEnabled';
 import { RitualScaffold } from './components/RitualScaffold';
 import { InstructionGlassCard } from './components/InstructionGlassCard';
+import { CompletionModal } from './components/CompletionModal';
 
 const { width } = Dimensions.get('window');
 const SYMBOL_SIZE = Math.min(width * 0.42, 180);
@@ -37,17 +42,26 @@ type ChargeCompleteNavigationProp = StackNavigationProp<
 export const ChargeCompleteScreen: React.FC = () => {
   const navigation = useNavigation<ChargeCompleteNavigationProp>();
   const route = useRoute<ChargeCompleteRouteProp>();
-  const { anchorId } = route.params;
+  const { anchorId, returnTo } = route.params;
 
   const { getAnchorById } = useAnchorStore();
+  const { recordSession } = useSessionStore();
+  const { defaultCharge } = useSettingsStore();
   const reduceMotionEnabled = useReduceMotionEnabled();
   const anchor = getAnchorById(anchorId);
+
+  // Show CompletionModal first before the vault/activate CTAs
+  const [completionDone, setCompletionDone] = useState(false);
+  const [showCompletion, setShowCompletion] = useState(true);
 
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const scaleAnim = useRef(new Animated.Value(0.95)).current;
   const glowAnim = useRef(new Animated.Value(0)).current;
 
+  // Only start the main screen animation after reflection is done
   useEffect(() => {
+    if (!completionDone) return;
+
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
 
     Animated.parallel([
@@ -82,11 +96,18 @@ export const ChargeCompleteScreen: React.FC = () => {
     loop.start();
 
     return () => loop.stop();
-  }, [fadeAnim, scaleAnim, glowAnim]);
+  }, [completionDone, fadeAnim, scaleAnim, glowAnim]);
 
   const handleSaveToVault = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    navigation.navigate('Vault');
+    if (returnTo === 'practice') {
+      const tabNav = navigation.getParent?.() as any;
+      tabNav?.navigate('Practice');
+    } else if (returnTo === 'detail') {
+      navigation.navigate('AnchorDetail', { anchorId });
+    } else {
+      navigation.navigate('Vault');
+    }
   };
 
   const handleActivateNow = () => {
@@ -95,6 +116,27 @@ export const ChargeCompleteScreen: React.FC = () => {
       anchorId,
       activationType: 'visual',
     });
+  };
+
+  const handleCompletionDone = (reflectionWord?: string) => {
+    // Derive reinforce duration from defaultCharge preset
+    const presetSeconds: Record<string, number> = {
+      '30s': 30, '1m': 60, '2m': 120, '5m': 300, '10m': 600, '20m': 1200,
+      custom: (defaultCharge.customMinutes ?? 5) * 60,
+    };
+    const durationSeconds = presetSeconds[defaultCharge.preset] ?? 300;
+
+    recordSession({
+      anchorId,
+      type: 'reinforce',
+      durationSeconds,
+      mode: defaultCharge.mode === 'ritual' ? 'mantra' : 'silent',
+      reflectionWord,
+      completedAt: new Date().toISOString(),
+    });
+
+    setShowCompletion(false);
+    setCompletionDone(true);
   };
 
   if (!anchor) {
@@ -114,64 +156,76 @@ export const ChargeCompleteScreen: React.FC = () => {
   const symbolSvg = anchor.reinforcedSigilSvg || anchor.baseSigilSvg;
 
   return (
-    <RitualScaffold>
-      <Animated.View
-        style={[
-          styles.content,
-          { opacity: fadeAnim, transform: [{ scale: scaleAnim }] },
-        ]}
-      >
-        <View style={styles.iconContainer}>
-          <Text style={styles.checkIcon}>✓</Text>
-        </View>
-
-        <Text style={styles.statusTitle}>Anchor Charged</Text>
-        <Text style={styles.statusSubtitle}>Your intention is locked in</Text>
-
-        <Animated.View style={[styles.symbolWrapper, { opacity: glowOpacity }]}>
-          <PremiumAnchorGlow
-            size={SYMBOL_SIZE}
-            state="charged"
-            variant="ritual"
-            reduceMotionEnabled={reduceMotionEnabled}
-          />
-          {anchor.enhancedImageUrl ? (
-            <OptimizedImage
-              uri={anchor.enhancedImageUrl}
-              style={styles.symbolImage}
-              resizeMode="cover"
-            />
-          ) : (
-            <SvgXml xml={symbolSvg} width={SYMBOL_SIZE} height={SYMBOL_SIZE} />
-          )}
-        </Animated.View>
-
-        <View style={styles.intentionWrap}>
-          <InstructionGlassCard text={`"${anchor.intentionText}"`} />
-        </View>
-
-        <View style={styles.ctaSection}>
-          <TouchableOpacity
-            style={styles.primaryButton}
-            onPress={handleSaveToVault}
-            accessibilityRole="button"
-            accessibilityLabel="Save to Vault"
+    <>
+      <RitualScaffold>
+        {completionDone && (
+          <Animated.View
+            style={[
+              styles.content,
+              { opacity: fadeAnim, transform: [{ scale: scaleAnim }] },
+            ]}
           >
-            <Text style={styles.primaryButtonText}>Save to Vault</Text>
-          </TouchableOpacity>
+            <View style={styles.iconContainer}>
+              <Text style={styles.checkIcon}>✓</Text>
+            </View>
 
-          <TouchableOpacity
-            style={styles.secondaryButton}
-            onPress={handleActivateNow}
-            activeOpacity={0.75}
-            accessibilityRole="button"
-            accessibilityLabel="Activate Now"
-          >
-            <Text style={styles.secondaryButtonText}>Activate Now</Text>
-          </TouchableOpacity>
-        </View>
-      </Animated.View>
-    </RitualScaffold>
+            <Text style={styles.statusTitle}>Imprint strengthened.</Text>
+            <Text style={styles.statusSubtitle}>Your imprint deepens.</Text>
+
+            <Animated.View style={[styles.symbolWrapper, { opacity: glowOpacity }]}>
+              <PremiumAnchorGlow
+                size={SYMBOL_SIZE}
+                state="charged"
+                variant="ritual"
+                reduceMotionEnabled={reduceMotionEnabled}
+              />
+              {anchor.enhancedImageUrl ? (
+                <OptimizedImage
+                  uri={anchor.enhancedImageUrl}
+                  style={styles.symbolImage}
+                  resizeMode="cover"
+                />
+              ) : (
+                <SvgXml xml={symbolSvg} width={SYMBOL_SIZE} height={SYMBOL_SIZE} />
+              )}
+            </Animated.View>
+
+            <View style={styles.intentionWrap}>
+              <InstructionGlassCard text={`"${anchor.intentionText}"`} />
+            </View>
+
+            <View style={styles.ctaSection}>
+              <TouchableOpacity
+                style={styles.primaryButton}
+                onPress={handleSaveToVault}
+                accessibilityRole="button"
+                accessibilityLabel="Save to Vault"
+              >
+                <Text style={styles.primaryButtonText}>Save to Vault</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={styles.secondaryButton}
+                onPress={handleActivateNow}
+                activeOpacity={0.75}
+                accessibilityRole="button"
+                accessibilityLabel="Activate Now"
+              >
+                <Text style={styles.secondaryButtonText}>Activate Now</Text>
+              </TouchableOpacity>
+            </View>
+          </Animated.View>
+        )}
+      </RitualScaffold>
+
+      {/* CompletionModal shows first before the vault CTAs */}
+      <CompletionModal
+        visible={showCompletion}
+        sessionType="reinforce"
+        anchor={anchor}
+        onDone={handleCompletionDone}
+      />
+    </>
   );
 };
 
@@ -202,7 +256,7 @@ const styles = StyleSheet.create({
   statusTitle: {
     fontSize: typography.sizes.h2,
     fontFamily: typography.fonts.heading,
-    color: colors.gold,
+    color: colors.bone,
     marginBottom: spacing.xs,
     textAlign: 'center',
   },

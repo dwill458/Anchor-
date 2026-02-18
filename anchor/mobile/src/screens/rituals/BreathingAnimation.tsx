@@ -51,7 +51,7 @@ const EXHALE_DURATION = 1500; // 1.5 seconds exhale
 export const BreathingAnimation: React.FC = () => {
   const navigation = useNavigation<BreathingAnimationNavigationProp>();
   const route = useRoute<BreathingAnimationRouteProp>();
-  const { source, anchorId, mode, duration } = route.params || {};
+  const { source, anchorId, mode, duration, returnTo } = route.params || {};
 
   const [isComplete, setIsComplete] = useState(false);
   const [instructionText, setInstructionText] = useState('Breathe in...');
@@ -124,6 +124,7 @@ export const BreathingAnimation: React.FC = () => {
               anchorId,
               ritualType: mode as 'focus' | 'ritual' | 'quick' | 'deep',
               durationSeconds: duration,
+              returnTo,
             });
           } else {
             navigation.goBack();

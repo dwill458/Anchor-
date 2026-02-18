@@ -292,7 +292,7 @@ export const VaultScreen: React.FC = () => {
               style={styles.fabGradient}
             >
               <Plus color={colors.charcoal} size={20} style={styles.fabIcon} />
-              <Text style={styles.fabText}>Forge Anchor</Text>
+              <Text style={styles.fabText} numberOfLines={1}>Forge Anchor</Text>
             </LinearGradient>
           </TouchableOpacity>
         )}
@@ -362,6 +362,7 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.5,
     shadowRadius: 10,
     overflow: 'hidden',
+    minWidth: 164,
   },
   fabGradient: {
     flex: 1,

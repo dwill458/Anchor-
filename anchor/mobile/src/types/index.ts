@@ -549,24 +549,31 @@ export type RootStackParamList = {
   // ═══════════════════════════════════════════════════
 
   // Zen Architect Ritual Flow (Phase 2.7)
-  ChargeSetup: { anchorId: string };
+  ChargeSetup: { anchorId: string; returnTo?: 'vault' | 'practice' | 'detail' };
   BreathingAnimation: {
     source?: 'charge' | 'practice';
     anchorId?: string;
     mode?: string;
     duration?: number;
+    returnTo?: 'vault' | 'practice' | 'detail';
   };
   Ritual: {
     anchorId: string;
     ritualType: 'focus' | 'ritual' | 'quick' | 'deep'; // Legacy types for compatibility
     durationSeconds?: number; // Optional custom duration for focus/ritual modes
     mantraAudioEnabled?: boolean;
+    returnTo?: 'vault' | 'practice' | 'detail';
   };
-  SealAnchor: { anchorId: string };
-  ChargeComplete: { anchorId: string };
+  SealAnchor: { anchorId: string; returnTo?: 'vault' | 'practice' | 'detail' };
+  ChargeComplete: { anchorId: string; returnTo?: 'vault' | 'practice' | 'detail' };
 
   // Activation
-  ActivationRitual: { anchorId: string; activationType: ActivationType };
+  ActivationRitual: {
+    anchorId: string;
+    activationType: ActivationType;
+    durationOverride?: number;
+    returnTo?: 'vault' | 'practice' | 'detail';
+  };
 
   // Phase 3: Burning Ritual
   ConfirmBurn: {

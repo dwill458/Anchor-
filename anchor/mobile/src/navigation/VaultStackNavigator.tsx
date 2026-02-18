@@ -5,8 +5,8 @@
  */
 
 import React from 'react';
-import { createStackNavigator } from '@react-navigation/stack';
-import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import { Platform } from 'react-native';
+import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { VaultScreen, AnchorDetailScreen } from '../screens/vault';
 import {
   IntentionInputScreen,
@@ -34,14 +34,13 @@ import {
 } from '../screens/rituals';
 import { SettingsScreen, DefaultChargeSettings, DefaultActivationSettings, DailyPracticeGoalScreen } from '../screens/profile';
 import { SettingsButton } from '../components/header/SettingsButton';
+import { TabSlideWrapper } from '../components/transitions';
 import type { RootStackParamList } from '@/types';
 import { colors } from '@/theme';
 import { useAuthStore } from '@/stores/authStore';
 
-const Stack = createStackNavigator<RootStackParamList>();
-
-// Navigation type for accessing Settings from header
-type RootNavigationProp = NativeStackNavigationProp<RootStackParamList>;
+const Stack = createNativeStackNavigator<RootStackParamList>();
+const VAULT_TAB_INDEX = 0;
 
 export const VaultStackNavigator: React.FC = () => {
   // Determine which intention screen to show
@@ -52,25 +51,27 @@ export const VaultStackNavigator: React.FC = () => {
     : ReturningIntentionScreen;
 
   return (
-    <Stack.Navigator
-      detachInactiveScreens={true}
-      screenOptions={{
-        headerShown: true,
-        headerStyle: {
-          backgroundColor: colors.background.secondary,
-        },
-        headerTintColor: colors.gold,
-        headerTitleStyle: {
-          fontFamily: 'Cinzel-Regular',
-          fontSize: 18,
-        },
-        cardStyle: { backgroundColor: colors.background.primary },
-      }}
-    >
+    <TabSlideWrapper tabIndex={VAULT_TAB_INDEX}>
+      <Stack.Navigator
+        screenOptions={{
+          headerShown: true,
+          animation: 'slide_from_right',
+          gestureEnabled: Platform.OS === 'ios',
+          headerStyle: {
+            backgroundColor: colors.background.secondary,
+          },
+          headerTintColor: colors.gold,
+          headerTitleStyle: {
+            fontFamily: 'Cinzel-Regular',
+            fontSize: 18,
+          },
+          contentStyle: { backgroundColor: colors.background.primary },
+        }}
+      >
       <Stack.Screen
         name="Vault"
         component={VaultScreen}
-        options={({ navigation }) => ({
+        options={() => ({
           headerShown: true,
           headerStyle: {
             backgroundColor: colors.background.primary,
@@ -83,14 +84,7 @@ export const VaultStackNavigator: React.FC = () => {
             fontWeight: '600',
             fontSize: 18,
           },
-          headerRight: () => {
-            const nav = navigation as unknown as RootNavigationProp;
-            return (
-              <SettingsButton
-                onPress={() => (navigation as any).getParent()?.getParent()?.navigate('Settings')}
-              />
-            );
-          },
+          headerRight: () => <SettingsButton />,
         })}
       />
       <Stack.Screen
@@ -205,7 +199,7 @@ export const VaultStackNavigator: React.FC = () => {
       <Stack.Screen
         name="ConfirmBurn"
         component={ConfirmBurnScreen}
-        options={{ title: '🔥 Burn & Release' }}
+        options={{ title: 'Burn & Release' }}
       />
       <Stack.Screen
         name="BurningRitual"
@@ -254,6 +248,7 @@ export const VaultStackNavigator: React.FC = () => {
           headerTintColor: colors.gold,
         }}
       />
-    </Stack.Navigator>
+      </Stack.Navigator>
+    </TabSlideWrapper>
   );
 };

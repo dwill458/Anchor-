@@ -4,32 +4,81 @@
  * Bottom tab navigation with glassmorphic design
  * Three tabs: Sanctuary, Practice, Discover
  * Profile accessible via top-right avatar on all screens
+ *
+ * Uses native tab switching with custom tab bar styling and press feedback.
  */
 
 import React from 'react';
-import { View, StyleSheet, Platform } from 'react-native';
+import { View, StyleSheet, Platform, Pressable, type GestureResponderEvent } from 'react-native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { LinearGradient } from 'expo-linear-gradient';
 import { BlurView } from 'expo-blur';
 import { Home, Compass, Zap } from 'lucide-react-native';
 import { getFocusedRouteNameFromRoute } from '@react-navigation/native';
-import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { VaultStackNavigator } from './VaultStackNavigator';
 import { DiscoverScreen } from '../screens/discover';
 import { PracticeStackNavigator } from './PracticeStackNavigator';
 import { SettingsButton } from '../components/header/SettingsButton';
-import type { MainTabParamList, RootStackParamList } from '@/types';
+import type { MainTabParamList } from '@/types';
 import { colors } from '@/theme';
 import { useSettingsStore } from '@/stores/settingsStore';
 import { useAnchorStore } from '@/stores/anchorStore';
 import { useEffect, useRef } from 'react';
 import { useNavigation } from '@react-navigation/native';
-import { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
+import { BottomTabNavigationProp, type BottomTabBarButtonProps } from '@react-navigation/bottom-tabs';
+import Animated, {
+  useSharedValue,
+  useAnimatedStyle,
+  withTiming,
+} from 'react-native-reanimated';
+import * as Haptics from 'expo-haptics';
+import { safeHaptics } from '@/utils/haptics';
 
 const Tab = createBottomTabNavigator<MainTabParamList>();
 
-// Navigation hook type for accessing RootStack (Settings modal)
-type RootNavigationProp = NativeStackNavigationProp<RootStackParamList>;
+/**
+ * SlideTabButton
+ *
+ * Custom tab button with lightweight press scale animation.
+ */
+const SlideTabButton: React.FC<BottomTabBarButtonProps> = (props) => {
+  const scale = useSharedValue(1);
+
+  const animatedStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: scale.value }],
+  }));
+
+  const handlePressIn = () => {
+    scale.value = withTiming(0.92, { duration: 100 });
+    safeHaptics.impact(Haptics.ImpactFeedbackStyle.Light);
+  };
+
+  const handlePressOut = () => {
+    scale.value = withTiming(1, { duration: 220 });
+  };
+
+  const handlePress = (event: GestureResponderEvent) => {
+    props.onPress?.(event);
+  };
+
+  return (
+    <Pressable
+      onPressIn={handlePressIn}
+      onPressOut={handlePressOut}
+      onPress={handlePress}
+      onLongPress={props.onLongPress}
+      style={props.style}
+      accessibilityRole="button"
+    >
+      <Animated.View style={animatedStyle}>
+        {props.children}
+      </Animated.View>
+    </Pressable>
+  );
+};
+
+// PracticeTabButton is now SlideTabButton (same behavior)
+const PracticeTabButton = SlideTabButton;
 
 export const MainTabNavigator: React.FC = () => {
   const navigation = useNavigation<BottomTabNavigationProp<MainTabParamList>>();
@@ -52,9 +101,10 @@ export const MainTabNavigator: React.FC = () => {
   }, []);
 
   return (
+    <View style={{ flex: 1 }}>
     <Tab.Navigator
-      detachInactiveScreens
-      sceneContainerStyle={{ backgroundColor: 'transparent' }}
+      detachInactiveScreens={false}
+      sceneContainerStyle={{ backgroundColor: colors.background.primary }}
       screenOptions={{
         headerShown: false,
         tabBarStyle: {
@@ -127,6 +177,7 @@ export const MainTabNavigator: React.FC = () => {
                 <Home color={color} size={24} />
               </View>
             ),
+            tabBarButton: SlideTabButton,
             ...(isTabBarVisible ? {} : { tabBarStyle: { display: 'none' } }),
           };
         }}
@@ -142,6 +193,7 @@ export const MainTabNavigator: React.FC = () => {
             headerShown: false,
             tabBarLabel: 'Practice',
             tabBarIcon: ({ color }) => <Zap color={color} size={24} />,
+            tabBarButton: PracticeTabButton,
             ...(isTabBarVisible ? {} : { tabBarStyle: { display: 'none' } }),
           };
         }}
@@ -149,7 +201,7 @@ export const MainTabNavigator: React.FC = () => {
       <Tab.Screen
         name="Discover"
         component={DiscoverScreen}
-        options={({ navigation }) => ({
+        options={() => ({
           headerShown: true,
           headerStyle: {
             backgroundColor: colors.background.primary,
@@ -162,19 +214,13 @@ export const MainTabNavigator: React.FC = () => {
             fontSize: 18,
           },
           headerTitle: 'Discover',
-          headerRight: () => {
-            const nav = (navigation as any).getParent();
-            return (
-              <SettingsButton
-                onPress={() => nav?.navigate('Settings')}
-              />
-            );
-          },
+          headerRight: () => <SettingsButton />,
           tabBarLabel: 'Discover',
           tabBarIcon: ({ color, size }) => <Compass color={color} size={24} />,
         })}
       />
     </Tab.Navigator>
+    </View>
   );
 };
 

@@ -1,7 +1,7 @@
 /**
  * Anchor App - Burn & Release Ceremony Screen
  *
- * 3-step ritual flow: Reflect → Confirm → Release
+ * 2-step ritual flow: Reflect → Release
  * Premium glassmorphic design, Zen Architect theme.
  */
 
@@ -11,7 +11,7 @@ import {
   Text,
   StyleSheet,
   Dimensions,
-  Platform,
+  Keyboard,
   TouchableOpacity,
   ScrollView,
 } from 'react-native';
@@ -19,7 +19,6 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { RouteProp, useRoute, useNavigation } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { SvgXml } from 'react-native-svg';
-import { BlurView } from 'expo-blur';
 import * as Haptics from 'expo-haptics';
 import Animated, {
   useSharedValue,
@@ -29,6 +28,7 @@ import Animated, {
   withTiming,
   Easing,
   useReducedMotion,
+  runOnJS,
 } from 'react-native-reanimated';
 import { colors, typography, spacing } from '@/theme';
 import { RootStackParamList } from '@/types';
@@ -38,7 +38,6 @@ import { OptimizedImage } from '@/components/common/OptimizedImage';
 import { PremiumAnchorGlow } from '@/components/common';
 import { safeHaptics } from '@/utils/haptics';
 import { RitualRail, RitualRailStep } from './components/RitualRail';
-import { ConfirmModal } from './components/ConfirmModal';
 import { ReleaseInput } from './components/ReleaseInput';
 
 type ConfirmBurnRouteProp = RouteProp<RootStackParamList, 'ConfirmBurn'>;
@@ -48,7 +47,7 @@ const { width, height: SCREEN_HEIGHT } = Dimensions.get('window');
 const ANCHOR_SIZE = width * 0.42;
 const IS_SMALL_DEVICE = SCREEN_HEIGHT < 700;
 
-type BurnStep = 'reflect' | 'confirm' | 'release';
+type BurnStep = 'reflect' | 'release';
 
 export const ConfirmBurnScreen: React.FC = () => {
   const route = useRoute<ConfirmBurnRouteProp>();
@@ -59,12 +58,9 @@ export const ConfirmBurnScreen: React.FC = () => {
 
   // ── Step state ──
   const [currentStep, setCurrentStep] = useState<BurnStep>('reflect');
-  const [confirmModalVisible, setConfirmModalVisible] = useState(false);
-  const [isComplete, setIsComplete] = useState(false);
   const [releaseText, setReleaseText] = useState('');
 
-  const isStep2Enabled = isComplete;
-  const isStep3Enabled = releaseText === 'RELEASE';
+  const isReleaseLocked = releaseText === 'RELEASE';
 
   // ── Animation values ──
   const screenOpacity = useSharedValue(0);
@@ -94,51 +90,40 @@ export const ConfirmBurnScreen: React.FC = () => {
   // ── Step transition ──
   const pendingStepRef = useRef<BurnStep | null>(null);
 
+  const applyPendingStep = () => {
+    if (pendingStepRef.current) {
+      setCurrentStep(pendingStepRef.current);
+      pendingStepRef.current = null;
+    }
+    stepOpacity.value = withTiming(1, { duration: 200 });
+  };
+
   const transitionToStep = (nextStep: BurnStep) => {
     if (reducedMotion) {
       setCurrentStep(nextStep);
       return;
     }
     pendingStepRef.current = nextStep;
-    stepOpacity.value = withTiming(0, { duration: 150 });
-    setTimeout(() => {
-      if (pendingStepRef.current) {
-        setCurrentStep(pendingStepRef.current);
-        pendingStepRef.current = null;
-      }
-      stepOpacity.value = withTiming(1, { duration: 200 });
-    }, 160);
+    stepOpacity.value = withTiming(0, { duration: 150 }, () => {
+      runOnJS(applyPendingStep)();
+    });
   };
 
   // ── Handlers ──
-  const handleBeginRelease = () => {
-    void safeHaptics.impact(Haptics.ImpactFeedbackStyle.Light);
-    setConfirmModalVisible(true);
-  };
-
-  const handleModalContinue = () => {
-    setConfirmModalVisible(false);
-    transitionToStep('confirm');
-  };
-
-  const handleModalDismiss = () => {
-    setConfirmModalVisible(false);
-  };
-
-  const handleCheckboxToggle = () => {
-    void safeHaptics.impact(Haptics.ImpactFeedbackStyle.Light);
-    setIsComplete(prev => !prev);
-  };
-
   const handleAdvanceToRelease = () => {
-    if (!isStep2Enabled) return;
     void safeHaptics.impact(Haptics.ImpactFeedbackStyle.Light);
     transitionToStep('release');
   };
 
+  const handleNotYet = () => {
+    void safeHaptics.impact(Haptics.ImpactFeedbackStyle.Light);
+    transitionToStep('reflect');
+  };
+
   const handleFinalBurn = () => {
-    if (!isStep3Enabled) return;
+    if (!isReleaseLocked) return;
     void safeHaptics.impact(Haptics.ImpactFeedbackStyle.Medium);
+    Keyboard.dismiss();
 
     AnalyticsService.track(AnalyticsEvents.BURN_INITIATED, {
       anchor_id: anchorId,
@@ -158,23 +143,9 @@ export const ConfirmBurnScreen: React.FC = () => {
   };
 
   // ── CTA config per step ──
-  const ctaLabel = currentStep === 'reflect'
-    ? 'Begin Release'
-    : currentStep === 'confirm'
-    ? 'Continue'
-    : 'Burn Now';
-
-  const ctaDisabled = currentStep === 'confirm'
-    ? !isStep2Enabled
-    : currentStep === 'release'
-    ? !isStep3Enabled
-    : false;
-
-  const handleCta = currentStep === 'reflect'
-    ? handleBeginRelease
-    : currentStep === 'confirm'
-    ? handleAdvanceToRelease
-    : handleFinalBurn;
+  const ctaLabel = currentStep === 'reflect' ? 'Continue' : 'Burn Now';
+  const ctaDisabled = currentStep === 'release' && !isReleaseLocked;
+  const handleCta = currentStep === 'reflect' ? handleAdvanceToRelease : handleFinalBurn;
 
   return (
     <SafeAreaView style={styles.container} edges={['bottom']}>
@@ -192,7 +163,6 @@ export const ConfirmBurnScreen: React.FC = () => {
             bounces={false}
           >
             {currentStep === 'reflect' && renderReflectStep()}
-            {currentStep === 'confirm' && renderConfirmStep()}
             {currentStep === 'release' && renderReleaseStep()}
           </ScrollView>
         </Animated.View>
@@ -210,19 +180,20 @@ export const ConfirmBurnScreen: React.FC = () => {
           >
             <Text style={styles.primaryButtonText}>{ctaLabel}</Text>
           </TouchableOpacity>
+
+          {currentStep === 'release' && (
+            <TouchableOpacity
+              onPress={handleNotYet}
+              style={styles.secondaryButton}
+              activeOpacity={0.7}
+              accessibilityRole="button"
+              accessibilityLabel="Not yet, go back"
+            >
+              <Text style={styles.secondaryButtonText}>Not yet</Text>
+            </TouchableOpacity>
+          )}
         </View>
       </Animated.View>
-
-      {/* Confirm modal */}
-      <ConfirmModal
-        visible={confirmModalVisible}
-        title="Burn & Release"
-        body="This closes the loop. You won't be able to reactivate this anchor after release."
-        primaryCtaLabel="Continue"
-        secondaryCtaLabel="Not yet"
-        onPrimary={handleModalContinue}
-        onSecondary={handleModalDismiss}
-      />
     </SafeAreaView>
   );
 
@@ -231,7 +202,7 @@ export const ConfirmBurnScreen: React.FC = () => {
   function renderReflectStep() {
     return (
       <View style={styles.reflectContainer}>
-        <Text style={styles.stepChip}>Reflect</Text>
+        <Text style={styles.stepChip}>Burn & Release</Text>
         <Text style={styles.completedLabel}>Completed intention</Text>
 
         {/* Sigil with glow + float animation */}
@@ -257,51 +228,9 @@ export const ConfirmBurnScreen: React.FC = () => {
           </View>
         </Animated.View>
 
-        {/* No quotation marks around intention */}
         <Text style={styles.intentionText}>{intention}</Text>
-      </View>
-    );
-  }
-
-  function renderConfirmStep() {
-    return (
-      <View style={styles.confirmContainer}>
-        <View style={styles.cardContainer}>
-          {Platform.OS === 'ios' ? (
-            <BlurView intensity={20} tint="dark" style={styles.glassCard}>
-              {renderWhyReleaseContent()}
-            </BlurView>
-          ) : (
-            <View style={[styles.glassCard, styles.androidCard]}>
-              {renderWhyReleaseContent()}
-            </View>
-          )}
-        </View>
-
-        <TouchableOpacity
-          style={styles.checkboxRow}
-          onPress={handleCheckboxToggle}
-          activeOpacity={0.8}
-          accessibilityRole="checkbox"
-          accessibilityState={{ checked: isComplete }}
-          accessibilityLabel="This anchor is complete"
-        >
-          <View style={[styles.checkbox, isComplete && styles.checkboxChecked]}>
-            {isComplete && <Text style={styles.checkmark}>✓</Text>}
-          </View>
-          <Text style={styles.checkboxLabel}>This anchor is complete</Text>
-        </TouchableOpacity>
-      </View>
-    );
-  }
-
-  function renderWhyReleaseContent() {
-    return (
-      <View style={styles.cardContent}>
-        <Text style={styles.cardTitle}>Why release?</Text>
-        <Text style={styles.cardBody}>
-          Releasing an anchor marks it complete and closed. What you set in motion has
-          run its course — let it go so new intentions can take root.
+        <Text style={styles.ritualCopy}>
+          If this work is complete, release the symbol.
         </Text>
       </View>
     );
@@ -310,7 +239,10 @@ export const ConfirmBurnScreen: React.FC = () => {
   function renderReleaseStep() {
     return (
       <View style={styles.releaseContainer}>
-        <Text style={styles.releaseTitle}>Final Confirmation</Text>
+        <Text style={styles.releaseTitle}>Final Seal</Text>
+        <Text style={styles.releaseExplanation}>
+          Typing RELEASE closes the loop permanently.
+        </Text>
         <ReleaseInput
           value={releaseText}
           onChangeText={setReleaseText}
@@ -399,82 +331,21 @@ const styles = StyleSheet.create({
   intentionText: {
     fontFamily: typography.fonts.body,
     fontSize: typography.sizes.body1,
-    color: colors.text.secondary,
+    color: colors.bone,
     textAlign: 'center',
-    opacity: 0.85,
     lineHeight: 24,
     paddingHorizontal: spacing.md,
+    marginBottom: spacing.md,
   },
-
-  // ── Confirm step ──
-  confirmContainer: {
-    flex: 1,
-    paddingTop: spacing.md,
-  },
-  cardContainer: {
-    width: '100%',
-    marginBottom: spacing.xl,
-    borderRadius: 20,
-    overflow: 'hidden',
-  },
-  glassCard: {
-    borderRadius: 20,
-    overflow: 'hidden',
-    borderWidth: 1,
-    borderColor: colors.ritual.border,
-    backgroundColor: colors.ritual.glass,
-  },
-  androidCard: {
-    backgroundColor: colors.ritual.glassStrong,
-  },
-  cardContent: {
-    padding: spacing.xl,
-  },
-  cardTitle: {
-    fontFamily: typography.fonts.heading,
-    fontSize: typography.sizes.h3,
-    color: colors.gold,
-    marginBottom: spacing.sm,
-  },
-  cardBody: {
+  ritualCopy: {
     fontFamily: typography.fonts.body,
     fontSize: typography.sizes.body2,
-    color: colors.text.primary,
-    lineHeight: 22,
-  },
-  checkboxRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: spacing.md,
-    paddingHorizontal: spacing.sm,
-    gap: spacing.md,
-  },
-  checkbox: {
-    width: 22,
-    height: 22,
-    borderRadius: 6,
-    borderWidth: 1.5,
-    borderColor: colors.ritual.border,
-    backgroundColor: 'transparent',
-    alignItems: 'center',
-    justifyContent: 'center',
-    flexShrink: 0,
-  },
-  checkboxChecked: {
-    backgroundColor: colors.gold,
-    borderColor: colors.gold,
-  },
-  checkmark: {
-    fontSize: 13,
-    color: colors.background.primary,
-    fontWeight: '700',
-    lineHeight: 15,
-  },
-  checkboxLabel: {
-    fontFamily: typography.fonts.body,
-    fontSize: typography.sizes.body1,
-    color: colors.text.primary,
-    flex: 1,
+    color: colors.text.secondary,
+    textAlign: 'center',
+    fontStyle: 'italic',
+    opacity: 0.7,
+    paddingHorizontal: spacing.lg,
+    marginTop: spacing.sm,
   },
 
   // ── Release step ──
@@ -485,10 +356,18 @@ const styles = StyleSheet.create({
   releaseTitle: {
     fontFamily: typography.fonts.heading,
     fontSize: typography.sizes.h3,
-    color: colors.gold,
+    color: colors.bone,
     textAlign: 'center',
-    marginBottom: spacing.xl,
+    marginBottom: spacing.md,
     letterSpacing: 0.5,
+  },
+  releaseExplanation: {
+    fontFamily: typography.fonts.body,
+    fontSize: typography.sizes.body2,
+    color: colors.text.secondary,
+    textAlign: 'center',
+    marginBottom: spacing.lg,
+    lineHeight: 20,
   },
 
   // ── CTA ──
@@ -518,5 +397,15 @@ const styles = StyleSheet.create({
     color: colors.background.primary,
     fontWeight: '700',
     letterSpacing: 1,
+  },
+  secondaryButton: {
+    alignItems: 'center',
+    paddingVertical: spacing.md,
+    marginTop: spacing.xs,
+  },
+  secondaryButtonText: {
+    fontFamily: typography.fonts.body,
+    fontSize: typography.sizes.body2,
+    color: colors.text.tertiary,
   },
 });

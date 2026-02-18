@@ -542,4 +542,67 @@ router.post('/:id/activate', async (req: AuthRequest, res: Response) => {
   }
 });
 
+/**
+ * POST /api/anchors/:id/burn
+ *
+ * Archive an anchor and create a BurnedAnchor snapshot record.
+ * Atomic: both operations succeed or neither does.
+ */
+router.post('/:id/burn', async (req: AuthRequest, res: Response) => {
+  try {
+    if (!req.user) {
+      throw new AppError('User not authenticated', 401, 'UNAUTHORIZED');
+    }
+
+    const { id } = req.params;
+
+    const user = await prisma.user.findUnique({
+      where: { authUid: req.user.uid },
+    });
+
+    if (!user) {
+      throw new AppError('User not found', 404, 'USER_NOT_FOUND');
+    }
+
+    const anchor = await prisma.anchor.findFirst({
+      where: { id, userId: user.id },
+    });
+
+    if (!anchor) {
+      throw new AppError('Anchor not found', 404, 'ANCHOR_NOT_FOUND');
+    }
+
+    if (anchor.isArchived) {
+      throw new AppError('Anchor is already archived', 400, 'ALREADY_ARCHIVED');
+    }
+
+    await prisma.$transaction([
+      prisma.burnedAnchor.create({
+        data: {
+          originalAnchorId: anchor.id,
+          userId: user.id,
+          intentionText: anchor.intentionText,
+          category: anchor.category,
+          distilledLetters: [],
+          baseSigilSvg: anchor.baseSigilSvg,
+          enhancedImageUrl: anchor.enhancedImageUrl ?? null,
+          activationCount: anchor.activationCount,
+          createdAt: anchor.createdAt,
+        },
+      }),
+      prisma.anchor.update({
+        where: { id },
+        data: { isArchived: true, archivedAt: new Date() },
+      }),
+    ]);
+
+    res.json({ success: true, data: { burned: true } });
+  } catch (error) {
+    if (error instanceof AppError) {
+      throw error;
+    }
+    throw new AppError('Failed to burn anchor', 500, 'BURN_ERROR');
+  }
+});
+
 export default router;

@@ -172,6 +172,9 @@ describe('ActivationScreen', () => {
 
     fireEvent.press(getByTestId('focus-session-continue'));
 
+    // Now click Done in CompletionModal
+    fireEvent.press(getByTestId('completion-modal-done'));
+
     expect(mockGoBack).toHaveBeenCalled();
 
     await waitFor(() => expect(apiClient.post).toHaveBeenCalledWith(
@@ -188,6 +191,7 @@ describe('ActivationScreen', () => {
 
     await waitFor(() => expect(getByTestId('focus-session-continue')).toBeTruthy(), { timeout: 4000 });
     fireEvent.press(getByTestId('focus-session-continue'));
+    fireEvent.press(getByTestId('completion-modal-done'));
 
     expect(mockUpdateAnchor).toHaveBeenCalledWith('test-anchor-id', {
       activationCount: 1,
@@ -217,6 +221,7 @@ describe('ActivationScreen', () => {
 
     await waitFor(() => expect(getByTestId('focus-session-continue')).toBeTruthy(), { timeout: 4000 });
     fireEvent.press(getByTestId('focus-session-continue'));
+    fireEvent.press(getByTestId('completion-modal-done'));
 
     await waitFor(() => {
       expect(apiClient.post).toHaveBeenCalledWith(
@@ -241,6 +246,7 @@ describe('ActivationScreen', () => {
 
     await waitFor(() => expect(getByTestId('focus-session-continue')).toBeTruthy(), { timeout: 4000 });
     fireEvent.press(getByTestId('focus-session-continue'));
+    fireEvent.press(getByTestId('completion-modal-done'));
 
     await waitFor(() => {
       expect(apiClient.post).toHaveBeenCalledWith(
@@ -261,6 +267,7 @@ describe('ActivationScreen', () => {
 
     await waitFor(() => expect(getByTestId('focus-session-continue')).toBeTruthy(), { timeout: 4000 });
     fireEvent.press(getByTestId('focus-session-continue'));
+    fireEvent.press(getByTestId('completion-modal-done'));
 
     await waitFor(() => {
       expect(ErrorTrackingService.captureException).toHaveBeenCalledWith(

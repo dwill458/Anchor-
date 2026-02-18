@@ -38,6 +38,9 @@ const normalizeAnchor = (anchor: Anchor): Anchor => ({
 const normalizeUser = (user: User): User => ({
   ...user,
   createdAt: normalizeDate(user.createdAt) ?? new Date(),
+  stabilizesTotal: user.stabilizesTotal ?? 0,
+  stabilizeStreakDays: user.stabilizeStreakDays ?? 0,
+  lastStabilizeAt: normalizeDate(user.lastStabilizeAt),
 });
 
 const normalizeRedactedAnchor = (anchor: RedactedAnchor): RedactedAnchor => ({

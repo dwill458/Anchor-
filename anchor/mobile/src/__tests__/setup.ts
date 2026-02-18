@@ -47,6 +47,13 @@ jest.mock('expo-speech', () => ({
   isSpeakingAsync: jest.fn(() => Promise.resolve(false)),
 }));
 
+jest.mock('@shopify/react-native-skia', () => ({
+  Canvas: 'Canvas',
+  Circle: 'Circle',
+  Group: 'Group',
+  BlurMask: 'BlurMask',
+}));
+
 jest.mock('react-native-safe-area-context', () => ({
   SafeAreaView: 'SafeAreaView',
   SafeAreaProvider: ({ children }: any) => children,

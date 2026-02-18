@@ -12,6 +12,7 @@ import dotenv from 'dotenv';
 import authRoutes from './api/routes/auth';
 import anchorRoutes from './api/routes/anchors';
 import aiRoutes from './api/routes/ai';
+import practiceRoutes from './api/routes/practice';
 import { errorHandler, notFoundHandler } from './api/middleware/errorHandler';
 import { logger } from './utils/logger';
 import { env } from './config/env';
@@ -111,6 +112,9 @@ app.use('/api/auth', authRoutes);
 
 // Anchor routes
 app.use('/api/anchors', anchorRoutes);
+
+// Practice routes
+app.use('/api/practice', practiceRoutes);
 
 // AI Enhancement routes (Phase 2)
 app.use('/api/ai', aiRoutes);

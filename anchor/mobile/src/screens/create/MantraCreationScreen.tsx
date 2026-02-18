@@ -5,7 +5,7 @@
  * Redesigned as a ritual tuning moment focused on embodied resonance.
  */
 
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -145,7 +145,7 @@ export const MantraCreationScreen: React.FC = () => {
     category,
   } = route.params;
 
-  const { addAnchor } = useAnchorStore();
+  const { addAnchor, updateAnchor } = useAnchorStore();
   const { getEffectiveTier, setDevTierOverride, setDevOverrideEnabled } = useSubscriptionStore();
   const { anchorCount, incrementAnchorCount } = useAuthStore();
 
@@ -157,6 +157,7 @@ export const MantraCreationScreen: React.FC = () => {
   const [mantra, setMantra] = useState<MantraResult | null>(null);
   const [selectedStyle, setSelectedStyle] = useState<MantraStyle>('rhythmic');
   const [speakingStyle, setSpeakingStyle] = useState<MantraStyle | null>(null);
+  const createdAnchorIdRef = useRef<string | null>(null);
 
   // Future-ready wiring for timbre/mode expansion.
   const [playbackProfile] = useState<ResonancePlaybackProfile>(BASE_PLAYBACK_PROFILE);
@@ -190,30 +191,71 @@ export const MantraCreationScreen: React.FC = () => {
     };
   }, []);
 
-  const handleSkip = () => {
-    const anchorId = `temp-${Date.now()}`;
-    const newAnchor: Anchor = {
-      id: anchorId,
-      userId: 'user-123',
-      intentionText,
+  const createAnchorAndNavigate = useCallback(
+    (mantraText: string) => {
+      let anchorId = createdAnchorIdRef.current;
+
+      if (!anchorId) {
+        anchorId = `temp-${Date.now()}`;
+        createdAnchorIdRef.current = anchorId;
+
+        const newAnchor: Anchor = {
+          id: anchorId,
+          userId: 'user-123',
+          intentionText,
+          category,
+          distilledLetters,
+          baseSigilSvg,
+          reinforcedSigilSvg,
+          structureVariant: structureVariant || 'balanced',
+          reinforcementMetadata,
+          enhancementMetadata,
+          enhancedImageUrl: finalImageUrl,
+          mantraText,
+          isCharged: false,
+          activationCount: 0,
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        };
+
+        addAnchor(newAnchor);
+        incrementAnchorCount();
+      } else {
+        updateAnchor(anchorId, {
+          intentionText,
+          category,
+          distilledLetters,
+          baseSigilSvg,
+          reinforcedSigilSvg,
+          structureVariant: structureVariant || 'balanced',
+          reinforcementMetadata,
+          enhancementMetadata,
+          enhancedImageUrl: finalImageUrl,
+          mantraText,
+        });
+      }
+
+      navigation.navigate('ChargeSetup', { anchorId });
+    },
+    [
+      addAnchor,
+      updateAnchor,
+      baseSigilSvg,
       category,
       distilledLetters,
-      baseSigilSvg,
-      reinforcedSigilSvg,
-      structureVariant: structureVariant || 'balanced',
-      reinforcementMetadata,
       enhancementMetadata,
-      enhancedImageUrl: finalImageUrl,
-      mantraText: '',
-      isCharged: false,
-      activationCount: 0,
-      createdAt: new Date(),
-      updatedAt: new Date(),
-    };
+      finalImageUrl,
+      incrementAnchorCount,
+      intentionText,
+      navigation,
+      reinforcementMetadata,
+      reinforcedSigilSvg,
+      structureVariant,
+    ]
+  );
 
-    addAnchor(newAnchor);
-    incrementAnchorCount();
-    navigation.navigate('ChargeSetup', { anchorId });
+  const handleSkip = () => {
+    createAnchorAndNavigate('');
   };
 
   const buildPattern = (letters: string[], vowels: [string, string][]) =>
@@ -338,30 +380,7 @@ export const MantraCreationScreen: React.FC = () => {
       return;
     }
 
-    const anchorId = `temp-${Date.now()}`;
-
-    const newAnchor: Anchor = {
-      id: anchorId,
-      userId: 'user-123',
-      intentionText,
-      category,
-      distilledLetters,
-      baseSigilSvg,
-      reinforcedSigilSvg,
-      structureVariant: structureVariant || 'balanced',
-      reinforcementMetadata,
-      enhancementMetadata,
-      enhancedImageUrl: finalImageUrl,
-      mantraText: mantra[selectedStyle],
-      isCharged: false,
-      activationCount: 0,
-      createdAt: new Date(),
-      updatedAt: new Date(),
-    };
-
-    addAnchor(newAnchor);
-    incrementAnchorCount();
-    navigation.navigate('ChargeSetup', { anchorId });
+    createAnchorAndNavigate(mantra[selectedStyle]);
   };
 
   const renderIntroductionState = () => (

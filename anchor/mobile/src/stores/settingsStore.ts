@@ -15,10 +15,13 @@ export interface DefaultChargeSetting {
 export type ActivationType = 'visual' | 'mantra' | 'full' | 'breath_visual';
 export type ActivationUnit = 'seconds' | 'reps' | 'minutes' | 'breaths';
 
+export type ActivationMode = 'silent' | 'mantra' | 'ambient';
+
 export interface DefaultActivationSetting {
   type: ActivationType;
   value: number;
   unit: ActivationUnit;
+  mode: ActivationMode;
 }
 
 const clampNumber = (value: number, min: number, max: number): number =>
@@ -41,15 +44,18 @@ const normalizeDefaultCharge = (setting: DefaultChargeSetting): DefaultChargeSet
 };
 
 const normalizeDefaultActivation = (setting: DefaultActivationSetting): DefaultActivationSetting => {
+  const mode: ActivationMode = setting.mode ?? 'silent';
   if (setting.unit === 'seconds') {
     return {
       ...setting,
+      mode,
       value: clampNumber(setting.value, 10, 60),
     };
   }
 
   return {
     ...setting,
+    mode,
     value: Math.max(1, Math.round(setting.value)),
   };
 };
@@ -112,6 +118,7 @@ export interface SettingsState {
   // Actions - Practice Settings
   setDefaultCharge: (setting: DefaultChargeSetting) => void;
   setDefaultActivation: (setting: DefaultActivationSetting) => void;
+  setDefaultActivationMode: (mode: ActivationMode) => void;
   setOpenDailyAnchorAutomatically: (enabled: boolean) => void;
   setDailyPracticeGoal: (goal: number) => void;
   setReduceIntentionVisibility: (enabled: boolean) => void;
@@ -147,8 +154,9 @@ const DEFAULT_SETTINGS = {
   },
   defaultActivation: {
     type: 'visual' as ActivationType,
-    value: 10,
+    value: 30,
     unit: 'seconds' as ActivationUnit,
+    mode: 'silent' as ActivationMode,
   },
   openDailyAnchorAutomatically: false,
   dailyPracticeGoal: 3,
@@ -198,6 +206,13 @@ export const useSettingsStore = create<SettingsState>()(
         set({
           defaultActivation: normalizeDefaultActivation(setting),
         });
+      },
+
+      setDefaultActivationMode: (mode) => {
+        triggerHaptic();
+        set((state) => ({
+          defaultActivation: { ...state.defaultActivation, mode },
+        }));
       },
 
       setOpenDailyAnchorAutomatically: (enabled) => {
@@ -331,9 +346,17 @@ export const useSettingsStore = create<SettingsState>()(
     {
       name: 'anchor-settings-storage',
       storage: createJSONStorage(() => AsyncStorage),
-      version: 4,
+      version: 5,
       // Handle migration
       migrate: (persistedState: any, version: number) => {
+        if (version === 4) {
+          // Add mode field to defaultActivation
+          const next = clampPersistedSettings(persistedState);
+          if (next?.defaultActivation && !next.defaultActivation.mode) {
+            next.defaultActivation.mode = 'silent';
+          }
+          return next;
+        }
         if (version === 3) {
           return clampPersistedSettings(persistedState);
         }
