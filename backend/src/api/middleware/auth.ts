@@ -57,6 +57,13 @@ export const authMiddleware = async (
 
     const token = authHeader.substring(7); // Remove 'Bearer ' prefix
 
+    // Dev bypass: accept mock token from mobile AuthService (mock mode)
+    if (process.env.NODE_ENV !== 'production' && token === 'mock-jwt-token') {
+      req.user = { uid: 'mock-uid-123', email: 'guest@example.com' };
+      next();
+      return;
+    }
+
     // Verify token
     // Note: In production, you would verify Firebase ID tokens using Firebase Admin SDK
     // For now, we'll use a simple JWT verification as placeholder

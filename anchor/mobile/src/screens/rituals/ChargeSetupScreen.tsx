@@ -47,7 +47,7 @@ const clampChargeMinutes = (value: number): number => Math.min(30, Math.max(1, M
 export const ChargeSetupScreen: React.FC = () => {
   const navigation = useNavigation<ChargeSetupNavigationProp>();
   const route = useRoute<ChargeSetupRouteProp>();
-  const { anchorId } = route.params || {};
+  const { anchorId, returnTo } = route.params || {};
 
   const { getAnchorById } = useAnchorStore();
   const { anchorCount } = useAuthStore();
@@ -197,7 +197,7 @@ export const ChargeSetupScreen: React.FC = () => {
   const navigateToRitual = () => {
     if (!selectedDepth || !selectedDuration) return;
     const ritualType = selectedDepth === 'light' ? 'focus' : 'ritual';
-    navigation.navigate('Ritual', { anchorId, ritualType, durationSeconds: selectedDuration });
+    navigation.navigate('Ritual', { anchorId, ritualType, durationSeconds: selectedDuration, returnTo });
   };
 
   const handleBack = () => navigation.goBack();

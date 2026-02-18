@@ -49,7 +49,7 @@ type RitualNavigationProp = StackNavigationProp<RootStackParamList, 'Ritual'>;
 export const RitualScreen: React.FC = () => {
   const navigation = useNavigation<RitualNavigationProp>();
   const route = useRoute<RitualRouteProp>();
-  const { anchorId, ritualType, durationSeconds, mantraAudioEnabled } = route.params;
+  const { anchorId, ritualType, durationSeconds, mantraAudioEnabled, returnTo } = route.params;
   const isMountedRef = useRef(true);
   const isCompletingRef = useRef(false);
   const mantraIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -309,7 +309,7 @@ export const RitualScreen: React.FC = () => {
       }
 
       if (isMountedRef.current) {
-        navigation.replace('ChargeComplete', { anchorId });
+        navigation.replace('ChargeComplete', { anchorId, returnTo });
       }
     } catch (error) {
       isCompletingRef.current = false;
@@ -324,7 +324,16 @@ export const RitualScreen: React.FC = () => {
       {
         text: 'Exit',
         style: 'destructive',
-        onPress: () => navigation.goBack(),
+        onPress: () => {
+          if (returnTo === 'practice') {
+            const tabNav = navigation.getParent?.() as any;
+            tabNav?.navigate('Practice');
+          } else if (returnTo === 'detail') {
+            navigation.navigate('AnchorDetail', { anchorId });
+          } else {
+            navigation.navigate('Vault');
+          }
+        },
       },
     ]);
   }
@@ -403,43 +412,43 @@ export const RitualScreen: React.FC = () => {
               { opacity: ringOpacityAnim, transform: [{ scale: ringScale }, { scale: pressScaleAnim }] },
             ]}
           >
-          <Pressable
-            onPressIn={handleSealPressIn}
-            onPressOut={handleSealPressOut}
-            disabled={!state.isSealPhase || state.isSealComplete}
-            style={{ alignItems: 'center', justifyContent: 'center' }}
-          >
-            <View style={styles.premiumGlowLayer}>
-              <PremiumAnchorGlow
-                size={SYMBOL_SIZE}
-                state="active"
-                variant="ritual"
-                reduceMotionEnabled={reduceMotionEnabled}
-              />
-            </View>
-
-            <ProgressHaloRing
-              radius={RING_RADIUS}
-              strokeWidth={RING_STROKE_WIDTH}
-              circumference={RING_CIRCUMFERENCE}
-              progressDashoffset={strokeDashoffset}
-              progressOpacity={ringOpacity}
-              showSeal={state.isSealPhase && !state.isSealComplete}
-              sealDashoffset={sealStrokeDashoffset}
-            />
-
-            <View style={styles.symbolContainer}>
-              {anchor.enhancedImageUrl ? (
-                <OptimizedImage
-                  uri={anchor.enhancedImageUrl}
-                  style={styles.symbolImage}
-                  resizeMode="cover"
+            <Pressable
+              onPressIn={handleSealPressIn}
+              onPressOut={handleSealPressOut}
+              disabled={!state.isSealPhase || state.isSealComplete}
+              style={{ alignItems: 'center', justifyContent: 'center' }}
+            >
+              <View style={styles.premiumGlowLayer}>
+                <PremiumAnchorGlow
+                  size={SYMBOL_SIZE}
+                  state="active"
+                  variant="ritual"
+                  reduceMotionEnabled={reduceMotionEnabled}
                 />
-              ) : (
-                <SigilSvg xml={anchor.baseSigilSvg} width={SYMBOL_SIZE} height={SYMBOL_SIZE} />
-              )}
-            </View>
-          </Pressable>
+              </View>
+
+              <ProgressHaloRing
+                radius={RING_RADIUS}
+                strokeWidth={RING_STROKE_WIDTH}
+                circumference={RING_CIRCUMFERENCE}
+                progressDashoffset={strokeDashoffset}
+                progressOpacity={ringOpacity}
+                showSeal={state.isSealPhase && !state.isSealComplete}
+                sealDashoffset={sealStrokeDashoffset}
+              />
+
+              <View style={styles.symbolContainer}>
+                {anchor.enhancedImageUrl ? (
+                  <OptimizedImage
+                    uri={anchor.enhancedImageUrl}
+                    style={styles.symbolImage}
+                    resizeMode="cover"
+                  />
+                ) : (
+                  <SigilSvg xml={anchor.baseSigilSvg} width={SYMBOL_SIZE} height={SYMBOL_SIZE} />
+                )}
+              </View>
+            </Pressable>
           </Animated.View>
 
           {state.currentPhase ? (

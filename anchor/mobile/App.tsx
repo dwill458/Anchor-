@@ -2,15 +2,22 @@ import 'react-native-gesture-handler';
 import React, { useEffect } from 'react';
 import { AppState, StatusBar, View, StyleSheet, Platform, Dimensions } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
-import { NavigationContainer } from '@react-navigation/native';
+import { NavigationContainer, useNavigationContainerRef } from '@react-navigation/native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
+import { enableScreens } from 'react-native-screens';
 import { RootNavigator } from './src/navigation';
 import { ErrorBoundary } from './src/components/ErrorBoundary';
 import { ToastProvider } from './src/components/ToastProvider';
 import { useAuthStore } from './src/stores/authStore';
+import { SettingsRevealProvider } from './src/components/transitions/SettingsRevealProvider';
+import type { RootNavigatorParamList } from './src/navigation/RootNavigator';
 
 const { width } = Dimensions.get('window');
 const isWeb = Platform.OS === 'web';
+
+if (!isWeb) {
+  enableScreens(true);
+}
 
 const AppTheme = {
   dark: true,
@@ -26,6 +33,7 @@ const AppTheme = {
 
 export default function App() {
   const computeStreak = useAuthStore((state) => state.computeStreak);
+  const navRef = useNavigationContainerRef<RootNavigatorParamList>();
 
   useEffect(() => {
     const subscription = AppState.addEventListener('change', (nextState) => {
@@ -43,10 +51,12 @@ export default function App() {
           <SafeAreaProvider>
             <View style={styles.webContainer}>
               <View style={styles.appContainer}>
-                <NavigationContainer theme={AppTheme}>
-                  <StatusBar barStyle="light-content" backgroundColor="#1A1A1D" />
-                  <RootNavigator />
-                </NavigationContainer>
+                <SettingsRevealProvider navigationRef={navRef}>
+                  <NavigationContainer ref={navRef} theme={AppTheme}>
+                    <StatusBar barStyle="light-content" backgroundColor="#1A1A1D" />
+                    <RootNavigator />
+                  </NavigationContainer>
+                </SettingsRevealProvider>
               </View>
             </View>
           </SafeAreaProvider>

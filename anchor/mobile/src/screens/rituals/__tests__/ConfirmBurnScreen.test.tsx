@@ -1,22 +1,16 @@
-/**
- * Anchor App - ConfirmBurnScreen Tests
- *
- * Unit tests for the burn confirmation screen
- */
-
 import React from 'react';
-import { render, fireEvent } from '@testing-library/react-native';
+import { act, fireEvent, render } from '@testing-library/react-native';
 import { ConfirmBurnScreen } from '../ConfirmBurnScreen';
-import { AnalyticsService, AnalyticsEvents } from '@/services/AnalyticsService';
+import { AnalyticsEvents, AnalyticsService } from '@/services/AnalyticsService';
 import { ErrorTrackingService } from '@/services/ErrorTrackingService';
 
-// Mock dependencies
 jest.mock('@react-navigation/native', () => ({
   useRoute: jest.fn(() => ({
     params: {
       anchorId: 'test-anchor-id',
       intention: 'I am confident',
       sigilSvg: '<svg></svg>',
+      enhancedImageUrl: undefined,
     },
   })),
   useNavigation: jest.fn(() => ({
@@ -31,124 +25,159 @@ jest.mock('react-native-svg', () => ({
   SvgXml: 'SvgXml',
 }));
 
+jest.useFakeTimers();
+
 describe('ConfirmBurnScreen', () => {
   let mockNavigate: jest.Mock;
-  let mockGoBack: jest.Mock;
 
   beforeEach(() => {
     jest.clearAllMocks();
     mockNavigate = jest.fn();
-    mockGoBack = jest.fn();
 
     const navigation = require('@react-navigation/native');
     navigation.useNavigation.mockReturnValue({
       navigate: mockNavigate,
-      goBack: mockGoBack,
+      goBack: jest.fn(),
     });
   });
 
-  it('should render the redesigned title', () => {
-    const { getByText } = render(<ConfirmBurnScreen />);
-    expect(getByText('Complete & Release')).toBeTruthy();
+  afterEach(() => {
+    jest.clearAllTimers();
   });
 
-  it('should render ritual explanation card', () => {
+  it('renders initial Reflect step with Continue CTA', () => {
     const { getByText } = render(<ConfirmBurnScreen />);
-    expect(getByText('Why release?')).toBeTruthy();
-    expect(getByText(/In chaos magick, performing a final ritual of release/)).toBeTruthy();
+
+    expect(getByText('Burn & Release')).toBeTruthy();
+    expect(getByText('Completed intention')).toBeTruthy();
+    expect(getByText('I am confident')).toBeTruthy();
+    expect(getByText('If this work is complete, release the symbol.')).toBeTruthy();
+    expect(getByText('Continue')).toBeTruthy();
   });
 
-  it('should display the intention text', () => {
-    const { getByText } = render(<ConfirmBurnScreen />);
-    expect(getByText('“I am confident”')).toBeTruthy();
+  it('Continue on Reflect step transitions directly to Release step', () => {
+    const { getByText, queryByText } = render(<ConfirmBurnScreen />);
+
+    fireEvent.press(getByText('Continue'));
+
+    act(() => {
+      jest.advanceTimersByTime(200);
+    });
+
+    expect(getByText('Final Seal')).toBeTruthy();
+    expect(getByText('Typing RELEASE closes the loop permanently.')).toBeTruthy();
+    expect(getByText('Burn Now')).toBeTruthy();
+    expect(queryByText('Continue')).toBeNull();
   });
 
-  it('should render Release Anchor button', () => {
+  it('Release step shows Not yet button', () => {
     const { getByText } = render(<ConfirmBurnScreen />);
-    expect(getByText('Release Anchor')).toBeTruthy();
+
+    fireEvent.press(getByText('Continue'));
+    act(() => {
+      jest.advanceTimersByTime(200);
+    });
+
+    expect(getByText('Not yet')).toBeTruthy();
   });
 
-  it('should show modal actions after pressing Release Anchor', () => {
+  it('Not yet returns to Reflect step', () => {
     const { getByText } = render(<ConfirmBurnScreen />);
-    fireEvent.press(getByText('Release Anchor'));
-    expect(getByText('Release Forever')).toBeTruthy();
-    expect(getByText('Return')).toBeTruthy();
+
+    fireEvent.press(getByText('Continue'));
+    act(() => {
+      jest.advanceTimersByTime(200);
+    });
+
+    fireEvent.press(getByText('Not yet'));
+    act(() => {
+      jest.advanceTimersByTime(200);
+    });
+
+    expect(getByText('If this work is complete, release the symbol.')).toBeTruthy();
+    expect(getByText('Continue')).toBeTruthy();
   });
 
-  it('should navigate to BurningRitual when confirmed', () => {
-    const { getByText } = render(<ConfirmBurnScreen />);
-    fireEvent.press(getByText('Release Anchor'));
-    const confirmButton = getByText('Release Forever');
+  it('Burn Now is disabled until input equals RELEASE', () => {
+    const { getByText, getByPlaceholderText } = render(<ConfirmBurnScreen />);
 
-    fireEvent.press(confirmButton);
+    fireEvent.press(getByText('Continue'));
+    act(() => {
+      jest.advanceTimersByTime(200);
+    });
+
+    const burnButton = getByText('Burn Now');
+    // Button is disabled with partial input
+    fireEvent.changeText(getByPlaceholderText('Type RELEASE'), 'RELE');
+    expect(burnButton).toBeTruthy();
+
+    // Not enabled yet — pressing should not navigate
+    fireEvent.press(burnButton);
+    expect(mockNavigate).not.toHaveBeenCalled();
+  });
+
+  it('Burn Now is enabled and navigates once input equals RELEASE', () => {
+    const { getByText, getByPlaceholderText } = render(<ConfirmBurnScreen />);
+
+    fireEvent.press(getByText('Continue'));
+    act(() => {
+      jest.advanceTimersByTime(200);
+    });
+
+    fireEvent.changeText(getByPlaceholderText('Type RELEASE'), 'RELEASE');
+    fireEvent.press(getByText('Burn Now'));
 
     expect(mockNavigate).toHaveBeenCalledWith('BurningRitual', {
       anchorId: 'test-anchor-id',
       intention: 'I am confident',
       sigilSvg: '<svg></svg>',
+      enhancedImageUrl: undefined,
     });
   });
 
-  it('should track analytics when confirmed', () => {
-    const { getByText } = render(<ConfirmBurnScreen />);
-    fireEvent.press(getByText('Release Anchor'));
-    const confirmButton = getByText('Release Forever');
+  it('tracks analytics and breadcrumb on Burn Now', () => {
+    const { getByText, getByPlaceholderText } = render(<ConfirmBurnScreen />);
 
-    fireEvent.press(confirmButton);
+    fireEvent.press(getByText('Continue'));
+    act(() => {
+      jest.advanceTimersByTime(200);
+    });
 
-    expect(AnalyticsService.track).toHaveBeenCalledWith(
-      AnalyticsEvents.BURN_INITIATED,
-      {
-        anchor_id: 'test-anchor-id',
-        source: 'confirm_burn_screen',
-      }
-    );
-  });
+    fireEvent.changeText(getByPlaceholderText('Type RELEASE'), 'RELEASE');
+    fireEvent.press(getByText('Burn Now'));
 
-  it('should add breadcrumb when confirmed', () => {
-    const { getByText } = render(<ConfirmBurnScreen />);
-    fireEvent.press(getByText('Release Anchor'));
-    const confirmButton = getByText('Release Forever');
-
-    fireEvent.press(confirmButton);
-
+    expect(AnalyticsService.track).toHaveBeenCalledWith(AnalyticsEvents.BURN_INITIATED, {
+      anchor_id: 'test-anchor-id',
+      source: 'confirm_burn_screen',
+    });
     expect(ErrorTrackingService.addBreadcrumb).toHaveBeenCalledWith(
       'User confirmed release ritual',
       'navigation',
-      {
-        anchor_id: 'test-anchor-id',
-      }
+      { anchor_id: 'test-anchor-id' }
     );
   });
 
-  it('should close modal when cancelled', () => {
-    const { getByText, queryByText } = render(<ConfirmBurnScreen />);
-    fireEvent.press(getByText('Release Anchor'));
-    const cancelButton = getByText('Return');
+  it('shows inline feedback: Must match exactly for partial input', () => {
+    const { getByText, getByPlaceholderText } = render(<ConfirmBurnScreen />);
 
-    fireEvent.press(cancelButton);
+    fireEvent.press(getByText('Continue'));
+    act(() => {
+      jest.advanceTimersByTime(200);
+    });
 
-    expect(queryByText('Release Forever')).toBeNull();
-    expect(mockNavigate).not.toHaveBeenCalled();
+    fireEvent.changeText(getByPlaceholderText('Type RELEASE'), 'REL');
+    expect(getByText('Must match exactly')).toBeTruthy();
   });
 
-  it('should not track burn analytics when cancelled', () => {
-    const { getByText } = render(<ConfirmBurnScreen />);
-    fireEvent.press(getByText('Release Anchor'));
-    const cancelButton = getByText('Return');
+  it('shows inline feedback: Ready for exact RELEASE input', () => {
+    const { getByText, getByPlaceholderText } = render(<ConfirmBurnScreen />);
 
-    fireEvent.press(cancelButton);
+    fireEvent.press(getByText('Continue'));
+    act(() => {
+      jest.advanceTimersByTime(200);
+    });
 
-    expect(AnalyticsService.track).not.toHaveBeenCalledWith(
-      AnalyticsEvents.BURN_INITIATED,
-      expect.anything()
-    );
-  });
-
-  it('should ask about fulfilled role', () => {
-    const { getByText } = render(<ConfirmBurnScreen />);
-    expect(
-      getByText(/Has this anchor fulfilled its role/)
-    ).toBeTruthy();
+    fireEvent.changeText(getByPlaceholderText('Type RELEASE'), 'RELEASE');
+    expect(getByText('✓  Ready')).toBeTruthy();
   });
 });

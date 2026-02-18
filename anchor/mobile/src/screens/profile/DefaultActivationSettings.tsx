@@ -21,7 +21,7 @@ import {
 } from 'lucide-react-native';
 import { BlurView } from 'expo-blur';
 import { CustomDurationSheet, ZenBackground } from '@/components/common';
-import { useSettingsStore, ActivationType } from '@/stores/settingsStore';
+import { useSettingsStore, ActivationType, type ActivationMode } from '@/stores/settingsStore';
 import { colors, spacing } from '@/theme';
 
 const IS_ANDROID = Platform.OS === 'android';
@@ -90,8 +90,18 @@ const OptionCard: React.FC<OptionCardProps> = ({
 };
 
 export const DefaultActivationSettings: React.FC = () => {
-  const { defaultActivation, setDefaultActivation } = useSettingsStore();
+  const { defaultActivation, setDefaultActivation, setDefaultActivationMode } = useSettingsStore();
   const [customSheetVisible, setCustomSheetVisible] = useState(false);
+
+  const handleSelectMode = (mode: ActivationMode) => {
+    setDefaultActivationMode(mode);
+  };
+
+  const MODES: Array<{ mode: ActivationMode; label: string; description: string }> = [
+    { mode: 'silent', label: 'Silent', description: 'No audio, pure focus' },
+    { mode: 'mantra', label: 'Mantra', description: 'Repeat your mantra aloud or mentally' },
+    { mode: 'ambient', label: 'Ambient', description: 'Background audio support' },
+  ];
 
   const handleSelectType = (type: ActivationType) => {
     setDefaultActivation({
@@ -222,6 +232,33 @@ export const DefaultActivationSettings: React.FC = () => {
                   {isCustomDuration ? `Custom ${focusSeconds}s` : 'Custom'}
                 </Text>
               </TouchableOpacity>
+            </View>
+          </View>
+
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Default Mode</Text>
+            <Text style={styles.sectionDescription}>
+              How you want to show up for each activation session.
+            </Text>
+            <View style={styles.durationChipRow}>
+              {MODES.map(({ mode, label }) => {
+                const selected = (defaultActivation.mode ?? 'silent') === mode;
+                return (
+                  <TouchableOpacity
+                    key={mode}
+                    activeOpacity={0.8}
+                    onPress={() => handleSelectMode(mode)}
+                    style={[styles.durationChip, selected && styles.durationChipSelected]}
+                    accessibilityRole="button"
+                    accessibilityLabel={`Set mode to ${label}`}
+                    accessibilityState={{ selected }}
+                  >
+                    <Text style={[styles.durationChipText, selected && styles.durationChipTextSelected]}>
+                      {label}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
             </View>
           </View>
 

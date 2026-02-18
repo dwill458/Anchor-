@@ -7,6 +7,7 @@ import {
   Text,
   TouchableOpacity,
   View,
+  useWindowDimensions,
   type StyleProp,
   type ViewStyle,
 } from 'react-native';
@@ -32,11 +33,14 @@ import { useReduceMotionEnabled } from '@/hooks/useReduceMotionEnabled';
 import { safeHaptics } from '@/utils/haptics';
 import { RitualScaffold } from './RitualScaffold';
 
-const { width } = Dimensions.get('window');
-const ANCHOR_SIZE = Math.min(Math.round(width * 0.58), 264);
-const RING_RADIUS = ANCHOR_SIZE / 2 + 22;
+// Replaced with dynamic hooks inside component
+// const { width } = Dimensions.get('window');
+// const ANCHOR_SIZE = Math.min(Math.round(width * 0.58), 264);
+// const RING_RADIUS = ANCHOR_SIZE / 2 + 22;
+// const RING_STROKE = 6;
+// const RING_SIZE = RING_RADIUS * 2 + RING_STROKE * 4;
+
 const RING_STROKE = 6;
-const RING_SIZE = RING_RADIUS * 2 + RING_STROKE * 4;
 
 const AnimatedCircle = Animated.createAnimatedComponent(Circle);
 
@@ -229,6 +233,11 @@ export const FocusSession: React.FC<FocusSessionProps> = ({
   onComplete,
   onDismiss,
 }) => {
+  const { width } = useWindowDimensions();
+  const ANCHOR_SIZE = Math.min(Math.round(width * 0.58), 264);
+  const RING_RADIUS = ANCHOR_SIZE / 2 + 22;
+  const RING_SIZE = RING_RADIUS * 2 + RING_STROKE * 4;
+
   const totalMs = Math.max(1000, Math.round(durationSeconds * 1000));
   const reduceMotionEnabled = useReduceMotionEnabled();
 
@@ -482,8 +491,20 @@ export const FocusSession: React.FC<FocusSessionProps> = ({
         </View>
 
         <View style={styles.heroSection}>
-          <View style={styles.heroStack}>
-            <Animated.View style={[styles.anchorBloom, bloomStyle]} />
+          <View style={[styles.heroStack, { width: RING_SIZE, height: RING_SIZE + 62 }]}>
+            <Animated.View
+              style={[
+                styles.anchorBloom,
+                bloomStyle,
+                {
+                  top: (RING_SIZE - ANCHOR_SIZE * 1.34) / 2,
+                  left: (RING_SIZE - ANCHOR_SIZE * 1.34) / 2,
+                  width: ANCHOR_SIZE * 1.34,
+                  height: ANCHOR_SIZE * 1.34,
+                  borderRadius: (ANCHOR_SIZE * 1.34) / 2,
+                }
+              ]}
+            />
             <ProgressRing
               radius={RING_RADIUS}
               strokeWidth={RING_STROKE}
@@ -491,7 +512,16 @@ export const FocusSession: React.FC<FocusSessionProps> = ({
               pausedDim={pausedDim}
               flare={flare}
             />
-            <Animated.View style={[styles.anchorWrap, anchorBreathStyle]}>
+            <Animated.View
+              style={[
+                styles.anchorWrap,
+                anchorBreathStyle,
+                {
+                  top: RING_STROKE * 2 + (RING_RADIUS * 2 - ANCHOR_SIZE) / 2,
+                  left: (RING_SIZE - ANCHOR_SIZE) / 2,
+                }
+              ]}
+            >
               <AnchorHero anchorImageUri={anchorImageUri} size={ANCHOR_SIZE} />
             </Animated.View>
             <Animated.View style={[styles.timerChipWrap, timerChipStyle]}>
@@ -628,8 +658,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   heroStack: {
-    width: RING_SIZE,
-    height: RING_SIZE + 62,
     alignItems: 'center',
     justifyContent: 'flex-start',
     position: 'relative',
@@ -641,11 +669,6 @@ const styles = StyleSheet.create({
   },
   anchorBloom: {
     position: 'absolute',
-    top: (RING_SIZE - ANCHOR_SIZE * 1.34) / 2,
-    left: (RING_SIZE - ANCHOR_SIZE * 1.34) / 2,
-    width: ANCHOR_SIZE * 1.34,
-    height: ANCHOR_SIZE * 1.34,
-    borderRadius: (ANCHOR_SIZE * 1.34) / 2,
     backgroundColor: `${colors.gold}22`,
     shadowColor: colors.gold,
     shadowOffset: { width: 0, height: 0 },
@@ -655,8 +678,6 @@ const styles = StyleSheet.create({
   },
   anchorWrap: {
     position: 'absolute',
-    top: RING_STROKE * 2 + (RING_RADIUS * 2 - ANCHOR_SIZE) / 2,
-    left: (RING_SIZE - ANCHOR_SIZE) / 2,
   },
   anchorHero: {
     overflow: 'hidden',

@@ -45,7 +45,8 @@ import { SigilHeroCard } from './components/SigilHeroCard';
 import { PracticePathCard } from './components/PracticePathCard';
 import { PhysicalAnchorCard } from './components/PhysicalAnchorCard';
 import { DistilledLettersModal } from './components/DistilledLettersModal';
-import { CustomDurationSheet, ZenBackground } from '@/components/common';
+import { CustomDurationSheet, ZenBackground, PresetChips } from '@/components/common';
+import type { PresetChip } from '@/components/common/PresetChips';
 
 // Helper utilities
 import {
@@ -94,15 +95,22 @@ const CATEGORY_CONFIG: Record<
   custom: { label: 'Custom', color: colors.text.secondary, emoji: '✨' },
 };
 
-type DeepChargePreset = '1m' | '5m' | '10m' | 'custom';
+type DeepChargePreset = '2m' | '5m' | '10m' | '20m' | 'custom';
 
 const DEEP_CHARGE_PRESETS: ReadonlyArray<{ key: DeepChargePreset; label: string }> = [
-  { key: '1m', label: '1m' },
+  { key: '2m', label: '2m' },
   { key: '5m', label: '5m' },
   { key: '10m', label: '10m' },
+  { key: '20m', label: '20m' },
   { key: 'custom', label: 'Custom' },
 ];
-const clampDeepChargeMinutes = (value: number): number => Math.min(30, Math.max(1, Math.round(value)));
+const clampDeepChargeMinutes = (value: number): number => Math.min(20, Math.max(2, Math.round(value)));
+
+const ACTIVATION_PRESETS: ReadonlyArray<PresetChip> = [
+  { key: '10s', label: '10s' },
+  { key: '30s', label: '30s' },
+  { key: '60s', label: '60s' },
+];
 
 export const AnchorDetailScreen: React.FC = () => {
   const navigation = useNavigation<AnchorDetailNavigationProp>();
@@ -114,6 +122,8 @@ export const AnchorDetailScreen: React.FC = () => {
     reduceIntentionVisibility,
     developerModeEnabled,
     developerDeleteWithoutBurnEnabled,
+    defaultActivation,
+    setDefaultActivation,
   } = useSettingsStore();
   const anchor = getAnchorById(anchorId);
 
@@ -128,6 +138,17 @@ export const AnchorDetailScreen: React.FC = () => {
   const [mantraAudioEnabled, setMantraAudioEnabled] = useState(false);
   const [activationRippleNonce, setActivationRippleNonce] = useState(0);
   const activationNavigateTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Activation preset (derived from settingsStore, kept in sync)
+  const activationPresetKey = useMemo(() => {
+    if (defaultActivation.unit === 'seconds') {
+      const s = defaultActivation.value;
+      if (s <= 10) return '10s';
+      if (s <= 30) return '30s';
+      return '60s';
+    }
+    return '30s';
+  }, [defaultActivation]);
   const primaryButtonPulseOpacity = useMemo(() => new Animated.Value(0.18), []);
   const liveShimmerProgress = useMemo(() => new Animated.Value(-1), []);
 
@@ -206,9 +227,10 @@ export const AnchorDetailScreen: React.FC = () => {
   }, [anchor]);
 
   const deepChargeDurationSeconds = useMemo(() => {
-    if (deepChargePreset === '1m') return 60;
+    if (deepChargePreset === '2m') return 120;
     if (deepChargePreset === '5m') return 300;
     if (deepChargePreset === '10m') return 600;
+    if (deepChargePreset === '20m') return 1200;
     return clampDeepChargeMinutes(customDeepChargeMinutes) * 60;
   }, [customDeepChargeMinutes, deepChargePreset]);
 
@@ -285,6 +307,7 @@ export const AnchorDetailScreen: React.FC = () => {
 
     navigation.navigate('ChargeSetup', {
       anchorId: anchor.id,
+      returnTo: 'detail',
     });
   }, [anchor, navigation]);
 
@@ -330,8 +353,16 @@ export const AnchorDetailScreen: React.FC = () => {
       ritualType: 'ritual',
       durationSeconds: deepChargeDurationSeconds,
       mantraAudioEnabled,
+      returnTo: 'detail',
     });
   }, [anchor, deepChargeDurationSeconds, isReleased, mantraAudioEnabled, navigation]);
+
+  const handleActivationPresetSelect = useCallback((key: string) => {
+    const presetSeconds: Record<string, number> = { '10s': 10, '30s': 30, '60s': 60 };
+    const seconds = presetSeconds[key] ?? 30;
+    setDefaultActivation({ ...defaultActivation, type: 'visual', value: seconds, unit: 'seconds' });
+    safeHaptics.impact(Haptics.ImpactFeedbackStyle.Light);
+  }, [defaultActivation, setDefaultActivation]);
 
   const handleActivatePress = useCallback((): void => {
     if (!anchor) return;
@@ -361,6 +392,7 @@ export const AnchorDetailScreen: React.FC = () => {
       navigation.navigate('ActivationRitual', {
         anchorId: anchor.id,
         activationType: 'visual' as ActivationType,
+        returnTo: 'detail',
       });
     };
 
@@ -589,9 +621,9 @@ export const AnchorDetailScreen: React.FC = () => {
                 </View>
               </BlurView>
             ) : (
-            <View style={[styles.androidHeaderFallback, { backgroundColor: 'rgba(12, 17, 24, 0.92)' }]}>
-              <View style={styles.goldLeftBorder} />
-              <View style={styles.headerContent}>
+              <View style={[styles.androidHeaderFallback, { backgroundColor: 'rgba(12, 17, 24, 0.92)' }]}>
+                <View style={styles.goldLeftBorder} />
+                <View style={styles.headerContent}>
                   <Text style={styles.intentionText}>
                     {reduceIntentionVisibility
                       ? `"${anchor.mantraText || 'Intention Obscured'}"`
@@ -639,10 +671,10 @@ export const AnchorDetailScreen: React.FC = () => {
                 </View>
               </BlurView>
             ) : (
-            <View style={[styles.androidStatsFallback, { backgroundColor: 'rgba(12, 17, 24, 0.92)' }]}>
-              <View style={styles.goldLeftBorder} />
-              <View style={styles.statsContent}>
-                {renderDashboardContent()}
+              <View style={[styles.androidStatsFallback, { backgroundColor: 'rgba(12, 17, 24, 0.92)' }]}>
+                <View style={styles.goldLeftBorder} />
+                <View style={styles.statsContent}>
+                  {renderDashboardContent()}
                 </View>
               </View>
             )}
@@ -710,16 +742,30 @@ export const AnchorDetailScreen: React.FC = () => {
                     style={styles.primaryButton}
                     onPress={handleActivatePress}
                     accessibilityRole="button"
-                    accessibilityLabel="Enter Focus"
-                    accessibilityHint="Starts a fast focus burst in one tap."
+                    accessibilityLabel="Activate now"
+                    accessibilityHint="Starts a focused activation in one tap."
                   >
                     <View style={styles.primaryButtonInner}>
                       <Zap size={18} color={colors.charcoal} />
-                      <Text style={styles.primaryButtonText}>Enter Focus</Text>
+                      <Text style={styles.primaryButtonText}>Activate now</Text>
                     </View>
                   </TouchableOpacity>
                 </View>
-                <Text style={styles.actionHelperText}>10–60s • ignite focus now</Text>
+                <Text style={styles.actionHelperText}>10–60s • instant activation</Text>
+                <PresetChips
+                  chips={ACTIVATION_PRESETS}
+                  selectedKey={activationPresetKey}
+                  onSelect={handleActivationPresetSelect}
+                  style={styles.activationPresetsRow}
+                />
+                <TouchableOpacity
+                  onPress={() => navigation.navigate('DefaultActivation')}
+                  accessibilityRole="button"
+                  accessibilityLabel="Save as default activation preset"
+                  style={styles.savePresetLink}
+                >
+                  <Text style={styles.savePresetText}>★ Save as default</Text>
+                </TouchableOpacity>
                 <Text style={styles.microcopy}>Fast reset. One clean start.</Text>
 
                 <View style={styles.deepChargeModule}>
@@ -732,7 +778,7 @@ export const AnchorDetailScreen: React.FC = () => {
                   >
                     <View style={styles.deepChargeHeaderContent}>
                       <Text style={styles.deepChargeTitle}>Reinforce</Text>
-                      <Text style={styles.deepChargeHelperText}>1–30m • deepen the charge</Text>
+                      <Text style={styles.deepChargeHelperText}>2–20m • deepen the imprint</Text>
                     </View>
                     {isDeepChargeExpanded ? (
                       <ChevronUp size={20} color={colors.gold} />
@@ -791,10 +837,10 @@ export const AnchorDetailScreen: React.FC = () => {
                         style={styles.deepChargeStartButton}
                         onPress={handleBeginDeepCharge}
                         accessibilityRole="button"
-                        accessibilityLabel="Begin Deep Charge"
-                        accessibilityHint="Starts a longer deep charge session with selected options."
+                        accessibilityLabel="Begin Reinforce"
+                        accessibilityHint="Starts a longer reinforce session with selected options."
                       >
-                        <Text style={styles.deepChargeStartButtonText}>Begin Deep Charge</Text>
+                        <Text style={styles.deepChargeStartButtonText}>Begin Reinforce</Text>
                       </TouchableOpacity>
                     </>
                   )}
@@ -1128,6 +1174,21 @@ const styles = StyleSheet.create({
     color: colors.text.tertiary,
     marginBottom: spacing.md,
     fontStyle: 'italic',
+  },
+  activationPresetsRow: {
+    marginTop: spacing.xs,
+    marginBottom: spacing.xs,
+  },
+  savePresetLink: {
+    alignSelf: 'center',
+    paddingVertical: spacing.xs,
+    marginBottom: spacing.xs,
+  },
+  savePresetText: {
+    fontSize: typography.sizes.caption,
+    fontFamily: typography.fonts.body,
+    color: colors.gold,
+    opacity: 0.75,
   },
   deepChargeModule: {
     width: '100%',

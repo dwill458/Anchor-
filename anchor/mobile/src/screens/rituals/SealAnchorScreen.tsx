@@ -53,7 +53,7 @@ type SealAnchorNavigationProp = StackNavigationProp<RootStackParamList, 'SealAnc
 export const SealAnchorScreen: React.FC = () => {
   const navigation = useNavigation<SealAnchorNavigationProp>();
   const route = useRoute<SealAnchorRouteProp>();
-  const { anchorId } = route.params;
+  const { anchorId, returnTo } = route.params;
 
   const { getAnchorById, updateAnchor } = useAnchorStore();
   const anchor = getAnchorById(anchorId);
@@ -78,7 +78,7 @@ export const SealAnchorScreen: React.FC = () => {
 
   // ══════════════════════════════════════════════════════════════
   // NULL SAFETY: Defensive handling
-  // ══════════════════════════════════════════════════════════════
+  // ═════════════════════════════════════════════════════════════
 
   if (!anchor) {
     return (
@@ -240,7 +240,7 @@ export const SealAnchorScreen: React.FC = () => {
 
       // Navigate to completion screen after bloom
       setTimeout(() => {
-        navigation.replace('ChargeComplete', { anchorId });
+        navigation.replace('ChargeComplete', { anchorId, returnTo });
       }, 800);
     } catch (error) {
       logger.warn('Failed to update anchor locally', error);
@@ -262,7 +262,7 @@ export const SealAnchorScreen: React.FC = () => {
               isCharged: true,
               chargedAt: new Date(),
             });
-            navigation.replace('ChargeComplete', { anchorId });
+            navigation.replace('ChargeComplete', { anchorId, returnTo });
           },
         },
       ]

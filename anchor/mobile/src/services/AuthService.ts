@@ -22,6 +22,8 @@ const createMockUser = (overrides: Partial<User> = {}): User => ({
   totalActivations: 20,
   currentStreak: 3,
   longestStreak: 5,
+  stabilizesTotal: 0,
+  stabilizeStreakDays: 0,
   createdAt: new Date(),
   ...overrides,
 });

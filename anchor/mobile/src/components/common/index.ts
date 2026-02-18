@@ -15,3 +15,6 @@ export { CustomDurationSheet } from './CustomDurationSheet';
 export { OptimizedImage } from './OptimizedImage';
 export * from './SacredRing';
 export * from './PremiumAnchorGlow';
+export { PresetChips } from './PresetChips';
+export type { PresetChip } from './PresetChips';
+export { NavigationVeil, navigationVeilRef } from './NavigationVeil';

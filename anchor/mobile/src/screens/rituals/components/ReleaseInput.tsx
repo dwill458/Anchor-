@@ -48,12 +48,16 @@ export const ReleaseInput: React.FC<ReleaseInputProps> = ({
     };
   });
 
+  const feedbackText = value.length === 0
+    ? null
+    : isValid
+      ? '✓  Ready'
+      : 'Must match exactly';
+
+  const feedbackColor = isValid ? colors.gold : colors.error;
+
   return (
     <View style={styles.container}>
-      <Text style={styles.instruction}>
-        To confirm this release, type the word below
-      </Text>
-
       <Animated.View style={[styles.inputWrapper, animatedInputStyle]}>
         <TextInput
           value={value}
@@ -63,7 +67,7 @@ export const ReleaseInput: React.FC<ReleaseInputProps> = ({
           autoCorrect={false}
           autoFocus={autoFocus}
           returnKeyType="done"
-          placeholder="Type RELEASE to confirm"
+          placeholder="Type RELEASE"
           placeholderTextColor={colors.text.disabled}
           selectionColor={colors.gold}
           accessibilityLabel="Type RELEASE to confirm burn"
@@ -71,9 +75,12 @@ export const ReleaseInput: React.FC<ReleaseInputProps> = ({
         />
       </Animated.View>
 
-      {isValid && (
-        <Text style={styles.validLabel} accessibilityLiveRegion="polite">
-          Ready to release
+      {feedbackText !== null && (
+        <Text
+          style={[styles.feedbackLabel, { color: feedbackColor }]}
+          accessibilityLiveRegion="polite"
+        >
+          {feedbackText}
         </Text>
       )}
     </View>
@@ -83,15 +90,6 @@ export const ReleaseInput: React.FC<ReleaseInputProps> = ({
 const styles = StyleSheet.create({
   container: {
     width: '100%',
-  },
-  instruction: {
-    fontFamily: typography.fonts.body,
-    fontSize: typography.sizes.body2,
-    color: colors.text.secondary,
-    textAlign: 'center',
-    marginBottom: spacing.lg,
-    lineHeight: 20,
-    paddingHorizontal: spacing.md,
   },
   inputWrapper: {
     borderWidth: 1.5,
@@ -110,13 +108,11 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.lg,
     paddingHorizontal: spacing.xl,
   },
-  validLabel: {
+  feedbackLabel: {
     fontFamily: typography.fonts.body,
     fontSize: typography.sizes.caption,
-    color: colors.gold,
     textAlign: 'center',
     marginTop: spacing.sm,
-    opacity: 0.8,
-    letterSpacing: 1,
+    letterSpacing: 0.5,
   },
 });

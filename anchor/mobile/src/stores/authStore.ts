@@ -2,10 +2,12 @@ import { create } from 'zustand';
 import { persist, createJSONStorage, StateStorage } from 'zustand/middleware';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as SecureStore from 'expo-secure-store';
-import type { User, ProfileData } from '@/types';
-import { fetchCompleteProfile } from '@/services/ApiClient';
+import type { ApiResponse, ProfileData, User } from '@/types';
+import { apiClient, fetchCompleteProfile } from '@/services/ApiClient';
+import { AuthService } from '@/services/AuthService';
 import { useAnchorStore } from '@/stores/anchorStore';
 import { calculateStreak } from '@/utils/streakHelpers';
+import { applyStabilizeCompletion, toDateOrNull } from '@/utils/stabilizeStats';
 
 /**
  * Hybrid storage engine that selectively routes sensitive data to SecureStore
@@ -105,6 +107,13 @@ interface AuthState {
 
   // Streak
   computeStreak: () => void;
+
+  // Stabilize (Practice)
+  recordStabilize: (anchorId: string) => Promise<{
+    sameDay: boolean;
+    reset: boolean;
+    incremented: boolean;
+  }>;
 }
 
 /**
@@ -228,6 +237,88 @@ export const useAuthStore = create<AuthState>()(
             ? { ...state.user, currentStreak, longestStreak }
             : null,
         }));
+      },
+
+      recordStabilize: async (anchorId: string) => {
+        const { user } = get();
+        if (!user) {
+          return { sameDay: false, reset: false, incremented: false };
+        }
+
+        const now = new Date();
+        const lastStabilizeAt = toDateOrNull(user.lastStabilizeAt);
+
+        const prev = {
+          stabilizesTotal: user.stabilizesTotal ?? 0,
+          stabilizeStreakDays: user.stabilizeStreakDays ?? 0,
+          lastStabilizeAt,
+        };
+
+        const { next, flags } = applyStabilizeCompletion(prev, now);
+
+        // Optimistic local update
+        set((state) => ({
+          user: state.user
+            ? {
+              ...state.user,
+              stabilizesTotal: next.stabilizesTotal,
+              stabilizeStreakDays: next.stabilizeStreakDays,
+              lastStabilizeAt: next.lastStabilizeAt ?? undefined,
+            }
+            : null,
+          profileData: state.profileData
+            ? {
+              ...state.profileData,
+              user: {
+                ...state.profileData.user,
+                stabilizesTotal: next.stabilizesTotal,
+                stabilizeStreakDays: next.stabilizeStreakDays,
+                lastStabilizeAt: next.lastStabilizeAt ?? undefined,
+              },
+            }
+            : null,
+        }));
+
+        try {
+          const token = await AuthService.getIdToken();
+          const isMockToken = typeof token === 'string' && token.startsWith('mock-');
+
+          if (isMockToken) {
+            return flags;
+          }
+
+          const response = await apiClient.post<ApiResponse<User>>('/api/practice/stabilize', {
+            anchorId,
+            completedAt: now.toISOString(),
+            timezoneOffsetMinutes: now.getTimezoneOffset(),
+            lastStabilizeTimezoneOffsetMinutes: lastStabilizeAt
+              ? lastStabilizeAt.getTimezoneOffset()
+              : null,
+            stabilizeStreakDaysClient: next.stabilizeStreakDays,
+          });
+
+          const updatedUser = response.data?.data;
+          if (response.data?.success && updatedUser) {
+            const normalizedUpdatedUser: User = {
+              ...updatedUser,
+              createdAt: toDateOrNull(updatedUser.createdAt) ?? user.createdAt,
+              stabilizesTotal: updatedUser.stabilizesTotal ?? next.stabilizesTotal,
+              stabilizeStreakDays: updatedUser.stabilizeStreakDays ?? next.stabilizeStreakDays,
+              lastStabilizeAt: toDateOrNull(updatedUser.lastStabilizeAt) ?? undefined,
+            };
+
+            set((state) => ({
+              user: state.user ? { ...state.user, ...normalizedUpdatedUser } : normalizedUpdatedUser,
+              profileData: state.profileData
+                ? { ...state.profileData, user: { ...state.profileData.user, ...normalizedUpdatedUser } }
+                : state.profileData,
+            }));
+          }
+        } catch (error) {
+          console.warn('Failed to sync stabilize stats, saved locally only:', error);
+        }
+
+        return flags;
       },
 
       signOut: () =>
