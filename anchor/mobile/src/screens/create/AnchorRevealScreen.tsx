@@ -8,16 +8,18 @@ import {
     Animated,
     Dimensions,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { StatusBar } from 'expo-status-bar';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { RootStackParamList } from '@/types';
-import { colors } from '@/theme';
-import { ScreenHeader, ZenBackground } from '@/components/common';
+import { colors, spacing, typography } from '@/theme';
+import { ZenBackground, GlassIconButton, UndertoneLine } from '@/components/common';
 import { BlurView } from 'expo-blur';
 import { useTempStore } from '@/stores/anchorStore';
+import { useSettingsStore } from '@/stores/settingsStore';
+import { analyzeIntention, getGuidanceText } from '@/utils/intentionPatterns';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const IMAGE_SIZE = SCREEN_WIDTH - 64; // Large centered image
@@ -28,6 +30,8 @@ type AnchorRevealNavigationProp = StackNavigationProp<RootStackParamList, 'Ancho
 export const AnchorRevealScreen: React.FC = () => {
     const navigation = useNavigation<AnchorRevealNavigationProp>();
     const route = useRoute<AnchorRevealRouteProp>();
+    const insets = useSafeAreaInsets();
+    const guideMode = useSettingsStore((state) => state.guideMode);
 
     const {
         intentionText,
@@ -44,6 +48,13 @@ export const AnchorRevealScreen: React.FC = () => {
     // Retrieve from store if not in params (handle large base64)
     const tempEnhancedImage = useTempStore((state) => state.tempEnhancedImage);
     const enhancedImageUrl = paramImageUrl || tempEnhancedImage;
+
+    // Analyze intention for pattern detection
+    const intentionAnalysis = analyzeIntention(intentionText);
+    const guidanceText = getGuidanceText(
+        intentionAnalysis.hasFutureTense,
+        intentionAnalysis.hasNegation
+    );
 
     // Animations
     const fadeAnim = useRef(new Animated.Value(0)).current;
@@ -71,6 +82,10 @@ export const AnchorRevealScreen: React.FC = () => {
         });
     }, [navigation]);
 
+    const handleBack = () => {
+        navigation.goBack();
+    };
+
     const handleContinue = () => {
         (navigation as any).navigate('MantraCreation', {
             intentionText,
@@ -91,7 +106,19 @@ export const AnchorRevealScreen: React.FC = () => {
             <ZenBackground orbOpacity={0.2} />
 
             <SafeAreaView style={styles.safeArea}>
-                <ScreenHeader title="Your Anchor" />
+                {/* Custom Header with Back Button */}
+                <View style={[styles.header, { paddingTop: Math.max(insets.top, spacing.md) }]}>
+                    <GlassIconButton
+                        onPress={handleBack}
+                        accessibilityLabel="Back"
+                        size="md"
+                        testID="back-button"
+                    >
+                        <Text style={styles.backIcon}>←</Text>
+                    </GlassIconButton>
+                    <Text style={styles.headerTitle}>Your Anchor</Text>
+                    <View style={styles.headerSpacer} />
+                </View>
 
                 <View style={styles.content}>
                     <Animated.View
@@ -125,8 +152,32 @@ export const AnchorRevealScreen: React.FC = () => {
                         <Text style={styles.label}>ROOTED IN YOUR INTENTION</Text>
                         <BlurView intensity={20} tint="dark" style={styles.intentionCard}>
                             <View style={styles.intentionBorder} />
-                            <Text style={styles.intentionText}>"{intentionText}"</Text>
+                            <Text
+                                style={styles.intentionText}
+                                numberOfLines={2}
+                                ellipsizeMode="tail"
+                            >
+                                {intentionText}
+                            </Text>
                         </BlurView>
+
+                        {/* Guide Hint for Future Tense / Negation */}
+                        {guideMode && intentionAnalysis.shouldShowGuidance && guidanceText && (
+                            <View style={styles.guideHintContainer}>
+                                <UndertoneLine
+                                    text={guidanceText}
+                                    variant="emphasis"
+                                />
+                            </View>
+                        )}
+
+                        {/* Seal Micro-Teaching Line */}
+                        <View style={styles.sealLineContainer}>
+                            <UndertoneLine
+                                text="Return to this symbol to train recall."
+                                variant="default"
+                            />
+                        </View>
                     </Animated.View>
                 </View>
 
@@ -136,6 +187,13 @@ export const AnchorRevealScreen: React.FC = () => {
                         { opacity: fadeAnim },
                     ]}
                 >
+                    {/* Guide Mode Helper Text */}
+                    {guideMode && (
+                        <Text style={styles.ctaHelperText}>
+                            60 seconds. Look at the symbol. Repeat your phrase.
+                        </Text>
+                    )}
+
                     <TouchableOpacity
                         onPress={handleContinue}
                         activeOpacity={0.9}
@@ -167,11 +225,34 @@ const styles = StyleSheet.create({
     safeArea: {
         flex: 1,
     },
+    header: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        paddingHorizontal: spacing.lg,
+        paddingBottom: spacing.md,
+    },
+    headerTitle: {
+        ...typography.h3,
+        color: colors.gold,
+        letterSpacing: 0.5,
+        flex: 1,
+        textAlign: 'center',
+    },
+    backIcon: {
+        fontSize: 20,
+        color: colors.gold,
+        fontWeight: '300',
+    },
+    headerSpacer: {
+        width: 44,
+        height: 44,
+    },
     content: {
         flex: 1,
         alignItems: 'center',
         justifyContent: 'center',
-        paddingHorizontal: 32,
+        paddingHorizontal: spacing.xl,
     },
     imageContainer: {
         width: IMAGE_SIZE,
@@ -210,7 +291,7 @@ const styles = StyleSheet.create({
         fontWeight: '700',
         color: colors.silver,
         letterSpacing: 1.5,
-        marginBottom: 12,
+        marginBottom: spacing.md,
         textAlign: 'center',
         opacity: 0.8,
     },
@@ -232,15 +313,35 @@ const styles = StyleSheet.create({
         backgroundColor: colors.gold,
     },
     intentionText: {
+        ...typography.body,
         fontSize: 18,
         fontStyle: 'italic',
         color: colors.bone,
         lineHeight: 28,
         textAlign: 'center',
     },
+    guideHintContainer: {
+        marginTop: spacing.md,
+        paddingHorizontal: spacing.sm,
+        alignItems: 'flex-start',
+    },
+    sealLineContainer: {
+        marginTop: spacing.md,
+        paddingHorizontal: spacing.sm,
+        alignItems: 'flex-start',
+    },
     footer: {
-        paddingHorizontal: 24,
+        paddingHorizontal: spacing.lg,
         paddingBottom: 40,
+    },
+    ctaHelperText: {
+        ...typography.caption,
+        fontSize: 13,
+        color: colors.text.secondary,
+        textAlign: 'center',
+        marginBottom: spacing.md,
+        fontStyle: 'italic',
+        letterSpacing: 0.3,
     },
     continueButton: {
         borderRadius: 20,
