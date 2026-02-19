@@ -426,6 +426,12 @@ export const SettingsScreen: React.FC = () => {
                 value={settings.openDailyAnchorAutomatically}
                 onValueChange={settings.setOpenDailyAnchorAutomatically}
               />
+              <ToggleItem
+                label="Guided Ritual Hints"
+                helperText="Gentle in-context tips during new rituals. Turn it off and the app goes quiet."
+                value={settings.guideMode}
+                onValueChange={settings.setGuideMode}
+              />
               <SettingItem
                 label="Daily Focus Goal"
                 value={`${settings.dailyPracticeGoal} Focus Bursts / day`}

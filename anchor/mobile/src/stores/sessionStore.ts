@@ -7,6 +7,7 @@
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useTeachingStore } from './teachingStore';
 
 export type SessionType = 'activate' | 'reinforce' | 'stabilize';
 export type SessionMode = 'silent' | 'mantra' | 'ambient';
@@ -125,6 +126,19 @@ export const useSessionStore = create<SessionState>()(
             sessionLog: updatedLog,
           };
         });
+
+        // Wire teaching flags — deterministic booleans, never derived from counts
+        const teaching = useTeachingStore.getState();
+        if (
+          (entry.type === 'activate' || entry.type === 'reinforce') &&
+          !teaching.userFlags.hasCompletedFirstCharge
+        ) {
+          teaching.setUserFlag('hasCompletedFirstCharge', true);
+          teaching.queueMilestone('milestone_first_charge_v1');
+        }
+        if (entry.type === 'stabilize' && !teaching.userFlags.hasCompletedFirstStabilize) {
+          teaching.setUserFlag('hasCompletedFirstStabilize', true);
+        }
 
         // TODO: scaffold backend sync — POST /api/sessions when auth token available
       },

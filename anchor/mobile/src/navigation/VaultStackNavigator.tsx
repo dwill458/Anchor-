@@ -34,13 +34,11 @@ import {
 } from '../screens/rituals';
 import { SettingsScreen, DefaultChargeSettings, DefaultActivationSettings, DailyPracticeGoalScreen } from '../screens/profile';
 import { SettingsButton } from '../components/header/SettingsButton';
-import { TabSlideWrapper } from '../components/transitions';
 import type { RootStackParamList } from '@/types';
 import { colors } from '@/theme';
 import { useAuthStore } from '@/stores/authStore';
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
-const VAULT_TAB_INDEX = 0;
 
 export const VaultStackNavigator: React.FC = () => {
   // Determine which intention screen to show
@@ -51,7 +49,6 @@ export const VaultStackNavigator: React.FC = () => {
     : ReturningIntentionScreen;
 
   return (
-    <TabSlideWrapper tabIndex={VAULT_TAB_INDEX}>
       <Stack.Navigator
         screenOptions={{
           headerShown: true,
@@ -249,6 +246,5 @@ export const VaultStackNavigator: React.FC = () => {
         }}
       />
       </Stack.Navigator>
-    </TabSlideWrapper>
   );
 };

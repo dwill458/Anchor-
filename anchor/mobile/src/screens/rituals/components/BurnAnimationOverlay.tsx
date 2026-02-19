@@ -54,6 +54,8 @@ export interface BurnAnimationOverlayProps {
   onCommitBurn: BurnCommitFn;
   onReturnToSanctuary: () => void;
   onReturnToAnchor?: () => void;
+  /** Ash Line (Pattern 8): bone-text whisper shown below subtitle in Phase 4 success. */
+  ashLineText?: string;
 }
 
 interface EmberSeed {
@@ -248,6 +250,7 @@ export const BurnAnimationOverlay: React.FC<BurnAnimationOverlayProps> = ({
   onCommitBurn,
   onReturnToSanctuary,
   onReturnToAnchor,
+  ashLineText,
 }) => {
   const navigation = useNavigation<any>();
   const reduceMotionEnabled = useReduceMotionEnabled();
@@ -257,6 +260,7 @@ export const BurnAnimationOverlay: React.FC<BurnAnimationOverlayProps> = ({
   const [isRetrying, setIsRetrying] = useState(false);
 
   const timeline = useSharedValue(0);
+  const ashLineOpacity = useSharedValue(0);
   const timersRef = useRef<ReturnType<typeof setTimeout>[]>([]);
   const isMountedRef = useRef(true);
   const completionHapticTriggeredRef = useRef(false);
@@ -291,7 +295,16 @@ export const BurnAnimationOverlay: React.FC<BurnAnimationOverlayProps> = ({
     setOverlayState('success');
     setErrorMessage('');
     triggerCompletionHaptic();
-  }, [triggerCompletionHaptic]);
+    // Ash Line: fade in after 800ms delay
+    if (ashLineText) {
+      queueTimer(() => {
+        ashLineOpacity.value = withTiming(
+          0.75,
+          { duration: reduceMotionEnabled ? 0 : 600, easing: Easing.out(Easing.cubic) }
+        );
+      }, reduceMotionEnabled ? 0 : 800);
+    }
+  }, [ashLineOpacity, ashLineText, queueTimer, reduceMotionEnabled, triggerCompletionHaptic]);
 
   const transitionToError = useCallback((message: string) => {
     if (!isMountedRef.current) return;
@@ -449,6 +462,8 @@ export const BurnAnimationOverlay: React.FC<BurnAnimationOverlayProps> = ({
     return SIGIL_SIZE * (0.24 + releasePhase * 0.2);
   });
 
+  const ashLineStyle = useAnimatedStyle(() => ({ opacity: ashLineOpacity.value }));
+
   const title = overlayState === 'error' ? "Couldn't complete release." : 'Released';
   const subtitle = overlayState === 'error' ? errorMessage : 'The loop is closed.';
 
@@ -549,6 +564,15 @@ export const BurnAnimationOverlay: React.FC<BurnAnimationOverlayProps> = ({
           <View style={styles.resultContainer}>
             <Text style={styles.resultTitle}>{title}</Text>
             <Text style={styles.resultSubtitle}>{subtitle}</Text>
+
+            {overlayState === 'success' && ashLineText ? (
+              <Animated.Text
+                style={[styles.ashLine, ashLineStyle]}
+                accessibilityRole="text"
+              >
+                {ashLineText}
+              </Animated.Text>
+            ) : null}
 
             {overlayState === 'success' ? (
               <TouchableOpacity
@@ -696,6 +720,16 @@ const styles = StyleSheet.create({
     color: colors.text.secondary,
     textAlign: 'center',
     lineHeight: 22,
+  },
+  ashLine: {
+    marginTop: spacing.lg,
+    fontFamily: typography.fonts.body,
+    fontSize: 15,
+    fontStyle: 'italic',
+    color: colors.bone,
+    textAlign: 'center',
+    lineHeight: 22,
+    paddingHorizontal: spacing.xl,
   },
   primaryButton: {
     marginTop: spacing.xl,

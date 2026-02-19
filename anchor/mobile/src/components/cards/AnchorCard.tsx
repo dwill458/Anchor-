@@ -23,6 +23,8 @@ const CATEGORY_CONFIG: Record<string, { label: string; color: string }> = {
   wealth: { label: 'Wealth', color: colors.bronze },
   relationships: { label: 'Love', color: colors.deepPurple },
   personal_growth: { label: 'Growth', color: colors.silver },
+  desire: { label: 'Desire', color: colors.coral },
+  experience: { label: 'Experience', color: colors.cyan },
   custom: { label: 'Custom', color: colors.text.tertiary },
 };
 

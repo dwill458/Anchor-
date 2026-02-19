@@ -18,6 +18,7 @@ import {
   AccessibilityInfo,
 } from 'react-native';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
+import { useTabNavigation } from '@/contexts/TabNavigationContext';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { useAnchorStore } from '@/stores/anchorStore';
 import { useSettingsStore } from '@/stores/settingsStore';
@@ -48,6 +49,7 @@ type RitualNavigationProp = StackNavigationProp<RootStackParamList, 'Ritual'>;
 
 export const RitualScreen: React.FC = () => {
   const navigation = useNavigation<RitualNavigationProp>();
+  const { navigateToPractice } = useTabNavigation();
   const route = useRoute<RitualRouteProp>();
   const { anchorId, ritualType, durationSeconds, mantraAudioEnabled, returnTo } = route.params;
   const isMountedRef = useRef(true);
@@ -326,8 +328,7 @@ export const RitualScreen: React.FC = () => {
         style: 'destructive',
         onPress: () => {
           if (returnTo === 'practice') {
-            const tabNav = navigation.getParent?.() as any;
-            tabNav?.navigate('Practice');
+            navigateToPractice();
           } else if (returnTo === 'detail') {
             navigation.navigate('AnchorDetail', { anchorId });
           } else {

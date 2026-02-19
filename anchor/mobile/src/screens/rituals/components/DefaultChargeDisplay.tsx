@@ -16,14 +16,13 @@ import {
   Platform,
 } from 'react-native';
 import { BlurView } from 'expo-blur';
-import * as Haptics from 'expo-haptics';
 import { colors, spacing, typography } from '@/theme';
 import { safeHaptics } from '@/utils/haptics';
 
 export interface DefaultChargeDisplayProps {
   mode: 'focus' | 'ritual';
   durationSeconds: number;
-  onContinue: () => void;
+  onContinue?: () => void;
   onChange: () => void;
 }
 
@@ -36,7 +35,6 @@ export interface DefaultChargeDisplayProps {
 export const DefaultChargeDisplay: React.FC<DefaultChargeDisplayProps> = ({
   mode,
   durationSeconds,
-  onContinue,
   onChange,
 }) => {
   const fadeAnim = useRef(new Animated.Value(0)).current;
@@ -59,11 +57,6 @@ export const DefaultChargeDisplay: React.FC<DefaultChargeDisplayProps> = ({
 
   const formatMode = (mode: 'focus' | 'ritual'): string => {
     return mode === 'focus' ? 'Focus' : 'Ritual';
-  };
-
-  const handleContinue = () => {
-    void safeHaptics.impact(Haptics.ImpactFeedbackStyle.Medium);
-    onContinue();
   };
 
   const handleChange = () => {
@@ -96,22 +89,13 @@ export const DefaultChargeDisplay: React.FC<DefaultChargeDisplayProps> = ({
             {/* Action buttons */}
             <View style={styles.actions}>
               <TouchableOpacity
-                style={[styles.button, styles.continueButton]}
-                onPress={handleContinue}
-                accessibilityRole="button"
-                accessibilityLabel="Continue with default charge"
-              >
-                <Text style={styles.continueButtonText}>Continue</Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity
                 style={[styles.button, styles.changeButton]}
                 onPress={handleChange}
                 activeOpacity={0.8}
                 accessibilityRole="button"
                 accessibilityLabel="Change charge settings"
               >
-                <Text style={styles.changeButtonText}>Change</Text>
+                <Text style={styles.changeButtonText}>Change settings</Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -132,22 +116,13 @@ export const DefaultChargeDisplay: React.FC<DefaultChargeDisplayProps> = ({
             {/* Action buttons */}
             <View style={styles.actions}>
               <TouchableOpacity
-                style={[styles.button, styles.continueButton]}
-                onPress={handleContinue}
-                accessibilityRole="button"
-                accessibilityLabel="Continue with default charge"
-              >
-                <Text style={styles.continueButtonText}>Continue</Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity
                 style={[styles.button, styles.changeButton]}
                 onPress={handleChange}
                 activeOpacity={0.8}
                 accessibilityRole="button"
                 accessibilityLabel="Change charge settings"
               >
-                <Text style={styles.changeButtonText}>Change</Text>
+                <Text style={styles.changeButtonText}>Change settings</Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -230,7 +205,6 @@ const styles = StyleSheet.create({
 
   actions: {
     flexDirection: 'row',
-    gap: spacing.md,
   },
 
   button: {
@@ -241,21 +215,6 @@ const styles = StyleSheet.create({
     borderRadius: 12,
   },
 
-  continueButton: {
-    backgroundColor: colors.gold,
-    shadowColor: colors.gold,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.2,
-    shadowRadius: 8,
-    elevation: 4,
-  },
-
-  continueButtonText: {
-    fontSize: typography.sizes.button,
-    fontFamily: typography.fonts.bodyBold,
-    color: colors.navy,
-    letterSpacing: 0.5,
-  },
 
   changeButton: {
     backgroundColor: `rgba(192, 192, 192, 0.1)`,

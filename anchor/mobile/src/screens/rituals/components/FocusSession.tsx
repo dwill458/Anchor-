@@ -52,6 +52,9 @@ export type FocusSessionProps = {
   durationSeconds: number;
   onComplete: () => void;
   onDismiss: () => void;
+  /** Ground Note (Pattern 2): auto-fades after 6s. Only shown when guideMode is on. */
+  groundNoteText?: string;
+  groundNoteSecondary?: string;
 };
 
 type GlassSurfaceProps = {
@@ -232,6 +235,8 @@ export const FocusSession: React.FC<FocusSessionProps> = ({
   durationSeconds,
   onComplete,
   onDismiss,
+  groundNoteText,
+  groundNoteSecondary,
 }) => {
   const { width } = useWindowDimensions();
   const ANCHOR_SIZE = Math.min(Math.round(width * 0.58), 264);
@@ -243,6 +248,8 @@ export const FocusSession: React.FC<FocusSessionProps> = ({
 
   const [status, setStatus] = useState<SessionStatus>('running');
   const [secondsRemaining, setSecondsRemaining] = useState(Math.ceil(totalMs / 1000));
+  const [groundNoteVisible, setGroundNoteVisible] = useState(!!groundNoteText);
+  const groundNoteOpacity = useRef(new Animated.Value(groundNoteText ? 0 : 0)).current;
 
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const endAtMsRef = useRef<number>(Date.now() + totalMs);
@@ -258,6 +265,25 @@ export const FocusSession: React.FC<FocusSessionProps> = ({
   const flare = useSharedValue(0);
 
   const timerDisplay = useMemo(() => formatTime(secondsRemaining), [secondsRemaining]);
+
+  // Ground Note (Pattern 2): fade in, then auto-fade after 6s
+  useEffect(() => {
+    if (!groundNoteText) return;
+    setGroundNoteVisible(true);
+    Animated.timing(groundNoteOpacity, {
+      toValue: 1,
+      duration: 400,
+      useNativeDriver: true,
+    }).start();
+    const timer = setTimeout(() => {
+      Animated.timing(groundNoteOpacity, {
+        toValue: 0,
+        duration: 500,
+        useNativeDriver: true,
+      }).start(() => setGroundNoteVisible(false));
+    }, 6000);
+    return () => clearTimeout(timer);
+  }, [groundNoteText]);
 
   const clearTickInterval = useCallback(() => {
     if (intervalRef.current) {
@@ -542,6 +568,15 @@ export const FocusSession: React.FC<FocusSessionProps> = ({
             </Text>
           </GlassSurface>
 
+          {groundNoteVisible && groundNoteText ? (
+            <Animated.View style={[styles.groundNoteWrap, { opacity: groundNoteOpacity }]}>
+              <Text style={styles.groundNoteText}>{groundNoteText}</Text>
+              {groundNoteSecondary ? (
+                <Text style={styles.groundNoteSecondary}>{groundNoteSecondary}</Text>
+              ) : null}
+            </Animated.View>
+          ) : null}
+
           {status === 'running' ? (
             <TouchableOpacity
               onPress={handlePause}
@@ -808,5 +843,24 @@ const styles = StyleSheet.create({
   },
   androidGlassFallback: {
     backgroundColor: colors.ritual.glassStrong,
+  },
+  groundNoteWrap: {
+    alignItems: 'center',
+    marginBottom: spacing.sm,
+  },
+  groundNoteText: {
+    fontSize: 13,
+    fontFamily: typography.fonts.body,
+    color: colors.text.secondary,
+    textAlign: 'center',
+    letterSpacing: 0.2,
+  },
+  groundNoteSecondary: {
+    fontSize: 12,
+    fontFamily: typography.fonts.body,
+    color: colors.text.tertiary,
+    textAlign: 'center',
+    marginTop: 2,
+    letterSpacing: 0.2,
   },
 });

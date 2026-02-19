@@ -216,6 +216,17 @@ export default function StructureForgeScreen() {
 
       {/* Header */}
       <View style={styles.header}>
+        {/* Back row */}
+        <TouchableOpacity
+          style={styles.backButton}
+          onPress={() => navigation.goBack()}
+          activeOpacity={0.7}
+          accessibilityRole="button"
+          accessibilityLabel="Go back"
+        >
+          <Text style={styles.backIcon}>←</Text>
+        </TouchableOpacity>
+
         <View style={styles.headerContent}>
           <View style={styles.headerTextContainer}>
             <Text style={styles.title}>Choose Structure</Text>
@@ -387,9 +398,18 @@ const styles = StyleSheet.create({
     color: colors.gold,
   },
   header: {
-    paddingTop: spacing.xl,
+    paddingTop: spacing.sm,
     paddingHorizontal: spacing.lg,
     paddingBottom: spacing.md,
+  },
+  backButton: {
+    marginBottom: spacing.xs,
+    alignSelf: 'flex-start',
+    padding: 4,
+  },
+  backIcon: {
+    fontSize: 24,
+    color: colors.gold,
   },
   title: {
     fontFamily: typography.fonts.heading,

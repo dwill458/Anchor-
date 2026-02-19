@@ -16,6 +16,7 @@ import {
   Dimensions,
 } from 'react-native';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
+import { useTabNavigation } from '@/contexts/TabNavigationContext';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { SvgXml } from 'react-native-svg';
 import * as Haptics from 'expo-haptics';
@@ -41,6 +42,7 @@ type ChargeCompleteNavigationProp = StackNavigationProp<
 
 export const ChargeCompleteScreen: React.FC = () => {
   const navigation = useNavigation<ChargeCompleteNavigationProp>();
+  const { navigateToPractice } = useTabNavigation();
   const route = useRoute<ChargeCompleteRouteProp>();
   const { anchorId, returnTo } = route.params;
 
@@ -101,8 +103,7 @@ export const ChargeCompleteScreen: React.FC = () => {
   const handleSaveToVault = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     if (returnTo === 'practice') {
-      const tabNav = navigation.getParent?.() as any;
-      tabNav?.navigate('Practice');
+      navigateToPractice();
     } else if (returnTo === 'detail') {
       navigation.navigate('AnchorDetail', { anchorId });
     } else {

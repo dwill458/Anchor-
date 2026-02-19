@@ -9,6 +9,7 @@ import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import type { Anchor } from '@/types';
+import { useTeachingStore } from './teachingStore';
 
 /**
  * Anchor state interface
@@ -52,11 +53,18 @@ export const useAnchorStore = create<AnchorState>()(
           error: null,
         }),
 
-      addAnchor: (anchor) =>
+      addAnchor: (anchor) => {
+        const teaching = useTeachingStore.getState();
+        // Set first-anchor flag once; queue M1 milestone
+        if (!teaching.userFlags.hasCreatedFirstAnchor) {
+          teaching.setUserFlag('hasCreatedFirstAnchor', true);
+          teaching.queueMilestone('milestone_first_anchor_v1');
+        }
         set((state) => ({
           anchors: [anchor, ...state.anchors], // Add to beginning (most recent first)
           error: null,
-        })),
+        }));
+      },
 
       updateAnchor: (id, updates) =>
         set((state) => ({
