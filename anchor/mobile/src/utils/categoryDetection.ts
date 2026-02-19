@@ -16,6 +16,9 @@ const CATEGORY_KEYWORDS: Record<AnchorCategory, string[]> = {
     'revenue', 'profit', 'growth', 'scale', 'impact', 'influence', 'authority',
     'legacy', 'mastery', 'craftsman', 'artisan', 'portfolio', 'resume',
     'curriculum', 'tenure', 'retirement', 'redundancy', 'pivot', 'shift',
+    'income', 'earning', 'bonus', 'career', 'path', 'climb', 'corporate',
+    'startup', 'venture', 'founder', 'ceo', 'manager', 'lead', 'leadership',
+    'productivity', 'workflow', 'system', 'process', 'efficient', 'optimization',
   ],
   health: [
     'health', 'fit', 'fitness', 'exercise', 'run', 'gym', 'workout', 'sleep',
@@ -45,6 +48,9 @@ const CATEGORY_KEYWORDS: Record<AnchorCategory, string[]> = {
     'liberty', 'legacy', 'estate', 'inheritance', 'trust', 'donor', 'charity',
     'giving', 'generosity', 'richness', 'opulence', 'luxury', 'quality',
     'value', 'worth', 'networth', 'growth', 'compounding', 'leverage', 'smart',
+    'abundance', 'prosperity', 'richness', 'luxury', 'freedom', 'independence',
+    'security', 'safety', 'future', 'legacy', 'estate', 'inheritance',
+    'millionaire', 'billionaire', 'wealthy', 'prosperous', 'aligned', 'flow',
   ],
   relationships: [
     'relationship', 'family', 'friend', 'friends', 'love', 'partner',
@@ -60,6 +66,8 @@ const CATEGORY_KEYWORDS: Record<AnchorCategory, string[]> = {
     'stranger', 'crowd', 'tribe', 'gathering', 'festival', 'celebration',
     'wedding', 'reunion', 'belonging', 'acceptance', 'inclusion', 'unity',
     'solidarity', 'partnership', 'alliance', 'network', 'contribution',
+    'altruism', 'service', 'helpful', 'kind', 'generous', 'loving', 'warmth',
+    'belong', 'seen', 'heard', 'valued', 'respected', 'admired', 'liked',
   ],
   personal_growth: [
     'grow', 'growth', 'better', 'improve', 'improving', 'become', 'learn',
@@ -78,6 +86,19 @@ const CATEGORY_KEYWORDS: Record<AnchorCategory, string[]> = {
     'dignity', 'respect', 'humility', 'ego', 'transcend', 'meditate',
     'prayer', 'ritual', 'sacred', 'infinite', 'eternal', 'now', 'flow',
   ],
+  desire: [
+    'want', 'need', 'wish', 'hope', 'desire', 'crave', 'seek', 'strive',
+    'intent', 'longing', 'manifest', 'reach', 'attain', 'get', 'receive',
+    'possess', 'have', 'claim', 'demand', 'ask', 'prayer', 'will', 'power',
+    'command', 'attract', 'attraction', 'pleasure', 'satisfaction', 'fulfillment',
+  ],
+  experience: [
+    'experience', 'travel', 'feel', 'adventure', 'journey', 'moment',
+    'sensory', 'trip', 'event', 'visit', 'exploration', 'discovery',
+    'witness', 'see', 'hear', 'taste', 'touch', 'alive', 'world',
+    'ocean', 'mountain', 'city', 'country', 'nature', 'outdoor', 'wild',
+    'culture', 'art', 'music', 'dance', 'performance', 'memory',
+  ],
   custom: [],
 };
 
@@ -94,6 +115,8 @@ export function detectCategoryFromText(intentionText: string): AnchorCategory {
     wealth: 0,
     relationships: 0,
     personal_growth: 0,
+    desire: 0,
+    experience: 0,
     custom: 0,
   };
 
@@ -106,7 +129,7 @@ export function detectCategoryFromText(intentionText: string): AnchorCategory {
   }
 
   // Find the highest scoring category (excluding 'custom' which has no keywords)
-  let best: AnchorCategory = 'personal_growth';
+  let best: AnchorCategory = 'desire'; // Fallback to 'desire' as requested
   let bestScore = 0;
   for (const [category, score] of Object.entries(scores) as [AnchorCategory, number][]) {
     if (category !== 'custom' && score > bestScore) {

@@ -78,6 +78,8 @@ export type AnchorCategory =
   | 'wealth'
   | 'relationships'
   | 'personal_growth'
+  | 'desire'
+  | 'experience'
   | 'custom';
 
 /**

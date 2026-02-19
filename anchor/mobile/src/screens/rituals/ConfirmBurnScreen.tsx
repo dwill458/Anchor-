@@ -39,6 +39,9 @@ import { PremiumAnchorGlow } from '@/components/common';
 import { safeHaptics } from '@/utils/haptics';
 import { RitualRail, RitualRailStep } from './components/RitualRail';
 import { ReleaseInput } from './components/ReleaseInput';
+import { useTeachingGate } from '@/utils/useTeachingGate';
+import { useTeachingStore } from '@/stores/teachingStore';
+import { TEACHINGS } from '@/constants/teaching';
 
 type ConfirmBurnRouteProp = RouteProp<RootStackParamList, 'ConfirmBurn'>;
 type ConfirmBurnNavigationProp = StackNavigationProp<RootStackParamList, 'ConfirmBurn'>;
@@ -55,6 +58,17 @@ export const ConfirmBurnScreen: React.FC = () => {
   const { anchorId, intention, sigilSvg, enhancedImageUrl } = route.params;
 
   const reducedMotion = useReducedMotion();
+  const { recordShown } = useTeachingStore();
+
+  // Undertone teachings — resolved once, guard already enforces first-burn + guideMode
+  const reflectTeaching = useTeachingGate({
+    screenId: 'confirm_burn_reflect',
+    candidateIds: ['confirm_burn_reflect_v1'],
+  });
+  const releaseTeaching = useTeachingGate({
+    screenId: 'confirm_burn_release',
+    candidateIds: ['confirm_burn_release_v1'],
+  });
 
   // ── Step state ──
   const [currentStep, setCurrentStep] = useState<BurnStep>('reflect');
@@ -66,6 +80,35 @@ export const ConfirmBurnScreen: React.FC = () => {
   const screenOpacity = useSharedValue(0);
   const floatY = useSharedValue(0);
   const stepOpacity = useSharedValue(1);
+
+  const undertoneOpacity = useSharedValue(0);
+
+  // Fade in undertone for reflect step on mount; fade out / fade in on step change
+  useEffect(() => {
+    const hasTeaching = currentStep === 'reflect' ? !!reflectTeaching : !!releaseTeaching;
+    if (hasTeaching) {
+      undertoneOpacity.value = reducedMotion
+        ? 1
+        : withTiming(1, { duration: 400 });
+    } else {
+      undertoneOpacity.value = 0;
+    }
+  }, [currentStep, reflectTeaching?.teachingId, releaseTeaching?.teachingId, reducedMotion]);
+
+  // Record undertone shown
+  useEffect(() => {
+    if (reflectTeaching) {
+      const content = TEACHINGS[reflectTeaching.teachingId];
+      recordShown(reflectTeaching.teachingId, reflectTeaching.pattern, content?.maxShows ?? 1);
+      AnalyticsService.track('teaching_shown', {
+        teaching_id: reflectTeaching.teachingId,
+        pattern: reflectTeaching.pattern,
+        screen: 'confirm_burn',
+        trigger: reflectTeaching.trigger,
+        guide_mode: true,
+      });
+    }
+  }, [reflectTeaching?.teachingId]);
 
   // ── Entrance animation ──
   useEffect(() => {
@@ -86,6 +129,7 @@ export const ConfirmBurnScreen: React.FC = () => {
   const screenStyle = useAnimatedStyle(() => ({ opacity: screenOpacity.value }));
   const floatStyle = useAnimatedStyle(() => ({ transform: [{ translateY: floatY.value }] }));
   const stepStyle = useAnimatedStyle(() => ({ opacity: stepOpacity.value }));
+  const undertoneStyle = useAnimatedStyle(() => ({ opacity: undertoneOpacity.value }));
 
   // ── Step transition ──
   const pendingStepRef = useRef<BurnStep | null>(null);
@@ -232,6 +276,11 @@ export const ConfirmBurnScreen: React.FC = () => {
         <Text style={styles.ritualCopy}>
           If this work is complete, release the symbol.
         </Text>
+        {reflectTeaching ? (
+          <Animated.Text style={[styles.undertoneText, undertoneStyle]} accessibilityRole="text">
+            {reflectTeaching.copy}
+          </Animated.Text>
+        ) : null}
       </View>
     );
   }
@@ -248,6 +297,11 @@ export const ConfirmBurnScreen: React.FC = () => {
           onChangeText={setReleaseText}
           autoFocus={true}
         />
+        {releaseTeaching ? (
+          <Animated.Text style={[styles.undertoneText, undertoneStyle]} accessibilityRole="text">
+            {releaseTeaching.copy}
+          </Animated.Text>
+        ) : null}
       </View>
     );
   }
@@ -407,5 +461,16 @@ const styles = StyleSheet.create({
     fontFamily: typography.fonts.body,
     fontSize: typography.sizes.body2,
     color: colors.text.tertiary,
+  },
+  undertoneText: {
+    fontFamily: typography.fonts.body,
+    fontSize: typography.sizes.body2,
+    color: colors.text.secondary,
+    fontStyle: 'italic',
+    textAlign: 'center',
+    marginTop: spacing.lg,
+    paddingHorizontal: spacing.md,
+    lineHeight: 20,
+    opacity: 0.85,
   },
 });

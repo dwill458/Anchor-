@@ -1,47 +1,47 @@
 /**
- * Anchor App - Main Tab Navigator
+ * Anchor App - Main Tab Navigator (Premium iOS swipe animation)
  *
- * Bottom tab navigation with glassmorphic design
- * Three tabs: Sanctuary, Practice, Discover
- * Profile accessible via top-right avatar on all screens
+ * Uses SwipeableTabContainer so all three tab screens stay mounted and
+ * visible simultaneously — both the incoming and outgoing screens animate
+ * (true parallax: outgoing moves at 28% speed).
  *
- * Uses native tab switching with custom tab bar styling and press feedback.
+ * Navigation context for cross-tab navigation is provided via
+ * TabNavigationContext (replaces navigation.getParent() pattern).
  */
 
-import React from 'react';
-import { View, StyleSheet, Platform, Pressable, type GestureResponderEvent } from 'react-native';
-import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
+import React, { useCallback, useRef } from 'react';
+import { AppState, View, Text, StyleSheet, Platform, Pressable } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { BlurView } from 'expo-blur';
 import { Home, Compass, Zap } from 'lucide-react-native';
-import { getFocusedRouteNameFromRoute } from '@react-navigation/native';
-import { VaultStackNavigator } from './VaultStackNavigator';
-import { DiscoverScreen } from '../screens/discover';
-import { PracticeStackNavigator } from './PracticeStackNavigator';
-import { SettingsButton } from '../components/header/SettingsButton';
-import type { MainTabParamList } from '@/types';
-import { colors } from '@/theme';
-import { useSettingsStore } from '@/stores/settingsStore';
-import { useAnchorStore } from '@/stores/anchorStore';
-import { useEffect, useRef } from 'react';
-import { useNavigation } from '@react-navigation/native';
-import { BottomTabNavigationProp, type BottomTabBarButtonProps } from '@react-navigation/bottom-tabs';
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
   withTiming,
 } from 'react-native-reanimated';
 import * as Haptics from 'expo-haptics';
+
+import { VaultStackNavigator } from './VaultStackNavigator';
+import { PracticeStackNavigator } from './PracticeStackNavigator';
+import { DiscoverScreen } from '../screens/discover';
+import { SwipeableTabContainer } from '../components/transitions/SwipeableTabContainer';
+import { TabNavigationProvider } from '../contexts/TabNavigationContext';
+import { colors } from '@/theme';
+import { useSettingsStore } from '@/stores/settingsStore';
+import { useAnchorStore } from '@/stores/anchorStore';
 import { safeHaptics } from '@/utils/haptics';
+import { useTeachingStore } from '@/stores/teachingStore';
+import { useToast } from '@/components/ToastProvider';
+import { TEACHINGS } from '@/constants/teaching';
 
-const Tab = createBottomTabNavigator<MainTabParamList>();
+// ─── Tab Button ───────────────────────────────────────────────────────────────
 
-/**
- * SlideTabButton
- *
- * Custom tab button with lightweight press scale animation.
- */
-const SlideTabButton: React.FC<BottomTabBarButtonProps> = (props) => {
+interface TabButtonProps {
+  onPress: () => void;
+  children: React.ReactNode;
+}
+
+const TabButton: React.FC<TabButtonProps> = ({ onPress, children }) => {
   const scale = useSharedValue(1);
 
   const animatedStyle = useAnimatedStyle(() => ({
@@ -57,196 +57,240 @@ const SlideTabButton: React.FC<BottomTabBarButtonProps> = (props) => {
     scale.value = withTiming(1, { duration: 220 });
   };
 
-  const handlePress = (event: GestureResponderEvent) => {
-    props.onPress?.(event);
-  };
-
   return (
     <Pressable
       onPressIn={handlePressIn}
       onPressOut={handlePressOut}
-      onPress={handlePress}
-      onLongPress={props.onLongPress}
-      style={props.style}
+      onPress={onPress}
       accessibilityRole="button"
+      style={styles.tabButton}
     >
-      <Animated.View style={animatedStyle}>
-        {props.children}
+      <Animated.View style={[animatedStyle, styles.tabContent]}>
+        {children}
       </Animated.View>
     </Pressable>
   );
 };
 
-// PracticeTabButton is now SlideTabButton (same behavior)
-const PracticeTabButton = SlideTabButton;
+// ─── Tab Bar ──────────────────────────────────────────────────────────────────
 
-export const MainTabNavigator: React.FC = () => {
-  const navigation = useNavigation<BottomTabNavigationProp<MainTabParamList>>();
-  const { openDailyAnchorAutomatically } = useSettingsStore();
-  const { anchors } = useAnchorStore();
-  const hasCheckedAutoOpen = useRef(false);
+interface CustomTabBarProps {
+  activeIndex: number;
+  onTabPress: (index: number) => void;
+}
 
-  useEffect(() => {
-    if (openDailyAnchorAutomatically && anchors.length > 0 && !hasCheckedAutoOpen.current) {
-      hasCheckedAutoOpen.current = true;
-      // Navigate to the primary (first) anchor detail
-      setTimeout(() => {
-        // @ts-ignore - navigation might not be fully typed here but we know the route exists
-        navigation.navigate('Vault', {
-          screen: 'AnchorDetail',
-          params: { anchorId: anchors[0].id }
-        });
-      }, 500);
-    }
-  }, []);
+const CustomTabBar: React.FC<CustomTabBarProps> = ({ activeIndex, onTabPress }) => {
+  const tabs = [
+    {
+      label: 'Sanctuary',
+      icon: (active: boolean) => (
+        <View style={[styles.iconContainer, active && styles.iconFocusedBg]}>
+          <Home
+            color={active ? colors.gold : 'rgba(192,192,192,0.6)'}
+            size={22}
+            fill="none"
+            strokeWidth={active ? 2.2 : 1.8}
+          />
+        </View>
+      ),
+    },
+    {
+      label: 'Practice',
+      icon: (active: boolean) => (
+        <Zap
+          color={active ? colors.gold : 'rgba(192,192,192,0.6)'}
+          size={24}
+          fill={active ? colors.gold : 'none'}
+        />
+      ),
+    },
+    {
+      label: 'Discover',
+      icon: (active: boolean) => (
+        <View style={[styles.iconContainer, active && styles.iconFocusedBg]}>
+          <Compass
+            color={active ? colors.gold : 'rgba(192,192,192,0.6)'}
+            size={22}
+            fill="none"
+            strokeWidth={active ? 2.2 : 1.8}
+          />
+        </View>
+      ),
+    },
+  ];
 
   return (
-    <View style={{ flex: 1 }}>
-    <Tab.Navigator
-      detachInactiveScreens={false}
-      sceneContainerStyle={{ backgroundColor: colors.background.primary }}
-      screenOptions={{
-        headerShown: false,
-        tabBarStyle: {
-          position: 'absolute',
-          bottom: 25,
-          left: 20,
-          right: 20,
-          elevation: 0,
-          backgroundColor: 'transparent',
-          borderRadius: 30,
-          height: 70,
-          borderTopWidth: 0,
-          overflow: 'hidden',
-          // Premium shadow
-          shadowColor: '#000',
-          shadowOffset: {
-            width: 0,
-            height: 8,
-          },
-          shadowOpacity: 0.4,
-          shadowRadius: 12,
-          // Border for glassmorphic effect
-          borderWidth: 1,
-          borderColor: 'rgba(212, 175, 55, 0.15)',
-        },
-        tabBarBackground: () => (
-          <View style={styles.tabBarBackgroundContainer}>
-            <BlurView
-              intensity={Platform.OS === 'ios' ? 40 : 80}
-              tint="dark"
-              style={styles.blurView}
+    <View style={styles.tabBarWrapper}>
+      {/* Glassmorphic background */}
+      <View style={[styles.tabBarBg, styles.tabBarBorder]}>
+        <BlurView
+          intensity={Platform.OS === 'ios' ? 40 : 80}
+          tint="dark"
+          style={StyleSheet.absoluteFillObject}
+        >
+          <LinearGradient
+            colors={['rgba(62,44,91,0.85)', 'rgba(26,26,29,0.75)']}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 0 }}
+            style={StyleSheet.absoluteFillObject}
+          />
+        </BlurView>
+      </View>
+
+      {/* Tab buttons */}
+      <View style={styles.tabBar}>
+        {tabs.map((tab, index) => (
+          <TabButton key={index} onPress={() => onTabPress(index)}>
+            {tab.icon(activeIndex === index)}
+            <Text
+              style={[
+                styles.tabLabel,
+                activeIndex === index && styles.tabLabelActive,
+              ]}
             >
-              <LinearGradient
-                colors={[
-                  'rgba(62, 44, 91, 0.85)',  // deepPurple with transparency
-                  'rgba(26, 26, 29, 0.75)',  // background.secondary with transparency
-                ]}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 0 }}
-                style={styles.tabBarGradient}
-              />
-            </BlurView>
-          </View>
-        ),
-        tabBarActiveTintColor: colors.gold,
-        tabBarInactiveTintColor: 'rgba(192, 192, 192, 0.6)',
-        tabBarShowLabel: true,
-        tabBarLabelStyle: {
-          fontSize: 10,
-          fontFamily: Platform.select({ ios: 'System', android: 'Roboto' }),
-          marginBottom: 8,
-        },
-        tabBarItemStyle: {
-          paddingTop: 8,
-        }
-      }}
-    >
-      <Tab.Screen
-        name="Vault"
-        component={VaultStackNavigator}
-        options={({ route }) => {
-          const routeName = getFocusedRouteNameFromRoute(route) ?? 'Vault';
-          // Hide tab bar for any screen other than the main 'Vault' list
-          const isTabBarVisible = routeName === 'Vault';
-
-          return {
-            tabBarLabel: 'Sanctuary',
-            tabBarIcon: ({ color, size }) => (
-              <View style={styles.sanctuaryIconContainer}>
-                <Home color={color} size={24} />
-              </View>
-            ),
-            tabBarButton: SlideTabButton,
-            ...(isTabBarVisible ? {} : { tabBarStyle: { display: 'none' } }),
-          };
-        }}
-      />
-      <Tab.Screen
-        name="Practice"
-        component={PracticeStackNavigator}
-        options={({ route }) => {
-          const routeName = getFocusedRouteNameFromRoute(route) ?? 'PracticeHome';
-          const isTabBarVisible = routeName === 'PracticeHome';
-
-          return {
-            headerShown: false,
-            tabBarLabel: 'Practice',
-            tabBarIcon: ({ color }) => <Zap color={color} size={24} />,
-            tabBarButton: PracticeTabButton,
-            ...(isTabBarVisible ? {} : { tabBarStyle: { display: 'none' } }),
-          };
-        }}
-      />
-      <Tab.Screen
-        name="Discover"
-        component={DiscoverScreen}
-        options={() => ({
-          headerShown: true,
-          headerStyle: {
-            backgroundColor: colors.background.primary,
-            shadowColor: 'transparent',
-            elevation: 0,
-          },
-          headerTintColor: colors.gold,
-          headerTitleStyle: {
-            fontWeight: '600',
-            fontSize: 18,
-          },
-          headerTitle: 'Discover',
-          headerRight: () => <SettingsButton />,
-          tabBarLabel: 'Discover',
-          tabBarIcon: ({ color, size }) => <Compass color={color} size={24} />,
-        })}
-      />
-    </Tab.Navigator>
+              {tab.label}
+            </Text>
+          </TabButton>
+        ))}
+      </View>
     </View>
   );
 };
 
+// ─── Main Navigator ───────────────────────────────────────────────────────────
+
+export const MainTabNavigator: React.FC = () => {
+  const { openDailyAnchorAutomatically } = useSettingsStore();
+  const { anchors } = useAnchorStore();
+  const hasCheckedAutoOpen = useRef(false);
+  const toast = useToast();
+
+  const [activeIndex, setActiveIndex] = React.useState(0);
+
+  const handleIndexChange = useCallback((index: number) => {
+    setActiveIndex(index);
+  }, []);
+
+  // Auto-open daily anchor
+  React.useEffect(() => {
+    if (openDailyAnchorAutomatically && anchors.length > 0 && !hasCheckedAutoOpen.current) {
+      hasCheckedAutoOpen.current = true;
+      setTimeout(() => {
+        setActiveIndex(0);
+      }, 500);
+    }
+  }, []);
+
+  // Milestone queue drain — one milestone toast per 10s on app foreground
+  React.useEffect(() => {
+    let timerId: ReturnType<typeof setTimeout> | null = null;
+
+    const drain = () => {
+      const milestoneId = useTeachingStore.getState().dequeueMilestone();
+      if (!milestoneId) return;
+      const content = TEACHINGS[milestoneId];
+      if (content) toast.success(content.copy);
+      timerId = setTimeout(drain, 10000);
+    };
+
+    const subscription = AppState.addEventListener('change', (nextState) => {
+      if (nextState === 'active') {
+        if (timerId) clearTimeout(timerId);
+        drain();
+      } else {
+        if (timerId) clearTimeout(timerId);
+      }
+    });
+
+    return () => {
+      subscription.remove();
+      if (timerId) clearTimeout(timerId);
+    };
+  }, [toast]);
+
+  return (
+    <TabNavigationProvider onIndexChange={handleIndexChange}>
+      <View style={styles.container}>
+        <SwipeableTabContainer
+          activeIndex={activeIndex}
+          onIndexChange={handleIndexChange}
+          tabCount={3}
+        >
+          <VaultStackNavigator />
+          <PracticeStackNavigator />
+          <DiscoverScreen />
+        </SwipeableTabContainer>
+
+        <CustomTabBar activeIndex={activeIndex} onTabPress={handleIndexChange} />
+      </View>
+    </TabNavigationProvider>
+  );
+};
+
+// ─── Styles ───────────────────────────────────────────────────────────────────
+
 const styles = StyleSheet.create({
-  tabBarBackgroundContainer: {
+  container: {
+    flex: 1,
+    backgroundColor: colors.background.primary,
+  },
+  // Tab bar
+  tabBarWrapper: {
     position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
+    bottom: 25,
+    left: 20,
+    right: 20,
+    height: 70,
     borderRadius: 30,
     overflow: 'hidden',
-    backgroundColor: 'transparent',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.4,
+    shadowRadius: 12,
+    elevation: 8,
   },
-  blurView: {
-    flex: 1,
+  tabBarBg: {
+    ...StyleSheet.absoluteFillObject,
     borderRadius: 30,
     overflow: 'hidden',
   },
-  tabBarGradient: {
-    flex: 1,
-    borderRadius: 30,
+  tabBarBorder: {
+    borderWidth: 1,
+    borderColor: 'rgba(212,175,55,0.15)',
   },
-  sanctuaryIconContainer: {
+  tabBar: {
+    flex: 1,
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    alignItems: 'center',
+    paddingHorizontal: 8,
+  },
+  tabButton: {
+    flex: 1,
+    alignItems: 'center',
+    paddingVertical: 8,
+  },
+  tabContent: {
+    alignItems: 'center',
+    gap: 3,
+  },
+  iconContainer: {
     alignItems: 'center',
     justifyContent: 'center',
-    position: 'relative',
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+  },
+  iconFocusedBg: {
+    backgroundColor: 'rgba(212,175,55,0.18)',
+  },
+  tabLabel: {
+    fontSize: 10,
+    fontFamily: Platform.select({ ios: 'System', android: 'Roboto' }),
+    color: 'rgba(192,192,192,0.6)',
+  },
+  tabLabelActive: {
+    color: colors.gold,
+    fontWeight: '600',
   },
 });

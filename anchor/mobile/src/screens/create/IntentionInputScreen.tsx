@@ -21,6 +21,10 @@ import { distillIntention } from '@/utils/sigil/distillation';
 import { detectCategoryFromText } from '@/utils/categoryDetection';
 import { colors, spacing, typography } from '@/theme';
 import { ZenBackground } from '@/components/common';
+import { useTeachingGate } from '@/utils/useTeachingGate';
+import { useTeachingStore } from '@/stores/teachingStore';
+import { AnalyticsService } from '@/services/AnalyticsService';
+import { TEACHINGS } from '@/constants/teaching';
 
 const { height } = Dimensions.get('window');
 
@@ -28,12 +32,51 @@ type NavigationProp = StackNavigationProp<RootStackParamList, 'CreateAnchor'>;
 
 export default function IntentionInputScreen() {
     const navigation = useNavigation<NavigationProp>();
+    const { recordShown } = useTeachingStore();
 
     const [intention, setIntention] = useState('');
     const [charCount, setCharCount] = useState(0);
     const [placeholder, setPlaceholder] = useState('');
+    const [isFocused, setIsFocused] = useState(false);
+    const [canSubmit, setCanSubmit] = useState(false);
+
+    // Teaching: Undertone state
+    const [undertoneText, setUndertoneText] = useState<string | null>(null);
+    const undertoneOpacity = useRef(new Animated.Value(0)).current;
+    const idleTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+    const firstTimeShownRef = useRef(false);
+    const hesitationShownRef = useRef(false);
 
     const fadeAnim = useRef(new Animated.Value(0)).current;
+    const focusAnim = useRef(new Animated.Value(0)).current;
+
+    // Teaching gate — evaluated once per render cycle; gates enforce lifetime limits
+    const firstTimeTeaching = useTeachingGate({
+        screenId: 'intention_input',
+        candidateIds: ['intention_input_first_time_v1'],
+    });
+    const hesitationTeaching = useTeachingGate({
+        screenId: 'intention_input',
+        candidateIds: ['intention_input_hesitation_v1'],
+    });
+
+    const showUndertone = (text: string, teachingId: string) => {
+        const content = TEACHINGS[teachingId];
+        setUndertoneText(text);
+        recordShown(teachingId, 'inline_whisper', content?.maxShows ?? 1);
+        AnalyticsService.track('teaching_shown', {
+            teaching_id: teachingId,
+            pattern: 'inline_whisper',
+            screen: 'intention_input',
+            trigger: content?.trigger ?? 'first_time',
+            guide_mode: true,
+        });
+        Animated.timing(undertoneOpacity, {
+            toValue: 1,
+            duration: 400,
+            useNativeDriver: true,
+        }).start();
+    };
 
     const PLACEHOLDER_POOL = [
         "Stay focused during training",
@@ -43,9 +86,8 @@ export default function IntentionInputScreen() {
         "Listen before reacting"
     ];
 
-    // Entrance animation with locked system easing + Random Placeholder
+    // Entrance animation + random placeholder
     useEffect(() => {
-        // Pick random placeholder
         const randomIndex = Math.floor(Math.random() * PLACEHOLDER_POOL.length);
         setPlaceholder(`e.g. ${PLACEHOLDER_POOL[randomIndex]}`);
 
@@ -57,11 +99,12 @@ export default function IntentionInputScreen() {
         }).start();
     }, []);
 
-    const [isFocused, setIsFocused] = useState(false);
-    const [canSubmit, setCanSubmit] = useState(false);
-    const focusAnim = useRef(new Animated.Value(0)).current;
+    // Cleanup idle timer on unmount
+    useEffect(() => () => {
+        if (idleTimerRef.current) clearTimeout(idleTimerRef.current);
+    }, []);
 
-    // Subtle focus glow animation (locked system easing)
+    // Subtle focus glow animation
     useEffect(() => {
         Animated.timing(focusAnim, {
             toValue: isFocused ? 1 : 0,
@@ -75,22 +118,52 @@ export default function IntentionInputScreen() {
     const minChars = 3;
     const isValid = charCount >= minChars && charCount <= maxChars;
 
-    // 300ms delay before enabling CTA (as per requirements)
+    // 300ms delay before enabling CTA
     useEffect(() => {
         if (isValid) {
-            const timer = setTimeout(() => {
-                setCanSubmit(true);
-            }, 300);
+            const timer = setTimeout(() => setCanSubmit(true), 300);
             return () => clearTimeout(timer);
         } else {
             setCanSubmit(false);
         }
     }, [isValid]);
 
+    const handleFocus = () => {
+        setIsFocused(true);
+        // First-time undertone: show after 1.2s of focus with no keystrokes
+        if (firstTimeTeaching && !firstTimeShownRef.current) {
+            idleTimerRef.current = setTimeout(() => {
+                if (firstTimeTeaching && !firstTimeShownRef.current) {
+                    firstTimeShownRef.current = true;
+                    showUndertone(firstTimeTeaching.copy, firstTimeTeaching.teachingId);
+                }
+            }, 1200);
+        }
+    };
+
+    const handleBlur = () => {
+        setIsFocused(false);
+        if (idleTimerRef.current) clearTimeout(idleTimerRef.current);
+    };
+
     const handleIntentionChange = (text: string) => {
         if (text.length <= maxChars) {
             setIntention(text);
             setCharCount(text.length);
+
+            // Reset idle timer on every keystroke
+            if (idleTimerRef.current) clearTimeout(idleTimerRef.current);
+
+            // Dismiss first-time timer (user is typing, no longer idle)
+            // Schedule hesitation hint after 8s idle (only if user has typed something)
+            if (isFocused && hesitationTeaching && !hesitationShownRef.current && text.length > 0) {
+                idleTimerRef.current = setTimeout(() => {
+                    if (hesitationTeaching && !hesitationShownRef.current) {
+                        hesitationShownRef.current = true;
+                        showUndertone(hesitationTeaching.copy, hesitationTeaching.teachingId);
+                    }
+                }, 8000);
+            }
         }
     };
 
@@ -106,7 +179,6 @@ export default function IntentionInputScreen() {
         }
     };
 
-    // Animated styles for the input - subtle glow only
     const inputBorderColor = focusAnim.interpolate({
         inputRange: [0, 1],
         outputRange: ['rgba(212, 175, 55, 0.15)', 'rgba(212, 175, 55, 0.4)']
@@ -129,12 +201,7 @@ export default function IntentionInputScreen() {
                         keyboardShouldPersistTaps="handled"
                     >
                         {/* Title Section */}
-                        <Animated.View
-                            style={[
-                                styles.titleSection,
-                                { opacity: fadeAnim },
-                            ]}
-                        >
+                        <Animated.View style={[styles.titleSection, { opacity: fadeAnim }]}>
                             <Text style={styles.title}>What are you anchoring right now?</Text>
                             <Text style={styles.subtitle}>
                                 Write a short, clear intention.{'\n'}One sentence is enough.
@@ -142,24 +209,14 @@ export default function IntentionInputScreen() {
                         </Animated.View>
 
                         {/* Intention Input */}
-                        <Animated.View
-                            style={[
-                                styles.section,
-                                { opacity: fadeAnim },
-                            ]}
-                        >
-                            <Animated.View
-                                style={[
-                                    styles.inputContainer,
-                                    { borderColor: inputBorderColor }
-                                ]}
-                            >
+                        <Animated.View style={[styles.section, { opacity: fadeAnim }]}>
+                            <Animated.View style={[styles.inputContainer, { borderColor: inputBorderColor }]}>
                                 <TextInput
                                     style={styles.textInput}
                                     value={intention}
                                     onChangeText={handleIntentionChange}
-                                    onFocus={() => setIsFocused(true)}
-                                    onBlur={() => setIsFocused(false)}
+                                    onFocus={handleFocus}
+                                    onBlur={handleBlur}
                                     placeholder={placeholder}
                                     placeholderTextColor={'rgba(192, 192, 192, 0.4)'}
                                     multiline
@@ -178,21 +235,25 @@ export default function IntentionInputScreen() {
                                 You can refine or release this later.
                             </Text>
 
-                            {/* Subtle Guidance Hint */}
-                            <Text style={styles.hintText}>
-                                Short. Present. Felt.
-                            </Text>
+                            {/* Undertone (Pattern 1) — replaces static hint when eligible */}
+                            {undertoneText ? (
+                                <Animated.Text
+                                    style={[styles.undertoneText, { opacity: undertoneOpacity }]}
+                                    accessibilityRole="text"
+                                >
+                                    {undertoneText}
+                                </Animated.Text>
+                            ) : (
+                                <Text style={styles.hintText}>
+                                    Short. Present. Felt.
+                                </Text>
+                            )}
                         </Animated.View>
 
                     </ScrollView>
 
                     {/* Continue Button */}
-                    <Animated.View
-                        style={[
-                            styles.continueContainer,
-                            { opacity: fadeAnim },
-                        ]}
-                    >
+                    <Animated.View style={[styles.continueContainer, { opacity: fadeAnim }]}>
                         <TouchableOpacity
                             onPress={handleContinue}
                             activeOpacity={0.8}
@@ -235,23 +296,23 @@ const styles = StyleSheet.create({
         flex: 1,
     },
     scrollContent: {
-        paddingHorizontal: spacing.xl, // 32px - locked system
+        paddingHorizontal: spacing.xl,
     },
     titleSection: {
-        paddingTop: height * 0.15, // 15% screen height - locked system
+        paddingTop: height * 0.15,
         paddingBottom: spacing.xl,
     },
     title: {
         ...typography.heading,
-        fontSize: 34, // Locked system headline
+        fontSize: 34,
         lineHeight: 44,
         color: colors.gold,
-        marginBottom: spacing.lg, // 24px
-        letterSpacing: 0.3, // Locked system
+        marginBottom: spacing.lg,
+        letterSpacing: 0.3,
     },
     subtitle: {
         ...typography.body,
-        fontSize: 17, // Locked system body
+        fontSize: 17,
         lineHeight: 28,
         color: colors.text.secondary,
         opacity: 0.85,
@@ -261,9 +322,9 @@ const styles = StyleSheet.create({
     },
     inputContainer: {
         borderWidth: 1,
-        borderColor: 'rgba(212, 175, 55, 0.15)', // Default subtle gold
+        borderColor: 'rgba(212, 175, 55, 0.15)',
         backgroundColor: 'rgba(26, 26, 29, 0.3)',
-        padding: spacing.lg, // 24px
+        padding: spacing.lg,
         minHeight: 140,
     },
     textInput: {
@@ -276,33 +337,43 @@ const styles = StyleSheet.create({
     },
     microCopy: {
         ...typography.body,
-        fontSize: 13, // Locked system micro
+        fontSize: 13,
         color: colors.text.tertiary,
         marginTop: spacing.lg,
         letterSpacing: 0.3,
         opacity: 0.7,
-        textAlign: 'left', // Left-aligned per locked system
+        textAlign: 'left',
     },
     hintText: {
         ...typography.body,
-        fontSize: 11, // Smaller, quieter
+        fontSize: 11,
         color: colors.text.tertiary,
-        marginTop: spacing.sm, // 8px
+        marginTop: spacing.sm,
         letterSpacing: 0.5,
-        opacity: 0.65, // Very low contrast
+        opacity: 0.65,
         textAlign: 'left',
     },
+    undertoneText: {
+        ...typography.body,
+        fontSize: 13,
+        color: colors.text.secondary,
+        marginTop: spacing.sm,
+        letterSpacing: 0.3,
+        fontStyle: 'italic',
+        textAlign: 'left',
+        lineHeight: 19,
+    },
     continueContainer: {
-        paddingHorizontal: spacing.xl, // 32px
-        paddingBottom: spacing.xxl, // 48px
+        paddingHorizontal: spacing.xl,
+        paddingBottom: spacing.xxl,
         paddingTop: spacing.md,
     },
     continueButton: {
         backgroundColor: colors.gold,
-        alignItems: 'center', // Left-aligned per locked system
-        borderRadius: 8, // Locked system
-        paddingVertical: spacing.md + 2, // 18px - locked system
-        paddingHorizontal: spacing.lg, // 24px - locked system
+        alignItems: 'center',
+        borderRadius: 8,
+        paddingVertical: spacing.md + 2,
+        paddingHorizontal: spacing.lg,
     },
     continueButtonDisabled: {
         backgroundColor: 'rgba(192, 192, 192, 0.15)',
@@ -310,10 +381,10 @@ const styles = StyleSheet.create({
     },
     continueText: {
         ...typography.heading,
-        fontSize: 17, // Locked system button
+        fontSize: 17,
         color: colors.navy,
-        letterSpacing: 0.5, // Locked system
-        fontWeight: '600', // Locked system
+        letterSpacing: 0.5,
+        fontWeight: '600',
     },
     continueTextDisabled: {
         color: 'rgba(255, 255, 255, 0.3)',

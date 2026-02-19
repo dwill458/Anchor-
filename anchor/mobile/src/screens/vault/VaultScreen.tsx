@@ -31,22 +31,19 @@ import { useReduceMotionEnabled } from '@/hooks/useReduceMotionEnabled';
 import { AnalyticsService, AnalyticsEvents } from '../../services/AnalyticsService';
 import { ErrorTrackingService } from '../../services/ErrorTrackingService';
 import { PerformanceMonitoring } from '../../services/PerformanceMonitoring';
-import type { Anchor, RootStackParamList, MainTabParamList } from '@/types';
-import { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
-import { CompositeNavigationProp } from '@react-navigation/native';
+import type { Anchor, RootStackParamList } from '@/types';
 import { colors, spacing, typography } from '@/theme';
+import { useTabNavigation } from '@/contexts/TabNavigationContext';
 
 const { width } = Dimensions.get('window');
 const COLUMN_GAP = spacing.md;
 const CARD_WIDTH = (width - spacing.lg * 2 - COLUMN_GAP) / 2;
 
-type VaultScreenNavigationProp = CompositeNavigationProp<
-  StackNavigationProp<RootStackParamList, 'Vault'>,
-  BottomTabNavigationProp<MainTabParamList>
->;
+type VaultScreenNavigationProp = StackNavigationProp<RootStackParamList, 'Vault'>;
 
 export const VaultScreen: React.FC = () => {
   const navigation = useNavigation<VaultScreenNavigationProp>();
+  const { registerTabNav } = useTabNavigation();
   const { user } = useAuthStore();
   const shouldRedirectToCreation = useAuthStore(
     (state) => state.shouldRedirectToCreation
@@ -62,6 +59,13 @@ export const VaultScreen: React.FC = () => {
   const toast = useToast();
 
   const fadeAnim = React.useRef(new Animated.Value(0)).current;
+
+  // Register this screen's navigation with the tab context so other tabs
+  // can navigate into VaultStack (e.g., PracticeScreen → ActivationRitual).
+  React.useEffect(() => {
+    registerTabNav(0, navigation as any);
+    return () => registerTabNav(0, null);
+  }, []);
 
   React.useEffect(() => {
     Animated.timing(fadeAnim, {

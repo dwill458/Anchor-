@@ -11,7 +11,7 @@
  * - No opacity fade during transition
  */
 
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect } from 'react';
 import { Dimensions, StyleSheet } from 'react-native';
 import Animated, {
   useAnimatedStyle,
@@ -19,7 +19,7 @@ import Animated, {
   useDerivedValue,
 } from 'react-native-reanimated';
 import { useIsFocused } from '@react-navigation/native';
-import { tabPosition, tabDirection, animateToTab } from './tabTransitionState';
+import { tabPosition, tabDirection, visualTabIndex } from './tabTransitionState';
 import { colors } from '@/theme';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
@@ -37,29 +37,18 @@ export const TabSlideWrapper: React.FC<TabSlideWrapperProps> = ({
 }) => {
   const isFocused = useIsFocused();
   const reducedMotion = useReducedMotion();
-  const hasInitializedRef = useRef(false);
-  const wasFocusedRef = useRef(isFocused);
 
-  // Sync shared position when this tab becomes focused (from tab bar press)
+  // On mount: set the initial position for this tab so the animated style
+  // starts at the correct translateX without requiring a tabPress.
+  // Animation is now driven exclusively by tabPress listeners in MainTabNavigator
+  // via animateToTabWithCallback — not by useEffect — so that both outgoing and
+  // incoming screens remain visible (display:flex) during the full transition.
   useEffect(() => {
-    // Skip initial mount
-    if (!hasInitializedRef.current) {
-      hasInitializedRef.current = true;
-      wasFocusedRef.current = isFocused;
-      // Set initial position if this is the focused tab
-      if (isFocused) {
-        tabPosition.value = tabIndex;
-      }
-      return;
+    if (isFocused) {
+      tabPosition.value = tabIndex;
+      visualTabIndex.value = tabIndex;
     }
-
-    // Tab just gained focus (from tab button press)
-    if (isFocused && !wasFocusedRef.current) {
-      animateToTab(tabIndex, reducedMotion ?? false);
-    }
-
-    wasFocusedRef.current = isFocused;
-  }, [isFocused, tabIndex, reducedMotion]);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Derived value for this tab's offset from current position
   const offset = useDerivedValue(() => {
@@ -109,4 +98,4 @@ const styles = StyleSheet.create({
 });
 
 // Re-export transition utilities for external use
-export { animateToTab, tabPosition } from './tabTransitionState';
+export { animateToTab, animateToTabWithCallback, tabPosition, visualTabIndex } from './tabTransitionState';

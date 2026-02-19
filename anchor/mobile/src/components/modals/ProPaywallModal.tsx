@@ -30,6 +30,7 @@ import {
 import { BlurView } from 'expo-blur';
 import { LinearGradient } from 'expo-linear-gradient';
 import { colors, spacing, typography } from '@/theme';
+import { TEACHINGS } from '@/constants/teaching';
 
 const { width } = Dimensions.get('window');
 const MODAL_WIDTH = width * 0.9;
@@ -94,6 +95,10 @@ export function ProPaywallModal({
   const scaleAnim = useRef(new Animated.Value(0.9)).current;
 
   const content = FEATURE_CONTENT[feature as keyof typeof FEATURE_CONTENT] || FEATURE_CONTENT.manual_forge;
+
+  // Gate Illuminator teaching card — always shown, Guide Mode exempt
+  const illuminatorId = `paywall_${feature}_v1`;
+  const illuminator = TEACHINGS[illuminatorId] ?? null;
 
   useEffect(() => {
     if (visible) {
@@ -177,6 +182,14 @@ export function ProPaywallModal({
   function renderContent() {
     return (
       <View style={styles.content}>
+        {/* Gate Illuminator (Pattern 6) — always visible, Guide Mode exempt */}
+        {illuminator ? (
+          <View style={styles.illuminatorCard} accessibilityRole="text">
+            <Text style={styles.illuminatorTitle}>{illuminator.title}</Text>
+            <Text style={styles.illuminatorBody}>{illuminator.copy}</Text>
+          </View>
+        ) : null}
+
         {/* Icon Header */}
         <View style={styles.iconContainer}>
           <Text style={styles.icon}>{content.icon}</Text>
@@ -378,5 +391,27 @@ const styles = StyleSheet.create({
   cancelText: {
     fontSize: 15,
     color: colors.text.secondary,
+  },
+  illuminatorCard: {
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: `${colors.gold}30`,
+    backgroundColor: `${colors.gold}0A`,
+    padding: spacing.md,
+    marginBottom: spacing.lg,
+  },
+  illuminatorTitle: {
+    fontSize: 13,
+    fontFamily: typography.fonts.bodyBold,
+    color: colors.gold,
+    letterSpacing: 0.4,
+    marginBottom: 4,
+    textTransform: 'uppercase',
+  },
+  illuminatorBody: {
+    fontSize: 13,
+    fontFamily: typography.fonts.body,
+    color: colors.text.secondary,
+    lineHeight: 18,
   },
 });

@@ -92,6 +92,8 @@ const CATEGORY_CONFIG: Record<
   wealth: { label: 'Wealth', color: colors.bronze, emoji: '💰' },
   relationships: { label: 'Love', color: colors.deepPurple, emoji: '💜' },
   personal_growth: { label: 'Growth', color: colors.silver, emoji: '🌱' },
+  desire: { label: 'Desire', color: colors.coral, emoji: '🕯️' },
+  experience: { label: 'Experience', color: colors.cyan, emoji: '🌌' },
   custom: { label: 'Custom', color: colors.text.secondary, emoji: '✨' },
 };
 

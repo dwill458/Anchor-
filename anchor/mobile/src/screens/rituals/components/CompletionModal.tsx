@@ -32,6 +32,9 @@ import { OptimizedImage, PremiumAnchorGlow } from '@/components/common';
 import { safeHaptics } from '@/utils/haptics';
 import * as Haptics from 'expo-haptics';
 import { useReduceMotionEnabled } from '@/hooks/useReduceMotionEnabled';
+import { useTeachingStore } from '@/stores/teachingStore';
+import { AnalyticsService } from '@/services/AnalyticsService';
+import { TEACHINGS } from '@/constants/teaching';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const SIGIL_SIZE = 80;
@@ -43,6 +46,9 @@ interface CompletionModalProps {
   sessionType: 'activate' | 'reinforce';
   anchor: Anchor;
   onDone: (reflectionWord?: string) => void;
+  /** Seal Whisper (Pattern 5): shown between headline and chip row, auto-fades after 5s. */
+  teachingLine?: string;
+  teachingId?: string;
 }
 
 export const CompletionModal: React.FC<CompletionModalProps> = ({
@@ -50,10 +56,16 @@ export const CompletionModal: React.FC<CompletionModalProps> = ({
   sessionType,
   anchor,
   onDone,
+  teachingLine,
+  teachingId,
 }) => {
   const [selectedWord, setSelectedWord] = useState<string | undefined>(undefined);
   const [customWord, setCustomWord] = useState('');
   const reduceMotion = useReduceMotionEnabled();
+  const { recordShown } = useTeachingStore();
+
+  const sealWhisperOpacity = useRef(new Animated.Value(teachingLine ? 0 : 0)).current;
+  const sealWhisperTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const glowAnim = useRef(new Animated.Value(0)).current;
@@ -62,6 +74,39 @@ export const CompletionModal: React.FC<CompletionModalProps> = ({
   const headline =
     sessionType === 'activate' ? 'Anchor set.' : 'Imprint strengthened.';
   const sigilSvg = anchor.reinforcedSigilSvg ?? anchor.baseSigilSvg;
+
+  // Seal Whisper: fade in on modal open, auto-fade after 5s
+  useEffect(() => {
+    if (visible && teachingLine && teachingId) {
+      const content = TEACHINGS[teachingId];
+      recordShown(teachingId, 'reflection_extension', content?.maxShows ?? 1);
+      AnalyticsService.track('teaching_shown', {
+        teaching_id: teachingId,
+        pattern: 'reflection_extension',
+        screen: 'completion_modal',
+        trigger: 'post_complete',
+        guide_mode: true,
+      });
+      Animated.timing(sealWhisperOpacity, {
+        toValue: 1,
+        duration: 400,
+        useNativeDriver: true,
+      }).start();
+      sealWhisperTimerRef.current = setTimeout(() => {
+        Animated.timing(sealWhisperOpacity, {
+          toValue: 0,
+          duration: 500,
+          useNativeDriver: true,
+        }).start();
+      }, 5000);
+    } else if (!visible) {
+      if (sealWhisperTimerRef.current) clearTimeout(sealWhisperTimerRef.current);
+      sealWhisperOpacity.setValue(0);
+    }
+    return () => {
+      if (sealWhisperTimerRef.current) clearTimeout(sealWhisperTimerRef.current);
+    };
+  }, [visible, teachingLine, teachingId]);
 
   useEffect(() => {
     if (visible) {
@@ -110,6 +155,9 @@ export const CompletionModal: React.FC<CompletionModalProps> = ({
     setSelectedWord((prev) => (prev === word ? undefined : word));
     setCustomWord('');
     safeHaptics.impact(Haptics.ImpactFeedbackStyle.Light);
+    // Fade seal whisper on first interaction
+    if (sealWhisperTimerRef.current) clearTimeout(sealWhisperTimerRef.current);
+    Animated.timing(sealWhisperOpacity, { toValue: 0, duration: 300, useNativeDriver: true }).start();
   };
 
   const handleDone = () => {
@@ -164,6 +212,16 @@ export const CompletionModal: React.FC<CompletionModalProps> = ({
           {/* Headline */}
           <Text style={styles.headline}>{headline}</Text>
           <Text style={styles.subhead}>One word to seal it</Text>
+
+          {/* Seal Whisper (Pattern 5) */}
+          {teachingLine ? (
+            <Animated.Text
+              style={[styles.sealWhisper, { opacity: sealWhisperOpacity }]}
+              accessibilityRole="text"
+            >
+              {teachingLine}
+            </Animated.Text>
+          ) : null}
 
           {/* Suggestion chips */}
           <View style={styles.chipsRow}>
@@ -374,5 +432,15 @@ const styles = StyleSheet.create({
     fontSize: typography.sizes.body2,
     fontFamily: typography.fonts.body,
     color: colors.text.tertiary,
+  },
+  sealWhisper: {
+    fontSize: typography.sizes.body2,
+    fontFamily: typography.fonts.body,
+    color: colors.text.secondary,
+    textAlign: 'center',
+    fontStyle: 'italic',
+    marginBottom: spacing.md,
+    paddingHorizontal: spacing.md,
+    lineHeight: 20,
   },
 });

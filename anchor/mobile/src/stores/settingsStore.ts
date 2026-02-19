@@ -17,6 +17,8 @@ export type ActivationUnit = 'seconds' | 'reps' | 'minutes' | 'breaths';
 
 export type ActivationMode = 'silent' | 'mantra' | 'ambient';
 
+export type GuideMode = boolean;
+
 export interface DefaultActivationSetting {
   type: ActivationType;
   value: number;
@@ -114,11 +116,14 @@ export interface SettingsState {
   mantraAudioByDefault: boolean;
   developerModeEnabled: boolean;
   developerDeleteWithoutBurnEnabled: boolean;
+  /** Guide Mode — contextual first-time hints. true = on-only + both; false = both only. */
+  guideMode: boolean;
 
   // Actions - Practice Settings
   setDefaultCharge: (setting: DefaultChargeSetting) => void;
   setDefaultActivation: (setting: DefaultActivationSetting) => void;
   setDefaultActivationMode: (mode: ActivationMode) => void;
+  setGuideMode: (enabled: boolean) => void;
   setOpenDailyAnchorAutomatically: (enabled: boolean) => void;
   setDailyPracticeGoal: (goal: number) => void;
   setReduceIntentionVisibility: (enabled: boolean) => void;
@@ -175,6 +180,7 @@ const DEFAULT_SETTINGS = {
   mantraAudioByDefault: true,
   developerModeEnabled: false,
   developerDeleteWithoutBurnEnabled: false,
+  guideMode: true,
 };
 
 /**
@@ -335,6 +341,11 @@ export const useSettingsStore = create<SettingsState>()(
         });
       },
 
+      setGuideMode: (enabled) => {
+        triggerHaptic();
+        set({ guideMode: enabled });
+      },
+
       // Utility Actions
       resetToDefaults: () => {
         triggerHaptic();
@@ -346,16 +357,22 @@ export const useSettingsStore = create<SettingsState>()(
     {
       name: 'anchor-settings-storage',
       storage: createJSONStorage(() => AsyncStorage),
-      version: 5,
+      version: 6,
       // Handle migration
       migrate: (persistedState: any, version: number) => {
+        if (version === 5) {
+          // v5→v6: add guideMode. Existing users (v5) are veterans → default OFF.
+          // New installs hit DEFAULT_SETTINGS directly (guideMode: true).
+          const next = clampPersistedSettings(persistedState);
+          return { ...next, guideMode: false };
+        }
         if (version === 4) {
           // Add mode field to defaultActivation
           const next = clampPersistedSettings(persistedState);
           if (next?.defaultActivation && !next.defaultActivation.mode) {
             next.defaultActivation.mode = 'silent';
           }
-          return next;
+          return { ...next, guideMode: false };
         }
         if (version === 3) {
           return clampPersistedSettings(persistedState);
@@ -418,6 +435,7 @@ export const useSettingsStore = create<SettingsState>()(
         mantraAudioByDefault: state.mantraAudioByDefault,
         developerModeEnabled: state.developerModeEnabled,
         developerDeleteWithoutBurnEnabled: state.developerDeleteWithoutBurnEnabled,
+        guideMode: state.guideMode,
       }),
     }
   )

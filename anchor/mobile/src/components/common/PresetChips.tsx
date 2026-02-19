@@ -21,7 +21,7 @@ export interface PresetChip {
 }
 
 interface PresetChipsProps {
-  chips: PresetChip[];
+  chips: readonly PresetChip[];
   selectedKey: string;
   onSelect: (key: string) => void;
   style?: StyleProp<ViewStyle>;

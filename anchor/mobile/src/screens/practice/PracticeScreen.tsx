@@ -3,6 +3,7 @@ import { View, Text, StyleSheet, ScrollView } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { colors, spacing, typography } from '@/theme';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
+import { useTabNavigation } from '@/contexts/TabNavigationContext';
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
@@ -35,6 +36,7 @@ type PracticeNavigationProp = StackNavigationProp<PracticeStackParamList, 'Pract
 
 export const PracticeScreen: React.FC = () => {
   const navigation = useNavigation<PracticeNavigationProp>();
+  const { navigateToVault } = useTabNavigation();
   const user = useAuthStore((state) => state.user);
   const { getActiveAnchors, getAnchorById } = useAnchorStore();
   const { defaultActivation, defaultCharge, dailyPracticeGoal } = useSettingsStore();
@@ -93,8 +95,7 @@ export const PracticeScreen: React.FC = () => {
   // ── Handlers ─────────────────────────────────────────────────────────────
   const handleCreateAnchor = () => {
     safeHaptics.impact(Haptics.ImpactFeedbackStyle.Light);
-    const tabNav = navigation.getParent?.() as any;
-    tabNav?.navigate('Vault', { screen: 'CreateAnchor' });
+    navigateToVault('CreateAnchor');
   };
 
   const handleActivate = () => {
@@ -103,10 +104,10 @@ export const PracticeScreen: React.FC = () => {
       handleCreateAnchor();
       return;
     }
-    const tabNav = navigation.getParent?.() as any;
-    tabNav?.navigate('Vault', {
-      screen: 'ActivationRitual',
-      params: { anchorId: mostRecentAnchor.id, activationType: 'visual', returnTo: 'practice' },
+    navigateToVault('ActivationRitual', {
+      anchorId: mostRecentAnchor.id,
+      activationType: 'visual',
+      returnTo: 'practice',
     });
   };
 
@@ -116,44 +117,35 @@ export const PracticeScreen: React.FC = () => {
       handleCreateAnchor();
       return;
     }
-    const tabNav = navigation.getParent?.() as any;
-    tabNav?.navigate('Vault', {
-      screen: 'ChargeSetup',
-      params: { anchorId: mostRecentAnchor.id, returnTo: 'practice' },
+    navigateToVault('ChargeSetup', {
+      anchorId: mostRecentAnchor.id,
+      returnTo: 'practice',
     });
   };
 
   const handleChangeAnchor = () => {
     safeHaptics.impact(Haptics.ImpactFeedbackStyle.Light);
-    const tabNav = navigation.getParent?.() as any;
-    tabNav?.navigate('Vault', { screen: 'Vault' });
+    navigateToVault('Vault');
   };
 
   const handleContinue = () => {
     if (!lastSession) return;
     safeHaptics.impact(Haptics.ImpactFeedbackStyle.Medium);
-    const tabNav = navigation.getParent?.() as any;
     if (lastSession.type === 'activate') {
-      tabNav?.navigate('Vault', {
-        screen: 'ActivationRitual',
-        params: {
-          anchorId: lastSession.anchorId,
-          activationType: 'visual',
-          durationOverride: lastSession.durationSeconds,
-        },
+      navigateToVault('ActivationRitual', {
+        anchorId: lastSession.anchorId,
+        activationType: 'visual',
+        durationOverride: lastSession.durationSeconds,
       });
     } else if (lastSession.type === 'reinforce') {
-      tabNav?.navigate('Vault', {
-        screen: 'Ritual',
-        params: {
-          anchorId: lastSession.anchorId,
-          ritualType: 'ritual',
-          durationSeconds: lastSession.durationSeconds,
-          returnTo: 'practice',
-        },
+      navigateToVault('Ritual', {
+        anchorId: lastSession.anchorId,
+        ritualType: 'ritual',
+        durationSeconds: lastSession.durationSeconds,
+        returnTo: 'practice',
       });
     } else {
-      // stabilize
+      // stabilize stays within PracticeStack
       navigation.navigate('StabilizeRitual', { anchorId: lastSession.anchorId });
     }
   };
@@ -164,10 +156,10 @@ export const PracticeScreen: React.FC = () => {
       handleCreateAnchor();
       return;
     }
-    const tabNav = navigation.getParent?.() as any;
-    tabNav?.navigate('Vault', {
-      screen: 'Ritual',
-      params: { anchorId: mostRecentAnchor.id, ritualType: 'focus', returnTo: 'practice' },
+    navigateToVault('Ritual', {
+      anchorId: mostRecentAnchor.id,
+      ritualType: 'focus',
+      returnTo: 'practice',
     });
   };
 

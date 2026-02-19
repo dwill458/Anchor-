@@ -9,23 +9,29 @@
 import React, { useState, useMemo, useCallback } from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
+import { useTabNavigation } from '@/contexts/TabNavigationContext';
 import { useAnchorStore } from '../../stores/anchorStore';
 import { useAuthStore } from '@/stores/authStore';
 import { useSettingsStore } from '@/stores/settingsStore';
 import { useSessionStore } from '@/stores/sessionStore';
+import { useTeachingStore } from '@/stores/teachingStore';
 import type { RootStackParamList } from '@/types';
 import { colors, spacing, typography } from '@/theme';
 import { apiClient } from '@/services/ApiClient';
 import { ErrorTrackingService } from '@/services/ErrorTrackingService';
+import { AnalyticsService } from '@/services/AnalyticsService';
 import { useToast } from '@/components/ToastProvider';
 import { RitualScaffold } from './components/RitualScaffold';
 import { FocusSession } from './components/FocusSession';
 import { CompletionModal } from './components/CompletionModal';
+import { useTeachingGate } from '@/utils/useTeachingGate';
+import { TEACHINGS } from '@/constants/teaching';
 
 type ActivationRouteProp = RouteProp<RootStackParamList, 'ActivationRitual'>;
 
 export const ActivationScreen: React.FC = () => {
   const navigation = useNavigation();
+  const { navigateToPractice } = useTabNavigation();
   const route = useRoute<ActivationRouteProp>();
   const { anchorId, activationType, durationOverride, returnTo } = route.params;
   const toast = useToast();
@@ -34,9 +40,37 @@ export const ActivationScreen: React.FC = () => {
   const computeStreak = useAuthStore((state) => state.computeStreak);
   const { defaultActivation } = useSettingsStore();
   const { recordSession } = useSessionStore();
+  const { recordShown } = useTeachingStore();
   const anchor = getAnchorById(anchorId);
 
+  // Ground Note (Pattern 2): shown on first charge session, guide ON
+  const groundNoteTeaching = useTeachingGate({
+    screenId: 'activation',
+    candidateIds: ['activation_ground_note_v1'],
+  });
+
+  // Seal Whisper (Pattern 5): passed to CompletionModal on first charge, guide ON
+  const sealWhisperTeaching = useTeachingGate({
+    screenId: 'completion_modal',
+    candidateIds: ['completion_seal_whisper_v1'],
+  });
+
   const [showCompletion, setShowCompletion] = useState(false);
+
+  // Record ground note shown (once, on render — gate already enforces lifetime limit)
+  React.useEffect(() => {
+    if (groundNoteTeaching) {
+      const content = TEACHINGS[groundNoteTeaching.teachingId];
+      recordShown(groundNoteTeaching.teachingId, groundNoteTeaching.pattern, content?.maxShows ?? 1);
+      AnalyticsService.track('teaching_shown', {
+        teaching_id: groundNoteTeaching.teachingId,
+        pattern: groundNoteTeaching.pattern,
+        screen: 'activation',
+        trigger: groundNoteTeaching.trigger,
+        guide_mode: true,
+      });
+    }
+  }, [groundNoteTeaching?.teachingId]);
 
   const activationDurationSeconds = useMemo(() => {
     // durationOverride (from "Continue" flow) takes precedence
@@ -116,8 +150,7 @@ export const ActivationScreen: React.FC = () => {
     void logActivationInBackground();
 
     if (returnTo === 'practice') {
-      const tabNav = navigation.getParent?.() as any;
-      tabNav?.navigate('Practice');
+      navigateToPractice();
     } else if (returnTo === 'detail') {
       navigation.navigate('AnchorDetail' as any, { anchorId });
     } else {
@@ -128,6 +161,7 @@ export const ActivationScreen: React.FC = () => {
     activationDurationSeconds,
     defaultActivation.mode,
     logActivationInBackground,
+    navigateToPractice,
     navigation,
     recordSession,
   ]);
@@ -149,10 +183,11 @@ export const ActivationScreen: React.FC = () => {
         anchorImageUri={anchor.enhancedImageUrl || anchor.baseSigilSvg || ''}
         durationSeconds={activationDurationSeconds}
         onComplete={handleComplete}
+        groundNoteText={groundNoteTeaching?.copy}
+        groundNoteSecondary={groundNoteTeaching?.copySecondary}
         onDismiss={() => {
           if (returnTo === 'practice') {
-            const tabNav = (navigation as any).getParent?.();
-            tabNav?.navigate('Practice');
+            navigateToPractice();
           } else if (returnTo === 'detail') {
             (navigation as any).navigate('AnchorDetail', { anchorId });
           } else {
@@ -165,6 +200,8 @@ export const ActivationScreen: React.FC = () => {
         sessionType="activate"
         anchor={anchor}
         onDone={handleCompletionDone}
+        teachingLine={sealWhisperTeaching?.copy}
+        teachingId={sealWhisperTeaching?.teachingId}
       />
     </>
   );
