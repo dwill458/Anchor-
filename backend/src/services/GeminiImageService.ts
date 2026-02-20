@@ -259,6 +259,48 @@ STYLE: Minimalist line art
 - Subtle symbolic elements in negative space
 - Modern luxury aesthetic with restraint
 - Elegant simplicity with meaningful details`,
+      obsidian_mono: `${baseInstruction}
+
+STYLE: Obsidian monochrome artwork
+- High-contrast deep black glass texture
+- Sharp, subtle reflections on the main sigil
+- Monochromatic, cinematic lighting
+- Symbolic elements in stark negative space`,
+      aurora_glow: `${baseInstruction}
+
+STYLE: Aurora glow artwork
+- Atmospheric green and purple light curtains
+- Soft color bloom behind and around the sigil
+- Shifting, ethereal energy patterns
+- Thematic symbols glowing within the aurora`,
+      ember_trace: `${baseInstruction}
+
+STYLE: Ember trace artwork
+- Glowing hot metal edges on the main sigil
+- Warm orange and red lighting with cooling black contrasts
+- Subtle heat distortion and spark particles
+- Symbolic elements as glowing embers`,
+      echo_chamber: `${baseInstruction}
+
+STYLE: Echo resonance artwork
+- Subtle, rhythmic ripple patterns
+- Layered cyclical energy emanating from the sigil
+- Mystical resonance in negative space
+- Symbolic elements vibrating with harmony`,
+      monolith_ink: `${baseInstruction}
+
+STYLE: Monolith ink artwork
+- Heavy, authoritative matte black linework
+- Grounded, architectural aesthetic
+- Solid, unchanging presence for the main sigil
+- Powerful symbolic elements in bold ink`,
+      celestial_grid: `${baseInstruction}
+
+STYLE: Celestial grid artwork
+- Constellation-like star points on the sigil geometry
+- Fine celestial grid lines in the background
+- Astral alignment feel with mathematical precision
+- Mystical symbols appearing as star clusters`,
     };
 
     return styleTemplates[style] || styleTemplates.watercolor;

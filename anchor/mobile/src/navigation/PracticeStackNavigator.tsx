@@ -6,16 +6,37 @@
 
 import React from 'react';
 import { Platform } from 'react-native';
-import { NavigationContainer } from '@react-navigation/native';
+import { NavigationContainer, useNavigationContainerRef } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import type { PracticeStackParamList } from '@/types';
 import { PracticeScreen, StabilizeRitualScreen, EvolveScreen } from '@/screens/practice';
 
 const Stack = createNativeStackNavigator<PracticeStackParamList>();
 
-export const PracticeStackNavigator: React.FC = () => {
+interface PracticeStackNavigatorProps {
+  onRouteChange?: (routeName: string) => void;
+}
+
+export const PracticeStackNavigator: React.FC<PracticeStackNavigatorProps> = ({ onRouteChange }) => {
+  const navigationRef = useNavigationContainerRef<PracticeStackParamList>();
+
+  React.useEffect(() => {
+    onRouteChange?.('PracticeHome');
+  }, [onRouteChange]);
+
   return (
-    <NavigationContainer independent={true}>
+    <NavigationContainer
+      independent={true}
+      ref={navigationRef}
+      onReady={() => {
+        const routeName = navigationRef.getCurrentRoute()?.name;
+        if (routeName) onRouteChange?.(routeName);
+      }}
+      onStateChange={() => {
+        const routeName = navigationRef.getCurrentRoute()?.name;
+        if (routeName) onRouteChange?.(routeName);
+      }}
+    >
       <Stack.Navigator
         screenOptions={{
           headerShown: false,

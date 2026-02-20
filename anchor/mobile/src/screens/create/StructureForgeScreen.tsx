@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import {
   View,
   Text,
@@ -62,14 +62,25 @@ export default function StructureForgeScreen() {
   // Subscription hook for Pro feature gating
   const { features } = useSubscription();
 
-  // Animation values for fade transitions
+  // Animation values for fade + draw-in transitions
   const previewFadeAnim = useRef(new Animated.Value(1)).current;
   const labelFadeAnim = useRef(new Animated.Value(1)).current;
   const selectionScaleAnim = useRef(new Animated.Value(1)).current;
+  // Draw-in: scale materialise + gold glow pulse
+  const previewScaleAnim = useRef(new Animated.Value(1)).current;
+  const previewGlowAnim = useRef(new Animated.Value(0)).current;
+  // Ref to cancel any in-progress animation when user taps quickly
+  const currentAnimation = useRef<Animated.CompositeAnimation | null>(null);
 
   // Detect if this is user's first anchor
   const { anchorCount, incrementAnchorCount } = useAuthStore();
   const isFirstAnchor = anchorCount === 0;
+
+  useLayoutEffect(() => {
+    navigation.setOptions({
+      headerShown: false,
+    });
+  }, [navigation]);
 
   useEffect(() => {
     try {
@@ -96,66 +107,101 @@ export default function StructureForgeScreen() {
     }
   }, [distilledLetters, isFirstAnchor]);
 
-  // Handle variant selection with deliberate fade transition + haptics
+  // Handle variant selection with draw-in animation + haptics
   const handleVariantSelect = (variant: SigilVariant) => {
-    // Prevent rapid switching during transition
-    if (isTransitioning || variant === selectedVariant) return;
+    if (variant === selectedVariant) return;
 
-    // Trigger selection haptic
-    Haptics.selectionAsync();
-
+    // Cancel any in-progress animation so rapid taps never get stuck
+    currentAnimation.current?.stop();
     setIsTransitioning(true);
 
-    // Fade out current preview and label, pulse selection
-    Animated.parallel([
+    Haptics.selectionAsync();
+
+    // Phase 1: quick fade-out (120ms) + card scale pulse
+    const fadeOut = Animated.parallel([
       Animated.timing(previewFadeAnim, {
         toValue: 0,
-        duration: 300,
+        duration: 120,
         easing: Easing.out(Easing.cubic),
         useNativeDriver: true,
       }),
       Animated.timing(labelFadeAnim, {
         toValue: 0,
-        duration: 250,
+        duration: 100,
         easing: Easing.out(Easing.cubic),
         useNativeDriver: true,
       }),
-      // Selection scale pulse (subtle 1.02)
       Animated.sequence([
         Animated.timing(selectionScaleAnim, {
           toValue: 1.02,
-          duration: 180,
+          duration: 120,
           easing: Easing.out(Easing.quad),
           useNativeDriver: true,
         }),
         Animated.timing(selectionScaleAnim, {
           toValue: 1,
-          duration: 200,
+          duration: 160,
           easing: Easing.out(Easing.quad),
           useNativeDriver: true,
         }),
       ]),
-    ]).start(() => {
-      // Change variant after fade out
-      setSelectedVariant(variant);
+    ]);
 
-      // Fade in new preview and label
-      Animated.parallel([
+    currentAnimation.current = fadeOut;
+    fadeOut.start(({ finished }) => {
+      if (!finished) return; // aborted by a later tap
+
+      // Swap variant + reset scale to 0.82 for draw-in
+      setSelectedVariant(variant);
+      previewScaleAnim.setValue(0.82);
+      previewGlowAnim.setValue(0);
+
+      // Phase 2: draw-in — scale materialises from 0.82→1.0 while opacity pops
+      const drawIn = Animated.parallel([
         Animated.timing(previewFadeAnim, {
           toValue: 1,
-          duration: 400,
-          easing: Easing.in(Easing.cubic),
+          duration: 220,
+          easing: Easing.out(Easing.cubic),
+          useNativeDriver: true,
+        }),
+        Animated.timing(previewScaleAnim, {
+          toValue: 1,
+          duration: 500,
+          easing: Easing.out(Easing.cubic),
           useNativeDriver: true,
         }),
         Animated.timing(labelFadeAnim, {
           toValue: 1,
-          duration: 350,
-          delay: 100,
-          easing: Easing.in(Easing.cubic),
+          duration: 300,
+          delay: 150,
+          easing: Easing.out(Easing.cubic),
           useNativeDriver: true,
         }),
-      ]).start(() => {
-        setIsTransitioning(false);
+      ]);
+
+      currentAnimation.current = drawIn;
+      drawIn.start(({ finished: drawFinished }) => {
+        if (!drawFinished) return;
+
+        // Phase 3: brief gold glow pulse (0→0.55→0, 350ms)
+        const glowPulse = Animated.sequence([
+          Animated.timing(previewGlowAnim, {
+            toValue: 0.55,
+            duration: 175,
+            easing: Easing.out(Easing.quad),
+            useNativeDriver: true,
+          }),
+          Animated.timing(previewGlowAnim, {
+            toValue: 0,
+            duration: 175,
+            easing: Easing.in(Easing.quad),
+            useNativeDriver: true,
+          }),
+        ]);
+        currentAnimation.current = glowPulse;
+        glowPulse.start(() => {
+          setIsTransitioning(false);
+        });
       });
     });
   };
@@ -231,7 +277,7 @@ export default function StructureForgeScreen() {
           <View style={styles.headerTextContainer}>
             <Text style={styles.title}>Choose Structure</Text>
             <Text style={styles.subtitle}>
-              This is the frame that will hold your intention.
+              Choose a frame to guide your draw.
             </Text>
           </View>
 
@@ -250,6 +296,19 @@ export default function StructureForgeScreen() {
             </View>
           </TouchableOpacity>
         </View>
+
+        {/* Anchor name context chip — reminds user which anchor they are building */}
+        <View
+          style={styles.anchorChip}
+          accessibilityLabel={`Anchor: ${intentionText || 'Untitled'}`}
+        >
+          <Text style={styles.anchorChipLabel}>Anchor  </Text>
+          <Text style={styles.anchorChipValue} numberOfLines={1}>
+            {(intentionText || 'Untitled').length > 22
+              ? (intentionText || 'Untitled').slice(0, 22) + '…'
+              : (intentionText || 'Untitled')}
+          </Text>
+        </View>
       </View>
 
       {/* Main Preview Area */}
@@ -257,9 +316,17 @@ export default function StructureForgeScreen() {
         <Animated.View
           style={[
             styles.previewContainer,
-            { opacity: previewFadeAnim }
+            {
+              opacity: previewFadeAnim,
+              transform: [{ scale: previewScaleAnim }],
+            }
           ]}
         >
+          {/* Gold glow overlay — pulses briefly after draw-in completes */}
+          <Animated.View
+            style={[styles.previewGlow, { opacity: previewGlowAnim }]}
+            pointerEvents="none"
+          />
           {selectedVariant && variants.find(v => v.variant === selectedVariant) && (
             <SvgXml
               xml={variants.find(v => v.variant === selectedVariant)!.svg}
@@ -398,9 +465,9 @@ const styles = StyleSheet.create({
     color: colors.gold,
   },
   header: {
-    paddingTop: spacing.sm,
+    paddingTop: spacing.xs,
     paddingHorizontal: spacing.lg,
-    paddingBottom: spacing.md,
+    paddingBottom: spacing.sm,
   },
   backButton: {
     marginBottom: spacing.xs,
@@ -416,28 +483,60 @@ const styles = StyleSheet.create({
     fontSize: 28,
     color: colors.gold,
     marginBottom: spacing.xs,
-    textAlign: 'center',
+    textAlign: 'left',
   },
   subtitle: {
     fontFamily: typography.fonts.body,
     fontSize: typography.sizes.body1,
     color: colors.text.secondary,
-    textAlign: 'center',
+    textAlign: 'left',
     lineHeight: 24,
+    flexShrink: 1,
+    marginTop: spacing.xs,
+    marginBottom: spacing.sm,
+  },
+
+  // Anchor name context chip
+  anchorChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    alignSelf: 'flex-start',
+    marginTop: spacing.sm,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 20,
+    backgroundColor: colors.ritual.glass,
+    borderWidth: 1,
+    borderColor: colors.ritual.border,
+  },
+  anchorChipLabel: {
+    fontFamily: typography.fonts.body,
+    fontSize: 11,
+    color: colors.text.secondary,
+  },
+  anchorChipValue: {
+    fontFamily: typography.fonts.body,
+    fontSize: 11,
+    color: colors.gold,
+    fontWeight: '600',
+    flexShrink: 1,
   },
 
   // Preview Section (flex: 1)
   previewSection: {
     flex: 1,
-    padding: spacing.lg,
+    paddingHorizontal: spacing.lg,
+    paddingTop: spacing.xs,
+    paddingBottom: spacing.sm,
     alignItems: 'center',
-    justifyContent: 'center',
+    justifyContent: 'flex-start',
   },
   previewContainer: {
     width: SCREEN_WIDTH - 80,
     aspectRatio: 1,
     backgroundColor: colors.background.card,
     borderRadius: spacing.md,
+    marginTop: 0,
     justifyContent: 'center',
     alignItems: 'center',
     borderWidth: 2,
@@ -449,6 +548,18 @@ const styles = StyleSheet.create({
     fontSize: 18,
     color: colors.gold,
     marginTop: spacing.md,
+  },
+  // Gold glow overlay that pulses briefly after the draw-in animation completes
+  previewGlow: {
+    position: 'absolute',
+    top: -4,
+    left: -4,
+    right: -4,
+    bottom: -4,
+    borderRadius: spacing.md + 4,
+    borderWidth: 2,
+    borderColor: colors.gold,
+    backgroundColor: colors.ritual.softGlow,
   },
 
   // Structures Section
@@ -486,7 +597,13 @@ const styles = StyleSheet.create({
   },
   structureCardSelected: {
     borderColor: colors.gold,
+    borderWidth: 2.5,
     backgroundColor: `${colors.gold}08`, // 8% opacity
+    shadowColor: colors.gold,
+    shadowOpacity: 0.35,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 0 },
+    elevation: 6,
   },
 
   // Checkmark

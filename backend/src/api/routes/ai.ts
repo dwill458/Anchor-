@@ -108,6 +108,12 @@ router.post('/enhance-controlnet', async (req: Request, res: Response): Promise<
       'gold_leaf',
       'cosmic',
       'minimal_line',
+      'obsidian_mono',
+      'aurora_glow',
+      'ember_trace',
+      'echo_chamber',
+      'monolith_ink',
+      'celestial_grid',
     ];
 
     if (!validStyles.includes(styleChoice as AIStyle)) {

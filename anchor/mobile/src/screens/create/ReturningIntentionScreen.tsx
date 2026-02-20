@@ -11,6 +11,7 @@ import {
     Animated,
     Dimensions,
     Easing,
+    AccessibilityInfo,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
@@ -20,20 +21,75 @@ import { RootStackParamList } from '@/types';
 import { distillIntention } from '@/utils/sigil/distillation';
 import { detectCategoryFromText } from '@/utils/categoryDetection';
 import { colors, spacing, typography } from '@/theme';
-import { ZenBackground } from '@/components/common';
+import { ZenBackground, UndertoneLine } from '@/components/common';
+import { useTeachingGate } from '@/utils/useTeachingGate';
+import { useTeachingStore } from '@/stores/teachingStore';
+import { AnalyticsService } from '@/services/AnalyticsService';
+import { TEACHINGS } from '@/constants/teaching';
 
 const { height } = Dimensions.get('window');
+
+// Tense & negation detection patterns for real-time feedback
+const FUTURE_WORDS = /\b(will\b|going to|i'll|i'm going to|shall\b|plan to|want to\b|would like|i want)\b/i;
+const NEGATION_WORDS = /\b(don't|dont|do not|stop\b|avoid\b|not\b|never\b|won't|wont|can't|cant|no longer|give up)\b/i;
+const TENSE_NUDGE_COPY = "Make it present tense: 'I choose…' 'I return…'";
 
 type NavigationProp = StackNavigationProp<RootStackParamList, 'CreateAnchor'>;
 
 export default function ReturningIntentionScreen() {
     const navigation = useNavigation<NavigationProp>();
+    const { recordShown } = useTeachingStore();
 
     const [intention, setIntention] = useState('');
     const [charCount, setCharCount] = useState(0);
     const [placeholder, setPlaceholder] = useState('');
 
+    // Teaching: Undertone state
+    const [undertoneText, setUndertoneText] = useState<string | null>(null);
+    const undertoneOpacity = useRef(new Animated.Value(0)).current;
+    const idleTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+    const firstTimeShownRef = useRef(false);
+    const hesitationShownRef = useRef(false);
+
+    // Reduced motion & tense nudge
+    const [reduceMotion, setReduceMotion] = useState(false);
+    const [tenseNudge, setTenseNudge] = useState(false);
+    const tenseDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
     const fadeAnim = useRef(new Animated.Value(0)).current;
+
+    // Teaching gate — evaluated once per render cycle
+    const firstTimeTeaching = useTeachingGate({
+        screenId: 'intention_input',
+        candidateIds: ['intention_input_first_time_v1'],
+    });
+    const hesitationTeaching = useTeachingGate({
+        screenId: 'intention_input',
+        candidateIds: ['intention_input_hesitation_v1'],
+    });
+
+    const showUndertone = (text: string, teachingId: string) => {
+        const content = TEACHINGS[teachingId];
+        setUndertoneText(text);
+        recordShown(teachingId, 'inline_whisper', content?.maxShows ?? 1);
+        AnalyticsService.track('teaching_shown', {
+            teaching_id: teachingId,
+            pattern: 'inline_whisper',
+            screen: 'intention_input',
+            trigger: content?.trigger ?? 'first_time',
+            guide_mode: true,
+        });
+        // Respect reduced motion preference
+        if (reduceMotion) {
+            undertoneOpacity.setValue(1);
+        } else {
+            Animated.timing(undertoneOpacity, {
+                toValue: 1,
+                duration: 400,
+                useNativeDriver: true,
+            }).start();
+        }
+    };
 
     const PLACEHOLDER_POOL = [
         "Lead with clarity today",
@@ -42,6 +98,17 @@ export default function ReturningIntentionScreen() {
         "Move forward with confidence",
         "Honor my boundaries"
     ];
+
+    // Cleanup idle timer on unmount
+    useEffect(() => () => {
+        if (idleTimerRef.current) clearTimeout(idleTimerRef.current);
+        if (tenseDebounceRef.current) clearTimeout(tenseDebounceRef.current);
+    }, []);
+
+    // Check reduced motion accessibility setting on mount
+    useEffect(() => {
+        AccessibilityInfo.isReduceMotionEnabled().then(setReduceMotion);
+    }, []);
 
     // Faster entrance animation for returning users + Random Placeholder
     useEffect(() => {
@@ -87,10 +154,49 @@ export default function ReturningIntentionScreen() {
         }
     }, [isValid]);
 
+    const handleFocus = () => {
+        setIsFocused(true);
+        // First-time undertone: show after 1.2s of focus with no keystrokes
+        if (firstTimeTeaching && !firstTimeShownRef.current) {
+            idleTimerRef.current = setTimeout(() => {
+                if (firstTimeTeaching && !firstTimeShownRef.current) {
+                    firstTimeShownRef.current = true;
+                    showUndertone(firstTimeTeaching.copy, firstTimeTeaching.teachingId);
+                }
+            }, 1200);
+        }
+    };
+
+    const handleBlur = () => {
+        setIsFocused(false);
+        if (idleTimerRef.current) clearTimeout(idleTimerRef.current);
+        // Immediate tense check on blur
+        setTenseNudge(FUTURE_WORDS.test(intention) || NEGATION_WORDS.test(intention));
+    };
+
     const handleIntentionChange = (text: string) => {
         if (text.length <= maxChars) {
             setIntention(text);
             setCharCount(text.length);
+
+            // Reset idle timer on every keystroke
+            if (idleTimerRef.current) clearTimeout(idleTimerRef.current);
+
+            // Schedule hesitation hint after 8s idle (only if user has typed something)
+            if (isFocused && hesitationTeaching && !hesitationShownRef.current && text.length > 0) {
+                idleTimerRef.current = setTimeout(() => {
+                    if (hesitationTeaching && !hesitationShownRef.current) {
+                        hesitationShownRef.current = true;
+                        showUndertone(hesitationTeaching.copy, hesitationTeaching.teachingId);
+                    }
+                }, 8000);
+            }
+
+            // Tense / negation debounce: check after 1.2s idle
+            if (tenseDebounceRef.current) clearTimeout(tenseDebounceRef.current);
+            tenseDebounceRef.current = setTimeout(() => {
+                setTenseNudge(FUTURE_WORDS.test(text) || NEGATION_WORDS.test(text));
+            }, 1200);
         }
     };
 
@@ -158,8 +264,8 @@ export default function ReturningIntentionScreen() {
                                     style={styles.textInput}
                                     value={intention}
                                     onChangeText={handleIntentionChange}
-                                    onFocus={() => setIsFocused(true)}
-                                    onBlur={() => setIsFocused(false)}
+                                    onFocus={handleFocus}
+                                    onBlur={handleBlur}
                                     placeholder={placeholder}
                                     placeholderTextColor={'rgba(192, 192, 192, 0.4)'}
                                     multiline
@@ -177,10 +283,20 @@ export default function ReturningIntentionScreen() {
                                 As always, you can refine or release later.
                             </Text>
 
-                            {/* Subtle Guidance Hint */}
-                            <Text style={styles.hintText}>
-                                Short. Present. Felt.
-                            </Text>
+                            {/* Undertone (Pattern 1) — prioritized display: tense nudge > teaching > default */}
+                            {tenseNudge ? (
+                                <View style={styles.undertoneRow}>
+                                    <UndertoneLine text={TENSE_NUDGE_COPY} variant="emphasis" />
+                                </View>
+                            ) : undertoneText ? (
+                                <Animated.View style={[styles.undertoneRow, { opacity: undertoneOpacity }]}>
+                                    <UndertoneLine text={undertoneText} variant="default" />
+                                </Animated.View>
+                            ) : (
+                                <View style={styles.undertoneRow}>
+                                    <UndertoneLine text="Short. Present. Felt." variant="default" />
+                                </View>
+                            )}
                         </Animated.View>
 
                     </ScrollView>
@@ -232,6 +348,7 @@ const styles = StyleSheet.create({
     },
     scrollContent: {
         paddingHorizontal: spacing.xl, // 32px - locked system
+        paddingBottom: spacing.lg,  // 24px — breathing room above CTA when keyboard open
     },
     titleSection: {
         paddingTop: height * 0.15, // 15% screen height - locked system
@@ -279,14 +396,8 @@ const styles = StyleSheet.create({
         opacity: 0.7,
         textAlign: 'left', // Left-aligned per locked system
     },
-    hintText: {
-        ...typography.body,
-        fontSize: 11, // Smaller, quieter
-        color: colors.text.tertiary,
-        marginTop: spacing.sm, // 8px
-        letterSpacing: 0.5,
-        opacity: 0.4, // Very low contrast
-        textAlign: 'left',
+    undertoneRow: {
+        marginTop: spacing.sm,  // 8px
     },
     continueContainer: {
         paddingHorizontal: spacing.xl, // 32px
