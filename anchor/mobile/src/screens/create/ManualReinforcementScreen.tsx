@@ -1,4 +1,4 @@
-import React, { useRef, useState, useCallback } from 'react';
+import React, { useRef, useState, useCallback, useMemo, useEffect } from 'react';
 import {
   View,
   Text,
@@ -16,8 +16,20 @@ import { GestureDetector, Gesture } from 'react-native-gesture-handler';
 import { runOnJS } from 'react-native-reanimated';
 import { RootStackParamList, AnchorCategory, SigilVariant } from '@/types';
 import { colors, spacing, typography } from '@/theme';
-import { ZenBackground } from '@/components/common';
+import { ZenBackground, UndertoneLine } from '@/components/common';
 import { useAuthStore } from '@/stores/authStore';
+import { useTeachingStore } from '@/stores/teachingStore';
+import { AnalyticsService } from '@/services/AnalyticsService';
+import {
+  TRACE_HINT_FIRST_TIME,
+  TRACE_HINT_FIRST_TIME_EXHAUSTION_ID,
+  TRACE_HINT_HESITATION,
+  TRACE_HINT_RETURNING_BASE,
+  TRACE_HINT_UNDO_SPAM,
+  type TraceHintTrigger,
+  type TraceHintVariant,
+} from '@/constants/traceHints';
+import { stableIndex } from '@/utils/hash';
 
 type ManualReinforcementRouteProp = RouteProp<RootStackParamList, 'ManualReinforcement'>;
 type ManualReinforcementNavigationProp = StackNavigationProp<
@@ -29,6 +41,9 @@ const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 const CANVAS_SIZE = Math.min(SCREEN_WIDTH - 48, SCREEN_HEIGHT * 0.5);
 const STROKE_WIDTH = 3;
 const GLOW_DISTANCE = 20; // Distance in pixels to trigger glow effect
+const HESITATION_DELAY_MS = 5000;
+const UNDO_SPAM_WINDOW_MS = 15000;
+const UNDO_SPAM_THRESHOLD = 2;
 
 interface Point {
   x: number;
@@ -38,6 +53,11 @@ interface Point {
 interface Stroke {
   points: Point[];
   pathData: string;
+}
+
+interface TraceHintState {
+  hint: TraceHintVariant;
+  trigger: TraceHintTrigger;
 }
 
 /**
@@ -72,12 +92,42 @@ export default function ManualReinforcementScreen() {
   const [fidelityScore, setFidelityScore] = useState(0);
   const [strokeCount, setStrokeCount] = useState(0);
   const [hasStartedDrawing, setHasStartedDrawing] = useState(false);
+  const [canvasReady, setCanvasReady] = useState(false);
   const [showSkipModal, setShowSkipModal] = useState(false);
   const startTime = useRef(Date.now());
 
-  // Detect first-time user for subtle guidance
-  const { anchorCount } = useAuthStore();
-  const isFirstAnchor = anchorCount === 0;
+  const userSeed = useAuthStore((state) => state.user?.id ?? 'anon');
+  const hasTracedBefore = useTeachingStore((state) => state.userFlags.hasTracedBefore);
+  const setUserFlag = useTeachingStore((state) => state.setUserFlag);
+  const recordTraceHintSeen = useTeachingStore((state) => state.recordTraceHintSeen);
+  const exhaustTraceHint = useTeachingStore((state) => state.exhaustTraceHint);
+  const isTraceHintExhausted = useTeachingStore((state) => state.isTraceHintExhausted);
+
+  const hasStartedDrawingRef = useRef(false);
+  const overrideAppliedRef = useRef(false);
+  const undoPressTimesRef = useRef<number[]>([]);
+  const trackedShownRef = useRef<Record<string, true>>({});
+  const trackedTriggersRef = useRef<Partial<Record<TraceHintTrigger, true>>>({});
+  const recordedFirstTimeSeenRef = useRef(false);
+
+  const baseHintSeed = useMemo(() => {
+    const anchorSeed = `${category}:${structureVariant}:${distilledLetters.join('')}`;
+    return `${anchorSeed}:${userSeed}:trace_hint`;
+  }, [category, structureVariant, distilledLetters, userSeed]);
+
+  const shouldShowFirstTimeHint =
+    !hasTracedBefore && !isTraceHintExhausted(TRACE_HINT_FIRST_TIME_EXHAUSTION_ID);
+
+  const [hintState, setHintState] = useState<TraceHintState>(() => {
+    const trigger: TraceHintTrigger = shouldShowFirstTimeHint ? 'first_time' : 'returning';
+    const variants = shouldShowFirstTimeHint ? TRACE_HINT_FIRST_TIME : TRACE_HINT_RETURNING_BASE;
+    const selectedHint = variants[stableIndex(`${baseHintSeed}:${trigger}`, variants.length)];
+
+    return {
+      hint: selectedHint,
+      trigger,
+    };
+  });
 
   // Convert points array to SVG path data
   const pointsToPathData = (points: Point[]): string => {
@@ -102,6 +152,79 @@ export default function ManualReinforcementScreen() {
   const currentStrokeRef = useRef<Point[]>([]);
   const updateCounterRef = useRef(0);
 
+  const trackHint = useCallback(
+    (hint: TraceHintVariant, trigger: TraceHintTrigger) => {
+      const shownKey = `${hint.id}:${trigger}`;
+      if (!trackedShownRef.current[shownKey]) {
+        trackedShownRef.current[shownKey] = true;
+        AnalyticsService.track('trace_hint_shown', {
+          hintId: hint.id,
+          tone: hint.tone,
+          trigger,
+        });
+      }
+
+      if (!trackedTriggersRef.current[trigger]) {
+        trackedTriggersRef.current[trigger] = true;
+        AnalyticsService.track('trace_hint_triggered', {
+          triggerType: trigger,
+        });
+      }
+
+      if (trigger === 'first_time' && !recordedFirstTimeSeenRef.current) {
+        recordedFirstTimeSeenRef.current = true;
+        recordTraceHintSeen(TRACE_HINT_FIRST_TIME_EXHAUSTION_ID);
+      }
+    },
+    [recordTraceHintSeen]
+  );
+
+  const applyHintOverride = useCallback(
+    (
+      trigger: Extract<TraceHintTrigger, 'hesitation' | 'undo_spam'>,
+      variants: readonly TraceHintVariant[]
+    ) => {
+      if (overrideAppliedRef.current) {
+        return;
+      }
+
+      const selectedHint = variants[stableIndex(`${baseHintSeed}:${trigger}`, variants.length)];
+      overrideAppliedRef.current = true;
+      setHintState((currentState) => {
+        if (currentState.hint.id === selectedHint.id && currentState.trigger === trigger) {
+          return currentState;
+        }
+        return { hint: selectedHint, trigger };
+      });
+    },
+    [baseHintSeed]
+  );
+
+  useEffect(() => {
+    hasStartedDrawingRef.current = hasStartedDrawing;
+  }, [hasStartedDrawing]);
+
+  useEffect(() => {
+    trackHint(hintState.hint, hintState.trigger);
+  }, [hintState, trackHint]);
+
+  useEffect(() => {
+    if (!canvasReady || hasStartedDrawing || overrideAppliedRef.current) {
+      return;
+    }
+
+    const timeoutId = setTimeout(() => {
+      if (hasStartedDrawingRef.current || overrideAppliedRef.current) {
+        return;
+      }
+      applyHintOverride('hesitation', TRACE_HINT_HESITATION);
+    }, HESITATION_DELAY_MS);
+
+    return () => {
+      clearTimeout(timeoutId);
+    };
+  }, [canvasReady, hasStartedDrawing, applyHintOverride]);
+
   // Handlers that will be called from UI thread
   const handleGestureStart = (x: number, y: number) => {
     currentStrokeRef.current = [{ x, y }];
@@ -109,8 +232,8 @@ export default function ManualReinforcementScreen() {
     setIsDrawing(true);
     setCurrentStroke([{ x, y }]);
 
-    // Hide hint on first touch
-    if (!hasStartedDrawing) {
+    if (!hasStartedDrawingRef.current) {
+      hasStartedDrawingRef.current = true;
       setHasStartedDrawing(true);
     }
   };
@@ -177,6 +300,11 @@ export default function ManualReinforcementScreen() {
     const timeSpentMs = Date.now() - startTime.current;
     const reinforcedSvg = strokesToSvg();
 
+    if (strokeCount > 0) {
+      setUserFlag('hasTracedBefore', true);
+      exhaustTraceHint(TRACE_HINT_FIRST_TIME_EXHAUSTION_ID);
+    }
+
     navigation.navigate('LockStructure', {
       intentionText,
       category,
@@ -230,6 +358,15 @@ export default function ManualReinforcementScreen() {
       setStrokes(updatedStrokes);
       setStrokeCount(updatedStrokes.length);
       setFidelityScore(calculateFidelity(updatedStrokes));
+
+      const now = Date.now();
+      undoPressTimesRef.current = undoPressTimesRef.current
+        .filter((timestamp) => now - timestamp <= UNDO_SPAM_WINDOW_MS)
+        .concat(now);
+
+      if (undoPressTimesRef.current.length >= UNDO_SPAM_THRESHOLD) {
+        applyHintOverride('undo_spam', TRACE_HINT_UNDO_SPAM);
+      }
     }
   };
 
@@ -263,7 +400,14 @@ export default function ManualReinforcementScreen() {
       {/* Drawing Canvas */}
       <View style={styles.canvasContainer}>
         <GestureDetector gesture={panGesture}>
-          <View style={styles.canvas}>
+          <View
+            style={styles.canvas}
+            onLayout={() => {
+              if (!canvasReady) {
+                setCanvasReady(true);
+              }
+            }}
+          >
             <Svg width={CANVAS_SIZE} height={CANVAS_SIZE} style={styles.svg}>
               {/* Base structure (faint underlay) */}
               <G opacity={0.3}>
@@ -298,12 +442,11 @@ export default function ManualReinforcementScreen() {
           </View>
         </GestureDetector>
 
-        {/* Subtle guidance for first-time users */}
-        {isFirstAnchor && !hasStartedDrawing && (
-          <View style={styles.hintOverlay}>
-            <Text style={styles.hintText}>Touch and draw over the lines</Text>
+        <View style={styles.hintOverlay}>
+          <View style={styles.hintLine}>
+            <UndertoneLine text={hintState.hint.copy} variant="default" />
           </View>
-        )}
+        </View>
       </View>
 
       {/* Control Buttons */}
@@ -440,11 +583,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     pointerEvents: 'none',
   },
-  hintText: {
-    fontFamily: typography.fonts.body,
-    fontSize: 14,
-    color: colors.text.tertiary,
-    opacity: 0.7,
+  hintLine: {
+    width: CANVAS_SIZE,
+    paddingHorizontal: spacing.sm,
   },
   controls: {
     paddingHorizontal: spacing.lg,

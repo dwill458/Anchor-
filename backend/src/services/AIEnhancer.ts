@@ -89,7 +89,13 @@ export type AIStyle =
   | 'ink_brush'
   | 'gold_leaf'
   | 'cosmic'
-  | 'minimal_line';
+  | 'minimal_line'
+  | 'obsidian_mono'
+  | 'aurora_glow'
+  | 'ember_trace'
+  | 'echo_chamber'
+  | 'monolith_ink'
+  | 'celestial_grid';
 
 /**
  * Style configuration for ControlNet enhancement
@@ -190,6 +196,73 @@ const STYLE_CONFIGS: Record<AIStyle, StyleConfig> = {
     negativePrompt: STRICT_NEGATIVE_PROMPT + ', texture, heavy shading, embellishment, ornate, thick lines',
     conditioning_scale: 1.30,  // Highest - structure is everything for minimal
     strength: 0.18,  // Lowest - minimal change needed
+  },
+  obsidian_mono: {
+    name: 'obsidian_mono',
+    method: 'lineart',
+    category: 'geometric',
+    prompt: 'Restore and beautify the existing sigil. Preserve exact geometry and stroke paths. ' +
+      'Apply high-contrast monochrome obsidian texture as surface treatment only. ' +
+      'Deep black glass with subtle sharp reflections. High-contrast monochromatic finish. ' +
+      'The original sigil geometry is preserved with absolute precision.',
+    negativePrompt: STRICT_NEGATIVE_PROMPT + ', color, soft, organic, messy',
+    strength: 0.20,
+  },
+  aurora_glow: {
+    name: 'aurora_glow',
+    method: 'lineart',
+    category: 'organic',
+    prompt: 'Restore and beautify the existing sigil. Preserve exact geometry and stroke paths. ' +
+      'Apply atmospheric aurora borealis glow as surface treatment only. ' +
+      'Shifting green, purple, and blue light curtains behind and around the sigil. ' +
+      'The sigil structure remains precisely as drawn.',
+    negativePrompt: STRICT_NEGATIVE_PROMPT + ', solid shapes, sharp edges, photography',
+    strength: 0.32,
+  },
+  ember_trace: {
+    name: 'ember_trace',
+    method: 'lineart',
+    category: 'hybrid',
+    prompt: 'Restore and beautify the existing sigil. Preserve exact geometry and stroke paths. ' +
+      'Apply warm ember edge lighting as surface treatment only. ' +
+      'Glowing orange and red hot metal edges, cooling black surfaces. ' +
+      'The sigil shape remains exactly as designed.',
+    negativePrompt: STRICT_NEGATIVE_PROMPT + ', cold colors, water, soft texture',
+    strength: 0.26,
+  },
+  echo_chamber: {
+    name: 'echo_chamber',
+    method: 'lineart',
+    category: 'organic',
+    prompt: 'Restore and beautify the existing sigil. Preserve exact geometry and stroke paths. ' +
+      'Apply layered cyclical resonance as surface treatment only. ' +
+      'Subtle repeating ripple effects emanating from the unchanged sigil lines. ' +
+      'The sigil structure is preserved exactly.',
+    negativePrompt: STRICT_NEGATIVE_PROMPT + ', sharp geometry, busy patterns, high contrast',
+    strength: 0.30,
+  },
+  monolith_ink: {
+    name: 'monolith_ink',
+    method: 'lineart',
+    category: 'geometric',
+    prompt: 'Restore and beautify the existing sigil. Preserve exact geometry and stroke paths. ' +
+      'Apply grounded heavy-line authority as surface treatment only. ' +
+      'Matte black architectural ink, heavy weight but precise edges. ' +
+      'The sigil geometry is preserved with absolute precision.',
+    negativePrompt: STRICT_NEGATIVE_PROMPT + ', soft brush, color, messy, organic',
+    strength: 0.22,
+  },
+  celestial_grid: {
+    name: 'celestial_grid',
+    method: 'canny',
+    category: 'geometric',
+    prompt: 'Restore and beautify the existing sigil. Preserve exact geometry and stroke paths. ' +
+      'Apply constellation-inspired symmetry as surface treatment only. ' +
+      'Precise grid-based star alignments following the sigil lines. ' +
+      'The original sigil geometry is untouched.',
+    negativePrompt: STRICT_NEGATIVE_PROMPT + ', messy, organic, soft edges, thick brush',
+    conditioning_scale: 1.25,
+    strength: 0.20,
   },
 };
 

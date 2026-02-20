@@ -166,10 +166,18 @@ export const MainTabNavigator: React.FC = () => {
   const toast = useToast();
 
   const [activeIndex, setActiveIndex] = React.useState(0);
+  const [vaultRouteName, setVaultRouteName] = React.useState('Vault');
+  const [practiceRouteName, setPracticeRouteName] = React.useState('PracticeHome');
 
   const handleIndexChange = useCallback((index: number) => {
     setActiveIndex(index);
   }, []);
+
+  const isTabBarVisible = React.useMemo(() => {
+    if (activeIndex === 0) return vaultRouteName === 'Vault';
+    if (activeIndex === 1) return practiceRouteName === 'PracticeHome';
+    return true; // Discover
+  }, [activeIndex, vaultRouteName, practiceRouteName]);
 
   // Auto-open daily anchor
   React.useEffect(() => {
@@ -216,12 +224,14 @@ export const MainTabNavigator: React.FC = () => {
           onIndexChange={handleIndexChange}
           tabCount={3}
         >
-          <VaultStackNavigator />
-          <PracticeStackNavigator />
+          <VaultStackNavigator onRouteChange={setVaultRouteName} />
+          <PracticeStackNavigator onRouteChange={setPracticeRouteName} />
           <DiscoverScreen />
         </SwipeableTabContainer>
 
-        <CustomTabBar activeIndex={activeIndex} onTabPress={handleIndexChange} />
+        {isTabBarVisible && (
+          <CustomTabBar activeIndex={activeIndex} onTabPress={handleIndexChange} />
+        )}
       </View>
     </TabNavigationProvider>
   );

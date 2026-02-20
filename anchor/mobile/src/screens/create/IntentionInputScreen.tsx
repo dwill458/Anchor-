@@ -11,6 +11,7 @@ import {
     Animated,
     Dimensions,
     Easing,
+    AccessibilityInfo,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
@@ -20,13 +21,18 @@ import { RootStackParamList } from '@/types';
 import { distillIntention } from '@/utils/sigil/distillation';
 import { detectCategoryFromText } from '@/utils/categoryDetection';
 import { colors, spacing, typography } from '@/theme';
-import { ZenBackground } from '@/components/common';
+import { ZenBackground, UndertoneLine } from '@/components/common';
 import { useTeachingGate } from '@/utils/useTeachingGate';
 import { useTeachingStore } from '@/stores/teachingStore';
 import { AnalyticsService } from '@/services/AnalyticsService';
 import { TEACHINGS } from '@/constants/teaching';
 
 const { height } = Dimensions.get('window');
+
+// Tense & negation detection patterns for real-time feedback
+const FUTURE_WORDS = /\b(will\b|going to|i'll|i'm going to|shall\b|plan to|want to\b|would like|i want)\b/i;
+const NEGATION_WORDS = /\b(don't|dont|do not|stop\b|avoid\b|not\b|never\b|won't|wont|can't|cant|no longer|give up)\b/i;
+const TENSE_NUDGE_COPY = "Make it present tense: 'I choose…' 'I return…'";
 
 type NavigationProp = StackNavigationProp<RootStackParamList, 'CreateAnchor'>;
 
@@ -46,6 +52,11 @@ export default function IntentionInputScreen() {
     const idleTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
     const firstTimeShownRef = useRef(false);
     const hesitationShownRef = useRef(false);
+
+    // Reduced motion & tense nudge
+    const [reduceMotion, setReduceMotion] = useState(false);
+    const [tenseNudge, setTenseNudge] = useState(false);
+    const tenseDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
     const fadeAnim = useRef(new Animated.Value(0)).current;
     const focusAnim = useRef(new Animated.Value(0)).current;
@@ -71,11 +82,16 @@ export default function IntentionInputScreen() {
             trigger: content?.trigger ?? 'first_time',
             guide_mode: true,
         });
-        Animated.timing(undertoneOpacity, {
-            toValue: 1,
-            duration: 400,
-            useNativeDriver: true,
-        }).start();
+        // Respect reduced motion preference
+        if (reduceMotion) {
+            undertoneOpacity.setValue(1);
+        } else {
+            Animated.timing(undertoneOpacity, {
+                toValue: 1,
+                duration: 400,
+                useNativeDriver: true,
+            }).start();
+        }
     };
 
     const PLACEHOLDER_POOL = [
@@ -102,6 +118,12 @@ export default function IntentionInputScreen() {
     // Cleanup idle timer on unmount
     useEffect(() => () => {
         if (idleTimerRef.current) clearTimeout(idleTimerRef.current);
+        if (tenseDebounceRef.current) clearTimeout(tenseDebounceRef.current);
+    }, []);
+
+    // Check reduced motion accessibility setting on mount
+    useEffect(() => {
+        AccessibilityInfo.isReduceMotionEnabled().then(setReduceMotion);
     }, []);
 
     // Subtle focus glow animation
@@ -144,6 +166,8 @@ export default function IntentionInputScreen() {
     const handleBlur = () => {
         setIsFocused(false);
         if (idleTimerRef.current) clearTimeout(idleTimerRef.current);
+        // Immediate tense check on blur
+        setTenseNudge(FUTURE_WORDS.test(intention) || NEGATION_WORDS.test(intention));
     };
 
     const handleIntentionChange = (text: string) => {
@@ -164,6 +188,12 @@ export default function IntentionInputScreen() {
                     }
                 }, 8000);
             }
+
+            // Tense / negation debounce: check after 1.2s idle
+            if (tenseDebounceRef.current) clearTimeout(tenseDebounceRef.current);
+            tenseDebounceRef.current = setTimeout(() => {
+                setTenseNudge(FUTURE_WORDS.test(text) || NEGATION_WORDS.test(text));
+            }, 1200);
         }
     };
 
@@ -235,18 +265,19 @@ export default function IntentionInputScreen() {
                                 You can refine or release this later.
                             </Text>
 
-                            {/* Undertone (Pattern 1) — replaces static hint when eligible */}
-                            {undertoneText ? (
-                                <Animated.Text
-                                    style={[styles.undertoneText, { opacity: undertoneOpacity }]}
-                                    accessibilityRole="text"
-                                >
-                                    {undertoneText}
-                                </Animated.Text>
+                            {/* Undertone (Pattern 1) — prioritized display: tense nudge > teaching > default */}
+                            {tenseNudge ? (
+                                <View style={styles.undertoneRow}>
+                                    <UndertoneLine text={TENSE_NUDGE_COPY} variant="emphasis" />
+                                </View>
+                            ) : undertoneText ? (
+                                <Animated.View style={[styles.undertoneRow, { opacity: undertoneOpacity }]}>
+                                    <UndertoneLine text={undertoneText} variant="default" />
+                                </Animated.View>
                             ) : (
-                                <Text style={styles.hintText}>
-                                    Short. Present. Felt.
-                                </Text>
+                                <View style={styles.undertoneRow}>
+                                    <UndertoneLine text="Short. Present. Felt." variant="default" />
+                                </View>
                             )}
                         </Animated.View>
 
@@ -297,6 +328,7 @@ const styles = StyleSheet.create({
     },
     scrollContent: {
         paddingHorizontal: spacing.xl,
+        paddingBottom: spacing.lg,  // 24px — breathing room above CTA when keyboard open
     },
     titleSection: {
         paddingTop: height * 0.15,
@@ -344,24 +376,8 @@ const styles = StyleSheet.create({
         opacity: 0.7,
         textAlign: 'left',
     },
-    hintText: {
-        ...typography.body,
-        fontSize: 11,
-        color: colors.text.tertiary,
-        marginTop: spacing.sm,
-        letterSpacing: 0.5,
-        opacity: 0.65,
-        textAlign: 'left',
-    },
-    undertoneText: {
-        ...typography.body,
-        fontSize: 13,
-        color: colors.text.secondary,
-        marginTop: spacing.sm,
-        letterSpacing: 0.3,
-        fontStyle: 'italic',
-        textAlign: 'left',
-        lineHeight: 19,
+    undertoneRow: {
+        marginTop: spacing.sm,  // 8px
     },
     continueContainer: {
         paddingHorizontal: spacing.xl,

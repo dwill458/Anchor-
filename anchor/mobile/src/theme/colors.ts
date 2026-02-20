@@ -46,6 +46,7 @@ export const colors = {
     glassStrong: 'rgba(12, 17, 24, 0.82)',
     border: 'rgba(212, 175, 55, 0.24)',
     softGlow: 'rgba(212, 175, 55, 0.14)',
+    pin: 'rgba(212, 175, 55, 0.55)',  // gold accent dot for UndertoneLine
   },
 
   // Text Shades
@@ -53,6 +54,7 @@ export const colors = {
     primary: '#F5F5DC',
     secondary: '#C0C0C0',
     tertiary: '#9E9E9E',
+    undertone: '#AAAAAA',  // warm silver — guidance text with full contrast, no opacity reduction
     disabled: '#757575',
   },
 } as const;

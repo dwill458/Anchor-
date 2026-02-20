@@ -40,7 +40,11 @@ import { useAuthStore } from '@/stores/authStore';
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
 
-export const VaultStackNavigator: React.FC = () => {
+interface VaultStackNavigatorProps {
+  onRouteChange?: (routeName: string) => void;
+}
+
+export const VaultStackNavigator: React.FC<VaultStackNavigatorProps> = ({ onRouteChange }) => {
   // Determine which intention screen to show
   // shouldRedirectToCreation = true means they just completed onboarding (first time)
   const { shouldRedirectToCreation } = useAuthStore();
@@ -48,23 +52,37 @@ export const VaultStackNavigator: React.FC = () => {
     ? IntentionInputScreen
     : ReturningIntentionScreen;
 
+  React.useEffect(() => {
+    onRouteChange?.('Vault');
+  }, [onRouteChange]);
+
   return (
-      <Stack.Navigator
-        screenOptions={{
-          headerShown: true,
-          animation: 'slide_from_right',
-          gestureEnabled: Platform.OS === 'ios',
-          headerStyle: {
-            backgroundColor: colors.background.secondary,
-          },
-          headerTintColor: colors.gold,
-          headerTitleStyle: {
-            fontFamily: 'Cinzel-Regular',
-            fontSize: 18,
-          },
-          contentStyle: { backgroundColor: colors.background.primary },
-        }}
-      >
+    <Stack.Navigator
+      screenListeners={{
+        state: (event) => {
+          const state = event.data.state as {
+            index: number;
+            routes: Array<{ name: string }>;
+          } | undefined;
+          const routeName = state?.routes?.[state.index]?.name;
+          if (routeName) onRouteChange?.(routeName);
+        },
+      }}
+      screenOptions={{
+        headerShown: true,
+        animation: 'slide_from_right',
+        gestureEnabled: Platform.OS === 'ios',
+        headerStyle: {
+          backgroundColor: colors.background.secondary,
+        },
+        headerTintColor: colors.gold,
+        headerTitleStyle: {
+          fontFamily: 'Cinzel-Regular',
+          fontSize: 18,
+        },
+        contentStyle: { backgroundColor: colors.background.primary },
+      }}
+    >
       <Stack.Screen
         name="Vault"
         component={VaultScreen}
@@ -102,11 +120,7 @@ export const VaultStackNavigator: React.FC = () => {
       <Stack.Screen
         name="StructureForge"
         component={StructureForgeScreen}
-        options={{
-          headerTransparent: true,
-          title: '',
-          headerTintColor: colors.gold,
-        }}
+        options={{ headerShown: false }}
       />
       <Stack.Screen
         name="ManualReinforcement"
@@ -245,6 +259,6 @@ export const VaultStackNavigator: React.FC = () => {
           headerTintColor: colors.gold,
         }}
       />
-      </Stack.Navigator>
+    </Stack.Navigator>
   );
 };

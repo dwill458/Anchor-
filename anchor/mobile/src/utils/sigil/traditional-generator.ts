@@ -121,7 +121,7 @@ function createInkFilter(): string {
 }
 
 function createBorder(variant: SigilVariant): string {
-  if (variant === 'minimal') return ''; // No border for minimal
+  if (variant === 'minimal' || variant === 'balanced') return ''; // No border for minimal and balanced
 
   // "Hand-drawn" circle approximation
   const r = 42;

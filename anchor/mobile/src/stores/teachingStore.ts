@@ -5,7 +5,7 @@
  * Tracks which teachings have been shown, milestones queued, and
  * explicit behavioral flags that drive teaching triggers.
  *
- * Key: 'anchor-teaching-storage' | schemaVersion: 1
+ * Key: 'anchor-teaching-storage' | schemaVersion: 2
  *
  * sessionSeenIds + sessionSeenPatterns are intentionally NOT persisted —
  * they reset each app session to allow Ground Note pattern-level cooldowns
@@ -22,10 +22,11 @@ export interface TeachingUserFlags {
   hasCompletedFirstCharge: boolean;
   hasCompletedFirstBurn: boolean;
   hasCompletedFirstStabilize: boolean;
+  hasTracedBefore: boolean;
 }
 
 export interface TeachingState {
-  schemaVersion: 1;
+  schemaVersion: 2;
   /** How many times each teaching has been shown. */
   showCounts: Record<string, number>;
   /** ISO timestamps of last show per teaching. */
@@ -41,6 +42,10 @@ export interface TeachingState {
   lastVeilCardAt: string | null;
   /** Deterministic behavioral flags — explicit booleans, never derived from counts. */
   userFlags: TeachingUserFlags;
+  /** How many times each trace hint cap key has surfaced. */
+  traceHintSeenCounts: Record<string, number>;
+  /** O(1) lookup for trace hint keys that should never be shown again. */
+  traceHintExhaustedIds: Record<string, true>;
 
   // Session-only (NOT persisted — reset each app foreground)
   sessionSeenIds: string[];
@@ -55,12 +60,15 @@ export interface TeachingState {
   dequeueMilestone: () => string | undefined;
   clearSessionSeen: () => void;
   setUserFlag: (flag: keyof TeachingUserFlags, value: boolean) => void;
+  recordTraceHintSeen: (id: string) => void;
+  exhaustTraceHint: (id: string) => void;
+  isTraceHintExhausted: (id: string) => boolean;
 }
 
 export const useTeachingStore = create<TeachingState>()(
   persist(
     (set, get) => ({
-      schemaVersion: 1 as const,
+      schemaVersion: 2 as const,
       showCounts: {},
       lastShownAt: {},
       exhaustedIds: {},
@@ -71,7 +79,10 @@ export const useTeachingStore = create<TeachingState>()(
         hasCompletedFirstCharge: false,
         hasCompletedFirstBurn: false,
         hasCompletedFirstStabilize: false,
+        hasTracedBefore: false,
       },
+      traceHintSeenCounts: {},
+      traceHintExhaustedIds: {},
 
       // Session-only — initialized empty, not persisted
       sessionSeenIds: [],
@@ -142,11 +153,50 @@ export const useTeachingStore = create<TeachingState>()(
           userFlags: { ...state.userFlags, [flag]: value },
         }));
       },
+
+      recordTraceHintSeen: (id) => {
+        set((state) => ({
+          traceHintSeenCounts: {
+            ...state.traceHintSeenCounts,
+            [id]: (state.traceHintSeenCounts[id] ?? 0) + 1,
+          },
+        }));
+      },
+
+      exhaustTraceHint: (id) => {
+        set((state) => ({
+          traceHintExhaustedIds: { ...state.traceHintExhaustedIds, [id]: true },
+        }));
+      },
+
+      isTraceHintExhausted: (id) => id in get().traceHintExhaustedIds,
     }),
     {
       name: 'anchor-teaching-storage',
       storage: createJSONStorage(() => AsyncStorage),
-      version: 1,
+      version: 2,
+      migrate: (persistedState: any) => {
+        if (!persistedState || typeof persistedState !== 'object') {
+          return persistedState;
+        }
+
+        const userFlags = {
+          hasCreatedFirstAnchor: false,
+          hasCompletedFirstCharge: false,
+          hasCompletedFirstBurn: false,
+          hasCompletedFirstStabilize: false,
+          hasTracedBefore: false,
+          ...(persistedState.userFlags ?? {}),
+        };
+
+        return {
+          ...persistedState,
+          schemaVersion: 2 as const,
+          userFlags,
+          traceHintSeenCounts: persistedState.traceHintSeenCounts ?? {},
+          traceHintExhaustedIds: persistedState.traceHintExhaustedIds ?? {},
+        };
+      },
       // Exclude session-only state from persistence
       partialize: (state) => ({
         schemaVersion: state.schemaVersion,
@@ -156,6 +206,8 @@ export const useTeachingStore = create<TeachingState>()(
         pendingMilestones: state.pendingMilestones,
         lastVeilCardAt: state.lastVeilCardAt,
         userFlags: state.userFlags,
+        traceHintSeenCounts: state.traceHintSeenCounts,
+        traceHintExhaustedIds: state.traceHintExhaustedIds,
       }),
     }
   )
