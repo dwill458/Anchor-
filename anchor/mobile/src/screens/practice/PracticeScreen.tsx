@@ -45,7 +45,8 @@ function toMillis(value?: Date | string): number {
 
 export const PracticeScreen: React.FC = () => {
   const navigation = useNavigation<PracticeNavigationProp>();
-  const { navigateToVault } = useTabNavigation();
+  const { navigateToVault, activeTabIndex } = useTabNavigation();
+  const isPracticeTabActive = activeTabIndex == null ? true : activeTabIndex === 1;
   const insets = useSafeAreaInsets();
   const reduceMotion = useReducedMotion();
   const { getActiveAnchors } = useAnchorStore();
@@ -170,6 +171,10 @@ export const PracticeScreen: React.FC = () => {
 
   useFocusEffect(
     useCallback(() => {
+      if (!isPracticeTabActive) {
+        clearTeachingTimers();
+        return () => undefined;
+      }
       interactionRef.current = false;
       if (autoTeachingSeen !== false) return () => undefined;
 
@@ -190,7 +195,7 @@ export const PracticeScreen: React.FC = () => {
       return () => {
         clearTeachingTimers();
       };
-    }, [autoTeachingSeen, clearTeachingTimers, openAutoTeaching])
+    }, [autoTeachingSeen, clearTeachingTimers, isPracticeTabActive, openAutoTeaching])
   );
 
   const headerAnim = useSharedValue(0);
@@ -201,6 +206,7 @@ export const PracticeScreen: React.FC = () => {
 
   useFocusEffect(
     useCallback(() => {
+      if (!isPracticeTabActive) return () => undefined;
       if (reduceMotion) {
         headerAnim.value = 1;
         heroAnim.value = 1;
@@ -216,7 +222,7 @@ export const PracticeScreen: React.FC = () => {
       portalsAnim.value = withDelay(130, withTiming(1, timing));
       threadAnim.value = withDelay(210, withTiming(1, timing));
       return () => undefined;
-    }, [headerAnim, heroAnim, portalsAnim, reduceMotion, threadAnim])
+    }, [headerAnim, heroAnim, isPracticeTabActive, portalsAnim, reduceMotion, threadAnim])
   );
 
   const headerStyle = useAnimatedStyle(() => ({
@@ -304,7 +310,7 @@ export const PracticeScreen: React.FC = () => {
 
   return (
     <View style={styles.container}>
-      <ZenBackground variant="practice" showOrbs showGrain showVignette />
+      <ZenBackground variant="practice" showOrbs={isPracticeTabActive} showGrain showVignette />
 
       <SafeAreaView style={styles.safeArea} edges={['top']}>
         <Animated.ScrollView
@@ -326,6 +332,7 @@ export const PracticeScreen: React.FC = () => {
           <Animated.View style={heroStyle}>
             <AnchorHero
               anchor={selectedAnchor}
+              animationsEnabled={isPracticeTabActive}
               onPress={() => {
                 markInteraction();
                 setPendingMode(null);

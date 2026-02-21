@@ -37,6 +37,8 @@ interface TabNavigationContextValue {
   navigateToPractice: () => void;
   /** Register the navigation object from a tab's root screen */
   registerTabNav: (tabIndex: TabIndex, nav: StackNavRef | null) => void;
+  /** Currently selected top-level tab index */
+  activeTabIndex: number;
 }
 
 const TabNavigationContext = createContext<TabNavigationContextValue | null>(null);
@@ -44,11 +46,13 @@ const TabNavigationContext = createContext<TabNavigationContextValue | null>(nul
 interface TabNavigationProviderProps {
   children: React.ReactNode;
   onIndexChange: (index: number) => void;
+  activeIndex?: number;
 }
 
 export const TabNavigationProvider: React.FC<TabNavigationProviderProps> = ({
   children,
   onIndexChange,
+  activeIndex = 0,
 }) => {
   // Refs to each tab's root screen navigation — registered by VaultScreen + PracticeScreen
   const tabNavRefs = useRef<(StackNavRef | null)[]>([null, null, null]);
@@ -77,7 +81,7 @@ export const TabNavigationProvider: React.FC<TabNavigationProviderProps> = ({
 
   return (
     <TabNavigationContext.Provider
-      value={{ navigateToVault, navigateToPractice, registerTabNav }}
+      value={{ navigateToVault, navigateToPractice, registerTabNav, activeTabIndex: activeIndex }}
     >
       {children}
     </TabNavigationContext.Provider>

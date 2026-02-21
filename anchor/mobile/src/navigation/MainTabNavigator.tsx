@@ -209,7 +209,7 @@ export const MainTabNavigator: React.FC = () => {
   }, [toast]);
 
   return (
-    <TabNavigationProvider onIndexChange={handleIndexChange}>
+    <TabNavigationProvider onIndexChange={handleIndexChange} activeIndex={activeIndex}>
       <View style={styles.container}>
         <SwipeableTabContainer
           activeIndex={activeIndex}

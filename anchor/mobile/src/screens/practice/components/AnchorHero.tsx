@@ -17,6 +17,7 @@ import { useReduceMotionEnabled } from '@/hooks/useReduceMotionEnabled';
 interface AnchorHeroProps {
   anchor?: Anchor;
   onPress: () => void;
+  animationsEnabled?: boolean;
 }
 
 const HERO_SIZE = 172;
@@ -28,13 +29,17 @@ function getName(anchor?: Anchor): string {
   return value.length > 42 ? `${value.slice(0, 41)}...` : value;
 }
 
-export const AnchorHero: React.FC<AnchorHeroProps> = ({ anchor, onPress }) => {
+export const AnchorHero: React.FC<AnchorHeroProps> = ({
+  anchor,
+  onPress,
+  animationsEnabled = true,
+}) => {
   const reduceMotionEnabled = useReduceMotionEnabled();
   const breath = useSharedValue(0);
   const sigil = anchor?.reinforcedSigilSvg ?? anchor?.baseSigilSvg;
 
   useEffect(() => {
-    if (reduceMotionEnabled || !anchor?.isCharged) {
+    if (!animationsEnabled || reduceMotionEnabled || !anchor?.isCharged) {
       cancelAnimation(breath);
       breath.value = 0;
       return;
@@ -52,7 +57,7 @@ export const AnchorHero: React.FC<AnchorHeroProps> = ({ anchor, onPress }) => {
     return () => {
       cancelAnimation(breath);
     };
-  }, [anchor?.isCharged, breath, reduceMotionEnabled]);
+  }, [anchor?.isCharged, animationsEnabled, breath, reduceMotionEnabled]);
 
   const haloStyle = useAnimatedStyle(() => ({
     opacity: anchor?.isCharged ? 0.2 + breath.value * 0.2 : 0.05,
