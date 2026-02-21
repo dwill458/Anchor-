@@ -13,12 +13,12 @@ import {
   Switch,
   Alert,
   Platform,
+  InteractionManager,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { ChevronRight } from 'lucide-react-native';
-import { BlurView } from 'expo-blur';
 import { LinearGradient } from 'expo-linear-gradient';
 import DateTimePicker, { DateTimePickerEvent } from '@react-native-community/datetimepicker';
 import Animated, {
@@ -42,6 +42,7 @@ import { apiClient } from '@/services/ApiClient';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const IS_ANDROID = Platform.OS === 'android';
+const SHOULD_ANIMATE_SECTION_ENTRANCE = Platform.OS === 'ios';
 
 type SettingItemProps = {
   label: string;
@@ -125,23 +126,25 @@ export const SettingsScreen: React.FC = () => {
   const { tier, isPro } = useSubscription();
   const reduceMotionEnabled = useReduceMotionEnabled();
   const reveal = useSettingsReveal();
+  const shouldAnimateSections = SHOULD_ANIMATE_SECTION_ENTRANCE && !reduceMotionEnabled;
 
   const [showTimePicker, setShowTimePicker] = useState(false);
+  const [deferredSectionsReady, setDeferredSectionsReady] = useState(false);
 
-  const section0 = useSharedValue(reduceMotionEnabled ? 1 : 0);
-  const section1 = useSharedValue(reduceMotionEnabled ? 1 : 0);
-  const section2 = useSharedValue(reduceMotionEnabled ? 1 : 0);
-  const section3 = useSharedValue(reduceMotionEnabled ? 1 : 0);
-  const section4 = useSharedValue(reduceMotionEnabled ? 1 : 0);
-  const section5 = useSharedValue(reduceMotionEnabled ? 1 : 0);
-  const section6 = useSharedValue(reduceMotionEnabled ? 1 : 0);
-  const section7 = useSharedValue(reduceMotionEnabled ? 1 : 0);
-  const section8 = useSharedValue(reduceMotionEnabled ? 1 : 0);
-  const section9 = useSharedValue(reduceMotionEnabled ? 1 : 0);
+  const section0 = useSharedValue(shouldAnimateSections ? 0 : 1);
+  const section1 = useSharedValue(shouldAnimateSections ? 0 : 1);
+  const section2 = useSharedValue(shouldAnimateSections ? 0 : 1);
+  const section3 = useSharedValue(shouldAnimateSections ? 0 : 1);
+  const section4 = useSharedValue(shouldAnimateSections ? 0 : 1);
+  const section5 = useSharedValue(shouldAnimateSections ? 0 : 1);
+  const section6 = useSharedValue(shouldAnimateSections ? 0 : 1);
+  const section7 = useSharedValue(shouldAnimateSections ? 0 : 1);
+  const section8 = useSharedValue(shouldAnimateSections ? 0 : 1);
+  const section9 = useSharedValue(shouldAnimateSections ? 0 : 1);
   const exitValue = useSharedValue(1);
   const previousCloseSignalRef = useRef(reveal.closeSignal);
   const hasMarkedReadyRef = useRef(false);
-  const paintReadyTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const paintReadyFrameRef = useRef<number | null>(null);
 
   const animatedStyle0 = useAnimatedStyle(() => ({
     opacity: section0.value * exitValue.value,
@@ -200,7 +203,7 @@ export const SettingsScreen: React.FC = () => {
 
     exitValue.value = 1;
 
-    if (reduceMotionEnabled) {
+    if (!shouldAnimateSections) {
       entries.forEach((entry) => {
         entry.value = 1;
       });
@@ -223,7 +226,7 @@ export const SettingsScreen: React.FC = () => {
     });
   }, [
     exitValue,
-    reduceMotionEnabled,
+    shouldAnimateSections,
     section0,
     section1,
     section2,
@@ -249,10 +252,31 @@ export const SettingsScreen: React.FC = () => {
 
   useEffect(() => {
     return () => {
-      if (paintReadyTimeoutRef.current) {
-        clearTimeout(paintReadyTimeoutRef.current);
-        paintReadyTimeoutRef.current = null;
+      if (paintReadyFrameRef.current !== null) {
+        cancelAnimationFrame(paintReadyFrameRef.current);
+        paintReadyFrameRef.current = null;
       }
+    };
+  }, []);
+
+  useEffect(() => {
+    let isCancelled = false;
+    const interactionTask = InteractionManager.runAfterInteractions(() => {
+      if (!isCancelled) {
+        setDeferredSectionsReady(true);
+      }
+    });
+
+    const fallbackTimeout = setTimeout(() => {
+      if (!isCancelled) {
+        setDeferredSectionsReady(true);
+      }
+    }, 180);
+
+    return () => {
+      isCancelled = true;
+      interactionTask.cancel?.();
+      clearTimeout(fallbackTimeout);
     };
   }, []);
 
@@ -261,21 +285,18 @@ export const SettingsScreen: React.FC = () => {
       return;
     }
 
-    if (paintReadyTimeoutRef.current) {
+    if (paintReadyFrameRef.current !== null) {
       return;
     }
 
-    paintReadyTimeoutRef.current = setTimeout(() => {
-      requestAnimationFrame(() => {
-        requestAnimationFrame(() => {
-          if (hasMarkedReadyRef.current) {
-            return;
-          }
-          hasMarkedReadyRef.current = true;
-          reveal.markSettingsReady();
-        });
-      });
-    }, 30);
+    paintReadyFrameRef.current = requestAnimationFrame(() => {
+      paintReadyFrameRef.current = null;
+      if (hasMarkedReadyRef.current) {
+        return;
+      }
+      hasMarkedReadyRef.current = true;
+      reveal.markSettingsReady();
+    });
   };
 
   const onTimeChange = (event: DateTimePickerEvent, selectedDate?: Date) => {
@@ -384,8 +405,8 @@ export const SettingsScreen: React.FC = () => {
     ]);
   };
 
-  const CardWrapper = IS_ANDROID ? View : BlurView;
-  const cardProps = IS_ANDROID ? {} : { intensity: 10, tint: 'dark' as const };
+  const CardWrapper = View;
+  const cardProps = {};
 
   return (
     <View style={styles.container} onLayout={handleRootLayout}>
@@ -394,6 +415,7 @@ export const SettingsScreen: React.FC = () => {
         <ScrollView
           style={styles.scrollView}
           showsVerticalScrollIndicator={false}
+          removeClippedSubviews={true}
           contentContainerStyle={styles.scrollContent}
         >
           <Animated.View style={animatedStyle0}>
@@ -445,197 +467,201 @@ export const SettingsScreen: React.FC = () => {
             </CardWrapper>
           </Animated.View>
 
-          <Animated.View style={animatedStyle2}>
-            <SectionHeader title="Notifications" description="Gentle reminders to support consistency." />
-            <CardWrapper {...cardProps} style={styles.section}>
-              <ToggleItem
-                label="Daily Reminder"
-                value={settings.dailyReminderEnabled}
-                onValueChange={handleToggleDailyReminder}
-              />
-              {settings.dailyReminderEnabled && (
-                <SettingItem
-                  label="Reminder Time"
-                  value={settings.dailyReminderTime}
-                  onPress={() => setShowTimePicker(true)}
-                />
-              )}
-              <ToggleItem
-                label="Streak Protection Alerts"
-                value={settings.streakProtectionAlerts}
-                onValueChange={settings.setStreakProtectionAlerts}
-              />
-              <ToggleItem
-                label="Weekly Summary"
-                value={settings.weeklySummaryEnabled}
-                onValueChange={settings.setWeeklySummaryEnabled}
-              />
-            </CardWrapper>
-          </Animated.View>
-
-          <Animated.View style={animatedStyle3}>
-            <SectionHeader title="Appearance" />
-            <CardWrapper {...cardProps} style={styles.section}>
-              <SettingItem
-                label="Theme"
-                value={settings.theme === 'zen_architect' ? 'Zen Architect' : 'System'}
-                onPress={() => navigation.navigate('ThemeSelection')}
-              />
-              <SettingItem
-                label="Accent Color"
-                value={settings.accentColor === '#D4AF37' ? 'Gold' : 'Custom'}
-                onPress={() => navigation.navigate('AccentColor')}
-              />
-            </CardWrapper>
-          </Animated.View>
-
-          <Animated.View style={animatedStyle4}>
-            <SectionHeader title="Audio & Haptics" />
-            <CardWrapper {...cardProps} style={styles.section}>
-              <SettingItem
-                label="Haptic Feedback"
-                value={settings.hapticIntensity < 34 ? 'Light' : settings.hapticIntensity < 67 ? 'Medium' : 'Strong'}
-                onPress={() => navigation.navigate('HapticIntensity')}
-              />
-              <ToggleItem
-                label="Sound Effects"
-                value={settings.soundEffectsEnabled}
-                onValueChange={settings.setSoundEffectsEnabled}
-              />
-            </CardWrapper>
-          </Animated.View>
-
-          <Animated.View style={animatedStyle5}>
-            <SectionHeader title="Account" />
-            <CardWrapper {...cardProps} style={styles.section}>
-              <SettingItem label="Email Address" value={user?.email || 'Not signed in'} showChevron={false} />
-              <SettingItem label="Sign Out" onPress={handleSignOut} showChevron={false} />
-              <SettingItem
-                label="Delete Account"
-                onPress={handleDeleteAccount}
-                isDestructive
-                showChevron={false}
-              />
-            </CardWrapper>
-          </Animated.View>
-
-          <Animated.View style={animatedStyle6}>
-            <SectionHeader
-              title="Subscription"
-              description="Manage your plan and access premium features."
-            />
-            <CardWrapper {...cardProps} style={styles.section}>
-              <SettingItem
-                label="Current Plan"
-                value={tier.charAt(0).toUpperCase() + tier.slice(1)}
-                showChevron={false}
-              />
-              <View style={styles.proBenefits}>
-                <Text style={styles.proBenefitsTitle}>Pro Benefits</Text>
-                <Text style={styles.proBenefitItem}>• Unlimited anchors</Text>
-                <Text style={styles.proBenefitItem}>• Advanced customization</Text>
-                <Text style={styles.proBenefitItem}>• Manual creation tools</Text>
-              </View>
-              {!isPro && (
-                <TouchableOpacity style={styles.upgradeButton} activeOpacity={0.8}>
-                  <LinearGradient
-                    colors={[colors.gold, colors.bronze]}
-                    style={styles.upgradeGradient}
-                    start={{ x: 0, y: 0 }}
-                    end={{ x: 1, y: 0 }}
-                  >
-                    <Text style={styles.upgradeButtonText}>Upgrade to Pro</Text>
-                  </LinearGradient>
-                </TouchableOpacity>
-              )}
-              <SettingItem label="Restore Purchase" onPress={() => {}} showChevron={false} />
-            </CardWrapper>
-          </Animated.View>
-
-          <Animated.View style={animatedStyle7}>
-            <SectionHeader title="Data & Privacy" />
-            <CardWrapper {...cardProps} style={styles.section}>
-              <SettingItem
-                label="Data Management"
-                onPress={() => navigation.navigate('DataPrivacy')}
-              />
-              <SettingItem
-                label="Privacy Policy"
-                onPress={() => navigation.navigate('DataPrivacy')}
-              />
-            </CardWrapper>
-          </Animated.View>
-
-          <Animated.View style={animatedStyle8}>
-            <SectionHeader title="About Anchor" />
-            <CardWrapper {...cardProps} style={styles.section}>
-              <SettingItem label="App Version" value="1.0.0" showChevron={false} />
-              <SettingItem label="Contact Support" onPress={() => {}} />
-            </CardWrapper>
-          </Animated.View>
-
-          {(__DEV__ || process.env.EXPO_PUBLIC_DEV_TOOLS === 'true') && (
-            <Animated.View style={animatedStyle9}>
-              <SectionHeader
-                title="Developer Tools"
-                description="Simulate subscription state for UI testing"
-              />
-              <CardWrapper {...cardProps} style={styles.section}>
-                <ToggleItem
-                  label="Developer Mode"
-                  value={settings.developerModeEnabled}
-                  onValueChange={settings.setDeveloperModeEnabled}
-                />
-                {settings.developerModeEnabled && (
-                  <>
-                    <ToggleItem
-                      label="Enable Developer Overrides"
-                      value={subStore.devOverrideEnabled}
-                      onValueChange={subStore.setDevOverrideEnabled}
+          {deferredSectionsReady && (
+            <>
+              <Animated.View style={animatedStyle2}>
+                <SectionHeader title="Notifications" description="Gentle reminders to support consistency." />
+                <CardWrapper {...cardProps} style={styles.section}>
+                  <ToggleItem
+                    label="Daily Reminder"
+                    value={settings.dailyReminderEnabled}
+                    onValueChange={handleToggleDailyReminder}
+                  />
+                  {settings.dailyReminderEnabled && (
+                    <SettingItem
+                      label="Reminder Time"
+                      value={settings.dailyReminderTime}
+                      onPress={() => setShowTimePicker(true)}
                     />
-                    {subStore.devOverrideEnabled && (
-                      <View style={styles.segmentedContainer}>
-                        <Text style={styles.segmentedLabel}>Simulated Subscription Tier</Text>
-                        <View style={styles.segments}>
-                          {(['free', 'pro'] as const).map((tierValue) => (
-                            <TouchableOpacity
-                              key={tierValue}
-                              style={[
-                                styles.segmentButton,
-                                subStore.devTierOverride === tierValue && styles.activeSegment,
-                              ]}
-                              onPress={() => subStore.setDevTierOverride(tierValue)}
-                            >
-                              <Text
-                                style={[
-                                  styles.segmentText,
-                                  subStore.devTierOverride === tierValue && styles.activeSegmentText,
-                                ]}
-                              >
-                                {tierValue.toUpperCase()}
-                              </Text>
-                            </TouchableOpacity>
-                          ))}
-                        </View>
-                      </View>
-                    )}
-                    <ToggleItem
-                      label="Allow Direct Anchor Delete"
-                      helperText="Show a developer-only delete action on anchor detail without burn ritual."
-                      value={settings.developerDeleteWithoutBurnEnabled}
-                      onValueChange={settings.setDeveloperDeleteWithoutBurnEnabled}
-                    />
-                    <SettingItem label="Reset Onboarding" onPress={handleResetOnboarding} isDestructive />
-                    <TouchableOpacity
-                      style={styles.devResetButton}
-                      onPress={() => subStore.resetOverrides()}
-                    >
-                      <Text style={styles.devResetText}>Reset Developer Overrides</Text>
+                  )}
+                  <ToggleItem
+                    label="Streak Protection Alerts"
+                    value={settings.streakProtectionAlerts}
+                    onValueChange={settings.setStreakProtectionAlerts}
+                  />
+                  <ToggleItem
+                    label="Weekly Summary"
+                    value={settings.weeklySummaryEnabled}
+                    onValueChange={settings.setWeeklySummaryEnabled}
+                  />
+                </CardWrapper>
+              </Animated.View>
+
+              <Animated.View style={animatedStyle3}>
+                <SectionHeader title="Appearance" />
+                <CardWrapper {...cardProps} style={styles.section}>
+                  <SettingItem
+                    label="Theme"
+                    value={settings.theme === 'zen_architect' ? 'Zen Architect' : 'System'}
+                    onPress={() => navigation.navigate('ThemeSelection')}
+                  />
+                  <SettingItem
+                    label="Accent Color"
+                    value={settings.accentColor === '#D4AF37' ? 'Gold' : 'Custom'}
+                    onPress={() => navigation.navigate('AccentColor')}
+                  />
+                </CardWrapper>
+              </Animated.View>
+
+              <Animated.View style={animatedStyle4}>
+                <SectionHeader title="Audio & Haptics" />
+                <CardWrapper {...cardProps} style={styles.section}>
+                  <SettingItem
+                    label="Haptic Feedback"
+                    value={settings.hapticIntensity < 34 ? 'Light' : settings.hapticIntensity < 67 ? 'Medium' : 'Strong'}
+                    onPress={() => navigation.navigate('HapticIntensity')}
+                  />
+                  <ToggleItem
+                    label="Sound Effects"
+                    value={settings.soundEffectsEnabled}
+                    onValueChange={settings.setSoundEffectsEnabled}
+                  />
+                </CardWrapper>
+              </Animated.View>
+
+              <Animated.View style={animatedStyle5}>
+                <SectionHeader title="Account" />
+                <CardWrapper {...cardProps} style={styles.section}>
+                  <SettingItem label="Email Address" value={user?.email || 'Not signed in'} showChevron={false} />
+                  <SettingItem label="Sign Out" onPress={handleSignOut} showChevron={false} />
+                  <SettingItem
+                    label="Delete Account"
+                    onPress={handleDeleteAccount}
+                    isDestructive
+                    showChevron={false}
+                  />
+                </CardWrapper>
+              </Animated.View>
+
+              <Animated.View style={animatedStyle6}>
+                <SectionHeader
+                  title="Subscription"
+                  description="Manage your plan and access premium features."
+                />
+                <CardWrapper {...cardProps} style={styles.section}>
+                  <SettingItem
+                    label="Current Plan"
+                    value={tier.charAt(0).toUpperCase() + tier.slice(1)}
+                    showChevron={false}
+                  />
+                  <View style={styles.proBenefits}>
+                    <Text style={styles.proBenefitsTitle}>Pro Benefits</Text>
+                    <Text style={styles.proBenefitItem}>• Unlimited anchors</Text>
+                    <Text style={styles.proBenefitItem}>• Advanced customization</Text>
+                    <Text style={styles.proBenefitItem}>• Manual creation tools</Text>
+                  </View>
+                  {!isPro && (
+                    <TouchableOpacity style={styles.upgradeButton} activeOpacity={0.8}>
+                      <LinearGradient
+                        colors={[colors.gold, colors.bronze]}
+                        style={styles.upgradeGradient}
+                        start={{ x: 0, y: 0 }}
+                        end={{ x: 1, y: 0 }}
+                      >
+                        <Text style={styles.upgradeButtonText}>Upgrade to Pro</Text>
+                      </LinearGradient>
                     </TouchableOpacity>
-                  </>
-                )}
-              </CardWrapper>
-            </Animated.View>
+                  )}
+                  <SettingItem label="Restore Purchase" onPress={() => {}} showChevron={false} />
+                </CardWrapper>
+              </Animated.View>
+
+              <Animated.View style={animatedStyle7}>
+                <SectionHeader title="Data & Privacy" />
+                <CardWrapper {...cardProps} style={styles.section}>
+                  <SettingItem
+                    label="Data Management"
+                    onPress={() => navigation.navigate('DataPrivacy')}
+                  />
+                  <SettingItem
+                    label="Privacy Policy"
+                    onPress={() => navigation.navigate('DataPrivacy')}
+                  />
+                </CardWrapper>
+              </Animated.View>
+
+              <Animated.View style={animatedStyle8}>
+                <SectionHeader title="About Anchor" />
+                <CardWrapper {...cardProps} style={styles.section}>
+                  <SettingItem label="App Version" value="1.0.0" showChevron={false} />
+                  <SettingItem label="Contact Support" onPress={() => {}} />
+                </CardWrapper>
+              </Animated.View>
+
+              {(__DEV__ || process.env.EXPO_PUBLIC_DEV_TOOLS === 'true') && (
+                <Animated.View style={animatedStyle9}>
+                  <SectionHeader
+                    title="Developer Tools"
+                    description="Simulate subscription state for UI testing"
+                  />
+                  <CardWrapper {...cardProps} style={styles.section}>
+                    <ToggleItem
+                      label="Developer Mode"
+                      value={settings.developerModeEnabled}
+                      onValueChange={settings.setDeveloperModeEnabled}
+                    />
+                    {settings.developerModeEnabled && (
+                      <>
+                        <ToggleItem
+                          label="Enable Developer Overrides"
+                          value={subStore.devOverrideEnabled}
+                          onValueChange={subStore.setDevOverrideEnabled}
+                        />
+                        {subStore.devOverrideEnabled && (
+                          <View style={styles.segmentedContainer}>
+                            <Text style={styles.segmentedLabel}>Simulated Subscription Tier</Text>
+                            <View style={styles.segments}>
+                              {(['free', 'pro'] as const).map((tierValue) => (
+                                <TouchableOpacity
+                                  key={tierValue}
+                                  style={[
+                                    styles.segmentButton,
+                                    subStore.devTierOverride === tierValue && styles.activeSegment,
+                                  ]}
+                                  onPress={() => subStore.setDevTierOverride(tierValue)}
+                                >
+                                  <Text
+                                    style={[
+                                      styles.segmentText,
+                                      subStore.devTierOverride === tierValue && styles.activeSegmentText,
+                                    ]}
+                                  >
+                                    {tierValue.toUpperCase()}
+                                  </Text>
+                                </TouchableOpacity>
+                              ))}
+                            </View>
+                          </View>
+                        )}
+                        <ToggleItem
+                          label="Allow Direct Anchor Delete"
+                          helperText="Show a developer-only delete action on anchor detail without burn ritual."
+                          value={settings.developerDeleteWithoutBurnEnabled}
+                          onValueChange={settings.setDeveloperDeleteWithoutBurnEnabled}
+                        />
+                        <SettingItem label="Reset Onboarding" onPress={handleResetOnboarding} isDestructive />
+                        <TouchableOpacity
+                          style={styles.devResetButton}
+                          onPress={() => subStore.resetOverrides()}
+                        >
+                          <Text style={styles.devResetText}>Reset Developer Overrides</Text>
+                        </TouchableOpacity>
+                      </>
+                    )}
+                  </CardWrapper>
+                </Animated.View>
+              )}
+            </>
           )}
 
           <View style={styles.bottomSpacer} />

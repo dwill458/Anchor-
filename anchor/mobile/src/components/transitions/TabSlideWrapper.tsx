@@ -23,7 +23,6 @@ import { tabPosition, tabDirection, visualTabIndex } from './tabTransitionState'
 import { colors } from '@/theme';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
-const IOS_PARALLAX_FACTOR = 0.28;
 
 interface TabSlideWrapperProps {
   children: React.ReactNode;
@@ -71,9 +70,7 @@ export const TabSlideWrapper: React.FC<TabSlideWrapperProps> = ({
     const offsetSign = currentOffset === 0 ? 0 : currentOffset > 0 ? 1 : -1;
     const isIncoming = direction !== 0 && offsetSign === direction;
 
-    const translateX = isIncoming
-      ? currentOffset * SCREEN_WIDTH
-      : currentOffset * SCREEN_WIDTH * IOS_PARALLAX_FACTOR;
+    const translateX = currentOffset * SCREEN_WIDTH;
 
     const isActive = absOffset < 0.001;
     const zIndex = isActive ? 3 : isIncoming ? 2 : 1;

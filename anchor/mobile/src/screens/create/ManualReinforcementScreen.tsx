@@ -501,6 +501,7 @@ export default function ManualReinforcementScreen() {
         visible={showSkipModal}
         transparent
         animationType="fade"
+        statusBarTranslucent
         onRequestClose={handleCancelSkip}
       >
         <View style={styles.modalOverlay}>

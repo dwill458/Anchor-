@@ -1,23 +1,11 @@
 /**
- * Anchor App - Vault Screen (Premium Redesign)
+ * Anchor App - Vault Screen (Sanctuary Redesign)
  */
 
-import React, { useEffect, useState, useCallback } from 'react';
-import {
-  View,
-  Text,
-  StyleSheet,
-  FlatList,
-  RefreshControl,
-  TouchableOpacity,
-  Dimensions,
-  Animated,
-  Platform,
-} from 'react-native';
-import { Plus } from 'lucide-react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { LinearGradient } from 'expo-linear-gradient';
-import { BlurView } from 'expo-blur';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { View, StyleSheet, FlatList, RefreshControl, Dimensions } from 'react-native';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import Animated, { FadeInUp } from 'react-native-reanimated';
 import { useNavigation } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { AnchorCard } from '../../components/cards/AnchorCard';
@@ -31,19 +19,39 @@ import { useReduceMotionEnabled } from '@/hooks/useReduceMotionEnabled';
 import { AnalyticsService, AnalyticsEvents } from '../../services/AnalyticsService';
 import { ErrorTrackingService } from '../../services/ErrorTrackingService';
 import { PerformanceMonitoring } from '../../services/PerformanceMonitoring';
+import { SanctuaryHeader } from './components/SanctuaryHeader';
+import { DailyStreakStrip } from './components/DailyStreakStrip';
+import { AnchorsSectionRow } from './components/AnchorsSectionRow';
+import { ForgeAnchorButton } from './components/ForgeAnchorButton';
+import { SanctuaryEmptyState } from './components/SanctuaryEmptyState';
+import { ZenBackground } from '@/components/common';
+import { getEffectiveStabilizeStreakDays, toDateOrNull } from '@/utils/stabilizeStats';
 import type { Anchor, RootStackParamList } from '@/types';
-import { colors, spacing, typography } from '@/theme';
+import { colors, spacing } from '@/theme';
 import { useTabNavigation } from '@/contexts/TabNavigationContext';
 
 const { width } = Dimensions.get('window');
 const COLUMN_GAP = spacing.md;
 const CARD_WIDTH = (width - spacing.lg * 2 - COLUMN_GAP) / 2;
+const FADE_STAGGER_MS = 50;
+const GRID_BASE_DELAY_MS = 150;
+const FORGE_BUTTON_DELAY_MS = 350;
 
 type VaultScreenNavigationProp = StackNavigationProp<RootStackParamList, 'Vault'>;
 
+const getFadeUpEntering = (delay: number, reduceMotionEnabled: boolean) => {
+  if (reduceMotionEnabled) {
+    return undefined;
+  }
+  return FadeInUp.duration(500)
+    .delay(delay)
+    .withInitialValues({ opacity: 0, transform: [{ translateY: 14 }] });
+};
+
 export const VaultScreen: React.FC = () => {
   const navigation = useNavigation<VaultScreenNavigationProp>();
-  const { registerTabNav } = useTabNavigation();
+  const { registerTabNav, navigateToPractice } = useTabNavigation();
+  const insets = useSafeAreaInsets();
   const { user } = useAuthStore();
   const shouldRedirectToCreation = useAuthStore(
     (state) => state.shouldRedirectToCreation
@@ -51,46 +59,28 @@ export const VaultScreen: React.FC = () => {
   const setShouldRedirectToCreation = useAuthStore(
     (state) => state.setShouldRedirectToCreation
   );
-  const { anchors, isLoading, error, setLoading, setError } = useAnchorStore();
+  const { anchors, isLoading, setLoading, setError } = useAnchorStore();
   const { isFree, features } = useSubscription();
   const [refreshing, setRefreshing] = useState(false);
   const [showAnchorLimitModal, setShowAnchorLimitModal] = useState(false);
   const reduceMotionEnabled = useReduceMotionEnabled();
   const toast = useToast();
 
-  const fadeAnim = React.useRef(new Animated.Value(0)).current;
-
-  // Register this screen's navigation with the tab context so other tabs
-  // can navigate into VaultStack (e.g., PracticeScreen → ActivationRitual).
-  React.useEffect(() => {
+  useEffect(() => {
     registerTabNav(0, navigation as any);
     return () => registerTabNav(0, null);
-  }, []);
+  }, [navigation, registerTabNav]);
 
-  React.useEffect(() => {
-    Animated.timing(fadeAnim, {
-      toValue: 1,
-      duration: 800,
-      useNativeDriver: true,
-    }).start();
-  }, []);
-
-  // Handle redirect from onboarding
   useEffect(() => {
     if (shouldRedirectToCreation) {
-      // Reset flag immediately
       setShouldRedirectToCreation(false);
-
-      // Check limit before redirecting
       if (isFree && anchors.length >= features.maxAnchors) {
         setShowAnchorLimitModal(true);
         return;
       }
-
-      // Navigate to creation
       navigation.navigate('CreateAnchor');
     }
-  }, [shouldRedirectToCreation, navigation, isFree, anchors.length, features.maxAnchors]);
+  }, [shouldRedirectToCreation, setShouldRedirectToCreation, isFree, anchors.length, features.maxAnchors, navigation]);
 
   const fetchAnchors = useCallback(async (): Promise<void> => {
     if (!user) return;
@@ -100,9 +90,7 @@ export const VaultScreen: React.FC = () => {
     setError(null);
 
     try {
-      // API call placeholder - logic remains in store
       await new Promise(resolve => setTimeout(resolve, 1000));
-
       trace.putAttribute('anchor_count', anchors.length);
       AnalyticsService.track(AnalyticsEvents.VAULT_VIEWED, {
         anchor_count: anchors.length,
@@ -133,7 +121,7 @@ export const VaultScreen: React.FC = () => {
     setRefreshing(false);
   }, [fetchAnchors]);
 
-  const handleAnchorPress = (anchor: Anchor): void => {
+  const handleAnchorPress = useCallback((anchor: Anchor): void => {
     AnalyticsService.track(AnalyticsEvents.ANCHOR_VIEWED, {
       anchor_id: anchor.id,
       category: anchor.category,
@@ -148,20 +136,10 @@ export const VaultScreen: React.FC = () => {
     });
 
     navigation.navigate('AnchorDetail', { anchorId: anchor.id });
-  };
+  }, [navigation]);
 
-  const handleCreateAnchor = (): void => {
-    // Debug logging
-    console.log('🔍 Anchor Creation Check:', {
-      isFree,
-      anchorsLength: anchors.length,
-      maxAnchors: features.maxAnchors,
-      willBlock: isFree && anchors.length >= features.maxAnchors,
-    });
-
-    // Check anchor limit for free users
+  const handleCreateAnchor = useCallback((): void => {
     if (isFree && anchors.length >= features.maxAnchors) {
-      console.log('🚫 BLOCKING: Free user at limit');
       AnalyticsService.track(AnalyticsEvents.ANCHOR_LIMIT_REACHED, {
         current_count: anchors.length,
         max_count: features.maxAnchors,
@@ -169,10 +147,9 @@ export const VaultScreen: React.FC = () => {
       });
 
       setShowAnchorLimitModal(true);
-      return; // Block creation
+      return;
     }
 
-    // Existing analytics and navigation
     AnalyticsService.track(AnalyticsEvents.ANCHOR_CREATION_STARTED, {
       source: 'vault',
       has_existing_anchors: anchors.length > 0,
@@ -183,9 +160,9 @@ export const VaultScreen: React.FC = () => {
     });
 
     navigation.navigate('CreateAnchor');
-  };
+  }, [isFree, anchors.length, features.maxAnchors, navigation]);
 
-  const handleUpgradeFromLimit = (): void => {
+  const handleUpgradeFromLimit = useCallback((): void => {
     setShowAnchorLimitModal(false);
 
     AnalyticsService.track(AnalyticsEvents.UPGRADE_INITIATED, {
@@ -194,9 +171,9 @@ export const VaultScreen: React.FC = () => {
     });
 
     navigation.navigate('Settings');
-  };
+  }, [navigation]);
 
-  const handleBurnFromLimit = (): void => {
+  const handleBurnFromLimit = useCallback((): void => {
     setShowAnchorLimitModal(false);
 
     AnalyticsService.track(AnalyticsEvents.BURN_TO_MAKE_ROOM_INITIATED, {
@@ -205,103 +182,109 @@ export const VaultScreen: React.FC = () => {
     });
 
     toast.info('Select an anchor to release and make room for a new one');
-  };
+  }, [anchors.length, toast]);
 
-  const renderAnchorCard = ({ item }: { item: Anchor }): React.JSX.Element => (
-    <View style={{ width: CARD_WIDTH }}>
-      <AnchorCard
-        anchor={item}
-        onPress={handleAnchorPress}
-        reduceMotionEnabled={reduceMotionEnabled}
-      />
-    </View>
-  );
+  const streakDays = useMemo(() => {
+    const lastStabilizeAt = toDateOrNull(user?.lastStabilizeAt);
+    return getEffectiveStabilizeStreakDays(
+      user?.stabilizeStreakDays ?? 0,
+      lastStabilizeAt,
+      new Date()
+    );
+  }, [user?.lastStabilizeAt, user?.stabilizeStreakDays]);
 
-  const renderEmptyState = (): React.JSX.Element => (
-    <View style={styles.emptyState}>
-      <Text style={styles.emptyIcon} accessibilityLabel="Anchor icon">⚓</Text>
-      <Text style={styles.emptyTitle} accessibilityRole="header">Sanctuary Awaits</Text>
-      <Text style={styles.emptyDescription}>
-        Begin your journey of intentional living by forging your first anchor.
-      </Text>
-      <TouchableOpacity
-        style={styles.createButton}
-        onPress={handleCreateAnchor}
-        accessibilityRole="button"
-        accessibilityLabel="Create your first anchor"
-        accessibilityHint="Opens the anchor creation screen"
-        activeOpacity={0.8}
+  const gridItems = useMemo<Anchor[]>(() => anchors, [anchors]);
+
+  const renderGridItem = useCallback(
+    ({ item, index }: { item: Anchor; index: number }): React.JSX.Element => (
+      <Animated.View
+        entering={getFadeUpEntering(GRID_BASE_DELAY_MS + index * FADE_STAGGER_MS, reduceMotionEnabled)}
+        style={{ width: CARD_WIDTH }}
       >
-        <LinearGradient colors={[colors.gold, '#B8941F']} style={styles.buttonGradient}>
-          <Text style={styles.createButtonText}>Create your first anchor</Text>
-        </LinearGradient>
-      </TouchableOpacity>
-    </View>
+        <AnchorCard
+          anchor={item}
+          onPress={handleAnchorPress}
+          reduceMotionEnabled={reduceMotionEnabled}
+          variant="sanctuary"
+        />
+      </Animated.View>
+    ),
+    [handleAnchorPress, reduceMotionEnabled]
   );
 
+  const listHeader = useMemo(
+    () => (
+      <>
+        <Animated.View entering={getFadeUpEntering(0, reduceMotionEnabled)}>
+          <SanctuaryHeader reduceMotionEnabled={reduceMotionEnabled} />
+        </Animated.View>
+        <Animated.View entering={getFadeUpEntering(FADE_STAGGER_MS, reduceMotionEnabled)}>
+          <DailyStreakStrip
+            streakDays={streakDays}
+            onPress={navigateToPractice}
+            reduceMotionEnabled={reduceMotionEnabled}
+          />
+        </Animated.View>
+        {anchors.length > 0 && (
+          <Animated.View entering={getFadeUpEntering(FADE_STAGGER_MS * 2, reduceMotionEnabled)}>
+            <AnchorsSectionRow anchorCount={anchors.length} />
+          </Animated.View>
+        )}
+      </>
+    ),
+    [reduceMotionEnabled, streakDays, anchors.length, navigateToPractice]
+  );
+
+  const forgeButtonBottom = 106 + Math.max(0, insets.bottom - 4);
+  const listBottomPadding = forgeButtonBottom + 86;
 
   return (
     <View style={styles.container}>
-      <LinearGradient
-        colors={[colors.navy, colors.deepPurple, colors.charcoal]}
-        style={StyleSheet.absoluteFill}
-      />
+      <ZenBackground variant="sanctuary" showOrbs showGrain showVignette />
 
-      {Platform.OS === 'ios' && (
-        <View style={styles.orbContainer}>
-          <View style={[styles.orb, styles.orb1]} />
-          <View style={[styles.orb, styles.orb2]} />
-        </View>
-      )}
-
-      <SafeAreaView style={{ flex: 1 }} edges={['top']}>
-        <Animated.View style={{ flex: 1, opacity: fadeAnim }}>
-          {isLoading && anchors.length === 0 ? (
-            <AnchorGridSkeleton count={6} />
-          ) : (
-            <FlatList
-              data={anchors}
-              renderItem={renderAnchorCard}
-              keyExtractor={(item) => item.id}
-              numColumns={2}
-              contentContainerStyle={styles.listContent}
-              columnWrapperStyle={styles.columnWrapper}
-              ListEmptyComponent={!isLoading ? renderEmptyState : null}
-              refreshControl={
-                <RefreshControl
-                  refreshing={refreshing}
-                  onRefresh={onRefresh}
-                  tintColor={colors.gold}
-                  accessibilityLabel="Pull to refresh anchors"
-                />
-              }
-              showsVerticalScrollIndicator={false}
-              accessibilityLabel={`List of ${anchors.length} anchors`}
-            />
-          )}
-        </Animated.View>
-
-        {/* Floating Create Button - Positioned to clear floating tab bar */}
-        {anchors.length > 0 && (
-          <TouchableOpacity
-            style={styles.fab}
-            onPress={handleCreateAnchor}
-            accessibilityRole="button"
-            accessibilityLabel="Forge new anchor"
-            accessibilityHint="Opens the anchor creation screen"
-            activeOpacity={0.9}
-          >
-            <LinearGradient
-              colors={[colors.gold, '#B8941F']}
-              style={styles.fabGradient}
-            >
-              <Plus color={colors.charcoal} size={20} style={styles.fabIcon} />
-              <Text style={styles.fabText} numberOfLines={1}>Forge Anchor</Text>
-            </LinearGradient>
-          </TouchableOpacity>
+      <SafeAreaView style={styles.safeArea} edges={['top']}>
+        {isLoading && anchors.length === 0 ? (
+          <AnchorGridSkeleton count={6} />
+        ) : (
+          <FlatList
+            data={gridItems}
+            renderItem={renderGridItem}
+            keyExtractor={(item) => item.id}
+            numColumns={2}
+            initialNumToRender={6}
+            maxToRenderPerBatch={6}
+            windowSize={5}
+            removeClippedSubviews
+            contentContainerStyle={styles.listContent}
+            columnWrapperStyle={styles.columnWrapper}
+            ListHeaderComponent={listHeader}
+            ListEmptyComponent={(
+              <Animated.View entering={getFadeUpEntering(GRID_BASE_DELAY_MS, reduceMotionEnabled)}>
+                <SanctuaryEmptyState />
+              </Animated.View>
+            )}
+            refreshControl={(
+              <RefreshControl
+                refreshing={refreshing}
+                onRefresh={onRefresh}
+                tintColor={colors.sanctuary.gold}
+                accessibilityLabel="Pull to refresh anchors"
+              />
+            )}
+            ListFooterComponent={<View style={{ height: listBottomPadding }} />}
+            showsVerticalScrollIndicator={false}
+            accessibilityLabel={`List of ${anchors.length} anchors`}
+          />
         )}
 
-        {/* Anchor Limit Modal */}
+        <Animated.View entering={getFadeUpEntering(FORGE_BUTTON_DELAY_MS, reduceMotionEnabled)}>
+          <ForgeAnchorButton
+            onPress={handleCreateAnchor}
+            reduceMotionEnabled={reduceMotionEnabled}
+            bottomOffset={forgeButtonBottom}
+          />
+        </Animated.View>
+
         <AnchorLimitModal
           visible={showAnchorLimitModal}
           currentCount={anchors.length}
@@ -316,73 +299,21 @@ export const VaultScreen: React.FC = () => {
 };
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: colors.navy },
-  orbContainer: { ...StyleSheet.absoluteFillObject, overflow: 'hidden' },
-  orb: { position: 'absolute', borderRadius: 200, backgroundColor: colors.gold, opacity: 0.1 },
-  orb1: { width: 400, height: 400, top: -200, right: -150 },
-  orb2: { width: 300, height: 300, bottom: 50, left: -100 },
+  container: {
+    flex: 1,
+    backgroundColor: colors.sanctuary.purpleBg,
+  },
+  safeArea: {
+    flex: 1,
+  },
   listContent: {
     paddingHorizontal: spacing.lg,
-    paddingBottom: 160, // Increased to clear FAB and Tab Bar
+    paddingTop: spacing.sm,
     flexGrow: 1,
   },
   columnWrapper: {
     justifyContent: 'space-between',
-    marginBottom: spacing.md,
-  },
-  emptyState: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingHorizontal: spacing.xl,
-    marginTop: 60,
-  },
-  emptyIcon: { fontSize: 80, marginBottom: 20 },
-  emptyTitle: {
-    fontSize: 24,
-    fontFamily: typography.fonts.heading,
-    color: colors.gold,
-    marginBottom: 12,
-  },
-  emptyDescription: {
-    fontSize: 16,
-    color: colors.silver,
-    textAlign: 'center',
-    lineHeight: 24,
-    marginBottom: 32,
-  },
-  createButton: { borderRadius: 12, overflow: 'hidden', width: '100%' },
-  buttonGradient: { height: 56, justifyContent: 'center', alignItems: 'center' },
-  createButtonText: { color: colors.charcoal, fontWeight: '700', fontSize: 16 },
-  fab: {
-    position: 'absolute',
-    bottom: 120, // Raised to clear the floating tab bar
-    right: spacing.lg,
-    height: 56,
-    borderRadius: 28,
-    elevation: 8,
-    shadowColor: colors.gold,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.5,
-    shadowRadius: 10,
-    overflow: 'hidden',
-    minWidth: 164,
-  },
-  fabGradient: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: spacing.lg,
-  },
-  fabIcon: {
-    marginRight: spacing.xs,
-  },
-  fabText: {
-    fontSize: 14,
-    fontFamily: typography.fonts.bodyBold,
-    color: colors.charcoal,
-    textTransform: 'uppercase',
-    letterSpacing: 1,
+    marginBottom: spacing.sm,
   },
 });
 

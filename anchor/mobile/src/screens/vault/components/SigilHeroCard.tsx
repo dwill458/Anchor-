@@ -26,6 +26,7 @@ import Reanimated, {
   useSharedValue,
   withRepeat,
   withTiming,
+  type SharedValue,
 } from 'react-native-reanimated';
 import { BlurView } from 'expo-blur';
 import { SvgXml } from 'react-native-svg';
@@ -33,6 +34,7 @@ import { Anchor } from '@/types';
 import { colors, spacing } from '@/theme';
 import { AnchorState } from '../utils/anchorStateHelpers';
 import { OptimizedImage, PremiumAnchorGlow, PremiumGlowState } from '@/components/common';
+import { DivineSigilAura } from './DivineSigilAura';
 
 const { width } = Dimensions.get('window');
 const SIGIL_SIZE = width * 0.6;
@@ -43,6 +45,7 @@ interface SigilHeroCardProps {
   reduceMotionEnabled: boolean;
   activationRippleNonce?: number;
   deepChargeHaloActive?: boolean;
+  divineBreath?: SharedValue<number>;
 }
 
 const mapAnchorStateToGlowState = (state: AnchorState): PremiumGlowState => {
@@ -58,6 +61,7 @@ export const SigilHeroCard: React.FC<SigilHeroCardProps> = ({
   reduceMotionEnabled,
   activationRippleNonce = 0,
   deepChargeHaloActive = false,
+  divineBreath,
 }) => {
   const breathScale = useRef(new Animated.Value(1)).current;
   const rippleProgress = useSharedValue(0);
@@ -147,9 +151,21 @@ export const SigilHeroCard: React.FC<SigilHeroCardProps> = ({
   });
 
   const glowState = mapAnchorStateToGlowState(anchorState);
+  const showDivineAura = !reduceMotionEnabled && (anchorState === 'charged' || anchorState === 'active');
 
   return (
     <View style={styles.container}>
+      {showDivineAura && (
+        <View pointerEvents="none" style={styles.divineAuraLayer}>
+          <DivineSigilAura
+            size={SIGIL_SIZE * 1.85}
+            enabled={showDivineAura}
+            reduceMotionEnabled={reduceMotionEnabled}
+            breath={divineBreath}
+          />
+        </View>
+      )}
+
       <View style={[styles.glassmorphicCard, anchor.isCharged && styles.chargedCard]}>
         {Platform.OS === 'ios' ? (
           <BlurView intensity={anchor.isCharged ? 30 : 20} tint="dark" style={StyleSheet.absoluteFill}>
@@ -211,6 +227,13 @@ const styles = StyleSheet.create({
   container: {
     paddingVertical: spacing.xl,
     paddingHorizontal: spacing.lg,
+    position: 'relative',
+    overflow: 'visible',
+  },
+  divineAuraLayer: {
+    ...StyleSheet.absoluteFillObject,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   glassmorphicCard: {
     borderRadius: 20,
@@ -219,6 +242,7 @@ const styles = StyleSheet.create({
     borderColor: `rgba(212, 175, 55, 0.15)`,
     backgroundColor:
       Platform.OS === 'ios' ? 'transparent' : 'rgba(26, 26, 29, 0.9)',
+    width: '100%',
   },
   chargedCard: {
     borderColor: `rgba(212, 175, 55, 0.4)`,

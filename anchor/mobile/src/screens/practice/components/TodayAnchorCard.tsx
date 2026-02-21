@@ -24,7 +24,8 @@ import { SvgXml } from 'react-native-svg';
 import type { Anchor } from '@/types';
 import { colors, spacing, typography } from '@/theme';
 import { OptimizedImage, PremiumAnchorGlow } from '@/components/common';
-import { ChargeRing } from './ChargeRing';
+import { ChargeHalo } from './ChargeHalo';
+import { StreakChip } from './StreakChip';
 import { useReduceMotionEnabled } from '@/hooks/useReduceMotionEnabled';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
@@ -50,6 +51,8 @@ interface TodayAnchorCardProps {
   onActivate: () => void;
   onReinforce: () => void;
   onChangeAnchor: () => void;
+  streakCount?: number;
+  isActivating?: boolean;
 }
 
 const IS_ANDROID = Platform.OS === 'android';
@@ -63,6 +66,8 @@ export const TodayAnchorCard: React.FC<TodayAnchorCardProps> = ({
   onActivate,
   onReinforce,
   onChangeAnchor,
+  streakCount = 0,
+  isActivating = false,
 }) => {
   const reduceMotion = useReduceMotionEnabled();
 
@@ -86,6 +91,11 @@ export const TodayAnchorCard: React.FC<TodayAnchorCardProps> = ({
       <View style={styles.topRow}>
         {/* Sigil thumbnail */}
         <View style={styles.thumbWrap}>
+          <ChargeHalo
+            progress={progress}
+            isCharged={anchor.isCharged}
+            isActivating={isActivating}
+          />
           <View style={styles.thumbGlowContainer}>
             <PremiumAnchorGlow
               size={THUMB}
@@ -112,40 +122,37 @@ export const TodayAnchorCard: React.FC<TodayAnchorCardProps> = ({
           <Text style={styles.intentionText} numberOfLines={1}>
             {truncated}
           </Text>
-          <Text style={styles.categoryLabel}>
-            {anchor.category.replace(/_/g, ' ')}
-          </Text>
-        </View>
-
-        {/* Charge ring + session count */}
-        <View style={styles.ringBlock}>
-          <ChargeRing progress={progress} size={44} strokeWidth={3} />
-          <Text style={styles.ringLabel}>
-            {todaySessionsCount}/{dailyGoal}
-          </Text>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, flexWrap: 'wrap', marginTop: 2 }}>
+            <Text style={styles.categoryLabel}>
+              {anchor.category.replace(/_/g, ' ')}
+            </Text>
+            <StreakChip currentStreak={streakCount} />
+          </View>
         </View>
       </View>
 
       {/* ── CTA row ── */}
       <View style={styles.ctaRow}>
         <TouchableOpacity
-          style={styles.activateButton}
+          style={[styles.activateButton, isActivating && { opacity: 0.6 }]}
           onPress={onActivate}
           activeOpacity={0.82}
           accessibilityRole="button"
-          accessibilityLabel={formatActivationLabel(defaultActivationSeconds)}
+          accessibilityLabel={isActivating ? 'Charging' : formatActivationLabel(defaultActivationSeconds)}
+          disabled={isActivating}
         >
           <Text style={styles.activateButtonText}>
-            {formatActivationLabel(defaultActivationSeconds)}
+            {isActivating ? 'Charging...' : formatActivationLabel(defaultActivationSeconds)}
           </Text>
         </TouchableOpacity>
 
         <TouchableOpacity
-          style={styles.reinforceButton}
+          style={[styles.reinforceButton, isActivating && { opacity: 0.5 }]}
           onPress={onReinforce}
           activeOpacity={0.8}
           accessibilityRole="button"
           accessibilityLabel={formatReinforceLabel(defaultReinforceMinutes)}
+          disabled={isActivating}
         >
           <Text style={styles.reinforceButtonText}>
             {formatReinforceLabel(defaultReinforceMinutes)}
@@ -159,7 +166,8 @@ export const TodayAnchorCard: React.FC<TodayAnchorCardProps> = ({
         activeOpacity={0.7}
         accessibilityRole="button"
         accessibilityLabel="Change anchor"
-        style={styles.changeRow}
+        style={[styles.changeRow, isActivating && { opacity: 0.5 }]}
+        disabled={isActivating}
       >
         <Text style={styles.changeText}>Change anchor</Text>
       </TouchableOpacity>

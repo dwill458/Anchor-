@@ -51,6 +51,7 @@ jest.mock('@shopify/react-native-skia', () => ({
   Canvas: 'Canvas',
   Circle: 'Circle',
   Group: 'Group',
+  Line: 'Line',
   BlurMask: 'BlurMask',
 }));
 

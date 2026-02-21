@@ -11,7 +11,6 @@
 
 import React, { useCallback, useRef } from 'react';
 import { AppState, View, Text, StyleSheet, Platform, Pressable } from 'react-native';
-import { LinearGradient } from 'expo-linear-gradient';
 import { BlurView } from 'expo-blur';
 import { Home, Compass, Zap } from 'lucide-react-native';
 import Animated, {
@@ -79,77 +78,70 @@ interface CustomTabBarProps {
   onTabPress: (index: number) => void;
 }
 
+const INACTIVE_TAB_COLOR = 'rgba(180, 165, 135, 0.5)';
+
 const CustomTabBar: React.FC<CustomTabBarProps> = ({ activeIndex, onTabPress }) => {
   const tabs = [
     {
       label: 'Sanctuary',
       icon: (active: boolean) => (
-        <View style={[styles.iconContainer, active && styles.iconFocusedBg]}>
-          <Home
-            color={active ? colors.gold : 'rgba(192,192,192,0.6)'}
-            size={22}
-            fill="none"
-            strokeWidth={active ? 2.2 : 1.8}
-          />
-        </View>
+        <Home
+          color={active ? colors.sanctuary.gold : INACTIVE_TAB_COLOR}
+          size={22}
+          fill="none"
+          strokeWidth={active ? 2.2 : 1.8}
+        />
       ),
     },
     {
       label: 'Practice',
       icon: (active: boolean) => (
         <Zap
-          color={active ? colors.gold : 'rgba(192,192,192,0.6)'}
+          color={active ? colors.sanctuary.gold : INACTIVE_TAB_COLOR}
           size={24}
-          fill={active ? colors.gold : 'none'}
+          fill={active ? colors.sanctuary.gold : 'none'}
         />
       ),
     },
     {
       label: 'Discover',
       icon: (active: boolean) => (
-        <View style={[styles.iconContainer, active && styles.iconFocusedBg]}>
-          <Compass
-            color={active ? colors.gold : 'rgba(192,192,192,0.6)'}
-            size={22}
-            fill="none"
-            strokeWidth={active ? 2.2 : 1.8}
-          />
-        </View>
+        <Compass
+          color={active ? colors.sanctuary.gold : INACTIVE_TAB_COLOR}
+          size={22}
+          fill="none"
+          strokeWidth={active ? 2.2 : 1.8}
+        />
       ),
     },
   ];
 
   return (
     <View style={styles.tabBarWrapper}>
-      {/* Glassmorphic background */}
-      <View style={[styles.tabBarBg, styles.tabBarBorder]}>
+      <View style={styles.tabBarBg}>
         <BlurView
-          intensity={Platform.OS === 'ios' ? 40 : 80}
+          intensity={Platform.OS === 'ios' ? 80 : 90}
           tint="dark"
           style={StyleSheet.absoluteFillObject}
-        >
-          <LinearGradient
-            colors={['rgba(62,44,91,0.85)', 'rgba(26,26,29,0.75)']}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 0 }}
-            style={StyleSheet.absoluteFillObject}
-          />
-        </BlurView>
+        />
       </View>
 
-      {/* Tab buttons */}
       <View style={styles.tabBar}>
         {tabs.map((tab, index) => (
           <TabButton key={index} onPress={() => onTabPress(index)}>
-            {tab.icon(activeIndex === index)}
-            <Text
-              style={[
-                styles.tabLabel,
-                activeIndex === index && styles.tabLabelActive,
-              ]}
-            >
-              {tab.label}
-            </Text>
+            <View style={[styles.navItem, activeIndex === index && styles.navItemActive]}>
+              <View style={[styles.iconContainer, activeIndex === index && styles.iconContainerActive]}>
+                {tab.icon(activeIndex === index)}
+              </View>
+              <Text
+                style={[
+                  styles.tabLabel,
+                  activeIndex === index && styles.tabLabelActive,
+                ]}
+              >
+                {tab.label}
+              </Text>
+            </View>
           </TabButton>
         ))}
       </View>
@@ -223,6 +215,7 @@ export const MainTabNavigator: React.FC = () => {
           activeIndex={activeIndex}
           onIndexChange={handleIndexChange}
           tabCount={3}
+          swipeEnabled={isTabBarVisible}
         >
           <VaultStackNavigator onRouteChange={setVaultRouteName} />
           <PracticeStackNavigator onRouteChange={setPracticeRouteName} />
@@ -251,22 +244,21 @@ const styles = StyleSheet.create({
     left: 20,
     right: 20,
     height: 70,
-    borderRadius: 30,
+    borderRadius: 20,
     overflow: 'hidden',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.4,
-    shadowRadius: 12,
-    elevation: 8,
+    shadowColor: '#2B1640',
+    shadowOffset: { width: 0, height: 12 },
+    shadowOpacity: 0.55,
+    shadowRadius: 24,
+    elevation: 14,
   },
   tabBarBg: {
     ...StyleSheet.absoluteFillObject,
-    borderRadius: 30,
+    borderRadius: 20,
     overflow: 'hidden',
-  },
-  tabBarBorder: {
-    borderWidth: 1,
-    borderColor: 'rgba(212,175,55,0.15)',
+    backgroundColor: 'rgba(40, 20, 60, 0.7)',
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(255, 215, 0, 0.2)',
   },
   tabBar: {
     flex: 1,
@@ -278,11 +270,23 @@ const styles = StyleSheet.create({
   tabButton: {
     flex: 1,
     alignItems: 'center',
-    paddingVertical: 8,
+    justifyContent: 'center',
   },
   tabContent: {
+    width: '100%',
     alignItems: 'center',
-    gap: 3,
+    justifyContent: 'center',
+  },
+  navItem: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 12,
+    paddingVertical: 4,
+    paddingHorizontal: 24,
+    gap: 4,
+  },
+  navItemActive: {
+    backgroundColor: 'rgba(201,168,76,0.07)',
   },
   iconContainer: {
     alignItems: 'center',
@@ -291,16 +295,27 @@ const styles = StyleSheet.create({
     height: 36,
     borderRadius: 18,
   },
-  iconFocusedBg: {
-    backgroundColor: 'rgba(212,175,55,0.18)',
+  iconContainerActive: {
+    ...Platform.select({
+      ios: {
+        shadowColor: colors.sanctuary.gold,
+        shadowOffset: { width: 0, height: 0 },
+        shadowOpacity: 0.55,
+        shadowRadius: 5,
+      },
+      android: {
+        elevation: 5,
+      },
+    }),
   },
   tabLabel: {
-    fontSize: 10,
-    fontFamily: Platform.select({ ios: 'System', android: 'Roboto' }),
-    color: 'rgba(192,192,192,0.6)',
+    fontSize: 8,
+    fontFamily: 'Cinzel-Regular',
+    color: INACTIVE_TAB_COLOR,
+    letterSpacing: 1,
+    textTransform: 'uppercase',
   },
   tabLabelActive: {
-    color: colors.gold,
-    fontWeight: '600',
+    color: colors.sanctuary.gold,
   },
 });

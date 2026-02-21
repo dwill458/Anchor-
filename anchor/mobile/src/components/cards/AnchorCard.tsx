@@ -2,10 +2,19 @@
  * Anchor App - Anchor Card (Premium Redesign)
  */
 
-import React from 'react';
+import React, { useEffect } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Platform, Dimensions } from 'react-native';
 import { SvgXml } from 'react-native-svg';
 import { BlurView } from 'expo-blur';
+import Animated, {
+  cancelAnimation,
+  Easing,
+  interpolate,
+  useAnimatedStyle,
+  useSharedValue,
+  withRepeat,
+  withTiming,
+} from 'react-native-reanimated';
 import type { Anchor } from '@/types';
 import { colors, spacing, typography } from '@/theme';
 import { OptimizedImage, PremiumAnchorGlow } from '@/components/common';
@@ -15,6 +24,7 @@ interface AnchorCardProps {
   anchor: Anchor;
   onPress: (anchor: Anchor) => void;
   reduceMotionEnabled?: boolean;
+  variant?: 'default' | 'sanctuary';
 }
 
 const CATEGORY_CONFIG: Record<string, { label: string; color: string }> = {
@@ -32,9 +42,35 @@ export const AnchorCard: React.FC<AnchorCardProps> = ({
   anchor,
   onPress,
   reduceMotionEnabled = false,
+  variant = 'default',
 }) => {
   const { reduceIntentionVisibility } = useSettingsStore();
   const categoryConfig = CATEGORY_CONFIG[anchor.category] || CATEGORY_CONFIG.custom;
+  const isSanctuary = variant === 'sanctuary';
+
+  // Sparkle spin: ✧ icon rotates + scales + fades on charged cards
+  const sparkleAnim = useSharedValue(0);
+
+  useEffect(() => {
+    if (anchor.isCharged && !reduceMotionEnabled) {
+      sparkleAnim.value = withRepeat(
+        withTiming(1, { duration: 2400, easing: Easing.inOut(Easing.sin) }),
+        -1,
+        true,
+      );
+    } else {
+      cancelAnimation(sparkleAnim);
+      sparkleAnim.value = 0;
+    }
+  }, [anchor.isCharged, reduceMotionEnabled, sparkleAnim]);
+
+  const sparkleStyle = useAnimatedStyle(() => ({
+    transform: [
+      { rotate: `${interpolate(sparkleAnim.value, [0, 1], [0, 180])}deg` },
+      { scale: interpolate(sparkleAnim.value, [0, 1], [1.0, 1.35]) },
+    ],
+    opacity: interpolate(sparkleAnim.value, [0, 1], [1.0, 0.55]),
+  }));
 
   const accessibilityLabel = `${anchor.intentionText}, ${anchor.activationCount} activations`;
 
@@ -49,24 +85,33 @@ export const AnchorCard: React.FC<AnchorCardProps> = ({
     >
       <View style={[
         styles.card,
+        isSanctuary && styles.sanctuaryCard,
         anchor.isCharged ? styles.chargedCard : styles.unchargedCard,
-        Platform.OS === 'android' && styles.androidCard
+        isSanctuary && (anchor.isCharged ? styles.sanctuaryChargedCard : styles.sanctuaryUnchargedCard),
+        Platform.OS === 'android' && styles.androidCard,
       ]}>
         {Platform.OS === 'ios' ? (
           <BlurView
-            intensity={anchor.isCharged ? 30 : 15}
+            intensity={isSanctuary ? (anchor.isCharged ? 24 : 18) : (anchor.isCharged ? 30 : 20)}
             tint="dark"
             style={StyleSheet.absoluteFill}
           />
         ) : (
-          <View style={[StyleSheet.absoluteFill, { backgroundColor: 'rgba(12, 17, 24, 0.92)' }]} />
+          <View style={[StyleSheet.absoluteFill, { backgroundColor: anchor.isCharged ? 'rgba(12, 17, 24, 0.92)' : 'rgba(25, 25, 30, 0.55)' }]} />
+        )}
+
+        {/* Dark amber-black fill for charged cards */}
+        {anchor.isCharged && (
+          <View style={[StyleSheet.absoluteFill, styles.chargedInnerOverlay, isSanctuary && styles.sanctuaryChargedInnerOverlay]} />
         )}
 
         <View style={styles.content}>
           <View style={[
             styles.sigilContainer,
-            anchor.isCharged && styles.chargedSigilContainer
+            anchor.isCharged && styles.chargedSigilContainer,
           ]}>
+
+            {/* Keep list-card glow lightweight; per-frame Skia glow is reserved for detail views. */}
             <PremiumAnchorGlow
               size={CARD_WIDTH * 0.72}
               variant="card"
@@ -74,42 +119,64 @@ export const AnchorCard: React.FC<AnchorCardProps> = ({
               reduceMotionEnabled={reduceMotionEnabled}
             />
 
-            <View style={styles.sigilWrapper}>
-              {anchor.enhancedImageUrl ? (
-                <OptimizedImage
-                  uri={anchor.enhancedImageUrl}
-                  style={styles.sigilImage}
-                  resizeMode="cover"
-                />
-              ) : anchor.baseSigilSvg ? (
-                <SvgXml xml={anchor.baseSigilSvg} width="100%" height="100%" />
-              ) : (
-                <View style={styles.placeholderSigil}>
-                  <Text style={styles.placeholderText}>◈</Text>
-                </View>
+            {/* ── Purple sigil backdrop (charged only) ───────────────────── */}
+            {anchor.isCharged && (
+              <View style={styles.sigilCircleBg} />
+            )}
+
+            <View style={[
+              styles.sigilWrapper,
+              anchor.isCharged && styles.chargedSigilWrapper,
+            ]}>
+              {/* Stone Texture Depth Overlay for Uncharged */}
+              {!anchor.isCharged && (
+                <View style={[StyleSheet.absoluteFill, styles.unchargedInnerShadow]} pointerEvents="none" />
               )}
+
+              <View style={[styles.sigilImageContainer, !anchor.isCharged && styles.unchargedSigilOpacity]}>
+                {anchor.enhancedImageUrl ? (
+                  <OptimizedImage
+                    uri={anchor.enhancedImageUrl}
+                    style={styles.sigilImage}
+                    resizeMode="cover"
+                  />
+                ) : anchor.baseSigilSvg ? (
+                  <SvgXml xml={anchor.baseSigilSvg} width="100%" height="100%" />
+                ) : (
+                  <View style={styles.placeholderSigil}>
+                    <Text style={styles.placeholderText}>◈</Text>
+                  </View>
+                )}
+
+                {/* Cold/Desaturation Overlay for Uncharged */}
+                {!anchor.isCharged && (
+                  <View style={[StyleSheet.absoluteFill, styles.unchargedDesaturationOverlay]} pointerEvents="none" />
+                )}
+              </View>
             </View>
 
-            {/* CHARGED Status Pill */}
+            {/* ── CHARGED status pill ────────────────────────────────────── */}
             {anchor.isCharged && (
-              <View style={styles.chargedPill}>
-                <View style={styles.pillGlass}>
-                  {Platform.OS === 'ios' ? (
-                    <BlurView intensity={40} tint="light" style={StyleSheet.absoluteFill} />
-                  ) : (
-                    <View style={[StyleSheet.absoluteFill, { backgroundColor: 'rgba(12, 17, 24, 0.92)' }]} />
-                  )}
+              <View style={[styles.chargedPill, isSanctuary && styles.sanctuaryChargedPill]}>
+                <View style={[styles.pillGlass, isSanctuary && styles.sanctuaryPillGlass]}>
                   <Text style={styles.pillText}>CHARGED</Text>
-                  <Text style={styles.pillIcon}>✧</Text>
+                  <Animated.View style={sparkleStyle}>
+                    <Text style={[styles.pillIcon, isSanctuary && styles.sanctuaryPillIcon]}>✧</Text>
+                  </Animated.View>
                 </View>
               </View>
             )}
           </View>
 
-          <Text style={[
-            styles.intentionText,
-            anchor.isCharged && styles.chargedIntentionText
-          ]} numberOfLines={2}>
+          <Text
+            style={[
+              styles.intentionText,
+              isSanctuary && styles.sanctuaryIntentionText,
+              anchor.isCharged && styles.chargedIntentionText,
+              isSanctuary && anchor.isCharged && styles.sanctuaryChargedIntentionText,
+            ]}
+            numberOfLines={2}
+          >
             {reduceIntentionVisibility
               ? (anchor.mantraText || `Anchor · ${categoryConfig.label}`)
               : anchor.intentionText
@@ -119,11 +186,13 @@ export const AnchorCard: React.FC<AnchorCardProps> = ({
           <View style={styles.footer}>
             <View style={[
               styles.badge,
-              { borderColor: anchor.isCharged ? colors.gold : categoryConfig.color }
+              isSanctuary && styles.sanctuaryBadge,
+              { borderColor: anchor.isCharged ? colors.gold : categoryConfig.color },
             ]}>
               <Text style={[
                 styles.badgeText,
-                { color: anchor.isCharged ? colors.gold : categoryConfig.color }
+                isSanctuary && styles.sanctuaryBadgeText,
+                { color: anchor.isCharged ? colors.gold : categoryConfig.color },
               ]}>
                 {categoryConfig.label}
               </Text>
@@ -151,19 +220,47 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     backgroundColor: 'transparent',
   },
+  sanctuaryCard: {
+    borderRadius: 22,
+    shadowColor: '#2B1640',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.34,
+    shadowRadius: 16,
+    elevation: 7,
+  },
   unchargedCard: {
-    borderColor: 'rgba(255, 255, 255, 0.08)',
+    borderColor: 'rgba(140, 140, 155, 0.25)',
+    backgroundColor: 'rgba(255, 255, 255, 0.04)',
+    opacity: 1,
+  },
+  sanctuaryUnchargedCard: {
+    borderColor: 'rgba(201,168,76,0.22)',
+    backgroundColor: 'rgba(12, 18, 34, 0.54)',
   },
   chargedCard: {
-    borderColor: 'rgba(212, 175, 55, 0.4)',
+    borderColor: 'rgba(212, 175, 55, 0.7)',
     shadowColor: colors.gold,
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.15,
-    shadowRadius: 12,
-    elevation: 10,
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.65,
+    shadowRadius: 28,
+    elevation: 20,
+  },
+  sanctuaryChargedCard: {
+    borderColor: 'rgba(212,175,55,0.34)',
+    shadowColor: 'rgba(201,168,76,0.95)',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.45,
+    shadowRadius: 18,
+    elevation: 12,
   },
   androidCard: {
     backgroundColor: 'rgba(26, 26, 29, 0.92)',
+  },
+  chargedInnerOverlay: {
+    backgroundColor: 'rgba(212, 140, 0, 0.04)',
+  },
+  sanctuaryChargedInnerOverlay: {
+    backgroundColor: 'rgba(212, 175, 55, 0.045)',
   },
   content: {
     padding: 14,
@@ -182,13 +279,50 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
   },
   chargedSigilContainer: {
-    backgroundColor: 'rgba(212, 175, 55, 0.03)',
-    borderColor: 'rgba(212, 175, 55, 0.1)',
+    backgroundColor: 'transparent',
+    borderColor: 'rgba(212, 175, 55, 0.25)',
+    padding: 0,
   },
   sigilWrapper: {
     width: '100%',
     height: '100%',
     zIndex: 2,
+  },
+  chargedSigilWrapper: {
+    width: '72%',
+    height: '72%',
+    position: 'absolute',
+    top: '14%',
+    left: '14%',
+    zIndex: 3,
+  },
+  sigilCircleBg: {
+    position: 'absolute',
+    width: '72%',
+    height: '72%',
+    top: '14%',
+    left: '14%',
+    borderRadius: 999,
+    backgroundColor: 'rgba(10, 6, 36, 0.92)',
+    borderWidth: 1.5,
+    borderColor: 'rgba(200, 160, 40, 0.55)',
+    zIndex: 2,
+  },
+  sigilImageContainer: {
+    width: '100%',
+    height: '100%',
+  },
+  unchargedSigilOpacity: {
+    opacity: 0.65,
+  },
+  unchargedDesaturationOverlay: {
+    backgroundColor: 'rgba(20, 25, 35, 0.4)',
+    borderRadius: 100,
+  },
+  unchargedInnerShadow: {
+    backgroundColor: 'rgba(15, 15, 20, 0.3)',
+    borderRadius: 16,
+    zIndex: 1,
   },
   sigilImage: {
     width: '100%',
@@ -203,15 +337,27 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     overflow: 'hidden',
   },
+  sanctuaryChargedPill: {
+    top: 9,
+    left: 9,
+    borderRadius: 7,
+  },
   pillGlass: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(212, 175, 55, 0.15)',
+    backgroundColor: 'rgba(160, 110, 0, 0.85)',
     paddingHorizontal: 8,
     paddingVertical: 3,
-    borderWidth: 0.5,
-    borderColor: 'rgba(212, 175, 55, 0.5)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 210, 80, 0.7)',
     borderRadius: 8,
+  },
+  sanctuaryPillGlass: {
+    backgroundColor: 'rgba(120, 82, 0, 0.74)',
+    borderColor: 'rgba(255, 210, 80, 0.5)',
+    paddingHorizontal: 7,
+    paddingVertical: 2,
+    borderRadius: 7,
   },
   pillText: {
     fontSize: 8,
@@ -224,6 +370,9 @@ const styles = StyleSheet.create({
     color: colors.gold,
     marginLeft: 3,
   },
+  sanctuaryPillIcon: {
+    fontSize: 9,
+  },
   intentionText: {
     fontSize: 14,
     fontFamily: typography.fonts.body,
@@ -232,9 +381,18 @@ const styles = StyleSheet.create({
     marginBottom: 12,
     height: 36,
   },
+  sanctuaryIntentionText: {
+    fontFamily: typography.fonts.bodyBold,
+    color: 'rgba(236,226,205,0.94)',
+    fontSize: 13,
+    lineHeight: 18,
+  },
   chargedIntentionText: {
     color: colors.bone,
     fontFamily: typography.fonts.bodyBold,
+  },
+  sanctuaryChargedIntentionText: {
+    color: colors.bone,
   },
   footer: {
     flexDirection: 'row',
@@ -247,10 +405,18 @@ const styles = StyleSheet.create({
     paddingVertical: 2,
     borderRadius: 6,
   },
+  sanctuaryBadge: {
+    borderRadius: 7,
+    paddingVertical: 3,
+    backgroundColor: 'rgba(12, 8, 22, 0.45)',
+  },
   badgeText: {
     fontSize: 10,
     fontFamily: typography.fonts.bodyBold,
     textTransform: 'uppercase',
+  },
+  sanctuaryBadgeText: {
+    letterSpacing: 0.4,
   },
   usesText: {
     fontSize: 11,

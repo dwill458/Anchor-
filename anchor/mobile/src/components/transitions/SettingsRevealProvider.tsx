@@ -41,7 +41,9 @@ const SettingsRevealContext = createContext<SettingsRevealContextValue | null>(n
 const OPEN_DURATION_MS = 560;
 const CLOSE_DURATION_MS = 740;
 const OPEN_FADE_OUT_MS = 90;
-const SETTINGS_READY_FAILSAFE_MS = 900;
+const SETTINGS_READY_FAILSAFE_MS = 520;
+const NAVIGATION_START_DELAY_MS = 96;
+const NAVIGATION_FALLBACK_DELAY_MS = 220;
 
 const getMaxDiameter = (cx: number, cy: number, width: number, height: number): number => {
   const d1 = Math.hypot(cx, cy);
@@ -59,6 +61,7 @@ export const SettingsRevealProvider: React.FC<{
   const [isArmed, setIsArmed] = useState(false);
   const [closeSignal, setCloseSignal] = useState(0);
   const phaseRef = useRef<'idle' | 'opening' | 'opened' | 'closing'>('idle');
+  const navigationStartTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const navigationFallbackTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const settingsReadyFailsafeTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const isSettingsReadyRef = useRef(false);
@@ -90,7 +93,11 @@ export const SettingsRevealProvider: React.FC<{
     phaseRef.current = phase;
   }, []);
 
-  const clearNavigationFallback = useCallback(() => {
+  const clearNavigationTimers = useCallback(() => {
+    if (navigationStartTimeoutRef.current) {
+      clearTimeout(navigationStartTimeoutRef.current);
+      navigationStartTimeoutRef.current = null;
+    }
     if (navigationFallbackTimeoutRef.current) {
       clearTimeout(navigationFallbackTimeoutRef.current);
       navigationFallbackTimeoutRef.current = null;
@@ -106,11 +113,11 @@ export const SettingsRevealProvider: React.FC<{
 
   const finishFadeOut = useCallback(() => {
     setVisible(false);
-    clearNavigationFallback();
+    clearNavigationTimers();
     clearSettingsReadyFailsafe();
     setPhase('opened');
     isFadeOutInProgressRef.current = false;
-  }, [clearNavigationFallback, clearSettingsReadyFailsafe, setPhase]);
+  }, [clearNavigationTimers, clearSettingsReadyFailsafe, setPhase]);
 
   const finishOpenIfReady = useCallback(() => {
     if (!isOpenAnimationDoneRef.current || !isSettingsReadyRef.current || isFadeOutInProgressRef.current) {
@@ -149,7 +156,7 @@ export const SettingsRevealProvider: React.FC<{
         return;
       }
 
-      clearNavigationFallback();
+      clearNavigationTimers();
       clearSettingsReadyFailsafe();
       isSettingsReadyRef.current = false;
       isOpenAnimationDoneRef.current = false;
@@ -169,11 +176,13 @@ export const SettingsRevealProvider: React.FC<{
       overlayOpacity.value = 1;
       progress.value = 0;
       setVisible(true);
-      navigateToSettings();
-      navigationFallbackTimeoutRef.current = setTimeout(
-        navigateToSettings,
-        180
-      );
+      navigationStartTimeoutRef.current = setTimeout(() => {
+        navigateToSettings();
+        navigationFallbackTimeoutRef.current = setTimeout(
+          navigateToSettings,
+          NAVIGATION_FALLBACK_DELAY_MS
+        );
+      }, NAVIGATION_START_DELAY_MS);
       settingsReadyFailsafeTimeoutRef.current = setTimeout(
         () => {
           isSettingsReadyRef.current = true;
@@ -194,7 +203,7 @@ export const SettingsRevealProvider: React.FC<{
       );
     },
     [
-      clearNavigationFallback,
+      clearNavigationTimers,
       clearSettingsReadyFailsafe,
       diameter,
       finishOpenIfReady,
@@ -215,7 +224,7 @@ export const SettingsRevealProvider: React.FC<{
         return;
       }
 
-      clearNavigationFallback();
+      clearNavigationTimers();
       clearSettingsReadyFailsafe();
       isSettingsReadyRef.current = false;
       isOpenAnimationDoneRef.current = false;
@@ -240,7 +249,7 @@ export const SettingsRevealProvider: React.FC<{
         }
       );
     },
-    [clearNavigationFallback, clearSettingsReadyFailsafe, isArmed, overlayOpacity, progress, setPhase]
+    [clearNavigationTimers, clearSettingsReadyFailsafe, isArmed, overlayOpacity, progress, setPhase]
   );
 
   const value = useMemo(

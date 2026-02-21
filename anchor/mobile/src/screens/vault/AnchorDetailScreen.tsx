@@ -1,1378 +1,1282 @@
-/**
- * Anchor App - Anchor Detail Screen (PREMIUM REFACTOR)
- *
- * Premium ritual-centric detailed view with:
- * - Animated breathing sigil with glow effects
- * - State-based visual intensity (dormant/charged/active/stale)
- * - Meaning-driven stats and copy
- * - Practice path tracker with activation history
- * - Reduce motion support
- */
-
-import React, { useEffect, useState, useMemo, useCallback, useRef } from 'react';
+// @ts-nocheck
+import React, { useEffect, useRef, useState } from 'react';
 import {
   View,
   Text,
-  StyleSheet,
   ScrollView,
   TouchableOpacity,
-  Switch,
-  AccessibilityInfo,
-  Alert,
-  Platform,
+  StyleSheet,
   Animated,
-  Easing,
+  Dimensions,
+  StatusBar,
+  Image,
+  Alert,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { BlurView } from 'expo-blur';
 import { LinearGradient } from 'expo-linear-gradient';
-import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
-import { StackNavigationProp } from '@react-navigation/stack';
-import * as Haptics from 'expo-haptics';
-import { useAnchorStore } from '../../stores/anchorStore';
+import { BlurView } from 'expo-blur';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { format, isToday } from 'date-fns';
+import { SvgXml } from 'react-native-svg';
+import { useAnchorStore } from '@/stores/anchorStore';
 import { useSettingsStore } from '@/stores/settingsStore';
-import type { RootStackParamList, ActivationType } from '@/types';
-import { colors, spacing, typography } from '@/theme';
-import { format } from 'date-fns';
-import { AnalyticsService, AnalyticsEvents } from '../../services/AnalyticsService';
-import { ErrorSeverity, ErrorTrackingService } from '../../services/ErrorTrackingService';
-import { safeHaptics } from '@/utils/haptics';
 import { del } from '@/services/ApiClient';
-import { ChevronDown, ChevronUp, Zap } from 'lucide-react-native';
+import Reanimated, {
+  Easing as ReanimatedEasing,
+  cancelAnimation,
+  interpolate,
+  interpolateColor,
+  useAnimatedStyle,
+  useSharedValue,
+  withRepeat,
+  withTiming,
+} from 'react-native-reanimated';
+import { DivineSigilAura } from './components/DivineSigilAura';
+import { ChargedGlowCanvas } from '@/components/common';
 
-// New components
-import { SigilHeroCard } from './components/SigilHeroCard';
-import { PracticePathCard } from './components/PracticePathCard';
-import { PhysicalAnchorCard } from './components/PhysicalAnchorCard';
-import { DistilledLettersModal } from './components/DistilledLettersModal';
-import { CustomDurationSheet, ZenBackground, PresetChips } from '@/components/common';
-import type { PresetChip } from '@/components/common/PresetChips';
+const { width: SCREEN_W } = Dimensions.get('window');
+const SIGIL_CIRCLE_SIZE = Math.round(SCREEN_W * 0.62);
 
-// Helper utilities
-import {
-  getAnchorState,
-  getMeaningCopy,
-  getDeepChargeMicrocopy,
-  getActivationsThisWeek,
-  getDashboardHeadline,
-  hasIgnited as getHasIgnited,
-  isAnchorReleased,
-  isToday,
-} from './utils/anchorStateHelpers';
-
-type AnchorDetailRouteProp = RouteProp<RootStackParamList, 'AnchorDetail'>;
-type AnchorDetailNavigationProp = StackNavigationProp<
-  RootStackParamList,
-  'AnchorDetail'
->;
-
-function getStatusChip(state: ReturnType<typeof getAnchorState>): {
-  icon: string;
-  label: string;
-  color: string;
-} {
-  switch (state) {
-    case 'active':
-      return { icon: '✦', label: 'Live', color: colors.gold };
-    case 'charged':
-      return { icon: '⚡', label: 'Charged', color: `${colors.gold}CC` };
-    case 'stale':
-      return { icon: '◌', label: 'Fading', color: colors.silver };
-    default:
-      return { icon: '◈', label: 'Ready', color: colors.text.tertiary };
-  }
-}
-
-const CATEGORY_CONFIG: Record<
-  string,
-  { label: string; color: string; emoji: string }
-> = {
-  career: { label: 'Career', color: colors.gold, emoji: '💼' },
-  health: { label: 'Health', color: colors.success, emoji: '💪' },
-  wealth: { label: 'Wealth', color: colors.bronze, emoji: '💰' },
-  relationships: { label: 'Love', color: colors.deepPurple, emoji: '💜' },
-  personal_growth: { label: 'Growth', color: colors.silver, emoji: '🌱' },
-  desire: { label: 'Desire', color: colors.coral, emoji: '🕯️' },
-  experience: { label: 'Experience', color: colors.cyan, emoji: '🌌' },
-  custom: { label: 'Custom', color: colors.text.secondary, emoji: '✨' },
+// ─── TOKENS ──────────────────────────────────────────────
+const C = {
+  gold: '#c9a84c',
+  goldBright: '#f0cb6a',
+  goldDim: '#b6934c',
+  goldBorder: 'rgba(201,168,76,0.3)',
+  purpleDeep: '#0d0818',
+  purpleMid: '#1a1030',
+  purpleCard: '#130e22',
+  purpleBorder: 'rgba(140,100,220,0.18)',
+  textPrimary: '#e8dfc8',
+  textSec: 'rgba(220,205,176,0.88)',
+  textDim: 'rgba(196,181,153,0.72)',
+  red: 'rgba(232,140,140,0.9)',
+  redBorder: 'rgba(200,80,80,0.3)',
+  burn: 'rgba(243,176,112,0.92)',
+  burnBorder: 'rgba(200,100,40,0.3)',
 };
 
-type DeepChargePreset = '2m' | '5m' | '10m' | '20m' | 'custom';
+const CARD_GRADIENT = ['rgba(42,32,84,0.9)', 'rgba(26,18,58,0.93)'];
 
-const DEEP_CHARGE_PRESETS: ReadonlyArray<{ key: DeepChargePreset; label: string }> = [
-  { key: '2m', label: '2m' },
-  { key: '5m', label: '5m' },
-  { key: '10m', label: '10m' },
-  { key: '20m', label: '20m' },
-  { key: 'custom', label: 'Custom' },
-];
-const clampDeepChargeMinutes = (value: number): number => Math.min(20, Math.max(2, Math.round(value)));
+const CATEGORY_LABELS = {
+  career: 'Career',
+  health: 'Health',
+  wealth: 'Wealth',
+  relationships: 'Love',
+  personal_growth: 'Growth',
+  desire: 'Desire',
+  experience: 'Experience',
+  custom: 'Custom',
+};
 
-const ACTIVATION_PRESETS: ReadonlyArray<PresetChip> = [
-  { key: '10s', label: '10s' },
-  { key: '30s', label: '30s' },
-  { key: '60s', label: '60s' },
-];
+const getDateValue = (value) => {
+  if (!value) return null;
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return null;
+  return date;
+};
 
-export const AnchorDetailScreen: React.FC = () => {
-  const navigation = useNavigation<AnchorDetailNavigationProp>();
-  const route = useRoute<AnchorDetailRouteProp>();
-  const { anchorId } = route.params;
+const formatDate = (value, pattern = 'MMMM d, yyyy') => {
+  const date = getDateValue(value);
+  if (!date) return null;
+  return format(date, pattern);
+};
 
-  const { getAnchorById, removeAnchor } = useAnchorStore();
-  const {
-    reduceIntentionVisibility,
-    developerModeEnabled,
-    developerDeleteWithoutBurnEnabled,
-    defaultActivation,
-    setDefaultActivation,
-  } = useSettingsStore();
-  const anchor = getAnchorById(anchorId);
+const toDisplayAnchor = (rawAnchor) => {
+  if (!rawAnchor) return null;
 
-  // State
-  const [reduceMotionEnabled, setReduceMotionEnabled] = useState(false);
-  const [distilledModalVisible, setDistilledModalVisible] = useState(false);
-  const [isDeletingAnchor, setIsDeletingAnchor] = useState(false);
-  const [isDeepChargeExpanded, setIsDeepChargeExpanded] = useState(false);
-  const [deepChargePreset, setDeepChargePreset] = useState<DeepChargePreset>('5m');
-  const [customDeepChargeMinutes, setCustomDeepChargeMinutes] = useState(5);
-  const [customDurationSheetVisible, setCustomDurationSheetVisible] = useState(false);
-  const [mantraAudioEnabled, setMantraAudioEnabled] = useState(false);
-  const [activationRippleNonce, setActivationRippleNonce] = useState(0);
-  const activationNavigateTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const lastActivatedDate = getDateValue(rawAnchor.lastActivatedAt);
 
-  // Activation preset (derived from settingsStore, kept in sync)
-  const activationPresetKey = useMemo(() => {
-    if (defaultActivation.unit === 'seconds') {
-      const s = defaultActivation.value;
-      if (s <= 10) return '10s';
-      if (s <= 30) return '30s';
-      return '60s';
-    }
-    return '30s';
-  }, [defaultActivation]);
-  const primaryButtonPulseOpacity = useMemo(() => new Animated.Value(0.18), []);
-  const liveShimmerProgress = useMemo(() => new Animated.Value(-1), []);
+  const intention =
+    rawAnchor.intention ??
+    rawAnchor.intentionText ??
+    'No intention set';
 
-  // Detect reduce motion setting
+  const categoryKey = rawAnchor.category ?? 'custom';
+  const categoryLabel =
+    CATEGORY_LABELS[categoryKey] ??
+    String(categoryKey).replace(/_/g, ' ');
+
+  const distilled =
+    rawAnchor.distilled ??
+    rawAnchor.distilledLetters ??
+    [];
+
+  const charged = Boolean(rawAnchor.charged ?? rawAnchor.isCharged);
+  const todayActivated =
+    rawAnchor.today ??
+    (lastActivatedDate && isToday(lastActivatedDate) ? 'Activated' : null);
+
+  return {
+    id: rawAnchor.id,
+    name:
+      rawAnchor.name ??
+      rawAnchor.title ??
+      (intention.length > 36 ? `${intention.slice(0, 36)}…` : intention),
+    intention,
+    category: categoryLabel,
+    charged,
+    lastActivated:
+      rawAnchor.lastActivated ??
+      formatDate(rawAnchor.lastActivatedAt, 'MMM d, yyyy'),
+    streak: rawAnchor.streak ?? (todayActivated ? 1 : 0),
+    today: todayActivated,
+    distilled,
+    sigilUri: rawAnchor.sigilUri ?? rawAnchor.enhancedImageUrl ?? null,
+    createdAt:
+      formatDate(rawAnchor.createdAt, 'MMMM d, yyyy') ??
+      String(rawAnchor.createdAt ?? 'Unknown'),
+    practiceCreate: rawAnchor.practiceCreate ?? true,
+    practiceCharge: rawAnchor.practiceCharge ?? charged,
+    practiceActivateDays:
+      rawAnchor.practiceActivateDays ??
+      Math.min(rawAnchor.activationCount ?? 0, 7),
+    baseSigilSvg: rawAnchor.baseSigilSvg ?? '',
+    enhancedImageUrl: rawAnchor.enhancedImageUrl,
+  };
+};
+
+// ─── FADE-UP WRAPPER ─────────────────────────────────────
+const FadeUp = ({ children, delay = 0 }) => {
+  const opacity = useRef(new Animated.Value(0)).current;
+  const translateY = useRef(new Animated.Value(18)).current;
+
   useEffect(() => {
-    AccessibilityInfo.isReduceMotionEnabled().then(setReduceMotionEnabled);
-
-    const subscription = AccessibilityInfo.addEventListener(
-      'reduceMotionChanged',
-      setReduceMotionEnabled
-    );
-
-    return () => subscription.remove();
+    Animated.parallel([
+      Animated.timing(opacity, {
+        toValue: 1, duration: 500, delay,
+        useNativeDriver: true,
+      }),
+      Animated.timing(translateY, {
+        toValue: 0, duration: 500, delay,
+        useNativeDriver: true,
+      }),
+    ]).start();
   }, []);
 
-  // Analytics tracking
-  useEffect(() => {
-    if (anchor) {
-      AnalyticsService.track(AnalyticsEvents.ANCHOR_DETAIL_VIEWED, {
-        anchor_id: anchor.id,
-        category: anchor.category,
-        is_charged: anchor.isCharged,
-        activation_count: anchor.activationCount,
-      });
+  return (
+    <Animated.View style={{ opacity, transform: [{ translateY }] }}>
+      {children}
+    </Animated.View>
+  );
+};
 
-      ErrorTrackingService.addBreadcrumb('Anchor detail viewed', 'navigation', {
-        anchor_id: anchor.id,
-      });
-    } else if (!isDeletingAnchor) {
-      ErrorTrackingService.captureException(new Error('Anchor not found'), {
-        screen: 'AnchorDetailScreen',
-        anchor_id: anchorId,
-      });
-    }
-  }, [anchor, anchorId, isDeletingAnchor]);
-
-  // Derived state (memoized)
-  const anchorState = useMemo(() => {
-    if (!anchor) return 'dormant';
-    return getAnchorState(anchor);
-  }, [anchor]);
-
-  const hasIgnited = useMemo(() => {
-    if (!anchor) return false;
-    return getHasIgnited(anchor);
-  }, [anchor]);
-
-  const isReleased = useMemo(() => {
-    if (!anchor) return false;
-    return isAnchorReleased(anchor);
-  }, [anchor]);
-
-  const meaningCopy = useMemo(() => {
-    if (!anchor) return {
-      activationStatus: '',
-      lastActivatedText: '',
-      ctaLabel: '',
-      ctaMicrocopy: '',
-    };
-    return getMeaningCopy(anchor, anchorState);
-  }, [anchor, anchorState]);
-
-  const activationsThisWeek = useMemo(() => {
-    if (!anchor) return 0;
-    return getActivationsThisWeek(anchor);
-  }, [anchor]);
-
-  const deepChargeMicrocopy = useMemo(() => {
-    if (!anchor) return 'Best when your intention feels dim.';
-    return getDeepChargeMicrocopy(anchor.lastActivatedAt);
-  }, [anchor]);
-
-  const todayActivated = useMemo(() => {
-    if (!anchor?.lastActivatedAt) return false;
-    return isToday(anchor.lastActivatedAt);
-  }, [anchor]);
-
-  const deepChargeDurationSeconds = useMemo(() => {
-    if (deepChargePreset === '2m') return 120;
-    if (deepChargePreset === '5m') return 300;
-    if (deepChargePreset === '10m') return 600;
-    if (deepChargePreset === '20m') return 1200;
-    return clampDeepChargeMinutes(customDeepChargeMinutes) * 60;
-  }, [customDeepChargeMinutes, deepChargePreset]);
+// ─── BREATHING GLOW (sigil bg) ───────────────────────────
+const BreathingGlow = () => {
+  const scale = useRef(new Animated.Value(0.97)).current;
+  const opacity = useRef(new Animated.Value(0.6)).current;
 
   useEffect(() => {
-    return () => {
-      if (activationNavigateTimeoutRef.current) {
-        clearTimeout(activationNavigateTimeoutRef.current);
-      }
-    };
-  }, []);
-
-  useEffect(() => {
-    if (reduceMotionEnabled || isReleased) {
-      primaryButtonPulseOpacity.setValue(0);
-      return;
-    }
-
-    const pulseLoop = Animated.loop(
+    const loop = Animated.loop(
       Animated.sequence([
-        Animated.timing(primaryButtonPulseOpacity, {
-          toValue: 0.24,
-          duration: 1500,
-          easing: Easing.inOut(Easing.quad),
-          useNativeDriver: true,
+        Animated.parallel([
+          Animated.timing(scale, { toValue: 1.03, duration: 2200, useNativeDriver: true }),
+          Animated.timing(opacity, { toValue: 1.0, duration: 2200, useNativeDriver: true }),
+        ]),
+        Animated.parallel([
+          Animated.timing(scale, { toValue: 0.97, duration: 2200, useNativeDriver: true }),
+          Animated.timing(opacity, { toValue: 0.6, duration: 2200, useNativeDriver: true }),
+        ]),
+      ])
+    );
+    loop.start();
+    return () => loop.stop();
+  }, []);
+
+  return (
+    <Animated.View
+      style={[
+        StyleSheet.absoluteFillObject,
+        { opacity, transform: [{ scale }] },
+      ]}
+      pointerEvents="none"
+    >
+      <LinearGradient
+        colors={[
+          'rgba(140,90,220,0.18)',
+          'rgba(201,168,76,0.07)',
+          'transparent',
+        ]}
+        style={StyleSheet.absoluteFillObject}
+      />
+    </Animated.View>
+  );
+};
+
+// ─── SHINE ANIMATION (activate button) ───────────────────
+const ShineButton = ({ onPress, children, style }) => {
+  const shineX = useRef(new Animated.Value(-SCREEN_W)).current;
+
+  useEffect(() => {
+    const loop = Animated.loop(
+      Animated.sequence([
+        Animated.timing(shineX, {
+          toValue: SCREEN_W * 1.5, duration: 900,
+          useNativeDriver: true, delay: 0,
         }),
-        Animated.timing(primaryButtonPulseOpacity, {
-          toValue: 0.1,
-          duration: 1500,
-          easing: Easing.inOut(Easing.quad),
+        Animated.delay(2500),
+        Animated.timing(shineX, {
+          toValue: -SCREEN_W, duration: 0,
           useNativeDriver: true,
         }),
       ])
     );
-
-    pulseLoop.start();
-    return () => pulseLoop.stop();
-  }, [isReleased, primaryButtonPulseOpacity, reduceMotionEnabled]);
-
-  useEffect(() => {
-    if (reduceMotionEnabled || !hasIgnited || isReleased) {
-      liveShimmerProgress.setValue(-1);
-      return;
-    }
-
-    const shimmerLoop = Animated.loop(
-      Animated.timing(liveShimmerProgress, {
-        toValue: 1,
-        duration: 2800,
-        easing: Easing.linear,
-        useNativeDriver: true,
-      })
-    );
-
-    shimmerLoop.start();
-    return () => shimmerLoop.stop();
-  }, [hasIgnited, isReleased, liveShimmerProgress, reduceMotionEnabled]);
-
-  // Handlers (memoized with haptics)
-  const handleChargePress = useCallback((): void => {
-    if (!anchor) return;
-
-    safeHaptics.impact(Haptics.ImpactFeedbackStyle.Medium);
-
-    AnalyticsService.track(AnalyticsEvents.CHARGE_STARTED, {
-      anchor_id: anchor.id,
-      charge_type: 'initial_quick',
-      source: 'anchor_detail',
-    });
-
-    ErrorTrackingService.addBreadcrumb('Charge initiated', 'navigation', {
-      anchor_id: anchor.id,
-      charge_type: 'initial_quick',
-    });
-
-    navigation.navigate('ChargeSetup', {
-      anchorId: anchor.id,
-      returnTo: 'detail',
-    });
-  }, [anchor, navigation]);
-
-  const handleDeepChargeExpandPress = useCallback((): void => {
-    safeHaptics.selection();
-    setIsDeepChargeExpanded((prev) => !prev);
+    loop.start();
+    return () => loop.stop();
   }, []);
-
-  const handleDeepChargePresetPress = useCallback((preset: DeepChargePreset): void => {
-    safeHaptics.selection();
-    setDeepChargePreset(preset);
-    if (preset === 'custom') {
-      setCustomDurationSheetVisible(true);
-    }
-  }, []);
-
-  const handleCustomDurationConfirm = useCallback((minutes: number): void => {
-    setCustomDeepChargeMinutes(clampDeepChargeMinutes(minutes));
-    setDeepChargePreset('custom');
-    setCustomDurationSheetVisible(false);
-  }, []);
-
-  const handleBeginDeepCharge = useCallback((): void => {
-    if (!anchor || isReleased) return;
-
-    safeHaptics.impact(Haptics.ImpactFeedbackStyle.Medium);
-
-    AnalyticsService.track(AnalyticsEvents.DEEP_CHARGE_STARTED, {
-      anchor_id: anchor.id,
-      source: 'anchor_detail',
-      duration_seconds: deepChargeDurationSeconds,
-      mantra_audio_enabled: mantraAudioEnabled,
-    });
-
-    ErrorTrackingService.addBreadcrumb('Deep charge initiated', 'navigation', {
-      anchor_id: anchor.id,
-      duration_seconds: deepChargeDurationSeconds,
-      mantra_audio_enabled: mantraAudioEnabled,
-    });
-
-    navigation.navigate('Ritual', {
-      anchorId: anchor.id,
-      ritualType: 'ritual',
-      durationSeconds: deepChargeDurationSeconds,
-      mantraAudioEnabled,
-      returnTo: 'detail',
-    });
-  }, [anchor, deepChargeDurationSeconds, isReleased, mantraAudioEnabled, navigation]);
-
-  const handleActivationPresetSelect = useCallback((key: string) => {
-    const presetSeconds: Record<string, number> = { '10s': 10, '30s': 30, '60s': 60 };
-    const seconds = presetSeconds[key] ?? 30;
-    setDefaultActivation({ ...defaultActivation, type: 'visual', value: seconds, unit: 'seconds' });
-    safeHaptics.impact(Haptics.ImpactFeedbackStyle.Light);
-  }, [defaultActivation, setDefaultActivation]);
-
-  const handleActivatePress = useCallback((): void => {
-    if (!anchor) return;
-
-    if (!hasIgnited) {
-      AnalyticsService.track(AnalyticsEvents.ACTIVATION_ATTEMPTED_UNCHARGED, {
-        anchor_id: anchor.id,
-      });
-      return;
-    }
-
-    safeHaptics.impact(Haptics.ImpactFeedbackStyle.Light);
-    setActivationRippleNonce((prev) => prev + 1);
-
-    AnalyticsService.track(AnalyticsEvents.ACTIVATION_STARTED, {
-      anchor_id: anchor.id,
-      activation_type: 'visual',
-      source: 'anchor_detail',
-      activation_count: anchor.activationCount,
-    });
-
-    ErrorTrackingService.addBreadcrumb('Activation initiated', 'navigation', {
-      anchor_id: anchor.id,
-    });
-
-    const navigateToActivation = () => {
-      navigation.navigate('ActivationRitual', {
-        anchorId: anchor.id,
-        activationType: 'visual' as ActivationType,
-        returnTo: 'detail',
-      });
-    };
-
-    if (reduceMotionEnabled) {
-      if (activationNavigateTimeoutRef.current) {
-        clearTimeout(activationNavigateTimeoutRef.current);
-        activationNavigateTimeoutRef.current = null;
-      }
-      navigateToActivation();
-      return;
-    }
-
-    if (activationNavigateTimeoutRef.current) {
-      clearTimeout(activationNavigateTimeoutRef.current);
-    }
-
-    activationNavigateTimeoutRef.current = setTimeout(() => {
-      activationNavigateTimeoutRef.current = null;
-      navigateToActivation();
-    }, 150);
-  }, [anchor, hasIgnited, navigation, reduceMotionEnabled]);
-
-  const handleBurnPress = useCallback((): void => {
-    if (!anchor || isReleased) return;
-
-    void safeHaptics.impact(Haptics.ImpactFeedbackStyle.Light);
-
-    AnalyticsService.track(AnalyticsEvents.BURN_INITIATED, {
-      anchor_id: anchor.id,
-      activation_count: anchor.activationCount,
-      days_since_created: Math.floor(
-        (Date.now() - new Date(anchor.createdAt).getTime()) / (1000 * 60 * 60 * 24)
-      ),
-    });
-
-    ErrorTrackingService.addBreadcrumb('Burn ritual initiated', 'navigation', {
-      anchor_id: anchor.id,
-    });
-
-    (navigation as any).navigate('ConfirmBurn', {
-      anchorId: anchor.id,
-      intention: anchor.intentionText,
-      sigilSvg: anchor.baseSigilSvg,
-      enhancedImageUrl: anchor.enhancedImageUrl,
-    });
-  }, [anchor, isReleased, navigation]);
-
-  const handleDeveloperDeletePress = useCallback((): void => {
-    if (!anchor || !developerModeEnabled || !developerDeleteWithoutBurnEnabled) return;
-
-    Alert.alert(
-      'Delete Anchor (Developer)',
-      'Delete this anchor immediately without burn ritual?',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Delete',
-          style: 'destructive',
-          onPress: async () => {
-            setIsDeletingAnchor(true);
-            try {
-              await del(`/api/anchors/${anchor.id}`);
-              removeAnchor(anchor.id);
-
-              AnalyticsService.track(AnalyticsEvents.ANCHOR_DELETED, {
-                anchor_id: anchor.id,
-                source: 'developer_settings',
-                sync: 'server',
-              });
-
-              navigation.popToTop();
-            } catch (error) {
-              const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-
-              ErrorTrackingService.captureMessage(
-                `Developer delete fell back to local-only removal: ${errorMessage}`,
-                ErrorSeverity.Warning
-              );
-
-              // Dev delete should still succeed locally when backend sync is unavailable.
-              removeAnchor(anchor.id);
-              AnalyticsService.track(AnalyticsEvents.ANCHOR_DELETED, {
-                anchor_id: anchor.id,
-                source: 'developer_settings',
-                sync: 'local_fallback',
-              });
-              Alert.alert(
-                'Deleted Locally',
-                'Anchor was deleted on this device but failed to sync to backend.'
-              );
-              navigation.popToTop();
-            }
-          },
-        },
-      ]
-    );
-  }, [anchor, developerDeleteWithoutBurnEnabled, developerModeEnabled, navigation, removeAnchor]);
-
-  // Error state
-  if (!anchor) {
-    if (isDeletingAnchor) {
-      return <SafeAreaView style={styles.container} />;
-    }
-
-    return (
-      <SafeAreaView style={styles.container}>
-        <Text style={styles.errorText}>Anchor not found</Text>
-      </SafeAreaView>
-    );
-  }
-
-  const categoryConfig = CATEGORY_CONFIG[anchor.category] || CATEGORY_CONFIG.custom;
-  const statusChip = getStatusChip(anchorState);
-  const dashboardHeadline = getDashboardHeadline(anchorState, hasIgnited);
-  const streakDisplay = activationsThisWeek > 0 ? '1 day' : '0 days';
-
-  const renderDashboardContent = () => (
-    <>
-      {/* State headline */}
-      <Text
-        style={styles.meaningText}
-        accessibilityLabel={`Anchor state: ${statusChip.label}`}
-      >
-        {dashboardHeadline}
-      </Text>
-
-      {/* 2-column stat grid */}
-      <View style={styles.dashboardGrid}>
-        <View
-          style={styles.dashboardStatItem}
-          accessible
-          accessibilityLabel={`Last activated: ${meaningCopy.lastActivatedText}`}
-        >
-          <Text style={styles.statLabel}>LAST ACTIVATED</Text>
-          <Text style={styles.statValue}>{meaningCopy.lastActivatedText}</Text>
-        </View>
-        <View
-          style={styles.dashboardStatItem}
-          accessible
-          accessibilityLabel={`Streak: ${streakDisplay}`}
-        >
-          <Text style={styles.statLabel}>STREAK</Text>
-          <Text style={styles.statValue}>{streakDisplay}</Text>
-        </View>
-      </View>
-
-      {/* Today row */}
-      <View
-        style={styles.todayRow}
-        accessible
-        accessibilityLabel={todayActivated ? 'Today: Activated' : 'Today: Not yet activated'}
-      >
-        <Text style={styles.statLabel}>TODAY</Text>
-        <Text style={[
-          styles.todayValue,
-          { color: todayActivated ? colors.gold : colors.text.secondary },
-        ]}>
-          {todayActivated ? 'Activated' : 'Not yet'}
-        </Text>
-      </View>
-
-      {/* Distilled letters with info icon */}
-      <View style={styles.dashboardDivider} />
-      <TouchableOpacity
-        style={styles.distilledContainer}
-        onPress={() => {
-          safeHaptics.impact(Haptics.ImpactFeedbackStyle.Light);
-          setDistilledModalVisible(true);
-        }}
-        accessibilityRole="button"
-        accessibilityLabel={`Distilled letters: ${anchor.distilledLetters.join(' ')}. Tap for info.`}
-      >
-        <Text style={styles.distilledLabel}>
-          Distilled: {anchor.distilledLetters.join(' ')}{' '}
-          <Text style={styles.infoIcon}>ⓘ</Text>
-        </Text>
-      </TouchableOpacity>
-    </>
-  );
-
-  const shimmerTranslateX = liveShimmerProgress.interpolate({
-    inputRange: [-1, 1],
-    outputRange: [-320, 320],
-  });
 
   return (
-    <View style={styles.container}>
-      <ZenBackground showOrbs={true} orbOpacity={0.1} animationDuration={800} />
-      <SafeAreaView style={styles.safeArea} edges={['top', 'bottom']}>
-        <ScrollView style={styles.scrollView} contentContainerStyle={styles.scrollContent}>
-          {/* Header Card */}
-          <View style={styles.headerCard}>
-            {Platform.OS === 'ios' ? (
-              <BlurView intensity={20} tint="dark" style={StyleSheet.absoluteFill}>
-                <View style={styles.goldLeftBorder} />
-                <View style={styles.headerContent}>
-                  <Text style={styles.intentionText}>
-                    {reduceIntentionVisibility
-                      ? `"${anchor.mantraText || 'Intention Obscured'}"`
-                      : `"${anchor.intentionText}"`}
-                  </Text>
-
-                  <View style={styles.badgeRow}>
-                    <View style={styles.badgeWrapper}>
-                      <BlurView intensity={18} tint="dark" style={styles.blurBadge}>
-                        <View style={[styles.badgeInner, { backgroundColor: `${categoryConfig.color}15` }]}>
-                          <Text style={styles.categoryEmoji}>{categoryConfig.emoji}</Text>
-                          <Text style={[styles.categoryText, { color: categoryConfig.color }]}>
-                            {categoryConfig.label}
-                          </Text>
-                        </View>
-                      </BlurView>
-                    </View>
-
-                    <View style={styles.badgeWrapper}>
-                      <BlurView intensity={18} tint="dark" style={styles.blurBadge}>
-                        <View style={[styles.badgeInner, { backgroundColor: `${statusChip.color}18` }]}>
-                          <Text style={styles.categoryEmoji}>{statusChip.icon}</Text>
-                          <Text style={[styles.categoryText, { color: statusChip.color }]}>
-                            {statusChip.label}
-                          </Text>
-                        </View>
-                      </BlurView>
-                    </View>
-                  </View>
-                </View>
-              </BlurView>
-            ) : (
-              <View style={[styles.androidHeaderFallback, { backgroundColor: 'rgba(12, 17, 24, 0.92)' }]}>
-                <View style={styles.goldLeftBorder} />
-                <View style={styles.headerContent}>
-                  <Text style={styles.intentionText}>
-                    {reduceIntentionVisibility
-                      ? `"${anchor.mantraText || 'Intention Obscured'}"`
-                      : `"${anchor.intentionText}"`}
-                  </Text>
-
-                  <View style={styles.badgeRow}>
-                    <View
-                      style={[styles.categoryBadgeCompact, { backgroundColor: categoryConfig.color + '20' }]}
-                    >
-                      <Text style={styles.categoryEmoji}>{categoryConfig.emoji}</Text>
-                      <Text style={[styles.categoryText, { color: categoryConfig.color }]}>
-                        {categoryConfig.label}
-                      </Text>
-                    </View>
-
-                    <View style={[styles.categoryBadgeCompact, { backgroundColor: `${statusChip.color}20` }]}>
-                      <Text style={styles.categoryEmoji}>{statusChip.icon}</Text>
-                      <Text style={[styles.categoryText, { color: statusChip.color }]}>
-                        {statusChip.label}
-                      </Text>
-                    </View>
-                  </View>
-                </View>
-              </View>
-            )}
-          </View>
-
-          {/* NEW: Animated Sigil Hero Card */}
-          <SigilHeroCard
-            anchor={anchor}
-            anchorState={anchorState}
-            reduceMotionEnabled={reduceMotionEnabled}
-            activationRippleNonce={activationRippleNonce}
-            deepChargeHaloActive={hasIgnited && !isReleased && (isDeepChargeExpanded || anchorState === 'active')}
+    <TouchableOpacity onPress={onPress} activeOpacity={0.85} style={style}>
+      <View style={{ overflow: 'hidden', borderRadius: 14 }}>
+        <LinearGradient
+          colors={['#b8920a', '#d4a820', '#c49a15']}
+          start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}
+          style={s.activateInner}
+        >
+          {children}
+          <Animated.View
+            style={[
+              s.shineSweep,
+              { transform: [{ translateX: shineX }] },
+            ]}
+            pointerEvents="none"
           />
+        </LinearGradient>
+      </View>
+    </TouchableOpacity>
+  );
+};
 
-          {/* Ritual Dashboard */}
-          <View style={styles.statsCard}>
-            {Platform.OS === 'ios' ? (
-              <BlurView intensity={20} tint="dark" style={StyleSheet.absoluteFill}>
-                <View style={styles.goldLeftBorder} />
-                <View style={styles.statsContent}>
-                  {renderDashboardContent()}
+// ─── MAIN SCREEN ─────────────────────────────────────────
+const AnchorDetailsScreen = ({ navigation, route }) => {
+  const insets = useSafeAreaInsets();
+  const { getAnchorById, removeAnchor } = useAnchorStore();
+  const { defaultActivation, setDefaultActivation } = useSettingsStore();
+  const [activeDuration, setActiveDuration] = useState('30s');
+
+  const routeAnchor = route?.params?.anchor;
+  const anchorId = route?.params?.anchorId ?? routeAnchor?.id;
+  const storeAnchor = anchorId ? getAnchorById(anchorId) : null;
+  const sourceAnchor = routeAnchor ?? storeAnchor;
+  const anchor = toDisplayAnchor(sourceAnchor) ?? {
+    id: anchorId,
+    name: 'Untitled Anchor',
+    intention: 'No intention found for this anchor.',
+    category: 'Custom',
+    charged: false,
+    lastActivated: null,
+    streak: 0,
+    today: null,
+    distilled: [],
+    sigilUri: null,
+    createdAt: 'Unknown',
+    practiceCreate: true,
+    practiceCharge: false,
+    practiceActivateDays: 0,
+    baseSigilSvg: '',
+    enhancedImageUrl: null,
+  };
+  const divineBreath = useSharedValue(0);
+  const divineGlowActive = Boolean(anchor.charged || anchor.today === 'Activated');
+
+  useEffect(() => {
+    if (!divineGlowActive) {
+      cancelAnimation(divineBreath);
+      divineBreath.value = 0;
+      return;
+    }
+
+    divineBreath.value = withRepeat(
+      withTiming(1, {
+        duration: 1600,
+        easing: ReanimatedEasing.inOut(ReanimatedEasing.sin),
+      }),
+      -1,
+      true
+    );
+
+    return () => {
+      cancelAnimation(divineBreath);
+      divineBreath.value = 0;
+    };
+  }, [divineBreath, divineGlowActive]);
+
+  const topCardPulseStyle = useAnimatedStyle(() => {
+    if (!divineGlowActive) {
+      return {
+        borderColor: C.purpleBorder,
+        shadowOpacity: 0.08,
+        shadowRadius: 12,
+        elevation: 4,
+      };
+    }
+
+    return {
+      borderColor: interpolateColor(
+        divineBreath.value,
+        [0, 1],
+        ['rgba(201,168,76,0.28)', 'rgba(245,216,137,0.92)']
+      ),
+      shadowColor: C.gold,
+      shadowOpacity: interpolate(divineBreath.value, [0, 1], [0.12, 0.34]),
+      shadowRadius: interpolate(divineBreath.value, [0, 1], [10, 20]),
+      elevation: Math.round(interpolate(divineBreath.value, [0, 1], [4, 12])),
+    };
+  }, [divineBreath, divineGlowActive]);
+
+  const topCardAuraStyle = useAnimatedStyle(() => ({
+    opacity: divineGlowActive ? interpolate(divineBreath.value, [0, 1], [0.12, 0.34]) : 0,
+  }), [divineBreath, divineGlowActive]);
+
+  const statsCardPulseStyle = useAnimatedStyle(() => {
+    if (!divineGlowActive) {
+      return {
+        borderColor: C.purpleBorder,
+        shadowOpacity: 0.08,
+        shadowRadius: 12,
+        elevation: 4,
+      };
+    }
+
+    return {
+      borderColor: interpolateColor(
+        divineBreath.value,
+        [0, 1],
+        ['rgba(201,168,76,0.30)', 'rgba(255,228,148,0.96)']
+      ),
+      shadowColor: C.gold,
+      shadowOpacity: interpolate(divineBreath.value, [0, 1], [0.14, 0.4]),
+      shadowRadius: interpolate(divineBreath.value, [0, 1], [12, 26]),
+      elevation: Math.round(interpolate(divineBreath.value, [0, 1], [4, 14])),
+    };
+  }, [divineBreath, divineGlowActive]);
+
+  const statsCardAuraStyle = useAnimatedStyle(() => ({
+    opacity: divineGlowActive ? interpolate(divineBreath.value, [0, 1], [0.14, 0.36]) : 0,
+  }), [divineBreath, divineGlowActive]);
+
+  useEffect(() => {
+    if (defaultActivation?.unit !== 'seconds') return;
+    const value = defaultActivation.value;
+    if (value <= 10) {
+      setActiveDuration('10s');
+      return;
+    }
+    if (value <= 30) {
+      setActiveDuration('30s');
+      return;
+    }
+    setActiveDuration('60s');
+  }, [defaultActivation]);
+
+  const getDurationSeconds = () => {
+    if (activeDuration === '10s') return 10;
+    if (activeDuration === '60s') return 60;
+    return 30;
+  };
+
+  const handleActivatePress = () => {
+    if (!anchorId) {
+      Alert.alert('Anchor unavailable', 'Unable to activate because no anchor ID was provided.');
+      return;
+    }
+
+    navigation.navigate('ActivationRitual', {
+      anchorId,
+      activationType: 'visual',
+      durationOverride: getDurationSeconds(),
+      returnTo: 'detail',
+    });
+  };
+
+  const handleSaveDefault = () => {
+    setDefaultActivation({
+      ...defaultActivation,
+      type: 'visual',
+      unit: 'seconds',
+      value: getDurationSeconds(),
+    });
+  };
+
+  const handleReinforce = () => {
+    if (!anchorId) return;
+    navigation.navigate('Ritual', {
+      anchorId,
+      ritualType: 'ritual',
+      durationSeconds: 300,
+      returnTo: 'detail',
+    });
+  };
+
+  const handleBurn = () => {
+    if (!anchorId) return;
+
+    navigation.navigate('ConfirmBurn', {
+      anchorId,
+      intention: sourceAnchor?.intentionText ?? sourceAnchor?.intention ?? anchor.intention,
+      sigilSvg: sourceAnchor?.baseSigilSvg ?? '',
+      enhancedImageUrl: sourceAnchor?.enhancedImageUrl,
+    });
+  };
+
+  const handleDelete = () => {
+    if (!anchorId) return;
+
+    Alert.alert('Delete Anchor', 'Delete this anchor permanently?', [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Delete',
+        style: 'destructive',
+        onPress: async () => {
+          try {
+            await del(`/api/anchors/${anchorId}`);
+          } catch {
+            // Keep local delete behavior even if backend is unreachable.
+          }
+          removeAnchor(anchorId);
+          navigation.popToTop();
+        },
+      },
+    ]);
+  };
+
+  return (
+    <View style={[s.root, { paddingTop: insets.top }]}>
+      <StatusBar barStyle="light-content" />
+
+      {/* Background atmosphere */}
+      <LinearGradient
+        colors={['#0F1419', '#3E2C5B', '#1A1A1D']}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={StyleSheet.absoluteFillObject}
+        pointerEvents="none"
+      />
+
+      {/* ── HEADER ── */}
+      <BlurView intensity={30} tint="dark" style={s.header}>
+        <TouchableOpacity onPress={() => navigation?.goBack()} style={s.backBtn}>
+          <Text style={s.backArrow}>←</Text>
+        </TouchableOpacity>
+        <Text style={s.headerTitle}>ANCHOR DETAILS</Text>
+      </BlurView>
+
+      <ScrollView
+        contentContainerStyle={[s.scroll, { paddingBottom: insets.bottom + 40 }]}
+        showsVerticalScrollIndicator={false}
+      >
+
+        {/* ── TITLE CARD ── */}
+        <FadeUp delay={50}>
+          <Reanimated.View style={[s.animatedCardShell, topCardPulseStyle]}>
+            <LinearGradient
+              colors={CARD_GRADIENT}
+              style={[s.card, s.cardGold]}
+            >
+              <Text style={s.anchorName}>"{anchor.name}"</Text>
+              <Text style={s.intentionText}>{anchor.intention}</Text>
+              <View style={s.badgeRow}>
+                <View style={s.badgeDesire}>
+                  <View style={[s.badgeDot, { backgroundColor: C.red }]} />
+                  <Text style={[s.badgeText, { color: C.red }]}>{anchor.category}</Text>
                 </View>
-              </BlurView>
-            ) : (
-              <View style={[styles.androidStatsFallback, { backgroundColor: 'rgba(12, 17, 24, 0.92)' }]}>
-                <View style={styles.goldLeftBorder} />
-                <View style={styles.statsContent}>
-                  {renderDashboardContent()}
+                <View style={[s.badgeCharged, !anchor.charged && s.badgeDormant]}>
+                  <Text style={s.badgeIcon}>{anchor.charged ? '⚡' : '💤'}</Text>
+                  <Text style={[s.badgeText, { color: anchor.charged ? C.goldBright : C.textDim }]}>
+                    {anchor.charged ? 'Charged' : 'Dormant'}
+                  </Text>
                 </View>
               </View>
-            )}
-            {hasIgnited && !isReleased && !reduceMotionEnabled && (
-              <Animated.View
-                pointerEvents="none"
-                style={[
-                  styles.liveShimmerOverlay,
-                  { transform: [{ translateX: shimmerTranslateX }] },
-                ]}
-              >
-                <LinearGradient
-                  colors={['transparent', 'rgba(212, 175, 55, 0.16)', 'transparent']}
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 1, y: 0 }}
-                  style={StyleSheet.absoluteFill}
-                />
-              </Animated.View>
-            )}
-          </View>
+            </LinearGradient>
+            <Reanimated.View pointerEvents="none" style={[s.cardAuraOverlay, topCardAuraStyle]}>
+              <LinearGradient
+                colors={['rgba(255, 223, 133, 0.14)', 'rgba(245, 198, 82, 0.05)', 'rgba(255, 223, 133, 0.14)']}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+                style={StyleSheet.absoluteFillObject}
+              />
+            </Reanimated.View>
+          </Reanimated.View>
+        </FadeUp>
 
-          {/* Ritual Actions */}
-          <View style={styles.actionContainer}>
-            <Text style={styles.actionsTitle}>Ritual Actions</Text>
-            {isReleased ? (
-              <>
-                <View style={[styles.primaryButtonContainer, styles.disabledButton]}>
-                  <Text style={styles.disabledButtonText}>Anchor released</Text>
+        {/* ── SIGIL CARD ── */}
+        <FadeUp delay={120}>
+          <View style={s.sigilAuraContainer}>
+            {/* DivineSigilAura only for uncharged — sits behind the card */}
+            {!anchor.charged && (
+              <View pointerEvents="none" style={s.sigilAuraCanvas}>
+                <DivineSigilAura
+                  size={SCREEN_W * 1.25}
+                  enabled={divineGlowActive}
+                  breath={divineBreath}
+                />
+              </View>
+            )}
+            <View style={s.sigilCard}>
+              <LinearGradient
+                colors={['#1a0f35', '#0d0820', '#080510']}
+                style={s.sigilWrapper}
+              >
+                {!divineGlowActive && <BreathingGlow />}
+
+                {/* ChargedGlowCanvas fills inside the card for charged anchors */}
+                {anchor.charged && (
+                  <ChargedGlowCanvas
+                    size={SCREEN_W * 0.65}
+                    reduceMotionEnabled={false}
+                  />
+                )}
+
+                {/* Purple backdrop for charged anchors */}
+                {anchor.charged && (
+                  <View style={s.chargedSigilBackdrop} />
+                )}
+
+                {anchor.sigilUri ? (
+                  <Image
+                    source={{ uri: anchor.sigilUri }}
+                    style={[s.sigilImage, anchor.charged && s.chargedSigilImage]}
+                    resizeMode="cover"
+                  />
+                ) : anchor.baseSigilSvg ? (
+                  <View style={[s.sigilPlaceholder, anchor.charged && s.chargedSigilPlaceholder]}>
+                    <SvgXml
+                      xml={anchor.baseSigilSvg}
+                      width={SIGIL_CIRCLE_SIZE * (anchor.charged ? 0.72 : 1)}
+                      height={SIGIL_CIRCLE_SIZE * (anchor.charged ? 0.72 : 1)}
+                    />
+                  </View>
+                ) : (
+                  <LinearGradient
+                    colors={['#2a1a60', '#0f0830', '#050015']}
+                    style={[s.sigilPlaceholder, anchor.charged && s.chargedSigilPlaceholder]}
+                  >
+                    <Text style={{ fontSize: 72 }}>🎵</Text>
+                  </LinearGradient>
+                )}
+              </LinearGradient>
+            </View>
+          </View>
+        </FadeUp>
+
+        {/* ── STATS CARD ── */}
+        <FadeUp delay={180}>
+          <Reanimated.View style={[s.animatedCardShell, statsCardPulseStyle]}>
+            <LinearGradient
+              colors={CARD_GRADIENT}
+              style={[s.card, s.cardGold]}
+            >
+              <Text style={[s.statsHeader, !anchor.charged && { color: C.textDim }]}>
+                ⟡  {anchor.charged ? 'Charged' : 'Dormant'}  ⟡
+              </Text>
+              <View style={s.statsGrid}>
+                <View style={s.statItem}>
+                  <Text style={s.statLabel}>LAST ACTIVATED</Text>
+                  <Text style={s.statValue}>{anchor.lastActivated ?? 'Not yet'}</Text>
                 </View>
-                <Text style={styles.microcopy}>
-                  This closes the loop. You can't reactivate this anchor after release.
+                <View style={s.statItem}>
+                  <Text style={s.statLabel}>STREAK</Text>
+                  <Text style={[s.statValue, { color: C.goldBright }]}>
+                    {anchor.streak} days
+                  </Text>
+                </View>
+                <View style={[s.statItem, s.statItemFull]}>
+                  <Text style={s.statLabel}>TODAY</Text>
+                  <Text style={s.statValue}>{anchor.today ?? 'Not yet'}</Text>
+                </View>
+              </View>
+
+              {/* Distilled row */}
+              <View style={s.distilledRow}>
+                <Text style={s.distilledLabel}>DISTILLED</Text>
+                <View style={s.distilledTags}>
+                  {anchor.distilled.map((t) => (
+                    <View key={t} style={s.distilledTag}>
+                      <Text style={s.distilledTagText}>{t}</Text>
+                    </View>
+                  ))}
+                </View>
+                <Text style={{ color: C.textDim, fontSize: 12, marginLeft: 4 }}>ⓘ</Text>
+              </View>
+            </LinearGradient>
+            <Reanimated.View pointerEvents="none" style={[s.cardAuraOverlay, statsCardAuraStyle]}>
+              <LinearGradient
+                colors={['rgba(255, 223, 133, 0.18)', 'rgba(245, 198, 82, 0.08)', 'rgba(255, 223, 133, 0.18)']}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+                style={StyleSheet.absoluteFillObject}
+              />
+            </Reanimated.View>
+          </Reanimated.View>
+        </FadeUp>
+
+        {/* ── SECTION LABEL ── */}
+        <FadeUp delay={220}>
+          <Text style={s.sectionLabel}>RITUAL ACTIONS</Text>
+        </FadeUp>
+
+        {/* ── ACTIVATE CARD ── */}
+        <FadeUp delay={250}>
+          <LinearGradient
+            colors={CARD_GRADIENT}
+            style={[s.card, { gap: 14 }]}
+          >
+            <ShineButton onPress={handleActivatePress} style={{ width: '100%' }}>
+              <View style={s.activateBtnContent}>
+                <Text style={s.activateIcon}>⚡</Text>
+                <Text style={s.activateText}>ACTIVATE NOW</Text>
+              </View>
+            </ShineButton>
+            <Text style={s.activateSub}>10–60s · instant activation</Text>
+
+            <View style={s.durationRow}>
+              {['10s', '30s', '60s'].map((d) => (
+                <TouchableOpacity
+                  key={d}
+                  onPress={() => setActiveDuration(d)}
+                  style={[s.durationPill, activeDuration === d && s.durationPillActive]}
+                >
+                  <Text style={[s.durationText, activeDuration === d && s.durationTextActive]}>
+                    {d}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+
+            <TouchableOpacity onPress={handleSaveDefault} style={s.saveDefault}>
+              <Text style={{ color: C.goldDim, fontSize: 11 }}>★ </Text>
+              <Text style={s.saveDefaultText}>Save as default</Text>
+            </TouchableOpacity>
+            <Text style={s.fastReset}>Fast reset. One clean start.</Text>
+          </LinearGradient>
+        </FadeUp>
+
+        {/* ── REINFORCE ── */}
+        <FadeUp delay={290}>
+          <TouchableOpacity activeOpacity={0.85} onPress={handleReinforce}>
+            <LinearGradient
+              colors={CARD_GRADIENT}
+              style={[s.card, s.collapsibleCard]}
+            >
+              <View style={s.collapsibleHeader}>
+                <View style={{ flex: 1 }}>
+                  <Text style={s.collapsibleTitle}>Reinforce</Text>
+                  <Text style={s.collapsibleMeta}>2–20m · deepen the imprint</Text>
+                  <Text style={s.collapsibleSub}>Your anchor may be dim. Recharge it.</Text>
+                </View>
+                <Text style={s.chevron}>▼</Text>
+              </View>
+            </LinearGradient>
+          </TouchableOpacity>
+        </FadeUp>
+
+        {/* ── BURN & DELETE ── */}
+        <FadeUp delay={320}>
+          <View style={{ gap: 10 }}>
+            <TouchableOpacity activeOpacity={0.75} onPress={handleBurn}>
+              <LinearGradient
+                colors={['rgba(150,62,24,0.32)', 'rgba(102,36,12,0.28)']}
+                style={[s.actionBtn, { borderColor: C.burnBorder }]}
+              >
+                <Text style={{ fontSize: 16 }}>🔥</Text>
+                <Text style={[s.actionBtnText, { color: C.burn }]}>Burn &amp; Release</Text>
+              </LinearGradient>
+            </TouchableOpacity>
+            <TouchableOpacity activeOpacity={0.75} onPress={handleDelete}>
+              <LinearGradient
+                colors={['rgba(116,28,28,0.3)', 'rgba(78,16,16,0.24)']}
+                style={[s.actionBtn, { borderColor: C.redBorder }]}
+              >
+                <Text style={[s.actionBtnText, { color: C.red, fontSize: 11 }]}>
+                  Delete Anchor
                 </Text>
-              </>
-            ) : !hasIgnited ? (
-              <>
-                <View style={styles.primaryButtonContainer}>
-                  {!reduceMotionEnabled && (
-                    <Animated.View
-                      pointerEvents="none"
-                      style={[styles.primaryButtonPulse, { opacity: primaryButtonPulseOpacity }]}
-                    />
-                  )}
-                  <TouchableOpacity
-                    style={styles.primaryButton}
-                    onPress={handleChargePress}
-                    accessibilityRole="button"
-                    accessibilityLabel="Ignite Anchor"
-                    accessibilityHint="Starts your first 1 to 30 minute charge."
-                  >
-                    <Text style={styles.primaryButtonText}>Ignite Anchor</Text>
-                  </TouchableOpacity>
-                </View>
-                <Text style={styles.microcopy}>1–30 minutes · first charge</Text>
-              </>
-            ) : (
-              <>
-                <View style={styles.primaryButtonContainer}>
-                  {!reduceMotionEnabled && (
-                    <Animated.View
-                      pointerEvents="none"
-                      style={[styles.primaryButtonPulse, { opacity: primaryButtonPulseOpacity }]}
-                    />
-                  )}
-                  <TouchableOpacity
-                    style={styles.primaryButton}
-                    onPress={handleActivatePress}
-                    accessibilityRole="button"
-                    accessibilityLabel="Activate now"
-                    accessibilityHint="Starts a focused activation in one tap."
-                  >
-                    <View style={styles.primaryButtonInner}>
-                      <Zap size={18} color={colors.charcoal} />
-                      <Text style={styles.primaryButtonText}>Activate now</Text>
-                    </View>
-                  </TouchableOpacity>
-                </View>
-                <Text style={styles.actionHelperText}>10–60s • instant activation</Text>
-                <PresetChips
-                  chips={ACTIVATION_PRESETS}
-                  selectedKey={activationPresetKey}
-                  onSelect={handleActivationPresetSelect}
-                  style={styles.activationPresetsRow}
-                />
-                <TouchableOpacity
-                  onPress={() => navigation.navigate('DefaultActivation')}
-                  accessibilityRole="button"
-                  accessibilityLabel="Save as default activation preset"
-                  style={styles.savePresetLink}
-                >
-                  <Text style={styles.savePresetText}>★ Save as default</Text>
-                </TouchableOpacity>
-                <Text style={styles.microcopy}>Fast reset. One clean start.</Text>
-
-                <View style={styles.deepChargeModule}>
-                  <TouchableOpacity
-                    style={styles.deepChargeHeader}
-                    onPress={handleDeepChargeExpandPress}
-                    accessibilityRole="button"
-                    accessibilityLabel="Reinforce"
-                    accessibilityHint="Expands reinforcement options including duration and mantra audio."
-                  >
-                    <View style={styles.deepChargeHeaderContent}>
-                      <Text style={styles.deepChargeTitle}>Reinforce</Text>
-                      <Text style={styles.deepChargeHelperText}>2–20m • deepen the imprint</Text>
-                    </View>
-                    {isDeepChargeExpanded ? (
-                      <ChevronUp size={20} color={colors.gold} />
-                    ) : (
-                      <ChevronDown size={20} color={colors.gold} />
-                    )}
-                  </TouchableOpacity>
-                  <Text style={styles.deepChargeMicrocopy}>{deepChargeMicrocopy}</Text>
-
-                  {isDeepChargeExpanded && (
-                    <>
-                      <View style={styles.durationChipsRow}>
-                        {DEEP_CHARGE_PRESETS.map((preset) => {
-                          const isSelected = deepChargePreset === preset.key;
-                          return (
-                            <TouchableOpacity
-                              key={preset.key}
-                              style={[styles.durationChip, isSelected && styles.durationChipSelected]}
-                              onPress={() => handleDeepChargePresetPress(preset.key)}
-                              accessibilityRole="button"
-                              accessibilityLabel={`${preset.label} duration`}
-                              accessibilityState={{ selected: isSelected }}
-                            >
-                              <Text style={[styles.durationChipText, isSelected && styles.durationChipTextSelected]}>
-                                {preset.key === 'custom' && isSelected
-                                  ? `Custom ${clampDeepChargeMinutes(customDeepChargeMinutes)}m`
-                                  : preset.label}
-                              </Text>
-                            </TouchableOpacity>
-                          );
-                        })}
-                      </View>
-
-                      <View style={styles.mantraToggleRow}>
-                        <View style={styles.mantraToggleCopy}>
-                          <Text style={styles.mantraToggleTitle}>Mantra audio</Text>
-                          <Text style={styles.mantraToggleDescription}>Repeat softly during session</Text>
-                        </View>
-                        <Switch
-                          value={mantraAudioEnabled}
-                          onValueChange={setMantraAudioEnabled}
-                          thumbColor={colors.bone}
-                          trackColor={{
-                            false: 'rgba(255, 255, 255, 0.2)',
-                            true: colors.gold,
-                          }}
-                          ios_backgroundColor="rgba(255, 255, 255, 0.2)"
-                          accessibilityRole="switch"
-                          accessibilityState={{ checked: mantraAudioEnabled }}
-                          accessibilityLabel="Mantra audio"
-                          accessibilityHint="When enabled, your mantra repeats during deep charge."
-                        />
-                      </View>
-
-                      <TouchableOpacity
-                        style={styles.deepChargeStartButton}
-                        onPress={handleBeginDeepCharge}
-                        accessibilityRole="button"
-                        accessibilityLabel="Begin Reinforce"
-                        accessibilityHint="Starts a longer reinforce session with selected options."
-                      >
-                        <Text style={styles.deepChargeStartButtonText}>Begin Reinforce</Text>
-                      </TouchableOpacity>
-                    </>
-                  )}
-                </View>
-
-                <View style={styles.burnDivider} />
-                <TouchableOpacity
-                  style={styles.burnButton}
-                  onPress={handleBurnPress}
-                  accessibilityRole="button"
-                  accessibilityLabel="Burn and Release"
-                  accessibilityHint="Permanently closes this anchor."
-                >
-                  <Text style={styles.burnButtonText}>🔥 Burn & Release</Text>
-                </TouchableOpacity>
-              </>
-            )}
-            {developerModeEnabled && developerDeleteWithoutBurnEnabled && (
-              <TouchableOpacity
-                style={styles.devDeleteButton}
-                onPress={handleDeveloperDeletePress}
-                accessibilityRole="button"
-                accessibilityLabel="Delete Anchor (Developer)"
-              >
-                <Text style={styles.devDeleteButtonText}>Delete Anchor (Dev)</Text>
-              </TouchableOpacity>
-            )}
+              </LinearGradient>
+            </TouchableOpacity>
           </View>
+        </FadeUp>
 
-          {/* NEW: Practice Path Card */}
-          <PracticePathCard
-            anchor={anchor}
-            anchorState={anchorState}
-            activationsThisWeek={activationsThisWeek}
-          />
+        {/* ── YOUR PRACTICE ── */}
+        <FadeUp delay={360}>
+          <LinearGradient
+            colors={CARD_GRADIENT}
+            style={s.card}
+          >
+            <View style={s.practiceHeader}>
+              <Text style={s.practiceTitle}>Your Practice</Text>
+              <Text style={{ color: C.goldDim, fontSize: 11 }}>▼</Text>
+            </View>
+            <View style={{ gap: 12 }}>
+              {[
+                { label: 'Create', done: anchor.practiceCreate, tag: '✓', progress: null },
+                { label: 'Charge', done: anchor.practiceCharge, tag: '✓', progress: null },
+                { label: 'Activate daily', done: false, tag: null, progress: `${anchor.practiceActivateDays}/7` },
+              ].map((item) => (
+                <View key={item.label} style={s.practiceItem}>
+                  <View style={[
+                    s.practiceCheck,
+                    item.done ? s.checkComplete : s.checkProgress,
+                  ]}>
+                    <Text style={[
+                      s.practiceCheckText,
+                      { color: item.done ? C.gold : 'rgba(160,130,220,0.7)' },
+                    ]}>
+                      {item.tag ?? item.progress}
+                    </Text>
+                  </View>
+                  <Text style={[s.practiceLabel, !item.done && { color: C.textSec }]}>
+                    {item.label}
+                  </Text>
+                </View>
+              ))}
+            </View>
+          </LinearGradient>
+        </FadeUp>
 
-          {/* Physical Anchor Card */}
-          <PhysicalAnchorCard
-            anchor={anchor}
-            hasActivations={anchor.activationCount >= 1}
-          />
+        {/* ── PHYSICAL ANCHOR ── */}
+        <FadeUp delay={400}>
+          <LinearGradient
+            colors={CARD_GRADIENT}
+            style={[s.card, s.cardGold]}
+          >
+            <Text style={s.physicalEyebrow}>PHYSICAL ANCHOR</Text>
+            <Text style={s.physicalSub}>Make this symbol tangible.</Text>
+            <View style={s.physicalRow}>
+              <View style={s.physicalThumb}>
+                {anchor.sigilUri ? (
+                  <Image
+                    source={{ uri: anchor.sigilUri }}
+                    style={s.physicalThumbImage}
+                    resizeMode="cover"
+                  />
+                ) : anchor.baseSigilSvg ? (
+                  <SvgXml
+                    xml={anchor.baseSigilSvg}
+                    width={58}
+                    height={58}
+                  />
+                ) : (
+                  <LinearGradient
+                    colors={['#2a1a60', '#0f0830']}
+                    style={s.physicalThumbFallbackBg}
+                  >
+                    <Text style={s.physicalThumbFallback}>🎵</Text>
+                  </LinearGradient>
+                )}
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={s.physicalCopyTitle}>Carry your anchor</Text>
+                <Text style={s.physicalCopyBody}>A quiet reminder you can carry.</Text>
+              </View>
+            </View>
+            <TouchableOpacity
+              activeOpacity={0.85}
+              style={{ marginBottom: 10 }}
+              onPress={() => Alert.alert('Physical Anchor', 'Physical anchor flow coming soon.')}
+            >
+              <LinearGradient
+                colors={['#b8920a', '#d4a820', '#c49a15']}
+                start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}
+                style={s.createPhysicalBtn}
+              >
+                <Text style={s.createPhysicalText}>CREATE PHYSICAL ANCHOR</Text>
+              </LinearGradient>
+            </TouchableOpacity>
+            <Text style={s.physicalTags}>Keychains · Prints · Apparel</Text>
+          </LinearGradient>
+        </FadeUp>
 
-          {/* Footer */}
-          <Text style={styles.createdText}>
-            Created {format(new Date(anchor.createdAt), 'MMMM d, yyyy')}
-          </Text>
-        </ScrollView>
+        {/* ── FOOTER ── */}
+        <FadeUp delay={440}>
+          <Text style={s.footerDate}>Created {anchor.createdAt}</Text>
+        </FadeUp>
 
-        {/* NEW: Distilled Letters Modal */}
-        <DistilledLettersModal
-          visible={distilledModalVisible}
-          onClose={() => setDistilledModalVisible(false)}
-          distilledLetters={anchor.distilledLetters}
-        />
-        <CustomDurationSheet
-          visible={customDurationSheetVisible}
-          mode="charge"
-          initialValue={clampDeepChargeMinutes(customDeepChargeMinutes)}
-          onCancel={() => setCustomDurationSheetVisible(false)}
-          onConfirm={handleCustomDurationConfirm}
-          reduceMotion={reduceMotionEnabled}
-        />
-      </SafeAreaView>
+      </ScrollView>
     </View>
   );
 };
 
-const styles = StyleSheet.create({
-  container: {
+export const AnchorDetailScreen = AnchorDetailsScreen;
+export default AnchorDetailsScreen;
+
+// ─── STYLES ──────────────────────────────────────────────
+const s = StyleSheet.create({
+  root: {
     flex: 1,
-    backgroundColor: colors.navy,
+    backgroundColor: C.purpleDeep,
   },
-  safeArea: {
-    flex: 1,
-  },
-  scrollView: {
-    flex: 1,
-  },
-  scrollContent: {
-    paddingHorizontal: 0,
-    paddingBottom: spacing.xxl,
-    paddingTop: spacing.md,
-  },
-  headerCard: {
-    borderRadius: 16,
-    overflow: 'hidden',
-    borderWidth: 1,
-    borderColor: 'rgba(212, 175, 55, 0.2)',
-    marginHorizontal: spacing.lg,
-    marginTop: spacing.md,
-    marginBottom: spacing.sm,
-  },
-  goldLeftBorder: {
-    position: 'absolute',
-    left: 0,
-    top: 0,
-    bottom: 0,
-    width: 3,
-    backgroundColor: colors.gold,
-  },
-  androidHeaderFallback: {
-    backgroundColor: 'rgba(12, 17, 24, 0.82)',
-  },
-  headerContent: {
-    padding: spacing.md,
+  header: {
+    flexDirection: 'row',
     alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(140,100,220,0.1)',
+  },
+  backBtn: {
+    width: 36, height: 36,
+    alignItems: 'center', justifyContent: 'center',
+    marginRight: 10,
+  },
+  backArrow: {
+    color: C.gold, fontSize: 22, opacity: 0.85,
+  },
+  headerTitle: {
+    fontFamily: 'Cinzel_500Medium', // or use a loaded font
+    fontSize: 13,
+    letterSpacing: 3,
+    color: C.gold,
+    opacity: 0.9,
+  },
+  scroll: {
+    padding: 16,
+    gap: 14,
+  },
+
+  // ── CARD ──
+  card: {
+    borderRadius: 18,
+    padding: 22,
+    borderWidth: 1,
+    borderColor: C.purpleBorder,
+    overflow: 'hidden',
+  },
+  animatedCardShell: {
+    width: '100%',
+    borderRadius: 20,
+    borderWidth: 1.2,
+    borderColor: 'rgba(201,168,76,0.24)',
+    overflow: 'hidden',
+  },
+  cardAuraOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    borderRadius: 20,
+    zIndex: 2,
+  },
+  cardGold: {
+    borderColor: C.goldBorder,
+    shadowColor: C.gold,
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.08,
+    shadowRadius: 20,
+    elevation: 4,
+  },
+
+  // ── TITLE CARD ──
+  anchorName: {
+    fontFamily: 'serif',
+    fontSize: 20,
+    fontWeight: '700',
+    color: '#f0e8d0',
+    textAlign: 'center',
+    letterSpacing: 0.5,
+    marginBottom: 6,
+    textShadowColor: 'rgba(201,168,76,0.2)',
+    textShadowOffset: { width: 0, height: 0 },
+    textShadowRadius: 12,
   },
   intentionText: {
-    fontSize: typography.sizes.h3,
-    fontFamily: typography.fonts.heading,
-    color: colors.bone,
+    fontFamily: 'serif',
+    fontSize: 12,
+    fontStyle: 'italic',
+    color: C.textSec,
     textAlign: 'center',
-    marginBottom: spacing.md,
-    lineHeight: typography.lineHeights.h3,
-    letterSpacing: 0.5,
+    letterSpacing: 0.3,
+    marginBottom: 16,
+    lineHeight: 18,
   },
   badgeRow: {
     flexDirection: 'row',
-    flexWrap: 'wrap',
     justifyContent: 'center',
-    alignItems: 'center',
+    gap: 10,
   },
-  badgeWrapper: {
-    borderRadius: 20,
-    overflow: 'hidden',
-    borderWidth: 1,
-    borderColor: 'rgba(212, 175, 55, 0.15)',
-    marginHorizontal: spacing.xs,
-    marginBottom: spacing.sm,
-  },
-  blurBadge: {
-    overflow: 'hidden',
-  },
-  badgeInner: {
+  badgeDesire: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
+    gap: 6,
+    paddingVertical: 6, paddingHorizontal: 14,
+    borderRadius: 30,
+    backgroundColor: 'rgba(120,40,40,0.4)',
+    borderWidth: 1, borderColor: 'rgba(200,80,80,0.3)',
   },
-  categoryBadge: {
+  badgeCharged: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-    borderRadius: 20,
-    marginBottom: spacing.md,
+    gap: 6,
+    paddingVertical: 6, paddingHorizontal: 14,
+    borderRadius: 30,
+    backgroundColor: 'rgba(60,45,10,0.5)',
+    borderWidth: 1, borderColor: 'rgba(201,168,76,0.4)',
+    shadowColor: C.gold,
+    shadowOpacity: 0.2, shadowRadius: 8,
   },
-  categoryBadgeCompact: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-    borderRadius: 20,
-    marginHorizontal: spacing.xs,
-    marginBottom: spacing.sm,
+  badgeDormant: {
+    backgroundColor: 'rgba(40,40,60,0.4)',
+    borderColor: 'rgba(140,100,220,0.2)',
+    shadowOpacity: 0,
   },
-  categoryEmoji: {
-    fontSize: 16,
-    marginRight: spacing.xs,
+  badgeDot: {
+    width: 5, height: 5, borderRadius: 3,
   },
-  categoryText: {
-    fontSize: typography.sizes.body2,
-    fontFamily: typography.fonts.body,
-    fontWeight: '600',
-  },
-  chargedBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: colors.gold + '20',
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-    borderRadius: 20,
-  },
-  chargedEmoji: {
-    fontSize: 16,
-    marginRight: spacing.xs,
-  },
-  chargedText: {
-    fontSize: typography.sizes.body2,
-    fontFamily: typography.fonts.body,
-    color: colors.gold,
-    fontWeight: '600',
-    marginRight: spacing.xs,
-  },
-  chargedDate: {
-    fontSize: typography.sizes.caption,
-    fontFamily: typography.fonts.body,
-    color: colors.text.tertiary,
-  },
-  statsCard: {
-    borderRadius: 16,
-    overflow: 'hidden',
-    borderWidth: 1,
-    borderColor: 'rgba(212, 175, 55, 0.24)',
-    marginHorizontal: spacing.lg,
-    marginVertical: spacing.md,
-  },
-  liveShimmerOverlay: {
-    position: 'absolute',
-    top: 0,
-    bottom: 0,
-    width: 120,
-    transform: [{ rotate: '-12deg' }],
-  },
-  androidStatsFallback: {
-    backgroundColor: 'rgba(12, 17, 24, 0.82)',
-  },
-  statsContent: {
-    padding: spacing.lg,
-    alignItems: 'center',
-  },
-  meaningText: {
-    fontSize: typography.fontSize.lg,
-    fontFamily: typography.fonts.heading,
-    color: colors.gold,
-    marginBottom: spacing.lg,
-    textAlign: 'center',
-  },
-  statsRow: {
-    marginBottom: spacing.md,
-  },
-  statItem: {
-    alignItems: 'center',
-  },
-  statLabel: {
-    fontSize: typography.sizes.caption,
-    fontFamily: typography.fonts.body,
-    color: colors.text.secondary,
-    marginBottom: spacing.xs,
-    textTransform: 'uppercase',
-    letterSpacing: 1.2,
-  },
-  statValue: {
-    fontSize: typography.fontSize.md,
-    fontFamily: typography.fonts.body,
-    color: colors.text.primary,
-    fontWeight: '600',
-  },
-  distilledContainer: {
-    paddingVertical: spacing.sm,
-  },
-  distilledLabel: {
-    fontSize: typography.fontSize.sm,
-    fontFamily: typography.fonts.body,
-    color: colors.text.secondary,
-    textTransform: 'uppercase',
-    letterSpacing: 1.2,
-  },
-  infoIcon: {
-    fontSize: 14,
-    color: colors.gold,
-  },
-  actionContainer: {
-    paddingVertical: spacing.xl,
-    paddingHorizontal: spacing.lg,
-    alignItems: 'center',
-  },
-  actionsTitle: {
-    width: '100%',
-    fontSize: typography.sizes.body2,
-    fontFamily: typography.fonts.body,
-    color: colors.text.secondary,
-    textTransform: 'uppercase',
-    letterSpacing: 1.1,
-    marginBottom: spacing.sm,
-  },
-  primaryButtonContainer: {
-    width: '100%',
-    position: 'relative',
-    marginBottom: spacing.xs,
-  },
-  primaryButtonPulse: {
-    position: 'absolute',
-    top: -6,
-    right: -6,
-    bottom: -6,
-    left: -6,
-    borderRadius: 16,
-    backgroundColor: 'rgba(212, 175, 55, 0.42)',
-  },
-  primaryButton: {
-    backgroundColor: colors.gold,
-    paddingVertical: spacing.md,
-    paddingHorizontal: spacing.xl,
-    borderRadius: 12,
-    alignItems: 'center',
-    marginBottom: spacing.xs,
-    width: '100%',
-    shadowColor: colors.gold,
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.4,
-    shadowRadius: 16,
-    elevation: 10,
-  },
-  primaryButtonInner: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: spacing.sm,
-  },
-  disabledButton: {
-    backgroundColor: 'rgba(255, 255, 255, 0.08)',
-    borderRadius: 12,
-    paddingVertical: spacing.md,
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.14)',
-  },
-  disabledButtonText: {
-    fontSize: typography.sizes.body1,
-    fontFamily: typography.fonts.body,
-    color: colors.text.secondary,
-    fontWeight: '600',
-  },
-  primaryButtonText: {
-    fontSize: typography.sizes.body1,
-    fontFamily: typography.fonts.body,
-    color: colors.charcoal,
+  badgeIcon: { fontSize: 11 },
+  badgeText: {
+    fontFamily: 'serif',
+    fontSize: 10,
     fontWeight: '700',
+    letterSpacing: 1.5,
   },
-  actionHelperText: {
-    alignSelf: 'flex-start',
-    fontSize: typography.sizes.caption,
-    fontFamily: typography.fonts.body,
-    color: colors.text.secondary,
-    marginBottom: spacing.xs,
+
+  // ── SIGIL ──
+  sigilAuraContainer: {
+    position: 'relative',
+    alignItems: 'center',
+    justifyContent: 'center',
+    overflow: 'visible',
   },
-  microcopy: {
-    fontSize: typography.sizes.caption,
-    fontFamily: typography.fonts.body,
-    color: colors.text.tertiary,
-    marginBottom: spacing.md,
-    fontStyle: 'italic',
+  sigilAuraCanvas: {
+    position: 'absolute',
+    width: SCREEN_W * 1.25,
+    height: SCREEN_W * 1.25,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  activationPresetsRow: {
-    marginTop: spacing.xs,
-    marginBottom: spacing.xs,
-  },
-  savePresetLink: {
-    alignSelf: 'center',
-    paddingVertical: spacing.xs,
-    marginBottom: spacing.xs,
-  },
-  savePresetText: {
-    fontSize: typography.sizes.caption,
-    fontFamily: typography.fonts.body,
-    color: colors.gold,
-    opacity: 0.75,
-  },
-  deepChargeModule: {
-    width: '100%',
-    borderRadius: 14,
+  sigilCard: {
+    borderRadius: 20,
+    overflow: 'hidden',
     borderWidth: 1,
-    borderColor: 'rgba(212, 175, 55, 0.34)',
-    backgroundColor: 'rgba(16, 22, 30, 0.52)',
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.md,
-    marginBottom: spacing.md,
-    shadowColor: colors.gold,
+    borderColor: C.goldBorder,
+    shadowColor: '#8040c8',
     shadowOffset: { width: 0, height: 0 },
     shadowOpacity: 0.2,
-    shadowRadius: 12,
-    elevation: 3,
+    shadowRadius: 30,
+    elevation: 8,
   },
-  deepChargeHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
+  sigilWrapper: {
+    width: '100%',
+    aspectRatio: 1,
     alignItems: 'center',
-    marginBottom: spacing.xs,
+    justifyContent: 'center',
   },
-  deepChargeHeaderContent: {
-    flex: 1,
-    paddingRight: spacing.sm,
+  sigilImage: {
+    width: '78%',
+    aspectRatio: 1,
+    borderRadius: 999,
+    borderWidth: 2,
+    borderColor: 'rgba(201,168,76,0.35)',
   },
-  deepChargeTitle: {
-    fontSize: typography.sizes.body1,
-    fontFamily: typography.fonts.body,
-    color: colors.gold,
-    fontWeight: '600',
-    marginBottom: spacing.xs,
+  sigilPlaceholder: {
+    width: '78%',
+    aspectRatio: 1,
+    borderRadius: 999,
+    borderWidth: 2,
+    borderColor: 'rgba(201,168,76,0.35)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: C.gold,
+    shadowOpacity: 0.2, shadowRadius: 20,
   },
-  deepChargeHelperText: {
-    fontSize: typography.sizes.caption,
-    fontFamily: typography.fonts.body,
-    color: colors.text.secondary,
+  chargedSigilBackdrop: {
+    position: 'absolute',
+    width: '72%',
+    height: '72%',
+    borderRadius: 999,
+    backgroundColor: 'rgba(10, 6, 36, 0.92)',
+    borderWidth: 1.5,
+    borderColor: 'rgba(200, 160, 40, 0.55)',
+    zIndex: 2,
   },
-  deepChargeMicrocopy: {
-    fontSize: typography.sizes.caption,
-    fontFamily: typography.fonts.body,
-    color: colors.text.tertiary,
-    marginBottom: spacing.sm,
+  chargedSigilImage: {
+    width: '72%',
+    borderColor: 'rgba(255, 210, 80, 0.5)',
+    zIndex: 3,
   },
-  durationChipsRow: {
+  chargedSigilPlaceholder: {
+    width: '72%',
+    borderColor: 'rgba(255, 210, 80, 0.5)',
+    zIndex: 3,
+  },
+
+  // ── STATS ──
+  statsHeader: {
+    fontFamily: 'serif',
+    fontSize: 11,
+    letterSpacing: 3,
+    color: C.gold,
+    textAlign: 'center',
+    marginBottom: 20,
+    textTransform: 'uppercase',
+  },
+  statsGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: spacing.sm,
-    marginBottom: spacing.md,
+    gap: 10,
+    marginBottom: 12,
   },
-  durationChip: {
-    borderRadius: 20,
-    borderWidth: 1,
-    borderColor: 'rgba(212, 175, 55, 0.3)',
-    backgroundColor: 'rgba(255, 255, 255, 0.03)',
-    paddingVertical: spacing.sm,
-    paddingHorizontal: spacing.md,
-  },
-  durationChipSelected: {
-    borderColor: colors.gold,
-    backgroundColor: 'rgba(212, 175, 55, 0.16)',
-  },
-  durationChipText: {
-    fontSize: typography.sizes.body2,
-    fontFamily: typography.fonts.body,
-    color: colors.text.secondary,
-    fontWeight: '500',
-  },
-  durationChipTextSelected: {
-    color: colors.gold,
-    fontWeight: '600',
-  },
-  mantraToggleRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: spacing.md,
-  },
-  mantraToggleCopy: {
+  statItem: {
     flex: 1,
-    paddingRight: spacing.md,
-  },
-  mantraToggleTitle: {
-    fontSize: typography.sizes.body2,
-    fontFamily: typography.fonts.body,
-    color: colors.text.primary,
-    marginBottom: spacing.xs,
-  },
-  mantraToggleDescription: {
-    fontSize: typography.sizes.caption,
-    fontFamily: typography.fonts.body,
-    color: colors.text.tertiary,
-  },
-  deepChargeStartButton: {
+    minWidth: '45%',
+    backgroundColor: 'rgba(34,26,70,0.58)',
+    borderWidth: 1, borderColor: 'rgba(156,120,224,0.25)',
     borderRadius: 12,
-    borderWidth: 1,
-    borderColor: 'rgba(212, 175, 55, 0.4)',
-    backgroundColor: 'rgba(212, 175, 55, 0.1)',
-    paddingVertical: spacing.md,
+    padding: 14,
     alignItems: 'center',
   },
-  deepChargeStartButtonText: {
-    fontSize: typography.sizes.body1,
-    fontFamily: typography.fonts.body,
-    color: colors.gold,
-    fontWeight: '600',
+  statItemFull: {
+    flexBasis: '100%',
+    flexGrow: 1,
   },
-  burnDivider: {
-    width: '100%',
-    height: 1,
-    backgroundColor: 'rgba(255, 255, 255, 0.1)',
-    marginBottom: spacing.md,
-    marginTop: spacing.xs,
+  statLabel: {
+    fontFamily: 'serif',
+    fontSize: 8,
+    letterSpacing: 2,
+    color: C.textDim,
+    textTransform: 'uppercase',
+    marginBottom: 6,
   },
-  burnButton: {
-    backgroundColor: 'rgba(122, 83, 71, 0.08)',
-    paddingVertical: spacing.md,
-    paddingHorizontal: spacing.xl,
-    borderRadius: 12,
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: 'rgba(201, 162, 138, 0.28)',
-    width: '100%',
-  },
-  burnButtonText: {
-    fontSize: typography.sizes.body1,
-    fontFamily: typography.fonts.body,
-    color: colors.text.secondary,
-    fontWeight: '600',
-  },
-  devDeleteButton: {
-    backgroundColor: 'rgba(239, 68, 68, 0.15)',
-    paddingVertical: spacing.md,
-    paddingHorizontal: spacing.xl,
-    borderRadius: 8,
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: 'rgba(239, 68, 68, 0.35)',
-    marginTop: spacing.md,
-    width: '100%',
-  },
-  devDeleteButtonText: {
-    fontSize: typography.sizes.body1,
-    fontFamily: typography.fonts.body,
-    color: colors.error,
+  statValue: {
+    fontFamily: 'serif',
+    fontSize: 16,
     fontWeight: '700',
+    color: C.textPrimary,
+    letterSpacing: 0.5,
   },
-  createdText: {
-    fontSize: typography.sizes.caption,
-    fontFamily: typography.fonts.body,
-    color: colors.text.tertiary,
-    textAlign: 'center',
-    marginTop: spacing.xl,
-  },
-  errorText: {
-    fontSize: typography.sizes.body1,
-    fontFamily: typography.fonts.body,
-    color: colors.error,
-    textAlign: 'center',
-    marginTop: spacing.xxl,
-  },
-  // Ritual Dashboard
-  dashboardGrid: {
+  distilledRow: {
     flexDirection: 'row',
-    marginBottom: spacing.md,
-    gap: spacing.lg,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    paddingTop: 14,
+    marginTop: 4,
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(140,100,220,0.1)',
   },
-  dashboardStatItem: {
-    flex: 1,
-    alignItems: 'flex-start',
+  distilledLabel: {
+    fontFamily: 'serif',
+    fontSize: 8,
+    letterSpacing: 2.5,
+    color: C.textDim,
+    textTransform: 'uppercase',
   },
-  todayRow: {
-    marginBottom: spacing.sm,
+  distilledTags: { flexDirection: 'row', gap: 6 },
+  distilledTag: {
+    borderWidth: 1, borderColor: 'rgba(201,168,76,0.15)',
+    borderRadius: 4, paddingVertical: 2, paddingHorizontal: 7,
   },
-  todayValue: {
-    fontSize: typography.fontSize.md,
-    fontFamily: typography.fonts.body,
-    fontWeight: '600',
+  distilledTagText: {
+    fontFamily: 'serif',
+    fontSize: 8, letterSpacing: 1, color: 'rgba(201,168,76,0.5)',
   },
-  dashboardDivider: {
-    height: 1,
-    backgroundColor: 'rgba(212, 175, 55, 0.15)',
-    marginVertical: spacing.sm,
+
+  // ── SECTION LABEL ──
+  sectionLabel: {
+    fontFamily: 'serif',
+    fontSize: 9,
+    letterSpacing: 3,
+    color: C.textSec,
+    textTransform: 'uppercase',
+    paddingHorizontal: 4,
+    marginTop: 4,
+  },
+
+  // ── ACTIVATE ──
+  activateInner: {
+    padding: 18,
+    borderRadius: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+    overflow: 'hidden',
+  },
+  activateBtnContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  activateIcon: { fontSize: 18 },
+  activateText: {
+    fontFamily: 'serif',
+    fontSize: 14,
+    fontWeight: '800',
+    letterSpacing: 2,
+    color: '#1a0e00',
+  },
+  shineSweep: {
+    position: 'absolute',
+    top: 0, bottom: 0,
+    width: 80,
+    backgroundColor: 'rgba(255,255,255,0.18)',
+    transform: [{ skewX: '-20deg' }],
+  },
+  activateSub: {
+    fontFamily: 'serif',
+    fontSize: 11,
+    color: C.textDim,
+    textAlign: 'center',
+    letterSpacing: 0.5,
+    marginTop: -6,
+  },
+  durationRow: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    gap: 10,
+  },
+  durationPill: {
+    paddingVertical: 7, paddingHorizontal: 20,
+    borderRadius: 30,
+    borderWidth: 1, borderColor: 'rgba(140,100,220,0.25)',
+  },
+  durationPillActive: {
+    borderColor: C.goldBorder,
+    backgroundColor: 'rgba(201,168,76,0.1)',
+    shadowColor: C.gold, shadowOpacity: 0.2, shadowRadius: 8,
+  },
+  durationText: {
+    fontFamily: 'serif',
+    fontSize: 10, fontWeight: '700', letterSpacing: 1,
+    color: C.textSec,
+  },
+  durationTextActive: { color: C.goldBright },
+  saveDefault: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  saveDefaultText: {
+    fontFamily: 'serif',
+    fontSize: 12, fontStyle: 'italic', color: C.goldDim, opacity: 0.96,
+  },
+  fastReset: {
+    fontFamily: 'serif',
+    fontSize: 11, fontStyle: 'italic',
+    color: C.textDim, textAlign: 'center',
+    marginTop: -6,
+  },
+
+  // ── COLLAPSIBLE ──
+  collapsibleCard: { padding: 18 },
+  collapsibleHeader: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+  },
+  collapsibleTitle: {
+    fontFamily: 'serif',
+    fontSize: 13, fontWeight: '600', color: C.gold, letterSpacing: 1,
+    marginBottom: 3,
+  },
+  collapsibleMeta: {
+    fontFamily: 'serif',
+    fontSize: 12, color: C.textSec, marginBottom: 2,
+  },
+  collapsibleSub: {
+    fontFamily: 'serif',
+    fontSize: 11, fontStyle: 'italic', color: C.textDim,
+  },
+  chevron: { color: C.goldDim, fontSize: 12 },
+
+  // ── ACTION BTNS ──
+  actionBtn: {
+    borderRadius: 14,
+    borderWidth: 1,
+    padding: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+  },
+  actionBtnText: {
+    fontFamily: 'serif',
+    fontSize: 13, fontWeight: '700', letterSpacing: 1.6,
+  },
+
+  // ── PRACTICE ──
+  practiceHeader: {
+    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
+    marginBottom: 16,
+  },
+  practiceTitle: {
+    fontFamily: 'serif',
+    fontSize: 13, fontWeight: '600', color: C.gold, letterSpacing: 1,
+  },
+  practiceItem: {
+    flexDirection: 'row', alignItems: 'center', gap: 14,
+  },
+  practiceCheck: {
+    width: 28, height: 28, borderRadius: 14,
+    borderWidth: 1.5,
+    alignItems: 'center', justifyContent: 'center',
+  },
+  checkComplete: {
+    borderColor: 'rgba(201,168,76,0.5)',
+    backgroundColor: 'rgba(201,168,76,0.12)',
+  },
+  checkProgress: {
+    borderColor: 'rgba(140,100,220,0.35)',
+    backgroundColor: 'rgba(100,60,180,0.1)',
+  },
+  practiceCheckText: {
+    fontFamily: 'serif',
+    fontSize: 10, fontWeight: '700',
+  },
+  practiceLabel: {
+    fontFamily: 'serif',
+    fontSize: 15, color: C.textPrimary, letterSpacing: 0.3,
+  },
+
+  // ── PHYSICAL ──
+  physicalEyebrow: {
+    fontFamily: 'serif',
+    fontSize: 9, letterSpacing: 3, color: C.gold,
+    textTransform: 'uppercase', marginBottom: 4, opacity: 0.8,
+  },
+  physicalSub: {
+    fontFamily: 'serif',
+    fontSize: 13, fontStyle: 'italic', color: C.textSec, marginBottom: 16,
+  },
+  physicalRow: {
+    flexDirection: 'row', alignItems: 'center', gap: 14, marginBottom: 16,
+  },
+  physicalThumb: {
+    width: 64, height: 64, borderRadius: 12,
+    borderWidth: 1, borderColor: 'rgba(201,168,76,0.25)',
+    backgroundColor: 'rgba(26,20,58,0.85)',
+    overflow: 'hidden',
+    alignItems: 'center', justifyContent: 'center',
+  },
+  physicalThumbImage: {
+    width: '100%',
+    height: '100%',
+  },
+  physicalThumbFallbackBg: {
+    ...StyleSheet.absoluteFillObject,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  physicalThumbFallback: {
+    fontSize: 28,
+  },
+  physicalCopyTitle: {
+    fontFamily: 'serif',
+    fontSize: 13, fontWeight: '700', color: C.textPrimary, marginBottom: 4,
+  },
+  physicalCopyBody: {
+    fontFamily: 'serif',
+    fontSize: 12, fontStyle: 'italic', color: C.textSec,
+  },
+  createPhysicalBtn: {
+    borderRadius: 12, padding: 15, alignItems: 'center',
+    shadowColor: C.gold, shadowOpacity: 0.25, shadowRadius: 10,
+  },
+  createPhysicalText: {
+    fontFamily: 'serif',
+    fontSize: 12, fontWeight: '800', letterSpacing: 2, color: '#1a0e00',
+  },
+  physicalTags: {
+    fontFamily: 'serif',
+    fontSize: 11, color: C.textDim,
+    textAlign: 'center', letterSpacing: 1,
+  },
+
+  // ── FOOTER ──
+  footerDate: {
+    fontFamily: 'serif',
+    fontSize: 11, fontStyle: 'italic',
+    color: C.textDim, textAlign: 'center',
+    paddingVertical: 8, letterSpacing: 0.5,
   },
 });
