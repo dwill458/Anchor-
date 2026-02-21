@@ -1,10 +1,21 @@
 import 'react-native-gesture-handler';
 import React, { useEffect } from 'react';
 import { AppState, StatusBar, View, StyleSheet, Platform, Dimensions } from 'react-native';
+import { useFonts } from 'expo-font';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { NavigationContainer, useNavigationContainerRef } from '@react-navigation/native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { enableScreens } from 'react-native-screens';
+import {
+  Cinzel_400Regular,
+  Cinzel_600SemiBold,
+  Cinzel_700Bold,
+} from '@expo-google-fonts/cinzel';
+import { Inter_400Regular, Inter_600SemiBold } from '@expo-google-fonts/inter';
+import {
+  CrimsonPro_400Regular,
+  CrimsonPro_400Regular_Italic,
+} from '@expo-google-fonts/crimson-pro';
 import { RootNavigator } from './src/navigation';
 import { ErrorBoundary } from './src/components/ErrorBoundary';
 import { ToastProvider } from './src/components/ToastProvider';
@@ -34,6 +45,15 @@ const AppTheme = {
 export default function App() {
   const computeStreak = useAuthStore((state) => state.computeStreak);
   const navRef = useNavigationContainerRef<RootNavigatorParamList>();
+  const [fontsLoaded] = useFonts({
+    'Cinzel-Regular': Cinzel_400Regular,
+    'Cinzel-SemiBold': Cinzel_600SemiBold,
+    'Cinzel-Bold': Cinzel_700Bold,
+    'Inter-Regular': Inter_400Regular,
+    'Inter-SemiBold': Inter_600SemiBold,
+    'CrimsonPro-Regular': CrimsonPro_400Regular,
+    'CrimsonPro-Italic': CrimsonPro_400Regular_Italic,
+  });
 
   useEffect(() => {
     const subscription = AppState.addEventListener('change', (nextState) => {
@@ -43,6 +63,10 @@ export default function App() {
     });
     return () => subscription.remove();
   }, [computeStreak]);
+
+  if (!fontsLoaded) {
+    return <View style={styles.fontLoadingFallback} />;
+  }
 
   return (
     <ErrorBoundary>
@@ -92,5 +116,9 @@ const styles = StyleSheet.create({
         borderRadius: 20,
       }
     })
+  },
+  fontLoadingFallback: {
+    flex: 1,
+    backgroundColor: '#09060f',
   },
 });

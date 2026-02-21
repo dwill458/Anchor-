@@ -44,12 +44,12 @@ const getVariantConfig = (variant: PremiumGlowVariant): VariantConfig => {
     case 'card':
     default:
       return {
-        auraScale: 1.35,
-        ringScale: 1.15,
-        ringStroke: 1.35,
-        highlightStroke: 1.9,
-        auraOpacityMultiplier: 0.74,
-        ringOpacityMultiplier: 0.68,
+        auraScale: 1.55,
+        ringScale: 1.25,
+        ringStroke: 1.8,
+        highlightStroke: 2.8,
+        auraOpacityMultiplier: 0.95,
+        ringOpacityMultiplier: 0.9,
       };
   }
 };
@@ -57,14 +57,14 @@ const getVariantConfig = (variant: PremiumGlowVariant): VariantConfig => {
 const getStateOpacity = (state: PremiumGlowState): { aura: number; ring: number; pulse: number } => {
   switch (state) {
     case 'active':
-      return { aura: 0.46, ring: 0.92, pulse: 0.2 };
+      return { aura: 0.55, ring: 0.95, pulse: 0.25 };
     case 'charged':
-      return { aura: 0.36, ring: 0.78, pulse: 0.16 };
+      return { aura: 0.60, ring: 0.95, pulse: 0.35 };
     case 'stale':
-      return { aura: 0.16, ring: 0, pulse: 0.04 };
+      return { aura: 0.05, ring: 0, pulse: 0.02 };
     case 'dormant':
     default:
-      return { aura: 0.12, ring: 0, pulse: 0.03 };
+      return { aura: 0, ring: 0, pulse: 0 };
   }
 };
 
@@ -101,13 +101,13 @@ export const PremiumAnchorGlow: React.FC<PremiumAnchorGlowProps> = ({
       Animated.sequence([
         Animated.timing(breath, {
           toValue: 1,
-          duration: 2100,
+          duration: 1600,
           easing: Easing.inOut(Easing.sin),
           useNativeDriver: true,
         }),
         Animated.timing(breath, {
           toValue: 0,
-          duration: 2100,
+          duration: 1600,
           easing: Easing.inOut(Easing.sin),
           useNativeDriver: true,
         }),
@@ -135,7 +135,7 @@ export const PremiumAnchorGlow: React.FC<PremiumAnchorGlowProps> = ({
     const highlightRotationLoop = Animated.loop(
       Animated.timing(highlightRotation, {
         toValue: 1,
-        duration: 7000,
+        duration: 4000,
         easing: Easing.linear,
         useNativeDriver: true,
       })
@@ -164,7 +164,7 @@ export const PremiumAnchorGlow: React.FC<PremiumAnchorGlowProps> = ({
 
   const auraScale = breath.interpolate({
     inputRange: [0, 1],
-    outputRange: [1, animationsEnabled ? 1.09 : 1],
+    outputRange: [0.92, animationsEnabled ? 1.20 : 0.92],
   });
 
   const slowSpin = slowRotation.interpolate({
@@ -244,8 +244,8 @@ export const PremiumAnchorGlow: React.FC<PremiumAnchorGlowProps> = ({
                 height: ringSize,
                 borderRadius: ringSize / 2,
                 borderWidth: variantConfig.highlightStroke,
-                borderTopColor: `${colors.gold}D9`,
-                borderRightColor: `${colors.gold}B8`,
+                borderTopColor: colors.gold,
+                borderRightColor: `${colors.gold}80`,
                 borderBottomColor: 'transparent',
                 borderLeftColor: 'transparent',
                 opacity: Math.min(1, opacityConfig.ring * 0.9 * variantConfig.ringOpacityMultiplier),
@@ -285,11 +285,11 @@ const styles = StyleSheet.create({
   auraCore: {
     width: '100%',
     height: '100%',
-    backgroundColor: `${colors.gold}22`,
+    backgroundColor: `${colors.gold}24`,
     shadowColor: colors.gold,
     shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.65,
-    shadowRadius: 32,
-    elevation: 14,
+    shadowOpacity: 0.9,
+    shadowRadius: 48,
+    elevation: 20,
   },
 });

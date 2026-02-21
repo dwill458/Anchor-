@@ -6,6 +6,7 @@
 
 export { ScreenHeader } from './ScreenHeader';
 export { ZenBackground } from './ZenBackground';
+export { GlassCard } from './GlassCard';
 export { LogoBreath } from './LogoBreath';
 export { BottomCtaBar, BOTTOM_BAR_HEIGHT } from './BottomCtaBar';
 export { BottomDock, DOCK_HEIGHT } from './BottomDock';
@@ -20,3 +21,4 @@ export type { PresetChip } from './PresetChips';
 export { NavigationVeil, navigationVeilRef } from './NavigationVeil';
 export { UndertoneLine } from './UndertoneLine';
 export { GlassIconButton } from './GlassIconButton';
+export { ChargedGlowCanvas } from './ChargedGlowCanvas';

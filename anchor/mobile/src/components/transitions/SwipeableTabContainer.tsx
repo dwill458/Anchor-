@@ -34,14 +34,13 @@ const { width: SCREEN_WIDTH } = Dimensions.get('window');
 // Animation constants
 const SWIPE_THRESHOLD = SCREEN_WIDTH * 0.25; // 25% of screen to trigger swipe
 const VELOCITY_THRESHOLD = 500; // px/s
-const PARALLAX_FACTOR = 0.3; // Outgoing screen moves at 30% of incoming
 
-// Spring config for iOS-like feel
+// Spring config for snappier, non-overlapping feel
 const SPRING_CONFIG = {
-  damping: 20,
-  stiffness: 200,
+  damping: 30, // Higher damping prevents wobble
+  stiffness: 450, // Higher stiffness makes it faster
   mass: 0.5,
-  overshootClamping: false,
+  overshootClamping: true, // Prevents bouncing past the edge
   restDisplacementThreshold: 0.01,
   restSpeedThreshold: 0.01,
 };
@@ -54,6 +53,8 @@ interface SwipeableTabContainerProps {
   onIndexChange: (index: number) => void;
   /** Total number of swipeable tabs */
   tabCount?: number;
+  /** Whether swiping between tabs is enabled */
+  swipeEnabled?: boolean;
 }
 
 export const SwipeableTabContainer: React.FC<SwipeableTabContainerProps> = ({
@@ -61,6 +62,7 @@ export const SwipeableTabContainer: React.FC<SwipeableTabContainerProps> = ({
   activeIndex,
   onIndexChange,
   tabCount = 2,
+  swipeEnabled = true,
 }) => {
   const reducedMotion = useReducedMotion();
 
@@ -87,6 +89,7 @@ export const SwipeableTabContainer: React.FC<SwipeableTabContainerProps> = ({
   );
 
   const panGesture = Gesture.Pan()
+    .enabled(swipeEnabled)
     .activeOffsetX([-10, 10]) // Activate after 10px horizontal movement
     .failOffsetY([-20, 20]) // Fail if vertical movement exceeds 20px
     .onStart(() => {
@@ -182,32 +185,11 @@ const TabPage: React.FC<TabPageProps> = ({
 
     // Calculate offset from current position
     const offset = index - position.value;
-
-    // Incoming screen: full movement
-    // Outgoing screen: parallax (slower movement)
-    let translateX: number;
-    if (offset > 0) {
-      // Screen is to the right (will slide in from right)
-      translateX = offset * SCREEN_WIDTH;
-    } else if (offset < 0) {
-      // Screen is to the left (will slide in from left)
-      // Apply parallax for outgoing effect
-      translateX = offset * SCREEN_WIDTH * PARALLAX_FACTOR;
-    } else {
-      translateX = 0;
-    }
-
-    // Opacity: fully visible when active, fade slightly when moving away
-    const opacity = interpolate(
-      Math.abs(offset),
-      [0, 0.5, 1],
-      [1, 1, 0.8],
-      Extrapolation.CLAMP
-    );
+    const translateX = offset * SCREEN_WIDTH;
 
     return {
       transform: [{ translateX }],
-      opacity,
+      opacity: 1,
     };
   });
 

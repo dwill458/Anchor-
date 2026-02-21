@@ -57,6 +57,21 @@ export const colors = {
     undertone: '#AAAAAA',  // warm silver — guidance text with full contrast, no opacity reduction
     disabled: '#757575',
   },
+
+  // Sanctuary screen-specific palette
+  sanctuary: {
+    gold: '#c9a84c',
+    goldBright: '#f0cb6a',
+    goldDim: '#6a5428',
+    goldBorder: 'rgba(201,168,76,0.28)',
+    purpleBg: '#09060f',
+    purpleCard: 'rgba(18,12,32,0.92)',
+    purpleBorder: 'rgba(120,80,200,0.15)',
+    tabBg: 'rgba(12,8,22,0.92)',
+    tabBorder: 'rgba(120,80,200,0.12)',
+    textSecondary: 'rgba(200,185,155,0.55)',
+    textDim: 'rgba(180,165,135,0.3)',
+  },
 } as const;
 
 export type ColorKey = keyof typeof colors;

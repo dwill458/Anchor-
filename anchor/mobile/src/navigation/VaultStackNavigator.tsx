@@ -33,7 +33,6 @@ import {
   ChargeCompleteScreen,
 } from '../screens/rituals';
 import { SettingsScreen, DefaultChargeSettings, DefaultActivationSettings, DailyPracticeGoalScreen } from '../screens/profile';
-import { SettingsButton } from '../components/header/SettingsButton';
 import type { RootStackParamList } from '@/types';
 import { colors } from '@/theme';
 import { useAuthStore } from '@/stores/authStore';
@@ -86,26 +85,14 @@ export const VaultStackNavigator: React.FC<VaultStackNavigatorProps> = ({ onRout
       <Stack.Screen
         name="Vault"
         component={VaultScreen}
-        options={() => ({
-          headerShown: true,
-          headerStyle: {
-            backgroundColor: colors.background.primary,
-            shadowColor: 'transparent',
-            elevation: 0,
-          },
-          headerTintColor: colors.gold,
-          headerTitle: 'Sanctuary',
-          headerTitleStyle: {
-            fontWeight: '600',
-            fontSize: 18,
-          },
-          headerRight: () => <SettingsButton />,
-        })}
+        options={{
+          headerShown: false,
+        }}
       />
       <Stack.Screen
         name="AnchorDetail"
         component={AnchorDetailScreen}
-        options={{ title: 'Anchor Details' }}
+        options={{ headerShown: false }}
       />
       <Stack.Screen
         name="CreateAnchor"
