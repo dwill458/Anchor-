@@ -3,6 +3,7 @@ import { StyleSheet, Text, View } from 'react-native';
 import { GlassIconButton } from '@/components/common';
 import { InfoIcon } from '@/components/icons';
 import { colors, spacing, typography } from '@/theme';
+import { PRACTICE_COPY } from '@/constants/copy';
 
 interface PracticeHubHeaderProps {
   onInfoPress: () => void;
@@ -12,8 +13,8 @@ export const PracticeHubHeader: React.FC<PracticeHubHeaderProps> = ({ onInfoPres
   return (
     <View style={styles.row}>
       <View style={styles.copyWrap}>
-        <Text style={styles.title}>Practice</Text>
-        <Text style={styles.subtitle}>Return to the symbol. Reinforce the path.</Text>
+        <Text style={styles.title}>{PRACTICE_COPY.headerTitle}</Text>
+        <Text style={styles.subtitle}>{PRACTICE_COPY.headerSubtitle}</Text>
       </View>
       <GlassIconButton
         accessibilityLabel="Practice mode help"
@@ -23,7 +24,7 @@ export const PracticeHubHeader: React.FC<PracticeHubHeaderProps> = ({ onInfoPres
       >
         <InfoIcon size={16} color={colors.gold} />
       </GlassIconButton>
-    </View>
+    </View >
   );
 };
 

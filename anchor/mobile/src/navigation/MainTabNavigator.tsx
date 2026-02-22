@@ -152,8 +152,8 @@ const CustomTabBar: React.FC<CustomTabBarProps> = ({ activeIndex, onTabPress }) 
 // ─── Main Navigator ───────────────────────────────────────────────────────────
 
 export const MainTabNavigator: React.FC = () => {
-  const { openDailyAnchorAutomatically } = useSettingsStore();
-  const { anchors } = useAnchorStore();
+  const openDailyAnchorAutomatically = useSettingsStore((state) => state.openDailyAnchorAutomatically);
+  const anchorCount = useAnchorStore((state) => state.anchors.length);
   const hasCheckedAutoOpen = useRef(false);
   const toast = useToast();
 
@@ -173,13 +173,13 @@ export const MainTabNavigator: React.FC = () => {
 
   // Auto-open daily anchor
   React.useEffect(() => {
-    if (openDailyAnchorAutomatically && anchors.length > 0 && !hasCheckedAutoOpen.current) {
+    if (openDailyAnchorAutomatically && anchorCount > 0 && !hasCheckedAutoOpen.current) {
       hasCheckedAutoOpen.current = true;
       setTimeout(() => {
         setActiveIndex(0);
       }, 500);
     }
-  }, []);
+  }, [anchorCount, openDailyAnchorAutomatically]);
 
   // Milestone queue drain — one milestone toast per 10s on app foreground
   React.useEffect(() => {

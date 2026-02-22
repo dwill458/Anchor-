@@ -55,7 +55,8 @@ export const SealAnchorScreen: React.FC = () => {
   const route = useRoute<SealAnchorRouteProp>();
   const { anchorId, returnTo } = route.params;
 
-  const { getAnchorById, updateAnchor } = useAnchorStore();
+  const getAnchorById = useAnchorStore((state) => state.getAnchorById);
+  const updateAnchor = useAnchorStore((state) => state.updateAnchor);
   const anchor = getAnchorById(anchorId);
   const reduceMotionEnabled = useReduceMotionEnabled();
 

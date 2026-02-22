@@ -8,6 +8,7 @@ import React, { Component, ReactNode } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { colors, spacing, typography } from '@/theme';
+import { ErrorTrackingService } from '@/services/ErrorTrackingService';
 
 interface Props {
   children: ReactNode;
@@ -37,11 +38,10 @@ export class ErrorBoundary extends Component<Props, State> {
   }
 
   componentDidCatch(error: Error, errorInfo: React.ErrorInfo): void {
-    // Log error to error reporting service (e.g., Sentry)
-    console.error('ErrorBoundary caught an error:', error, errorInfo);
-
-    // In production, you would send this to Sentry/Bugsnag:
-    // Sentry.captureException(error, { contexts: { react: errorInfo } });
+    ErrorTrackingService.captureException(error, {
+      type: 'react_error_boundary',
+      componentStack: errorInfo.componentStack,
+    });
   }
 
   handleReset = (): void => {

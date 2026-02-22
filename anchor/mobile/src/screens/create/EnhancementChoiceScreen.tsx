@@ -140,6 +140,16 @@ export const EnhancementChoiceScreen: React.FC = () => {
       <ZenBackground />
 
       <SafeAreaView style={styles.safeArea}>
+        {/* Back arrow */}
+        <TouchableOpacity
+          onPress={() => navigation.goBack()}
+          style={styles.backButton}
+          accessibilityRole="button"
+          accessibilityLabel="Go back"
+        >
+          <Text style={styles.backArrow}>←</Text>
+        </TouchableOpacity>
+
         <ScrollView
           style={styles.scrollView}
           contentContainerStyle={styles.scrollContent}
@@ -383,8 +393,17 @@ const styles = StyleSheet.create({
     paddingHorizontal: 24,
     paddingBottom: 40,
   },
+  backButton: {
+    paddingHorizontal: 24,
+    paddingVertical: 12,
+    alignSelf: 'flex-start',
+  },
+  backArrow: {
+    fontSize: 24,
+    color: colors.gold,
+  },
   titleSection: {
-    paddingTop: 50,
+    paddingTop: 8,
     paddingBottom: 24,
   },
   title: {

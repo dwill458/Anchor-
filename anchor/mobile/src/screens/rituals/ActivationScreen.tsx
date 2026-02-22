@@ -36,7 +36,8 @@ export const ActivationScreen: React.FC = () => {
   const { anchorId, activationType, durationOverride, returnTo } = route.params;
   const toast = useToast();
 
-  const { getAnchorById, updateAnchor } = useAnchorStore();
+  const getAnchorById = useAnchorStore((state) => state.getAnchorById);
+  const updateAnchor = useAnchorStore((state) => state.updateAnchor);
   const computeStreak = useAuthStore((state) => state.computeStreak);
   const { defaultActivation } = useSettingsStore();
   const { recordSession } = useSessionStore();
@@ -151,8 +152,15 @@ export const ActivationScreen: React.FC = () => {
 
     if (returnTo === 'practice') {
       navigateToPractice();
+    } else if (returnTo === 'reinforce') {
+      (navigation as any).replace('Ritual', {
+        anchorId,
+        ritualType: 'ritual',
+        durationSeconds: 300,
+        returnTo: 'detail',
+      });
     } else if (returnTo === 'detail') {
-      navigation.navigate('AnchorDetail' as any, { anchorId });
+      (navigation as any).navigate('AnchorDetail', { anchorId });
     } else {
       navigation.goBack();
     }

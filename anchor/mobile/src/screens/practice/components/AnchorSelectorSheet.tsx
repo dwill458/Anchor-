@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
   FlatList,
   Modal,
@@ -12,6 +12,7 @@ import {
 } from 'react-native';
 import { BlurView } from 'expo-blur';
 import { SvgXml } from 'react-native-svg';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { Anchor } from '@/types';
 import { OptimizedImage } from '@/components/common';
 import { colors, spacing, typography } from '@/theme';
@@ -20,6 +21,7 @@ interface AnchorSelectorSheetProps {
   visible: boolean;
   anchors: Anchor[];
   selectedAnchorId?: string;
+  nextRituals?: Record<string, string>;
   onSelect: (anchor: Anchor) => void;
   onClose: () => void;
 }
@@ -30,10 +32,18 @@ export const AnchorSelectorSheet: React.FC<AnchorSelectorSheetProps> = ({
   visible,
   anchors,
   selectedAnchorId,
+  nextRituals,
   onSelect,
   onClose,
 }) => {
+  const insets = useSafeAreaInsets();
   const [query, setQuery] = useState('');
+
+  useEffect(() => {
+    if (!visible) {
+      setQuery('');
+    }
+  }, [visible]);
 
   const filtered = useMemo(() => {
     const trimmed = query.trim().toLowerCase();
@@ -43,15 +53,17 @@ export const AnchorSelectorSheet: React.FC<AnchorSelectorSheetProps> = ({
 
   return (
     <Modal
-      animationType="slide"
+      animationType={Platform.OS === 'android' ? 'none' : 'fade'}
       visible={visible}
       transparent
       statusBarTranslucent
+      hardwareAccelerated
+      presentationStyle={Platform.OS === 'ios' ? 'overFullScreen' : undefined}
       onRequestClose={onClose}
     >
       <View style={styles.root}>
         <Pressable style={styles.backdrop} onPress={onClose} />
-        <View style={styles.sheetWrap}>
+        <View style={[styles.sheetWrap, { paddingBottom: Math.max(spacing.xl, insets.bottom + spacing.md) }]}>
           {Platform.OS === 'ios' ? (
             <BlurView intensity={42} tint="dark" style={StyleSheet.absoluteFillObject} />
           ) : (
@@ -101,7 +113,11 @@ export const AnchorSelectorSheet: React.FC<AnchorSelectorSheetProps> = ({
                       {item.category.replace(/_/g, ' ')}
                     </Text>
                   </View>
-                  {item.isCharged ? (
+                  {nextRituals?.[item.id] ? (
+                    <View style={styles.nextRitualBadge}>
+                      <Text style={styles.nextRitualText}>{nextRituals[item.id]}</Text>
+                    </View>
+                  ) : item.isCharged ? (
                     <View style={styles.chargedBadge}>
                       <Text style={styles.chargedText}>Charged</Text>
                     </View>
@@ -120,12 +136,19 @@ const styles = StyleSheet.create({
   root: {
     flex: 1,
     justifyContent: 'flex-end',
+    alignItems: 'stretch',
   },
   backdrop: {
     ...StyleSheet.absoluteFillObject,
     backgroundColor: 'rgba(0,0,0,0.48)',
   },
   sheetWrap: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: 0,
+    width: '100%',
+    alignSelf: 'stretch',
     maxHeight: '82%',
     borderTopLeftRadius: 26,
     borderTopRightRadius: 26,
@@ -232,6 +255,19 @@ const styles = StyleSheet.create({
   chargedText: {
     fontFamily: typography.fontFamily.sansBold,
     color: colors.gold,
+    fontSize: 10,
+  },
+  nextRitualBadge: {
+    borderRadius: 999,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 4,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.18)',
+    backgroundColor: 'rgba(255,255,255,0.06)',
+  },
+  nextRitualText: {
+    fontFamily: typography.fontFamily.sans,
+    color: colors.text.secondary,
     fontSize: 10,
   },
   emptyText: {

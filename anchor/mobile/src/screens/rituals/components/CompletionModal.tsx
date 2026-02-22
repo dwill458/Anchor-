@@ -18,7 +18,6 @@ import {
   Text,
   TouchableOpacity,
   TextInput,
-  Animated,
   StyleSheet,
   Dimensions,
   KeyboardAvoidingView,
@@ -26,6 +25,15 @@ import {
 } from 'react-native';
 import { BlurView } from 'expo-blur';
 import { SvgXml } from 'react-native-svg';
+import Animated, {
+  useSharedValue,
+  useAnimatedStyle,
+  withTiming,
+  withRepeat,
+  withSequence,
+  cancelAnimation,
+  interpolate,
+} from 'react-native-reanimated';
 import type { Anchor } from '@/types';
 import { colors, spacing, typography } from '@/theme';
 import { OptimizedImage, PremiumAnchorGlow } from '@/components/common';
@@ -64,12 +72,11 @@ export const CompletionModal: React.FC<CompletionModalProps> = ({
   const reduceMotion = useReduceMotionEnabled();
   const { recordShown } = useTeachingStore();
 
-  const sealWhisperOpacity = useRef(new Animated.Value(teachingLine ? 0 : 0)).current;
+  const sealWhisperOpacity = useSharedValue(teachingLine ? 0 : 0);
   const sealWhisperTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const fadeAnim = useRef(new Animated.Value(0)).current;
-  const glowAnim = useRef(new Animated.Value(0)).current;
-  const glowLoopRef = useRef<Animated.CompositeAnimation | null>(null);
+  const fadeAnim = useSharedValue(0);
+  const glowAnim = useSharedValue(0);
 
   const headline =
     sessionType === 'activate' ? 'Anchor set.' : 'Imprint strengthened.';
@@ -87,26 +94,18 @@ export const CompletionModal: React.FC<CompletionModalProps> = ({
         trigger: 'post_complete',
         guide_mode: true,
       });
-      Animated.timing(sealWhisperOpacity, {
-        toValue: 1,
-        duration: 400,
-        useNativeDriver: true,
-      }).start();
+      sealWhisperOpacity.value = withTiming(1, { duration: 400 });
       sealWhisperTimerRef.current = setTimeout(() => {
-        Animated.timing(sealWhisperOpacity, {
-          toValue: 0,
-          duration: 500,
-          useNativeDriver: true,
-        }).start();
+        sealWhisperOpacity.value = withTiming(0, { duration: 500 });
       }, 5000);
     } else if (!visible) {
       if (sealWhisperTimerRef.current) clearTimeout(sealWhisperTimerRef.current);
-      sealWhisperOpacity.setValue(0);
+      sealWhisperOpacity.value = 0;
     }
     return () => {
       if (sealWhisperTimerRef.current) clearTimeout(sealWhisperTimerRef.current);
     };
-  }, [visible, teachingLine, teachingId]);
+  }, [visible, teachingLine, teachingId, sealWhisperOpacity]);
 
   useEffect(() => {
     if (visible) {
@@ -117,38 +116,31 @@ export const CompletionModal: React.FC<CompletionModalProps> = ({
       safeHaptics.notification(Haptics.NotificationFeedbackType.Success);
 
       if (!reduceMotion) {
-        Animated.timing(fadeAnim, {
-          toValue: 1,
-          duration: 300,
-          useNativeDriver: true,
-        }).start();
+        fadeAnim.value = withTiming(1, { duration: 300 });
 
-        glowLoopRef.current = Animated.loop(
-          Animated.sequence([
-            Animated.timing(glowAnim, {
-              toValue: 1,
-              duration: 1400,
-              useNativeDriver: true,
-            }),
-            Animated.timing(glowAnim, {
-              toValue: 0.3,
-              duration: 1400,
-              useNativeDriver: true,
-            }),
-          ])
+        cancelAnimation(glowAnim);
+        glowAnim.value = 0;
+        glowAnim.value = withRepeat(
+          withSequence(
+            withTiming(1, { duration: 1400 }),
+            withTiming(0.3, { duration: 1400 })
+          ),
+          -1,
+          false
         );
-        glowLoopRef.current.start();
       } else {
-        fadeAnim.setValue(1);
-        glowAnim.setValue(0.8);
+        fadeAnim.value = 1;
+        glowAnim.value = 0.8;
       }
     } else {
-      glowLoopRef.current?.stop();
-      fadeAnim.setValue(0);
-      glowAnim.setValue(0);
+      cancelAnimation(glowAnim);
+      fadeAnim.value = 0;
+      glowAnim.value = 0;
     }
 
-    return () => glowLoopRef.current?.stop();
+    return () => {
+      cancelAnimation(glowAnim);
+    };
   }, [visible, reduceMotion, fadeAnim, glowAnim]);
 
   const handleSelectWord = (word: string) => {
@@ -157,7 +149,7 @@ export const CompletionModal: React.FC<CompletionModalProps> = ({
     safeHaptics.impact(Haptics.ImpactFeedbackStyle.Light);
     // Fade seal whisper on first interaction
     if (sealWhisperTimerRef.current) clearTimeout(sealWhisperTimerRef.current);
-    Animated.timing(sealWhisperOpacity, { toValue: 0, duration: 300, useNativeDriver: true }).start();
+    sealWhisperOpacity.value = withTiming(0, { duration: 300 });
   };
 
   const handleDone = () => {
@@ -165,28 +157,38 @@ export const CompletionModal: React.FC<CompletionModalProps> = ({
     onDone(word || undefined);
   };
 
-  const glowOpacity = glowAnim.interpolate({
-    inputRange: [0, 1],
-    outputRange: [0.25, 0.65],
+  const containerStyle = useAnimatedStyle(() => {
+    return {
+      opacity: fadeAnim.value,
+    };
   });
 
+  const glowRingStyle = useAnimatedStyle(() => {
+    return {
+      opacity: interpolate(glowAnim.value, [0, 1], [0.25, 0.65]),
+    };
+  });
+
+  const sealWhisperStyle = useAnimatedStyle(() => {
+    return {
+      opacity: sealWhisperOpacity.value,
+    };
+  });
+
+  if (!visible) return null;
+
   return (
-    <Modal
-      visible={visible}
-      transparent
-      animationType="none"
-      statusBarTranslucent
-    >
+    <View style={StyleSheet.absoluteFill} accessible={false}>
       <BlurView intensity={28} tint="dark" style={StyleSheet.absoluteFill} />
       <KeyboardAvoidingView
         style={styles.overlay}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       >
-        <Animated.View style={[styles.container, { opacity: fadeAnim }]}>
+        <Animated.View style={[styles.container, containerStyle]}>
           {/* Sigil with gold glow */}
           <View style={styles.sigilArea}>
             <Animated.View
-              style={[styles.glowRing, { opacity: glowOpacity }]}
+              style={[styles.glowRing, glowRingStyle]}
             />
             <View style={styles.sigilGlowWrap}>
               <PremiumAnchorGlow
@@ -216,7 +218,7 @@ export const CompletionModal: React.FC<CompletionModalProps> = ({
           {/* Seal Whisper (Pattern 5) */}
           {teachingLine ? (
             <Animated.Text
-              style={[styles.sealWhisper, { opacity: sealWhisperOpacity }]}
+              style={[styles.sealWhisper, sealWhisperStyle]}
               accessibilityRole="text"
             >
               {teachingLine}
@@ -281,7 +283,7 @@ export const CompletionModal: React.FC<CompletionModalProps> = ({
           </TouchableOpacity>
         </Animated.View>
       </KeyboardAvoidingView>
-    </Modal>
+    </View>
   );
 };
 

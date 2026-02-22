@@ -24,6 +24,7 @@ import { DailyStreakStrip } from './components/DailyStreakStrip';
 import { AnchorsSectionRow } from './components/AnchorsSectionRow';
 import { ForgeAnchorButton } from './components/ForgeAnchorButton';
 import { SanctuaryEmptyState } from './components/SanctuaryEmptyState';
+import { AtmosphericOrbs } from './components/AtmosphericOrbs';
 import { ZenBackground } from '@/components/common';
 import { getEffectiveStabilizeStreakDays, toDateOrNull } from '@/utils/stabilizeStats';
 import type { Anchor, RootStackParamList } from '@/types';
@@ -60,7 +61,10 @@ export const VaultScreen: React.FC = () => {
   const setShouldRedirectToCreation = useAuthStore(
     (state) => state.setShouldRedirectToCreation
   );
-  const { anchors, isLoading, setLoading, setError } = useAnchorStore();
+  const anchors = useAnchorStore((state) => state.anchors);
+  const isLoading = useAnchorStore((state) => state.isLoading);
+  const setLoading = useAnchorStore((state) => state.setLoading);
+  const setError = useAnchorStore((state) => state.setError);
   const { isFree, features } = useSubscription();
   const [refreshing, setRefreshing] = useState(false);
   const [showAnchorLimitModal, setShowAnchorLimitModal] = useState(false);
@@ -246,6 +250,7 @@ export const VaultScreen: React.FC = () => {
   return (
     <View style={styles.container}>
       <ZenBackground variant="sanctuary" showOrbs={isVaultTabActive} showGrain showVignette />
+      <AtmosphericOrbs reduceMotionEnabled={shouldReduceMotion} />
 
       <SafeAreaView style={styles.safeArea} edges={['top']}>
         {isLoading && anchors.length === 0 ? (

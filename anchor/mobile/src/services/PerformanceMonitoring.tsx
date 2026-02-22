@@ -1,4 +1,7 @@
 import React from 'react';
+import { monitoringConfig } from '@/config/monitoring';
+import { ErrorSeverity, ErrorTrackingService } from './ErrorTrackingService';
+import { logger } from '@/utils/logger';
 
 /**
  * Anchor App - Performance Monitoring
@@ -9,6 +12,7 @@ import React from 'react';
 
 
 interface PerformanceMetric {
+  id: string;
   name: string;
   startTime: number;
   duration?: number;
@@ -40,6 +44,7 @@ interface PerformanceMetric {
 class Performance {
   private enabled: boolean = true;
   private traces: Map<string, PerformanceMetric> = new Map();
+  private slowThresholdMs: number = monitoringConfig.slowRequestThresholdMs;
 
   /**
    * Initialize performance monitoring
@@ -47,14 +52,10 @@ class Performance {
   initialize(config?: { enabled?: boolean }): void {
     this.enabled = config?.enabled ?? true;
 
-    if (__DEV__) {
-      console.log('[Performance] Initialized', { enabled: this.enabled });
-    }
-
-    // TODO: Initialize Firebase Performance
-    // Example:
-    // import perf from '@react-native-firebase/perf';
-    // await perf().setPerformanceCollectionEnabled(this.enabled);
+    logger.info('[Performance] Initialized', {
+      enabled: this.enabled,
+      slowThresholdMs: this.slowThresholdMs,
+    });
   }
 
   /**
@@ -62,42 +63,31 @@ class Performance {
    */
   startTrace(traceName: string, metadata?: Record<string, any>): PerformanceTrace {
     if (!this.enabled) {
-      return new PerformanceTrace(traceName, false);
+      return new PerformanceTrace(traceName, '', false);
     }
 
+    const traceId = `${traceName}_${Date.now()}_${Math.round(Math.random() * 100000)}`;
     const metric: PerformanceMetric = {
+      id: traceId,
       name: traceName,
       startTime: Date.now(),
       metadata,
     };
 
-    this.traces.set(traceName, metric);
-
-    if (__DEV__) {
-      console.log('[Performance] Trace started', traceName);
-    }
-
-    // TODO: Start trace in Firebase Performance
-    // Example:
-    // const trace = await perf().startTrace(traceName);
-    // if (metadata) {
-    //   Object.entries(metadata).forEach(([key, value]) => {
-    //     trace.putAttribute(key, String(value));
-    //   });
-    // }
-
-    return new PerformanceTrace(traceName, this.enabled, this);
+    this.traces.set(traceId, metric);
+    logger.debug('[Performance] Trace started', { traceName, traceId, metadata });
+    return new PerformanceTrace(traceName, traceId, this.enabled, this);
   }
 
   /**
    * Stop a performance trace
    */
-  stopTrace(traceName: string, metadata?: Record<string, any>): void {
+  stopTrace(traceId: string, metadata?: Record<string, any>): void {
     if (!this.enabled) return;
 
-    const metric = this.traces.get(traceName);
+    const metric = this.traces.get(traceId);
     if (!metric) {
-      console.warn(`[Performance] Trace not found: ${traceName}`);
+      logger.warn('[Performance] Trace not found', { traceId });
       return;
     }
 
@@ -105,20 +95,24 @@ class Performance {
     metric.duration = duration;
     metric.metadata = { ...metric.metadata, ...metadata };
 
-    if (__DEV__) {
-      console.log('[Performance] Trace stopped', {
-        name: traceName,
-        duration: `${duration}ms`,
-        metadata: metric.metadata,
+    logger.info('[Performance] Trace stopped', {
+      traceId,
+      name: metric.name,
+      durationMs: duration,
+      metadata: metric.metadata,
+    });
+
+    if (duration >= this.slowThresholdMs) {
+      ErrorTrackingService.captureMessage(`Slow operation: ${metric.name}`, ErrorSeverity.Warning);
+      ErrorTrackingService.addBreadcrumb('Slow operation detected', 'performance', {
+        trace_id: traceId,
+        name: metric.name,
+        duration_ms: duration,
       });
     }
 
     // Clean up
-    this.traces.delete(traceName);
-
-    // TODO: Stop trace in Firebase Performance
-    // Example:
-    // await trace.stop();
+    this.traces.delete(traceId);
   }
 
   /**
@@ -127,14 +121,11 @@ class Performance {
   recordScreenLoad(screenName: string, duration: number): void {
     if (!this.enabled) return;
 
-    if (__DEV__) {
-      console.log('[Performance] Screen load', { screenName, duration: `${duration}ms` });
-    }
-
-    // TODO: Record in Firebase Performance or analytics
-    // Example:
-    // const trace = await perf().startTrace(`screen_${screenName}`);
-    // await trace.stop();
+    logger.info('[Performance] Screen load', { screenName, durationMs: duration });
+    ErrorTrackingService.addBreadcrumb('Screen load', 'performance.screen', {
+      screen_name: screenName,
+      duration_ms: duration,
+    });
   }
 
   /**
@@ -143,19 +134,16 @@ class Performance {
   recordApiCall(endpoint: string, duration: number, success: boolean): void {
     if (!this.enabled) return;
 
-    if (__DEV__) {
-      console.log('[Performance] API call', {
-        endpoint,
-        duration: `${duration}ms`,
-        success,
-      });
-    }
-
-    // TODO: Record in Firebase Performance
-    // Example:
-    // const trace = await perf().startTrace(`api_${endpoint.replace(/\//g, '_')}`);
-    // trace.putAttribute('success', String(success));
-    // await trace.stop();
+    logger.info('[Performance] API call', {
+      endpoint,
+      durationMs: duration,
+      success,
+    });
+    ErrorTrackingService.addBreadcrumb('API call', 'performance.api', {
+      endpoint,
+      duration_ms: duration,
+      success,
+    });
   }
 
   /**
@@ -164,11 +152,7 @@ class Performance {
   recordAppStartup(duration: number): void {
     if (!this.enabled) return;
 
-    if (__DEV__) {
-      console.log('[Performance] App startup', { duration: `${duration}ms` });
-    }
-
-    // TODO: Record in Firebase Performance
+    logger.info('[Performance] App startup', { durationMs: duration });
   }
 
   /**
@@ -176,10 +160,7 @@ class Performance {
    */
   setEnabled(enabled: boolean): void {
     this.enabled = enabled;
-
-    if (__DEV__) {
-      console.log('[Performance] Set enabled', enabled);
-    }
+    logger.info('[Performance] Set enabled', { enabled });
   }
 }
 
@@ -188,12 +169,14 @@ class Performance {
  */
 export class PerformanceTrace {
   private name: string;
+  private id: string;
   private enabled: boolean;
   private performance?: Performance;
   private metadata: Record<string, any> = {};
 
-  constructor(name: string, enabled: boolean, performance?: Performance) {
+  constructor(name: string, id: string, enabled: boolean, performance?: Performance) {
     this.name = name;
+    this.id = id;
     this.enabled = enabled;
     this.performance = performance;
   }
@@ -213,7 +196,7 @@ export class PerformanceTrace {
     if (!this.enabled) return;
 
     const finalMetadata = { ...this.metadata, ...metadata };
-    this.performance?.stopTrace(this.name, finalMetadata);
+    this.performance?.stopTrace(this.id, finalMetadata);
   }
 }
 

@@ -6,7 +6,7 @@ import {
   TouchableOpacity,
   Dimensions,
   Alert,
-  Modal,
+  Pressable,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
@@ -497,40 +497,42 @@ export default function ManualReinforcementScreen() {
       </View>
 
       {/* Skip Confirmation Modal */}
-      <Modal
-        visible={showSkipModal}
-        transparent
-        animationType="fade"
-        statusBarTranslucent
-        onRequestClose={handleCancelSkip}
-      >
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
-            <Text style={styles.modalTitle}>Continue Without Tracing</Text>
-            <Text style={styles.modalBody}>
-              Some find tracing deepens their focus. It's completely optional.
-            </Text>
+      {showSkipModal && (
+        <View style={styles.modalRoot}>
+          <Pressable
+            style={styles.modalBackdrop}
+            onPress={handleCancelSkip}
+            accessibilityRole="button"
+            accessibilityLabel="Dismiss confirmation"
+          />
+          <View style={styles.modalOverlay} pointerEvents="box-none">
+            <View style={styles.modalContent} accessibilityViewIsModal={true}>
+              <Text style={styles.modalTitle}>Continue Without Tracing</Text>
+              <Text style={styles.modalBody}>
+                Some find tracing deepens their focus. It's completely optional.
+              </Text>
 
-            <TouchableOpacity
-              style={styles.modalPrimaryButton}
-              onPress={handleCancelSkip}
-              accessibilityRole="button"
-              accessibilityLabel="Stay and Trace"
-            >
-              <Text style={styles.modalPrimaryButtonText}>Stay and Trace</Text>
-            </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.modalPrimaryButton}
+                onPress={handleCancelSkip}
+                accessibilityRole="button"
+                accessibilityLabel="Stay and Trace"
+              >
+                <Text style={styles.modalPrimaryButtonText}>Stay and Trace</Text>
+              </TouchableOpacity>
 
-            <TouchableOpacity
-              style={styles.modalSecondaryButton}
-              onPress={handleConfirmSkip}
-              accessibilityRole="button"
-              accessibilityLabel="Continue"
-            >
-              <Text style={styles.modalSecondaryButtonText}>Continue</Text>
-            </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.modalSecondaryButton}
+                onPress={handleConfirmSkip}
+                accessibilityRole="button"
+                accessibilityLabel="Continue"
+              >
+                <Text style={styles.modalSecondaryButtonText}>Continue</Text>
+              </TouchableOpacity>
+            </View>
           </View>
         </View>
-      </Modal>
+      )}
     </SafeAreaView>
   );
 }
@@ -644,9 +646,17 @@ const styles = StyleSheet.create({
     fontSize: typography.sizes.body2,
     color: colors.text.secondary,
   },
-  modalOverlay: {
-    flex: 1,
+  modalRoot: {
+    ...StyleSheet.absoluteFillObject,
+    zIndex: 100,
+    elevation: 100,
+  },
+  modalBackdrop: {
+    ...StyleSheet.absoluteFillObject,
     backgroundColor: 'rgba(20, 20, 30, 0.95)',
+  },
+  modalOverlay: {
+    ...StyleSheet.absoluteFillObject,
     justifyContent: 'center',
     alignItems: 'center',
     padding: spacing.lg,

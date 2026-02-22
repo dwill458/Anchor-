@@ -12,7 +12,7 @@
  *      Zen Architect styling with entrance animations
  */
 
-import React, { useState, useEffect, useRef, useLayoutEffect } from 'react';
+import React, { useState, useEffect, useRef, useLayoutEffect, useMemo, useCallback } from 'react';
 import {
   View,
   Text,
@@ -21,7 +21,6 @@ import {
   ScrollView,
   Animated,
   Dimensions,
-  Image,
   Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -34,9 +33,19 @@ import { RootStackParamList } from '@/types';
 import { colors } from '@/theme';
 import { ScreenHeader, ZenBackground } from '@/components/common';
 import { useTempStore } from '@/stores/anchorStore';
+import { OptimizedImage } from '@/components/common/OptimizedImage';
+import { ErrorTrackingService } from '@/services/ErrorTrackingService';
+import { PerformanceMonitoring } from '@/services/PerformanceMonitoring';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const IMAGE_SIZE = (SCREEN_WIDTH - 80) / 2; // 2 columns with proper spacing (24px padding * 2 + 16px gap)
+const MAX_INLINE_PREVIEW_BYTES = 700_000;
+
+interface VariationAsset {
+  id: string;
+  fullUri: string;
+  isHeavyInline: boolean;
+}
 
 type EnhancedVersionPickerRouteProp = RouteProp<RootStackParamList, 'EnhancedVersionPicker'>;
 type EnhancedVersionPickerNavigationProp = StackNavigationProp<RootStackParamList, 'EnhancedVersionPicker'>;
@@ -79,6 +88,7 @@ export const AIVariationPickerScreen: React.FC = () => {
 
   // Selected variation index (0-3)
   const [selectedIndex, setSelectedIndex] = useState<number>(0);
+  const [hydratedIndexes, setHydratedIndexes] = useState<Set<number>>(new Set([0]));
 
   // Animations
   const fadeAnim = useRef(new Animated.Value(0)).current;
@@ -109,31 +119,75 @@ export const AIVariationPickerScreen: React.FC = () => {
 
   const setTempEnhancedImage = useTempStore((state) => state.setTempEnhancedImage);
 
-  const handleContinue = () => {
-    try {
-      const selectedVariation = variations[selectedIndex];
-
-      // Normalize image data (handle object vs string)
-      let imageUrl = '';
-      if (typeof selectedVariation === 'string') {
-        imageUrl = selectedVariation;
-      } else if (selectedVariation && typeof selectedVariation === 'object' && 'imageUrl' in selectedVariation) {
-        imageUrl = (selectedVariation as any).imageUrl;
+  const normalizedVariations = useMemo<VariationAsset[]>(() => {
+    return variations.map((variation, index) => {
+      let fullUri = '';
+      if (typeof variation === 'string') {
+        fullUri = variation;
+      } else if (variation && typeof variation === 'object' && 'imageUrl' in variation) {
+        fullUri = String((variation as any).imageUrl ?? '');
       }
 
+      if (fullUri && !fullUri.startsWith('http') && !fullUri.startsWith('data:image')) {
+        fullUri = `data:image/png;base64,${fullUri}`;
+      }
+
+      const base64Length = fullUri.startsWith('data:image')
+        ? fullUri.split(',')[1]?.length ?? 0
+        : 0;
+
+      return {
+        id: `variation_${index}`,
+        fullUri,
+        isHeavyInline: base64Length > MAX_INLINE_PREVIEW_BYTES,
+      };
+    });
+  }, [variations]);
+
+  useEffect(() => {
+    const heavyInlineCount = normalizedVariations.filter((item) => item.isHeavyInline).length;
+    ErrorTrackingService.addBreadcrumb('Variation picker mounted', 'ai.variation_picker', {
+      variation_count: normalizedVariations.length,
+      heavy_inline_count: heavyInlineCount,
+    });
+  }, [normalizedVariations]);
+
+  const handleSelectVariation = useCallback((index: number) => {
+    setSelectedIndex(index);
+    setHydratedIndexes((prev) => {
+      if (prev.has(index)) {
+        return prev;
+      }
+      const next = new Set(prev);
+      next.add(index);
+      return next;
+    });
+  }, []);
+
+  const handleContinue = () => {
+    const trace = PerformanceMonitoring.startTrace('variation_picker_continue', {
+      selected_index: selectedIndex,
+    });
+
+    try {
+      const selectedVariation = normalizedVariations[selectedIndex];
+
+      // Normalize image data (handle object vs string)
+      const imageUrl = selectedVariation?.fullUri ?? '';
+
       if (!imageUrl) {
+        trace.stop({ success: false, reason: 'missing_image_url' });
         Alert.alert('Error', 'Invalid variation selected. Please try again.');
         return;
       }
 
-      // Safety check for Base64
-      if (!imageUrl.startsWith('http') && !imageUrl.startsWith('data:image')) {
-        // Assume base64 png if missing header
-        imageUrl = `data:image/png;base64,${imageUrl}`;
-      }
-
       // Store in global temp state instead of passing huge string
       setTempEnhancedImage(imageUrl);
+      trace.stop({ success: true });
+      ErrorTrackingService.addBreadcrumb('Variation selected', 'ai.variation_picker', {
+        selected_index: selectedIndex,
+        heavy_inline: selectedVariation.isHeavyInline,
+      });
 
       // Navigate to MantraCreation with full context including enhancement metadata
       navigation.navigate('AnchorReveal', {
@@ -156,6 +210,11 @@ export const AIVariationPickerScreen: React.FC = () => {
         },
       });
     } catch (err) {
+      trace.stop({ success: false });
+      ErrorTrackingService.captureException(err, {
+        screen: 'AIVariationPickerScreen',
+        action: 'continue_with_variation',
+      });
       console.error('Selection Error:', err);
       Alert.alert('Selection Failed', 'Could not process selection. Please try again.');
     }
@@ -254,12 +313,13 @@ export const AIVariationPickerScreen: React.FC = () => {
           >
             <Text style={styles.guidanceText}>Trust your first instinct. Choose the form that feels most visceral.</Text>
             <View style={styles.grid}>
-              {variations.map((imageUrl, index) => {
+              {normalizedVariations.map((variation, index) => {
                 const isSelected = selectedIndex === index;
+                const shouldHydrateImage = !variation.isHeavyInline || hydratedIndexes.has(index) || isSelected;
                 return (
                   <TouchableOpacity
-                    key={index}
-                    onPress={() => setSelectedIndex(index)}
+                    key={variation.id}
+                    onPress={() => handleSelectVariation(index)}
                     activeOpacity={0.85}
                     style={styles.variationWrapper}
                     accessibilityRole="button"
@@ -274,11 +334,17 @@ export const AIVariationPickerScreen: React.FC = () => {
                     >
                       {/* Image Container */}
                       <View style={styles.imageContainer}>
-                        <Image
-                          source={{ uri: typeof imageUrl === 'string' ? imageUrl : (imageUrl as any).imageUrl }}
-                          style={styles.variationImage}
-                          resizeMode="cover"
-                        />
+                        {shouldHydrateImage && variation.fullUri ? (
+                          <OptimizedImage
+                            uri={variation.fullUri}
+                            style={styles.variationImage}
+                            resizeMode="cover"
+                          />
+                        ) : (
+                          <View style={styles.memoryGuardPlaceholder}>
+                            <Text style={styles.memoryGuardText}>Tap to load</Text>
+                          </View>
+                        )}
                       </View>
 
                       {/* Number Badge */}
@@ -540,6 +606,18 @@ const styles = StyleSheet.create({
   variationImage: {
     width: '100%',
     height: '100%',
+  },
+  memoryGuardPlaceholder: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(15, 20, 25, 0.9)',
+  },
+  memoryGuardText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: colors.silver,
+    letterSpacing: 0.4,
   },
   numberBadge: {
     position: 'absolute',

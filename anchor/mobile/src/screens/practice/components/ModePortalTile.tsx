@@ -90,9 +90,9 @@ export const ModePortalTile: React.FC<ModePortalTileProps> = ({
     opacity: 0.12 + pressed.value * 0.32,
   }));
 
-  const startStyle = useAnimatedStyle(() => ({
+  const dotStyle = useAnimatedStyle(() => ({
     opacity: 0.44 + pressed.value * 0.56,
-    transform: [{ translateX: pressed.value * 2 }],
+    transform: [{ scale: 1 + pressed.value * 0.2 }],
   }));
 
   return (
@@ -119,7 +119,7 @@ export const ModePortalTile: React.FC<ModePortalTileProps> = ({
         />
         <View style={styles.topRow}>
           <View style={[styles.iconWrap, { borderColor: tokens.borderColor }]}>{icon}</View>
-          <Animated.Text style={[styles.start, startStyle]}>Start ›</Animated.Text>
+          <Animated.View style={[styles.dot, { backgroundColor: tokens.titleColor }, dotStyle]} />
         </View>
         <Text style={[styles.title, { color: tokens.titleColor }]}>{title}</Text>
         <Text style={styles.meaning}>{meaning}</Text>
@@ -158,11 +158,15 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     backgroundColor: 'rgba(255,255,255,0.04)',
   },
-  start: {
-    fontFamily: typography.fontFamily.sansBold,
-    fontSize: 11,
-    color: colors.gold,
-    letterSpacing: 0.2,
+  dot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    shadowColor: '#fff',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.4,
+    shadowRadius: 4,
+    elevation: 2,
   },
   title: {
     fontFamily: typography.fontFamily.serifSemiBold,

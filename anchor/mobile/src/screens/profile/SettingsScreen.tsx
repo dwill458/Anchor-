@@ -649,6 +649,12 @@ export const SettingsScreen: React.FC = () => {
                           value={settings.developerDeleteWithoutBurnEnabled}
                           onValueChange={settings.setDeveloperDeleteWithoutBurnEnabled}
                         />
+                        <ToggleItem
+                          label="Debug Console Logging"
+                          helperText="Verbose app logging in development builds only."
+                          value={settings.debugLoggingEnabled}
+                          onValueChange={settings.setDebugLoggingEnabled}
+                        />
                         <SettingItem label="Reset Onboarding" onPress={handleResetOnboarding} isDestructive />
                         <TouchableOpacity
                           style={styles.devResetButton}

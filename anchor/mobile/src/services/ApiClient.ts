@@ -9,6 +9,10 @@ import axios, { AxiosError, AxiosInstance, InternalAxiosRequestConfig } from 'ax
 import { AuthService } from './AuthService';
 import type { ApiResponse } from '@/types';
 import { API_URL } from '@/config';
+import { monitoringConfig } from '@/config/monitoring';
+import { ErrorSeverity, ErrorTrackingService } from './ErrorTrackingService';
+import { PerformanceMonitoring, type PerformanceTrace } from './PerformanceMonitoring';
+import { logger } from '@/utils/logger';
 
 // Use the centralized API_URL from config (handles emulator vs physical device)
 const API_BASE_URL = API_URL;
@@ -24,12 +28,35 @@ export const apiClient: AxiosInstance = axios.create({
   },
 });
 
+interface AnchorRequestMetadata {
+  startTime: number;
+  requestId: string;
+  trace: PerformanceTrace;
+}
+
+type AnchorRequestConfig = InternalAxiosRequestConfig & {
+  metadata?: AnchorRequestMetadata;
+};
+
 // ============================================================================
 // Request Interceptor - Add Auth Token
 // ============================================================================
 
 apiClient.interceptors.request.use(
   async (config: InternalAxiosRequestConfig) => {
+    const method = (config.method ?? 'get').toUpperCase();
+    const trace = PerformanceMonitoring.startTrace(`api_${method}_${config.url ?? 'unknown'}`, {
+      method,
+      url: config.url,
+    });
+
+    const requestConfig = config as AnchorRequestConfig;
+    requestConfig.metadata = {
+      startTime: Date.now(),
+      requestId: `${Date.now()}_${Math.round(Math.random() * 10000)}`,
+      trace,
+    };
+
     try {
       // Get current user's ID token
       const token = await AuthService.getIdToken();
@@ -42,9 +69,17 @@ apiClient.interceptors.request.use(
       // This is expected for public endpoints like /auth/sync
     }
 
+    ErrorTrackingService.addBreadcrumb('API request', 'network.request', {
+      request_id: requestConfig.metadata.requestId,
+      method,
+      url: config.url,
+    });
+
     return config;
   },
   (error: AxiosError) => {
+    const requestConfig = error.config as AnchorRequestConfig | undefined;
+    requestConfig?.metadata?.trace.stop({ success: false, stage: 'request_interceptor' });
     return Promise.reject(error);
   }
 );
@@ -55,9 +90,73 @@ apiClient.interceptors.request.use(
 
 apiClient.interceptors.response.use(
   (response) => {
+    const requestConfig = response.config as AnchorRequestConfig;
+    const metadata = requestConfig.metadata;
+    const duration = metadata ? Date.now() - metadata.startTime : 0;
+
+    if (metadata) {
+      metadata.trace.stop({
+        success: true,
+        status_code: response.status,
+      });
+    }
+
+    PerformanceMonitoring.recordApiCall(requestConfig.url ?? 'unknown', duration, true);
+    ErrorTrackingService.addBreadcrumb('API response', 'network.response', {
+      request_id: metadata?.requestId,
+      status_code: response.status,
+      duration_ms: duration,
+      url: requestConfig.url,
+    });
+
+    if (duration >= monitoringConfig.slowRequestThresholdMs) {
+      ErrorTrackingService.captureMessage(
+        `Slow API request: ${(requestConfig.method ?? 'get').toUpperCase()} ${requestConfig.url}`,
+        ErrorSeverity.Warning
+      );
+    }
+
     return response;
   },
   async (error: AxiosError<ApiResponse>) => {
+    const requestConfig = error.config as AnchorRequestConfig | undefined;
+    const metadata = requestConfig?.metadata;
+    const duration = metadata ? Date.now() - metadata.startTime : 0;
+
+    metadata?.trace.stop({
+      success: false,
+      status_code: error.response?.status ?? 0,
+      error_code: error.code ?? 'unknown',
+    });
+
+    if (requestConfig) {
+      PerformanceMonitoring.recordApiCall(requestConfig.url ?? 'unknown', duration, false);
+      ErrorTrackingService.addBreadcrumb('API error', 'network.error', {
+        request_id: metadata?.requestId,
+        status_code: error.response?.status ?? 0,
+        code: error.code ?? 'unknown',
+        duration_ms: duration,
+        method: (requestConfig.method ?? 'get').toUpperCase(),
+        url: requestConfig.url,
+      });
+    }
+
+    if (error.response?.status && error.response.status >= 500) {
+      ErrorTrackingService.captureException(error, {
+        action: 'api_request_failed',
+        status: error.response.status,
+        method: (requestConfig?.method ?? 'get').toUpperCase(),
+        url: requestConfig?.url,
+      });
+    } else {
+      logger.warn('[ApiClient] Request failed', {
+        method: (requestConfig?.method ?? 'get').toUpperCase(),
+        url: requestConfig?.url,
+        status: error.response?.status,
+        code: error.code,
+      });
+    }
+
     // Handle network errors
     if (!error.response) {
       throw new Error('Network error. Please check your connection.');

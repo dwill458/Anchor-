@@ -391,6 +391,13 @@ export type RootStackParamList = {
   /** Step 1: User inputs intention */
   IntentionInput: undefined;
 
+  /** Step 2: Letter distillation sequence (typed stage flow) */
+  LetterDistillation: {
+    intentionText: string;
+    distilledLetters: string[];
+    category: AnchorCategory;
+  };
+
   /** Step 2: Distillation animation (spaces → vowels → duplicates) */
   DistillationAnimation: {
     intentionText: string;
@@ -574,7 +581,7 @@ export type RootStackParamList = {
     anchorId: string;
     activationType: ActivationType;
     durationOverride?: number;
-    returnTo?: 'vault' | 'practice' | 'detail';
+    returnTo?: 'vault' | 'practice' | 'detail' | 'reinforce';
   };
 
   // Phase 3: Burning Ritual

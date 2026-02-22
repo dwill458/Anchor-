@@ -6,6 +6,7 @@
 
 export { default as IntentionInputScreen } from './IntentionInputScreen';
 export { default as ReturningIntentionScreen } from './ReturningIntentionScreen';
+export { default as LetterDistillationScreen } from './LetterDistillationScreen';
 export { default as DistillationAnimationScreen } from './DistillationAnimationScreen';
 export { default as StructureForgeScreen } from './StructureForgeScreen';
 export { default as ManualReinforcementScreen } from './ManualReinforcementScreen';

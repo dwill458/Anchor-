@@ -13,7 +13,7 @@ import Animated, {
 import { colors } from '@/theme';
 import { useReduceMotionEnabled } from '@/hooks/useReduceMotionEnabled';
 
-type ZenBackgroundVariant = 'default' | 'sanctuary' | 'practice';
+type ZenBackgroundVariant = 'default' | 'sanctuary' | 'practice' | 'creation';
 
 type OrbPreset = {
   id: string;
@@ -213,6 +213,42 @@ export const ZenBackground: React.FC<ZenBackgroundProps> = ({
         ] as OrbPreset[],
         grainOpacity: 0.045,
         vignetteStrength: 0.9,
+      };
+    }
+
+    if (variant === 'creation') {
+      return {
+        gradient: ['#281C43', '#5D3A9B', '#3E2C5B', '#1A1A1D'] as const,
+        orbPresets: [
+          {
+            id: 'c1',
+            size: 260,
+            top: -70,
+            right: -50,
+            color: 'rgba(160, 110, 230, 0.4)',
+            opacity: 0.2,
+            driftX: 12,
+            driftY: 10,
+            scale: 0.05,
+            duration: 13000,
+            phase: 0.2,
+          },
+          {
+            id: 'c2',
+            size: 200,
+            bottom: 90,
+            left: -50,
+            color: 'rgba(212, 175, 55, 0.4)',
+            opacity: 0.12,
+            driftX: -10,
+            driftY: 12,
+            scale: 0.04,
+            duration: 15000,
+            phase: 1.6,
+          },
+        ] as OrbPreset[],
+        grainOpacity: 0.05,
+        vignetteStrength: 0.7,
       };
     }
 

@@ -20,6 +20,7 @@ interface AnchorState {
   isLoading: boolean;
   error: string | null;
   lastSyncedAt: Date | null;
+  currentAnchorId: string | undefined;
 
   // Actions
   setAnchors: (anchors: Anchor[]) => void;
@@ -32,6 +33,7 @@ interface AnchorState {
   setError: (error: string | null) => void;
   markSynced: () => void;
   clearAnchors: () => void;
+  setCurrentAnchor: (id: string | undefined) => void;
 }
 
 /**
@@ -45,6 +47,7 @@ export const useAnchorStore = create<AnchorState>()(
       isLoading: false,
       error: null,
       lastSyncedAt: null,
+      currentAnchorId: undefined,
 
       // Actions
       setAnchors: (anchors) =>
@@ -119,15 +122,22 @@ export const useAnchorStore = create<AnchorState>()(
           anchors: [],
           error: null,
           lastSyncedAt: null,
+          currentAnchorId: undefined,
+        }),
+
+      setCurrentAnchor: (id) =>
+        set({
+          currentAnchorId: id,
         }),
     }),
     {
       name: 'anchor-vault-storage',
       storage: createJSONStorage(() => AsyncStorage),
-      // Persist anchors and last sync time
+      // Persist anchors, last sync time, and currentAnchorId
       partialize: (state) => ({
         anchors: state.anchors,
         lastSyncedAt: state.lastSyncedAt,
+        currentAnchorId: state.currentAnchorId,
       }),
     }
   )

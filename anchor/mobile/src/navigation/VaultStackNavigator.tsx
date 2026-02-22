@@ -11,6 +11,7 @@ import { VaultScreen, AnchorDetailScreen } from '../screens/vault';
 import {
   IntentionInputScreen,
   ReturningIntentionScreen,
+  LetterDistillationScreen,
   DistillationAnimationScreen,
   StructureForgeScreen,
   ManualReinforcementScreen,
@@ -100,6 +101,16 @@ export const VaultStackNavigator: React.FC<VaultStackNavigatorProps> = ({ onRout
         options={{ headerShown: false }}
       />
       <Stack.Screen
+        name="LetterDistillation"
+        component={LetterDistillationScreen}
+        options={{ headerShown: false }}
+      />
+      <Stack.Screen
+        name="SigilSelection"
+        component={StructureForgeScreen}
+        options={{ headerShown: false }}
+      />
+      <Stack.Screen
         name="DistillationAnimation"
         component={DistillationAnimationScreen}
         options={{ headerShown: false }}
@@ -123,11 +134,7 @@ export const VaultStackNavigator: React.FC<VaultStackNavigatorProps> = ({ onRout
       <Stack.Screen
         name="EnhancementChoice"
         component={EnhancementChoiceScreen}
-        options={{
-          headerTransparent: true,
-          title: '',
-          headerTintColor: colors.gold,
-        }}
+        options={{ headerShown: false }}
       />
       {/* Phase 3: Style Selection & ControlNet Enhancement */}
       <Stack.Screen
@@ -163,7 +170,7 @@ export const VaultStackNavigator: React.FC<VaultStackNavigatorProps> = ({ onRout
       <Stack.Screen
         name="MantraCreation"
         component={MantraCreationScreen}
-        options={{ title: 'Create Mantra' }}
+        options={{ title: 'Create Mantra', headerShown: false }}
       />
       {/* ════════════════════════════════════════════════════════ */}
       {/* Charging & Activation - Zen Architect (Phase 2.7)       */}

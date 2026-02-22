@@ -1,6 +1,7 @@
 import React, { useEffect } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { SvgXml } from 'react-native-svg';
+import { ChevronDown } from 'lucide-react-native';
 import Animated, {
   Easing,
   cancelAnimation,
@@ -90,9 +91,20 @@ export const AnchorHero: React.FC<AnchorHeroProps> = ({
         ) : null}
       </Pressable>
 
-      <Text style={styles.name} numberOfLines={1}>
-        {getName(anchor)}
-      </Text>
+      <Pressable
+        onPress={onPress}
+        style={({ pressed }) => [styles.switcherPill, pressed && styles.pressed]}
+        accessibilityRole="button"
+        accessibilityLabel="Change current anchor"
+      >
+        <Text style={styles.switcherLabel}>Current anchor</Text>
+        <View style={styles.switcherValueWrap}>
+          <Text style={styles.switcherValue} numberOfLines={1}>
+            {getName(anchor)}
+          </Text>
+          <ChevronDown size={14} color={colors.text.secondary} />
+        </View>
+      </Pressable>
     </View>
   );
 };
@@ -166,13 +178,31 @@ const styles = StyleSheet.create({
     color: colors.gold,
     letterSpacing: 0.2,
   },
-  name: {
-    marginTop: spacing.sm,
+  switcherPill: {
+    marginTop: spacing.md,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    borderRadius: 16,
+    backgroundColor: 'rgba(255,255,255,0.05)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.1)',
+    alignItems: 'center',
+  },
+  switcherLabel: {
+    fontFamily: typography.fontFamily.sans,
+    fontSize: 11,
+    color: colors.text.secondary,
+    marginBottom: 2,
+  },
+  switcherValueWrap: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+  },
+  switcherValue: {
     fontFamily: typography.fontFamily.sansBold,
-    fontSize: 15,
-    lineHeight: 20,
+    fontSize: 14,
     color: colors.text.primary,
-    maxWidth: 260,
-    textAlign: 'center',
+    maxWidth: 200,
   },
 });

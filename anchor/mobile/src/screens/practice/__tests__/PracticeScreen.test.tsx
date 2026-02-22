@@ -12,11 +12,16 @@ jest.mock('react-native-reanimated', () => {
 
 const mockNavigate = jest.fn();
 const mockNavigateToVault = jest.fn();
+const mockSetCurrentAnchor = jest.fn((id?: string) => {
+  mockCurrentAnchorId = id;
+});
 
 let mockAnchors: any[] = [];
+let mockCurrentAnchorId: string | undefined;
 
 const mockSettingsState = {
   defaultActivation: { mode: 'silent', unit: 'seconds', value: 30 },
+  defaultCharge: { mode: 'ritual', preset: '5m', customMinutes: undefined },
 };
 
 jest.mock('@react-navigation/native', () => {
@@ -42,7 +47,10 @@ jest.mock('@/contexts/TabNavigationContext', () => ({
 
 jest.mock('@/stores/anchorStore', () => ({
   useAnchorStore: () => ({
+    anchors: mockAnchors,
     getActiveAnchors: () => mockAnchors,
+    currentAnchorId: mockCurrentAnchorId,
+    setCurrentAnchor: mockSetCurrentAnchor,
   }),
 }));
 
@@ -72,7 +80,7 @@ jest.mock('@/utils/haptics', () => ({
   },
 }));
 
-function buildAnchor(id: string, intention: string) {
+function buildAnchor(id: string, intention: string, overrides: Record<string, unknown> = {}) {
   return {
     id,
     userId: 'u1',
@@ -85,6 +93,7 @@ function buildAnchor(id: string, intention: string) {
     activationCount: 2,
     createdAt: new Date('2026-02-20T10:00:00.000Z'),
     updatedAt: new Date('2026-02-20T10:00:00.000Z'),
+    ...overrides,
   } as any;
 }
 
@@ -93,8 +102,16 @@ describe('PracticeScreen', () => {
     (AsyncStorage.getItem as jest.Mock).mockResolvedValue('1');
     mockNavigate.mockReset();
     mockNavigateToVault.mockReset();
+    mockSetCurrentAnchor.mockClear();
+    mockSetCurrentAnchor.mockImplementation((id?: string) => {
+      mockCurrentAnchorId = id;
+    });
+    mockCurrentAnchorId = undefined;
     mockSettingsState.defaultActivation.unit = 'seconds';
     mockSettingsState.defaultActivation.value = 30;
+    mockSettingsState.defaultCharge.mode = 'ritual';
+    mockSettingsState.defaultCharge.preset = '5m';
+    mockSettingsState.defaultCharge.customMinutes = undefined;
     mockAnchors = [];
   });
 
@@ -103,17 +120,17 @@ describe('PracticeScreen', () => {
     const screen = render(<PracticeScreen />);
 
     expect(screen.getByText('Practice')).toBeTruthy();
-    expect(screen.getByText('Return to the symbol. Reinforce the path.')).toBeTruthy();
-    expect(screen.getByText('CHARGE')).toBeTruthy();
+    expect(screen.getByText('Return to the symbol. Keep the thread.')).toBeTruthy();
+    expect(screen.getByText('REINFORCE/DEEP CHARGE')).toBeTruthy();
     expect(screen.getByText('STABILIZE')).toBeTruthy();
     expect(screen.getByText('BURN & RELEASE')).toBeTruthy();
     expect(screen.getByText('Daily thread')).toBeTruthy();
-    expect(screen.getByText('1 session today keeps the current alive.')).toBeTruthy();
+    expect(screen.getByText('One session today keeps the current running.')).toBeTruthy();
   });
 
   it('opens anchor selector when charge is pressed without an anchor', async () => {
     const screen = render(<PracticeScreen />);
-    fireEvent.press(screen.getByText('CHARGE'));
+    fireEvent.press(screen.getByText('REINFORCE/DEEP CHARGE'));
 
     await waitFor(() => {
       expect(screen.getAllByText('Choose your anchor').length).toBeGreaterThan(0);
@@ -121,17 +138,80 @@ describe('PracticeScreen', () => {
     });
   });
 
-  it('navigates to ActivationRitual with expected params when charging', async () => {
+  it('shows all created anchors from home list in the selector', async () => {
+    mockCurrentAnchorId = 'a1';
+    mockAnchors = [
+      buildAnchor('a1', 'Anchor One'),
+      buildAnchor('a2', 'Anchor Two', { isReleased: true }),
+    ];
+
+    const screen = render(<PracticeScreen />);
+    fireEvent.press(screen.getByLabelText('Change current anchor'));
+
+    await waitFor(() => {
+      expect(screen.getByLabelText('Select Anchor One')).toBeTruthy();
+      expect(screen.getByLabelText('Select Anchor Two')).toBeTruthy();
+    });
+  });
+
+  it('navigates to Ritual with expected params when charging', async () => {
     mockAnchors = [buildAnchor('a99', 'Build consistency')];
     const screen = render(<PracticeScreen />);
 
-    fireEvent.press(screen.getByText('CHARGE'));
+    fireEvent.press(screen.getByText('REINFORCE/DEEP CHARGE'));
 
     await waitFor(() => {
-      expect(mockNavigateToVault).toHaveBeenCalledWith('ActivationRitual', {
+      expect(mockNavigateToVault).toHaveBeenCalledWith('Ritual', {
         anchorId: 'a99',
-        activationType: 'visual',
-        durationOverride: 30,
+        ritualType: 'ritual',
+        durationSeconds: 300,
+        returnTo: 'practice',
+      });
+    });
+  });
+
+  it('routes ritual flow using the anchor selected in current-anchor selector', async () => {
+    mockCurrentAnchorId = 'a1';
+    mockAnchors = [
+      buildAnchor('a1', 'Primary anchor'),
+      buildAnchor('a2', 'Secondary anchor'),
+    ];
+    const screen = render(<PracticeScreen />);
+
+    fireEvent.press(screen.getByLabelText('Change current anchor'));
+
+    await waitFor(() => {
+      expect(screen.getByLabelText('Select Secondary anchor')).toBeTruthy();
+    });
+
+    fireEvent.press(screen.getByLabelText('Select Secondary anchor'));
+    screen.rerender(<PracticeScreen />);
+    fireEvent.press(screen.getByText('REINFORCE/DEEP CHARGE'));
+
+    await waitFor(() => {
+      expect(mockSetCurrentAnchor).toHaveBeenCalledWith('a2');
+      expect(mockNavigateToVault).toHaveBeenCalledWith('Ritual', {
+        anchorId: 'a2',
+        ritualType: 'ritual',
+        durationSeconds: 300,
+        returnTo: 'practice',
+      });
+    });
+  });
+
+  it('uses the default deep charge duration from settings', async () => {
+    mockSettingsState.defaultCharge.preset = 'custom';
+    mockSettingsState.defaultCharge.customMinutes = 14;
+    mockAnchors = [buildAnchor('a77', 'Steady growth')];
+    const screen = render(<PracticeScreen />);
+
+    fireEvent.press(screen.getByText('REINFORCE/DEEP CHARGE'));
+
+    await waitFor(() => {
+      expect(mockNavigateToVault).toHaveBeenCalledWith('Ritual', {
+        anchorId: 'a77',
+        ritualType: 'ritual',
+        durationSeconds: 14 * 60,
         returnTo: 'practice',
       });
     });

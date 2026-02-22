@@ -58,7 +58,7 @@ export const StabilizeRitualScreen: React.FC = () => {
   const reduceMotionEnabled = useReduceMotionEnabled();
 
   const { anchorId } = route.params;
-  const { getAnchorById } = useAnchorStore();
+  const getAnchorById = useAnchorStore((state) => state.getAnchorById);
   const recordStabilize = useAuthStore((state) => state.recordStabilize);
 
   const anchor = getAnchorById(anchorId);
@@ -482,4 +482,3 @@ const styles = StyleSheet.create({
     letterSpacing: 0.6,
   },
 });
-

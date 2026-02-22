@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
   View,
   Text,
@@ -19,6 +19,8 @@ import { API_URL } from '@/config';
 import { useAuthStore } from '@/stores/authStore';
 import { logger } from '@/utils/logger';
 import { useSubscription } from '@/hooks/useSubscription';
+import { ErrorTrackingService } from '@/services/ErrorTrackingService';
+import { PerformanceMonitoring } from '@/services/PerformanceMonitoring';
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 const IS_ANDROID = Platform.OS === 'android';
@@ -86,7 +88,6 @@ export default function AIGeneratingScreen() {
   } = route.params;
 
   const [progress, setProgress] = useState(0);
-  const [isGenerating, setIsGenerating] = useState(false);
 
   // Animations
   const fadeAnim = useRef(new Animated.Value(0)).current;
@@ -96,6 +97,14 @@ export default function AIGeneratingScreen() {
   const glowAnim = useRef(new Animated.Value(0)).current;
   const orb1Anim = useRef(new Animated.Value(0)).current;
   const orb2Anim = useRef(new Animated.Value(0)).current;
+
+  const isMountedRef = useRef(true);
+  const isGeneratingRef = useRef(false);
+  const progressIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const requestTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const navigationTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const abortControllerRef = useRef<AbortController | null>(null);
+  const animationLoopsRef = useRef<Animated.CompositeAnimation[]>([]);
 
   // Get the current progress phase label
   const getProgressPhase = () => {
@@ -485,53 +494,78 @@ export default function AIGeneratingScreen() {
     }
   };
 
-  const generateControlNetVariations = async () => {
-    console.log('[AIGenerating] generateControlNetVariations called', { isGenerating, user: user?.id });
+  const clearGenerationResources = useCallback((keepNavigationTimeout: boolean = false) => {
+    if (progressIntervalRef.current) {
+      clearInterval(progressIntervalRef.current);
+      progressIntervalRef.current = null;
+    }
 
-    if (isGenerating) {
-      console.log('[AIGenerating] Already generating, skipping');
+    if (requestTimeoutRef.current) {
+      clearTimeout(requestTimeoutRef.current);
+      requestTimeoutRef.current = null;
+    }
+
+    if (!keepNavigationTimeout && navigationTimeoutRef.current) {
+      clearTimeout(navigationTimeoutRef.current);
+      navigationTimeoutRef.current = null;
+    }
+
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+      abortControllerRef.current = null;
+    }
+  }, []);
+
+  const generateControlNetVariations = useCallback(async () => {
+    if (isGeneratingRef.current) {
+      logger.warn('[AIGenerating] Generation already in progress, skipping duplicate call');
       return;
     }
 
-    // Use fallback userId for development if user is not authenticated
     const userId = user?.id || `dev-user-${Date.now()}`;
-    console.log('[AIGenerating] Using userId:', userId);
+    const trace = PerformanceMonitoring.startTrace('ai_enhance_controlnet', {
+      style_choice: styleChoice,
+      user_id: userId,
+      has_reinforced_svg: Boolean(reinforcedSigilSvg),
+    });
 
-    setIsGenerating(true);
-    let progressInterval: ReturnType<typeof setInterval> | null = null;
+    isGeneratingRef.current = true;
+    clearGenerationResources();
 
-    // Create abort controller for timeout
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => {
-      console.log('[AIGenerating] Request timed out after 120 seconds');
+    abortControllerRef.current = controller;
+
+    requestTimeoutRef.current = setTimeout(() => {
       controller.abort();
-    }, 120000); // 120 second timeout
+    }, 120000);
+
+    ErrorTrackingService.addBreadcrumb('AI enhancement started', 'ai.enhance', {
+      style_choice: styleChoice,
+      user_id: userId,
+    });
 
     try {
-      console.log('[AIGenerating] Starting API call to:', `${API_URL}/api/ai/enhance-controlnet`);
       logger.info('[AIGenerating] Starting ControlNet generation', {
         style: styleChoice,
         userId,
         apiUrl: API_URL,
       });
 
-      // Simulate progress (~30 seconds for 4 parallel images with Google Vertex AI)
-      // Falls back to ~40-60s with Replicate if Google unavailable
-      progressInterval = setInterval(() => {
+      progressIntervalRef.current = setInterval(() => {
+        if (!isMountedRef.current) {
+          return;
+        }
+
         setProgress((prev) => {
           if (prev >= 95) {
-            if (progressInterval) clearInterval(progressInterval);
-            return 95; // Hold at 95% until API completes
+            return 95;
           }
-          return prev + 3.5; // Pace for ~27 seconds to 95% (3.5% per 800ms)
+          return prev + 3.5;
         });
-      }, 800); // Update every 800ms
+      }, 800);
 
-      // Use reinforced SVG if available, otherwise use base structure
       const sigilToEnhance = reinforcedSigilSvg || baseSigilSvg;
-      console.log('[AIGenerating] SVG to enhance length:', sigilToEnhance?.length || 0);
 
-      // Call ControlNet enhancement API with timeout
       const response = await fetch(`${API_URL}/api/ai/enhance-controlnet`, {
         method: 'POST',
         headers: {
@@ -541,16 +575,12 @@ export default function AIGeneratingScreen() {
           sigilSvg: sigilToEnhance,
           styleChoice,
           userId,
-          intentionText, // Critical: Pass the user's actual intention
+          intentionText,
           anchorId: `temp-${Date.now()}`,
           tier: isPro ? 'premium' : 'draft',
         }),
-        signal: controller.signal, // Attach abort signal for timeout
+        signal: controller.signal,
       });
-
-      console.log('[AIGenerating] Response received:', response.status, response.statusText);
-      if (progressInterval) clearInterval(progressInterval);
-      clearTimeout(timeoutId);
 
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
@@ -559,16 +589,24 @@ export default function AIGeneratingScreen() {
 
       const result = await response.json();
 
-      logger.info('[AIGenerating] ControlNet generation complete', {
-        variations: result.variations?.length,
-        style: result.styleApplied,
+      trace.putAttribute('variation_count', Array.isArray(result.variations) ? result.variations.length : 0);
+      trace.stop({ success: true });
+      ErrorTrackingService.addBreadcrumb('AI enhancement completed', 'ai.enhance', {
+        style_choice: styleChoice,
+        variation_count: Array.isArray(result.variations) ? result.variations.length : 0,
       });
 
-      // Complete progress
+      if (!isMountedRef.current) {
+        return;
+      }
+
       setProgress(100);
 
-      // Navigate to variation picker
-      setTimeout(() => {
+      navigationTimeoutRef.current = setTimeout(() => {
+        if (!isMountedRef.current) {
+          return;
+        }
+
         navigation.replace('EnhancedVersionPicker', {
           intentionText,
           category,
@@ -577,19 +615,20 @@ export default function AIGeneratingScreen() {
           reinforcedSigilSvg,
           structureVariant,
           styleChoice,
-          variations: result.variations, // Array of 4 image URLs
+          variations: result.variations,
           reinforcementMetadata,
-          prompt: result.prompt || '', // Pass the enhanced prompt for display
+          prompt: result.prompt || '',
         });
       }, 500);
     } catch (error) {
-      // Clear timers on error
-      if (progressInterval) clearInterval(progressInterval);
-      clearTimeout(timeoutId);
-      setProgress(0);
-      setIsGenerating(false);
+      trace.stop({ success: false });
 
-      // Determine error message
+      if (!isMountedRef.current) {
+        return;
+      }
+
+      setProgress(0);
+
       let errorMessage = 'Failed to enhance sigil. Please try again.';
       if (error instanceof Error) {
         if (error.name === 'AbortError') {
@@ -601,38 +640,75 @@ export default function AIGeneratingScreen() {
         }
       }
 
+      ErrorTrackingService.captureException(error, {
+        screen: 'AIGeneratingScreen',
+        action: 'generate_controlnet_variations',
+        style_choice: styleChoice,
+      });
       logger.error('[AIGenerating] ControlNet generation error', error);
 
-      Alert.alert(
-        'Enhancement Failed',
-        errorMessage,
-        [
-          {
-            text: 'Try Again',
-            onPress: () => {
-              generateControlNetVariations();
-            },
+      Alert.alert('Enhancement Failed', errorMessage, [
+        {
+          text: 'Try Again',
+          onPress: () => {
+            void generateControlNetVariations();
           },
-          {
-            text: 'Go Back',
-            style: 'cancel',
-            onPress: () => navigation.goBack(),
-          },
-        ]
-      );
+        },
+        {
+          text: 'Go Back',
+          style: 'cancel',
+          onPress: () => navigation.goBack(),
+        },
+      ]);
+    } finally {
+      clearGenerationResources(true);
+      isGeneratingRef.current = false;
     }
-  };
+  }, [
+    API_URL,
+    baseSigilSvg,
+    category,
+    clearGenerationResources,
+    distilledLetters,
+    intentionText,
+    isPro,
+    navigation,
+    reinforcementMetadata,
+    reinforcedSigilSvg,
+    structureVariant,
+    styleChoice,
+    user?.id,
+  ]);
 
   useEffect(() => {
-    // Entrance animation
+    isMountedRef.current = true;
+
     Animated.timing(fadeAnim, {
       toValue: 1,
       duration: 800,
       useNativeDriver: true,
     }).start();
 
-    // Continuous pulse animation for center icon
-    Animated.loop(
+    const getRotationDuration = () => {
+      switch (styleChoice) {
+        case 'minimal_line':
+          return 6000;
+        case 'ink_brush':
+          return 10000;
+        case 'sacred_geometry':
+          return 12000;
+        case 'watercolor':
+          return 15000;
+        case 'gold_leaf':
+          return 20000;
+        case 'cosmic':
+          return 8000;
+        default:
+          return 8000;
+      }
+    };
+
+    const pulseLoop = Animated.loop(
       Animated.sequence([
         Animated.timing(pulseAnim, {
           toValue: 1.15,
@@ -645,38 +721,17 @@ export default function AIGeneratingScreen() {
           useNativeDriver: true,
         }),
       ])
-    ).start();
+    );
 
-    // Style-specific rotation for outer circle
-    const getRotationDuration = () => {
-      switch (styleChoice) {
-        case 'minimal_line':
-          return 6000; // Slower, more deliberate
-        case 'ink_brush':
-          return 10000; // Organic, flowing
-        case 'sacred_geometry':
-          return 12000; // Precise, measured
-        case 'watercolor':
-          return 15000; // Gentle, diffused
-        case 'gold_leaf':
-          return 20000; // Majestic, slow
-        case 'cosmic':
-          return 8000; // Continuous orbital
-        default:
-          return 8000;
-      }
-    };
-
-    Animated.loop(
+    const rotateLoop = Animated.loop(
       Animated.timing(rotateAnim, {
         toValue: 1,
         duration: getRotationDuration(),
         useNativeDriver: true,
       })
-    ).start();
+    );
 
-    // Sparkle animation
-    Animated.loop(
+    const sparkleLoop = Animated.loop(
       Animated.sequence([
         Animated.timing(sparkleAnim, {
           toValue: 1,
@@ -689,10 +744,9 @@ export default function AIGeneratingScreen() {
           useNativeDriver: true,
         }),
       ])
-    ).start();
+    );
 
-    // Glow pulse
-    Animated.loop(
+    const glowLoop = Animated.loop(
       Animated.sequence([
         Animated.timing(glowAnim, {
           toValue: 1,
@@ -705,10 +759,9 @@ export default function AIGeneratingScreen() {
           useNativeDriver: true,
         }),
       ])
-    ).start();
+    );
 
-    // Orb animations (optimized for both platforms)
-    Animated.loop(
+    const orb1Loop = Animated.loop(
       Animated.sequence([
         Animated.timing(orb1Anim, {
           toValue: 1,
@@ -721,9 +774,9 @@ export default function AIGeneratingScreen() {
           useNativeDriver: true,
         }),
       ])
-    ).start();
+    );
 
-    Animated.loop(
+    const orb2Loop = Animated.loop(
       Animated.sequence([
         Animated.timing(orb2Anim, {
           toValue: 1,
@@ -736,11 +789,39 @@ export default function AIGeneratingScreen() {
           useNativeDriver: true,
         }),
       ])
-    ).start();
+    );
 
-    // Start ControlNet generation
-    generateControlNetVariations();
-  }, []);
+    animationLoopsRef.current = [pulseLoop, rotateLoop, sparkleLoop, glowLoop, orb1Loop, orb2Loop];
+    animationLoopsRef.current.forEach((loop) => loop.start());
+
+    void generateControlNetVariations();
+
+    return () => {
+      isMountedRef.current = false;
+      isGeneratingRef.current = false;
+      animationLoopsRef.current.forEach((loop) => loop.stop());
+      animationLoopsRef.current = [];
+      fadeAnim.stopAnimation();
+      pulseAnim.stopAnimation();
+      rotateAnim.stopAnimation();
+      sparkleAnim.stopAnimation();
+      glowAnim.stopAnimation();
+      orb1Anim.stopAnimation();
+      orb2Anim.stopAnimation();
+      clearGenerationResources();
+    };
+  }, [
+    clearGenerationResources,
+    fadeAnim,
+    generateControlNetVariations,
+    glowAnim,
+    orb1Anim,
+    orb2Anim,
+    pulseAnim,
+    rotateAnim,
+    sparkleAnim,
+    styleChoice,
+  ]);
 
   // Style-specific rotation interpolation
   const rotation = rotateAnim.interpolate({

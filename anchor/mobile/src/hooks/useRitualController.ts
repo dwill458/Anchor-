@@ -14,6 +14,7 @@ import {
   calculateProgress,
   formatTime,
 } from '@/config/ritualConfigs';
+import { ErrorTrackingService } from '@/services/ErrorTrackingService';
 
 export interface RitualState {
   // Time tracking
@@ -91,6 +92,13 @@ export function useRitualController({
   const sealIntervalRef = useRef<any>(null);
   const lastPhaseIndexRef = useRef(-1);
 
+  const clearAllIntervals = useCallback(() => {
+    if (timerIntervalRef.current) clearInterval(timerIntervalRef.current);
+    if (hapticIntervalRef.current) clearInterval(hapticIntervalRef.current);
+    if (instructionIntervalRef.current) clearInterval(instructionIntervalRef.current);
+    if (sealIntervalRef.current) clearInterval(sealIntervalRef.current);
+  }, []);
+
   // ══════════════════════════════════════════════════════════════
   // COMPUTED STATE
   // ══════════════════════════════════════════════════════════════
@@ -157,7 +165,11 @@ export function useRitualController({
       }
 
       // Medium haptic on phase transition
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+      void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+      ErrorTrackingService.addBreadcrumb('Ritual phase changed', 'ritual.phase', {
+        phase_index: currentPhaseIndex,
+        phase_name: currentPhase.title,
+      });
 
       // Reset instruction index for new phase
       setCurrentInstructionIndex(0);
@@ -177,7 +189,7 @@ export function useRitualController({
     }
 
     hapticIntervalRef.current = setInterval(() => {
-      Haptics.impactAsync(currentPhase.hapticStyle);
+      void Haptics.impactAsync(currentPhase.hapticStyle);
     }, currentPhase.hapticIntervalMs);
 
     return () => {
@@ -220,16 +232,26 @@ export function useRitualController({
     setIsComplete(false);
     setIsSealComplete(false);
     setSealProgress(0);
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    ErrorTrackingService.addBreadcrumb('Ritual started', 'ritual.lifecycle', {
+      duration_seconds: config.totalDurationSeconds,
+      phase_count: config.phases.length,
+    });
+    void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
   }, []);
 
   const pause = useCallback(() => {
     setIsActive(false);
-  }, []);
+    ErrorTrackingService.addBreadcrumb('Ritual paused', 'ritual.lifecycle', {
+      elapsed_seconds: elapsedSeconds,
+    });
+  }, [elapsedSeconds]);
 
   const resume = useCallback(() => {
     setIsActive(true);
-  }, []);
+    ErrorTrackingService.addBreadcrumb('Ritual resumed', 'ritual.lifecycle', {
+      elapsed_seconds: elapsedSeconds,
+    });
+  }, [elapsedSeconds]);
 
   const reset = useCallback(() => {
     setIsActive(false);
@@ -240,22 +262,20 @@ export function useRitualController({
     setIsSealComplete(false);
     setCurrentInstructionIndex(0);
     lastPhaseIndexRef.current = -1;
-
-    // Clear all intervals
-    if (timerIntervalRef.current) clearInterval(timerIntervalRef.current);
-    if (hapticIntervalRef.current) clearInterval(hapticIntervalRef.current);
-    if (instructionIntervalRef.current)
-      clearInterval(instructionIntervalRef.current);
-    if (sealIntervalRef.current) clearInterval(sealIntervalRef.current);
-  }, []);
+    clearAllIntervals();
+    ErrorTrackingService.addBreadcrumb('Ritual reset', 'ritual.lifecycle');
+  }, [clearAllIntervals]);
 
   const handleRitualComplete = useCallback(() => {
     setIsActive(false);
     setIsComplete(true);
+    ErrorTrackingService.addBreadcrumb('Ritual timer completed', 'ritual.lifecycle', {
+      elapsed_seconds: config.totalDurationSeconds,
+    });
 
     // Don't auto-complete - wait for seal gesture
     // The seal phase should have already been shown
-  }, []);
+  }, [config.totalDurationSeconds]);
 
   // ══════════════════════════════════════════════════════════════
   // SEAL GESTURE ACTIONS
@@ -264,8 +284,13 @@ export function useRitualController({
   const startSeal = useCallback(() => {
     if (!isSealPhase || isSealComplete) return;
 
+    if (sealIntervalRef.current) {
+      clearInterval(sealIntervalRef.current);
+    }
+
     setIsSealActive(true);
     setSealProgress(0);
+    ErrorTrackingService.addBreadcrumb('Ritual seal hold started', 'ritual.seal');
 
     // Start progress animation (0 → 1 over 1.5 seconds)
     const startTime = Date.now();
@@ -285,6 +310,7 @@ export function useRitualController({
   const cancelSeal = useCallback(() => {
     setIsSealActive(false);
     setSealProgress(0);
+    ErrorTrackingService.addBreadcrumb('Ritual seal hold canceled', 'ritual.seal');
 
     if (sealIntervalRef.current) {
       clearInterval(sealIntervalRef.current);
@@ -300,8 +326,12 @@ export function useRitualController({
       clearInterval(sealIntervalRef.current);
     }
 
+    ErrorTrackingService.addBreadcrumb('Ritual sealed', 'ritual.seal', {
+      elapsed_seconds: elapsedSeconds,
+    });
+
     // Success haptic
-    Haptics.notificationAsync(config.sealSuccessHaptic);
+    void Haptics.notificationAsync(config.sealSuccessHaptic);
 
     // Trigger completion callback
     if (onSealComplete) {
@@ -311,7 +341,13 @@ export function useRitualController({
     if (onComplete) {
       onComplete();
     }
-  }, [config.sealSuccessHaptic, onSealComplete, onComplete]);
+  }, [config.sealSuccessHaptic, elapsedSeconds, onSealComplete, onComplete]);
+
+  useEffect(() => {
+    return () => {
+      clearAllIntervals();
+    };
+  }, [clearAllIntervals]);
 
   // ══════════════════════════════════════════════════════════════
   // RETURN STATE + ACTIONS
