@@ -3,6 +3,7 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { Flame } from 'lucide-react-native';
 import { GlassCard } from '@/components/common';
 import { colors, spacing, typography } from '@/theme';
+import { PRACTICE_COPY } from '@/constants/copy';
 
 interface DailyThreadPillProps {
   progressLabel: string;
@@ -25,8 +26,8 @@ export const DailyThreadPill: React.FC<DailyThreadPillProps> = ({
             <Flame size={14} color={colors.gold} />
           </View>
           <View style={styles.copy}>
-            <Text style={styles.title}>Daily thread</Text>
-            <Text style={styles.subtitle}>1 session today keeps the current alive.</Text>
+            <Text style={styles.title}>{PRACTICE_COPY.dailyThreadTitle}</Text>
+            <Text style={styles.subtitle}>{PRACTICE_COPY.dailyThreadBody}</Text>
           </View>
         </View>
         <View style={styles.right}>

@@ -4,7 +4,6 @@ import {
     Text,
     TouchableOpacity,
     StyleSheet,
-    Image,
     Animated,
     Dimensions,
 } from 'react-native';
@@ -20,6 +19,8 @@ import { BlurView } from 'expo-blur';
 import { useTempStore } from '@/stores/anchorStore';
 import { useSettingsStore } from '@/stores/settingsStore';
 import { analyzeIntention, getGuidanceText } from '@/utils/intentionPatterns';
+import { OptimizedImage } from '@/components/common/OptimizedImage';
+import { ErrorTrackingService } from '@/services/ErrorTrackingService';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const IMAGE_SIZE = SCREEN_WIDTH - 64; // Large centered image
@@ -47,6 +48,7 @@ export const AnchorRevealScreen: React.FC = () => {
 
     // Retrieve from store if not in params (handle large base64)
     const tempEnhancedImage = useTempStore((state) => state.tempEnhancedImage);
+    const setTempEnhancedImage = useTempStore((state) => state.setTempEnhancedImage);
     const enhancedImageUrl = paramImageUrl || tempEnhancedImage;
 
     // Analyze intention for pattern detection
@@ -82,11 +84,21 @@ export const AnchorRevealScreen: React.FC = () => {
         });
     }, [navigation]);
 
+    useEffect(() => {
+        return () => {
+            setTempEnhancedImage(null);
+        };
+    }, [setTempEnhancedImage]);
+
     const handleBack = () => {
         navigation.goBack();
     };
 
     const handleContinue = () => {
+        ErrorTrackingService.addBreadcrumb('Anchor reveal continued', 'create.anchor_reveal', {
+            has_image: Boolean(enhancedImageUrl),
+        });
+
         (navigation as any).navigate('MantraCreation', {
             intentionText,
             category,
@@ -98,6 +110,9 @@ export const AnchorRevealScreen: React.FC = () => {
             enhancementMetadata,
             finalImageUrl: enhancedImageUrl || '',
         });
+
+        // Clear heavy temporary data once passed to final creation step.
+        setTempEnhancedImage(null);
     };
 
     return (
@@ -131,8 +146,8 @@ export const AnchorRevealScreen: React.FC = () => {
                         ]}
                     >
                         <View style={styles.imageCard}>
-                            <Image
-                                source={{ uri: enhancedImageUrl || '' }}
+                            <OptimizedImage
+                                uri={enhancedImageUrl || ''}
                                 style={styles.image}
                                 resizeMode="cover"
                             />

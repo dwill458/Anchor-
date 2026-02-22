@@ -14,6 +14,8 @@ const CATEGORY_LABELS: Record<AnchorCategory, string> = {
   relationships: 'Relationships',
   personal_growth: 'Personal Growth',
   custom: 'Custom',
+  desire: 'Desire',
+  experience: 'Experience',
 };
 
 /**

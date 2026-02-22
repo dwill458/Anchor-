@@ -47,6 +47,29 @@ jest.mock('expo-speech', () => ({
   isSpeakingAsync: jest.fn(() => Promise.resolve(false)),
 }));
 
+jest.mock('@sentry/react-native', () => {
+  const addBreadcrumb = jest.fn();
+  const routingIntegration = {
+    registerNavigationContainer: jest.fn(),
+  };
+  return {
+    init: jest.fn(),
+    setTag: jest.fn(),
+    setUser: jest.fn(),
+    setContext: jest.fn(),
+    addBreadcrumb,
+    captureException: jest.fn(),
+    captureMessage: jest.fn(),
+    withScope: (callback: any) =>
+      callback({
+        setContext: jest.fn(),
+        setExtra: jest.fn(),
+      }),
+    reactNavigationIntegration: jest.fn(() => routingIntegration),
+    reactNativeTracingIntegration: jest.fn(() => ({ name: 'tracing-integration' })),
+  };
+});
+
 jest.mock('@shopify/react-native-skia', () => ({
   Canvas: 'Canvas',
   Circle: 'Circle',

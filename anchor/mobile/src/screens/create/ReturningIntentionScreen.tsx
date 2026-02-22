@@ -204,7 +204,7 @@ export default function ReturningIntentionScreen() {
         if (canSubmit) {
             const distillation = distillIntention(intention);
             const category = detectCategoryFromText(intention);
-            navigation.navigate('DistillationAnimation', {
+            navigation.navigate('LetterDistillation', {
                 intentionText: intention,
                 category,
                 distilledLetters: distillation.finalLetters,
@@ -221,7 +221,7 @@ export default function ReturningIntentionScreen() {
     return (
         <View style={styles.container}>
             <StatusBar style="light" />
-            <ZenBackground />
+            <ZenBackground variant="creation" />
 
             <SafeAreaView style={styles.safeArea}>
                 <KeyboardAvoidingView

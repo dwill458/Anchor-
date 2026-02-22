@@ -46,7 +46,7 @@ export const ChargeCompleteScreen: React.FC = () => {
   const route = useRoute<ChargeCompleteRouteProp>();
   const { anchorId, returnTo } = route.params;
 
-  const { getAnchorById } = useAnchorStore();
+  const getAnchorById = useAnchorStore((state) => state.getAnchorById);
   const { recordSession } = useSessionStore();
   const { defaultCharge } = useSettingsStore();
   const reduceMotionEnabled = useReduceMotionEnabled();

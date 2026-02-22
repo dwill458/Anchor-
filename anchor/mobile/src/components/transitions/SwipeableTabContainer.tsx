@@ -34,13 +34,14 @@ const { width: SCREEN_WIDTH } = Dimensions.get('window');
 // Animation constants
 const SWIPE_THRESHOLD = SCREEN_WIDTH * 0.25; // 25% of screen to trigger swipe
 const VELOCITY_THRESHOLD = 500; // px/s
+const PARALLAX_FACTOR = 0.3; // Outgoing screen moves at 30% of incoming
 
-// Spring config for snappier, non-overlapping feel
+// Spring config for iOS-like feel
 const SPRING_CONFIG = {
-  damping: 30, // Higher damping prevents wobble
-  stiffness: 450, // Higher stiffness makes it faster
+  damping: 20,
+  stiffness: 200,
   mass: 0.5,
-  overshootClamping: true, // Prevents bouncing past the edge
+  overshootClamping: false,
   restDisplacementThreshold: 0.01,
   restSpeedThreshold: 0.01,
 };
@@ -185,11 +186,31 @@ const TabPage: React.FC<TabPageProps> = ({
 
     // Calculate offset from current position
     const offset = index - position.value;
-    const translateX = offset * SCREEN_WIDTH;
+    // Incoming screen: full movement
+    // Outgoing screen: parallax (slower movement)
+    let translateX: number;
+    if (offset > 0) {
+      // Screen is to the right (will slide in from right)
+      translateX = offset * SCREEN_WIDTH;
+    } else if (offset < 0) {
+      // Screen is to the left (will slide in from left)
+      // Apply parallax for outgoing effect
+      translateX = offset * SCREEN_WIDTH * PARALLAX_FACTOR;
+    } else {
+      translateX = 0;
+    }
+
+    // Opacity: fully visible when active, fade slightly when moving away
+    const opacity = interpolate(
+      Math.abs(offset),
+      [0, 0.5, 1],
+      [1, 1, 0.8],
+      Extrapolation.CLAMP
+    );
 
     return {
       transform: [{ translateX }],
-      opacity: 1,
+      opacity,
     };
   });
 

@@ -11,15 +11,23 @@ import {
   StatusBar,
   Image,
   Alert,
+  Modal,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { BlurView } from 'expo-blur';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { format, isToday } from 'date-fns';
 import { SvgXml } from 'react-native-svg';
+import { MoreRitualsSheet, RitualType } from '@/components/MoreRitualsSheet';
+import { useAuthStore } from '@/stores/authStore';
+import { ANCHOR_DETAILS_COPY } from '@/constants/copy';
 import { useAnchorStore } from '@/stores/anchorStore';
 import { useSettingsStore } from '@/stores/settingsStore';
+import { useSessionStore } from '@/stores/sessionStore';
 import { del } from '@/services/ApiClient';
+import { useTabNavigation } from '@/contexts/TabNavigationContext';
+import { safeHaptics } from '@/utils/haptics';
+import * as Haptics from 'expo-haptics';
 import Reanimated, {
   Easing as ReanimatedEasing,
   cancelAnimation,
@@ -246,12 +254,226 @@ const ShineButton = ({ onPress, children, style }) => {
   );
 };
 
-// ─── MAIN SCREEN ─────────────────────────────────────────
+// ─── RITUAL COMPONENTS ──────────────────────────────────
+const rs = StyleSheet.create({
+  ritualCardShell: {
+    marginHorizontal: 20,
+    marginBottom: 12,
+  },
+  card: {
+    padding: 18,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: C.purpleBorder,
+  },
+  cardMuted: {
+    borderColor: C.burnBorder,
+  },
+  cardDanger: {
+    borderColor: C.redBorder,
+  },
+  ritualCardHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  ritualCardIconWrapper: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: 'rgba(255,255,255,0.05)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  col: { flex: 1, paddingLeft: 14 },
+  title: {
+    color: '#e8dfc8',
+    fontSize: 16,
+    fontFamily: 'Inter-SemiBold',
+  },
+  subtitle: {
+    color: 'rgba(196,181,153,0.72)',
+    fontSize: 13,
+    marginTop: 2,
+    fontFamily: 'Inter-Regular',
+  },
+  helper: {
+    color: 'rgba(220,205,176,0.6)',
+    fontSize: 12,
+    marginTop: 2,
+    fontStyle: 'italic',
+    fontFamily: 'Inter-Regular',
+  },
+  heroContainer: {
+    marginHorizontal: 20,
+    marginBottom: 20,
+    borderRadius: 20,
+    position: 'relative',
+  },
+  heroHalo: {
+    position: 'absolute',
+    top: -2, left: -2, right: -2, bottom: -2,
+    borderRadius: 22,
+    opacity: 0.6,
+  },
+  // Modal styles
+  modalOverlay: {
+    flex: 1,
+    justifyContent: 'center',
+    padding: 24,
+  },
+  modalContent: {
+    overflow: 'hidden',
+    borderRadius: 24,
+    borderWidth: 1,
+    borderColor: C.goldBorder,
+  },
+  modalTitle: {
+    color: C.goldBright,
+    fontSize: 22,
+    fontFamily: 'Cinzel-Bold',
+    textAlign: 'center',
+    marginBottom: 8,
+  },
+  modalBody: {
+    color: C.textSec,
+    fontSize: 15,
+    textAlign: 'center',
+    marginBottom: 24,
+    fontFamily: 'Inter-Regular',
+  },
+  modalActions: { gap: 12 },
+  modalBtnPrimary: {
+    borderRadius: 14,
+    overflow: 'hidden',
+  },
+  modalBtnGrad: {
+    paddingVertical: 14,
+    alignItems: 'center',
+  },
+  modalBtnTextPrimary: {
+    color: '#000',
+    fontFamily: 'Inter-Bold',
+    fontSize: 14,
+    letterSpacing: 1,
+  },
+  modalBtnSecondary: {
+    paddingVertical: 14,
+    alignItems: 'center',
+    backgroundColor: 'rgba(255,255,255,0.05)',
+    borderRadius: 14,
+  },
+  modalBtnTextSecondary: {
+    color: C.textPrimary,
+    fontFamily: 'Inter-SemiBold',
+    fontSize: 14,
+  },
+  modalBtnCancel: {
+    paddingVertical: 12,
+    alignItems: 'center',
+  },
+  modalBtnTextCancel: {
+    color: C.textDim,
+    fontFamily: 'Inter-Medium',
+    fontSize: 14,
+  }
+});
+
+const RitualCard = ({ icon, title, subtitle, helper, onPress, isMuted = false, isDanger = false, children }) => {
+  const scale = useSharedValue(1);
+  const glowOpacity = useSharedValue(0);
+
+  const animatedStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: scale.value }],
+    shadowOpacity: glowOpacity.value,
+    shadowColor: isDanger ? C.red : (isMuted ? C.burn : C.gold),
+    shadowRadius: interpolate(glowOpacity.value, [0, 1], [4, 12]),
+  }));
+
+  const handlePressIn = () => {
+    scale.value = withTiming(0.97, { duration: 150 });
+    glowOpacity.value = withTiming(0.6, { duration: 150 });
+  };
+
+  const handlePressOut = () => {
+    scale.value = withTiming(1, { duration: 250 });
+    glowOpacity.value = withTiming(0, { duration: 250 });
+  };
+
+  return (
+    <TouchableOpacity
+      activeOpacity={0.9}
+      onPress={onPress}
+      onPressIn={handlePressIn}
+      onPressOut={handlePressOut}
+    >
+      <Reanimated.View style={[rs.ritualCardShell, animatedStyle]}>
+        <LinearGradient
+          colors={
+            isDanger ? ['rgba(116,28,28,0.3)', 'rgba(78,16,16,0.24)'] :
+              isMuted ? ['rgba(150,62,24,0.32)', 'rgba(102,36,12,0.28)'] :
+                CARD_GRADIENT
+          }
+          style={[rs.card, isDanger && rs.cardDanger, isMuted && rs.cardMuted]}
+        >
+          <View style={rs.ritualCardHeader}>
+            <View style={rs.ritualCardIconWrapper}>
+              <Text style={{ fontSize: 20 }}>{icon}</Text>
+            </View>
+            <View style={rs.col}>
+              <Text style={[rs.title, isDanger && { color: C.red }, isMuted && { color: C.burn }]}>{title}</Text>
+              {subtitle && <Text style={rs.subtitle}>{subtitle}</Text>}
+              {helper && <Text style={[rs.helper, isDanger && { color: 'rgba(232,140,140,0.7)' }]}>{helper}</Text>}
+            </View>
+          </View>
+          {children}
+        </LinearGradient>
+      </Reanimated.View>
+    </TouchableOpacity>
+  );
+};
+
+const PrimerModal = ({ visible, onActivate, onSkip, onCancel }) => (
+  <Modal visible={visible} transparent animationType="fade">
+    <View style={rs.modalOverlay}>
+      <BlurView intensity={30} tint="dark" style={StyleSheet.absoluteFillObject} />
+      <View style={rs.modalContent}>
+        <LinearGradient colors={CARD_GRADIENT} style={[rs.card, { padding: 24, paddingVertical: 32 }]}>
+          <Text style={rs.modalTitle}>Primer Activation</Text>
+          <Text style={rs.modalBody}>Primer: 10 seconds to bring it online.</Text>
+
+          <View style={rs.modalActions}>
+            <TouchableOpacity style={rs.modalBtnPrimary} onPress={onActivate}>
+              <LinearGradient colors={['#b8920a', '#d4a820', '#c49a15']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={rs.modalBtnGrad}>
+                <Text style={rs.modalBtnTextPrimary}>ACTIVATE (10s)</Text>
+              </LinearGradient>
+            </TouchableOpacity>
+
+            <TouchableOpacity style={rs.modalBtnSecondary} onPress={onSkip}>
+              <Text style={rs.modalBtnTextSecondary}>Skip straight to Reinforce</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity style={rs.modalBtnCancel} onPress={onCancel}>
+              <Text style={rs.modalBtnTextCancel}>Cancel</Text>
+            </TouchableOpacity>
+          </View>
+        </LinearGradient>
+      </View>
+    </View>
+  </Modal>
+);
+
 const AnchorDetailsScreen = ({ navigation, route }) => {
   const insets = useSafeAreaInsets();
-  const { getAnchorById, removeAnchor } = useAnchorStore();
+  const getAnchorById = useAnchorStore((state) => state.getAnchorById);
+  const removeAnchor = useAnchorStore((state) => state.removeAnchor);
+  const currentAnchorId = useAnchorStore((state) => state.currentAnchorId);
+  const setCurrentAnchor = useAnchorStore((state) => state.setCurrentAnchor);
   const { defaultActivation, setDefaultActivation } = useSettingsStore();
+  const { navigateToPractice } = useTabNavigation();
+  const sessionLog = useSessionStore((s) => s.sessionLog);
   const [activeDuration, setActiveDuration] = useState('30s');
+  const [primerVisible, setPrimerVisible] = useState(false);
+  const [moreRitualsVisible, setMoreRitualsVisible] = useState(false);
 
   const routeAnchor = route?.params?.anchor;
   const anchorId = route?.params?.anchorId ?? routeAnchor?.id;
@@ -275,6 +497,18 @@ const AnchorDetailsScreen = ({ navigation, route }) => {
     baseSigilSvg: '',
     enhancedImageUrl: null,
   };
+  // Compute today's session count for THIS anchor from local session log.
+  const todayStr = new Date().toISOString().slice(0, 10); // 'YYYY-MM-DD'
+  const todaySessionsForAnchor = anchorId
+    ? sessionLog.filter(
+        (e) => e.anchorId === anchorId && e.completedAt.startsWith(todayStr)
+      ).length
+    : 0;
+  const todayDisplayValue =
+    todaySessionsForAnchor > 0
+      ? `${todaySessionsForAnchor} session${todaySessionsForAnchor > 1 ? 's' : ''}`
+      : anchor.today ?? 'Not yet';
+
   const divineBreath = useSharedValue(0);
   const divineGlowActive = Boolean(anchor.charged || anchor.today === 'Activated');
 
@@ -399,11 +633,30 @@ const AnchorDetailsScreen = ({ navigation, route }) => {
 
   const handleReinforce = () => {
     if (!anchorId) return;
+    if (!anchor.charged) {
+      setPrimerVisible(true);
+    } else {
+      executeReinforce();
+    }
+  };
+
+  const executeReinforce = () => {
+    setPrimerVisible(false);
     navigation.navigate('Ritual', {
       anchorId,
       ritualType: 'ritual',
       durationSeconds: 300,
       returnTo: 'detail',
+    });
+  };
+
+  const handlePrimerActivate = () => {
+    setPrimerVisible(false);
+    navigation.navigate('ActivationRitual', {
+      anchorId,
+      activationType: 'visual',
+      durationOverride: 10,
+      returnTo: 'reinforce',
     });
   };
 
@@ -416,6 +669,40 @@ const AnchorDetailsScreen = ({ navigation, route }) => {
       sigilSvg: sourceAnchor?.baseSigilSvg ?? '',
       enhancedImageUrl: sourceAnchor?.enhancedImageUrl,
     });
+  };
+
+  const handlePracticePress = () => {
+    safeHaptics.impact(Haptics.ImpactFeedbackStyle.Medium);
+    if (anchorId) setCurrentAnchor(anchorId);
+    navigateToPractice();
+  };
+
+  const handleMoreRitualsPress = () => {
+    safeHaptics.impact(Haptics.ImpactFeedbackStyle.Light);
+    setMoreRitualsVisible(true);
+  };
+
+  const handleRitualSelect = (type: RitualType, durationSeconds?: number) => {
+    setMoreRitualsVisible(false);
+    if (!anchorId) return;
+
+    if (type === 'burn') {
+      handleBurn();
+    } else if (type === 'quickActivate' || type === 'charge') {
+      navigation.navigate('ActivationRitual', {
+        anchorId,
+        activationType: 'visual',
+        durationOverride: durationSeconds ?? (type === 'quickActivate' ? 30 : 180),
+        returnTo: 'detail',
+      });
+    } else if (type === 'stabilize') {
+      navigation.navigate('Ritual', {
+        anchorId,
+        ritualType: 'ritual',
+        durationSeconds: durationSeconds ?? 180,
+        returnTo: 'detail',
+      });
+    }
   };
 
   const handleDelete = () => {
@@ -438,6 +725,9 @@ const AnchorDetailsScreen = ({ navigation, route }) => {
       },
     ]);
   };
+
+  // Removed renderHeroAction and renderRitualCards in favor of the new Primary CTA architecture.
+
 
   return (
     <View style={[s.root, { paddingTop: insets.top }]}>
@@ -475,6 +765,12 @@ const AnchorDetailsScreen = ({ navigation, route }) => {
               <Text style={s.anchorName}>"{anchor.name}"</Text>
               <Text style={s.intentionText}>{anchor.intention}</Text>
               <View style={s.badgeRow}>
+                {currentAnchorId === anchor.id && (
+                  <View style={s.badgeThread}>
+                    <Text style={s.badgeIcon}>🧵</Text>
+                    <Text style={[s.badgeText, { color: C.goldBright }]}>CURRENT THREAD</Text>
+                  </View>
+                )}
                 <View style={s.badgeDesire}>
                   <View style={[s.badgeDot, { backgroundColor: C.red }]} />
                   <Text style={[s.badgeText, { color: C.red }]}>{anchor.category}</Text>
@@ -581,7 +877,7 @@ const AnchorDetailsScreen = ({ navigation, route }) => {
                 </View>
                 <View style={[s.statItem, s.statItemFull]}>
                   <Text style={s.statLabel}>TODAY</Text>
-                  <Text style={s.statValue}>{anchor.today ?? 'Not yet'}</Text>
+                  <Text style={s.statValue}>{todayDisplayValue}</Text>
                 </View>
               </View>
 
@@ -609,89 +905,39 @@ const AnchorDetailsScreen = ({ navigation, route }) => {
           </Reanimated.View>
         </FadeUp>
 
-        {/* ── SECTION LABEL ── */}
+        {/* ── PRIMARY CTA ── */}
         <FadeUp delay={220}>
-          <Text style={s.sectionLabel}>RITUAL ACTIONS</Text>
-        </FadeUp>
-
-        {/* ── ACTIVATE CARD ── */}
-        <FadeUp delay={250}>
-          <LinearGradient
-            colors={CARD_GRADIENT}
-            style={[s.card, { gap: 14 }]}
+          <TouchableOpacity
+            style={s.primaryCtaCard}
+            activeOpacity={0.8}
+            onPress={handlePracticePress}
           >
-            <ShineButton onPress={handleActivatePress} style={{ width: '100%' }}>
-              <View style={s.activateBtnContent}>
-                <Text style={s.activateIcon}>⚡</Text>
-                <Text style={s.activateText}>ACTIVATE NOW</Text>
-              </View>
-            </ShineButton>
-            <Text style={s.activateSub}>10–60s · instant activation</Text>
-
-            <View style={s.durationRow}>
-              {['10s', '30s', '60s'].map((d) => (
-                <TouchableOpacity
-                  key={d}
-                  onPress={() => setActiveDuration(d)}
-                  style={[s.durationPill, activeDuration === d && s.durationPillActive]}
-                >
-                  <Text style={[s.durationText, activeDuration === d && s.durationTextActive]}>
-                    {d}
-                  </Text>
-                </TouchableOpacity>
-              ))}
-            </View>
-
-            <TouchableOpacity onPress={handleSaveDefault} style={s.saveDefault}>
-              <Text style={{ color: C.goldDim, fontSize: 11 }}>★ </Text>
-              <Text style={s.saveDefaultText}>Save as default</Text>
-            </TouchableOpacity>
-            <Text style={s.fastReset}>Fast reset. One clean start.</Text>
-          </LinearGradient>
-        </FadeUp>
-
-        {/* ── REINFORCE ── */}
-        <FadeUp delay={290}>
-          <TouchableOpacity activeOpacity={0.85} onPress={handleReinforce}>
             <LinearGradient
-              colors={CARD_GRADIENT}
-              style={[s.card, s.collapsibleCard]}
+              colors={['#1a1523', '#241a35']}
+              style={s.primaryCtaGradient}
             >
-              <View style={s.collapsibleHeader}>
-                <View style={{ flex: 1 }}>
-                  <Text style={s.collapsibleTitle}>Reinforce</Text>
-                  <Text style={s.collapsibleMeta}>2–20m · deepen the imprint</Text>
-                  <Text style={s.collapsibleSub}>Your anchor may be dim. Recharge it.</Text>
+              <View style={s.primaryCtaContent}>
+                <View style={s.primaryCtaLeft}>
+                  <Text style={s.primaryCtaTitle}>{ANCHOR_DETAILS_COPY.primaryCTA}</Text>
+                  <Text style={s.primaryCtaSubtitle}>{ANCHOR_DETAILS_COPY.primarySubtitle}</Text>
                 </View>
-                <Text style={s.chevron}>▼</Text>
+                <View style={s.primaryCtaButtonWrap}>
+                  <Text style={s.primaryCtaButtonText}>{ANCHOR_DETAILS_COPY.practiceCta}</Text>
+                </View>
               </View>
             </LinearGradient>
           </TouchableOpacity>
         </FadeUp>
 
-        {/* ── BURN & DELETE ── */}
-        <FadeUp delay={320}>
-          <View style={{ gap: 10 }}>
-            <TouchableOpacity activeOpacity={0.75} onPress={handleBurn}>
-              <LinearGradient
-                colors={['rgba(150,62,24,0.32)', 'rgba(102,36,12,0.28)']}
-                style={[s.actionBtn, { borderColor: C.burnBorder }]}
-              >
-                <Text style={{ fontSize: 16 }}>🔥</Text>
-                <Text style={[s.actionBtnText, { color: C.burn }]}>Burn &amp; Release</Text>
-              </LinearGradient>
-            </TouchableOpacity>
-            <TouchableOpacity activeOpacity={0.75} onPress={handleDelete}>
-              <LinearGradient
-                colors={['rgba(116,28,28,0.3)', 'rgba(78,16,16,0.24)']}
-                style={[s.actionBtn, { borderColor: C.redBorder }]}
-              >
-                <Text style={[s.actionBtnText, { color: C.red, fontSize: 11 }]}>
-                  Delete Anchor
-                </Text>
-              </LinearGradient>
-            </TouchableOpacity>
-          </View>
+        {/* ── SECONDARY ACTION ── */}
+        <FadeUp delay={250}>
+          <TouchableOpacity
+            style={s.moreRitualsGhostBtn}
+            activeOpacity={0.8}
+            onPress={handleMoreRitualsPress}
+          >
+            <Text style={s.moreRitualsGhostText}>{ANCHOR_DETAILS_COPY.moreRituals}</Text>
+          </TouchableOpacity>
         </FadeUp>
 
         {/* ── YOUR PRACTICE ── */}
@@ -784,12 +1030,27 @@ const AnchorDetailsScreen = ({ navigation, route }) => {
           </LinearGradient>
         </FadeUp>
 
+        {/* ── DESTRUCTIVE ACTION ── */}
+        <FadeUp delay={420}>
+          <TouchableOpacity style={s.deleteBtn} onPress={handleDelete}>
+            <Text style={s.deleteBtnText}>Delete Anchor</Text>
+          </TouchableOpacity>
+        </FadeUp>
+
         {/* ── FOOTER ── */}
         <FadeUp delay={440}>
           <Text style={s.footerDate}>Created {anchor.createdAt}</Text>
         </FadeUp>
 
       </ScrollView>
+
+      {/* Sheet overlay — rendered last so it sits above all screen content */}
+      <MoreRitualsSheet
+        visible={moreRitualsVisible}
+        onClose={() => setMoreRitualsVisible(false)}
+        onSelectRitual={handleRitualSelect}
+        isCharged={anchor.charged}
+      />
     </View>
   );
 };
@@ -886,7 +1147,17 @@ const s = StyleSheet.create({
   badgeRow: {
     flexDirection: 'row',
     justifyContent: 'center',
+    flexWrap: 'wrap',
     gap: 10,
+  },
+  badgeThread: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingVertical: 6, paddingHorizontal: 14,
+    borderRadius: 30,
+    backgroundColor: 'rgba(201,168,76,0.15)',
+    borderWidth: 1, borderColor: 'rgba(201,168,76,0.4)',
   },
   badgeDesire: {
     flexDirection: 'row',
@@ -1270,6 +1541,62 @@ const s = StyleSheet.create({
     fontFamily: 'serif',
     fontSize: 11, color: C.textDim,
     textAlign: 'center', letterSpacing: 1,
+  },
+  // ── NEW RITUAL ACTIONS ──
+  primaryCtaCard: {
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: 'rgba(212,175,55,0.4)',
+    overflow: 'hidden',
+  },
+  primaryCtaGradient: {
+    padding: 20,
+  },
+  primaryCtaContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 16,
+  },
+  primaryCtaLeft: {
+    flex: 1,
+  },
+  primaryCtaTitle: {
+    fontFamily: 'serif',
+    fontSize: 18,
+    fontWeight: '700',
+    color: C.gold,
+    letterSpacing: 0.5,
+  },
+  primaryCtaSubtitle: {
+    marginTop: 4,
+    fontFamily: 'sans-serif',
+    fontSize: 13,
+    color: C.textSec,
+  },
+  primaryCtaButtonWrap: {
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 12,
+    backgroundColor: 'rgba(212,175,55,0.15)',
+    borderWidth: 1,
+    borderColor: 'rgba(212,175,55,0.3)',
+  },
+  primaryCtaButtonText: {
+    fontFamily: 'sans-serif-medium',
+    fontSize: 13,
+    color: C.goldBright,
+    fontWeight: '600',
+  },
+  moreRitualsGhostBtn: {
+    alignItems: 'center',
+    paddingVertical: 12,
+  },
+  moreRitualsGhostText: {
+    fontFamily: 'sans-serif',
+    fontSize: 14,
+    color: C.textDim,
+    textDecorationLine: 'underline',
   },
 
   // ── FOOTER ──

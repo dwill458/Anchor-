@@ -49,7 +49,7 @@ export const ChargeSetupScreen: React.FC = () => {
   const route = useRoute<ChargeSetupRouteProp>();
   const { anchorId, returnTo } = route.params || {};
 
-  const { getAnchorById } = useAnchorStore();
+  const getAnchorById = useAnchorStore((state) => state.getAnchorById);
   const { anchorCount } = useAuthStore();
   const { defaultCharge, setDefaultCharge } = useSettingsStore();
   const anchor = getAnchorById(anchorId);

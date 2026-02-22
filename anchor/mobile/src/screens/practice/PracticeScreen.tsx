@@ -1,10 +1,10 @@
 import React, { useCallback, useMemo, useRef, useState } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { StyleSheet, View } from 'react-native';
+import { StyleSheet, View, Text, Pressable, Platform, InteractionManager } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import type { StackNavigationProp } from '@react-navigation/stack';
-import { Flame, Wind, Zap } from 'lucide-react-native';
+import { Flame, Wind, Zap, ChevronRight } from 'lucide-react-native';
 import Animated, {
   Easing,
   useAnimatedStyle,
@@ -19,11 +19,12 @@ import { useTabNavigation } from '@/contexts/TabNavigationContext';
 import { useAnchorStore } from '@/stores/anchorStore';
 import { useAuthStore } from '@/stores/authStore';
 import { useSessionStore } from '@/stores/sessionStore';
-import { useSettingsStore } from '@/stores/settingsStore';
+import { useSettingsStore, type DefaultChargeSetting } from '@/stores/settingsStore';
 import { safeHaptics } from '@/utils/haptics';
 import { calculateStreakWithGrace } from '@/utils/streak';
 import { getEffectiveStabilizeStreakDays, toDateOrNull } from '@/utils/stabilizeStats';
-import { colors, spacing } from '@/theme';
+import { colors, spacing, typography } from '@/theme';
+import { PRACTICE_COPY } from '@/constants/copy';
 import { AnchorHero } from './components/AnchorHero';
 import { AnchorSelectorSheet } from './components/AnchorSelectorSheet';
 import { DailyThreadDetailsSheet } from './components/DailyThreadDetailsSheet';
@@ -33,9 +34,37 @@ import { ModePortalTile } from './components/ModePortalTile';
 import { PracticeHubHeader } from './components/PracticeHubHeader';
 
 type PracticeNavigationProp = StackNavigationProp<PracticeStackParamList, 'PracticeHome'>;
-type PendingMode = 'charge' | 'stabilize' | 'burn' | null;
+type PendingMode = 'charge' | 'stabilize' | 'burn' | 'quickActivate' | null;
 
 const AUTO_TEACHING_KEY = 'practice_teaching_auto_seen_v2';
+const DEEP_CHARGE_MINUTES_MIN = 2;
+const DEEP_CHARGE_MINUTES_MAX = 30;
+
+function getDefaultDeepChargeSeconds(defaultCharge: DefaultChargeSetting): number {
+  if (defaultCharge.preset === 'custom') {
+    const customMinutes = Math.min(
+      DEEP_CHARGE_MINUTES_MAX,
+      Math.max(
+        DEEP_CHARGE_MINUTES_MIN,
+        Math.round(defaultCharge.customMinutes ?? DEEP_CHARGE_MINUTES_MIN)
+      )
+    );
+    return customMinutes * 60;
+  }
+
+  switch (defaultCharge.preset) {
+    case '10m':
+      return 10 * 60;
+    case '5m':
+      return 5 * 60;
+    case '2m':
+      return 2 * 60;
+    case '30s':
+    case '1m':
+    default:
+      return 2 * 60;
+  }
+}
 
 function toMillis(value?: Date | string): number {
   if (!value) return 0;
@@ -43,52 +72,64 @@ function toMillis(value?: Date | string): number {
   return Number.isNaN(parsed.getTime()) ? 0 : parsed.getTime();
 }
 
+function localDateKey(date: Date): string {
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(
+    date.getDate()
+  ).padStart(2, '0')}`;
+}
+
 export const PracticeScreen: React.FC = () => {
   const navigation = useNavigation<PracticeNavigationProp>();
-  const { navigateToVault } = useTabNavigation();
+  const { navigateToVault, activeTabIndex } = useTabNavigation();
+  const isPracticeTabActive = activeTabIndex == null ? true : activeTabIndex === 1;
   const insets = useSafeAreaInsets();
   const reduceMotion = useReducedMotion();
-  const { getActiveAnchors } = useAnchorStore();
+  const anchors = useAnchorStore((state) => state.anchors);
+  const currentAnchorId = useAnchorStore((state) => state.currentAnchorId);
+  const setCurrentAnchor = useAnchorStore((state) => state.setCurrentAnchor);
   const user = useAuthStore((state) => state.user);
-  const { defaultActivation } = useSettingsStore();
+  const { defaultCharge } = useSettingsStore();
   const { todayPractice, sessionLog, lastGraceDayUsedAt } = useSessionStore();
 
-  const [selectedAnchorId, setSelectedAnchorId] = useState<string | undefined>(undefined);
   const [selectorVisible, setSelectorVisible] = useState(false);
   const [infoVisible, setInfoVisible] = useState(false);
   const [threadVisible, setThreadVisible] = useState(false);
   const [pendingMode, setPendingMode] = useState<PendingMode>(null);
   const [autoTeachingSeen, setAutoTeachingSeen] = useState<boolean | null>(null);
 
-  const activeAnchors = getActiveAnchors();
+  const selectableAnchors = useMemo(
+    () =>
+      anchors
+        .filter((a) => !a.isReleased && !a.archivedAt)
+        .sort((a, b) => {
+          const aRecency = Math.max(toMillis(a.lastActivatedAt), toMillis(a.updatedAt), toMillis(a.createdAt));
+          const bRecency = Math.max(toMillis(b.lastActivatedAt), toMillis(b.updatedAt), toMillis(b.createdAt));
+          return bRecency - aRecency;
+        }),
+    [anchors]
+  );
+
   const mostRecentAnchor = useMemo(() => {
-    if (activeAnchors.length === 0) return undefined;
-    return [...activeAnchors].sort((a, b) => {
-      const aRecency = Math.max(toMillis(a.lastActivatedAt), toMillis(a.updatedAt), toMillis(a.createdAt));
-      const bRecency = Math.max(toMillis(b.lastActivatedAt), toMillis(b.updatedAt), toMillis(b.createdAt));
-      return bRecency - aRecency;
-    })[0];
-  }, [activeAnchors]);
+    if (selectableAnchors.length === 0) return undefined;
+    return selectableAnchors[0];
+  }, [selectableAnchors]);
 
   useFocusEffect(
     useCallback(() => {
-      if (activeAnchors.length === 0) {
-        setSelectedAnchorId(undefined);
+      if (selectableAnchors.length === 0) {
+        setCurrentAnchor(undefined);
         return () => undefined;
       }
-      setSelectedAnchorId((current) => {
-        if (current && activeAnchors.some((anchor) => anchor.id === current)) {
-          return current;
-        }
-        return mostRecentAnchor?.id;
-      });
+      if (!currentAnchorId || !selectableAnchors.some((anchor) => anchor.id === currentAnchorId)) {
+        setCurrentAnchor(mostRecentAnchor?.id);
+      }
       return () => undefined;
-    }, [activeAnchors, mostRecentAnchor?.id])
+    }, [selectableAnchors, currentAnchorId, mostRecentAnchor?.id, setCurrentAnchor])
   );
 
   const selectedAnchor = useMemo(
-    () => activeAnchors.find((anchor) => anchor.id === selectedAnchorId) ?? mostRecentAnchor,
-    [activeAnchors, mostRecentAnchor, selectedAnchorId]
+    () => selectableAnchors.find((anchor) => anchor.id === currentAnchorId) ?? mostRecentAnchor,
+    [selectableAnchors, mostRecentAnchor, currentAnchorId]
   );
 
   const progressLabel = todayPractice.sessionsCount > 0 ? '1/1' : '0/1';
@@ -100,20 +141,16 @@ export const PracticeScreen: React.FC = () => {
     new Date()
   );
 
-  const clampedSeconds = useMemo(() => {
-    const raw =
-      defaultActivation.unit === 'seconds'
-        ? defaultActivation.value
-        : defaultActivation.unit === 'minutes'
-          ? defaultActivation.value * 60
-          : 30;
-    return Math.max(10, Math.min(600, Math.round(raw || 30)));
-  }, [defaultActivation.unit, defaultActivation.value]);
+  const defaultDeepChargeSeconds = useMemo(
+    () => getDefaultDeepChargeSeconds(defaultCharge),
+    [defaultCharge.customMinutes, defaultCharge.preset]
+  );
 
   const interactionRef = useRef(false);
   const firstVisitTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const hesitationTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const hasPlayedFirstAutoRef = useRef(false);
+  const selectingAnchorRef = useRef(false);
 
   const clearTeachingTimers = useCallback(() => {
     if (firstVisitTimerRef.current) {
@@ -170,6 +207,10 @@ export const PracticeScreen: React.FC = () => {
 
   useFocusEffect(
     useCallback(() => {
+      if (!isPracticeTabActive) {
+        clearTeachingTimers();
+        return () => undefined;
+      }
       interactionRef.current = false;
       if (autoTeachingSeen !== false) return () => undefined;
 
@@ -190,7 +231,7 @@ export const PracticeScreen: React.FC = () => {
       return () => {
         clearTeachingTimers();
       };
-    }, [autoTeachingSeen, clearTeachingTimers, openAutoTeaching])
+    }, [autoTeachingSeen, clearTeachingTimers, isPracticeTabActive, openAutoTeaching])
   );
 
   const headerAnim = useSharedValue(0);
@@ -201,6 +242,7 @@ export const PracticeScreen: React.FC = () => {
 
   useFocusEffect(
     useCallback(() => {
+      if (!isPracticeTabActive) return () => undefined;
       if (reduceMotion) {
         headerAnim.value = 1;
         heroAnim.value = 1;
@@ -216,7 +258,7 @@ export const PracticeScreen: React.FC = () => {
       portalsAnim.value = withDelay(130, withTiming(1, timing));
       threadAnim.value = withDelay(210, withTiming(1, timing));
       return () => undefined;
-    }, [headerAnim, heroAnim, portalsAnim, reduceMotion, threadAnim])
+    }, [headerAnim, heroAnim, isPracticeTabActive, portalsAnim, reduceMotion, threadAnim])
   );
 
   const headerStyle = useAnimatedStyle(() => ({
@@ -239,14 +281,27 @@ export const PracticeScreen: React.FC = () => {
   const startCharge = useCallback(
     (anchor: Anchor) => {
       safeHaptics.selection();
-      navigateToVault('ActivationRitual', {
+      navigateToVault('Ritual', {
         anchorId: anchor.id,
-        activationType: 'visual',
-        durationOverride: clampedSeconds,
+        ritualType: 'ritual',
+        durationSeconds: defaultDeepChargeSeconds,
         returnTo: 'practice',
       });
     },
-    [clampedSeconds, navigateToVault]
+    [defaultDeepChargeSeconds, navigateToVault]
+  );
+
+  const startQuickActivate = useCallback(
+    (anchor: Anchor) => {
+      safeHaptics.selection();
+      navigateToVault('ActivationRitual', {
+        anchorId: anchor.id,
+        activationType: 'visual',
+        durationOverride: 30,
+        returnTo: 'practice',
+      });
+    },
+    [navigateToVault]
   );
 
   const startStabilize = useCallback(
@@ -282,29 +337,119 @@ export const PracticeScreen: React.FC = () => {
         startCharge(target);
       } else if (mode === 'stabilize') {
         startStabilize(target);
+      } else if (mode === 'quickActivate') {
+        startQuickActivate(target);
       } else {
         startBurn(target);
       }
     },
-    [selectedAnchor, startBurn, startCharge, startStabilize]
+    [selectedAnchor, startBurn, startCharge, startStabilize, startQuickActivate]
   );
 
   const handleSelectAnchor = useCallback(
     (anchor: Anchor) => {
-      markInteraction();
-      setSelectedAnchorId(anchor.id);
-      setSelectorVisible(false);
-      if (pendingMode) {
-        runMode(pendingMode, anchor);
-        setPendingMode(null);
+      if (selectingAnchorRef.current) {
+        return;
       }
+      selectingAnchorRef.current = true;
+      markInteraction();
+      setSelectorVisible(false);
+      const pendingModeSelection = pendingMode;
+      setPendingMode(null);
+
+      // Compute the next ritual for this anchor so selection always navigates forward
+      const todayKey = localDateKey(new Date());
+      const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
+      const anchorSessions = sessionLog
+        .filter((s) => s.anchorId === anchor.id)
+        .sort((a, b) => toMillis(b.completedAt) - toMillis(a.completedAt));
+      const hasSessionToday = anchorSessions.some((s) => s.completedAt.startsWith(todayKey));
+      let defaultMode: Exclude<PendingMode, null> = 'quickActivate';
+      if (hasSessionToday) {
+        const last = anchorSessions[0];
+        if (last?.type === 'activate' && new Date(last.completedAt) > twentyFourHoursAgo) {
+          defaultMode = 'stabilize';
+        } else {
+          defaultMode = 'charge';
+        }
+      }
+
+      const applySelection = () => {
+        setCurrentAnchor(anchor.id);
+        // Use pending mode if set (e.g. tapped a mode tile first), otherwise
+        // route to this anchor's next suggested ritual so the selector always
+        // navigates the user forward.
+        runMode(pendingModeSelection ?? defaultMode, anchor);
+        selectingAnchorRef.current = false;
+      };
+
+      if (Platform.OS === 'android') {
+        InteractionManager.runAfterInteractions(() => {
+          requestAnimationFrame(applySelection);
+        });
+        return;
+      }
+
+      applySelection();
     },
-    [markInteraction, pendingMode, runMode]
+    [markInteraction, pendingMode, runMode, sessionLog, setCurrentAnchor]
   );
+
+  const anchorNextRituals = useMemo<Record<string, string>>(() => {
+    const todayKey = localDateKey(new Date());
+    const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
+    const result: Record<string, string> = {};
+    for (const anchor of selectableAnchors) {
+      const anchorSessions = sessionLog
+        .filter((s) => s.anchorId === anchor.id)
+        .sort((a, b) => toMillis(b.completedAt) - toMillis(a.completedAt));
+      const hasSessionToday = anchorSessions.some((s) => s.completedAt.startsWith(todayKey));
+      if (!hasSessionToday) {
+        result[anchor.id] = PRACTICE_COPY.rituals.quickActivate.title;
+      } else {
+        const last = anchorSessions[0];
+        if (last?.type === 'activate' && new Date(last.completedAt) > twentyFourHoursAgo) {
+          result[anchor.id] = PRACTICE_COPY.rituals.stabilize.title;
+        } else {
+          result[anchor.id] = PRACTICE_COPY.rituals.charge.title;
+        }
+      }
+    }
+    return result;
+  }, [selectableAnchors, sessionLog]);
+
+  const suggestedRitual = useMemo(() => {
+    if (!selectedAnchor) return null;
+    if (selectedAnchor.isReleased) {
+      return { type: 'burn' as const, title: PRACTICE_COPY.rituals.burn.title, subtitle: PRACTICE_COPY.rituals.burn.duration };
+    }
+
+    const anchorSessions = sessionLog
+      .filter((s) => s.anchorId === selectedAnchor.id)
+      .sort((a, b) => toMillis(b.completedAt) - toMillis(a.completedAt));
+    const todayKey = localDateKey(new Date());
+    const hasAnchorSessionToday = anchorSessions.some((s) => s.completedAt.startsWith(todayKey));
+
+    if (!hasAnchorSessionToday) {
+      return { type: 'quickActivate' as const, title: PRACTICE_COPY.rituals.quickActivate.title, subtitle: PRACTICE_COPY.rituals.quickActivate.duration };
+    }
+    const lastSession = anchorSessions[0];
+    const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
+
+    if (lastSession?.type === 'activate' && new Date(lastSession.completedAt) > twentyFourHoursAgo) {
+      return { type: 'stabilize' as const, title: PRACTICE_COPY.rituals.stabilize.title, subtitle: PRACTICE_COPY.rituals.stabilize.duration };
+    }
+
+    return {
+      type: 'charge' as const,
+      title: PRACTICE_COPY.rituals.charge.title,
+      subtitle: `${Math.max(DEEP_CHARGE_MINUTES_MIN, Math.round(defaultDeepChargeSeconds / 60))} min`,
+    };
+  }, [selectedAnchor, sessionLog, defaultDeepChargeSeconds]);
 
   return (
     <View style={styles.container}>
-      <ZenBackground variant="practice" showOrbs showGrain showVignette />
+      <ZenBackground variant="practice" showOrbs={isPracticeTabActive} showGrain showVignette />
 
       <SafeAreaView style={styles.safeArea} edges={['top']}>
         <Animated.ScrollView
@@ -326,6 +471,7 @@ export const PracticeScreen: React.FC = () => {
           <Animated.View style={heroStyle}>
             <AnchorHero
               anchor={selectedAnchor}
+              animationsEnabled={isPracticeTabActive}
               onPress={() => {
                 markInteraction();
                 setPendingMode(null);
@@ -334,12 +480,37 @@ export const PracticeScreen: React.FC = () => {
             />
           </Animated.View>
 
+          {suggestedRitual && (
+            <Animated.View style={portalsStyle}>
+              <Pressable
+                accessibilityRole="button"
+                onPress={() => {
+                  markInteraction();
+                  runMode(suggestedRitual.type);
+                }}
+                style={({ pressed }) => [{ marginBottom: spacing.md, opacity: pressed ? 0.9 : 1, transform: [{ scale: pressed ? 0.98 : 1 }] }]}
+              >
+                <View style={styles.primaryCtaCard}>
+                  <View style={styles.primaryCtaLeft}>
+                    <Text style={styles.primaryCtaTitle}>{PRACTICE_COPY.primaryCTA}</Text>
+                    <Text style={styles.primaryCtaSubtitle}>
+                      {suggestedRitual.title} • {suggestedRitual.subtitle}
+                    </Text>
+                  </View>
+                  <View style={styles.primaryCtaIconWrap}>
+                    <ChevronRight size={20} color={colors.gold} />
+                  </View>
+                </View>
+              </Pressable>
+            </Animated.View>
+          )}
+
           <Animated.View style={[styles.portalsWrap, portalsStyle]}>
             <ModePortalTile
               variant="charge"
-              title="CHARGE"
-              meaning="Imprint the symbol into attention."
-              durationHint="10 sec to 10 min"
+              title={PRACTICE_COPY.rituals.charge.title}
+              meaning={PRACTICE_COPY.rituals.charge.meaning}
+              durationHint={PRACTICE_COPY.rituals.charge.duration}
               icon={<Zap size={16} color={colors.gold} />}
               onPress={() => {
                 markInteraction();
@@ -350,9 +521,9 @@ export const PracticeScreen: React.FC = () => {
               <ModePortalTile
                 style={styles.portalHalf}
                 variant="stabilize"
-                title="STABILIZE"
-                meaning="Settle the intent. Make it steady."
-                durationHint="30 sec to 3 min"
+                title={PRACTICE_COPY.rituals.stabilize.title}
+                meaning={PRACTICE_COPY.rituals.stabilize.meaning}
+                durationHint={PRACTICE_COPY.rituals.stabilize.duration}
                 icon={<Wind size={16} color={colors.gold} />}
                 onPress={() => {
                   markInteraction();
@@ -362,9 +533,9 @@ export const PracticeScreen: React.FC = () => {
               <ModePortalTile
                 style={styles.portalHalf}
                 variant="burn"
-                title="BURN & RELEASE"
-                meaning="Close the loop. Release the hold."
-                durationHint="45 sec to 2 min"
+                title={PRACTICE_COPY.rituals.burn.title}
+                meaning={PRACTICE_COPY.rituals.burn.meaning}
+                durationHint={PRACTICE_COPY.rituals.burn.duration}
                 icon={<Flame size={16} color={colors.gold} />}
                 onPress={() => {
                   markInteraction();
@@ -389,8 +560,9 @@ export const PracticeScreen: React.FC = () => {
 
       <AnchorSelectorSheet
         visible={selectorVisible}
-        anchors={activeAnchors}
+        anchors={selectableAnchors}
         selectedAnchorId={selectedAnchor?.id}
+        nextRituals={anchorNextRituals}
         onSelect={handleSelectAnchor}
         onClose={() => {
           setSelectorVisible(false);
@@ -439,5 +611,39 @@ const styles = StyleSheet.create({
   },
   portalHalf: {
     flex: 1,
+  },
+  primaryCtaCard: {
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.md,
+    borderRadius: 24,
+    borderWidth: 1,
+    borderColor: 'rgba(212,175,55,0.4)',
+    backgroundColor: 'rgba(26,21,35,0.6)',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  primaryCtaLeft: {
+    flex: 1,
+  },
+  primaryCtaTitle: {
+    fontFamily: typography.fontFamily.serifBold,
+    fontSize: 20,
+    color: colors.gold,
+    letterSpacing: 0.2,
+  },
+  primaryCtaSubtitle: {
+    marginTop: 4,
+    fontFamily: typography.fontFamily.sans,
+    fontSize: 13,
+    color: colors.text.secondary,
+  },
+  primaryCtaIconWrap: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: 'rgba(212,175,55,0.15)',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
 });

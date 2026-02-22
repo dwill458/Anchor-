@@ -55,7 +55,7 @@ export const EvolveScreen: React.FC = () => {
   const navigation = useNavigation<EvolveNavProp>();
   const { navigateToVault } = useTabNavigation();
   const user = useAuthStore((state) => state.user);
-  const { getActiveAnchors } = useAnchorStore();
+  const getActiveAnchors = useAnchorStore((state) => state.getActiveAnchors);
 
   const activeAnchors = getActiveAnchors();
   const hasAnchors = activeAnchors.length > 0;

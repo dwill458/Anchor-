@@ -109,6 +109,7 @@ export const DefaultActivationScreen: React.FC = () => {
             type,
             value: finalValue,
             unit: getUnit(),
+            mode: defaultActivation.mode,
         });
         navigation.goBack();
     };

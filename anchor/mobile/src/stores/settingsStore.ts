@@ -79,6 +79,7 @@ const clampPersistedSettings = (persistedState: any) => {
       type: persistedState.defaultActivation.type ?? 'visual',
       unit: persistedState.defaultActivation.unit ?? 'seconds',
       value: persistedState.defaultActivation.value ?? 10,
+      mode: persistedState.defaultActivation.mode ?? 'silent',
     });
   }
 
@@ -116,6 +117,7 @@ export interface SettingsState {
   mantraAudioByDefault: boolean;
   developerModeEnabled: boolean;
   developerDeleteWithoutBurnEnabled: boolean;
+  debugLoggingEnabled: boolean;
   /** Guide Mode — contextual first-time hints. true = on-only + both; false = both only. */
   guideMode: boolean;
 
@@ -147,6 +149,7 @@ export interface SettingsState {
   setMantraAudioByDefault: (enabled: boolean) => void;
   setDeveloperModeEnabled: (enabled: boolean) => void;
   setDeveloperDeleteWithoutBurnEnabled: (enabled: boolean) => void;
+  setDebugLoggingEnabled: (enabled: boolean) => void;
 
   // Utility Actions
   resetToDefaults: () => void;
@@ -180,6 +183,7 @@ const DEFAULT_SETTINGS = {
   mantraAudioByDefault: true,
   developerModeEnabled: false,
   developerDeleteWithoutBurnEnabled: false,
+  debugLoggingEnabled: __DEV__ && process.env.EXPO_PUBLIC_DEBUG_LOGGING === 'true',
   guideMode: true,
 };
 
@@ -341,6 +345,13 @@ export const useSettingsStore = create<SettingsState>()(
         });
       },
 
+      setDebugLoggingEnabled: (enabled) => {
+        triggerHaptic();
+        set({
+          debugLoggingEnabled: enabled,
+        });
+      },
+
       setGuideMode: (enabled) => {
         triggerHaptic();
         set({ guideMode: enabled });
@@ -357,14 +368,18 @@ export const useSettingsStore = create<SettingsState>()(
     {
       name: 'anchor-settings-storage',
       storage: createJSONStorage(() => AsyncStorage),
-      version: 6,
+      version: 7,
       // Handle migration
       migrate: (persistedState: any, version: number) => {
+        if (version === 6) {
+          const next = clampPersistedSettings(persistedState);
+          return { ...next, debugLoggingEnabled: false };
+        }
         if (version === 5) {
           // v5→v6: add guideMode. Existing users (v5) are veterans → default OFF.
           // New installs hit DEFAULT_SETTINGS directly (guideMode: true).
           const next = clampPersistedSettings(persistedState);
-          return { ...next, guideMode: false };
+          return { ...next, guideMode: false, debugLoggingEnabled: false };
         }
         if (version === 4) {
           // Add mode field to defaultActivation
@@ -372,22 +387,25 @@ export const useSettingsStore = create<SettingsState>()(
           if (next?.defaultActivation && !next.defaultActivation.mode) {
             next.defaultActivation.mode = 'silent';
           }
-          return { ...next, guideMode: false };
+          return { ...next, guideMode: false, debugLoggingEnabled: false };
         }
         if (version === 3) {
-          return clampPersistedSettings(persistedState);
+          return { ...clampPersistedSettings(persistedState), debugLoggingEnabled: false };
         }
         if (version === 2) {
-          return clampPersistedSettings(persistedState);
+          return { ...clampPersistedSettings(persistedState), debugLoggingEnabled: false };
         }
         if (version === 1) {
           // Migration from version 1 to 2 (renaming fields)
-          return clampPersistedSettings({
+          return {
+            ...clampPersistedSettings({
             ...persistedState,
             openDailyAnchorAutomatically: persistedState.autoOpenDailyAnchor ?? false,
             streakProtectionAlerts: persistedState.streakProtectionEnabled ?? false,
             weeklySummaryEnabled: persistedState.weeklyReflectionEnabled ?? false,
-          });
+            }),
+            debugLoggingEnabled: false,
+          };
         }
         if (version === 0) {
           // Legacy migration
@@ -403,16 +421,24 @@ export const useSettingsStore = create<SettingsState>()(
             unit: persistedState.defaultActivationUnit || 'seconds',
           };
 
-          return clampPersistedSettings({
-            ...persistedState,
-            defaultCharge,
-            defaultActivation,
-            openDailyAnchorAutomatically: persistedState.autoOpenDailyAnchor ?? false,
-            streakProtectionAlerts: persistedState.streakProtectionEnabled ?? false,
-            weeklySummaryEnabled: persistedState.weeklyReflectionEnabled ?? false,
-          });
+          return {
+            ...clampPersistedSettings({
+              ...persistedState,
+              defaultCharge,
+              defaultActivation,
+              openDailyAnchorAutomatically: persistedState.autoOpenDailyAnchor ?? false,
+              streakProtectionAlerts: persistedState.streakProtectionEnabled ?? false,
+              weeklySummaryEnabled: persistedState.weeklyReflectionEnabled ?? false,
+            }),
+            debugLoggingEnabled: false,
+          };
         }
-        return clampPersistedSettings(persistedState);
+        return {
+          ...clampPersistedSettings(persistedState),
+          debugLoggingEnabled:
+            persistedState?.debugLoggingEnabled ??
+            (__DEV__ && process.env.EXPO_PUBLIC_DEBUG_LOGGING === 'true'),
+        };
       },
       // Only persist user preference settings
       partialize: (state) => ({
@@ -435,6 +461,7 @@ export const useSettingsStore = create<SettingsState>()(
         mantraAudioByDefault: state.mantraAudioByDefault,
         developerModeEnabled: state.developerModeEnabled,
         developerDeleteWithoutBurnEnabled: state.developerDeleteWithoutBurnEnabled,
+        debugLoggingEnabled: state.debugLoggingEnabled,
         guideMode: state.guideMode,
       }),
     }

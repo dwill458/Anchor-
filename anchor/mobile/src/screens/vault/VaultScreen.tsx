@@ -24,6 +24,7 @@ import { DailyStreakStrip } from './components/DailyStreakStrip';
 import { AnchorsSectionRow } from './components/AnchorsSectionRow';
 import { ForgeAnchorButton } from './components/ForgeAnchorButton';
 import { SanctuaryEmptyState } from './components/SanctuaryEmptyState';
+import { AtmosphericOrbs } from './components/AtmosphericOrbs';
 import { ZenBackground } from '@/components/common';
 import { getEffectiveStabilizeStreakDays, toDateOrNull } from '@/utils/stabilizeStats';
 import type { Anchor, RootStackParamList } from '@/types';
@@ -50,7 +51,8 @@ const getFadeUpEntering = (delay: number, reduceMotionEnabled: boolean) => {
 
 export const VaultScreen: React.FC = () => {
   const navigation = useNavigation<VaultScreenNavigationProp>();
-  const { registerTabNav, navigateToPractice } = useTabNavigation();
+  const { registerTabNav, navigateToPractice, activeTabIndex } = useTabNavigation();
+  const isVaultTabActive = activeTabIndex == null ? true : activeTabIndex === 0;
   const insets = useSafeAreaInsets();
   const { user } = useAuthStore();
   const shouldRedirectToCreation = useAuthStore(
@@ -59,11 +61,15 @@ export const VaultScreen: React.FC = () => {
   const setShouldRedirectToCreation = useAuthStore(
     (state) => state.setShouldRedirectToCreation
   );
-  const { anchors, isLoading, setLoading, setError } = useAnchorStore();
+  const anchors = useAnchorStore((state) => state.anchors);
+  const isLoading = useAnchorStore((state) => state.isLoading);
+  const setLoading = useAnchorStore((state) => state.setLoading);
+  const setError = useAnchorStore((state) => state.setError);
   const { isFree, features } = useSubscription();
   const [refreshing, setRefreshing] = useState(false);
   const [showAnchorLimitModal, setShowAnchorLimitModal] = useState(false);
   const reduceMotionEnabled = useReduceMotionEnabled();
+  const shouldReduceMotion = reduceMotionEnabled || !isVaultTabActive;
   const toast = useToast();
 
   useEffect(() => {
@@ -198,41 +204,44 @@ export const VaultScreen: React.FC = () => {
   const renderGridItem = useCallback(
     ({ item, index }: { item: Anchor; index: number }): React.JSX.Element => (
       <Animated.View
-        entering={getFadeUpEntering(GRID_BASE_DELAY_MS + index * FADE_STAGGER_MS, reduceMotionEnabled)}
+        entering={getFadeUpEntering(
+          GRID_BASE_DELAY_MS + index * FADE_STAGGER_MS,
+          reduceMotionEnabled || !isVaultTabActive
+        )}
         style={{ width: CARD_WIDTH }}
       >
         <AnchorCard
           anchor={item}
           onPress={handleAnchorPress}
-          reduceMotionEnabled={reduceMotionEnabled}
+          reduceMotionEnabled={reduceMotionEnabled || !isVaultTabActive}
           variant="sanctuary"
         />
       </Animated.View>
     ),
-    [handleAnchorPress, reduceMotionEnabled]
+    [handleAnchorPress, isVaultTabActive, reduceMotionEnabled]
   );
 
   const listHeader = useMemo(
     () => (
       <>
-        <Animated.View entering={getFadeUpEntering(0, reduceMotionEnabled)}>
-          <SanctuaryHeader reduceMotionEnabled={reduceMotionEnabled} />
+        <Animated.View entering={getFadeUpEntering(0, shouldReduceMotion)}>
+          <SanctuaryHeader reduceMotionEnabled={shouldReduceMotion} />
         </Animated.View>
-        <Animated.View entering={getFadeUpEntering(FADE_STAGGER_MS, reduceMotionEnabled)}>
+        <Animated.View entering={getFadeUpEntering(FADE_STAGGER_MS, shouldReduceMotion)}>
           <DailyStreakStrip
             streakDays={streakDays}
             onPress={navigateToPractice}
-            reduceMotionEnabled={reduceMotionEnabled}
+            reduceMotionEnabled={shouldReduceMotion}
           />
         </Animated.View>
         {anchors.length > 0 && (
-          <Animated.View entering={getFadeUpEntering(FADE_STAGGER_MS * 2, reduceMotionEnabled)}>
+          <Animated.View entering={getFadeUpEntering(FADE_STAGGER_MS * 2, shouldReduceMotion)}>
             <AnchorsSectionRow anchorCount={anchors.length} />
           </Animated.View>
         )}
       </>
     ),
-    [reduceMotionEnabled, streakDays, anchors.length, navigateToPractice]
+    [shouldReduceMotion, streakDays, anchors.length, navigateToPractice]
   );
 
   const forgeButtonBottom = 106 + Math.max(0, insets.bottom - 4);
@@ -240,7 +249,8 @@ export const VaultScreen: React.FC = () => {
 
   return (
     <View style={styles.container}>
-      <ZenBackground variant="sanctuary" showOrbs showGrain showVignette />
+      <ZenBackground variant="sanctuary" showOrbs={isVaultTabActive} showGrain showVignette />
+      <AtmosphericOrbs reduceMotionEnabled={shouldReduceMotion} />
 
       <SafeAreaView style={styles.safeArea} edges={['top']}>
         {isLoading && anchors.length === 0 ? (
@@ -259,7 +269,7 @@ export const VaultScreen: React.FC = () => {
             columnWrapperStyle={styles.columnWrapper}
             ListHeaderComponent={listHeader}
             ListEmptyComponent={(
-              <Animated.View entering={getFadeUpEntering(GRID_BASE_DELAY_MS, reduceMotionEnabled)}>
+              <Animated.View entering={getFadeUpEntering(GRID_BASE_DELAY_MS, shouldReduceMotion)}>
                 <SanctuaryEmptyState />
               </Animated.View>
             )}
@@ -277,10 +287,10 @@ export const VaultScreen: React.FC = () => {
           />
         )}
 
-        <Animated.View entering={getFadeUpEntering(FORGE_BUTTON_DELAY_MS, reduceMotionEnabled)}>
+        <Animated.View entering={getFadeUpEntering(FORGE_BUTTON_DELAY_MS, shouldReduceMotion)}>
           <ForgeAnchorButton
             onPress={handleCreateAnchor}
-            reduceMotionEnabled={reduceMotionEnabled}
+            reduceMotionEnabled={shouldReduceMotion}
             bottomOffset={forgeButtonBottom}
           />
         </Animated.View>

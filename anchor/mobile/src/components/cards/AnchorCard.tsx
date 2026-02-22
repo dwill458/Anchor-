@@ -17,7 +17,7 @@ import Animated, {
 } from 'react-native-reanimated';
 import type { Anchor } from '@/types';
 import { colors, spacing, typography } from '@/theme';
-import { OptimizedImage, PremiumAnchorGlow } from '@/components/common';
+import { ChargedGlowCanvas, OptimizedImage, PremiumAnchorGlow } from '@/components/common';
 import { useSettingsStore } from '@/stores/settingsStore';
 
 interface AnchorCardProps {
@@ -111,13 +111,20 @@ export const AnchorCard: React.FC<AnchorCardProps> = ({
             anchor.isCharged && styles.chargedSigilContainer,
           ]}>
 
-            {/* Keep list-card glow lightweight; per-frame Skia glow is reserved for detail views. */}
-            <PremiumAnchorGlow
-              size={CARD_WIDTH * 0.72}
-              variant="card"
-              state={anchor.isCharged ? 'charged' : 'dormant'}
-              reduceMotionEnabled={reduceMotionEnabled}
-            />
+            {/* Android keeps the richer charged glow; other paths stay lightweight. */}
+            {anchor.isCharged && Platform.OS === 'android' && !reduceMotionEnabled ? (
+              <ChargedGlowCanvas
+                size={CARD_WIDTH * 0.72}
+                reduceMotionEnabled={reduceMotionEnabled}
+              />
+            ) : (
+              <PremiumAnchorGlow
+                size={CARD_WIDTH * 0.72}
+                variant="card"
+                state={anchor.isCharged ? 'charged' : 'dormant'}
+                reduceMotionEnabled={reduceMotionEnabled}
+              />
+            )}
 
             {/* ── Purple sigil backdrop (charged only) ───────────────────── */}
             {anchor.isCharged && (

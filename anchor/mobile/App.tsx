@@ -1,5 +1,5 @@
 import 'react-native-gesture-handler';
-import React, { useEffect } from 'react';
+import React, { useEffect, useRef } from 'react';
 import { AppState, StatusBar, View, StyleSheet, Platform, Dimensions } from 'react-native';
 import { useFonts } from 'expo-font';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
@@ -22,6 +22,9 @@ import { ToastProvider } from './src/components/ToastProvider';
 import { useAuthStore } from './src/stores/authStore';
 import { SettingsRevealProvider } from './src/components/transitions/SettingsRevealProvider';
 import type { RootNavigatorParamList } from './src/navigation/RootNavigator';
+import { ErrorTrackingService, setupGlobalErrorHandler } from './src/services/ErrorTrackingService';
+import { PerformanceMonitoring, type PerformanceTrace } from './src/services/PerformanceMonitoring';
+import { monitoringConfig } from './src/config/monitoring';
 
 const { width } = Dimensions.get('window');
 const isWeb = Platform.OS === 'web';
@@ -44,7 +47,10 @@ const AppTheme = {
 
 export default function App() {
   const computeStreak = useAuthStore((state) => state.computeStreak);
+  const user = useAuthStore((state) => state.user);
   const navRef = useNavigationContainerRef<RootNavigatorParamList>();
+  const routeNameRef = useRef<string | undefined>(undefined);
+  const screenTraceRef = useRef<PerformanceTrace | null>(null);
   const [fontsLoaded] = useFonts({
     'Cinzel-Regular': Cinzel_400Regular,
     'Cinzel-SemiBold': Cinzel_600SemiBold,
@@ -56,13 +62,44 @@ export default function App() {
   });
 
   useEffect(() => {
+    ErrorTrackingService.initialize({
+      enabled: monitoringConfig.sentryEnabled,
+      environment: monitoringConfig.environment,
+      release: monitoringConfig.release,
+      traceSampleRate: monitoringConfig.traceSampleRate,
+      profileSampleRate: monitoringConfig.profileSampleRate,
+    });
+    setupGlobalErrorHandler();
+    PerformanceMonitoring.initialize({ enabled: true });
+  }, []);
+
+  useEffect(() => {
+    if (user?.id) {
+      ErrorTrackingService.setUser(user.id, user.email, user.displayName);
+      return;
+    }
+
+    ErrorTrackingService.clearUser();
+  }, [user?.displayName, user?.email, user?.id]);
+
+  useEffect(() => {
     const subscription = AppState.addEventListener('change', (nextState) => {
       if (nextState === 'active') {
+        ErrorTrackingService.addBreadcrumb('App foregrounded', 'app_state', { nextState });
         computeStreak();
+      } else {
+        ErrorTrackingService.addBreadcrumb('App state changed', 'app_state', { nextState });
       }
     });
     return () => subscription.remove();
   }, [computeStreak]);
+
+  useEffect(() => {
+    return () => {
+      screenTraceRef.current?.stop({ reason: 'app_unmount' });
+      screenTraceRef.current = null;
+    };
+  }, []);
 
   if (!fontsLoaded) {
     return <View style={styles.fontLoadingFallback} />;
@@ -76,7 +113,46 @@ export default function App() {
             <View style={styles.webContainer}>
               <View style={styles.appContainer}>
                 <SettingsRevealProvider navigationRef={navRef}>
-                  <NavigationContainer ref={navRef} theme={AppTheme}>
+                  <NavigationContainer
+                    ref={navRef}
+                    theme={AppTheme}
+                    onReady={() => {
+                      ErrorTrackingService.registerNavigationContainer(navRef);
+                      const initialRouteName = navRef.getCurrentRoute()?.name;
+
+                      if (!initialRouteName) {
+                        return;
+                      }
+
+                      routeNameRef.current = initialRouteName;
+                      ErrorTrackingService.trackNavigation(undefined, initialRouteName);
+                      screenTraceRef.current = PerformanceMonitoring.startTrace(
+                        `screen_${initialRouteName}`,
+                        { route: initialRouteName }
+                      );
+                    }}
+                    onStateChange={() => {
+                      const previousRouteName = routeNameRef.current;
+                      const currentRouteName = navRef.getCurrentRoute()?.name;
+
+                      if (!currentRouteName || previousRouteName === currentRouteName) {
+                        return;
+                      }
+
+                      screenTraceRef.current?.stop({
+                        route: previousRouteName ?? 'unknown',
+                        next_route: currentRouteName,
+                      });
+
+                      screenTraceRef.current = PerformanceMonitoring.startTrace(
+                        `screen_${currentRouteName}`,
+                        { from: previousRouteName ?? 'unknown', to: currentRouteName }
+                      );
+
+                      ErrorTrackingService.trackNavigation(previousRouteName, currentRouteName);
+                      routeNameRef.current = currentRouteName;
+                    }}
+                  >
                     <StatusBar barStyle="light-content" backgroundColor="#1A1A1D" />
                     <RootNavigator />
                   </NavigationContainer>

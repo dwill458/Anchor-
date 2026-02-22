@@ -201,7 +201,7 @@ export default function IntentionInputScreen() {
         if (canSubmit) {
             const distillation = distillIntention(intention);
             const category = detectCategoryFromText(intention);
-            navigation.navigate('DistillationAnimation', {
+            navigation.navigate('LetterDistillation', {
                 intentionText: intention,
                 category,
                 distilledLetters: distillation.finalLetters,
