@@ -1,7 +1,6 @@
 import React from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { Flame } from 'lucide-react-native';
-import { GlassCard } from '@/components/common';
 import { colors, spacing, typography } from '@/theme';
 import { PRACTICE_COPY } from '@/constants/copy';
 
@@ -16,121 +15,121 @@ export const DailyThreadPill: React.FC<DailyThreadPillProps> = ({
   streakDays,
   onPress,
 }) => {
-  const completed = progressLabel === '1/1';
+  const resolvedStreakDays = Math.max(streakDays, 0);
+  const filledDots = Math.min(resolvedStreakDays, 7);
+  const streakUnitLabel = resolvedStreakDays === 1 ? 'DAY' : 'DAYS';
 
   return (
     <Pressable onPress={onPress} style={styles.pressable} accessibilityRole="button">
-      <GlassCard style={styles.card} contentStyle={styles.content}>
-        <View style={styles.left}>
-          <View style={styles.flameWrap}>
-            <Flame size={14} color={colors.gold} />
-          </View>
-          <View style={styles.copy}>
-            <Text style={styles.title}>{PRACTICE_COPY.dailyThreadTitle}</Text>
-            <Text style={styles.subtitle}>{PRACTICE_COPY.dailyThreadBody}</Text>
+      <View style={styles.card}>
+        <View style={styles.streakIconWrap}>
+          <Flame size={18} color={colors.gold} />
+        </View>
+
+        <View style={styles.streakInfo}>
+          <Text style={styles.streakTrackerTitle}>{PRACTICE_COPY.dailyThreadTitle}</Text>
+          <Text style={styles.streakTrackerSub}>{PRACTICE_COPY.dailyThreadBody}</Text>
+          <View style={styles.streakDots}>
+            {Array.from({ length: 7 }).map((_, index) => (
+              <View key={`streak-dot-${index}`} style={[styles.sDot, index < filledDots && styles.sDotFilled]} />
+            ))}
           </View>
         </View>
-        <View style={styles.right}>
-          <View style={styles.progressWrap}>
-            <View style={[styles.progressRing, completed && styles.progressRingDone]}>
-              <View style={[styles.progressDot, completed && styles.progressDotDone]} />
-            </View>
-            <Text style={styles.progress}>{progressLabel}</Text>
-          </View>
-          <Text style={styles.streak}>{`${Math.max(streakDays, 0)}d`}</Text>
+
+        <View style={styles.streakCountDisplay}>
+          <Text style={styles.progress}>{progressLabel}</Text>
+          <Text style={styles.streakNumber}>{resolvedStreakDays}</Text>
+          <Text style={styles.streakDaysLabel}>{streakUnitLabel}</Text>
         </View>
-      </GlassCard>
+      </View>
     </Pressable>
   );
 };
 
 const styles = StyleSheet.create({
   pressable: {
-    borderRadius: 999,
+    borderRadius: 18,
   },
   card: {
-    borderRadius: 999,
-    borderColor: 'rgba(212,175,55,0.26)',
-  },
-  content: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm + 2,
-    gap: spacing.sm,
-  },
-  left: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    flex: 1,
-    gap: spacing.sm,
-  },
-  flameWrap: {
-    width: 24,
-    height: 24,
-    borderRadius: 999,
+    gap: 14,
+    backgroundColor: colors.practice.threadSurface,
     borderWidth: 1,
-    borderColor: 'rgba(212,175,55,0.3)',
-    backgroundColor: 'rgba(212,175,55,0.12)',
+    borderColor: colors.practice.threadBorder,
+    borderRadius: 18,
+    padding: spacing.md,
+    marginBottom: spacing.lg,
+  },
+  streakIconWrap: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: colors.practice.threadIconSurface,
+    borderWidth: 1,
+    borderColor: colors.practice.threadIconBorder,
     alignItems: 'center',
     justifyContent: 'center',
+    flexShrink: 0,
   },
-  copy: {
+  streakInfo: {
     flex: 1,
   },
-  title: {
-    fontFamily: typography.fontFamily.sansBold,
+  streakTrackerTitle: {
+    fontFamily: typography.fontFamily.serifSemiBold,
     fontSize: 12,
-    color: colors.text.primary,
+    letterSpacing: 2,
+    color: colors.bone,
+    marginBottom: 3,
+    textTransform: 'uppercase',
   },
-  subtitle: {
-    marginTop: 1,
+  streakTrackerSub: {
     fontFamily: typography.fontFamily.sans,
-    fontSize: 11,
-    color: colors.text.secondary,
-    lineHeight: 15,
+    fontSize: 12,
+    color: colors.silver,
+    fontStyle: 'italic',
   },
-  right: {
-    alignItems: 'flex-end',
-    minWidth: 56,
-  },
-  progressWrap: {
+  streakDots: {
     flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
+    gap: 4,
+    marginTop: 6,
   },
-  progressRing: {
-    width: 14,
-    height: 14,
-    borderRadius: 999,
-    borderWidth: 1,
-    borderColor: 'rgba(212,175,55,0.45)',
-    alignItems: 'center',
-    justifyContent: 'center',
+  sDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: colors.practice.threadDotSurface,
   },
-  progressRingDone: {
-    borderColor: 'rgba(212,175,55,0.82)',
-  },
-  progressDot: {
-    width: 5,
-    height: 5,
-    borderRadius: 999,
-    backgroundColor: 'rgba(212,175,55,0.38)',
-  },
-  progressDotDone: {
+  sDotFilled: {
     backgroundColor: colors.gold,
+    shadowColor: colors.gold,
+    shadowOpacity: 0.5,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  streakCountDisplay: {
+    alignItems: 'flex-end',
   },
   progress: {
     fontFamily: typography.fontFamily.sansBold,
     fontSize: 12,
     color: colors.gold,
-    lineHeight: 16,
   },
-  streak: {
-    marginTop: 3,
-    fontFamily: typography.fontFamily.sansBold,
+  streakNumber: {
+    marginTop: 2,
+    fontFamily: typography.fontFamily.serifBold,
+    fontSize: 26,
+    color: colors.gold,
+    lineHeight: 28,
+    textShadowColor: colors.practice.heroGlowStrong,
+    textShadowRadius: 12,
+    textShadowOffset: { width: 0, height: 0 },
+  },
+  streakDaysLabel: {
+    fontFamily: typography.fontFamily.serif,
     fontSize: 10,
-    color: colors.text.tertiary,
+    letterSpacing: 2,
+    color: colors.bronze,
+    textTransform: 'uppercase',
   },
 });

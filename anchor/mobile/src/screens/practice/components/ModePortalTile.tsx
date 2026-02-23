@@ -6,7 +6,6 @@ import Animated, {
   useSharedValue,
   withTiming,
 } from 'react-native-reanimated';
-import { GlassCard } from '@/components/common';
 import { colors, spacing, typography } from '@/theme';
 
 type PortalVariant = 'charge' | 'stabilize' | 'burn';
@@ -23,39 +22,6 @@ interface ModePortalTileProps {
 
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
-const VARIANT_STYLES: Record<
-  PortalVariant,
-  {
-    borderColor: string;
-    backgroundColor: string;
-    glowColor: string;
-    titleColor: string;
-    radiusStyle: ViewStyle;
-  }
-> = {
-  charge: {
-    borderColor: 'rgba(212,175,55,0.36)',
-    backgroundColor: 'rgba(26,21,35,0.48)',
-    glowColor: 'rgba(212,175,55,0.22)',
-    titleColor: '#E7D9AF',
-    radiusStyle: { borderRadius: 24, borderTopRightRadius: 38, borderBottomLeftRadius: 30 },
-  },
-  stabilize: {
-    borderColor: 'rgba(188,177,208,0.28)',
-    backgroundColor: 'rgba(22,24,35,0.5)',
-    glowColor: 'rgba(188,177,208,0.16)',
-    titleColor: '#D8DCEB',
-    radiusStyle: { borderRadius: 30, borderTopLeftRadius: 38, borderBottomRightRadius: 34 },
-  },
-  burn: {
-    borderColor: 'rgba(162,134,78,0.34)',
-    backgroundColor: 'rgba(21,17,23,0.62)',
-    glowColor: 'rgba(180,112,62,0.18)',
-    titleColor: '#D7C5A3',
-    radiusStyle: { borderRadius: 22, borderTopLeftRadius: 30, borderTopRightRadius: 30, borderBottomLeftRadius: 16 },
-  },
-};
-
 export const ModePortalTile: React.FC<ModePortalTileProps> = ({
   variant,
   title,
@@ -66,7 +32,7 @@ export const ModePortalTile: React.FC<ModePortalTileProps> = ({
   onPress,
 }) => {
   const pressed = useSharedValue(0);
-  const tokens = VARIANT_STYLES[variant];
+  const isFeatured = variant === 'charge';
 
   const handlePressIn = useCallback(() => {
     pressed.value = withTiming(1, {
@@ -86,10 +52,6 @@ export const ModePortalTile: React.FC<ModePortalTileProps> = ({
     transform: [{ scale: 1 - pressed.value * 0.015 }],
   }));
 
-  const pulseStyle = useAnimatedStyle(() => ({
-    opacity: 0.12 + pressed.value * 0.32,
-  }));
-
   const dotStyle = useAnimatedStyle(() => ({
     opacity: 0.44 + pressed.value * 0.56,
     transform: [{ scale: 1 + pressed.value * 0.2 }],
@@ -103,89 +65,118 @@ export const ModePortalTile: React.FC<ModePortalTileProps> = ({
       accessibilityRole="button"
       style={[styles.pressable, style, animatedCard]}
     >
-      <GlassCard
-        style={[
-          styles.card,
-          tokens.radiusStyle,
-          { borderColor: tokens.borderColor, backgroundColor: tokens.backgroundColor },
-        ]}
-        contentStyle={styles.content}
-        borderColor={tokens.borderColor}
-        backgroundColor={tokens.backgroundColor}
-      >
-        <Animated.View
-          pointerEvents="none"
-          style={[styles.pulseOverlay, { backgroundColor: tokens.glowColor }, pulseStyle]}
-        />
+      <View style={[styles.card, isFeatured ? styles.cardFeatured : styles.cardSecondary]}>
         <View style={styles.topRow}>
-          <View style={[styles.iconWrap, { borderColor: tokens.borderColor }]}>{icon}</View>
-          <Animated.View style={[styles.dot, { backgroundColor: tokens.titleColor }, dotStyle]} />
+          <View style={[styles.iconWrap, isFeatured ? styles.iconFeatured : styles.iconSecondary]}>{icon}</View>
+          <Animated.View style={[styles.dot, dotStyle]} />
         </View>
-        <Text style={[styles.title, { color: tokens.titleColor }]}>{title}</Text>
-        <Text style={styles.meaning}>{meaning}</Text>
-        <Text style={styles.duration}>{durationHint}</Text>
-      </GlassCard>
+        <Text style={isFeatured ? styles.titleFeatured : styles.titleSecondary}>{title}</Text>
+        <Text style={isFeatured ? styles.meaningFeatured : styles.meaningSecondary}>{meaning}</Text>
+        <Text style={isFeatured ? styles.durationFeatured : styles.durationSecondary}>{durationHint}</Text>
+      </View>
     </AnimatedPressable>
   );
 };
 
 const styles = StyleSheet.create({
   pressable: {
-    borderRadius: 28,
+    borderRadius: 18,
   },
   card: {
-    minHeight: 126,
+    borderWidth: 1,
+    overflow: 'hidden',
   },
-  content: {
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.md,
+  cardFeatured: {
+    minHeight: 160,
+    backgroundColor: colors.practice.cardFeaturedSurface,
+    borderColor: colors.practice.cardFeaturedBorder,
+    borderRadius: 18,
+    padding: spacing.lg,
   },
-  pulseOverlay: {
-    ...StyleSheet.absoluteFillObject,
+  cardSecondary: {
+    minHeight: 132,
+    backgroundColor: colors.practice.cardSecondarySurface,
+    borderColor: colors.practice.cardSecondaryBorder,
+    borderRadius: 12,
+    padding: spacing.md,
   },
   topRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: spacing.sm,
+    marginBottom: spacing.md,
   },
   iconWrap: {
-    width: 30,
-    height: 30,
-    borderRadius: 999,
-    borderWidth: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: 'rgba(255,255,255,0.04)',
+    borderWidth: 1,
+  },
+  iconFeatured: {
+    width: 40,
+    height: 40,
+    borderRadius: 12,
+    backgroundColor: colors.practice.cardIconSurface,
+    borderColor: colors.practice.cardIconBorder,
+  },
+  iconSecondary: {
+    width: 32,
+    height: 32,
+    borderRadius: 9,
+    backgroundColor: colors.practice.cardIconSecondarySurface,
+    borderColor: colors.practice.cardIconSecondaryBorder,
   },
   dot: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-    shadowColor: '#fff',
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.4,
-    shadowRadius: 4,
-    elevation: 2,
+    width: 7,
+    height: 7,
+    borderRadius: 3.5,
+    backgroundColor: colors.practice.cardDotSurface,
+    borderWidth: 1,
+    borderColor: colors.practice.cardDotBorder,
   },
-  title: {
+  titleFeatured: {
     fontFamily: typography.fontFamily.serifSemiBold,
-    fontSize: 17,
-    lineHeight: 22,
-    letterSpacing: 0.3,
+    fontSize: 16,
+    letterSpacing: 1.3,
+    color: colors.gold,
+    marginBottom: spacing.xs + 2,
   },
-  meaning: {
-    marginTop: 2,
+  titleSecondary: {
+    fontFamily: typography.fontFamily.serifSemiBold,
+    fontSize: 11,
+    letterSpacing: 1.5,
+    color: colors.bone,
+    opacity: 0.85,
+    marginBottom: spacing.xs + 1,
+  },
+  meaningFeatured: {
+    fontFamily: typography.fontFamily.sans,
+    fontSize: 14,
+    lineHeight: 21,
+    color: colors.silver,
+    fontStyle: 'italic',
+    marginBottom: spacing.sm + 2,
+  },
+  meaningSecondary: {
     fontFamily: typography.fontFamily.sans,
     fontSize: 12,
     lineHeight: 17,
-    color: colors.text.secondary,
+    color: colors.silver,
+    fontStyle: 'italic',
+    marginBottom: spacing.sm,
+    opacity: 0.8,
   },
-  duration: {
-    marginTop: spacing.sm,
-    fontFamily: typography.fontFamily.sans,
+  durationFeatured: {
+    fontFamily: typography.fontFamily.serif,
     fontSize: 11,
-    lineHeight: 14,
-    color: colors.text.tertiary,
+    letterSpacing: 1.5,
+    color: colors.bronze,
+    textTransform: 'uppercase',
+  },
+  durationSecondary: {
+    fontFamily: typography.fontFamily.serif,
+    fontSize: 10,
+    letterSpacing: 1.2,
+    color: colors.bronze,
+    textTransform: 'uppercase',
   },
 });
