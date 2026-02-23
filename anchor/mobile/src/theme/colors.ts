@@ -73,6 +73,44 @@ export const colors = {
     textDim: 'rgba(180,165,135,0.3)',
   },
 
+  // Practice screen-specific palette
+  practice: {
+    heroGlowSoft: 'rgba(212,175,55,0.12)',
+    heroGlowStrong: 'rgba(212,175,55,0.24)',
+    heroRingBorder: 'rgba(212,175,55,0.28)',
+    heroRingSurface: 'rgba(62,44,91,0.18)',
+    heroCircleBorder: 'rgba(255,255,255,0.18)',
+    heroCircleSurface: 'rgba(12,16,24,0.82)',
+    heroSwitcherSurface: 'rgba(255,255,255,0.05)',
+    heroSwitcherBorder: 'rgba(255,255,255,0.1)',
+    heroStreakBadgeText: 'rgba(192,192,192,0.95)',
+
+    ctaGradientStart: '#C9A84C',
+    ctaGradientMid: '#A8892E',
+    ctaGradientEnd: '#8B7020',
+    ctaTextPrimary: '#0f0d08',
+    ctaTextSecondary: 'rgba(15,13,8,0.65)',
+    ctaTextTertiary: 'rgba(15,13,8,0.6)',
+    ctaArrowSurface: 'rgba(0,0,0,0.2)',
+
+    cardFeaturedSurface: 'rgba(20,26,35,0.92)',
+    cardFeaturedBorder: 'rgba(212,175,55,0.22)',
+    cardSecondarySurface: 'rgba(16,21,28,0.95)',
+    cardSecondaryBorder: 'rgba(212,175,55,0.1)',
+    cardIconSurface: 'rgba(212,175,55,0.12)',
+    cardIconSecondarySurface: 'rgba(212,175,55,0.08)',
+    cardIconBorder: 'rgba(212,175,55,0.2)',
+    cardIconSecondaryBorder: 'rgba(212,175,55,0.14)',
+    cardDotSurface: 'rgba(212,175,55,0.3)',
+    cardDotBorder: 'rgba(212,175,55,0.4)',
+
+    threadSurface: 'rgba(20,26,35,0.92)',
+    threadBorder: 'rgba(212,175,55,0.12)',
+    threadIconSurface: 'rgba(212,175,55,0.1)',
+    threadIconBorder: 'rgba(212,175,55,0.2)',
+    threadDotSurface: 'rgba(212,175,55,0.2)',
+  },
+
   // Choose Structure / Structure Forge screen palette
   forgeScreen: {
     gradientTop: '#1A1028',

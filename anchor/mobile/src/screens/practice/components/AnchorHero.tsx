@@ -1,17 +1,18 @@
 import React, { useEffect } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { SvgXml } from 'react-native-svg';
-import { ChevronDown } from 'lucide-react-native';
+import { ChevronDown, Flame } from 'lucide-react-native';
 import Animated, {
   Easing,
   cancelAnimation,
+  interpolate,
   useAnimatedStyle,
   useSharedValue,
   withRepeat,
   withTiming,
 } from 'react-native-reanimated';
 import type { Anchor } from '@/types';
-import { OptimizedImage } from '@/components/common';
+import { ChargedGlowCanvas, OptimizedImage } from '@/components/common';
 import { colors, spacing, typography } from '@/theme';
 import { useReduceMotionEnabled } from '@/hooks/useReduceMotionEnabled';
 
@@ -19,9 +20,11 @@ interface AnchorHeroProps {
   anchor?: Anchor;
   onPress: () => void;
   animationsEnabled?: boolean;
+  streakDays: number;
 }
 
 const HERO_SIZE = 172;
+const GLOW_CANVAS_SIZE = 218;
 
 function getName(anchor?: Anchor): string {
   if (!anchor) return 'Select an anchor';
@@ -34,21 +37,36 @@ export const AnchorHero: React.FC<AnchorHeroProps> = ({
   anchor,
   onPress,
   animationsEnabled = true,
+  streakDays,
 }) => {
   const reduceMotionEnabled = useReduceMotionEnabled();
-  const breath = useSharedValue(0);
+  const glowAnim = useSharedValue(0);
+  const dotOpacityAnim = useSharedValue(1);
   const sigil = anchor?.reinforcedSigilSvg ?? anchor?.baseSigilSvg;
+  const resolvedStreakDays = Math.max(streakDays, 0);
+  const streakDayLabel = resolvedStreakDays === 1 ? 'day' : 'days';
 
   useEffect(() => {
-    if (!animationsEnabled || reduceMotionEnabled || !anchor?.isCharged) {
-      cancelAnimation(breath);
-      breath.value = 0;
+    if (!animationsEnabled || reduceMotionEnabled) {
+      cancelAnimation(glowAnim);
+      cancelAnimation(dotOpacityAnim);
+      glowAnim.value = 0;
+      dotOpacityAnim.value = 1;
       return;
     }
 
-    breath.value = withRepeat(
+    glowAnim.value = withRepeat(
       withTiming(1, {
-        duration: 5000,
+        duration: 2000,
+        easing: Easing.inOut(Easing.sin),
+      }),
+      -1,
+      true
+    );
+
+    dotOpacityAnim.value = withRepeat(
+      withTiming(0.4, {
+        duration: 1000,
         easing: Easing.inOut(Easing.sin),
       }),
       -1,
@@ -56,13 +74,17 @@ export const AnchorHero: React.FC<AnchorHeroProps> = ({
     );
 
     return () => {
-      cancelAnimation(breath);
+      cancelAnimation(glowAnim);
+      cancelAnimation(dotOpacityAnim);
     };
-  }, [anchor?.isCharged, animationsEnabled, breath, reduceMotionEnabled]);
+  }, [animationsEnabled, dotOpacityAnim, glowAnim, reduceMotionEnabled]);
 
-  const haloStyle = useAnimatedStyle(() => ({
-    opacity: anchor?.isCharged ? 0.2 + breath.value * 0.2 : 0.05,
-    transform: [{ scale: 1 + breath.value * 0.04 }],
+  const glowScaleStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: interpolate(glowAnim.value, [0, 1], [1, 1.12]) }],
+  }));
+
+  const chargedDotStyle = useAnimatedStyle(() => ({
+    opacity: dotOpacityAnim.value,
   }));
 
   return (
@@ -73,23 +95,49 @@ export const AnchorHero: React.FC<AnchorHeroProps> = ({
         accessibilityLabel={anchor ? `Selected anchor: ${getName(anchor)}` : 'Select an anchor'}
         style={({ pressed }) => [styles.heroPressable, pressed && styles.pressed]}
       >
-        <Animated.View style={[styles.halo, haloStyle]} />
-        <View style={styles.ring} />
-        <View style={styles.heroCircle}>
-          {anchor?.enhancedImageUrl ? (
-            <OptimizedImage uri={anchor.enhancedImageUrl} style={styles.image} resizeMode="cover" />
-          ) : sigil ? (
-            <SvgXml xml={sigil} width={HERO_SIZE * 0.86} height={HERO_SIZE * 0.86} />
-          ) : (
-            <Text style={styles.emptySymbol}>◈</Text>
+        <Animated.View style={[styles.sigilGlowWrap, glowScaleStyle]}>
+          {anchor?.isCharged && (
+            <View
+              pointerEvents="none"
+              style={{
+                position: 'absolute',
+                width: GLOW_CANVAS_SIZE,
+                height: GLOW_CANVAS_SIZE,
+                top: -((GLOW_CANVAS_SIZE - (HERO_SIZE + 22)) / 2),
+                left: -((GLOW_CANVAS_SIZE - (HERO_SIZE + 22)) / 2),
+              }}
+            >
+              <ChargedGlowCanvas size={GLOW_CANVAS_SIZE} reduceMotionEnabled={reduceMotionEnabled} />
+            </View>
           )}
-        </View>
-        {anchor?.isCharged ? (
-          <View style={styles.chargedStamp}>
-            <Text style={styles.chargedText}>Charged</Text>
+          <View style={styles.sigilAmbient} />
+          <View style={styles.ring} />
+          <View style={styles.heroCircle}>
+            {anchor?.enhancedImageUrl ? (
+              <OptimizedImage uri={anchor.enhancedImageUrl} style={styles.image} resizeMode="cover" />
+            ) : sigil ? (
+              <SvgXml xml={sigil} width={HERO_SIZE * 0.86} height={HERO_SIZE * 0.86} />
+            ) : (
+              <Text style={styles.emptySymbol}>◈</Text>
+            )}
           </View>
-        ) : null}
+        </Animated.View>
       </Pressable>
+
+      {anchor?.isCharged ? (
+        <View style={styles.chargedIndicator}>
+          <Animated.View style={[styles.chargedDot, chargedDotStyle]} />
+          <Text style={styles.chargedLabel}>CHARGED</Text>
+        </View>
+      ) : null}
+
+      <View style={styles.streakBadge}>
+        <Flame size={14} color={colors.gold} />
+        <Text style={styles.streakBadgeText}>
+          <Text style={styles.streakBadgeCount}>{`${resolvedStreakDays} ${streakDayLabel}`}</Text>
+          {' streak - keep it alive'}
+        </Text>
+      </View>
 
       <Pressable
         onPress={onPress}
@@ -123,12 +171,19 @@ const styles = StyleSheet.create({
   pressed: {
     transform: [{ scale: 0.985 }],
   },
-  halo: {
+  sigilGlowWrap: {
+    width: HERO_SIZE + 22,
+    height: HERO_SIZE + 22,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  sigilAmbient: {
     position: 'absolute',
-    width: HERO_SIZE + 34,
-    height: HERO_SIZE + 34,
-    borderRadius: (HERO_SIZE + 34) / 2,
-    backgroundColor: 'rgba(212,175,55,0.2)',
+    width: HERO_SIZE + 72,
+    height: HERO_SIZE + 72,
+    borderRadius: (HERO_SIZE + 72) / 2,
+    backgroundColor: colors.practice.heroGlowSoft,
+    opacity: 0.9,
   },
   ring: {
     position: 'absolute',
@@ -136,16 +191,16 @@ const styles = StyleSheet.create({
     height: HERO_SIZE + 12,
     borderRadius: (HERO_SIZE + 12) / 2,
     borderWidth: 1,
-    borderColor: 'rgba(212,175,55,0.28)',
-    backgroundColor: 'rgba(62,44,91,0.18)',
+    borderColor: colors.practice.heroRingBorder,
+    backgroundColor: colors.practice.heroRingSurface,
   },
   heroCircle: {
     width: HERO_SIZE,
     height: HERO_SIZE,
     borderRadius: HERO_SIZE / 2,
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.18)',
-    backgroundColor: 'rgba(12,16,24,0.82)',
+    borderColor: colors.practice.heroCircleBorder,
+    backgroundColor: colors.practice.heroCircleSurface,
     alignItems: 'center',
     justifyContent: 'center',
     overflow: 'hidden',
@@ -161,31 +216,54 @@ const styles = StyleSheet.create({
     color: colors.gold,
     opacity: 0.7,
   },
-  chargedStamp: {
-    position: 'absolute',
-    top: 8,
-    right: 8,
-    borderRadius: 999,
-    borderWidth: 1,
-    borderColor: 'rgba(212,175,55,0.34)',
-    backgroundColor: 'rgba(11,14,20,0.92)',
-    paddingHorizontal: spacing.sm,
-    paddingVertical: 4,
+  chargedIndicator: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginTop: spacing.md - 4,
   },
-  chargedText: {
-    fontFamily: typography.fontFamily.sansBold,
-    fontSize: 10,
+  chargedDot: {
+    width: 7,
+    height: 7,
+    borderRadius: 3.5,
+    backgroundColor: colors.gold,
+    shadowColor: colors.gold,
+    shadowOpacity: 0.8,
+    shadowRadius: 6,
+    shadowOffset: { width: 0, height: 0 },
+    elevation: 4,
+  },
+  chargedLabel: {
+    fontFamily: typography.fontFamily.serif,
+    fontSize: 11,
+    letterSpacing: 2.5,
     color: colors.gold,
-    letterSpacing: 0.2,
+  },
+  streakBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    marginTop: 5,
+  },
+  streakBadgeText: {
+    fontFamily: typography.fontFamily.sans,
+    fontSize: 13,
+    color: colors.practice.heroStreakBadgeText,
+    fontStyle: 'italic',
+  },
+  streakBadgeCount: {
+    color: colors.gold,
+    fontFamily: typography.fontFamily.sansBold,
+    fontStyle: 'normal',
   },
   switcherPill: {
     marginTop: spacing.md,
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.sm,
     borderRadius: 16,
-    backgroundColor: 'rgba(255,255,255,0.05)',
+    backgroundColor: colors.practice.heroSwitcherSurface,
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.1)',
+    borderColor: colors.practice.heroSwitcherBorder,
     alignItems: 'center',
   },
   switcherLabel: {

@@ -1,6 +1,7 @@
 import React, { useCallback, useMemo, useRef, useState } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { StyleSheet, View, Text, Pressable, Platform, InteractionManager } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import type { StackNavigationProp } from '@react-navigation/stack';
@@ -140,6 +141,7 @@ export const PracticeScreen: React.FC = () => {
     lastStabilizeAt,
     new Date()
   );
+  const streakDays = Math.max(anchoredStreak, stabilizeStreakDays);
 
   const defaultDeepChargeSeconds = useMemo(
     () => getDefaultDeepChargeSeconds(defaultCharge),
@@ -472,6 +474,7 @@ export const PracticeScreen: React.FC = () => {
             <AnchorHero
               anchor={selectedAnchor}
               animationsEnabled={isPracticeTabActive}
+              streakDays={streakDays}
               onPress={() => {
                 markInteraction();
                 setPendingMode(null);
@@ -488,24 +491,38 @@ export const PracticeScreen: React.FC = () => {
                   markInteraction();
                   runMode(suggestedRitual.type);
                 }}
-                style={({ pressed }) => [{ marginBottom: spacing.md, opacity: pressed ? 0.9 : 1, transform: [{ scale: pressed ? 0.98 : 1 }] }]}
+                style={({ pressed }) => [
+                  styles.ctaPressable,
+                  { opacity: pressed ? 0.9 : 1, transform: [{ scale: pressed ? 0.98 : 1 }] },
+                ]}
               >
-                <View style={styles.primaryCtaCard}>
-                  <View style={styles.primaryCtaLeft}>
-                    <Text style={styles.primaryCtaTitle}>{PRACTICE_COPY.primaryCTA}</Text>
-                    <Text style={styles.primaryCtaSubtitle}>
+                <LinearGradient
+                  colors={[
+                    colors.practice.ctaGradientStart,
+                    colors.practice.ctaGradientMid,
+                    colors.practice.ctaGradientEnd,
+                  ]}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 1 }}
+                  style={styles.ctaButton}
+                >
+                  <View style={styles.ctaLeft}>
+                    <Text style={styles.ctaLabel}>TODAY'S PRACTICE</Text>
+                    <Text style={styles.ctaTitle}>{PRACTICE_COPY.primaryCTA}</Text>
+                    <Text style={styles.ctaSubtitle}>
                       {suggestedRitual.title} • {suggestedRitual.subtitle}
                     </Text>
                   </View>
-                  <View style={styles.primaryCtaIconWrap}>
-                    <ChevronRight size={20} color={colors.gold} />
+                  <View style={styles.ctaArrow}>
+                    <ChevronRight size={18} color={colors.practice.ctaTextPrimary} />
                   </View>
-                </View>
+                </LinearGradient>
               </Pressable>
             </Animated.View>
           )}
 
           <Animated.View style={[styles.portalsWrap, portalsStyle]}>
+            <Text style={styles.sectionLabel}>PRACTICE MODES</Text>
             <ModePortalTile
               variant="charge"
               title={PRACTICE_COPY.rituals.charge.title}
@@ -548,7 +565,7 @@ export const PracticeScreen: React.FC = () => {
           <Animated.View style={threadStyle}>
             <DailyThreadPill
               progressLabel={progressLabel}
-              streakDays={Math.max(anchoredStreak, stabilizeStreakDays)}
+              streakDays={streakDays}
               onPress={() => {
                 markInteraction();
                 setThreadVisible(true);
@@ -582,7 +599,7 @@ export const PracticeScreen: React.FC = () => {
         visible={threadVisible}
         onClose={() => setThreadVisible(false)}
         todaySessionsCount={todayPractice.sessionsCount}
-        streakDays={Math.max(stabilizeStreakDays, anchoredStreak)}
+        streakDays={streakDays}
         sessions={sessionLog}
       />
     </View>
@@ -612,38 +629,59 @@ const styles = StyleSheet.create({
   portalHalf: {
     flex: 1,
   },
-  primaryCtaCard: {
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.md,
-    borderRadius: 24,
-    borderWidth: 1,
-    borderColor: 'rgba(212,175,55,0.4)',
-    backgroundColor: 'rgba(26,21,35,0.6)',
+  ctaPressable: {
+    marginBottom: spacing.md,
+  },
+  ctaButton: {
+    borderRadius: 18,
+    padding: spacing.lg,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+    shadowColor: colors.gold,
+    shadowOpacity: 0.3,
+    shadowRadius: 16,
+    shadowOffset: { width: 0, height: 6 },
+    elevation: 8,
   },
-  primaryCtaLeft: {
+  ctaLeft: {
     flex: 1,
   },
-  primaryCtaTitle: {
+  ctaLabel: {
+    fontFamily: typography.fontFamily.serif,
+    fontSize: 11,
+    letterSpacing: 2.5,
+    color: colors.practice.ctaTextSecondary,
+    marginBottom: 3,
+  },
+  ctaTitle: {
     fontFamily: typography.fontFamily.serifBold,
     fontSize: 20,
-    color: colors.gold,
-    letterSpacing: 0.2,
+    color: colors.practice.ctaTextPrimary,
+    letterSpacing: 1,
   },
-  primaryCtaSubtitle: {
-    marginTop: 4,
+  ctaSubtitle: {
     fontFamily: typography.fontFamily.sans,
     fontSize: 13,
-    color: colors.text.secondary,
+    color: colors.practice.ctaTextTertiary,
+    fontStyle: 'italic',
+    marginTop: 2,
   },
-  primaryCtaIconWrap: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: 'rgba(212,175,55,0.15)',
+  ctaArrow: {
+    width: 42,
+    height: 42,
+    borderRadius: 21,
+    backgroundColor: colors.practice.ctaArrowSurface,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  sectionLabel: {
+    fontFamily: typography.fontFamily.serif,
+    fontSize: 10,
+    letterSpacing: 3,
+    textTransform: 'uppercase',
+    color: colors.bronze,
+    marginBottom: spacing.sm,
+    paddingLeft: 2,
   },
 });
