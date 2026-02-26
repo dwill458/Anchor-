@@ -25,6 +25,14 @@ jest.mock('@/stores/anchorStore');
 jest.mock('@/services/ApiClient');
 jest.mock('@/services/AnalyticsService');
 jest.mock('@/services/ErrorTrackingService');
+jest.mock('@/components/ToastProvider', () => ({
+  useToast: () => ({
+    info: jest.fn(),
+    success: jest.fn(),
+    warning: jest.fn(),
+    error: jest.fn(),
+  }),
+}));
 
 jest.mock('../components/BurnAnimationOverlay', () => {
   const React = require('react');
@@ -82,9 +90,11 @@ describe('BurningRitualScreen', () => {
       goBack: mockGoBack,
     });
 
-    (useAnchorStore as unknown as jest.Mock).mockReturnValue({
-      removeAnchor: mockRemoveAnchor,
-    });
+    (useAnchorStore as unknown as jest.Mock).mockImplementation((selector: any) =>
+      selector({
+        removeAnchor: mockRemoveAnchor,
+      })
+    );
   });
 
   it('renders the burn animation overlay', () => {
@@ -145,4 +155,3 @@ describe('BurningRitualScreen', () => {
     expect(mockGoBack).toHaveBeenCalled();
   });
 });
-

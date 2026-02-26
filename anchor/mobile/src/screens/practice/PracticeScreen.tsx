@@ -20,6 +20,7 @@ import { useTabNavigation } from '@/contexts/TabNavigationContext';
 import { useAnchorStore } from '@/stores/anchorStore';
 import { useAuthStore } from '@/stores/authStore';
 import { useSessionStore } from '@/stores/sessionStore';
+import type { SessionLogEntry } from '@/stores/sessionStore';
 import { useSettingsStore, type DefaultChargeSetting } from '@/stores/settingsStore';
 import { safeHaptics } from '@/utils/haptics';
 import { calculateStreakWithGrace } from '@/utils/streak';
@@ -40,6 +41,7 @@ type PendingMode = 'charge' | 'stabilize' | 'burn' | 'quickActivate' | null;
 const AUTO_TEACHING_KEY = 'practice_teaching_auto_seen_v2';
 const DEEP_CHARGE_MINUTES_MIN = 2;
 const DEEP_CHARGE_MINUTES_MAX = 30;
+const FOCUS_SESSION_TITLE = 'FOCUS SESSION/ACTIVATION';
 
 function getDefaultDeepChargeSeconds(defaultCharge: DefaultChargeSetting): number {
   if (defaultCharge.preset === 'custom') {
@@ -73,10 +75,21 @@ function toMillis(value?: Date | string): number {
   return Number.isNaN(parsed.getTime()) ? 0 : parsed.getTime();
 }
 
-function localDateKey(date: Date): string {
-  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(
-    date.getDate()
-  ).padStart(2, '0')}`;
+function engagementRecency(anchor: Anchor): number {
+  return Math.max(toMillis(anchor.lastActivatedAt), toMillis(anchor.chargedAt));
+}
+
+function toModeFromSessionType(type: SessionLogEntry['type']): Exclude<PendingMode, null> {
+  if (type === 'activate') return 'quickActivate';
+  if (type === 'stabilize') return 'stabilize';
+  return 'charge';
+}
+
+function toModeTitle(mode: Exclude<PendingMode, null>): string {
+  if (mode === 'quickActivate') return FOCUS_SESSION_TITLE;
+  if (mode === 'stabilize') return PRACTICE_COPY.rituals.stabilize.title;
+  if (mode === 'burn') return PRACTICE_COPY.rituals.burn.title;
+  return PRACTICE_COPY.rituals.charge.title;
 }
 
 export const PracticeScreen: React.FC = () => {
@@ -103,9 +116,9 @@ export const PracticeScreen: React.FC = () => {
       anchors
         .filter((a) => !a.isReleased && !a.archivedAt)
         .sort((a, b) => {
-          const aRecency = Math.max(toMillis(a.lastActivatedAt), toMillis(a.updatedAt), toMillis(a.createdAt));
-          const bRecency = Math.max(toMillis(b.lastActivatedAt), toMillis(b.updatedAt), toMillis(b.createdAt));
-          return bRecency - aRecency;
+          const activityDelta = engagementRecency(b) - engagementRecency(a);
+          if (activityDelta !== 0) return activityDelta;
+          return toMillis(b.createdAt) - toMillis(a.createdAt);
         }),
     [anchors]
   );
@@ -121,7 +134,8 @@ export const PracticeScreen: React.FC = () => {
         setCurrentAnchor(undefined);
         return () => undefined;
       }
-      if (!currentAnchorId || !selectableAnchors.some((anchor) => anchor.id === currentAnchorId)) {
+
+      if (mostRecentAnchor?.id !== currentAnchorId) {
         setCurrentAnchor(mostRecentAnchor?.id);
       }
       return () => undefined;
@@ -281,12 +295,12 @@ export const PracticeScreen: React.FC = () => {
   }));
 
   const startCharge = useCallback(
-    (anchor: Anchor) => {
+    (anchor: Anchor, durationSecondsOverride?: number) => {
       safeHaptics.selection();
       navigateToVault('Ritual', {
         anchorId: anchor.id,
         ritualType: 'ritual',
-        durationSeconds: defaultDeepChargeSeconds,
+        durationSeconds: durationSecondsOverride ?? defaultDeepChargeSeconds,
         returnTo: 'practice',
       });
     },
@@ -294,12 +308,12 @@ export const PracticeScreen: React.FC = () => {
   );
 
   const startQuickActivate = useCallback(
-    (anchor: Anchor) => {
+    (anchor: Anchor, durationOverride = 30) => {
       safeHaptics.selection();
       navigateToVault('ActivationRitual', {
         anchorId: anchor.id,
         activationType: 'visual',
-        durationOverride: 30,
+        durationOverride,
         returnTo: 'practice',
       });
     },
@@ -359,25 +373,16 @@ export const PracticeScreen: React.FC = () => {
       const pendingModeSelection = pendingMode;
       setPendingMode(null);
 
-      // Compute the next ritual for this anchor so selection always navigates forward
-      const todayKey = localDateKey(new Date());
-      const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
+      // Quick restart defaults to the last ritual type used for this anchor.
       const anchorSessions = sessionLog
         .filter((s) => s.anchorId === anchor.id)
         .sort((a, b) => toMillis(b.completedAt) - toMillis(a.completedAt));
-      const hasSessionToday = anchorSessions.some((s) => s.completedAt.startsWith(todayKey));
-      let defaultMode: Exclude<PendingMode, null> = 'quickActivate';
-      if (hasSessionToday) {
-        const last = anchorSessions[0];
-        if (last?.type === 'activate' && new Date(last.completedAt) > twentyFourHoursAgo) {
-          defaultMode = 'stabilize';
-        } else {
-          defaultMode = 'charge';
-        }
-      }
+      const last = anchorSessions[0];
+      const defaultMode: Exclude<PendingMode, null> = last
+        ? toModeFromSessionType(last.type)
+        : 'quickActivate';
 
       const applySelection = () => {
-        setCurrentAnchor(anchor.id);
         // Use pending mode if set (e.g. tapped a mode tile first), otherwise
         // route to this anchor's next suggested ritual so the selector always
         // navigates the user forward.
@@ -394,31 +399,56 @@ export const PracticeScreen: React.FC = () => {
 
       applySelection();
     },
-    [markInteraction, pendingMode, runMode, sessionLog, setCurrentAnchor]
+    [markInteraction, pendingMode, runMode, sessionLog]
   );
 
   const anchorNextRituals = useMemo<Record<string, string>>(() => {
-    const todayKey = localDateKey(new Date());
-    const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
     const result: Record<string, string> = {};
     for (const anchor of selectableAnchors) {
       const anchorSessions = sessionLog
         .filter((s) => s.anchorId === anchor.id)
         .sort((a, b) => toMillis(b.completedAt) - toMillis(a.completedAt));
-      const hasSessionToday = anchorSessions.some((s) => s.completedAt.startsWith(todayKey));
-      if (!hasSessionToday) {
-        result[anchor.id] = PRACTICE_COPY.rituals.quickActivate.title;
-      } else {
-        const last = anchorSessions[0];
-        if (last?.type === 'activate' && new Date(last.completedAt) > twentyFourHoursAgo) {
-          result[anchor.id] = PRACTICE_COPY.rituals.stabilize.title;
-        } else {
-          result[anchor.id] = PRACTICE_COPY.rituals.charge.title;
-        }
-      }
+      const last = anchorSessions[0];
+      result[anchor.id] = last ? toModeTitle(toModeFromSessionType(last.type)) : FOCUS_SESSION_TITLE;
     }
     return result;
   }, [selectableAnchors, sessionLog]);
+
+  const latestAnchorSession = useMemo<SessionLogEntry | null>(() => {
+    if (!selectedAnchor) return null;
+    const anchorSessions = sessionLog
+      .filter((s) => s.anchorId === selectedAnchor.id)
+      .sort((a, b) => toMillis(b.completedAt) - toMillis(a.completedAt));
+    return anchorSessions[0] ?? null;
+  }, [selectedAnchor, sessionLog]);
+
+  const runQuickRestartFromSession = useCallback(
+    (session: SessionLogEntry, anchor?: Anchor) => {
+      const target = anchor ?? selectedAnchor;
+      const mode = toModeFromSessionType(session.type);
+
+      if (!target) {
+        setPendingMode(mode);
+        setSelectorVisible(true);
+        return;
+      }
+
+      if (session.type === 'reinforce') {
+        const restartDuration = Math.max(30, Math.min(1800, Math.round(session.durationSeconds || defaultDeepChargeSeconds)));
+        startCharge(target, restartDuration);
+        return;
+      }
+
+      if (session.type === 'activate') {
+        const restartDuration = Math.max(10, Math.min(600, Math.round(session.durationSeconds || 30)));
+        startQuickActivate(target, restartDuration);
+        return;
+      }
+
+      startStabilize(target);
+    },
+    [defaultDeepChargeSeconds, selectedAnchor, startCharge, startQuickActivate, startStabilize]
+  );
 
   const suggestedRitual = useMemo(() => {
     if (!selectedAnchor) return null;
@@ -426,28 +456,21 @@ export const PracticeScreen: React.FC = () => {
       return { type: 'burn' as const, title: PRACTICE_COPY.rituals.burn.title, subtitle: PRACTICE_COPY.rituals.burn.duration };
     }
 
-    const anchorSessions = sessionLog
-      .filter((s) => s.anchorId === selectedAnchor.id)
-      .sort((a, b) => toMillis(b.completedAt) - toMillis(a.completedAt));
-    const todayKey = localDateKey(new Date());
-    const hasAnchorSessionToday = anchorSessions.some((s) => s.completedAt.startsWith(todayKey));
-
-    if (!hasAnchorSessionToday) {
-      return { type: 'quickActivate' as const, title: PRACTICE_COPY.rituals.quickActivate.title, subtitle: PRACTICE_COPY.rituals.quickActivate.duration };
-    }
-    const lastSession = anchorSessions[0];
-    const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
-
-    if (lastSession?.type === 'activate' && new Date(lastSession.completedAt) > twentyFourHoursAgo) {
-      return { type: 'stabilize' as const, title: PRACTICE_COPY.rituals.stabilize.title, subtitle: PRACTICE_COPY.rituals.stabilize.duration };
+    if (latestAnchorSession) {
+      const type = toModeFromSessionType(latestAnchorSession.type);
+      return {
+        type,
+        title: toModeTitle(type),
+        subtitle: 'Quick restart',
+      };
     }
 
     return {
-      type: 'charge' as const,
-      title: PRACTICE_COPY.rituals.charge.title,
-      subtitle: `${Math.max(DEEP_CHARGE_MINUTES_MIN, Math.round(defaultDeepChargeSeconds / 60))} min`,
+      type: 'quickActivate' as const,
+      title: FOCUS_SESSION_TITLE,
+      subtitle: PRACTICE_COPY.rituals.quickActivate.duration,
     };
-  }, [selectedAnchor, sessionLog, defaultDeepChargeSeconds]);
+  }, [latestAnchorSession, selectedAnchor]);
 
   return (
     <View style={styles.container}>
@@ -489,6 +512,10 @@ export const PracticeScreen: React.FC = () => {
                 accessibilityRole="button"
                 onPress={() => {
                   markInteraction();
+                  if (latestAnchorSession) {
+                    runQuickRestartFromSession(latestAnchorSession);
+                    return;
+                  }
                   runMode(suggestedRitual.type);
                 }}
                 style={({ pressed }) => [
@@ -549,17 +576,28 @@ export const PracticeScreen: React.FC = () => {
               />
               <ModePortalTile
                 style={styles.portalHalf}
-                variant="burn"
-                title={PRACTICE_COPY.rituals.burn.title}
-                meaning={PRACTICE_COPY.rituals.burn.meaning}
-                durationHint={PRACTICE_COPY.rituals.burn.duration}
-                icon={<Flame size={16} color={colors.gold} />}
+                variant="stabilize"
+                title={FOCUS_SESSION_TITLE}
+                meaning={PRACTICE_COPY.rituals.quickActivate.meaning}
+                durationHint={PRACTICE_COPY.rituals.quickActivate.duration}
+                icon={<Zap size={16} color={colors.gold} />}
                 onPress={() => {
                   markInteraction();
-                  runMode('burn');
+                  runMode('quickActivate');
                 }}
               />
             </View>
+            <ModePortalTile
+              variant="charge"
+              title={PRACTICE_COPY.rituals.burn.title}
+              meaning={PRACTICE_COPY.rituals.burn.meaning}
+              durationHint={PRACTICE_COPY.rituals.burn.duration}
+              icon={<Flame size={16} color={colors.gold} />}
+              onPress={() => {
+                markInteraction();
+                runMode('burn');
+              }}
+            />
           </Animated.View>
 
           <Animated.View style={threadStyle}>

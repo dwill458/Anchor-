@@ -70,18 +70,24 @@ export const useAnchorStore = create<AnchorState>()(
       },
 
       updateAnchor: (id, updates) =>
-        set((state) => ({
-          anchors: state.anchors.map((anchor) =>
-            anchor.id === id
-              ? {
-                ...anchor,
-                ...updates,
-                updatedAt: new Date(),
-              }
-              : anchor
-          ),
-          error: null,
-        })),
+        set((state) => {
+          const shouldPromoteCurrent =
+            updates.lastActivatedAt != null || updates.chargedAt != null;
+
+          return {
+            anchors: state.anchors.map((anchor) =>
+              anchor.id === id
+                ? {
+                  ...anchor,
+                  ...updates,
+                  updatedAt: new Date(),
+                }
+                : anchor
+            ),
+            currentAnchorId: shouldPromoteCurrent ? id : state.currentAnchorId,
+            error: null,
+          };
+        }),
 
       removeAnchor: (id) =>
         set((state) => ({

@@ -134,6 +134,10 @@ jest.mock('react-native-svg', () => ({
   RadialGradient: 'RadialGradient',
 }));
 
+jest.mock('react-native-webview', () => ({
+  WebView: 'WebView',
+}));
+
 // Mock Lucide icons - comprehensive mock for all commonly used icons
 jest.mock('lucide-react-native', () => {
   const mockIcon = (name: string) => name;

@@ -1,43 +1,30 @@
 /**
  * Anchor App - Burn & Release Ceremony Screen
  *
- * 2-step ritual flow: Reflect → Release
- * Premium glassmorphic design, Zen Architect theme.
+ * 2-step ritual flow: Reflect -> Release
  */
 
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
-  View,
-  Text,
-  StyleSheet,
-  Dimensions,
   Keyboard,
+  StyleSheet,
+  Text,
   TouchableOpacity,
-  ScrollView,
+  View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { RouteProp, useRoute, useNavigation } from '@react-navigation/native';
+import { RouteProp, useNavigation, useRoute } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { SvgXml } from 'react-native-svg';
+import { LinearGradient } from 'expo-linear-gradient';
 import * as Haptics from 'expo-haptics';
-import Animated, {
-  useSharedValue,
-  useAnimatedStyle,
-  withRepeat,
-  withSequence,
-  withTiming,
-  Easing,
-  useReducedMotion,
-  runOnJS,
-} from 'react-native-reanimated';
-import { colors, typography, spacing } from '@/theme';
+import { colors, spacing } from '@/theme';
 import { RootStackParamList } from '@/types';
-import { AnalyticsService, AnalyticsEvents } from '@/services/AnalyticsService';
+import { AnalyticsEvents, AnalyticsService } from '@/services/AnalyticsService';
 import { ErrorTrackingService } from '@/services/ErrorTrackingService';
-import { OptimizedImage } from '@/components/common/OptimizedImage';
-import { PremiumAnchorGlow } from '@/components/common';
+import { ChargedGlowCanvas, OptimizedImage } from '@/components/common';
 import { safeHaptics } from '@/utils/haptics';
-import { RitualRail, RitualRailStep } from './components/RitualRail';
+import { RitualRail, type RitualRailStep } from './components/RitualRail';
 import { ReleaseInput } from './components/ReleaseInput';
 import { useTeachingGate } from '@/utils/useTeachingGate';
 import { useTeachingStore } from '@/stores/teachingStore';
@@ -46,21 +33,24 @@ import { TEACHINGS } from '@/constants/teaching';
 type ConfirmBurnRouteProp = RouteProp<RootStackParamList, 'ConfirmBurn'>;
 type ConfirmBurnNavigationProp = StackNavigationProp<RootStackParamList, 'ConfirmBurn'>;
 
-const { width, height: SCREEN_HEIGHT } = Dimensions.get('window');
-const ANCHOR_SIZE = width * 0.42;
-const IS_SMALL_DEVICE = SCREEN_HEIGHT < 700;
-
 type BurnStep = 'reflect' | 'release';
+
+const TARGET_WORD = 'RELEASE';
+const SIGIL_STAGE_SIZE = 240;
+const SIGIL_IMAGE_INSET = 20;
+const IS_TEST_ENV = Boolean(process.env.JEST_WORKER_ID);
 
 export const ConfirmBurnScreen: React.FC = () => {
   const route = useRoute<ConfirmBurnRouteProp>();
   const navigation = useNavigation<ConfirmBurnNavigationProp>();
   const { anchorId, intention, sigilSvg, enhancedImageUrl } = route.params;
-
-  const reducedMotion = useReducedMotion();
   const { recordShown } = useTeachingStore();
 
-  // Undertone teachings — resolved once, guard already enforces first-burn + guideMode
+  const [currentStep, setCurrentStep] = useState<BurnStep>('reflect');
+  const [releaseText, setReleaseText] = useState('');
+
+  const isReleaseReady = releaseText === TARGET_WORD;
+
   const reflectTeaching = useTeachingGate({
     screenId: 'confirm_burn_reflect',
     candidateIds: ['confirm_burn_reflect_v1'],
@@ -70,102 +60,63 @@ export const ConfirmBurnScreen: React.FC = () => {
     candidateIds: ['confirm_burn_release_v1'],
   });
 
-  // ── Step state ──
-  const [currentStep, setCurrentStep] = useState<BurnStep>('reflect');
-  const [releaseText, setReleaseText] = useState('');
-
-  const isReleaseLocked = releaseText === 'RELEASE';
-
-  // ── Animation values ──
-  const screenOpacity = useSharedValue(0);
-  const floatY = useSharedValue(0);
-  const stepOpacity = useSharedValue(1);
-
-  const undertoneOpacity = useSharedValue(0);
-
-  // Fade in undertone for reflect step on mount; fade out / fade in on step change
   useEffect(() => {
-    const hasTeaching = currentStep === 'reflect' ? !!reflectTeaching : !!releaseTeaching;
-    if (hasTeaching) {
-      undertoneOpacity.value = reducedMotion
-        ? 1
-        : withTiming(1, { duration: 400 });
-    } else {
-      undertoneOpacity.value = 0;
-    }
-  }, [currentStep, reflectTeaching?.teachingId, releaseTeaching?.teachingId, reducedMotion]);
+    if (!reflectTeaching) return;
+    const content = TEACHINGS[reflectTeaching.teachingId];
+    recordShown(reflectTeaching.teachingId, reflectTeaching.pattern, content?.maxShows ?? 1);
+    AnalyticsService.track('teaching_shown', {
+      teaching_id: reflectTeaching.teachingId,
+      pattern: reflectTeaching.pattern,
+      screen: 'confirm_burn',
+      trigger: reflectTeaching.trigger,
+      guide_mode: true,
+    });
+  }, [recordShown, reflectTeaching]);
 
-  // Record undertone shown
-  useEffect(() => {
-    if (reflectTeaching) {
-      const content = TEACHINGS[reflectTeaching.teachingId];
-      recordShown(reflectTeaching.teachingId, reflectTeaching.pattern, content?.maxShows ?? 1);
-      AnalyticsService.track('teaching_shown', {
-        teaching_id: reflectTeaching.teachingId,
-        pattern: reflectTeaching.pattern,
-        screen: 'confirm_burn',
-        trigger: reflectTeaching.trigger,
-        guide_mode: true,
-      });
-    }
-  }, [reflectTeaching?.teachingId]);
+  const activeTeaching = currentStep === 'reflect' ? reflectTeaching : releaseTeaching;
 
-  // ── Entrance animation ──
-  useEffect(() => {
-    screenOpacity.value = withTiming(1, { duration: 800 });
-
-    if (!reducedMotion) {
-      floatY.value = withRepeat(
-        withSequence(
-          withTiming(-8, { duration: 2500, easing: Easing.inOut(Easing.sin) }),
-          withTiming(0, { duration: 2500, easing: Easing.inOut(Easing.sin) })
-        ),
-        -1,
-        true
+  const sigilNode = useMemo(() => {
+    if (enhancedImageUrl) {
+      return (
+        <OptimizedImage
+          uri={enhancedImageUrl}
+          style={styles.sigilImage}
+          resizeMode="cover"
+        />
       );
     }
-  }, []);
 
-  const screenStyle = useAnimatedStyle(() => ({ opacity: screenOpacity.value }));
-  const floatStyle = useAnimatedStyle(() => ({ transform: [{ translateY: floatY.value }] }));
-  const stepStyle = useAnimatedStyle(() => ({ opacity: stepOpacity.value }));
-  const undertoneStyle = useAnimatedStyle(() => ({ opacity: undertoneOpacity.value }));
-
-  // ── Step transition ──
-  const pendingStepRef = useRef<BurnStep | null>(null);
-
-  const applyPendingStep = () => {
-    if (pendingStepRef.current) {
-      setCurrentStep(pendingStepRef.current);
-      pendingStepRef.current = null;
+    if (sigilSvg) {
+      return (
+        <SvgXml
+          xml={sigilSvg}
+          width={SIGIL_STAGE_SIZE - 62}
+          height={SIGIL_STAGE_SIZE - 62}
+        />
+      );
     }
-    stepOpacity.value = withTiming(1, { duration: 200 });
-  };
 
-  const transitionToStep = (nextStep: BurnStep) => {
-    if (reducedMotion) {
-      setCurrentStep(nextStep);
+    return <Text style={styles.sigilFallback}>✶</Text>;
+  }, [enhancedImageUrl, sigilSvg]);
+
+  const handleBack = () => {
+    if (currentStep === 'release') {
+      setCurrentStep('reflect');
+      setReleaseText('');
       return;
     }
-    pendingStepRef.current = nextStep;
-    stepOpacity.value = withTiming(0, { duration: 150 }, () => {
-      runOnJS(applyPendingStep)();
-    });
+    navigation.goBack();
   };
 
-  // ── Handlers ──
-  const handleAdvanceToRelease = () => {
-    void safeHaptics.impact(Haptics.ImpactFeedbackStyle.Light);
-    transitionToStep('release');
-  };
+  const handleContinue = () => {
+    if (currentStep === 'reflect') {
+      void safeHaptics.impact(Haptics.ImpactFeedbackStyle.Light);
+      setCurrentStep('release');
+      return;
+    }
 
-  const handleNotYet = () => {
-    void safeHaptics.impact(Haptics.ImpactFeedbackStyle.Light);
-    transitionToStep('reflect');
-  };
+    if (!isReleaseReady) return;
 
-  const handleFinalBurn = () => {
-    if (!isReleaseLocked) return;
     void safeHaptics.impact(Haptics.ImpactFeedbackStyle.Medium);
     Keyboard.dismiss();
 
@@ -186,291 +137,288 @@ export const ConfirmBurnScreen: React.FC = () => {
     } as any);
   };
 
-  // ── CTA config per step ──
+  const handleReleaseInput = (value: string) => {
+    const upper = value.toUpperCase();
+    let accepted = '';
+
+    for (let i = 0; i < upper.length && i < TARGET_WORD.length; i += 1) {
+      if (upper[i] !== TARGET_WORD[i]) break;
+      accepted += upper[i];
+    }
+
+    setReleaseText(accepted);
+  };
+
   const ctaLabel = currentStep === 'reflect' ? 'Continue' : 'Burn Now';
-  const ctaDisabled = currentStep === 'release' && !isReleaseLocked;
-  const handleCta = currentStep === 'reflect' ? handleAdvanceToRelease : handleFinalBurn;
+  const ctaDisabled = currentStep === 'release' && !isReleaseReady;
 
   return (
-    <SafeAreaView style={styles.container} edges={['bottom']}>
-      {/* Ritual progress rail */}
+    <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
+      <View style={styles.header}>
+        <TouchableOpacity
+          style={styles.backButton}
+          onPress={handleBack}
+          activeOpacity={0.7}
+          accessibilityRole="button"
+          accessibilityLabel="Go back"
+        >
+          <Text style={styles.backArrow}>←</Text>
+        </TouchableOpacity>
+        <Text style={styles.headerTitle}>Burn & Release</Text>
+      </View>
+
+      <View style={styles.content}>
+        {currentStep === 'reflect' ? (
+          <View style={styles.reflectBody}>
+            <Text style={styles.reflectLabel}>Completed intention</Text>
+
+            <View style={styles.sigilStage}>
+              {!IS_TEST_ENV ? <ChargedGlowCanvas size={SIGIL_STAGE_SIZE} /> : null}
+              <View style={styles.sigilInner}>{sigilNode}</View>
+            </View>
+
+            <Text style={styles.intentionText}>"{intention}"</Text>
+            <Text style={styles.reflectHint}>
+              Sit with this symbol. Remember the journey it held. When you are ready, release it
+              to the flame.
+            </Text>
+          </View>
+        ) : (
+          <View style={styles.releaseBody}>
+            <Text style={styles.releaseTitle}>Final Seal</Text>
+            <Text style={styles.releaseSubtitle}>Typing RELEASE closes the loop permanently.</Text>
+            <ReleaseInput value={releaseText} onChangeText={handleReleaseInput} autoFocus={true} />
+            <Text style={styles.ritualQuote}>
+              The act of spelling it aloud, even in silence, is part of the rite. It asks for your
+              full presence.
+            </Text>
+          </View>
+        )}
+
+        {activeTeaching ? (
+          <Text style={styles.undertoneText} accessibilityRole="text">
+            {activeTeaching.copy}
+          </Text>
+        ) : null}
+      </View>
+
       <RitualRail currentStep={currentStep as RitualRailStep} />
 
-      {/* Main content — offset left to clear the rail */}
-      <Animated.View style={[styles.content, screenStyle]}>
-        <Animated.View style={[styles.stepContent, stepStyle]}>
-          <ScrollView
-            style={styles.scrollView}
-            contentContainerStyle={styles.scrollContent}
-            showsVerticalScrollIndicator={false}
-            keyboardShouldPersistTaps="handled"
-            bounces={false}
+      <View style={styles.footer}>
+        <TouchableOpacity
+          onPress={handleContinue}
+          disabled={ctaDisabled}
+          activeOpacity={0.86}
+          style={[styles.ctaButton, ctaDisabled && styles.ctaButtonDisabled]}
+          accessibilityRole="button"
+          accessibilityLabel={ctaLabel}
+          accessibilityState={{ disabled: ctaDisabled }}
+        >
+          <LinearGradient
+            colors={['#C9A84C', '#A07830']}
+            start={{ x: 0, y: 0.2 }}
+            end={{ x: 1, y: 1 }}
+            style={styles.ctaGradient}
           >
-            {currentStep === 'reflect' && renderReflectStep()}
-            {currentStep === 'release' && renderReleaseStep()}
-          </ScrollView>
-        </Animated.View>
+            <Text style={styles.ctaText}>{ctaLabel}</Text>
+          </LinearGradient>
+        </TouchableOpacity>
 
-        {/* Sticky CTA */}
-        <View style={styles.buttonContainer}>
+        {currentStep === 'release' ? (
           <TouchableOpacity
-            style={[styles.primaryButton, ctaDisabled && styles.primaryButtonDisabled]}
-            onPress={handleCta}
-            disabled={ctaDisabled}
-            activeOpacity={0.85}
+            onPress={handleBack}
+            style={styles.ghostButton}
+            activeOpacity={0.7}
             accessibilityRole="button"
-            accessibilityLabel={ctaLabel}
-            accessibilityState={{ disabled: ctaDisabled }}
+            accessibilityLabel="Not yet"
           >
-            <Text style={styles.primaryButtonText}>{ctaLabel}</Text>
+            <Text style={styles.ghostText}>Not yet</Text>
           </TouchableOpacity>
-
-          {currentStep === 'release' && (
-            <TouchableOpacity
-              onPress={handleNotYet}
-              style={styles.secondaryButton}
-              activeOpacity={0.7}
-              accessibilityRole="button"
-              accessibilityLabel="Not yet, go back"
-            >
-              <Text style={styles.secondaryButtonText}>Not yet</Text>
-            </TouchableOpacity>
-          )}
-        </View>
-      </Animated.View>
+        ) : null}
+      </View>
     </SafeAreaView>
   );
-
-  // ── Step render functions ──
-
-  function renderReflectStep() {
-    return (
-      <View style={styles.reflectContainer}>
-        <Text style={styles.stepChip}>Burn & Release</Text>
-        <Text style={styles.completedLabel}>Completed intention</Text>
-
-        {/* Sigil with glow + float animation */}
-        <Animated.View style={[styles.sigilOuter, floatStyle]}>
-          <View style={styles.glowWrapper}>
-            <PremiumAnchorGlow
-              size={ANCHOR_SIZE}
-              state="active"
-              variant="ritual"
-              reduceMotionEnabled={reducedMotion ?? false}
-            />
-          </View>
-          <View style={styles.sigilInner}>
-            {enhancedImageUrl ? (
-              <OptimizedImage
-                uri={enhancedImageUrl}
-                style={[styles.enhancedImage, { width: ANCHOR_SIZE, height: ANCHOR_SIZE }]}
-                resizeMode="cover"
-              />
-            ) : (
-              <SvgXml xml={sigilSvg} width={ANCHOR_SIZE} height={ANCHOR_SIZE} />
-            )}
-          </View>
-        </Animated.View>
-
-        <Text style={styles.intentionText}>{intention}</Text>
-        <Text style={styles.ritualCopy}>
-          If this work is complete, release the symbol.
-        </Text>
-        {reflectTeaching ? (
-          <Animated.Text style={[styles.undertoneText, undertoneStyle]} accessibilityRole="text">
-            {reflectTeaching.copy}
-          </Animated.Text>
-        ) : null}
-      </View>
-    );
-  }
-
-  function renderReleaseStep() {
-    return (
-      <View style={styles.releaseContainer}>
-        <Text style={styles.releaseTitle}>Final Seal</Text>
-        <Text style={styles.releaseExplanation}>
-          Typing RELEASE closes the loop permanently.
-        </Text>
-        <ReleaseInput
-          value={releaseText}
-          onChangeText={setReleaseText}
-          autoFocus={true}
-        />
-        {releaseTeaching ? (
-          <Animated.Text style={[styles.undertoneText, undertoneStyle]} accessibilityRole="text">
-            {releaseTeaching.copy}
-          </Animated.Text>
-        ) : null}
-      </View>
-    );
-  }
 };
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colors.background.primary,
+    backgroundColor: '#0A0D14',
+  },
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: spacing.lg,
+    paddingTop: 52,
+    gap: spacing.sm,
+  },
+  backButton: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  backArrow: {
+    color: '#C9A84C',
+    fontSize: 22,
+    lineHeight: 24,
+  },
+  headerTitle: {
+    color: '#C9A84C',
+    fontFamily: 'Cinzel-Regular',
+    fontSize: 11,
+    letterSpacing: 3.5,
+    textTransform: 'uppercase',
   },
   content: {
     flex: 1,
-    paddingLeft: 64,
-    paddingRight: spacing.xl,
+    paddingHorizontal: 24,
+    paddingVertical: 16,
+    justifyContent: 'center',
   },
-  stepContent: {
-    flex: 1,
-  },
-  scrollView: {
-    flex: 1,
-  },
-  scrollContent: {
-    paddingTop: spacing.xl,
-    paddingBottom: spacing.lg,
-    flexGrow: 1,
-  },
-
-  // ── Reflect step ──
-  reflectContainer: {
-    alignItems: 'center',
-    flex: 1,
-  },
-  stepChip: {
-    fontFamily: typography.fonts.body,
-    fontSize: typography.sizes.caption,
-    color: colors.gold,
-    letterSpacing: 2,
-    textTransform: 'uppercase',
-    marginBottom: spacing.sm,
-    opacity: 0.8,
-  },
-  completedLabel: {
-    fontFamily: typography.fonts.body,
-    fontSize: typography.sizes.body2,
-    color: colors.text.secondary,
-    textAlign: 'center',
-    marginBottom: spacing.md,
-    opacity: 0.7,
-  },
-  sigilOuter: {
+  reflectBody: {
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: IS_SMALL_DEVICE ? spacing.md : spacing.xl,
-    width: ANCHOR_SIZE * 1.6,
-    height: ANCHOR_SIZE * 1.6,
+    gap: 18,
   },
-  glowWrapper: {
-    position: 'absolute',
-    width: ANCHOR_SIZE * 1.6,
-    height: ANCHOR_SIZE * 1.6,
+  reflectLabel: {
+    fontFamily: 'Cinzel-Regular',
+    fontSize: 9,
+    letterSpacing: 4.6,
+    color: '#C9A84C',
+    textTransform: 'uppercase',
+    textAlign: 'center',
+  },
+  sigilStage: {
+    width: SIGIL_STAGE_SIZE,
+    height: SIGIL_STAGE_SIZE,
     alignItems: 'center',
     justifyContent: 'center',
   },
   sigilInner: {
-    width: ANCHOR_SIZE,
-    height: ANCHOR_SIZE,
+    position: 'absolute',
+    top: SIGIL_IMAGE_INSET,
+    left: SIGIL_IMAGE_INSET,
+    right: SIGIL_IMAGE_INSET,
+    bottom: SIGIL_IMAGE_INSET,
+    borderRadius: (SIGIL_STAGE_SIZE - SIGIL_IMAGE_INSET * 2) / 2,
+    borderWidth: 1.5,
+    borderColor: 'rgba(255,200,60,0.35)',
     alignItems: 'center',
     justifyContent: 'center',
-    zIndex: 10,
-    shadowColor: colors.gold,
+    overflow: 'hidden',
+    backgroundColor: 'rgba(14,18,26,0.94)',
+    shadowColor: '#FFB41E',
+    shadowOpacity: 0.3,
+    shadowRadius: 20,
     shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.3,
-    shadowRadius: 15,
-    elevation: 10,
-  },
-  enhancedImage: {
-    borderRadius: ANCHOR_SIZE / 2,
-    borderWidth: 1,
-    borderColor: colors.ritual.border,
-  },
-  intentionText: {
-    fontFamily: typography.fonts.body,
-    fontSize: typography.sizes.body1,
-    color: colors.bone,
-    textAlign: 'center',
-    lineHeight: 24,
-    paddingHorizontal: spacing.md,
-    marginBottom: spacing.md,
-  },
-  ritualCopy: {
-    fontFamily: typography.fonts.body,
-    fontSize: typography.sizes.body2,
-    color: colors.text.secondary,
-    textAlign: 'center',
-    fontStyle: 'italic',
-    opacity: 0.7,
-    paddingHorizontal: spacing.lg,
-    marginTop: spacing.sm,
-  },
-
-  // ── Release step ──
-  releaseContainer: {
-    flex: 1,
-    paddingTop: spacing.lg,
-  },
-  releaseTitle: {
-    fontFamily: typography.fonts.heading,
-    fontSize: typography.sizes.h3,
-    color: colors.bone,
-    textAlign: 'center',
-    marginBottom: spacing.md,
-    letterSpacing: 0.5,
-  },
-  releaseExplanation: {
-    fontFamily: typography.fonts.body,
-    fontSize: typography.sizes.body2,
-    color: colors.text.secondary,
-    textAlign: 'center',
-    marginBottom: spacing.lg,
-    lineHeight: 20,
-  },
-
-  // ── CTA ──
-  buttonContainer: {
-    paddingBottom: spacing.lg,
-    paddingTop: spacing.sm,
-  },
-  primaryButton: {
-    backgroundColor: colors.gold,
-    paddingVertical: spacing.lg,
-    borderRadius: 16,
-    alignItems: 'center',
-    shadowColor: colors.gold,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 12,
     elevation: 8,
   },
-  primaryButtonDisabled: {
-    opacity: 0.38,
+  sigilImage: {
+    width: SIGIL_STAGE_SIZE - SIGIL_IMAGE_INSET * 2,
+    height: SIGIL_STAGE_SIZE - SIGIL_IMAGE_INSET * 2,
+    borderRadius: (SIGIL_STAGE_SIZE - SIGIL_IMAGE_INSET * 2) / 2,
+  },
+  sigilFallback: {
+    fontFamily: 'Cinzel-Regular',
+    fontSize: 42,
+    color: '#C9A84C',
+    opacity: 0.65,
+  },
+  intentionText: {
+    fontFamily: 'CrimsonPro-Italic',
+    fontSize: 22,
+    lineHeight: 31,
+    color: '#E8DFC8',
+    textAlign: 'center',
+    paddingHorizontal: spacing.sm,
+  },
+  reflectHint: {
+    fontFamily: 'CrimsonPro-Italic',
+    fontSize: 13,
+    lineHeight: 21,
+    color: 'rgba(232,223,200,0.45)',
+    textAlign: 'center',
+    maxWidth: 240,
+  },
+  releaseBody: {
+    width: '100%',
+    justifyContent: 'center',
+    alignItems: 'center',
+    gap: 20,
+  },
+  releaseTitle: {
+    fontFamily: 'Cinzel-Regular',
+    fontSize: 26,
+    lineHeight: 32,
+    color: '#E8DFC8',
+    textAlign: 'center',
+    letterSpacing: 1,
+  },
+  releaseSubtitle: {
+    fontFamily: 'CrimsonPro-Regular',
+    fontSize: 15,
+    lineHeight: 24,
+    color: 'rgba(232,223,200,0.45)',
+    textAlign: 'center',
+    maxWidth: 260,
+  },
+  ritualQuote: {
+    fontFamily: 'CrimsonPro-Italic',
+    fontSize: 14,
+    lineHeight: 24,
+    color: 'rgba(232,223,200,0.45)',
+    textAlign: 'center',
+    maxWidth: 260,
+  },
+  undertoneText: {
+    marginTop: spacing.lg,
+    fontFamily: 'CrimsonPro-Italic',
+    fontSize: 14,
+    lineHeight: 22,
+    color: colors.text.secondary,
+    textAlign: 'center',
+    opacity: 0.88,
+  },
+  footer: {
+    paddingBottom: 40,
+  },
+  ctaButton: {
+    marginHorizontal: 24,
+    borderRadius: 14,
+    shadowColor: '#C9A84C',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 24,
+    elevation: 8,
+    overflow: 'hidden',
+  },
+  ctaButtonDisabled: {
+    opacity: 0.35,
     shadowOpacity: 0,
     elevation: 0,
   },
-  primaryButtonText: {
-    fontFamily: typography.fonts.bodyBold,
-    fontSize: typography.sizes.button,
-    color: colors.background.primary,
-    fontWeight: '700',
-    letterSpacing: 1,
-  },
-  secondaryButton: {
+  ctaGradient: {
     alignItems: 'center',
-    paddingVertical: spacing.md,
-    marginTop: spacing.xs,
+    justifyContent: 'center',
+    paddingVertical: 18,
   },
-  secondaryButtonText: {
-    fontFamily: typography.fonts.body,
-    fontSize: typography.sizes.body2,
-    color: colors.text.tertiary,
+  ctaText: {
+    fontFamily: 'Cinzel-SemiBold',
+    fontSize: 13,
+    letterSpacing: 2,
+    color: '#0A0D14',
   },
-  undertoneText: {
-    fontFamily: typography.fonts.body,
-    fontSize: typography.sizes.body2,
-    color: colors.text.secondary,
-    fontStyle: 'italic',
-    textAlign: 'center',
-    marginTop: spacing.lg,
-    paddingHorizontal: spacing.md,
-    lineHeight: 20,
-    opacity: 0.85,
+  ghostButton: {
+    marginTop: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 12,
+  },
+  ghostText: {
+    fontFamily: 'CrimsonPro-Regular',
+    fontSize: 14,
+    color: 'rgba(232,223,200,0.45)',
   },
 });
