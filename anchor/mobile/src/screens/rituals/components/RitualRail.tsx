@@ -1,20 +1,11 @@
 /**
  * RitualRail
  *
- * Left-side vertical step indicator for the Burn & Release 2-step ceremony.
- * Reflect → Release with animated gold dots.
+ * Horizontal step indicator for the Burn & Release 2-step flow.
  */
 
-import React, { useEffect } from 'react';
-import { View, Text, StyleSheet } from 'react-native';
-import Animated, {
-  useSharedValue,
-  useAnimatedStyle,
-  withSequence,
-  withTiming,
-  useReducedMotion,
-} from 'react-native-reanimated';
-import { colors, spacing, typography } from '@/theme';
+import React from 'react';
+import { StyleSheet, Text, View } from 'react-native';
 
 export type RitualRailStep = 'reflect' | 'release';
 
@@ -22,159 +13,97 @@ export interface RitualRailProps {
   currentStep: RitualRailStep;
 }
 
-const STEPS: { key: RitualRailStep; label: string }[] = [
-  { key: 'reflect', label: 'Reflect' },
-  { key: 'release', label: 'Release' },
-];
+type StepStatus = 'done' | 'active' | 'pending';
 
-const STEP_ORDER: Record<RitualRailStep, number> = {
-  reflect: 0,
-  release: 1,
-};
-
-type StepStatus = 'completed' | 'active' | 'pending';
-
-function getStepStatus(step: RitualRailStep, current: RitualRailStep): StepStatus {
-  const s = STEP_ORDER[step];
-  const c = STEP_ORDER[current];
-  if (s < c) return 'completed';
-  if (s === c) return 'active';
+const getStatus = (key: RitualRailStep, currentStep: RitualRailStep): StepStatus => {
+  if (key === 'reflect' && currentStep === 'release') return 'done';
+  if (key === currentStep) return 'active';
   return 'pending';
-}
-
-interface StepDotProps {
-  status: StepStatus;
-  animate: boolean;
-}
-
-const StepDot: React.FC<StepDotProps> = ({ status, animate }) => {
-  const scale = useSharedValue(1);
-  const reducedMotion = useReducedMotion();
-
-  useEffect(() => {
-    if (animate && !reducedMotion) {
-      scale.value = withSequence(
-        withTiming(1.1, { duration: 150 }),
-        withTiming(1.0, { duration: 150 })
-      );
-    }
-  }, [animate, reducedMotion]);
-
-  const dotStyle = useAnimatedStyle(() => ({
-    transform: [{ scale: scale.value }],
-  }));
-
-  const filled = status === 'active' || status === 'completed';
-
-  return (
-    <Animated.View style={[styles.dot, filled ? styles.dotFilled : styles.dotOutline, dotStyle]}>
-      {status === 'completed' && <Text style={styles.check}>✓</Text>}
-    </Animated.View>
-  );
 };
+
+const StepDot: React.FC<{ status: StepStatus }> = ({ status }) => (
+  <View
+    style={[
+      styles.dot,
+      status === 'done' && styles.dotDone,
+      status === 'active' && styles.dotActive,
+      status === 'pending' && styles.dotPending,
+    ]}
+  />
+);
 
 export const RitualRail: React.FC<RitualRailProps> = ({ currentStep }) => {
-  return (
-    <View
-      style={styles.container}
-      accessibilityElementsHidden={true}
-      importantForAccessibility="no-hide-descendants"
-    >
-      {STEPS.map((step, i) => {
-        const status = getStepStatus(step.key, currentStep);
-        const isLast = i === STEPS.length - 1;
+  const reflectStatus = getStatus('reflect', currentStep);
+  const releaseStatus = getStatus('release', currentStep);
 
-        return (
-          <View key={step.key} style={styles.stepWrapper}>
-            <View
-              style={styles.stepRow}
-              accessible={true}
-              accessibilityLabel={`Step ${i + 1}: ${step.label}, ${status}`}
-            >
-              <StepDot status={status} animate={status === 'active'} />
-              <Text
-                style={[
-                  styles.label,
-                  status === 'active' && styles.labelActive,
-                  status === 'completed' && styles.labelCompleted,
-                  status === 'pending' && styles.labelPending,
-                ]}
-              >
-                {step.label}
-              </Text>
-            </View>
-            {!isLast && (
-              <View
-                style={[
-                  styles.connector,
-                  status === 'completed' ? styles.connectorDone : styles.connectorPending,
-                ]}
-              />
-            )}
-          </View>
-        );
-      })}
+  return (
+    <View style={styles.container}>
+      <View style={styles.stepItem}>
+        <StepDot status={reflectStatus} />
+        <Text style={[styles.label, reflectStatus === 'active' && styles.labelActive]}>Reflect</Text>
+      </View>
+
+      <View style={styles.connector} />
+
+      <View style={styles.stepItem}>
+        <StepDot status={releaseStatus} />
+        <Text style={[styles.label, releaseStatus === 'active' && styles.labelActive]}>Release</Text>
+      </View>
     </View>
   );
 };
 
 const styles = StyleSheet.create({
   container: {
-    position: 'absolute',
-    left: spacing.md,
-    top: 0,
-    bottom: 0,
-    width: 76,
-    justifyContent: 'center',
-    zIndex: 10,
-  },
-  stepWrapper: {
-    alignItems: 'flex-start',
-  },
-  stepRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 6,
+    gap: 8,
+    paddingHorizontal: 24,
+    paddingBottom: 20,
+  },
+  stepItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
   },
   dot: {
-    width: 10,
-    height: 10,
-    borderRadius: 5,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: spacing.sm,
+    width: 8,
+    height: 8,
+    borderRadius: 4,
   },
-  dotFilled: {
-    backgroundColor: colors.gold,
-  },
-  dotOutline: {
+  dotDone: {
+    backgroundColor: '#C9A84C',
     borderWidth: 1,
-    borderColor: colors.ritual.border,
-    backgroundColor: 'transparent',
+    borderColor: '#C9A84C',
   },
-  check: {
-    fontSize: 7,
-    color: colors.background.primary,
-    fontWeight: '700',
-    lineHeight: 9,
+  dotActive: {
+    backgroundColor: 'transparent',
+    borderWidth: 1,
+    borderColor: '#C9A84C',
+    shadowColor: '#C9A84C',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.9,
+    shadowRadius: 8,
+    elevation: 3,
+  },
+  dotPending: {
+    backgroundColor: 'rgba(201,168,76,0.25)',
+    borderWidth: 1,
+    borderColor: 'rgba(201,168,76,0.3)',
+  },
+  connector: {
+    width: 24,
+    height: 1,
+    backgroundColor: 'rgba(201,168,76,0.2)',
   },
   label: {
-    fontFamily: typography.fonts.body,
-    fontSize: 11,
-    letterSpacing: 0.5,
+    fontFamily: 'Cinzel-Regular',
+    fontSize: 9,
+    letterSpacing: 2,
+    color: 'rgba(232,223,200,0.45)',
   },
-  labelActive: { color: colors.gold },
-  labelCompleted: { color: colors.text.secondary },
-  labelPending: { color: colors.text.disabled },
-  connector: {
-    width: 1,
-    height: 20,
-    marginLeft: 4.5,
-  },
-  connectorDone: {
-    backgroundColor: 'rgba(212, 175, 55, 0.5)',
-  },
-  connectorPending: {
-    backgroundColor: 'rgba(255, 255, 255, 0.12)',
+  labelActive: {
+    color: '#C9A84C',
   },
 });
+

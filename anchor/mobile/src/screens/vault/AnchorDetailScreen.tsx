@@ -467,7 +467,6 @@ const AnchorDetailsScreen = ({ navigation, route }) => {
   const getAnchorById = useAnchorStore((state) => state.getAnchorById);
   const removeAnchor = useAnchorStore((state) => state.removeAnchor);
   const currentAnchorId = useAnchorStore((state) => state.currentAnchorId);
-  const setCurrentAnchor = useAnchorStore((state) => state.setCurrentAnchor);
   const { defaultActivation, setDefaultActivation } = useSettingsStore();
   const { navigateToPractice } = useTabNavigation();
   const sessionLog = useSessionStore((s) => s.sessionLog);
@@ -673,7 +672,6 @@ const AnchorDetailsScreen = ({ navigation, route }) => {
 
   const handlePracticePress = () => {
     safeHaptics.impact(Haptics.ImpactFeedbackStyle.Medium);
-    if (anchorId) setCurrentAnchor(anchorId);
     navigateToPractice();
   };
 

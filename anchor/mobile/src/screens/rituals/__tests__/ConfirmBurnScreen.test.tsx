@@ -50,8 +50,8 @@ describe('ConfirmBurnScreen', () => {
 
     expect(getByText('Burn & Release')).toBeTruthy();
     expect(getByText('Completed intention')).toBeTruthy();
-    expect(getByText('I am confident')).toBeTruthy();
-    expect(getByText('If this work is complete, release the symbol.')).toBeTruthy();
+    expect(getByText('"I am confident"')).toBeTruthy();
+    expect(getByText('Sit with this symbol. Remember the journey it held. When you are ready, release it to the flame.')).toBeTruthy();
     expect(getByText('Continue')).toBeTruthy();
   });
 
@@ -94,7 +94,7 @@ describe('ConfirmBurnScreen', () => {
       jest.advanceTimersByTime(200);
     });
 
-    expect(getByText('If this work is complete, release the symbol.')).toBeTruthy();
+    expect(getByText('Sit with this symbol. Remember the journey it held. When you are ready, release it to the flame.')).toBeTruthy();
     expect(getByText('Continue')).toBeTruthy();
   });
 
@@ -178,6 +178,6 @@ describe('ConfirmBurnScreen', () => {
     });
 
     fireEvent.changeText(getByPlaceholderText('Type RELEASE'), 'RELEASE');
-    expect(getByText('✓  Ready')).toBeTruthy();
+    expect(getByText('✓  Ready to release')).toBeTruthy();
   });
 });

@@ -154,6 +154,38 @@ describe('anchorStore', () => {
 
       expect(result.current.anchors).toHaveLength(2);
     });
+
+    it('promotes current anchor when chargedAt is updated', () => {
+      const { result } = renderHook(() => useAnchorStore());
+      const anchors = [
+        createMockAnchor({ id: 'anchor-1' }),
+        createMockAnchor({ id: 'anchor-2' }),
+      ];
+
+      act(() => {
+        result.current.setAnchors(anchors);
+        result.current.setCurrentAnchor('anchor-1');
+        result.current.updateAnchor('anchor-2', { chargedAt: new Date(), isCharged: true });
+      });
+
+      expect(result.current.currentAnchorId).toBe('anchor-2');
+    });
+
+    it('promotes current anchor when lastActivatedAt is updated', () => {
+      const { result } = renderHook(() => useAnchorStore());
+      const anchors = [
+        createMockAnchor({ id: 'anchor-1' }),
+        createMockAnchor({ id: 'anchor-2' }),
+      ];
+
+      act(() => {
+        result.current.setAnchors(anchors);
+        result.current.setCurrentAnchor('anchor-1');
+        result.current.updateAnchor('anchor-2', { lastActivatedAt: new Date() });
+      });
+
+      expect(result.current.currentAnchorId).toBe('anchor-2');
+    });
   });
 
   describe('removeAnchor', () => {

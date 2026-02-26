@@ -18,8 +18,9 @@ const mockSetCurrentAnchor = jest.fn((id?: string) => {
 
 let mockAnchors: any[] = [];
 let mockCurrentAnchorId: string | undefined;
+let mockSessionLog: any[] = [];
 
-const mockSettingsState = {
+const mockSettingsState: any = {
   defaultActivation: { mode: 'silent', unit: 'seconds', value: 30 },
   defaultCharge: { mode: 'ritual', preset: '5m', customMinutes: undefined },
 };
@@ -46,12 +47,15 @@ jest.mock('@/contexts/TabNavigationContext', () => ({
 }));
 
 jest.mock('@/stores/anchorStore', () => ({
-  useAnchorStore: () => ({
-    anchors: mockAnchors,
-    getActiveAnchors: () => mockAnchors,
-    currentAnchorId: mockCurrentAnchorId,
-    setCurrentAnchor: mockSetCurrentAnchor,
-  }),
+  useAnchorStore: (selector?: (state: any) => any) => {
+    const state = {
+      anchors: mockAnchors,
+      getActiveAnchors: () => mockAnchors,
+      currentAnchorId: mockCurrentAnchorId,
+      setCurrentAnchor: mockSetCurrentAnchor,
+    };
+    return selector ? selector(state) : state;
+  },
 }));
 
 jest.mock('@/stores/authStore', () => ({
@@ -64,7 +68,7 @@ jest.mock('@/stores/authStore', () => ({
 jest.mock('@/stores/sessionStore', () => ({
   useSessionStore: () => ({
     todayPractice: { sessionsCount: 0, totalSeconds: 0, date: '2026-02-21' },
-    sessionLog: [],
+    sessionLog: mockSessionLog,
     lastGraceDayUsedAt: null,
   }),
 }));
@@ -113,6 +117,7 @@ describe('PracticeScreen', () => {
     mockSettingsState.defaultCharge.preset = '5m';
     mockSettingsState.defaultCharge.customMinutes = undefined;
     mockAnchors = [];
+    mockSessionLog = [];
   });
 
   it('renders core hierarchy and exact primary copy', async () => {
@@ -123,6 +128,7 @@ describe('PracticeScreen', () => {
     expect(screen.getByText('Return to the symbol. Keep the thread.')).toBeTruthy();
     expect(screen.getByText('REINFORCE/DEEP CHARGE')).toBeTruthy();
     expect(screen.getByText('STABILIZE')).toBeTruthy();
+    expect(screen.getByText('FOCUS SESSION/ACTIVATION')).toBeTruthy();
     expect(screen.getByText('BURN & RELEASE')).toBeTruthy();
     expect(screen.getByText('Daily thread')).toBeTruthy();
     expect(screen.getByText('One session today keeps the current running.')).toBeTruthy();
@@ -142,7 +148,7 @@ describe('PracticeScreen', () => {
     mockCurrentAnchorId = 'a1';
     mockAnchors = [
       buildAnchor('a1', 'Anchor One'),
-      buildAnchor('a2', 'Anchor Two', { isReleased: true }),
+      buildAnchor('a2', 'Anchor Two'),
     ];
 
     const screen = render(<PracticeScreen />);
@@ -189,7 +195,6 @@ describe('PracticeScreen', () => {
     fireEvent.press(screen.getByText('REINFORCE/DEEP CHARGE'));
 
     await waitFor(() => {
-      expect(mockSetCurrentAnchor).toHaveBeenCalledWith('a2');
       expect(mockNavigateToVault).toHaveBeenCalledWith('Ritual', {
         anchorId: 'a2',
         ritualType: 'ritual',
@@ -214,6 +219,27 @@ describe('PracticeScreen', () => {
         durationSeconds: 14 * 60,
         returnTo: 'practice',
       });
+    });
+  });
+
+  it('continues today by quick-restarting the last ritual type for the selected anchor', async () => {
+    mockAnchors = [buildAnchor('a55', 'Stay steady')];
+    mockSessionLog = [
+      {
+        id: 's1',
+        anchorId: 'a55',
+        type: 'stabilize',
+        durationSeconds: 90,
+        mode: 'silent',
+        completedAt: new Date().toISOString(),
+      },
+    ];
+
+    const screen = render(<PracticeScreen />);
+    fireEvent.press(screen.getByText('Continue Today'));
+
+    await waitFor(() => {
+      expect(mockNavigate).toHaveBeenCalledWith('StabilizeRitual', { anchorId: 'a55' });
     });
   });
 
