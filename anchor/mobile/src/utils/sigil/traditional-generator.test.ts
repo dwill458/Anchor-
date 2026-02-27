@@ -14,7 +14,9 @@ describe('TRUE Sigil Generator', () => {
         expect(result.svg).toContain('viewBox="0 0 100 100"');
         expect(result.svg).toContain('<path');
         expect(result.svg).toContain('stroke="currentColor"');
-        expect(result.svg).toContain('id="ink-bleed"');
+        // <filter> and <marker> elements were intentionally removed from the
+        // generator because react-native-svg does not reliably support them
+        // and they cause crashes on iOS/Android.
     });
 
     it('should generate all 3 variants correctly', () => {
@@ -48,13 +50,15 @@ describe('TRUE Sigil Generator', () => {
         expect((minimal.svg.match(/<path/g) || []).length).toBe(1);
     });
 
-    it('should include markers for balanced but not minimal', () => {
+    it('should not include marker attributes in any variant', () => {
+        // Markers were removed because react-native-svg does not reliably
+        // support marker-start/marker-end and they caused crashes on device.
         const letters = ['A', 'Z'];
         const balanced = generateTrueSigil(letters, 'balanced');
         const minimal = generateTrueSigil(letters, 'minimal');
 
-        expect(balanced.svg).toContain('marker-start="url(#dot-start)"');
-        expect(balanced.svg).toContain('marker-end="url(#bar-end)"');
+        expect(balanced.svg).not.toContain('marker-start');
+        expect(balanced.svg).not.toContain('marker-end');
         expect(minimal.svg).not.toContain('marker-start');
         expect(minimal.svg).not.toContain('marker-end');
     });

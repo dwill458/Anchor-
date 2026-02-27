@@ -70,13 +70,60 @@ jest.mock('@sentry/react-native', () => {
   };
 });
 
-jest.mock('@shopify/react-native-skia', () => ({
-  Canvas: 'Canvas',
-  Circle: 'Circle',
-  Group: 'Group',
-  Line: 'Line',
-  BlurMask: 'BlurMask',
-}));
+jest.mock('@shopify/react-native-skia', () => {
+  // ChargedGlowCanvas uses Skia.Paint(), Skia.PictureRecorder(), PaintStyle,
+  // Picture, and TileMode. Provide minimal stubs so modules load without the
+  // native Skia runtime that is unavailable in Jest.
+  const makePaint = () => ({
+    setColor: jest.fn(),
+    setStyle: jest.fn(),
+    setStrokeWidth: jest.fn(),
+    setAlpha: jest.fn(),
+    setAntiAlias: jest.fn(),
+    setBlendMode: jest.fn(),
+    setMaskFilter: jest.fn(),
+    setShader: jest.fn(),
+    copy: jest.fn(function () { return makePaint(); }),
+  });
+
+  return {
+    Canvas: 'Canvas',
+    Circle: 'Circle',
+    Group: 'Group',
+    Line: 'Line',
+    BlurMask: 'BlurMask',
+    Picture: 'Picture',
+    PaintStyle: { Fill: 'Fill', Stroke: 'Stroke' },
+    TileMode: { Clamp: 'Clamp', Repeat: 'Repeat', Mirror: 'Mirror', Decal: 'Decal' },
+    Skia: {
+      Paint: jest.fn(() => makePaint()),
+      PictureRecorder: jest.fn(() => ({
+        beginRecording: jest.fn(() => ({
+          drawPaint: jest.fn(),
+          drawPicture: jest.fn(),
+          drawCircle: jest.fn(),
+          drawLine: jest.fn(),
+          save: jest.fn(),
+          restore: jest.fn(),
+          scale: jest.fn(),
+          translate: jest.fn(),
+          rotate: jest.fn(),
+          concat: jest.fn(),
+          clipRect: jest.fn(),
+        })),
+        finishRecordingAsPicture: jest.fn(() => ({})),
+      })),
+      Color: jest.fn((c: unknown) => c),
+      Matrix: jest.fn(() => ({})),
+      XYWHRect: jest.fn((x: number, y: number, w: number, h: number) => ({ x, y, w, h })),
+      Shader: {
+        MakeRadialGradient: jest.fn(() => ({})),
+        MakeLinearGradient: jest.fn(() => ({})),
+        MakeTwoPointConicalGradient: jest.fn(() => ({})),
+      },
+    },
+  };
+});
 
 jest.mock('react-native-safe-area-context', () => ({
   SafeAreaView: 'SafeAreaView',
@@ -150,6 +197,12 @@ jest.mock('lucide-react-native', () => {
     }
   });
 });
+
+// ChargedGlowCanvas is a GPU animation component that depends on native Skia.
+// Mock it globally so screen tests don't need to provide a full Skia environment.
+jest.mock('@/components/common/ChargedGlowCanvas', () => ({
+  ChargedGlowCanvas: () => null,
+}));
 
 // Silence console warnings in tests
 global.console = {
