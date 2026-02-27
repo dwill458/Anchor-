@@ -108,7 +108,11 @@ describe('DefaultChargeDisplay', () => {
     expect(screen.getByText('30s')).toBeTruthy();
   });
 
-  it('renders Continue button', () => {
+  it('renders Change settings button', () => {
+    // The component renders a single action button labelled "Change settings".
+    // A separate "Continue" button was removed from the component during a
+    // refactor — the onContinue prop is accepted but the parent (ChargeSetup)
+    // owns that flow now.
     render(
       <DefaultChargeDisplay
         mode="focus"
@@ -118,10 +122,10 @@ describe('DefaultChargeDisplay', () => {
       />
     );
 
-    expect(screen.getByText('Continue')).toBeTruthy();
+    expect(screen.getByText('Change settings')).toBeTruthy();
   });
 
-  it('renders Change button', () => {
+  it('calls onChange when Change settings button is pressed', async () => {
     render(
       <DefaultChargeDisplay
         mode="focus"
@@ -131,38 +135,7 @@ describe('DefaultChargeDisplay', () => {
       />
     );
 
-    expect(screen.getByText('Change')).toBeTruthy();
-  });
-
-  it('calls onContinue when Continue button is pressed', async () => {
-    render(
-      <DefaultChargeDisplay
-        mode="focus"
-        durationSeconds={120}
-        onContinue={mockOnContinue}
-        onChange={mockOnChange}
-      />
-    );
-
-    const continueButton = screen.getByText('Continue');
-    fireEvent.press(continueButton);
-
-    await waitFor(() => {
-      expect(mockOnContinue).toHaveBeenCalledTimes(1);
-    });
-  });
-
-  it('calls onChange when Change button is pressed', async () => {
-    render(
-      <DefaultChargeDisplay
-        mode="focus"
-        durationSeconds={120}
-        onContinue={mockOnContinue}
-        onChange={mockOnChange}
-      />
-    );
-
-    const changeButton = screen.getByText('Change');
+    const changeButton = screen.getByText('Change settings');
     fireEvent.press(changeButton);
 
     await waitFor(() => {
@@ -170,7 +143,7 @@ describe('DefaultChargeDisplay', () => {
     });
   });
 
-  it('displays both buttons without overlapping', () => {
+  it('displays Change settings button', () => {
     render(
       <DefaultChargeDisplay
         mode="focus"
@@ -180,8 +153,7 @@ describe('DefaultChargeDisplay', () => {
       />
     );
 
-    expect(screen.getByText('Continue')).toBeTruthy();
-    expect(screen.getByText('Change')).toBeTruthy();
+    expect(screen.getByText('Change settings')).toBeTruthy();
   });
 
   it('handles different mode and duration combinations', () => {

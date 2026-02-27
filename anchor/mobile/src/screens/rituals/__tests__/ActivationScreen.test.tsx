@@ -28,8 +28,33 @@ jest.mock('@react-navigation/native', () => ({
 jest.mock('react-native-reanimated', () => {
   const Reanimated = require('react-native-reanimated/mock');
   Reanimated.default.call = () => { };
+  Reanimated.useFrameCallback = jest.fn();
+  // FocusSession uses the legacy Animated API from react-native-reanimated:
+  // `new Animated.Value(n)`, `Animated.timing(...)`, `Animated.createAnimatedComponent()`
+  Reanimated.default.Value = class {
+    constructor(_val: number) {}
+    setValue = jest.fn();
+    interpolate = jest.fn(() => this);
+    addListener = jest.fn();
+    removeListener = jest.fn();
+    stopAnimation = jest.fn();
+  };
+  Reanimated.default.timing = jest.fn(() => ({ start: jest.fn((cb?: () => void) => cb?.()) }));
+  Reanimated.default.parallel = jest.fn(() => ({ start: jest.fn((cb?: () => void) => cb?.()) }));
+  Reanimated.default.sequence = jest.fn(() => ({ start: jest.fn((cb?: () => void) => cb?.()) }));
+  Reanimated.default.createAnimatedComponent = jest.fn((C: any) => C);
   return Reanimated;
 });
+
+jest.mock('@/contexts/TabNavigationContext', () => ({
+  useTabNavigation: () => ({
+    navigateToVault: jest.fn(),
+    navigateToPractice: jest.fn(),
+    registerTabNav: jest.fn(),
+    activeTabIndex: 0,
+  }),
+  TabNavigationProvider: ({ children }: any) => children,
+}));
 
 jest.mock('@/stores/anchorStore');
 jest.mock('@/stores/settingsStore');
@@ -75,9 +100,14 @@ describe('ActivationScreen', () => {
     });
 
     mockGetAnchorById.mockReturnValue(mockAnchor);
-    (useAnchorStore as unknown as jest.Mock).mockReturnValue({
-      getAnchorById: mockGetAnchorById,
-      updateAnchor: mockUpdateAnchor,
+    // ActivationScreen uses the selector pattern: useAnchorStore(state => state.fn)
+    // so the mock must call the selector and return what it selects.
+    (useAnchorStore as unknown as jest.Mock).mockImplementation((selector: any) => {
+      const state = {
+        getAnchorById: mockGetAnchorById,
+        updateAnchor: mockUpdateAnchor,
+      };
+      return typeof selector === 'function' ? selector(state) : state;
     });
 
     (useSettingsStore as unknown as jest.Mock).mockReturnValue({

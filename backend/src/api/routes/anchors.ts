@@ -286,7 +286,71 @@ router.put('/:id', async (req: AuthRequest, res: Response) => {
     }
 
     const { id } = req.params;
-    const updates = req.body;
+
+    // Explicit allowlist of fields a user may update on their own anchor.
+    // Never spread req.body directly into Prisma — that would allow mass
+    // assignment of system-owned fields (userId, activationCount, etc.).
+    const {
+      intentionText,
+      category,
+      structureVariant,
+      reinforcedSigilSvg,
+      reinforcementMetadata,
+      enhancedImageUrl,
+      enhancementMetadata,
+      mantraText,
+      mantraPronunciation,
+      mantraAudioUrl,
+      isCharged,
+      chargedAt,
+      chargeMethod,
+      isArchived,
+      archivedAt,
+      isShared,
+      sharedAt,
+    } = req.body;
+
+    // Build update object with only the allowed fields that were provided
+    type AnchorUpdate = {
+      intentionText?: string;
+      category?: string;
+      structureVariant?: string;
+      reinforcedSigilSvg?: string | null;
+      reinforcementMetadata?: object | null;
+      enhancedImageUrl?: string | null;
+      enhancementMetadata?: object | null;
+      mantraText?: string | null;
+      mantraPronunciation?: string | null;
+      mantraAudioUrl?: string | null;
+      isCharged?: boolean;
+      chargedAt?: Date | null;
+      chargeMethod?: string | null;
+      isArchived?: boolean;
+      archivedAt?: Date | null;
+      isShared?: boolean;
+      sharedAt?: Date | null;
+      updatedAt: Date;
+    };
+
+    const allowedUpdates: AnchorUpdate = { updatedAt: new Date() };
+
+    if (intentionText !== undefined) allowedUpdates.intentionText = String(intentionText);
+    if (category !== undefined) allowedUpdates.category = String(category);
+    if (structureVariant !== undefined) allowedUpdates.structureVariant = String(structureVariant);
+    if (reinforcedSigilSvg !== undefined) allowedUpdates.reinforcedSigilSvg = reinforcedSigilSvg;
+    if (reinforcementMetadata !== undefined) allowedUpdates.reinforcementMetadata = reinforcementMetadata;
+    if (enhancedImageUrl !== undefined) allowedUpdates.enhancedImageUrl = enhancedImageUrl;
+    if (enhancementMetadata !== undefined) allowedUpdates.enhancementMetadata = enhancementMetadata;
+    if (mantraText !== undefined) allowedUpdates.mantraText = mantraText;
+    if (mantraPronunciation !== undefined) allowedUpdates.mantraPronunciation = mantraPronunciation;
+    if (mantraAudioUrl !== undefined) allowedUpdates.mantraAudioUrl = mantraAudioUrl;
+    if (isCharged !== undefined) allowedUpdates.isCharged = Boolean(isCharged);
+    if (chargedAt !== undefined) allowedUpdates.chargedAt = chargedAt ? new Date(chargedAt) : null;
+    if (chargeMethod !== undefined) allowedUpdates.chargeMethod = chargeMethod;
+    if (isArchived !== undefined) allowedUpdates.isArchived = Boolean(isArchived);
+    if (archivedAt !== undefined) allowedUpdates.archivedAt = archivedAt ? new Date(archivedAt) : null;
+    if (isShared !== undefined) allowedUpdates.isShared = Boolean(isShared);
+    if (sharedAt !== undefined) allowedUpdates.sharedAt = sharedAt ? new Date(sharedAt) : null;
 
     // Get user from database
     const user = await prisma.user.findUnique({
@@ -309,13 +373,10 @@ router.put('/:id', async (req: AuthRequest, res: Response) => {
       throw new AppError('Anchor not found', 404, 'ANCHOR_NOT_FOUND');
     }
 
-    // Update anchor
+    // Update anchor with only the allowed fields
     const anchor = await prisma.anchor.update({
       where: { id },
-      data: {
-        ...updates,
-        updatedAt: new Date(),
-      },
+      data: allowedUpdates,
     });
 
     res.json({
