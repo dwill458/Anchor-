@@ -38,6 +38,7 @@ import { useReduceMotionEnabled } from '@/hooks/useReduceMotionEnabled';
 import { RitualScaffold } from '@/screens/rituals/components/RitualScaffold';
 import { RitualTopBar } from '@/screens/rituals/components/RitualTopBar';
 import { InstructionGlassCard } from '@/screens/rituals/components/InstructionGlassCard';
+import { ConfirmModal } from '@/screens/rituals/components/ConfirmModal';
 
 type StabilizeRouteProp = RouteProp<PracticeStackParamList, 'StabilizeRitual'>;
 type StabilizeNavProp = StackNavigationProp<PracticeStackParamList, 'StabilizeRitual'>;
@@ -66,12 +67,14 @@ export const StabilizeRitualScreen: React.FC = () => {
   const [phase, setPhase] = useState<StabilizePhase>('arrive');
   const [breathCue, setBreathCue] = useState<'Breathe in' | 'Breathe out'>('Breathe in');
   const [completionMessage, setCompletionMessage] = useState<string>('');
+  const [showExitWarning, setShowExitWarning] = useState(false);
 
   const ringProgress = useSharedValue(0);
   const pulse = useSharedValue(0);
   const sealActive = useSharedValue(0);
   const isMountedRef = useRef(true);
   const didSealHapticRef = useRef(false);
+  const exitingRef = useRef(false);
 
   const circumference = useMemo(() => 2 * Math.PI * RING_RADIUS, []);
 
@@ -204,6 +207,27 @@ export const StabilizeRitualScreen: React.FC = () => {
     };
   });
 
+  useEffect(() => {
+    const nav = navigation as any;
+    if (typeof nav.addListener !== 'function') {
+      return () => undefined;
+    }
+
+    const unsubscribe = nav.addListener('beforeRemove', (event: any) => {
+      if (exitingRef.current || phase === 'complete') return;
+      event.preventDefault();
+      setShowExitWarning(true);
+    });
+
+    return unsubscribe;
+  }, [navigation, phase]);
+
+  const exitStabilize = () => {
+    exitingRef.current = true;
+    setShowExitWarning(false);
+    navigation.goBack();
+  };
+
   const phaseLabel = phase === 'complete'
     ? 'Complete'
     : phase === 'arrive'
@@ -214,14 +238,10 @@ export const StabilizeRitualScreen: React.FC = () => {
 
   const handleBack = () => {
     if (phase === 'complete') {
-      navigation.goBack();
+      exitStabilize();
       return;
     }
-
-    Alert.alert('Exit Stabilize?', 'You can return any time.', [
-      { text: 'Stay', style: 'cancel' },
-      { text: 'Exit', style: 'destructive', onPress: () => navigation.goBack() },
-    ]);
+    setShowExitWarning(true);
   };
 
   return (
@@ -331,7 +351,7 @@ export const StabilizeRitualScreen: React.FC = () => {
             ) : null}
 
             <TouchableOpacity
-              onPress={() => navigation.goBack()}
+              onPress={exitStabilize}
               activeOpacity={0.9}
               accessibilityRole="button"
               accessibilityLabel="Done"
@@ -348,6 +368,15 @@ export const StabilizeRitualScreen: React.FC = () => {
             </TouchableOpacity>
           </Animated.View>
         )}
+        <ConfirmModal
+          visible={showExitWarning}
+          title="Exit Stabilize?"
+          body="You will need to start over if you leave now."
+          primaryCtaLabel="Exit"
+          secondaryCtaLabel="Stay"
+          onPrimary={exitStabilize}
+          onSecondary={() => setShowExitWarning(false)}
+        />
       </View>
     </RitualScaffold>
   );

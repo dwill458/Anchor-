@@ -204,7 +204,7 @@ export const VaultStackNavigator: React.FC<VaultStackNavigatorProps> = ({ onRout
       <Stack.Screen
         name="ConfirmBurn"
         component={ConfirmBurnScreen}
-        options={{ title: 'Burn & Release' }}
+        options={{ title: 'Burn & Release', headerShown: false }}
       />
       <Stack.Screen
         name="BurningRitual"

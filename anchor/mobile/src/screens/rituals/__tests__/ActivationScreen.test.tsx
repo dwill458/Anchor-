@@ -13,6 +13,10 @@ import { apiClient } from '@/services/ApiClient';
 import { ErrorTrackingService } from '@/services/ErrorTrackingService';
 import { createMockAnchor } from '@/__tests__/utils/testUtils';
 
+const TEST_ACTIVATION_DURATION_SECONDS = 2;
+const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+const mockNavigateToPractice = jest.fn();
+
 jest.mock('@react-navigation/native', () => ({
   useRoute: jest.fn(() => ({
     params: {
@@ -49,7 +53,7 @@ jest.mock('react-native-reanimated', () => {
 jest.mock('@/contexts/TabNavigationContext', () => ({
   useTabNavigation: () => ({
     navigateToVault: jest.fn(),
-    navigateToPractice: jest.fn(),
+    navigateToPractice: mockNavigateToPractice,
     registerTabNav: jest.fn(),
     activeTabIndex: 0,
   }),
@@ -67,11 +71,12 @@ jest.mock('@/components/ToastProvider', () => ({
   })),
 }));
 
-const TEST_ACTIVATION_DURATION_SECONDS = 2;
-const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
-
 describe('ActivationScreen', () => {
   let mockGoBack: jest.Mock;
+  let mockPopToTop: jest.Mock;
+  let mockNavigate: jest.Mock;
+  let mockReplace: jest.Mock;
+  let mockAddListener: jest.Mock;
   let mockGetAnchorById: jest.Mock;
   let mockUpdateAnchor: jest.Mock;
   let mockToastSuccess: jest.Mock;
@@ -82,6 +87,10 @@ describe('ActivationScreen', () => {
     jest.clearAllMocks();
 
     mockGoBack = jest.fn();
+    mockPopToTop = jest.fn();
+    mockNavigate = jest.fn();
+    mockReplace = jest.fn();
+    mockAddListener = jest.fn(() => jest.fn());
     mockGetAnchorById = jest.fn();
     mockUpdateAnchor = jest.fn();
     mockToastSuccess = jest.fn();
@@ -97,7 +106,19 @@ describe('ActivationScreen', () => {
     const navigation = require('@react-navigation/native');
     navigation.useNavigation.mockReturnValue({
       goBack: mockGoBack,
+      popToTop: mockPopToTop,
+      navigate: mockNavigate,
+      replace: mockReplace,
+      addListener: mockAddListener,
     });
+    navigation.useRoute.mockReturnValue({
+      params: {
+        anchorId: 'test-anchor-id',
+        activationType: 'visual',
+      },
+    });
+
+    mockNavigateToPractice.mockReset();
 
     mockGetAnchorById.mockReturnValue(mockAnchor);
     // ActivationScreen uses the selector pattern: useAnchorStore(state => state.fn)
@@ -151,6 +172,14 @@ describe('ActivationScreen', () => {
   it('displays intention text', () => {
     const { getByText } = render(<ActivationScreen />);
     expect(getByText('I am confident')).toBeTruthy();
+  });
+
+  it('falls back to safe defaults when default activation settings are missing', () => {
+    (useSettingsStore as unknown as jest.Mock).mockReturnValue({});
+
+    const { getByText } = render(<ActivationScreen />);
+
+    expect(getByText('00:30')).toBeTruthy();
   });
 
   it('renders anchor not found when anchor is missing', () => {
@@ -230,12 +259,35 @@ describe('ActivationScreen', () => {
   });
 
   it('dismiss button exits without activating', () => {
-    const { getByTestId } = render(<ActivationScreen />);
+    const { getByTestId, getByText } = render(<ActivationScreen />);
 
     fireEvent.press(getByTestId('focus-session-dismiss'));
 
+    expect(getByText('Exit Focus Session?')).toBeTruthy();
+    fireEvent.press(getByText('Exit'));
     expect(mockGoBack).toHaveBeenCalled();
     expect(apiClient.post).not.toHaveBeenCalled();
+  });
+
+  it('pops vault stack and returns to Practice after completion when launched from Practice', async () => {
+    const navigation = require('@react-navigation/native');
+    navigation.useRoute.mockReturnValue({
+      params: {
+        anchorId: 'test-anchor-id',
+        activationType: 'visual',
+        returnTo: 'practice',
+      },
+    });
+
+    const { getByTestId } = render(<ActivationScreen />);
+    await waitFor(() => expect(getByTestId('focus-session-continue')).toBeTruthy(), { timeout: 4000 });
+    fireEvent.press(getByTestId('focus-session-continue'));
+    fireEvent.press(getByTestId('completion-modal-done'));
+
+    await waitFor(() => {
+      expect(mockPopToTop).toHaveBeenCalled();
+      expect(mockNavigateToPractice).toHaveBeenCalled();
+    });
   });
 
   it('uses provided activation type', async () => {

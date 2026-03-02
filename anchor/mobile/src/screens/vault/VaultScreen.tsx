@@ -22,8 +22,7 @@ import { PerformanceMonitoring } from '../../services/PerformanceMonitoring';
 import { SanctuaryHeader } from './components/SanctuaryHeader';
 import { DailyStreakStrip } from './components/DailyStreakStrip';
 import { AnchorsSectionRow } from './components/AnchorsSectionRow';
-import { ForgeAnchorButton } from './components/ForgeAnchorButton';
-import { SanctuaryEmptyState } from './components/SanctuaryEmptyState';
+import { GhostAnchorCard } from './components/GhostAnchorCard';
 import { AtmosphericOrbs } from './components/AtmosphericOrbs';
 import { ZenBackground } from '@/components/common';
 import { getEffectiveStabilizeStreakDays, toDateOrNull } from '@/utils/stabilizeStats';
@@ -36,7 +35,7 @@ const COLUMN_GAP = spacing.md;
 const CARD_WIDTH = (width - spacing.lg * 2 - COLUMN_GAP) / 2;
 const FADE_STAGGER_MS = 50;
 const GRID_BASE_DELAY_MS = 150;
-const FORGE_BUTTON_DELAY_MS = 350;
+
 
 type VaultScreenNavigationProp = StackNavigationProp<RootStackParamList, 'Vault'>;
 
@@ -199,26 +198,51 @@ export const VaultScreen: React.FC = () => {
     );
   }, [user?.lastStabilizeAt, user?.stabilizeStreakDays]);
 
-  const gridItems = useMemo<Anchor[]>(() => anchors, [anchors]);
+  type GridItem = Anchor | { id: '__forge__'; isForge: true };
+
+  const gridItems = useMemo<GridItem[]>(
+    () => [...anchors, { id: '__forge__', isForge: true as const }],
+    [anchors]
+  );
 
   const renderGridItem = useCallback(
-    ({ item, index }: { item: Anchor; index: number }): React.JSX.Element => (
-      <Animated.View
-        entering={getFadeUpEntering(
-          GRID_BASE_DELAY_MS + index * FADE_STAGGER_MS,
-          reduceMotionEnabled || !isVaultTabActive
-        )}
-        style={{ width: CARD_WIDTH }}
-      >
-        <AnchorCard
-          anchor={item}
-          onPress={handleAnchorPress}
-          reduceMotionEnabled={reduceMotionEnabled || !isVaultTabActive}
-          variant="sanctuary"
-        />
-      </Animated.View>
-    ),
-    [handleAnchorPress, isVaultTabActive, reduceMotionEnabled]
+    ({ item, index }: { item: GridItem; index: number }): React.JSX.Element => {
+      if ('isForge' in item) {
+        return (
+          <Animated.View
+            entering={getFadeUpEntering(
+              GRID_BASE_DELAY_MS + index * FADE_STAGGER_MS,
+              reduceMotionEnabled || !isVaultTabActive
+            )}
+            style={{ width: CARD_WIDTH }}
+          >
+            <GhostAnchorCard
+              height={CARD_WIDTH * 1.35}
+              onPress={handleCreateAnchor}
+              title="Forge Anchor"
+              body="Add to your Sanctuary"
+            />
+          </Animated.View>
+        );
+      }
+      return (
+        <Animated.View
+          entering={getFadeUpEntering(
+            GRID_BASE_DELAY_MS + index * FADE_STAGGER_MS,
+            reduceMotionEnabled || !isVaultTabActive
+          )}
+          style={{ width: CARD_WIDTH }}
+        >
+          <AnchorCard
+            anchor={item}
+            onPress={handleAnchorPress}
+            reduceMotionEnabled={reduceMotionEnabled || !isVaultTabActive}
+            variant="sanctuary"
+          />
+        </Animated.View>
+      );
+    },
+    [handleAnchorPress, handleCreateAnchor, isVaultTabActive, reduceMotionEnabled]
   );
 
   const listHeader = useMemo(
@@ -244,8 +268,7 @@ export const VaultScreen: React.FC = () => {
     [shouldReduceMotion, streakDays, anchors.length, navigateToPractice]
   );
 
-  const forgeButtonBottom = 106 + Math.max(0, insets.bottom - 4);
-  const listBottomPadding = forgeButtonBottom + 86;
+  const listBottomPadding = 84 + insets.bottom;
 
   return (
     <View style={styles.container}>
@@ -268,11 +291,6 @@ export const VaultScreen: React.FC = () => {
             contentContainerStyle={styles.listContent}
             columnWrapperStyle={styles.columnWrapper}
             ListHeaderComponent={listHeader}
-            ListEmptyComponent={(
-              <Animated.View entering={getFadeUpEntering(GRID_BASE_DELAY_MS, shouldReduceMotion)}>
-                <SanctuaryEmptyState />
-              </Animated.View>
-            )}
             refreshControl={(
               <RefreshControl
                 refreshing={refreshing}
@@ -286,14 +304,6 @@ export const VaultScreen: React.FC = () => {
             accessibilityLabel={`List of ${anchors.length} anchors`}
           />
         )}
-
-        <Animated.View entering={getFadeUpEntering(FORGE_BUTTON_DELAY_MS, shouldReduceMotion)}>
-          <ForgeAnchorButton
-            onPress={handleCreateAnchor}
-            reduceMotionEnabled={shouldReduceMotion}
-            bottomOffset={forgeButtonBottom}
-          />
-        </Animated.View>
 
         <AnchorLimitModal
           visible={showAnchorLimitModal}
