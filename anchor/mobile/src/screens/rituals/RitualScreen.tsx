@@ -42,6 +42,7 @@ import { RitualScaffold } from './components/RitualScaffold';
 import { RitualTopBar } from './components/RitualTopBar';
 import { InstructionGlassCard } from './components/InstructionGlassCard';
 import { ProgressHaloRing } from './components/ProgressHaloRing';
+import { ConfirmModal } from './components/ConfirmModal';
 import { TIMING, EASING } from './utils/transitionConstants';
 import * as Speech from 'expo-speech';
 
@@ -189,6 +190,7 @@ export const RitualScreen: React.FC = () => {
   const { anchorId, ritualType, durationSeconds, mantraAudioEnabled, returnTo } = route.params;
   const isMountedRef = useRef(true);
   const isCompletingRef = useRef(false);
+  const exitingRef = useRef(false);
   const mantraIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const getAnchorById = useAnchorStore((state) => state.getAnchorById);
@@ -197,6 +199,7 @@ export const RitualScreen: React.FC = () => {
   const anchor = getAnchorById(anchorId);
 
   const [reduceMotionEnabled, setReduceMotionEnabled] = useState(false);
+  const [showExitWarning, setShowExitWarning] = useState(false);
 
   // Keep this config generation before hook initialization so initial UI text is stable.
   const config = getRitualConfig(ritualType, durationSeconds);
@@ -457,6 +460,7 @@ export const RitualScreen: React.FC = () => {
       }
 
       if (isMountedRef.current) {
+        exitingRef.current = true;
         navigation.replace('ChargeComplete', { anchorId, returnTo });
       }
     } catch (error) {
@@ -467,23 +471,50 @@ export const RitualScreen: React.FC = () => {
   }
 
   function handleBack() {
-    Alert.alert('Exit Ritual?', 'Your progress will be lost if you exit now.', [
-      { text: 'Cancel', style: 'cancel' },
-      {
-        text: 'Exit',
-        style: 'destructive',
-        onPress: () => {
-          if (returnTo === 'practice') {
-            navigateToPractice();
-          } else if (returnTo === 'detail') {
-            navigation.navigate('AnchorDetail', { anchorId });
-          } else {
-            navigation.navigate('Vault');
-          }
-        },
-      },
-    ]);
+    if (state.isComplete || state.isSealComplete) {
+      exitRitual();
+      return;
+    }
+    setShowExitWarning(true);
   }
+
+  const exitRitual = useCallback(() => {
+    exitingRef.current = true;
+    setShowExitWarning(false);
+
+    if (returnTo === 'practice') {
+      const nav = navigation as any;
+      if (typeof nav.popToTop === 'function') {
+        nav.popToTop();
+      } else {
+        navigation.navigate('Vault');
+      }
+      navigateToPractice();
+      return;
+    }
+
+    if (returnTo === 'detail') {
+      navigation.navigate('AnchorDetail', { anchorId });
+      return;
+    }
+
+    navigation.navigate('Vault');
+  }, [anchorId, navigateToPractice, navigation, returnTo]);
+
+  useEffect(() => {
+    const nav = navigation as any;
+    if (typeof nav.addListener !== 'function') {
+      return () => undefined;
+    }
+
+    const unsubscribe = nav.addListener('beforeRemove', (event: any) => {
+      if (exitingRef.current || state.isComplete || state.isSealComplete) return;
+      event.preventDefault();
+      setShowExitWarning(true);
+    });
+
+    return unsubscribe;
+  }, [navigation, state.isComplete, state.isSealComplete]);
 
   const handleSealPressIn = () => {
     if (state.isSealPhase && !state.isSealComplete) {
@@ -1163,6 +1194,15 @@ export const RitualScreen: React.FC = () => {
             </Animated.View>
           </>
         )}
+        <ConfirmModal
+          visible={showExitWarning}
+          title="Exit Ritual?"
+          body="You will need to start over if you leave now."
+          primaryCtaLabel="Exit"
+          secondaryCtaLabel="Stay"
+          onPrimary={exitRitual}
+          onSecondary={() => setShowExitWarning(false)}
+        />
       </View>
     </RitualScaffold>
   );

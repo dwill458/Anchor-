@@ -173,7 +173,11 @@ export const ConfirmBurnScreen: React.FC = () => {
             <Text style={styles.reflectLabel}>Completed intention</Text>
 
             <View style={styles.sigilStage}>
-              {!IS_TEST_ENV ? <ChargedGlowCanvas size={SIGIL_STAGE_SIZE} /> : null}
+              {!IS_TEST_ENV ? (
+                <View style={[StyleSheet.absoluteFill, { left: -50, right: -50, top: -50, bottom: -50 }]}>
+                  <ChargedGlowCanvas size={SIGIL_STAGE_SIZE + 100} />
+                </View>
+              ) : null}
               <View style={styles.sigilInner}>{sigilNode}</View>
             </View>
 
@@ -276,6 +280,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 24,
     paddingVertical: 16,
     justifyContent: 'center',
+    overflow: 'visible',
   },
   reflectBody: {
     alignItems: 'center',
@@ -295,6 +300,7 @@ const styles = StyleSheet.create({
     height: SIGIL_STAGE_SIZE,
     alignItems: 'center',
     justifyContent: 'center',
+    overflow: 'visible',
   },
   sigilInner: {
     position: 'absolute',
