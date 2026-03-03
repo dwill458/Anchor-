@@ -181,6 +181,8 @@ export const DurationSelectionStep: React.FC<DurationSelectionStepProps> = ({
         ]}
         onPress={handleContinue}
         disabled={!selectedDuration}
+        accessibilityRole="button"
+        accessibilityState={{ disabled: !selectedDuration }}
         activeOpacity={0.8}
       >
         <Text style={styles.continueButtonText}>Continue</Text>

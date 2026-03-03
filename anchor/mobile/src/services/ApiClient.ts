@@ -162,11 +162,21 @@ apiClient.interceptors.response.use(
       throw new Error('Network error. Please check your connection.');
     }
 
-    // Handle API errors with standard format
-    if (error.response.data?.error) {
-      const apiError = error.response.data.error;
-      const message = typeof apiError === 'string' ? apiError : apiError.message;
-      throw new Error(message || 'An error occurred');
+    const apiError = error.response.data?.error;
+    let apiMessage: string | undefined;
+    if (typeof apiError === 'string') {
+      apiMessage = apiError;
+    } else if (
+      apiError &&
+      typeof apiError === 'object' &&
+      'message' in apiError &&
+      typeof apiError.message === 'string'
+    ) {
+      apiMessage = apiError.message;
+    }
+
+    if (apiMessage) {
+      throw new Error(apiMessage);
     }
 
     // Handle HTTP status codes

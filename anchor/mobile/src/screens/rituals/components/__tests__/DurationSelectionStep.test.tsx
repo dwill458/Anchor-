@@ -139,7 +139,8 @@ describe('DurationSelectionStep', () => {
         />
       );
 
-      const continueButton = screen.getByText('Continue');
+      const continueButton = screen.getByRole('button', { name: 'Continue' });
+      expect(continueButton.props.accessibilityState?.disabled).toBe(true);
       fireEvent.press(continueButton);
       expect(mockOnContinue).not.toHaveBeenCalled();
     });
@@ -162,7 +163,7 @@ describe('DurationSelectionStep', () => {
       });
 
       // Then press Continue
-      const continueButton = screen.getByText('Continue');
+      const continueButton = screen.getByRole('button', { name: 'Continue' });
       fireEvent.press(continueButton);
 
       await waitFor(() => {
