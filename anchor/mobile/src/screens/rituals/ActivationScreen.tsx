@@ -12,7 +12,7 @@ import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { useTabNavigation } from '@/contexts/TabNavigationContext';
 import { useAnchorStore } from '../../stores/anchorStore';
 import { useAuthStore } from '@/stores/authStore';
-import { useSettingsStore } from '@/stores/settingsStore';
+import { useSettingsStore, type DefaultActivationSetting } from '@/stores/settingsStore';
 import { useSessionStore } from '@/stores/sessionStore';
 import { useTeachingStore } from '@/stores/teachingStore';
 import type { RootStackParamList } from '@/types';
@@ -24,10 +24,42 @@ import { useToast } from '@/components/ToastProvider';
 import { RitualScaffold } from './components/RitualScaffold';
 import { FocusSession } from './components/FocusSession';
 import { CompletionModal } from './components/CompletionModal';
+import { ConfirmModal } from './components/ConfirmModal';
 import { useTeachingGate } from '@/utils/useTeachingGate';
 import { TEACHINGS } from '@/constants/teaching';
 
 type ActivationRouteProp = RouteProp<RootStackParamList, 'ActivationRitual'>;
+
+const FALLBACK_DEFAULT_ACTIVATION: DefaultActivationSetting = {
+  type: 'visual',
+  value: 30,
+  unit: 'seconds',
+  mode: 'silent',
+};
+
+function resolveDefaultActivation(
+  setting?: Partial<DefaultActivationSetting> | null
+): DefaultActivationSetting {
+  const candidate = setting ?? {};
+  const unit =
+    candidate.unit === 'minutes' ||
+    candidate.unit === 'seconds' ||
+    candidate.unit === 'reps' ||
+    candidate.unit === 'breaths'
+      ? candidate.unit
+      : FALLBACK_DEFAULT_ACTIVATION.unit;
+  const value =
+    typeof candidate.value === 'number' && Number.isFinite(candidate.value)
+      ? candidate.value
+      : FALLBACK_DEFAULT_ACTIVATION.value;
+
+  return {
+    type: candidate.type ?? FALLBACK_DEFAULT_ACTIVATION.type,
+    unit,
+    value,
+    mode: candidate.mode ?? FALLBACK_DEFAULT_ACTIVATION.mode,
+  };
+}
 
 export const ActivationScreen: React.FC = () => {
   const navigation = useNavigation();
@@ -40,6 +72,10 @@ export const ActivationScreen: React.FC = () => {
   const updateAnchor = useAnchorStore((state) => state.updateAnchor);
   const computeStreak = useAuthStore((state) => state.computeStreak);
   const { defaultActivation } = useSettingsStore();
+  const resolvedDefaultActivation = useMemo(
+    () => resolveDefaultActivation(defaultActivation),
+    [defaultActivation]
+  );
   const { recordSession } = useSessionStore();
   const { recordShown } = useTeachingStore();
   const anchor = getAnchorById(anchorId);
@@ -57,6 +93,8 @@ export const ActivationScreen: React.FC = () => {
   });
 
   const [showCompletion, setShowCompletion] = useState(false);
+  const [showExitWarning, setShowExitWarning] = useState(false);
+  const exitingRef = React.useRef(false);
 
   // Record ground note shown (once, on render — gate already enforces lifetime limit)
   React.useEffect(() => {
@@ -77,18 +115,18 @@ export const ActivationScreen: React.FC = () => {
     // durationOverride (from "Continue" flow) takes precedence
     if (durationOverride != null && durationOverride > 0) return durationOverride;
 
-    if (defaultActivation.unit === 'minutes') {
-      const clampedMinutes = Math.max(1, Math.min(30, Math.round(defaultActivation.value)));
+    if (resolvedDefaultActivation.unit === 'minutes') {
+      const clampedMinutes = Math.max(1, Math.min(30, Math.round(resolvedDefaultActivation.value)));
       return clampedMinutes * 60;
     }
 
-    if (defaultActivation.unit === 'seconds') {
-      const clampedValue = Math.max(1, Math.min(600, Math.round(defaultActivation.value)));
+    if (resolvedDefaultActivation.unit === 'seconds') {
+      const clampedValue = Math.max(1, Math.min(600, Math.round(resolvedDefaultActivation.value)));
       return clampedValue;
     }
 
     return 30;
-  }, [defaultActivation, durationOverride]);
+  }, [durationOverride, resolvedDefaultActivation.unit, resolvedDefaultActivation.value]);
 
   const logActivationInBackground = useCallback(async (): Promise<void> => {
     const localActivationTime = new Date();
@@ -134,6 +172,48 @@ export const ActivationScreen: React.FC = () => {
     setShowCompletion(true);
   }, []);
 
+  const exitSession = useCallback(() => {
+    exitingRef.current = true;
+    setShowExitWarning(false);
+
+    if (returnTo === 'practice') {
+      const nav = navigation as any;
+      if (typeof nav.popToTop === 'function') {
+        nav.popToTop();
+      } else {
+        navigation.goBack();
+      }
+      navigateToPractice();
+      return;
+    }
+
+    if (returnTo === 'detail') {
+      (navigation as any).navigate('AnchorDetail', { anchorId });
+      return;
+    }
+
+    navigation.goBack();
+  }, [anchorId, navigateToPractice, navigation, returnTo]);
+
+  const promptExitSession = useCallback(() => {
+    setShowExitWarning(true);
+  }, []);
+
+  React.useEffect(() => {
+    const nav = navigation as any;
+    if (typeof nav.addListener !== 'function') {
+      return () => undefined;
+    }
+
+    const unsubscribe = nav.addListener('beforeRemove', (event: any) => {
+      if (exitingRef.current) return;
+      event.preventDefault();
+      promptExitSession();
+    });
+
+    return unsubscribe;
+  }, [navigation, promptExitSession]);
+
   const handleCompletionDone = useCallback((reflectionWord?: string) => {
     setShowCompletion(false);
 
@@ -142,7 +222,7 @@ export const ActivationScreen: React.FC = () => {
       anchorId,
       type: 'activate',
       durationSeconds: activationDurationSeconds,
-      mode: defaultActivation.mode ?? 'silent',
+      mode: resolvedDefaultActivation.mode,
       reflectionWord,
       completedAt: new Date().toISOString(),
     });
@@ -151,6 +231,10 @@ export const ActivationScreen: React.FC = () => {
     void logActivationInBackground();
 
     if (returnTo === 'practice') {
+      const nav = navigation as any;
+      if (typeof nav.popToTop === 'function') {
+        nav.popToTop();
+      }
       navigateToPractice();
     } else if (returnTo === 'reinforce') {
       (navigation as any).replace('Ritual', {
@@ -167,11 +251,12 @@ export const ActivationScreen: React.FC = () => {
   }, [
     anchorId,
     activationDurationSeconds,
-    defaultActivation.mode,
     logActivationInBackground,
     navigateToPractice,
     navigation,
     recordSession,
+    resolvedDefaultActivation.mode,
+    returnTo,
   ]);
 
   if (!anchor) {
@@ -194,13 +279,7 @@ export const ActivationScreen: React.FC = () => {
         groundNoteText={groundNoteTeaching?.copy}
         groundNoteSecondary={groundNoteTeaching?.copySecondary}
         onDismiss={() => {
-          if (returnTo === 'practice') {
-            navigateToPractice();
-          } else if (returnTo === 'detail') {
-            (navigation as any).navigate('AnchorDetail', { anchorId });
-          } else {
-            navigation.goBack();
-          }
+          promptExitSession();
         }}
       />
       <CompletionModal
@@ -210,6 +289,15 @@ export const ActivationScreen: React.FC = () => {
         onDone={handleCompletionDone}
         teachingLine={sealWhisperTeaching?.copy}
         teachingId={sealWhisperTeaching?.teachingId}
+      />
+      <ConfirmModal
+        visible={showExitWarning}
+        title="Exit Focus Session?"
+        body="You will need to start over if you leave now."
+        primaryCtaLabel="Exit"
+        secondaryCtaLabel="Stay"
+        onPrimary={exitSession}
+        onSecondary={() => setShowExitWarning(false)}
       />
     </>
   );

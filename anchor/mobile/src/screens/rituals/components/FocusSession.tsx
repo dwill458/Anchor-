@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
+  Animated as RNAnimated,
   Dimensions,
   Platform,
   Pressable,
@@ -249,7 +250,7 @@ export const FocusSession: React.FC<FocusSessionProps> = ({
   const [status, setStatus] = useState<SessionStatus>('running');
   const [secondsRemaining, setSecondsRemaining] = useState(Math.ceil(totalMs / 1000));
   const [groundNoteVisible, setGroundNoteVisible] = useState(!!groundNoteText);
-  const groundNoteOpacity = useRef(new Animated.Value(groundNoteText ? 0 : 0)).current;
+  const groundNoteOpacity = useRef(new RNAnimated.Value(0)).current;
 
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const endAtMsRef = useRef<number>(Date.now() + totalMs);
@@ -270,13 +271,13 @@ export const FocusSession: React.FC<FocusSessionProps> = ({
   useEffect(() => {
     if (!groundNoteText) return;
     setGroundNoteVisible(true);
-    Animated.timing(groundNoteOpacity, {
+    RNAnimated.timing(groundNoteOpacity, {
       toValue: 1,
       duration: 400,
       useNativeDriver: true,
     }).start();
     const timer = setTimeout(() => {
-      Animated.timing(groundNoteOpacity, {
+      RNAnimated.timing(groundNoteOpacity, {
         toValue: 0,
         duration: 500,
         useNativeDriver: true,
@@ -569,12 +570,12 @@ export const FocusSession: React.FC<FocusSessionProps> = ({
           </GlassSurface>
 
           {groundNoteVisible && groundNoteText ? (
-            <Animated.View style={[styles.groundNoteWrap, { opacity: groundNoteOpacity }]}>
+            <RNAnimated.View style={[styles.groundNoteWrap, { opacity: groundNoteOpacity }]}>
               <Text style={styles.groundNoteText}>{groundNoteText}</Text>
               {groundNoteSecondary ? (
                 <Text style={styles.groundNoteSecondary}>{groundNoteSecondary}</Text>
               ) : null}
-            </Animated.View>
+            </RNAnimated.View>
           ) : null}
 
           {status === 'running' ? (
