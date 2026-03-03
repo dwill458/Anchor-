@@ -11,6 +11,7 @@ const appSlug = Constants.expoConfig?.slug ?? 'anchor-v2';
 const appVersion = Constants.expoConfig?.version ?? '0.0.0';
 
 const sentryEnabledInDev = process.env.EXPO_PUBLIC_ENABLE_SENTRY_IN_DEV === 'true';
+const analyticsEnabledInDev = process.env.EXPO_PUBLIC_ENABLE_ANALYTICS_IN_DEV === 'true';
 
 export const monitoringConfig = {
   environment: process.env.EXPO_PUBLIC_APP_ENV ?? (__DEV__ ? 'development' : 'production'),
@@ -20,5 +21,8 @@ export const monitoringConfig = {
   traceSampleRate: parseSampleRate(process.env.EXPO_PUBLIC_SENTRY_TRACES_SAMPLE_RATE, __DEV__ ? 1 : 0.2),
   profileSampleRate: parseSampleRate(process.env.EXPO_PUBLIC_SENTRY_PROFILES_SAMPLE_RATE, __DEV__ ? 1 : 0.1),
   slowRequestThresholdMs: Number(process.env.EXPO_PUBLIC_SLOW_REQUEST_MS ?? 2000),
+  posthogApiKey: process.env.EXPO_PUBLIC_POSTHOG_API_KEY ?? '',
+  posthogHost: process.env.EXPO_PUBLIC_POSTHOG_HOST ?? 'https://us.i.posthog.com',
+  analyticsEnabled: Boolean(process.env.EXPO_PUBLIC_POSTHOG_API_KEY) && (!__DEV__ || analyticsEnabledInDev),
 };
 

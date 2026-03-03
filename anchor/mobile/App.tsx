@@ -24,6 +24,7 @@ import { SettingsRevealProvider } from './src/components/transitions/SettingsRev
 import type { RootNavigatorParamList } from './src/navigation/RootNavigator';
 import { ErrorTrackingService, setupGlobalErrorHandler } from './src/services/ErrorTrackingService';
 import { PerformanceMonitoring, type PerformanceTrace } from './src/services/PerformanceMonitoring';
+import { AnalyticsService } from './src/services/AnalyticsService';
 import { monitoringConfig } from './src/config/monitoring';
 
 const { width } = Dimensions.get('window');
@@ -71,15 +72,25 @@ export default function App() {
     });
     setupGlobalErrorHandler();
     PerformanceMonitoring.initialize({ enabled: true });
+    AnalyticsService.initialize({
+      apiKey: monitoringConfig.posthogApiKey,
+      host: monitoringConfig.posthogHost,
+      enabled: monitoringConfig.analyticsEnabled,
+    });
   }, []);
 
   useEffect(() => {
     if (user?.id) {
       ErrorTrackingService.setUser(user.id, user.email, user.displayName);
+      AnalyticsService.identify(user.id, {
+        email: user.email,
+        displayName: user.displayName,
+      });
       return;
     }
 
     ErrorTrackingService.clearUser();
+    AnalyticsService.reset();
   }, [user?.displayName, user?.email, user?.id]);
 
   useEffect(() => {
@@ -89,6 +100,7 @@ export default function App() {
         computeStreak();
       } else {
         ErrorTrackingService.addBreadcrumb('App state changed', 'app_state', { nextState });
+        AnalyticsService.flush();
       }
     });
     return () => subscription.remove();

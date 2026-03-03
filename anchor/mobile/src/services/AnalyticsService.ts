@@ -1,9 +1,12 @@
 /**
- * Anchor App - Analytics Service
+ * Anchor App - Analytics Service (PostHog)
  *
- * Centralized analytics tracking for user behavior and feature usage.
- * Ready for integration with Mixpanel, Amplitude, or Firebase Analytics.
+ * Wraps posthog-react-native as a singleton so the rest of the codebase
+ * continues calling AnalyticsService.track / .identify / .screen without
+ * knowing about the underlying provider.
  */
+
+import PostHog from 'posthog-react-native';
 
 export interface AnalyticsEvent {
   name: string;
@@ -20,151 +23,139 @@ export interface UserProperties {
   currentStreak?: number;
 }
 
-/**
- * Analytics Service
- *
- * Usage:
- * ```typescript
- * import { AnalyticsService } from '@/services/AnalyticsService';
- *
- * // Track event
- * AnalyticsService.track('anchor_created', { category: 'career' });
- *
- * // Identify user
- * AnalyticsService.identify('user-123', { email: 'user@example.com' });
- *
- * // Track screen view
- * AnalyticsService.screen('VaultScreen');
- * ```
- */
 class Analytics {
-  private enabled: boolean = true;
-  private userId: string | null = null;
-  private userProperties: UserProperties = {};
+  private client: PostHog | null = null;
+  private enabled: boolean = false;
 
   /**
-   * Initialize analytics
+   * Call once at app startup (in App.tsx useEffect).
    */
-  initialize(config?: { enabled?: boolean }): void {
-    this.enabled = config?.enabled ?? true;
+  initialize(config: { apiKey: string; host: string; enabled: boolean }): void {
+    this.enabled = config.enabled && Boolean(config.apiKey);
 
-    if (__DEV__) {
-      console.log('[Analytics] Initialized', { enabled: this.enabled });
+    if (!this.enabled) {
+      if (__DEV__) {
+        console.log('[Analytics] Disabled — set EXPO_PUBLIC_POSTHOG_API_KEY to enable.');
+      }
+      return;
     }
 
-    // TODO: Initialize your analytics provider here
-    // Example: Mixpanel.init('YOUR_TOKEN');
-    // Example: amplitude.getInstance().init('YOUR_API_KEY');
+    this.client = new PostHog(config.apiKey, {
+      host: config.host,
+      // Flush immediately in dev so events show up in PostHog Live Events right away.
+      flushAt: __DEV__ ? 1 : 20,
+      flushInterval: __DEV__ ? 0 : 10000,
+    });
+
+    if (__DEV__) {
+      console.log('[Analytics] PostHog initialized', { host: config.host });
+    }
   }
 
   /**
-   * Identify the current user
+   * Call after the user signs in or when auth state is resolved.
    */
   identify(userId: string, properties?: UserProperties): void {
-    if (!this.enabled) return;
+    if (!this.client) return;
 
-    this.userId = userId;
-    this.userProperties = { ...this.userProperties, ...properties };
+    this.client.identify(userId, {
+      email: properties?.email,
+      name: properties?.displayName,
+      subscriptionStatus: properties?.subscriptionStatus,
+      totalAnchorsCreated: properties?.totalAnchorsCreated,
+      currentStreak: properties?.currentStreak,
+    });
 
     if (__DEV__) {
-      console.log('[Analytics] Identify', { userId, properties });
+      console.log('[Analytics] identify', { userId, properties });
     }
-
-    // TODO: Identify user in your analytics provider
-    // Example: Mixpanel.identify(userId);
-    // Example: Mixpanel.getPeople().set(properties);
   }
 
   /**
-   * Track an event
+   * Track a named event with optional properties.
    */
   track(eventName: string, properties?: Record<string, any>): void {
-    if (!this.enabled) return;
+    if (!this.client) return;
 
-    const event: AnalyticsEvent = {
-      name: eventName,
-      properties: {
-        ...properties,
-        userId: this.userId,
-        timestamp: new Date().toISOString(),
-      },
-      timestamp: new Date(),
-    };
+    this.client.capture(eventName, properties);
 
     if (__DEV__) {
-      console.log('[Analytics] Track', event);
+      console.log('[Analytics] track', eventName, properties);
     }
-
-    // TODO: Track event in your analytics provider
-    // Example: Mixpanel.track(eventName, properties);
-    // Example: amplitude.getInstance().logEvent(eventName, properties);
   }
 
   /**
-   * Track screen view
+   * Track a screen view. Recorded as a '$screen' event in PostHog.
    */
   screen(screenName: string, properties?: Record<string, any>): void {
-    this.track('screen_view', {
-      screen_name: screenName,
-      ...properties,
-    });
+    if (!this.client) return;
+
+    this.client.screen(screenName, properties);
+
+    if (__DEV__) {
+      console.log('[Analytics] screen', screenName, properties);
+    }
   }
 
   /**
-   * Set user properties
+   * Update persistent user properties without sending an event.
    */
   setUserProperties(properties: UserProperties): void {
-    if (!this.enabled) return;
+    if (!this.client) return;
 
-    this.userProperties = { ...this.userProperties, ...properties };
+    // PostHog persists person properties via $set on the next capture call.
+    this.client.capture('$set', {
+      $set: {
+        subscriptionStatus: properties.subscriptionStatus,
+        totalAnchorsCreated: properties.totalAnchorsCreated,
+        currentStreak: properties.currentStreak,
+      },
+    });
 
     if (__DEV__) {
-      console.log('[Analytics] Set user properties', properties);
+      console.log('[Analytics] setUserProperties', properties);
     }
-
-    // TODO: Set user properties in your analytics provider
-    // Example: Mixpanel.getPeople().set(properties);
   }
 
   /**
-   * Increment a user property
+   * Increment a numeric user property.
    */
   incrementProperty(property: string, value: number = 1): void {
-    if (!this.enabled) return;
+    if (!this.client) return;
+
+    this.client.capture('$set', { $add: { [property]: value } });
 
     if (__DEV__) {
-      console.log('[Analytics] Increment', { property, value });
+      console.log('[Analytics] incrementProperty', { property, value });
     }
-
-    // TODO: Increment property in your analytics provider
-    // Example: Mixpanel.getPeople().increment(property, value);
   }
 
   /**
-   * Reset analytics (on logout)
+   * Call on sign-out to disassociate future events from the current user.
    */
   reset(): void {
-    if (!this.enabled) return;
+    if (!this.client) return;
 
-    this.userId = null;
-    this.userProperties = {};
+    this.client.reset();
 
     if (__DEV__) {
-      console.log('[Analytics] Reset');
+      console.log('[Analytics] reset');
     }
-
-    // TODO: Reset in your analytics provider
-    // Example: Mixpanel.reset();
   }
 
   /**
-   * Enable/disable analytics
+   * Flush queued events immediately (useful before the app backgrounds).
    */
+  async flush(): Promise<void> {
+    if (!this.client) return;
+    await this.client.flush();
+  }
+
   setEnabled(enabled: boolean): void {
     this.enabled = enabled;
-
-    if (__DEV__) {
-      console.log('[Analytics] Set enabled', enabled);
+    if (!enabled && this.client) {
+      this.client.flush();
+      this.client = null;
     }
   }
 }
