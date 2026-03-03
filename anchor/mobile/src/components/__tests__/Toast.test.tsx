@@ -93,18 +93,17 @@ describe('Toast Component', () => {
     expect(alert.props.accessibilityLiveRegion).toBe('polite');
   });
 
-  it('should auto-dismiss after duration', async () => {
+  it('should auto-dismiss after duration', () => {
     jest.useFakeTimers();
     const onDismiss = jest.fn();
     render(<Toast message="Test" duration={100} onDismiss={onDismiss} />);
 
     act(() => {
-      jest.advanceTimersByTime(350);
+      // Advance past duration (100ms) + exit animation (200ms) + buffer
+      jest.advanceTimersByTime(100 + 200 + 100);
     });
 
-    await waitFor(() => {
-      expect(onDismiss).toHaveBeenCalled();
-    }, { timeout: 500 });
+    expect(onDismiss).toHaveBeenCalled();
 
     jest.useRealTimers();
   });

@@ -274,7 +274,7 @@ describe('ToastProvider', () => {
       });
     });
 
-    it('should dismiss multiple toasts independently', async () => {
+    it('should dismiss multiple toasts independently', () => {
       let toastContext: any;
 
       const { getByText, queryByText } = render(
@@ -291,24 +291,20 @@ describe('ToastProvider', () => {
       expect(getByText('First')).toBeTruthy();
       expect(getByText('Second')).toBeTruthy();
 
-      // After 1500ms, first toast should be gone
+      // After 1500ms, first toast should be gone (its timer fires at 1000+500=1500ms)
       act(() => {
         jest.advanceTimersByTime(1500);
       });
 
-      await waitFor(() => {
-        expect(queryByText('First')).toBeNull();
-        expect(getByText('Second')).toBeTruthy();
-      });
+      expect(queryByText('First')).toBeNull();
+      expect(getByText('Second')).toBeTruthy();
 
-      // After another 1000ms, second toast should be gone
+      // After another 1000ms, second toast should be gone (its timer fires at 2000+500=2500ms total)
       act(() => {
         jest.advanceTimersByTime(1000);
       });
 
-      await waitFor(() => {
-        expect(queryByText('Second')).toBeNull();
-      });
+      expect(queryByText('Second')).toBeNull();
     });
   });
 

@@ -18,6 +18,7 @@ interface Props {
 interface State {
   hasError: boolean;
   error: Error | null;
+  childKey: number;
 }
 
 export class ErrorBoundary extends Component<Props, State> {
@@ -26,10 +27,11 @@ export class ErrorBoundary extends Component<Props, State> {
     this.state = {
       hasError: false,
       error: null,
+      childKey: 0,
     };
   }
 
-  static getDerivedStateFromError(error: Error): State {
+  static getDerivedStateFromError(error: Error): Partial<State> {
     // Update state so the next render will show the fallback UI
     return {
       hasError: true,
@@ -45,10 +47,11 @@ export class ErrorBoundary extends Component<Props, State> {
   }
 
   handleReset = (): void => {
-    this.setState({
+    this.setState((prev) => ({
       hasError: false,
       error: null,
-    });
+      childKey: prev.childKey + 1,
+    }));
   };
 
   render(): ReactNode {
@@ -103,7 +106,11 @@ export class ErrorBoundary extends Component<Props, State> {
       );
     }
 
-    return this.props.children;
+    return (
+      <React.Fragment key={this.state.childKey}>
+        {this.props.children}
+      </React.Fragment>
+    );
   }
 }
 

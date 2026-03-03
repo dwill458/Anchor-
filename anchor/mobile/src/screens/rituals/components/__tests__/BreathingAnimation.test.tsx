@@ -5,7 +5,7 @@
  */
 
 import React from 'react';
-import { render, screen, waitFor } from '@testing-library/react-native';
+import { render, screen, act } from '@testing-library/react-native';
 import { BreathingAnimation } from '../../BreathingAnimation';
 import { useNavigation, useRoute } from '@react-navigation/native';
 
@@ -35,6 +35,9 @@ jest.mock('expo-haptics', () => ({
 describe('BreathingAnimation', () => {
   const mockNavigationGoBack = jest.fn();
   const mockNavigationNavigate = jest.fn();
+
+  beforeAll(() => jest.useFakeTimers());
+  afterAll(() => jest.useRealTimers());
 
   beforeEach(() => {
     mockNavigationGoBack.mockClear();
@@ -70,31 +73,29 @@ describe('BreathingAnimation', () => {
     expect(screen.getByText('Prepare yourself for the ritual')).toBeTruthy();
   });
 
-  it('changes instruction to "Breathe out..." after 1.5 seconds', async () => {
+  it('changes instruction to "Breathe out..." after 1.5 seconds', () => {
     render(<BreathingAnimation />);
 
     expect(screen.getByText('Breathe in...')).toBeTruthy();
 
-    await waitFor(
-      () => {
-        expect(screen.getByText('Breathe out...')).toBeTruthy();
-      },
-      { timeout: 2000 }
-    );
+    act(() => {
+      jest.advanceTimersByTime(1600);
+    });
+
+    expect(screen.getByText('Breathe out...')).toBeTruthy();
   });
 
-  it('navigates back after completion by default', async () => {
+  it('navigates back after completion by default', () => {
     render(<BreathingAnimation />);
 
-    await waitFor(
-      () => {
-        expect(mockNavigationGoBack).toHaveBeenCalled();
-      },
-      { timeout: 4000 }
-    );
+    act(() => {
+      jest.advanceTimersByTime(3500);
+    });
+
+    expect(mockNavigationGoBack).toHaveBeenCalled();
   });
 
-  it('navigates to Ritual for charge source params', async () => {
+  it('navigates to Ritual for charge source params', () => {
     (useRoute as jest.Mock).mockReturnValue({
       params: {
         source: 'charge',
@@ -106,16 +107,15 @@ describe('BreathingAnimation', () => {
 
     render(<BreathingAnimation />);
 
-    await waitFor(
-      () => {
-        expect(mockNavigationNavigate).toHaveBeenCalledWith('Ritual', {
-          anchorId: 'anchor-123',
-          ritualType: 'focus',
-          durationSeconds: 30,
-        });
-      },
-      { timeout: 4000 }
-    );
+    act(() => {
+      jest.advanceTimersByTime(3500);
+    });
+
+    expect(mockNavigationNavigate).toHaveBeenCalledWith('Ritual', {
+      anchorId: 'anchor-123',
+      ritualType: 'focus',
+      durationSeconds: 30,
+    });
   });
 
   it('renders progress indicator dots', () => {
@@ -144,14 +144,13 @@ describe('BreathingAnimation', () => {
     }).not.toThrow();
   });
 
-  it('only triggers animation sequence once on mount', async () => {
+  it('only triggers animation sequence once on mount', () => {
     render(<BreathingAnimation />);
 
-    await waitFor(
-      () => {
-        expect(mockNavigationGoBack).toHaveBeenCalledTimes(1);
-      },
-      { timeout: 4000 }
-    );
+    act(() => {
+      jest.advanceTimersByTime(3500);
+    });
+
+    expect(mockNavigationGoBack).toHaveBeenCalledTimes(1);
   });
 });
