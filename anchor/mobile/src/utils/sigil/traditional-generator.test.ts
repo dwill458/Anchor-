@@ -17,6 +17,8 @@ describe('TRUE Sigil Generator', () => {
         // <filter> and <marker> elements were intentionally removed from the
         // generator because react-native-svg does not reliably support them
         // and they cause crashes on iOS/Android.
+        expect(result.svg).not.toContain('<filter');
+        expect(result.svg).not.toContain('id="ink-bleed"');
     });
 
     it('should generate all 3 variants correctly', () => {
@@ -57,6 +59,7 @@ describe('TRUE Sigil Generator', () => {
         const balanced = generateTrueSigil(letters, 'balanced');
         const minimal = generateTrueSigil(letters, 'minimal');
 
+        expect(balanced.svg).not.toContain('marker-start="url(#dot-start)"');
         expect(balanced.svg).not.toContain('marker-start');
         expect(balanced.svg).not.toContain('marker-end');
         expect(minimal.svg).not.toContain('marker-start');

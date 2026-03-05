@@ -73,12 +73,24 @@ router.post('/enhance-controlnet', async (req: Request, res: Response): Promise<
       intention: bodyIntention,
       validateStructure,
       autoComposite,
-      provider,  // Optional: 'gemini' | 'replicate' | 'auto' (default: 'auto')
-      tier       // Optional: 'draft' | 'premium' (default: 'premium')
+      provider,          // Optional: 'gemini' | 'replicate' | 'auto' (default: 'auto')
+      tier,              // Optional: 'draft' | 'premium' (default: 'premium')
+      generationAttempt, // Optional: int starting at 1; pro users upgrade to pro model at attempt 3+
     } = req.body;
 
     // Support both field names for maximum compatibility
     const intentionText = bodyIntentionText || bodyIntention;
+
+    // Sanitize attempt count — default to 1 if missing or invalid
+    const parsedAttempt = typeof generationAttempt === 'number' && generationAttempt > 0
+      ? generationAttempt : 1;
+
+    // Pro users auto-upgrade to the pro model after 2 flash attempts for the same anchor
+    const effectiveTier: 'draft' | 'premium' | 'pro_upgrade' =
+      tier === 'premium' && parsedAttempt > 2
+        ? 'pro_upgrade'
+        : ((tier as 'draft' | 'premium') || 'premium');
+
     console.log('[API] Parsed request:', {
       sigilSvgLength: sigilSvg?.length || 0,
       styleChoice,
@@ -88,7 +100,9 @@ router.post('/enhance-controlnet', async (req: Request, res: Response): Promise<
       validateStructure,
       autoComposite,
       provider: provider || 'auto',
-      tier: tier || 'premium'
+      tier: tier || 'premium',
+      generationAttempt: parsedAttempt,
+      effectiveTier,
     });
 
     // Validation
@@ -143,7 +157,7 @@ router.post('/enhance-controlnet', async (req: Request, res: Response): Promise<
         intentionText,  // Pass through intention for thematic symbols
         validateStructure: validateStructure !== false,
         autoComposite: autoComposite === true,
-        tier: (tier as 'draft' | 'premium') || 'premium',
+        tier: effectiveTier,
       })
       : await enhanceSigilWithControlNet({
         sigilSvg,
@@ -152,7 +166,7 @@ router.post('/enhance-controlnet', async (req: Request, res: Response): Promise<
         intentionText,  // Pass through intention for thematic symbols
         validateStructure: validateStructure !== false,
         autoComposite: autoComposite === true,
-        tier: (tier as 'draft' | 'premium') || 'premium',
+        tier: effectiveTier,
       });
 
     logger.info('[ControlNet] Generated variations with structure scores', {

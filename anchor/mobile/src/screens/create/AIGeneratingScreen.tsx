@@ -85,6 +85,7 @@ export default function AIGeneratingScreen() {
     structureVariant,
     styleChoice,
     reinforcementMetadata,
+    generationAttempt: initialGenerationAttempt,
   } = route.params;
 
   const [progress, setProgress] = useState(0);
@@ -105,6 +106,8 @@ export default function AIGeneratingScreen() {
   const navigationTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const abortControllerRef = useRef<AbortController | null>(null);
   const animationLoopsRef = useRef<Animated.CompositeAnimation[]>([]);
+  // Tracks generation attempts for this anchor — pro users upgrade to pro model at attempt 3+
+  const generationAttemptRef = useRef<number>(initialGenerationAttempt ?? 1);
 
   // Get the current progress phase label
   const getProgressPhase = () => {
@@ -537,7 +540,7 @@ export default function AIGeneratingScreen() {
 
     requestTimeoutRef.current = setTimeout(() => {
       controller.abort();
-    }, 120000);
+    }, 180000);
 
     ErrorTrackingService.addBreadcrumb('AI enhancement started', 'ai.enhance', {
       style_choice: styleChoice,
@@ -578,6 +581,7 @@ export default function AIGeneratingScreen() {
           intentionText,
           anchorId: `temp-${Date.now()}`,
           tier: isPro ? 'premium' : 'draft',
+          generationAttempt: generationAttemptRef.current,
         }),
         signal: controller.signal,
       });
@@ -651,6 +655,7 @@ export default function AIGeneratingScreen() {
         {
           text: 'Try Again',
           onPress: () => {
+            generationAttemptRef.current += 1;
             void generateControlNetVariations();
           },
         },

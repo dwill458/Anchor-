@@ -71,6 +71,7 @@ app.use('/api/', limiter);
 
 // Request logging middleware
 app.use((req: Request, _res: Response, next) => {
+  console.log(`[HTTP] ${req.method} ${req.path}`);
   logger.request(req.method, req.path);
   next();
 });
@@ -135,7 +136,7 @@ app.use(errorHandler);
 // Start Server
 // ============================================================================
 
-app.listen(PORT, () => {
+app.listen(PORT, '0.0.0.0', () => {
   logger.info(`🚀 Anchor API running on port ${PORT}`);
   logger.info(`📍 Environment: ${env.NODE_ENV}`);
   logger.info(`🏥 Health check: http://localhost:${PORT}/health`);
