@@ -17,7 +17,7 @@ import { useFocusEffect, useNavigation, useRoute, type RouteProp } from '@react-
 import { type StackNavigationProp } from '@react-navigation/stack';
 import { SvgXml } from 'react-native-svg';
 import Svg, { Circle, Defs, LinearGradient as SvgLinearGradient, Polygon, Stop } from 'react-native-svg';
-import { OptimizedImage } from '@/components/common';
+import { ChargedGlowCanvas, OptimizedImage, PremiumAnchorGlow } from '@/components/common';
 import { useAnchorStore } from '@/stores/anchorStore';
 import { useSettingsStore } from '@/stores/settingsStore';
 import { safeHaptics } from '@/utils/haptics';
@@ -48,15 +48,15 @@ const withOpacity = (hexColor: string, opacity: number): string => {
 
 const ritualColors = {
   transparent: withOpacity(colors.background.primary, 0),
-  atmosphereTop: withOpacity(colors.deepPurple, 0.86),
+  atmosphereTop: withOpacity(colors.sanctuary.purpleBg, 0.95),
   atmosphereMid: withOpacity(colors.background.primary, 0.96),
   heroBloomCenter: withOpacity(colors.sanctuary.gold, 0.18),
   heroBloomMid: withOpacity(colors.sanctuary.gold, 0.08),
   heroBloomEdge: withOpacity(colors.sanctuary.gold, 0),
   heroSweepArc: withOpacity(colors.sanctuary.goldBright, 0.24),
   heroSweepTail: withOpacity(colors.sanctuary.gold, 0.04),
-  coronaBorder: withOpacity(colors.sanctuary.gold, 0.22),
-  coronaShadow: withOpacity(colors.sanctuary.gold, 0.34),
+  coronaBorder: withOpacity(colors.sanctuary.gold, 0.28),
+  coronaShadow: withOpacity(colors.sanctuary.gold, 0.5),
   poolCenter: withOpacity(colors.sanctuary.gold, 0.22),
   poolEdge: withOpacity(colors.sanctuary.gold, 0),
   heroSurface: withOpacity(colors.deepPurple, 0.33),
@@ -127,29 +127,16 @@ export const ChargeSetupScreen: React.FC = () => {
   const isNavigatingRef = useRef(false);
   const anchorLayoutRef = useRef<{ y: number }>({ y: 0 });
 
-  const bloomAnim = useRef(new Animated.Value(0)).current;
-  const sweepAnim = useRef(new Animated.Value(0)).current;
   const coronaAnim = useRef(new Animated.Value(0.8)).current;
   const poolAnim = useRef(new Animated.Value(0)).current;
   const sigilAnim = useRef(new Animated.Value(0)).current;
   const heroOpacity = useRef(new Animated.Value(0)).current;
   const contentOpacity = useRef(new Animated.Value(0)).current;
   const ctaPressAnim = useRef(new Animated.Value(0)).current;
+  const ctaGlowAnim = useRef(new Animated.Value(0)).current;
 
   const selectedConfig = chargeConfigByChoice[selectedDuration];
 
-  const bloomScale = bloomAnim.interpolate({
-    inputRange: [0, 1],
-    outputRange: [0.92, 1.08],
-  });
-  const bloomOpacity = bloomAnim.interpolate({
-    inputRange: [0, 1],
-    outputRange: [0.6, 1],
-  });
-  const sweepRotate = sweepAnim.interpolate({
-    inputRange: [0, 1],
-    outputRange: ['0deg', '360deg'],
-  });
   const poolOpacity = poolAnim.interpolate({
     inputRange: [0, 1],
     outputRange: [0.5, 1],
@@ -162,6 +149,10 @@ export const ChargeSetupScreen: React.FC = () => {
     inputRange: [0, 1],
     outputRange: [1, 1.02],
   });
+  const sigilOscillate = sigilAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: ['-1.2deg', '1.2deg'],
+  });
   const ctaScale = ctaPressAnim.interpolate({
     inputRange: [0, 1],
     outputRange: [1, 0.98],
@@ -169,6 +160,10 @@ export const ChargeSetupScreen: React.FC = () => {
   const ctaOpacity = ctaPressAnim.interpolate({
     inputRange: [0, 1],
     outputRange: [1, 0.92],
+  });
+  const ctaShadowOpacity = ctaGlowAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: [0.28, 0.54],
   });
 
   useEffect(() => {
@@ -181,11 +176,10 @@ export const ChargeSetupScreen: React.FC = () => {
     if (reduceMotionEnabled) {
       heroOpacity.setValue(1);
       contentOpacity.setValue(1);
-      bloomAnim.setValue(1);
-      sweepAnim.setValue(0);
       coronaAnim.setValue(0.85);
       poolAnim.setValue(0.8);
       sigilAnim.setValue(0.5);
+      ctaGlowAnim.setValue(0.5);
       return;
     }
 
@@ -204,32 +198,6 @@ export const ChargeSetupScreen: React.FC = () => {
       }),
     ]);
 
-    const bloomLoop = Animated.loop(
-      Animated.sequence([
-        Animated.timing(bloomAnim, {
-          toValue: 1,
-          duration: 2500,
-          easing: Easing.inOut(Easing.sin),
-          useNativeDriver: true,
-        }),
-        Animated.timing(bloomAnim, {
-          toValue: 0,
-          duration: 2500,
-          easing: Easing.inOut(Easing.sin),
-          useNativeDriver: true,
-        }),
-      ])
-    );
-
-    const sweepLoop = Animated.loop(
-      Animated.timing(sweepAnim, {
-        toValue: 1,
-        duration: 8000,
-        easing: Easing.linear,
-        useNativeDriver: true,
-      })
-    );
-
     const coronaLoop = Animated.loop(
       Animated.sequence([
         Animated.timing(coronaAnim, {
@@ -239,7 +207,7 @@ export const ChargeSetupScreen: React.FC = () => {
           useNativeDriver: true,
         }),
         Animated.timing(coronaAnim, {
-          toValue: 0.7,
+          toValue: 0.65,
           duration: 1000,
           easing: Easing.inOut(Easing.sin),
           useNativeDriver: true,
@@ -288,29 +256,43 @@ export const ChargeSetupScreen: React.FC = () => {
       ])
     );
 
+    const ctaGlowLoop = Animated.loop(
+      Animated.sequence([
+        Animated.timing(ctaGlowAnim, {
+          toValue: 1,
+          duration: 3000,
+          easing: Easing.inOut(Easing.sin),
+          useNativeDriver: false,
+        }),
+        Animated.timing(ctaGlowAnim, {
+          toValue: 0,
+          duration: 3000,
+          easing: Easing.inOut(Easing.sin),
+          useNativeDriver: false,
+        }),
+      ])
+    );
+
     entryAnimation.start();
-    bloomLoop.start();
-    sweepLoop.start();
     coronaLoop.start();
     poolLoop.start();
     sigilLoop.start();
+    ctaGlowLoop.start();
 
     return () => {
-      bloomLoop.stop();
-      sweepLoop.stop();
       coronaLoop.stop();
       poolLoop.stop();
       sigilLoop.stop();
+      ctaGlowLoop.stop();
     };
   }, [
-    bloomAnim,
     contentOpacity,
     coronaAnim,
+    ctaGlowAnim,
     heroOpacity,
     poolAnim,
     reduceMotionEnabled,
     sigilAnim,
-    sweepAnim,
   ]);
 
   const navigateToRitual = useCallback(() => {
@@ -434,46 +416,40 @@ export const ChargeSetupScreen: React.FC = () => {
         >
           <Animated.View style={[styles.heroContainer, { opacity: heroOpacity }]} onLayout={handleAnchorLayout}>
             <LinearGradient
-              colors={[ritualColors.atmosphereTop, ritualColors.atmosphereMid, ritualColors.transparent]}
+              colors={[ritualColors.atmosphereTop, ritualColors.heroBloomMid, ritualColors.atmosphereMid, ritualColors.transparent]}
+              locations={[0, 0.15, 0.6, 1]}
               style={StyleSheet.absoluteFillObject}
             />
 
-            <Animated.View
-              pointerEvents="none"
-              style={[
-                styles.glowBloom,
-                {
-                  transform: [{ scale: bloomScale }],
-                  opacity: bloomOpacity,
-                },
-              ]}
-            />
-
-            <Animated.View
-              pointerEvents="none"
-              style={[
-                styles.glowSweep,
-                {
-                  transform: [{ rotate: sweepRotate }],
-                },
-              ]}
-            >
-              <LinearGradient
-                colors={[ritualColors.transparent, ritualColors.heroSweepArc, ritualColors.heroSweepTail, ritualColors.transparent]}
-                start={{ x: 0.1, y: 0 }}
-                end={{ x: 0.9, y: 1 }}
-                style={styles.glowSweepArc}
-              />
-            </Animated.View>
+            {/* GPU-accelerated Skia glow: particles, rays, rotating rings, sparkles */}
+            <ChargedGlowCanvas size={HERO_HEIGHT} reduceMotionEnabled={reduceMotionEnabled} />
 
             <Animated.View pointerEvents="none" style={[styles.glowCorona, { opacity: coronaAnim }]} />
 
-            <Animated.View style={[styles.octagonWrap, { transform: [{ scale: sigilScale }] }]}>
-              <View style={styles.octagonClip}>
-                <View style={styles.sigilDisk}>{renderAnchorSymbol(anchor)}</View>
-              </View>
-              <OctagonBorderSVG />
-            </Animated.View>
+            <View style={styles.octagonGlowWrap}>
+              <PremiumAnchorGlow
+                size={HERO_SIZE}
+                state="charged"
+                variant="ritual"
+                reduceMotionEnabled={reduceMotionEnabled}
+              />
+              <Animated.View
+                style={[
+                  styles.octagonWrap,
+                  {
+                    transform: [
+                      { scale: sigilScale },
+                      { rotate: sigilOscillate },
+                    ],
+                  },
+                ]}
+              >
+                <View style={styles.octagonClip}>
+                  <View style={styles.sigilDisk}>{renderAnchorSymbol(anchor)}</View>
+                </View>
+                <OctagonBorderSVG />
+              </Animated.View>
+            </View>
 
             <Animated.View
               pointerEvents="none"
@@ -553,7 +529,16 @@ export const ChargeSetupScreen: React.FC = () => {
             accessibilityLabel={selectedConfig.ctaLabel}
             style={styles.ctaTouchable}
           >
-            <Animated.View style={[styles.ctaButton, { transform: [{ scale: ctaScale }], opacity: ctaOpacity }]}>
+            <Animated.View
+              style={[
+                styles.ctaButton,
+                {
+                  transform: [{ scale: ctaScale }],
+                  opacity: ctaOpacity,
+                  shadowOpacity: ctaShadowOpacity,
+                },
+              ]}
+            >
               <LinearGradient
                 colors={[
                   colors.practice.ctaGradientStart,
@@ -658,28 +643,6 @@ const styles = StyleSheet.create({
     marginTop: spacing.sm,
     position: 'relative',
   },
-  glowBloom: {
-    position: 'absolute',
-    width: 360,
-    height: 360,
-    borderRadius: 180,
-    backgroundColor: ritualColors.heroBloomCenter,
-    shadowColor: colors.sanctuary.gold,
-    shadowOpacity: 0.26,
-    shadowRadius: 40,
-    shadowOffset: { width: 0, height: 0 },
-  },
-  glowSweep: {
-    position: 'absolute',
-    width: 310,
-    height: 310,
-    borderRadius: 155,
-    overflow: 'hidden',
-  },
-  glowSweepArc: {
-    flex: 1,
-    borderRadius: 155,
-  },
   glowCorona: {
     position: 'absolute',
     width: HERO_CORONA_SIZE,
@@ -688,16 +651,22 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: ritualColors.coronaBorder,
     shadowColor: ritualColors.coronaShadow,
-    shadowOpacity: 0.38,
-    shadowRadius: 18,
+    shadowOpacity: 0.55,
+    shadowRadius: 28,
     shadowOffset: { width: 0, height: 0 },
-    elevation: 12,
+    elevation: 18,
     zIndex: 3,
+  },
+  octagonGlowWrap: {
+    width: HERO_SIZE,
+    height: HERO_SIZE,
+    zIndex: 2,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   octagonWrap: {
     width: HERO_SIZE,
     height: HERO_SIZE,
-    zIndex: 2,
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -881,7 +850,6 @@ const styles = StyleSheet.create({
     borderRadius: 18,
     overflow: 'hidden',
     shadowColor: colors.sanctuary.gold,
-    shadowOpacity: 0.32,
     shadowRadius: 20,
     shadowOffset: { width: 0, height: 8 },
     elevation: 9,

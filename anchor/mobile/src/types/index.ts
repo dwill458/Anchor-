@@ -464,6 +464,7 @@ export type RootStackParamList = {
     structureVariant: SigilVariant;
     styleChoice: AIStyle;
     reinforcementMetadata?: ReinforcementMetadata;
+    generationAttempt?: number;
   };
 
   /** Step 7c: Enhanced Version Picker (choose from 4 styled variations) */

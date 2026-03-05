@@ -15,6 +15,8 @@ export interface ImageVariation {
   variationIndex: number;
 }
 
+export type QualityTier = 'draft' | 'premium' | 'pro_upgrade';
+
 export interface EnhancedSigilResult {
   images: ImageVariation[];
   totalTimeSeconds: number;
@@ -22,10 +24,8 @@ export interface EnhancedSigilResult {
   prompt: string;
   negativePrompt: string;
   model: string;
-  tier: 'draft' | 'premium';
+  tier: QualityTier;
 }
-
-export type QualityTier = 'draft' | 'premium';
 
 interface ModelConfig {
   modelId: string;
@@ -37,17 +37,24 @@ interface ModelConfig {
 
 const MODEL_CONFIGS: Record<QualityTier, ModelConfig> = {
   draft: {
-    modelId: 'gemini-3-pro-image-preview',
-    displayName: 'Gemini 3 Pro Image (Nano Banana - Draft)',
+    modelId: 'gemini-3.1-flash-image-preview',
+    displayName: 'Gemini 3.1 Flash Image (Draft)',
+    costPerImage: 0.01,
+    estimatedTimeSeconds: 3,
+    useNanoBanana: true,
+  },
+  premium: {
+    modelId: 'gemini-3.1-flash-image-preview',
+    displayName: 'Gemini 3.1 Flash Image (Premium)',
     costPerImage: 0.02,
     estimatedTimeSeconds: 4,
     useNanoBanana: true,
   },
-  premium: {
+  pro_upgrade: {
     modelId: 'gemini-3-pro-image-preview',
-    displayName: 'Gemini 3 Pro Image (Nano Banana - Premium)',
+    displayName: 'Gemini 3 Pro Image (Pro Upgrade)',
     costPerImage: 0.04,
-    estimatedTimeSeconds: 5,
+    estimatedTimeSeconds: 8,
     useNanoBanana: true,
   },
 };
@@ -178,230 +185,332 @@ export class GeminiImageService {
       totalTimeSeconds: totalTime,
       costUSD: this.getCostEstimate(numberOfVariations, tier),
       prompt: prompt,
-      negativePrompt: 'text, watermark, blurry, low quality, distorted geometry, altered structure',
+      negativePrompt: 'text, words, letters, numbers, numerals, watermark, readable characters, dollar sign, currency symbols, coins, cash, banknotes, bank logos, charts, graphs, clipart, sticker, icon pack, photorealistic, human face, human figure, literal objects, blurry, low quality, distorted geometry, altered structure, warped lines',
       model: modelConfig.modelId,
       tier,
     };
   }
 
   private createPrompt(intention: string, style: string): string {
-    // Get intention-specific symbols
-    const symbolInstructions = this.getIntentionSymbols(intention);
+    const archetypeBlock = this.getArchetypeMotifs(intention);
 
-    // Base instruction for structural preservation and symbol enhancement
-    const baseInstruction = intention && intention.trim()
-      ? `This is a magical sigil representing: "${intention}".
+    const structuralCore = intention && intention.trim()
+      ? `SIGIL IDENTITY: This sigil embodies the intention "${intention}".
 
-CRITICAL RULES:
-1. PRESERVE the exact geometric structure of the sigil - the main lines, circles, and shapes must remain EXACTLY as shown
-2. ENHANCE the sigil by adding corresponding symbolic elements around and within it that relate to "${intention}"
-3. Add relevant icons, symbols, and decorative elements that reinforce the sigil's meaning
-4. The core sigil shape is SACRED and must not be distorted, warped, or altered
+STRUCTURAL PRESERVATION — HIGHEST PRIORITY:
+1. The input image defines the exact sigil geometry — preserve ALL lines, circles, and shapes EXACTLY as shown
+2. Do NOT warp, melt, bend, rotate, skew, or alter any geometric element
+3. Do NOT add text, labels, captions, words, letters, or numbers anywhere
+4. The sigil geometry is immutable — treat it as a fixed engraving plate beneath all styling`
+      : `SIGIL IDENTITY: A magical sigil for personal empowerment.
 
-${symbolInstructions}
+STRUCTURAL PRESERVATION — HIGHEST PRIORITY:
+1. Preserve ALL lines, circles, and geometric forms EXACTLY as shown
+2. Do NOT warp, melt, bend, or alter any element
+3. No text, words, letters, or numbers of any kind`;
 
-Add symbols that correspond to "${intention}" while keeping the main sigil structure intact.`
-      : `This is a magical sigil for personal empowerment.
-
-CRITICAL RULES:
-1. PRESERVE the exact geometric structure of the sigil - the main lines, circles, and shapes must remain EXACTLY as shown
-2. ENHANCE the sigil by adding mystical decorative elements around it
-3. Add magical symbols, sacred geometry patterns, and ethereal decorations
-4. The core sigil shape is SACRED and must not be distorted, warped, or altered
-
-Add mystical enhancement elements while keeping the main sigil structure intact.`;
+    const hardBans = `
+ABSOLUTE PROHIBITIONS — DO NOT INCLUDE ANY OF THE FOLLOWING:
+✗ Text, words, letters, phrases, sentences, or any readable characters whatsoever
+✗ Numbers, numerals, digits, or numeric symbols of any kind
+✗ Currency: dollar signs ($), pound (£), euro (€), yen (¥), coins, coin stacks, banknotes, bills, cash, wallets, credit cards
+✗ Financial: bank logos, charts, graphs, bar charts, pie charts, stock tickers, financial instruments
+✗ Literal depictions of objects directly named in the intention — no direct illustration
+✗ Literal people, human faces, human figures, or recognizable portraits
+✗ Clipart, icon packs, sticker-style imagery, flat vector icons, or emoji-style symbols
+✗ Photorealistic photography — keep to illustration, engraving, or filigree aesthetic
+✗ Brand logos, watermarks, copyright symbols
+✗ Literal chains, literal keys, literal locks, literal weapons, literal animals as main subjects
+NO WORDS. NO NUMBERS. NO LETTERS. NO CURRENCY. NO FINANCIAL IMAGERY.`;
 
     const styleTemplates: Record<string, string> = {
-      watercolor: `${baseInstruction}
+      minimal_line: `${structuralCore}
 
-STYLE: Mystical watercolor artwork
-- Flowing organic color washes behind and around the sigil
-- Soft edges on decorative elements, sharp edges on the main sigil
-- Rich pigment bleeds and textured paper appearance
-- The symbolic elements should flow naturally in watercolor style`,
+STYLE: Precision fine-line engraving — BLACK INK ON WHITE
+- ALL lines and strokes must be pure BLACK — absolutely no gold, yellow, amber, cream, or colored strokes
+- Background: white or off-white — no dark or colored backgrounds
+- Single-weight hairline black strokes only; no fills, no gradients, no color washes, no shading
+- Decorative motifs rendered as delicate black hairline filigree in borders only
+- Aesthetic: museum-quality engraving plate — restrained, precise, minimal luxury
 
-      ink_brush: `${baseInstruction}
+${archetypeBlock}
+${hardBans}`,
 
-STYLE: Traditional ink brush artwork (Sumi-e)
-- Bold black ink strokes for the main sigil
-- Symbolic elements rendered in brush stroke style
-- Zen minimalism with meaningful negative space
-- Occasional red seal stamps as accents`,
+      watercolor: `${structuralCore}
 
-      sacred_geometry: `${baseInstruction}
+STYLE: Mystical watercolor — flowing organic washes, soft pigment bleeds, textured paper
+- Color washes applied BEHIND and AROUND the sigil, never obscuring its geometry
+- The sigil itself in sharp clean strokes above the watercolor layer
+- Rich saturated jewel tones with natural pigment bleeding at edges
 
-STYLE: Sacred geometry artwork
-- Golden ratio proportions in decorative elements
-- Metatron's Cube, Flower of Life patterns as backgrounds
-- Precise geometric lines and mathematical harmony
-- Symbolic elements integrated through geometric forms`,
+${archetypeBlock}
+${hardBans}`,
 
-      gold_leaf: `${baseInstruction}
+      ink_brush: `${structuralCore}
 
-STYLE: Illuminated manuscript / Gold leaf artwork
-- Rich gold leaf gilding on the main sigil
-- Ornate medieval-style borders with symbolic elements
-- Deep jewel-tone colors (ruby, sapphire, emerald)
-- Intricate Celtic or Gothic decorative motifs`,
+STYLE: Sumi-e ink brush — bold black ink, zen minimalism, meaningful negative space
+- The main sigil in authoritative black ink strokes
+- Sparse negative space is intentional — restraint over decoration
+- No color; only black ink on cream or white ground
 
-      cosmic: `${baseInstruction}
+${archetypeBlock}
+${hardBans}`,
 
-STYLE: Cosmic space artwork
-- Deep space nebulae and stellar backgrounds
-- Glowing ethereal energy emanating from the sigil
-- Celestial symbolic elements (stars, moons, planets)
-- Luminous, mystical atmosphere`,
+      sacred_geometry: `${structuralCore}
 
-      minimal_line: `${baseInstruction}
+STYLE: Sacred geometry — golden ratio, Flower of Life, mathematical harmony
+- Geometric background patterns (Metatron's Cube, Flower of Life) as faint underlayer only
+- Precise measured linework; gold, deep blue, or dark purple palette
+- Background geometry never competes with or distorts the main sigil
 
-STYLE: Minimalist line art
-- Clean single-weight lines for the sigil
-- Subtle symbolic elements in negative space
-- Modern luxury aesthetic with restraint
-- Elegant simplicity with meaningful details`,
-      obsidian_mono: `${baseInstruction}
+${archetypeBlock}
+${hardBans}`,
 
-STYLE: Obsidian monochrome artwork
-- High-contrast deep black glass texture
-- Sharp, subtle reflections on the main sigil
-- Monochromatic, cinematic lighting
-- Symbolic elements in stark negative space`,
-      aurora_glow: `${baseInstruction}
+      gold_leaf: `${structuralCore}
 
-STYLE: Aurora glow artwork
-- Atmospheric green and purple light curtains
-- Soft color bloom behind and around the sigil
-- Shifting, ethereal energy patterns
-- Thematic symbols glowing within the aurora`,
-      ember_trace: `${baseInstruction}
+STYLE: Illuminated manuscript — gold leaf gilding, jewel-tone colors, Gothic filigree
+- Rich gold leaf finish on the main sigil lines
+- Deep jewel-tone background (ruby, sapphire, or emerald)
+- Ornate border in Celtic or Gothic filigree style
 
-STYLE: Ember trace artwork
-- Glowing hot metal edges on the main sigil
-- Warm orange and red lighting with cooling black contrasts
-- Subtle heat distortion and spark particles
-- Symbolic elements as glowing embers`,
-      echo_chamber: `${baseInstruction}
+${archetypeBlock}
+${hardBans}`,
 
-STYLE: Echo resonance artwork
-- Subtle, rhythmic ripple patterns
-- Layered cyclical energy emanating from the sigil
-- Mystical resonance in negative space
-- Symbolic elements vibrating with harmony`,
-      monolith_ink: `${baseInstruction}
+      cosmic: `${structuralCore}
 
-STYLE: Monolith ink artwork
-- Heavy, authoritative matte black linework
-- Grounded, architectural aesthetic
-- Solid, unchanging presence for the main sigil
-- Powerful symbolic elements in bold ink`,
-      celestial_grid: `${baseInstruction}
+STYLE: Cosmic space — deep nebulae, stellar atmosphere, luminous ethereal glow
+- Deep space nebula color washes as the background atmosphere
+- Glowing ethereal light emanating from the sigil center
+- Stars and galactic dust as background texture only
 
-STYLE: Celestial grid artwork
-- Constellation-like star points on the sigil geometry
-- Fine celestial grid lines in the background
-- Astral alignment feel with mathematical precision
-- Mystical symbols appearing as star clusters`,
+${archetypeBlock}
+${hardBans}`,
+
+      obsidian_mono: `${structuralCore}
+
+STYLE: Obsidian monochrome — deep black glass texture, cinematic high-contrast
+- Near-black background with the sigil in white or silver luminescence
+- Subtle glass-surface reflections on the sigil geometry
+- Monochromatic; all motifs rendered in stark negative space
+
+${archetypeBlock}
+${hardBans}`,
+
+      aurora_glow: `${structuralCore}
+
+STYLE: Aurora borealis — atmospheric light curtains, shifting ethereal color
+- Green, violet, and blue aurora light as the background atmosphere
+- The sigil as a grounded geometric form anchored within the aurora light
+- Soft gradual color transitions; no hard-edged overlays
+
+${archetypeBlock}
+${hardBans}`,
+
+      ember_trace: `${structuralCore}
+
+STYLE: Ember trace — glowing hot metal edges, forge and crucible aesthetic
+- Deep black or charcoal background
+- Sigil lines glow with molten amber-orange heat along their edges
+- Cooling dark contrasts with ember-bright highlights on the geometry only
+
+${archetypeBlock}
+${hardBans}`,
+
+      echo_chamber: `${structuralCore}
+
+STYLE: Echo resonance — rhythmic ripple patterns, cyclical emanating energy
+- Concentric ripple rings radiating outward from the sigil
+- Subtle rhythmic layering of translucent rings in background only
+- Monochromatic or near-monochromatic; resonance implied through pattern
+
+${archetypeBlock}
+${hardBans}`,
+
+      monolith_ink: `${structuralCore}
+
+STYLE: Monolith ink — heavy matte black linework, architectural permanence
+- Bold authoritative matte-black strokes; no metallic sheen
+- The sigil as a carved stone monument — gravity and permanence over ornament
+- Minimal decorative elements; restraint is the aesthetic
+
+${archetypeBlock}
+${hardBans}`,
+
+      celestial_grid: `${structuralCore}
+
+STYLE: Celestial grid — star-chart precision, constellation map aesthetic
+- Fine grid lines forming a celestial navigation background only
+- Constellation-like star points at key intersections of the sigil geometry
+- Deep navy or midnight blue ground with gold or silver line overlay
+
+${archetypeBlock}
+${hardBans}`,
     };
 
     return styleTemplates[style] || styleTemplates.watercolor;
   }
 
   /**
-   * Map intention text to specific symbolic elements
-   * Returns instruction string for adding relevant symbols
+   * Extract archetypal motifs from intention text.
+   * Returns motif directions that imply the intention through symbolism,
+   * never through literal depiction. symbolicDistance is hardcoded to 2 (Archetypal).
    */
-  private getIntentionSymbols(intention: string): string {
+  private getArchetypeMotifs(intention: string): string {
+    const ARCHETYPE_BUNDLES: Record<string, {
+      planetary: string[];
+      elemental: string[];
+      geometry: string[];
+      natural: string[];
+    }> = {
+      freedom: {
+        planetary: ['Jupiter (expansion, boundless horizon)', 'Uranus (liberation, breakthrough)'],
+        elemental: ['Air (wind, open breath, release)', 'Fire (ascending flame, rising will)'],
+        geometry: ['outward-expanding open spiral', 'open arc threshold form', 'upward-pointing triangle'],
+        natural: ['soaring hawk silhouette as hairline filigree', 'open horizon line as border accent'],
+      },
+      prosperity: {
+        planetary: ['Jupiter (growth, generative abundance)', 'Venus (magnetism, attraction, value)'],
+        elemental: ['Earth (fertile soil, deep roots)', 'Water (flow, circulation, nourishment)'],
+        geometry: ['hexagonal honeycomb cell pattern', 'golden-ratio spiral', 'expanding concentric rings'],
+        natural: ['wheat stalk as micro-engraved border element', 'oak leaf cluster as corner filigree'],
+      },
+      strength: {
+        planetary: ['Mars (willpower, vital force)', 'Sun (radiance, sovereign vitality)'],
+        elemental: ['Fire (inner forge flame)', 'Earth (bedrock, immovability)'],
+        geometry: ['upward-pointing bold triangle', 'double-chevron form', 'strong hexagram'],
+        natural: ['mountain peak silhouette as background texture', 'deep root system as lower border'],
+      },
+      love: {
+        planetary: ['Venus (love, beauty, union)', 'Moon (emotional depth, receptivity)'],
+        elemental: ['Water (feeling, flow, depth)', 'Fire (passion, warmth)'],
+        geometry: ['vesica piscis interlocking circles', 'torus knot outline', 'two interlocked rings'],
+        natural: ['rose petal curve woven into filigree', 'vine tendril as border weave'],
+      },
+      health: {
+        planetary: ['Sun (life-force, vitality, renewal)', 'Mercury (flow, regeneration)'],
+        elemental: ['Water (healing, purification)', 'Air (breath, oxygenation)'],
+        geometry: ['abstract caduceus double-spiral curve', 'pulsing concentric ring', 'double helix line form'],
+        natural: ['laurel branch as micro-engraved border', 'leaf vein pattern as background texture'],
+      },
+      clarity: {
+        planetary: ['Mercury (intellect, perception, light)', 'Sun (illumination, revealed truth)'],
+        elemental: ['Air (clear sight, lucid thought)', 'Fire (light of revelation)'],
+        geometry: ['central radiant point with rays', 'octagram precision form', 'diamond lattice grid'],
+        natural: ['crystal prism facet as border accent', 'single quartz point as corner motif'],
+      },
+      creativity: {
+        planetary: ['Mercury (expression, craft, transmission)', 'Moon (imagination, intuition)'],
+        elemental: ['Fire (inspiration, generative spark)', 'Air (ideas in motion)'],
+        geometry: ['spiral unfurling from center outward', 'pentagon golden-ratio form', 'starburst ray pattern'],
+        natural: ['feather quill silhouette as filigree element', 'seed-burst as background micro-pattern'],
+      },
+      peace: {
+        planetary: ['Moon (stillness, reflection, rest)', 'Neptune (dissolution, unity, flow)'],
+        elemental: ['Water (calm depths, serenity)', 'Earth (restful ground, stability)'],
+        geometry: ['enso open-circle brush form', 'equal-armed cross balanced', 'gentle concentric arcs'],
+        natural: ['still pond ripple as background texture', 'lotus outline as border accent'],
+      },
+      growth: {
+        planetary: ['Jupiter (expansion, reaching upward)', 'Sun (photosynthesis, light-seeking)'],
+        elemental: ['Earth (soil, root, nourishment)', 'Water (flow, sustaining life)'],
+        geometry: ['logarithmic growth spiral', 'branching fractal abstract line form', 'ascending stepped form'],
+        natural: ['sprouting tendril as border filigree', 'seed pod as corner micro-engraving'],
+      },
+      protection: {
+        planetary: ['Saturn (boundary, structure, containment)', 'Mars (guardian force, defense)'],
+        elemental: ['Earth (fortress solidity)', 'Fire (warding, boundary flame)'],
+        geometry: ['nested concentric squares', 'hexagonal shield grid', 'triquetra knot interlace'],
+        natural: ['thorn branch abstracted as border element', 'nautilus shell spiral as protective curve'],
+      },
+      power: {
+        planetary: ['Mars (vital force, driving energy)', 'Sun (sovereign radiance, authority)'],
+        elemental: ['Fire (transformative energy)', 'Lightning as elemental force (abstract line)'],
+        geometry: ['bold solar cross radiating spokes', 'apex triangle pointing upward', 'radiating mandala spokes'],
+        natural: ['lightning-path abstract curve', 'storm arc as border element'],
+      },
+      success: {
+        planetary: ['Sun (achievement, recognition, harvest)', 'Jupiter (reward, elevation, bounty)'],
+        elemental: ['Fire (ambition, summit-seeking)', 'Air (ascent, rising)'],
+        geometry: ['ascending stepped pyramid form', 'apex triangle geometry', 'crown as geometric ring form'],
+        natural: ['laurel ring as border filigree', 'mountain apex as background silhouette element'],
+      },
+      stability: {
+        planetary: ['Saturn (foundation, endurance, structure)', 'Earth correspondence (permanence)'],
+        elemental: ['Earth (bedrock, ground)', 'Water (still deep lake, unshaken depth)'],
+        geometry: ['equal-armed cross', 'four-square anchoring grid', 'downward-pointing triangle (earth element)'],
+        natural: ['deep root system abstracted as lower border', 'stacked stone silhouette as background'],
+      },
+    };
+
+    const KEYWORD_TO_THEME: Record<string, string> = {
+      free: 'freedom', freedom: 'freedom', liberat: 'freedom', unbounded: 'freedom',
+      financ: 'prosperity', wealth: 'prosperity', money: 'prosperity', rich: 'prosperity',
+      abundant: 'prosperity', abundance: 'prosperity', prosperous: 'prosperity', prosper: 'prosperity',
+      strong: 'strength', strength: 'strength', gym: 'strength', fitness: 'strength',
+      workout: 'strength', muscle: 'strength',
+      love: 'love', romance: 'love', relationship: 'love', connect: 'love', heart: 'love',
+      health: 'health', heal: 'health', wellness: 'health', vitality: 'health', recover: 'health',
+      clarity: 'clarity', focus: 'clarity', clear: 'clarity', mind: 'clarity', sharp: 'clarity',
+      creat: 'creativity', inspir: 'creativity', express: 'creativity',
+      peace: 'peace', calm: 'peace', sereni: 'peace', tranquil: 'peace',
+      grow: 'growth', growth: 'growth', transform: 'growth', evolve: 'growth', blossom: 'growth',
+      protect: 'protection', boundary: 'protection', safe: 'protection', guard: 'protection',
+      power: 'power', energy: 'power', force: 'power',
+      success: 'success', achieve: 'success', career: 'success', accomplish: 'success',
+      stable: 'stability', stability: 'stability', ground: 'stability', foundation: 'stability', anchor: 'stability',
+    };
+
     if (!intention || intention.trim() === '') {
-      return '';
+      return `ARCHETYPAL MOTIFS (woven subtly into border and background — never as dominant icons):
+• Saturn (structure, grounding) — etched as fine border geometry
+• Equal-armed cross — as background etched pattern
+• Earth element (deep roots, bedrock) — implied in texture and weight
+Integration: motifs appear only in filigree, border, and background texture — never as central clipart.`;
     }
 
     const lowerIntent = intention.toLowerCase();
-
-    // Comprehensive keyword → symbol mapping
-    const symbolMap: Record<string, string> = {
-      // Physical & Strength
-      gym: 'SYMBOLS TO ADD: dumbbells, barbells, flames, phoenix rising, flexed muscles, lightning bolts, iron weights, fire bursts',
-      fitness: 'SYMBOLS TO ADD: dumbbells, barbells, flames, phoenix rising, flexed muscles, lightning bolts, iron weights',
-      workout: 'SYMBOLS TO ADD: dumbbells, barbells, flames, muscular anatomy, powerlifting weights, energy bolts',
-      strength: 'SYMBOLS TO ADD: flexed muscles, iron weights, fire bursts, lions, oak trees, power symbols, lightning',
-      strong: 'SYMBOLS TO ADD: flexed muscles, iron weights, fire bursts, lions, oak trees, power symbols',
-      muscle: 'SYMBOLS TO ADD: anatomical muscles, barbells, protein shakes, gym equipment, fire, power',
-
-      // Protection & Boundaries
-      boundaries: 'SYMBOLS TO ADD: chains, locks, thorns, shields, fortress walls, celtic knots, protective barriers, fences',
-      boundary: 'SYMBOLS TO ADD: chains, locks, thorns, shields, fortress walls, celtic knots, protective barriers',
-      protection: 'SYMBOLS TO ADD: shields, armor, guardian animals, protective circles, defensive walls, helmets',
-      protect: 'SYMBOLS TO ADD: shields, armor, guardian animals, protective circles, defensive walls',
-      safe: 'SYMBOLS TO ADD: shields, locks, guardian figures, protective barriers, safe boxes, fortress walls',
-      safety: 'SYMBOLS TO ADD: shields, locks, guardian figures, protective barriers, safe boxes, fortress walls',
-
-      // Stability & Grounding
-      grounded: 'SYMBOLS TO ADD: deep roots, tree trunks, mountains, anchors, solid foundations, earth elements',
-      ground: 'SYMBOLS TO ADD: deep roots, tree trunks, mountains, anchors, solid foundations, earth elements',
-      stability: 'SYMBOLS TO ADD: balanced stones, pillars, foundations, sturdy oak, mountain peaks, anchors',
-      stable: 'SYMBOLS TO ADD: balanced stones, pillars, foundations, sturdy oak, mountain peaks, anchors',
-
-      // Relationships & Love
-      love: 'SYMBOLS TO ADD: hearts, roses, doves, cupid arrows, romantic vines, paired doves, infinity loops',
-      romance: 'SYMBOLS TO ADD: hearts, roses, doves, cupid imagery, romantic vines, paired doves, infinity loops',
-      relationship: 'SYMBOLS TO ADD: intertwined elements, hearts, blossoms, infinity knots, paired symbols, rings',
-      connection: 'SYMBOLS TO ADD: intertwined elements, hearts, infinity knots, paired symbols, linked chains',
-
-      // Prosperity & Abundance
-      wealth: 'SYMBOLS TO ADD: gold coins, gem stones, treasure chests, golden rays, prosperity coins, crowns',
-      money: 'SYMBOLS TO ADD: currency symbols, flowing coins, gold reserves, financial prosperity, dollar signs',
-      prosperity: 'SYMBOLS TO ADD: gold coins, cornucopia, overflowing vessels, harvest abundance, wealth symbols',
-      abundance: 'SYMBOLS TO ADD: cornucopia, bountiful harvest, flowing water, multiplying symbols, full baskets',
-      rich: 'SYMBOLS TO ADD: gold bullion, gem stones, treasure chests, golden rays, prosperity coins',
-
-      // Success & Achievement
-      success: 'SYMBOLS TO ADD: crowns, ascending paths, mountain peaks, golden trophies, victory laurels, medals',
-      career: 'SYMBOLS TO ADD: ascending ladders, briefcases, professional symbols, success markers, stars',
-      achievement: 'SYMBOLS TO ADD: medals, awards, summit peaks, podiums, triumph symbols, accomplishment badges',
-
-      // Peace & Calm
-      peace: 'SYMBOLS TO ADD: doves, olive branches, calm waters, zen circles, soft clouds, tranquil lotus',
-      calm: 'SYMBOLS TO ADD: still water, gentle waves, soft light, floating feathers, peaceful meditation poses',
-      serenity: 'SYMBOLS TO ADD: lotus flowers, meditation symbols, balanced stones, tranquil ponds, zen gardens',
-      anxiety: 'SYMBOLS TO ADD: calming waves, peaceful clouds, meditation poses, zen circles, soothing light',
-
-      // Mental & Focus
-      focus: 'SYMBOLS TO ADD: geometric clarity, centered energy, laser beams, intricate mandalas, sharp crystals',
-      clarity: 'SYMBOLS TO ADD: clear crystals, sharp lines, focused light, lens flares, precision geometry',
-      mind: 'SYMBOLS TO ADD: brain patterns, neural networks, thought waves, consciousness symbols, third eye',
-      concentration: 'SYMBOLS TO ADD: geometric clarity, centered energy, focused light, meditation symbols',
-
-      // Creativity & Inspiration
-      creativity: 'SYMBOLS TO ADD: paintbrushes, flowing ink, musical notes, artistic tools, color bursts, palettes',
-      creative: 'SYMBOLS TO ADD: paintbrushes, flowing ink, musical notes, artistic tools, color bursts',
-      inspiration: 'SYMBOLS TO ADD: light bulbs, shooting stars, divine rays, muse symbols, spark of genius',
-
-      // Health & Healing
-      health: 'SYMBOLS TO ADD: healing light, organic growth, heartbeat patterns, herbal motifs, vitality spirals',
-      healing: 'SYMBOLS TO ADD: gentle light, flowing water, medicinal herbs, caduceus, restoration symbols',
-      wellness: 'SYMBOLS TO ADD: healing herbs, balanced elements, vitality symbols, healthy heart, natural growth',
-
-      // Growth & Transformation
-      growth: 'SYMBOLS TO ADD: sprouting seeds, growing vines, expanding spirals, ascending paths, blooming flowers',
-      transformation: 'SYMBOLS TO ADD: butterfly metamorphosis, phoenix rising, evolving forms, alchemical symbols',
-      change: 'SYMBOLS TO ADD: butterfly wings, phoenix, evolving forms, transformation spirals, new growth',
-
-      // Confidence & Power
-      confidence: 'SYMBOLS TO ADD: standing lion, raised sword, bold flames, strong pillars, empowered stance, crowns',
-      power: 'SYMBOLS TO ADD: lightning bolts, radiating energy, powerful animals, explosive force, scepters',
-    };
-
-    // Find matching keywords (prioritize longer/more specific matches first)
-    const keywords = Object.keys(symbolMap).sort((a, b) => b.length - a.length);
-
-    for (const keyword of keywords) {
-      if (lowerIntent.includes(keyword)) {
-        return symbolMap[keyword];
+    const foundThemes: string[] = [];
+    const keywords = Object.keys(KEYWORD_TO_THEME).sort((a, b) => b.length - a.length);
+    for (const kw of keywords) {
+      if (lowerIntent.includes(kw)) {
+        const theme = KEYWORD_TO_THEME[kw];
+        if (!foundThemes.includes(theme)) {
+          foundThemes.push(theme);
+          if (foundThemes.length >= 2) break;
+        }
       }
     }
+    if (foundThemes.length === 0) foundThemes.push('peace');
 
-    // Fallback: return intention-based instruction
-    return `SYMBOLS TO ADD: Add symbolic elements that represent "${intention}" - choose relevant mystical imagery, icons, and decorative elements that reinforce this intention.`;
+    const motifLines: string[] = [];
+    for (let t = 0; t < foundThemes.length; t++) {
+      const bundle = ARCHETYPE_BUNDLES[foundThemes[t]];
+      if (!bundle) continue;
+      motifLines.push(`• ${bundle.planetary[0]} — woven into border filigree`);
+      motifLines.push(`• ${bundle.geometry[t % bundle.geometry.length]} — etched as background pattern`);
+      if (t === 0) {
+        motifLines.push(`• ${bundle.elemental[0]} — implied in overall texture and compositional flow`);
+        motifLines.push(`• ${bundle.natural[0]} — as micro-engraved accent only, never dominant`);
+      }
+    }
+    if (foundThemes.length > 1) {
+      const b1 = ARCHETYPE_BUNDLES[foundThemes[1]];
+      if (b1) motifLines.push(`• ${b1.natural[0]} — subtle corner accent only`);
+    }
+
+    logger.debug('[GeminiImageService] Archetype motifs selected', {
+      intention,
+      themes: foundThemes,
+      motifCount: motifLines.length,
+    });
+
+    return `ARCHETYPAL MOTIFS — symbolicDistance=2 (Archetypal): imply the intention through indirect symbolism, never depict it literally.
+Integrate the following motifs ONLY into border filigree, background texture, and negative space. Do not place any motif as a central icon or dominant element.
+${motifLines.join('\n')}
+Integration rules:
+- Every motif must feel like it was engraved into the background or woven into the border ring
+- No motif should resemble clipart, a pasted sticker, or a recognizable literal object
+- Treat motifs as texture qualities and engraving directions, not as placed images`;
   }
 
   private async generateVariation(
@@ -485,33 +594,41 @@ STYLE: Celestial grid artwork
 
       const base64Image = baseImageBuffer.toString('base64');
 
-      const response = await this.client.models.generateContent({
-        model: modelConfig.modelId,
-        contents: [
-          {
-            role: 'user',
-            parts: [
-              {
-                text: `${prompt}
+      const CALL_TIMEOUT_MS = 60000; // 60s per individual API call
+      const timeoutPromise = new Promise<never>((_, reject) =>
+        setTimeout(() => reject(new GeminiError(GeminiErrorType.NETWORK_ERROR, 'Gemini API call timed out after 60s', true)), CALL_TIMEOUT_MS)
+      );
+
+      const response = await Promise.race([
+        this.client.models.generateContent({
+          model: modelConfig.modelId,
+          contents: [
+            {
+              role: 'user',
+              parts: [
+                {
+                  text: `${prompt}
 
 REFERENCE IMAGE INSTRUCTION: The attached image shows the sigil structure that must be preserved. Keep the main lines, circles, and geometric shapes EXACTLY as shown. Add symbolic enhancements AROUND and BEHIND the sigil, not by altering its core geometry.`
-              },
-              {
-                inlineData: {
-                  mimeType: 'image/png',
-                  data: base64Image
+                },
+                {
+                  inlineData: {
+                    mimeType: 'image/png',
+                    data: base64Image
+                  }
                 }
-              }
-            ]
+              ]
+            }
+          ],
+          config: {
+            responseModalities: ['IMAGE'],
+            imageConfig: {
+              aspectRatio: '1:1'
+            }
           }
-        ],
-        config: {
-          responseModalities: ['IMAGE'],
-          imageConfig: {
-            aspectRatio: '1:1'
-          }
-        }
-      });
+        }),
+        timeoutPromise,
+      ]);
 
       // Extract image from response
       const imageData = response.candidates?.[0]?.content?.parts?.[0]?.inlineData?.data;

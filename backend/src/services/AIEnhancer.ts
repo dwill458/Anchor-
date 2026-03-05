@@ -64,7 +64,7 @@ function getGeminiImageService(): GeminiImageService {
  * Get cost estimate for AI enhancement
  * Now returns estimate for Gemini 3 Pro Image (primary) or Replicate (fallback)
  */
-export function getCostEstimate(tier: 'draft' | 'premium' = 'premium'): number {
+export function getCostEstimate(tier: 'draft' | 'premium' | 'pro_upgrade' = 'premium'): number {
   const geminiService = getGeminiImageService();
   if (geminiService.isAvailable()) {
     // Draft: 2 variations × $0.02 = $0.04 (free users)
@@ -322,7 +322,7 @@ export interface ControlNetEnhancementRequest {
   intentionText?: string;   // Optional: User's intention for thematic symbol generation
   validateStructure?: boolean;  // Enable structure validation (default: true)
   autoComposite?: boolean;      // Auto-composite if structure drifts (default: false)
-  tier?: 'draft' | 'premium';   // Quality tier for Gemini (default: 'premium')
+  tier?: 'draft' | 'premium' | 'pro_upgrade';   // Quality tier for Gemini (default: 'premium')
 }
 
 /**
@@ -509,10 +509,13 @@ export async function enhanceSigilWithAI(
   // Try Gemini 3 first (if configured)
   if (geminiService.isAvailable()) {
     try {
-      logger.info('[AIEnhancer] Using Gemini 3 Pro Image as primary provider', { tier });
+      logger.info('[AIEnhancer] Using Gemini image model as primary provider', {
+        tier,
+        model: tier === 'pro_upgrade' ? 'gemini-3-pro-image-preview' : 'gemini-3.1-flash-image-preview',
+      });
 
-      // Draft tier gets 2 variations (free users), Premium gets 4 (paid users)
-      const numberOfVariations = tier === 'draft' ? 2 : 4;
+      // premium = 4 variations; pro_upgrade (slower model) and draft = 2 variations
+      const numberOfVariations = tier === 'premium' ? 4 : 2;
 
       const result = await geminiService.enhanceSigil({
         baseSigilSvg: request.sigilSvg,
@@ -905,7 +908,7 @@ export async function enhanceSigilWithControlNet(
  * Estimate generation time for ControlNet enhancement
  * Returns estimate based on available provider (Gemini vs Replicate)
  */
-export function estimateControlNetGenerationTime(tier: 'draft' | 'premium' = 'premium'): { min: number; max: number } {
+export function estimateControlNetGenerationTime(tier: 'draft' | 'premium' | 'pro_upgrade' = 'premium'): { min: number; max: number } {
   const geminiService = getGeminiImageService();
   if (geminiService.isAvailable()) {
     // Gemini 3: Parallel generation
