@@ -12,7 +12,7 @@ import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
-import { Audio } from 'expo-av';
+import { useAudioRecorder, AudioModule, RecordingOptionsPresets } from 'expo-audio';
 import Animated, {
   useAnimatedStyle,
   useSharedValue,
@@ -38,32 +38,9 @@ interface MantraOption {
 type MantraCreationRouteProp = RouteProp<RootStackParamList, 'MantraCreation'>;
 type MantraCreationNavigationProp = StackNavigationProp<RootStackParamList, 'MantraCreation'>;
 
-type AudioPermissionResponse = {
-  granted?: boolean;
-  status?: string;
-};
-
-type AudioRecordingHandle = {
-  stopAndUnloadAsync: () => Promise<any>;
-  getURI: () => string | null;
-};
-
-type AudioApi = {
-  requestPermissionsAsync: () => Promise<AudioPermissionResponse>;
-  setAudioModeAsync: (mode: { allowsRecordingIOS: boolean; playsInSilentModeIOS: boolean }) => Promise<void>;
-  RecordingOptionsPresets?: { HIGH_QUALITY: unknown };
-  Recording: {
-    createAsync: (options: unknown) => Promise<{ recording: AudioRecordingHandle }>;
-  };
-};
-
 const PLAYBACK_BAR_HEIGHTS = [35, 55, 80, 60, 90, 50, 70, 40, 60, 75, 45, 65, 55, 35, 50];
 const RECORD_BAR_COUNT = 28;
 const MAX_RECORD_SECONDS = 30;
-
-const loadAudioApi = () => {
-  return Audio ?? null;
-};
 
 const formatTimer = (seconds: number) => {
   const mins = Math.floor(seconds / 60);
@@ -182,11 +159,10 @@ export const MantraCreationScreen: React.FC = () => {
   const navigation = useNavigation<MantraCreationNavigationProp>();
   const route = useRoute<MantraCreationRouteProp>();
   const insets = useSafeAreaInsets();
-  const audioApi = useMemo(() => loadAudioApi(), []);
+  const recorder = useAudioRecorder(RecordingOptionsPresets.HIGH_QUALITY);
 
   const orbOneProgress = useRef(new RNAnimated.Value(0)).current;
   const orbTwoProgress = useRef(new RNAnimated.Value(0)).current;
-  const recordingRef = useRef<AudioRecordingHandle | null>(null);
   const recordingTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const playbackTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const anchorIdRef = useRef<string | null>(null);
@@ -194,6 +170,8 @@ export const MantraCreationScreen: React.FC = () => {
   const addAnchor = useAnchorStore((state) => state.addAnchor);
   const updateAnchor = useAnchorStore((state) => state.updateAnchor);
   const { incrementAnchorCount } = useAuthStore();
+
+  const canRecord = true;
 
   const [selectedMantra, setSelectedMantra] = useState<MantraStyle>('rhythmic');
   const [isPlaying, setIsPlaying] = useState<MantraStyle | null>(null);
@@ -240,8 +218,6 @@ export const MantraCreationScreen: React.FC = () => {
 
   const selectedMantraOption =
     mantraOptions.find((option) => option.id === selectedMantra) ?? mantraOptions[0];
-
-  const canRecord = Boolean(audioApi?.Recording?.createAsync);
 
   const recordButtonScale = recordingAnimation.interpolate({
     inputRange: [0, 1],
@@ -294,9 +270,6 @@ export const MantraCreationScreen: React.FC = () => {
       }
       if (recordingTimerRef.current) {
         clearInterval(recordingTimerRef.current);
-      }
-      if (recordingRef.current) {
-        void recordingRef.current.stopAndUnloadAsync();
       }
     };
   }, []);
@@ -400,44 +373,28 @@ export const MantraCreationScreen: React.FC = () => {
       recordingTimerRef.current = null;
     }
 
-    const activeRecording = recordingRef.current;
-    recordingRef.current = null;
-
-    if (!activeRecording) {
-      setIsRecording(false);
-      return;
-    }
-
     try {
-      await activeRecording.stopAndUnloadAsync();
-      const uri = activeRecording.getURI();
-      setRecordingUri(uri ?? null);
+      await recorder.stop();
+      setRecordingUri(recorder.uri ?? null);
     } catch {
       Alert.alert('Recording Error', 'Unable to save recording.');
     } finally {
       setIsRecording(false);
     }
-  }, []);
+  }, [recorder]);
 
   const startRecording = useCallback(async () => {
-    if (!audioApi || !audioApi.Recording?.createAsync) {
-      Alert.alert('Microphone Unavailable', 'Voice recording requires microphone permissions.');
-      return;
-    }
-
     try {
-      const permission = await audioApi.requestPermissionsAsync();
-      const granted = permission.granted || permission.status === 'granted';
-      if (!granted) {
+      const permission = await AudioModule.requestRecordingPermissionsAsync();
+      if (!permission.granted) {
         Alert.alert('Permission Required', 'Voice recording requires microphone permissions.');
         return;
       }
 
-      await audioApi.setAudioModeAsync({ allowsRecordingIOS: true, playsInSilentModeIOS: true });
-      const options = audioApi.RecordingOptionsPresets?.HIGH_QUALITY ?? {};
-      const { recording } = await audioApi.Recording.createAsync(options);
+      await AudioModule.setAudioModeAsync({ playsInSilentMode: true });
+      await recorder.prepareToRecordAsync();
+      recorder.record();
 
-      recordingRef.current = recording;
       setRecordingSeconds(0);
       setRecordingUri(null);
       setIsRecording(true);
@@ -456,7 +413,7 @@ export const MantraCreationScreen: React.FC = () => {
       Alert.alert('Recording Error', 'Unable to start recording on this device.');
       setIsRecording(false);
     }
-  }, [audioApi, stopRecording]);
+  }, [recorder, stopRecording]);
 
   const toggleRecording = useCallback(async () => {
     if (isRecording) {
