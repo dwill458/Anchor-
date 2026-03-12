@@ -592,17 +592,18 @@ export async function enhanceSigilWithAI(
 
       return controlNetResult;
 
-    } catch (error) {
-      logger.error('[AIEnhancer] Gemini 3 failed, falling back to Replicate', error);
-      // Fall through to Replicate fallback
+    } catch (error: any) {
+      logger.error(`[AIEnhancer] Gemini 3 failed, will NOT fall back to Replicate to enforce Google API. Error: ${error.message}`, error);
+      throw new Error(`Google Generation API Failed: ${error.message}`);
     }
   } else {
-    logger.info('[AIEnhancer] Gemini 3 not configured, using Replicate');
+    logger.info('[AIEnhancer] Gemini 3 not configured. Cannot proceed since enforcing Google API.');
+    throw new Error('Google Gemini API Key is missing. Google API is required.');
   }
 
-  // Fallback to Replicate (existing implementation)
-  logger.info('[AIEnhancer] Using Replicate as provider');
-  return enhanceSigilWithControlNet(request);
+  // We are strictly enforcing Google API, so we comment out the fallback
+  // logger.info('[AIEnhancer] Using Replicate as provider (fallback omitted)');
+  // return enhanceSigilWithControlNet(request);
 }
 
 /**

@@ -37,6 +37,10 @@ class ErrorTracking {
   private initialized = false;
   private globalHandlerInstalled = false;
 
+  private canUseSentry(): boolean {
+    return this.initialized && this.enabled;
+  }
+
   initialize(config?: {
     dsn?: string;
     enabled?: boolean;
@@ -58,6 +62,15 @@ class ErrorTracking {
       return;
     }
 
+    if (!this.enabled) {
+      this.initialized = true;
+      logger.info('[ErrorTracking] Disabled for current runtime', {
+        environment: config?.environment ?? monitoringConfig.environment,
+        release: config?.release ?? monitoringConfig.release,
+      });
+      return;
+    }
+
     Sentry.init({
       dsn,
       enabled: this.enabled,
@@ -67,7 +80,7 @@ class ErrorTracking {
       profilesSampleRate: config?.profileSampleRate ?? monitoringConfig.profileSampleRate,
       enableAutoSessionTracking: true,
       attachStacktrace: true,
-      debug: __DEV__,
+      debug: __DEV__ && this.enabled,
       integrations: [
         routingInstrumentation,
         Sentry.reactNativeTracingIntegration(),
@@ -86,6 +99,10 @@ class ErrorTracking {
   }
 
   registerNavigationContainer(navigationContainerRef: unknown): void {
+    if (!this.canUseSentry()) {
+      return;
+    }
+
     try {
       routingInstrumentation.registerNavigationContainer(navigationContainerRef as any);
     } catch (error) {
@@ -94,6 +111,10 @@ class ErrorTracking {
   }
 
   setUser(userId: string, email?: string, displayName?: string): void {
+    if (!this.canUseSentry()) {
+      return;
+    }
+
     Sentry.setUser({
       id: userId,
       email,
@@ -102,18 +123,34 @@ class ErrorTracking {
   }
 
   clearUser(): void {
+    if (!this.canUseSentry()) {
+      return;
+    }
+
     Sentry.setUser(null);
   }
 
   setTag(key: string, value: string): void {
+    if (!this.canUseSentry()) {
+      return;
+    }
+
     Sentry.setTag(key, value);
   }
 
   setContext(key: string, value: Record<string, any>): void {
+    if (!this.canUseSentry()) {
+      return;
+    }
+
     Sentry.setContext(key, value);
   }
 
   addBreadcrumb(message: string, category?: string, data?: Record<string, any>): void {
+    if (!this.canUseSentry()) {
+      return;
+    }
+
     Sentry.addBreadcrumb({
       message,
       category: category ?? 'app',
@@ -124,6 +161,10 @@ class ErrorTracking {
   }
 
   trackNavigation(fromRoute: string | undefined, toRoute: string): void {
+    if (!this.canUseSentry()) {
+      return;
+    }
+
     this.addBreadcrumb('Navigation', 'navigation', {
       from: fromRoute ?? 'unknown',
       to: toRoute,
@@ -132,6 +173,10 @@ class ErrorTracking {
   }
 
   captureException(error: unknown, context?: ErrorContext): void {
+    if (!this.canUseSentry()) {
+      return;
+    }
+
     const normalized = normalizeError(error);
 
     if (context) {
@@ -152,6 +197,10 @@ class ErrorTracking {
   }
 
   captureMessage(message: string, severity: ErrorSeverity = ErrorSeverity.Info): void {
+    if (!this.canUseSentry()) {
+      return;
+    }
+
     const levelMap: Record<ErrorSeverity, Sentry.SeverityLevel> = {
       [ErrorSeverity.Fatal]: 'fatal',
       [ErrorSeverity.Error]: 'error',
@@ -168,7 +217,7 @@ class ErrorTracking {
   }
 
   installGlobalHandlers(): void {
-    if (this.globalHandlerInstalled) {
+    if (this.globalHandlerInstalled || !this.canUseSentry()) {
       return;
     }
 

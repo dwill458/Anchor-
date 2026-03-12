@@ -16,7 +16,8 @@ import { RootStackParamList } from '@/types';
 import { colors, spacing, typography } from '@/theme';
 import { ZenBackground, GlassIconButton, UndertoneLine } from '@/components/common';
 import { BlurView } from 'expo-blur';
-import { useTempStore } from '@/stores/anchorStore';
+import { useAnchorStore, useTempStore } from '@/stores/anchorStore';
+import { useAuthStore } from '@/stores/authStore';
 import { useSettingsStore } from '@/stores/settingsStore';
 import { analyzeIntention, getGuidanceText } from '@/utils/intentionPatterns';
 import { OptimizedImage } from '@/components/common/OptimizedImage';
@@ -33,6 +34,8 @@ export const AnchorRevealScreen: React.FC = () => {
     const route = useRoute<AnchorRevealRouteProp>();
     const insets = useSafeAreaInsets();
     const guideMode = useSettingsStore((state) => state.guideMode);
+    const addAnchor = useAnchorStore((state) => state.addAnchor);
+    const incrementAnchorCount = useAuthStore((state) => state.incrementAnchorCount);
 
     const {
         intentionText,
@@ -99,7 +102,11 @@ export const AnchorRevealScreen: React.FC = () => {
             has_image: Boolean(enhancedImageUrl),
         });
 
-        (navigation as any).navigate('MantraCreation', {
+        const anchorId = `anchor-${Date.now()}`;
+
+        addAnchor({
+            id: anchorId,
+            userId: 'user-123',
             intentionText,
             category,
             distilledLetters,
@@ -108,10 +115,18 @@ export const AnchorRevealScreen: React.FC = () => {
             structureVariant,
             reinforcementMetadata,
             enhancementMetadata,
-            finalImageUrl: enhancedImageUrl || '',
+            enhancedImageUrl: enhancedImageUrl || undefined,
+            isCharged: false,
+            activationCount: 0,
+            createdAt: new Date(),
+            updatedAt: new Date(),
+        });
+        incrementAnchorCount();
+        navigation.navigate('ChargeSetup', {
+            anchorId,
         });
 
-        // Clear heavy temporary data once passed to final creation step.
+        // Clear heavy temporary data once the anchor record is created.
         setTempEnhancedImage(null);
     };
 
@@ -205,7 +220,7 @@ export const AnchorRevealScreen: React.FC = () => {
                     {/* Guide Mode Helper Text */}
                     {guideMode && (
                         <Text style={styles.ctaHelperText}>
-                            60 seconds. Look at the symbol. Repeat your phrase.
+                            Take in the symbol, then choose how you want to charge it.
                         </Text>
                     )}
 
@@ -214,7 +229,7 @@ export const AnchorRevealScreen: React.FC = () => {
                         activeOpacity={0.9}
                         style={styles.continueButton}
                         accessibilityRole="button"
-                        accessibilityLabel="Begin Mantra"
+                        accessibilityLabel="Begin Charging"
                     >
                         <LinearGradient
                             colors={[colors.gold, '#B8941F']}
@@ -222,7 +237,7 @@ export const AnchorRevealScreen: React.FC = () => {
                             start={{ x: 0, y: 0 }}
                             end={{ x: 1, y: 0 }}
                         >
-                            <Text style={styles.continueText}>Begin Mantra</Text>
+                            <Text style={styles.continueText}>Begin Charging</Text>
                             <Text style={styles.continueArrow}>→</Text>
                         </LinearGradient>
                     </TouchableOpacity>

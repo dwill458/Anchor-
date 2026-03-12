@@ -20,7 +20,6 @@ import {
   StyleSelectionScreen,
   AIGeneratingScreen,
   AIVariationPickerScreen,
-  MantraCreationScreen,
   ManualForgeScreen,
   AnchorRevealScreen,
 } from '../screens/create';
@@ -36,7 +35,6 @@ import {
 import { SettingsScreen, DefaultChargeSettings, DefaultActivationSettings, DailyPracticeGoalScreen } from '../screens/profile';
 import type { RootStackParamList } from '@/types';
 import { colors } from '@/theme';
-import { useAuthStore } from '@/stores/authStore';
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
 
@@ -45,13 +43,6 @@ interface VaultStackNavigatorProps {
 }
 
 export const VaultStackNavigator: React.FC<VaultStackNavigatorProps> = ({ onRouteChange }) => {
-  // Determine which intention screen to show
-  // shouldRedirectToCreation = true means they just completed onboarding (first time)
-  const { shouldRedirectToCreation } = useAuthStore();
-  const IntentionScreen = shouldRedirectToCreation
-    ? IntentionInputScreen
-    : ReturningIntentionScreen;
-
   React.useEffect(() => {
     onRouteChange?.('Vault');
   }, [onRouteChange]);
@@ -96,8 +87,13 @@ export const VaultStackNavigator: React.FC<VaultStackNavigatorProps> = ({ onRout
         options={{ headerShown: false }}
       />
       <Stack.Screen
+        name="FirstAnchorCreation"
+        component={IntentionInputScreen}
+        options={{ headerShown: false }}
+      />
+      <Stack.Screen
         name="CreateAnchor"
-        component={IntentionScreen}
+        component={ReturningIntentionScreen}
         options={{ headerShown: false }}
       />
       <Stack.Screen
@@ -166,11 +162,6 @@ export const VaultStackNavigator: React.FC<VaultStackNavigatorProps> = ({ onRout
         name="AnchorReveal"
         component={AnchorRevealScreen}
         options={{ headerShown: false }}
-      />
-      <Stack.Screen
-        name="MantraCreation"
-        component={MantraCreationScreen}
-        options={{ title: 'Create Mantra', headerShown: false }}
       />
       {/* ════════════════════════════════════════════════════════ */}
       {/* Charging & Activation - Zen Architect (Phase 2.7)       */}

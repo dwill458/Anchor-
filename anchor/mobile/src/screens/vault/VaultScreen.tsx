@@ -83,7 +83,7 @@ export const VaultScreen: React.FC = () => {
         setShowAnchorLimitModal(true);
         return;
       }
-      navigation.navigate('CreateAnchor');
+      navigation.navigate('FirstAnchorCreation');
     }
   }, [shouldRedirectToCreation, setShouldRedirectToCreation, isFree, anchors.length, features.maxAnchors, navigation]);
 

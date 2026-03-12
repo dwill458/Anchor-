@@ -18,6 +18,7 @@ import { StackNavigationProp } from '@react-navigation/stack';
 import { RootStackParamList } from '@/types';
 import { colors } from '@/theme';
 import { ScreenHeader, ZenBackground } from '@/components/common';
+import { useAnchorStore } from '@/stores/anchorStore';
 import { useAuthStore } from '@/stores/authStore';
 import * as Haptics from 'expo-haptics';
 import { typography } from '@/theme';
@@ -45,7 +46,8 @@ type EnhancementChoiceNavigationProp = StackNavigationProp<RootStackParamList, '
 export const EnhancementChoiceScreen: React.FC = () => {
   const navigation = useNavigation<EnhancementChoiceNavigationProp>();
   const route = useRoute<EnhancementChoiceRouteProp>();
-  const { anchorCount } = useAuthStore();
+  const addAnchor = useAnchorStore((state) => state.addAnchor);
+  const { anchorCount, incrementAnchorCount } = useAuthStore();
   const isFirstAnchor = anchorCount === 0;
   const styleCount = isFirstAnchor ? 4 : 6;
 
@@ -102,6 +104,31 @@ export const EnhancementChoiceScreen: React.FC = () => {
     ]).start();
   }, []);
 
+  const createAnchorAndNavigateToCharge = () => {
+    const anchorId = `anchor-${Date.now()}`;
+
+    addAnchor({
+      id: anchorId,
+      userId: 'user-123',
+      intentionText,
+      category,
+      distilledLetters,
+      baseSigilSvg,
+      reinforcedSigilSvg,
+      structureVariant,
+      reinforcementMetadata,
+      isCharged: false,
+      activationCount: 0,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    });
+    incrementAnchorCount();
+
+    navigation.navigate('ChargeSetup', {
+      anchorId,
+    });
+  };
+
   const handleOptionSelect = (optionId: string) => {
     setSelectedOption(optionId);
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
@@ -109,15 +136,7 @@ export const EnhancementChoiceScreen: React.FC = () => {
     // Add slight delay for visual feedback
     setTimeout(() => {
       if (optionId === 'pure') {
-        navigation.navigate('MantraCreation', {
-          intentionText,
-          category,
-          distilledLetters,
-          baseSigilSvg,
-          reinforcedSigilSvg,
-          structureVariant,
-          reinforcementMetadata,
-        });
+        createAnchorAndNavigateToCharge();
       } else if (optionId === 'enhance') {
         navigation.navigate('StyleSelection', {
           intentionText,

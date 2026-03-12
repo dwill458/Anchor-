@@ -32,7 +32,8 @@ import { StackNavigationProp } from '@react-navigation/stack';
 import { RootStackParamList } from '@/types';
 import { colors } from '@/theme';
 import { ScreenHeader, ZenBackground } from '@/components/common';
-import { useTempStore } from '@/stores/anchorStore';
+import { useAnchorStore } from '@/stores/anchorStore';
+import { useAuthStore } from '@/stores/authStore';
 import { OptimizedImage } from '@/components/common/OptimizedImage';
 import { ErrorTrackingService } from '@/services/ErrorTrackingService';
 import { PerformanceMonitoring } from '@/services/PerformanceMonitoring';
@@ -117,7 +118,8 @@ export const AIVariationPickerScreen: React.FC = () => {
     });
   }, [navigation]);
 
-  const setTempEnhancedImage = useTempStore((state) => state.setTempEnhancedImage);
+  const addAnchor = useAnchorStore((state) => state.addAnchor);
+  const incrementAnchorCount = useAuthStore((state) => state.incrementAnchorCount);
 
   const normalizedVariations = useMemo<VariationAsset[]>(() => {
     return variations.map((variation, index) => {
@@ -181,16 +183,26 @@ export const AIVariationPickerScreen: React.FC = () => {
         return;
       }
 
-      // Store in global temp state instead of passing huge string
-      setTempEnhancedImage(imageUrl);
       trace.stop({ success: true });
       ErrorTrackingService.addBreadcrumb('Variation selected', 'ai.variation_picker', {
         selected_index: selectedIndex,
         heavy_inline: selectedVariation.isHeavyInline,
       });
 
-      // Navigate to MantraCreation with full context including enhancement metadata
-      navigation.navigate('AnchorReveal', {
+      const enhancementMetadata = {
+        styleApplied: styleChoice,
+        modelUsed: 'sdxl-controlnet',
+        controlMethod: 'canny' as const,
+        generationTimeMs: 0,
+        promptUsed: prompt || '',
+        negativePrompt: '',
+        appliedAt: new Date(),
+      };
+      const anchorId = `anchor-${Date.now()}`;
+
+      addAnchor({
+        id: anchorId,
+        userId: 'user-123',
         intentionText,
         category,
         distilledLetters,
@@ -198,16 +210,17 @@ export const AIVariationPickerScreen: React.FC = () => {
         reinforcedSigilSvg,
         structureVariant,
         reinforcementMetadata,
-        // enhancedImageUrl: imageUrl, // CAUTION: Passing this crashes if too big
-        enhancementMetadata: {
-          styleApplied: styleChoice,
-          modelUsed: 'sdxl-controlnet',
-          controlMethod: 'canny',
-          generationTimeMs: 0,
-          promptUsed: prompt || '',
-          negativePrompt: '',
-          appliedAt: new Date(),
-        },
+        enhancementMetadata,
+        enhancedImageUrl: imageUrl,
+        isCharged: false,
+        activationCount: 0,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      });
+      incrementAnchorCount();
+
+      navigation.navigate('ChargeSetup', {
+        anchorId,
       });
     } catch (err) {
       trace.stop({ success: false });

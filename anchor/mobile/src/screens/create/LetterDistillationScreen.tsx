@@ -41,13 +41,30 @@ export default function LetterDistillationScreen({ route, navigation }: Props) {
     anchorCount: state.anchorCount,
   }));
 
-  const normalizedLetters = useMemo(
+  // Step 2: unique alphabetic letters from raw intention (spaces removed, vowels kept)
+  const step2Letters = useMemo(() => {
+    const seen = new Set<string>();
+    const result: string[] = [];
+    for (const char of intentionText.toUpperCase()) {
+      if (char === ' ') continue;
+      if (/[A-Z]/.test(char) && !seen.has(char)) {
+        seen.add(char);
+        result.push(char);
+      }
+    }
+    return result;
+  }, [intentionText]);
+
+  // Step 3: consonants only — vowels filtered from step2
+  const step3Letters = useMemo(
+    () => step2Letters.filter((letter) => !VOWELS.has(letter)),
+    [step2Letters]
+  );
+
+  // Step 4 / seed: canonical final set from the distillation route param
+  const step4Letters = useMemo(
     () => distilledLetters.map((letter) => letter.toUpperCase()),
     [distilledLetters]
-  );
-  const consonants = useMemo(
-    () => normalizedLetters.filter((letter) => !VOWELS.has(letter)),
-    [normalizedLetters]
   );
 
   const stages = useMemo<Stage[]>(
@@ -65,7 +82,7 @@ export default function LetterDistillationScreen({ route, navigation }: Props) {
         phase: 'Removing the Inessential',
         label: 'UNIQUE LETTERS',
         subtitle: 'Each letter, once',
-        text: normalizedLetters.join(' '),
+        text: step2Letters.join(' '),
         style: 'spaced',
         duration: 1200,
         typeSpeed: 30,
@@ -74,7 +91,7 @@ export default function LetterDistillationScreen({ route, navigation }: Props) {
         phase: 'Distilling Consonants',
         label: 'CONSONANTS REMAIN',
         subtitle: 'Vowels dissolve into silence',
-        text: consonants.join(' '),
+        text: step3Letters.join(' '),
         style: 'spaced',
         duration: 1200,
         typeSpeed: 40,
@@ -83,7 +100,7 @@ export default function LetterDistillationScreen({ route, navigation }: Props) {
         phase: 'Converging Symbol',
         label: 'THE SEED LETTERS',
         subtitle: 'Your anchor takes form',
-        text: consonants.join(' '),
+        text: step4Letters.join(' '),
         style: 'large',
         duration: 1400,
         typeSpeed: 55,
@@ -98,7 +115,7 @@ export default function LetterDistillationScreen({ route, navigation }: Props) {
         typeSpeed: 180,
       },
     ],
-    [consonants, intentionText, normalizedLetters]
+    [intentionText, step2Letters, step3Letters, step4Letters]
   );
 
   const [currentStage, setCurrentStage] = useState(0);
@@ -138,9 +155,9 @@ export default function LetterDistillationScreen({ route, navigation }: Props) {
     navigation.navigate('SigilSelection', {
       intentionText,
       category,
-      distilledLetters: normalizedLetters,
+      distilledLetters: step4Letters,
     });
-  }, [category, clearStageTimers, intentionText, navigation, normalizedLetters]);
+  }, [category, clearStageTimers, intentionText, navigation, step4Letters]);
 
   const goToStage = useCallback(
     (idx: number) => {
