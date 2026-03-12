@@ -1,3 +1,4 @@
+// DEFERRED: Mantra feature removed from launch flow. Reintroduce in v1.1.
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Alert,
@@ -21,7 +22,14 @@ import Animated, {
   withTiming,
 } from 'react-native-reanimated';
 import { colors, spacing, typography } from '@/theme';
-import type { Anchor, RootStackParamList, SigilVariant } from '@/types';
+import type {
+  Anchor,
+  AnchorCategory,
+  EnhancementMetadata,
+  ReinforcementMetadata,
+  RootStackParamList,
+  SigilVariant,
+} from '@/types';
 import { useAnchorStore } from '@/stores/anchorStore';
 import { useAuthStore } from '@/stores/authStore';
 
@@ -35,8 +43,24 @@ interface MantraOption {
   durationLabel: string;
 }
 
-type MantraCreationRouteProp = RouteProp<RootStackParamList, 'MantraCreation'>;
-type MantraCreationNavigationProp = StackNavigationProp<RootStackParamList, 'MantraCreation'>;
+type DeferredMantraCreationParams = {
+  intentionText: string;
+  category: AnchorCategory;
+  distilledLetters: string[];
+  baseSigilSvg: string;
+  reinforcedSigilSvg?: string;
+  structureVariant: SigilVariant;
+  finalImageUrl?: string;
+  reinforcementMetadata?: ReinforcementMetadata;
+  enhancementMetadata?: EnhancementMetadata;
+};
+
+type DeferredMantraCreationStackParamList = RootStackParamList & {
+  MantraCreation: DeferredMantraCreationParams;
+};
+
+type MantraCreationRouteProp = RouteProp<DeferredMantraCreationStackParamList, 'MantraCreation'>;
+type MantraCreationNavigationProp = StackNavigationProp<DeferredMantraCreationStackParamList, 'MantraCreation'>;
 
 const PLAYBACK_BAR_HEIGHTS = [35, 55, 80, 60, 90, 50, 70, 40, 60, 75, 45, 65, 55, 35, 50];
 const RECORD_BAR_COUNT = 28;

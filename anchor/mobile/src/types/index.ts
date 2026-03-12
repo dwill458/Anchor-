@@ -383,6 +383,8 @@ export type RootStackParamList = {
   Vault: undefined;
   AnchorDetail: { anchorId: string };
   CreateAnchor: undefined;
+  /** First anchor creation after onboarding — shows new-user IntentionInputScreen */
+  FirstAnchorCreation: undefined;
 
   // ═══════════════════════════════════════════════════
   // CREATION FLOW (New Canonical Order)
@@ -494,18 +496,18 @@ export type RootStackParamList = {
     enhancementMetadata: EnhancementMetadata;
   };
 
-  /** Step 8: Mantra Creation */
-  MantraCreation: {
-    intentionText: string;
-    category: AnchorCategory;
-    distilledLetters: string[];
-    baseSigilSvg: string;
-    reinforcedSigilSvg?: string;
-    structureVariant: SigilVariant;
-    finalImageUrl?: string;
-    reinforcementMetadata?: ReinforcementMetadata;
-    enhancementMetadata?: EnhancementMetadata;
-  };
+  // DEFERRED: Mantra feature removed from launch flow. Reintroduce in v1.1.
+  // MantraCreation: {
+  //   intentionText: string;
+  //   category: AnchorCategory;
+  //   distilledLetters: string[];
+  //   baseSigilSvg: string;
+  //   reinforcedSigilSvg?: string;
+  //   structureVariant: SigilVariant;
+  //   finalImageUrl?: string;
+  //   reinforcementMetadata?: ReinforcementMetadata;
+  //   enhancementMetadata?: EnhancementMetadata;
+  // };
 
   // ═══════════════════════════════════════════════════
   // LEGACY ROUTES (Deprecated - kept for backward compatibility during transition)

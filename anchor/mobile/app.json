@@ -45,7 +45,10 @@
     },
     "plugins": [
       "@sentry/react-native/expo",
-      "expo-secure-store"
+      "expo-secure-store",
+      "@react-native-community/datetimepicker",
+      "@sentry/react-native",
+      "expo-audio"
     ]
   }
 }

@@ -4,6 +4,8 @@ import { EnhancementChoiceScreen } from '../EnhancementChoiceScreen';
 
 // Mock navigation
 const mockNavigate = jest.fn();
+const mockAddAnchor = jest.fn();
+const mockIncrementAnchorCount = jest.fn();
 jest.mock('@react-navigation/native', () => ({
     ...jest.requireActual('@react-navigation/native'),
     useNavigation: () => ({ navigate: mockNavigate, goBack: jest.fn() }),
@@ -19,8 +21,15 @@ jest.mock('@react-navigation/native', () => ({
 }));
 
 // Mock stores with minimal required state
-jest.mock('@/stores/anchorStore', () => ({ useAnchorStore: () => ({ anchors: [], isLoading: false }) }));
-jest.mock('@/stores/authStore', () => ({ useAuthStore: () => ({ user: null, anchorCount: 0 }) }));
+jest.mock('@/stores/anchorStore', () => ({
+    useAnchorStore: (selector: any) => {
+        const state = { anchors: [], isLoading: false, addAnchor: mockAddAnchor };
+        return selector ? selector(state) : state;
+    }
+}));
+jest.mock('@/stores/authStore', () => ({
+    useAuthStore: () => ({ user: null, anchorCount: 0, incrementAnchorCount: mockIncrementAnchorCount })
+}));
 
 describe('EnhancementChoiceScreen', () => {
     beforeEach(() => {
@@ -32,7 +41,7 @@ describe('EnhancementChoiceScreen', () => {
         expect(true).toBe(true);
     });
 
-    it('stub: Keep Pure navigates directly to MantraCreation', () => {
+    it('stub: Keep Pure navigates directly to ChargeSetup', () => {
         // TODO: implement assertion
         expect(true).toBe(true);
     });
