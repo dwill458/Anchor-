@@ -92,9 +92,9 @@ const chargeConfigByChoice = {
     preset: '30s' as const,
     ritualType: 'focus' as const,
     durationSeconds: 30,
-    ctaLabel: 'BEGIN CHARGING',
+    ctaLabel: 'BEGIN PRIMING',
     icon: '⚡',
-    name: 'Quick',
+    name: 'Quick Prime',
     time: '30 seconds',
     desc: 'Fast focused session',
   },
@@ -103,9 +103,9 @@ const chargeConfigByChoice = {
     preset: '5m' as const,
     ritualType: 'ritual' as const,
     durationSeconds: 300,
-    ctaLabel: 'BEGIN DEEP CHARGE',
+    ctaLabel: 'BEGIN DEEP PRIME',
     icon: '🔥',
-    name: 'Deep',
+    name: 'Deep Prime',
     time: '~5 minutes',
     desc: 'Guided 5-phase ritual',
   },
@@ -404,7 +404,7 @@ export const ChargeSetupScreen: React.FC = () => {
         <Animated.View style={{ opacity: contentOpacity }}>
           <RitualTopBar
             onBack={handleBack}
-            title="Charge Your Anchor"
+            title="Prime Your Anchor"
             disableBack={isTransitioning}
           />
         </Animated.View>
@@ -471,7 +471,7 @@ export const ChargeSetupScreen: React.FC = () => {
                 end={{ x: 1, y: 0 }}
                 style={styles.badgeLine}
               />
-              <Text style={styles.badgeText}>FIRST CHARGE</Text>
+              <Text style={styles.badgeText}>FIRST PRIME</Text>
               <LinearGradient
                 colors={[ritualColors.badgeLine, ritualColors.transparent]}
                 start={{ x: 0, y: 0 }}
