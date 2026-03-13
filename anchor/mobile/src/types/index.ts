@@ -493,7 +493,7 @@ export type RootStackParamList = {
     structureVariant: SigilVariant;
     enhancedImageUrl?: string;
     reinforcementMetadata?: ReinforcementMetadata;
-    enhancementMetadata: EnhancementMetadata;
+    enhancementMetadata?: EnhancementMetadata;
   };
 
   // DEFERRED: Mantra feature removed from launch flow. Reintroduce in v1.1.

@@ -32,8 +32,7 @@ import { StackNavigationProp } from '@react-navigation/stack';
 import { RootStackParamList } from '@/types';
 import { colors } from '@/theme';
 import { ScreenHeader, ZenBackground } from '@/components/common';
-import { useAnchorStore } from '@/stores/anchorStore';
-import { useAuthStore } from '@/stores/authStore';
+import { useTempStore } from '@/stores/anchorStore';
 import { OptimizedImage } from '@/components/common/OptimizedImage';
 import { ErrorTrackingService } from '@/services/ErrorTrackingService';
 import { PerformanceMonitoring } from '@/services/PerformanceMonitoring';
@@ -118,8 +117,7 @@ export const AIVariationPickerScreen: React.FC = () => {
     });
   }, [navigation]);
 
-  const addAnchor = useAnchorStore((state) => state.addAnchor);
-  const incrementAnchorCount = useAuthStore((state) => state.incrementAnchorCount);
+  const setTempEnhancedImage = useTempStore((state) => state.setTempEnhancedImage);
 
   const normalizedVariations = useMemo<VariationAsset[]>(() => {
     return variations.map((variation, index) => {
@@ -198,11 +196,13 @@ export const AIVariationPickerScreen: React.FC = () => {
         negativePrompt: '',
         appliedAt: new Date(),
       };
-      const anchorId = `anchor-${Date.now()}`;
 
-      addAnchor({
-        id: anchorId,
-        userId: 'user-123',
+      // Store heavy inline images in temp store to avoid nav param size limits
+      if (selectedVariation.isHeavyInline) {
+        setTempEnhancedImage(imageUrl);
+      }
+
+      navigation.navigate('AnchorReveal', {
         intentionText,
         category,
         distilledLetters,
@@ -211,16 +211,7 @@ export const AIVariationPickerScreen: React.FC = () => {
         structureVariant,
         reinforcementMetadata,
         enhancementMetadata,
-        enhancedImageUrl: imageUrl,
-        isCharged: false,
-        activationCount: 0,
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      });
-      incrementAnchorCount();
-
-      navigation.navigate('ChargeSetup', {
-        anchorId,
+        enhancedImageUrl: selectedVariation.isHeavyInline ? undefined : imageUrl,
       });
     } catch (err) {
       trace.stop({ success: false });
