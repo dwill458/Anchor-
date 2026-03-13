@@ -220,7 +220,7 @@ export const AnchorRevealScreen: React.FC = () => {
                     {/* Guide Mode Helper Text */}
                     {guideMode && (
                         <Text style={styles.ctaHelperText}>
-                            Take in the symbol, then choose how you want to charge it.
+                            Take in the symbol, then choose how you want to prime it.
                         </Text>
                     )}
 
@@ -229,7 +229,7 @@ export const AnchorRevealScreen: React.FC = () => {
                         activeOpacity={0.9}
                         style={styles.continueButton}
                         accessibilityRole="button"
-                        accessibilityLabel="Begin Charging"
+                        accessibilityLabel="Begin Priming"
                     >
                         <LinearGradient
                             colors={[colors.gold, '#B8941F']}
@@ -237,7 +237,7 @@ export const AnchorRevealScreen: React.FC = () => {
                             start={{ x: 0, y: 0 }}
                             end={{ x: 1, y: 0 }}
                         >
-                            <Text style={styles.continueText}>Begin Charging</Text>
+                            <Text style={styles.continueText}>BEGIN PRIMING</Text>
                             <Text style={styles.continueArrow}>→</Text>
                         </LinearGradient>
                     </TouchableOpacity>
