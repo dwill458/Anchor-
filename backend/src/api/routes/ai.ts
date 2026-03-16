@@ -60,9 +60,6 @@ const router = express.Router();
  * - bestVariationIndex: Index of highest scoring variation
  */
 router.post('/enhance-controlnet', async (req: Request, res: Response): Promise<void> => {
-  console.log('[API] /enhance-controlnet POST received');
-  console.log('[API] Request body keys:', Object.keys(req.body));
-
   try {
     const {
       sigilSvg,
@@ -91,12 +88,11 @@ router.post('/enhance-controlnet', async (req: Request, res: Response): Promise<
         ? 'pro_upgrade'
         : ((tier as 'draft' | 'premium') || 'premium');
 
-    console.log('[API] Parsed request:', {
+    logger.debug('[API] enhance-controlnet request', {
       sigilSvgLength: sigilSvg?.length || 0,
       styleChoice,
       userId,
       anchorId,
-      intentionText: intentionText || '(not provided)',
       validateStructure,
       autoComposite,
       provider: provider || 'auto',
@@ -107,7 +103,6 @@ router.post('/enhance-controlnet', async (req: Request, res: Response): Promise<
 
     // Validation
     if (!sigilSvg || !styleChoice || !userId || !anchorId) {
-      console.log('[API] Validation failed - missing fields');
       res.status(400).json({
         error: 'Missing required fields: sigilSvg, styleChoice, userId, anchorId',
       });

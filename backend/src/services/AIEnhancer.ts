@@ -752,7 +752,6 @@ export async function enhanceSigilWithControlNet(
     // Step 6: Generate variations SEQUENTIALLY to avoid rate limiting
     // Replicate limits free/low-credit accounts to 1 concurrent request
     logger.info(`[ControlNet Enhancement] Generating variations sequentially for style: ${request.styleChoice}`);
-    console.log('[Replicate] Starting SEQUENTIAL generation (rate limit safe)');
 
     const rawResults: { imageUrl: string; seed: number; index: number }[] = [];
     const numVariations = 2; // Reduced from 4 to 2 for speed (can increase with higher credits)
@@ -761,7 +760,6 @@ export async function enhanceSigilWithControlNet(
       const variationStart = Date.now();
       const seed = 2000 + i * 456;
       logger.info(`[ControlNet Enhancement] Starting variation ${i + 1}/${numVariations} (seed: ${seed})`);
-      console.log(`[Replicate] Calling ControlNet model for variation ${i + 1}/${numVariations}`);
 
       try {
         const output = await replicate.run(model, {
@@ -786,19 +784,14 @@ export async function enhanceSigilWithControlNet(
 
         const variationTime = Math.round((Date.now() - variationStart) / 1000);
         logger.info(`[ControlNet Enhancement] Variation ${i + 1}/${numVariations} complete (${variationTime}s)`);
-        console.log(`[Replicate] Variation ${i + 1}/${numVariations} complete in ${variationTime}s`);
 
         // Extract URL from output
         let imageUrl: string;
         if (Array.isArray(output) && output.length > 0) {
           imageUrl = String(output[0]);
-          if (imageUrl) {
-            console.log(`[Replicate] Got URL for variation ${i + 1}:`, imageUrl.substring(0, 60) + '...');
-          }
         } else if (typeof output === 'string') {
           imageUrl = output;
         } else {
-          console.error(`[Replicate] Unexpected output format for variation ${i + 1}:`, typeof output);
           throw new Error(`Invalid output format for variation ${i + 1}`);
         }
 
@@ -806,12 +799,10 @@ export async function enhanceSigilWithControlNet(
 
         // Wait 12 seconds before next request to avoid rate limiting (6 req/min limit)
         if (i < numVariations - 1) {
-          console.log(`[Replicate] Waiting 12s before next request (rate limit)...`);
           await new Promise(resolve => setTimeout(resolve, 12000));
         }
       } catch (err: any) {
         logger.error(`[ControlNet Enhancement] Error in variation ${i + 1}`, err);
-        console.error(`[Replicate] Error in variation ${i + 1}:`, err?.message || err);
         throw err;
       }
     }
@@ -819,7 +810,6 @@ export async function enhanceSigilWithControlNet(
     // Step 7: Build variation results with REAL structure scores
     // Uses actual pixel comparison between original control image and generated output
     logger.info('[ControlNet Enhancement] Computing real structure match scores...');
-    console.log('[StructureMatch] Computing IoU scores for generated images...');
 
     const variations: VariationResult[] = [];
 
@@ -839,8 +829,11 @@ export async function enhanceSigilWithControlNet(
           classification: matchResult.classification,
         };
 
-        console.log(`[StructureMatch] Variation ${result.index + 1}: IoU=${matchResult.iouScore.toFixed(3)}, ` +
-          `Combined=${matchResult.combinedScore.toFixed(3)}, Class=${matchResult.classification}`);
+        logger.debug(`[ControlNet Enhancement] Variation ${result.index + 1} scores`, {
+          iou: matchResult.iouScore.toFixed(3),
+          combined: matchResult.combinedScore.toFixed(3),
+          classification: matchResult.classification,
+        });
 
         variations.push({
           imageUrl: result.imageUrl,

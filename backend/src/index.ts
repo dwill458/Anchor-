@@ -71,7 +71,6 @@ app.use('/api/', limiter);
 
 // Request logging middleware
 app.use((req: Request, _res: Response, next) => {
-  console.log(`[HTTP] ${req.method} ${req.path}`);
   logger.request(req.method, req.path);
   next();
 });

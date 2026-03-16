@@ -2,6 +2,7 @@ import { GoogleGenAI } from '@google/genai';
 import sharp from 'sharp';
 import fs from 'fs';
 import path from 'path';
+import { logger } from '../utils/logger';
 
 // Re-exporting interfaces so the rest of the app stays compatible
 export interface ImageVariation {
@@ -56,8 +57,7 @@ export class GoogleVertexAI {
   }): Promise<EnhancedSigilResult> {
     const { baseSigilSvg, intentionText, styleApproach, numberOfVariations } = params;
 
-    console.log(`🎨 Generating ${numberOfVariations} variations for: "${intentionText}"`);
-    console.log(`🖌️  Style: ${styleApproach}`);
+    logger.info('[VertexAI] Starting sigil generation', { numberOfVariations, styleApproach });
 
     // 1. Convert base sigil to PNG (using local helper or passed in)
     // Note: The new Imagen 3 might accept masks or badging, but here we are doing Text-to-Image 
@@ -86,7 +86,7 @@ export class GoogleVertexAI {
         )
       );
 
-      console.log(`✅ Generated ${variations.length} personalized variations`);
+      logger.info(`[VertexAI] Generated ${variations.length} personalized variations`);
 
       return {
         images: variations,
@@ -97,7 +97,7 @@ export class GoogleVertexAI {
         model: 'imagen-3.0-generate-001'
       };
     } catch (err: any) {
-      console.error("Failed to generate images:", err);
+      logger.error('[VertexAI] Failed to generate images', err);
       throw err;
     }
   }
@@ -292,7 +292,7 @@ Based on "${intention}", add minimal symbolic touches:
 
       if (!base64Data) {
         // Fallback debug
-        console.warn("Response structure unexpected:", JSON.stringify(response, null, 2));
+        logger.warn('[VertexAI] Response structure unexpected', { response: JSON.stringify(response) });
         throw new Error('No image data returned from Google API');
       }
 
@@ -303,7 +303,7 @@ Based on "${intention}", add minimal symbolic touches:
       };
 
     } catch (error: any) {
-      console.error(`❌ Generation failed for variation ${seed}:`, error);
+      logger.error(`[VertexAI] Generation failed for variation ${seed}`, error);
       throw new Error(`Image generation failed: ${error.message}`);
     }
   }

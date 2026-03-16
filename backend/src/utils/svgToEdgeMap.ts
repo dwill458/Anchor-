@@ -14,6 +14,7 @@
 
 import sharp from 'sharp';
 import { rasterizeSVG, RasterizeOptions } from './svgRasterizer';
+import { logger } from './logger';
 
 export interface EdgeMapOptions {
   /**
@@ -231,9 +232,7 @@ export async function svgToEdgeMapFile(
   const result = await svgToEdgeMap(svgString, options);
   const fs = await import('fs/promises');
   await fs.writeFile(outputPath, result.buffer);
-  console.log(
-    `✅ Edge map saved to ${outputPath} (${result.size} bytes, ${result.processingTimeMs}ms)`
-  );
+  logger.debug(`[SVGToEdgeMap] Saved to ${outputPath}`, { size: result.size, processingTimeMs: result.processingTimeMs });
 }
 
 /**
