@@ -11,8 +11,8 @@
  * - Works with bottom tab navigation
  */
 
-import React, { useCallback, useEffect } from 'react';
-import { Dimensions, StyleSheet, View } from 'react-native';
+import React, { useCallback, useEffect, useState } from 'react';
+import { Dimensions, InteractionManager, StyleSheet } from 'react-native';
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
@@ -21,13 +21,12 @@ import Animated, {
   useReducedMotion,
   interpolate,
   Extrapolation,
+  type SharedValue,
 } from 'react-native-reanimated';
 import {
   Gesture,
   GestureDetector,
-  GestureHandlerRootView,
 } from 'react-native-gesture-handler';
-import { useIsFocused } from '@react-navigation/native';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -66,10 +65,43 @@ export const SwipeableTabContainer: React.FC<SwipeableTabContainerProps> = ({
   swipeEnabled = true,
 }) => {
   const reducedMotion = useReducedMotion();
+  const [mountedTabs, setMountedTabs] = useState<Set<number>>(() => new Set([activeIndex]));
 
   // Animated position: 0 = first tab, 1 = second tab, etc.
   const position = useSharedValue(activeIndex);
   const gestureActive = useSharedValue(false);
+
+  useEffect(() => {
+    setMountedTabs((prev) => {
+      if (prev.has(activeIndex)) {
+        return prev;
+      }
+
+      const next = new Set(prev);
+      next.add(activeIndex);
+      return next;
+    });
+  }, [activeIndex]);
+
+  useEffect(() => {
+    const task = InteractionManager.runAfterInteractions(() => {
+      setMountedTabs((prev) => {
+        if (prev.size >= tabCount) {
+          return prev;
+        }
+
+        const next = new Set(prev);
+        for (let index = 0; index < tabCount; index += 1) {
+          next.add(index);
+        }
+        return next;
+      });
+    });
+
+    return () => {
+      task.cancel();
+    };
+  }, [tabCount]);
 
   // Sync position when activeIndex changes externally (tab button press)
   useEffect(() => {
@@ -91,8 +123,8 @@ export const SwipeableTabContainer: React.FC<SwipeableTabContainerProps> = ({
 
   const panGesture = Gesture.Pan()
     .enabled(swipeEnabled)
-    .activeOffsetX([-10, 10]) // Activate after 10px horizontal movement
-    .failOffsetY([-20, 20]) // Fail if vertical movement exceeds 20px
+    .activeOffsetX([-25, 25]) // Activate after 25px horizontal movement (avoids stealing from inner ScrollViews)
+    .failOffsetY([-15, 15]) // Fail if vertical movement exceeds 15px
     .onStart(() => {
       gestureActive.value = true;
     })
@@ -153,7 +185,7 @@ export const SwipeableTabContainer: React.FC<SwipeableTabContainerProps> = ({
             position={position}
             reducedMotion={reducedMotion ?? false}
           >
-            {child}
+            {mountedTabs.has(index) || index === activeIndex ? child : null}
           </TabPage>
         ))}
       </Animated.View>
@@ -164,7 +196,7 @@ export const SwipeableTabContainer: React.FC<SwipeableTabContainerProps> = ({
 interface TabPageProps {
   children: React.ReactNode;
   index: number;
-  position: Animated.SharedValue<number>;
+  position: SharedValue<number>;
   reducedMotion: boolean;
 }
 
