@@ -135,11 +135,13 @@ export const PracticeScreen: React.FC = () => {
         return () => undefined;
       }
 
-      if (mostRecentAnchor?.id !== currentAnchorId) {
-        setCurrentAnchor(mostRecentAnchor?.id);
+      // Only auto-select if no anchor is currently selected (or selected anchor was deleted)
+      const currentIsValid = currentAnchorId && selectableAnchors.some((a) => a.id === currentAnchorId);
+      if (!currentIsValid && mostRecentAnchor) {
+        setCurrentAnchor(mostRecentAnchor.id);
       }
       return () => undefined;
-    }, [selectableAnchors, currentAnchorId, mostRecentAnchor?.id, setCurrentAnchor])
+    }, [selectableAnchors, currentAnchorId, mostRecentAnchor, setCurrentAnchor])
   );
 
   const selectedAnchor = useMemo(
