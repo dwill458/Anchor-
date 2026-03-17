@@ -162,6 +162,25 @@ describe('PracticeScreen', () => {
     });
   });
 
+  it('switches the current anchor from the hero without starting a ritual', async () => {
+    mockCurrentAnchorId = 'a1';
+    mockAnchors = [
+      buildAnchor('a1', 'Anchor One'),
+      buildAnchor('a2', 'Anchor Two'),
+    ];
+
+    const screen = render(<PracticeScreen />);
+    fireEvent.press(screen.getByLabelText('Change current anchor'));
+    fireEvent.press(screen.getByLabelText('Select Anchor Two'));
+
+    await waitFor(() => {
+      expect(mockSetCurrentAnchor).toHaveBeenCalledWith('a2');
+      expect(mockNavigate).not.toHaveBeenCalled();
+      expect(mockNavigateToVault).not.toHaveBeenCalled();
+      expect(screen.getByLabelText('Selected anchor: Anchor Two')).toBeTruthy();
+    });
+  });
+
   it('navigates to Ritual with expected params when charging', async () => {
     mockAnchors = [buildAnchor('a99', 'Build consistency')];
     const screen = render(<PracticeScreen />);

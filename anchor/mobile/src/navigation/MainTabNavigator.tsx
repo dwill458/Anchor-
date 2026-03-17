@@ -11,7 +11,6 @@
 
 import React, { useCallback, useRef } from 'react';
 import { AppState, View, Text, StyleSheet, Pressable } from 'react-native';
-import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Home, Compass, Zap } from 'lucide-react-native';
 import Animated, {
@@ -29,6 +28,7 @@ import { TabNavigationProvider } from '../contexts/TabNavigationContext';
 import { colors } from '@/theme';
 import { useSettingsStore } from '@/stores/settingsStore';
 import { useAnchorStore } from '@/stores/anchorStore';
+import { useAuthStore } from '@/stores/authStore';
 import { safeHaptics } from '@/utils/haptics';
 import { useTeachingStore } from '@/stores/teachingStore';
 import { useToast } from '@/components/ToastProvider';
@@ -81,43 +81,57 @@ interface CustomTabBarProps {
 }
 
 const GOLD = '#D4AF37';
-const INACTIVE_COLOR = 'rgba(255, 255, 255, 0.35)';
+const INACTIVE_COLOR = 'rgba(192,192,192,0.3)';
+const TAB_ICON_SIZE = 22;
+const TAB_ICON_STROKE_WIDTH = 1.8;
 
 const TABS = [
   {
     label: 'SANCTUARY',
     icon: (active: boolean) => (
-      <Home color={active ? GOLD : INACTIVE_COLOR} size={20} strokeWidth={1.4} fill="none" />
+      <Home
+        color={active ? GOLD : INACTIVE_COLOR}
+        size={TAB_ICON_SIZE}
+        strokeWidth={TAB_ICON_STROKE_WIDTH}
+        fill="none"
+        testID="tab-icon-sanctuary"
+      />
     ),
   },
   {
     label: 'PRACTICE',
     icon: (active: boolean) => (
-      <Zap color={active ? GOLD : INACTIVE_COLOR} size={20} strokeWidth={1.4} fill="none" />
+      <Zap
+        color={active ? GOLD : INACTIVE_COLOR}
+        size={TAB_ICON_SIZE}
+        strokeWidth={TAB_ICON_STROKE_WIDTH}
+        fill="none"
+        testID="tab-icon-practice"
+      />
     ),
   },
   {
     label: 'DISCOVER',
     icon: (active: boolean) => (
-      <Compass color={active ? GOLD : INACTIVE_COLOR} size={20} strokeWidth={1.4} fill="none" />
+      <Compass
+        color={active ? GOLD : INACTIVE_COLOR}
+        size={TAB_ICON_SIZE}
+        strokeWidth={TAB_ICON_STROKE_WIDTH}
+        fill="none"
+        testID="tab-icon-discover"
+      />
     ),
   },
 ];
 
-const CustomTabBar: React.FC<CustomTabBarProps> = ({ activeIndex, onTabPress }) => {
+export const CustomTabBar: React.FC<CustomTabBarProps> = ({ activeIndex, onTabPress }) => {
   const insets = useSafeAreaInsets();
 
   return (
-    <View style={[styles.bar, { height: 68 + Math.max(insets.bottom, 8) }]}>
-      {/* Gold shimmer top line */}
-      <LinearGradient
-        colors={['transparent', 'rgba(212,175,55,0.35)', 'rgba(212,175,55,0.35)', 'transparent']}
-        locations={[0.05, 0.25, 0.75, 0.95]}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 0 }}
-        style={styles.shimmerLine}
-      />
-
+    <View
+      style={[styles.bar, { height: 82 + Math.max(insets.bottom, 0) }]}
+      testID="custom-tab-bar"
+    >
       {TABS.map((tab, index) => {
         const isActive = activeIndex === index;
         return (
@@ -126,27 +140,14 @@ const CustomTabBar: React.FC<CustomTabBarProps> = ({ activeIndex, onTabPress }) 
             onPress={() => onTabPress(index)}
             showDivider={index < TABS.length - 1}
           >
-            <View style={[styles.col, isActive && styles.colActive]}>
+            <View style={styles.col}>
               {isActive && (
-                <LinearGradient
-                  colors={['rgba(212,175,55,0.16)', 'rgba(212,175,55,0.06)', 'rgba(212,175,55,0.01)']}
-                  locations={[0, 0.45, 1]}
-                  start={{ x: 0.5, y: 0 }}
-                  end={{ x: 0.5, y: 1 }}
-                  style={styles.activeFill}
+                <View
+                  style={styles.activeIndicator}
+                  testID={`tab-indicator-${tab.label.toLowerCase()}`}
                 />
               )}
-              {isActive && (
-                <LinearGradient
-                  colors={['rgba(212,175,55,0)', 'rgba(212,175,55,0.45)', 'rgba(212,175,55,0)']}
-                  locations={[0, 0.5, 1]}
-                  start={{ x: 0, y: 0.5 }}
-                  end={{ x: 1, y: 0.5 }}
-                  style={styles.activeTopLine}
-                />
-              )}
-              {isActive && <View style={styles.underline} />}
-              <View style={isActive ? styles.iconWrapActive : styles.iconWrap}>
+              <View style={styles.iconWrap}>
                 {tab.icon(isActive)}
               </View>
               <Text style={[styles.colLabel, isActive && styles.colLabelActive]}>
@@ -165,12 +166,22 @@ const CustomTabBar: React.FC<CustomTabBarProps> = ({ activeIndex, onTabPress }) 
 export const MainTabNavigator: React.FC = () => {
   const openDailyAnchorAutomatically = useSettingsStore((state) => state.openDailyAnchorAutomatically);
   const anchorCount = useAnchorStore((state) => state.anchors.length);
+  const shouldRedirectToCreation = useAuthStore((state) => state.shouldRedirectToCreation);
   const hasCheckedAutoOpen = useRef(false);
   const toast = useToast();
 
   const [activeIndex, setActiveIndex] = React.useState(0);
-  const [vaultRouteName, setVaultRouteName] = React.useState('Vault');
+  const [vaultRouteName, setVaultRouteName] = React.useState(
+    shouldRedirectToCreation ? 'FirstAnchorCreation' : 'Vault'
+  );
   const [practiceRouteName, setPracticeRouteName] = React.useState('PracticeHome');
+
+  React.useEffect(() => {
+    if (shouldRedirectToCreation) {
+      setActiveIndex(0);
+      setVaultRouteName('FirstAnchorCreation');
+    }
+  }, [shouldRedirectToCreation]);
 
   const handleIndexChange = useCallback((index: number) => {
     setActiveIndex(index);
@@ -251,18 +262,13 @@ const styles = StyleSheet.create({
   // ─── Tab bar (column segment design) ────────────────────────────────────────
   bar: {
     flexDirection: 'row',
-    backgroundColor: '#080C10',
+    backgroundColor: 'rgba(8,11,16,0.97)',
     borderTopWidth: 1,
-    borderTopColor: 'rgba(255, 255, 255, 0.06)',
+    borderTopColor: 'rgba(212,175,55,0.08)',
     alignItems: 'stretch',
-  },
-  shimmerLine: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    height: 1,
-    zIndex: 1,
+    paddingTop: 14,
+    paddingBottom: 0,
+    height: 82,
   },
   tabButton: {
     flex: 1,
@@ -278,59 +284,31 @@ const styles = StyleSheet.create({
   },
   col: {
     flex: 1,
-    paddingTop: 14,
     alignItems: 'center',
     justifyContent: 'flex-start',
     gap: 5,
     position: 'relative',
-    overflow: 'hidden',
   },
-  colActive: {
-    backgroundColor: 'rgba(212, 175, 55, 0.025)',
-  },
-  activeFill: {
-    ...StyleSheet.absoluteFillObject,
-    zIndex: 0,
-  },
-  activeTopLine: {
+  activeIndicator: {
     position: 'absolute',
-    top: 0,
-    left: 8,
-    right: 8,
-    height: 1,
-    zIndex: 1,
-  },
-  underline: {
-    position: 'absolute',
-    bottom: 0,
-    width: 40,
+    top: -14,
+    width: 28,
     height: 2,
     backgroundColor: '#D4AF37',
-    borderRadius: 2,
+    borderRadius: 1,
     alignSelf: 'center',
     shadowColor: '#D4AF37',
     shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.6,
-    shadowRadius: 4,
-    elevation: 3,
+    shadowOpacity: 1,
+    shadowRadius: 6,
+    elevation: 4,
     zIndex: 2,
   },
-  iconWrap: {},
-  iconWrapActive: {
-    marginBottom: 1,
+  iconWrap: {
     width: 30,
     height: 30,
-    borderRadius: 15,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: 'rgba(212, 175, 55, 0.08)',
-    borderWidth: 1,
-    borderColor: 'rgba(212, 175, 55, 0.28)',
-    shadowColor: '#D4AF37',
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.35,
-    shadowRadius: 6,
-    elevation: 2,
     zIndex: 2,
   },
   colLabel: {

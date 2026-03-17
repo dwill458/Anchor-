@@ -3,13 +3,15 @@ import { Dimensions, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { SettingsIcon } from '@/components/icons/SettingsIcon';
 import { useSettingsReveal } from '@/components/transitions/SettingsRevealProvider';
-import { colors, typography } from '@/theme';
+import { colors } from '@/theme';
 
 interface SanctuaryHeaderProps {
   reduceMotionEnabled: boolean;
+  /** Optional greeting line shown above the SANCTUARY title, e.g. "Good morning, Deon" */
+  greeting?: string;
 }
 
-export const SanctuaryHeader: React.FC<SanctuaryHeaderProps> = ({ reduceMotionEnabled }) => {
+export const SanctuaryHeader: React.FC<SanctuaryHeaderProps> = ({ reduceMotionEnabled, greeting }) => {
   const insets = useSafeAreaInsets();
   const { open } = useSettingsReveal();
   const buttonRef = useRef<View>(null);
@@ -47,6 +49,9 @@ export const SanctuaryHeader: React.FC<SanctuaryHeaderProps> = ({ reduceMotionEn
   return (
     <View style={[styles.container, { paddingRight: Math.max(8, insets.right + 6) }]}>
       <View style={styles.titleBlock}>
+        {greeting ? (
+          <Text style={styles.greeting} numberOfLines={1}>{greeting}</Text>
+        ) : null}
         <Text
           style={styles.title}
           numberOfLines={1}
@@ -55,7 +60,6 @@ export const SanctuaryHeader: React.FC<SanctuaryHeaderProps> = ({ reduceMotionEn
         >
           SANCTUARY
         </Text>
-        <Text style={styles.subtitle}>Your anchors are active</Text>
       </View>
       <Pressable
         style={styles.settingsButton}
@@ -86,21 +90,19 @@ const styles = StyleSheet.create({
     flex: 1,
     paddingRight: 8,
   },
-  title: {
-    fontFamily: 'Cinzel-Bold',
-    fontSize: 34,
-    color: colors.sanctuary.gold,
-    letterSpacing: 2,
-    lineHeight: 38,
-    textShadowColor: 'rgba(201,168,76,0.24)',
-    textShadowRadius: 20,
+  greeting: {
+    fontFamily: 'CormorantGaramond-Italic',
+    fontSize: 13,
+    color: 'rgba(192,192,192,0.45)',
+    letterSpacing: 0.5,
+    marginBottom: 3,
   },
-  subtitle: {
-    marginTop: 2,
-    fontFamily: typography.fontFamily.sans,
-    fontSize: 12,
-    color: 'rgba(200,185,155,0.56)',
-    letterSpacing: 0.3,
+  title: {
+    fontFamily: 'Cinzel-SemiBold',
+    fontSize: 26,
+    color: colors.bone,
+    letterSpacing: 2.6,
+    lineHeight: 32,
   },
   settingsButton: {
     width: 44,

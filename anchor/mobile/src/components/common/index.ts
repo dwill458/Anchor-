@@ -22,3 +22,4 @@ export { NavigationVeil, navigationVeilRef } from './NavigationVeil';
 export { UndertoneLine } from './UndertoneLine';
 export { GlassIconButton } from './GlassIconButton';
 export { ChargedGlowCanvas } from './ChargedGlowCanvas';
+export { RingGlowCanvas } from './RingGlowCanvas';

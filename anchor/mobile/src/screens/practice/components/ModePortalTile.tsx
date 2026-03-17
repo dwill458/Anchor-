@@ -33,6 +33,7 @@ export const ModePortalTile: React.FC<ModePortalTileProps> = ({
 }) => {
   const pressed = useSharedValue(0);
   const isFeatured = variant === 'charge';
+  const isBurn = variant === 'burn';
 
   const handlePressIn = useCallback(() => {
     pressed.value = withTiming(1, {
@@ -65,7 +66,7 @@ export const ModePortalTile: React.FC<ModePortalTileProps> = ({
       accessibilityRole="button"
       style={[styles.pressable, style, animatedCard]}
     >
-      <View style={[styles.card, isFeatured ? styles.cardFeatured : styles.cardSecondary]}>
+      <View style={[styles.card, isFeatured ? styles.cardFeatured : styles.cardSecondary, isBurn && styles.cardBurn]}>
         <View style={styles.topRow}>
           <View style={[styles.iconWrap, isFeatured ? styles.iconFeatured : styles.iconSecondary]}>{icon}</View>
           <Animated.View style={[styles.dot, dotStyle]} />
@@ -99,6 +100,9 @@ const styles = StyleSheet.create({
     borderColor: colors.practice.cardSecondaryBorder,
     borderRadius: 12,
     padding: spacing.md,
+  },
+  cardBurn: {
+    borderColor: '#2a1a1a',
   },
   topRow: {
     flexDirection: 'row',

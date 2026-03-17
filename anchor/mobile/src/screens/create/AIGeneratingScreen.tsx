@@ -1024,13 +1024,13 @@ export default function AIGeneratingScreen() {
         <View style={styles.intentionContainer}>
           {IS_ANDROID ? (
             <View style={[styles.intentionCard, styles.intentionCardAndroid]}>
-              <Text style={styles.intentionLabel}>MANIFESTING</Text>
+              <Text style={styles.intentionLabel}>FORGING</Text>
               <Text style={styles.intentionText}>"{intentionText}"</Text>
               <View style={styles.intentionBorder} />
             </View>
           ) : (
             <BlurView intensity={12} tint="dark" style={styles.intentionCard}>
-              <Text style={styles.intentionLabel}>MANIFESTING</Text>
+              <Text style={styles.intentionLabel}>FORGING</Text>
               <Text style={styles.intentionText}>"{intentionText}"</Text>
               <View style={styles.intentionBorder} />
             </BlurView>

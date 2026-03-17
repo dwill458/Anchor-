@@ -36,6 +36,7 @@ export const AnchorRevealScreen: React.FC = () => {
     const guideMode = useSettingsStore((state) => state.guideMode);
     const addAnchor = useAnchorStore((state) => state.addAnchor);
     const incrementAnchorCount = useAuthStore((state) => state.incrementAnchorCount);
+    const wallpaperPromptSeen = useAuthStore((state) => state.wallpaperPromptSeen);
 
     const {
         intentionText,
@@ -122,12 +123,20 @@ export const AnchorRevealScreen: React.FC = () => {
             updatedAt: new Date(),
         });
         incrementAnchorCount();
-        navigation.navigate('ChargeSetup', {
-            anchorId,
-        });
 
         // Clear heavy temporary data once the anchor record is created.
         setTempEnhancedImage(null);
+
+        if (!wallpaperPromptSeen) {
+            navigation.navigate('WallpaperPrompt', {
+                anchorId,
+                intentionText,
+                enhancedImageUrl: enhancedImageUrl || undefined,
+                sigilSvg: reinforcedSigilSvg || baseSigilSvg,
+            });
+        } else {
+            navigation.navigate('ChargeSetup', { anchorId });
+        }
     };
 
     return (

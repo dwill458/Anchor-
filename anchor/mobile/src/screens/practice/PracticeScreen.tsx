@@ -18,19 +18,15 @@ import type { Anchor, PracticeStackParamList } from '@/types';
 import { ZenBackground } from '@/components/common';
 import { useTabNavigation } from '@/contexts/TabNavigationContext';
 import { useAnchorStore } from '@/stores/anchorStore';
-import { useAuthStore } from '@/stores/authStore';
 import { useSessionStore } from '@/stores/sessionStore';
 import type { SessionLogEntry } from '@/stores/sessionStore';
 import { useSettingsStore, type DefaultChargeSetting } from '@/stores/settingsStore';
 import { safeHaptics } from '@/utils/haptics';
-import { calculateStreakWithGrace } from '@/utils/streak';
-import { getEffectiveStabilizeStreakDays, toDateOrNull } from '@/utils/stabilizeStats';
 import { colors, spacing, typography } from '@/theme';
 import { PRACTICE_COPY } from '@/constants/copy';
 import { AnchorHero } from './components/AnchorHero';
 import { AnchorSelectorSheet } from './components/AnchorSelectorSheet';
-import { DailyThreadDetailsSheet } from './components/DailyThreadDetailsSheet';
-import { DailyThreadPill } from './components/DailyThreadPill';
+import { ThreadStrengthBlock, getThreadState } from './components/ThreadStrengthBlock';
 import { InfoSheet } from './components/InfoSheet';
 import { ModePortalTile } from './components/ModePortalTile';
 import { PracticeHubHeader } from './components/PracticeHubHeader';
@@ -41,7 +37,7 @@ type PendingMode = 'charge' | 'stabilize' | 'burn' | 'quickActivate' | null;
 const AUTO_TEACHING_KEY = 'practice_teaching_auto_seen_v2';
 const DEEP_CHARGE_MINUTES_MIN = 2;
 const DEEP_CHARGE_MINUTES_MAX = 30;
-const FOCUS_SESSION_TITLE = 'FOCUS SESSION/ACTIVATION';
+const FOCUS_SESSION_TITLE = 'FOCUS SESSION';
 
 function getDefaultDeepChargeSeconds(defaultCharge: DefaultChargeSetting): number {
   if (defaultCharge.preset === 'custom') {
@@ -75,6 +71,10 @@ function toMillis(value?: Date | string): number {
   return Number.isNaN(parsed.getTime()) ? 0 : parsed.getTime();
 }
 
+function localDateString(d: Date): string {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
 function engagementRecency(anchor: Anchor): number {
   return Math.max(toMillis(anchor.lastActivatedAt), toMillis(anchor.chargedAt));
 }
@@ -101,13 +101,18 @@ export const PracticeScreen: React.FC = () => {
   const anchors = useAnchorStore((state) => state.anchors);
   const currentAnchorId = useAnchorStore((state) => state.currentAnchorId);
   const setCurrentAnchor = useAnchorStore((state) => state.setCurrentAnchor);
-  const user = useAuthStore((state) => state.user);
   const { defaultCharge } = useSettingsStore();
-  const { todayPractice, sessionLog, lastGraceDayUsedAt } = useSessionStore();
+  const {
+    sessionLog,
+    threadStrength,
+    totalSessionsCount,
+    lastPrimedAt,
+    weekHistory,
+    applyDecay,
+  } = useSessionStore();
 
   const [selectorVisible, setSelectorVisible] = useState(false);
   const [infoVisible, setInfoVisible] = useState(false);
-  const [threadVisible, setThreadVisible] = useState(false);
   const [pendingMode, setPendingMode] = useState<PendingMode>(null);
   const [autoTeachingSeen, setAutoTeachingSeen] = useState<boolean | null>(null);
 
@@ -149,15 +154,12 @@ export const PracticeScreen: React.FC = () => {
     [selectableAnchors, mostRecentAnchor, currentAnchorId]
   );
 
-  const progressLabel = todayPractice.sessionsCount > 0 ? '1/1' : '0/1';
-  const anchoredStreak = calculateStreakWithGrace(sessionLog, lastGraceDayUsedAt).currentStreak;
-  const lastStabilizeAt = toDateOrNull(user?.lastStabilizeAt);
-  const stabilizeStreakDays = getEffectiveStabilizeStreakDays(
-    user?.stabilizeStreakDays ?? 0,
-    lastStabilizeAt,
-    new Date()
-  );
-  const streakDays = Math.max(anchoredStreak, stabilizeStreakDays);
+  const threadState = getThreadState(threadStrength, lastPrimedAt);
+  const hasPrimedToday = lastPrimedAt === localDateString(new Date());
+  const ctaTitle = PRACTICE_COPY.primaryCTA;
+  const ctaSubtitle = hasPrimedToday
+    ? 'Focus Session · 10–60 sec'
+    : 'Restore the thread · 10–60 sec';
 
   const defaultDeepChargeSeconds = useMemo(
     () => getDefaultDeepChargeSeconds(defaultCharge),
@@ -252,10 +254,18 @@ export const PracticeScreen: React.FC = () => {
     }, [autoTeachingSeen, clearTeachingTimers, isPracticeTabActive, openAutoTeaching])
   );
 
+  // Apply thread strength decay on each screen focus
+  useFocusEffect(
+    useCallback(() => {
+      applyDecay();
+      return () => undefined;
+    }, [applyDecay])
+  );
+
   const headerAnim = useSharedValue(0);
+  const threadAnim = useSharedValue(0);
   const heroAnim = useSharedValue(0);
   const portalsAnim = useSharedValue(0);
-  const threadAnim = useSharedValue(0);
   const hasAnimatedRef = useRef(false);
 
   useFocusEffect(
@@ -263,25 +273,29 @@ export const PracticeScreen: React.FC = () => {
       if (!isPracticeTabActive) return () => undefined;
       if (reduceMotion) {
         headerAnim.value = 1;
+        threadAnim.value = 1;
         heroAnim.value = 1;
         portalsAnim.value = 1;
-        threadAnim.value = 1;
         return () => undefined;
       }
       if (hasAnimatedRef.current) return () => undefined;
       hasAnimatedRef.current = true;
       const timing = { duration: 360, easing: Easing.out(Easing.cubic) };
       headerAnim.value = withDelay(0, withTiming(1, timing));
-      heroAnim.value = withDelay(60, withTiming(1, timing));
-      portalsAnim.value = withDelay(130, withTiming(1, timing));
-      threadAnim.value = withDelay(210, withTiming(1, timing));
+      threadAnim.value = withDelay(60, withTiming(1, timing));
+      heroAnim.value = withDelay(130, withTiming(1, timing));
+      portalsAnim.value = withDelay(200, withTiming(1, timing));
       return () => undefined;
-    }, [headerAnim, heroAnim, isPracticeTabActive, portalsAnim, reduceMotion, threadAnim])
+    }, [headerAnim, threadAnim, heroAnim, isPracticeTabActive, portalsAnim, reduceMotion])
   );
 
   const headerStyle = useAnimatedStyle(() => ({
     opacity: headerAnim.value,
     transform: [{ translateY: (1 - headerAnim.value) * 12 }],
+  }));
+  const threadStyle = useAnimatedStyle(() => ({
+    opacity: threadAnim.value,
+    transform: [{ translateY: (1 - threadAnim.value) * 10 }],
   }));
   const heroStyle = useAnimatedStyle(() => ({
     opacity: heroAnim.value,
@@ -290,10 +304,6 @@ export const PracticeScreen: React.FC = () => {
   const portalsStyle = useAnimatedStyle(() => ({
     opacity: portalsAnim.value,
     transform: [{ translateY: (1 - portalsAnim.value) * 12 }],
-  }));
-  const threadStyle = useAnimatedStyle(() => ({
-    opacity: threadAnim.value,
-    transform: [{ translateY: (1 - threadAnim.value) * 10 }],
   }));
 
   const startCharge = useCallback(
@@ -374,21 +384,15 @@ export const PracticeScreen: React.FC = () => {
       setSelectorVisible(false);
       const pendingModeSelection = pendingMode;
       setPendingMode(null);
-
-      // Quick restart defaults to the last ritual type used for this anchor.
-      const anchorSessions = sessionLog
-        .filter((s) => s.anchorId === anchor.id)
-        .sort((a, b) => toMillis(b.completedAt) - toMillis(a.completedAt));
-      const last = anchorSessions[0];
-      const defaultMode: Exclude<PendingMode, null> = last
-        ? toModeFromSessionType(last.type)
-        : 'quickActivate';
+      setCurrentAnchor(anchor.id);
 
       const applySelection = () => {
-        // Use pending mode if set (e.g. tapped a mode tile first), otherwise
-        // route to this anchor's next suggested ritual so the selector always
-        // navigates the user forward.
-        runMode(pendingModeSelection ?? defaultMode, anchor);
+        // Changing the current anchor from the hero should only refresh the
+        // practice state. If the selector was opened from a mode tile, continue
+        // into that explicitly requested ritual for the chosen anchor.
+        if (pendingModeSelection) {
+          runMode(pendingModeSelection, anchor);
+        }
         selectingAnchorRef.current = false;
       };
 
@@ -401,7 +405,7 @@ export const PracticeScreen: React.FC = () => {
 
       applySelection();
     },
-    [markInteraction, pendingMode, runMode, sessionLog]
+    [markInteraction, pendingMode, runMode, setCurrentAnchor]
   );
 
   const anchorNextRituals = useMemo<Record<string, string>>(() => {
@@ -452,6 +456,8 @@ export const PracticeScreen: React.FC = () => {
     [defaultDeepChargeSeconds, selectedAnchor, startCharge, startQuickActivate, startStabilize]
   );
 
+  const isFading = threadState === 'fading';
+
   const suggestedRitual = useMemo(() => {
     if (!selectedAnchor) return null;
     if (selectedAnchor.isReleased) {
@@ -495,11 +501,19 @@ export const PracticeScreen: React.FC = () => {
             />
           </Animated.View>
 
+          <Animated.View style={threadStyle}>
+            <ThreadStrengthBlock
+              threadStrength={threadStrength}
+              totalSessionsCount={totalSessionsCount}
+              lastPrimedAt={lastPrimedAt}
+              weekHistory={weekHistory}
+              anchor={selectedAnchor}
+            />
+          </Animated.View>
+
           <Animated.View style={heroStyle}>
             <AnchorHero
               anchor={selectedAnchor}
-              animationsEnabled={isPracticeTabActive}
-              streakDays={streakDays}
               onPress={() => {
                 markInteraction();
                 setPendingMode(null);
@@ -525,33 +539,44 @@ export const PracticeScreen: React.FC = () => {
                   { opacity: pressed ? 0.9 : 1, transform: [{ scale: pressed ? 0.98 : 1 }] },
                 ]}
               >
-                <LinearGradient
-                  colors={[
-                    colors.practice.ctaGradientStart,
-                    colors.practice.ctaGradientMid,
-                    colors.practice.ctaGradientEnd,
-                  ]}
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 1, y: 1 }}
-                  style={styles.ctaButton}
-                >
-                  <View style={styles.ctaLeft}>
-                    <Text style={styles.ctaLabel}>TODAY'S PRACTICE</Text>
-                    <Text style={styles.ctaTitle}>{PRACTICE_COPY.primaryCTA}</Text>
-                    <Text style={styles.ctaSubtitle}>
-                      {suggestedRitual.title} • {suggestedRitual.subtitle}
-                    </Text>
+                {isFading ? (
+                  <View style={[styles.ctaButton, styles.ctaButtonFading]}>
+                    <View style={styles.ctaLeft}>
+                      <Text style={[styles.ctaLabel, styles.ctaLabelFading]}>TODAY'S PRACTICE</Text>
+                      <Text style={[styles.ctaTitle, styles.ctaTitleFading]}>{ctaTitle}</Text>
+                      <Text style={[styles.ctaSubtitle, styles.ctaSubtitleFading]}>{ctaSubtitle}</Text>
+                    </View>
+                    <View style={[styles.ctaArrow, styles.ctaArrowFading]}>
+                      <ChevronRight size={18} color="#3a3a4a" />
+                    </View>
                   </View>
-                  <View style={styles.ctaArrow}>
-                    <ChevronRight size={18} color={colors.practice.ctaTextPrimary} />
-                  </View>
-                </LinearGradient>
+                ) : (
+                  <LinearGradient
+                    colors={[
+                      colors.practice.ctaGradientStart,
+                      colors.practice.ctaGradientMid,
+                      colors.practice.ctaGradientEnd,
+                    ]}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 1 }}
+                    style={styles.ctaButton}
+                  >
+                    <View style={styles.ctaLeft}>
+                      <Text style={styles.ctaLabel}>TODAY'S PRACTICE</Text>
+                      <Text style={styles.ctaTitle}>{ctaTitle}</Text>
+                      <Text style={styles.ctaSubtitle}>{ctaSubtitle}</Text>
+                    </View>
+                    <View style={styles.ctaArrow}>
+                      <ChevronRight size={18} color={colors.practice.ctaTextPrimary} />
+                    </View>
+                  </LinearGradient>
+                )}
               </Pressable>
             </Animated.View>
           )}
 
           <Animated.View style={[styles.portalsWrap, portalsStyle]}>
-            <Text style={styles.sectionLabel}>PRACTICE MODES</Text>
+            <Text style={styles.sectionLabel}>Other modes</Text>
             <ModePortalTile
               variant="charge"
               title={PRACTICE_COPY.rituals.charge.title}
@@ -563,34 +588,30 @@ export const PracticeScreen: React.FC = () => {
                 runMode('charge');
               }}
             />
-            <View style={styles.portalRow}>
-              <ModePortalTile
-                style={styles.portalHalf}
-                variant="stabilize"
-                title={PRACTICE_COPY.rituals.stabilize.title}
-                meaning={PRACTICE_COPY.rituals.stabilize.meaning}
-                durationHint={PRACTICE_COPY.rituals.stabilize.duration}
-                icon={<Wind size={16} color={colors.gold} />}
-                onPress={() => {
-                  markInteraction();
-                  runMode('stabilize');
-                }}
-              />
-              <ModePortalTile
-                style={styles.portalHalf}
-                variant="stabilize"
-                title={FOCUS_SESSION_TITLE}
-                meaning={PRACTICE_COPY.rituals.quickActivate.meaning}
-                durationHint={PRACTICE_COPY.rituals.quickActivate.duration}
-                icon={<Zap size={16} color={colors.gold} />}
-                onPress={() => {
-                  markInteraction();
-                  runMode('quickActivate');
-                }}
-              />
-            </View>
             <ModePortalTile
-              variant="charge"
+              variant="stabilize"
+              title={PRACTICE_COPY.rituals.stabilize.title}
+              meaning={PRACTICE_COPY.rituals.stabilize.meaning}
+              durationHint={PRACTICE_COPY.rituals.stabilize.duration}
+              icon={<Wind size={16} color={colors.gold} />}
+              onPress={() => {
+                markInteraction();
+                runMode('stabilize');
+              }}
+            />
+            <ModePortalTile
+              variant="stabilize"
+              title={FOCUS_SESSION_TITLE}
+              meaning={PRACTICE_COPY.rituals.quickActivate.meaning}
+              durationHint={PRACTICE_COPY.rituals.quickActivate.duration}
+              icon={<Zap size={16} color={colors.gold} />}
+              onPress={() => {
+                markInteraction();
+                runMode('quickActivate');
+              }}
+            />
+            <ModePortalTile
+              variant="burn"
               title={PRACTICE_COPY.rituals.burn.title}
               meaning={PRACTICE_COPY.rituals.burn.meaning}
               durationHint={PRACTICE_COPY.rituals.burn.duration}
@@ -602,16 +623,6 @@ export const PracticeScreen: React.FC = () => {
             />
           </Animated.View>
 
-          <Animated.View style={threadStyle}>
-            <DailyThreadPill
-              progressLabel={progressLabel}
-              streakDays={streakDays}
-              onPress={() => {
-                markInteraction();
-                setThreadVisible(true);
-              }}
-            />
-          </Animated.View>
         </Animated.ScrollView>
       </SafeAreaView>
 
@@ -635,13 +646,6 @@ export const PracticeScreen: React.FC = () => {
         }}
       />
 
-      <DailyThreadDetailsSheet
-        visible={threadVisible}
-        onClose={() => setThreadVisible(false)}
-        todaySessionsCount={todayPractice.sessionsCount}
-        streakDays={streakDays}
-        sessions={sessionLog}
-      />
     </View>
   );
 };
@@ -661,13 +665,6 @@ const styles = StyleSheet.create({
   },
   portalsWrap: {
     gap: spacing.sm,
-  },
-  portalRow: {
-    flexDirection: 'row',
-    gap: spacing.sm,
-  },
-  portalHalf: {
-    flex: 1,
   },
   ctaPressable: {
     marginBottom: spacing.md,
@@ -714,6 +711,25 @@ const styles = StyleSheet.create({
     backgroundColor: colors.practice.ctaArrowSurface,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  ctaButtonFading: {
+    backgroundColor: '#1e2028',
+    borderWidth: 1,
+    borderColor: '#2a2a38',
+    shadowOpacity: 0,
+    elevation: 0,
+  },
+  ctaLabelFading: {
+    color: '#555a6a',
+  },
+  ctaTitleFading: {
+    color: '#3a3a4a',
+  },
+  ctaSubtitleFading: {
+    color: '#3a3a4a',
+  },
+  ctaArrowFading: {
+    backgroundColor: '#2a2a38',
   },
   sectionLabel: {
     fontFamily: typography.fontFamily.serif,

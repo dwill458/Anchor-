@@ -155,7 +155,7 @@ export const DistilledLettersModal: React.FC<DistilledLettersModalProps> = ({
         </Text>
 
         {/* Helper Text */}
-        <Text style={styles.helperText}>Based on traditional sigil methods</Text>
+        <Text style={styles.helperText}>A method rooted in symbolic reduction</Text>
       </View>
     );
   }

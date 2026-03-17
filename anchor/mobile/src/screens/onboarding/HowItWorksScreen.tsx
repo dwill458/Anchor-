@@ -28,19 +28,19 @@ const STEPS = [
   {
     number: '1',
     title: 'Set Your Intention',
-    description: 'Name what you want to manifest. Be specific. Make it real.',
+    description: 'Name what you want to achieve. Be specific. Make it real.',
     icon: Target,
   },
   {
     number: '2',
     title: 'Forge Your Sigil',
-    description: 'We transform your intention into a sacred visual symbol—your personal Anchor.',
+    description: 'We transform your intention into a personal visual symbol—your Anchor.',
     icon: Sparkles,
   },
   {
     number: '3',
     title: 'Charge with Ritual',
-    description: 'Lock in the energy through embodied practice—breath, focus, emotion.',
+    description: 'Build the connection through embodied practice—breath, focus, emotion.',
     icon: Flame,
   },
   {

@@ -18,3 +18,4 @@ export { AIVariationPickerScreen } from './AIVariationPickerScreen';
 export { MantraCreationScreen } from './MantraCreationScreen';
 export { default as ManualForgeScreen } from './ManualForgeScreen';
 export { AnchorRevealScreen } from './AnchorRevealScreen';
+export { WallpaperPromptScreen } from './WallpaperPromptScreen';

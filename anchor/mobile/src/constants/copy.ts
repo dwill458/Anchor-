@@ -1,12 +1,12 @@
 export const PRACTICE_COPY = {
     headerTitle: "Practice",
     headerSubtitle: "Return to the symbol. Keep the thread.",
-    primaryCTA: "Continue Today",
+    primaryCTA: "Begin Priming",
     dailyThreadTitle: "Daily thread",
     dailyThreadBody: "One session today keeps the current running.",
     rituals: {
         charge: {
-            title: "REINFORCE/DEEP CHARGE",
+            title: "DEEP PRIME",
             meaning: "Imprint the symbol into attention.",
             duration: "2 mins to custom",
         },
@@ -16,7 +16,7 @@ export const PRACTICE_COPY = {
             duration: "30 sec to 3 min",
         },
         burn: {
-            title: "BURN & RELEASE",
+            title: "RELEASE",
             meaning: "Close the loop. Release the hold.",
             duration: "45 sec to 2 min",
         },
