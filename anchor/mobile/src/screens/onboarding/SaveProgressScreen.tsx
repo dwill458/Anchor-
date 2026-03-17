@@ -7,7 +7,7 @@
  * - Strong CTA to create first Anchor
  */
 
-import React, { useState } from 'react';
+import React from 'react';
 import {
   View,
   Text,
@@ -15,12 +15,10 @@ import {
   TouchableOpacity,
   ScrollView,
   StatusBar,
-  ActivityIndicator,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { ArrowRight, Cloud, Lock, Zap } from 'lucide-react-native';
 import { useAuthStore } from '@/stores/authStore';
-import { useToast } from '@/components/ToastProvider';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { OnboardingStackParamList } from '@/types';
 import { colors, spacing, typography } from '@/theme';
@@ -43,40 +41,14 @@ const BENEFITS = [
 ];
 
 export const SaveProgressScreen: React.FC<Props> = ({ navigation }) => {
-  const { completeOnboarding, setAuthenticated } = useAuthStore();
-  const toast = useToast();
-  const [isLoading, setIsLoading] = useState(false);
+  const { completeOnboarding } = useAuthStore();
 
-  const handleCreateAccount = async () => {
-    try {
-      setIsLoading(true);
-      // TODO: Navigate to SignUp screen or implement inline signup
-      // For now, we'll just mark as authenticated and complete onboarding
-      await new Promise((resolve) => setTimeout(resolve, 500));
-      setAuthenticated(true);
-      completeOnboarding();
-      toast.success('Welcome to Anchor!');
-      // Navigation will be handled by RootNavigator
-    } catch (error) {
-      toast.error('Failed to create account');
-    } finally {
-      setIsLoading(false);
-    }
+  const handleCreateAccount = () => {
+    navigation.navigate('SignUp');
   };
 
-  const handleSignIn = async () => {
-    try {
-      setIsLoading(true);
-      // TODO: Navigate to Login screen or implement inline login
-      await new Promise((resolve) => setTimeout(resolve, 500));
-      setAuthenticated(true);
-      completeOnboarding();
-      toast.success('Welcome back!');
-    } catch (error) {
-      toast.error('Failed to sign in');
-    } finally {
-      setIsLoading(false);
-    }
+  const handleSignIn = () => {
+    navigation.navigate('Login');
   };
 
   const handleSkip = () => {
@@ -130,7 +102,6 @@ export const SaveProgressScreen: React.FC<Props> = ({ navigation }) => {
             style={styles.primaryButton}
             onPress={handleCreateAccount}
             activeOpacity={0.8}
-            disabled={isLoading}
           >
             <LinearGradient
               colors={[colors.gold, '#B89B2F']}
@@ -138,14 +109,8 @@ export const SaveProgressScreen: React.FC<Props> = ({ navigation }) => {
               end={{ x: 1, y: 0 }}
               style={styles.primaryGradient}
             >
-              {isLoading ? (
-                <ActivityIndicator color={colors.navy} />
-              ) : (
-                <>
-                  <Text style={styles.primaryText}>Create My First Anchor</Text>
-                  <ArrowRight size={20} color={colors.navy} strokeWidth={2.5} />
-                </>
-              )}
+              <Text style={styles.primaryText}>Create My First Anchor</Text>
+              <ArrowRight size={20} color={colors.navy} strokeWidth={2.5} />
             </LinearGradient>
           </TouchableOpacity>
 
@@ -154,7 +119,6 @@ export const SaveProgressScreen: React.FC<Props> = ({ navigation }) => {
             style={styles.secondaryButton}
             onPress={handleSignIn}
             activeOpacity={0.7}
-            disabled={isLoading}
           >
             <Text style={styles.secondaryText}>Already have an account? Sign in</Text>
           </TouchableOpacity>
@@ -164,7 +128,6 @@ export const SaveProgressScreen: React.FC<Props> = ({ navigation }) => {
             style={styles.skipButton}
             onPress={handleSkip}
             activeOpacity={0.7}
-            disabled={isLoading}
           >
             <Text style={styles.skipText}>Skip for now</Text>
           </TouchableOpacity>

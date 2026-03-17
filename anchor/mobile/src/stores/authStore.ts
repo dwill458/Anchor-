@@ -8,6 +8,7 @@ import { AuthService } from '@/services/AuthService';
 import { useAnchorStore } from '@/stores/anchorStore';
 import { calculateStreak } from '@/utils/streakHelpers';
 import { applyStabilizeCompletion, toDateOrNull } from '@/utils/stabilizeStats';
+import { logger } from '@/utils/logger';
 
 /**
  * Hybrid storage engine that selectively routes sensitive data to SecureStore
@@ -32,7 +33,7 @@ const hybridStorage: StateStorage = {
 
       return JSON.stringify(parsed);
     } catch (error) {
-      console.error('Failed to parse auth storage data:', error);
+      logger.error('Failed to parse auth storage data:', error);
       return null;
     }
   },
@@ -54,7 +55,7 @@ const hybridStorage: StateStorage = {
       // Save the sanitized state in AsyncStorage
       await AsyncStorage.setItem(name, JSON.stringify({ ...parsed, state }));
     } catch (error) {
-      console.error('Failed to save auth storage data:', error);
+      logger.error('Failed to save auth storage data:', error);
     }
   },
   removeItem: async (name: string): Promise<void> => {
@@ -202,7 +203,7 @@ export const useAuthStore = create<AuthState>()(
             user: profileData.user, // Keep user in sync
           });
         } catch (error) {
-          console.error('Failed to fetch profile:', error);
+          logger.error('Failed to fetch profile:', error);
           throw error;
         }
       },
@@ -315,7 +316,7 @@ export const useAuthStore = create<AuthState>()(
             }));
           }
         } catch (error) {
-          console.warn('Failed to sync stabilize stats, saved locally only:', error);
+          logger.warn('Failed to sync stabilize stats, saved locally only:', error);
         }
 
         return flags;

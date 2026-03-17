@@ -8,6 +8,7 @@
  */
 
 import sharp from 'sharp';
+import { logger } from './logger';
 
 export interface RasterizeOptions {
   /** Output image width in pixels */
@@ -289,7 +290,7 @@ export async function rasterizeToFile(
   const result = await rasterizeSVG(svgString, options);
   const fs = await import('fs/promises');
   await fs.writeFile(outputPath, result.buffer);
-  console.log(`✅ Rasterized SVG saved to ${outputPath} (${result.size} bytes, ${result.processingTimeMs}ms)`);
+  logger.debug(`[SVGRasterizer] Saved to ${outputPath}`, { size: result.size, processingTimeMs: result.processingTimeMs });
 }
 
 /**

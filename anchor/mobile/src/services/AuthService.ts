@@ -30,11 +30,9 @@ const createMockUser = (overrides: Partial<User> = {}): User => ({
 
 export class AuthService {
   static initialize(): void {
-    console.log('AuthService (Mock) initialized');
   }
 
   static async signInWithEmail(email: string, _password: string): Promise<AuthResult> {
-    console.log('Mock signInWithEmail', email);
     await new Promise(resolve => setTimeout(resolve, 1000));
 
     return {
@@ -49,7 +47,6 @@ export class AuthService {
     _password: string,
     displayName?: string
   ): Promise<AuthResult> {
-    console.log('Mock signUpWithEmail', email);
     await new Promise(resolve => setTimeout(resolve, 1000));
 
     return {
@@ -69,7 +66,6 @@ export class AuthService {
   }
 
   static async signInWithGoogle(): Promise<AuthResult> {
-    console.log('Mock signInWithGoogle');
     await new Promise(resolve => setTimeout(resolve, 1000));
 
     // In a real implementation, this would check if user exists in backend
@@ -87,7 +83,6 @@ export class AuthService {
   }
 
   static async signOut(): Promise<void> {
-    console.log('Mock signOut');
     await new Promise(resolve => setTimeout(resolve, 500));
   }
 
@@ -104,7 +99,6 @@ export class AuthService {
   }
 
   static async sendPasswordResetEmail(email: string): Promise<void> {
-    console.log('Mock sendPasswordResetEmail', email);
     await new Promise(resolve => setTimeout(resolve, 500));
   }
 

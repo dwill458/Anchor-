@@ -5,12 +5,72 @@
  */
 
 import { Router, Response } from 'express';
-import { PrismaClient } from '@prisma/client';
+import { z } from 'zod';
 import { AuthRequest, authMiddleware } from '../middleware/auth';
 import { AppError } from '../middleware/errorHandler';
+import { prisma } from '../../lib/prisma';
 
 const router = Router();
-const prisma = new PrismaClient();
+
+// --- Zod schemas ---
+
+const StructureVariantEnum = z.enum(['dense', 'balanced', 'minimal']);
+
+const CreateAnchorSchema = z.object({
+  intentionText: z.string().min(1).max(500),
+  category: z.string().min(1),
+  distilledLetters: z.array(z.string()).min(1),
+  baseSigilSvg: z.string().min(1),
+  structureVariant: StructureVariantEnum.optional(),
+  // Optional fields passed through without strict validation
+  reinforcedSigilSvg: z.string().optional(),
+  reinforcementMetadata: z.unknown().optional(),
+  enhancedImageUrl: z.string().optional(),
+  enhancementMetadata: z.unknown().optional(),
+  mantraText: z.string().optional(),
+  mantraPronunciation: z.string().optional(),
+  mantraAudioUrl: z.string().optional(),
+});
+
+const UpdateAnchorSchema = z.object({
+  intentionText: z.string().min(1).max(500).optional(),
+  category: z.string().min(1).optional(),
+  structureVariant: StructureVariantEnum.optional(),
+  reinforcedSigilSvg: z.string().nullable().optional(),
+  reinforcementMetadata: z.unknown().optional(),
+  enhancedImageUrl: z.string().nullable().optional(),
+  enhancementMetadata: z.unknown().optional(),
+  mantraText: z.string().nullable().optional(),
+  mantraPronunciation: z.string().nullable().optional(),
+  mantraAudioUrl: z.string().nullable().optional(),
+  isCharged: z.boolean().optional(),
+  chargedAt: z.string().nullable().optional(),
+  chargeMethod: z.string().nullable().optional(),
+  isArchived: z.boolean().optional(),
+  archivedAt: z.string().nullable().optional(),
+  isShared: z.boolean().optional(),
+  sharedAt: z.string().nullable().optional(),
+});
+
+const ChargeAnchorSchema = z.object({
+  chargeType: z.enum(['initial_quick', 'initial_deep', 'recharge']),
+  durationSeconds: z.number().min(1),
+});
+
+const ActivateAnchorSchema = z.object({
+  activationType: z.enum(['visual', 'mantra', 'deep']),
+  durationSeconds: z.number().min(1),
+});
+
+// Validates req.body against a schema; throws AppError on failure.
+function validate<T>(schema: z.ZodSchema<T>, data: unknown): T {
+  const result = schema.safeParse(data);
+  if (!result.success) {
+    const message = result.error.errors.map(e => `${e.path.join('.')}: ${e.message}`).join(', ');
+    throw new AppError(`Validation error: ${message}`, 400, 'VALIDATION_ERROR');
+  }
+  return result.data;
+}
 
 // All anchor routes require authentication
 router.use(authMiddleware);
@@ -55,16 +115,7 @@ router.post('/', async (req: AuthRequest, res: Response) => {
       mantraText,
       mantraPronunciation,
       mantraAudioUrl,
-    } = req.body;
-
-    // Validation - required fields
-    if (!intentionText || !category || !distilledLetters || !baseSigilSvg) {
-      throw new AppError(
-        'Missing required fields: intentionText, category, distilledLetters, baseSigilSvg',
-        400,
-        'VALIDATION_ERROR'
-      );
-    }
+    } = validate(CreateAnchorSchema, req.body);
 
     // Get user from database
     const user = await prisma.user.findUnique({
@@ -308,7 +359,7 @@ router.put('/:id', async (req: AuthRequest, res: Response) => {
       archivedAt,
       isShared,
       sharedAt,
-    } = req.body;
+    } = validate(UpdateAnchorSchema, req.body);
 
     // Build update object with only the allowed fields that were provided
     type AnchorUpdate = {
@@ -464,7 +515,7 @@ router.post('/:id/charge', async (req: AuthRequest, res: Response) => {
     }
 
     const { id } = req.params;
-    const { chargeType, durationSeconds } = req.body;
+    const { chargeType, durationSeconds } = validate(ChargeAnchorSchema, req.body);
 
     // Get user from database
     const user = await prisma.user.findUnique({
@@ -537,7 +588,7 @@ router.post('/:id/activate', async (req: AuthRequest, res: Response) => {
     }
 
     const { id } = req.params;
-    const { activationType, durationSeconds } = req.body;
+    const { activationType, durationSeconds } = validate(ActivateAnchorSchema, req.body);
 
     // Get user from database
     const user = await prisma.user.findUnique({

@@ -132,6 +132,10 @@ model Anchor {
   charges               Charge[]
 
   @@index([userId])
+  @@index([userId, isArchived])         // covers all vault queries (always filter isArchived=false)
+  @@index([userId, isCharged])          // covers isCharged filter in GET /api/anchors
+  @@index([userId, updatedAt])          // covers default orderBy (updatedAt desc)
+  @@index([userId, createdAt])          // covers createdAt orderBy
   @@index([category])
   @@index([isShared])
   @@map("anchors")

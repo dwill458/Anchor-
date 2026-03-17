@@ -1,4 +1,5 @@
 import * as Haptics from 'expo-haptics';
+import { logger } from '@/utils/logger';
 
 /**
  * Safe haptics wrapper that won't crash if haptics fail
@@ -9,7 +10,7 @@ export const safeHaptics = {
             await Haptics.impactAsync(style);
         } catch (error) {
             // Silently fail on devices that don't support haptics
-            console.warn('Haptics not supported:', error);
+            logger.warn('Haptics not supported:', error);
         }
     },
 
@@ -17,7 +18,7 @@ export const safeHaptics = {
         try {
             await Haptics.selectionAsync();
         } catch (error) {
-            console.warn('Haptics not supported:', error);
+            logger.warn('Haptics not supported:', error);
         }
     },
 
@@ -25,7 +26,7 @@ export const safeHaptics = {
         try {
             await Haptics.notificationAsync(type);
         } catch (error) {
-            console.warn('Haptics not supported:', error);
+            logger.warn('Haptics not supported:', error);
         }
     },
 };

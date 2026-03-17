@@ -1,5 +1,6 @@
 import { GoogleAuth } from 'google-auth-library';
 import sharp from 'sharp';
+import { logger } from '../utils/logger';
 
 interface EnhanceSigilParams {
     baseSigilSvg: string;
@@ -49,9 +50,7 @@ export class GoogleImagenV3 {
             numberOfVariations = 4
         } = params;
 
-        console.log(`🎨 Enhancing sigil for: "${intentionText}"`);
-        console.log(`🖌️  Style: ${styleApproach}`);
-        console.log(`🔢 Generating ${numberOfVariations} variations`);
+        logger.info('[ImagenV3] Starting sigil enhancement', { styleApproach, numberOfVariations });
 
         const startTime = Date.now();
 
@@ -66,7 +65,7 @@ export class GoogleImagenV3 {
         // Step 2: Create the winning prompt
         const prompt = this.createPrompt(intentionText, styleApproach);
 
-        console.log('📝 Prompt:', prompt);
+        logger.debug('[ImagenV3] Prompt prepared');
 
         // Step 3: Generate all variations in parallel
         const variations = await Promise.all(
@@ -77,7 +76,7 @@ export class GoogleImagenV3 {
 
         const totalTime = (Date.now() - startTime) / 1000;
 
-        console.log(`✅ Generated ${variations.length} variations in ${totalTime}s`);
+        logger.info(`[ImagenV3] Generated ${variations.length} variations in ${totalTime}s`);
 
         return {
             images: variations,
@@ -266,7 +265,7 @@ export class GoogleImagenV3 {
             }
         };
 
-        console.log(`🔄 Generating variation ${variationIndex + 1}...`);
+        logger.debug(`[ImagenV3] Generating variation ${variationIndex + 1}`);
 
         try {
             // Use axios for broaded compatibility or check if fetch is on global
@@ -292,7 +291,7 @@ export class GoogleImagenV3 {
                 throw new Error('No image data in response');
             }
 
-            console.log(`✅ Variation ${variationIndex + 1} generated`);
+            logger.debug(`[ImagenV3] Variation ${variationIndex + 1} generated`);
 
             return {
                 base64: prediction.bytesBase64Encoded,
@@ -301,7 +300,7 @@ export class GoogleImagenV3 {
             };
 
         } catch (error: any) {
-            console.error(`❌ Failed to generate variation ${variationIndex + 1}:`, error);
+            logger.error(`[ImagenV3] Failed to generate variation ${variationIndex + 1}`, error);
             throw error;
         }
     }
@@ -310,7 +309,7 @@ export class GoogleImagenV3 {
      * Prepare Base Image and Mask
      */
     private async prepareImageAndMask(svgString: string): Promise<{ baseImage: Buffer, maskImage: Buffer }> {
-        console.log('🔄 Preparing Base Image and Mask...');
+        logger.debug('[ImagenV3] Preparing Base Image and Mask');
 
         let cleanSvg = svgString;
         if (!cleanSvg.includes('viewBox')) {
@@ -343,7 +342,7 @@ export class GoogleImagenV3 {
             .png()
             .toBuffer();
 
-        console.log('✅ Image and Mask prepared');
+        logger.debug('[ImagenV3] Image and Mask prepared');
 
         return { baseImage, maskImage };
     }
