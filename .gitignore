@@ -92,6 +92,8 @@ backend/prisma/migrations/*
 !backend/prisma/migrations/.gitkeep
 !backend/prisma/migrations/20260213000000_add_stabilize_stats/
 !backend/prisma/migrations/20260213000000_add_stabilize_stats/**
+!backend/prisma/migrations/20260317000000_add_anchor_query_indexes/
+!backend/prisma/migrations/20260317000000_add_anchor_query_indexes/**
 
 # ----------------------------------------------------------------------------
 # Temporary Files
