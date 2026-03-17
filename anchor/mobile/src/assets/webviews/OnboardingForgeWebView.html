@@ -1,0 +1,224 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --gold: #D4AF37;
+    --gold-dim: rgba(212,175,55,0.15);
+    --navy: #0F1419;
+    --silver: #C0C0C0;
+  }
+
+  html, body {
+    width: 320px;
+    height: 320px;
+    background: #0F1419;
+    overflow: hidden;
+  }
+
+  .forge-container {
+    position: relative;
+    width: 320px;
+    height: 320px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(15, 20, 25, 0.85);
+    border: 1px solid rgba(212,175,55,0.2);
+    border-radius: 4px;
+  }
+
+  .forge-container::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: radial-gradient(ellipse at center, rgba(62,44,91,0.4) 0%, transparent 70%);
+    pointer-events: none;
+  }
+
+  .intention-text {
+    font-family: Georgia, 'Times New Roman', serif;
+    font-size: 14px;
+    font-style: italic;
+    color: var(--silver);
+    letter-spacing: 0.05em;
+    position: absolute;
+    top: 24px;
+    left: 0; right: 0;
+    text-align: center;
+    transition: opacity 0.4s ease;
+    user-select: none;
+  }
+
+  .forge-sigil {
+    opacity: 0;
+    transition: opacity 0.8s ease;
+  }
+
+  .forge-btn {
+    position: absolute;
+    bottom: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+    padding: 8px 28px;
+    background: var(--gold);
+    border-radius: 6px;
+    font-family: Georgia, serif;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.2em;
+    color: var(--navy);
+    cursor: pointer;
+    white-space: nowrap;
+    border: none;
+    box-shadow: 0 4px 16px rgba(212,175,55,0.3);
+    text-transform: uppercase;
+    transition: background 0.3s, color 0.3s, box-shadow 0.3s;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  .forge-particles {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+  }
+
+  .particle {
+    position: absolute;
+    border-radius: 50%;
+    background: var(--gold);
+    opacity: 0;
+  }
+</style>
+</head>
+<body>
+<div class="forge-container">
+  <div class="intention-text" id="intentionText">"Deep work for 4 hours"</div>
+
+  <img class="forge-sigil" id="forgeSigil" width="240" height="240" style="object-fit: contain;" />
+
+  <div class="forge-particles" id="forgeParticles"></div>
+
+  <button class="forge-btn" id="forgeBtn">&#9889; FORGE</button>
+</div>
+
+<script>
+  var forgeAnimating = false;
+  var forgeComplete = false;
+
+  var intentionEl = document.getElementById('intentionText');
+  var sigilEl = document.getElementById('forgeSigil');
+  var btn = document.getElementById('forgeBtn');
+  var particlesEl = document.getElementById('forgeParticles');
+
+  function spawnParticles() {
+    for (var i = 0; i < 3; i++) {
+      (function() {
+        var p = document.createElement('div');
+        p.className = 'particle';
+        var size = Math.random() * 3 + 2;
+        var x = 160 + (Math.random() - 0.5) * 160;
+        var y = 160 + (Math.random() - 0.5) * 160;
+        p.style.width = size + 'px';
+        p.style.height = size + 'px';
+        p.style.left = x + 'px';
+        p.style.top = y + 'px';
+        particlesEl.appendChild(p);
+
+        var dx = (Math.random() - 0.5) * 60;
+        var dy = (Math.random() - 0.5) * 60;
+        var dur = 600 + Math.random() * 400;
+
+        var anim = p.animate([
+          { opacity: 0.9, transform: 'translate(0,0) scale(1)' },
+          { opacity: 0, transform: 'translate(' + dx + 'px,' + dy + 'px) scale(0)' }
+        ], { duration: dur, easing: 'ease-out', fill: 'forwards' });
+
+        anim.onfinish = function() { p.remove(); };
+      })();
+    }
+  }
+
+  function triggerForge() {
+    if (forgeAnimating || forgeComplete) return;
+    forgeAnimating = true;
+
+    btn.textContent = 'Forging...';
+    btn.style.background = 'rgba(212,175,55,0.3)';
+    btn.style.color = 'rgba(212,175,55,0.6)';
+    btn.style.boxShadow = 'none';
+
+    var step = 0;
+    var dissolveInterval = setInterval(function() {
+      step++;
+      intentionEl.style.opacity = Math.max(0, 1 - step * 0.15) + '';
+      spawnParticles();
+      if (step >= 7) {
+        clearInterval(dissolveInterval);
+        intentionEl.style.opacity = '0';
+
+        sigilEl.style.opacity = '1';
+        sigilEl.style.filter = 'drop-shadow(0 0 20px rgba(212,175,55,0.9))';
+
+        setTimeout(function() {
+          sigilEl.style.filter = 'drop-shadow(0 0 12px rgba(212,175,55,0.6))';
+        }, 600);
+
+        btn.textContent = '\u2713 Forged';
+        btn.style.background = 'rgba(212,175,55,0.15)';
+        btn.style.color = '#D4AF37';
+        btn.style.border = '1px solid rgba(212,175,55,0.3)';
+        btn.style.boxShadow = 'none';
+
+        forgeAnimating = false;
+        forgeComplete = true;
+
+        // Notify React Native
+        if (window.ReactNativeWebView) {
+          window.ReactNativeWebView.postMessage(JSON.stringify({ event: 'forgeComplete' }));
+        }
+      }
+    }, 120);
+  }
+
+  // Override sigil SVG if RN sends one
+  function receiveMessage(event) {
+    try {
+      var data = JSON.parse(event.data);
+      if (data.cmd === 'forge') {
+        triggerForge();
+      } else if (data.cmd === 'reset') {
+        forgeAnimating = false;
+        forgeComplete = false;
+        intentionEl.style.opacity = '1';
+        sigilEl.style.opacity = '0';
+        sigilEl.style.filter = 'drop-shadow(0 0 12px rgba(212,175,55,0.6))';
+        btn.textContent = '\u26A1 FORGE';
+        btn.style.background = '#D4AF37';
+        btn.style.color = '#0F1419';
+        btn.style.border = 'none';
+        btn.style.boxShadow = '0 4px 16px rgba(212,175,55,0.3)';
+        // Clear any lingering particles
+        while (particlesEl.firstChild) { particlesEl.removeChild(particlesEl.firstChild); }
+      } else if (data.cmd === 'setSigil' && data.svg) {
+        sigilEl.outerHTML = data.svg;
+        sigilEl = document.getElementById('forgeSigil');
+      }
+    } catch (e) {
+      // ignore parse errors
+    }
+  }
+
+  // Android
+  document.addEventListener('message', receiveMessage);
+  // iOS
+  window.addEventListener('message', receiveMessage);
+
+  btn.addEventListener('click', triggerForge);
+</script>
+</body>
+</html>

@@ -1,0 +1,10 @@
+Both GOOGLE_API_KEY and GEMINI_API_KEY are set. Using GOOGLE_API_KEY.
+[2026-03-16T01:12:27.161Z] [INFO] [GeminiImageService] Initializing... {"hasGeminiKey":true,"hasGoogleKey":true,"apiKeyLength":39}
+Is Available: true
+Testing generateVariationWithNanoBanana...
+[2026-03-16T01:12:27.165Z] [INFO] [GeminiImageService] Generating 1 variations {"intention":"Test peace and calm","style":"watercolor","tier":"draft"}
+[2026-03-16T01:12:27.183Z] [DEBUG] [GeminiImageService] Archetype motifs selected {"intention":"Test peace and calm","themes":["peace"],"motifCount":4}
+[2026-03-16T01:12:27.183Z] [INFO] [GeminiImageService] Generating variation 1 with Nano Banana (gemini-3.1-flash-image-preview)
+[2026-03-16T01:12:38.848Z] [INFO] [GeminiImageService] Successfully generated 1 variations {"totalTime":12,"tier":"draft"}
+Success! Generated variations: 1
+Model used: gemini-3.1-flash-image-preview
