@@ -114,6 +114,11 @@ export const useSessionStore = create<SessionState>()(
       lastDecayDate: null,
 
       recordSession: (entry) => {
+        // Apply decay before granting any priming gains so sessions started
+        // from non-PracticeScreen routes (e.g. Vault → ActivationRitual) don't
+        // skip missed-day decay and inflate thread strength on stale values.
+        get().applyDecay();
+
         const id = `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
         const full: SessionLogEntry = { id, ...entry };
 

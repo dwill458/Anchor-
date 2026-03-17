@@ -50,10 +50,6 @@ export const VaultStackNavigator: React.FC<VaultStackNavigatorProps> = ({ onRout
   const initialRouteName = shouldRedirectToCreation ? 'FirstAnchorCreation' : 'Vault';
 
   React.useEffect(() => {
-    onRouteChange?.(initialRouteName);
-  }, [initialRouteName, onRouteChange]);
-
-  React.useEffect(() => {
     if (shouldRedirectToCreation) {
       setShouldRedirectToCreation(false);
     }
