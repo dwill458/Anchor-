@@ -7,8 +7,9 @@
  * - Mantra generation
  */
 
-import express, { Request, Response } from 'express';
+import express, { Response } from 'express';
 import { z } from 'zod';
+import { AuthRequest, authMiddleware } from '../middleware/auth';
 import {
   getCostEstimate,
   enhanceSigilWithAI,
@@ -118,7 +119,7 @@ function validateOrRespond<T>(
  * - passingCount: Number of variations that pass structure threshold
  * - bestVariationIndex: Index of highest scoring variation
  */
-router.post('/enhance-controlnet', async (req: Request, res: Response): Promise<void> => {
+router.post('/enhance-controlnet', authMiddleware, async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const parsed = validateOrRespond(EnhanceControlNetSchema, req.body, res);
     if (!parsed) return;
@@ -278,7 +279,7 @@ router.post('/enhance-controlnet', async (req: Request, res: Response): Promise<
  * POST /api/ai/mantra
  * Generate mantra from distilled letters
  */
-router.post('/mantra', async (req: Request, res: Response): Promise<void> => {
+router.post('/mantra', authMiddleware, async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const parsed = validateOrRespond(MantraSchema, req.body, res);
     if (!parsed) return;
@@ -307,7 +308,7 @@ router.post('/mantra', async (req: Request, res: Response): Promise<void> => {
  * POST /api/ai/mantra/audio
  * Generate audio for mantras using Google TTS
  */
-router.post('/mantra/audio', async (req: Request, res: Response): Promise<void> => {
+router.post('/mantra/audio', authMiddleware, async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const parsed = validateOrRespond(MantraAudioSchema, req.body, res);
     if (!parsed) return;
@@ -347,7 +348,7 @@ router.post('/mantra/audio', async (req: Request, res: Response): Promise<void> 
  * GET /api/ai/voices
  * Get available TTS voice presets
  */
-router.get('/voices', (req: Request, res: Response): void => {
+router.get('/voices', authMiddleware, (req: AuthRequest, res: Response): void => {
   const voices = getAvailableVoicePresets();
 
   res.json({
@@ -361,7 +362,7 @@ router.get('/voices', (req: Request, res: Response): void => {
  * GET /api/ai/estimate
  * Get time and cost estimates for AI enhancement (ControlNet)
  */
-router.get('/estimate', (req: Request, res: Response): void => {
+router.get('/estimate', authMiddleware, (req: AuthRequest, res: Response): void => {
   const timeEstimate = estimateControlNetGenerationTime();
   const costEstimate = getCostEstimate();
 
@@ -377,7 +378,7 @@ router.get('/estimate', (req: Request, res: Response): void => {
  * GET /api/ai/health
  * Health check for AI services
  */
-router.get('/health', (req: Request, res: Response): void => {
+router.get('/health', authMiddleware, (req: AuthRequest, res: Response): void => {
   const hasReplicateToken = !!process.env.REPLICATE_API_TOKEN;
   const hasR2Config = !!(
     process.env.CLOUDFLARE_ACCOUNT_ID &&
