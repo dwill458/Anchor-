@@ -37,17 +37,30 @@ describe('EnhancementChoiceScreen', () => {
     });
 
     it('stub: renders Keep Pure and Enhance options', () => {
-        // TODO: implement assertion
-        expect(true).toBe(true);
+        render(<EnhancementChoiceScreen />);
+        expect(screen.getByText('Keep as Forged')).toBeTruthy();
+        expect(screen.getByText('Refine Expression')).toBeTruthy();
     });
 
     it('stub: Keep Pure navigates directly to ChargeSetup', () => {
-        // TODO: implement assertion
-        expect(true).toBe(true);
+        jest.useFakeTimers();
+        render(<EnhancementChoiceScreen />);
+        fireEvent.press(screen.getByText('Keep as Forged'));
+        jest.runAllTimers();
+        expect(mockNavigate).toHaveBeenCalledWith('AnchorReveal', expect.objectContaining({
+            intentionText: 'Test Intention',
+        }));
+        jest.useRealTimers();
     });
 
     it('stub: Enhance navigates to StyleSelection', () => {
-        // TODO: implement assertion
-        expect(true).toBe(true);
+        jest.useFakeTimers();
+        render(<EnhancementChoiceScreen />);
+        fireEvent.press(screen.getByText('Refine Expression'));
+        jest.runAllTimers();
+        expect(mockNavigate).toHaveBeenCalledWith('StyleSelection', expect.objectContaining({
+            intentionText: 'Test Intention',
+        }));
+        jest.useRealTimers();
     });
 });

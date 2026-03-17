@@ -20,33 +20,57 @@ jest.mock('@react-navigation/native', () => ({
 jest.mock('@/stores/anchorStore', () => ({ useAnchorStore: () => ({ anchors: [], isLoading: false }) }));
 jest.mock('@/stores/authStore', () => ({ useAuthStore: () => ({ user: null, anchorCount: 0 }) }));
 
+jest.mock('@/utils/sigil/traditional-generator', () => ({
+    generateAllVariants: () => [
+        { variant: 'balanced', svg: '<svg></svg>' },
+        { variant: 'dense', svg: '<svg></svg>' },
+        { variant: 'minimal', svg: '<svg></svg>' },
+    ],
+}));
+
+jest.mock('react-native-reanimated', () => {
+    const Reanimated = require('react-native-reanimated/mock');
+    Reanimated.default.call = () => {};
+    return Reanimated;
+});
+
 describe('StructureForgeScreen', () => {
     beforeEach(() => {
         mockNavigate.mockClear();
     });
 
     it('stub: renders 3 structure variant cards', () => {
-        // TODO: implement assertion
-        expect(true).toBe(true);
+        render(<StructureForgeScreen />);
+        expect(screen.getByText('Focused')).toBeTruthy();
+        expect(screen.getByText('Ritual')).toBeTruthy();
+        expect(screen.getByText('Raw')).toBeTruthy();
     });
 
     it('stub: selects Dense variant on tap', () => {
-        // TODO: implement assertion
-        expect(true).toBe(true);
+        render(<StructureForgeScreen />);
+        fireEvent.press(screen.getByAccessibilityLabel('Ritual structure'));
+        expect(screen.getByText('Ritual selected')).toBeTruthy();
     });
 
     it('stub: selects Balanced variant on tap', () => {
-        // TODO: implement assertion
-        expect(true).toBe(true);
+        render(<StructureForgeScreen />);
+        // Focused is default — press it again to confirm it stays selected
+        fireEvent.press(screen.getByAccessibilityLabel('Focused structure'));
+        expect(screen.getByText('Focused selected')).toBeTruthy();
     });
 
     it('stub: selects Minimal variant on tap', () => {
-        // TODO: implement assertion
-        expect(true).toBe(true);
+        render(<StructureForgeScreen />);
+        fireEvent.press(screen.getByAccessibilityLabel('Raw structure'));
+        expect(screen.getByText('Raw selected')).toBeTruthy();
     });
 
     it('stub: navigates to ManualReinforcement after selection', () => {
-        // TODO: implement assertion
-        expect(true).toBe(true);
+        render(<StructureForgeScreen />);
+        fireEvent.press(screen.getByAccessibilityLabel('Begin Forging'));
+        expect(mockNavigate).toHaveBeenCalledWith('ManualReinforcement', expect.objectContaining({
+            intentionText: 'Test Intention',
+            category: 'health',
+        }));
     });
 });
