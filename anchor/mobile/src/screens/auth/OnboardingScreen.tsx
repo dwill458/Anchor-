@@ -17,6 +17,7 @@ import { useNavigation } from '@react-navigation/native';
 import { useAuthStore } from '../../stores/authStore';
 import { generateTrueSigil } from '@/utils/sigil/traditional-generator';
 import { ForgeDemo } from '@/components/onboarding/ForgeDemo';
+const anchorLogoImg = require('../../../assets/anchor-logo-official.jpg');
 import { UseCaseCard } from '@/components/onboarding/UseCaseCard';
 import type { UseCaseItem } from '@/components/onboarding/UseCaseCard';
 

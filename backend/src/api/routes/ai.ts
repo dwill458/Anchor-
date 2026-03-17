@@ -119,7 +119,7 @@ function validateOrRespond<T>(
  * - passingCount: Number of variations that pass structure threshold
  * - bestVariationIndex: Index of highest scoring variation
  */
-router.post('/enhance-controlnet', authMiddleware, async (req: AuthRequest, res: Response): Promise<void> => {
+router.post('/enhance-controlnet', async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const parsed = validateOrRespond(EnhanceControlNetSchema, req.body, res);
     if (!parsed) return;
