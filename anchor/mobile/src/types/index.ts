@@ -643,6 +643,8 @@ export type OnboardingStackParamList = {
   HowItWorks: undefined;
   DailyLoop: undefined;
   SaveProgress: undefined;
+  Login: undefined;
+  SignUp: undefined;
 };
 
 export type AuthStackParamList = {

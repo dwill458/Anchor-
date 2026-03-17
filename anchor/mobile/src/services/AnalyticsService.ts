@@ -52,9 +52,9 @@ class Analytics {
       console.log('[Analytics] Initialized', { enabled: this.enabled });
     }
 
-    // TODO: Initialize your analytics provider here
-    // Example: Mixpanel.init('YOUR_TOKEN');
-    // Example: amplitude.getInstance().init('YOUR_API_KEY');
+    // INTEGRATION: Wire your analytics provider here before shipping.
+    // Example: Mixpanel.init(process.env.EXPO_PUBLIC_MIXPANEL_TOKEN);
+    // Example: amplitude.getInstance().init(process.env.EXPO_PUBLIC_AMPLITUDE_KEY);
   }
 
   /**
@@ -70,7 +70,7 @@ class Analytics {
       console.log('[Analytics] Identify', { userId, properties });
     }
 
-    // TODO: Identify user in your analytics provider
+    // INTEGRATION: Identify user in your analytics provider.
     // Example: Mixpanel.identify(userId);
     // Example: Mixpanel.getPeople().set(properties);
   }
@@ -95,7 +95,7 @@ class Analytics {
       console.log('[Analytics] Track', event);
     }
 
-    // TODO: Track event in your analytics provider
+    // INTEGRATION: Track event in your analytics provider.
     // Example: Mixpanel.track(eventName, properties);
     // Example: amplitude.getInstance().logEvent(eventName, properties);
   }
@@ -122,7 +122,7 @@ class Analytics {
       console.log('[Analytics] Set user properties', properties);
     }
 
-    // TODO: Set user properties in your analytics provider
+    // INTEGRATION: Set user properties in your analytics provider.
     // Example: Mixpanel.getPeople().set(properties);
   }
 
@@ -136,7 +136,7 @@ class Analytics {
       console.log('[Analytics] Increment', { property, value });
     }
 
-    // TODO: Increment property in your analytics provider
+    // INTEGRATION: Increment property in your analytics provider.
     // Example: Mixpanel.getPeople().increment(property, value);
   }
 
@@ -153,7 +153,7 @@ class Analytics {
       console.log('[Analytics] Reset');
     }
 
-    // TODO: Reset in your analytics provider
+    // INTEGRATION: Reset in your analytics provider.
     // Example: Mixpanel.reset();
   }
 

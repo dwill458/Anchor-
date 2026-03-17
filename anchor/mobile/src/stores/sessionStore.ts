@@ -8,6 +8,8 @@ import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useTeachingStore } from './teachingStore';
+import { apiClient } from '@/services/ApiClient';
+import { useAuthStore } from '@/stores/authStore';
 
 export type SessionType = 'activate' | 'reinforce' | 'stabilize';
 export type SessionMode = 'silent' | 'mantra' | 'ambient';
@@ -140,7 +142,19 @@ export const useSessionStore = create<SessionState>()(
           teaching.setUserFlag('hasCompletedFirstStabilize', true);
         }
 
-        // TODO: scaffold backend sync — POST /api/sessions when auth token available
+        // Sync stabilize sessions to the backend when the user is authenticated.
+        // activate/reinforce are synced via the anchor activation flow separately.
+        if (full.type === 'stabilize') {
+          const token = useAuthStore.getState().token;
+          if (token) {
+            apiClient.post('/api/practice/stabilize', {
+              completedAt: full.completedAt,
+              timezoneOffsetMinutes: new Date().getTimezoneOffset(),
+            }).catch(() => {
+              // Fire-and-forget — local state is already persisted, sync failure is non-fatal.
+            });
+          }
+        }
       },
 
       consumeGraceDay: () => {

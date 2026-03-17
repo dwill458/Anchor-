@@ -11,6 +11,7 @@ import {
   LogoBreathScreen,
   NarrativeOnboardingScreen,
 } from '@/screens/onboarding';
+import { LoginScreen, SignUpScreen } from '@/screens/auth';
 
 const Stack = createStackNavigator<OnboardingStackParamList>();
 
@@ -53,6 +54,8 @@ export const OnboardingNavigator: React.FC = () => {
           },
         }}
       />
+      <Stack.Screen name="Login" component={LoginScreen} />
+      <Stack.Screen name="SignUp" component={SignUpScreen} />
     </Stack.Navigator>
   );
 };
