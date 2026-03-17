@@ -16,6 +16,7 @@ import { RootStackParamList } from '@/types';
 import { colors, spacing, typography } from '@/theme';
 import { ZenBackground } from '@/components/common';
 import { generateAllVariants, SigilGenerationResult, SigilVariant } from '@/utils/sigil/traditional-generator';
+import { logger } from '@/utils/logger';
 
 type StructureType = 'focused' | 'ritual' | 'raw';
 
@@ -91,7 +92,7 @@ export default function StructureForgeScreen() {
       const generated = generateAllVariants(distilledLetters);
       setVariants(generated);
     } catch (error) {
-      console.error('Failed to generate structure variants:', error);
+      logger.error('Failed to generate structure variants:', error);
       setVariants([]);
     }
   }, [distilledLetters]);

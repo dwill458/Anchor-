@@ -18,6 +18,7 @@ import { StatusBar } from 'expo-status-bar';
 import Svg, { Path, Defs, RadialGradient, Stop, G } from 'react-native-svg';
 import { SvgXml } from 'react-native-svg';
 import { PanResponder } from 'react-native';
+import { logger } from '@/utils/logger';
 import Slider from '@react-native-community/slider';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
@@ -409,7 +410,7 @@ export default function ManualForgeScreen() {
       });
 
     } catch (error) {
-      console.error('Error saving manual sigil:', error);
+      logger.error('Error saving manual sigil:', error);
       Alert.alert('Error', 'Failed to save your anchor.');
     }
   };

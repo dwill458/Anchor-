@@ -1,4 +1,5 @@
 import * as Notifications from 'expo-notifications';
+import { logger } from '@/utils/logger';
 import type {
   Notification,
   NotificationRequest,
@@ -411,7 +412,7 @@ class NotificationService {
   private recordError(error: ServiceError): void {
     this.lastError = error;
     if (__DEV__) {
-      console.error('[NotificationService]', error.message, error);
+      logger.error('[NotificationService]', error);
     }
   }
 

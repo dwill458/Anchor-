@@ -17,6 +17,7 @@ import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { RootStackParamList, Symbol, AnalysisResult } from '@/types'; // Ensure this path is correct
 import { apiClient } from '@/services/ApiClient';
+import { logger } from '@/utils/logger';
 
 // Design System Colors (Zen Architect)
 const colors = {
@@ -76,13 +77,13 @@ export default function AIAnalysisScreen() {
     try {
       setLoading(true);
       setError(null);
-      console.log('Analyzing intention:', intentionText);
+      logger.info('Analyzing intention:', intentionText);
 
       const response = await apiClient.post<{ analysis: AnalysisResult }>('/api/ai/analyze', {
         intentionText,
       });
 
-      console.log('Analysis response:', response.data);
+      logger.info('Analysis response:', response.data);
       setAnalysis(response.data.analysis || {
         intentionText: intentionText || '',
         keywords: [],
@@ -92,7 +93,7 @@ export default function AIAnalysisScreen() {
         explanation: ''
       });
     } catch (err) {
-      console.error('Analysis error:', err);
+      logger.error('Analysis error:', err);
       setError(err instanceof Error ? err.message : 'Unknown error');
     } finally {
       setLoading(false);

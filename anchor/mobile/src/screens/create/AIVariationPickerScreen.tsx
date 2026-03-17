@@ -32,6 +32,7 @@ import { StackNavigationProp } from '@react-navigation/stack';
 import { RootStackParamList } from '@/types';
 import { colors } from '@/theme';
 import { ScreenHeader, ZenBackground } from '@/components/common';
+import { logger } from '@/utils/logger';
 import { useTempStore } from '@/stores/anchorStore';
 import { OptimizedImage } from '@/components/common/OptimizedImage';
 import { ErrorTrackingService } from '@/services/ErrorTrackingService';
@@ -219,7 +220,7 @@ export const AIVariationPickerScreen: React.FC = () => {
         screen: 'AIVariationPickerScreen',
         action: 'continue_with_variation',
       });
-      console.error('Selection Error:', err);
+      logger.error('Selection Error:', err);
       Alert.alert('Selection Failed', 'Could not process selection. Please try again.');
     }
   };

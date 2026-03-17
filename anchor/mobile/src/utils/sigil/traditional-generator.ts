@@ -1,3 +1,5 @@
+import { logger } from '@/utils/logger';
+
 /**
  * TRUE Sigil Generator - Planetary Grid Method (Kamea)
  * * ARCHITECTURE CHANGE:
@@ -196,7 +198,7 @@ export function generateAllVariants(letters: any): SigilGenerationResult[] {
       generateTrueSigil(letters, 'minimal'),
     ];
   } catch (error) {
-    console.error('Error generating sigil variants:', error);
+    logger.error('Error generating sigil variants:', error);
     // Return empty fallback array
     return [
       { svg: '<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg"></svg>', variant: 'dense' },

@@ -44,6 +44,7 @@ import { ActiveAnchorsGrid } from '@/components/profile/ActiveAnchorsGrid';
 import { ProfileEmptyState } from '@/components/profile/ProfileEmptyState';
 import { ProfileErrorState } from '@/components/profile/ProfileErrorState';
 import { LoadingSpinner } from '@/components/LoadingSpinner';
+import { logger } from '@/utils/logger';
 
 const IS_ANDROID = Platform.OS === 'android';
 
@@ -147,7 +148,7 @@ export const ProfileScreen: React.FC = () => {
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Failed to load profile';
       setProfileError(message);
-      console.error('Profile load error:', error);
+      logger.error('Profile load error:', error);
     } finally {
       setIsLoading(false);
     }
@@ -161,7 +162,7 @@ export const ProfileScreen: React.FC = () => {
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Failed to refresh profile';
       setProfileError(message);
-      console.error('Profile refresh error:', error);
+      logger.error('Profile refresh error:', error);
     } finally {
       setIsRefreshing(false);
     }
