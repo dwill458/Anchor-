@@ -22,6 +22,7 @@ import {
   AIVariationPickerScreen,
   ManualForgeScreen,
   AnchorRevealScreen,
+  WallpaperPromptScreen,
 } from '../screens/create';
 import {
   ActivationScreen,
@@ -35,6 +36,7 @@ import {
 import { SettingsScreen, DefaultChargeSettings, DefaultActivationSettings, DailyPracticeGoalScreen } from '../screens/profile';
 import type { RootStackParamList } from '@/types';
 import { colors } from '@/theme';
+import { useAuthStore } from '@/stores/authStore';
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
 
@@ -43,12 +45,23 @@ interface VaultStackNavigatorProps {
 }
 
 export const VaultStackNavigator: React.FC<VaultStackNavigatorProps> = ({ onRouteChange }) => {
+  const shouldRedirectToCreation = useAuthStore((state) => state.shouldRedirectToCreation);
+  const setShouldRedirectToCreation = useAuthStore((state) => state.setShouldRedirectToCreation);
+  const initialRouteName = shouldRedirectToCreation ? 'FirstAnchorCreation' : 'Vault';
+
   React.useEffect(() => {
-    onRouteChange?.('Vault');
-  }, [onRouteChange]);
+    onRouteChange?.(initialRouteName);
+  }, [initialRouteName, onRouteChange]);
+
+  React.useEffect(() => {
+    if (shouldRedirectToCreation) {
+      setShouldRedirectToCreation(false);
+    }
+  }, [setShouldRedirectToCreation, shouldRedirectToCreation]);
 
   return (
     <Stack.Navigator
+      initialRouteName={initialRouteName}
       screenListeners={{
         state: (event) => {
           const state = event.data.state as {
@@ -161,6 +174,11 @@ export const VaultStackNavigator: React.FC<VaultStackNavigatorProps> = ({ onRout
       <Stack.Screen
         name="AnchorReveal"
         component={AnchorRevealScreen}
+        options={{ headerShown: false }}
+      />
+      <Stack.Screen
+        name="WallpaperPrompt"
+        component={WallpaperPromptScreen}
         options={{ headerShown: false }}
       />
       {/* ════════════════════════════════════════════════════════ */}

@@ -109,6 +109,10 @@ interface AuthState {
   // Streak
   computeStreak: () => void;
 
+  // Wallpaper prompt
+  wallpaperPromptSeen: boolean;
+  setWallpaperPromptSeen: (seen: boolean) => void;
+
   // Stabilize (Practice)
   recordStabilize: (anchorId: string) => Promise<{
     sameDay: boolean;
@@ -136,6 +140,7 @@ export const useAuthStore = create<AuthState>()(
       // NEW: Profile caching initial state
       profileData: null,
       profileLastFetched: null,
+      wallpaperPromptSeen: false,
 
       // Actions
       setUser: (user) =>
@@ -183,6 +188,9 @@ export const useAuthStore = create<AuthState>()(
         set((state) => ({
           anchorCount: state.anchorCount + 1,
         })),
+
+      setWallpaperPromptSeen: (wallpaperPromptSeen) =>
+        set({ wallpaperPromptSeen }),
 
       // NEW: Fetch profile with 5-minute cache TTL
       fetchProfile: async () => {
@@ -337,6 +345,8 @@ export const useAuthStore = create<AuthState>()(
       storage: createJSONStorage(() => hybridStorage),
       onRehydrateStorage: () => (state) => {
         if (state) {
+          // One-shot navigation flags should never survive an app restart.
+          state.setShouldRedirectToCreation(false);
           // Recompute streak immediately after store hydrates from disk
           state.computeStreak();
         }
@@ -349,10 +359,10 @@ export const useAuthStore = create<AuthState>()(
         isAuthenticated: state.isAuthenticated,
         hasCompletedOnboarding: state.hasCompletedOnboarding,
         onboardingSegment: state.onboardingSegment,
-        shouldRedirectToCreation: state.shouldRedirectToCreation,
         anchorCount: state.anchorCount,
         profileData: state.profileData,
         profileLastFetched: state.profileLastFetched,
+        wallpaperPromptSeen: state.wallpaperPromptSeen,
       }),
     }
   )

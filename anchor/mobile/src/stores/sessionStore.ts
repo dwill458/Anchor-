@@ -51,11 +51,27 @@ interface SessionState {
   /** Capped at 50 most-recent entries */
   sessionLog: SessionLogEntry[];
 
+  // Thread Strength fields
+  /** 0–100. Decays on missed days, recovers on priming sessions. */
+  threadStrength: number;
+  /** Lifetime priming session count — never decrements. */
+  totalSessionsCount: number;
+  /** YYYY-MM-DD of last priming session, or null. */
+  lastPrimedAt: string | null;
+  /** [Mon–Sun] true = primed that day, for the current ISO week. */
+  weekHistory: boolean[];
+  /** ISO week key (e.g. "2026-W11") — used to detect week rollover. */
+  weekHistoryKey: string;
+  /** YYYY-MM-DD of the last day decay was applied — prevents double-apply. */
+  lastDecayDate: string | null;
+
   // Actions
   recordSession: (entry: Omit<SessionLogEntry, 'id'>) => void;
   consumeGraceDay: () => void;
   /** Call on app foreground to reset today counters if the local date has rolled over */
   resetIfNewDay: () => void;
+  /** Apply thread strength decay for missed days. Call on app open / screen focus. */
+  applyDecay: () => void;
 }
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -76,6 +92,7 @@ function isoWeekKey(d: Date): string {
 
 const EMPTY_TODAY = (): DayPractice => ({ date: localDateString(new Date()), sessionsCount: 0, totalSeconds: 0 });
 const EMPTY_WEEK = (): WeekPractice => ({ weekKey: isoWeekKey(new Date()), sessionsCount: 0, totalSeconds: 0 });
+const EMPTY_WEEK_HISTORY = (): boolean[] => [false, false, false, false, false, false, false];
 
 const LOG_CAP = 50;
 
@@ -89,6 +106,12 @@ export const useSessionStore = create<SessionState>()(
       weeklyPractice: EMPTY_WEEK(),
       lastGraceDayUsedAt: null,
       sessionLog: [],
+      threadStrength: 50,
+      totalSessionsCount: 0,
+      lastPrimedAt: null,
+      weekHistory: EMPTY_WEEK_HISTORY(),
+      weekHistoryKey: isoWeekKey(new Date()),
+      lastDecayDate: null,
 
       recordSession: (entry) => {
         const id = `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
@@ -97,6 +120,9 @@ export const useSessionStore = create<SessionState>()(
         const now = new Date();
         const todayKey = localDateString(now);
         const weekKey = isoWeekKey(now);
+        // Mon=0 … Sun=6
+        const dayOfWeek = (now.getDay() + 6) % 7;
+        const isPrimingSession = entry.type === 'activate' || entry.type === 'reinforce';
 
         set((state) => {
           // Reset today counters if date has changed
@@ -113,6 +139,28 @@ export const useSessionStore = create<SessionState>()(
 
           const updatedLog = [full, ...state.sessionLog].slice(0, LOG_CAP);
 
+          // Thread strength updates (priming sessions only)
+          let threadStrength = state.threadStrength;
+          let totalSessionsCount = state.totalSessionsCount;
+          let lastPrimedAt = state.lastPrimedAt;
+          let weekHistory = state.weekHistory;
+          let weekHistoryKey = state.weekHistoryKey;
+
+          if (isPrimingSession) {
+            const gain = entry.type === 'reinforce' ? 40 : 25;
+            threadStrength = Math.min(100, threadStrength + gain);
+            totalSessionsCount = state.totalSessionsCount + 1;
+            lastPrimedAt = todayKey;
+            // Reset week history on new week
+            if (state.weekHistoryKey !== weekKey) {
+              weekHistory = EMPTY_WEEK_HISTORY();
+              weekHistoryKey = weekKey;
+            } else {
+              weekHistory = [...state.weekHistory];
+            }
+            weekHistory[dayOfWeek] = true;
+          }
+
           return {
             lastSession: full,
             todayPractice: {
@@ -126,6 +174,11 @@ export const useSessionStore = create<SessionState>()(
               totalSeconds: week.totalSeconds + entry.durationSeconds,
             },
             sessionLog: updatedLog,
+            threadStrength,
+            totalSessionsCount,
+            lastPrimedAt,
+            weekHistory,
+            weekHistoryKey,
           };
         });
 
@@ -162,7 +215,7 @@ export const useSessionStore = create<SessionState>()(
       },
 
       resetIfNewDay: () => {
-        const { todayPractice, weeklyPractice } = get();
+        const { todayPractice, weeklyPractice, weekHistoryKey } = get();
         const now = new Date();
         const todayKey = localDateString(now);
         const weekKey = isoWeekKey(now);
@@ -173,12 +226,68 @@ export const useSessionStore = create<SessionState>()(
         if (weeklyPractice.weekKey !== weekKey) {
           set({ weeklyPractice: { weekKey, sessionsCount: 0, totalSeconds: 0 } });
         }
+        if (weekHistoryKey !== weekKey) {
+          set({ weekHistory: EMPTY_WEEK_HISTORY(), weekHistoryKey: weekKey });
+        }
+      },
+
+      applyDecay: () => {
+        const { lastPrimedAt, threadStrength, lastDecayDate } = get();
+        const today = localDateString(new Date());
+
+        // Already applied decay today — skip
+        if (lastDecayDate === today) return;
+
+        // Mark decay as processed for today
+        set({ lastDecayDate: today });
+
+        // Never primed or primed today — no decay
+        if (!lastPrimedAt || lastPrimedAt === today) return;
+
+        const primedMs = new Date(lastPrimedAt).getTime();
+        const todayMs = new Date(today).getTime();
+        const daysMissed = Math.max(0, Math.floor((todayMs - primedMs) / 86400000));
+        if (daysMissed <= 0) return;
+
+        // Days already accounted for (between lastPrimedAt and lastDecayDate)
+        const daysAlreadyDecayed = lastDecayDate
+          ? Math.max(0, Math.floor((new Date(lastDecayDate).getTime() - primedMs) / 86400000))
+          : 0;
+
+        if (daysAlreadyDecayed >= daysMissed) return;
+
+        // Apply incremental decay for each new missed day
+        let newStrength = threadStrength;
+        for (let d = daysAlreadyDecayed + 1; d <= daysMissed; d++) {
+          if (d === 1) {
+            newStrength = Math.max(10, newStrength - 30);
+          } else {
+            newStrength = Math.max(5, newStrength - 15);
+          }
+        }
+
+        set({ threadStrength: newStrength });
       },
     }),
     {
       name: 'anchor-session-storage',
       storage: createJSONStorage(() => AsyncStorage),
-      version: 1,
+      version: 2,
+      migrate: (persistedState: unknown, version: number) => {
+        if (version < 2) {
+          const s = persistedState as Partial<SessionState>;
+          return {
+            ...s,
+            threadStrength: 50,
+            totalSessionsCount: 0,
+            lastPrimedAt: null,
+            weekHistory: EMPTY_WEEK_HISTORY(),
+            weekHistoryKey: isoWeekKey(new Date()),
+            lastDecayDate: null,
+          };
+        }
+        return persistedState as SessionState;
+      },
     }
   )
 );

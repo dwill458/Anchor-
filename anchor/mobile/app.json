@@ -3,8 +3,6 @@
     "name": "Anchor",
     "slug": "anchor-v2",
     "version": "1.0.0",
-    "category": "HEALTH_AND_FITNESS",
-    "privacyPolicyUrl": "https://anchor.app/privacy",
     "platforms": [
       "ios",
       "android",

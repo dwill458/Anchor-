@@ -561,6 +561,12 @@ export type RootStackParamList = {
   // ═══════════════════════════════════════════════════
 
   // Zen Architect Ritual Flow (Phase 2.7)
+  WallpaperPrompt: {
+    anchorId: string;
+    intentionText: string;
+    enhancedImageUrl?: string;
+    sigilSvg?: string;
+  };
   ChargeSetup: { anchorId: string; returnTo?: 'vault' | 'practice' | 'detail' };
   BreathingAnimation: {
     source?: 'charge' | 'practice';
