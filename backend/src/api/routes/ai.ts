@@ -8,6 +8,7 @@
  */
 
 import express, { Request, Response } from 'express';
+import { z } from 'zod';
 import {
   getCostEstimate,
   enhanceSigilWithAI,
@@ -25,6 +26,64 @@ import {
 import { logger } from '../../utils/logger';
 
 const router = express.Router();
+
+// --- Zod schemas ---
+
+const VALID_STYLES = [
+  'watercolor',
+  'sacred_geometry',
+  'ink_brush',
+  'gold_leaf',
+  'cosmic',
+  'minimal_line',
+  'obsidian_mono',
+  'aurora_glow',
+  'ember_trace',
+  'echo_chamber',
+  'monolith_ink',
+  'celestial_grid',
+] as const;
+
+const EnhanceControlNetSchema = z.object({
+  sigilSvg: z.string().min(1),
+  styleChoice: z.enum(VALID_STYLES),
+  userId: z.string().min(1),
+  anchorId: z.string().min(1),
+  intentionText: z.string().optional(),
+  intention: z.string().optional(),
+  validateStructure: z.boolean().optional(),
+  autoComposite: z.boolean().optional(),
+  provider: z.enum(['gemini', 'replicate', 'auto']).optional(),
+  tier: z.enum(['draft', 'premium']).optional(),
+  generationAttempt: z.number().optional(),
+});
+
+const MantraSchema = z.object({
+  distilledLetters: z.array(z.string()).min(2).max(20),
+});
+
+const MantraAudioSchema = z.object({
+  mantras: z.array(z.unknown()).min(1),
+  userId: z.string().min(1),
+  anchorId: z.string().min(1),
+  voicePreset: z.string().optional(),
+});
+
+// Validates data against a schema; returns parsed data or sends a 400 response.
+// Returns null if validation failed (caller should return early).
+function validateOrRespond<T>(
+  schema: z.ZodSchema<T>,
+  data: unknown,
+  res: Response
+): T | null {
+  const result = schema.safeParse(data);
+  if (!result.success) {
+    const message = result.error.errors.map(e => `${e.path.join('.')}: ${e.message}`).join(', ');
+    res.status(400).json({ error: `Validation error: ${message}` });
+    return null;
+  }
+  return result.data;
+}
 
 /**
  * POST /api/ai/analyze
@@ -61,6 +120,9 @@ const router = express.Router();
  */
 router.post('/enhance-controlnet', async (req: Request, res: Response): Promise<void> => {
   try {
+    const parsed = validateOrRespond(EnhanceControlNetSchema, req.body, res);
+    if (!parsed) return;
+
     const {
       sigilSvg,
       styleChoice,
@@ -73,7 +135,7 @@ router.post('/enhance-controlnet', async (req: Request, res: Response): Promise<
       provider,          // Optional: 'gemini' | 'replicate' | 'auto' (default: 'auto')
       tier,              // Optional: 'draft' | 'premium' (default: 'premium')
       generationAttempt, // Optional: int starting at 1; pro users upgrade to pro model at attempt 3+
-    } = req.body;
+    } = parsed;
 
     // Support both field names for maximum compatibility
     const intentionText = bodyIntentionText || bodyIntention;
@@ -100,37 +162,6 @@ router.post('/enhance-controlnet', async (req: Request, res: Response): Promise<
       generationAttempt: parsedAttempt,
       effectiveTier,
     });
-
-    // Validation
-    if (!sigilSvg || !styleChoice || !userId || !anchorId) {
-      res.status(400).json({
-        error: 'Missing required fields: sigilSvg, styleChoice, userId, anchorId',
-      });
-      return;
-    }
-
-    // Validate style choice
-    const validStyles: AIStyle[] = [
-      'watercolor',
-      'sacred_geometry',
-      'ink_brush',
-      'gold_leaf',
-      'cosmic',
-      'minimal_line',
-      'obsidian_mono',
-      'aurora_glow',
-      'ember_trace',
-      'echo_chamber',
-      'monolith_ink',
-      'celestial_grid',
-    ];
-
-    if (!validStyles.includes(styleChoice as AIStyle)) {
-      res.status(400).json({
-        error: `Invalid styleChoice. Must be one of: ${validStyles.join(', ')}`,
-      });
-      return;
-    }
 
     logger.info('[ControlNet] Enhancing sigil with STRICT structure preservation', {
       anchorId,
@@ -249,17 +280,9 @@ router.post('/enhance-controlnet', async (req: Request, res: Response): Promise<
  */
 router.post('/mantra', async (req: Request, res: Response): Promise<void> => {
   try {
-    const { distilledLetters } = req.body;
-
-    if (!distilledLetters || !Array.isArray(distilledLetters)) {
-      res.status(400).json({ error: 'distilledLetters array is required' });
-      return;
-    }
-
-    if (distilledLetters.length < 2) {
-      res.status(400).json({ error: 'Need at least 2 distilled letters' });
-      return;
-    }
+    const parsed = validateOrRespond(MantraSchema, req.body, res);
+    if (!parsed) return;
+    const { distilledLetters } = parsed;
 
     logger.info('[AI] Generating mantra', { letters: distilledLetters });
 
@@ -286,12 +309,9 @@ router.post('/mantra', async (req: Request, res: Response): Promise<void> => {
  */
 router.post('/mantra/audio', async (req: Request, res: Response): Promise<void> => {
   try {
-    const { mantras, userId, anchorId, voicePreset } = req.body;
-
-    if (!mantras || !userId || !anchorId) {
-      res.status(400).json({ error: 'Missing required fields: mantras, userId, anchorId' });
-      return;
-    }
+    const parsed = validateOrRespond(MantraAudioSchema, req.body, res);
+    if (!parsed) return;
+    const { mantras, userId, anchorId, voicePreset } = parsed;
 
     if (!isTTSAvailable()) {
       res.status(503).json({

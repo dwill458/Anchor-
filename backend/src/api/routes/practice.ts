@@ -5,12 +5,35 @@
  */
 
 import { NextFunction, Router, Response } from 'express';
+import { z } from 'zod';
 import { AuthRequest, authMiddleware } from '../middleware/auth';
 import { AppError } from '../middleware/errorHandler';
 import { prisma } from '../../lib/prisma';
 
 const router = Router();
 const MS_PER_DAY = 24 * 60 * 60 * 1000;
+
+// --- Zod schemas ---
+
+const StabilizeSchema = z.object({
+  completedAt: z.string().min(1).refine(
+    val => !Number.isNaN(new Date(val).getTime()),
+    { message: 'Must be a valid ISO date string' }
+  ),
+  timezoneOffsetMinutes: z.number().min(-840).max(840),
+  lastStabilizeTimezoneOffsetMinutes: z.number().min(-840).max(840).nullable().optional(),
+  stabilizeStreakDaysClient: z.number().min(1).optional(),
+});
+
+// Validates req.body against a schema; throws AppError on failure.
+function validate<T>(schema: z.ZodSchema<T>, data: unknown): T {
+  const result = schema.safeParse(data);
+  if (!result.success) {
+    const message = result.error.errors.map(e => `${e.path.join('.')}: ${e.message}`).join(', ');
+    throw new AppError(`Validation error: ${message}`, 400, 'VALIDATION_ERROR');
+  }
+  return result.data;
+}
 
 const toLocalDayStartUtc = (date: Date, timezoneOffsetMinutes: number): number => {
   // Convert the instant into the user's local wall-clock day based on the supplied offset.
@@ -57,67 +80,9 @@ router.post('/stabilize', async (req: AuthRequest, res: Response, next: NextFunc
       timezoneOffsetMinutes,
       lastStabilizeTimezoneOffsetMinutes,
       stabilizeStreakDaysClient,
-    } = req.body ?? {};
-
-    if (typeof completedAt !== 'string' || !completedAt) {
-      throw new AppError('Missing required field: completedAt', 400, 'VALIDATION_ERROR');
-    }
+    } = validate(StabilizeSchema, req.body ?? {});
 
     const completedAtDate = new Date(completedAt);
-    if (Number.isNaN(completedAtDate.getTime())) {
-      throw new AppError(
-        'Invalid completedAt. Must be an ISO date string.',
-        400,
-        'VALIDATION_ERROR'
-      );
-    }
-
-    if (typeof timezoneOffsetMinutes !== 'number' || Number.isNaN(timezoneOffsetMinutes)) {
-      throw new AppError('Missing required field: timezoneOffsetMinutes', 400, 'VALIDATION_ERROR');
-    }
-    if (timezoneOffsetMinutes < -840 || timezoneOffsetMinutes > 840) {
-      throw new AppError(
-        'Invalid timezoneOffsetMinutes. Must be between -840 and 840.',
-        400,
-        'VALIDATION_ERROR'
-      );
-    }
-
-    if (
-      lastStabilizeTimezoneOffsetMinutes !== null &&
-      lastStabilizeTimezoneOffsetMinutes !== undefined &&
-      (typeof lastStabilizeTimezoneOffsetMinutes !== 'number' ||
-        Number.isNaN(lastStabilizeTimezoneOffsetMinutes))
-    ) {
-      throw new AppError(
-        'Invalid lastStabilizeTimezoneOffsetMinutes. Must be a number or null.',
-        400,
-        'VALIDATION_ERROR'
-      );
-    }
-    if (
-      typeof lastStabilizeTimezoneOffsetMinutes === 'number' &&
-      (lastStabilizeTimezoneOffsetMinutes < -840 || lastStabilizeTimezoneOffsetMinutes > 840)
-    ) {
-      throw new AppError(
-        'Invalid lastStabilizeTimezoneOffsetMinutes. Must be between -840 and 840.',
-        400,
-        'VALIDATION_ERROR'
-      );
-    }
-
-    if (
-      stabilizeStreakDaysClient !== undefined &&
-      (typeof stabilizeStreakDaysClient !== 'number' ||
-        Number.isNaN(stabilizeStreakDaysClient) ||
-        stabilizeStreakDaysClient < 1)
-    ) {
-      throw new AppError(
-        'Invalid stabilizeStreakDaysClient. Must be a number >= 1 when provided.',
-        400,
-        'VALIDATION_ERROR'
-      );
-    }
 
     const user = await prisma.user.findUnique({
       where: { authUid: req.user.uid },

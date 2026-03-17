@@ -5,11 +5,47 @@
  */
 
 import { Router, Response } from 'express';
+import { z } from 'zod';
 import { AuthRequest, authMiddleware } from '../middleware/auth';
 import { AppError } from '../middleware/errorHandler';
 import { prisma } from '../../lib/prisma';
 
 const router = Router();
+
+// --- Zod schemas ---
+
+const SyncSchema = z.object({
+  authUid: z.string().min(1),
+  email: z.string().email(),
+  displayName: z.string().optional(),
+  authProvider: z.enum(['email', 'google', 'apple']),
+});
+
+const UpdateProfileSchema = z.object({
+  displayName: z.string().min(1).max(100).optional(),
+});
+
+const UpdateSettingsSchema = z.object({
+  notificationsEnabled: z.boolean().optional(),
+  dailyReminderTime: z
+    .string()
+    .regex(/^([01]\d|2[0-3]):([0-5]\d)$/, 'dailyReminderTime must be in HH:MM format')
+    .optional(),
+  streakProtection: z.boolean().optional(),
+  defaultChargeDuration: z.number().min(30).max(3600).optional(),
+  hapticIntensity: z.number().min(1).max(5).optional(),
+  vaultViewType: z.enum(['grid', 'list']).optional(),
+});
+
+// Validates req.body against a schema; throws AppError on failure.
+function validate<T>(schema: z.ZodSchema<T>, data: unknown): T {
+  const result = schema.safeParse(data);
+  if (!result.success) {
+    const message = result.error.errors.map(e => `${e.path.join('.')}: ${e.message}`).join(', ');
+    throw new AppError(`Validation error: ${message}`, 400, 'VALIDATION_ERROR');
+  }
+  return result.data;
+}
 
 /**
  * POST /api/auth/sync
@@ -25,16 +61,7 @@ const router = Router();
  */
 router.post('/sync', async (req: AuthRequest, res: Response) => {
   try {
-    const { authUid, email, displayName, authProvider } = req.body;
-
-    // Validation
-    if (!authUid || !email) {
-      throw new AppError('Missing required fields: authUid and email', 400, 'VALIDATION_ERROR');
-    }
-
-    if (!['email', 'google', 'apple'].includes(authProvider)) {
-      throw new AppError('Invalid authProvider', 400, 'VALIDATION_ERROR');
-    }
+    const { authUid, email, displayName, authProvider } = validate(SyncSchema, req.body);
 
     // Check if user exists
     let user = await prisma.user.findUnique({
@@ -162,7 +189,7 @@ router.put('/profile', authMiddleware, async (req: AuthRequest, res: Response) =
       throw new AppError('User not authenticated', 401, 'UNAUTHORIZED');
     }
 
-    const { displayName } = req.body;
+    const { displayName } = validate(UpdateProfileSchema, req.body);
 
     const user = await prisma.user.update({
       where: { authUid: req.user.uid },
@@ -225,20 +252,7 @@ router.put('/settings', authMiddleware, async (req: AuthRequest, res: Response) 
       defaultChargeDuration,
       hapticIntensity,
       vaultViewType,
-    } = req.body;
-
-    // Validation
-    if (dailyReminderTime && !/^([01]\d|2[0-3]):([0-5]\d)$/.test(dailyReminderTime)) {
-      throw new AppError('Invalid dailyReminderTime format. Use HH:MM', 400, 'VALIDATION_ERROR');
-    }
-
-    if (hapticIntensity !== undefined && (hapticIntensity < 1 || hapticIntensity > 5)) {
-      throw new AppError('hapticIntensity must be between 1 and 5', 400, 'VALIDATION_ERROR');
-    }
-
-    if (vaultViewType && !['grid', 'list'].includes(vaultViewType)) {
-      throw new AppError('vaultViewType must be "grid" or "list"', 400, 'VALIDATION_ERROR');
-    }
+    } = validate(UpdateSettingsSchema, req.body);
 
     // Find user to get their ID
     const user = await prisma.user.findUnique({
