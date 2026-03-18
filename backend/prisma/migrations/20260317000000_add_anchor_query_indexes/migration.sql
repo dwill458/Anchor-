@@ -7,18 +7,19 @@
 -- The existing single-column index on userId does not cover these filters,
 -- causing a full index scan + filter pass at scale.
 
--- Covers: WHERE userId = ? AND isArchived = ?  (always present in vault queries)
-CREATE INDEX CONCURRENTLY IF NOT EXISTS "anchors_userId_isArchived_idx"
+-- For fresh-database deploys, use regular index creation so Prisma can run this
+-- migration inside its default transaction.
+CREATE INDEX IF NOT EXISTS "anchors_userId_isArchived_idx"
   ON "anchors"("userId", "isArchived");
 
 -- Covers: WHERE userId = ? AND isCharged = ?  (optional filter in GET /api/anchors)
-CREATE INDEX CONCURRENTLY IF NOT EXISTS "anchors_userId_isCharged_idx"
+CREATE INDEX IF NOT EXISTS "anchors_userId_isCharged_idx"
   ON "anchors"("userId", "isCharged");
 
 -- Covers: WHERE userId = ? ORDER BY updatedAt DESC  (default sort)
-CREATE INDEX CONCURRENTLY IF NOT EXISTS "anchors_userId_updatedAt_idx"
+CREATE INDEX IF NOT EXISTS "anchors_userId_updatedAt_idx"
   ON "anchors"("userId", "updatedAt" DESC);
 
 -- Covers: WHERE userId = ? ORDER BY createdAt DESC  (createdAt sort option)
-CREATE INDEX CONCURRENTLY IF NOT EXISTS "anchors_userId_createdAt_idx"
+CREATE INDEX IF NOT EXISTS "anchors_userId_createdAt_idx"
   ON "anchors"("userId", "createdAt" DESC);
