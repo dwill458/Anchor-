@@ -5,7 +5,7 @@
  */
 
 import { Request, Response, NextFunction } from 'express';
-import jwt from 'jsonwebtoken';
+import { getFirebaseAdmin } from '../../config/firebase';
 
 /**
  * Extended Request interface with user information
@@ -15,16 +15,6 @@ export interface AuthRequest extends Request {
     uid: string;
     email?: string;
   };
-}
-
-/**
- * JWT payload interface
- */
-interface JWTPayload {
-  uid: string;
-  email?: string;
-  iat?: number;
-  exp?: number;
 }
 
 /**
@@ -65,10 +55,9 @@ export const authMiddleware = async (
       return;
     }
 
-    // Verify token
-    // Note: In production, you would verify Firebase ID tokens using Firebase Admin SDK
-    // For now, we'll use a simple JWT verification as placeholder
-    const decoded = jwt.verify(token, process.env.JWT_SECRET!) as JWTPayload;
+    // Verify Firebase ID token
+    const firebaseAdmin = getFirebaseAdmin();
+    const decoded = await firebaseAdmin.auth().verifyIdToken(token);
 
     // Attach user info to request
     req.user = {
@@ -77,35 +66,32 @@ export const authMiddleware = async (
     };
 
     next();
-  } catch (error) {
-    if (error instanceof jwt.JsonWebTokenError) {
+  } catch (error: any) {
+    const code: string = error?.code ?? '';
+
+    if (code === 'auth/id-token-expired') {
       res.status(401).json({
         success: false,
-        error: {
-          code: 'INVALID_TOKEN',
-          message: 'Invalid authentication token',
-        },
+        error: { code: 'TOKEN_EXPIRED', message: 'Authentication token has expired' },
       });
       return;
     }
 
-    if (error instanceof jwt.TokenExpiredError) {
+    if (
+      code.startsWith('auth/') ||
+      code === 'auth/argument-error' ||
+      code === 'auth/invalid-id-token'
+    ) {
       res.status(401).json({
         success: false,
-        error: {
-          code: 'TOKEN_EXPIRED',
-          message: 'Authentication token has expired',
-        },
+        error: { code: 'INVALID_TOKEN', message: 'Invalid authentication token' },
       });
       return;
     }
 
     res.status(500).json({
       success: false,
-      error: {
-        code: 'AUTH_ERROR',
-        message: 'Authentication failed',
-      },
+      error: { code: 'AUTH_ERROR', message: 'Authentication failed' },
     });
   }
 };
@@ -128,7 +114,8 @@ export const optionalAuthMiddleware = async (
 
     if (authHeader && authHeader.startsWith('Bearer ')) {
       const token = authHeader.substring(7);
-      const decoded = jwt.verify(token, process.env.JWT_SECRET || 'secret') as JWTPayload;
+      const firebaseAdmin = getFirebaseAdmin();
+      const decoded = await firebaseAdmin.auth().verifyIdToken(token);
 
       req.user = {
         uid: decoded.uid,

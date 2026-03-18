@@ -30,6 +30,11 @@ dist/
 .env.test.local
 .env.production.local
 
+# Firebase / GCP service account keys
+*-firebase-adminsdk-*.json
+*service-account*.json
+*serviceaccount*.json
+
 # ----------------------------------------------------------------------------
 # IDE & Editors
 # ----------------------------------------------------------------------------
@@ -90,6 +95,13 @@ frontend/android/app/build/
 # ----------------------------------------------------------------------------
 backend/prisma/migrations/*
 !backend/prisma/migrations/.gitkeep
+!backend/prisma/migrations/migration_lock.toml
+!backend/prisma/migrations/20260101000000_init/
+!backend/prisma/migrations/20260101000000_init/**
+!backend/prisma/migrations/20260131000000_add_user_password_hash/
+!backend/prisma/migrations/20260131000000_add_user_password_hash/**
+!backend/prisma/migrations/20260203000000_add_has_completed_onboarding/
+!backend/prisma/migrations/20260203000000_add_has_completed_onboarding/**
 !backend/prisma/migrations/20260213000000_add_stabilize_stats/
 !backend/prisma/migrations/20260213000000_add_stabilize_stats/**
 !backend/prisma/migrations/20260317000000_add_anchor_query_indexes/

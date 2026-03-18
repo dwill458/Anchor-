@@ -21,6 +21,11 @@ const mockSetCurrentAnchor = jest.fn((id?: string) => {
 let mockAnchors: any[] = [];
 let mockCurrentAnchorId: string | undefined;
 let mockSessionLog: any[] = [];
+let mockThreadStrength = 10;
+let mockTotalSessionsCount = 0;
+let mockLastPrimedAt: string | null = null;
+let mockWeekHistory = [false, false, false, false, false, false, false];
+const mockApplyDecay = jest.fn();
 
 const mockSettingsState: any = {
   defaultActivation: { mode: 'silent', unit: 'seconds', value: 30 },
@@ -71,6 +76,11 @@ jest.mock('@/stores/sessionStore', () => ({
   useSessionStore: () => ({
     todayPractice: { sessionsCount: 0, totalSeconds: 0, date: '2026-02-21' },
     sessionLog: mockSessionLog,
+    threadStrength: mockThreadStrength,
+    totalSessionsCount: mockTotalSessionsCount,
+    lastPrimedAt: mockLastPrimedAt,
+    weekHistory: mockWeekHistory,
+    applyDecay: mockApplyDecay,
     lastGraceDayUsedAt: null,
   }),
 }));
@@ -103,6 +113,10 @@ function buildAnchor(id: string, intention: string, overrides: Record<string, un
   } as any;
 }
 
+function localDateString(d: Date): string {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
 describe('PracticeScreen', () => {
   beforeEach(() => {
     (AsyncStorage.getItem as jest.Mock).mockResolvedValue('1');
@@ -120,25 +134,30 @@ describe('PracticeScreen', () => {
     mockSettingsState.defaultCharge.customMinutes = undefined;
     mockAnchors = [];
     mockSessionLog = [];
+    mockThreadStrength = 10;
+    mockTotalSessionsCount = 0;
+    mockLastPrimedAt = null;
+    mockWeekHistory = [false, false, false, false, false, false, false];
+    mockApplyDecay.mockReset();
   });
 
-  it('renders core hierarchy and exact primary copy', async () => {
+  it('renders the updated primary CTA and current mode labels', async () => {
     mockAnchors = [buildAnchor('a1', 'Focus on clarity')];
     const screen = render(<PracticeScreen />);
 
     expect(screen.getByText('Practice')).toBeTruthy();
     expect(screen.getByText('Return to the symbol. Keep the thread.')).toBeTruthy();
-    expect(screen.getByText('REINFORCE/DEEP CHARGE')).toBeTruthy();
+    expect(screen.getByText('Begin Priming')).toBeTruthy();
+    expect(screen.getByText('Restore the thread · 10–60 sec')).toBeTruthy();
+    expect(screen.getByText('DEEP PRIME')).toBeTruthy();
     expect(screen.getByText('STABILIZE')).toBeTruthy();
-    expect(screen.getByText('FOCUS SESSION/ACTIVATION')).toBeTruthy();
-    expect(screen.getByText('BURN & RELEASE')).toBeTruthy();
-    expect(screen.getByText('Daily thread')).toBeTruthy();
-    expect(screen.getByText('One session today keeps the current running.')).toBeTruthy();
+    expect(screen.getAllByText('FOCUS SESSION').length).toBeGreaterThan(0);
+    expect(screen.getByText('RELEASE')).toBeTruthy();
   });
 
   it('opens anchor selector when charge is pressed without an anchor', async () => {
     const screen = render(<PracticeScreen />);
-    fireEvent.press(screen.getByText('REINFORCE/DEEP CHARGE'));
+    fireEvent.press(screen.getByText('DEEP PRIME'));
 
     await waitFor(() => {
       expect(screen.getAllByText('Choose your anchor').length).toBeGreaterThan(0);
@@ -177,7 +196,7 @@ describe('PracticeScreen', () => {
       expect(mockSetCurrentAnchor).toHaveBeenCalledWith('a2');
       expect(mockNavigate).not.toHaveBeenCalled();
       expect(mockNavigateToVault).not.toHaveBeenCalled();
-      expect(screen.getByLabelText('Selected anchor: Anchor Two')).toBeTruthy();
+      expect(screen.getByText('Anchor Two')).toBeTruthy();
     });
   });
 
@@ -185,7 +204,7 @@ describe('PracticeScreen', () => {
     mockAnchors = [buildAnchor('a99', 'Build consistency')];
     const screen = render(<PracticeScreen />);
 
-    fireEvent.press(screen.getByText('REINFORCE/DEEP CHARGE'));
+    fireEvent.press(screen.getByText('DEEP PRIME'));
 
     await waitFor(() => {
       expect(mockNavigateToVault).toHaveBeenCalledWith('Ritual', {
@@ -208,7 +227,7 @@ describe('PracticeScreen', () => {
     ];
     const screen = render(<PracticeScreen />);
 
-    fireEvent.press(screen.getByText('REINFORCE/DEEP CHARGE'));
+    fireEvent.press(screen.getByText('DEEP PRIME'));
 
     await waitFor(() => {
       expect(mockNavigateToVault).toHaveBeenCalledWith('Ritual', {
@@ -226,7 +245,7 @@ describe('PracticeScreen', () => {
     mockAnchors = [buildAnchor('a77', 'Steady growth')];
     const screen = render(<PracticeScreen />);
 
-    fireEvent.press(screen.getByText('REINFORCE/DEEP CHARGE'));
+    fireEvent.press(screen.getByText('DEEP PRIME'));
 
     await waitFor(() => {
       expect(mockNavigateToVault).toHaveBeenCalledWith('Ritual', {
@@ -238,7 +257,7 @@ describe('PracticeScreen', () => {
     });
   });
 
-  it('continues today by quick-restarting the last ritual type for the selected anchor', async () => {
+  it('uses the primary CTA to quick-restart the last ritual type for the selected anchor', async () => {
     mockAnchors = [buildAnchor('a55', 'Stay steady')];
     mockSessionLog = [
       {
@@ -252,11 +271,20 @@ describe('PracticeScreen', () => {
     ];
 
     const screen = render(<PracticeScreen />);
-    fireEvent.press(screen.getByText('Continue Today'));
+    fireEvent.press(screen.getByText('Begin Priming'));
 
     await waitFor(() => {
       expect(mockNavigate).toHaveBeenCalledWith('StabilizeRitual', { anchorId: 'a55' });
     });
+  });
+
+  it('shows focus-session sub-copy after the user has already primed today', async () => {
+    mockAnchors = [buildAnchor('a3', 'Keep momentum')];
+    mockLastPrimedAt = localDateString(new Date());
+
+    const screen = render(<PracticeScreen />);
+
+    expect(screen.getByText('Focus Session · 10–60 sec')).toBeTruthy();
   });
 
   it('opens teaching sheet from info icon', async () => {

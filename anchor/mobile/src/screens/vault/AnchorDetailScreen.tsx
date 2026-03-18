@@ -1,5 +1,5 @@
 // @ts-nocheck
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   View,
   Text,
@@ -18,16 +18,16 @@ import { BlurView } from 'expo-blur';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { format, isToday } from 'date-fns';
 import { SvgXml } from 'react-native-svg';
+import { ChevronRight, Zap } from 'lucide-react-native';
 import { MoreRitualsSheet, RitualType } from '@/components/MoreRitualsSheet';
-import { useAuthStore } from '@/stores/authStore';
-import { ANCHOR_DETAILS_COPY } from '@/constants/copy';
 import { useAnchorStore } from '@/stores/anchorStore';
 import { useSettingsStore } from '@/stores/settingsStore';
 import { useSessionStore } from '@/stores/sessionStore';
 import { del } from '@/services/ApiClient';
-import { useTabNavigation } from '@/contexts/TabNavigationContext';
 import { safeHaptics } from '@/utils/haptics';
 import * as Haptics from 'expo-haptics';
+import { colors, spacing, typography } from '@/theme';
+import { calculateStreak } from '@/utils/streakHelpers';
 import Reanimated, {
   Easing as ReanimatedEasing,
   cancelAnimation,
@@ -39,31 +39,33 @@ import Reanimated, {
   withTiming,
 } from 'react-native-reanimated';
 import { DivineSigilAura } from './components/DivineSigilAura';
-import { ChargedGlowCanvas } from '@/components/common';
+import { ChargedGlowCanvas, ZenBackground } from '@/components/common';
 
 const { width: SCREEN_W } = Dimensions.get('window');
 const SIGIL_CIRCLE_SIZE = Math.round(SCREEN_W * 0.62);
 
 // ─── TOKENS ──────────────────────────────────────────────
 const C = {
-  gold: '#c9a84c',
+  gold: colors.gold,
   goldBright: '#f0cb6a',
-  goldDim: '#b6934c',
-  goldBorder: 'rgba(201,168,76,0.3)',
-  purpleDeep: '#0d0818',
-  purpleMid: '#1a1030',
-  purpleCard: '#130e22',
-  purpleBorder: 'rgba(140,100,220,0.18)',
-  textPrimary: '#e8dfc8',
-  textSec: 'rgba(220,205,176,0.88)',
-  textDim: 'rgba(196,181,153,0.72)',
+  goldDim: colors.bronze,
+  goldBorder: colors.practice.cardFeaturedBorder,
+  purpleDeep: colors.background.primary,
+  purpleMid: colors.background.primary,
+  purpleCard: colors.practice.cardSecondarySurface,
+  purpleBorder: colors.practice.cardSecondaryBorder,
+  textPrimary: colors.text.primary,
+  textSec: colors.text.secondary,
+  textDim: colors.text.tertiary,
+  silverDim: 'rgba(184,184,184,0.45)',
   red: 'rgba(232,140,140,0.9)',
   redBorder: 'rgba(200,80,80,0.3)',
   burn: 'rgba(243,176,112,0.92)',
   burnBorder: 'rgba(200,100,40,0.3)',
 };
 
-const CARD_GRADIENT = ['rgba(42,32,84,0.9)', 'rgba(26,18,58,0.93)'];
+const CARD_GRADIENT = [colors.practice.cardSecondarySurface, colors.practice.cardSecondarySurface];
+const MINI_WEEK_DAYS = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
 
 const CATEGORY_LABELS = {
   career: 'Career',
@@ -89,6 +91,18 @@ const formatDate = (value, pattern = 'MMMM d, yyyy') => {
   return format(date, pattern);
 };
 
+const localDateString = (d) =>
+  `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+
+const isoWeekKey = (d) => {
+  const tmp = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
+  const dayOfWeek = tmp.getUTCDay() || 7;
+  tmp.setUTCDate(tmp.getUTCDate() + 4 - dayOfWeek);
+  const yearStart = new Date(Date.UTC(tmp.getUTCFullYear(), 0, 1));
+  const weekNo = Math.ceil(((tmp.getTime() - yearStart.getTime()) / 86400000 + 1) / 7);
+  return `${tmp.getUTCFullYear()}-W${String(weekNo).padStart(2, '0')}`;
+};
+
 const toDisplayAnchor = (rawAnchor) => {
   if (!rawAnchor) return null;
 
@@ -112,7 +126,7 @@ const toDisplayAnchor = (rawAnchor) => {
   const charged = Boolean(rawAnchor.charged ?? rawAnchor.isCharged);
   const todayActivated =
     rawAnchor.today ??
-    (lastActivatedDate && isToday(lastActivatedDate) ? 'Activated' : null);
+    (lastActivatedDate && isToday(lastActivatedDate) ? 'Primed' : null);
 
   return {
     id: rawAnchor.id,
@@ -462,13 +476,41 @@ const PrimerModal = ({ visible, onActivate, onSkip, onCancel }) => (
   </Modal>
 );
 
+const MiniWeekTrack = ({ weekHistory, lastPrimedAt }) => {
+  const todayIdx = (new Date().getDay() + 6) % 7;
+  const primedToday = lastPrimedAt === localDateString(new Date());
+
+  return (
+    <View style={s.miniDayRow}>
+      {MINI_WEEK_DAYS.map((day, index) => {
+        const primed = weekHistory[index] ?? false;
+        const isToday = index === todayIdx;
+        const isFuture = index > todayIdx;
+
+        return (
+          <View key={`${day}-${index}`} style={s.miniDayCol}>
+            <Text style={s.miniDayLetter}>{day}</Text>
+            <View
+              style={[
+                s.miniDayDot,
+                primed && s.miniDayDotDone,
+                isToday && !primed && s.miniDayDotToday,
+                isFuture && s.miniDayDotFuture,
+                isToday && primedToday && s.miniDayDotTodayDone,
+              ]}
+            />
+          </View>
+        );
+      })}
+    </View>
+  );
+};
+
 const AnchorDetailsScreen = ({ navigation, route }) => {
   const insets = useSafeAreaInsets();
   const getAnchorById = useAnchorStore((state) => state.getAnchorById);
   const removeAnchor = useAnchorStore((state) => state.removeAnchor);
-  const currentAnchorId = useAnchorStore((state) => state.currentAnchorId);
   const { defaultActivation, setDefaultActivation } = useSettingsStore();
-  const { navigateToPractice } = useTabNavigation();
   const sessionLog = useSessionStore((s) => s.sessionLog);
   const [activeDuration, setActiveDuration] = useState('30s');
   const [primerVisible, setPrimerVisible] = useState(false);
@@ -496,20 +538,58 @@ const AnchorDetailsScreen = ({ navigation, route }) => {
     baseSigilSvg: '',
     enhancedImageUrl: null,
   };
-  // Compute today's session count for THIS anchor from local session log.
-  const todayStr = new Date().toISOString().slice(0, 10); // 'YYYY-MM-DD'
-  const todaySessionsForAnchor = anchorId
-    ? sessionLog.filter(
-        (e) => e.anchorId === anchorId && e.completedAt.startsWith(todayStr)
-      ).length
-    : 0;
-  const todayDisplayValue =
-    todaySessionsForAnchor > 0
-      ? `${todaySessionsForAnchor} session${todaySessionsForAnchor > 1 ? 's' : ''}`
-      : anchor.today ?? 'Not yet';
+  const anchorPractice = useMemo(() => {
+    if (!anchorId) {
+      return {
+        currentStreak: 0,
+        totalPrimingSessions: 0,
+        lastPrimedAt: null,
+        weekHistory: [false, false, false, false, false, false, false],
+      };
+    }
+
+    const currentWeekKey = isoWeekKey(new Date());
+    const primingSessions = sessionLog
+      .filter(
+        (entry) =>
+          entry.anchorId === anchorId &&
+          (entry.type === 'activate' || entry.type === 'reinforce')
+      )
+      .sort((a, b) => new Date(b.completedAt).getTime() - new Date(a.completedAt).getTime());
+
+    const weekHistoryForAnchor = [false, false, false, false, false, false, false];
+    primingSessions.forEach((entry) => {
+      const date = new Date(entry.completedAt);
+      if (Number.isNaN(date.getTime()) || isoWeekKey(date) !== currentWeekKey) return;
+      const dayIndex = (date.getDay() + 6) % 7;
+      weekHistoryForAnchor[dayIndex] = true;
+    });
+
+    const currentStreak = calculateStreak(
+      primingSessions.map((entry) => ({ createdAt: entry.completedAt }))
+    ).currentStreak;
+
+    return {
+      currentStreak,
+      totalPrimingSessions: primingSessions.length,
+      lastPrimedAt: primingSessions[0] ? localDateString(new Date(primingSessions[0].completedAt)) : null,
+      weekHistory: weekHistoryForAnchor,
+    };
+  }, [anchorId, sessionLog]);
+  const threadStrengthValue = Math.max(
+    0,
+    Math.min(
+      100,
+      Math.max(
+        Math.round((anchorPractice.weekHistory.filter(Boolean).length / 7) * 100),
+        anchorPractice.totalPrimingSessions > 0 ? Math.round((anchorPractice.currentStreak / 7) * 100) : 0
+      )
+    )
+  );
+  const currentStreakUnit = anchorPractice.currentStreak === 1 ? 'Day' : 'Days';
 
   const divineBreath = useSharedValue(0);
-  const divineGlowActive = Boolean(anchor.charged || anchor.today === 'Activated');
+  const divineGlowActive = Boolean(anchor.charged || anchor.today === 'Primed');
 
   useEffect(() => {
     if (!divineGlowActive) {
@@ -672,7 +752,7 @@ const AnchorDetailsScreen = ({ navigation, route }) => {
 
   const handlePracticePress = () => {
     safeHaptics.impact(Haptics.ImpactFeedbackStyle.Medium);
-    navigateToPractice();
+    navigation.navigate('Practice');
   };
 
   const handleMoreRitualsPress = () => {
@@ -731,14 +811,7 @@ const AnchorDetailsScreen = ({ navigation, route }) => {
     <View style={[s.root, { paddingTop: insets.top }]}>
       <StatusBar barStyle="light-content" />
 
-      {/* Background atmosphere */}
-      <LinearGradient
-        colors={['#0F1419', '#3E2C5B', '#1A1A1D']}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 1 }}
-        style={StyleSheet.absoluteFillObject}
-        pointerEvents="none"
-      />
+      <ZenBackground variant="practice" showOrbs showGrain showVignette />
 
       {/* ── HEADER ── */}
       <BlurView intensity={30} tint="dark" style={s.header}>
@@ -749,7 +822,7 @@ const AnchorDetailsScreen = ({ navigation, route }) => {
       </BlurView>
 
       <ScrollView
-        contentContainerStyle={[s.scroll, { paddingBottom: insets.bottom + 40 }]}
+        contentContainerStyle={[s.scroll, { paddingBottom: insets.bottom + spacing.xl + spacing.sm }]}
         showsVerticalScrollIndicator={false}
       >
 
@@ -760,23 +833,18 @@ const AnchorDetailsScreen = ({ navigation, route }) => {
               colors={CARD_GRADIENT}
               style={[s.card, s.cardGold]}
             >
+              <Text style={s.anchorEyebrow}>CURRENT ANCHOR</Text>
               <Text style={s.anchorName}>"{anchor.name}"</Text>
               <Text style={s.intentionText}>{anchor.intention}</Text>
               <View style={s.badgeRow}>
-                {currentAnchorId === anchor.id && (
-                  <View style={s.badgeThread}>
-                    <Text style={s.badgeIcon}>🧵</Text>
-                    <Text style={[s.badgeText, { color: C.goldBright }]}>CURRENT THREAD</Text>
-                  </View>
-                )}
                 <View style={s.badgeDesire}>
-                  <View style={[s.badgeDot, { backgroundColor: C.red }]} />
-                  <Text style={[s.badgeText, { color: C.red }]}>{anchor.category}</Text>
+                  <View style={[s.badgeDot, { backgroundColor: colors.gold }]} />
+                  <Text style={[s.badgeText, { color: colors.gold }]}>{anchor.category}</Text>
                 </View>
                 <View style={[s.badgeCharged, !anchor.charged && s.badgeDormant]}>
                   <Text style={s.badgeIcon}>{anchor.charged ? '⚡' : '💤'}</Text>
                   <Text style={[s.badgeText, { color: anchor.charged ? C.goldBright : C.textDim }]}>
-                    {anchor.charged ? 'Charged' : 'Dormant'}
+                    {anchor.charged ? 'Primed' : 'Dormant'}
                   </Text>
                 </View>
               </View>
@@ -855,29 +923,30 @@ const AnchorDetailsScreen = ({ navigation, route }) => {
         {/* ── STATS CARD ── */}
         <FadeUp delay={180}>
           <Reanimated.View style={[s.animatedCardShell, statsCardPulseStyle]}>
-            <LinearGradient
-              colors={CARD_GRADIENT}
-              style={[s.card, s.cardGold]}
-            >
-              <Text style={[s.statsHeader, !anchor.charged && { color: C.textDim }]}>
-                ⟡  {anchor.charged ? 'Charged' : 'Dormant'}  ⟡
-              </Text>
-              <View style={s.statsGrid}>
-                <View style={s.statItem}>
-                  <Text style={s.statLabel}>LAST ACTIVATED</Text>
-                  <Text style={s.statValue}>{anchor.lastActivated ?? 'Not yet'}</Text>
+            <LinearGradient colors={[colors.practice.threadSurface, colors.practice.threadSurface]} style={[s.card, s.statsCard]}>
+              <View style={s.miniStreakCard}>
+                <View style={s.miniStreakLeft}>
+                  <View style={s.miniStreakIcon}>
+                    <Zap size={16} color={colors.gold} />
+                  </View>
+                  <View>
+                    <Text testID="anchor-detail-streak-value" style={s.miniStreakNum}>
+                      {anchorPractice.currentStreak}
+                      <Text style={s.miniStreakUnit}> {currentStreakUnit}</Text>
+                    </Text>
+                    <Text style={s.miniStreakSub}>Sessions Primed</Text>
+                  </View>
                 </View>
-                <View style={s.statItem}>
-                  <Text style={s.statLabel}>STREAK</Text>
-                  <Text style={[s.statValue, { color: C.goldBright }]}>
-                    {anchor.streak} days
-                  </Text>
-                </View>
-                <View style={[s.statItem, s.statItemFull]}>
-                  <Text style={s.statLabel}>TODAY</Text>
-                  <Text style={s.statValue}>{todayDisplayValue}</Text>
+
+                <View style={s.miniDays}>
+                  <View style={s.miniThreadBarWrap}>
+                    <View style={[s.miniThreadBar, { width: `${threadStrengthValue}%` }]} />
+                  </View>
+                  <MiniWeekTrack weekHistory={anchorPractice.weekHistory} lastPrimedAt={anchorPractice.lastPrimedAt} />
                 </View>
               </View>
+
+              <Text style={s.miniAffirmation}>The symbol is becoming part of you.</Text>
 
               {/* Distilled row */}
               <View style={s.distilledRow}>
@@ -889,7 +958,7 @@ const AnchorDetailsScreen = ({ navigation, route }) => {
                     </View>
                   ))}
                 </View>
-                <Text style={{ color: C.textDim, fontSize: 12, marginLeft: 4 }}>ⓘ</Text>
+                <Text style={{ color: C.textDim, fontSize: 12, marginLeft: spacing.xs }}>ⓘ</Text>
               </View>
             </LinearGradient>
             <Reanimated.View pointerEvents="none" style={[s.cardAuraOverlay, statsCardAuraStyle]}>
@@ -910,33 +979,19 @@ const AnchorDetailsScreen = ({ navigation, route }) => {
             activeOpacity={0.8}
             onPress={handlePracticePress}
           >
-            <LinearGradient
-              colors={['#1a1523', '#241a35']}
-              style={s.primaryCtaGradient}
-            >
-              <View style={s.primaryCtaContent}>
-                <View style={s.primaryCtaLeft}>
-                  <Text style={s.primaryCtaTitle}>{ANCHOR_DETAILS_COPY.primaryCTA}</Text>
-                  <Text style={s.primaryCtaSubtitle}>{ANCHOR_DETAILS_COPY.primarySubtitle}</Text>
-                </View>
-                <View style={s.primaryCtaButtonWrap}>
-                  <Text style={s.primaryCtaButtonText}>{ANCHOR_DETAILS_COPY.practiceCta}</Text>
-                </View>
+            <View style={s.primaryCtaGradient}>
+              <View style={s.primaryCtaLeft}>
+                <Text style={s.primaryCtaLabel}>Ready to prime?</Text>
+                <Text style={s.primaryCtaTitle}>Open Practice</Text>
               </View>
-            </LinearGradient>
+              <View style={s.primaryCtaArrow}>
+                <ChevronRight size={18} color={colors.gold} />
+              </View>
+            </View>
           </TouchableOpacity>
         </FadeUp>
 
-        {/* ── SECONDARY ACTION ── */}
-        <FadeUp delay={250}>
-          <TouchableOpacity
-            style={s.moreRitualsGhostBtn}
-            activeOpacity={0.8}
-            onPress={handleMoreRitualsPress}
-          >
-            <Text style={s.moreRitualsGhostText}>{ANCHOR_DETAILS_COPY.moreRituals}</Text>
-          </TouchableOpacity>
-        </FadeUp>
+        {/* DEFERRED: Direct ritual entry points live on Practice. Restore the secondary ritual sheet here only if the detail screen regains mode-launch responsibilities. */}
 
         {/* ── YOUR PRACTICE ── */}
         <FadeUp delay={360}>
@@ -948,10 +1003,10 @@ const AnchorDetailsScreen = ({ navigation, route }) => {
               <Text style={s.practiceTitle}>Your Practice</Text>
               <Text style={{ color: C.goldDim, fontSize: 11 }}>▼</Text>
             </View>
-            <View style={{ gap: 12 }}>
+            <View style={{ gap: spacing.sm + spacing.xs }}>
               {[
                 { label: 'Create', done: anchor.practiceCreate, tag: '✓', progress: null },
-                { label: 'Charge', done: anchor.practiceCharge, tag: '✓', progress: null },
+                { label: 'Prime', done: anchor.practiceCharge, tag: '✓', progress: null },
                 { label: 'Activate daily', done: false, tag: null, progress: `${anchor.practiceActivateDays}/7` },
               ].map((item) => (
                 <View key={item.label} style={s.practiceItem}>
@@ -1013,7 +1068,7 @@ const AnchorDetailsScreen = ({ navigation, route }) => {
             </View>
             <TouchableOpacity
               activeOpacity={0.85}
-              style={{ marginBottom: 10 }}
+              style={{ marginBottom: spacing.sm + spacing.xs }}
               onPress={() => Alert.alert('Physical Anchor', 'Physical anchor flow coming soon.')}
             >
               <LinearGradient
@@ -1042,13 +1097,15 @@ const AnchorDetailsScreen = ({ navigation, route }) => {
 
       </ScrollView>
 
-      {/* Sheet overlay — rendered last so it sits above all screen content */}
+      {/* DEFERRED: MoreRitualsSheet stays off-screen while Anchor Details only routes into Practice. */}
+      {/*
       <MoreRitualsSheet
         visible={moreRitualsVisible}
         onClose={() => setMoreRitualsVisible(false)}
         onSelectRitual={handleRitualSelect}
         isCharged={anchor.charged}
       />
+      */}
     </View>
   );
 };
@@ -1060,58 +1117,59 @@ export default AnchorDetailsScreen;
 const s = StyleSheet.create({
   root: {
     flex: 1,
-    backgroundColor: C.purpleDeep,
+    backgroundColor: colors.background.primary,
   },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 14,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm + spacing.xs,
     borderBottomWidth: 1,
-    borderBottomColor: 'rgba(140,100,220,0.1)',
+    borderBottomColor: 'rgba(212,175,55,0.1)',
+    backgroundColor: 'rgba(12,14,18,0.88)',
   },
   backBtn: {
     width: 36, height: 36,
     alignItems: 'center', justifyContent: 'center',
-    marginRight: 10,
+    marginRight: spacing.sm,
   },
   backArrow: {
     color: C.gold, fontSize: 22, opacity: 0.85,
   },
   headerTitle: {
-    fontFamily: 'Cinzel_500Medium', // or use a loaded font
-    fontSize: 13,
+    fontFamily: typography.fontFamily.serif,
+    fontSize: 11,
     letterSpacing: 3,
-    color: C.gold,
-    opacity: 0.9,
+    color: C.silverDim,
   },
   scroll: {
-    padding: 16,
-    gap: 14,
+    paddingHorizontal: spacing.md,
+    paddingTop: spacing.md,
+    gap: spacing.md,
   },
 
   // ── CARD ──
   card: {
-    borderRadius: 18,
-    padding: 22,
+    borderRadius: 14,
+    padding: spacing.md,
     borderWidth: 1,
-    borderColor: C.purpleBorder,
+    borderColor: colors.practice.cardSecondaryBorder,
     overflow: 'hidden',
   },
   animatedCardShell: {
     width: '100%',
-    borderRadius: 20,
+    borderRadius: 14,
     borderWidth: 1.2,
-    borderColor: 'rgba(201,168,76,0.24)',
+    borderColor: colors.practice.cardFeaturedBorder,
     overflow: 'hidden',
   },
   cardAuraOverlay: {
     ...StyleSheet.absoluteFillObject,
-    borderRadius: 20,
+    borderRadius: 14,
     zIndex: 2,
   },
   cardGold: {
-    borderColor: C.goldBorder,
+    borderColor: colors.practice.cardFeaturedBorder,
     shadowColor: C.gold,
     shadowOffset: { width: 0, height: 0 },
     shadowOpacity: 0.08,
@@ -1120,33 +1178,37 @@ const s = StyleSheet.create({
   },
 
   // ── TITLE CARD ──
+  anchorEyebrow: {
+    fontFamily: typography.fontFamily.serif,
+    fontSize: 8,
+    letterSpacing: 3,
+    color: C.silverDim,
+    textAlign: 'center',
+    marginBottom: spacing.sm,
+  },
   anchorName: {
-    fontFamily: 'serif',
-    fontSize: 20,
-    fontWeight: '700',
-    color: '#f0e8d0',
+    fontFamily: typography.fontFamily.serifSemiBold,
+    fontSize: 24,
+    color: colors.bone,
     textAlign: 'center',
     letterSpacing: 0.5,
-    marginBottom: 6,
-    textShadowColor: 'rgba(201,168,76,0.2)',
-    textShadowOffset: { width: 0, height: 0 },
-    textShadowRadius: 12,
+    marginBottom: spacing.xs,
   },
   intentionText: {
-    fontFamily: 'serif',
-    fontSize: 12,
+    fontFamily: typography.fontFamily.sans,
+    fontSize: 13,
     fontStyle: 'italic',
     color: C.textSec,
     textAlign: 'center',
     letterSpacing: 0.3,
-    marginBottom: 16,
+    marginBottom: spacing.md,
     lineHeight: 18,
   },
   badgeRow: {
     flexDirection: 'row',
     justifyContent: 'center',
     flexWrap: 'wrap',
-    gap: 10,
+    gap: spacing.sm,
   },
   badgeThread: {
     flexDirection: 'row',
@@ -1163,8 +1225,8 @@ const s = StyleSheet.create({
     gap: 6,
     paddingVertical: 6, paddingHorizontal: 14,
     borderRadius: 30,
-    backgroundColor: 'rgba(120,40,40,0.4)',
-    borderWidth: 1, borderColor: 'rgba(200,80,80,0.3)',
+    backgroundColor: colors.practice.cardIconSecondarySurface,
+    borderWidth: 1, borderColor: colors.practice.cardIconSecondaryBorder,
   },
   badgeCharged: {
     flexDirection: 'row',
@@ -1172,14 +1234,14 @@ const s = StyleSheet.create({
     gap: 6,
     paddingVertical: 6, paddingHorizontal: 14,
     borderRadius: 30,
-    backgroundColor: 'rgba(60,45,10,0.5)',
-    borderWidth: 1, borderColor: 'rgba(201,168,76,0.4)',
+    backgroundColor: colors.practice.threadIconSurface,
+    borderWidth: 1, borderColor: colors.practice.threadIconBorder,
     shadowColor: C.gold,
     shadowOpacity: 0.2, shadowRadius: 8,
   },
   badgeDormant: {
-    backgroundColor: 'rgba(40,40,60,0.4)',
-    borderColor: 'rgba(140,100,220,0.2)',
+    backgroundColor: colors.practice.heroSwitcherSurface,
+    borderColor: colors.practice.heroSwitcherBorder,
     shadowOpacity: 0,
   },
   badgeDot: {
@@ -1187,9 +1249,8 @@ const s = StyleSheet.create({
   },
   badgeIcon: { fontSize: 11 },
   badgeText: {
-    fontFamily: 'serif',
-    fontSize: 10,
-    fontWeight: '700',
+    fontFamily: typography.fontFamily.serif,
+    fontSize: 9,
     letterSpacing: 1.5,
   },
 
@@ -1273,6 +1334,114 @@ const s = StyleSheet.create({
     marginBottom: 20,
     textTransform: 'uppercase',
   },
+  statsCard: {
+    borderColor: colors.practice.threadBorder,
+  },
+  miniStreakCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm + spacing.xs,
+  },
+  miniStreakLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    flexShrink: 0,
+  },
+  miniStreakIcon: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: colors.practice.threadIconBorder,
+    backgroundColor: colors.practice.threadIconSurface,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  miniStreakNum: {
+    fontFamily: typography.fontFamily.serifSemiBold,
+    fontSize: 22,
+    lineHeight: 22,
+    color: colors.gold,
+  },
+  miniStreakUnit: {
+    fontFamily: typography.fontFamily.serif,
+    fontSize: 10,
+    color: colors.silver,
+    letterSpacing: 1.2,
+  },
+  miniStreakSub: {
+    marginTop: 3,
+    fontFamily: typography.fontFamily.serif,
+    fontSize: 7.5,
+    letterSpacing: 1.2,
+    color: C.silverDim,
+    textTransform: 'uppercase',
+  },
+  miniDays: {
+    flex: 1,
+    gap: spacing.xs,
+  },
+  miniThreadBarWrap: {
+    height: 2.5,
+    borderRadius: 2,
+    backgroundColor: 'rgba(212,175,55,0.1)',
+    overflow: 'hidden',
+  },
+  miniThreadBar: {
+    height: '100%',
+    borderRadius: 2,
+    backgroundColor: colors.gold,
+  },
+  miniDayRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    gap: spacing.xs,
+  },
+  miniDayCol: {
+    alignItems: 'center',
+    gap: 3,
+  },
+  miniDayLetter: {
+    fontFamily: typography.fontFamily.serif,
+    fontSize: 7.5,
+    color: C.silverDim,
+  },
+  miniDayDot: {
+    width: 14,
+    height: 14,
+    borderRadius: 7,
+    borderWidth: 1,
+    borderColor: colors.practice.threadIconBorder,
+    backgroundColor: 'transparent',
+  },
+  miniDayDotDone: {
+    backgroundColor: colors.gold,
+    borderColor: colors.gold,
+  },
+  miniDayDotToday: {
+    borderColor: colors.gold,
+  },
+  miniDayDotTodayDone: {
+    shadowColor: colors.gold,
+    shadowOpacity: 0.35,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  miniDayDotFuture: {
+    opacity: 0.35,
+  },
+  miniAffirmation: {
+    fontFamily: typography.fontFamily.sans,
+    fontSize: 12,
+    fontStyle: 'italic',
+    color: C.textSec,
+    textAlign: 'center',
+    marginTop: spacing.sm,
+    paddingTop: spacing.sm,
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(212,175,55,0.08)',
+  },
   statsGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
@@ -1311,27 +1480,28 @@ const s = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 8,
-    paddingTop: 14,
-    marginTop: 4,
+    gap: spacing.sm,
+    paddingTop: spacing.sm,
+    marginTop: spacing.xs,
     borderTopWidth: 1,
-    borderTopColor: 'rgba(140,100,220,0.1)',
+    borderTopColor: 'rgba(212,175,55,0.08)',
   },
   distilledLabel: {
-    fontFamily: 'serif',
+    fontFamily: typography.fontFamily.serif,
     fontSize: 8,
     letterSpacing: 2.5,
-    color: C.textDim,
+    color: C.silverDim,
     textTransform: 'uppercase',
   },
-  distilledTags: { flexDirection: 'row', gap: 6 },
+  distilledTags: { flexDirection: 'row', gap: spacing.xs + 2 },
   distilledTag: {
-    borderWidth: 1, borderColor: 'rgba(201,168,76,0.15)',
-    borderRadius: 4, paddingVertical: 2, paddingHorizontal: 7,
+    borderWidth: 1, borderColor: colors.practice.cardSecondaryBorder,
+    borderRadius: 6, paddingVertical: 2, paddingHorizontal: 7,
+    backgroundColor: 'rgba(0,0,0,0.12)',
   },
   distilledTagText: {
-    fontFamily: 'serif',
-    fontSize: 8, letterSpacing: 1, color: 'rgba(201,168,76,0.5)',
+    fontFamily: typography.fontFamily.serif,
+    fontSize: 8, letterSpacing: 1, color: C.textSec,
   },
 
   // ── SECTION LABEL ──
@@ -1456,14 +1626,14 @@ const s = StyleSheet.create({
   // ── PRACTICE ──
   practiceHeader: {
     flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
-    marginBottom: 16,
+    marginBottom: spacing.md,
   },
   practiceTitle: {
-    fontFamily: 'serif',
+    fontFamily: typography.fontFamily.serifSemiBold,
     fontSize: 13, fontWeight: '600', color: C.gold, letterSpacing: 1,
   },
   practiceItem: {
-    flexDirection: 'row', alignItems: 'center', gap: 14,
+    flexDirection: 'row', alignItems: 'center', gap: spacing.sm + spacing.xs,
   },
   practiceCheck: {
     width: 28, height: 28, borderRadius: 14,
@@ -1479,31 +1649,31 @@ const s = StyleSheet.create({
     backgroundColor: 'rgba(100,60,180,0.1)',
   },
   practiceCheckText: {
-    fontFamily: 'serif',
+    fontFamily: typography.fontFamily.serif,
     fontSize: 10, fontWeight: '700',
   },
   practiceLabel: {
-    fontFamily: 'serif',
+    fontFamily: typography.fontFamily.sans,
     fontSize: 15, color: C.textPrimary, letterSpacing: 0.3,
   },
 
   // ── PHYSICAL ──
   physicalEyebrow: {
-    fontFamily: 'serif',
-    fontSize: 9, letterSpacing: 3, color: C.gold,
-    textTransform: 'uppercase', marginBottom: 4, opacity: 0.8,
+    fontFamily: typography.fontFamily.serif,
+    fontSize: 8, letterSpacing: 3, color: C.silverDim,
+    textTransform: 'uppercase', marginBottom: spacing.xs,
   },
   physicalSub: {
-    fontFamily: 'serif',
-    fontSize: 13, fontStyle: 'italic', color: C.textSec, marginBottom: 16,
+    fontFamily: typography.fontFamily.sans,
+    fontSize: 13, fontStyle: 'italic', color: C.textSec, marginBottom: spacing.md,
   },
   physicalRow: {
-    flexDirection: 'row', alignItems: 'center', gap: 14, marginBottom: 16,
+    flexDirection: 'row', alignItems: 'center', gap: spacing.sm + spacing.xs, marginBottom: spacing.md,
   },
   physicalThumb: {
     width: 64, height: 64, borderRadius: 12,
-    borderWidth: 1, borderColor: 'rgba(201,168,76,0.25)',
-    backgroundColor: 'rgba(26,20,58,0.85)',
+    borderWidth: 1, borderColor: colors.practice.cardFeaturedBorder,
+    backgroundColor: colors.practice.cardFeaturedSurface,
     overflow: 'hidden',
     alignItems: 'center', justifyContent: 'center',
   },
@@ -1520,11 +1690,11 @@ const s = StyleSheet.create({
     fontSize: 28,
   },
   physicalCopyTitle: {
-    fontFamily: 'serif',
-    fontSize: 13, fontWeight: '700', color: C.textPrimary, marginBottom: 4,
+    fontFamily: typography.fontFamily.serifSemiBold,
+    fontSize: 13, fontWeight: '700', color: C.textPrimary, marginBottom: spacing.xs,
   },
   physicalCopyBody: {
-    fontFamily: 'serif',
+    fontFamily: typography.fontFamily.sans,
     fontSize: 12, fontStyle: 'italic', color: C.textSec,
   },
   createPhysicalBtn: {
@@ -1532,39 +1702,55 @@ const s = StyleSheet.create({
     shadowColor: C.gold, shadowOpacity: 0.25, shadowRadius: 10,
   },
   createPhysicalText: {
-    fontFamily: 'serif',
+    fontFamily: typography.fontFamily.serif,
     fontSize: 12, fontWeight: '800', letterSpacing: 2, color: '#1a0e00',
   },
   physicalTags: {
-    fontFamily: 'serif',
+    fontFamily: typography.fontFamily.serif,
     fontSize: 11, color: C.textDim,
     textAlign: 'center', letterSpacing: 1,
   },
   // ── NEW RITUAL ACTIONS ──
   primaryCtaCard: {
-    borderRadius: 20,
+    borderRadius: 14,
     borderWidth: 1,
-    borderColor: 'rgba(212,175,55,0.4)',
+    borderColor: colors.practice.cardFeaturedBorder,
     overflow: 'hidden',
+    backgroundColor: 'transparent',
   },
   primaryCtaGradient: {
-    padding: 20,
-  },
-  primaryCtaContent: {
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.md,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    gap: 16,
+    gap: spacing.md,
   },
   primaryCtaLeft: {
     flex: 1,
   },
+  primaryCtaLabel: {
+    fontFamily: typography.fontFamily.serif,
+    fontSize: 8.5,
+    letterSpacing: 2.5,
+    color: C.silverDim,
+    textTransform: 'uppercase',
+    marginBottom: spacing.xs,
+  },
   primaryCtaTitle: {
-    fontFamily: 'serif',
-    fontSize: 18,
-    fontWeight: '700',
-    color: C.gold,
+    fontFamily: typography.fontFamily.serifSemiBold,
+    fontSize: 16,
+    color: colors.gold,
     letterSpacing: 0.5,
+  },
+  primaryCtaArrow: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    borderWidth: 1,
+    borderColor: colors.practice.cardFeaturedBorder,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   primaryCtaSubtitle: {
     marginTop: 4,
@@ -1599,9 +1785,9 @@ const s = StyleSheet.create({
 
   // ── FOOTER ──
   footerDate: {
-    fontFamily: 'serif',
+    fontFamily: typography.fontFamily.sans,
     fontSize: 11, fontStyle: 'italic',
     color: C.textDim, textAlign: 'center',
-    paddingVertical: 8, letterSpacing: 0.5,
+    paddingVertical: spacing.sm, letterSpacing: 0.5,
   },
 });
