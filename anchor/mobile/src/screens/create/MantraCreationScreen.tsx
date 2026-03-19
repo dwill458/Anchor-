@@ -455,6 +455,7 @@ export const MantraCreationScreen: React.FC = () => {
 
     navigation.navigate('ChargeSetup', {
       anchorId,
+      autoStartOnSelection: true,
     });
   }, [ensureAnchor, navigation, selectedMantraOption]);
 

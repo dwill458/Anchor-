@@ -20,10 +20,12 @@ import { format, isToday } from 'date-fns';
 import { SvgXml } from 'react-native-svg';
 import { ChevronRight, Zap } from 'lucide-react-native';
 import { MoreRitualsSheet, RitualType } from '@/components/MoreRitualsSheet';
+import { useTabNavigation } from '@/contexts/TabNavigationContext';
 import { useAnchorStore } from '@/stores/anchorStore';
 import { useSettingsStore } from '@/stores/settingsStore';
 import { useSessionStore } from '@/stores/sessionStore';
 import { del } from '@/services/ApiClient';
+import { exportAnchorArtwork } from '@/services/AnchorArtworkExportService';
 import { safeHaptics } from '@/utils/haptics';
 import * as Haptics from 'expo-haptics';
 import { colors, spacing, typography } from '@/theme';
@@ -39,7 +41,11 @@ import Reanimated, {
   withTiming,
 } from 'react-native-reanimated';
 import { DivineSigilAura } from './components/DivineSigilAura';
-import { ChargedGlowCanvas, ZenBackground } from '@/components/common';
+import {
+  AnchorArtworkExportCanvas,
+  ChargedGlowCanvas,
+  ZenBackground,
+} from '@/components/common';
 
 const { width: SCREEN_W } = Dimensions.get('window');
 const SIGIL_CIRCLE_SIZE = Math.round(SCREEN_W * 0.62);
@@ -508,6 +514,7 @@ const MiniWeekTrack = ({ weekHistory, lastPrimedAt }) => {
 
 const AnchorDetailsScreen = ({ navigation, route }) => {
   const insets = useSafeAreaInsets();
+  const { navigateToPractice } = useTabNavigation();
   const getAnchorById = useAnchorStore((state) => state.getAnchorById);
   const removeAnchor = useAnchorStore((state) => state.removeAnchor);
   const { defaultActivation, setDefaultActivation } = useSettingsStore();
@@ -515,6 +522,8 @@ const AnchorDetailsScreen = ({ navigation, route }) => {
   const [activeDuration, setActiveDuration] = useState('30s');
   const [primerVisible, setPrimerVisible] = useState(false);
   const [moreRitualsVisible, setMoreRitualsVisible] = useState(false);
+  const [exportBusyMode, setExportBusyMode] = useState(null);
+  const exportCanvasRef = useRef(null);
 
   const routeAnchor = route?.params?.anchor;
   const anchorId = route?.params?.anchorId ?? routeAnchor?.id;
@@ -742,17 +751,19 @@ const AnchorDetailsScreen = ({ navigation, route }) => {
   const handleBurn = () => {
     if (!anchorId) return;
 
+    const burnAnchor = storeAnchor ?? sourceAnchor;
+
     navigation.navigate('ConfirmBurn', {
       anchorId,
-      intention: sourceAnchor?.intentionText ?? sourceAnchor?.intention ?? anchor.intention,
-      sigilSvg: sourceAnchor?.baseSigilSvg ?? '',
-      enhancedImageUrl: sourceAnchor?.enhancedImageUrl,
+      intention: burnAnchor?.intentionText ?? burnAnchor?.intention ?? anchor.intention,
+      sigilSvg: burnAnchor?.reinforcedSigilSvg ?? burnAnchor?.baseSigilSvg ?? '',
+      enhancedImageUrl: burnAnchor?.enhancedImageUrl,
     });
   };
 
   const handlePracticePress = () => {
     safeHaptics.impact(Haptics.ImpactFeedbackStyle.Medium);
-    navigation.navigate('Practice');
+    navigateToPractice();
   };
 
   const handleMoreRitualsPress = () => {
@@ -804,6 +815,45 @@ const AnchorDetailsScreen = ({ navigation, route }) => {
     ]);
   };
 
+  const captureAnchorArtwork = async () => {
+    const uri = await exportCanvasRef.current?.capture?.();
+    if (!uri) {
+      throw new Error('Unable to generate your anchor artwork right now.');
+    }
+    return uri;
+  };
+
+  const handleArtworkExport = async (mode) => {
+    if (!anchorId) {
+      Alert.alert('Anchor unavailable', 'Unable to export because no anchor ID was provided.');
+      return;
+    }
+
+    setExportBusyMode(mode);
+
+    try {
+      await exportAnchorArtwork({
+        anchor: {
+          anchorName: sourceAnchor?.name ?? sourceAnchor?.title ?? anchor.name ?? 'Anchor',
+          intentionText: sourceAnchor?.intentionText ?? sourceAnchor?.intention ?? anchor.intention,
+        },
+        mode,
+        captureArtwork: captureAnchorArtwork,
+      });
+
+      if (mode === 'download') {
+        Alert.alert('PNG saved', 'Saved to your photo library.');
+      }
+    } catch (error) {
+      Alert.alert(
+        mode === 'download' ? 'PNG export failed' : 'Wallpaper export failed',
+        error?.message ?? 'Unable to export this anchor right now.'
+      );
+    } finally {
+      setExportBusyMode(null);
+    }
+  };
+
   // Removed renderHeroAction and renderRitualCards in favor of the new Primary CTA architecture.
 
 
@@ -834,7 +884,6 @@ const AnchorDetailsScreen = ({ navigation, route }) => {
               style={[s.card, s.cardGold]}
             >
               <Text style={s.anchorEyebrow}>CURRENT ANCHOR</Text>
-              <Text style={s.anchorName}>"{anchor.name}"</Text>
               <Text style={s.intentionText}>{anchor.intention}</Text>
               <View style={s.badgeRow}>
                 <View style={s.badgeDesire}>
@@ -994,7 +1043,7 @@ const AnchorDetailsScreen = ({ navigation, route }) => {
         {/* DEFERRED: Direct ritual entry points live on Practice. Restore the secondary ritual sheet here only if the detail screen regains mode-launch responsibilities. */}
 
         {/* ── YOUR PRACTICE ── */}
-        <FadeUp delay={360}>
+        <FadeUp delay={260}>
           <LinearGradient
             colors={CARD_GRADIENT}
             style={s.card}
@@ -1030,8 +1079,48 @@ const AnchorDetailsScreen = ({ navigation, route }) => {
           </LinearGradient>
         </FadeUp>
 
+        <FadeUp delay={320}>
+          <LinearGradient
+            colors={CARD_GRADIENT}
+            style={[s.card, s.exportCard]}
+          >
+            <Text style={s.exportEyebrow}>WALLPAPER & EXPORT</Text>
+            <Text style={s.exportTitle}>Keep your anchor where you will actually see it.</Text>
+            <Text style={s.exportBody}>
+              Generate a branded PNG from this anchor, save it to your device, or open the share sheet so you can set it as wallpaper manually.
+            </Text>
+            <View style={s.exportActionRow}>
+              <TouchableOpacity
+                accessibilityRole="button"
+                activeOpacity={0.85}
+                disabled={Boolean(exportBusyMode)}
+                onPress={() => handleArtworkExport('wallpaper')}
+                style={[s.exportActionButton, s.exportActionPrimary, exportBusyMode && s.exportActionDisabled]}
+                testID="anchor-detail-set-wallpaper-button"
+              >
+                <Text style={s.exportActionPrimaryText}>
+                  {exportBusyMode === 'wallpaper' ? 'Preparing...' : 'Set as Wallpaper'}
+                </Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                accessibilityRole="button"
+                activeOpacity={0.85}
+                disabled={Boolean(exportBusyMode)}
+                onPress={() => handleArtworkExport('download')}
+                style={[s.exportActionButton, s.exportActionSecondary, exportBusyMode && s.exportActionDisabled]}
+                testID="anchor-detail-download-png-button"
+              >
+                <Text style={s.exportActionSecondaryText}>
+                  {exportBusyMode === 'download' ? 'Saving...' : 'Download PNG'}
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </LinearGradient>
+        </FadeUp>
+
         {/* ── PHYSICAL ANCHOR ── */}
-        <FadeUp delay={400}>
+        <FadeUp delay={360}>
           <LinearGradient
             colors={CARD_GRADIENT}
             style={[s.card, s.cardGold]}
@@ -1084,18 +1173,26 @@ const AnchorDetailsScreen = ({ navigation, route }) => {
         </FadeUp>
 
         {/* ── DESTRUCTIVE ACTION ── */}
-        <FadeUp delay={420}>
+        <FadeUp delay={380}>
           <TouchableOpacity style={s.deleteBtn} onPress={handleDelete}>
             <Text style={s.deleteBtnText}>Delete Anchor</Text>
           </TouchableOpacity>
         </FadeUp>
 
         {/* ── FOOTER ── */}
-        <FadeUp delay={440}>
+        <FadeUp delay={400}>
           <Text style={s.footerDate}>Created {anchor.createdAt}</Text>
         </FadeUp>
 
       </ScrollView>
+
+      <AnchorArtworkExportCanvas
+        ref={exportCanvasRef}
+        anchorName={sourceAnchor?.name ?? sourceAnchor?.title ?? anchor.name ?? 'Anchor'}
+        intentionText={sourceAnchor?.intentionText ?? sourceAnchor?.intention ?? anchor.intention}
+        enhancedImageUrl={sourceAnchor?.enhancedImageUrl ?? anchor.enhancedImageUrl}
+        sigilSvg={sourceAnchor?.reinforcedSigilSvg ?? sourceAnchor?.baseSigilSvg ?? anchor.baseSigilSvg}
+      />
 
       {/* DEFERRED: MoreRitualsSheet stays off-screen while Anchor Details only routes into Practice. */}
       {/*
@@ -1771,6 +1868,59 @@ const s = StyleSheet.create({
     fontSize: 13,
     color: C.goldBright,
     fontWeight: '600',
+  },
+  exportCard: {
+    gap: spacing.md,
+  },
+  exportEyebrow: {
+    color: C.goldDim,
+    fontFamily: 'Inter-SemiBold',
+    fontSize: 11,
+    letterSpacing: 1.2,
+  },
+  exportTitle: {
+    color: C.textPrimary,
+    fontFamily: typography.fontFamily.serifSemiBold,
+    fontSize: 20,
+    lineHeight: 28,
+  },
+  exportBody: {
+    color: C.textSec,
+    fontFamily: 'Inter-Regular',
+    fontSize: 14,
+    lineHeight: 22,
+  },
+  exportActionRow: {
+    gap: spacing.sm,
+  },
+  exportActionButton: {
+    alignItems: 'center',
+    borderRadius: 14,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.md,
+  },
+  exportActionPrimary: {
+    backgroundColor: colors.gold,
+  },
+  exportActionSecondary: {
+    backgroundColor: 'rgba(255,255,255,0.04)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.08)',
+  },
+  exportActionPrimaryText: {
+    color: colors.background.primary,
+    fontFamily: 'Inter-Bold',
+    fontSize: 14,
+    letterSpacing: 0.4,
+  },
+  exportActionSecondaryText: {
+    color: C.textPrimary,
+    fontFamily: 'Inter-SemiBold',
+    fontSize: 14,
+    letterSpacing: 0.3,
+  },
+  exportActionDisabled: {
+    opacity: 0.6,
   },
   moreRitualsGhostBtn: {
     alignItems: 'center',

@@ -5,7 +5,6 @@
  */
 
 import React from 'react';
-import { Platform } from 'react-native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { VaultScreen, AnchorDetailScreen } from '../screens/vault';
 import {
@@ -71,15 +70,17 @@ export const VaultStackNavigator: React.FC<VaultStackNavigatorProps> = ({ onRout
       screenOptions={{
         headerShown: true,
         animation: 'slide_from_right',
-        gestureEnabled: Platform.OS === 'ios',
+        gestureEnabled: true,
+        gestureDirection: 'horizontal',
         headerStyle: {
-          backgroundColor: colors.background.secondary,
+          backgroundColor: '#080C10',
         },
         headerTintColor: colors.gold,
         headerTitleStyle: {
           fontFamily: 'Cinzel-Regular',
-          fontSize: 18,
+          fontSize: 15,
         },
+        headerShadowVisible: false,
         contentStyle: { backgroundColor: colors.background.primary },
       }}
     >
@@ -98,12 +99,12 @@ export const VaultStackNavigator: React.FC<VaultStackNavigatorProps> = ({ onRout
       <Stack.Screen
         name="FirstAnchorCreation"
         component={IntentionInputScreen}
-        options={{ headerShown: false }}
+        options={{ headerShown: false, animation: 'fade_from_bottom' }}
       />
       <Stack.Screen
         name="CreateAnchor"
         component={ReturningIntentionScreen}
-        options={{ headerShown: false }}
+        options={{ headerShown: false, animation: 'fade_from_bottom' }}
       />
       <Stack.Screen
         name="LetterDistillation"
@@ -170,7 +171,7 @@ export const VaultStackNavigator: React.FC<VaultStackNavigatorProps> = ({ onRout
       <Stack.Screen
         name="AnchorReveal"
         component={AnchorRevealScreen}
-        options={{ headerShown: false }}
+        options={{ headerShown: false, animation: 'fade_from_bottom' }}
       />
       <Stack.Screen
         name="WallpaperPrompt"
@@ -183,38 +184,38 @@ export const VaultStackNavigator: React.FC<VaultStackNavigatorProps> = ({ onRout
       <Stack.Screen
         name="ChargeSetup"
         component={ChargeSetupScreen}
-        options={{ headerShown: false }}
+        options={{ headerShown: false, animation: 'fade_from_bottom' }}
       />
       <Stack.Screen
         name="Ritual"
         component={RitualScreen}
-        options={{ headerShown: false }}
+        options={{ headerShown: false, animation: 'fade_from_bottom' }}
       />
       <Stack.Screen
         name="SealAnchor"
         component={SealAnchorScreen}
-        options={{ headerShown: false }}
+        options={{ headerShown: false, animation: 'fade_from_bottom' }}
       />
       <Stack.Screen
         name="ChargeComplete"
         component={ChargeCompleteScreen}
-        options={{ headerShown: false }}
+        options={{ headerShown: false, animation: 'fade_from_bottom' }}
       />
       <Stack.Screen
         name="ActivationRitual"
         component={ActivationScreen}
-        options={{ title: 'Activate', headerShown: false }}
+        options={{ title: 'Activate', headerShown: false, animation: 'fade_from_bottom' }}
       />
       {/* Phase 3: Burning Ritual */}
       <Stack.Screen
         name="ConfirmBurn"
         component={ConfirmBurnScreen}
-        options={{ title: 'Burn & Release', headerShown: false }}
+        options={{ title: 'Burn & Release', headerShown: false, animation: 'fade_from_bottom' }}
       />
       <Stack.Screen
         name="BurningRitual"
         component={BurningRitualScreen}
-        options={{ title: 'Releasing...', headerShown: false }}
+        options={{ title: 'Releasing...', headerShown: false, animation: 'fade_from_bottom' }}
       />
       {/* Profile & Settings */}
       <Stack.Screen
@@ -228,10 +229,6 @@ export const VaultStackNavigator: React.FC<VaultStackNavigatorProps> = ({ onRout
         options={{
           title: 'Default Charge',
           headerShown: true,
-          headerStyle: {
-            backgroundColor: colors.background.secondary,
-          },
-          headerTintColor: colors.gold,
         }}
       />
       <Stack.Screen
@@ -240,10 +237,6 @@ export const VaultStackNavigator: React.FC<VaultStackNavigatorProps> = ({ onRout
         options={{
           title: 'Default Activation',
           headerShown: true,
-          headerStyle: {
-            backgroundColor: colors.background.secondary,
-          },
-          headerTintColor: colors.gold,
         }}
       />
       <Stack.Screen
@@ -252,10 +245,6 @@ export const VaultStackNavigator: React.FC<VaultStackNavigatorProps> = ({ onRout
         options={{
           title: 'Daily Practice Goal',
           headerShown: true,
-          headerStyle: {
-            backgroundColor: colors.background.secondary,
-          },
-          headerTintColor: colors.gold,
         }}
       />
     </Stack.Navigator>

@@ -4,6 +4,7 @@ import { AnchorDetailScreen } from '../AnchorDetailScreen';
 
 // Mock navigation
 const mockNavigate = jest.fn();
+const mockExportAnchorArtwork = jest.fn();
 jest.mock('@react-navigation/native', () => ({
     ...jest.requireActual('@react-navigation/native'),
     useNavigation: () => ({ navigate: mockNavigate, goBack: jest.fn(), popToTop: jest.fn() }),
@@ -88,6 +89,10 @@ jest.mock('@/services/ApiClient', () => ({
     del: jest.fn(),
 }));
 
+jest.mock('@/services/AnchorArtworkExportService', () => ({
+    exportAnchorArtwork: (...args: any[]) => mockExportAnchorArtwork(...args),
+}));
+
 jest.mock('@/components/MoreRitualsSheet', () => ({
     MoreRitualsSheet: () => null,
 }));
@@ -114,13 +119,19 @@ describe('AnchorDetailScreen', () => {
 
     beforeEach(() => {
         mockNavigate.mockClear();
+        mockExportAnchorArtwork.mockReset();
+        mockExportAnchorArtwork.mockResolvedValue({
+            localUri: 'file:///tmp/anchor.png',
+            filename: 'test-intention-wallpaper.png',
+            mode: 'wallpaper',
+        });
     });
 
     it('stub: renders anchor name and symbol', () => {
         render(<AnchorDetailScreen navigation={navigation} route={route} />);
         expect(screen.getByText('ANCHOR DETAILS')).toBeTruthy();
         expect(screen.getByText('CURRENT ANCHOR')).toBeTruthy();
-        expect(screen.getByText('Test Intention')).toBeTruthy();
+        expect(screen.getAllByText('Test Intention').length).toBeGreaterThan(0);
     });
 
     it('stub: Open Practice button navigates to Practice', () => {
@@ -141,5 +152,38 @@ describe('AnchorDetailScreen', () => {
         expect(screen.getByText('Sessions Primed')).toBeTruthy();
         expect(screen.getByText('The symbol is becoming part of you.')).toBeTruthy();
         expect(screen.getByTestId('anchor-detail-streak-value').props.children[0]).toBe(1);
+    });
+
+    it('renders wallpaper and png export actions', () => {
+        render(<AnchorDetailScreen navigation={navigation} route={route} />);
+        expect(screen.getByText('WALLPAPER & EXPORT')).toBeTruthy();
+        expect(screen.getByText('Set as Wallpaper')).toBeTruthy();
+        expect(screen.getByText('Download PNG')).toBeTruthy();
+    });
+
+    it('exports wallpaper from the detail screen', () => {
+        render(<AnchorDetailScreen navigation={navigation} route={route} />);
+        fireEvent.press(screen.getByText('Set as Wallpaper'));
+        expect(mockExportAnchorArtwork).toHaveBeenCalledWith(expect.objectContaining({
+            anchor: expect.objectContaining({
+                anchorName: 'Test Intention',
+                intentionText: 'Test Intention',
+            }),
+            mode: 'wallpaper',
+            captureArtwork: expect.any(Function),
+        }));
+    });
+
+    it('downloads png from the detail screen', () => {
+        render(<AnchorDetailScreen navigation={navigation} route={route} />);
+        fireEvent.press(screen.getByText('Download PNG'));
+        expect(mockExportAnchorArtwork).toHaveBeenCalledWith(expect.objectContaining({
+            anchor: expect.objectContaining({
+                anchorName: 'Test Intention',
+                intentionText: 'Test Intention',
+            }),
+            mode: 'download',
+            captureArtwork: expect.any(Function),
+        }));
     });
 });

@@ -26,7 +26,7 @@ import * as Haptics from 'expo-haptics';
 import { useAnchorStore } from '@/stores/anchorStore';
 import type { RootStackParamList } from '@/types';
 import { colors, spacing, typography } from '@/theme';
-import { PremiumAnchorGlow } from '@/components/common';
+import { OptimizedImage, PremiumAnchorGlow } from '@/components/common';
 import { useReduceMotionEnabled } from '@/hooks/useReduceMotionEnabled';
 import { logger } from '@/utils/logger';
 import { RitualScaffold } from './components/RitualScaffold';
@@ -58,6 +58,7 @@ export const SealAnchorScreen: React.FC = () => {
   const getAnchorById = useAnchorStore((state) => state.getAnchorById);
   const updateAnchor = useAnchorStore((state) => state.updateAnchor);
   const anchor = getAnchorById(anchorId);
+  const heroSigilSvg = anchor?.reinforcedSigilSvg ?? anchor?.baseSigilSvg ?? '';
   const reduceMotionEnabled = useReduceMotionEnabled();
 
   // State
@@ -354,12 +355,20 @@ export const SealAnchorScreen: React.FC = () => {
                 <View style={styles.orbInner}>
                   {/* Sigil (masked, low opacity) */}
                   <View style={styles.sigilContainer}>
-                    <SvgXml
-                      xml={anchor.baseSigilSvg}
-                      width={SIGIL_SIZE}
-                      height={SIGIL_SIZE}
-                      opacity={0.4}
-                    />
+                    {anchor.enhancedImageUrl ? (
+                      <OptimizedImage
+                        uri={anchor.enhancedImageUrl}
+                        style={styles.sigilImage}
+                        resizeMode="cover"
+                      />
+                    ) : (
+                      <SvgXml
+                        xml={heroSigilSvg}
+                        width={SIGIL_SIZE}
+                        height={SIGIL_SIZE}
+                        opacity={0.4}
+                      />
+                    )}
                   </View>
                 </View>
               </AnimatedBlurView>
@@ -368,12 +377,20 @@ export const SealAnchorScreen: React.FC = () => {
                 <View style={styles.orbInner}>
                   {/* Sigil (masked, low opacity) */}
                   <View style={styles.sigilContainer}>
-                    <SvgXml
-                      xml={anchor.baseSigilSvg}
-                      width={SIGIL_SIZE}
-                      height={SIGIL_SIZE}
-                      opacity={0.4}
-                    />
+                    {anchor.enhancedImageUrl ? (
+                      <OptimizedImage
+                        uri={anchor.enhancedImageUrl}
+                        style={styles.sigilImage}
+                        resizeMode="cover"
+                      />
+                    ) : (
+                      <SvgXml
+                        xml={heroSigilSvg}
+                        width={SIGIL_SIZE}
+                        height={SIGIL_SIZE}
+                        opacity={0.4}
+                      />
+                    )}
                   </View>
                 </View>
               </Animated.View>
@@ -519,6 +536,12 @@ const styles = StyleSheet.create({
   sigilContainer: {
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  sigilImage: {
+    width: SIGIL_SIZE,
+    height: SIGIL_SIZE,
+    borderRadius: SIGIL_SIZE / 2,
+    opacity: 0.4,
   },
 
   // ────────────────────────────────────────────────────────────

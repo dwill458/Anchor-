@@ -59,6 +59,8 @@ export default function App() {
     'Inter-SemiBold': Inter_600SemiBold,
     'CrimsonPro-Regular': CrimsonPro_400Regular,
     'CrimsonPro-Italic': CrimsonPro_400Regular_Italic,
+    'CormorantGaramond-Regular': CrimsonPro_400Regular,
+    'CormorantGaramond-Italic': CrimsonPro_400Regular_Italic,
   });
 
   useEffect(() => {

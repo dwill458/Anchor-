@@ -5,7 +5,6 @@
  */
 
 import React from 'react';
-import { Platform } from 'react-native';
 import { NavigationContainer, useNavigationContainerRef } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import type { PracticeStackParamList } from '@/types';
@@ -41,7 +40,9 @@ export const PracticeStackNavigator: React.FC<PracticeStackNavigatorProps> = ({ 
         screenOptions={{
           headerShown: false,
           animation: 'slide_from_right',
-          gestureEnabled: Platform.OS === 'ios',
+          gestureEnabled: true,
+          gestureDirection: 'horizontal',
+          contentStyle: { backgroundColor: '#080C10' },
         }}
       >
         <Stack.Screen name="PracticeHome" component={PracticeScreen} />

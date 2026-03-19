@@ -1,5 +1,5 @@
 /**
- * AnchorStack — Horizontal scroll row of all anchors + "add" card.
+ * AnchorStack — Horizontal scroll row of anchors.
  * Shows enhanced images when available, intention text as the label.
  */
 
@@ -70,7 +70,7 @@ export interface AnchorStackProps {
 export const AnchorStack: React.FC<AnchorStackProps> = ({
   anchors,
   onAnchorPress,
-  onAddPress,
+  onAddPress: _onAddPress,
   onViewAll,
 }) => {
   return (
@@ -97,17 +97,17 @@ export const AnchorStack: React.FC<AnchorStackProps> = ({
           />
         ))}
 
-        {/* Add card */}
-        <TouchableOpacity
+        {/* DEFERRED: + NEW card replaced by persistent create CTA below scroll area */}
+        {/* <TouchableOpacity
           style={styles.addCard}
-          onPress={onAddPress}
+          onPress={_onAddPress}
           activeOpacity={0.7}
           accessibilityRole="button"
           accessibilityLabel="Forge new anchor"
         >
           <Text style={styles.addPlus}>+</Text>
           <Text style={styles.addLabel}>NEW</Text>
-        </TouchableOpacity>
+        </TouchableOpacity> */}
       </ScrollView>
     </View>
   );

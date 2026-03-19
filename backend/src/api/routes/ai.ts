@@ -171,6 +171,8 @@ router.post('/enhance-controlnet', async (req: AuthRequest, res: Response): Prom
       provider: provider || 'auto',
     });
 
+    const requestBaseUrl = `${req.protocol}://${req.get('host')}`;
+
     // Generate ControlNet variations with structure validation
     // Use enhanceSigilWithAI for automatic provider selection (Google → Replicate fallback)
     // Or use enhanceSigilWithControlNet directly for Replicate-only
@@ -224,7 +226,8 @@ router.post('/enhance-controlnet', async (req: AuthRequest, res: Response): Prom
         variation.imageUrl,
         userId,
         anchorId,
-        i
+        i,
+        { baseUrl: requestBaseUrl }
       );
 
       uploadedVariations.push({

@@ -39,13 +39,15 @@ jest.mock('../components/BurnAnimationOverlay', () => {
   const { View, Text, TouchableOpacity } = require('react-native');
 
   return {
-    BurnAnimationOverlay: ({ onCommitBurn, onReturnToSanctuary, onReturnToAnchor }: any) => {
+    BurnAnimationOverlay: ({ onCommitBurn, onReturnToSanctuary, onReturnToAnchor, enhancedImageUrl, sigilSvg }: any) => {
       const [status, setStatus] = React.useState('idle');
 
       return (
         <View>
           <Text>Burn Overlay Mock</Text>
           <Text testID="commit-status">{status}</Text>
+          <Text testID="overlay-image">{enhancedImageUrl ?? 'none'}</Text>
+          <Text testID="overlay-sigil">{sigilSvg}</Text>
 
           <TouchableOpacity
             onPress={async () => {
@@ -93,6 +95,12 @@ describe('BurningRitualScreen', () => {
     (useAnchorStore as unknown as jest.Mock).mockImplementation((selector: any) =>
       selector({
         removeAnchor: mockRemoveAnchor,
+        getAnchorById: jest.fn(() => ({
+          id: 'test-anchor-id',
+          baseSigilSvg: '<svg>store</svg>',
+          reinforcedSigilSvg: '<svg>reinforced</svg>',
+          enhancedImageUrl: 'https://example.com/burn-hero.png',
+        })),
       })
     );
   });
@@ -153,5 +161,12 @@ describe('BurningRitualScreen', () => {
     fireEvent.press(getByText('Return to Anchor'));
 
     expect(mockGoBack).toHaveBeenCalled();
+  });
+
+  it('prefers enhanced artwork from the store when route params are stale', () => {
+    const { getByTestId } = render(<BurningRitualScreen />);
+
+    expect(getByTestId('overlay-image').props.children).toBe('https://example.com/burn-hero.png');
+    expect(getByTestId('overlay-sigil').props.children).toBe('<svg></svg>');
   });
 });

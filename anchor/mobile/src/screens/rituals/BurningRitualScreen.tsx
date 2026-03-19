@@ -19,10 +19,14 @@ export const BurningRitualScreen: React.FC = () => {
   const route = useRoute<BurningRitualRouteProp>();
   const navigation = useNavigation<BurningRitualNavigationProp>();
   const removeAnchor = useAnchorStore((state) => state.removeAnchor);
+  const getAnchorById = useAnchorStore((state) => state.getAnchorById);
   const { setUserFlag, queueMilestone, recordShown, userFlags } = useTeachingStore();
   const toast = useToast();
 
   const { anchorId, sigilSvg, enhancedImageUrl } = route.params;
+  const anchor = getAnchorById(anchorId);
+  const resolvedSigilSvg = sigilSvg || anchor?.reinforcedSigilSvg || anchor?.baseSigilSvg || '';
+  const resolvedEnhancedImageUrl = enhancedImageUrl ?? anchor?.enhancedImageUrl;
 
   // Ash Line (Pattern 8): shown in Phase 4 success, guide ON, first burn only
   const ashLineTeaching = useTeachingGate({
@@ -80,8 +84,8 @@ export const BurningRitualScreen: React.FC = () => {
 
   return (
     <BurnAnimationOverlay
-      sigilSvg={sigilSvg}
-      enhancedImageUrl={enhancedImageUrl}
+      sigilSvg={resolvedSigilSvg}
+      enhancedImageUrl={resolvedEnhancedImageUrl}
       onCommitBurn={handleCommitBurn}
       onReturnToSanctuary={handleReturnToSanctuary}
       onReturnToAnchor={handleReturnToAnchor}

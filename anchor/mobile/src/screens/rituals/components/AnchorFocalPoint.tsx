@@ -161,7 +161,9 @@ export const AnchorFocalPoint: React.FC<AnchorFocalPointProps> = ({
   // ══════════════════════════════════════════════════════════════
 
   function renderAnchorSymbol() {
-    // Priority: Enhanced image > Base SVG > Placeholder
+    const sigilSvg = anchor.reinforcedSigilSvg ?? anchor.baseSigilSvg;
+
+    // Priority: Enhanced image > Reinforced/base SVG > Placeholder
     if (anchor.enhancedImageUrl) {
       return (
         <OptimizedImage
@@ -172,10 +174,10 @@ export const AnchorFocalPoint: React.FC<AnchorFocalPointProps> = ({
       );
     }
 
-    if (anchor.baseSigilSvg) {
+    if (sigilSvg) {
       return (
         <SvgXml
-          xml={anchor.baseSigilSvg}
+          xml={sigilSvg}
           width={ANCHOR_SIZE}
           height={ANCHOR_SIZE}
         />

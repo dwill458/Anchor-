@@ -13,6 +13,33 @@ import fs from 'fs';
 import path from 'path';
 import { logger } from '../utils/logger';
 
+interface UploadUrlOptions {
+  baseUrl?: string;
+}
+
+function getLocalUploadsDir(): string {
+  return path.join(process.cwd(), 'uploads');
+}
+
+function normalizeBaseUrl(baseUrl?: string): string | undefined {
+  if (!baseUrl) {
+    return undefined;
+  }
+
+  return baseUrl.replace(/\/+$/, '');
+}
+
+function buildLocalUploadUrl(fileName: string, options?: UploadUrlOptions): string {
+  const configuredBaseUrl = normalizeBaseUrl(options?.baseUrl);
+  if (configuredBaseUrl) {
+    return `${configuredBaseUrl}/uploads/${fileName}`;
+  }
+
+  const localIp = process.env.LOCAL_IP || '127.0.0.1';
+  const port = process.env.PORT || '8000';
+  return `http://${localIp}:${port}/uploads/${fileName}`;
+}
+
 /**
  * Initialize R2 client (S3-compatible)
  */
@@ -57,13 +84,14 @@ export async function uploadImageFromBuffer(
   imageBuffer: Buffer,
   userId: string,
   anchorId: string,
-  variationIndex: number
+  variationIndex: number,
+  options?: UploadUrlOptions
 ): Promise<string> {
   try {
     logger.info('[Storage] Uploading image from buffer (LOCAL STORAGE for development)');
 
     // Ensure absolute path to uploads directory in backend root
-    const uploadsDir = path.join(process.cwd(), 'uploads');
+    const uploadsDir = getLocalUploadsDir();
 
     if (!fs.existsSync(uploadsDir)) {
       fs.mkdirSync(uploadsDir, { recursive: true });
@@ -74,13 +102,7 @@ export async function uploadImageFromBuffer(
     fs.writeFileSync(localFilePath, imageBuffer);
 
     logger.info(`[Storage] Saved buffer to local disk: ${localFilePath}`);
-
-    // Use environment variable for local IP
-    const localIp = process.env.LOCAL_IP || '127.0.0.1';
-    const port = process.env.PORT || '8000';
-
-    // In production, you would use a proper public URL or cloud storage URL
-    return `http://${localIp}:${port}/uploads/${fileName}`;
+    return buildLocalUploadUrl(fileName, options);
 
   } catch (error) {
     logger.error('[Storage] Upload from buffer error', error);
@@ -95,7 +117,8 @@ export async function uploadImageFromUrl(
   imageUrl: string,
   userId: string,
   anchorId: string,
-  variationIndex: number
+  variationIndex: number,
+  options?: UploadUrlOptions
 ): Promise<string> {
   try {
     logger.info('[Storage] Using LOCAL STORAGE for development');
@@ -111,7 +134,7 @@ export async function uploadImageFromUrl(
     }
 
     // Delegate to uploadImageFromBuffer
-    return uploadImageFromBuffer(buffer, userId, anchorId, variationIndex);
+    return uploadImageFromBuffer(buffer, userId, anchorId, variationIndex, options);
 
   } catch (error) {
     logger.error('[Storage] Upload error', error);

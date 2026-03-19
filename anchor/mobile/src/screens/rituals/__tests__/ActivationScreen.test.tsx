@@ -5,7 +5,7 @@
  */
 
 import React from 'react';
-import { render, waitFor, fireEvent } from '@testing-library/react-native';
+import { render, waitFor, fireEvent, act } from '@testing-library/react-native';
 import { ActivationScreen } from '../ActivationScreen';
 import { useAnchorStore } from '@/stores/anchorStore';
 import { useSettingsStore } from '@/stores/settingsStore';
@@ -267,6 +267,37 @@ describe('ActivationScreen', () => {
     fireEvent.press(getByText('Exit'));
     expect(mockGoBack).toHaveBeenCalled();
     expect(apiClient.post).not.toHaveBeenCalled();
+  });
+
+  it('does not show the exit warning once the focus session is complete', async () => {
+    const { getByTestId } = render(<ActivationScreen />);
+
+    await waitFor(() => expect(getByTestId('focus-session-continue')).toBeTruthy(), { timeout: 4000 });
+    fireEvent.press(getByTestId('focus-session-dismiss'));
+
+    expect(mockGoBack).not.toHaveBeenCalled();
+    expect(getByTestId('completion-modal-done')).toBeTruthy();
+  });
+
+  it('routes completed-session back attempts into reflection instead of the exit warning', async () => {
+    const { getByTestId } = render(<ActivationScreen />);
+
+    await waitFor(() => expect(getByTestId('focus-session-continue')).toBeTruthy(), { timeout: 4000 });
+
+    const beforeRemoveHandler = mockAddListener.mock.calls.find(
+      ([eventName]) => eventName === 'beforeRemove'
+    )?.[1];
+
+    expect(beforeRemoveHandler).toBeTruthy();
+
+    const preventDefault = jest.fn();
+    await act(async () => {
+      beforeRemoveHandler?.({ preventDefault });
+    });
+
+    expect(preventDefault).toHaveBeenCalled();
+    expect(mockGoBack).not.toHaveBeenCalled();
+    await waitFor(() => expect(getByTestId('completion-modal-done')).toBeTruthy());
   });
 
   it('pops vault stack and returns to Practice after completion when launched from Practice', async () => {

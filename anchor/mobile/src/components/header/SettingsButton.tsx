@@ -13,11 +13,11 @@ import Animated, {
   withTiming,
 } from 'react-native-reanimated';
 import * as Haptics from 'expo-haptics';
+import { useNavigation } from '@react-navigation/native';
 import { SettingsIcon } from '../icons/SettingsIcon';
 import { colors } from '@/theme';
 import { safeHaptics } from '@/utils/haptics';
 import { useReduceMotionEnabled } from '@/hooks/useReduceMotionEnabled';
-import { useSettingsReveal } from '@/components/transitions/SettingsRevealProvider';
 
 interface SettingsButtonProps {
   size?: number;
@@ -32,9 +32,8 @@ export const SettingsButton: React.FC<SettingsButtonProps> = ({
   testID = 'settings-button',
 }) => {
   const reduceMotionEnabled = useReduceMotionEnabled();
-  const { open } = useSettingsReveal();
+  const navigation = useNavigation<any>();
   const containerRef = useRef<View>(null);
-  const hasTriggeredOpenRef = useRef(false);
   const scale = useSharedValue(1);
   const turns = useSharedValue(0);
 
@@ -49,23 +48,6 @@ export const SettingsButton: React.FC<SettingsButtonProps> = ({
       { rotateZ: `${turns.value * 360}deg` },
     ],
   }));
-
-  const triggerOpen = useCallback(() => {
-    if (hasTriggeredOpenRef.current) {
-      return;
-    }
-    hasTriggeredOpenRef.current = true;
-    containerRef.current?.measureInWindow((x, y, width, height) => {
-      open(
-        {
-          cx: x + width / 2,
-          cy: y + height / 2,
-          size: Math.max(width, height),
-        },
-        { reduceMotion: reduceMotionEnabled }
-      );
-    });
-  }, [open, reduceMotionEnabled]);
 
   const handlePressIn = useCallback(() => {
     if (!reduceMotionEnabled) {
@@ -83,8 +65,7 @@ export const SettingsButton: React.FC<SettingsButtonProps> = ({
     }
 
     safeHaptics.impact(Haptics.ImpactFeedbackStyle.Light);
-    triggerOpen();
-  }, [quickTurns, reduceMotionEnabled, scale, triggerOpen, turns]);
+  }, [quickTurns, reduceMotionEnabled, scale, turns]);
 
   const handlePressOut = useCallback(() => {
     scale.value = withTiming(1, {
@@ -98,14 +79,11 @@ export const SettingsButton: React.FC<SettingsButtonProps> = ({
         easing: Easing.inOut(Easing.cubic),
       });
     }
-    setTimeout(() => {
-      hasTriggeredOpenRef.current = false;
-    }, 40);
   }, [reduceMotionEnabled, scale, turns]);
 
   const handlePress = useCallback(() => {
-    triggerOpen();
-  }, [triggerOpen]);
+    navigation.navigate('Settings');
+  }, [navigation]);
 
   return (
     <Pressable

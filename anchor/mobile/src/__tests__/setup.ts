@@ -47,6 +47,11 @@ jest.mock('expo-speech', () => ({
   isSpeakingAsync: jest.fn(() => Promise.resolve(false)),
 }));
 
+jest.mock('expo-media-library', () => ({
+  requestPermissionsAsync: jest.fn(() => Promise.resolve({ granted: true })),
+  saveToLibraryAsync: jest.fn(() => Promise.resolve()),
+}));
+
 jest.mock('@sentry/react-native', () => {
   const addBreadcrumb = jest.fn();
   const routingIntegration = {
@@ -74,7 +79,7 @@ jest.mock('@shopify/react-native-skia', () => {
   // ChargedGlowCanvas uses Skia.Paint(), Skia.PictureRecorder(), PaintStyle,
   // Picture, and TileMode. Provide minimal stubs so modules load without the
   // native Skia runtime that is unavailable in Jest.
-  const makePaint = () => ({
+  const makePaint = (): any => ({
     setColor: jest.fn(),
     setStyle: jest.fn(),
     setStrokeWidth: jest.fn(),
@@ -83,7 +88,7 @@ jest.mock('@shopify/react-native-skia', () => {
     setBlendMode: jest.fn(),
     setMaskFilter: jest.fn(),
     setShader: jest.fn(),
-    copy: jest.fn(function () { return makePaint(); }),
+    copy: jest.fn((): any => makePaint()),
   });
 
   return {
@@ -184,6 +189,25 @@ jest.mock('react-native-svg', () => ({
 jest.mock('react-native-webview', () => ({
   WebView: 'WebView',
 }));
+
+jest.mock('react-native-view-shot', () => {
+  const React = require('react');
+  const { View } = require('react-native');
+
+  const MockViewShot = React.forwardRef(({ children }: any, ref: any) => {
+    React.useImperativeHandle(ref, () => ({
+      capture: jest.fn(() => Promise.resolve('file:///tmp/anchor-export.png')),
+    }));
+
+    return React.createElement(View, null, children);
+  });
+
+  return {
+    __esModule: true,
+    default: MockViewShot,
+    captureRef: jest.fn(() => Promise.resolve('file:///tmp/anchor-export.png')),
+  };
+});
 
 // Mock Lucide icons - comprehensive mock for all commonly used icons
 jest.mock('lucide-react-native', () => {

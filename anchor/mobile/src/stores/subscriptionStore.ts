@@ -9,12 +9,12 @@ interface SubscriptionState {
 
     // Developer override controls
     devOverrideEnabled: boolean;
-    devTierOverride: 'free' | 'pro';
+    devTierOverride: 'free' | 'pro' | 'trial';
 
     // Actions
     setRcTier: (tier: SubscriptionStatus) => void;
     setDevOverrideEnabled: (enabled: boolean) => void;
-    setDevTierOverride: (tier: 'free' | 'pro') => void;
+    setDevTierOverride: (tier: 'free' | 'pro' | 'trial') => void;
     resetOverrides: () => void;
 
     // Computed values (accessed via selectors or the hook)
@@ -40,7 +40,7 @@ export const useSubscriptionStore = create<SubscriptionState>()(
             getEffectiveTier: () => {
                 const { devOverrideEnabled, devTierOverride, rcTier } = get();
                 if (__DEV__ && devOverrideEnabled) {
-                    return devTierOverride;
+                    return devTierOverride === 'trial' ? 'pro' : devTierOverride;
                 }
                 return rcTier.startsWith('pro') ? 'pro' : 'free';
             },

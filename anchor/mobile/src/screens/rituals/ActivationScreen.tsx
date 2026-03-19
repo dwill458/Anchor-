@@ -79,6 +79,9 @@ export const ActivationScreen: React.FC = () => {
   const { recordSession } = useSessionStore();
   const { recordShown } = useTeachingStore();
   const anchor = getAnchorById(anchorId);
+  const anchorHeroUri = anchor
+    ? anchor.enhancedImageUrl || anchor.reinforcedSigilSvg || anchor.baseSigilSvg || ''
+    : '';
 
   // Ground Note (Pattern 2): shown on first charge session, guide ON
   const groundNoteTeaching = useTeachingGate({
@@ -95,6 +98,7 @@ export const ActivationScreen: React.FC = () => {
   const [showCompletion, setShowCompletion] = useState(false);
   const [showExitWarning, setShowExitWarning] = useState(false);
   const exitingRef = React.useRef(false);
+  const sessionCompletedRef = React.useRef(false);
 
   // Record ground note shown (once, on render — gate already enforces lifetime limit)
   React.useEffect(() => {
@@ -168,7 +172,14 @@ export const ActivationScreen: React.FC = () => {
   }, [activationDurationSeconds, activationType, anchor?.activationCount, anchorId, computeStreak, toast, updateAnchor]);
 
   // Show completion modal instead of immediately going back
+  const handleSessionCompleted = useCallback(() => {
+    sessionCompletedRef.current = true;
+    setShowExitWarning(false);
+  }, []);
+
   const handleComplete = useCallback(() => {
+    sessionCompletedRef.current = true;
+    setShowExitWarning(false);
     setShowCompletion(true);
   }, []);
 
@@ -207,15 +218,22 @@ export const ActivationScreen: React.FC = () => {
 
     const unsubscribe = nav.addListener('beforeRemove', (event: any) => {
       if (exitingRef.current) return;
+      if (sessionCompletedRef.current) {
+        event.preventDefault();
+        handleComplete();
+        return;
+      }
       event.preventDefault();
       promptExitSession();
     });
 
     return unsubscribe;
-  }, [navigation, promptExitSession]);
+  }, [handleComplete, navigation, promptExitSession]);
 
   const handleCompletionDone = useCallback((reflectionWord?: string) => {
     setShowCompletion(false);
+    setShowExitWarning(false);
+    exitingRef.current = true;
 
     // Record session locally
     recordSession({
@@ -273,12 +291,17 @@ export const ActivationScreen: React.FC = () => {
     <>
       <FocusSession
         intentionText={anchor.intentionText}
-        anchorImageUri={anchor.enhancedImageUrl || anchor.baseSigilSvg || ''}
+        anchorImageUri={anchorHeroUri}
         durationSeconds={activationDurationSeconds}
         onComplete={handleComplete}
+        onSessionCompleted={handleSessionCompleted}
         groundNoteText={groundNoteTeaching?.copy}
         groundNoteSecondary={groundNoteTeaching?.copySecondary}
         onDismiss={() => {
+          if (sessionCompletedRef.current) {
+            handleComplete();
+            return;
+          }
           promptExitSession();
         }}
       />
