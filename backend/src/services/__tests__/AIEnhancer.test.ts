@@ -247,15 +247,12 @@ describe('AIEnhancer Service', () => {
       expect(result.variations).toHaveLength(2);
     });
 
-    it('should fallback to Replicate when Gemini fails', async () => {
+    it('should throw an error when Gemini fails (no Replicate fallback)', async () => {
       const mockGeminiService = {
         isAvailable: jest.fn().mockReturnValue(true),
         enhanceSigil: jest.fn().mockRejectedValue(new Error('Gemini API error')),
       };
       (GeminiImageService as jest.Mock).mockImplementation(() => mockGeminiService);
-
-      // Mock Replicate mode (no API token)
-      process.env.REPLICATE_API_TOKEN = 'your-replicate-token';
 
       const request: ControlNetEnhancementRequest = {
         sigilSvg: mockSigilSvg,
@@ -263,11 +260,7 @@ describe('AIEnhancer Service', () => {
         userId: mockUserId,
       };
 
-      const result = await enhanceSigilWithAI(request);
-
-      // Should fallback to mock mode
-      expect(result.variationUrls).toHaveLength(4);
-      expect(result.variationUrls[0]).toContain('dicebear.com');
+      await expect(enhanceSigilWithAI(request)).rejects.toThrow('Google Generation API Failed: Gemini API error');
     });
 
     it('should handle empty intention text gracefully', async () => {
@@ -369,8 +362,9 @@ describe('AIEnhancer Service', () => {
 
       const result = await enhanceSigilWithControlNet(request);
 
-      // Should include gym/strength symbols
-      expect(result.prompt).toContain('barbells, dumbbells, flames');
+      // "I am strong at the gym" — "strong" keyword is matched first (longer than "gym")
+      // so expect the strong/power symbols
+      expect(result.prompt).toMatch(/flexed muscles|barbells|iron weights/);
     });
 
     it('should throw error for invalid style choice', async () => {
@@ -428,13 +422,11 @@ describe('AIEnhancer Service', () => {
   // ============================================================================
 
   describe('Error Handling', () => {
-    it('should handle Gemini unavailable gracefully', async () => {
+    it('should throw an error when Gemini is unavailable (Google API enforced)', async () => {
       const mockGeminiService = {
         isAvailable: jest.fn().mockReturnValue(false),
       };
       (GeminiImageService as jest.Mock).mockImplementation(() => mockGeminiService);
-
-      process.env.REPLICATE_API_TOKEN = 'your-replicate-token';
 
       const request: ControlNetEnhancementRequest = {
         sigilSvg: mockSigilSvg,
@@ -442,10 +434,7 @@ describe('AIEnhancer Service', () => {
         userId: mockUserId,
       };
 
-      const result = await enhanceSigilWithAI(request);
-
-      // Should fallback to Replicate mock mode
-      expect(result.variationUrls).toHaveLength(4);
+      await expect(enhanceSigilWithAI(request)).rejects.toThrow('Google Gemini API Key is missing. Google API is required.');
     });
 
     it('should throw error when REPLICATE_API_TOKEN is missing in production mode', async () => {
