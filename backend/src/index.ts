@@ -32,8 +32,8 @@ const PORT = env.PORT;
 // High-level security headers
 app.use(helmet());
 
-// CORS configuration - restricted in production
-const allowedOrigins = env.ALLOWED_ORIGINS?.split(',') || ['*'];
+// CORS configuration - restricted in production (ALLOWED_ORIGINS required when NODE_ENV=production)
+const allowedOrigins = env.ALLOWED_ORIGINS.split(',');
 app.use(
   cors({
     origin: (origin, callback) => {

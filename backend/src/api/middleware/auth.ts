@@ -47,6 +47,11 @@ export const authMiddleware = async (
 
     const token = authHeader.substring(7); // Remove 'Bearer ' prefix
 
+    // Hard guard: mock auth must never run in production.
+    if (process.env.NODE_ENV === 'production' && process.env.ENABLE_MOCK_AUTH === 'true') {
+      throw new Error('ENABLE_MOCK_AUTH cannot be enabled in production');
+    }
+
     // Dev bypass: accept mock token only when ENABLE_MOCK_AUTH=true is explicitly set.
     // Never enabled in production or staging — requires deliberate opt-in.
     if (process.env.ENABLE_MOCK_AUTH === 'true' && token === 'mock-jwt-token') {

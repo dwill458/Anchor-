@@ -13,7 +13,7 @@ export interface EnvConfig {
   DATABASE_URL: string;
 
   // Security
-  ALLOWED_ORIGINS?: string; // Comma-separated list of allowed origins
+  ALLOWED_ORIGINS: string; // Comma-separated list of allowed origins; required in production
 
   // Auth (Optional - for future Firebase Admin integration)
   FIREBASE_PROJECT_ID?: string;
@@ -139,9 +139,26 @@ export function validateEnv(): EnvConfig {
       ),
       JWT_EXPIRES_IN: validateString('JWT_EXPIRES_IN', process.env.JWT_EXPIRES_IN) || '7d',
 
-      // Security
-      ALLOWED_ORIGINS: validateString('ALLOWED_ORIGINS', process.env.ALLOWED_ORIGINS) || '*',
+      // Security — required in production so CORS never silently falls back to wildcard
+      ALLOWED_ORIGINS: validateString(
+        'ALLOWED_ORIGINS',
+        process.env.ALLOWED_ORIGINS,
+        process.env.NODE_ENV === 'production'
+      ) ?? '*',
     };
+
+    // In production, critical services must be fully configured — fail fast rather than silently mocking.
+    if (config.NODE_ENV === 'production') {
+      if (!config.FIREBASE_PROJECT_ID || !config.FIREBASE_PRIVATE_KEY || !config.FIREBASE_CLIENT_EMAIL) {
+        throw new EnvValidationError('Firebase credentials (FIREBASE_PROJECT_ID, FIREBASE_PRIVATE_KEY, FIREBASE_CLIENT_EMAIL) are required in production');
+      }
+      if (!config.CLOUDFLARE_R2_ACCESS_KEY_ID || !config.CLOUDFLARE_R2_SECRET_ACCESS_KEY || !config.CLOUDFLARE_R2_BUCKET_NAME) {
+        throw new EnvValidationError('Cloudflare R2 credentials are required in production');
+      }
+      if (process.env.ENABLE_MOCK_AUTH === 'true') {
+        throw new EnvValidationError('ENABLE_MOCK_AUTH cannot be enabled in production');
+      }
+    }
 
     // Warn about missing optional but recommended variables
     if (!config.REPLICATE_API_TOKEN) {

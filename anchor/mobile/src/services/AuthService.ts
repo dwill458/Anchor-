@@ -1,9 +1,12 @@
 /**
- * Anchor App - Authentication Service (MOCK MODE)
+ * Anchor App - Authentication Service
  *
- * Mocked version to bypass native Firebase dependencies in Expo Go.
+ * Firebase Authentication integration using @react-native-firebase/auth.
+ * Requires google-services.json (Android) and GoogleService-Info.plist (iOS)
+ * to be placed in the appropriate native directories before building.
  */
 
+import auth, { FirebaseAuthTypes } from '@react-native-firebase/auth';
 import type { User, FirebaseUser } from '@/types';
 
 export interface AuthResult {
@@ -12,100 +15,102 @@ export interface AuthResult {
   isNewUser: boolean;
 }
 
-const createMockUser = (overrides: Partial<User> = {}): User => ({
-  id: 'mock-uid-123',
-  email: 'guest@example.com',
-  displayName: 'Guest User',
-  hasCompletedOnboarding: false,
-  subscriptionStatus: 'free',
-  totalAnchorsCreated: 5,
-  totalActivations: 20,
-  currentStreak: 3,
-  longestStreak: 5,
-  stabilizesTotal: 0,
-  stabilizeStreakDays: 0,
-  createdAt: new Date(),
-  ...overrides,
-});
+function mapFirebaseUser(fbUser: FirebaseAuthTypes.User, isNewUser: boolean = false): User {
+  return {
+    id: fbUser.uid,
+    email: fbUser.email ?? '',
+    displayName: fbUser.displayName ?? undefined,
+    hasCompletedOnboarding: false,
+    subscriptionStatus: 'free',
+    totalAnchorsCreated: 0,
+    totalActivations: 0,
+    currentStreak: 0,
+    longestStreak: 0,
+    stabilizesTotal: 0,
+    stabilizeStreakDays: 0,
+    createdAt: new Date(fbUser.metadata.creationTime ?? Date.now()),
+  };
+}
 
 export class AuthService {
   static initialize(): void {
+    // Firebase initializes automatically via google-services.json / GoogleService-Info.plist
   }
 
-  static async signInWithEmail(email: string, _password: string): Promise<AuthResult> {
-    await new Promise(resolve => setTimeout(resolve, 1000));
-
+  static async signInWithEmail(email: string, password: string): Promise<AuthResult> {
+    const credential = await auth().signInWithEmailAndPassword(email, password);
+    const token = await credential.user.getIdToken();
     return {
-      user: createMockUser({ email, hasCompletedOnboarding: true }),
-      token: 'mock-jwt-token',
-      isNewUser: false
+      user: mapFirebaseUser(credential.user),
+      token,
+      isNewUser: credential.additionalUserInfo?.isNewUser ?? false,
     };
   }
 
   static async signUpWithEmail(
     email: string,
-    _password: string,
+    password: string,
     displayName?: string
   ): Promise<AuthResult> {
-    await new Promise(resolve => setTimeout(resolve, 1000));
+    const credential = await auth().createUserWithEmailAndPassword(email, password);
 
+    if (displayName) {
+      await credential.user.updateProfile({ displayName });
+    }
+
+    const token = await credential.user.getIdToken();
     return {
-      user: createMockUser({
-        id: 'mock-uid-new',
-        email,
-        displayName: displayName || 'New User',
-        hasCompletedOnboarding: false,
-        totalAnchorsCreated: 0,
-        totalActivations: 0,
-        currentStreak: 0,
-        longestStreak: 0,
-      }),
-      token: 'mock-jwt-token',
-      isNewUser: true
+      user: mapFirebaseUser(credential.user, true),
+      token,
+      isNewUser: true,
     };
   }
 
   static async signInWithGoogle(): Promise<AuthResult> {
-    await new Promise(resolve => setTimeout(resolve, 1000));
-
-    // In a real implementation, this would check if user exists in backend
-    // For mock, we'll simulate returning user (hasCompletedOnboarding: true)
-    return {
-      user: createMockUser({
-        id: 'mock-uid-google',
-        email: 'google-user@example.com',
-        displayName: 'Google Guest',
-        hasCompletedOnboarding: true,
-      }),
-      token: 'mock-jwt-token',
-      isNewUser: false
-    };
+    // Google Sign-In requires @react-native-google-signin/google-signin.
+    // Add that package and configure it when wiring up social auth.
+    throw new Error('Google Sign-In not yet configured. Install @react-native-google-signin/google-signin and add OAuth client IDs to app.json.');
   }
 
   static async signOut(): Promise<void> {
-    await new Promise(resolve => setTimeout(resolve, 500));
+    await auth().signOut();
   }
 
   static getCurrentFirebaseUser(): FirebaseUser | null {
+    const user = auth().currentUser;
+    if (!user) return null;
     return {
-      uid: 'mock-uid-123',
-      email: 'guest@example.com',
-      displayName: 'Guest User',
+      uid: user.uid,
+      email: user.email,
+      displayName: user.displayName,
     };
   }
 
   static async getIdToken(): Promise<string> {
-    return 'mock-jwt-token';
+    const user = auth().currentUser;
+    if (!user) {
+      throw new Error('No authenticated user');
+    }
+    return user.getIdToken();
   }
 
   static async sendPasswordResetEmail(email: string): Promise<void> {
-    await new Promise(resolve => setTimeout(resolve, 500));
+    await auth().sendPasswordResetEmail(email);
   }
 
   static onAuthStateChanged(
     callback: (user: FirebaseUser | null) => void
   ): () => void {
-    setTimeout(() => callback(null), 1000);
-    return () => { };
+    return auth().onAuthStateChanged((fbUser) => {
+      if (!fbUser) {
+        callback(null);
+        return;
+      }
+      callback({
+        uid: fbUser.uid,
+        email: fbUser.email,
+        displayName: fbUser.displayName,
+      });
+    });
   }
 }

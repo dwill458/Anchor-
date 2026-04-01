@@ -9,10 +9,10 @@
       "web"
     ],
     "orientation": "portrait",
-    "icon": "./assets/anchor-icon.jpg",
+    "icon": "./assets/anchor-icon.png",
     "userInterfaceStyle": "dark",
     "splash": {
-      "image": "./assets/anchor-icon.jpg",
+      "image": "./assets/anchor-icon.png",
       "resizeMode": "contain",
       "backgroundColor": "#1A1A1D"
     },
@@ -32,7 +32,7 @@
     },
     "android": {
       "adaptiveIcon": {
-        "foregroundImage": "./assets/anchor-icon.jpg",
+        "foregroundImage": "./assets/anchor-icon.png",
         "backgroundColor": "#1A1A1D"
       },
       "package": "com.anchor.app",
@@ -42,6 +42,7 @@
       "favicon": "./assets/favicon.png"
     },
     "plugins": [
+      "@react-native-firebase/app",
       "@sentry/react-native/expo",
       "expo-secure-store",
       "@react-native-community/datetimepicker",
