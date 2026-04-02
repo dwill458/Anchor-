@@ -50,14 +50,10 @@ function getReplicateClient(): Replicate {
 }
 
 /**
- * Initialize Gemini Image Service client (singleton)
+ * Initialize Gemini Image Service client
  */
-let geminiImageService: GeminiImageService | null = null;
 function getGeminiImageService(): GeminiImageService {
-  if (!geminiImageService) {
-    geminiImageService = new GeminiImageService();
-  }
-  return geminiImageService;
+  return new GeminiImageService();
 }
 
 /**
@@ -663,9 +659,6 @@ export async function enhanceSigilWithControlNet(
         intentionText: request.intentionText || '(none)',
         hasSymbols: symbolInstructions.length > 0,
       });
-
-      // Simulate generation delay (5 seconds for ControlNet)
-      await new Promise(resolve => setTimeout(resolve, 5000));
 
       const mockUrls = [
         `https://api.dicebear.com/7.x/shapes/png?seed=${request.userId}-${request.styleChoice}-1&backgroundColor=1a1a1d&shape1Color=d4af37`,
