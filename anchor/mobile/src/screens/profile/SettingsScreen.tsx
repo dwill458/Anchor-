@@ -14,6 +14,7 @@ import {
   Alert,
   Platform,
   InteractionManager,
+  Linking,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
@@ -405,6 +406,37 @@ export const SettingsScreen: React.FC = () => {
     ]);
   };
 
+  const openStoreSubscriptions = () => {
+    const url =
+      Platform.OS === 'android'
+        ? 'https://play.google.com/store/account/subscriptions'
+        : 'https://apps.apple.com/account/subscriptions';
+    Linking.openURL(url).catch(() =>
+      Alert.alert('Error', 'Could not open the store. Please manage your subscription through the App Store.')
+    );
+  };
+
+  const handleUpgradeToPro = () => {
+    openStoreSubscriptions();
+  };
+
+  const handleRestorePurchase = () => {
+    Alert.alert(
+      'Restore Purchase',
+      'To restore your Pro subscription, open your App Store account and confirm your active subscriptions.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        { text: 'Open Store', onPress: openStoreSubscriptions },
+      ]
+    );
+  };
+
+  const handleContactSupport = () => {
+    Linking.openURL('mailto:support@getanchor.app').catch(() =>
+      Alert.alert('Contact Support', 'Email us at support@getanchor.app')
+    );
+  };
+
   const CardWrapper = View;
   const cardProps = {};
 
@@ -561,7 +593,7 @@ export const SettingsScreen: React.FC = () => {
                     <Text style={styles.proBenefitItem}>• Manual creation tools</Text>
                   </View>
                   {!isPro && (
-                    <TouchableOpacity style={styles.upgradeButton} activeOpacity={0.8}>
+                    <TouchableOpacity style={styles.upgradeButton} activeOpacity={0.8} onPress={handleUpgradeToPro}>
                       <LinearGradient
                         colors={[colors.gold, colors.bronze]}
                         style={styles.upgradeGradient}
@@ -572,7 +604,7 @@ export const SettingsScreen: React.FC = () => {
                       </LinearGradient>
                     </TouchableOpacity>
                   )}
-                  <SettingItem label="Restore Purchase" onPress={() => {}} showChevron={false} />
+                  <SettingItem label="Restore Purchase" onPress={handleRestorePurchase} showChevron={false} />
                 </CardWrapper>
               </Animated.View>
 
@@ -594,7 +626,7 @@ export const SettingsScreen: React.FC = () => {
                 <SectionHeader title="About Anchor" />
                 <CardWrapper {...cardProps} style={styles.section}>
                   <SettingItem label="App Version" value="1.0.0" showChevron={false} />
-                  <SettingItem label="Contact Support" onPress={() => {}} />
+                  <SettingItem label="Contact Support" onPress={handleContactSupport} />
                 </CardWrapper>
               </Animated.View>
 
