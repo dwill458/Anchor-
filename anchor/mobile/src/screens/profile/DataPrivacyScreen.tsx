@@ -28,8 +28,10 @@ import {
     LucideIcon
 } from 'lucide-react-native';
 import { BlurView } from 'expo-blur';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { colors, spacing } from '@/theme';
 import { ZenBackground } from '@/components/common';
+import { apiClient } from '@/services/ApiClient';
 
 const IS_ANDROID = Platform.OS === 'android';
 const CardWrapper = IS_ANDROID ? View : BlurView;
@@ -85,17 +87,27 @@ export const DataPrivacyScreen: React.FC = () => {
                 { text: 'Cancel', style: 'cancel' },
                 {
                     text: 'Export',
-                    onPress: () => {
+                    onPress: async () => {
                         setIsExporting(true);
-                        setTimeout(() => {
+                        try {
+                            await apiClient.post('/auth/me/export');
+                            Alert.alert('Export Requested', 'Your data export has been initiated. You will receive an email shortly.');
+                        } catch {
+                            Alert.alert('Export Failed', 'Could not initiate export. Please try again or contact support.');
+                        } finally {
                             setIsExporting(false);
-                            Alert.alert('Success', 'Data export has been initiated. You will receive an email shortly.');
-                        }, 1500);
-                    }
-                }
+                        }
+                    },
+                },
             ]
         );
     };
+
+    const CACHE_KEYS = [
+        'anchor-ai-cache',
+        'anchor-image-cache',
+        'anchor-variation-cache',
+    ];
 
     const handleClearCache = () => {
         Alert.alert(
@@ -106,14 +118,18 @@ export const DataPrivacyScreen: React.FC = () => {
                 {
                     text: 'Clear',
                     style: 'destructive',
-                    onPress: () => {
+                    onPress: async () => {
                         setIsClearingCache(true);
-                        setTimeout(() => {
-                            setIsClearingCache(false);
+                        try {
+                            await AsyncStorage.multiRemove(CACHE_KEYS);
                             Alert.alert('Cleared', 'Local cache has been successfully cleared.');
-                        }, 1000);
-                    }
-                }
+                        } catch {
+                            Alert.alert('Error', 'Could not clear cache. Please try again.');
+                        } finally {
+                            setIsClearingCache(false);
+                        }
+                    },
+                },
             ]
         );
     };
