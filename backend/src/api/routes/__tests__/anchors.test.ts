@@ -30,7 +30,9 @@ const mockPrisma = {
     create: jest.fn(),
     findMany: jest.fn(),
     findFirst: jest.fn(),
+    findUnique: jest.fn(),
     update: jest.fn(),
+    updateMany: jest.fn(),
   },
   charge: { create: jest.fn() },
   activation: { create: jest.fn() },
@@ -233,24 +235,22 @@ describe('GET /api/anchors', () => {
     expect(mockPrisma.anchor.findMany).toHaveBeenCalledWith(expect.objectContaining({ take: 100 }));
   });
 
-  it('ignores negative limit values', async () => {
+  it('ignores negative limit values and falls back to default 20', async () => {
     (mockPrisma.user.findUnique as jest.Mock).mockResolvedValue(MOCK_DB_USER);
     (mockPrisma.anchor.findMany as jest.Mock).mockResolvedValue([]);
 
     await request(buildApp()).get('/api/anchors?limit=-5');
 
-    const call = (mockPrisma.anchor.findMany as jest.Mock).mock.calls[0][0];
-    expect(call.take).toBeUndefined();
+    expect(mockPrisma.anchor.findMany).toHaveBeenCalledWith(expect.objectContaining({ take: 20 }));
   });
 
-  it('ignores NaN limit values', async () => {
+  it('ignores NaN limit values and falls back to default 20', async () => {
     (mockPrisma.user.findUnique as jest.Mock).mockResolvedValue(MOCK_DB_USER);
     (mockPrisma.anchor.findMany as jest.Mock).mockResolvedValue([]);
 
     await request(buildApp()).get('/api/anchors?limit=abc');
 
-    const call = (mockPrisma.anchor.findMany as jest.Mock).mock.calls[0][0];
-    expect(call.take).toBeUndefined();
+    expect(mockPrisma.anchor.findMany).toHaveBeenCalledWith(expect.objectContaining({ take: 20 }));
   });
 
   it('defaults orderBy to updatedAt for unknown column', async () => {
@@ -321,8 +321,8 @@ describe('GET /api/anchors/:id', () => {
 describe('PUT /api/anchors/:id', () => {
   it('updates allowed fields and returns 200', async () => {
     (mockPrisma.user.findUnique as jest.Mock).mockResolvedValue(MOCK_DB_USER);
-    (mockPrisma.anchor.findFirst as jest.Mock).mockResolvedValue(MOCK_ANCHOR);
-    (mockPrisma.anchor.update as jest.Mock).mockResolvedValue({
+    (mockPrisma.anchor.updateMany as jest.Mock).mockResolvedValue({ count: 1 });
+    (mockPrisma.anchor.findUnique as jest.Mock).mockResolvedValue({
       ...MOCK_ANCHOR,
       intentionText: 'Updated intention',
     });
@@ -354,7 +354,7 @@ describe('PUT /api/anchors/:id', () => {
 
   it('returns 404 when anchor not found', async () => {
     (mockPrisma.user.findUnique as jest.Mock).mockResolvedValue(MOCK_DB_USER);
-    (mockPrisma.anchor.findFirst as jest.Mock).mockResolvedValue(null);
+    (mockPrisma.anchor.updateMany as jest.Mock).mockResolvedValue({ count: 0 });
 
     const res = await request(buildApp())
       .put('/api/anchors/nonexistent')
@@ -372,24 +372,20 @@ describe('PUT /api/anchors/:id', () => {
 describe('DELETE /api/anchors/:id', () => {
   it('archives the anchor and returns 200', async () => {
     (mockPrisma.user.findUnique as jest.Mock).mockResolvedValue(MOCK_DB_USER);
-    (mockPrisma.anchor.findFirst as jest.Mock).mockResolvedValue(MOCK_ANCHOR);
-    (mockPrisma.anchor.update as jest.Mock).mockResolvedValue({
-      ...MOCK_ANCHOR,
-      isArchived: true,
-    });
+    (mockPrisma.anchor.updateMany as jest.Mock).mockResolvedValue({ count: 1 });
 
     const res = await request(buildApp()).delete('/api/anchors/anchor-1');
 
     expect(res.status).toBe(200);
     expect(res.body.data.message).toBe('Anchor archived successfully');
-    expect(mockPrisma.anchor.update).toHaveBeenCalledWith(
+    expect(mockPrisma.anchor.updateMany).toHaveBeenCalledWith(
       expect.objectContaining({ data: expect.objectContaining({ isArchived: true }) })
     );
   });
 
   it('returns 404 when anchor not found', async () => {
     (mockPrisma.user.findUnique as jest.Mock).mockResolvedValue(MOCK_DB_USER);
-    (mockPrisma.anchor.findFirst as jest.Mock).mockResolvedValue(null);
+    (mockPrisma.anchor.updateMany as jest.Mock).mockResolvedValue({ count: 0 });
 
     const res = await request(buildApp()).delete('/api/anchors/nonexistent');
 

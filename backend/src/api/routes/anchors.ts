@@ -682,6 +682,10 @@ router.post('/:id/burn', async (req: AuthRequest, res: Response, next: NextFunct
       throw new AppError('Anchor not found', 404, 'ANCHOR_NOT_FOUND');
     }
 
+    if (anchor.isArchived) {
+      throw new AppError('Anchor is already archived', 400, 'ALREADY_ARCHIVED');
+    }
+
     // Use a transaction to ensure atomicity
     const result = await prisma.$transaction(async tx => {
       // 1. Create entry in burned_anchors
@@ -710,7 +714,7 @@ router.post('/:id/burn', async (req: AuthRequest, res: Response, next: NextFunct
 
     res.json({
       success: true,
-      data: result,
+      data: { ...result, burned: true },
       message: 'Anchor burned and archived successfully',
     });
   } catch (error) {

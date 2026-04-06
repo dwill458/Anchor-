@@ -56,6 +56,7 @@ describe('authMiddleware', () => {
 
   it('should allow mock token when ENABLE_MOCK_AUTH=true', async () => {
     process.env.ENABLE_MOCK_AUTH = 'true';
+    process.env.MOCK_AUTH_TOKEN = 'mock-jwt-token';
     mockReq.headers = { authorization: 'Bearer mock-jwt-token' };
 
     await authMiddleware(mockReq as AuthRequest, mockRes as Response, mockNext);
