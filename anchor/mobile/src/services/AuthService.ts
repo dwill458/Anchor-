@@ -1,7 +1,9 @@
 /**
- * Anchor App - Authentication Service (MOCK MODE)
+ * Anchor App - Authentication Service (web/test fallback)
  *
- * Mocked version to bypass native Firebase dependencies in Expo Go.
+ * Native Firebase auth lives in AuthService.native.ts.
+ * This file preserves mock auth for web and test environments where the
+ * native module is unavailable.
  */
 
 import type { User, FirebaseUser } from '@/types';
@@ -28,17 +30,33 @@ const createMockUser = (overrides: Partial<User> = {}): User => ({
   ...overrides,
 });
 
+const mockAuthEnabled = __DEV__ && process.env.EXPO_PUBLIC_ENABLE_MOCK_AUTH === 'true';
+
+function assertMockAuthEnabled(): void {
+  if (mockAuthEnabled) {
+    return;
+  }
+
+  throw new Error(
+    'Mock auth is disabled in this environment. Run a native build for Firebase auth, or enable EXPO_PUBLIC_ENABLE_MOCK_AUTH=true for local web-only development.'
+  );
+}
+
 export class AuthService {
   static initialize(): void {
+    if (!mockAuthEnabled && !__DEV__) {
+      throw new Error('Firebase auth is only available in the native build. Web fallback is not configured for production.');
+    }
   }
 
   static async signInWithEmail(email: string, _password: string): Promise<AuthResult> {
-    await new Promise(resolve => setTimeout(resolve, 1000));
+    assertMockAuthEnabled();
+    await new Promise((resolve) => setTimeout(resolve, 1000));
 
     return {
       user: createMockUser({ email, hasCompletedOnboarding: true }),
       token: 'mock-jwt-token',
-      isNewUser: false
+      isNewUser: false,
     };
   }
 
@@ -47,7 +65,8 @@ export class AuthService {
     _password: string,
     displayName?: string
   ): Promise<AuthResult> {
-    await new Promise(resolve => setTimeout(resolve, 1000));
+    assertMockAuthEnabled();
+    await new Promise((resolve) => setTimeout(resolve, 1000));
 
     return {
       user: createMockUser({
@@ -61,15 +80,14 @@ export class AuthService {
         longestStreak: 0,
       }),
       token: 'mock-jwt-token',
-      isNewUser: true
+      isNewUser: true,
     };
   }
 
   static async signInWithGoogle(): Promise<AuthResult> {
-    await new Promise(resolve => setTimeout(resolve, 1000));
+    assertMockAuthEnabled();
+    await new Promise((resolve) => setTimeout(resolve, 1000));
 
-    // In a real implementation, this would check if user exists in backend
-    // For mock, we'll simulate returning user (hasCompletedOnboarding: true)
     return {
       user: createMockUser({
         id: 'mock-uid-google',
@@ -78,15 +96,29 @@ export class AuthService {
         hasCompletedOnboarding: true,
       }),
       token: 'mock-jwt-token',
-      isNewUser: false
+      isNewUser: false,
+    };
+  }
+
+  static async syncCurrentUser(): Promise<AuthResult | null> {
+    assertMockAuthEnabled();
+    return {
+      user: createMockUser({ hasCompletedOnboarding: true }),
+      token: 'mock-jwt-token',
+      isNewUser: false,
     };
   }
 
   static async signOut(): Promise<void> {
-    await new Promise(resolve => setTimeout(resolve, 500));
+    assertMockAuthEnabled();
+    await new Promise((resolve) => setTimeout(resolve, 500));
   }
 
   static getCurrentFirebaseUser(): FirebaseUser | null {
+    if (!mockAuthEnabled) {
+      return null;
+    }
+
     return {
       uid: 'mock-uid-123',
       email: 'guest@example.com',
@@ -94,18 +126,28 @@ export class AuthService {
     };
   }
 
-  static async getIdToken(): Promise<string> {
+  static async getIdToken(): Promise<string | null> {
+    if (!mockAuthEnabled) {
+      return null;
+    }
+
     return 'mock-jwt-token';
   }
 
-  static async sendPasswordResetEmail(email: string): Promise<void> {
-    await new Promise(resolve => setTimeout(resolve, 500));
+  static async sendPasswordResetEmail(_email: string): Promise<void> {
+    assertMockAuthEnabled();
+    await new Promise((resolve) => setTimeout(resolve, 500));
   }
 
   static onAuthStateChanged(
     callback: (user: FirebaseUser | null) => void
   ): () => void {
-    setTimeout(() => callback(null), 1000);
-    return () => { };
+    if (!mockAuthEnabled) {
+      callback(null);
+      return () => {};
+    }
+
+    setTimeout(() => callback(null), 0);
+    return () => {};
   }
 }

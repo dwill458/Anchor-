@@ -10,6 +10,7 @@
 import express, { Response } from 'express';
 import { z } from 'zod';
 import { AuthRequest, authMiddleware } from '../middleware/auth';
+import { prisma } from '../../lib/prisma';
 import {
   getCostEstimate,
   enhanceSigilWithAI,
@@ -48,7 +49,6 @@ const VALID_STYLES = [
 const EnhanceControlNetSchema = z.object({
   sigilSvg: z.string().min(1),
   styleChoice: z.enum(VALID_STYLES),
-  userId: z.string().min(1),
   anchorId: z.string().min(1),
   intentionText: z.string().optional(),
   intention: z.string().optional(),
@@ -119,15 +119,22 @@ function validateOrRespond<T>(
  * - passingCount: Number of variations that pass structure threshold
  * - bestVariationIndex: Index of highest scoring variation
  */
-router.post('/enhance-controlnet', async (req: AuthRequest, res: Response): Promise<void> => {
+router.post('/enhance-controlnet', authMiddleware, async (req: AuthRequest, res: Response): Promise<void> => {
   try {
+    if (!req.user?.uid) {
+      res.status(401).json({
+        error: 'Authentication required',
+        message: 'A valid authentication token is required for AI enhancement.',
+      });
+      return;
+    }
+
     const parsed = validateOrRespond(EnhanceControlNetSchema, req.body, res);
     if (!parsed) return;
 
     const {
       sigilSvg,
       styleChoice,
-      userId,
       anchorId,
       intentionText: bodyIntentionText,
       intention: bodyIntention,
@@ -151,10 +158,44 @@ router.post('/enhance-controlnet', async (req: AuthRequest, res: Response): Prom
         ? 'pro_upgrade'
         : ((tier as 'draft' | 'premium') || 'premium');
 
+    const user = await prisma.user.findUnique({
+      where: { authUid: req.user.uid },
+      select: { id: true },
+    });
+
+    if (!user) {
+      res.status(404).json({
+        error: 'User not found',
+        message: 'Create or sync your account before generating AI artwork.',
+      });
+      return;
+    }
+
+    const isTempAnchorRequest = anchorId.startsWith('temp-');
+    const storageAnchorId = isTempAnchorRequest ? `temp-${Date.now()}` : anchorId;
+
+    if (!isTempAnchorRequest) {
+      const anchor = await prisma.anchor.findFirst({
+        where: {
+          id: anchorId,
+          userId: user.id,
+        },
+        select: { id: true },
+      });
+
+      if (!anchor) {
+        res.status(404).json({
+          error: 'Anchor not found',
+          message: 'AI enhancement is only allowed for anchors you own.',
+        });
+        return;
+      }
+    }
+
     logger.debug('[API] enhance-controlnet request', {
       sigilSvgLength: sigilSvg?.length || 0,
       styleChoice,
-      userId,
+      userId: user.id,
       anchorId,
       validateStructure,
       autoComposite,
@@ -182,7 +223,7 @@ router.post('/enhance-controlnet', async (req: AuthRequest, res: Response): Prom
       ? await enhanceSigilWithAI({
         sigilSvg,
         styleChoice: styleChoice as AIStyle,
-        userId,
+        userId: user.id,
         intentionText,  // Pass through intention for thematic symbols
         validateStructure: validateStructure !== false,
         autoComposite: autoComposite === true,
@@ -191,7 +232,7 @@ router.post('/enhance-controlnet', async (req: AuthRequest, res: Response): Prom
       : await enhanceSigilWithControlNet({
         sigilSvg,
         styleChoice: styleChoice as AIStyle,
-        userId,
+        userId: user.id,
         intentionText,  // Pass through intention for thematic symbols
         validateStructure: validateStructure !== false,
         autoComposite: autoComposite === true,
@@ -224,8 +265,8 @@ router.post('/enhance-controlnet', async (req: AuthRequest, res: Response): Prom
       // Upload to R2
       const permanentUrl = await uploadImageFromUrl(
         variation.imageUrl,
-        userId,
-        anchorId,
+        user.id,
+        storageAnchorId,
         i,
         { baseUrl: requestBaseUrl }
       );

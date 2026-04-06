@@ -22,6 +22,7 @@ import { BlurView } from 'expo-blur';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { colors, spacing, typography } from '@/theme';
 import { useAuthStore } from '../../stores/authStore';
+import { AuthService } from '../../services/AuthService';
 
 type AuthStackParamList = {
   Login: undefined;
@@ -44,7 +45,7 @@ export const SignUpScreen: React.FC<SignUpScreenProps> = ({ navigation }) => {
   const [error, setError] = useState('');
   const [focusedField, setFocusedField] = useState<string | null>(null);
 
-  const { setAuthenticated, setHasCompletedOnboarding } = useAuthStore();
+  const { setSession } = useAuthStore();
 
   const fadeAnim = React.useRef(new Animated.Value(0)).current;
 
@@ -68,9 +69,8 @@ export const SignUpScreen: React.FC<SignUpScreenProps> = ({ navigation }) => {
     }
     setLoading(true);
     try {
-      await new Promise((resolve) => setTimeout(resolve, 1000));
-      setAuthenticated(true);
-      setHasCompletedOnboarding(false);
+      const result = await AuthService.signUpWithEmail(email, password, name);
+      setSession(result.user, result.token);
     } catch (err: any) {
       setError(err.message || 'Sign up failed');
     } finally {

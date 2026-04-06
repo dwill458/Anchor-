@@ -43,6 +43,7 @@
       "favicon": "./assets/favicon.png"
     },
     "plugins": [
+      "@react-native-firebase/app",
       "@sentry/react-native/expo",
       "expo-secure-store",
       "@react-native-community/datetimepicker",

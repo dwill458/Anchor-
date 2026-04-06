@@ -44,6 +44,7 @@ import { ActiveAnchorsGrid } from '@/components/profile/ActiveAnchorsGrid';
 import { ProfileEmptyState } from '@/components/profile/ProfileEmptyState';
 import { ProfileErrorState } from '@/components/profile/ProfileErrorState';
 import { LoadingSpinner } from '@/components/LoadingSpinner';
+import { AuthService } from '@/services/AuthService';
 import { logger } from '@/utils/logger';
 
 const IS_ANDROID = Platform.OS === 'android';
@@ -224,9 +225,16 @@ export const ProfileScreen: React.FC = () => {
         {
           text: 'Sign Out',
           style: 'destructive',
-          onPress: () => {
-            signOut();
-            toast.success('Signed out successfully');
+          onPress: async () => {
+            try {
+              await AuthService.signOut();
+              signOut();
+              toast.success('Signed out successfully');
+            } catch (error) {
+              const message = error instanceof Error ? error.message : 'Failed to sign out';
+              logger.error('Sign out failed', error);
+              toast.error(message);
+            }
           },
         },
       ]

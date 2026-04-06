@@ -495,8 +495,13 @@ export const ChargeSetupScreen: React.FC = () => {
 
   const handleBack = useCallback(() => {
     if (isTransitioning) return;
-    navigation.goBack();
-  }, [isTransitioning, navigation]);
+    if (autoStartOnSelection) {
+      // Came from creation flow — navigate to Vault so the new anchor is visible
+      navigation.navigate('Vault');
+    } else {
+      navigation.goBack();
+    }
+  }, [isTransitioning, navigation, autoStartOnSelection]);
 
   if (!anchorId || !anchor) {
     return (

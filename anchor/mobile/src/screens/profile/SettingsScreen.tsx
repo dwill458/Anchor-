@@ -39,6 +39,7 @@ import { colors, spacing } from '@/theme';
 import { ZenBackground } from '@/components/common';
 import NotificationService from '@/services/NotificationService';
 import { apiClient } from '@/services/ApiClient';
+import { AuthService } from '@/services/AuthService';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const IS_ANDROID = Platform.OS === 'android';
@@ -375,7 +376,18 @@ export const SettingsScreen: React.FC = () => {
   const handleSignOut = () => {
     Alert.alert('Sign Out', 'Are you sure you want to sign out?', [
       { text: 'Cancel', style: 'cancel' },
-      { text: 'Sign Out', style: 'destructive', onPress: () => signOut() },
+      {
+        text: 'Sign Out',
+        style: 'destructive',
+        onPress: async () => {
+          try {
+            await AuthService.signOut();
+            signOut();
+          } catch (error: any) {
+            Alert.alert('Sign Out Failed', error?.message || 'Failed to sign out.');
+          }
+        },
+      },
     ]);
   };
 
@@ -388,6 +400,7 @@ export const SettingsScreen: React.FC = () => {
         onPress: async () => {
           try {
             await apiClient.delete('/auth/me');
+            await AuthService.signOut();
             await AsyncStorage.clear();
             signOut();
           } catch (error: any) {

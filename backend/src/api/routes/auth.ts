@@ -9,16 +9,26 @@ import { z } from 'zod';
 import { AuthRequest, authMiddleware } from '../middleware/auth';
 import { AppError } from '../middleware/errorHandler';
 import { prisma } from '../../lib/prisma';
+import { getFirebaseAdmin } from '../../config/firebase';
 
 const router = Router();
+
+function mapProviderIdToAuthProvider(providerId?: string): 'email' | 'google' | 'apple' {
+  switch (providerId) {
+    case 'google.com':
+      return 'google';
+    case 'apple.com':
+      return 'apple';
+    default:
+      return 'email';
+  }
+}
 
 // --- Zod schemas ---
 
 const SyncSchema = z.object({
-  authUid: z.string().min(1),
-  email: z.string().email(),
   displayName: z.string().optional(),
-  authProvider: z.enum(['email', 'google', 'apple']),
+  authProvider: z.enum(['email', 'google', 'apple']).optional(),
 });
 
 const UpdateProfileSchema = z.object({
@@ -59,44 +69,46 @@ function validate<T>(schema: z.ZodSchema<T>, data: unknown): T {
  * - displayName: User display name (optional)
  * - authProvider: 'email' | 'google' | 'apple'
  */
-router.post('/sync', async (req: AuthRequest, res: Response) => {
+router.post('/sync', authMiddleware, async (req: AuthRequest, res: Response) => {
   try {
-    const { authUid, email, displayName, authProvider } = validate(SyncSchema, req.body);
+    if (!req.user?.uid) {
+      throw new AppError('User not authenticated', 401, 'UNAUTHORIZED');
+    }
 
-    // Check if user exists
-    let user = await prisma.user.findUnique({
-      where: { authUid },
+    const { displayName, authProvider } = validate(SyncSchema, req.body);
+    const email = req.user.email;
+
+    if (!email) {
+      throw new AppError('Authenticated user is missing an email address', 400, 'INVALID_AUTH_CONTEXT');
+    }
+
+    let provider = authProvider;
+    if (!provider) {
+      const firebaseUser = await getFirebaseAdmin().auth().getUser(req.user.uid);
+      provider = mapProviderIdToAuthProvider(firebaseUser.providerData[0]?.providerId);
+    }
+
+    const user = await prisma.user.upsert({
+      where: { authUid: req.user.uid },
+      update: {
+        email,
+        displayName: displayName || undefined,
+        lastSeenAt: new Date(),
+      },
+      create: {
+        authUid: req.user.uid,
+        email,
+        displayName,
+        authProvider: provider,
+        lastSeenAt: new Date(),
+      },
     });
 
-    if (user) {
-      // Update existing user
-      user = await prisma.user.update({
-        where: { authUid },
-        data: {
-          email,
-          displayName: displayName || user.displayName,
-          lastSeenAt: new Date(),
-        },
-      });
-    } else {
-      // Create new user
-      user = await prisma.user.create({
-        data: {
-          authUid,
-          email,
-          displayName,
-          authProvider,
-          lastSeenAt: new Date(),
-        },
-      });
-
-      // Create default user settings
-      await prisma.userSettings.create({
-        data: {
-          userId: user.id,
-        },
-      });
-    }
+    await prisma.userSettings.upsert({
+      where: { userId: user.id },
+      update: {},
+      create: { userId: user.id },
+    });
 
     res.json({
       success: true,

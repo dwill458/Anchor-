@@ -45,7 +45,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ navigation }) => {
   const [error, setError] = useState('');
   const [focusedField, setFocusedField] = useState<string | null>(null);
 
-  const { setAuthenticated, setHasCompletedOnboarding } = useAuthStore();
+  const { setSession } = useAuthStore();
 
   // Simple fade-in only for better performance
   const fadeAnim = React.useRef(new Animated.Value(0)).current;
@@ -67,8 +67,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ navigation }) => {
     setLoading(true);
     try {
       const result = await AuthService.signInWithEmail(email, password);
-      setAuthenticated(true);
-      setHasCompletedOnboarding(result.user?.hasCompletedOnboarding ?? false);
+      setSession(result.user, result.token);
     } catch (err: any) {
       setError(err.message || 'Login failed');
     } finally {

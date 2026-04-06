@@ -47,9 +47,12 @@ export const authMiddleware = async (
 
     const token = authHeader.substring(7); // Remove 'Bearer ' prefix
 
-    // Dev bypass: accept mock token only when ENABLE_MOCK_AUTH=true is explicitly set.
-    // Never enabled in production or staging — requires deliberate opt-in.
-    if (process.env.ENABLE_MOCK_AUTH === 'true' && token === 'mock-jwt-token') {
+    const allowMockAuth =
+      process.env.NODE_ENV === 'development' &&
+      process.env.ENABLE_MOCK_AUTH === 'true';
+
+    // Dev bypass: accept mock token only during explicit local development.
+    if (allowMockAuth && token === 'mock-jwt-token') {
       req.user = { uid: 'mock-uid-123', email: 'guest@example.com' };
       next();
       return;

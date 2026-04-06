@@ -25,6 +25,8 @@ import type { RootNavigatorParamList } from './src/navigation/RootNavigator';
 import { ErrorTrackingService, setupGlobalErrorHandler } from './src/services/ErrorTrackingService';
 import { PerformanceMonitoring, type PerformanceTrace } from './src/services/PerformanceMonitoring';
 import { monitoringConfig } from './src/config/monitoring';
+import { AuthService } from './src/services/AuthService';
+import { logger } from './src/utils/logger';
 
 const { width } = Dimensions.get('window');
 const isWeb = Platform.OS === 'web';
@@ -62,6 +64,60 @@ export default function App() {
     'CormorantGaramond-Regular': CrimsonPro_400Regular,
     'CormorantGaramond-Italic': CrimsonPro_400Regular_Italic,
   });
+
+  useEffect(() => {
+    AuthService.initialize();
+
+    let isActive = true;
+    let authStateVersion = 0;
+    useAuthStore.getState().setLoading(true);
+
+    const unsubscribe = AuthService.onAuthStateChanged(async (firebaseUser) => {
+      const currentVersion = ++authStateVersion;
+
+      if (!firebaseUser) {
+        if (!isActive || currentVersion !== authStateVersion) {
+          return;
+        }
+
+        const store = useAuthStore.getState();
+        store.signOut();
+        store.setLoading(false);
+        return;
+      }
+
+      try {
+        const session = await AuthService.syncCurrentUser();
+
+        if (!isActive || currentVersion !== authStateVersion) {
+          return;
+        }
+
+        const store = useAuthStore.getState();
+        if (!session) {
+          store.signOut();
+          store.setLoading(false);
+          return;
+        }
+
+        store.setSession(session.user, session.token);
+      } catch (error) {
+        if (!isActive || currentVersion !== authStateVersion) {
+          return;
+        }
+
+        logger.error('Failed to restore authenticated session', error);
+        const store = useAuthStore.getState();
+        store.signOut();
+        store.setLoading(false);
+      }
+    });
+
+    return () => {
+      isActive = false;
+      unsubscribe();
+    };
+  }, []);
 
   useEffect(() => {
     ErrorTrackingService.initialize({

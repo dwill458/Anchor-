@@ -21,6 +21,7 @@ import { logger } from '@/utils/logger';
 import { useSubscription } from '@/hooks/useSubscription';
 import { ErrorTrackingService } from '@/services/ErrorTrackingService';
 import { PerformanceMonitoring } from '@/services/PerformanceMonitoring';
+import { AuthService } from '@/services/AuthService';
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 const IS_ANDROID = Platform.OS === 'android';
@@ -568,16 +569,17 @@ export default function AIGeneratingScreen() {
       }, 800);
 
       const sigilToEnhance = reinforcedSigilSvg || baseSigilSvg;
+      const token = await AuthService.getIdToken();
 
       const response = await fetch(`${API_URL}/api/ai/enhance-controlnet`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
         },
         body: JSON.stringify({
           sigilSvg: sigilToEnhance,
           styleChoice,
-          userId,
           intentionText,
           anchorId: `temp-${Date.now()}`,
           tier: isPro ? 'premium' : 'draft',
