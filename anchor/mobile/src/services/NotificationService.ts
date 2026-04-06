@@ -14,7 +14,8 @@ import { ServiceError } from './ServiceErrors';
 // Configure notification behavior
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
-    shouldShowAlert: true,
+    shouldShowBanner: true,
+    shouldShowList: true,
     shouldPlaySound: true,
     shouldSetBadge: false,
   }),
@@ -48,6 +49,7 @@ export interface NotificationPayload {
   anchorId?: string;
   reminderId?: string;
   environment?: string;
+  [key: string]: unknown;
 }
 
 export type NotificationClickAction =
@@ -529,7 +531,7 @@ class NotificationService {
       return null;
     }
 
-    return contentData as NotificationPayload;
+    return contentData as unknown as NotificationPayload;
   }
 
   private normalizeMockSound(

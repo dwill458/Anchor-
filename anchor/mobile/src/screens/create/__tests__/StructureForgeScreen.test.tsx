@@ -48,26 +48,26 @@ describe('StructureForgeScreen', () => {
 
     it('stub: selects Dense variant on tap', () => {
         render(<StructureForgeScreen />);
-        fireEvent.press(screen.getByAccessibilityLabel('Ritual structure'));
+        fireEvent.press(screen.getByLabelText('Ritual structure'));
         expect(screen.getByText('Ritual selected')).toBeTruthy();
     });
 
     it('stub: selects Balanced variant on tap', () => {
         render(<StructureForgeScreen />);
         // Focused is default — press it again to confirm it stays selected
-        fireEvent.press(screen.getByAccessibilityLabel('Focused structure'));
+        fireEvent.press(screen.getByLabelText('Focused structure'));
         expect(screen.getByText('Focused selected')).toBeTruthy();
     });
 
     it('stub: selects Minimal variant on tap', () => {
         render(<StructureForgeScreen />);
-        fireEvent.press(screen.getByAccessibilityLabel('Raw structure'));
+        fireEvent.press(screen.getByLabelText('Raw structure'));
         expect(screen.getByText('Raw selected')).toBeTruthy();
     });
 
     it('stub: navigates to ManualReinforcement after selection', () => {
         render(<StructureForgeScreen />);
-        fireEvent.press(screen.getByAccessibilityLabel('Begin Forging'));
+        fireEvent.press(screen.getByLabelText('Begin Forging'));
         expect(mockNavigate).toHaveBeenCalledWith('ManualReinforcement', expect.objectContaining({
             intentionText: 'Test Intention',
             category: 'health',

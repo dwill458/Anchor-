@@ -613,6 +613,27 @@ export type RootStackParamList = {
   };
 
   // ═══════════════════════════════════════════════════
+  // SHOP / MERCHANDISE
+  // ═══════════════════════════════════════════════════
+  ProductSelection: {
+    anchorId: string;
+    sigilSvg: string;
+    intentionText: string;
+  };
+  ProductMockup: {
+    anchorId: string;
+    sigilSvg: string;
+    intentionText: string;
+    productType: 'print' | 'hoodie' | 'keychain' | 't-shirt' | 'phone-case';
+  };
+  Checkout: {
+    anchorId: string;
+    productType: string;
+    size: string;
+    color: string;
+  };
+
+  // ═══════════════════════════════════════════════════
   // PROFILE & SETTINGS
   // ═══════════════════════════════════════════════════
   Settings: undefined;

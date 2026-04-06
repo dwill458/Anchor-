@@ -25,6 +25,7 @@ import Animated, {
   withSequence,
   withTiming,
 } from 'react-native-reanimated';
+import type { SharedValue } from 'react-native-reanimated';
 import { useReduceMotionEnabled } from '@/hooks/useReduceMotionEnabled';
 import { safeHaptics } from '@/utils/haptics';
 import { colors, spacing, typography } from '@/theme';
@@ -55,7 +56,7 @@ type PickerRowProps = {
   index: number;
   label: string;
   onPress: () => void;
-  scrollY: Animated.SharedValue<number>;
+  scrollY: SharedValue<number>;
   reduceMotion: boolean;
 };
 

@@ -60,7 +60,7 @@ export const OrderHistory: React.FC = () => {
             delivered: '#27AE60',
             cancelled: '#E74C3C',
         };
-        return colors[status] || colors.text.tertiary;
+        return colors[status] || '#9E9E9E';
     };
 
     const handleTrackingPress = (trackingNumber: string) => {

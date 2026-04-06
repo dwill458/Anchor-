@@ -101,9 +101,9 @@ async function testNanoBananaAPI() {
             config: {
                 // @ts-ignore
                 responseModalities: ['IMAGE'],
-                // @ts-ignore
                 imageConfig: {
                     aspectRatio: '1:1',
+                    // @ts-ignore
                     numberOfImages: 1
                 }
             }
