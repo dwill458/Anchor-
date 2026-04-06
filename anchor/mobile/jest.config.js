@@ -7,6 +7,8 @@
 module.exports = {
   preset: 'jest-expo',
   testEnvironment: 'node',
+  // Limit parallel workers to prevent OOM on CI runners with 2 GB RAM
+  maxWorkers: 2,
   setupFilesAfterEnv: ['<rootDir>/src/__tests__/setup.ts'],
   transformIgnorePatterns: [
     'node_modules/(?!((jest-)?react-native|@react-native(-community)?)|expo(nent)?|@expo(nent)?/.*|@expo-google-fonts/.*|react-navigation|@react-navigation/.*|@unimodules/.*|unimodules|sentry-expo|native-base|react-native-svg|lucide-react-native)',
