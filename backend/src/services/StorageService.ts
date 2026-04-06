@@ -167,9 +167,11 @@ export async function uploadImageFromUrl(
     return uploadImageFromBuffer(buffer, userId, anchorId, variationIndex, options);
 
   } catch (error) {
-    logger.error('[Storage] Upload error', error);
-    // Ultimate fallback: return original URL
-    return imageUrl;
+    // Re-throw so callers (e.g. enhance-controlnet) can skip failed variations
+    // or surface a 502 to the client. Silently returning the source URL would
+    // mask storage failures and return transient upstream URLs that can expire.
+    logger.error('[Storage] Upload error', error instanceof Error ? error : new Error(String(error)));
+    throw error;
   }
 }
 

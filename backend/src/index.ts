@@ -60,12 +60,14 @@ const allowedOrigins: string[] = rawAllowedOrigins
 app.use(
   cors({
     origin: (origin, callback) => {
-      // Allow server-to-server requests (no origin) only in non-production
-      if (!origin && env.NODE_ENV !== 'production') {
+      // Requests without an Origin header (React Native, server-to-server,
+      // curl) are not browser cross-origin requests — CORS does not apply.
+      // Blocking them here would break the primary mobile client in production.
+      if (!origin) {
         callback(null, true);
         return;
       }
-      if (origin && allowedOrigins.includes(origin)) {
+      if (allowedOrigins.includes(origin)) {
         callback(null, true);
       } else {
         callback(new Error('Not allowed by CORS'));
