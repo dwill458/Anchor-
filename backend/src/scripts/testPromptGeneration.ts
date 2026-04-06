@@ -83,6 +83,30 @@ const STYLE_PROMPTS: Record<AIStyle, { prompt: string; negativePrompt: string }>
     prompt: 'Minimalist modern sigil with clean precise lines, contemporary design, subtle paper texture, crisp geometry',
     negativePrompt: 'texture, heavy shading, embellishment, ornate',
   },
+  obsidian_mono: {
+    prompt: 'High-contrast monochrome obsidian sigil, deep black glass surface with sharp reflections, monochromatic finish',
+    negativePrompt: 'color, soft, organic, messy',
+  },
+  aurora_glow: {
+    prompt: 'Atmospheric aurora borealis sigil glow, shifting green purple and blue light curtains, ethereal polar light energy',
+    negativePrompt: 'solid shapes, sharp edges, photography',
+  },
+  ember_trace: {
+    prompt: 'Warm ember edge lighting sigil, glowing orange and red hot metal edges, cooling black surfaces, forge aesthetic',
+    negativePrompt: 'cold colors, water, soft texture',
+  },
+  echo_chamber: {
+    prompt: 'Layered cyclical resonance sigil, subtle repeating ripple effects emanating from lines, echo wave patterns',
+    negativePrompt: 'sharp geometry, busy patterns, high contrast',
+  },
+  monolith_ink: {
+    prompt: 'Grounded heavy-line authority sigil, matte black architectural ink, heavy weight precise edges, stark minimalism',
+    negativePrompt: 'soft brush, color, messy, organic',
+  },
+  celestial_grid: {
+    prompt: 'Celestial grid sigil with star chart precision, fine astronomical line work, deep space mapping aesthetic',
+    negativePrompt: 'organic, hand-drawn, warm colors, soft',
+  },
 };
 
 function getSymbolInstructions(intentionText: string): string {

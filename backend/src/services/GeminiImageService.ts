@@ -541,6 +541,8 @@ Integration rules:
         model: modelConfig.modelId,
         prompt: `${prompt}\n\nIMPORTANT: Preserve the exact geometric structure and lines of the sigil design. Do not distort or warp the core shapes.`,
         config: {
+          // @ts-ignore — numberOfImages is valid at runtime but missing from SDK
+          // type definitions for this SDK version; suppressed until upstream fix.
           numberOfImages: 1,
           aspectRatio: '1:1',
           includeRaiReason: true,

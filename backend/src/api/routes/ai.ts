@@ -82,7 +82,11 @@ const MantraSchema = z.object({
 });
 
 const MantraAudioSchema = z.object({
-  mantras: z.array(z.unknown()).min(1),
+  mantras: z.object({
+    syllabic: z.string(),
+    rhythmic: z.string(),
+    phonetic: z.string(),
+  }),
   userId: z.string().min(1),
   anchorId: z.string().min(1),
   voicePreset: z.string().optional(),
