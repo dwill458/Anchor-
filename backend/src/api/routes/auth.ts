@@ -4,14 +4,32 @@
  * Handles user authentication and profile synchronization
  */
 
-import { Router, Response } from 'express';
+import { Router, Response, NextFunction } from 'express';
 import { z } from 'zod';
+import rateLimit from 'express-rate-limit';
 import { AuthRequest, authMiddleware } from '../middleware/auth';
 import { AppError } from '../middleware/errorHandler';
 import { prisma } from '../../lib/prisma';
 import { getFirebaseAdmin } from '../../config/firebase';
 
 const router = Router();
+
+// Tighter rate limits for sensitive auth endpoints to prevent brute-force/enumeration.
+const syncLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 20,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { success: false, error: { code: 'TOO_MANY_REQUESTS', message: 'Too many sync attempts, please try again later' } },
+});
+
+const deleteAccountLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000, // 1 hour
+  max: 3,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { success: false, error: { code: 'TOO_MANY_REQUESTS', message: 'Too many deletion attempts, please try again later' } },
+});
 
 function mapProviderIdToAuthProvider(providerId?: string): 'email' | 'google' | 'apple' {
   switch (providerId) {
@@ -69,7 +87,7 @@ function validate<T>(schema: z.ZodSchema<T>, data: unknown): T {
  * - displayName: User display name (optional)
  * - authProvider: 'email' | 'google' | 'apple'
  */
-router.post('/sync', authMiddleware, async (req: AuthRequest, res: Response) => {
+router.post('/sync', syncLimiter, authMiddleware, async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
     if (!req.user?.uid) {
       throw new AppError('User not authenticated', 401, 'UNAUTHORIZED');
@@ -130,9 +148,10 @@ router.post('/sync', authMiddleware, async (req: AuthRequest, res: Response) => 
     });
   } catch (error) {
     if (error instanceof AppError) {
-      throw error;
+      next(error);
+      return;
     }
-    throw new AppError('Failed to sync user', 500, 'SYNC_ERROR');
+    next(new AppError('Failed to sync user', 500, 'SYNC_ERROR'));
   }
 });
 
@@ -142,7 +161,7 @@ router.post('/sync', authMiddleware, async (req: AuthRequest, res: Response) => 
  * Get current authenticated user's profile
  * Requires authentication
  */
-router.get('/me', authMiddleware, async (req: AuthRequest, res: Response) => {
+router.get('/me', authMiddleware, async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
     if (!req.user) {
       throw new AppError('User not authenticated', 401, 'UNAUTHORIZED');
@@ -180,9 +199,10 @@ router.get('/me', authMiddleware, async (req: AuthRequest, res: Response) => {
     });
   } catch (error) {
     if (error instanceof AppError) {
-      throw error;
+      next(error);
+      return;
     }
-    throw new AppError('Failed to fetch user', 500, 'FETCH_ERROR');
+    next(new AppError('Failed to fetch user', 500, 'FETCH_ERROR'));
   }
 });
 
@@ -195,7 +215,7 @@ router.get('/me', authMiddleware, async (req: AuthRequest, res: Response) => {
  * Body:
  * - displayName: New display name (optional)
  */
-router.put('/profile', authMiddleware, async (req: AuthRequest, res: Response) => {
+router.put('/profile', authMiddleware, async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
     if (!req.user) {
       throw new AppError('User not authenticated', 401, 'UNAUTHORIZED');
@@ -231,9 +251,10 @@ router.put('/profile', authMiddleware, async (req: AuthRequest, res: Response) =
     });
   } catch (error) {
     if (error instanceof AppError) {
-      throw error;
+      next(error);
+      return;
     }
-    throw new AppError('Failed to update profile', 500, 'UPDATE_ERROR');
+    next(new AppError('Failed to update profile', 500, 'UPDATE_ERROR'));
   }
 });
 
@@ -251,7 +272,7 @@ router.put('/profile', authMiddleware, async (req: AuthRequest, res: Response) =
  * - hapticIntensity: Number 1-5 (optional)
  * - vaultViewType: 'grid' | 'list' (optional)
  */
-router.put('/settings', authMiddleware, async (req: AuthRequest, res: Response) => {
+router.put('/settings', authMiddleware, async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
     if (!req.user) {
       throw new AppError('User not authenticated', 401, 'UNAUTHORIZED');
@@ -304,9 +325,10 @@ router.put('/settings', authMiddleware, async (req: AuthRequest, res: Response) 
     });
   } catch (error) {
     if (error instanceof AppError) {
-      throw error;
+      next(error);
+      return;
     }
-    throw new AppError('Failed to update settings', 500, 'UPDATE_ERROR');
+    next(new AppError('Failed to update settings', 500, 'UPDATE_ERROR'));
   }
 });
 
@@ -323,7 +345,7 @@ router.put('/settings', authMiddleware, async (req: AuthRequest, res: Response) 
  * - Sync queue entries
  * - User record
  */
-router.delete('/me', authMiddleware, async (req: AuthRequest, res: Response) => {
+router.delete('/me', deleteAccountLimiter, authMiddleware, async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
     if (!req.user) {
       throw new AppError('User not authenticated', 401, 'UNAUTHORIZED');
@@ -363,9 +385,10 @@ router.delete('/me', authMiddleware, async (req: AuthRequest, res: Response) => 
     });
   } catch (error) {
     if (error instanceof AppError) {
-      throw error;
+      next(error);
+      return;
     }
-    throw new AppError('Failed to delete account', 500, 'DELETE_ERROR');
+    next(new AppError('Failed to delete account', 500, 'DELETE_ERROR'));
   }
 });
 

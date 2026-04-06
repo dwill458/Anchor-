@@ -6,6 +6,7 @@
 
 import { Router, Response, NextFunction } from 'express';
 import { z } from 'zod';
+import { Prisma } from '@prisma/client';
 import { AuthRequest, authMiddleware } from '../middleware/auth';
 import { AppError } from '../middleware/errorHandler';
 import { prisma } from '../../lib/prisma';
@@ -38,18 +39,18 @@ const CreateAnchorSchema = z.object({
 
 const UpdateAnchorSchema = z.object({
   intentionText: z.string().min(1).max(500).optional(),
-  category: z.string().min(1).optional(),
+  category: z.string().min(1).max(100).optional(),
   structureVariant: StructureVariantEnum.optional(),
-  reinforcedSigilSvg: z.string().nullable().optional(),
+  reinforcedSigilSvg: z.string().max(5_000_000).nullable().optional(),
   reinforcementMetadata: z.unknown().optional(),
-  enhancedImageUrl: z.string().nullable().optional(),
+  enhancedImageUrl: z.string().url().max(2048).nullable().optional(),
   enhancementMetadata: z.unknown().optional(),
-  mantraText: z.string().nullable().optional(),
-  mantraPronunciation: z.string().nullable().optional(),
-  mantraAudioUrl: z.string().nullable().optional(),
+  mantraText: z.string().max(500).nullable().optional(),
+  mantraPronunciation: z.string().max(500).nullable().optional(),
+  mantraAudioUrl: z.string().url().max(2048).nullable().optional(),
   isCharged: z.boolean().optional(),
   chargedAt: z.string().nullable().optional(),
-  chargeMethod: z.string().nullable().optional(),
+  chargeMethod: z.string().max(50).nullable().optional(),
   isArchived: z.boolean().optional(),
   archivedAt: z.string().nullable().optional(),
   isShared: z.boolean().optional(),
@@ -145,8 +146,8 @@ router.post('/', async (req: AuthRequest, res: Response, next: NextFunction) => 
 
         // Creation path metadata
         structureVariant: structureVariant || 'balanced',
-        reinforcementMetadata: reinforcementMetadata || null,
-        enhancementMetadata: enhancementMetadata || null,
+        reinforcementMetadata: reinforcementMetadata ?? Prisma.JsonNull,
+        enhancementMetadata: enhancementMetadata ?? Prisma.JsonNull,
 
         // Mantra
         mantraText: mantraText || null,
@@ -385,9 +386,9 @@ router.put('/:id', async (req: AuthRequest, res: Response, next: NextFunction) =
       category?: string;
       structureVariant?: string;
       reinforcedSigilSvg?: string | null;
-      reinforcementMetadata?: object | null;
+      reinforcementMetadata?: Prisma.NullableJsonNullValueInput | Prisma.InputJsonValue;
       enhancedImageUrl?: string | null;
-      enhancementMetadata?: object | null;
+      enhancementMetadata?: Prisma.NullableJsonNullValueInput | Prisma.InputJsonValue;
       mantraText?: string | null;
       mantraPronunciation?: string | null;
       mantraAudioUrl?: string | null;
@@ -407,9 +408,9 @@ router.put('/:id', async (req: AuthRequest, res: Response, next: NextFunction) =
     if (category !== undefined) allowedUpdates.category = String(category);
     if (structureVariant !== undefined) allowedUpdates.structureVariant = String(structureVariant);
     if (reinforcedSigilSvg !== undefined) allowedUpdates.reinforcedSigilSvg = reinforcedSigilSvg;
-    if (reinforcementMetadata !== undefined) allowedUpdates.reinforcementMetadata = reinforcementMetadata;
+    if (reinforcementMetadata !== undefined) allowedUpdates.reinforcementMetadata = reinforcementMetadata ?? Prisma.JsonNull;
     if (enhancedImageUrl !== undefined) allowedUpdates.enhancedImageUrl = enhancedImageUrl;
-    if (enhancementMetadata !== undefined) allowedUpdates.enhancementMetadata = enhancementMetadata;
+    if (enhancementMetadata !== undefined) allowedUpdates.enhancementMetadata = enhancementMetadata ?? Prisma.JsonNull;
     if (mantraText !== undefined) allowedUpdates.mantraText = mantraText;
     if (mantraPronunciation !== undefined) allowedUpdates.mantraPronunciation = mantraPronunciation;
     if (mantraAudioUrl !== undefined) allowedUpdates.mantraAudioUrl = mantraAudioUrl;
