@@ -643,7 +643,7 @@ export const SettingsScreen: React.FC = () => {
                 </CardWrapper>
               </Animated.View>
 
-              {(__DEV__ || process.env.EXPO_PUBLIC_DEV_TOOLS === 'true') && (
+              {__DEV__ && (
                 <Animated.View style={animatedStyle9}>
                   <SectionHeader
                     title="Developer Tools"

@@ -22,6 +22,20 @@ dotenv.config();
 
 // Validate environment variables (imported env.ts automatically validates)
 
+// ============================================================================
+// Process-level error handlers — must be registered before any async work
+// ============================================================================
+
+process.on('uncaughtException', (error: Error) => {
+  logger.error('Uncaught exception — shutting down', error);
+  process.exit(1);
+});
+
+process.on('unhandledRejection', (reason: unknown) => {
+  logger.error('Unhandled promise rejection — shutting down', reason instanceof Error ? reason : new Error(String(reason)));
+  process.exit(1);
+});
+
 const app: Application = express();
 const PORT = env.PORT;
 
@@ -32,12 +46,24 @@ const PORT = env.PORT;
 // High-level security headers
 app.use(helmet());
 
-// CORS configuration - restricted in production
-const allowedOrigins = env.ALLOWED_ORIGINS?.split(',') || ['*'];
+// CORS configuration — restricted in production; no wildcard default.
+// In development/test with no ALLOWED_ORIGINS set, allow localhost only.
+const rawAllowedOrigins = env.ALLOWED_ORIGINS;
+const allowedOrigins: string[] = rawAllowedOrigins
+  ? rawAllowedOrigins.split(',').map(o => o.trim()).filter(Boolean)
+  : env.NODE_ENV === 'production'
+    ? [] // No origins allowed until explicitly configured — fail safe
+    : ['http://localhost:3000', 'http://localhost:8081'];
+
 app.use(
   cors({
     origin: (origin, callback) => {
-      if (!origin || allowedOrigins.includes('*') || allowedOrigins.includes(origin)) {
+      // Allow server-to-server requests (no origin) only in non-production
+      if (!origin && env.NODE_ENV !== 'production') {
+        callback(null, true);
+        return;
+      }
+      if (origin && allowedOrigins.includes(origin)) {
         callback(null, true);
       } else {
         callback(new Error('Not allowed by CORS'));
@@ -48,8 +74,9 @@ app.use(
   })
 );
 
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
+// Limit request body size to prevent memory exhaustion attacks
+app.use(express.json({ limit: '1mb' }));
+app.use(express.urlencoded({ extended: true, limit: '1mb' }));
 
 // Global rate limiting
 const limiter = rateLimit({

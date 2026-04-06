@@ -139,9 +139,24 @@ export function validateEnv(): EnvConfig {
       ),
       JWT_EXPIRES_IN: validateString('JWT_EXPIRES_IN', process.env.JWT_EXPIRES_IN) || '7d',
 
-      // Security
-      ALLOWED_ORIGINS: validateString('ALLOWED_ORIGINS', process.env.ALLOWED_ORIGINS) || '*',
+      // Security — never default to wildcard; require explicit config in production.
+      ALLOWED_ORIGINS: validateString('ALLOWED_ORIGINS', process.env.ALLOWED_ORIGINS),
     };
+
+    // In production, critical variables must be present.
+    if (config.NODE_ENV === 'production') {
+      const productionRequired: Array<keyof EnvConfig> = [
+        'FIREBASE_PROJECT_ID',
+        'FIREBASE_PRIVATE_KEY',
+        'FIREBASE_CLIENT_EMAIL',
+        'ALLOWED_ORIGINS',
+      ];
+      for (const key of productionRequired) {
+        if (!config[key]) {
+          throw new EnvValidationError(`${key} is required in production`);
+        }
+      }
+    }
 
     // Warn about missing optional but recommended variables
     if (!config.REPLICATE_API_TOKEN) {
