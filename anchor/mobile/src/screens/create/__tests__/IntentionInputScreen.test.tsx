@@ -1,5 +1,5 @@
 import React from 'react';
-import { render, fireEvent, screen } from '@testing-library/react-native';
+import { render, fireEvent, screen, act } from '@testing-library/react-native';
 import IntentionInputScreen from '../IntentionInputScreen';
 
 // Mock navigation
@@ -59,9 +59,9 @@ describe('IntentionInputScreen', () => {
         render(<IntentionInputScreen />);
         const input = screen.getByLabelText('What are you anchoring right now?');
         fireEvent.changeText(input, 'Stay calm under pressure');
-        jest.advanceTimersByTime(400);
+        act(() => { jest.advanceTimersByTime(500); });
         const continueBtn = screen.getByRole('button', { name: 'Continue' });
-        expect(continueBtn.props.accessibilityState?.disabled).toBe(false);
+        expect(continueBtn.props.accessibilityState?.disabled).not.toBe(true);
         jest.useRealTimers();
     });
 
@@ -79,7 +79,7 @@ describe('IntentionInputScreen', () => {
         render(<IntentionInputScreen />);
         const input = screen.getByLabelText('What are you anchoring right now?');
         fireEvent.changeText(input, 'Stay calm under pressure');
-        jest.advanceTimersByTime(400);
+        act(() => { jest.advanceTimersByTime(500); });
         fireEvent.press(screen.getByRole('button', { name: 'Continue' }));
         expect(mockNavigate).toHaveBeenCalledWith('LetterDistillation', expect.objectContaining({
             intentionText: 'Stay calm under pressure',

@@ -228,6 +228,40 @@ jest.mock('@/components/common/ChargedGlowCanvas', () => ({
   ChargedGlowCanvas: () => null,
 }));
 
+// Mock @react-native-firebase — native modules are unavailable in Jest (node env)
+jest.mock('@react-native-firebase/app', () => ({}));
+jest.mock('@react-native-firebase/auth', () => {
+  const mockUser = null;
+  const authInstance = {
+    currentUser: mockUser,
+    signInWithEmailAndPassword: jest.fn(),
+    createUserWithEmailAndPassword: jest.fn(),
+    signOut: jest.fn(),
+    onAuthStateChanged: jest.fn((_cb: unknown) => jest.fn()),
+  };
+  const mockAuth = jest.fn(() => authInstance);
+  (mockAuth as any).FirebaseAuthTypes = {};
+  return { __esModule: true, default: mockAuth, FirebaseAuthTypes: {} };
+});
+
+// Mock AuthService to prevent the Firebase import chain from blowing up in tests
+jest.mock('@/services/AuthService', () => ({
+  AuthService: {
+    getIdToken: jest.fn().mockResolvedValue(null),
+    getCurrentUser: jest.fn().mockReturnValue(null),
+    signOut: jest.fn().mockResolvedValue(undefined),
+  },
+}));
+
+// Mock TabNavigationContext — screens using useTabNavigation() need a provider
+jest.mock('@/contexts/TabNavigationContext', () => ({
+  TabNavigationProvider: ({ children }: any) => children,
+  useTabNavigation: jest.fn(() => ({
+    navigateToTab: jest.fn(),
+    currentTab: 'Vault',
+  })),
+}));
+
 // Silence console warnings in tests
 global.console = {
   ...console,
