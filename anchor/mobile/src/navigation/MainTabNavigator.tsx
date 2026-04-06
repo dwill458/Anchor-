@@ -262,7 +262,7 @@ const styles = StyleSheet.create({
   // ─── Tab bar (column segment design) ────────────────────────────────────────
   bar: {
     flexDirection: 'row',
-    backgroundColor: 'rgba(8,11,16,0.97)',
+    backgroundColor: '#080C10',
     borderTopWidth: 1,
     borderTopColor: 'rgba(212,175,55,0.08)',
     alignItems: 'stretch',

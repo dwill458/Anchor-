@@ -1,8 +1,10 @@
 export { ProfileScreen } from './ProfileScreen';
-export { SettingsScreen } from './SettingsScreen';
-export { DefaultChargeSettings } from './DefaultChargeSettings';
-export { DefaultActivationSettings } from './DefaultActivationSettings';
-export * from './DailyPracticeGoalScreen';
+export { SettingsScreen } from '../settings';
+export { PrimingDefaultsScreen } from './PrimingDefaultsScreen';
+export { DefaultFocusModeScreen } from './DefaultFocusModeScreen';
+export { PrimingDefaultsScreen as DefaultChargeSettings } from './PrimingDefaultsScreen';
+export { DefaultFocusModeScreen as DefaultActivationSettings } from './DefaultFocusModeScreen';
+export { DailyPracticeGoalScreen } from '../settings';
 export * from './ThemeSelectionScreen';
 export * from './AccentColorScreen';
 export * from './VaultViewScreen';

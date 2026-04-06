@@ -52,6 +52,7 @@ export type FocusSessionProps = {
   anchorImageUri: string;
   durationSeconds: number;
   onComplete: () => void;
+  onSessionCompleted?: () => void;
   onDismiss: () => void;
   /** Ground Note (Pattern 2): auto-fades after 6s. Only shown when guideMode is on. */
   groundNoteText?: string;
@@ -235,6 +236,7 @@ export const FocusSession: React.FC<FocusSessionProps> = ({
   anchorImageUri,
   durationSeconds,
   onComplete,
+  onSessionCompleted,
   onDismiss,
   groundNoteText,
   groundNoteSecondary,
@@ -340,11 +342,13 @@ export const FocusSession: React.FC<FocusSessionProps> = ({
     }
 
     void safeHaptics.notification(Haptics.NotificationFeedbackType.Success);
+    onSessionCompleted?.();
   }, [
     animateProgressToEnd,
     clearTickInterval,
     flare,
     glowBoost,
+    onSessionCompleted,
     pausedDim,
     reduceMotionEnabled,
   ]);

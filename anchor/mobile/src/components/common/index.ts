@@ -23,3 +23,8 @@ export { UndertoneLine } from './UndertoneLine';
 export { GlassIconButton } from './GlassIconButton';
 export { ChargedGlowCanvas } from './ChargedGlowCanvas';
 export { RingGlowCanvas } from './RingGlowCanvas';
+export {
+  AnchorArtworkExportCanvas,
+  ANCHOR_ARTWORK_EXPORT_SIZE,
+} from './AnchorArtworkExportCanvas';
+export type { AnchorArtworkExportCanvasHandle } from './AnchorArtworkExportCanvas';

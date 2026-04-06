@@ -21,6 +21,17 @@ jest.mock('@react-navigation/native', () => ({
 
 jest.mock('@/services/AnalyticsService');
 jest.mock('@/services/ErrorTrackingService');
+jest.mock('@/stores/anchorStore', () => ({
+  useAnchorStore: (selector: any) =>
+    selector({
+      getAnchorById: jest.fn(() => ({
+        id: 'test-anchor-id',
+        baseSigilSvg: '<svg>store</svg>',
+        reinforcedSigilSvg: '<svg>reinforced</svg>',
+        enhancedImageUrl: 'https://example.com/confirm-burn-hero.png',
+      })),
+    }),
+}));
 jest.mock('react-native-svg', () => ({
   SvgXml: 'SvgXml',
 }));
@@ -131,7 +142,7 @@ describe('ConfirmBurnScreen', () => {
       anchorId: 'test-anchor-id',
       intention: 'I am confident',
       sigilSvg: '<svg></svg>',
-      enhancedImageUrl: undefined,
+      enhancedImageUrl: 'https://example.com/confirm-burn-hero.png',
     });
   });
 
@@ -155,6 +166,25 @@ describe('ConfirmBurnScreen', () => {
       'navigation',
       { anchor_id: 'test-anchor-id' }
     );
+  });
+
+  it('passes enhanced artwork from the store into BurningRitual when route params are stale', () => {
+    const { getByText, getByPlaceholderText } = render(<ConfirmBurnScreen />);
+
+    fireEvent.press(getByText('Continue'));
+    act(() => {
+      jest.advanceTimersByTime(200);
+    });
+
+    fireEvent.changeText(getByPlaceholderText('Type RELEASE'), 'RELEASE');
+    fireEvent.press(getByText('Burn Now'));
+
+    expect(mockNavigate).toHaveBeenCalledWith('BurningRitual', {
+      anchorId: 'test-anchor-id',
+      intention: 'I am confident',
+      sigilSvg: '<svg></svg>',
+      enhancedImageUrl: 'https://example.com/confirm-burn-hero.png',
+    });
   });
 
   it('shows inline feedback: Must match exactly for partial input', () => {

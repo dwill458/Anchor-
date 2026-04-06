@@ -1,8 +1,8 @@
-import React, { useCallback, useRef } from 'react';
-import { Dimensions, Pressable, StyleSheet, Text, View } from 'react-native';
+import React, { useCallback } from 'react';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useNavigation } from '@react-navigation/native';
 import { SettingsIcon } from '@/components/icons/SettingsIcon';
-import { useSettingsReveal } from '@/components/transitions/SettingsRevealProvider';
 import { colors } from '@/theme';
 
 interface SanctuaryHeaderProps {
@@ -13,38 +13,11 @@ interface SanctuaryHeaderProps {
 
 export const SanctuaryHeader: React.FC<SanctuaryHeaderProps> = ({ reduceMotionEnabled, greeting }) => {
   const insets = useSafeAreaInsets();
-  const { open } = useSettingsReveal();
-  const buttonRef = useRef<View>(null);
+  const navigation = useNavigation<any>();
 
   const handleOpenSettings = useCallback(() => {
-    const fallback = () => {
-      const { width, height } = Dimensions.get('window');
-      open(
-        {
-          cx: width - 42,
-          cy: 64,
-          size: 40,
-        },
-        { reduceMotion: reduceMotionEnabled }
-      );
-    };
-
-    buttonRef.current?.measureInWindow((x, y, width, height) => {
-      if (width <= 0 || height <= 0) {
-        fallback();
-        return;
-      }
-
-      open(
-        {
-          cx: x + width / 2,
-          cy: y + height / 2,
-          size: Math.max(width, height),
-        },
-        { reduceMotion: reduceMotionEnabled }
-      );
-    });
-  }, [open, reduceMotionEnabled]);
+    navigation.navigate('Settings');
+  }, [navigation]);
 
   return (
     <View style={[styles.container, { paddingRight: Math.max(8, insets.right + 6) }]}>
@@ -67,7 +40,7 @@ export const SanctuaryHeader: React.FC<SanctuaryHeaderProps> = ({ reduceMotionEn
         accessibilityRole="button"
         accessibilityLabel="Settings"
       >
-        <View ref={buttonRef} style={styles.settingsMeasureTarget}>
+        <View style={styles.settingsMeasureTarget}>
           <View style={styles.settingsInnerGlow} />
           <View style={styles.settingsInnerRing}>
             <SettingsIcon size={17} color={colors.sanctuary.goldBright} glow={false} />

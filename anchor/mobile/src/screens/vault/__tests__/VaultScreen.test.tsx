@@ -124,7 +124,7 @@ describe('VaultScreen', () => {
 
     it('renders empty state when no anchors', () => {
         render(<VaultScreen />);
-        expect(screen.getByText('FORGE YOUR FIRST ANCHOR')).toBeTruthy();
+        expect(screen.getByText(/FORGE YOUR FIRST ANCHOR/)).toBeTruthy();
         expect(screen.getByLabelText('Forge your first anchor')).toBeTruthy();
     });
 
@@ -141,6 +141,7 @@ describe('VaultScreen', () => {
         }];
         render(<VaultScreen />);
         expect(screen.getByText('Hero: Build focus')).toBeTruthy();
+        expect(screen.getByText('CREATE NEW ANCHOR')).toBeTruthy();
     });
 
     it('shows skeleton loader while loading', () => {
@@ -152,7 +153,7 @@ describe('VaultScreen', () => {
 
     it('tapping forge button navigates to anchor creation', () => {
         render(<VaultScreen />);
-        fireEvent.press(screen.getByAccessibilityLabel('Forge your first anchor'));
+        fireEvent.press(screen.getByLabelText('Forge your first anchor'));
         expect(mockNavigate).toHaveBeenCalledWith(
             expect.stringMatching(/AnchorCreation|CreateAnchor/),
         );
@@ -171,5 +172,21 @@ describe('VaultScreen', () => {
         }));
         render(<VaultScreen />);
         expect(screen.getByText('Hero: Anchor 0')).toBeTruthy();
+    });
+
+    it('tapping persistent create button navigates to create anchor', () => {
+        mockAnchors = [{
+            id: 'a1',
+            intentionText: 'Build focus',
+            category: 'career',
+            isCharged: false,
+            activationCount: 0,
+            baseSigilSvg: '<svg></svg>',
+            createdAt: new Date(),
+            updatedAt: new Date(),
+        }];
+        render(<VaultScreen />);
+        fireEvent.press(screen.getByLabelText('Create new anchor'));
+        expect(mockNavigate).toHaveBeenCalledWith('CreateAnchor');
     });
 });

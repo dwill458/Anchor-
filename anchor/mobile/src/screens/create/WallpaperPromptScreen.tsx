@@ -1,11 +1,11 @@
-import React from 'react';
+import React, { useRef, useState } from 'react';
 import {
+  Alert,
+  Platform,
   View,
   Text,
   StyleSheet,
   TouchableOpacity,
-  Share,
-  Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -14,7 +14,12 @@ import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { RootStackParamList } from '@/types';
 import { useAuthStore } from '@/stores/authStore';
+import {
+  AnchorArtworkExportCanvas,
+  AnchorArtworkExportCanvasHandle,
+} from '@/components/common';
 import { OptimizedImage } from '@/components/common/OptimizedImage';
+import { exportAnchorArtwork } from '@/services/AnchorArtworkExportService';
 import { colors, spacing, typography } from '@/theme';
 
 type WallpaperPromptRouteProp = RouteProp<RootStackParamList, 'WallpaperPrompt'>;
@@ -24,22 +29,40 @@ export const WallpaperPromptScreen: React.FC = () => {
   const navigation = useNavigation<WallpaperPromptNavigationProp>();
   const route = useRoute<WallpaperPromptRouteProp>();
   const setWallpaperPromptSeen = useAuthStore((state) => state.setWallpaperPromptSeen);
+  const exportCanvasRef = useRef<AnchorArtworkExportCanvasHandle | null>(null);
+  const [isExporting, setIsExporting] = useState(false);
 
   const { anchorId, intentionText, enhancedImageUrl, sigilSvg } = route.params;
 
   const proceed = () => {
-    navigation.navigate('ChargeSetup', { anchorId });
+    navigation.navigate('ChargeSetup', { anchorId, autoStartOnSelection: true });
   };
 
   const handleSetWallpaper = async () => {
     setWallpaperPromptSeen(true);
+    setIsExporting(true);
     try {
-      await Share.share({
-        message: `My Anchor: "${intentionText}" — forged with Anchor app.`,
-        url: enhancedImageUrl ?? '',
+      await exportAnchorArtwork({
+        anchor: {
+          anchorName: 'Anchor',
+          intentionText,
+        },
+        mode: 'wallpaper',
+        captureArtwork: async () => {
+          const uri = await exportCanvasRef.current?.capture();
+          if (!uri) {
+            throw new Error('Unable to generate your anchor artwork right now.');
+          }
+          return uri;
+        },
       });
-    } catch {
-      // User dismissed share sheet — proceed anyway
+    } catch (error) {
+      Alert.alert(
+        'Wallpaper export failed',
+        error instanceof Error ? error.message : 'Unable to export this wallpaper right now.'
+      );
+    } finally {
+      setIsExporting(false);
     }
     proceed();
   };
@@ -118,6 +141,7 @@ export const WallpaperPromptScreen: React.FC = () => {
             style={styles.primaryBtn}
             onPress={handleSetWallpaper}
             activeOpacity={0.85}
+            disabled={isExporting}
           >
             <LinearGradient
               colors={[colors.gold, '#B8941F']}
@@ -125,7 +149,9 @@ export const WallpaperPromptScreen: React.FC = () => {
               start={{ x: 0, y: 0 }}
               end={{ x: 1, y: 0 }}
             >
-              <Text style={styles.primaryText}>SET AS WALLPAPER</Text>
+              <Text style={styles.primaryText}>
+                {isExporting ? 'PREPARING...' : 'SET AS WALLPAPER'}
+              </Text>
             </LinearGradient>
           </TouchableOpacity>
 
@@ -138,6 +164,14 @@ export const WallpaperPromptScreen: React.FC = () => {
           </TouchableOpacity>
         </View>
       </SafeAreaView>
+
+      <AnchorArtworkExportCanvas
+        ref={exportCanvasRef}
+        anchorName="Anchor"
+        intentionText={intentionText}
+        enhancedImageUrl={enhancedImageUrl}
+        sigilSvg={sigilSvg}
+      />
     </View>
   );
 };

@@ -567,7 +567,11 @@ export type RootStackParamList = {
     enhancedImageUrl?: string;
     sigilSvg?: string;
   };
-  ChargeSetup: { anchorId: string; returnTo?: 'vault' | 'practice' | 'detail' };
+  ChargeSetup: {
+    anchorId: string;
+    returnTo?: 'vault' | 'practice' | 'detail';
+    autoStartOnSelection?: boolean;
+  };
   BreathingAnimation: {
     source?: 'charge' | 'practice';
     anchorId?: string;
@@ -614,6 +618,8 @@ export type RootStackParamList = {
   Settings: undefined;
   DefaultCharge: undefined;
   DefaultActivation: undefined;
+  PrimingDefaults: undefined;
+  DefaultFocusMode: undefined;
   DailyPracticeGoal: undefined;
 
   // Appearance Settings

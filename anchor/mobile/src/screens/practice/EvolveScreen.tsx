@@ -15,6 +15,7 @@ import type { PracticeStackParamList, Anchor } from '@/types';
 import { colors, spacing, typography } from '@/theme';
 import { useAuthStore } from '@/stores/authStore';
 import { useAnchorStore } from '@/stores/anchorStore';
+import { useSettingsStore } from '@/stores/settingsStore';
 import { getEffectiveStabilizeStreakDays, toDateOrNull } from '@/utils/stabilizeStats';
 
 import { RitualScaffold } from '@/screens/rituals/components/RitualScaffold';
@@ -55,6 +56,9 @@ export const EvolveScreen: React.FC = () => {
   const navigation = useNavigation<EvolveNavProp>();
   const { navigateToVault } = useTabNavigation();
   const user = useAuthStore((state) => state.user);
+  const developerForceStreakBreakEnabled = useSettingsStore(
+    (state) => state.developerForceStreakBreakEnabled
+  );
   const getActiveAnchors = useAnchorStore((state) => state.getActiveAnchors);
 
   const activeAnchors = getActiveAnchors();
@@ -79,12 +83,20 @@ export const EvolveScreen: React.FC = () => {
 
   const statsLine = useMemo(() => {
     const total = user?.stabilizesTotal ?? 0;
+    if (__DEV__ && developerForceStreakBreakEnabled) {
+      return `Stabilizes: ${total} • Streak: 0 days`;
+    }
     const effectiveStreak = getEffectiveStabilizeStreakDays(
       user?.stabilizeStreakDays ?? 0,
       toDateOrNull(user?.lastStabilizeAt)
     );
     return `Stabilizes: ${total} • Streak: ${effectiveStreak} ${effectiveStreak === 1 ? 'day' : 'days'}`;
-  }, [user?.lastStabilizeAt, user?.stabilizeStreakDays, user?.stabilizesTotal]);
+  }, [
+    developerForceStreakBreakEnabled,
+    user?.lastStabilizeAt,
+    user?.stabilizeStreakDays,
+    user?.stabilizesTotal,
+  ]);
 
   const paths: PathCardModel[] = useMemo(() => ([
     {

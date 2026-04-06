@@ -197,6 +197,7 @@ export const RitualScreen: React.FC = () => {
   const updateAnchor = useAnchorStore((state) => state.updateAnchor);
   const { soundEffectsEnabled } = useSettingsStore();
   const anchor = getAnchorById(anchorId);
+  const sigilSvg = anchor?.reinforcedSigilSvg ?? anchor?.baseSigilSvg ?? '';
 
   const [reduceMotionEnabled, setReduceMotionEnabled] = useState(false);
   const [showExitWarning, setShowExitWarning] = useState(false);
@@ -1057,7 +1058,7 @@ export const RitualScreen: React.FC = () => {
                         resizeMode="cover"
                       />
                     ) : (
-                      <SigilSvg xml={anchor.baseSigilSvg} width={198} height={198} />
+                      <SigilSvg xml={sigilSvg} width={198} height={198} />
                     )}
                   </Animated.View>
                 </Pressable>
@@ -1156,7 +1157,7 @@ export const RitualScreen: React.FC = () => {
                         resizeMode="cover"
                       />
                     ) : (
-                      <SigilSvg xml={anchor.baseSigilSvg} width={SYMBOL_SIZE} height={SYMBOL_SIZE} />
+                      <SigilSvg xml={sigilSvg} width={SYMBOL_SIZE} height={SYMBOL_SIZE} />
                     )}
                   </View>
                 </Pressable>

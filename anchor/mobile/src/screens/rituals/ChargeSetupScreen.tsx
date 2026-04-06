@@ -1,123 +1,421 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   AccessibilityInfo,
-  Animated,
   BackHandler,
-  Easing,
-  LayoutChangeEvent,
+  Platform,
   ScrollView,
   StyleSheet,
   Text,
   TouchableOpacity,
   View,
+  useWindowDimensions,
 } from 'react-native';
+import { BlurView } from 'expo-blur';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as Haptics from 'expo-haptics';
 import { useFocusEffect, useNavigation, useRoute, type RouteProp } from '@react-navigation/native';
 import { type StackNavigationProp } from '@react-navigation/stack';
-import { SvgXml } from 'react-native-svg';
-import Svg, { Circle, Defs, LinearGradient as SvgLinearGradient, Polygon, Stop } from 'react-native-svg';
-import { ChargedGlowCanvas, OptimizedImage, PremiumAnchorGlow } from '@/components/common';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { WebView } from 'react-native-webview';
 import { useAnchorStore } from '@/stores/anchorStore';
 import { useSettingsStore } from '@/stores/settingsStore';
 import { safeHaptics } from '@/utils/haptics';
-import type { RootStackParamList } from '@/types';
-import { colors, spacing, typography } from '@/theme';
-import { RitualScaffold } from './components/RitualScaffold';
-import { RitualTopBar } from './components/RitualTopBar';
+import type { Anchor, RootStackParamList } from '@/types';
+import { spacing } from '@/theme';
 
 type ChargeSetupRouteProp = RouteProp<RootStackParamList, 'ChargeSetup'>;
 type ChargeSetupNavigationProp = StackNavigationProp<RootStackParamList, 'ChargeSetup'>;
 type DurationChoice = 'quick' | 'deep';
 
-const HERO_SIZE = 248;
-const HERO_CORONA_SIZE = 268;
-const HERO_HEIGHT = 400;
-const SIGIL_DISK_SIZE = 208;
-const CTA_AREA_HEIGHT = 164;
+const NAVY = '#0F1419';
+const GOLD = '#D4AF37';
+const GOLD_DIM = '#A8892A';
+const BONE = '#F5F5DC';
+const SILVER = '#C0C0C0';
+const BLACK = '#080C10';
+const PANEL_OVERLAP = 24;
 
-const withOpacity = (hexColor: string, opacity: number): string => {
-  const raw = hexColor.replace('#', '').trim();
-  if (raw.length !== 6) return hexColor;
-  const normalized = Math.min(1, Math.max(0, opacity));
-  const r = parseInt(raw.slice(0, 2), 16);
-  const g = parseInt(raw.slice(2, 4), 16);
-  const b = parseInt(raw.slice(4, 6), 16);
-  return `rgba(${r}, ${g}, ${b}, ${normalized})`;
-};
+const FALLBACK_SIGIL_SVG = `
+<svg viewBox="0 0 240 240" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+  <circle cx="120" cy="120" r="86" fill="rgba(8,12,16,0.74)" stroke="rgba(212,175,55,0.28)" stroke-width="2"/>
+  <path
+    d="M72 90h96M72 90l34 68h58M168 90l-62 68"
+    fill="none"
+    stroke="#D4AF37"
+    stroke-width="6"
+    stroke-linecap="round"
+    stroke-linejoin="round"
+  />
+</svg>
+`.trim();
 
-const ritualColors = {
-  transparent: withOpacity(colors.background.primary, 0),
-  atmosphereTop: withOpacity(colors.sanctuary.purpleBg, 0.95),
-  atmosphereMid: withOpacity(colors.background.primary, 0.96),
-  heroBloomCenter: withOpacity(colors.sanctuary.gold, 0.18),
-  heroBloomMid: withOpacity(colors.sanctuary.gold, 0.08),
-  heroBloomEdge: withOpacity(colors.sanctuary.gold, 0),
-  heroSweepArc: withOpacity(colors.sanctuary.goldBright, 0.24),
-  heroSweepTail: withOpacity(colors.sanctuary.gold, 0.04),
-  coronaBorder: withOpacity(colors.sanctuary.gold, 0.28),
-  coronaShadow: withOpacity(colors.sanctuary.gold, 0.5),
-  poolCenter: withOpacity(colors.sanctuary.gold, 0.22),
-  poolEdge: withOpacity(colors.sanctuary.gold, 0),
-  heroSurface: withOpacity(colors.deepPurple, 0.33),
-  heroSurfaceBorder: withOpacity(colors.sanctuary.gold, 0.2),
-  sigilSurface: withOpacity(colors.background.secondary, 0.92),
-  badgeLine: withOpacity(colors.sanctuary.gold, 0.3),
-  badgeText: colors.bronze,
-  headingText: colors.bone,
-  subHeadingText: withOpacity(colors.text.secondary, 0.74),
-  durationLabel: colors.bronze,
-  pillSurface: withOpacity(colors.background.secondary, 0.92),
-  pillBorder: withOpacity(colors.sanctuary.gold, 0.18),
-  pillSelectedSurface: withOpacity(colors.sanctuary.gold, 0.11),
-  pillSelectedBorder: withOpacity(colors.sanctuary.gold, 0.56),
-  pillCheckSurface: colors.gold,
-  pillCheckText: colors.background.primary,
-  pillTime: withOpacity(colors.text.secondary, 0.9),
-  pillDesc: withOpacity(colors.text.tertiary, 0.74),
-  ctaFadeTop: withOpacity(colors.background.primary, 0),
-  ctaFadeBottom: withOpacity(colors.background.primary, 0.96),
-  ctaText: colors.background.primary,
-  stopText: withOpacity(colors.text.secondary, 0.8),
-  fallbackSymbol: withOpacity(colors.sanctuary.gold, 0.85),
-  goldGradientStart: withOpacity(colors.sanctuary.gold, 0.3),
-  goldGradientBright: withOpacity(colors.sanctuary.goldBright, 0.95),
-  goldGradientMid: withOpacity(colors.sanctuary.gold, 0.54),
-  dashedStroke: withOpacity(colors.sanctuary.gold, 0.14),
-};
+const PRIME_WEBVIEW_HTML = `
+<!DOCTYPE html>
+<html>
+<head>
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    background: radial-gradient(ellipse 70% 60% at 50% 55%, #1a2a18 0%, #0d1a0e 40%, #080C10 100%);
+    width: 100vw;
+    height: 100vh;
+    overflow: hidden;
+    position: relative;
+  }
+  body.reduce-motion *,
+  body.reduce-motion *::before,
+  body.reduce-motion *::after {
+    animation: none !important;
+    transition: none !important;
+  }
+  .mist {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    background:
+      radial-gradient(ellipse 70% 50% at 50% 75%, rgba(212,175,55,0.07) 0%, transparent 65%),
+      radial-gradient(ellipse 55% 30% at 50% 100%, rgba(62,44,91,0.35) 0%, transparent 55%);
+  }
+  .rings {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    pointer-events: none;
+  }
+  .ring-base {
+    position: absolute;
+    width: 268px;
+    height: 268px;
+    border-radius: 50%;
+    border: 1px solid rgba(212,175,55,0.10);
+  }
+  .ring-rotate {
+    position: absolute;
+    width: 300px;
+    height: 300px;
+    border-radius: 50%;
+    border: 1px dashed rgba(212,175,55,0.14);
+    animation: slow-rotate 18s linear infinite;
+  }
+  .ring-breathe {
+    position: absolute;
+    width: 334px;
+    height: 334px;
+    border-radius: 50%;
+    border: 1px solid rgba(212,175,55,0.07);
+    animation: breathe-ring 4s ease-in-out infinite;
+  }
+  @keyframes slow-rotate { to { transform: rotate(360deg); } }
+  @keyframes breathe-ring {
+    0%,100% { opacity: 0.4; transform: scale(1); }
+    50% { opacity: 1; transform: scale(1.025); }
+  }
+  #glow-canvas {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+  }
+  .medallion-wrap {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .medallion {
+    width: 220px;
+    height: 220px;
+    position: relative;
+    animation: float-medallion 6s ease-in-out infinite;
+  }
+  @keyframes float-medallion {
+    0%,100% { transform: translateY(0px); }
+    50% { transform: translateY(-9px); }
+  }
+  .aura-outer {
+    position: absolute;
+    inset: -50px;
+    border-radius: 50%;
+    background: radial-gradient(circle, rgba(212,175,55,0.10) 0%, transparent 65%);
+    animation: aura-outer 4s ease-in-out infinite;
+  }
+  .aura-mid {
+    position: absolute;
+    inset: -28px;
+    border-radius: 50%;
+    background: radial-gradient(circle, rgba(212,175,55,0.20) 0%, transparent 60%);
+    animation: aura-mid 4s ease-in-out infinite 0.5s;
+  }
+  .aura-inner {
+    position: absolute;
+    inset: -10px;
+    border-radius: 50%;
+    background: radial-gradient(circle, rgba(240,203,85,0.30) 0%, transparent 55%);
+    animation: aura-inner 3s ease-in-out infinite 0.25s;
+  }
+  @keyframes aura-outer {
+    0%,100% { opacity: 0.5; transform: scale(1); }
+    50% { opacity: 1; transform: scale(1.12); }
+  }
+  @keyframes aura-mid {
+    0%,100% { opacity: 0.6; transform: scale(1); }
+    50% { opacity: 1; transform: scale(1.08); }
+  }
+  @keyframes aura-inner {
+    0%,100% { opacity: 0.7; transform: scale(1); }
+    50% { opacity: 1; transform: scale(1.05); }
+  }
+  .medallion-svg {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    animation: sigil-glow 3s ease-in-out infinite;
+  }
+  .medallion-svg svg {
+    width: 100%;
+    height: 100%;
+    display: block;
+  }
+  .medallion-svg img {
+    width: 100%;
+    height: 100%;
+    display: block;
+    object-fit: cover;
+    border-radius: 50%;
+  }
+  @keyframes sigil-glow {
+    0%,100% { filter: drop-shadow(0 0 10px rgba(212,175,55,0.35)) drop-shadow(0 0 30px rgba(212,175,55,0.15)); }
+    50% { filter: drop-shadow(0 0 18px rgba(240,203,85,0.7)) drop-shadow(0 0 50px rgba(212,175,55,0.30)); }
+  }
+  .ground-glow {
+    position: absolute;
+    bottom: -12px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 200px;
+    height: 40px;
+    border-radius: 50%;
+    background: radial-gradient(ellipse, rgba(212,175,55,0.28) 0%, transparent 70%);
+    filter: blur(6px);
+    animation: ground-breathe 4s ease-in-out infinite;
+    pointer-events: none;
+  }
+  @keyframes ground-breathe {
+    0%,100% { opacity: 0.6; transform: translateX(-50%) scaleX(1); }
+    50% { opacity: 1; transform: translateX(-50%) scaleX(1.15); }
+  }
+</style>
+</head>
+<body>
+  <div class="mist"></div>
+  <canvas id="glow-canvas"></canvas>
+  <div class="rings">
+    <div class="ring-base"></div>
+    <div class="ring-rotate"></div>
+    <div class="ring-breathe"></div>
+  </div>
+  <div class="medallion-wrap">
+    <div class="medallion">
+      <div class="aura-outer"></div>
+      <div class="aura-mid"></div>
+      <div class="aura-inner"></div>
+      <div class="medallion-svg" id="sigil-host">SIGIL_CONTENT_PLACEHOLDER</div>
+      <div class="ground-glow"></div>
+    </div>
+  </div>
+<script>
+  const REDUCE_MOTION = REDUCE_MOTION_PLACEHOLDER;
+  if (REDUCE_MOTION) {
+    document.body.classList.add('reduce-motion');
+  }
+
+  const canvas = document.getElementById('glow-canvas');
+  canvas.width = window.innerWidth;
+  canvas.height = window.innerHeight;
+  const ctx = canvas.getContext('2d');
+  const CX = canvas.width / 2;
+  const CY = canvas.height / 2;
+
+  const ripples = [];
+  function spawnRipple() {
+    ripples.push({ r: 110, opacity: 0.6, speed: 0.8 });
+  }
+
+  const PARTICLE_COUNT = 28;
+  const particles = [];
+  function spawnParticle(phase) {
+    return {
+      angle: Math.random() * Math.PI * 2,
+      orbitR: 110 + Math.random() * 80,
+      driftAngle: Math.random() * Math.PI * 2,
+      driftSpeed: 0.0004 + Math.random() * 0.0006,
+      size: 1 + Math.random() * 2,
+      life: phase !== undefined ? phase : Math.random(),
+      lifeSpeed: 0.003 + Math.random() * 0.004,
+      twinklePhase: Math.random() * Math.PI * 2,
+      twinkleSpeed: 0.04 + Math.random() * 0.06
+    };
+  }
+  for (let i = 0; i < PARTICLE_COUNT; i++) {
+    particles.push(spawnParticle(i / PARTICLE_COUNT));
+  }
+
+  function drawFrame() {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    for (let i = ripples.length - 1; i >= 0; i--) {
+      const rp = ripples[i];
+      if (!REDUCE_MOTION) {
+        rp.r += rp.speed;
+        rp.opacity -= 0.0028;
+      }
+      if (rp.opacity <= 0) {
+        ripples.splice(i, 1);
+        continue;
+      }
+
+      ctx.beginPath();
+      ctx.arc(CX, CY, rp.r, 0, Math.PI * 2);
+      ctx.strokeStyle = 'rgba(212,175,55,' + (rp.opacity * 0.7) + ')';
+      ctx.lineWidth = 1;
+      ctx.stroke();
+
+      if (rp.opacity > 0.4) {
+        const g = ctx.createRadialGradient(CX, CY, rp.r - 20, CX, CY, rp.r + 8);
+        g.addColorStop(0, 'rgba(212,175,55,0)');
+        g.addColorStop(0.5, 'rgba(212,175,55,' + ((rp.opacity - 0.4) * 0.06) + ')');
+        g.addColorStop(1, 'rgba(212,175,55,0)');
+        ctx.beginPath();
+        ctx.arc(CX, CY, rp.r + 8, 0, Math.PI * 2);
+        ctx.fillStyle = g;
+        ctx.fill();
+      }
+    }
+
+    for (const p of particles) {
+      if (!REDUCE_MOTION) {
+        p.life += p.lifeSpeed;
+        if (p.life >= 1) {
+          Object.assign(p, spawnParticle(0));
+          continue;
+        }
+        p.driftAngle += p.driftSpeed;
+        p.twinklePhase += p.twinkleSpeed;
+      }
+
+      const rise = p.life * 110;
+      const spread = Math.sin(p.driftAngle) * 30;
+      const px = CX + Math.cos(p.angle) * (p.orbitR + spread) * (1 - p.life * 0.4);
+      const py = CY + Math.sin(p.angle) * (p.orbitR + spread) * (1 - p.life * 0.3) - rise;
+
+      let opacity = p.life < 0.2 ? p.life / 0.2 : p.life < 0.7 ? 1 : 1 - (p.life - 0.7) / 0.3;
+      opacity *= 0.4 + 0.6 * (0.5 + 0.5 * Math.sin(p.twinklePhase));
+      const alpha = opacity * 0.85;
+
+      const bloom = ctx.createRadialGradient(px, py, 0, px, py, p.size * 5);
+      bloom.addColorStop(0, 'rgba(240,203,85,' + (alpha * 0.5) + ')');
+      bloom.addColorStop(1, 'rgba(212,175,55,0)');
+      ctx.beginPath();
+      ctx.arc(px, py, p.size * 5, 0, Math.PI * 2);
+      ctx.fillStyle = bloom;
+      ctx.fill();
+
+      ctx.beginPath();
+      ctx.arc(px, py, p.size, 0, Math.PI * 2);
+      ctx.fillStyle = 'rgba(255,235,130,' + alpha + ')';
+      ctx.fill();
+    }
+  }
+
+  if (REDUCE_MOTION) {
+    ripples.push({ r: 128, opacity: 0.22, speed: 0 });
+    drawFrame();
+  } else {
+    setInterval(spawnRipple, 2200);
+    spawnRipple();
+    function draw() {
+      drawFrame();
+      requestAnimationFrame(draw);
+    }
+    requestAnimationFrame(draw);
+  }
+</script>
+</body>
+</html>
+`.trim();
 
 const chargeConfigByChoice = {
   quick: {
     mode: 'focus' as const,
     preset: '30s' as const,
+    customMinutes: undefined,
     ritualType: 'focus' as const,
     durationSeconds: 30,
-    ctaLabel: 'BEGIN PRIMING',
     icon: '⚡',
     name: 'Quick Prime',
-    time: '30 seconds',
-    desc: 'Fast focused session',
+    lineOne: '30 seconds',
+    lineTwo: 'Daily reset',
   },
   deep: {
     mode: 'ritual' as const,
-    preset: '5m' as const,
+    preset: 'custom' as const,
+    customMinutes: 3,
     ritualType: 'ritual' as const,
-    durationSeconds: 300,
-    ctaLabel: 'BEGIN DEEP PRIME',
+    durationSeconds: 180,
     icon: '🔥',
     name: 'Deep Prime',
-    time: '~5 minutes',
-    desc: 'Guided 5-phase ritual',
+    lineOne: '3 minutes',
+    lineTwo: 'Deep focus',
   },
 };
+
+const normalizeSvgMarkup = (svg?: string): string => {
+  if (!svg) return FALLBACK_SIGIL_SVG;
+
+  const normalized = svg
+    .replace(/<\?xml[\s\S]*?\?>/gi, '')
+    .replace(/<!DOCTYPE[\s\S]*?>/gi, '')
+    .trim();
+
+  return /<svg[\s>]/i.test(normalized) ? normalized : FALLBACK_SIGIL_SVG;
+};
+
+const escapeHtmlAttribute = (value: string): string =>
+  value
+    .replace(/&/g, '&amp;')
+    .replace(/"/g, '&quot;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;');
+
+const getPrimeSigilMarkup = (anchor?: Anchor): string => {
+  if (anchor?.enhancedImageUrl) {
+    return `<img src="${escapeHtmlAttribute(anchor.enhancedImageUrl)}" alt="" />`;
+  }
+
+  return normalizeSvgMarkup(anchor?.reinforcedSigilSvg ?? anchor?.baseSigilSvg);
+};
+
+const buildPrimeWebViewHtml = (sigilMarkup: string, reduceMotionEnabled: boolean): string =>
+  PRIME_WEBVIEW_HTML
+    .replace('SIGIL_CONTENT_PLACEHOLDER', sigilMarkup)
+    .replace('REDUCE_MOTION_PLACEHOLDER', reduceMotionEnabled ? 'true' : 'false');
 
 export const ChargeSetupScreen: React.FC = () => {
   const navigation = useNavigation<ChargeSetupNavigationProp>();
   const route = useRoute<ChargeSetupRouteProp>();
-  const { anchorId, returnTo } = route.params || {};
+  const insets = useSafeAreaInsets();
+  const { height: screenHeight } = useWindowDimensions();
+  const { anchorId, returnTo, autoStartOnSelection = false } = route.params || {};
 
   const getAnchorById = useAnchorStore((state) => state.getAnchorById);
-  const { setDefaultCharge } = useSettingsStore();
+  const setDefaultCharge = useSettingsStore((state) => state.setDefaultCharge);
   const anchor = getAnchorById(anchorId);
 
   const [selectedDuration, setSelectedDuration] = useState<DurationChoice>('quick');
@@ -125,46 +423,7 @@ export const ChargeSetupScreen: React.FC = () => {
   const [isTransitioning, setIsTransitioning] = useState(false);
 
   const isNavigatingRef = useRef(false);
-  const anchorLayoutRef = useRef<{ y: number }>({ y: 0 });
-
-  const coronaAnim = useRef(new Animated.Value(0.8)).current;
-  const poolAnim = useRef(new Animated.Value(0)).current;
-  const sigilAnim = useRef(new Animated.Value(0)).current;
-  const heroOpacity = useRef(new Animated.Value(0)).current;
-  const contentOpacity = useRef(new Animated.Value(0)).current;
-  const ctaPressAnim = useRef(new Animated.Value(0)).current;
-  const ctaGlowAnim = useRef(new Animated.Value(0)).current;
-
-  const selectedConfig = chargeConfigByChoice[selectedDuration];
-
-  const poolOpacity = poolAnim.interpolate({
-    inputRange: [0, 1],
-    outputRange: [0.5, 1],
-  });
-  const poolScale = poolAnim.interpolate({
-    inputRange: [0, 1],
-    outputRange: [0.82, 1.09],
-  });
-  const sigilScale = sigilAnim.interpolate({
-    inputRange: [0, 1],
-    outputRange: [1, 1.02],
-  });
-  const sigilOscillate = sigilAnim.interpolate({
-    inputRange: [0, 1],
-    outputRange: ['-1.2deg', '1.2deg'],
-  });
-  const ctaScale = ctaPressAnim.interpolate({
-    inputRange: [0, 1],
-    outputRange: [1, 0.98],
-  });
-  const ctaOpacity = ctaPressAnim.interpolate({
-    inputRange: [0, 1],
-    outputRange: [1, 0.92],
-  });
-  const ctaShadowOpacity = ctaGlowAnim.interpolate({
-    inputRange: [0, 1],
-    outputRange: [0.28, 0.54],
-  });
+  const heroHeight = Math.max(360, Math.min(500, Math.round(screenHeight * 0.55)));
 
   useEffect(() => {
     AccessibilityInfo.isReduceMotionEnabled().then(setReduceMotionEnabled);
@@ -172,736 +431,484 @@ export const ChargeSetupScreen: React.FC = () => {
     return () => subscription.remove();
   }, []);
 
-  useEffect(() => {
-    if (reduceMotionEnabled) {
-      heroOpacity.setValue(1);
-      contentOpacity.setValue(1);
-      coronaAnim.setValue(0.85);
-      poolAnim.setValue(0.8);
-      sigilAnim.setValue(0.5);
-      ctaGlowAnim.setValue(0.5);
-      return;
-    }
-
-    const entryAnimation = Animated.parallel([
-      Animated.timing(heroOpacity, {
-        toValue: 1,
-        duration: 520,
-        easing: Easing.out(Easing.cubic),
-        useNativeDriver: true,
-      }),
-      Animated.timing(contentOpacity, {
-        toValue: 1,
-        duration: 620,
-        easing: Easing.out(Easing.cubic),
-        useNativeDriver: true,
-      }),
-    ]);
-
-    const coronaLoop = Animated.loop(
-      Animated.sequence([
-        Animated.timing(coronaAnim, {
-          toValue: 1,
-          duration: 1000,
-          easing: Easing.inOut(Easing.sin),
-          useNativeDriver: true,
-        }),
-        Animated.timing(coronaAnim, {
-          toValue: 0.65,
-          duration: 1000,
-          easing: Easing.inOut(Easing.sin),
-          useNativeDriver: true,
-        }),
-        Animated.timing(coronaAnim, {
-          toValue: 0.85,
-          duration: 1000,
-          easing: Easing.inOut(Easing.sin),
-          useNativeDriver: true,
-        }),
-      ])
-    );
-
-    const poolLoop = Animated.loop(
-      Animated.sequence([
-        Animated.delay(1000),
-        Animated.timing(poolAnim, {
-          toValue: 1,
-          duration: 2500,
-          easing: Easing.inOut(Easing.sin),
-          useNativeDriver: true,
-        }),
-        Animated.timing(poolAnim, {
-          toValue: 0,
-          duration: 2500,
-          easing: Easing.inOut(Easing.sin),
-          useNativeDriver: true,
-        }),
-      ])
-    );
-
-    const sigilLoop = Animated.loop(
-      Animated.sequence([
-        Animated.timing(sigilAnim, {
-          toValue: 1,
-          duration: 2500,
-          easing: Easing.inOut(Easing.sin),
-          useNativeDriver: true,
-        }),
-        Animated.timing(sigilAnim, {
-          toValue: 0,
-          duration: 2500,
-          easing: Easing.inOut(Easing.sin),
-          useNativeDriver: true,
-        }),
-      ])
-    );
-
-    const ctaGlowLoop = Animated.loop(
-      Animated.sequence([
-        Animated.timing(ctaGlowAnim, {
-          toValue: 1,
-          duration: 3000,
-          easing: Easing.inOut(Easing.sin),
-          useNativeDriver: false,
-        }),
-        Animated.timing(ctaGlowAnim, {
-          toValue: 0,
-          duration: 3000,
-          easing: Easing.inOut(Easing.sin),
-          useNativeDriver: false,
-        }),
-      ])
-    );
-
-    entryAnimation.start();
-    coronaLoop.start();
-    poolLoop.start();
-    sigilLoop.start();
-    ctaGlowLoop.start();
-
-    return () => {
-      coronaLoop.stop();
-      poolLoop.stop();
-      sigilLoop.stop();
-      ctaGlowLoop.stop();
-    };
-  }, [
-    contentOpacity,
-    coronaAnim,
-    ctaGlowAnim,
-    heroOpacity,
-    poolAnim,
-    reduceMotionEnabled,
-    sigilAnim,
-  ]);
-
-  const navigateToRitual = useCallback(() => {
-    navigation.navigate('Ritual', {
-      anchorId,
-      ritualType: selectedConfig.ritualType,
-      durationSeconds: selectedConfig.durationSeconds,
-      returnTo,
-    });
-  }, [anchorId, navigation, returnTo, selectedConfig.durationSeconds, selectedConfig.ritualType]);
-
-  const handleBeginRitual = useCallback(() => {
-    if (isNavigatingRef.current || isTransitioning) return;
-    isNavigatingRef.current = true;
-    setIsTransitioning(true);
-
-    setDefaultCharge({
-      mode: selectedConfig.mode,
-      preset: selectedConfig.preset,
-      customMinutes: undefined,
-    });
-
-    void safeHaptics.impact(Haptics.ImpactFeedbackStyle.Medium);
-
-    if (reduceMotionEnabled) {
-      navigateToRitual();
-      return;
-    }
-
-    Animated.sequence([
-      Animated.timing(ctaPressAnim, {
-        toValue: 1,
-        duration: 120,
-        easing: Easing.out(Easing.cubic),
-        useNativeDriver: true,
-      }),
-      Animated.timing(ctaPressAnim, {
-        toValue: 0,
-        duration: 210,
-        easing: Easing.inOut(Easing.cubic),
-        useNativeDriver: true,
-      }),
-    ]).start(() => {
-      navigateToRitual();
-    });
-  }, [
-    ctaPressAnim,
-    isTransitioning,
-    navigateToRitual,
-    reduceMotionEnabled,
-    selectedConfig.mode,
-    selectedConfig.preset,
-    setDefaultCharge,
-  ]);
-
-  const handleSelectDuration = (choice: DurationChoice) => {
-    setSelectedDuration(choice);
-    void safeHaptics.selection();
-  };
-
-  const handleBack = () => {
-    if (isTransitioning) return;
-    navigation.goBack();
-  };
-
-  const handleAnchorLayout = (event: LayoutChangeEvent) => {
-    anchorLayoutRef.current = { y: event.nativeEvent.layout.y };
-  };
-
   useFocusEffect(
     useCallback(() => {
       isNavigatingRef.current = false;
       setIsTransitioning(false);
-      ctaPressAnim.setValue(0);
+
       const onBackPress = () => isTransitioning;
-      BackHandler.addEventListener('hardwareBackPress', onBackPress);
-      return () => BackHandler.removeEventListener('hardwareBackPress', onBackPress);
-    }, [ctaPressAnim, isTransitioning])
+      const subscription = BackHandler.addEventListener('hardwareBackPress', onBackPress);
+      return () => subscription.remove();
+    }, [isTransitioning])
   );
 
-  const pills = useMemo(
-    () => (['quick', 'deep'] as const).map((choice) => ({ choice, ...chargeConfigByChoice[choice] })),
-    []
+  const webViewHtml = useMemo(
+    () => buildPrimeWebViewHtml(getPrimeSigilMarkup(anchor), reduceMotionEnabled),
+    [anchor, reduceMotionEnabled]
   );
+
+  const navigateToRitual = useCallback(
+    (choice: DurationChoice) => {
+      const config = chargeConfigByChoice[choice];
+      navigation.navigate('Ritual', {
+        anchorId,
+        ritualType: config.ritualType,
+        durationSeconds: config.durationSeconds,
+        returnTo,
+      });
+    },
+    [anchorId, navigation, returnTo]
+  );
+
+  const handleBeginRitual = useCallback(
+    (choice: DurationChoice = selectedDuration) => {
+      if (isNavigatingRef.current || isTransitioning) return;
+
+      const config = chargeConfigByChoice[choice];
+      isNavigatingRef.current = true;
+      setIsTransitioning(true);
+
+      setDefaultCharge({
+        mode: config.mode,
+        preset: config.preset,
+        customMinutes: config.customMinutes,
+      });
+
+      void safeHaptics.impact(Haptics.ImpactFeedbackStyle.Medium);
+      navigateToRitual(choice);
+    },
+    [isTransitioning, navigateToRitual, selectedDuration, setDefaultCharge]
+  );
+
+  const handleSelectDuration = useCallback(
+    (choice: DurationChoice) => {
+      if (isTransitioning) return;
+      setSelectedDuration(choice);
+      void safeHaptics.selection();
+
+      if (autoStartOnSelection) {
+        handleBeginRitual(choice);
+      }
+    },
+    [autoStartOnSelection, handleBeginRitual, isTransitioning]
+  );
+
+  const handleBack = useCallback(() => {
+    if (isTransitioning) return;
+    if (autoStartOnSelection) {
+      // Came from creation flow — navigate to Vault so the new anchor is visible
+      navigation.navigate('Vault');
+    } else {
+      navigation.goBack();
+    }
+  }, [isTransitioning, navigation, autoStartOnSelection]);
 
   if (!anchorId || !anchor) {
     return (
-      <RitualScaffold>
+      <View style={styles.screen}>
         <View style={styles.errorContainer}>
           <Text style={styles.errorTitle}>Anchor Not Found</Text>
           <Text style={styles.errorText}>We could not load your anchor. Please try again.</Text>
           <TouchableOpacity
             style={styles.errorButton}
             onPress={handleBack}
-            activeOpacity={0.8}
+            activeOpacity={0.85}
             accessibilityRole="button"
             accessibilityLabel="Go Back"
           >
             <Text style={styles.errorButtonText}>Go Back</Text>
           </TouchableOpacity>
         </View>
-      </RitualScaffold>
+      </View>
     );
   }
 
+  const cards = (['quick', 'deep'] as const).map((choice) => ({
+    choice,
+    ...chargeConfigByChoice[choice],
+    isSelected: selectedDuration === choice,
+  }));
+
   return (
-    <RitualScaffold>
-      <View style={styles.container}>
-        <Animated.View style={{ opacity: contentOpacity }}>
-          <RitualTopBar
-            onBack={handleBack}
-            title="Prime Your Anchor"
-            disableBack={isTransitioning}
-          />
-        </Animated.View>
-
-        <ScrollView
-          contentContainerStyle={styles.scrollContent}
+    <View style={styles.screen}>
+      <View style={[styles.heroSection, { height: heroHeight }]}>
+        <WebView
+          originWhitelist={['*']}
+          source={{ html: webViewHtml }}
+          style={styles.webview}
+          scrollEnabled={false}
+          bounces={false}
+          overScrollMode="never"
           showsVerticalScrollIndicator={false}
-          scrollEnabled={!isTransitioning}
-        >
-          <Animated.View style={[styles.heroContainer, { opacity: heroOpacity }]} onLayout={handleAnchorLayout}>
-            <LinearGradient
-              colors={[ritualColors.atmosphereTop, ritualColors.heroBloomMid, ritualColors.atmosphereMid, ritualColors.transparent]}
-              locations={[0, 0.15, 0.6, 1]}
-              style={StyleSheet.absoluteFillObject}
-            />
+          showsHorizontalScrollIndicator={false}
+        />
 
-            {/* GPU-accelerated Skia glow: particles, rays, rotating rings, sparkles */}
-            <ChargedGlowCanvas size={HERO_HEIGHT} reduceMotionEnabled={reduceMotionEnabled} />
-
-            <Animated.View pointerEvents="none" style={[styles.glowCorona, { opacity: coronaAnim }]} />
-
-            <View style={styles.octagonGlowWrap}>
-              <PremiumAnchorGlow
-                size={HERO_SIZE}
-                state="charged"
-                variant="ritual"
-                reduceMotionEnabled={reduceMotionEnabled}
-              />
-              <Animated.View
-                style={[
-                  styles.octagonWrap,
-                  {
-                    transform: [
-                      { scale: sigilScale },
-                      { rotate: sigilOscillate },
-                    ],
-                  },
-                ]}
-              >
-                <View style={styles.octagonClip}>
-                  <View style={styles.sigilDisk}>{renderAnchorSymbol(anchor)}</View>
-                </View>
-                <OctagonBorderSVG />
-              </Animated.View>
-            </View>
-
-            <Animated.View
-              pointerEvents="none"
-              style={[
-                styles.glowPool,
-                {
-                  opacity: poolOpacity,
-                  transform: [{ scaleX: poolScale }],
-                },
-              ]}
-            />
-          </Animated.View>
-
-          <Animated.View style={[styles.contentPanel, { opacity: contentOpacity }]}>
-            <View style={styles.firstChargeBadge}>
-              <LinearGradient
-                colors={[ritualColors.transparent, ritualColors.badgeLine]}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 0 }}
-                style={styles.badgeLine}
-              />
-              <Text style={styles.badgeText}>FIRST PRIME</Text>
-              <LinearGradient
-                colors={[ritualColors.badgeLine, ritualColors.transparent]}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 0 }}
-                style={styles.badgeLine}
-              />
-            </View>
-
-            <Text style={styles.mainHeading}>Seal your intention{'\n'}into the symbol</Text>
-            <Text style={styles.subHeading}>Choose how long to hold focus.</Text>
-
-            <Text style={styles.durationLabel}>SELECT DURATION</Text>
-
-            <View style={styles.pillsRow}>
-              {pills.map((pill) => {
-                const isSelected = selectedDuration === pill.choice;
-                return (
-                  <TouchableOpacity
-                    key={pill.choice}
-                    style={[styles.pill, isSelected ? styles.pillSelected : null]}
-                    onPress={() => handleSelectDuration(pill.choice)}
-                    activeOpacity={0.82}
-                    accessibilityRole="radio"
-                    accessibilityLabel={`${pill.name} duration`}
-                    accessibilityState={{ selected: isSelected }}
-                    disabled={isTransitioning}
-                  >
-                    {isSelected ? (
-                      <View style={styles.pillCheck}>
-                        <Text style={styles.pillCheckMark}>✓</Text>
-                      </View>
-                    ) : null}
-                    <Text style={styles.pillIcon}>{pill.icon}</Text>
-                    <Text style={[styles.pillName, isSelected ? styles.pillNameSelected : null]}>{pill.name}</Text>
-                    <Text style={styles.pillTime}>{pill.time}</Text>
-                    <Text style={styles.pillDesc}>{pill.desc}</Text>
-                  </TouchableOpacity>
-                );
-              })}
-            </View>
-          </Animated.View>
-        </ScrollView>
-
-        <View style={styles.ctaWrapper} pointerEvents="box-none">
-          <LinearGradient
-            pointerEvents="none"
-            colors={[ritualColors.ctaFadeTop, ritualColors.ctaFadeBottom]}
-            style={StyleSheet.absoluteFillObject}
-          />
+        <View style={[styles.navBar, { paddingTop: insets.top + 8 }]}>
           <TouchableOpacity
-            onPress={handleBeginRitual}
-            activeOpacity={0.88}
-            disabled={isTransitioning}
+            onPress={handleBack}
+            activeOpacity={0.82}
             accessibilityRole="button"
-            accessibilityLabel={selectedConfig.ctaLabel}
-            style={styles.ctaTouchable}
+            accessibilityLabel="Close prime selection"
+            disabled={isTransitioning}
+            style={styles.navButton}
           >
-            <Animated.View
-              style={[
-                styles.ctaButton,
-                {
-                  transform: [{ scale: ctaScale }],
-                  opacity: ctaOpacity,
-                  shadowOpacity: ctaShadowOpacity,
-                },
-              ]}
-            >
-              <LinearGradient
-                colors={[
-                  colors.practice.ctaGradientStart,
-                  colors.practice.ctaGradientMid,
-                  colors.practice.ctaGradientEnd,
-                ]}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 1 }}
-                style={styles.ctaGradient}
-              >
-                <Text style={styles.ctaBtnText}>{selectedConfig.ctaLabel}</Text>
-              </LinearGradient>
-            </Animated.View>
+            <BlurView intensity={18} tint="dark" style={styles.navBlur}>
+              <Text style={styles.closeButtonText}>✕</Text>
+            </BlurView>
           </TouchableOpacity>
-          <Text style={styles.stopText}>You can stop anytime.</Text>
+
+          <View style={styles.titleShell}>
+            <BlurView intensity={18} tint="dark" style={styles.titleBlur}>
+              <Text style={styles.navTitle}>Prime Your Anchor</Text>
+            </BlurView>
+          </View>
         </View>
       </View>
-    </RitualScaffold>
-  );
 
-  function renderAnchorSymbol(currentAnchor: NonNullable<typeof anchor>) {
-    if (currentAnchor.enhancedImageUrl) {
-      return (
-        <OptimizedImage
-          uri={currentAnchor.enhancedImageUrl}
-          style={styles.sigilImage}
-          resizeMode="cover"
+      <View style={[styles.panel, { marginTop: -PANEL_OVERLAP, paddingBottom: Math.max(insets.bottom, spacing.lg) }]}>
+        <LinearGradient
+          colors={['transparent', 'rgba(212,175,55,0.5)', 'transparent']}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 0 }}
+          style={styles.panelSeam}
         />
-      );
-    }
 
-    if (currentAnchor.baseSigilSvg) {
-      return (
-        <View style={styles.sigilSvgWrap}>
-          <SvgXml xml={currentAnchor.baseSigilSvg} width={SIGIL_DISK_SIZE * 0.74} height={SIGIL_DISK_SIZE * 0.74} />
-        </View>
-      );
-    }
+        <ScrollView
+          bounces={false}
+          showsVerticalScrollIndicator={false}
+          contentContainerStyle={styles.panelContent}
+        >
+          <View style={styles.badgeRow}>
+            <LinearGradient
+              colors={['transparent', 'rgba(212,175,55,0.3)']}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 0 }}
+              style={styles.badgeLine}
+            />
+            <Text style={styles.badgeText}>YOUR ANCHOR IS FORGED</Text>
+            <LinearGradient
+              colors={['rgba(212,175,55,0.3)', 'transparent']}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 0 }}
+              style={styles.badgeLine}
+            />
+          </View>
 
-    return <Text style={styles.fallbackSymbol}>◈</Text>;
-  }
+          <Text style={styles.headline}>Set Your Intention in Motion</Text>
+          <Text style={styles.subline}>Hold focus on your anchor.{'\n'}Choose how long to prime.</Text>
+          <Text style={styles.durationLabel}>SELECT DURATION</Text>
+
+          <View style={styles.cardsRow}>
+            {cards.map((card) => (
+              <TouchableOpacity
+                key={card.choice}
+                activeOpacity={0.88}
+                onPress={() => handleSelectDuration(card.choice)}
+                accessibilityRole="radio"
+                accessibilityLabel={`${card.name} duration`}
+                accessibilityState={{ selected: card.isSelected }}
+                disabled={isTransitioning}
+                style={[styles.durationCard, card.isSelected ? styles.durationCardSelected : null]}
+              >
+                {card.isSelected ? (
+                  <View style={styles.checkCircle}>
+                    <Text style={styles.checkText}>✓</Text>
+                  </View>
+                ) : null}
+                <Text style={styles.cardIcon}>{card.icon}</Text>
+                <Text style={[styles.cardName, card.isSelected ? styles.cardNameSelected : null]}>{card.name}</Text>
+                <Text style={styles.cardLine}>{card.lineOne}</Text>
+                <Text style={styles.cardLine}>{card.lineTwo}</Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+
+          <TouchableOpacity
+            onPress={() => handleBeginRitual()}
+            activeOpacity={0.9}
+            disabled={isTransitioning}
+            accessibilityRole="button"
+            accessibilityLabel="BEGIN PRIMING"
+            style={styles.ctaTouchable}
+          >
+            <LinearGradient
+              colors={['#C9A227', '#D4AF37', '#E8C84A']}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+              style={styles.ctaButton}
+            >
+              <Text style={styles.ctaText}>BEGIN PRIMING</Text>
+            </LinearGradient>
+          </TouchableOpacity>
+
+          <Text style={styles.safetyText}>You can stop anytime.</Text>
+        </ScrollView>
+      </View>
+
+      {/*
+        DEFERRED: old ChargeSetupScreen UI
+        <ScrollView>{legacy ChargedGlowCanvas/PremiumAnchorGlow prime-selection layout}</ScrollView>
+      */}
+    </View>
+  );
 };
 
-const OctagonBorderSVG: React.FC = () => (
-  <Svg
-    width={HERO_SIZE}
-    height={HERO_SIZE}
-    viewBox="0 0 248 248"
-    style={StyleSheet.absoluteFillObject}
-  >
-    <Defs>
-      <SvgLinearGradient
-        id="goldGrad"
-        x1="0"
-        y1="0"
-        x2="248"
-        y2="248"
-        gradientUnits="userSpaceOnUse"
-      >
-        <Stop offset="0%" stopColor={ritualColors.goldGradientStart} />
-        <Stop offset="25%" stopColor={ritualColors.goldGradientBright} />
-        <Stop offset="50%" stopColor={ritualColors.goldGradientMid} />
-        <Stop offset="75%" stopColor={ritualColors.goldGradientBright} />
-        <Stop offset="100%" stopColor={ritualColors.goldGradientStart} />
-      </SvgLinearGradient>
-    </Defs>
-
-    <Polygon
-      points="72,2 176,2 246,72 246,176 176,246 72,246 2,176 2,72"
-      stroke="url(#goldGrad)"
-      strokeWidth={1.5}
-      fill="none"
-    />
-    <Polygon
-      points="77,10 171,10 238,77 238,171 171,238 77,238 10,171 10,77"
-      stroke={ritualColors.dashedStroke}
-      strokeWidth={0.7}
-      fill="none"
-      strokeDasharray="4 6"
-    />
-    {([
-      [72, 2], [176, 2], [246, 72], [246, 176],
-      [176, 246], [72, 246], [2, 176], [2, 72],
-    ] as [number, number][]).map(([cx, cy], index) => (
-      <Circle key={`vertex-${index}`} cx={cx} cy={cy} r={2.2} fill={colors.sanctuary.gold} opacity={0.85} />
-    ))}
-  </Svg>
-);
-
 const styles = StyleSheet.create({
-  container: {
+  screen: {
     flex: 1,
+    backgroundColor: BLACK,
   },
-  scrollContent: {
-    paddingBottom: CTA_AREA_HEIGHT + spacing.xl,
-  },
-  heroContainer: {
-    height: HERO_HEIGHT,
-    alignItems: 'center',
-    justifyContent: 'center',
+  heroSection: {
+    width: '100%',
+    backgroundColor: BLACK,
     overflow: 'hidden',
-    marginTop: spacing.sm,
-    position: 'relative',
   },
-  glowCorona: {
+  webview: {
+    flex: 1,
+    backgroundColor: BLACK,
+  },
+  navBar: {
     position: 'absolute',
-    width: HERO_CORONA_SIZE,
-    height: HERO_CORONA_SIZE,
-    borderRadius: 10,
-    borderWidth: 1,
-    borderColor: ritualColors.coronaBorder,
-    shadowColor: ritualColors.coronaShadow,
-    shadowOpacity: 0.55,
-    shadowRadius: 28,
-    shadowOffset: { width: 0, height: 0 },
-    elevation: 18,
-    zIndex: 3,
-  },
-  octagonGlowWrap: {
-    width: HERO_SIZE,
-    height: HERO_SIZE,
-    zIndex: 2,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  octagonWrap: {
-    width: HERO_SIZE,
-    height: HERO_SIZE,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  octagonClip: {
-    width: HERO_SIZE,
-    height: HERO_SIZE,
-    borderRadius: 12,
-    overflow: 'hidden',
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: ritualColors.heroSurface,
-    borderWidth: 1,
-    borderColor: ritualColors.heroSurfaceBorder,
-  },
-  sigilDisk: {
-    width: SIGIL_DISK_SIZE,
-    height: SIGIL_DISK_SIZE,
-    borderRadius: SIGIL_DISK_SIZE / 2,
-    overflow: 'hidden',
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: ritualColors.sigilSurface,
-  },
-  sigilImage: {
-    width: SIGIL_DISK_SIZE,
-    height: SIGIL_DISK_SIZE,
-    borderRadius: SIGIL_DISK_SIZE / 2,
-  },
-  sigilSvgWrap: {
-    width: SIGIL_DISK_SIZE,
-    height: SIGIL_DISK_SIZE,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  fallbackSymbol: {
-    fontSize: 88,
-    color: ritualColors.fallbackSymbol,
-    fontFamily: typography.fonts.heading,
-  },
-  glowPool: {
-    position: 'absolute',
-    bottom: 5,
-    width: 220,
-    height: 50,
-    borderRadius: 999,
-    backgroundColor: ritualColors.poolCenter,
-    shadowColor: colors.sanctuary.gold,
-    shadowOpacity: 0.2,
-    shadowRadius: 12,
-    shadowOffset: { width: 0, height: 0 },
-  },
-  contentPanel: {
-    paddingHorizontal: spacing.lg,
-    marginTop: spacing.sm,
-  },
-  firstChargeBadge: {
+    top: 0,
+    left: 0,
+    right: 0,
+    zIndex: 10,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: spacing.sm,
-    marginBottom: spacing.sm,
+    gap: 12,
+    paddingHorizontal: 20,
+  },
+  navButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    overflow: 'hidden',
+  },
+  navBlur: {
+    flex: 1,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: 'rgba(212,175,55,0.25)',
+    backgroundColor: 'rgba(8,12,16,0.7)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  closeButtonText: {
+    color: SILVER,
+    fontSize: 16,
+    lineHeight: 16,
+    marginTop: Platform.OS === 'android' ? -1 : 0,
+  },
+  titleShell: {
+    flex: 1,
+    marginRight: 52,
+    borderRadius: 24,
+    overflow: 'hidden',
+  },
+  titleBlur: {
+    borderRadius: 24,
+    borderWidth: 1,
+    borderColor: 'rgba(212,175,55,0.25)',
+    backgroundColor: 'rgba(8,12,16,0.7)',
+    paddingVertical: 10,
+    paddingHorizontal: 18,
+  },
+  navTitle: {
+    fontFamily: 'Cinzel-Regular',
+    fontSize: 13,
+    letterSpacing: 1.6,
+    color: GOLD,
+    textAlign: 'center',
+  },
+  panel: {
+    flex: 1,
+    backgroundColor: NAVY,
+    borderTopLeftRadius: 28,
+    borderTopRightRadius: 28,
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(212,175,55,0.2)',
+    zIndex: 5,
+  },
+  panelSeam: {
+    position: 'absolute',
+    top: 0,
+    left: '20%',
+    right: '20%',
+    height: 1,
+  },
+  panelContent: {
+    paddingTop: 32,
+    paddingHorizontal: 24,
+    paddingBottom: 24,
+  },
+  badgeRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    marginBottom: 14,
   },
   badgeLine: {
     flex: 1,
     height: 1,
   },
   badgeText: {
-    fontFamily: typography.fonts.heading,
-    fontSize: 10,
-    letterSpacing: 4,
-    color: ritualColors.badgeText,
-  },
-  mainHeading: {
-    fontFamily: typography.fonts.heading,
-    fontSize: typography.sizes.h3,
-    fontWeight: '600',
-    color: ritualColors.headingText,
+    fontFamily: 'Cinzel-Regular',
+    fontSize: 9,
+    letterSpacing: 3.5,
+    color: GOLD_DIM,
     textAlign: 'center',
-    lineHeight: typography.lineHeights.h3,
-    letterSpacing: 0.4,
-    marginBottom: spacing.xs + 1,
   },
-  subHeading: {
-    fontSize: typography.sizes.body2 + 1,
-    fontFamily: typography.fonts.body,
-    color: ritualColors.subHeadingText,
+  headline: {
+    fontFamily: 'Cinzel-SemiBold',
+    fontSize: 26,
+    lineHeight: 32,
+    color: BONE,
     textAlign: 'center',
-    fontStyle: 'italic',
-    marginBottom: spacing.sm + 4,
+    marginBottom: 10,
+  },
+  subline: {
+    fontFamily: 'CormorantGaramond-Italic',
+    fontSize: 16,
+    lineHeight: 22,
+    color: SILVER,
+    opacity: 0.85,
+    textAlign: 'center',
+    marginBottom: 28,
   },
   durationLabel: {
-    fontFamily: typography.fonts.heading,
-    fontSize: 10,
-    letterSpacing: 3.5,
-    color: ritualColors.durationLabel,
+    fontFamily: 'Cinzel-Regular',
+    fontSize: 9,
+    letterSpacing: 3,
+    color: GOLD_DIM,
     textAlign: 'center',
-    marginBottom: spacing.sm,
+    marginBottom: 14,
   },
-  pillsRow: {
+  cardsRow: {
     flexDirection: 'row',
-    gap: spacing.sm + 2,
+    gap: 12,
+    marginBottom: 20,
   },
-  pill: {
+  durationCard: {
     flex: 1,
-    paddingVertical: spacing.sm + 4,
-    paddingHorizontal: spacing.sm + 2,
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: ritualColors.pillBorder,
-    backgroundColor: ritualColors.pillSurface,
-    alignItems: 'center',
     position: 'relative',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.08)',
+    backgroundColor: 'rgba(255,255,255,0.04)',
+    paddingHorizontal: 12,
+    paddingVertical: 18,
+    minHeight: 144,
   },
-  pillSelected: {
-    borderColor: ritualColors.pillSelectedBorder,
-    backgroundColor: ritualColors.pillSelectedSurface,
-    shadowColor: colors.sanctuary.gold,
-    shadowOpacity: 0.16,
+  durationCardSelected: {
+    borderColor: 'rgba(212,175,55,0.45)',
+    backgroundColor: 'rgba(212,175,55,0.10)',
+    shadowColor: GOLD,
+    shadowOpacity: 0.18,
     shadowRadius: 12,
     shadowOffset: { width: 0, height: 0 },
-    elevation: 4,
+    elevation: 6,
   },
-  pillCheck: {
+  checkCircle: {
     position: 'absolute',
-    top: spacing.sm,
-    right: spacing.sm,
-    width: 16,
-    height: 16,
-    borderRadius: 8,
-    backgroundColor: ritualColors.pillCheckSurface,
+    top: 10,
+    right: 10,
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    backgroundColor: GOLD,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  pillCheckMark: {
-    fontSize: 9,
-    color: ritualColors.pillCheckText,
-    fontWeight: '700',
-  },
-  pillIcon: {
-    fontSize: 18,
-    marginBottom: spacing.xs,
-  },
-  pillName: {
-    fontFamily: typography.fonts.heading,
-    fontSize: 13,
-    fontWeight: '600',
-    letterSpacing: 1.2,
-    color: colors.bone,
-    marginBottom: spacing.xs - 1,
-  },
-  pillNameSelected: {
-    color: colors.gold,
-  },
-  pillTime: {
-    fontSize: 12,
-    fontFamily: typography.fonts.body,
-    color: ritualColors.pillTime,
-    marginBottom: spacing.xs - 1,
-  },
-  pillDesc: {
+  checkText: {
+    color: '#FFFFFF',
     fontSize: 11,
-    fontFamily: typography.fonts.body,
-    color: ritualColors.pillDesc,
-    fontStyle: 'italic',
-    textAlign: 'center',
+    fontWeight: '700',
+    lineHeight: 12,
   },
-  ctaWrapper: {
-    position: 'absolute',
-    left: 0,
-    right: 0,
-    bottom: 0,
-    paddingHorizontal: spacing.lg - 4,
-    paddingTop: spacing.xl,
-    paddingBottom: spacing.lg,
-    minHeight: CTA_AREA_HEIGHT,
-    justifyContent: 'flex-end',
+  cardIcon: {
+    fontSize: 26,
+    marginBottom: 10,
+  },
+  cardName: {
+    fontFamily: 'Cinzel-Regular',
+    fontSize: 12,
+    letterSpacing: 1,
+    color: BONE,
+    textAlign: 'center',
+    marginBottom: 6,
+  },
+  cardNameSelected: {
+    color: GOLD,
+  },
+  cardLine: {
+    fontFamily: 'CormorantGaramond-Italic',
+    fontSize: 12,
+    lineHeight: 16,
+    color: SILVER,
+    opacity: 0.7,
+    textAlign: 'center',
   },
   ctaTouchable: {
     width: '100%',
   },
   ctaButton: {
-    borderRadius: 18,
-    overflow: 'hidden',
-    shadowColor: colors.sanctuary.gold,
-    shadowRadius: 20,
-    shadowOffset: { width: 0, height: 8 },
-    elevation: 9,
-  },
-  ctaGradient: {
+    borderRadius: 16,
+    paddingVertical: 18,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: spacing.md + 4,
-    borderRadius: 18,
+    shadowColor: GOLD,
+    shadowOpacity: 0.35,
+    shadowRadius: 12,
+    shadowOffset: { width: 0, height: 4 },
+    elevation: 8,
   },
-  ctaBtnText: {
-    fontFamily: typography.fonts.heading,
-    fontSize: typography.sizes.h4 - 1,
-    letterSpacing: 1.2,
-    color: ritualColors.ctaText,
+  ctaText: {
+    fontFamily: 'Cinzel-Bold',
+    fontSize: 13,
+    letterSpacing: 3,
+    color: BLACK,
   },
-  stopText: {
+  safetyText: {
+    marginTop: 14,
+    fontFamily: 'CormorantGaramond-Italic',
+    fontSize: 13,
+    color: SILVER,
+    opacity: 0.5,
     textAlign: 'center',
-    fontSize: typography.sizes.caption,
-    fontFamily: typography.fonts.body,
-    color: ritualColors.stopText,
-    fontStyle: 'italic',
-    marginTop: spacing.sm,
   },
   errorContainer: {
     flex: 1,
-    justifyContent: 'center',
     alignItems: 'center',
+    justifyContent: 'center',
     paddingHorizontal: spacing.xl,
+    backgroundColor: BLACK,
   },
   errorTitle: {
-    fontSize: typography.sizes.h2,
-    fontFamily: typography.fonts.heading,
-    color: colors.error,
+    fontFamily: 'Cinzel-SemiBold',
+    fontSize: 24,
+    color: BONE,
     marginBottom: spacing.md,
   },
   errorText: {
-    fontSize: typography.sizes.body1,
-    fontFamily: typography.fonts.body,
-    color: colors.text.secondary,
+    fontFamily: 'CormorantGaramond-Italic',
+    fontSize: 16,
+    lineHeight: 22,
+    color: SILVER,
     textAlign: 'center',
     marginBottom: spacing.xl,
   },
   errorButton: {
-    paddingVertical: spacing.md,
+    borderRadius: 14,
+    backgroundColor: GOLD,
     paddingHorizontal: spacing.xl,
-    backgroundColor: colors.gold,
-    borderRadius: 12,
+    paddingVertical: spacing.md,
   },
   errorButtonText: {
-    fontSize: typography.sizes.button,
-    fontFamily: typography.fonts.bodyBold,
-    color: colors.navy,
+    fontFamily: 'Cinzel-Bold',
+    fontSize: 13,
+    letterSpacing: 1.4,
+    color: BLACK,
   },
 });

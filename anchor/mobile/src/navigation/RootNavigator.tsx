@@ -16,6 +16,7 @@ import { OnboardingNavigator } from './OnboardingNavigator';
 import { MainTabNavigator } from './MainTabNavigator';
 import { ProfileStackNavigator } from './ProfileStackNavigator';
 import { useAuthStore } from '../stores/authStore';
+import { useSettingsStore } from '../stores/settingsStore';
 import type { ProfileStackParamList } from './ProfileStackNavigator';
 
 export type RootNavigatorParamList = {
@@ -27,10 +28,14 @@ const Stack = createNativeStackNavigator<RootNavigatorParamList>();
 
 export const RootNavigator: React.FC = () => {
   const { hasCompletedOnboarding } = useAuthStore();
+  const developerSkipOnboardingEnabled = useSettingsStore(
+    (state) => state.developerSkipOnboardingEnabled
+  );
+  const shouldBypassOnboarding = __DEV__ && developerSkipOnboardingEnabled;
 
   return (
     <Stack.Navigator screenOptions={{ headerShown: false }}>
-      {!hasCompletedOnboarding ? (
+      {!hasCompletedOnboarding && !shouldBypassOnboarding ? (
         <Stack.Screen name="Onboarding" component={OnboardingNavigator} />
       ) : (
         <>
@@ -40,10 +45,11 @@ export const RootNavigator: React.FC = () => {
             name="Settings"
             component={ProfileStackNavigator}
             options={{
-              presentation: 'transparentModal',
-              animation: 'none',
-              gestureEnabled: false,
-              contentStyle: { backgroundColor: 'transparent' },
+              presentation: 'modal',
+              animation: 'slide_from_bottom',
+              gestureEnabled: true,
+              gestureDirection: 'vertical',
+              contentStyle: { backgroundColor: '#080C10' },
             }}
           />
         </>

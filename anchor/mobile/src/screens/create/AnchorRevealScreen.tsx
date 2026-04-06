@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useLayoutEffect } from 'react';
+import React, { useEffect, useRef, useLayoutEffect, useState } from 'react';
 import {
     View,
     Text,
@@ -6,6 +6,7 @@ import {
     StyleSheet,
     Animated,
     Dimensions,
+    ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -22,6 +23,9 @@ import { useSettingsStore } from '@/stores/settingsStore';
 import { analyzeIntention, getGuidanceText } from '@/utils/intentionPatterns';
 import { OptimizedImage } from '@/components/common/OptimizedImage';
 import { ErrorTrackingService } from '@/services/ErrorTrackingService';
+import { post } from '@/services/ApiClient';
+import { logger } from '@/utils/logger';
+import type { ApiResponse, Anchor } from '@/types';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const IMAGE_SIZE = SCREEN_WIDTH - 64; // Large centered image
@@ -37,6 +41,8 @@ export const AnchorRevealScreen: React.FC = () => {
     const addAnchor = useAnchorStore((state) => state.addAnchor);
     const incrementAnchorCount = useAuthStore((state) => state.incrementAnchorCount);
     const wallpaperPromptSeen = useAuthStore((state) => state.wallpaperPromptSeen);
+    const authUser = useAuthStore((state) => state.user);
+    const [isSaving, setIsSaving] = useState(false);
 
     const {
         intentionText,
@@ -98,16 +104,50 @@ export const AnchorRevealScreen: React.FC = () => {
         navigation.goBack();
     };
 
-    const handleContinue = () => {
+    const handleContinue = async () => {
+        if (isSaving) return;
+        setIsSaving(true);
+
         ErrorTrackingService.addBreadcrumb('Anchor reveal continued', 'create.anchor_reveal', {
             has_image: Boolean(enhancedImageUrl),
         });
 
-        const anchorId = `anchor-${Date.now()}`;
+        let anchorId = `anchor-${Date.now()}`; // fallback local ID
+
+        try {
+            // Persist anchor to backend — this is the source of truth
+            const response = await post<ApiResponse<Anchor>>('/api/anchors', {
+                intentionText,
+                category,
+                distilledLetters,
+                baseSigilSvg,
+                structureVariant: structureVariant || 'balanced',
+                reinforcedSigilSvg: reinforcedSigilSvg || undefined,
+                reinforcementMetadata: reinforcementMetadata || undefined,
+                enhancedImageUrl: enhancedImageUrl || undefined,
+                enhancementMetadata: enhancementMetadata || undefined,
+            });
+
+            if (response?.success && response?.data?.id) {
+                anchorId = response.data.id;
+                logger.info('[AnchorReveal] Anchor saved to backend', { anchorId });
+            } else {
+                logger.warn('[AnchorReveal] Backend returned unexpected response, using local ID', { response });
+            }
+        } catch (err) {
+            logger.warn('[AnchorReveal] Failed to save anchor to backend, proceeding locally', err);
+            ErrorTrackingService.captureException(err, {
+                screen: 'AnchorRevealScreen',
+                action: 'save_anchor_to_backend',
+            });
+            // Continue with local fallback — don't block the user
+        } finally {
+            setIsSaving(false);
+        }
 
         addAnchor({
             id: anchorId,
-            userId: 'user-123',
+            userId: authUser?.id || 'user-local',
             intentionText,
             category,
             distilledLetters,
@@ -135,7 +175,7 @@ export const AnchorRevealScreen: React.FC = () => {
                 sigilSvg: reinforcedSigilSvg || baseSigilSvg,
             });
         } else {
-            navigation.navigate('ChargeSetup', { anchorId });
+            navigation.navigate('ChargeSetup', { anchorId, autoStartOnSelection: true });
         }
     };
 
@@ -235,7 +275,8 @@ export const AnchorRevealScreen: React.FC = () => {
 
                     <TouchableOpacity
                         onPress={handleContinue}
-                        activeOpacity={0.9}
+                        activeOpacity={isSaving ? 1 : 0.9}
+                        disabled={isSaving}
                         style={styles.continueButton}
                         accessibilityRole="button"
                         accessibilityLabel="Begin Priming"
@@ -246,8 +287,14 @@ export const AnchorRevealScreen: React.FC = () => {
                             start={{ x: 0, y: 0 }}
                             end={{ x: 1, y: 0 }}
                         >
-                            <Text style={styles.continueText}>BEGIN PRIMING</Text>
-                            <Text style={styles.continueArrow}>→</Text>
+                            {isSaving ? (
+                                <ActivityIndicator color={colors.charcoal} size="small" />
+                            ) : (
+                                <>
+                                    <Text style={styles.continueText}>BEGIN PRIMING</Text>
+                                    <Text style={styles.continueArrow}>→</Text>
+                                </>
+                            )}
                         </LinearGradient>
                     </TouchableOpacity>
                 </Animated.View>

@@ -5,7 +5,7 @@
  * Accessed as a root-level modal route.
  */
 
-import React, { useEffect, useRef } from 'react';
+import React from 'react';
 import { Pressable, StyleSheet, Platform } from 'react-native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { useNavigation } from '@react-navigation/native';
@@ -15,6 +15,8 @@ import {
   DefaultChargeSettings,
   DefaultActivationSettings,
   DailyPracticeGoalScreen,
+  PrimingDefaultsScreen,
+  DefaultFocusModeScreen,
   ThemeSelectionScreen,
   AccentColorScreen,
   VaultViewScreen,
@@ -24,13 +26,13 @@ import {
   DataPrivacyScreen,
 } from '../screens/profile';
 import { colors } from '@/theme';
-import { useSettingsReveal } from '@/components/transitions/SettingsRevealProvider';
-import { useReduceMotionEnabled } from '@/hooks/useReduceMotionEnabled';
 
 export type ProfileStackParamList = {
   Settings: undefined;
   DefaultCharge: undefined;
   DefaultActivation: undefined;
+  PrimingDefaults: undefined;
+  DefaultFocusMode: undefined;
   DailyPracticeGoal: undefined;
   ThemeSelection: undefined;
   AccentColor: undefined;
@@ -42,31 +44,9 @@ export type ProfileStackParamList = {
 };
 
 const Stack = createNativeStackNavigator<ProfileStackParamList>();
-const CLOSE_DISMISS_DELAY_MS = 220;
 
 export const ProfileStackNavigator: React.FC = () => {
   const rootNavigation = useNavigation<any>();
-  const reveal = useSettingsReveal();
-  const reduceMotionEnabled = useReduceMotionEnabled();
-  const bypassNextRemoveRef = useRef(false);
-
-  useEffect(() => {
-    const unsubscribe = rootNavigation.addListener('beforeRemove', (event: any) => {
-      if (bypassNextRemoveRef.current || !reveal.isArmed || reduceMotionEnabled) {
-        return;
-      }
-
-      event.preventDefault();
-      reveal.beginClose({ reduceMotion: reduceMotionEnabled });
-
-      setTimeout(() => {
-        bypassNextRemoveRef.current = true;
-        rootNavigation.dispatch(event.data.action);
-      }, CLOSE_DISMISS_DELAY_MS);
-    });
-
-    return unsubscribe;
-  }, [reduceMotionEnabled, reveal, rootNavigation]);
 
   return (
     <Stack.Navigator
@@ -75,22 +55,23 @@ export const ProfileStackNavigator: React.FC = () => {
         animation: 'slide_from_right',
         gestureEnabled: Platform.OS === 'ios',
         headerStyle: {
-          backgroundColor: colors.background.secondary,
+          backgroundColor: '#080C10',
         },
         headerShadowVisible: false,
         headerTintColor: colors.gold,
         headerTitleStyle: {
-          fontWeight: '600',
-          fontSize: 18,
+          fontFamily: 'Cinzel-Regular',
+          fontSize: 15,
         },
         headerBackTitleVisible: false,
+        contentStyle: { backgroundColor: '#080C10' },
       }}
     >
       <Stack.Screen
         name="Settings"
         component={SettingsScreen}
         options={{
-          headerTitle: 'Account',
+          headerTitle: 'Settings',
           headerLeft: () => (
             <Pressable
               onPress={() => rootNavigation.goBack()}
@@ -107,12 +88,22 @@ export const ProfileStackNavigator: React.FC = () => {
       <Stack.Screen
         name="DefaultCharge"
         component={DefaultChargeSettings}
-        options={{ headerTitle: 'Default Charge' }}
+        options={{ headerTitle: 'Priming Defaults' }}
       />
       <Stack.Screen
         name="DefaultActivation"
         component={DefaultActivationSettings}
-        options={{ headerTitle: 'Default Activation' }}
+        options={{ headerTitle: 'Default Focus Mode' }}
+      />
+      <Stack.Screen
+        name="PrimingDefaults"
+        component={PrimingDefaultsScreen}
+        options={{ headerTitle: 'Priming Defaults' }}
+      />
+      <Stack.Screen
+        name="DefaultFocusMode"
+        component={DefaultFocusModeScreen}
+        options={{ headerTitle: 'Default Focus Mode' }}
       />
       <Stack.Screen
         name="DailyPracticeGoal"

@@ -8,7 +8,6 @@
 
 import React, { useCallback, useEffect, useMemo } from 'react';
 import {
-  Dimensions,
   InteractionManager,
   ScrollView,
   StyleSheet,
@@ -16,7 +15,8 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import { LinearGradient } from 'expo-linear-gradient';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { SvgXml } from 'react-native-svg';
 import { useNavigation } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
@@ -48,11 +48,12 @@ import { getEffectiveStabilizeStreakDays, toDateOrNull } from '@/utils/stabilize
 import type { Anchor, RootStackParamList } from '@/types';
 import { colors } from '@/theme';
 import { useTabNavigation } from '@/contexts/TabNavigationContext';
+import { useSettingsStore } from '@/stores/settingsStore';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
-const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const H_PAD = 28;
+const CREATE_ZONE_BG = '#080C10';
 
 // Ghost sigils used in the empty-state ritual circle (from the HTML prototype)
 const GHOST_SIGIL_1 = `<svg viewBox="0 0 55 55" fill="none" stroke="#D4AF37" stroke-width="1" xmlns="http://www.w3.org/2000/svg">
@@ -129,9 +130,11 @@ export const VaultScreen: React.FC = () => {
   const navigation = useNavigation<VaultScreenNavigationProp>();
   const { registerTabNav, activeTabIndex } = useTabNavigation();
   const isVaultTabActive = activeTabIndex == null ? true : activeTabIndex === 0;
-  const insets = useSafeAreaInsets();
 
   const { user } = useAuthStore();
+  const developerForceStreakBreakEnabled = useSettingsStore(
+    (state) => state.developerForceStreakBreakEnabled
+  );
   const shouldRedirectToCreation = useAuthStore((s) => s.shouldRedirectToCreation);
   const setShouldRedirectToCreation = useAuthStore((s) => s.setShouldRedirectToCreation);
 
@@ -170,13 +173,16 @@ export const VaultScreen: React.FC = () => {
   const greeting = useMemo(() => buildGreeting(user?.displayName), [user?.displayName]);
 
   const streakDays = useMemo(() => {
+    if (__DEV__ && developerForceStreakBreakEnabled) {
+      return 0;
+    }
     const lastStabilizeAt = toDateOrNull(user?.lastStabilizeAt);
     return getEffectiveStabilizeStreakDays(
       user?.stabilizeStreakDays ?? 0,
       lastStabilizeAt,
       new Date(),
     );
-  }, [user?.lastStabilizeAt, user?.stabilizeStreakDays]);
+  }, [developerForceStreakBreakEnabled, user?.lastStabilizeAt, user?.stabilizeStreakDays]);
 
   // ── Empty-state orbit animation ───────────────────────────────────────────────
   const orbitRotation = useSharedValue(0);
@@ -329,8 +335,6 @@ export const VaultScreen: React.FC = () => {
 
   // ── Render ────────────────────────────────────────────────────────────────────
 
-  const bottomPad = 84 + insets.bottom;
-
   if (isLoading && anchors.length === 0) {
     return (
       <View style={styles.container}>
@@ -349,8 +353,9 @@ export const VaultScreen: React.FC = () => {
 
       <SafeAreaView style={styles.safeArea} edges={['top']}>
         <ScrollView
+          style={styles.scrollArea}
           showsVerticalScrollIndicator={false}
-          contentContainerStyle={[styles.scrollContent, { paddingBottom: bottomPad }]}
+          contentContainerStyle={styles.scrollContent}
         >
           {/* ── Header ── */}
           <Animated2.View entering={getFadeUp(100, shouldReduceMotion)}>
@@ -378,6 +383,28 @@ export const VaultScreen: React.FC = () => {
                 handleCreateAnchor,
               })}
         </ScrollView>
+
+        {anchors.length > 0 && (
+          <View style={styles.createZone}>
+            <LinearGradient
+              colors={['transparent', CREATE_ZONE_BG]}
+              style={styles.createFade}
+              pointerEvents="none"
+            />
+            <TouchableOpacity
+              style={styles.createBtn}
+              onPress={handleCreateAnchor}
+              activeOpacity={0.75}
+              accessibilityRole="button"
+              accessibilityLabel="Create new anchor"
+            >
+              <View style={styles.plusRing}>
+                <Text style={styles.plusIcon}>+</Text>
+              </View>
+              <Text style={styles.createLabel}>CREATE NEW ANCHOR</Text>
+            </TouchableOpacity>
+          </View>
+        )}
       </SafeAreaView>
 
       <AnchorLimitModal
@@ -507,9 +534,7 @@ function renderActiveState({
       >
         <View>
           <Text style={styles.ctxSubLabel}>ACTIVE ANCHOR</Text>
-          <Text style={styles.ctxValue} numberOfLines={1}>
-            &ldquo;{primaryAnchor.intentionText}&rdquo;
-          </Text>
+          {/* DEFERRED: removed duplicate intention - intention shown below medallion */}
         </View>
         {streakDays > 0 && (
           <View style={styles.streakChip}>
@@ -582,9 +607,14 @@ const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
   },
+  scrollArea: {
+    flex: 1,
+    minHeight: 0,
+  },
   scrollContent: {
     paddingTop: 4,
     flexGrow: 1,
+    paddingBottom: 0,
   },
 
   // ── Empty state ───────────────────────────────────────────────────────────────
@@ -753,12 +783,6 @@ const styles = StyleSheet.create({
     textTransform: 'uppercase',
     marginBottom: 2,
   },
-  ctxValue: {
-    fontFamily: 'CormorantGaramond-Italic',
-    fontSize: 13,
-    color: 'rgba(192,192,192,0.6)',
-    maxWidth: SCREEN_WIDTH - H_PAD * 2 - 120,
-  },
   streakChip: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -824,6 +848,54 @@ const styles = StyleSheet.create({
     marginTop: 10,
     marginHorizontal: H_PAD,
     marginBottom: 4,
+  },
+  createZone: {
+    backgroundColor: CREATE_ZONE_BG,
+    paddingHorizontal: 24,
+    paddingTop: 10,
+    paddingBottom: 14,
+    position: 'relative',
+  },
+  createFade: {
+    position: 'absolute',
+    top: -28,
+    left: 0,
+    right: 0,
+    height: 28,
+  },
+  createBtn: {
+    width: '100%',
+    paddingVertical: 15,
+    paddingHorizontal: 20,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: 'rgba(212,175,55,0.28)',
+    backgroundColor: 'rgba(212,175,55,0.04)',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 12,
+  },
+  plusRing: {
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    borderWidth: 1.5,
+    borderColor: 'rgba(212,175,55,0.65)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  plusIcon: {
+    color: '#D4AF37',
+    fontSize: 14,
+    lineHeight: 16,
+    marginTop: -1,
+  },
+  createLabel: {
+    fontFamily: 'Cinzel-SemiBold',
+    fontSize: 11.5,
+    letterSpacing: 2.5,
+    color: 'rgba(212,175,55,0.82)',
   },
 });
 

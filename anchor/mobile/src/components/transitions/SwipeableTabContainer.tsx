@@ -14,9 +14,10 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { Dimensions, InteractionManager, StyleSheet } from 'react-native';
 import Animated, {
+  Easing,
   useSharedValue,
   useAnimatedStyle,
-  withSpring,
+  withTiming,
   runOnJS,
   useReducedMotion,
   interpolate,
@@ -33,17 +34,13 @@ const { width: SCREEN_WIDTH } = Dimensions.get('window');
 // Animation constants
 const SWIPE_THRESHOLD = SCREEN_WIDTH * 0.25; // 25% of screen to trigger swipe
 const VELOCITY_THRESHOLD = 500; // px/s
-const PARALLAX_FACTOR = 0.3; // Outgoing screen moves at 30% of incoming
 
-// Spring config for iOS-like feel
-const SPRING_CONFIG = {
-  damping: 20,
-  stiffness: 200,
-  mass: 0.5,
-  overshootClamping: false,
-  restDisplacementThreshold: 0.01,
-  restSpeedThreshold: 0.01,
+// Crossfade timing for tab button presses (200ms ease-out per spec)
+const CROSSFADE_TIMING_CONFIG = {
+  duration: 200,
+  easing: Easing.out(Easing.ease),
 };
+
 
 interface SwipeableTabContainerProps {
   children: React.ReactNode;
@@ -104,12 +101,13 @@ export const SwipeableTabContainer: React.FC<SwipeableTabContainerProps> = ({
   }, [tabCount]);
 
   // Sync position when activeIndex changes externally (tab button press)
+  // Uses 200ms ease-out crossfade for tab switches
   useEffect(() => {
     if (!gestureActive.value) {
       if (reducedMotion) {
         position.value = activeIndex;
       } else {
-        position.value = withSpring(activeIndex, SPRING_CONFIG);
+        position.value = withTiming(activeIndex, CROSSFADE_TIMING_CONFIG);
       }
     }
   }, [activeIndex, reducedMotion]);
@@ -167,8 +165,8 @@ export const SwipeableTabContainer: React.FC<SwipeableTabContainerProps> = ({
         }
       }
 
-      // Animate to target
-      position.value = withSpring(targetIndex, SPRING_CONFIG);
+      // Animate to target with crossfade timing
+      position.value = withTiming(targetIndex, CROSSFADE_TIMING_CONFIG);
 
       if (targetIndex !== activeIndex) {
         runOnJS(handleIndexChange)(targetIndex);
@@ -182,6 +180,7 @@ export const SwipeableTabContainer: React.FC<SwipeableTabContainerProps> = ({
           <TabPage
             key={index}
             index={index}
+            isActive={index === activeIndex}
             position={position}
             reducedMotion={reducedMotion ?? false}
           >
@@ -196,6 +195,7 @@ export const SwipeableTabContainer: React.FC<SwipeableTabContainerProps> = ({
 interface TabPageProps {
   children: React.ReactNode;
   index: number;
+  isActive: boolean;
   position: SharedValue<number>;
   reducedMotion: boolean;
 }
@@ -203,51 +203,36 @@ interface TabPageProps {
 const TabPage: React.FC<TabPageProps> = ({
   children,
   index,
+  isActive,
   position,
   reducedMotion,
 }) => {
   const animatedStyle = useAnimatedStyle(() => {
     if (reducedMotion) {
-      // Instant switch for accessibility
       const isActive = Math.round(position.value) === index;
       return {
-        transform: [{ translateX: isActive ? 0 : SCREEN_WIDTH }],
         opacity: isActive ? 1 : 0,
       };
     }
 
-    // Calculate offset from current position
-    const offset = index - position.value;
-    // Incoming screen: full movement
-    // Outgoing screen: parallax (slower movement)
-    let translateX: number;
-    if (offset > 0) {
-      // Screen is to the right (will slide in from right)
-      translateX = offset * SCREEN_WIDTH;
-    } else if (offset < 0) {
-      // Screen is to the left (will slide in from left)
-      // Apply parallax for outgoing effect
-      translateX = offset * SCREEN_WIDTH * PARALLAX_FACTOR;
-    } else {
-      translateX = 0;
-    }
+    // Pure crossfade — no translation, tabs are spatial siblings
+    const absOffset = Math.abs(index - position.value);
 
-    // Opacity: fully visible when active, fade slightly when moving away
     const opacity = interpolate(
-      Math.abs(offset),
-      [0, 0.5, 1],
-      [1, 1, 0.8],
+      absOffset,
+      [0, 1],
+      [1, 0],
       Extrapolation.CLAMP
     );
 
-    return {
-      transform: [{ translateX }],
-      opacity,
-    };
+    return { opacity };
   });
 
   return (
-    <Animated.View style={[styles.page, animatedStyle]}>
+    <Animated.View
+      style={[styles.page, animatedStyle]}
+      pointerEvents={isActive ? 'auto' : 'none'}
+    >
       {children}
     </Animated.View>
   );

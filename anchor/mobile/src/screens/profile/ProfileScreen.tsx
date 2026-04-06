@@ -44,6 +44,7 @@ import { ActiveAnchorsGrid } from '@/components/profile/ActiveAnchorsGrid';
 import { ProfileEmptyState } from '@/components/profile/ProfileEmptyState';
 import { ProfileErrorState } from '@/components/profile/ProfileErrorState';
 import { LoadingSpinner } from '@/components/LoadingSpinner';
+import { AuthService } from '@/services/AuthService';
 import { logger } from '@/utils/logger';
 
 const IS_ANDROID = Platform.OS === 'android';
@@ -120,7 +121,7 @@ const MenuItem: React.FC<MenuItemProps> = ({
 export const ProfileScreen: React.FC = () => {
   const navigation = useNavigation<ProfileNavigationProp>();
   const { user, signOut, setHasCompletedOnboarding, profileData, fetchProfile, refreshProfile } = useAuthStore();
-  const { developerModeEnabled } = useSettingsStore();
+  const { developerModeEnabled, developerForceStreakBreakEnabled } = useSettingsStore();
   const toast = useToast();
   const [isLoading, setIsLoading] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
@@ -132,8 +133,14 @@ export const ProfileScreen: React.FC = () => {
   const subscriptionStatus = user?.subscriptionStatus || 'free';
   const totalAnchors = user?.totalAnchorsCreated || 0;
   const totalActivations = user?.totalActivations || 0;
-  const currentStreak = user?.currentStreak || 0;
+  const currentStreak = developerForceStreakBreakEnabled ? 0 : user?.currentStreak || 0;
   const longestStreak = user?.longestStreak || 0;
+  const resolvedProfileStats = profileData
+    ? {
+        ...profileData.stats,
+        currentStreak: developerForceStreakBreakEnabled ? 0 : profileData.stats.currentStreak,
+      }
+    : null;
 
   // Load profile data on mount
   useEffect(() => {
@@ -218,9 +225,16 @@ export const ProfileScreen: React.FC = () => {
         {
           text: 'Sign Out',
           style: 'destructive',
-          onPress: () => {
-            signOut();
-            toast.success('Signed out successfully');
+          onPress: async () => {
+            try {
+              await AuthService.signOut();
+              signOut();
+              toast.success('Signed out successfully');
+            } catch (error) {
+              const message = error instanceof Error ? error.message : 'Failed to sign out';
+              logger.error('Sign out failed', error);
+              toast.error(message);
+            }
           },
         },
       ]
@@ -267,7 +281,7 @@ export const ProfileScreen: React.FC = () => {
                 displayName={profileData.user.displayName}
                 subscriptionStatus={profileData.user.subscriptionStatus}
               />
-              <StatsGrid stats={profileData.stats} />
+              <StatsGrid stats={resolvedProfileStats ?? profileData.stats} />
               <ActiveAnchorsGrid anchors={profileData.activeAnchors} onAnchorPress={handleAnchorPress} />
             </>
           ) : null}

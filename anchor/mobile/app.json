@@ -27,7 +27,8 @@
         "NSCameraUsageDescription": "Anchor uses your camera to capture moments for your anchors.",
         "NSMicrophoneUsageDescription": "Anchor uses your microphone to record audio mantras.",
         "NSFaceIDUsageDescription": "Anchor uses Face ID to keep your anchors secure.",
-        "NSPhotoLibraryUsageDescription": "Anchor accesses your photo library to personalize your anchors."
+        "NSPhotoLibraryUsageDescription": "Anchor accesses your photo library to personalize your anchors.",
+        "NSPhotoLibraryAddUsageDescription": "Anchor saves exported anchor wallpapers to your photo library."
       }
     },
     "android": {
@@ -42,11 +43,13 @@
       "favicon": "./assets/favicon.png"
     },
     "plugins": [
+      "@react-native-firebase/app",
       "@sentry/react-native/expo",
       "expo-secure-store",
       "@react-native-community/datetimepicker",
       "@sentry/react-native",
-      "expo-audio"
+      "expo-audio",
+      "expo-asset"
     ]
   }
 }

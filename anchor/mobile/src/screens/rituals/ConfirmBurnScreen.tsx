@@ -29,6 +29,7 @@ import { ReleaseInput } from './components/ReleaseInput';
 import { useTeachingGate } from '@/utils/useTeachingGate';
 import { useTeachingStore } from '@/stores/teachingStore';
 import { TEACHINGS } from '@/constants/teaching';
+import { useAnchorStore } from '@/stores/anchorStore';
 
 type ConfirmBurnRouteProp = RouteProp<RootStackParamList, 'ConfirmBurn'>;
 type ConfirmBurnNavigationProp = StackNavigationProp<RootStackParamList, 'ConfirmBurn'>;
@@ -44,7 +45,11 @@ export const ConfirmBurnScreen: React.FC = () => {
   const route = useRoute<ConfirmBurnRouteProp>();
   const navigation = useNavigation<ConfirmBurnNavigationProp>();
   const { anchorId, intention, sigilSvg, enhancedImageUrl } = route.params;
+  const getAnchorById = useAnchorStore((state) => state.getAnchorById);
   const { recordShown } = useTeachingStore();
+  const anchor = getAnchorById(anchorId);
+  const resolvedSigilSvg = sigilSvg || anchor?.reinforcedSigilSvg || anchor?.baseSigilSvg || '';
+  const resolvedEnhancedImageUrl = enhancedImageUrl ?? anchor?.enhancedImageUrl;
 
   const [currentStep, setCurrentStep] = useState<BurnStep>('reflect');
   const [releaseText, setReleaseText] = useState('');
@@ -76,20 +81,20 @@ export const ConfirmBurnScreen: React.FC = () => {
   const activeTeaching = currentStep === 'reflect' ? reflectTeaching : releaseTeaching;
 
   const sigilNode = useMemo(() => {
-    if (enhancedImageUrl) {
+    if (resolvedEnhancedImageUrl) {
       return (
         <OptimizedImage
-          uri={enhancedImageUrl}
+          uri={resolvedEnhancedImageUrl}
           style={styles.sigilImage}
           resizeMode="cover"
         />
       );
     }
 
-    if (sigilSvg) {
+    if (resolvedSigilSvg) {
       return (
         <SvgXml
-          xml={sigilSvg}
+          xml={resolvedSigilSvg}
           width={SIGIL_STAGE_SIZE - 62}
           height={SIGIL_STAGE_SIZE - 62}
         />
@@ -97,7 +102,7 @@ export const ConfirmBurnScreen: React.FC = () => {
     }
 
     return <Text style={styles.sigilFallback}>✶</Text>;
-  }, [enhancedImageUrl, sigilSvg]);
+  }, [resolvedEnhancedImageUrl, resolvedSigilSvg]);
 
   const handleBack = () => {
     if (currentStep === 'release') {
@@ -132,8 +137,8 @@ export const ConfirmBurnScreen: React.FC = () => {
     navigation.navigate('BurningRitual', {
       anchorId,
       intention,
-      sigilSvg,
-      enhancedImageUrl,
+      sigilSvg: resolvedSigilSvg,
+      enhancedImageUrl: resolvedEnhancedImageUrl,
     } as any);
   };
 
