@@ -25,10 +25,13 @@ const CreateAnchorSchema = z.object({
   intentionText: z.string().min(1).max(500),
   category: z.string().min(1),
   distilledLetters: z.array(z.string()).min(1),
-  baseSigilSvg: z.string().min(1).max(5_000_000),
+  baseSigilSvg: z.string().min(1).max(5_000_000)
+    .refine(isSafeSvg, { message: 'SVG contains disallowed content (scripts, event handlers, or external URLs)' }),
   structureVariant: StructureVariantEnum.optional(),
   // Optional fields passed through without strict validation
-  reinforcedSigilSvg: z.string().optional(),
+  reinforcedSigilSvg: z.string()
+    .refine(isSafeSvg, { message: 'SVG contains disallowed content (scripts, event handlers, or external URLs)' })
+    .optional(),
   reinforcementMetadata: z.unknown().optional(),
   enhancedImageUrl: z.string().optional(),
   enhancementMetadata: z.unknown().optional(),
@@ -41,7 +44,9 @@ const UpdateAnchorSchema = z.object({
   intentionText: z.string().min(1).max(500).optional(),
   category: z.string().min(1).max(100).optional(),
   structureVariant: StructureVariantEnum.optional(),
-  reinforcedSigilSvg: z.string().max(5_000_000).nullable().optional(),
+  reinforcedSigilSvg: z.string().max(5_000_000)
+    .refine(isSafeSvg, { message: 'SVG contains disallowed content (scripts, event handlers, or external URLs)' })
+    .nullable().optional(),
   reinforcementMetadata: z.unknown().optional(),
   enhancedImageUrl: z.string().url().max(2048).nullable().optional(),
   enhancementMetadata: z.unknown().optional(),
@@ -66,6 +71,25 @@ const ActivateAnchorSchema = z.object({
   activationType: z.enum(['visual', 'mantra', 'deep']),
   durationSeconds: z.number().min(1),
 });
+
+/**
+ * Lightweight SVG safety check — rejects content containing common XSS vectors:
+ * <script> tags, inline event handlers (on*=), javascript: URIs, and external
+ * resource references (http/https hrefs/src attributes).
+ *
+ * This is defence-in-depth. The SVG is still rendered on the client so the
+ * client-side renderer should also sanitise, but we reject obviously malicious
+ * payloads at the API boundary.
+ */
+function isSafeSvg(svg: string): boolean {
+  if (/<script[\s>]/i.test(svg)) return false;
+  if (/\bon\w+\s*=/i.test(svg)) return false;         // onload=, onclick=, etc.
+  if (/javascript\s*:/i.test(svg)) return false;       // javascript: URIs
+  if (/data\s*:\s*text\/html/i.test(svg)) return false; // data:text/html URIs
+  // Reject absolute external URLs in href/xlink:href/src attributes
+  if (/(?:href|src)\s*=\s*["']https?:\/\//i.test(svg)) return false;
+  return true;
+}
 
 // Validates req.body against a schema; throws AppError on failure.
 function validate<T>(schema: z.ZodSchema<T>, data: unknown): T {

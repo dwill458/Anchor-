@@ -8,6 +8,7 @@
  */
 
 import express, { Response } from 'express';
+import rateLimit from 'express-rate-limit';
 import { z } from 'zod';
 import { AuthRequest, authMiddleware } from '../middleware/auth';
 import { prisma } from '../../lib/prisma';
@@ -28,6 +29,23 @@ import {
 import { logger } from '../../utils/logger';
 
 const router = express.Router();
+
+// Per-user rate limiter for the AI image generation endpoint.
+// Keyed on the authenticated user's Firebase UID (set by authMiddleware before
+// this runs), falling back to IP for any unauthenticated edge cases.
+// Limit: 20 generations per hour — generous for normal use, tight enough to
+// prevent accidental loops or abuse.
+const aiEnhanceLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000, // 1 hour
+  max: 20,
+  keyGenerator: (req) => (req as AuthRequest).user?.uid ?? req.ip ?? 'unknown',
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: {
+    error: 'Too many AI generation requests',
+    message: 'You have reached the AI enhancement limit. Please try again in an hour.',
+  },
+});
 
 // --- Zod schemas ---
 
@@ -135,7 +153,7 @@ function withTimeout<T>(promise: Promise<T>, ms: number, label: string): Promise
 // 3 minutes — generous for image generation but prevents hung requests
 const AI_GENERATION_TIMEOUT_MS = 3 * 60 * 1000;
 
-router.post('/enhance-controlnet', authMiddleware, async (req: AuthRequest, res: Response): Promise<void> => {
+router.post('/enhance-controlnet', authMiddleware, aiEnhanceLimiter, async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     if (!req.user?.uid) {
       res.status(401).json({
