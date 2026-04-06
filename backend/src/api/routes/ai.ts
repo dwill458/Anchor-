@@ -119,6 +119,22 @@ function validateOrRespond<T>(
  * - passingCount: Number of variations that pass structure threshold
  * - bestVariationIndex: Index of highest scoring variation
  */
+// Timeout wrapper: rejects after `ms` milliseconds with a typed error
+function withTimeout<T>(promise: Promise<T>, ms: number, label: string): Promise<T> {
+  return new Promise((resolve, reject) => {
+    const timer = setTimeout(() => {
+      reject(Object.assign(new Error(`${label} timed out after ${ms}ms`), { code: 'UPSTREAM_TIMEOUT' }));
+    }, ms);
+    promise.then(
+      (v) => { clearTimeout(timer); resolve(v); },
+      (e) => { clearTimeout(timer); reject(e); }
+    );
+  });
+}
+
+// 3 minutes — generous for image generation but prevents hung requests
+const AI_GENERATION_TIMEOUT_MS = 3 * 60 * 1000;
+
 router.post('/enhance-controlnet', authMiddleware, async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     if (!req.user?.uid) {
@@ -158,10 +174,21 @@ router.post('/enhance-controlnet', authMiddleware, async (req: AuthRequest, res:
         ? 'pro_upgrade'
         : ((tier as 'draft' | 'premium') || 'premium');
 
-    const user = await prisma.user.findUnique({
-      where: { authUid: req.user.uid },
-      select: { id: true },
-    });
+    // --- Database lookups ---
+    let user: { id: string } | null;
+    try {
+      user = await prisma.user.findUnique({
+        where: { authUid: req.user.uid },
+        select: { id: true },
+      });
+    } catch (dbError) {
+      logger.error('[ControlNet] Database error during user lookup', dbError);
+      res.status(503).json({
+        error: 'Service temporarily unavailable',
+        message: 'Unable to reach the database. Please try again shortly.',
+      });
+      return;
+    }
 
     if (!user) {
       res.status(404).json({
@@ -175,13 +202,23 @@ router.post('/enhance-controlnet', authMiddleware, async (req: AuthRequest, res:
     const storageAnchorId = isTempAnchorRequest ? `temp-${Date.now()}` : anchorId;
 
     if (!isTempAnchorRequest) {
-      const anchor = await prisma.anchor.findFirst({
-        where: {
-          id: anchorId,
-          userId: user.id,
-        },
-        select: { id: true },
-      });
+      let anchor: { id: string } | null;
+      try {
+        anchor = await prisma.anchor.findFirst({
+          where: {
+            id: anchorId,
+            userId: user.id,
+          },
+          select: { id: true },
+        });
+      } catch (dbError) {
+        logger.error('[ControlNet] Database error during anchor lookup', dbError);
+        res.status(503).json({
+          error: 'Service temporarily unavailable',
+          message: 'Unable to reach the database. Please try again shortly.',
+        });
+        return;
+      }
 
       if (!anchor) {
         res.status(404).json({
@@ -214,30 +251,62 @@ router.post('/enhance-controlnet', authMiddleware, async (req: AuthRequest, res:
 
     const requestBaseUrl = `${req.protocol}://${req.get('host')}`;
 
-    // Generate ControlNet variations with structure validation
+    // --- AI Generation (with timeout) ---
     // Use enhanceSigilWithAI for automatic provider selection (Google → Replicate fallback)
     // Or use enhanceSigilWithControlNet directly for Replicate-only
-    const useNewPipeline = provider !== 'replicate'; // Use new pipeline unless explicitly requesting Replicate
+    const useNewPipeline = provider !== 'replicate';
 
-    const enhancementResult = useNewPipeline
-      ? await enhanceSigilWithAI({
-        sigilSvg,
-        styleChoice: styleChoice as AIStyle,
-        userId: user.id,
-        intentionText,  // Pass through intention for thematic symbols
-        validateStructure: validateStructure !== false,
-        autoComposite: autoComposite === true,
-        tier: effectiveTier,
-      })
-      : await enhanceSigilWithControlNet({
-        sigilSvg,
-        styleChoice: styleChoice as AIStyle,
-        userId: user.id,
-        intentionText,  // Pass through intention for thematic symbols
-        validateStructure: validateStructure !== false,
-        autoComposite: autoComposite === true,
-        tier: effectiveTier,
+    let enhancementResult: Awaited<ReturnType<typeof enhanceSigilWithAI>>;
+    try {
+      enhancementResult = await withTimeout(
+        useNewPipeline
+          ? enhanceSigilWithAI({
+            sigilSvg,
+            styleChoice: styleChoice as AIStyle,
+            userId: user.id,
+            intentionText,
+            validateStructure: validateStructure !== false,
+            autoComposite: autoComposite === true,
+            tier: effectiveTier,
+          })
+          : enhanceSigilWithControlNet({
+            sigilSvg,
+            styleChoice: styleChoice as AIStyle,
+            userId: user.id,
+            intentionText,
+            validateStructure: validateStructure !== false,
+            autoComposite: autoComposite === true,
+            tier: effectiveTier,
+          }),
+        AI_GENERATION_TIMEOUT_MS,
+        'AI image generation'
+      );
+    } catch (aiError: unknown) {
+      const err = aiError as Error & { code?: string; status?: number };
+      if (err.code === 'UPSTREAM_TIMEOUT') {
+        logger.error('[ControlNet] Generation timed out', { anchorId, style: styleChoice, provider: provider || 'auto' });
+        res.status(504).json({
+          error: 'Generation timed out',
+          message: 'The AI service took too long to respond. Please try again.',
+        });
+        return;
+      }
+      // Surface provider-level quota/auth errors distinctly
+      if (err.status === 429 || err.message?.includes('quota') || err.message?.includes('rate limit')) {
+        logger.warn('[ControlNet] Upstream rate limit hit', { anchorId, message: err.message });
+        res.status(503).json({
+          error: 'AI service rate limit reached',
+          message: 'The image generation service is busy. Please wait a moment and try again.',
+        });
+        return;
+      }
+      logger.error('[ControlNet] AI generation failed', aiError);
+      res.status(502).json({
+        error: 'AI generation failed',
+        message: 'The upstream image generation service encountered an error. Please try again.',
       });
+      return;
+    }
 
     logger.info('[ControlNet] Generated variations with structure scores', {
       count: enhancementResult.variations.length,
@@ -247,7 +316,7 @@ router.post('/enhance-controlnet', authMiddleware, async (req: AuthRequest, res:
       method: enhancementResult.controlMethod,
     });
 
-    // Upload variations to R2 and get permanent URLs
+    // --- Upload variations to R2 (per-variation error handling) ---
     const uploadedVariations: Array<{
       imageUrl: string;
       structureMatchScore: number;
@@ -261,15 +330,25 @@ router.post('/enhance-controlnet', authMiddleware, async (req: AuthRequest, res:
 
     for (let i = 0; i < enhancementResult.variations.length; i++) {
       const variation = enhancementResult.variations[i];
-
-      // Upload to R2
-      const permanentUrl = await uploadImageFromUrl(
-        variation.imageUrl,
-        user.id,
-        storageAnchorId,
-        i,
-        { baseUrl: requestBaseUrl }
-      );
+      let permanentUrl: string;
+      try {
+        permanentUrl = await uploadImageFromUrl(
+          variation.imageUrl,
+          user.id,
+          storageAnchorId,
+          i,
+          { baseUrl: requestBaseUrl }
+        );
+      } catch (uploadError) {
+        logger.error('[ControlNet] Failed to upload variation to storage', {
+          variationIndex: i,
+          anchorId,
+          error: uploadError instanceof Error ? uploadError.message : String(uploadError),
+        });
+        // Skip failed uploads rather than aborting the entire response;
+        // at least return successfully generated variations.
+        continue;
+      }
 
       uploadedVariations.push({
         imageUrl: permanentUrl,
@@ -282,6 +361,21 @@ router.post('/enhance-controlnet', authMiddleware, async (req: AuthRequest, res:
         seed: variation.seed,
       });
     }
+
+    if (uploadedVariations.length === 0) {
+      logger.error('[ControlNet] All variation uploads failed', { anchorId, style: styleChoice });
+      res.status(502).json({
+        error: 'Image storage failed',
+        message: 'AI images were generated but could not be saved. Please try again.',
+      });
+      return;
+    }
+
+    // Recalculate bestVariationIndex based on successfully uploaded variations
+    const bestVariationIndex = uploadedVariations.reduce(
+      (best, v, idx) => v.structureMatchScore > uploadedVariations[best].structureMatchScore ? idx : best,
+      0
+    );
 
     // Determine which provider was actually used
     const modelLower = enhancementResult.model.toLowerCase();
@@ -307,14 +401,14 @@ router.post('/enhance-controlnet', authMiddleware, async (req: AuthRequest, res:
       // Structure validation summary
       structureThreshold: enhancementResult.structureThreshold,
       passingCount: enhancementResult.passingCount,
-      bestVariationIndex: enhancementResult.bestVariationIndex,
+      bestVariationIndex,
       allPreserved: enhancementResult.passingCount === enhancementResult.variations.length,
     });
   } catch (error) {
-    logger.error('[ControlNet] Enhancement error', error);
+    logger.error('[ControlNet] Unexpected enhancement error', error);
     res.status(500).json({
-      error: 'Failed to enhance sigil with ControlNet',
-      message: error instanceof Error ? error.message : 'Unknown error',
+      error: 'Internal server error',
+      message: 'An unexpected error occurred during AI enhancement.',
     });
   }
 });

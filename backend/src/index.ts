@@ -16,6 +16,7 @@ import practiceRoutes from './api/routes/practice';
 import { errorHandler, notFoundHandler } from './api/middleware/errorHandler';
 import { logger } from './utils/logger';
 import { env } from './config/env';
+import { prisma } from './lib/prisma';
 
 // Load environment variables
 dotenv.config();
@@ -110,12 +111,25 @@ app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
 // Health Check
 // ============================================================================
 
-app.get('/health', (_req: Request, res: Response) => {
-  res.json({
-    status: 'ok',
+app.get('/health', async (_req: Request, res: Response) => {
+  const checks: Record<string, 'ok' | 'error'> = {};
+
+  // Database connectivity check
+  try {
+    await prisma.$queryRaw`SELECT 1`;
+    checks.database = 'ok';
+  } catch {
+    checks.database = 'error';
+  }
+
+  const healthy = Object.values(checks).every(v => v === 'ok');
+
+  res.status(healthy ? 200 : 503).json({
+    status: healthy ? 'ok' : 'degraded',
     timestamp: new Date().toISOString(),
     service: 'anchor-api',
     version: '0.1.0',
+    checks,
   });
 });
 
@@ -162,10 +176,36 @@ app.use(errorHandler);
 // Start Server
 // ============================================================================
 
-app.listen(PORT, '0.0.0.0', () => {
+const server = app.listen(PORT, '0.0.0.0', () => {
   logger.info(`🚀 Anchor API running on port ${PORT}`);
   logger.info(`📍 Environment: ${env.NODE_ENV}`);
   logger.info(`🏥 Health check: http://localhost:${PORT}/health`);
 });
+
+// ============================================================================
+// Graceful Shutdown
+// ============================================================================
+
+async function shutdown(signal: string): Promise<void> {
+  logger.info(`${signal} received — shutting down gracefully`);
+  server.close(async () => {
+    try {
+      await prisma.$disconnect();
+      logger.info('Database connections closed');
+    } catch (err) {
+      logger.error('Error closing database connections', err instanceof Error ? err : new Error(String(err)));
+    }
+    process.exit(0);
+  });
+
+  // Force exit if shutdown takes too long
+  setTimeout(() => {
+    logger.error('Graceful shutdown timed out — forcing exit');
+    process.exit(1);
+  }, 10_000);
+}
+
+process.on('SIGTERM', () => shutdown('SIGTERM'));
+process.on('SIGINT', () => shutdown('SIGINT'));
 
 export default app;

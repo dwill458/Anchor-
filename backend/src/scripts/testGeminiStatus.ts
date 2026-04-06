@@ -1,7 +1,8 @@
 import axios from 'axios';
 
 async function testGeminiStatus() {
-    const url = 'http://localhost:8000/api/ai/enhance-controlnet';
+    const baseUrl = process.env.API_BASE_URL || 'http://localhost:8000';
+    const url = `${baseUrl}/api/ai/enhance-controlnet`;
     const body = {
         sigilSvg: '<svg width="100" height="100" viewBox="0 0 100 100"><circle cx="50" cy="50" r="40" stroke="black" fill="none"/></svg>',
         styleChoice: 'watercolor',
