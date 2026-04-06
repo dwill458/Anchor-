@@ -28,12 +28,7 @@ export type AIStyle =
 /**
  * Legacy AI styles (deprecated, kept for backward compatibility)
  */
-export type LegacyAIStyle =
-  | 'grimoire'
-  | 'minimal'
-  | 'geometric'
-  | 'organic'
-  | 'celestial';
+export type LegacyAIStyle = 'grimoire' | 'minimal' | 'geometric' | 'organic' | 'celestial';
 
 /**
  * Enhancement path choice
@@ -167,7 +162,7 @@ export interface AIEnhancementResponse {
 /**
  * Standard API response wrapper
  */
-export interface ApiResponse<T = any> {
+export interface ApiResponse<T = unknown> {
   success: boolean;
   data?: T;
   error?: {
@@ -277,8 +272,7 @@ export const STYLE_PROMPTS: Record<AIStyle, StylePromptConfig> = {
     category: 'geometric',
     prompt:
       'sacred geometry, precise golden lines, geometric perfection, mystical symbol etched in gold, mathematical precision',
-    negativePrompt:
-      'new shapes, additional symbols, text, faces, organic, soft, messy, hand-drawn',
+    negativePrompt: 'new shapes, additional symbols, text, faces, organic, soft, messy, hand-drawn',
   },
   ink_brush: {
     name: 'ink_brush',
@@ -286,8 +280,7 @@ export const STYLE_PROMPTS: Record<AIStyle, StylePromptConfig> = {
     category: 'organic',
     prompt:
       'traditional ink brush calligraphy, flowing brushstrokes, zen aesthetic, black ink on paper, japanese sumi-e',
-    negativePrompt:
-      'new shapes, additional symbols, text, digital, 3d, color, modern',
+    negativePrompt: 'new shapes, additional symbols, text, digital, 3d, color, modern',
   },
   gold_leaf: {
     name: 'gold_leaf',
@@ -295,8 +288,7 @@ export const STYLE_PROMPTS: Record<AIStyle, StylePromptConfig> = {
     category: 'hybrid',
     prompt:
       'illuminated manuscript, gold leaf gilding, ornate medieval style, precious metal, luxurious texture',
-    negativePrompt:
-      'new shapes, additional symbols, text, modern, photography, people',
+    negativePrompt: 'new shapes, additional symbols, text, modern, photography, people',
   },
   cosmic: {
     name: 'cosmic',
@@ -304,8 +296,7 @@ export const STYLE_PROMPTS: Record<AIStyle, StylePromptConfig> = {
     category: 'organic',
     prompt:
       'cosmic energy, nebula, starlight, glowing ethereal sigil in deep space, celestial magic',
-    negativePrompt:
-      'new shapes, additional symbols, text, faces, planets, realistic, photography',
+    negativePrompt: 'new shapes, additional symbols, text, faces, planets, realistic, photography',
   },
   minimal_line: {
     name: 'minimal_line',
@@ -313,8 +304,7 @@ export const STYLE_PROMPTS: Record<AIStyle, StylePromptConfig> = {
     category: 'geometric',
     prompt:
       'minimal line art, clean precise lines, modern minimalist, single color on white, graphic design',
-    negativePrompt:
-      'new shapes, additional symbols, texture, shading, embellishment, ornate',
+    negativePrompt: 'new shapes, additional symbols, texture, shading, embellishment, ornate',
   },
 };
 
@@ -347,12 +337,7 @@ export function isSigilVariant(value: string): value is SigilVariant {
  * Type guard for AnchorCategory
  */
 export function isAnchorCategory(value: string): value is AnchorCategory {
-  return [
-    'career',
-    'health',
-    'wealth',
-    'relationships',
-    'personal_growth',
-    'custom',
-  ].includes(value);
+  return ['career', 'health', 'wealth', 'relationships', 'personal_growth', 'custom'].includes(
+    value
+  );
 }

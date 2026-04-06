@@ -149,11 +149,7 @@ export async function svgToEdgeMap(
     edgeMapPipeline = edgeMapPipeline.convolve({
       width: 3,
       height: 3,
-      kernel: [
-        -1, -1, -1,
-        -1,  8, -1,
-        -1, -1, -1
-      ],
+      kernel: [-1, -1, -1, -1, 8, -1, -1, -1, -1],
     });
 
     // Normalize and enhance contrast
@@ -185,7 +181,6 @@ export async function svgToEdgeMap(
       size: buffer.length,
       processingTimeMs,
     };
-
   } catch (error) {
     throw new Error(
       `Edge map generation failed: ${error instanceof Error ? error.message : 'Unknown error'}`
@@ -232,7 +227,10 @@ export async function svgToEdgeMapFile(
   const result = await svgToEdgeMap(svgString, options);
   const fs = await import('fs/promises');
   await fs.writeFile(outputPath, result.buffer);
-  logger.debug(`[SVGToEdgeMap] Saved to ${outputPath}`, { size: result.size, processingTimeMs: result.processingTimeMs });
+  logger.debug(`[SVGToEdgeMap] Saved to ${outputPath}`, {
+    size: result.size,
+    processingTimeMs: result.processingTimeMs,
+  });
 }
 
 /**

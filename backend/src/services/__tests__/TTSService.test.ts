@@ -185,9 +185,9 @@ describe('TTSService', () => {
         synthesizeSpeech: jest.fn().mockResolvedValue([{ audioContent: null }]),
       }));
 
-      await expect(
-        generateMantraAudio('test', 'syllabic', 'user', 'anchor')
-      ).rejects.toThrow('Failed to generate audio');
+      await expect(generateMantraAudio('test', 'syllabic', 'user', 'anchor')).rejects.toThrow(
+        'Failed to generate audio'
+      );
     });
   });
 

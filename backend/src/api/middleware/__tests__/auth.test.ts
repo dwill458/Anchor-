@@ -80,7 +80,9 @@ describe('authMiddleware', () => {
   });
 
   it('should attach user and call next on valid Firebase token', async () => {
-    const mockVerify = jest.fn().mockResolvedValue({ uid: 'firebase-uid', email: 'user@example.com' });
+    const mockVerify = jest
+      .fn()
+      .mockResolvedValue({ uid: 'firebase-uid', email: 'user@example.com' });
     (getFirebaseAdmin as jest.Mock).mockReturnValue({
       auth: () => ({ verifyIdToken: mockVerify }),
     });

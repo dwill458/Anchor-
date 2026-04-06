@@ -34,7 +34,10 @@ process.on('uncaughtException', (error: Error) => {
 });
 
 process.on('unhandledRejection', (reason: unknown) => {
-  logger.error('Unhandled promise rejection — shutting down', reason instanceof Error ? reason : new Error(String(reason)));
+  logger.error(
+    'Unhandled promise rejection — shutting down',
+    reason instanceof Error ? reason : new Error(String(reason))
+  );
   process.exit(1);
 });
 
@@ -52,7 +55,10 @@ app.use(helmet());
 // In development/test with no ALLOWED_ORIGINS set, allow localhost only.
 const rawAllowedOrigins = env.ALLOWED_ORIGINS;
 const allowedOrigins: string[] = rawAllowedOrigins
-  ? rawAllowedOrigins.split(',').map(o => o.trim()).filter(Boolean)
+  ? rawAllowedOrigins
+      .split(',')
+      .map(o => o.trim())
+      .filter(Boolean)
   : env.NODE_ENV === 'production'
     ? [] // No origins allowed until explicitly configured — fail safe
     : ['http://localhost:3000', 'http://localhost:8081'];
@@ -199,7 +205,10 @@ async function shutdown(signal: string): Promise<void> {
       await prisma.$disconnect();
       logger.info('Database connections closed');
     } catch (err) {
-      logger.error('Error closing database connections', err instanceof Error ? err : new Error(String(err)));
+      logger.error(
+        'Error closing database connections',
+        err instanceof Error ? err : new Error(String(err))
+      );
     }
     process.exit(0);
   });

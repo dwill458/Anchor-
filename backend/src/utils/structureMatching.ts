@@ -16,9 +16,9 @@ import { logger } from './logger';
  * Structure match result
  */
 export interface StructureMatchResult {
-  iouScore: number;           // Intersection over Union (0-1)
-  edgeOverlapScore: number;   // Edge-based overlap (0-1)
-  combinedScore: number;      // Weighted combination (0-1)
+  iouScore: number; // Intersection over Union (0-1)
+  edgeOverlapScore: number; // Edge-based overlap (0-1)
+  combinedScore: number; // Weighted combination (0-1)
   structurePreserved: boolean;
   classification: 'Structure Preserved' | 'More Artistic' | 'Style Drift';
   analysisDetails: {
@@ -34,7 +34,7 @@ export interface StructureMatchResult {
  */
 const THRESHOLDS = {
   preserved: 0.85,
-  artistic: 0.70,
+  artistic: 0.7,
 };
 
 /**
@@ -44,26 +44,28 @@ async function downloadImage(url: string): Promise<Buffer> {
   return new Promise((resolve, reject) => {
     const protocol = url.startsWith('https') ? https : http;
 
-    protocol.get(url, (response) => {
-      // Handle redirects
-      if (response.statusCode === 301 || response.statusCode === 302) {
-        const redirectUrl = response.headers.location;
-        if (redirectUrl) {
-          downloadImage(redirectUrl).then(resolve).catch(reject);
+    protocol
+      .get(url, response => {
+        // Handle redirects
+        if (response.statusCode === 301 || response.statusCode === 302) {
+          const redirectUrl = response.headers.location;
+          if (redirectUrl) {
+            downloadImage(redirectUrl).then(resolve).catch(reject);
+            return;
+          }
+        }
+
+        if (response.statusCode !== 200) {
+          reject(new Error(`Failed to download image: ${response.statusCode}`));
           return;
         }
-      }
 
-      if (response.statusCode !== 200) {
-        reject(new Error(`Failed to download image: ${response.statusCode}`));
-        return;
-      }
-
-      const chunks: Buffer[] = [];
-      response.on('data', (chunk) => chunks.push(chunk));
-      response.on('end', () => resolve(Buffer.concat(chunks)));
-      response.on('error', reject);
-    }).on('error', reject);
+        const chunks: Buffer[] = [];
+        response.on('data', chunk => chunks.push(chunk));
+        response.on('end', () => resolve(Buffer.concat(chunks)));
+        response.on('error', reject);
+      })
+      .on('error', reject);
   });
 }
 
@@ -116,7 +118,8 @@ async function extractGeneratedSigilMask(
   // Find threshold using mean of non-black pixels
   let sum = 0;
   let count = 0;
-  for (let i = 10; i < 256; i++) {  // Skip very dark pixels
+  for (let i = 10; i < 256; i++) {
+    // Skip very dark pixels
     sum += i * histogram[i];
     count += histogram[i];
   }
@@ -137,7 +140,10 @@ async function extractGeneratedSigilMask(
 /**
  * Compute Intersection over Union (IoU) between two binary masks
  */
-function computeIoU(mask1: Uint8Array, mask2: Uint8Array): {
+function computeIoU(
+  mask1: Uint8Array,
+  mask2: Uint8Array
+): {
   iou: number;
   intersection: number;
   union: number;
@@ -237,7 +243,7 @@ export async function computeStructureMatch(
     const generatedBuffer = await downloadImage(generatedImageUrl);
 
     logger.debug('[StructureMatch] Extracting masks...');
-    const targetSize = 512;  // Smaller for faster comparison
+    const targetSize = 512; // Smaller for faster comparison
 
     // Extract original mask (simple threshold - it's already high contrast)
     const originalResult = await extractBinaryMask(originalControlBuffer, 128, targetSize);
@@ -254,7 +260,7 @@ export async function computeStructureMatch(
       generatedResult.mask,
       originalResult.width,
       originalResult.height,
-      3  // 3px tolerance
+      3 // 3px tolerance
     );
 
     // Weighted combination (IoU is stricter, edge overlap is more forgiving)
@@ -292,7 +298,6 @@ export async function computeStructureMatch(
     });
 
     return result;
-
   } catch (error) {
     logger.error('[StructureMatch] Error computing structure match', error);
 

@@ -59,7 +59,7 @@ const MODEL_CONFIGS: Record<QualityTier, ModelConfig> = {
   },
 };
 
-const STRUCTURAL_PRESERVATION_SYSTEM_INSTRUCTION = `You are a high-fidelity rendering engine. Your primary directive is to preserve the exact structural integrity of input images while enhancing them artistically.
+const _STRUCTURAL_PRESERVATION_SYSTEM_INSTRUCTION = `You are a high-fidelity rendering engine. Your primary directive is to preserve the exact structural integrity of input images while enhancing them artistically.
 CRITICAL RULES:
 1. Treat the input image as a strict structural anchor.
 2. Do NOT warp, melt, bend, or alter the core lines and geometry.
@@ -100,7 +100,7 @@ export class GeminiImageService {
     logger.info('[GeminiImageService] Initializing...', {
       hasGeminiKey: !!process.env.GEMINI_API_KEY,
       hasGoogleKey: !!process.env.GOOGLE_API_KEY,
-      apiKeyLength: this.apiKey.length
+      apiKeyLength: this.apiKey.length,
     });
 
     if (!this.apiKey) {
@@ -185,7 +185,8 @@ export class GeminiImageService {
       totalTimeSeconds: totalTime,
       costUSD: this.getCostEstimate(numberOfVariations, tier),
       prompt: prompt,
-      negativePrompt: 'text, words, letters, numbers, numerals, watermark, readable characters, dollar sign, currency symbols, coins, cash, banknotes, bank logos, charts, graphs, clipart, sticker, icon pack, photorealistic, human face, human figure, literal objects, blurry, low quality, distorted geometry, altered structure, warped lines',
+      negativePrompt:
+        'text, words, letters, numbers, numerals, watermark, readable characters, dollar sign, currency symbols, coins, cash, banknotes, bank logos, charts, graphs, clipart, sticker, icon pack, photorealistic, human face, human figure, literal objects, blurry, low quality, distorted geometry, altered structure, warped lines',
       model: modelConfig.modelId,
       tier,
     };
@@ -194,15 +195,16 @@ export class GeminiImageService {
   private createPrompt(intention: string, style: string): string {
     const archetypeBlock = this.getArchetypeMotifs(intention);
 
-    const structuralCore = intention && intention.trim()
-      ? `SIGIL IDENTITY: This sigil embodies the intention "${intention}".
+    const structuralCore =
+      intention && intention.trim()
+        ? `SIGIL IDENTITY: This sigil embodies the intention "${intention}".
 
 STRUCTURAL PRESERVATION — HIGHEST PRIORITY:
 1. The input image defines the exact sigil geometry — preserve ALL lines, circles, and shapes EXACTLY as shown
 2. Do NOT warp, melt, bend, rotate, skew, or alter any geometric element
 3. Do NOT add text, labels, captions, words, letters, or numbers anywhere
 4. The sigil geometry is immutable — treat it as a fixed engraving plate beneath all styling`
-      : `SIGIL IDENTITY: A magical sigil for personal empowerment.
+        : `SIGIL IDENTITY: A magical sigil for personal empowerment.
 
 STRUCTURAL PRESERVATION — HIGHEST PRIORITY:
 1. Preserve ALL lines, circles, and geometric forms EXACTLY as shown
@@ -356,108 +358,238 @@ ${hardBans}`,
    * never through literal depiction. symbolicDistance is hardcoded to 2 (Archetypal).
    */
   private getArchetypeMotifs(intention: string): string {
-    const ARCHETYPE_BUNDLES: Record<string, {
-      planetary: string[];
-      elemental: string[];
-      geometry: string[];
-      natural: string[];
-    }> = {
+    const ARCHETYPE_BUNDLES: Record<
+      string,
+      {
+        planetary: string[];
+        elemental: string[];
+        geometry: string[];
+        natural: string[];
+      }
+    > = {
       freedom: {
         planetary: ['Jupiter (expansion, boundless horizon)', 'Uranus (liberation, breakthrough)'],
         elemental: ['Air (wind, open breath, release)', 'Fire (ascending flame, rising will)'],
-        geometry: ['outward-expanding open spiral', 'open arc threshold form', 'upward-pointing triangle'],
-        natural: ['soaring hawk silhouette as hairline filigree', 'open horizon line as border accent'],
+        geometry: [
+          'outward-expanding open spiral',
+          'open arc threshold form',
+          'upward-pointing triangle',
+        ],
+        natural: [
+          'soaring hawk silhouette as hairline filigree',
+          'open horizon line as border accent',
+        ],
       },
       prosperity: {
-        planetary: ['Jupiter (growth, generative abundance)', 'Venus (magnetism, attraction, value)'],
+        planetary: [
+          'Jupiter (growth, generative abundance)',
+          'Venus (magnetism, attraction, value)',
+        ],
         elemental: ['Earth (fertile soil, deep roots)', 'Water (flow, circulation, nourishment)'],
-        geometry: ['hexagonal honeycomb cell pattern', 'golden-ratio spiral', 'expanding concentric rings'],
-        natural: ['wheat stalk as micro-engraved border element', 'oak leaf cluster as corner filigree'],
+        geometry: [
+          'hexagonal honeycomb cell pattern',
+          'golden-ratio spiral',
+          'expanding concentric rings',
+        ],
+        natural: [
+          'wheat stalk as micro-engraved border element',
+          'oak leaf cluster as corner filigree',
+        ],
       },
       strength: {
         planetary: ['Mars (willpower, vital force)', 'Sun (radiance, sovereign vitality)'],
         elemental: ['Fire (inner forge flame)', 'Earth (bedrock, immovability)'],
         geometry: ['upward-pointing bold triangle', 'double-chevron form', 'strong hexagram'],
-        natural: ['mountain peak silhouette as background texture', 'deep root system as lower border'],
+        natural: [
+          'mountain peak silhouette as background texture',
+          'deep root system as lower border',
+        ],
       },
       love: {
         planetary: ['Venus (love, beauty, union)', 'Moon (emotional depth, receptivity)'],
         elemental: ['Water (feeling, flow, depth)', 'Fire (passion, warmth)'],
-        geometry: ['vesica piscis interlocking circles', 'torus knot outline', 'two interlocked rings'],
+        geometry: [
+          'vesica piscis interlocking circles',
+          'torus knot outline',
+          'two interlocked rings',
+        ],
         natural: ['rose petal curve woven into filigree', 'vine tendril as border weave'],
       },
       health: {
         planetary: ['Sun (life-force, vitality, renewal)', 'Mercury (flow, regeneration)'],
         elemental: ['Water (healing, purification)', 'Air (breath, oxygenation)'],
-        geometry: ['abstract caduceus double-spiral curve', 'pulsing concentric ring', 'double helix line form'],
-        natural: ['laurel branch as micro-engraved border', 'leaf vein pattern as background texture'],
+        geometry: [
+          'abstract caduceus double-spiral curve',
+          'pulsing concentric ring',
+          'double helix line form',
+        ],
+        natural: [
+          'laurel branch as micro-engraved border',
+          'leaf vein pattern as background texture',
+        ],
       },
       clarity: {
         planetary: ['Mercury (intellect, perception, light)', 'Sun (illumination, revealed truth)'],
         elemental: ['Air (clear sight, lucid thought)', 'Fire (light of revelation)'],
-        geometry: ['central radiant point with rays', 'octagram precision form', 'diamond lattice grid'],
+        geometry: [
+          'central radiant point with rays',
+          'octagram precision form',
+          'diamond lattice grid',
+        ],
         natural: ['crystal prism facet as border accent', 'single quartz point as corner motif'],
       },
       creativity: {
         planetary: ['Mercury (expression, craft, transmission)', 'Moon (imagination, intuition)'],
         elemental: ['Fire (inspiration, generative spark)', 'Air (ideas in motion)'],
-        geometry: ['spiral unfurling from center outward', 'pentagon golden-ratio form', 'starburst ray pattern'],
-        natural: ['feather quill silhouette as filigree element', 'seed-burst as background micro-pattern'],
+        geometry: [
+          'spiral unfurling from center outward',
+          'pentagon golden-ratio form',
+          'starburst ray pattern',
+        ],
+        natural: [
+          'feather quill silhouette as filigree element',
+          'seed-burst as background micro-pattern',
+        ],
       },
       peace: {
         planetary: ['Moon (stillness, reflection, rest)', 'Neptune (dissolution, unity, flow)'],
         elemental: ['Water (calm depths, serenity)', 'Earth (restful ground, stability)'],
-        geometry: ['enso open-circle brush form', 'equal-armed cross balanced', 'gentle concentric arcs'],
+        geometry: [
+          'enso open-circle brush form',
+          'equal-armed cross balanced',
+          'gentle concentric arcs',
+        ],
         natural: ['still pond ripple as background texture', 'lotus outline as border accent'],
       },
       growth: {
         planetary: ['Jupiter (expansion, reaching upward)', 'Sun (photosynthesis, light-seeking)'],
         elemental: ['Earth (soil, root, nourishment)', 'Water (flow, sustaining life)'],
-        geometry: ['logarithmic growth spiral', 'branching fractal abstract line form', 'ascending stepped form'],
+        geometry: [
+          'logarithmic growth spiral',
+          'branching fractal abstract line form',
+          'ascending stepped form',
+        ],
         natural: ['sprouting tendril as border filigree', 'seed pod as corner micro-engraving'],
       },
       protection: {
         planetary: ['Saturn (boundary, structure, containment)', 'Mars (guardian force, defense)'],
         elemental: ['Earth (fortress solidity)', 'Fire (warding, boundary flame)'],
-        geometry: ['nested concentric squares', 'hexagonal shield grid', 'triquetra knot interlace'],
-        natural: ['thorn branch abstracted as border element', 'nautilus shell spiral as protective curve'],
+        geometry: [
+          'nested concentric squares',
+          'hexagonal shield grid',
+          'triquetra knot interlace',
+        ],
+        natural: [
+          'thorn branch abstracted as border element',
+          'nautilus shell spiral as protective curve',
+        ],
       },
       power: {
         planetary: ['Mars (vital force, driving energy)', 'Sun (sovereign radiance, authority)'],
         elemental: ['Fire (transformative energy)', 'Lightning as elemental force (abstract line)'],
-        geometry: ['bold solar cross radiating spokes', 'apex triangle pointing upward', 'radiating mandala spokes'],
+        geometry: [
+          'bold solar cross radiating spokes',
+          'apex triangle pointing upward',
+          'radiating mandala spokes',
+        ],
         natural: ['lightning-path abstract curve', 'storm arc as border element'],
       },
       success: {
-        planetary: ['Sun (achievement, recognition, harvest)', 'Jupiter (reward, elevation, bounty)'],
+        planetary: [
+          'Sun (achievement, recognition, harvest)',
+          'Jupiter (reward, elevation, bounty)',
+        ],
         elemental: ['Fire (ambition, summit-seeking)', 'Air (ascent, rising)'],
-        geometry: ['ascending stepped pyramid form', 'apex triangle geometry', 'crown as geometric ring form'],
-        natural: ['laurel ring as border filigree', 'mountain apex as background silhouette element'],
+        geometry: [
+          'ascending stepped pyramid form',
+          'apex triangle geometry',
+          'crown as geometric ring form',
+        ],
+        natural: [
+          'laurel ring as border filigree',
+          'mountain apex as background silhouette element',
+        ],
       },
       stability: {
-        planetary: ['Saturn (foundation, endurance, structure)', 'Earth correspondence (permanence)'],
+        planetary: [
+          'Saturn (foundation, endurance, structure)',
+          'Earth correspondence (permanence)',
+        ],
         elemental: ['Earth (bedrock, ground)', 'Water (still deep lake, unshaken depth)'],
-        geometry: ['equal-armed cross', 'four-square anchoring grid', 'downward-pointing triangle (earth element)'],
-        natural: ['deep root system abstracted as lower border', 'stacked stone silhouette as background'],
+        geometry: [
+          'equal-armed cross',
+          'four-square anchoring grid',
+          'downward-pointing triangle (earth element)',
+        ],
+        natural: [
+          'deep root system abstracted as lower border',
+          'stacked stone silhouette as background',
+        ],
       },
     };
 
     const KEYWORD_TO_THEME: Record<string, string> = {
-      free: 'freedom', freedom: 'freedom', liberat: 'freedom', unbounded: 'freedom',
-      financ: 'prosperity', wealth: 'prosperity', money: 'prosperity', rich: 'prosperity',
-      abundant: 'prosperity', abundance: 'prosperity', prosperous: 'prosperity', prosper: 'prosperity',
-      strong: 'strength', strength: 'strength', gym: 'strength', fitness: 'strength',
-      workout: 'strength', muscle: 'strength',
-      love: 'love', romance: 'love', relationship: 'love', connect: 'love', heart: 'love',
-      health: 'health', heal: 'health', wellness: 'health', vitality: 'health', recover: 'health',
-      clarity: 'clarity', focus: 'clarity', clear: 'clarity', mind: 'clarity', sharp: 'clarity',
-      creat: 'creativity', inspir: 'creativity', express: 'creativity',
-      peace: 'peace', calm: 'peace', sereni: 'peace', tranquil: 'peace',
-      grow: 'growth', growth: 'growth', transform: 'growth', evolve: 'growth', blossom: 'growth',
-      protect: 'protection', boundary: 'protection', safe: 'protection', guard: 'protection',
-      power: 'power', energy: 'power', force: 'power',
-      success: 'success', achieve: 'success', career: 'success', accomplish: 'success',
-      stable: 'stability', stability: 'stability', ground: 'stability', foundation: 'stability', anchor: 'stability',
+      free: 'freedom',
+      freedom: 'freedom',
+      liberat: 'freedom',
+      unbounded: 'freedom',
+      financ: 'prosperity',
+      wealth: 'prosperity',
+      money: 'prosperity',
+      rich: 'prosperity',
+      abundant: 'prosperity',
+      abundance: 'prosperity',
+      prosperous: 'prosperity',
+      prosper: 'prosperity',
+      strong: 'strength',
+      strength: 'strength',
+      gym: 'strength',
+      fitness: 'strength',
+      workout: 'strength',
+      muscle: 'strength',
+      love: 'love',
+      romance: 'love',
+      relationship: 'love',
+      connect: 'love',
+      heart: 'love',
+      health: 'health',
+      heal: 'health',
+      wellness: 'health',
+      vitality: 'health',
+      recover: 'health',
+      clarity: 'clarity',
+      focus: 'clarity',
+      clear: 'clarity',
+      mind: 'clarity',
+      sharp: 'clarity',
+      creat: 'creativity',
+      inspir: 'creativity',
+      express: 'creativity',
+      peace: 'peace',
+      calm: 'peace',
+      sereni: 'peace',
+      tranquil: 'peace',
+      grow: 'growth',
+      growth: 'growth',
+      transform: 'growth',
+      evolve: 'growth',
+      blossom: 'growth',
+      protect: 'protection',
+      boundary: 'protection',
+      safe: 'protection',
+      guard: 'protection',
+      power: 'power',
+      energy: 'power',
+      force: 'power',
+      success: 'success',
+      achieve: 'success',
+      career: 'success',
+      accomplish: 'success',
+      stable: 'stability',
+      stability: 'stability',
+      ground: 'stability',
+      foundation: 'stability',
+      anchor: 'stability',
     };
 
     if (!intention || intention.trim() === '') {
@@ -487,9 +619,13 @@ Integration: motifs appear only in filigree, border, and background texture — 
       const bundle = ARCHETYPE_BUNDLES[foundThemes[t]];
       if (!bundle) continue;
       motifLines.push(`• ${bundle.planetary[0]} — woven into border filigree`);
-      motifLines.push(`• ${bundle.geometry[t % bundle.geometry.length]} — etched as background pattern`);
+      motifLines.push(
+        `• ${bundle.geometry[t % bundle.geometry.length]} — etched as background pattern`
+      );
       if (t === 0) {
-        motifLines.push(`• ${bundle.elemental[0]} — implied in overall texture and compositional flow`);
+        motifLines.push(
+          `• ${bundle.elemental[0]} — implied in overall texture and compositional flow`
+        );
         motifLines.push(`• ${bundle.natural[0]} — as micro-engraved accent only, never dominant`);
       }
     }
@@ -535,18 +671,21 @@ Integration rules:
     const maxRetries = 3;
 
     try {
-      logger.info(`[GeminiImageService] Generating variation ${variationIndex + 1} with ${modelConfig.modelId} (Imagen)`);
+      logger.info(
+        `[GeminiImageService] Generating variation ${variationIndex + 1} with ${modelConfig.modelId} (Imagen)`
+      );
 
       const response = await this.client.models.generateImages({
         model: modelConfig.modelId,
         prompt: `${prompt}\n\nIMPORTANT: Preserve the exact geometric structure and lines of the sigil design. Do not distort or warp the core shapes.`,
         config: {
-          // @ts-ignore — numberOfImages is valid at runtime but missing from SDK
-          // type definitions for this SDK version; suppressed until upstream fix.
+          // numberOfImages: SDK accepts this at runtime; type def gap in some versions
+          // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+          // @ts-ignore
           numberOfImages: 1,
           aspectRatio: '1:1',
           includeRaiReason: true,
-        }
+        },
       });
 
       const generatedImage = response.generatedImages?.[0];
@@ -560,24 +699,32 @@ Integration rules:
       }
 
       const imageBytes = generatedImage.image.imageBytes;
-      const base64Data = typeof imageBytes === 'string' ? imageBytes : Buffer.from(imageBytes).toString('base64');
+      const base64Data =
+        typeof imageBytes === 'string' ? imageBytes : Buffer.from(imageBytes).toString('base64');
 
       return {
         base64: base64Data,
         seed: Math.floor(Math.random() * 1000000),
         variationIndex: variationIndex + 1,
       };
-
-    } catch (error: any) {
+    } catch (error: unknown) {
       const geminiError = this.parseError(error);
 
       if (geminiError.retryable && retryCount < maxRetries) {
         const waitTime = geminiError.retryAfterMs || Math.pow(2, retryCount) * 1000;
-        await new Promise((resolve) => setTimeout(resolve, waitTime));
-        return this.generateVariation(baseImageBuffer, prompt, variationIndex, modelConfig, retryCount + 1);
+        await new Promise(resolve => setTimeout(resolve, waitTime));
+        return this.generateVariation(
+          baseImageBuffer,
+          prompt,
+          variationIndex,
+          modelConfig,
+          retryCount + 1
+        );
       }
 
-      logger.error(`[GeminiImageService] Failed to generate variation ${variationIndex + 1}: ${geminiError.message}`);
+      logger.error(
+        `[GeminiImageService] Failed to generate variation ${variationIndex + 1}: ${geminiError.message}`
+      );
       throw geminiError;
     }
   }
@@ -592,13 +739,25 @@ Integration rules:
     const maxRetries = 3;
 
     try {
-      logger.info(`[GeminiImageService] Generating variation ${variationIndex + 1} with Nano Banana (${modelConfig.modelId})`);
+      logger.info(
+        `[GeminiImageService] Generating variation ${variationIndex + 1} with Nano Banana (${modelConfig.modelId})`
+      );
 
       const base64Image = baseImageBuffer.toString('base64');
 
       const CALL_TIMEOUT_MS = 60000; // 60s per individual API call
       const timeoutPromise = new Promise<never>((_, reject) =>
-        setTimeout(() => reject(new GeminiError(GeminiErrorType.NETWORK_ERROR, 'Gemini API call timed out after 60s', true)), CALL_TIMEOUT_MS)
+        setTimeout(
+          () =>
+            reject(
+              new GeminiError(
+                GeminiErrorType.NETWORK_ERROR,
+                'Gemini API call timed out after 60s',
+                true
+              )
+            ),
+          CALL_TIMEOUT_MS
+        )
       );
 
       const response = await Promise.race([
@@ -611,23 +770,23 @@ Integration rules:
                 {
                   text: `${prompt}
 
-REFERENCE IMAGE INSTRUCTION: The attached image shows the sigil structure that must be preserved. Keep the main lines, circles, and geometric shapes EXACTLY as shown. Add symbolic enhancements AROUND and BEHIND the sigil, not by altering its core geometry.`
+REFERENCE IMAGE INSTRUCTION: The attached image shows the sigil structure that must be preserved. Keep the main lines, circles, and geometric shapes EXACTLY as shown. Add symbolic enhancements AROUND and BEHIND the sigil, not by altering its core geometry.`,
                 },
                 {
                   inlineData: {
                     mimeType: 'image/png',
-                    data: base64Image
-                  }
-                }
-              ]
-            }
+                    data: base64Image,
+                  },
+                },
+              ],
+            },
           ],
           config: {
             responseModalities: ['IMAGE'],
             imageConfig: {
-              aspectRatio: '1:1'
-            }
-          }
+              aspectRatio: '1:1',
+            },
+          },
         }),
         timeoutPromise,
       ]);
@@ -648,13 +807,12 @@ REFERENCE IMAGE INSTRUCTION: The attached image shows the sigil structure that m
         seed: Math.floor(Math.random() * 1000000),
         variationIndex: variationIndex + 1,
       };
-
-    } catch (error: any) {
+    } catch (error: unknown) {
       const geminiError = this.parseError(error);
 
       if (geminiError.retryable && retryCount < maxRetries) {
         const waitTime = geminiError.retryAfterMs || Math.pow(2, retryCount) * 1000;
-        await new Promise((resolve) => setTimeout(resolve, waitTime));
+        await new Promise(resolve => setTimeout(resolve, waitTime));
         return this.generateVariationWithNanoBanana(
           baseImageBuffer,
           prompt,
@@ -664,24 +822,39 @@ REFERENCE IMAGE INSTRUCTION: The attached image shows the sigil structure that m
         );
       }
 
-      logger.error(`[GeminiImageService] Nano Banana failed for variation ${variationIndex + 1}: ${geminiError.message}`);
+      logger.error(
+        `[GeminiImageService] Nano Banana failed for variation ${variationIndex + 1}: ${geminiError.message}`
+      );
       throw geminiError;
     }
   }
 
-  private parseError(error: any): GeminiError {
-    const message = error?.message || error?.toString() || 'Unknown error';
+  private parseError(error: unknown): GeminiError {
+    const err = error as { message?: string; toString?: () => string };
+    const message = err?.message || err?.toString?.() || 'Unknown error';
 
-    if (message.includes('rate limit') || message.includes('quota exceeded') || message.includes('429')) {
+    if (
+      message.includes('rate limit') ||
+      message.includes('quota exceeded') ||
+      message.includes('429')
+    ) {
       return new GeminiError(GeminiErrorType.RATE_LIMIT, 'Rate limit exceeded.', true, 5000);
     }
     if (message.includes('safety') || message.includes('blocked')) {
-      return new GeminiError(GeminiErrorType.SAFETY_FILTER, 'Content blocked by safety filter', false);
+      return new GeminiError(
+        GeminiErrorType.SAFETY_FILTER,
+        'Content blocked by safety filter',
+        false
+      );
     }
     if (message.includes('API key') || message.includes('401') || message.includes('403')) {
       return new GeminiError(GeminiErrorType.INVALID_API_KEY, 'Invalid or missing API Key', false);
     }
-    if (message.includes('network') || message.includes('timeout') || message.includes('ECONNREFUSED')) {
+    if (
+      message.includes('network') ||
+      message.includes('timeout') ||
+      message.includes('ECONNREFUSED')
+    ) {
       return new GeminiError(GeminiErrorType.NETWORK_ERROR, 'Network error', true, 5000);
     }
 

@@ -7,7 +7,7 @@
 
 import { S3Client, DeleteObjectCommand } from '@aws-sdk/client-s3';
 import { Upload } from '@aws-sdk/lib-storage';
-import { v4 as uuidv4 } from 'uuid';
+import { v4 as _uuidv4 } from 'uuid';
 import axios from 'axios';
 import fs from 'fs';
 import path from 'path';
@@ -52,7 +52,7 @@ function getR2Client(): S3Client {
     // Allow mock mode if credentials missing
     // throw new Error('Cloudflare R2 credentials not configured');
     logger.warn('[Storage] R2 credentials missing. Running in mock mode.');
-    return null as any;
+    return null as unknown as S3Client;
   }
 
   // R2 endpoint format: https://<account_id>.r2.cloudflarestorage.com
@@ -103,10 +103,11 @@ export async function uploadImageFromBuffer(
 
     logger.info(`[Storage] Saved buffer to local disk: ${localFilePath}`);
     return buildLocalUploadUrl(fileName, options);
-
   } catch (error) {
     logger.error('[Storage] Upload from buffer error', error);
-    throw new Error(`Failed to upload image from buffer: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    throw new Error(
+      `Failed to upload image from buffer: ${error instanceof Error ? error.message : 'Unknown error'}`
+    );
   }
 }
 
@@ -147,7 +148,10 @@ export async function uploadImageFromUrl(
       });
 
       // Validate Content-Type — only accept recognised image MIME types
-      const contentType = (response.headers['content-type'] as string | undefined)?.split(';')[0].trim().toLowerCase();
+      const contentType = (response.headers['content-type'] as string | undefined)
+        ?.split(';')[0]
+        .trim()
+        .toLowerCase();
       if (contentType && !ALLOWED_IMAGE_MIME_TYPES.has(contentType)) {
         throw new Error(`Rejected upstream image with unsupported MIME type: ${contentType}`);
       }
@@ -165,12 +169,14 @@ export async function uploadImageFromUrl(
 
     // Delegate to uploadImageFromBuffer
     return uploadImageFromBuffer(buffer, userId, anchorId, variationIndex, options);
-
   } catch (error) {
     // Re-throw so callers (e.g. enhance-controlnet) can skip failed variations
     // or surface a 502 to the client. Silently returning the source URL would
     // mask storage failures and return transient upstream URLs that can expire.
-    logger.error('[Storage] Upload error', error instanceof Error ? error : new Error(String(error)));
+    logger.error(
+      '[Storage] Upload error',
+      error instanceof Error ? error : new Error(String(error))
+    );
     throw error;
   }
 }
@@ -223,7 +229,9 @@ export async function uploadAudio(
     return `https://${bucket}.r2.cloudflarestorage.com/${fileName}`;
   } catch (error) {
     logger.error('[Storage] Audio upload failed', error);
-    throw new Error(`Failed to upload audio: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    throw new Error(
+      `Failed to upload audio: ${error instanceof Error ? error.message : 'Unknown error'}`
+    );
   }
 }
 
@@ -274,7 +282,7 @@ export async function deleteAnchorFiles(userId: string, anchorId: string): Promi
 /**
  * Generate signed URL for private files (if needed)
  */
-export async function getSignedUrl(filePath: string, expiresIn: number = 3600): Promise<string> {
+export async function getSignedUrl(filePath: string, _expiresIn: number = 3600): Promise<string> {
   // For now, return public URL
   // In production, implement signed URLs for private content
   const publicDomain = process.env.CLOUDFLARE_R2_PUBLIC_DOMAIN;

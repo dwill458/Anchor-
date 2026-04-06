@@ -13,13 +13,13 @@ import { AIStyle } from '../services/AIEnhancer';
 // Test cases matching user's screenshots
 const testCases = [
   {
-    name: 'Strength in Gym (User\'s first example)',
+    name: "Strength in Gym (User's first example)",
     intentionText: 'strength in the gym',
     style: 'watercolor' as AIStyle,
     expected: 'Should include: muscles, dumbbells, fire, power symbols',
   },
   {
-    name: 'Boundaries (User\'s second example)',
+    name: "Boundaries (User's second example)",
     intentionText: 'boundaries and protection',
     style: 'sacred_geometry' as AIStyle,
     expected: 'Should include: chains, locks, shields, protective barriers',
@@ -60,51 +60,64 @@ console.log();
 
 const STYLE_PROMPTS: Record<AIStyle, { prompt: string; negativePrompt: string }> = {
   watercolor: {
-    prompt: 'Mystical watercolor sigil artwork, soft translucent washes, flowing colors, ethereal paper texture, gentle color bleeding',
-    negativePrompt: 'photography, realistic photo, 3d render, thick outlines, cartoon, solid colors',
+    prompt:
+      'Mystical watercolor sigil artwork, soft translucent washes, flowing colors, ethereal paper texture, gentle color bleeding',
+    negativePrompt:
+      'photography, realistic photo, 3d render, thick outlines, cartoon, solid colors',
   },
   sacred_geometry: {
-    prompt: 'Sacred geometry sigil with golden metallic sheen, precise mathematical lines, geometric perfection, subtle luminous glow',
+    prompt:
+      'Sacred geometry sigil with golden metallic sheen, precise mathematical lines, geometric perfection, subtle luminous glow',
     negativePrompt: 'organic, soft, messy, hand-drawn, curved, extra patterns',
   },
   ink_brush: {
-    prompt: 'Traditional ink brush calligraphy sigil, sumi-e aesthetic, ink wash gradients, rice paper texture, zen brush strokes',
+    prompt:
+      'Traditional ink brush calligraphy sigil, sumi-e aesthetic, ink wash gradients, rice paper texture, zen brush strokes',
     negativePrompt: 'digital, 3d, color, modern, thick lines',
   },
   gold_leaf: {
-    prompt: 'Illuminated manuscript sigil with gold leaf gilding, medieval luxury, precious metal sheen, ornate texture on lines',
+    prompt:
+      'Illuminated manuscript sigil with gold leaf gilding, medieval luxury, precious metal sheen, ornate texture on lines',
     negativePrompt: 'modern, photography, people, extra symbols',
   },
   cosmic: {
-    prompt: 'Cosmic celestial sigil glowing with ethereal energy, nebula colors, starlight, deep space background',
+    prompt:
+      'Cosmic celestial sigil glowing with ethereal energy, nebula colors, starlight, deep space background',
     negativePrompt: 'planets, faces, realistic photo, solid shapes',
   },
   minimal_line: {
-    prompt: 'Minimalist modern sigil with clean precise lines, contemporary design, subtle paper texture, crisp geometry',
+    prompt:
+      'Minimalist modern sigil with clean precise lines, contemporary design, subtle paper texture, crisp geometry',
     negativePrompt: 'texture, heavy shading, embellishment, ornate',
   },
   obsidian_mono: {
-    prompt: 'High-contrast monochrome obsidian sigil, deep black glass surface with sharp reflections, monochromatic finish',
+    prompt:
+      'High-contrast monochrome obsidian sigil, deep black glass surface with sharp reflections, monochromatic finish',
     negativePrompt: 'color, soft, organic, messy',
   },
   aurora_glow: {
-    prompt: 'Atmospheric aurora borealis sigil glow, shifting green purple and blue light curtains, ethereal polar light energy',
+    prompt:
+      'Atmospheric aurora borealis sigil glow, shifting green purple and blue light curtains, ethereal polar light energy',
     negativePrompt: 'solid shapes, sharp edges, photography',
   },
   ember_trace: {
-    prompt: 'Warm ember edge lighting sigil, glowing orange and red hot metal edges, cooling black surfaces, forge aesthetic',
+    prompt:
+      'Warm ember edge lighting sigil, glowing orange and red hot metal edges, cooling black surfaces, forge aesthetic',
     negativePrompt: 'cold colors, water, soft texture',
   },
   echo_chamber: {
-    prompt: 'Layered cyclical resonance sigil, subtle repeating ripple effects emanating from lines, echo wave patterns',
+    prompt:
+      'Layered cyclical resonance sigil, subtle repeating ripple effects emanating from lines, echo wave patterns',
     negativePrompt: 'sharp geometry, busy patterns, high contrast',
   },
   monolith_ink: {
-    prompt: 'Grounded heavy-line authority sigil, matte black architectural ink, heavy weight precise edges, stark minimalism',
+    prompt:
+      'Grounded heavy-line authority sigil, matte black architectural ink, heavy weight precise edges, stark minimalism',
     negativePrompt: 'soft brush, color, messy, organic',
   },
   celestial_grid: {
-    prompt: 'Celestial grid sigil with star chart precision, fine astronomical line work, deep space mapping aesthetic',
+    prompt:
+      'Celestial grid sigil with star chart precision, fine astronomical line work, deep space mapping aesthetic',
     negativePrompt: 'organic, hand-drawn, warm colors, soft',
   },
 };
@@ -115,33 +128,53 @@ function getSymbolInstructions(intentionText: string): string {
 
   // Thematic symbol mapping (same as GoogleVertexAI.ts)
   const themeMap: Record<string, string[]> = {
-    'strength': ['flexed muscles', 'flames of power', 'dumbbells', 'lions', 'oak trees'],
-    'gym': ['fitness equipment', 'strong arms', 'energy bursts'],
-    'power': ['lightning bolts', 'radiating energy', 'powerful animals', 'fire'],
-    'boundary': ['chains', 'locks', 'shields', 'protective barriers', 'celtic knots', 'fortress walls'],
-    'boundaries': ['chains', 'locks', 'shields', 'protective barriers', 'celtic knots', 'fortress walls'],
-    'protection': ['shields', 'armor', 'guardian animals', 'protective circles', 'thorns'],
-    'defense': ['walls', 'barriers', 'shields', 'hedges'],
-    'prosperity': ['gold coins', 'cornucopia', 'flowing water', 'abundance symbols', 'harvest imagery'],
-    'wealth': ['treasure', 'gems', 'golden rays', 'overflowing vessels'],
-    'abundance': ['full baskets', 'fruit', 'flowers blooming', 'multiplication symbols'],
-    'love': ['hearts', 'roses', 'intertwined vines', 'doves', 'cupid imagery'],
-    'relationship': ['linked circles', 'infinity symbols', 'paired elements', 'harmony symbols'],
-    'romance': ['roses', 'hearts', 'moonlight', 'romantic imagery'],
-    'wisdom': ['owls', 'books', 'ancient scrolls', 'eye symbols', 'light rays'],
-    'knowledge': ['books', 'quills', 'scrolls', 'lanterns', 'keys'],
-    'learning': ['open books', 'growing trees', 'ascending stairs', 'light bulbs'],
-    'health': ['medical symbols', 'healing herbs', 'vitality spirals', 'green energy'],
-    'healing': ['bandages', 'herbs', 'water', 'gentle light', 'restoration symbols'],
-    'success': ['laurel wreaths', 'trophies', 'ascending arrows', 'stars', 'peaks'],
-    'achievement': ['medals', 'crowns', 'victory symbols', 'ascending paths'],
-    'victory': ['laurel crowns', 'eagles', 'triumphant imagery', 'raised swords'],
-    'peace': ['doves', 'olive branches', 'calm waters', 'zen circles', 'soft clouds'],
-    'calm': ['still water', 'gentle waves', 'soft light', 'floating feathers'],
-    'serenity': ['lotus flowers', 'meditation symbols', 'balanced stones', 'tranquil scenes'],
-    'creativity': ['paintbrushes', 'musical notes', 'flowing ribbons', 'bursts of color'],
-    'inspiration': ['light bulbs', 'shooting stars', 'divine rays', 'muses'],
-    'art': ['palettes', 'brushes', 'creative tools', 'colorful splashes'],
+    strength: ['flexed muscles', 'flames of power', 'dumbbells', 'lions', 'oak trees'],
+    gym: ['fitness equipment', 'strong arms', 'energy bursts'],
+    power: ['lightning bolts', 'radiating energy', 'powerful animals', 'fire'],
+    boundary: [
+      'chains',
+      'locks',
+      'shields',
+      'protective barriers',
+      'celtic knots',
+      'fortress walls',
+    ],
+    boundaries: [
+      'chains',
+      'locks',
+      'shields',
+      'protective barriers',
+      'celtic knots',
+      'fortress walls',
+    ],
+    protection: ['shields', 'armor', 'guardian animals', 'protective circles', 'thorns'],
+    defense: ['walls', 'barriers', 'shields', 'hedges'],
+    prosperity: [
+      'gold coins',
+      'cornucopia',
+      'flowing water',
+      'abundance symbols',
+      'harvest imagery',
+    ],
+    wealth: ['treasure', 'gems', 'golden rays', 'overflowing vessels'],
+    abundance: ['full baskets', 'fruit', 'flowers blooming', 'multiplication symbols'],
+    love: ['hearts', 'roses', 'intertwined vines', 'doves', 'cupid imagery'],
+    relationship: ['linked circles', 'infinity symbols', 'paired elements', 'harmony symbols'],
+    romance: ['roses', 'hearts', 'moonlight', 'romantic imagery'],
+    wisdom: ['owls', 'books', 'ancient scrolls', 'eye symbols', 'light rays'],
+    knowledge: ['books', 'quills', 'scrolls', 'lanterns', 'keys'],
+    learning: ['open books', 'growing trees', 'ascending stairs', 'light bulbs'],
+    health: ['medical symbols', 'healing herbs', 'vitality spirals', 'green energy'],
+    healing: ['bandages', 'herbs', 'water', 'gentle light', 'restoration symbols'],
+    success: ['laurel wreaths', 'trophies', 'ascending arrows', 'stars', 'peaks'],
+    achievement: ['medals', 'crowns', 'victory symbols', 'ascending paths'],
+    victory: ['laurel crowns', 'eagles', 'triumphant imagery', 'raised swords'],
+    peace: ['doves', 'olive branches', 'calm waters', 'zen circles', 'soft clouds'],
+    calm: ['still water', 'gentle waves', 'soft light', 'floating feathers'],
+    serenity: ['lotus flowers', 'meditation symbols', 'balanced stones', 'tranquil scenes'],
+    creativity: ['paintbrushes', 'musical notes', 'flowing ribbons', 'bursts of color'],
+    inspiration: ['light bulbs', 'shooting stars', 'divine rays', 'muses'],
+    art: ['palettes', 'brushes', 'creative tools', 'colorful splashes'],
   };
 
   // Match themes and collect symbols

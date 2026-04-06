@@ -17,7 +17,9 @@ export function getFirebaseAdmin(): admin.app.App {
         !projectId && 'FIREBASE_PROJECT_ID',
         !privateKey && 'FIREBASE_PRIVATE_KEY',
         !clientEmail && 'FIREBASE_CLIENT_EMAIL',
-      ].filter(Boolean).join(', ');
+      ]
+        .filter(Boolean)
+        .join(', ');
       logger.error(`Firebase Admin SDK configuration incomplete — missing: ${missing}`);
       throw new Error('Authentication service is not configured');
     }
@@ -27,7 +29,10 @@ export function getFirebaseAdmin(): admin.app.App {
         credential: admin.credential.cert({ projectId, privateKey, clientEmail }),
       });
     } catch (initError) {
-      logger.error('Firebase Admin SDK failed to initialize', initError instanceof Error ? initError : new Error(String(initError)));
+      logger.error(
+        'Firebase Admin SDK failed to initialize',
+        initError instanceof Error ? initError : new Error(String(initError))
+      );
       throw new Error('Authentication service failed to initialize');
     }
 

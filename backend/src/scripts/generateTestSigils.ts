@@ -21,27 +21,53 @@ interface SigilGenerationResult {
 }
 
 const NUMEROLOGY_MAP: Record<string, number> = {
-  A: 1, J: 1, S: 1,
-  B: 2, K: 2, T: 2,
-  C: 3, L: 3, U: 3,
-  D: 4, M: 4, V: 4,
-  E: 5, N: 5, W: 5,
-  F: 6, O: 6, X: 6,
-  G: 7, P: 7, Y: 7,
-  H: 8, Q: 8, Z: 8,
-  I: 9, R: 9
+  A: 1,
+  J: 1,
+  S: 1,
+  B: 2,
+  K: 2,
+  T: 2,
+  C: 3,
+  L: 3,
+  U: 3,
+  D: 4,
+  M: 4,
+  V: 4,
+  E: 5,
+  N: 5,
+  W: 5,
+  F: 6,
+  O: 6,
+  X: 6,
+  G: 7,
+  P: 7,
+  Y: 7,
+  H: 8,
+  Q: 8,
+  Z: 8,
+  I: 9,
+  R: 9,
 };
 
 const GRID_COORDS: Record<number, { x: number; y: number }> = {
-  1: { x: 20, y: 20 }, 2: { x: 50, y: 20 }, 3: { x: 80, y: 20 },
-  4: { x: 20, y: 50 }, 5: { x: 50, y: 50 }, 6: { x: 80, y: 50 },
-  7: { x: 20, y: 80 }, 8: { x: 50, y: 80 }, 9: { x: 80, y: 80 }
+  1: { x: 20, y: 20 },
+  2: { x: 50, y: 20 },
+  3: { x: 80, y: 20 },
+  4: { x: 20, y: 50 },
+  5: { x: 50, y: 50 },
+  6: { x: 80, y: 50 },
+  7: { x: 20, y: 80 },
+  8: { x: 50, y: 80 },
+  9: { x: 80, y: 80 },
 };
 
 function processIntent(letters: string[] | string, variant: SigilVariant): number[] {
   let rawText = '';
   if (Array.isArray(letters)) {
-    rawText = letters.join('').toUpperCase().replace(/[^A-Z]/g, '');
+    rawText = letters
+      .join('')
+      .toUpperCase()
+      .replace(/[^A-Z]/g, '');
   } else if (typeof letters === 'string') {
     rawText = letters.toUpperCase().replace(/[^A-Z]/g, '');
   }
@@ -243,7 +269,7 @@ const TEST_SIGILS: TestSigil[] = [
 
 async function main() {
   console.log('🚀 Spike Phase: Generating Test Sigils\n');
-  console.log('=' .repeat(60));
+  console.log('='.repeat(60));
 
   // Create output directories
   const outputDir = path.join(process.cwd(), 'spike-phase');
@@ -292,7 +318,6 @@ async function main() {
         svgSize: result.svg.length,
         pngSize: pngBuffer.length,
       });
-
     } catch (error) {
       console.error(`   ❌ Error generating sigil ${test.id}:`, error);
     }

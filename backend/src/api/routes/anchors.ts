@@ -13,8 +13,15 @@ import { prisma } from '../../lib/prisma';
 import { logger } from '../../utils/logger';
 
 // Whitelist of columns that may be used in ORDER BY to prevent injection
-const ALLOWED_ORDER_BY = ['updatedAt', 'createdAt', 'category', 'intentionText', 'activationCount', 'lastActivatedAt'] as const;
-type AllowedOrderBy = typeof ALLOWED_ORDER_BY[number];
+const ALLOWED_ORDER_BY = [
+  'updatedAt',
+  'createdAt',
+  'category',
+  'intentionText',
+  'activationCount',
+  'lastActivatedAt',
+] as const;
+type AllowedOrderBy = (typeof ALLOWED_ORDER_BY)[number];
 
 const router = Router();
 
@@ -26,12 +33,16 @@ const CreateAnchorSchema = z.object({
   intentionText: z.string().min(1).max(500),
   category: z.string().min(1),
   distilledLetters: z.array(z.string()).min(1),
-  baseSigilSvg: z.string().min(1).max(5_000_000)
-    .refine(isSafeSvg, { message: 'SVG contains disallowed content (scripts, event handlers, or external URLs)' }),
+  baseSigilSvg: z.string().min(1).max(5_000_000).refine(isSafeSvg, {
+    message: 'SVG contains disallowed content (scripts, event handlers, or external URLs)',
+  }),
   structureVariant: StructureVariantEnum.optional(),
   // Optional fields passed through without strict validation
-  reinforcedSigilSvg: z.string()
-    .refine(isSafeSvg, { message: 'SVG contains disallowed content (scripts, event handlers, or external URLs)' })
+  reinforcedSigilSvg: z
+    .string()
+    .refine(isSafeSvg, {
+      message: 'SVG contains disallowed content (scripts, event handlers, or external URLs)',
+    })
     .optional(),
   reinforcementMetadata: z.unknown().optional(),
   enhancedImageUrl: z.string().optional(),
@@ -45,9 +56,14 @@ const UpdateAnchorSchema = z.object({
   intentionText: z.string().min(1).max(500).optional(),
   category: z.string().min(1).max(100).optional(),
   structureVariant: StructureVariantEnum.optional(),
-  reinforcedSigilSvg: z.string().max(5_000_000)
-    .refine(isSafeSvg, { message: 'SVG contains disallowed content (scripts, event handlers, or external URLs)' })
-    .nullable().optional(),
+  reinforcedSigilSvg: z
+    .string()
+    .max(5_000_000)
+    .refine(isSafeSvg, {
+      message: 'SVG contains disallowed content (scripts, event handlers, or external URLs)',
+    })
+    .nullable()
+    .optional(),
   reinforcementMetadata: z.unknown().optional(),
   enhancedImageUrl: z.string().url().max(2048).nullable().optional(),
   enhancementMetadata: z.unknown().optional(),
@@ -84,8 +100,8 @@ const ActivateAnchorSchema = z.object({
  */
 function isSafeSvg(svg: string): boolean {
   if (/<script[\s>]/i.test(svg)) return false;
-  if (/\bon\w+\s*=/i.test(svg)) return false;         // onload=, onclick=, etc.
-  if (/javascript\s*:/i.test(svg)) return false;       // javascript: URIs
+  if (/\bon\w+\s*=/i.test(svg)) return false; // onload=, onclick=, etc.
+  if (/javascript\s*:/i.test(svg)) return false; // javascript: URIs
   if (/data\s*:\s*text\/html/i.test(svg)) return false; // data:text/html URIs
   // Reject absolute external URLs in href/xlink:href/src attributes
   if (/(?:href|src)\s*=\s*["']https?:\/\//i.test(svg)) return false;
@@ -255,7 +271,11 @@ router.get('/', async (req: AuthRequest, res: Response, next: NextFunction) => {
     if (req.query.category) {
       const categoryResult = z.string().min(1).max(100).safeParse(req.query.category);
       if (!categoryResult.success) {
-        throw new AppError('Invalid category filter: must be 1–100 characters', 400, 'VALIDATION_ERROR');
+        throw new AppError(
+          'Invalid category filter: must be 1–100 characters',
+          400,
+          'VALIDATION_ERROR'
+        );
       }
       where.category = categoryResult.data;
     }
@@ -276,9 +296,7 @@ router.get('/', async (req: AuthRequest, res: Response, next: NextFunction) => {
     // Cap limit to prevent DoS via unbounded queries; default 20, max 100.
     const rawLimit = req.query.limit ? parseInt(req.query.limit as string, 10) : undefined;
     const limit =
-      rawLimit !== undefined && !isNaN(rawLimit) && rawLimit > 0
-        ? Math.min(rawLimit, 100)
-        : 20;
+      rawLimit !== undefined && !isNaN(rawLimit) && rawLimit > 0 ? Math.min(rawLimit, 100) : 20;
 
     // Cursor-based pagination: stable under concurrent writes, O(1) offset
     const cursor = req.query.cursor as string | undefined;
@@ -435,9 +453,11 @@ router.put('/:id', async (req: AuthRequest, res: Response, next: NextFunction) =
     if (category !== undefined) allowedUpdates.category = String(category);
     if (structureVariant !== undefined) allowedUpdates.structureVariant = String(structureVariant);
     if (reinforcedSigilSvg !== undefined) allowedUpdates.reinforcedSigilSvg = reinforcedSigilSvg;
-    if (reinforcementMetadata !== undefined) allowedUpdates.reinforcementMetadata = reinforcementMetadata ?? Prisma.JsonNull;
+    if (reinforcementMetadata !== undefined)
+      allowedUpdates.reinforcementMetadata = reinforcementMetadata ?? Prisma.JsonNull;
     if (enhancedImageUrl !== undefined) allowedUpdates.enhancedImageUrl = enhancedImageUrl;
-    if (enhancementMetadata !== undefined) allowedUpdates.enhancementMetadata = enhancementMetadata ?? Prisma.JsonNull;
+    if (enhancementMetadata !== undefined)
+      allowedUpdates.enhancementMetadata = enhancementMetadata ?? Prisma.JsonNull;
     if (mantraText !== undefined) allowedUpdates.mantraText = mantraText;
     if (mantraPronunciation !== undefined) allowedUpdates.mantraPronunciation = mantraPronunciation;
     if (mantraAudioUrl !== undefined) allowedUpdates.mantraAudioUrl = mantraAudioUrl;
@@ -445,7 +465,8 @@ router.put('/:id', async (req: AuthRequest, res: Response, next: NextFunction) =
     if (chargedAt !== undefined) allowedUpdates.chargedAt = chargedAt ? new Date(chargedAt) : null;
     if (chargeMethod !== undefined) allowedUpdates.chargeMethod = chargeMethod;
     if (isArchived !== undefined) allowedUpdates.isArchived = Boolean(isArchived);
-    if (archivedAt !== undefined) allowedUpdates.archivedAt = archivedAt ? new Date(archivedAt) : null;
+    if (archivedAt !== undefined)
+      allowedUpdates.archivedAt = archivedAt ? new Date(archivedAt) : null;
     if (isShared !== undefined) allowedUpdates.isShared = Boolean(isShared);
     if (sharedAt !== undefined) allowedUpdates.sharedAt = sharedAt ? new Date(sharedAt) : null;
 
@@ -662,7 +683,7 @@ router.post('/:id/burn', async (req: AuthRequest, res: Response, next: NextFunct
     }
 
     // Use a transaction to ensure atomicity
-    const result = await prisma.$transaction(async (tx) => {
+    const result = await prisma.$transaction(async tx => {
       // 1. Create entry in burned_anchors
       const burnedAnchor = await tx.burnedAnchor.create({
         data: {

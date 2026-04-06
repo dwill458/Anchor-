@@ -124,9 +124,7 @@ describe('POST /api/anchors', () => {
     (mockPrisma.anchor.create as jest.Mock).mockResolvedValue(MOCK_ANCHOR);
     (mockPrisma.user.update as jest.Mock).mockResolvedValue(MOCK_DB_USER);
 
-    const res = await request(buildApp())
-      .post('/api/anchors')
-      .send(VALID_CREATE_BODY);
+    const res = await request(buildApp()).post('/api/anchors').send(VALID_CREATE_BODY);
 
     expect(res.status).toBe(201);
     expect(res.body.success).toBe(true);
@@ -170,9 +168,7 @@ describe('POST /api/anchors', () => {
   it('returns 404 when user not found in database', async () => {
     (mockPrisma.user.findUnique as jest.Mock).mockResolvedValue(null);
 
-    const res = await request(buildApp())
-      .post('/api/anchors')
-      .send(VALID_CREATE_BODY);
+    const res = await request(buildApp()).post('/api/anchors').send(VALID_CREATE_BODY);
 
     expect(res.status).toBe(404);
     expect(res.body.error.code).toBe('USER_NOT_FOUND');
@@ -182,9 +178,7 @@ describe('POST /api/anchors', () => {
     (mockPrisma.user.findUnique as jest.Mock).mockResolvedValue(MOCK_DB_USER);
     (mockPrisma.anchor.create as jest.Mock).mockRejectedValue(new Error('DB crash'));
 
-    const res = await request(buildApp())
-      .post('/api/anchors')
-      .send(VALID_CREATE_BODY);
+    const res = await request(buildApp()).post('/api/anchors').send(VALID_CREATE_BODY);
 
     expect(res.status).toBe(500);
     expect(res.body.error.code).toBe('CREATE_ERROR');
@@ -236,9 +230,7 @@ describe('GET /api/anchors', () => {
 
     await request(buildApp()).get('/api/anchors?limit=9999');
 
-    expect(mockPrisma.anchor.findMany).toHaveBeenCalledWith(
-      expect.objectContaining({ take: 100 })
-    );
+    expect(mockPrisma.anchor.findMany).toHaveBeenCalledWith(expect.objectContaining({ take: 100 }));
   });
 
   it('ignores negative limit values', async () => {
@@ -484,7 +476,9 @@ describe('POST /api/anchors/:id/activate', () => {
     expect(res.body.data.activationCount).toBe(1);
     expect(mockPrisma.activation.create).toHaveBeenCalledTimes(1);
     expect(mockPrisma.user.update).toHaveBeenCalledWith(
-      expect.objectContaining({ data: expect.objectContaining({ totalActivations: { increment: 1 } }) })
+      expect.objectContaining({
+        data: expect.objectContaining({ totalActivations: { increment: 1 } }),
+      })
     );
   });
 

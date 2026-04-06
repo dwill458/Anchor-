@@ -95,9 +95,9 @@ describe('StorageService', () => {
         throw new Error('Disk full');
       });
 
-      await expect(
-        uploadImageFromBuffer(Buffer.from('data'), 'user', 'anchor', 0)
-      ).rejects.toThrow('Failed to upload image from buffer');
+      await expect(uploadImageFromBuffer(Buffer.from('data'), 'user', 'anchor', 0)).rejects.toThrow(
+        'Failed to upload image from buffer'
+      );
     });
   });
 
@@ -177,9 +177,9 @@ describe('StorageService', () => {
         done: jest.fn().mockRejectedValue(new Error('R2 error')),
       }));
 
-      await expect(
-        uploadAudio(Buffer.from('audio'), 'user', 'anchor', 'rhythmic')
-      ).rejects.toThrow('Failed to upload audio');
+      await expect(uploadAudio(Buffer.from('audio'), 'user', 'anchor', 'rhythmic')).rejects.toThrow(
+        'Failed to upload audio'
+      );
     });
   });
 

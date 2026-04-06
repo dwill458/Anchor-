@@ -48,7 +48,11 @@ class EnvValidationError extends Error {
   }
 }
 
-function validateString(key: string, value: unknown, required: boolean = false): string | undefined {
+function validateString(
+  key: string,
+  value: unknown,
+  required: boolean = false
+): string | undefined {
   if (value === undefined || value === null || value === '') {
     if (required) {
       throw new EnvValidationError(`Required environment variable ${key} is missing or empty`);
@@ -112,23 +116,53 @@ export function validateEnv(): EnvConfig {
 
       // Auth (optional - for future use)
       FIREBASE_PROJECT_ID: validateString('FIREBASE_PROJECT_ID', process.env.FIREBASE_PROJECT_ID),
-      FIREBASE_PRIVATE_KEY: validateString('FIREBASE_PRIVATE_KEY', process.env.FIREBASE_PRIVATE_KEY),
-      FIREBASE_CLIENT_EMAIL: validateString('FIREBASE_CLIENT_EMAIL', process.env.FIREBASE_CLIENT_EMAIL),
+      FIREBASE_PRIVATE_KEY: validateString(
+        'FIREBASE_PRIVATE_KEY',
+        process.env.FIREBASE_PRIVATE_KEY
+      ),
+      FIREBASE_CLIENT_EMAIL: validateString(
+        'FIREBASE_CLIENT_EMAIL',
+        process.env.FIREBASE_CLIENT_EMAIL
+      ),
 
       // AI Services (optional - mock mode available)
       REPLICATE_API_TOKEN: validateString('REPLICATE_API_TOKEN', process.env.REPLICATE_API_TOKEN),
 
       // Storage (optional - mock mode available)
-      CLOUDFLARE_ACCOUNT_ID: validateString('CLOUDFLARE_ACCOUNT_ID', process.env.CLOUDFLARE_ACCOUNT_ID),
-      CLOUDFLARE_R2_ACCESS_KEY_ID: validateString('CLOUDFLARE_R2_ACCESS_KEY_ID', process.env.CLOUDFLARE_R2_ACCESS_KEY_ID),
-      CLOUDFLARE_R2_SECRET_ACCESS_KEY: validateString('CLOUDFLARE_R2_SECRET_ACCESS_KEY', process.env.CLOUDFLARE_R2_SECRET_ACCESS_KEY),
-      CLOUDFLARE_R2_BUCKET_NAME: validateString('CLOUDFLARE_R2_BUCKET_NAME', process.env.CLOUDFLARE_R2_BUCKET_NAME),
-      CLOUDFLARE_R2_PUBLIC_DOMAIN: validateString('CLOUDFLARE_R2_PUBLIC_DOMAIN', process.env.CLOUDFLARE_R2_PUBLIC_DOMAIN),
+      CLOUDFLARE_ACCOUNT_ID: validateString(
+        'CLOUDFLARE_ACCOUNT_ID',
+        process.env.CLOUDFLARE_ACCOUNT_ID
+      ),
+      CLOUDFLARE_R2_ACCESS_KEY_ID: validateString(
+        'CLOUDFLARE_R2_ACCESS_KEY_ID',
+        process.env.CLOUDFLARE_R2_ACCESS_KEY_ID
+      ),
+      CLOUDFLARE_R2_SECRET_ACCESS_KEY: validateString(
+        'CLOUDFLARE_R2_SECRET_ACCESS_KEY',
+        process.env.CLOUDFLARE_R2_SECRET_ACCESS_KEY
+      ),
+      CLOUDFLARE_R2_BUCKET_NAME: validateString(
+        'CLOUDFLARE_R2_BUCKET_NAME',
+        process.env.CLOUDFLARE_R2_BUCKET_NAME
+      ),
+      CLOUDFLARE_R2_PUBLIC_DOMAIN: validateString(
+        'CLOUDFLARE_R2_PUBLIC_DOMAIN',
+        process.env.CLOUDFLARE_R2_PUBLIC_DOMAIN
+      ),
 
       // TTS (optional)
-      GOOGLE_CLOUD_PROJECT_ID: validateString('GOOGLE_CLOUD_PROJECT_ID', process.env.GOOGLE_CLOUD_PROJECT_ID),
-      GOOGLE_CLOUD_PRIVATE_KEY: validateString('GOOGLE_CLOUD_PRIVATE_KEY', process.env.GOOGLE_CLOUD_PRIVATE_KEY),
-      GOOGLE_CLOUD_CLIENT_EMAIL: validateString('GOOGLE_CLOUD_CLIENT_EMAIL', process.env.GOOGLE_CLOUD_CLIENT_EMAIL),
+      GOOGLE_CLOUD_PROJECT_ID: validateString(
+        'GOOGLE_CLOUD_PROJECT_ID',
+        process.env.GOOGLE_CLOUD_PROJECT_ID
+      ),
+      GOOGLE_CLOUD_PRIVATE_KEY: validateString(
+        'GOOGLE_CLOUD_PRIVATE_KEY',
+        process.env.GOOGLE_CLOUD_PRIVATE_KEY
+      ),
+      GOOGLE_CLOUD_CLIENT_EMAIL: validateString(
+        'GOOGLE_CLOUD_CLIENT_EMAIL',
+        process.env.GOOGLE_CLOUD_CLIENT_EMAIL
+      ),
       GOOGLE_API_KEY: validateString('GOOGLE_API_KEY', process.env.GOOGLE_API_KEY),
 
       // JWT (required in production)

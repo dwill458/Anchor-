@@ -48,42 +48,49 @@ const AI_STYLES: AIStyle[] = [
     name: 'watercolor',
     method: 'lineart',
     category: 'organic',
-    prompt: 'flowing watercolor painting, soft edges, translucent washes, mystical sigil symbol, artistic brushstrokes',
-    negativePrompt: 'new shapes, additional symbols, text, faces, people, photography, realistic, 3d',
+    prompt:
+      'flowing watercolor painting, soft edges, translucent washes, mystical sigil symbol, artistic brushstrokes',
+    negativePrompt:
+      'new shapes, additional symbols, text, faces, people, photography, realistic, 3d',
   },
   {
     name: 'sacred_geometry',
     method: 'canny',
     category: 'geometric',
-    prompt: 'sacred geometry, precise golden lines, geometric perfection, mystical symbol etched in gold, mathematical precision',
+    prompt:
+      'sacred geometry, precise golden lines, geometric perfection, mystical symbol etched in gold, mathematical precision',
     negativePrompt: 'new shapes, additional symbols, text, faces, organic, soft, messy, hand-drawn',
   },
   {
     name: 'ink_brush',
     method: 'lineart',
     category: 'organic',
-    prompt: 'traditional ink brush calligraphy, flowing brushstrokes, zen aesthetic, black ink on paper, japanese sumi-e',
+    prompt:
+      'traditional ink brush calligraphy, flowing brushstrokes, zen aesthetic, black ink on paper, japanese sumi-e',
     negativePrompt: 'new shapes, additional symbols, text, digital, 3d, color, modern',
   },
   {
     name: 'gold_leaf',
     method: 'canny', // Test both in actual run
     category: 'hybrid',
-    prompt: 'illuminated manuscript, gold leaf gilding, ornate medieval style, precious metal, luxurious texture',
+    prompt:
+      'illuminated manuscript, gold leaf gilding, ornate medieval style, precious metal, luxurious texture',
     negativePrompt: 'new shapes, additional symbols, text, modern, photography, people',
   },
   {
     name: 'cosmic',
     method: 'lineart',
     category: 'organic',
-    prompt: 'cosmic energy, nebula, starlight, glowing ethereal sigil in deep space, celestial magic',
+    prompt:
+      'cosmic energy, nebula, starlight, glowing ethereal sigil in deep space, celestial magic',
     negativePrompt: 'new shapes, additional symbols, text, faces, planets, realistic, photography',
   },
   {
     name: 'minimal_line',
     method: 'canny',
     category: 'geometric',
-    prompt: 'minimal line art, clean precise lines, modern minimalist, single color on white, graphic design',
+    prompt:
+      'minimal line art, clean precise lines, modern minimalist, single color on white, graphic design',
     negativePrompt: 'new shapes, additional symbols, texture, shading, embellishment, ornate',
   },
 ];
@@ -153,26 +160,24 @@ async function testControlNet(
     const dataUrl = `data:image/png;base64,${base64Image}`;
 
     // Determine ControlNet model based on method
-    const model = style.method === 'canny'
-      ? 'thibaud/controlnet-sd21:4f7051fa33eb78dd45589a094eb1f3b19cd05cc1c06a4ab3fd0c90456dc10fb0'
-      : 'thibaud/controlnet-sd21:4f7051fa33eb78dd45589a094eb1f3b19cd05cc1c06a4ab3fd0c90456dc10fb0'; // Same model, different preprocessing
+    const model =
+      style.method === 'canny'
+        ? 'thibaud/controlnet-sd21:4f7051fa33eb78dd45589a094eb1f3b19cd05cc1c06a4ab3fd0c90456dc10fb0'
+        : 'thibaud/controlnet-sd21:4f7051fa33eb78dd45589a094eb1f3b19cd05cc1c06a4ab3fd0c90456dc10fb0'; // Same model, different preprocessing
 
     // Run ControlNet
-    const output = await replicate.run(
-      model,
-      {
-        input: {
-          image: dataUrl,
-          prompt: style.prompt,
-          negative_prompt: style.negativePrompt,
-          structure: style.method, // 'canny' or 'lineart'
-          controlnet_conditioning_scale: config.conditioning_scale,
-          guidance_scale: config.guidance_scale,
-          num_inference_steps: config.num_inference_steps,
-          num_outputs: 1,
-        },
-      }
-    ) as any;
+    const output = (await replicate.run(model, {
+      input: {
+        image: dataUrl,
+        prompt: style.prompt,
+        negative_prompt: style.negativePrompt,
+        structure: style.method, // 'canny' or 'lineart'
+        controlnet_conditioning_scale: config.conditioning_scale,
+        guidance_scale: config.guidance_scale,
+        num_inference_steps: config.num_inference_steps,
+        num_outputs: 1,
+      },
+    })) as any;
 
     const generationTimeMs = Date.now() - startTime;
 
@@ -190,7 +195,6 @@ async function testControlNet(
       outputUrl,
       generationTimeMs,
     };
-
   } catch (error) {
     const generationTimeMs = Date.now() - startTime;
     console.log(`      ❌ Failed after ${generationTimeMs}ms`);
@@ -259,12 +263,7 @@ async function main() {
     console.log(`\n[Sigil ${sigil.id}/10] ${sigil.intention}`);
     console.log(`   Variant: ${sigil.variant} | Complexity: ${sigil.complexity}`);
 
-    const imagePath = path.join(
-      process.cwd(),
-      'spike-phase',
-      'test-sigils-png',
-      sigil.pngPath
-    );
+    const imagePath = path.join(process.cwd(), 'spike-phase', 'test-sigils-png', sigil.pngPath);
 
     for (const style of AI_STYLES) {
       testCount++;
@@ -301,20 +300,27 @@ async function main() {
   const failureCount = results.filter(r => !r.success).length;
 
   console.log(`Total tests: ${results.length}`);
-  console.log(`✅ Successful: ${successCount} (${((successCount / results.length) * 100).toFixed(1)}%)`);
-  console.log(`❌ Failed: ${failureCount} (${((failureCount / results.length) * 100).toFixed(1)}%)`);
+  console.log(
+    `✅ Successful: ${successCount} (${((successCount / results.length) * 100).toFixed(1)}%)`
+  );
+  console.log(
+    `❌ Failed: ${failureCount} (${((failureCount / results.length) * 100).toFixed(1)}%)`
+  );
 
   console.log('\n📈 Results by Style:\n');
 
   for (const style of AI_STYLES) {
     const styleResults = results.filter(r => r.styleName === style.name);
     const styleSuccess = styleResults.filter(r => r.success).length;
-    const avgTime = styleResults
-      .filter(r => r.generationTimeMs)
-      .reduce((sum, r) => sum + (r.generationTimeMs || 0), 0) / styleResults.length;
+    const avgTime =
+      styleResults
+        .filter(r => r.generationTimeMs)
+        .reduce((sum, r) => sum + (r.generationTimeMs || 0), 0) / styleResults.length;
 
     console.log(`   ${style.name}:`);
-    console.log(`      Success: ${styleSuccess}/${styleResults.length} | Avg Time: ${Math.round(avgTime)}ms | Method: ${style.method}`);
+    console.log(
+      `      Success: ${styleSuccess}/${styleResults.length} | Avg Time: ${Math.round(avgTime)}ms | Method: ${style.method}`
+    );
   }
 
   // Save full results
