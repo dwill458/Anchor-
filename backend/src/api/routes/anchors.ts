@@ -10,6 +10,7 @@ import { Prisma } from '@prisma/client';
 import { AuthRequest, authMiddleware } from '../middleware/auth';
 import { AppError } from '../middleware/errorHandler';
 import { prisma } from '../../lib/prisma';
+import { logger } from '../../utils/logger';
 
 // Whitelist of columns that may be used in ORDER BY to prevent injection
 const ALLOWED_ORDER_BY = ['updatedAt', 'createdAt', 'category', 'intentionText', 'activationCount', 'lastActivatedAt'] as const;
@@ -644,8 +645,8 @@ router.post('/:id/activate', async (req: AuthRequest, res: Response, next: NextF
 /**
  * POST /api/anchors/:id/burn
  *
- * Archive an anchor and create a BurnedAnchor snapshot record.
- * Atomic: both operations succeed or neither does.
+ * Perform the burning ritual: create a BurnedAnchor snapshot then hard-delete
+ * the original anchor. Atomic — both succeed or neither does.
  */
 router.post('/:id/burn', async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
@@ -660,36 +661,43 @@ router.post('/:id/burn', async (req: AuthRequest, res: Response, next: NextFunct
       throw new AppError('Anchor not found', 404, 'ANCHOR_NOT_FOUND');
     }
 
-    if (anchor.isArchived) {
-      throw new AppError('Anchor is already archived', 400, 'ALREADY_ARCHIVED');
-    }
-
-    await prisma.$transaction([
-      prisma.burnedAnchor.create({
+    // Use a transaction to ensure atomicity
+    const result = await prisma.$transaction(async (tx) => {
+      // 1. Create entry in burned_anchors
+      const burnedAnchor = await tx.burnedAnchor.create({
         data: {
           originalAnchorId: anchor.id,
           userId,
           intentionText: anchor.intentionText,
           category: anchor.category,
-          distilledLetters: [],
+          distilledLetters: anchor.distilledLetters,
           baseSigilSvg: anchor.baseSigilSvg,
           enhancedImageUrl: anchor.enhancedImageUrl ?? null,
           activationCount: anchor.activationCount,
           createdAt: anchor.createdAt,
+          burnedAt: new Date(),
         },
-      }),
-      prisma.anchor.update({
-        where: { id },
-        data: { isArchived: true, archivedAt: new Date() },
-      }),
-    ]);
+      });
 
-    res.json({ success: true, data: { burned: true } });
+      // 2. Delete original anchor (cascades to activations/charges)
+      await tx.anchor.delete({
+        where: { id: anchor.id },
+      });
+
+      return burnedAnchor;
+    });
+
+    res.json({
+      success: true,
+      data: result,
+      message: 'Anchor burned and archived successfully',
+    });
   } catch (error) {
     if (error instanceof AppError) {
       next(error);
       return;
     }
+    logger.error('[Anchors] Burn error', error instanceof Error ? error : new Error(String(error)));
     next(new AppError('Failed to burn anchor', 500, 'BURN_ERROR'));
   }
 });

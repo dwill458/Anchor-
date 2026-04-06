@@ -13,6 +13,7 @@ import authRoutes from './api/routes/auth';
 import anchorRoutes from './api/routes/anchors';
 import aiRoutes from './api/routes/ai';
 import practiceRoutes from './api/routes/practice';
+import orderRoutes from './api/routes/orders';
 import { errorHandler, notFoundHandler } from './api/middleware/errorHandler';
 import { logger } from './utils/logger';
 import { env } from './config/env';
@@ -160,7 +161,10 @@ app.use('/api/practice', practiceRoutes);
 // AI Enhancement routes (Phase 2)
 app.use('/api/ai', aiRoutes);
 
-// Note: Additional routes (users, discover, shop) will be added in future phases
+// Order routes (Phase 4)
+app.use('/api/orders', orderRoutes);
+
+// Note: Additional routes (users, discover) will be added in future phases
 
 // ============================================================================
 // Error Handling
