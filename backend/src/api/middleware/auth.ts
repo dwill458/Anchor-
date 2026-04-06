@@ -15,6 +15,8 @@ export interface AuthRequest extends Request {
     uid: string;
     email?: string;
   };
+  /** DB-resolved user record — populated by the resolveDbUser middleware in routers */
+  dbUser?: { id: string };
 }
 
 /**
@@ -50,12 +52,15 @@ export const authMiddleware = async (
     // Mock auth is ONLY permitted in explicit development/test environments.
     // A hard check on NODE_ENV !== 'production' ensures this path is
     // unreachable in production even if ENABLE_MOCK_AUTH is mistakenly set.
+    // The token value must be supplied via MOCK_AUTH_TOKEN env var — there is
+    // no hardcoded fallback, so mock auth is inert unless deliberately configured.
+    const mockToken = process.env.MOCK_AUTH_TOKEN;
     const allowMockAuth =
       process.env.NODE_ENV !== 'production' &&
-      process.env.NODE_ENV !== undefined &&
-      process.env.ENABLE_MOCK_AUTH === 'true';
+      process.env.ENABLE_MOCK_AUTH === 'true' &&
+      !!mockToken;
 
-    if (allowMockAuth && token === 'mock-jwt-token') {
+    if (allowMockAuth && mockToken && token === mockToken) {
       req.user = { uid: 'mock-uid-123', email: 'guest@example.com' };
       next();
       return;

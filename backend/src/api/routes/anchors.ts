@@ -81,6 +81,34 @@ function validate<T>(schema: z.ZodSchema<T>, data: unknown): T {
 router.use(authMiddleware);
 
 /**
+ * Per-router middleware: resolve the Firebase UID to a DB user record once
+ * per request and attach it to req.dbUser.
+ *
+ * This eliminates the repeated prisma.user.findUnique calls that previously
+ * appeared in every individual route handler.
+ */
+router.use(async (req: AuthRequest, res: Response, next: NextFunction) => {
+  if (!req.user?.uid) {
+    next(new AppError('User not authenticated', 401, 'UNAUTHORIZED'));
+    return;
+  }
+  try {
+    const user = await prisma.user.findUnique({
+      where: { authUid: req.user.uid },
+      select: { id: true },
+    });
+    if (!user) {
+      next(new AppError('User not found', 404, 'USER_NOT_FOUND'));
+      return;
+    }
+    req.dbUser = user;
+    next();
+  } catch {
+    next(new AppError('Service temporarily unavailable', 503, 'DB_ERROR'));
+  }
+});
+
+/**
  * POST /api/anchors
  *
  * Create a new anchor (updated for new architecture)
@@ -103,10 +131,6 @@ router.use(authMiddleware);
  */
 router.post('/', async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
-    if (!req.user) {
-      throw new AppError('User not authenticated', 401, 'UNAUTHORIZED');
-    }
-
     const {
       intentionText,
       category,
@@ -122,19 +146,12 @@ router.post('/', async (req: AuthRequest, res: Response, next: NextFunction) => 
       mantraAudioUrl,
     } = validate(CreateAnchorSchema, req.body);
 
-    // Get user from database
-    const user = await prisma.user.findUnique({
-      where: { authUid: req.user.uid },
-    });
-
-    if (!user) {
-      throw new AppError('User not found', 404, 'USER_NOT_FOUND');
-    }
+    const userId = req.dbUser!.id;
 
     // Create anchor with new architecture fields
     const anchor = await prisma.anchor.create({
       data: {
-        userId: user.id,
+        userId,
         intentionText,
         category,
         distilledLetters,
@@ -161,7 +178,7 @@ router.post('/', async (req: AuthRequest, res: Response, next: NextFunction) => 
 
     // Update user stats
     await prisma.user.update({
-      where: { id: user.id },
+      where: { id: userId },
       data: {
         totalAnchorsCreated: {
           increment: 1,
@@ -188,26 +205,16 @@ router.post('/', async (req: AuthRequest, res: Response, next: NextFunction) => 
  * Get all anchors for the authenticated user
  *
  * Query params (optional):
- * - category: Filter by category
+ * - category: Filter by category (1–100 chars)
  * - isCharged: Filter by charged status
- * - limit: Maximum number of anchors to return
+ * - limit: Maximum number of anchors to return (1–100, default 20)
+ * - cursor: Anchor ID to paginate after (cursor-based pagination)
  * - orderBy: Field to sort by (default: 'updatedAt')
  * - order: Sort direction 'asc' | 'desc' (default: 'desc')
  */
 router.get('/', async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
-    if (!req.user) {
-      throw new AppError('User not authenticated', 401, 'UNAUTHORIZED');
-    }
-
-    // Get user from database
-    const user = await prisma.user.findUnique({
-      where: { authUid: req.user.uid },
-    });
-
-    if (!user) {
-      throw new AppError('User not found', 404, 'USER_NOT_FOUND');
-    }
+    const userId = req.dbUser!.id;
 
     // Build filter conditions
     const where: {
@@ -216,12 +223,16 @@ router.get('/', async (req: AuthRequest, res: Response, next: NextFunction) => {
       isCharged?: boolean;
       isArchived: boolean;
     } = {
-      userId: user.id,
+      userId,
       isArchived: false, // Don't show archived anchors by default
     };
 
     if (req.query.category) {
-      where.category = req.query.category as string;
+      const categoryResult = z.string().min(1).max(100).safeParse(req.query.category);
+      if (!categoryResult.success) {
+        throw new AppError('Invalid category filter: must be 1–100 characters', 400, 'VALIDATION_ERROR');
+      }
+      where.category = categoryResult.data;
     }
 
     if (req.query.isCharged !== undefined) {
@@ -242,22 +253,28 @@ router.get('/', async (req: AuthRequest, res: Response, next: NextFunction) => {
     const limit =
       rawLimit !== undefined && !isNaN(rawLimit) && rawLimit > 0
         ? Math.min(rawLimit, 100)
-        : undefined;
+        : 20;
 
-    // Fetch anchors with optional sorting and limiting
+    // Cursor-based pagination: stable under concurrent writes, O(1) offset
+    const cursor = req.query.cursor as string | undefined;
+
     const anchors = await prisma.anchor.findMany({
       where,
       orderBy: {
         [orderBy]: order,
       },
-      ...(limit !== undefined && { take: limit }),
+      take: limit,
+      ...(cursor && { cursor: { id: cursor }, skip: 1 }),
     });
+
+    const nextCursor = anchors.length === limit ? anchors[anchors.length - 1].id : null;
 
     res.json({
       success: true,
       data: anchors,
       meta: {
         total: anchors.length,
+        nextCursor,
       },
     });
   } catch (error) {
@@ -276,26 +293,14 @@ router.get('/', async (req: AuthRequest, res: Response, next: NextFunction) => {
  */
 router.get('/:id', async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
-    if (!req.user) {
-      throw new AppError('User not authenticated', 401, 'UNAUTHORIZED');
-    }
-
     const { id } = req.params;
+    const userId = req.dbUser!.id;
 
-    // Get user from database
-    const user = await prisma.user.findUnique({
-      where: { authUid: req.user.uid },
-    });
-
-    if (!user) {
-      throw new AppError('User not found', 404, 'USER_NOT_FOUND');
-    }
-
-    // Fetch anchor
+    // Fetch anchor — ownership enforced by userId constraint
     const anchor = await prisma.anchor.findFirst({
       where: {
         id,
-        userId: user.id, // Ensure user owns this anchor
+        userId,
       },
       include: {
         activations: {
@@ -351,11 +356,8 @@ router.get('/:id', async (req: AuthRequest, res: Response, next: NextFunction) =
  */
 router.put('/:id', async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
-    if (!req.user) {
-      throw new AppError('User not authenticated', 401, 'UNAUTHORIZED');
-    }
-
     const { id } = req.params;
+    const userId = req.dbUser!.id;
 
     // Explicit allowlist of fields a user may update on their own anchor.
     // Never spread req.body directly into Prisma — that would allow mass
@@ -422,32 +424,18 @@ router.put('/:id', async (req: AuthRequest, res: Response, next: NextFunction) =
     if (isShared !== undefined) allowedUpdates.isShared = Boolean(isShared);
     if (sharedAt !== undefined) allowedUpdates.sharedAt = sharedAt ? new Date(sharedAt) : null;
 
-    // Get user from database
-    const user = await prisma.user.findUnique({
-      where: { authUid: req.user.uid },
+    // Verify ownership then update in a single round-trip using updateMany
+    // (returns count=0 if the anchor doesn't exist or isn't owned by this user)
+    const result = await prisma.anchor.updateMany({
+      where: { id, userId },
+      data: allowedUpdates,
     });
 
-    if (!user) {
-      throw new AppError('User not found', 404, 'USER_NOT_FOUND');
-    }
-
-    // Check if anchor exists and user owns it
-    const existingAnchor = await prisma.anchor.findFirst({
-      where: {
-        id,
-        userId: user.id,
-      },
-    });
-
-    if (!existingAnchor) {
+    if (result.count === 0) {
       throw new AppError('Anchor not found', 404, 'ANCHOR_NOT_FOUND');
     }
 
-    // Update anchor with only the allowed fields
-    const anchor = await prisma.anchor.update({
-      where: { id },
-      data: allowedUpdates,
-    });
+    const anchor = await prisma.anchor.findUnique({ where: { id } });
 
     res.json({
       success: true,
@@ -469,41 +457,21 @@ router.put('/:id', async (req: AuthRequest, res: Response, next: NextFunction) =
  */
 router.delete('/:id', async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
-    if (!req.user) {
-      throw new AppError('User not authenticated', 401, 'UNAUTHORIZED');
-    }
-
     const { id } = req.params;
+    const userId = req.dbUser!.id;
 
-    // Get user from database
-    const user = await prisma.user.findUnique({
-      where: { authUid: req.user.uid },
-    });
-
-    if (!user) {
-      throw new AppError('User not found', 404, 'USER_NOT_FOUND');
-    }
-
-    // Check if anchor exists and user owns it
-    const existingAnchor = await prisma.anchor.findFirst({
-      where: {
-        id,
-        userId: user.id,
-      },
-    });
-
-    if (!existingAnchor) {
-      throw new AppError('Anchor not found', 404, 'ANCHOR_NOT_FOUND');
-    }
-
-    // Archive instead of delete
-    await prisma.anchor.update({
-      where: { id },
+    // Verify ownership and archive in one round-trip
+    const result = await prisma.anchor.updateMany({
+      where: { id, userId },
       data: {
         isArchived: true,
         archivedAt: new Date(),
       },
     });
+
+    if (result.count === 0) {
+      throw new AppError('Anchor not found', 404, 'ANCHOR_NOT_FOUND');
+    }
 
     res.json({
       success: true,
@@ -531,28 +499,14 @@ router.delete('/:id', async (req: AuthRequest, res: Response, next: NextFunction
  */
 router.post('/:id/charge', async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
-    if (!req.user) {
-      throw new AppError('User not authenticated', 401, 'UNAUTHORIZED');
-    }
-
     const { id } = req.params;
     const { chargeType, durationSeconds } = validate(ChargeAnchorSchema, req.body);
+    const userId = req.dbUser!.id;
 
-    // Get user from database
-    const user = await prisma.user.findUnique({
-      where: { authUid: req.user.uid },
-    });
-
-    if (!user) {
-      throw new AppError('User not found', 404, 'USER_NOT_FOUND');
-    }
-
-    // Check if anchor exists and user owns it
+    // Verify ownership before writing
     const existingAnchor = await prisma.anchor.findFirst({
-      where: {
-        id,
-        userId: user.id,
-      },
+      where: { id, userId },
+      select: { id: true },
     });
 
     if (!existingAnchor) {
@@ -562,7 +516,7 @@ router.post('/:id/charge', async (req: AuthRequest, res: Response, next: NextFun
     // Create charge record
     await prisma.charge.create({
       data: {
-        userId: user.id,
+        userId,
         anchorId: id,
         chargeType,
         durationSeconds,
@@ -605,28 +559,14 @@ router.post('/:id/charge', async (req: AuthRequest, res: Response, next: NextFun
  */
 router.post('/:id/activate', async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
-    if (!req.user) {
-      throw new AppError('User not authenticated', 401, 'UNAUTHORIZED');
-    }
-
     const { id } = req.params;
     const { activationType, durationSeconds } = validate(ActivateAnchorSchema, req.body);
+    const userId = req.dbUser!.id;
 
-    // Get user from database
-    const user = await prisma.user.findUnique({
-      where: { authUid: req.user.uid },
-    });
-
-    if (!user) {
-      throw new AppError('User not found', 404, 'USER_NOT_FOUND');
-    }
-
-    // Check if anchor exists and user owns it
+    // Verify ownership before writing
     const existingAnchor = await prisma.anchor.findFirst({
-      where: {
-        id,
-        userId: user.id,
-      },
+      where: { id, userId },
+      select: { id: true },
     });
 
     if (!existingAnchor) {
@@ -636,7 +576,7 @@ router.post('/:id/activate', async (req: AuthRequest, res: Response, next: NextF
     // Create activation record
     await prisma.activation.create({
       data: {
-        userId: user.id,
+        userId,
         anchorId: id,
         activationType,
         durationSeconds,
@@ -656,7 +596,7 @@ router.post('/:id/activate', async (req: AuthRequest, res: Response, next: NextF
     });
 
     await prisma.user.update({
-      where: { id: user.id },
+      where: { id: userId },
       data: {
         totalActivations: {
           increment: 1,
@@ -685,22 +625,11 @@ router.post('/:id/activate', async (req: AuthRequest, res: Response, next: NextF
  */
 router.post('/:id/burn', async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
-    if (!req.user) {
-      throw new AppError('User not authenticated', 401, 'UNAUTHORIZED');
-    }
-
     const { id } = req.params;
-
-    const user = await prisma.user.findUnique({
-      where: { authUid: req.user.uid },
-    });
-
-    if (!user) {
-      throw new AppError('User not found', 404, 'USER_NOT_FOUND');
-    }
+    const userId = req.dbUser!.id;
 
     const anchor = await prisma.anchor.findFirst({
-      where: { id, userId: user.id },
+      where: { id, userId },
     });
 
     if (!anchor) {
@@ -715,7 +644,7 @@ router.post('/:id/burn', async (req: AuthRequest, res: Response, next: NextFunct
       prisma.burnedAnchor.create({
         data: {
           originalAnchorId: anchor.id,
-          userId: user.id,
+          userId,
           intentionText: anchor.intentionText,
           category: anchor.category,
           distilledLetters: [],

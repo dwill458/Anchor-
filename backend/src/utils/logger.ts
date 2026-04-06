@@ -40,14 +40,30 @@ class Logger {
     if (!obj || typeof obj !== 'object') return obj;
 
     const SENSITIVE_KEYS = [
+      // Credentials & tokens
       'password',
       'token',
       'secret',
       'authorization',
       'key',
+      'apikey',
+      'accesskey',
+      'privatekey',
+      'credential',
+      'cookie',
+      // PII
       'email',
+      'uid',
+      'userid',
+      'phonenumber',
+      // App-specific sensitive content
       'distilledLetters',
       'intentionText',
+      'mantratext',
+      'mantra',
+      'sigilsvg',
+      'basesigilsvg',
+      'reinforcedsigilsvg',
     ];
 
     if (Array.isArray(obj)) {

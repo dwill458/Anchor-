@@ -110,6 +110,18 @@ export async function uploadImageFromBuffer(
   }
 }
 
+// Maximum image size accepted from upstream AI providers (25 MB)
+const MAX_IMAGE_BYTES = 25 * 1024 * 1024;
+
+// Allowed image MIME types — reject anything that isn't a recognised image format
+const ALLOWED_IMAGE_MIME_TYPES = new Set([
+  'image/png',
+  'image/jpeg',
+  'image/jpg',
+  'image/webp',
+  'image/gif',
+]);
+
 /**
  * Upload image from URL to R2
  */
@@ -123,13 +135,31 @@ export async function uploadImageFromUrl(
   try {
     logger.info('[Storage] Using LOCAL STORAGE for development');
 
-    // Download image from Replicate URL
+    // Download image from upstream URL with size and type guards
     let buffer: Buffer;
     try {
-      const response = await axios.get(imageUrl, { responseType: 'arraybuffer' });
+      const response = await axios.get(imageUrl, {
+        responseType: 'arraybuffer',
+        // Abort if the server reports a Content-Length beyond our limit
+        maxContentLength: MAX_IMAGE_BYTES,
+        maxBodyLength: MAX_IMAGE_BYTES,
+        timeout: 30_000,
+      });
+
+      // Validate Content-Type — only accept recognised image MIME types
+      const contentType = (response.headers['content-type'] as string | undefined)?.split(';')[0].trim().toLowerCase();
+      if (contentType && !ALLOWED_IMAGE_MIME_TYPES.has(contentType)) {
+        throw new Error(`Rejected upstream image with unsupported MIME type: ${contentType}`);
+      }
+
       buffer = Buffer.from(response.data);
+
+      // Double-check actual byte length in case Content-Length header was absent
+      if (buffer.byteLength > MAX_IMAGE_BYTES) {
+        throw new Error(`Upstream image exceeds maximum allowed size (${MAX_IMAGE_BYTES} bytes)`);
+      }
     } catch (downloadError) {
-      logger.error(`[Storage] Failed to download image from ${imageUrl}`, downloadError);
+      logger.error(`[Storage] Failed to download image from upstream`, downloadError);
       throw new Error('Failed to download generated image');
     }
 
@@ -138,7 +168,7 @@ export async function uploadImageFromUrl(
 
   } catch (error) {
     logger.error('[Storage] Upload error', error);
-    // Ultimate fallback: return original Replicate URL
+    // Ultimate fallback: return original URL
     return imageUrl;
   }
 }
