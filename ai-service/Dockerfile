@@ -38,7 +38,7 @@ EXPOSE 8001
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
-    CMD python -c "import httpx; httpx.get('http://localhost:8001/health')" || exit 1
+    CMD python -c "import httpx; httpx.get('http://127.0.0.1:8001/health')" || exit 1
 
 # Run the service
 CMD ["python", "main.py"]

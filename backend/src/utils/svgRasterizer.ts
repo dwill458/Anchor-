@@ -320,7 +320,7 @@ export async function validateSVG(svgString: string): Promise<boolean> {
     await rasterizeSVG(svgString);
     return true;
   } catch (error) {
-    console.error('SVG validation failed:', error);
+    logger.error('SVG validation failed', error instanceof Error ? error : new Error(String(error)));
     return false;
   }
 }

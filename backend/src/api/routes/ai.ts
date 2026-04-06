@@ -105,23 +105,6 @@ function validateOrRespond<T>(
 }
 
 /**
- * POST /api/ai/analyze
- * @deprecated - Legacy endpoint, no longer used in Phase 3+ flow
- * This endpoint was part of the old AI analysis flow that has been replaced
- * by StyleSelectionScreen and ControlNet enhancement.
- */
-// router.post('/analyze', async (req: Request, res: Response): Promise<void> => {
-//   ... (removed - legacy code)
-// });
-
-/**
- * POST /api/ai/enhance
- * @deprecated - Legacy endpoint, replaced by /enhance-controlnet
- * The enhanceSigil function was removed in Phase 4 cleanup.
- */
-// Legacy route commented out - use /enhance-controlnet instead
-
-/**
  * POST /api/ai/enhance-controlnet
  * Generate AI-enhanced sigil variations using ControlNet with STRICT structure preservation.
  *

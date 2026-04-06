@@ -77,8 +77,8 @@ export const authMiddleware = async (
     };
 
     next();
-  } catch (error: any) {
-    const code: string = error?.code ?? '';
+  } catch (error: unknown) {
+    const code: string = (error as { code?: string })?.code ?? '';
 
     if (code === 'auth/id-token-expired') {
       res.status(401).json({
@@ -88,11 +88,7 @@ export const authMiddleware = async (
       return;
     }
 
-    if (
-      code.startsWith('auth/') ||
-      code === 'auth/argument-error' ||
-      code === 'auth/invalid-id-token'
-    ) {
+    if (code.startsWith('auth/')) {
       res.status(401).json({
         success: false,
         error: { code: 'INVALID_TOKEN', message: 'Invalid authentication token' },
