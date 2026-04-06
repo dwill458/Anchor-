@@ -4,11 +4,15 @@
  * Handles CRUD operations for user anchors
  */
 
-import { Router, Response } from 'express';
+import { Router, Response, NextFunction } from 'express';
 import { z } from 'zod';
 import { AuthRequest, authMiddleware } from '../middleware/auth';
 import { AppError } from '../middleware/errorHandler';
 import { prisma } from '../../lib/prisma';
+
+// Whitelist of columns that may be used in ORDER BY to prevent injection
+const ALLOWED_ORDER_BY = ['updatedAt', 'createdAt', 'category', 'intentionText', 'activationCount', 'lastActivatedAt'] as const;
+type AllowedOrderBy = typeof ALLOWED_ORDER_BY[number];
 
 const router = Router();
 
@@ -20,7 +24,7 @@ const CreateAnchorSchema = z.object({
   intentionText: z.string().min(1).max(500),
   category: z.string().min(1),
   distilledLetters: z.array(z.string()).min(1),
-  baseSigilSvg: z.string().min(1),
+  baseSigilSvg: z.string().min(1).max(5_000_000),
   structureVariant: StructureVariantEnum.optional(),
   // Optional fields passed through without strict validation
   reinforcedSigilSvg: z.string().optional(),
@@ -96,7 +100,7 @@ router.use(authMiddleware);
  * - mantraPronunciation: Mantra pronunciation guide
  * - mantraAudioUrl: URL to mantra audio file
  */
-router.post('/', async (req: AuthRequest, res: Response) => {
+router.post('/', async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
     if (!req.user) {
       throw new AppError('User not authenticated', 401, 'UNAUTHORIZED');
@@ -170,9 +174,10 @@ router.post('/', async (req: AuthRequest, res: Response) => {
     });
   } catch (error) {
     if (error instanceof AppError) {
-      throw error;
+      next(error);
+      return;
     }
-    throw new AppError('Failed to create anchor', 500, 'CREATE_ERROR');
+    next(new AppError('Failed to create anchor', 500, 'CREATE_ERROR'));
   }
 });
 
@@ -188,7 +193,7 @@ router.post('/', async (req: AuthRequest, res: Response) => {
  * - orderBy: Field to sort by (default: 'updatedAt')
  * - order: Sort direction 'asc' | 'desc' (default: 'desc')
  */
-router.get('/', async (req: AuthRequest, res: Response) => {
+router.get('/', async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
     if (!req.user) {
       throw new AppError('User not authenticated', 401, 'UNAUTHORIZED');
@@ -222,10 +227,21 @@ router.get('/', async (req: AuthRequest, res: Response) => {
       where.isCharged = req.query.isCharged === 'true';
     }
 
-    // Parse sorting and pagination parameters
-    const orderBy = (req.query.orderBy as string) || 'updatedAt';
-    const order = ((req.query.order as string) || 'desc') as 'asc' | 'desc';
-    const limit = req.query.limit ? parseInt(req.query.limit as string) : undefined;
+    // Validate and sanitise sorting parameter against an explicit whitelist to
+    // prevent arbitrary column injection into the ORDER BY clause.
+    const rawOrderBy = (req.query.orderBy as string) || 'updatedAt';
+    const orderBy: AllowedOrderBy = (ALLOWED_ORDER_BY as readonly string[]).includes(rawOrderBy)
+      ? (rawOrderBy as AllowedOrderBy)
+      : 'updatedAt';
+
+    const order = ((req.query.order as string) === 'asc' ? 'asc' : 'desc') as 'asc' | 'desc';
+
+    // Cap limit to prevent DoS via unbounded queries; default 20, max 100.
+    const rawLimit = req.query.limit ? parseInt(req.query.limit as string, 10) : undefined;
+    const limit =
+      rawLimit !== undefined && !isNaN(rawLimit) && rawLimit > 0
+        ? Math.min(rawLimit, 100)
+        : undefined;
 
     // Fetch anchors with optional sorting and limiting
     const anchors = await prisma.anchor.findMany({
@@ -233,7 +249,7 @@ router.get('/', async (req: AuthRequest, res: Response) => {
       orderBy: {
         [orderBy]: order,
       },
-      ...(limit && { take: limit }),
+      ...(limit !== undefined && { take: limit }),
     });
 
     res.json({
@@ -245,9 +261,10 @@ router.get('/', async (req: AuthRequest, res: Response) => {
     });
   } catch (error) {
     if (error instanceof AppError) {
-      throw error;
+      next(error);
+      return;
     }
-    throw new AppError('Failed to fetch anchors', 500, 'FETCH_ERROR');
+    next(new AppError('Failed to fetch anchors', 500, 'FETCH_ERROR'));
   }
 });
 
@@ -256,7 +273,7 @@ router.get('/', async (req: AuthRequest, res: Response) => {
  *
  * Get a specific anchor by ID
  */
-router.get('/:id', async (req: AuthRequest, res: Response) => {
+router.get('/:id', async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
     if (!req.user) {
       throw new AppError('User not authenticated', 401, 'UNAUTHORIZED');
@@ -305,9 +322,10 @@ router.get('/:id', async (req: AuthRequest, res: Response) => {
     });
   } catch (error) {
     if (error instanceof AppError) {
-      throw error;
+      next(error);
+      return;
     }
-    throw new AppError('Failed to fetch anchor', 500, 'FETCH_ERROR');
+    next(new AppError('Failed to fetch anchor', 500, 'FETCH_ERROR'));
   }
 });
 
@@ -330,7 +348,7 @@ router.get('/:id', async (req: AuthRequest, res: Response) => {
  * - isCharged
  * - isArchived
  */
-router.put('/:id', async (req: AuthRequest, res: Response) => {
+router.put('/:id', async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
     if (!req.user) {
       throw new AppError('User not authenticated', 401, 'UNAUTHORIZED');
@@ -436,9 +454,10 @@ router.put('/:id', async (req: AuthRequest, res: Response) => {
     });
   } catch (error) {
     if (error instanceof AppError) {
-      throw error;
+      next(error);
+      return;
     }
-    throw new AppError('Failed to update anchor', 500, 'UPDATE_ERROR');
+    next(new AppError('Failed to update anchor', 500, 'UPDATE_ERROR'));
   }
 });
 
@@ -447,7 +466,7 @@ router.put('/:id', async (req: AuthRequest, res: Response) => {
  *
  * Delete (archive) an anchor
  */
-router.delete('/:id', async (req: AuthRequest, res: Response) => {
+router.delete('/:id', async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
     if (!req.user) {
       throw new AppError('User not authenticated', 401, 'UNAUTHORIZED');
@@ -493,9 +512,10 @@ router.delete('/:id', async (req: AuthRequest, res: Response) => {
     });
   } catch (error) {
     if (error instanceof AppError) {
-      throw error;
+      next(error);
+      return;
     }
-    throw new AppError('Failed to delete anchor', 500, 'DELETE_ERROR');
+    next(new AppError('Failed to delete anchor', 500, 'DELETE_ERROR'));
   }
 });
 
@@ -508,7 +528,7 @@ router.delete('/:id', async (req: AuthRequest, res: Response) => {
  * - chargeType: 'initial_quick' | 'initial_deep' | 'recharge'
  * - durationSeconds: Duration of the ritual
  */
-router.post('/:id/charge', async (req: AuthRequest, res: Response) => {
+router.post('/:id/charge', async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
     if (!req.user) {
       throw new AppError('User not authenticated', 401, 'UNAUTHORIZED');
@@ -566,9 +586,10 @@ router.post('/:id/charge', async (req: AuthRequest, res: Response) => {
     });
   } catch (error) {
     if (error instanceof AppError) {
-      throw error;
+      next(error);
+      return;
     }
-    throw new AppError('Failed to charge anchor', 500, 'CHARGE_ERROR');
+    next(new AppError('Failed to charge anchor', 500, 'CHARGE_ERROR'));
   }
 });
 
@@ -581,7 +602,7 @@ router.post('/:id/charge', async (req: AuthRequest, res: Response) => {
  * - activationType: 'visual' | 'mantra' | 'deep'
  * - durationSeconds: Duration of activation
  */
-router.post('/:id/activate', async (req: AuthRequest, res: Response) => {
+router.post('/:id/activate', async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
     if (!req.user) {
       throw new AppError('User not authenticated', 401, 'UNAUTHORIZED');
@@ -648,9 +669,10 @@ router.post('/:id/activate', async (req: AuthRequest, res: Response) => {
     });
   } catch (error) {
     if (error instanceof AppError) {
-      throw error;
+      next(error);
+      return;
     }
-    throw new AppError('Failed to log activation', 500, 'ACTIVATION_ERROR');
+    next(new AppError('Failed to log activation', 500, 'ACTIVATION_ERROR'));
   }
 });
 
@@ -660,7 +682,7 @@ router.post('/:id/activate', async (req: AuthRequest, res: Response) => {
  * Archive an anchor and create a BurnedAnchor snapshot record.
  * Atomic: both operations succeed or neither does.
  */
-router.post('/:id/burn', async (req: AuthRequest, res: Response) => {
+router.post('/:id/burn', async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
     if (!req.user) {
       throw new AppError('User not authenticated', 401, 'UNAUTHORIZED');
@@ -711,9 +733,10 @@ router.post('/:id/burn', async (req: AuthRequest, res: Response) => {
     res.json({ success: true, data: { burned: true } });
   } catch (error) {
     if (error instanceof AppError) {
-      throw error;
+      next(error);
+      return;
     }
-    throw new AppError('Failed to burn anchor', 500, 'BURN_ERROR');
+    next(new AppError('Failed to burn anchor', 500, 'BURN_ERROR'));
   }
 });
 
