@@ -11,12 +11,9 @@
       "env": {
         "EXPO_PUBLIC_APP_ENV": "development"
       },
-      "android": {
-        "googleServicesFile": "$GOOGLE_SERVICES_JSON"
-      },
+      "android": {},
       "ios": {
         "simulator": false,
-        "googleServicesFile": "$GOOGLE_SERVICES_PLIST",
         "prebuildCommand": "npx expo prebuild --platform ios --no-install"
       }
     },
@@ -27,11 +24,9 @@
         "EXPO_PUBLIC_APP_ENV": "staging"
       },
       "android": {
-        "buildType": "apk",
-        "googleServicesFile": "$GOOGLE_SERVICES_JSON"
+        "buildType": "apk"
       },
       "ios": {
-        "googleServicesFile": "$GOOGLE_SERVICES_PLIST",
         "prebuildCommand": "npx expo prebuild --platform ios --no-install"
       }
     },
@@ -42,11 +37,9 @@
         "EXPO_PUBLIC_APP_ENV": "production"
       },
       "android": {
-        "buildType": "app-bundle",
-        "googleServicesFile": "$GOOGLE_SERVICES_JSON"
+        "buildType": "app-bundle"
       },
       "ios": {
-        "googleServicesFile": "$GOOGLE_SERVICES_PLIST",
         "prebuildCommand": "npx expo prebuild --platform ios --no-install"
       }
     }
