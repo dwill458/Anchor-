@@ -4,7 +4,7 @@
  * Handles physical manifestation (merchandise) orders
  */
 
-import { Router, Response } from 'express';
+import { NextFunction, Router, Response } from 'express';
 import { PrismaClient } from '@prisma/client';
 import { AuthRequest, authMiddleware } from '../middleware/auth';
 import { AppError } from '../middleware/errorHandler';
@@ -20,7 +20,7 @@ router.use(authMiddleware);
  *
  * Create a new order for physical anchor manifestation
  */
-router.post('/', async (req: AuthRequest, res: Response) => {
+router.post('/', async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
     if (!req.user) {
       throw new AppError('User not authenticated', 401, 'UNAUTHORIZED');
@@ -81,10 +81,7 @@ router.post('/', async (req: AuthRequest, res: Response) => {
       data: order,
     });
   } catch (error) {
-    if (error instanceof AppError) {
-      throw error;
-    }
-    throw new AppError('Failed to create order', 500, 'CREATE_ERROR');
+    return next(error instanceof AppError ? error : new AppError('Failed to create order', 500, 'CREATE_ERROR'));
   }
 });
 
@@ -93,7 +90,7 @@ router.post('/', async (req: AuthRequest, res: Response) => {
  *
  * Get all orders for authenticated user
  */
-router.get('/', async (req: AuthRequest, res: Response) => {
+router.get('/', async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
     if (!req.user) {
       throw new AppError('User not authenticated', 401, 'UNAUTHORIZED');
@@ -117,10 +114,7 @@ router.get('/', async (req: AuthRequest, res: Response) => {
       data: orders,
     });
   } catch (error) {
-    if (error instanceof AppError) {
-      throw error;
-    }
-    throw new AppError('Failed to fetch orders', 500, 'FETCH_ERROR');
+    return next(error instanceof AppError ? error : new AppError('Failed to fetch orders', 500, 'FETCH_ERROR'));
   }
 });
 
