@@ -1,0 +1,97 @@
+[1mGoogle Vertex AI Integration Test[0m
+[36mTesting Imagen 3 configuration and functionality
+[0m
+
+============================================================
+[1m1. Checking Environment Configuration[0m
+============================================================
+
+[32mΓ£ô GOOGLE_CLOUD_PROJECT_ID: anchor-ai-production[0m
+[32mΓ£ô GOOGLE_CLOUD_LOCATION: us-central1[0m
+[33mΓÜá GOOGLE_CLOUD_CREDENTIALS_JSON not set[0m
+[36m  Using Application Default Credentials (ADC)[0m
+[36m  Make sure you ran: gcloud auth application-default login[0m
+[31mΓ£ù ADC file not found: C:\Users\dwill/.config/gcloud/application_default_credentials.json[0m
+[33m  Run: gcloud auth application-default login[0m
+
+============================================================
+[1m2. Testing SVG to Edge Map Conversion[0m
+============================================================
+
+[36mConverting sample sigil to edge map...[0m
+[32mΓ£ô Edge map generated successfully[0m
+[36m  - Size: 1024x1024[0m
+[36m  - Bytes: 8,384[0m
+[36m  - Processing time: 461ms[0m
+[32mΓ£ô Edge map saved to: C:\Users\dwill\.gemini\antigravity\scratch\Anchor-V2\backend\test-output\test-edge-map.png[0m
+
+============================================================
+[1m3. Testing Google Vertex AI Initialization[0m
+============================================================
+
+[36mInitializing Google Vertex AI client...[0m
+[32mΓ£ô Google Vertex AI initialized successfully[0m
+
+============================================================
+[1m4. Testing Cost and Time Estimates[0m
+============================================================
+
+[32mΓ£ô Cost estimate (4 variations): $0.08[0m
+[32mΓ£ô Time estimate: 25-40 seconds[0m
+
+============================================================
+[1m5. Testing Image Generation (OPTIONAL - COSTS MONEY)[0m
+============================================================
+
+[33mΓÜá This test will generate 4 images and cost ~$0.08[0m
+[33mΓÜá Skipping actual generation to avoid costs.[0m
+[33mΓÜá To test generation, uncomment the code in testVertexAI.ts[0m
+[36mGenerating 4 sigil variations...[0m
+≡ƒÄ¿ Generating 4 variations for: "Test intention for validation"
+≡ƒûî∩╕Å  Style: minimal_line
+Γ¥î Generation failed for variation 2: ClientError: [VertexAI.ClientError]: got status: 403 Forbidden. {"error":{"code":403,"message":"Permission denied on resource project anchor-ai-production.","status":"PERMISSION_DENIED","details":[{"@type":"type.googleapis.com/google.rpc.ErrorInfo","reason":"CONSUMER_INVALID","domain":"googleapis.com","metadata":{"service":"aiplatform.googleapis.com","containerInfo":"anchor-ai-production","consumer":"projects/anchor-ai-production"}},{"@type":"type.googleapis.com/google.rpc.LocalizedMessage","locale":"en-US","message":"Permission denied on resource project anchor-ai-production."},{"@type":"type.googleapis.com/google.rpc.Help","links":[{"description":"Google developers console","url":"https://console.developers.google.com"}]}]}}
+    at throwErrorIfNotOK (C:\Users\dwill\.gemini\antigravity\scratch\Anchor-V2\backend\node_modules\@google-cloud\vertexai\src\functions\post_fetch_processing.ts:47:21)
+    at processTicksAndRejections (node:internal/process/task_queues:95:5)
+    ... 5 lines matching cause stack trace ...
+    at async main (C:\Users\dwill\.gemini\antigravity\scratch\Anchor-V2\backend\src\scripts\testVertexAI.ts:291:9) {
+  stackTrace: GoogleApiError: Permission denied on resource project anchor-ai-production.
+      at throwErrorIfNotOK (C:\Users\dwill\.gemini\antigravity\scratch\Anchor-V2\backend\node_modules\@google-cloud\vertexai\src\functions\post_fetch_processing.ts:49:9)
+      at processTicksAndRejections (node:internal/process/task_queues:95:5)
+      at async generateContent (C:\Users\dwill\.gemini\antigravity\scratch\Anchor-V2\backend\node_modules\@google-cloud\vertexai\src\functions\generate_content.ts:94:3)
+[31mΓ£ù Image generation failed: Error: Image generation failed: [VertexAI.ClientError]: got status: 403 Forbidden. {"error":{"code":403,"message":"Permission denied on resource project anchor-ai-production.","status":"PERMISSION_DENIED","details":[{"@type":"type.googleapis.com/google.rpc.ErrorInfo","reason":"CONSUMER_INVALID","domain":"googleapis.com","metadata":{"service":"aiplatform.googleapis.com","containerInfo":"anchor-ai-production","consumer":"projects/anchor-ai-production"}},{"@type":"type.googleapis.com/google.rpc.LocalizedMessage","locale":"en-US","message":"Permission denied on resource project anchor-ai-production."},{"@type":"type.googleapis.com/google.rpc.Help","links":[{"description":"Google developers console","url":"https://console.developers.google.com"}]}]}}[0m
+
+============================================================
+      at async GoogleVertexAI.generateVariation (C:\Users\dwill\.gemini\antigravity\scratch\Anchor-V2\backend\src\services\GoogleVertexAI.ts:255:22)
+      at async Promise.all (index 2)
+      at async GoogleVertexAI.enhanceSigil (C:\Users\dwill\.gemini\antigravity\scratch\Anchor-V2\backend\src\services\GoogleVertexAI.ts:74:24)
+      at async testImageGeneration (C:\Users\dwill\.gemini\antigravity\scratch\Anchor-V2\backend\src\scripts\testVertexAI.ts:216:20)
+      at async main (C:\Users\dwill\.gemini\antigravity\scratch\Anchor-V2\backend\src\scripts\testVertexAI.ts:291:9) {
+    code: 403,
+    status: 'PERMISSION_DENIED',
+    errorDetails: [ [Object], [Object], [Object] ]
+  },
+  [cause]: GoogleApiError: Permission denied on resource project anchor-ai-production.
+      at throwErrorIfNotOK (C:\Users\dwill\.gemini\antigravity\scratch\Anchor-V2\backend\node_modules\@google-cloud\vertexai\src\functions\post_fetch_processing.ts:49:9)
+      at processTicksAndRejections (node:internal/process/task_queues:95:5)
+      at async generateContent (C:\Users\dwill\.gemini\antigravity\scratch\Anchor-V2\backend\node_modules\@google-cloud\vertexai\src\functions\generate_content.ts:94:3)
+      at async GoogleVertexAI.generateVariation (C:\Users\dwill\.gemini\antigravity\scratch\Anchor-V2\backend\src\services\GoogleVertexAI.ts:255:22)
+      at async Promise.all (index 2)
+      at async GoogleVertexAI.enhanceSigil (C:\Users\dwill\.gemini\antigravity\scratch\Anchor-V2\backend\src\services\GoogleVertexAI.ts:74:24)
+      at async testImageGeneration (C:\Users\dwill\.gemini\antigravity\scratch\Anchor-V2\backend\src\scripts\testVertexAI.ts:216:20)
+      at async main (C:\Users\dwill\.gemini\antigravity\scratch\Anchor-V2\backend\src\scripts\testVertexAI.ts:291:9) {
+    code: 403,
+    status: 'PERMISSION_DENIED',
+    errorDetails: [ [Object], [Object], [Object] ]
+  }
+}
+[1mTest Summary[0m
+============================================================
+
+[33mTests passed: 3/5[0m
+[31m
+Γ£ù Some tests failed. Please fix the issues above.[0m
+[36m  Common issues:[0m
+[36m  - Missing GOOGLE_CLOUD_PROJECT_ID in .env[0m
+[36m  - Invalid GOOGLE_CLOUD_CREDENTIALS_JSON format[0m
+[36m  - Vertex AI API not enabled in Google Cloud project[0m
+[36m  - Service account missing required roles[0m

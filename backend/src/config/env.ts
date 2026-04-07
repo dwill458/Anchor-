@@ -1,10 +1,8 @@
-/**
- * Anchor App - Environment Variable Validation
- *
- * Validates required environment variables at startup to fail fast.
- */
-
+import dotenv from 'dotenv';
 import { logger } from '../utils/logger';
+
+// Load environment variables
+dotenv.config();
 
 export interface EnvConfig {
   // Server
@@ -13,6 +11,9 @@ export interface EnvConfig {
 
   // Database
   DATABASE_URL: string;
+
+  // Security
+  ALLOWED_ORIGINS?: string; // Comma-separated list of allowed origins
 
   // Auth (Optional - for future Firebase Admin integration)
   FIREBASE_PROJECT_ID?: string;
@@ -33,6 +34,7 @@ export interface EnvConfig {
   GOOGLE_CLOUD_PROJECT_ID?: string;
   GOOGLE_CLOUD_PRIVATE_KEY?: string;
   GOOGLE_CLOUD_CLIENT_EMAIL?: string;
+  GOOGLE_API_KEY?: string;
 
   // JWT
   JWT_SECRET?: string;
@@ -46,7 +48,11 @@ class EnvValidationError extends Error {
   }
 }
 
-function validateString(key: string, value: unknown, required: boolean = false): string | undefined {
+function validateString(
+  key: string,
+  value: unknown,
+  required: boolean = false
+): string | undefined {
   if (value === undefined || value === null || value === '') {
     if (required) {
       throw new EnvValidationError(`Required environment variable ${key} is missing or empty`);
@@ -110,28 +116,81 @@ export function validateEnv(): EnvConfig {
 
       // Auth (optional - for future use)
       FIREBASE_PROJECT_ID: validateString('FIREBASE_PROJECT_ID', process.env.FIREBASE_PROJECT_ID),
-      FIREBASE_PRIVATE_KEY: validateString('FIREBASE_PRIVATE_KEY', process.env.FIREBASE_PRIVATE_KEY),
-      FIREBASE_CLIENT_EMAIL: validateString('FIREBASE_CLIENT_EMAIL', process.env.FIREBASE_CLIENT_EMAIL),
+      FIREBASE_PRIVATE_KEY: validateString(
+        'FIREBASE_PRIVATE_KEY',
+        process.env.FIREBASE_PRIVATE_KEY
+      ),
+      FIREBASE_CLIENT_EMAIL: validateString(
+        'FIREBASE_CLIENT_EMAIL',
+        process.env.FIREBASE_CLIENT_EMAIL
+      ),
 
       // AI Services (optional - mock mode available)
       REPLICATE_API_TOKEN: validateString('REPLICATE_API_TOKEN', process.env.REPLICATE_API_TOKEN),
 
       // Storage (optional - mock mode available)
-      CLOUDFLARE_ACCOUNT_ID: validateString('CLOUDFLARE_ACCOUNT_ID', process.env.CLOUDFLARE_ACCOUNT_ID),
-      CLOUDFLARE_R2_ACCESS_KEY_ID: validateString('CLOUDFLARE_R2_ACCESS_KEY_ID', process.env.CLOUDFLARE_R2_ACCESS_KEY_ID),
-      CLOUDFLARE_R2_SECRET_ACCESS_KEY: validateString('CLOUDFLARE_R2_SECRET_ACCESS_KEY', process.env.CLOUDFLARE_R2_SECRET_ACCESS_KEY),
-      CLOUDFLARE_R2_BUCKET_NAME: validateString('CLOUDFLARE_R2_BUCKET_NAME', process.env.CLOUDFLARE_R2_BUCKET_NAME),
-      CLOUDFLARE_R2_PUBLIC_DOMAIN: validateString('CLOUDFLARE_R2_PUBLIC_DOMAIN', process.env.CLOUDFLARE_R2_PUBLIC_DOMAIN),
+      CLOUDFLARE_ACCOUNT_ID: validateString(
+        'CLOUDFLARE_ACCOUNT_ID',
+        process.env.CLOUDFLARE_ACCOUNT_ID
+      ),
+      CLOUDFLARE_R2_ACCESS_KEY_ID: validateString(
+        'CLOUDFLARE_R2_ACCESS_KEY_ID',
+        process.env.CLOUDFLARE_R2_ACCESS_KEY_ID
+      ),
+      CLOUDFLARE_R2_SECRET_ACCESS_KEY: validateString(
+        'CLOUDFLARE_R2_SECRET_ACCESS_KEY',
+        process.env.CLOUDFLARE_R2_SECRET_ACCESS_KEY
+      ),
+      CLOUDFLARE_R2_BUCKET_NAME: validateString(
+        'CLOUDFLARE_R2_BUCKET_NAME',
+        process.env.CLOUDFLARE_R2_BUCKET_NAME
+      ),
+      CLOUDFLARE_R2_PUBLIC_DOMAIN: validateString(
+        'CLOUDFLARE_R2_PUBLIC_DOMAIN',
+        process.env.CLOUDFLARE_R2_PUBLIC_DOMAIN
+      ),
 
       // TTS (optional)
-      GOOGLE_CLOUD_PROJECT_ID: validateString('GOOGLE_CLOUD_PROJECT_ID', process.env.GOOGLE_CLOUD_PROJECT_ID),
-      GOOGLE_CLOUD_PRIVATE_KEY: validateString('GOOGLE_CLOUD_PRIVATE_KEY', process.env.GOOGLE_CLOUD_PRIVATE_KEY),
-      GOOGLE_CLOUD_CLIENT_EMAIL: validateString('GOOGLE_CLOUD_CLIENT_EMAIL', process.env.GOOGLE_CLOUD_CLIENT_EMAIL),
+      GOOGLE_CLOUD_PROJECT_ID: validateString(
+        'GOOGLE_CLOUD_PROJECT_ID',
+        process.env.GOOGLE_CLOUD_PROJECT_ID
+      ),
+      GOOGLE_CLOUD_PRIVATE_KEY: validateString(
+        'GOOGLE_CLOUD_PRIVATE_KEY',
+        process.env.GOOGLE_CLOUD_PRIVATE_KEY
+      ),
+      GOOGLE_CLOUD_CLIENT_EMAIL: validateString(
+        'GOOGLE_CLOUD_CLIENT_EMAIL',
+        process.env.GOOGLE_CLOUD_CLIENT_EMAIL
+      ),
+      GOOGLE_API_KEY: validateString('GOOGLE_API_KEY', process.env.GOOGLE_API_KEY),
 
-      // JWT (optional - will use default)
-      JWT_SECRET: validateString('JWT_SECRET', process.env.JWT_SECRET),
-      JWT_EXPIRES_IN: validateString('JWT_EXPIRES_IN', process.env.JWT_EXPIRES_IN),
+      // JWT (required in production)
+      JWT_SECRET: validateString(
+        'JWT_SECRET',
+        process.env.JWT_SECRET,
+        process.env.NODE_ENV === 'production'
+      ),
+      JWT_EXPIRES_IN: validateString('JWT_EXPIRES_IN', process.env.JWT_EXPIRES_IN) || '7d',
+
+      // Security — never default to wildcard; require explicit config in production.
+      ALLOWED_ORIGINS: validateString('ALLOWED_ORIGINS', process.env.ALLOWED_ORIGINS),
     };
+
+    // In production, critical variables must be present.
+    if (config.NODE_ENV === 'production') {
+      const productionRequired: Array<keyof EnvConfig> = [
+        'FIREBASE_PROJECT_ID',
+        'FIREBASE_PRIVATE_KEY',
+        'FIREBASE_CLIENT_EMAIL',
+        'ALLOWED_ORIGINS',
+      ];
+      for (const key of productionRequired) {
+        if (!config[key]) {
+          throw new EnvValidationError(`${key} is required in production`);
+        }
+      }
+    }
 
     // Warn about missing optional but recommended variables
     if (!config.REPLICATE_API_TOKEN) {
@@ -146,7 +205,7 @@ export function validateEnv(): EnvConfig {
       logger.info('Google Cloud TTS not configured - audio generation disabled');
     }
 
-    if (!config.JWT_SECRET) {
+    if (!config.JWT_SECRET && config.NODE_ENV !== 'production') {
       logger.warn('JWT_SECRET not configured - using default (NOT SECURE FOR PRODUCTION)');
     }
 

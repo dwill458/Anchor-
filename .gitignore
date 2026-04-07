@@ -30,6 +30,11 @@ dist/
 .env.test.local
 .env.production.local
 
+# Firebase / GCP service account keys
+*-firebase-adminsdk-*.json
+*service-account*.json
+*serviceaccount*.json
+
 # ----------------------------------------------------------------------------
 # IDE & Editors
 # ----------------------------------------------------------------------------
@@ -88,8 +93,9 @@ frontend/android/app/build/
 # ----------------------------------------------------------------------------
 # Prisma
 # ----------------------------------------------------------------------------
-backend/prisma/migrations/
-!backend/prisma/migrations/.gitkeep
+# All migrations are tracked — new migrations are picked up automatically.
+# Never add a blanket "migrations/*" exclusion here; every migration SQL file
+# must be version-controlled so that deploys and fresh clones are repeatable.
 
 # ----------------------------------------------------------------------------
 # Temporary Files
@@ -104,6 +110,7 @@ temp/
 # ----------------------------------------------------------------------------
 logs
 *.log
+backend/*_backend_log.txt
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
@@ -116,3 +123,4 @@ pnpm-debug.log*
 .turbo/
 *.tgz
 .next/
+backend/uploads/

@@ -33,6 +33,7 @@
     "forceConsistentCasingInFileNames": true,
     /* Skip Lib Check */
     "skipLibCheck": true,
+    "ignoreDeprecations": "5.0",
     /* Path Mapping */
     "baseUrl": ".",
     "paths": {

@@ -5,11 +5,40 @@
  * Stores AI-generated anchor images and mantra audio files.
  */
 
-import { S3Client, PutObjectCommand, GetObjectCommand, DeleteObjectCommand } from '@aws-sdk/client-s3';
+import { S3Client, DeleteObjectCommand } from '@aws-sdk/client-s3';
 import { Upload } from '@aws-sdk/lib-storage';
-import { v4 as uuidv4 } from 'uuid';
+import { v4 as _uuidv4 } from 'uuid';
 import axios from 'axios';
+import fs from 'fs';
+import path from 'path';
 import { logger } from '../utils/logger';
+
+interface UploadUrlOptions {
+  baseUrl?: string;
+}
+
+function getLocalUploadsDir(): string {
+  return path.join(process.cwd(), 'uploads');
+}
+
+function normalizeBaseUrl(baseUrl?: string): string | undefined {
+  if (!baseUrl) {
+    return undefined;
+  }
+
+  return baseUrl.replace(/\/+$/, '');
+}
+
+function buildLocalUploadUrl(fileName: string, options?: UploadUrlOptions): string {
+  const configuredBaseUrl = normalizeBaseUrl(options?.baseUrl);
+  if (configuredBaseUrl) {
+    return `${configuredBaseUrl}/uploads/${fileName}`;
+  }
+
+  const localIp = process.env.LOCAL_IP || '127.0.0.1';
+  const port = process.env.PORT || '8000';
+  return `http://${localIp}:${port}/uploads/${fileName}`;
+}
 
 /**
  * Initialize R2 client (S3-compatible)
@@ -23,7 +52,7 @@ function getR2Client(): S3Client {
     // Allow mock mode if credentials missing
     // throw new Error('Cloudflare R2 credentials not configured');
     logger.warn('[Storage] R2 credentials missing. Running in mock mode.');
-    return null as any;
+    return null as unknown as S3Client;
   }
 
   // R2 endpoint format: https://<account_id>.r2.cloudflarestorage.com
@@ -48,66 +77,107 @@ function getBucketName(): string {
 }
 
 /**
+ * Upload image from Buffer to local storage
+ * Used for Google Vertex AI images that come as base64
+ */
+export async function uploadImageFromBuffer(
+  imageBuffer: Buffer,
+  userId: string,
+  anchorId: string,
+  variationIndex: number,
+  options?: UploadUrlOptions
+): Promise<string> {
+  try {
+    logger.info('[Storage] Uploading image from buffer (LOCAL STORAGE for development)');
+
+    // Ensure absolute path to uploads directory in backend root
+    const uploadsDir = getLocalUploadsDir();
+
+    if (!fs.existsSync(uploadsDir)) {
+      fs.mkdirSync(uploadsDir, { recursive: true });
+    }
+
+    const fileName = `${anchorId}-${variationIndex}.png`;
+    const localFilePath = path.join(uploadsDir, fileName);
+    fs.writeFileSync(localFilePath, imageBuffer);
+
+    logger.info(`[Storage] Saved buffer to local disk: ${localFilePath}`);
+    return buildLocalUploadUrl(fileName, options);
+  } catch (error) {
+    logger.error('[Storage] Upload from buffer error', error);
+    throw new Error(
+      `Failed to upload image from buffer: ${error instanceof Error ? error.message : 'Unknown error'}`
+    );
+  }
+}
+
+// Maximum image size accepted from upstream AI providers (25 MB)
+const MAX_IMAGE_BYTES = 25 * 1024 * 1024;
+
+// Allowed image MIME types — reject anything that isn't a recognised image format
+const ALLOWED_IMAGE_MIME_TYPES = new Set([
+  'image/png',
+  'image/jpeg',
+  'image/jpg',
+  'image/webp',
+  'image/gif',
+]);
+
+/**
  * Upload image from URL to R2
  */
 export async function uploadImageFromUrl(
   imageUrl: string,
   userId: string,
   anchorId: string,
-  variationIndex: number
+  variationIndex: number,
+  options?: UploadUrlOptions
 ): Promise<string> {
   try {
-    const client = getR2Client();
+    logger.info('[Storage] Using LOCAL STORAGE for development');
 
-    // Check if client is mocked (null/undefined check though getR2Client returns any in mock case)
-    if (!process.env.CLOUDFLARE_ACCOUNT_ID) {
-      logger.info('[Storage] Mock Mode: Skipping upload, returning original URL');
-      return imageUrl;
+    // Download image from upstream URL with size and type guards
+    let buffer: Buffer;
+    try {
+      const response = await axios.get(imageUrl, {
+        responseType: 'arraybuffer',
+        // Abort if the server reports a Content-Length beyond our limit
+        maxContentLength: MAX_IMAGE_BYTES,
+        maxBodyLength: MAX_IMAGE_BYTES,
+        timeout: 30_000,
+      });
+
+      // Validate Content-Type — only accept recognised image MIME types
+      const contentType = (response.headers['content-type'] as string | undefined)
+        ?.split(';')[0]
+        .trim()
+        .toLowerCase();
+      if (contentType && !ALLOWED_IMAGE_MIME_TYPES.has(contentType)) {
+        throw new Error(`Rejected upstream image with unsupported MIME type: ${contentType}`);
+      }
+
+      buffer = Buffer.from(response.data);
+
+      // Double-check actual byte length in case Content-Length header was absent
+      if (buffer.byteLength > MAX_IMAGE_BYTES) {
+        throw new Error(`Upstream image exceeds maximum allowed size (${MAX_IMAGE_BYTES} bytes)`);
+      }
+    } catch (downloadError) {
+      logger.error(`[Storage] Failed to download image from upstream`, downloadError);
+      throw new Error('Failed to download generated image');
     }
 
-    const bucket = getBucketName();
-
-    // Download image from Replicate URL
-    logger.debug('[Storage] Downloading image', { imageUrl });
-    const response = await axios.get(imageUrl, {
-      responseType: 'arraybuffer',
-    });
-
-    const imageBuffer = Buffer.from(response.data);
-    const contentType = response.headers['content-type'] || 'image/png';
-
-    // Generate unique filename
-    const fileExtension = contentType.includes('png') ? 'png' : 'jpg';
-    const fileName = `anchors/${userId}/${anchorId}/variation-${variationIndex}.${fileExtension}`;
-
-    logger.info('[Storage] Uploading to R2', { fileName });
-
-    // Upload to R2
-    const upload = new Upload({
-      client,
-      params: {
-        Bucket: bucket,
-        Key: fileName,
-        Body: imageBuffer,
-        ContentType: contentType,
-        CacheControl: 'public, max-age=31536000', // Cache for 1 year
-      },
-    });
-
-    await upload.done();
-
-    // Return public URL (if R2 bucket has public access configured)
-    // Format: https://pub-<bucket-id>.r2.dev/<file-path>
-    const publicDomain = process.env.CLOUDFLARE_R2_PUBLIC_DOMAIN;
-    if (publicDomain) {
-      return `${publicDomain}/${fileName}`;
-    }
-
-    // Fallback: return R2 URL (requires authentication)
-    return `https://${bucket}.r2.cloudflarestorage.com/${fileName}`;
+    // Delegate to uploadImageFromBuffer
+    return uploadImageFromBuffer(buffer, userId, anchorId, variationIndex, options);
   } catch (error) {
-    logger.error('[Storage] Upload failed', error);
-    throw new Error(`Failed to upload image: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    // Re-throw so callers (e.g. enhance-controlnet) can skip failed variations
+    // or surface a 502 to the client. Silently returning the source URL would
+    // mask storage failures and return transient upstream URLs that can expire.
+    logger.error(
+      '[Storage] Upload error',
+      error instanceof Error ? error : new Error(String(error))
+    );
+    throw error;
   }
 }
 
@@ -123,6 +193,14 @@ export async function uploadAudio(
   try {
     const client = getR2Client();
     const bucket = getBucketName();
+
+    // Handle mock mode (no R2 credentials)
+    if (!client) {
+      logger.warn('[Storage] R2 client not available, using local fallback for audio');
+      // Return a deterministic local URI for development/CI environments
+      // In production, R2 credentials will always be available
+      return `local://mantras/${userId}/${anchorId}/${mantraStyle}.mp3`;
+    }
 
     // Generate unique filename
     const fileName = `mantras/${userId}/${anchorId}/${mantraStyle}.mp3`;
@@ -151,7 +229,9 @@ export async function uploadAudio(
     return `https://${bucket}.r2.cloudflarestorage.com/${fileName}`;
   } catch (error) {
     logger.error('[Storage] Audio upload failed', error);
-    throw new Error(`Failed to upload audio: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    throw new Error(
+      `Failed to upload audio: ${error instanceof Error ? error.message : 'Unknown error'}`
+    );
   }
 }
 
@@ -202,7 +282,7 @@ export async function deleteAnchorFiles(userId: string, anchorId: string): Promi
 /**
  * Generate signed URL for private files (if needed)
  */
-export async function getSignedUrl(filePath: string, expiresIn: number = 3600): Promise<string> {
+export async function getSignedUrl(filePath: string, _expiresIn: number = 3600): Promise<string> {
   // For now, return public URL
   // In production, implement signed URLs for private content
   const publicDomain = process.env.CLOUDFLARE_R2_PUBLIC_DOMAIN;
@@ -212,4 +292,27 @@ export async function getSignedUrl(filePath: string, expiresIn: number = 3600): 
 
   const bucket = getBucketName();
   return `https://${bucket}.r2.cloudflarestorage.com/${filePath}`;
+}
+
+/**
+ * Storage Service Class
+ * Class-based wrapper for the storage functions to support the new API style.
+ */
+export class StorageService {
+  /**
+   * Upload image buffer to storage
+   */
+  async uploadImage(buffer: Buffer, fileName: string): Promise<string> {
+    const anchorId = fileName.split('-')[1] || `temp-${Date.now()}`;
+    const index = parseInt(fileName.split('-').pop() || '0');
+
+    return uploadImageFromBuffer(buffer, 'default-user', anchorId, index);
+  }
+
+  /**
+   * Delete files
+   */
+  async deleteFiles(userId: string, anchorId: string): Promise<void> {
+    return deleteAnchorFiles(userId, anchorId);
+  }
 }

@@ -1,0 +1,10 @@
+Starting project at C:\Users\dwill\.gemini\antigravity\scratch\Anchor\anchor-v2
+Starting Metro Bundler
+warning: Bundler cache is empty, rebuilding (this may take a minute)
+The following packages should be updated for best compatibility with the installed expo version:
+  jest@30.2.0 - expected version: ~29.7.0
+Your project may not work correctly until you install the expected versions of the packages.
+CommandError: No Android connected device found, and no emulators could be started automatically.
+Please connect a device or create an emulator (https://docs.expo.dev/workflow/android-studio-emulator).
+Then follow the instructions here to enable USB debugging:
+https://developer.android.com/studio/run/device.html#developer-device-options. If you are using Genymotion go to Settings -> ADB, select "Use custom Android SDK tools", and point it at your Android SDK directory.

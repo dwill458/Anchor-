@@ -1,0 +1,701 @@
+e2e/chargeFlow.edgeCases.e2e.ts(16,11): error TS2304: Cannot find name 'device'.
+e2e/chargeFlow.edgeCases.e2e.ts(25,13): error TS2552: Cannot find name 'element'. Did you mean 'Element'?
+e2e/chargeFlow.edgeCases.e2e.ts(25,21): error TS2304: Cannot find name 'by'.
+e2e/chargeFlow.edgeCases.e2e.ts(26,13): error TS2552: Cannot find name 'element'. Did you mean 'Element'?
+e2e/chargeFlow.edgeCases.e2e.ts(26,21): error TS2304: Cannot find name 'by'.
+e2e/chargeFlow.edgeCases.e2e.ts(27,13): error TS2552: Cannot find name 'element'. Did you mean 'Element'?
+e2e/chargeFlow.edgeCases.e2e.ts(27,21): error TS2304: Cannot find name 'by'.
+e2e/chargeFlow.edgeCases.e2e.ts(30,13): error TS2304: Cannot find name 'waitFor'.
+e2e/chargeFlow.edgeCases.e2e.ts(30,21): error TS2552: Cannot find name 'element'. Did you mean 'Element'?
+e2e/chargeFlow.edgeCases.e2e.ts(30,29): error TS2304: Cannot find name 'by'.
+e2e/chargeFlow.edgeCases.e2e.ts(35,20): error TS2304: Cannot find name 'element'.
+e2e/chargeFlow.edgeCases.e2e.ts(35,28): error TS2304: Cannot find name 'by'.
+e2e/chargeFlow.edgeCases.e2e.ts(35,47): error TS2339: Property 'toBeVisible' does not exist on type 'Matchers<void, any>'.
+e2e/chargeFlow.edgeCases.e2e.ts(36,20): error TS2304: Cannot find name 'element'.
+e2e/chargeFlow.edgeCases.e2e.ts(36,28): error TS2304: Cannot find name 'by'.
+e2e/chargeFlow.edgeCases.e2e.ts(36,43): error TS2339: Property 'toBeVisible' does not exist on type 'JestMatchers<any>'.
+e2e/chargeFlow.edgeCases.e2e.ts(39,13): error TS2304: Cannot find name 'element'.
+e2e/chargeFlow.edgeCases.e2e.ts(39,21): error TS2304: Cannot find name 'by'.
+e2e/chargeFlow.edgeCases.e2e.ts(40,13): error TS2304: Cannot find name 'element'.
+e2e/chargeFlow.edgeCases.e2e.ts(40,21): error TS2304: Cannot find name 'by'.
+e2e/chargeFlow.edgeCases.e2e.ts(43,20): error TS2304: Cannot find name 'element'.
+e2e/chargeFlow.edgeCases.e2e.ts(43,28): error TS2304: Cannot find name 'by'.
+e2e/chargeFlow.edgeCases.e2e.ts(43,47): error TS2339: Property 'toBeVisible' does not exist on type 'JestMatchers<any>'.
+e2e/chargeFlow.edgeCases.e2e.ts(48,13): error TS2304: Cannot find name 'element'.
+e2e/chargeFlow.edgeCases.e2e.ts(48,21): error TS2304: Cannot find name 'by'.
+e2e/chargeFlow.edgeCases.e2e.ts(49,13): error TS2304: Cannot find name 'element'.
+e2e/chargeFlow.edgeCases.e2e.ts(49,21): error TS2304: Cannot find name 'by'.
+e2e/chargeFlow.edgeCases.e2e.ts(50,13): error TS2304: Cannot find name 'element'.
+e2e/chargeFlow.edgeCases.e2e.ts(50,21): error TS2304: Cannot find name 'by'.
+e2e/chargeFlow.edgeCases.e2e.ts(53,13): error TS2304: Cannot find name 'waitFor'.
+e2e/chargeFlow.edgeCases.e2e.ts(53,21): error TS2304: Cannot find name 'element'.
+e2e/chargeFlow.edgeCases.e2e.ts(53,29): error TS2304: Cannot find name 'by'.
+e2e/chargeFlow.edgeCases.e2e.ts(58,20): error TS2304: Cannot find name 'element'.
+e2e/chargeFlow.edgeCases.e2e.ts(58,28): error TS2304: Cannot find name 'by'.
+e2e/chargeFlow.edgeCases.e2e.ts(58,44): error TS2339: Property 'toBeVisible' does not exist on type 'JestMatchers<any>'.
+e2e/chargeFlow.edgeCases.e2e.ts(59,20): error TS2304: Cannot find name 'element'.
+e2e/chargeFlow.edgeCases.e2e.ts(59,28): error TS2304: Cannot find name 'by'.
+e2e/chargeFlow.edgeCases.e2e.ts(59,48): error TS2339: Property 'toBeVisible' does not exist on type 'Matchers<void, any>'.
+e2e/chargeFlow.edgeCases.e2e.ts(62,13): error TS2304: Cannot find name 'element'.
+e2e/chargeFlow.edgeCases.e2e.ts(62,21): error TS2304: Cannot find name 'by'.
+e2e/chargeFlow.edgeCases.e2e.ts(63,13): error TS2304: Cannot find name 'element'.
+e2e/chargeFlow.edgeCases.e2e.ts(63,21): error TS2304: Cannot find name 'by'.
+e2e/chargeFlow.edgeCases.e2e.ts(66,20): error TS2304: Cannot find name 'element'.
+e2e/chargeFlow.edgeCases.e2e.ts(66,28): error TS2304: Cannot find name 'by'.
+e2e/chargeFlow.edgeCases.e2e.ts(66,48): error TS2339: Property 'toBeVisible' does not exist on type 'JestMatchers<any>'.
+e2e/chargeFlow.edgeCases.e2e.ts(73,15): error TS2304: Cannot find name 'element'.
+e2e/chargeFlow.edgeCases.e2e.ts(73,23): error TS2304: Cannot find name 'by'.
+e2e/chargeFlow.edgeCases.e2e.ts(74,15): error TS2304: Cannot find name 'element'.
+e2e/chargeFlow.edgeCases.e2e.ts(74,23): error TS2304: Cannot find name 'by'.
+e2e/chargeFlow.edgeCases.e2e.ts(75,15): error TS2304: Cannot find name 'element'.
+e2e/chargeFlow.edgeCases.e2e.ts(75,23): error TS2304: Cannot find name 'by'.
+e2e/chargeFlow.edgeCases.e2e.ts(77,15): error TS2304: Cannot find name 'element'.
+e2e/chargeFlow.edgeCases.e2e.ts(77,23): error TS2304: Cannot find name 'by'.
+e2e/chargeFlow.edgeCases.e2e.ts(78,15): error TS2304: Cannot find name 'element'.
+e2e/chargeFlow.edgeCases.e2e.ts(78,23): error TS2304: Cannot find name 'by'.
+e2e/chargeFlow.edgeCases.e2e.ts(83,22): error TS2304: Cannot find name 'element'.
+e2e/chargeFlow.edgeCases.e2e.ts(83,30): error TS2304: Cannot find name 'by'.
+e2e/chargeFlow.edgeCases.e2e.ts(83,54): error TS2339: Property 'toBeVisible' does not exist on type 'JestMatchers<any>'.
+e2e/chargeFlow.edgeCases.e2e.ts(87,17): error TS2304: Cannot find name 'element'.
+e2e/chargeFlow.edgeCases.e2e.ts(87,25): error TS2304: Cannot find name 'by'.
+e2e/chargeFlow.edgeCases.e2e.ts(96,13): error TS2304: Cannot find name 'element'.
+e2e/chargeFlow.edgeCases.e2e.ts(96,21): error TS2304: Cannot find name 'by'.
+e2e/chargeFlow.edgeCases.e2e.ts(97,13): error TS2304: Cannot find name 'element'.
+e2e/chargeFlow.edgeCases.e2e.ts(97,21): error TS2304: Cannot find name 'by'.
+e2e/chargeFlow.edgeCases.e2e.ts(100,13): error TS2304: Cannot find name 'waitFor'.
+e2e/chargeFlow.edgeCases.e2e.ts(100,21): error TS2304: Cannot find name 'element'.
+e2e/chargeFlow.edgeCases.e2e.ts(100,29): error TS2304: Cannot find name 'by'.
+e2e/chargeFlow.edgeCases.e2e.ts(105,20): error TS2304: Cannot find name 'element'.
+e2e/chargeFlow.edgeCases.e2e.ts(105,28): error TS2304: Cannot find name 'by'.
+e2e/chargeFlow.edgeCases.e2e.ts(105,51): error TS2339: Property 'toBeVisible' does not exist on type 'JestMatchers<any>'.
+e2e/chargeFlow.edgeCases.e2e.ts(106,20): error TS2304: Cannot find name 'element'.
+e2e/chargeFlow.edgeCases.e2e.ts(106,28): error TS2304: Cannot find name 'by'.
+e2e/chargeFlow.edgeCases.e2e.ts(106,52): error TS2339: Property 'toBeVisible' does not exist on type 'JestMatchers<any>'.
+e2e/chargeFlow.edgeCases.e2e.ts(111,13): error TS2304: Cannot find name 'element'.
+e2e/chargeFlow.edgeCases.e2e.ts(111,21): error TS2304: Cannot find name 'by'.
+e2e/chargeFlow.edgeCases.e2e.ts(112,13): error TS2304: Cannot find name 'element'.
+e2e/chargeFlow.edgeCases.e2e.ts(112,21): error TS2304: Cannot find name 'by'.
+e2e/chargeFlow.edgeCases.e2e.ts(116,20): error TS2304: Cannot find name 'element'.
+e2e/chargeFlow.edgeCases.e2e.ts(116,28): error TS2304: Cannot find name 'by'.
+e2e/chargeFlow.edgeCases.e2e.ts(116,50): error TS2339: Property 'toBeEnabled' does not exist on type 'JestMatchers<any>'.
+e2e/chargeFlow.edgeCases.e2e.ts(121,13): error TS2304: Cannot find name 'element'.
+e2e/chargeFlow.edgeCases.e2e.ts(121,21): error TS2304: Cannot find name 'by'.
+e2e/chargeFlow.edgeCases.e2e.ts(124,13): error TS2304: Cannot find name 'waitFor'.
+e2e/chargeFlow.edgeCases.e2e.ts(124,21): error TS2304: Cannot find name 'element'.
+e2e/chargeFlow.edgeCases.e2e.ts(124,29): error TS2304: Cannot find name 'by'.
+e2e/chargeFlow.edgeCases.e2e.ts(129,20): error TS2304: Cannot find name 'element'.
+e2e/chargeFlow.edgeCases.e2e.ts(129,28): error TS2304: Cannot find name 'by'.
+e2e/chargeFlow.edgeCases.e2e.ts(129,55): error TS2339: Property 'toBeVisible' does not exist on type 'JestMatchers<any>'.
+e2e/chargeFlow.edgeCases.e2e.ts(135,20): error TS2304: Cannot find name 'element'.
+e2e/chargeFlow.edgeCases.e2e.ts(135,28): error TS2304: Cannot find name 'by'.
+e2e/chargeFlow.edgeCases.e2e.ts(135,50): error TS2339: Property 'toBeVisible' does not exist on type 'Matchers<void, any>'.
+e2e/chargeFlow.edgeCases.e2e.ts(136,20): error TS2304: Cannot find name 'element'.
+e2e/chargeFlow.edgeCases.e2e.ts(136,28): error TS2304: Cannot find name 'by'.
+e2e/chargeFlow.edgeCases.e2e.ts(136,50): error TS2339: Property 'toBeVisible' does not exist on type 'Matchers<void, any>'.
+e2e/chargeFlow.edgeCases.e2e.ts(139,13): error TS2304: Cannot find name 'device'.
+e2e/chargeFlow.edgeCases.e2e.ts(142,20): error TS2304: Cannot find name 'element'.
+e2e/chargeFlow.edgeCases.e2e.ts(142,28): error TS2304: Cannot find name 'by'.
+e2e/chargeFlow.edgeCases.e2e.ts(142,55): error TS2339: Property 'toBeVisible' does not exist on type 'JestMatchers<any>'.
+e2e/chargeFlow.edgeCases.e2e.ts(149,13): error TS2304: Cannot find name 'element'.
+e2e/chargeFlow.edgeCases.e2e.ts(149,21): error TS2304: Cannot find name 'by'.
+e2e/chargeFlow.edgeCases.e2e.ts(152,20): error TS2304: Cannot find name 'element'.
+e2e/chargeFlow.edgeCases.e2e.ts(152,28): error TS2304: Cannot find name 'by'.
+e2e/chargeFlow.edgeCases.e2e.ts(152,53): error TS2339: Property 'toBeVisible' does not exist on type 'JestMatchers<any>'.
+e2e/chargeFlow.edgeCases.e2e.ts(155,13): error TS2304: Cannot find name 'device'.
+e2e/chargeFlow.edgeCases.e2e.ts(156,13): error TS2304: Cannot find name 'device'.
+e2e/chargeFlow.edgeCases.e2e.ts(159,13): error TS2304: Cannot find name 'device'.
+e2e/chargeFlow.edgeCases.e2e.ts(162,20): error TS2304: Cannot find name 'element'.
+e2e/chargeFlow.edgeCases.e2e.ts(162,28): error TS2304: Cannot find name 'by'.
+e2e/chargeFlow.edgeCases.e2e.ts(162,53): error TS2339: Property 'toBeVisible' does not exist on type 'JestMatchers<any>'.
+e2e/chargeFlow.edgeCases.e2e.ts(165,13): error TS2304: Cannot find name 'element'.
+e2e/chargeFlow.edgeCases.e2e.ts(165,21): error TS2304: Cannot find name 'by'.
+e2e/chargeFlow.edgeCases.e2e.ts(166,13): error TS2304: Cannot find name 'element'.
+e2e/chargeFlow.edgeCases.e2e.ts(166,21): error TS2304: Cannot find name 'by'.
+e2e/chargeFlow.edgeCases.e2e.ts(168,13): error TS2304: Cannot find name 'waitFor'.
+e2e/chargeFlow.edgeCases.e2e.ts(168,21): error TS2304: Cannot find name 'element'.
+e2e/chargeFlow.edgeCases.e2e.ts(168,29): error TS2304: Cannot find name 'by'.
+e2e/chargeFlow.edgeCases.e2e.ts(178,13): error TS2304: Cannot find name 'element'.
+e2e/chargeFlow.edgeCases.e2e.ts(178,21): error TS2304: Cannot find name 'by'.
+e2e/chargeFlow.edgeCases.e2e.ts(181,13): error TS2304: Cannot find name 'waitFor'.
+e2e/chargeFlow.edgeCases.e2e.ts(181,21): error TS2304: Cannot find name 'element'.
+e2e/chargeFlow.edgeCases.e2e.ts(181,29): error TS2304: Cannot find name 'by'.
+e2e/chargeFlow.edgeCases.e2e.ts(185,20): error TS2304: Cannot find name 'element'.
+e2e/chargeFlow.edgeCases.e2e.ts(185,28): error TS2304: Cannot find name 'by'.
+e2e/chargeFlow.edgeCases.e2e.ts(185,54): error TS2339: Property 'toBeVisible' does not exist on type 'JestMatchers<any>'.
+e2e/chargeFlow.edgeCases.e2e.ts(194,13): error TS2304: Cannot find name 'device'.
+e2e/chargeFlow.edgeCases.e2e.ts(197,20): error TS2304: Cannot find name 'element'.
+e2e/chargeFlow.edgeCases.e2e.ts(197,28): error TS2304: Cannot find name 'by'.
+e2e/chargeFlow.edgeCases.e2e.ts(197,52): error TS2339: Property 'toBeVisible' does not exist on type 'JestMatchers<any>'.
+e2e/chargeFlow.edgeCases.e2e.ts(204,13): error TS2304: Cannot find name 'element'.
+e2e/chargeFlow.edgeCases.e2e.ts(204,21): error TS2304: Cannot find name 'by'.
+e2e/chargeFlow.edgeCases.e2e.ts(207,20): error TS2304: Cannot find name 'element'.
+e2e/chargeFlow.edgeCases.e2e.ts(207,28): error TS2304: Cannot find name 'by'.
+e2e/chargeFlow.edgeCases.e2e.ts(207,55): error TS2339: Property 'toBeVisible' does not exist on type 'JestMatchers<any>'.
+e2e/chargeFlow.edgeCases.e2e.ts(210,13): error TS2304: Cannot find name 'device'.
+e2e/chargeFlow.edgeCases.e2e.ts(214,20): error TS2304: Cannot find name 'element'.
+e2e/chargeFlow.edgeCases.e2e.ts(214,28): error TS2304: Cannot find name 'by'.
+e2e/chargeFlow.edgeCases.e2e.ts(214,55): error TS2339: Property 'toBeVisible' does not exist on type 'JestMatchers<any>'.
+e2e/chargeFlow.edgeCases.e2e.ts(217,13): error TS2304: Cannot find name 'waitFor'.
+e2e/chargeFlow.edgeCases.e2e.ts(217,21): error TS2304: Cannot find name 'element'.
+e2e/chargeFlow.edgeCases.e2e.ts(217,29): error TS2304: Cannot find name 'by'.
+e2e/chargeFlow.edgeCases.e2e.ts(224,13): error TS2304: Cannot find name 'element'.
+e2e/chargeFlow.edgeCases.e2e.ts(224,21): error TS2304: Cannot find name 'by'.
+e2e/chargeFlow.edgeCases.e2e.ts(225,13): error TS2304: Cannot find name 'waitFor'.
+e2e/chargeFlow.edgeCases.e2e.ts(225,21): error TS2304: Cannot find name 'element'.
+e2e/chargeFlow.edgeCases.e2e.ts(225,29): error TS2304: Cannot find name 'by'.
+e2e/chargeFlow.edgeCases.e2e.ts(230,13): error TS2304: Cannot find name 'device'.
+e2e/chargeFlow.edgeCases.e2e.ts(231,13): error TS2304: Cannot find name 'device'.
+e2e/chargeFlow.edgeCases.e2e.ts(235,20): error TS2304: Cannot find name 'element'.
+e2e/chargeFlow.edgeCases.e2e.ts(235,28): error TS2304: Cannot find name 'by'.
+e2e/chargeFlow.edgeCases.e2e.ts(235,56): error TS2339: Property 'toBeVisible' does not exist on type 'JestMatchers<any>'.
+e2e/chargeFlow.edgeCases.e2e.ts(240,13): error TS2304: Cannot find name 'element'.
+e2e/chargeFlow.edgeCases.e2e.ts(240,21): error TS2304: Cannot find name 'by'.
+e2e/chargeFlow.edgeCases.e2e.ts(241,13): error TS2304: Cannot find name 'waitFor'.
+e2e/chargeFlow.edgeCases.e2e.ts(241,21): error TS2304: Cannot find name 'element'.
+e2e/chargeFlow.edgeCases.e2e.ts(241,29): error TS2304: Cannot find name 'by'.
+e2e/chargeFlow.edgeCases.e2e.ts(246,13): error TS2304: Cannot find name 'device'.
+e2e/chargeFlow.edgeCases.e2e.ts(247,13): error TS2304: Cannot find name 'device'.
+e2e/chargeFlow.edgeCases.e2e.ts(250,13): error TS2304: Cannot find name 'waitFor'.
+e2e/chargeFlow.edgeCases.e2e.ts(250,21): error TS2304: Cannot find name 'element'.
+e2e/chargeFlow.edgeCases.e2e.ts(250,29): error TS2304: Cannot find name 'by'.
+e2e/chargeFlow.edgeCases.e2e.ts(259,13): error TS2304: Cannot find name 'element'.
+e2e/chargeFlow.edgeCases.e2e.ts(259,21): error TS2304: Cannot find name 'by'.
+e2e/chargeFlow.edgeCases.e2e.ts(260,13): error TS2304: Cannot find name 'element'.
+e2e/chargeFlow.edgeCases.e2e.ts(260,21): error TS2304: Cannot find name 'by'.
+e2e/chargeFlow.edgeCases.e2e.ts(261,13): error TS2304: Cannot find name 'element'.
+e2e/chargeFlow.edgeCases.e2e.ts(261,21): error TS2304: Cannot find name 'by'.
+e2e/chargeFlow.edgeCases.e2e.ts(264,13): error TS2304: Cannot find name 'element'.
+e2e/chargeFlow.edgeCases.e2e.ts(264,21): error TS2304: Cannot find name 'by'.
+e2e/chargeFlow.edgeCases.e2e.ts(265,13): error TS2304: Cannot find name 'element'.
+e2e/chargeFlow.edgeCases.e2e.ts(265,21): error TS2304: Cannot find name 'by'.
+e2e/chargeFlow.edgeCases.e2e.ts(268,20): error TS2304: Cannot find name 'element'.
+e2e/chargeFlow.edgeCases.e2e.ts(268,28): error TS2304: Cannot find name 'by'.
+e2e/chargeFlow.edgeCases.e2e.ts(268,48): error TS2339: Property 'toBeVisible' does not exist on type 'JestMatchers<any>'.
+e2e/chargeFlow.edgeCases.e2e.ts(271,13): error TS2304: Cannot find name 'element'.
+e2e/chargeFlow.edgeCases.e2e.ts(271,21): error TS2304: Cannot find name 'by'.
+e2e/chargeFlow.edgeCases.e2e.ts(273,13): error TS2304: Cannot find name 'waitFor'.
+e2e/chargeFlow.edgeCases.e2e.ts(273,21): error TS2304: Cannot find name 'element'.
+e2e/chargeFlow.edgeCases.e2e.ts(273,29): error TS2304: Cannot find name 'by'.
+e2e/chargeFlow.edgeCases.e2e.ts(280,20): error TS2304: Cannot find name 'element'.
+e2e/chargeFlow.edgeCases.e2e.ts(280,28): error TS2304: Cannot find name 'by'.
+e2e/chargeFlow.edgeCases.e2e.ts(280,54): error TS2339: Property 'toBeVisible' does not exist on type 'JestMatchers<any>'.
+e2e/chargeFlow.edgeCases.e2e.ts(281,20): error TS2304: Cannot find name 'element'.
+e2e/chargeFlow.edgeCases.e2e.ts(281,28): error TS2304: Cannot find name 'by'.
+e2e/chargeFlow.edgeCases.e2e.ts(281,55): error TS2339: Property 'toBeVisible' does not exist on type 'JestMatchers<any>'.
+e2e/chargeFlow.edgeCases.e2e.ts(289,13): error TS2304: Cannot find name 'element'.
+e2e/chargeFlow.edgeCases.e2e.ts(289,21): error TS2304: Cannot find name 'by'.
+e2e/chargeFlow.edgeCases.e2e.ts(292,20): error TS2304: Cannot find name 'element'.
+e2e/chargeFlow.edgeCases.e2e.ts(292,28): error TS2304: Cannot find name 'by'.
+e2e/chargeFlow.edgeCases.e2e.ts(292,52): error TS2339: Property 'toBeVisible' does not exist on type 'JestMatchers<any>'.
+e2e/chargeFlow.edgeCases.e2e.ts(293,20): error TS2304: Cannot find name 'element'.
+e2e/chargeFlow.edgeCases.e2e.ts(293,28): error TS2304: Cannot find name 'by'.
+e2e/chargeFlow.edgeCases.e2e.ts(293,51): error TS2339: Property 'toBeVisible' does not exist on type 'JestMatchers<any>'.
+e2e/chargeFlow.edgeCases.e2e.ts(294,20): error TS2304: Cannot find name 'element'.
+e2e/chargeFlow.edgeCases.e2e.ts(294,28): error TS2304: Cannot find name 'by'.
+e2e/chargeFlow.edgeCases.e2e.ts(294,51): error TS2339: Property 'toBeVisible' does not exist on type 'JestMatchers<any>'.
+e2e/chargeFlow.edgeCases.e2e.ts(297,27): error TS2304: Cannot find name 'element'.
+e2e/chargeFlow.edgeCases.e2e.ts(297,35): error TS2304: Cannot find name 'by'.
+e2e/chargeFlow.edgeCases.e2e.ts(298,26): error TS2304: Cannot find name 'element'.
+e2e/chargeFlow.edgeCases.e2e.ts(298,34): error TS2304: Cannot find name 'by'.
+e2e/chargeFlow.edgeCases.e2e.ts(300,33): error TS2339: Property 'toBeVisible' does not exist on type 'JestMatchers<any>'.
+e2e/chargeFlow.edgeCases.e2e.ts(301,32): error TS2339: Property 'toBeVisible' does not exist on type 'JestMatchers<any>'.
+e2e/chargeFlow.edgeCases.e2e.ts(306,13): error TS2304: Cannot find name 'element'.
+e2e/chargeFlow.edgeCases.e2e.ts(306,21): error TS2304: Cannot find name 'by'.
+e2e/chargeFlow.edgeCases.e2e.ts(307,13): error TS2304: Cannot find name 'element'.
+e2e/chargeFlow.edgeCases.e2e.ts(307,21): error TS2304: Cannot find name 'by'.
+e2e/chargeFlow.edgeCases.e2e.ts(310,30): error TS2304: Cannot find name 'element'.
+e2e/chargeFlow.edgeCases.e2e.ts(310,38): error TS2304: Cannot find name 'by'.
+e2e/chargeFlow.edgeCases.e2e.ts(311,36): error TS2339: Property 'toHaveToggleValue' does not exist on type 'JestMatchers<any>'.
+e2e/chargeFlow.edgeCases.e2e.ts(314,32): error TS2304: Cannot find name 'element'.
+e2e/chargeFlow.edgeCases.e2e.ts(314,40): error TS2304: Cannot find name 'by'.
+e2e/chargeFlow.edgeCases.e2e.ts(315,42): error TS2339: Property 'toHaveToggleValue' does not exist on type 'Matchers<void, any>'.
+e2e/chargeFlow.edgeCases.e2e.ts(322,13): error TS2304: Cannot find name 'element'.
+e2e/chargeFlow.edgeCases.e2e.ts(322,21): error TS2304: Cannot find name 'by'.
+e2e/chargeFlow.edgeCases.e2e.ts(323,13): error TS2304: Cannot find name 'waitFor'.
+e2e/chargeFlow.edgeCases.e2e.ts(323,21): error TS2304: Cannot find name 'element'.
+e2e/chargeFlow.edgeCases.e2e.ts(323,29): error TS2304: Cannot find name 'by'.
+e2e/chargeFlow.edgeCases.e2e.ts(328,13): error TS2304: Cannot find name 'device'.
+e2e/chargeFlow.edgeCases.e2e.ts(331,20): error TS2304: Cannot find name 'element'.
+e2e/chargeFlow.edgeCases.e2e.ts(331,28): error TS2304: Cannot find name 'by'.
+e2e/chargeFlow.edgeCases.e2e.ts(331,57): error TS2339: Property 'toBeVisible' does not exist on type 'Matchers<void, any>'.
+e2e/chargeFlow.edgeCases.e2e.ts(336,13): error TS2304: Cannot find name 'element'.
+e2e/chargeFlow.edgeCases.e2e.ts(336,21): error TS2304: Cannot find name 'by'.
+e2e/chargeFlow.edgeCases.e2e.ts(337,13): error TS2304: Cannot find name 'element'.
+e2e/chargeFlow.edgeCases.e2e.ts(337,21): error TS2304: Cannot find name 'by'.
+e2e/chargeFlow.edgeCases.e2e.ts(340,13): error TS2304: Cannot find name 'device'.
+e2e/chargeFlow.edgeCases.e2e.ts(341,13): error TS2304: Cannot find name 'device'.
+e2e/chargeFlow.edgeCases.e2e.ts(342,13): error TS2304: Cannot find name 'device'.
+e2e/chargeFlow.edgeCases.e2e.ts(347,9): error TS2304: Cannot find name 'element'.
+e2e/chargeFlow.edgeCases.e2e.ts(347,17): error TS2304: Cannot find name 'by'.
+e2e/chargeFlow.edgeCases.e2e.ts(348,9): error TS2339: Property 'toBeVisible' does not exist on type 'JestMatchers<any>'.
+e2e/chargeFlow.edgeCases.e2e.ts(353,13): error TS2304: Cannot find name 'element'.
+e2e/chargeFlow.edgeCases.e2e.ts(353,21): error TS2304: Cannot find name 'by'.
+e2e/chargeFlow.edgeCases.e2e.ts(356,13): error TS2304: Cannot find name 'waitFor'.
+e2e/chargeFlow.edgeCases.e2e.ts(356,21): error TS2304: Cannot find name 'element'.
+e2e/chargeFlow.edgeCases.e2e.ts(356,29): error TS2304: Cannot find name 'by'.
+e2e/chargeFlow.edgeCases.e2e.ts(361,13): error TS2304: Cannot find name 'element'.
+e2e/chargeFlow.edgeCases.e2e.ts(361,21): error TS2304: Cannot find name 'by'.
+e2e/chargeFlow.edgeCases.e2e.ts(364,13): error TS2304: Cannot find name 'waitFor'.
+e2e/chargeFlow.edgeCases.e2e.ts(364,21): error TS2304: Cannot find name 'element'.
+e2e/chargeFlow.edgeCases.e2e.ts(364,29): error TS2304: Cannot find name 'by'.
+e2e/chargeFlow.edgeCases.e2e.ts(369,13): error TS2304: Cannot find name 'element'.
+e2e/chargeFlow.edgeCases.e2e.ts(369,21): error TS2304: Cannot find name 'by'.
+e2e/chargeFlow.edgeCases.e2e.ts(372,13): error TS2304: Cannot find name 'waitFor'.
+e2e/chargeFlow.edgeCases.e2e.ts(372,21): error TS2304: Cannot find name 'element'.
+e2e/chargeFlow.edgeCases.e2e.ts(372,29): error TS2304: Cannot find name 'by'.
+e2e/chargeFlow.edgeCases.e2e.ts(377,13): error TS2304: Cannot find name 'element'.
+e2e/chargeFlow.edgeCases.e2e.ts(377,21): error TS2304: Cannot find name 'by'.
+e2e/chargeFlow.edgeCases.e2e.ts(380,13): error TS2304: Cannot find name 'waitFor'.
+e2e/chargeFlow.edgeCases.e2e.ts(380,21): error TS2304: Cannot find name 'element'.
+e2e/chargeFlow.edgeCases.e2e.ts(380,29): error TS2304: Cannot find name 'by'.
+e2e/chargeFlow.edgeCases.e2e.ts(385,13): error TS2304: Cannot find name 'device'.
+e2e/chargeFlow.edgeCases.e2e.ts(387,13): error TS2304: Cannot find name 'waitFor'.
+e2e/chargeFlow.edgeCases.e2e.ts(387,21): error TS2304: Cannot find name 'element'.
+e2e/chargeFlow.edgeCases.e2e.ts(387,29): error TS2304: Cannot find name 'by'.
+e2e/chargeFlow.edgeCases.e2e.ts(392,13): error TS2304: Cannot find name 'device'.
+e2e/chargeFlow.edgeCases.e2e.ts(394,13): error TS2304: Cannot find name 'waitFor'.
+e2e/chargeFlow.edgeCases.e2e.ts(394,21): error TS2304: Cannot find name 'element'.
+e2e/chargeFlow.edgeCases.e2e.ts(394,29): error TS2304: Cannot find name 'by'.
+e2e/chargeFlow.edgeCases.e2e.ts(405,15): error TS2304: Cannot find name 'element'.
+e2e/chargeFlow.edgeCases.e2e.ts(405,23): error TS2304: Cannot find name 'by'.
+e2e/chargeFlow.edgeCases.e2e.ts(408,15): error TS2304: Cannot find name 'element'.
+e2e/chargeFlow.edgeCases.e2e.ts(408,23): error TS2304: Cannot find name 'by'.
+e2e/chargeFlow.edgeCases.e2e.ts(409,15): error TS2304: Cannot find name 'element'.
+e2e/chargeFlow.edgeCases.e2e.ts(409,23): error TS2304: Cannot find name 'by'.
+e2e/chargeFlow.edgeCases.e2e.ts(412,15): error TS2304: Cannot find name 'waitFor'.
+e2e/chargeFlow.edgeCases.e2e.ts(412,23): error TS2304: Cannot find name 'element'.
+e2e/chargeFlow.edgeCases.e2e.ts(412,31): error TS2304: Cannot find name 'by'.
+e2e/chargeFlow.edgeCases.e2e.ts(417,15): error TS2304: Cannot find name 'element'.
+e2e/chargeFlow.edgeCases.e2e.ts(417,23): error TS2304: Cannot find name 'by'.
+e2e/chargeFlow.edgeCases.e2e.ts(421,20): error TS2304: Cannot find name 'element'.
+e2e/chargeFlow.edgeCases.e2e.ts(421,28): error TS2304: Cannot find name 'by'.
+e2e/chargeFlow.edgeCases.e2e.ts(421,54): error TS2339: Property 'toBeVisible' does not exist on type 'JestMatchers<any>'.
+e2e/chargeFlow.edgeCases.e2e.ts(426,13): error TS2304: Cannot find name 'element'.
+e2e/chargeFlow.edgeCases.e2e.ts(426,21): error TS2304: Cannot find name 'by'.
+e2e/chargeFlow.edgeCases.e2e.ts(427,13): error TS2304: Cannot find name 'element'.
+e2e/chargeFlow.edgeCases.e2e.ts(427,21): error TS2304: Cannot find name 'by'.
+e2e/chargeFlow.edgeCases.e2e.ts(428,13): error TS2304: Cannot find name 'element'.
+e2e/chargeFlow.edgeCases.e2e.ts(428,21): error TS2304: Cannot find name 'by'.
+e2e/chargeFlow.edgeCases.e2e.ts(431,13): error TS2304: Cannot find name 'waitFor'.
+e2e/chargeFlow.edgeCases.e2e.ts(431,21): error TS2304: Cannot find name 'element'.
+e2e/chargeFlow.edgeCases.e2e.ts(431,29): error TS2304: Cannot find name 'by'.
+e2e/chargeFlow.edgeCases.e2e.ts(436,13): error TS2304: Cannot find name 'element'.
+e2e/chargeFlow.edgeCases.e2e.ts(436,21): error TS2304: Cannot find name 'by'.
+e2e/chargeFlow.edgeCases.e2e.ts(437,13): error TS2304: Cannot find name 'element'.
+e2e/chargeFlow.edgeCases.e2e.ts(437,21): error TS2304: Cannot find name 'by'.
+e2e/chargeFlow.edgeCases.e2e.ts(438,13): error TS2304: Cannot find name 'element'.
+e2e/chargeFlow.edgeCases.e2e.ts(438,21): error TS2304: Cannot find name 'by'.
+e2e/chargeFlow.edgeCases.e2e.ts(441,20): error TS2304: Cannot find name 'element'.
+e2e/chargeFlow.edgeCases.e2e.ts(441,28): error TS2304: Cannot find name 'by'.
+e2e/chargeFlow.edgeCases.e2e.ts(441,49): error TS2339: Property 'toBeEnabled' does not exist on type 'JestMatchers<any>'.
+e2e/chargeFlow.edgeCases.e2e.ts(451,20): error TS2304: Cannot find name 'element'.
+e2e/chargeFlow.edgeCases.e2e.ts(451,28): error TS2304: Cannot find name 'by'.
+e2e/chargeFlow.edgeCases.e2e.ts(451,54): error TS2339: Property 'toBeVisible' does not exist on type 'JestMatchers<any>'.
+e2e/chargeFlow.edgeCases.e2e.ts(452,20): error TS2304: Cannot find name 'element'.
+e2e/chargeFlow.edgeCases.e2e.ts(452,28): error TS2304: Cannot find name 'by'.
+e2e/chargeFlow.edgeCases.e2e.ts(452,55): error TS2339: Property 'toBeVisible' does not exist on type 'JestMatchers<any>'.
+e2e/chargeFlow.edgeCases.e2e.ts(455,13): error TS2304: Cannot find name 'element'.
+e2e/chargeFlow.edgeCases.e2e.ts(455,21): error TS2304: Cannot find name 'by'.
+e2e/chargeFlow.edgeCases.e2e.ts(456,20): error TS2304: Cannot find name 'element'.
+e2e/chargeFlow.edgeCases.e2e.ts(456,28): error TS2304: Cannot find name 'by'.
+e2e/chargeFlow.edgeCases.e2e.ts(456,52): error TS2339: Property 'toBeVisible' does not exist on type 'JestMatchers<any>'.
+e2e/chargeFlow.edgeCases.e2e.ts(457,20): error TS2304: Cannot find name 'element'.
+e2e/chargeFlow.edgeCases.e2e.ts(457,28): error TS2304: Cannot find name 'by'.
+e2e/chargeFlow.edgeCases.e2e.ts(457,51): error TS2339: Property 'toBeVisible' does not exist on type 'JestMatchers<any>'.
+e2e/chargeFlow.edgeCases.e2e.ts(465,32): error TS2304: Cannot find name 'element'.
+e2e/chargeFlow.edgeCases.e2e.ts(465,40): error TS2304: Cannot find name 'by'.
+e2e/chargeFlow.edgeCases.e2e.ts(466,38): error TS2339: Property 'toBeVisible' does not exist on type 'JestMatchers<any>'.
+e2e/chargeFlow.edgeCases.e2e.ts(470,38): error TS2339: Property 'toHaveToggleValue' does not exist on type 'JestMatchers<any>'.
+e2e/chargeFlow.firstTime.e2e.ts(20,11): error TS2304: Cannot find name 'device'.
+e2e/chargeFlow.firstTime.e2e.ts(27,11): error TS2304: Cannot find name 'device'.
+e2e/chargeFlow.firstTime.e2e.ts(32,11): error TS2304: Cannot find name 'element'.
+e2e/chargeFlow.firstTime.e2e.ts(32,19): error TS2304: Cannot find name 'by'.
+e2e/chargeFlow.firstTime.e2e.ts(35,11): error TS2304: Cannot find name 'waitFor'.
+e2e/chargeFlow.firstTime.e2e.ts(35,19): error TS2304: Cannot find name 'element'.
+e2e/chargeFlow.firstTime.e2e.ts(35,27): error TS2304: Cannot find name 'by'.
+e2e/chargeFlow.firstTime.e2e.ts(40,18): error TS2304: Cannot find name 'element'.
+e2e/chargeFlow.firstTime.e2e.ts(40,26): error TS2304: Cannot find name 'by'.
+e2e/chargeFlow.firstTime.e2e.ts(40,52): error TS2339: Property 'toBeVisible' does not exist on type 'JestMatchers<any>'.
+e2e/chargeFlow.firstTime.e2e.ts(41,18): error TS2304: Cannot find name 'element'.
+e2e/chargeFlow.firstTime.e2e.ts(41,26): error TS2304: Cannot find name 'by'.
+e2e/chargeFlow.firstTime.e2e.ts(41,53): error TS2339: Property 'toBeVisible' does not exist on type 'JestMatchers<any>'.
+e2e/chargeFlow.firstTime.e2e.ts(45,7): error TS2304: Cannot find name 'element'.
+e2e/chargeFlow.firstTime.e2e.ts(45,15): error TS2304: Cannot find name 'by'.
+e2e/chargeFlow.firstTime.e2e.ts(46,7): error TS2339: Property 'toBeVisible' does not exist on type 'JestMatchers<any>'.
+e2e/chargeFlow.firstTime.e2e.ts(48,7): error TS2304: Cannot find name 'element'.
+e2e/chargeFlow.firstTime.e2e.ts(48,15): error TS2304: Cannot find name 'by'.
+e2e/chargeFlow.firstTime.e2e.ts(49,7): error TS2339: Property 'toBeVisible' does not exist on type 'JestMatchers<any>'.
+e2e/chargeFlow.firstTime.e2e.ts(54,11): error TS2304: Cannot find name 'element'.
+e2e/chargeFlow.firstTime.e2e.ts(54,19): error TS2304: Cannot find name 'by'.
+e2e/chargeFlow.firstTime.e2e.ts(57,11): error TS2304: Cannot find name 'waitFor'.
+e2e/chargeFlow.firstTime.e2e.ts(57,19): error TS2304: Cannot find name 'element'.
+e2e/chargeFlow.firstTime.e2e.ts(57,27): error TS2304: Cannot find name 'by'.
+e2e/chargeFlow.firstTime.e2e.ts(62,18): error TS2304: Cannot find name 'element'.
+e2e/chargeFlow.firstTime.e2e.ts(62,26): error TS2304: Cannot find name 'by'.
+e2e/chargeFlow.firstTime.e2e.ts(62,50): error TS2339: Property 'toBeVisible' does not exist on type 'JestMatchers<any>'.
+e2e/chargeFlow.firstTime.e2e.ts(63,18): error TS2304: Cannot find name 'element'.
+e2e/chargeFlow.firstTime.e2e.ts(63,26): error TS2304: Cannot find name 'by'.
+e2e/chargeFlow.firstTime.e2e.ts(63,49): error TS2339: Property 'toBeVisible' does not exist on type 'JestMatchers<any>'.
+e2e/chargeFlow.firstTime.e2e.ts(64,18): error TS2304: Cannot find name 'element'.
+e2e/chargeFlow.firstTime.e2e.ts(64,26): error TS2304: Cannot find name 'by'.
+e2e/chargeFlow.firstTime.e2e.ts(64,49): error TS2339: Property 'toBeVisible' does not exist on type 'JestMatchers<any>'.
+e2e/chargeFlow.firstTime.e2e.ts(67,18): error TS2304: Cannot find name 'element'.
+e2e/chargeFlow.firstTime.e2e.ts(67,26): error TS2304: Cannot find name 'by'.
+e2e/chargeFlow.firstTime.e2e.ts(67,48): error TS2339: Property 'toBeDisabled' does not exist on type 'JestMatchers<any>'.
+e2e/chargeFlow.firstTime.e2e.ts(72,18): error TS2304: Cannot find name 'element'.
+e2e/chargeFlow.firstTime.e2e.ts(72,26): error TS2304: Cannot find name 'by'.
+e2e/chargeFlow.firstTime.e2e.ts(72,51): error TS2339: Property 'toBeVisible' does not exist on type 'JestMatchers<any>'.
+e2e/chargeFlow.firstTime.e2e.ts(75,11): error TS2304: Cannot find name 'element'.
+e2e/chargeFlow.firstTime.e2e.ts(75,19): error TS2304: Cannot find name 'by'.
+e2e/chargeFlow.firstTime.e2e.ts(78,18): error TS2304: Cannot find name 'element'.
+e2e/chargeFlow.firstTime.e2e.ts(78,26): error TS2304: Cannot find name 'by'.
+e2e/chargeFlow.firstTime.e2e.ts(78,48): error TS2339: Property 'toBeEnabled' does not exist on type 'JestMatchers<any>'.
+e2e/chargeFlow.firstTime.e2e.ts(81,18): error TS2304: Cannot find name 'element'.
+e2e/chargeFlow.firstTime.e2e.ts(81,26): error TS2304: Cannot find name 'by'.
+e2e/chargeFlow.firstTime.e2e.ts(81,58): error TS2339: Property 'toHaveToggleValue' does not exist on type 'JestMatchers<any>'.
+e2e/chargeFlow.firstTime.e2e.ts(86,11): error TS2304: Cannot find name 'element'.
+e2e/chargeFlow.firstTime.e2e.ts(86,19): error TS2304: Cannot find name 'by'.
+e2e/chargeFlow.firstTime.e2e.ts(89,11): error TS2304: Cannot find name 'waitFor'.
+e2e/chargeFlow.firstTime.e2e.ts(89,19): error TS2304: Cannot find name 'element'.
+e2e/chargeFlow.firstTime.e2e.ts(89,27): error TS2304: Cannot find name 'by'.
+e2e/chargeFlow.firstTime.e2e.ts(94,18): error TS2304: Cannot find name 'element'.
+e2e/chargeFlow.firstTime.e2e.ts(94,26): error TS2304: Cannot find name 'by'.
+e2e/chargeFlow.firstTime.e2e.ts(95,8): error TS2339: Property 'toBeVisible' does not exist on type 'JestMatchers<any>'.
+e2e/chargeFlow.firstTime.e2e.ts(98,26): error TS2304: Cannot find name 'element'.
+e2e/chargeFlow.firstTime.e2e.ts(98,34): error TS2304: Cannot find name 'by'.
+e2e/chargeFlow.firstTime.e2e.ts(98,61): error TS2304: Cannot find name 'by'.
+e2e/chargeFlow.firstTime.e2e.ts(99,32): error TS2339: Property 'toBeVisible' does not exist on type 'JestMatchers<any>'.
+e2e/chargeFlow.firstTime.e2e.ts(105,18): error TS2304: Cannot find name 'element'.
+e2e/chargeFlow.firstTime.e2e.ts(105,26): error TS2304: Cannot find name 'by'.
+e2e/chargeFlow.firstTime.e2e.ts(105,53): error TS2339: Property 'toBeVisible' does not exist on type 'JestMatchers<any>'.
+e2e/chargeFlow.firstTime.e2e.ts(108,11): error TS2304: Cannot find name 'waitFor'.
+e2e/chargeFlow.firstTime.e2e.ts(108,19): error TS2304: Cannot find name 'element'.
+e2e/chargeFlow.firstTime.e2e.ts(108,27): error TS2304: Cannot find name 'by'.
+e2e/chargeFlow.firstTime.e2e.ts(113,11): error TS2304: Cannot find name 'waitFor'.
+e2e/chargeFlow.firstTime.e2e.ts(113,19): error TS2304: Cannot find name 'element'.
+e2e/chargeFlow.firstTime.e2e.ts(113,27): error TS2304: Cannot find name 'by'.
+e2e/chargeFlow.firstTime.e2e.ts(120,18): error TS2304: Cannot find name 'element'.
+e2e/chargeFlow.firstTime.e2e.ts(120,26): error TS2304: Cannot find name 'by'.
+e2e/chargeFlow.firstTime.e2e.ts(120,46): error TS2339: Property 'toBeVisible' does not exist on type 'JestMatchers<any>'.
+e2e/chargeFlow.firstTime.e2e.ts(127,11): error TS2304: Cannot find name 'element'.
+e2e/chargeFlow.firstTime.e2e.ts(127,19): error TS2304: Cannot find name 'by'.
+e2e/chargeFlow.firstTime.e2e.ts(132,11): error TS2304: Cannot find name 'element'.
+e2e/chargeFlow.firstTime.e2e.ts(132,19): error TS2304: Cannot find name 'by'.
+e2e/chargeFlow.firstTime.e2e.ts(135,11): error TS2304: Cannot find name 'waitFor'.
+e2e/chargeFlow.firstTime.e2e.ts(135,19): error TS2304: Cannot find name 'element'.
+e2e/chargeFlow.firstTime.e2e.ts(135,27): error TS2304: Cannot find name 'by'.
+e2e/chargeFlow.firstTime.e2e.ts(140,18): error TS2304: Cannot find name 'element'.
+e2e/chargeFlow.firstTime.e2e.ts(140,26): error TS2304: Cannot find name 'by'.
+e2e/chargeFlow.firstTime.e2e.ts(140,45): error TS2339: Property 'toBeVisible' does not exist on type 'JestMatchers<any>'.
+e2e/chargeFlow.firstTime.e2e.ts(141,18): error TS2304: Cannot find name 'element'.
+e2e/chargeFlow.firstTime.e2e.ts(141,26): error TS2304: Cannot find name 'by'.
+e2e/chargeFlow.firstTime.e2e.ts(141,45): error TS2339: Property 'toBeVisible' does not exist on type 'JestMatchers<any>'.
+e2e/chargeFlow.firstTime.e2e.ts(146,11): error TS2304: Cannot find name 'element'.
+e2e/chargeFlow.firstTime.e2e.ts(146,19): error TS2304: Cannot find name 'by'.
+e2e/chargeFlow.firstTime.e2e.ts(149,11): error TS2304: Cannot find name 'waitFor'.
+e2e/chargeFlow.firstTime.e2e.ts(149,19): error TS2304: Cannot find name 'element'.
+e2e/chargeFlow.firstTime.e2e.ts(149,27): error TS2304: Cannot find name 'by'.
+e2e/chargeFlow.firstTime.e2e.ts(154,11): error TS2304: Cannot find name 'element'.
+e2e/chargeFlow.firstTime.e2e.ts(154,19): error TS2304: Cannot find name 'by'.
+e2e/chargeFlow.firstTime.e2e.ts(157,11): error TS2304: Cannot find name 'waitFor'.
+e2e/chargeFlow.firstTime.e2e.ts(157,19): error TS2304: Cannot find name 'element'.
+e2e/chargeFlow.firstTime.e2e.ts(157,27): error TS2304: Cannot find name 'by'.
+e2e/chargeFlow.firstTime.e2e.ts(161,18): error TS2304: Cannot find name 'element'.
+e2e/chargeFlow.firstTime.e2e.ts(161,26): error TS2304: Cannot find name 'by'.
+e2e/chargeFlow.firstTime.e2e.ts(161,50): error TS2339: Property 'toBeVisible' does not exist on type 'JestMatchers<any>'.
+e2e/chargeFlow.firstTime.e2e.ts(162,18): error TS2304: Cannot find name 'element'.
+e2e/chargeFlow.firstTime.e2e.ts(162,26): error TS2304: Cannot find name 'by'.
+e2e/chargeFlow.firstTime.e2e.ts(162,55): error TS2339: Property 'toBeVisible' does not exist on type 'JestMatchers<any>'.
+e2e/chargeFlow.firstTime.e2e.ts(167,11): error TS2304: Cannot find name 'element'.
+e2e/chargeFlow.firstTime.e2e.ts(167,19): error TS2304: Cannot find name 'by'.
+e2e/chargeFlow.firstTime.e2e.ts(170,11): error TS2304: Cannot find name 'waitFor'.
+e2e/chargeFlow.firstTime.e2e.ts(170,19): error TS2304: Cannot find name 'element'.
+e2e/chargeFlow.firstTime.e2e.ts(170,27): error TS2304: Cannot find name 'by'.
+e2e/chargeFlow.firstTime.e2e.ts(175,18): error TS2304: Cannot find name 'element'.
+e2e/chargeFlow.firstTime.e2e.ts(175,26): error TS2304: Cannot find name 'by'.
+e2e/chargeFlow.firstTime.e2e.ts(175,41): error TS2339: Property 'toBeVisible' does not exist on type 'JestMatchers<any>'.
+e2e/chargeFlow.firstTime.e2e.ts(176,18): error TS2304: Cannot find name 'element'.
+e2e/chargeFlow.firstTime.e2e.ts(176,26): error TS2304: Cannot find name 'by'.
+e2e/chargeFlow.firstTime.e2e.ts(176,42): error TS2339: Property 'toBeVisible' does not exist on type 'JestMatchers<any>'.
+e2e/chargeFlow.firstTime.e2e.ts(177,18): error TS2304: Cannot find name 'element'.
+e2e/chargeFlow.firstTime.e2e.ts(177,26): error TS2304: Cannot find name 'by'.
+e2e/chargeFlow.firstTime.e2e.ts(177,42): error TS2339: Property 'toBeVisible' does not exist on type 'JestMatchers<any>'.
+e2e/chargeFlow.firstTime.e2e.ts(182,11): error TS2304: Cannot find name 'element'.
+e2e/chargeFlow.firstTime.e2e.ts(182,19): error TS2304: Cannot find name 'by'.
+e2e/chargeFlow.firstTime.e2e.ts(185,11): error TS2304: Cannot find name 'element'.
+e2e/chargeFlow.firstTime.e2e.ts(185,19): error TS2304: Cannot find name 'by'.
+e2e/chargeFlow.firstTime.e2e.ts(188,11): error TS2304: Cannot find name 'waitFor'.
+e2e/chargeFlow.firstTime.e2e.ts(188,19): error TS2304: Cannot find name 'element'.
+e2e/chargeFlow.firstTime.e2e.ts(188,27): error TS2304: Cannot find name 'by'.
+e2e/chargeFlow.firstTime.e2e.ts(193,18): error TS2304: Cannot find name 'element'.
+e2e/chargeFlow.firstTime.e2e.ts(193,26): error TS2304: Cannot find name 'by'.
+e2e/chargeFlow.firstTime.e2e.ts(193,55): error TS2339: Property 'toBeVisible' does not exist on type 'JestMatchers<any>'.
+e2e/chargeFlow.firstTime.e2e.ts(194,18): error TS2304: Cannot find name 'element'.
+e2e/chargeFlow.firstTime.e2e.ts(194,26): error TS2304: Cannot find name 'by'.
+e2e/chargeFlow.firstTime.e2e.ts(194,46): error TS2339: Property 'toBeVisible' does not exist on type 'JestMatchers<any>'.
+e2e/chargeFlow.firstTime.e2e.ts(197,18): error TS2304: Cannot find name 'element'.
+e2e/chargeFlow.firstTime.e2e.ts(197,26): error TS2304: Cannot find name 'by'.
+e2e/chargeFlow.firstTime.e2e.ts(197,48): error TS2339: Property 'toBeEnabled' does not exist on type 'JestMatchers<any>'.
+e2e/chargeFlow.firstTime.e2e.ts(202,18): error TS2304: Cannot find name 'element'.
+e2e/chargeFlow.firstTime.e2e.ts(202,26): error TS2304: Cannot find name 'by'.
+e2e/chargeFlow.firstTime.e2e.ts(202,51): error TS2339: Property 'toBeVisible' does not exist on type 'JestMatchers<any>'.
+e2e/chargeFlow.firstTime.e2e.ts(205,11): error TS2304: Cannot find name 'device'.
+e2e/chargeFlow.firstTime.e2e.ts(208,18): error TS2304: Cannot find name 'element'.
+e2e/chargeFlow.firstTime.e2e.ts(208,26): error TS2304: Cannot find name 'by'.
+e2e/chargeFlow.firstTime.e2e.ts(208,55): error TS2339: Property 'toBeVisible' does not exist on type 'Matchers<void, any>'.
+e2e/chargeFlow.firstTime.e2e.ts(213,11): error TS2304: Cannot find name 'element'.
+e2e/chargeFlow.firstTime.e2e.ts(213,19): error TS2304: Cannot find name 'by'.
+e2e/chargeFlow.firstTime.e2e.ts(214,11): error TS2304: Cannot find name 'waitFor'.
+e2e/chargeFlow.firstTime.e2e.ts(214,19): error TS2304: Cannot find name 'element'.
+e2e/chargeFlow.firstTime.e2e.ts(214,27): error TS2304: Cannot find name 'by'.
+e2e/chargeFlow.firstTime.e2e.ts(219,11): error TS2304: Cannot find name 'device'.
+e2e/chargeFlow.firstTime.e2e.ts(222,11): error TS2304: Cannot find name 'waitFor'.
+e2e/chargeFlow.firstTime.e2e.ts(222,19): error TS2304: Cannot find name 'element'.
+e2e/chargeFlow.firstTime.e2e.ts(222,27): error TS2304: Cannot find name 'by'.
+e2e/chargeFlow.firstTime.e2e.ts(229,11): error TS2304: Cannot find name 'element'.
+e2e/chargeFlow.firstTime.e2e.ts(229,19): error TS2304: Cannot find name 'by'.
+e2e/chargeFlow.firstTime.e2e.ts(230,11): error TS2304: Cannot find name 'element'.
+e2e/chargeFlow.firstTime.e2e.ts(230,19): error TS2304: Cannot find name 'by'.
+e2e/chargeFlow.firstTime.e2e.ts(231,11): error TS2304: Cannot find name 'element'.
+e2e/chargeFlow.firstTime.e2e.ts(231,19): error TS2304: Cannot find name 'by'.
+e2e/chargeFlow.firstTime.e2e.ts(234,11): error TS2304: Cannot find name 'waitFor'.
+e2e/chargeFlow.firstTime.e2e.ts(234,19): error TS2304: Cannot find name 'element'.
+e2e/chargeFlow.firstTime.e2e.ts(234,27): error TS2304: Cannot find name 'by'.
+e2e/chargeFlow.firstTime.e2e.ts(239,11): error TS2304: Cannot find name 'device'.
+e2e/chargeFlow.firstTime.e2e.ts(242,18): error TS2304: Cannot find name 'element'.
+e2e/chargeFlow.firstTime.e2e.ts(242,26): error TS2304: Cannot find name 'by'.
+e2e/chargeFlow.firstTime.e2e.ts(242,53): error TS2339: Property 'toBeVisible' does not exist on type 'JestMatchers<any>'.
+e2e/chargeFlow.firstTime.e2e.ts(250,11): error TS2304: Cannot find name 'waitFor'.
+e2e/chargeFlow.firstTime.e2e.ts(250,19): error TS2304: Cannot find name 'element'.
+e2e/chargeFlow.firstTime.e2e.ts(250,27): error TS2304: Cannot find name 'by'.
+e2e/chargeFlow.firstTime.e2e.ts(253,11): error TS2304: Cannot find name 'element'.
+e2e/chargeFlow.firstTime.e2e.ts(253,19): error TS2304: Cannot find name 'by'.
+e2e/chargeFlow.firstTime.e2e.ts(256,11): error TS2304: Cannot find name 'waitFor'.
+e2e/chargeFlow.firstTime.e2e.ts(256,19): error TS2304: Cannot find name 'element'.
+e2e/chargeFlow.firstTime.e2e.ts(256,27): error TS2304: Cannot find name 'by'.
+e2e/chargeFlow.firstTime.e2e.ts(259,11): error TS2304: Cannot find name 'element'.
+e2e/chargeFlow.firstTime.e2e.ts(259,19): error TS2304: Cannot find name 'by'.
+e2e/chargeFlow.firstTime.e2e.ts(260,11): error TS2304: Cannot find name 'element'.
+e2e/chargeFlow.firstTime.e2e.ts(260,19): error TS2304: Cannot find name 'by'.
+e2e/chargeFlow.firstTime.e2e.ts(263,11): error TS2304: Cannot find name 'waitFor'.
+e2e/chargeFlow.firstTime.e2e.ts(263,19): error TS2304: Cannot find name 'element'.
+e2e/chargeFlow.firstTime.e2e.ts(263,27): error TS2304: Cannot find name 'by'.
+e2e/chargeFlow.firstTime.e2e.ts(268,11): error TS2304: Cannot find name 'waitFor'.
+e2e/chargeFlow.firstTime.e2e.ts(268,19): error TS2304: Cannot find name 'element'.
+e2e/chargeFlow.firstTime.e2e.ts(268,27): error TS2304: Cannot find name 'by'.
+e2e/chargeFlow.firstTime.e2e.ts(273,18): error TS2304: Cannot find name 'element'.
+e2e/chargeFlow.firstTime.e2e.ts(273,26): error TS2304: Cannot find name 'by'.
+e2e/chargeFlow.firstTime.e2e.ts(273,46): error TS2339: Property 'toBeVisible' does not exist on type 'JestMatchers<any>'.
+e2e/chargeFlow.returningUser.e2e.ts(20,11): error TS2304: Cannot find name 'device'.
+e2e/chargeFlow.returningUser.e2e.ts(29,11): error TS2304: Cannot find name 'device'.
+e2e/chargeFlow.returningUser.e2e.ts(34,11): error TS2304: Cannot find name 'element'.
+e2e/chargeFlow.returningUser.e2e.ts(34,19): error TS2304: Cannot find name 'by'.
+e2e/chargeFlow.returningUser.e2e.ts(35,11): error TS2304: Cannot find name 'element'.
+e2e/chargeFlow.returningUser.e2e.ts(35,19): error TS2304: Cannot find name 'by'.
+e2e/chargeFlow.returningUser.e2e.ts(36,11): error TS2304: Cannot find name 'element'.
+e2e/chargeFlow.returningUser.e2e.ts(36,19): error TS2304: Cannot find name 'by'.
+e2e/chargeFlow.returningUser.e2e.ts(39,11): error TS2304: Cannot find name 'waitFor'.
+e2e/chargeFlow.returningUser.e2e.ts(39,19): error TS2304: Cannot find name 'element'.
+e2e/chargeFlow.returningUser.e2e.ts(39,27): error TS2304: Cannot find name 'by'.
+e2e/chargeFlow.returningUser.e2e.ts(44,18): error TS2304: Cannot find name 'element'.
+e2e/chargeFlow.returningUser.e2e.ts(44,26): error TS2304: Cannot find name 'by'.
+e2e/chargeFlow.returningUser.e2e.ts(44,45): error TS2339: Property 'toBeVisible' does not exist on type 'JestMatchers<any>'.
+e2e/chargeFlow.returningUser.e2e.ts(45,18): error TS2304: Cannot find name 'element'.
+e2e/chargeFlow.returningUser.e2e.ts(45,26): error TS2304: Cannot find name 'by'.
+e2e/chargeFlow.returningUser.e2e.ts(45,41): error TS2339: Property 'toBeVisible' does not exist on type 'JestMatchers<any>'.
+e2e/chargeFlow.returningUser.e2e.ts(46,18): error TS2304: Cannot find name 'element'.
+e2e/chargeFlow.returningUser.e2e.ts(46,26): error TS2304: Cannot find name 'by'.
+e2e/chargeFlow.returningUser.e2e.ts(46,45): error TS2339: Property 'toBeVisible' does not exist on type 'JestMatchers<any>'.
+e2e/chargeFlow.returningUser.e2e.ts(51,18): error TS2304: Cannot find name 'element'.
+e2e/chargeFlow.returningUser.e2e.ts(51,26): error TS2304: Cannot find name 'by'.
+e2e/chargeFlow.returningUser.e2e.ts(51,48): error TS2339: Property 'toBeVisible' does not exist on type 'JestMatchers<any>'.
+e2e/chargeFlow.returningUser.e2e.ts(52,18): error TS2304: Cannot find name 'element'.
+e2e/chargeFlow.returningUser.e2e.ts(52,26): error TS2304: Cannot find name 'by'.
+e2e/chargeFlow.returningUser.e2e.ts(52,46): error TS2339: Property 'toBeVisible' does not exist on type 'JestMatchers<any>'.
+e2e/chargeFlow.returningUser.e2e.ts(56,18): error TS2304: Cannot find name 'element'.
+e2e/chargeFlow.returningUser.e2e.ts(56,26): error TS2304: Cannot find name 'by'.
+e2e/chargeFlow.returningUser.e2e.ts(56,48): error TS2339: Property 'toBeEnabled' does not exist on type 'JestMatchers<any>'.
+e2e/chargeFlow.returningUser.e2e.ts(57,18): error TS2304: Cannot find name 'element'.
+e2e/chargeFlow.returningUser.e2e.ts(57,26): error TS2304: Cannot find name 'by'.
+e2e/chargeFlow.returningUser.e2e.ts(57,46): error TS2339: Property 'toBeEnabled' does not exist on type 'JestMatchers<any>'.
+e2e/chargeFlow.returningUser.e2e.ts(62,11): error TS2304: Cannot find name 'element'.
+e2e/chargeFlow.returningUser.e2e.ts(62,19): error TS2304: Cannot find name 'by'.
+e2e/chargeFlow.returningUser.e2e.ts(65,11): error TS2304: Cannot find name 'waitFor'.
+e2e/chargeFlow.returningUser.e2e.ts(65,19): error TS2304: Cannot find name 'element'.
+e2e/chargeFlow.returningUser.e2e.ts(65,27): error TS2304: Cannot find name 'by'.
+e2e/chargeFlow.returningUser.e2e.ts(70,18): error TS2304: Cannot find name 'element'.
+e2e/chargeFlow.returningUser.e2e.ts(70,26): error TS2304: Cannot find name 'by'.
+e2e/chargeFlow.returningUser.e2e.ts(70,55): error TS2339: Property 'toBeVisible' does not exist on type 'Matchers<void, any>'.
+e2e/chargeFlow.returningUser.e2e.ts(75,11): error TS2304: Cannot find name 'waitFor'.
+e2e/chargeFlow.returningUser.e2e.ts(75,19): error TS2304: Cannot find name 'element'.
+e2e/chargeFlow.returningUser.e2e.ts(75,27): error TS2304: Cannot find name 'by'.
+e2e/chargeFlow.returningUser.e2e.ts(80,11): error TS2304: Cannot find name 'waitFor'.
+e2e/chargeFlow.returningUser.e2e.ts(80,19): error TS2304: Cannot find name 'element'.
+e2e/chargeFlow.returningUser.e2e.ts(80,27): error TS2304: Cannot find name 'by'.
+e2e/chargeFlow.returningUser.e2e.ts(85,11): error TS2304: Cannot find name 'waitFor'.
+e2e/chargeFlow.returningUser.e2e.ts(85,19): error TS2304: Cannot find name 'element'.
+e2e/chargeFlow.returningUser.e2e.ts(85,27): error TS2304: Cannot find name 'by'.
+e2e/chargeFlow.returningUser.e2e.ts(90,18): error TS2304: Cannot find name 'element'.
+e2e/chargeFlow.returningUser.e2e.ts(90,26): error TS2304: Cannot find name 'by'.
+e2e/chargeFlow.returningUser.e2e.ts(90,46): error TS2339: Property 'toBeVisible' does not exist on type 'JestMatchers<any>'.
+e2e/chargeFlow.returningUser.e2e.ts(95,18): error TS2304: Cannot find name 'element'.
+e2e/chargeFlow.returningUser.e2e.ts(95,26): error TS2304: Cannot find name 'by'.
+e2e/chargeFlow.returningUser.e2e.ts(95,66): error TS2339: Property 'toBeVisible' does not exist on type 'JestMatchers<any>'.
+e2e/chargeFlow.returningUser.e2e.ts(98,11): error TS2304: Cannot find name 'element'.
+e2e/chargeFlow.returningUser.e2e.ts(98,19): error TS2304: Cannot find name 'by'.
+e2e/chargeFlow.returningUser.e2e.ts(101,11): error TS2304: Cannot find name 'waitFor'.
+e2e/chargeFlow.returningUser.e2e.ts(101,19): error TS2304: Cannot find name 'element'.
+e2e/chargeFlow.returningUser.e2e.ts(101,27): error TS2304: Cannot find name 'by'.
+e2e/chargeFlow.returningUser.e2e.ts(106,18): error TS2304: Cannot find name 'element'.
+e2e/chargeFlow.returningUser.e2e.ts(106,26): error TS2304: Cannot find name 'by'.
+e2e/chargeFlow.returningUser.e2e.ts(106,52): error TS2339: Property 'toBeVisible' does not exist on type 'JestMatchers<any>'.
+e2e/chargeFlow.returningUser.e2e.ts(107,18): error TS2304: Cannot find name 'element'.
+e2e/chargeFlow.returningUser.e2e.ts(107,26): error TS2304: Cannot find name 'by'.
+e2e/chargeFlow.returningUser.e2e.ts(107,53): error TS2339: Property 'toBeVisible' does not exist on type 'JestMatchers<any>'.
+e2e/chargeFlow.returningUser.e2e.ts(112,11): error TS2304: Cannot find name 'element'.
+e2e/chargeFlow.returningUser.e2e.ts(112,19): error TS2304: Cannot find name 'by'.
+e2e/chargeFlow.returningUser.e2e.ts(115,11): error TS2304: Cannot find name 'waitFor'.
+e2e/chargeFlow.returningUser.e2e.ts(115,19): error TS2304: Cannot find name 'element'.
+e2e/chargeFlow.returningUser.e2e.ts(115,27): error TS2304: Cannot find name 'by'.
+e2e/chargeFlow.returningUser.e2e.ts(120,18): error TS2304: Cannot find name 'element'.
+e2e/chargeFlow.returningUser.e2e.ts(120,26): error TS2304: Cannot find name 'by'.
+e2e/chargeFlow.returningUser.e2e.ts(120,49): error TS2339: Property 'toBeVisible' does not exist on type 'JestMatchers<any>'.
+e2e/chargeFlow.returningUser.e2e.ts(121,18): error TS2304: Cannot find name 'element'.
+e2e/chargeFlow.returningUser.e2e.ts(121,26): error TS2304: Cannot find name 'by'.
+e2e/chargeFlow.returningUser.e2e.ts(121,50): error TS2339: Property 'toBeVisible' does not exist on type 'JestMatchers<any>'.
+e2e/chargeFlow.returningUser.e2e.ts(124,11): error TS2304: Cannot find name 'element'.
+e2e/chargeFlow.returningUser.e2e.ts(124,19): error TS2304: Cannot find name 'by'.
+e2e/chargeFlow.returningUser.e2e.ts(127,18): error TS2304: Cannot find name 'element'.
+e2e/chargeFlow.returningUser.e2e.ts(127,26): error TS2304: Cannot find name 'by'.
+e2e/chargeFlow.returningUser.e2e.ts(127,48): error TS2339: Property 'toBeEnabled' does not exist on type 'JestMatchers<any>'.
+e2e/chargeFlow.returningUser.e2e.ts(132,11): error TS2304: Cannot find name 'element'.
+e2e/chargeFlow.returningUser.e2e.ts(132,19): error TS2304: Cannot find name 'by'.
+e2e/chargeFlow.returningUser.e2e.ts(135,11): error TS2304: Cannot find name 'waitFor'.
+e2e/chargeFlow.returningUser.e2e.ts(135,19): error TS2304: Cannot find name 'element'.
+e2e/chargeFlow.returningUser.e2e.ts(135,27): error TS2304: Cannot find name 'by'.
+e2e/chargeFlow.returningUser.e2e.ts(140,11): error TS2304: Cannot find name 'waitFor'.
+e2e/chargeFlow.returningUser.e2e.ts(140,19): error TS2304: Cannot find name 'element'.
+e2e/chargeFlow.returningUser.e2e.ts(140,27): error TS2304: Cannot find name 'by'.
+e2e/chargeFlow.returningUser.e2e.ts(147,11): error TS2304: Cannot find name 'element'.
+e2e/chargeFlow.returningUser.e2e.ts(147,19): error TS2304: Cannot find name 'by'.
+e2e/chargeFlow.returningUser.e2e.ts(150,11): error TS2304: Cannot find name 'waitFor'.
+e2e/chargeFlow.returningUser.e2e.ts(150,19): error TS2304: Cannot find name 'element'.
+e2e/chargeFlow.returningUser.e2e.ts(150,27): error TS2304: Cannot find name 'by'.
+e2e/chargeFlow.returningUser.e2e.ts(155,18): error TS2304: Cannot find name 'element'.
+e2e/chargeFlow.returningUser.e2e.ts(155,26): error TS2304: Cannot find name 'by'.
+e2e/chargeFlow.returningUser.e2e.ts(155,46): error TS2339: Property 'toBeVisible' does not exist on type 'JestMatchers<any>'.
+e2e/chargeFlow.returningUser.e2e.ts(156,18): error TS2304: Cannot find name 'element'.
+e2e/chargeFlow.returningUser.e2e.ts(156,26): error TS2304: Cannot find name 'by'.
+e2e/chargeFlow.returningUser.e2e.ts(156,45): error TS2339: Property 'toBeVisible' does not exist on type 'JestMatchers<any>'.
+e2e/chargeFlow.returningUser.e2e.ts(164,18): error TS2304: Cannot find name 'element'.
+e2e/chargeFlow.returningUser.e2e.ts(164,26): error TS2304: Cannot find name 'by'.
+e2e/chargeFlow.returningUser.e2e.ts(164,66): error TS2339: Property 'toBeVisible' does not exist on type 'JestMatchers<any>'.
+e2e/chargeFlow.returningUser.e2e.ts(167,11): error TS2304: Cannot find name 'device'.
+e2e/chargeFlow.returningUser.e2e.ts(170,18): error TS2304: Cannot find name 'element'.
+e2e/chargeFlow.returningUser.e2e.ts(170,26): error TS2304: Cannot find name 'by'.
+e2e/chargeFlow.returningUser.e2e.ts(170,70): error TS2339: Property 'toBeVisible' does not exist on type 'Matchers<void, any>'.
+e2e/chargeFlow.returningUser.e2e.ts(175,11): error TS2304: Cannot find name 'element'.
+e2e/chargeFlow.returningUser.e2e.ts(175,19): error TS2304: Cannot find name 'by'.
+e2e/chargeFlow.returningUser.e2e.ts(178,11): error TS2304: Cannot find name 'waitFor'.
+e2e/chargeFlow.returningUser.e2e.ts(178,19): error TS2304: Cannot find name 'element'.
+e2e/chargeFlow.returningUser.e2e.ts(178,27): error TS2304: Cannot find name 'by'.
+e2e/chargeFlow.returningUser.e2e.ts(183,11): error TS2304: Cannot find name 'device'.
+e2e/chargeFlow.returningUser.e2e.ts(186,11): error TS2304: Cannot find name 'waitFor'.
+e2e/chargeFlow.returningUser.e2e.ts(186,19): error TS2304: Cannot find name 'element'.
+e2e/chargeFlow.returningUser.e2e.ts(186,27): error TS2304: Cannot find name 'by'.
+e2e/chargeFlow.returningUser.e2e.ts(193,11): error TS2304: Cannot find name 'element'.
+e2e/chargeFlow.returningUser.e2e.ts(193,19): error TS2304: Cannot find name 'by'.
+e2e/chargeFlow.returningUser.e2e.ts(194,11): error TS2304: Cannot find name 'element'.
+e2e/chargeFlow.returningUser.e2e.ts(194,19): error TS2304: Cannot find name 'by'.
+e2e/chargeFlow.returningUser.e2e.ts(197,11): error TS2304: Cannot find name 'waitFor'.
+e2e/chargeFlow.returningUser.e2e.ts(197,19): error TS2304: Cannot find name 'element'.
+e2e/chargeFlow.returningUser.e2e.ts(197,27): error TS2304: Cannot find name 'by'.
+e2e/chargeFlow.returningUser.e2e.ts(202,11): error TS2304: Cannot find name 'device'.
+e2e/chargeFlow.returningUser.e2e.ts(205,11): error TS2304: Cannot find name 'waitFor'.
+e2e/chargeFlow.returningUser.e2e.ts(205,19): error TS2304: Cannot find name 'element'.
+e2e/chargeFlow.returningUser.e2e.ts(205,27): error TS2304: Cannot find name 'by'.
+e2e/chargeFlow.returningUser.e2e.ts(210,11): error TS2304: Cannot find name 'device'.
+e2e/chargeFlow.returningUser.e2e.ts(213,11): error TS2304: Cannot find name 'waitFor'.
+e2e/chargeFlow.returningUser.e2e.ts(213,19): error TS2304: Cannot find name 'element'.
+e2e/chargeFlow.returningUser.e2e.ts(213,27): error TS2304: Cannot find name 'by'.
+e2e/chargeFlow.returningUser.e2e.ts(220,11): error TS2304: Cannot find name 'element'.
+e2e/chargeFlow.returningUser.e2e.ts(220,19): error TS2304: Cannot find name 'by'.
+e2e/chargeFlow.returningUser.e2e.ts(223,11): error TS2304: Cannot find name 'waitFor'.
+e2e/chargeFlow.returningUser.e2e.ts(223,19): error TS2304: Cannot find name 'element'.
+e2e/chargeFlow.returningUser.e2e.ts(223,27): error TS2304: Cannot find name 'by'.
+e2e/chargeFlow.returningUser.e2e.ts(228,11): error TS2304: Cannot find name 'waitFor'.
+e2e/chargeFlow.returningUser.e2e.ts(228,19): error TS2304: Cannot find name 'element'.
+e2e/chargeFlow.returningUser.e2e.ts(228,27): error TS2304: Cannot find name 'by'.
+e2e/chargeFlow.returningUser.e2e.ts(235,11): error TS2304: Cannot find name 'element'.
+e2e/chargeFlow.returningUser.e2e.ts(235,19): error TS2304: Cannot find name 'by'.
+e2e/chargeFlow.returningUser.e2e.ts(236,11): error TS2304: Cannot find name 'element'.
+e2e/chargeFlow.returningUser.e2e.ts(236,19): error TS2304: Cannot find name 'by'.
+e2e/chargeFlow.returningUser.e2e.ts(239,11): error TS2304: Cannot find name 'waitFor'.
+e2e/chargeFlow.returningUser.e2e.ts(239,19): error TS2304: Cannot find name 'element'.
+e2e/chargeFlow.returningUser.e2e.ts(239,27): error TS2304: Cannot find name 'by'.
+e2e/chargeFlow.returningUser.e2e.ts(244,11): error TS2304: Cannot find name 'element'.
+e2e/chargeFlow.returningUser.e2e.ts(244,19): error TS2304: Cannot find name 'by'.
+e2e/chargeFlow.returningUser.e2e.ts(247,11): error TS2304: Cannot find name 'waitFor'.
+e2e/chargeFlow.returningUser.e2e.ts(247,19): error TS2304: Cannot find name 'element'.
+e2e/chargeFlow.returningUser.e2e.ts(247,27): error TS2304: Cannot find name 'by'.
+e2e/chargeFlow.returningUser.e2e.ts(252,11): error TS2304: Cannot find name 'element'.
+e2e/chargeFlow.returningUser.e2e.ts(252,19): error TS2304: Cannot find name 'by'.
+e2e/chargeFlow.returningUser.e2e.ts(253,11): error TS2304: Cannot find name 'element'.
+e2e/chargeFlow.returningUser.e2e.ts(253,19): error TS2304: Cannot find name 'by'.
+e2e/chargeFlow.returningUser.e2e.ts(256,11): error TS2304: Cannot find name 'waitFor'.
+e2e/chargeFlow.returningUser.e2e.ts(256,19): error TS2304: Cannot find name 'element'.
+e2e/chargeFlow.returningUser.e2e.ts(256,27): error TS2304: Cannot find name 'by'.
+e2e/chargeFlow.returningUser.e2e.ts(261,18): error TS2304: Cannot find name 'element'.
+e2e/chargeFlow.returningUser.e2e.ts(261,26): error TS2304: Cannot find name 'by'.
+e2e/chargeFlow.returningUser.e2e.ts(261,46): error TS2339: Property 'toBeVisible' does not exist on type 'JestMatchers<any>'.
+e2e/chargeFlow.returningUser.e2e.ts(280,11): error TS2304: Cannot find name 'waitFor'.
+e2e/chargeFlow.returningUser.e2e.ts(280,19): error TS2304: Cannot find name 'element'.
+e2e/chargeFlow.returningUser.e2e.ts(280,27): error TS2304: Cannot find name 'by'.
+e2e/chargeFlow.returningUser.e2e.ts(285,18): error TS2304: Cannot find name 'element'.
+e2e/chargeFlow.returningUser.e2e.ts(285,26): error TS2304: Cannot find name 'by'.
+e2e/chargeFlow.returningUser.e2e.ts(285,57): error TS2339: Property 'toBeVisible' does not exist on type 'JestMatchers<any>'.
+e2e/chargeFlow.returningUser.e2e.ts(292,11): error TS2304: Cannot find name 'waitFor'.
+e2e/chargeFlow.returningUser.e2e.ts(292,19): error TS2304: Cannot find name 'element'.
+e2e/chargeFlow.returningUser.e2e.ts(292,27): error TS2304: Cannot find name 'by'.
+e2e/chargeFlow.returningUser.e2e.ts(297,22): error TS2304: Cannot find name 'element'.
+e2e/chargeFlow.returningUser.e2e.ts(297,30): error TS2304: Cannot find name 'by'.
+e2e/chargeFlow.returningUser.e2e.ts(298,28): error TS2339: Property 'toBeVisible' does not exist on type 'JestMatchers<any>'.
+e2e/chargeFlow.returningUser.e2e.ts(301,11): error TS2304: Cannot find name 'element'.
+e2e/chargeFlow.returningUser.e2e.ts(301,19): error TS2304: Cannot find name 'by'.
+e2e/chargeFlow.returningUser.e2e.ts(304,11): error TS2304: Cannot find name 'waitFor'.
+e2e/chargeFlow.returningUser.e2e.ts(304,19): error TS2304: Cannot find name 'element'.
+e2e/chargeFlow.returningUser.e2e.ts(304,27): error TS2304: Cannot find name 'by'.
+e2e/chargeFlow.returningUser.e2e.ts(309,11): error TS2304: Cannot find name 'waitFor'.
+e2e/chargeFlow.returningUser.e2e.ts(309,19): error TS2304: Cannot find name 'element'.
+e2e/chargeFlow.returningUser.e2e.ts(309,27): error TS2304: Cannot find name 'by'.
+e2e/chargeFlow.returningUser.e2e.ts(314,18): error TS2304: Cannot find name 'element'.
+e2e/chargeFlow.returningUser.e2e.ts(314,26): error TS2304: Cannot find name 'by'.
+e2e/chargeFlow.returningUser.e2e.ts(314,46): error TS2339: Property 'toBeVisible' does not exist on type 'JestMatchers<any>'.
+e2e/chargeFlow.returningUser.e2e.ts(321,11): error TS2304: Cannot find name 'waitFor'.
+e2e/chargeFlow.returningUser.e2e.ts(321,19): error TS2304: Cannot find name 'element'.
+e2e/chargeFlow.returningUser.e2e.ts(321,27): error TS2304: Cannot find name 'by'.
+e2e/chargeFlow.returningUser.e2e.ts(326,11): error TS2304: Cannot find name 'element'.
+e2e/chargeFlow.returningUser.e2e.ts(326,19): error TS2304: Cannot find name 'by'.
+e2e/chargeFlow.returningUser.e2e.ts(329,11): error TS2304: Cannot find name 'waitFor'.
+e2e/chargeFlow.returningUser.e2e.ts(329,19): error TS2304: Cannot find name 'element'.
+e2e/chargeFlow.returningUser.e2e.ts(329,27): error TS2304: Cannot find name 'by'.
+e2e/chargeFlow.returningUser.e2e.ts(334,25): error TS2304: Cannot find name 'element'.
+e2e/chargeFlow.returningUser.e2e.ts(334,33): error TS2304: Cannot find name 'by'.
+e2e/chargeFlow.returningUser.e2e.ts(338,11): error TS2304: Cannot find name 'waitFor'.
+e2e/chargeFlow.returningUser.e2e.ts(338,19): error TS2304: Cannot find name 'element'.
+e2e/chargeFlow.returningUser.e2e.ts(338,27): error TS2304: Cannot find name 'by'.
+e2e/chargeFlow.returningUser.e2e.ts(343,28): error TS2304: Cannot find name 'element'.
+e2e/chargeFlow.returningUser.e2e.ts(343,36): error TS2304: Cannot find name 'by'.
+e2e/chargeFlow.returningUser.e2e.ts(347,11): error TS2304: Cannot find name 'element'.
+e2e/chargeFlow.returningUser.e2e.ts(347,19): error TS2304: Cannot find name 'by'.
+e2e/chargeFlow.returningUser.e2e.ts(350,11): error TS2304: Cannot find name 'waitFor'.
+e2e/chargeFlow.returningUser.e2e.ts(350,19): error TS2304: Cannot find name 'element'.
+e2e/chargeFlow.returningUser.e2e.ts(350,27): error TS2304: Cannot find name 'by'.
+e2e/chargeFlow.returningUser.e2e.ts(355,11): error TS2304: Cannot find name 'waitFor'.
+e2e/chargeFlow.returningUser.e2e.ts(355,19): error TS2304: Cannot find name 'element'.
+e2e/chargeFlow.returningUser.e2e.ts(355,27): error TS2304: Cannot find name 'by'.
+e2e/chargeFlow.returningUser.e2e.ts(360,18): error TS2304: Cannot find name 'element'.
+e2e/chargeFlow.returningUser.e2e.ts(360,26): error TS2304: Cannot find name 'by'.
+e2e/chargeFlow.returningUser.e2e.ts(360,46): error TS2339: Property 'toBeVisible' does not exist on type 'JestMatchers<any>'.
+src/screens/onboarding/NarrativeOnboardingScreen.tsx(196,37): error TS2322: Type '"#D4AF37"' is not assignable to type '"#9E9E9E"'.
+src/screens/onboarding/NarrativeOnboardingScreen.tsx(200,37): error TS2322: Type '"#D4AF37"' is not assignable to type '"#9E9E9E"'.

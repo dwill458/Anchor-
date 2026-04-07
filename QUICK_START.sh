@@ -5,7 +5,7 @@ echo "🚀 Starting Anchor App..."
 echo ""
 
 # Check if we're in the right directory
-if [ ! -d "frontend" ] || [ ! -d "backend" ]; then
+if [ ! -d "apps/mobile" ] || [ ! -d "backend" ]; then
     echo "❌ Error: Please run this script from the Anchor- root directory"
     exit 1
 fi
@@ -23,12 +23,12 @@ start_backend() {
 # Function to start frontend
 start_frontend() {
     echo "📱 Starting Expo frontend..."
-    cd frontend
+    cd apps/mobile
 
     # Try offline mode to avoid network issues
     npx expo start --offline --clear
 
-    cd ..
+    cd ../..
 }
 
 # Main execution

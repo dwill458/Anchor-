@@ -1,0 +1,67 @@
+{
+  "$schema": "https://json.expo.io/eas.schema.json",
+  "cli": {
+    "version": ">= 12.0.0",
+    "appVersionSource": "local"
+  },
+  "build": {
+    "development": {
+      "developmentClient": true,
+      "distribution": "internal",
+      "env": {
+        "EXPO_PUBLIC_APP_ENV": "development"
+      },
+      "android": {
+        "googleServicesFile": "$GOOGLE_SERVICES_JSON"
+      },
+      "ios": {
+        "simulator": false,
+        "googleServicesFile": "$GOOGLE_SERVICES_PLIST",
+        "prebuildCommand": "npx expo prebuild --platform ios --no-install"
+      }
+    },
+    "preview": {
+      "distribution": "internal",
+      "channel": "preview",
+      "env": {
+        "EXPO_PUBLIC_APP_ENV": "staging"
+      },
+      "android": {
+        "buildType": "apk",
+        "googleServicesFile": "$GOOGLE_SERVICES_JSON"
+      },
+      "ios": {
+        "googleServicesFile": "$GOOGLE_SERVICES_PLIST",
+        "prebuildCommand": "npx expo prebuild --platform ios --no-install"
+      }
+    },
+    "production": {
+      "distribution": "store",
+      "channel": "production",
+      "env": {
+        "EXPO_PUBLIC_APP_ENV": "production"
+      },
+      "android": {
+        "buildType": "app-bundle",
+        "googleServicesFile": "$GOOGLE_SERVICES_JSON"
+      },
+      "ios": {
+        "googleServicesFile": "$GOOGLE_SERVICES_PLIST",
+        "prebuildCommand": "npx expo prebuild --platform ios --no-install"
+      }
+    }
+  },
+  "submit": {
+    "production": {
+      "ios": {
+        "appleId": "APPLE_ID_PLACEHOLDER",
+        "ascAppId": "APP_STORE_CONNECT_APP_ID_PLACEHOLDER",
+        "appleTeamId": "APPLE_TEAM_ID_PLACEHOLDER"
+      },
+      "android": {
+        "serviceAccountKeyPath": "./google-service-account.json",
+        "track": "internal"
+      }
+    }
+  }
+}

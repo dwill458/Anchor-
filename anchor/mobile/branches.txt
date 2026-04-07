@@ -1,0 +1,21 @@
+  claude/build-anchor-app-aspHi
+  claude/pull-fix-emulation-branch-J8575
+  claude/review-phase-2.6-plan-HwN6x
+* feat/premium-auth-redesign
+  feature/mvp-sigil-generator
+  fix-emulation
+  rebrand/vocabulary-overhaul
+  remotes/origin/HEAD -> origin/claude/build-anchor-app-aspHi
+  remotes/origin/claude/audit-anchor-app-2QAdA
+  remotes/origin/claude/build-anchor-app-aspHi
+  remotes/origin/claude/debug-forge-screen-missing-iPkZL
+  remotes/origin/claude/fix-emulation-error-ijmuf
+  remotes/origin/claude/fix-forge-screen-layout-vAOpt
+  remotes/origin/claude/plan-next-tasks-NWVAK
+  remotes/origin/claude/pull-fix-emulation-branch-J8575
+  remotes/origin/claude/remove-marking-handbook-1tiT7
+  remotes/origin/claude/review-anchor-handoff-Epnqh
+  remotes/origin/claude/review-phase-2.6-plan-HwN6x
+  remotes/origin/feat/premium-auth-redesign
+  remotes/origin/feature/mvp-sigil-generator
+  remotes/origin/fix-emulation

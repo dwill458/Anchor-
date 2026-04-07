@@ -4,13 +4,85 @@
  * Handles user authentication and profile synchronization
  */
 
-import { Router, Response } from 'express';
-import { PrismaClient } from '@prisma/client';
+import { Router, Response, NextFunction } from 'express';
+import { z } from 'zod';
+import rateLimit from 'express-rate-limit';
 import { AuthRequest, authMiddleware } from '../middleware/auth';
 import { AppError } from '../middleware/errorHandler';
+import { prisma } from '../../lib/prisma';
+import { getFirebaseAdmin } from '../../config/firebase';
 
 const router = Router();
-const prisma = new PrismaClient();
+
+// Tighter rate limits for sensitive auth endpoints to prevent brute-force/enumeration.
+const syncLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 20,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: {
+    success: false,
+    error: { code: 'TOO_MANY_REQUESTS', message: 'Too many sync attempts, please try again later' },
+  },
+});
+
+const deleteAccountLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000, // 1 hour
+  max: 3,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: {
+    success: false,
+    error: {
+      code: 'TOO_MANY_REQUESTS',
+      message: 'Too many deletion attempts, please try again later',
+    },
+  },
+});
+
+function mapProviderIdToAuthProvider(providerId?: string): 'email' | 'google' | 'apple' {
+  switch (providerId) {
+    case 'google.com':
+      return 'google';
+    case 'apple.com':
+      return 'apple';
+    default:
+      return 'email';
+  }
+}
+
+// --- Zod schemas ---
+
+const SyncSchema = z.object({
+  displayName: z.string().optional(),
+  authProvider: z.enum(['email', 'google', 'apple']).optional(),
+});
+
+const UpdateProfileSchema = z.object({
+  displayName: z.string().min(1).max(100).optional(),
+});
+
+const UpdateSettingsSchema = z.object({
+  notificationsEnabled: z.boolean().optional(),
+  dailyReminderTime: z
+    .string()
+    .regex(/^([01]\d|2[0-3]):([0-5]\d)$/, 'dailyReminderTime must be in HH:MM format')
+    .optional(),
+  streakProtection: z.boolean().optional(),
+  defaultChargeDuration: z.number().min(30).max(3600).optional(),
+  hapticIntensity: z.number().min(1).max(5).optional(),
+  vaultViewType: z.enum(['grid', 'list']).optional(),
+});
+
+// Validates req.body against a schema; throws AppError on failure.
+function validate<T>(schema: z.ZodSchema<T>, data: unknown): T {
+  const result = schema.safeParse(data);
+  if (!result.success) {
+    const message = result.error.errors.map(e => `${e.path.join('.')}: ${e.message}`).join(', ');
+    throw new AppError(`Validation error: ${message}`, 400, 'VALIDATION_ERROR');
+  }
+  return result.data;
+}
 
 /**
  * POST /api/auth/sync
@@ -24,75 +96,82 @@ const prisma = new PrismaClient();
  * - displayName: User display name (optional)
  * - authProvider: 'email' | 'google' | 'apple'
  */
-router.post('/sync', async (req: AuthRequest, res: Response) => {
-  try {
-    const { authUid, email, displayName, authProvider } = req.body;
+router.post(
+  '/sync',
+  syncLimiter,
+  authMiddleware,
+  async (req: AuthRequest, res: Response, next: NextFunction) => {
+    try {
+      if (!req.user?.uid) {
+        throw new AppError('User not authenticated', 401, 'UNAUTHORIZED');
+      }
 
-    // Validation
-    if (!authUid || !email) {
-      throw new AppError('Missing required fields: authUid and email', 400, 'VALIDATION_ERROR');
-    }
+      const { displayName, authProvider } = validate(SyncSchema, req.body);
+      const email = req.user.email;
 
-    if (!['email', 'google', 'apple'].includes(authProvider)) {
-      throw new AppError('Invalid authProvider', 400, 'VALIDATION_ERROR');
-    }
+      if (!email) {
+        throw new AppError(
+          'Authenticated user is missing an email address',
+          400,
+          'INVALID_AUTH_CONTEXT'
+        );
+      }
 
-    // Check if user exists
-    let user = await prisma.user.findUnique({
-      where: { authUid },
-    });
+      let provider = authProvider;
+      if (!provider) {
+        const firebaseUser = await getFirebaseAdmin().auth().getUser(req.user.uid);
+        provider = mapProviderIdToAuthProvider(firebaseUser.providerData[0]?.providerId);
+      }
 
-    if (user) {
-      // Update existing user
-      user = await prisma.user.update({
-        where: { authUid },
-        data: {
+      const user = await prisma.user.upsert({
+        where: { authUid: req.user.uid },
+        update: {
           email,
-          displayName: displayName || user.displayName,
+          displayName: displayName || undefined,
           lastSeenAt: new Date(),
         },
-      });
-    } else {
-      // Create new user
-      user = await prisma.user.create({
-        data: {
-          authUid,
+        create: {
+          authUid: req.user.uid,
           email,
           displayName,
-          authProvider,
+          authProvider: provider,
           lastSeenAt: new Date(),
         },
       });
 
-      // Create default user settings
-      await prisma.userSettings.create({
+      await prisma.userSettings.upsert({
+        where: { userId: user.id },
+        update: {},
+        create: { userId: user.id },
+      });
+
+      res.json({
+        success: true,
         data: {
-          userId: user.id,
+          id: user.id,
+          email: user.email,
+          displayName: user.displayName,
+          hasCompletedOnboarding: user.hasCompletedOnboarding,
+          subscriptionStatus: user.subscriptionStatus,
+          totalAnchorsCreated: user.totalAnchorsCreated,
+          totalActivations: user.totalActivations,
+          currentStreak: user.currentStreak,
+          longestStreak: user.longestStreak,
+          stabilizesTotal: user.stabilizesTotal,
+          stabilizeStreakDays: user.stabilizeStreakDays,
+          lastStabilizeAt: user.lastStabilizeAt,
+          createdAt: user.createdAt,
         },
       });
+    } catch (error) {
+      if (error instanceof AppError) {
+        next(error);
+        return;
+      }
+      next(new AppError('Failed to sync user', 500, 'SYNC_ERROR'));
     }
-
-    res.json({
-      success: true,
-      data: {
-        id: user.id,
-        email: user.email,
-        displayName: user.displayName,
-        subscriptionStatus: user.subscriptionStatus,
-        totalAnchorsCreated: user.totalAnchorsCreated,
-        totalActivations: user.totalActivations,
-        currentStreak: user.currentStreak,
-        longestStreak: user.longestStreak,
-        createdAt: user.createdAt,
-      },
-    });
-  } catch (error) {
-    if (error instanceof AppError) {
-      throw error;
-    }
-    throw new AppError('Failed to sync user', 500, 'SYNC_ERROR');
   }
-});
+);
 
 /**
  * GET /api/auth/me
@@ -100,7 +179,7 @@ router.post('/sync', async (req: AuthRequest, res: Response) => {
  * Get current authenticated user's profile
  * Requires authentication
  */
-router.get('/me', authMiddleware, async (req: AuthRequest, res: Response) => {
+router.get('/me', authMiddleware, async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
     if (!req.user) {
       throw new AppError('User not authenticated', 401, 'UNAUTHORIZED');
@@ -123,20 +202,25 @@ router.get('/me', authMiddleware, async (req: AuthRequest, res: Response) => {
         id: user.id,
         email: user.email,
         displayName: user.displayName,
+        hasCompletedOnboarding: user.hasCompletedOnboarding,
         subscriptionStatus: user.subscriptionStatus,
         totalAnchorsCreated: user.totalAnchorsCreated,
         totalActivations: user.totalActivations,
         currentStreak: user.currentStreak,
         longestStreak: user.longestStreak,
+        stabilizesTotal: user.stabilizesTotal,
+        stabilizeStreakDays: user.stabilizeStreakDays,
+        lastStabilizeAt: user.lastStabilizeAt,
         createdAt: user.createdAt,
         settings: user.settings,
       },
     });
   } catch (error) {
     if (error instanceof AppError) {
-      throw error;
+      next(error);
+      return;
     }
-    throw new AppError('Failed to fetch user', 500, 'FETCH_ERROR');
+    next(new AppError('Failed to fetch user', 500, 'FETCH_ERROR'));
   }
 });
 
@@ -149,42 +233,194 @@ router.get('/me', authMiddleware, async (req: AuthRequest, res: Response) => {
  * Body:
  * - displayName: New display name (optional)
  */
-router.put('/profile', authMiddleware, async (req: AuthRequest, res: Response) => {
-  try {
-    if (!req.user) {
-      throw new AppError('User not authenticated', 401, 'UNAUTHORIZED');
+router.put(
+  '/profile',
+  authMiddleware,
+  async (req: AuthRequest, res: Response, next: NextFunction) => {
+    try {
+      if (!req.user) {
+        throw new AppError('User not authenticated', 401, 'UNAUTHORIZED');
+      }
+
+      const { displayName } = validate(UpdateProfileSchema, req.body);
+
+      const user = await prisma.user.update({
+        where: { authUid: req.user.uid },
+        data: {
+          displayName: displayName || undefined,
+          updatedAt: new Date(),
+        },
+      });
+
+      res.json({
+        success: true,
+        data: {
+          id: user.id,
+          email: user.email,
+          displayName: user.displayName,
+          hasCompletedOnboarding: user.hasCompletedOnboarding,
+          subscriptionStatus: user.subscriptionStatus,
+          totalAnchorsCreated: user.totalAnchorsCreated,
+          totalActivations: user.totalActivations,
+          currentStreak: user.currentStreak,
+          longestStreak: user.longestStreak,
+          stabilizesTotal: user.stabilizesTotal,
+          stabilizeStreakDays: user.stabilizeStreakDays,
+          lastStabilizeAt: user.lastStabilizeAt,
+          createdAt: user.createdAt,
+        },
+      });
+    } catch (error) {
+      if (error instanceof AppError) {
+        next(error);
+        return;
+      }
+      next(new AppError('Failed to update profile', 500, 'UPDATE_ERROR'));
     }
-
-    const { displayName } = req.body;
-
-    const user = await prisma.user.update({
-      where: { authUid: req.user.uid },
-      data: {
-        displayName: displayName || undefined,
-        updatedAt: new Date(),
-      },
-    });
-
-    res.json({
-      success: true,
-      data: {
-        id: user.id,
-        email: user.email,
-        displayName: user.displayName,
-        subscriptionStatus: user.subscriptionStatus,
-        totalAnchorsCreated: user.totalAnchorsCreated,
-        totalActivations: user.totalActivations,
-        currentStreak: user.currentStreak,
-        longestStreak: user.longestStreak,
-        createdAt: user.createdAt,
-      },
-    });
-  } catch (error) {
-    if (error instanceof AppError) {
-      throw error;
-    }
-    throw new AppError('Failed to update profile', 500, 'UPDATE_ERROR');
   }
-});
+);
+
+/**
+ * PUT /api/auth/settings
+ *
+ * Update user settings
+ * Requires authentication
+ *
+ * Body:
+ * - notificationsEnabled: Boolean (optional)
+ * - dailyReminderTime: String in HH:MM format (optional)
+ * - streakProtection: Boolean (optional)
+ * - defaultChargeDuration: Number in seconds (optional)
+ * - hapticIntensity: Number 1-5 (optional)
+ * - vaultViewType: 'grid' | 'list' (optional)
+ */
+router.put(
+  '/settings',
+  authMiddleware,
+  async (req: AuthRequest, res: Response, next: NextFunction) => {
+    try {
+      if (!req.user) {
+        throw new AppError('User not authenticated', 401, 'UNAUTHORIZED');
+      }
+
+      const {
+        notificationsEnabled,
+        dailyReminderTime,
+        streakProtection,
+        defaultChargeDuration,
+        hapticIntensity,
+        vaultViewType,
+      } = validate(UpdateSettingsSchema, req.body);
+
+      // Find user to get their ID
+      const user = await prisma.user.findUnique({
+        where: { authUid: req.user.uid },
+      });
+
+      if (!user) {
+        throw new AppError('User not found', 404, 'USER_NOT_FOUND');
+      }
+
+      // Update settings (upsert in case they don't exist yet)
+      const settings = await prisma.userSettings.upsert({
+        where: { userId: user.id },
+        update: {
+          ...(notificationsEnabled !== undefined && { notificationsEnabled }),
+          ...(dailyReminderTime && { dailyReminderTime }),
+          ...(streakProtection !== undefined && { streakProtection }),
+          ...(defaultChargeDuration !== undefined && { defaultChargeDuration }),
+          ...(hapticIntensity !== undefined && { hapticIntensity }),
+          ...(vaultViewType && { vaultViewType }),
+          updatedAt: new Date(),
+        },
+        create: {
+          userId: user.id,
+          ...(notificationsEnabled !== undefined && { notificationsEnabled }),
+          ...(dailyReminderTime && { dailyReminderTime }),
+          ...(streakProtection !== undefined && { streakProtection }),
+          ...(defaultChargeDuration !== undefined && { defaultChargeDuration }),
+          ...(hapticIntensity !== undefined && { hapticIntensity }),
+          ...(vaultViewType && { vaultViewType }),
+        },
+      });
+
+      res.json({
+        success: true,
+        data: settings,
+      });
+    } catch (error) {
+      if (error instanceof AppError) {
+        next(error);
+        return;
+      }
+      next(new AppError('Failed to update settings', 500, 'UPDATE_ERROR'));
+    }
+  }
+);
+
+/**
+ * DELETE /api/auth/me
+ *
+ * Delete user account and all associated data (GDPR/CCPA compliant)
+ * Requires authentication
+ *
+ * Cascade deletes:
+ * - All anchors (with charges, activations)
+ * - User settings
+ * - Orders
+ * - Sync queue entries
+ * - User record
+ */
+router.delete(
+  '/me',
+  deleteAccountLimiter,
+  authMiddleware,
+  async (req: AuthRequest, res: Response, next: NextFunction) => {
+    try {
+      if (!req.user) {
+        throw new AppError('User not authenticated', 401, 'UNAUTHORIZED');
+      }
+
+      // Find user
+      const user = await prisma.user.findUnique({
+        where: { authUid: req.user.uid },
+      });
+
+      if (!user) {
+        throw new AppError('User not found', 404, 'USER_NOT_FOUND');
+      }
+
+      // Delete user (cascades handled by Prisma schema onDelete: Cascade)
+      // This will automatically delete:
+      // - anchors (which cascade to activations and charges)
+      // - activations
+      // - charges
+      // - orders
+      // - settings
+      await prisma.user.delete({
+        where: { id: user.id },
+      });
+
+      // Also clean up sync queue (not in schema relations)
+      await prisma.syncQueue.deleteMany({
+        where: { userId: user.id },
+      });
+
+      res.json({
+        success: true,
+        data: {
+          message: 'Account successfully deleted',
+          deletedUserId: user.id,
+        },
+      });
+    } catch (error) {
+      if (error instanceof AppError) {
+        next(error);
+        return;
+      }
+      next(new AppError('Failed to delete account', 500, 'DELETE_ERROR'));
+    }
+  }
+);
 
 export default router;

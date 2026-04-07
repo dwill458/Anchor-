@@ -5,8 +5,8 @@
  * Supports multiple voice configurations optimized for ritual chanting.
  */
 
-import textToSpeech from '@google-cloud/text-to-speech';
-import { formatMantraForTTS } from './MantraGenerator';
+import { TextToSpeechClient } from '@google-cloud/text-to-speech';
+import { formatMantraForTTS, MantraResult } from './MantraGenerator';
 import { uploadAudio } from './StorageService';
 import { logger } from '../utils/logger';
 
@@ -51,7 +51,7 @@ export const MANTRA_VOICE_PRESETS: Record<string, VoiceConfig> = {
 /**
  * Initialize Google TTS client
  */
-function getTTSClient(): textToSpeech.TextToSpeechClient | null {
+function getTTSClient(): TextToSpeechClient | null {
   const projectId = process.env.GOOGLE_CLOUD_PROJECT_ID;
   const privateKey = process.env.GOOGLE_CLOUD_PRIVATE_KEY;
   const clientEmail = process.env.GOOGLE_CLOUD_CLIENT_EMAIL;
@@ -63,7 +63,7 @@ function getTTSClient(): textToSpeech.TextToSpeechClient | null {
   }
 
   try {
-    return new textToSpeech.TextToSpeechClient({
+    return new TextToSpeechClient({
       credentials: {
         client_email: clientEmail,
         private_key: privateKey.replace(/\\n/g, '\n'), // Handle escaped newlines
@@ -97,7 +97,7 @@ export async function generateMantraAudio(
     const voiceConfig = MANTRA_VOICE_PRESETS[voicePreset];
 
     // Format mantra for better TTS pronunciation
-    const formattedText = formatMantraForTTS(mantraText, mantraStyle as any);
+    const formattedText = formatMantraForTTS(mantraText, mantraStyle as keyof MantraResult);
 
     logger.info('[TTS] Generating audio for mantra', { formattedText, voice: voiceConfig.name });
 
@@ -107,7 +107,11 @@ export async function generateMantraAudio(
       voice: {
         languageCode: voiceConfig.languageCode,
         name: voiceConfig.name,
-        ssmlGender: voiceConfig.ssmlGender as any,
+        ssmlGender: voiceConfig.ssmlGender as
+          | 'MALE'
+          | 'FEMALE'
+          | 'NEUTRAL'
+          | 'SSML_VOICE_GENDER_UNSPECIFIED',
       },
       audioConfig: {
         audioEncoding: 'MP3' as const,
@@ -134,7 +138,9 @@ export async function generateMantraAudio(
     return audioUrl;
   } catch (error) {
     logger.error('[TTS] Audio generation failed', error);
-    throw new Error(`Failed to generate audio: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    throw new Error(
+      `Failed to generate audio: ${error instanceof Error ? error.message : 'Unknown error'}`
+    );
   }
 }
 

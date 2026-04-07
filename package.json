@@ -1,0 +1,15 @@
+{
+  "name": "anchor",
+  "version": "1.0.0",
+  "description": "> **⚡ LAUNCH MODE ACTIVE** - Target: March 20, 2026 | Beta Testing: March 1, 2026\r >\r > **📍 New to this repo?** Start with `/docs/START_HERE.md` for a complete orientation guide.\r >\r > **🚀 Current Mobile App:** `/anchor/mobile/` (v2.0 - production-ready, all features)\r > **🧟 Legacy Code:** `/archive/legacy-frontend/` (deprecated, do not use)\r > **📊 Audit Status:** Comprehensive end-of-week audit complete (Jan 25, 2026)",
+  "main": "index.js",
+  "directories": {
+    "doc": "docs"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC"
+}
