@@ -275,12 +275,12 @@ Anchor/
 | **Refactor Phase 4b: Production Hardening** | 🟡 **IN PROGRESS** | **Jun 1** | Performance optimization, third-party integration, security audit, beta launch |
 
 ### **Future Phases (Post-Refactor)**
-| Phase | Status | Features |
-|-------|--------|----------|
-| **Phase 3: Burning Ritual** | 🔴 **Planned** | Confirm burn screen, burning animation, archive functionality |
-| **Phase 4: Advanced Features** | 🔴 **Planned** | Discover feed, daily streaks, vault search/filters |
-| **Phase 5: Monetization** | 🔴 **Planned** | RevenueCat subscriptions, Printful merch, premium features |
-| **Phase 6: Polish & Deploy** | 🔴 **Planned** | Performance optimization, App Store submission |
+| Phase | Status | Timeline | Features |
+|-------|--------|----------|----------|
+| **Phase 3: Burning Ritual** | 🟢 **Complete** | ✅ | Confirm burn screen, burning animation, archive functionality |
+| **Phase 4: Polish & Production Hardening** | 🟡 **IN PROGRESS** | **Before Jun 1** | Performance optimization, security audit, App Store/Play submission |
+| **Phase 5: Monetization** | 🟡 **IN PROGRESS** | **Before Jun 1** | RevenueCat subscriptions, Printful merch, premium features framework |
+| **Phase 6: Advanced Features (Discovery)** | 🔴 **Planned** | **Post-Launch** | Discover feed, daily streaks, vault search/filters, community features |
 
 ---
 
@@ -656,11 +656,14 @@ Anchor v2.0.0-stable is **production-quality** with extended timeline to **June 
 | Critical bugs in end-to-end flows | Low | Medium | Early detection through May testing, staged rollout strategy |
 | Firebase/GCP credential issues | Low | Low | Dedicated integration week (May 15-20) |
 
+### **Pre-Launch Roadmap (Before Jun 1, 2026)**
+- **Phase 4: Polish & Production Hardening** (Apr-May 2026) - Performance optimization, security audit, app store submission prep
+- **Phase 5: Monetization Framework** (Apr-May 2026) - RevenueCat subscriptions setup, premium features framework
+
 ### **Post-Launch Roadmap (H2 2026)**
-- **Phase 3: Burning Ritual** (Jun-Jul 2026) - Archive & destruction ritual feature
-- **Phase 4: Advanced Features** (Jul-Aug 2026) - Community feed, daily streaks, vault search
-- **Phase 5: Monetization** (Aug-Sep 2026) - RevenueCat subscriptions, premium features
-- **Phase 6: Scale & Polish** (Sep+ 2026) - Performance optimization, app store featured listing
+- **Phase 3: Burning Ritual** ✅ **COMPLETE** - Archive & destruction ritual feature (implemented)
+- **Phase 6: Advanced Features & Discovery** (Jul-Aug 2026) - Community feed, daily streaks, vault search/filters
+- **Phase 7: Scale & Polish** (Sep+ 2026) - Performance optimization, app store featured listing, monetization launch
 
 ### **Launch Timeline (Apr 7 - Jun 1, 2026)**
 
