@@ -1,0 +1,121 @@
+
+> anchor-backend@0.1.0 dev
+> nodemon --exec ts-node --transpile-only src/index.ts
+
+[33m[nodemon] 3.1.11[39m
+[33m[nodemon] to restart at any time, enter `rs`[39m
+[33m[nodemon] watching path(s): *.*[39m
+[33m[nodemon] watching extensions: ts,json[39m
+[32m[nodemon] starting `ts-node --transpile-only src/index.ts`[39m
+Error: Cannot find module 'zod'
+Require stack:
+- C:\Users\dwill\.gemini\antigravity\scratch\Anchor\backend\src\api\routes\auth.ts
+- C:\Users\dwill\.gemini\antigravity\scratch\Anchor\backend\src\index.ts
+    at Function.Module._resolveFilename (node:internal/modules/cjs/loader:1207:15)
+    at Function.Module._resolveFilename.sharedData.moduleResolveFilenameHook.installedValue [as _resolveFilename] (C:\Users\dwill\.gemini\antigravity\scratch\Anchor\backend\node_modules\@cspotcode\source-map-support\source-map-support.js:811:30)
+    at Function.Module._load (node:internal/modules/cjs/loader:1038:27)
+    at Module.require (node:internal/modules/cjs/loader:1289:19)
+    at require (node:internal/modules/helpers:182:18)
+    at Object.<anonymous> (C:\Users\dwill\.gemini\antigravity\scratch\Anchor\backend\src\api\routes\auth.ts:8:1)
+    at Module._compile (node:internal/modules/cjs/loader:1521:14)
+    at Module.m._compile (C:\Users\dwill\.gemini\antigravity\scratch\Anchor\backend\node_modules\ts-node\src\index.ts:1618:23)
+    at Module._extensions..js (node:internal/modules/cjs/loader:1623:10)
+    at Object.require.extensions.<computed> [as .ts] (C:\Users\dwill\.gemini\antigravity\scratch\Anchor\backend\node_modules\ts-node\src\index.ts:1621:12) {
+  code: 'MODULE_NOT_FOUND',
+  requireStack: [
+    'C:\\Users\\dwill\\.gemini\\antigravity\\scratch\\Anchor\\backend\\src\\api\\routes\\auth.ts',
+    'C:\\Users\\dwill\\.gemini\\antigravity\\scratch\\Anchor\\backend\\src\\index.ts'
+  ]
+}
+[31m[nodemon] app crashed - waiting for file changes before starting...[39m
+[32m[nodemon] restarting due to changes...[39m
+[32m[nodemon] starting `ts-node --transpile-only src/index.ts`[39m
+[2026-03-17T23:34:58.223Z] [INFO] Environment variables validated successfully
+Error: listen EADDRINUSE: address already in use 0.0.0.0:8000
+    at Server.setupListenHandle [as _listen2] (node:net:1908:16)
+    at listenInCluster (node:net:1965:12)
+    at doListen (node:net:2139:7)
+    at processTicksAndRejections (node:internal/process/task_queues:83:21) {
+  code: 'EADDRINUSE',
+  errno: -4091,
+  syscall: 'listen',
+  address: '0.0.0.0',
+  port: 8000
+}
+[31m[nodemon] app crashed - waiting for file changes before starting...[39m
+[32m[nodemon] restarting due to changes...[39m
+[32m[nodemon] starting `ts-node --transpile-only src/index.ts`[39m
+[2026-03-17T23:35:42.298Z] [INFO] Environment variables validated successfully
+[2026-03-17T23:35:42.315Z] [INFO] ≡ƒÜÇ Anchor API running on port 8000
+[2026-03-17T23:35:42.316Z] [INFO] ≡ƒôì Environment: development
+[2026-03-17T23:35:42.316Z] [INFO] ≡ƒÅÑ Health check: http://localhost:8000/health
+[32m[nodemon] restarting due to changes...[39m
+[32m[nodemon] starting `ts-node --transpile-only src/index.ts`[39m
+[2026-03-17T23:36:03.929Z] [INFO] Environment variables validated successfully
+Error: listen EADDRINUSE: address already in use 0.0.0.0:8000
+    at Server.setupListenHandle [as _listen2] (node:net:1908:16)
+    at listenInCluster (node:net:1965:12)
+    at doListen (node:net:2139:7)
+    at processTicksAndRejections (node:internal/process/task_queues:83:21) {
+  code: 'EADDRINUSE',
+  errno: -4091,
+  syscall: 'listen',
+  address: '0.0.0.0',
+  port: 8000
+}
+[31m[nodemon] app crashed - waiting for file changes before starting...[39m
+[32m[nodemon] restarting due to changes...[39m
+[32m[nodemon] starting `ts-node --transpile-only src/index.ts`[39m
+[32m[nodemon] restarting due to changes...[39m
+[32m[nodemon] restarting due to changes...[39m
+[32m[nodemon] starting `ts-node --transpile-only src/index.ts`[39m
+[2026-03-17T23:36:19.519Z] [INFO] Environment variables validated successfully
+Error: listen EADDRINUSE: address already in use 0.0.0.0:8000
+    at Server.setupListenHandle [as _listen2] (node:net:1908:16)
+    at listenInCluster (node:net:1965:12)
+    at doListen (node:net:2139:7)
+    at processTicksAndRejections (node:internal/process/task_queues:83:21) {
+  code: 'EADDRINUSE',
+  errno: -4091,
+  syscall: 'listen',
+  address: '0.0.0.0',
+  port: 8000
+}
+[31m[nodemon] app crashed - waiting for file changes before starting...[39m
+[32m[nodemon] restarting due to changes...[39m
+[32m[nodemon] starting `ts-node --transpile-only src/index.ts`[39m
+[2026-03-17T23:37:49.991Z] [INFO] Environment variables validated successfully
+[2026-03-17T23:37:50.008Z] [INFO] ≡ƒÜÇ Anchor API running on port 8000
+[2026-03-17T23:37:50.008Z] [INFO] ≡ƒôì Environment: development
+[2026-03-17T23:37:50.008Z] [INFO] ≡ƒÅÑ Health check: http://localhost:8000/health
+[2026-03-17T23:38:03.901Z] [INFO] GET /health
+[32m[nodemon] restarting due to changes...[39m
+[32m[nodemon] restarting due to changes...[39m
+[32m[nodemon] restarting due to changes...[39m
+[32m[nodemon] restarting due to changes...[39m
+[32m[nodemon] starting `ts-node --transpile-only src/index.ts`[39m
+Error: Cannot find module 'firebase-admin'
+Require stack:
+- C:\Users\dwill\.gemini\antigravity\scratch\Anchor\backend\src\config\firebase.ts
+- C:\Users\dwill\.gemini\antigravity\scratch\Anchor\backend\src\api\middleware\auth.ts
+- C:\Users\dwill\.gemini\antigravity\scratch\Anchor\backend\src\api\routes\auth.ts
+- C:\Users\dwill\.gemini\antigravity\scratch\Anchor\backend\src\index.ts
+    at Function.Module._resolveFilename (node:internal/modules/cjs/loader:1207:15)
+    at Function.Module._resolveFilename.sharedData.moduleResolveFilenameHook.installedValue [as _resolveFilename] (C:\Users\dwill\.gemini\antigravity\scratch\Anchor\backend\node_modules\@cspotcode\source-map-support\source-map-support.js:811:30)
+    at Function.Module._load (node:internal/modules/cjs/loader:1038:27)
+    at Module.require (node:internal/modules/cjs/loader:1289:19)
+    at require (node:internal/modules/helpers:182:18)
+    at Object.<anonymous> (C:\Users\dwill\.gemini\antigravity\scratch\Anchor\backend\src\config\firebase.ts:1:1)
+    at Module._compile (node:internal/modules/cjs/loader:1521:14)
+    at Module.m._compile (C:\Users\dwill\.gemini\antigravity\scratch\Anchor\backend\node_modules\ts-node\src\index.ts:1618:23)
+    at Module._extensions..js (node:internal/modules/cjs/loader:1623:10)
+    at Object.require.extensions.<computed> [as .ts] (C:\Users\dwill\.gemini\antigravity\scratch\Anchor\backend\node_modules\ts-node\src\index.ts:1621:12) {
+  code: 'MODULE_NOT_FOUND',
+  requireStack: [
+    'C:\\Users\\dwill\\.gemini\\antigravity\\scratch\\Anchor\\backend\\src\\config\\firebase.ts',
+    'C:\\Users\\dwill\\.gemini\\antigravity\\scratch\\Anchor\\backend\\src\\api\\middleware\\auth.ts',
+    'C:\\Users\\dwill\\.gemini\\antigravity\\scratch\\Anchor\\backend\\src\\api\\routes\\auth.ts',
+    'C:\\Users\\dwill\\.gemini\\antigravity\\scratch\\Anchor\\backend\\src\\index.ts'
+  ]
+}
+[31m[nodemon] app crashed - waiting for file changes before starting...[39m

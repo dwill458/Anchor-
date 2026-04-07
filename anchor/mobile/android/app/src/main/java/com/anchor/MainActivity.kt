@@ -1,4 +1,4 @@
-package com.anchor.app
+package com.anchor
 
 import android.os.Build
 import android.os.Bundle
