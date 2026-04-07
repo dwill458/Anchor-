@@ -659,11 +659,11 @@ Anchor v2.0.0-stable is **production-quality** with extended timeline to **June 
 ### **Pre-Launch Roadmap (Before Jun 1, 2026)**
 - **Phase 4: Polish & Production Hardening** (Apr-May 2026) - Performance optimization, security audit, app store submission prep
 - **Phase 5: Monetization Framework** (Apr-May 2026) - RevenueCat subscriptions setup, premium features framework
+- **Phase 7: Scale & Polish** (May-Jun 2026) - Performance optimization, app store featured listing, monetization launch
 
 ### **Post-Launch Roadmap (H2 2026)**
 - **Phase 3: Burning Ritual** ✅ **COMPLETE** - Archive & destruction ritual feature (implemented)
 - **Phase 6: Advanced Features & Discovery** (Jul-Aug 2026) - Community feed, daily streaks, vault search/filters
-- **Phase 7: Scale & Polish** (Sep+ 2026) - Performance optimization, app store featured listing, monetization launch
 
 ### **Launch Timeline (Apr 7 - Jun 1, 2026)**
 
