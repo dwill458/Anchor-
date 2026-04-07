@@ -4,11 +4,22 @@ import { AnchorDetailScreen } from '../AnchorDetailScreen';
 
 // Mock navigation
 const mockNavigate = jest.fn();
+const mockNavigateToPractice = jest.fn();
 const mockExportAnchorArtwork = jest.fn();
 jest.mock('@react-navigation/native', () => ({
     ...jest.requireActual('@react-navigation/native'),
     useNavigation: () => ({ navigate: mockNavigate, goBack: jest.fn(), popToTop: jest.fn() }),
     useRoute: () => ({ params: { anchorId: 'anchor-123' } }),
+}));
+
+jest.mock('@/contexts/TabNavigationContext', () => ({
+    TabNavigationProvider: ({ children }: any) => children,
+    useTabNavigation: () => ({
+        navigateToPractice: mockNavigateToPractice,
+        navigateToVault: jest.fn(),
+        registerTabNav: jest.fn(),
+        activeTabIndex: 0,
+    }),
 }));
 
 // Mock stores with minimal required state
@@ -137,7 +148,7 @@ describe('AnchorDetailScreen', () => {
     it('stub: Open Practice button navigates to Practice', () => {
         render(<AnchorDetailScreen navigation={navigation} route={route} />);
         fireEvent.press(screen.getByText('Open Practice'));
-        expect(mockNavigate).toHaveBeenCalledWith('Practice');
+        expect(mockNavigateToPractice).toHaveBeenCalled();
     });
 
     it('stub: shows the new priming CTA copy', () => {
