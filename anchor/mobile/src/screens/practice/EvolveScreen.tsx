@@ -79,7 +79,8 @@ export const EvolveScreen: React.FC = () => {
     })[0];
   }, [activeAnchors, hasAnchors]);
 
-  const isPro = user?.subscriptionStatus === 'pro' || user?.subscriptionStatus === 'pro_annual';
+  // DEFERRED: freemium — isPro lock removed; all trial/active users have full access
+  // const isPro = user?.subscriptionStatus === 'pro' || user?.subscriptionStatus === 'pro_annual';
 
   const statsLine = useMemo(() => {
     const total = user?.stabilizesTotal ?? 0;
@@ -172,11 +173,13 @@ export const EvolveScreen: React.FC = () => {
                     <Text style={styles.pathTitle}>{path.title}</Text>
                     <Text style={styles.pathDesc}>{path.description}</Text>
                   </View>
+                  {/* DEFERRED: freemium — PRO pill removed; all users have access during trial/active
                   {!isPro && (path.key === 'grounding' || path.key === 'focus') ? (
                     <View style={styles.proPill}>
                       <Text style={styles.proPillText}>PRO</Text>
                     </View>
                   ) : null}
+                  */}
                 </View>
 
                 {path.key === 'grounding' ? (
@@ -189,7 +192,7 @@ export const EvolveScreen: React.FC = () => {
                     <ActionChip
                       label="Longer Reset (2m)"
                       onPress={() => {}}
-                      locked={!isPro}
+                      // DEFERRED: freemium — locked={!isPro} removed; feature available to all trial/active users
                       disabled
                     />
                   </View>
@@ -200,7 +203,8 @@ export const EvolveScreen: React.FC = () => {
                       onPress={() => navigateToReconnect(mostRecentAnchor)}
                       emphasized
                     />
-                    <ActionChip label="Mantra Timer (5m)" onPress={() => {}} locked={!isPro} disabled />
+                    {/* DEFERRED: freemium — locked={!isPro} removed; feature available to all trial/active users */}
+                    <ActionChip label="Mantra Timer (5m)" onPress={() => {}} disabled />
                   </View>
                 ) : (
                   <View style={styles.actionsRow}>

@@ -3,7 +3,7 @@ export type PrimingDuration = 30 | 120 | 300;
 export type FocusDuration = 10 | 30 | 60 | number;
 export type FocusDefaultMode = 'silent' | 'ambient';
 export type FocusBurstGoal = 1 | 3 | 5 | 7 | number;
-export type SubscriptionTier = 'free' | 'pro' | 'trial';
+export type SubscriptionTier = 'free' | 'pro' | 'trial' | 'expired';
 
 export interface AnchorSettings {
   primingMode: PrimingMode;
