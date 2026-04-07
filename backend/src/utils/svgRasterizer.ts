@@ -56,8 +56,8 @@ const DEFAULT_OPTIONS: Required<RasterizeOptions> = {
   backgroundColor: '#000000',
   strokeColor: '#FFFFFF',
   enhanceEdges: true,
-  strokeMultiplier: 1.0,  // No thickening by default (set 2.0 for structure preservation)
-  padding: 0.0,           // No padding by default (set 0.12 for structure preservation)
+  strokeMultiplier: 1.0, // No thickening by default (set 2.0 for structure preservation)
+  padding: 0.0, // No padding by default (set 0.12 for structure preservation)
 };
 
 /**
@@ -104,15 +104,15 @@ export async function rasterizeSVG(
       })
       .png({
         compressionLevel: 9, // Maximum compression
-        quality: 100,        // Maximum quality
+        quality: 100, // Maximum quality
       });
 
     // Step 3: Apply edge enhancement if requested
     if (config.enhanceEdges) {
       sharpInstance = sharpInstance.sharpen({
-        sigma: 1.5,  // Sharpening strength
-        m1: 1.0,     // Edge emphasis
-        m2: 2.0,     // Edge slope
+        sigma: 1.5, // Sharpening strength
+        m1: 1.0, // Edge emphasis
+        m2: 2.0, // Edge slope
       });
     }
 
@@ -129,7 +129,6 @@ export async function rasterizeSVG(
       size: buffer.length,
       processingTimeMs,
     };
-
   } catch (error) {
     throw new Error(
       `SVG rasterization failed: ${error instanceof Error ? error.message : 'Unknown error'}`
@@ -145,10 +144,7 @@ export async function rasterizeSVG(
  * @param config - Configuration options
  * @returns Processed SVG string
  */
-function preprocessSVG(
-  svgString: string,
-  config: Required<RasterizeOptions>
-): string {
+function preprocessSVG(svgString: string, config: Required<RasterizeOptions>): string {
   let processed = svgString;
 
   // Extract or create viewBox for proper scaling
@@ -170,16 +166,10 @@ function preprocessSVG(
     if (widthMatch && heightMatch) {
       viewBoxW = parseInt(widthMatch[1]);
       viewBoxH = parseInt(heightMatch[1]);
-      processed = processed.replace(
-        '<svg',
-        `<svg viewBox="0 0 ${viewBoxW} ${viewBoxH}"`
-      );
+      processed = processed.replace('<svg', `<svg viewBox="0 0 ${viewBoxW} ${viewBoxH}"`);
     } else {
       // Default viewBox if dimensions not found
-      processed = processed.replace(
-        '<svg',
-        '<svg viewBox="0 0 100 100"'
-      );
+      processed = processed.replace('<svg', '<svg viewBox="0 0 100 100"');
     }
   }
 
@@ -188,10 +178,7 @@ function preprocessSVG(
     const padX = viewBoxW * config.padding;
     const padY = viewBoxH * config.padding;
     const newViewBox = `${-padX} ${-padY} ${viewBoxW + 2 * padX} ${viewBoxH + 2 * padY}`;
-    processed = processed.replace(
-      /viewBox="[^"]*"/,
-      `viewBox="${newViewBox}"`
-    );
+    processed = processed.replace(/viewBox="[^"]*"/, `viewBox="${newViewBox}"`);
   }
 
   // Add background rectangle for solid color
@@ -201,16 +188,10 @@ function preprocessSVG(
   }
 
   // Force stroke color to white (or specified color)
-  processed = processed.replace(
-    /stroke="[^"]*"/g,
-    `stroke="${config.strokeColor}"`
-  );
+  processed = processed.replace(/stroke="[^"]*"/g, `stroke="${config.strokeColor}"`);
 
   // Replace all fill attributes in paths (sigils use stroke, not fill)
-  processed = processed.replace(
-    /fill="[^"]*"/g,
-    'fill="none"'
-  );
+  processed = processed.replace(/fill="[^"]*"/g, 'fill="none"');
 
   // Calculate stroke width with multiplier for edge survival
   const baseStrokeWidth = 2;
@@ -219,13 +200,10 @@ function preprocessSVG(
   // Apply stroke thickening - update existing stroke-width or add new ones
   if (config.strokeMultiplier > 1.0) {
     // Replace existing stroke-width values with thickened version
-    processed = processed.replace(
-      /stroke-width="(\d+(?:\.\d+)?)"/g,
-      (match, width) => {
-        const newWidth = Math.round(parseFloat(width) * config.strokeMultiplier);
-        return `stroke-width="${newWidth}"`;
-      }
-    );
+    processed = processed.replace(/stroke-width="(\d+(?:\.\d+)?)"/g, (match, width) => {
+      const newWidth = Math.round(parseFloat(width) * config.strokeMultiplier);
+      return `stroke-width="${newWidth}"`;
+    });
 
     // Add stroke-width to paths that don't have it
     processed = processed.replace(
@@ -241,10 +219,7 @@ function preprocessSVG(
   } else {
     // No thickening - just ensure stroke-width exists
     if (!processed.includes('stroke-width')) {
-      processed = processed.replace(
-        /<path /g,
-        '<path stroke-width="2" '
-      );
+      processed = processed.replace(/<path /g, '<path stroke-width="2" ');
     }
   }
 
@@ -253,10 +228,7 @@ function preprocessSVG(
   processed = processed.replace(/stroke-linejoin="[^"]*"/g, '');
 
   // Add stroke-linecap and stroke-linejoin for cleaner lines
-  processed = processed.replace(
-    /<path /g,
-    '<path stroke-linecap="round" stroke-linejoin="round" '
-  );
+  processed = processed.replace(/<path /g, '<path stroke-linecap="round" stroke-linejoin="round" ');
 
   return processed;
 }
@@ -290,7 +262,10 @@ export async function rasterizeToFile(
   const result = await rasterizeSVG(svgString, options);
   const fs = await import('fs/promises');
   await fs.writeFile(outputPath, result.buffer);
-  logger.debug(`[SVGRasterizer] Saved to ${outputPath}`, { size: result.size, processingTimeMs: result.processingTimeMs });
+  logger.debug(`[SVGRasterizer] Saved to ${outputPath}`, {
+    size: result.size,
+    processingTimeMs: result.processingTimeMs,
+  });
 }
 
 /**
@@ -320,7 +295,10 @@ export async function validateSVG(svgString: string): Promise<boolean> {
     await rasterizeSVG(svgString);
     return true;
   } catch (error) {
-    console.error('SVG validation failed:', error);
+    logger.error(
+      'SVG validation failed',
+      error instanceof Error ? error : new Error(String(error))
+    );
     return false;
   }
 }

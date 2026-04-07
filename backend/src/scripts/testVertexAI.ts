@@ -297,7 +297,10 @@ async function main() {
 
   // Summary
   printHeader('Test Summary');
-  print(`Tests passed: ${passedTests}/${totalTests}`, passedTests === totalTests ? 'green' : 'yellow');
+  print(
+    `Tests passed: ${passedTests}/${totalTests}`,
+    passedTests === totalTests ? 'green' : 'yellow'
+  );
 
   if (passedTests === totalTests) {
     print('\n✓ All tests passed! Google Vertex AI is ready to use.', 'green');
@@ -318,7 +321,7 @@ async function main() {
 }
 
 // Run tests
-main().catch((error) => {
+main().catch(error => {
   console.error('Unexpected error:', error);
   process.exit(1);
 });

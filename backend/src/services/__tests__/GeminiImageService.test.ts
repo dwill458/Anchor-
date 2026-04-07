@@ -14,11 +14,7 @@ jest.mock('@google/genai');
 jest.mock('sharp');
 
 import { GoogleGenAI } from '@google/genai';
-import {
-  GeminiImageService,
-  GeminiError,
-  GeminiErrorType,
-} from '../GeminiImageService';
+import { GeminiImageService, GeminiError, GeminiErrorType } from '../GeminiImageService';
 
 describe('GeminiImageService', () => {
   const originalEnv = process.env;

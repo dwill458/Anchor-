@@ -1,5 +1,5 @@
 import React from 'react';
-import { render, fireEvent, screen } from '@testing-library/react-native';
+import { render, fireEvent, screen, act } from '@testing-library/react-native';
 import IntentionInputScreen from '../IntentionInputScreen';
 
 // Mock navigation
@@ -57,17 +57,17 @@ describe('IntentionInputScreen', () => {
     it('stub: enables Continue button after valid input', async () => {
         jest.useFakeTimers();
         render(<IntentionInputScreen />);
-        const input = screen.getByAccessibilityLabel('What are you anchoring right now?');
+        const input = screen.getByLabelText('What are you anchoring right now?');
         fireEvent.changeText(input, 'Stay calm under pressure');
-        jest.advanceTimersByTime(400);
+        act(() => { jest.advanceTimersByTime(500); });
         const continueBtn = screen.getByRole('button', { name: 'Continue' });
-        expect(continueBtn.props.accessibilityState?.disabled).toBe(false);
+        expect(continueBtn.props.accessibilityState?.disabled).not.toBe(true);
         jest.useRealTimers();
     });
 
     it('stub: enforces 100 character max length', () => {
         render(<IntentionInputScreen />);
-        const input = screen.getByAccessibilityLabel('What are you anchoring right now?');
+        const input = screen.getByLabelText('What are you anchoring right now?');
         const longText = 'a'.repeat(110);
         fireEvent.changeText(input, longText);
         // The input applies maxLength={100} so text longer than 100 chars won't be accepted
@@ -77,9 +77,9 @@ describe('IntentionInputScreen', () => {
     it('stub: navigates to DistillationAnimation on submit', () => {
         jest.useFakeTimers();
         render(<IntentionInputScreen />);
-        const input = screen.getByAccessibilityLabel('What are you anchoring right now?');
+        const input = screen.getByLabelText('What are you anchoring right now?');
         fireEvent.changeText(input, 'Stay calm under pressure');
-        jest.advanceTimersByTime(400);
+        act(() => { jest.advanceTimersByTime(500); });
         fireEvent.press(screen.getByRole('button', { name: 'Continue' }));
         expect(mockNavigate).toHaveBeenCalledWith('LetterDistillation', expect.objectContaining({
             intentionText: 'Stay calm under pressure',

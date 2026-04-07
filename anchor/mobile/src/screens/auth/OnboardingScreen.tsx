@@ -248,12 +248,12 @@ const SignalVisual: React.FC = () => {
   const spin = ringRot.interpolate({ inputRange: [0, 1], outputRange: ['0deg', '360deg'] });
 
   const LINE_CONFIGS = [
-    { width: '100%', left: '0%' },
-    { width: '80%', left: '10%' },
-    { width: '90%', left: '5%' },
-    { width: '70%', left: '15%' },
+    { width: '100%' as const, left: '0%' as const },
+    { width: '80%' as const, left: '10%' as const },
+    { width: '90%' as const, left: '5%' as const },
+    { width: '70%' as const, left: '15%' as const },
   ];
-  const LINE_TOPS = ['25%', '40%', '55%', '70%'];
+  const LINE_TOPS = ['25%', '40%', '55%', '70%'] as const;
 
   return (
     <View style={visual.signal.container}>

@@ -74,3 +74,4 @@ jobs:
           CI: true
           EXPO_PUBLIC_APP_ENV: test
           EXPO_PUBLIC_DEV_API_URL: http://localhost:8000
+          NODE_OPTIONS: --max-old-space-size=4096

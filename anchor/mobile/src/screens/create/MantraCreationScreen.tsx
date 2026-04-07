@@ -13,7 +13,7 @@ import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
-import { useAudioRecorder, AudioModule, RecordingOptionsPresets } from 'expo-audio';
+import { useAudioRecorder, AudioModule, RecordingPresets } from 'expo-audio';
 import Animated, {
   useAnimatedStyle,
   useSharedValue,
@@ -183,7 +183,7 @@ export const MantraCreationScreen: React.FC = () => {
   const navigation = useNavigation<MantraCreationNavigationProp>();
   const route = useRoute<MantraCreationRouteProp>();
   const insets = useSafeAreaInsets();
-  const recorder = useAudioRecorder(RecordingOptionsPresets.HIGH_QUALITY);
+  const recorder = useAudioRecorder(RecordingPresets.HIGH_QUALITY);
 
   const orbOneProgress = useRef(new RNAnimated.Value(0)).current;
   const orbTwoProgress = useRef(new RNAnimated.Value(0)).current;

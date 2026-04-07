@@ -10,10 +10,18 @@ import { Prisma } from '@prisma/client';
 import { AuthRequest, authMiddleware } from '../middleware/auth';
 import { AppError } from '../middleware/errorHandler';
 import { prisma } from '../../lib/prisma';
+import { logger } from '../../utils/logger';
 
 // Whitelist of columns that may be used in ORDER BY to prevent injection
-const ALLOWED_ORDER_BY = ['updatedAt', 'createdAt', 'category', 'intentionText', 'activationCount', 'lastActivatedAt'] as const;
-type AllowedOrderBy = typeof ALLOWED_ORDER_BY[number];
+const ALLOWED_ORDER_BY = [
+  'updatedAt',
+  'createdAt',
+  'category',
+  'intentionText',
+  'activationCount',
+  'lastActivatedAt',
+] as const;
+type AllowedOrderBy = (typeof ALLOWED_ORDER_BY)[number];
 
 const router = Router();
 
@@ -25,10 +33,17 @@ const CreateAnchorSchema = z.object({
   intentionText: z.string().min(1).max(500),
   category: z.string().min(1),
   distilledLetters: z.array(z.string()).min(1),
-  baseSigilSvg: z.string().min(1).max(5_000_000),
+  baseSigilSvg: z.string().min(1).max(5_000_000).refine(isSafeSvg, {
+    message: 'SVG contains disallowed content (scripts, event handlers, or external URLs)',
+  }),
   structureVariant: StructureVariantEnum.optional(),
   // Optional fields passed through without strict validation
-  reinforcedSigilSvg: z.string().optional(),
+  reinforcedSigilSvg: z
+    .string()
+    .refine(isSafeSvg, {
+      message: 'SVG contains disallowed content (scripts, event handlers, or external URLs)',
+    })
+    .optional(),
   reinforcementMetadata: z.unknown().optional(),
   enhancedImageUrl: z.string().optional(),
   enhancementMetadata: z.unknown().optional(),
@@ -41,7 +56,14 @@ const UpdateAnchorSchema = z.object({
   intentionText: z.string().min(1).max(500).optional(),
   category: z.string().min(1).max(100).optional(),
   structureVariant: StructureVariantEnum.optional(),
-  reinforcedSigilSvg: z.string().max(5_000_000).nullable().optional(),
+  reinforcedSigilSvg: z
+    .string()
+    .max(5_000_000)
+    .refine(isSafeSvg, {
+      message: 'SVG contains disallowed content (scripts, event handlers, or external URLs)',
+    })
+    .nullable()
+    .optional(),
   reinforcementMetadata: z.unknown().optional(),
   enhancedImageUrl: z.string().url().max(2048).nullable().optional(),
   enhancementMetadata: z.unknown().optional(),
@@ -67,6 +89,25 @@ const ActivateAnchorSchema = z.object({
   durationSeconds: z.number().min(1),
 });
 
+/**
+ * Lightweight SVG safety check — rejects content containing common XSS vectors:
+ * <script> tags, inline event handlers (on*=), javascript: URIs, and external
+ * resource references (http/https hrefs/src attributes).
+ *
+ * This is defence-in-depth. The SVG is still rendered on the client so the
+ * client-side renderer should also sanitise, but we reject obviously malicious
+ * payloads at the API boundary.
+ */
+function isSafeSvg(svg: string): boolean {
+  if (/<script[\s>]/i.test(svg)) return false;
+  if (/\bon\w+\s*=/i.test(svg)) return false; // onload=, onclick=, etc.
+  if (/javascript\s*:/i.test(svg)) return false; // javascript: URIs
+  if (/data\s*:\s*text\/html/i.test(svg)) return false; // data:text/html URIs
+  // Reject absolute external URLs in href/xlink:href/src attributes
+  if (/(?:href|src)\s*=\s*["']https?:\/\//i.test(svg)) return false;
+  return true;
+}
+
 // Validates req.body against a schema; throws AppError on failure.
 function validate<T>(schema: z.ZodSchema<T>, data: unknown): T {
   const result = schema.safeParse(data);
@@ -79,6 +120,34 @@ function validate<T>(schema: z.ZodSchema<T>, data: unknown): T {
 
 // All anchor routes require authentication
 router.use(authMiddleware);
+
+/**
+ * Per-router middleware: resolve the Firebase UID to a DB user record once
+ * per request and attach it to req.dbUser.
+ *
+ * This eliminates the repeated prisma.user.findUnique calls that previously
+ * appeared in every individual route handler.
+ */
+router.use(async (req: AuthRequest, res: Response, next: NextFunction) => {
+  if (!req.user?.uid) {
+    next(new AppError('User not authenticated', 401, 'UNAUTHORIZED'));
+    return;
+  }
+  try {
+    const user = await prisma.user.findUnique({
+      where: { authUid: req.user.uid },
+      select: { id: true },
+    });
+    if (!user) {
+      next(new AppError('User not found', 404, 'USER_NOT_FOUND'));
+      return;
+    }
+    req.dbUser = user;
+    next();
+  } catch {
+    next(new AppError('Service temporarily unavailable', 503, 'DB_ERROR'));
+  }
+});
 
 /**
  * POST /api/anchors
@@ -103,10 +172,6 @@ router.use(authMiddleware);
  */
 router.post('/', async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
-    if (!req.user) {
-      throw new AppError('User not authenticated', 401, 'UNAUTHORIZED');
-    }
-
     const {
       intentionText,
       category,
@@ -122,19 +187,12 @@ router.post('/', async (req: AuthRequest, res: Response, next: NextFunction) => 
       mantraAudioUrl,
     } = validate(CreateAnchorSchema, req.body);
 
-    // Get user from database
-    const user = await prisma.user.findUnique({
-      where: { authUid: req.user.uid },
-    });
-
-    if (!user) {
-      throw new AppError('User not found', 404, 'USER_NOT_FOUND');
-    }
+    const userId = req.dbUser!.id;
 
     // Create anchor with new architecture fields
     const anchor = await prisma.anchor.create({
       data: {
-        userId: user.id,
+        userId,
         intentionText,
         category,
         distilledLetters,
@@ -161,7 +219,7 @@ router.post('/', async (req: AuthRequest, res: Response, next: NextFunction) => 
 
     // Update user stats
     await prisma.user.update({
-      where: { id: user.id },
+      where: { id: userId },
       data: {
         totalAnchorsCreated: {
           increment: 1,
@@ -188,26 +246,16 @@ router.post('/', async (req: AuthRequest, res: Response, next: NextFunction) => 
  * Get all anchors for the authenticated user
  *
  * Query params (optional):
- * - category: Filter by category
+ * - category: Filter by category (1–100 chars)
  * - isCharged: Filter by charged status
- * - limit: Maximum number of anchors to return
+ * - limit: Maximum number of anchors to return (1–100, default 20)
+ * - cursor: Anchor ID to paginate after (cursor-based pagination)
  * - orderBy: Field to sort by (default: 'updatedAt')
  * - order: Sort direction 'asc' | 'desc' (default: 'desc')
  */
 router.get('/', async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
-    if (!req.user) {
-      throw new AppError('User not authenticated', 401, 'UNAUTHORIZED');
-    }
-
-    // Get user from database
-    const user = await prisma.user.findUnique({
-      where: { authUid: req.user.uid },
-    });
-
-    if (!user) {
-      throw new AppError('User not found', 404, 'USER_NOT_FOUND');
-    }
+    const userId = req.dbUser!.id;
 
     // Build filter conditions
     const where: {
@@ -216,12 +264,20 @@ router.get('/', async (req: AuthRequest, res: Response, next: NextFunction) => {
       isCharged?: boolean;
       isArchived: boolean;
     } = {
-      userId: user.id,
+      userId,
       isArchived: false, // Don't show archived anchors by default
     };
 
     if (req.query.category) {
-      where.category = req.query.category as string;
+      const categoryResult = z.string().min(1).max(100).safeParse(req.query.category);
+      if (!categoryResult.success) {
+        throw new AppError(
+          'Invalid category filter: must be 1–100 characters',
+          400,
+          'VALIDATION_ERROR'
+        );
+      }
+      where.category = categoryResult.data;
     }
 
     if (req.query.isCharged !== undefined) {
@@ -240,24 +296,28 @@ router.get('/', async (req: AuthRequest, res: Response, next: NextFunction) => {
     // Cap limit to prevent DoS via unbounded queries; default 20, max 100.
     const rawLimit = req.query.limit ? parseInt(req.query.limit as string, 10) : undefined;
     const limit =
-      rawLimit !== undefined && !isNaN(rawLimit) && rawLimit > 0
-        ? Math.min(rawLimit, 100)
-        : undefined;
+      rawLimit !== undefined && !isNaN(rawLimit) && rawLimit > 0 ? Math.min(rawLimit, 100) : 20;
 
-    // Fetch anchors with optional sorting and limiting
+    // Cursor-based pagination: stable under concurrent writes, O(1) offset
+    const cursor = req.query.cursor as string | undefined;
+
     const anchors = await prisma.anchor.findMany({
       where,
       orderBy: {
         [orderBy]: order,
       },
-      ...(limit !== undefined && { take: limit }),
+      take: limit,
+      ...(cursor && { cursor: { id: cursor }, skip: 1 }),
     });
+
+    const nextCursor = anchors.length === limit ? anchors[anchors.length - 1].id : null;
 
     res.json({
       success: true,
       data: anchors,
       meta: {
         total: anchors.length,
+        nextCursor,
       },
     });
   } catch (error) {
@@ -276,26 +336,14 @@ router.get('/', async (req: AuthRequest, res: Response, next: NextFunction) => {
  */
 router.get('/:id', async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
-    if (!req.user) {
-      throw new AppError('User not authenticated', 401, 'UNAUTHORIZED');
-    }
-
     const { id } = req.params;
+    const userId = req.dbUser!.id;
 
-    // Get user from database
-    const user = await prisma.user.findUnique({
-      where: { authUid: req.user.uid },
-    });
-
-    if (!user) {
-      throw new AppError('User not found', 404, 'USER_NOT_FOUND');
-    }
-
-    // Fetch anchor
+    // Fetch anchor — ownership enforced by userId constraint
     const anchor = await prisma.anchor.findFirst({
       where: {
         id,
-        userId: user.id, // Ensure user owns this anchor
+        userId,
       },
       include: {
         activations: {
@@ -351,11 +399,8 @@ router.get('/:id', async (req: AuthRequest, res: Response, next: NextFunction) =
  */
 router.put('/:id', async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
-    if (!req.user) {
-      throw new AppError('User not authenticated', 401, 'UNAUTHORIZED');
-    }
-
     const { id } = req.params;
+    const userId = req.dbUser!.id;
 
     // Explicit allowlist of fields a user may update on their own anchor.
     // Never spread req.body directly into Prisma — that would allow mass
@@ -408,9 +453,11 @@ router.put('/:id', async (req: AuthRequest, res: Response, next: NextFunction) =
     if (category !== undefined) allowedUpdates.category = String(category);
     if (structureVariant !== undefined) allowedUpdates.structureVariant = String(structureVariant);
     if (reinforcedSigilSvg !== undefined) allowedUpdates.reinforcedSigilSvg = reinforcedSigilSvg;
-    if (reinforcementMetadata !== undefined) allowedUpdates.reinforcementMetadata = reinforcementMetadata ?? Prisma.JsonNull;
+    if (reinforcementMetadata !== undefined)
+      allowedUpdates.reinforcementMetadata = reinforcementMetadata ?? Prisma.JsonNull;
     if (enhancedImageUrl !== undefined) allowedUpdates.enhancedImageUrl = enhancedImageUrl;
-    if (enhancementMetadata !== undefined) allowedUpdates.enhancementMetadata = enhancementMetadata ?? Prisma.JsonNull;
+    if (enhancementMetadata !== undefined)
+      allowedUpdates.enhancementMetadata = enhancementMetadata ?? Prisma.JsonNull;
     if (mantraText !== undefined) allowedUpdates.mantraText = mantraText;
     if (mantraPronunciation !== undefined) allowedUpdates.mantraPronunciation = mantraPronunciation;
     if (mantraAudioUrl !== undefined) allowedUpdates.mantraAudioUrl = mantraAudioUrl;
@@ -418,36 +465,23 @@ router.put('/:id', async (req: AuthRequest, res: Response, next: NextFunction) =
     if (chargedAt !== undefined) allowedUpdates.chargedAt = chargedAt ? new Date(chargedAt) : null;
     if (chargeMethod !== undefined) allowedUpdates.chargeMethod = chargeMethod;
     if (isArchived !== undefined) allowedUpdates.isArchived = Boolean(isArchived);
-    if (archivedAt !== undefined) allowedUpdates.archivedAt = archivedAt ? new Date(archivedAt) : null;
+    if (archivedAt !== undefined)
+      allowedUpdates.archivedAt = archivedAt ? new Date(archivedAt) : null;
     if (isShared !== undefined) allowedUpdates.isShared = Boolean(isShared);
     if (sharedAt !== undefined) allowedUpdates.sharedAt = sharedAt ? new Date(sharedAt) : null;
 
-    // Get user from database
-    const user = await prisma.user.findUnique({
-      where: { authUid: req.user.uid },
+    // Verify ownership then update in a single round-trip using updateMany
+    // (returns count=0 if the anchor doesn't exist or isn't owned by this user)
+    const result = await prisma.anchor.updateMany({
+      where: { id, userId },
+      data: allowedUpdates,
     });
 
-    if (!user) {
-      throw new AppError('User not found', 404, 'USER_NOT_FOUND');
-    }
-
-    // Check if anchor exists and user owns it
-    const existingAnchor = await prisma.anchor.findFirst({
-      where: {
-        id,
-        userId: user.id,
-      },
-    });
-
-    if (!existingAnchor) {
+    if (result.count === 0) {
       throw new AppError('Anchor not found', 404, 'ANCHOR_NOT_FOUND');
     }
 
-    // Update anchor with only the allowed fields
-    const anchor = await prisma.anchor.update({
-      where: { id },
-      data: allowedUpdates,
-    });
+    const anchor = await prisma.anchor.findUnique({ where: { id } });
 
     res.json({
       success: true,
@@ -469,41 +503,21 @@ router.put('/:id', async (req: AuthRequest, res: Response, next: NextFunction) =
  */
 router.delete('/:id', async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
-    if (!req.user) {
-      throw new AppError('User not authenticated', 401, 'UNAUTHORIZED');
-    }
-
     const { id } = req.params;
+    const userId = req.dbUser!.id;
 
-    // Get user from database
-    const user = await prisma.user.findUnique({
-      where: { authUid: req.user.uid },
-    });
-
-    if (!user) {
-      throw new AppError('User not found', 404, 'USER_NOT_FOUND');
-    }
-
-    // Check if anchor exists and user owns it
-    const existingAnchor = await prisma.anchor.findFirst({
-      where: {
-        id,
-        userId: user.id,
-      },
-    });
-
-    if (!existingAnchor) {
-      throw new AppError('Anchor not found', 404, 'ANCHOR_NOT_FOUND');
-    }
-
-    // Archive instead of delete
-    await prisma.anchor.update({
-      where: { id },
+    // Verify ownership and archive in one round-trip
+    const result = await prisma.anchor.updateMany({
+      where: { id, userId },
       data: {
         isArchived: true,
         archivedAt: new Date(),
       },
     });
+
+    if (result.count === 0) {
+      throw new AppError('Anchor not found', 404, 'ANCHOR_NOT_FOUND');
+    }
 
     res.json({
       success: true,
@@ -531,28 +545,14 @@ router.delete('/:id', async (req: AuthRequest, res: Response, next: NextFunction
  */
 router.post('/:id/charge', async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
-    if (!req.user) {
-      throw new AppError('User not authenticated', 401, 'UNAUTHORIZED');
-    }
-
     const { id } = req.params;
     const { chargeType, durationSeconds } = validate(ChargeAnchorSchema, req.body);
+    const userId = req.dbUser!.id;
 
-    // Get user from database
-    const user = await prisma.user.findUnique({
-      where: { authUid: req.user.uid },
-    });
-
-    if (!user) {
-      throw new AppError('User not found', 404, 'USER_NOT_FOUND');
-    }
-
-    // Check if anchor exists and user owns it
+    // Verify ownership before writing
     const existingAnchor = await prisma.anchor.findFirst({
-      where: {
-        id,
-        userId: user.id,
-      },
+      where: { id, userId },
+      select: { id: true },
     });
 
     if (!existingAnchor) {
@@ -562,7 +562,7 @@ router.post('/:id/charge', async (req: AuthRequest, res: Response, next: NextFun
     // Create charge record
     await prisma.charge.create({
       data: {
-        userId: user.id,
+        userId,
         anchorId: id,
         chargeType,
         durationSeconds,
@@ -605,28 +605,14 @@ router.post('/:id/charge', async (req: AuthRequest, res: Response, next: NextFun
  */
 router.post('/:id/activate', async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
-    if (!req.user) {
-      throw new AppError('User not authenticated', 401, 'UNAUTHORIZED');
-    }
-
     const { id } = req.params;
     const { activationType, durationSeconds } = validate(ActivateAnchorSchema, req.body);
+    const userId = req.dbUser!.id;
 
-    // Get user from database
-    const user = await prisma.user.findUnique({
-      where: { authUid: req.user.uid },
-    });
-
-    if (!user) {
-      throw new AppError('User not found', 404, 'USER_NOT_FOUND');
-    }
-
-    // Check if anchor exists and user owns it
+    // Verify ownership before writing
     const existingAnchor = await prisma.anchor.findFirst({
-      where: {
-        id,
-        userId: user.id,
-      },
+      where: { id, userId },
+      select: { id: true },
     });
 
     if (!existingAnchor) {
@@ -636,7 +622,7 @@ router.post('/:id/activate', async (req: AuthRequest, res: Response, next: NextF
     // Create activation record
     await prisma.activation.create({
       data: {
-        userId: user.id,
+        userId,
         anchorId: id,
         activationType,
         durationSeconds,
@@ -656,7 +642,7 @@ router.post('/:id/activate', async (req: AuthRequest, res: Response, next: NextF
     });
 
     await prisma.user.update({
-      where: { id: user.id },
+      where: { id: userId },
       data: {
         totalActivations: {
           increment: 1,
@@ -680,27 +666,16 @@ router.post('/:id/activate', async (req: AuthRequest, res: Response, next: NextF
 /**
  * POST /api/anchors/:id/burn
  *
- * Archive an anchor and create a BurnedAnchor snapshot record.
- * Atomic: both operations succeed or neither does.
+ * Perform the burning ritual: create a BurnedAnchor snapshot then hard-delete
+ * the original anchor. Atomic — both succeed or neither does.
  */
 router.post('/:id/burn', async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
-    if (!req.user) {
-      throw new AppError('User not authenticated', 401, 'UNAUTHORIZED');
-    }
-
     const { id } = req.params;
-
-    const user = await prisma.user.findUnique({
-      where: { authUid: req.user.uid },
-    });
-
-    if (!user) {
-      throw new AppError('User not found', 404, 'USER_NOT_FOUND');
-    }
+    const userId = req.dbUser!.id;
 
     const anchor = await prisma.anchor.findFirst({
-      where: { id, userId: user.id },
+      where: { id, userId },
     });
 
     if (!anchor) {
@@ -711,32 +686,43 @@ router.post('/:id/burn', async (req: AuthRequest, res: Response, next: NextFunct
       throw new AppError('Anchor is already archived', 400, 'ALREADY_ARCHIVED');
     }
 
-    await prisma.$transaction([
-      prisma.burnedAnchor.create({
+    // Use a transaction to ensure atomicity
+    const result = await prisma.$transaction(async tx => {
+      // 1. Create entry in burned_anchors
+      const burnedAnchor = await tx.burnedAnchor.create({
         data: {
           originalAnchorId: anchor.id,
-          userId: user.id,
+          userId,
           intentionText: anchor.intentionText,
           category: anchor.category,
-          distilledLetters: [],
+          distilledLetters: anchor.distilledLetters,
           baseSigilSvg: anchor.baseSigilSvg,
           enhancedImageUrl: anchor.enhancedImageUrl ?? null,
           activationCount: anchor.activationCount,
           createdAt: anchor.createdAt,
+          burnedAt: new Date(),
         },
-      }),
-      prisma.anchor.update({
-        where: { id },
-        data: { isArchived: true, archivedAt: new Date() },
-      }),
-    ]);
+      });
 
-    res.json({ success: true, data: { burned: true } });
+      // 2. Delete original anchor (cascades to activations/charges)
+      await tx.anchor.delete({
+        where: { id: anchor.id },
+      });
+
+      return burnedAnchor;
+    });
+
+    res.json({
+      success: true,
+      data: { ...result, burned: true },
+      message: 'Anchor burned and archived successfully',
+    });
   } catch (error) {
     if (error instanceof AppError) {
       next(error);
       return;
     }
+    logger.error('[Anchors] Burn error', error instanceof Error ? error : new Error(String(error)));
     next(new AppError('Failed to burn anchor', 500, 'BURN_ERROR'));
   }
 });

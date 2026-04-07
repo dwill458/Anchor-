@@ -5,7 +5,7 @@
  * Based on traditional occult systems: planetary seals, runes, sacred geometry, etc.
  */
 
-export interface Symbol {
+export interface OccultSymbol {
   id: string;
   name: string;
   category: SymbolCategory;
@@ -15,25 +15,20 @@ export interface Symbol {
   svgPath?: string; // SVG path data for custom symbols
 }
 
-export type SymbolCategory =
-  | 'planetary'
-  | 'rune'
-  | 'elemental'
-  | 'geometry'
-  | 'lunar'
-  | 'zodiac';
+export type SymbolCategory = 'planetary' | 'rune' | 'elemental' | 'geometry' | 'lunar' | 'zodiac';
 
 /**
  * Complete symbol database
  */
-export const SYMBOL_DATABASE: Symbol[] = [
+export const SYMBOL_DATABASE: OccultSymbol[] = [
   // PLANETARY SEALS (Intelligence seals from grimoire tradition)
   {
     id: 'jupiter_seal',
     name: 'Seal of Jupiter',
     category: 'planetary',
     themes: ['wealth', 'abundance', 'success', 'expansion', 'growth', 'prosperity', 'business'],
-    description: 'Jupiter governs expansion, abundance, and material success. Ideal for business ventures and financial growth.',
+    description:
+      'Jupiter governs expansion, abundance, and material success. Ideal for business ventures and financial growth.',
     unicode: '♃',
   },
   {
@@ -41,7 +36,8 @@ export const SYMBOL_DATABASE: Symbol[] = [
     name: 'Seal of Mercury',
     category: 'planetary',
     themes: ['communication', 'intellect', 'learning', 'speed', 'travel', 'negotiation', 'clarity'],
-    description: 'Mercury rules communication, quick thinking, and adaptability. Perfect for deals, learning, and mental clarity.',
+    description:
+      'Mercury rules communication, quick thinking, and adaptability. Perfect for deals, learning, and mental clarity.',
     unicode: '☿',
   },
   {
@@ -49,7 +45,8 @@ export const SYMBOL_DATABASE: Symbol[] = [
     name: 'Seal of Venus',
     category: 'planetary',
     themes: ['love', 'beauty', 'relationships', 'harmony', 'attraction', 'art', 'pleasure'],
-    description: 'Venus governs love, beauty, and harmonious relationships. Use for romantic intentions and creative pursuits.',
+    description:
+      'Venus governs love, beauty, and harmonious relationships. Use for romantic intentions and creative pursuits.',
     unicode: '♀',
   },
   {
@@ -57,7 +54,8 @@ export const SYMBOL_DATABASE: Symbol[] = [
     name: 'Seal of Mars',
     category: 'planetary',
     themes: ['strength', 'courage', 'action', 'victory', 'competition', 'energy', 'power'],
-    description: 'Mars rules courage, assertiveness, and decisive action. Ideal for competition and overcoming obstacles.',
+    description:
+      'Mars rules courage, assertiveness, and decisive action. Ideal for competition and overcoming obstacles.',
     unicode: '♂',
   },
   {
@@ -65,7 +63,8 @@ export const SYMBOL_DATABASE: Symbol[] = [
     name: 'Seal of Saturn',
     category: 'planetary',
     themes: ['discipline', 'structure', 'patience', 'karma', 'time', 'boundaries', 'mastery'],
-    description: 'Saturn governs discipline, long-term goals, and karmic lessons. Use for building lasting foundations.',
+    description:
+      'Saturn governs discipline, long-term goals, and karmic lessons. Use for building lasting foundations.',
     unicode: '♄',
   },
   {
@@ -73,7 +72,8 @@ export const SYMBOL_DATABASE: Symbol[] = [
     name: 'Seal of the Sun',
     category: 'planetary',
     themes: ['vitality', 'success', 'leadership', 'confidence', 'health', 'energy', 'power'],
-    description: 'The Sun rules vitality, leadership, and self-confidence. Perfect for personal empowerment and health.',
+    description:
+      'The Sun rules vitality, leadership, and self-confidence. Perfect for personal empowerment and health.',
     unicode: '☉',
   },
   {
@@ -81,7 +81,8 @@ export const SYMBOL_DATABASE: Symbol[] = [
     name: 'Seal of the Moon',
     category: 'planetary',
     themes: ['intuition', 'emotions', 'dreams', 'subconscious', 'feminine', 'cycles', 'reflection'],
-    description: 'The Moon governs intuition, emotions, and the subconscious. Use for inner work and emotional healing.',
+    description:
+      'The Moon governs intuition, emotions, and the subconscious. Use for inner work and emotional healing.',
     unicode: '☽',
   },
 
@@ -99,7 +100,8 @@ export const SYMBOL_DATABASE: Symbol[] = [
     name: 'Ansuz (Communication)',
     category: 'rune',
     themes: ['communication', 'wisdom', 'divine', 'inspiration', 'speech', 'clarity'],
-    description: 'The rune of divine communication and wisdom. Associated with Odin and inspired speech.',
+    description:
+      'The rune of divine communication and wisdom. Associated with Odin and inspired speech.',
     unicode: 'ᚨ',
   },
   {
@@ -115,7 +117,8 @@ export const SYMBOL_DATABASE: Symbol[] = [
     name: 'Gebo (Partnership)',
     category: 'rune',
     themes: ['partnership', 'gift', 'balance', 'relationship', 'exchange', 'harmony'],
-    description: 'The rune of gifts and balanced exchange. Symbolizes partnership and mutual benefit.',
+    description:
+      'The rune of gifts and balanced exchange. Symbolizes partnership and mutual benefit.',
     unicode: 'ᚷ',
   },
   {
@@ -123,7 +126,8 @@ export const SYMBOL_DATABASE: Symbol[] = [
     name: 'Tiwaz (Victory)',
     category: 'rune',
     themes: ['victory', 'honor', 'courage', 'justice', 'warrior', 'success'],
-    description: 'The rune of the warrior spirit and righteous victory. Associated with Tyr, god of war.',
+    description:
+      'The rune of the warrior spirit and righteous victory. Associated with Tyr, god of war.',
     unicode: 'ᛏ',
   },
   {
@@ -157,7 +161,8 @@ export const SYMBOL_DATABASE: Symbol[] = [
     name: 'Air',
     category: 'elemental',
     themes: ['thought', 'communication', 'intellect', 'freedom', 'clarity', 'inspiration'],
-    description: 'Air rules the mental realm, communication, and new ideas. The breath of inspiration.',
+    description:
+      'Air rules the mental realm, communication, and new ideas. The breath of inspiration.',
     unicode: '🜁',
   },
   {
@@ -175,7 +180,8 @@ export const SYMBOL_DATABASE: Symbol[] = [
     name: 'Vesica Piscis',
     category: 'geometry',
     themes: ['creation', 'birth', 'union', 'duality', 'balance', 'harmony'],
-    description: 'Two intersecting circles symbolizing creation, balance, and the union of opposites.',
+    description:
+      'Two intersecting circles symbolizing creation, balance, and the union of opposites.',
   },
   {
     id: 'pentagram',
@@ -190,7 +196,8 @@ export const SYMBOL_DATABASE: Symbol[] = [
     name: 'Hexagram',
     category: 'geometry',
     themes: ['balance', 'harmony', 'union', 'masculine', 'feminine', 'unity'],
-    description: 'Two interlocking triangles symbolizing the union of masculine and feminine energies.',
+    description:
+      'Two interlocking triangles symbolizing the union of masculine and feminine energies.',
     unicode: '✡',
   },
   {
@@ -198,7 +205,8 @@ export const SYMBOL_DATABASE: Symbol[] = [
     name: 'Spiral',
     category: 'geometry',
     themes: ['growth', 'evolution', 'expansion', 'journey', 'transformation', 'consciousness'],
-    description: 'The spiral represents growth, evolution, and the journey of consciousness expanding.',
+    description:
+      'The spiral represents growth, evolution, and the journey of consciousness expanding.',
   },
 
   // LUNAR PHASES
@@ -239,14 +247,14 @@ export const SYMBOL_DATABASE: Symbol[] = [
 /**
  * Get symbols by category
  */
-export function getSymbolsByCategory(category: SymbolCategory): Symbol[] {
+export function getSymbolsByCategory(category: SymbolCategory): OccultSymbol[] {
   return SYMBOL_DATABASE.filter(symbol => symbol.category === category);
 }
 
 /**
  * Get symbols by theme keyword
  */
-export function getSymbolsByTheme(theme: string): Symbol[] {
+export function getSymbolsByTheme(theme: string): OccultSymbol[] {
   const normalizedTheme = theme.toLowerCase();
   return SYMBOL_DATABASE.filter(symbol =>
     symbol.themes.some(t => t.toLowerCase().includes(normalizedTheme))
@@ -256,6 +264,6 @@ export function getSymbolsByTheme(theme: string): Symbol[] {
 /**
  * Get symbol by ID
  */
-export function getSymbolById(id: string): Symbol | undefined {
+export function getSymbolById(id: string): OccultSymbol | undefined {
   return SYMBOL_DATABASE.find(symbol => symbol.id === id);
 }

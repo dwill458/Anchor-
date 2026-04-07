@@ -179,7 +179,9 @@ describe('AIEnhancer Service', () => {
       };
       (GeminiImageService as jest.Mock).mockImplementation(() => mockGeminiService);
 
-      (uploadImageFromBuffer as jest.Mock).mockResolvedValue('https://storage.example.com/image.png');
+      (uploadImageFromBuffer as jest.Mock).mockResolvedValue(
+        'https://storage.example.com/image.png'
+      );
 
       const request: ControlNetEnhancementRequest = {
         sigilSvg: mockSigilSvg,
@@ -225,7 +227,9 @@ describe('AIEnhancer Service', () => {
       };
       (GeminiImageService as jest.Mock).mockImplementation(() => mockGeminiService);
 
-      (uploadImageFromBuffer as jest.Mock).mockResolvedValue('https://storage.example.com/image.png');
+      (uploadImageFromBuffer as jest.Mock).mockResolvedValue(
+        'https://storage.example.com/image.png'
+      );
 
       const request: ControlNetEnhancementRequest = {
         sigilSvg: mockSigilSvg,
@@ -260,7 +264,9 @@ describe('AIEnhancer Service', () => {
         userId: mockUserId,
       };
 
-      await expect(enhanceSigilWithAI(request)).rejects.toThrow('Google Generation API Failed: Gemini API error');
+      await expect(enhanceSigilWithAI(request)).rejects.toThrow(
+        'Google Generation API Failed: Gemini API error'
+      );
     });
 
     it('should handle empty intention text gracefully', async () => {
@@ -285,7 +291,9 @@ describe('AIEnhancer Service', () => {
       };
       (GeminiImageService as jest.Mock).mockImplementation(() => mockGeminiService);
 
-      (uploadImageFromBuffer as jest.Mock).mockResolvedValue('https://storage.example.com/image.png');
+      (uploadImageFromBuffer as jest.Mock).mockResolvedValue(
+        'https://storage.example.com/image.png'
+      );
 
       const request: ControlNetEnhancementRequest = {
         sigilSvg: mockSigilSvg,
@@ -434,7 +442,9 @@ describe('AIEnhancer Service', () => {
         userId: mockUserId,
       };
 
-      await expect(enhanceSigilWithAI(request)).rejects.toThrow('Google Gemini API Key is missing. Google API is required.');
+      await expect(enhanceSigilWithAI(request)).rejects.toThrow(
+        'Google Gemini API Key is missing. Google API is required.'
+      );
     });
 
     it('should throw error when REPLICATE_API_TOKEN is missing in production mode', async () => {
@@ -485,7 +495,9 @@ describe('AIEnhancer Service', () => {
         userId: mockUserId,
       };
 
-      await expect(enhanceSigilWithControlNet(request)).rejects.toThrow('ControlNet enhancement failed');
+      await expect(enhanceSigilWithControlNet(request)).rejects.toThrow(
+        'ControlNet enhancement failed'
+      );
     });
 
     it('should handle Gemini image upload failure', async () => {
@@ -576,7 +588,7 @@ describe('AIEnhancer Service', () => {
       'minimal_line',
     ];
 
-    it.each(allStyles)('should handle %s style correctly', async (style) => {
+    it.each(allStyles)('should handle %s style correctly', async style => {
       process.env.REPLICATE_API_TOKEN = 'your-replicate-token';
 
       const request: ControlNetEnhancementRequest = {

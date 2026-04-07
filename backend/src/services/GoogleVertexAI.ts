@@ -1,7 +1,7 @@
 import { GoogleGenAI } from '@google/genai';
 import sharp from 'sharp';
-import fs from 'fs';
-import path from 'path';
+import _fs from 'fs';
+import _path from 'path';
 import { logger } from '../utils/logger';
 
 // Re-exporting interfaces so the rest of the app stays compatible
@@ -35,7 +35,7 @@ export class GoogleVertexAI {
       apiKey: process.env.GOOGLE_API_KEY,
       vertexai: true,
       project: this.projectId,
-      location: this.location
+      location: this.location,
     });
   }
 
@@ -51,8 +51,8 @@ export class GoogleVertexAI {
    */
   async enhanceSigil(params: {
     baseSigilSvg: string;
-    intentionText: string;        // "More focus in the gym"
-    styleApproach: string;         // "watercolor"
+    intentionText: string; // "More focus in the gym"
+    styleApproach: string; // "watercolor"
     numberOfVariations: number;
   }): Promise<EnhancedSigilResult> {
     const { baseSigilSvg, intentionText, styleApproach, numberOfVariations } = params;
@@ -60,7 +60,7 @@ export class GoogleVertexAI {
     logger.info('[VertexAI] Starting sigil generation', { numberOfVariations, styleApproach });
 
     // 1. Convert base sigil to PNG (using local helper or passed in)
-    // Note: The new Imagen 3 might accept masks or badging, but here we are doing Text-to-Image 
+    // Note: The new Imagen 3 might accept masks or badging, but here we are doing Text-to-Image
     // guided by a prompt that DESCRIBES the sigil (since we can't easily pass the SVG as a control image to this endpoint yet)
     // OR: We can use the image as input if the model supports it.
     // For now, we will trust the Smart Prompt to describe it, as per original logic.
@@ -93,11 +93,14 @@ export class GoogleVertexAI {
         totalTimeSeconds: 30, // Mock time or calculate
         costUSD: numberOfVariations * 0.04, // Imagen 3 pricing varies
         prompt: prompt,
-        negativePrompt: "text, watermark, blurry, low quality",
-        model: 'imagen-3.0-generate-001'
+        negativePrompt: 'text, watermark, blurry, low quality',
+        model: 'imagen-3.0-generate-001',
       };
-    } catch (err: any) {
-      logger.error('[VertexAI] Failed to generate images', err);
+    } catch (err: unknown) {
+      logger.error(
+        '[VertexAI] Failed to generate images',
+        err instanceof Error ? err : new Error(String(err))
+      );
       throw err;
     }
   }
@@ -224,7 +227,7 @@ Based on "${intention}", incorporate cosmic symbols:
 **Visual Theme**: 
 Based on "${intention}", add minimal symbolic touches:
 - Single clean weight/glyph, abstract representation of the goal
-- Refined geometric abstraction`
+- Refined geometric abstraction`,
     };
 
     return styleTemplates[style] || styleTemplates.watercolor;
@@ -238,14 +241,13 @@ Based on "${intention}", add minimal symbolic touches:
     prompt: string,
     seed: number
   ): Promise<ImageVariation> {
-
     // Imagen 3 Model ID
     const model = 'imagen-3.0-generate-001';
 
     try {
-      // NOTE: Imagen 3 generation often takes pure text prompts, 
+      // NOTE: Imagen 3 generation often takes pure text prompts,
       // but for "editing" or "guided" generation (Image-to-Image), specific parameters are needed.
-      // The original code passed 'image' in 'contents'. 
+      // The original code passed 'image' in 'contents'.
       // We will try to pass the reference image if the new SDK assumes 'generateImages' handles it.
       // However, typical 'generateImages' is Text-to-Image.
       // If we need Image-to-Image, we might need 'editConfig' or similar which might be different in this SDK.
@@ -262,12 +264,12 @@ Based on "${intention}", add minimal symbolic touches:
           // personGeneration: 'allow_adult', // Careful with this default
           // safetyFilterLevel: 'block_few', // Type mismatch with new SDK, relying on defaults
           // seed: seed, // If supported
-        }
+        },
         // Note: passing the reference image for style/structure guidance in Imagen 3
         // usually requires extended parameters like 'referenceImages' or 'editConfig'.
         // If not supported yet in simple params, we rely on the prompt description.
         // BUT, since we have the baseSigil, we really want to use it.
-        // Let's assume for now we migrate the "Image Generation" part. 
+        // Let's assume for now we migrate the "Image Generation" part.
         // If the previous code was using 'imagegeneration@006' with 'image' input, it was Image-to-Image (Variation) or Edit.
         // Imagen 3 supports this.
       });
@@ -277,34 +279,43 @@ Based on "${intention}", add minimal symbolic touches:
 
       let base64Data = '';
       if (generatedImage?.image) {
-        // Cast to any to handle potential property name differences in the new SDK
-        const img: any = generatedImage.image;
+        // Cast to handle potential property name differences in the new SDK
+        const img = generatedImage.image as
+          | { base64?: string; bytesBase64Encoded?: string; data?: Uint8Array | Buffer }
+          | string;
         if (typeof img === 'string') {
           base64Data = img;
         } else if (img.base64) {
           base64Data = img.base64;
         } else if (img.bytesBase64Encoded) {
           base64Data = img.bytesBase64Encoded;
-        } else if (img.data) { // sometimes buffer/uint8array
+        } else if (img.data) {
+          // sometimes buffer/uint8array
           base64Data = Buffer.from(img.data).toString('base64');
         }
       }
 
       if (!base64Data) {
         // Fallback debug
-        logger.warn('[VertexAI] Response structure unexpected', { response: JSON.stringify(response) });
+        logger.warn('[VertexAI] Response structure unexpected', {
+          response: JSON.stringify(response),
+        });
         throw new Error('No image data returned from Google API');
       }
 
       return {
         base64: base64Data,
         seed,
-        variationIndex: seed + 1
+        variationIndex: seed + 1,
       };
-
-    } catch (error: any) {
-      logger.error(`[VertexAI] Generation failed for variation ${seed}`, error);
-      throw new Error(`Image generation failed: ${error.message}`);
+    } catch (error: unknown) {
+      logger.error(
+        `[VertexAI] Generation failed for variation ${seed}`,
+        error instanceof Error ? error : new Error(String(error))
+      );
+      throw new Error(
+        `Image generation failed: ${error instanceof Error ? error.message : String(error)}`
+      );
     }
   }
 
@@ -313,7 +324,7 @@ Based on "${intention}", add minimal symbolic touches:
    */
   private async svgToPng(svgString: string): Promise<Buffer> {
     let styledSvg = svgString
-      .replace(/stroke="[^"]*"/g, 'stroke="#D4AF37"')  // Gold
+      .replace(/stroke="[^"]*"/g, 'stroke="#D4AF37"') // Gold
       .replace(/fill="[^"]*"/g, 'fill="none"');
 
     if (!styledSvg.includes('viewBox')) {
@@ -323,13 +334,17 @@ Based on "${intention}", add minimal symbolic touches:
     return await sharp(Buffer.from(styledSvg))
       .resize(1024, 1024, {
         fit: 'contain',
-        background: '#0F1419'  // Navy background
+        background: '#0F1419', // Navy background
       })
       .png()
       .toBuffer();
   }
 
   // Helper methods for AIEnhancer compatibility
-  public getCostEstimate(num: number = 4): number { return num * 0.04; }
-  public getTimeEstimate() { return { min: 25, max: 40 }; }
+  public getCostEstimate(num: number = 4): number {
+    return num * 0.04;
+  }
+  public getTimeEstimate() {
+    return { min: 25, max: 40 };
+  }
 }

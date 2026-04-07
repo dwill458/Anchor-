@@ -16,10 +16,12 @@ const MS_PER_DAY = 24 * 60 * 60 * 1000;
 // --- Zod schemas ---
 
 const StabilizeSchema = z.object({
-  completedAt: z.string().min(1).refine(
-    val => !Number.isNaN(new Date(val).getTime()),
-    { message: 'Must be a valid ISO date string' }
-  ),
+  completedAt: z
+    .string()
+    .min(1)
+    .refine(val => !Number.isNaN(new Date(val).getTime()), {
+      message: 'Must be a valid ISO date string',
+    }),
   timezoneOffsetMinutes: z.number().min(-840).max(840),
   lastStabilizeTimezoneOffsetMinutes: z.number().min(-840).max(840).nullable().optional(),
   stabilizeStreakDaysClient: z.number().min(1).optional(),

@@ -115,12 +115,18 @@ describe('MantraGenerator Service', () => {
     });
 
     it('should throw error for null/undefined input', () => {
-      expect(() => generateMantra(null as any)).toThrow('Cannot generate mantra from empty letters array');
-      expect(() => generateMantra(undefined as any)).toThrow('Cannot generate mantra from empty letters array');
+      expect(() => generateMantra(null as any)).toThrow(
+        'Cannot generate mantra from empty letters array'
+      );
+      expect(() => generateMantra(undefined as any)).toThrow(
+        'Cannot generate mantra from empty letters array'
+      );
     });
 
     it('should throw error for single letter (less than minimum)', () => {
-      expect(() => generateMantra(['C'])).toThrow('Need at least 2 distilled letters to generate mantra');
+      expect(() => generateMantra(['C'])).toThrow(
+        'Need at least 2 distilled letters to generate mantra'
+      );
     });
   });
 

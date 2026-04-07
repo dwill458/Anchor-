@@ -15,9 +15,8 @@
 import Replicate from 'replicate';
 import { logger } from '../utils/logger';
 import { rasterizeSVG } from '../utils/svgRasterizer';
-import { computeStructureMatch, StructureMatchResult } from '../utils/structureMatching';
+import { computeStructureMatch } from '../utils/structureMatching';
 import { GeminiImageService } from './GeminiImageService';
-import { uploadImageFromUrl } from './StorageService';
 
 // ============================================================================
 // LEGACY CODE REMOVED (Phase 4 Cleanup)
@@ -106,7 +105,7 @@ interface StyleConfig {
   // Style-specific overrides (optional)
   conditioning_scale?: number;
   guidance_scale?: number;
-  strength?: number;  // denoise/strength
+  strength?: number; // denoise/strength
 }
 
 /**
@@ -128,30 +127,34 @@ const STYLE_CONFIGS: Record<AIStyle, StyleConfig> = {
     name: 'watercolor',
     method: 'lineart',
     category: 'organic',
-    prompt: 'Restore and beautify the existing sigil. Preserve exact geometry and stroke paths. ' +
+    prompt:
+      'Restore and beautify the existing sigil. Preserve exact geometry and stroke paths. ' +
       'Apply soft watercolor texture as surface treatment only. Translucent washes, ' +
       'subtle color bleeding at edges. Paper texture visible. The sigil linework remains unchanged. ' +
       'High-quality artistic enhancement, mystical symbol preserved exactly.',
-    negativePrompt: STRICT_NEGATIVE_PROMPT + ', photography, realistic, 3d, thick outlines, cartoon',
-    strength: 0.28,  // Slightly higher for organic texture
+    negativePrompt:
+      STRICT_NEGATIVE_PROMPT + ', photography, realistic, 3d, thick outlines, cartoon',
+    strength: 0.28, // Slightly higher for organic texture
   },
   sacred_geometry: {
     name: 'sacred_geometry',
     method: 'canny',
     category: 'geometric',
-    prompt: 'Restore and beautify the existing sigil. Preserve exact geometry and stroke paths. ' +
+    prompt:
+      'Restore and beautify the existing sigil. Preserve exact geometry and stroke paths. ' +
       'Apply golden metallic sheen as surface treatment only. Sacred geometry aesthetic, ' +
       'precise lines with subtle glow. Mathematical perfection in texture, not form. ' +
       'The original sigil geometry is untouched.',
     negativePrompt: STRICT_NEGATIVE_PROMPT + ', organic, soft, messy, hand-drawn',
-    conditioning_scale: 1.25,  // Higher for geometric precision
+    conditioning_scale: 1.25, // Higher for geometric precision
     strength: 0.22,
   },
   ink_brush: {
     name: 'ink_brush',
     method: 'lineart',
     category: 'organic',
-    prompt: 'Restore and beautify the existing sigil. Preserve exact geometry and stroke paths. ' +
+    prompt:
+      'Restore and beautify the existing sigil. Preserve exact geometry and stroke paths. ' +
       'Apply traditional ink brush texture as surface treatment only. Sumi-e aesthetic, ' +
       'ink wash gradients, rice paper texture. Zen calligraphy feel. ' +
       'The sigil structure remains precisely as drawn.',
@@ -162,53 +165,59 @@ const STYLE_CONFIGS: Record<AIStyle, StyleConfig> = {
     name: 'gold_leaf',
     method: 'canny',
     category: 'hybrid',
-    prompt: 'Restore and beautify the existing sigil. Preserve exact geometry and stroke paths. ' +
+    prompt:
+      'Restore and beautify the existing sigil. Preserve exact geometry and stroke paths. ' +
       'Apply gold leaf gilding texture as surface treatment only. Illuminated manuscript style, ' +
       'precious metal sheen, ornate texture on the existing lines. Medieval luxury aesthetic. ' +
       'The sigil shape remains exactly as designed.',
     negativePrompt: STRICT_NEGATIVE_PROMPT + ', modern, photography, people',
-    conditioning_scale: 1.20,
+    conditioning_scale: 1.2,
     strength: 0.25,
   },
   cosmic: {
     name: 'cosmic',
     method: 'lineart',
     category: 'organic',
-    prompt: 'Restore and beautify the existing sigil. Preserve exact geometry and stroke paths. ' +
+    prompt:
+      'Restore and beautify the existing sigil. Preserve exact geometry and stroke paths. ' +
       'Apply ethereal cosmic glow as surface treatment only. Nebula colors, starlight, ' +
       'celestial energy emanating from the unchanged sigil lines. Deep space background. ' +
       'The sigil structure is preserved exactly.',
     negativePrompt: STRICT_NEGATIVE_PROMPT + ', planets, faces, realistic photo, solid shapes',
-    strength: 0.30,  // Slightly higher for glow effects
+    strength: 0.3, // Slightly higher for glow effects
   },
   minimal_line: {
     name: 'minimal_line',
     method: 'canny',
     category: 'geometric',
-    prompt: 'Restore and beautify the existing sigil. Preserve exact geometry and stroke paths. ' +
+    prompt:
+      'Restore and beautify the existing sigil. Preserve exact geometry and stroke paths. ' +
       'Apply clean minimalist treatment as surface polish only. Crisp precise lines, ' +
       'subtle paper texture, modern graphic design aesthetic. ' +
       'The sigil geometry is preserved with absolute precision.',
-    negativePrompt: STRICT_NEGATIVE_PROMPT + ', texture, heavy shading, embellishment, ornate, thick lines',
-    conditioning_scale: 1.30,  // Highest - structure is everything for minimal
-    strength: 0.18,  // Lowest - minimal change needed
+    negativePrompt:
+      STRICT_NEGATIVE_PROMPT + ', texture, heavy shading, embellishment, ornate, thick lines',
+    conditioning_scale: 1.3, // Highest - structure is everything for minimal
+    strength: 0.18, // Lowest - minimal change needed
   },
   obsidian_mono: {
     name: 'obsidian_mono',
     method: 'lineart',
     category: 'geometric',
-    prompt: 'Restore and beautify the existing sigil. Preserve exact geometry and stroke paths. ' +
+    prompt:
+      'Restore and beautify the existing sigil. Preserve exact geometry and stroke paths. ' +
       'Apply high-contrast monochrome obsidian texture as surface treatment only. ' +
       'Deep black glass with subtle sharp reflections. High-contrast monochromatic finish. ' +
       'The original sigil geometry is preserved with absolute precision.',
     negativePrompt: STRICT_NEGATIVE_PROMPT + ', color, soft, organic, messy',
-    strength: 0.20,
+    strength: 0.2,
   },
   aurora_glow: {
     name: 'aurora_glow',
     method: 'lineart',
     category: 'organic',
-    prompt: 'Restore and beautify the existing sigil. Preserve exact geometry and stroke paths. ' +
+    prompt:
+      'Restore and beautify the existing sigil. Preserve exact geometry and stroke paths. ' +
       'Apply atmospheric aurora borealis glow as surface treatment only. ' +
       'Shifting green, purple, and blue light curtains behind and around the sigil. ' +
       'The sigil structure remains precisely as drawn.',
@@ -219,7 +228,8 @@ const STYLE_CONFIGS: Record<AIStyle, StyleConfig> = {
     name: 'ember_trace',
     method: 'lineart',
     category: 'hybrid',
-    prompt: 'Restore and beautify the existing sigil. Preserve exact geometry and stroke paths. ' +
+    prompt:
+      'Restore and beautify the existing sigil. Preserve exact geometry and stroke paths. ' +
       'Apply warm ember edge lighting as surface treatment only. ' +
       'Glowing orange and red hot metal edges, cooling black surfaces. ' +
       'The sigil shape remains exactly as designed.',
@@ -230,18 +240,20 @@ const STYLE_CONFIGS: Record<AIStyle, StyleConfig> = {
     name: 'echo_chamber',
     method: 'lineart',
     category: 'organic',
-    prompt: 'Restore and beautify the existing sigil. Preserve exact geometry and stroke paths. ' +
+    prompt:
+      'Restore and beautify the existing sigil. Preserve exact geometry and stroke paths. ' +
       'Apply layered cyclical resonance as surface treatment only. ' +
       'Subtle repeating ripple effects emanating from the unchanged sigil lines. ' +
       'The sigil structure is preserved exactly.',
     negativePrompt: STRICT_NEGATIVE_PROMPT + ', sharp geometry, busy patterns, high contrast',
-    strength: 0.30,
+    strength: 0.3,
   },
   monolith_ink: {
     name: 'monolith_ink',
     method: 'lineart',
     category: 'geometric',
-    prompt: 'Restore and beautify the existing sigil. Preserve exact geometry and stroke paths. ' +
+    prompt:
+      'Restore and beautify the existing sigil. Preserve exact geometry and stroke paths. ' +
       'Apply grounded heavy-line authority as surface treatment only. ' +
       'Matte black architectural ink, heavy weight but precise edges. ' +
       'The sigil geometry is preserved with absolute precision.',
@@ -252,13 +264,14 @@ const STYLE_CONFIGS: Record<AIStyle, StyleConfig> = {
     name: 'celestial_grid',
     method: 'canny',
     category: 'geometric',
-    prompt: 'Restore and beautify the existing sigil. Preserve exact geometry and stroke paths. ' +
+    prompt:
+      'Restore and beautify the existing sigil. Preserve exact geometry and stroke paths. ' +
       'Apply constellation-inspired symmetry as surface treatment only. ' +
       'Precise grid-based star alignments following the sigil lines. ' +
       'The original sigil geometry is untouched.',
     negativePrompt: STRICT_NEGATIVE_PROMPT + ', messy, organic, soft edges, thick brush',
     conditioning_scale: 1.25,
-    strength: 0.20,
+    strength: 0.2,
   },
 };
 
@@ -267,9 +280,12 @@ const STYLE_CONFIGS: Record<AIStyle, StyleConfig> = {
  * Using scribble model which works best for hand-drawn sigil strokes
  */
 const CONTROLNET_MODELS = {
-  canny: 'jagilley/controlnet-canny:aff48af9c68d162388d230a2ab003f68d2638d88307bdaf1c2f1ac95079c9613',
-  lineart: 'jagilley/controlnet-scribble:435061a1b5a4c1e26740464bf786efdfa9cb3a3ac488595a2de23e143fdb0117',
-  scribble: 'jagilley/controlnet-scribble:435061a1b5a4c1e26740464bf786efdfa9cb3a3ac488595a2de23e143fdb0117',
+  canny:
+    'jagilley/controlnet-canny:aff48af9c68d162388d230a2ab003f68d2638d88307bdaf1c2f1ac95079c9613',
+  lineart:
+    'jagilley/controlnet-scribble:435061a1b5a4c1e26740464bf786efdfa9cb3a3ac488595a2de23e143fdb0117',
+  scribble:
+    'jagilley/controlnet-scribble:435061a1b5a4c1e26740464bf786efdfa9cb3a3ac488595a2de23e143fdb0117',
 } as const;
 
 /**
@@ -282,43 +298,43 @@ const CONTROLNET_MODELS = {
  * - control_guidance_end: 0.95 - Maintain control almost to completion
  */
 interface ControlNetConfig {
-  conditioning_scale: number;   // How strongly to follow the structure (0.5-1.5)
-  guidance_scale: number;       // CFG - prompt adherence (3-10)
-  num_inference_steps: number;  // Quality vs speed (20-50)
-  strength: number;             // Denoise strength for img2img (0.1-0.5)
+  conditioning_scale: number; // How strongly to follow the structure (0.5-1.5)
+  guidance_scale: number; // CFG - prompt adherence (3-10)
+  num_inference_steps: number; // Quality vs speed (20-50)
+  strength: number; // Denoise strength for img2img (0.1-0.5)
   control_guidance_start: number;
   control_guidance_end: number;
 }
 
 const CONTROLNET_CONFIG: ControlNetConfig = {
-  conditioning_scale: 1.15,     // STRICT structure adherence (was 0.8)
-  guidance_scale: 5.0,          // Lower CFG = prioritize structure over prompt (was 7.5)
-  num_inference_steps: 35,      // Slightly more steps for quality (was 30)
-  strength: 0.25,               // LOW denoise = preserve original structure
-  control_guidance_start: 0.0,  // Start control immediately
-  control_guidance_end: 0.95,   // Maintain control almost to completion
+  conditioning_scale: 1.15, // STRICT structure adherence (was 0.8)
+  guidance_scale: 5.0, // Lower CFG = prioritize structure over prompt (was 7.5)
+  num_inference_steps: 35, // Slightly more steps for quality (was 30)
+  strength: 0.25, // LOW denoise = preserve original structure
+  control_guidance_start: 0.0, // Start control immediately
+  control_guidance_end: 0.95, // Maintain control almost to completion
 };
 
 /**
  * Structure match thresholds
  */
 const STRUCTURE_THRESHOLDS = {
-  preserved: 0.85,    // 85%+ = "Structure Preserved"
-  artistic: 0.70,     // 70-85% = "More Artistic"
-  drift: 0.0,         // Below 70% = "Style Drift"
+  preserved: 0.85, // 85%+ = "Structure Preserved"
+  artistic: 0.7, // 70-85% = "More Artistic"
+  drift: 0.0, // Below 70% = "Style Drift"
 };
 
 /**
  * Request for ControlNet-based enhancement
  */
 export interface ControlNetEnhancementRequest {
-  sigilSvg: string;         // Base or reinforced SVG structure
-  styleChoice: AIStyle;     // Selected art style
-  userId: string;           // For tracking
-  intentionText?: string;   // Optional: User's intention for thematic symbol generation
-  validateStructure?: boolean;  // Enable structure validation (default: true)
-  autoComposite?: boolean;      // Auto-composite if structure drifts (default: false)
-  tier?: 'draft' | 'premium' | 'pro_upgrade';   // Quality tier for Gemini (default: 'premium')
+  sigilSvg: string; // Base or reinforced SVG structure
+  styleChoice: AIStyle; // Selected art style
+  userId: string; // For tracking
+  intentionText?: string; // Optional: User's intention for thematic symbol generation
+  validateStructure?: boolean; // Enable structure validation (default: true)
+  autoComposite?: boolean; // Auto-composite if structure drifts (default: false)
+  tier?: 'draft' | 'premium' | 'pro_upgrade'; // Quality tier for Gemini (default: 'premium')
 }
 
 /**
@@ -350,8 +366,10 @@ function getReplicateSymbolInstructions(intentionText?: string): string {
 
     // Physical & Strength
     gym: 'barbells, dumbbells, flames, muscular aesthetics, powerlifting anatomy, lightning bolts',
-    fitness: 'barbells, dumbbells, flames, muscular aesthetics, powerlifting anatomy, lightning bolts',
-    workout: 'barbells, dumbbells, flames, muscular aesthetics, powerlifting anatomy, lightning bolts',
+    fitness:
+      'barbells, dumbbells, flames, muscular aesthetics, powerlifting anatomy, lightning bolts',
+    workout:
+      'barbells, dumbbells, flames, muscular aesthetics, powerlifting anatomy, lightning bolts',
     strength: 'flexed muscles, iron weights, fire bursts, lions, oak trees, power symbols',
     strong: 'flexed muscles, iron weights, fire bursts, lions, oak trees, power symbols',
 
@@ -425,8 +443,10 @@ function getReplicateSymbolInstructions(intentionText?: string): string {
     // Confidence & Power
     confidence: 'standing lion, raised sword, bold flames, strong pillars, empowered stance',
     confident: 'standing lion, raised sword, bold flames, strong pillars, empowered stance',
-    power: 'lightning bolts, radiating energy, powerful animals, explosive force, dominant presence',
-    powerful: 'lightning bolts, radiating energy, powerful animals, explosive force, dominant presence',
+    power:
+      'lightning bolts, radiating energy, powerful animals, explosive force, dominant presence',
+    powerful:
+      'lightning bolts, radiating energy, powerful animals, explosive force, dominant presence',
   };
 
   // Find matching keywords (prioritize longer/more specific matches first)
@@ -447,10 +467,10 @@ function getReplicateSymbolInstructions(intentionText?: string): string {
  * Structure match result for a single variation
  */
 export interface StructureMatchScore {
-  iouScore: number;           // Intersection over Union (0-1)
-  edgeOverlapScore: number;   // Edge-based overlap (0-1)
-  combinedScore: number;      // Weighted combination (0-1)
-  structurePreserved: boolean;  // True if above threshold
+  iouScore: number; // Intersection over Union (0-1)
+  edgeOverlapScore: number; // Edge-based overlap (0-1)
+  combinedScore: number; // Weighted combination (0-1)
+  structurePreserved: boolean; // True if above threshold
   classification: 'Structure Preserved' | 'More Artistic' | 'Style Drift';
 }
 
@@ -461,24 +481,24 @@ export interface VariationResult {
   imageUrl: string;
   structureMatch: StructureMatchScore;
   seed: number;
-  wasComposited: boolean;     // True if original lines were composited
+  wasComposited: boolean; // True if original lines were composited
 }
 
 /**
  * Result from ControlNet enhancement
  */
 export interface ControlNetEnhancementResult {
-  variations: VariationResult[];  // Array of 4 variations with scores
-  variationUrls: string[];        // Legacy: just the URLs for backward compat
-  prompt: string;                 // Prompt used
-  negativePrompt: string;         // Negative prompt used
-  model: string;                  // ControlNet model used
-  controlMethod: 'canny' | 'lineart' | 'scribble';  // Preprocessing method
-  styleApplied: AIStyle;          // Style that was applied
-  generationTime: number;         // Time in seconds
-  structureThreshold: number;     // Threshold used for validation
-  passingCount: number;           // Number of variations passing threshold
-  bestVariationIndex: number;     // Index of highest scoring variation
+  variations: VariationResult[]; // Array of 4 variations with scores
+  variationUrls: string[]; // Legacy: just the URLs for backward compat
+  prompt: string; // Prompt used
+  negativePrompt: string; // Negative prompt used
+  model: string; // ControlNet model used
+  controlMethod: 'canny' | 'lineart' | 'scribble'; // Preprocessing method
+  styleApplied: AIStyle; // Style that was applied
+  generationTime: number; // Time in seconds
+  structureThreshold: number; // Threshold used for validation
+  passingCount: number; // Number of variations passing threshold
+  bestVariationIndex: number; // Index of highest scoring variation
 }
 
 /**
@@ -507,7 +527,8 @@ export async function enhanceSigilWithAI(
     try {
       logger.info('[AIEnhancer] Using Gemini image model as primary provider', {
         tier,
-        model: tier === 'pro_upgrade' ? 'gemini-3-pro-image-preview' : 'gemini-3.1-flash-image-preview',
+        model:
+          tier === 'pro_upgrade' ? 'gemini-3-pro-image-preview' : 'gemini-3.1-flash-image-preview',
       });
 
       // premium = 4 variations; pro_upgrade (slower model) and draft = 2 variations
@@ -515,7 +536,7 @@ export async function enhanceSigilWithAI(
 
       const result = await geminiService.enhanceSigil({
         baseSigilSvg: request.sigilSvg,
-        intentionText: request.intentionText || '',  // Pass empty if not provided - prompt handles it
+        intentionText: request.intentionText || '', // Pass empty if not provided - prompt handles it
         styleApproach: request.styleChoice,
         numberOfVariations,
         tier,
@@ -587,10 +608,13 @@ export async function enhanceSigilWithAI(
       });
 
       return controlNetResult;
-
-    } catch (error: any) {
-      logger.error(`[AIEnhancer] Gemini 3 failed, will NOT fall back to Replicate to enforce Google API. Error: ${error.message}`, error);
-      throw new Error(`Google Generation API Failed: ${error.message}`);
+    } catch (error: unknown) {
+      const errMsg = error instanceof Error ? error.message : String(error);
+      logger.error(
+        `[AIEnhancer] Gemini 3 failed, will NOT fall back to Replicate to enforce Google API. Error: ${errMsg}`,
+        error instanceof Error ? error : new Error(errMsg)
+      );
+      throw new Error(`Google Generation API Failed: ${errMsg}`);
     }
   } else {
     logger.info('[AIEnhancer] Gemini 3 not configured. Cannot proceed since enforcing Google API.');
@@ -684,7 +708,7 @@ export async function enhanceSigilWithControlNet(
       return {
         variations: mockVariations,
         variationUrls: mockUrls,
-        prompt: enhancedPrompt,  // Return enhanced prompt even in mock mode
+        prompt: enhancedPrompt, // Return enhanced prompt even in mock mode
         negativePrompt: styleConfig.negativePrompt,
         model: `mock-controlnet-${styleConfig.method}`,
         controlMethod: styleConfig.method,
@@ -705,8 +729,8 @@ export async function enhanceSigilWithControlNet(
       backgroundColor: '#000000',
       strokeColor: '#FFFFFF',
       enhanceEdges: true,
-      strokeMultiplier: 2.0,  // Thicken strokes for edge survival
-      padding: 0.12,          // 12% padding for edge protection
+      strokeMultiplier: 2.0, // Thicken strokes for edge survival
+      padding: 0.12, // 12% padding for edge protection
     });
 
     logger.debug('[ControlNet Enhancement] Rasterization complete', {
@@ -725,7 +749,8 @@ export async function enhanceSigilWithControlNet(
     const model = CONTROLNET_MODELS[styleConfig.method];
 
     // Step 5: Build parameters with style-specific overrides
-    const conditioningScale = styleConfig.conditioning_scale || CONTROLNET_CONFIG.conditioning_scale;
+    const conditioningScale =
+      styleConfig.conditioning_scale || CONTROLNET_CONFIG.conditioning_scale;
     const guidanceScale = styleConfig.guidance_scale || CONTROLNET_CONFIG.guidance_scale;
     const strength = styleConfig.strength || CONTROLNET_CONFIG.strength;
 
@@ -744,7 +769,9 @@ export async function enhanceSigilWithControlNet(
 
     // Step 6: Generate variations SEQUENTIALLY to avoid rate limiting
     // Replicate limits free/low-credit accounts to 1 concurrent request
-    logger.info(`[ControlNet Enhancement] Generating variations sequentially for style: ${request.styleChoice}`);
+    logger.info(
+      `[ControlNet Enhancement] Generating variations sequentially for style: ${request.styleChoice}`
+    );
 
     const rawResults: { imageUrl: string; seed: number; index: number }[] = [];
     const numVariations = 2; // Reduced from 4 to 2 for speed (can increase with higher credits)
@@ -752,23 +779,25 @@ export async function enhanceSigilWithControlNet(
     for (let i = 0; i < numVariations; i++) {
       const variationStart = Date.now();
       const seed = 2000 + i * 456;
-      logger.info(`[ControlNet Enhancement] Starting variation ${i + 1}/${numVariations} (seed: ${seed})`);
+      logger.info(
+        `[ControlNet Enhancement] Starting variation ${i + 1}/${numVariations} (seed: ${seed})`
+      );
 
       try {
         const output = await replicate.run(model, {
           input: {
-            image: dataUrl,                                   // Structure conditioning image
-            prompt: enhancedPrompt,                           // ENHANCED: Style + Intention + Symbols
-            negative_prompt: styleConfig.negativePrompt,       // Strict negative prompt
+            image: dataUrl, // Structure conditioning image
+            prompt: enhancedPrompt, // ENHANCED: Style + Intention + Symbols
+            negative_prompt: styleConfig.negativePrompt, // Strict negative prompt
             num_outputs: 1,
             width: 1024,
             height: 1024,
             // STRICT structure preservation parameters
-            conditioning_scale: conditioningScale,             // 1.15+ for strict adherence
-            controlnet_conditioning_scale: conditioningScale,  // Alias for some models
-            guidance_scale: guidanceScale,                     // 5.0 - lower = more structure
+            conditioning_scale: conditioningScale, // 1.15+ for strict adherence
+            controlnet_conditioning_scale: conditioningScale, // Alias for some models
+            guidance_scale: guidanceScale, // 5.0 - lower = more structure
             num_inference_steps: CONTROLNET_CONFIG.num_inference_steps,
-            strength: strength,                                // 0.25 - preserve original
+            strength: strength, // 0.25 - preserve original
             control_guidance_start: CONTROLNET_CONFIG.control_guidance_start,
             control_guidance_end: CONTROLNET_CONFIG.control_guidance_end,
             seed: seed,
@@ -776,7 +805,9 @@ export async function enhanceSigilWithControlNet(
         });
 
         const variationTime = Math.round((Date.now() - variationStart) / 1000);
-        logger.info(`[ControlNet Enhancement] Variation ${i + 1}/${numVariations} complete (${variationTime}s)`);
+        logger.info(
+          `[ControlNet Enhancement] Variation ${i + 1}/${numVariations} complete (${variationTime}s)`
+        );
 
         // Extract URL from output
         let imageUrl: string;
@@ -794,8 +825,11 @@ export async function enhanceSigilWithControlNet(
         if (i < numVariations - 1) {
           await new Promise(resolve => setTimeout(resolve, 12000));
         }
-      } catch (err: any) {
-        logger.error(`[ControlNet Enhancement] Error in variation ${i + 1}`, err);
+      } catch (err: unknown) {
+        logger.error(
+          `[ControlNet Enhancement] Error in variation ${i + 1}`,
+          err instanceof Error ? err : new Error(String(err))
+        );
         throw err;
       }
     }
@@ -810,8 +844,8 @@ export async function enhanceSigilWithControlNet(
       try {
         // Compute actual structure match using pixel comparison
         const matchResult = await computeStructureMatch(
-          rasterResult.buffer,  // Original control image
-          result.imageUrl       // Generated image URL
+          rasterResult.buffer, // Original control image
+          result.imageUrl // Generated image URL
         );
 
         const structureMatch: StructureMatchScore = {
@@ -836,7 +870,10 @@ export async function enhanceSigilWithControlNet(
         });
       } catch (error) {
         // On error, use conservative fallback score
-        logger.warn(`[ControlNet Enhancement] Structure match failed for variation ${result.index + 1}`, error);
+        logger.warn(
+          `[ControlNet Enhancement] Structure match failed for variation ${result.index + 1}`,
+          error
+        );
 
         variations.push({
           imageUrl: result.imageUrl,
@@ -856,7 +893,8 @@ export async function enhanceSigilWithControlNet(
     // Step 8: Calculate summary statistics
     const passingCount = variations.filter(v => v.structureMatch.structurePreserved).length;
     const bestVariationIndex = variations.reduce(
-      (best, v, i) => v.structureMatch.combinedScore > variations[best].structureMatch.combinedScore ? i : best,
+      (best, v, i) =>
+        v.structureMatch.combinedScore > variations[best].structureMatch.combinedScore ? i : best,
       0
     );
 
@@ -873,7 +911,7 @@ export async function enhanceSigilWithControlNet(
     return {
       variations,
       variationUrls: variations.map(v => v.imageUrl),
-      prompt: enhancedPrompt,  // Return enhanced prompt with intention + symbols
+      prompt: enhancedPrompt, // Return enhanced prompt with intention + symbols
       negativePrompt: styleConfig.negativePrompt,
       model,
       controlMethod: styleConfig.method,
@@ -895,7 +933,9 @@ export async function enhanceSigilWithControlNet(
  * Estimate generation time for ControlNet enhancement
  * Returns estimate based on available provider (Gemini vs Replicate)
  */
-export function estimateControlNetGenerationTime(tier: 'draft' | 'premium' | 'pro_upgrade' = 'premium'): { min: number; max: number } {
+export function estimateControlNetGenerationTime(
+  tier: 'draft' | 'premium' | 'pro_upgrade' = 'premium'
+): { min: number; max: number } {
   const geminiService = getGeminiImageService();
   if (geminiService.isAvailable()) {
     // Gemini 3: Parallel generation

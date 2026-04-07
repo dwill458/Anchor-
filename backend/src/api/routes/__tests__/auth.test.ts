@@ -17,9 +17,7 @@ import { errorHandler } from '../../middleware/errorHandler';
 
 jest.mock('../../middleware/auth');
 jest.mock('../../../config/firebase');
-jest.mock('express-rate-limit', () =>
-  jest.fn(() => (_req: any, _res: any, next: any) => next())
-);
+jest.mock('express-rate-limit', () => jest.fn(() => (_req: any, _res: any, next: any) => next()));
 
 // Prisma mock — provide jest.fn() for every method used in auth routes
 const mockPrisma = {
@@ -128,9 +126,7 @@ describe('POST /api/auth/sync', () => {
       next();
     });
 
-    const res = await request(buildApp())
-      .post('/api/auth/sync')
-      .send({ authProvider: 'email' });
+    const res = await request(buildApp()).post('/api/auth/sync').send({ authProvider: 'email' });
 
     expect(res.status).toBe(400);
     expect(res.body.error.code).toBe('INVALID_AUTH_CONTEXT');
@@ -139,9 +135,7 @@ describe('POST /api/auth/sync', () => {
   it('returns 500 on database error', async () => {
     (mockPrisma.user.upsert as jest.Mock).mockRejectedValue(new Error('DB error'));
 
-    const res = await request(buildApp())
-      .post('/api/auth/sync')
-      .send({ authProvider: 'google' });
+    const res = await request(buildApp()).post('/api/auth/sync').send({ authProvider: 'google' });
 
     expect(res.status).toBe(500);
     expect(res.body.error.code).toBe('SYNC_ERROR');
@@ -205,9 +199,7 @@ describe('PUT /api/auth/profile', () => {
   });
 
   it('returns 400 when displayName is empty string', async () => {
-    const res = await request(buildApp())
-      .put('/api/auth/profile')
-      .send({ displayName: '' });
+    const res = await request(buildApp()).put('/api/auth/profile').send({ displayName: '' });
 
     expect(res.status).toBe(400);
   });
@@ -243,9 +235,7 @@ describe('PUT /api/auth/settings', () => {
   });
 
   it('returns 400 for hapticIntensity out of range', async () => {
-    const res = await request(buildApp())
-      .put('/api/auth/settings')
-      .send({ hapticIntensity: 10 });
+    const res = await request(buildApp()).put('/api/auth/settings').send({ hapticIntensity: 10 });
 
     expect(res.status).toBe(400);
   });

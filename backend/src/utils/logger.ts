@@ -23,7 +23,8 @@ class Logger {
 
   constructor(config?: Partial<LogConfig>) {
     this.config = {
-      level: config?.level ?? (process.env.NODE_ENV === 'production' ? LogLevel.INFO : LogLevel.DEBUG),
+      level:
+        config?.level ?? (process.env.NODE_ENV === 'production' ? LogLevel.INFO : LogLevel.DEBUG),
       enableColors: config?.enableColors ?? true,
       enableTimestamps: config?.enableTimestamps ?? true,
     };
@@ -36,32 +37,49 @@ class Logger {
   /**
    * Redacts sensitive information from metadata objects
    */
-  private redact(obj: any): any {
+  private redact(obj: unknown): unknown {
     if (!obj || typeof obj !== 'object') return obj;
 
     const SENSITIVE_KEYS = [
+      // Credentials & tokens
       'password',
       'token',
       'secret',
       'authorization',
       'key',
+      'apikey',
+      'accesskey',
+      'privatekey',
+      'credential',
+      'cookie',
+      // PII
       'email',
+      'uid',
+      'userid',
+      'phonenumber',
+      // App-specific sensitive content
       'distilledLetters',
       'intentionText',
+      'mantratext',
+      'mantra',
+      'sigilsvg',
+      'basesigilsvg',
+      'reinforcedsigilsvg',
     ];
 
     if (Array.isArray(obj)) {
-      return obj.map((item) => this.redact(item));
+      return obj.map(item => this.redact(item));
     }
 
-    const redacted: any = {};
-    for (const key in obj) {
+    const redacted: Record<string, unknown> = {};
+    const objRecord = obj as Record<string, unknown>;
+    for (const key in objRecord) {
       if (SENSITIVE_KEYS.includes(key.toLowerCase())) {
         redacted[key] = '[REDACTED]';
-      } else if (typeof obj[key] === 'object') {
-        redacted[key] = this.redact(obj[key]);
+      } else if (typeof objRecord[key] === 'object') {
+        redacted[key] = this.redact(objRecord[key]);
       } else {
-        redacted[key] = obj[key];
+        redacted[key] = objRecord[key];
       }
     }
     return redacted;
@@ -95,9 +113,10 @@ class Logger {
 
   error(message: string, error?: Error | unknown, meta?: unknown): void {
     if (!this.shouldLog(LogLevel.ERROR)) return;
-    const errorMeta = error instanceof Error
-      ? { message: error.message, stack: error.stack, ...(meta as object) }
-      : { error, ...(meta as object) };
+    const errorMeta =
+      error instanceof Error
+        ? { message: error.message, stack: error.stack, ...(meta as object) }
+        : { error, ...(meta as object) };
     console.error(this.formatMessage('ERROR', message, errorMeta));
   }
 

@@ -8,6 +8,7 @@
  */
 
 import express, { Response } from 'express';
+import rateLimit from 'express-rate-limit';
 import { z } from 'zod';
 import { AuthRequest, authMiddleware } from '../middleware/auth';
 import { prisma } from '../../lib/prisma';
@@ -28,6 +29,23 @@ import {
 import { logger } from '../../utils/logger';
 
 const router = express.Router();
+
+// Per-user rate limiter for the AI image generation endpoint.
+// Keyed on the authenticated user's Firebase UID (set by authMiddleware before
+// this runs), falling back to IP for any unauthenticated edge cases.
+// Limit: 20 generations per hour — generous for normal use, tight enough to
+// prevent accidental loops or abuse.
+const aiEnhanceLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000, // 1 hour
+  max: 20,
+  keyGenerator: req => (req as AuthRequest).user?.uid ?? req.ip ?? 'unknown',
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: {
+    error: 'Too many AI generation requests',
+    message: 'You have reached the AI enhancement limit. Please try again in an hour.',
+  },
+});
 
 // --- Zod schemas ---
 
@@ -64,7 +82,11 @@ const MantraSchema = z.object({
 });
 
 const MantraAudioSchema = z.object({
-  mantras: z.array(z.unknown()).min(1),
+  mantras: z.object({
+    syllabic: z.string(),
+    rhythmic: z.string(),
+    phonetic: z.string(),
+  }),
   userId: z.string().min(1),
   anchorId: z.string().min(1),
   voicePreset: z.string().optional(),
@@ -72,11 +94,7 @@ const MantraAudioSchema = z.object({
 
 // Validates data against a schema; returns parsed data or sends a 400 response.
 // Returns null if validation failed (caller should return early).
-function validateOrRespond<T>(
-  schema: z.ZodSchema<T>,
-  data: unknown,
-  res: Response
-): T | null {
+function validateOrRespond<T>(schema: z.ZodSchema<T>, data: unknown, res: Response): T | null {
   const result = schema.safeParse(data);
   if (!result.success) {
     const message = result.error.errors.map(e => `${e.path.join('.')}: ${e.message}`).join(', ');
@@ -85,23 +103,6 @@ function validateOrRespond<T>(
   }
   return result.data;
 }
-
-/**
- * POST /api/ai/analyze
- * @deprecated - Legacy endpoint, no longer used in Phase 3+ flow
- * This endpoint was part of the old AI analysis flow that has been replaced
- * by StyleSelectionScreen and ControlNet enhancement.
- */
-// router.post('/analyze', async (req: Request, res: Response): Promise<void> => {
-//   ... (removed - legacy code)
-// });
-
-/**
- * POST /api/ai/enhance
- * @deprecated - Legacy endpoint, replaced by /enhance-controlnet
- * The enhanceSigil function was removed in Phase 4 cleanup.
- */
-// Legacy route commented out - use /enhance-controlnet instead
 
 /**
  * POST /api/ai/enhance-controlnet
@@ -119,205 +120,322 @@ function validateOrRespond<T>(
  * - passingCount: Number of variations that pass structure threshold
  * - bestVariationIndex: Index of highest scoring variation
  */
-router.post('/enhance-controlnet', authMiddleware, async (req: AuthRequest, res: Response): Promise<void> => {
-  try {
-    if (!req.user?.uid) {
-      res.status(401).json({
-        error: 'Authentication required',
-        message: 'A valid authentication token is required for AI enhancement.',
-      });
-      return;
-    }
+// Timeout wrapper: rejects after `ms` milliseconds with a typed error
+function withTimeout<T>(promise: Promise<T>, ms: number, label: string): Promise<T> {
+  return new Promise((resolve, reject) => {
+    const timer = setTimeout(() => {
+      reject(
+        Object.assign(new Error(`${label} timed out after ${ms}ms`), { code: 'UPSTREAM_TIMEOUT' })
+      );
+    }, ms);
+    promise.then(
+      v => {
+        clearTimeout(timer);
+        resolve(v);
+      },
+      e => {
+        clearTimeout(timer);
+        reject(e);
+      }
+    );
+  });
+}
 
-    const parsed = validateOrRespond(EnhanceControlNetSchema, req.body, res);
-    if (!parsed) return;
+// 3 minutes — generous for image generation but prevents hung requests
+const AI_GENERATION_TIMEOUT_MS = 3 * 60 * 1000;
 
-    const {
-      sigilSvg,
-      styleChoice,
-      anchorId,
-      intentionText: bodyIntentionText,
-      intention: bodyIntention,
-      validateStructure,
-      autoComposite,
-      provider,          // Optional: 'gemini' | 'replicate' | 'auto' (default: 'auto')
-      tier,              // Optional: 'draft' | 'premium' (default: 'premium')
-      generationAttempt, // Optional: int starting at 1; pro users upgrade to pro model at attempt 3+
-    } = parsed;
-
-    // Support both field names for maximum compatibility
-    const intentionText = bodyIntentionText || bodyIntention;
-
-    // Sanitize attempt count — default to 1 if missing or invalid
-    const parsedAttempt = typeof generationAttempt === 'number' && generationAttempt > 0
-      ? generationAttempt : 1;
-
-    // Pro users auto-upgrade to the pro model after 2 flash attempts for the same anchor
-    const effectiveTier: 'draft' | 'premium' | 'pro_upgrade' =
-      tier === 'premium' && parsedAttempt > 2
-        ? 'pro_upgrade'
-        : ((tier as 'draft' | 'premium') || 'premium');
-
-    const user = await prisma.user.findUnique({
-      where: { authUid: req.user.uid },
-      select: { id: true },
-    });
-
-    if (!user) {
-      res.status(404).json({
-        error: 'User not found',
-        message: 'Create or sync your account before generating AI artwork.',
-      });
-      return;
-    }
-
-    const isTempAnchorRequest = anchorId.startsWith('temp-');
-    const storageAnchorId = isTempAnchorRequest ? `temp-${Date.now()}` : anchorId;
-
-    if (!isTempAnchorRequest) {
-      const anchor = await prisma.anchor.findFirst({
-        where: {
-          id: anchorId,
-          userId: user.id,
-        },
-        select: { id: true },
-      });
-
-      if (!anchor) {
-        res.status(404).json({
-          error: 'Anchor not found',
-          message: 'AI enhancement is only allowed for anchors you own.',
+router.post(
+  '/enhance-controlnet',
+  authMiddleware,
+  aiEnhanceLimiter,
+  async (req: AuthRequest, res: Response): Promise<void> => {
+    try {
+      if (!req.user?.uid) {
+        res.status(401).json({
+          error: 'Authentication required',
+          message: 'A valid authentication token is required for AI enhancement.',
         });
         return;
       }
-    }
 
-    logger.debug('[API] enhance-controlnet request', {
-      sigilSvgLength: sigilSvg?.length || 0,
-      styleChoice,
-      userId: user.id,
-      anchorId,
-      validateStructure,
-      autoComposite,
-      provider: provider || 'auto',
-      tier: tier || 'premium',
-      generationAttempt: parsedAttempt,
-      effectiveTier,
-    });
+      const parsed = validateOrRespond(EnhanceControlNetSchema, req.body, res);
+      if (!parsed) return;
 
-    logger.info('[ControlNet] Enhancing sigil with STRICT structure preservation', {
-      anchorId,
-      style: styleChoice,
-      validateStructure: validateStructure !== false,
-      provider: provider || 'auto',
-    });
-
-    const requestBaseUrl = `${req.protocol}://${req.get('host')}`;
-
-    // Generate ControlNet variations with structure validation
-    // Use enhanceSigilWithAI for automatic provider selection (Google → Replicate fallback)
-    // Or use enhanceSigilWithControlNet directly for Replicate-only
-    const useNewPipeline = provider !== 'replicate'; // Use new pipeline unless explicitly requesting Replicate
-
-    const enhancementResult = useNewPipeline
-      ? await enhanceSigilWithAI({
+      const {
         sigilSvg,
-        styleChoice: styleChoice as AIStyle,
+        styleChoice,
+        anchorId,
+        intentionText: bodyIntentionText,
+        intention: bodyIntention,
+        validateStructure,
+        autoComposite,
+        provider, // Optional: 'gemini' | 'replicate' | 'auto' (default: 'auto')
+        tier, // Optional: 'draft' | 'premium' (default: 'premium')
+        generationAttempt, // Optional: int starting at 1; pro users upgrade to pro model at attempt 3+
+      } = parsed;
+
+      // Support both field names for maximum compatibility
+      const intentionText = bodyIntentionText || bodyIntention;
+
+      // Sanitize attempt count — default to 1 if missing or invalid
+      const parsedAttempt =
+        typeof generationAttempt === 'number' && generationAttempt > 0 ? generationAttempt : 1;
+
+      // Pro users auto-upgrade to the pro model after 2 flash attempts for the same anchor
+      const effectiveTier: 'draft' | 'premium' | 'pro_upgrade' =
+        tier === 'premium' && parsedAttempt > 2
+          ? 'pro_upgrade'
+          : (tier as 'draft' | 'premium') || 'premium';
+
+      // --- Database lookups ---
+      let user: { id: string } | null;
+      try {
+        user = await prisma.user.findUnique({
+          where: { authUid: req.user.uid },
+          select: { id: true },
+        });
+      } catch (dbError) {
+        logger.error('[ControlNet] Database error during user lookup', dbError);
+        res.status(503).json({
+          error: 'Service temporarily unavailable',
+          message: 'Unable to reach the database. Please try again shortly.',
+        });
+        return;
+      }
+
+      if (!user) {
+        res.status(404).json({
+          error: 'User not found',
+          message: 'Create or sync your account before generating AI artwork.',
+        });
+        return;
+      }
+
+      const isTempAnchorRequest = anchorId.startsWith('temp-');
+      const storageAnchorId = isTempAnchorRequest ? `temp-${Date.now()}` : anchorId;
+
+      if (!isTempAnchorRequest) {
+        let anchor: { id: string } | null;
+        try {
+          anchor = await prisma.anchor.findFirst({
+            where: {
+              id: anchorId,
+              userId: user.id,
+            },
+            select: { id: true },
+          });
+        } catch (dbError) {
+          logger.error('[ControlNet] Database error during anchor lookup', dbError);
+          res.status(503).json({
+            error: 'Service temporarily unavailable',
+            message: 'Unable to reach the database. Please try again shortly.',
+          });
+          return;
+        }
+
+        if (!anchor) {
+          res.status(404).json({
+            error: 'Anchor not found',
+            message: 'AI enhancement is only allowed for anchors you own.',
+          });
+          return;
+        }
+      }
+
+      logger.debug('[API] enhance-controlnet request', {
+        sigilSvgLength: sigilSvg?.length || 0,
+        styleChoice,
         userId: user.id,
-        intentionText,  // Pass through intention for thematic symbols
-        validateStructure: validateStructure !== false,
-        autoComposite: autoComposite === true,
-        tier: effectiveTier,
-      })
-      : await enhanceSigilWithControlNet({
-        sigilSvg,
-        styleChoice: styleChoice as AIStyle,
-        userId: user.id,
-        intentionText,  // Pass through intention for thematic symbols
-        validateStructure: validateStructure !== false,
-        autoComposite: autoComposite === true,
-        tier: effectiveTier,
+        anchorId,
+        validateStructure,
+        autoComposite,
+        provider: provider || 'auto',
+        tier: tier || 'premium',
+        generationAttempt: parsedAttempt,
+        effectiveTier,
       });
 
-    logger.info('[ControlNet] Generated variations with structure scores', {
-      count: enhancementResult.variations.length,
-      passingCount: enhancementResult.passingCount,
-      bestScore: enhancementResult.variations[enhancementResult.bestVariationIndex]?.structureMatch.combinedScore,
-      style: enhancementResult.styleApplied,
-      method: enhancementResult.controlMethod,
-    });
+      logger.info('[ControlNet] Enhancing sigil with STRICT structure preservation', {
+        anchorId,
+        style: styleChoice,
+        validateStructure: validateStructure !== false,
+        provider: provider || 'auto',
+      });
 
-    // Upload variations to R2 and get permanent URLs
-    const uploadedVariations: Array<{
-      imageUrl: string;
-      structureMatchScore: number;
-      iouScore: number;
-      edgeOverlapScore: number;
-      structurePreserved: boolean;
-      classification: string;
-      wasComposited: boolean;
-      seed: number;
-    }> = [];
+      const requestBaseUrl = `${req.protocol}://${req.get('host')}`;
 
-    for (let i = 0; i < enhancementResult.variations.length; i++) {
-      const variation = enhancementResult.variations[i];
+      // --- AI Generation (with timeout) ---
+      // Use enhanceSigilWithAI for automatic provider selection (Google → Replicate fallback)
+      // Or use enhanceSigilWithControlNet directly for Replicate-only
+      const useNewPipeline = provider !== 'replicate';
 
-      // Upload to R2
-      const permanentUrl = await uploadImageFromUrl(
-        variation.imageUrl,
-        user.id,
-        storageAnchorId,
-        i,
-        { baseUrl: requestBaseUrl }
+      let enhancementResult: Awaited<ReturnType<typeof enhanceSigilWithAI>>;
+      try {
+        enhancementResult = await withTimeout(
+          useNewPipeline
+            ? enhanceSigilWithAI({
+                sigilSvg,
+                styleChoice: styleChoice as AIStyle,
+                userId: user.id,
+                intentionText,
+                validateStructure: validateStructure !== false,
+                autoComposite: autoComposite === true,
+                tier: effectiveTier,
+              })
+            : enhanceSigilWithControlNet({
+                sigilSvg,
+                styleChoice: styleChoice as AIStyle,
+                userId: user.id,
+                intentionText,
+                validateStructure: validateStructure !== false,
+                autoComposite: autoComposite === true,
+                tier: effectiveTier,
+              }),
+          AI_GENERATION_TIMEOUT_MS,
+          'AI image generation'
+        );
+      } catch (aiError: unknown) {
+        const err = aiError as Error & { code?: string; status?: number };
+        if (err.code === 'UPSTREAM_TIMEOUT') {
+          logger.error('[ControlNet] Generation timed out', {
+            anchorId,
+            style: styleChoice,
+            provider: provider || 'auto',
+          });
+          res.status(504).json({
+            error: 'Generation timed out',
+            message: 'The AI service took too long to respond. Please try again.',
+          });
+          return;
+        }
+        // Surface provider-level quota/auth errors distinctly
+        if (
+          err.status === 429 ||
+          err.message?.includes('quota') ||
+          err.message?.includes('rate limit')
+        ) {
+          logger.warn('[ControlNet] Upstream rate limit hit', { anchorId, message: err.message });
+          res.status(503).json({
+            error: 'AI service rate limit reached',
+            message: 'The image generation service is busy. Please wait a moment and try again.',
+          });
+          return;
+        }
+        logger.error('[ControlNet] AI generation failed', aiError);
+        res.status(502).json({
+          error: 'AI generation failed',
+          message: 'The upstream image generation service encountered an error. Please try again.',
+        });
+        return;
+      }
+
+      logger.info('[ControlNet] Generated variations with structure scores', {
+        count: enhancementResult.variations.length,
+        passingCount: enhancementResult.passingCount,
+        bestScore:
+          enhancementResult.variations[enhancementResult.bestVariationIndex]?.structureMatch
+            .combinedScore,
+        style: enhancementResult.styleApplied,
+        method: enhancementResult.controlMethod,
+      });
+
+      // --- Upload variations to R2 (per-variation error handling) ---
+      const uploadedVariations: Array<{
+        imageUrl: string;
+        structureMatchScore: number;
+        iouScore: number;
+        edgeOverlapScore: number;
+        structurePreserved: boolean;
+        classification: string;
+        wasComposited: boolean;
+        seed: number;
+      }> = [];
+
+      for (let i = 0; i < enhancementResult.variations.length; i++) {
+        const variation = enhancementResult.variations[i];
+        let permanentUrl: string;
+        try {
+          permanentUrl = await uploadImageFromUrl(variation.imageUrl, user.id, storageAnchorId, i, {
+            baseUrl: requestBaseUrl,
+          });
+        } catch (uploadError) {
+          logger.error('[ControlNet] Failed to upload variation to storage', {
+            variationIndex: i,
+            anchorId,
+            error: uploadError instanceof Error ? uploadError.message : String(uploadError),
+          });
+          // Skip failed uploads rather than aborting the entire response;
+          // at least return successfully generated variations.
+          continue;
+        }
+
+        uploadedVariations.push({
+          imageUrl: permanentUrl,
+          structureMatchScore: variation.structureMatch.combinedScore,
+          iouScore: variation.structureMatch.iouScore,
+          edgeOverlapScore: variation.structureMatch.edgeOverlapScore,
+          structurePreserved: variation.structureMatch.structurePreserved,
+          classification: variation.structureMatch.classification,
+          wasComposited: variation.wasComposited,
+          seed: variation.seed,
+        });
+      }
+
+      if (uploadedVariations.length === 0) {
+        logger.error('[ControlNet] All variation uploads failed', { anchorId, style: styleChoice });
+        res.status(502).json({
+          error: 'Image storage failed',
+          message: 'AI images were generated but could not be saved. Please try again.',
+        });
+        return;
+      }
+
+      // Recalculate bestVariationIndex based on successfully uploaded variations
+      const bestVariationIndex = uploadedVariations.reduce(
+        (best, v, idx) =>
+          v.structureMatchScore > uploadedVariations[best].structureMatchScore ? idx : best,
+        0
       );
 
-      uploadedVariations.push({
-        imageUrl: permanentUrl,
-        structureMatchScore: variation.structureMatch.combinedScore,
-        iouScore: variation.structureMatch.iouScore,
-        edgeOverlapScore: variation.structureMatch.edgeOverlapScore,
-        structurePreserved: variation.structureMatch.structurePreserved,
-        classification: variation.structureMatch.classification,
-        wasComposited: variation.wasComposited,
-        seed: variation.seed,
+      // Determine which provider was actually used
+      const modelLower = enhancementResult.model.toLowerCase();
+      const usedProvider =
+        modelLower.includes('gemini') || modelLower.includes('imagen')
+          ? 'gemini'
+          : modelLower.includes('controlnet')
+            ? 'replicate'
+            : 'unknown';
+
+      res.json({
+        success: true,
+        // New format with structure scores
+        variations: uploadedVariations,
+        // Legacy format for backward compatibility
+        variationUrls: uploadedVariations.map(v => v.imageUrl),
+        // Generation metadata
+        prompt: enhancementResult.prompt,
+        negativePrompt: enhancementResult.negativePrompt,
+        generationTime: enhancementResult.generationTime,
+        model: enhancementResult.model,
+        controlMethod: enhancementResult.controlMethod,
+        styleApplied: enhancementResult.styleApplied,
+        // Provider information
+        provider: usedProvider,
+        // Structure validation summary
+        structureThreshold: enhancementResult.structureThreshold,
+        passingCount: enhancementResult.passingCount,
+        bestVariationIndex,
+        allPreserved: enhancementResult.passingCount === enhancementResult.variations.length,
+      });
+    } catch (error) {
+      logger.error('[ControlNet] Unexpected enhancement error', error);
+      res.status(500).json({
+        error: 'Internal server error',
+        message: 'An unexpected error occurred during AI enhancement.',
       });
     }
-
-    // Determine which provider was actually used
-    const modelLower = enhancementResult.model.toLowerCase();
-    const usedProvider = (modelLower.includes('gemini') || modelLower.includes('imagen')) ? 'gemini' :
-      modelLower.includes('controlnet') ? 'replicate' :
-        'unknown';
-
-    res.json({
-      success: true,
-      // New format with structure scores
-      variations: uploadedVariations,
-      // Legacy format for backward compatibility
-      variationUrls: uploadedVariations.map(v => v.imageUrl),
-      // Generation metadata
-      prompt: enhancementResult.prompt,
-      negativePrompt: enhancementResult.negativePrompt,
-      generationTime: enhancementResult.generationTime,
-      model: enhancementResult.model,
-      controlMethod: enhancementResult.controlMethod,
-      styleApplied: enhancementResult.styleApplied,
-      // Provider information
-      provider: usedProvider,
-      // Structure validation summary
-      structureThreshold: enhancementResult.structureThreshold,
-      passingCount: enhancementResult.passingCount,
-      bestVariationIndex: enhancementResult.bestVariationIndex,
-      allPreserved: enhancementResult.passingCount === enhancementResult.variations.length,
-    });
-  } catch (error) {
-    logger.error('[ControlNet] Enhancement error', error);
-    res.status(500).json({
-      error: 'Failed to enhance sigil with ControlNet',
-      message: error instanceof Error ? error.message : 'Unknown error',
-    });
   }
-});
+);
 
 /**
  * POST /api/ai/mantra
@@ -352,41 +470,48 @@ router.post('/mantra', authMiddleware, async (req: AuthRequest, res: Response): 
  * POST /api/ai/mantra/audio
  * Generate audio for mantras using Google TTS
  */
-router.post('/mantra/audio', authMiddleware, async (req: AuthRequest, res: Response): Promise<void> => {
-  try {
-    const parsed = validateOrRespond(MantraAudioSchema, req.body, res);
-    if (!parsed) return;
-    const { mantras, userId, anchorId, voicePreset } = parsed;
+router.post(
+  '/mantra/audio',
+  authMiddleware,
+  async (req: AuthRequest, res: Response): Promise<void> => {
+    try {
+      const parsed = validateOrRespond(MantraAudioSchema, req.body, res);
+      if (!parsed) return;
+      const { mantras, userId, anchorId, voicePreset } = parsed;
 
-    if (!isTTSAvailable()) {
-      res.status(503).json({
-        error: 'Text-to-Speech service not configured',
-        message: 'Google Cloud TTS credentials are missing. Audio generation is unavailable.',
+      if (!isTTSAvailable()) {
+        res.status(503).json({
+          error: 'Text-to-Speech service not configured',
+          message: 'Google Cloud TTS credentials are missing. Audio generation is unavailable.',
+        });
+        return;
+      }
+
+      logger.info('[AI] Generating mantra audio', {
+        anchorId,
+        voicePreset: voicePreset || 'neutral_calm',
       });
-      return;
+
+      const audioUrls = await generateAllMantraAudio(
+        mantras,
+        userId,
+        anchorId,
+        voicePreset || 'neutral_calm'
+      );
+
+      res.json({
+        success: true,
+        audioUrls,
+      });
+    } catch (error) {
+      logger.error('[AI] Audio generation error', error);
+      res.status(500).json({
+        error: 'Failed to generate audio',
+        message: error instanceof Error ? error.message : 'Unknown error',
+      });
     }
-
-    logger.info('[AI] Generating mantra audio', { anchorId, voicePreset: voicePreset || 'neutral_calm' });
-
-    const audioUrls = await generateAllMantraAudio(
-      mantras,
-      userId,
-      anchorId,
-      voicePreset || 'neutral_calm'
-    );
-
-    res.json({
-      success: true,
-      audioUrls,
-    });
-  } catch (error) {
-    logger.error('[AI] Audio generation error', error);
-    res.status(500).json({
-      error: 'Failed to generate audio',
-      message: error instanceof Error ? error.message : 'Unknown error',
-    });
   }
-});
+);
 
 /**
  * GET /api/ai/voices

@@ -46,7 +46,7 @@ describe('EnhancementChoiceScreen', () => {
         jest.useFakeTimers();
         render(<EnhancementChoiceScreen />);
         fireEvent.press(screen.getByText('Keep as Forged'));
-        jest.runAllTimers();
+        jest.advanceTimersByTime(1000);
         expect(mockNavigate).toHaveBeenCalledWith('AnchorReveal', expect.objectContaining({
             intentionText: 'Test Intention',
         }));
@@ -57,7 +57,7 @@ describe('EnhancementChoiceScreen', () => {
         jest.useFakeTimers();
         render(<EnhancementChoiceScreen />);
         fireEvent.press(screen.getByText('Refine Expression'));
-        jest.runAllTimers();
+        jest.advanceTimersByTime(1000);
         expect(mockNavigate).toHaveBeenCalledWith('StyleSelection', expect.objectContaining({
             intentionText: 'Test Intention',
         }));

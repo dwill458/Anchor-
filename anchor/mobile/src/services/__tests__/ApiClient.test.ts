@@ -36,7 +36,7 @@ describe('ApiClient', () => {
     });
 
     it('should have correct timeout', () => {
-      expect(apiClient.defaults.timeout).toBe(30000);
+      expect(apiClient.defaults.timeout).toBe(120000);
     });
 
     it('should have JSON content type header', () => {

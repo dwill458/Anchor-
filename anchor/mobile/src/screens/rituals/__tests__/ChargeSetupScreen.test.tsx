@@ -1,5 +1,6 @@
 import React from 'react';
 import { render, fireEvent, screen } from '@testing-library/react-native';
+import { WebView } from 'react-native-webview';
 import { ChargeSetupScreen } from '../ChargeSetupScreen';
 
 // Mock navigation
@@ -157,7 +158,7 @@ describe('ChargeSetupScreen', () => {
         mockAnchor.enhancedImageUrl = 'https://example.com/enhanced-anchor.png';
 
         const { UNSAFE_getByType } = render(<ChargeSetupScreen />);
-        const webView = UNSAFE_getByType('WebView');
+        const webView = UNSAFE_getByType(WebView);
 
         expect(webView.props.source.html).toContain('<img src="https://example.com/enhanced-anchor.png" alt="" />');
         expect(webView.props.source.html).not.toContain('SIGIL_CONTENT_PLACEHOLDER');

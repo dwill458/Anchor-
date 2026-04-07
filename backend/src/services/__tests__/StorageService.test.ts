@@ -95,9 +95,9 @@ describe('StorageService', () => {
         throw new Error('Disk full');
       });
 
-      await expect(
-        uploadImageFromBuffer(Buffer.from('data'), 'user', 'anchor', 0)
-      ).rejects.toThrow('Failed to upload image from buffer');
+      await expect(uploadImageFromBuffer(Buffer.from('data'), 'user', 'anchor', 0)).rejects.toThrow(
+        'Failed to upload image from buffer'
+      );
     });
   });
 
@@ -108,7 +108,7 @@ describe('StorageService', () => {
   describe('uploadImageFromUrl', () => {
     it('should download image from URL and upload it', async () => {
       const fakeData = Buffer.from('downloaded-image');
-      (axios.get as jest.Mock).mockResolvedValue({ data: fakeData });
+      (axios.get as jest.Mock).mockResolvedValue({ data: fakeData, headers: {} });
       (fs.existsSync as jest.Mock).mockReturnValue(true);
       (fs.writeFileSync as jest.Mock).mockImplementation(() => {});
 
@@ -119,20 +119,20 @@ describe('StorageService', () => {
         0
       );
 
-      expect(axios.get).toHaveBeenCalledWith('https://example.com/image.png', {
-        responseType: 'arraybuffer',
-      });
+      expect(axios.get).toHaveBeenCalledWith(
+        'https://example.com/image.png',
+        expect.objectContaining({ responseType: 'arraybuffer' })
+      );
       expect(url).toContain('anchor-1-0.png');
     });
 
-    it('should return the original URL as fallback if upload fails', async () => {
+    it('should throw when download fails', async () => {
       (axios.get as jest.Mock).mockRejectedValue(new Error('Network error'));
 
       const originalUrl = 'https://replicate.delivery/image.png';
-      const url = await uploadImageFromUrl(originalUrl, 'user-1', 'anchor-1', 0);
-
-      // Falls back to original URL per implementation
-      expect(url).toBe(originalUrl);
+      await expect(uploadImageFromUrl(originalUrl, 'user-1', 'anchor-1', 0)).rejects.toThrow(
+        'Failed to download generated image'
+      );
     });
   });
 
@@ -177,9 +177,9 @@ describe('StorageService', () => {
         done: jest.fn().mockRejectedValue(new Error('R2 error')),
       }));
 
-      await expect(
-        uploadAudio(Buffer.from('audio'), 'user', 'anchor', 'rhythmic')
-      ).rejects.toThrow('Failed to upload audio');
+      await expect(uploadAudio(Buffer.from('audio'), 'user', 'anchor', 'rhythmic')).rejects.toThrow(
+        'Failed to upload audio'
+      );
     });
   });
 

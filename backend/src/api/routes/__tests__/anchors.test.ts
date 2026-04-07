@@ -30,7 +30,9 @@ const mockPrisma = {
     create: jest.fn(),
     findMany: jest.fn(),
     findFirst: jest.fn(),
+    findUnique: jest.fn(),
     update: jest.fn(),
+    updateMany: jest.fn(),
   },
   charge: { create: jest.fn() },
   activation: { create: jest.fn() },
@@ -124,9 +126,7 @@ describe('POST /api/anchors', () => {
     (mockPrisma.anchor.create as jest.Mock).mockResolvedValue(MOCK_ANCHOR);
     (mockPrisma.user.update as jest.Mock).mockResolvedValue(MOCK_DB_USER);
 
-    const res = await request(buildApp())
-      .post('/api/anchors')
-      .send(VALID_CREATE_BODY);
+    const res = await request(buildApp()).post('/api/anchors').send(VALID_CREATE_BODY);
 
     expect(res.status).toBe(201);
     expect(res.body.success).toBe(true);
@@ -170,9 +170,7 @@ describe('POST /api/anchors', () => {
   it('returns 404 when user not found in database', async () => {
     (mockPrisma.user.findUnique as jest.Mock).mockResolvedValue(null);
 
-    const res = await request(buildApp())
-      .post('/api/anchors')
-      .send(VALID_CREATE_BODY);
+    const res = await request(buildApp()).post('/api/anchors').send(VALID_CREATE_BODY);
 
     expect(res.status).toBe(404);
     expect(res.body.error.code).toBe('USER_NOT_FOUND');
@@ -182,9 +180,7 @@ describe('POST /api/anchors', () => {
     (mockPrisma.user.findUnique as jest.Mock).mockResolvedValue(MOCK_DB_USER);
     (mockPrisma.anchor.create as jest.Mock).mockRejectedValue(new Error('DB crash'));
 
-    const res = await request(buildApp())
-      .post('/api/anchors')
-      .send(VALID_CREATE_BODY);
+    const res = await request(buildApp()).post('/api/anchors').send(VALID_CREATE_BODY);
 
     expect(res.status).toBe(500);
     expect(res.body.error.code).toBe('CREATE_ERROR');
@@ -236,29 +232,25 @@ describe('GET /api/anchors', () => {
 
     await request(buildApp()).get('/api/anchors?limit=9999');
 
-    expect(mockPrisma.anchor.findMany).toHaveBeenCalledWith(
-      expect.objectContaining({ take: 100 })
-    );
+    expect(mockPrisma.anchor.findMany).toHaveBeenCalledWith(expect.objectContaining({ take: 100 }));
   });
 
-  it('ignores negative limit values', async () => {
+  it('ignores negative limit values and falls back to default 20', async () => {
     (mockPrisma.user.findUnique as jest.Mock).mockResolvedValue(MOCK_DB_USER);
     (mockPrisma.anchor.findMany as jest.Mock).mockResolvedValue([]);
 
     await request(buildApp()).get('/api/anchors?limit=-5');
 
-    const call = (mockPrisma.anchor.findMany as jest.Mock).mock.calls[0][0];
-    expect(call.take).toBeUndefined();
+    expect(mockPrisma.anchor.findMany).toHaveBeenCalledWith(expect.objectContaining({ take: 20 }));
   });
 
-  it('ignores NaN limit values', async () => {
+  it('ignores NaN limit values and falls back to default 20', async () => {
     (mockPrisma.user.findUnique as jest.Mock).mockResolvedValue(MOCK_DB_USER);
     (mockPrisma.anchor.findMany as jest.Mock).mockResolvedValue([]);
 
     await request(buildApp()).get('/api/anchors?limit=abc');
 
-    const call = (mockPrisma.anchor.findMany as jest.Mock).mock.calls[0][0];
-    expect(call.take).toBeUndefined();
+    expect(mockPrisma.anchor.findMany).toHaveBeenCalledWith(expect.objectContaining({ take: 20 }));
   });
 
   it('defaults orderBy to updatedAt for unknown column', async () => {
@@ -329,8 +321,8 @@ describe('GET /api/anchors/:id', () => {
 describe('PUT /api/anchors/:id', () => {
   it('updates allowed fields and returns 200', async () => {
     (mockPrisma.user.findUnique as jest.Mock).mockResolvedValue(MOCK_DB_USER);
-    (mockPrisma.anchor.findFirst as jest.Mock).mockResolvedValue(MOCK_ANCHOR);
-    (mockPrisma.anchor.update as jest.Mock).mockResolvedValue({
+    (mockPrisma.anchor.updateMany as jest.Mock).mockResolvedValue({ count: 1 });
+    (mockPrisma.anchor.findUnique as jest.Mock).mockResolvedValue({
       ...MOCK_ANCHOR,
       intentionText: 'Updated intention',
     });
@@ -362,7 +354,7 @@ describe('PUT /api/anchors/:id', () => {
 
   it('returns 404 when anchor not found', async () => {
     (mockPrisma.user.findUnique as jest.Mock).mockResolvedValue(MOCK_DB_USER);
-    (mockPrisma.anchor.findFirst as jest.Mock).mockResolvedValue(null);
+    (mockPrisma.anchor.updateMany as jest.Mock).mockResolvedValue({ count: 0 });
 
     const res = await request(buildApp())
       .put('/api/anchors/nonexistent')
@@ -380,24 +372,20 @@ describe('PUT /api/anchors/:id', () => {
 describe('DELETE /api/anchors/:id', () => {
   it('archives the anchor and returns 200', async () => {
     (mockPrisma.user.findUnique as jest.Mock).mockResolvedValue(MOCK_DB_USER);
-    (mockPrisma.anchor.findFirst as jest.Mock).mockResolvedValue(MOCK_ANCHOR);
-    (mockPrisma.anchor.update as jest.Mock).mockResolvedValue({
-      ...MOCK_ANCHOR,
-      isArchived: true,
-    });
+    (mockPrisma.anchor.updateMany as jest.Mock).mockResolvedValue({ count: 1 });
 
     const res = await request(buildApp()).delete('/api/anchors/anchor-1');
 
     expect(res.status).toBe(200);
     expect(res.body.data.message).toBe('Anchor archived successfully');
-    expect(mockPrisma.anchor.update).toHaveBeenCalledWith(
+    expect(mockPrisma.anchor.updateMany).toHaveBeenCalledWith(
       expect.objectContaining({ data: expect.objectContaining({ isArchived: true }) })
     );
   });
 
   it('returns 404 when anchor not found', async () => {
     (mockPrisma.user.findUnique as jest.Mock).mockResolvedValue(MOCK_DB_USER);
-    (mockPrisma.anchor.findFirst as jest.Mock).mockResolvedValue(null);
+    (mockPrisma.anchor.updateMany as jest.Mock).mockResolvedValue({ count: 0 });
 
     const res = await request(buildApp()).delete('/api/anchors/nonexistent');
 
@@ -484,7 +472,9 @@ describe('POST /api/anchors/:id/activate', () => {
     expect(res.body.data.activationCount).toBe(1);
     expect(mockPrisma.activation.create).toHaveBeenCalledTimes(1);
     expect(mockPrisma.user.update).toHaveBeenCalledWith(
-      expect.objectContaining({ data: expect.objectContaining({ totalActivations: { increment: 1 } }) })
+      expect.objectContaining({
+        data: expect.objectContaining({ totalActivations: { increment: 1 } }),
+      })
     );
   });
 

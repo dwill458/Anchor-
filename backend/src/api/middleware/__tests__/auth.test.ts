@@ -56,6 +56,7 @@ describe('authMiddleware', () => {
 
   it('should allow mock token when ENABLE_MOCK_AUTH=true', async () => {
     process.env.ENABLE_MOCK_AUTH = 'true';
+    process.env.MOCK_AUTH_TOKEN = 'mock-jwt-token';
     mockReq.headers = { authorization: 'Bearer mock-jwt-token' };
 
     await authMiddleware(mockReq as AuthRequest, mockRes as Response, mockNext);
@@ -80,7 +81,9 @@ describe('authMiddleware', () => {
   });
 
   it('should attach user and call next on valid Firebase token', async () => {
-    const mockVerify = jest.fn().mockResolvedValue({ uid: 'firebase-uid', email: 'user@example.com' });
+    const mockVerify = jest
+      .fn()
+      .mockResolvedValue({ uid: 'firebase-uid', email: 'user@example.com' });
     (getFirebaseAdmin as jest.Mock).mockReturnValue({
       auth: () => ({ verifyIdToken: mockVerify }),
     });

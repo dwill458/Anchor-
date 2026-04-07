@@ -13,9 +13,11 @@ import authRoutes from './api/routes/auth';
 import anchorRoutes from './api/routes/anchors';
 import aiRoutes from './api/routes/ai';
 import practiceRoutes from './api/routes/practice';
+import orderRoutes from './api/routes/orders';
 import { errorHandler, notFoundHandler } from './api/middleware/errorHandler';
 import { logger } from './utils/logger';
 import { env } from './config/env';
+import { prisma } from './lib/prisma';
 
 // Load environment variables
 dotenv.config();
@@ -32,7 +34,10 @@ process.on('uncaughtException', (error: Error) => {
 });
 
 process.on('unhandledRejection', (reason: unknown) => {
-  logger.error('Unhandled promise rejection — shutting down', reason instanceof Error ? reason : new Error(String(reason)));
+  logger.error(
+    'Unhandled promise rejection — shutting down',
+    reason instanceof Error ? reason : new Error(String(reason))
+  );
   process.exit(1);
 });
 
@@ -50,7 +55,10 @@ app.use(helmet());
 // In development/test with no ALLOWED_ORIGINS set, allow localhost only.
 const rawAllowedOrigins = env.ALLOWED_ORIGINS;
 const allowedOrigins: string[] = rawAllowedOrigins
-  ? rawAllowedOrigins.split(',').map(o => o.trim()).filter(Boolean)
+  ? rawAllowedOrigins
+      .split(',')
+      .map(o => o.trim())
+      .filter(Boolean)
   : env.NODE_ENV === 'production'
     ? [] // No origins allowed until explicitly configured — fail safe
     : ['http://localhost:3000', 'http://localhost:8081'];
@@ -58,12 +66,14 @@ const allowedOrigins: string[] = rawAllowedOrigins
 app.use(
   cors({
     origin: (origin, callback) => {
-      // Allow server-to-server requests (no origin) only in non-production
-      if (!origin && env.NODE_ENV !== 'production') {
+      // Requests without an Origin header (React Native, server-to-server,
+      // curl) are not browser cross-origin requests — CORS does not apply.
+      // Blocking them here would break the primary mobile client in production.
+      if (!origin) {
         callback(null, true);
         return;
       }
-      if (origin && allowedOrigins.includes(origin)) {
+      if (allowedOrigins.includes(origin)) {
         callback(null, true);
       } else {
         callback(new Error('Not allowed by CORS'));
@@ -110,12 +120,25 @@ app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
 // Health Check
 // ============================================================================
 
-app.get('/health', (_req: Request, res: Response) => {
-  res.json({
-    status: 'ok',
+app.get('/health', async (_req: Request, res: Response) => {
+  const checks: Record<string, 'ok' | 'error'> = {};
+
+  // Database connectivity check
+  try {
+    await prisma.$queryRaw`SELECT 1`;
+    checks.database = 'ok';
+  } catch {
+    checks.database = 'error';
+  }
+
+  const healthy = Object.values(checks).every(v => v === 'ok');
+
+  res.status(healthy ? 200 : 503).json({
+    status: healthy ? 'ok' : 'degraded',
     timestamp: new Date().toISOString(),
     service: 'anchor-api',
     version: '0.1.0',
+    checks,
   });
 });
 
@@ -146,7 +169,10 @@ app.use('/api/practice', practiceRoutes);
 // AI Enhancement routes (Phase 2)
 app.use('/api/ai', aiRoutes);
 
-// Note: Additional routes (users, discover, shop) will be added in future phases
+// Order routes (Phase 4)
+app.use('/api/orders', orderRoutes);
+
+// Note: Additional routes (users, discover) will be added in future phases
 
 // ============================================================================
 // Error Handling
@@ -162,10 +188,39 @@ app.use(errorHandler);
 // Start Server
 // ============================================================================
 
-app.listen(PORT, '0.0.0.0', () => {
+const server = app.listen(PORT, '0.0.0.0', () => {
   logger.info(`🚀 Anchor API running on port ${PORT}`);
   logger.info(`📍 Environment: ${env.NODE_ENV}`);
   logger.info(`🏥 Health check: http://localhost:${PORT}/health`);
 });
+
+// ============================================================================
+// Graceful Shutdown
+// ============================================================================
+
+async function shutdown(signal: string): Promise<void> {
+  logger.info(`${signal} received — shutting down gracefully`);
+  server.close(async () => {
+    try {
+      await prisma.$disconnect();
+      logger.info('Database connections closed');
+    } catch (err) {
+      logger.error(
+        'Error closing database connections',
+        err instanceof Error ? err : new Error(String(err))
+      );
+    }
+    process.exit(0);
+  });
+
+  // Force exit if shutdown takes too long
+  setTimeout(() => {
+    logger.error('Graceful shutdown timed out — forcing exit');
+    process.exit(1);
+  }, 10_000);
+}
+
+process.on('SIGTERM', () => shutdown('SIGTERM'));
+process.on('SIGINT', () => shutdown('SIGINT'));
 
 export default app;

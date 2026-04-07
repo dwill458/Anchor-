@@ -15,6 +15,8 @@ export interface AuthRequest extends Request {
     uid: string;
     email?: string;
   };
+  /** DB-resolved user record — populated by the resolveDbUser middleware in routers */
+  dbUser?: { id: string };
 }
 
 /**
@@ -50,12 +52,15 @@ export const authMiddleware = async (
     // Mock auth is ONLY permitted in explicit development/test environments.
     // A hard check on NODE_ENV !== 'production' ensures this path is
     // unreachable in production even if ENABLE_MOCK_AUTH is mistakenly set.
+    // The token value must be supplied via MOCK_AUTH_TOKEN env var — there is
+    // no hardcoded fallback, so mock auth is inert unless deliberately configured.
+    const mockToken = process.env.MOCK_AUTH_TOKEN;
     const allowMockAuth =
       process.env.NODE_ENV !== 'production' &&
-      process.env.NODE_ENV !== undefined &&
-      process.env.ENABLE_MOCK_AUTH === 'true';
+      process.env.ENABLE_MOCK_AUTH === 'true' &&
+      !!mockToken;
 
-    if (allowMockAuth && token === 'mock-jwt-token') {
+    if (allowMockAuth && mockToken && token === mockToken) {
       req.user = { uid: 'mock-uid-123', email: 'guest@example.com' };
       next();
       return;
@@ -72,8 +77,8 @@ export const authMiddleware = async (
     };
 
     next();
-  } catch (error: any) {
-    const code: string = error?.code ?? '';
+  } catch (error: unknown) {
+    const code: string = (error as { code?: string })?.code ?? '';
 
     if (code === 'auth/id-token-expired') {
       res.status(401).json({
@@ -83,11 +88,7 @@ export const authMiddleware = async (
       return;
     }
 
-    if (
-      code.startsWith('auth/') ||
-      code === 'auth/argument-error' ||
-      code === 'auth/invalid-id-token'
-    ) {
+    if (code.startsWith('auth/')) {
       res.status(401).json({
         success: false,
         error: { code: 'INVALID_TOKEN', message: 'Invalid authentication token' },

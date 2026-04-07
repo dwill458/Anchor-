@@ -36,7 +36,7 @@ jest.mock('expo-audio', () => ({
         requestRecordingPermissionsAsync: jest.fn().mockResolvedValue({ granted: false }),
         setAudioModeAsync: jest.fn(),
     },
-    RecordingOptionsPresets: { HIGH_QUALITY: {} },
+    RecordingPresets: { HIGH_QUALITY: {} },
 }));
 
 jest.mock('react-native-reanimated', () => {

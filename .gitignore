@@ -93,19 +93,9 @@ frontend/android/app/build/
 # ----------------------------------------------------------------------------
 # Prisma
 # ----------------------------------------------------------------------------
-backend/prisma/migrations/*
-!backend/prisma/migrations/.gitkeep
-!backend/prisma/migrations/migration_lock.toml
-!backend/prisma/migrations/20260101000000_init/
-!backend/prisma/migrations/20260101000000_init/**
-!backend/prisma/migrations/20260131000000_add_user_password_hash/
-!backend/prisma/migrations/20260131000000_add_user_password_hash/**
-!backend/prisma/migrations/20260203000000_add_has_completed_onboarding/
-!backend/prisma/migrations/20260203000000_add_has_completed_onboarding/**
-!backend/prisma/migrations/20260213000000_add_stabilize_stats/
-!backend/prisma/migrations/20260213000000_add_stabilize_stats/**
-!backend/prisma/migrations/20260317000000_add_anchor_query_indexes/
-!backend/prisma/migrations/20260317000000_add_anchor_query_indexes/**
+# All migrations are tracked — new migrations are picked up automatically.
+# Never add a blanket "migrations/*" exclusion here; every migration SQL file
+# must be version-controlled so that deploys and fresh clones are repeatable.
 
 # ----------------------------------------------------------------------------
 # Temporary Files
