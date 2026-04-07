@@ -229,47 +229,48 @@ export const TEACHINGS: Record<string, TeachingContent> = {
     cooldownMs: 0,
   },
 
-  // ── Gate Illuminator (Paywall Teaching Cards) ───────────────────────────────
-
-  paywall_manual_forge_v1: {
-    teachingId: 'paywall_manual_forge_v1',
-    screen: 'paywall',
-    trigger: 'always',
-    guideOnly: false,   // Guide Mode exempt — always shows
-    tier: 'both',
-    title: 'Your Hand, Your Signal',
-    copy: 'Tracing the sigil yourself deepens the intention imprint.',
-    pattern: 'paywall_card',
-    tone: 'grounding',
-    maxShows: 0,        // unlimited — always shows
-    cooldownMs: 0,
-  },
-
-  paywall_all_styles_v1: {
-    teachingId: 'paywall_all_styles_v1',
-    screen: 'paywall',
-    trigger: 'always',
-    guideOnly: false,
-    tier: 'both',
-    title: 'Full Aesthetic Range',
-    copy: 'Twelve visual styles, each tuned to a different quality of attention.',
-    pattern: 'paywall_card',
-    tone: 'grounding',
-    maxShows: 0,
-    cooldownMs: 0,
-  },
-
-  paywall_hd_export_v1: {
-    teachingId: 'paywall_hd_export_v1',
-    screen: 'paywall',
-    trigger: 'always',
-    guideOnly: false,
-    tier: 'both',
-    title: 'Take It Anywhere',
-    copy: 'Print-quality export so your anchor lives beyond the screen.',
-    pattern: 'paywall_card',
-    tone: 'grounding',
-    maxShows: 0,
-    cooldownMs: 0,
-  },
+  // DEFERRED: freemium — paywall teaching cards removed; per-feature gates replaced by single trial expiry gate.
+  // Restore these if per-feature upsell teaching cards are re-introduced post-RevenueCat.
+  //
+  // paywall_manual_forge_v1: {
+  //   teachingId: 'paywall_manual_forge_v1',
+  //   screen: 'paywall',
+  //   trigger: 'always',
+  //   guideOnly: false,
+  //   tier: 'both',
+  //   title: 'Your Hand, Your Signal',
+  //   copy: 'Tracing the sigil yourself deepens the intention imprint.',
+  //   pattern: 'paywall_card',
+  //   tone: 'grounding',
+  //   maxShows: 0,
+  //   cooldownMs: 0,
+  // },
+  //
+  // paywall_all_styles_v1: {
+  //   teachingId: 'paywall_all_styles_v1',
+  //   screen: 'paywall',
+  //   trigger: 'always',
+  //   guideOnly: false,
+  //   tier: 'both',
+  //   title: 'Full Aesthetic Range',
+  //   copy: 'Twelve visual styles, each tuned to a different quality of attention.',
+  //   pattern: 'paywall_card',
+  //   tone: 'grounding',
+  //   maxShows: 0,
+  //   cooldownMs: 0,
+  // },
+  //
+  // paywall_hd_export_v1: {
+  //   teachingId: 'paywall_hd_export_v1',
+  //   screen: 'paywall',
+  //   trigger: 'always',
+  //   guideOnly: false,
+  //   tier: 'both',
+  //   title: 'Take It Anywhere',
+  //   copy: 'Print-quality export so your anchor lives beyond the screen.',
+  //   pattern: 'paywall_card',
+  //   tone: 'grounding',
+  //   maxShows: 0,
+  //   cooldownMs: 0,
+  // },
 };

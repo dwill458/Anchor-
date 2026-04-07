@@ -20,9 +20,11 @@ export const ProfileHeader: React.FC<ProfileHeaderProps> = ({
   displayName,
   subscriptionStatus,
 }) => {
-  const isPro = subscriptionStatus === 'pro' || subscriptionStatus === 'pro_annual';
-  const membershipLabel = isPro ? 'PRO' : 'FREE';
-  const badgeColor = isPro ? colors.gold : colors.silver;
+  // DEFERRED: freemium — 'free' tier badge removed; badge now reflects trial/active vs expired
+  // const isPro = subscriptionStatus === 'pro' || subscriptionStatus === 'pro_annual';
+  const isSubscribed = subscriptionStatus === 'pro' || subscriptionStatus === 'pro_annual';
+  const membershipLabel = isSubscribed ? 'MEMBER' : 'TRIAL';
+  const badgeColor = isSubscribed ? colors.gold : colors.silver;
 
   // Get first letter of display name or default to 'S' for Seeker
   const avatarInitial = displayName?.[0]?.toUpperCase() || 'S';

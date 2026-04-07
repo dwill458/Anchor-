@@ -18,7 +18,9 @@ import { RootStackParamList, AIStyle } from '@/types';
 import { API_URL } from '@/config';
 import { useAuthStore } from '@/stores/authStore';
 import { logger } from '@/utils/logger';
-import { useSubscription } from '@/hooks/useSubscription';
+// DEFERRED: freemium — useSubscription replaced with useTrialStatus
+// import { useSubscription } from '@/hooks/useSubscription';
+import { useTrialStatus } from '@/hooks/useTrialStatus';
 import { ErrorTrackingService } from '@/services/ErrorTrackingService';
 import { PerformanceMonitoring } from '@/services/PerformanceMonitoring';
 import { AuthService } from '@/services/AuthService';
@@ -75,7 +77,10 @@ export default function AIGeneratingScreen() {
   const route = useRoute<AIGeneratingRouteProp>();
   const navigation = useNavigation<AIGeneratingNavigationProp>();
   const user = useAuthStore((state) => state.user);
-  const { isPro } = useSubscription();
+  // DEFERRED: freemium — isPro replaced with useTrialStatus for trial model
+  // const { isPro } = useSubscription();
+  const { isTrialActive, isSubscribed } = useTrialStatus();
+  const isPro = isTrialActive || isSubscribed;
 
   const {
     intentionText,
