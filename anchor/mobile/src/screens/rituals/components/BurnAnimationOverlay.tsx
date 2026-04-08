@@ -14,6 +14,7 @@ import { WebView } from 'react-native-webview';
 import type { WebViewMessageEvent } from 'react-native-webview';
 import { useReduceMotionEnabled } from '@/hooks/useReduceMotionEnabled';
 import { colors, spacing, typography } from '@/theme';
+import { burnRitualWebViewHtml } from './burnRitualWebViewHtml';
 
 type CommitStatus = 'pending' | 'success' | 'error';
 type OverlayState = 'animating' | 'syncing' | 'success' | 'error';
@@ -292,10 +293,13 @@ export const BurnAnimationOverlay: React.FC<BurnAnimationOverlayProps> = ({
         <View style={styles.webviewContainer}>
           <WebView
             ref={webViewRef}
-            source={require('../../../assets/webviews/BurnRitualWebView.html')}
+            source={{ html: burnRitualWebViewHtml }}
             style={styles.webview}
             onLoad={handleWebViewLoad}
             onMessage={handleWebViewMessage}
+            originWhitelist={['*']}
+            allowFileAccess={true}
+            mixedContentMode="always"
             scrollEnabled={false}
             bounces={false}
             overScrollMode="never"
