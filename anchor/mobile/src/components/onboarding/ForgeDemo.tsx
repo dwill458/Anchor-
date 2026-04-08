@@ -2,6 +2,7 @@ import React, { useRef, useEffect, useCallback, useMemo } from 'react';
 import { View, StyleSheet, Image as RNImage } from 'react-native';
 import { WebView } from 'react-native-webview';
 import type { WebViewMessageEvent } from 'react-native-webview';
+import { forgeWebViewHtml } from './forgeWebViewHtml';
 
 /** Interactive sigil forge demonstration for onboarding slide 3. */
 interface ForgeDemoProps {
@@ -10,7 +11,6 @@ interface ForgeDemoProps {
   onForgeComplete?: () => void;
 }
 
-const ForgeWebView = require('../../assets/webviews/OnboardingForgeWebView.html');
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 const forgeRevealAsset = require('../../../assets/onboarding anchor.png') as number;
 
@@ -63,10 +63,13 @@ export const ForgeDemo: React.FC<ForgeDemoProps> = ({ isActive, onForgeComplete 
     <View style={styles.container}>
       <WebView
         ref={webViewRef}
-        source={ForgeWebView}
+        source={{ html: forgeWebViewHtml }}
         style={styles.webview}
         onLoad={injectImageUri}
         onMessage={handleMessage}
+        originWhitelist={['*']}
+        allowFileAccess={true}
+        mixedContentMode="always"
         scrollEnabled={false}
         bounces={false}
         overScrollMode="never"
