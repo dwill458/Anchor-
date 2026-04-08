@@ -38,6 +38,7 @@
       },
       "package": "com.anchor.app",
       "versionCode": 1,
+      "googleServicesFile": "./google-services.json",
       "permissions": [
         "android.permission.RECORD_AUDIO",
         "android.permission.MODIFY_AUDIO_SETTINGS"
@@ -47,14 +48,7 @@
       "favicon": "./assets/favicon.png"
     },
     "plugins": [
-      [
-        "@react-native-firebase/app",
-        {
-          "android": {
-            "googleServicesFile": "./google-services.json"
-          }
-        }
-      ],
+      "@react-native-firebase/app",
       "@sentry/react-native/expo",
       "expo-secure-store",
       "@react-native-community/datetimepicker",
