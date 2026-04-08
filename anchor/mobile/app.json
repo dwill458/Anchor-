@@ -1,7 +1,7 @@
 {
   "expo": {
     "name": "Anchor",
-    "slug": "anchor-v2",
+    "slug": "anchor",
     "version": "1.0.0",
     "platforms": [
       "ios",
