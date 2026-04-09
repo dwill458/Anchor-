@@ -8,7 +8,7 @@
  */
 
 import express, { Response } from 'express';
-import rateLimit, { ipKeyGenerator } from 'express-rate-limit';
+import rateLimit from 'express-rate-limit';
 import { z } from 'zod';
 import { AuthRequest, authMiddleware } from '../middleware/auth';
 import { prisma } from '../../lib/prisma';
@@ -38,7 +38,7 @@ const router = express.Router();
 const aiEnhanceLimiter = rateLimit({
   windowMs: 60 * 60 * 1000, // 1 hour
   max: 20,
-  keyGenerator: req => (req as AuthRequest).user?.uid ?? ipKeyGenerator(req),
+  keyGenerator: req => (req as AuthRequest).user?.uid ?? (req.ip ?? 'unknown').replace(/^::ffff:/, ''),
   standardHeaders: true,
   legacyHeaders: false,
   message: {
