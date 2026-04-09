@@ -38,7 +38,8 @@ const router = express.Router();
 const aiEnhanceLimiter = rateLimit({
   windowMs: 60 * 60 * 1000, // 1 hour
   max: 20,
-  keyGenerator: req => (req as AuthRequest).user?.uid ?? (req.ip ?? 'unknown').replace(/^::ffff:/, ''),
+  validate: { ipKeyGenerator: false },
+  keyGenerator: req => (req as AuthRequest).user?.uid ?? req.ip ?? 'unknown',
   standardHeaders: true,
   legacyHeaders: false,
   message: {
