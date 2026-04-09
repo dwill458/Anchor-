@@ -18,7 +18,7 @@ export const API_URL =
   process.env.EXPO_PUBLIC_API_URL ??
   (__DEV__
     ? (process.env.EXPO_PUBLIC_DEV_API_URL ?? 'http://localhost:8000')
-    : 'https://api.anchor.app');
+    : 'https://anchor-production-26bf.up.railway.app');
 
 export const Config = {
   API_URL,
