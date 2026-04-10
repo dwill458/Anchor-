@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Debug-only network security config. Allows cleartext HTTP to any host
+  so the Expo dev client can reach Metro over Wi-Fi without HTTPS.
+  Release builds still use the locked-down main/res/xml/network_security_config.xml.
+-->
+<network-security-config>
+    <base-config cleartextTrafficPermitted="true">
+        <trust-anchors>
+            <certificates src="system"/>
+        </trust-anchors>
+    </base-config>
+</network-security-config>
