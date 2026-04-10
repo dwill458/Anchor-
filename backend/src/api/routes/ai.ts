@@ -10,7 +10,7 @@
 import express, { Response } from 'express';
 import rateLimit from 'express-rate-limit';
 import { z } from 'zod';
-import { AuthRequest, authMiddleware } from '../middleware/auth';
+import { AuthRequest, authMiddleware, optionalAuthMiddleware } from '../middleware/auth';
 import { prisma } from '../../lib/prisma';
 import {
   getCostEstimate,
@@ -145,20 +145,24 @@ const AI_GENERATION_TIMEOUT_MS = 3 * 60 * 1000;
 
 router.post(
   '/enhance-controlnet',
-  authMiddleware,
+  optionalAuthMiddleware,
   aiEnhanceLimiter,
   async (req: AuthRequest, res: Response): Promise<void> => {
     try {
-      if (!req.user?.uid) {
+      const parsed = validateOrRespond(EnhanceControlNetSchema, req.body, res);
+      if (!parsed) return;
+
+      // Onboarding flow generates a "temp-*" anchor before the user has an
+      // account. Those requests are permitted without auth (still IP rate
+      // limited above). Every other path must be authenticated.
+      const isTempAnchor = parsed.anchorId.startsWith('temp-');
+      if (!isTempAnchor && !req.user?.uid) {
         res.status(401).json({
           error: 'Authentication required',
           message: 'A valid authentication token is required for AI enhancement.',
         });
         return;
       }
-
-      const parsed = validateOrRespond(EnhanceControlNetSchema, req.body, res);
-      if (!parsed) return;
 
       const {
         sigilSvg,
@@ -187,27 +191,37 @@ router.post(
           : (tier as 'draft' | 'premium') || 'premium';
 
       // --- Database lookups ---
-      let user: { id: string } | null;
-      try {
-        user = await prisma.user.findUnique({
-          where: { authUid: req.user.uid },
-          select: { id: true },
-        });
-      } catch (dbError) {
-        logger.error('[ControlNet] Database error during user lookup', dbError);
-        res.status(503).json({
-          error: 'Service temporarily unavailable',
-          message: 'Unable to reach the database. Please try again shortly.',
-        });
-        return;
-      }
+      // Anonymous onboarding requests (temp-* anchor) skip the user lookup
+      // and use a synthetic storage id so uploaded images are still namespaced.
+      let user: { id: string };
+      if (req.user?.uid) {
+        let dbUser: { id: string } | null;
+        try {
+          dbUser = await prisma.user.findUnique({
+            where: { authUid: req.user.uid },
+            select: { id: true },
+          });
+        } catch (dbError) {
+          logger.error('[ControlNet] Database error during user lookup', dbError);
+          res.status(503).json({
+            error: 'Service temporarily unavailable',
+            message: 'Unable to reach the database. Please try again shortly.',
+          });
+          return;
+        }
 
-      if (!user) {
-        res.status(404).json({
-          error: 'User not found',
-          message: 'Create or sync your account before generating AI artwork.',
-        });
-        return;
+        if (!dbUser) {
+          res.status(404).json({
+            error: 'User not found',
+            message: 'Create or sync your account before generating AI artwork.',
+          });
+          return;
+        }
+        user = dbUser;
+      } else {
+        // Anonymous onboarding path — synthesize a throwaway id for storage
+        // pathing. Nothing is persisted to the User table.
+        user = { id: `anon-${Date.now()}` };
       }
 
       const isTempAnchorRequest = anchorId.startsWith('temp-');
