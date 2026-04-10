@@ -44,6 +44,10 @@ process.on('unhandledRejection', (reason: unknown) => {
 const app: Application = express();
 const PORT = env.PORT;
 
+// Trust Railway's proxy so req.ip reflects the real client and
+// express-rate-limit can read X-Forwarded-For safely.
+app.set('trust proxy', 1);
+
 // ============================================================================
 // Middleware
 // ============================================================================
