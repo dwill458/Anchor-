@@ -22,6 +22,7 @@ import { useSettingsStore } from '@/stores/settingsStore';
 import { safeHaptics } from '@/utils/haptics';
 import type { Anchor, RootStackParamList } from '@/types';
 import { spacing } from '@/theme';
+import { navigateToVaultDestination } from '@/navigation/firstAnchorGate';
 
 type ChargeSetupRouteProp = RouteProp<RootStackParamList, 'ChargeSetup'>;
 type ChargeSetupNavigationProp = StackNavigationProp<RootStackParamList, 'ChargeSetup'>;
@@ -497,7 +498,7 @@ export const ChargeSetupScreen: React.FC = () => {
     if (isTransitioning) return;
     if (autoStartOnSelection) {
       // Came from creation flow — navigate to Vault so the new anchor is visible
-      navigation.navigate('Vault');
+      navigateToVaultDestination(navigation);
     } else {
       navigation.goBack();
     }
