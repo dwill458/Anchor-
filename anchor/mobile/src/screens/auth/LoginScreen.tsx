@@ -23,22 +23,20 @@ import { StackNavigationProp } from '@react-navigation/stack';
 import { colors, spacing, typography } from '@/theme';
 import { useAuthStore } from '../../stores/authStore';
 import { AuthService } from '../../services/AuthService';
+import type { AuthScreenParams, OnboardingStackParamList, RootStackParamList } from '@/types';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
-type AuthStackParamList = {
-  Login: undefined;
-  SignUp: undefined;
-  Onboarding: undefined;
-};
+type SharedAuthParamList = RootStackParamList & OnboardingStackParamList;
 
-type LoginScreenNavigationProp = StackNavigationProp<AuthStackParamList, 'Login'>;
+type LoginScreenNavigationProp = StackNavigationProp<SharedAuthParamList, 'Login'>;
 
 interface LoginScreenProps {
   navigation: LoginScreenNavigationProp;
+  route?: { params?: AuthScreenParams };
 }
 
-export const LoginScreen: React.FC<LoginScreenProps> = ({ navigation }) => {
+export const LoginScreen: React.FC<LoginScreenProps> = ({ navigation, route }) => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
@@ -46,6 +44,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ navigation }) => {
   const [focusedField, setFocusedField] = useState<string | null>(null);
 
   const { setSession } = useAuthStore();
+  const context = route?.params?.context;
 
   // Simple fade-in only for better performance
   const fadeAnim = React.useRef(new Animated.Value(0)).current;
@@ -66,8 +65,14 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ navigation }) => {
     }
     setLoading(true);
     try {
-      const result = await AuthService.signInWithEmail(email, password);
+      const result = await AuthService.signInWithEmail(email, password, {
+        hasCompletedOnboarding: context === 'first_anchor_gate' ? true : undefined,
+      });
       setSession(result.user, result.token);
+
+      if (context === 'first_anchor_gate') {
+        navigation.replace('FirstAnchorAccountGate');
+      }
     } catch (err: any) {
       setError(err.message || 'Login failed');
     } finally {
@@ -147,7 +152,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ navigation }) => {
 
               <View style={styles.footer}>
                 <Text style={styles.footerText}>Don't have an account? </Text>
-                <TouchableOpacity onPress={() => navigation.navigate('SignUp')}>
+                <TouchableOpacity onPress={() => navigation.navigate('SignUp', route?.params)}>
                   <Text style={styles.footerLink}>Sign Up</Text>
                 </TouchableOpacity>
               </View>

@@ -14,6 +14,10 @@ export interface AuthResult {
   isNewUser: boolean;
 }
 
+export interface AuthSyncOptions {
+  hasCompletedOnboarding?: boolean;
+}
+
 const createMockUser = (overrides: Partial<User> = {}): User => ({
   id: 'mock-uid-123',
   email: 'guest@example.com',
@@ -49,12 +53,19 @@ export class AuthService {
     }
   }
 
-  static async signInWithEmail(email: string, _password: string): Promise<AuthResult> {
+  static async signInWithEmail(
+    email: string,
+    _password: string,
+    options?: AuthSyncOptions
+  ): Promise<AuthResult> {
     assertMockAuthEnabled();
     await new Promise((resolve) => setTimeout(resolve, 1000));
 
     return {
-      user: createMockUser({ email, hasCompletedOnboarding: true }),
+      user: createMockUser({
+        email,
+        hasCompletedOnboarding: options?.hasCompletedOnboarding ?? true,
+      }),
       token: 'mock-jwt-token',
       isNewUser: false,
     };
@@ -63,7 +74,8 @@ export class AuthService {
   static async signUpWithEmail(
     email: string,
     _password: string,
-    displayName?: string
+    displayName?: string,
+    options?: AuthSyncOptions
   ): Promise<AuthResult> {
     assertMockAuthEnabled();
     await new Promise((resolve) => setTimeout(resolve, 1000));
@@ -73,7 +85,7 @@ export class AuthService {
         id: 'mock-uid-new',
         email,
         displayName: displayName || 'New User',
-        hasCompletedOnboarding: false,
+        hasCompletedOnboarding: options?.hasCompletedOnboarding ?? false,
         totalAnchorsCreated: 0,
         totalActivations: 0,
         currentStreak: 0,

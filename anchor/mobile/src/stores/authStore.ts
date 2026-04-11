@@ -2,7 +2,14 @@ import { create } from 'zustand';
 import { persist, createJSONStorage, StateStorage } from 'zustand/middleware';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as SecureStore from 'expo-secure-store';
-import type { ApiResponse, ProfileData, User } from '@/types';
+import type {
+  Anchor,
+  ApiResponse,
+  PendingFirstAnchorDraft,
+  PendingFirstAnchorMutation,
+  ProfileData,
+  User,
+} from '@/types';
 import { apiClient, fetchCompleteProfile } from '@/services/ApiClient';
 import { AuthService } from '@/services/AuthService';
 import { useAnchorStore } from '@/stores/anchorStore';
@@ -71,6 +78,46 @@ const hybridStorage: StateStorage = {
  */
 export type OnboardingSegment = 'athlete' | 'entrepreneur' | 'wellness';
 
+function normalizeAnchorDate(value?: Date | string | null): Date | undefined {
+  if (!value) return undefined;
+  return value instanceof Date ? value : new Date(value);
+}
+
+function normalizeAnchor(anchor: Anchor): Anchor {
+  return {
+    ...anchor,
+    createdAt: normalizeAnchorDate(anchor.createdAt) ?? new Date(),
+    updatedAt: normalizeAnchorDate(anchor.updatedAt) ?? new Date(),
+    chargedAt: normalizeAnchorDate(anchor.chargedAt),
+    firstChargedAt: normalizeAnchorDate(anchor.firstChargedAt),
+    ignitedAt: normalizeAnchorDate(anchor.ignitedAt),
+    lastActivatedAt: normalizeAnchorDate(anchor.lastActivatedAt),
+    releasedAt: normalizeAnchorDate(anchor.releasedAt),
+    archivedAt: normalizeAnchorDate(anchor.archivedAt),
+  };
+}
+
+function buildAnchorCreatePayload(anchor: Anchor) {
+  return {
+    intentionText: anchor.intentionText,
+    category: anchor.category,
+    distilledLetters: anchor.distilledLetters,
+    baseSigilSvg: anchor.baseSigilSvg,
+    structureVariant: anchor.structureVariant,
+    reinforcedSigilSvg: anchor.reinforcedSigilSvg,
+    reinforcementMetadata: anchor.reinforcementMetadata,
+    enhancedImageUrl: anchor.enhancedImageUrl,
+    enhancementMetadata: anchor.enhancementMetadata,
+    mantraText: anchor.mantraText,
+    mantraPronunciation: anchor.mantraPronunciation,
+    mantraAudioUrl: anchor.mantraAudioUrl,
+  };
+}
+
+function isMockAuthToken(token: string | null | undefined): boolean {
+  return typeof token === 'string' && (token === 'mock-jwt-token' || token.startsWith('mock-'));
+}
+
 /**
  * Authentication state interface
  */
@@ -84,6 +131,10 @@ interface AuthState {
   onboardingSegment: OnboardingSegment | null;
   shouldRedirectToCreation: boolean;
   anchorCount: number;
+  pendingFirstAnchorDraft: PendingFirstAnchorDraft | null;
+  pendingFirstAnchorMutations: PendingFirstAnchorMutation[];
+  isFinalizingPendingFirstAnchor: boolean;
+  pendingFirstAnchorError: string | null;
 
   // NEW: Profile caching fields
   profileData: ProfileData | null;
@@ -100,6 +151,11 @@ interface AuthState {
   setOnboardingSegment: (segment: OnboardingSegment) => void;
   setShouldRedirectToCreation: (should: boolean) => void;
   incrementAnchorCount: () => void;
+  setPendingFirstAnchorDraft: (draft: PendingFirstAnchorDraft | null) => void;
+  enqueuePendingFirstAnchorMutation: (mutation: PendingFirstAnchorMutation) => void;
+  clearPendingFirstAnchorState: () => void;
+  clearPendingFirstAnchorError: () => void;
+  finalizePendingFirstAnchorDraft: () => Promise<boolean>;
   signOut: () => void;
 
   // NEW: Profile actions
@@ -137,6 +193,10 @@ export const useAuthStore = create<AuthState>()(
       onboardingSegment: null,
       shouldRedirectToCreation: false,
       anchorCount: 0,
+      pendingFirstAnchorDraft: null,
+      pendingFirstAnchorMutations: [],
+      isFinalizingPendingFirstAnchor: false,
+      pendingFirstAnchorError: null,
 
       // NEW: Profile caching initial state
       profileData: null,
@@ -145,9 +205,21 @@ export const useAuthStore = create<AuthState>()(
 
       // Actions
       setUser: (user) =>
-        set({
-          user,
-          isAuthenticated: !!user,
+        set((state) => {
+          const hasCompletedOnboarding = user
+            ? state.hasCompletedOnboarding || Boolean(user.hasCompletedOnboarding)
+            : state.hasCompletedOnboarding;
+
+          return {
+            user: user
+              ? {
+                ...user,
+                hasCompletedOnboarding,
+              }
+              : null,
+            isAuthenticated: !!user,
+            hasCompletedOnboarding,
+          };
         }),
 
       setToken: (token) =>
@@ -156,12 +228,20 @@ export const useAuthStore = create<AuthState>()(
         }),
 
       setSession: (user, token) =>
-        set({
-          user,
-          token,
-          isAuthenticated: true,
-          hasCompletedOnboarding: user.hasCompletedOnboarding ?? false,
-          isLoading: false,
+        set((state) => {
+          const hasCompletedOnboarding =
+            state.hasCompletedOnboarding || Boolean(user.hasCompletedOnboarding);
+
+          return {
+            user: {
+              ...user,
+              hasCompletedOnboarding,
+            },
+            token,
+            isAuthenticated: true,
+            hasCompletedOnboarding,
+            isLoading: false,
+          };
         }),
 
       setLoading: (loading) =>
@@ -199,6 +279,30 @@ export const useAuthStore = create<AuthState>()(
           anchorCount: state.anchorCount + 1,
         })),
 
+      setPendingFirstAnchorDraft: (pendingFirstAnchorDraft) =>
+        set({
+          pendingFirstAnchorDraft,
+          pendingFirstAnchorError: null,
+        }),
+
+      enqueuePendingFirstAnchorMutation: (mutation) =>
+        set((state) => ({
+          pendingFirstAnchorMutations: [...state.pendingFirstAnchorMutations, mutation],
+        })),
+
+      clearPendingFirstAnchorState: () =>
+        set({
+          pendingFirstAnchorDraft: null,
+          pendingFirstAnchorMutations: [],
+          pendingFirstAnchorError: null,
+          isFinalizingPendingFirstAnchor: false,
+        }),
+
+      clearPendingFirstAnchorError: () =>
+        set({
+          pendingFirstAnchorError: null,
+        }),
+
       setWallpaperPromptSeen: (wallpaperPromptSeen) =>
         set({ wallpaperPromptSeen }),
 
@@ -215,10 +319,16 @@ export const useAuthStore = create<AuthState>()(
           }
 
           const profileData = await fetchCompleteProfile();
+          const hasCompletedOnboarding =
+            get().hasCompletedOnboarding || Boolean(profileData.user.hasCompletedOnboarding);
           set({
             profileData,
             profileLastFetched: now,
-            user: profileData.user, // Keep user in sync
+            user: {
+              ...profileData.user,
+              hasCompletedOnboarding,
+            },
+            hasCompletedOnboarding,
           });
         } catch (error) {
           logger.error('Failed to fetch profile:', error);
@@ -235,6 +345,180 @@ export const useAuthStore = create<AuthState>()(
       // NEW: Clear profile data (on logout)
       clearProfile: () => {
         set({ profileData: null, profileLastFetched: null });
+      },
+
+      finalizePendingFirstAnchorDraft: async () => {
+        const {
+          pendingFirstAnchorDraft,
+          pendingFirstAnchorMutations,
+          isFinalizingPendingFirstAnchor,
+          user,
+        } = get();
+
+        if (!pendingFirstAnchorDraft) {
+          return true;
+        }
+
+        if (isFinalizingPendingFirstAnchor) {
+          return false;
+        }
+
+        set({
+          isFinalizingPendingFirstAnchor: true,
+          pendingFirstAnchorError: null,
+        });
+
+        try {
+          const anchorStore = useAnchorStore.getState();
+          const localAnchor = anchorStore.getAnchorById(pendingFirstAnchorDraft.tempAnchorId);
+
+          if (!localAnchor) {
+            throw new Error('Your first anchor draft could not be found.');
+          }
+
+          const idToken = await AuthService.getIdToken();
+
+          // Mock auth cannot reach the real backend. Clear the gate and keep the
+          // locally created anchor so development and tests remain usable.
+          if (isMockAuthToken(idToken)) {
+            if (user?.id && localAnchor.userId !== user.id) {
+              anchorStore.updateAnchor(localAnchor.id, { userId: user.id });
+            }
+
+            set((state) => ({
+              pendingFirstAnchorDraft: null,
+              pendingFirstAnchorMutations: [],
+              isFinalizingPendingFirstAnchor: false,
+              pendingFirstAnchorError: null,
+              user: state.user
+                ? {
+                  ...state.user,
+                  totalAnchorsCreated: state.user.totalAnchorsCreated + 1,
+                }
+                : state.user,
+              profileData: state.profileData
+                ? {
+                  ...state.profileData,
+                  user: {
+                    ...state.profileData.user,
+                    totalAnchorsCreated: state.profileData.user.totalAnchorsCreated + 1,
+                  },
+                }
+                : state.profileData,
+            }));
+
+            return true;
+          }
+
+          const createResponse = await apiClient.post<ApiResponse<Anchor>>(
+            '/api/anchors',
+            buildAnchorCreatePayload(localAnchor)
+          );
+
+          if (!createResponse.data?.success || !createResponse.data.data?.id) {
+            throw new Error('We could not save your first anchor yet.');
+          }
+
+          let finalizedAnchor = normalizeAnchor({
+            ...localAnchor,
+            ...createResponse.data.data,
+            id: createResponse.data.data.id,
+          } as Anchor);
+
+          for (const mutation of pendingFirstAnchorMutations) {
+            if (mutation.tempAnchorId !== pendingFirstAnchorDraft.tempAnchorId) {
+              continue;
+            }
+
+            if (mutation.type === 'create_anchor') {
+              continue;
+            }
+
+            if (mutation.type === 'charge_anchor') {
+              const chargeResponse = await apiClient.post<ApiResponse<Anchor>>(
+                `/api/anchors/${finalizedAnchor.id}/charge`,
+                {
+                  chargeType: mutation.chargeType,
+                  durationSeconds: mutation.durationSeconds,
+                }
+              );
+
+              if (!chargeResponse.data?.success || !chargeResponse.data.data) {
+                throw new Error('Your first anchor was created, but charging did not sync.');
+              }
+
+              finalizedAnchor = normalizeAnchor({
+                ...finalizedAnchor,
+                ...chargeResponse.data.data,
+              } as Anchor);
+              continue;
+            }
+
+            if (mutation.type === 'activate_anchor') {
+              const activationResponse = await apiClient.post<ApiResponse<Anchor>>(
+                `/api/anchors/${finalizedAnchor.id}/activate`,
+                {
+                  activationType: mutation.activationType,
+                  durationSeconds: mutation.durationSeconds,
+                }
+              );
+
+              if (!activationResponse.data?.success || !activationResponse.data.data) {
+                throw new Error('Your first anchor was created, but activation did not sync.');
+              }
+
+              finalizedAnchor = normalizeAnchor({
+                ...finalizedAnchor,
+                ...activationResponse.data.data,
+              } as Anchor);
+            }
+          }
+
+          const nextAnchors = anchorStore.anchors.map((anchor) =>
+            anchor.id === pendingFirstAnchorDraft.tempAnchorId ? finalizedAnchor : anchor
+          );
+          anchorStore.setAnchors(nextAnchors);
+
+          if (anchorStore.currentAnchorId === pendingFirstAnchorDraft.tempAnchorId) {
+            anchorStore.setCurrentAnchor(finalizedAnchor.id);
+          }
+
+          set((state) => ({
+            pendingFirstAnchorDraft: null,
+            pendingFirstAnchorMutations: [],
+            isFinalizingPendingFirstAnchor: false,
+            pendingFirstAnchorError: null,
+            user: state.user
+              ? {
+                ...state.user,
+                totalAnchorsCreated: state.user.totalAnchorsCreated + 1,
+              }
+              : state.user,
+            profileData: state.profileData
+              ? {
+                ...state.profileData,
+                user: {
+                  ...state.profileData.user,
+                  totalAnchorsCreated: state.profileData.user.totalAnchorsCreated + 1,
+                },
+              }
+              : state.profileData,
+          }));
+
+          return true;
+        } catch (error) {
+          const message =
+            error instanceof Error
+              ? error.message
+              : 'We could not finish saving your first anchor.';
+
+          logger.warn('Failed to finalize first anchor draft', error);
+          set({
+            isFinalizingPendingFirstAnchor: false,
+            pendingFirstAnchorError: message,
+          });
+          return false;
+        }
       },
 
       computeStreak: () => {
@@ -300,7 +584,7 @@ export const useAuthStore = create<AuthState>()(
 
         try {
           const token = await AuthService.getIdToken();
-          const isMockToken = typeof token === 'string' && token.startsWith('mock-');
+          const isMockToken = isMockAuthToken(token);
 
           if (isMockToken) {
             return flags;
@@ -348,6 +632,8 @@ export const useAuthStore = create<AuthState>()(
           anchorCount: 0,
           profileData: null,
           profileLastFetched: null,
+          isFinalizingPendingFirstAnchor: false,
+          pendingFirstAnchorError: null,
         }),
     }),
     {
@@ -370,6 +656,8 @@ export const useAuthStore = create<AuthState>()(
         hasCompletedOnboarding: state.hasCompletedOnboarding,
         onboardingSegment: state.onboardingSegment,
         anchorCount: state.anchorCount,
+        pendingFirstAnchorDraft: state.pendingFirstAnchorDraft,
+        pendingFirstAnchorMutations: state.pendingFirstAnchorMutations,
         profileData: state.profileData,
         profileLastFetched: state.profileLastFetched,
         wallpaperPromptSeen: state.wallpaperPromptSeen,

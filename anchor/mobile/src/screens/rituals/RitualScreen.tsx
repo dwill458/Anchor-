@@ -29,6 +29,7 @@ import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { useTabNavigation } from '@/contexts/TabNavigationContext';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { useAnchorStore } from '@/stores/anchorStore';
+import { useAuthStore } from '@/stores/authStore';
 import { useSettingsStore } from '@/stores/settingsStore';
 import { useRitualController } from '@/hooks/useRitualController';
 import { getRitualConfig } from '@/config/ritualConfigs';
@@ -45,6 +46,7 @@ import { ProgressHaloRing } from './components/ProgressHaloRing';
 import { ConfirmModal } from './components/ConfirmModal';
 import { TIMING, EASING } from './utils/transitionConstants';
 import * as Speech from 'expo-speech';
+import { navigateToVaultDestination } from '@/navigation/firstAnchorGate';
 
 const { width } = Dimensions.get('window');
 
@@ -195,9 +197,14 @@ export const RitualScreen: React.FC = () => {
 
   const getAnchorById = useAnchorStore((state) => state.getAnchorById);
   const updateAnchor = useAnchorStore((state) => state.updateAnchor);
+  const pendingFirstAnchorDraft = useAuthStore((state) => state.pendingFirstAnchorDraft);
+  const enqueuePendingFirstAnchorMutation = useAuthStore(
+    (state) => state.enqueuePendingFirstAnchorMutation
+  );
   const { soundEffectsEnabled } = useSettingsStore();
   const anchor = getAnchorById(anchorId);
   const sigilSvg = anchor?.reinforcedSigilSvg ?? anchor?.baseSigilSvg ?? '';
+  const isPendingFirstAnchor = pendingFirstAnchorDraft?.tempAnchorId === anchorId;
 
   const [reduceMotionEnabled, setReduceMotionEnabled] = useState(false);
   const [showExitWarning, setShowExitWarning] = useState(false);
@@ -433,19 +440,33 @@ export const RitualScreen: React.FC = () => {
         chargeType = 'initial_deep';
       }
 
-      const token = await AuthService.getIdToken();
-      const isMockToken = typeof token === 'string' && token.startsWith('mock-');
       let backendSyncFailed = false;
 
-      if (!isMockToken) {
-        try {
-          await apiClient.post(`/api/anchors/${anchorId}/charge`, {
-            chargeType,
-            durationSeconds: config.totalDurationSeconds,
-          });
-        } catch (syncError) {
-          backendSyncFailed = true;
-          logger.warn('Charge sync failed, saving locally only', syncError);
+      if (isPendingFirstAnchor) {
+        enqueuePendingFirstAnchorMutation({
+          type: 'charge_anchor',
+          tempAnchorId: anchorId,
+          chargeType,
+          durationSeconds: config.totalDurationSeconds,
+          queuedAt: new Date().toISOString(),
+        });
+      } else {
+        const token = await AuthService.getIdToken();
+        const isMockToken =
+          typeof token === 'string' && (token === 'mock-jwt-token' || token.startsWith('mock-'));
+
+        if (isMockToken) {
+          backendSyncFailed = false;
+        } else {
+          try {
+            await apiClient.post(`/api/anchors/${anchorId}/charge`, {
+              chargeType,
+              durationSeconds: config.totalDurationSeconds,
+            });
+          } catch (syncError) {
+            backendSyncFailed = true;
+            logger.warn('Charge sync failed, saving locally only', syncError);
+          }
         }
       }
 
@@ -456,8 +477,6 @@ export const RitualScreen: React.FC = () => {
 
       if (backendSyncFailed && isMountedRef.current) {
         Alert.alert('Saved Locally', 'Anchor charge saved. Sync will retry later.');
-      } else if (isMockToken && isMountedRef.current) {
-        Alert.alert('Saved, Sync Pending', 'Running in mock auth mode. Charge is saved locally.');
       }
 
       if (isMountedRef.current) {
@@ -488,7 +507,7 @@ export const RitualScreen: React.FC = () => {
       if (typeof nav.popToTop === 'function') {
         nav.popToTop();
       } else {
-        navigation.navigate('Vault');
+        navigateToVaultDestination(navigation);
       }
       navigateToPractice();
       return;
@@ -499,7 +518,7 @@ export const RitualScreen: React.FC = () => {
       return;
     }
 
-    navigation.navigate('Vault');
+    navigateToVaultDestination(navigation);
   }, [anchorId, navigateToPractice, navigation, returnTo]);
 
   useEffect(() => {
