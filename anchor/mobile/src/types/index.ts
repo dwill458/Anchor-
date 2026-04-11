@@ -122,6 +122,8 @@ export interface PendingFirstAnchorDraft {
   source: 'onboarding_first_anchor';
   requiresAccountGate: boolean;
   createdAt: Date;
+  backendAnchorId?: string;
+  nextPendingMutationIndex?: number;
 }
 
 export type PendingFirstAnchorMutation =
