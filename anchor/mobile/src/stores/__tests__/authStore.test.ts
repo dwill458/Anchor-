@@ -42,6 +42,10 @@ describe('authStore', () => {
       onboardingSegment: null,
       shouldRedirectToCreation: false,
       anchorCount: 0,
+      pendingFirstAnchorDraft: null,
+      pendingFirstAnchorMutations: [],
+      isFinalizingPendingFirstAnchor: false,
+      pendingFirstAnchorError: null,
       profileData: null,
       profileLastFetched: null,
     });
@@ -129,6 +133,16 @@ describe('authStore', () => {
       setUser(user);
 
       expect(useAuthStore.getState().user?.displayName).toBe('Custom Name');
+    });
+
+    it('should preserve completed onboarding when server user says false', () => {
+      const { setUser, setHasCompletedOnboarding } = useAuthStore.getState();
+      setHasCompletedOnboarding(true);
+
+      setUser(createMockUser({ hasCompletedOnboarding: false }));
+
+      expect(useAuthStore.getState().hasCompletedOnboarding).toBe(true);
+      expect(useAuthStore.getState().user?.hasCompletedOnboarding).toBe(true);
     });
   });
 
@@ -450,7 +464,7 @@ describe('authStore', () => {
       setHasCompletedOnboarding(false);
 
       // Complete registration
-      setUser(createMockUser({ email: 'newuser@example.com' }));
+      setUser(createMockUser({ email: 'newuser@example.com', hasCompletedOnboarding: false }));
       setToken('new-user-token');
       setLoading(false);
 
@@ -477,6 +491,65 @@ describe('authStore', () => {
 
       setUser(null);
       expect(useAuthStore.getState().isAuthenticated).toBe(false);
+    });
+  });
+
+  describe('Pending first anchor state', () => {
+    it('should enqueue pending first-anchor mutations in order', () => {
+      const {
+        setPendingFirstAnchorDraft,
+        enqueuePendingFirstAnchorMutation,
+      } = useAuthStore.getState();
+
+      setPendingFirstAnchorDraft({
+        tempAnchorId: 'pending-anchor-1',
+        source: 'onboarding_first_anchor',
+        requiresAccountGate: true,
+        createdAt: new Date(),
+      });
+
+      enqueuePendingFirstAnchorMutation({
+        type: 'create_anchor',
+        tempAnchorId: 'pending-anchor-1',
+        queuedAt: new Date().toISOString(),
+      });
+      enqueuePendingFirstAnchorMutation({
+        type: 'charge_anchor',
+        tempAnchorId: 'pending-anchor-1',
+        chargeType: 'initial_quick',
+        durationSeconds: 30,
+        queuedAt: new Date().toISOString(),
+      });
+
+      expect(useAuthStore.getState().pendingFirstAnchorMutations.map((item) => item.type)).toEqual([
+        'create_anchor',
+        'charge_anchor',
+      ]);
+    });
+
+    it('should clear pending first-anchor state', () => {
+      const {
+        setPendingFirstAnchorDraft,
+        enqueuePendingFirstAnchorMutation,
+        clearPendingFirstAnchorState,
+      } = useAuthStore.getState();
+
+      setPendingFirstAnchorDraft({
+        tempAnchorId: 'pending-anchor-1',
+        source: 'onboarding_first_anchor',
+        requiresAccountGate: true,
+        createdAt: new Date(),
+      });
+      enqueuePendingFirstAnchorMutation({
+        type: 'create_anchor',
+        tempAnchorId: 'pending-anchor-1',
+        queuedAt: new Date().toISOString(),
+      });
+
+      clearPendingFirstAnchorState();
+
+      expect(useAuthStore.getState().pendingFirstAnchorDraft).toBeNull();
+      expect(useAuthStore.getState().pendingFirstAnchorMutations).toEqual([]);
     });
   });
 });

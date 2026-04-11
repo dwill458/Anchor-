@@ -56,6 +56,7 @@ function mapProviderIdToAuthProvider(providerId?: string): 'email' | 'google' | 
 const SyncSchema = z.object({
   displayName: z.string().optional(),
   authProvider: z.enum(['email', 'google', 'apple']).optional(),
+  hasCompletedOnboarding: z.boolean().optional(),
 });
 
 const UpdateProfileSchema = z.object({
@@ -106,7 +107,7 @@ router.post(
         throw new AppError('User not authenticated', 401, 'UNAUTHORIZED');
       }
 
-      const { displayName, authProvider } = validate(SyncSchema, req.body);
+      const { displayName, authProvider, hasCompletedOnboarding } = validate(SyncSchema, req.body);
       const email = req.user.email;
 
       if (!email) {
@@ -128,6 +129,7 @@ router.post(
         update: {
           email,
           displayName: displayName || undefined,
+          ...(hasCompletedOnboarding === true && { hasCompletedOnboarding: true }),
           lastSeenAt: new Date(),
         },
         create: {
@@ -135,6 +137,7 @@ router.post(
           email,
           displayName,
           authProvider: provider,
+          hasCompletedOnboarding: hasCompletedOnboarding === true,
           lastSeenAt: new Date(),
         },
       });

@@ -32,7 +32,6 @@ import {
 import { useAnchorStore } from '../../stores/anchorStore';
 import { useAuthStore } from '../../stores/authStore';
 import { useToast } from '../../components/ToastProvider';
-import { AnchorLimitModal } from '../../components/modals/AnchorLimitModal';
 import { AnchorGridSkeleton } from '../../components/skeletons/AnchorCardSkeleton';
 // DEFERRED: freemium — useSubscription removed; freemium tier gates replaced with trial model
 // import { useSubscription } from '../../hooks/useSubscription';
@@ -138,6 +137,8 @@ export const VaultScreen: React.FC = () => {
   );
   const shouldRedirectToCreation = useAuthStore((s) => s.shouldRedirectToCreation);
   const setShouldRedirectToCreation = useAuthStore((s) => s.setShouldRedirectToCreation);
+  const pendingFirstAnchorDraft = useAuthStore((s) => s.pendingFirstAnchorDraft);
+  const shouldGateFirstVaultEntry = Boolean(pendingFirstAnchorDraft?.requiresAccountGate);
 
   const anchors = useAnchorStore((s) => s.anchors);
   const currentAnchorId = useAnchorStore((s) => s.currentAnchorId);
@@ -145,10 +146,6 @@ export const VaultScreen: React.FC = () => {
   const isLoading = useAnchorStore((s) => s.isLoading);
   const setLoading = useAnchorStore((s) => s.setLoading);
   const setError = useAnchorStore((s) => s.setError);
-
-  // DEFERRED: freemium — isFree / features.maxAnchors gate removed; all trial/active users have unlimited anchors
-  // const { isFree, features } = useSubscription();
-  const [showAnchorLimitModal, setShowAnchorLimitModal] = React.useState(false);
 
   const reduceMotionEnabled = useReduceMotionEnabled();
   const shouldReduceMotion = reduceMotionEnabled || !isVaultTabActive;
@@ -249,6 +246,14 @@ export const VaultScreen: React.FC = () => {
     navigation,
   ]);
 
+  useEffect(() => {
+    if (!shouldGateFirstVaultEntry) {
+      return;
+    }
+
+    navigation.replace('FirstAnchorAccountGate');
+  }, [navigation, shouldGateFirstVaultEntry]);
+
   // ── Data fetching ─────────────────────────────────────────────────────────────
   const fetchAnchors = useCallback(async (): Promise<void> => {
     if (!user) return;
@@ -319,20 +324,6 @@ export const VaultScreen: React.FC = () => {
       navigation.navigate('ChargeSetup', { anchorId: primaryAnchor.id });
     }
   }, [primaryAnchor, navigation]);
-
-  const handleUpgradeFromLimit = useCallback((): void => {
-    setShowAnchorLimitModal(false);
-    AnalyticsService.track(AnalyticsEvents.UPGRADE_INITIATED, {
-      source: 'anchor_limit_modal',
-      trigger: 'max_anchors_reached',
-    });
-    navigation.navigate('Settings');
-  }, [navigation]);
-
-  const handleBurnFromLimit = useCallback((): void => {
-    setShowAnchorLimitModal(false);
-    toast.info('Select an anchor to release and make room for a new one');
-  }, [toast]);
 
   // ── Render ────────────────────────────────────────────────────────────────────
 
@@ -407,15 +398,6 @@ export const VaultScreen: React.FC = () => {
           </View>
         )}
       </SafeAreaView>
-
-      <AnchorLimitModal
-        visible={showAnchorLimitModal}
-        currentCount={anchors.length}
-        maxCount={features.maxAnchors}
-        onClose={() => setShowAnchorLimitModal(false)}
-        onUpgrade={handleUpgradeFromLimit}
-        onBurnAnchor={handleBurnFromLimit}
-      />
     </View>
   );
 };

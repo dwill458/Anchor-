@@ -42,6 +42,13 @@ export const AnchorRevealScreen: React.FC = () => {
     const incrementAnchorCount = useAuthStore((state) => state.incrementAnchorCount);
     const wallpaperPromptSeen = useAuthStore((state) => state.wallpaperPromptSeen);
     const authUser = useAuthStore((state) => state.user);
+    const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
+    const existingAnchorCount = useAuthStore((state) => state.anchorCount);
+    const setPendingFirstAnchorDraft = useAuthStore((state) => state.setPendingFirstAnchorDraft);
+    const enqueuePendingFirstAnchorMutation = useAuthStore(
+        (state) => state.enqueuePendingFirstAnchorMutation
+    );
+    const clearPendingFirstAnchorState = useAuthStore((state) => state.clearPendingFirstAnchorState);
     const [isSaving, setIsSaving] = useState(false);
 
     const {
@@ -112,27 +119,45 @@ export const AnchorRevealScreen: React.FC = () => {
             has_image: Boolean(enhancedImageUrl),
         });
 
-        let anchorId = `anchor-${Date.now()}`; // fallback local ID
+        const isGuestFirstAnchor = !isAuthenticated && existingAnchorCount === 0;
+        let anchorId = isGuestFirstAnchor
+            ? `pending-first-anchor-${Date.now()}`
+            : `anchor-${Date.now()}`;
 
         try {
-            // Persist anchor to backend — this is the source of truth
-            const response = await post<ApiResponse<Anchor>>('/api/anchors', {
-                intentionText,
-                category,
-                distilledLetters,
-                baseSigilSvg,
-                structureVariant: structureVariant || 'balanced',
-                reinforcedSigilSvg: reinforcedSigilSvg || undefined,
-                reinforcementMetadata: reinforcementMetadata || undefined,
-                enhancedImageUrl: enhancedImageUrl || undefined,
-                enhancementMetadata: enhancementMetadata || undefined,
-            });
-
-            if (response?.success && response?.data?.id) {
-                anchorId = response.data.id;
-                logger.info('[AnchorReveal] Anchor saved to backend', { anchorId });
+            if (isGuestFirstAnchor) {
+                clearPendingFirstAnchorState();
+                setPendingFirstAnchorDraft({
+                    tempAnchorId: anchorId,
+                    source: 'onboarding_first_anchor',
+                    requiresAccountGate: true,
+                    createdAt: new Date(),
+                });
+                enqueuePendingFirstAnchorMutation({
+                    type: 'create_anchor',
+                    tempAnchorId: anchorId,
+                    queuedAt: new Date().toISOString(),
+                });
             } else {
-                logger.warn('[AnchorReveal] Backend returned unexpected response, using local ID', { response });
+                // Persist anchor to backend — this is the source of truth
+                const response = await post<ApiResponse<Anchor>>('/api/anchors', {
+                    intentionText,
+                    category,
+                    distilledLetters,
+                    baseSigilSvg,
+                    structureVariant: structureVariant || 'balanced',
+                    reinforcedSigilSvg: reinforcedSigilSvg || undefined,
+                    reinforcementMetadata: reinforcementMetadata || undefined,
+                    enhancedImageUrl: enhancedImageUrl || undefined,
+                    enhancementMetadata: enhancementMetadata || undefined,
+                });
+
+                if (response?.success && response?.data?.id) {
+                    anchorId = response.data.id;
+                    logger.info('[AnchorReveal] Anchor saved to backend', { anchorId });
+                } else {
+                    logger.warn('[AnchorReveal] Backend returned unexpected response, using local ID', { response });
+                }
             }
         } catch (err) {
             logger.warn('[AnchorReveal] Failed to save anchor to backend, proceeding locally', err);

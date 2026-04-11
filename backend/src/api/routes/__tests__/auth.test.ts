@@ -120,6 +120,30 @@ describe('POST /api/auth/sync', () => {
     expect(mockPrisma.userSettings.upsert).toHaveBeenCalledTimes(1);
   });
 
+  it('promotes onboarding completion when requested during sync', async () => {
+    (mockPrisma.user.upsert as jest.Mock).mockResolvedValue({
+      ...MOCK_DB_USER,
+      hasCompletedOnboarding: true,
+    });
+    (mockPrisma.userSettings.upsert as jest.Mock).mockResolvedValue(MOCK_SETTINGS);
+
+    const res = await request(buildApp())
+      .post('/api/auth/sync')
+      .send({
+        displayName: 'Test User',
+        authProvider: 'email',
+        hasCompletedOnboarding: true,
+      });
+
+    expect(res.status).toBe(200);
+    expect(mockPrisma.user.upsert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        update: expect.objectContaining({ hasCompletedOnboarding: true }),
+        create: expect.objectContaining({ hasCompletedOnboarding: true }),
+      })
+    );
+  });
+
   it('returns 400 when user has no email in token', async () => {
     mockedAuthMiddleware.mockImplementation((req: any, _res: any, next: any) => {
       req.user = { uid: 'firebase-uid-1' }; // no email
