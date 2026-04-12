@@ -60,11 +60,12 @@ describe('StorageService', () => {
       const buffer = Buffer.from('fake-image-data');
       const url = await uploadImageFromBuffer(buffer, 'user-1', 'anchor-1', 0);
 
-      expect(fs.writeFileSync).toHaveBeenCalledWith(
-        expect.stringContaining('anchor-1-0.png'),
-        buffer
-      );
-      expect(url).toContain('anchor-1-0.png');
+      expect(fs.writeFileSync).toHaveBeenCalledWith(expect.any(String), buffer);
+      const writtenPath = (fs.writeFileSync as jest.Mock).mock.calls[0][0] as string;
+      expect(writtenPath).toContain(path.join('anchors', 'user-1', 'anchor-1'));
+      expect(writtenPath).toMatch(/-variation-0\.png$/);
+      expect(url).toContain('/uploads/anchors/user-1/anchor-1/');
+      expect(url).toMatch(/-variation-0\.png$/);
       expect(url).toMatch(/^http:\/\//);
     });
 
@@ -87,6 +88,42 @@ describe('StorageService', () => {
       const url = await uploadImageFromBuffer(Buffer.from('data'), 'user', 'anchor', 0);
 
       expect(url).toContain('192.168.1.100:3000');
+    });
+
+    it('uses isolated keys for same anchor id across different users', async () => {
+      (fs.existsSync as jest.Mock).mockReturnValue(true);
+      (fs.writeFileSync as jest.Mock).mockImplementation(() => {});
+
+      const urlA = await uploadImageFromBuffer(Buffer.from('data-a'), 'user-a', 'anchor-1', 0);
+      const urlB = await uploadImageFromBuffer(Buffer.from('data-b'), 'user-b', 'anchor-1', 0);
+
+      expect(urlA).toContain('/uploads/anchors/user-a/anchor-1/');
+      expect(urlB).toContain('/uploads/anchors/user-b/anchor-1/');
+      expect(urlA).not.toBe(urlB);
+    });
+
+    it('uses unique keys for repeated generation attempts for the same user and anchor', async () => {
+      (fs.existsSync as jest.Mock).mockReturnValue(true);
+      (fs.writeFileSync as jest.Mock).mockImplementation(() => {});
+
+      const url1 = await uploadImageFromBuffer(Buffer.from('attempt-1'), 'user-1', 'anchor-1', 0);
+      const url2 = await uploadImageFromBuffer(Buffer.from('attempt-2'), 'user-1', 'anchor-1', 0);
+
+      expect(url1).toContain('/uploads/anchors/user-1/anchor-1/');
+      expect(url2).toContain('/uploads/anchors/user-1/anchor-1/');
+      expect(url1).not.toBe(url2);
+    });
+
+    it('does not overwrite local files when generating the same variation repeatedly', async () => {
+      (fs.existsSync as jest.Mock).mockReturnValue(true);
+      (fs.writeFileSync as jest.Mock).mockImplementation(() => {});
+
+      await uploadImageFromBuffer(Buffer.from('attempt-1'), 'user-1', 'anchor-1', 1);
+      await uploadImageFromBuffer(Buffer.from('attempt-2'), 'user-1', 'anchor-1', 1);
+
+      const firstPath = (fs.writeFileSync as jest.Mock).mock.calls[0][0] as string;
+      const secondPath = (fs.writeFileSync as jest.Mock).mock.calls[1][0] as string;
+      expect(firstPath).not.toBe(secondPath);
     });
 
     it('should throw on fs write failure', async () => {
@@ -123,7 +160,8 @@ describe('StorageService', () => {
         'https://example.com/image.png',
         expect.objectContaining({ responseType: 'arraybuffer' })
       );
-      expect(url).toContain('anchor-1-0.png');
+      expect(url).toContain('/uploads/anchors/user-1/anchor-1/');
+      expect(url).toMatch(/-variation-0\.png$/);
     });
 
     it('should throw when download fails', async () => {

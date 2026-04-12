@@ -7,7 +7,7 @@
 
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import { encryptedPersistStorage } from './encryptedPersistStorage';
 import type { Anchor } from '@/types';
 import { useTeachingStore } from './teachingStore';
 
@@ -138,7 +138,7 @@ export const useAnchorStore = create<AnchorState>()(
     }),
     {
       name: 'anchor-vault-storage',
-      storage: createJSONStorage(() => AsyncStorage),
+      storage: createJSONStorage(() => encryptedPersistStorage),
       // Persist anchors, last sync time, and currentAnchorId
       partialize: (state) => ({
         anchors: state.anchors,

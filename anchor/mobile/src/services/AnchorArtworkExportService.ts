@@ -1,4 +1,4 @@
-import { Share } from 'react-native';
+import { Platform, Share } from 'react-native';
 import * as MediaLibrary from 'expo-media-library';
 import { ServiceError } from './ServiceErrors';
 
@@ -54,22 +54,26 @@ export async function exportAnchorArtwork({
   const filename = buildFilename(anchor.anchorName);
 
   if (mode === 'download') {
-    let permission;
-    try {
-      permission = await MediaLibrary.requestPermissionsAsync();
-    } catch (error) {
-      throw new ServiceError(
-        'artwork/permission-failed',
-        'Unable to request photo library access right now.',
-        error
-      );
-    }
+    const requiresPermission = Platform.OS !== 'android' || Number(Platform.Version) < 29;
 
-    if (!permission.granted) {
-      throw new ServiceError(
-        'artwork/permission-denied',
-        'Photo library permission is required to save this PNG.'
-      );
+    if (requiresPermission) {
+      let permission;
+      try {
+        permission = await MediaLibrary.requestPermissionsAsync(true);
+      } catch (error) {
+        throw new ServiceError(
+          'artwork/permission-failed',
+          'Unable to request photo library access right now.',
+          error
+        );
+      }
+
+      if (!permission.granted) {
+        throw new ServiceError(
+          'artwork/permission-denied',
+          'Photo library permission is required to save this PNG.'
+        );
+      }
     }
 
     try {

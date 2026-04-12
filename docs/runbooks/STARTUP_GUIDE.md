@@ -4,44 +4,63 @@
 
 - Node.js 20+
 - npm (not yarn or pnpm)
-- For mobile testing: Expo Go app on your phone
-- For Android: Android Studio with emulator
+- For Android: Android Studio with emulator or a USB-connected device
 - For iOS: Xcode with iOS Simulator (Mac only)
+- Expo development build installed on the device (`expo-dev-client`)
 
 ---
 
 ## 📱 Running the Frontend
 
-### Option 1: Expo Go on Your Phone (Easiest)
+### Option 1: Android Dev Client (USB)
 
-1. **Install Expo Go**:
-   - iOS: https://apps.apple.com/app/expo-go/id982107779
-   - Android: https://play.google.com/store/apps/details?id=host.exp.exponent
+> **Windows users:** `npx expo run:android` (local Gradle build) will fail with a "Filename longer than 260 characters" error due to Windows MAX_PATH limits — the project path is too deep. Use EAS Build below instead.
 
-2. **Start the development server**:
-   ```bash
-   cd apps/mobile
-   npm start
-   ```
+#### Step 1 — Build the dev client APK (one-time, or when native deps change)
 
-   Or if network issues occur:
-   ```bash
-   npx expo start --offline --tunnel
-   ```
+```bash
+cd anchor/mobile
+eas build --profile development --platform android
+```
 
-3. **Scan the QR code** with Expo Go app
+This builds on Expo's Linux servers. When done, open the link it prints on your Android phone and install the APK.
+
+#### Step 2 — Start Metro
+
+```bash
+cd anchor/mobile
+npx expo start --dev-client
+```
+
+#### Step 3 — Set up USB tunnel (Windows)
+
+adb is at `%LOCALAPPDATA%\Android\Sdk\platform-tools\adb.exe`. Run after plugging in:
+
+```bash
+"%LOCALAPPDATA%\Android\Sdk\platform-tools\adb.exe" reverse tcp:8081 tcp:8081
+```
+
+#### Step 4 — Connect the app
+
+Open the Anchor dev build on your phone. If Metro doesn't appear under "Development servers", tap **Enter URL manually** → `http://localhost:8081`.
+
+#### When do you need to rebuild the APK via EAS?
+
+- You added/removed a native package (`expo install`, `npm install` for anything with native code)
+- You changed `app.json` (icons, permissions, scheme)
+- The dev client crashes immediately on launch with "Unable to load script" even when Metro is running
 
 ### Option 2: Android Emulator
 
 ```bash
-cd apps/mobile
+cd anchor/mobile
 npm run android
 ```
 
 ### Option 3: iOS Simulator (Mac only)
 
 ```bash
-cd apps/mobile
+cd anchor/mobile
 npm run ios
 ```
 
@@ -74,7 +93,7 @@ If testing on a **physical device** (not emulator):
    ipconfig
    ```
 
-2. Create `apps/mobile/.env`:
+2. Create `anchor/mobile/.env`:
    ```bash
    EXPO_PUBLIC_API_URL=http://YOUR_COMPUTER_IP:3000
    ```
@@ -118,16 +137,34 @@ GOOGLE_CLOUD_CLIENT_EMAIL=your-service-account-email
 
 ## 🐛 Troubleshooting
 
-### "Cannot connect to Metro"
+### "Cannot connect to Metro" / "Unable to load script"
+
+First, verify Metro is actually running:
 ```bash
-cd apps/mobile
-npx expo start --clear
+curl http://localhost:8081/status   # should return: packager-status:running
 ```
+
+Then re-run `adb reverse` (Windows path):
+```bash
+"%LOCALAPPDATA%\Android\Sdk\platform-tools\adb.exe" reverse tcp:8081 tcp:8081
+```
+
+If Metro is up and adb reverse is set but the dev launcher still shows the error screen, the **native APK is stale** — rebuild via EAS:
+```bash
+cd anchor/mobile
+eas build --profile development --platform android
+```
+
+After installing the new APK, open it, tap **Enter URL manually** → `http://localhost:8081`.
+
+### "Filename longer than 260 characters" (Windows Gradle build)
+
+Do NOT use `npx expo run:android` or `npm run android` on Windows — the project path is too deep for Windows MAX_PATH. Always use `eas build` for native builds.
 
 ### "Module not found"
 ```bash
-cd apps/mobile
-rm -rf node_modules
+cd anchor/mobile
+Remove-Item -Recurse -Force node_modules
 npm install
 ```
 
@@ -138,8 +175,8 @@ npx expo start --port 8082
 
 ### "Network request failed"
 - Make sure backend is running
-- Check `EXPO_PUBLIC_API_URL` in apps/mobile/.env
-- Try restarting both apps/mobile and backend
+- Check `EXPO_PUBLIC_API_URL` in anchor/mobile/.env
+- Try restarting both `anchor/mobile` and `backend`
 
 ### "Expo fetch failed"
 ```bash
@@ -174,8 +211,8 @@ All these features are **optional** for testing the UI/UX!
 
 ## 🎯 Quick Test Flow
 
-1. Start apps/mobile: `cd apps/mobile && npm start`
-2. Open Expo Go on phone → Scan QR code
+1. Start mobile app: `cd anchor/mobile && npx expo start --dev-client --clear`
+2. Open the installed Anchor development build
 3. Create account (fake email works fine)
 4. Create your first anchor:
    - Enter intention: "Close the deal"

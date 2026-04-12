@@ -114,6 +114,19 @@ function buildAnchorCreatePayload(anchor: Anchor) {
   };
 }
 
+function getNextPendingMutationIndex(
+  mutations: PendingFirstAnchorMutation[],
+  startIndex: number
+): number {
+  let nextIndex = startIndex;
+
+  while (nextIndex < mutations.length && mutations[nextIndex]?.type === 'create_anchor') {
+    nextIndex += 1;
+  }
+
+  return nextIndex;
+}
+
 function isMockAuthToken(token: string | null | undefined): boolean {
   return typeof token === 'string' && (token === 'mock-jwt-token' || token.startsWith('mock-'));
 }
@@ -207,7 +220,7 @@ export const useAuthStore = create<AuthState>()(
       setUser: (user) =>
         set((state) => {
           const hasCompletedOnboarding = user
-            ? state.hasCompletedOnboarding || Boolean(user.hasCompletedOnboarding)
+            ? Boolean(user.hasCompletedOnboarding)
             : state.hasCompletedOnboarding;
 
           return {
@@ -228,9 +241,8 @@ export const useAuthStore = create<AuthState>()(
         }),
 
       setSession: (user, token) =>
-        set((state) => {
-          const hasCompletedOnboarding =
-            state.hasCompletedOnboarding || Boolean(user.hasCompletedOnboarding);
+        set(() => {
+          const hasCompletedOnboarding = Boolean(user.hasCompletedOnboarding);
 
           return {
             user: {
@@ -319,8 +331,7 @@ export const useAuthStore = create<AuthState>()(
           }
 
           const profileData = await fetchCompleteProfile();
-          const hasCompletedOnboarding =
-            get().hasCompletedOnboarding || Boolean(profileData.user.hasCompletedOnboarding);
+          const hasCompletedOnboarding = Boolean(profileData.user.hasCompletedOnboarding);
           set({
             profileData,
             profileLastFetched: now,
@@ -371,6 +382,9 @@ export const useAuthStore = create<AuthState>()(
         try {
           const anchorStore = useAnchorStore.getState();
           const localAnchor = anchorStore.getAnchorById(pendingFirstAnchorDraft.tempAnchorId);
+          const relevantMutations = pendingFirstAnchorMutations.filter(
+            (mutation) => mutation.tempAnchorId === pendingFirstAnchorDraft.tempAnchorId
+          );
 
           if (!localAnchor) {
             throw new Error('Your first anchor draft could not be found.');
@@ -410,27 +424,59 @@ export const useAuthStore = create<AuthState>()(
             return true;
           }
 
-          const createResponse = await apiClient.post<ApiResponse<Anchor>>(
-            '/api/anchors',
-            buildAnchorCreatePayload(localAnchor)
+          const persistPendingDraftProgress = (updates: Partial<PendingFirstAnchorDraft>) => {
+            set((state) => ({
+              pendingFirstAnchorDraft:
+                state.pendingFirstAnchorDraft?.tempAnchorId === pendingFirstAnchorDraft.tempAnchorId
+                  ? {
+                    ...state.pendingFirstAnchorDraft,
+                    ...updates,
+                  }
+                  : state.pendingFirstAnchorDraft,
+            }));
+          };
+
+          let backendAnchorId = pendingFirstAnchorDraft.backendAnchorId;
+          let nextPendingMutationIndex = pendingFirstAnchorDraft.nextPendingMutationIndex ?? 0;
+          let finalizedAnchor = normalizeAnchor(
+            backendAnchorId
+              ? ({
+                ...localAnchor,
+                id: backendAnchorId,
+              } as Anchor)
+              : localAnchor
           );
 
-          if (!createResponse.data?.success || !createResponse.data.data?.id) {
-            throw new Error('We could not save your first anchor yet.');
-          }
+          if (!backendAnchorId) {
+            const createResponse = await apiClient.post<ApiResponse<Anchor>>(
+              '/api/anchors',
+              buildAnchorCreatePayload(localAnchor)
+            );
 
-          let finalizedAnchor = normalizeAnchor({
-            ...localAnchor,
-            ...createResponse.data.data,
-            id: createResponse.data.data.id,
-          } as Anchor);
-
-          for (const mutation of pendingFirstAnchorMutations) {
-            if (mutation.tempAnchorId !== pendingFirstAnchorDraft.tempAnchorId) {
-              continue;
+            if (!createResponse.data?.success || !createResponse.data.data?.id) {
+              throw new Error('We could not save your first anchor yet.');
             }
 
+            backendAnchorId = createResponse.data.data.id;
+            nextPendingMutationIndex = getNextPendingMutationIndex(relevantMutations, 0);
+            finalizedAnchor = normalizeAnchor({
+              ...localAnchor,
+              ...createResponse.data.data,
+              id: backendAnchorId,
+            } as Anchor);
+
+            persistPendingDraftProgress({
+              backendAnchorId,
+              nextPendingMutationIndex,
+            });
+          }
+
+          for (let index = nextPendingMutationIndex; index < relevantMutations.length; index += 1) {
+            const mutation = relevantMutations[index];
+
             if (mutation.type === 'create_anchor') {
+              nextPendingMutationIndex = index + 1;
+              persistPendingDraftProgress({ nextPendingMutationIndex });
               continue;
             }
 
@@ -451,6 +497,8 @@ export const useAuthStore = create<AuthState>()(
                 ...finalizedAnchor,
                 ...chargeResponse.data.data,
               } as Anchor);
+              nextPendingMutationIndex = index + 1;
+              persistPendingDraftProgress({ nextPendingMutationIndex });
               continue;
             }
 
@@ -471,6 +519,8 @@ export const useAuthStore = create<AuthState>()(
                 ...finalizedAnchor,
                 ...activationResponse.data.data,
               } as Anchor);
+              nextPendingMutationIndex = index + 1;
+              persistPendingDraftProgress({ nextPendingMutationIndex });
             }
           }
 
