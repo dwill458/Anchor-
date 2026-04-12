@@ -21,6 +21,7 @@ Add these in **Settings → Secrets and variables → Actions**:
 |---|---|
 | `EXPO_TOKEN` | expo.dev → Account Settings → Access Tokens → Create |
 | `SENTRY_DSN` | sentry.io → Project → Settings → Client Keys |
+| `FIREBASE_ANDROID_GOOGLE_SERVICES_JSON_B64` | Base64 of `google-services.json` (`base64 -w 0 google-services.json`) |
 
 ### `production` environment only
 
@@ -47,3 +48,10 @@ Add these in **Settings → Secrets and variables → Actions**:
 | Push tag `v*.*.*` | `production` | Store build + auto-submit |
 | Manual dispatch | Any | Your choice |
 | Pull request | N/A | CI tests only (no build) |
+
+
+### Notes for Firebase config secret
+
+- Add `FIREBASE_ANDROID_GOOGLE_SERVICES_JSON_B64` to both `preview` and `production` environments if both build Android.
+- The workflow decodes this into `anchor/mobile/google-services.json` at build time.
+- Do not commit `google-services.json` to the repository.

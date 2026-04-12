@@ -35,6 +35,11 @@ dist/
 *service-account*.json
 *serviceaccount*.json
 
+# Firebase mobile config artifacts (generated or environment-specific)
+anchor/mobile/google-services.json
+anchor/mobile/android/app/google-services.json
+anchor/mobile/ios/GoogleService-Info.plist
+
 # ----------------------------------------------------------------------------
 # IDE & Editors
 # ----------------------------------------------------------------------------
