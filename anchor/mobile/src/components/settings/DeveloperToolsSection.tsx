@@ -14,7 +14,7 @@ interface DeveloperToolsSectionProps {
   onResetOnboarding: () => Promise<void> | void;
 }
 
-const TIERS: Array<AnchorSettings['dev_simulatedTier']> = ['free', 'pro', 'trial'];
+const TIERS: Array<AnchorSettings['dev_simulatedTier']> = ['free', 'pro', 'trial', 'expired'];
 
 export const DeveloperToolsSection: React.FC<DeveloperToolsSectionProps> = ({
   settings,

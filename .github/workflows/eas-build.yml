@@ -72,6 +72,17 @@ jobs:
             echo "platform=all" >> $GITHUB_OUTPUT
           fi
 
+      - name: Materialize Android Firebase config
+        if: ${{ steps.resolve.outputs.platform == 'android' || steps.resolve.outputs.platform == 'all' }}
+        run: |
+          if [ -z "${FIREBASE_ANDROID_GOOGLE_SERVICES_JSON_B64}" ]; then
+            echo "Missing FIREBASE_ANDROID_GOOGLE_SERVICES_JSON_B64 secret" >&2
+            exit 1
+          fi
+          echo "$FIREBASE_ANDROID_GOOGLE_SERVICES_JSON_B64" | base64 --decode > google-services.json
+        env:
+          FIREBASE_ANDROID_GOOGLE_SERVICES_JSON_B64: ${{ secrets.FIREBASE_ANDROID_GOOGLE_SERVICES_JSON_B64 }}
+
       # ── Build ──────────────────────────────────────────────────────────────
       - name: EAS Build
         run: |

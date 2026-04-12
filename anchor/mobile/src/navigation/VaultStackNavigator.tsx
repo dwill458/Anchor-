@@ -33,6 +33,7 @@ import {
   ChargeCompleteScreen,
 } from '../screens/rituals';
 import { SettingsScreen, DefaultChargeSettings, DefaultActivationSettings, DailyPracticeGoalScreen } from '../screens/profile';
+import { FirstAnchorAccountGateScreen, LoginScreen, SignUpScreen } from '../screens/auth';
 import type { RootStackParamList } from '@/types';
 import { colors } from '@/theme';
 import { useAuthStore } from '@/stores/authStore';
@@ -46,7 +47,13 @@ interface VaultStackNavigatorProps {
 export const VaultStackNavigator: React.FC<VaultStackNavigatorProps> = ({ onRouteChange }) => {
   const shouldRedirectToCreation = useAuthStore((state) => state.shouldRedirectToCreation);
   const setShouldRedirectToCreation = useAuthStore((state) => state.setShouldRedirectToCreation);
-  const initialRouteName = shouldRedirectToCreation ? 'FirstAnchorCreation' : 'Vault';
+  const pendingFirstAnchorDraft = useAuthStore((state) => state.pendingFirstAnchorDraft);
+  const shouldGateFirstVaultEntry = Boolean(pendingFirstAnchorDraft?.requiresAccountGate);
+  const initialRouteName = shouldRedirectToCreation
+    ? 'FirstAnchorCreation'
+    : shouldGateFirstVaultEntry
+      ? 'FirstAnchorAccountGate'
+      : 'Vault';
 
   React.useEffect(() => {
     if (shouldRedirectToCreation) {
@@ -90,6 +97,21 @@ export const VaultStackNavigator: React.FC<VaultStackNavigatorProps> = ({ onRout
         options={{
           headerShown: false,
         }}
+      />
+      <Stack.Screen
+        name="FirstAnchorAccountGate"
+        component={FirstAnchorAccountGateScreen}
+        options={{ headerShown: false, gestureEnabled: false }}
+      />
+      <Stack.Screen
+        name="Login"
+        component={LoginScreen}
+        options={{ headerShown: false }}
+      />
+      <Stack.Screen
+        name="SignUp"
+        component={SignUpScreen}
+        options={{ headerShown: false }}
       />
       <Stack.Screen
         name="AnchorDetail"

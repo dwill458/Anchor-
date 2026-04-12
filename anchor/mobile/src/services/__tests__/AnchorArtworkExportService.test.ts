@@ -1,4 +1,4 @@
-import { Share } from 'react-native';
+import { Platform, Share } from 'react-native';
 import * as MediaLibrary from 'expo-media-library';
 import {
   exportAnchorArtwork,
@@ -7,8 +7,20 @@ import {
 describe('AnchorArtworkExportService', () => {
   const captureArtwork = jest.fn(async () => 'file:///tmp/anchor.png');
 
+  const setPlatform = (os: 'ios' | 'android', version: string | number): void => {
+    Object.defineProperty(Platform, 'OS', {
+      configurable: true,
+      value: os,
+    });
+    Object.defineProperty(Platform, 'Version', {
+      configurable: true,
+      value: version,
+    });
+  };
+
   beforeEach(() => {
     jest.clearAllMocks();
+    setPlatform('ios', '17.0');
     captureArtwork.mockResolvedValue('file:///tmp/anchor.png');
     (MediaLibrary.requestPermissionsAsync as jest.Mock).mockResolvedValue({ granted: true });
     (MediaLibrary.saveToLibraryAsync as jest.Mock).mockResolvedValue(undefined);
@@ -37,7 +49,9 @@ describe('AnchorArtworkExportService', () => {
     });
   });
 
-  it('saves generated artwork when downloading png', async () => {
+  it('saves generated artwork without requesting permission on android 13+', async () => {
+    setPlatform('android', 33);
+
     const result = await exportAnchorArtwork({
       anchor: {
         anchorName: 'Sacred Loop',
@@ -47,7 +61,7 @@ describe('AnchorArtworkExportService', () => {
       captureArtwork,
     });
 
-    expect(MediaLibrary.requestPermissionsAsync).toHaveBeenCalledTimes(1);
+    expect(MediaLibrary.requestPermissionsAsync).not.toHaveBeenCalled();
     expect(MediaLibrary.saveToLibraryAsync).toHaveBeenCalledWith('file:///tmp/anchor.png');
     expect(result).toEqual({
       filename: 'sacred-loop-wallpaper.png',
@@ -56,7 +70,24 @@ describe('AnchorArtworkExportService', () => {
     });
   });
 
+  it('requests add-only permission before saving on ios', async () => {
+    setPlatform('ios', '17.0');
+
+    await exportAnchorArtwork({
+      anchor: {
+        anchorName: 'Sacred Loop',
+        intentionText: 'I return to the practice.',
+      },
+      mode: 'download',
+      captureArtwork,
+    });
+
+    expect(MediaLibrary.requestPermissionsAsync).toHaveBeenCalledWith(true);
+    expect(MediaLibrary.saveToLibraryAsync).toHaveBeenCalledWith('file:///tmp/anchor.png');
+  });
+
   it('surfaces a permission error when photo access is denied', async () => {
+    setPlatform('ios', '17.0');
     (MediaLibrary.requestPermissionsAsync as jest.Mock).mockResolvedValue({ granted: false });
 
     await expect(exportAnchorArtwork({

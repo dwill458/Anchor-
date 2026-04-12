@@ -111,6 +111,42 @@ export interface User {
   createdAt: Date;
 }
 
+export type AuthScreenContext = 'onboarding' | 'first_anchor_gate';
+
+export interface AuthScreenParams {
+  context?: AuthScreenContext;
+}
+
+export interface PendingFirstAnchorDraft {
+  tempAnchorId: string;
+  source: 'onboarding_first_anchor';
+  requiresAccountGate: boolean;
+  createdAt: Date;
+  backendAnchorId?: string;
+  nextPendingMutationIndex?: number;
+}
+
+export type PendingFirstAnchorMutation =
+  | {
+    type: 'create_anchor';
+    tempAnchorId: string;
+    queuedAt: string;
+  }
+  | {
+    type: 'charge_anchor';
+    tempAnchorId: string;
+    chargeType: ChargeType;
+    durationSeconds: number;
+    queuedAt: string;
+  }
+  | {
+    type: 'activate_anchor';
+    tempAnchorId: string;
+    activationType: ActivationType;
+    durationSeconds: number;
+    queuedAt: string;
+  };
+
 /**
  * User subscription status
  */
@@ -381,10 +417,13 @@ export type RootStackParamList = {
   // VAULT & ANCHOR MANAGEMENT
   // ═══════════════════════════════════════════════════
   Vault: undefined;
+  FirstAnchorAccountGate: undefined;
   AnchorDetail: { anchorId: string };
   CreateAnchor: undefined;
   /** First anchor creation after onboarding — shows new-user IntentionInputScreen */
   FirstAnchorCreation: undefined;
+  Login: AuthScreenParams | undefined;
+  SignUp: AuthScreenParams | undefined;
 
   // ═══════════════════════════════════════════════════
   // CREATION FLOW (New Canonical Order)
@@ -676,13 +715,13 @@ export type OnboardingStackParamList = {
   HowItWorks: undefined;
   DailyLoop: undefined;
   SaveProgress: undefined;
-  Login: undefined;
-  SignUp: undefined;
+  Login: AuthScreenParams | undefined;
+  SignUp: AuthScreenParams | undefined;
 };
 
 export type AuthStackParamList = {
-  Login: undefined;
-  SignUp: undefined;
+  Login: AuthScreenParams | undefined;
+  SignUp: AuthScreenParams | undefined;
   Onboarding: undefined;
 };
 
