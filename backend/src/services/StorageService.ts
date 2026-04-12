@@ -128,7 +128,9 @@ export async function uploadImageFromBuffer(
       return `https://${bucket}.r2.cloudflarestorage.com/${objectKey}`;
     }
 
-    logger.info('[Storage] Uploading image from buffer (LOCAL STORAGE fallback)', { key: objectKey });
+    logger.info('[Storage] Uploading image from buffer (LOCAL STORAGE fallback)', {
+      key: objectKey,
+    });
 
     // Ensure absolute path to uploads directory in backend root
     const uploadsDir = getLocalUploadsDir();
