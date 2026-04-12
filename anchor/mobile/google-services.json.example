@@ -1,13 +1,13 @@
 {
   "project_info": {
-    "project_number": "930118716037",
-    "project_id": "anchor-ac6d6",
-    "storage_bucket": "anchor-ac6d6.firebasestorage.app"
+    "project_number": "REPLACE_WITH_PROJECT_NUMBER",
+    "project_id": "REPLACE_WITH_PROJECT_ID",
+    "storage_bucket": "REPLACE_WITH_STORAGE_BUCKET"
   },
   "client": [
     {
       "client_info": {
-        "mobilesdk_app_id": "1:930118716037:android:419c44ef2c70ba7cbaf7ec",
+        "mobilesdk_app_id": "REPLACE_WITH_MOBILE_SDK_APP_ID",
         "android_client_info": {
           "package_name": "com.anchor.app"
         }
@@ -15,7 +15,7 @@
       "oauth_client": [],
       "api_key": [
         {
-          "current_key": "AIzaSyA8jVUQ8VSabmFicek7ZhkTtyS9m4iMeiA"
+          "current_key": "REPLACE_WITH_ANDROID_API_KEY"
         }
       ],
       "services": {

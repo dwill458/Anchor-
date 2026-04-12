@@ -377,15 +377,51 @@ const chargeConfigByChoice = {
   },
 };
 
-const normalizeSvgMarkup = (svg?: string): string => {
+const stripUnsafeSvgTags = (markup: string): string =>
+  markup
+    .replace(/<script[\s\S]*?<\/script>/gi, '')
+    .replace(/<foreignObject[\s\S]*?<\/foreignObject>/gi, '')
+    .replace(/<(?:iframe|object|embed|audio|video|canvas|style)\b[\s\S]*?<\/(?:iframe|object|embed|audio|video|canvas|style)>/gi, '');
+
+const stripUnsafeSvgAttributes = (markup: string): string =>
+  markup
+    .replace(/\son[a-z0-9_-]+\s*=\s*(?:"[^"]*"|'[^']*'|[^\s>]+)/gi, '')
+    .replace(/\s(?:href|xlink:href|src)\s*=\s*("|')((?:(?!\1).)*)\1/gi, (_match, quote, value: string) => {
+      const trimmedValue = value.trim();
+      return trimmedValue.startsWith('#') ? ` href=${quote}${trimmedValue}${quote}` : '';
+    })
+    .replace(/\s(?:href|xlink:href|src)\s*=\s*([^\s>]+)/gi, (_match, value: string) => {
+      const trimmedValue = value.trim();
+      return trimmedValue.startsWith('#') ? ` href="${trimmedValue}"` : '';
+    })
+    .replace(/\s[a-z0-9:_-]+\s*=\s*("|')\s*javascript:[\s\S]*?\1/gi, '')
+    .replace(/\sstyle\s*=\s*("|')[\s\S]*?url\s*\([\s\S]*?\)[\s\S]*?\1/gi, '');
+
+const sanitizeSvgMarkup = (svg?: string): string => {
   if (!svg) return FALLBACK_SIGIL_SVG;
 
   const normalized = svg
     .replace(/<\?xml[\s\S]*?\?>/gi, '')
     .replace(/<!DOCTYPE[\s\S]*?>/gi, '')
+    .replace(/<!--[\s\S]*?-->/g, '')
     .trim();
 
-  return /<svg[\s>]/i.test(normalized) ? normalized : FALLBACK_SIGIL_SVG;
+  if (!/^<svg[\s>][\s\S]*<\/svg>$/i.test(normalized)) {
+    return FALLBACK_SIGIL_SVG;
+  }
+
+  const withoutUnsafeTags = stripUnsafeSvgTags(normalized);
+  const sanitized = stripUnsafeSvgAttributes(withoutUnsafeTags).trim();
+
+  if (
+    /<(?:script|foreignObject|iframe|object|embed|audio|video|canvas|style)\b/i.test(sanitized) ||
+    /\son[a-z0-9_-]+\s*=\s*/i.test(sanitized) ||
+    /\s(?:href|xlink:href|src)\s*=\s*("|')\s*(?!#)/i.test(sanitized)
+  ) {
+    return FALLBACK_SIGIL_SVG;
+  }
+
+  return /<svg[\s>]/i.test(sanitized) ? sanitized : FALLBACK_SIGIL_SVG;
 };
 
 const escapeHtmlAttribute = (value: string): string =>
@@ -395,12 +431,26 @@ const escapeHtmlAttribute = (value: string): string =>
     .replace(/</g, '&lt;')
     .replace(/>/g, '&gt;');
 
+const isAllowedImageUrl = (imageUrl?: string): imageUrl is string => {
+  if (!imageUrl) return false;
+
+  const trimmedUrl = imageUrl.trim();
+  if (!trimmedUrl) return false;
+
+  try {
+    const parsedUrl = new URL(trimmedUrl);
+    return parsedUrl.protocol.toLowerCase() === 'https:';
+  } catch {
+    return false;
+  }
+};
+
 const getPrimeSigilMarkup = (anchor?: Anchor): string => {
-  if (anchor?.enhancedImageUrl) {
+  if (isAllowedImageUrl(anchor?.enhancedImageUrl)) {
     return `<img src="${escapeHtmlAttribute(anchor.enhancedImageUrl)}" alt="" />`;
   }
 
-  return normalizeSvgMarkup(anchor?.reinforcedSigilSvg ?? anchor?.baseSigilSvg);
+  return sanitizeSvgMarkup(anchor?.reinforcedSigilSvg ?? anchor?.baseSigilSvg);
 };
 
 const buildPrimeWebViewHtml = (sigilMarkup: string, reduceMotionEnabled: boolean): string =>
@@ -534,8 +584,16 @@ export const ChargeSetupScreen: React.FC = () => {
     <View style={styles.screen}>
       <View style={[styles.heroSection, { height: heroHeight }]}>
         <WebView
-          originWhitelist={['*']}
-          source={{ html: webViewHtml }}
+          originWhitelist={['about:blank']}
+          source={{ html: webViewHtml, baseUrl: 'about:blank' }}
+          setSupportMultipleWindows={false}
+          javaScriptCanOpenWindowsAutomatically={false}
+          allowingReadAccessToURL={'about:blank'}
+          allowFileAccess={false}
+          allowFileAccessFromFileURLs={false}
+          allowUniversalAccessFromFileURLs={false}
+          mixedContentMode="never"
+          onShouldStartLoadWithRequest={(request) => request.url === 'about:blank'}
           style={styles.webview}
           scrollEnabled={false}
           bounces={false}

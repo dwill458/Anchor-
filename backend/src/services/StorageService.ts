@@ -7,10 +7,10 @@
 
 import { S3Client, DeleteObjectCommand } from '@aws-sdk/client-s3';
 import { Upload } from '@aws-sdk/lib-storage';
-import { v4 as _uuidv4 } from 'uuid';
 import axios from 'axios';
 import fs from 'fs';
 import path from 'path';
+import { randomUUID } from 'crypto';
 import { logger } from '../utils/logger';
 
 interface UploadUrlOptions {
@@ -29,15 +29,28 @@ function normalizeBaseUrl(baseUrl?: string): string | undefined {
   return baseUrl.replace(/\/+$/, '');
 }
 
-function buildLocalUploadUrl(fileName: string, options?: UploadUrlOptions): string {
+function buildLocalUploadUrl(storageKey: string, options?: UploadUrlOptions): string {
   const configuredBaseUrl = normalizeBaseUrl(options?.baseUrl);
   if (configuredBaseUrl) {
-    return `${configuredBaseUrl}/uploads/${fileName}`;
+    return `${configuredBaseUrl}/uploads/${storageKey}`;
   }
 
   const localIp = process.env.LOCAL_IP || '127.0.0.1';
   const port = process.env.PORT || '8000';
-  return `http://${localIp}:${port}/uploads/${fileName}`;
+  return `http://${localIp}:${port}/uploads/${storageKey}`;
+}
+
+function sanitizePathSegment(value: string): string {
+  const trimmed = (value || '').trim();
+  const sanitized = trimmed.replace(/[^a-zA-Z0-9_-]/g, '-').replace(/-+/g, '-');
+  return sanitized || 'unknown';
+}
+
+function buildImageStorageKey(userId: string, anchorId: string, variationIndex: number): string {
+  const sanitizedUserId = sanitizePathSegment(userId);
+  const sanitizedAnchorId = sanitizePathSegment(anchorId);
+  const uniquePrefix = `${Date.now()}-${randomUUID()}`;
+  return `anchors/${sanitizedUserId}/${sanitizedAnchorId}/${uniquePrefix}-variation-${variationIndex}.png`;
 }
 
 /**
@@ -88,21 +101,48 @@ export async function uploadImageFromBuffer(
   options?: UploadUrlOptions
 ): Promise<string> {
   try {
-    logger.info('[Storage] Uploading image from buffer (LOCAL STORAGE for development)');
+    const objectKey = buildImageStorageKey(userId, anchorId, variationIndex);
+    const client = getR2Client();
+    const bucket = getBucketName();
+
+    if (client) {
+      logger.info('[Storage] Uploading image buffer to R2', { key: objectKey });
+      const upload = new Upload({
+        client,
+        params: {
+          Bucket: bucket,
+          Key: objectKey,
+          Body: imageBuffer,
+          ContentType: 'image/png',
+          CacheControl: 'public, max-age=31536000',
+        },
+      });
+
+      await upload.done();
+
+      const publicDomain = process.env.CLOUDFLARE_R2_PUBLIC_DOMAIN;
+      if (publicDomain) {
+        return `${publicDomain}/${objectKey}`;
+      }
+
+      return `https://${bucket}.r2.cloudflarestorage.com/${objectKey}`;
+    }
+
+    logger.info('[Storage] Uploading image from buffer (LOCAL STORAGE fallback)', { key: objectKey });
 
     // Ensure absolute path to uploads directory in backend root
     const uploadsDir = getLocalUploadsDir();
+    const localFilePath = path.join(uploadsDir, objectKey);
+    const localDir = path.dirname(localFilePath);
 
-    if (!fs.existsSync(uploadsDir)) {
-      fs.mkdirSync(uploadsDir, { recursive: true });
+    if (!fs.existsSync(localDir)) {
+      fs.mkdirSync(localDir, { recursive: true });
     }
 
-    const fileName = `${anchorId}-${variationIndex}.png`;
-    const localFilePath = path.join(uploadsDir, fileName);
     fs.writeFileSync(localFilePath, imageBuffer);
 
     logger.info(`[Storage] Saved buffer to local disk: ${localFilePath}`);
-    return buildLocalUploadUrl(fileName, options);
+    return buildLocalUploadUrl(objectKey, options);
   } catch (error) {
     logger.error('[Storage] Upload from buffer error', error);
     throw new Error(

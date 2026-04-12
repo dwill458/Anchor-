@@ -6,7 +6,7 @@
  */
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import { encryptedPersistStorage } from './encryptedPersistStorage';
 import { useTeachingStore } from './teachingStore';
 import { apiClient } from '@/services/ApiClient';
 import { useAuthStore } from '@/stores/authStore';
@@ -276,7 +276,7 @@ export const useSessionStore = create<SessionState>()(
     }),
     {
       name: 'anchor-session-storage',
-      storage: createJSONStorage(() => AsyncStorage),
+      storage: createJSONStorage(() => encryptedPersistStorage),
       version: 2,
       migrate: (persistedState: unknown, version: number) => {
         if (version < 2) {
