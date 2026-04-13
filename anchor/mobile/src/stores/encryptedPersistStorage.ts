@@ -55,7 +55,7 @@ async function clearSecureChunks(name: string): Promise<void> {
   await SecureStore.deleteItemAsync(secureMetaKey(name));
 }
 
-async function readSecureValue(name: string): Promise<string | null> {
+export async function readSecureValue(name: string): Promise<string | null> {
   const meta = await readSecureMeta(name);
   if (!meta) return null;
 
@@ -74,7 +74,7 @@ async function readSecureValue(name: string): Promise<string | null> {
   return chunks.join('');
 }
 
-async function writeSecureValue(name: string, value: string): Promise<void> {
+export async function writeSecureValue(name: string, value: string): Promise<void> {
   await clearSecureChunks(name);
 
   const chunks = splitIntoChunks(value);
@@ -127,7 +127,9 @@ export const encryptedPersistStorage: StateStorage = {
       // Ensure no plaintext legacy value remains once encrypted write succeeds.
       await AsyncStorage.removeItem(name);
     } catch (error) {
-      logger.error(`Failed to write encrypted store key ${name}`, error);
+      logger.error(`Failed to write encrypted store key ${name}, falling back to AsyncStorage`, error);
+      // Fall back so the state is not silently lost on restart.
+      await AsyncStorage.setItem(name, value);
     }
   },
 

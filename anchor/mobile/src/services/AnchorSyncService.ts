@@ -1,5 +1,5 @@
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { SUPABASE_ANON_KEY, SUPABASE_URL } from '@/config';
+import { readSecureValue, writeSecureValue } from '@/stores/encryptedPersistStorage';
 import type { Anchor, AnchorCategory, EnhancementMetadata, ReinforcementMetadata } from '@/types';
 import { logger } from '@/utils/logger';
 
@@ -161,7 +161,9 @@ function fromSupabaseRecord(record: SupabaseAnchorRecord, fallback?: Anchor): An
 }
 
 async function readQueue(): Promise<AnchorRetryQueueItem[]> {
-  const raw = await AsyncStorage.getItem(RETRY_QUEUE_KEY);
+  // Retry queue contains full anchor objects (intention text, sigil data) —
+  // store in SecureStore so it is encrypted at rest.
+  const raw = await readSecureValue(RETRY_QUEUE_KEY);
   if (!raw) return [];
 
   try {
@@ -177,7 +179,7 @@ async function readQueue(): Promise<AnchorRetryQueueItem[]> {
 }
 
 async function writeQueue(items: AnchorRetryQueueItem[]): Promise<void> {
-  await AsyncStorage.setItem(RETRY_QUEUE_KEY, JSON.stringify(items));
+  await writeSecureValue(RETRY_QUEUE_KEY, JSON.stringify(items));
 }
 
 class AnchorSyncService {
