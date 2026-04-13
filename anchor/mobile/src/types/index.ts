@@ -16,6 +16,7 @@
  */
 export interface Anchor {
   id: string;
+  localId?: string;
   userId: string;
   intentionText: string;
   category: AnchorCategory;
@@ -419,6 +420,10 @@ export type RootStackParamList = {
   Vault: undefined;
   FirstAnchorAccountGate: undefined;
   AnchorDetail: { anchorId: string };
+  AuthGate: undefined;
+  Paywall: undefined;
+  Login: undefined;
+  SignUp: undefined;
   CreateAnchor: undefined;
   /** First anchor creation after onboarding — shows new-user IntentionInputScreen */
   FirstAnchorCreation: undefined;

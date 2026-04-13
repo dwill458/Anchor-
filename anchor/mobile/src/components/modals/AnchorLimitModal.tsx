@@ -112,7 +112,8 @@ export function AnchorLimitModal({
 
                 {/* Body Text */}
                 <Text style={styles.bodyText}>
-                  You have reached the limit for free anchors. Upgrade for unlimited space or release one to continue.
+                  {/* DEFERRED: freemium tier removed, replaced by trial model */}
+                  Continue your practice by restoring active access or release one to continue.
                 </Text>
 
                 {/* Action Blocks */}
@@ -121,8 +122,8 @@ export function AnchorLimitModal({
                   <ActionButton
                     onPress={onUpgrade}
                     primary
-                    title="Upgrade to Pro"
-                    supportingLine="Unlimited storage and premium features"
+                    title="Continue Your Practice"
+                    supportingLine="Restore access and keep forging"
                     priceLine="$4.99/month or $39.99/year"
                   />
 
@@ -180,7 +181,8 @@ export function AnchorLimitModal({
 
                 {/* Body Text */}
                 <Text style={styles.bodyText}>
-                  You have reached the limit for free anchors. Upgrade for unlimited space or release one to continue.
+                  {/* DEFERRED: freemium tier removed, replaced by trial model */}
+                  Continue your practice by restoring active access or release one to continue.
                 </Text>
 
                 {/* Action Blocks */}
@@ -189,8 +191,8 @@ export function AnchorLimitModal({
                   <ActionButton
                     onPress={onUpgrade}
                     primary
-                    title="Upgrade to Pro"
-                    supportingLine="Unlimited storage and premium features"
+                    title="Continue Your Practice"
+                    supportingLine="Restore access and keep forging"
                     priceLine="$4.99/month or $39.99/year"
                   />
 

@@ -12,6 +12,7 @@ import {
   Image,
   Alert,
   Modal,
+  Share,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { BlurView } from 'expo-blur';
@@ -26,6 +27,8 @@ import { useSettingsStore } from '@/stores/settingsStore';
 import { useSessionStore } from '@/stores/sessionStore';
 import { del } from '@/services/ApiClient';
 import { exportAnchorArtwork } from '@/services/AnchorArtworkExportService';
+import { captureRef } from 'react-native-view-shot';
+import * as MediaLibrary from 'expo-media-library';
 import { safeHaptics } from '@/utils/haptics';
 import * as Haptics from 'expo-haptics';
 import { colors, spacing, typography } from '@/theme';
@@ -524,6 +527,15 @@ const AnchorDetailsScreen = ({ navigation, route }) => {
   const [moreRitualsVisible, setMoreRitualsVisible] = useState(false);
   const [exportBusyMode, setExportBusyMode] = useState(null);
   const exportCanvasRef = useRef(null);
+  const anchorCardRef = useRef<View>(null);
+  const [isExporting, setIsExporting] = useState(false);
+  const mediaLibraryPermissionRef = useRef<MediaLibrary.PermissionResponse | null>(null);
+
+  useEffect(() => {
+    MediaLibrary.requestPermissionsAsync().then((result) => {
+      mediaLibraryPermissionRef.current = result;
+    });
+  }, []);
 
   const routeAnchor = route?.params?.anchor;
   const anchorId = route?.params?.anchorId ?? routeAnchor?.id;
@@ -854,6 +866,34 @@ const AnchorDetailsScreen = ({ navigation, route }) => {
     }
   };
 
+  const handleDownloadPNG = async () => {
+    if (isExporting) return;
+    setIsExporting(true);
+    try {
+      const uri = await captureRef(anchorCardRef, { format: 'png', quality: 1 });
+      await MediaLibrary.saveToLibraryAsync(uri);
+      Alert.alert('Saved', 'Your anchor has been saved to your photo library.');
+    } catch {
+      Alert.alert('Error', 'Could not save image. Please check your permissions.');
+    } finally {
+      setIsExporting(false);
+    }
+  };
+
+  const handleSetWallpaper = async () => {
+    if (isExporting) return;
+    setIsExporting(true);
+    try {
+      const uri = await captureRef(anchorCardRef, { format: 'png', quality: 1 });
+      await MediaLibrary.saveToLibraryAsync(uri);
+      await Share.share({ url: uri });
+    } catch {
+      Alert.alert('Error', 'Could not open share sheet.');
+    } finally {
+      setIsExporting(false);
+    }
+  };
+
   // Removed renderHeroAction and renderRitualCards in favor of the new Primary CTA architecture.
 
 
@@ -1042,43 +1082,6 @@ const AnchorDetailsScreen = ({ navigation, route }) => {
 
         {/* DEFERRED: Direct ritual entry points live on Practice. Restore the secondary ritual sheet here only if the detail screen regains mode-launch responsibilities. */}
 
-        {/* ── YOUR PRACTICE ── */}
-        <FadeUp delay={260}>
-          <LinearGradient
-            colors={CARD_GRADIENT}
-            style={s.card}
-          >
-            <View style={s.practiceHeader}>
-              <Text style={s.practiceTitle}>Your Practice</Text>
-              <Text style={{ color: C.goldDim, fontSize: 11 }}>▼</Text>
-            </View>
-            <View style={{ gap: spacing.sm + spacing.xs }}>
-              {[
-                { label: 'Create', done: anchor.practiceCreate, tag: '✓', progress: null },
-                { label: 'Prime', done: anchor.practiceCharge, tag: '✓', progress: null },
-                { label: 'Activate daily', done: false, tag: null, progress: `${anchor.practiceActivateDays}/7` },
-              ].map((item) => (
-                <View key={item.label} style={s.practiceItem}>
-                  <View style={[
-                    s.practiceCheck,
-                    item.done ? s.checkComplete : s.checkProgress,
-                  ]}>
-                    <Text style={[
-                      s.practiceCheckText,
-                      { color: item.done ? C.gold : 'rgba(160,130,220,0.7)' },
-                    ]}>
-                      {item.tag ?? item.progress}
-                    </Text>
-                  </View>
-                  <Text style={[s.practiceLabel, !item.done && { color: C.textSec }]}>
-                    {item.label}
-                  </Text>
-                </View>
-              ))}
-            </View>
-          </LinearGradient>
-        </FadeUp>
-
         <FadeUp delay={320}>
           <LinearGradient
             colors={CARD_GRADIENT}
@@ -1093,26 +1096,26 @@ const AnchorDetailsScreen = ({ navigation, route }) => {
               <TouchableOpacity
                 accessibilityRole="button"
                 activeOpacity={0.85}
-                disabled={Boolean(exportBusyMode)}
-                onPress={() => handleArtworkExport('wallpaper')}
-                style={[s.exportActionButton, s.exportActionPrimary, exportBusyMode && s.exportActionDisabled]}
+                disabled={isExporting}
+                onPress={handleSetWallpaper}
+                style={[s.exportActionButton, s.exportActionPrimary, isExporting && s.exportActionDisabled]}
                 testID="anchor-detail-set-wallpaper-button"
               >
                 <Text style={s.exportActionPrimaryText}>
-                  {exportBusyMode === 'wallpaper' ? 'Preparing...' : 'Set as Wallpaper'}
+                  {isExporting ? 'Opening...' : 'Set as Wallpaper'}
                 </Text>
               </TouchableOpacity>
 
               <TouchableOpacity
                 accessibilityRole="button"
                 activeOpacity={0.85}
-                disabled={Boolean(exportBusyMode)}
-                onPress={() => handleArtworkExport('download')}
-                style={[s.exportActionButton, s.exportActionSecondary, exportBusyMode && s.exportActionDisabled]}
+                disabled={isExporting}
+                onPress={handleDownloadPNG}
+                style={[s.exportActionButton, s.exportActionSecondary, isExporting && s.exportActionDisabled]}
                 testID="anchor-detail-download-png-button"
               >
                 <Text style={s.exportActionSecondaryText}>
-                  {exportBusyMode === 'download' ? 'Saving...' : 'Download PNG'}
+                  {isExporting ? 'Saving...' : 'Download PNG'}
                 </Text>
               </TouchableOpacity>
             </View>
@@ -1185,6 +1188,35 @@ const AnchorDetailsScreen = ({ navigation, route }) => {
         </FadeUp>
 
       </ScrollView>
+
+      {/* ── HIDDEN CAPTURE TARGET ── */}
+      <View
+        ref={anchorCardRef}
+        style={{
+          position: 'absolute',
+          left: -9999,
+          width: 1170,
+          height: 2532,
+          backgroundColor: '#0F1419',
+          alignItems: 'center',
+          justifyContent: 'center',
+        }}
+        collapsable={false}
+      >
+        <View style={{ width: 1170 * 0.65, aspectRatio: 1, alignItems: 'center', justifyContent: 'center' }}>
+          {anchor.sigilUri ? (
+            <Image source={{ uri: anchor.sigilUri }} style={{ width: '100%', height: '100%', borderRadius: 999 }} resizeMode="cover" />
+          ) : anchor.baseSigilSvg ? (
+            <SvgXml xml={anchor.baseSigilSvg} width={1170 * 0.65} height={1170 * 0.65} />
+          ) : null}
+        </View>
+        <Text style={{ color: '#F5F5DC', fontFamily: 'CormorantGaramond-Regular', fontSize: 28, textAlign: 'center', marginTop: 48, paddingHorizontal: 80 }}>
+          {anchor.intention}
+        </Text>
+        <Text style={{ color: '#D4AF37', fontFamily: 'Cinzel-Regular', fontSize: 18, letterSpacing: 8, textAlign: 'center', marginTop: 24, marginBottom: 80 }}>
+          ANCHOR
+        </Text>
+      </View>
 
       <AnchorArtworkExportCanvas
         ref={exportCanvasRef}

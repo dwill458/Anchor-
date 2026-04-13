@@ -26,6 +26,9 @@ import { useTeachingGate } from '@/utils/useTeachingGate';
 import { useTeachingStore } from '@/stores/teachingStore';
 import { AnalyticsService } from '@/services/AnalyticsService';
 import { TEACHINGS } from '@/constants/teaching';
+import { useAuthStore } from '@/stores/authStore';
+import { useAnchorStore } from '@/stores/anchorStore';
+import { useTrialStatus } from '@/hooks/useTrialStatus';
 
 const { height } = Dimensions.get('window');
 
@@ -39,6 +42,13 @@ type NavigationProp = StackNavigationProp<RootStackParamList, 'CreateAnchor'>;
 export default function ReturningIntentionScreen() {
     const navigation = useNavigation<NavigationProp>();
     const { recordShown } = useTeachingStore();
+    const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
+    const pendingForgeIntent = useAuthStore((state) => state.pendingForgeIntent);
+    const setPendingForgeIntent = useAuthStore((state) => state.setPendingForgeIntent);
+    const clearPendingForgeIntent = useAuthStore((state) => state.clearPendingForgeIntent);
+    const setPendingForgeResumeTarget = useAuthStore((state) => state.setPendingForgeResumeTarget);
+    const anchorCount = useAnchorStore((state) => state.anchors.length);
+    const { hasActiveEntitlement } = useTrialStatus();
 
     const [intention, setIntention] = useState('');
     const [charCount, setCharCount] = useState(0);
@@ -124,6 +134,14 @@ export default function ReturningIntentionScreen() {
         }).start();
     }, []);
 
+    useEffect(() => {
+        if (pendingForgeIntent && intention.length === 0) {
+            setIntention(pendingForgeIntent);
+            setCharCount(pendingForgeIntent.length);
+            clearPendingForgeIntent();
+        }
+    }, [clearPendingForgeIntent, intention.length, pendingForgeIntent]);
+
     const [isFocused, setIsFocused] = useState(false);
     const [canSubmit, setCanSubmit] = useState(false);
     const focusAnim = useRef(new Animated.Value(0)).current;
@@ -202,6 +220,20 @@ export default function ReturningIntentionScreen() {
 
     const handleContinue = () => {
         if (canSubmit) {
+            if (anchorCount >= 1 && !isAuthenticated) {
+                setPendingForgeIntent(intention);
+                setPendingForgeResumeTarget('CreateAnchor');
+                navigation.navigate('AuthGate');
+                return;
+            }
+
+            if (isAuthenticated && !hasActiveEntitlement) {
+                setPendingForgeIntent(intention);
+                setPendingForgeResumeTarget('CreateAnchor');
+                navigation.navigate('Paywall');
+                return;
+            }
+
             const distillation = distillIntention(intention);
             const category = detectCategoryFromText(intention);
             navigation.navigate('LetterDistillation', {

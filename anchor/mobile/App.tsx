@@ -20,12 +20,19 @@ import { RootNavigator } from './src/navigation';
 import { ErrorBoundary } from './src/components/ErrorBoundary';
 import { ToastProvider } from './src/components/ToastProvider';
 import { useAuthStore } from './src/stores/authStore';
+import { useSessionStore } from './src/stores/sessionStore';
+import { useSettingsStore } from './src/stores/settingsStore';
 import { SettingsRevealProvider } from './src/components/transitions/SettingsRevealProvider';
 import type { RootNavigatorParamList } from './src/navigation/RootNavigator';
 import { ErrorTrackingService, setupGlobalErrorHandler } from './src/services/ErrorTrackingService';
 import { PerformanceMonitoring, type PerformanceTrace } from './src/services/PerformanceMonitoring';
 import { monitoringConfig } from './src/config/monitoring';
 import { AuthService } from './src/services/AuthService';
+import {
+  syncDailyGoalNudgesFromStores,
+  syncDailyReminderFromStores,
+} from './src/services/DailyGoalNudgeService';
+import { loadSettingsSnapshot } from './src/hooks/useSettings';
 import { logger } from './src/utils/logger';
 
 const { width } = Dimensions.get('window');
@@ -50,9 +57,14 @@ const AppTheme = {
 export default function App() {
   const computeStreak = useAuthStore((state) => state.computeStreak);
   const user = useAuthStore((state) => state.user);
+  const dailyPracticeGoal = useSettingsStore((state) => state.dailyPracticeGoal);
+  const dailyReminderEnabled = useSettingsStore((state) => state.dailyReminderEnabled);
+  const dailyReminderTime = useSettingsStore((state) => state.dailyReminderTime);
+  const lastSessionId = useSessionStore((state) => state.lastSession?.id);
   const navRef = useNavigationContainerRef<RootNavigatorParamList>();
   const routeNameRef = useRef<string | undefined>(undefined);
   const screenTraceRef = useRef<PerformanceTrace | null>(null);
+  const [settingsHydrated, setSettingsHydrated] = React.useState(false);
   const [fontsLoaded] = useFonts({
     'Cinzel-Regular': Cinzel_400Regular,
     'Cinzel-SemiBold': Cinzel_600SemiBold,
@@ -64,6 +76,24 @@ export default function App() {
     'CormorantGaramond-Regular': CrimsonPro_400Regular,
     'CormorantGaramond-Italic': CrimsonPro_400Regular_Italic,
   });
+
+  useEffect(() => {
+    let isMounted = true;
+
+    loadSettingsSnapshot()
+      .catch((error) => {
+        logger.error('Failed to hydrate settings snapshot', error);
+      })
+      .finally(() => {
+        if (isMounted) {
+          setSettingsHydrated(true);
+        }
+      });
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
   useEffect(() => {
     AuthService.initialize();
@@ -141,16 +171,36 @@ export default function App() {
   }, [user?.displayName, user?.email, user?.id]);
 
   useEffect(() => {
+    if (!settingsHydrated) {
+      return;
+    }
+
+    void syncDailyReminderFromStores();
+  }, [dailyReminderEnabled, dailyReminderTime, settingsHydrated]);
+
+  useEffect(() => {
+    if (!settingsHydrated) {
+      return;
+    }
+
+    void syncDailyGoalNudgesFromStores();
+  }, [dailyPracticeGoal, dailyReminderEnabled, dailyReminderTime, lastSessionId, settingsHydrated]);
+
+  useEffect(() => {
     const subscription = AppState.addEventListener('change', (nextState) => {
       if (nextState === 'active') {
         ErrorTrackingService.addBreadcrumb('App foregrounded', 'app_state', { nextState });
         computeStreak();
+        if (settingsHydrated) {
+          void syncDailyReminderFromStores();
+          void syncDailyGoalNudgesFromStores();
+        }
       } else {
         ErrorTrackingService.addBreadcrumb('App state changed', 'app_state', { nextState });
       }
     });
     return () => subscription.remove();
-  }, [computeStreak]);
+  }, [computeStreak, settingsHydrated]);
 
   useEffect(() => {
     return () => {

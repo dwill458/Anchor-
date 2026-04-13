@@ -21,11 +21,13 @@ import { useAnchorStore } from '@/stores/anchorStore';
 import { useSessionStore } from '@/stores/sessionStore';
 import type { SessionLogEntry } from '@/stores/sessionStore';
 import { useSettingsStore, type DefaultChargeSetting } from '@/stores/settingsStore';
+import { countDailyGoalCompletions } from '@/services/DailyGoalNudgeService';
 import { safeHaptics } from '@/utils/haptics';
 import { colors, spacing, typography } from '@/theme';
 import { PRACTICE_COPY } from '@/constants/copy';
 import { AnchorHero } from './components/AnchorHero';
 import { AnchorSelectorSheet } from './components/AnchorSelectorSheet';
+import { DailyGoalProgressCard } from './components/DailyGoalProgressCard';
 import { ThreadStrengthBlock, getThreadState } from './components/ThreadStrengthBlock';
 import { InfoSheet } from './components/InfoSheet';
 import { ModePortalTile } from './components/ModePortalTile';
@@ -101,7 +103,7 @@ export const PracticeScreen: React.FC = () => {
   const anchors = useAnchorStore((state) => state.anchors);
   const currentAnchorId = useAnchorStore((state) => state.currentAnchorId);
   const setCurrentAnchor = useAnchorStore((state) => state.setCurrentAnchor);
-  const { defaultCharge } = useSettingsStore();
+  const { defaultCharge, dailyPracticeGoal } = useSettingsStore();
   const {
     sessionLog,
     threadStrength,
@@ -164,6 +166,10 @@ export const PracticeScreen: React.FC = () => {
   const defaultDeepChargeSeconds = useMemo(
     () => getDefaultDeepChargeSeconds(defaultCharge),
     [defaultCharge.customMinutes, defaultCharge.preset]
+  );
+  const completedGoalSessions = useMemo(
+    () => countDailyGoalCompletions(sessionLog),
+    [sessionLog]
   );
 
   const interactionRef = useRef(false);
@@ -508,6 +514,13 @@ export const PracticeScreen: React.FC = () => {
               lastPrimedAt={lastPrimedAt}
               weekHistory={weekHistory}
               anchor={selectedAnchor}
+            />
+          </Animated.View>
+
+          <Animated.View style={threadStyle}>
+            <DailyGoalProgressCard
+              completedCount={completedGoalSessions}
+              goal={dailyPracticeGoal}
             />
           </Animated.View>
 

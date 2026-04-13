@@ -26,6 +26,7 @@ const DEFAULT_LIGHT_COLOR = '#D4AF37';
 
 export const NOTIFICATION_CHANNELS = {
   DAILY_REMINDERS: 'daily-reminders',
+  DAILY_GOAL_CHECKPOINTS: 'daily-goal-checkpoints',
   RITUAL_REMINDERS: 'ritual-reminders',
   STREAK_PROTECTION: 'streak-protection',
   WEEKLY_SUMMARY: 'weekly-summary',
@@ -33,13 +34,17 @@ export const NOTIFICATION_CHANNELS = {
 
 export const NOTIFICATION_IDS = {
   DAILY_REMINDER: 'daily-reminder-id',
+  DAILY_GOAL_CHECKPOINT_PREFIX: 'daily-goal-checkpoint',
   STREAK_PROTECTION: 'streak-protection-id',
   WEEKLY_SUMMARY: 'weekly-summary-id',
   RITUAL_REMINDER_PREFIX: 'ritual-reminder',
 };
 
+const MAX_DAILY_GOAL_CHECKPOINTS = 20;
+
 export type NotificationType =
   | 'daily_reminder'
+  | 'daily_goal_checkpoint'
   | 'ritual_reminder'
   | 'streak_protection'
   | 'weekly_summary';
@@ -47,6 +52,8 @@ export type NotificationType =
 export interface NotificationPayload {
   type: NotificationType;
   anchorId?: string;
+  goal?: number;
+  milestone?: number;
   reminderId?: string;
   environment?: string;
   [key: string]: unknown;
@@ -179,6 +186,61 @@ class NotificationService {
   }
 
   /**
+   * Schedule a one-time daily goal checkpoint reminder.
+   */
+  async scheduleDailyGoalCheckpoint(
+    milestone: number,
+    goal: number,
+    date: Date
+  ): Promise<string | null> {
+    const reminderId = this.buildDailyGoalCheckpointId(milestone);
+    await this.cancelReminder(reminderId);
+
+    if (!(date instanceof Date) || Number.isNaN(date.getTime())) {
+      this.recordError(
+        new ServiceError(
+          'notifications/invalid-time',
+          'Invalid daily goal checkpoint time. Expected a valid Date.'
+        )
+      );
+      return null;
+    }
+
+    const isFinalCheckpoint = milestone >= goal;
+    return this.scheduleNotification({
+      identifier: reminderId,
+      content: {
+        title: isFinalCheckpoint ? "Finish Today's Goal" : "Stay with Today's Goal",
+        body: isFinalCheckpoint
+          ? "One more focus or reinforce session completes today's goal."
+          : "A quick focus or reinforce session keeps today's goal on track.",
+        sound: true,
+        data: this.buildPayload('daily_goal_checkpoint', {
+          goal,
+          milestone,
+          reminderId,
+        }),
+      },
+      trigger: {
+        type: Notifications.SchedulableTriggerInputTypes.DATE,
+        date,
+        channelId: NOTIFICATION_CHANNELS.DAILY_GOAL_CHECKPOINTS,
+      },
+    });
+  }
+
+  /**
+   * Cancel all deterministic daily goal checkpoint reminders.
+   */
+  async cancelAllDailyGoalCheckpoints(): Promise<void> {
+    const cancellations: Promise<void>[] = [];
+    for (let milestone = 2; milestone <= MAX_DAILY_GOAL_CHECKPOINTS; milestone += 1) {
+      cancellations.push(this.cancelReminder(this.buildDailyGoalCheckpointId(milestone)));
+    }
+    await Promise.all(cancellations);
+  }
+
+  /**
    * Schedule a ritual reminder for a specific anchor.
    */
   async scheduleRitualReminder(anchorId: string, time: string | Date): Promise<string | null> {
@@ -306,6 +368,7 @@ class NotificationService {
 
       switch (payload.type) {
         case 'daily_reminder':
+        case 'daily_goal_checkpoint':
           return { action: 'open_daily_reminder' };
         case 'ritual_reminder':
           if (payload.anchorId) {
@@ -384,6 +447,13 @@ class NotificationService {
         lightColor: DEFAULT_LIGHT_COLOR,
       });
 
+      await Notifications.setNotificationChannelAsync(NOTIFICATION_CHANNELS.DAILY_GOAL_CHECKPOINTS, {
+        name: 'Daily Goal Checkpoints',
+        importance: Notifications.AndroidImportance.DEFAULT,
+        vibrationPattern: [0, 250, 250, 250],
+        lightColor: DEFAULT_LIGHT_COLOR,
+      });
+
       await Notifications.setNotificationChannelAsync(NOTIFICATION_CHANNELS.RITUAL_REMINDERS, {
         name: 'Ritual Reminders',
         importance: Notifications.AndroidImportance.DEFAULT,
@@ -436,6 +506,10 @@ class NotificationService {
 
   private buildRitualReminderId(anchorId: string): string {
     return `${NOTIFICATION_IDS.RITUAL_REMINDER_PREFIX}:${anchorId}`;
+  }
+
+  private buildDailyGoalCheckpointId(milestone: number): string {
+    return `${NOTIFICATION_IDS.DAILY_GOAL_CHECKPOINT_PREFIX}:${milestone}`;
   }
 
   private buildRitualTrigger(time: string | Date): NotificationTriggerInput | null {
