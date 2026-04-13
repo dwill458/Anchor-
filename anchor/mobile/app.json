@@ -50,6 +50,11 @@
       "@sentry/react-native",
       "expo-audio",
       "expo-asset"
-    ]
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "9b8e2ac1-9588-47f2-9307-b2ebd1955855"
+      }
+    }
   }
 }

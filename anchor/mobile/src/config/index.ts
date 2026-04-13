@@ -15,6 +15,18 @@ export const API_URL = __DEV__
   ? (process.env.EXPO_PUBLIC_DEV_API_URL ?? 'http://localhost:8000')
   : 'https://api.anchor.app';
 
+export const SUPABASE_URL = process.env.EXPO_PUBLIC_SUPABASE_URL ?? '';
+export const SUPABASE_ANON_KEY = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY ?? '';
+export const REVENUECAT_API_KEY = process.env.EXPO_PUBLIC_REVENUECAT_API_KEY ?? '';
+export const REVENUECAT_ENTITLEMENT_ID = process.env.EXPO_PUBLIC_REVENUECAT_ENTITLEMENT_ID ?? '';
+export const REVENUECAT_DEFAULT_PACKAGE_ID =
+  process.env.EXPO_PUBLIC_REVENUECAT_DEFAULT_PACKAGE_ID ?? '$rc_monthly';
+
 export const Config = {
   API_URL,
+  SUPABASE_URL,
+  SUPABASE_ANON_KEY,
+  REVENUECAT_API_KEY,
+  REVENUECAT_ENTITLEMENT_ID,
+  REVENUECAT_DEFAULT_PACKAGE_ID,
 };

@@ -26,6 +26,8 @@ export const STORAGE_CLASSIFICATION_MATRIX: StoreClassificationMatrix = {
     onboardingSegment: 'low_sensitivity_preferences',
     shouldRedirectToCreation: 'low_sensitivity_preferences',
     anchorCount: 'high_sensitivity_telemetry',
+    pendingForgeIntent: 'session_only',
+    pendingForgeResumeTarget: 'session_only',
     pendingFirstAnchorDraft: 'high_sensitivity_telemetry',
     pendingFirstAnchorMutations: 'high_sensitivity_telemetry',
     pendingFirstAnchorError: 'low_sensitivity_preferences',

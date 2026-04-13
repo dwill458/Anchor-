@@ -6,6 +6,7 @@ import type { ApiResponse, ProfileData, User } from '@/types';
 import { apiClient, fetchCompleteProfile } from '@/services/ApiClient';
 import { AuthService } from '@/services/AuthService';
 import { useAnchorStore } from '@/stores/anchorStore';
+import { useSubscriptionStore } from '@/stores/subscriptionStore';
 import { calculateStreak } from '@/utils/streakHelpers';
 import { applyStabilizeCompletion, toDateOrNull } from '@/utils/stabilizeStats';
 import { logger } from '@/utils/logger';
@@ -84,6 +85,8 @@ interface AuthState {
   onboardingSegment: OnboardingSegment | null;
   shouldRedirectToCreation: boolean;
   anchorCount: number;
+  pendingForgeIntent: string | null;
+  pendingForgeResumeTarget: 'CreateAnchor' | null;
 
   // NEW: Profile caching fields
   profileData: ProfileData | null;
@@ -99,6 +102,10 @@ interface AuthState {
   setHasCompletedOnboarding: (completed: boolean) => void;
   setOnboardingSegment: (segment: OnboardingSegment) => void;
   setShouldRedirectToCreation: (should: boolean) => void;
+  setPendingForgeIntent: (intent: string | null) => void;
+  clearPendingForgeIntent: () => void;
+  setPendingForgeResumeTarget: (target: 'CreateAnchor' | null) => void;
+  clearPendingForgeResumeTarget: () => void;
   incrementAnchorCount: () => void;
   signOut: () => void;
 
@@ -137,6 +144,8 @@ export const useAuthStore = create<AuthState>()(
       onboardingSegment: null,
       shouldRedirectToCreation: false,
       anchorCount: 0,
+      pendingForgeIntent: null,
+      pendingForgeResumeTarget: null,
 
       // NEW: Profile caching initial state
       profileData: null,
@@ -192,6 +201,26 @@ export const useAuthStore = create<AuthState>()(
       setShouldRedirectToCreation: (shouldRedirectToCreation) =>
         set({
           shouldRedirectToCreation,
+        }),
+
+      setPendingForgeIntent: (pendingForgeIntent) =>
+        set({
+          pendingForgeIntent,
+        }),
+
+      clearPendingForgeIntent: () =>
+        set({
+          pendingForgeIntent: null,
+        }),
+
+      setPendingForgeResumeTarget: (pendingForgeResumeTarget) =>
+        set({
+          pendingForgeResumeTarget,
+        }),
+
+      clearPendingForgeResumeTarget: () =>
+        set({
+          pendingForgeResumeTarget: null,
         }),
 
       incrementAnchorCount: () =>
@@ -340,7 +369,8 @@ export const useAuthStore = create<AuthState>()(
         return flags;
       },
 
-      signOut: () =>
+      signOut: () => {
+        useSubscriptionStore.getState().clearTrialState();
         set({
           user: null,
           token: null,
@@ -348,7 +378,10 @@ export const useAuthStore = create<AuthState>()(
           anchorCount: 0,
           profileData: null,
           profileLastFetched: null,
-        }),
+          pendingForgeIntent: null,
+          pendingForgeResumeTarget: null,
+        });
+      },
     }),
     {
       name: 'anchor-auth-storage',
@@ -357,8 +390,13 @@ export const useAuthStore = create<AuthState>()(
         if (state) {
           // One-shot navigation flags should never survive an app restart.
           state.setShouldRedirectToCreation(false);
+          state.clearPendingForgeIntent();
+          state.clearPendingForgeResumeTarget();
           // Recompute streak immediately after store hydrates from disk
           state.computeStreak();
+          if (state.isAuthenticated) {
+            void useAnchorStore.getState().flushPendingSync?.();
+          }
         }
       },
 

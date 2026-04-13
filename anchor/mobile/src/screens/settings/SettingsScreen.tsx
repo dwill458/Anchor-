@@ -1,8 +1,7 @@
-import React, { useCallback, useEffect, useRef } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   Alert,
   Linking,
-  Pressable,
   ScrollView,
   StyleSheet,
   Text,
@@ -10,10 +9,16 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Constants from 'expo-constants';
+import DateTimePicker, { type DateTimePickerEvent } from '@react-native-community/datetimepicker';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useSettingsState } from '@/hooks/useSettings';
 import { useSettingsReveal } from '@/components/transitions/SettingsRevealProvider';
+import {
+  syncDailyGoalNudgesFromStores,
+  syncDailyReminderFromStores,
+} from '@/services/DailyGoalNudgeService';
+import NotificationService from '@/services/NotificationService';
 import { useAuthStore } from '@/stores/authStore';
 import type { RootStackParamList } from '@/types';
 import { SettingsRow } from '@/components/settings/SettingsRow';
@@ -55,6 +60,7 @@ export const SettingsScreen: React.FC = () => {
   const { settings, updateSetting, resetSettings, isLoading } = useSettingsState();
   const setHasCompletedOnboarding = useAuthStore((state) => state.setHasCompletedOnboarding);
   const reveal = useSettingsReveal();
+  const [showTimePicker, setShowTimePicker] = useState(false);
   const hasMarkedReadyRef = useRef(false);
   const frameRef = useRef<number | null>(null);
   const appVersion = Constants.expoConfig?.version ?? '1.0.0';
@@ -80,6 +86,51 @@ export const SettingsScreen: React.FC = () => {
   const handleResetOnboarding = useCallback(async () => {
     setHasCompletedOnboarding(false);
   }, [setHasCompletedOnboarding]);
+
+  const handleToggleDailyReminder = useCallback(
+    async (value: boolean) => {
+      if (value) {
+        const granted = await NotificationService.requestPermissions();
+        if (!granted) {
+          Alert.alert('Permission Denied', 'Please enable notifications in your device settings.');
+          return;
+        }
+      }
+
+      await updateSetting('dailyReminderEnabled', value);
+
+      if (value) {
+        await syncDailyReminderFromStores();
+      } else {
+        await NotificationService.cancelDailyReminder();
+      }
+
+      await syncDailyGoalNudgesFromStores();
+    },
+    [updateSetting]
+  );
+
+  const handleReminderTimeChange = useCallback(
+    async (event: DateTimePickerEvent, selectedDate?: Date) => {
+      setShowTimePicker(false);
+
+      if (!selectedDate || event.type !== 'set') {
+        return;
+      }
+
+      const hours = selectedDate.getHours().toString().padStart(2, '0');
+      const minutes = selectedDate.getMinutes().toString().padStart(2, '0');
+      const timeString = `${hours}:${minutes}`;
+
+      await updateSetting('dailyReminderTime', timeString);
+
+      if (settings.dailyReminderEnabled) {
+        await syncDailyReminderFromStores();
+        await syncDailyGoalNudgesFromStores(selectedDate);
+      }
+    },
+    [settings.dailyReminderEnabled, updateSetting]
+  );
 
   useEffect(
     () => () => {
@@ -160,9 +211,18 @@ export const SettingsScreen: React.FC = () => {
               title="Daily Reminder"
               type="toggle"
               toggleValue={settings.dailyReminderEnabled}
-              onToggle={(value) => updateSetting('dailyReminderEnabled', value)}
+              onToggle={handleToggleDailyReminder}
               disabled={isLoading}
             />
+            {settings.dailyReminderEnabled ? (
+              <SettingsRow
+                title="Reminder Time"
+                value={settings.dailyReminderTime}
+                type="chevron"
+                onPress={() => setShowTimePicker(true)}
+                disabled={isLoading}
+              />
+            ) : null}
             <SettingsRow
               title="Streak Protection Alerts"
               type="toggle"
@@ -286,6 +346,19 @@ export const SettingsScreen: React.FC = () => {
           <View style={styles.bottomSpacer} />
         </ScrollView>
       </SafeAreaView>
+      {showTimePicker ? (
+        <DateTimePicker
+          value={(() => {
+            const [hours, minutes] = settings.dailyReminderTime.split(':').map(Number);
+            const date = new Date();
+            date.setHours(hours, minutes, 0, 0);
+            return date;
+          })()}
+          mode="time"
+          is24Hour={true}
+          onChange={handleReminderTimeChange}
+        />
+      ) : null}
     </View>
   );
 };

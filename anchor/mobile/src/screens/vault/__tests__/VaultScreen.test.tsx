@@ -12,6 +12,9 @@ jest.mock('@react-navigation/native', () => ({
 // Mock stores with minimal required state
 let mockAnchors: any[] = [];
 let mockIsLoading = false;
+let mockIsAuthenticated = true;
+let mockHasActiveEntitlement = true;
+const mockSetPendingForgeResumeTarget = jest.fn();
 
 jest.mock('@/stores/anchorStore', () => ({
     useAnchorStore: (selector: any) => {
@@ -30,15 +33,20 @@ jest.mock('@/stores/authStore', () => ({
     useAuthStore: (selector: any) => {
         const state = {
             user: { id: 'test-user', displayName: 'Test User', stabilizeStreakDays: 0, lastStabilizeAt: null },
+            isAuthenticated: mockIsAuthenticated,
             anchorCount: 0,
             shouldRedirectToCreation: false,
             setShouldRedirectToCreation: jest.fn(),
+            setPendingForgeResumeTarget: mockSetPendingForgeResumeTarget,
         };
         return selector ? selector(state) : state;
     }
 }));
 jest.mock('@/hooks/useSubscription', () => ({
     useSubscription: () => ({ isFree: true, features: { maxAnchors: 3 } })
+}));
+jest.mock('@/hooks/useTrialStatus', () => ({
+    useTrialStatus: () => ({ hasActiveEntitlement: mockHasActiveEntitlement }),
 }));
 
 jest.mock('@/contexts/TabNavigationContext', () => ({
@@ -118,8 +126,11 @@ import { VaultScreen } from '../VaultScreen';
 describe('VaultScreen', () => {
     beforeEach(() => {
         mockNavigate.mockClear();
+        mockSetPendingForgeResumeTarget.mockClear();
         mockAnchors = [];
         mockIsLoading = false;
+        mockIsAuthenticated = true;
+        mockHasActiveEntitlement = true;
     });
 
     it('renders empty state when no anchors', () => {
@@ -188,5 +199,45 @@ describe('VaultScreen', () => {
         render(<VaultScreen />);
         fireEvent.press(screen.getByLabelText('Create new anchor'));
         expect(mockNavigate).toHaveBeenCalledWith('CreateAnchor');
+    });
+
+    it('routes unauthenticated returning users to auth gate', () => {
+        mockIsAuthenticated = false;
+        mockAnchors = [{
+            id: 'a1',
+            intentionText: 'Build focus',
+            category: 'career',
+            isCharged: false,
+            activationCount: 0,
+            baseSigilSvg: '<svg></svg>',
+            createdAt: new Date(),
+            updatedAt: new Date(),
+        }];
+
+        render(<VaultScreen />);
+        fireEvent.press(screen.getByLabelText('Create new anchor'));
+
+        expect(mockSetPendingForgeResumeTarget).toHaveBeenCalledWith('CreateAnchor');
+        expect(mockNavigate).toHaveBeenCalledWith('AuthGate');
+    });
+
+    it('routes authenticated users without entitlement to paywall', () => {
+        mockHasActiveEntitlement = false;
+        mockAnchors = [{
+            id: 'a1',
+            intentionText: 'Build focus',
+            category: 'career',
+            isCharged: false,
+            activationCount: 0,
+            baseSigilSvg: '<svg></svg>',
+            createdAt: new Date(),
+            updatedAt: new Date(),
+        }];
+
+        render(<VaultScreen />);
+        fireEvent.press(screen.getByLabelText('Create new anchor'));
+
+        expect(mockSetPendingForgeResumeTarget).toHaveBeenCalledWith('CreateAnchor');
+        expect(mockNavigate).toHaveBeenCalledWith('Paywall');
     });
 });

@@ -46,6 +46,7 @@ import { ProfileErrorState } from '@/components/profile/ProfileErrorState';
 import { LoadingSpinner } from '@/components/LoadingSpinner';
 import { AuthService } from '@/services/AuthService';
 import { logger } from '@/utils/logger';
+import { useTrialStatus } from '@/hooks/useTrialStatus';
 
 const IS_ANDROID = Platform.OS === 'android';
 
@@ -120,8 +121,18 @@ const MenuItem: React.FC<MenuItemProps> = ({
 
 export const ProfileScreen: React.FC = () => {
   const navigation = useNavigation<ProfileNavigationProp>();
-  const { user, signOut, setHasCompletedOnboarding, profileData, fetchProfile, refreshProfile } = useAuthStore();
+  const {
+    user,
+    signOut,
+    setHasCompletedOnboarding,
+    profileData,
+    fetchProfile,
+    refreshProfile,
+    isAuthenticated,
+    setPendingForgeResumeTarget,
+  } = useAuthStore();
   const { developerModeEnabled, developerForceStreakBreakEnabled } = useSettingsStore();
+  const { hasActiveEntitlement } = useTrialStatus();
   const toast = useToast();
   const [isLoading, setIsLoading] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
@@ -176,6 +187,18 @@ export const ProfileScreen: React.FC = () => {
   };
 
   const handleCreateAnchor = () => {
+    if ((user?.totalAnchorsCreated ?? profileData?.stats.totalAnchorsCreated ?? 0) >= 1 && !isAuthenticated) {
+      setPendingForgeResumeTarget('CreateAnchor');
+      navigation.navigate('AuthGate');
+      return;
+    }
+
+    if ((user?.totalAnchorsCreated ?? profileData?.stats.totalAnchorsCreated ?? 0) >= 1 && !hasActiveEntitlement) {
+      setPendingForgeResumeTarget('CreateAnchor');
+      navigation.navigate('Paywall');
+      return;
+    }
+
     navigation.navigate('CreateAnchor');
   };
 
@@ -188,8 +211,7 @@ export const ProfileScreen: React.FC = () => {
   };
 
   const handleSubscription = () => {
-    // TODO: Navigate to subscription screen
-    toast.info('Subscription management coming soon');
+    navigation.navigate('Paywall');
   };
 
   const handleResetOnboarding = () => {
@@ -385,8 +407,9 @@ export const ProfileScreen: React.FC = () => {
             {subscriptionStatus === 'free' && (
               <MenuItem
                 icon={<Crown color={colors.gold} size={20} />}
-                label="Upgrade to Pro"
-                subtitle="Unlock all features"
+                // DEFERRED: freemium tier removed, replaced by trial model
+                label="Continue Your Practice"
+                subtitle="Resume forging with active access"
                 onPress={handleSubscription}
               />
             )}

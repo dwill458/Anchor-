@@ -42,8 +42,11 @@ describe('authStore', () => {
       onboardingSegment: null,
       shouldRedirectToCreation: false,
       anchorCount: 0,
+      pendingForgeIntent: null,
+      pendingForgeResumeTarget: null,
       profileData: null,
       profileLastFetched: null,
+      wallpaperPromptSeen: false,
     });
     jest.clearAllMocks();
   });

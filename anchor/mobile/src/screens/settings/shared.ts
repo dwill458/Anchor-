@@ -19,8 +19,13 @@ export const formatPrimingSummary = (settings: AnchorSettings): string =>
     settings.primingDuration
   ).replace(' min', 'm')}`;
 
+const formatFocusModeLabel = (mode: AnchorSettings['focusDefaultMode']): string =>
+  mode === 'ambient' ? 'Ambient' : 'Silent';
+
 export const formatFocusSummary = (settings: AnchorSettings): string =>
-  `Visual Focus · ${Math.round(settings.focusDuration)}s`;
+  `Visual Focus · ${Math.round(settings.focusDuration)}s · ${formatFocusModeLabel(
+    settings.focusDefaultMode
+  )}`;
 
 export const formatGoalSummary = (goal: number): string =>
   `${goal} Focus Burst${goal === 1 ? '' : 's'} / day`;

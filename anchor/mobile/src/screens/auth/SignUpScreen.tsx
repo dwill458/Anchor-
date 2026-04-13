@@ -23,14 +23,14 @@ import { StackNavigationProp } from '@react-navigation/stack';
 import { colors, spacing, typography } from '@/theme';
 import { useAuthStore } from '../../stores/authStore';
 import { AuthService } from '../../services/AuthService';
+import PostAuthFlowService from '@/services/PostAuthFlowService';
+import type { RootStackParamList } from '@/types';
 
-type AuthStackParamList = {
-  Login: undefined;
-  SignUp: undefined;
+type SignUpNavigationParamList = RootStackParamList & {
   Onboarding: undefined;
 };
 
-type SignUpScreenNavigationProp = StackNavigationProp<AuthStackParamList, 'SignUp'>;
+type SignUpScreenNavigationProp = StackNavigationProp<SignUpNavigationParamList, 'SignUp'>;
 
 interface SignUpScreenProps {
   navigation: SignUpScreenNavigationProp;
@@ -45,7 +45,9 @@ export const SignUpScreen: React.FC<SignUpScreenProps> = ({ navigation }) => {
   const [error, setError] = useState('');
   const [focusedField, setFocusedField] = useState<string | null>(null);
 
-  const { setSession } = useAuthStore();
+  const hasCompletedOnboarding = useAuthStore((state) => state.hasCompletedOnboarding);
+  const pendingForgeResumeTarget = useAuthStore((state) => state.pendingForgeResumeTarget);
+  const clearPendingForgeResumeTarget = useAuthStore((state) => state.clearPendingForgeResumeTarget);
 
   const fadeAnim = React.useRef(new Animated.Value(0)).current;
 
@@ -70,9 +72,22 @@ export const SignUpScreen: React.FC<SignUpScreenProps> = ({ navigation }) => {
     setLoading(true);
     try {
       const result = await AuthService.signUpWithEmail(email, password, name);
-      setSession(result.user, result.token);
-    } catch (err: any) {
-      setError(err.message || 'Sign up failed');
+      const flowResult = await PostAuthFlowService.run({
+        user: result.user,
+        token: result.token,
+        preserveCompletedOnboarding: hasCompletedOnboarding,
+        launchTrialPurchase: true,
+      });
+
+      if (pendingForgeResumeTarget === 'CreateAnchor' && flowResult.hasActiveEntitlement) {
+        clearPendingForgeResumeTarget();
+        navigation.navigate('CreateAnchor');
+      } else if (pendingForgeResumeTarget === 'CreateAnchor') {
+        navigation.navigate('Paywall');
+      }
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : 'Sign up failed';
+      setError(message);
     } finally {
       setLoading(false);
     }

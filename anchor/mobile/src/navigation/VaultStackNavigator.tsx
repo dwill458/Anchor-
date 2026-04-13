@@ -32,7 +32,16 @@ import {
   SealAnchorScreen,
   ChargeCompleteScreen,
 } from '../screens/rituals';
-import { SettingsScreen, DefaultChargeSettings, DefaultActivationSettings, DailyPracticeGoalScreen } from '../screens/profile';
+import {
+  SettingsScreen,
+  DefaultChargeSettings,
+  DefaultActivationSettings,
+  DailyPracticeGoalScreen,
+  PrimingDefaultsScreen,
+  DefaultFocusModeScreen,
+} from '../screens/profile';
+import { AuthGateScreen, LoginScreen, SignUpScreen } from '../screens/auth';
+import { PaywallScreen } from '../screens/paywall';
 import type { RootStackParamList } from '@/types';
 import { colors } from '@/theme';
 import { useAuthStore } from '@/stores/authStore';
@@ -95,6 +104,26 @@ export const VaultStackNavigator: React.FC<VaultStackNavigatorProps> = ({ onRout
         name="AnchorDetail"
         component={AnchorDetailScreen}
         options={{ headerShown: false }}
+      />
+      <Stack.Screen
+        name="AuthGate"
+        component={AuthGateScreen}
+        options={{ headerShown: false, animation: 'fade_from_bottom' }}
+      />
+      <Stack.Screen
+        name="Paywall"
+        component={PaywallScreen}
+        options={{ headerShown: false, animation: 'fade_from_bottom' }}
+      />
+      <Stack.Screen
+        name="Login"
+        component={LoginScreen}
+        options={{ headerShown: false, animation: 'fade_from_bottom' }}
+      />
+      <Stack.Screen
+        name="SignUp"
+        component={SignUpScreen}
+        options={{ headerShown: false, animation: 'fade_from_bottom' }}
       />
       <Stack.Screen
         name="FirstAnchorCreation"
@@ -236,6 +265,22 @@ export const VaultStackNavigator: React.FC<VaultStackNavigatorProps> = ({ onRout
         component={DefaultActivationSettings}
         options={{
           title: 'Default Activation',
+          headerShown: true,
+        }}
+      />
+      <Stack.Screen
+        name="PrimingDefaults"
+        component={PrimingDefaultsScreen}
+        options={{
+          title: 'Priming Defaults',
+          headerShown: true,
+        }}
+      />
+      <Stack.Screen
+        name="DefaultFocusMode"
+        component={DefaultFocusModeScreen}
+        options={{
+          title: 'Default Focus Mode',
           headerShown: true,
         }}
       />

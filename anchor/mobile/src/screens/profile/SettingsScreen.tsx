@@ -436,7 +436,7 @@ export const SettingsScreen: React.FC = () => {
   const handleRestorePurchase = () => {
     Alert.alert(
       'Restore Purchase',
-      'To restore your Pro subscription, open your App Store account and confirm your active subscriptions.',
+      'To restore your access, open your App Store account and confirm your active subscriptions.',
       [
         { text: 'Cancel', style: 'cancel' },
         { text: 'Open Store', onPress: openStoreSubscriptions },
@@ -595,15 +595,15 @@ export const SettingsScreen: React.FC = () => {
                 />
                 <CardWrapper {...cardProps} style={styles.section}>
                   <SettingItem
-                    label="Current Plan"
-                    value={tier.charAt(0).toUpperCase() + tier.slice(1)}
+                    label="Current Access"
+                    value={isPro ? 'Active' : 'Inactive'}
                     showChevron={false}
                   />
                   <View style={styles.proBenefits}>
-                    <Text style={styles.proBenefitsTitle}>Pro Benefits</Text>
-                    <Text style={styles.proBenefitItem}>• Unlimited anchors</Text>
-                    <Text style={styles.proBenefitItem}>• Advanced customization</Text>
-                    <Text style={styles.proBenefitItem}>• Manual creation tools</Text>
+                    <Text style={styles.proBenefitsTitle}>Practice Access</Text>
+                    <Text style={styles.proBenefitItem}>• Forge new anchors without interruption</Text>
+                    <Text style={styles.proBenefitItem}>• Continue your ritual flow</Text>
+                    <Text style={styles.proBenefitItem}>• Restore access any time</Text>
                   </View>
                   {!isPro && (
                     <TouchableOpacity style={styles.upgradeButton} activeOpacity={0.8} onPress={handleUpgradeToPro}>
@@ -613,7 +613,7 @@ export const SettingsScreen: React.FC = () => {
                         start={{ x: 0, y: 0 }}
                         end={{ x: 1, y: 0 }}
                       >
-                        <Text style={styles.upgradeButtonText}>Upgrade to Pro</Text>
+                        <Text style={styles.upgradeButtonText}>Continue Your Practice</Text>
                       </LinearGradient>
                     </TouchableOpacity>
                   )}
