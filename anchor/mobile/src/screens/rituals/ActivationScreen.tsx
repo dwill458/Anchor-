@@ -71,6 +71,10 @@ export const ActivationScreen: React.FC = () => {
   const getAnchorById = useAnchorStore((state) => state.getAnchorById);
   const updateAnchor = useAnchorStore((state) => state.updateAnchor);
   const computeStreak = useAuthStore((state) => state.computeStreak);
+  const pendingFirstAnchorDraft = useAuthStore((state) => state.pendingFirstAnchorDraft);
+  const enqueuePendingFirstAnchorMutation = useAuthStore(
+    (state) => state.enqueuePendingFirstAnchorMutation
+  );
   const { defaultActivation } = useSettingsStore();
   const resolvedDefaultActivation = useMemo(
     () => resolveDefaultActivation(defaultActivation),
@@ -79,6 +83,7 @@ export const ActivationScreen: React.FC = () => {
   const { recordSession } = useSessionStore();
   const { recordShown } = useTeachingStore();
   const anchor = getAnchorById(anchorId);
+  const isPendingFirstAnchor = pendingFirstAnchorDraft?.tempAnchorId === anchorId;
   const anchorHeroUri = anchor
     ? anchor.enhancedImageUrl || anchor.reinforcedSigilSvg || anchor.baseSigilSvg || ''
     : '';
@@ -144,6 +149,18 @@ export const ActivationScreen: React.FC = () => {
     computeStreak();
 
     try {
+      if (isPendingFirstAnchor) {
+        enqueuePendingFirstAnchorMutation({
+          type: 'activate_anchor',
+          tempAnchorId: anchorId,
+          activationType: activationType || 'visual',
+          durationSeconds: activationDurationSeconds,
+          queuedAt: localActivationTime.toISOString(),
+        });
+        toast.success('Activation saved for your first anchor');
+        return;
+      }
+
       const response = await apiClient.post(`/api/anchors/${anchorId}/activate`, {
         activationType: activationType || 'visual',
         durationSeconds: activationDurationSeconds,
@@ -169,7 +186,17 @@ export const ActivationScreen: React.FC = () => {
 
       toast.error('Activation completed but failed to sync. Will retry later.');
     }
-  }, [activationDurationSeconds, activationType, anchor?.activationCount, anchorId, computeStreak, toast, updateAnchor]);
+  }, [
+    activationDurationSeconds,
+    activationType,
+    anchor?.activationCount,
+    anchorId,
+    computeStreak,
+    enqueuePendingFirstAnchorMutation,
+    isPendingFirstAnchor,
+    toast,
+    updateAnchor,
+  ]);
 
   // Show completion modal instead of immediately going back
   const handleSessionCompleted = useCallback(() => {

@@ -20,9 +20,11 @@ export const ProfileHeader: React.FC<ProfileHeaderProps> = ({
   displayName,
   subscriptionStatus,
 }) => {
-  const badgeColor = subscriptionStatus === 'pro' || subscriptionStatus === 'pro_annual'
-    ? colors.gold
-    : colors.silver;
+  // DEFERRED: freemium — 'free' tier badge removed; badge now reflects trial/active vs expired
+  // const isPro = subscriptionStatus === 'pro' || subscriptionStatus === 'pro_annual';
+  const isSubscribed = subscriptionStatus === 'pro' || subscriptionStatus === 'pro_annual';
+  const membershipLabel = isSubscribed ? 'MEMBER' : 'TRIAL';
+  const badgeColor = isSubscribed ? colors.gold : colors.silver;
 
   // Get first letter of display name or default to 'S' for Seeker
   const avatarInitial = displayName?.[0]?.toUpperCase() || 'S';
@@ -35,6 +37,10 @@ export const ProfileHeader: React.FC<ProfileHeaderProps> = ({
         </View>
 
         <Text style={styles.displayName}>{displayName || 'Seeker'}</Text>
+
+        <View style={[styles.badge, { borderColor: badgeColor }]}>
+          <Text style={[styles.badgeText, { color: badgeColor }]}>{membershipLabel}</Text>
+        </View>
       </BlurView>
     ) : (
       <View style={[styles.container, { backgroundColor: 'rgba(12, 17, 24, 0.92)' }]}>
@@ -43,6 +49,10 @@ export const ProfileHeader: React.FC<ProfileHeaderProps> = ({
         </View>
 
         <Text style={styles.displayName}>{displayName || 'Seeker'}</Text>
+
+        <View style={[styles.badge, { borderColor: badgeColor }]}>
+          <Text style={[styles.badgeText, { color: badgeColor }]}>{membershipLabel}</Text>
+        </View>
       </View>
     )
   );
@@ -78,5 +88,18 @@ const styles = StyleSheet.create({
     ...typography.h2,
     color: colors.bone,
     marginBottom: spacing.sm,
+  },
+  badge: {
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.xs,
+    borderRadius: 20,
+    borderWidth: 1,
+  },
+  badgeText: {
+    fontFamily: 'Inter-SemiBold',
+    fontSize: 12,
+    fontWeight: '600',
+    textTransform: 'uppercase',
+    letterSpacing: 1,
   },
 });

@@ -32,7 +32,9 @@ import Animated, {
 import { useAuthStore } from '@/stores/authStore';
 import { useSettingsStore } from '@/stores/settingsStore';
 import { useSubscriptionStore } from '@/stores/subscriptionStore';
-import { useSubscription } from '@/hooks/useSubscription';
+// DEFERRED: freemium — useSubscription replaced with useTrialStatus for trial model
+// import { useSubscription } from '@/hooks/useSubscription';
+import { useTrialStatus } from '@/hooks/useTrialStatus';
 import { useReduceMotionEnabled } from '@/hooks/useReduceMotionEnabled';
 import { useSettingsReveal } from '@/components/transitions/SettingsRevealProvider';
 import type { RootStackParamList } from '@/types';
@@ -125,7 +127,9 @@ export const SettingsScreen: React.FC = () => {
   const { user, signOut, setHasCompletedOnboarding } = useAuthStore();
   const settings = useSettingsStore();
   const subStore = useSubscriptionStore();
-  const { tier, isPro } = useSubscription();
+  // DEFERRED: freemium — { tier, isPro } replaced with trial-aware status
+  // const { tier, isPro } = useSubscription();
+  const { isTrialActive, isSubscribed, hasExpired, daysRemaining } = useTrialStatus();
   const reduceMotionEnabled = useReduceMotionEnabled();
   const reveal = useSettingsReveal();
   const shouldAnimateSections = SHOULD_ANIMATE_SECTION_ENTRANCE && !reduceMotionEnabled;
@@ -429,14 +433,15 @@ export const SettingsScreen: React.FC = () => {
     );
   };
 
-  const handleUpgradeToPro = () => {
-    openStoreSubscriptions();
-  };
+  // DEFERRED: freemium — handleUpgradeToPro removed; upgrade now routes to Paywall screen
+  // const handleUpgradeToPro = () => {
+  //   openStoreSubscriptions();
+  // };
 
   const handleRestorePurchase = () => {
     Alert.alert(
       'Restore Purchase',
-      'To restore your access, open your App Store account and confirm your active subscriptions.',
+      'To restore your Pro subscription, open your App Store account and confirm your active subscriptions.',
       [
         { text: 'Cancel', style: 'cancel' },
         { text: 'Open Store', onPress: openStoreSubscriptions },
@@ -591,31 +596,46 @@ export const SettingsScreen: React.FC = () => {
               <Animated.View style={animatedStyle6}>
                 <SectionHeader
                   title="Subscription"
-                  description="Manage your plan and access premium features."
+                  description="Your membership unlocks the full Anchor experience."
                 />
                 <CardWrapper {...cardProps} style={styles.section}>
-                  <SettingItem
-                    label="Current Access"
-                    value={isPro ? 'Active' : 'Inactive'}
-                    showChevron={false}
-                  />
-                  <View style={styles.proBenefits}>
-                    <Text style={styles.proBenefitsTitle}>Practice Access</Text>
-                    <Text style={styles.proBenefitItem}>• Forge new anchors without interruption</Text>
-                    <Text style={styles.proBenefitItem}>• Continue your ritual flow</Text>
-                    <Text style={styles.proBenefitItem}>• Restore access any time</Text>
-                  </View>
-                  {!isPro && (
-                    <TouchableOpacity style={styles.upgradeButton} activeOpacity={0.8} onPress={handleUpgradeToPro}>
-                      <LinearGradient
-                        colors={[colors.gold, colors.bronze]}
-                        style={styles.upgradeGradient}
-                        start={{ x: 0, y: 0 }}
-                        end={{ x: 1, y: 0 }}
+                  {isSubscribed && (
+                    <SettingItem
+                      label="Current Plan"
+                      value="Active"
+                      showChevron={false}
+                    />
+                  )}
+                  {isTrialActive && (
+                    <SettingItem
+                      label="Free Trial"
+                      value={`${daysRemaining} day${daysRemaining === 1 ? '' : 's'} remaining`}
+                      showChevron={false}
+                    />
+                  )}
+                  {hasExpired && (
+                    <>
+                      <SettingItem
+                        label="Trial Status"
+                        value="Expired"
+                        showChevron={false}
+                      />
+                      {/* DEFERRED: freemium — Upgrade to Pro button replaced with Subscribe CTA */}
+                      <TouchableOpacity
+                        style={styles.upgradeButton}
+                        activeOpacity={0.8}
+                        onPress={() => navigation.navigate('Paywall' as any)}
                       >
-                        <Text style={styles.upgradeButtonText}>Continue Your Practice</Text>
-                      </LinearGradient>
-                    </TouchableOpacity>
+                        <LinearGradient
+                          colors={[colors.gold, colors.bronze]}
+                          style={styles.upgradeGradient}
+                          start={{ x: 0, y: 0 }}
+                          end={{ x: 1, y: 0 }}
+                        >
+                          <Text style={styles.upgradeButtonText}>Subscribe to Anchor</Text>
+                        </LinearGradient>
+                      </TouchableOpacity>
+                    </>
                   )}
                   <SettingItem label="Restore Purchase" onPress={handleRestorePurchase} showChevron={false} />
                 </CardWrapper>

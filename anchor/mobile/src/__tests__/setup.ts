@@ -258,6 +258,10 @@ jest.mock('@/contexts/TabNavigationContext', () => ({
   TabNavigationProvider: ({ children }: any) => children,
   useTabNavigation: jest.fn(() => ({
     navigateToTab: jest.fn(),
+    navigateToVault: jest.fn(),
+    navigateToPractice: jest.fn(),
+    registerTabNav: jest.fn(),
+    activeTabIndex: 0,
     currentTab: 'Vault',
   })),
 }));

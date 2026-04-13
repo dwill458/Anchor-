@@ -13,6 +13,10 @@ export interface AuthResult {
   isNewUser: boolean;
 }
 
+export interface AuthSyncOptions {
+  hasCompletedOnboarding?: boolean;
+}
+
 type AuthProvider = 'email' | 'google' | 'apple';
 
 function normalizeDate(value?: Date | string | null): Date {
@@ -116,7 +120,8 @@ function mapAuthError(error: unknown): Error {
 async function syncUserWithBackend(
   firebaseUser: FirebaseAuthTypes.User,
   idToken: string,
-  displayNameOverride?: string
+  displayNameOverride?: string,
+  options?: AuthSyncOptions
 ): Promise<User> {
   const response = await fetch(`${API_URL}/api/auth/sync`, {
     method: 'POST',
@@ -127,6 +132,7 @@ async function syncUserWithBackend(
     body: JSON.stringify({
       displayName: displayNameOverride ?? firebaseUser.displayName ?? undefined,
       authProvider: getAuthProvider(firebaseUser),
+      hasCompletedOnboarding: options?.hasCompletedOnboarding === true ? true : undefined,
     }),
   });
 
@@ -142,10 +148,11 @@ async function syncUserWithBackend(
 
 async function buildAuthResult(
   firebaseUser: FirebaseAuthTypes.User,
-  displayNameOverride?: string
+  displayNameOverride?: string,
+  options?: AuthSyncOptions
 ): Promise<AuthResult> {
   const idToken = await firebaseUser.getIdToken();
-  const user = await syncUserWithBackend(firebaseUser, idToken, displayNameOverride);
+  const user = await syncUserWithBackend(firebaseUser, idToken, displayNameOverride, options);
 
   return {
     user,
@@ -159,10 +166,14 @@ export class AuthService {
     auth();
   }
 
-  static async signInWithEmail(email: string, password: string): Promise<AuthResult> {
+  static async signInWithEmail(
+    email: string,
+    password: string,
+    options?: AuthSyncOptions
+  ): Promise<AuthResult> {
     try {
       const credential = await auth().signInWithEmailAndPassword(email.trim(), password);
-      return await buildAuthResult(credential.user);
+      return await buildAuthResult(credential.user, undefined, options);
     } catch (error) {
       logger.error('Failed to sign in with email', error);
       throw mapAuthError(error);
@@ -172,7 +183,8 @@ export class AuthService {
   static async signUpWithEmail(
     email: string,
     password: string,
-    displayName?: string
+    displayName?: string,
+    options?: AuthSyncOptions
   ): Promise<AuthResult> {
     try {
       const credential = await auth().createUserWithEmailAndPassword(email.trim(), password);
@@ -184,7 +196,7 @@ export class AuthService {
       }
 
       const currentUser = auth().currentUser ?? credential.user;
-      return await buildAuthResult(currentUser, trimmedName);
+      return await buildAuthResult(currentUser, trimmedName, options);
     } catch (error) {
       logger.error('Failed to sign up with email', error);
       await auth().signOut().catch(() => undefined);

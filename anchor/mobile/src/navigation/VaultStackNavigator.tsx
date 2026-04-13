@@ -32,16 +32,8 @@ import {
   SealAnchorScreen,
   ChargeCompleteScreen,
 } from '../screens/rituals';
-import {
-  SettingsScreen,
-  DefaultChargeSettings,
-  DefaultActivationSettings,
-  DailyPracticeGoalScreen,
-  PrimingDefaultsScreen,
-  DefaultFocusModeScreen,
-} from '../screens/profile';
-import { AuthGateScreen, LoginScreen, SignUpScreen } from '../screens/auth';
-import { PaywallScreen } from '../screens/paywall';
+import { SettingsScreen, DefaultChargeSettings, DefaultActivationSettings, DailyPracticeGoalScreen } from '../screens/profile';
+import { FirstAnchorAccountGateScreen, LoginScreen, SignUpScreen } from '../screens/auth';
 import type { RootStackParamList } from '@/types';
 import { colors } from '@/theme';
 import { useAuthStore } from '@/stores/authStore';
@@ -55,7 +47,13 @@ interface VaultStackNavigatorProps {
 export const VaultStackNavigator: React.FC<VaultStackNavigatorProps> = ({ onRouteChange }) => {
   const shouldRedirectToCreation = useAuthStore((state) => state.shouldRedirectToCreation);
   const setShouldRedirectToCreation = useAuthStore((state) => state.setShouldRedirectToCreation);
-  const initialRouteName = shouldRedirectToCreation ? 'FirstAnchorCreation' : 'Vault';
+  const pendingFirstAnchorDraft = useAuthStore((state) => state.pendingFirstAnchorDraft);
+  const shouldGateFirstVaultEntry = Boolean(pendingFirstAnchorDraft?.requiresAccountGate);
+  const initialRouteName = shouldRedirectToCreation
+    ? 'FirstAnchorCreation'
+    : shouldGateFirstVaultEntry
+      ? 'FirstAnchorAccountGate'
+      : 'Vault';
 
   React.useEffect(() => {
     if (shouldRedirectToCreation) {
@@ -101,29 +99,24 @@ export const VaultStackNavigator: React.FC<VaultStackNavigatorProps> = ({ onRout
         }}
       />
       <Stack.Screen
-        name="AnchorDetail"
-        component={AnchorDetailScreen}
-        options={{ headerShown: false }}
-      />
-      <Stack.Screen
-        name="AuthGate"
-        component={AuthGateScreen}
-        options={{ headerShown: false, animation: 'fade_from_bottom' }}
-      />
-      <Stack.Screen
-        name="Paywall"
-        component={PaywallScreen}
-        options={{ headerShown: false, animation: 'fade_from_bottom' }}
+        name="FirstAnchorAccountGate"
+        component={FirstAnchorAccountGateScreen}
+        options={{ headerShown: false, gestureEnabled: false }}
       />
       <Stack.Screen
         name="Login"
         component={LoginScreen}
-        options={{ headerShown: false, animation: 'fade_from_bottom' }}
+        options={{ headerShown: false }}
       />
       <Stack.Screen
         name="SignUp"
         component={SignUpScreen}
-        options={{ headerShown: false, animation: 'fade_from_bottom' }}
+        options={{ headerShown: false }}
+      />
+      <Stack.Screen
+        name="AnchorDetail"
+        component={AnchorDetailScreen}
+        options={{ headerShown: false }}
       />
       <Stack.Screen
         name="FirstAnchorCreation"
@@ -265,22 +258,6 @@ export const VaultStackNavigator: React.FC<VaultStackNavigatorProps> = ({ onRout
         component={DefaultActivationSettings}
         options={{
           title: 'Default Activation',
-          headerShown: true,
-        }}
-      />
-      <Stack.Screen
-        name="PrimingDefaults"
-        component={PrimingDefaultsScreen}
-        options={{
-          title: 'Priming Defaults',
-          headerShown: true,
-        }}
-      />
-      <Stack.Screen
-        name="DefaultFocusMode"
-        component={DefaultFocusModeScreen}
-        options={{
-          title: 'Default Focus Mode',
           headerShown: true,
         }}
       />

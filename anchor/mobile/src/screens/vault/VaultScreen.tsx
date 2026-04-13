@@ -32,11 +32,10 @@ import {
 import { useAnchorStore } from '../../stores/anchorStore';
 import { useAuthStore } from '../../stores/authStore';
 import { useToast } from '../../components/ToastProvider';
-import { AnchorLimitModal } from '../../components/modals/AnchorLimitModal';
 import { AnchorGridSkeleton } from '../../components/skeletons/AnchorCardSkeleton';
-import { useSubscription } from '../../hooks/useSubscription';
+// DEFERRED: freemium — useSubscription removed; freemium tier gates replaced with trial model
+// import { useSubscription } from '../../hooks/useSubscription';
 import { useReduceMotionEnabled } from '@/hooks/useReduceMotionEnabled';
-import { useTrialStatus } from '@/hooks/useTrialStatus';
 import { AnalyticsService, AnalyticsEvents } from '../../services/AnalyticsService';
 import { ErrorTrackingService } from '../../services/ErrorTrackingService';
 import { PerformanceMonitoring } from '../../services/PerformanceMonitoring';
@@ -133,13 +132,13 @@ export const VaultScreen: React.FC = () => {
   const isVaultTabActive = activeTabIndex == null ? true : activeTabIndex === 0;
 
   const { user } = useAuthStore();
-  const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
-  const setPendingForgeResumeTarget = useAuthStore((state) => state.setPendingForgeResumeTarget);
   const developerForceStreakBreakEnabled = useSettingsStore(
     (state) => state.developerForceStreakBreakEnabled
   );
   const shouldRedirectToCreation = useAuthStore((s) => s.shouldRedirectToCreation);
   const setShouldRedirectToCreation = useAuthStore((s) => s.setShouldRedirectToCreation);
+  const pendingFirstAnchorDraft = useAuthStore((s) => s.pendingFirstAnchorDraft);
+  const shouldGateFirstVaultEntry = Boolean(pendingFirstAnchorDraft?.requiresAccountGate);
 
   const anchors = useAnchorStore((s) => s.anchors);
   const currentAnchorId = useAnchorStore((s) => s.currentAnchorId);
@@ -147,10 +146,6 @@ export const VaultScreen: React.FC = () => {
   const isLoading = useAnchorStore((s) => s.isLoading);
   const setLoading = useAnchorStore((s) => s.setLoading);
   const setError = useAnchorStore((s) => s.setError);
-
-  const { isFree, features } = useSubscription();
-  const { hasActiveEntitlement } = useTrialStatus();
-  const [showAnchorLimitModal, setShowAnchorLimitModal] = React.useState(false);
 
   const reduceMotionEnabled = useReduceMotionEnabled();
   const shouldReduceMotion = reduceMotionEnabled || !isVaultTabActive;
@@ -231,8 +226,7 @@ export const VaultScreen: React.FC = () => {
   useEffect(() => {
     if (shouldRedirectToCreation) {
       setShouldRedirectToCreation(false);
-
-      // DEFERRED: freemium tier removed, replaced by trial model
+      // DEFERRED: freemium — anchor limit check removed; trial/active users have unlimited anchors
       // if (isFree && anchors.length >= features.maxAnchors) {
       //   setShowAnchorLimitModal(true);
       //   return;
@@ -249,11 +243,16 @@ export const VaultScreen: React.FC = () => {
   }, [
     shouldRedirectToCreation,
     setShouldRedirectToCreation,
-    isFree,
-    anchors.length,
-    features.maxAnchors,
     navigation,
   ]);
+
+  useEffect(() => {
+    if (!shouldGateFirstVaultEntry) {
+      return;
+    }
+
+    navigation.replace('FirstAnchorAccountGate');
+  }, [navigation, shouldGateFirstVaultEntry]);
 
   // ── Data fetching ─────────────────────────────────────────────────────────────
   const fetchAnchors = useCallback(async (): Promise<void> => {
@@ -284,7 +283,7 @@ export const VaultScreen: React.FC = () => {
 
   // ── Navigation handlers ───────────────────────────────────────────────────────
   const handleCreateAnchor = useCallback((): void => {
-    // DEFERRED: freemium tier removed, replaced by trial model
+    // DEFERRED: freemium — anchor limit gate removed; trial/active users have unlimited anchors
     // if (isFree && anchors.length >= features.maxAnchors) {
     //   AnalyticsService.track(AnalyticsEvents.ANCHOR_LIMIT_REACHED, {
     //     current_count: anchors.length,
@@ -294,25 +293,12 @@ export const VaultScreen: React.FC = () => {
     //   setShowAnchorLimitModal(true);
     //   return;
     // }
-
-    if (anchors.length >= 1 && !isAuthenticated) {
-      setPendingForgeResumeTarget('CreateAnchor');
-      navigation.navigate('AuthGate');
-      return;
-    }
-
-    if (anchors.length >= 1 && isAuthenticated && !hasActiveEntitlement) {
-      setPendingForgeResumeTarget('CreateAnchor');
-      navigation.navigate('Paywall');
-      return;
-    }
-
     AnalyticsService.track(AnalyticsEvents.ANCHOR_CREATION_STARTED, {
       source: 'vault',
       has_existing_anchors: anchors.length > 0,
     });
     navigation.navigate(anchors.length === 0 ? 'FirstAnchorCreation' : 'CreateAnchor');
-  }, [anchors.length, hasActiveEntitlement, isAuthenticated, navigation, setPendingForgeResumeTarget]);
+  }, [anchors.length, navigation]);
 
   const handleAnchorPress = useCallback(
     (anchorId: string): void => {
@@ -338,20 +324,6 @@ export const VaultScreen: React.FC = () => {
       navigation.navigate('ChargeSetup', { anchorId: primaryAnchor.id });
     }
   }, [primaryAnchor, navigation]);
-
-  const handleUpgradeFromLimit = useCallback((): void => {
-    setShowAnchorLimitModal(false);
-    AnalyticsService.track(AnalyticsEvents.UPGRADE_INITIATED, {
-      source: 'anchor_limit_modal',
-      trigger: 'max_anchors_reached',
-    });
-    navigation.navigate('Settings');
-  }, [navigation]);
-
-  const handleBurnFromLimit = useCallback((): void => {
-    setShowAnchorLimitModal(false);
-    toast.info('Select an anchor to release and make room for a new one');
-  }, [toast]);
 
   // ── Render ────────────────────────────────────────────────────────────────────
 
@@ -426,15 +398,6 @@ export const VaultScreen: React.FC = () => {
           </View>
         )}
       </SafeAreaView>
-
-      <AnchorLimitModal
-        visible={showAnchorLimitModal}
-        currentCount={anchors.length}
-        maxCount={features.maxAnchors}
-        onClose={() => setShowAnchorLimitModal(false)}
-        onUpgrade={handleUpgradeFromLimit}
-        onBurnAnchor={handleBurnFromLimit}
-      />
     </View>
   );
 };

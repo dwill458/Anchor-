@@ -23,20 +23,18 @@ import { StackNavigationProp } from '@react-navigation/stack';
 import { colors, spacing, typography } from '@/theme';
 import { useAuthStore } from '../../stores/authStore';
 import { AuthService } from '../../services/AuthService';
-import PostAuthFlowService from '@/services/PostAuthFlowService';
-import type { RootStackParamList } from '@/types';
+import type { AuthScreenParams, OnboardingStackParamList, RootStackParamList } from '@/types';
 
-type SignUpNavigationParamList = RootStackParamList & {
-  Onboarding: undefined;
-};
+type SharedAuthParamList = RootStackParamList & OnboardingStackParamList;
 
-type SignUpScreenNavigationProp = StackNavigationProp<SignUpNavigationParamList, 'SignUp'>;
+type SignUpScreenNavigationProp = StackNavigationProp<SharedAuthParamList, 'SignUp'>;
 
 interface SignUpScreenProps {
   navigation: SignUpScreenNavigationProp;
+  route?: { params?: AuthScreenParams };
 }
 
-export const SignUpScreen: React.FC<SignUpScreenProps> = ({ navigation }) => {
+export const SignUpScreen: React.FC<SignUpScreenProps> = ({ navigation, route }) => {
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -45,9 +43,8 @@ export const SignUpScreen: React.FC<SignUpScreenProps> = ({ navigation }) => {
   const [error, setError] = useState('');
   const [focusedField, setFocusedField] = useState<string | null>(null);
 
-  const hasCompletedOnboarding = useAuthStore((state) => state.hasCompletedOnboarding);
-  const pendingForgeResumeTarget = useAuthStore((state) => state.pendingForgeResumeTarget);
-  const clearPendingForgeResumeTarget = useAuthStore((state) => state.clearPendingForgeResumeTarget);
+  const { setSession } = useAuthStore();
+  const context = route?.params?.context;
 
   const fadeAnim = React.useRef(new Animated.Value(0)).current;
 
@@ -71,23 +68,16 @@ export const SignUpScreen: React.FC<SignUpScreenProps> = ({ navigation }) => {
     }
     setLoading(true);
     try {
-      const result = await AuthService.signUpWithEmail(email, password, name);
-      const flowResult = await PostAuthFlowService.run({
-        user: result.user,
-        token: result.token,
-        preserveCompletedOnboarding: hasCompletedOnboarding,
-        launchTrialPurchase: true,
+      const result = await AuthService.signUpWithEmail(email, password, name, {
+        hasCompletedOnboarding: context === 'first_anchor_gate' ? true : undefined,
       });
+      setSession(result.user, result.token);
 
-      if (pendingForgeResumeTarget === 'CreateAnchor' && flowResult.hasActiveEntitlement) {
-        clearPendingForgeResumeTarget();
-        navigation.navigate('CreateAnchor');
-      } else if (pendingForgeResumeTarget === 'CreateAnchor') {
-        navigation.navigate('Paywall');
+      if (context === 'first_anchor_gate') {
+        navigation.replace('FirstAnchorAccountGate');
       }
-    } catch (error: unknown) {
-      const message = error instanceof Error ? error.message : 'Sign up failed';
-      setError(message);
+    } catch (err: any) {
+      setError(err.message || 'Sign up failed');
     } finally {
       setLoading(false);
     }
@@ -194,7 +184,7 @@ export const SignUpScreen: React.FC<SignUpScreenProps> = ({ navigation }) => {
 
               <View style={styles.footer}>
                 <Text style={styles.footerText}>Already have an account? </Text>
-                <TouchableOpacity onPress={() => navigation.navigate('Login')}>
+                <TouchableOpacity onPress={() => navigation.navigate('Login', route?.params)}>
                   <Text style={styles.footerLink}>Sign In</Text>
                 </TouchableOpacity>
               </View>

@@ -23,7 +23,9 @@ import { useSettingsStore } from '@/stores/settingsStore';
 import { analyzeIntention, getGuidanceText } from '@/utils/intentionPatterns';
 import { OptimizedImage } from '@/components/common/OptimizedImage';
 import { ErrorTrackingService } from '@/services/ErrorTrackingService';
+import { post } from '@/services/ApiClient';
 import { logger } from '@/utils/logger';
+import type { ApiResponse, Anchor } from '@/types';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const IMAGE_SIZE = SCREEN_WIDTH - 64; // Large centered image
@@ -40,6 +42,13 @@ export const AnchorRevealScreen: React.FC = () => {
     const incrementAnchorCount = useAuthStore((state) => state.incrementAnchorCount);
     const wallpaperPromptSeen = useAuthStore((state) => state.wallpaperPromptSeen);
     const authUser = useAuthStore((state) => state.user);
+    const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
+    const existingAnchorCount = useAuthStore((state) => state.anchorCount);
+    const setPendingFirstAnchorDraft = useAuthStore((state) => state.setPendingFirstAnchorDraft);
+    const enqueuePendingFirstAnchorMutation = useAuthStore(
+        (state) => state.enqueuePendingFirstAnchorMutation
+    );
+    const clearPendingFirstAnchorState = useAuthStore((state) => state.clearPendingFirstAnchorState);
     const [isSaving, setIsSaving] = useState(false);
 
     const {
@@ -110,15 +119,59 @@ export const AnchorRevealScreen: React.FC = () => {
             has_image: Boolean(enhancedImageUrl),
         });
 
-        const anchorId = `anchor-${Date.now()}`;
+        const isGuestFirstAnchor = !isAuthenticated && existingAnchorCount === 0;
+        let anchorId = isGuestFirstAnchor
+            ? `pending-first-anchor-${Date.now()}`
+            : `anchor-${Date.now()}`;
 
-        // DEFERRED: freemium tier removed, replaced by trial model
-        // Backend-first persistence was replaced by store-owned local->cloud sync.
-        setIsSaving(false);
+        try {
+            if (isGuestFirstAnchor) {
+                clearPendingFirstAnchorState();
+                setPendingFirstAnchorDraft({
+                    tempAnchorId: anchorId,
+                    source: 'onboarding_first_anchor',
+                    requiresAccountGate: true,
+                    createdAt: new Date(),
+                });
+                enqueuePendingFirstAnchorMutation({
+                    type: 'create_anchor',
+                    tempAnchorId: anchorId,
+                    queuedAt: new Date().toISOString(),
+                });
+            } else {
+                // Persist anchor to backend — this is the source of truth
+                const response = await post<ApiResponse<Anchor>>('/api/anchors', {
+                    intentionText,
+                    category,
+                    distilledLetters,
+                    baseSigilSvg,
+                    structureVariant: structureVariant || 'balanced',
+                    reinforcedSigilSvg: reinforcedSigilSvg || undefined,
+                    reinforcementMetadata: reinforcementMetadata || undefined,
+                    enhancedImageUrl: enhancedImageUrl || undefined,
+                    enhancementMetadata: enhancementMetadata || undefined,
+                });
+
+                if (response?.success && response?.data?.id) {
+                    anchorId = response.data.id;
+                    logger.info('[AnchorReveal] Anchor saved to backend', { anchorId });
+                } else {
+                    logger.warn('[AnchorReveal] Backend returned unexpected response, using local ID', { response });
+                }
+            }
+        } catch (err) {
+            logger.warn('[AnchorReveal] Failed to save anchor to backend, proceeding locally', err);
+            ErrorTrackingService.captureException(err, {
+                screen: 'AnchorRevealScreen',
+                action: 'save_anchor_to_backend',
+            });
+            // Continue with local fallback — don't block the user
+        } finally {
+            setIsSaving(false);
+        }
 
         addAnchor({
             id: anchorId,
-            localId: anchorId,
             userId: authUser?.id || 'user-local',
             intentionText,
             category,
@@ -135,7 +188,6 @@ export const AnchorRevealScreen: React.FC = () => {
             updatedAt: new Date(),
         });
         incrementAnchorCount();
-        logger.info('[AnchorReveal] Anchor queued for local/cloud sync', { anchorId });
 
         // Clear heavy temporary data once the anchor record is created.
         setTempEnhancedImage(null);

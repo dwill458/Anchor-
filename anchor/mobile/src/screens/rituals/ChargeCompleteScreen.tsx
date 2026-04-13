@@ -30,6 +30,7 @@ import { useReduceMotionEnabled } from '@/hooks/useReduceMotionEnabled';
 import { RitualScaffold } from './components/RitualScaffold';
 import { InstructionGlassCard } from './components/InstructionGlassCard';
 import { CompletionModal } from './components/CompletionModal';
+import { navigateToVaultDestination } from '@/navigation/firstAnchorGate';
 
 const { width } = Dimensions.get('window');
 const SYMBOL_SIZE = Math.min(width * 0.42, 180);
@@ -107,7 +108,7 @@ export const ChargeCompleteScreen: React.FC = () => {
     } else if (returnTo === 'detail') {
       navigation.navigate('AnchorDetail', { anchorId });
     } else {
-      navigation.navigate('Vault');
+      navigateToVaultDestination(navigation);
     }
   };
 
