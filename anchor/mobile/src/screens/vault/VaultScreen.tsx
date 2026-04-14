@@ -40,7 +40,6 @@ import { AnalyticsService, AnalyticsEvents } from '../../services/AnalyticsServi
 import { ErrorTrackingService } from '../../services/ErrorTrackingService';
 import { PerformanceMonitoring } from '../../services/PerformanceMonitoring';
 import { SanctuaryHeader } from './components/SanctuaryHeader';
-import { AtmosphericOrbs } from './components/AtmosphericOrbs';
 import { HeroAnchorCard } from './components/HeroAnchorCard';
 import { AnchorStack } from './components/AnchorStack';
 import { ZenBackground } from '@/components/common';
@@ -256,6 +255,14 @@ export const VaultScreen: React.FC = () => {
     navigation.replace('FirstAnchorAccountGate');
   }, [navigation, shouldGateFirstVaultEntry]);
 
+  // ── Analytics tracking — fires once per user session, not on every anchor update ──
+  const anchorsLengthRef = React.useRef(anchors.length);
+  anchorsLengthRef.current = anchors.length;
+  useEffect(() => {
+    if (!user) return;
+    AnalyticsService.track(AnalyticsEvents.VAULT_VIEWED, { anchor_count: anchorsLengthRef.current });
+  }, [user?.id]); // eslint-disable-line react-hooks/exhaustive-deps
+
   // ── Data fetching ─────────────────────────────────────────────────────────────
   const fetchAnchors = useCallback(async (): Promise<void> => {
     if (!user) return;
@@ -263,9 +270,7 @@ export const VaultScreen: React.FC = () => {
     setLoading(true);
     setError(null);
     try {
-      await new Promise((resolve) => setTimeout(resolve, 1000));
-      trace.putAttribute('anchor_count', anchors.length);
-      AnalyticsService.track(AnalyticsEvents.VAULT_VIEWED, { anchor_count: anchors.length });
+      trace.putAttribute('anchor_count', String(anchorsLengthRef.current));
     } catch (error) {
       const msg = (error as Error).message;
       setError(msg);
@@ -279,7 +284,7 @@ export const VaultScreen: React.FC = () => {
       setLoading(false);
       trace.stop();
     }
-  }, [user, setLoading, setError, toast, anchors.length]);
+  }, [user, setLoading, setError, toast]);
 
   useEffect(() => { fetchAnchors(); }, [fetchAnchors]);
 
@@ -343,7 +348,6 @@ export const VaultScreen: React.FC = () => {
   return (
     <View style={styles.container}>
       <ZenBackground variant="sanctuary" showOrbs={isVaultTabActive} showGrain showVignette />
-      <AtmosphericOrbs reduceMotionEnabled={shouldReduceMotion} />
 
       <SafeAreaView style={styles.safeArea} edges={['top']}>
         <ScrollView
