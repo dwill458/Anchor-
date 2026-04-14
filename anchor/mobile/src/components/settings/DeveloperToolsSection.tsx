@@ -1,6 +1,8 @@
 import React from 'react';
 import { Alert, Pressable, StyleSheet, Text, View } from 'react-native';
 import type { AnchorSettings } from '@/types/settings';
+import NotificationService, { type NotificationType } from '@/services/NotificationService';
+import { useSettingsStore } from '@/stores/settingsStore';
 import { SettingsRow } from './SettingsRow';
 import { SettingsSectionBlock } from './SettingsSectionBlock';
 
@@ -15,6 +17,39 @@ interface DeveloperToolsSectionProps {
 }
 
 const TIERS: Array<AnchorSettings['dev_simulatedTier']> = ['free', 'pro', 'trial', 'expired'];
+const TEST_NOTIFICATION_DELAY_SECONDS = 5;
+
+const TEST_NOTIFICATION_OPTIONS: Array<{
+  type: NotificationType;
+  title: string;
+  subtitle: string;
+}> = [
+  {
+    type: 'daily_reminder',
+    title: 'Test Daily Reminder',
+    subtitle: 'Return-to-anchor reminder payload',
+  },
+  {
+    type: 'daily_goal_checkpoint',
+    title: 'Test Goal Checkpoint',
+    subtitle: 'Daily progress checkpoint payload',
+  },
+  {
+    type: 'ritual_reminder',
+    title: 'Test Ritual Reminder',
+    subtitle: 'Anchor ritual reminder payload',
+  },
+  {
+    type: 'streak_protection',
+    title: 'Test Streak Protection',
+    subtitle: 'Momentum protection payload',
+  },
+  {
+    type: 'weekly_summary',
+    title: 'Test Weekly Summary',
+    subtitle: 'Weekly reflection payload',
+  },
+];
 
 export const DeveloperToolsSection: React.FC<DeveloperToolsSectionProps> = ({
   settings,
@@ -22,6 +57,12 @@ export const DeveloperToolsSection: React.FC<DeveloperToolsSectionProps> = ({
   resetSettings,
   onResetOnboarding,
 }) => {
+  const [isNotificationActionRunning, setIsNotificationActionRunning] = React.useState(false);
+  const [notificationStatus, setNotificationStatus] = React.useState<string | null>(null);
+  const triggerDeveloperWeeklySummaryPreview = useSettingsStore(
+    (state) => state.triggerDeveloperWeeklySummaryPreview
+  );
+
   const handleReset = () => {
     Alert.alert(
       'Reset Onboarding',
@@ -38,6 +79,102 @@ export const DeveloperToolsSection: React.FC<DeveloperToolsSectionProps> = ({
         },
       ]
     );
+  };
+
+  const handleScheduleNotificationTest = async (
+    type: NotificationType,
+    label: string
+  ): Promise<void> => {
+    setIsNotificationActionRunning(true);
+
+    try {
+      const granted = await NotificationService.requestPermissions();
+      if (!granted) {
+        const message =
+          NotificationService.getLastError()?.message ??
+          'Notification permissions were denied.';
+        setNotificationStatus(message);
+        Alert.alert('Notification Permission Required', message);
+        return;
+      }
+
+      const identifier = await NotificationService.scheduleDeveloperTestNotification(
+        type,
+        TEST_NOTIFICATION_DELAY_SECONDS
+      );
+
+      if (!identifier) {
+        const message =
+          NotificationService.getLastError()?.message ??
+          'Failed to schedule the notification test.';
+        setNotificationStatus(message);
+        Alert.alert('Notification Test Failed', message);
+        return;
+      }
+
+      setNotificationStatus(
+        `${label} scheduled for ${TEST_NOTIFICATION_DELAY_SECONDS} seconds from now.`
+      );
+    } finally {
+      setIsNotificationActionRunning(false);
+    }
+  };
+
+  const handleInspectScheduledTests = async (): Promise<void> => {
+    setIsNotificationActionRunning(true);
+
+    try {
+      const scheduled = await NotificationService.getDeveloperTestNotifications();
+      const error = NotificationService.getLastError();
+
+      if (error) {
+        setNotificationStatus(error.message);
+        Alert.alert('Notification Queue Error', error.message);
+        return;
+      }
+
+      if (scheduled.length === 0) {
+        const message = 'No developer notification tests are currently scheduled.';
+        setNotificationStatus(message);
+        Alert.alert('Scheduled Notification Tests', message);
+        return;
+      }
+
+      const message = scheduled
+        .map((notification, index) => `${index + 1}. ${notification.identifier}`)
+        .join('\n');
+
+      setNotificationStatus(`${scheduled.length} developer notification test(s) queued.`);
+      Alert.alert('Scheduled Notification Tests', message);
+    } finally {
+      setIsNotificationActionRunning(false);
+    }
+  };
+
+  const handleClearScheduledTests = async (): Promise<void> => {
+    setIsNotificationActionRunning(true);
+
+    try {
+      const clearedCount = await NotificationService.cancelDeveloperTestNotifications();
+      const error = NotificationService.getLastError();
+
+      if (error) {
+        setNotificationStatus(error.message);
+        Alert.alert('Notification Queue Error', error.message);
+        return;
+      }
+
+      const message =
+        clearedCount === 0
+          ? 'No developer notification tests were queued.'
+          : `Cleared ${clearedCount} developer notification test${
+              clearedCount === 1 ? '' : 's'
+            }.`;
+
+      setNotificationStatus(message);
+    } finally {
+      setIsNotificationActionRunning(false);
+    }
   };
 
   return (
@@ -118,6 +255,96 @@ export const DeveloperToolsSection: React.FC<DeveloperToolsSectionProps> = ({
         />
       </SettingsSectionBlock>
 
+      <SettingsSectionBlock isDev style={styles.notificationBlock}>
+        <View style={styles.notificationHeader}>
+          <Text style={styles.notificationTitle}>Notification Tester</Text>
+          <Text style={styles.notificationDescription}>
+            Schedule local test notifications in {TEST_NOTIFICATION_DELAY_SECONDS} seconds using
+            the live app payloads.
+          </Text>
+        </View>
+
+        {TEST_NOTIFICATION_OPTIONS.map((option) => (
+          <SettingsRow
+            key={option.type}
+            title={option.title}
+            subtitle={option.subtitle}
+            type="none"
+            onPress={() => void handleScheduleNotificationTest(option.type, option.title)}
+            disabled={isNotificationActionRunning}
+            isDev
+            rightElement={
+              <View style={styles.notificationBadge}>
+                <Text style={styles.notificationBadgeText}>
+                  +{TEST_NOTIFICATION_DELAY_SECONDS}s
+                </Text>
+              </View>
+            }
+          />
+        ))}
+
+        <SettingsRow
+          title="Show Scheduled Tests"
+          subtitle="List queued developer notification tests"
+          type="none"
+          onPress={() => void handleInspectScheduledTests()}
+          disabled={isNotificationActionRunning}
+          isDev
+          rightElement={
+            <View style={styles.notificationBadge}>
+              <Text style={styles.notificationBadgeText}>Queue</Text>
+            </View>
+          }
+        />
+        <SettingsRow
+          title="Clear Scheduled Tests"
+          subtitle="Remove queued developer notification tests"
+          type="none"
+          onPress={() => void handleClearScheduledTests()}
+          disabled={isNotificationActionRunning}
+          isDev
+          rightElement={
+            <View style={styles.notificationBadge}>
+              <Text style={styles.notificationBadgeText}>Clear</Text>
+            </View>
+          }
+          showDivider={false}
+        />
+
+        {notificationStatus ? (
+          <View style={styles.statusContainer}>
+            <Text style={styles.statusLabel}>Notification Status</Text>
+            <Text style={styles.statusText}>{notificationStatus}</Text>
+          </View>
+        ) : null}
+      </SettingsSectionBlock>
+
+      <SettingsSectionBlock isDev style={styles.notificationBlock}>
+        <View style={styles.notificationHeader}>
+          <Text style={styles.notificationTitle}>Weekly Summary Preview</Text>
+          <Text style={styles.notificationDescription}>
+            Force the in-app weekly summary sheet to appear the next time you visit Sanctuary.
+          </Text>
+        </View>
+
+        <SettingsRow
+          title="Show Weekly Summary Modal"
+          subtitle="Open the in-app weekly review sheet"
+          type="none"
+          onPress={() => {
+            triggerDeveloperWeeklySummaryPreview();
+            setNotificationStatus('Weekly summary modal primed for preview.');
+          }}
+          isDev
+          rightElement={
+            <View style={styles.notificationBadge}>
+              <Text style={styles.notificationBadgeText}>Open</Text>
+            </View>
+          }
+          showDivider={false}
+        />
+      </SettingsSectionBlock>
+
       <Pressable onPress={handleReset} style={({ pressed }) => [styles.resetButton, pressed ? styles.resetButtonPressed : null]}>
         <View>
           <Text style={styles.resetText}>Reset Onboarding</Text>
@@ -190,6 +417,62 @@ const styles = StyleSheet.create({
   segmentTextSelected: {
     opacity: 1,
     fontFamily: 'Inter-SemiBold',
+  },
+  notificationBlock: {
+    marginTop: 8,
+  },
+  notificationHeader: {
+    paddingHorizontal: 20,
+    paddingTop: 16,
+    paddingBottom: 4,
+  },
+  notificationTitle: {
+    color: '#4ade80',
+    fontSize: 14,
+    fontFamily: 'Inter-SemiBold',
+  },
+  notificationDescription: {
+    marginTop: 4,
+    color: 'rgba(74,222,128,0.65)',
+    fontSize: 11,
+    fontFamily: 'Inter-Regular',
+    lineHeight: 16,
+  },
+  notificationBadge: {
+    borderRadius: 999,
+    borderWidth: 0.5,
+    borderColor: 'rgba(74,222,128,0.25)',
+    backgroundColor: 'rgba(74,222,128,0.08)',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+  },
+  notificationBadgeText: {
+    color: '#4ade80',
+    fontSize: 10,
+    fontFamily: 'Inter-SemiBold',
+    letterSpacing: 0.4,
+    textTransform: 'uppercase',
+  },
+  statusContainer: {
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: 'rgba(74,222,128,0.2)',
+    paddingHorizontal: 20,
+    paddingTop: 14,
+    paddingBottom: 16,
+  },
+  statusLabel: {
+    color: 'rgba(74,222,128,0.6)',
+    fontSize: 10,
+    fontFamily: 'Inter-SemiBold',
+    letterSpacing: 0.8,
+    textTransform: 'uppercase',
+  },
+  statusText: {
+    marginTop: 6,
+    color: '#4ade80',
+    fontSize: 12,
+    fontFamily: 'Inter-Regular',
+    lineHeight: 18,
   },
   resetButton: {
     marginHorizontal: 16,

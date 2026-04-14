@@ -18,13 +18,9 @@ interface ProfileHeaderProps {
 
 export const ProfileHeader: React.FC<ProfileHeaderProps> = ({
   displayName,
-  subscriptionStatus,
+  subscriptionStatus: _subscriptionStatus,
 }) => {
-  // DEFERRED: freemium — 'free' tier badge removed; badge now reflects trial/active vs expired
-  // const isPro = subscriptionStatus === 'pro' || subscriptionStatus === 'pro_annual';
-  const isSubscribed = subscriptionStatus === 'pro' || subscriptionStatus === 'pro_annual';
-  const membershipLabel = isSubscribed ? 'MEMBER' : 'TRIAL';
-  const badgeColor = isSubscribed ? colors.gold : colors.silver;
+  // DEFERRED: trial badge removed, surfaced in ProfileScreen subscription section
 
   // Get first letter of display name or default to 'S' for Seeker
   const avatarInitial = displayName?.[0]?.toUpperCase() || 'S';
@@ -32,27 +28,19 @@ export const ProfileHeader: React.FC<ProfileHeaderProps> = ({
   return (
     Platform.OS === 'ios' ? (
       <BlurView intensity={20} tint="dark" style={styles.container}>
-        <View style={[styles.avatarPlaceholder, { borderColor: badgeColor }]}>
-          <Text style={[styles.avatarText, { color: badgeColor }]}>{avatarInitial}</Text>
+        <View style={styles.avatarPlaceholder}>
+          <Text style={styles.avatarText}>{avatarInitial}</Text>
         </View>
 
         <Text style={styles.displayName}>{displayName || 'Seeker'}</Text>
-
-        <View style={[styles.badge, { borderColor: badgeColor }]}>
-          <Text style={[styles.badgeText, { color: badgeColor }]}>{membershipLabel}</Text>
-        </View>
       </BlurView>
     ) : (
       <View style={[styles.container, { backgroundColor: 'rgba(12, 17, 24, 0.92)' }]}>
-        <View style={[styles.avatarPlaceholder, { borderColor: badgeColor }]}>
-          <Text style={[styles.avatarText, { color: badgeColor }]}>{avatarInitial}</Text>
+        <View style={styles.avatarPlaceholder}>
+          <Text style={styles.avatarText}>{avatarInitial}</Text>
         </View>
 
         <Text style={styles.displayName}>{displayName || 'Seeker'}</Text>
-
-        <View style={[styles.badge, { borderColor: badgeColor }]}>
-          <Text style={[styles.badgeText, { color: badgeColor }]}>{membershipLabel}</Text>
-        </View>
       </View>
     )
   );
@@ -76,6 +64,7 @@ const styles = StyleSheet.create({
     borderRadius: 40,
     backgroundColor: colors.navy,
     borderWidth: 2,
+    borderColor: colors.gold,
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: spacing.md,
@@ -83,23 +72,13 @@ const styles = StyleSheet.create({
   avatarText: {
     fontFamily: 'Cinzel-Regular',
     fontSize: 36,
+    color: colors.gold,
   },
   displayName: {
     ...typography.h2,
     color: colors.bone,
     marginBottom: spacing.sm,
   },
-  badge: {
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.xs,
-    borderRadius: 20,
-    borderWidth: 1,
-  },
-  badgeText: {
-    fontFamily: 'Inter-SemiBold',
-    fontSize: 12,
-    fontWeight: '600',
-    textTransform: 'uppercase',
-    letterSpacing: 1,
-  },
+  // DEFERRED: trial badge removed, surfaced in ProfileScreen subscription section
+  // badge / badgeText styles deleted
 });

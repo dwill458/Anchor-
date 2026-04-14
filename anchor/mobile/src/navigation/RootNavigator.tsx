@@ -11,6 +11,7 @@
  */
 
 import React, { useEffect } from 'react';
+import type { NavigatorScreenParams } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { OnboardingNavigator } from './OnboardingNavigator';
 import { MainTabNavigator } from './MainTabNavigator';
@@ -26,7 +27,8 @@ export type RootNavigatorParamList = {
   Onboarding: undefined;
   Main: undefined;
   Paywall: undefined;
-} & ProfileStackParamList; // Merge ProfileStack routes into root
+  Settings: NavigatorScreenParams<ProfileStackParamList> | undefined;
+};
 
 const Stack = createNativeStackNavigator<RootNavigatorParamList>();
 

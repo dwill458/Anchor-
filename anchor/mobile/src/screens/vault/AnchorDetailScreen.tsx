@@ -1023,7 +1023,7 @@ const AnchorDetailsScreen = ({ navigation, route }) => {
                       {anchorPractice.currentStreak}
                       <Text style={s.miniStreakUnit}> {currentStreakUnit}</Text>
                     </Text>
-                    <Text style={s.miniStreakSub}>Sessions Primed</Text>
+                    <Text style={s.miniStreakSub}>Thread Strength</Text>
                   </View>
                 </View>
 

@@ -119,6 +119,7 @@ export interface SettingsState {
   developerSkipOnboardingEnabled: boolean;
   developerForceStreakBreakEnabled: boolean;
   developerDeleteWithoutBurnEnabled: boolean;
+  developerWeeklySummaryPreviewToken: number;
   debugLoggingEnabled: boolean;
   /** Guide Mode — contextual first-time hints. true = on-only + both; false = both only. */
   guideMode: boolean;
@@ -153,6 +154,8 @@ export interface SettingsState {
   setDeveloperSkipOnboardingEnabled: (enabled: boolean) => void;
   setDeveloperForceStreakBreakEnabled: (enabled: boolean) => void;
   setDeveloperDeleteWithoutBurnEnabled: (enabled: boolean) => void;
+  triggerDeveloperWeeklySummaryPreview: () => void;
+  clearDeveloperWeeklySummaryPreview: () => void;
   setDebugLoggingEnabled: (enabled: boolean) => void;
 
   // Utility Actions
@@ -189,6 +192,7 @@ const DEFAULT_SETTINGS = {
   developerSkipOnboardingEnabled: false,
   developerForceStreakBreakEnabled: false,
   developerDeleteWithoutBurnEnabled: false,
+  developerWeeklySummaryPreviewToken: 0,
   debugLoggingEnabled: __DEV__ && process.env.EXPO_PUBLIC_DEBUG_LOGGING === 'true',
   guideMode: true,
 };
@@ -365,6 +369,19 @@ export const useSettingsStore = create<SettingsState>()(
         });
       },
 
+      triggerDeveloperWeeklySummaryPreview: () => {
+        triggerHaptic();
+        set({
+          developerWeeklySummaryPreviewToken: Date.now(),
+        });
+      },
+
+      clearDeveloperWeeklySummaryPreview: () => {
+        set({
+          developerWeeklySummaryPreviewToken: 0,
+        });
+      },
+
       setDebugLoggingEnabled: (enabled) => {
         triggerHaptic();
         set({
@@ -397,6 +414,7 @@ export const useSettingsStore = create<SettingsState>()(
             ...next,
             developerSkipOnboardingEnabled: false,
             developerForceStreakBreakEnabled: false,
+            developerWeeklySummaryPreviewToken: 0,
           };
         }
         if (version === 6) {
@@ -406,6 +424,7 @@ export const useSettingsStore = create<SettingsState>()(
             debugLoggingEnabled: false,
             developerSkipOnboardingEnabled: false,
             developerForceStreakBreakEnabled: false,
+            developerWeeklySummaryPreviewToken: 0,
           };
         }
         if (version === 5) {
@@ -418,6 +437,7 @@ export const useSettingsStore = create<SettingsState>()(
             debugLoggingEnabled: false,
             developerSkipOnboardingEnabled: false,
             developerForceStreakBreakEnabled: false,
+            developerWeeklySummaryPreviewToken: 0,
           };
         }
         if (version === 4) {
@@ -432,6 +452,7 @@ export const useSettingsStore = create<SettingsState>()(
             debugLoggingEnabled: false,
             developerSkipOnboardingEnabled: false,
             developerForceStreakBreakEnabled: false,
+            developerWeeklySummaryPreviewToken: 0,
           };
         }
         if (version === 3) {
@@ -440,6 +461,7 @@ export const useSettingsStore = create<SettingsState>()(
             debugLoggingEnabled: false,
             developerSkipOnboardingEnabled: false,
             developerForceStreakBreakEnabled: false,
+            developerWeeklySummaryPreviewToken: 0,
           };
         }
         if (version === 2) {
@@ -448,6 +470,7 @@ export const useSettingsStore = create<SettingsState>()(
             debugLoggingEnabled: false,
             developerSkipOnboardingEnabled: false,
             developerForceStreakBreakEnabled: false,
+            developerWeeklySummaryPreviewToken: 0,
           };
         }
         if (version === 1) {
@@ -462,6 +485,7 @@ export const useSettingsStore = create<SettingsState>()(
             debugLoggingEnabled: false,
             developerSkipOnboardingEnabled: false,
             developerForceStreakBreakEnabled: false,
+            developerWeeklySummaryPreviewToken: 0,
           };
         }
         if (version === 0) {
@@ -490,6 +514,7 @@ export const useSettingsStore = create<SettingsState>()(
             debugLoggingEnabled: false,
             developerSkipOnboardingEnabled: false,
             developerForceStreakBreakEnabled: false,
+            developerWeeklySummaryPreviewToken: 0,
           };
         }
         return {
@@ -498,6 +523,7 @@ export const useSettingsStore = create<SettingsState>()(
             persistedState?.developerSkipOnboardingEnabled ?? false,
           developerForceStreakBreakEnabled:
             persistedState?.developerForceStreakBreakEnabled ?? false,
+          developerWeeklySummaryPreviewToken: 0,
           debugLoggingEnabled:
             persistedState?.debugLoggingEnabled ??
             (__DEV__ && process.env.EXPO_PUBLIC_DEBUG_LOGGING === 'true'),

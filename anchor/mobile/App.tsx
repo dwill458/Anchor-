@@ -1,9 +1,22 @@
 import 'react-native-gesture-handler';
 import React, { useEffect, useRef } from 'react';
-import { AppState, StatusBar, View, StyleSheet, Platform, Dimensions } from 'react-native';
+import {
+  Animated,
+  AppState,
+  StatusBar,
+  View,
+  StyleSheet,
+  Platform,
+  Dimensions,
+} from 'react-native';
 import { useFonts } from 'expo-font';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
-import { NavigationContainer, useNavigationContainerRef } from '@react-navigation/native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import {
+  NavigationContainer,
+  useNavigationContainerRef,
+  type InitialState,
+} from '@react-navigation/native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { enableScreens } from 'react-native-screens';
 import {
@@ -24,6 +37,7 @@ import { useSessionStore } from './src/stores/sessionStore';
 import { useSettingsStore } from './src/stores/settingsStore';
 import { SettingsRevealProvider } from './src/components/transitions/SettingsRevealProvider';
 import type { RootNavigatorParamList } from './src/navigation/RootNavigator';
+import type { Anchor } from './src/types';
 import { ErrorTrackingService, setupGlobalErrorHandler } from './src/services/ErrorTrackingService';
 import { PerformanceMonitoring, type PerformanceTrace } from './src/services/PerformanceMonitoring';
 import { monitoringConfig } from './src/config/monitoring';
@@ -33,6 +47,7 @@ import {
   syncDailyReminderFromStores,
 } from './src/services/DailyGoalNudgeService';
 import { loadSettingsSnapshot } from './src/hooks/useSettings';
+import { encryptedPersistStorage } from './src/stores/encryptedPersistStorage';
 import { logger } from './src/utils/logger';
 
 const { width } = Dimensions.get('window');
@@ -54,6 +69,87 @@ const AppTheme = {
   },
 };
 
+const PRIME_ON_LAUNCH_KEY = '@anchor_prime_on_launch';
+const ANCHOR_VAULT_STORAGE_KEY = 'anchor-vault-storage';
+const PRIME_ON_LAUNCH_FADE_DURATION_MS = 300;
+
+function parseStoredBoolean(rawValue: string | null): boolean {
+  if (rawValue == null) {
+    return false;
+  }
+
+  try {
+    return JSON.parse(rawValue) === true;
+  } catch {
+    return rawValue === 'true' || rawValue === '1';
+  }
+}
+
+function toMillis(value?: Date | string): number {
+  if (!value) return 0;
+  const parsed = value instanceof Date ? value : new Date(value);
+  return Number.isNaN(parsed.getTime()) ? 0 : parsed.getTime();
+}
+
+function getMostRecentlyPrimedAnchorId(anchors: Anchor[]): string | undefined {
+  return anchors
+    .filter((anchor) => !anchor.isReleased && !anchor.archivedAt && anchor.chargedAt != null)
+    .sort((left, right) => {
+      const primedDelta = toMillis(right.chargedAt) - toMillis(left.chargedAt);
+      if (primedDelta !== 0) return primedDelta;
+      return toMillis(right.updatedAt) - toMillis(left.updatedAt);
+    })[0]?.id;
+}
+
+function buildPrimeOnLaunchInitialState(anchorId: string): InitialState {
+  return {
+    index: 0,
+    routes: [
+      {
+        name: 'Main',
+        state: {
+          index: 1,
+          routes: [
+            { name: 'Vault' },
+            {
+              name: 'ChargeSetup',
+              params: {
+                anchorId,
+              },
+            },
+          ],
+        },
+      },
+    ],
+  };
+}
+
+async function resolvePrimeOnLaunchInitialState(): Promise<InitialState | undefined> {
+  const primeOnLaunchEnabled = parseStoredBoolean(await AsyncStorage.getItem(PRIME_ON_LAUNCH_KEY));
+  if (!primeOnLaunchEnabled) {
+    return undefined;
+  }
+
+  const rawAnchorStore = await encryptedPersistStorage.getItem(ANCHOR_VAULT_STORAGE_KEY);
+  if (!rawAnchorStore) {
+    return undefined;
+  }
+
+  const parsedStore = JSON.parse(rawAnchorStore) as {
+    state?: {
+      anchors?: Anchor[];
+    };
+  };
+  const persistedAnchors = Array.isArray(parsedStore.state?.anchors) ? parsedStore.state.anchors : [];
+  const anchorId = getMostRecentlyPrimedAnchorId(persistedAnchors);
+
+  if (!anchorId) {
+    return undefined;
+  }
+
+  return buildPrimeOnLaunchInitialState(anchorId);
+}
+
 export default function App() {
   const computeStreak = useAuthStore((state) => state.computeStreak);
   const user = useAuthStore((state) => state.user);
@@ -64,7 +160,13 @@ export default function App() {
   const navRef = useNavigationContainerRef<RootNavigatorParamList>();
   const routeNameRef = useRef<string | undefined>(undefined);
   const screenTraceRef = useRef<PerformanceTrace | null>(null);
+  const launchOpacity = useRef(new Animated.Value(1)).current;
   const [settingsHydrated, setSettingsHydrated] = React.useState(false);
+  const [launchStateResolved, setLaunchStateResolved] = React.useState(false);
+  const [initialNavigationState, setInitialNavigationState] = React.useState<
+    InitialState | undefined
+  >(undefined);
+  const [shouldFadePrimeOnLaunch, setShouldFadePrimeOnLaunch] = React.useState(false);
   const [fontsLoaded] = useFonts({
     'Cinzel-Regular': Cinzel_400Regular,
     'Cinzel-SemiBold': Cinzel_600SemiBold,
@@ -94,6 +196,46 @@ export default function App() {
       isMounted = false;
     };
   }, []);
+
+  useEffect(() => {
+    let isMounted = true;
+
+    resolvePrimeOnLaunchInitialState()
+      .then((initialState) => {
+        if (!isMounted) {
+          return;
+        }
+
+        setInitialNavigationState(initialState);
+        const shouldFade = initialState != null;
+        setShouldFadePrimeOnLaunch(shouldFade);
+        launchOpacity.setValue(shouldFade ? 0 : 1);
+      })
+      .catch((error) => {
+        logger.error('Failed to resolve Prime on Launch initial state', error);
+      })
+      .finally(() => {
+        if (isMounted) {
+          setLaunchStateResolved(true);
+        }
+      });
+
+    return () => {
+      isMounted = false;
+    };
+  }, [launchOpacity]);
+
+  useEffect(() => {
+    if (!launchStateResolved || !shouldFadePrimeOnLaunch) {
+      return;
+    }
+
+    Animated.timing(launchOpacity, {
+      toValue: 1,
+      duration: PRIME_ON_LAUNCH_FADE_DURATION_MS,
+      useNativeDriver: true,
+    }).start();
+  }, [launchOpacity, launchStateResolved, shouldFadePrimeOnLaunch]);
 
   useEffect(() => {
     AuthService.initialize();
@@ -209,7 +351,7 @@ export default function App() {
     };
   }, []);
 
-  if (!fontsLoaded) {
+  if (!fontsLoaded || !launchStateResolved) {
     return <View style={styles.fontLoadingFallback} />;
   }
 
@@ -219,10 +361,11 @@ export default function App() {
         <GestureHandlerRootView style={{ flex: 1 }}>
           <SafeAreaProvider>
             <View style={styles.webContainer}>
-              <View style={styles.appContainer}>
+              <Animated.View style={[styles.appContainer, { opacity: launchOpacity }]}>
                 <SettingsRevealProvider navigationRef={navRef}>
                   <NavigationContainer
                     ref={navRef}
+                    initialState={initialNavigationState}
                     theme={AppTheme}
                     onReady={() => {
                       ErrorTrackingService.registerNavigationContainer(navRef);
@@ -265,7 +408,7 @@ export default function App() {
                     <RootNavigator />
                   </NavigationContainer>
                 </SettingsRevealProvider>
-              </View>
+              </Animated.View>
             </View>
           </SafeAreaProvider>
         </GestureHandlerRootView>

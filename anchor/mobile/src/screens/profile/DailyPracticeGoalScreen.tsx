@@ -6,16 +6,13 @@ import {
     ScrollView,
     TouchableOpacity,
     Platform,
-    TextInput,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useNavigation } from '@react-navigation/native';
 import {
     Check,
     Info,
     Plus,
     Minus,
-    Target,
     Zap
 } from 'lucide-react-native';
 import { BlurView } from 'expo-blur';
@@ -45,6 +42,8 @@ const GoalOption: React.FC<GoalOptionProps> = ({
         <TouchableOpacity
             activeOpacity={0.8}
             onPress={() => onSelect(value)}
+            accessibilityRole="button"
+            accessibilityLabel={`Select ${label}`}
             style={[
                 styles.cardContainer,
                 isSelected && styles.cardSelected
@@ -68,7 +67,6 @@ const GoalOption: React.FC<GoalOptionProps> = ({
 };
 
 export const DailyPracticeGoalScreen: React.FC = () => {
-    const navigation = useNavigation();
     const { dailyPracticeGoal, setDailyPracticeGoal } = useSettingsStore();
     const [isCustomMode, setIsCustomMode] = useState(![1, 3, 5, 7].includes(dailyPracticeGoal));
 
@@ -127,6 +125,8 @@ export const DailyPracticeGoalScreen: React.FC = () => {
                             <TouchableOpacity
                                 activeOpacity={0.8}
                                 onPress={() => setIsCustomMode(true)}
+                                accessibilityRole="button"
+                                accessibilityLabel="Select custom daily focus goal"
                                 style={[
                                     styles.cardContainer,
                                     isCustomMode && styles.cardSelected
@@ -148,6 +148,8 @@ export const DailyPracticeGoalScreen: React.FC = () => {
                                             <TouchableOpacity
                                                 onPress={() => handleAdjustCustom(-1)}
                                                 disabled={dailyPracticeGoal <= 1}
+                                                accessibilityRole="button"
+                                                accessibilityLabel="Decrease custom daily focus goal"
                                                 style={[styles.stepButton, dailyPracticeGoal <= 1 && styles.buttonDisabled]}
                                             >
                                                 <Minus color={dailyPracticeGoal <= 1 ? colors.text.disabled : colors.gold} size={20} />
@@ -160,6 +162,8 @@ export const DailyPracticeGoalScreen: React.FC = () => {
                                             <TouchableOpacity
                                                 onPress={() => handleAdjustCustom(1)}
                                                 disabled={dailyPracticeGoal >= 20}
+                                                accessibilityRole="button"
+                                                accessibilityLabel="Increase custom daily focus goal"
                                                 style={[styles.stepButton, dailyPracticeGoal >= 20 && styles.buttonDisabled]}
                                             >
                                                 <Plus color={dailyPracticeGoal >= 20 ? colors.text.disabled : colors.gold} size={20} />

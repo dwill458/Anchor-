@@ -51,6 +51,8 @@ export const STORAGE_CLASSIFICATION_MATRIX: StoreClassificationMatrix = {
     lastPrimedAt: 'high_sensitivity_telemetry',
     weekHistory: 'high_sensitivity_telemetry',
     weekHistoryKey: 'high_sensitivity_telemetry',
+    primingHistory: 'high_sensitivity_telemetry',
+    journeyWeekStart: 'high_sensitivity_telemetry',
     lastDecayDate: 'high_sensitivity_telemetry',
   },
   teachingStore: {

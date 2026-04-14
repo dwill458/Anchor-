@@ -10,7 +10,9 @@ import { Pressable, StyleSheet, Platform } from 'react-native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { useNavigation } from '@react-navigation/native';
 import { X } from 'lucide-react-native';
+import { SettingsIcon } from '@/components/icons';
 import {
+  ProfileScreen,
   SettingsScreen,
   DefaultChargeSettings,
   DefaultActivationSettings,
@@ -25,9 +27,11 @@ import {
   HapticIntensityScreen,
   DataPrivacyScreen,
 } from '../screens/profile';
+import { HapticFeedbackScreen } from '../screens/settings';
 import { colors } from '@/theme';
 
 export type ProfileStackParamList = {
+  Profile: undefined;
   Settings: undefined;
   DefaultCharge: undefined;
   DefaultActivation: undefined;
@@ -39,6 +43,7 @@ export type ProfileStackParamList = {
   VaultView: undefined;
   MantraVoice: undefined;
   VoiceStyle: undefined;
+  HapticFeedback: undefined;
   HapticIntensity: undefined;
   DataPrivacy: undefined;
 };
@@ -68,22 +73,38 @@ export const ProfileStackNavigator: React.FC = () => {
       }}
     >
       <Stack.Screen
-        name="Settings"
-        component={SettingsScreen}
-        options={{
-          headerTitle: 'Settings',
+        name="Profile"
+        component={ProfileScreen}
+        options={({ navigation }) => ({
+          headerTitle: 'Profile',
           headerLeft: () => (
             <Pressable
               onPress={() => rootNavigation.goBack()}
               hitSlop={12}
               accessibilityRole="button"
-              accessibilityLabel="Close Settings"
+              accessibilityLabel="Close"
               style={styles.closeButton}
             >
               <X color={colors.gold} size={22} />
             </Pressable>
           ),
-        }}
+          headerRight: () => (
+            <Pressable
+              onPress={() => navigation.navigate('Settings')}
+              hitSlop={12}
+              accessibilityRole="button"
+              accessibilityLabel="Settings"
+              style={styles.navButton}
+            >
+              <SettingsIcon size={17} color={colors.gold} glow={false} />
+            </Pressable>
+          ),
+        })}
+      />
+      <Stack.Screen
+        name="Settings"
+        component={SettingsScreen}
+        options={{ headerTitle: 'Settings' }}
       />
       <Stack.Screen
         name="DefaultCharge"
@@ -136,8 +157,8 @@ export const ProfileStackNavigator: React.FC = () => {
         options={{ headerTitle: 'Voice Style' }}
       />
       <Stack.Screen
-        name="HapticIntensity"
-        component={HapticIntensityScreen}
+        name="HapticFeedback"
+        component={HapticFeedbackScreen}
         options={{ headerTitle: 'Haptic Feedback' }}
       />
       <Stack.Screen
@@ -151,6 +172,10 @@ export const ProfileStackNavigator: React.FC = () => {
 
 const styles = StyleSheet.create({
   closeButton: {
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+  },
+  navButton: {
     paddingHorizontal: 12,
     paddingVertical: 8,
   },

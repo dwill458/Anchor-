@@ -144,6 +144,8 @@ interface AuthState {
   onboardingSegment: OnboardingSegment | null;
   shouldRedirectToCreation: boolean;
   anchorCount: number;
+  pendingForgeIntent: string | null;
+  pendingForgeResumeTarget: string | null;
   pendingFirstAnchorDraft: PendingFirstAnchorDraft | null;
   pendingFirstAnchorMutations: PendingFirstAnchorMutation[];
   isFinalizingPendingFirstAnchor: boolean;
@@ -164,6 +166,10 @@ interface AuthState {
   setOnboardingSegment: (segment: OnboardingSegment) => void;
   setShouldRedirectToCreation: (should: boolean) => void;
   incrementAnchorCount: () => void;
+  setPendingForgeIntent: (intent: string | null) => void;
+  clearPendingForgeIntent: () => void;
+  setPendingForgeResumeTarget: (target: string | null) => void;
+  clearPendingForgeResumeTarget: () => void;
   setPendingFirstAnchorDraft: (draft: PendingFirstAnchorDraft | null) => void;
   enqueuePendingFirstAnchorMutation: (mutation: PendingFirstAnchorMutation) => void;
   clearPendingFirstAnchorState: () => void;
@@ -206,6 +212,8 @@ export const useAuthStore = create<AuthState>()(
       onboardingSegment: null,
       shouldRedirectToCreation: false,
       anchorCount: 0,
+      pendingForgeIntent: null,
+      pendingForgeResumeTarget: null,
       pendingFirstAnchorDraft: null,
       pendingFirstAnchorMutations: [],
       isFinalizingPendingFirstAnchor: false,
@@ -290,6 +298,26 @@ export const useAuthStore = create<AuthState>()(
         set((state) => ({
           anchorCount: state.anchorCount + 1,
         })),
+
+      setPendingForgeIntent: (pendingForgeIntent) =>
+        set({
+          pendingForgeIntent,
+        }),
+
+      clearPendingForgeIntent: () =>
+        set({
+          pendingForgeIntent: null,
+        }),
+
+      setPendingForgeResumeTarget: (pendingForgeResumeTarget) =>
+        set({
+          pendingForgeResumeTarget,
+        }),
+
+      clearPendingForgeResumeTarget: () =>
+        set({
+          pendingForgeResumeTarget: null,
+        }),
 
       setPendingFirstAnchorDraft: (pendingFirstAnchorDraft) =>
         set({
@@ -680,6 +708,8 @@ export const useAuthStore = create<AuthState>()(
           token: null,
           isAuthenticated: false,
           anchorCount: 0,
+          pendingForgeIntent: null,
+          pendingForgeResumeTarget: null,
           profileData: null,
           profileLastFetched: null,
           isFinalizingPendingFirstAnchor: false,
