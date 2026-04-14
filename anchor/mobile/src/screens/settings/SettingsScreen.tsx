@@ -101,12 +101,18 @@ export const SettingsScreen: React.FC = () => {
               console.warn('[SettingsScreen] Failed to clear sync retry queue on sign-out', error);
             }
             signOut();
-            navigation.dispatch(CommonActions.navigate({ name: 'Login' } as never));
+            setHasCompletedOnboarding(false);
+            navigation.dispatch(
+              CommonActions.reset({
+                index: 0,
+                routes: [{ name: 'Onboarding' }],
+              })
+            );
           },
         },
       ]
     );
-  }, [navigation, signOut]);
+  }, [navigation, signOut, setHasCompletedOnboarding]);
 
   const handleResetOnboarding = useCallback(async () => {
     setHasCompletedOnboarding(false);
