@@ -15,10 +15,13 @@ import type {
 } from '@/types/settings';
 import { DEFAULT_SETTINGS } from '@/types/settings';
 
+const PRIME_ON_LAUNCH_KEY = '@anchor_prime_on_launch';
+const LEGACY_OPEN_DAILY_ANCHOR_KEY = 'anchor:settings:openDailyAnchorAuto';
+
 const SETTINGS_KEY_MAP: Record<keyof AnchorSettings, string> = {
   primingMode: 'anchor:settings:primingMode',
   primingDuration: 'anchor:settings:primingDuration',
-  openDailyAnchorAutomatically: 'anchor:settings:openDailyAnchorAuto',
+  openDailyAnchorAutomatically: PRIME_ON_LAUNCH_KEY,
   practiceGuidanceEnabled: 'anchor:settings:practiceGuidance',
   focusDuration: 'anchor:settings:focusDuration',
   focusDefaultMode: 'anchor:settings:focusDefaultMode',
@@ -207,17 +210,49 @@ const loadStoredSettings = async (): Promise<Partial<AnchorSettings>> => {
   return stored as Partial<AnchorSettings>;
 };
 
+const readOpenDailyAnchorAutomaticallySetting = async (): Promise<boolean | undefined> => {
+  const nextRawValue = await AsyncStorage.getItem(PRIME_ON_LAUNCH_KEY);
+  const legacyRawValue =
+    nextRawValue == null
+      ? await AsyncStorage.getItem(LEGACY_OPEN_DAILY_ANCHOR_KEY)
+      : null;
+  const rawValue = nextRawValue ?? legacyRawValue;
+
+  if (rawValue == null) {
+    return undefined;
+  }
+
+  let parsedValue: boolean;
+  try {
+    parsedValue = JSON.parse(rawValue) as boolean;
+  } catch {
+    parsedValue = rawValue === 'true' || rawValue === '1';
+  }
+
+  if (nextRawValue == null && legacyRawValue != null) {
+    await AsyncStorage.setItem(PRIME_ON_LAUNCH_KEY, JSON.stringify(parsedValue));
+    await AsyncStorage.removeItem(LEGACY_OPEN_DAILY_ANCHOR_KEY);
+  }
+
+  return parsedValue;
+};
+
 const persistSettings = async (settings: AnchorSettings): Promise<void> => {
   const entries = (Object.keys(SETTINGS_KEY_MAP) as Array<keyof AnchorSettings>).map(
     (key): [string, string] => [SETTINGS_KEY_MAP[key], JSON.stringify(settings[key])]
   );
   await AsyncStorage.multiSet(entries);
+  await AsyncStorage.removeItem(LEGACY_OPEN_DAILY_ANCHOR_KEY);
 };
 
 export const loadSettingsSnapshot = async (): Promise<AnchorSettings> => {
+  const openDailyAnchorAutomatically = await readOpenDailyAnchorAutomaticallySetting();
   const snapshot = {
     ...getBridgeDefaults(),
     ...(await loadStoredSettings()),
+    ...(openDailyAnchorAutomatically == null
+      ? null
+      : { openDailyAnchorAutomatically }),
   };
   applySettingsToStores(snapshot);
   return snapshot;
@@ -226,6 +261,11 @@ export const loadSettingsSnapshot = async (): Promise<AnchorSettings> => {
 export async function getSetting<K extends keyof AnchorSettings>(
   key: K
 ): Promise<AnchorSettings[K]> {
+  if (key === 'openDailyAnchorAutomatically') {
+    const value = await readOpenDailyAnchorAutomaticallySetting();
+    return (value ?? getBridgeDefaults()[key]) as AnchorSettings[K];
+  }
+
   const rawValue = await AsyncStorage.getItem(SETTINGS_KEY_MAP[key]);
   if (rawValue == null) {
     return getBridgeDefaults()[key];
@@ -247,6 +287,9 @@ export async function setSetting<K extends keyof AnchorSettings>(
     [key]: value,
   };
   await AsyncStorage.setItem(SETTINGS_KEY_MAP[key], JSON.stringify(value));
+  if (key === 'openDailyAnchorAutomatically') {
+    await AsyncStorage.removeItem(LEGACY_OPEN_DAILY_ANCHOR_KEY);
+  }
   applySettingsToStores(nextSettings);
 }
 
@@ -289,6 +332,9 @@ export function useSettingsState() {
       });
 
       await AsyncStorage.setItem(SETTINGS_KEY_MAP[key], JSON.stringify(value));
+      if (key === 'openDailyAnchorAutomatically') {
+        await AsyncStorage.removeItem(LEGACY_OPEN_DAILY_ANCHOR_KEY);
+      }
     },
     []
   );

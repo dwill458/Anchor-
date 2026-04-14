@@ -32,4 +32,7 @@ export const formatGoalSummary = (goal: number): string =>
 
 export const formatHapticFeedbackLabel = (
   feedback: AnchorSettings['hapticFeedback']
-): string => feedback.charAt(0).toUpperCase() + feedback.slice(1);
+): string => {
+  if (feedback === 'light') return 'Soft';
+  return feedback.charAt(0).toUpperCase() + feedback.slice(1);
+};

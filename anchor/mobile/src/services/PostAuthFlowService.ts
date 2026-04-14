@@ -49,7 +49,13 @@ class PostAuthFlowService {
     }
 
     const anchorStore = useAnchorStore.getState();
-    const migratedAnchors = await AnchorSyncService.migrateAnchors(anchorStore.anchors, patchedUser.id);
+    // Only migrate anchors that belong to this user or were created locally
+    // before account creation (no userId). Anchors with a different userId
+    // are from a prior session and must not be re-assigned.
+    const ownedAnchors = anchorStore.anchors.filter(
+      (a) => !a.userId || a.userId === patchedUser.id
+    );
+    const migratedAnchors = await AnchorSyncService.migrateAnchors(ownedAnchors, patchedUser.id);
     anchorStore.setAnchors(migratedAnchors);
     await anchorStore.flushPendingSync();
 

@@ -49,6 +49,7 @@ import type { Anchor, RootStackParamList } from '@/types';
 import { colors } from '@/theme';
 import { useTabNavigation } from '@/contexts/TabNavigationContext';
 import { useSettingsStore } from '@/stores/settingsStore';
+import { WeeklySummaryModal } from '@/components/WeeklySummaryModal'; import { useWeeklySummaryTrigger } from '@/hooks/useWeeklySummaryTrigger';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -150,6 +151,7 @@ export const VaultScreen: React.FC = () => {
   const reduceMotionEnabled = useReduceMotionEnabled();
   const shouldReduceMotion = reduceMotionEnabled || !isVaultTabActive;
   const toast = useToast();
+  const { shouldShow, dismiss } = useWeeklySummaryTrigger();
 
   // ── Derived state ────────────────────────────────────────────────────────────
   const autoPrimary = useMemo(() => selectPrimaryAnchor(anchors), [anchors]);
@@ -398,6 +400,7 @@ export const VaultScreen: React.FC = () => {
           </View>
         )}
       </SafeAreaView>
+      <WeeklySummaryModal visible={shouldShow} onDismiss={dismiss} />
     </View>
   );
 };

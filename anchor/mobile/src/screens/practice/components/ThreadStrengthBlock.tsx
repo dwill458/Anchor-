@@ -239,8 +239,6 @@ export const ThreadStrengthBlock: React.FC<ThreadStrengthBlockProps> = ({
         </View>
       </View>
 
-      {/* 7-day week pip track */}
-      <WeekTrack weekHistory={renderedWeekHistory} state={state} />
 
       {/* Micro-copy */}
       <Text style={[styles.msg, { color: c.msg, borderTopColor: c.msgBorder }]}>

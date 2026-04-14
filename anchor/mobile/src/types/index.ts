@@ -695,7 +695,7 @@ export type RootStackParamList = {
   // Audio & Haptics Settings
   MantraVoice: undefined;
   VoiceStyle: undefined;
-  HapticIntensity: undefined;
+  HapticFeedback: undefined;
 
   // Data & Privacy Settings
   DataPrivacy: undefined;

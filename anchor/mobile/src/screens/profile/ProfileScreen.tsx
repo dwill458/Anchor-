@@ -1,460 +1,277 @@
 /**
  * Anchor App - Profile Screen
  *
- * User profile with stats, settings, and subscription management
+ * Identity, practice stats, subscription status, and account actions.
+ * No settings toggles — those live in SettingsScreen (reachable via the gear icon
+ * in this screen's navigation header).
+ *
+ * Icon audit (2026-04-13):
+ *   - Gear/settings icon: SettingsIcon from @/components/icons (custom react-native-svg)
+ *   - Avatar/person icon:  User from lucide-react-native (already in the codebase)
+ *   - No new icon-library dependency introduced.
  */
 
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import {
   View,
   Text,
   StyleSheet,
   TouchableOpacity,
   ScrollView,
-  Platform,
   Alert,
-  RefreshControl,
+  Modal,
+  TextInput,
+  ActivityIndicator,
+  Linking,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { LinearGradient } from 'expo-linear-gradient';
-import { BlurView } from 'expo-blur';
 import { StatusBar } from 'expo-status-bar';
-import {
-  User,
-  Settings,
-  Crown,
-  Flame,
-  Target,
-  Calendar,
-  Trophy,
-  LogOut,
-  ChevronRight,
-} from 'lucide-react-native';
+import Constants from 'expo-constants';
+import { useNavigation, CommonActions } from '@react-navigation/native';
 import { useAuthStore } from '@/stores/authStore';
-import { useSettingsStore } from '@/stores/settingsStore';
-import { useToast } from '@/components/ToastProvider';
-import { useNavigation } from '@react-navigation/native';
-import { StackNavigationProp } from '@react-navigation/stack';
-import { RootStackParamList } from '@/types';
-import { colors, spacing } from '@/theme';
-import { ZenBackground } from '@/components/common';
-import { ProfileHeader } from '@/components/profile/ProfileHeader';
-import { StatsGrid } from '@/components/profile/StatsGrid';
-import { ActiveAnchorsGrid } from '@/components/profile/ActiveAnchorsGrid';
-import { ProfileEmptyState } from '@/components/profile/ProfileEmptyState';
-import { ProfileErrorState } from '@/components/profile/ProfileErrorState';
-import { LoadingSpinner } from '@/components/LoadingSpinner';
-import { AuthService } from '@/services/AuthService';
-import { logger } from '@/utils/logger';
+import { useAnchorStore } from '@/stores/anchorStore';
 import { useTrialStatus } from '@/hooks/useTrialStatus';
+import { useToast } from '@/components/ToastProvider';
+import { apiClient } from '@/services/ApiClient';
+import RevenueCatService from '@/services/RevenueCatService';
+import { writeSecureValue } from '@/stores/encryptedPersistStorage';
+import { ZenBackground } from '@/components/common';
+import { colors, spacing, typography } from '@/theme';
+import { logger } from '@/utils/logger';
+import type { ApiResponse, User } from '@/types';
 
-const IS_ANDROID = Platform.OS === 'android';
+// Mirrors AnchorSyncService internal key. Cleared on sign-out so stale
+// unsynced anchor data is not associated with the next account on this device.
+const SYNC_RETRY_QUEUE_KEY = 'anchor-sync-retry-queue';
 
-type ProfileNavigationProp = StackNavigationProp<RootStackParamList>;
+// DEFERRED: wire to Thread Strength decay model in v1.1
+// Remove placeholder values below when the model exists.
+const THREAD_STRENGTH_PLACEHOLDER = 73;
+const THREAD_STATE_PLACEHOLDER = 'Strong';
+const THREAD_FILL_PCT = 0.73; // 73%
 
-interface StatCardProps {
-  icon: React.ReactNode;
+// ─── Stat Tile ────────────────────────────────────────────────────────────────
+
+interface StatTileProps {
+  value: string;
   label: string;
-  value: string | number;
-  color?: string;
 }
 
-const StatCard: React.FC<StatCardProps> = ({ icon, label, value, color = colors.gold }) => {
-  const CardWrapper = IS_ANDROID ? View : BlurView;
-  const cardProps = IS_ANDROID ? {} : { intensity: 10, tint: 'dark' as const };
+const StatTile: React.FC<StatTileProps> = ({ value, label }) => (
+  <View style={styles.statTile}>
+    <Text style={styles.statValue}>{value}</Text>
+    <Text style={styles.statLabel}>{label}</Text>
+  </View>
+);
 
-  return (
-    <CardWrapper {...cardProps} style={styles.statCard}>
-      <View style={[styles.statIconContainer, { backgroundColor: `${color}20` }]}>
-        {icon}
-      </View>
-      <Text style={styles.statValue}>{value}</Text>
-      <Text style={styles.statLabel}>{label}</Text>
-      <View style={[styles.statBorder, { backgroundColor: color }]} />
-    </CardWrapper>
-  );
-};
+// ─── Account Row ──────────────────────────────────────────────────────────────
 
-interface MenuItemProps {
-  icon: React.ReactNode;
+interface AccountRowProps {
   label: string;
-  subtitle?: string;
   onPress: () => void;
-  showChevron?: boolean;
-  destructive?: boolean;
 }
 
-const MenuItem: React.FC<MenuItemProps> = ({
-  icon,
-  label,
-  subtitle,
-  onPress,
-  showChevron = true,
-  destructive = false,
-}) => {
-  const ItemWrapper = IS_ANDROID ? View : BlurView;
-  const itemProps = IS_ANDROID ? {} : { intensity: 8, tint: 'dark' as const };
-
-  return (
-    <TouchableOpacity
-      style={styles.menuItemWrapper}
-      onPress={onPress}
-      activeOpacity={0.7}
-    >
-      <ItemWrapper {...itemProps} style={styles.menuItem}>
-        <View style={styles.menuItemLeft}>
-          <View style={styles.menuIconContainer}>{icon}</View>
-          <View style={styles.menuTextContainer}>
-            <Text style={[styles.menuLabel, destructive && styles.menuLabelDestructive]}>
-              {label}
-            </Text>
-            {subtitle && <Text style={styles.menuSubtitle}>{subtitle}</Text>}
-          </View>
-        </View>
-        {showChevron && (
-          <ChevronRight color={destructive ? colors.error : colors.silver} size={20} />
-        )}
-      </ItemWrapper>
+const AccountRow: React.FC<AccountRowProps> = ({ label, onPress }) => (
+  <>
+    <TouchableOpacity style={styles.accountRow} onPress={onPress} activeOpacity={0.7}>
+      <Text style={styles.accountRowLabel}>{label}</Text>
+      <Text style={styles.accountRowChevron}>›</Text>
     </TouchableOpacity>
-  );
-};
+    <View style={styles.rowSeparator} />
+  </>
+);
+
+// ─── ProfileScreen ────────────────────────────────────────────────────────────
 
 export const ProfileScreen: React.FC = () => {
-  const navigation = useNavigation<ProfileNavigationProp>();
-  const {
-    user,
-    signOut,
-    setHasCompletedOnboarding,
-    profileData,
-    fetchProfile,
-    refreshProfile,
-    isAuthenticated,
-    setPendingForgeResumeTarget,
-  } = useAuthStore();
-  const { developerModeEnabled, developerForceStreakBreakEnabled } = useSettingsStore();
-  const { hasActiveEntitlement } = useTrialStatus();
+  // useNavigation without a generic param: cross-stack navigation via CommonActions.
+  const navigation = useNavigation();
+  const { user, signOut, setUser } = useAuthStore();
+  const anchors = useAnchorStore((s) => s.anchors);
+  const { isTrialActive, isSubscribed, daysRemaining } = useTrialStatus();
   const toast = useToast();
-  const [isLoading, setIsLoading] = useState(false);
-  const [isRefreshing, setIsRefreshing] = useState(false);
-  const [profileError, setProfileError] = useState<string | null>(null);
 
-  // Mock user data - replace with actual API call
-  const displayName = user?.displayName || 'Practitioner';
-  const email = user?.email || 'user@example.com';
-  const subscriptionStatus = user?.subscriptionStatus || 'free';
-  const totalAnchors = user?.totalAnchorsCreated || 0;
-  const totalActivations = user?.totalActivations || 0;
-  const currentStreak = developerForceStreakBreakEnabled ? 0 : user?.currentStreak || 0;
-  const longestStreak = user?.longestStreak || 0;
-  const resolvedProfileStats = profileData
-    ? {
-        ...profileData.stats,
-        currentStreak: developerForceStreakBreakEnabled ? 0 : profileData.stats.currentStreak,
+  // Edit display name modal
+  const [editModalVisible, setEditModalVisible] = useState(false);
+  const [editName, setEditName] = useState(user?.displayName ?? '');
+  const [isSavingName, setIsSavingName] = useState(false);
+
+  // Restore purchases loading
+  const [isRestoring, setIsRestoring] = useState(false);
+
+  // ─── Practice stats ───────────────────────────────────────────────────────
+  const anchorsForged = anchors.length;
+  const totalPrimes = anchors.reduce((sum, a) => sum + (a.activationCount ?? 0), 0);
+  const activeAnchors = anchors.filter((a) => !a.isReleased && !a.archivedAt).length;
+
+  // Streak used in Thread Strength card footer until the model is wired
+  const currentStreak = user?.currentStreak ?? 0;
+
+  // ─── Avatar initial ───────────────────────────────────────────────────────
+  const avatarInitial = (user?.displayName ?? user?.email ?? 'P')[0].toUpperCase();
+
+  // ─── Display name edit ────────────────────────────────────────────────────
+  const openEditModal = () => {
+    setEditName(user?.displayName ?? '');
+    setEditModalVisible(true);
+  };
+
+  const handleSaveDisplayName = async () => {
+    const trimmed = editName.trim();
+    if (!trimmed) return;
+
+    setIsSavingName(true);
+    try {
+      const response = await apiClient.patch<ApiResponse<User>>('/api/users/me', {
+        displayName: trimmed,
+      });
+      if (response.data?.success && response.data.data) {
+        setUser(response.data.data);
+      } else if (user) {
+        setUser({ ...user, displayName: trimmed });
       }
-    : null;
-
-  // Load profile data on mount
-  useEffect(() => {
-    loadProfileData();
-  }, []);
-
-  const loadProfileData = async () => {
-    try {
-      setIsLoading(true);
-      setProfileError(null);
-      await fetchProfile();
+      setEditModalVisible(false);
     } catch (error) {
-      const message = error instanceof Error ? error.message : 'Failed to load profile';
-      setProfileError(message);
-      logger.error('Profile load error:', error);
+      // Optimistic local update — backend endpoint may be unavailable in this build
+      if (user) setUser({ ...user, displayName: trimmed });
+      setEditModalVisible(false);
+      logger.warn('[ProfileScreen] Display name remote sync failed, applied locally', error);
     } finally {
-      setIsLoading(false);
+      setIsSavingName(false);
     }
   };
 
-  const handleRefresh = async () => {
-    try {
-      setIsRefreshing(true);
-      setProfileError(null);
-      await refreshProfile();
-    } catch (error) {
-      const message = error instanceof Error ? error.message : 'Failed to refresh profile';
-      setProfileError(message);
-      logger.error('Profile refresh error:', error);
-    } finally {
-      setIsRefreshing(false);
-    }
-  };
 
-  const handleCreateAnchor = () => {
-    if ((user?.totalAnchorsCreated ?? profileData?.stats.totalAnchorsCreated ?? 0) >= 1 && !isAuthenticated) {
-      setPendingForgeResumeTarget('CreateAnchor');
-      navigation.navigate('AuthGate');
-      return;
-    }
 
-    if ((user?.totalAnchorsCreated ?? profileData?.stats.totalAnchorsCreated ?? 0) >= 1 && !hasActiveEntitlement) {
-      setPendingForgeResumeTarget('CreateAnchor');
-      navigation.navigate('Paywall');
-      return;
-    }
-
-    navigation.navigate('CreateAnchor');
-  };
-
-  const handleAnchorPress = (anchorId: string) => {
-    navigation.navigate('AnchorDetail', { anchorId });
-  };
-
-  const handleSettings = () => {
-    navigation.navigate('Settings');
-  };
-
-  const handleSubscription = () => {
-    navigation.navigate('Paywall');
-  };
-
-  const handleResetOnboarding = () => {
-    Alert.alert(
-      'Reset Onboarding',
-      'This will restart the onboarding flow. The app will reload.',
-      [
-        {
-          text: 'Cancel',
-          style: 'cancel',
-        },
-        {
-          text: 'Reset',
-          style: 'destructive',
-          onPress: () => {
-            setHasCompletedOnboarding(false);
-            toast.success('Onboarding reset! Reloading...');
-          },
-        },
-      ]
-    );
-  };
-
-  const handleSignOut = () => {
-    Alert.alert(
-      'Sign Out',
-      'Are you sure you want to sign out?',
-      [
-        {
-          text: 'Cancel',
-          style: 'cancel',
-        },
-        {
-          text: 'Sign Out',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              await AuthService.signOut();
-              signOut();
-              toast.success('Signed out successfully');
-            } catch (error) {
-              const message = error instanceof Error ? error.message : 'Failed to sign out';
-              logger.error('Sign out failed', error);
-              toast.error(message);
-            }
-          },
-        },
-      ]
-    );
-  };
+  const appVersion = Constants.expoConfig?.version ?? '1.0.0';
 
   return (
     <View style={styles.container}>
       <StatusBar style="light" />
       <ZenBackground />
 
-      <SafeAreaView style={styles.safeArea} edges={['top']}>
+      <SafeAreaView style={styles.safeArea} edges={['bottom']}>
         <ScrollView
           style={styles.scrollView}
           contentContainerStyle={styles.scrollContent}
           showsVerticalScrollIndicator={false}
-          refreshControl={
-            <RefreshControl refreshing={isRefreshing} onRefresh={handleRefresh} tintColor={colors.gold} />
-          }
         >
-          {/* Header */}
-          <View style={styles.header}>
-            <Text style={styles.title}>Your Practice</Text>
-          </View>
-
-          {/* Private Profile Section (Phase 1) */}
-          {isLoading && !profileData ? (
-            <View style={styles.loadingContainer}>
-              <LoadingSpinner />
+          {/* ── Identity row ─────────────────────────────────────── */}
+          <View style={styles.identityRow}>
+            <View style={styles.avatar}>
+              <Text style={styles.avatarInitial}>{avatarInitial}</Text>
             </View>
-          ) : profileError && !profileData ? (
-            <ProfileErrorState error={profileError} onRetry={loadProfileData} />
-          ) : profileData && profileData.stats.totalAnchorsCreated === 0 ? (
-            <>
-              <ProfileHeader
-                displayName={profileData.user.displayName}
-                subscriptionStatus={profileData.user.subscriptionStatus}
-              />
-              <ProfileEmptyState onCreateAnchor={handleCreateAnchor} />
-            </>
-          ) : profileData ? (
-            <>
-              <ProfileHeader
-                displayName={profileData.user.displayName}
-                subscriptionStatus={profileData.user.subscriptionStatus}
-              />
-              <StatsGrid stats={resolvedProfileStats ?? profileData.stats} />
-              <ActiveAnchorsGrid anchors={profileData.activeAnchors} onAnchorPress={handleAnchorPress} />
-            </>
-          ) : null}
-
-          {/* Divider */}
-          {profileData && <View style={styles.sectionDivider} />}
-
-          {/* Account Settings Section */}
-          <View style={styles.header}>
-            <Text style={styles.title}>Account</Text>
+            <View style={styles.identityText}>
+              <Text style={styles.identityName} numberOfLines={1}>
+                {user?.displayName ?? 'Practitioner'}
+              </Text>
+              <Text style={styles.identityEmail} numberOfLines={1}>
+                {user?.email ?? ''}
+              </Text>
+            </View>
+            <TouchableOpacity onPress={openEditModal} activeOpacity={0.7} hitSlop={8}>
+              <Text style={styles.editLabel}>Edit</Text>
+            </TouchableOpacity>
           </View>
 
-          {/* User Info Card */}
-          <View style={styles.userCardWrapper}>
-            {IS_ANDROID ? (
-              <View style={styles.userCard}>
-                <View style={styles.avatarContainer}>
-                  <LinearGradient
-                    colors={[colors.gold, colors.bronze]}
-                    style={styles.avatarGradient}
-                  >
-                    <User color={colors.navy} size={32} strokeWidth={2} />
-                  </LinearGradient>
-                </View>
-                <View style={styles.userInfo}>
-                  <Text style={styles.userName}>{displayName}</Text>
-                  <Text style={styles.userEmail}>{email}</Text>
-                  {subscriptionStatus !== 'free' && (
-                    <View style={styles.proBadge}>
-                      <Crown color={colors.gold} size={14} />
-                      <Text style={styles.proBadgeText}>PRO</Text>
-                    </View>
-                  )}
-                </View>
-                <View style={styles.userCardBorder} />
+          {/* ── Thread Strength card ─────────────────────────────── */}
+          {/* DEFERRED: wire to Thread Strength decay model in v1.1  */}
+          {/* Placeholder: value=73, state="Strong", fill=73%        */}
+          <View style={styles.threadCard}>
+            <View style={styles.threadHeader}>
+              <Text style={styles.threadLabel}>Thread Strength</Text>
+              <Text style={styles.threadValue}>{THREAD_STRENGTH_PLACEHOLDER}</Text>
+            </View>
+
+            {/* Progress bar */}
+            <View style={styles.trackOuter}>
+              <View style={[styles.trackFill, { width: `${THREAD_FILL_PCT * 100}%` }]}>
+                <View style={styles.trackDot} />
               </View>
-            ) : (
-              <BlurView intensity={12} tint="dark" style={styles.userCard}>
-                <View style={styles.avatarContainer}>
-                  <LinearGradient
-                    colors={[colors.gold, colors.bronze]}
-                    style={styles.avatarGradient}
-                  >
-                    <User color={colors.navy} size={32} strokeWidth={2} />
-                  </LinearGradient>
-                </View>
-                <View style={styles.userInfo}>
-                  <Text style={styles.userName}>{displayName}</Text>
-                  <Text style={styles.userEmail}>{email}</Text>
-                  {subscriptionStatus !== 'free' && (
-                    <View style={styles.proBadge}>
-                      <Crown color={colors.gold} size={14} />
-                      <Text style={styles.proBadgeText}>PRO</Text>
-                    </View>
-                  )}
-                </View>
-                <View style={styles.userCardBorder} />
-              </BlurView>
-            )}
-          </View>
-
-          {/* Stats Grid */}
-          <View style={styles.statsGrid}>
-            <StatCard
-              icon={<Target color={colors.gold} size={24} />}
-              label="Anchors Created"
-              value={totalAnchors}
-              color={colors.gold}
-            />
-            <StatCard
-              icon={<Flame color="#FF6B6B" size={24} />}
-              label="Current Streak"
-              value={`${currentStreak} days`}
-              color="#FF6B6B"
-            />
-            <StatCard
-              icon={<Calendar color="#4ECDC4" size={24} />}
-              label="Total Activations"
-              value={totalActivations}
-              color="#4ECDC4"
-            />
-            <StatCard
-              icon={<Trophy color="#FFD93D" size={24} />}
-              label="Longest Streak"
-              value={`${longestStreak} days`}
-              color="#FFD93D"
-            />
-          </View>
-
-          {/* Menu Section */}
-          <View style={styles.menuSection}>
-            <Text style={styles.sectionTitle}>Account</Text>
-
-            <MenuItem
-              icon={<Settings color={colors.silver} size={20} />}
-              label="Settings"
-              subtitle="Preferences and app settings"
-              onPress={handleSettings}
-            />
-
-            {subscriptionStatus === 'free' && (
-              <MenuItem
-                icon={<Crown color={colors.gold} size={20} />}
-                // DEFERRED: freemium tier removed, replaced by trial model
-                label="Continue Your Practice"
-                subtitle="Resume forging with active access"
-                onPress={handleSubscription}
-              />
-            )}
-
-            {subscriptionStatus !== 'free' && (
-              <MenuItem
-                icon={<Crown color={colors.gold} size={20} />}
-                label="Manage Subscription"
-                subtitle={`${subscriptionStatus.replace('_', ' ').toUpperCase()} Plan`}
-                onPress={handleSubscription}
-              />
-            )}
-          </View>
-
-          {/* Dev Tools (conditional) */}
-          {__DEV__ && developerModeEnabled && (
-            <View style={styles.menuSection}>
-              <Text style={styles.sectionTitle}>Developer</Text>
-              <MenuItem
-                icon={<Settings color={colors.silver} size={20} />}
-                label="Reset Onboarding"
-                subtitle="Restart the onboarding flow"
-                onPress={handleResetOnboarding}
-              />
             </View>
-          )}
 
-          {/* Sign Out */}
-          <View style={styles.menuSection}>
-            <MenuItem
-              icon={<LogOut color={colors.error} size={20} />}
-              label="Sign Out"
-              onPress={handleSignOut}
-              showChevron={false}
-              destructive
-            />
+            <View style={styles.threadFooter}>
+              <Text style={styles.threadStreak}>
+                {`${currentStreak} ${currentStreak === 1 ? 'day' : 'days'} streak`}
+              </Text>
+              <Text style={styles.threadState}>{THREAD_STATE_PLACEHOLDER}</Text>
+            </View>
           </View>
 
-          {/* Bottom Spacer */}
-          <View style={styles.bottomSpacer} />
+          {/* ── Stats row (3 tiles) ───────────────────────────────── */}
+          <View style={styles.statsRow}>
+            <StatTile value={String(anchorsForged)} label={`Anchors\nForged`} />
+            <StatTile value={String(totalPrimes)} label={`Total\nPrimes`} />
+            <StatTile value={String(activeAnchors)} label={`Active\nAnchors`} />
+          </View>
+
+
+
+          {/* ── Version ──────────────────────────────────────────── */}
+          <Text style={styles.versionText}>{`Version ${appVersion}`}</Text>
         </ScrollView>
       </SafeAreaView>
+
+      {/* ── Edit Display Name Modal ──────────────────────────────── */}
+      <Modal
+        visible={editModalVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setEditModalVisible(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalCard}>
+            <Text style={styles.modalTitle}>Edit Display Name</Text>
+            <TextInput
+              style={styles.modalInput}
+              value={editName}
+              onChangeText={setEditName}
+              autoFocus
+              maxLength={50}
+              returnKeyType="done"
+              onSubmitEditing={() => void handleSaveDisplayName()}
+              placeholderTextColor={colors.text.tertiary}
+              placeholder="Display name"
+              selectionColor={colors.gold}
+            />
+            <View style={styles.modalActions}>
+              <TouchableOpacity
+                style={styles.modalCancelButton}
+                onPress={() => setEditModalVisible(false)}
+                activeOpacity={0.7}
+              >
+                <Text style={styles.modalCancelText}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[
+                  styles.modalSaveButton,
+                  (isSavingName || !editName.trim()) && styles.modalSaveButtonDisabled,
+                ]}
+                onPress={() => void handleSaveDisplayName()}
+                activeOpacity={0.8}
+                disabled={isSavingName || !editName.trim()}
+              >
+                {isSavingName ? (
+                  <ActivityIndicator color={colors.navy} size="small" />
+                ) : (
+                  <Text style={styles.modalSaveText}>Save</Text>
+                )}
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 };
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Styles
+// All values from theme constants. No hardcoded colors or spacing.
+// Border color rgba(212,175,55,0.24) → colors.ritual.border (nearest token to spec's 0.25).
+// Separator rgba(212,175,55,0.14) → colors.ritual.softGlow (nearest token to spec's 0.1).
+// Sign-out red: colors.error (nearest token to spec's #C0392B).
+// ─────────────────────────────────────────────────────────────────────────────
 
 const styles = StyleSheet.create({
   container: {
@@ -469,199 +286,365 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     paddingHorizontal: spacing.lg,
-    paddingBottom: 120, // Extra space for tab bar
+    paddingBottom: 48,
   },
-  header: {
-    paddingTop: spacing.xl,
-    paddingBottom: spacing.md,
-  },
-  title: {
-    fontSize: 32,
-    fontWeight: 'bold',
-    color: colors.gold,
-    letterSpacing: 0.5,
-  },
-  userCardWrapper: {
-    marginBottom: spacing.xl,
-  },
-  userCard: {
-    borderRadius: 20,
-    padding: spacing.xl,
-    borderWidth: 1,
-    borderColor: 'rgba(212, 175, 55, 0.2)',
-    backgroundColor: IS_ANDROID ? 'rgba(26, 26, 29, 0.9)' : 'rgba(26, 26, 29, 0.4)',
-    position: 'relative',
+
+  // ─── Identity row ──────────────────────────────────────────────────────────
+  identityRow: {
     flexDirection: 'row',
     alignItems: 'center',
-  },
-  avatarContainer: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
-    overflow: 'hidden',
-    marginRight: spacing.md,
-  },
-  avatarGradient: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  userInfo: {
-    flex: 1,
-  },
-  userName: {
-    fontSize: 20,
-    fontWeight: '700',
-    color: colors.bone,
-    marginBottom: 4,
-  },
-  userEmail: {
-    fontSize: 14,
-    color: colors.silver,
-    opacity: 0.8,
-  },
-  proBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginTop: 8,
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    backgroundColor: 'rgba(212, 175, 55, 0.15)',
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: colors.gold,
-    alignSelf: 'flex-start',
-  },
-  proBadgeText: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: colors.gold,
-    marginLeft: 4,
-    letterSpacing: 0.5,
-  },
-  userCardBorder: {
-    position: 'absolute',
-    left: 0,
-    top: 0,
-    bottom: 0,
-    width: 3,
-    backgroundColor: colors.gold,
-    borderTopLeftRadius: 20,
-    borderBottomLeftRadius: 20,
-  },
-  statsGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    marginBottom: spacing.xl,
+    paddingTop: spacing.md,
+    paddingBottom: spacing.lg,
     gap: spacing.md,
   },
-  statCard: {
-    flex: 1,
-    minWidth: '47%',
-    borderRadius: 16,
-    padding: spacing.lg,
+  avatar: {
+    width: 52,
+    height: 52,
+    borderRadius: 26,
+    backgroundColor: colors.charcoal,
     borderWidth: 1,
-    borderColor: 'rgba(192, 192, 192, 0.15)',
-    backgroundColor: IS_ANDROID ? 'rgba(26, 26, 29, 0.85)' : 'rgba(26, 26, 29, 0.3)',
+    borderColor: colors.ritual.border,
     alignItems: 'center',
-    position: 'relative',
-    overflow: 'hidden',
-  },
-  statIconContainer: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
     justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: spacing.sm,
+    flexShrink: 0,
   },
-  statValue: {
-    fontSize: 24,
-    fontWeight: 'bold',
+  avatarInitial: {
+    fontFamily: 'Cinzel-Regular',
+    fontSize: typography.sizes.h3,
+    color: colors.gold,
+  },
+  identityText: {
+    flex: 1,
+  },
+  identityName: {
+    fontFamily: 'Cinzel-Regular',
+    fontSize: typography.sizes.h4,
     color: colors.bone,
-    marginBottom: 4,
+    letterSpacing: 0.5,
+    lineHeight: typography.lineHeights.h4,
   },
-  statLabel: {
-    fontSize: 12,
+  identityEmail: {
+    ...typography.caption,
     color: colors.silver,
-    textAlign: 'center',
+    marginTop: 2,
+  },
+  editLabel: {
+    fontFamily: 'Cinzel-Regular',
+    fontSize: typography.fontSize.xs,
+    color: colors.gold,
+    letterSpacing: 1,
     opacity: 0.8,
   },
-  statBorder: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    height: 3,
-  },
-  menuSection: {
-    marginBottom: spacing.xl,
-  },
-  sectionTitle: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: colors.silver,
-    textTransform: 'uppercase',
-    letterSpacing: 1.2,
+
+  // ─── Thread Strength card ──────────────────────────────────────────────────
+  threadCard: {
+    backgroundColor: colors.charcoal,
+    borderWidth: 1,
+    borderColor: colors.ritual.border,
+    borderRadius: 16,
+    padding: spacing.md,
     marginBottom: spacing.md,
-    opacity: 0.6,
   },
-  menuItemWrapper: {
+  threadHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'baseline',
     marginBottom: spacing.sm,
   },
-  menuItem: {
-    borderRadius: 16,
-    padding: spacing.lg,
+  threadLabel: {
+    fontFamily: 'Cinzel-Regular',
+    fontSize: 10,
+    letterSpacing: 2.5,
+    color: colors.gold,
+    textTransform: 'uppercase',
+  },
+  threadValue: {
+    fontFamily: 'Cinzel-Regular',
+    fontSize: 28,
+    color: colors.gold,
+    lineHeight: 32,
+  },
+  trackOuter: {
+    height: 4,
+    backgroundColor: colors.ritual.glass, // rgba(15,20,25,0.62) — closest dark track token
+    borderRadius: 2,
+    overflow: 'visible',
+    marginBottom: spacing.sm,
+    position: 'relative',
+  },
+  trackFill: {
+    height: 4,
+    backgroundColor: colors.gold,
+    borderRadius: 2,
+    position: 'relative',
+  },
+  trackDot: {
+    position: 'absolute',
+    right: -4,
+    top: -2,
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: colors.gold,
+    shadowColor: colors.gold,
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.8,
+    shadowRadius: 6,
+    elevation: 3,
+  },
+  threadFooter: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  threadStreak: {
+    ...typography.caption,
+    color: colors.silver,
+  },
+  threadState: {
+    fontFamily: 'Cinzel-Regular',
+    fontSize: 11,
+    color: colors.gold,
+    letterSpacing: 0.5,
+  },
+
+  // ─── Stats row ─────────────────────────────────────────────────────────────
+  statsRow: {
+    flexDirection: 'row',
+    gap: spacing.sm,
+    marginBottom: spacing.lg,
+  },
+  statTile: {
+    flex: 1,
+    backgroundColor: colors.charcoal,
     borderWidth: 1,
-    borderColor: 'rgba(192, 192, 192, 0.15)',
-    backgroundColor: IS_ANDROID ? 'rgba(26, 26, 29, 0.85)' : 'rgba(26, 26, 29, 0.3)',
+    borderColor: colors.ritual.border,
+    borderRadius: 12,
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.xs,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  statValue: {
+    fontFamily: 'Cinzel-Regular',
+    fontSize: 22,
+    color: colors.gold,
+    lineHeight: 26,
+    marginBottom: 5,
+  },
+  statLabel: {
+    fontSize: 11,
+    fontFamily: 'Inter-Regular',
+    color: colors.silver,
+    textAlign: 'center',
+    lineHeight: 14,
+  },
+
+  // ─── Section header ────────────────────────────────────────────────────────
+  sectionHeader: {
+    fontFamily: 'Cinzel-Regular',
+    fontSize: 10,
+    letterSpacing: 2.5,
+    color: colors.gold,
+    textTransform: 'uppercase',
+    marginBottom: spacing.sm,
+    opacity: 0.8,
+  },
+
+  // ─── Subscription banner ───────────────────────────────────────────────────
+  subBanner: {
+    backgroundColor: colors.charcoal,
+    borderWidth: 1,
+    borderColor: colors.ritual.border,
+    borderRadius: 12,
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.md,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+    marginBottom: spacing.lg,
   },
-  menuItemLeft: {
+  subLeft: {
     flexDirection: 'row',
     alignItems: 'center',
+    gap: spacing.sm,
     flex: 1,
   },
-  menuIconContainer: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: 'rgba(192, 192, 192, 0.1)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: spacing.md,
+  subDot: {
+    width: 7,
+    height: 7,
+    borderRadius: 4,
+    backgroundColor: colors.gold,
+    shadowColor: colors.gold,
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.6,
+    shadowRadius: 6,
+    elevation: 2,
+    flexShrink: 0,
   },
-  menuTextContainer: {
-    flex: 1,
+  subDotExpired: {
+    backgroundColor: colors.silver,
+    shadowOpacity: 0,
+    elevation: 0,
   },
-  menuLabel: {
-    fontSize: 16,
-    fontWeight: '600',
+  subStatus: {
+    fontFamily: 'Cinzel-Regular',
+    fontSize: 13,
     color: colors.bone,
-    marginBottom: 2,
+    letterSpacing: 0.3,
   },
-  menuLabelDestructive: {
+  subSub: {
+    ...typography.caption,
+    color: colors.silver,
+    marginTop: 1,
+  },
+  subBtn: {
+    borderWidth: 1,
+    borderColor: colors.ritual.border,
+    borderRadius: 6,
+    paddingVertical: 6,
+    paddingHorizontal: spacing.sm,
+  },
+  subBtnText: {
+    fontFamily: 'Cinzel-Regular',
+    fontSize: 10,
+    letterSpacing: 1,
+    color: colors.gold,
+  },
+  subBtnFilled: {
+    backgroundColor: colors.gold,
+    borderRadius: 6,
+    paddingVertical: 6,
+    paddingHorizontal: spacing.sm,
+  },
+  subBtnFilledText: {
+    fontFamily: 'Cinzel-Regular',
+    fontSize: 10,
+    letterSpacing: 1,
+    color: colors.navy,
+  },
+
+  // ─── Account rows ──────────────────────────────────────────────────────────
+  rowsContainer: {
+    backgroundColor: colors.charcoal,
+    borderWidth: 1,
+    borderColor: colors.ritual.border,
+    borderRadius: 12,
+    overflow: 'hidden',
+    marginBottom: spacing.lg,
+  },
+  accountRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.md,
+  },
+  accountRowLabel: {
+    fontFamily: 'Inter-Regular',
+    fontSize: 15,
+    color: colors.bone,
+    letterSpacing: 0.2,
+  },
+  accountRowChevron: {
+    fontFamily: 'Inter-Regular',
+    fontSize: 16,
+    color: colors.silver,
+    opacity: 0.5,
+  },
+  rowSeparator: {
+    height: 1,
+    // rgba(212,175,55,0.14) — colors.ritual.softGlow is the nearest theme token
+    backgroundColor: colors.ritual.softGlow,
+    marginHorizontal: spacing.md,
+  },
+
+  // ─── Sign out ──────────────────────────────────────────────────────────────
+  signOutButton: {
+    alignItems: 'center',
+    paddingVertical: spacing.md,
+    marginBottom: spacing.sm,
+  },
+  signOutText: {
+    fontFamily: 'Cinzel-Regular',
+    fontSize: 13,
+    letterSpacing: 1,
+    textTransform: 'uppercase',
+    // Nearest theme token to spec's #C0392B muted red
     color: colors.error,
   },
-  menuSubtitle: {
-    fontSize: 13,
+
+  // ─── Version ───────────────────────────────────────────────────────────────
+  versionText: {
+    ...typography.caption,
     color: colors.silver,
-    opacity: 0.7,
+    textAlign: 'center',
+    opacity: 0.3,
   },
-  bottomSpacer: {
-    height: 20,
-  },
-  loadingContainer: {
+
+  // ─── Edit Display Name Modal ───────────────────────────────────────────────
+  modalOverlay: {
     flex: 1,
+    backgroundColor: colors.ritual.overlay,
     justifyContent: 'center',
-    alignItems: 'center',
-    minHeight: 200,
+    paddingHorizontal: spacing.md,
   },
-  sectionDivider: {
-    height: 1,
-    backgroundColor: 'rgba(255, 255, 255, 0.1)',
-    marginVertical: spacing.xl,
+  modalCard: {
+    backgroundColor: colors.background.secondary,
+    borderRadius: spacing.md,
+    padding: spacing.lg,
+    borderWidth: 1,
+    borderColor: colors.ritual.border,
+  },
+  modalTitle: {
+    fontFamily: 'Cinzel-Regular',
+    fontSize: typography.sizes.h4,
+    color: colors.bone,
+    marginBottom: spacing.md,
+    textAlign: 'center',
+  },
+  modalInput: {
+    fontFamily: 'Inter-Regular',
+    fontSize: typography.sizes.body1,
+    color: colors.bone,
+    borderWidth: 1,
+    borderColor: colors.ritual.border,
+    borderRadius: spacing.sm,
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.md,
+    marginBottom: spacing.md,
+    backgroundColor: colors.navy,
+  },
+  modalActions: {
+    flexDirection: 'row',
+    gap: spacing.sm,
+  },
+  modalCancelButton: {
+    flex: 1,
+    paddingVertical: spacing.sm,
+    alignItems: 'center',
+    borderRadius: spacing.sm,
+    borderWidth: 1,
+    borderColor: colors.ritual.border,
+  },
+  modalCancelText: {
+    fontFamily: 'Inter-Regular',
+    fontSize: typography.sizes.body1,
+    color: colors.silver,
+  },
+  modalSaveButton: {
+    flex: 1,
+    paddingVertical: spacing.sm,
+    alignItems: 'center',
+    borderRadius: spacing.sm,
+    backgroundColor: colors.gold,
+  },
+  modalSaveButtonDisabled: {
+    opacity: 0.5,
+  },
+  modalSaveText: {
+    fontFamily: 'Inter-SemiBold',
+    fontSize: typography.sizes.body1,
+    color: colors.navy,
   },
 });

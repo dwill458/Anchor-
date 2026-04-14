@@ -10,7 +10,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Constants from 'expo-constants';
 import DateTimePicker, { type DateTimePickerEvent } from '@react-native-community/datetimepicker';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, CommonActions } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useSettingsState } from '@/hooks/useSettings';
 import { useSettingsReveal } from '@/components/transitions/SettingsRevealProvider';
@@ -58,7 +58,7 @@ const PlaceholderTag: React.FC<{ label: string }> = ({ label }) => (
 export const SettingsScreen: React.FC = () => {
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const { settings, updateSetting, resetSettings, isLoading } = useSettingsState();
-  const setHasCompletedOnboarding = useAuthStore((state) => state.setHasCompletedOnboarding);
+  const { setHasCompletedOnboarding, signOut } = useAuthStore();
   const reveal = useSettingsReveal();
   const [showTimePicker, setShowTimePicker] = useState(false);
   const hasMarkedReadyRef = useRef(false);
@@ -82,6 +82,31 @@ export const SettingsScreen: React.FC = () => {
       reveal.markSettingsReady();
     });
   }, [reveal]);
+
+  const handleSignOut = useCallback(() => {
+    Alert.alert(
+      'Sign Out',
+      'Are you sure you want to sign out?',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Sign Out',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              // Clear sync retry queue so stale anchor data is not carried over
+              const { writeSecureValue } = require('@/stores/encryptedPersistStorage');
+              await writeSecureValue('anchor-sync-retry-queue', '[]');
+            } catch (error) {
+              console.warn('[SettingsScreen] Failed to clear sync retry queue on sign-out', error);
+            }
+            signOut();
+            navigation.dispatch(CommonActions.navigate({ name: 'Login' } as never));
+          },
+        },
+      ]
+    );
+  }, [navigation, signOut]);
 
   const handleResetOnboarding = useCallback(async () => {
     setHasCompletedOnboarding(false);
@@ -173,7 +198,8 @@ export const SettingsScreen: React.FC = () => {
               disabled={isLoading}
             />
             <SettingsRow
-              title="Open Daily Anchor Automatically"
+              title="Prime on Launch"
+              subtitle="Opens directly to your practice"
               type="toggle"
               toggleValue={settings.openDailyAnchorAutomatically}
               onToggle={(value) => updateSetting('openDailyAnchorAutomatically', value)}
@@ -181,7 +207,7 @@ export const SettingsScreen: React.FC = () => {
             />
             <SettingsRow
               title="Practice Guidance"
-              subtitle="Gentle in-context tips during new rituals"
+              subtitle="Gentle in-context tips during new practices"
               type="toggle"
               toggleValue={settings.practiceGuidanceEnabled}
               onToggle={(value) => updateSetting('practiceGuidanceEnabled', value)}
@@ -195,7 +221,7 @@ export const SettingsScreen: React.FC = () => {
               disabled={isLoading}
             />
             <SettingsRow
-              title="Reduce Intention Visibility"
+              title="Hide Intention Text"
               type="toggle"
               toggleValue={settings.reduceIntentionVisibility}
               onToggle={(value) => updateSetting('reduceIntentionVisibility', value)}
@@ -224,7 +250,7 @@ export const SettingsScreen: React.FC = () => {
               />
             ) : null}
             <SettingsRow
-              title="Streak Protection Alerts"
+              title="Thread Strength Alerts"
               type="toggle"
               toggleValue={settings.streakProtectionAlertsEnabled}
               onToggle={(value) => updateSetting('streakProtectionAlertsEnabled', value)}
@@ -258,7 +284,7 @@ export const SettingsScreen: React.FC = () => {
               title="Haptic Feedback"
               value={formatHapticFeedbackLabel(settings.hapticFeedback)}
               type="chevron"
-              onPress={() => {}}
+              onPress={() => navigation.navigate('HapticFeedback')}
             />
             <SettingsRow
               title="Sound Effects"
@@ -278,17 +304,33 @@ export const SettingsScreen: React.FC = () => {
               type="none"
               rightElement={<PlaceholderTag label="v1.1" />}
             />
-            <SettingsRow title="Sign Out" type="none" disabled showDivider={false} />
+            <SettingsRow title="Sign Out" type="chevron" onPress={handleSignOut} />
+            <SettingsRow
+              title="Privacy Policy"
+              type="chevron"
+              onPress={() => void Linking.openURL('https://anchorintentions.com/privacy')}
+            />
+            <SettingsRow
+              title="Terms of Service"
+              type="chevron"
+              onPress={() => void Linking.openURL('https://anchorintentions.com/terms')}
+              showDivider={false}
+            />
           </SettingsSectionBlock>
 
           <Text style={styles.sectionLabel}>Subscription</Text>
           <SettingsSectionBlock>
-            <SettingsRow title="Current Plan" value="Pro" type="static" />
+            <SettingsRow title="Current Plan" value="Active" type="static" />
             <View style={styles.benefitsRow}>
               <Text style={styles.benefitsText}>
                 {'· Unlimited anchors\n· Advanced customization\n· Manual creation tools'}
               </Text>
             </View>
+            <SettingsRow
+              title="Manage Subscription"
+              type="chevron"
+              onPress={() => navigation.navigate('Paywall' as never)}
+            />
             <SettingsRow
               title="Restore Purchase"
               type="chevron"
