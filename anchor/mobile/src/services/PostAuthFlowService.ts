@@ -50,10 +50,13 @@ class PostAuthFlowService {
 
     const anchorStore = useAnchorStore.getState();
     // Only migrate anchors that belong to this user or were created locally
-    // before account creation (no userId). Anchors with a different userId
-    // are from a prior session and must not be re-assigned.
+    // before account creation (no userId, or a placeholder like "user-local").
+    // Anchors with a different real user UUID are from a prior session and
+    // must not be re-assigned.
+    const UUID_PATTERN =
+      /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
     const ownedAnchors = anchorStore.anchors.filter(
-      (a) => !a.userId || a.userId === patchedUser.id
+      (a) => !a.userId || !UUID_PATTERN.test(a.userId) || a.userId === patchedUser.id
     );
     const migratedAnchors = await AnchorSyncService.migrateAnchors(ownedAnchors, patchedUser.id);
     anchorStore.setAnchors(migratedAnchors);

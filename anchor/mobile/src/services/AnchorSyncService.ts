@@ -1,3 +1,4 @@
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { SUPABASE_ANON_KEY, SUPABASE_URL } from '@/config';
 import { readSecureValue, writeSecureValue } from '@/stores/encryptedPersistStorage';
 import type { Anchor, AnchorCategory, EnhancementMetadata, ReinforcementMetadata } from '@/types';
@@ -163,7 +164,23 @@ function fromSupabaseRecord(record: SupabaseAnchorRecord, fallback?: Anchor): An
 async function readQueue(): Promise<AnchorRetryQueueItem[]> {
   // Retry queue contains full anchor objects (intention text, sigil data) —
   // store in SecureStore so it is encrypted at rest.
-  const raw = await readSecureValue(RETRY_QUEUE_KEY);
+  let raw = await readSecureValue(RETRY_QUEUE_KEY);
+
+  if (!raw) {
+    // Older app versions stored the queue in plain AsyncStorage. Migrate it
+    // to SecureStore on first read so pending retries are not silently lost.
+    try {
+      const legacyRaw = await AsyncStorage.getItem(RETRY_QUEUE_KEY);
+      if (legacyRaw) {
+        await writeSecureValue(RETRY_QUEUE_KEY, legacyRaw);
+        await AsyncStorage.removeItem(RETRY_QUEUE_KEY);
+        raw = legacyRaw;
+      }
+    } catch (error) {
+      logger.warn('[AnchorSyncService] Failed to migrate legacy retry queue from AsyncStorage', error);
+    }
+  }
+
   if (!raw) return [];
 
   try {
