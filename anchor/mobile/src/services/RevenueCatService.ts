@@ -55,7 +55,12 @@ interface RevenueCatPurchases {
   getOfferings?: () => Promise<RevenueCatOfferings>;
   purchasePackage?: (pkg: RevenueCatPackage) => Promise<RevenueCatPurchaseResult | CustomerInfo>;
   restorePurchases?: () => Promise<CustomerInfo>;
+  /** SDK v8+ listener API — resolves to an unsubscribe function. */
+  addCustomerInfoUpdateListener?: (listener: (info: CustomerInfo) => void) => () => void;
 }
+
+/** Callback type for CustomerInfo update listeners. */
+export type CustomerInfoUpdateListener = (customerInfo: CustomerInfo) => void;
 
 const DEFAULT_TRIAL_STATUS: TrialStatusSnapshot = {
   isInTrial: false,
@@ -268,6 +273,59 @@ class RevenueCatService {
       daysRemaining: state.daysRemaining,
       trialExpired: state.trialExpired,
     };
+  }
+
+  /**
+   * Subscribe to real-time CustomerInfo updates from RevenueCat.
+   *
+   * Call this once after the user authenticates so entitlement changes
+   * (purchases, cancellations, renewals) are reflected immediately in the app
+   * without a manual refresh.
+   *
+   * The listener also updates the Zustand subscriptionStore automatically,
+   * so any component reading `useSubscriptionStore` or `useTrialStatus` will
+   * react without extra wiring.
+   *
+   * Returns an **unsubscribe** function — call it on component unmount or
+   * whenever the listener is no longer needed (e.g. on sign-out):
+   *
+   * @example
+   * useEffect(() => {
+   *   // Guard: only show AuthGate if the user loses their Pro entitlement.
+   *   return revenueCatService.addCustomerInfoUpdateListener((info) => {
+   *     const hasPro = revenueCatService.checkHasProEntitlement(info);
+   *     if (!hasPro) {
+   *       navigation.navigate('AuthGate');
+   *     }
+   *   });
+   * }, [navigation]);
+   */
+  addCustomerInfoUpdateListener(listener: CustomerInfoUpdateListener): () => void {
+    const purchases = getPurchasesModule();
+    if (!purchases?.addCustomerInfoUpdateListener) {
+      logger.warn('[RevenueCatService] addCustomerInfoUpdateListener is not available on this SDK version');
+      return () => {};
+    }
+
+    return purchases.addCustomerInfoUpdateListener((info) => {
+      // Keep the Zustand store in sync on every entitlement change.
+      applyTrialStatus(deriveTrialStatus(info));
+      listener(info);
+    });
+  }
+
+  /**
+   * Check whether a CustomerInfo snapshot contains an active Pro entitlement.
+   *
+   * Use this inside an `addCustomerInfoUpdateListener` callback or after any
+   * purchase/restore call to decide whether to gate a screen:
+   *
+   * @example
+   * const hasPro = revenueCatService.checkHasProEntitlement(customerInfo);
+   * if (!hasPro) { navigation.navigate('AuthGate'); }
+   */
+  checkHasProEntitlement(customerInfo: CustomerInfo | null | undefined): boolean {
+    return getEntitlementInfo(customerInfo)?.isActive === true;
   }
 
   getStorePlatform(): 'ios' | 'android' {
