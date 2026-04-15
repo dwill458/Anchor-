@@ -18,6 +18,10 @@ export interface TrialStatus {
     isSubscribed: boolean;
     /** Trial has expired and no active subscription. */
     hasExpired: boolean;
+    /** Trial has expired (alias for hasExpired). */
+    trialExpired: boolean;
+    /** User has an active trial or subscription entitlement. */
+    hasActiveEntitlement: boolean;
     /** Days remaining in the trial (0 when expired or no trial started). */
     daysRemaining: number;
     /** Raw subscriptionStatus field. */
@@ -36,6 +40,8 @@ export function useTrialStatus(): TrialStatus {
             isTrialActive: false,
             isSubscribed: false,
             hasExpired: true,
+            trialExpired: true,
+            hasActiveEntitlement: false,
             daysRemaining: 0,
             subscriptionStatus: 'expired',
         };
@@ -47,6 +53,8 @@ export function useTrialStatus(): TrialStatus {
             isTrialActive: false,
             isSubscribed: true,
             hasExpired: false,
+            trialExpired: false,
+            hasActiveEntitlement: true,
             daysRemaining: 0,
             subscriptionStatus: 'active',
         };
@@ -58,6 +66,8 @@ export function useTrialStatus(): TrialStatus {
             isTrialActive: true,
             isSubscribed: false,
             hasExpired: false,
+            trialExpired: false,
+            hasActiveEntitlement: true,
             daysRemaining: 7,
             subscriptionStatus: 'trial',
         };
@@ -74,6 +84,8 @@ export function useTrialStatus(): TrialStatus {
         isTrialActive,
         isSubscribed,
         hasExpired,
+        trialExpired: hasExpired,
+        hasActiveEntitlement: isSubscribed || isTrialActive,
         daysRemaining,
         subscriptionStatus,
     };

@@ -19,13 +19,12 @@ import {
   View,
   useWindowDimensions,
 } from 'react-native';
-import { useNavigation } from '@react-navigation/native';
+import { CommonActions, useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { BlurView } from 'expo-blur';
-import Svg, { Circle, Defs, RadialGradient, Rect, Stop, SvgXml } from 'react-native-svg';
-import { LockIcon } from '@/components/icons';
+import Svg, { Circle, Defs, Path, RadialGradient, Rect, Stop, SvgXml } from 'react-native-svg';
 import { colors, typography } from '@/theme';
 import { withAlpha } from '@/utils/color';
 import { useAnchorStore } from '@/stores/anchorStore';
@@ -65,10 +64,10 @@ const PLAN_OPTIONS: PlanConfig[] = [
     amount: '$149',
     subtitle: 'one time',
     productId: '$rc_lifetime',
+    badge: 'LIMITED',
   },
 ];
 
-const PREVIEW_FADE_ID = 'paywall-preview-fade';
 const VOID_GLOW_ID = 'paywall-void-glow';
 
 function VoidGlowBackdrop() {
@@ -97,22 +96,37 @@ function VoidGlowBackdrop() {
 
 function PreviewFadeOverlay() {
   return (
-    <Svg
-      width="100%"
-      height="100%"
-      viewBox="0 0 100 100"
-      preserveAspectRatio="none"
-      style={styles.previewFadeSvg}
+    <LinearGradient
+      colors={['rgba(8,12,16,0)', 'rgba(8,12,16,0)', colors.black]}
+      locations={[0, 0.4, 1]}
+      start={{ x: 0, y: 0 }}
+      end={{ x: 0, y: 1 }}
+      style={styles.previewFadeOverlay}
       pointerEvents="none"
-    >
-      <Defs>
-        <RadialGradient id={PREVIEW_FADE_ID} cx="50%" cy="100%" rx="62%" ry="70%">
-          <Stop offset="0%" stopColor={colors.black} stopOpacity="0" />
-          <Stop offset="48%" stopColor={colors.deepPurple} stopOpacity="0.7" />
-          <Stop offset="100%" stopColor={colors.black} stopOpacity="1" />
-        </RadialGradient>
-      </Defs>
-      <Rect x="0" y="0" width="100" height="100" fill={`url(#${PREVIEW_FADE_ID})`} />
+    />
+  );
+}
+
+function LockBadgeIcon() {
+  return (
+    <Svg width={24} height={24} viewBox="0 0 24 24" fill="none">
+      <Rect
+        x="5"
+        y="11"
+        width="14"
+        height="10"
+        rx="2"
+        stroke={colors.gold}
+        strokeWidth={1.5}
+        strokeLinecap="round"
+      />
+      <Path
+        d="M8 11V7C8 4.79086 9.79086 3 12 3C14.2091 3 16 4.79086 16 7V11"
+        stroke={colors.gold}
+        strokeWidth={1.5}
+        strokeLinecap="round"
+      />
+      <Circle cx="12" cy="15.5" r="1.5" fill={colors.gold} />
     </Svg>
   );
 }
@@ -162,7 +176,17 @@ export const PaywallScreen: React.FC = () => {
   };
 
   const handleSignIn = () => {
-    navigation.navigate('Login');
+    navigation.dispatch(
+      CommonActions.reset({
+        index: 0,
+        routes: [
+          {
+            name: 'Onboarding',
+            state: { routes: [{ name: 'Login' }], index: 0 },
+          },
+        ],
+      })
+    );
   };
 
   const latestAnchor = useMemo(() => {
@@ -181,6 +205,12 @@ export const PaywallScreen: React.FC = () => {
     () => PLAN_OPTIONS.find((plan) => plan.id === selectedPlanId) ?? PLAN_OPTIONS[1],
     [selectedPlanId]
   );
+  const ctaLabel =
+    selectedPlan.id === 'monthly'
+      ? 'Get Monthly Access'
+      : selectedPlan.id === 'lifetime'
+        ? 'Get Lifetime Access'
+        : 'Forge Free for 7 Days';
 
   const sigilSource = latestAnchor?.enhancedImageUrl ?? null;
   const sigilSvg = latestAnchor?.reinforcedSigilSvg ?? latestAnchor?.baseSigilSvg ?? null;
@@ -211,19 +241,25 @@ export const PaywallScreen: React.FC = () => {
 
             <View style={styles.previewContentWrap} pointerEvents="none">
               {sigilSource ? (
-                <Image
-                  source={{ uri: sigilSource }}
-                  style={styles.previewImage}
-                  blurRadius={2}
-                  resizeMode="cover"
-                />
+                <View style={styles.previewArtFrame}>
+                  <Image
+                    source={{ uri: sigilSource }}
+                    style={styles.previewImage}
+                    blurRadius={2}
+                    resizeMode="contain"
+                  />
+                </View>
               ) : sigilSvg ? (
-                <View style={styles.previewSvgWrap}>
-                  <SvgXml xml={sigilSvg} width="100%" height="100%" />
+                <View style={styles.previewArtFrame}>
+                  <View style={styles.previewSvgWrap}>
+                    <SvgXml xml={sigilSvg} width="100%" height="100%" />
+                  </View>
                 </View>
               ) : (
-                <View style={styles.previewVoidWrap}>
-                  <VoidGlowBackdrop />
+                <View style={styles.previewArtFrame}>
+                  <View style={styles.previewVoidWrap}>
+                    <VoidGlowBackdrop />
+                  </View>
                 </View>
               )}
 
@@ -232,7 +268,7 @@ export const PaywallScreen: React.FC = () => {
             </View>
 
             <View style={styles.lockBadge}>
-              <LockIcon size={22} color={colors.gold} />
+              <LockBadgeIcon />
             </View>
 
             <PreviewFadeOverlay />
@@ -318,13 +354,13 @@ export const PaywallScreen: React.FC = () => {
               <Pressable
                 onPress={() => handlePurchase(selectedPlan.productId)}
                 accessibilityRole="button"
-                accessibilityLabel="Forge Free for 7 Days"
+                accessibilityLabel={`${ctaLabel}, ${selectedPlan.label} selected`}
                 style={({ pressed }) => [
                   styles.ctaButton,
                   pressed && styles.ctaButtonPressed,
                 ]}
               >
-                <Text style={styles.ctaText}>Forge Free for 7 Days</Text>
+                <Text style={styles.ctaText}>{ctaLabel}</Text>
               </Pressable>
 
               <Text style={styles.trialNote}>Cancel anytime</Text>
@@ -335,13 +371,16 @@ export const PaywallScreen: React.FC = () => {
                 accessibilityLabel="Already forging? Sign in"
                 style={({ pressed }) => [styles.signInButton, pressed && styles.signInPressed]}
               >
-                <Text style={styles.signInText}>
-                  Already forging? <Text style={styles.signInLink}>Sign in</Text>
-                </Text>
+                <View style={styles.signInRow}>
+                  <Text style={styles.signInText}>Already forging? </Text>
+                  <View style={styles.signInLinkWrap}>
+                    <Text style={styles.signInLink}>Sign in</Text>
+                  </View>
+                </View>
               </Pressable>
 
               {/*
-                DEFERRED: Restore Purchases link moved below Sign In and commented out for now.
+                DEFERRED: restore purchases link
                 <Pressable onPress={handleRestorePurchase} accessibilityRole="button">
                   <Text style={styles.restoreText}>Restore Purchases</Text>
                 </Pressable>
@@ -403,6 +442,13 @@ const styles = StyleSheet.create({
     ...StyleSheet.absoluteFillObject,
     alignItems: 'center',
     justifyContent: 'center',
+    transform: [{ translateY: 20 }],
+  },
+  previewArtFrame: {
+    width: '88%',
+    height: '88%',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   previewImage: {
     width: '100%',
@@ -410,19 +456,19 @@ const styles = StyleSheet.create({
     opacity: 0.55,
   },
   previewSvgWrap: {
-    width: '84%',
-    height: '84%',
+    width: '100%',
+    height: '100%',
     opacity: 0.55,
   },
   previewVoidWrap: {
-    width: '88%',
-    height: '88%',
+    width: '100%',
+    height: '100%',
   },
   previewDesaturateWash: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: withAlpha(colors.black, 0.24),
+    backgroundColor: withAlpha(colors.black, 0.28),
   },
-  previewFadeSvg: {
+  previewFadeOverlay: {
     ...StyleSheet.absoluteFillObject,
   },
   voidGlowSvg: {
@@ -430,7 +476,7 @@ const styles = StyleSheet.create({
   },
   lockBadge: {
     position: 'absolute',
-    top: '50%',
+    top: '56%',
     left: '50%',
     width: 52,
     height: 52,
@@ -457,6 +503,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 28,
     paddingBottom: 44,
     paddingTop: 12,
+    backgroundColor: colors.black,
   },
   scroll: {
     flexGrow: 0,
@@ -470,16 +517,16 @@ const styles = StyleSheet.create({
     letterSpacing: 2.2,
     color: colors.gold,
     textTransform: 'uppercase',
-    marginBottom: 12,
+    marginBottom: 16,
   },
   headline: {
     fontFamily: typography.fonts.heading,
     fontSize: 32,
-    lineHeight: 35,
+    lineHeight: 36,
     fontWeight: '400',
     color: colors.bone,
     marginBottom: 14,
-    letterSpacing: 0.2,
+    letterSpacing: 0,
   },
   headlineForge: {
     color: colors.gold,
@@ -490,13 +537,13 @@ const styles = StyleSheet.create({
     fontWeight: '300',
     lineHeight: 24,
     color: withAlpha(colors.bone, 0.6),
-    marginBottom: 22,
+    marginBottom: 20,
   },
   dividerRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
-    marginBottom: 18,
+    marginBottom: 16,
   },
   dividerLine: {
     flex: 1,
@@ -512,14 +559,14 @@ const styles = StyleSheet.create({
   planRow: {
     flexDirection: 'row',
     gap: 10,
-    marginBottom: 22,
+    marginBottom: 20,
   },
   planCard: {
     flex: 1,
     minHeight: 112,
-    borderRadius: 12,
-    paddingHorizontal: 10,
-    paddingTop: 14,
+    borderRadius: 10,
+    paddingHorizontal: 6,
+    paddingTop: 12,
     paddingBottom: 12,
     overflow: 'hidden',
     justifyContent: 'space-between',
@@ -549,6 +596,8 @@ const styles = StyleSheet.create({
     backgroundColor: colors.gold,
     borderTopRightRadius: 9,
     borderBottomLeftRadius: 6,
+    borderTopLeftRadius: 0,
+    borderBottomRightRadius: 0,
     paddingHorizontal: 6,
     paddingVertical: 3,
   },
@@ -556,32 +605,38 @@ const styles = StyleSheet.create({
     fontFamily: typography.fonts.headingBold,
     fontSize: 7,
     color: colors.black,
-    letterSpacing: 0.8,
+    letterSpacing: 1,
   },
   planLabel: {
     fontFamily: typography.fonts.heading,
-    fontSize: 10,
-    letterSpacing: 1.3,
-    color: withAlpha(colors.bone, 0.7),
+    fontSize: 8,
+    letterSpacing: 2,
+    color: withAlpha(colors.bone, 0.4),
     textTransform: 'uppercase',
+    textAlign: 'center',
+    marginBottom: 4,
   },
   planPriceWrap: {
     gap: 2,
   },
   planAmount: {
-    fontFamily: typography.fonts.heading,
-    fontSize: 18,
+    fontFamily: typography.fonts.headingSemiBold,
+    fontSize: 17,
     lineHeight: 20,
     color: colors.bone,
+    textAlign: 'center',
+    marginBottom: 3,
   },
   planAmountSelected: {
     color: colors.gold,
   },
   planSubtitle: {
     fontFamily: typography.fonts.bodySerif,
-    fontSize: 11,
-    lineHeight: 15,
-    color: withAlpha(colors.bone, 0.42),
+    fontSize: 10,
+    lineHeight: 14,
+    fontWeight: '300',
+    color: withAlpha(colors.bone, 0.4),
+    textAlign: 'center',
   },
   ctaButton: {
     width: '100%',
@@ -595,7 +650,7 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.35,
     shadowRadius: 24,
     elevation: 8,
-    marginBottom: 14,
+    marginBottom: 12,
   },
   ctaButtonPressed: {
     transform: [{ scale: 0.995 }],
@@ -604,7 +659,7 @@ const styles = StyleSheet.create({
     fontFamily: typography.fonts.headingBold,
     fontSize: 13,
     color: colors.black,
-    letterSpacing: 1.04,
+    letterSpacing: 2,
     textTransform: 'uppercase',
   },
   trialNote: {
@@ -621,15 +676,22 @@ const styles = StyleSheet.create({
   signInPressed: {
     opacity: 0.85,
   },
+  signInRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
   signInText: {
     fontFamily: typography.fonts.bodySerif,
     fontSize: 14,
-    color: withAlpha(colors.bone, 0.4),
+    color: withAlpha(colors.bone, 0.45),
   },
   signInLink: {
     color: colors.gold,
-    textDecorationLine: 'underline',
-    textDecorationColor: withAlpha(colors.gold, 0.36),
+  },
+  signInLinkWrap: {
+    borderBottomWidth: 1,
+    borderBottomColor: withAlpha(colors.gold, 0.3),
+    paddingBottom: 1,
   },
 });
 

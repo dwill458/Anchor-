@@ -422,8 +422,6 @@ export type RootStackParamList = {
   AnchorDetail: { anchorId: string };
   AuthGate: undefined;
   Paywall: undefined;
-  Login: undefined;
-  SignUp: undefined;
   CreateAnchor: undefined;
   /** First anchor creation after onboarding — shows new-user IntentionInputScreen */
   FirstAnchorCreation: undefined;

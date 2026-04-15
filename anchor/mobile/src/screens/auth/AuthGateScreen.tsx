@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   Animated,
   Image,
@@ -13,10 +13,9 @@ import { useNavigation } from '@react-navigation/native';
 import type { StackNavigationProp } from '@react-navigation/stack';
 import { BlurView } from 'expo-blur';
 import { LinearGradient } from 'expo-linear-gradient';
-import Svg, { Circle, Defs, RadialGradient, Rect, Stop, SvgXml } from 'react-native-svg';
+import Svg, { Circle, Defs, Path, RadialGradient, Rect, Stop, SvgXml } from 'react-native-svg';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { ZenBackground } from '@/components/common';
-import { LockIcon } from '@/components/icons';
 import { useAnchorStore } from '@/stores/anchorStore';
 import { useAuthStore } from '@/stores/authStore';
 import type { RootStackParamList } from '@/types';
@@ -27,6 +26,20 @@ type AuthGateNavigationProp = StackNavigationProp<RootStackParamList, 'AuthGate'
 
 const PREVIEW_FADE_ID = 'auth-gate-preview-fade';
 const VOID_GLOW_ID = 'auth-gate-void-glow';
+
+type PlanId = 'monthly' | 'annual' | 'lifetime';
+
+const PLAN_OPTIONS: Array<{
+  id: PlanId;
+  label: string;
+  amount: string;
+  subtitle: string;
+  badge?: string;
+}> = [
+  { id: 'monthly', label: 'Monthly', amount: '$7.99', subtitle: 'per month' },
+  { id: 'annual', label: 'Annual', amount: '$59.99', subtitle: '$5/mo · save 37%', badge: 'BEST VALUE' },
+  { id: 'lifetime', label: 'Lifetime', amount: '$149', subtitle: 'one time', badge: 'LIMITED' },
+];
 
 function VoidGlowBackdrop() {
   return (
@@ -74,10 +87,35 @@ function PreviewFadeOverlay() {
   );
 }
 
+function LockBadgeIcon() {
+  return (
+    <Svg width={24} height={24} viewBox="0 0 24 24" fill="none">
+      <Rect
+        x="5"
+        y="11"
+        width="14"
+        height="10"
+        rx="2"
+        stroke={colors.gold}
+        strokeWidth={1.5}
+        strokeLinecap="round"
+      />
+      <Path
+        d="M8 11V7C8 4.79086 9.79086 3 12 3C14.2091 3 16 4.79086 16 7V11"
+        stroke={colors.gold}
+        strokeWidth={1.5}
+        strokeLinecap="round"
+      />
+      <Circle cx="12" cy="15.5" r="1.5" fill={colors.gold} />
+    </Svg>
+  );
+}
+
 export default function AuthGateScreen() {
   const navigation = useNavigation<AuthGateNavigationProp>();
   const { height } = useWindowDimensions();
   const anchors = useAnchorStore((state) => state.anchors);
+  const [selectedPlanId, setSelectedPlanId] = useState<PlanId>('annual');
   const clearPendingForgeIntent = useAuthStore((state) => state.clearPendingForgeIntent);
   const clearPendingForgeResumeTarget = useAuthStore((state) => state.clearPendingForgeResumeTarget);
   const fadeAnim = useRef(new Animated.Value(0)).current;
@@ -119,6 +157,14 @@ export default function AuthGateScreen() {
   const sigilSource = latestAnchor?.enhancedImageUrl ?? null;
   const sigilSvg = latestAnchor?.reinforcedSigilSvg ?? latestAnchor?.baseSigilSvg ?? null;
   const previewHeight = Math.round(height * 0.48);
+  const selectedPlan = useMemo(
+    () => PLAN_OPTIONS.find((plan) => plan.id === selectedPlanId) ?? PLAN_OPTIONS[1],
+    [selectedPlanId]
+  );
+  const ctaLabel =
+    selectedPlan.id === 'annual'
+      ? 'Forge Free for 7 Days'
+      : `Forge Free for 7 Days on ${selectedPlan.label}`;
 
   return (
     <View style={styles.root}>
@@ -131,6 +177,10 @@ export default function AuthGateScreen() {
           previewHeight={previewHeight}
           sigilSource={sigilSource}
           sigilSvg={sigilSvg}
+          selectedPlanId={selectedPlanId}
+          setSelectedPlanId={setSelectedPlanId}
+          selectedPlan={selectedPlan}
+          ctaLabel={ctaLabel}
           onDismiss={handleDismiss}
           onCreateAccount={handleCreateAccount}
           onSignIn={handleSignIn}
@@ -146,6 +196,10 @@ type AnimatedScreenProps = {
   previewHeight: number;
   sigilSource: string | null;
   sigilSvg: string | null;
+  selectedPlanId: PlanId;
+  setSelectedPlanId: (id: PlanId) => void;
+  selectedPlan: (typeof PLAN_OPTIONS)[number];
+  ctaLabel: string;
   onDismiss: () => void;
   onCreateAccount: () => void;
   onSignIn: () => void;
@@ -157,6 +211,10 @@ function AnimatedScreen({
   previewHeight,
   sigilSource,
   sigilSvg,
+  selectedPlanId,
+  setSelectedPlanId,
+  selectedPlan,
+  ctaLabel,
   onDismiss,
   onCreateAccount,
   onSignIn,
@@ -185,19 +243,25 @@ function AnimatedScreen({
 
           <View style={styles.previewContentWrap} pointerEvents="none">
             {sigilSource ? (
-              <Image
-                source={{ uri: sigilSource }}
-                style={styles.previewImage}
-                blurRadius={2}
-                resizeMode="cover"
-              />
+              <View style={styles.previewArtFrame}>
+                <Image
+                  source={{ uri: sigilSource }}
+                  style={styles.previewImage}
+                  blurRadius={2}
+                  resizeMode="contain"
+                />
+              </View>
             ) : sigilSvg ? (
-              <View style={styles.previewSvgWrap}>
-                <SvgXml xml={sigilSvg} width="100%" height="100%" />
+              <View style={styles.previewArtFrame}>
+                <View style={styles.previewSvgWrap}>
+                  <SvgXml xml={sigilSvg} width="100%" height="100%" />
+                </View>
               </View>
             ) : (
-              <View style={styles.previewVoidWrap}>
-                <VoidGlowBackdrop />
+              <View style={styles.previewArtFrame}>
+                <View style={styles.previewVoidWrap}>
+                  <VoidGlowBackdrop />
+                </View>
               </View>
             )}
 
@@ -211,8 +275,8 @@ function AnimatedScreen({
             </Pressable>
           </View>
 
-          <View style={styles.lockBadge}>
-            <LockIcon size={22} color={colors.gold} />
+            <View style={styles.lockBadge}>
+            <LockBadgeIcon />
           </View>
 
           <PreviewFadeOverlay />
@@ -229,20 +293,84 @@ function AnimatedScreen({
 
             <Text style={styles.headline}>
               Your anchor is{'\n'}
-              ready to forge.
+              ready to <Text style={styles.headlineForge}>forge.</Text>
             </Text>
 
             <Text style={styles.bodyCopy}>
-              Create a free account to save your work, track your practice, and continue forging.
+              Create an account to save your work, track your practice, and build more anchors.
+            </Text>
+
+            <View style={styles.dividerRow}>
+              <LinearGradient
+                colors={[
+                  withAlpha(colors.gold, 0),
+                  withAlpha(colors.gold, 0.25),
+                  withAlpha(colors.gold, 0),
+                ]}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 0 }}
+                style={styles.dividerLine}
+              />
+              <Text style={styles.dividerLabel}>CHOOSE PLAN</Text>
+              <LinearGradient
+                colors={[
+                  withAlpha(colors.gold, 0),
+                  withAlpha(colors.gold, 0.25),
+                  withAlpha(colors.gold, 0),
+                ]}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 0 }}
+                style={styles.dividerLine}
+              />
+            </View>
+
+            <View style={styles.planRow}>
+              {PLAN_OPTIONS.map((plan) => {
+                const isSelected = selectedPlanId === plan.id;
+
+                return (
+                  <Pressable
+                    key={plan.id}
+                    onPress={() => setSelectedPlanId(plan.id)}
+                    accessibilityRole="button"
+                    accessibilityLabel={`${plan.label} plan ${plan.amount}`}
+                    style={({ pressed }) => [
+                      styles.planCard,
+                      isSelected ? styles.planCardSelected : styles.planCardUnselected,
+                      pressed && styles.planCardPressed,
+                    ]}
+                  >
+                    {plan.badge ? (
+                      <View style={styles.planBadge}>
+                        <Text style={styles.planBadgeText}>{plan.badge}</Text>
+                      </View>
+                    ) : null}
+
+                    <Text style={styles.planLabel}>{plan.label}</Text>
+
+                    <View style={styles.planPriceWrap}>
+                      <Text style={[styles.planAmount, isSelected && styles.planAmountSelected]}>
+                        {plan.amount}
+                      </Text>
+                      <Text style={styles.planSubtitle}>{plan.subtitle}</Text>
+                    </View>
+                  </Pressable>
+                );
+              })}
+            </View>
+
+            <Text style={styles.planHint}>
+              Selected: <Text style={styles.planHintGold}>{selectedPlan.label}</Text>
+              {selectedPlan.subtitle ? ` · ${selectedPlan.subtitle}` : ''}
             </Text>
 
             <Pressable
               onPress={onCreateAccount}
               accessibilityRole="button"
-              accessibilityLabel="Forge Free for 7 Days"
+              accessibilityLabel={`${ctaLabel}, ${selectedPlan.label} selected`}
               style={({ pressed }) => [styles.ctaButton, pressed && styles.ctaButtonPressed]}
             >
-              <Text style={styles.ctaText}>Forge Free for 7 Days</Text>
+              <Text style={styles.ctaText}>{ctaLabel}</Text>
             </Pressable>
 
             <Text style={styles.trialNote}>Cancel anytime</Text>
@@ -253,9 +381,12 @@ function AnimatedScreen({
               accessibilityLabel="Already forging? Sign in"
               style={({ pressed }) => [styles.signInButton, pressed && styles.signInPressed]}
             >
-              <Text style={styles.signInText}>
-                Already forging? <Text style={styles.signInLink}>Sign in</Text>
-              </Text>
+              <View style={styles.signInRow}>
+                <Text style={styles.signInText}>Already forging? </Text>
+                <View style={styles.signInLinkWrap}>
+                  <Text style={styles.signInLink}>Sign in</Text>
+                </View>
+              </View>
             </Pressable>
           </ScrollView>
         </View>
@@ -309,6 +440,13 @@ const styles = StyleSheet.create({
     ...StyleSheet.absoluteFillObject,
     alignItems: 'center',
     justifyContent: 'center',
+    transform: [{ translateY: 20 }],
+  },
+  previewArtFrame: {
+    width: '88%',
+    height: '88%',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   previewImage: {
     width: '100%',
@@ -316,17 +454,17 @@ const styles = StyleSheet.create({
     opacity: 0.55,
   },
   previewSvgWrap: {
-    width: '84%',
-    height: '84%',
+    width: '100%',
+    height: '100%',
     opacity: 0.55,
   },
   previewVoidWrap: {
-    width: '88%',
-    height: '88%',
+    width: '100%',
+    height: '100%',
   },
   previewDesaturateWash: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: withAlpha(colors.black, 0.24),
+    backgroundColor: withAlpha(colors.black, 0.28),
   },
   previewFadeSvg: {
     ...StyleSheet.absoluteFillObject,
@@ -347,7 +485,7 @@ const styles = StyleSheet.create({
   },
   lockBadge: {
     position: 'absolute',
-    top: '50%',
+    top: '56%',
     left: '50%',
     width: 52,
     height: 52,
@@ -387,16 +525,19 @@ const styles = StyleSheet.create({
     letterSpacing: 2.2,
     color: colors.gold,
     textTransform: 'uppercase',
-    marginBottom: 12,
+    marginBottom: 16,
   },
   headline: {
     fontFamily: typography.fonts.heading,
     fontSize: 32,
-    lineHeight: 35,
+    lineHeight: 36,
     fontWeight: '400',
     color: colors.bone,
     marginBottom: 14,
-    letterSpacing: 0.2,
+    letterSpacing: 0,
+  },
+  headlineForge: {
+    color: colors.gold,
   },
   bodyCopy: {
     fontFamily: typography.fonts.bodySerif,
@@ -405,6 +546,116 @@ const styles = StyleSheet.create({
     lineHeight: 24,
     color: withAlpha(colors.bone, 0.6),
     marginBottom: 22,
+  },
+  dividerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    marginBottom: 16,
+  },
+  dividerLine: {
+    flex: 1,
+    height: 1,
+  },
+  dividerLabel: {
+    fontFamily: typography.fonts.heading,
+    fontSize: 9,
+    letterSpacing: 2.1,
+    color: withAlpha(colors.gold, 0.45),
+    textTransform: 'uppercase',
+  },
+  planRow: {
+    flexDirection: 'row',
+    gap: 10,
+    marginBottom: 20,
+  },
+  planCard: {
+    flex: 1,
+    minHeight: 112,
+    borderRadius: 10,
+    paddingHorizontal: 6,
+    paddingTop: 12,
+    paddingBottom: 12,
+    overflow: 'hidden',
+    justifyContent: 'space-between',
+  },
+  planCardPressed: {
+    transform: [{ scale: 0.99 }],
+  },
+  planCardSelected: {
+    borderWidth: 1,
+    borderColor: colors.gold,
+    backgroundColor: withAlpha(colors.gold, 0.1),
+    shadowColor: colors.gold,
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.15,
+    shadowRadius: 16,
+    elevation: 4,
+  },
+  planCardUnselected: {
+    borderWidth: 1,
+    borderColor: withAlpha(colors.gold, 0.2),
+    backgroundColor: withAlpha(colors.gold, 0.03),
+  },
+  planBadge: {
+    position: 'absolute',
+    top: -1,
+    right: -1,
+    backgroundColor: colors.gold,
+    borderTopRightRadius: 9,
+    borderBottomLeftRadius: 6,
+    borderTopLeftRadius: 0,
+    borderBottomRightRadius: 0,
+    paddingHorizontal: 6,
+    paddingVertical: 3,
+  },
+  planBadgeText: {
+    fontFamily: typography.fonts.headingBold,
+    fontSize: 7,
+    color: colors.black,
+    letterSpacing: 1,
+  },
+  planLabel: {
+    fontFamily: typography.fonts.heading,
+    fontSize: 8,
+    letterSpacing: 2,
+    color: withAlpha(colors.bone, 0.4),
+    textTransform: 'uppercase',
+    textAlign: 'center',
+    marginBottom: 4,
+  },
+  planPriceWrap: {
+    gap: 2,
+  },
+  planAmount: {
+    fontFamily: typography.fonts.headingSemiBold,
+    fontSize: 17,
+    lineHeight: 20,
+    color: colors.bone,
+    textAlign: 'center',
+    marginBottom: 3,
+  },
+  planAmountSelected: {
+    color: colors.gold,
+  },
+  planSubtitle: {
+    fontFamily: typography.fonts.bodySerif,
+    fontSize: 10,
+    lineHeight: 14,
+    fontWeight: '300',
+    color: withAlpha(colors.bone, 0.4),
+    textAlign: 'center',
+  },
+  planHint: {
+    textAlign: 'center',
+    fontFamily: typography.fonts.bodySerif,
+    fontSize: 12,
+    lineHeight: 16,
+    color: withAlpha(colors.bone, 0.42),
+    marginBottom: 12,
+  },
+  planHintGold: {
+    color: colors.gold,
   },
   ctaButton: {
     width: '100%',
@@ -444,14 +695,21 @@ const styles = StyleSheet.create({
   signInPressed: {
     opacity: 0.85,
   },
+  signInRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
   signInText: {
     fontFamily: typography.fonts.bodySerif,
     fontSize: 14,
-    color: withAlpha(colors.bone, 0.4),
+    color: withAlpha(colors.bone, 0.45),
   },
   signInLink: {
     color: colors.gold,
-    textDecorationLine: 'underline',
-    textDecorationColor: withAlpha(colors.gold, 0.36),
+  },
+  signInLinkWrap: {
+    borderBottomWidth: 1,
+    borderBottomColor: withAlpha(colors.gold, 0.3),
+    paddingBottom: 1,
   },
 });

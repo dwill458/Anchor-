@@ -13,8 +13,6 @@ interface AnchorHeroProps {
 
 function getName(anchor?: Anchor): string {
   if (!anchor) return 'Select an anchor';
-  const name = anchor.name || anchor.title;
-  if (name) return name;
   const value = anchor.intentionText?.trim() || '';
   if (!value) return 'Select an anchor';
   return value.length > 20 ? `${value.slice(0, 20)}...` : value;
