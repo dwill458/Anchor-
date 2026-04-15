@@ -1,414 +1,750 @@
-/**
- * Anchor App - Profile Screen
- *
- * Identity, practice stats, subscription status, and account actions.
- * No settings toggles — those live in SettingsScreen (reachable via the gear icon
- * in this screen's navigation header).
- *
- * Icon audit (2026-04-13):
- *   - Gear/settings icon: SettingsIcon from @/components/icons (custom react-native-svg)
- *   - Avatar/person icon:  User from lucide-react-native (already in the codebase)
- *   - No new icon-library dependency introduced.
- */
-
-import React, { useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
-  View,
-  Text,
-  StyleSheet,
-  TouchableOpacity,
+  Pressable,
   ScrollView,
-  Alert,
-  Modal,
-  TextInput,
-  ActivityIndicator,
-  Linking,
+  StyleSheet,
+  Text,
+  useWindowDimensions,
+  View,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { StatusBar } from 'expo-status-bar';
 import Constants from 'expo-constants';
-import { useNavigation, CommonActions } from '@react-navigation/native';
+import { LinearGradient } from 'expo-linear-gradient';
+import { StatusBar } from 'expo-status-bar';
+import { SvgXml } from 'react-native-svg';
+import { OptimizedImage } from '@/components/common';
 import { useAuthStore } from '@/stores/authStore';
 import { useAnchorStore } from '@/stores/anchorStore';
-import { useTrialStatus } from '@/hooks/useTrialStatus';
+import { useProfileStore } from '@/stores/profileStore';
 import { useToast } from '@/components/ToastProvider';
-import { apiClient } from '@/services/ApiClient';
-import RevenueCatService from '@/services/RevenueCatService';
-import { writeSecureValue } from '@/stores/encryptedPersistStorage';
-import { ZenBackground } from '@/components/common';
+import { ProfileAvatar } from '@/components/profile/ProfileAvatar';
+import { EditProfileSheet } from '@/components/EditProfileSheet';
 import { colors, spacing, typography } from '@/theme';
+import { withAlpha } from '@/utils/color';
+import { getDepthLevel, getDepthProgress, getNextDepthLevel } from '@/utils/practiceDepth';
+import { getCurrentRank, getNextRank, getRankProgress, RANK_TIERS } from '@/utils/practiceRank';
+import { apiClient } from '@/services/ApiClient';
 import { logger } from '@/utils/logger';
-import type { ApiResponse, User } from '@/types';
+import type { ApiResponse, Anchor, User } from '@/types';
 
-// Mirrors AnchorSyncService internal key. Cleared on sign-out so stale
-// unsynced anchor data is not associated with the next account on this device.
-const SYNC_RETRY_QUEUE_KEY = 'anchor-sync-retry-queue';
+const RANK_PIPS = 8;
+const DEPTH_SEGMENTS = 20;
+const CARD_RADIUS = 16;
+const GRID_GAP = 10;
 
-// DEFERRED: wire to Thread Strength decay model in v1.1
-// Remove placeholder values below when the model exists.
-const THREAD_STRENGTH_PLACEHOLDER = 73;
-const THREAD_STATE_PLACEHOLDER = 'Strong';
-const THREAD_FILL_PCT = 0.73; // 73%
+const CardShell: React.FC<{
+  children: React.ReactNode;
+  gradient?: readonly [string, string, ...string[]];
+}> = ({
+  children,
+  gradient,
+}) => (
+  <View style={styles.cardOuter}>
+    {gradient ? (
+      <LinearGradient colors={[...gradient]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.cardGradient} />
+    ) : (
+      <View style={styles.cardBackground} />
+    )}
+    <View style={styles.cardShimmer} />
+    <View style={styles.cardContent}>{children}</View>
+  </View>
+);
 
-// ─── Stat Tile ────────────────────────────────────────────────────────────────
+const SectionLabel: React.FC<{ children: React.ReactNode }> = ({ children }) => (
+  <Text style={styles.sectionLabel}>{children}</Text>
+);
 
-interface StatTileProps {
-  value: string;
-  label: string;
-}
-
-const StatTile: React.FC<StatTileProps> = ({ value, label }) => (
+const StatTile: React.FC<{ value: string; label: string }> = ({ value, label }) => (
   <View style={styles.statTile}>
     <Text style={styles.statValue}>{value}</Text>
     <Text style={styles.statLabel}>{label}</Text>
   </View>
 );
 
-// ─── Account Row ──────────────────────────────────────────────────────────────
+const VaultCell: React.FC<{
+  anchor?: Anchor;
+  size: number;
+}> = ({ anchor, size }) => {
+  if (!anchor) {
+    return <View style={[styles.vaultCell, styles.vaultPlaceholder, { width: size, height: size }]} />;
+  }
 
-interface AccountRowProps {
-  label: string;
-  onPress: () => void;
-}
-
-const AccountRow: React.FC<AccountRowProps> = ({ label, onPress }) => (
-  <>
-    <TouchableOpacity style={styles.accountRow} onPress={onPress} activeOpacity={0.7}>
-      <Text style={styles.accountRowLabel}>{label}</Text>
-      <Text style={styles.accountRowChevron}>›</Text>
-    </TouchableOpacity>
-    <View style={styles.rowSeparator} />
-  </>
-);
-
-// ─── ProfileScreen ────────────────────────────────────────────────────────────
-
-export const ProfileScreen: React.FC = () => {
-  // useNavigation without a generic param: cross-stack navigation via CommonActions.
-  const navigation = useNavigation();
-  const { user, signOut, setUser } = useAuthStore();
-  const anchors = useAnchorStore((s) => s.anchors);
-  const { isTrialActive, isSubscribed, daysRemaining } = useTrialStatus();
-  const toast = useToast();
-
-  // Edit display name modal
-  const [editModalVisible, setEditModalVisible] = useState(false);
-  const [editName, setEditName] = useState(user?.displayName ?? '');
-  const [isSavingName, setIsSavingName] = useState(false);
-
-  // Restore purchases loading
-  const [isRestoring, setIsRestoring] = useState(false);
-
-  // ─── Practice stats ───────────────────────────────────────────────────────
-  const anchorsForged = anchors.length;
-  const totalPrimes = anchors.reduce((sum, a) => sum + (a.activationCount ?? 0), 0);
-  const activeAnchors = anchors.filter((a) => !a.isReleased && !a.archivedAt).length;
-
-  // Streak used in Thread Strength card footer until the model is wired
-  const currentStreak = user?.currentStreak ?? 0;
-
-  // ─── Avatar initial ───────────────────────────────────────────────────────
-  const avatarInitial = (user?.displayName ?? user?.email ?? 'P')[0].toUpperCase();
-
-  // ─── Display name edit ────────────────────────────────────────────────────
-  const openEditModal = () => {
-    setEditName(user?.displayName ?? '');
-    setEditModalVisible(true);
-  };
-
-  const handleSaveDisplayName = async () => {
-    const trimmed = editName.trim();
-    if (!trimmed) return;
-
-    setIsSavingName(true);
-    try {
-      const response = await apiClient.patch<ApiResponse<User>>('/api/users/me', {
-        displayName: trimmed,
-      });
-      if (response.data?.success && response.data.data) {
-        setUser(response.data.data);
-      } else if (user) {
-        setUser({ ...user, displayName: trimmed });
-      }
-      setEditModalVisible(false);
-    } catch (error) {
-      // Optimistic local update — backend endpoint may be unavailable in this build
-      if (user) setUser({ ...user, displayName: trimmed });
-      setEditModalVisible(false);
-      logger.warn('[ProfileScreen] Display name remote sync failed, applied locally', error);
-    } finally {
-      setIsSavingName(false);
-    }
-  };
-
-
-
-  const appVersion = Constants.expoConfig?.version ?? '1.0.0';
+  const isBurned = Boolean(anchor.isReleased || anchor.archivedAt || anchor.releasedAt);
+  const sigilXml = anchor.reinforcedSigilSvg || anchor.baseSigilSvg;
+  const enhancedImageUrl = anchor.enhancedImageUrl;
 
   return (
-    <View style={styles.container}>
-      <StatusBar style="light" />
-      <ZenBackground />
-
-      <SafeAreaView style={styles.safeArea} edges={['bottom']}>
-        <ScrollView
-          style={styles.scrollView}
-          contentContainerStyle={styles.scrollContent}
-          showsVerticalScrollIndicator={false}
-        >
-          {/* ── Identity row ─────────────────────────────────────── */}
-          <View style={styles.identityRow}>
-            <View style={styles.avatar}>
-              <Text style={styles.avatarInitial}>{avatarInitial}</Text>
-            </View>
-            <View style={styles.identityText}>
-              <Text style={styles.identityName} numberOfLines={1}>
-                {user?.displayName ?? 'Practitioner'}
-              </Text>
-              <Text style={styles.identityEmail} numberOfLines={1}>
-                {user?.email ?? ''}
-              </Text>
-            </View>
-            <TouchableOpacity onPress={openEditModal} activeOpacity={0.7} hitSlop={8}>
-              <Text style={styles.editLabel}>Edit</Text>
-            </TouchableOpacity>
-          </View>
-
-          {/* ── Thread Strength card ─────────────────────────────── */}
-          {/* DEFERRED: wire to Thread Strength decay model in v1.1  */}
-          {/* Placeholder: value=73, state="Strong", fill=73%        */}
-          <View style={styles.threadCard}>
-            <View style={styles.threadHeader}>
-              <Text style={styles.threadLabel}>Thread Strength</Text>
-              <Text style={styles.threadValue}>{THREAD_STRENGTH_PLACEHOLDER}</Text>
-            </View>
-
-            {/* Progress bar */}
-            <View style={styles.trackOuter}>
-              <View style={[styles.trackFill, { width: `${THREAD_FILL_PCT * 100}%` }]}>
-                <View style={styles.trackDot} />
-              </View>
-            </View>
-
-            <View style={styles.threadFooter}>
-              <Text style={styles.threadStreak}>
-                {`${currentStreak} ${currentStreak === 1 ? 'day' : 'days'} streak`}
-              </Text>
-              <Text style={styles.threadState}>{THREAD_STATE_PLACEHOLDER}</Text>
-            </View>
-          </View>
-
-          {/* ── Stats row (3 tiles) ───────────────────────────────── */}
-          <View style={styles.statsRow}>
-            <StatTile value={String(anchorsForged)} label={`Anchors\nForged`} />
-            <StatTile value={String(totalPrimes)} label={`Total\nPrimes`} />
-            <StatTile value={String(activeAnchors)} label={`Active\nAnchors`} />
-          </View>
-
-
-
-          {/* ── Version ──────────────────────────────────────────── */}
-          <Text style={styles.versionText}>{`Version ${appVersion}`}</Text>
-        </ScrollView>
-      </SafeAreaView>
-
-      {/* ── Edit Display Name Modal ──────────────────────────────── */}
-      <Modal
-        visible={editModalVisible}
-        transparent
-        animationType="fade"
-        onRequestClose={() => setEditModalVisible(false)}
-      >
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalCard}>
-            <Text style={styles.modalTitle}>Edit Display Name</Text>
-            <TextInput
-              style={styles.modalInput}
-              value={editName}
-              onChangeText={setEditName}
-              autoFocus
-              maxLength={50}
-              returnKeyType="done"
-              onSubmitEditing={() => void handleSaveDisplayName()}
-              placeholderTextColor={colors.text.tertiary}
-              placeholder="Display name"
-              selectionColor={colors.gold}
-            />
-            <View style={styles.modalActions}>
-              <TouchableOpacity
-                style={styles.modalCancelButton}
-                onPress={() => setEditModalVisible(false)}
-                activeOpacity={0.7}
-              >
-                <Text style={styles.modalCancelText}>Cancel</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[
-                  styles.modalSaveButton,
-                  (isSavingName || !editName.trim()) && styles.modalSaveButtonDisabled,
-                ]}
-                onPress={() => void handleSaveDisplayName()}
-                activeOpacity={0.8}
-                disabled={isSavingName || !editName.trim()}
-              >
-                {isSavingName ? (
-                  <ActivityIndicator color={colors.navy} size="small" />
-                ) : (
-                  <Text style={styles.modalSaveText}>Save</Text>
-                )}
-              </TouchableOpacity>
-            </View>
-          </View>
+    <View
+      style={[
+        styles.vaultCell,
+        isBurned ? styles.vaultBurnedCell : styles.vaultActiveCell,
+        { width: size, height: size },
+      ]}
+    >
+      {!isBurned ? <View style={styles.vaultGlow} /> : null}
+      {enhancedImageUrl ? (
+        <View style={[styles.vaultArtworkWrap, isBurned ? styles.vaultArtworkWrapBurned : null]}>
+          <OptimizedImage
+            uri={enhancedImageUrl}
+            style={styles.vaultArtwork}
+            resizeMode="cover"
+          />
+          {isBurned ? <View style={styles.vaultBurnedImageWash} /> : null}
         </View>
-      </Modal>
+      ) : (
+        <View style={[styles.vaultSigilWrap, isBurned ? styles.vaultSigilWrapBurned : null]}>
+          <SvgXml xml={sigilXml} width={Math.round(size * 0.58)} height={Math.round(size * 0.58)} />
+        </View>
+      )}
+      {isBurned ? <View style={styles.emberDot} /> : null}
     </View>
   );
 };
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Styles
-// All values from theme constants. No hardcoded colors or spacing.
-// Border color rgba(212,175,55,0.24) → colors.ritual.border (nearest token to spec's 0.25).
-// Separator rgba(212,175,55,0.14) → colors.ritual.softGlow (nearest token to spec's 0.1).
-// Sign-out red: colors.error (nearest token to spec's #C0392B).
-// ─────────────────────────────────────────────────────────────────────────────
+const ConstancyBlock: React.FC<{
+  earned: boolean;
+  currentStreak: number;
+}> = ({ earned, currentStreak }) => (
+  <CardShell
+    gradient={
+      earned
+        ? [withAlpha(colors.gold, 0.08), withAlpha(colors.purple, 0.42)]
+        : undefined
+    }
+  >
+    <View style={styles.constancyRow}>
+      <View style={[styles.constancySeal, earned ? styles.constancySealEarned : styles.constancySealLocked]}>
+        {earned ? (
+          <SvgXml
+            xml={`
+              <svg viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <circle cx="20" cy="20" r="14" stroke="${colors.gold}" stroke-width="1" opacity="0.5" />
+                <path d="M20 6 L22 17 L33 17 L24 24 L27 35 L20 28 L13 35 L16 24 L7 17 L18 17 Z" stroke="${colors.gold}" stroke-width="1.2" fill="rgba(212,175,55,0.15)" />
+              </svg>
+            `}
+            width={22}
+            height={22}
+          />
+        ) : (
+          <Text style={styles.constancyQuestion}>?</Text>
+        )}
+      </View>
+
+      <View style={styles.constancyCopy}>
+        <Text style={[styles.constancyLabel, earned ? styles.constancyLabelEarned : null]}>
+          CONSTANCY MARK
+        </Text>
+        <Text style={[styles.constancyText, earned ? styles.constancyTextEarned : null]}>
+          {earned ? '100 Days of Practice' : 'Forged at 100 consecutive days'}
+        </Text>
+      </View>
+
+      <Text style={[styles.constancyMetric, earned ? styles.constancyMetricEarned : null]}>
+        {earned ? 'Earned' : `${Math.min(currentStreak, 100)}/100`}
+      </Text>
+    </View>
+  </CardShell>
+);
+
+export const ProfileScreen: React.FC = () => {
+  const toast = useToast();
+  const { width } = useWindowDimensions();
+  const user = useAuthStore((state) => state.user);
+  const setUser = useAuthStore((state) => state.setUser);
+  const anchors = useAnchorStore((state) => state.anchors);
+  const storedTotalPrimes = useAnchorStore((state) => state.totalPrimes);
+  const {
+    name,
+    axiom,
+    timezone,
+    mono,
+    photo,
+    memberSince,
+    updateProfile,
+    syncFromUser,
+  } = useProfileStore();
+
+  const [editSheetOpen, setEditSheetOpen] = useState(false);
+
+  useEffect(() => {
+    if (user) {
+      syncFromUser(user);
+    }
+  }, [syncFromUser, user]);
+
+  const lifetimePrimesFromAnchors = useMemo(
+    () => anchors.reduce((sum, anchor) => sum + (anchor.activationCount ?? 0), 0),
+    [anchors]
+  );
+  const totalPrimes = Math.max(storedTotalPrimes, lifetimePrimesFromAnchors);
+  const anchorsForged = anchors.length;
+  const activeAnchors = anchors.filter((anchor) => !anchor.isReleased && !anchor.archivedAt).length;
+  const releasedAnchors = anchors.filter((anchor) => anchor.isReleased || anchor.archivedAt).length;
+  const currentStreak = user?.currentStreak ?? 0;
+  const longestStreak = user?.longestStreak ?? 0;
+  const constancyEarned = longestStreak >= 100;
+
+  const rank = getCurrentRank(totalPrimes);
+  const nextRank = getNextRank(totalPrimes);
+  const rankProgress = getRankProgress(totalPrimes);
+  const depth = getDepthLevel(totalPrimes);
+  const nextDepth = getNextDepthLevel(totalPrimes);
+  const depthProgress = getDepthProgress(totalPrimes);
+
+  const resolvedName = name || user?.displayName || user?.email?.split('@')[0] || 'Practitioner';
+  const resolvedAxiom = axiom.trim();
+  const resolvedTimezone = timezone;
+  const memberSinceDate = memberSince ? new Date(memberSince) : user?.createdAt ? new Date(user.createdAt) : null;
+  const memberSinceLabel =
+    memberSinceDate && !Number.isNaN(memberSinceDate.getTime())
+      ? memberSinceDate.toLocaleString('en-US', { month: 'short', year: 'numeric' })
+      : 'Now';
+
+  const vaultAnchors = useMemo(
+    () =>
+      [...anchors].sort(
+        (left, right) => new Date(left.createdAt).getTime() - new Date(right.createdAt).getTime()
+      ),
+    [anchors]
+  );
+  const paddedVaultAnchors = useMemo(() => {
+    const remainder = vaultAnchors.length % 4;
+    const placeholders = remainder === 0 ? 0 : 4 - remainder;
+    return [...vaultAnchors, ...Array.from({ length: placeholders }).map(() => undefined)];
+  }, [vaultAnchors]);
+
+  const cellSize = Math.floor((width - spacing.lg * 2 - GRID_GAP * 3) / 4);
+  const appVersion = Constants.expoConfig?.version ?? '1.0.0';
+
+  const handleSaveProfile = async (updates: {
+    name: string;
+    axiom: string;
+    timezone: string;
+    mono: typeof mono;
+    photo: string | null;
+  }) => {
+    updateProfile(updates);
+
+    if (user) {
+      const nextUser = { ...user, displayName: updates.name };
+      setUser(nextUser);
+
+      try {
+        const response = await apiClient.patch<ApiResponse<User>>('/api/users/me', {
+          displayName: updates.name,
+        });
+
+        if (response.data?.success && response.data.data) {
+          setUser(response.data.data);
+        }
+      } catch (error) {
+        logger.warn('[ProfileScreen] Failed to sync display name remotely', error);
+      }
+    }
+
+    setEditSheetOpen(false);
+    toast.success('Profile updated');
+  };
+
+  return (
+    <View style={styles.container}>
+      <StatusBar style="light" />
+
+      <LinearGradient
+        colors={[colors.black, colors.navy]}
+        start={{ x: 0.2, y: 0 }}
+        end={{ x: 0.9, y: 1 }}
+        style={StyleSheet.absoluteFillObject}
+      />
+      <View style={[styles.backgroundOrb, styles.backgroundOrbLeft]} />
+      <View style={[styles.backgroundOrb, styles.backgroundOrbRight]} />
+      <View style={styles.backgroundDust} />
+
+      <ScrollView
+        style={styles.scrollView}
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
+      >
+        <View style={styles.identityRow}>
+          <ProfileAvatar
+            name={resolvedName}
+            mono={mono}
+            photoUri={photo}
+            onPress={() => setEditSheetOpen(true)}
+            onBadgePress={() => setEditSheetOpen(true)}
+          />
+
+          <View style={styles.identityTextWrap}>
+            <Text style={styles.identityName} numberOfLines={1}>
+              {resolvedName}
+            </Text>
+            {resolvedAxiom ? (
+              <Text style={styles.identityAxiom} numberOfLines={1}>
+                {resolvedAxiom}
+              </Text>
+            ) : null}
+            <Text style={styles.memberSince}>{`Member since ${memberSinceLabel}`}</Text>
+          </View>
+
+          <Pressable hitSlop={8} onPress={() => setEditSheetOpen(true)}>
+            <Text style={styles.editLabel}>Edit</Text>
+          </Pressable>
+        </View>
+
+        <CardShell gradient={[withAlpha(colors.purple, 0.54), withAlpha(colors.navy, 0.92)]}>
+          <SectionLabel>RANK</SectionLabel>
+          <View style={styles.rankHeaderRow}>
+            <Text style={[styles.rankName, { color: rank.color }]}>{rank.name}</Text>
+            <Text style={styles.rankNextText}>
+              {nextRank ? `${nextRank.name} at ${nextRank.minPrimes} primes →` : 'Highest rank reached'}
+            </Text>
+          </View>
+          <View style={styles.rankPipRow}>
+            {Array.from({ length: RANK_PIPS }).map((_, index) => (
+              <View
+                key={index}
+                style={[
+                  styles.rankPip,
+                  index < Math.round(rankProgress * RANK_PIPS) ? styles.rankPipFilled : null,
+                ]}
+              />
+            ))}
+          </View>
+          <View style={styles.rankSpineRow}>
+            <View style={styles.rankTierRow}>
+              {RANK_TIERS.map((tier) => (
+                <Text
+                  key={tier.name}
+                  style={[
+                    styles.rankTierText,
+                    tier.name === rank.name ? styles.rankTierTextActive : null,
+                  ]}
+                >
+                  {tier.name}
+                </Text>
+              ))}
+            </View>
+            <Text style={styles.rankCountLabel}>{`${totalPrimes}p`}</Text>
+          </View>
+        </CardShell>
+
+        <CardShell>
+          <View style={styles.depthHeaderRow}>
+            <View>
+              <SectionLabel>PRACTICE DEPTH</SectionLabel>
+              <Text style={[styles.depthLevelName, { color: depth.color }]}>{depth.label}</Text>
+            </View>
+            <View style={styles.depthPrimeCountWrap}>
+              <Text style={styles.depthPrimeCount}>{totalPrimes}</Text>
+              <Text style={styles.depthPrimeCountLabel}>total primes</Text>
+            </View>
+          </View>
+
+          <View style={styles.depthProgressRow}>
+            {Array.from({ length: DEPTH_SEGMENTS }).map((_, index) => (
+              <View
+                key={index}
+                style={[
+                  styles.depthSegment,
+                  index < Math.round(depthProgress * DEPTH_SEGMENTS)
+                    ? { backgroundColor: depth.color, shadowColor: depth.color }
+                    : null,
+                ]}
+              />
+            ))}
+          </View>
+
+          <View style={styles.depthFooterRow}>
+            <Text style={styles.depthHint}>
+              {nextDepth
+                ? `${nextDepth.minPrimes - totalPrimes} primes to ${nextDepth.label}`
+                : 'Maximum depth reached'}
+            </Text>
+
+            <View style={styles.depthStatsWrap}>
+              <View style={styles.depthStatItem}>
+                <Text style={styles.depthStatValue}>{anchorsForged}</Text>
+                <Text style={styles.depthStatLabel}>forged</Text>
+              </View>
+              <View style={styles.depthDivider} />
+              <View style={styles.depthStatItem}>
+                <Text style={[styles.depthStatValue, styles.depthStatValueMuted]}>{releasedAnchors}</Text>
+                <Text style={styles.depthStatLabel}>released</Text>
+              </View>
+            </View>
+          </View>
+
+          <View style={styles.depthFinePrintRow}>
+            <Text style={styles.depthFinePrint}>Cumulative across all anchors · never resets</Text>
+          </View>
+        </CardShell>
+
+        <ConstancyBlock earned={constancyEarned} currentStreak={currentStreak} />
+
+        <View style={styles.statsRow}>
+          <StatTile value={String(anchorsForged)} label={'Anchors\nForged'} />
+          <StatTile value={String(totalPrimes)} label={'Total\nPrimes'} />
+          <StatTile value={String(activeAnchors)} label={'Active\nAnchors'} />
+        </View>
+
+        <View style={styles.vaultHeaderRow}>
+          <View style={styles.vaultHeaderLine} />
+          <Text style={styles.vaultHeaderText}>THE VAULT</Text>
+          <View style={styles.vaultHeaderLine} />
+        </View>
+
+        <View style={styles.vaultGrid}>
+          {paddedVaultAnchors.map((anchor, index) => (
+            <VaultCell
+              key={anchor ? anchor.id : `placeholder-${index}`}
+              anchor={anchor}
+              size={cellSize}
+            />
+          ))}
+        </View>
+
+        <Text style={styles.vaultFinePrint}>
+          Each mark is permanent. The intention released.
+        </Text>
+
+        {/* DEFERRED: moved to PracticeScreen only */}
+
+        <Text style={styles.versionText}>{`Version ${appVersion}`}</Text>
+      </ScrollView>
+
+      <EditProfileSheet
+        open={editSheetOpen}
+        profile={{
+          name: resolvedName,
+          axiom: resolvedAxiom,
+          timezone: resolvedTimezone,
+          mono,
+          photo,
+        }}
+        onClose={() => setEditSheetOpen(false)}
+        onSave={handleSaveProfile}
+      />
+    </View>
+  );
+};
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colors.navy,
-  },
-  safeArea: {
-    flex: 1,
+    backgroundColor: colors.black,
   },
   scrollView: {
     flex: 1,
   },
   scrollContent: {
     paddingHorizontal: spacing.lg,
-    paddingBottom: 48,
+    paddingTop: spacing.lg,
+    paddingBottom: 44,
   },
-
-  // ─── Identity row ──────────────────────────────────────────────────────────
+  backgroundOrb: {
+    position: 'absolute',
+    borderRadius: 999,
+  },
+  backgroundOrbLeft: {
+    width: 260,
+    height: 220,
+    left: -60,
+    top: 10,
+    backgroundColor: withAlpha(colors.purple, 0.34),
+  },
+  backgroundOrbRight: {
+    width: 220,
+    height: 180,
+    right: -70,
+    top: 110,
+    backgroundColor: withAlpha(colors.gold, 0.05),
+  },
+  backgroundDust: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: withAlpha(colors.white, 0.01),
+  },
   identityRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingTop: spacing.md,
-    paddingBottom: spacing.lg,
     gap: spacing.md,
+    marginBottom: spacing.lg,
   },
-  avatar: {
-    width: 52,
-    height: 52,
-    borderRadius: 26,
-    backgroundColor: colors.charcoal,
-    borderWidth: 1,
-    borderColor: colors.ritual.border,
-    alignItems: 'center',
-    justifyContent: 'center',
-    flexShrink: 0,
-  },
-  avatarInitial: {
-    fontFamily: 'Cinzel-Regular',
-    fontSize: typography.sizes.h3,
-    color: colors.gold,
-  },
-  identityText: {
+  identityTextWrap: {
     flex: 1,
   },
   identityName: {
-    fontFamily: 'Cinzel-Regular',
-    fontSize: typography.sizes.h4,
+    fontFamily: typography.fonts.bodySerif,
+    fontSize: 26,
     color: colors.bone,
-    letterSpacing: 0.5,
-    lineHeight: typography.lineHeights.h4,
+    letterSpacing: 0.4,
   },
-  identityEmail: {
-    ...typography.caption,
-    color: colors.silver,
+  identityAxiom: {
     marginTop: 2,
+    fontFamily: typography.fonts.bodySerifItalic,
+    fontSize: 13,
+    color: withAlpha(colors.gold, 0.62),
+  },
+  memberSince: {
+    marginTop: 4,
+    fontFamily: typography.fonts.body,
+    fontSize: 11,
+    color: withAlpha(colors.silver, 0.42),
+    letterSpacing: 0.8,
   },
   editLabel: {
-    fontFamily: 'Cinzel-Regular',
-    fontSize: typography.fontSize.xs,
-    color: colors.gold,
-    letterSpacing: 1,
-    opacity: 0.8,
+    fontFamily: typography.fonts.heading,
+    fontSize: 12,
+    color: withAlpha(colors.gold, 0.7),
+    letterSpacing: 1.1,
   },
-
-  // ─── Thread Strength card ──────────────────────────────────────────────────
-  threadCard: {
-    backgroundColor: colors.charcoal,
-    borderWidth: 1,
-    borderColor: colors.ritual.border,
-    borderRadius: 16,
-    padding: spacing.md,
+  cardOuter: {
     marginBottom: spacing.md,
+    borderRadius: CARD_RADIUS,
+    borderWidth: 1,
+    borderColor: withAlpha(colors.gold, 0.1),
+    overflow: 'hidden',
   },
-  threadHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'baseline',
-    marginBottom: spacing.sm,
+  cardBackground: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: withAlpha(colors.white, 0.03),
   },
-  threadLabel: {
-    fontFamily: 'Cinzel-Regular',
-    fontSize: 10,
-    letterSpacing: 2.5,
-    color: colors.gold,
-    textTransform: 'uppercase',
+  cardGradient: {
+    ...StyleSheet.absoluteFillObject,
   },
-  threadValue: {
-    fontFamily: 'Cinzel-Regular',
-    fontSize: 28,
-    color: colors.gold,
-    lineHeight: 32,
-  },
-  trackOuter: {
-    height: 4,
-    backgroundColor: colors.ritual.glass, // rgba(15,20,25,0.62) — closest dark track token
-    borderRadius: 2,
-    overflow: 'visible',
-    marginBottom: spacing.sm,
-    position: 'relative',
-  },
-  trackFill: {
-    height: 4,
-    backgroundColor: colors.gold,
-    borderRadius: 2,
-    position: 'relative',
-  },
-  trackDot: {
+  cardShimmer: {
     position: 'absolute',
-    right: -4,
-    top: -2,
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: colors.gold,
-    shadowColor: colors.gold,
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.8,
-    shadowRadius: 6,
-    elevation: 3,
+    top: 0,
+    left: 0,
+    right: 0,
+    height: 1,
+    backgroundColor: withAlpha(colors.gold, 0.28),
   },
-  threadFooter: {
+  cardContent: {
+    paddingHorizontal: spacing.md,
+    paddingVertical: 16,
+  },
+  sectionLabel: {
+    fontFamily: typography.fonts.heading,
+    fontSize: 9,
+    color: colors.gold,
+    letterSpacing: 2.5,
+    marginBottom: 6,
+  },
+  rankHeaderRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
+    gap: spacing.sm,
+    marginBottom: 12,
   },
-  threadStreak: {
-    ...typography.caption,
-    color: colors.silver,
+  rankName: {
+    fontFamily: typography.fonts.bodySerif,
+    fontSize: 24,
   },
-  threadState: {
-    fontFamily: 'Cinzel-Regular',
-    fontSize: 11,
+  rankNextText: {
+    flexShrink: 1,
+    textAlign: 'right',
+    fontFamily: typography.fonts.bodySerifItalic,
+    fontSize: 12,
+    color: withAlpha(colors.silver, 0.56),
+  },
+  rankPipRow: {
+    flexDirection: 'row',
+    gap: 5,
+    marginBottom: 10,
+  },
+  rankPip: {
+    flex: 1,
+    height: 3,
+    borderRadius: 999,
+    backgroundColor: withAlpha(colors.white, 0.08),
+  },
+  rankPipFilled: {
+    backgroundColor: colors.gold,
+    shadowColor: colors.gold,
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.22,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  rankSpineRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  rankTierRow: {
+    flex: 1,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginRight: spacing.sm,
+  },
+  rankTierText: {
+    fontFamily: typography.fonts.heading,
+    fontSize: 8,
+    color: withAlpha(colors.silver, 0.3),
+    letterSpacing: 0.8,
+  },
+  rankTierTextActive: {
     color: colors.gold,
+  },
+  rankCountLabel: {
+    fontFamily: typography.fonts.heading,
+    fontSize: 10,
+    color: withAlpha(colors.gold, 0.48),
+  },
+  depthHeaderRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    marginBottom: 12,
+  },
+  depthLevelName: {
+    fontFamily: typography.fonts.bodySerif,
+    fontSize: 22,
+  },
+  depthPrimeCountWrap: {
+    alignItems: 'flex-end',
+  },
+  depthPrimeCount: {
+    fontFamily: typography.fonts.heading,
+    fontSize: 32,
+    lineHeight: 34,
+    color: colors.gold,
+  },
+  depthPrimeCountLabel: {
+    fontFamily: typography.fonts.body,
+    fontSize: 10,
+    color: withAlpha(colors.silver, 0.4),
+    letterSpacing: 0.8,
+  },
+  depthProgressRow: {
+    flexDirection: 'row',
+    gap: 3,
+    marginBottom: 10,
+  },
+  depthSegment: {
+    flex: 1,
+    height: 3,
+    borderRadius: 999,
+    backgroundColor: withAlpha(colors.white, 0.06),
+  },
+  depthFooterRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    gap: spacing.md,
+  },
+  depthHint: {
+    flex: 1,
+    fontFamily: typography.fonts.bodySerifItalic,
+    fontSize: 12,
+    color: withAlpha(colors.silver, 0.54),
+  },
+  depthStatsWrap: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+  },
+  depthStatItem: {
+    alignItems: 'center',
+    minWidth: 36,
+  },
+  depthStatValue: {
+    fontFamily: typography.fonts.heading,
+    fontSize: 14,
+    color: colors.gold,
+  },
+  depthStatValueMuted: {
+    color: withAlpha(colors.silver, 0.56),
+  },
+  depthStatLabel: {
+    fontFamily: typography.fonts.body,
+    fontSize: 9,
+    color: withAlpha(colors.silver, 0.34),
+    letterSpacing: 0.6,
+  },
+  depthDivider: {
+    width: 1,
+    height: 22,
+    backgroundColor: withAlpha(colors.white, 0.06),
+  },
+  depthFinePrintRow: {
+    marginTop: 12,
+    paddingTop: 10,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: withAlpha(colors.white, 0.06),
+  },
+  depthFinePrint: {
+    fontFamily: typography.fonts.bodySerifItalic,
+    fontSize: 10,
+    color: withAlpha(colors.silver, 0.28),
+  },
+  constancyRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
+  },
+  constancySeal: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  constancySealLocked: {
+    backgroundColor: withAlpha(colors.white, 0.03),
+    borderWidth: 1,
+    borderStyle: 'dashed',
+    borderColor: withAlpha(colors.silver, 0.24),
+  },
+  constancySealEarned: {
+    backgroundColor: withAlpha(colors.gold, 0.14),
+    borderWidth: 1,
+    borderColor: withAlpha(colors.gold, 0.3),
+    shadowColor: colors.gold,
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.18,
+    shadowRadius: 14,
+    elevation: 4,
+  },
+  constancyQuestion: {
+    fontFamily: typography.fonts.heading,
+    fontSize: 18,
+    color: withAlpha(colors.silver, 0.34),
+  },
+  constancyCopy: {
+    flex: 1,
+  },
+  constancyLabel: {
+    fontFamily: typography.fonts.heading,
+    fontSize: 9,
+    letterSpacing: 2.5,
+    color: withAlpha(colors.silver, 0.34),
+    marginBottom: 4,
+  },
+  constancyLabelEarned: {
+    color: withAlpha(colors.gold, 0.72),
+  },
+  constancyText: {
+    fontFamily: typography.fonts.bodySerifItalic,
+    fontSize: 12,
+    color: withAlpha(colors.silver, 0.4),
+  },
+  constancyTextEarned: {
+    fontFamily: typography.fonts.bodySerif,
+    fontSize: 13,
+    color: colors.bone,
+  },
+  constancyMetric: {
+    fontFamily: typography.fonts.body,
+    fontSize: 12,
+    color: withAlpha(colors.silver, 0.44),
+  },
+  constancyMetricEarned: {
+    fontFamily: typography.fonts.heading,
+    fontSize: 9,
+    color: withAlpha(colors.gold, 0.58),
     letterSpacing: 0.5,
   },
-
-  // ─── Stats row ─────────────────────────────────────────────────────────────
   statsRow: {
     flexDirection: 'row',
     gap: spacing.sm,
@@ -416,235 +752,122 @@ const styles = StyleSheet.create({
   },
   statTile: {
     flex: 1,
-    backgroundColor: colors.charcoal,
-    borderWidth: 1,
-    borderColor: colors.ritual.border,
     borderRadius: 12,
-    paddingVertical: spacing.md,
-    paddingHorizontal: spacing.xs,
+    borderWidth: 1,
+    borderColor: withAlpha(colors.gold, 0.09),
+    backgroundColor: withAlpha(colors.white, 0.03),
+    paddingVertical: 14,
+    paddingHorizontal: 8,
     alignItems: 'center',
-    justifyContent: 'center',
   },
   statValue: {
-    fontFamily: 'Cinzel-Regular',
+    fontFamily: typography.fonts.heading,
     fontSize: 22,
     color: colors.gold,
-    lineHeight: 26,
-    marginBottom: 5,
+    marginBottom: 4,
   },
   statLabel: {
+    fontFamily: typography.fonts.body,
     fontSize: 11,
-    fontFamily: 'Inter-Regular',
-    color: colors.silver,
+    color: withAlpha(colors.silver, 0.5),
     textAlign: 'center',
-    lineHeight: 14,
+    lineHeight: 15,
   },
-
-  // ─── Section header ────────────────────────────────────────────────────────
-  sectionHeader: {
-    fontFamily: 'Cinzel-Regular',
-    fontSize: 10,
-    letterSpacing: 2.5,
-    color: colors.gold,
-    textTransform: 'uppercase',
-    marginBottom: spacing.sm,
-    opacity: 0.8,
-  },
-
-  // ─── Subscription banner ───────────────────────────────────────────────────
-  subBanner: {
-    backgroundColor: colors.charcoal,
-    borderWidth: 1,
-    borderColor: colors.ritual.border,
-    borderRadius: 12,
-    paddingVertical: spacing.md,
-    paddingHorizontal: spacing.md,
+  vaultHeaderRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: spacing.lg,
+    gap: 12,
+    marginBottom: 14,
   },
-  subLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.sm,
+  vaultHeaderLine: {
     flex: 1,
-  },
-  subDot: {
-    width: 7,
-    height: 7,
-    borderRadius: 4,
-    backgroundColor: colors.gold,
-    shadowColor: colors.gold,
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.6,
-    shadowRadius: 6,
-    elevation: 2,
-    flexShrink: 0,
-  },
-  subDotExpired: {
-    backgroundColor: colors.silver,
-    shadowOpacity: 0,
-    elevation: 0,
-  },
-  subStatus: {
-    fontFamily: 'Cinzel-Regular',
-    fontSize: 13,
-    color: colors.bone,
-    letterSpacing: 0.3,
-  },
-  subSub: {
-    ...typography.caption,
-    color: colors.silver,
-    marginTop: 1,
-  },
-  subBtn: {
-    borderWidth: 1,
-    borderColor: colors.ritual.border,
-    borderRadius: 6,
-    paddingVertical: 6,
-    paddingHorizontal: spacing.sm,
-  },
-  subBtnText: {
-    fontFamily: 'Cinzel-Regular',
-    fontSize: 10,
-    letterSpacing: 1,
-    color: colors.gold,
-  },
-  subBtnFilled: {
-    backgroundColor: colors.gold,
-    borderRadius: 6,
-    paddingVertical: 6,
-    paddingHorizontal: spacing.sm,
-  },
-  subBtnFilledText: {
-    fontFamily: 'Cinzel-Regular',
-    fontSize: 10,
-    letterSpacing: 1,
-    color: colors.navy,
-  },
-
-  // ─── Account rows ──────────────────────────────────────────────────────────
-  rowsContainer: {
-    backgroundColor: colors.charcoal,
-    borderWidth: 1,
-    borderColor: colors.ritual.border,
-    borderRadius: 12,
-    overflow: 'hidden',
-    marginBottom: spacing.lg,
-  },
-  accountRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingVertical: spacing.md,
-    paddingHorizontal: spacing.md,
-  },
-  accountRowLabel: {
-    fontFamily: 'Inter-Regular',
-    fontSize: 15,
-    color: colors.bone,
-    letterSpacing: 0.2,
-  },
-  accountRowChevron: {
-    fontFamily: 'Inter-Regular',
-    fontSize: 16,
-    color: colors.silver,
-    opacity: 0.5,
-  },
-  rowSeparator: {
     height: 1,
-    // rgba(212,175,55,0.14) — colors.ritual.softGlow is the nearest theme token
-    backgroundColor: colors.ritual.softGlow,
-    marginHorizontal: spacing.md,
+    backgroundColor: withAlpha(colors.gold, 0.08),
   },
-
-  // ─── Sign out ──────────────────────────────────────────────────────────────
-  signOutButton: {
-    alignItems: 'center',
-    paddingVertical: spacing.md,
-    marginBottom: spacing.sm,
+  vaultHeaderText: {
+    fontFamily: typography.fonts.heading,
+    fontSize: 9,
+    color: withAlpha(colors.gold, 0.45),
+    letterSpacing: 2.4,
   },
-  signOutText: {
-    fontFamily: 'Cinzel-Regular',
-    fontSize: 13,
-    letterSpacing: 1,
-    textTransform: 'uppercase',
-    // Nearest theme token to spec's #C0392B muted red
-    color: colors.error,
-  },
-
-  // ─── Version ───────────────────────────────────────────────────────────────
-  versionText: {
-    ...typography.caption,
-    color: colors.silver,
-    textAlign: 'center',
-    opacity: 0.3,
-  },
-
-  // ─── Edit Display Name Modal ───────────────────────────────────────────────
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: colors.ritual.overlay,
-    justifyContent: 'center',
-    paddingHorizontal: spacing.md,
-  },
-  modalCard: {
-    backgroundColor: colors.background.secondary,
-    borderRadius: spacing.md,
-    padding: spacing.lg,
-    borderWidth: 1,
-    borderColor: colors.ritual.border,
-  },
-  modalTitle: {
-    fontFamily: 'Cinzel-Regular',
-    fontSize: typography.sizes.h4,
-    color: colors.bone,
-    marginBottom: spacing.md,
-    textAlign: 'center',
-  },
-  modalInput: {
-    fontFamily: 'Inter-Regular',
-    fontSize: typography.sizes.body1,
-    color: colors.bone,
-    borderWidth: 1,
-    borderColor: colors.ritual.border,
-    borderRadius: spacing.sm,
-    paddingVertical: spacing.sm,
-    paddingHorizontal: spacing.md,
-    marginBottom: spacing.md,
-    backgroundColor: colors.navy,
-  },
-  modalActions: {
+  vaultGrid: {
     flexDirection: 'row',
-    gap: spacing.sm,
+    flexWrap: 'wrap',
+    gap: GRID_GAP,
   },
-  modalCancelButton: {
-    flex: 1,
-    paddingVertical: spacing.sm,
+  vaultCell: {
+    borderRadius: 10,
+    overflow: 'hidden',
     alignItems: 'center',
-    borderRadius: spacing.sm,
+    justifyContent: 'center',
+  },
+  vaultActiveCell: {
     borderWidth: 1,
-    borderColor: colors.ritual.border,
+    borderColor: withAlpha(colors.gold, 0.22),
+    backgroundColor: withAlpha(colors.gold, 0.06),
   },
-  modalCancelText: {
-    fontFamily: 'Inter-Regular',
-    fontSize: typography.sizes.body1,
-    color: colors.silver,
+  vaultBurnedCell: {
+    borderWidth: 1,
+    borderColor: withAlpha(colors.white, 0.06),
+    backgroundColor: withAlpha(colors.white, 0.02),
   },
-  modalSaveButton: {
-    flex: 1,
-    paddingVertical: spacing.sm,
-    alignItems: 'center',
-    borderRadius: spacing.sm,
-    backgroundColor: colors.gold,
+  vaultPlaceholder: {
+    borderWidth: 1,
+    borderStyle: 'dashed',
+    borderColor: withAlpha(colors.white, 0.05),
+    backgroundColor: withAlpha(colors.white, 0.01),
   },
-  modalSaveButtonDisabled: {
-    opacity: 0.5,
+  vaultGlow: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: withAlpha(colors.gold, 0.05),
   },
-  modalSaveText: {
-    fontFamily: 'Inter-SemiBold',
-    fontSize: typography.sizes.body1,
-    color: colors.navy,
+  vaultSigilWrap: {
+    opacity: 1,
+  },
+  vaultSigilWrapBurned: {
+    opacity: 0.18,
+  },
+  vaultArtworkWrap: {
+    ...StyleSheet.absoluteFillObject,
+  },
+  vaultArtworkWrapBurned: {
+    opacity: 0.24,
+  },
+  vaultArtwork: {
+    width: '100%',
+    height: '100%',
+  },
+  vaultBurnedImageWash: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: withAlpha(colors.silver, 0.18),
+  },
+  emberDot: {
+    position: 'absolute',
+    right: 5,
+    bottom: 5,
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: 'rgba(200, 90, 30, 0.6)',
+    shadowColor: 'rgba(200, 90, 30, 0.9)',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.9,
+    shadowRadius: 5,
+    elevation: 3,
+  },
+  vaultFinePrint: {
+    marginTop: 12,
+    marginBottom: spacing.xl,
+    textAlign: 'center',
+    fontFamily: typography.fonts.bodySerifItalic,
+    fontSize: 11,
+    color: withAlpha(colors.silver, 0.24),
+  },
+  versionText: {
+    textAlign: 'center',
+    fontFamily: typography.fonts.body,
+    fontSize: 11,
+    color: withAlpha(colors.silver, 0.2),
+    letterSpacing: 1,
   },
 });

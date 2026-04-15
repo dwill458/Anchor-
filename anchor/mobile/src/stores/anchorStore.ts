@@ -52,12 +52,16 @@ const mergeAnchors = (existingAnchors: Anchor[], incomingAnchors: Anchor[]): Anc
   );
 };
 
+const calculateTotalPrimes = (anchors: Anchor[]): number =>
+  anchors.reduce((sum, anchor) => sum + (anchor.activationCount ?? 0), 0);
+
 /**
  * Anchor state interface
  */
 interface AnchorState {
   // State
   anchors: Anchor[];
+  totalPrimes: number;
   isLoading: boolean;
   error: string | null;
   lastSyncedAt: Date | null;
@@ -68,6 +72,7 @@ interface AnchorState {
   addAnchor: (anchor: Anchor) => void;
   updateAnchor: (id: string, updates: Partial<Anchor>) => void;
   removeAnchor: (id: string) => void;
+  incrementTotalPrimes: () => void;
   getAnchorById: (id: string) => Anchor | undefined;
   getActiveAnchors: () => Anchor[];
   setLoading: (loading: boolean) => void;
@@ -87,6 +92,7 @@ export const useAnchorStore = create<AnchorState>()(
     (set, get) => ({
       // Initial state
       anchors: [],
+      totalPrimes: 0,
       isLoading: false,
       error: null,
       lastSyncedAt: null,
@@ -96,6 +102,7 @@ export const useAnchorStore = create<AnchorState>()(
       setAnchors: (anchors) =>
         set({
           anchors: mergeAnchors([], anchors),
+          totalPrimes: calculateTotalPrimes(anchors),
           error: null,
         }),
 
@@ -108,6 +115,7 @@ export const useAnchorStore = create<AnchorState>()(
         }
         set((state) => ({
           anchors: [anchor, ...state.anchors], // Add to beginning (most recent first)
+          totalPrimes: state.totalPrimes + (anchor.activationCount ?? 0),
           error: null,
         }));
 
@@ -163,9 +171,19 @@ export const useAnchorStore = create<AnchorState>()(
         }),
 
       removeAnchor: (id) =>
+        set((state) => {
+          const nextAnchors = state.anchors.filter((anchor) => !matchesAnchorReference(anchor, id));
+
+          return {
+            anchors: nextAnchors,
+            totalPrimes: calculateTotalPrimes(nextAnchors),
+            error: null,
+          };
+        }),
+
+      incrementTotalPrimes: () =>
         set((state) => ({
-          anchors: state.anchors.filter((anchor) => !matchesAnchorReference(anchor, id)),
-          error: null,
+          totalPrimes: state.totalPrimes + 1,
         })),
 
       getAnchorById: (id) => {
@@ -199,6 +217,7 @@ export const useAnchorStore = create<AnchorState>()(
       clearAnchors: () =>
         set({
           anchors: [],
+          totalPrimes: 0,
           error: null,
           lastSyncedAt: null,
           currentAnchorId: undefined,
@@ -221,6 +240,12 @@ export const useAnchorStore = create<AnchorState>()(
               state.anchors.filter((existingAnchor) => !matchesAnchorReference(existingAnchor, referenceId)),
               [syncedAnchor]
             ),
+            totalPrimes: calculateTotalPrimes(
+              mergeAnchors(
+                state.anchors.filter((existingAnchor) => !matchesAnchorReference(existingAnchor, referenceId)),
+                [syncedAnchor]
+              )
+            ),
             currentAnchorId:
               state.currentAnchorId && state.currentAnchorId === referenceId
                 ? syncedAnchor.id
@@ -237,10 +262,15 @@ export const useAnchorStore = create<AnchorState>()(
 
         const syncedAnchors = await AnchorSyncService.flushRetryQueue(authStore.user.id);
         if (syncedAnchors.length > 0) {
-          set((state) => ({
-            anchors: mergeAnchors(state.anchors, syncedAnchors),
-            error: null,
-          }));
+          set((state) => {
+            const nextAnchors = mergeAnchors(state.anchors, syncedAnchors);
+
+            return {
+              anchors: nextAnchors,
+              totalPrimes: calculateTotalPrimes(nextAnchors),
+              error: null,
+            };
+          });
           get().markSynced();
         }
       },
@@ -251,9 +281,18 @@ export const useAnchorStore = create<AnchorState>()(
       // Persist anchors, last sync time, and currentAnchorId
       partialize: (state) => ({
         anchors: state.anchors,
+        totalPrimes: state.totalPrimes,
         lastSyncedAt: state.lastSyncedAt,
         currentAnchorId: state.currentAnchorId,
       }),
+      onRehydrateStorage: () => (state) => {
+        if (!state) {
+          return;
+        }
+
+        state.anchors = mergeAnchors([], state.anchors ?? []);
+        state.totalPrimes = calculateTotalPrimes(state.anchors);
+      },
     }
   )
 );

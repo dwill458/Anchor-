@@ -541,24 +541,28 @@ const AnchorDetailsScreen = ({ navigation, route }) => {
   const anchorId = route?.params?.anchorId ?? routeAnchor?.id;
   const storeAnchor = anchorId ? getAnchorById(anchorId) : null;
   const sourceAnchor = routeAnchor ?? storeAnchor;
-  const anchor = toDisplayAnchor(sourceAnchor) ?? {
-    id: anchorId,
-    name: 'Untitled Anchor',
-    intention: 'No intention found for this anchor.',
-    category: 'Custom',
-    charged: false,
-    lastActivated: null,
-    streak: 0,
-    today: null,
-    distilled: [],
-    sigilUri: null,
-    createdAt: 'Unknown',
-    practiceCreate: true,
-    practiceCharge: false,
-    practiceActivateDays: 0,
-    baseSigilSvg: '',
-    enhancedImageUrl: null,
-  };
+  const anchor = useMemo(
+    () =>
+      toDisplayAnchor(sourceAnchor) ?? {
+        id: anchorId,
+        name: 'Untitled Anchor',
+        intention: 'No intention found for this anchor.',
+        category: 'Custom',
+        charged: false,
+        lastActivated: null,
+        streak: 0,
+        today: null,
+        distilled: [],
+        sigilUri: null,
+        createdAt: 'Unknown',
+        practiceCreate: true,
+        practiceCharge: false,
+        practiceActivateDays: 0,
+        baseSigilSvg: '',
+        enhancedImageUrl: null,
+      },
+    [sourceAnchor] // eslint-disable-line react-hooks/exhaustive-deps
+  );
   const anchorPractice = useMemo(() => {
     if (!anchorId) {
       return {
@@ -640,7 +644,6 @@ const AnchorDetailsScreen = ({ navigation, route }) => {
         borderColor: C.purpleBorder,
         shadowOpacity: 0.08,
         shadowRadius: 12,
-        elevation: 4,
       };
     }
 
@@ -653,7 +656,6 @@ const AnchorDetailsScreen = ({ navigation, route }) => {
       shadowColor: C.gold,
       shadowOpacity: interpolate(divineBreath.value, [0, 1], [0.12, 0.34]),
       shadowRadius: interpolate(divineBreath.value, [0, 1], [10, 20]),
-      elevation: Math.round(interpolate(divineBreath.value, [0, 1], [4, 12])),
     };
   }, [divineBreath, divineGlowActive]);
 
@@ -667,7 +669,6 @@ const AnchorDetailsScreen = ({ navigation, route }) => {
         borderColor: C.purpleBorder,
         shadowOpacity: 0.08,
         shadowRadius: 12,
-        elevation: 4,
       };
     }
 
@@ -680,7 +681,6 @@ const AnchorDetailsScreen = ({ navigation, route }) => {
       shadowColor: C.gold,
       shadowOpacity: interpolate(divineBreath.value, [0, 1], [0.14, 0.4]),
       shadowRadius: interpolate(divineBreath.value, [0, 1], [12, 26]),
-      elevation: Math.round(interpolate(divineBreath.value, [0, 1], [4, 14])),
     };
   }, [divineBreath, divineGlowActive]);
 
@@ -1291,6 +1291,7 @@ const s = StyleSheet.create({
     borderWidth: 1.2,
     borderColor: colors.practice.cardFeaturedBorder,
     overflow: 'hidden',
+    elevation: 6,
   },
   cardAuraOverlay: {
     ...StyleSheet.absoluteFillObject,

@@ -25,6 +25,11 @@ describe('anchorStore', () => {
       expect(result.current.anchors).toEqual([]);
     });
 
+    it('should start with zero total primes', () => {
+      const { result } = renderHook(() => useAnchorStore());
+      expect(result.current.totalPrimes).toBe(0);
+    });
+
     it('should not be loading initially', () => {
       const { result } = renderHook(() => useAnchorStore());
       expect(result.current.isLoading).toBe(false);
@@ -52,6 +57,20 @@ describe('anchorStore', () => {
 
       expect(result.current.anchors).toHaveLength(3);
       expect(result.current.anchors).toEqual(mockAnchors);
+    });
+
+    it('recalculates total primes from anchors', () => {
+      const { result } = renderHook(() => useAnchorStore());
+      const mockAnchors = [
+        createMockAnchor({ id: 'anchor-1', activationCount: 2 }),
+        createMockAnchor({ id: 'anchor-2', activationCount: 5 }),
+      ];
+
+      act(() => {
+        result.current.setAnchors(mockAnchors);
+      });
+
+      expect(result.current.totalPrimes).toBe(7);
     });
 
     it('should clear error when setting anchors', () => {
@@ -225,6 +244,19 @@ describe('anchorStore', () => {
       });
 
       expect(result.current.error).toBeNull();
+    });
+  });
+
+  describe('incrementTotalPrimes', () => {
+    it('increments lifetime prime count', () => {
+      const { result } = renderHook(() => useAnchorStore());
+
+      act(() => {
+        result.current.incrementTotalPrimes();
+        result.current.incrementTotalPrimes();
+      });
+
+      expect(result.current.totalPrimes).toBe(2);
     });
   });
 

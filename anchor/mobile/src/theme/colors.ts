@@ -10,11 +10,13 @@ export const colors = {
   // Primary Colors
   charcoal: '#1A1A1D',
   navy: '#0F1419',
+  black: '#080C10',
   gold: '#D4AF37',
   bone: '#F5F5DC',
 
   // Accent Colors
   deepPurple: '#3E2C5B',
+  purple: '#3E2C5B',
   bronze: '#CD7F32',
   silver: '#C0C0C0',
 

@@ -3,7 +3,6 @@ import { Image, StyleSheet, Text, useWindowDimensions, View } from 'react-native
 import ViewShot from 'react-native-view-shot';
 import Svg, { Path, Polyline } from 'react-native-svg';
 import { useAnchorStore } from '@/stores/anchorStore';
-import { useSessionStore } from '@/stores/sessionStore';
 import type { WeeklyStats } from '@/hooks/useWeeklyStats';
 import type { Anchor } from '@/types';
 import { SigilSvg } from '@/components/common/SigilSvg';
@@ -43,7 +42,6 @@ interface ResolvedAnchorData {
   sigilXml: string;
   intention: string;
   threadStrength: number;
-  totalPrimeCount: number;
 }
 
 function StarGlyph({ size, color }: { size: number; color: string }) {
@@ -144,7 +142,7 @@ function formatWeekRangeCompact(startValue: string, endValue: string): string {
   return `${startMonth} ${startDay}–${endMonth} ${endDay}`;
 }
 
-function resolveAnchorData(anchors: Anchor[], stats: WeeklyStats, totalPrimeCount: number): ResolvedAnchorData {
+function resolveAnchorData(anchors: Anchor[], stats: WeeklyStats): ResolvedAnchorData {
   const dominantAnchor = stats.dominantAnchor;
   const anchor = dominantAnchor
     ? anchors.find((item) => item.id === dominantAnchor.id || item.localId === dominantAnchor.id) as ExtendedAnchor | undefined
@@ -155,7 +153,6 @@ function resolveAnchorData(anchors: Anchor[], stats: WeeklyStats, totalPrimeCoun
     sigilXml: anchor?.baseSigilSvg ?? PLACEHOLDER_SIGIL,
     intention: dominantAnchor?.intention ?? '"I close every deal I pursue"',
     threadStrength: dominantAnchor?.threadStrength ?? 72,
-    totalPrimeCount,
   };
 }
 
@@ -356,27 +353,10 @@ function ShareCardSurface({
   format: ShareCardFormat;
 }) {
   const anchors = useAnchorStore((state) => state.anchors);
-  const sessionLog = useSessionStore((state) => state.sessionLog);
-
-  const totalPrimeCountForAnchor = useMemo(() => {
-    if (!stats.dominantAnchor) {
-      return stats.totalPrimes;
-    }
-
-    const matchingAnchor = anchors.find(
-      (item) => item.id === stats.dominantAnchor?.id || item.localId === stats.dominantAnchor?.id
-    );
-
-    return sessionLog.filter(
-      (entry) =>
-        (entry.type === 'activate' || entry.type === 'reinforce') &&
-        (entry.anchorId === stats.dominantAnchor?.id || entry.anchorId === matchingAnchor?.localId)
-    ).length || stats.totalPrimes;
-  }, [anchors, sessionLog, stats.dominantAnchor, stats.totalPrimes]);
 
   const anchorData = useMemo(
-    () => resolveAnchorData(anchors, stats, totalPrimeCountForAnchor),
-    [anchors, stats, totalPrimeCountForAnchor]
+    () => resolveAnchorData(anchors, stats),
+    [anchors, stats]
   );
 
   return format === 'story'

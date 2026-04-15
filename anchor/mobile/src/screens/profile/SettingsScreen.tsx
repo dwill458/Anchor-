@@ -47,6 +47,11 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const IS_ANDROID = Platform.OS === 'android';
 const SHOULD_ANIMATE_SECTION_ENTRANCE = Platform.OS === 'ios';
+const DEV_SUBSCRIPTION_TIER_OPTIONS = [
+  { value: 'pro', label: 'PAID' },
+  { value: 'trial', label: 'TRIAL' },
+  { value: 'expired', label: 'EXPIRED' },
+] as const;
 
 type SettingItemProps = {
   label: string;
@@ -457,6 +462,8 @@ export const SettingsScreen: React.FC = () => {
 
   const CardWrapper = View;
   const cardProps = {};
+  const selectedDevTier =
+    subStore.devTierOverride === 'free' ? 'expired' : subStore.devTierOverride;
 
   return (
     <View style={styles.container} onLayout={handleRootLayout}>
@@ -686,22 +693,22 @@ export const SettingsScreen: React.FC = () => {
                           <View style={styles.segmentedContainer}>
                             <Text style={styles.segmentedLabel}>Simulated Subscription Tier</Text>
                             <View style={styles.segments}>
-                              {(['free', 'pro'] as const).map((tierValue) => (
+                              {DEV_SUBSCRIPTION_TIER_OPTIONS.map(({ value, label }) => (
                                 <TouchableOpacity
-                                  key={tierValue}
+                                  key={value}
                                   style={[
                                     styles.segmentButton,
-                                    subStore.devTierOverride === tierValue && styles.activeSegment,
+                                    selectedDevTier === value && styles.activeSegment,
                                   ]}
-                                  onPress={() => subStore.setDevTierOverride(tierValue)}
+                                  onPress={() => subStore.setDevTierOverride(value)}
                                 >
                                   <Text
                                     style={[
                                       styles.segmentText,
-                                      subStore.devTierOverride === tierValue && styles.activeSegmentText,
+                                      selectedDevTier === value && styles.activeSegmentText,
                                     ]}
                                   >
-                                    {tierValue.toUpperCase()}
+                                    {label}
                                   </Text>
                                 </TouchableOpacity>
                               ))}

@@ -1,12 +1,13 @@
 /**
  * Anchor App - Root Navigator
  *
- * Top-level navigator that switches between Onboarding, Main, and Paywall flows.
+ * Top-level navigator that switches between Onboarding and Main flows,
+ * with Paywall presented over Main when an onboarded user's trial expires.
  *
  * Flow:
- * - Trial expired + no subscription: PaywallScreen (blocks all navigation)
- * - First-time users: Onboarding → Main
- * - Returning users with active trial/subscription: Main
+ * - First-time users: Onboarding
+ * - Returning users: Main
+ * - Expired trial after onboarding: PaywallScreen presented over Main
  * - Profile: Accessed via header avatar (modal)
  */
 
@@ -17,10 +18,10 @@ import { OnboardingNavigator } from './OnboardingNavigator';
 import { MainTabNavigator } from './MainTabNavigator';
 import { ProfileStackNavigator } from './ProfileStackNavigator';
 import { PaywallScreen } from '../screens/paywall/PaywallScreen';
+import { shouldShowOnboardingFlow } from './rootNavigationState';
 import { useAuthStore } from '../stores/authStore';
 import { useSettingsStore } from '../stores/settingsStore';
 import { useSubscriptionStore } from '../stores/subscriptionStore';
-import { useTrialStatus } from '../hooks/useTrialStatus';
 import type { ProfileStackParamList } from './ProfileStackNavigator';
 
 export type RootNavigatorParamList = {
@@ -69,15 +70,14 @@ export const RootNavigator: React.FC = () => {
     (state) => state.developerSkipOnboardingEnabled
   );
   const shouldBypassOnboarding = __DEV__ && developerSkipOnboardingEnabled;
-
-  const { hasExpired, isSubscribed } = useTrialStatus();
-  const showPaywall = hasExpired && !isSubscribed;
+  const showOnboarding = shouldShowOnboardingFlow(
+    hasCompletedOnboarding,
+    shouldBypassOnboarding
+  );
 
   return (
     <Stack.Navigator screenOptions={{ headerShown: false }}>
-      {showPaywall ? (
-        <Stack.Screen name="Paywall" component={PaywallScreen} />
-      ) : !hasCompletedOnboarding && !shouldBypassOnboarding ? (
+      {showOnboarding ? (
         <Stack.Screen name="Onboarding" component={OnboardingNavigator} />
       ) : (
         <>
@@ -91,6 +91,16 @@ export const RootNavigator: React.FC = () => {
               animation: 'slide_from_bottom',
               gestureEnabled: true,
               gestureDirection: 'vertical',
+              contentStyle: { backgroundColor: '#080C10' },
+            }}
+          />
+          <Stack.Screen
+            name="Paywall"
+            component={PaywallScreen}
+            options={{
+              presentation: 'fullScreenModal',
+              animation: 'slide_from_bottom',
+              gestureEnabled: true,
               contentStyle: { backgroundColor: '#080C10' },
             }}
           />
