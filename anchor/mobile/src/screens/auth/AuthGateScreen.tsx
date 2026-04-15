@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Animated,
   Image,
@@ -41,7 +41,7 @@ const PLAN_OPTIONS: Array<{
   { id: 'lifetime', label: 'Lifetime', amount: '$149', subtitle: 'one time', badge: 'LIMITED' },
 ];
 
-function VoidGlowBackdrop() {
+const VoidGlowBackdrop = React.memo(function VoidGlowBackdrop() {
   return (
     <Svg
       width="100%"
@@ -63,9 +63,9 @@ function VoidGlowBackdrop() {
       <Circle cx="50" cy="46" r="14" fill={withAlpha(colors.deepPurple, 0.08)} />
     </Svg>
   );
-}
+});
 
-function PreviewFadeOverlay() {
+const PreviewFadeOverlay = React.memo(function PreviewFadeOverlay() {
   return (
     <Svg
       width="100%"
@@ -85,9 +85,9 @@ function PreviewFadeOverlay() {
       <Rect x="0" y="0" width="100" height="100" fill={`url(#${PREVIEW_FADE_ID})`} />
     </Svg>
   );
-}
+});
 
-function LockBadgeIcon() {
+const LockBadgeIcon = React.memo(function LockBadgeIcon() {
   return (
     <Svg width={24} height={24} viewBox="0 0 24 24" fill="none">
       <Rect
@@ -109,7 +109,7 @@ function LockBadgeIcon() {
       <Circle cx="12" cy="15.5" r="1.5" fill={colors.gold} />
     </Svg>
   );
-}
+});
 
 export default function AuthGateScreen() {
   const navigation = useNavigation<AuthGateNavigationProp>();
@@ -128,19 +128,19 @@ export default function AuthGateScreen() {
     ]).start();
   }, [fadeAnim, slideAnim]);
 
-  const handleDismiss = () => {
+  const handleDismiss = useCallback(() => {
     clearPendingForgeIntent();
     clearPendingForgeResumeTarget();
     navigation.goBack();
-  };
+  }, [clearPendingForgeIntent, clearPendingForgeResumeTarget, navigation]);
 
-  const handleCreateAccount = () => {
+  const handleCreateAccount = useCallback(() => {
     navigation.navigate('SignUp');
-  };
+  }, [navigation]);
 
-  const handleSignIn = () => {
+  const handleSignIn = useCallback(() => {
     navigation.navigate('Login');
-  };
+  }, [navigation]);
 
   const latestAnchor = useMemo(() => {
     if (anchors.length === 0) {
@@ -205,7 +205,7 @@ type AnimatedScreenProps = {
   onSignIn: () => void;
 };
 
-function AnimatedScreen({
+const AnimatedScreen = React.memo(function AnimatedScreen({
   opacity,
   translateY,
   previewHeight,
@@ -367,10 +367,10 @@ function AnimatedScreen({
             <Pressable
               onPress={onCreateAccount}
               accessibilityRole="button"
-              accessibilityLabel={`${ctaLabel}, ${selectedPlan.label} selected`}
+              accessibilityLabel={`${ctaLabel || 'Forge Now'}, ${selectedPlan.label} selected`}
               style={({ pressed }) => [styles.ctaButton, pressed && styles.ctaButtonPressed]}
             >
-              <Text style={styles.ctaText}>{ctaLabel}</Text>
+              <Text style={styles.ctaText}>{ctaLabel || 'Forge Now'}</Text>
             </Pressable>
 
             <Text style={styles.trialNote}>Cancel anytime</Text>
@@ -393,7 +393,7 @@ function AnimatedScreen({
       </Animated.View>
     </View>
   );
-}
+});
 
 const styles = StyleSheet.create({
   root: {
