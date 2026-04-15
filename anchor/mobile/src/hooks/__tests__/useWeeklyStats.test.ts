@@ -84,6 +84,7 @@ describe('useWeeklyStats', () => {
     ]);
 
     useSessionStore.setState({
+      threadStrength: 83,
       totalSessionsCount: 5,
       lastPrimedAt: '2026-04-17',
       journeyWeekStart: '2026-03-30',
@@ -138,14 +139,34 @@ describe('useWeeklyStats', () => {
           hourOfDay: 8,
           timeOfDay: 'morning',
         }),
+        createPrimingEntry('prime-6', {
+          anchorId: 'anchor-2',
+          type: 'activate',
+          completedAt: '2026-04-19T09:10:00.000Z',
+          localDate: '2026-04-19',
+          weekStart: '2026-04-13',
+          weekdayIndex: 6,
+          hourOfDay: 9,
+          timeOfDay: 'morning',
+        }),
+        createPrimingEntry('prime-7', {
+          anchorId: 'anchor-2',
+          type: 'activate',
+          completedAt: '2026-04-19T17:40:00.000Z',
+          localDate: '2026-04-19',
+          weekStart: '2026-04-13',
+          weekdayIndex: 6,
+          hourOfDay: 17,
+          timeOfDay: 'evening',
+        }),
       ],
     });
 
     const { result } = renderHook(() => useWeeklyStats());
 
     expect(result.current.weekNumber).toBe(3);
-    expect(result.current.weekStart).toBe('2026-04-13');
-    expect(result.current.weekEnd).toBe('2026-04-19');
+    expect(result.current.weekStart).toBe('2026-04-12');
+    expect(result.current.weekEnd).toBe('2026-04-18');
     expect(result.current.totalPrimes).toBe(3);
     expect(result.current.daysShownUp).toBe(2);
     expect(result.current.threadDelta).toBe(90);
@@ -155,6 +176,7 @@ describe('useWeeklyStats', () => {
     });
     expect(result.current.dominantAnchor?.id).toBe('anchor-1');
     expect(result.current.dominantAnchor?.weeklyPrimeCount).toBe(2);
+    expect(result.current.dominantAnchor?.threadStrength).toBe(83);
   });
 
   it('defaults new users to week 1 with empty insight fallbacks', () => {
@@ -163,10 +185,40 @@ describe('useWeeklyStats', () => {
     const { result } = renderHook(() => useWeeklyStats());
 
     expect(result.current.weekNumber).toBe(1);
+    expect(result.current.weekStart).toBe('2026-04-12');
+    expect(result.current.weekEnd).toBe('2026-04-18');
     expect(result.current.totalPrimes).toBe(0);
     expect(result.current.peakPrimingWindow).toEqual({
       day: 'Monday',
       timeOfDay: 'mornings',
+    });
+  });
+
+  it('falls back to the sole active anchor when there are no weekly primes', () => {
+    jest.setSystemTime(new Date(2026, 3, 13, 9, 0, 0));
+
+    useAnchorStore.getState().setAnchors([
+      createMockAnchor({
+        id: 'anchor-only',
+        intentionText: 'Stay centered under pressure',
+        createdAt: new Date('2026-04-10T09:00:00.000Z'),
+        updatedAt: new Date('2026-04-10T09:00:00.000Z'),
+      }),
+    ]);
+
+    useSessionStore.setState({
+      threadStrength: 67,
+      primingHistory: [],
+    });
+
+    const { result } = renderHook(() => useWeeklyStats());
+
+    expect(result.current.dominantAnchor).toEqual({
+      id: 'anchor-only',
+      intention: 'Stay centered under pressure',
+      threadStrength: 67,
+      weeklyPrimeCount: 0,
+      forgedAt: new Date('2026-04-10T09:00:00.000Z').toISOString(),
     });
   });
 });

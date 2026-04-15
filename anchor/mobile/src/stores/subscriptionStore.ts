@@ -13,7 +13,15 @@ function computeDaysRemaining(trialStartDate: string | null): number {
     return Math.max(0, TRIAL_DURATION_DAYS - daysElapsed);
 }
 
-interface SubscriptionState {
+interface TrialStatusSnapshot {
+    isInTrial: boolean;
+    isSubscribed: boolean;
+    hasActiveEntitlement: boolean;
+    daysRemaining: number | null;
+    trialExpired: boolean;
+}
+
+interface SubscriptionState extends TrialStatusSnapshot {
     // Real state from RevenueCat (synced via hook/service)
     rcTier: SubscriptionStatus;
 
@@ -29,6 +37,7 @@ interface SubscriptionState {
     setRcTier: (tier: SubscriptionStatus) => void;
     setTrialStartDate: (date: string) => void;
     setSubscriptionStatus: (status: 'trial' | 'active' | 'expired') => void;
+    setTrialState: (snapshot: TrialStatusSnapshot) => void;
     setDevOverrideEnabled: (enabled: boolean) => void;
     setDevTierOverride: (tier: 'free' | 'pro' | 'trial' | 'expired') => void;
     resetOverrides: () => void;
@@ -46,9 +55,17 @@ export const useSubscriptionStore = create<SubscriptionState>()(
             devOverrideEnabled: false,
             devTierOverride: 'pro',
 
+            // RevenueCat-derived trial status fields
+            isInTrial: false,
+            isSubscribed: false,
+            hasActiveEntitlement: false,
+            daysRemaining: null,
+            trialExpired: false,
+
             setRcTier: (tier) => set({ rcTier: tier }),
             setTrialStartDate: (date) => set({ trialStartDate: date }),
             setSubscriptionStatus: (status) => set({ subscriptionStatus: status }),
+            setTrialState: (snapshot) => set(snapshot),
             setDevOverrideEnabled: (enabled) => set({ devOverrideEnabled: enabled }),
             setDevTierOverride: (tier) => set({ devTierOverride: tier }),
 

@@ -13,9 +13,9 @@ import {
   View,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Path, Polyline } from 'react-native-svg';
 import { useAnchorStore } from '@/stores/anchorStore';
-import { useSessionStore, type SessionLogEntry } from '@/stores/sessionStore';
 import { useWeeklyStats, type WeeklyStats } from '@/hooks/useWeeklyStats';
 import type { Anchor } from '@/types';
 import { SigilSvg } from '@/components/common/SigilSvg';
@@ -51,7 +51,7 @@ interface ResolvedAnchorData {
   intention: string;
   forgedAt: string;
   threadStrength: number;
-  totalPrimeCount: number;
+  weeklyPrimeCount: number;
 }
 
 function StarGlyph({ color = GOLD }: { color?: string }) {
@@ -151,18 +151,11 @@ function dominantPrimingDay(days: WeeklyStats['days']): WeeklyStats['days'][numb
   })[0] ?? days[0];
 }
 
-function resolveAnchorData(anchors: Anchor[], stats: WeeklyStats, sessionLog: SessionLogEntry[]): ResolvedAnchorData {
+function resolveAnchorData(anchors: Anchor[], stats: WeeklyStats): ResolvedAnchorData {
   const dominantAnchor = stats.dominantAnchor;
   const anchor = dominantAnchor
     ? anchors.find((item) => item.id === dominantAnchor.id || item.localId === dominantAnchor.id) as ExtendedAnchor | undefined
     : undefined;
-  const totalPrimeCount = dominantAnchor
-    ? sessionLog.filter(
-      (entry) =>
-        (entry.type === 'activate' || entry.type === 'reinforce') &&
-        (entry.anchorId === dominantAnchor.id || entry.anchorId === anchor?.localId)
-    ).length
-    : stats.totalPrimes;
 
   return {
     artworkUri: anchor?.sigilImageUri ?? anchor?.enhancedImageUrl ?? null,
@@ -170,7 +163,7 @@ function resolveAnchorData(anchors: Anchor[], stats: WeeklyStats, sessionLog: Se
     intention: dominantAnchor?.intention ?? 'I close every deal I pursue',
     forgedAt: dominantAnchor?.forgedAt ?? stats.weekStart,
     threadStrength: dominantAnchor?.threadStrength ?? 72,
-    totalPrimeCount: totalPrimeCount || stats.totalPrimes,
+    weeklyPrimeCount: dominantAnchor?.weeklyPrimeCount ?? stats.totalPrimes,
   };
 }
 
@@ -197,8 +190,8 @@ export function WeeklySummaryModal({
 }: WeeklySummaryModalProps) {
   const stats = useWeeklyStats();
   const anchors = useAnchorStore((state) => state.anchors);
-  const sessionLog = useSessionStore((state) => state.sessionLog);
   const shareCardRef = useRef<ShareCardRef | null>(null);
+  const { bottom: bottomInset } = useSafeAreaInsets();
   const sheetTranslateY = useRef(new Animated.Value(48)).current;
   const backdropOpacity = useRef(new Animated.Value(0)).current;
   const strengthProgress = useRef(new Animated.Value(0)).current;
@@ -206,8 +199,8 @@ export function WeeklySummaryModal({
   const [isSharing, setIsSharing] = useState(false);
 
   const anchorData = useMemo(
-    () => resolveAnchorData(anchors, stats, sessionLog),
-    [anchors, sessionLog, stats]
+    () => resolveAnchorData(anchors, stats),
+    [anchors, stats]
   );
   const dominantDay = useMemo(() => dominantPrimingDay(stats.days), [stats.days]);
   const barScaleX = strengthProgress.interpolate({
@@ -370,7 +363,7 @@ export function WeeklySummaryModal({
                   <View style={styles.anchorInfo}>
                     <Text style={styles.anchorIntent}>{`"${anchorData.intention.replace(/^"|"$/g, '')}"`}</Text>
                     <Text style={styles.anchorMeta}>
-                      {`FORGED ${formatForgedDate(anchorData.forgedAt)} · ${anchorData.totalPrimeCount} PRIMES TOTAL`}
+                      {`FORGED ${formatForgedDate(anchorData.forgedAt)} · ${anchorData.weeklyPrimeCount} PRIMES THIS WEEK`}
                     </Text>
                     <View style={styles.threadBarWrap}>
                       <View style={styles.threadBarBg}>
@@ -415,7 +408,7 @@ export function WeeklySummaryModal({
                 That's not habit yet — that's identity.
               </Text>
 
-              <View style={styles.actions}>
+              <View style={[styles.actions, { paddingBottom: Math.max(bottomInset, 20) + 12 }]}>
                 <TouchableOpacity style={styles.primaryButton} onPress={handleShare} activeOpacity={0.84} disabled={isSharing}>
                   <StarGlyph color={NAVY} />
                   <Text style={styles.primaryButtonText}>
@@ -457,7 +450,6 @@ const styles = StyleSheet.create({
     borderTopRightRadius: 24,
     borderTopWidth: 0.5,
     borderColor: 'rgba(212,175,55,0.25)',
-    paddingBottom: 32,
   },
   handle: {
     width: 36,

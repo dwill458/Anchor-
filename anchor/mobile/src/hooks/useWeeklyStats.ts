@@ -1,31 +1,27 @@
 import { useMemo } from 'react';
 import { useAnchorStore } from '@/stores/anchorStore';
-import { useSessionStore, type SessionLogEntry } from '@/stores/sessionStore';
+import { useSessionStore } from '@/stores/sessionStore';
 import type { Anchor } from '@/types';
-import { calculateStreak } from '@/utils/streakHelpers';
 import {
   TIME_OF_DAY_LABELS,
   WEEKDAY_NAMES,
   addDays,
-  diffWeeksInclusive,
-  getTimeOfDayBucket,
   isoWeekNumber,
   localDateString,
-  localWeekStartString,
-  startOfIsoWeek,
+  parseLocalDateString,
   type PrimingHistoryEntry,
   type TimeOfDayBucket,
 } from '@/utils/primingAnalytics';
 
-type DayLabel = 'MON' | 'TUE' | 'WED' | 'THU' | 'FRI' | 'SAT' | 'SUN';
+type DayLabel = 'SUN' | 'MON' | 'TUE' | 'WED' | 'THU' | 'FRI' | 'SAT';
 type DayState = 'primed' | 'missed' | 'recovered' | 'future' | 'today';
 type PerformanceTier = 'strong' | 'fading' | 'recovering';
 
-const DAY_LABELS: DayLabel[] = ['MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT', 'SUN'];
+const DAY_LABELS: DayLabel[] = ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'];
 const TIME_OF_DAY_ORDER: TimeOfDayBucket[] = ['morning', 'afternoon', 'evening', 'late_night'];
 
 /**
- * One day in the current ISO week, ordered Monday through Sunday.
+ * One day in the active weekly summary review period, ordered Sunday through Saturday.
  */
 export interface DayNode {
   /** ISO local date in `YYYY-MM-DD` format. */
@@ -39,18 +35,20 @@ export interface DayNode {
 }
 
 /**
- * Derived weekly priming summary for the current ISO week.
+ * Derived weekly priming summary for the active review period.
+ * Sundays review the previously completed Sunday-to-Saturday window.
+ * Other days review the current Sunday-to-Saturday window.
  */
 export interface WeeklyStats {
   /** User-relative week number, starting at week 1. */
   weekNumber: number;
-  /** ISO calendar week number for the current local date. */
+  /** ISO calendar week number for the active review period. */
   calendarWeekNumber: number;
-  /** Monday of the current ISO week in `YYYY-MM-DD` format. */
+  /** Sunday of the active review period in `YYYY-MM-DD` format. */
   weekStart: string;
-  /** Sunday of the current ISO week in `YYYY-MM-DD` format. */
+  /** Saturday of the active review period in `YYYY-MM-DD` format. */
   weekEnd: string;
-  /** Always seven nodes, Monday through Sunday. */
+  /** Always seven nodes, Sunday through Saturday. */
   days: DayNode[];
   /** Total priming sessions this week. */
   totalPrimes: number;
@@ -75,11 +73,7 @@ export interface WeeklyStats {
   performanceTier: PerformanceTier;
 }
 
-function isPrimingSession(entry: SessionLogEntry): boolean {
-  return entry.type === 'activate' || entry.type === 'reinforce';
-}
-
-function getSessionGain(entry: { type: SessionLogEntry['type'] | PrimingHistoryEntry['type'] }): number {
+function getSessionGain(entry: { type: PrimingHistoryEntry['type'] }): number {
   return entry.type === 'reinforce' ? 40 : 25;
 }
 
@@ -140,8 +134,50 @@ function resolvePeakPrimingWindow(primingHistory: PrimingHistoryEntry[]): Weekly
   };
 }
 
+function startOfSundayWeek(date: Date): Date {
+  const start = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+  start.setDate(start.getDate() - start.getDay());
+  return start;
+}
+
+function resolveSummaryWeekStartDate(now: Date): Date {
+  const currentSundayWeekStart = startOfSundayWeek(now);
+
+  // Sunday evening summaries review the previously completed Sunday-Saturday window.
+  if (now.getDay() === 0) {
+    return addDays(currentSundayWeekStart, -7);
+  }
+
+  return currentSundayWeekStart;
+}
+
+function normalizeToSundayWeekStart(value: string | null | undefined, fallback: Date): string {
+  if (!value) {
+    return localDateString(startOfSundayWeek(fallback));
+  }
+
+  const parsed = parseLocalDateString(value);
+  if (!parsed) {
+    return localDateString(startOfSundayWeek(fallback));
+  }
+
+  return localDateString(startOfSundayWeek(parsed));
+}
+
+function diffSundayWeeksInclusive(startWeekStart: string, endWeekStart: string): number {
+  const start = parseLocalDateString(startWeekStart);
+  const end = parseLocalDateString(endWeekStart);
+
+  if (!start || !end) {
+    return 1;
+  }
+
+  const diffMs = startOfSundayWeek(end).getTime() - startOfSundayWeek(start).getTime();
+  return Math.max(1, Math.floor(diffMs / (7 * 86_400_000)) + 1);
+}
+
 /**
- * Returns the current ISO week's priming stats derived from the persisted
+ * Returns the active weekly summary review's priming stats derived from the persisted
  * Zustand stores. The result is memoized and contains stable references until
  * the underlying store slices change.
  */
@@ -149,16 +185,21 @@ export function useWeeklyStats(): WeeklyStats {
   const anchors = useAnchorStore((state) => state.anchors);
   const primingHistory = useSessionStore((state) => state.primingHistory);
   const journeyWeekStart = useSessionStore((state) => state.journeyWeekStart);
+  const threadStrength = useSessionStore((state) => state.threadStrength);
 
   return useMemo(() => {
     const now = new Date();
     const todayKey = localDateString(now);
-    const weekStartDate = startOfIsoWeek(now);
+    const weekStartDate = resolveSummaryWeekStartDate(now);
     const weekStart = localDateString(weekStartDate);
     const weekEndDate = addDays(weekStartDate, 6);
     const weekEnd = localDateString(weekEndDate);
     const anchorLookup = buildAnchorLookup(anchors);
-    const currentWeekPrimingHistory = primingHistory.filter((entry) => entry.weekStart === weekStart);
+    const activeAnchors = anchors.filter((anchor) => !anchor.isReleased && !anchor.archivedAt);
+    const summaryThreadStrength = clamp(threadStrength, 0, 100);
+    const currentWeekPrimingHistory = primingHistory.filter(
+      (entry) => entry.localDate >= weekStart && entry.localDate <= weekEnd
+    );
     const primeCountsByDate = new Map<string, number>();
     const primingSessionsByAnchor = new Map<string, PrimingHistoryEntry[]>();
     const currentWeekSessionsByAnchor = new Map<string, PrimingHistoryEntry[]>();
@@ -222,9 +263,10 @@ export function useWeeklyStats(): WeeklyStats {
           : 'fading';
 
     const effectiveJourneyWeekStart =
-      journeyWeekStart ??
-      primingHistory[primingHistory.length - 1]?.weekStart ??
-      localWeekStartString(now);
+      normalizeToSundayWeekStart(
+        journeyWeekStart ?? primingHistory[primingHistory.length - 1]?.localDate,
+        weekStartDate
+      );
 
     let dominantAnchor: WeeklyStats['dominantAnchor'] = null;
 
@@ -237,18 +279,6 @@ export function useWeeklyStats(): WeeklyStats {
             }
 
             const allPrimingSessions = primingSessionsByAnchor.get(anchor.id) ?? [];
-            const distinctWeekDays = new Set(weeklySessions.map((session) => session.localDate));
-            const currentStreak = calculateStreak(
-              allPrimingSessions.map((session) => ({ createdAt: session.completedAt }))
-            ).currentStreak;
-            const threadStrength = clamp(
-              Math.max(
-                Math.round((distinctWeekDays.size / 7) * 100),
-                allPrimingSessions.length > 0 ? Math.round((currentStreak / 7) * 100) : 0
-              ),
-              0,
-              100
-            );
             const latestCompletedAt = Math.max(
               ...allPrimingSessions.map((session) => new Date(session.completedAt).getTime())
             );
@@ -261,8 +291,7 @@ export function useWeeklyStats(): WeeklyStats {
             return {
               id: anchor.id,
               intention: anchor.intentionText,
-              threadStrength,
-              totalPrimeCount: allPrimingSessions.length,
+              threadStrength: summaryThreadStrength,
               weeklyPrimeCount: weeklySessions.length,
               forgedAt,
               latestCompletedAt,
@@ -272,10 +301,6 @@ export function useWeeklyStats(): WeeklyStats {
           .sort((left, right) => {
             if (right.weeklyPrimeCount !== left.weeklyPrimeCount) {
               return right.weeklyPrimeCount - left.weeklyPrimeCount;
-            }
-
-            if (right.totalPrimeCount !== left.totalPrimeCount) {
-              return right.totalPrimeCount - left.totalPrimeCount;
             }
 
             if (right.latestCompletedAt !== left.latestCompletedAt) {
@@ -294,11 +319,24 @@ export function useWeeklyStats(): WeeklyStats {
         weeklyPrimeCount: dominantCandidate.weeklyPrimeCount,
         forgedAt: dominantCandidate.forgedAt,
       };
+    } else if (activeAnchors.length === 1) {
+      const soleAnchor = activeAnchors[0];
+      const forgedAt = resolveAnchorDate(soleAnchor.createdAt)?.toISOString();
+
+      if (forgedAt) {
+        dominantAnchor = {
+          id: soleAnchor.id,
+          intention: soleAnchor.intentionText,
+          threadStrength: summaryThreadStrength,
+          weeklyPrimeCount: 0,
+          forgedAt,
+        };
+      }
     }
 
     return {
-      weekNumber: diffWeeksInclusive(effectiveJourneyWeekStart, weekStart),
-      calendarWeekNumber: isoWeekNumber(now),
+      weekNumber: diffSundayWeeksInclusive(effectiveJourneyWeekStart, weekStart),
+      calendarWeekNumber: isoWeekNumber(weekEndDate),
       weekStart,
       weekEnd,
       days,
@@ -309,5 +347,5 @@ export function useWeeklyStats(): WeeklyStats {
       peakPrimingWindow: resolvePeakPrimingWindow(primingHistory),
       performanceTier,
     };
-  }, [anchors, journeyWeekStart, primingHistory]);
+  }, [anchors, journeyWeekStart, primingHistory, threadStrength]);
 }

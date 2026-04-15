@@ -17,6 +17,8 @@ export const typography = {
     headingSemiBold: 'Cinzel-SemiBold',
     body: 'Inter-Regular',
     bodyBold: 'Inter-SemiBold',
+    bodySerif: 'CormorantGaramond-Regular',
+    bodySerifItalic: 'CormorantGaramond-Italic',
     mono: 'RobotoMono-Regular',
   },
 
@@ -27,6 +29,8 @@ export const typography = {
     serifSemiBold: 'Cinzel-SemiBold',
     sans: 'Inter-Regular',
     sansBold: 'Inter-SemiBold',
+    bodySerif: 'CormorantGaramond-Regular',
+    bodySerifItalic: 'CormorantGaramond-Italic',
     mono: 'RobotoMono-Regular',
   },
 

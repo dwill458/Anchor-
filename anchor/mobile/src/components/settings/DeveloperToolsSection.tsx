@@ -16,7 +16,14 @@ interface DeveloperToolsSectionProps {
   onResetOnboarding: () => Promise<void> | void;
 }
 
-const TIERS: Array<AnchorSettings['dev_simulatedTier']> = ['free', 'pro', 'trial', 'expired'];
+const TIERS: ReadonlyArray<{
+  value: AnchorSettings['dev_simulatedTier'];
+  label: string;
+}> = [
+  { value: 'pro', label: 'Paid' },
+  { value: 'trial', label: 'Trial' },
+  { value: 'expired', label: 'Expired' },
+];
 const TEST_NOTIFICATION_DELAY_SECONDS = 5;
 
 const TEST_NOTIFICATION_OPTIONS: Array<{
@@ -59,6 +66,8 @@ export const DeveloperToolsSection: React.FC<DeveloperToolsSectionProps> = ({
 }) => {
   const [isNotificationActionRunning, setIsNotificationActionRunning] = React.useState(false);
   const [notificationStatus, setNotificationStatus] = React.useState<string | null>(null);
+  const selectedTier =
+    settings.dev_simulatedTier === 'free' ? 'expired' : settings.dev_simulatedTier;
   const triggerDeveloperWeeklySummaryPreview = useSettingsStore(
     (state) => state.triggerDeveloperWeeklySummaryPreview
   );
@@ -201,19 +210,19 @@ export const DeveloperToolsSection: React.FC<DeveloperToolsSectionProps> = ({
         <View style={styles.segmentRow}>
           <Text style={styles.segmentTitle}>Simulated Subscription Tier</Text>
           <View style={styles.segmentedControl}>
-            {TIERS.map((tier) => {
-              const selected = settings.dev_simulatedTier === tier;
+            {TIERS.map(({ value, label }) => {
+              const selected = selectedTier === value;
               return (
                 <Pressable
-                  key={tier}
-                  onPress={() => updateSetting('dev_simulatedTier', tier)}
+                  key={value}
+                  onPress={() => updateSetting('dev_simulatedTier', value)}
                   style={[
                     styles.segmentButton,
                     selected ? styles.segmentButtonSelected : null,
                   ]}
                 >
                   <Text style={[styles.segmentText, selected ? styles.segmentTextSelected : null]}>
-                    {tier[0].toUpperCase() + tier.slice(1)}
+                    {label}
                   </Text>
                 </Pressable>
               );

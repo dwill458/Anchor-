@@ -42,7 +42,9 @@
       "googleServicesFile": "./google-services.json",
       "permissions": [
         "android.permission.RECORD_AUDIO",
-        "android.permission.MODIFY_AUDIO_SETTINGS"
+        "android.permission.MODIFY_AUDIO_SETTINGS",
+        "android.permission.CAMERA",
+        "android.permission.READ_MEDIA_IMAGES"
       ]
     },
     "web": {
@@ -55,7 +57,14 @@
       "@react-native-community/datetimepicker",
       "@sentry/react-native",
       "expo-audio",
-      "expo-asset"
+      "expo-asset",
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Anchor accesses your photo library to set your profile photo.",
+          "cameraPermission": "Anchor uses your camera to set your profile photo."
+        }
+      ]
     ],
     "extra": {
       "eas": {

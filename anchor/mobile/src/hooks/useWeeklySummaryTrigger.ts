@@ -12,7 +12,8 @@ export interface WeeklySummaryTriggerResult {
 
 /**
  * Determines whether the weekly summary modal should be shown for the current
- * ISO week and exposes a dismissal handler persisted in AsyncStorage.
+ * active weekly summary review period and exposes a dismissal handler
+ * persisted in AsyncStorage.
  */
 export function useWeeklySummaryTrigger(): WeeklySummaryTriggerResult {
   const { weekNumber, weekStart, totalPrimes } = useWeeklyStats();

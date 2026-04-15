@@ -32,11 +32,19 @@ import {
 import { RootNavigator } from './src/navigation';
 import { ErrorBoundary } from './src/components/ErrorBoundary';
 import { ToastProvider } from './src/components/ToastProvider';
+import { ForgeMomentOverlay } from './src/components/ForgeMomentOverlay';
+import { useTrialStatus } from './src/hooks/useTrialStatus';
 import { useAuthStore } from './src/stores/authStore';
+import { useForgeMomentStore } from './src/stores/forgeMomentStore';
 import { useSessionStore } from './src/stores/sessionStore';
 import { useSettingsStore } from './src/stores/settingsStore';
 import { SettingsRevealProvider } from './src/components/transitions/SettingsRevealProvider';
 import type { RootNavigatorParamList } from './src/navigation/RootNavigator';
+import {
+  buildExpiredTrialPaywallNavigationState,
+  buildMainRootNavigationState,
+  shouldShowOnboardingFlow,
+} from './src/navigation/rootNavigationState';
 import type { Anchor } from './src/types';
 import { ErrorTrackingService, setupGlobalErrorHandler } from './src/services/ErrorTrackingService';
 import { PerformanceMonitoring, type PerformanceTrace } from './src/services/PerformanceMonitoring';
@@ -49,6 +57,7 @@ import {
 import { loadSettingsSnapshot } from './src/hooks/useSettings';
 import { encryptedPersistStorage } from './src/stores/encryptedPersistStorage';
 import { logger } from './src/utils/logger';
+import revenueCatService from './src/services/RevenueCatService';
 
 const { width } = Dimensions.get('window');
 const isWeb = Platform.OS === 'web';
@@ -157,9 +166,12 @@ export default function App() {
   const dailyReminderEnabled = useSettingsStore((state) => state.dailyReminderEnabled);
   const dailyReminderTime = useSettingsStore((state) => state.dailyReminderTime);
   const lastSessionId = useSessionStore((state) => state.lastSession?.id);
+  const activeMilestone = useForgeMomentStore((state) => state.activeMilestone);
+  const dismissMilestone = useForgeMomentStore((state) => state.dismissMilestone);
   const navRef = useNavigationContainerRef<RootNavigatorParamList>();
   const routeNameRef = useRef<string | undefined>(undefined);
   const screenTraceRef = useRef<PerformanceTrace | null>(null);
+  const hasPresentedExpiredPaywallRef = useRef(false);
   const launchOpacity = useRef(new Animated.Value(1)).current;
   const [settingsHydrated, setSettingsHydrated] = React.useState(false);
   const [launchStateResolved, setLaunchStateResolved] = React.useState(false);
@@ -167,6 +179,17 @@ export default function App() {
     InitialState | undefined
   >(undefined);
   const [shouldFadePrimeOnLaunch, setShouldFadePrimeOnLaunch] = React.useState(false);
+  const hasCompletedOnboarding = useAuthStore((state) => state.hasCompletedOnboarding);
+  const developerSkipOnboardingEnabled = useSettingsStore(
+    (state) => state.developerSkipOnboardingEnabled
+  );
+  const shouldBypassOnboarding = __DEV__ && developerSkipOnboardingEnabled;
+  const showOnboarding = shouldShowOnboardingFlow(
+    hasCompletedOnboarding,
+    shouldBypassOnboarding
+  );
+  const { hasExpired, isSubscribed } = useTrialStatus();
+  const showExpiredTrialPaywall = !showOnboarding && hasExpired && !isSubscribed;
   const [fontsLoaded] = useFonts({
     'Cinzel-Regular': Cinzel_400Regular,
     'Cinzel-SemiBold': Cinzel_600SemiBold,
@@ -292,6 +315,9 @@ export default function App() {
   }, []);
 
   useEffect(() => {
+    // Configure RevenueCat SDK anonymously on app start.
+    // We'll log in with the real user ID once auth resolves.
+    revenueCatService.configure();
     ErrorTrackingService.initialize({
       enabled: monitoringConfig.sentryEnabled,
       environment: monitoringConfig.environment,
@@ -306,6 +332,10 @@ export default function App() {
   useEffect(() => {
     if (user?.id) {
       ErrorTrackingService.setUser(user.id, user.email, user.displayName);
+      // Log in to RevenueCat with the Firebase UID so purchases are linked to this account.
+      revenueCatService.logIn(user.id).catch((error) => {
+        logger.warn('[RevenueCat] logIn failed', error);
+      });
       return;
     }
 
@@ -350,6 +380,31 @@ export default function App() {
       screenTraceRef.current = null;
     };
   }, []);
+
+  useEffect(() => {
+    if (!navRef.isReady()) {
+      return;
+    }
+
+    const currentRouteName = navRef.getCurrentRoute()?.name;
+    if (!currentRouteName) {
+      return;
+    }
+
+    if (showExpiredTrialPaywall) {
+      if (!hasPresentedExpiredPaywallRef.current) {
+        hasPresentedExpiredPaywallRef.current = true;
+        navRef.resetRoot(buildExpiredTrialPaywallNavigationState());
+      }
+      return;
+    }
+
+    hasPresentedExpiredPaywallRef.current = false;
+
+    if (currentRouteName === 'Paywall') {
+      navRef.resetRoot(buildMainRootNavigationState());
+    }
+  }, [navRef, showExpiredTrialPaywall]);
 
   if (!fontsLoaded || !launchStateResolved) {
     return <View style={styles.fontLoadingFallback} />;
@@ -406,6 +461,10 @@ export default function App() {
                   >
                     <StatusBar barStyle="light-content" backgroundColor="#1A1A1D" />
                     <RootNavigator />
+                    <ForgeMomentOverlay
+                      milestone={activeMilestone}
+                      onDismiss={dismissMilestone}
+                    />
                   </NavigationContainer>
                 </SettingsRevealProvider>
               </Animated.View>
