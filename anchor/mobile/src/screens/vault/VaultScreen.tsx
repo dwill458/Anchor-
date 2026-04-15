@@ -40,6 +40,7 @@ import { AnalyticsService, AnalyticsEvents } from '../../services/AnalyticsServi
 import { ErrorTrackingService } from '../../services/ErrorTrackingService';
 import { PerformanceMonitoring } from '../../services/PerformanceMonitoring';
 import { SanctuaryHeader } from './components/SanctuaryHeader';
+import { AtmosphericOrbs } from './components/AtmosphericOrbs';
 import { HeroAnchorCard } from './components/HeroAnchorCard';
 import { AnchorStack } from './components/AnchorStack';
 import { ZenBackground } from '@/components/common';
@@ -47,6 +48,7 @@ import { getEffectiveStabilizeStreakDays, toDateOrNull } from '@/utils/stabilize
 import type { Anchor, RootStackParamList } from '@/types';
 import { colors } from '@/theme';
 import { useTabNavigation } from '@/contexts/TabNavigationContext';
+import { isHighEndDevice } from '@/utils/deviceTier';
 import { useSettingsStore } from '@/stores/settingsStore';
 import { WeeklySummaryModal } from '@/components/WeeklySummaryModal'; import { useWeeklySummaryTrigger } from '@/hooks/useWeeklySummaryTrigger';
 
@@ -348,6 +350,7 @@ export const VaultScreen: React.FC = () => {
   return (
     <View style={styles.container}>
       <ZenBackground variant="sanctuary" showOrbs={isVaultTabActive} showGrain showVignette />
+      {isHighEndDevice && <AtmosphericOrbs reduceMotionEnabled={shouldReduceMotion} />}
 
       <SafeAreaView style={styles.safeArea} edges={['top']}>
         <ScrollView
