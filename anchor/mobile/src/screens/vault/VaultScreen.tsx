@@ -48,6 +48,7 @@ import { getEffectiveStabilizeStreakDays, toDateOrNull } from '@/utils/stabilize
 import type { Anchor, RootStackParamList } from '@/types';
 import { colors } from '@/theme';
 import { useTabNavigation } from '@/contexts/TabNavigationContext';
+import { isHighEndDevice } from '@/utils/deviceTier';
 import { useSettingsStore } from '@/stores/settingsStore';
 import { WeeklySummaryModal } from '@/components/WeeklySummaryModal'; import { useWeeklySummaryTrigger } from '@/hooks/useWeeklySummaryTrigger';
 
@@ -256,6 +257,14 @@ export const VaultScreen: React.FC = () => {
     navigation.replace('FirstAnchorAccountGate');
   }, [navigation, shouldGateFirstVaultEntry]);
 
+  // ── Analytics tracking — fires once per user session, not on every anchor update ──
+  const anchorsLengthRef = React.useRef(anchors.length);
+  anchorsLengthRef.current = anchors.length;
+  useEffect(() => {
+    if (!user) return;
+    AnalyticsService.track(AnalyticsEvents.VAULT_VIEWED, { anchor_count: anchorsLengthRef.current });
+  }, [user?.id]); // eslint-disable-line react-hooks/exhaustive-deps
+
   // ── Data fetching ─────────────────────────────────────────────────────────────
   const fetchAnchors = useCallback(async (): Promise<void> => {
     if (!user) return;
@@ -263,9 +272,7 @@ export const VaultScreen: React.FC = () => {
     setLoading(true);
     setError(null);
     try {
-      await new Promise((resolve) => setTimeout(resolve, 1000));
-      trace.putAttribute('anchor_count', anchors.length);
-      AnalyticsService.track(AnalyticsEvents.VAULT_VIEWED, { anchor_count: anchors.length });
+      trace.putAttribute('anchor_count', String(anchorsLengthRef.current));
     } catch (error) {
       const msg = (error as Error).message;
       setError(msg);
@@ -279,7 +286,7 @@ export const VaultScreen: React.FC = () => {
       setLoading(false);
       trace.stop();
     }
-  }, [user, setLoading, setError, toast, anchors.length]);
+  }, [user, setLoading, setError, toast]);
 
   useEffect(() => { fetchAnchors(); }, [fetchAnchors]);
 
@@ -343,7 +350,7 @@ export const VaultScreen: React.FC = () => {
   return (
     <View style={styles.container}>
       <ZenBackground variant="sanctuary" showOrbs={isVaultTabActive} showGrain showVignette />
-      <AtmosphericOrbs reduceMotionEnabled={shouldReduceMotion} />
+      {isHighEndDevice && <AtmosphericOrbs reduceMotionEnabled={shouldReduceMotion} />}
 
       <SafeAreaView style={styles.safeArea} edges={['top']}>
         <ScrollView
