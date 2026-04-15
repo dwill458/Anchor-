@@ -37,7 +37,7 @@ import { useSubscriptionStore } from '@/stores/subscriptionStore';
 import { useTrialStatus } from '@/hooks/useTrialStatus';
 import { useReduceMotionEnabled } from '@/hooks/useReduceMotionEnabled';
 import { useSettingsReveal } from '@/components/transitions/SettingsRevealProvider';
-import type { RootStackParamList } from '@/types';
+import type { ProfileStackParamList } from '@/navigation/ProfileStackNavigator';
 import { colors, spacing } from '@/theme';
 import { ZenBackground } from '@/components/common';
 import NotificationService from '@/services/NotificationService';
@@ -128,7 +128,7 @@ const SectionHeader: React.FC<{ title: string; description?: string }> = ({
 );
 
 export const SettingsScreen: React.FC = () => {
-  const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
+  const navigation = useNavigation<NativeStackNavigationProp<ProfileStackParamList>>();
   const { user, signOut, setHasCompletedOnboarding } = useAuthStore();
   const settings = useSettingsStore();
   const subStore = useSubscriptionStore();
