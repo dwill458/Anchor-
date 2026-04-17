@@ -10,13 +10,13 @@
 import express, { Response } from 'express';
 import rateLimit from 'express-rate-limit';
 import { z } from 'zod';
-import { AuthRequest, authMiddleware, optionalAuthMiddleware } from '../middleware/auth';
+import { AuthRequest, authMiddleware, optionalAuthMiddleware, DEV_MASTER_UID } from '../middleware/auth';
 import { prisma } from '../../lib/prisma';
 import {
   getCostEstimate,
   enhanceSigilWithAI,
   enhanceSigilWithControlNet,
-  estimateControlNetGenerationTime,
+  estimateGenerationTime,
   AIStyle,
 } from '../../services/AIEnhancer';
 import { generateMantra, getRecommendedMantraStyle } from '../../services/MantraGenerator';
@@ -35,14 +35,34 @@ const router = express.Router();
 // this runs), falling back to IP for any unauthenticated edge cases.
 // Limit: 20 generations per hour — generous for normal use, tight enough to
 // prevent accidental loops or abuse.
-const aiEnhanceLimiter = rateLimit({
+const aiHourlyLimiter = rateLimit({
   windowMs: 60 * 60 * 1000, // 1 hour
   max: 20,
   standardHeaders: true,
   legacyHeaders: false,
+  keyGenerator: (req) => (req as AuthRequest).user?.uid || req.ip || 'unknown',
+  skip: (req) => (req as AuthRequest).user?.uid === DEV_MASTER_UID,
   message: {
     error: 'Too many AI generation requests',
     message: 'You have reached the AI enhancement limit. Please try again in an hour.',
+  },
+});
+
+// Daily AI generation limit per user — prevents runaway API costs.
+// Dev master account is exempt. Configurable via AI_DAILY_LIMIT env var.
+// NOTE: Uses in-memory store; resets on server restart. For production,
+// consider rate-limit-redis or a DB-backed counter.
+const AI_DAILY_LIMIT = parseInt(process.env.AI_DAILY_LIMIT || '10', 10);
+const aiDailyLimiter = rateLimit({
+  windowMs: 24 * 60 * 60 * 1000, // 24 hours
+  max: AI_DAILY_LIMIT,
+  standardHeaders: true,
+  legacyHeaders: false,
+  keyGenerator: (req) => (req as AuthRequest).user?.uid || req.ip || 'unknown',
+  skip: (req) => (req as AuthRequest).user?.uid === DEV_MASTER_UID,
+  message: {
+    error: 'Daily generation limit reached',
+    message: `You have reached your daily limit of ${AI_DAILY_LIMIT} AI generations. Try again tomorrow.`,
   },
 });
 
@@ -63,7 +83,7 @@ const VALID_STYLES = [
   'celestial_grid',
 ] as const;
 
-const EnhanceControlNetSchema = z.object({
+const EnhanceSchema = z.object({
   sigilSvg: z.string().min(1),
   styleChoice: z.enum(VALID_STYLES),
   anchorId: z.string().min(1),
@@ -104,15 +124,15 @@ function validateOrRespond<T>(schema: z.ZodSchema<T>, data: unknown, res: Respon
 }
 
 /**
- * POST /api/ai/enhance-controlnet
- * Generate AI-enhanced sigil variations using ControlNet with STRICT structure preservation.
+ * POST /api/ai/enhance
+ * Generate AI-enhanced sigil variations using Gemini (Nano Banana) with
+ * STRICT structure preservation.
  *
  * Key features:
  * - Structure preservation validation (IoU scoring)
  * - Per-variation structureMatchScore
  * - structurePreserved boolean per variation
- * - Supports 6 validated styles: watercolor, sacred_geometry, ink_brush,
- *   gold_leaf, cosmic, minimal_line
+ * - Supports 12 validated styles
  *
  * Response includes:
  * - variations: Array of {imageUrl, structureMatchScore, structurePreserved, classification}
@@ -143,13 +163,10 @@ function withTimeout<T>(promise: Promise<T>, ms: number, label: string): Promise
 // 3 minutes — generous for image generation but prevents hung requests
 const AI_GENERATION_TIMEOUT_MS = 3 * 60 * 1000;
 
-router.post(
-  '/enhance-controlnet',
-  optionalAuthMiddleware,
-  aiEnhanceLimiter,
-  async (req: AuthRequest, res: Response): Promise<void> => {
+// Handler shared by /enhance and legacy /enhance-controlnet alias
+async function handleEnhance(req: AuthRequest, res: Response): Promise<void> {
     try {
-      const parsed = validateOrRespond(EnhanceControlNetSchema, req.body, res);
+      const parsed = validateOrRespond(EnhanceSchema, req.body, res);
       if (!parsed) return;
 
       // Onboarding flow generates a "temp-*" anchor before the user has an
@@ -202,7 +219,7 @@ router.post(
             select: { id: true },
           });
         } catch (dbError) {
-          logger.error('[ControlNet] Database error during user lookup', dbError);
+          logger.error('[AI Enhance] Database error during user lookup', dbError);
           res.status(503).json({
             error: 'Service temporarily unavailable',
             message: 'Unable to reach the database. Please try again shortly.',
@@ -238,7 +255,7 @@ router.post(
             select: { id: true },
           });
         } catch (dbError) {
-          logger.error('[ControlNet] Database error during anchor lookup', dbError);
+          logger.error('[AI Enhance] Database error during anchor lookup', dbError);
           res.status(503).json({
             error: 'Service temporarily unavailable',
             message: 'Unable to reach the database. Please try again shortly.',
@@ -255,7 +272,7 @@ router.post(
         }
       }
 
-      logger.debug('[API] enhance-controlnet request', {
+      logger.debug('[API] enhance request', {
         sigilSvgLength: sigilSvg?.length || 0,
         styleChoice,
         userId: user.id,
@@ -268,7 +285,7 @@ router.post(
         effectiveTier,
       });
 
-      logger.info('[ControlNet] Enhancing sigil with STRICT structure preservation', {
+      logger.info('[AI Enhance] Enhancing sigil with STRICT structure preservation', {
         anchorId,
         style: styleChoice,
         validateStructure: validateStructure !== false,
@@ -310,7 +327,7 @@ router.post(
       } catch (aiError: unknown) {
         const err = aiError as Error & { code?: string; status?: number };
         if (err.code === 'UPSTREAM_TIMEOUT') {
-          logger.error('[ControlNet] Generation timed out', {
+          logger.error('[AI Enhance] Generation timed out', {
             anchorId,
             style: styleChoice,
             provider: provider || 'auto',
@@ -327,14 +344,14 @@ router.post(
           err.message?.includes('quota') ||
           err.message?.includes('rate limit')
         ) {
-          logger.warn('[ControlNet] Upstream rate limit hit', { anchorId, message: err.message });
+          logger.warn('[AI Enhance] Upstream rate limit hit', { anchorId, message: err.message });
           res.status(503).json({
             error: 'AI service rate limit reached',
             message: 'The image generation service is busy. Please wait a moment and try again.',
           });
           return;
         }
-        logger.error('[ControlNet] AI generation failed', aiError);
+        logger.error('[AI Enhance] AI generation failed', aiError);
         res.status(502).json({
           error: 'AI generation failed',
           message: 'The upstream image generation service encountered an error. Please try again.',
@@ -342,7 +359,7 @@ router.post(
         return;
       }
 
-      logger.info('[ControlNet] Generated variations with structure scores', {
+      logger.info('[AI Enhance] Generated variations with structure scores', {
         count: enhancementResult.variations.length,
         passingCount: enhancementResult.passingCount,
         bestScore:
@@ -372,7 +389,7 @@ router.post(
             baseUrl: requestBaseUrl,
           });
         } catch (uploadError) {
-          logger.error('[ControlNet] Failed to upload variation to storage', {
+          logger.error('[AI Enhance] Failed to upload variation to storage', {
             variationIndex: i,
             anchorId,
             error: uploadError instanceof Error ? uploadError.message : String(uploadError),
@@ -395,7 +412,7 @@ router.post(
       }
 
       if (uploadedVariations.length === 0) {
-        logger.error('[ControlNet] All variation uploads failed', { anchorId, style: styleChoice });
+        logger.error('[AI Enhance] All variation uploads failed', { anchorId, style: styleChoice });
         res.status(502).json({
           error: 'Image storage failed',
           message: 'AI images were generated but could not be saved. Please try again.',
@@ -441,14 +458,18 @@ router.post(
         allPreserved: enhancementResult.passingCount === enhancementResult.variations.length,
       });
     } catch (error) {
-      logger.error('[ControlNet] Unexpected enhancement error', error);
+      logger.error('[AI Enhance] Unexpected enhancement error', error);
       res.status(500).json({
         error: 'Internal server error',
         message: 'An unexpected error occurred during AI enhancement.',
       });
     }
-  }
-);
+}
+
+// Primary route
+router.post('/enhance', optionalAuthMiddleware, aiDailyLimiter, aiHourlyLimiter, handleEnhance);
+// Legacy alias — keeps older mobile builds working
+router.post('/enhance-controlnet', optionalAuthMiddleware, aiDailyLimiter, aiHourlyLimiter, handleEnhance);
 
 /**
  * POST /api/ai/mantra
@@ -542,17 +563,17 @@ router.get('/voices', authMiddleware, (req: AuthRequest, res: Response): void =>
 
 /**
  * GET /api/ai/estimate
- * Get time and cost estimates for AI enhancement (ControlNet)
+ * Get time and cost estimates for AI enhancement
  */
 router.get('/estimate', authMiddleware, (req: AuthRequest, res: Response): void => {
-  const timeEstimate = estimateControlNetGenerationTime();
+  const timeEstimate = estimateGenerationTime();
   const costEstimate = getCostEstimate();
 
   res.json({
     success: true,
     timeEstimate,
     costEstimate,
-    method: 'controlnet',
+    method: 'gemini',
   });
 });
 
@@ -561,6 +582,7 @@ router.get('/estimate', authMiddleware, (req: AuthRequest, res: Response): void 
  * Health check for AI services
  */
 router.get('/health', authMiddleware, (req: AuthRequest, res: Response): void => {
+  const hasGeminiKey = !!(process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY);
   const hasReplicateToken = !!process.env.REPLICATE_API_TOKEN;
   const hasR2Config = !!(
     process.env.CLOUDFLARE_ACCOUNT_ID &&
@@ -570,12 +592,13 @@ router.get('/health', authMiddleware, (req: AuthRequest, res: Response): void =>
   const hasTTS = isTTSAvailable();
 
   const status = {
+    gemini: hasGeminiKey ? 'configured' : 'missing_key',
     replicate: hasReplicateToken ? 'configured' : 'missing_token',
     storage: hasR2Config ? 'configured' : 'missing_credentials',
     tts: hasTTS ? 'configured' : 'optional_not_configured',
   };
 
-  const isHealthy = hasReplicateToken && hasR2Config; // TTS is optional
+  const isHealthy = hasGeminiKey && hasR2Config; // TTS optional, Replicate legacy fallback only
 
   res.status(isHealthy ? 200 : 503).json({
     success: isHealthy,

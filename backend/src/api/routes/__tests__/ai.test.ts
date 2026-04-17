@@ -24,7 +24,7 @@ const mockEnhanceSigilWithControlNet = jest.fn();
 jest.mock('../../../services/AIEnhancer', () => ({
   enhanceSigilWithAI: (...args: unknown[]) => mockEnhanceSigilWithAI(...args),
   enhanceSigilWithControlNet: (...args: unknown[]) => mockEnhanceSigilWithControlNet(...args),
-  estimateControlNetGenerationTime: jest.fn(() => 30),
+  estimateGenerationTime: jest.fn(() => 30),
   getCostEstimate: jest.fn(() => ({ amount: 1 })),
 }));
 

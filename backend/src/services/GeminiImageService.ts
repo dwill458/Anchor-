@@ -37,17 +37,17 @@ interface ModelConfig {
 
 const MODEL_CONFIGS: Record<QualityTier, ModelConfig> = {
   draft: {
-    modelId: 'gemini-3.1-flash-image-preview',
-    displayName: 'Gemini 3.1 Flash Image (Draft)',
+    modelId: 'gemini-3-pro-image-preview',
+    displayName: 'Gemini 3 Pro Image (Nano Banana - Draft)',
     costPerImage: 0.01,
-    estimatedTimeSeconds: 3,
+    estimatedTimeSeconds: 4,
     useNanoBanana: true,
   },
   premium: {
-    modelId: 'gemini-3.1-flash-image-preview',
-    displayName: 'Gemini 3.1 Flash Image (Premium)',
+    modelId: 'gemini-3-pro-image-preview',
+    displayName: 'Gemini 3 Pro Image (Nano Banana - Premium)',
     costPerImage: 0.02,
-    estimatedTimeSeconds: 4,
+    estimatedTimeSeconds: 5,
     useNanoBanana: true,
   },
   pro_upgrade: {
@@ -166,12 +166,18 @@ export class GeminiImageService {
     // 3. Get model configuration
     const modelConfig = MODEL_CONFIGS[tier];
 
-    // 4. Generate all variations in parallel
-    const variations = await Promise.all(
-      Array.from({ length: numberOfVariations }, (_, i) =>
-        this.generateVariation(baseImageBuffer, prompt, i, modelConfig)
-      )
-    );
+    // 4. Generate variations sequentially with a short delay between calls
+    //    to avoid hitting Gemini's per-minute rate limits (free tier ≈ 2-10 RPM).
+    const INTER_CALL_DELAY_MS = 2500;
+    const variations: ImageVariation[] = [];
+    for (let i = 0; i < numberOfVariations; i++) {
+      const variation = await this.generateVariation(baseImageBuffer, prompt, i, modelConfig);
+      variations.push(variation);
+
+      if (i < numberOfVariations - 1) {
+        await new Promise(resolve => setTimeout(resolve, INTER_CALL_DELAY_MS));
+      }
+    }
 
     const totalTime = Math.round((Date.now() - startTime) / 1000);
 
@@ -791,8 +797,10 @@ REFERENCE IMAGE INSTRUCTION: The attached image shows the sigil structure that m
         timeoutPromise,
       ]);
 
-      // Extract image from response
-      const imageData = response.candidates?.[0]?.content?.parts?.[0]?.inlineData?.data;
+      const imageData = response.candidates
+        ?.flatMap((candidate) => candidate.content?.parts ?? [])
+        ?.find((part) => typeof part.inlineData?.data === 'string')
+        ?.inlineData?.data;
 
       if (!imageData) {
         throw new GeminiError(
