@@ -8,7 +8,7 @@
  */
 
 import express, { Response } from 'express';
-import rateLimit from 'express-rate-limit';
+import rateLimit, { ipKeyGenerator } from 'express-rate-limit';
 import { z } from 'zod';
 import { AuthRequest, authMiddleware, optionalAuthMiddleware, DEV_MASTER_UID } from '../middleware/auth';
 import { prisma } from '../../lib/prisma';
@@ -40,7 +40,7 @@ const aiHourlyLimiter = rateLimit({
   max: 20,
   standardHeaders: true,
   legacyHeaders: false,
-  keyGenerator: (req) => (req as AuthRequest).user?.uid || req.ip || 'unknown',
+  keyGenerator: (req) => (req as AuthRequest).user?.uid || ipKeyGenerator(req.ip ?? ''),
   skip: (req) => (req as AuthRequest).user?.uid === DEV_MASTER_UID,
   message: {
     error: 'Too many AI generation requests',
@@ -58,7 +58,7 @@ const aiDailyLimiter = rateLimit({
   max: AI_DAILY_LIMIT,
   standardHeaders: true,
   legacyHeaders: false,
-  keyGenerator: (req) => (req as AuthRequest).user?.uid || req.ip || 'unknown',
+  keyGenerator: (req) => (req as AuthRequest).user?.uid || ipKeyGenerator(req.ip ?? ''),
   skip: (req) => (req as AuthRequest).user?.uid === DEV_MASTER_UID,
   message: {
     error: 'Daily generation limit reached',
