@@ -210,8 +210,9 @@ async function handleEnhance(req: AuthRequest, res: Response): Promise<void> {
       // --- Database lookups ---
       // Anonymous onboarding requests (temp-* anchor) skip the user lookup
       // and use a synthetic storage id so uploaded images are still namespaced.
+      // Dev master account also bypasses DB lookup — it has no real DB record.
       let user: { id: string };
-      if (req.user?.uid) {
+      if (req.user?.uid && req.user.uid !== DEV_MASTER_UID) {
         let dbUser: { id: string } | null;
         try {
           dbUser = await prisma.user.findUnique({
@@ -236,9 +237,9 @@ async function handleEnhance(req: AuthRequest, res: Response): Promise<void> {
         }
         user = dbUser;
       } else {
-        // Anonymous onboarding path — synthesize a throwaway id for storage
-        // pathing. Nothing is persisted to the User table.
-        user = { id: `anon-${Date.now()}` };
+        // Anonymous onboarding path or dev master account — synthesize a
+        // throwaway id for storage pathing. Nothing is persisted to the User table.
+        user = { id: req.user?.uid ?? `anon-${Date.now()}` };
       }
 
       const isTempAnchorRequest = anchorId.startsWith('temp-');
