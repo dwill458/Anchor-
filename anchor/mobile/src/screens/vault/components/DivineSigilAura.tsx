@@ -11,6 +11,7 @@ import {
   type SharedValue,
 } from 'react-native-reanimated';
 import { colors } from '@/theme';
+import type { PerformanceTier } from '@/hooks/usePerformanceTier';
 
 const TAU = Math.PI * 2;
 
@@ -19,6 +20,12 @@ interface DivineSigilAuraProps {
   enabled: boolean;
   reduceMotionEnabled?: boolean;
   breath?: SharedValue<number>;
+  /**
+   * Rendering budget. `'low'` disables the canvas (use BakedGlow in the
+   * parent instead). `'medium'` keeps the SkPicture but halts spin/pulse
+   * animations so the GPU renders once on layout and then sleeps.
+   */
+  tier?: PerformanceTier;
 }
 
 interface RaySeed {
@@ -86,7 +93,10 @@ export const DivineSigilAura: React.FC<DivineSigilAuraProps> = ({
   enabled,
   reduceMotionEnabled = false,
   breath,
+  tier = 'high',
 }) => {
+  const tierSuppressed = tier === 'low';
+  const tierFrozen = tier === 'medium';
   const fallbackBreath = useSharedValue(0);
   const spinSlow = useSharedValue(0);
   const spinFast = useSharedValue(0);
@@ -101,7 +111,12 @@ export const DivineSigilAura: React.FC<DivineSigilAuraProps> = ({
   const particles = useMemo(() => buildParticles(particleCount), [particleCount]);
   const streaks = useMemo(() => buildStreaks(5), []);
 
-  const animationsEnabled = enabled && !reduceMotionEnabled && process.env.NODE_ENV !== 'test';
+  const animationsEnabled =
+    enabled &&
+    !reduceMotionEnabled &&
+    !tierFrozen &&
+    !tierSuppressed &&
+    process.env.NODE_ENV !== 'test';
   const center = size / 2;
   const maxRadius = size * 0.48;
 
@@ -320,7 +335,7 @@ export const DivineSigilAura: React.FC<DivineSigilAuraProps> = ({
     return recorder.finishRecordingAsPicture();
   });
 
-  if (!enabled) {
+  if (!enabled || tierSuppressed) {
     return null;
   }
 
