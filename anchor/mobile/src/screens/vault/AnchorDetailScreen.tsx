@@ -46,9 +46,11 @@ import Reanimated, {
 import { DivineSigilAura } from './components/DivineSigilAura';
 import {
   AnchorArtworkExportCanvas,
+  BakedGlow,
   ChargedGlowCanvas,
   ZenBackground,
 } from '@/components/common';
+import { usePerformanceTier } from '@/hooks/usePerformanceTier';
 
 const { width: SCREEN_W } = Dimensions.get('window');
 const SIGIL_CIRCLE_SIZE = Math.round(SCREEN_W * 0.62);
@@ -455,10 +457,10 @@ const RitualCard = ({ icon, title, subtitle, helper, onPress, isMuted = false, i
   );
 };
 
-const PrimerModal = ({ visible, onActivate, onSkip, onCancel }) => (
+const PrimerModal = ({ visible, onActivate, onSkip, onCancel, blurIntensity = 30 }) => (
   <Modal visible={visible} transparent animationType="fade">
     <View style={rs.modalOverlay}>
-      <BlurView intensity={30} tint="dark" style={StyleSheet.absoluteFillObject} />
+      <BlurView intensity={blurIntensity} tint="dark" style={StyleSheet.absoluteFillObject} />
       <View style={rs.modalContent}>
         <LinearGradient colors={CARD_GRADIENT} style={[rs.card, { padding: 24, paddingVertical: 32 }]}>
           <Text style={rs.modalTitle}>Primer Activation</Text>
@@ -517,6 +519,7 @@ const MiniWeekTrack = ({ weekHistory, lastPrimedAt }) => {
 
 const AnchorDetailsScreen = ({ navigation, route }) => {
   const insets = useSafeAreaInsets();
+  const perfTier = usePerformanceTier();
   const { navigateToPractice } = useTabNavigation();
   const getAnchorById = useAnchorStore((state) => state.getAnchorById);
   const removeAnchor = useAnchorStore((state) => state.removeAnchor);
@@ -904,7 +907,11 @@ const AnchorDetailsScreen = ({ navigation, route }) => {
       <ZenBackground variant="practice" showOrbs showGrain showVignette />
 
       {/* ── HEADER ── */}
-      <BlurView intensity={30} tint="dark" style={s.header}>
+      <BlurView
+        intensity={perfTier === 'high' ? 30 : perfTier === 'medium' ? 12 : 0}
+        tint="dark"
+        style={s.header}
+      >
         <TouchableOpacity onPress={() => navigation?.goBack()} style={s.backBtn}>
           <Text style={s.backArrow}>←</Text>
         </TouchableOpacity>
@@ -952,14 +959,22 @@ const AnchorDetailsScreen = ({ navigation, route }) => {
         {/* ── SIGIL CARD ── */}
         <FadeUp delay={120}>
           <View style={s.sigilAuraContainer}>
-            {/* DivineSigilAura only for uncharged — sits behind the card */}
+            {/* DivineSigilAura only for uncharged — sits behind the card.
+                On low-tier devices we swap in BakedGlow, which composites a
+                single hardware-cached radial gradient instead of the full
+                Skia particle canvas. */}
             {!anchor.charged && (
               <View pointerEvents="none" style={s.sigilAuraCanvas}>
-                <DivineSigilAura
-                  size={SCREEN_W * 1.25}
-                  enabled={divineGlowActive}
-                  breath={divineBreath}
-                />
+                {perfTier === 'low' ? (
+                  <BakedGlow size={SCREEN_W * 1.25} />
+                ) : (
+                  <DivineSigilAura
+                    size={SCREEN_W * 1.25}
+                    enabled={divineGlowActive}
+                    breath={divineBreath}
+                    tier={perfTier}
+                  />
+                )}
               </View>
             )}
             <View style={s.sigilCard}>
@@ -969,11 +984,17 @@ const AnchorDetailsScreen = ({ navigation, route }) => {
               >
                 {!divineGlowActive && <BreathingGlow />}
 
-                {/* ChargedGlowCanvas fills inside the card for charged anchors */}
-                {anchor.charged && (
+                {/* ChargedGlowCanvas fills inside the card for charged
+                    anchors. Low-tier substitutes BakedGlow; medium-tier
+                    keeps the Skia look but freezes the per-frame update. */}
+                {anchor.charged && perfTier === 'low' && (
+                  <BakedGlow size={SCREEN_W * 0.65} />
+                )}
+                {anchor.charged && perfTier !== 'low' && (
                   <ChargedGlowCanvas
                     size={SCREEN_W * 0.65}
                     reduceMotionEnabled={false}
+                    tier={perfTier}
                   />
                 )}
 

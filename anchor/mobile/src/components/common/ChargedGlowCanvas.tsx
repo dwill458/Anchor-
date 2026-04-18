@@ -21,17 +21,27 @@ import {
   useFrameCallback,
   useSharedValue,
 } from 'react-native-reanimated';
+import type { PerformanceTier } from '@/hooks/usePerformanceTier';
 
 interface ChargedGlowCanvasProps {
   /** Hint for initial draw size; actual size is measured via onLayout. */
   size: number;
   reduceMotionEnabled?: boolean;
+  /**
+   * Rendering budget. `'low'` suppresses the canvas (caller should swap in
+   * BakedGlow). `'medium'` freezes time so the SkPicture redraws only on
+   * layout, keeping the ornate look without per-frame GPU cost.
+   */
+  tier?: PerformanceTier;
 }
 
 export const ChargedGlowCanvas: React.FC<ChargedGlowCanvasProps> = ({
   size,
   reduceMotionEnabled = false,
+  tier = 'high',
 }) => {
+  const frozen = tier === 'medium' || reduceMotionEnabled;
+  const suppressed = tier === 'low';
   const canvasW = useSharedValue(size);
 
   const handleLayout = useCallback(
@@ -115,7 +125,7 @@ export const ChargedGlowCanvas: React.FC<ChargedGlowCanvasProps> = ({
     if (info.timeSincePreviousFrame != null) {
       time.value += info.timeSincePreviousFrame / 1000; // ms → s
     }
-  }, !reduceMotionEnabled);
+  }, !frozen && !suppressed);
 
   // ── Per-frame SkPicture ───────────────────────────────────────────────────
   const picture = useDerivedValue(() => {
@@ -278,6 +288,10 @@ export const ChargedGlowCanvas: React.FC<ChargedGlowCanvasProps> = ({
 
     return recorder.finishRecordingAsPicture();
   });
+
+  if (suppressed) {
+    return null;
+  }
 
   return (
     <View
