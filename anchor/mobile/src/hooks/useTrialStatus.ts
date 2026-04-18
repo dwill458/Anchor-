@@ -10,6 +10,7 @@
  */
 
 import { useSubscriptionStore, computeDaysRemaining } from '@/stores/subscriptionStore';
+import { useSettingsStore } from '@/stores/settingsStore';
 
 export interface TrialStatus {
     /** Trial is active and days remain. */
@@ -33,6 +34,21 @@ export function useTrialStatus(): TrialStatus {
     const trialStartDate = useSubscriptionStore((s) => s.trialStartDate);
     const devOverrideEnabled = useSubscriptionStore((s) => s.devOverrideEnabled);
     const devTierOverride = useSubscriptionStore((s) => s.devTierOverride);
+    const developerMasterAccountEnabled = useSettingsStore(
+        (s) => s.developerMasterAccountEnabled
+    );
+
+    if (__DEV__ && developerMasterAccountEnabled) {
+        return {
+            isTrialActive: false,
+            isSubscribed: true,
+            hasExpired: false,
+            trialExpired: false,
+            hasActiveEntitlement: true,
+            daysRemaining: 0,
+            subscriptionStatus: 'active',
+        };
+    }
 
     // Dev override: simulate expired state
     if (__DEV__ && devOverrideEnabled && (devTierOverride === 'expired' || devTierOverride === 'free')) {

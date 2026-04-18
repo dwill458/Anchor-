@@ -316,6 +316,9 @@ export interface EnhancementMetadata {
   /** AI model identifier (e.g., 'sdxl-controlnet-canny-v1') */
   modelUsed: string;
 
+  /** Provider that generated the artwork (e.g., 'gemini', 'replicate') */
+  provider?: string;
+
   /** ControlNet method used (e.g., 'canny', 'lineart') */
   controlMethod: 'canny' | 'lineart' | string;
 
@@ -349,6 +352,17 @@ export type AIStyle =
   | 'echo_chamber'
   | 'monolith_ink'
   | 'celestial_grid';
+
+export interface GeneratedVariation {
+  imageUrl: string;
+  structureMatchScore?: number;
+  iouScore?: number;
+  edgeOverlapScore?: number;
+  structurePreserved?: boolean;
+  classification?: string;
+  wasComposited?: boolean;
+  seed?: number;
+}
 
 /**
  * Legacy AI styles (deprecated, kept for backward compatibility)
@@ -520,9 +534,14 @@ export type RootStackParamList = {
     reinforcedSigilSvg?: string;
     structureVariant: SigilVariant;
     styleChoice: AIStyle;
-    variations: string[];
+    variations: Array<string | GeneratedVariation>;
     reinforcementMetadata?: ReinforcementMetadata;
     prompt?: string;
+    negativePrompt?: string;
+    modelUsed?: string;
+    provider?: string;
+    controlMethod?: string;
+    generationTimeMs?: number;
   };
 
   /** Step 7d: Anchor Reveal (Show selected anchor before mantra) */

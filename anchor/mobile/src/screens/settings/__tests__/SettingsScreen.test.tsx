@@ -25,6 +25,7 @@ const mockSettings = {
   dev_developerModeEnabled: false,
   dev_overridesEnabled: false,
   dev_simulatedTier: 'pro' as const,
+  dev_masterAccount: false,
   dev_skipOnboarding: false,
   dev_allowDirectAnchorDelete: false,
   dev_debugLogging: false,
@@ -49,8 +50,17 @@ jest.mock('@/components/transitions/SettingsRevealProvider', () => ({
 }));
 
 jest.mock('@/stores/authStore', () => ({
-  useAuthStore: (selector: (state: { setHasCompletedOnboarding: jest.Mock }) => unknown) =>
-    selector({ setHasCompletedOnboarding: jest.fn() }),
+  useAuthStore: (selector?: (state: {
+    setHasCompletedOnboarding: jest.Mock;
+    signOut: jest.Mock;
+  }) => unknown) => {
+    const state = {
+      setHasCompletedOnboarding: jest.fn(),
+      signOut: jest.fn(),
+    };
+
+    return selector ? selector(state) : state;
+  },
 }));
 
 jest.mock('@/services/DailyGoalNudgeService', () => ({

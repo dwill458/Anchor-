@@ -15,6 +15,10 @@ import { AuthService } from '@/services/AuthService';
 import { useAnchorStore } from '@/stores/anchorStore';
 import { calculateStreak } from '@/utils/streakHelpers';
 import { applyStabilizeCompletion, toDateOrNull } from '@/utils/stabilizeStats';
+import {
+  createDeveloperMasterUser,
+  DEVELOPER_MASTER_ACCOUNT_TOKEN,
+} from '@/utils/developerMasterAccount';
 import { logger } from '@/utils/logger';
 
 /**
@@ -166,6 +170,7 @@ interface AuthState {
   setOnboardingSegment: (segment: OnboardingSegment) => void;
   setShouldRedirectToCreation: (should: boolean) => void;
   incrementAnchorCount: () => void;
+  enableDeveloperMasterAccount: () => void;
   setPendingForgeIntent: (intent: string | null) => void;
   clearPendingForgeIntent: () => void;
   setPendingForgeResumeTarget: (target: string | null) => void;
@@ -297,6 +302,29 @@ export const useAuthStore = create<AuthState>()(
       incrementAnchorCount: () =>
         set((state) => ({
           anchorCount: state.anchorCount + 1,
+        })),
+
+      enableDeveloperMasterAccount: () =>
+        set((state) => ({
+          user: createDeveloperMasterUser({
+            hasCompletedOnboarding: state.hasCompletedOnboarding,
+            totalAnchorsCreated: Math.max(
+              state.anchorCount,
+              state.user?.totalAnchorsCreated ?? 0
+            ),
+            totalActivations: state.user?.totalActivations ?? 0,
+            currentStreak: state.user?.currentStreak ?? 0,
+            longestStreak: state.user?.longestStreak ?? 0,
+            stabilizesTotal: state.user?.stabilizesTotal ?? 0,
+            stabilizeStreakDays: state.user?.stabilizeStreakDays ?? 0,
+            lastStabilizeAt: state.user?.lastStabilizeAt,
+            createdAt: state.user?.createdAt ?? new Date(),
+          }),
+          token: DEVELOPER_MASTER_ACCOUNT_TOKEN,
+          isAuthenticated: true,
+          isLoading: false,
+          profileData: null,
+          profileLastFetched: null,
         })),
 
       setPendingForgeIntent: (pendingForgeIntent) =>

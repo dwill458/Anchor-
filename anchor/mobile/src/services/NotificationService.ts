@@ -712,8 +712,8 @@ class NotificationService {
 
     try {
       return await Notifications.scheduleNotificationAsync(request);
-    } catch (error) {
-      const errorMessage = error instanceof Error ? ` ${error.message}` : '';
+    } catch (error: any) {
+      const errorMessage = error?.message ? ` ${error.message}` : '';
       this.recordError(
         new ServiceError(
           'notifications/schedule-failed',

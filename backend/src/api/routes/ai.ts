@@ -201,11 +201,11 @@ async function handleEnhance(req: AuthRequest, res: Response): Promise<void> {
       const parsedAttempt =
         typeof generationAttempt === 'number' && generationAttempt > 0 ? generationAttempt : 1;
 
-      // Pro users auto-upgrade to the pro model after 2 flash attempts for the same anchor
+      // Flash for all standard enhancements; Pro model only on regeneration (attempt 2+)
       const effectiveTier: 'draft' | 'premium' | 'pro_upgrade' =
-        tier === 'premium' && parsedAttempt > 2
+        parsedAttempt >= 2
           ? 'pro_upgrade'
-          : (tier as 'draft' | 'premium') || 'premium';
+          : 'premium';
 
       // --- Database lookups ---
       // Anonymous onboarding requests (temp-* anchor) skip the user lookup

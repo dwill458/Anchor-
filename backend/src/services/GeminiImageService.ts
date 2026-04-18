@@ -1,7 +1,8 @@
 /**
  * Gemini Image Service - Integration with Google's GenAI SDK
  *
- * Uses Gemini 2.0 Flash (Experimental) which supports native image generation.
+ * Uses Gemini 3.1 Flash (Nano Banana 2) for standard enhancements and
+ * Gemini 3 Pro for regenerations / 4K downloads.
  */
 
 import { GoogleGenAI } from '@google/genai';
@@ -35,24 +36,29 @@ interface ModelConfig {
   useNanoBanana?: boolean;
 }
 
+// Flash model: used for all standard enhancements (paid default)
+// Pro model: reserved for regenerations (attempt 3+) and 4K downloads
+const FLASH_MODEL = process.env.GEMINI_FLASH_MODEL || 'gemini-3.1-flash-image-preview';
+const PRO_MODEL = process.env.GEMINI_PRO_MODEL || 'gemini-3-pro-image-preview';
+
 const MODEL_CONFIGS: Record<QualityTier, ModelConfig> = {
   draft: {
-    modelId: 'gemini-3-pro-image-preview',
-    displayName: 'Gemini 3 Pro Image (Nano Banana - Draft)',
-    costPerImage: 0.01,
-    estimatedTimeSeconds: 4,
+    modelId: FLASH_MODEL,
+    displayName: 'Gemini Flash (standard)',
+    costPerImage: 0.005,
+    estimatedTimeSeconds: 3,
     useNanoBanana: true,
   },
   premium: {
-    modelId: 'gemini-3-pro-image-preview',
-    displayName: 'Gemini 3 Pro Image (Nano Banana - Premium)',
-    costPerImage: 0.02,
-    estimatedTimeSeconds: 5,
+    modelId: FLASH_MODEL,
+    displayName: 'Gemini Flash (standard)',
+    costPerImage: 0.005,
+    estimatedTimeSeconds: 3,
     useNanoBanana: true,
   },
   pro_upgrade: {
-    modelId: 'gemini-3-pro-image-preview',
-    displayName: 'Gemini 3 Pro Image (Pro Upgrade)',
+    modelId: PRO_MODEL,
+    displayName: 'Gemini Pro (regeneration / 4K)',
     costPerImage: 0.04,
     estimatedTimeSeconds: 8,
     useNanoBanana: true,

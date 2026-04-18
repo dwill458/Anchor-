@@ -4,6 +4,11 @@
 
 import auth, { FirebaseAuthTypes } from '@react-native-firebase/auth';
 import { API_URL } from '@/config';
+import {
+  DEVELOPER_MASTER_ACCOUNT_ID,
+  DEVELOPER_MASTER_ACCOUNT_TOKEN,
+  isDeveloperMasterAccountEnabled,
+} from '@/utils/developerMasterAccount';
 import { logger } from '@/utils/logger';
 import type { ApiResponse, FirebaseUser, User } from '@/types';
 
@@ -228,13 +233,27 @@ export class AuthService {
 
   static getCurrentFirebaseUser(): FirebaseUser | null {
     const currentUser = auth().currentUser;
-    return currentUser ? toFirebaseUser(currentUser) : null;
+    if (currentUser) {
+      return toFirebaseUser(currentUser);
+    }
+
+    if (!isDeveloperMasterAccountEnabled()) {
+      return null;
+    }
+
+    return {
+      uid: DEVELOPER_MASTER_ACCOUNT_ID,
+      email: 'dev+master@anchor.local',
+      displayName: 'Developer Master',
+    };
   }
 
   static async getIdToken(forceRefresh: boolean = false): Promise<string | null> {
     const currentUser = auth().currentUser;
     if (!currentUser) {
-      return null;
+      return isDeveloperMasterAccountEnabled()
+        ? DEVELOPER_MASTER_ACCOUNT_TOKEN
+        : null;
     }
 
     return currentUser.getIdToken(forceRefresh);

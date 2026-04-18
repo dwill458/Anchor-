@@ -13,6 +13,7 @@ import {
   View,
 } from 'react-native';
 import { BlurView } from 'expo-blur';
+import { requireOptionalNativeModule } from 'expo-modules-core';
 import { ChevronDown } from 'lucide-react-native';
 import { colors, spacing, typography } from '@/theme';
 import { withAlpha } from '@/utils/color';
@@ -30,6 +31,11 @@ const SHEET_ANIMATION_DURATION_MS = 450;
 type ImagePickerModule = typeof import('expo-image-picker');
 
 function getImagePickerModule(): ImagePickerModule | null {
+  if (!requireOptionalNativeModule('ExponentImagePicker')) {
+    console.warn('[EditProfileSheet] ExponentImagePicker native module is unavailable in this build');
+    return null;
+  }
+
   try {
     return require('expo-image-picker') as ImagePickerModule;
   } catch (error) {
@@ -130,7 +136,7 @@ export const EditProfileSheet: React.FC<EditProfileSheetProps> = ({
   const pickFromLibrary = async () => {
     const ImagePicker = getImagePickerModule();
     if (!ImagePicker) {
-      Alert.alert('Unavailable', 'Photo picking is not available in this build yet.');
+      Alert.alert('Unavailable', 'Photo picking is not available in this installed build. Rebuild or reinstall the app to enable it.');
       return;
     }
 
@@ -153,7 +159,7 @@ export const EditProfileSheet: React.FC<EditProfileSheetProps> = ({
   const takePhoto = async () => {
     const ImagePicker = getImagePickerModule();
     if (!ImagePicker) {
-      Alert.alert('Unavailable', 'Camera capture is not available in this build yet.');
+      Alert.alert('Unavailable', 'Camera capture is not available in this installed build. Rebuild or reinstall the app to enable it.');
       return;
     }
 

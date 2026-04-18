@@ -39,17 +39,18 @@ describe('StructureForgeScreen', () => {
         mockNavigate.mockClear();
     });
 
-    it('stub: renders 3 structure variant cards', () => {
+    it('stub: renders 4 structure variant cards', () => {
         render(<StructureForgeScreen />);
         expect(screen.getByText('Focused')).toBeTruthy();
-        expect(screen.getByText('Ritual')).toBeTruthy();
+        expect(screen.getByText('Contained')).toBeTruthy();
         expect(screen.getByText('Raw')).toBeTruthy();
+        expect(screen.getByText('Drawn')).toBeTruthy();
     });
 
     it('stub: selects Dense variant on tap', () => {
         render(<StructureForgeScreen />);
-        fireEvent.press(screen.getByLabelText('Ritual structure'));
-        expect(screen.getByText('Ritual selected')).toBeTruthy();
+        fireEvent.press(screen.getByLabelText('Contained structure'));
+        expect(screen.getByText('Contained selected')).toBeTruthy();
     });
 
     it('stub: selects Balanced variant on tap', () => {
@@ -71,6 +72,17 @@ describe('StructureForgeScreen', () => {
         expect(mockNavigate).toHaveBeenCalledWith('ManualReinforcement', expect.objectContaining({
             intentionText: 'Test Intention',
             category: 'health',
+        }));
+    });
+
+    it('stub: navigates to ManualForge for Drawn selection', () => {
+        render(<StructureForgeScreen />);
+        fireEvent.press(screen.getByLabelText('Drawn structure'));
+        fireEvent.press(screen.getByLabelText('Draw Your Anchor'));
+        expect(mockNavigate).toHaveBeenCalledWith('ManualForge', expect.objectContaining({
+            intentionText: 'Test Intention',
+            category: 'health',
+            isFromScratch: true,
         }));
     });
 });

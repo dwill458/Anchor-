@@ -19,12 +19,30 @@
  */
 import { useEffect, useMemo, useState } from 'react';
 import { AccessibilityInfo, PixelRatio, Platform } from 'react-native';
-import * as Device from 'expo-device';
-import * as Battery from 'expo-battery';
 
 export type PerformanceTier = 'high' | 'medium' | 'low';
 
 export type PerformanceTierOverride = PerformanceTier | 'auto';
+
+interface ExpoDeviceModule {
+  deviceYearClass?: number | null;
+  totalMemory?: number | null;
+}
+
+interface ExpoBatteryPowerState {
+  lowPowerMode?: boolean;
+}
+
+interface ExpoBatterySubscription {
+  remove(): void;
+}
+
+interface ExpoBatteryModule {
+  getPowerStateAsync?: () => Promise<ExpoBatteryPowerState>;
+  addLowPowerModeListener?: (
+    listener: (state: ExpoBatteryPowerState) => void,
+  ) => ExpoBatterySubscription;
+}
 
 interface UsePerformanceTierOptions {
   /**
@@ -38,6 +56,24 @@ const TIER_RANK: Record<PerformanceTier, number> = { high: 2, medium: 1, low: 0 
 
 const minTier = (a: PerformanceTier, b: PerformanceTier): PerformanceTier =>
   TIER_RANK[a] <= TIER_RANK[b] ? a : b;
+
+const loadExpoDevice = (): ExpoDeviceModule | null => {
+  try {
+    // Optional dependency in test and partial install environments.
+    return require('expo-device') as ExpoDeviceModule;
+  } catch {
+    return null;
+  }
+};
+
+const loadExpoBattery = (): ExpoBatteryModule | null => {
+  try {
+    // Optional dependency in test and partial install environments.
+    return require('expo-battery') as ExpoBatteryModule;
+  } catch {
+    return null;
+  }
+};
 
 const detectPlatformTier = (): PerformanceTier => {
   if (Platform.OS === 'ios') {
@@ -56,15 +92,20 @@ const detectPlatformTier = (): PerformanceTier => {
 
 const detectDeviceTier = (): PerformanceTier => {
   let tier: PerformanceTier = detectPlatformTier();
+  const device = loadExpoDevice();
+
+  if (!device) {
+    return tier;
+  }
 
   try {
-    const yearClass = Device.deviceYearClass;
+    const yearClass = device.deviceYearClass;
     if (yearClass !== null && yearClass !== undefined) {
       if (yearClass < 2019) tier = minTier(tier, 'low');
       else if (yearClass < 2021) tier = minTier(tier, 'medium');
     }
 
-    const memoryBytes = Device.totalMemory;
+    const memoryBytes = device.totalMemory;
     if (memoryBytes !== null && memoryBytes !== undefined && memoryBytes > 0) {
       const memoryGb = memoryBytes / 1_073_741_824;
       if (memoryGb < 2) tier = minTier(tier, 'low');
@@ -90,17 +131,18 @@ export const usePerformanceTier = (
   useEffect(() => {
     let mounted = true;
     let sub: { remove(): void } | null = null;
+    const battery = loadExpoBattery();
 
-    Battery.getPowerStateAsync()
+    battery?.getPowerStateAsync?.()
       .then((state) => {
-        if (mounted) setLowPowerMode(!!state.lowPowerMode);
+        if (mounted) setLowPowerMode(!!state?.lowPowerMode);
       })
       .catch(() => {});
 
     try {
-      sub = Battery.addLowPowerModeListener(({ lowPowerMode: lpm }) => {
+      sub = battery?.addLowPowerModeListener?.(({ lowPowerMode: lpm }) => {
         if (mounted) setLowPowerMode(lpm);
-      });
+      }) ?? null;
     } catch {
       // expo-battery not available
     }
