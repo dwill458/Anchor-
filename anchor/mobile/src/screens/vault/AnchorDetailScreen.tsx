@@ -457,10 +457,10 @@ const RitualCard = ({ icon, title, subtitle, helper, onPress, isMuted = false, i
   );
 };
 
-const PrimerModal = ({ visible, onActivate, onSkip, onCancel }) => (
+const PrimerModal = ({ visible, onActivate, onSkip, onCancel, blurIntensity = 30 }) => (
   <Modal visible={visible} transparent animationType="fade">
     <View style={rs.modalOverlay}>
-      <BlurView intensity={30} tint="dark" style={StyleSheet.absoluteFillObject} />
+      <BlurView intensity={blurIntensity} tint="dark" style={StyleSheet.absoluteFillObject} />
       <View style={rs.modalContent}>
         <LinearGradient colors={CARD_GRADIENT} style={[rs.card, { padding: 24, paddingVertical: 32 }]}>
           <Text style={rs.modalTitle}>Primer Activation</Text>
