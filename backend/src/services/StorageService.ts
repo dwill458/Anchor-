@@ -107,44 +107,60 @@ export async function uploadImageFromBuffer(
 
     if (client) {
       logger.info('[Storage] Uploading image buffer to R2', { key: objectKey });
-      const upload = new Upload({
-        client,
-        params: {
-          Bucket: bucket,
-          Key: objectKey,
-          Body: imageBuffer,
-          ContentType: 'image/png',
-          CacheControl: 'public, max-age=31536000',
-        },
-      });
+      try {
+        const upload = new Upload({
+          client,
+          params: {
+            Bucket: bucket,
+            Key: objectKey,
+            Body: imageBuffer,
+            ContentType: 'image/png',
+            CacheControl: 'public, max-age=31536000',
+          },
+        });
 
-      await upload.done();
+        await upload.done();
 
-      const publicDomain = process.env.CLOUDFLARE_R2_PUBLIC_DOMAIN;
-      if (publicDomain) {
-        return `${publicDomain}/${objectKey}`;
+        const publicDomain = process.env.CLOUDFLARE_R2_PUBLIC_DOMAIN;
+        if (publicDomain) {
+          return `${publicDomain}/${objectKey}`;
+        }
+
+        return `https://${bucket}.r2.cloudflarestorage.com/${objectKey}`;
+      } catch (r2Error) {
+        logger.warn('[Storage] R2 upload failed, falling back to data URI', {
+          error: r2Error instanceof Error ? r2Error.message : 'Unknown',
+        });
+        // Fall through to local/data-URI fallback below
       }
-
-      return `https://${bucket}.r2.cloudflarestorage.com/${objectKey}`;
     }
 
     logger.info('[Storage] Uploading image from buffer (LOCAL STORAGE fallback)', {
       key: objectKey,
     });
 
-    // Ensure absolute path to uploads directory in backend root
-    const uploadsDir = getLocalUploadsDir();
-    const localFilePath = path.join(uploadsDir, objectKey);
-    const localDir = path.dirname(localFilePath);
+    try {
+      // Ensure absolute path to uploads directory in backend root
+      const uploadsDir = getLocalUploadsDir();
+      const localFilePath = path.join(uploadsDir, objectKey);
+      const localDir = path.dirname(localFilePath);
 
-    if (!fs.existsSync(localDir)) {
-      fs.mkdirSync(localDir, { recursive: true });
+      if (!fs.existsSync(localDir)) {
+        fs.mkdirSync(localDir, { recursive: true });
+      }
+
+      fs.writeFileSync(localFilePath, imageBuffer);
+
+      logger.info(`[Storage] Saved buffer to local disk: ${localFilePath}`);
+      return buildLocalUploadUrl(objectKey, options);
+    } catch (localError) {
+      // Local filesystem unavailable (e.g. ephemeral container) — return inline data URI
+      // so dev/preview builds can still display the generated image.
+      logger.warn('[Storage] Local filesystem unavailable, returning data URI', {
+        error: localError instanceof Error ? localError.message : 'Unknown',
+      });
+      return `data:image/png;base64,${imageBuffer.toString('base64')}`;
     }
-
-    fs.writeFileSync(localFilePath, imageBuffer);
-
-    logger.info(`[Storage] Saved buffer to local disk: ${localFilePath}`);
-    return buildLocalUploadUrl(objectKey, options);
   } catch (error) {
     logger.error('[Storage] Upload from buffer error', error);
     throw new Error(

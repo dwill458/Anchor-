@@ -13,33 +13,25 @@ import { usePerformanceTier, tierPolicy } from '../usePerformanceTier';
 
 // ── Mocks ─────────────────────────────────────────────────────────────────────
 
-const mockIsReduceMotionEnabled = jest.fn().mockResolvedValue(false);
-const mockAddAccessibilityListener = jest.fn().mockReturnValue({ remove: jest.fn() });
+let mockIsReduceMotionEnabled: jest.SpiedFunction<
+  typeof AccessibilityInfo.isReduceMotionEnabled
+>;
+let mockAddAccessibilityListener: jest.SpiedFunction<
+  typeof AccessibilityInfo.addEventListener
+>;
+let mockPixelRatioGet: jest.SpiedFunction<typeof PixelRatio.get>;
 const mockGetPowerStateAsync = jest.fn().mockResolvedValue({ lowPowerMode: false });
 const mockAddLowPowerModeListener = jest.fn().mockReturnValue({ remove: jest.fn() });
-
-jest.mock('react-native', () => {
-  const rn = jest.requireActual('react-native');
-  return {
-    ...rn,
-    AccessibilityInfo: {
-      isReduceMotionEnabled: mockIsReduceMotionEnabled,
-      addEventListener: mockAddAccessibilityListener,
-    },
-    Platform: { ...rn.Platform, OS: 'ios', Version: '17.0' },
-    PixelRatio: { get: jest.fn().mockReturnValue(3) },
-  };
-});
 
 jest.mock('expo-battery', () => ({
   getPowerStateAsync: mockGetPowerStateAsync,
   addLowPowerModeListener: mockAddLowPowerModeListener,
-}));
+}), { virtual: true });
 
 jest.mock('expo-device', () => ({
   deviceYearClass: null,
   totalMemory: null,
-}));
+}), { virtual: true });
 
 // Helpers
 const flushAsync = () => act(async () => { await Promise.resolve(); });
@@ -49,7 +41,7 @@ const setOS = (os: string, version: number | string = 17) => {
   Object.defineProperty(Platform, 'Version', { value: version, configurable: true });
 };
 const setPixelRatio = (ratio: number) =>
-  (PixelRatio.get as jest.Mock).mockReturnValue(ratio);
+  mockPixelRatioGet.mockReturnValue(ratio);
 
 const expoDevice = () => require('expo-device');
 const setDeviceYearClass = (year: number | null) =>
@@ -58,10 +50,16 @@ const setTotalMemory = (bytes: number | null) =>
   jest.replaceProperty(expoDevice(), 'totalMemory', bytes);
 
 beforeEach(() => {
+  jest.restoreAllMocks();
   jest.clearAllMocks();
-  mockIsReduceMotionEnabled.mockResolvedValue(false);
+  mockIsReduceMotionEnabled = jest
+    .spyOn(AccessibilityInfo, 'isReduceMotionEnabled')
+    .mockResolvedValue(false);
+  mockAddAccessibilityListener = jest
+    .spyOn(AccessibilityInfo, 'addEventListener')
+    .mockReturnValue({ remove: jest.fn() } as any);
+  mockPixelRatioGet = jest.spyOn(PixelRatio, 'get').mockReturnValue(3);
   mockGetPowerStateAsync.mockResolvedValue({ lowPowerMode: false });
-  mockAddAccessibilityListener.mockReturnValue({ remove: jest.fn() });
   mockAddLowPowerModeListener.mockReturnValue({ remove: jest.fn() });
   setOS('ios');
   setPixelRatio(3);

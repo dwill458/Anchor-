@@ -66,10 +66,14 @@ export const RootNavigator: React.FC = () => {
   useTrialInit();
 
   const { hasCompletedOnboarding } = useAuthStore();
+  const developerMasterAccountEnabled = useSettingsStore(
+    (state) => state.developerMasterAccountEnabled
+  );
   const developerSkipOnboardingEnabled = useSettingsStore(
     (state) => state.developerSkipOnboardingEnabled
   );
-  const shouldBypassOnboarding = __DEV__ && developerSkipOnboardingEnabled;
+  const shouldBypassOnboarding =
+    __DEV__ && (developerSkipOnboardingEnabled || developerMasterAccountEnabled);
   const showOnboarding = shouldShowOnboardingFlow(
     hasCompletedOnboarding,
     shouldBypassOnboarding

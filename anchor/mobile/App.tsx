@@ -180,10 +180,14 @@ export default function App() {
   >(undefined);
   const [shouldFadePrimeOnLaunch, setShouldFadePrimeOnLaunch] = React.useState(false);
   const hasCompletedOnboarding = useAuthStore((state) => state.hasCompletedOnboarding);
+  const developerMasterAccountEnabled = useSettingsStore(
+    (state) => state.developerMasterAccountEnabled
+  );
   const developerSkipOnboardingEnabled = useSettingsStore(
     (state) => state.developerSkipOnboardingEnabled
   );
-  const shouldBypassOnboarding = __DEV__ && developerSkipOnboardingEnabled;
+  const shouldBypassOnboarding =
+    __DEV__ && (developerSkipOnboardingEnabled || developerMasterAccountEnabled);
   const showOnboarding = shouldShowOnboardingFlow(
     hasCompletedOnboarding,
     shouldBypassOnboarding
@@ -276,7 +280,11 @@ export default function App() {
         }
 
         const store = useAuthStore.getState();
-        store.signOut();
+        if (__DEV__ && developerMasterAccountEnabled) {
+          store.enableDeveloperMasterAccount();
+        } else {
+          store.signOut();
+        }
         store.setLoading(false);
         return;
       }
@@ -312,7 +320,7 @@ export default function App() {
       isActive = false;
       unsubscribe();
     };
-  }, []);
+  }, [developerMasterAccountEnabled]);
 
   useEffect(() => {
     // Configure RevenueCat SDK anonymously on app start.

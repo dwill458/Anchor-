@@ -145,18 +145,18 @@ describe('GeminiImageService', () => {
   describe('getTimeEstimate', () => {
     it('should return time bounds for draft tier', () => {
       const service = new GeminiImageService();
-      // draft: estimatedTimeSeconds = 3, so min = 9, max = 18
+      // draft: estimatedTimeSeconds = 4, so min = 12, max = 24
       const estimate = service.getTimeEstimate('draft');
-      expect(estimate.min).toBe(9);
-      expect(estimate.max).toBe(18);
+      expect(estimate.min).toBe(12);
+      expect(estimate.max).toBe(24);
     });
 
     it('should return time bounds for premium tier', () => {
       const service = new GeminiImageService();
-      // premium: estimatedTimeSeconds = 4, so min = 12, max = 24
+      // premium: estimatedTimeSeconds = 5, so min = 15, max = 30
       const estimate = service.getTimeEstimate('premium');
-      expect(estimate.min).toBe(12);
-      expect(estimate.max).toBe(24);
+      expect(estimate.min).toBe(15);
+      expect(estimate.max).toBe(30);
     });
 
     it('should return time bounds for pro_upgrade tier', () => {

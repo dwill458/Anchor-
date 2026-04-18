@@ -23,6 +23,7 @@ export interface AnchorSettings {
   dev_developerModeEnabled: boolean;
   dev_overridesEnabled: boolean;
   dev_simulatedTier: SubscriptionTier;
+  dev_masterAccount: boolean;
   dev_skipOnboarding: boolean;
   dev_allowDirectAnchorDelete: boolean;
   dev_debugLogging: boolean;
@@ -47,6 +48,7 @@ export const DEFAULT_SETTINGS: AnchorSettings = {
   dev_developerModeEnabled: true,
   dev_overridesEnabled: true,
   dev_simulatedTier: 'pro',
+  dev_masterAccount: false,
   dev_skipOnboarding: false,
   dev_allowDirectAnchorDelete: false,
   dev_debugLogging: false,

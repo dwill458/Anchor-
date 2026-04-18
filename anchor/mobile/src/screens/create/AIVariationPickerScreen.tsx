@@ -85,6 +85,11 @@ export const AIVariationPickerScreen: React.FC = () => {
     variations,
     reinforcementMetadata,
     prompt, // Fix: Destructure prompt so it's defined in scope (optional)
+    negativePrompt,
+    modelUsed,
+    provider,
+    controlMethod,
+    generationTimeMs,
   } = route.params;
 
   // Selected variation index (0-3)
@@ -190,11 +195,12 @@ export const AIVariationPickerScreen: React.FC = () => {
 
       const enhancementMetadata = {
         styleApplied: styleChoice,
-        modelUsed: 'sdxl-controlnet',
-        controlMethod: 'canny' as const,
-        generationTimeMs: 0,
+        modelUsed: modelUsed || 'unknown-model',
+        provider: provider || 'unknown',
+        controlMethod: controlMethod || 'lineart',
+        generationTimeMs: generationTimeMs || 0,
         promptUsed: prompt || '',
-        negativePrompt: '',
+        negativePrompt: negativePrompt || '',
         appliedAt: new Date(),
       };
 

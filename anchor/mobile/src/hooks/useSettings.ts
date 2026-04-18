@@ -36,6 +36,7 @@ const SETTINGS_KEY_MAP: Record<keyof AnchorSettings, string> = {
   dev_developerModeEnabled: 'anchor:dev:developerModeEnabled',
   dev_overridesEnabled: 'anchor:dev:overridesEnabled',
   dev_simulatedTier: 'anchor:dev:simulatedTier',
+  dev_masterAccount: 'anchor:dev:masterAccount',
   dev_skipOnboarding: 'anchor:dev:skipOnboarding',
   dev_allowDirectAnchorDelete: 'anchor:dev:allowDirectAnchorDelete',
   dev_debugLogging: 'anchor:dev:debugLogging',
@@ -135,6 +136,7 @@ const getBridgeDefaults = (): AnchorSettings => {
     dev_developerModeEnabled: settings.developerModeEnabled,
     dev_overridesEnabled: subscription.devOverrideEnabled,
     dev_simulatedTier: subscription.devTierOverride,
+    dev_masterAccount: settings.developerMasterAccountEnabled,
     dev_skipOnboarding: settings.developerSkipOnboardingEnabled,
     dev_allowDirectAnchorDelete: settings.developerDeleteWithoutBurnEnabled,
     dev_debugLogging: settings.debugLoggingEnabled,
@@ -167,6 +169,9 @@ const applySettingsToStores = (settings: AnchorSettings): void => {
     hapticIntensity: mapFeedbackToHapticIntensity(settings.hapticFeedback),
     soundEffectsEnabled: settings.soundEffectsEnabled,
     developerModeEnabled: __DEV__ ? settings.dev_developerModeEnabled : current.developerModeEnabled,
+    developerMasterAccountEnabled: __DEV__
+      ? settings.dev_masterAccount
+      : current.developerMasterAccountEnabled,
     developerSkipOnboardingEnabled: __DEV__
       ? settings.dev_skipOnboarding
       : current.developerSkipOnboardingEnabled,

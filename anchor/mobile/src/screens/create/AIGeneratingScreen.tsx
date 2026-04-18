@@ -77,10 +77,8 @@ export default function AIGeneratingScreen() {
   const route = useRoute<AIGeneratingRouteProp>();
   const navigation = useNavigation<AIGeneratingNavigationProp>();
   const user = useAuthStore((state) => state.user);
-  // DEFERRED: freemium — isPro replaced with useTrialStatus for trial model
-  // const { isPro } = useSubscription();
-  const { isTrialActive, isSubscribed } = useTrialStatus();
-  const isPro = isTrialActive || isSubscribed;
+  // All paid users get Flash (Nano Banana 2) by default.
+  // Pro model escalated server-side on regeneration (attempt 2+).
 
   const {
     intentionText,
@@ -588,7 +586,7 @@ export default function AIGeneratingScreen() {
           intentionText,
           anchorId: `temp-${Date.now()}`,
           provider: 'gemini',
-          tier: isPro ? 'premium' : 'draft',
+          tier: 'premium',
           generationAttempt: generationAttemptRef.current,
         }),
         signal: controller.signal,

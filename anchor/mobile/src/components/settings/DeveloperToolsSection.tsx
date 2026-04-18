@@ -207,6 +207,14 @@ export const DeveloperToolsSection: React.FC<DeveloperToolsSectionProps> = ({
           onToggle={(value) => updateSetting('dev_overridesEnabled', value)}
           isDev
         />
+        <SettingsRow
+          title="Master Account"
+          subtitle="Use a synthetic dev account and skip auth gates"
+          type="toggle"
+          toggleValue={settings.dev_masterAccount}
+          onToggle={(value) => updateSetting('dev_masterAccount', value)}
+          isDev
+        />
         <View style={styles.segmentRow}>
           <Text style={styles.segmentTitle}>Simulated Subscription Tier</Text>
           <View style={styles.segmentedControl}>
