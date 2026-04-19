@@ -131,6 +131,10 @@ export class AuthService {
     await new Promise((resolve) => setTimeout(resolve, 500));
   }
 
+  static hasAuthenticatedSession(): boolean {
+    return mockAuthEnabled;
+  }
+
   static getCurrentFirebaseUser(): FirebaseUser | null {
     if (!mockAuthEnabled) {
       if (!isDeveloperMasterAccountEnabled()) {

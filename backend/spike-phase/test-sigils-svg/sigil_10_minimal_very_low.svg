@@ -1,16 +1,1 @@
-
-    <svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" color="#FFFFFF">
-      <g>
-        
-
-        <path
-          d="M 49.38791593450829,19.75243202641264 L 79.92020348099176,49.21938301024147 L 80.6038872344129,79.66760790736895"
-          stroke="currentColor"
-          stroke-width="2"
-          fill="none"
-          stroke-linecap="round"
-          stroke-linejoin="round"
-        />
-      </g>
-    </svg>
-  
+<svg xmlns="http://www.w3.org/2000/svg" color="#fff" viewBox="0 0 100 100"><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M49.388 19.752 79.92 49.22l.684 30.449"/></svg>

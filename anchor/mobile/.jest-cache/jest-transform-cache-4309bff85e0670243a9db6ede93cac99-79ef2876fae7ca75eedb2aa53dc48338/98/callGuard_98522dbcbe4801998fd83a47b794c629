@@ -1,0 +1,68 @@
+af3fa6280a0db62263ebbf4a9d8a1ca8
+'use strict';
+Object.defineProperty(exports, "__esModule", {
+  value: true
+});
+exports.setupCallGuard = exports.callGuardDEV = void 0;
+var _worklet_6108426360463_init_data = {
+  code: "function callGuardDEV_callGuardJs1(fn,...args){try{return fn(...args);}catch(error){if(globalThis.__workletsModuleProxy){const{message:message,stack:stack,name:name,jsEngine:jsEngine}=error;globalThis.__workletsModuleProxy.reportFatalErrorOnJS(message,stack!==null&&stack!==void 0?stack:'',name!==null&&name!==void 0?name:'WorkletsError',jsEngine!==null&&jsEngine!==void 0?jsEngine:'Worklets');}else{throw error;}}}",
+  location: "C:\\Users\\dwill\\.gemini\\antigravity\\scratch\\Anchor\\anchor\\mobile\\node_modules\\react-native-worklets\\lib\\module\\callGuard.js",
+  sourceMap: "{\"version\":3,\"names\":[\"callGuardDEV_callGuardJs1\",\"fn\",\"args\",\"error\",\"globalThis\",\"__workletsModuleProxy\",\"message\",\"stack\",\"name\",\"jsEngine\",\"reportFatalErrorOnJS\"],\"sources\":[\"C:/Users/dwill/.gemini/antigravity/scratch/Anchor/anchor/mobile/node_modules/react-native-worklets/lib/module/callGuard.js\"],\"mappings\":\"AAGO,SAAAA,yBAAiCA,CAAAC,EAAE,IAAAC,IAAA,EAGxC,GAAI,CACF,MAAO,CAAAD,EAAE,CAAC,GAAGC,IAAI,CAAC,CACpB,CAAE,MAAOC,KAAK,CAAE,CACd,GAAIC,UAAU,CAACC,qBAAqB,CAAE,CACpC,KAAM,CACJC,OAAO,CAAPA,OAAO,CACPC,KAAK,CAALA,KAAK,CACLC,IAAI,CAAJA,IAAI,CACJC,QAAA,CAAAA,QACF,CAAC,CAAGN,KAAK,CACTC,UAAU,CAACC,qBAAqB,CAACK,oBAAoB,CAACJ,OAAO,CAAEC,KAAK,SAALA,KAAK,UAALA,KAAK,CAAI,EAAE,CAAEC,IAAI,SAAJA,IAAI,UAAJA,IAAI,CAAI,eAAe,CAAEC,QAAQ,SAARA,QAAQ,UAARA,QAAQ,CAAI,UAAU,CAAC,CAC9H,CAAC,IAAM,CACL,KAAM,CAAAN,KAAK,CACb,CACF,CACF\",\"ignoreList\":[]}"
+};
+var callGuardDEV = exports.callGuardDEV = function callGuardDEV_callGuardJs1Factory(_ref) {
+  var _worklet_6108426360463_init_data = _ref._worklet_6108426360463_init_data;
+  var _e = [new global.Error(), 1, -27];
+  var callGuardDEV = function callGuardDEV(fn) {
+    try {
+      for (var _len = arguments.length, args = new Array(_len > 1 ? _len - 1 : 0), _key = 1; _key < _len; _key++) {
+        args[_key - 1] = arguments[_key];
+      }
+      return fn.apply(void 0, args);
+    } catch (error) {
+      if (globalThis.__workletsModuleProxy) {
+        var message = error.message,
+          stack = error.stack,
+          name = error.name,
+          jsEngine = error.jsEngine;
+        globalThis.__workletsModuleProxy.reportFatalErrorOnJS(message, stack != null ? stack : '', name != null ? name : 'WorkletsError', jsEngine != null ? jsEngine : 'Worklets');
+      } else {
+        throw error;
+      }
+    }
+  };
+  callGuardDEV.__closure = {};
+  callGuardDEV.__workletHash = 6108426360463;
+  callGuardDEV.__pluginVersion = "0.5.1";
+  callGuardDEV.__initData = _worklet_6108426360463_init_data;
+  callGuardDEV.__stackDetails = _e;
+  return callGuardDEV;
+}({
+  _worklet_6108426360463_init_data: _worklet_6108426360463_init_data
+});
+var _worklet_8580689080866_init_data = {
+  code: "function setupCallGuard_callGuardJs2(){const{callGuardDEV}=this.__closure;if(!globalThis.__callGuardDEV){globalThis.__callGuardDEV=callGuardDEV;}}",
+  location: "C:\\Users\\dwill\\.gemini\\antigravity\\scratch\\Anchor\\anchor\\mobile\\node_modules\\react-native-worklets\\lib\\module\\callGuard.js",
+  sourceMap: "{\"version\":3,\"names\":[\"setupCallGuard_callGuardJs2\",\"callGuardDEV\",\"__closure\",\"globalThis\",\"__callGuardDEV\"],\"sources\":[\"C:/Users/dwill/.gemini/antigravity/scratch/Anchor/anchor/mobile/node_modules/react-native-worklets/lib/module/callGuard.js\"],\"mappings\":\"AAsBO,SAAAA,2BAA0BA,CAAA,QAAAC,YAAA,OAAAC,SAAA,CAG/B,GAAI,CAACC,UAAU,CAACC,cAAc,CAAE,CAC9BD,UAAU,CAACC,cAAc,CAAGH,YAAY,CAC1C,CACF\",\"ignoreList\":[]}"
+};
+var setupCallGuard = exports.setupCallGuard = function setupCallGuard_callGuardJs2Factory(_ref2) {
+  var _worklet_8580689080866_init_data = _ref2._worklet_8580689080866_init_data,
+    callGuardDEV = _ref2.callGuardDEV;
+  var _e = [new global.Error(), -2, -27];
+  var setupCallGuard = function setupCallGuard() {
+    if (!globalThis.__callGuardDEV) {
+      globalThis.__callGuardDEV = callGuardDEV;
+    }
+  };
+  setupCallGuard.__closure = {
+    callGuardDEV: callGuardDEV
+  };
+  setupCallGuard.__workletHash = 8580689080866;
+  setupCallGuard.__pluginVersion = "0.5.1";
+  setupCallGuard.__initData = _worklet_8580689080866_init_data;
+  setupCallGuard.__stackDetails = _e;
+  return setupCallGuard;
+}({
+  _worklet_8580689080866_init_data: _worklet_8580689080866_init_data,
+  callGuardDEV: callGuardDEV
+});
+//# sourceMappingURL=data:application/json;charset=utf-8;base64,eyJ2ZXJzaW9uIjozLCJuYW1lcyI6WyJPYmplY3QiLCJkZWZpbmVQcm9wZXJ0eSIsImV4cG9ydHMiLCJ2YWx1ZSIsInNldHVwQ2FsbEd1YXJkIiwiY2FsbEd1YXJkREVWIiwiX3dvcmtsZXRfNjEwODQyNjM2MDQ2M19pbml0X2RhdGEiLCJjb2RlIiwibG9jYXRpb24iLCJzb3VyY2VNYXAiLCJjYWxsR3VhcmRERVZfY2FsbEd1YXJkSnMxRmFjdG9yeSIsIl9yZWYiLCJfZSIsImdsb2JhbCIsIkVycm9yIiwiZm4iLCJfbGVuIiwiYXJndW1lbnRzIiwibGVuZ3RoIiwiYXJncyIsIkFycmF5IiwiX2tleSIsImFwcGx5IiwiZXJyb3IiLCJnbG9iYWxUaGlzIiwiX193b3JrbGV0c01vZHVsZVByb3h5IiwibWVzc2FnZSIsInN0YWNrIiwibmFtZSIsImpzRW5naW5lIiwicmVwb3J0RmF0YWxFcnJvck9uSlMiLCJfX2Nsb3N1cmUiLCJfX3dvcmtsZXRIYXNoIiwiX19wbHVnaW5WZXJzaW9uIiwiX19pbml0RGF0YSIsIl9fc3RhY2tEZXRhaWxzIiwiX3dvcmtsZXRfODU4MDY4OTA4MDg2Nl9pbml0X2RhdGEiLCJzZXR1cENhbGxHdWFyZF9jYWxsR3VhcmRKczJGYWN0b3J5IiwiX3JlZjIiLCJfX2NhbGxHdWFyZERFViJdLCJzb3VyY2VzIjpbIi4uLy4uL3NyYy9jYWxsR3VhcmQudHMiXSwic291cmNlc0NvbnRlbnQiOltudWxsXSwibWFwcGluZ3MiOiJBQUFBLFlBQVk7QUFBQUEsTUFBQSxDQUFBQyxjQUFBLENBQUFDLE9BQUE7RUFBQUMsS0FBQTtBQUFBO0FBQUFELE9BQUEsQ0FBQUUsY0FBQSxHQUFBRixPQUFBLENBQUFHLFlBQUE7QUFBQSxJQUFBQyxnQ0FBQTtFQUFBQyxJQUFBO0VBQUFDLFFBQUE7RUFBQUMsU0FBQTtBQUFBO0FBQUEsSUFBQUosWUFBQSxHQUFBSCxPQUFBLENBQUFHLFlBQUEsR0FLTCxTQUFBSyxpQ0FBQUMsSUFBQTtFQUFBLElBQUFMLGdDQUFBLEdBQUFLLElBQUEsQ0FBQUwsZ0NBQUE7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

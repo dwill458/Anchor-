@@ -1,0 +1,111 @@
+bb6b5ce48d258529debd32ce23f6741c
+'use strict';
+
+var _interopRequireDefault = require("@babel/runtime/helpers/interopRequireDefault").default;
+Object.defineProperty(exports, "__esModule", {
+  value: true
+});
+exports.FadingTransition = void 0;
+var _classCallCheck2 = _interopRequireDefault(require("@babel/runtime/helpers/classCallCheck"));
+var _createClass2 = _interopRequireDefault(require("@babel/runtime/helpers/createClass"));
+var _callSuper2 = _interopRequireDefault(require("@babel/runtime/helpers/callSuper"));
+var _inherits2 = _interopRequireDefault(require("@babel/runtime/helpers/inherits"));
+var _animation = require("../../animation");
+var _animationBuilder = require("../animationBuilder");
+var _worklet_14594537437843_init_data = {
+  code: "function FadingTransitionTs1(values){const{delayFunction,delay,withSequence,withTiming,halfDuration,withDelay,callback}=this.__closure;return{initialValues:{opacity:1,originX:values.currentOriginX,originY:values.currentOriginY,width:values.currentWidth,height:values.currentHeight},animations:{opacity:delayFunction(delay,withSequence(withTiming(0,{duration:halfDuration}),withTiming(1,{duration:halfDuration}))),originX:withDelay(delay+halfDuration,withTiming(values.targetOriginX,{duration:0})),originY:withDelay(delay+halfDuration,withTiming(values.targetOriginY,{duration:0})),width:withDelay(delay+halfDuration,withTiming(values.targetWidth,{duration:0})),height:withDelay(delay+halfDuration,withTiming(values.targetHeight,{duration:0}))},callback:callback};}",
+  location: "C:\\Users\\dwill\\.gemini\\antigravity\\scratch\\Anchor\\anchor\\mobile\\node_modules\\react-native-reanimated\\src\\layoutReanimation\\defaultTransitions\\FadingTransition.ts",
+  sourceMap: "{\"version\":3,\"names\":[\"FadingTransitionTs1\",\"values\",\"delayFunction\",\"delay\",\"withSequence\",\"withTiming\",\"halfDuration\",\"withDelay\",\"callback\",\"__closure\",\"initialValues\",\"opacity\",\"originX\",\"currentOriginX\",\"originY\",\"currentOriginY\",\"width\",\"currentWidth\",\"height\",\"currentHeight\",\"animations\",\"duration\",\"targetOriginX\",\"targetOriginY\",\"targetWidth\",\"targetHeight\"],\"sources\":[\"C:/Users/dwill/.gemini/antigravity/scratch/Anchor/anchor/mobile/node_modules/react-native-reanimated/src/layoutReanimation/defaultTransitions/FadingTransition.ts\"],\"mappings\":\"AAoCY,SAAAA,mBAAWA,CAAAC,MAAA,QAAAC,aAAA,CAAAC,KAAA,CAAAC,YAAA,CAAAC,UAAA,CAAAC,YAAA,CAAAC,SAAA,CAAAC,QAAA,OAAAC,SAAA,CAEjB,MAAO,CACLC,aAAa,CAAE,CACbC,OAAO,CAAE,CAAC,CACVC,OAAO,CAAEX,MAAM,CAACY,cAAc,CAC9BC,OAAO,CAAEb,MAAM,CAACc,cAAc,CAC9BC,KAAK,CAAEf,MAAM,CAACgB,YAAY,CAC1BC,MAAM,CAAEjB,MAAM,CAACkB,aACjB,CAAC,CACDC,UAAU,CAAE,CACVT,OAAO,CAAET,aAAa,CACpBC,KAAK,CACLC,YAAY,CACVC,UAAU,CAAC,CAAC,CAAE,CAAEgB,QAAQ,CAAEf,YAAa,CAAC,CAAC,CACzCD,UAAU,CAAC,CAAC,CAAE,CAAEgB,QAAQ,CAAEf,YAAa,CAAC,CAC1C,CACF,CAAC,CACDM,OAAO,CAAEL,SAAS,CAChBJ,KAAK,CAAGG,YAAY,CACpBD,UAAU,CAACJ,MAAM,CAACqB,aAAa,CAAE,CAAED,QAAQ,CAAE,CAAE,CAAC,CAClD,CAAC,CACDP,OAAO,CAAEP,SAAS,CAChBJ,KAAK,CAAGG,YAAY,CACpBD,UAAU,CAACJ,MAAM,CAACsB,aAAa,CAAE,CAAEF,QAAQ,CAAE,CAAE,CAAC,CAClD,CAAC,CACDL,KAAK,CAAET,SAAS,CACdJ,KAAK,CAAGG,YAAY,CACpBD,UAAU,CAACJ,MAAM,CAACuB,WAAW,CAAE,CAAEH,QAAQ,CAAE,CAAE,CAAC,CAChD,CAAC,CACDH,MAAM,CAAEX,SAAS,CACfJ,KAAK,CAAGG,YAAY,CACpBD,UAAU,CAACJ,MAAM,CAACwB,YAAY,CAAE,CAAEJ,QAAQ,CAAE,CAAE,CAAC,CACjD,CACF,CAAC,CACDb,QAAA,CAAAA,QACF,CAAC,CACH\",\"ignoreList\":[]}"
+};
+var FadingTransition = exports.FadingTransition = function (_BaseAnimationBuilder) {
+  function FadingTransition() {
+    var _this;
+    (0, _classCallCheck2.default)(this, FadingTransition);
+    for (var _len = arguments.length, args = new Array(_len), _key = 0; _key < _len; _key++) {
+      args[_key] = arguments[_key];
+    }
+    _this = (0, _callSuper2.default)(this, FadingTransition, [].concat(args));
+    _this.build = function () {
+      var _this$durationV;
+      var delayFunction = _this.getDelayFunction();
+      var callback = _this.callbackV;
+      var delay = _this.getDelay();
+      var halfDuration = ((_this$durationV = _this.durationV) != null ? _this$durationV : 500) / 2;
+      return function FadingTransitionTs1Factory(_ref) {
+        var _worklet_14594537437843_init_data = _ref._worklet_14594537437843_init_data,
+          delayFunction = _ref.delayFunction,
+          delay = _ref.delay,
+          withSequence = _ref.withSequence,
+          withTiming = _ref.withTiming,
+          halfDuration = _ref.halfDuration,
+          withDelay = _ref.withDelay,
+          callback = _ref.callback;
+        var _e = [new global.Error(), -8, -27];
+        var FadingTransitionTs1 = function FadingTransitionTs1(values) {
+          return {
+            initialValues: {
+              opacity: 1,
+              originX: values.currentOriginX,
+              originY: values.currentOriginY,
+              width: values.currentWidth,
+              height: values.currentHeight
+            },
+            animations: {
+              opacity: delayFunction(delay, withSequence(withTiming(0, {
+                duration: halfDuration
+              }), withTiming(1, {
+                duration: halfDuration
+              }))),
+              originX: withDelay(delay + halfDuration, withTiming(values.targetOriginX, {
+                duration: 0
+              })),
+              originY: withDelay(delay + halfDuration, withTiming(values.targetOriginY, {
+                duration: 0
+              })),
+              width: withDelay(delay + halfDuration, withTiming(values.targetWidth, {
+                duration: 0
+              })),
+              height: withDelay(delay + halfDuration, withTiming(values.targetHeight, {
+                duration: 0
+              }))
+            },
+            callback: callback
+          };
+        };
+        FadingTransitionTs1.__closure = {
+          delayFunction: delayFunction,
+          delay: delay,
+          withSequence: withSequence,
+          withTiming: withTiming,
+          halfDuration: halfDuration,
+          withDelay: withDelay,
+          callback: callback
+        };
+        FadingTransitionTs1.__workletHash = 14594537437843;
+        FadingTransitionTs1.__pluginVersion = "0.5.1";
+        FadingTransitionTs1.__initData = _worklet_14594537437843_init_data;
+        FadingTransitionTs1.__stackDetails = _e;
+        return FadingTransitionTs1;
+      }({
+        _worklet_14594537437843_init_data: _worklet_14594537437843_init_data,
+        delayFunction: delayFunction,
+        delay: delay,
+        withSequence: _animation.withSequence,
+        withTiming: _animation.withTiming,
+        halfDuration: halfDuration,
+        withDelay: _animation.withDelay,
+        callback: callback
+      });
+    };
+    return _this;
+  }
+  (0, _inherits2.default)(FadingTransition, _BaseAnimationBuilder);
+  return (0, _createClass2.default)(FadingTransition, null, [{
+    key: "createInstance",
+    value: function createInstance() {
+      return new FadingTransition();
+    }
+  }]);
+}(_animationBuilder.BaseAnimationBuilder);
+FadingTransition.presetName = 'FadingTransition';
+//# sourceMappingURL=data:application/json;charset=utf-8;base64,eyJ2ZXJzaW9uIjozLCJuYW1lcyI6WyJfaW50ZXJvcFJlcXVpcmVEZWZhdWx0IiwicmVxdWlyZSIsImRlZmF1bHQiLCJPYmplY3QiLCJkZWZpbmVQcm9wZXJ0eSIsImV4cG9ydHMiLCJ2YWx1ZSIsIkZhZGluZ1RyYW5zaXRpb24iLCJfY2xhc3NDYWxsQ2hlY2syIiwiX2NyZWF0ZUNsYXNzMiIsIl9jYWxsU3VwZXIyIiwiX2luaGVyaXRzMiIsIl9hbmltYXRpb24iLCJfYW5pbWF0aW9uQnVpbGRlciIsIl93b3JrbGV0XzE0NTk0NTM3NDM3ODQzX2luaXRfZGF0YSIsImNvZGUiLCJsb2NhdGlvbiIsInNvdXJjZU1hcCIsIl9CYXNlQW5pbWF0aW9uQnVpbGRlciIsIl90aGlzIiwiX2xlbiIsImFyZ3VtZW50cyIsImxlbmd0aCIsImFyZ3MiLCJBcnJheSIsIl9rZXkiLCJjb25jYXQiLCJidWlsZCIsIl90aGlzJGR1cmF0aW9uViIsImRlbGF5RnVuY3Rpb24iLCJnZXREZWxheUZ1bmN0aW9uIiwiY2FsbGJhY2siLCJjYWxsYmFja1YiLCJkZWxheSIsImdldERlbGF5IiwiaGFsZkR1cmF0aW9uIiwiZHVyYXRpb25WIiwiRmFkaW5nVHJhbnNpdGlvblRzMUZhY3RvcnkiLCJfcmVmIiwid2l0aFNlcXVlbmNlIiwid2l0aFRpbWluZyIsIndpdGhEZWxheSIsIl9lIiwiZ2xvYmFsIiwiRXJyb3IiLCJGYWRpbmdUcmFuc2l0aW9uVHMxIiwidmFsdWVzIiwiaW5pdGlhbFZhbHVlcyIsIm9wYWNpdHkiLCJvcmlnaW5YIiwiY3VycmVudE9yaWdpblgiLCJvcmlnaW5ZIiwiY3VycmVudE9yaWdpblkiLCJ3aWR0aCIsImN1cnJlbnRXaWR0aCIsImhlaWdodCIsImN1cnJlbnRIZWlnaHQiLCJhbmltYXRpb25zIiwiZHVyYXRpb24iLCJ0YXJnZXRPcmlnaW5YIiwidGFyZ2V0T3JpZ2luWSIsInRhcmdldFdpZHRoIiwidGFyZ2V0SGVpZ2h0IiwiX19jbG9zdXJlIiwiX193b3JrbGV0SGFzaCIsIl9fcGx1Z2luVmVyc2lvbiIsIl9faW5pdERhdGEiLCJfX3N0YWNrRGV0YWlscyIsImtleSIsImNyZWF0ZUluc3RhbmNlIiwiQmFzZUFuaW1hdGlvbkJ1aWxkZXIiLCJwcmVzZXROYW1lIl0sInNvdXJjZXMiOlsiRmFkaW5nVHJhbnNpdGlvbi50cyJdLCJzb3VyY2VzQ29udGVudCI6WyIndXNlIHN0cmljdCc7XG5pbXBvcnQgeyB3aXRoRGVsYXksIHdpdGhTZXF1ZW5jZSwgd2l0aFRpbWluZyB9IGZyb20gJy4uLy4uL2FuaW1hdGlvbic7XG5pbXBvcnQgdHlwZSB7XG4gIElMYXlvdXRBbmltYXRpb25CdWlsZGVyLFxuICBMYXlvdXRBbmltYXRpb25GdW5jdGlvbixcbn0gZnJvbSAnLi4vLi4vY29tbW9uVHlwZXMnO1xuaW1wb3J0IHsgQmFzZUFuaW1hdGlvbkJ1aWxkZXIgfSBmcm9tICcuLi9hbmltYXRpb25CdWlsZGVyJztcblxuLyoqXG4gKiBGYWRlcyBvdXQgY29tcG9uZW50cyBmcm9tIG9uZSBwb3NpdGlvbiBhbmQgc2hvd3MgdGhlbSBpbiBhbm90aGVyLiBZb3UgY2FuXG4gKiBtb2RpZnkgdGhlIGJlaGF2aW9yIGJ5IGNoYWluaW5nIG1ldGhvZHMgbGlrZSBgLmR1cmF0aW9uKDUwMClgIG9yXG4gKiBgLmRlbGF5KDUwMClgLlxuICpcbiAqIFlvdSBwYXNzIGl0IHRvIHRoZSBgbGF5b3V0YCBwcm9wIG9uIFthbiBBbmltYXRlZFxuICogY29tcG9uZW50XShodHRwczovL2RvY3Muc3dtYW5zaW9uLmNvbS9yZWFjdC1uYXRpdmUtcmVhbmltYXRlZC9kb2NzL2Z1bmRhbWVudGFscy9nbG9zc2FyeSNhbmltYXRlZC1jb21wb25lbnQpLlxuICpcbiAqIEBzZWUgaHR0cHM6Ly9kb2NzLnN3bWFuc2lvbi5jb20vcmVhY3QtbmF0aXZlLXJlYW5pbWF0ZWQvZG9jcy9sYXlvdXQtYW5pbWF0aW9ucy9sYXlvdXQtdHJhbnNpdGlvbnMjZmFkaW5nLXRyYW5zaXRpb25cbiAqL1xuZXhwb3J0IGNsYXNzIEZhZGluZ1RyYW5zaXRpb25cbiAgZXh0ZW5kcyBCYXNlQW5pbWF0aW9uQnVpbGRlclxuICBpbXBsZW1lbnRzIElMYXlvdXRBbmltYXRpb25CdWlsZGVyXG57XG4gIHN0YXRpYyBwcmVzZXROYW1lID0gJ0ZhZGluZ1RyYW5zaXRpb24nO1xuXG4gIHN0YXRpYyBjcmVhdGVJbnN0YW5jZTxUIGV4dGVuZHMgdHlwZW9mIEJhc2VBbmltYXRpb25CdWlsZGVyPihcbiAgICB0aGlzOiBUXG4gICk6IEluc3RhbmNlVHlwZTxUPiB7XG4gICAgcmV0dXJuIG5ldyBGYWRpbmdUcmFuc2l0aW9uKCkgYXMgSW5zdGFuY2VUeXBlPFQ+O1xuICB9XG5cbiAgYnVpbGQgPSAoKTogTGF5b3V0QW5pbWF0aW9uRnVuY3Rpb24gPT4ge1xuICAgIGNvbnN0IGRlbGF5RnVuY3Rpb24gPSB0aGlzLmdldERlbGF5RnVuY3Rpb24oKTtcbiAgICBjb25zdCBjYWxsYmFjayA9IHRoaXMuY2FsbGJhY2tWO1xuICAgIGNvbnN0IGRlbGF5ID0gdGhpcy5nZXREZWxheSgpO1xuICAgIGNvbnN0IGhhbGZEdXJhdGlvbiA9ICh0aGlzLmR1cmF0aW9uViA/PyA1MDApIC8gMjtcblxuICAgIHJldHVybiAodmFsdWVzKSA9PiB7XG4gICAgICAnd29ya2xldCc7XG4gICAgICByZXR1cm4ge1xuICAgICAgICBpbml0aWFsVmFsdWVzOiB7XG4gICAgICAgICAgb3BhY2l0eTogMSxcbiAgICAgICAgICBvcmlnaW5YOiB2YWx1ZXMuY3VycmVudE9yaWdpblgsXG4gICAgICAgICAgb3JpZ2luWTogdmFsdWVzLmN1cnJlbnRPcmlnaW5ZLFxuICAgICAgICAgIHdpZHRoOiB2YWx1ZXMuY3VycmVudFdpZHRoLFxuICAgICAgICAgIGhlaWdodDogdmFsdWVzLmN1cnJlbnRIZWlnaHQsXG4gICAgICAgIH0sXG4gICAgICAgIGFuaW1hdGlvbnM6IHtcbiAgICAgICAgICBvcGFjaXR5OiBkZWxheUZ1bmN0aW9uKFxuICAgICAgICAgICAgZGVsYXksXG4gICAgICAgICAgICB3aXRoU2VxdWVuY2UoXG4gICAgICAgICAgICAgIHdpdGhUaW1pbmcoMCwgeyBkdXJhdGlvbjogaGFsZkR1cmF0aW9uIH0pLFxuICAgICAgICAgICAgICB3aXRoVGltaW5nKDEsIHsgZHVyYXRpb246IGhhbGZEdXJhdGlvbiB9KVxuICAgICAgICAgICAgKVxuICAgICAgICAgICksXG4gICAgICAgICAgb3JpZ2luWDogd2l0aERlbGF5KFxuICAgICAgICAgICAgZGVsYXkgKyBoYWxmRHVyYXRpb24sXG4gICAgICAgICAgICB3aXRoVGltaW5nKHZhbHVlcy50YXJnZXRPcmlnaW5YLCB7IGR1cmF0aW9uOiAwIH0pXG4gICAgICAgICAgKSxcbiAgICAgICAgICBvcmlnaW5ZOiB3aXRoRGVsYXkoXG4gICAgICAgICAgICBkZWxheSArIGhhbGZEdXJhdGlvbixcbiAgICAgICAgICAgIHdpdGhUaW1pbmcodmFsdWVzLnRhcmdldE9yaWdpblksIHsgZHVyYXRpb246IDAgfSlcbiAgICAgICAgICApLFxuICAgICAgICAgIHdpZHRoOiB3aXRoRGVsYXkoXG4gICAgICAgICAgICBkZWxheSArIGhhbGZEdXJhdGlvbixcbiAgICAgICAgICAgIHdpdGhUaW1pbmcodmFsdWVzLnRhcmdldFdpZHRoLCB7IGR1cmF0aW9uOiAwIH0pXG4gICAgICAgICAgKSxcbiAgICAgICAgICBoZWlnaHQ6IHdpdGhEZWxheShcbiAgICAgICAgICAgIGRlbGF5ICsgaGFsZkR1cmF0aW9uLFxuICAgICAgICAgICAgd2l0aFRpbWluZyh2YWx1ZXMudGFyZ2V0SGVpZ2h0LCB7IGR1cmF0aW9uOiAwIH0pXG4gICAgICAgICAgKSxcbiAgICAgICAgfSxcbiAgICAgICAgY2FsbGJhY2ssXG4gICAgICB9O1xuICAgIH07XG4gIH07XG59XG4iXSwibWFwcGluZ3MiOiJBQUFBLFlBQVk7O0FBQUMsSUFBQUEsc0JBQUEsR0FBQUMsT0FBQSxpREFBQUMsT0FBQTtBQUFBQyxNQUFBLENBQUFDLGNBQUEsQ0FBQUMsT0FBQTtFQUFBQyxLQUFBO0FBQUE7QUFBQUQsT0FBQSxDQUFBRSxnQkFB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

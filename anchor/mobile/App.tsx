@@ -183,6 +183,7 @@ export default function App() {
   const developerMasterAccountEnabled = useSettingsStore(
     (state) => state.developerMasterAccountEnabled
   );
+  const developerMasterAccountEnabledRef = useRef(developerMasterAccountEnabled);
   const developerSkipOnboardingEnabled = useSettingsStore(
     (state) => state.developerSkipOnboardingEnabled
   );
@@ -265,6 +266,10 @@ export default function App() {
   }, [launchOpacity, launchStateResolved, shouldFadePrimeOnLaunch]);
 
   useEffect(() => {
+    developerMasterAccountEnabledRef.current = developerMasterAccountEnabled;
+  }, [developerMasterAccountEnabled]);
+
+  useEffect(() => {
     AuthService.initialize();
 
     let isActive = true;
@@ -280,7 +285,7 @@ export default function App() {
         }
 
         const store = useAuthStore.getState();
-        if (__DEV__ && developerMasterAccountEnabled) {
+        if (__DEV__ && developerMasterAccountEnabledRef.current) {
           store.enableDeveloperMasterAccount();
         } else {
           store.signOut();
@@ -320,6 +325,21 @@ export default function App() {
       isActive = false;
       unsubscribe();
     };
+  }, []);
+
+  useEffect(() => {
+    if (AuthService.hasAuthenticatedSession()) {
+      return;
+    }
+
+    const store = useAuthStore.getState();
+    if (__DEV__ && developerMasterAccountEnabled) {
+      store.enableDeveloperMasterAccount();
+      return;
+    }
+
+    store.signOut();
+    store.setLoading(false);
   }, [developerMasterAccountEnabled]);
 
   useEffect(() => {

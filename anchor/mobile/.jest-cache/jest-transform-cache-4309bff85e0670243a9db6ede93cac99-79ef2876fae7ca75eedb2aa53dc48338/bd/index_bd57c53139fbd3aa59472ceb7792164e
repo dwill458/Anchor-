@@ -1,0 +1,14 @@
+5b4461adc1efa3674dbfb6b80a5b3d73
+'use strict';
+
+Object.defineProperty(exports, "__esModule", {
+  value: true
+});
+Object.defineProperty(exports, "WorkletsModule", {
+  enumerable: true,
+  get: function get() {
+    return _workletsModuleInstance.WorkletsModule;
+  }
+});
+var _workletsModuleInstance = require("./workletsModuleInstance");
+//# sourceMappingURL=data:application/json;charset=utf-8;base64,eyJ2ZXJzaW9uIjozLCJuYW1lcyI6WyJPYmplY3QiLCJkZWZpbmVQcm9wZXJ0eSIsImV4cG9ydHMiLCJ2YWx1ZSIsImVudW1lcmFibGUiLCJnZXQiLCJfd29ya2xldHNNb2R1bGVJbnN0YW5jZSIsIldvcmtsZXRzTW9kdWxlIiwicmVxdWlyZSJdLCJzb3VyY2VzIjpbIi4uLy4uLy4uL3NyYy9Xb3JrbGV0c01vZHVsZS9pbmRleC50cyJdLCJzb3VyY2VzQ29udGVudCI6W251bGxdLCJtYXBwaW5ncyI6IkFBQUEsWUFBWTs7QUFBQUEsTUFBQSxDQUFBQyxjQUFBLENBQUFDLE9BQUE7RUFBQUMsS0FBQTtBQUFBO0FBQUFILE1BQUEsQ0FBQUMsY0FBQSxDQUFBQyxPQUFBO0VBQUFFLFVBQUE7RUFBQUMsR0FBQSxXQUFBQSxJQUFBO0lBQUEsT0FBQUMsdUJBQUEsQ0FBQUMsY0FBQTtFQUFBO0FBQUE7QUFFWixJQUFBRCx1QkFBQSxHQUFBRSxPQUFBIiwiaWdub3JlTGlzdCI6W119
