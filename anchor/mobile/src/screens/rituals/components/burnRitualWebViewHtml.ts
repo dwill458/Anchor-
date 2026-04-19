@@ -40,6 +40,7 @@ html, body {
 }
 
 #sigil-circle {
+  position: relative;
   border-radius: 50%;
   border: 1.5px solid rgba(201,168,76,0.4);
   display: flex;
@@ -51,13 +52,72 @@ html, body {
     rgba(10,13,20,0.96) 70%
   );
   box-shadow: 0 0 30px rgba(201,168,76,0.15);
-  /* burn animation added by JS */
+  isolation: isolate;
+  contain: layout paint;
   will-change: transform, opacity, filter;
 }
 
-#sigil-img {
-  width: 60%; height: 60%;
+#sigil-image-shell {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  overflow: hidden;
+}
+
+#sigil-img,
+#sigil-image-shell img {
+  width: 100%;
+  height: 100%;
   object-fit: contain;
+  padding: 14%;
+  image-rendering: auto;
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+  transform: translateZ(0);
+  filter: drop-shadow(0 0 14px rgba(236,208,120,0.18));
+}
+
+#sigil-img {
+  opacity: 0.92;
+}
+
+#burn-glow,
+#burn-veil {
+  position: absolute;
+  inset: -14%;
+  border-radius: 50%;
+  opacity: 0;
+  pointer-events: none;
+}
+
+#burn-glow {
+  z-index: 3;
+  background:
+    radial-gradient(circle at 50% 72%,
+      rgba(255,179,69,0.34) 0%,
+      rgba(255,99,0,0.22) 24%,
+      rgba(93,18,0,0.09) 50%,
+      rgba(0,0,0,0) 76%
+    );
+  filter: blur(18px);
+  mix-blend-mode: screen;
+}
+
+#burn-veil {
+  z-index: 4;
+  background:
+    linear-gradient(180deg,
+      rgba(255,214,153,0) 0%,
+      rgba(255,214,153,0.06) 26%,
+      rgba(255,176,77,0.18) 38%,
+      rgba(255,108,19,0.56) 54%,
+      rgba(50,8,0,0.84) 68%,
+      rgba(0,0,0,0.98) 100%
+    );
+  filter: blur(8px) saturate(1.2);
 }
 
 /* Status label */
@@ -84,14 +144,18 @@ html, body {
 
 <div id="sigil-wrap">
   <div id="sigil-circle">
-    <!-- RN will inject a base64 image via postMessage, or use the SVG placeholder -->
-    <svg id="sigil-img" viewBox="0 0 100 100" fill="none">
-      <polygon points="50,10 90,80 10,80" stroke="#C9A84C" stroke-width="1.5" fill="none" opacity="0.75"/>
-      <circle cx="50" cy="50" r="20" stroke="#C9A84C" stroke-width="1" fill="none" opacity="0.55"/>
-      <line x1="50" y1="10" x2="50" y2="90" stroke="#C9A84C" stroke-width="1" opacity="0.45"/>
-      <line x1="10" y1="50" x2="90" y2="50" stroke="#C9A84C" stroke-width="1" opacity="0.45"/>
-      <circle cx="50" cy="50" r="4" fill="#C9A84C" opacity="0.9"/>
-    </svg>
+    <div id="sigil-image-shell">
+      <!-- RN will inject a base64 image via postMessage, or use the SVG placeholder -->
+      <svg id="sigil-img" viewBox="0 0 100 100" fill="none">
+        <polygon points="50,10 90,80 10,80" stroke="#C9A84C" stroke-width="1.5" fill="none" opacity="0.75"/>
+        <circle cx="50" cy="50" r="20" stroke="#C9A84C" stroke-width="1" fill="none" opacity="0.55"/>
+        <line x1="50" y1="10" x2="50" y2="90" stroke="#C9A84C" stroke-width="1" opacity="0.45"/>
+        <line x1="10" y1="50" x2="90" y2="50" stroke="#C9A84C" stroke-width="1" opacity="0.45"/>
+        <circle cx="50" cy="50" r="4" fill="#C9A84C" opacity="0.9"/>
+      </svg>
+    </div>
+    <div id="burn-glow"></div>
+    <div id="burn-veil"></div>
   </div>
 </div>
 
@@ -107,6 +171,9 @@ const ctx    = canvas.getContext('2d');
 const SIGIL_SIZE = Math.min(window.innerWidth * 0.58, 240);
 const wrap  = document.getElementById('sigil-wrap');
 const circle = document.getElementById('sigil-circle');
+const imageShell = document.getElementById('sigil-image-shell');
+const burnGlow = document.getElementById('burn-glow');
+const burnVeil = document.getElementById('burn-veil');
 const status = document.getElementById('status');
 
 // Size and center sigil
@@ -340,21 +407,46 @@ function applySigilBurnCSS() {
   const style = document.createElement('style');
   style.textContent = \`
     @keyframes sigilShake {
-      0%,100% { transform: rotate(0deg)   scale(1);    }
-      25%      { transform: rotate(-1.8deg) scale(1.04); }
-      75%      { transform: rotate(1.8deg)  scale(0.96); }
+      0%,100% { transform: rotate(0deg) scale(1); }
+      25% { transform: rotate(-1.4deg) scale(1.02); }
+      75% { transform: rotate(1.4deg) scale(0.985); }
     }
-    @keyframes sigilBurn {
-      0%   { transform: scale(1);    opacity: 1;   filter: brightness(1)   saturate(1)   hue-rotate(0deg);   }
-      20%  { transform: scale(1.08); opacity: 1;   filter: brightness(3)   saturate(0.3) hue-rotate(20deg);  }
-      50%  { transform: scale(0.85); opacity: 0.7; filter: brightness(5)   saturate(0)   hue-rotate(30deg);  }
-      80%  { transform: scale(0.45); opacity: 0.3; filter: brightness(8)   saturate(0)   hue-rotate(40deg);  }
-      100% { transform: scale(0.05); opacity: 0;   filter: brightness(12)  saturate(0);  }
+    @keyframes sigilFrameBurn {
+      0% { transform: scale(1); opacity: 1; filter: brightness(1) saturate(1); }
+      18% { transform: scale(1.03); opacity: 1; filter: brightness(1.28) saturate(1.12); }
+      48% { transform: scale(0.98); opacity: 1; filter: brightness(1.46) saturate(0.94); }
+      78% { transform: scale(0.84); opacity: 0.82; filter: brightness(1.88) saturate(0.18) blur(1px); }
+      100% { transform: scale(0.62); opacity: 0; filter: brightness(2.2) saturate(0) blur(6px); }
+    }
+    @keyframes sigilArtBurn {
+      0% { transform: scale(1) translateY(0); opacity: 1; filter: brightness(1) saturate(1) contrast(1.04); }
+      16% { transform: scale(1.02) translateY(0); opacity: 1; filter: brightness(1.2) saturate(1.08) contrast(1.06); }
+      40% { transform: scale(0.995) translateY(-2%); opacity: 0.98; filter: brightness(1.42) saturate(0.88) contrast(1.1); }
+      68% { transform: scale(0.92) translateY(-8%); opacity: 0.74; filter: brightness(1.7) saturate(0.34) contrast(1.14) blur(0.6px); }
+      100% { transform: scale(0.74) translateY(-18%); opacity: 0; filter: brightness(2.35) saturate(0) contrast(1.18) blur(3px); }
+    }
+    @keyframes burnVeilSweep {
+      0% { opacity: 0; transform: translateY(46%) scale(1.12) rotate(0deg); }
+      18% { opacity: 0.18; }
+      44% { opacity: 0.82; transform: translateY(12%) scale(1.02) rotate(-2deg); }
+      72% { opacity: 0.94; transform: translateY(-24%) scale(0.96) rotate(1deg); }
+      100% { opacity: 0; transform: translateY(-54%) scale(0.88) rotate(2deg); }
+    }
+    @keyframes burnGlowPulse {
+      0%, 100% { opacity: 0; transform: scale(0.78); }
+      20% { opacity: 0.42; }
+      55% { opacity: 0.88; transform: scale(1.04); }
     }
   \`;
   document.head.appendChild(style);
 }
 applySigilBurnCSS();
+
+function resetAnimation(node) {
+  if (!node) return;
+  node.style.animation = 'none';
+  void node.offsetHeight;
+}
 
 // \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
 //  SEQUENCE CONTROLLER
@@ -363,6 +455,12 @@ function runSequence() {
   // Show status
   status.textContent = 'Igniting\u2026';
   status.classList.add('show');
+  resetAnimation(circle);
+  resetAnimation(imageShell);
+  resetAnimation(burnGlow);
+  resetAnimation(burnVeil);
+  burnGlow.style.opacity = '0';
+  burnVeil.style.opacity = '0';
 
   // Phase 1 \u2014 ignite shake (0\u2013900ms)
   phase = 'ignite';
@@ -373,7 +471,10 @@ function runSequence() {
   setTimeout(() => {
     phase = 'burning';
     status.textContent = 'Releasing\u2026';
-    circle.style.animation = 'sigilBurn 3.2s ease forwards';
+    circle.style.animation = 'sigilFrameBurn 3.2s cubic-bezier(0.22, 0.61, 0.36, 1) forwards';
+    imageShell.style.animation = 'sigilArtBurn 3.2s cubic-bezier(0.22, 0.61, 0.36, 1) forwards';
+    burnGlow.style.animation = 'burnGlowPulse 1.08s ease-in-out 3';
+    burnVeil.style.animation = 'burnVeilSweep 3.2s ease forwards';
   }, 900);
 
   // Phase 3 \u2014 embers (3800ms)
@@ -405,12 +506,13 @@ function replaceSigilImage(primaryUri, fallbackUri) {
   if (!initialUri) return;
 
   const img = document.createElement('img');
-  img.style.cssText = 'width:100%;height:100%;object-fit:cover;border-radius:50%;';
+  img.decoding = 'async';
+  img.alt = '';
 
   let attemptedFallback = false;
   img.onload = () => {
-    circle.innerHTML = '';
-    circle.appendChild(img);
+    imageShell.innerHTML = '';
+    imageShell.appendChild(img);
   };
   img.onerror = () => {
     if (!attemptedFallback && fallbackUri && img.src !== fallbackUri) {

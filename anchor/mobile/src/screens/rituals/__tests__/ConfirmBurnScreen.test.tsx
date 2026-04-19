@@ -3,6 +3,7 @@ import { act, fireEvent, render } from '@testing-library/react-native';
 import { ConfirmBurnScreen } from '../ConfirmBurnScreen';
 import { AnalyticsEvents, AnalyticsService } from '@/services/AnalyticsService';
 import { ErrorTrackingService } from '@/services/ErrorTrackingService';
+import { useAnchorStore } from '@/stores/anchorStore';
 
 jest.mock('@react-navigation/native', () => ({
   useRoute: jest.fn(() => ({
@@ -22,15 +23,7 @@ jest.mock('@react-navigation/native', () => ({
 jest.mock('@/services/AnalyticsService');
 jest.mock('@/services/ErrorTrackingService');
 jest.mock('@/stores/anchorStore', () => ({
-  useAnchorStore: (selector: any) =>
-    selector({
-      getAnchorById: jest.fn(() => ({
-        id: 'test-anchor-id',
-        baseSigilSvg: '<svg>store</svg>',
-        reinforcedSigilSvg: '<svg>reinforced</svg>',
-        enhancedImageUrl: 'https://example.com/confirm-burn-hero.png',
-      })),
-    }),
+  useAnchorStore: jest.fn(),
 }));
 jest.mock('react-native-svg', () => ({
   SvgXml: 'SvgXml',
@@ -50,6 +43,17 @@ describe('ConfirmBurnScreen', () => {
       navigate: mockNavigate,
       goBack: jest.fn(),
     });
+
+    (useAnchorStore as unknown as jest.Mock).mockImplementation((selector: any) =>
+      selector({
+        getAnchorById: jest.fn(() => ({
+          id: 'test-anchor-id',
+          baseSigilSvg: '<svg>store</svg>',
+          reinforcedSigilSvg: '<svg>reinforced</svg>',
+          enhancedImageUrl: 'https://example.com/confirm-burn-hero.png',
+        })),
+      })
+    );
   });
 
   afterEach(() => {
@@ -184,6 +188,37 @@ describe('ConfirmBurnScreen', () => {
       intention: 'I am confident',
       sigilSvg: '<svg></svg>',
       enhancedImageUrl: 'https://example.com/confirm-burn-hero.png',
+    });
+  });
+
+  it('falls back to legacy sigilUri artwork when enhancedImageUrl is missing', () => {
+    (useAnchorStore as unknown as jest.Mock).mockImplementation((selector: any) =>
+      selector({
+        getAnchorById: jest.fn(() => ({
+          id: 'test-anchor-id',
+          baseSigilSvg: '<svg>store</svg>',
+          reinforcedSigilSvg: '<svg>reinforced</svg>',
+          enhancedImageUrl: undefined,
+          sigilUri: 'https://example.com/legacy-confirm-burn-hero.png',
+        })),
+      })
+    );
+
+    const { getByText, getByPlaceholderText } = render(<ConfirmBurnScreen />);
+
+    fireEvent.press(getByText('Continue'));
+    act(() => {
+      jest.advanceTimersByTime(200);
+    });
+
+    fireEvent.changeText(getByPlaceholderText('Type RELEASE'), 'RELEASE');
+    fireEvent.press(getByText('Burn Now'));
+
+    expect(mockNavigate).toHaveBeenCalledWith('BurningRitual', {
+      anchorId: 'test-anchor-id',
+      intention: 'I am confident',
+      sigilSvg: '<svg></svg>',
+      enhancedImageUrl: 'https://example.com/legacy-confirm-burn-hero.png',
     });
   });
 

@@ -437,6 +437,10 @@ const isAllowedImageUrl = (imageUrl?: string): imageUrl is string => {
   const trimmedUrl = imageUrl.trim();
   if (!trimmedUrl) return false;
 
+  if (/^data:image\/(?:png|jpeg|jpg|webp|gif|svg\+xml);/i.test(trimmedUrl)) {
+    return true;
+  }
+
   try {
     const parsedUrl = new URL(trimmedUrl);
     return parsedUrl.protocol.toLowerCase() === 'https:';

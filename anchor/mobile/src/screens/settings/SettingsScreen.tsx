@@ -293,7 +293,8 @@ export const SettingsScreen: React.FC = () => {
               onPress={() => navigation.navigate('HapticFeedback')}
             />
             <SettingsRow
-              title="Sound Effects"
+              title="Sound"
+              subtitle="Audio feedback during forge and prime sessions"
               type="toggle"
               toggleValue={settings.soundEffectsEnabled}
               onToggle={(value) => updateSetting('soundEffectsEnabled', value)}

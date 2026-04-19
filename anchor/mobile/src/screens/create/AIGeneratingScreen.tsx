@@ -688,7 +688,6 @@ export default function AIGeneratingScreen() {
     clearGenerationResources,
     distilledLetters,
     intentionText,
-    isPro,
     navigation,
     reinforcementMetadata,
     reinforcedSigilSvg,
