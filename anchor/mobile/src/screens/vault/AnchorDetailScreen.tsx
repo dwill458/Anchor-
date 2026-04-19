@@ -51,6 +51,7 @@ import {
   ZenBackground,
 } from '@/components/common';
 import { usePerformanceTier } from '@/hooks/usePerformanceTier';
+import { resolveBurnArtworkUri } from '@/screens/rituals/utils/resolveBurnArtworkUri';
 
 const { width: SCREEN_W } = Dimensions.get('window');
 const SIGIL_CIRCLE_SIZE = Math.round(SCREEN_W * 0.62);
@@ -772,7 +773,7 @@ const AnchorDetailsScreen = ({ navigation, route }) => {
       anchorId,
       intention: burnAnchor?.intentionText ?? burnAnchor?.intention ?? anchor.intention,
       sigilSvg: burnAnchor?.reinforcedSigilSvg ?? burnAnchor?.baseSigilSvg ?? '',
-      enhancedImageUrl: burnAnchor?.enhancedImageUrl,
+      enhancedImageUrl: resolveBurnArtworkUri(burnAnchor),
     });
   };
 

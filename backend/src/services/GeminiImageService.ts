@@ -172,16 +172,23 @@ export class GeminiImageService {
     // 3. Get model configuration
     const modelConfig = MODEL_CONFIGS[tier];
 
-    // 4. Generate variations sequentially with a short delay between calls
-    //    to avoid hitting Gemini's per-minute rate limits (free tier ≈ 2-10 RPM).
-    const INTER_CALL_DELAY_MS = 2500;
+    // 4. Generate variations in batches of 2 (paid plan — no free-tier rate limit concerns).
+    //    Two concurrent calls per batch cuts wall-clock time roughly in half vs sequential.
+    const INTER_BATCH_DELAY_MS = 2500;
     const variations: ImageVariation[] = [];
-    for (let i = 0; i < numberOfVariations; i++) {
-      const variation = await this.generateVariation(baseImageBuffer, prompt, i, modelConfig);
-      variations.push(variation);
+    const BATCH_SIZE = 2;
+    for (let i = 0; i < numberOfVariations; i += BATCH_SIZE) {
+      const indices = Array.from(
+        { length: Math.min(BATCH_SIZE, numberOfVariations - i) },
+        (_, k) => i + k
+      );
+      const batch = await Promise.all(
+        indices.map(idx => this.generateVariation(baseImageBuffer, prompt, idx, modelConfig))
+      );
+      variations.push(...batch);
 
-      if (i < numberOfVariations - 1) {
-        await new Promise(resolve => setTimeout(resolve, INTER_CALL_DELAY_MS));
+      if (i + BATCH_SIZE < numberOfVariations) {
+        await new Promise(resolve => setTimeout(resolve, INTER_BATCH_DELAY_MS));
       }
     }
 
@@ -240,12 +247,12 @@ NO WORDS. NO NUMBERS. NO LETTERS. NO CURRENCY. NO FINANCIAL IMAGERY.`;
     const styleTemplates: Record<string, string> = {
       minimal_line: `${structuralCore}
 
-STYLE: Precision fine-line engraving — BLACK INK ON WHITE
-- ALL lines and strokes must be pure BLACK — absolutely no gold, yellow, amber, cream, or colored strokes
-- Background: white or off-white — no dark or colored backgrounds
-- Single-weight hairline black strokes only; no fills, no gradients, no color washes, no shading
-- Decorative motifs rendered as delicate black hairline filigree in borders only
-- Aesthetic: museum-quality engraving plate — restrained, precise, minimal luxury
+STYLE: Precision fine-line engraving — LIGHT LINES ON DARK
+- Background: deep black, dark charcoal, or very dark navy — rich and dark
+- ALL sigil lines and strokes in pure white, silver, or a soft luminous light tone that contrasts sharply against the dark background
+- Single-weight crisp strokes only; no fills, no gradients, no color washes, no heavy shading
+- Decorative border motifs drawn from the archetypal theme — rendered as delicate fine-line engravings, not strictly hairline; they may have subtle weight and presence
+- Aesthetic: museum-quality dark-ground engraving plate — restrained, precise, minimal luxury
 
 ${archetypeBlock}
 ${hardBans}`,

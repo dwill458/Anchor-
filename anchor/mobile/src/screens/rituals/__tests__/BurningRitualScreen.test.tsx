@@ -169,4 +169,23 @@ describe('BurningRitualScreen', () => {
     expect(getByTestId('overlay-image').props.children).toBe('https://example.com/burn-hero.png');
     expect(getByTestId('overlay-sigil').props.children).toBe('<svg></svg>');
   });
+
+  it('falls back to legacy sigilUri artwork when enhancedImageUrl is missing', () => {
+    (useAnchorStore as unknown as jest.Mock).mockImplementation((selector: any) =>
+      selector({
+        removeAnchor: mockRemoveAnchor,
+        getAnchorById: jest.fn(() => ({
+          id: 'test-anchor-id',
+          baseSigilSvg: '<svg>store</svg>',
+          reinforcedSigilSvg: '<svg>reinforced</svg>',
+          enhancedImageUrl: undefined,
+          sigilUri: 'https://example.com/legacy-burn-hero.png',
+        })),
+      })
+    );
+
+    const { getByTestId } = render(<BurningRitualScreen />);
+
+    expect(getByTestId('overlay-image').props.children).toBe('https://example.com/legacy-burn-hero.png');
+  });
 });

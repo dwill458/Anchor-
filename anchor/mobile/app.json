@@ -60,7 +60,14 @@
       "@sentry/react-native",
       "expo-audio",
       "expo-asset",
-      "expo-notifications",
+      [
+        "expo-notifications",
+        {
+          "sounds": [
+            "./src/assets/sounds/notification.wav"
+          ]
+        }
+      ],
       [
         "expo-image-picker",
         {

@@ -163,4 +163,14 @@ describe('ChargeSetupScreen', () => {
         expect(webView.props.source.html).toContain('<img src="https://example.com/enhanced-anchor.png" alt="" />');
         expect(webView.props.source.html).not.toContain('SIGIL_CONTENT_PLACEHOLDER');
     });
+
+    it('renders inline enhanced anchor artwork in the webview when provided as a data URI', () => {
+        mockAnchor.enhancedImageUrl = 'data:image/png;base64,ZmFrZS1hbmNob3I=';
+
+        const { UNSAFE_getByType } = render(<ChargeSetupScreen />);
+        const webView = UNSAFE_getByType(WebView);
+
+        expect(webView.props.source.html).toContain('<img src="data:image/png;base64,ZmFrZS1hbmNob3I=" alt="" />');
+        expect(webView.props.source.html).not.toContain('SIGIL_CONTENT_PLACEHOLDER');
+    });
 });

@@ -8,11 +8,14 @@ import {
   View,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
+import * as Haptics from 'expo-haptics';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import type { RouteProp } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '@/types';
 import { useAuthStore } from '@/stores/authStore';
+import { useAnchorStore } from '@/stores/anchorStore';
+import { useAudio } from '@/hooks/useAudio';
 import { colors } from '@/theme';
 
 type Props = {
@@ -40,6 +43,7 @@ export default function LetterDistillationScreen({ route, navigation }: Props) {
     user: state.user,
     anchorCount: state.anchorCount,
   }));
+  const localAnchorCount = useAnchorStore((state) => state.anchors.length);
 
   // Step 2: unique alphabetic letters from raw intention (spaces removed, vowels kept)
   const step2Letters = useMemo(() => {
@@ -120,17 +124,20 @@ export default function LetterDistillationScreen({ route, navigation }: Props) {
 
   const [currentStage, setCurrentStage] = useState(0);
   const [displayedText, setDisplayedText] = useState('');
+  const { playSound } = useAudio();
 
   const fadeAnim = useRef(new Animated.Value(1)).current;
   const typingTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const stageTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const hasNavigatedRef = useRef(false);
+  const didPlayRevealCueRef = useRef(false);
 
   const orb1TranslateY = useRef(new Animated.Value(0)).current;
   const orb2TranslateY = useRef(new Animated.Value(0)).current;
   const orb3Scale = useRef(new Animated.Value(1)).current;
 
-  const isReturningUser = (user?.totalAnchorsCreated ?? anchorCount ?? 0) > 0;
+  const isReturningUser =
+    Math.max(user?.totalAnchorsCreated ?? 0, anchorCount ?? 0, localAnchorCount) > 0;
   const showSkip = isReturningUser && currentStage < stages.length - 1;
 
   const clearStageTimers = useCallback(() => {
@@ -259,13 +266,33 @@ export default function LetterDistillationScreen({ route, navigation }: Props) {
   useEffect(() => {
     clearStageTimers();
     setDisplayedText('');
+    didPlayRevealCueRef.current = currentStage !== stages.length - 1;
 
     const stage = stages[currentStage];
     let index = 0;
+    const shouldPlayLetterCue = currentStage > 0 && currentStage < stages.length - 1;
 
     const typeNext = () => {
       if (index <= stage.text.length) {
+        const nextCharacter = index > 0 ? stage.text[index - 1] : '';
+
         setDisplayedText(stage.text.slice(0, index));
+
+        if (shouldPlayLetterCue && nextCharacter.trim()) {
+          void playSound('letter-drop');
+          void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+        }
+
+        if (
+          currentStage === stages.length - 1 &&
+          index === stage.text.length &&
+          !didPlayRevealCueRef.current
+        ) {
+          didPlayRevealCueRef.current = true;
+          void playSound('forge-seal');
+          void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
+        }
+
         index += 1;
         typingTimer.current = setTimeout(typeNext, stage.typeSpeed);
         return;
@@ -284,7 +311,7 @@ export default function LetterDistillationScreen({ route, navigation }: Props) {
     typeNext();
 
     return clearStageTimers;
-  }, [clearStageTimers, currentStage, goToStage, navigateToSelection, stages]);
+  }, [clearStageTimers, currentStage, goToStage, navigateToSelection, playSound, stages]);
 
   useEffect(() => clearStageTimers, [clearStageTimers]);
 

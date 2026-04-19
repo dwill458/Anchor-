@@ -23,6 +23,7 @@ Notifications.setNotificationHandler({
 
 const IS_ANDROID = Platform.OS === 'android';
 const DEFAULT_LIGHT_COLOR = '#D4AF37';
+const CUSTOM_NOTIFICATION_SOUND = 'notification.wav';
 
 export const NOTIFICATION_CHANNELS = {
   DAILY_REMINDERS: 'daily-reminders',
@@ -166,7 +167,7 @@ class NotificationService {
       content: {
         title: 'Return to Your Anchor',
         body: 'A moment to return to your anchor.',
-        sound: true,
+        sound: CUSTOM_NOTIFICATION_SOUND,
         data: this.buildPayload('daily_reminder'),
       },
       trigger: {
@@ -215,7 +216,7 @@ class NotificationService {
         body: isFinalCheckpoint
           ? "One more focus or reinforce session completes today's goal."
           : "A quick focus or reinforce session keeps today's goal on track.",
-        sound: true,
+        sound: CUSTOM_NOTIFICATION_SOUND,
         data: this.buildPayload('daily_goal_checkpoint', {
           goal,
           milestone,
@@ -264,7 +265,7 @@ class NotificationService {
       content: {
         title: 'Ritual Reminder',
         body: 'Your anchor ritual is ready when you are.',
-        sound: true,
+        sound: CUSTOM_NOTIFICATION_SOUND,
         data: this.buildPayload('ritual_reminder', {
           anchorId,
           reminderId,
@@ -303,7 +304,7 @@ class NotificationService {
       content: {
         title: 'Streak Protection',
         body: 'You haven’t met your ritual goal today. A quick activation will keep your momentum.',
-        sound: true,
+        sound: CUSTOM_NOTIFICATION_SOUND,
         data: this.buildPayload('streak_protection'),
       },
       trigger: {
@@ -335,7 +336,7 @@ class NotificationService {
       content: {
         title: 'Your Weekly Reflection',
         body: 'A short overview of your practice this week is ready.',
-        sound: true,
+        sound: CUSTOM_NOTIFICATION_SOUND,
         data: this.buildPayload('weekly_summary'),
       },
       trigger: {
@@ -480,6 +481,7 @@ class NotificationService {
         importance: Notifications.AndroidImportance.HIGH,
         vibrationPattern: [0, 250, 250, 250],
         lightColor: DEFAULT_LIGHT_COLOR,
+        sound: CUSTOM_NOTIFICATION_SOUND,
       });
 
       await Notifications.setNotificationChannelAsync(NOTIFICATION_CHANNELS.DAILY_GOAL_CHECKPOINTS, {
@@ -487,6 +489,7 @@ class NotificationService {
         importance: Notifications.AndroidImportance.DEFAULT,
         vibrationPattern: [0, 250, 250, 250],
         lightColor: DEFAULT_LIGHT_COLOR,
+        sound: CUSTOM_NOTIFICATION_SOUND,
       });
 
       await Notifications.setNotificationChannelAsync(NOTIFICATION_CHANNELS.RITUAL_REMINDERS, {
@@ -494,18 +497,21 @@ class NotificationService {
         importance: Notifications.AndroidImportance.DEFAULT,
         vibrationPattern: [0, 250, 250, 250],
         lightColor: DEFAULT_LIGHT_COLOR,
+        sound: CUSTOM_NOTIFICATION_SOUND,
       });
 
       await Notifications.setNotificationChannelAsync(NOTIFICATION_CHANNELS.STREAK_PROTECTION, {
         name: 'Streak Protection',
         importance: Notifications.AndroidImportance.DEFAULT,
         lightColor: DEFAULT_LIGHT_COLOR,
+        sound: CUSTOM_NOTIFICATION_SOUND,
       });
 
       await Notifications.setNotificationChannelAsync(NOTIFICATION_CHANNELS.WEEKLY_SUMMARY, {
         name: 'Weekly Summary',
         importance: Notifications.AndroidImportance.LOW,
         lightColor: DEFAULT_LIGHT_COLOR,
+        sound: CUSTOM_NOTIFICATION_SOUND,
       });
     } catch (error) {
       throw new ServiceError(
@@ -564,7 +570,7 @@ class NotificationService {
           content: {
             title: 'Test: Return to Your Anchor',
             body: 'Developer test for the daily reminder notification.',
-            sound: true,
+            sound: CUSTOM_NOTIFICATION_SOUND,
             data: this.buildPayload('daily_reminder'),
           },
           trigger: this.buildTimeIntervalTrigger(
@@ -578,7 +584,7 @@ class NotificationService {
           content: {
             title: "Test: Stay with Today's Goal",
             body: 'Developer test for the daily goal checkpoint notification.',
-            sound: true,
+            sound: CUSTOM_NOTIFICATION_SOUND,
             data: this.buildPayload('daily_goal_checkpoint', {
               goal: 3,
               milestone: 2,
@@ -596,7 +602,7 @@ class NotificationService {
           content: {
             title: 'Test: Ritual Reminder',
             body: 'Developer test for the ritual reminder notification.',
-            sound: true,
+            sound: CUSTOM_NOTIFICATION_SOUND,
             data: this.buildPayload('ritual_reminder', {
               anchorId: 'dev-anchor',
               reminderId: identifier,
@@ -613,7 +619,7 @@ class NotificationService {
           content: {
             title: 'Test: Streak Protection',
             body: 'Developer test for the streak protection notification.',
-            sound: true,
+            sound: CUSTOM_NOTIFICATION_SOUND,
             data: this.buildPayload('streak_protection'),
           },
           trigger: this.buildTimeIntervalTrigger(
@@ -627,7 +633,7 @@ class NotificationService {
           content: {
             title: 'Test: Your Weekly Reflection',
             body: 'Developer test for the weekly summary notification.',
-            sound: true,
+            sound: CUSTOM_NOTIFICATION_SOUND,
             data: this.buildPayload('weekly_summary'),
           },
           trigger: this.buildTimeIntervalTrigger(

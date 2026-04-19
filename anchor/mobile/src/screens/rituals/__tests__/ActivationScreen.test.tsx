@@ -16,6 +16,7 @@ import { createMockAnchor } from '@/__tests__/utils/testUtils';
 const TEST_ACTIVATION_DURATION_SECONDS = 2;
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 const mockNavigateToPractice = jest.fn();
+const mockPlaySound = jest.fn();
 
 jest.mock('@react-navigation/native', () => ({
   useRoute: jest.fn(() => ({
@@ -64,6 +65,11 @@ jest.mock('@/stores/anchorStore');
 jest.mock('@/stores/settingsStore');
 jest.mock('@/services/ApiClient');
 jest.mock('@/services/ErrorTrackingService');
+jest.mock('@/hooks/useAudio', () => ({
+  useAudio: () => ({
+    playSound: mockPlaySound,
+  }),
+}));
 jest.mock('@/components/ToastProvider', () => ({
   useToast: jest.fn(() => ({
     success: jest.fn(),
@@ -79,12 +85,14 @@ describe('ActivationScreen', () => {
   let mockAddListener: jest.Mock;
   let mockGetAnchorById: jest.Mock;
   let mockUpdateAnchor: jest.Mock;
+  let mockIncrementTotalPrimes: jest.Mock;
   let mockToastSuccess: jest.Mock;
   let mockToastError: jest.Mock;
   let mockAnchor: any;
 
   beforeEach(() => {
     jest.clearAllMocks();
+    mockPlaySound.mockClear();
 
     mockGoBack = jest.fn();
     mockPopToTop = jest.fn();
@@ -93,6 +101,7 @@ describe('ActivationScreen', () => {
     mockAddListener = jest.fn(() => jest.fn());
     mockGetAnchorById = jest.fn();
     mockUpdateAnchor = jest.fn();
+    mockIncrementTotalPrimes = jest.fn();
     mockToastSuccess = jest.fn();
     mockToastError = jest.fn();
 
@@ -127,9 +136,16 @@ describe('ActivationScreen', () => {
       const state = {
         getAnchorById: mockGetAnchorById,
         updateAnchor: mockUpdateAnchor,
+        incrementTotalPrimes: mockIncrementTotalPrimes,
+        totalPrimes: 0,
+        anchors: [mockAnchor],
       };
       return typeof selector === 'function' ? selector(state) : state;
     });
+    (useAnchorStore as any).getState = jest.fn(() => ({
+      totalPrimes: 0,
+      anchors: [mockAnchor],
+    }));
 
     (useSettingsStore as unknown as jest.Mock).mockReturnValue({
       defaultActivation: {
