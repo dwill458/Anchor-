@@ -4,7 +4,6 @@ import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
-import { SvgXml } from 'react-native-svg';
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
@@ -14,9 +13,8 @@ import Animated, {
 } from 'react-native-reanimated';
 import { RootStackParamList } from '@/types';
 import { colors, spacing, typography } from '@/theme';
-import { ZenBackground } from '@/components/common';
+import { SigilSvg, ZenBackground } from '@/components/common';
 import { generateAllVariants, SigilGenerationResult, SigilVariant } from '@/utils/sigil/traditional-generator';
-import { logger } from '@/utils/logger';
 
 type StructureType = 'focused' | 'ritual' | 'raw';
 type StructureCardType = StructureType | 'drawn';
@@ -103,8 +101,6 @@ export default function StructureForgeScreen() {
     ?? intentionText;
 
   const [selectedStructure, setSelectedStructure] = useState<StructureCardType>('focused');
-  const [variants, setVariants] = useState<SigilGenerationResult[]>([]);
-
   const glowOpacity = useSharedValue(0.7);
 
   useEffect(() => {
@@ -115,15 +111,10 @@ export default function StructureForgeScreen() {
     );
   }, [glowOpacity]);
 
-  useEffect(() => {
-    try {
-      const generated = generateAllVariants(distilledLetters);
-      setVariants(generated);
-    } catch (error) {
-      logger.error('Failed to generate structure variants:', error);
-      setVariants([]);
-    }
-  }, [distilledLetters]);
+  const variants = useMemo<SigilGenerationResult[]>(
+    () => generateAllVariants(distilledLetters),
+    [distilledLetters]
+  );
 
   const previewGlowStyle = useAnimatedStyle(() => ({
     opacity: glowOpacity.value,
@@ -134,18 +125,23 @@ export default function StructureForgeScreen() {
     [selectedStructure]
   );
 
-  const getVariantForStructure = (structureType: StructureType): SigilGenerationResult | undefined => {
-    const mappedVariant = STRUCTURE_VARIANT_MAP[structureType] as SigilVariant;
-    return variants.find((item) => item.variant === mappedVariant);
-  };
+  const variantByStructure = useMemo<Record<StructureType, string>>(() => {
+    const variantMap = new Map(
+      variants.map((item) => [item.variant, item.svg] as const)
+    );
 
-  const getStructureIconXml = (structure: StructureOption): string => {
-    if (structure.icon === 'drawn') {
-      return DRAWN_ICON_XML;
-    }
+    return {
+      focused: variantMap.get(STRUCTURE_VARIANT_MAP.focused as SigilVariant) ?? '',
+      ritual: variantMap.get(STRUCTURE_VARIANT_MAP.ritual as SigilVariant) ?? '',
+      raw: variantMap.get(STRUCTURE_VARIANT_MAP.raw as SigilVariant) ?? '',
+    };
+  }, [variants]);
 
-    return getVariantForStructure(structure.icon as StructureType)?.svg ?? '';
-  };
+  const getStructureIconXml = (structure: StructureOption): string => (
+    structure.icon === 'drawn'
+      ? DRAWN_ICON_XML
+      : variantByStructure[structure.icon as StructureType] ?? ''
+  );
 
   const selectedVariantSvg = getStructureIconXml(selectedConfig);
   const isManualStructureSelected = selectedConfig.isManual === true;
@@ -223,7 +219,7 @@ export default function StructureForgeScreen() {
           <Animated.View style={[styles.previewGlow, previewGlowStyle]} pointerEvents="none" />
           <View style={styles.previewCenter}>
             {selectedVariantSvg ? (
-              <SvgXml xml={selectedVariantSvg} width={160} height={160} color={colors.gold} />
+              <SigilSvg xml={selectedVariantSvg} width={160} height={160} color={colors.gold} />
             ) : null}
           </View>
           <Text style={styles.previewWatermark}>PREVIEW</Text>
@@ -259,7 +255,7 @@ export default function StructureForgeScreen() {
 
                 <View style={styles.cardIconWrap}>
                   {cardIconXml ? (
-                    <SvgXml xml={cardIconXml} width={64} height={64} color={colors.gold} />
+                    <SigilSvg xml={cardIconXml} width={64} height={64} color={colors.gold} />
                   ) : null}
                 </View>
 

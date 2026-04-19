@@ -1,0 +1,56 @@
+180f945c1e64e08092516f735a9d4a9b
+'use strict';
+
+Object.defineProperty(exports, "__esModule", {
+  value: true
+});
+exports.setupSetTimeout = void 0;
+var _taskQueue = require("./taskQueue.js");
+var _worklet_17386022107607_init_data = {
+  code: "function setupSetTimeout_setTimeoutJs1(){const{pushTask}=this.__closure;const pendingHandlers=new Set();let ID=0;const setTimeoutPolyfill=function(callback,delay=0,...args){const handlerId=ID++;const timeoutCallback=function(){if(!pendingHandlers.has(handlerId)){return;}callback(...args);pendingHandlers.delete(handlerId);};pendingHandlers.add(handlerId);pushTask(timeoutCallback,handlerId,delay);return handlerId;};const clearTimeoutPolyfill=function(timeoutHandle){pendingHandlers.delete(timeoutHandle);};globalThis.setTimeout=setTimeoutPolyfill;globalThis.clearTimeout=clearTimeoutPolyfill;}",
+  location: "C:\\Users\\dwill\\.gemini\\antigravity\\scratch\\Anchor\\anchor\\mobile\\node_modules\\react-native-worklets\\lib\\module\\runLoop\\workletRuntime\\setTimeout.js",
+  sourceMap: "{\"version\":3,\"names\":[\"setupSetTimeout_setTimeoutJs1\",\"pushTask\",\"__closure\",\"pendingHandlers\",\"Set\",\"ID\",\"setTimeoutPolyfill\",\"callback\",\"delay\",\"args\",\"handlerId\",\"timeoutCallback\",\"has\",\"delete\",\"add\",\"clearTimeoutPolyfill\",\"timeoutHandle\",\"globalThis\",\"setTimeout\",\"clearTimeout\"],\"sources\":[\"C:/Users/dwill/.gemini/antigravity/scratch/Anchor/anchor/mobile/node_modules/react-native-worklets/lib/module/runLoop/workletRuntime/setTimeout.js\"],\"mappings\":\"AAGO,SAAAA,6BAA2BA,CAAA,QAAAC,QAAA,OAAAC,SAAA,CAGhC,KAAM,CAAAC,eAAe,CAAG,GAAI,CAAAC,GAAG,CAAC,CAAC,CACjC,GAAI,CAAAC,EAAE,CAAG,CAAC,CACV,KAAM,CAAAC,kBAAkB,CAAG,QAAAA,CAACC,QAAQ,CAAEC,KAAK,CAAG,CAAC,CAAE,GAAGC,IAAI,CAAK,CAC3D,KAAM,CAAAC,SAAS,CAAGL,EAAE,EAAE,CACtB,KAAM,CAAAM,eAAe,CAAG,QAAAA,CAAA,CAAM,CAC5B,GAAI,CAACR,eAAe,CAACS,GAAG,CAACF,SAAS,CAAC,CAAE,CACnC,OACF,CACAH,QAAQ,CAAC,GAAGE,IAAI,CAAC,CACjBN,eAAe,CAACU,MAAM,CAACH,SAAS,CAAC,CACnC,CAAC,CACDP,eAAe,CAACW,GAAG,CAACJ,SAAS,CAAC,CAC9BT,QAAQ,CAACU,eAAe,CAAED,SAAS,CAAEF,KAAK,CAAC,CAC3C,MAAO,CAAAE,SAAS,CAClB,CAAC,CACD,KAAM,CAAAK,oBAAoB,CAAG,QAAAA,CAAAC,aAAa,CAAI,CAC5Cb,eAAe,CAACU,MAAM,CAACG,aAAa,CAAC,CACvC,CAAC,CACDC,UAAU,CAACC,UAAU,CAAGZ,kBAAkB,CAC1CW,UAAU,CAACE,YAAY,CAAGJ,oBAAoB,CAChD\",\"ignoreList\":[]}"
+};
+var setupSetTimeout = exports.setupSetTimeout = function setupSetTimeout_setTimeoutJs1Factory(_ref) {
+  var _worklet_17386022107607_init_data = _ref._worklet_17386022107607_init_data,
+    pushTask = _ref.pushTask;
+  var _e = [new global.Error(), -2, -27];
+  var setupSetTimeout = function setupSetTimeout() {
+    var pendingHandlers = new Set();
+    var ID = 0;
+    var setTimeoutPolyfill = function setTimeoutPolyfill(callback) {
+      var delay = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : 0;
+      for (var _len = arguments.length, args = new Array(_len > 2 ? _len - 2 : 0), _key = 2; _key < _len; _key++) {
+        args[_key - 2] = arguments[_key];
+      }
+      var handlerId = ID++;
+      var timeoutCallback = function timeoutCallback() {
+        if (!pendingHandlers.has(handlerId)) {
+          return;
+        }
+        callback.apply(void 0, args);
+        pendingHandlers.delete(handlerId);
+      };
+      pendingHandlers.add(handlerId);
+      pushTask(timeoutCallback, handlerId, delay);
+      return handlerId;
+    };
+    var clearTimeoutPolyfill = function clearTimeoutPolyfill(timeoutHandle) {
+      pendingHandlers.delete(timeoutHandle);
+    };
+    globalThis.setTimeout = setTimeoutPolyfill;
+    globalThis.clearTimeout = clearTimeoutPolyfill;
+  };
+  setupSetTimeout.__closure = {
+    pushTask: pushTask
+  };
+  setupSetTimeout.__workletHash = 17386022107607;
+  setupSetTimeout.__pluginVersion = "0.5.1";
+  setupSetTimeout.__initData = _worklet_17386022107607_init_data;
+  setupSetTimeout.__stackDetails = _e;
+  return setupSetTimeout;
+}({
+  _worklet_17386022107607_init_data: _worklet_17386022107607_init_data,
+  pushTask: _taskQueue.pushTask
+});
+//# sourceMappingURL=data:application/json;charset=utf-8;base64,eyJ2ZXJzaW9uIjozLCJuYW1lcyI6WyJPYmplY3QiLCJkZWZpbmVQcm9wZXJ0eSIsImV4cG9ydHMiLCJ2YWx1ZSIsInNldHVwU2V0VGltZW91dCIsIl90YXNrUXVldWUiLCJyZXF1aXJlIiwiX3dvcmtsZXRfMTczODYwMjIxMDc2MDdfaW5pdF9kYXRhIiwiY29kZSIsImxvY2F0aW9uIiwic291cmNlTWFwIiwic2V0dXBTZXRUaW1lb3V0X3NldFRpbWVvdXRKczFGYWN0b3J5IiwiX3JlZiIsInB1c2hUYXNrIiwiX2UiLCJnbG9iYWwiLCJFcnJvciIsInBlbmRpbmdIYW5kbGVycyIsIlNldCIsIklEIiwic2V0VGltZW91dFBvbHlmaWxsIiwiY2FsbGJhY2siLCJkZWxheSIsImFyZ3VtZW50cyIsImxlbmd0aCIsInVuZGVmaW5lZCIsIl9sZW4iLCJhcmdzIiwiQXJyYXkiLCJfa2V5IiwiaGFuZGxlcklkIiwidGltZW91dENhbGxiYWNrIiwiaGFzIiwiYXBwbHkiLCJkZWxldGUiLCJhZGQiLCJjbGVhclRpbWVvdXRQb2x5ZmlsbCIsInRpbWVvdXRIYW5kbGUiLCJnbG9iYWxUaGlzIiwic2V0VGltZW91dCIsImNsZWFyVGltZW91dCIsIl9fY2xvc3VyZSIsIl9fd29ya2xldEhhc2giLCJfX3BsdWdpblZlcnNpb24iLCJfX2luaXREYXRhIiwiX19zdGFja0RldGFpbHMiXSwic291cmNlcyI6WyIuLi8uLi8uLi8uLi9zcmMvcnVuTG9vcC93b3JrbGV0UnVudGltZS9zZXRUaW1lb3V0LnRzIl0sInNvdXJjZXNDb250ZW50IjpbbnVsbF0sIm1hcHBpbmdzIjoiQUFBQSxZQUFZOztBQUFBQSxNQUFBLENBQUFDLGNBQUEsQ0FBQUMsT0FBQTtFQUFBQyxLQUFBO0FBQUE7QUFBQUQsT0FBQSxDQUFBRSxlQUFBO0FBRVosSUFBQUMsVUFBQSxHQUFBQyxPQUFBO0FBQXNDLElBQUFDLGlDQUFBO0VBQUFDLElBQUE7RUFBQUMsUUFBQTtFQUFBQyxTQUFBO0FBQUE7QUFBQSxJQUFBTixlQUFBLEdBQUFGLE9BQUEsQ0FBQUUsZUFBQSxHQUUvQixTQUFBTyxxQ0FBQUMsSUFBQTtFQUFBLElBQUFMLGlDQUFBLEdBQUFLLElBQUEsQ0FBQUwsaUNBQUE7SUFzQkhNLFFBQVEsR0FBQUQsSUFBQSxDQUFSQyxRQUFRO0VBQUEsSUFBQUMsRUFBQSxRQUFBQyxNQUFBLENBQUFDLEtBQUE7RUFBQSxJQUFBWixlQUFBLFlBQUFBLGdCQUFBLEVBdEJzQjtJQUdoQyxJQUFNYSxlQUE0QixHQUFHLElBQUlDLEdBQUcsQ0FBQyxDQUFDO0lBQzlDLElBQUlDLEVBQUUsR0FBRyxDQUFDO0lBRVYsSUFBTUMsa0JBQWtCLEdBQUcsU0FBckJBLGtCQUFrQkEsQ0FDdEJDLFFBQXNDLEVBR25DO01BQUEsSUFGSEMsS0FBYSxHQUFBQyxTQUFBLENBQUFDLE1BQUEsUUFBQUQsU0FBQSxRQUFBRSxTQUFBLEdBQUFGLFNBQUEsTUFBRyxDQUFDO01BQUEsU0FBQUcsSUFBQSxHQUFBSCxTQUFBLENBQUFDLE1BQUEsRUFDZEcsSUFBZSxPQUFBQyxLQUFBLENBQUFGLElBQUEsT0FBQUEsSUFBQSxXQUFBRyxJQUFBLE1BQUFBLElBQUEsR0FBQUgsSUFBQSxFQUFBRyxJQUFBO1FBQWZGLElBQWUsQ0FBQUUsSUFBQSxRQUFBTixTQUFBLENBQUFNLElBQUE7TUFBQTtNQUVsQixJQUFNQyxTQUFTLEdBQUdYLEVBQUUsRUFBRTtNQUV0QixJQUFNWSxlQUFlLEdBQUcsU0FBbEJBLGVBQWVBLENBQUEsRUFBUztRQUM1QixJQUFJLENBQUNkLGVBQWUsQ0FBQ2UsR0FBRyxDQUFDRixTQUFTLENBQUMsRUFBRTtVQUNuQztRQUNGO1FBQ0FULFFBQVEsQ0FBQVksS0FBQSxTQUFJTixJQUFJLENBQUM7UUFDakJWLGVBQWUsQ0FBQ2lCLE1BQU0sQ0FBQ0osU0FBUyxDQUFDO01BQ25DLENBQUM7TUFFRGIsZUFBZSxDQUFDa0IsR0FBRyxDQUFDTCxTQUFTLENBQUM7TUFDOUJqQixRQUFRLENBQUNrQixlQUFlLEVBQUVELFNBQVMsRUFBRVIsS0FBSyxDQUFDO01BQzNDLE9BQU9RLFNBQVM7SUFDbEIsQ0FBQztJQUVELElBQU1NLG9CQUFvQixHQUFJLFNBQXhCQSxvQkFBb0JBLENBQUlDLGFBQXFCLEVBQUs7TUFDdERwQixlQUFlLENBQUNpQixNQUFNLENBQUNHLGFBQWEsQ0FBQztJQUN2QyxDQUFDO0lBRURDLFVBQVUsQ0FBQ0MsVUFBVSxHQUFHbkIsa0JBQXVDO0lBQy9Ea0IsVUFBVSxDQUFDRSxZQUFZLEdBQUdKLG9CQUEyQztFQUN2RTtFQUFBaEMsZUFBQSxDQUFBcUMsU0FBQTtJQVZJNUIsUUFBUSxFQUFSQTtFQUFRO0VBQUFULGVBQUEsQ0FBQXNDLGFBQUE7RUFBQXRDLGVBQUEsQ0FBQXVDLGVBQUE7RUFBQXZDLGVBQUEsQ0FBQXdDLFVBQUEsR0FBQXJDLGlDQUFBO0VBQUFILGVBQUEsQ0FBQXlDLGNBQUEsR0FBQS9CLEVBQUE7RUFBQSxPQUFBVixlQUFBO0FBQUEsQ0F0Qkw7RUFBQUcsaUNBQUEsRUFBQUEsaUNBQUE7RUFzQkhNLFFBQVEsRUFBUkE7QUFBUSIsImlnbm9yZUxpc3QiOltdfQ==

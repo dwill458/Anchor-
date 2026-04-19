@@ -231,6 +231,10 @@ export class AuthService {
     await auth().signOut();
   }
 
+  static hasAuthenticatedSession(): boolean {
+    return auth().currentUser != null;
+  }
+
   static getCurrentFirebaseUser(): FirebaseUser | null {
     const currentUser = auth().currentUser;
     if (currentUser) {
