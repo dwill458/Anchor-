@@ -21,7 +21,7 @@ import { useAnchorStore, useTempStore } from '@/stores/anchorStore';
 import { useAuthStore } from '@/stores/authStore';
 import { useSettingsStore } from '@/stores/settingsStore';
 import { analyzeIntention, getGuidanceText } from '@/utils/intentionPatterns';
-import { OptimizedImage } from '@/components/common/OptimizedImage';
+import { OptimizedImage, SigilSvg } from '@/components/common';
 import { ErrorTrackingService } from '@/services/ErrorTrackingService';
 import { post } from '@/services/ApiClient';
 import { logger } from '@/utils/logger';
@@ -235,11 +235,22 @@ export const AnchorRevealScreen: React.FC = () => {
                         ]}
                     >
                         <View style={styles.imageCard}>
-                            <OptimizedImage
-                                uri={enhancedImageUrl || ''}
-                                style={styles.image}
-                                resizeMode="cover"
-                            />
+                            {enhancedImageUrl ? (
+                                <OptimizedImage
+                                    uri={enhancedImageUrl}
+                                    style={styles.image}
+                                    resizeMode="cover"
+                                />
+                            ) : (
+                                <View style={styles.sigilWrapper}>
+                                    <SigilSvg
+                                        xml={reinforcedSigilSvg || baseSigilSvg}
+                                        width={IMAGE_SIZE - 80}
+                                        height={IMAGE_SIZE - 80}
+                                        color={colors.gold}
+                                    />
+                                </View>
+                            )}
                             <View style={styles.glowOverlay} />
                         </View>
                     </Animated.View>
@@ -256,11 +267,7 @@ export const AnchorRevealScreen: React.FC = () => {
                         <Text style={styles.label}>ROOTED IN YOUR INTENTION</Text>
                         <BlurView intensity={20} tint="dark" style={styles.intentionCard}>
                             <View style={styles.intentionBorder} />
-                            <Text
-                                style={styles.intentionText}
-                                numberOfLines={2}
-                                ellipsizeMode="tail"
-                            >
+                            <Text style={styles.intentionText}>
                                 {intentionText}
                             </Text>
                         </BlurView>
@@ -362,13 +369,14 @@ const styles = StyleSheet.create({
     content: {
         flex: 1,
         alignItems: 'center',
-        justifyContent: 'center',
+        justifyContent: 'flex-start',
         paddingHorizontal: spacing.xl,
+        paddingTop: spacing.md,
     },
     imageContainer: {
         width: IMAGE_SIZE,
         height: IMAGE_SIZE,
-        marginBottom: 40,
+        marginBottom: 20,
         shadowColor: colors.gold,
         shadowOffset: { width: 0, height: 0 },
         shadowOpacity: 0.4,
@@ -387,6 +395,11 @@ const styles = StyleSheet.create({
     image: {
         width: '100%',
         height: '100%',
+    },
+    sigilWrapper: {
+        ...StyleSheet.absoluteFillObject,
+        alignItems: 'center',
+        justifyContent: 'center',
     },
     glowOverlay: {
         ...StyleSheet.absoluteFillObject,
@@ -443,14 +456,14 @@ const styles = StyleSheet.create({
     },
     footer: {
         paddingHorizontal: spacing.lg,
-        paddingBottom: 40,
+        paddingBottom: 20,
     },
     ctaHelperText: {
         ...typography.caption,
         fontSize: 13,
         color: colors.text.secondary,
         textAlign: 'center',
-        marginBottom: spacing.md,
+        marginBottom: spacing.sm,
         fontStyle: 'italic',
         letterSpacing: 0.3,
     },

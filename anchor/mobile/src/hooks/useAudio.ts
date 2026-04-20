@@ -25,6 +25,12 @@ export function useAudio() {
     }
 
     try {
+      player.pause();
+    } catch {
+      // Fail silently - audio is non-critical.
+    }
+
+    try {
       player.remove();
     } catch {
       // Fail silently - audio is non-critical.

@@ -50,7 +50,7 @@ import {
   ChargedGlowCanvas,
   ZenBackground,
 } from '@/components/common';
-import { usePerformanceTier } from '@/hooks/usePerformanceTier';
+import { useAppPerformanceTier } from '@/hooks/useAppPerformanceTier';
 import { resolveBurnArtworkUri } from '@/screens/rituals/utils/resolveBurnArtworkUri';
 
 const { width: SCREEN_W } = Dimensions.get('window');
@@ -195,11 +195,16 @@ const FadeUp = ({ children, delay = 0 }) => {
 };
 
 // ─── BREATHING GLOW (sigil bg) ───────────────────────────
-const BreathingGlow = () => {
-  const scale = useRef(new Animated.Value(0.97)).current;
-  const opacity = useRef(new Animated.Value(0.6)).current;
+const BreathingGlow = ({ animate = true }: { animate?: boolean }) => {
+  const scale = useRef(new Animated.Value(animate ? 0.97 : 1.0)).current;
+  const opacity = useRef(new Animated.Value(animate ? 0.6 : 0.8)).current;
 
   useEffect(() => {
+    if (!animate) {
+      scale.setValue(1.0);
+      opacity.setValue(0.8);
+      return;
+    }
     const loop = Animated.loop(
       Animated.sequence([
         Animated.parallel([
@@ -214,7 +219,7 @@ const BreathingGlow = () => {
     );
     loop.start();
     return () => loop.stop();
-  }, []);
+  }, [animate, opacity, scale]);
 
   return (
     <Animated.View
@@ -237,10 +242,11 @@ const BreathingGlow = () => {
 };
 
 // ─── SHINE ANIMATION (activate button) ───────────────────
-const ShineButton = ({ onPress, children, style }) => {
+const ShineButton = ({ onPress, children, style, animate = true }) => {
   const shineX = useRef(new Animated.Value(-SCREEN_W)).current;
 
   useEffect(() => {
+    if (!animate) return;
     const loop = Animated.loop(
       Animated.sequence([
         Animated.timing(shineX, {
@@ -256,7 +262,7 @@ const ShineButton = ({ onPress, children, style }) => {
     );
     loop.start();
     return () => loop.stop();
-  }, []);
+  }, [animate, shineX]);
 
   return (
     <TouchableOpacity onPress={onPress} activeOpacity={0.85} style={style}>
@@ -267,13 +273,15 @@ const ShineButton = ({ onPress, children, style }) => {
           style={s.activateInner}
         >
           {children}
-          <Animated.View
-            style={[
-              s.shineSweep,
-              { transform: [{ translateX: shineX }] },
-            ]}
-            pointerEvents="none"
-          />
+          {animate && (
+            <Animated.View
+              style={[
+                s.shineSweep,
+                { transform: [{ translateX: shineX }] },
+              ]}
+              pointerEvents="none"
+            />
+          )}
         </LinearGradient>
       </View>
     </TouchableOpacity>
@@ -520,7 +528,7 @@ const MiniWeekTrack = ({ weekHistory, lastPrimedAt }) => {
 
 const AnchorDetailsScreen = ({ navigation, route }) => {
   const insets = useSafeAreaInsets();
-  const perfTier = usePerformanceTier();
+  const perfTier = useAppPerformanceTier();
   const { navigateToPractice } = useTabNavigation();
   const getAnchorById = useAnchorStore((state) => state.getAnchorById);
   const removeAnchor = useAnchorStore((state) => state.removeAnchor);
@@ -983,7 +991,7 @@ const AnchorDetailsScreen = ({ navigation, route }) => {
                 colors={['#1a0f35', '#0d0820', '#080510']}
                 style={s.sigilWrapper}
               >
-                {!divineGlowActive && <BreathingGlow />}
+                {!divineGlowActive && <BreathingGlow animate={perfTier === 'high'} />}
 
                 {/* ChargedGlowCanvas fills inside the card for charged
                     anchors. Low-tier substitutes BakedGlow; medium-tier
@@ -1985,6 +1993,22 @@ const s = StyleSheet.create({
     fontSize: 14,
     color: C.textDim,
     textDecorationLine: 'underline',
+  },
+  deleteBtn: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: 'rgba(244,67,54,0.5)',
+    backgroundColor: 'rgba(244,67,54,0.08)',
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.md,
+  },
+  deleteBtnText: {
+    color: colors.error,
+    fontFamily: typography.fontFamily.serifSemiBold,
+    fontSize: 14,
+    letterSpacing: 0.4,
   },
 
   // ── FOOTER ──

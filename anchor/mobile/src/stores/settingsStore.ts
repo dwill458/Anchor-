@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Haptics from 'expo-haptics';
+import type { PerformanceTierOverride } from '@/hooks/usePerformanceTier';
 
 export type ChargeMode = 'focus' | 'ritual';
 export type ChargeDurationPreset = '30s' | '1m' | '2m' | '5m' | '10m' | 'custom';
@@ -143,6 +144,9 @@ export interface SettingsState {
   /** Guide Mode — contextual first-time hints. true = on-only + both; false = both only. */
   guideMode: boolean;
 
+  // Dev-only, session-only (not persisted). Forces a specific render tier.
+  devPerfTierOverride: PerformanceTierOverride;
+
   // Actions - Practice Settings
   setDefaultCharge: (setting: DefaultChargeSetting) => void;
   setDefaultActivation: (setting: DefaultActivationSetting) => void;
@@ -177,6 +181,7 @@ export interface SettingsState {
   triggerDeveloperWeeklySummaryPreview: () => void;
   clearDeveloperWeeklySummaryPreview: () => void;
   setDebugLoggingEnabled: (enabled: boolean) => void;
+  setDevPerfTierOverride: (override: PerformanceTierOverride) => void;
 
   // Utility Actions
   resetToDefaults: () => void;
@@ -216,6 +221,7 @@ const DEFAULT_SETTINGS = {
   developerWeeklySummaryPreviewToken: 0,
   debugLoggingEnabled: __DEV__ && process.env.EXPO_PUBLIC_DEBUG_LOGGING === 'true',
   guideMode: true,
+  devPerfTierOverride: 'auto' as PerformanceTierOverride,
 };
 
 /**
@@ -420,6 +426,10 @@ export const useSettingsStore = create<SettingsState>()(
       setGuideMode: (enabled) => {
         triggerHaptic();
         set({ guideMode: enabled });
+      },
+
+      setDevPerfTierOverride: (override) => {
+        set({ devPerfTierOverride: override });
       },
 
       // Utility Actions
