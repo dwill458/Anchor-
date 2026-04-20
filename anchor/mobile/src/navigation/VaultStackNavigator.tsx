@@ -31,6 +31,7 @@ import {
   RitualScreen,
   SealAnchorScreen,
   ChargeCompleteScreen,
+  FirstPrimeCompleteScreen,
 } from '../screens/rituals';
 import { AuthGateScreen, FirstAnchorAccountGateScreen, LoginScreen, SignUpScreen } from '../screens/auth';
 import type { RootStackParamList } from '@/types';
@@ -225,6 +226,11 @@ export const VaultStackNavigator: React.FC<VaultStackNavigatorProps> = ({ onRout
       <Stack.Screen
         name="ChargeComplete"
         component={ChargeCompleteScreen}
+        options={{ headerShown: false, animation: 'fade_from_bottom' }}
+      />
+      <Stack.Screen
+        name="FirstPrimeComplete"
+        component={FirstPrimeCompleteScreen}
         options={{ headerShown: false, animation: 'fade_from_bottom' }}
       />
       <Stack.Screen

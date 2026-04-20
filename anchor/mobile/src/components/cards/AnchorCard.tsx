@@ -19,6 +19,8 @@ import type { Anchor } from '@/types';
 import { colors, spacing, typography } from '@/theme';
 import { ChargedGlowCanvas, OptimizedImage, PremiumAnchorGlow } from '@/components/common';
 import { useSettingsStore } from '@/stores/settingsStore';
+import { useAppPerformanceTier } from '@/hooks/useAppPerformanceTier';
+import { tierPolicy } from '@/hooks/usePerformanceTier';
 
 interface AnchorCardProps {
   anchor: Anchor;
@@ -47,12 +49,15 @@ export const AnchorCard: React.FC<AnchorCardProps> = ({
   const { reduceIntentionVisibility } = useSettingsStore();
   const categoryConfig = CATEGORY_CONFIG[anchor.category] || CATEGORY_CONFIG.custom;
   const isSanctuary = variant === 'sanctuary';
+  const perfTier = useAppPerformanceTier();
+  const policy = tierPolicy(perfTier);
+  const isLowTier = perfTier === 'low';
 
   // Sparkle spin: ✧ icon rotates + scales + fades on charged cards
   const sparkleAnim = useSharedValue(0);
 
   useEffect(() => {
-    if (anchor.isCharged && !reduceMotionEnabled) {
+    if (anchor.isCharged && !reduceMotionEnabled && !isLowTier) {
       sparkleAnim.value = withRepeat(
         withTiming(1, { duration: 2400, easing: Easing.inOut(Easing.sin) }),
         -1,
@@ -62,7 +67,7 @@ export const AnchorCard: React.FC<AnchorCardProps> = ({
       cancelAnimation(sparkleAnim);
       sparkleAnim.value = 0;
     }
-  }, [anchor.isCharged, reduceMotionEnabled, sparkleAnim]);
+  }, [anchor.isCharged, reduceMotionEnabled, isLowTier, sparkleAnim]);
 
   const sparkleStyle = useAnimatedStyle(() => ({
     transform: [
@@ -90,9 +95,12 @@ export const AnchorCard: React.FC<AnchorCardProps> = ({
         isSanctuary && (anchor.isCharged ? styles.sanctuaryChargedCard : styles.sanctuaryUnchargedCard),
         Platform.OS === 'android' && styles.androidCard,
       ]}>
-        {Platform.OS === 'ios' ? (
+        {Platform.OS === 'ios' && policy.enableBlurViews ? (
           <BlurView
-            intensity={isSanctuary ? (anchor.isCharged ? 24 : 18) : (anchor.isCharged ? 30 : 20)}
+            intensity={Math.min(
+              policy.blurIntensity,
+              isSanctuary ? (anchor.isCharged ? 24 : 18) : (anchor.isCharged ? 30 : 20),
+            )}
             tint="dark"
             style={StyleSheet.absoluteFill}
           />
@@ -111,11 +119,14 @@ export const AnchorCard: React.FC<AnchorCardProps> = ({
             anchor.isCharged && styles.chargedSigilContainer,
           ]}>
 
-            {/* Android keeps the richer charged glow; other paths stay lightweight. */}
-            {anchor.isCharged && Platform.OS === 'android' && !reduceMotionEnabled ? (
+            {/* Android keeps the richer charged glow; other paths stay lightweight.
+                On medium/low tier, skip the per-frame Skia canvas (which runs
+                useFrameCallback for every visible charged card in the grid). */}
+            {anchor.isCharged && Platform.OS === 'android' && !reduceMotionEnabled && perfTier === 'high' ? (
               <ChargedGlowCanvas
                 size={CARD_WIDTH * 0.72}
                 reduceMotionEnabled={reduceMotionEnabled}
+                tier={perfTier}
               />
             ) : (
               <PremiumAnchorGlow
@@ -123,6 +134,7 @@ export const AnchorCard: React.FC<AnchorCardProps> = ({
                 variant="card"
                 state={anchor.isCharged ? 'charged' : 'dormant'}
                 reduceMotionEnabled={reduceMotionEnabled}
+                tier={perfTier}
               />
             )}
 

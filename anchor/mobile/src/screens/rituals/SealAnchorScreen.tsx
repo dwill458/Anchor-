@@ -60,6 +60,10 @@ export const SealAnchorScreen: React.FC = () => {
   const anchor = getAnchorById(anchorId);
   const heroSigilSvg = anchor?.reinforcedSigilSvg ?? anchor?.baseSigilSvg ?? '';
   const reduceMotionEnabled = useReduceMotionEnabled();
+  const isFirstPrimeForAnchor =
+    !anchor?.isCharged &&
+    !anchor?.firstChargedAt &&
+    (anchor?.chargeCount ?? 0) === 0;
 
   // State
   const [isHolding, setIsHolding] = useState(false);
@@ -235,14 +239,27 @@ export const SealAnchorScreen: React.FC = () => {
 
     // Update anchor in store
     try {
+      const chargedAt = new Date();
       await updateAnchor(anchorId, {
         isCharged: true,
-        chargedAt: new Date(),
+        chargedAt,
+        firstChargedAt: anchor?.firstChargedAt ?? chargedAt,
+        chargeCount: (anchor?.chargeCount ?? 0) + 1,
       });
 
       // Navigate to completion screen after bloom
       setTimeout(() => {
-        navigation.replace('ChargeComplete', { anchorId, returnTo });
+        if (isFirstPrimeForAnchor) {
+          navigation.replace('FirstPrimeComplete', {
+            anchorId,
+            sessionCount: 1,
+            threadStrength: 1,
+            durationSeconds: SEAL_DURATION,
+            returnTo,
+          });
+        } else {
+          navigation.replace('ChargeComplete', { anchorId, returnTo });
+        }
       }, 800);
     } catch (error) {
       logger.warn('Failed to update anchor locally', error);
@@ -260,11 +277,24 @@ export const SealAnchorScreen: React.FC = () => {
           text: 'Skip',
           style: 'default',
           onPress: async () => {
+            const chargedAt = new Date();
             await updateAnchor(anchorId, {
               isCharged: true,
-              chargedAt: new Date(),
+              chargedAt,
+              firstChargedAt: anchor?.firstChargedAt ?? chargedAt,
+              chargeCount: (anchor?.chargeCount ?? 0) + 1,
             });
-            navigation.replace('ChargeComplete', { anchorId, returnTo });
+            if (isFirstPrimeForAnchor) {
+              navigation.replace('FirstPrimeComplete', {
+                anchorId,
+                sessionCount: 1,
+                threadStrength: 1,
+                durationSeconds: SEAL_DURATION,
+                returnTo,
+              });
+            } else {
+              navigation.replace('ChargeComplete', { anchorId, returnTo });
+            }
           },
         },
       ]

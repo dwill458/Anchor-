@@ -648,7 +648,18 @@ export type RootStackParamList = {
     returnTo?: 'vault' | 'practice' | 'detail';
   };
   SealAnchor: { anchorId: string; returnTo?: 'vault' | 'practice' | 'detail' };
-  ChargeComplete: { anchorId: string; returnTo?: 'vault' | 'practice' | 'detail' };
+  ChargeComplete: {
+    anchorId: string;
+    durationSeconds?: number;
+    returnTo?: 'vault' | 'practice' | 'detail';
+  };
+  FirstPrimeComplete: {
+    anchorId: string;
+    sessionCount: number;
+    threadStrength: number;
+    durationSeconds: number;
+    returnTo?: 'vault' | 'practice' | 'detail';
+  };
 
   // Activation
   ActivationRitual: {
