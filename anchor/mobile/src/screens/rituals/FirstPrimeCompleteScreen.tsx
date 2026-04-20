@@ -14,6 +14,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useNavigation, useRoute, type RouteProp } from '@react-navigation/native';
 import type { StackNavigationProp } from '@react-navigation/stack';
+import { Canvas, RadialGradient, Rect, vec } from '@shopify/react-native-skia';
 import Svg, { Path } from 'react-native-svg';
 import { useTabNavigation } from '@/contexts/TabNavigationContext';
 import { OptimizedImage, PremiumAnchorGlow, SigilSvg } from '@/components/common';
@@ -28,9 +29,9 @@ import { navigateToVaultDestination } from '@/navigation/firstAnchorGate';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
-const SYMBOL_SIZE = Math.min(SCREEN_WIDTH * 0.43, 168);
-const RING_ONE_SIZE = SYMBOL_SIZE + 32;
-const RING_TWO_SIZE = SYMBOL_SIZE + 62;
+const SYMBOL_SIZE = Math.min(SCREEN_WIDTH * 0.65, 256);
+const RING_ONE_SIZE = SYMBOL_SIZE + 48;
+const RING_TWO_SIZE = SYMBOL_SIZE + 96;
 const THREAD_TRACK_WIDTH = 120;
 
 type FirstPrimeCompleteRouteProp = RouteProp<RootStackParamList, 'FirstPrimeComplete'>;
@@ -384,8 +385,28 @@ export const FirstPrimeCompleteScreen: React.FC = () => {
         style={StyleSheet.absoluteFill}
       />
 
-      <Animated.View style={[styles.glowOne, glowOneStyle]} pointerEvents="none" />
-      <Animated.View style={[styles.glowTwo, glowTwoStyle]} pointerEvents="none" />
+      <Animated.View style={[styles.glowOne, glowOneStyle]} pointerEvents="none">
+        <Canvas style={StyleSheet.absoluteFill}>
+          <Rect x={0} y={0} width={800} height={800}>
+            <RadialGradient
+              c={vec(400, 400)}
+              r={400}
+              colors={['rgba(62,44,91,0.85)', 'rgba(62,44,91,0.3)', 'rgba(62,44,91,0)']}
+            />
+          </Rect>
+        </Canvas>
+      </Animated.View>
+      <Animated.View style={[styles.glowTwo, glowTwoStyle]} pointerEvents="none">
+        <Canvas style={StyleSheet.absoluteFill}>
+          <Rect x={0} y={0} width={500} height={500}>
+            <RadialGradient
+              c={vec(250, 250)}
+              r={250}
+              colors={['rgba(212,175,55,0.45)', 'rgba(212,175,55,0.1)', 'rgba(212,175,55,0)']}
+            />
+          </Rect>
+        </Canvas>
+      </Animated.View>
 
       <SafeAreaView style={styles.safeArea} edges={['top', 'bottom']}>
         <Pressable style={styles.pressable} onPress={handleDismiss}>
@@ -506,34 +527,20 @@ const styles = StyleSheet.create({
   },
   glowOne: {
     position: 'absolute',
-    top: -110,
+    top: -150,
     alignSelf: 'center',
-    width: 500,
-    height: 500,
-    borderRadius: 250,
-    backgroundColor: 'rgba(62,44,91,0.34)',
-    shadowColor: '#3E2C5B',
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.7,
-    shadowRadius: 80,
-    elevation: 18,
+    width: 800,
+    height: 800,
   },
   glowTwo: {
     position: 'absolute',
-    top: 110,
+    top: 50,
     alignSelf: 'center',
-    width: 300,
-    height: 300,
-    borderRadius: 150,
-    backgroundColor: 'rgba(212,175,55,0.06)',
-    shadowColor: colors.gold,
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.38,
-    shadowRadius: 52,
-    elevation: 12,
+    width: 500,
+    height: 500,
   },
   checkBlock: {
-    marginTop: 44,
+    marginTop: 24,
   },
   checkCircle: {
     width: 48,
@@ -556,7 +563,7 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(212,175,55,0.15)',
   },
   headlineBlock: {
-    marginTop: 32,
+    marginTop: 16,
     alignItems: 'center',
   },
   headline: {
@@ -578,7 +585,7 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   symbolSection: {
-    marginTop: 40,
+    marginTop: 24,
   },
   symbolWrap: {
     width: RING_TWO_SIZE,
@@ -624,7 +631,7 @@ const styles = StyleSheet.create({
     borderRadius: (SYMBOL_SIZE * 0.78) / 2,
   },
   sessionPill: {
-    marginTop: 28,
+    marginTop: 20,
     flexDirection: 'row',
     alignItems: 'center',
   },
@@ -676,22 +683,22 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   dividerWrap: {
-    marginTop: 36,
+    marginTop: 24,
   },
   divider: {
     width: 1,
-    height: 32,
+    height: 20,
     backgroundColor: 'rgba(212,175,55,0.2)',
   },
   card: {
-    marginTop: 24,
+    marginTop: 16,
     width: '100%',
     borderRadius: 12,
     borderWidth: 1,
     borderColor: 'rgba(212,175,55,0.14)',
     backgroundColor: 'rgba(212,175,55,0.03)',
     paddingHorizontal: 24,
-    paddingVertical: 20,
+    paddingVertical: 16,
     alignItems: 'center',
     overflow: 'hidden',
   },
@@ -720,7 +727,7 @@ const styles = StyleSheet.create({
   },
   footer: {
     marginTop: 'auto',
-    marginBottom: 44,
+    marginBottom: 24,
     alignItems: 'center',
   },
   footerText: {
