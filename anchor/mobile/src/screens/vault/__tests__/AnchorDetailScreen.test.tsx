@@ -163,7 +163,7 @@ describe('AnchorDetailScreen', () => {
             mode: 'wallpaper',
         });
         mockCaptureRef.mockResolvedValue('file:///tmp/anchor-card.png');
-        mockRequestPermissionsAsync.mockResolvedValue({ granted: true });
+        mockRequestPermissionsAsync.mockResolvedValue({ status: 'granted', granted: true });
         mockSaveToLibraryAsync.mockResolvedValue(undefined);
         jest.spyOn(Share, 'share').mockResolvedValue({ action: 'sharedAction' } as any);
     });
