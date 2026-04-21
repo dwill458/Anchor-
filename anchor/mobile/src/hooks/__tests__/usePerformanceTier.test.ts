@@ -50,10 +50,10 @@ beforeEach(() => {
   jest.clearAllMocks();
   mockIsReduceMotionEnabled = jest
     .spyOn(AccessibilityInfo, 'isReduceMotionEnabled')
-    .mockResolvedValue(false);
+    .mockResolvedValue(false) as unknown as jest.Mock;
   mockAddAccessibilityListener = jest
     .spyOn(AccessibilityInfo, 'addEventListener')
-    .mockReturnValue({ remove: jest.fn() } as any);
+    .mockReturnValue({ remove: jest.fn() } as any) as unknown as jest.Mock;
   mockPixelRatioGet = jest.spyOn(PixelRatio, 'get').mockReturnValue(3);
   mockGetPowerStateAsync.mockResolvedValue({ lowPowerMode: false });
   mockAddLowPowerModeListener.mockReturnValue({ remove: jest.fn() });
@@ -166,10 +166,10 @@ describe('reduce-motion', () => {
     setOS('ios');
     let listener: (v: boolean) => void = () => {};
     mockAddAccessibilityListener.mockImplementation(
-      ((_event: string, cb: (v: boolean) => void) => {
+      (_event: string, cb: (v: boolean) => void) => {
         listener = cb;
         return { remove: jest.fn() };
-      }) as any,
+      },
     );
     const { result } = renderHook(() => usePerformanceTier());
     expect(result.current).toBe('high');
@@ -181,10 +181,10 @@ describe('reduce-motion', () => {
     setOS('ios');
     let listener: (v: boolean) => void = () => {};
     mockAddAccessibilityListener.mockImplementation(
-      ((_event: string, cb: (v: boolean) => void) => {
+      (_event: string, cb: (v: boolean) => void) => {
         listener = cb;
         return { remove: jest.fn() };
-      }) as any,
+      },
     );
     const { result } = renderHook(() => usePerformanceTier());
     act(() => { listener(true); });
