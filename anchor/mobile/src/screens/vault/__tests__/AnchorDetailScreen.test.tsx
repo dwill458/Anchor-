@@ -1,11 +1,33 @@
 import React from 'react';
-import { render, fireEvent, screen } from '@testing-library/react-native';
+import { render, fireEvent, screen, waitFor } from '@testing-library/react-native';
+import { Share } from 'react-native';
 import { AnchorDetailScreen } from '../AnchorDetailScreen';
 
 // Mock navigation
 const mockNavigate = jest.fn();
 const mockNavigateToPractice = jest.fn();
 const mockExportAnchorArtwork = jest.fn();
+const mockCaptureRef = jest.fn();
+const mockRequestPermissionsAsync = jest.fn();
+const mockSaveToLibraryAsync = jest.fn();
+
+jest.mock('react-native-view-shot', () => ({
+    __esModule: true,
+    default: require('react').forwardRef(({ children }: any, ref: any) => {
+        const React = require('react');
+        const { View } = require('react-native');
+        React.useImperativeHandle(ref, () => ({
+            capture: jest.fn(() => mockCaptureRef()),
+        }));
+        return React.createElement(View, null, children);
+    }),
+    captureRef: (...args: any[]) => mockCaptureRef(...args),
+}));
+
+jest.mock('expo-media-library', () => ({
+    requestPermissionsAsync: (...args: any[]) => mockRequestPermissionsAsync(...args),
+    saveToLibraryAsync: (...args: any[]) => mockSaveToLibraryAsync(...args),
+}));
 jest.mock('@react-navigation/native', () => ({
     ...jest.requireActual('@react-navigation/native'),
     useNavigation: () => ({ navigate: mockNavigate, goBack: jest.fn(), popToTop: jest.fn() }),
@@ -129,13 +151,21 @@ describe('AnchorDetailScreen', () => {
     const route = { params: { anchorId: 'anchor-123' } };
 
     beforeEach(() => {
+        jest.restoreAllMocks();
         mockNavigate.mockClear();
         mockExportAnchorArtwork.mockReset();
+        mockCaptureRef.mockReset();
+        mockRequestPermissionsAsync.mockReset();
+        mockSaveToLibraryAsync.mockReset();
         mockExportAnchorArtwork.mockResolvedValue({
             localUri: 'file:///tmp/anchor.png',
             filename: 'test-intention-wallpaper.png',
             mode: 'wallpaper',
         });
+        mockCaptureRef.mockResolvedValue('file:///tmp/anchor-card.png');
+        mockRequestPermissionsAsync.mockResolvedValue({ status: 'granted', granted: true });
+        mockSaveToLibraryAsync.mockResolvedValue(undefined);
+        jest.spyOn(Share, 'share').mockResolvedValue({ action: 'sharedAction' } as any);
     });
 
     it('stub: renders anchor name and symbol', () => {
@@ -160,7 +190,7 @@ describe('AnchorDetailScreen', () => {
     it('stub: shows the compact priming stats', () => {
         render(<AnchorDetailScreen navigation={navigation} route={route} />);
         expect(screen.getByText('Dormant')).toBeTruthy();
-        expect(screen.getByText('Sessions Primed')).toBeTruthy();
+        expect(screen.getByText('Thread Strength')).toBeTruthy();
         expect(screen.getByText('The symbol is becoming part of you.')).toBeTruthy();
         expect(screen.getByTestId('anchor-detail-streak-value').props.children[0]).toBe(1);
     });
@@ -172,29 +202,23 @@ describe('AnchorDetailScreen', () => {
         expect(screen.getByText('Download PNG')).toBeTruthy();
     });
 
-    it('exports wallpaper from the detail screen', () => {
+    it('exports wallpaper from the detail screen', async () => {
         render(<AnchorDetailScreen navigation={navigation} route={route} />);
         fireEvent.press(screen.getByText('Set as Wallpaper'));
-        expect(mockExportAnchorArtwork).toHaveBeenCalledWith(expect.objectContaining({
-            anchor: expect.objectContaining({
-                anchorName: 'Test Intention',
-                intentionText: 'Test Intention',
-            }),
-            mode: 'wallpaper',
-            captureArtwork: expect.any(Function),
-        }));
+        await waitFor(() => {
+            expect(mockCaptureRef).toHaveBeenCalled();
+            expect(mockSaveToLibraryAsync).toHaveBeenCalledWith('file:///tmp/anchor-card.png');
+            expect(Share.share).toHaveBeenCalledWith({ url: 'file:///tmp/anchor-card.png' });
+        });
     });
 
-    it('downloads png from the detail screen', () => {
+    it('downloads png from the detail screen', async () => {
         render(<AnchorDetailScreen navigation={navigation} route={route} />);
         fireEvent.press(screen.getByText('Download PNG'));
-        expect(mockExportAnchorArtwork).toHaveBeenCalledWith(expect.objectContaining({
-            anchor: expect.objectContaining({
-                anchorName: 'Test Intention',
-                intentionText: 'Test Intention',
-            }),
-            mode: 'download',
-            captureArtwork: expect.any(Function),
-        }));
+        await waitFor(() => {
+            expect(mockCaptureRef).toHaveBeenCalled();
+            expect(mockSaveToLibraryAsync).toHaveBeenCalledWith('file:///tmp/anchor-card.png');
+        });
+        expect(Share.share).not.toHaveBeenCalled();
     });
 });

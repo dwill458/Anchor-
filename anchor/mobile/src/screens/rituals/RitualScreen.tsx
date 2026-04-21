@@ -205,6 +205,10 @@ export const RitualScreen: React.FC = () => {
   const anchor = getAnchorById(anchorId);
   const sigilSvg = anchor?.reinforcedSigilSvg ?? anchor?.baseSigilSvg ?? '';
   const isPendingFirstAnchor = pendingFirstAnchorDraft?.tempAnchorId === anchorId;
+  const isFirstPrimeForAnchor =
+    !anchor?.isCharged &&
+    !anchor?.firstChargedAt &&
+    (anchor?.chargeCount ?? 0) === 0;
 
   const [reduceMotionEnabled, setReduceMotionEnabled] = useState(false);
   const [showExitWarning, setShowExitWarning] = useState(false);
@@ -238,10 +242,10 @@ export const RitualScreen: React.FC = () => {
   const deepEmbers = useRef<EmberParticle[]>(makeDeepEmbers(22)).current;
 
   useEffect(() => {
-    AccessibilityInfo.isReduceMotionEnabled().then(setReduceMotionEnabled);
+    AccessibilityInfo.isReduceMotionEnabled().then((v) => setReduceMotionEnabled(v));
     const subscription = AccessibilityInfo.addEventListener(
       'reduceMotionChanged',
-      setReduceMotionEnabled
+      (isEnabled: boolean) => setReduceMotionEnabled(isEnabled)
     );
 
     return () => subscription.remove();
@@ -470,9 +474,12 @@ export const RitualScreen: React.FC = () => {
         }
       }
 
+      const chargedAt = new Date();
       await updateAnchor(anchorId, {
         isCharged: true,
-        chargedAt: new Date(),
+        chargedAt,
+        firstChargedAt: anchor?.firstChargedAt ?? chargedAt,
+        chargeCount: (anchor?.chargeCount ?? 0) + 1,
       });
 
       if (backendSyncFailed && isMountedRef.current) {
@@ -481,7 +488,21 @@ export const RitualScreen: React.FC = () => {
 
       if (isMountedRef.current) {
         exitingRef.current = true;
-        navigation.replace('ChargeComplete', { anchorId, returnTo });
+        if (isFirstPrimeForAnchor) {
+          navigation.replace('FirstPrimeComplete', {
+            anchorId,
+            sessionCount: 1,
+            threadStrength: 1,
+            durationSeconds: config.totalDurationSeconds,
+            returnTo,
+          });
+        } else {
+          navigation.replace('ChargeComplete', {
+            anchorId,
+            durationSeconds: config.totalDurationSeconds,
+            returnTo,
+          });
+        }
       }
     } catch (error) {
       isCompletingRef.current = false;

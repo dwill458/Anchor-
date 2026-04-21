@@ -30,6 +30,7 @@ const mockApplyDecay = jest.fn();
 const mockSettingsState: any = {
   defaultActivation: { mode: 'silent', unit: 'seconds', value: 30 },
   defaultCharge: { mode: 'ritual', preset: '5m', customMinutes: undefined },
+  dailyPracticeGoal: 3,
 };
 
 jest.mock('@react-navigation/native', () => {
@@ -132,6 +133,7 @@ describe('PracticeScreen', () => {
     mockSettingsState.defaultCharge.mode = 'ritual';
     mockSettingsState.defaultCharge.preset = '5m';
     mockSettingsState.defaultCharge.customMinutes = undefined;
+    mockSettingsState.dailyPracticeGoal = 3;
     mockAnchors = [];
     mockSessionLog = [];
     mockThreadStrength = 10;
@@ -147,6 +149,9 @@ describe('PracticeScreen', () => {
 
     expect(screen.getByText('Practice')).toBeTruthy();
     expect(screen.getByText('Return to the symbol. Keep the thread.')).toBeTruthy();
+    expect(screen.getByText("TODAY'S GOAL")).toBeTruthy();
+    expect(screen.getByText('0 / 3')).toBeTruthy();
+    expect(screen.getByText('3 sessions remaining today')).toBeTruthy();
     expect(screen.getByText('Begin Priming')).toBeTruthy();
     expect(screen.getByText('Restore the thread · 10–60 sec')).toBeTruthy();
     expect(screen.getByText('DEEP PRIME')).toBeTruthy();
@@ -285,6 +290,68 @@ describe('PracticeScreen', () => {
     const screen = render(<PracticeScreen />);
 
     expect(screen.getByText('Focus Session · 10–60 sec')).toBeTruthy();
+  });
+
+  it('shows partial progress toward the daily goal from activate and reinforce sessions', async () => {
+    mockAnchors = [buildAnchor('a4', 'Keep the thread')];
+    mockSessionLog = [
+      {
+        id: 's1',
+        anchorId: 'a4',
+        type: 'activate',
+        durationSeconds: 30,
+        mode: 'silent',
+        completedAt: new Date().toISOString(),
+      },
+      {
+        id: 's2',
+        anchorId: 'a4',
+        type: 'reinforce',
+        durationSeconds: 300,
+        mode: 'silent',
+        completedAt: new Date().toISOString(),
+      },
+    ];
+
+    const screen = render(<PracticeScreen />);
+
+    expect(screen.getByText('2 / 3')).toBeTruthy();
+    expect(screen.getByText('1 session remaining today')).toBeTruthy();
+  });
+
+  it('shows a terminal state when the daily goal is complete', async () => {
+    mockAnchors = [buildAnchor('a5', 'Finish strong')];
+    mockSessionLog = [
+      {
+        id: 's1',
+        anchorId: 'a5',
+        type: 'activate',
+        durationSeconds: 30,
+        mode: 'silent',
+        completedAt: new Date().toISOString(),
+      },
+      {
+        id: 's2',
+        anchorId: 'a5',
+        type: 'reinforce',
+        durationSeconds: 300,
+        mode: 'silent',
+        completedAt: new Date().toISOString(),
+      },
+      {
+        id: 's3',
+        anchorId: 'a5',
+        type: 'activate',
+        durationSeconds: 30,
+        mode: 'silent',
+        completedAt: new Date().toISOString(),
+      },
+    ];
+
+    const screen = render(<PracticeScreen />);
+
+    expect(screen.getByText('3 / 3')).toBeTruthy();
+    expect(screen.getByText('Goal complete for today')).toBeTruthy();
   });
 
   it('opens teaching sheet from info icon', async () => {

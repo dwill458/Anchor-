@@ -20,10 +20,12 @@ describe('AuthService (web/test fallback)', () => {
     it('has signInWithGoogle', () => expect(typeof AuthService.signInWithGoogle).toBe('function'));
     it('has syncCurrentUser', () => expect(typeof AuthService.syncCurrentUser).toBe('function'));
     it('has signOut', () => expect(typeof AuthService.signOut).toBe('function'));
+    it('has hasAuthenticatedSession', () => expect(typeof AuthService.hasAuthenticatedSession).toBe('function'));
     it('has getCurrentFirebaseUser', () => expect(typeof AuthService.getCurrentFirebaseUser).toBe('function'));
     it('has getIdToken', () => expect(typeof AuthService.getIdToken).toBe('function'));
     it('has sendPasswordResetEmail', () => expect(typeof AuthService.sendPasswordResetEmail).toBe('function'));
     it('has onAuthStateChanged', () => expect(typeof AuthService.onAuthStateChanged).toBe('function'));
+    it('has getCachedUser', () => expect(typeof AuthService.getCachedUser).toBe('function'));
   });
 
   describe('getCurrentFirebaseUser', () => {
@@ -31,6 +33,12 @@ describe('AuthService (web/test fallback)', () => {
       const result = AuthService.getCurrentFirebaseUser();
       // Returns null when mock auth disabled, or a mock user when enabled
       expect(result === null || (typeof result === 'object' && 'uid' in result!)).toBe(true);
+    });
+  });
+
+  describe('hasAuthenticatedSession', () => {
+    it('returns a boolean', () => {
+      expect(typeof AuthService.hasAuthenticatedSession()).toBe('boolean');
     });
   });
 

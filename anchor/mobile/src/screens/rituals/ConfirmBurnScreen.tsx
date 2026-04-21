@@ -30,6 +30,7 @@ import { useTeachingGate } from '@/utils/useTeachingGate';
 import { useTeachingStore } from '@/stores/teachingStore';
 import { TEACHINGS } from '@/constants/teaching';
 import { useAnchorStore } from '@/stores/anchorStore';
+import { resolveBurnArtworkUri } from './utils/resolveBurnArtworkUri';
 
 type ConfirmBurnRouteProp = RouteProp<RootStackParamList, 'ConfirmBurn'>;
 type ConfirmBurnNavigationProp = StackNavigationProp<RootStackParamList, 'ConfirmBurn'>;
@@ -49,7 +50,7 @@ export const ConfirmBurnScreen: React.FC = () => {
   const { recordShown } = useTeachingStore();
   const anchor = getAnchorById(anchorId);
   const resolvedSigilSvg = sigilSvg || anchor?.reinforcedSigilSvg || anchor?.baseSigilSvg || '';
-  const resolvedEnhancedImageUrl = enhancedImageUrl ?? anchor?.enhancedImageUrl;
+  const resolvedEnhancedImageUrl = enhancedImageUrl ?? resolveBurnArtworkUri(anchor);
 
   const [currentStep, setCurrentStep] = useState<BurnStep>('reflect');
   const [releaseText, setReleaseText] = useState('');

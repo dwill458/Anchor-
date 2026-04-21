@@ -5,6 +5,7 @@ import type { Anchor } from '@/types';
 import { OptimizedImage, RingGlowCanvas } from '@/components/common';
 import { typography } from '@/theme';
 import { useReduceMotionEnabled } from '@/hooks/useReduceMotionEnabled';
+import { useAppPerformanceTier } from '@/hooks/useAppPerformanceTier';
 
 export type ThreadState = 'strong' | 'fading' | 'recover';
 
@@ -168,6 +169,7 @@ export const ThreadStrengthBlock: React.FC<ThreadStrengthBlockProps> = ({
   const sigil = anchor?.reinforcedSigilSvg ?? anchor?.baseSigilSvg;
   const clampedStrength = Math.max(0, Math.min(100, threadStrength));
   const reduceMotionEnabled = useReduceMotionEnabled();
+  const perfTier = useAppPerformanceTier();
   const glowIntensity = clampedStrength / 100;
   // Temporary QA fixture to validate the fading-state pip rendering before
   // re-connecting this view to the real week history.
@@ -192,6 +194,7 @@ export const ThreadStrengthBlock: React.FC<ThreadStrengthBlockProps> = ({
             color={c.ring}
             intensity={glowIntensity}
             reduceMotionEnabled={reduceMotionEnabled}
+            tier={perfTier}
           />
           <View
             style={[
@@ -239,8 +242,6 @@ export const ThreadStrengthBlock: React.FC<ThreadStrengthBlockProps> = ({
         </View>
       </View>
 
-      {/* 7-day week pip track */}
-      <WeekTrack weekHistory={renderedWeekHistory} state={state} />
 
       {/* Micro-copy */}
       <Text style={[styles.msg, { color: c.msg, borderTopColor: c.msgBorder }]}>

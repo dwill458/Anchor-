@@ -23,9 +23,11 @@ Notifications.setNotificationHandler({
 
 const IS_ANDROID = Platform.OS === 'android';
 const DEFAULT_LIGHT_COLOR = '#D4AF37';
+const CUSTOM_NOTIFICATION_SOUND = 'notification.wav';
 
 export const NOTIFICATION_CHANNELS = {
   DAILY_REMINDERS: 'daily-reminders',
+  DAILY_GOAL_CHECKPOINTS: 'daily-goal-checkpoints',
   RITUAL_REMINDERS: 'ritual-reminders',
   STREAK_PROTECTION: 'streak-protection',
   WEEKLY_SUMMARY: 'weekly-summary',
@@ -33,13 +35,18 @@ export const NOTIFICATION_CHANNELS = {
 
 export const NOTIFICATION_IDS = {
   DAILY_REMINDER: 'daily-reminder-id',
+  DAILY_GOAL_CHECKPOINT_PREFIX: 'daily-goal-checkpoint',
   STREAK_PROTECTION: 'streak-protection-id',
   WEEKLY_SUMMARY: 'weekly-summary-id',
   RITUAL_REMINDER_PREFIX: 'ritual-reminder',
 };
 
+const DEV_TEST_NOTIFICATION_ID_PREFIX = 'dev-test';
+const MAX_DAILY_GOAL_CHECKPOINTS = 20;
+
 export type NotificationType =
   | 'daily_reminder'
+  | 'daily_goal_checkpoint'
   | 'ritual_reminder'
   | 'streak_protection'
   | 'weekly_summary';
@@ -47,6 +54,8 @@ export type NotificationType =
 export interface NotificationPayload {
   type: NotificationType;
   anchorId?: string;
+  goal?: number;
+  milestone?: number;
   reminderId?: string;
   environment?: string;
   [key: string]: unknown;
@@ -158,7 +167,7 @@ class NotificationService {
       content: {
         title: 'Return to Your Anchor',
         body: 'A moment to return to your anchor.',
-        sound: true,
+        sound: CUSTOM_NOTIFICATION_SOUND,
         data: this.buildPayload('daily_reminder'),
       },
       trigger: {
@@ -176,6 +185,61 @@ class NotificationService {
    */
   async cancelDailyReminder(): Promise<void> {
     await this.cancelReminder(NOTIFICATION_IDS.DAILY_REMINDER);
+  }
+
+  /**
+   * Schedule a one-time daily goal checkpoint reminder.
+   */
+  async scheduleDailyGoalCheckpoint(
+    milestone: number,
+    goal: number,
+    date: Date
+  ): Promise<string | null> {
+    const reminderId = this.buildDailyGoalCheckpointId(milestone);
+    await this.cancelReminder(reminderId);
+
+    if (!(date instanceof Date) || Number.isNaN(date.getTime())) {
+      this.recordError(
+        new ServiceError(
+          'notifications/invalid-time',
+          'Invalid daily goal checkpoint time. Expected a valid Date.'
+        )
+      );
+      return null;
+    }
+
+    const isFinalCheckpoint = milestone >= goal;
+    return this.scheduleNotification({
+      identifier: reminderId,
+      content: {
+        title: isFinalCheckpoint ? "Finish Today's Goal" : "Stay with Today's Goal",
+        body: isFinalCheckpoint
+          ? "One more focus or reinforce session completes today's goal."
+          : "A quick focus or reinforce session keeps today's goal on track.",
+        sound: CUSTOM_NOTIFICATION_SOUND,
+        data: this.buildPayload('daily_goal_checkpoint', {
+          goal,
+          milestone,
+          reminderId,
+        }),
+      },
+      trigger: {
+        type: Notifications.SchedulableTriggerInputTypes.DATE,
+        date,
+        channelId: NOTIFICATION_CHANNELS.DAILY_GOAL_CHECKPOINTS,
+      },
+    });
+  }
+
+  /**
+   * Cancel all deterministic daily goal checkpoint reminders.
+   */
+  async cancelAllDailyGoalCheckpoints(): Promise<void> {
+    const cancellations: Promise<void>[] = [];
+    for (let milestone = 2; milestone <= MAX_DAILY_GOAL_CHECKPOINTS; milestone += 1) {
+      cancellations.push(this.cancelReminder(this.buildDailyGoalCheckpointId(milestone)));
+    }
+    await Promise.all(cancellations);
   }
 
   /**
@@ -201,7 +265,7 @@ class NotificationService {
       content: {
         title: 'Ritual Reminder',
         body: 'Your anchor ritual is ready when you are.',
-        sound: true,
+        sound: CUSTOM_NOTIFICATION_SOUND,
         data: this.buildPayload('ritual_reminder', {
           anchorId,
           reminderId,
@@ -240,7 +304,7 @@ class NotificationService {
       content: {
         title: 'Streak Protection',
         body: 'You haven’t met your ritual goal today. A quick activation will keep your momentum.',
-        sound: true,
+        sound: CUSTOM_NOTIFICATION_SOUND,
         data: this.buildPayload('streak_protection'),
       },
       trigger: {
@@ -272,7 +336,7 @@ class NotificationService {
       content: {
         title: 'Your Weekly Reflection',
         body: 'A short overview of your practice this week is ready.',
-        sound: true,
+        sound: CUSTOM_NOTIFICATION_SOUND,
         data: this.buildPayload('weekly_summary'),
       },
       trigger: {
@@ -293,6 +357,36 @@ class NotificationService {
     await this.cancelReminder(NOTIFICATION_IDS.WEEKLY_SUMMARY);
   }
 
+  async scheduleDeveloperTestNotification(
+    type: NotificationType,
+    delaySeconds = 5
+  ): Promise<string | null> {
+    this.lastError = null;
+
+    const request = this.buildDeveloperTestRequest(type, delaySeconds);
+    return this.scheduleNotification(request);
+  }
+
+  async getDeveloperTestNotifications(): Promise<MockScheduledNotification[]> {
+    this.lastError = null;
+
+    const scheduled = await this.getScheduledNotifications();
+    return scheduled.filter((notification) =>
+      notification.identifier.startsWith(`${DEV_TEST_NOTIFICATION_ID_PREFIX}:`)
+    );
+  }
+
+  async cancelDeveloperTestNotifications(): Promise<number> {
+    this.lastError = null;
+
+    const scheduled = await this.getDeveloperTestNotifications();
+    await Promise.all(
+      scheduled.map((notification) => this.cancelReminder(notification.identifier))
+    );
+
+    return scheduled.length;
+  }
+
   /**
    * Handle a notification click and return a routing action.
    */
@@ -306,6 +400,7 @@ class NotificationService {
 
       switch (payload.type) {
         case 'daily_reminder':
+        case 'daily_goal_checkpoint':
           return { action: 'open_daily_reminder' };
         case 'ritual_reminder':
           if (payload.anchorId) {
@@ -335,6 +430,8 @@ class NotificationService {
    * Get all scheduled notifications (for debugging).
    */
   async getScheduledNotifications(): Promise<MockScheduledNotification[]> {
+    this.lastError = null;
+
     if (this.mockEnabled) {
       return Array.from(this.mockScheduled.values());
     }
@@ -357,6 +454,8 @@ class NotificationService {
    * Cancel all notifications.
    */
   async cancelAllNotifications(): Promise<void> {
+    this.lastError = null;
+
     if (this.mockEnabled) {
       this.mockScheduled.clear();
       return;
@@ -382,6 +481,15 @@ class NotificationService {
         importance: Notifications.AndroidImportance.HIGH,
         vibrationPattern: [0, 250, 250, 250],
         lightColor: DEFAULT_LIGHT_COLOR,
+        sound: CUSTOM_NOTIFICATION_SOUND,
+      });
+
+      await Notifications.setNotificationChannelAsync(NOTIFICATION_CHANNELS.DAILY_GOAL_CHECKPOINTS, {
+        name: 'Daily Goal Checkpoints',
+        importance: Notifications.AndroidImportance.DEFAULT,
+        vibrationPattern: [0, 250, 250, 250],
+        lightColor: DEFAULT_LIGHT_COLOR,
+        sound: CUSTOM_NOTIFICATION_SOUND,
       });
 
       await Notifications.setNotificationChannelAsync(NOTIFICATION_CHANNELS.RITUAL_REMINDERS, {
@@ -389,18 +497,21 @@ class NotificationService {
         importance: Notifications.AndroidImportance.DEFAULT,
         vibrationPattern: [0, 250, 250, 250],
         lightColor: DEFAULT_LIGHT_COLOR,
+        sound: CUSTOM_NOTIFICATION_SOUND,
       });
 
       await Notifications.setNotificationChannelAsync(NOTIFICATION_CHANNELS.STREAK_PROTECTION, {
         name: 'Streak Protection',
         importance: Notifications.AndroidImportance.DEFAULT,
         lightColor: DEFAULT_LIGHT_COLOR,
+        sound: CUSTOM_NOTIFICATION_SOUND,
       });
 
       await Notifications.setNotificationChannelAsync(NOTIFICATION_CHANNELS.WEEKLY_SUMMARY, {
         name: 'Weekly Summary',
         importance: Notifications.AndroidImportance.LOW,
         lightColor: DEFAULT_LIGHT_COLOR,
+        sound: CUSTOM_NOTIFICATION_SOUND,
       });
     } catch (error) {
       throw new ServiceError(
@@ -438,6 +549,104 @@ class NotificationService {
     return `${NOTIFICATION_IDS.RITUAL_REMINDER_PREFIX}:${anchorId}`;
   }
 
+  private buildDailyGoalCheckpointId(milestone: number): string {
+    return `${NOTIFICATION_IDS.DAILY_GOAL_CHECKPOINT_PREFIX}:${milestone}`;
+  }
+
+  private buildDeveloperTestRequest(
+    type: NotificationType,
+    delaySeconds: number
+  ): {
+    identifier: string;
+    content: NotificationContentInput;
+    trigger: NotificationTriggerInput;
+  } {
+    const identifier = `${DEV_TEST_NOTIFICATION_ID_PREFIX}:${type}:${Date.now()}`;
+
+    switch (type) {
+      case 'daily_reminder':
+        return {
+          identifier,
+          content: {
+            title: 'Test: Return to Your Anchor',
+            body: 'Developer test for the daily reminder notification.',
+            sound: CUSTOM_NOTIFICATION_SOUND,
+            data: this.buildPayload('daily_reminder'),
+          },
+          trigger: this.buildTimeIntervalTrigger(
+            delaySeconds,
+            NOTIFICATION_CHANNELS.DAILY_REMINDERS
+          ),
+        };
+      case 'daily_goal_checkpoint':
+        return {
+          identifier,
+          content: {
+            title: "Test: Stay with Today's Goal",
+            body: 'Developer test for the daily goal checkpoint notification.',
+            sound: CUSTOM_NOTIFICATION_SOUND,
+            data: this.buildPayload('daily_goal_checkpoint', {
+              goal: 3,
+              milestone: 2,
+              reminderId: identifier,
+            }),
+          },
+          trigger: this.buildTimeIntervalTrigger(
+            delaySeconds,
+            NOTIFICATION_CHANNELS.DAILY_GOAL_CHECKPOINTS
+          ),
+        };
+      case 'ritual_reminder':
+        return {
+          identifier,
+          content: {
+            title: 'Test: Ritual Reminder',
+            body: 'Developer test for the ritual reminder notification.',
+            sound: CUSTOM_NOTIFICATION_SOUND,
+            data: this.buildPayload('ritual_reminder', {
+              anchorId: 'dev-anchor',
+              reminderId: identifier,
+            }),
+          },
+          trigger: this.buildTimeIntervalTrigger(
+            delaySeconds,
+            NOTIFICATION_CHANNELS.RITUAL_REMINDERS
+          ),
+        };
+      case 'streak_protection':
+        return {
+          identifier,
+          content: {
+            title: 'Test: Streak Protection',
+            body: 'Developer test for the streak protection notification.',
+            sound: CUSTOM_NOTIFICATION_SOUND,
+            data: this.buildPayload('streak_protection'),
+          },
+          trigger: this.buildTimeIntervalTrigger(
+            delaySeconds,
+            NOTIFICATION_CHANNELS.STREAK_PROTECTION
+          ),
+        };
+      case 'weekly_summary':
+        return {
+          identifier,
+          content: {
+            title: 'Test: Your Weekly Reflection',
+            body: 'Developer test for the weekly summary notification.',
+            sound: CUSTOM_NOTIFICATION_SOUND,
+            data: this.buildPayload('weekly_summary'),
+          },
+          trigger: this.buildTimeIntervalTrigger(
+            delaySeconds,
+            NOTIFICATION_CHANNELS.WEEKLY_SUMMARY
+          ),
+        };
+    }
+
+    const exhaustiveType: never = type;
+    throw new Error(`Unsupported notification type: ${exhaustiveType}`);
+  }
+
   private buildRitualTrigger(time: string | Date): NotificationTriggerInput | null {
     if (time instanceof Date) {
       return {
@@ -455,6 +664,25 @@ class NotificationService {
       minute: parsed.minute,
       repeats: true,
       channelId: NOTIFICATION_CHANNELS.RITUAL_REMINDERS,
+    };
+  }
+
+  private buildDateTrigger(date: Date, channelId: string): NotificationTriggerInput {
+    return {
+      type: Notifications.SchedulableTriggerInputTypes.DATE,
+      date,
+      channelId,
+    };
+  }
+
+  private buildTimeIntervalTrigger(
+    delaySeconds: number,
+    channelId: string
+  ): NotificationTriggerInput {
+    return {
+      type: Notifications.SchedulableTriggerInputTypes.TIME_INTERVAL,
+      seconds: Math.max(1, Math.floor(delaySeconds)),
+      channelId,
     };
   }
 
@@ -490,11 +718,12 @@ class NotificationService {
 
     try {
       return await Notifications.scheduleNotificationAsync(request);
-    } catch (error) {
+    } catch (error: any) {
+      const errorMessage = error?.message ? ` ${error.message}` : '';
       this.recordError(
         new ServiceError(
           'notifications/schedule-failed',
-          'Failed to schedule notification.',
+          `Failed to schedule notification.${errorMessage}`,
           error
         )
       );

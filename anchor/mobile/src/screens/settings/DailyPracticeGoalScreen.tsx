@@ -55,7 +55,7 @@ export const DailyPracticeGoalScreen: React.FC = () => {
           <Text style={styles.heading}>Daily Focus Goal</Text>
           <Text style={styles.subtitle}>Set a gentle target for consistency.</Text>
           <Text style={styles.note}>
-            Counts Visual Focus sessions (10–60s). Deep Prime is optional.
+            Counts Focus and Reinforce sessions. Stabilize is separate.
           </Text>
         </View>
 

@@ -1,6 +1,5 @@
 import React from 'react';
 import { render, fireEvent, screen } from '@testing-library/react-native';
-import { WebView } from 'react-native-webview';
 import { ChargeSetupScreen } from '../ChargeSetupScreen';
 
 // Mock navigation
@@ -60,10 +59,26 @@ jest.mock('@/screens/rituals/components/RitualTopBar', () => ({
     },
 }));
 
+jest.mock('@/components/common/PrimeAnchorCanvas', () => ({
+    PrimeAnchorCanvas: () => null,
+    parseSigilSvg: () => ({ viewBox: { x: 0, y: 0, w: 240, h: 240 }, pathDs: [] }),
+}));
+
 jest.mock('@/components/common', () => ({
     ChargedGlowCanvas: () => null,
     PremiumAnchorGlow: () => null,
-    OptimizedImage: () => null,
+    PrimeAnchorCanvas: () => null,
+    parseSigilSvg: () => ({ viewBox: { x: 0, y: 0, w: 240, h: 240 }, pathDs: [] }),
+    OptimizedImage: ({ uri }: any) => {
+        const React = require('react');
+        const { Text } = require('react-native');
+        return <Text>{uri}</Text>;
+    },
+    SigilSvg: ({ xml }: any) => {
+        const React = require('react');
+        const { Text } = require('react-native');
+        return <Text>{xml}</Text>;
+    },
     ZenBackground: () => null,
 }));
 
@@ -94,6 +109,7 @@ describe('ChargeSetupScreen', () => {
         mockNavigate.mockClear();
         Object.keys(mockRouteParams).forEach((key) => delete mockRouteParams[key]);
         Object.assign(mockRouteParams, { anchorId: 'anchor-123' });
+        mockAnchor.baseSigilSvg = '<svg></svg>';
         mockAnchor.enhancedImageUrl = undefined;
     });
 
@@ -154,13 +170,20 @@ describe('ChargeSetupScreen', () => {
         });
     });
 
-    it('prefers enhanced anchor artwork in the webview when available', () => {
+    it('renders the enhanced anchor artwork when available', () => {
         mockAnchor.enhancedImageUrl = 'https://example.com/enhanced-anchor.png';
 
-        const { UNSAFE_getByType } = render(<ChargeSetupScreen />);
-        const webView = UNSAFE_getByType(WebView);
+        render(<ChargeSetupScreen />);
 
-        expect(webView.props.source.html).toContain('<img src="https://example.com/enhanced-anchor.png" alt="" />');
-        expect(webView.props.source.html).not.toContain('SIGIL_CONTENT_PLACEHOLDER');
+        expect(screen.getByText('https://example.com/enhanced-anchor.png')).toBeTruthy();
+    });
+
+    it('falls back to the structure artwork when no enhanced image exists', () => {
+        mockAnchor.enhancedImageUrl = undefined;
+        mockAnchor.baseSigilSvg = '<svg><path d="M0 0" /></svg>';
+
+        render(<ChargeSetupScreen />);
+
+        expect(screen.getByText('<svg><path d="M0 0" /></svg>')).toBeTruthy();
     });
 });

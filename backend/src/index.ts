@@ -14,6 +14,7 @@ import anchorRoutes from './api/routes/anchors';
 import aiRoutes from './api/routes/ai';
 import practiceRoutes from './api/routes/practice';
 import orderRoutes from './api/routes/orders';
+import contentRoutes from './api/routes/content';
 import { errorHandler, notFoundHandler } from './api/middleware/errorHandler';
 import { logger } from './utils/logger';
 import { env } from './config/env';
@@ -175,6 +176,9 @@ app.use('/api/ai', aiRoutes);
 
 // Order routes (Phase 4)
 app.use('/api/orders', orderRoutes);
+
+// Content moderation routes
+app.use('/api/content', contentRoutes);
 
 // Note: Additional routes (users, discover) will be added in future phases
 

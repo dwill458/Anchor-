@@ -18,6 +18,9 @@ export interface SigilGenerationResult {
   variant: SigilVariant;
 }
 
+const EMPTY_SIGIL_SVG = '<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg"></svg>';
+const SIGIL_RESULT_CACHE = new Map<string, SigilGenerationResult>();
+
 // ---------------------------------------------------------------------------
 // 1. TRADITIONAL MAPPING LOGIC
 // ---------------------------------------------------------------------------
@@ -47,18 +50,20 @@ const GRID_COORDS: Record<number, { x: number; y: number }> = {
 // 2. HELPER FUNCTIONS
 // ---------------------------------------------------------------------------
 
+function normalizeLettersInput(letters: unknown): string {
+  const rawText = Array.isArray(letters)
+    ? letters.join('')
+    : typeof letters === 'string'
+      ? letters
+      : '';
+
+  return rawText.toUpperCase().replace(/[^A-Z]/g, '');
+}
+
 /**
  * Clean and reduce the intent string (Austin Osman Spare method)
  */
-function processIntent(letters: string[] | string | undefined | null, variant: SigilVariant): number[] {
-  // Normalize letters to a string
-  let rawText = '';
-  if (Array.isArray(letters)) {
-    rawText = letters.join('').toUpperCase().replace(/[^A-Z]/g, '');
-  } else if (typeof letters === 'string') {
-    rawText = letters.toUpperCase().replace(/[^A-Z]/g, '');
-  }
-
+function processIntent(rawText: string, variant: SigilVariant): number[] {
   if (!rawText) return [5]; // Fallback to center point
 
   let processed = rawText;
@@ -83,28 +88,50 @@ function processIntent(letters: string[] | string | undefined | null, variant: S
   return points;
 }
 
+function createSeed(input: string): number {
+  let hash = 2166136261;
+
+  for (let i = 0; i < input.length; i += 1) {
+    hash ^= input.charCodeAt(i);
+    hash = Math.imul(hash, 16777619);
+  }
+
+  return hash >>> 0;
+}
+
+function seededUnit(seed: number, salt: number): number {
+  let value = (seed ^ salt) >>> 0;
+  value = Math.imul(value ^ (value >>> 16), 2246822507);
+  value = Math.imul(value ^ (value >>> 13), 3266489909);
+  value ^= value >>> 16;
+  return value / 4294967295;
+}
+
 /**
- * Add "Hand-Drawn" imperfections to a point
+ * Add deterministic "hand-drawn" imperfections to a point.
+ * Stable output keeps repeated renders cacheable and avoids XML churn.
  */
-function jitter(val: number, intensity: number = 2): number {
-  return val + (Math.random() * intensity - intensity / 2);
+function jitter(val: number, seed: number, salt: number, intensity: number = 2): number {
+  const offset = seededUnit(seed, salt) * intensity - intensity / 2;
+  return Number((val + offset).toFixed(2));
 }
 
 /**
  * Generate the SVG Path Data (d attribute)
  */
-function createSigilPath(points: number[]): string {
+function createSigilPath(points: number[], seed: number): string {
   if (points.length === 0) return '';
 
   const start = GRID_COORDS[points[0]];
   if (!start) return '';
 
-  let path = `M ${jitter(start.x)},${jitter(start.y)}`;
+  let path = `M ${jitter(start.x, seed, 1)},${jitter(start.y, seed, 2)}`;
 
   for (let i = 1; i < points.length; i++) {
     const curr = GRID_COORDS[points[i]];
     if (curr) {
-      path += ` L ${jitter(curr.x)},${jitter(curr.y)}`;
+      const saltBase = i * 2 + 1;
+      path += ` L ${jitter(curr.x, seed, saltBase)},${jitter(curr.y, seed, saltBase + 1)}`;
     }
   }
 
@@ -114,13 +141,6 @@ function createSigilPath(points: number[]): string {
 // ---------------------------------------------------------------------------
 // 3. SVG COMPONENT GENERATORS
 // ---------------------------------------------------------------------------
-
-function createInkFilter(): string {
-  // NOTE: <filter> and <marker> elements are NOT reliably supported by react-native-svg
-  // and can cause crashes on both iOS and Android. Do not add filter or marker elements here.
-  // This function is intentionally left as a no-op placeholder.
-  return '';
-}
 
 function createBorder(variant: SigilVariant): string {
   if (variant === 'minimal' || variant === 'balanced') return ''; // No border for minimal and balanced
@@ -139,10 +159,7 @@ function createBorder(variant: SigilVariant): string {
 
   // Dense gets a double ring
   if (variant === 'dense') {
-    return `
-      <path d="${d}" stroke="currentColor" stroke-width="1.5" fill="none" opacity="0.8" />
-      <circle cx="50" cy="50" r="46" stroke="currentColor" stroke-width="0.5" fill="none" opacity="0.4" />
-    `;
+    return `<path d="${d}" stroke="currentColor" stroke-width="1.5" fill="none" opacity="0.8" /><circle cx="50" cy="50" r="46" stroke="currentColor" stroke-width="0.5" fill="none" opacity="0.4" />`;
   }
 
   return `<path d="${d}" stroke="currentColor" stroke-width="1.5" fill="none" opacity="0.8" />`;
@@ -156,38 +173,36 @@ export function generateTrueSigil(
   letters: any,
   variant: SigilVariant = 'balanced'
 ): SigilGenerationResult {
+  const normalizedLetters = normalizeLettersInput(letters);
+  const cacheKey = `${variant}:${normalizedLetters || 'CENTER'}`;
+  const cachedResult = SIGIL_RESULT_CACHE.get(cacheKey);
+
+  if (cachedResult) {
+    return cachedResult;
+  }
+
   // 1. Logic Layer
-  const points = processIntent(letters, variant);
+  const points = processIntent(normalizedLetters, variant);
 
   // 2. Geometry Layer
-  const pathData = createSigilPath(points);
+  const seed = createSeed(cacheKey);
+  const pathData = createSigilPath(points, seed);
 
   const strokeWidth = variant === 'dense' ? 3 : 2;
 
   // Assemble
   // NOTE: Do not add <filter>, <marker>, or marker-start/marker-end here.
   // react-native-svg does not reliably support these and they cause crashes.
-  const svg = `
-    <svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" color="#FFFFFF">
-      <g>
-        ${createBorder(variant)}
+  const svg = `<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" color="#FFFFFF"><g>${createBorder(variant)}<path d="${pathData}" stroke="currentColor" stroke-width="${strokeWidth}" fill="none" stroke-linecap="round" stroke-linejoin="round" /></g></svg>`;
 
-        <path
-          d="${pathData}"
-          stroke="currentColor"
-          stroke-width="${strokeWidth}"
-          fill="none"
-          stroke-linecap="round"
-          stroke-linejoin="round"
-        />
-      </g>
-    </svg>
-  `;
-
-  return {
+  const result = {
     svg,
     variant,
   };
+
+  SIGIL_RESULT_CACHE.set(cacheKey, result);
+
+  return result;
 }
 
 export function generateAllVariants(letters: any): SigilGenerationResult[] {
@@ -201,9 +216,9 @@ export function generateAllVariants(letters: any): SigilGenerationResult[] {
     logger.error('Error generating sigil variants:', error);
     // Return empty fallback array
     return [
-      { svg: '<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg"></svg>', variant: 'dense' },
-      { svg: '<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg"></svg>', variant: 'balanced' },
-      { svg: '<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg"></svg>', variant: 'minimal' },
+      { svg: EMPTY_SIGIL_SVG, variant: 'dense' },
+      { svg: EMPTY_SIGIL_SVG, variant: 'balanced' },
+      { svg: EMPTY_SIGIL_SVG, variant: 'minimal' },
     ];
   }
 }

@@ -5,6 +5,14 @@
 import { generateTrueSigil, generateAllVariants } from './traditional-generator';
 
 describe('TRUE Sigil Generator', () => {
+    it('returns deterministic SVG output for the same letters and variant', () => {
+        const first = generateTrueSigil(['A', 'B', 'C'], 'balanced');
+        const second = generateTrueSigil(['A', 'B', 'C'], 'balanced');
+
+        expect(second).toBe(first);
+        expect(second.svg).toBe(first.svg);
+    });
+
     it('should generate a valid result for balanced variant', () => {
         const letters = ['A', 'B', 'C'];
         const result = generateTrueSigil(letters, 'balanced');
@@ -14,6 +22,7 @@ describe('TRUE Sigil Generator', () => {
         expect(result.svg).toContain('viewBox="0 0 100 100"');
         expect(result.svg).toContain('<path');
         expect(result.svg).toContain('stroke="currentColor"');
+        expect(result.svg).not.toContain('\n');
         // <filter> and <marker> elements were intentionally removed from the
         // generator because react-native-svg does not reliably support them
         // and they cause crashes on iOS/Android.

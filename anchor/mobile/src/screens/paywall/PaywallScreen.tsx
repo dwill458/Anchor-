@@ -2,78 +2,147 @@
  * PaywallScreen
  *
  * Shown when a user's 7-day free trial has expired and they have no active subscription.
- * Blocks access to the main app until a plan is selected.
+ * Presented over the main app so the user can review membership options or return home.
  *
  * Note: Purchase buttons are UI-only placeholders. RevenueCat integration is deferred.
  */
 
-import React, { useRef, useEffect } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   Alert,
   Animated,
+  Image,
+  Pressable,
   ScrollView,
   StyleSheet,
   Text,
-  TouchableOpacity,
   View,
+  useWindowDimensions,
 } from 'react-native';
+import { CommonActions, useNavigation } from '@react-navigation/native';
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { colors } from '@/theme';
+import { LinearGradient } from 'expo-linear-gradient';
+import { BlurView } from 'expo-blur';
+import Svg, { Circle, Defs, Path, RadialGradient, Rect, Stop, SvgXml } from 'react-native-svg';
+import { colors, typography } from '@/theme';
+import { withAlpha } from '@/utils/color';
+import { useAnchorStore } from '@/stores/anchorStore';
+import { REVENUECAT_DEFAULT_PACKAGE_ID } from '@/config';
+import revenueCatService from '@/services/RevenueCatService';
+import type { RootNavigatorParamList } from '@/navigation/RootNavigator';
 
-// ─── Plan definitions ──────────────────────────────────────────────────────────
+type PlanId = 'monthly' | 'annual' | 'lifetime';
 
-const PLANS = [
-  {
-    id: 'annual',
-    label: 'Annual',
-    price: '$59.99',
-    period: '/ year',
-    subtext: 'Save 37% — best value',
-    highlighted: true,
-  },
+type PlanConfig = {
+  id: PlanId;
+  label: string;
+  amount: string;
+  subtitle: string;
+  productId: string;
+  badge?: string;
+};
+
+const PLAN_OPTIONS: PlanConfig[] = [
   {
     id: 'monthly',
     label: 'Monthly',
-    price: '$7.99',
-    period: '/ month',
-    subtext: 'Billed monthly',
-    highlighted: false,
+    amount: '$7.99',
+    subtitle: 'per month',
+    productId: REVENUECAT_DEFAULT_PACKAGE_ID,
+  },
+  {
+    id: 'annual',
+    label: 'Annual',
+    amount: '$59.99',
+    subtitle: '$5/mo · save 37%',
+    productId: '$rc_annual',
+    badge: 'BEST VALUE',
   },
   {
     id: 'lifetime',
     label: 'Lifetime',
-    price: '$149',
-    period: 'one-time',
-    subtext: 'Pay once, own forever',
-    highlighted: false,
+    amount: '$149',
+    subtitle: 'one time',
+    productId: '$rc_lifetime',
+    badge: 'LIMITED',
   },
-] as const;
+];
 
-// ─── Placeholder purchase handler ─────────────────────────────────────────────
+const VOID_GLOW_ID = 'paywall-void-glow';
 
-function handlePurchase(planId: string) {
-  // RevenueCat integration pending
-  Alert.alert(
-    'Coming Soon',
-    `Subscription purchase for "${planId}" will be available when RevenueCat integration is complete.`,
-    [{ text: 'OK' }]
+function VoidGlowBackdrop() {
+  return (
+    <Svg
+      width="100%"
+      height="100%"
+      viewBox="0 0 100 100"
+      preserveAspectRatio="none"
+      style={styles.voidGlowSvg}
+      pointerEvents="none"
+    >
+      <Defs>
+        <RadialGradient id={VOID_GLOW_ID} cx="50%" cy="45%" rx="50%" ry="52%">
+          <Stop offset="0%" stopColor={colors.gold} stopOpacity="0.12" />
+          <Stop offset="42%" stopColor={colors.deepPurple} stopOpacity="0.22" />
+          <Stop offset="100%" stopColor={colors.black} stopOpacity="0" />
+        </RadialGradient>
+      </Defs>
+      <Rect x="0" y="0" width="100" height="100" fill={`url(#${VOID_GLOW_ID})`} />
+      <Circle cx="50" cy="46" r="22" fill={withAlpha(colors.gold, 0.03)} />
+      <Circle cx="50" cy="46" r="14" fill={withAlpha(colors.deepPurple, 0.08)} />
+    </Svg>
   );
 }
 
-function handleRestorePurchase() {
-  // RevenueCat integration pending
-  Alert.alert(
-    'Coming Soon',
-    'Restore Purchase will be available when RevenueCat integration is complete.',
-    [{ text: 'OK' }]
+function PreviewFadeOverlay() {
+  return (
+    <LinearGradient
+      colors={['rgba(8,12,16,0)', 'rgba(8,12,16,0)', colors.black]}
+      locations={[0, 0.4, 1]}
+      start={{ x: 0, y: 0 }}
+      end={{ x: 0, y: 1 }}
+      style={styles.previewFadeOverlay}
+      pointerEvents="none"
+    />
+  );
+}
+
+function LockBadgeIcon() {
+  return (
+    <Svg width={24} height={24} viewBox="0 0 24 24" fill="none">
+      <Rect
+        x="5"
+        y="11"
+        width="14"
+        height="10"
+        rx="2"
+        stroke={colors.gold}
+        strokeWidth={1.5}
+        strokeLinecap="round"
+      />
+      <Path
+        d="M8 11V7C8 4.79086 9.79086 3 12 3C14.2091 3 16 4.79086 16 7V11"
+        stroke={colors.gold}
+        strokeWidth={1.5}
+        strokeLinecap="round"
+      />
+      <Circle cx="12" cy="15.5" r="1.5" fill={colors.gold} />
+    </Svg>
   );
 }
 
 // ─── PaywallScreen ─────────────────────────────────────────────────────────────
 
 export const PaywallScreen: React.FC = () => {
+  const navigation = useNavigation<NativeStackNavigationProp<RootNavigatorParamList, 'Paywall'>>();
+  const { height } = useWindowDimensions();
+  const anchors = useAnchorStore((state) => state.anchors);
+  const [selectedPlanId, setSelectedPlanId] = useState<PlanId>('annual');
+  const [isPurchasing, setIsPurchasing] = useState(false);
+  const [isRestoring, setIsRestoring] = useState(false);
   const fadeAnim = useRef(new Animated.Value(0)).current;
-  const slideAnim = useRef(new Animated.Value(24)).current;
+  const slideAnim = useRef(new Animated.Value(20)).current;
 
   useEffect(() => {
     Animated.parallel([
@@ -82,115 +151,270 @@ export const PaywallScreen: React.FC = () => {
     ]).start();
   }, [fadeAnim, slideAnim]);
 
+  const handleBackToHome = () => {
+    navigation.reset({
+      index: 0,
+      routes: [{ name: 'Main' }],
+    });
+  };
+
+  const handleSignIn = () => {
+    navigation.dispatch(
+      CommonActions.reset({
+        index: 0,
+        routes: [
+          {
+            name: 'Onboarding',
+            state: { routes: [{ name: 'Login' }], index: 0 },
+          },
+        ],
+      })
+    );
+  };
+
+  const handlePurchase = async (productId: string) => {
+    if (isPurchasing) return;
+    setIsPurchasing(true);
+    try {
+      const { status, dismissed } = await revenueCatService.purchasePackageByIdentifier(productId);
+      if (!dismissed && status.hasActiveEntitlement) {
+        navigation.reset({ index: 0, routes: [{ name: 'Main' }] });
+      }
+    } catch (error: any) {
+      Alert.alert('Purchase Failed', error?.message || 'Something went wrong. Please try again.');
+    } finally {
+      setIsPurchasing(false);
+    }
+  };
+
+  const handleRestorePurchase = async () => {
+    if (isRestoring) return;
+    setIsRestoring(true);
+    try {
+      const status = await revenueCatService.restorePurchases();
+      if (status.hasActiveEntitlement) {
+        Alert.alert('Restored', 'Your subscription has been restored.', [
+          { text: 'Continue', onPress: () => navigation.reset({ index: 0, routes: [{ name: 'Main' }] }) },
+        ]);
+      } else {
+        Alert.alert('Nothing to Restore', 'No active subscription found for this account.');
+      }
+    } catch (error: any) {
+      Alert.alert('Restore Failed', error?.message || 'Could not restore purchases.');
+    } finally {
+      setIsRestoring(false);
+    }
+  };
+
+  const latestAnchor = useMemo(() => {
+    if (anchors.length === 0) {
+      return null;
+    }
+
+    return [...anchors].sort((left, right) => {
+      const leftTime = new Date(left.updatedAt ?? left.createdAt).getTime();
+      const rightTime = new Date(right.updatedAt ?? right.createdAt).getTime();
+      return rightTime - leftTime;
+    })[0] ?? null;
+  }, [anchors]);
+
+  const selectedPlan = useMemo(
+    () => PLAN_OPTIONS.find((plan) => plan.id === selectedPlanId) ?? PLAN_OPTIONS[1],
+    [selectedPlanId]
+  );
+  const ctaLabel =
+    selectedPlan.id === 'monthly'
+      ? 'Get Monthly Access'
+      : selectedPlan.id === 'lifetime'
+        ? 'Get Lifetime Access'
+        : 'Forge Free for 7 Days';
+
+  const sigilSource = latestAnchor?.enhancedImageUrl ?? null;
+  const sigilSvg = latestAnchor?.reinforcedSigilSvg ?? latestAnchor?.baseSigilSvg ?? null;
+  const previewHeight = Math.round(height * 0.48);
+
   return (
     <View style={styles.root}>
       <SafeAreaView style={styles.safeArea} edges={['top', 'bottom']}>
-        <ScrollView
-          contentContainerStyle={styles.scroll}
-          showsVerticalScrollIndicator={false}
-          bounces={false}
+        <Animated.View
+          style={[
+            styles.screen,
+            {
+              opacity: fadeAnim,
+              transform: [{ translateY: slideAnim }],
+            },
+          ]}
         >
-          <Animated.View
-            style={[
-              styles.content,
-              { opacity: fadeAnim, transform: [{ translateY: slideAnim }] },
-            ]}
-          >
-            {/* ── Wordmark ── */}
-            <View style={styles.logoWrap}>
-              <Text style={styles.logoText}>ANCHOR</Text>
-              <View style={styles.logoDivider} />
-            </View>
+          <View style={[styles.previewZone, { height: previewHeight }]}>
+            <LinearGradient
+              colors={[colors.navy, colors.deepPurple, colors.black]}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 0.82, y: 1 }}
+              style={StyleSheet.absoluteFillObject}
+            />
 
-            {/* ── Headline ── */}
-            <Text style={styles.headline}>
-              Your free trial{'\n'}has ended.
-            </Text>
-            <Text style={styles.subheadline}>
-              Continue your practice with a full membership.
-            </Text>
+            <View style={styles.previewAmbientOrbLeft} />
+            <View style={styles.previewAmbientOrbRight} />
 
-            {/* ── Feature summary ── */}
-            <View style={styles.featureList}>
-              {[
-                'Unlimited anchors',
-                'All 12 refinement styles',
-                'Manual forge tools',
-                'HD export',
-                'Advanced practice modes',
-              ].map((feature) => (
-                <View key={feature} style={styles.featureRow}>
-                  <Text style={styles.featureDot}>·</Text>
-                  <Text style={styles.featureText}>{feature}</Text>
+            <View style={styles.previewContentWrap} pointerEvents="none">
+              {sigilSource ? (
+                <View style={styles.previewArtFrame}>
+                  <Image
+                    source={{ uri: sigilSource }}
+                    style={styles.previewImage}
+                    blurRadius={2}
+                    resizeMode="contain"
+                  />
                 </View>
-              ))}
+              ) : sigilSvg ? (
+                <View style={styles.previewArtFrame}>
+                  <View style={styles.previewSvgWrap}>
+                    <SvgXml xml={sigilSvg} width="100%" height="100%" />
+                  </View>
+                </View>
+              ) : (
+                <View style={styles.previewArtFrame}>
+                  <View style={styles.previewVoidWrap}>
+                    <VoidGlowBackdrop />
+                  </View>
+                </View>
+              )}
+
+              <View style={styles.previewDesaturateWash} />
+              <BlurView intensity={18} tint="dark" style={StyleSheet.absoluteFillObject} />
             </View>
 
-            {/* ── Plan cards ── */}
-            <View style={styles.plansWrap}>
-              {PLANS.map((plan) => (
-                <TouchableOpacity
-                  key={plan.id}
-                  style={[styles.planCard, plan.highlighted && styles.planCardHighlighted]}
-                  onPress={() => handlePurchase(plan.id)}
-                  activeOpacity={0.82}
-                  accessibilityRole="button"
-                  accessibilityLabel={`Subscribe ${plan.label} ${plan.price} ${plan.period}`}
-                >
-                  {plan.highlighted && (
-                    <View style={styles.bestValueBadge}>
-                      <Text style={styles.bestValueText}>BEST VALUE</Text>
-                    </View>
-                  )}
-                  <View style={styles.planRow}>
-                    <View>
-                      <Text style={[styles.planLabel, plan.highlighted && styles.planLabelHighlighted]}>
-                        {plan.label}
-                      </Text>
-                      <Text style={styles.planSubtext}>{plan.subtext}</Text>
-                    </View>
-                    <View style={styles.planPriceWrap}>
-                      <Text style={[styles.planPrice, plan.highlighted && styles.planPriceHighlighted]}>
-                        {plan.price}
-                      </Text>
-                      <Text style={styles.planPeriod}>{plan.period}</Text>
-                    </View>
-                  </View>
-
-                  <View style={[styles.planCta, plan.highlighted && styles.planCtaHighlighted]}>
-                    <Text style={[styles.planCtaText, plan.highlighted && styles.planCtaTextHighlighted]}>
-                      {plan.highlighted ? 'Get Annual Access' : plan.id === 'lifetime' ? 'Get Lifetime Access' : 'Get Monthly Access'}
-                    </Text>
-                  </View>
-                </TouchableOpacity>
-              ))}
+            <View style={styles.lockBadge}>
+              <LockBadgeIcon />
             </View>
 
-            {/* ── Restore purchase ── */}
-            <TouchableOpacity
-              onPress={handleRestorePurchase}
-              style={styles.restoreBtn}
-              activeOpacity={0.7}
-              accessibilityRole="button"
+            <PreviewFadeOverlay />
+          </View>
+
+          <View style={[styles.contentZone, { top: previewHeight - 4 }]}>
+            <ScrollView
+              style={styles.scroll}
+              contentContainerStyle={styles.scrollContent}
+              showsVerticalScrollIndicator={false}
+              bounces={false}
             >
-              <Text style={styles.restoreText}>Restore Purchase</Text>
-            </TouchableOpacity>
+              <Text style={styles.eyebrow}>SAVE YOUR ANCHOR</Text>
 
-            {/* ── Legal ── */}
-            <Text style={styles.legal}>
-              Subscriptions auto-renew unless cancelled. Cancel anytime in App Store settings.
-            </Text>
+              <Text style={styles.headline}>
+                Your anchor is{'\n'}
+                ready to <Text style={styles.headlineForge}>forge.</Text>
+              </Text>
 
-            {/* DEFERRED: freemium — "Continue with limited access" link removed.
-            // This would allow expired users to use a stripped-down free tier.
-            // Restore when RevenueCat integration + free-tier feature set is defined.
-            //
-            // <TouchableOpacity onPress={handleContinueFree}>
-            //   <Text>Continue with limited access</Text>
-            // </TouchableOpacity>
-            */}
-          </Animated.View>
-        </ScrollView>
+              <Text style={styles.bodyCopy}>
+                Create an account to save your work, track your practice, and build more anchors.
+              </Text>
+
+              <View style={styles.dividerRow}>
+                <LinearGradient
+                  colors={[
+                    withAlpha(colors.gold, 0),
+                    withAlpha(colors.gold, 0.25),
+                    withAlpha(colors.gold, 0),
+                  ]}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 0 }}
+                  style={styles.dividerLine}
+                />
+                <Text style={styles.dividerLabel}>CHOOSE PLAN</Text>
+                <LinearGradient
+                  colors={[
+                    withAlpha(colors.gold, 0),
+                    withAlpha(colors.gold, 0.25),
+                    withAlpha(colors.gold, 0),
+                  ]}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 0 }}
+                  style={styles.dividerLine}
+                />
+              </View>
+
+              <View style={styles.planRow}>
+                {PLAN_OPTIONS.map((plan) => {
+                  const isSelected = selectedPlanId === plan.id;
+
+                  return (
+                    <Pressable
+                      key={plan.id}
+                      onPress={() => setSelectedPlanId(plan.id)}
+                      accessibilityRole="button"
+                      accessibilityLabel={`${plan.label} plan ${plan.amount}`}
+                      style={({ pressed }) => [
+                        styles.planCard,
+                        isSelected ? styles.planCardSelected : styles.planCardUnselected,
+                        pressed && styles.planCardPressed,
+                      ]}
+                    >
+                      {plan.badge ? (
+                        <View style={styles.planBadge}>
+                          <Text style={styles.planBadgeText}>{plan.badge}</Text>
+                        </View>
+                      ) : null}
+
+                      <Text style={styles.planLabel}>{plan.label}</Text>
+
+                      <View style={styles.planPriceWrap}>
+                        <Text style={[styles.planAmount, isSelected && styles.planAmountSelected]}>
+                          {plan.amount}
+                        </Text>
+                        <Text style={styles.planSubtitle}>{plan.subtitle}</Text>
+                      </View>
+                    </Pressable>
+                  );
+                })}
+              </View>
+
+              <Pressable
+                onPress={() => handlePurchase(selectedPlan.productId)}
+                accessibilityRole="button"
+                accessibilityLabel={`${ctaLabel}, ${selectedPlan.label} selected`}
+                disabled={isPurchasing || isRestoring}
+                style={({ pressed }) => [
+                  styles.ctaButton,
+                  pressed && styles.ctaButtonPressed,
+                  (isPurchasing || isRestoring) && styles.ctaButtonDisabled,
+                ]}
+              >
+                <Text style={styles.ctaText}>{isPurchasing ? 'Processing…' : ctaLabel}</Text>
+              </Pressable>
+
+              <Text style={styles.trialNote}>Cancel anytime</Text>
+
+              <Pressable
+                onPress={handleRestorePurchase}
+                accessibilityRole="button"
+                accessibilityLabel="Restore previous purchase"
+                disabled={isPurchasing || isRestoring}
+                style={({ pressed }) => [styles.restoreButton, pressed && styles.signInPressed]}
+              >
+                <Text style={styles.restoreText}>{isRestoring ? 'Restoring…' : 'Restore Purchase'}</Text>
+              </Pressable>
+
+              <Pressable
+                onPress={handleSignIn}
+                accessibilityRole="button"
+                accessibilityLabel="Already forging? Sign in"
+                style={({ pressed }) => [styles.signInButton, pressed && styles.signInPressed]}
+              >
+                <View style={styles.signInRow}>
+                  <Text style={styles.signInText}>Already forging? </Text>
+                  <View style={styles.signInLinkWrap}>
+                    <Text style={styles.signInLink}>Sign in</Text>
+                  </View>
+                </View>
+              </Pressable>
+
+              {/*
+                DEFERRED: Back to home link removed from the approved layout.
+                Keep the handler for now so the existing navigation path remains available.
+              */}
+            </ScrollView>
+          </View>
+        </Animated.View>
       </SafeAreaView>
     </View>
   );
@@ -201,186 +425,308 @@ export const PaywallScreen: React.FC = () => {
 const styles = StyleSheet.create({
   root: {
     flex: 1,
-    backgroundColor: '#080C10',
+    backgroundColor: colors.black,
   },
   safeArea: {
     flex: 1,
+    backgroundColor: colors.black,
   },
-  scroll: {
-    flexGrow: 1,
-    paddingHorizontal: 28,
-    paddingBottom: 32,
-  },
-  content: {
+  screen: {
     flex: 1,
-    alignItems: 'center',
+    backgroundColor: colors.black,
   },
-  logoWrap: {
-    alignItems: 'center',
-    marginTop: 36,
-    marginBottom: 28,
-  },
-  logoText: {
-    fontFamily: 'Cinzel-SemiBold',
-    fontSize: 16,
-    letterSpacing: 5,
-    color: colors.gold,
-  },
-  logoDivider: {
-    marginTop: 10,
-    width: 32,
-    height: 1,
-    backgroundColor: 'rgba(212,175,55,0.3)',
-  },
-  headline: {
-    fontFamily: 'Cinzel-SemiBold',
-    fontSize: 26,
-    lineHeight: 34,
-    color: colors.bone,
-    textAlign: 'center',
-    letterSpacing: 0.3,
-    marginBottom: 12,
-  },
-  subheadline: {
-    fontFamily: 'CormorantGaramond-Regular',
-    fontSize: 16,
-    color: 'rgba(192,192,192,0.65)',
-    textAlign: 'center',
-    lineHeight: 24,
-    marginBottom: 24,
-  },
-  featureList: {
-    alignSelf: 'stretch',
-    marginBottom: 28,
-    paddingHorizontal: 8,
-  },
-  featureRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 8,
-    gap: 10,
-  },
-  featureDot: {
-    color: colors.gold,
-    fontSize: 20,
-    lineHeight: 20,
-  },
-  featureText: {
-    fontFamily: 'CormorantGaramond-Regular',
-    fontSize: 15,
-    color: 'rgba(245,245,241,0.75)',
-    lineHeight: 22,
-  },
-  plansWrap: {
-    alignSelf: 'stretch',
-    gap: 12,
-    marginBottom: 20,
-  },
-  planCard: {
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: 'rgba(212,175,55,0.18)',
-    backgroundColor: 'rgba(255,255,255,0.03)',
-    padding: 18,
-    overflow: 'hidden',
-  },
-  planCardHighlighted: {
-    borderColor: colors.gold,
-    backgroundColor: 'rgba(212,175,55,0.06)',
-  },
-  bestValueBadge: {
+  previewZone: {
     position: 'absolute',
     top: 0,
+    left: 0,
     right: 0,
-    backgroundColor: colors.gold,
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderBottomLeftRadius: 8,
+    overflow: 'hidden',
   },
-  bestValueText: {
-    fontFamily: 'Cinzel-SemiBold',
-    fontSize: 8,
-    letterSpacing: 1.5,
-    color: '#0D0D0D',
+  previewAmbientOrbLeft: {
+    position: 'absolute',
+    width: 240,
+    height: 240,
+    borderRadius: 120,
+    left: -80,
+    top: 24,
+    backgroundColor: withAlpha(colors.deepPurple, 0.34),
   },
-  planRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    marginBottom: 14,
+  previewAmbientOrbRight: {
+    position: 'absolute',
+    width: 190,
+    height: 190,
+    borderRadius: 95,
+    right: -70,
+    top: 110,
+    backgroundColor: withAlpha(colors.gold, 0.06),
   },
-  planLabel: {
-    fontFamily: 'Cinzel-SemiBold',
-    fontSize: 15,
-    color: colors.bone,
-    letterSpacing: 0.5,
-    marginBottom: 4,
+  previewContentWrap: {
+    ...StyleSheet.absoluteFillObject,
+    alignItems: 'center',
+    justifyContent: 'center',
+    transform: [{ translateY: 20 }],
   },
-  planLabelHighlighted: {
-    color: colors.gold,
-  },
-  planSubtext: {
-    fontFamily: 'CormorantGaramond-Regular',
-    fontSize: 12,
-    color: 'rgba(192,192,192,0.5)',
-  },
-  planPriceWrap: {
-    alignItems: 'flex-end',
-  },
-  planPrice: {
-    fontFamily: 'Cinzel-Bold',
-    fontSize: 22,
-    color: colors.bone,
-    letterSpacing: 0.2,
-  },
-  planPriceHighlighted: {
-    color: colors.gold,
-  },
-  planPeriod: {
-    fontFamily: 'CormorantGaramond-Regular',
-    fontSize: 12,
-    color: 'rgba(192,192,192,0.5)',
-    marginTop: 2,
-  },
-  planCta: {
-    height: 44,
-    borderRadius: 10,
-    borderWidth: 1,
-    borderColor: 'rgba(212,175,55,0.3)',
+  previewArtFrame: {
+    width: '88%',
+    height: '88%',
     alignItems: 'center',
     justifyContent: 'center',
   },
-  planCtaHighlighted: {
-    backgroundColor: colors.gold,
-    borderColor: colors.gold,
+  previewImage: {
+    width: '100%',
+    height: '100%',
+    opacity: 0.55,
   },
-  planCtaText: {
-    fontFamily: 'Cinzel-SemiBold',
-    fontSize: 12,
-    letterSpacing: 1.5,
+  previewSvgWrap: {
+    width: '100%',
+    height: '100%',
+    opacity: 0.55,
+  },
+  previewVoidWrap: {
+    width: '100%',
+    height: '100%',
+  },
+  previewDesaturateWash: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: withAlpha(colors.black, 0.28),
+  },
+  previewFadeOverlay: {
+    ...StyleSheet.absoluteFillObject,
+  },
+  voidGlowSvg: {
+    ...StyleSheet.absoluteFillObject,
+  },
+  lockBadge: {
+    position: 'absolute',
+    top: '50%',
+    left: '50%',
+    width: 52,
+    height: 52,
+    transform: [{ translateX: -26 }, { translateY: -26 }],
+    borderRadius: 26,
+    backgroundColor: 'rgba(8,12,16,0.88)',
+    borderWidth: 1,
+    borderColor: 'rgba(212,175,55,0.45)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: colors.gold,
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.2,
+    shadowRadius: 20,
+    elevation: 5,
+    zIndex: 5,
+  },
+  contentZone: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: 0,
+    paddingHorizontal: 28,
+    paddingBottom: 44,
+    paddingTop: 12,
+    backgroundColor: colors.black,
+  },
+  scroll: {
+    flexGrow: 0,
+  },
+  scrollContent: {
+    paddingBottom: 12,
+  },
+  eyebrow: {
+    fontFamily: typography.fonts.heading,
+    fontSize: 10,
+    letterSpacing: 2.2,
     color: colors.gold,
     textTransform: 'uppercase',
+    marginBottom: 16,
   },
-  planCtaTextHighlighted: {
-    color: '#0D0D0D',
+  headline: {
+    fontFamily: typography.fonts.heading,
+    fontSize: 32,
+    lineHeight: 36,
+    fontWeight: '400',
+    color: colors.bone,
+    marginBottom: 14,
+    letterSpacing: 0,
   },
-  restoreBtn: {
-    paddingVertical: 12,
+  headlineForge: {
+    color: colors.gold,
+  },
+  bodyCopy: {
+    fontFamily: typography.fonts.bodySerif,
+    fontSize: 16,
+    fontWeight: '300',
+    lineHeight: 24,
+    color: withAlpha(colors.bone, 0.6),
+    marginBottom: 20,
+  },
+  dividerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    marginBottom: 16,
+  },
+  dividerLine: {
+    flex: 1,
+    height: 1,
+  },
+  dividerLabel: {
+    fontFamily: typography.fonts.heading,
+    fontSize: 9,
+    letterSpacing: 2.1,
+    color: withAlpha(colors.gold, 0.45),
+    textTransform: 'uppercase',
+  },
+  planRow: {
+    flexDirection: 'row',
+    gap: 10,
+    marginBottom: 20,
+  },
+  planCard: {
+    flex: 1,
+    minHeight: 112,
+    borderRadius: 10,
+    paddingHorizontal: 6,
+    paddingTop: 12,
+    paddingBottom: 12,
+    overflow: 'hidden',
+    justifyContent: 'space-between',
+  },
+  planCardPressed: {
+    transform: [{ scale: 0.99 }],
+  },
+  planCardSelected: {
+    borderWidth: 1,
+    borderColor: colors.gold,
+    backgroundColor: withAlpha(colors.gold, 0.1),
+    shadowColor: colors.gold,
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.15,
+    shadowRadius: 16,
+    elevation: 4,
+  },
+  planCardUnselected: {
+    borderWidth: 1,
+    borderColor: withAlpha(colors.gold, 0.2),
+    backgroundColor: withAlpha(colors.gold, 0.03),
+  },
+  planBadge: {
+    position: 'absolute',
+    top: -1,
+    right: -1,
+    backgroundColor: colors.gold,
+    borderTopRightRadius: 9,
+    borderBottomLeftRadius: 6,
+    borderTopLeftRadius: 0,
+    borderBottomRightRadius: 0,
+    paddingHorizontal: 6,
+    paddingVertical: 3,
+  },
+  planBadgeText: {
+    fontFamily: typography.fonts.headingBold,
+    fontSize: 7,
+    color: colors.black,
+    letterSpacing: 1,
+  },
+  planLabel: {
+    fontFamily: typography.fonts.heading,
+    fontSize: 8,
+    letterSpacing: 2,
+    color: withAlpha(colors.bone, 0.4),
+    textTransform: 'uppercase',
+    textAlign: 'center',
+    marginBottom: 4,
+  },
+  planPriceWrap: {
+    gap: 2,
+  },
+  planAmount: {
+    fontFamily: typography.fonts.headingSemiBold,
+    fontSize: 17,
+    lineHeight: 20,
+    color: colors.bone,
+    textAlign: 'center',
+    marginBottom: 3,
+  },
+  planAmountSelected: {
+    color: colors.gold,
+  },
+  planSubtitle: {
+    fontFamily: typography.fonts.bodySerif,
+    fontSize: 10,
+    lineHeight: 14,
+    fontWeight: '300',
+    color: withAlpha(colors.bone, 0.4),
+    textAlign: 'center',
+  },
+  ctaButton: {
+    width: '100%',
+    height: 56,
+    borderRadius: 12,
+    backgroundColor: colors.gold,
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: colors.gold,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.35,
+    shadowRadius: 24,
+    elevation: 8,
+    marginBottom: 12,
+  },
+  ctaButtonPressed: {
+    transform: [{ scale: 0.995 }],
+  },
+  ctaText: {
+    fontFamily: typography.fonts.headingBold,
+    fontSize: 13,
+    color: colors.black,
+    letterSpacing: 2,
+    textTransform: 'uppercase',
+  },
+  trialNote: {
+    textAlign: 'center',
+    fontFamily: typography.fonts.bodySerifItalic,
+    fontSize: 12,
+    color: withAlpha(colors.bone, 0.3),
+    marginBottom: 14,
+  },
+  signInButton: {
+    alignItems: 'center',
+    paddingVertical: 4,
+  },
+  signInPressed: {
+    opacity: 0.85,
+  },
+  signInRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  signInText: {
+    fontFamily: typography.fonts.bodySerif,
+    fontSize: 14,
+    color: withAlpha(colors.bone, 0.45),
+  },
+  signInLink: {
+    color: colors.gold,
+  },
+  signInLinkWrap: {
+    borderBottomWidth: 1,
+    borderBottomColor: withAlpha(colors.gold, 0.3),
+    paddingBottom: 1,
+  },
+  ctaButtonDisabled: {
+    opacity: 0.6,
+  },
+  restoreButton: {
+    alignItems: 'center',
+    paddingVertical: 6,
     marginBottom: 8,
   },
   restoreText: {
-    fontFamily: 'CormorantGaramond-Regular',
-    fontSize: 14,
-    color: 'rgba(192,192,192,0.45)',
+    fontFamily: typography.fonts.bodySerif,
+    fontSize: 13,
+    color: withAlpha(colors.bone, 0.4),
     textDecorationLine: 'underline',
-  },
-  legal: {
-    fontFamily: 'CormorantGaramond-Regular',
-    fontSize: 11,
-    color: 'rgba(192,192,192,0.3)',
-    textAlign: 'center',
-    lineHeight: 16,
-    paddingHorizontal: 8,
   },
 });
 

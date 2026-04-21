@@ -18,6 +18,8 @@ jest.mock('expo-notifications', () => ({
   },
   SchedulableTriggerInputTypes: {
     CALENDAR: 'calendar',
+    DATE: 'date',
+    TIME_INTERVAL: 'timeInterval',
   },
 }));
 
@@ -43,6 +45,68 @@ describe('NotificationService', () => {
     expect(id).toBe('ritual-123');
     expect(Notifications.cancelScheduledNotificationAsync).toHaveBeenCalledWith(
       `${NOTIFICATION_IDS.RITUAL_REMINDER_PREFIX}:anchor-1`
+    );
+  });
+
+  it('schedules developer test notifications as one-time local notifications', async () => {
+    (Notifications.scheduleNotificationAsync as jest.Mock).mockResolvedValue('dev-test-id');
+
+    const id = await NotificationService.scheduleDeveloperTestNotification('daily_reminder', 5);
+
+    expect(id).toBe('dev-test-id');
+    expect(Notifications.scheduleNotificationAsync).toHaveBeenCalledWith(
+      expect.objectContaining({
+        identifier: expect.stringMatching(/^dev-test:daily_reminder:/),
+        content: expect.objectContaining({
+          title: 'Test: Return to Your Anchor',
+          data: expect.objectContaining({
+            type: 'daily_reminder',
+            environment: expect.any(String),
+          }),
+        }),
+        trigger: expect.objectContaining({
+          type: Notifications.SchedulableTriggerInputTypes.TIME_INTERVAL,
+          seconds: 5,
+          channelId: 'daily-reminders',
+        }),
+      })
+    );
+  });
+
+  it('filters and clears only developer test notifications', async () => {
+    (Notifications.getAllScheduledNotificationsAsync as jest.Mock).mockResolvedValue([
+      {
+        identifier: 'dev-test:daily_reminder:1',
+        content: {},
+        trigger: { type: 'date' },
+      },
+      {
+        identifier: `${NOTIFICATION_IDS.DAILY_REMINDER}`,
+        content: {},
+        trigger: { type: 'calendar' },
+      },
+      {
+        identifier: 'dev-test:weekly_summary:2',
+        content: {},
+        trigger: { type: 'date' },
+      },
+    ]);
+
+    const scheduled = await NotificationService.getDeveloperTestNotifications();
+    const clearedCount = await NotificationService.cancelDeveloperTestNotifications();
+
+    expect(scheduled.map((notification) => notification.identifier)).toEqual([
+      'dev-test:daily_reminder:1',
+      'dev-test:weekly_summary:2',
+    ]);
+    expect(clearedCount).toBe(2);
+    expect(Notifications.cancelScheduledNotificationAsync).toHaveBeenNthCalledWith(
+      1,
+      'dev-test:daily_reminder:1'
+    );
+    expect(Notifications.cancelScheduledNotificationAsync).toHaveBeenNthCalledWith(
+      2,
+      'dev-test:weekly_summary:2'
     );
   });
 

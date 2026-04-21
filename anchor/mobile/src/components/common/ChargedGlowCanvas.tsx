@@ -8,7 +8,7 @@
  * per frame (they are immutable), but Paint objects are now zero-allocation.
  */
 import React, { useCallback, useMemo } from 'react';
-import { LayoutChangeEvent, StyleSheet, View } from 'react-native';
+import { LayoutChangeEvent, Platform, StyleSheet, View } from 'react-native';
 import {
   Canvas,
   Picture,
@@ -21,17 +21,27 @@ import {
   useFrameCallback,
   useSharedValue,
 } from 'react-native-reanimated';
+import type { PerformanceTier } from '@/hooks/usePerformanceTier';
 
 interface ChargedGlowCanvasProps {
   /** Hint for initial draw size; actual size is measured via onLayout. */
   size: number;
   reduceMotionEnabled?: boolean;
+  /**
+   * Rendering budget. `'low'` suppresses the canvas (caller should swap in
+   * BakedGlow). `'medium'` freezes time so the SkPicture redraws only on
+   * layout, keeping the ornate look without per-frame GPU cost.
+   */
+  tier?: PerformanceTier;
 }
 
 export const ChargedGlowCanvas: React.FC<ChargedGlowCanvasProps> = ({
   size,
   reduceMotionEnabled = false,
+  tier = 'high',
 }) => {
+  const frozen = tier === 'medium' || reduceMotionEnabled;
+  const suppressed = tier === 'low';
   const canvasW = useSharedValue(size);
 
   const handleLayout = useCallback(
@@ -42,9 +52,13 @@ export const ChargedGlowCanvas: React.FC<ChargedGlowCanvasProps> = ({
   );
 
   // ── One-time particle initialisation ────────────────────────────────────
+  // Fewer particles on Android to stay within GPU/JS budget
+  const PARTICLE_COUNT = Platform.OS === 'android' ? 24 : 60;
+  const RAY_COUNT = Platform.OS === 'android' ? 8 : 12;
+
   const particlesInit = useMemo(
     () =>
-      Array.from({ length: 60 }, () => ({
+      Array.from({ length: PARTICLE_COUNT }, () => ({
         angle:      Math.random() * Math.PI * 2,
         radius:     60 + Math.random() * 60,
         speed:      (0.002 + Math.random() * 0.004) * 60,
@@ -53,18 +67,20 @@ export const ChargedGlowCanvas: React.FC<ChargedGlowCanvasProps> = ({
         drift:      Math.random() * Math.PI * 2,
         driftSpeed: (0.01 + Math.random() * 0.02) * 60,
       })),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     [],
   );
 
   const raysInit = useMemo(
     () =>
-      Array.from({ length: 12 }, () => ({
+      Array.from({ length: RAY_COUNT }, () => ({
         angle: Math.random() * Math.PI * 2,
         len:   80 + Math.random() * 50,
         width: 1  + Math.random() * 2,
         speed: (0.003 + Math.random() * 0.003) * 60,
         phase: Math.random() * Math.PI * 2,
       })),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     [],
   );
 
@@ -91,14 +107,14 @@ export const ChargedGlowCanvas: React.FC<ChargedGlowCanvasProps> = ({
     return {
       halo:      [fill(), fill()] as const,
       innerGlow: fill(),
-      rays:      Array.from({ length: 12 }, stroke),
+      rays:      Array.from({ length: RAY_COUNT }, stroke),
       outerDots: Array.from({ length: 24 }, aa),
       innerDots: Array.from({ length: 16 }, aa),
-      particles: Array.from({ length: 60 }, aa),
-      sparkles:  Array.from({ length: 60 }, aaStroke),
+      particles: Array.from({ length: PARTICLE_COUNT }, aa),
+      sparkles:  Array.from({ length: PARTICLE_COUNT }, aaStroke),
       streaks:   Array.from({ length: 5  }, stroke),
     };
-  // raysInit / particlesInit are stable (empty deps), so [] is correct here.
+  // PARTICLE_COUNT / RAY_COUNT are module-level constants, [] is correct here.
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -109,7 +125,7 @@ export const ChargedGlowCanvas: React.FC<ChargedGlowCanvasProps> = ({
     if (info.timeSincePreviousFrame != null) {
       time.value += info.timeSincePreviousFrame / 1000; // ms → s
     }
-  }, !reduceMotionEnabled);
+  }, !frozen && !suppressed);
 
   // ── Per-frame SkPicture ───────────────────────────────────────────────────
   const picture = useDerivedValue(() => {
@@ -272,6 +288,10 @@ export const ChargedGlowCanvas: React.FC<ChargedGlowCanvasProps> = ({
 
     return recorder.finishRecordingAsPicture();
   });
+
+  if (suppressed) {
+    return null;
+  }
 
   return (
     <View

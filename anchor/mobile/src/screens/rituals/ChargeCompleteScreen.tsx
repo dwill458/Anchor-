@@ -45,7 +45,7 @@ export const ChargeCompleteScreen: React.FC = () => {
   const navigation = useNavigation<ChargeCompleteNavigationProp>();
   const { navigateToPractice } = useTabNavigation();
   const route = useRoute<ChargeCompleteRouteProp>();
-  const { anchorId, returnTo } = route.params;
+  const { anchorId, durationSeconds: routeDurationSeconds, returnTo } = route.params;
 
   const getAnchorById = useAnchorStore((state) => state.getAnchorById);
   const { recordSession } = useSessionStore();
@@ -121,12 +121,13 @@ export const ChargeCompleteScreen: React.FC = () => {
   };
 
   const handleCompletionDone = (reflectionWord?: string) => {
-    // Derive reinforce duration from defaultCharge preset
+    // Fall back to the user's default only when the ritual route did not pass
+    // the actual session duration.
     const presetSeconds: Record<string, number> = {
       '30s': 30, '1m': 60, '2m': 120, '5m': 300, '10m': 600, '20m': 1200,
       custom: (defaultCharge.customMinutes ?? 5) * 60,
     };
-    const durationSeconds = presetSeconds[defaultCharge.preset] ?? 300;
+    const durationSeconds = routeDurationSeconds ?? presetSeconds[defaultCharge.preset] ?? 300;
 
     recordSession({
       anchorId,

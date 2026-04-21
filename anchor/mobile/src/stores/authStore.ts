@@ -15,6 +15,10 @@ import { AuthService } from '@/services/AuthService';
 import { useAnchorStore } from '@/stores/anchorStore';
 import { calculateStreak } from '@/utils/streakHelpers';
 import { applyStabilizeCompletion, toDateOrNull } from '@/utils/stabilizeStats';
+import {
+  createDeveloperMasterUser,
+  DEVELOPER_MASTER_ACCOUNT_TOKEN,
+} from '@/utils/developerMasterAccount';
 import { logger } from '@/utils/logger';
 
 /**
@@ -144,6 +148,8 @@ interface AuthState {
   onboardingSegment: OnboardingSegment | null;
   shouldRedirectToCreation: boolean;
   anchorCount: number;
+  pendingForgeIntent: string | null;
+  pendingForgeResumeTarget: string | null;
   pendingFirstAnchorDraft: PendingFirstAnchorDraft | null;
   pendingFirstAnchorMutations: PendingFirstAnchorMutation[];
   isFinalizingPendingFirstAnchor: boolean;
@@ -152,6 +158,9 @@ interface AuthState {
   // NEW: Profile caching fields
   profileData: ProfileData | null;
   profileLastFetched: number | null;
+
+  // Offline mode
+  isOfflineMode: boolean;
 
   // Actions
   setUser: (user: User | null) => void;
@@ -164,11 +173,17 @@ interface AuthState {
   setOnboardingSegment: (segment: OnboardingSegment) => void;
   setShouldRedirectToCreation: (should: boolean) => void;
   incrementAnchorCount: () => void;
+  enableDeveloperMasterAccount: () => void;
+  setPendingForgeIntent: (intent: string | null) => void;
+  clearPendingForgeIntent: () => void;
+  setPendingForgeResumeTarget: (target: string | null) => void;
+  clearPendingForgeResumeTarget: () => void;
   setPendingFirstAnchorDraft: (draft: PendingFirstAnchorDraft | null) => void;
   enqueuePendingFirstAnchorMutation: (mutation: PendingFirstAnchorMutation) => void;
   clearPendingFirstAnchorState: () => void;
   clearPendingFirstAnchorError: () => void;
   finalizePendingFirstAnchorDraft: () => Promise<boolean>;
+  setOfflineMode: (offline: boolean) => void;
   signOut: () => void;
 
   // NEW: Profile actions
@@ -206,6 +221,8 @@ export const useAuthStore = create<AuthState>()(
       onboardingSegment: null,
       shouldRedirectToCreation: false,
       anchorCount: 0,
+      pendingForgeIntent: null,
+      pendingForgeResumeTarget: null,
       pendingFirstAnchorDraft: null,
       pendingFirstAnchorMutations: [],
       isFinalizingPendingFirstAnchor: false,
@@ -215,6 +232,7 @@ export const useAuthStore = create<AuthState>()(
       profileData: null,
       profileLastFetched: null,
       wallpaperPromptSeen: false,
+      isOfflineMode: false,
 
       // Actions
       setUser: (user) =>
@@ -291,6 +309,49 @@ export const useAuthStore = create<AuthState>()(
           anchorCount: state.anchorCount + 1,
         })),
 
+      enableDeveloperMasterAccount: () =>
+        set((state) => ({
+          user: createDeveloperMasterUser({
+            hasCompletedOnboarding: state.hasCompletedOnboarding,
+            totalAnchorsCreated: Math.max(
+              state.anchorCount,
+              state.user?.totalAnchorsCreated ?? 0
+            ),
+            totalActivations: state.user?.totalActivations ?? 0,
+            currentStreak: state.user?.currentStreak ?? 0,
+            longestStreak: state.user?.longestStreak ?? 0,
+            stabilizesTotal: state.user?.stabilizesTotal ?? 0,
+            stabilizeStreakDays: state.user?.stabilizeStreakDays ?? 0,
+            lastStabilizeAt: state.user?.lastStabilizeAt,
+            createdAt: state.user?.createdAt ?? new Date(),
+          }),
+          token: DEVELOPER_MASTER_ACCOUNT_TOKEN,
+          isAuthenticated: true,
+          isLoading: false,
+          profileData: null,
+          profileLastFetched: null,
+        })),
+
+      setPendingForgeIntent: (pendingForgeIntent) =>
+        set({
+          pendingForgeIntent,
+        }),
+
+      clearPendingForgeIntent: () =>
+        set({
+          pendingForgeIntent: null,
+        }),
+
+      setPendingForgeResumeTarget: (pendingForgeResumeTarget) =>
+        set({
+          pendingForgeResumeTarget,
+        }),
+
+      clearPendingForgeResumeTarget: () =>
+        set({
+          pendingForgeResumeTarget: null,
+        }),
+
       setPendingFirstAnchorDraft: (pendingFirstAnchorDraft) =>
         set({
           pendingFirstAnchorDraft,
@@ -314,6 +375,9 @@ export const useAuthStore = create<AuthState>()(
         set({
           pendingFirstAnchorError: null,
         }),
+
+      setOfflineMode: (isOfflineMode) =>
+        set({ isOfflineMode }),
 
       setWallpaperPromptSeen: (wallpaperPromptSeen) =>
         set({ wallpaperPromptSeen }),
@@ -679,7 +743,10 @@ export const useAuthStore = create<AuthState>()(
           user: null,
           token: null,
           isAuthenticated: false,
+          isOfflineMode: false,
           anchorCount: 0,
+          pendingForgeIntent: null,
+          pendingForgeResumeTarget: null,
           profileData: null,
           profileLastFetched: null,
           isFinalizingPendingFirstAnchor: false,

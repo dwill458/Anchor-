@@ -1,8 +1,7 @@
-import React, { useCallback, useEffect, useRef } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   Alert,
   Linking,
-  Pressable,
   ScrollView,
   StyleSheet,
   Text,
@@ -10,10 +9,16 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Constants from 'expo-constants';
-import { useNavigation } from '@react-navigation/native';
+import DateTimePicker, { type DateTimePickerEvent } from '@react-native-community/datetimepicker';
+import { useNavigation, CommonActions } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useSettingsState } from '@/hooks/useSettings';
 import { useSettingsReveal } from '@/components/transitions/SettingsRevealProvider';
+import {
+  syncDailyGoalNudgesFromStores,
+  syncDailyReminderFromStores,
+} from '@/services/DailyGoalNudgeService';
+import NotificationService from '@/services/NotificationService';
 import { useAuthStore } from '@/stores/authStore';
 import type { RootStackParamList } from '@/types';
 import { SettingsRow } from '@/components/settings/SettingsRow';
@@ -53,8 +58,9 @@ const PlaceholderTag: React.FC<{ label: string }> = ({ label }) => (
 export const SettingsScreen: React.FC = () => {
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const { settings, updateSetting, resetSettings, isLoading } = useSettingsState();
-  const setHasCompletedOnboarding = useAuthStore((state) => state.setHasCompletedOnboarding);
+  const { setHasCompletedOnboarding, signOut } = useAuthStore();
   const reveal = useSettingsReveal();
+  const [showTimePicker, setShowTimePicker] = useState(false);
   const hasMarkedReadyRef = useRef(false);
   const frameRef = useRef<number | null>(null);
   const appVersion = Constants.expoConfig?.version ?? '1.0.0';
@@ -77,9 +83,85 @@ export const SettingsScreen: React.FC = () => {
     });
   }, [reveal]);
 
+  const handleSignOut = useCallback(() => {
+    Alert.alert(
+      'Sign Out',
+      'Are you sure you want to sign out?',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Sign Out',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              // Clear sync retry queue so stale anchor data is not carried over
+              const { writeSecureValue } = require('@/stores/encryptedPersistStorage');
+              await writeSecureValue('anchor-sync-retry-queue', '[]');
+            } catch (error) {
+              console.warn('[SettingsScreen] Failed to clear sync retry queue on sign-out', error);
+            }
+            signOut();
+            setHasCompletedOnboarding(false);
+            navigation.dispatch(
+              CommonActions.reset({
+                index: 0,
+                routes: [{ name: 'Onboarding' }],
+              })
+            );
+          },
+        },
+      ]
+    );
+  }, [navigation, signOut, setHasCompletedOnboarding]);
+
   const handleResetOnboarding = useCallback(async () => {
     setHasCompletedOnboarding(false);
   }, [setHasCompletedOnboarding]);
+
+  const handleToggleDailyReminder = useCallback(
+    async (value: boolean) => {
+      if (value) {
+        const granted = await NotificationService.requestPermissions();
+        if (!granted) {
+          Alert.alert('Permission Denied', 'Please enable notifications in your device settings.');
+          return;
+        }
+      }
+
+      await updateSetting('dailyReminderEnabled', value);
+
+      if (value) {
+        await syncDailyReminderFromStores();
+      } else {
+        await NotificationService.cancelDailyReminder();
+      }
+
+      await syncDailyGoalNudgesFromStores();
+    },
+    [updateSetting]
+  );
+
+  const handleReminderTimeChange = useCallback(
+    async (event: DateTimePickerEvent, selectedDate?: Date) => {
+      setShowTimePicker(false);
+
+      if (!selectedDate || event.type !== 'set') {
+        return;
+      }
+
+      const hours = selectedDate.getHours().toString().padStart(2, '0');
+      const minutes = selectedDate.getMinutes().toString().padStart(2, '0');
+      const timeString = `${hours}:${minutes}`;
+
+      await updateSetting('dailyReminderTime', timeString);
+
+      if (settings.dailyReminderEnabled) {
+        await syncDailyReminderFromStores();
+        await syncDailyGoalNudgesFromStores(selectedDate);
+      }
+    },
+    [settings.dailyReminderEnabled, updateSetting]
+  );
 
   useEffect(
     () => () => {
@@ -122,7 +204,8 @@ export const SettingsScreen: React.FC = () => {
               disabled={isLoading}
             />
             <SettingsRow
-              title="Open Daily Anchor Automatically"
+              title="Prime on Launch"
+              subtitle="Opens directly to your practice"
               type="toggle"
               toggleValue={settings.openDailyAnchorAutomatically}
               onToggle={(value) => updateSetting('openDailyAnchorAutomatically', value)}
@@ -130,7 +213,7 @@ export const SettingsScreen: React.FC = () => {
             />
             <SettingsRow
               title="Practice Guidance"
-              subtitle="Gentle in-context tips during new rituals"
+              subtitle="Gentle in-context tips during new practices"
               type="toggle"
               toggleValue={settings.practiceGuidanceEnabled}
               onToggle={(value) => updateSetting('practiceGuidanceEnabled', value)}
@@ -144,7 +227,7 @@ export const SettingsScreen: React.FC = () => {
               disabled={isLoading}
             />
             <SettingsRow
-              title="Reduce Intention Visibility"
+              title="Hide Intention Text"
               type="toggle"
               toggleValue={settings.reduceIntentionVisibility}
               onToggle={(value) => updateSetting('reduceIntentionVisibility', value)}
@@ -160,11 +243,20 @@ export const SettingsScreen: React.FC = () => {
               title="Daily Reminder"
               type="toggle"
               toggleValue={settings.dailyReminderEnabled}
-              onToggle={(value) => updateSetting('dailyReminderEnabled', value)}
+              onToggle={handleToggleDailyReminder}
               disabled={isLoading}
             />
+            {settings.dailyReminderEnabled ? (
+              <SettingsRow
+                title="Reminder Time"
+                value={settings.dailyReminderTime}
+                type="chevron"
+                onPress={() => setShowTimePicker(true)}
+                disabled={isLoading}
+              />
+            ) : null}
             <SettingsRow
-              title="Streak Protection Alerts"
+              title="Thread Strength Alerts"
               type="toggle"
               toggleValue={settings.streakProtectionAlertsEnabled}
               onToggle={(value) => updateSetting('streakProtectionAlertsEnabled', value)}
@@ -198,10 +290,11 @@ export const SettingsScreen: React.FC = () => {
               title="Haptic Feedback"
               value={formatHapticFeedbackLabel(settings.hapticFeedback)}
               type="chevron"
-              onPress={() => {}}
+              onPress={() => navigation.navigate('HapticFeedback')}
             />
             <SettingsRow
-              title="Sound Effects"
+              title="Sound"
+              subtitle="Audio feedback during forge and prime sessions"
               type="toggle"
               toggleValue={settings.soundEffectsEnabled}
               onToggle={(value) => updateSetting('soundEffectsEnabled', value)}
@@ -218,17 +311,33 @@ export const SettingsScreen: React.FC = () => {
               type="none"
               rightElement={<PlaceholderTag label="v1.1" />}
             />
-            <SettingsRow title="Sign Out" type="none" disabled showDivider={false} />
+            <SettingsRow title="Sign Out" type="chevron" onPress={handleSignOut} />
+            <SettingsRow
+              title="Privacy Policy"
+              type="chevron"
+              onPress={() => void Linking.openURL('https://anchorintentions.com/privacy')}
+            />
+            <SettingsRow
+              title="Terms of Service"
+              type="chevron"
+              onPress={() => void Linking.openURL('https://anchorintentions.com/terms')}
+              showDivider={false}
+            />
           </SettingsSectionBlock>
 
           <Text style={styles.sectionLabel}>Subscription</Text>
           <SettingsSectionBlock>
-            <SettingsRow title="Current Plan" value="Pro" type="static" />
+            <SettingsRow title="Current Plan" value="Active" type="static" />
             <View style={styles.benefitsRow}>
               <Text style={styles.benefitsText}>
                 {'· Unlimited anchors\n· Advanced customization\n· Manual creation tools'}
               </Text>
             </View>
+            <SettingsRow
+              title="Manage Subscription"
+              type="chevron"
+              onPress={() => navigation.navigate('Paywall' as never)}
+            />
             <SettingsRow
               title="Restore Purchase"
               type="chevron"
@@ -286,6 +395,19 @@ export const SettingsScreen: React.FC = () => {
           <View style={styles.bottomSpacer} />
         </ScrollView>
       </SafeAreaView>
+      {showTimePicker ? (
+        <DateTimePicker
+          value={(() => {
+            const [hours, minutes] = settings.dailyReminderTime.split(':').map(Number);
+            const date = new Date();
+            date.setHours(hours, minutes, 0, 0);
+            return date;
+          })()}
+          mode="time"
+          is24Hour={true}
+          onChange={handleReminderTimeChange}
+        />
+      ) : null}
     </View>
   );
 };

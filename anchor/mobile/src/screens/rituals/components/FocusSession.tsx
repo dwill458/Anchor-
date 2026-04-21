@@ -31,6 +31,7 @@ import * as Haptics from 'expo-haptics';
 import { colors, spacing, typography } from '@/theme';
 import { OptimizedImage } from '@/components/common';
 import { useReduceMotionEnabled } from '@/hooks/useReduceMotionEnabled';
+import { useAudio } from '@/hooks/useAudio';
 import { safeHaptics } from '@/utils/haptics';
 import { RitualScaffold } from './RitualScaffold';
 
@@ -248,6 +249,8 @@ export const FocusSession: React.FC<FocusSessionProps> = ({
 
   const totalMs = Math.max(1000, Math.round(durationSeconds * 1000));
   const reduceMotionEnabled = useReduceMotionEnabled();
+  const { playSound } = useAudio();
+
 
   const [status, setStatus] = useState<SessionStatus>('running');
   const [secondsRemaining, setSecondsRemaining] = useState(Math.ceil(totalMs / 1000));
@@ -260,6 +263,7 @@ export const FocusSession: React.FC<FocusSessionProps> = ({
   const renderedSecondsRef = useRef<number>(Math.ceil(totalMs / 1000));
   const completionTriggeredRef = useRef(false);
   const continuePressedRef = useRef(false);
+  const bgSoundRef = useRef<{ stop: () => void } | null>(null);
 
   const progress = useSharedValue(0);
   const breathScale = useSharedValue(1);
@@ -318,6 +322,8 @@ export const FocusSession: React.FC<FocusSessionProps> = ({
 
     completionTriggeredRef.current = true;
     clearTickInterval();
+    bgSoundRef.current?.stop();
+    bgSoundRef.current = null;
 
     remainingMsRef.current = 0;
     renderedSecondsRef.current = 0;
@@ -342,6 +348,7 @@ export const FocusSession: React.FC<FocusSessionProps> = ({
     }
 
     void safeHaptics.notification(Haptics.NotificationFeedbackType.Success);
+    void playSound('prime-complete');
     onSessionCompleted?.();
   }, [
     animateProgressToEnd,
@@ -350,6 +357,7 @@ export const FocusSession: React.FC<FocusSessionProps> = ({
     glowBoost,
     onSessionCompleted,
     pausedDim,
+    playSound,
     reduceMotionEnabled,
   ]);
 
@@ -385,6 +393,8 @@ export const FocusSession: React.FC<FocusSessionProps> = ({
     cancelAnimation(progress);
     pausedDim.value = withTiming(0.45, { duration: 180 });
     setStatus('paused');
+    bgSoundRef.current?.stop();
+    bgSoundRef.current = null;
   }, [clearTickInterval, pausedDim, progress, status]);
 
   const handleResume = useCallback(() => {
@@ -400,12 +410,14 @@ export const FocusSession: React.FC<FocusSessionProps> = ({
     endAtMsRef.current = Date.now() + remainingMsRef.current;
     pausedDim.value = withTiming(1, { duration: 200 });
     setStatus('running');
+    bgSoundRef.current = playSound('prime-begin', 1, true);
     animateProgressToEnd(remainingMsRef.current);
     startTickInterval();
   }, [
     animateProgressToEnd,
     completeSession,
     pausedDim,
+    playSound,
     startTickInterval,
     status,
   ]);
@@ -435,6 +447,8 @@ export const FocusSession: React.FC<FocusSessionProps> = ({
     flare.value = 0;
     glowBoost.value = 0.05;
 
+    bgSoundRef.current?.stop();
+    bgSoundRef.current = playSound('prime-begin', 1, true);
     animateProgressToEnd(totalMs);
     startTickInterval();
 
@@ -445,8 +459,10 @@ export const FocusSession: React.FC<FocusSessionProps> = ({
       cancelAnimation(flare);
       cancelAnimation(glowBoost);
       cancelAnimation(pausedDim);
+      bgSoundRef.current?.stop();
+      bgSoundRef.current = null;
     };
-  }, [totalMs]);
+  }, [playSound, totalMs]);
 
   useEffect(() => {
     if (reduceMotionEnabled || status !== 'running') {

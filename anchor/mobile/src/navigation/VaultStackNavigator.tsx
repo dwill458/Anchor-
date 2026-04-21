@@ -31,9 +31,9 @@ import {
   RitualScreen,
   SealAnchorScreen,
   ChargeCompleteScreen,
+  FirstPrimeCompleteScreen,
 } from '../screens/rituals';
-import { SettingsScreen, DefaultChargeSettings, DefaultActivationSettings, DailyPracticeGoalScreen } from '../screens/profile';
-import { FirstAnchorAccountGateScreen, LoginScreen, SignUpScreen } from '../screens/auth';
+import { AuthGateScreen, FirstAnchorAccountGateScreen, LoginScreen, SignUpScreen } from '../screens/auth';
 import type { RootStackParamList } from '@/types';
 import { colors } from '@/theme';
 import { useAuthStore } from '@/stores/authStore';
@@ -102,6 +102,11 @@ export const VaultStackNavigator: React.FC<VaultStackNavigatorProps> = ({ onRout
         name="FirstAnchorAccountGate"
         component={FirstAnchorAccountGateScreen}
         options={{ headerShown: false, gestureEnabled: false }}
+      />
+      <Stack.Screen
+        name="AuthGate"
+        component={AuthGateScreen}
+        options={{ headerShown: false, animation: 'fade_from_bottom' }}
       />
       <Stack.Screen
         name="Login"
@@ -224,6 +229,11 @@ export const VaultStackNavigator: React.FC<VaultStackNavigatorProps> = ({ onRout
         options={{ headerShown: false, animation: 'fade_from_bottom' }}
       />
       <Stack.Screen
+        name="FirstPrimeComplete"
+        component={FirstPrimeCompleteScreen}
+        options={{ headerShown: false, animation: 'fade_from_bottom' }}
+      />
+      <Stack.Screen
         name="ActivationRitual"
         component={ActivationScreen}
         options={{ title: 'Activate', headerShown: false, animation: 'fade_from_bottom' }}
@@ -238,36 +248,6 @@ export const VaultStackNavigator: React.FC<VaultStackNavigatorProps> = ({ onRout
         name="BurningRitual"
         component={BurningRitualScreen}
         options={{ title: 'Releasing...', headerShown: false, animation: 'fade_from_bottom' }}
-      />
-      {/* Profile & Settings */}
-      <Stack.Screen
-        name="Settings"
-        component={SettingsScreen}
-        options={{ headerShown: false }}
-      />
-      <Stack.Screen
-        name="DefaultCharge"
-        component={DefaultChargeSettings}
-        options={{
-          title: 'Default Charge',
-          headerShown: true,
-        }}
-      />
-      <Stack.Screen
-        name="DefaultActivation"
-        component={DefaultActivationSettings}
-        options={{
-          title: 'Default Activation',
-          headerShown: true,
-        }}
-      />
-      <Stack.Screen
-        name="DailyPracticeGoal"
-        component={DailyPracticeGoalScreen}
-        options={{
-          title: 'Daily Practice Goal',
-          headerShown: true,
-        }}
       />
     </Stack.Navigator>
   );

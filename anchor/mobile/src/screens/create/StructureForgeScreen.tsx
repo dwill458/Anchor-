@@ -4,7 +4,6 @@ import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
-import { SvgXml } from 'react-native-svg';
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
@@ -14,11 +13,11 @@ import Animated, {
 } from 'react-native-reanimated';
 import { RootStackParamList } from '@/types';
 import { colors, spacing, typography } from '@/theme';
-import { ZenBackground } from '@/components/common';
+import { SigilSvg, ZenBackground } from '@/components/common';
 import { generateAllVariants, SigilGenerationResult, SigilVariant } from '@/utils/sigil/traditional-generator';
-import { logger } from '@/utils/logger';
 
 type StructureType = 'focused' | 'ritual' | 'raw';
+type StructureCardType = StructureType | 'drawn';
 
 type StructureForgeRouteProp = RouteProp<RootStackParamList, 'StructureForge'>;
 type StructureForgeNavigationProp = StackNavigationProp<RootStackParamList, 'StructureForge'>;
@@ -26,7 +25,7 @@ type StructureForgeNavigationProp = StackNavigationProp<RootStackParamList, 'Str
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const CARD_GAP = spacing.sm + spacing.xs;
 const HORIZONTAL_PADDING = spacing.lg;
-const STRUCTURE_CARD_WIDTH = (SCREEN_WIDTH - HORIZONTAL_PADDING * 2 - CARD_GAP * 2) / 3;
+const STRUCTURE_CARD_WIDTH = (SCREEN_WIDTH - HORIZONTAL_PADDING * 2 - CARD_GAP) / 2;
 
 const STRUCTURE_VARIANT_MAP = {
   focused: 'balanced',
@@ -34,21 +33,48 @@ const STRUCTURE_VARIANT_MAP = {
   raw: 'minimal',
 } as const;
 
-const STRUCTURES: Array<{ type: StructureType; label: string; description: string }> = [
+const DRAWN_ICON_XML = `
+  <svg width="64" height="64" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <path d="M16 48L18.6 38.4L38.5 18.5C40.3 16.7 43.2 16.7 45 18.5L45.5 19C47.3 20.8 47.3 23.7 45.5 25.5L25.6 45.4L16 48Z" stroke="#D4AF37" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="M34 23L41 30" stroke="#D4AF37" stroke-width="3" stroke-linecap="round"/>
+    <path d="M22 15C25 11.8 28.6 10.2 32.8 10.2C37.1 10.2 40.9 12.3 44.2 16.4" stroke="#D4AF37" stroke-width="2.5" stroke-linecap="round" stroke-dasharray="1 5"/>
+    <path d="M14 54C20.8 49.3 28.4 47 36.8 47C42.3 47 47.4 47.9 52 49.8" stroke="#D4AF37" stroke-width="2.5" stroke-linecap="round" stroke-dasharray="1 5"/>
+  </svg>
+`;
+
+type StructureOption = {
+  type: StructureCardType;
+  label: string;
+  description: string;
+  icon: StructureCardType;
+  isManual?: boolean;
+};
+
+const STRUCTURES: StructureOption[] = [
   {
     type: 'focused',
     label: 'Focused',
     description: 'Clear paths,\nsteady center',
+    icon: 'focused',
   },
   {
     type: 'ritual',
-    label: 'Ritual',
-    description: 'Contained,\namplified force',
+    label: 'Contained',
+    description: 'Bounded form,\namplified force',
+    icon: 'ritual',
   },
   {
     type: 'raw',
     label: 'Raw',
     description: 'Open lines,\nfree energy',
+    icon: 'raw',
+  },
+  {
+    type: 'drawn',
+    label: 'Drawn',
+    description: 'Your hand,\nyour form',
+    icon: 'drawn',
+    isManual: true,
   },
 ];
 
@@ -74,9 +100,7 @@ export default function StructureForgeScreen() {
   const intention = (route.params as RootStackParamList['StructureForge'] & { intention?: string }).intention
     ?? intentionText;
 
-  const [selectedStructure, setSelectedStructure] = useState<StructureType>('focused');
-  const [variants, setVariants] = useState<SigilGenerationResult[]>([]);
-
+  const [selectedStructure, setSelectedStructure] = useState<StructureCardType>('focused');
   const glowOpacity = useSharedValue(0.7);
 
   useEffect(() => {
@@ -87,15 +111,10 @@ export default function StructureForgeScreen() {
     );
   }, [glowOpacity]);
 
-  useEffect(() => {
-    try {
-      const generated = generateAllVariants(distilledLetters);
-      setVariants(generated);
-    } catch (error) {
-      logger.error('Failed to generate structure variants:', error);
-      setVariants([]);
-    }
-  }, [distilledLetters]);
+  const variants = useMemo<SigilGenerationResult[]>(
+    () => generateAllVariants(distilledLetters),
+    [distilledLetters]
+  );
 
   const previewGlowStyle = useAnimatedStyle(() => ({
     opacity: glowOpacity.value,
@@ -106,24 +125,48 @@ export default function StructureForgeScreen() {
     [selectedStructure]
   );
 
-  const getVariantForStructure = (structureType: StructureType): SigilGenerationResult | undefined => {
-    const mappedVariant = STRUCTURE_VARIANT_MAP[structureType] as SigilVariant;
-    return variants.find((item) => item.variant === mappedVariant);
-  };
+  const variantByStructure = useMemo<Record<StructureType, string>>(() => {
+    const variantMap = new Map(
+      variants.map((item) => [item.variant, item.svg] as const)
+    );
 
-  const selectedVariantSvg = getVariantForStructure(selectedStructure)?.svg ?? '';
+    return {
+      focused: variantMap.get(STRUCTURE_VARIANT_MAP.focused as SigilVariant) ?? '',
+      ritual: variantMap.get(STRUCTURE_VARIANT_MAP.ritual as SigilVariant) ?? '',
+      raw: variantMap.get(STRUCTURE_VARIANT_MAP.raw as SigilVariant) ?? '',
+    };
+  }, [variants]);
+
+  const getStructureIconXml = (structure: StructureOption): string => (
+    structure.icon === 'drawn'
+      ? DRAWN_ICON_XML
+      : variantByStructure[structure.icon as StructureType] ?? ''
+  );
+
+  const selectedVariantSvg = getStructureIconXml(selectedConfig);
+  const isManualStructureSelected = selectedConfig.isManual === true;
 
   const handleBeginForging = () => {
+    if (isManualStructureSelected) {
+      (navigation as unknown as { navigate: (...args: any[]) => void }).navigate('ManualForge', {
+        intentionText,
+        category,
+        distilledLetters,
+        isFromScratch: true,
+      });
+      return;
+    }
+
     if (!selectedVariantSvg) return;
 
     (navigation as unknown as { navigate: (...args: any[]) => void }).navigate('ManualReinforcement', {
       intention,
-      structureType: selectedStructure,
+      structureType: selectedStructure as StructureType,
       intentionText,
       category,
       distilledLetters,
       baseSigilSvg: selectedVariantSvg,
-      structureVariant: STRUCTURE_VARIANT_MAP[selectedStructure],
+      structureVariant: STRUCTURE_VARIANT_MAP[selectedStructure as StructureType],
     });
   };
 
@@ -148,13 +191,14 @@ export default function StructureForgeScreen() {
             <Text style={styles.backIcon}>‹</Text>
           </Pressable>
 
-          <View style={styles.forgeBadge}>
-            <Text style={styles.forgeEmoji}>🔥</Text>
-            <Text style={styles.forgeText}>Forge</Text>
-            <View style={styles.proBadge}>
-              <Text style={styles.proText}>PRO</Text>
+          {/*
+            // DEFERRED: Forge pill removed from header
+            <View style={styles.forgeBadge}>
+              <Text style={styles.forgeEmoji}>🔥</Text>
+              <Text style={styles.forgeText}>Forge</Text>
             </View>
-          </View>
+          */}
+          <View style={styles.headerSpacer} />
         </View>
 
         <View style={styles.titleBlock}>
@@ -175,7 +219,7 @@ export default function StructureForgeScreen() {
           <Animated.View style={[styles.previewGlow, previewGlowStyle]} pointerEvents="none" />
           <View style={styles.previewCenter}>
             {selectedVariantSvg ? (
-              <SvgXml xml={selectedVariantSvg} width={160} height={160} color={colors.gold} />
+              <SigilSvg xml={selectedVariantSvg} width={160} height={160} color={colors.gold} />
             ) : null}
           </View>
           <Text style={styles.previewWatermark}>PREVIEW</Text>
@@ -183,20 +227,19 @@ export default function StructureForgeScreen() {
 
         <Text style={styles.sectionLabel}>Available Structures</Text>
 
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.structureRow}
-        >
+        <View style={styles.structureRow}>
           {STRUCTURES.map((structure) => {
             const isSelected = structure.type === selectedStructure;
-            const cardVariant = getVariantForStructure(structure.type);
+            const cardIconXml = getStructureIconXml(structure);
+            const isManualStructure = structure.isManual === true;
             return (
               <Pressable
                 key={structure.type}
                 style={[
                   styles.structureCard,
                   isSelected && styles.structureCardSelected,
+                  isManualStructure && styles.manualStructureCard,
+                  isSelected && isManualStructure && styles.manualStructureCardSelected,
                   { width: STRUCTURE_CARD_WIDTH },
                 ]}
                 onPress={() => setSelectedStructure(structure.type)}
@@ -211,8 +254,8 @@ export default function StructureForgeScreen() {
                 )}
 
                 <View style={styles.cardIconWrap}>
-                  {cardVariant ? (
-                    <SvgXml xml={cardVariant.svg} width={64} height={64} color={colors.gold} />
+                  {cardIconXml ? (
+                    <SigilSvg xml={cardIconXml} width={64} height={64} color={colors.gold} />
                   ) : null}
                 </View>
 
@@ -221,7 +264,7 @@ export default function StructureForgeScreen() {
               </Pressable>
             );
           })}
-        </ScrollView>
+        </View>
 
         <Text style={styles.activeHint}>{selectedConfig.label} selected</Text>
       </ScrollView>
@@ -237,16 +280,22 @@ export default function StructureForgeScreen() {
             style={styles.ctaShadowWrap}
             onPress={handleBeginForging}
             accessibilityRole="button"
-            accessibilityLabel="Begin Forging"
+            accessibilityLabel={isManualStructureSelected ? 'Draw Your Anchor' : 'Begin Forging'}
           >
-            <LinearGradient
-              colors={[colors.gold, colors.forgeScreen.ctaMid, colors.forgeScreen.ctaEnd]}
-              start={{ x: 0, y: 0.5 }}
-              end={{ x: 1, y: 0.5 }}
-              style={styles.ctaButton}
-            >
-              <Text style={styles.ctaText}>Begin Forging</Text>
-            </LinearGradient>
+            {isManualStructureSelected ? (
+              <View style={[styles.ctaButton, styles.manualCtaButton]}>
+                <Text style={[styles.ctaText, styles.manualCtaText]}>Draw Your Anchor</Text>
+              </View>
+            ) : (
+              <LinearGradient
+                colors={[colors.gold, colors.forgeScreen.ctaMid, colors.forgeScreen.ctaEnd]}
+                start={{ x: 0, y: 0.5 }}
+                end={{ x: 1, y: 0.5 }}
+                style={styles.ctaButton}
+              >
+                <Text style={styles.ctaText}>Begin Forging</Text>
+              </LinearGradient>
+            )}
           </Pressable>
         </LinearGradient>
       </View>
@@ -268,6 +317,10 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
   },
+  headerSpacer: {
+    width: 36,
+    height: 36,
+  },
   backButton: {
     width: 36,
     height: 36,
@@ -283,38 +336,29 @@ const styles = StyleSheet.create({
     fontSize: 22,
     color: colors.gold,
   },
-  forgeBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    borderRadius: 18,
-    borderWidth: 1,
-    borderColor: colors.forgeScreen.forgeBadgeBorder,
-    backgroundColor: colors.forgeScreen.forgeBadgeBg,
-    paddingVertical: spacing.xs,
-    paddingHorizontal: spacing.md - spacing.xs,
-    gap: spacing.xs,
-  },
-  forgeEmoji: {
-    fontSize: 13,
-    lineHeight: 15,
-  },
-  forgeText: {
-    fontFamily: typography.fonts.heading,
-    fontSize: 11,
-    color: colors.gold,
-  },
-  proBadge: {
-    borderRadius: 8,
-    backgroundColor: colors.gold,
-    paddingHorizontal: spacing.xs,
-    paddingVertical: 2,
-  },
-  proText: {
-    fontFamily: typography.fonts.body,
-    fontSize: 8,
-    color: colors.forgeScreen.ctaText,
-    letterSpacing: 0.3,
-  },
+  // DEFERRED: Forge pill removed from header
+  // forgeBadge: {
+  //   flexDirection: 'row',
+  //   alignItems: 'center',
+  //   borderRadius: 18,
+  //   borderWidth: 1,
+  //   borderColor: colors.forgeScreen.forgeBadgeBorder,
+  //   backgroundColor: colors.forgeScreen.forgeBadgeBg,
+  //   paddingVertical: spacing.xs,
+  //   paddingHorizontal: spacing.md - spacing.xs,
+  //   gap: spacing.xs,
+  // },
+  // DEFERRED: Forge pill removed from header
+  // forgeEmoji: {
+  //   fontSize: 13,
+  //   lineHeight: 15,
+  // },
+  // DEFERRED: Forge pill removed from header
+  // forgeText: {
+  //   fontFamily: typography.fonts.heading,
+  //   fontSize: 11,
+  //   color: colors.gold,
+  // },
   titleBlock: {
     paddingHorizontal: spacing.lg,
     paddingTop: spacing.md,
@@ -424,6 +468,8 @@ const styles = StyleSheet.create({
   structureRow: {
     paddingHorizontal: spacing.lg,
     paddingTop: spacing.sm + spacing.xs,
+    flexDirection: 'row',
+    flexWrap: 'wrap',
     gap: CARD_GAP,
   },
   structureCard: {
@@ -441,6 +487,15 @@ const styles = StyleSheet.create({
   structureCardSelected: {
     borderColor: colors.gold,
     backgroundColor: colors.forgeScreen.cardSelected,
+  },
+  manualStructureCard: {
+    borderStyle: 'dashed',
+    borderColor: 'rgba(212, 175, 55, 0.25)',
+  },
+  manualStructureCardSelected: {
+    borderStyle: 'solid',
+    borderColor: '#D4AF37',
+    backgroundColor: rgba(colors.deepPurple, 0.28),
   },
   checkmarkBadge: {
     position: 'absolute',
@@ -513,11 +568,19 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+  manualCtaButton: {
+    backgroundColor: '#3E2C5B',
+    borderWidth: 1,
+    borderColor: '#D4AF37',
+  },
   ctaText: {
     fontFamily: typography.fonts.heading,
     fontSize: 15,
     letterSpacing: 1,
     color: colors.forgeScreen.ctaText,
     fontWeight: '600',
+  },
+  manualCtaText: {
+    color: '#D4AF37',
   },
 });

@@ -22,7 +22,10 @@ export { NavigationVeil, navigationVeilRef } from './NavigationVeil';
 export { UndertoneLine } from './UndertoneLine';
 export { GlassIconButton } from './GlassIconButton';
 export { ChargedGlowCanvas } from './ChargedGlowCanvas';
+export { BakedGlow } from './BakedGlow';
 export { RingGlowCanvas } from './RingGlowCanvas';
+export { PrimeAnchorCanvas, parseSigilSvg } from './PrimeAnchorCanvas';
+export type { PrimeAnchorCanvasProps } from './PrimeAnchorCanvas';
 export {
   AnchorArtworkExportCanvas,
   ANCHOR_ARTWORK_EXPORT_SIZE,

@@ -21,6 +21,7 @@ web-build/
 npm-debug.*
 yarn-debug.*
 yarn-error.*
+bugreport-*.zip
 
 # macOS
 .DS_Store
@@ -35,3 +36,4 @@ yarn-error.*
 
 # Testing
 coverage/
+.jest-cache/

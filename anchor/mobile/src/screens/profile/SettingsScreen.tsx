@@ -37,16 +37,23 @@ import { useSubscriptionStore } from '@/stores/subscriptionStore';
 import { useTrialStatus } from '@/hooks/useTrialStatus';
 import { useReduceMotionEnabled } from '@/hooks/useReduceMotionEnabled';
 import { useSettingsReveal } from '@/components/transitions/SettingsRevealProvider';
-import type { RootStackParamList } from '@/types';
+import type { ProfileStackParamList } from '@/navigation/ProfileStackNavigator';
 import { colors, spacing } from '@/theme';
 import { ZenBackground } from '@/components/common';
 import NotificationService from '@/services/NotificationService';
 import { apiClient } from '@/services/ApiClient';
 import { AuthService } from '@/services/AuthService';
+import revenueCatService from '@/services/RevenueCatService';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import auth from '@react-native-firebase/auth';
 
 const IS_ANDROID = Platform.OS === 'android';
 const SHOULD_ANIMATE_SECTION_ENTRANCE = Platform.OS === 'ios';
+const DEV_SUBSCRIPTION_TIER_OPTIONS = [
+  { value: 'pro', label: 'PAID' },
+  { value: 'trial', label: 'TRIAL' },
+  { value: 'expired', label: 'EXPIRED' },
+] as const;
 
 type SettingItemProps = {
   label: string;
@@ -123,7 +130,7 @@ const SectionHeader: React.FC<{ title: string; description?: string }> = ({
 );
 
 export const SettingsScreen: React.FC = () => {
-  const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
+  const navigation = useNavigation<NativeStackNavigationProp<ProfileStackParamList>>();
   const { user, signOut, setHasCompletedOnboarding } = useAuthStore();
   const settings = useSettingsStore();
   const subStore = useSubscriptionStore();
@@ -405,7 +412,10 @@ export const SettingsScreen: React.FC = () => {
         onPress: async () => {
           try {
             await apiClient.delete('/auth/me');
-            await AuthService.signOut();
+            const firebaseUser = auth().currentUser;
+            if (firebaseUser) {
+              await firebaseUser.delete();
+            }
             await AsyncStorage.clear();
             signOut();
           } catch (error: any) {
@@ -438,15 +448,17 @@ export const SettingsScreen: React.FC = () => {
   //   openStoreSubscriptions();
   // };
 
-  const handleRestorePurchase = () => {
-    Alert.alert(
-      'Restore Purchase',
-      'To restore your Pro subscription, open your App Store account and confirm your active subscriptions.',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        { text: 'Open Store', onPress: openStoreSubscriptions },
-      ]
-    );
+  const handleRestorePurchase = async () => {
+    try {
+      const status = await revenueCatService.restorePurchases();
+      if (status.hasActiveEntitlement) {
+        Alert.alert('Restored', 'Your subscription has been successfully restored.');
+      } else {
+        Alert.alert('Nothing to Restore', 'No active subscription found for this account.');
+      }
+    } catch (error: any) {
+      Alert.alert('Restore Failed', error?.message || 'Could not restore purchases. Please try again.');
+    }
   };
 
   const handleContactSupport = () => {
@@ -457,6 +469,8 @@ export const SettingsScreen: React.FC = () => {
 
   const CardWrapper = View;
   const cardProps = {};
+  const selectedDevTier =
+    subStore.devTierOverride === 'free' ? 'expired' : subStore.devTierOverride;
 
   return (
     <View style={styles.container} onLayout={handleRootLayout}>
@@ -572,7 +586,8 @@ export const SettingsScreen: React.FC = () => {
                     onPress={() => navigation.navigate('HapticIntensity')}
                   />
                   <ToggleItem
-                    label="Sound Effects"
+                    label="Sound"
+                    helperText="Audio feedback during forge and prime sessions."
                     value={settings.soundEffectsEnabled}
                     onValueChange={settings.setSoundEffectsEnabled}
                   />
@@ -686,22 +701,22 @@ export const SettingsScreen: React.FC = () => {
                           <View style={styles.segmentedContainer}>
                             <Text style={styles.segmentedLabel}>Simulated Subscription Tier</Text>
                             <View style={styles.segments}>
-                              {(['free', 'pro'] as const).map((tierValue) => (
+                              {DEV_SUBSCRIPTION_TIER_OPTIONS.map(({ value, label }) => (
                                 <TouchableOpacity
-                                  key={tierValue}
+                                  key={value}
                                   style={[
                                     styles.segmentButton,
-                                    subStore.devTierOverride === tierValue && styles.activeSegment,
+                                    selectedDevTier === value && styles.activeSegment,
                                   ]}
-                                  onPress={() => subStore.setDevTierOverride(tierValue)}
+                                  onPress={() => subStore.setDevTierOverride(value)}
                                 >
                                   <Text
                                     style={[
                                       styles.segmentText,
-                                      subStore.devTierOverride === tierValue && styles.activeSegmentText,
+                                      selectedDevTier === value && styles.activeSegmentText,
                                     ]}
                                   >
-                                    {tierValue.toUpperCase()}
+                                    {label}
                                   </Text>
                                 </TouchableOpacity>
                               ))}

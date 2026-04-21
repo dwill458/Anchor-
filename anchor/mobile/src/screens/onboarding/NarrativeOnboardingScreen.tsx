@@ -16,20 +16,40 @@ import {
   Dimensions,
   Platform,
 } from 'react-native';
+import { BlurView } from 'expo-blur';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { LinearGradient } from 'expo-linear-gradient';
+import Svg, { Defs, RadialGradient, Rect, Stop } from 'react-native-svg';
 import { useAuthStore } from '@/stores/authStore';
 import { ForgeDemo } from '@/components/onboarding/ForgeDemo';
 import { UseCaseCard } from '@/components/onboarding/UseCaseCard';
 import type { UseCaseItem } from '@/components/onboarding/UseCaseCard';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { OnboardingStackParamList } from '@/types';
+import { colors, typography } from '@/theme';
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 const anchorLogoOfficial = require('../../../assets/anchor-gold.png') as number;
 
 type Props = NativeStackScreenProps<OnboardingStackParamList, 'Welcome'>;
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
+const EASE_IN_OUT = Easing.inOut(Easing.ease);
+const LABEL_FONT_SIZE = typography.fontSize.xs - 2;
+const DETAIL_FONT_SIZE = typography.fontSize.xs - 1;
+const MICRO_FONT_SIZE = typography.fontSize.xs - 3;
+const BODY_FONT_SIZE = typography.fontSize.md + 1;
+const BUTTON_FONT_SIZE = typography.fontSize.xs + 1;
+
+const withAlpha = (hex: string, alpha: number): string => {
+  const normalized = hex.replace('#', '');
+  const expanded = normalized.length === 3
+    ? normalized.split('').map((char) => `${char}${char}`).join('')
+    : normalized;
+  const value = parseInt(expanded, 16);
+  const red = (value >> 16) & 255;
+  const green = (value >> 8) & 255;
+  const blue = value & 255;
+  return `rgba(${red},${green},${blue},${alpha})`;
+};
 
 // ---------------------------------------------------------------------------
 // Data
@@ -107,6 +127,20 @@ function renderHeadline(text: string): React.ReactNode {
       : <Text key={i}>{part}</Text>
   );
 }
+
+const AmbientBleed: React.FC = () => (
+  <View pointerEvents="none" style={styles.ambientBleed}>
+    <Svg width="100%" height="100%" viewBox="0 0 100 100" preserveAspectRatio="none">
+      <Defs>
+        <RadialGradient id="narrative-onboarding-ambient-bleed" cx="50%" cy="38%" r="60%">
+          <Stop offset="0%" stopColor={colors.deepPurple} stopOpacity={0.18} />
+          <Stop offset="100%" stopColor={colors.deepPurple} stopOpacity={0} />
+        </RadialGradient>
+      </Defs>
+      <Rect width="100%" height="100%" fill="url(#narrative-onboarding-ambient-bleed)" />
+    </Svg>
+  </View>
+);
 
 // ---------------------------------------------------------------------------
 // Visual sub-components
@@ -211,77 +245,141 @@ const OrbitsVisual: React.FC = () => {
   );
 };
 
-const SIG_W = 320;
-const SIG_LINE_CONFIGS = [
-  { width: SIG_W,                               left: 0 },
-  { width: Math.round(SIG_W * 0.82), left: Math.round(SIG_W * 0.09) },
-  { width: Math.round(SIG_W * 0.91), left: Math.round(SIG_W * 0.045) },
-  { width: Math.round(SIG_W * 0.72), left: Math.round(SIG_W * 0.14) },
-];
-const SIG_LINE_TOPS = [80, 128, 176, 224];
-
 const SignalVisual: React.FC = () => {
-  const sweeps = useRef(SIG_LINE_CONFIGS.map(() => new Animated.Value(0))).current;
-  const sweepOpacities = useRef(SIG_LINE_CONFIGS.map(() => new Animated.Value(0))).current;
-  const ringRot = useRef(new Animated.Value(0)).current;
+  const haloOpacity = useRef(new Animated.Value(0.5)).current;
+  const outerOrbitRotation = useRef(new Animated.Value(0)).current;
+  const innerOrbitRotation = useRef(new Animated.Value(0)).current;
+  const glowScale = useRef(new Animated.Value(0.85)).current;
+  const glowOpacity = useRef(new Animated.Value(0.6)).current;
+  const coronaScale = useRef(new Animated.Value(0.9)).current;
+  const coronaOpacity = useRef(new Animated.Value(0.3)).current;
+  const seedOpacity = useRef(new Animated.Value(0.4)).current;
 
   React.useEffect(() => {
-    const DURATION = 3000;
-    sweeps.forEach((sweep, i) => {
-      const opacity = sweepOpacities[i];
+    const animations = [
       Animated.loop(
         Animated.sequence([
-          Animated.delay(i * 600),
+          Animated.timing(haloOpacity, { toValue: 1, duration: 3000, easing: EASE_IN_OUT, useNativeDriver: true }),
+          Animated.timing(haloOpacity, { toValue: 0.5, duration: 3000, easing: EASE_IN_OUT, useNativeDriver: true }),
+        ])
+      ),
+      Animated.loop(
+        Animated.timing(outerOrbitRotation, { toValue: 1, duration: 50000, easing: Easing.linear, useNativeDriver: true })
+      ),
+      Animated.loop(
+        Animated.timing(innerOrbitRotation, { toValue: 1, duration: 70000, easing: Easing.linear, useNativeDriver: true })
+      ),
+      Animated.loop(
+        Animated.sequence([
           Animated.parallel([
-            Animated.timing(sweep, { toValue: 1, duration: DURATION, easing: Easing.linear, useNativeDriver: true }),
-            Animated.sequence([
-              Animated.timing(opacity, { toValue: 0.7, duration: 450, easing: Easing.linear, useNativeDriver: true }),
-              Animated.delay(DURATION - 900),
-              Animated.timing(opacity, { toValue: 0, duration: 450, easing: Easing.linear, useNativeDriver: true }),
-            ]),
+            Animated.timing(glowScale, { toValue: 1.2, duration: 2500, easing: EASE_IN_OUT, useNativeDriver: true }),
+            Animated.timing(glowOpacity, { toValue: 1, duration: 2500, easing: EASE_IN_OUT, useNativeDriver: true }),
+          ]),
+          Animated.parallel([
+            Animated.timing(glowScale, { toValue: 0.85, duration: 2500, easing: EASE_IN_OUT, useNativeDriver: true }),
+            Animated.timing(glowOpacity, { toValue: 0.6, duration: 2500, easing: EASE_IN_OUT, useNativeDriver: true }),
           ]),
         ])
-      ).start();
-    });
-    Animated.loop(
-      Animated.timing(ringRot, { toValue: 1, duration: 20000, easing: Easing.linear, useNativeDriver: true })
-    ).start();
-  }, [sweeps, sweepOpacities, ringRot]);
+      ),
+      Animated.loop(
+        Animated.sequence([
+          Animated.parallel([
+            Animated.timing(coronaScale, { toValue: 1.1, duration: 2500, easing: EASE_IN_OUT, useNativeDriver: true }),
+            Animated.timing(coronaOpacity, { toValue: 0.7, duration: 2500, easing: EASE_IN_OUT, useNativeDriver: true }),
+          ]),
+          Animated.parallel([
+            Animated.timing(coronaScale, { toValue: 0.9, duration: 2500, easing: EASE_IN_OUT, useNativeDriver: true }),
+            Animated.timing(coronaOpacity, { toValue: 0.3, duration: 2500, easing: EASE_IN_OUT, useNativeDriver: true }),
+          ]),
+        ])
+      ),
+      Animated.loop(
+        Animated.sequence([
+          Animated.timing(seedOpacity, { toValue: 1, duration: 2500, easing: EASE_IN_OUT, useNativeDriver: true }),
+          Animated.timing(seedOpacity, { toValue: 0.4, duration: 2500, easing: EASE_IN_OUT, useNativeDriver: true }),
+        ])
+      ),
+    ];
 
-  const spin = ringRot.interpolate({ inputRange: [0, 1], outputRange: ['0deg', '360deg'] });
+    animations.forEach((animation) => animation.start());
+
+    return () => {
+      animations.forEach((animation) => animation.stop());
+    };
+  }, []);
+
+  const outerSpin = outerOrbitRotation.interpolate({ inputRange: [0, 1], outputRange: ['0deg', '360deg'] });
+  const innerSpin = innerOrbitRotation.interpolate({ inputRange: [0, 1], outputRange: ['360deg', '0deg'] });
 
   return (
     <View style={visual.signal.container}>
-      {SIG_LINE_CONFIGS.map(({ width, left }, i) => {
-        const translateX = sweeps[i].interpolate({
-          inputRange: [0, 1],
-          outputRange: [-width, width],
-        });
-        return (
-          <View
-            key={i}
-            style={{ position: 'absolute', top: SIG_LINE_TOPS[i], left, width, height: 2, overflow: 'hidden' }}
-          >
-            <Animated.View
-              style={{ width, height: 2, opacity: sweepOpacities[i], transform: [{ translateX }] }}
-            >
-              <LinearGradient
-                colors={['transparent', '#D4AF37', 'transparent']}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 0 }}
-                style={{ flex: 1 }}
-              />
-            </Animated.View>
-          </View>
-        );
-      })}
+      <Animated.View style={[visual.signal.ambientHalo, { opacity: haloOpacity }]}>
+        <Svg width="100%" height="100%" viewBox="0 0 380 380">
+          <Defs>
+            <RadialGradient id="narrative-onboarding-void-halo" cx="50%" cy="50%" r="50%">
+              <Stop offset="0%" stopColor={colors.deepPurple} stopOpacity={0.07} />
+              <Stop offset="100%" stopColor={colors.deepPurple} stopOpacity={0} />
+            </RadialGradient>
+          </Defs>
+          <Rect width="380" height="380" fill="url(#narrative-onboarding-void-halo)" />
+        </Svg>
+      </Animated.View>
 
-      <View style={visual.signal.centerWrap}>
-        <Animated.View style={[visual.signal.dashRing, { transform: [{ rotate: spin }] }]}>
-          <View style={visual.signal.dashDot} />
-        </Animated.View>
-        <View style={visual.signal.center}>
-          <Text style={visual.signal.centerText}>{'NO\nTRIGGER'}</Text>
+      <Animated.View style={[visual.signal.outerOrbit, { transform: [{ rotate: outerSpin }] }]}>
+        <View style={visual.signal.outerOrbitDot} />
+      </Animated.View>
+
+      <Animated.View style={[visual.signal.innerOrbit, { transform: [{ rotate: innerSpin }] }]} />
+
+      <View style={visual.signal.voidShell}>
+        <View style={visual.signal.voidClip}>
+          <Svg style={visual.signal.gradientFill} width="100%" height="100%" viewBox="0 0 218 218">
+            <Defs>
+              <RadialGradient id="narrative-onboarding-void-body" cx="50%" cy="50%" r="62%">
+                <Stop offset="0%" stopColor={colors.deepPurple} stopOpacity={0.12} />
+                <Stop offset="55%" stopColor={colors.deepPurple} stopOpacity={0.5} />
+                <Stop offset="100%" stopColor={colors.background.primary} stopOpacity={0.92} />
+              </RadialGradient>
+            </Defs>
+            <Rect width="218" height="218" fill="url(#narrative-onboarding-void-body)" />
+          </Svg>
+
+          <Animated.View
+            pointerEvents="none"
+            style={[
+              visual.signal.glowBloom,
+              {
+                opacity: glowOpacity,
+                transform: [{ scale: glowScale }],
+              },
+            ]}
+          >
+            <Svg style={visual.signal.gradientFill} width="100%" height="100%" viewBox="0 0 90 90">
+              <Defs>
+                <RadialGradient id="narrative-onboarding-void-glow" cx="50%" cy="45%" r="60%">
+                  <Stop offset="0%" stopColor={colors.gold} stopOpacity={0.12} />
+                  <Stop offset="35%" stopColor={colors.deepPurple} stopOpacity={0.15} />
+                  <Stop offset="60%" stopColor={colors.deepPurple} stopOpacity={0.08} />
+                  <Stop offset="100%" stopColor={colors.deepPurple} stopOpacity={0} />
+                </RadialGradient>
+              </Defs>
+              <Rect width="90" height="90" fill="url(#narrative-onboarding-void-glow)" />
+            </Svg>
+            <BlurView intensity={24} tint="dark" style={visual.signal.glowBlur} />
+          </Animated.View>
+
+          <Animated.View
+            pointerEvents="none"
+            style={[
+              visual.signal.corona,
+              {
+                opacity: coronaOpacity,
+                transform: [{ scale: coronaScale }],
+              },
+            ]}
+          />
+
+          <Animated.View pointerEvents="none" style={[visual.signal.seed, { opacity: seedOpacity }]} />
         </View>
       </View>
     </View>
@@ -418,12 +516,7 @@ export const NarrativeOnboardingScreen: React.FC<Props> = () => {
 
   return (
     <SafeAreaView style={styles.container}>
-      <LinearGradient
-        colors={['rgba(62,44,91,0.4)', 'transparent']}
-        style={styles.radialOverlay}
-        start={{ x: 0.5, y: 0 }}
-        end={{ x: 0.5, y: 1 }}
-      />
+      <AmbientBleed />
 
       <CornerAccents />
 
@@ -480,27 +573,33 @@ export const NarrativeOnboardingScreen: React.FC<Props> = () => {
 const visual = {
   orbits: StyleSheet.create({
     container: { width: 320, height: 320, alignItems: 'center', justifyContent: 'center', position: 'relative' } as const,
-    ring: { position: 'absolute', borderWidth: 1, borderColor: '#D4AF37' } as const,
-    dot: { position: 'absolute', width: 6, height: 6, borderRadius: 3, backgroundColor: '#D4AF37', top: -3, left: '50%', marginLeft: -3, shadowColor: '#D4AF37', shadowOpacity: 0.8, shadowRadius: 4, shadowOffset: { width: 0, height: 0 } } as const,
+    ring: { position: 'absolute', borderWidth: 1, borderColor: colors.gold } as const,
+    dot: { position: 'absolute', width: 6, height: 6, borderRadius: 3, backgroundColor: colors.gold, top: -3, left: '50%', marginLeft: -3, shadowColor: colors.gold, shadowOpacity: 0.8, shadowRadius: 4, shadowOffset: { width: 0, height: 0 } } as const,
     center: { position: 'absolute', alignItems: 'center', justifyContent: 'center', width: 155, height: 155 } as const,
-    anchorGlowRing: { position: 'absolute', width: 162, height: 162, borderRadius: 81, backgroundColor: 'transparent', borderWidth: 1, borderColor: 'rgba(212,175,55,0.45)', shadowColor: '#F7D66A', shadowOpacity: 0.9, shadowRadius: 24, shadowOffset: { width: 0, height: 0 }, elevation: 12 } as const,
-    word: { position: 'absolute', fontFamily: 'Cinzel-Regular', fontSize: 11, color: '#D4AF37', letterSpacing: 1.5 } as const,
+    anchorGlowRing: { position: 'absolute', width: 162, height: 162, borderRadius: 81, backgroundColor: 'transparent', borderWidth: 1, borderColor: withAlpha(colors.gold, 0.45), shadowColor: colors.gold, shadowOpacity: 0.9, shadowRadius: 24, shadowOffset: { width: 0, height: 0 }, elevation: 12 } as const,
+    word: { position: 'absolute', fontFamily: typography.fonts.heading, fontSize: DETAIL_FONT_SIZE, color: colors.gold, letterSpacing: 1.5 } as const,
   }),
   signal: StyleSheet.create({
     container: { width: 320, height: 320, position: 'relative', alignItems: 'center', justifyContent: 'center' } as const,
-    centerWrap: { width: 160, height: 160, alignItems: 'center', justifyContent: 'center' } as const,
-    dashRing: { position: 'absolute', width: 190, height: 190, borderRadius: 95, borderWidth: 1, borderColor: 'rgba(212,175,55,0.25)', borderStyle: 'dashed' } as const,
-    dashDot: { position: 'absolute', width: 6, height: 6, borderRadius: 3, backgroundColor: '#D4AF37', top: -3, left: '50%', marginLeft: -3, shadowColor: '#D4AF37', shadowOpacity: 0.8, shadowRadius: 4, shadowOffset: { width: 0, height: 0 } } as const,
-    center: { width: 160, height: 160, borderRadius: 80, borderWidth: 1, borderColor: 'rgba(212,175,55,0.3)', backgroundColor: 'rgba(62,44,91,0.7)', alignItems: 'center', justifyContent: 'center' } as const,
-    centerText: { fontFamily: 'Cinzel-Regular', fontSize: 13, letterSpacing: 2, color: '#D4AF37', textAlign: 'center', lineHeight: 20, opacity: 0.8 } as const,
+    ambientHalo: { position: 'absolute', width: 380, height: 380, borderRadius: 190 } as const,
+    outerOrbit: { position: 'absolute', width: 296, height: 296, borderRadius: 148, borderWidth: 1, borderStyle: 'dashed', borderColor: withAlpha(colors.gold, 0.14), alignItems: 'center' } as const,
+    outerOrbitDot: { position: 'absolute', top: -2.5, width: 5, height: 5, borderRadius: 2.5, backgroundColor: colors.gold, shadowColor: colors.gold, shadowRadius: 6, shadowOpacity: 0.6, shadowOffset: { width: 0, height: 0 }, elevation: 4 } as const,
+    innerOrbit: { position: 'absolute', width: 270, height: 270, borderRadius: 135, borderWidth: 1, borderColor: withAlpha(colors.gold, 0.05) } as const,
+    voidShell: { width: 218, height: 218, borderRadius: 109, borderWidth: 1, borderColor: withAlpha(colors.gold, 0.1), shadowColor: colors.charcoal, shadowOffset: { width: 0, height: 30 }, shadowOpacity: 0.5, shadowRadius: 70, elevation: 12 } as const,
+    voidClip: { flex: 1, borderRadius: 109, overflow: 'hidden', alignItems: 'center', justifyContent: 'center', backgroundColor: withAlpha(colors.background.primary, 0.82) } as const,
+    gradientFill: { ...StyleSheet.absoluteFillObject } as const,
+    glowBloom: { position: 'absolute', width: 90, height: 90, borderRadius: 45, overflow: 'hidden' } as const,
+    glowBlur: { ...StyleSheet.absoluteFillObject, borderRadius: 45 } as const,
+    corona: { position: 'absolute', width: 72, height: 72, borderRadius: 36, borderWidth: 1, borderColor: withAlpha(colors.gold, 0.1) } as const,
+    seed: { position: 'absolute', width: 4, height: 4, borderRadius: 2, backgroundColor: withAlpha(colors.gold, 0.5), shadowColor: colors.gold, shadowRadius: 10, shadowOpacity: 0.3, shadowOffset: { width: 0, height: 0 }, elevation: 2 } as const,
   }),
   final: StyleSheet.create({
     container: { width: 320, height: 320, alignItems: 'center', justifyContent: 'center', position: 'relative' } as const,
-    glow: { position: 'absolute', width: 280, height: 280, borderRadius: 140, backgroundColor: 'rgba(212,175,55,0.08)' } as const,
-    ring: { position: 'absolute', width: 280, height: 280, borderRadius: 140, borderWidth: 1, borderColor: 'rgba(212,175,55,0.2)' } as const,
-    ringDot: { position: 'absolute', width: 8, height: 8, borderRadius: 4, backgroundColor: '#D4AF37', top: -4, left: '50%', marginLeft: -4, shadowColor: '#D4AF37', shadowOpacity: 0.9, shadowRadius: 6, shadowOffset: { width: 0, height: 0 } } as const,
-    badge: { position: 'absolute', bottom: 0, right: 0, backgroundColor: 'rgba(62,44,91,0.9)', borderWidth: 1, borderColor: 'rgba(212,175,55,0.3)', borderRadius: 20, paddingHorizontal: 12, paddingVertical: 5 } as const,
-    badgeText: { fontFamily: 'Cinzel-Regular', fontSize: 9, letterSpacing: 1.5, color: '#D4AF37' } as const,
+    glow: { position: 'absolute', width: 280, height: 280, borderRadius: 140, backgroundColor: withAlpha(colors.gold, 0.08) } as const,
+    ring: { position: 'absolute', width: 280, height: 280, borderRadius: 140, borderWidth: 1, borderColor: withAlpha(colors.gold, 0.2) } as const,
+    ringDot: { position: 'absolute', width: 8, height: 8, borderRadius: 4, backgroundColor: colors.gold, top: -4, left: '50%', marginLeft: -4, shadowColor: colors.gold, shadowOpacity: 0.9, shadowRadius: 6, shadowOffset: { width: 0, height: 0 } } as const,
+    badge: { position: 'absolute', bottom: 0, right: 0, backgroundColor: withAlpha(colors.deepPurple, 0.9), borderWidth: 1, borderColor: withAlpha(colors.gold, 0.3), borderRadius: 20, paddingHorizontal: 12, paddingVertical: 5 } as const,
+    badgeText: { fontFamily: typography.fonts.heading, fontSize: MICRO_FONT_SIZE, letterSpacing: 1.5, color: colors.gold } as const,
   }),
 };
 
@@ -509,31 +608,31 @@ const visual = {
 // ---------------------------------------------------------------------------
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#0F1419' },
-  radialOverlay: { position: 'absolute', top: 0, left: 0, right: 0, height: '50%' },
+  container: { flex: 1, backgroundColor: colors.background.primary },
+  ambientBleed: { position: 'absolute', top: 0, left: 0, right: 0, height: '55%', zIndex: 0 },
   corner: { position: 'absolute', width: 20, height: 20, opacity: 0.3, zIndex: 5 },
-  cornerTL: { top: 60, left: 20, borderTopWidth: 1, borderLeftWidth: 1, borderColor: '#D4AF37' },
-  cornerTR: { top: 60, right: 20, borderTopWidth: 1, borderRightWidth: 1, borderColor: '#D4AF37' },
-  cornerBL: { bottom: 120, left: 20, borderBottomWidth: 1, borderLeftWidth: 1, borderColor: '#D4AF37' },
-  cornerBR: { bottom: 120, right: 20, borderBottomWidth: 1, borderRightWidth: 1, borderColor: '#D4AF37' },
+  cornerTL: { top: 60, left: 20, borderTopWidth: 1, borderLeftWidth: 1, borderColor: colors.gold },
+  cornerTR: { top: 60, right: 20, borderTopWidth: 1, borderRightWidth: 1, borderColor: colors.gold },
+  cornerBL: { bottom: 120, left: 20, borderBottomWidth: 1, borderLeftWidth: 1, borderColor: colors.gold },
+  cornerBR: { bottom: 120, right: 20, borderBottomWidth: 1, borderRightWidth: 1, borderColor: colors.gold },
   skipBtn: { position: 'absolute', top: 54, right: 28, zIndex: 20 },
-  skipText: { fontFamily: 'Cinzel-Regular', fontSize: 11, letterSpacing: 2, color: '#C0C0C0', opacity: 0.6 },
+  skipText: { fontFamily: typography.fonts.heading, fontSize: DETAIL_FONT_SIZE, letterSpacing: 2, color: colors.silver, opacity: 0.6 },
   slideContent: { flex: 1, paddingTop: 44 },
   visualArea: { height: 370, alignItems: 'center', justifyContent: 'center' },
   textArea: { flex: 1, paddingHorizontal: 36 },
   useCasesWrapper: { width: SCREEN_WIDTH - 72, gap: 10 },
   ornament: { flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 10 },
-  ornamentLine: { flex: 1, borderBottomWidth: 1, borderBottomColor: 'rgba(212,175,55,0.3)' },
-  ornamentDiamond: { width: 5, height: 5, backgroundColor: '#D4AF37', opacity: 0.6, transform: [{ rotate: '45deg' }] },
-  label: { fontFamily: 'Cinzel-Regular', fontSize: 10, letterSpacing: 2.5, color: '#D4AF37', textTransform: 'uppercase', marginBottom: 14, opacity: 0.8 },
-  headline: { fontFamily: 'Cinzel-SemiBold', fontSize: 24, color: '#F5F5DC', lineHeight: 32, marginBottom: 18, letterSpacing: -0.2 },
-  headlineGold: { color: '#D4AF37', fontFamily: 'Cinzel-SemiBold' },
-  body: { fontFamily: 'CrimsonPro-Regular', fontSize: 17, color: '#C0C0C0', lineHeight: 27, letterSpacing: 0.2 },
+  ornamentLine: { flex: 1, borderBottomWidth: 1, borderBottomColor: withAlpha(colors.gold, 0.3) },
+  ornamentDiamond: { width: 5, height: 5, backgroundColor: colors.gold, opacity: 0.6, transform: [{ rotate: '45deg' }] },
+  label: { fontFamily: typography.fonts.heading, fontSize: LABEL_FONT_SIZE, letterSpacing: 2.5, color: colors.gold, textTransform: 'uppercase', marginBottom: 14, opacity: 0.8 },
+  headline: { fontFamily: typography.fonts.headingSemiBold, fontSize: typography.sizes.h2, color: colors.bone, lineHeight: typography.lineHeights.h2, marginBottom: 18, letterSpacing: -0.2 },
+  headlineGold: { color: colors.gold, fontFamily: typography.fonts.headingSemiBold },
+  body: { fontFamily: typography.fontFamily.sans, fontSize: BODY_FONT_SIZE, color: colors.silver, lineHeight: 27, letterSpacing: 0.2 },
   footer: { paddingHorizontal: 36, paddingBottom: Platform.OS === 'android' ? 24 : 12, alignItems: 'center', gap: 24 },
   dots: { flexDirection: 'row', gap: 8, alignItems: 'center' },
   dot: { height: 6, borderRadius: 3 },
-  dotActive: { width: 24, backgroundColor: '#D4AF37' },
-  dotInactive: { width: 6, backgroundColor: 'rgba(255,255,255,0.2)' },
-  ctaBtn: { width: '100%', height: 56, backgroundColor: '#D4AF37', borderRadius: 12, alignItems: 'center', justifyContent: 'center', shadowColor: '#D4AF37', shadowOpacity: 0.35, shadowRadius: 16, shadowOffset: { width: 0, height: 8 }, elevation: 8 },
-  ctaText: { fontFamily: 'Cinzel-SemiBold', fontSize: 13, letterSpacing: 2, color: '#0F1419', textTransform: 'uppercase' },
+  dotActive: { width: 24, backgroundColor: colors.gold },
+  dotInactive: { width: 6, backgroundColor: withAlpha(colors.bone, 0.2) },
+  ctaBtn: { width: '100%', height: 56, backgroundColor: colors.gold, borderRadius: 12, alignItems: 'center', justifyContent: 'center', shadowColor: colors.gold, shadowOpacity: 0.35, shadowRadius: 16, shadowOffset: { width: 0, height: 8 }, elevation: 8 },
+  ctaText: { fontFamily: typography.fonts.headingSemiBold, fontSize: BUTTON_FONT_SIZE, letterSpacing: 2, color: colors.navy, textTransform: 'uppercase' },
 });

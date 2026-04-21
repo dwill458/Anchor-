@@ -14,6 +14,7 @@
 
 import { useSubscriptionStore } from '@/stores/subscriptionStore';
 import { getEntitlements, Entitlements } from '@/utils/entitlements';
+import { useTrialStatus } from '@/hooks/useTrialStatus';
 
 /**
  * Main subscription hook
@@ -21,12 +22,13 @@ import { getEntitlements, Entitlements } from '@/utils/entitlements';
  */
 export function useSubscription() {
   const store = useSubscriptionStore();
+  const { hasActiveEntitlement } = useTrialStatus();
   const effectiveTier = store.getEffectiveTier();
   const entitlements = getEntitlements(effectiveTier);
 
   return {
-    isPro: effectiveTier === 'pro',
-    isFree: effectiveTier === 'free',
+    isPro: effectiveTier === 'pro' || hasActiveEntitlement,
+    isFree: effectiveTier === 'free' && !hasActiveEntitlement,
     tier: effectiveTier,
     features: entitlements,
   };
@@ -40,4 +42,3 @@ export function useFeatureAccess(feature: keyof Entitlements): boolean {
   const { features } = useSubscription();
   return features[feature] as boolean;
 }
-

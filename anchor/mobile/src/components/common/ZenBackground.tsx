@@ -311,7 +311,7 @@ export const ZenBackground: React.FC<ZenBackgroundProps> = ({
         />
       ))}
 
-      {showGrain ? (
+      {showGrain && !isAndroid ? (
         <View style={[styles.grainWrap, { opacity: palette.grainOpacity }]}>
           {GRAIN_POINTS.map(([x, y], index) => (
             <View

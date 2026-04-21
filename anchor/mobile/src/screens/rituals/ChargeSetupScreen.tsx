@@ -10,16 +10,25 @@ import {
   View,
   useWindowDimensions,
 } from 'react-native';
+import Animated, {
+  cancelAnimation,
+  useAnimatedStyle,
+  useSharedValue,
+  withRepeat,
+  withSequence,
+  withTiming,
+} from 'react-native-reanimated';
 import { BlurView } from 'expo-blur';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as Haptics from 'expo-haptics';
 import { useFocusEffect, useNavigation, useRoute, type RouteProp } from '@react-navigation/native';
 import { type StackNavigationProp } from '@react-navigation/stack';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { WebView } from 'react-native-webview';
 import { useAnchorStore } from '@/stores/anchorStore';
 import { useSettingsStore } from '@/stores/settingsStore';
 import { safeHaptics } from '@/utils/haptics';
+import { OptimizedImage } from '@/components/common';
+import { PrimeAnchorCanvas, parseSigilSvg } from '@/components/common/PrimeAnchorCanvas';
 import type { Anchor, RootStackParamList } from '@/types';
 import { spacing } from '@/theme';
 import { navigateToVaultDestination } from '@/navigation/firstAnchorGate';
@@ -35,6 +44,7 @@ const BONE = '#F5F5DC';
 const SILVER = '#C0C0C0';
 const BLACK = '#080C10';
 const PANEL_OVERLAP = 24;
+const PRIME_ARTWORK_SIZE = 214;
 
 const FALLBACK_SIGIL_SVG = `
 <svg viewBox="0 0 240 240" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
@@ -50,307 +60,6 @@ const FALLBACK_SIGIL_SVG = `
 </svg>
 `.trim();
 
-const PRIME_WEBVIEW_HTML = `
-<!DOCTYPE html>
-<html>
-<head>
-<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
-<style>
-  * { margin: 0; padding: 0; box-sizing: border-box; }
-  body {
-    background: radial-gradient(ellipse 70% 60% at 50% 55%, #1a2a18 0%, #0d1a0e 40%, #080C10 100%);
-    width: 100vw;
-    height: 100vh;
-    overflow: hidden;
-    position: relative;
-  }
-  body.reduce-motion *,
-  body.reduce-motion *::before,
-  body.reduce-motion *::after {
-    animation: none !important;
-    transition: none !important;
-  }
-  .mist {
-    position: absolute;
-    inset: 0;
-    pointer-events: none;
-    background:
-      radial-gradient(ellipse 70% 50% at 50% 75%, rgba(212,175,55,0.07) 0%, transparent 65%),
-      radial-gradient(ellipse 55% 30% at 50% 100%, rgba(62,44,91,0.35) 0%, transparent 55%);
-  }
-  .rings {
-    position: absolute;
-    inset: 0;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    pointer-events: none;
-  }
-  .ring-base {
-    position: absolute;
-    width: 268px;
-    height: 268px;
-    border-radius: 50%;
-    border: 1px solid rgba(212,175,55,0.10);
-  }
-  .ring-rotate {
-    position: absolute;
-    width: 300px;
-    height: 300px;
-    border-radius: 50%;
-    border: 1px dashed rgba(212,175,55,0.14);
-    animation: slow-rotate 18s linear infinite;
-  }
-  .ring-breathe {
-    position: absolute;
-    width: 334px;
-    height: 334px;
-    border-radius: 50%;
-    border: 1px solid rgba(212,175,55,0.07);
-    animation: breathe-ring 4s ease-in-out infinite;
-  }
-  @keyframes slow-rotate { to { transform: rotate(360deg); } }
-  @keyframes breathe-ring {
-    0%,100% { opacity: 0.4; transform: scale(1); }
-    50% { opacity: 1; transform: scale(1.025); }
-  }
-  #glow-canvas {
-    position: absolute;
-    inset: 0;
-    width: 100%;
-    height: 100%;
-    pointer-events: none;
-  }
-  .medallion-wrap {
-    position: absolute;
-    inset: 0;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-  }
-  .medallion {
-    width: 220px;
-    height: 220px;
-    position: relative;
-    animation: float-medallion 6s ease-in-out infinite;
-  }
-  @keyframes float-medallion {
-    0%,100% { transform: translateY(0px); }
-    50% { transform: translateY(-9px); }
-  }
-  .aura-outer {
-    position: absolute;
-    inset: -50px;
-    border-radius: 50%;
-    background: radial-gradient(circle, rgba(212,175,55,0.10) 0%, transparent 65%);
-    animation: aura-outer 4s ease-in-out infinite;
-  }
-  .aura-mid {
-    position: absolute;
-    inset: -28px;
-    border-radius: 50%;
-    background: radial-gradient(circle, rgba(212,175,55,0.20) 0%, transparent 60%);
-    animation: aura-mid 4s ease-in-out infinite 0.5s;
-  }
-  .aura-inner {
-    position: absolute;
-    inset: -10px;
-    border-radius: 50%;
-    background: radial-gradient(circle, rgba(240,203,85,0.30) 0%, transparent 55%);
-    animation: aura-inner 3s ease-in-out infinite 0.25s;
-  }
-  @keyframes aura-outer {
-    0%,100% { opacity: 0.5; transform: scale(1); }
-    50% { opacity: 1; transform: scale(1.12); }
-  }
-  @keyframes aura-mid {
-    0%,100% { opacity: 0.6; transform: scale(1); }
-    50% { opacity: 1; transform: scale(1.08); }
-  }
-  @keyframes aura-inner {
-    0%,100% { opacity: 0.7; transform: scale(1); }
-    50% { opacity: 1; transform: scale(1.05); }
-  }
-  .medallion-svg {
-    position: absolute;
-    inset: 0;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    animation: sigil-glow 3s ease-in-out infinite;
-  }
-  .medallion-svg svg {
-    width: 100%;
-    height: 100%;
-    display: block;
-  }
-  .medallion-svg img {
-    width: 100%;
-    height: 100%;
-    display: block;
-    object-fit: cover;
-    border-radius: 50%;
-  }
-  @keyframes sigil-glow {
-    0%,100% { filter: drop-shadow(0 0 10px rgba(212,175,55,0.35)) drop-shadow(0 0 30px rgba(212,175,55,0.15)); }
-    50% { filter: drop-shadow(0 0 18px rgba(240,203,85,0.7)) drop-shadow(0 0 50px rgba(212,175,55,0.30)); }
-  }
-  .ground-glow {
-    position: absolute;
-    bottom: -12px;
-    left: 50%;
-    transform: translateX(-50%);
-    width: 200px;
-    height: 40px;
-    border-radius: 50%;
-    background: radial-gradient(ellipse, rgba(212,175,55,0.28) 0%, transparent 70%);
-    filter: blur(6px);
-    animation: ground-breathe 4s ease-in-out infinite;
-    pointer-events: none;
-  }
-  @keyframes ground-breathe {
-    0%,100% { opacity: 0.6; transform: translateX(-50%) scaleX(1); }
-    50% { opacity: 1; transform: translateX(-50%) scaleX(1.15); }
-  }
-</style>
-</head>
-<body>
-  <div class="mist"></div>
-  <canvas id="glow-canvas"></canvas>
-  <div class="rings">
-    <div class="ring-base"></div>
-    <div class="ring-rotate"></div>
-    <div class="ring-breathe"></div>
-  </div>
-  <div class="medallion-wrap">
-    <div class="medallion">
-      <div class="aura-outer"></div>
-      <div class="aura-mid"></div>
-      <div class="aura-inner"></div>
-      <div class="medallion-svg" id="sigil-host">SIGIL_CONTENT_PLACEHOLDER</div>
-      <div class="ground-glow"></div>
-    </div>
-  </div>
-<script>
-  const REDUCE_MOTION = REDUCE_MOTION_PLACEHOLDER;
-  if (REDUCE_MOTION) {
-    document.body.classList.add('reduce-motion');
-  }
-
-  const canvas = document.getElementById('glow-canvas');
-  canvas.width = window.innerWidth;
-  canvas.height = window.innerHeight;
-  const ctx = canvas.getContext('2d');
-  const CX = canvas.width / 2;
-  const CY = canvas.height / 2;
-
-  const ripples = [];
-  function spawnRipple() {
-    ripples.push({ r: 110, opacity: 0.6, speed: 0.8 });
-  }
-
-  const PARTICLE_COUNT = 28;
-  const particles = [];
-  function spawnParticle(phase) {
-    return {
-      angle: Math.random() * Math.PI * 2,
-      orbitR: 110 + Math.random() * 80,
-      driftAngle: Math.random() * Math.PI * 2,
-      driftSpeed: 0.0004 + Math.random() * 0.0006,
-      size: 1 + Math.random() * 2,
-      life: phase !== undefined ? phase : Math.random(),
-      lifeSpeed: 0.003 + Math.random() * 0.004,
-      twinklePhase: Math.random() * Math.PI * 2,
-      twinkleSpeed: 0.04 + Math.random() * 0.06
-    };
-  }
-  for (let i = 0; i < PARTICLE_COUNT; i++) {
-    particles.push(spawnParticle(i / PARTICLE_COUNT));
-  }
-
-  function drawFrame() {
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-    for (let i = ripples.length - 1; i >= 0; i--) {
-      const rp = ripples[i];
-      if (!REDUCE_MOTION) {
-        rp.r += rp.speed;
-        rp.opacity -= 0.0028;
-      }
-      if (rp.opacity <= 0) {
-        ripples.splice(i, 1);
-        continue;
-      }
-
-      ctx.beginPath();
-      ctx.arc(CX, CY, rp.r, 0, Math.PI * 2);
-      ctx.strokeStyle = 'rgba(212,175,55,' + (rp.opacity * 0.7) + ')';
-      ctx.lineWidth = 1;
-      ctx.stroke();
-
-      if (rp.opacity > 0.4) {
-        const g = ctx.createRadialGradient(CX, CY, rp.r - 20, CX, CY, rp.r + 8);
-        g.addColorStop(0, 'rgba(212,175,55,0)');
-        g.addColorStop(0.5, 'rgba(212,175,55,' + ((rp.opacity - 0.4) * 0.06) + ')');
-        g.addColorStop(1, 'rgba(212,175,55,0)');
-        ctx.beginPath();
-        ctx.arc(CX, CY, rp.r + 8, 0, Math.PI * 2);
-        ctx.fillStyle = g;
-        ctx.fill();
-      }
-    }
-
-    for (const p of particles) {
-      if (!REDUCE_MOTION) {
-        p.life += p.lifeSpeed;
-        if (p.life >= 1) {
-          Object.assign(p, spawnParticle(0));
-          continue;
-        }
-        p.driftAngle += p.driftSpeed;
-        p.twinklePhase += p.twinkleSpeed;
-      }
-
-      const rise = p.life * 110;
-      const spread = Math.sin(p.driftAngle) * 30;
-      const px = CX + Math.cos(p.angle) * (p.orbitR + spread) * (1 - p.life * 0.4);
-      const py = CY + Math.sin(p.angle) * (p.orbitR + spread) * (1 - p.life * 0.3) - rise;
-
-      let opacity = p.life < 0.2 ? p.life / 0.2 : p.life < 0.7 ? 1 : 1 - (p.life - 0.7) / 0.3;
-      opacity *= 0.4 + 0.6 * (0.5 + 0.5 * Math.sin(p.twinklePhase));
-      const alpha = opacity * 0.85;
-
-      const bloom = ctx.createRadialGradient(px, py, 0, px, py, p.size * 5);
-      bloom.addColorStop(0, 'rgba(240,203,85,' + (alpha * 0.5) + ')');
-      bloom.addColorStop(1, 'rgba(212,175,55,0)');
-      ctx.beginPath();
-      ctx.arc(px, py, p.size * 5, 0, Math.PI * 2);
-      ctx.fillStyle = bloom;
-      ctx.fill();
-
-      ctx.beginPath();
-      ctx.arc(px, py, p.size, 0, Math.PI * 2);
-      ctx.fillStyle = 'rgba(255,235,130,' + alpha + ')';
-      ctx.fill();
-    }
-  }
-
-  if (REDUCE_MOTION) {
-    ripples.push({ r: 128, opacity: 0.22, speed: 0 });
-    drawFrame();
-  } else {
-    setInterval(spawnRipple, 2200);
-    spawnRipple();
-    function draw() {
-      drawFrame();
-      requestAnimationFrame(draw);
-    }
-    requestAnimationFrame(draw);
-  }
-</script>
-</body>
-</html>
-`.trim();
 
 const chargeConfigByChoice = {
   quick: {
@@ -377,86 +86,11 @@ const chargeConfigByChoice = {
   },
 };
 
-const stripUnsafeSvgTags = (markup: string): string =>
-  markup
-    .replace(/<script[\s\S]*?<\/script>/gi, '')
-    .replace(/<foreignObject[\s\S]*?<\/foreignObject>/gi, '')
-    .replace(/<(?:iframe|object|embed|audio|video|canvas|style)\b[\s\S]*?<\/(?:iframe|object|embed|audio|video|canvas|style)>/gi, '');
+const getPrimeStructureSvg = (anchor?: Anchor): string =>
+  anchor?.baseSigilSvg?.trim() || anchor?.reinforcedSigilSvg?.trim() || FALLBACK_SIGIL_SVG;
 
-const stripUnsafeSvgAttributes = (markup: string): string =>
-  markup
-    .replace(/\son[a-z0-9_-]+\s*=\s*(?:"[^"]*"|'[^']*'|[^\s>]+)/gi, '')
-    .replace(/\s(?:href|xlink:href|src)\s*=\s*("|')((?:(?!\1).)*)\1/gi, (_match, quote, value: string) => {
-      const trimmedValue = value.trim();
-      return trimmedValue.startsWith('#') ? ` href=${quote}${trimmedValue}${quote}` : '';
-    })
-    .replace(/\s(?:href|xlink:href|src)\s*=\s*([^\s>]+)/gi, (_match, value: string) => {
-      const trimmedValue = value.trim();
-      return trimmedValue.startsWith('#') ? ` href="${trimmedValue}"` : '';
-    })
-    .replace(/\s[a-z0-9:_-]+\s*=\s*("|')\s*javascript:[\s\S]*?\1/gi, '')
-    .replace(/\sstyle\s*=\s*("|')[\s\S]*?url\s*\([\s\S]*?\)[\s\S]*?\1/gi, '');
-
-const sanitizeSvgMarkup = (svg?: string): string => {
-  if (!svg) return FALLBACK_SIGIL_SVG;
-
-  const normalized = svg
-    .replace(/<\?xml[\s\S]*?\?>/gi, '')
-    .replace(/<!DOCTYPE[\s\S]*?>/gi, '')
-    .replace(/<!--[\s\S]*?-->/g, '')
-    .trim();
-
-  if (!/^<svg[\s>][\s\S]*<\/svg>$/i.test(normalized)) {
-    return FALLBACK_SIGIL_SVG;
-  }
-
-  const withoutUnsafeTags = stripUnsafeSvgTags(normalized);
-  const sanitized = stripUnsafeSvgAttributes(withoutUnsafeTags).trim();
-
-  if (
-    /<(?:script|foreignObject|iframe|object|embed|audio|video|canvas|style)\b/i.test(sanitized) ||
-    /\son[a-z0-9_-]+\s*=\s*/i.test(sanitized) ||
-    /\s(?:href|xlink:href|src)\s*=\s*("|')\s*(?!#)/i.test(sanitized)
-  ) {
-    return FALLBACK_SIGIL_SVG;
-  }
-
-  return /<svg[\s>]/i.test(sanitized) ? sanitized : FALLBACK_SIGIL_SVG;
-};
-
-const escapeHtmlAttribute = (value: string): string =>
-  value
-    .replace(/&/g, '&amp;')
-    .replace(/"/g, '&quot;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;');
-
-const isAllowedImageUrl = (imageUrl?: string): imageUrl is string => {
-  if (!imageUrl) return false;
-
-  const trimmedUrl = imageUrl.trim();
-  if (!trimmedUrl) return false;
-
-  try {
-    const parsedUrl = new URL(trimmedUrl);
-    return parsedUrl.protocol.toLowerCase() === 'https:';
-  } catch {
-    return false;
-  }
-};
-
-const getPrimeSigilMarkup = (anchor?: Anchor): string => {
-  if (isAllowedImageUrl(anchor?.enhancedImageUrl)) {
-    return `<img src="${escapeHtmlAttribute(anchor.enhancedImageUrl)}" alt="" />`;
-  }
-
-  return sanitizeSvgMarkup(anchor?.reinforcedSigilSvg ?? anchor?.baseSigilSvg);
-};
-
-const buildPrimeWebViewHtml = (sigilMarkup: string, reduceMotionEnabled: boolean): string =>
-  PRIME_WEBVIEW_HTML
-    .replace('SIGIL_CONTENT_PLACEHOLDER', sigilMarkup)
-    .replace('REDUCE_MOTION_PLACEHOLDER', reduceMotionEnabled ? 'true' : 'false');
+const getParsedSigil = (anchor?: Anchor) =>
+  parseSigilSvg(getPrimeStructureSvg(anchor));
 
 export const ChargeSetupScreen: React.FC = () => {
   const navigation = useNavigation<ChargeSetupNavigationProp>();
@@ -472,15 +106,50 @@ export const ChargeSetupScreen: React.FC = () => {
   const [selectedDuration, setSelectedDuration] = useState<DurationChoice>('quick');
   const [reduceMotionEnabled, setReduceMotionEnabled] = useState(false);
   const [isTransitioning, setIsTransitioning] = useState(false);
+  const [enhancedArtworkFailed, setEnhancedArtworkFailed] = useState(false);
 
   const isNavigatingRef = useRef(false);
-  const heroHeight = Math.max(360, Math.min(500, Math.round(screenHeight * 0.55)));
+  const heroHeight = Math.max(400, Math.min(580, Math.round(screenHeight * 0.65)));
+  const shouldShowEnhancedArtwork = Boolean(anchor?.enhancedImageUrl) && !enhancedArtworkFailed;
+
+  // Parse sigil paths once — stable for this anchor
+  const { pathDs: sigilPaths, viewBox: sigilViewBox } = useMemo(
+    () => getParsedSigil(anchor),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [anchor?.id],
+  );
+
+  // Reanimated 3 drift — passed into PrimeAnchorCanvas and image wrapper
+  const driftSV = useSharedValue(0);
+  const driftStyle = useAnimatedStyle(() => ({
+    transform: [{ translateY: driftSV.value }],
+  }));
 
   useEffect(() => {
-    AccessibilityInfo.isReduceMotionEnabled().then(setReduceMotionEnabled);
-    const subscription = AccessibilityInfo.addEventListener('reduceMotionChanged', setReduceMotionEnabled);
+    AccessibilityInfo.isReduceMotionEnabled().then((v) => setReduceMotionEnabled(v));
+    const subscription = AccessibilityInfo.addEventListener('reduceMotionChanged', (isEnabled: boolean) => setReduceMotionEnabled(isEnabled));
     return () => subscription.remove();
   }, []);
+
+  useEffect(() => {
+    setEnhancedArtworkFailed(false);
+  }, [anchor?.id, anchor?.enhancedImageUrl]);
+
+  useEffect(() => {
+    if (reduceMotionEnabled) {
+      driftSV.value = 0;
+      return;
+    }
+    driftSV.value = withRepeat(
+      withSequence(
+        withTiming(-6, { duration: 2800 }),
+        withTiming(0, { duration: 2800 }),
+      ),
+      -1,
+      false,
+    );
+    return () => cancelAnimation(driftSV);
+  }, [reduceMotionEnabled, driftSV]);
 
   useFocusEffect(
     useCallback(() => {
@@ -491,11 +160,6 @@ export const ChargeSetupScreen: React.FC = () => {
       const subscription = BackHandler.addEventListener('hardwareBackPress', onBackPress);
       return () => subscription.remove();
     }, [isTransitioning])
-  );
-
-  const webViewHtml = useMemo(
-    () => buildPrimeWebViewHtml(getPrimeSigilMarkup(anchor), reduceMotionEnabled),
-    [anchor, reduceMotionEnabled]
   );
 
   const navigateToRitual = useCallback(
@@ -583,24 +247,41 @@ export const ChargeSetupScreen: React.FC = () => {
   return (
     <View style={styles.screen}>
       <View style={[styles.heroSection, { height: heroHeight }]}>
-        <WebView
-          originWhitelist={['about:blank']}
-          source={{ html: webViewHtml, baseUrl: 'about:blank' }}
-          setSupportMultipleWindows={false}
-          javaScriptCanOpenWindowsAutomatically={false}
-          allowingReadAccessToURL={'about:blank'}
-          allowFileAccess={false}
-          allowFileAccessFromFileURLs={false}
-          allowUniversalAccessFromFileURLs={false}
-          mixedContentMode="never"
-          onShouldStartLoadWithRequest={(request) => request.url === 'about:blank'}
-          style={styles.webview}
-          scrollEnabled={false}
-          bounces={false}
-          overScrollMode="never"
-          showsVerticalScrollIndicator={false}
-          showsHorizontalScrollIndicator={false}
+        {/* Background gradient */}
+        <LinearGradient
+          colors={['#05090C', '#0A120D', '#121B11', '#080C10']}
+          locations={[0, 0.34, 0.7, 1]}
+          start={{ x: 0.5, y: 0 }}
+          end={{ x: 0.5, y: 1 }}
+          style={StyleSheet.absoluteFill}
+          pointerEvents="none"
         />
+
+        {/* Single-pass Skia canvas: aura + rings + particles + sigil (SVG mode) */}
+        <PrimeAnchorCanvas
+          size={heroHeight}
+          sigilPaths={shouldShowEnhancedArtwork ? [] : sigilPaths}
+          viewBox={sigilViewBox}
+          drift={driftSV}
+          reduceMotionEnabled={reduceMotionEnabled}
+        />
+
+        {/* Enhanced image overlay — only visible when image is available */}
+        {shouldShowEnhancedArtwork && anchor?.enhancedImageUrl ? (
+          <Animated.View
+            pointerEvents="none"
+            style={[styles.anchorOverlay, driftStyle]}
+          >
+            <View style={styles.anchorFrame}>
+              <OptimizedImage
+                uri={anchor.enhancedImageUrl}
+                style={styles.anchorImage}
+                resizeMode="cover"
+                onError={() => setEnhancedArtworkFailed(true)}
+              />
+            </View>
+          </Animated.View>
+        ) : null}
 
         <View style={[styles.navBar, { paddingTop: insets.top + 8 }]}>
           <TouchableOpacity
@@ -722,9 +403,31 @@ const styles = StyleSheet.create({
     backgroundColor: BLACK,
     overflow: 'hidden',
   },
-  webview: {
-    flex: 1,
-    backgroundColor: BLACK,
+  anchorOverlay: {
+    position: 'absolute',
+    top: 0,
+    right: 0,
+    bottom: 0,
+    left: 0,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingTop: 32,
+  },
+  anchorFrame: {
+    width: PRIME_ARTWORK_SIZE,
+    height: PRIME_ARTWORK_SIZE,
+    borderRadius: PRIME_ARTWORK_SIZE / 2,
+    alignItems: 'center',
+    justifyContent: 'center',
+    overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: 'rgba(212,175,55,0.24)',
+    backgroundColor: 'rgba(8,12,16,0.12)',
+  },
+  anchorImage: {
+    width: PRIME_ARTWORK_SIZE,
+    height: PRIME_ARTWORK_SIZE,
+    borderRadius: PRIME_ARTWORK_SIZE / 2,
   },
   navBar: {
     position: 'absolute',

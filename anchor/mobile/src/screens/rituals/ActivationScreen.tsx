@@ -12,6 +12,7 @@ import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { useTabNavigation } from '@/contexts/TabNavigationContext';
 import { useAnchorStore } from '../../stores/anchorStore';
 import { useAuthStore } from '@/stores/authStore';
+import { useForgeMomentStore } from '@/stores/forgeMomentStore';
 import { useSettingsStore, type DefaultActivationSetting } from '@/stores/settingsStore';
 import { useSessionStore } from '@/stores/sessionStore';
 import { useTeachingStore } from '@/stores/teachingStore';
@@ -27,6 +28,7 @@ import { CompletionModal } from './components/CompletionModal';
 import { ConfirmModal } from './components/ConfirmModal';
 import { useTeachingGate } from '@/utils/useTeachingGate';
 import { TEACHINGS } from '@/constants/teaching';
+import { getCurrentRank } from '@/utils/practiceRank';
 
 type ActivationRouteProp = RouteProp<RootStackParamList, 'ActivationRitual'>;
 
@@ -70,11 +72,13 @@ export const ActivationScreen: React.FC = () => {
 
   const getAnchorById = useAnchorStore((state) => state.getAnchorById);
   const updateAnchor = useAnchorStore((state) => state.updateAnchor);
+  const incrementTotalPrimes = useAnchorStore((state) => state.incrementTotalPrimes);
   const computeStreak = useAuthStore((state) => state.computeStreak);
   const pendingFirstAnchorDraft = useAuthStore((state) => state.pendingFirstAnchorDraft);
   const enqueuePendingFirstAnchorMutation = useAuthStore(
     (state) => state.enqueuePendingFirstAnchorMutation
   );
+  const queueMilestone = useForgeMomentStore((state) => state.queueMilestone);
   const { defaultActivation } = useSettingsStore();
   const resolvedDefaultActivation = useMemo(
     () => resolveDefaultActivation(defaultActivation),
@@ -140,13 +144,42 @@ export const ActivationScreen: React.FC = () => {
   const logActivationInBackground = useCallback(async (): Promise<void> => {
     const localActivationTime = new Date();
     const currentActivationCount = anchor?.activationCount ?? 0;
+    const authStateBefore = useAuthStore.getState().user;
+    const previousLongestStreak = authStateBefore?.longestStreak ?? 0;
+    const previousTotalPrimes = Math.max(
+      useAnchorStore.getState().totalPrimes,
+      useAnchorStore
+        .getState()
+        .anchors.reduce((sum, currentAnchor) => sum + (currentAnchor.activationCount ?? 0), 0)
+    );
+    const previousRank = getCurrentRank(previousTotalPrimes);
 
     updateAnchor(anchorId, {
       activationCount: currentActivationCount + 1,
       lastActivatedAt: localActivationTime,
     });
 
+    incrementTotalPrimes();
     computeStreak();
+
+    const nextTotalPrimes = previousTotalPrimes + 1;
+    const nextRank = getCurrentRank(nextTotalPrimes);
+    const nextLongestStreak = useAuthStore.getState().user?.longestStreak ?? previousLongestStreak;
+
+    if (nextRank.name !== previousRank.name && nextRank.name !== 'Initiate') {
+      void queueMilestone({
+        type: 'rank',
+        name: nextRank.name,
+        primeCount: nextTotalPrimes,
+      });
+    }
+
+    if (previousLongestStreak < 100 && nextLongestStreak >= 100) {
+      void queueMilestone({
+        type: 'constancy',
+        name: '100 Days',
+      });
+    }
 
     try {
       if (isPendingFirstAnchor) {
@@ -193,7 +226,9 @@ export const ActivationScreen: React.FC = () => {
     anchorId,
     computeStreak,
     enqueuePendingFirstAnchorMutation,
+    incrementTotalPrimes,
     isPendingFirstAnchor,
+    queueMilestone,
     toast,
     updateAnchor,
   ]);

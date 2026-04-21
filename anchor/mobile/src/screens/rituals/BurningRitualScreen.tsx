@@ -5,12 +5,14 @@ import { BurnAnimationOverlay } from './components/BurnAnimationOverlay';
 import { RootStackParamList } from '@/types';
 import { post } from '@/services/ApiClient';
 import { useAnchorStore } from '@/stores/anchorStore';
+import { useAuthStore } from '@/stores/authStore';
 import { AnalyticsEvents, AnalyticsService } from '@/services/AnalyticsService';
 import { ErrorTrackingService } from '@/services/ErrorTrackingService';
 import { useTeachingStore } from '@/stores/teachingStore';
 import { useTeachingGate } from '@/utils/useTeachingGate';
 import { TEACHINGS } from '@/constants/teaching';
 import { useToast } from '@/components/ToastProvider';
+import { resolveBurnArtworkUri } from './utils/resolveBurnArtworkUri';
 
 type BurningRitualRouteProp = RouteProp<RootStackParamList, 'BurningRitual'>;
 type BurningRitualNavigationProp = StackNavigationProp<RootStackParamList, 'BurningRitual'>;
@@ -20,13 +22,14 @@ export const BurningRitualScreen: React.FC = () => {
   const navigation = useNavigation<BurningRitualNavigationProp>();
   const removeAnchor = useAnchorStore((state) => state.removeAnchor);
   const getAnchorById = useAnchorStore((state) => state.getAnchorById);
+  const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
   const { setUserFlag, queueMilestone, recordShown, userFlags } = useTeachingStore();
   const toast = useToast();
 
   const { anchorId, sigilSvg, enhancedImageUrl } = route.params;
   const anchor = getAnchorById(anchorId);
   const resolvedSigilSvg = sigilSvg || anchor?.reinforcedSigilSvg || anchor?.baseSigilSvg || '';
-  const resolvedEnhancedImageUrl = enhancedImageUrl ?? anchor?.enhancedImageUrl;
+  const resolvedEnhancedImageUrl = enhancedImageUrl ?? resolveBurnArtworkUri(anchor);
 
   // Ash Line (Pattern 8): shown in Phase 4 success, guide ON, first burn only
   const ashLineTeaching = useTeachingGate({
@@ -35,6 +38,9 @@ export const BurningRitualScreen: React.FC = () => {
   });
 
   const handleCommitBurn = useCallback(async () => {
+    if (!isAuthenticated) {
+      throw new Error('Sign in to release this anchor.');
+    }
     try {
       await post(`/api/anchors/${anchorId}/burn`, {});
       removeAnchor(anchorId);
@@ -72,7 +78,7 @@ export const BurningRitualScreen: React.FC = () => {
       );
       throw error;
     }
-  }, [anchorId, removeAnchor, userFlags.hasCompletedFirstBurn, setUserFlag, queueMilestone, toast, ashLineTeaching, recordShown]);
+  }, [anchorId, isAuthenticated, removeAnchor, userFlags.hasCompletedFirstBurn, setUserFlag, queueMilestone, toast, ashLineTeaching, recordShown]);
 
   const handleReturnToSanctuary = useCallback(() => {
     navigation.navigate('Vault');

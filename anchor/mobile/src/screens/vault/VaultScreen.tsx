@@ -6,7 +6,7 @@
  *   Active — at least one anchor; surface the primary sigil as a hero card
  */
 
-import React, { useCallback, useEffect, useMemo } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   InteractionManager,
   ScrollView,
@@ -31,6 +31,7 @@ import {
 } from 'react-native-reanimated';
 import { useAnchorStore } from '../../stores/anchorStore';
 import { useAuthStore } from '../../stores/authStore';
+import { useProfileStore } from '@/stores/profileStore';
 import { useToast } from '../../components/ToastProvider';
 import { AnchorGridSkeleton } from '../../components/skeletons/AnchorCardSkeleton';
 // DEFERRED: freemium — useSubscription removed; freemium tier gates replaced with trial model
@@ -45,10 +46,13 @@ import { HeroAnchorCard } from './components/HeroAnchorCard';
 import { AnchorStack } from './components/AnchorStack';
 import { ZenBackground } from '@/components/common';
 import { getEffectiveStabilizeStreakDays, toDateOrNull } from '@/utils/stabilizeStats';
+import { buildProfileGreeting } from '@/utils/profileGreeting';
 import type { Anchor, RootStackParamList } from '@/types';
 import { colors } from '@/theme';
 import { useTabNavigation } from '@/contexts/TabNavigationContext';
+import { isHighEndDevice } from '@/utils/deviceTier';
 import { useSettingsStore } from '@/stores/settingsStore';
+import { WeeklySummaryModal } from '@/components/WeeklySummaryModal'; import { useWeeklySummaryTrigger } from '@/hooks/useWeeklySummaryTrigger';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -103,16 +107,6 @@ export function selectPrimaryAnchor(anchors: Anchor[]): Anchor | null {
   return [...anchors].sort((a, b) => toMs(b.createdAt) - toMs(a.createdAt))[0];
 }
 
-// ─── Greeting helper ──────────────────────────────────────────────────────────
-
-function buildGreeting(displayName: string | undefined): string {
-  const hour = new Date().getHours();
-  const salutation =
-    hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening';
-  const firstName = displayName?.split(' ')[0];
-  return firstName ? `${salutation}, ${firstName}` : salutation;
-}
-
 // ─── Animation helpers ────────────────────────────────────────────────────────
 
 type VaultScreenNavigationProp = StackNavigationProp<RootStackParamList, 'Vault'>;
@@ -132,6 +126,8 @@ export const VaultScreen: React.FC = () => {
   const isVaultTabActive = activeTabIndex == null ? true : activeTabIndex === 0;
 
   const { user } = useAuthStore();
+  const profileName = useProfileStore((state) => state.name);
+  const profileTimezone = useProfileStore((state) => state.timezone);
   const developerForceStreakBreakEnabled = useSettingsStore(
     (state) => state.developerForceStreakBreakEnabled
   );
@@ -150,6 +146,8 @@ export const VaultScreen: React.FC = () => {
   const reduceMotionEnabled = useReduceMotionEnabled();
   const shouldReduceMotion = reduceMotionEnabled || !isVaultTabActive;
   const toast = useToast();
+  const { shouldShow, dismiss } = useWeeklySummaryTrigger();
+  const [now, setNow] = useState(() => new Date());
 
   // ── Derived state ────────────────────────────────────────────────────────────
   const autoPrimary = useMemo(() => selectPrimaryAnchor(anchors), [anchors]);
@@ -169,7 +167,23 @@ export const VaultScreen: React.FC = () => {
     [anchors, primaryAnchor],
   );
 
-  const greeting = useMemo(() => buildGreeting(user?.displayName), [user?.displayName]);
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setNow(new Date());
+    }, 60_000);
+
+    return () => clearInterval(timer);
+  }, []);
+
+  const greeting = useMemo(
+    () =>
+      buildProfileGreeting(
+        profileName || user?.displayName,
+        profileTimezone,
+        now
+      ),
+    [now, profileName, profileTimezone, user?.displayName]
+  );
 
   const streakDays = useMemo(() => {
     if (__DEV__ && developerForceStreakBreakEnabled) {
@@ -254,6 +268,14 @@ export const VaultScreen: React.FC = () => {
     navigation.replace('FirstAnchorAccountGate');
   }, [navigation, shouldGateFirstVaultEntry]);
 
+  // ── Analytics tracking — fires once per user session, not on every anchor update ──
+  const anchorsLengthRef = React.useRef(anchors.length);
+  anchorsLengthRef.current = anchors.length;
+  useEffect(() => {
+    if (!user) return;
+    AnalyticsService.track(AnalyticsEvents.VAULT_VIEWED, { anchor_count: anchorsLengthRef.current });
+  }, [user?.id]); // eslint-disable-line react-hooks/exhaustive-deps
+
   // ── Data fetching ─────────────────────────────────────────────────────────────
   const fetchAnchors = useCallback(async (): Promise<void> => {
     if (!user) return;
@@ -261,9 +283,7 @@ export const VaultScreen: React.FC = () => {
     setLoading(true);
     setError(null);
     try {
-      await new Promise((resolve) => setTimeout(resolve, 1000));
-      trace.putAttribute('anchor_count', anchors.length);
-      AnalyticsService.track(AnalyticsEvents.VAULT_VIEWED, { anchor_count: anchors.length });
+      trace.putAttribute('anchor_count', String(anchorsLengthRef.current));
     } catch (error) {
       const msg = (error as Error).message;
       setError(msg);
@@ -277,7 +297,7 @@ export const VaultScreen: React.FC = () => {
       setLoading(false);
       trace.stop();
     }
-  }, [user, setLoading, setError, toast, anchors.length]);
+  }, [user, setLoading, setError, toast]);
 
   useEffect(() => { fetchAnchors(); }, [fetchAnchors]);
 
@@ -341,7 +361,7 @@ export const VaultScreen: React.FC = () => {
   return (
     <View style={styles.container}>
       <ZenBackground variant="sanctuary" showOrbs={isVaultTabActive} showGrain showVignette />
-      <AtmosphericOrbs reduceMotionEnabled={shouldReduceMotion} />
+      {isHighEndDevice && <AtmosphericOrbs reduceMotionEnabled={shouldReduceMotion} />}
 
       <SafeAreaView style={styles.safeArea} edges={['top']}>
         <ScrollView
@@ -398,6 +418,7 @@ export const VaultScreen: React.FC = () => {
           </View>
         )}
       </SafeAreaView>
+      <WeeklySummaryModal visible={shouldShow} onDismiss={dismiss} />
     </View>
   );
 };

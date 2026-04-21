@@ -15,6 +15,7 @@ import {
   formatTime,
 } from '@/config/ritualConfigs';
 import { ErrorTrackingService } from '@/services/ErrorTrackingService';
+import { useAudio } from '@/hooks/useAudio';
 
 export interface RitualState {
   // Time tracking
@@ -71,6 +72,7 @@ export function useRitualController({
   onPhaseChange,
   onSealComplete,
 }: UseRitualControllerOptions): RitualController {
+  const { playSound } = useAudio();
   // ══════════════════════════════════════════════════════════════
   // STATE
   // ══════════════════════════════════════════════════════════════
@@ -91,12 +93,15 @@ export function useRitualController({
   const instructionIntervalRef = useRef<any>(null);
   const sealIntervalRef = useRef<any>(null);
   const lastPhaseIndexRef = useRef(-1);
+  const bgSoundRef = useRef<{ stop: () => void } | null>(null);
 
   const clearAllIntervals = useCallback(() => {
     if (timerIntervalRef.current) clearInterval(timerIntervalRef.current);
     if (hapticIntervalRef.current) clearInterval(hapticIntervalRef.current);
     if (instructionIntervalRef.current) clearInterval(instructionIntervalRef.current);
     if (sealIntervalRef.current) clearInterval(sealIntervalRef.current);
+    bgSoundRef.current?.stop();
+    bgSoundRef.current = null;
   }, []);
 
   // ══════════════════════════════════════════════════════════════
@@ -189,6 +194,7 @@ export function useRitualController({
     }
 
     hapticIntervalRef.current = setInterval(() => {
+      void playSound('haptic-tone', 0.15);
       void Haptics.impactAsync(currentPhase.hapticStyle);
     }, currentPhase.hapticIntervalMs);
 
@@ -197,7 +203,7 @@ export function useRitualController({
         clearInterval(hapticIntervalRef.current);
       }
     };
-  }, [isActive, currentPhase]);
+  }, [currentPhase, isActive, playSound]);
 
   // ══════════════════════════════════════════════════════════════
   // LIFECYCLE: Instruction Rotation
@@ -232,15 +238,19 @@ export function useRitualController({
     setIsComplete(false);
     setIsSealComplete(false);
     setSealProgress(0);
+    bgSoundRef.current?.stop();
+    bgSoundRef.current = playSound('prime-begin', 1, true);
     ErrorTrackingService.addBreadcrumb('Ritual started', 'ritual.lifecycle', {
       duration_seconds: config.totalDurationSeconds,
       phase_count: config.phases.length,
     });
     void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-  }, []);
+  }, [config.totalDurationSeconds, config.phases.length, playSound]);
 
   const pause = useCallback(() => {
     setIsActive(false);
+    bgSoundRef.current?.stop();
+    bgSoundRef.current = null;
     ErrorTrackingService.addBreadcrumb('Ritual paused', 'ritual.lifecycle', {
       elapsed_seconds: elapsedSeconds,
     });
@@ -248,10 +258,11 @@ export function useRitualController({
 
   const resume = useCallback(() => {
     setIsActive(true);
+    bgSoundRef.current = playSound('prime-begin', 1, true);
     ErrorTrackingService.addBreadcrumb('Ritual resumed', 'ritual.lifecycle', {
       elapsed_seconds: elapsedSeconds,
     });
-  }, [elapsedSeconds]);
+  }, [elapsedSeconds, playSound]);
 
   const reset = useCallback(() => {
     setIsActive(false);
@@ -330,7 +341,11 @@ export function useRitualController({
       elapsed_seconds: elapsedSeconds,
     });
 
+    bgSoundRef.current?.stop();
+    bgSoundRef.current = null;
+
     // Success haptic
+    void playSound('prime-complete');
     void Haptics.notificationAsync(config.sealSuccessHaptic);
 
     // Trigger completion callback
@@ -341,7 +356,7 @@ export function useRitualController({
     if (onComplete) {
       onComplete();
     }
-  }, [config.sealSuccessHaptic, elapsedSeconds, onSealComplete, onComplete]);
+  }, [config.sealSuccessHaptic, elapsedSeconds, onComplete, onSealComplete, playSound]);
 
   useEffect(() => {
     return () => {

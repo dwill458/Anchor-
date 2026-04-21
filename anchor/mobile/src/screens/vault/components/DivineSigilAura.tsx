@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo } from 'react';
 import { Platform, StyleSheet, View } from 'react-native';
-import { BlurMask, Canvas, Circle, Group, Line } from '@shopify/react-native-skia';
+import { Canvas, Picture, PaintStyle, Skia, TileMode } from '@shopify/react-native-skia';
 import {
   Easing,
   cancelAnimation,
@@ -11,6 +11,7 @@ import {
   type SharedValue,
 } from 'react-native-reanimated';
 import { colors } from '@/theme';
+import type { PerformanceTier } from '@/hooks/usePerformanceTier';
 
 const TAU = Math.PI * 2;
 
@@ -19,10 +20,15 @@ interface DivineSigilAuraProps {
   enabled: boolean;
   reduceMotionEnabled?: boolean;
   breath?: SharedValue<number>;
+  /**
+   * Rendering budget. `'low'` disables the canvas (use BakedGlow in the
+   * parent instead). `'medium'` keeps the SkPicture but halts spin/pulse
+   * animations so the GPU renders once on layout and then sleeps.
+   */
+  tier?: PerformanceTier;
 }
 
 interface RaySeed {
-  id: number;
   angle: number;
   length: number;
   width: number;
@@ -31,7 +37,6 @@ interface RaySeed {
 }
 
 interface ParticleSeed {
-  id: number;
   angle: number;
   radius: number;
   speed: number;
@@ -43,7 +48,6 @@ interface ParticleSeed {
 }
 
 interface StreakSeed {
-  id: number;
   angle: number;
   radius: number;
   length: number;
@@ -55,238 +59,100 @@ const seeded = (seed: number): number => {
   return value - Math.floor(value);
 };
 
-const buildRaySeeds = (count: number): RaySeed[] => {
-  const seeds: RaySeed[] = [];
-  for (let index = 0; index < count; index += 1) {
-    seeds.push({
-      id: index,
-      angle: (index / count) * TAU,
-      length: 0.58 + seeded(index + 11) * 0.34,
-      width: 0.8 + seeded(index + 31) * 1.8,
-      speed: 0.08 + seeded(index + 71) * 0.16,
-      opacity: 0.36 + seeded(index + 107) * 0.44,
-    });
-  }
-  return seeds;
-};
-
-const buildParticles = (count: number): ParticleSeed[] => {
-  const seeds: ParticleSeed[] = [];
-  for (let index = 0; index < count; index += 1) {
-    seeds.push({
-      id: index,
-      angle: seeded(index + 17) * TAU,
-      radius: 0.22 + seeded(index + 41) * 0.34,
-      speed: 0.35 + seeded(index + 97) * 0.9,
-      size: 0.8 + seeded(index + 199) * 2.1,
-      opacity: 0.3 + seeded(index + 283) * 0.7,
-      drift: seeded(index + 353) * TAU,
-      driftSpeed: 0.4 + seeded(index + 421) * 1.25,
-      sparkle: seeded(index + 557) > 0.74,
-    });
-  }
-  return seeds;
-};
-
-const buildStreaks = (count: number): StreakSeed[] => {
-  const seeds: StreakSeed[] = [];
-  for (let index = 0; index < count; index += 1) {
-    seeds.push({
-      id: index,
-      angle: seeded(index + 211) * TAU,
-      radius: 0.32 + seeded(index + 263) * 0.16,
-      length: 10 + seeded(index + 317) * 14,
-      offset: seeded(index + 401),
-    });
-  }
-  return seeds;
-};
-
-interface SacredRayProps {
-  seed: RaySeed;
-  center: number;
-  radius: number;
-  spin: SharedValue<number>;
-  pulse: SharedValue<number>;
-}
-
-const SacredRay: React.FC<SacredRayProps> = ({ seed, center, radius, spin, pulse }) => {
-  const angle = useDerivedValue(() => seed.angle + spin.value * seed.speed * TAU);
-  const rayEnd = useDerivedValue(() => ({
-    x: center + Math.cos(angle.value) * radius * seed.length,
-    y: center + Math.sin(angle.value) * radius * seed.length,
+const buildRaySeeds = (count: number): RaySeed[] =>
+  Array.from({ length: count }, (_, i) => ({
+    angle: (i / count) * TAU,
+    length: 0.58 + seeded(i + 11) * 0.34,
+    width: 0.8 + seeded(i + 31) * 1.8,
+    speed: 0.08 + seeded(i + 71) * 0.16,
+    opacity: 0.36 + seeded(i + 107) * 0.44,
   }));
-  const opacity = useDerivedValue(() => {
-    const rayPulse = 0.38 + pulse.value * 0.62;
-    return seed.opacity * rayPulse;
-  });
-  const strokeWidth = useDerivedValue(() => seed.width * (0.45 + pulse.value * 0.75));
 
-  return (
-    <Line
-      p1={{ x: center, y: center }}
-      p2={rayEnd as any}
-      color="rgba(255, 218, 122, 0.92)"
-      opacity={opacity}
-      strokeWidth={strokeWidth}
-    />
-  );
-};
+const buildParticles = (count: number): ParticleSeed[] =>
+  Array.from({ length: count }, (_, i) => ({
+    angle: seeded(i + 17) * TAU,
+    radius: 0.22 + seeded(i + 41) * 0.34,
+    speed: 0.35 + seeded(i + 97) * 0.9,
+    size: 0.8 + seeded(i + 199) * 2.1,
+    opacity: 0.3 + seeded(i + 283) * 0.7,
+    drift: seeded(i + 353) * TAU,
+    driftSpeed: 0.4 + seeded(i + 421) * 1.25,
+    sparkle: seeded(i + 557) > 0.74,
+  }));
 
-interface OrbitDotProps {
-  center: number;
-  radius: number;
-  baseAngle: number;
-  dotSize: number;
-  baseOpacity: number;
-  spin: SharedValue<number>;
-  pulse: SharedValue<number>;
-}
-
-const OrbitDot: React.FC<OrbitDotProps> = ({
-  center,
-  radius,
-  baseAngle,
-  dotSize,
-  baseOpacity,
-  spin,
-  pulse,
-}) => {
-  const x = useDerivedValue(() => center + Math.cos(baseAngle + spin.value * TAU) * radius);
-  const y = useDerivedValue(() => center + Math.sin(baseAngle + spin.value * TAU) * radius);
-  const opacity = useDerivedValue(() => baseOpacity * (0.65 + pulse.value * 0.45));
-
-  return <Circle cx={x} cy={y} r={dotSize} color="#FFE07D" opacity={opacity} />;
-};
-
-interface ParticleProps {
-  seed: ParticleSeed;
-  center: number;
-  radius: number;
-  spin: SharedValue<number>;
-  pulse: SharedValue<number>;
-}
-
-const GoldParticle: React.FC<ParticleProps> = ({ seed, center, radius, spin, pulse }) => {
-  const angle = useDerivedValue(() => seed.angle + spin.value * seed.speed * TAU);
-  const drift = useDerivedValue(() => Math.sin(spin.value * TAU * seed.driftSpeed + seed.drift) * 10);
-  const x = useDerivedValue(() => center + Math.cos(angle.value) * (radius * seed.radius + drift.value));
-  const y = useDerivedValue(() => center + Math.sin(angle.value) * (radius * seed.radius + drift.value));
-  const flicker = useDerivedValue(() => 0.35 + Math.abs(Math.sin(spin.value * TAU * 2.4 + seed.angle)) * 0.65);
-  const opacity = useDerivedValue(() => seed.opacity * flicker.value * (0.5 + pulse.value * 0.5));
-  const sparkleOpacity = useDerivedValue(() => {
-    if (!seed.sparkle) return 0;
-    return opacity.value > 0.58 ? opacity.value * 0.9 : 0;
-  });
-  const sparkleHStart = useDerivedValue(() => ({ x: x.value - 4, y: y.value }));
-  const sparkleHEnd = useDerivedValue(() => ({ x: x.value + 4, y: y.value }));
-  const sparkleVStart = useDerivedValue(() => ({ x: x.value, y: y.value - 4 }));
-  const sparkleVEnd = useDerivedValue(() => ({ x: x.value, y: y.value + 4 }));
-
-  return (
-    <Group>
-      <Circle cx={x} cy={y} r={seed.size} color="#FFE8A3" opacity={opacity} />
-      {seed.sparkle && (
-        <>
-          <Line
-            p1={sparkleHStart as any}
-            p2={sparkleHEnd as any}
-            color="#FFF5CC"
-            strokeWidth={0.75}
-            opacity={sparkleOpacity}
-          />
-          <Line
-            p1={sparkleVStart as any}
-            p2={sparkleVEnd as any}
-            color="#FFF5CC"
-            strokeWidth={0.75}
-            opacity={sparkleOpacity}
-          />
-        </>
-      )}
-    </Group>
-  );
-};
-
-interface AscendingStreakProps {
-  seed: StreakSeed;
-  center: number;
-  radius: number;
-  progress: SharedValue<number>;
-}
-
-const AscendingStreak: React.FC<AscendingStreakProps> = ({ seed, center, radius, progress }) => {
-  const local = useDerivedValue(() => (progress.value + seed.offset) % 1);
-  const angle = useDerivedValue(() => seed.angle + local.value * 0.35);
-  const startX = useDerivedValue(() => center + Math.cos(angle.value) * radius * seed.radius);
-  const startY = useDerivedValue(() => center + Math.sin(angle.value) * radius * seed.radius + radius * 0.16 - local.value * radius * 0.6);
-  const endY = useDerivedValue(() => startY.value - seed.length);
-  const opacity = useDerivedValue(() => {
-    const fadeIn = Math.min(1, local.value / 0.16);
-    const fadeOut = local.value > 0.72 ? (1 - local.value) / 0.28 : 1;
-    return Math.max(0, fadeIn * fadeOut * 0.85);
-  });
-  const streakStart = useDerivedValue(() => ({ x: startX.value, y: startY.value }));
-  const streakEnd = useDerivedValue(() => ({ x: startX.value, y: endY.value }));
-
-  return (
-    <Line
-      p1={streakStart as any}
-      p2={streakEnd as any}
-      color="rgba(255, 228, 156, 0.95)"
-      strokeWidth={1.1}
-      opacity={opacity}
-    />
-  );
-};
+const buildStreaks = (count: number): StreakSeed[] =>
+  Array.from({ length: count }, (_, i) => ({
+    angle: seeded(i + 211) * TAU,
+    radius: 0.32 + seeded(i + 263) * 0.16,
+    length: 10 + seeded(i + 317) * 14,
+    offset: seeded(i + 401),
+  }));
 
 export const DivineSigilAura: React.FC<DivineSigilAuraProps> = ({
   size,
   enabled,
   reduceMotionEnabled = false,
   breath,
+  tier = 'high',
 }) => {
+  const tierSuppressed = tier === 'low';
+  const tierFrozen = tier === 'medium';
   const fallbackBreath = useSharedValue(0);
   const spinSlow = useSharedValue(0);
   const spinFast = useSharedValue(0);
   const ascendProgress = useSharedValue(0);
   const pulse = breath ?? fallbackBreath;
 
-  const particleCount = Platform.OS === 'android' ? 36 : 60;
-  const rayCount = Platform.OS === 'android' ? 10 : 12;
+  // Fewer particles on Android to stay within GPU budget
+  const particleCount = Platform.OS === 'android' ? 24 : 48;
+  const rayCount = Platform.OS === 'android' ? 8 : 12;
 
   const rays = useMemo(() => buildRaySeeds(rayCount), [rayCount]);
   const particles = useMemo(() => buildParticles(particleCount), [particleCount]);
   const streaks = useMemo(() => buildStreaks(5), []);
 
-  const animationsEnabled = enabled && !reduceMotionEnabled && process.env.NODE_ENV !== 'test';
+  const animationsEnabled =
+    enabled &&
+    !reduceMotionEnabled &&
+    !tierFrozen &&
+    !tierSuppressed &&
+    process.env.NODE_ENV !== 'test';
   const center = size / 2;
   const maxRadius = size * 0.48;
 
-  useEffect(() => {
-    if (breath || !animationsEnabled) {
-      if (!breath) {
-        cancelAnimation(fallbackBreath);
-        fallbackBreath.value = 0;
-      }
-      return;
-    }
-
-    fallbackBreath.value = withRepeat(
-      withTiming(1, {
-        duration: 1600,
-        easing: Easing.inOut(Easing.sin),
-      }),
-      -1,
-      true
-    );
-
-    return () => {
-      cancelAnimation(fallbackBreath);
-      fallbackBreath.value = 0;
+  // ── Pre-allocate all Paint objects — zero per-frame allocations ────────────
+  const paints = useMemo(() => {
+    const fill = () => Skia.Paint();
+    const stroke = () => {
+      const p = Skia.Paint();
+      p.setStyle(PaintStyle.Stroke);
+      return p;
     };
-  }, [animationsEnabled, breath, fallbackBreath]);
+    const aa = () => {
+      const p = Skia.Paint();
+      p.setAntiAlias(true);
+      return p;
+    };
+    const aaStroke = () => {
+      const p = Skia.Paint();
+      p.setAntiAlias(true);
+      p.setStyle(PaintStyle.Stroke);
+      return p;
+    };
+    return {
+      haloOuter: fill(),
+      haloInner: fill(),
+      rays: Array.from({ length: rays.length }, stroke),
+      outerDots: Array.from({ length: 24 }, aa),
+      innerDots: Array.from({ length: 16 }, aa),
+      particles: Array.from({ length: particleCount }, aa),
+      sparkles: Array.from({ length: particleCount }, aaStroke),
+      streaks: Array.from({ length: 5 }, stroke),
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [rays.length, particleCount]);
 
+  // ── Animations ────────────────────────────────────────────────────────────
   useEffect(() => {
     if (!animationsEnabled) {
       cancelAnimation(spinSlow);
@@ -295,32 +161,33 @@ export const DivineSigilAura: React.FC<DivineSigilAuraProps> = ({
       spinSlow.value = 0;
       spinFast.value = 0;
       ascendProgress.value = 0;
+      if (!breath) {
+        cancelAnimation(fallbackBreath);
+        fallbackBreath.value = 0;
+      }
       return;
     }
 
+    if (!breath) {
+      fallbackBreath.value = withRepeat(
+        withTiming(1, { duration: 1600, easing: Easing.inOut(Easing.sin) }),
+        -1,
+        true
+      );
+    }
+
     spinSlow.value = withRepeat(
-      withTiming(1, {
-        duration: 22000,
-        easing: Easing.linear,
-      }),
+      withTiming(1, { duration: 22000, easing: Easing.linear }),
       -1,
       false
     );
-
     spinFast.value = withRepeat(
-      withTiming(1, {
-        duration: 15000,
-        easing: Easing.linear,
-      }),
+      withTiming(1, { duration: 15000, easing: Easing.linear }),
       -1,
       false
     );
-
     ascendProgress.value = withRepeat(
-      withTiming(1, {
-        duration: 5200,
-        easing: Easing.linear,
-      }),
+      withTiming(1, { duration: 5200, easing: Easing.linear }),
       -1,
       false
     );
@@ -329,85 +196,153 @@ export const DivineSigilAura: React.FC<DivineSigilAuraProps> = ({
       cancelAnimation(spinSlow);
       cancelAnimation(spinFast);
       cancelAnimation(ascendProgress);
-      spinSlow.value = 0;
-      spinFast.value = 0;
-      ascendProgress.value = 0;
+      if (!breath) {
+        cancelAnimation(fallbackBreath);
+        fallbackBreath.value = 0;
+      }
     };
-  }, [animationsEnabled, ascendProgress, spinFast, spinSlow]);
+  }, [animationsEnabled, breath, fallbackBreath, spinSlow, spinFast, ascendProgress]);
 
-  const haloOuterOpacity = useDerivedValue(() => 0.22 + pulse.value * 0.22);
-  const haloInnerOpacity = useDerivedValue(() => 0.3 + pulse.value * 0.34);
-  const haloInnerRadius = useDerivedValue(() => maxRadius * (0.35 + pulse.value * 0.23));
-  const ringSlowRotation = useDerivedValue(() => spinSlow.value * 0.24);
-  const ringFastRotation = useDerivedValue(() => -spinFast.value * 0.35);
+  // ── Single SkPicture worklet — replaces 100+ individual React components ──
+  // rays/particles/streaks are serialized to UI thread once on worklet creation.
+  // paints are Skia JSI HostObjects, transferred safely across the thread boundary.
+  const picture = useDerivedValue(() => {
+    const sl = spinSlow.value * TAU;
+    const sf = spinFast.value * TAU;
+    const ap = ascendProgress.value;
+    const p = pulse.value;
 
-  if (!enabled) {
+    const recorder = Skia.PictureRecorder();
+    const cnv = recorder.beginRecording(
+      Skia.XYWHRect(0, 0, size > 0 ? size : 1, size > 0 ? size : 1)
+    );
+
+    // 1. Outer halo
+    {
+      const opacity = 0.22 + p * 0.22;
+      const shader = Skia.Shader.MakeRadialGradient(
+        { x: center, y: center },
+        maxRadius,
+        [Skia.Color(`${colors.gold}55`), Skia.Color('rgba(0,0,0,0)')],
+        [0, 1],
+        TileMode.Clamp
+      );
+      const paint = paints.haloOuter;
+      paint.setShader(shader);
+      paint.setAlphaf(opacity);
+      cnv.drawCircle(center, center, maxRadius, paint);
+    }
+
+    // 2. Inner pulsing halo
+    {
+      const opacity = 0.3 + p * 0.34;
+      const innerRadius = maxRadius * (0.35 + p * 0.23);
+      const shader = Skia.Shader.MakeRadialGradient(
+        { x: center, y: center },
+        innerRadius > 0 ? innerRadius : 1,
+        [Skia.Color('rgba(255,220,110,0.9)'), Skia.Color('rgba(0,0,0,0)')],
+        [0, 1],
+        TileMode.Clamp
+      );
+      const paint = paints.haloInner;
+      paint.setShader(shader);
+      paint.setAlphaf(opacity);
+      cnv.drawCircle(center, center, innerRadius > 0 ? innerRadius : 1, paint);
+    }
+
+    // 3. Sacred rays
+    for (let i = 0; i < rays.length; i++) {
+      const ray = rays[i];
+      const angle = ray.angle + sl * ray.speed;
+      const rayPulse = 0.38 + p * 0.62;
+      const opacity = ray.opacity * rayPulse;
+      const strokeWidth = ray.width * (0.45 + p * 0.75);
+      const x2 = center + Math.cos(angle) * maxRadius * ray.length;
+      const y2 = center + Math.sin(angle) * maxRadius * ray.length;
+      const paint = paints.rays[i];
+      paint.setStrokeWidth(strokeWidth);
+      paint.setColor(Skia.Color(`rgba(255,218,122,${opacity})`));
+      cnv.drawLine(center, center, x2, y2, paint);
+    }
+
+    // 4. Outer ring — 24 dots, CW
+    for (let i = 0; i < 24; i++) {
+      const angle = (i / 24) * TAU + sl * 0.24;
+      const opacity = 0.45 * (0.65 + p * 0.45);
+      const dotX = center + Math.cos(angle) * maxRadius * 0.84;
+      const dotY = center + Math.sin(angle) * maxRadius * 0.84;
+      const paint = paints.outerDots[i];
+      paint.setColor(Skia.Color(`rgba(255,224,125,${opacity})`));
+      cnv.drawCircle(dotX, dotY, 2.25, paint);
+    }
+
+    // 5. Inner ring — 16 dots, CCW
+    for (let i = 0; i < 16; i++) {
+      const angle = (i / 16) * TAU - sf * 0.35;
+      const opacity = 0.5 * (0.65 + p * 0.45);
+      const dotX = center + Math.cos(angle) * maxRadius * 0.64;
+      const dotY = center + Math.sin(angle) * maxRadius * 0.64;
+      const paint = paints.innerDots[i];
+      paint.setColor(Skia.Color(`rgba(255,224,125,${opacity})`));
+      cnv.drawCircle(dotX, dotY, 1.9, paint);
+    }
+
+    // 6. Floating particles
+    for (let i = 0; i < particles.length; i++) {
+      const pt = particles[i];
+      const angle = pt.angle + sf * pt.speed;
+      const drift = Math.sin(sf * pt.driftSpeed + pt.drift) * 10;
+      const r = maxRadius * pt.radius + drift;
+      const px = center + Math.cos(angle) * r;
+      const py = center + Math.sin(angle) * r;
+      const flicker = 0.35 + Math.abs(Math.sin(sf * 2.4 + pt.angle)) * 0.65;
+      const opacity = pt.opacity * flicker * (0.5 + p * 0.5);
+      const paint = paints.particles[i];
+      paint.setColor(Skia.Color(`rgba(255,232,163,${opacity})`));
+      cnv.drawCircle(px, py, pt.size, paint);
+
+      if (pt.sparkle && opacity > 0.58) {
+        const sp = paints.sparkles[i];
+        sp.setStrokeWidth(0.75);
+        sp.setColor(Skia.Color(`rgba(255,245,204,${opacity * 0.9})`));
+        cnv.drawLine(px - 4, py, px + 4, py, sp);
+        cnv.drawLine(px, py - 4, px, py + 4, sp);
+      }
+    }
+
+    // 7. Ascending light streaks
+    for (let i = 0; i < streaks.length; i++) {
+      const streak = streaks[i];
+      const local = (ap + streak.offset) % 1;
+      const angle = streak.angle + local * 0.35;
+      const startX = center + Math.cos(angle) * maxRadius * streak.radius;
+      const startY =
+        center + Math.sin(angle) * maxRadius * streak.radius +
+        maxRadius * 0.16 -
+        local * maxRadius * 0.6;
+      const endY = startY - streak.length;
+      const fadeIn = Math.min(1, local / 0.16);
+      const fadeOut = local > 0.72 ? (1 - local) / 0.28 : 1;
+      const opacity = Math.max(0, fadeIn * fadeOut * 0.85);
+      if (opacity > 0.01) {
+        const paint = paints.streaks[i];
+        paint.setStrokeWidth(1.1);
+        paint.setColor(Skia.Color(`rgba(255,228,156,${opacity})`));
+        cnv.drawLine(startX, startY, startX, endY, paint);
+      }
+    }
+
+    return recorder.finishRecordingAsPicture();
+  });
+
+  if (!enabled || tierSuppressed) {
     return null;
   }
 
   return (
     <View pointerEvents="none" style={[styles.container, { width: size, height: size }]}>
       <Canvas style={StyleSheet.absoluteFill}>
-        <Circle cx={center} cy={center} r={maxRadius} color={`${colors.gold}66`} opacity={haloOuterOpacity}>
-          <BlurMask blur={48} style="normal" />
-        </Circle>
-
-        <Circle cx={center} cy={center} r={haloInnerRadius} color="rgba(255, 220, 110, 0.9)" opacity={haloInnerOpacity}>
-          <BlurMask blur={30} style="normal" />
-        </Circle>
-
-        {rays.map((ray) => (
-          <SacredRay key={`ray-${ray.id}`} seed={ray} center={center} radius={maxRadius} spin={spinSlow} pulse={pulse} />
-        ))}
-
-        {Array.from({ length: 24 }, (_, index) => (
-          <OrbitDot
-            key={`ring-a-${index}`}
-            center={center}
-            radius={maxRadius * 0.84}
-            baseAngle={(index / 24) * TAU}
-            dotSize={2.25}
-            baseOpacity={0.45}
-            spin={ringSlowRotation}
-            pulse={pulse}
-          />
-        ))}
-
-        {Array.from({ length: 16 }, (_, index) => (
-          <OrbitDot
-            key={`ring-b-${index}`}
-            center={center}
-            radius={maxRadius * 0.64}
-            baseAngle={(index / 16) * TAU}
-            dotSize={1.9}
-            baseOpacity={0.5}
-            spin={ringFastRotation}
-            pulse={pulse}
-          />
-        ))}
-
-        <Group>
-          {particles.map((particle) => (
-            <GoldParticle
-              key={`particle-${particle.id}`}
-              seed={particle}
-              center={center}
-              radius={maxRadius}
-              spin={spinFast}
-              pulse={pulse}
-            />
-          ))}
-        </Group>
-
-        {streaks.map((streak) => (
-          <AscendingStreak
-            key={`streak-${streak.id}`}
-            seed={streak}
-            center={center}
-            radius={maxRadius}
-            progress={ascendProgress}
-          />
-        ))}
+        <Picture picture={picture} />
       </Canvas>
     </View>
   );

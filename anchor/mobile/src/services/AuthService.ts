@@ -7,6 +7,11 @@
  */
 
 import type { User, FirebaseUser } from '@/types';
+import {
+  DEVELOPER_MASTER_ACCOUNT_ID,
+  DEVELOPER_MASTER_ACCOUNT_TOKEN,
+  isDeveloperMasterAccountEnabled,
+} from '@/utils/developerMasterAccount';
 
 export interface AuthResult {
   user: User;
@@ -121,14 +126,30 @@ export class AuthService {
     };
   }
 
+  static async getCachedUser(): Promise<User | null> {
+    return null;
+  }
+
   static async signOut(): Promise<void> {
     assertMockAuthEnabled();
     await new Promise((resolve) => setTimeout(resolve, 500));
   }
 
+  static hasAuthenticatedSession(): boolean {
+    return mockAuthEnabled;
+  }
+
   static getCurrentFirebaseUser(): FirebaseUser | null {
     if (!mockAuthEnabled) {
-      return null;
+      if (!isDeveloperMasterAccountEnabled()) {
+        return null;
+      }
+
+      return {
+        uid: DEVELOPER_MASTER_ACCOUNT_ID,
+        email: 'dev+master@anchor.local',
+        displayName: 'Developer Master',
+      };
     }
 
     return {
@@ -140,7 +161,9 @@ export class AuthService {
 
   static async getIdToken(): Promise<string | null> {
     if (!mockAuthEnabled) {
-      return null;
+      return isDeveloperMasterAccountEnabled()
+        ? DEVELOPER_MASTER_ACCOUNT_TOKEN
+        : null;
     }
 
     return 'mock-jwt-token';

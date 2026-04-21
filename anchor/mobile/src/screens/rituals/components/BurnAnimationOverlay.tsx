@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
+  Alert,
   BackHandler,
   Dimensions,
   StyleSheet,
@@ -49,6 +50,29 @@ type BurnStartPayload = {
   fallbackSigilUri?: string;
 };
 
+const isInlineRenderableUri = (uri: string): boolean =>
+  uri.startsWith('data:') || uri.startsWith('file:') || uri.startsWith('content:');
+
+const blobToDataUri = async (blob: Blob): Promise<string> =>
+  new Promise((resolve, reject) => {
+    const reader = new FileReader();
+
+    reader.onerror = () => {
+      reject(new Error('Failed to serialize burn artwork.'));
+    };
+
+    reader.onloadend = () => {
+      if (typeof reader.result === 'string') {
+        resolve(reader.result);
+        return;
+      }
+
+      reject(new Error('Failed to serialize burn artwork.'));
+    };
+
+    reader.readAsDataURL(blob);
+  });
+
 const buildStartScript = (payload: BurnStartPayload): string => {
   const serialized = JSON.stringify(payload);
   return `
@@ -76,6 +100,8 @@ export const BurnAnimationOverlay: React.FC<BurnAnimationOverlayProps> = ({
   const [overlayState, setOverlayState] = useState<OverlayState>('animating');
   const [errorMessage, setErrorMessage] = useState<string>('');
   const [isRetrying, setIsRetrying] = useState(false);
+  const [resolvedWebViewSigilUri, setResolvedWebViewSigilUri] = useState<string | undefined>(undefined);
+  const [isWebViewSigilReady, setIsWebViewSigilReady] = useState(false);
 
   const ashLineOpacity = useSharedValue(0);
 
@@ -97,6 +123,56 @@ export const BurnAnimationOverlay: React.FC<BurnAnimationOverlayProps> = ({
   }, [sigilSvg]);
 
   const sigilUri = useMemo(() => enhancedImageUrl ?? fallbackSigilUri, [enhancedImageUrl, fallbackSigilUri]);
+
+  useEffect(() => {
+    let isCancelled = false;
+
+    const resolveSigilUri = async (): Promise<void> => {
+      if (!sigilUri) {
+        if (!isCancelled) {
+          setResolvedWebViewSigilUri(undefined);
+          setIsWebViewSigilReady(true);
+        }
+        return;
+      }
+
+      if (isInlineRenderableUri(sigilUri)) {
+        if (!isCancelled) {
+          setResolvedWebViewSigilUri(sigilUri);
+          setIsWebViewSigilReady(true);
+        }
+        return;
+      }
+
+      try {
+        const response = await fetch(sigilUri);
+        if (!response.ok) {
+          throw new Error(`Burn artwork request failed with ${response.status}`);
+        }
+
+        const blob = await response.blob();
+        const dataUri = await blobToDataUri(blob);
+
+        if (!isCancelled) {
+          setResolvedWebViewSigilUri(dataUri);
+          setIsWebViewSigilReady(true);
+        }
+      } catch {
+        if (!isCancelled) {
+          setResolvedWebViewSigilUri(sigilUri);
+          setIsWebViewSigilReady(true);
+        }
+      }
+    };
+
+    setIsWebViewSigilReady(false);
+    setResolvedWebViewSigilUri(undefined);
+    void resolveSigilUri();
+
+    return () => {
+      isCancelled = true;
+    };
+  }, [sigilUri]);
 
   const clearTimers = useCallback(() => {
     timersRef.current.forEach((timer) => clearTimeout(timer));
@@ -188,8 +264,20 @@ export const BurnAnimationOverlay: React.FC<BurnAnimationOverlayProps> = ({
     return () => {
       isMountedRef.current = false;
       clearTimers();
+      webViewRef.current?.postMessage(JSON.stringify({ cmd: 'cleanup' }));
     };
   }, [clearTimers, runInitialCommit]);
+
+  const showCancelRitualDialog = useCallback((onConfirm: () => void) => {
+    Alert.alert(
+      'Cancel Ritual?',
+      'Cancelling will stop the burn. Your anchor will not be released.',
+      [
+        { text: 'Continue Ritual', style: 'cancel' },
+        { text: 'Cancel', style: 'destructive', onPress: onConfirm },
+      ]
+    );
+  }, []);
 
   useEffect(() => {
     navigation.setOptions({ gestureEnabled: false });
@@ -197,10 +285,21 @@ export const BurnAnimationOverlay: React.FC<BurnAnimationOverlayProps> = ({
     const beforeRemoveUnsubscribe = navigation.addListener('beforeRemove', (event: any) => {
       if (!isLockedRef.current) return;
       event.preventDefault();
+      showCancelRitualDialog(() => {
+        isLockedRef.current = false;
+        navigation.setOptions({ gestureEnabled: true });
+        navigation.dispatch(event.data.action);
+      });
     });
 
     const hardwareBackSubscription = BackHandler.addEventListener('hardwareBackPress', () => {
-      return isLockedRef.current;
+      if (!isLockedRef.current) return false;
+      showCancelRitualDialog(() => {
+        isLockedRef.current = false;
+        navigation.setOptions({ gestureEnabled: true });
+        navigation.goBack();
+      });
+      return true;
     });
 
     return () => {
@@ -208,22 +307,32 @@ export const BurnAnimationOverlay: React.FC<BurnAnimationOverlayProps> = ({
       hardwareBackSubscription.remove();
       navigation.setOptions({ gestureEnabled: true });
     };
-  }, [navigation]);
+  }, [navigation, showCancelRitualDialog]);
 
   const ashLineStyle = useAnimatedStyle(() => ({ opacity: ashLineOpacity.value }));
 
-  const handleWebViewLoad = useCallback(() => {
-    if (startInjectedRef.current) return;
+  const injectStartPayload = useCallback(() => {
+    if (startInjectedRef.current || !isWebViewSigilReady) {
+      return;
+    }
 
     startInjectedRef.current = true;
     webViewRef.current?.injectJavaScript(
       buildStartScript({
         cmd: 'start',
-        sigilUri,
+        sigilUri: resolvedWebViewSigilUri,
         fallbackSigilUri,
       })
     );
-  }, [fallbackSigilUri, sigilUri]);
+  }, [fallbackSigilUri, isWebViewSigilReady, resolvedWebViewSigilUri]);
+
+  const handleWebViewLoad = useCallback(() => {
+    injectStartPayload();
+  }, [injectStartPayload]);
+
+  useEffect(() => {
+    injectStartPayload();
+  }, [injectStartPayload]);
 
   const handleWebViewMessage = useCallback(
     (event: WebViewMessageEvent) => {

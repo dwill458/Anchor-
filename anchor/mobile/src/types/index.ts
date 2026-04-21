@@ -16,6 +16,7 @@
  */
 export interface Anchor {
   id: string;
+  localId?: string;
   userId: string;
   intentionText: string;
   category: AnchorCategory;
@@ -315,6 +316,9 @@ export interface EnhancementMetadata {
   /** AI model identifier (e.g., 'sdxl-controlnet-canny-v1') */
   modelUsed: string;
 
+  /** Provider that generated the artwork (e.g., 'gemini', 'replicate') */
+  provider?: string;
+
   /** ControlNet method used (e.g., 'canny', 'lineart') */
   controlMethod: 'canny' | 'lineart' | string;
 
@@ -348,6 +352,17 @@ export type AIStyle =
   | 'echo_chamber'
   | 'monolith_ink'
   | 'celestial_grid';
+
+export interface GeneratedVariation {
+  imageUrl: string;
+  structureMatchScore?: number;
+  iouScore?: number;
+  edgeOverlapScore?: number;
+  structurePreserved?: boolean;
+  classification?: string;
+  wasComposited?: boolean;
+  seed?: number;
+}
 
 /**
  * Legacy AI styles (deprecated, kept for backward compatibility)
@@ -419,6 +434,8 @@ export type RootStackParamList = {
   Vault: undefined;
   FirstAnchorAccountGate: undefined;
   AnchorDetail: { anchorId: string };
+  AuthGate: undefined;
+  Paywall: undefined;
   CreateAnchor: undefined;
   /** First anchor creation after onboarding — shows new-user IntentionInputScreen */
   FirstAnchorCreation: undefined;
@@ -517,9 +534,14 @@ export type RootStackParamList = {
     reinforcedSigilSvg?: string;
     structureVariant: SigilVariant;
     styleChoice: AIStyle;
-    variations: string[];
+    variations: Array<string | GeneratedVariation>;
     reinforcementMetadata?: ReinforcementMetadata;
     prompt?: string;
+    negativePrompt?: string;
+    modelUsed?: string;
+    provider?: string;
+    controlMethod?: string;
+    generationTimeMs?: number;
   };
 
   /** Step 7d: Anchor Reveal (Show selected anchor before mantra) */
@@ -626,7 +648,18 @@ export type RootStackParamList = {
     returnTo?: 'vault' | 'practice' | 'detail';
   };
   SealAnchor: { anchorId: string; returnTo?: 'vault' | 'practice' | 'detail' };
-  ChargeComplete: { anchorId: string; returnTo?: 'vault' | 'practice' | 'detail' };
+  ChargeComplete: {
+    anchorId: string;
+    durationSeconds?: number;
+    returnTo?: 'vault' | 'practice' | 'detail';
+  };
+  FirstPrimeComplete: {
+    anchorId: string;
+    sessionCount: number;
+    threadStrength: number;
+    durationSeconds: number;
+    returnTo?: 'vault' | 'practice' | 'detail';
+  };
 
   // Activation
   ActivationRitual: {
@@ -690,7 +723,7 @@ export type RootStackParamList = {
   // Audio & Haptics Settings
   MantraVoice: undefined;
   VoiceStyle: undefined;
-  HapticIntensity: undefined;
+  HapticFeedback: undefined;
 
   // Data & Privacy Settings
   DataPrivacy: undefined;
