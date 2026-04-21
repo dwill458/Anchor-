@@ -170,10 +170,10 @@ describe('reduce-motion', () => {
     setOS('ios');
     let listener: (v: boolean) => void = () => {};
     mockAddAccessibilityListener.mockImplementation(
-      (_event: string, cb: (v: boolean) => void) => {
+      ((_event: string, cb: (v: boolean) => void) => {
         listener = cb;
         return { remove: jest.fn() };
-      },
+      }) as any,
     );
     const { result } = renderHook(() => usePerformanceTier());
     expect(result.current).toBe('high');
@@ -185,10 +185,10 @@ describe('reduce-motion', () => {
     setOS('ios');
     let listener: (v: boolean) => void = () => {};
     mockAddAccessibilityListener.mockImplementation(
-      (_event: string, cb: (v: boolean) => void) => {
+      ((_event: string, cb: (v: boolean) => void) => {
         listener = cb;
         return { remove: jest.fn() };
-      },
+      }) as any,
     );
     const { result } = renderHook(() => usePerformanceTier());
     act(() => { listener(true); });

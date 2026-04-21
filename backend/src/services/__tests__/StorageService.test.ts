@@ -126,15 +126,14 @@ describe('StorageService', () => {
       expect(firstPath).not.toBe(secondPath);
     });
 
-    it('should throw on fs write failure', async () => {
+    it('falls back to data URI when fs write fails', async () => {
       (fs.existsSync as jest.Mock).mockReturnValue(true);
       (fs.writeFileSync as jest.Mock).mockImplementation(() => {
         throw new Error('Disk full');
       });
 
-      await expect(uploadImageFromBuffer(Buffer.from('data'), 'user', 'anchor', 0)).rejects.toThrow(
-        'Failed to upload image from buffer'
-      );
+      const result = await uploadImageFromBuffer(Buffer.from('data'), 'user', 'anchor', 0);
+      expect(result).toMatch(/^data:image\/png;base64,/);
     });
   });
 

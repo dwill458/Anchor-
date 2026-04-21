@@ -5,7 +5,7 @@
  */
 
 import React, { memo } from 'react';
-import { View, type DimensionValue } from 'react-native';
+import { View } from 'react-native';
 import { SvgXml } from 'react-native-svg';
 
 export interface SigilSvgProps {
@@ -33,7 +33,7 @@ function normalizeSvgXml(xml: string): string {
   return normalized;
 }
 
-function normalizeDimension(value: number | string): DimensionValue {
+function normalizeDimension(value: number | string): string | number {
   if (typeof value === 'number') {
     return value;
   }
@@ -41,7 +41,7 @@ function normalizeDimension(value: number | string): DimensionValue {
   const parsed = Number.parseFloat(value);
   return Number.isFinite(parsed) && !value.includes('%')
     ? parsed
-    : value as DimensionValue;
+    : value;
 }
 
 /**
