@@ -811,9 +811,8 @@ REFERENCE IMAGE INSTRUCTION: The attached image shows the sigil structure that m
       ]);
 
       const imageData = response.candidates
-        ?.flatMap((candidate) => candidate.content?.parts ?? [])
-        ?.find((part) => typeof part.inlineData?.data === 'string')
-        ?.inlineData?.data;
+        ?.flatMap(candidate => candidate.content?.parts ?? [])
+        ?.find(part => typeof part.inlineData?.data === 'string')?.inlineData?.data;
 
       if (!imageData) {
         throw new GeminiError(

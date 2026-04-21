@@ -778,9 +778,7 @@ export async function enhanceSigilWithControlNet(
     for (let i = 0; i < numVariations; i++) {
       const variationStart = Date.now();
       const seed = 2000 + i * 456;
-      logger.info(
-        `[AI Enhancement] Starting variation ${i + 1}/${numVariations} (seed: ${seed})`
-      );
+      logger.info(`[AI Enhancement] Starting variation ${i + 1}/${numVariations} (seed: ${seed})`);
 
       try {
         const output = await replicate.run(model, {
@@ -932,9 +930,10 @@ export async function enhanceSigilWithControlNet(
  * Estimate generation time for ControlNet enhancement
  * Returns estimate based on available provider (Gemini vs Replicate)
  */
-export function estimateGenerationTime(
-  tier: 'draft' | 'premium' | 'pro_upgrade' = 'premium'
-): { min: number; max: number } {
+export function estimateGenerationTime(tier: 'draft' | 'premium' | 'pro_upgrade' = 'premium'): {
+  min: number;
+  max: number;
+} {
   const geminiService = getGeminiImageService();
   if (geminiService.isAvailable()) {
     // Gemini 3: Parallel generation
