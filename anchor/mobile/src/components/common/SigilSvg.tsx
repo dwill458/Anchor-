@@ -5,7 +5,7 @@
  */
 
 import React, { memo } from 'react';
-import { View } from 'react-native';
+import { View, type DimensionValue } from 'react-native';
 import { SvgXml } from 'react-native-svg';
 
 export interface SigilSvgProps {
@@ -59,7 +59,7 @@ export const SigilSvg: React.FC<SigilSvgProps> = memo(function SigilSvg({
   const resolvedHeight = normalizeDimension(height);
 
   if (!xml) {
-    return <View style={{ width: resolvedWidth, height: resolvedHeight }} />;
+    return <View style={{ width: resolvedWidth as DimensionValue, height: resolvedHeight as DimensionValue }} />;
   }
 
   return (
