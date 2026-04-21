@@ -242,10 +242,10 @@ export const RitualScreen: React.FC = () => {
   const deepEmbers = useRef<EmberParticle[]>(makeDeepEmbers(22)).current;
 
   useEffect(() => {
-    AccessibilityInfo.isReduceMotionEnabled().then(setReduceMotionEnabled);
+    AccessibilityInfo.isReduceMotionEnabled().then((v) => setReduceMotionEnabled(v));
     const subscription = AccessibilityInfo.addEventListener(
       'reduceMotionChanged',
-      setReduceMotionEnabled
+      (isEnabled: boolean) => setReduceMotionEnabled(isEnabled)
     );
 
     return () => subscription.remove();

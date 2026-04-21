@@ -123,7 +123,7 @@ export default function IntentionInputScreen() {
 
     // Check reduced motion accessibility setting on mount
     useEffect(() => {
-        AccessibilityInfo.isReduceMotionEnabled().then(setReduceMotion);
+        AccessibilityInfo.isReduceMotionEnabled().then((v) => setReduceMotion(v));
     }, []);
 
     // Subtle focus glow animation
