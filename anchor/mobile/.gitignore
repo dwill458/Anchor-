@@ -36,3 +36,4 @@ bugreport-*.zip
 
 # Testing
 coverage/
+.jest-cache/
