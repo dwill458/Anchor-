@@ -289,8 +289,8 @@ describe('cleanup', () => {
   it('removes both listeners on unmount', async () => {
     const removeSub = jest.fn();
     const removeBattery = jest.fn();
-    mockAddAccessibilityListener.mockReturnValue({ remove: removeSub });
-    mockAddLowPowerModeListener.mockReturnValue({ remove: removeBattery });
+    mockAddAccessibilityListener.mockReturnValue({ remove: removeSub } as any);
+    mockAddLowPowerModeListener.mockReturnValue({ remove: removeBattery } as any);
 
     const { unmount } = renderHook(() => usePerformanceTier());
     unmount();
