@@ -165,7 +165,7 @@ export const usePerformanceTier = (
       });
     const sub = AccessibilityInfo.addEventListener(
       'reduceMotionChanged',
-      setReduceMotion,
+      (isEnabled: boolean) => setReduceMotion(isEnabled),
     );
     return () => {
       mounted = false;

@@ -13,12 +13,8 @@ import { usePerformanceTier, tierPolicy } from '../usePerformanceTier';
 
 // ── Mocks ─────────────────────────────────────────────────────────────────────
 
-let mockIsReduceMotionEnabled: jest.SpiedFunction<
-  typeof AccessibilityInfo.isReduceMotionEnabled
->;
-let mockAddAccessibilityListener: jest.SpiedFunction<
-  typeof AccessibilityInfo.addEventListener
->;
+let mockIsReduceMotionEnabled: jest.Mock;
+let mockAddAccessibilityListener: jest.Mock;
 let mockPixelRatioGet: jest.SpiedFunction<typeof PixelRatio.get>;
 const mockGetPowerStateAsync = jest.fn().mockResolvedValue({ lowPowerMode: false });
 const mockAddLowPowerModeListener = jest.fn().mockReturnValue({ remove: jest.fn() });
