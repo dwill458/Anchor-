@@ -59,6 +59,19 @@ import { encryptedPersistStorage } from './src/stores/encryptedPersistStorage';
 import { logger } from './src/utils/logger';
 import revenueCatService from './src/services/RevenueCatService';
 
+function isNetworkError(error: unknown): boolean {
+  if (!(error instanceof Error)) return false;
+  const msg = error.message.toLowerCase();
+  return (
+    msg.includes('network') ||
+    msg.includes('fetch') ||
+    msg.includes('econnrefused') ||
+    msg.includes('timeout') ||
+    msg.includes('failed to connect') ||
+    msg.includes('network request failed')
+  );
+}
+
 const { width } = Dimensions.get('window');
 const isWeb = Platform.OS === 'web';
 
@@ -314,8 +327,21 @@ export default function App() {
           return;
         }
 
-        logger.error('Failed to restore authenticated session', error);
         const store = useAuthStore.getState();
+        const isNetwork = isNetworkError(error);
+
+        if (isNetwork) {
+          const cached = await AuthService.getCachedUser().catch(() => null);
+          if (cached && firebaseUser) {
+            const token = await firebaseUser.getIdToken().catch(() => '');
+            store.setSession(cached, token);
+            store.setOfflineMode(true);
+            logger.warn('Network unreachable — restored session from cache (offline mode)');
+            return;
+          }
+        }
+
+        logger.error('Failed to restore authenticated session', error);
         store.signOut();
         store.setLoading(false);
       }

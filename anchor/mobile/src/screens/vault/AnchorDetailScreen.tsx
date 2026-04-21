@@ -25,7 +25,7 @@ import { useTabNavigation } from '@/contexts/TabNavigationContext';
 import { useAnchorStore } from '@/stores/anchorStore';
 import { useSettingsStore } from '@/stores/settingsStore';
 import { useSessionStore } from '@/stores/sessionStore';
-import { del } from '@/services/ApiClient';
+import { del, post } from '@/services/ApiClient';
 import { exportAnchorArtwork } from '@/services/AnchorArtworkExportService';
 import { captureRef } from 'react-native-view-shot';
 import * as MediaLibrary from 'expo-media-library';
@@ -541,13 +541,6 @@ const AnchorDetailsScreen = ({ navigation, route }) => {
   const exportCanvasRef = useRef(null);
   const anchorCardRef = useRef<View>(null);
   const [isExporting, setIsExporting] = useState(false);
-  const mediaLibraryPermissionRef = useRef<MediaLibrary.PermissionResponse | null>(null);
-
-  useEffect(() => {
-    MediaLibrary.requestPermissionsAsync().then((result) => {
-      mediaLibraryPermissionRef.current = result;
-    });
-  }, []);
 
   const routeAnchor = route?.params?.anchor;
   const anchorId = route?.params?.anchorId ?? routeAnchor?.id;
@@ -880,6 +873,11 @@ const AnchorDetailsScreen = ({ navigation, route }) => {
 
   const handleDownloadPNG = async () => {
     if (isExporting) return;
+    const perm = await MediaLibrary.requestPermissionsAsync();
+    if (perm.status !== 'granted') {
+      Alert.alert('Permission Required', 'Grant photo library access to save your sigil.');
+      return;
+    }
     setIsExporting(true);
     try {
       const uri = await captureRef(anchorCardRef, { format: 'png', quality: 1 });
@@ -894,6 +892,11 @@ const AnchorDetailsScreen = ({ navigation, route }) => {
 
   const handleSetWallpaper = async () => {
     if (isExporting) return;
+    const perm = await MediaLibrary.requestPermissionsAsync();
+    if (perm.status !== 'granted') {
+      Alert.alert('Permission Required', 'Grant photo library access to share your sigil.');
+      return;
+    }
     setIsExporting(true);
     try {
       const uri = await captureRef(anchorCardRef, { format: 'png', quality: 1 });
@@ -906,8 +909,30 @@ const AnchorDetailsScreen = ({ navigation, route }) => {
     }
   };
 
-  // Removed renderHeroAction and renderRitualCards in favor of the new Primary CTA architecture.
+  const handleReportContent = () => {
+    const imageUrl = anchor.sigilUri ?? anchor.enhancedImageUrl ?? '';
+    if (!imageUrl || !anchor.id) return;
 
+    Alert.alert(
+      'Report AI Content',
+      'Why are you reporting this sigil?',
+      [
+        { text: 'Inappropriate', onPress: () => submitContentReport(anchor.id, imageUrl, 'inappropriate') },
+        { text: 'Harmful', onPress: () => submitContentReport(anchor.id, imageUrl, 'harmful') },
+        { text: 'Other', onPress: () => submitContentReport(anchor.id, imageUrl, 'other') },
+        { text: 'Cancel', style: 'cancel' },
+      ]
+    );
+  };
+
+  const submitContentReport = async (anchorId: string, imageUrl: string, reason: string) => {
+    try {
+      await post('/content/flag', { anchorId, imageUrl, reason });
+      Alert.alert('Reported', 'Thank you. Our team will review this content.');
+    } catch {
+      Alert.alert('Error', 'Could not submit report. Please try again.');
+    }
+  };
 
   return (
     <View style={[s.root, { paddingTop: insets.top }]}>
@@ -1038,6 +1063,13 @@ const AnchorDetailsScreen = ({ navigation, route }) => {
             </View>
           </View>
         </FadeUp>
+
+        {/* Report AI content */}
+        {(anchor.sigilUri || anchor.enhancedImageUrl) && (
+          <TouchableOpacity onPress={handleReportContent} style={s.reportButton} accessibilityRole="button" accessibilityLabel="Report AI-generated content">
+            <Text style={s.reportButtonText}>⚑ Report Content</Text>
+          </TouchableOpacity>
+        )}
 
         {/* ── STATS CARD ── */}
         <FadeUp delay={180}>
@@ -2017,5 +2049,20 @@ const s = StyleSheet.create({
     fontSize: 11, fontStyle: 'italic',
     color: C.textDim, textAlign: 'center',
     paddingVertical: spacing.sm, letterSpacing: 0.5,
+  },
+
+  // ── REPORT CONTENT ──
+  reportButton: {
+    alignSelf: 'center',
+    paddingVertical: spacing.xs,
+    paddingHorizontal: spacing.md,
+    marginTop: spacing.xs,
+    marginBottom: spacing.sm,
+  },
+  reportButtonText: {
+    fontFamily: typography.fontFamily.sans,
+    fontSize: 11,
+    color: 'rgba(255,255,255,0.25)',
+    letterSpacing: 0.3,
   },
 });

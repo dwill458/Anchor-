@@ -451,7 +451,16 @@ function resetAnimation(node) {
 // \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
 //  SEQUENCE CONTROLLER
 // \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
+var pendingTimers = [];
+
+function cancelPendingTimers() {
+  pendingTimers.forEach(function(id) { clearTimeout(id); });
+  pendingTimers = [];
+  cancelAnimationFrame(frameId);
+}
+
 function runSequence() {
+  cancelPendingTimers();
   // Show status
   status.textContent = 'Igniting\u2026';
   status.classList.add('show');
@@ -468,23 +477,23 @@ function runSequence() {
   tick();
 
   // Phase 2 \u2014 full burn (900ms)
-  setTimeout(() => {
+  pendingTimers.push(setTimeout(() => {
     phase = 'burning';
     status.textContent = 'Releasing\u2026';
     circle.style.animation = 'sigilFrameBurn 3.2s cubic-bezier(0.22, 0.61, 0.36, 1) forwards';
     imageShell.style.animation = 'sigilArtBurn 3.2s cubic-bezier(0.22, 0.61, 0.36, 1) forwards';
     burnGlow.style.animation = 'burnGlowPulse 1.08s ease-in-out 3';
     burnVeil.style.animation = 'burnVeilSweep 3.2s ease forwards';
-  }, 900);
+  }, 900)));
 
   // Phase 3 \u2014 embers (3800ms)
-  setTimeout(() => {
+  pendingTimers.push(setTimeout(() => {
     phase = 'embers';
     status.textContent = 'It is done.';
-  }, 3800);
+  }, 3800)));
 
   // Phase 4 \u2014 done (5800ms) \u2014 notify React Native
-  setTimeout(() => {
+  pendingTimers.push(setTimeout(() => {
     phase = 'done';
     cancelAnimationFrame(frameId);
     status.classList.remove('show');
@@ -493,7 +502,7 @@ function runSequence() {
     if (window.ReactNativeWebView) {
       window.ReactNativeWebView.postMessage(JSON.stringify({ event: 'burnComplete' }));
     }
-  }, 5800);
+  }, 5800)));
 }
 
 // \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
@@ -527,6 +536,10 @@ function replaceSigilImage(primaryUri, fallbackUri) {
 window.addEventListener('message', (e) => {
   try {
     const msg = JSON.parse(e.data);
+    if (msg.cmd === 'cleanup') {
+      cancelPendingTimers();
+      return;
+    }
     if (msg.cmd === 'start') {
       // Replace placeholder with the anchor image and fall back to SVG if needed.
       replaceSigilImage(msg.sigilUri, msg.fallbackSigilUri);
@@ -537,7 +550,7 @@ window.addEventListener('message', (e) => {
 
 // Also support direct auto-start for standalone testing in browser
 if (!window.ReactNativeWebView) {
-  setTimeout(() => runSequence(), 400);
+  pendingTimers.push(setTimeout(() => runSequence(), 400));
 }
 </script>
 </body>

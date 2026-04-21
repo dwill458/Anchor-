@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
+  Alert,
   BackHandler,
   Dimensions,
   StyleSheet,
@@ -263,8 +264,20 @@ export const BurnAnimationOverlay: React.FC<BurnAnimationOverlayProps> = ({
     return () => {
       isMountedRef.current = false;
       clearTimers();
+      webViewRef.current?.postMessage(JSON.stringify({ cmd: 'cleanup' }));
     };
   }, [clearTimers, runInitialCommit]);
+
+  const showCancelRitualDialog = useCallback((onConfirm: () => void) => {
+    Alert.alert(
+      'Cancel Ritual?',
+      'Cancelling will stop the burn. Your anchor will not be released.',
+      [
+        { text: 'Continue Ritual', style: 'cancel' },
+        { text: 'Cancel', style: 'destructive', onPress: onConfirm },
+      ]
+    );
+  }, []);
 
   useEffect(() => {
     navigation.setOptions({ gestureEnabled: false });
@@ -272,10 +285,21 @@ export const BurnAnimationOverlay: React.FC<BurnAnimationOverlayProps> = ({
     const beforeRemoveUnsubscribe = navigation.addListener('beforeRemove', (event: any) => {
       if (!isLockedRef.current) return;
       event.preventDefault();
+      showCancelRitualDialog(() => {
+        isLockedRef.current = false;
+        navigation.setOptions({ gestureEnabled: true });
+        navigation.dispatch(event.data.action);
+      });
     });
 
     const hardwareBackSubscription = BackHandler.addEventListener('hardwareBackPress', () => {
-      return isLockedRef.current;
+      if (!isLockedRef.current) return false;
+      showCancelRitualDialog(() => {
+        isLockedRef.current = false;
+        navigation.setOptions({ gestureEnabled: true });
+        navigation.goBack();
+      });
+      return true;
     });
 
     return () => {
@@ -283,7 +307,7 @@ export const BurnAnimationOverlay: React.FC<BurnAnimationOverlayProps> = ({
       hardwareBackSubscription.remove();
       navigation.setOptions({ gestureEnabled: true });
     };
-  }, [navigation]);
+  }, [navigation, showCancelRitualDialog]);
 
   const ashLineStyle = useAnimatedStyle(() => ({ opacity: ashLineOpacity.value }));
 
