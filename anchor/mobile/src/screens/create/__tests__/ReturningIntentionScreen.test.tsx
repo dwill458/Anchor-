@@ -107,7 +107,7 @@ describe('ReturningIntentionScreen', () => {
       jest.advanceTimersByTime(250);
     });
 
-    fireEvent.press(screen.getByRole('button', { name: 'Continue' }));
+    fireEvent.press(screen.getByText('Begin'));
 
     expect(mockSetPendingForgeIntent).toHaveBeenCalledWith('Hold steady');
     expect(mockSetPendingForgeResumeTarget).toHaveBeenCalledWith('CreateAnchor');
@@ -124,7 +124,7 @@ describe('ReturningIntentionScreen', () => {
       jest.advanceTimersByTime(250);
     });
 
-    fireEvent.press(screen.getByRole('button', { name: 'Continue' }));
+    fireEvent.press(screen.getByText('Begin'));
 
     expect(mockSetPendingForgeIntent).toHaveBeenCalledWith('Hold steady');
     expect(mockSetPendingForgeResumeTarget).toHaveBeenCalledWith('CreateAnchor');
