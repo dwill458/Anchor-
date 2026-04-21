@@ -333,7 +333,7 @@ export default function App() {
         if (isNetwork) {
           const cached = await AuthService.getCachedUser().catch(() => null);
           if (cached && firebaseUser) {
-            const token = await firebaseUser.getIdToken().catch(() => '');
+            const token = await AuthService.getIdToken().catch(() => '') ?? '';
             store.setSession(cached, token);
             store.setOfflineMode(true);
             logger.warn('Network unreachable — restored session from cache (offline mode)');
