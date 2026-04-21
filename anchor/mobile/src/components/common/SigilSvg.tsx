@@ -39,9 +39,11 @@ function normalizeDimension(value: number | string): DimensionValue {
   }
 
   const parsed = Number.parseFloat(value);
-  return Number.isFinite(parsed) && !value.includes('%')
-    ? parsed
-    : value as DimensionValue;
+  if (Number.isFinite(parsed) && !value.includes('%')) {
+    return parsed;
+  }
+
+  return value as DimensionValue;
 }
 
 /**
