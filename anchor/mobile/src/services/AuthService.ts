@@ -126,6 +126,10 @@ export class AuthService {
     };
   }
 
+  static async getCachedUser(): Promise<User | null> {
+    return null;
+  }
+
   static async signOut(): Promise<void> {
     assertMockAuthEnabled();
     await new Promise((resolve) => setTimeout(resolve, 500));
