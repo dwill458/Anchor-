@@ -308,6 +308,7 @@ export const PrimeAnchorCanvas: React.FC<PrimeAnchorCanvasProps> = ({
 
       // Apply trim path-effect only during burn animation (allocates, so guarded)
       if (isTrimmed) {
+        // @ts-expect-error MakeTrim missing from installed Skia version types
         const fx = Skia.PathEffect.MakeTrim(tS, tE, false);
         paints.sigilOuter.setPathEffect(fx);
         paints.sigilInner.setPathEffect(fx);

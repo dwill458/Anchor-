@@ -34,7 +34,7 @@ export const TIMEZONE_OPTIONS = [
   'UTC+12',
 ] as const;
 
-export type ProfileMono = 'initial' | `slot_${number}`;
+export type ProfileMono = 'initial' | `slot_${number}` | `avatar_${number}`;
 
 export interface StoredProfile {
   ownerUserId: string | null;

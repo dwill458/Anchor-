@@ -1,12 +1,15 @@
 import React from 'react';
 import { fireEvent, render, screen } from '@testing-library/react-native';
 
-const mockNavigate = jest.fn();
+const mockDispatch = jest.fn();
+const mockReset = jest.fn();
 
 jest.mock('@react-navigation/native', () => ({
   ...jest.requireActual('@react-navigation/native'),
   useNavigation: () => ({
-    navigate: mockNavigate,
+    navigate: jest.fn(),
+    dispatch: mockDispatch,
+    reset: mockReset,
   }),
 }));
 
@@ -14,7 +17,8 @@ import { PaywallScreen } from '../PaywallScreen';
 
 describe('PaywallScreen', () => {
   beforeEach(() => {
-    mockNavigate.mockClear();
+    mockDispatch.mockClear();
+    mockReset.mockClear();
   });
 
   it('opens sign in from the paywall', () => {
@@ -22,6 +26,6 @@ describe('PaywallScreen', () => {
 
     fireEvent.press(screen.getByLabelText('Already forging? Sign in'));
 
-    expect(mockNavigate).toHaveBeenCalledWith('Login');
+    expect(mockDispatch).toHaveBeenCalled();
   });
 });

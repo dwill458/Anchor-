@@ -25,6 +25,7 @@ describe('AuthService (web/test fallback)', () => {
     it('has getIdToken', () => expect(typeof AuthService.getIdToken).toBe('function'));
     it('has sendPasswordResetEmail', () => expect(typeof AuthService.sendPasswordResetEmail).toBe('function'));
     it('has onAuthStateChanged', () => expect(typeof AuthService.onAuthStateChanged).toBe('function'));
+    it('has getCachedUser', () => expect(typeof AuthService.getCachedUser).toBe('function'));
   });
 
   describe('getCurrentFirebaseUser', () => {

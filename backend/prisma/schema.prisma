@@ -265,6 +265,23 @@ model UserSettings {
 }
 
 // ============================================================================
+// Content Moderation
+// ============================================================================
+
+model FlaggedContent {
+  id        String   @id @default(uuid())
+  anchorId  String
+  imageUrl  String
+  reason    String
+  userId    String
+  createdAt DateTime @default(now())
+
+  @@index([anchorId])
+  @@index([userId])
+  @@map("flagged_content")
+}
+
+// ============================================================================
 // Sync Queue (for Offline Mode)
 // ============================================================================
 

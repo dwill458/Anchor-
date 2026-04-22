@@ -13,12 +13,8 @@ import { usePerformanceTier, tierPolicy } from '../usePerformanceTier';
 
 // ── Mocks ─────────────────────────────────────────────────────────────────────
 
-let mockIsReduceMotionEnabled: jest.SpiedFunction<
-  typeof AccessibilityInfo.isReduceMotionEnabled
->;
-let mockAddAccessibilityListener: jest.SpiedFunction<
-  typeof AccessibilityInfo.addEventListener
->;
+let mockIsReduceMotionEnabled: jest.Mock;
+let mockAddAccessibilityListener: jest.Mock;
 let mockPixelRatioGet: jest.SpiedFunction<typeof PixelRatio.get>;
 const mockGetPowerStateAsync = jest.fn().mockResolvedValue({ lowPowerMode: false });
 const mockAddLowPowerModeListener = jest.fn().mockReturnValue({ remove: jest.fn() });
@@ -54,10 +50,10 @@ beforeEach(() => {
   jest.clearAllMocks();
   mockIsReduceMotionEnabled = jest
     .spyOn(AccessibilityInfo, 'isReduceMotionEnabled')
-    .mockResolvedValue(false);
+    .mockResolvedValue(false) as unknown as jest.Mock;
   mockAddAccessibilityListener = jest
     .spyOn(AccessibilityInfo, 'addEventListener')
-    .mockReturnValue({ remove: jest.fn() } as any);
+    .mockReturnValue({ remove: jest.fn() } as any) as unknown as jest.Mock;
   mockPixelRatioGet = jest.spyOn(PixelRatio, 'get').mockReturnValue(3);
   mockGetPowerStateAsync.mockResolvedValue({ lowPowerMode: false });
   mockAddLowPowerModeListener.mockReturnValue({ remove: jest.fn() });
@@ -289,8 +285,8 @@ describe('cleanup', () => {
   it('removes both listeners on unmount', async () => {
     const removeSub = jest.fn();
     const removeBattery = jest.fn();
-    mockAddAccessibilityListener.mockReturnValue({ remove: removeSub });
-    mockAddLowPowerModeListener.mockReturnValue({ remove: removeBattery });
+    mockAddAccessibilityListener.mockReturnValue({ remove: removeSub } as any);
+    mockAddLowPowerModeListener.mockReturnValue({ remove: removeBattery } as any);
 
     const { unmount } = renderHook(() => usePerformanceTier());
     unmount();
