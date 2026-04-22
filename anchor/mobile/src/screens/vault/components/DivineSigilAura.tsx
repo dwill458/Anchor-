@@ -103,8 +103,9 @@ export const DivineSigilAura: React.FC<DivineSigilAuraProps> = ({
   const ascendProgress = useSharedValue(0);
   const pulse = breath ?? fallbackBreath;
 
-  // Fewer particles on Android to stay within GPU budget
-  const particleCount = Platform.OS === 'android' ? 24 : 48;
+  // Keep iOS below the old 48-particle budget so scroll-driven compositing on
+  // AnchorDetail has more GPU headroom while preserving the same aura shape.
+  const particleCount = Platform.OS === 'android' ? 24 : 36;
   const rayCount = Platform.OS === 'android' ? 8 : 12;
 
   const rays = useMemo(() => buildRaySeeds(rayCount), [rayCount]);
@@ -154,7 +155,7 @@ export const DivineSigilAura: React.FC<DivineSigilAuraProps> = ({
 
   // ── Animations ────────────────────────────────────────────────────────────
   useEffect(() => {
-    if (!animationsEnabled) {
+    if (!enabled || reduceMotionEnabled || tierSuppressed || process.env.NODE_ENV === 'test') {
       cancelAnimation(spinSlow);
       cancelAnimation(spinFast);
       cancelAnimation(ascendProgress);
@@ -164,6 +165,16 @@ export const DivineSigilAura: React.FC<DivineSigilAuraProps> = ({
       if (!breath) {
         cancelAnimation(fallbackBreath);
         fallbackBreath.value = 0;
+      }
+      return;
+    }
+
+    if (tierFrozen) {
+      cancelAnimation(spinSlow);
+      cancelAnimation(spinFast);
+      cancelAnimation(ascendProgress);
+      if (!breath) {
+        cancelAnimation(fallbackBreath);
       }
       return;
     }

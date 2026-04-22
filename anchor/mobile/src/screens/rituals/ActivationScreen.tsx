@@ -73,6 +73,7 @@ export const ActivationScreen: React.FC = () => {
   const getAnchorById = useAnchorStore((state) => state.getAnchorById);
   const updateAnchor = useAnchorStore((state) => state.updateAnchor);
   const incrementTotalPrimes = useAnchorStore((state) => state.incrementTotalPrimes);
+  const recordPrimeSession = useAnchorStore((state) => state.recordPrimeSession);
   const computeStreak = useAuthStore((state) => state.computeStreak);
   const pendingFirstAnchorDraft = useAuthStore((state) => state.pendingFirstAnchorDraft);
   const enqueuePendingFirstAnchorMutation = useAuthStore(
@@ -237,7 +238,8 @@ export const ActivationScreen: React.FC = () => {
   const handleSessionCompleted = useCallback(() => {
     sessionCompletedRef.current = true;
     setShowExitWarning(false);
-  }, []);
+    recordPrimeSession();
+  }, [recordPrimeSession]);
 
   const handleComplete = useCallback(() => {
     sessionCompletedRef.current = true;

@@ -55,7 +55,7 @@ import {
   syncDailyReminderFromStores,
 } from './src/services/DailyGoalNudgeService';
 import { loadSettingsSnapshot } from './src/hooks/useSettings';
-import { encryptedPersistStorage } from './src/stores/encryptedPersistStorage';
+import { encryptedPersistStorage, readSecureValue } from './src/stores/encryptedPersistStorage';
 import { logger } from './src/utils/logger';
 import revenueCatService from './src/services/RevenueCatService';
 
@@ -93,6 +93,8 @@ const AppTheme = {
 
 const PRIME_ON_LAUNCH_KEY = '@anchor_prime_on_launch';
 const ANCHOR_VAULT_STORAGE_KEY = 'anchor-vault-storage';
+const RECOVERY_DUMP_MARKER_KEY = '@anchor_recovery_dump_complete';
+const RECOVERY_DUMP_VAULT_KEY = '@anchor_recovery_dump_vault';
 const PRIME_ON_LAUNCH_FADE_DURATION_MS = 300;
 
 function parseStoredBoolean(rawValue: string | null): boolean {
@@ -219,6 +221,36 @@ export default function App() {
     'CormorantGaramond-Regular': CrimsonPro_400Regular,
     'CormorantGaramond-Italic': CrimsonPro_400Regular_Italic,
   });
+
+  useEffect(() => {
+    if (!__DEV__) {
+      return;
+    }
+
+    let cancelled = false;
+
+    void (async () => {
+      const existingMarker = await AsyncStorage.getItem(RECOVERY_DUMP_MARKER_KEY);
+      if (existingMarker === '1') {
+        return;
+      }
+
+      const vaultState = await readSecureValue(ANCHOR_VAULT_STORAGE_KEY);
+      if (!vaultState || cancelled) {
+        return;
+      }
+
+      await AsyncStorage.setItem(RECOVERY_DUMP_VAULT_KEY, vaultState);
+      await AsyncStorage.setItem(RECOVERY_DUMP_MARKER_KEY, '1');
+      logger.warn('[Recovery] Copied encrypted anchor vault state into AsyncStorage for recovery.');
+    })().catch((error) => {
+      logger.warn('[Recovery] Failed to dump encrypted anchor vault state', error);
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   useEffect(() => {
     let isMounted = true;

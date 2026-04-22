@@ -30,6 +30,12 @@ describe('anchorStore', () => {
       expect(result.current.totalPrimes).toBe(0);
     });
 
+    it('should start with zero prime streak', () => {
+      const { result } = renderHook(() => useAnchorStore());
+      expect(result.current.primeStreak).toBe(0);
+      expect(result.current.lastPrimedDate).toBeNull();
+    });
+
     it('should not be loading initially', () => {
       const { result } = renderHook(() => useAnchorStore());
       expect(result.current.isLoading).toBe(false);
@@ -260,6 +266,71 @@ describe('anchorStore', () => {
     });
   });
 
+  describe('recordPrimeSession', () => {
+    afterEach(() => {
+      jest.useRealTimers();
+    });
+
+    it('starts a streak on the first completed prime of an adjusted day', () => {
+      jest.useFakeTimers().setSystemTime(new Date('2026-04-21T14:00:00.000Z'));
+      const { result } = renderHook(() => useAnchorStore());
+
+      act(() => {
+        result.current.recordPrimeSession();
+      });
+
+      expect(result.current.primeStreak).toBe(1);
+      expect(result.current.lastPrimedDate).toBe('2026-04-21');
+    });
+
+    it('does not increment the streak twice in the same adjusted day', () => {
+      jest.useFakeTimers().setSystemTime(new Date('2026-04-21T14:00:00.000Z'));
+      const { result } = renderHook(() => useAnchorStore());
+
+      act(() => {
+        result.current.recordPrimeSession();
+        result.current.recordPrimeSession();
+      });
+
+      expect(result.current.primeStreak).toBe(1);
+      expect(result.current.lastPrimedDate).toBe('2026-04-21');
+    });
+
+    it('increments the streak on consecutive adjusted days', () => {
+      const { result } = renderHook(() => useAnchorStore());
+
+      jest.useFakeTimers().setSystemTime(new Date('2026-04-21T14:00:00.000Z'));
+      act(() => {
+        result.current.recordPrimeSession();
+      });
+
+      jest.setSystemTime(new Date('2026-04-22T14:00:00.000Z'));
+      act(() => {
+        result.current.recordPrimeSession();
+      });
+
+      expect(result.current.primeStreak).toBe(2);
+      expect(result.current.lastPrimedDate).toBe('2026-04-22');
+    });
+
+    it('resets the streak after a missed adjusted day', () => {
+      const { result } = renderHook(() => useAnchorStore());
+
+      jest.useFakeTimers().setSystemTime(new Date('2026-04-21T14:00:00.000Z'));
+      act(() => {
+        result.current.recordPrimeSession();
+      });
+
+      jest.setSystemTime(new Date('2026-04-23T14:00:00.000Z'));
+      act(() => {
+        result.current.recordPrimeSession();
+      });
+
+      expect(result.current.primeStreak).toBe(1);
+      expect(result.current.lastPrimedDate).toBe('2026-04-23');
+    });
+  });
+
   describe('getAnchorById', () => {
     it('should return anchor by id', () => {
       const { result } = renderHook(() => useAnchorStore());
@@ -351,6 +422,8 @@ describe('anchorStore', () => {
       });
 
       expect(result.current.anchors).toEqual([]);
+      expect(result.current.primeStreak).toBe(0);
+      expect(result.current.lastPrimedDate).toBeNull();
       expect(result.current.error).toBeNull();
       expect(result.current.lastSyncedAt).toBeNull();
     });
