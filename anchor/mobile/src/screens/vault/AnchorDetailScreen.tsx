@@ -538,12 +538,7 @@ const AnchorDetailsScreen = ({ navigation, route }) => {
   const [primerVisible, setPrimerVisible] = useState(false);
   const [moreRitualsVisible, setMoreRitualsVisible] = useState(false);
   const [isScrollActive, setIsScrollActive] = useState(false);
-  const [heroSnapshotUri, setHeroSnapshotUri] = useState<string | null>(null);
-  const [heroStackHeight, setHeroStackHeight] = useState(0);
   const [pendingExportAction, setPendingExportAction] = useState<'download' | 'wallpaper' | null>(null);
-  const heroStackRef = useRef<View>(null);
-  const isScrollActiveRef = useRef(false);
-  const heroSnapshotCaptureInFlightRef = useRef(false);
   const anchorCardRef = useRef<View>(null);
   const [isExporting, setIsExporting] = useState(false);
   const mediaLibraryPermissionRef = useRef<MediaLibrary.PermissionResponse | null>(null);
@@ -640,7 +635,6 @@ const AnchorDetailsScreen = ({ navigation, route }) => {
   const pauseExpensiveEffects = freezeDetailChrome;
   const enableAndroidHeavyChrome = Platform.OS !== 'android';
   const glowAnimationsActive = divineGlowActive && !pauseExpensiveEffects;
-  const showHeroSnapshot = freezeDetailChrome && heroSnapshotUri !== null;
   const headerBlurIntensity = Platform.OS === 'ios'
     ? perfTier === 'high'
       ? 30
@@ -977,35 +971,11 @@ const AnchorDetailsScreen = ({ navigation, route }) => {
   };
 
   const handleHeroScrollStart = useCallback(() => {
-    isScrollActiveRef.current = true;
     setIsScrollActive(true);
-
-    if (
-      Platform.OS !== 'android' ||
-      !heroStackRef.current ||
-      heroSnapshotCaptureInFlightRef.current ||
-      heroSnapshotUri
-    ) {
-      return;
-    }
-
-    heroSnapshotCaptureInFlightRef.current = true;
-    captureRef(heroStackRef, { format: 'jpg', quality: 0.82 })
-      .then((uri) => {
-        if (isScrollActiveRef.current) {
-          setHeroSnapshotUri(uri);
-        }
-      })
-      .catch(() => {})
-      .finally(() => {
-        heroSnapshotCaptureInFlightRef.current = false;
-      });
-  }, [heroSnapshotUri]);
+  }, []);
 
   const handleHeroScrollStop = useCallback(() => {
-    isScrollActiveRef.current = false;
     setIsScrollActive(false);
-    setHeroSnapshotUri(null);
   }, []);
 
   // Removed renderHeroAction and renderRitualCards in favor of the new Primary CTA architecture.
@@ -1072,15 +1042,7 @@ const AnchorDetailsScreen = ({ navigation, route }) => {
         scrollEventThrottle={16}
       >
 
-        <View
-          style={[s.heroStackContainer, showHeroSnapshot && heroStackHeight > 0 ? { height: heroStackHeight } : null]}
-        >
-          <View
-            ref={heroStackRef}
-            collapsable={false}
-            onLayout={(event) => setHeroStackHeight(event.nativeEvent.layout.height)}
-            style={[s.heroStack, showHeroSnapshot && s.heroStackSourceHidden]}
-          >
+        <View style={s.heroStack}>
           {/* ── TITLE CARD ── */}
           <FadeUp delay={50}>
             <Reanimated.View style={[s.animatedCardShell, Platform.OS === 'android' && s.animatedCardShellAndroid, topCardPulseStyle]}>
@@ -1243,15 +1205,6 @@ const AnchorDetailsScreen = ({ navigation, route }) => {
               </Reanimated.View>
             </Reanimated.View>
           </FadeUp>
-          </View>
-          {showHeroSnapshot && (
-            <Image
-              source={{ uri: heroSnapshotUri }}
-              style={s.heroSnapshotOverlay}
-              resizeMode="stretch"
-              pointerEvents="none"
-            />
-          )}
         </View>
 
         {/* ── PRIMARY CTA ── */}
@@ -1470,17 +1423,8 @@ const s = StyleSheet.create({
     paddingTop: spacing.md,
     gap: spacing.md,
   },
-  heroStackContainer: {
-    position: 'relative',
-  },
   heroStack: {
     gap: spacing.md,
-  },
-  heroStackSourceHidden: {
-    display: 'none',
-  },
-  heroSnapshotOverlay: {
-    ...StyleSheet.absoluteFillObject,
   },
 
   // ── CARD ──
