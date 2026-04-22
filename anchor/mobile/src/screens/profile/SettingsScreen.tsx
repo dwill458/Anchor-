@@ -43,7 +43,9 @@ import { ZenBackground } from '@/components/common';
 import NotificationService from '@/services/NotificationService';
 import { apiClient } from '@/services/ApiClient';
 import { AuthService } from '@/services/AuthService';
+import revenueCatService from '@/services/RevenueCatService';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import auth from '@react-native-firebase/auth';
 
 const IS_ANDROID = Platform.OS === 'android';
 const SHOULD_ANIMATE_SECTION_ENTRANCE = Platform.OS === 'ios';
@@ -410,7 +412,10 @@ export const SettingsScreen: React.FC = () => {
         onPress: async () => {
           try {
             await apiClient.delete('/auth/me');
-            await AuthService.signOut();
+            const firebaseUser = auth().currentUser;
+            if (firebaseUser) {
+              await firebaseUser.delete();
+            }
             await AsyncStorage.clear();
             signOut();
           } catch (error: any) {
@@ -443,15 +448,17 @@ export const SettingsScreen: React.FC = () => {
   //   openStoreSubscriptions();
   // };
 
-  const handleRestorePurchase = () => {
-    Alert.alert(
-      'Restore Purchase',
-      'To restore your Pro subscription, open your App Store account and confirm your active subscriptions.',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        { text: 'Open Store', onPress: openStoreSubscriptions },
-      ]
-    );
+  const handleRestorePurchase = async () => {
+    try {
+      const status = await revenueCatService.restorePurchases();
+      if (status.hasActiveEntitlement) {
+        Alert.alert('Restored', 'Your subscription has been successfully restored.');
+      } else {
+        Alert.alert('Nothing to Restore', 'No active subscription found for this account.');
+      }
+    } catch (error: any) {
+      Alert.alert('Restore Failed', error?.message || 'Could not restore purchases. Please try again.');
+    }
   };
 
   const handleContactSupport = () => {

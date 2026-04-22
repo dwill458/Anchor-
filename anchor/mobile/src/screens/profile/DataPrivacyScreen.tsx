@@ -167,7 +167,7 @@ export const DataPrivacyScreen: React.FC = () => {
                                 <Text style={styles.overviewTitle}>Privacy First</Text>
                             </View>
                             <Text style={styles.overviewText}>
-                                Your anchors and intentions are your own. We use industry-standard encryption to protect your data and never share it with third parties for advertising.
+                                Your anchors and intentions are your own. We collect your email address via Firebase Authentication, anonymised crash reports via Sentry, and send your intention text to Google's Gemini AI to generate your sigil. We never share your data for advertising.
                             </Text>
                         </CardWrapper>
                     </View>
@@ -222,7 +222,7 @@ export const DataPrivacyScreen: React.FC = () => {
                     {/* Footer */}
                     <View style={styles.footer}>
                         <Text style={styles.footerText}>
-                            Anchor encrypts your data end-to-end where possible to ensure your journey remains private.
+                            Your anchors are stored securely on our servers. We do not sell or share your data with third parties.
                         </Text>
                     </View>
                 </ScrollView>

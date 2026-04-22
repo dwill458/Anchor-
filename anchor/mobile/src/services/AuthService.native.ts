@@ -3,6 +3,7 @@
  */
 
 import auth, { FirebaseAuthTypes } from '@react-native-firebase/auth';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { API_URL } from '@/config';
 import {
   DEVELOPER_MASTER_ACCOUNT_ID,
@@ -11,6 +12,8 @@ import {
 } from '@/utils/developerMasterAccount';
 import { logger } from '@/utils/logger';
 import type { ApiResponse, FirebaseUser, User } from '@/types';
+
+const CACHED_USER_KEY = 'anchor:cached_user';
 
 export interface AuthResult {
   user: User;
@@ -220,10 +223,21 @@ export class AuthService {
     }
 
     try {
-      return await buildAuthResult(currentUser);
+      const result = await buildAuthResult(currentUser);
+      AsyncStorage.setItem(CACHED_USER_KEY, JSON.stringify(result.user)).catch(() => {});
+      return result;
     } catch (error) {
       logger.error('Failed to sync current Firebase user', error);
       throw mapAuthError(error);
+    }
+  }
+
+  static async getCachedUser(): Promise<User | null> {
+    try {
+      const raw = await AsyncStorage.getItem(CACHED_USER_KEY);
+      return raw ? (JSON.parse(raw) as User) : null;
+    } catch {
+      return null;
     }
   }
 

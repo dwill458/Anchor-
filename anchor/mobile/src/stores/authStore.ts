@@ -159,6 +159,9 @@ interface AuthState {
   profileData: ProfileData | null;
   profileLastFetched: number | null;
 
+  // Offline mode
+  isOfflineMode: boolean;
+
   // Actions
   setUser: (user: User | null) => void;
   setToken: (token: string | null) => void;
@@ -180,6 +183,7 @@ interface AuthState {
   clearPendingFirstAnchorState: () => void;
   clearPendingFirstAnchorError: () => void;
   finalizePendingFirstAnchorDraft: () => Promise<boolean>;
+  setOfflineMode: (offline: boolean) => void;
   signOut: () => void;
 
   // NEW: Profile actions
@@ -228,6 +232,7 @@ export const useAuthStore = create<AuthState>()(
       profileData: null,
       profileLastFetched: null,
       wallpaperPromptSeen: false,
+      isOfflineMode: false,
 
       // Actions
       setUser: (user) =>
@@ -370,6 +375,9 @@ export const useAuthStore = create<AuthState>()(
         set({
           pendingFirstAnchorError: null,
         }),
+
+      setOfflineMode: (isOfflineMode) =>
+        set({ isOfflineMode }),
 
       setWallpaperPromptSeen: (wallpaperPromptSeen) =>
         set({ wallpaperPromptSeen }),
@@ -735,6 +743,7 @@ export const useAuthStore = create<AuthState>()(
           user: null,
           token: null,
           isAuthenticated: false,
+          isOfflineMode: false,
           anchorCount: 0,
           pendingForgeIntent: null,
           pendingForgeResumeTarget: null,

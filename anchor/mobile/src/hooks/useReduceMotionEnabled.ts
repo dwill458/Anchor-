@@ -21,7 +21,7 @@ export const useReduceMotionEnabled = (): boolean => {
 
     const subscription = AccessibilityInfo.addEventListener(
       'reduceMotionChanged',
-      setReduceMotionEnabled
+      (isEnabled: boolean) => setReduceMotionEnabled(isEnabled)
     );
 
     return () => {

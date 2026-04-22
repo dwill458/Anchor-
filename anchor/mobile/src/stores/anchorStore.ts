@@ -12,6 +12,7 @@ import type { Anchor } from '@/types';
 import { useTeachingStore } from './teachingStore';
 import AnchorSyncService from '@/services/AnchorSyncService';
 import { useAuthStore } from '@/stores/authStore';
+import { getAdjustedDateString } from '@/utils/dateUtils';
 import { logger } from '@/utils/logger';
 
 const normalizeDate = (value?: Date | string): Date | undefined => {
@@ -62,6 +63,8 @@ interface AnchorState {
   // State
   anchors: Anchor[];
   totalPrimes: number;
+  primeStreak: number;
+  lastPrimedDate: string | null;
   isLoading: boolean;
   error: string | null;
   lastSyncedAt: Date | null;
@@ -73,6 +76,7 @@ interface AnchorState {
   updateAnchor: (id: string, updates: Partial<Anchor>) => void;
   removeAnchor: (id: string) => void;
   incrementTotalPrimes: () => void;
+  recordPrimeSession: () => void;
   getAnchorById: (id: string) => Anchor | undefined;
   getActiveAnchors: () => Anchor[];
   setLoading: (loading: boolean) => void;
@@ -93,6 +97,8 @@ export const useAnchorStore = create<AnchorState>()(
       // Initial state
       anchors: [],
       totalPrimes: 0,
+      primeStreak: 0,
+      lastPrimedDate: null,
       isLoading: false,
       error: null,
       lastSyncedAt: null,
@@ -186,6 +192,26 @@ export const useAnchorStore = create<AnchorState>()(
           totalPrimes: state.totalPrimes + 1,
         })),
 
+      recordPrimeSession: () => {
+        const today = getAdjustedDateString();
+        const { lastPrimedDate, primeStreak } = get();
+
+        if (lastPrimedDate === today) {
+          return;
+        }
+
+        const yesterday = getAdjustedDateString(
+          new Date(Date.now() - 24 * 60 * 60 * 1000)
+        );
+
+        const newStreak =
+          lastPrimedDate === yesterday
+            ? primeStreak + 1
+            : 1;
+
+        set({ primeStreak: newStreak, lastPrimedDate: today });
+      },
+
       getAnchorById: (id) => {
         const state = get();
         return state.anchors.find((anchor) => matchesAnchorReference(anchor, id));
@@ -218,6 +244,8 @@ export const useAnchorStore = create<AnchorState>()(
         set({
           anchors: [],
           totalPrimes: 0,
+          primeStreak: 0,
+          lastPrimedDate: null,
           error: null,
           lastSyncedAt: null,
           currentAnchorId: undefined,
@@ -282,6 +310,8 @@ export const useAnchorStore = create<AnchorState>()(
       partialize: (state) => ({
         anchors: state.anchors,
         totalPrimes: state.totalPrimes,
+        primeStreak: state.primeStreak,
+        lastPrimedDate: state.lastPrimedDate,
         lastSyncedAt: state.lastSyncedAt,
         currentAnchorId: state.currentAnchorId,
       }),

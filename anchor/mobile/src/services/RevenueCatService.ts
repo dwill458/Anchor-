@@ -253,6 +253,39 @@ class RevenueCatService {
     }
   }
 
+  async purchasePackageByIdentifier(productId: string): Promise<{
+    status: TrialStatusSnapshot;
+    dismissed: boolean;
+  }> {
+    const purchases = getPurchasesModule();
+    if (!purchases?.getOfferings || !purchases.purchasePackage) {
+      return { status: applyTrialStatus(DEFAULT_TRIAL_STATUS), dismissed: false };
+    }
+
+    try {
+      const offerings = await purchases.getOfferings();
+      const availablePackages = offerings.current?.availablePackages ?? [];
+      const selectedPackage =
+        availablePackages.find((pkg) => pkg.identifier === productId) ??
+        availablePackages[0];
+
+      if (!selectedPackage) {
+        logger.warn('[RevenueCatService] No package found for identifier', productId);
+        return { status: await this.refreshTrialStatus(), dismissed: false };
+      }
+
+      const response = await purchases.purchasePackage(selectedPackage);
+      const status = deriveTrialStatus(extractCustomerInfo(response));
+      return { status: applyTrialStatus(status), dismissed: false };
+    } catch (error) {
+      if (isUserCancelled(error)) {
+        return { status: await this.refreshTrialStatus(), dismissed: true };
+      }
+      logger.error('[RevenueCatService] Failed to purchase package', error);
+      throw error;
+    }
+  }
+
   async restorePurchases(): Promise<TrialStatusSnapshot> {
     const purchases = getPurchasesModule();
     if (!purchases?.restorePurchases) {

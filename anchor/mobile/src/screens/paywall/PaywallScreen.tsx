@@ -29,6 +29,7 @@ import { colors, typography } from '@/theme';
 import { withAlpha } from '@/utils/color';
 import { useAnchorStore } from '@/stores/anchorStore';
 import { REVENUECAT_DEFAULT_PACKAGE_ID } from '@/config';
+import revenueCatService from '@/services/RevenueCatService';
 import type { RootNavigatorParamList } from '@/navigation/RootNavigator';
 
 type PlanId = 'monthly' | 'annual' | 'lifetime';
@@ -131,26 +132,6 @@ function LockBadgeIcon() {
   );
 }
 
-// ─── Placeholder purchase handler ─────────────────────────────────────────────
-
-function handlePurchase(productId: string) {
-  // RevenueCat integration pending
-  Alert.alert(
-    'Coming Soon',
-    `Subscription purchase for "${productId}" will be available when RevenueCat integration is complete.`,
-    [{ text: 'OK' }]
-  );
-}
-
-function handleRestorePurchase() {
-  // RevenueCat integration pending
-  Alert.alert(
-    'Coming Soon',
-    'Restore Purchase will be available when RevenueCat integration is complete.',
-    [{ text: 'OK' }]
-  );
-}
-
 // ─── PaywallScreen ─────────────────────────────────────────────────────────────
 
 export const PaywallScreen: React.FC = () => {
@@ -158,6 +139,8 @@ export const PaywallScreen: React.FC = () => {
   const { height } = useWindowDimensions();
   const anchors = useAnchorStore((state) => state.anchors);
   const [selectedPlanId, setSelectedPlanId] = useState<PlanId>('annual');
+  const [isPurchasing, setIsPurchasing] = useState(false);
+  const [isRestoring, setIsRestoring] = useState(false);
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const slideAnim = useRef(new Animated.Value(20)).current;
 
@@ -187,6 +170,40 @@ export const PaywallScreen: React.FC = () => {
         ],
       })
     );
+  };
+
+  const handlePurchase = async (productId: string) => {
+    if (isPurchasing) return;
+    setIsPurchasing(true);
+    try {
+      const { status, dismissed } = await revenueCatService.purchasePackageByIdentifier(productId);
+      if (!dismissed && status.hasActiveEntitlement) {
+        navigation.reset({ index: 0, routes: [{ name: 'Main' }] });
+      }
+    } catch (error: any) {
+      Alert.alert('Purchase Failed', error?.message || 'Something went wrong. Please try again.');
+    } finally {
+      setIsPurchasing(false);
+    }
+  };
+
+  const handleRestorePurchase = async () => {
+    if (isRestoring) return;
+    setIsRestoring(true);
+    try {
+      const status = await revenueCatService.restorePurchases();
+      if (status.hasActiveEntitlement) {
+        Alert.alert('Restored', 'Your subscription has been restored.', [
+          { text: 'Continue', onPress: () => navigation.reset({ index: 0, routes: [{ name: 'Main' }] }) },
+        ]);
+      } else {
+        Alert.alert('Nothing to Restore', 'No active subscription found for this account.');
+      }
+    } catch (error: any) {
+      Alert.alert('Restore Failed', error?.message || 'Could not restore purchases.');
+    } finally {
+      setIsRestoring(false);
+    }
   };
 
   const latestAnchor = useMemo(() => {
@@ -355,15 +372,27 @@ export const PaywallScreen: React.FC = () => {
                 onPress={() => handlePurchase(selectedPlan.productId)}
                 accessibilityRole="button"
                 accessibilityLabel={`${ctaLabel}, ${selectedPlan.label} selected`}
+                disabled={isPurchasing || isRestoring}
                 style={({ pressed }) => [
                   styles.ctaButton,
                   pressed && styles.ctaButtonPressed,
+                  (isPurchasing || isRestoring) && styles.ctaButtonDisabled,
                 ]}
               >
-                <Text style={styles.ctaText}>{ctaLabel}</Text>
+                <Text style={styles.ctaText}>{isPurchasing ? 'Processing…' : ctaLabel}</Text>
               </Pressable>
 
               <Text style={styles.trialNote}>Cancel anytime</Text>
+
+              <Pressable
+                onPress={handleRestorePurchase}
+                accessibilityRole="button"
+                accessibilityLabel="Restore previous purchase"
+                disabled={isPurchasing || isRestoring}
+                style={({ pressed }) => [styles.restoreButton, pressed && styles.signInPressed]}
+              >
+                <Text style={styles.restoreText}>{isRestoring ? 'Restoring…' : 'Restore Purchase'}</Text>
+              </Pressable>
 
               <Pressable
                 onPress={handleSignIn}
@@ -378,13 +407,6 @@ export const PaywallScreen: React.FC = () => {
                   </View>
                 </View>
               </Pressable>
-
-              {/*
-                DEFERRED: restore purchases link
-                <Pressable onPress={handleRestorePurchase} accessibilityRole="button">
-                  <Text style={styles.restoreText}>Restore Purchases</Text>
-                </Pressable>
-              */}
 
               {/*
                 DEFERRED: Back to home link removed from the approved layout.
@@ -691,6 +713,20 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: withAlpha(colors.gold, 0.3),
     paddingBottom: 1,
+  },
+  ctaButtonDisabled: {
+    opacity: 0.6,
+  },
+  restoreButton: {
+    alignItems: 'center',
+    paddingVertical: 6,
+    marginBottom: 8,
+  },
+  restoreText: {
+    fontFamily: typography.fonts.bodySerif,
+    fontSize: 13,
+    color: withAlpha(colors.bone, 0.4),
+    textDecorationLine: 'underline',
   },
 });
 

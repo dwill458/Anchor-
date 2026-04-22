@@ -33,7 +33,7 @@ function normalizeSvgXml(xml: string): string {
   return normalized;
 }
 
-function normalizeDimension(value: number | string): DimensionValue {
+function normalizeDimension(value: number | string): string | number {
   if (typeof value === 'number') {
     return value;
   }
@@ -41,7 +41,7 @@ function normalizeDimension(value: number | string): DimensionValue {
   const parsed = Number.parseFloat(value);
   return Number.isFinite(parsed) && !value.includes('%')
     ? parsed
-    : value as DimensionValue;
+    : value;
 }
 
 /**
@@ -59,7 +59,7 @@ export const SigilSvg: React.FC<SigilSvgProps> = memo(function SigilSvg({
   const resolvedHeight = normalizeDimension(height);
 
   if (!xml) {
-    return <View style={{ width: resolvedWidth, height: resolvedHeight }} />;
+    return <View style={{ width: resolvedWidth as DimensionValue, height: resolvedHeight as DimensionValue }} />;
   }
 
   return (

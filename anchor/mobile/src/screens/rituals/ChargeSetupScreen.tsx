@@ -126,8 +126,8 @@ export const ChargeSetupScreen: React.FC = () => {
   }));
 
   useEffect(() => {
-    AccessibilityInfo.isReduceMotionEnabled().then(setReduceMotionEnabled);
-    const subscription = AccessibilityInfo.addEventListener('reduceMotionChanged', setReduceMotionEnabled);
+    AccessibilityInfo.isReduceMotionEnabled().then((v) => setReduceMotionEnabled(v));
+    const subscription = AccessibilityInfo.addEventListener('reduceMotionChanged', (isEnabled: boolean) => setReduceMotionEnabled(isEnabled));
     return () => subscription.remove();
   }, []);
 

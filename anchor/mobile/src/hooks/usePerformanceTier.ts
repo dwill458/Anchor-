@@ -141,7 +141,7 @@ export const usePerformanceTier = (
 
     try {
       sub = battery?.addLowPowerModeListener?.(({ lowPowerMode: lpm }) => {
-        if (mounted) setLowPowerMode(lpm);
+        if (mounted) setLowPowerMode(!!lpm);
       }) ?? null;
     } catch {
       // expo-battery not available
@@ -165,7 +165,7 @@ export const usePerformanceTier = (
       });
     const sub = AccessibilityInfo.addEventListener(
       'reduceMotionChanged',
-      setReduceMotion,
+      (isEnabled: boolean) => setReduceMotion(isEnabled),
     );
     return () => {
       mounted = false;

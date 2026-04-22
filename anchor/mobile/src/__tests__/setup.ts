@@ -249,6 +249,7 @@ jest.mock('@/services/AuthService', () => ({
   AuthService: {
     getIdToken: jest.fn().mockResolvedValue(null),
     getCurrentUser: jest.fn().mockReturnValue(null),
+    getCachedUser: jest.fn().mockResolvedValue(null),
     signOut: jest.fn().mockResolvedValue(undefined),
   },
 }));

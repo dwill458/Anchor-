@@ -117,7 +117,7 @@ export default function ReturningIntentionScreen() {
 
     // Check reduced motion accessibility setting on mount
     useEffect(() => {
-        AccessibilityInfo.isReduceMotionEnabled().then(setReduceMotion);
+        AccessibilityInfo.isReduceMotionEnabled().then((v) => setReduceMotion(v));
     }, []);
 
     // Faster entrance animation for returning users + Random Placeholder

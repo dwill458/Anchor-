@@ -55,9 +55,22 @@ import {
   syncDailyReminderFromStores,
 } from './src/services/DailyGoalNudgeService';
 import { loadSettingsSnapshot } from './src/hooks/useSettings';
-import { encryptedPersistStorage } from './src/stores/encryptedPersistStorage';
+import { encryptedPersistStorage, readSecureValue } from './src/stores/encryptedPersistStorage';
 import { logger } from './src/utils/logger';
 import revenueCatService from './src/services/RevenueCatService';
+
+function isNetworkError(error: unknown): boolean {
+  if (!(error instanceof Error)) return false;
+  const msg = error.message.toLowerCase();
+  return (
+    msg.includes('network') ||
+    msg.includes('fetch') ||
+    msg.includes('econnrefused') ||
+    msg.includes('timeout') ||
+    msg.includes('failed to connect') ||
+    msg.includes('network request failed')
+  );
+}
 
 const { width } = Dimensions.get('window');
 const isWeb = Platform.OS === 'web';
@@ -80,6 +93,8 @@ const AppTheme = {
 
 const PRIME_ON_LAUNCH_KEY = '@anchor_prime_on_launch';
 const ANCHOR_VAULT_STORAGE_KEY = 'anchor-vault-storage';
+const RECOVERY_DUMP_MARKER_KEY = '@anchor_recovery_dump_complete';
+const RECOVERY_DUMP_VAULT_KEY = '@anchor_recovery_dump_vault';
 const PRIME_ON_LAUNCH_FADE_DURATION_MS = 300;
 
 function parseStoredBoolean(rawValue: string | null): boolean {
@@ -208,6 +223,36 @@ export default function App() {
   });
 
   useEffect(() => {
+    if (!__DEV__) {
+      return;
+    }
+
+    let cancelled = false;
+
+    void (async () => {
+      const existingMarker = await AsyncStorage.getItem(RECOVERY_DUMP_MARKER_KEY);
+      if (existingMarker === '1') {
+        return;
+      }
+
+      const vaultState = await readSecureValue(ANCHOR_VAULT_STORAGE_KEY);
+      if (!vaultState || cancelled) {
+        return;
+      }
+
+      await AsyncStorage.setItem(RECOVERY_DUMP_VAULT_KEY, vaultState);
+      await AsyncStorage.setItem(RECOVERY_DUMP_MARKER_KEY, '1');
+      logger.warn('[Recovery] Copied encrypted anchor vault state into AsyncStorage for recovery.');
+    })().catch((error) => {
+      logger.warn('[Recovery] Failed to dump encrypted anchor vault state', error);
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
     let isMounted = true;
 
     loadSettingsSnapshot()
@@ -314,8 +359,21 @@ export default function App() {
           return;
         }
 
-        logger.error('Failed to restore authenticated session', error);
         const store = useAuthStore.getState();
+        const isNetwork = isNetworkError(error);
+
+        if (isNetwork) {
+          const cached = await AuthService.getCachedUser().catch(() => null);
+          if (cached && firebaseUser) {
+            const token = await AuthService.getIdToken().catch(() => '') ?? '';
+            store.setSession(cached, token);
+            store.setOfflineMode(true);
+            logger.warn('Network unreachable — restored session from cache (offline mode)');
+            return;
+          }
+        }
+
+        logger.error('Failed to restore authenticated session', error);
         store.signOut();
         store.setLoading(false);
       }

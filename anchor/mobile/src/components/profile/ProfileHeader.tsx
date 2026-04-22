@@ -6,9 +6,12 @@
  */
 
 import React from 'react';
-import { View, Text, StyleSheet, Platform } from 'react-native';
+import { View, Text, StyleSheet, Platform, Image, type ImageSourcePropType } from 'react-native';
 import { BlurView } from 'expo-blur';
 import { colors, typography, spacing } from '@/theme';
+import { useProfileStore } from '@/stores/profileStore';
+import { useAuthStore } from '@/stores/authStore';
+import { getAvatarByIndex, getDefaultAvatar } from '@/utils/avatarUtils';
 import { SubscriptionStatus } from '@/types';
 
 interface ProfileHeaderProps {
@@ -21,15 +24,37 @@ export const ProfileHeader: React.FC<ProfileHeaderProps> = ({
   subscriptionStatus: _subscriptionStatus,
 }) => {
   // DEFERRED: trial badge removed, surfaced in ProfileScreen subscription section
+  const user = useAuthStore((state) => state.user);
+  const photo = useProfileStore((state) => state.photo);
+  const mono = useProfileStore((state) => state.mono);
 
   // Get first letter of display name or default to 'S' for Seeker
   const avatarInitial = displayName?.[0]?.toUpperCase() || 'S';
+  const trimmedPhoto = photo?.trim();
+  const selectedAvatarSource = mono.startsWith('avatar_')
+    ? getAvatarByIndex(Number.parseInt(mono.replace('avatar_', ''), 10) || 0)
+    : null;
+  const avatarSource: ImageSourcePropType | null = trimmedPhoto
+    ? { uri: trimmedPhoto }
+    : selectedAvatarSource ?? (
+      user?.id
+        ? getDefaultAvatar(user.id)
+        : null
+    );
 
   return (
     Platform.OS === 'ios' ? (
       <BlurView intensity={20} tint="dark" style={styles.container}>
         <View style={styles.avatarPlaceholder}>
-          <Text style={styles.avatarText}>{avatarInitial}</Text>
+          {avatarSource ? (
+            <Image
+              source={avatarSource}
+              style={{ width: '100%', height: '100%', borderRadius: 40 }}
+              resizeMode="cover"
+            />
+          ) : (
+            <Text style={styles.avatarText}>{avatarInitial}</Text>
+          )}
         </View>
 
         <Text style={styles.displayName}>{displayName || 'Seeker'}</Text>
@@ -37,7 +62,15 @@ export const ProfileHeader: React.FC<ProfileHeaderProps> = ({
     ) : (
       <View style={[styles.container, { backgroundColor: 'rgba(12, 17, 24, 0.92)' }]}>
         <View style={styles.avatarPlaceholder}>
-          <Text style={styles.avatarText}>{avatarInitial}</Text>
+          {avatarSource ? (
+            <Image
+              source={avatarSource}
+              style={{ width: '100%', height: '100%', borderRadius: 40 }}
+              resizeMode="cover"
+            />
+          ) : (
+            <Text style={styles.avatarText}>{avatarInitial}</Text>
+          )}
         </View>
 
         <Text style={styles.displayName}>{displayName || 'Seeker'}</Text>
