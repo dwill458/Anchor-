@@ -1,0 +1,9 @@
+756018b517d86968cb0040cf21314eae
+Object.defineProperty(exports, "__esModule", {
+  value: true
+});
+exports.hasValidTriggerObject = hasValidTriggerObject;
+function hasValidTriggerObject(trigger) {
+  return trigger === null || typeof trigger === 'object' && ('type' in trigger || 'channelId' in trigger);
+}
+//# sourceMappingURL=data:application/json;charset=utf-8;base64,eyJ2ZXJzaW9uIjozLCJuYW1lcyI6WyJoYXNWYWxpZFRyaWdnZXJPYmplY3QiLCJ0cmlnZ2VyIl0sInNvdXJjZXMiOlsiLi4vc3JjL2hhc1ZhbGlkVHJpZ2dlck9iamVjdC50cyJdLCJzb3VyY2VzQ29udGVudCI6WyJleHBvcnQgZnVuY3Rpb24gaGFzVmFsaWRUcmlnZ2VyT2JqZWN0KHRyaWdnZXI6IHVua25vd24pIHtcbiAgcmV0dXJuIChcbiAgICB0cmlnZ2VyID09PSBudWxsIHx8XG4gICAgKHR5cGVvZiB0cmlnZ2VyID09PSAnb2JqZWN0JyAmJiAoJ3R5cGUnIGluIHRyaWdnZXIgfHwgJ2NoYW5uZWxJZCcgaW4gdHJpZ2dlcikpXG4gICk7XG59XG4iXSwibWFwcGluZ3MiOiI7Ozs7QUFBTSxTQUFVQSxxQkFBcUJBLENBQUNDLE9BQWdCO0VBQ3BELE9BQ0VBLE9BQU8sS0FBSyxJQUFJLElBQ2YsT0FBT0EsT0FBTyxLQUFLLFFBQVEsS0FBSyxNQUFNLElBQUlBLE9BQU8sSUFBSSxXQUFXLElBQUlBLE9BQU8sQ0FBRTtBQUVsRiIsImlnbm9yZUxpc3QiOltdfQ==
