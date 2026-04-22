@@ -496,7 +496,6 @@ export const PracticeScreen: React.FC = () => {
           contentContainerStyle={[styles.scrollContent, { paddingBottom: 120 + insets.bottom }]}
           onTouchStart={markInteraction}
           onScrollBeginDrag={markInteraction}
-          scrollEventThrottle={16}
         >
           <Animated.View style={headerStyle}>
             <PracticeHubHeader
@@ -688,6 +687,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+    backgroundColor: '#070a10',
     shadowColor: colors.gold,
     shadowOpacity: 0.3,
     shadowRadius: 16,

@@ -1,10 +1,11 @@
 import React from 'react';
-import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Image, Pressable, StyleSheet, Text, View, type ImageSourcePropType } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Camera } from 'lucide-react-native';
 import Svg, { Circle, Line, Path, Polygon, Rect } from 'react-native-svg';
 import { colors, typography } from '@/theme';
 import { withAlpha } from '@/utils/color';
+import { getAvatarByIndex, getDefaultAvatar } from '@/utils/avatarUtils';
 import type { ProfileMono } from '@/stores/profileStore';
 
 export const PROFILE_MARK_SLOTS: ProfileMono[] = [
@@ -17,6 +18,11 @@ export const PROFILE_MARK_SLOTS: ProfileMono[] = [
   'slot_6',
   'slot_7',
 ];
+
+export const PROFILE_AVATAR_SLOTS: ProfileMono[] = Array.from(
+  { length: 10 },
+  (_, index) => `avatar_${index}` as ProfileMono
+);
 
 interface AvatarMarkGlyphProps {
   mono: ProfileMono;
@@ -84,6 +90,7 @@ interface ProfileAvatarProps {
   name: string;
   mono: ProfileMono;
   photoUri?: string | null;
+  userId?: string;
   showCameraBadge?: boolean;
   badgeSize?: number;
   onPress?: () => void;
@@ -95,6 +102,7 @@ export const ProfileAvatar: React.FC<ProfileAvatarProps> = ({
   name,
   mono,
   photoUri,
+  userId,
   showCameraBadge = true,
   badgeSize = 18,
   onPress,
@@ -103,6 +111,17 @@ export const ProfileAvatar: React.FC<ProfileAvatarProps> = ({
   const Wrapper = onPress ? Pressable : View;
   const avatarInnerSize = size * 0.58;
   const initial = name.trim().charAt(0).toUpperCase() || 'P';
+  const trimmedPhotoUri = photoUri?.trim();
+  const selectedAvatarSource = mono.startsWith('avatar_')
+    ? getAvatarByIndex(Number.parseInt(mono.replace('avatar_', ''), 10) || 0)
+    : null;
+  const imageSource: ImageSourcePropType | null = trimmedPhotoUri
+    ? { uri: trimmedPhotoUri }
+    : selectedAvatarSource ?? (
+      userId
+      ? getDefaultAvatar(userId)
+      : null
+    );
 
   return (
     <Wrapper
@@ -124,9 +143,9 @@ export const ProfileAvatar: React.FC<ProfileAvatarProps> = ({
           },
         ]}
       >
-        {photoUri ? (
+        {imageSource ? (
           <Image
-            source={{ uri: photoUri }}
+            source={imageSource}
             style={{ width: size, height: size, borderRadius: size / 2 }}
             resizeMode="cover"
           />
@@ -163,8 +182,9 @@ export const ProfileAvatarMarkCell: React.FC<{
   mono: ProfileMono;
   selected: boolean;
   initial: string;
+  avatarSource?: ImageSourcePropType;
   onPress: () => void;
-}> = ({ mono, selected, initial, onPress }) => (
+}> = ({ mono, selected, initial, avatarSource, onPress }) => (
   <Pressable
     onPress={onPress}
     style={[
@@ -172,7 +192,9 @@ export const ProfileAvatarMarkCell: React.FC<{
       selected ? styles.markCellSelected : styles.markCellIdle,
     ]}
   >
-    {mono === 'initial' ? (
+    {avatarSource ? (
+      <Image source={avatarSource} style={styles.markCellAvatar} resizeMode="cover" />
+    ) : mono === 'initial' ? (
       <Text style={styles.markCellInitial}>{initial}</Text>
     ) : (
       <AvatarMarkGlyph mono={mono} size={22} dimmed={!selected} />
@@ -235,5 +257,10 @@ const styles = StyleSheet.create({
     fontFamily: typography.fonts.heading,
     fontSize: 18,
     color: colors.gold,
+  },
+  markCellAvatar: {
+    width: '100%',
+    height: '100%',
+    borderRadius: 9,
   },
 });

@@ -18,7 +18,8 @@ import { ChevronDown } from 'lucide-react-native';
 import { colors, spacing, typography } from '@/theme';
 import { withAlpha } from '@/utils/color';
 import { detectTimezoneLabel, TIMEZONE_OPTIONS, type ProfileMono, type StoredProfile } from '@/stores/profileStore';
-import { PROFILE_MARK_SLOTS, ProfileAvatar, ProfileAvatarMarkCell } from '@/components/profile/ProfileAvatar';
+import { PROFILE_AVATAR_SLOTS, ProfileAvatar, ProfileAvatarMarkCell } from '@/components/profile/ProfileAvatar';
+import { getAvatarByIndex } from '@/utils/avatarUtils';
 
 interface EditProfileSheetProps {
   open: boolean;
@@ -294,8 +295,8 @@ export const EditProfileSheet: React.FC<EditProfileSheetProps> = ({
               </View>
 
               <View style={styles.fieldBlock}>
-                <FieldLabel>AVATAR MARK</FieldLabel>
-                <FieldHint>Shown when no photo is set · custom marks via Nano Banana</FieldHint>
+                <FieldLabel>DEFAULT AVATAR</FieldLabel>
+                <FieldHint>Shown when no photo is set · choose the placeholder avatar you want</FieldHint>
                 <View style={styles.markGrid}>
                   <ProfileAvatarMarkCell
                     mono="initial"
@@ -303,12 +304,13 @@ export const EditProfileSheet: React.FC<EditProfileSheetProps> = ({
                     initial={displayName.charAt(0).toUpperCase() || 'P'}
                     onPress={() => setMono('initial')}
                   />
-                  {PROFILE_MARK_SLOTS.map((slotId) => (
+                  {PROFILE_AVATAR_SLOTS.map((slotId, index) => (
                     <ProfileAvatarMarkCell
                       key={slotId}
                       mono={slotId}
                       selected={mono === slotId}
                       initial={displayName.charAt(0).toUpperCase() || 'P'}
+                      avatarSource={getAvatarByIndex(index)}
                       onPress={() => setMono(slotId)}
                     />
                   ))}

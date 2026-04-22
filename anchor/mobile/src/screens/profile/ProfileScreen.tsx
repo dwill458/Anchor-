@@ -134,7 +134,7 @@ const ConstancyBlock: React.FC<{
           CONSTANCY MARK
         </Text>
         <Text style={[styles.constancyText, earned ? styles.constancyTextEarned : null]}>
-          {earned ? '100 Days of Practice' : 'Forged at 100 consecutive days'}
+          {earned ? '100 Days of Practice' : 'Forged at 100 consecutuve days primed'}
         </Text>
       </View>
 
@@ -152,6 +152,7 @@ export const ProfileScreen: React.FC = () => {
   const setUser = useAuthStore((state) => state.setUser);
   const anchors = useAnchorStore((state) => state.anchors);
   const storedTotalPrimes = useAnchorStore((state) => state.totalPrimes);
+  const primeStreak = useAnchorStore((state) => state.primeStreak);
   const {
     name,
     axiom,
@@ -269,6 +270,7 @@ export const ProfileScreen: React.FC = () => {
             name={resolvedName}
             mono={mono}
             photoUri={photo}
+            userId={user?.id}
             onPress={() => setEditSheetOpen(true)}
             onBadgePress={() => setEditSheetOpen(true)}
           />
@@ -381,7 +383,7 @@ export const ProfileScreen: React.FC = () => {
         <ConstancyBlock earned={constancyEarned} currentStreak={currentStreak} />
 
         <View style={styles.statsRow}>
-          <StatTile value={String(anchorsForged)} label={'Anchors\nForged'} />
+          <StatTile value={String(primeStreak)} label={'Prime\nStreak'} />
           <StatTile value={String(totalPrimes)} label={'Total\nPrimes'} />
           <StatTile value={String(activeAnchors)} label={'Active\nAnchors'} />
         </View>

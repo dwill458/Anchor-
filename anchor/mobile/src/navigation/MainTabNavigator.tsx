@@ -1,7 +1,7 @@
 /**
  * Anchor App - Main Tab Navigator (Premium iOS swipe animation)
  *
- * Uses SwipeableTabContainer so all three tab screens stay mounted and
+ * Uses SwipeableTabContainer so active tab screens stay mounted and
  * visible simultaneously — both the incoming and outgoing screens animate
  * (true parallax: outgoing moves at 28% speed).
  *
@@ -110,26 +110,34 @@ const TABS = [
       />
     ),
   },
-  {
-    label: 'DISCOVER',
-    icon: (active: boolean) => (
-      <Compass
-        color={active ? GOLD : INACTIVE_COLOR}
-        size={TAB_ICON_SIZE}
-        strokeWidth={TAB_ICON_STROKE_WIDTH}
-        fill="none"
-        testID="tab-icon-discover"
-      />
-    ),
-  },
+  // DEFERRED: Re-enable Discovery when the tab has a functional destination and bottom-nav space is intentionally expanded back to three items.
+  // {
+  //   label: 'DISCOVER',
+  //   icon: (active: boolean) => (
+  //     <Compass
+  //       color={active ? GOLD : INACTIVE_COLOR}
+  //       size={TAB_ICON_SIZE}
+  //       strokeWidth={TAB_ICON_STROKE_WIDTH}
+  //       fill="none"
+  //       testID="tab-icon-discover"
+  //     />
+  //   ),
+  // },
 ];
+
+const ACTIVE_TAB_COUNT = TABS.length;
 
 export const CustomTabBar: React.FC<CustomTabBarProps> = ({ activeIndex, onTabPress }) => {
   const insets = useSafeAreaInsets();
+  const isCompactTabSet = ACTIVE_TAB_COUNT < 3;
 
   return (
     <View
-      style={[styles.bar, { height: 82 + Math.max(insets.bottom, 0) }]}
+      style={[
+        styles.bar,
+        isCompactTabSet && styles.barCompact,
+        { height: 82 + Math.max(insets.bottom, 0) },
+      ]}
       testID="custom-tab-bar"
     >
       {TABS.map((tab, index) => {
@@ -190,7 +198,7 @@ export const MainTabNavigator: React.FC = () => {
   const isTabBarVisible = React.useMemo(() => {
     if (activeIndex === 0) return vaultRouteName === 'Vault';
     if (activeIndex === 1) return practiceRouteName === 'PracticeHome';
-    return true; // Discover
+    return false;
   }, [activeIndex, vaultRouteName, practiceRouteName]);
 
   // Auto-open daily anchor
@@ -236,12 +244,13 @@ export const MainTabNavigator: React.FC = () => {
         <SwipeableTabContainer
           activeIndex={activeIndex}
           onIndexChange={handleIndexChange}
-          tabCount={3}
+          tabCount={ACTIVE_TAB_COUNT}
           swipeEnabled={isTabBarVisible}
         >
           <VaultStackNavigator onRouteChange={setVaultRouteName} />
           <PracticeStackNavigator onRouteChange={setPracticeRouteName} />
-          <DiscoverScreen />
+          {/* DEFERRED: Restore DiscoverScreen here if the bottom nav returns to a three-tab layout. */}
+          {/* <DiscoverScreen /> */}
         </SwipeableTabContainer>
 
         {isTabBarVisible && (
@@ -269,6 +278,10 @@ const styles = StyleSheet.create({
     paddingTop: 14,
     paddingBottom: 0,
     height: 82,
+  },
+  barCompact: {
+    justifyContent: 'space-evenly',
+    paddingHorizontal: 18,
   },
   tabButton: {
     flex: 1,

@@ -97,13 +97,14 @@ describe('CustomTabBar', () => {
 
     expect(getByTestId('tab-indicator-sanctuary')).toBeTruthy();
     expect(queryByTestId('tab-indicator-practice')).toBeNull();
-    expect(queryByTestId('tab-indicator-discover')).toBeNull();
 
     const flattenedStyle = StyleSheet.flatten(getByTestId('custom-tab-bar').props.style);
     expect(flattenedStyle).toMatchObject({
       backgroundColor: '#080C10',
       borderTopColor: 'rgba(212,175,55,0.08)',
       borderTopWidth: 1,
+      justifyContent: 'space-evenly',
+      paddingHorizontal: 18,
       paddingTop: 14,
       paddingBottom: 0,
       height: 82,
@@ -132,13 +133,6 @@ describe('CustomTabBar', () => {
     });
 
     expect(parseIconProps(getByTestId('tab-icon-practice'))).toMatchObject({
-      color: 'rgba(192,192,192,0.3)',
-      size: 22,
-      strokeWidth: 1.8,
-      fill: 'none',
-    });
-
-    expect(parseIconProps(getByTestId('tab-icon-discover'))).toMatchObject({
       color: 'rgba(192,192,192,0.3)',
       size: 22,
       strokeWidth: 1.8,
