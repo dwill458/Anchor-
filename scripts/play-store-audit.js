@@ -64,7 +64,9 @@ log.header('CRITICAL ISSUES');
 
 // 1. Account Deletion - Firebase Auth
 const authServicePath = path.join(MOBILE_DIR, 'src', 'services', 'AuthService.ts');
-if (fileContains(authServicePath, 'deleteUser()')) {
+const authServiceNativePath = path.join(MOBILE_DIR, 'src', 'services', 'AuthService.native.ts');
+if ((fileContains(authServicePath, 'deleteAccount') || fileContains(authServicePath, 'deleteUser()')) ||
+    (fileContains(authServiceNativePath, 'deleteAccount') || fileContains(authServiceNativePath, 'deleteUser()'))) {
   log.success('Account deletion calls Firebase Auth deleteUser()');
   results.critical.push({ status: 'pass', item: 'Firebase Auth deleteUser() implemented' });
 } else {

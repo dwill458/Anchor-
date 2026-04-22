@@ -174,6 +174,11 @@ export class AuthService {
     await new Promise((resolve) => setTimeout(resolve, 500));
   }
 
+  static async deleteAccount(): Promise<void> {
+    assertMockAuthEnabled();
+    await new Promise((resolve) => setTimeout(resolve, 500));
+  }
+
   static onAuthStateChanged(
     callback: (user: FirebaseUser | null) => void
   ): () => void {

@@ -19,6 +19,7 @@ import {
   syncDailyReminderFromStores,
 } from '@/services/DailyGoalNudgeService';
 import NotificationService from '@/services/NotificationService';
+import { AuthService } from '@/services/AuthService';
 import { useAuthStore } from '@/stores/authStore';
 import type { RootStackParamList } from '@/types';
 import { SettingsRow } from '@/components/settings/SettingsRow';
@@ -99,6 +100,41 @@ export const SettingsScreen: React.FC = () => {
               await writeSecureValue('anchor-sync-retry-queue', '[]');
             } catch (error) {
               console.warn('[SettingsScreen] Failed to clear sync retry queue on sign-out', error);
+            }
+            signOut();
+            setHasCompletedOnboarding(false);
+            navigation.dispatch(
+              CommonActions.reset({
+                index: 0,
+                routes: [{ name: 'Onboarding' }],
+              })
+            );
+          },
+        },
+      ]
+    );
+  }, [navigation, signOut, setHasCompletedOnboarding]);
+
+  const handleDeleteAccount = useCallback(() => {
+    Alert.alert(
+      'Delete Account',
+      'This action is permanent and cannot be undone. All your anchors and data will be deleted from our servers.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await AuthService.deleteAccount();
+              // Clear local data
+              const { writeSecureValue } = require('@/stores/encryptedPersistStorage');
+              await writeSecureValue('anchor-sync-retry-queue', '[]');
+            } catch (error) {
+              const message = error instanceof Error ? error.message : 'Failed to delete account';
+              Alert.alert('Deletion Failed', message);
+              console.error('[SettingsScreen] Failed to delete account', error);
+              return;
             }
             signOut();
             setHasCompletedOnboarding(false);
@@ -380,13 +416,7 @@ export const SettingsScreen: React.FC = () => {
               title="Delete Account"
               type="none"
               titleColor="#e05252"
-              onPress={() =>
-                Alert.alert(
-                  'Delete Account',
-                  'Account deletion is not wired yet.',
-                  [{ text: 'Cancel', style: 'cancel' }, { text: 'Delete', style: 'destructive' }]
-                )
-              }
+              onPress={handleDeleteAccount}
               style={styles.dangerRow}
               showDivider={false}
             />

@@ -281,6 +281,42 @@ export class AuthService {
     await auth().sendPasswordResetEmail(email.trim());
   }
 
+  static async deleteAccount(): Promise<void> {
+    const currentUser = auth().currentUser;
+    if (!currentUser) {
+      throw new Error('No user is currently signed in.');
+    }
+
+    try {
+      const idToken = await currentUser.getIdToken();
+
+      // Call backend to delete account records
+      const response = await fetch(`${API_URL}/api/auth/me`, {
+        method: 'DELETE',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${idToken}`,
+        },
+      });
+
+      if (!response.ok) {
+        const payload = await response.json().catch(() => null);
+        const apiMessage = messageFromApiError(payload);
+        throw new Error(apiMessage ?? 'Failed to delete account from server.');
+      }
+
+      // Delete Firebase Auth account
+      await currentUser.delete();
+
+      logger.info('Account successfully deleted');
+    } catch (error) {
+      logger.error('Failed to delete account', error);
+      throw error instanceof Error
+        ? error
+        : new Error('An unexpected error occurred while deleting your account.');
+    }
+  }
+
   static onAuthStateChanged(
     callback: (user: FirebaseUser | null) => void
   ): () => void {
