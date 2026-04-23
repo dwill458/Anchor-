@@ -4,6 +4,7 @@ import { ConfirmBurnScreen } from '../ConfirmBurnScreen';
 import { AnalyticsEvents, AnalyticsService } from '@/services/AnalyticsService';
 import { ErrorTrackingService } from '@/services/ErrorTrackingService';
 import { useAnchorStore } from '@/stores/anchorStore';
+import { AuthService } from '@/services/AuthService';
 
 jest.mock('@react-navigation/native', () => ({
   useRoute: jest.fn(() => ({
@@ -22,6 +23,11 @@ jest.mock('@react-navigation/native', () => ({
 
 jest.mock('@/services/AnalyticsService');
 jest.mock('@/services/ErrorTrackingService');
+jest.mock('@/services/AuthService', () => ({
+  AuthService: {
+    getIdToken: jest.fn(),
+  },
+}));
 jest.mock('@/stores/anchorStore', () => ({
   useAnchorStore: jest.fn(),
 }));
@@ -37,10 +43,12 @@ describe('ConfirmBurnScreen', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     mockNavigate = jest.fn();
+    (AuthService.getIdToken as jest.Mock).mockResolvedValue('token');
 
     const navigation = require('@react-navigation/native');
     navigation.useNavigation.mockReturnValue({
       navigate: mockNavigate,
+      replace: jest.fn(),
       goBack: jest.fn(),
     });
 

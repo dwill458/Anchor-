@@ -117,6 +117,22 @@ export class AuthService {
     };
   }
 
+  static async signInWithApple(): Promise<AuthResult> {
+    assertMockAuthEnabled();
+    await new Promise((resolve) => setTimeout(resolve, 1000));
+
+    return {
+      user: createMockUser({
+        id: 'mock-uid-apple',
+        email: 'apple-user@example.com',
+        displayName: 'Apple Guest',
+        hasCompletedOnboarding: true,
+      }),
+      token: 'mock-jwt-token',
+      isNewUser: false,
+    };
+  }
+
   static async syncCurrentUser(): Promise<AuthResult | null> {
     assertMockAuthEnabled();
     return {
@@ -170,6 +186,11 @@ export class AuthService {
   }
 
   static async sendPasswordResetEmail(_email: string): Promise<void> {
+    assertMockAuthEnabled();
+    await new Promise((resolve) => setTimeout(resolve, 500));
+  }
+
+  static async deleteAccount(): Promise<void> {
     assertMockAuthEnabled();
     await new Promise((resolve) => setTimeout(resolve, 500));
   }

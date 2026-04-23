@@ -52,6 +52,7 @@
     },
     "plugins": [
       "@react-native-firebase/app",
+      "expo-apple-authentication",
       "@sentry/react-native/expo",
       "expo-secure-store",
       "@react-native-community/datetimepicker",

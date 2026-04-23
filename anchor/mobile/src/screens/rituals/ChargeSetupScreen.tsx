@@ -1,7 +1,9 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   AccessibilityInfo,
+  Animated,
   BackHandler,
+  Easing,
   Platform,
   ScrollView,
   StyleSheet,
@@ -10,25 +12,17 @@ import {
   View,
   useWindowDimensions,
 } from 'react-native';
-import Animated, {
-  cancelAnimation,
-  useAnimatedStyle,
-  useSharedValue,
-  withRepeat,
-  withSequence,
-  withTiming,
-} from 'react-native-reanimated';
 import { BlurView } from 'expo-blur';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as Haptics from 'expo-haptics';
 import { useFocusEffect, useNavigation, useRoute, type RouteProp } from '@react-navigation/native';
 import { type StackNavigationProp } from '@react-navigation/stack';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { SvgXml } from 'react-native-svg';
 import { useAnchorStore } from '@/stores/anchorStore';
 import { useSettingsStore } from '@/stores/settingsStore';
 import { safeHaptics } from '@/utils/haptics';
 import { OptimizedImage } from '@/components/common';
-import { PrimeAnchorCanvas, parseSigilSvg } from '@/components/common/PrimeAnchorCanvas';
 import type { Anchor, RootStackParamList } from '@/types';
 import { spacing } from '@/theme';
 import { navigateToVaultDestination } from '@/navigation/firstAnchorGate';
@@ -81,16 +75,13 @@ const chargeConfigByChoice = {
     durationSeconds: 180,
     icon: '🔥',
     name: 'Deep Prime',
-    lineOne: '3 minutes',
+    lineOne: '2 – 10 minutes',
     lineTwo: 'Deep focus',
   },
 };
 
 const getPrimeStructureSvg = (anchor?: Anchor): string =>
   anchor?.baseSigilSvg?.trim() || anchor?.reinforcedSigilSvg?.trim() || FALLBACK_SIGIL_SVG;
-
-const getParsedSigil = (anchor?: Anchor) =>
-  parseSigilSvg(getPrimeStructureSvg(anchor));
 
 export const ChargeSetupScreen: React.FC = () => {
   const navigation = useNavigation<ChargeSetupNavigationProp>();
@@ -109,21 +100,12 @@ export const ChargeSetupScreen: React.FC = () => {
   const [enhancedArtworkFailed, setEnhancedArtworkFailed] = useState(false);
 
   const isNavigatingRef = useRef(false);
-  const heroHeight = Math.max(400, Math.min(580, Math.round(screenHeight * 0.65)));
+  const heroHeight = Math.max(340, Math.min(460, Math.round(screenHeight * 0.52)));
   const shouldShowEnhancedArtwork = Boolean(anchor?.enhancedImageUrl) && !enhancedArtworkFailed;
-
-  // Parse sigil paths once — stable for this anchor
-  const { pathDs: sigilPaths, viewBox: sigilViewBox } = useMemo(
-    () => getParsedSigil(anchor),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [anchor?.id],
-  );
-
-  // Reanimated 3 drift — passed into PrimeAnchorCanvas and image wrapper
-  const driftSV = useSharedValue(0);
-  const driftStyle = useAnimatedStyle(() => ({
-    transform: [{ translateY: driftSV.value }],
-  }));
+  const ringPulseOuter = useRef(new Animated.Value(1)).current;
+  const ringPulseMid = useRef(new Animated.Value(1)).current;
+  const ringPulseInner = useRef(new Animated.Value(1)).current;
+  const structureSvg = useMemo(() => getPrimeStructureSvg(anchor), [anchor]);
 
   useEffect(() => {
     AccessibilityInfo.isReduceMotionEnabled().then((v) => setReduceMotionEnabled(v));
@@ -136,20 +118,45 @@ export const ChargeSetupScreen: React.FC = () => {
   }, [anchor?.id, anchor?.enhancedImageUrl]);
 
   useEffect(() => {
+    const rings = [ringPulseOuter, ringPulseMid, ringPulseInner];
+
     if (reduceMotionEnabled) {
-      driftSV.value = 0;
+      rings.forEach((ring) => ring.setValue(1));
       return;
     }
-    driftSV.value = withRepeat(
-      withSequence(
-        withTiming(-6, { duration: 2800 }),
-        withTiming(0, { duration: 2800 }),
-      ),
-      -1,
-      false,
-    );
-    return () => cancelAnimation(driftSV);
-  }, [reduceMotionEnabled, driftSV]);
+
+    const createRingLoop = (value: Animated.Value, delay: number) =>
+      Animated.loop(
+        Animated.sequence([
+          Animated.delay(delay),
+          Animated.timing(value, {
+            toValue: 0.35,
+            duration: 1800,
+            easing: Easing.inOut(Easing.ease),
+            useNativeDriver: true,
+          }),
+          Animated.timing(value, {
+            toValue: 1,
+            duration: 1800,
+            easing: Easing.inOut(Easing.ease),
+            useNativeDriver: true,
+          }),
+        ]),
+      );
+
+    const animations = [
+      createRingLoop(ringPulseInner, 0),
+      createRingLoop(ringPulseMid, 600),
+      createRingLoop(ringPulseOuter, 1200),
+    ];
+
+    animations.forEach((animation) => animation.start());
+
+    return () => {
+      animations.forEach((animation) => animation.stop());
+      rings.forEach((ring) => ring.stopAnimation());
+    };
+  }, [reduceMotionEnabled, ringPulseInner, ringPulseMid, ringPulseOuter]);
 
   useFocusEffect(
     useCallback(() => {
@@ -257,31 +264,30 @@ export const ChargeSetupScreen: React.FC = () => {
           pointerEvents="none"
         />
 
-        {/* Single-pass Skia canvas: aura + rings + particles + sigil (SVG mode) */}
-        <PrimeAnchorCanvas
-          size={heroHeight}
-          sigilPaths={shouldShowEnhancedArtwork ? [] : sigilPaths}
-          viewBox={sigilViewBox}
-          drift={driftSV}
-          reduceMotionEnabled={reduceMotionEnabled}
-        />
+        <View pointerEvents="none" style={styles.anchorHero}>
+          <View style={styles.ringField}>
+            <Animated.View style={[styles.ring, styles.ringOuter, { opacity: ringPulseOuter }]} />
+            <Animated.View style={[styles.ring, styles.ringMid, { opacity: ringPulseMid }]} />
+            <Animated.View style={[styles.ring, styles.ringInner, { opacity: ringPulseInner }]} />
+          </View>
 
-        {/* Enhanced image overlay — only visible when image is available */}
-        {shouldShowEnhancedArtwork && anchor?.enhancedImageUrl ? (
-          <Animated.View
-            pointerEvents="none"
-            style={[styles.anchorOverlay, driftStyle]}
-          >
+          <View style={styles.anchorOverlay}>
             <View style={styles.anchorFrame}>
-              <OptimizedImage
-                uri={anchor.enhancedImageUrl}
-                style={styles.anchorImage}
-                resizeMode="cover"
-                onError={() => setEnhancedArtworkFailed(true)}
-              />
+              {shouldShowEnhancedArtwork && anchor?.enhancedImageUrl ? (
+                <OptimizedImage
+                  uri={anchor.enhancedImageUrl}
+                  style={styles.anchorImage}
+                  resizeMode="cover"
+                  onError={() => setEnhancedArtworkFailed(true)}
+                />
+              ) : (
+                <View style={styles.sigilFrame}>
+                  <SvgXml xml={structureSvg} width={PRIME_ARTWORK_SIZE * 0.62} height={PRIME_ARTWORK_SIZE * 0.62} />
+                </View>
+              )}
             </View>
-          </Animated.View>
-        ) : null}
+          </View>
+        </View>
 
         <View style={[styles.navBar, { paddingTop: insets.top + 8 }]}>
           <TouchableOpacity
@@ -325,7 +331,7 @@ export const ChargeSetupScreen: React.FC = () => {
               end={{ x: 1, y: 0 }}
               style={styles.badgeLine}
             />
-            <Text style={styles.badgeText}>YOUR ANCHOR IS FORGED</Text>
+            <Text style={styles.badgeText}>ANCHOR FORGED</Text>
             <LinearGradient
               colors={['rgba(212,175,55,0.3)', 'transparent']}
               start={{ x: 0, y: 0 }}
@@ -334,8 +340,8 @@ export const ChargeSetupScreen: React.FC = () => {
             />
           </View>
 
-          <Text style={styles.headline}>Set Your Intention in Motion</Text>
-          <Text style={styles.subline}>Hold focus on your anchor.{'\n'}Choose how long to prime.</Text>
+          <Text style={styles.headline}>The Work Begins Now</Text>
+          <Text style={styles.subline}>Fix your anchor in mind.{'\n'}Choose your prime duration.</Text>
           <Text style={styles.durationLabel}>SELECT DURATION</Text>
 
           <View style={styles.cardsRow}>
@@ -403,6 +409,40 @@ const styles = StyleSheet.create({
     backgroundColor: BLACK,
     overflow: 'hidden',
   },
+  anchorHero: {
+    ...StyleSheet.absoluteFillObject,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  ringField: {
+    position: 'absolute',
+    top: 0,
+    right: 0,
+    bottom: 0,
+    left: 0,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  ring: {
+    position: 'absolute',
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: 'rgba(212,175,55,0.45)',
+  },
+  ringOuter: {
+    width: 310,
+    height: 310,
+  },
+  ringMid: {
+    width: 255,
+    height: 255,
+    borderColor: 'rgba(212,175,55,0.32)',
+  },
+  ringInner: {
+    width: 200,
+    height: 200,
+    borderColor: 'rgba(212,175,55,0.5)',
+  },
   anchorOverlay: {
     position: 'absolute',
     top: 0,
@@ -423,11 +463,24 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: 'rgba(212,175,55,0.24)',
     backgroundColor: 'rgba(8,12,16,0.12)',
+    shadowColor: GOLD,
+    shadowOpacity: 0.22,
+    shadowRadius: 18,
+    shadowOffset: { width: 0, height: 0 },
+    elevation: 8,
   },
   anchorImage: {
     width: PRIME_ARTWORK_SIZE,
     height: PRIME_ARTWORK_SIZE,
     borderRadius: PRIME_ARTWORK_SIZE / 2,
+  },
+  sigilFrame: {
+    width: PRIME_ARTWORK_SIZE,
+    height: PRIME_ARTWORK_SIZE,
+    borderRadius: PRIME_ARTWORK_SIZE / 2,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(8,12,16,0.82)',
   },
   navBar: {
     position: 'absolute',
@@ -499,7 +552,7 @@ const styles = StyleSheet.create({
     height: 1,
   },
   panelContent: {
-    paddingTop: 32,
+    paddingTop: 28,
     paddingHorizontal: 24,
     paddingBottom: 24,
   },

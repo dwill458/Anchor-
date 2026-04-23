@@ -138,7 +138,7 @@ describe('ChargeSetupScreen', () => {
         render(<ChargeSetupScreen />);
         // Screen defaults to 'quick' selection, so the button is always present
         // The heading label confirms the screen loaded
-        expect(screen.getByText('Set Your Intention in Motion')).toBeTruthy();
+        expect(screen.getByText('The Work Begins Now')).toBeTruthy();
     });
 
     it('stub: Begin button enabled after both selections', () => {
@@ -154,6 +154,7 @@ describe('ChargeSetupScreen', () => {
         // Both pill options are rendered
         expect(screen.getByText('Quick Prime')).toBeTruthy();
         expect(screen.getByText('Deep Prime')).toBeTruthy();
+        expect(screen.getByText('2 – 10 minutes')).toBeTruthy();
     });
 
     it('starts the selected path immediately in auto-start mode', () => {
@@ -184,6 +185,6 @@ describe('ChargeSetupScreen', () => {
 
         render(<ChargeSetupScreen />);
 
-        expect(screen.getByText('<svg><path d="M0 0" /></svg>')).toBeTruthy();
+        expect(screen.getByText('ANCHOR FORGED')).toBeTruthy();
     });
 });

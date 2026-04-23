@@ -64,6 +64,9 @@ export const FirstPrimeCompleteScreen: React.FC = () => {
   const { anchorId, sessionCount, threadStrength, durationSeconds, returnTo } = route.params;
 
   const getAnchorById = useAnchorStore((state) => state.getAnchorById);
+  const updateAnchor = useAnchorStore((state) => state.updateAnchor);
+  const incrementTotalPrimes = useAnchorStore((state) => state.incrementTotalPrimes);
+  const recordPrimeSession = useAnchorStore((state) => state.recordPrimeSession);
   const recordSession = useSessionStore((state) => state.recordSession);
   const defaultCharge = useSettingsStore((state) => state.defaultCharge);
   const { playSound } = useAudio();
@@ -146,6 +149,16 @@ export const FirstPrimeCompleteScreen: React.FC = () => {
   useEffect(() => {
     if (!hasRecordedRef.current) {
       hasRecordedRef.current = true;
+
+      // Count the very first priming session toward lifetime Total Primes
+      const currentActivationCount = useAnchorStore.getState().getAnchorById(anchorId)?.activationCount ?? 0;
+      updateAnchor(anchorId, {
+        activationCount: currentActivationCount + 1,
+        lastActivatedAt: new Date(),
+      });
+      incrementTotalPrimes();
+      recordPrimeSession();
+
       recordSession({
         anchorId,
         type: 'reinforce',
@@ -337,8 +350,10 @@ export const FirstPrimeCompleteScreen: React.FC = () => {
     footerBlink,
     glowBreath,
     headlineAnim,
+    incrementTotalPrimes,
     pillAnim,
     playSound,
+    recordPrimeSession,
     recordSession,
     ringPulse,
     ringSpinA,
@@ -347,6 +362,7 @@ export const FirstPrimeCompleteScreen: React.FC = () => {
     symbolAnim,
     targetFillWidth,
     threadFill,
+    updateAnchor,
   ]);
 
   const handleDismiss = () => {
