@@ -1,4 +1,4 @@
-import React, { useCallback, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { StyleSheet, View, Text, Pressable, Platform, InteractionManager } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -25,13 +25,16 @@ import { countDailyGoalCompletions } from '@/services/DailyGoalNudgeService';
 import { safeHaptics } from '@/utils/haptics';
 import { colors, spacing, typography } from '@/theme';
 import { PRACTICE_COPY } from '@/constants/copy';
+import { PracticeInfoModal } from '@/components/PracticeInfoModal';
 import { AnchorHero } from './components/AnchorHero';
 import { AnchorSelectorSheet } from './components/AnchorSelectorSheet';
 import { DailyGoalProgressCard } from './components/DailyGoalProgressCard';
 import { ThreadStrengthBlock, getThreadState } from './components/ThreadStrengthBlock';
-import { InfoSheet } from './components/InfoSheet';
+// DEFERRED: replaced by PracticeInfoModal to preserve rollback path.
+// import { InfoSheet } from './components/InfoSheet';
 import { ModePortalTile } from './components/ModePortalTile';
 import { PracticeHubHeader } from './components/PracticeHubHeader';
+import { resolveBurnArtworkUri } from '@/screens/rituals/utils/resolveBurnArtworkUri';
 
 type PracticeNavigationProp = StackNavigationProp<PracticeStackParamList, 'PracticeHome'>;
 type PendingMode = 'charge' | 'stabilize' | 'burn' | 'quickActivate' | null;
@@ -96,7 +99,7 @@ function toModeTitle(mode: Exclude<PendingMode, null>): string {
 
 export const PracticeScreen: React.FC = () => {
   const navigation = useNavigation<PracticeNavigationProp>();
-  const { navigateToVault, activeTabIndex } = useTabNavigation();
+  const { navigateToVault, registerTabNav, activeTabIndex } = useTabNavigation();
   const isPracticeTabActive = activeTabIndex == null ? true : activeTabIndex === 1;
   const insets = useSafeAreaInsets();
   const reduceMotion = useReducedMotion();
@@ -117,6 +120,11 @@ export const PracticeScreen: React.FC = () => {
   const [infoVisible, setInfoVisible] = useState(false);
   const [pendingMode, setPendingMode] = useState<PendingMode>(null);
   const [autoTeachingSeen, setAutoTeachingSeen] = useState<boolean | null>(null);
+
+  useEffect(() => {
+    registerTabNav(1, navigation as any);
+    return () => registerTabNav(1, null);
+  }, [navigation, registerTabNav]);
 
   const selectableAnchors = useMemo(
     () =>
@@ -351,9 +359,9 @@ export const PracticeScreen: React.FC = () => {
       safeHaptics.selection();
       navigateToVault('ConfirmBurn', {
         anchorId: anchor.id,
-        intention: anchor.intentionText,
-        sigilSvg: anchor.baseSigilSvg ?? '',
-        enhancedImageUrl: anchor.enhancedImageUrl,
+        intention: anchor.intentionText ?? (anchor as Anchor & { intention?: string }).intention ?? '',
+        sigilSvg: anchor.reinforcedSigilSvg ?? anchor.baseSigilSvg ?? '',
+        enhancedImageUrl: resolveBurnArtworkUri(anchor),
       });
     },
     [navigateToVault]
@@ -650,9 +658,18 @@ export const PracticeScreen: React.FC = () => {
         }}
       />
 
+      {/* DEFERRED: previous practice teaching sheet retained for rollback.
       <InfoSheet
         visible={infoVisible}
         onClose={() => {
+          setInfoVisible(false);
+          markInteraction();
+        }}
+      />
+      */}
+      <PracticeInfoModal
+        isVisible={infoVisible}
+        onDismiss={() => {
           setInfoVisible(false);
           markInteraction();
         }}

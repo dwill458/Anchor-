@@ -67,12 +67,24 @@ html, body {
   overflow: hidden;
 }
 
-#sigil-img,
-#sigil-image-shell img {
+#sigil-img {
   width: 100%;
   height: 100%;
   object-fit: contain;
   padding: 14%;
+  image-rendering: auto;
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+  transform: translateZ(0);
+  filter: drop-shadow(0 0 14px rgba(236,208,120,0.18));
+}
+
+#sigil-image-shell img {
+  width: 72%;
+  height: 72%;
+  object-fit: cover;
+  padding: 0;
+  border-radius: 50%;
   image-rendering: auto;
   backface-visibility: hidden;
   -webkit-backface-visibility: hidden;
@@ -484,13 +496,13 @@ function runSequence() {
     imageShell.style.animation = 'sigilArtBurn 3.2s cubic-bezier(0.22, 0.61, 0.36, 1) forwards';
     burnGlow.style.animation = 'burnGlowPulse 1.08s ease-in-out 3';
     burnVeil.style.animation = 'burnVeilSweep 3.2s ease forwards';
-  }, 900)));
+  }, 900));
 
   // Phase 3 \u2014 embers (3800ms)
   pendingTimers.push(setTimeout(() => {
     phase = 'embers';
     status.textContent = 'It is done.';
-  }, 3800)));
+  }, 3800));
 
   // Phase 4 \u2014 done (5800ms) \u2014 notify React Native
   pendingTimers.push(setTimeout(() => {
@@ -502,7 +514,7 @@ function runSequence() {
     if (window.ReactNativeWebView) {
       window.ReactNativeWebView.postMessage(JSON.stringify({ event: 'burnComplete' }));
     }
-  }, 5800)));
+  }, 5800));
 }
 
 // \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500

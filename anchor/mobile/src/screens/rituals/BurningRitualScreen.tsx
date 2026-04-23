@@ -13,6 +13,7 @@ import { useTeachingGate } from '@/utils/useTeachingGate';
 import { TEACHINGS } from '@/constants/teaching';
 import { useToast } from '@/components/ToastProvider';
 import { resolveBurnArtworkUri } from './utils/resolveBurnArtworkUri';
+import { AuthService } from '@/services/AuthService';
 
 type BurningRitualRouteProp = RouteProp<RootStackParamList, 'BurningRitual'>;
 type BurningRitualNavigationProp = StackNavigationProp<RootStackParamList, 'BurningRitual'>;
@@ -38,9 +39,12 @@ export const BurningRitualScreen: React.FC = () => {
   });
 
   const handleCommitBurn = useCallback(async () => {
-    if (!isAuthenticated) {
+    const token = await AuthService.getIdToken();
+
+    if (!isAuthenticated || !token) {
       throw new Error('Sign in to release this anchor.');
     }
+
     try {
       await post(`/api/anchors/${anchorId}/burn`, {});
       removeAnchor(anchorId);

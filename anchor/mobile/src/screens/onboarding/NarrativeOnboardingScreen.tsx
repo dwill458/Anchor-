@@ -448,7 +448,7 @@ const Ornament: React.FC = () => (
 // Main screen
 // ---------------------------------------------------------------------------
 
-export const NarrativeOnboardingScreen: React.FC<Props> = () => {
+export const NarrativeOnboardingScreen: React.FC<Props> = ({ navigation }) => {
   const { completeOnboarding, setShouldRedirectToCreation } = useAuthStore();
 
   const [currentSlide, setCurrentSlide] = useState(0);
@@ -519,6 +519,17 @@ export const NarrativeOnboardingScreen: React.FC<Props> = () => {
       <AmbientBleed />
 
       <CornerAccents />
+
+      {/* Returning-user sign-in — only visible on the very first slide */}
+      {currentSlide === 0 && (
+        <TouchableOpacity
+          style={styles.signInBtn}
+          onPress={() => navigation.navigate('Login')}
+          hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+        >
+          <Text style={styles.signInBtnText}>Sign In</Text>
+        </TouchableOpacity>
+      )}
 
       {currentSlide < TOTAL - 1 && (
         <TouchableOpacity
@@ -611,12 +622,14 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.background.primary },
   ambientBleed: { position: 'absolute', top: 0, left: 0, right: 0, height: '55%', zIndex: 0 },
   corner: { position: 'absolute', width: 20, height: 20, opacity: 0.3, zIndex: 5 },
-  cornerTL: { top: 60, left: 20, borderTopWidth: 1, borderLeftWidth: 1, borderColor: colors.gold },
-  cornerTR: { top: 60, right: 20, borderTopWidth: 1, borderRightWidth: 1, borderColor: colors.gold },
+  cornerTL: { top: 96, left: 20, borderTopWidth: 1, borderLeftWidth: 1, borderColor: colors.gold },
+  cornerTR: { top: 96, right: 20, borderTopWidth: 1, borderRightWidth: 1, borderColor: colors.gold },
   cornerBL: { bottom: 120, left: 20, borderBottomWidth: 1, borderLeftWidth: 1, borderColor: colors.gold },
   cornerBR: { bottom: 120, right: 20, borderBottomWidth: 1, borderRightWidth: 1, borderColor: colors.gold },
-  skipBtn: { position: 'absolute', top: 54, right: 28, zIndex: 20 },
-  skipText: { fontFamily: typography.fonts.heading, fontSize: DETAIL_FONT_SIZE, letterSpacing: 2, color: colors.silver, opacity: 0.6 },
+  signInBtn: { position: 'absolute', top: 54, left: 20, zIndex: 20, flexDirection: 'row', alignItems: 'center', paddingHorizontal: 10, paddingVertical: 5, borderRadius: 16, borderWidth: 1, borderColor: withAlpha(colors.gold, 0.55), backgroundColor: withAlpha(colors.gold, 0.08) },
+  signInBtnText: { fontFamily: typography.fonts.heading, fontSize: MICRO_FONT_SIZE + 1, letterSpacing: 1.8, color: colors.gold },
+  skipBtn: { position: 'absolute', top: 54, right: 20, zIndex: 20, flexDirection: 'row', alignItems: 'center', paddingHorizontal: 10, paddingVertical: 5, borderRadius: 16, borderWidth: 1, borderColor: withAlpha(colors.bone, 0.18), backgroundColor: withAlpha(colors.bone, 0.05) },
+  skipText: { fontFamily: typography.fonts.heading, fontSize: MICRO_FONT_SIZE + 1, letterSpacing: 2, color: colors.silver },
   slideContent: { flex: 1, paddingTop: 44 },
   visualArea: { height: 370, alignItems: 'center', justifyContent: 'center' },
   textArea: { flex: 1, paddingHorizontal: 36 },

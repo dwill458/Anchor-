@@ -14,6 +14,7 @@ jest.mock('react-native-reanimated', () => {
 
 const mockNavigate = jest.fn();
 const mockNavigateToVault = jest.fn();
+const mockRegisterTabNav = jest.fn();
 const mockSetCurrentAnchor = jest.fn((id?: string) => {
   mockCurrentAnchorId = id;
 });
@@ -51,6 +52,8 @@ jest.mock('@react-navigation/native', () => {
 jest.mock('@/contexts/TabNavigationContext', () => ({
   useTabNavigation: () => ({
     navigateToVault: mockNavigateToVault,
+    registerTabNav: mockRegisterTabNav,
+    activeTabIndex: 1,
   }),
 }));
 
@@ -123,6 +126,7 @@ describe('PracticeScreen', () => {
     (AsyncStorage.getItem as jest.Mock).mockResolvedValue('1');
     mockNavigate.mockReset();
     mockNavigateToVault.mockReset();
+    mockRegisterTabNav.mockReset();
     mockSetCurrentAnchor.mockClear();
     mockSetCurrentAnchor.mockImplementation((id?: string) => {
       mockCurrentAnchorId = id;
@@ -283,6 +287,29 @@ describe('PracticeScreen', () => {
     });
   });
 
+  it('uses burn fallbacks when launching release from practice', async () => {
+    mockAnchors = [
+      buildAnchor('a88', 'Fallback should be used', {
+        intentionText: undefined,
+        intention: 'Legacy intention',
+        reinforcedSigilSvg: '<svg>reinforced</svg>',
+        enhancedImageUrl: undefined,
+      }),
+    ];
+
+    const screen = render(<PracticeScreen />);
+    fireEvent.press(screen.getByText('RELEASE'));
+
+    await waitFor(() => {
+      expect(mockNavigateToVault).toHaveBeenCalledWith('ConfirmBurn', {
+        anchorId: 'a88',
+        intention: 'Legacy intention',
+        sigilSvg: '<svg>reinforced</svg>',
+        enhancedImageUrl: undefined,
+      });
+    });
+  });
+
   it('shows focus-session sub-copy after the user has already primed today', async () => {
     mockAnchors = [buildAnchor('a3', 'Keep momentum')];
     mockLastPrimedAt = localDateString(new Date());
@@ -361,8 +388,11 @@ describe('PracticeScreen', () => {
     fireEvent.press(screen.getByLabelText('Practice mode help'));
 
     await waitFor(() => {
-      expect(screen.getByText('How the three modes work')).toBeTruthy();
-      expect(screen.getByText('Got it')).toBeTruthy();
+      expect(screen.getByText('Three Modes to Prime')).toBeTruthy();
+      expect(screen.getByText('Imprint')).toBeTruthy();
+      expect(screen.getByText('Deep Prime')).toBeTruthy();
+      expect(screen.getByText('Seal')).toBeTruthy();
+      expect(screen.getByText('Got It')).toBeTruthy();
     });
   });
 });
