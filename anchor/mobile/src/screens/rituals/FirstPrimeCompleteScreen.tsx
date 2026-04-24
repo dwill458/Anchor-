@@ -22,6 +22,7 @@ import { useAnchorStore } from '@/stores/anchorStore';
 import { useSessionStore } from '@/stores/sessionStore';
 import { useSettingsStore } from '@/stores/settingsStore';
 import { useAudio } from '@/hooks/useAudio';
+import { useNotificationController } from '@/hooks/useNotificationController';
 import { AnalyticsService } from '@/services/AnalyticsService';
 import { colors, spacing, typography } from '@/theme';
 import type { RootStackParamList } from '@/types';
@@ -70,6 +71,7 @@ export const FirstPrimeCompleteScreen: React.FC = () => {
   const recordSession = useSessionStore((state) => state.recordSession);
   const defaultCharge = useSettingsStore((state) => state.defaultCharge);
   const { playSound } = useAudio();
+  const { handlePrimeComplete } = useNotificationController();
 
   const anchor = getAnchorById(anchorId);
   const hasRecordedRef = useRef(false);
@@ -166,6 +168,7 @@ export const FirstPrimeCompleteScreen: React.FC = () => {
         mode: defaultCharge.mode === 'ritual' ? 'mantra' : 'silent',
         completedAt: new Date().toISOString(),
       });
+      void handlePrimeComplete();
       AnalyticsService.track('first_prime_completed', {
         anchor_id: anchorId,
         intention_id: anchor?.id ?? anchorId,
@@ -353,6 +356,7 @@ export const FirstPrimeCompleteScreen: React.FC = () => {
     incrementTotalPrimes,
     pillAnim,
     playSound,
+    handlePrimeComplete,
     recordPrimeSession,
     recordSession,
     ringPulse,

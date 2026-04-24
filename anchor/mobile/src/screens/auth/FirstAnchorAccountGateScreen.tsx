@@ -12,6 +12,8 @@ import { useNavigation } from '@react-navigation/native';
 import type { StackNavigationProp } from '@react-navigation/stack';
 import { AuthService } from '@/services/AuthService';
 import { useAuthStore } from '@/stores/authStore';
+import { useSubscriptionStore } from '@/stores/subscriptionStore';
+import { useTrialStatus } from '@/hooks/useTrialStatus';
 import type { RootStackParamList } from '@/types';
 import { colors, spacing } from '@/theme';
 
@@ -29,7 +31,14 @@ export const FirstAnchorAccountGateScreen: React.FC = () => {
     (state) => state.finalizePendingFirstAnchorDraft
   );
   const clearPendingFirstAnchorError = useAuthStore((state) => state.clearPendingFirstAnchorError);
+  const clearPendingFirstAnchorState = useAuthStore((state) => state.clearPendingFirstAnchorState);
+  const setPendingFirstAnchorDraft = useAuthStore((state) => state.setPendingFirstAnchorDraft);
+  const completeOnboarding = useAuthStore((state) => state.completeOnboarding);
+  const setWallpaperPromptSeen = useAuthStore((state) => state.setWallpaperPromptSeen);
   const signOut = useAuthStore((state) => state.signOut);
+  const setDevOverrideEnabled = useSubscriptionStore((s) => s.setDevOverrideEnabled);
+  const setDevTierOverride = useSubscriptionStore((s) => s.setDevTierOverride);
+  const { isTrialActive, hasExpired } = useTrialStatus();
 
   React.useEffect(() => {
     if (!pendingFirstAnchorDraft) {
@@ -37,7 +46,16 @@ export const FirstAnchorAccountGateScreen: React.FC = () => {
       return;
     }
 
-    if (!isAuthenticated || isFinalizingPendingFirstAnchor || pendingFirstAnchorError) {
+    // Account is optional during the trial — lower the gate and send them straight to Vault.
+    if (!isAuthenticated) {
+      setPendingFirstAnchorDraft({ ...pendingFirstAnchorDraft, requiresAccountGate: false });
+      setWallpaperPromptSeen(false); // Re-arm so wallpaper prompt fires after first practice
+      completeOnboarding();
+      navigation.replace('Vault');
+      return;
+    }
+
+    if (isFinalizingPendingFirstAnchor || pendingFirstAnchorError) {
       return;
     }
 
@@ -60,11 +78,17 @@ export const FirstAnchorAccountGateScreen: React.FC = () => {
     navigation,
     pendingFirstAnchorDraft,
     pendingFirstAnchorError,
+    setPendingFirstAnchorDraft,
+    setWallpaperPromptSeen,
+    completeOnboarding,
   ]);
 
   const handleCreateAccount = React.useCallback(() => {
     clearPendingFirstAnchorError();
-    navigation.navigate('SignUp', { context: 'first_anchor_gate' });
+    navigation.navigate('Login', {
+      context: 'first_anchor_gate',
+      initialTab: 'signup',
+    });
   }, [clearPendingFirstAnchorError, navigation]);
 
   const handleSignIn = React.useCallback(() => {
@@ -176,6 +200,21 @@ export const FirstAnchorAccountGateScreen: React.FC = () => {
                 </TouchableOpacity>
               </>
             )}
+
+            {__DEV__ && (
+              <View style={styles.devSkipContainer}>
+                <TouchableOpacity
+                  style={styles.devSkipButton}
+                  onPress={() => {
+                    setDevOverrideEnabled(true);
+                    setDevTierOverride('expired');
+                  }}
+                  activeOpacity={0.7}
+                >
+                  <Text style={styles.devSkipText}>[DEV] Simulate expired → TrialEndScreen</Text>
+                </TouchableOpacity>
+              </View>
+            )}
           </View>
         </View>
       </SafeAreaView>
@@ -275,5 +314,21 @@ const styles = StyleSheet.create({
     fontFamily: 'Inter-SemiBold',
     fontSize: 15,
     color: colors.gold,
+  },
+  devSkipContainer: {
+    marginTop: 8,
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(255,0,0,0.2)',
+    gap: 4,
+    paddingTop: 8,
+  },
+  devSkipButton: {
+    alignItems: 'center',
+    paddingVertical: 6,
+  },
+  devSkipText: {
+    fontSize: 11,
+    color: 'rgba(255,80,80,0.7)',
+    fontFamily: 'Inter-Regular',
   },
 });

@@ -5,9 +5,10 @@
 import auth, { FirebaseAuthTypes } from '@react-native-firebase/auth';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as AppleAuthentication from 'expo-apple-authentication';
-import { GoogleSignin } from '@react-native-google-signin/google-signin';
 import { API_URL } from '@/config';
 import { GOOGLE_IOS_CLIENT_ID, GOOGLE_WEB_CLIENT_ID } from '@/config';
+
+let GoogleSignin: any = null;
 import {
   DEVELOPER_MASTER_ACCOUNT_ID,
   DEVELOPER_MASTER_ACCOUNT_TOKEN,
@@ -82,6 +83,22 @@ function getAuthProvider(user: FirebaseAuthTypes.User): AuthProvider {
   return providerIdToAuthProvider(providerId);
 }
 
+function generateNonce(length = 32): string {
+  const charset = '0123456789ABCDEFGHIJKLMNOPQRSTUVXYZabcdefghijklmnopqrstuvwxyz-._';
+  const values = new Uint32Array(length);
+  const cryptoApi = globalThis.crypto?.getRandomValues?.bind(globalThis.crypto);
+
+  if (cryptoApi) {
+    cryptoApi(values);
+  } else {
+    for (let index = 0; index < length; index += 1) {
+      values[index] = Math.floor(Math.random() * 0xffffffff);
+    }
+  }
+
+  return Array.from(values, (value) => charset[value % charset.length]).join('');
+}
+
 function messageFromApiError(payload: ApiResponse<User> | { error?: unknown } | null | undefined): string | null {
   if (!payload || typeof payload !== 'object') {
     return null;
@@ -135,6 +152,10 @@ function mapAuthError(error: unknown): Error {
 function configureGoogleSignin(): void {
   if (googleConfigured) {
     return;
+  }
+
+  if (!GoogleSignin) {
+    GoogleSignin = require('@react-native-google-signin/google-signin').GoogleSignin;
   }
 
   if (!GOOGLE_WEB_CLIENT_ID) {
@@ -241,6 +262,10 @@ export class AuthService {
       configureGoogleSignin();
       await GoogleSignin.hasPlayServices({ showPlayServicesUpdateDialog: true });
       const response = await GoogleSignin.signIn();
+      if (response.type !== 'success') {
+        throw new Error('Google sign-in was cancelled.');
+      }
+
       const idToken = response.data?.idToken;
 
       if (!idToken) {
@@ -263,7 +288,9 @@ export class AuthService {
         throw new Error('Apple sign-in is not available on this device.');
       }
 
+      const nonce = generateNonce();
       const appleCredential = await AppleAuthentication.signInAsync({
+        nonce,
         requestedScopes: [
           AppleAuthentication.AppleAuthenticationScope.FULL_NAME,
           AppleAuthentication.AppleAuthenticationScope.EMAIL,
@@ -275,7 +302,7 @@ export class AuthService {
       }
 
       const provider = new auth.OAuthProvider('apple.com');
-      const credential = provider.credential(appleCredential.identityToken);
+      const credential = provider.credential(appleCredential.identityToken, nonce);
       const firebaseCredential = await auth().signInWithCredential(credential);
 
       const displayName =
@@ -323,7 +350,9 @@ export class AuthService {
   }
 
   static async signOut(): Promise<void> {
-    await GoogleSignin.signOut().catch(() => undefined);
+    if (GoogleSignin) {
+      await GoogleSignin.signOut().catch(() => undefined);
+    }
     await auth().signOut();
   }
 

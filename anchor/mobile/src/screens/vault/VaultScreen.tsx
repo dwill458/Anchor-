@@ -48,7 +48,8 @@ import { ZenBackground } from '@/components/common';
 import { getEffectiveStabilizeStreakDays, toDateOrNull } from '@/utils/stabilizeStats';
 import { buildProfileGreeting } from '@/utils/profileGreeting';
 import type { Anchor, RootStackParamList } from '@/types';
-import { colors } from '@/theme';
+import { colors, typography } from '@/theme';
+import { withAlpha } from '@/utils/color';
 import { useTabNavigation } from '@/contexts/TabNavigationContext';
 import { isHighEndDevice } from '@/utils/deviceTier';
 import { useSettingsStore } from '@/stores/settingsStore';
@@ -73,6 +74,84 @@ const GHOST_SIGIL_2 = `<svg viewBox="0 0 45 45" fill="none" stroke="#D4AF37" str
   <circle cx="22" cy="22" r="14" opacity=".5"/>
   <circle cx="22" cy="22" r="5" opacity=".7"/>
 </svg>`;
+
+// ─── GuestReturnBanner ───────────────────────────────────────────────────────
+
+interface GuestReturnBannerProps {
+  onPractice: () => void;
+  onDismiss: () => void;
+}
+
+function GuestReturnBanner({ onPractice, onDismiss }: GuestReturnBannerProps) {
+  return (
+    <View style={bannerStyles.container}>
+      <View style={bannerStyles.textWrap}>
+        <Text style={bannerStyles.title}>Your anchor is here.</Text>
+        <Text style={bannerStyles.sub}>Ready to practice?</Text>
+      </View>
+      <TouchableOpacity onPress={onPractice} style={bannerStyles.cta} activeOpacity={0.8}>
+        <Text style={bannerStyles.ctaText}>Begin</Text>
+      </TouchableOpacity>
+      <TouchableOpacity onPress={onDismiss} style={bannerStyles.dismiss} activeOpacity={0.6} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+        <Text style={bannerStyles.dismissText}>✕</Text>
+      </TouchableOpacity>
+    </View>
+  );
+}
+
+const bannerStyles = StyleSheet.create({
+  container: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginHorizontal: H_PAD,
+    marginBottom: 16,
+    paddingVertical: 14,
+    paddingLeft: 16,
+    paddingRight: 10,
+    backgroundColor: withAlpha(colors.gold, 0.08),
+    borderWidth: 1,
+    borderColor: withAlpha(colors.gold, 0.25),
+    borderRadius: 10,
+    gap: 10,
+  },
+  textWrap: {
+    flex: 1,
+    gap: 2,
+  },
+  title: {
+    fontFamily: typography.fonts.heading,
+    fontSize: 14,
+    color: colors.bone,
+    letterSpacing: 0.2,
+  },
+  sub: {
+    fontFamily: typography.fonts.bodySerif,
+    fontSize: 13,
+    fontWeight: '300',
+    color: withAlpha(colors.bone, 0.6),
+  },
+  cta: {
+    paddingHorizontal: 14,
+    paddingVertical: 7,
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: withAlpha(colors.gold, 0.5),
+  },
+  ctaText: {
+    fontFamily: typography.fonts.headingBold,
+    fontSize: 11,
+    letterSpacing: 1.2,
+    textTransform: 'uppercase',
+    color: colors.gold,
+  },
+  dismiss: {
+    padding: 4,
+  },
+  dismissText: {
+    fontSize: 12,
+    color: withAlpha(colors.bone, 0.35),
+  },
+});
 
 // ─── selectPrimaryAnchor ──────────────────────────────────────────────────────
 
@@ -125,7 +204,8 @@ export const VaultScreen: React.FC = () => {
   const { registerTabNav, activeTabIndex } = useTabNavigation();
   const isVaultTabActive = activeTabIndex == null ? true : activeTabIndex === 0;
 
-  const { user } = useAuthStore();
+  const { user, isAuthenticated } = useAuthStore();
+  const [bannerDismissed, setBannerDismissed] = useState(false);
   const profileName = useProfileStore((state) => state.name);
   const profileTimezone = useProfileStore((state) => state.timezone);
   const developerForceStreakBreakEnabled = useSettingsStore(
@@ -377,6 +457,13 @@ export const VaultScreen: React.FC = () => {
             />
           </Animated2.View>
 
+          {!isAuthenticated && anchors.length > 0 && !bannerDismissed && (
+            <GuestReturnBanner
+              onPractice={handleActivate}
+              onDismiss={() => setBannerDismissed(true)}
+            />
+          )}
+
           {anchors.length === 0
             ? renderEmptyState({
                 handleCreateAnchor,
@@ -571,11 +658,11 @@ function renderActiveState({
           onPress={handleActivate}
           activeOpacity={0.8}
           accessibilityRole="button"
-          accessibilityLabel={isCharged ? 'Activate Anchor' : 'Charge Anchor'}
+          accessibilityLabel={isCharged ? 'Prime Anchor' : 'Charge Anchor'}
         >
           <Animated2.View style={[styles.activatePulseDot, pulseDotStyle]} />
           <Text style={styles.activateBtnText}>
-            {isCharged ? 'ACTIVATE ANCHOR' : 'CHARGE ANCHOR'}
+            {isCharged ? 'PRIME ANCHOR' : 'CHARGE ANCHOR'}
           </Text>
         </TouchableOpacity>
       </Animated2.View>

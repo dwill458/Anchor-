@@ -7,6 +7,8 @@ const mockRequestPermissions = jest.fn(() => Promise.resolve(true));
 const mockCancelDailyReminder = jest.fn(() => Promise.resolve());
 const mockSyncDailyReminderFromStores = jest.fn(() => Promise.resolve());
 const mockSyncDailyGoalNudgesFromStores = jest.fn(() => Promise.resolve([]));
+const mockToggleNotifications = jest.fn(() => Promise.resolve());
+const mockUpdateActiveHours = jest.fn(() => Promise.resolve());
 const mockSettings = {
   primingMode: 'quick' as const,
   primingDuration: 30 as const,
@@ -46,6 +48,19 @@ jest.mock('@/hooks/useSettings', () => ({
 jest.mock('@/components/transitions/SettingsRevealProvider', () => ({
   useSettingsReveal: () => ({
     markSettingsReady: jest.fn(),
+  }),
+}));
+
+jest.mock('../../../hooks/useNotificationController', () => ({
+  useNotificationController: () => ({
+    notifState: {
+      notification_enabled: true,
+      active_hours_start: 8,
+      active_hours_end: 21,
+      sovereign_rank: false,
+    },
+    toggleNotifications: mockToggleNotifications,
+    updateActiveHours: mockUpdateActiveHours,
   }),
 }));
 
@@ -109,7 +124,7 @@ describe('SettingsScreen', () => {
 
     const screen = render(<SettingsScreen />);
 
-    expect(screen.getByText('Reminder Time')).toBeTruthy();
+    expect(screen.getAllByText('Reminder Time').length).toBeGreaterThan(0);
 
     pressDailyReminderRow(screen);
 

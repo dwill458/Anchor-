@@ -2,9 +2,12 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   Alert,
   Linking,
+  Modal,
+  Pressable,
   ScrollView,
   StyleSheet,
   Text,
+  TouchableOpacity,
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -24,6 +27,7 @@ import { useAuthStore } from '@/stores/authStore';
 import type { RootStackParamList } from '@/types';
 import { SettingsRow } from '@/components/settings/SettingsRow';
 import { SettingsSectionBlock } from '@/components/settings/SettingsSectionBlock';
+import { useNotificationController } from '../../hooks/useNotificationController';
 import { colors } from '@/theme';
 import {
   formatFocusSummary,
@@ -59,9 +63,11 @@ const PlaceholderTag: React.FC<{ label: string }> = ({ label }) => (
 export const SettingsScreen: React.FC = () => {
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const { settings, updateSetting, resetSettings, isLoading } = useSettingsState();
+  const { notifState, toggleNotifications, updateActiveHours } = useNotificationController();
   const { setHasCompletedOnboarding, signOut } = useAuthStore();
   const reveal = useSettingsReveal();
   const [showTimePicker, setShowTimePicker] = useState(false);
+  const [hourPickerTarget, setHourPickerTarget] = useState<'wake' | 'reminder' | null>(null);
   const hasMarkedReadyRef = useRef(false);
   const frameRef = useRef<number | null>(null);
   const appVersion = Constants.expoConfig?.version ?? '1.0.0';
@@ -208,6 +214,26 @@ export const SettingsScreen: React.FC = () => {
     []
   );
 
+  const formatHourLabel = useCallback((hour: number | null | undefined) => {
+    const normalizedHour = Math.max(0, Math.min(23, hour ?? 0));
+    const meridiem = normalizedHour >= 12 ? 'PM' : 'AM';
+    const hour12 = normalizedHour % 12 || 12;
+    return `${hour12}:00 ${meridiem}`;
+  }, []);
+
+  const handleHourSelection = useCallback(
+    async (hour: number) => {
+      if (hourPickerTarget === 'wake') {
+        await updateActiveHours(hour, notifState?.active_hours_end ?? 21);
+      } else if (hourPickerTarget === 'reminder') {
+        await updateActiveHours(notifState?.active_hours_start ?? 8, hour);
+      }
+
+      setHourPickerTarget(null);
+    },
+    [hourPickerTarget, notifState?.active_hours_end, notifState?.active_hours_start, updateActiveHours]
+  );
+
   return (
     <View style={styles.container} onLayout={handleRootLayout}>
       <SafeAreaView style={styles.safeArea} edges={['bottom']}>
@@ -240,6 +266,20 @@ export const SettingsScreen: React.FC = () => {
               disabled={isLoading}
             />
             <SettingsRow
+              title="Daily Focus Goal"
+              value={formatGoalSummary(settings.focusBurstGoal)}
+              type="chevron"
+              onPress={() => navigation.navigate('DailyPracticeGoal')}
+              disabled={isLoading}
+            />
+          </SettingsSectionBlock>
+
+          <Text style={styles.sectionLabel}>App Behavior</Text>
+          <Text style={styles.sectionDescription}>
+            Tune how Anchor supports your day and nudges you back into practice.
+          </Text>
+          <SettingsSectionBlock>
+            <SettingsRow
               title="Prime on Launch"
               subtitle="Opens directly to your practice"
               type="toggle"
@@ -256,20 +296,44 @@ export const SettingsScreen: React.FC = () => {
               disabled={isLoading}
             />
             <SettingsRow
-              title="Daily Focus Goal"
-              value={formatGoalSummary(settings.focusBurstGoal)}
-              type="chevron"
-              onPress={() => navigation.navigate('DailyPracticeGoal')}
-              disabled={isLoading}
-            />
-            <SettingsRow
               title="Hide Intention Text"
               type="toggle"
               toggleValue={settings.reduceIntentionVisibility}
               onToggle={(value) => updateSetting('reduceIntentionVisibility', value)}
               disabled={isLoading}
-              showDivider={false}
             />
+            <SettingsRow
+              title="Notifications"
+              subtitle="Enable daily priming reminders"
+              type="toggle"
+              toggleValue={notifState?.notification_enabled ?? true}
+              onToggle={(value) => {
+                void toggleNotifications(value);
+              }}
+              disabled={isLoading}
+              showDivider={!(notifState?.notification_enabled ?? true)}
+            />
+            {notifState?.notification_enabled ? (
+              <>
+                <SettingsRow
+                  title="Wake Time"
+                  subtitle="When your active day begins"
+                  value={formatHourLabel(notifState?.active_hours_start ?? 8)}
+                  type="chevron"
+                  onPress={() => setHourPickerTarget('wake')}
+                  disabled={isLoading}
+                />
+                <SettingsRow
+                  title="Reminder Time"
+                  subtitle="When Micro-Prime fires if you haven't primed"
+                  value={formatHourLabel(notifState?.active_hours_end ?? 21)}
+                  type="chevron"
+                  onPress={() => setHourPickerTarget('reminder')}
+                  disabled={isLoading}
+                  showDivider={false}
+                />
+              </>
+            ) : null}
           </SettingsSectionBlock>
 
           <Text style={styles.sectionLabel}>Notifications</Text>
@@ -438,6 +502,53 @@ export const SettingsScreen: React.FC = () => {
           onChange={handleReminderTimeChange}
         />
       ) : null}
+      <Modal
+        visible={hourPickerTarget !== null}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setHourPickerTarget(null)}
+      >
+        <Pressable style={styles.hourPickerOverlay} onPress={() => setHourPickerTarget(null)}>
+          <Pressable style={styles.hourPickerCard} onPress={() => {}}>
+            <Text style={styles.hourPickerTitle}>
+              {hourPickerTarget === 'wake' ? 'Select Wake Time' : 'Select Reminder Time'}
+            </Text>
+            <ScrollView
+              style={styles.hourPickerList}
+              contentContainerStyle={styles.hourPickerListContent}
+              showsVerticalScrollIndicator={false}
+            >
+              {Array.from({ length: 24 }, (_, hour) => {
+                const activeHour =
+                  hourPickerTarget === 'wake'
+                    ? notifState?.active_hours_start ?? 8
+                    : notifState?.active_hours_end ?? 21;
+                const isSelected = activeHour === hour;
+
+                return (
+                  <TouchableOpacity
+                    key={hour}
+                    style={[styles.hourPickerOption, isSelected ? styles.hourPickerOptionActive : null]}
+                    activeOpacity={0.8}
+                    onPress={() => {
+                      void handleHourSelection(hour);
+                    }}
+                  >
+                    <Text
+                      style={[
+                        styles.hourPickerOptionText,
+                        isSelected ? styles.hourPickerOptionTextActive : null,
+                      ]}
+                    >
+                      {formatHourLabel(hour)}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </ScrollView>
+          </Pressable>
+        </Pressable>
+      </Modal>
     </View>
   );
 };
@@ -517,5 +628,54 @@ const styles = StyleSheet.create({
   },
   bottomSpacer: {
     height: 32,
+  },
+  hourPickerOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(6, 8, 12, 0.72)',
+    justifyContent: 'center',
+    paddingHorizontal: 24,
+  },
+  hourPickerCard: {
+    maxHeight: '70%',
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: 'rgba(212,175,55,0.18)',
+    backgroundColor: '#101822',
+    paddingVertical: 20,
+  },
+  hourPickerTitle: {
+    paddingHorizontal: 20,
+    paddingBottom: 12,
+    color: colors.gold,
+    fontSize: 18,
+    fontFamily: 'Cinzel-Regular',
+  },
+  hourPickerList: {
+    flexGrow: 0,
+  },
+  hourPickerListContent: {
+    paddingHorizontal: 16,
+    paddingBottom: 4,
+  },
+  hourPickerOption: {
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(212,175,55,0.1)',
+    backgroundColor: 'rgba(255,255,255,0.02)',
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    marginBottom: 8,
+  },
+  hourPickerOptionActive: {
+    borderColor: 'rgba(212,175,55,0.45)',
+    backgroundColor: 'rgba(212,175,55,0.1)',
+  },
+  hourPickerOptionText: {
+    color: colors.bone,
+    fontSize: 14,
+    fontFamily: 'Inter-Regular',
+  },
+  hourPickerOptionTextActive: {
+    color: colors.gold,
   },
 });

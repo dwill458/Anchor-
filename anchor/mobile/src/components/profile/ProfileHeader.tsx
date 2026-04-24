@@ -13,6 +13,7 @@ import { useProfileStore } from '@/stores/profileStore';
 import { useAuthStore } from '@/stores/authStore';
 import { getAvatarByIndex, getDefaultAvatar } from '@/utils/avatarUtils';
 import { SubscriptionStatus } from '@/types';
+import { useNotificationController } from '../../hooks/useNotificationController';
 
 interface ProfileHeaderProps {
   displayName: string | null | undefined;
@@ -24,6 +25,7 @@ export const ProfileHeader: React.FC<ProfileHeaderProps> = ({
   subscriptionStatus: _subscriptionStatus,
 }) => {
   // DEFERRED: trial badge removed, surfaced in ProfileScreen subscription section
+  const { notifState } = useNotificationController();
   const user = useAuthStore((state) => state.user);
   const photo = useProfileStore((state) => state.photo);
   const mono = useProfileStore((state) => state.mono);
@@ -58,6 +60,11 @@ export const ProfileHeader: React.FC<ProfileHeaderProps> = ({
         </View>
 
         <Text style={styles.displayName}>{displayName || 'Seeker'}</Text>
+        {notifState?.sovereign_rank ? (
+          <View style={styles.sovereignBadge}>
+            <Text style={styles.sovereignLabel}>Sovereign</Text>
+          </View>
+        ) : null}
       </BlurView>
     ) : (
       <View style={[styles.container, { backgroundColor: 'rgba(12, 17, 24, 0.92)' }]}>
@@ -74,6 +81,11 @@ export const ProfileHeader: React.FC<ProfileHeaderProps> = ({
         </View>
 
         <Text style={styles.displayName}>{displayName || 'Seeker'}</Text>
+        {notifState?.sovereign_rank ? (
+          <View style={styles.sovereignBadge}>
+            <Text style={styles.sovereignLabel}>Sovereign</Text>
+          </View>
+        ) : null}
       </View>
     )
   );
@@ -111,6 +123,21 @@ const styles = StyleSheet.create({
     ...typography.h2,
     color: colors.bone,
     marginBottom: spacing.sm,
+  },
+  sovereignBadge: {
+    marginTop: 4,
+    paddingHorizontal: 10,
+    paddingVertical: 3,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#D4AF37',
+    alignSelf: 'flex-start',
+  },
+  sovereignLabel: {
+    fontFamily: 'Cinzel',
+    fontSize: 11,
+    color: '#D4AF37',
+    letterSpacing: 1.5,
   },
   // DEFERRED: trial badge removed, surfaced in ProfileScreen subscription section
   // badge / badgeText styles deleted

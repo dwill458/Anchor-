@@ -113,9 +113,11 @@ export interface User {
 }
 
 export type AuthScreenContext = 'onboarding' | 'first_anchor_gate';
+export type AuthScreenInitialTab = 'signin' | 'signup';
 
 export interface AuthScreenParams {
   context?: AuthScreenContext;
+  initialTab?: AuthScreenInitialTab;
 }
 
 export interface PendingFirstAnchorDraft {
@@ -627,6 +629,7 @@ export type RootStackParamList = {
     intentionText: string;
     enhancedImageUrl?: string;
     sigilSvg?: string;
+    returnTo?: 'charge_setup' | 'vault';
   };
   ChargeSetup: {
     anchorId: string;

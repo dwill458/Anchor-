@@ -367,6 +367,41 @@ class NotificationService {
     return this.scheduleNotification(request);
   }
 
+  async scheduleLocalNotification(options: {
+    id: string;
+    title: string;
+    body: string;
+    fireDate: Date;
+    deepLink?: string;
+  }): Promise<string | null> {
+    if (!(options.fireDate instanceof Date) || Number.isNaN(options.fireDate.getTime())) {
+      this.recordError(
+        new ServiceError(
+          'notifications/invalid-time',
+          'Invalid local notification fire date. Expected a valid Date.'
+        )
+      );
+      return null;
+    }
+
+    return this.scheduleNotification({
+      identifier: options.id,
+      content: {
+        title: options.title,
+        body: options.body,
+        sound: CUSTOM_NOTIFICATION_SOUND,
+        data: {
+          deepLink: options.deepLink || '/',
+        },
+      },
+      trigger: this.buildDateTrigger(options.fireDate, NOTIFICATION_CHANNELS.DAILY_REMINDERS),
+    });
+  }
+
+  async cancelNotification(id: string): Promise<void> {
+    await this.cancelReminder(id);
+  }
+
   async getDeveloperTestNotifications(): Promise<MockScheduledNotification[]> {
     this.lastError = null;
 
