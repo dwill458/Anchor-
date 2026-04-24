@@ -358,7 +358,6 @@ export const SettingsScreen: React.FC = () => {
                   display="spinner"
                   onChange={handleReminderTimeChange}
                   style={styles.inlineDateTimePicker}
-                  textColor={colors.bone}
                 />
               </View>
             ) : null}
