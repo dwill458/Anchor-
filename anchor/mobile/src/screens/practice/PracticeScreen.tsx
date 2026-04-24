@@ -35,6 +35,7 @@ import { ThreadStrengthBlock, getThreadState } from './components/ThreadStrength
 import { ModePortalTile } from './components/ModePortalTile';
 import { PracticeHubHeader } from './components/PracticeHubHeader';
 import { resolveBurnArtworkUri } from '@/screens/rituals/utils/resolveBurnArtworkUri';
+import { useNotificationController } from '@/hooks/useNotificationController';
 
 type PracticeNavigationProp = StackNavigationProp<PracticeStackParamList, 'PracticeHome'>;
 type PendingMode = 'charge' | 'stabilize' | 'burn' | 'quickActivate' | null;
@@ -98,6 +99,8 @@ function toModeTitle(mode: Exclude<PendingMode, null>): string {
 }
 
 export const PracticeScreen: React.FC = () => {
+  useNotificationController();
+
   const navigation = useNavigation<PracticeNavigationProp>();
   const { navigateToVault, registerTabNav, activeTabIndex } = useTabNavigation();
   const isPracticeTabActive = activeTabIndex == null ? true : activeTabIndex === 1;

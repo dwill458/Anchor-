@@ -29,6 +29,7 @@ import { ConfirmModal } from './components/ConfirmModal';
 import { useTeachingGate } from '@/utils/useTeachingGate';
 import { TEACHINGS } from '@/constants/teaching';
 import { getCurrentRank } from '@/utils/practiceRank';
+import { useNotificationController } from '@/hooks/useNotificationController';
 
 type ActivationRouteProp = RouteProp<RootStackParamList, 'ActivationRitual'>;
 
@@ -87,6 +88,7 @@ export const ActivationScreen: React.FC = () => {
   );
   const { recordSession } = useSessionStore();
   const { recordShown } = useTeachingStore();
+  const { handlePrimeComplete } = useNotificationController();
   const anchor = getAnchorById(anchorId);
   const isPendingFirstAnchor = pendingFirstAnchorDraft?.tempAnchorId === anchorId;
   const anchorHeroUri = anchor
@@ -294,7 +296,7 @@ export const ActivationScreen: React.FC = () => {
     return unsubscribe;
   }, [handleComplete, navigation, promptExitSession]);
 
-  const handleCompletionDone = useCallback((reflectionWord?: string) => {
+  const handleCompletionDone = useCallback(async (reflectionWord?: string) => {
     setShowCompletion(false);
     setShowExitWarning(false);
     exitingRef.current = true;
@@ -308,6 +310,8 @@ export const ActivationScreen: React.FC = () => {
       reflectionWord,
       completedAt: new Date().toISOString(),
     });
+
+    await handlePrimeComplete();
 
     // Log to backend (non-blocking)
     void logActivationInBackground();
@@ -337,6 +341,7 @@ export const ActivationScreen: React.FC = () => {
     navigateToPractice,
     navigation,
     recordSession,
+    handlePrimeComplete,
     resolvedDefaultActivation.mode,
     returnTo,
   ]);

@@ -66,8 +66,9 @@ const AI_STYLES: AIStyle[] = [
     method: 'lineart',
     category: 'organic',
     prompt:
-      'traditional ink brush calligraphy, flowing brushstrokes, zen aesthetic, black ink on paper, japanese sumi-e',
-    negativePrompt: 'new shapes, additional symbols, text, digital, 3d, color, modern',
+      'Restore and beautify the existing sigil while preserving exact geometry and stroke paths. Render it in an expressive traditional ink brush sumi-e style with flowing brush pressure, visible dry-brush texture, ink wash gradients, subtle feathering, rice paper texture, and elegant zen calligraphic energy. Keep the sigil structure exactly as drawn, but make the brushwork feel organic, tactile, and artistically alive.',
+    negativePrompt:
+      'extra lines, decorative circle, mandala, compass, runes, glyphs, occult seal, emblem, logo redesign, reinterpretation, frame, border, symmetry embellishment, altered shape, new symbols, added elements, changed geometry, distorted lines, additional rings, extra patterns, modified structure, redesigned form, digital, 3d, modern',
   },
   {
     name: 'gold_leaf',

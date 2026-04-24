@@ -17,6 +17,9 @@ const TEST_ACTIVATION_DURATION_SECONDS = 2;
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 const mockNavigateToPractice = jest.fn();
 const mockPlaySound = jest.fn();
+const mockHandlePrimeComplete = jest.fn();
+const mockSetActiveSession = jest.fn();
+const mockRecordPrimeSession = jest.fn();
 
 jest.mock('@react-navigation/native', () => ({
   useRoute: jest.fn(() => ({
@@ -76,6 +79,18 @@ jest.mock('@/components/ToastProvider', () => ({
     error: jest.fn(),
   })),
 }));
+jest.mock('@/hooks/useNotificationController', () => ({
+  useNotificationController: () => ({
+    isInitialized: true,
+    notifState: null,
+    handlePrimeComplete: mockHandlePrimeComplete,
+    handleBurnFlowEntered: jest.fn(),
+    handleSigilVaulted: jest.fn(),
+    updateActiveHours: jest.fn(),
+    toggleNotifications: jest.fn(),
+    setActiveSession: mockSetActiveSession,
+  }),
+}));
 
 describe('ActivationScreen', () => {
   let mockGoBack: jest.Mock;
@@ -104,6 +119,11 @@ describe('ActivationScreen', () => {
     mockIncrementTotalPrimes = jest.fn();
     mockToastSuccess = jest.fn();
     mockToastError = jest.fn();
+    mockHandlePrimeComplete.mockReset();
+    mockHandlePrimeComplete.mockResolvedValue(undefined);
+    mockSetActiveSession.mockReset();
+    mockSetActiveSession.mockResolvedValue(undefined);
+    mockRecordPrimeSession.mockReset();
 
     mockAnchor = createMockAnchor({
       id: 'test-anchor-id',
@@ -137,6 +157,7 @@ describe('ActivationScreen', () => {
         getAnchorById: mockGetAnchorById,
         updateAnchor: mockUpdateAnchor,
         incrementTotalPrimes: mockIncrementTotalPrimes,
+        recordPrimeSession: mockRecordPrimeSession,
         totalPrimes: 0,
         anchors: [mockAnchor],
       };
@@ -250,7 +271,7 @@ describe('ActivationScreen', () => {
     // Now click Done in CompletionModal
     fireEvent.press(getByTestId('completion-modal-done'));
 
-    expect(mockGoBack).toHaveBeenCalled();
+    await waitFor(() => expect(mockGoBack).toHaveBeenCalled());
 
     await waitFor(() => expect(apiClient.post).toHaveBeenCalledWith(
       '/api/anchors/test-anchor-id/activate',
@@ -268,10 +289,10 @@ describe('ActivationScreen', () => {
     fireEvent.press(getByTestId('focus-session-continue'));
     fireEvent.press(getByTestId('completion-modal-done'));
 
-    expect(mockUpdateAnchor).toHaveBeenCalledWith('test-anchor-id', {
+    await waitFor(() => expect(mockUpdateAnchor).toHaveBeenCalledWith('test-anchor-id', {
       activationCount: 1,
       lastActivatedAt: expect.any(Date),
-    });
+    }));
   });
 
   it('dismiss button exits without activating', () => {

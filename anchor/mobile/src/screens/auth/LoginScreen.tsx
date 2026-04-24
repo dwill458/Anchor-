@@ -22,14 +22,26 @@ import {
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { StackNavigationProp } from '@react-navigation/stack';
+import * as AppleAuthentication from 'expo-apple-authentication';
+let GoogleSigninButton: any = null;
+try {
+  GoogleSigninButton = require('@react-native-google-signin/google-signin').GoogleSigninButton;
+} catch {
+  // Native module not available in this build
+}
 import { colors, typography } from '@/theme';
 import { useAuthStore } from '../../stores/authStore';
 import { AuthService } from '../../services/AuthService';
 import PostAuthFlowService from '../../services/PostAuthFlowService';
-import type { AuthScreenParams, OnboardingStackParamList, RootStackParamList } from '@/types';
+import type {
+  AuthScreenInitialTab,
+  AuthScreenParams,
+  OnboardingStackParamList,
+  RootStackParamList,
+} from '@/types';
 
 type SharedAuthParamList = RootStackParamList & OnboardingStackParamList;
-type AuthTab = 'signin' | 'signup';
+type AuthTab = AuthScreenInitialTab;
 type FocusedField = 'name' | 'email' | 'password' | 'confirmPassword' | null;
 
 type LoginScreenNavigationProp = StackNavigationProp<SharedAuthParamList, 'Login'>;
@@ -41,21 +53,9 @@ interface LoginScreenProps {
 
 const ANCHOR_GOLD = require('../../assets/images/anchor-gold.png');
 
-const AppleIcon = () => (
-  <Text style={styles.ssoIcon}>Apple</Text>
-);
-
-const GoogleIcon = () => (
-  <View style={styles.googleIconWrap}>
-    <View style={[styles.googleIconDot, { backgroundColor: '#4285F4' }]} />
-    <View style={[styles.googleIconDot, { backgroundColor: '#EA4335' }]} />
-    <View style={[styles.googleIconDot, { backgroundColor: '#FBBC05' }]} />
-    <View style={[styles.googleIconDot, { backgroundColor: '#34A853' }]} />
-  </View>
-);
-
 export const LoginScreen: React.FC<LoginScreenProps> = ({ navigation, route }) => {
-  const [tab, setTab] = useState<AuthTab>('signin');
+  const initialTab = route?.params?.initialTab ?? 'signin';
+  const [tab, setTab] = useState<AuthTab>(initialTab);
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -65,9 +65,14 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ navigation, route }) =
   const [focusedField, setFocusedField] = useState<FocusedField>(null);
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [isAppleAvailable, setIsAppleAvailable] = useState(false);
 
   const hasCompletedOnboarding = useAuthStore((state) => state.hasCompletedOnboarding);
   const context = route?.params?.context;
+
+  useEffect(() => {
+    setTab(initialTab);
+  }, [initialTab]);
 
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const floatAnim = useRef(new Animated.Value(0)).current;
@@ -113,6 +118,21 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ navigation, route }) =
       ])
     ).start();
   }, [fadeAnim, floatAnim, glowAnim]);
+
+  useEffect(() => {
+    let mounted = true;
+    void AppleAuthentication.isAvailableAsync()
+      .then((available) => {
+        if (mounted) setIsAppleAvailable(available);
+      })
+      .catch(() => {
+        if (mounted) setIsAppleAvailable(false);
+      });
+
+    return () => {
+      mounted = false;
+    };
+  }, []);
 
   const resetError = () => {
     if (error) {
@@ -213,6 +233,9 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ navigation, route }) =
         const result = await AuthService.signInWithApple();
         await completeAuth(result);
       } catch (err: any) {
+        if (err?.code === 'ERR_REQUEST_CANCELED') {
+          return;
+        }
         const message = err?.message || 'Apple sign-in failed';
         setError(message);
         Alert.alert('Apple sign-in', message);
@@ -230,6 +253,9 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ navigation, route }) =
         const result = await AuthService.signInWithGoogle();
         await completeAuth(result);
       } catch (err: any) {
+        if (err?.message === 'Google sign-in was cancelled.') {
+          return;
+        }
         const message = err?.message || 'Google sign-in failed';
         setError(message);
         Alert.alert('Google sign-in', message);
@@ -372,15 +398,41 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ navigation, route }) =
                 </View>
 
                 <View style={styles.ssoRow}>
-                  <TouchableOpacity style={styles.ssoButton} onPress={handleAppleSignIn} activeOpacity={0.85}>
-                    <AppleIcon />
-                    <Text style={styles.ssoText}>APPLE</Text>
-                  </TouchableOpacity>
+                  {isAppleAvailable ? (
+                    <View style={styles.ssoButtonWrap}>
+                      <AppleAuthentication.AppleAuthenticationButton
+                        buttonType={AppleAuthentication.AppleAuthenticationButtonType.CONTINUE}
+                        buttonStyle={AppleAuthentication.AppleAuthenticationButtonStyle.BLACK}
+                        cornerRadius={11}
+                        style={styles.appleButton}
+                        onPress={() => {
+                          void handleAppleSignIn();
+                        }}
+                      />
+                    </View>
+                  ) : null}
 
-                  <TouchableOpacity style={styles.ssoButton} onPress={handleGoogleSignIn} activeOpacity={0.85}>
-                    <GoogleIcon />
-                    <Text style={styles.ssoText}>GOOGLE</Text>
-                  </TouchableOpacity>
+                  <View style={styles.ssoButtonWrap}>
+                    {GoogleSigninButton ? (
+                      <GoogleSigninButton
+                        size={GoogleSigninButton.Size.Wide}
+                        color={GoogleSigninButton.Color.Dark}
+                        style={styles.googleButton}
+                        onPress={() => {
+                          void handleGoogleSignIn();
+                        }}
+                        disabled={loading}
+                      />
+                    ) : (
+                      <TouchableOpacity
+                        style={styles.googleButton}
+                        onPress={() => void handleGoogleSignIn()}
+                        disabled={loading}
+                      >
+                        <Text style={styles.googleFallbackText}>Continue with Google</Text>
+                      </TouchableOpacity>
+                    )}
+                  </View>
                 </View>
 
                 <View style={styles.dividerRow}>
@@ -604,42 +656,23 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     gap: 10,
   },
-  ssoButton: {
+  ssoButtonWrap: {
     flex: 1,
     minHeight: 48,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-    paddingVertical: 12,
-    paddingHorizontal: 10,
-    backgroundColor: 'rgba(8,12,16,0.7)',
-    borderRadius: 11,
-    borderWidth: 1,
-    borderColor: 'rgba(212,175,55,0.18)',
   },
-  ssoIcon: {
+  appleButton: {
+    width: '100%',
+    height: 48,
+  },
+  googleButton: {
+    width: '100%',
+    height: 48,
+  },
+  googleFallbackText: {
     color: colors.bone,
-    fontFamily: typography.fonts.bodyBold,
-    fontSize: 12,
-  },
-  ssoText: {
-    fontFamily: typography.fonts.heading,
-    fontSize: 10,
-    letterSpacing: 1.2,
-    color: 'rgba(245,245,220,0.78)',
-  },
-  googleIconWrap: {
-    width: 16,
-    height: 16,
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 2,
-  },
-  googleIconDot: {
-    width: 7,
-    height: 7,
-    borderRadius: 3.5,
+    fontFamily: typography.fonts.bodySerif,
+    fontSize: 15,
+    textAlign: 'center',
   },
   dividerRow: {
     flexDirection: 'row',

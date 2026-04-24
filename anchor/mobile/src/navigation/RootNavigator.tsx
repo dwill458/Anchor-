@@ -18,16 +18,19 @@ import { OnboardingNavigator } from './OnboardingNavigator';
 import { MainTabNavigator } from './MainTabNavigator';
 import { ProfileStackNavigator } from './ProfileStackNavigator';
 import { PaywallScreen } from '../screens/paywall/PaywallScreen';
+import TrialEndScreen from '../screens/TrialEndScreen';
 import { shouldShowOnboardingFlow } from './rootNavigationState';
 import { useAuthStore } from '../stores/authStore';
 import { useSettingsStore } from '../stores/settingsStore';
 import { useSubscriptionStore } from '../stores/subscriptionStore';
+import { useTrialStatus } from '../hooks/useTrialStatus';
 import type { ProfileStackParamList } from './ProfileStackNavigator';
 
 export type RootNavigatorParamList = {
   Onboarding: undefined;
   Main: undefined;
   Paywall: undefined;
+  TrialEndScreen: undefined;
   Settings: NavigatorScreenParams<ProfileStackParamList> | undefined;
 };
 
@@ -79,12 +82,22 @@ export const RootNavigator: React.FC = () => {
     shouldBypassOnboarding
   );
 
+  const { hasExpired, isSubscribed } = useTrialStatus();
+  const showTrialEnd = !showOnboarding && hasExpired && !isSubscribed;
+
   return (
     <Stack.Navigator screenOptions={{ headerShown: false }}>
       {showOnboarding ? (
         <Stack.Screen name="Onboarding" component={OnboardingNavigator} />
       ) : (
         <>
+          {showTrialEnd && (
+            <Stack.Screen
+              name="TrialEndScreen"
+              component={TrialEndScreen}
+              options={{ animation: 'default' }}
+            />
+          )}
           <Stack.Screen name="Main" component={MainTabNavigator} />
           {/* Profile/Settings as modal */}
           <Stack.Screen

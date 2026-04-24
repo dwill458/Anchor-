@@ -34,6 +34,7 @@ import { useReduceMotionEnabled } from '@/hooks/useReduceMotionEnabled';
 import { useAudio } from '@/hooks/useAudio';
 import { safeHaptics } from '@/utils/haptics';
 import { RitualScaffold } from './RitualScaffold';
+import { useNotificationController } from '@/hooks/useNotificationController';
 
 // Replaced with dynamic hooks inside component
 // const { width } = Dimensions.get('window');
@@ -250,6 +251,7 @@ export const FocusSession: React.FC<FocusSessionProps> = ({
   const totalMs = Math.max(1000, Math.round(durationSeconds * 1000));
   const reduceMotionEnabled = useReduceMotionEnabled();
   const { playSound } = useAudio();
+  const { setActiveSession } = useNotificationController();
 
 
   const [status, setStatus] = useState<SessionStatus>('running');
@@ -430,6 +432,13 @@ export const FocusSession: React.FC<FocusSessionProps> = ({
     continuePressedRef.current = true;
     onComplete();
   }, [onComplete, status]);
+
+  useEffect(() => {
+    void setActiveSession(true);
+    return () => {
+      void setActiveSession(false);
+    };
+  }, [setActiveSession]);
 
   useEffect(() => {
     continuePressedRef.current = false;

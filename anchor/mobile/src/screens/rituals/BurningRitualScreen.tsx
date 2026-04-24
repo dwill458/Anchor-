@@ -1,4 +1,4 @@
-import React, { useCallback } from 'react';
+import React, { useCallback, useEffect } from 'react';
 import { RouteProp, useNavigation, useRoute } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { BurnAnimationOverlay } from './components/BurnAnimationOverlay';
@@ -14,6 +14,7 @@ import { TEACHINGS } from '@/constants/teaching';
 import { useToast } from '@/components/ToastProvider';
 import { resolveBurnArtworkUri } from './utils/resolveBurnArtworkUri';
 import { AuthService } from '@/services/AuthService';
+import { useNotificationController } from '../../hooks/useNotificationController';
 
 type BurningRitualRouteProp = RouteProp<RootStackParamList, 'BurningRitual'>;
 type BurningRitualNavigationProp = StackNavigationProp<RootStackParamList, 'BurningRitual'>;
@@ -26,6 +27,7 @@ export const BurningRitualScreen: React.FC = () => {
   const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
   const { setUserFlag, queueMilestone, recordShown, userFlags } = useTeachingStore();
   const toast = useToast();
+  const { handleBurnFlowEntered, handleSigilVaulted } = useNotificationController();
 
   const { anchorId, sigilSvg, enhancedImageUrl } = route.params;
   const anchor = getAnchorById(anchorId);
@@ -38,6 +40,10 @@ export const BurningRitualScreen: React.FC = () => {
     candidateIds: ['burn_ash_line_v1'],
   });
 
+  useEffect(() => {
+    void handleBurnFlowEntered();
+  }, [handleBurnFlowEntered]);
+
   const handleCommitBurn = useCallback(async () => {
     const token = await AuthService.getIdToken();
 
@@ -48,6 +54,7 @@ export const BurningRitualScreen: React.FC = () => {
     try {
       await post(`/api/anchors/${anchorId}/burn`, {});
       removeAnchor(anchorId);
+      await handleSigilVaulted();
       AnalyticsService.track(AnalyticsEvents.BURN_COMPLETED, { anchor_id: anchorId });
 
       // Set first-burn flag (once)
@@ -82,7 +89,18 @@ export const BurningRitualScreen: React.FC = () => {
       );
       throw error;
     }
-  }, [anchorId, isAuthenticated, removeAnchor, userFlags.hasCompletedFirstBurn, setUserFlag, queueMilestone, toast, ashLineTeaching, recordShown]);
+  }, [
+    anchorId,
+    isAuthenticated,
+    removeAnchor,
+    handleSigilVaulted,
+    userFlags.hasCompletedFirstBurn,
+    setUserFlag,
+    queueMilestone,
+    toast,
+    ashLineTeaching,
+    recordShown,
+  ]);
 
   const handleReturnToSanctuary = useCallback(() => {
     navigation.navigate('Vault');
