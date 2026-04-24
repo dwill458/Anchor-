@@ -347,18 +347,19 @@ export const SettingsScreen: React.FC = () => {
             {settings.dailyReminderEnabled ? (
               <View style={styles.inlineTimePickerContainer}>
                 <Text style={styles.inlineTimePickerLabel}>Reminder Time</Text>
-                <DateTimePicker
-                  value={(() => {
-                    const [hours, minutes] = settings.dailyReminderTime.split(':').map(Number);
-                    const date = new Date();
-                    date.setHours(hours, minutes, 0, 0);
-                    return date;
-                  })()}
-                  mode="time"
-                  display="spinner"
-                  onChange={handleReminderTimeChange}
-                  style={styles.inlineDateTimePicker}
-                />
+                <View style={styles.inlineDateTimePicker}>
+                  <DateTimePicker
+                    value={(() => {
+                      const [hours, minutes] = settings.dailyReminderTime.split(':').map(Number);
+                      const date = new Date();
+                      date.setHours(hours, minutes, 0, 0);
+                      return date;
+                    })()}
+                    mode="time"
+                    display="spinner"
+                    onChange={handleReminderTimeChange}
+                  />
+                </View>
               </View>
             ) : null}
             <SettingsRow
