@@ -203,7 +203,7 @@ export const DataPrivacyScreen: React.FC = () => {
                             label="Privacy Policy"
                             helperText="How we protect and handle your data."
                             icon={ExternalLink}
-                            onPress={() => openUrl('https://anchor-app.io/privacy')}
+                            onPress={() => openUrl('https://anchorintentions.com/privacy-policy')}
                         />
                         <PrivacyItem
                             label="Terms of Service"

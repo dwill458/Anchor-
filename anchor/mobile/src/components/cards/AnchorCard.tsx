@@ -18,7 +18,6 @@ import Animated, {
 import type { Anchor } from '@/types';
 import { colors, spacing, typography } from '@/theme';
 import { ChargedGlowCanvas, OptimizedImage, PremiumAnchorGlow } from '@/components/common';
-import { useSettingsStore } from '@/stores/settingsStore';
 import { useAppPerformanceTier } from '@/hooks/useAppPerformanceTier';
 import { tierPolicy } from '@/hooks/usePerformanceTier';
 
@@ -46,7 +45,6 @@ export const AnchorCard: React.FC<AnchorCardProps> = ({
   reduceMotionEnabled = false,
   variant = 'default',
 }) => {
-  const { reduceIntentionVisibility } = useSettingsStore();
   const categoryConfig = CATEGORY_CONFIG[anchor.category] || CATEGORY_CONFIG.custom;
   const isSanctuary = variant === 'sanctuary';
   const perfTier = useAppPerformanceTier();
@@ -196,10 +194,7 @@ export const AnchorCard: React.FC<AnchorCardProps> = ({
             ]}
             numberOfLines={2}
           >
-            {reduceIntentionVisibility
-              ? (anchor.mantraText || `Anchor · ${categoryConfig.label}`)
-              : anchor.intentionText
-            }
+            {anchor.intentionText}
           </Text>
 
           <View style={styles.footer}>

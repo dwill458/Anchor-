@@ -69,7 +69,7 @@ export const FirstPrimeCompleteScreen: React.FC = () => {
   const incrementTotalPrimes = useAnchorStore((state) => state.incrementTotalPrimes);
   const recordPrimeSession = useAnchorStore((state) => state.recordPrimeSession);
   const recordSession = useSessionStore((state) => state.recordSession);
-  const defaultCharge = useSettingsStore((state) => state.defaultCharge);
+  const primeSessionAudio = useSettingsStore((state) => state.primeSessionAudio ?? 'silent');
   const { playSound } = useAudio();
   const { handlePrimeComplete } = useNotificationController();
 
@@ -165,7 +165,7 @@ export const FirstPrimeCompleteScreen: React.FC = () => {
         anchorId,
         type: 'reinforce',
         durationSeconds,
-        mode: defaultCharge.mode === 'ritual' ? 'mantra' : 'silent',
+        mode: primeSessionAudio,
         completedAt: new Date().toISOString(),
       });
       void handlePrimeComplete();
@@ -346,7 +346,7 @@ export const FirstPrimeCompleteScreen: React.FC = () => {
     barAnim,
     cardAnim,
     checkAnim,
-    defaultCharge.mode,
+    primeSessionAudio,
     dividerAnim,
     durationSeconds,
     footerAnim,

@@ -531,7 +531,11 @@ const AnchorDetailsScreen = ({ navigation, route }) => {
   const { navigateToPractice } = useTabNavigation();
   const getAnchorById = useAnchorStore((state) => state.getAnchorById);
   const removeAnchor = useAnchorStore((state) => state.removeAnchor);
-  const { defaultActivation, setDefaultActivation } = useSettingsStore();
+  const {
+    defaultActivation,
+    setDefaultActivation,
+    developerDeleteWithoutBurnEnabled
+  } = useSettingsStore();
   const sessionLog = useSessionStore((s) => s.sessionLog);
   const [isReady, setIsReady] = useState(false);
   const [activeDuration, setActiveDuration] = useState('30s');
@@ -1323,11 +1327,13 @@ const AnchorDetailsScreen = ({ navigation, route }) => {
         */}
 
         {/* ── DESTRUCTIVE ACTION ── */}
-        <FadeUp delay={380}>
-          <TouchableOpacity style={s.deleteBtn} onPress={handleDelete}>
-            <Text style={s.deleteBtnText}>Delete Anchor</Text>
-          </TouchableOpacity>
-        </FadeUp>
+        {developerDeleteWithoutBurnEnabled && (
+          <FadeUp delay={380}>
+            <TouchableOpacity style={s.deleteBtn} onPress={handleDelete}>
+              <Text style={s.deleteBtnText}>Delete Anchor</Text>
+            </TouchableOpacity>
+          </FadeUp>
+        )}
 
         {/* ── FOOTER ── */}
         <FadeUp delay={400}>

@@ -33,9 +33,14 @@ export async function handleSyncState(req: Request): Promise<Response> {
       ...notificationState,
     };
 
+    const updatePayload: Record<string, unknown> = { notification_state: mergedState };
+    if ('notification_enabled' in notificationState) {
+      updatePayload.notifications_enabled = Boolean(notificationState.notification_enabled);
+    }
+
     const { error } = await supabase
       .from('users')
-      .update({ notification_state: mergedState })
+      .update(updatePayload)
       .eq('id', userId);
 
     if (error) {

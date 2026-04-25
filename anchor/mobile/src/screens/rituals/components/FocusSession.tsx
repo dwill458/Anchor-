@@ -35,6 +35,7 @@ import { useAudio } from '@/hooks/useAudio';
 import { safeHaptics } from '@/utils/haptics';
 import { RitualScaffold } from './RitualScaffold';
 import { useNotificationController } from '@/hooks/useNotificationController';
+import { useSettingsStore } from '@/stores/settingsStore';
 
 // Replaced with dynamic hooks inside component
 // const { width } = Dimensions.get('window');
@@ -52,7 +53,7 @@ type SessionStatus = 'running' | 'paused' | 'completed';
 export type FocusSessionProps = {
   intentionText: string;
   anchorImageUri: string;
-  durationSeconds: number;
+  durationSeconds?: number;
   onComplete: () => void;
   onSessionCompleted?: () => void;
   onDismiss: () => void;
@@ -248,7 +249,11 @@ export const FocusSession: React.FC<FocusSessionProps> = ({
   const RING_RADIUS = ANCHOR_SIZE / 2 + 22;
   const RING_SIZE = RING_RADIUS * 2 + RING_STROKE * 4;
 
-  const totalMs = Math.max(1000, Math.round(durationSeconds * 1000));
+  const defaultDurationSeconds = useSettingsStore((state) => state.focusSessionDuration ?? 30);
+  const focusSessionAudio = useSettingsStore((state) => state.focusSessionAudio ?? 'silent');
+  const reduceIntentionVisibility = useSettingsStore((state) => state.reduceIntentionVisibility ?? false);
+  const resolvedDurationSeconds = durationSeconds ?? defaultDurationSeconds;
+  const totalMs = Math.max(1000, Math.round(resolvedDurationSeconds * 1000));
   const reduceMotionEnabled = useReduceMotionEnabled();
   const { playSound } = useAudio();
   const { setActiveSession } = useNotificationController();
@@ -350,12 +355,15 @@ export const FocusSession: React.FC<FocusSessionProps> = ({
     }
 
     void safeHaptics.notification(Haptics.NotificationFeedbackType.Success);
-    void playSound('prime-complete');
+    if (focusSessionAudio === 'ambient') {
+      void playSound('prime-complete');
+    }
     onSessionCompleted?.();
   }, [
     animateProgressToEnd,
     clearTickInterval,
     flare,
+    focusSessionAudio,
     glowBoost,
     onSessionCompleted,
     pausedDim,
@@ -412,12 +420,14 @@ export const FocusSession: React.FC<FocusSessionProps> = ({
     endAtMsRef.current = Date.now() + remainingMsRef.current;
     pausedDim.value = withTiming(1, { duration: 200 });
     setStatus('running');
-    bgSoundRef.current = playSound('prime-begin', 1, true);
+    bgSoundRef.current =
+      focusSessionAudio === 'ambient' ? playSound('prime-begin', 1, true) : null;
     animateProgressToEnd(remainingMsRef.current);
     startTickInterval();
   }, [
     animateProgressToEnd,
     completeSession,
+    focusSessionAudio,
     pausedDim,
     playSound,
     startTickInterval,
@@ -457,7 +467,8 @@ export const FocusSession: React.FC<FocusSessionProps> = ({
     glowBoost.value = 0.05;
 
     bgSoundRef.current?.stop();
-    bgSoundRef.current = playSound('prime-begin', 1, true);
+    bgSoundRef.current =
+      focusSessionAudio === 'ambient' ? playSound('prime-begin', 1, true) : null;
     animateProgressToEnd(totalMs);
     startTickInterval();
 
@@ -471,7 +482,7 @@ export const FocusSession: React.FC<FocusSessionProps> = ({
       bgSoundRef.current?.stop();
       bgSoundRef.current = null;
     };
-  }, [playSound, totalMs]);
+  }, [focusSessionAudio, playSound, totalMs]);
 
   useEffect(() => {
     if (reduceMotionEnabled || status !== 'running') {
@@ -537,14 +548,16 @@ export const FocusSession: React.FC<FocusSessionProps> = ({
           />
         </View>
 
-        <View style={styles.intentionWrap}>
-          <View style={styles.intentionLabelChip}>
-            <Text style={styles.intentionLabelText}>Intention</Text>
+        {!reduceIntentionVisibility && (
+          <View style={styles.intentionWrap}>
+            <View style={styles.intentionLabelChip}>
+              <Text style={styles.intentionLabelText}>Intention</Text>
+            </View>
+            <GlassSurface style={styles.intentionCard} intensity={18}>
+              <Text style={styles.intentionText}>{intentionText}</Text>
+            </GlassSurface>
           </View>
-          <GlassSurface style={styles.intentionCard} intensity={18}>
-            <Text style={styles.intentionText}>{intentionText}</Text>
-          </GlassSurface>
-        </View>
+        )}
 
         <View style={styles.heroSection}>
           <View style={[styles.heroStack, { width: RING_SIZE, height: RING_SIZE + 62 }]}>

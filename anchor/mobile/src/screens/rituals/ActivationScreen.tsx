@@ -13,7 +13,7 @@ import { useTabNavigation } from '@/contexts/TabNavigationContext';
 import { useAnchorStore } from '../../stores/anchorStore';
 import { useAuthStore } from '@/stores/authStore';
 import { useForgeMomentStore } from '@/stores/forgeMomentStore';
-import { useSettingsStore, type DefaultActivationSetting } from '@/stores/settingsStore';
+import { useSettingsStore } from '@/stores/settingsStore';
 import { useSessionStore } from '@/stores/sessionStore';
 import { useTeachingStore } from '@/stores/teachingStore';
 import type { RootStackParamList } from '@/types';
@@ -33,37 +33,6 @@ import { useNotificationController } from '@/hooks/useNotificationController';
 
 type ActivationRouteProp = RouteProp<RootStackParamList, 'ActivationRitual'>;
 
-const FALLBACK_DEFAULT_ACTIVATION: DefaultActivationSetting = {
-  type: 'visual',
-  value: 30,
-  unit: 'seconds',
-  mode: 'silent',
-};
-
-function resolveDefaultActivation(
-  setting?: Partial<DefaultActivationSetting> | null
-): DefaultActivationSetting {
-  const candidate = setting ?? {};
-  const unit =
-    candidate.unit === 'minutes' ||
-    candidate.unit === 'seconds' ||
-    candidate.unit === 'reps' ||
-    candidate.unit === 'breaths'
-      ? candidate.unit
-      : FALLBACK_DEFAULT_ACTIVATION.unit;
-  const value =
-    typeof candidate.value === 'number' && Number.isFinite(candidate.value)
-      ? candidate.value
-      : FALLBACK_DEFAULT_ACTIVATION.value;
-
-  return {
-    type: candidate.type ?? FALLBACK_DEFAULT_ACTIVATION.type,
-    unit,
-    value,
-    mode: candidate.mode ?? FALLBACK_DEFAULT_ACTIVATION.mode,
-  };
-}
-
 export const ActivationScreen: React.FC = () => {
   const navigation = useNavigation();
   const { navigateToPractice } = useTabNavigation();
@@ -81,11 +50,8 @@ export const ActivationScreen: React.FC = () => {
     (state) => state.enqueuePendingFirstAnchorMutation
   );
   const queueMilestone = useForgeMomentStore((state) => state.queueMilestone);
-  const { defaultActivation } = useSettingsStore();
-  const resolvedDefaultActivation = useMemo(
-    () => resolveDefaultActivation(defaultActivation),
-    [defaultActivation]
-  );
+  const focusSessionDuration = useSettingsStore((state) => state.focusSessionDuration ?? 30);
+  const focusSessionAudio = useSettingsStore((state) => state.focusSessionAudio ?? 'silent');
   const { recordSession } = useSessionStore();
   const { recordShown } = useTeachingStore();
   const { handlePrimeComplete } = useNotificationController();
@@ -131,18 +97,8 @@ export const ActivationScreen: React.FC = () => {
     // durationOverride (from "Continue" flow) takes precedence
     if (durationOverride != null && durationOverride > 0) return durationOverride;
 
-    if (resolvedDefaultActivation.unit === 'minutes') {
-      const clampedMinutes = Math.max(1, Math.min(30, Math.round(resolvedDefaultActivation.value)));
-      return clampedMinutes * 60;
-    }
-
-    if (resolvedDefaultActivation.unit === 'seconds') {
-      const clampedValue = Math.max(1, Math.min(600, Math.round(resolvedDefaultActivation.value)));
-      return clampedValue;
-    }
-
-    return 30;
-  }, [durationOverride, resolvedDefaultActivation.unit, resolvedDefaultActivation.value]);
+    return Math.max(10, Math.min(120, Math.round(focusSessionDuration)));
+  }, [durationOverride, focusSessionDuration]);
 
   const logActivationInBackground = useCallback(async (): Promise<void> => {
     const localActivationTime = new Date();
@@ -306,7 +262,7 @@ export const ActivationScreen: React.FC = () => {
       anchorId,
       type: 'activate',
       durationSeconds: activationDurationSeconds,
-      mode: resolvedDefaultActivation.mode,
+      mode: focusSessionAudio,
       reflectionWord,
       completedAt: new Date().toISOString(),
     });
@@ -342,7 +298,7 @@ export const ActivationScreen: React.FC = () => {
     navigation,
     recordSession,
     handlePrimeComplete,
-    resolvedDefaultActivation.mode,
+    focusSessionAudio,
     returnTo,
   ]);
 

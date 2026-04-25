@@ -3,7 +3,7 @@ import { useSessionStore, type SessionLogEntry } from '@/stores/sessionStore';
 import { useSettingsStore } from '@/stores/settingsStore';
 
 const DAILY_GOAL_CUTOFF_HOUR = 21;
-const COUNTED_SESSION_TYPES = new Set<SessionLogEntry['type']>(['activate', 'reinforce']);
+const COUNTED_SESSION_TYPES = new Set<SessionLogEntry['type']>(['activate']);
 
 export interface DailyGoalProgress {
   completedCount: number;
@@ -163,29 +163,3 @@ export const syncDailyGoalNudges = async ({
   return checkpoints;
 };
 
-export const syncDailyReminderFromStores = async (): Promise<void> => {
-  const settings = useSettingsStore.getState();
-
-  if (!settings.dailyReminderEnabled) {
-    await NotificationService.cancelDailyReminder();
-    return;
-  }
-
-  await NotificationService.scheduleDailyReminder(settings.dailyReminderTime);
-};
-
-export const syncDailyGoalNudgesFromStores = async (now: Date = new Date()): Promise<DailyGoalCheckpoint[]> => {
-  useSessionStore.getState().resetIfNewDay();
-
-  const settings = useSettingsStore.getState();
-  const sessionLog = useSessionStore.getState().sessionLog;
-  const completedCount = countDailyGoalCompletions(sessionLog, now);
-
-  return syncDailyGoalNudges({
-    goal: settings.dailyPracticeGoal,
-    completedCount,
-    enabled: settings.dailyReminderEnabled,
-    reminderTime: settings.dailyReminderTime,
-    now,
-  });
-};

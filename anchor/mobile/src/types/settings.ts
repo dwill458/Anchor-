@@ -14,10 +14,6 @@ export interface AnchorSettings {
   focusDefaultMode: FocusDefaultMode;
   focusBurstGoal: FocusBurstGoal;
   reduceIntentionVisibility: boolean;
-  dailyReminderEnabled: boolean;
-  dailyReminderTime: string;
-  streakProtectionAlertsEnabled: boolean;
-  weeklySummaryEnabled: boolean;
   hapticFeedback: 'none' | 'light' | 'medium' | 'strong';
   soundEffectsEnabled: boolean;
   dev_developerModeEnabled: boolean;
@@ -39,10 +35,6 @@ export const DEFAULT_SETTINGS: AnchorSettings = {
   focusDefaultMode: 'silent',
   focusBurstGoal: 3,
   reduceIntentionVisibility: false,
-  dailyReminderEnabled: false,
-  dailyReminderTime: '09:00',
-  streakProtectionAlertsEnabled: false,
-  weeklySummaryEnabled: false,
   hapticFeedback: 'strong',
   soundEffectsEnabled: true,
   dev_developerModeEnabled: true,

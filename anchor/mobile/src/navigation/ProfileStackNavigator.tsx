@@ -14,11 +14,10 @@ import { SettingsIcon } from '@/components/icons';
 import {
   ProfileScreen,
   SettingsScreen,
-  DefaultChargeSettings,
-  DefaultActivationSettings,
+  SessionDefaultsScreen,
   DailyPracticeGoalScreen,
-  PrimingDefaultsScreen,
-  DefaultFocusModeScreen,
+  ThreadStrengthScreen,
+  RestDaysScreen,
   ThemeSelectionScreen,
   AccentColorScreen,
   VaultViewScreen,
@@ -33,11 +32,18 @@ import { colors } from '@/theme';
 export type ProfileStackParamList = {
   Profile: undefined;
   Settings: undefined;
-  DefaultCharge: undefined;
-  DefaultActivation: undefined;
-  PrimingDefaults: undefined;
-  DefaultFocusMode: undefined;
+  SessionDefaults: undefined;
   DailyPracticeGoal: undefined;
+  ThreadStrength: undefined;
+  RestDays: undefined;
+  // DEFERRED: replaced by SessionDefaultsScreen.
+  DefaultCharge: undefined;
+  // DEFERRED: replaced by SessionDefaultsScreen.
+  DefaultActivation: undefined;
+  // DEFERRED: replaced by SessionDefaultsScreen.
+  PrimingDefaults: undefined;
+  // DEFERRED: replaced by SessionDefaultsScreen.
+  DefaultFocusMode: undefined;
   ThemeSelection: undefined;
   AccentColor: undefined;
   VaultView: undefined;
@@ -107,30 +113,26 @@ export const ProfileStackNavigator: React.FC = () => {
         options={{ headerTitle: 'Settings' }}
       />
       <Stack.Screen
-        name="DefaultCharge"
-        component={DefaultChargeSettings}
-        options={{ headerTitle: 'Priming Defaults' }}
-      />
-      <Stack.Screen
-        name="DefaultActivation"
-        component={DefaultActivationSettings}
-        options={{ headerTitle: 'Default Focus Mode' }}
-      />
-      <Stack.Screen
-        name="PrimingDefaults"
-        component={PrimingDefaultsScreen}
-        options={{ headerTitle: 'Priming Defaults' }}
-      />
-      <Stack.Screen
-        name="DefaultFocusMode"
-        component={DefaultFocusModeScreen}
-        options={{ headerTitle: 'Default Focus Mode' }}
+        name="SessionDefaults"
+        component={SessionDefaultsScreen}
+        options={{ headerShown: false }}
       />
       <Stack.Screen
         name="DailyPracticeGoal"
         component={DailyPracticeGoalScreen}
-        options={{ headerTitle: 'Daily Practice Goal' }}
+        options={{ headerShown: false }}
       />
+      <Stack.Screen
+        name="ThreadStrength"
+        component={ThreadStrengthScreen}
+        options={{ headerShown: false }}
+      />
+      <Stack.Screen
+        name="RestDays"
+        component={RestDaysScreen}
+        options={{ headerShown: false }}
+      />
+      {/* DEFERRED: legacy practice-settings routes replaced by SessionDefaultsScreen. */}
       <Stack.Screen
         name="ThemeSelection"
         component={ThemeSelectionScreen}

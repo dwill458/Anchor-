@@ -4,6 +4,7 @@
 
 import { renderHook, act } from '@testing-library/react-hooks';
 import { useSessionStore } from '../sessionStore';
+import type { RestDayPolicy, ThreadStrengthSensitivity } from '../settingsStore';
 
 // Mock dependencies
 jest.mock('@/stores/authStore', () => ({
@@ -31,6 +32,18 @@ jest.mock('@/services/ApiClient', () => ({
   },
 }));
 
+const mockSettingsStoreState = {
+  threadStrengthSensitivity: 'balanced' as ThreadStrengthSensitivity,
+  restDays: [] as number[],
+  restDayPolicy: 'build' as RestDayPolicy,
+};
+
+jest.mock('@/stores/settingsStore', () => ({
+  useSettingsStore: {
+    getState: () => mockSettingsStoreState,
+  },
+}));
+
 // Helper to build a session entry (minus id)
 const makeEntry = (
   overrides: Partial<{
@@ -53,6 +66,9 @@ const localDateString = (date: Date): string =>
 
 // Reset store to initial state before each test
 beforeEach(() => {
+  mockSettingsStoreState.threadStrengthSensitivity = 'balanced';
+  mockSettingsStoreState.restDays = [];
+  mockSettingsStoreState.restDayPolicy = 'build';
   const { result } = renderHook(() => useSessionStore());
   act(() => {
     useSessionStore.setState({
@@ -271,7 +287,7 @@ describe('sessionStore', () => {
       expect(result.current.threadStrength).toBe(80);
     });
 
-    it('applies 30-point decay for 1 missed day', () => {
+    it('does not decay on the first missed day with balanced sensitivity', () => {
       const yesterday = localDateString(new Date(Date.now() - 86400000));
       const { result } = renderHook(() => useSessionStore());
       act(() => {
@@ -282,10 +298,25 @@ describe('sessionStore', () => {
         });
         result.current.applyDecay();
       });
-      expect(result.current.threadStrength).toBe(30); // 60 - 30
+      expect(result.current.threadStrength).toBe(60);
     });
 
-    it('does not drop below 10 on the first missed day', () => {
+    it('applies 30-point decay on the second missed day with balanced sensitivity', () => {
+      const twoDaysAgo = localDateString(new Date(Date.now() - 2 * 86400000));
+      const { result } = renderHook(() => useSessionStore());
+      act(() => {
+        useSessionStore.setState({
+          lastPrimedAt: twoDaysAgo,
+          threadStrength: 60,
+          lastDecayDate: null,
+        });
+        result.current.applyDecay();
+      });
+      expect(result.current.threadStrength).toBe(30);
+    });
+
+    it('does not drop below 10 on the first decay day', () => {
+      mockSettingsStoreState.threadStrengthSensitivity = 'strict';
       const yesterday = localDateString(new Date(Date.now() - 86400000));
       const { result } = renderHook(() => useSessionStore());
       act(() => {
@@ -297,6 +328,37 @@ describe('sessionStore', () => {
         result.current.applyDecay();
       });
       expect(result.current.threadStrength).toBe(10); // floored at 10
+    });
+
+    it('skips decay for lenient sensitivity until the third missed day', () => {
+      mockSettingsStoreState.threadStrengthSensitivity = 'lenient';
+      const twoDaysAgo = localDateString(new Date(Date.now() - 2 * 86400000));
+      const { result } = renderHook(() => useSessionStore());
+      act(() => {
+        useSessionStore.setState({
+          lastPrimedAt: twoDaysAgo,
+          threadStrength: 70,
+          lastDecayDate: null,
+        });
+        result.current.applyDecay();
+      });
+      expect(result.current.threadStrength).toBe(70);
+    });
+
+    it('skips decay entirely when the missed day is a configured rest day', () => {
+      mockSettingsStoreState.threadStrengthSensitivity = 'strict';
+      const yesterday = localDateString(new Date(Date.now() - 86400000));
+      mockSettingsStoreState.restDays = [new Date().getDay()];
+      const { result } = renderHook(() => useSessionStore());
+      act(() => {
+        useSessionStore.setState({
+          lastPrimedAt: yesterday,
+          threadStrength: 70,
+          lastDecayDate: null,
+        });
+        result.current.applyDecay();
+      });
+      expect(result.current.threadStrength).toBe(70);
     });
 
     it('marks lastDecayDate as today after applying', () => {

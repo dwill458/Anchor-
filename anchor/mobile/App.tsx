@@ -50,10 +50,7 @@ import { ErrorTrackingService, setupGlobalErrorHandler } from './src/services/Er
 import { PerformanceMonitoring, type PerformanceTrace } from './src/services/PerformanceMonitoring';
 import { monitoringConfig } from './src/config/monitoring';
 import { AuthService } from './src/services/AuthService';
-import {
-  syncDailyGoalNudgesFromStores,
-  syncDailyReminderFromStores,
-} from './src/services/DailyGoalNudgeService';
+
 import { loadSettingsSnapshot } from './src/hooks/useSettings';
 import { encryptedPersistStorage, readSecureValue } from './src/stores/encryptedPersistStorage';
 import { logger } from './src/utils/logger';
@@ -125,7 +122,11 @@ function getMostRecentlyPrimedAnchorId(anchors: Anchor[]): string | undefined {
     })[0]?.id;
 }
 
-function buildPrimeOnLaunchInitialState(anchorId: string): InitialState {
+function buildPrimeOnLaunchInitialState(
+  anchorId: string,
+  durationSeconds: number,
+  ritualType: string
+): InitialState {
   return {
     index: 0,
     routes: [
@@ -136,9 +137,11 @@ function buildPrimeOnLaunchInitialState(anchorId: string): InitialState {
           routes: [
             { name: 'Vault' },
             {
-              name: 'ChargeSetup',
+              name: 'Ritual',
               params: {
                 anchorId,
+                durationSeconds,
+                ritualType,
               },
             },
           ],
@@ -171,15 +174,34 @@ async function resolvePrimeOnLaunchInitialState(): Promise<InitialState | undefi
     return undefined;
   }
 
-  return buildPrimeOnLaunchInitialState(anchorId);
+  let durationSeconds = 120;
+  let ritualType = 'ritual';
+
+  try {
+    const rawSettings = await AsyncStorage.getItem('anchor-settings-storage');
+    if (rawSettings) {
+      const parsedSettings = JSON.parse(rawSettings);
+      const settingsState = parsedSettings.state || {};
+      
+      if (typeof settingsState.primeSessionDuration === 'number') {
+        durationSeconds = settingsState.primeSessionDuration;
+      }
+      
+      if (settingsState.defaultCharge?.mode) {
+        ritualType = settingsState.defaultCharge.mode;
+      }
+    }
+  } catch (error) {
+    // Ignore and use defaults
+  }
+
+  return buildPrimeOnLaunchInitialState(anchorId, durationSeconds, ritualType);
 }
 
 export default function App() {
   const computeStreak = useAuthStore((state) => state.computeStreak);
   const user = useAuthStore((state) => state.user);
   const dailyPracticeGoal = useSettingsStore((state) => state.dailyPracticeGoal);
-  const dailyReminderEnabled = useSettingsStore((state) => state.dailyReminderEnabled);
-  const dailyReminderTime = useSettingsStore((state) => state.dailyReminderTime);
   const lastSessionId = useSessionStore((state) => state.lastSession?.id);
   const activeMilestone = useForgeMomentStore((state) => state.activeMilestone);
   const dismissMilestone = useForgeMomentStore((state) => state.dismissMilestone);
@@ -428,31 +450,13 @@ export default function App() {
     ErrorTrackingService.clearUser();
   }, [user?.displayName, user?.email, user?.id]);
 
-  useEffect(() => {
-    if (!settingsHydrated) {
-      return;
-    }
 
-    void syncDailyReminderFromStores();
-  }, [dailyReminderEnabled, dailyReminderTime, settingsHydrated]);
-
-  useEffect(() => {
-    if (!settingsHydrated) {
-      return;
-    }
-
-    void syncDailyGoalNudgesFromStores();
-  }, [dailyPracticeGoal, dailyReminderEnabled, dailyReminderTime, lastSessionId, settingsHydrated]);
 
   useEffect(() => {
     const subscription = AppState.addEventListener('change', (nextState) => {
       if (nextState === 'active') {
         ErrorTrackingService.addBreadcrumb('App foregrounded', 'app_state', { nextState });
         computeStreak();
-        if (settingsHydrated) {
-          void syncDailyReminderFromStores();
-          void syncDailyGoalNudgesFromStores();
-        }
       } else {
         ErrorTrackingService.addBreadcrumb('App state changed', 'app_state', { nextState });
       }

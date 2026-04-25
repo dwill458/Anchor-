@@ -201,7 +201,9 @@ export const RitualScreen: React.FC = () => {
   const enqueuePendingFirstAnchorMutation = useAuthStore(
     (state) => state.enqueuePendingFirstAnchorMutation
   );
-  const { soundEffectsEnabled } = useSettingsStore();
+  const soundEffectsEnabled = useSettingsStore((state) => state.soundEffectsEnabled);
+  const focusSessionDuration = useSettingsStore((state) => state.focusSessionDuration ?? 30);
+  const primeSessionDuration = useSettingsStore((state) => state.primeSessionDuration ?? 120);
   const anchor = getAnchorById(anchorId);
   const sigilSvg = anchor?.reinforcedSigilSvg ?? anchor?.baseSigilSvg ?? '';
   const isPendingFirstAnchor = pendingFirstAnchorDraft?.tempAnchorId === anchorId;
@@ -214,7 +216,12 @@ export const RitualScreen: React.FC = () => {
   const [showExitWarning, setShowExitWarning] = useState(false);
 
   // Keep this config generation before hook initialization so initial UI text is stable.
-  const config = getRitualConfig(ritualType, durationSeconds);
+  const resolvedDurationSeconds =
+    durationSeconds ??
+    ((ritualType === 'focus' || ritualType === 'quick')
+      ? focusSessionDuration
+      : primeSessionDuration);
+  const config = getRitualConfig(ritualType, resolvedDurationSeconds);
   const isDeepRitual = ritualType === 'ritual' || ritualType === 'deep';
 
   // Animated values
