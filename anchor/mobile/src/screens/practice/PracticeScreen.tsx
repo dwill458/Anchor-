@@ -26,6 +26,7 @@ import { safeHaptics } from '@/utils/haptics';
 import { colors, spacing, typography } from '@/theme';
 import { PRACTICE_COPY } from '@/constants/copy';
 import { PracticeInfoModal } from '@/components/PracticeInfoModal';
+import { ThreadStrengthSheet } from '@/components/practice/ThreadStrengthSheet';
 import { AnchorHero } from './components/AnchorHero';
 import { AnchorSelectorSheet } from './components/AnchorSelectorSheet';
 import { DailyGoalProgressCard } from './components/DailyGoalProgressCard';
@@ -36,6 +37,7 @@ import { ModePortalTile } from './components/ModePortalTile';
 import { PracticeHubHeader } from './components/PracticeHubHeader';
 import { resolveBurnArtworkUri } from '@/screens/rituals/utils/resolveBurnArtworkUri';
 import { useNotificationController } from '@/hooks/useNotificationController';
+import { ConfirmUnchargedBurnSheet } from '@/components/modals/ConfirmUnchargedBurnSheet';
 
 type PracticeNavigationProp = StackNavigationProp<PracticeStackParamList, 'PracticeHome'>;
 type PendingMode = 'charge' | 'stabilize' | 'burn' | 'quickActivate' | null;
@@ -106,6 +108,8 @@ export const PracticeScreen: React.FC = () => {
   const [infoVisible, setInfoVisible] = useState(false);
   const [pendingMode, setPendingMode] = useState<PendingMode>(null);
   const [autoTeachingSeen, setAutoTeachingSeen] = useState<boolean | null>(null);
+  const [confirmUnchargedBurnVisible, setConfirmUnchargedBurnVisible] = useState(false);
+  const [threadSheetVisible, setThreadSheetVisible] = useState(false);
 
   useEffect(() => {
     registerTabNav(1, navigation as any);
@@ -343,6 +347,18 @@ export const PracticeScreen: React.FC = () => {
   const startBurn = useCallback(
     (anchor: Anchor) => {
       safeHaptics.selection();
+      if (!anchor.isCharged) {
+        setConfirmUnchargedBurnVisible(true);
+        return;
+      }
+      executeBurn(anchor);
+    },
+    []
+  );
+
+  const executeBurn = useCallback(
+    (anchor: Anchor) => {
+      setConfirmUnchargedBurnVisible(false);
       navigateToVault('ConfirmBurn', {
         anchorId: anchor.id,
         intention: anchor.intentionText ?? (anchor as Anchor & { intention?: string }).intention ?? '',
@@ -501,13 +517,27 @@ export const PracticeScreen: React.FC = () => {
           </Animated.View>
 
           <Animated.View style={threadStyle}>
-            <ThreadStrengthBlock
-              threadStrength={threadStrength}
-              totalSessionsCount={totalSessionsCount}
-              lastPrimedAt={lastPrimedAt}
-              weekHistory={weekHistory}
-              anchor={selectedAnchor}
-            />
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="View thread strength history"
+              onPress={() => {
+                markInteraction();
+                setThreadSheetVisible(true);
+              }}
+              style={({ pressed }) => [
+                styles.threadPressable,
+                pressed && styles.threadPressablePressed,
+              ]}
+            >
+              <ThreadStrengthBlock
+                threadStrength={threadStrength}
+                totalSessionsCount={totalSessionsCount}
+                lastPrimedAt={lastPrimedAt}
+                weekHistory={weekHistory}
+                anchor={selectedAnchor}
+              />
+              <Text style={styles.threadViewHint}>VIEW ▾</Text>
+            </Pressable>
           </Animated.View>
 
           <Animated.View style={threadStyle}>
@@ -644,6 +674,11 @@ export const PracticeScreen: React.FC = () => {
         }}
       />
 
+      <ThreadStrengthSheet
+        visible={threadSheetVisible}
+        onClose={() => setThreadSheetVisible(false)}
+      />
+
       {/* DEFERRED: previous practice teaching sheet retained for rollback.
       <InfoSheet
         visible={infoVisible}
@@ -653,6 +688,14 @@ export const PracticeScreen: React.FC = () => {
         }}
       />
       */}
+      
+      <ConfirmUnchargedBurnSheet
+        visible={confirmUnchargedBurnVisible}
+        onConfirm={() => selectedAnchor && executeBurn(selectedAnchor)}
+        onCancel={() => setConfirmUnchargedBurnVisible(false)}
+        intentionText={selectedAnchor?.intentionText}
+      />
+
       <PracticeInfoModal
         isVisible={infoVisible}
         onDismiss={() => {
@@ -680,6 +723,21 @@ const styles = StyleSheet.create({
   },
   portalsWrap: {
     gap: spacing.sm,
+  },
+  threadPressable: {
+    position: 'relative',
+  },
+  threadPressablePressed: {
+    opacity: 0.92,
+  },
+  threadViewHint: {
+    position: 'absolute',
+    top: 14,
+    right: 16,
+    fontFamily: typography.fontFamily.sans,
+    fontSize: 10,
+    letterSpacing: 1.2,
+    color: 'rgba(212,175,55,0.5)',
   },
   ctaPressable: {
     marginBottom: spacing.md,

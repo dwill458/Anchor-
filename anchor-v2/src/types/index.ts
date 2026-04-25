@@ -319,12 +319,14 @@ export type RootStackParamList = {
     anchorId: string;
     intention: string;
     sigilSvg: string;
+    enhancedImageUrl?: string;
   };
 
   BurningRitual: {
     anchorId: string;
     intention: string;
     sigilSvg: string;
+    enhancedImageUrl?: string;
   };
 
   // Phase 4: Physical Manifestation (Merchandise)

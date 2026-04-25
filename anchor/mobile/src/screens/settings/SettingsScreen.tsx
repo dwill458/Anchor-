@@ -457,8 +457,6 @@ export const SettingsScreen: React.FC = () => {
 
           {__DEV__ && DeveloperToolsSection ? (
             <DeveloperToolsSection
-              settings={settings}
-              updateSetting={updateSetting}
               resetSettings={resetSettings}
               onResetOnboarding={handleResetOnboarding}
             />

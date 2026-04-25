@@ -90,6 +90,7 @@ export const AnchorCard: React.FC<AnchorCardProps> = ({
         styles.card,
         isSanctuary && styles.sanctuaryCard,
         anchor.isCharged ? styles.chargedCard : styles.unchargedCard,
+        anchor.isReleased && styles.releasedCard,
         isSanctuary && (anchor.isCharged ? styles.sanctuaryChargedCard : styles.sanctuaryUnchargedCard),
         Platform.OS === 'android' && styles.androidCard,
       ]}>
@@ -137,7 +138,7 @@ export const AnchorCard: React.FC<AnchorCardProps> = ({
             )}
 
             {/* ── Purple sigil backdrop (charged only) ───────────────────── */}
-            {anchor.isCharged && (
+            {anchor.isCharged && !anchor.isReleased && (
               <View style={styles.sigilCircleBg} />
             )}
 
@@ -150,7 +151,11 @@ export const AnchorCard: React.FC<AnchorCardProps> = ({
                 <View style={[StyleSheet.absoluteFill, styles.unchargedInnerShadow]} pointerEvents="none" />
               )}
 
-              <View style={[styles.sigilImageContainer, !anchor.isCharged && styles.unchargedSigilOpacity]}>
+              <View style={[
+                styles.sigilImageContainer,
+                !anchor.isCharged && styles.unchargedSigilOpacity,
+                anchor.isReleased && styles.releasedSigilOpacity
+              ]}>
                 {anchor.enhancedImageUrl ? (
                   <OptimizedImage
                     uri={anchor.enhancedImageUrl}
@@ -173,13 +178,23 @@ export const AnchorCard: React.FC<AnchorCardProps> = ({
             </View>
 
             {/* ── CHARGED status pill ────────────────────────────────────── */}
-            {anchor.isCharged && (
+            {anchor.isCharged && !anchor.isReleased && (
               <View style={[styles.chargedPill, isSanctuary && styles.sanctuaryChargedPill]}>
                 <View style={[styles.pillGlass, isSanctuary && styles.sanctuaryPillGlass]}>
                   <Text style={styles.pillText}>CHARGED</Text>
                   <Animated.View style={sparkleStyle}>
                     <Text style={[styles.pillIcon, isSanctuary && styles.sanctuaryPillIcon]}>✧</Text>
                   </Animated.View>
+                </View>
+              </View>
+            )}
+
+            {/* ── RELEASED status pill ───────────────────────────────────── */}
+            {anchor.isReleased && (
+              <View style={[styles.chargedPill, styles.releasedPill, isSanctuary && styles.sanctuaryChargedPill]}>
+                <View style={styles.releasedPillGlass}>
+                  <Text style={styles.releasedPillText}>RELEASED</Text>
+                  <Text style={styles.releasedPillIcon}>🔥</Text>
                 </View>
               </View>
             )}
@@ -250,6 +265,11 @@ const styles = StyleSheet.create({
   sanctuaryUnchargedCard: {
     borderColor: 'rgba(201,168,76,0.22)',
     backgroundColor: 'rgba(12, 18, 34, 0.54)',
+  },
+  releasedCard: {
+    opacity: 0.5,
+    borderColor: 'rgba(255, 255, 255, 0.1)',
+    backgroundColor: 'rgba(0, 0, 0, 0.2)',
   },
   chargedCard: {
     borderColor: 'rgba(212, 175, 55, 0.7)',
@@ -329,6 +349,9 @@ const styles = StyleSheet.create({
   unchargedSigilOpacity: {
     opacity: 0.65,
   },
+  releasedSigilOpacity: {
+    opacity: 0.4,
+  },
   unchargedDesaturationOverlay: {
     backgroundColor: 'rgba(20, 25, 35, 0.4)',
     borderRadius: 100,
@@ -386,6 +409,30 @@ const styles = StyleSheet.create({
   },
   sanctuaryPillIcon: {
     fontSize: 9,
+  },
+  releasedPill: {
+    opacity: 0.8,
+  },
+  releasedPillGlass: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.2)',
+    borderRadius: 8,
+  },
+  releasedPillText: {
+    fontSize: 8,
+    fontFamily: typography.fonts.bodyBold,
+    color: colors.silver,
+    letterSpacing: 0.5,
+  },
+  releasedPillIcon: {
+    fontSize: 10,
+    color: colors.silver,
+    marginLeft: 3,
   },
   intentionText: {
     fontSize: 14,

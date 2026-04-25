@@ -22,7 +22,7 @@ type BurningRitualNavigationProp = StackNavigationProp<RootStackParamList, 'Burn
 export const BurningRitualScreen: React.FC = () => {
   const route = useRoute<BurningRitualRouteProp>();
   const navigation = useNavigation<BurningRitualNavigationProp>();
-  const removeAnchor = useAnchorStore((state) => state.removeAnchor);
+  const releaseAnchor = useAnchorStore((state) => state.releaseAnchor);
   const getAnchorById = useAnchorStore((state) => state.getAnchorById);
   const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
   const { setUserFlag, queueMilestone, recordShown, userFlags } = useTeachingStore();
@@ -32,7 +32,7 @@ export const BurningRitualScreen: React.FC = () => {
   const { anchorId, sigilSvg, enhancedImageUrl } = route.params;
   const anchor = getAnchorById(anchorId);
   const resolvedSigilSvg = sigilSvg || anchor?.reinforcedSigilSvg || anchor?.baseSigilSvg || '';
-  const resolvedEnhancedImageUrl = enhancedImageUrl ?? resolveBurnArtworkUri(anchor);
+  const resolvedEnhancedImageUrl = enhancedImageUrl || resolveBurnArtworkUri(anchor);
 
   // Ash Line (Pattern 8): shown in Phase 4 success, guide ON, first burn only
   const ashLineTeaching = useTeachingGate({
@@ -47,52 +47,57 @@ export const BurningRitualScreen: React.FC = () => {
   const handleCommitBurn = useCallback(async () => {
     const token = await AuthService.getIdToken();
 
-    if (!isAuthenticated || !token) {
-      throw new Error('Sign in to release this anchor.');
+    // Only attempt backend sync if we have a session
+    if (isAuthenticated) {
+      if (!token) {
+        throw new Error('Auth session stale');
+      }
+
+      try {
+        await post(`/api/anchors/${anchorId}/burn`, {});
+      } catch (error) {
+        AnalyticsService.track(AnalyticsEvents.BURN_FAILED, { anchor_id: anchorId });
+        ErrorTrackingService.captureException(
+          error instanceof Error ? error : new Error('Unknown error during anchor burn'),
+          { screen: 'BurningRitualScreen' }
+        );
+        throw error;
+      }
     }
 
-    try {
-      await post(`/api/anchors/${anchorId}/burn`, {});
-      removeAnchor(anchorId);
-      await handleSigilVaulted();
-      AnalyticsService.track(AnalyticsEvents.BURN_COMPLETED, { anchor_id: anchorId });
+    // Local update happens for everyone
+    releaseAnchor(anchorId);
+    await handleSigilVaulted();
+    AnalyticsService.track(AnalyticsEvents.BURN_COMPLETED, { anchor_id: anchorId });
 
-      // Set first-burn flag (once)
-      if (!userFlags.hasCompletedFirstBurn) {
-        setUserFlag('hasCompletedFirstBurn', true);
-        queueMilestone('milestone_first_burn_v1');
-      }
+    // Set first-burn flag (once)
+    if (!userFlags.hasCompletedFirstBurn) {
+      setUserFlag('hasCompletedFirstBurn', true);
+      queueMilestone('milestone_first_burn_v1');
+    }
 
-      // Post-burn Signal Pulse — fires for ALL users on every burn ([both])
-      const postBurnContent = TEACHINGS['post_burn_toast_v1'];
-      if (postBurnContent) {
-        toast.info(postBurnContent.copy);
-      }
+    // Post-burn Signal Pulse — fires for ALL users on every burn ([both])
+    const postBurnContent = TEACHINGS['post_burn_toast_v1'];
+    if (postBurnContent) {
+      toast.info(postBurnContent.copy);
+    }
 
-      // Record ash line shown (if it will show)
-      if (ashLineTeaching) {
-        const content = TEACHINGS[ashLineTeaching.teachingId];
-        recordShown(ashLineTeaching.teachingId, ashLineTeaching.pattern, content?.maxShows ?? 1);
-        AnalyticsService.track('teaching_shown', {
-          teaching_id: ashLineTeaching.teachingId,
-          pattern: ashLineTeaching.pattern,
-          screen: 'burning_ritual',
-          trigger: ashLineTeaching.trigger,
-          guide_mode: true,
-        });
-      }
-    } catch (error) {
-      AnalyticsService.track(AnalyticsEvents.BURN_FAILED, { anchor_id: anchorId });
-      ErrorTrackingService.captureException(
-        error instanceof Error ? error : new Error('Unknown error during anchor burn'),
-        { screen: 'BurningRitualScreen' }
-      );
-      throw error;
+    // Record ash line shown (if it will show)
+    if (ashLineTeaching) {
+      const content = TEACHINGS[ashLineTeaching.teachingId];
+      recordShown(ashLineTeaching.teachingId, ashLineTeaching.pattern, content?.maxShows ?? 1);
+      AnalyticsService.track('teaching_shown', {
+        teaching_id: ashLineTeaching.teachingId,
+        pattern: ashLineTeaching.pattern,
+        screen: 'burning_ritual',
+        trigger: ashLineTeaching.trigger,
+        guide_mode: true,
+      });
     }
   }, [
     anchorId,
     isAuthenticated,
-    removeAnchor,
+    releaseAnchor,
     handleSigilVaulted,
     userFlags.hasCompletedFirstBurn,
     setUserFlag,
@@ -114,6 +119,7 @@ export const BurningRitualScreen: React.FC = () => {
     <BurnAnimationOverlay
       sigilSvg={resolvedSigilSvg}
       enhancedImageUrl={resolvedEnhancedImageUrl}
+      isCharged={anchor?.isCharged ?? false}
       onCommitBurn={handleCommitBurn}
       onReturnToSanctuary={handleReturnToSanctuary}
       onReturnToAnchor={handleReturnToAnchor}

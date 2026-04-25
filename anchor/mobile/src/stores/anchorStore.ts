@@ -14,6 +14,7 @@ import AnchorSyncService from '@/services/AnchorSyncService';
 import { useAuthStore } from '@/stores/authStore';
 import { getAdjustedDateString } from '@/utils/dateUtils';
 import { logger } from '@/utils/logger';
+import { checkAndRecordMilestones } from '@/utils/milestoneTracking';
 
 const normalizeDate = (value?: Date | string): Date | undefined => {
   if (!value) return undefined;
@@ -86,6 +87,7 @@ interface AnchorState {
   setCurrentAnchor: (id: string | undefined) => void;
   applySyncedAnchor: (referenceId: string, anchor: Anchor) => void;
   flushPendingSync: () => Promise<void>;
+  releaseAnchor: (id: string) => void;
 }
 
 /**
@@ -187,10 +189,15 @@ export const useAnchorStore = create<AnchorState>()(
           };
         }),
 
-      incrementTotalPrimes: () =>
-        set((state) => ({
-          totalPrimes: state.totalPrimes + 1,
-        })),
+      incrementTotalPrimes: () => {
+        const nextTotalPrimes = get().totalPrimes + 1;
+
+        set({
+          totalPrimes: nextTotalPrimes,
+        });
+
+        checkAndRecordMilestones(nextTotalPrimes).catch(() => {});
+      },
 
       recordPrimeSession: () => {
         const today = getAdjustedDateString();
@@ -302,6 +309,25 @@ export const useAnchorStore = create<AnchorState>()(
           get().markSynced();
         }
       },
+
+      releaseAnchor: (id) =>
+        set((state) => {
+          const nextAnchors = state.anchors.map((anchor) =>
+            matchesAnchorReference(anchor, id)
+              ? {
+                ...anchor,
+                isReleased: true,
+                releasedAt: new Date(),
+                updatedAt: new Date(),
+              }
+              : anchor
+          );
+
+          return {
+            anchors: nextAnchors,
+            error: null,
+          };
+        }),
     }),
     {
       name: 'anchor-vault-storage',

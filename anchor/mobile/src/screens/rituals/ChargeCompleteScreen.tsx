@@ -67,6 +67,7 @@ export const ChargeCompleteScreen: React.FC = () => {
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const scaleAnim = useRef(new Animated.Value(0.95)).current;
   const glowAnim = useRef(new Animated.Value(0)).current;
+  const hasRecordedRef = useRef(false);
 
   // Only start the main screen animation after reflection is done
   useEffect(() => {
@@ -141,6 +142,11 @@ export const ChargeCompleteScreen: React.FC = () => {
   };
 
   const handleCompletionDone = async (reflectionWord?: string) => {
+    if (hasRecordedRef.current) {
+      return;
+    }
+    hasRecordedRef.current = true;
+
     // Fall back to the user's default only when the ritual route did not pass
     // the actual session duration.
     const presetSeconds: Record<string, number> = {
