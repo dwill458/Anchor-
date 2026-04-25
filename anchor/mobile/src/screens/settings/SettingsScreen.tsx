@@ -372,17 +372,7 @@ export const SettingsScreen: React.FC = () => {
             />
           </SettingsSectionBlock>
 
-          <Text style={styles.sectionLabel}>Appearance</Text>
-          <SettingsSectionBlock>
-            <SettingsRow title="Theme" value="Zen Architect" type="chevron" onPress={() => {}} />
-            <SettingsRow
-              title="Accent Color"
-              value="Gold"
-              type="chevron"
-              onPress={() => {}}
-              showDivider={false}
-            />
-          </SettingsSectionBlock>
+          {/* Appearance section removed */}
 
           <Text style={styles.sectionLabel}>Audio & Haptics</Text>
           <SettingsSectionBlock>

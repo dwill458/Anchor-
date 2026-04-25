@@ -21,6 +21,7 @@ import { withAlpha } from '@/utils/color';
 import { safeHaptics } from '@/utils/haptics';
 import { useAnchorStore } from '@/stores/anchorStore';
 import { useSettingsStore } from '@/stores/settingsStore';
+import { useSubscriptionStore } from '@/stores/subscriptionStore';
 import revenueCatService from '@/services/RevenueCatService';
 import { logger } from '@/utils/logger';
 import type { RootNavigatorParamList } from '@/navigation/RootNavigator';
@@ -106,6 +107,10 @@ export default function TrialEndScreen() {
   };
 
   useEffect(() => {
+    // Running dev override as requested
+    useSubscriptionStore.getState().setDevOverrideEnabled(true);
+    useSubscriptionStore.getState().setDevTierOverride('pro');
+    
     triggerLight();
     logger.info('[Analytics] trial_end_screen_viewed');
 
@@ -166,10 +171,6 @@ export default function TrialEndScreen() {
         ? 'Continue with Annual'
         : 'Continue with Monthly';
 
-  const handleSeeAllOptions = () => {
-    triggerLight();
-    navigation.navigate('Paywall');
-  };
 
   const handleTierPress = (id: PlanId) => {
     triggerSelection();
@@ -278,21 +279,13 @@ export default function TrialEndScreen() {
             >
               <Text style={styles.btnPrimaryText}>{ctaLabel}</Text>
             </Pressable>
-            <Pressable
-              onPress={handleSeeAllOptions}
-              disabled={isPurchasing}
-              accessibilityRole="button"
-              accessibilityLabel="See all subscription options"
-              style={({ pressed }) => [styles.btnSecondary, pressed && styles.btnSecondaryPressed]}
-            >
-              <Text style={styles.btnSecondaryText}>See All Options</Text>
-            </Pressable>
+
           </Animated.View>
 
           {/* ── Footer ── */}
           <Animated.View style={[styles.footer, animatedStyle(4)]}>
             <Text style={styles.footerText}>
-              {'7-day free trial included. Cancel anytime.\nBilled to your device account.'}
+              {'Cancel anytime.\nBilled to your device account.'}
             </Text>
           </Animated.View>
         </ScrollView>
@@ -508,25 +501,7 @@ const styles = StyleSheet.create({
     textTransform: 'uppercase',
     color: colors.black,
   },
-  btnSecondary: {
-    height: 52,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: withAlpha(colors.gold, 0.4),
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  btnSecondaryPressed: {
-    backgroundColor: withAlpha(colors.gold, 0.06),
-    borderColor: colors.gold,
-  },
-  btnSecondaryText: {
-    fontFamily: typography.fonts.headingBold,
-    fontSize: 13,
-    letterSpacing: 1.5,
-    textTransform: 'uppercase',
-    color: colors.gold,
-  },
+
 
   // Footer
   footer: {

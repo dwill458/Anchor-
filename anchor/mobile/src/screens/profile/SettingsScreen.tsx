@@ -147,7 +147,6 @@ export const SettingsScreen: React.FC = () => {
   const section0 = useSharedValue(shouldAnimateSections ? 0 : 1);
   const section1 = useSharedValue(shouldAnimateSections ? 0 : 1);
   const section2 = useSharedValue(shouldAnimateSections ? 0 : 1);
-  const section3 = useSharedValue(shouldAnimateSections ? 0 : 1);
   const section4 = useSharedValue(shouldAnimateSections ? 0 : 1);
   const section5 = useSharedValue(shouldAnimateSections ? 0 : 1);
   const section6 = useSharedValue(shouldAnimateSections ? 0 : 1);
@@ -170,10 +169,6 @@ export const SettingsScreen: React.FC = () => {
   const animatedStyle2 = useAnimatedStyle(() => ({
     opacity: section2.value * exitValue.value,
     transform: [{ translateY: (1 - section2.value) * 14 + (1 - exitValue.value) * 6 }],
-  }));
-  const animatedStyle3 = useAnimatedStyle(() => ({
-    opacity: section3.value * exitValue.value,
-    transform: [{ translateY: (1 - section3.value) * 14 + (1 - exitValue.value) * 6 }],
   }));
   const animatedStyle4 = useAnimatedStyle(() => ({
     opacity: section4.value * exitValue.value,
@@ -205,7 +200,6 @@ export const SettingsScreen: React.FC = () => {
       section0,
       section1,
       section2,
-      section3,
       section4,
       section5,
       section6,
@@ -243,7 +237,6 @@ export const SettingsScreen: React.FC = () => {
     section0,
     section1,
     section2,
-    section3,
     section4,
     section5,
     section6,
@@ -561,21 +554,7 @@ export const SettingsScreen: React.FC = () => {
                 </CardWrapper>
               </Animated.View>
 
-              <Animated.View style={animatedStyle3}>
-                <SectionHeader title="Appearance" />
-                <CardWrapper {...cardProps} style={styles.section}>
-                  <SettingItem
-                    label="Theme"
-                    value={settings.theme === 'zen_architect' ? 'Zen Architect' : 'System'}
-                    onPress={() => navigation.navigate('ThemeSelection')}
-                  />
-                  <SettingItem
-                    label="Accent Color"
-                    value={settings.accentColor === '#D4AF37' ? 'Gold' : 'Custom'}
-                    onPress={() => navigation.navigate('AccentColor')}
-                  />
-                </CardWrapper>
-              </Animated.View>
+              {/* Appearance section removed */}
 
               <Animated.View style={animatedStyle4}>
                 <SectionHeader title="Audio & Haptics" />
