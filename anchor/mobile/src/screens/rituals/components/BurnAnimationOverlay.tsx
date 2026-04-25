@@ -9,6 +9,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
+import * as FileSystem from 'expo-file-system';
 import { useNavigation } from '@react-navigation/native';
 import Animated, { Easing, useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
 import { WebView } from 'react-native-webview';
@@ -33,6 +34,7 @@ export interface BurnAnimationOverlayProps {
   onReturnToAnchor?: () => void;
   /** Ash Line (Pattern 8): bone-text whisper shown below subtitle in Phase 4 success. */
   ashLineText?: string;
+  isCharged: boolean;
 }
 
 const getErrorMessage = (error: unknown): string => {
@@ -48,30 +50,97 @@ type BurnStartPayload = {
   cmd: 'start';
   sigilUri?: string;
   fallbackSigilUri?: string;
+  isCharged?: boolean;
 };
 
-const isInlineRenderableUri = (uri: string): boolean =>
-  uri.startsWith('data:') || uri.startsWith('file:') || uri.startsWith('content:');
+const isInlineRenderableUri = (uri: string): boolean => uri.startsWith('data:');
 
-const blobToDataUri = async (blob: Blob): Promise<string> =>
-  new Promise((resolve, reject) => {
-    const reader = new FileReader();
+const isRemoteUri = (uri: string): boolean => /^https?:/i.test(uri);
 
-    reader.onerror = () => {
-      reject(new Error('Failed to serialize burn artwork.'));
-    };
+const isDeviceFileUri = (uri: string): boolean => /^(file|content|ph|assets-library):/i.test(uri);
 
-    reader.onloadend = () => {
-      if (typeof reader.result === 'string') {
-        resolve(reader.result);
-        return;
-      }
+const inferMimeTypeFromUri = (uri: string): string => {
+  const normalizedPath = uri.split('?')[0]?.toLowerCase() ?? '';
 
-      reject(new Error('Failed to serialize burn artwork.'));
-    };
+  if (normalizedPath.endsWith('.jpg') || normalizedPath.endsWith('.jpeg')) {
+    return 'image/jpeg';
+  }
+  if (normalizedPath.endsWith('.webp')) {
+    return 'image/webp';
+  }
+  if (normalizedPath.endsWith('.gif')) {
+    return 'image/gif';
+  }
+  if (normalizedPath.endsWith('.heic')) {
+    return 'image/heic';
+  }
+  if (normalizedPath.endsWith('.svg')) {
+    return 'image/svg+xml';
+  }
 
-    reader.readAsDataURL(blob);
+  return 'image/png';
+};
+
+const encodeArrayBufferToBase64 = (buffer: ArrayBuffer): string => {
+  const bytes = new Uint8Array(buffer);
+  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
+  let result = '';
+
+  for (let index = 0; index < bytes.length; index += 3) {
+    const byte1 = bytes[index] ?? 0;
+    const byte2 = bytes[index + 1] ?? 0;
+    const byte3 = bytes[index + 2] ?? 0;
+
+    const encoded1 = byte1 >> 2;
+    const encoded2 = ((byte1 & 3) << 4) | (byte2 >> 4);
+    const encoded3 = ((byte2 & 15) << 2) | (byte3 >> 6);
+    const encoded4 = byte3 & 63;
+
+    result += chars[encoded1];
+    result += chars[encoded2];
+    result += index + 1 < bytes.length ? chars[encoded3] : '=';
+    result += index + 2 < bytes.length ? chars[encoded4] : '=';
+  }
+
+  return result;
+};
+
+const readRemoteUriAsDataUri = async (uri: string): Promise<string> => {
+  const response = await fetch(uri);
+  if (!response.ok) {
+    throw new Error(`Burn artwork request failed with ${response.status}`);
+  }
+
+  const contentType = response.headers.get('content-type') || inferMimeTypeFromUri(uri);
+  const buffer = await response.arrayBuffer();
+  const base64 = encodeArrayBufferToBase64(buffer);
+
+  return `data:${contentType};base64,${base64}`;
+};
+
+const readDeviceFileUriAsDataUri = async (uri: string): Promise<string> => {
+  const base64 = await FileSystem.readAsStringAsync(uri, {
+    encoding: FileSystem.EncodingType.Base64,
   });
+
+  return `data:${inferMimeTypeFromUri(uri)};base64,${base64}`;
+};
+
+const resolveWebViewImageUri = async (uri: string): Promise<string> => {
+  if (isInlineRenderableUri(uri)) {
+    return uri;
+  }
+
+  if (isRemoteUri(uri)) {
+    return readRemoteUriAsDataUri(uri);
+  }
+
+  if (isDeviceFileUri(uri)) {
+    return readDeviceFileUriAsDataUri(uri);
+  }
+
+  return uri;
+};
 
 const buildStartScript = (payload: BurnStartPayload): string => {
   const serialized = JSON.stringify(payload);
@@ -93,6 +162,7 @@ export const BurnAnimationOverlay: React.FC<BurnAnimationOverlayProps> = ({
   onReturnToSanctuary,
   onReturnToAnchor,
   ashLineText,
+  isCharged,
 }) => {
   const navigation = useNavigation<any>();
   const reduceMotionEnabled = useReduceMotionEnabled();
@@ -122,7 +192,7 @@ export const BurnAnimationOverlay: React.FC<BurnAnimationOverlayProps> = ({
     return undefined;
   }, [sigilSvg]);
 
-  const sigilUri = useMemo(() => enhancedImageUrl ?? fallbackSigilUri, [enhancedImageUrl, fallbackSigilUri]);
+  const sigilUri = useMemo(() => enhancedImageUrl || fallbackSigilUri, [enhancedImageUrl, fallbackSigilUri]);
 
   useEffect(() => {
     let isCancelled = false;
@@ -136,22 +206,8 @@ export const BurnAnimationOverlay: React.FC<BurnAnimationOverlayProps> = ({
         return;
       }
 
-      if (isInlineRenderableUri(sigilUri)) {
-        if (!isCancelled) {
-          setResolvedWebViewSigilUri(sigilUri);
-          setIsWebViewSigilReady(true);
-        }
-        return;
-      }
-
       try {
-        const response = await fetch(sigilUri);
-        if (!response.ok) {
-          throw new Error(`Burn artwork request failed with ${response.status}`);
-        }
-
-        const blob = await response.blob();
-        const dataUri = await blobToDataUri(blob);
+        const dataUri = await resolveWebViewImageUri(sigilUri);
 
         if (!isCancelled) {
           setResolvedWebViewSigilUri(dataUri);
@@ -322,9 +378,10 @@ export const BurnAnimationOverlay: React.FC<BurnAnimationOverlayProps> = ({
         cmd: 'start',
         sigilUri: resolvedWebViewSigilUri,
         fallbackSigilUri,
+        isCharged,
       })
     );
-  }, [fallbackSigilUri, isWebViewSigilReady, resolvedWebViewSigilUri]);
+  }, [fallbackSigilUri, isCharged, isWebViewSigilReady, resolvedWebViewSigilUri]);
 
   const handleWebViewLoad = useCallback(() => {
     injectStartPayload();

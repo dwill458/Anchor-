@@ -21,7 +21,7 @@ import { BlurView } from 'expo-blur';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { format, isToday } from 'date-fns';
 import { SvgXml } from 'react-native-svg';
-import { ChevronRight, Zap } from 'lucide-react-native';
+import { ChevronRight, Share2, Zap } from 'lucide-react-native';
 import { MoreRitualsSheet, RitualType } from '@/components/MoreRitualsSheet';
 import { useTabNavigation } from '@/contexts/TabNavigationContext';
 import { useAnchorStore } from '@/stores/anchorStore';
@@ -53,6 +53,10 @@ import {
 } from '@/components/common';
 import { useAppPerformanceTier } from '@/hooks/useAppPerformanceTier';
 import { resolveBurnArtworkUri } from '@/screens/rituals/utils/resolveBurnArtworkUri';
+import { ExportAnchorSheet } from '@/components/ExportAnchorSheet';
+import { ConfirmUnchargedBurnSheet } from '@/components/modals/ConfirmUnchargedBurnSheet';
+import ShareCardRenderer from '@/components/ShareCardRenderer';
+import { useShareCard } from '@/hooks/useShareCard';
 
 const { width: SCREEN_W } = Dimensions.get('window');
 const SIGIL_CIRCLE_SIZE = Math.round(SCREEN_W * 0.62);
@@ -137,6 +141,7 @@ const toDisplayAnchor = (rawAnchor) => {
     [];
 
   const charged = Boolean(rawAnchor.charged ?? rawAnchor.isCharged);
+  const released = Boolean(rawAnchor.isReleased);
   const todayActivated =
     rawAnchor.today ??
     (lastActivatedDate && isToday(lastActivatedDate) ? 'Primed' : null);
@@ -150,6 +155,10 @@ const toDisplayAnchor = (rawAnchor) => {
     intention,
     category: categoryLabel,
     charged,
+    isReleased: released,
+    releasedAt:
+      formatDate(rawAnchor.releasedAt, 'MMMM d, yyyy') ??
+      (rawAnchor.releasedAt ? String(rawAnchor.releasedAt) : null),
     lastActivated:
       rawAnchor.lastActivated ??
       formatDate(rawAnchor.lastActivatedAt, 'MMM d, yyyy'),
@@ -546,12 +555,24 @@ const AnchorDetailsScreen = ({ navigation, route }) => {
   const anchorCardRef = useRef<View>(null);
   const [isExporting, setIsExporting] = useState(false);
   const mediaLibraryPermissionRef = useRef<MediaLibrary.PermissionResponse | null>(null);
+  const [showExportSheet, setShowExportSheet] = useState(false);
+  const [confirmUnchargedBurnVisible, setConfirmUnchargedBurnVisible] = useState(false);
+  const [showShareCard, setShowShareCard] = useState(false);
+  const shareCardRef = useRef(null);
+  const shareCardTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const { captureAndShare, isLoading: isShareCardLoading } = useShareCard(shareCardRef);
 
   useEffect(() => {
     const task = InteractionManager.runAfterInteractions(() => {
       setIsReady(true);
     });
     return () => task.cancel();
+  }, []);
+
+  useEffect(() => () => {
+    if (shareCardTimeoutRef.current) {
+      clearTimeout(shareCardTimeoutRef.current);
+    }
   }, []);
 
   // Permissions are requested lazily on export to avoid native-module errors
@@ -818,13 +839,25 @@ const AnchorDetailsScreen = ({ navigation, route }) => {
   const handleBurn = () => {
     if (!anchorId) return;
 
+    if (!anchor.charged) {
+      setConfirmUnchargedBurnVisible(true);
+      return;
+    }
+
+    executeBurn();
+  };
+
+  const executeBurn = () => {
+    if (!anchorId) return;
+    setConfirmUnchargedBurnVisible(false);
+
     const burnAnchor = storeAnchor ?? sourceAnchor;
 
     navigation.navigate('ConfirmBurn', {
       anchorId,
       intention: burnAnchor?.intentionText ?? burnAnchor?.intention ?? anchor.intention,
       sigilSvg: burnAnchor?.reinforcedSigilSvg ?? burnAnchor?.baseSigilSvg ?? '',
-      enhancedImageUrl: resolveBurnArtworkUri(burnAnchor),
+      enhancedImageUrl: resolveBurnArtworkUri(burnAnchor) || anchor.sigilUri || undefined,
     });
   };
 
@@ -974,6 +1007,30 @@ const AnchorDetailsScreen = ({ navigation, route }) => {
     setPendingExportAction('wallpaper');
   };
 
+  const handleShareAnchor = useCallback(() => {
+    if (isShareCardLoading) {
+      return;
+    }
+
+    if (shareCardTimeoutRef.current) {
+      clearTimeout(shareCardTimeoutRef.current);
+    }
+
+    setShowShareCard(true);
+    shareCardTimeoutRef.current = setTimeout(async () => {
+      try {
+        await captureAndShare({
+          intention: anchor.intention,
+          daysPrimed: anchorPractice.currentStreak,
+          format: 'square',
+        });
+      } finally {
+        setShowShareCard(false);
+        shareCardTimeoutRef.current = null;
+      }
+    }, 100);
+  }, [anchor.intention, anchorPractice.currentStreak, captureAndShare, isShareCardLoading]);
+
   const handleHeroScrollStart = useCallback(() => {
     setIsScrollActive(true);
   }, []);
@@ -1061,10 +1118,14 @@ const AnchorDetailsScreen = ({ navigation, route }) => {
                     <View style={[s.badgeDot, { backgroundColor: colors.gold }]} />
                     <Text style={[s.badgeText, { color: colors.gold }]}>{anchor.category}</Text>
                   </View>
-                  <View style={[s.badgeCharged, Platform.OS === 'android' && s.badgeChargedAndroid, !anchor.charged && s.badgeDormant]}>
-                    <Text style={s.badgeIcon}>{anchor.charged ? '⚡' : '💤'}</Text>
-                    <Text style={[s.badgeText, { color: anchor.charged ? C.goldBright : C.textDim }]}>
-                      {anchor.charged ? 'Primed' : 'Dormant'}
+                  <View style={[
+                    s.badgeCharged,
+                    Platform.OS === 'android' && s.badgeChargedAndroid,
+                    anchor.isReleased ? s.badgeReleased : (!anchor.charged && s.badgeDormant)
+                  ]}>
+                    <Text style={s.badgeIcon}>{anchor.isReleased ? '🔥' : (anchor.charged ? '⚡' : '💤')}</Text>
+                    <Text style={[s.badgeText, { color: anchor.isReleased ? colors.silver : (anchor.charged ? C.goldBright : C.textDim) }]}>
+                      {anchor.isReleased ? 'Released' : (anchor.charged ? 'Primed' : 'Dormant')}
                     </Text>
                   </View>
                 </View>
@@ -1134,7 +1195,7 @@ const AnchorDetailsScreen = ({ navigation, route }) => {
                   {anchor.sigilUri ? (
                     <Image
                       source={{ uri: anchor.sigilUri }}
-                      style={[s.sigilImage, anchor.charged && s.chargedSigilImage]}
+                      style={[s.sigilImage, anchor.charged && s.chargedSigilImage, anchor.isReleased && s.releasedSigilImage]}
                       resizeMode="cover"
                     />
                   ) : anchor.baseSigilSvg ? (
@@ -1213,21 +1274,33 @@ const AnchorDetailsScreen = ({ navigation, route }) => {
 
         {/* ── PRIMARY CTA ── */}
         <FadeUp delay={220}>
-          <TouchableOpacity
-            style={s.primaryCtaCard}
-            activeOpacity={0.8}
-            onPress={handlePracticePress}
-          >
-            <View style={s.primaryCtaGradient}>
-              <View style={s.primaryCtaLeft}>
-                <Text style={s.primaryCtaLabel}>Ready to prime?</Text>
-                <Text style={s.primaryCtaTitle}>Open Practice</Text>
-              </View>
-              <View style={s.primaryCtaArrow}>
-                <ChevronRight size={18} color={colors.gold} />
+          {anchor.isReleased ? (
+            <View style={s.releasedStatusCard}>
+              <View style={s.releasedStatusGradient}>
+                <View style={s.releasedStatusLeft}>
+                  <Text style={s.releasedStatusLabel}>Ceremony Complete</Text>
+                  <Text style={s.releasedStatusTitle}>This anchor has been released.</Text>
+                  <Text style={s.releasedStatusDate}>Success on {anchor.releasedAt}</Text>
+                </View>
               </View>
             </View>
-          </TouchableOpacity>
+          ) : (
+            <TouchableOpacity
+              style={s.primaryCtaCard}
+              activeOpacity={0.8}
+              onPress={handlePracticePress}
+            >
+              <View style={s.primaryCtaGradient}>
+                <View style={s.primaryCtaLeft}>
+                  <Text style={s.primaryCtaLabel}>Ready to prime?</Text>
+                  <Text style={s.primaryCtaTitle}>Open Practice</Text>
+                </View>
+                <View style={s.primaryCtaArrow}>
+                  <ChevronRight size={18} color={colors.gold} />
+                </View>
+              </View>
+            </TouchableOpacity>
+          )}
         </FadeUp>
 
         {/* DEFERRED: Direct ritual entry points live on Practice. Restore the secondary ritual sheet here only if the detail screen regains mode-launch responsibilities. */}
@@ -1240,34 +1313,54 @@ const AnchorDetailsScreen = ({ navigation, route }) => {
             <Text style={s.exportEyebrow}>WALLPAPER & EXPORT</Text>
             <Text style={s.exportTitle}>Keep your anchor where you will actually see it.</Text>
             <Text style={s.exportBody}>
-              Generate a branded PNG from this anchor, save it to your device, or open the share sheet so you can set it as wallpaper manually.
+              Share a branded card for messages and social, save the raw PNG, or open the wallpaper flow when you want the symbol on your lock screen.
             </Text>
             <View style={s.exportActionRow}>
               <TouchableOpacity
                 accessibilityRole="button"
                 activeOpacity={0.85}
-                disabled={isExporting}
-                onPress={handleSetWallpaper}
-                style={[s.exportActionButton, s.exportActionPrimary, isExporting && s.exportActionDisabled]}
-                testID="anchor-detail-set-wallpaper-button"
+                disabled={isShareCardLoading}
+                onPress={handleShareAnchor}
+                style={[s.exportActionButton, s.exportActionPrimary, isShareCardLoading && s.exportActionDisabled]}
+                testID="anchor-detail-share-button"
               >
-                <Text style={s.exportActionPrimaryText}>
-                  {isExporting ? 'Opening...' : 'Set as Wallpaper'}
-                </Text>
+                <View style={s.exportActionPrimaryContent}>
+                  <Share2 size={16} color={colors.background.primary} />
+                  <Text style={s.exportActionPrimaryText}>
+                    {isShareCardLoading ? 'Sharing...' : 'SHARE MY ANCHOR'}
+                  </Text>
+                </View>
               </TouchableOpacity>
 
-              <TouchableOpacity
-                accessibilityRole="button"
-                activeOpacity={0.85}
-                disabled={isExporting}
-                onPress={handleDownloadPNG}
-                style={[s.exportActionButton, s.exportActionSecondary, isExporting && s.exportActionDisabled]}
-                testID="anchor-detail-download-png-button"
-              >
-                <Text style={s.exportActionSecondaryText}>
-                  {isExporting ? 'Saving...' : 'Download PNG'}
-                </Text>
-              </TouchableOpacity>
+              <View style={s.exportSecondaryRow}>
+                <TouchableOpacity
+                  accessibilityRole="button"
+                  activeOpacity={0.85}
+                  disabled={isExporting}
+                  onPress={handleSetWallpaper}
+                  style={[
+                    s.exportActionButton,
+                    s.exportActionSecondary,
+                    s.exportActionHalf,
+                    isExporting && s.exportActionDisabled,
+                  ]}
+                  testID="anchor-detail-set-wallpaper-button"
+                >
+                  <Text style={s.exportActionSecondaryText}>
+                    {isExporting ? 'Opening...' : 'Set as Wallpaper'}
+                  </Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  accessibilityRole="button"
+                  activeOpacity={0.85}
+                  onPress={() => setShowExportSheet(true)}
+                  style={[s.exportActionButton, s.exportActionSecondary, s.exportActionHalf]}
+                  testID="anchor-detail-download-png-button"
+                >
+                  <Text style={s.exportActionSecondaryText}>SAVE PNG</Text>
+                </TouchableOpacity>
+              </View>
             </View>
           </LinearGradient>
         </FadeUp>
@@ -1374,6 +1467,16 @@ const AnchorDetailsScreen = ({ navigation, route }) => {
         </View>
       )}
 
+      {showShareCard && (
+        <ShareCardRenderer
+          ref={shareCardRef}
+          anchorSVG={anchor.baseSigilSvg}
+          intention={anchor.intention}
+          daysPrimed={anchorPractice.currentStreak}
+          format="square"
+        />
+      )}
+
       {/* DEFERRED: MoreRitualsSheet stays off-screen while Anchor Details only routes into Practice. */}
       {/*
       <MoreRitualsSheet
@@ -1383,6 +1486,23 @@ const AnchorDetailsScreen = ({ navigation, route }) => {
         isCharged={anchor.charged}
       />
       */}
+
+      <ConfirmUnchargedBurnSheet
+        visible={confirmUnchargedBurnVisible}
+        onConfirm={executeBurn}
+        onCancel={() => setConfirmUnchargedBurnVisible(false)}
+        intentionText={anchor.intention}
+      />
+
+      <ExportAnchorSheet
+        isVisible={showExportSheet}
+        onClose={() => setShowExportSheet(false)}
+        sigilSvg={anchor.baseSigilSvg}
+        sigilUri={anchor.sigilUri}
+        onExportComplete={(uri) => {
+          console.log('Anchor exported:', uri);
+        }}
+      />
     </View>
   );
 };
@@ -1537,6 +1657,11 @@ const s = StyleSheet.create({
     shadowRadius: 0,
     elevation: 0,
   },
+  badgeReleased: {
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    borderColor: 'rgba(255, 255, 255, 0.2)',
+    shadowOpacity: 0,
+  },
   badgeDormant: {
     backgroundColor: colors.practice.heroSwitcherSurface,
     borderColor: colors.practice.heroSwitcherBorder,
@@ -1594,6 +1719,10 @@ const s = StyleSheet.create({
     borderRadius: 999,
     borderWidth: 2,
     borderColor: 'rgba(201,168,76,0.35)',
+  },
+  releasedSigilImage: {
+    opacity: 0.4,
+    borderColor: 'rgba(255, 255, 255, 0.1)',
   },
   sigilPlaceholder: {
     width: '78%',
@@ -1776,6 +1905,45 @@ const s = StyleSheet.create({
     color: C.textDim,
     textTransform: 'uppercase',
     marginBottom: 6,
+  },
+  // Released Status
+  releasedStatusCard: {
+    marginHorizontal: 4,
+    borderRadius: 16,
+    overflow: 'hidden',
+    backgroundColor: 'rgba(255, 255, 255, 0.03)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.1)',
+  },
+  releasedStatusGradient: {
+    padding: 20,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  releasedStatusLeft: {
+    flex: 1,
+  },
+  releasedStatusLabel: {
+    fontFamily: typography.fontFamily.serif,
+    fontSize: 10,
+    letterSpacing: 1.5,
+    color: colors.silver,
+    textTransform: 'uppercase',
+    marginBottom: 4,
+    opacity: 0.8,
+  },
+  releasedStatusTitle: {
+    fontFamily: typography.fontFamily.serifSemiBold,
+    fontSize: 18,
+    color: colors.bone,
+    marginBottom: 4,
+  },
+  releasedStatusDate: {
+    fontFamily: typography.fontFamily.sans,
+    fontSize: 12,
+    color: colors.silver,
+    opacity: 0.6,
   },
   statValue: {
     fontFamily: 'serif',
@@ -2104,11 +2272,18 @@ const s = StyleSheet.create({
   exportActionRow: {
     gap: spacing.sm,
   },
+  exportSecondaryRow: {
+    flexDirection: 'row',
+    gap: spacing.sm,
+  },
   exportActionButton: {
     alignItems: 'center',
     borderRadius: 14,
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.md,
+  },
+  exportActionHalf: {
+    flex: 1,
   },
   exportActionPrimary: {
     backgroundColor: colors.gold,
@@ -2117,6 +2292,12 @@ const s = StyleSheet.create({
     backgroundColor: 'rgba(255,255,255,0.04)',
     borderWidth: 1,
     borderColor: 'rgba(255,255,255,0.08)',
+  },
+  exportActionPrimaryContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: spacing.sm,
   },
   exportActionPrimaryText: {
     color: colors.background.primary,

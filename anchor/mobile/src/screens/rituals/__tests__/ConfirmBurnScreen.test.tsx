@@ -230,6 +230,37 @@ describe('ConfirmBurnScreen', () => {
     });
   });
 
+  it('prefers enhanced artwork over legacy sigilUri when both exist', () => {
+    (useAnchorStore as unknown as jest.Mock).mockImplementation((selector: any) =>
+      selector({
+        getAnchorById: jest.fn(() => ({
+          id: 'test-anchor-id',
+          baseSigilSvg: '<svg>store</svg>',
+          reinforcedSigilSvg: '<svg>reinforced</svg>',
+          enhancedImageUrl: 'https://example.com/preferred-confirm-burn-hero.png',
+          sigilUri: 'https://example.com/legacy-confirm-burn-hero.png',
+        })),
+      })
+    );
+
+    const { getByText, getByPlaceholderText } = render(<ConfirmBurnScreen />);
+
+    fireEvent.press(getByText('Continue'));
+    act(() => {
+      jest.advanceTimersByTime(200);
+    });
+
+    fireEvent.changeText(getByPlaceholderText('Type RELEASE'), 'RELEASE');
+    fireEvent.press(getByText('Burn Now'));
+
+    expect(mockNavigate).toHaveBeenCalledWith('BurningRitual', {
+      anchorId: 'test-anchor-id',
+      intention: 'I am confident',
+      sigilSvg: '<svg></svg>',
+      enhancedImageUrl: 'https://example.com/preferred-confirm-burn-hero.png',
+    });
+  });
+
   it('shows inline feedback: Must match exactly for partial input', () => {
     const { getByText, getByPlaceholderText } = render(<ConfirmBurnScreen />);
 

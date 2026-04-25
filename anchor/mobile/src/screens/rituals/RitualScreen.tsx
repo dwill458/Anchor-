@@ -13,6 +13,7 @@ import {
   TouchableOpacity,
   Pressable,
   Animated,
+  Easing,
   Alert,
   Dimensions,
   AccessibilityInfo,
@@ -241,6 +242,10 @@ export const RitualScreen: React.FC = () => {
   const deepHaloBreath = useRef(new Animated.Value(0)).current;
   const deepSigilFloat = useRef(new Animated.Value(0)).current;
   const deepAccentGlow = useRef(new Animated.Value(0)).current;
+  const sealEntranceAnim = useRef(new Animated.Value(0)).current;
+  const sealPulseAnim = useRef(new Animated.Value(0)).current;
+  const regularRingSpinA = useRef(new Animated.Value(0)).current;
+  const regularRingSpinB = useRef(new Animated.Value(0)).current;
 
   const instructionFadeAnim = useRef(new Animated.Value(1)).current;
   const [displayedInstruction, setDisplayedInstruction] = useState(
@@ -383,24 +388,76 @@ export const RitualScreen: React.FC = () => {
         Animated.sequence([
           Animated.timing(glowAnim, {
             toValue: 1,
-            duration: 950,
+            duration: 1200,
+            easing: EASING.IN_OUT,
             useNativeDriver: true,
           }),
           Animated.timing(glowAnim, {
             toValue: 0,
-            duration: 950,
+            duration: 1200,
+            easing: EASING.IN_OUT,
             useNativeDriver: true,
           }),
         ])
       );
 
-      glowLoop.start();
+      const pulseLoop = Animated.loop(
+        Animated.sequence([
+          Animated.timing(sealPulseAnim, {
+            toValue: 1,
+            duration: 2000,
+            easing: EASING.IN_OUT,
+            useNativeDriver: true,
+          }),
+          Animated.timing(sealPulseAnim, {
+            toValue: 0,
+            duration: 2000,
+            easing: EASING.IN_OUT,
+            useNativeDriver: true,
+          }),
+        ])
+      );
 
-      return () => glowLoop.stop();
+      const spinLoopA = Animated.loop(
+        Animated.timing(regularRingSpinA, {
+          toValue: 1,
+          duration: 35000,
+          easing: Easing.linear,
+          useNativeDriver: true,
+        })
+      );
+      const spinLoopB = Animated.loop(
+        Animated.timing(regularRingSpinB, {
+          toValue: 1,
+          duration: 50000,
+          easing: Easing.linear,
+          useNativeDriver: true,
+        })
+      );
+
+      Animated.timing(sealEntranceAnim, {
+        toValue: 1,
+        duration: 800,
+        easing: EASING.ENTRY,
+        useNativeDriver: true,
+      }).start();
+
+      glowLoop.start();
+      pulseLoop.start();
+      spinLoopA.start();
+      spinLoopB.start();
+
+      return () => {
+        glowLoop.stop();
+        pulseLoop.stop();
+        spinLoopA.stop();
+        spinLoopB.stop();
+      };
     }
 
+    sealEntranceAnim.setValue(0);
     glowAnim.setValue(0);
-  }, [state.isSealPhase, state.isSealComplete, reduceMotionEnabled, glowAnim]);
+  }, [state.isSealPhase, state.isSealComplete, reduceMotionEnabled, glowAnim, sealPulseAnim, regularRingSpinA, regularRingSpinB, sealEntranceAnim]);
 
   useEffect(() => {
     if (state.currentInstruction === displayedInstruction) return;
@@ -620,7 +677,7 @@ export const RitualScreen: React.FC = () => {
     ?? 'Hold & Seal';
   const deepPhaseName = deepPhaseTitle.toUpperCase();
   const deepInstructionText = state.isSealPhase
-    ? 'Touch and hold to seal.'
+    ? 'Hold your Anchor to seal it in.'
     : (deepScriptedPhase?.instruction ?? displayedInstruction);
   const currentPhaseDuration = state.currentPhase?.durationSeconds ?? 1;
   const phaseRemaining = state.isComplete
@@ -1168,7 +1225,10 @@ export const RitualScreen: React.FC = () => {
               <Animated.View
                 style={[
                   styles.symbolWrapper,
-                  { opacity: ringOpacityAnim, transform: [{ scale: ringScale }, { scale: pressScaleAnim }] },
+                  {
+                    opacity: ringOpacityAnim,
+                    transform: [{ scale: ringScale }, { scale: pressScaleAnim }],
+                  },
                 ]}
               >
                 <Pressable
@@ -1177,14 +1237,64 @@ export const RitualScreen: React.FC = () => {
                   disabled={!state.isSealPhase || state.isSealComplete}
                   style={{ alignItems: 'center', justifyContent: 'center' }}
                 >
+                  <Animated.View
+                    pointerEvents="none"
+                    style={[
+                      styles.chargedDashedRing,
+                      styles.chargedDashedRingInner,
+                      {
+                        opacity: sealEntranceAnim,
+                        transform: [
+                          { scale: Animated.add(1, Animated.multiply(sealPulseAnim, 0.05)) },
+                          {
+                            rotate: regularRingSpinA.interpolate({
+                              inputRange: [0, 1],
+                              outputRange: ['0deg', '360deg'],
+                            }),
+                          },
+                        ],
+                      },
+                    ]}
+                  />
+                  <Animated.View
+                    pointerEvents="none"
+                    style={[
+                      styles.chargedDashedRing,
+                      styles.chargedDashedRingOuter,
+                      {
+                        opacity: Animated.multiply(sealEntranceAnim, 0.5),
+                        transform: [
+                          { scale: Animated.add(1, Animated.multiply(sealPulseAnim, 0.03)) },
+                          {
+                            rotate: regularRingSpinB.interpolate({
+                              inputRange: [0, 1],
+                              outputRange: ['0deg', '-360deg'],
+                            }),
+                          },
+                        ],
+                      },
+                    ]}
+                  />
+
                   <View style={styles.premiumGlowLayer}>
                     <PremiumAnchorGlow
                       size={SYMBOL_SIZE}
-                      state="active"
+                      state={state.isSealPhase ? 'charged' : 'active'}
                       variant="ritual"
                       reduceMotionEnabled={reduceMotionEnabled}
                     />
                   </View>
+
+                  <Animated.View
+                    pointerEvents="none"
+                    style={[
+                      styles.chargedSealGlow,
+                      {
+                        opacity: Animated.multiply(sealEntranceAnim, Animated.add(0.4, Animated.multiply(glowAnim, 0.4))),
+                        transform: [{ scale: Animated.add(1.1, Animated.multiply(glowAnim, 0.15)) }],
+                      },
+                    ]}
+                  />
 
                   <ProgressHaloRing
                     radius={RING_RADIUS}
@@ -1226,7 +1336,17 @@ export const RitualScreen: React.FC = () => {
                 ]}
               >
                 {state.isSealPhase ? (
-                  <Text style={styles.sealPhaseInstruction}>{displayedInstruction}</Text>
+                  <Animated.Text
+                    style={[
+                      styles.sealPhaseInstruction,
+                      {
+                        opacity: Animated.add(0.7, Animated.multiply(glowAnim, 0.3)),
+                        transform: [{ translateY: Animated.multiply(glowAnim, -2) }],
+                      },
+                    ]}
+                  >
+                    {displayedInstruction}
+                  </Animated.Text>
                 ) : (
                   <InstructionGlassCard text={displayedInstruction} />
                 )}
@@ -1688,12 +1808,44 @@ const styles = StyleSheet.create({
     letterSpacing: 0.3,
   },
   sealPhaseInstruction: {
-    fontSize: typography.sizes.h3,
+    fontSize: 22,
     fontFamily: typography.fonts.heading,
     color: colors.white,
     textAlign: 'center',
-    letterSpacing: 0.5,
-    lineHeight: typography.lineHeights.h3,
+    letterSpacing: 1.2,
+    lineHeight: 32,
+    textShadowColor: 'rgba(212,175,55,0.4)',
+    textShadowOffset: { width: 0, height: 0 },
+    textShadowRadius: 10,
+  },
+  chargedDashedRing: {
+    position: 'absolute',
+    borderRadius: 999,
+    borderWidth: 1,
+    borderStyle: 'dashed',
+    pointerEvents: 'none',
+  },
+  chargedDashedRingInner: {
+    width: RING_RADIUS * 2 + 40,
+    height: RING_RADIUS * 2 + 40,
+    borderColor: 'rgba(212,175,55,0.25)',
+  },
+  chargedDashedRingOuter: {
+    width: RING_RADIUS * 2 + 80,
+    height: RING_RADIUS * 2 + 80,
+    borderColor: 'rgba(212,175,55,0.12)',
+  },
+  chargedSealGlow: {
+    position: 'absolute',
+    width: SYMBOL_SIZE * 1.5,
+    height: SYMBOL_SIZE * 1.5,
+    borderRadius: (SYMBOL_SIZE * 1.5) / 2,
+    backgroundColor: 'rgba(212,175,55,0.06)',
+    shadowColor: colors.gold,
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.4,
+    shadowRadius: 40,
+    elevation: 20,
   },
   errorContainer: {
     flex: 1,

@@ -32,6 +32,7 @@ import { TEACHINGS } from '@/constants/teaching';
 import { useAnchorStore } from '@/stores/anchorStore';
 import { resolveBurnArtworkUri } from './utils/resolveBurnArtworkUri';
 import { AuthService } from '@/services/AuthService';
+import { useTrialStatus } from '@/hooks/useTrialStatus';
 
 type ConfirmBurnRouteProp = RouteProp<RootStackParamList, 'ConfirmBurn'>;
 type ConfirmBurnNavigationProp = StackNavigationProp<RootStackParamList, 'ConfirmBurn'>;
@@ -49,9 +50,10 @@ export const ConfirmBurnScreen: React.FC = () => {
   const { anchorId, intention, sigilSvg, enhancedImageUrl } = route.params;
   const getAnchorById = useAnchorStore((state) => state.getAnchorById);
   const { recordShown } = useTeachingStore();
+  const { hasActiveEntitlement } = useTrialStatus();
   const anchor = getAnchorById(anchorId);
   const resolvedSigilSvg = sigilSvg || anchor?.reinforcedSigilSvg || anchor?.baseSigilSvg || '';
-  const resolvedEnhancedImageUrl = enhancedImageUrl ?? resolveBurnArtworkUri(anchor);
+  const resolvedEnhancedImageUrl = enhancedImageUrl || resolveBurnArtworkUri(anchor);
   const [isAuthVerified, setIsAuthVerified] = useState(IS_TEST_ENV);
 
   const [currentStep, setCurrentStep] = useState<BurnStep>('reflect');
@@ -78,7 +80,8 @@ export const ConfirmBurnScreen: React.FC = () => {
 
       if (cancelled) return;
 
-      if (!token) {
+      // If no token and trial has expired (no entitlement), force to AuthGate
+      if (!token && !hasActiveEntitlement) {
         navigation.replace('AuthGate');
         return;
       }
@@ -89,7 +92,7 @@ export const ConfirmBurnScreen: React.FC = () => {
     return () => {
       cancelled = true;
     };
-  }, [navigation]);
+  }, [navigation, hasActiveEntitlement]);
 
   useEffect(() => {
     if (!reflectTeaching) return;
@@ -206,12 +209,17 @@ export const ConfirmBurnScreen: React.FC = () => {
             <Text style={styles.reflectLabel}>Completed intention</Text>
 
             <View style={styles.sigilStage}>
-              {!IS_TEST_ENV ? (
+              {!IS_TEST_ENV && anchor?.isCharged ? (
                 <View style={[StyleSheet.absoluteFill, { left: -50, right: -50, top: -50, bottom: -50 }]}>
                   <ChargedGlowCanvas size={SIGIL_STAGE_SIZE + 100} />
                 </View>
               ) : null}
-              <View style={styles.sigilInner}>{sigilNode}</View>
+              <View style={[
+                styles.sigilInner,
+                !anchor?.isCharged && styles.sigilInnerUncharged
+              ]}>
+                {sigilNode}
+              </View>
             </View>
 
             <Text style={styles.intentionText}>"{intention}"</Text>
@@ -353,6 +361,11 @@ const styles = StyleSheet.create({
     shadowRadius: 20,
     shadowOffset: { width: 0, height: 0 },
     elevation: 8,
+  },
+  sigilInnerUncharged: {
+    borderWidth: 0,
+    shadowOpacity: 0,
+    elevation: 0,
   },
   sigilImage: {
     width: SIGIL_STAGE_SIZE - SIGIL_IMAGE_INSET * 2,

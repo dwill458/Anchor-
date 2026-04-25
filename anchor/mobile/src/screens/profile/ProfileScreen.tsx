@@ -17,7 +17,9 @@ import { useAnchorStore } from "@/stores/anchorStore";
 import { useProfileStore } from "@/stores/profileStore";
 import { useToast } from "@/components/ToastProvider";
 import { ProfileHeader } from "@/components/profile/ProfileHeader";
+import { ProgressionSheet } from "@/components/profile/ProgressionSheet";
 import { EditProfileSheet } from "@/components/EditProfileSheet";
+import { useTrialStatus } from "@/hooks/useTrialStatus";
 import { colors, spacing, typography } from "@/theme";
 import { withAlpha } from "@/utils/color";
 import {
@@ -225,6 +227,7 @@ export const ProfileScreen: React.FC = () => {
   } = useProfileStore();
 
   const [editSheetOpen, setEditSheetOpen] = useState(false);
+  const [progressionSheetVisible, setProgressionSheetVisible] = useState(false);
 
   useEffect(() => {
     if (user) {
@@ -330,6 +333,9 @@ export const ProfileScreen: React.FC = () => {
     toast.success("Profile updated");
   };
 
+  const { isSubscribed } = useTrialStatus();
+  const resolvedSubscriptionStatus = isSubscribed ? 'pro' : 'free';
+
   return (
     <View style={styles.container}>
       <StatusBar style="light" />
@@ -352,7 +358,7 @@ export const ProfileScreen: React.FC = () => {
         <View style={styles.identityRow}>
           <ProfileHeader
             displayName={resolvedName}
-            subscriptionStatus={user?.subscriptionStatus || "free"}
+            subscriptionStatus={resolvedSubscriptionStatus}
           />
 
           <View style={styles.identityTextWrap}>
@@ -374,112 +380,118 @@ export const ProfileScreen: React.FC = () => {
           </Pressable>
         </View>
 
-        <CardShell
-          gradient={[
-            withAlpha(colors.purple, 0.54),
-            withAlpha(colors.navy, 0.92),
-          ]}
-        >
-          <SectionLabel>RANK</SectionLabel>
-          <View style={styles.rankHeaderRow}>
-            <Text style={[styles.rankName, { color: rank.color }]}>
-              {rank.name}
-            </Text>
-            <Text style={styles.rankNextText}>
-              {nextRank
-                ? `${nextRank.name} at ${nextRank.minPrimes} primes →`
-                : "Highest rank reached"}
-            </Text>
-          </View>
-          <View style={styles.rankPipRow}>
-            {Array.from({ length: RANK_PIPS }).map((_, index) => (
-              <View
-                key={index}
-                style={[
-                  styles.rankPip,
-                  index < Math.round(rankProgress * RANK_PIPS)
-                    ? styles.rankPipFilled
-                    : null,
-                ]}
-              />
-            ))}
-          </View>
-          <View style={styles.rankSpineRow}>
-            <View style={styles.rankTierRow}>
-              {RANK_TIERS.map((tier) => (
-                <Text
-                  key={tier.name}
-                  style={[
-                    styles.rankTierText,
-                    tier.name === rank.name ? styles.rankTierTextActive : null,
-                  ]}
-                >
-                  {tier.name}
-                </Text>
-              ))}
-            </View>
-            <Text style={styles.rankCountLabel}>{`${totalPrimes}p`}</Text>
-          </View>
-        </CardShell>
-
-        <CardShell>
-          <View style={styles.depthHeaderRow}>
-            <View>
-              <SectionLabel>PRACTICE DEPTH</SectionLabel>
-              <Text style={[styles.depthLevelName, { color: depth.color }]}>
-                {depth.label}
+        <Pressable onPress={() => setProgressionSheetVisible(true)}>
+          <CardShell
+            gradient={[
+              withAlpha(colors.purple, 0.54),
+              withAlpha(colors.navy, 0.92),
+            ]}
+          >
+            <Text style={styles.cardViewHint}>VIEW ▾</Text>
+            <SectionLabel>RANK</SectionLabel>
+            <View style={styles.rankHeaderRow}>
+              <Text style={[styles.rankName, { color: rank.color }]}>
+                {rank.name}
+              </Text>
+              <Text style={styles.rankNextText}>
+                {nextRank
+                  ? `${nextRank.name} at ${nextRank.minPrimes} primes →`
+                  : "Highest rank reached"}
               </Text>
             </View>
-            <View style={styles.depthPrimeCountWrap}>
-              <Text style={styles.depthPrimeCount}>{totalPrimes}</Text>
-              <Text style={styles.depthPrimeCountLabel}>total primes</Text>
+            <View style={styles.rankPipRow}>
+              {Array.from({ length: RANK_PIPS }).map((_, index) => (
+                <View
+                  key={index}
+                  style={[
+                    styles.rankPip,
+                    index < Math.round(rankProgress * RANK_PIPS)
+                      ? styles.rankPipFilled
+                      : null,
+                  ]}
+                />
+              ))}
             </View>
-          </View>
-
-          <View style={styles.depthProgressRow}>
-            {Array.from({ length: DEPTH_SEGMENTS }).map((_, index) => (
-              <View
-                key={index}
-                style={[
-                  styles.depthSegment,
-                  index < Math.round(depthProgress * DEPTH_SEGMENTS)
-                    ? { backgroundColor: depth.color, shadowColor: depth.color }
-                    : null,
-                ]}
-              />
-            ))}
-          </View>
-
-          <View style={styles.depthFooterRow}>
-            <Text style={styles.depthHint}>
-              {nextDepth
-                ? `${nextDepth.minPrimes - totalPrimes} primes to ${nextDepth.label}`
-                : "Maximum depth reached"}
-            </Text>
-
-            <View style={styles.depthStatsWrap}>
-              <View style={styles.depthStatItem}>
-                <Text style={styles.depthStatValue}>{anchorsForged}</Text>
-                <Text style={styles.depthStatLabel}>forged</Text>
+            <View style={styles.rankSpineRow}>
+              <View style={styles.rankTierRow}>
+                {RANK_TIERS.map((tier) => (
+                  <Text
+                    key={tier.name}
+                    style={[
+                      styles.rankTierText,
+                      tier.name === rank.name ? styles.rankTierTextActive : null,
+                    ]}
+                  >
+                    {tier.name}
+                  </Text>
+                ))}
               </View>
-              <View style={styles.depthDivider} />
-              <View style={styles.depthStatItem}>
-                <Text
-                  style={[styles.depthStatValue, styles.depthStatValueMuted]}
-                >
-                  {releasedAnchors}
+              <Text style={styles.rankCountLabel}>{`${totalPrimes}p`}</Text>
+            </View>
+          </CardShell>
+        </Pressable>
+
+        <Pressable onPress={() => setProgressionSheetVisible(true)}>
+          <CardShell>
+            <Text style={styles.cardViewHint}>VIEW ▾</Text>
+            <View style={styles.depthHeaderRow}>
+              <View>
+                <SectionLabel>PRACTICE DEPTH</SectionLabel>
+                <Text style={[styles.depthLevelName, { color: depth.color }]}>
+                  {depth.label}
                 </Text>
-                <Text style={styles.depthStatLabel}>released</Text>
+              </View>
+              <View style={styles.depthPrimeCountWrap}>
+                <Text style={styles.depthPrimeCount}>{totalPrimes}</Text>
+                <Text style={styles.depthPrimeCountLabel}>total primes</Text>
               </View>
             </View>
-          </View>
 
-          <View style={styles.depthFinePrintRow}>
-            <Text style={styles.depthFinePrint}>
-              Cumulative across all anchors · never resets
-            </Text>
-          </View>
-        </CardShell>
+            <View style={styles.depthProgressRow}>
+              {Array.from({ length: DEPTH_SEGMENTS }).map((_, index) => (
+                <View
+                  key={index}
+                  style={[
+                    styles.depthSegment,
+                    index < Math.round(depthProgress * DEPTH_SEGMENTS)
+                      ? { backgroundColor: depth.color, shadowColor: depth.color }
+                      : null,
+                  ]}
+                />
+              ))}
+            </View>
+
+            <View style={styles.depthFooterRow}>
+              <Text style={styles.depthHint}>
+                {nextDepth
+                  ? `${nextDepth.minPrimes - totalPrimes} primes to ${nextDepth.label}`
+                  : "Maximum depth reached"}
+              </Text>
+
+              <View style={styles.depthStatsWrap}>
+                <View style={styles.depthStatItem}>
+                  <Text style={styles.depthStatValue}>{anchorsForged}</Text>
+                  <Text style={styles.depthStatLabel}>forged</Text>
+                </View>
+                <View style={styles.depthDivider} />
+                <View style={styles.depthStatItem}>
+                  <Text
+                    style={[styles.depthStatValue, styles.depthStatValueMuted]}
+                  >
+                    {releasedAnchors}
+                  </Text>
+                  <Text style={styles.depthStatLabel}>released</Text>
+                </View>
+              </View>
+            </View>
+
+            <View style={styles.depthFinePrintRow}>
+              <Text style={styles.depthFinePrint}>
+                Cumulative across all anchors · never resets
+              </Text>
+            </View>
+          </CardShell>
+        </Pressable>
 
         <ConstancyBlock
           earned={constancyEarned}
@@ -528,6 +540,10 @@ export const ProfileScreen: React.FC = () => {
         }}
         onClose={() => setEditSheetOpen(false)}
         onSave={handleSaveProfile}
+      />
+      <ProgressionSheet
+        visible={progressionSheetVisible}
+        onClose={() => setProgressionSheetVisible(false)}
       />
     </View>
   );
@@ -625,8 +641,18 @@ const styles = StyleSheet.create({
     backgroundColor: withAlpha(colors.gold, 0.28),
   },
   cardContent: {
+    position: "relative",
     paddingHorizontal: spacing.md,
     paddingVertical: 16,
+  },
+  cardViewHint: {
+    position: "absolute",
+    top: 16,
+    right: spacing.md,
+    fontFamily: typography.fonts.heading,
+    fontSize: 10,
+    color: withAlpha(colors.gold, 0.5),
+    letterSpacing: 1,
   },
   sectionLabel: {
     fontFamily: typography.fonts.heading,

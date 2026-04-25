@@ -16,14 +16,6 @@ export interface AnchorSettings {
   reduceIntentionVisibility: boolean;
   hapticFeedback: 'none' | 'light' | 'medium' | 'strong';
   soundEffectsEnabled: boolean;
-  dev_developerModeEnabled: boolean;
-  dev_overridesEnabled: boolean;
-  dev_simulatedTier: SubscriptionTier;
-  dev_masterAccount: boolean;
-  dev_skipOnboarding: boolean;
-  dev_allowDirectAnchorDelete: boolean;
-  dev_debugLogging: boolean;
-  dev_forceStreakBreak: boolean;
 }
 
 export const DEFAULT_SETTINGS: AnchorSettings = {
@@ -37,12 +29,4 @@ export const DEFAULT_SETTINGS: AnchorSettings = {
   reduceIntentionVisibility: false,
   hapticFeedback: 'strong',
   soundEffectsEnabled: true,
-  dev_developerModeEnabled: true,
-  dev_overridesEnabled: true,
-  dev_simulatedTier: 'pro',
-  dev_masterAccount: false,
-  dev_skipOnboarding: false,
-  dev_allowDirectAnchorDelete: false,
-  dev_debugLogging: false,
-  dev_forceStreakBreak: false,
 };

@@ -6,6 +6,7 @@ import {
   Dimensions,
   TouchableOpacity,
   BackHandler,
+  Image,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { RouteProp, useRoute, useNavigation } from '@react-navigation/native';
@@ -40,7 +41,7 @@ export const BurningRitualScreen: React.FC = () => {
   const route = useRoute<BurningRitualRouteProp>();
   const navigation = useNavigation<BurningRitualNavigationProp>();
 
-  const { anchorId, sigilSvg } = route.params;
+  const { anchorId, sigilSvg, enhancedImageUrl } = route.params;
   const { removeAnchor } = useAnchorStore();
 
   const [phase, setPhase] = useState<'burning' | 'completed'>('burning');
@@ -145,7 +146,15 @@ export const BurningRitualScreen: React.FC = () => {
             <Animated.View style={[styles.glow, glowStyle]} />
 
             <Animated.View style={[styles.sigilWrapper, sigilStyle]}>
-              <SvgXml xml={sigilSvg} width={SIGIL_SIZE} height={SIGIL_SIZE} />
+              {enhancedImageUrl ? (
+                <Image
+                  source={{ uri: enhancedImageUrl }}
+                  style={{ width: SIGIL_SIZE, height: SIGIL_SIZE, borderRadius: SIGIL_SIZE / 2 }}
+                  resizeMode="cover"
+                />
+              ) : (
+                <SvgXml xml={sigilSvg} width={SIGIL_SIZE} height={SIGIL_SIZE} />
+              )}
             </Animated.View>
 
             <View style={styles.mantraContainer}>

@@ -647,6 +647,23 @@ export const SettingsScreen: React.FC = () => {
                           </View>
                         )}
                         <ToggleItem
+                          label="Master Account (Bypass All)"
+                          helperText="Grant full pro access regardless of subscription state."
+                          value={settings.developerMasterAccountEnabled}
+                          onValueChange={settings.setDeveloperMasterAccountEnabled}
+                        />
+                        <ToggleItem
+                          label="Skip Onboarding"
+                          value={settings.developerSkipOnboardingEnabled}
+                          onValueChange={settings.setDeveloperSkipOnboardingEnabled}
+                        />
+                        <ToggleItem
+                          label="Force Streak Break"
+                          helperText="Simulate a streak break in the Sanctuary."
+                          value={settings.developerForceStreakBreakEnabled}
+                          onValueChange={settings.setDeveloperForceStreakBreakEnabled}
+                        />
+                        <ToggleItem
                           label="Allow Direct Anchor Delete"
                           helperText="Show a developer-only delete action on anchor detail without burn ritual."
                           value={settings.developerDeleteWithoutBurnEnabled}

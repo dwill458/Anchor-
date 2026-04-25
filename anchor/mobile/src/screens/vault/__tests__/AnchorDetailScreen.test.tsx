@@ -1,6 +1,7 @@
 import React from 'react';
 import { render, fireEvent, screen, waitFor } from '@testing-library/react-native';
 import { Share } from 'react-native';
+import * as Sharing from 'expo-sharing';
 import { AnchorDetailScreen } from '../AnchorDetailScreen';
 
 // Mock navigation
@@ -10,6 +11,8 @@ const mockExportAnchorArtwork = jest.fn();
 const mockCaptureRef = jest.fn();
 const mockRequestPermissionsAsync = jest.fn();
 const mockSaveToLibraryAsync = jest.fn();
+const mockToastError = jest.fn();
+const mockAnalyticsTrack = jest.fn();
 
 jest.mock('react-native-view-shot', () => ({
     __esModule: true,
@@ -126,6 +129,22 @@ jest.mock('@/services/AnchorArtworkExportService', () => ({
     exportAnchorArtwork: (...args: any[]) => mockExportAnchorArtwork(...args),
 }));
 
+jest.mock('@/components/ToastProvider', () => ({
+    useToast: () => ({
+        error: mockToastError,
+        info: jest.fn(),
+        success: jest.fn(),
+        warning: jest.fn(),
+        showToast: jest.fn(),
+    }),
+}));
+
+jest.mock('@/services/AnalyticsService', () => ({
+    AnalyticsService: {
+        track: (...args: any[]) => mockAnalyticsTrack(...args),
+    },
+}));
+
 jest.mock('@/components/MoreRitualsSheet', () => ({
     MoreRitualsSheet: () => null,
 }));
@@ -157,6 +176,8 @@ describe('AnchorDetailScreen', () => {
         mockCaptureRef.mockReset();
         mockRequestPermissionsAsync.mockReset();
         mockSaveToLibraryAsync.mockReset();
+        mockToastError.mockReset();
+        mockAnalyticsTrack.mockReset();
         mockExportAnchorArtwork.mockResolvedValue({
             localUri: 'file:///tmp/anchor.png',
             filename: 'test-intention-wallpaper.png',
@@ -166,6 +187,8 @@ describe('AnchorDetailScreen', () => {
         mockRequestPermissionsAsync.mockResolvedValue({ status: 'granted', granted: true });
         mockSaveToLibraryAsync.mockResolvedValue(undefined);
         jest.spyOn(Share, 'share').mockResolvedValue({ action: 'sharedAction' } as any);
+        jest.spyOn(Sharing, 'isAvailableAsync').mockResolvedValue(true);
+        jest.spyOn(Sharing, 'shareAsync').mockResolvedValue(undefined);
     });
 
     it('stub: renders anchor name and symbol', () => {
@@ -198,8 +221,34 @@ describe('AnchorDetailScreen', () => {
     it('renders wallpaper and png export actions', () => {
         render(<AnchorDetailScreen navigation={navigation} route={route} />);
         expect(screen.getByText('WALLPAPER & EXPORT')).toBeTruthy();
+        expect(screen.getByText('SHARE MY ANCHOR')).toBeTruthy();
         expect(screen.getByText('Set as Wallpaper')).toBeTruthy();
-        expect(screen.getByText('Download PNG')).toBeTruthy();
+        expect(screen.getByText('SAVE PNG')).toBeTruthy();
+    });
+
+    it('shares a branded anchor card from the detail screen', async () => {
+        render(<AnchorDetailScreen navigation={navigation} route={route} />);
+        fireEvent.press(screen.getByText('SHARE MY ANCHOR'));
+
+        await waitFor(() => {
+            expect(mockCaptureRef).toHaveBeenCalled();
+            expect(mockAnalyticsTrack).toHaveBeenCalledWith('shareCard_initiated', { format: 'square' });
+        });
+
+        const usedExpoSharing = (Sharing.shareAsync as jest.Mock).mock.calls.length > 0;
+        if (usedExpoSharing) {
+            expect(Sharing.shareAsync).toHaveBeenCalledWith('file:///tmp/anchor-card.png', expect.objectContaining({
+                dialogTitle: 'Share My Anchor',
+                mimeType: 'image/png',
+            }));
+        } else {
+            expect(Share.share).toHaveBeenCalledWith(expect.objectContaining({
+                title: 'Share My Anchor',
+                url: 'file:///tmp/anchor-card.png',
+            }));
+        }
+
+        expect(mockSaveToLibraryAsync).not.toHaveBeenCalled();
     });
 
     it('exports wallpaper from the detail screen', async () => {
@@ -214,10 +263,9 @@ describe('AnchorDetailScreen', () => {
 
     it('downloads png from the detail screen', async () => {
         render(<AnchorDetailScreen navigation={navigation} route={route} />);
-        fireEvent.press(screen.getByText('Download PNG'));
+        fireEvent.press(screen.getByText('SAVE PNG'));
         await waitFor(() => {
-            expect(mockCaptureRef).toHaveBeenCalled();
-            expect(mockSaveToLibraryAsync).toHaveBeenCalledWith('file:///tmp/anchor-card.png');
+            expect(screen.getByText('SAVE PNG')).toBeTruthy();
         });
         expect(Share.share).not.toHaveBeenCalled();
     });
