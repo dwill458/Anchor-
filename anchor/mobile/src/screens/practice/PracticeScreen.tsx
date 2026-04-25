@@ -20,7 +20,7 @@ import { useTabNavigation } from '@/contexts/TabNavigationContext';
 import { useAnchorStore } from '@/stores/anchorStore';
 import { useSessionStore } from '@/stores/sessionStore';
 import type { SessionLogEntry } from '@/stores/sessionStore';
-import { useSettingsStore, type DefaultChargeSetting } from '@/stores/settingsStore';
+import { useSettingsStore } from '@/stores/settingsStore';
 import { countDailyGoalCompletions } from '@/services/DailyGoalNudgeService';
 import { safeHaptics } from '@/utils/haptics';
 import { colors, spacing, typography } from '@/theme';
@@ -45,30 +45,11 @@ const DEEP_CHARGE_MINUTES_MIN = 2;
 const DEEP_CHARGE_MINUTES_MAX = 30;
 const FOCUS_SESSION_TITLE = 'FOCUS SESSION';
 
-function getDefaultDeepChargeSeconds(defaultCharge: DefaultChargeSetting): number {
-  if (defaultCharge.preset === 'custom') {
-    const customMinutes = Math.min(
-      DEEP_CHARGE_MINUTES_MAX,
-      Math.max(
-        DEEP_CHARGE_MINUTES_MIN,
-        Math.round(defaultCharge.customMinutes ?? DEEP_CHARGE_MINUTES_MIN)
-      )
-    );
-    return customMinutes * 60;
-  }
-
-  switch (defaultCharge.preset) {
-    case '10m':
-      return 10 * 60;
-    case '5m':
-      return 5 * 60;
-    case '2m':
-      return 2 * 60;
-    case '30s':
-    case '1m':
-    default:
-      return 2 * 60;
-  }
+function getDefaultDeepChargeSeconds(primeSessionDuration: number): number {
+  return Math.min(
+    DEEP_CHARGE_MINUTES_MAX * 60,
+    Math.max(DEEP_CHARGE_MINUTES_MIN * 60, Math.round(primeSessionDuration))
+  );
 }
 
 function toMillis(value?: Date | string): number {
@@ -109,7 +90,9 @@ export const PracticeScreen: React.FC = () => {
   const anchors = useAnchorStore((state) => state.anchors);
   const currentAnchorId = useAnchorStore((state) => state.currentAnchorId);
   const setCurrentAnchor = useAnchorStore((state) => state.setCurrentAnchor);
-  const { defaultCharge, dailyPracticeGoal } = useSettingsStore();
+  const primeSessionDuration = useSettingsStore((state) => state.primeSessionDuration ?? 120);
+  const focusSessionDuration = useSettingsStore((state) => state.focusSessionDuration ?? 30);
+  const dailyPracticeGoal = useSettingsStore((state) => state.dailyPracticeGoal ?? 3);
   const {
     sessionLog,
     threadStrength,
@@ -175,8 +158,8 @@ export const PracticeScreen: React.FC = () => {
     : 'Restore the thread · 10–60 sec';
 
   const defaultDeepChargeSeconds = useMemo(
-    () => getDefaultDeepChargeSeconds(defaultCharge),
-    [defaultCharge.customMinutes, defaultCharge.preset]
+    () => getDefaultDeepChargeSeconds(primeSessionDuration),
+    [primeSessionDuration]
   );
   const completedGoalSessions = useMemo(
     () => countDailyGoalCompletions(sessionLog),
@@ -337,7 +320,7 @@ export const PracticeScreen: React.FC = () => {
   );
 
   const startQuickActivate = useCallback(
-    (anchor: Anchor, durationOverride = 30) => {
+    (anchor: Anchor, durationOverride = focusSessionDuration) => {
       safeHaptics.selection();
       navigateToVault('ActivationRitual', {
         anchorId: anchor.id,
@@ -346,7 +329,7 @@ export const PracticeScreen: React.FC = () => {
         returnTo: 'practice',
       });
     },
-    [navigateToVault]
+    [focusSessionDuration, navigateToVault]
   );
 
   const startStabilize = useCallback(

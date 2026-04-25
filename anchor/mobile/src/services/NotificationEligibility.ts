@@ -26,7 +26,8 @@ export const NotificationEligibility = {
       state.missed_yesterday &&
       isStruggler &&
       !state.primed_today &&
-      state.notification_enabled
+      state.notification_enabled &&
+      state.weaver_enabled !== false
     );
   },
 

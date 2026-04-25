@@ -33,6 +33,17 @@ const mockSettings = {
   dev_debugLogging: false,
   dev_forceStreakBreak: false,
 };
+const mockSettingsStoreState = {
+  focusSessionMode: 'quick' as const,
+  focusSessionDuration: 30,
+  focusSessionAudio: 'silent' as const,
+  primeSessionDuration: 120,
+  primeSessionAudio: 'silent' as const,
+  dailyPracticeGoal: 3,
+  dailyPracticeGoalPreset: 'three' as const,
+  threadStrengthSensitivity: 'balanced' as const,
+  restDays: [] as number[],
+};
 
 jest.mock('@react-native-community/datetimepicker', () => 'DateTimePicker');
 
@@ -49,6 +60,11 @@ jest.mock('@/components/transitions/SettingsRevealProvider', () => ({
   useSettingsReveal: () => ({
     markSettingsReady: jest.fn(),
   }),
+}));
+
+jest.mock('@/stores/settingsStore', () => ({
+  useSettingsStore: (selector?: (state: typeof mockSettingsStoreState) => unknown) =>
+    selector ? selector(mockSettingsStoreState) : mockSettingsStoreState,
 }));
 
 jest.mock('../../../hooks/useNotificationController', () => ({

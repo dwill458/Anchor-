@@ -712,11 +712,18 @@ export type RootStackParamList = {
   // PROFILE & SETTINGS
   // ═══════════════════════════════════════════════════
   Settings: undefined;
-  DefaultCharge: undefined;
-  DefaultActivation: undefined;
-  PrimingDefaults: undefined;
-  DefaultFocusMode: undefined;
+  SessionDefaults: undefined;
   DailyPracticeGoal: undefined;
+  ThreadStrength: undefined;
+  RestDays: undefined;
+  // DEFERRED: replaced by SessionDefaultsScreen.
+  DefaultCharge: undefined;
+  // DEFERRED: replaced by SessionDefaultsScreen.
+  DefaultActivation: undefined;
+  // DEFERRED: replaced by SessionDefaultsScreen.
+  PrimingDefaults: undefined;
+  // DEFERRED: replaced by SessionDefaultsScreen.
+  DefaultFocusMode: undefined;
 
   // Appearance Settings
   ThemeSelection: undefined;

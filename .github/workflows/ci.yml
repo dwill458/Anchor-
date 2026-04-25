@@ -72,7 +72,7 @@ jobs:
         run: npx tsc --noEmit
 
       - name: Run tests
-        run: npm test -- --ci --coverage --watchAll=false
+        run: npm test -- --ci --coverage --watchAll=false --forceExit
         env:
           CI: true
           EXPO_PUBLIC_APP_ENV: test

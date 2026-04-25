@@ -28,7 +28,7 @@ export const formatFocusSummary = (settings: AnchorSettings): string =>
   )}`;
 
 export const formatGoalSummary = (goal: number): string =>
-  `${goal} Focus Burst${goal === 1 ? '' : 's'} / day`;
+  `${goal} session${goal === 1 ? '' : 's'} / day`;
 
 export const formatHapticFeedbackLabel = (
   feedback: AnchorSettings['hapticFeedback']

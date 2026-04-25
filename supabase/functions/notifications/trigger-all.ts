@@ -17,6 +17,8 @@ type NotificationState = {
   last_sent_at?: string;
   last_sent_type?: Exclude<NotificationType, null>;
   last_sent_utc_date?: string;
+  active_session?: boolean;
+  timezone?: string;
   [key: string]: unknown;
 };
 
@@ -46,13 +48,25 @@ const evalWeaver = (state: NotificationState): boolean => {
 };
 
 const evalMirror = (state: NotificationState): boolean => {
-  const now = new Date();
-  const day = now.getUTCDay();
-  const hour = now.getUTCHours();
-  const isMondayMorning = day === 1 && hour >= 6 && hour < 12;
-  const isSundayEvening = day === 0 && hour >= 18;
+  if (state.active_session) return false;
+  if ((state.total_primes_this_week ?? 0) < 1) return false;
 
-  return (isMondayMorning || isSundayEvening) && (state.total_primes_this_week ?? 0) >= 1;
+  const timezone = state.timezone || 'UTC';
+  const now = new Date();
+  const localTime = new Intl.DateTimeFormat('en-US', {
+    timeZone: timezone,
+    weekday: 'short',
+    hour: 'numeric',
+    hour12: false,
+  }).formatToParts(now);
+
+  const localDay = localTime.find(p => p.type === 'weekday')?.value;
+  const localHour = parseInt(localTime.find(p => p.type === 'hour')?.value || '0', 10);
+
+  const isMondayMorning = localDay === 'Mon' && localHour >= 6 && localHour < 12;
+  const isSundayEvening = localDay === 'Sun' && localHour >= 18;
+
+  return isMondayMorning || isSundayEvening;
 };
 
 const evalAlchemist = (state: NotificationState): boolean =>
@@ -90,8 +104,10 @@ const buildPayload = (type: NotificationType, state: NotificationState) => {
       };
     case 'ALCHEMIST':
       return {
-        title: isSovereign(state) ? 'The Sigil awakens.' : 'The Sigil is fully charged.',
-        body: `${state.current_primes ?? 0} primes reached. Is it time to release to the Vault?`,
+        title: isSovereign(state)
+          ? 'The thread is woven.'
+          : 'The anchor is complete.',
+        body: `${state.current_primes ?? 0} primes forged. Is it time to release to the Vault?`,
         deepLink: '/burn-release',
       };
     default:

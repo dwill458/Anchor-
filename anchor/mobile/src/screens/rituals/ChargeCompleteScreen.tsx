@@ -53,7 +53,9 @@ export const ChargeCompleteScreen: React.FC = () => {
   const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
   const wallpaperPromptSeen = useAuthStore((state) => state.wallpaperPromptSeen);
   const { recordSession } = useSessionStore();
-  const { defaultCharge } = useSettingsStore();
+  const defaultCharge = useSettingsStore((state) => state.defaultCharge);
+  const primeSessionDuration = useSettingsStore((state) => state.primeSessionDuration ?? 120);
+  const primeSessionAudio = useSettingsStore((state) => state.primeSessionAudio ?? 'silent');
   const reduceMotionEnabled = useReduceMotionEnabled();
   const { handlePrimeComplete } = useNotificationController();
   const anchor = getAnchorById(anchorId);
@@ -145,13 +147,14 @@ export const ChargeCompleteScreen: React.FC = () => {
       '30s': 30, '1m': 60, '2m': 120, '5m': 300, '10m': 600, '20m': 1200,
       custom: (defaultCharge.customMinutes ?? 5) * 60,
     };
-    const durationSeconds = routeDurationSeconds ?? presetSeconds[defaultCharge.preset] ?? 300;
+    const durationSeconds =
+      routeDurationSeconds ?? primeSessionDuration ?? presetSeconds[defaultCharge.preset] ?? 300;
 
     recordSession({
       anchorId,
       type: 'reinforce',
       durationSeconds,
-      mode: defaultCharge.mode === 'ritual' ? 'mantra' : 'silent',
+      mode: primeSessionAudio,
       reflectionWord,
       completedAt: new Date().toISOString(),
     });

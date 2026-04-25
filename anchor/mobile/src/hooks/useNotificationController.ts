@@ -91,10 +91,10 @@ export const useNotificationController = () => {
 
     if (daysSince > 1) {
       state.missed_yesterday = true;
-      state.miss_streak = daysSince - 1;
+      state.miss_streak = daysSince - 1; // deterministic, not additive
     } else if (daysSince === 1 && !state.primed_today) {
       state.missed_yesterday = true;
-      state.miss_streak += 1;
+      state.miss_streak = 1; // always 1, not += 1
     } else {
       state.missed_yesterday = false;
       state.miss_streak = 0;
@@ -159,18 +159,19 @@ export const useNotificationController = () => {
 
   useEffect(() => {
     void initOnAppOpen();
-  }, [initOnAppOpen]);
+  }, []); // empty dependency array — run once on mount only
 
   const handlePrimeComplete = useCallback(async () => {
     try {
-      let state = reconcile(await loadState());
+      let state = await loadState();
+
+      // Do NOT increment prime counts here — session save already handles this
       state.primed_today = true;
       state.last_prime_at = new Date().toISOString();
-      state.current_primes += 1;
-      state.total_primes_this_week += 1;
-      state.total_primes_all_time += 1;
       state.missed_yesterday = false;
       state.miss_streak = 0;
+
+      // Derive goal status from already-saved current_primes
       state.has_reached_goal_today = state.current_primes >= state.goal_primes;
 
       if (
@@ -181,12 +182,12 @@ export const useNotificationController = () => {
       }
 
       await saveState(state);
-      await syncStateToServer(state);
       await scheduleMicroPrime(state);
+      await syncStateToServer(state);
     } catch (err) {
       console.error('[NotificationController] handlePrimeComplete error:', err);
     }
-  }, [loadState, reconcile, saveState, scheduleMicroPrime, syncStateToServer]);
+  }, [loadState, saveState, scheduleMicroPrime, syncStateToServer]);
 
   const handleBurnFlowEntered = useCallback(async () => {
     try {
@@ -230,10 +231,11 @@ export const useNotificationController = () => {
       state.active_hours_end = end;
       await saveState(state);
       await scheduleMicroPrime(state);
+      await syncStateToServer(state);
     } catch (err) {
       console.error('[NotificationController] updateActiveHours error:', err);
     }
-  }, [loadState, reconcile, saveState, scheduleMicroPrime]);
+  }, [loadState, reconcile, saveState, scheduleMicroPrime, syncStateToServer]);
 
   const toggleNotifications = useCallback(async (enabled: boolean) => {
     try {
@@ -246,10 +248,11 @@ export const useNotificationController = () => {
       } else {
         await scheduleMicroPrime(state);
       }
+      await syncStateToServer(state);
     } catch (err) {
       console.error('[NotificationController] toggleNotifications error:', err);
     }
-  }, [loadState, reconcile, saveState, scheduleMicroPrime]);
+  }, [loadState, reconcile, saveState, scheduleMicroPrime, syncStateToServer]);
 
   const setActiveSession = useCallback(async (active: boolean) => {
     try {
@@ -267,6 +270,17 @@ export const useNotificationController = () => {
     }
   }, [loadState, reconcile, saveState, scheduleMicroPrime]);
 
+  const toggleWeaver = useCallback(async (enabled: boolean) => {
+    try {
+      const state = reconcile(await loadState());
+      state.weaver_enabled = enabled;
+      await saveState(state);
+      await syncStateToServer(state);
+    } catch (err) {
+      console.error('[NotificationController] toggleWeaver error:', err);
+    }
+  }, [loadState, reconcile, saveState, syncStateToServer]);
+
   return {
     notifState,
     isInitialized,
@@ -276,5 +290,6 @@ export const useNotificationController = () => {
     updateActiveHours,
     toggleNotifications,
     setActiveSession,
+    toggleWeaver,
   };
 };
