@@ -264,7 +264,7 @@ class NotificationService {
       identifier: reminderId,
       content: {
         title: 'Ritual Reminder',
-        body: 'Your anchor ritual is ready when you are.',
+        body: 'Your anchor is waiting when you are ready.',
         sound: CUSTOM_NOTIFICATION_SOUND,
         data: this.buildPayload('ritual_reminder', {
           anchorId,
@@ -303,7 +303,7 @@ class NotificationService {
       identifier: NOTIFICATION_IDS.STREAK_PROTECTION,
       content: {
         title: 'Streak Protection',
-        body: 'You haven’t met your ritual goal today. A quick activation will keep your momentum.',
+        body: 'Your anchor is waiting. A moment now keeps the thread alive.',
         sound: CUSTOM_NOTIFICATION_SOUND,
         data: this.buildPayload('streak_protection'),
       },
@@ -365,6 +365,41 @@ class NotificationService {
 
     const request = this.buildDeveloperTestRequest(type, delaySeconds);
     return this.scheduleNotification(request);
+  }
+
+  async scheduleLocalNotification(options: {
+    id: string;
+    title: string;
+    body: string;
+    fireDate: Date;
+    deepLink?: string;
+  }): Promise<string | null> {
+    if (!(options.fireDate instanceof Date) || Number.isNaN(options.fireDate.getTime())) {
+      this.recordError(
+        new ServiceError(
+          'notifications/invalid-time',
+          'Invalid local notification fire date. Expected a valid Date.'
+        )
+      );
+      return null;
+    }
+
+    return this.scheduleNotification({
+      identifier: options.id,
+      content: {
+        title: options.title,
+        body: options.body,
+        sound: CUSTOM_NOTIFICATION_SOUND,
+        data: {
+          deepLink: options.deepLink || '/',
+        },
+      },
+      trigger: this.buildDateTrigger(options.fireDate, NOTIFICATION_CHANNELS.DAILY_REMINDERS),
+    });
+  }
+
+  async cancelNotification(id: string): Promise<void> {
+    await this.cancelReminder(id);
   }
 
   async getDeveloperTestNotifications(): Promise<MockScheduledNotification[]> {

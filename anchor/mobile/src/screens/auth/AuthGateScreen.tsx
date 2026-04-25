@@ -135,7 +135,7 @@ export default function AuthGateScreen() {
   }, [clearPendingForgeIntent, clearPendingForgeResumeTarget, navigation]);
 
   const handleCreateAccount = useCallback(() => {
-    navigation.navigate('SignUp');
+    navigation.navigate('Login', { initialTab: 'signup' });
   }, [navigation]);
 
   const handleSignIn = useCallback(() => {

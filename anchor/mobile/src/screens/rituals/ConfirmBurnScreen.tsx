@@ -31,6 +31,7 @@ import { useTeachingStore } from '@/stores/teachingStore';
 import { TEACHINGS } from '@/constants/teaching';
 import { useAnchorStore } from '@/stores/anchorStore';
 import { resolveBurnArtworkUri } from './utils/resolveBurnArtworkUri';
+import { AuthService } from '@/services/AuthService';
 
 type ConfirmBurnRouteProp = RouteProp<RootStackParamList, 'ConfirmBurn'>;
 type ConfirmBurnNavigationProp = StackNavigationProp<RootStackParamList, 'ConfirmBurn'>;
@@ -51,6 +52,7 @@ export const ConfirmBurnScreen: React.FC = () => {
   const anchor = getAnchorById(anchorId);
   const resolvedSigilSvg = sigilSvg || anchor?.reinforcedSigilSvg || anchor?.baseSigilSvg || '';
   const resolvedEnhancedImageUrl = enhancedImageUrl ?? resolveBurnArtworkUri(anchor);
+  const [isAuthVerified, setIsAuthVerified] = useState(IS_TEST_ENV);
 
   const [currentStep, setCurrentStep] = useState<BurnStep>('reflect');
   const [releaseText, setReleaseText] = useState('');
@@ -65,6 +67,29 @@ export const ConfirmBurnScreen: React.FC = () => {
     screenId: 'confirm_burn_release',
     candidateIds: ['confirm_burn_release_v1'],
   });
+
+  useEffect(() => {
+    if (IS_TEST_ENV) return;
+
+    let cancelled = false;
+
+    void (async () => {
+      const token = await AuthService.getIdToken();
+
+      if (cancelled) return;
+
+      if (!token) {
+        navigation.replace('AuthGate');
+        return;
+      }
+
+      setIsAuthVerified(true);
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [navigation]);
 
   useEffect(() => {
     if (!reflectTeaching) return;
@@ -115,6 +140,8 @@ export const ConfirmBurnScreen: React.FC = () => {
   };
 
   const handleContinue = () => {
+    if (!isAuthVerified) return;
+
     if (currentStep === 'reflect') {
       void safeHaptics.impact(Haptics.ImpactFeedbackStyle.Light);
       setCurrentStep('release');
@@ -156,7 +183,7 @@ export const ConfirmBurnScreen: React.FC = () => {
   };
 
   const ctaLabel = currentStep === 'reflect' ? 'Continue' : 'Burn Now';
-  const ctaDisabled = currentStep === 'release' && !isReleaseReady;
+  const ctaDisabled = !isAuthVerified || (currentStep === 'release' && !isReleaseReady);
 
   return (
     <SafeAreaView style={styles.container} edges={['top', 'bottom']}>

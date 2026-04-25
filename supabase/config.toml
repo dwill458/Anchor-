@@ -1,0 +1,3 @@
+[functions.notifications]
+verify_jwt = true
+

@@ -21,12 +21,14 @@ import { StackNavigationProp } from '@react-navigation/stack';
 import { SvgXml } from 'react-native-svg';
 import * as Haptics from 'expo-haptics';
 import { useAnchorStore } from '@/stores/anchorStore';
+import { useAuthStore } from '@/stores/authStore';
 import { useSessionStore } from '@/stores/sessionStore';
 import { useSettingsStore } from '@/stores/settingsStore';
 import type { RootStackParamList } from '@/types';
 import { colors, spacing, typography } from '@/theme';
 import { OptimizedImage, PremiumAnchorGlow } from '@/components/common';
 import { useReduceMotionEnabled } from '@/hooks/useReduceMotionEnabled';
+import { useNotificationController } from '@/hooks/useNotificationController';
 import { RitualScaffold } from './components/RitualScaffold';
 import { InstructionGlassCard } from './components/InstructionGlassCard';
 import { CompletionModal } from './components/CompletionModal';
@@ -48,9 +50,12 @@ export const ChargeCompleteScreen: React.FC = () => {
   const { anchorId, durationSeconds: routeDurationSeconds, returnTo } = route.params;
 
   const getAnchorById = useAnchorStore((state) => state.getAnchorById);
+  const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
+  const wallpaperPromptSeen = useAuthStore((state) => state.wallpaperPromptSeen);
   const { recordSession } = useSessionStore();
   const { defaultCharge } = useSettingsStore();
   const reduceMotionEnabled = useReduceMotionEnabled();
+  const { handlePrimeComplete } = useNotificationController();
   const anchor = getAnchorById(anchorId);
 
   // Show CompletionModal first before the vault/activate CTAs
@@ -103,6 +108,19 @@ export const ChargeCompleteScreen: React.FC = () => {
 
   const handleSaveToVault = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+
+    // Re-fire wallpaper prompt for guest users after their first practice session
+    if (!isAuthenticated && !wallpaperPromptSeen && anchor) {
+      navigation.navigate('WallpaperPrompt', {
+        anchorId,
+        intentionText: anchor.intentionText,
+        enhancedImageUrl: anchor.enhancedImageUrl ?? undefined,
+        sigilSvg: (anchor.reinforcedSigilSvg ?? anchor.baseSigilSvg) ?? undefined,
+        returnTo: 'vault',
+      });
+      return;
+    }
+
     if (returnTo === 'practice') {
       navigateToPractice();
     } else if (returnTo === 'detail') {
@@ -120,7 +138,7 @@ export const ChargeCompleteScreen: React.FC = () => {
     });
   };
 
-  const handleCompletionDone = (reflectionWord?: string) => {
+  const handleCompletionDone = async (reflectionWord?: string) => {
     // Fall back to the user's default only when the ritual route did not pass
     // the actual session duration.
     const presetSeconds: Record<string, number> = {
@@ -137,6 +155,7 @@ export const ChargeCompleteScreen: React.FC = () => {
       reflectionWord,
       completedAt: new Date().toISOString(),
     });
+    await handlePrimeComplete();
 
     setShowCompletion(false);
     setCompletionDone(true);

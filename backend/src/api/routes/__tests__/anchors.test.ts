@@ -511,6 +511,25 @@ describe('POST /api/anchors/:id/activate', () => {
 // ═════════════════════════════════════════════════════════════════════════════
 
 describe('POST /api/anchors/:id/burn', () => {
+  it('returns 401 when auth middleware does not attach a user', async () => {
+    mockedAuthMiddleware.mockImplementation((_req: any, res: any) => {
+      res.status(401).json({
+        success: false,
+        error: {
+          code: 'UNAUTHORIZED',
+          message: 'No authentication token provided',
+        },
+      });
+    });
+
+    const res = await request(buildApp()).post('/api/anchors/anchor-1/burn');
+
+    expect(res.status).toBe(401);
+    expect(res.body.error.code).toBe('UNAUTHORIZED');
+    expect(mockPrisma.anchor.findFirst).not.toHaveBeenCalled();
+    expect(mockPrisma.$transaction).not.toHaveBeenCalled();
+  });
+
   it('burns anchor atomically and returns { burned: true }', async () => {
     (mockPrisma.user.findUnique as jest.Mock).mockResolvedValue(MOCK_DB_USER);
     (mockPrisma.anchor.findFirst as jest.Mock).mockResolvedValue(MOCK_ANCHOR);
@@ -543,6 +562,20 @@ describe('POST /api/anchors/:id/burn', () => {
     const res = await request(buildApp()).post('/api/anchors/nonexistent/burn');
 
     expect(res.status).toBe(404);
+  });
+
+  it("returns 404 when attempting to burn another user's anchor", async () => {
+    (mockPrisma.user.findUnique as jest.Mock).mockResolvedValue(MOCK_DB_USER);
+    (mockPrisma.anchor.findFirst as jest.Mock).mockResolvedValue(null);
+
+    const res = await request(buildApp()).post('/api/anchors/foreign-anchor/burn');
+
+    expect(res.status).toBe(404);
+    expect(res.body.error.code).toBe('ANCHOR_NOT_FOUND');
+    expect(mockPrisma.anchor.findFirst).toHaveBeenCalledWith({
+      where: { id: 'foreign-anchor', userId: 'db-user-1' },
+    });
+    expect(mockPrisma.$transaction).not.toHaveBeenCalled();
   });
 
   it('returns 500 when transaction fails', async () => {

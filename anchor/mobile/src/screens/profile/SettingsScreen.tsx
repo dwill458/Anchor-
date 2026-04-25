@@ -321,7 +321,8 @@ export const SettingsScreen: React.FC = () => {
       settings.setDailyReminderTime(timeString);
 
       if (settings.dailyReminderEnabled) {
-        NotificationService.scheduleDailyReminder(timeString);
+        // DEFERRED: legacy notification call — superseded by NotificationService
+        // NotificationService.scheduleDailyReminder(timeString);
       }
     }
   };
@@ -331,7 +332,8 @@ export const SettingsScreen: React.FC = () => {
     if (value) {
       const granted = await NotificationService.requestPermissions();
       if (granted) {
-        await NotificationService.scheduleDailyReminder(settings.dailyReminderTime);
+        // DEFERRED: legacy notification call — superseded by NotificationService
+        // await NotificationService.scheduleDailyReminder(settings.dailyReminderTime);
       } else {
         settings.setDailyReminderEnabled(false);
         Alert.alert('Permission Denied', 'Please enable notifications in your device settings.');

@@ -72,8 +72,9 @@ const STYLE_PROMPTS: Record<AIStyle, { prompt: string; negativePrompt: string }>
   },
   ink_brush: {
     prompt:
-      'Traditional ink brush calligraphy sigil, sumi-e aesthetic, ink wash gradients, rice paper texture, zen brush strokes',
-    negativePrompt: 'digital, 3d, color, modern, thick lines',
+      'Restore and beautify the existing sigil while preserving exact geometry and stroke paths. Render it in an expressive traditional ink brush sumi-e style with flowing brush pressure, visible dry-brush texture, ink wash gradients, subtle feathering, rice paper texture, and elegant zen calligraphic energy. Keep the sigil structure exactly as drawn, but make the brushwork feel organic, tactile, and artistically alive.',
+    negativePrompt:
+      'extra lines, decorative circle, mandala, compass, runes, glyphs, occult seal, emblem, logo redesign, reinterpretation, frame, border, symmetry embellishment, altered shape, new symbols, added elements, changed geometry, distorted lines, additional rings, extra patterns, modified structure, redesigned form, digital, 3d, modern',
   },
   gold_leaf: {
     prompt:
