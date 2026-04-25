@@ -66,7 +66,6 @@ export const SettingsScreen: React.FC = () => {
   const { notifState, toggleNotifications, updateActiveHours } = useNotificationController();
   const { setHasCompletedOnboarding, signOut } = useAuthStore();
   const reveal = useSettingsReveal();
-  const [showTimePicker, setShowTimePicker] = useState(false);
   const [hourPickerTarget, setHourPickerTarget] = useState<'wake' | 'reminder' | null>(null);
   const hasMarkedReadyRef = useRef(false);
   const frameRef = useRef<number | null>(null);
@@ -185,8 +184,6 @@ export const SettingsScreen: React.FC = () => {
 
   const handleReminderTimeChange = useCallback(
     async (event: DateTimePickerEvent, selectedDate?: Date) => {
-      setShowTimePicker(false);
-
       if (!selectedDate || event.type !== 'set') {
         return;
       }
@@ -345,15 +342,25 @@ export const SettingsScreen: React.FC = () => {
               toggleValue={settings.dailyReminderEnabled}
               onToggle={handleToggleDailyReminder}
               disabled={isLoading}
+              showDivider={settings.dailyReminderEnabled}
             />
             {settings.dailyReminderEnabled ? (
-              <SettingsRow
-                title="Reminder Time"
-                value={settings.dailyReminderTime}
-                type="chevron"
-                onPress={() => setShowTimePicker(true)}
-                disabled={isLoading}
-              />
+              <View style={styles.inlineTimePickerContainer}>
+                <Text style={styles.inlineTimePickerLabel}>Reminder Time</Text>
+                <View style={styles.inlineDateTimePicker}>
+                  <DateTimePicker
+                    value={(() => {
+                      const [hours, minutes] = settings.dailyReminderTime.split(':').map(Number);
+                      const date = new Date();
+                      date.setHours(hours, minutes, 0, 0);
+                      return date;
+                    })()}
+                    mode="time"
+                    display="spinner"
+                    onChange={handleReminderTimeChange}
+                  />
+                </View>
+              </View>
             ) : null}
             <SettingsRow
               title="Thread Strength Alerts"
@@ -489,19 +496,6 @@ export const SettingsScreen: React.FC = () => {
           <View style={styles.bottomSpacer} />
         </ScrollView>
       </SafeAreaView>
-      {showTimePicker ? (
-        <DateTimePicker
-          value={(() => {
-            const [hours, minutes] = settings.dailyReminderTime.split(':').map(Number);
-            const date = new Date();
-            date.setHours(hours, minutes, 0, 0);
-            return date;
-          })()}
-          mode="time"
-          is24Hour={true}
-          onChange={handleReminderTimeChange}
-        />
-      ) : null}
       <Modal
         visible={hourPickerTarget !== null}
         transparent
@@ -628,6 +622,25 @@ const styles = StyleSheet.create({
   },
   bottomSpacer: {
     height: 32,
+  },
+  inlineTimePickerContainer: {
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: 'rgba(212,175,55,0.15)',
+    paddingHorizontal: 20,
+    paddingTop: 12,
+    paddingBottom: 4,
+    backgroundColor: 'rgba(212,175,55,0.04)',
+  },
+  inlineTimePickerLabel: {
+    color: SETTINGS_MUTED_TEXT,
+    fontSize: 10,
+    fontFamily: 'Inter-SemiBold',
+    letterSpacing: 1.0,
+    textTransform: 'uppercase',
+    marginBottom: 2,
+  },
+  inlineDateTimePicker: {
+    height: 120,
   },
   hourPickerOverlay: {
     flex: 1,

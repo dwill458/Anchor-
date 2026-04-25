@@ -264,7 +264,7 @@ class NotificationService {
       identifier: reminderId,
       content: {
         title: 'Ritual Reminder',
-        body: 'Your anchor ritual is ready when you are.',
+        body: 'Your anchor is waiting when you are ready.',
         sound: CUSTOM_NOTIFICATION_SOUND,
         data: this.buildPayload('ritual_reminder', {
           anchorId,
@@ -303,7 +303,7 @@ class NotificationService {
       identifier: NOTIFICATION_IDS.STREAK_PROTECTION,
       content: {
         title: 'Streak Protection',
-        body: 'You haven’t met your ritual goal today. A quick activation will keep your momentum.',
+        body: 'Your anchor is waiting. A moment now keeps the thread alive.',
         sound: CUSTOM_NOTIFICATION_SOUND,
         data: this.buildPayload('streak_protection'),
       },

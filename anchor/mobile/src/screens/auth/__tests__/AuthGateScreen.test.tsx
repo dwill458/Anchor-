@@ -23,9 +23,9 @@ describe('AuthGateScreen', () => {
   it('opens account creation from the auth gate', () => {
     render(<AuthGateScreen />);
 
-    fireEvent.press(screen.getByLabelText('Forge Free for 7 Days'));
+    fireEvent.press(screen.getByLabelText('Forge Free for 7 Days, Annual selected'));
 
-    expect(mockNavigate).toHaveBeenCalledWith('SignUp');
+    expect(mockNavigate).toHaveBeenCalledWith('Login', { initialTab: 'signup' });
   });
 
   it('opens sign in from the auth gate', () => {
