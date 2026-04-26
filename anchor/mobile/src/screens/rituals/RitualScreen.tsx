@@ -31,6 +31,7 @@ import { useTabNavigation } from '@/contexts/TabNavigationContext';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { useAnchorStore } from '@/stores/anchorStore';
 import { useAuthStore } from '@/stores/authStore';
+import { useSessionStore } from '@/stores/sessionStore';
 import { useSettingsStore } from '@/stores/settingsStore';
 import { useRitualController } from '@/hooks/useRitualController';
 import { getRitualConfig } from '@/config/ritualConfigs';
@@ -48,6 +49,7 @@ import { ConfirmModal } from './components/ConfirmModal';
 import { TIMING, EASING } from './utils/transitionConstants';
 import * as Speech from 'expo-speech';
 import { navigateToVaultDestination } from '@/navigation/firstAnchorGate';
+import { useNotificationController } from '@/hooks/useNotificationController';
 
 const { width } = Dimensions.get('window');
 
@@ -202,9 +204,12 @@ export const RitualScreen: React.FC = () => {
   const enqueuePendingFirstAnchorMutation = useAuthStore(
     (state) => state.enqueuePendingFirstAnchorMutation
   );
+  const recordSession = useSessionStore((state) => state.recordSession);
   const soundEffectsEnabled = useSettingsStore((state) => state.soundEffectsEnabled);
   const focusSessionDuration = useSettingsStore((state) => state.focusSessionDuration ?? 30);
   const primeSessionDuration = useSettingsStore((state) => state.primeSessionDuration ?? 120);
+  const primeSessionAudio = useSettingsStore((state) => state.primeSessionAudio ?? 'silent');
+  const { handlePrimeComplete } = useNotificationController();
   const anchor = getAnchorById(anchorId);
   const sigilSvg = anchor?.reinforcedSigilSvg ?? anchor?.baseSigilSvg ?? '';
   const isPendingFirstAnchor = pendingFirstAnchorDraft?.tempAnchorId === anchorId;
@@ -560,6 +565,16 @@ export const RitualScreen: React.FC = () => {
             durationSeconds: config.totalDurationSeconds,
             returnTo,
           });
+        } else if (isDeepRitual) {
+          recordSession({
+            anchorId,
+            type: 'reinforce',
+            durationSeconds: config.totalDurationSeconds,
+            mode: primeSessionAudio,
+            completedAt: new Date().toISOString(),
+          });
+          await handlePrimeComplete();
+          exitRitual();
         } else {
           navigation.replace('ChargeComplete', {
             anchorId,

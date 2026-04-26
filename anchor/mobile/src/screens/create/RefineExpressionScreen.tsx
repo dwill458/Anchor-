@@ -29,16 +29,16 @@ interface StyleOption {
 }
 
 const STYLE_OPTIONS: StyleOption[] = [
-  { id: 'minimal-line', name: 'Minimal Line', category: 'geometric', description: 'Crisp clarity and restraint.', icon: '◎', recommended: true },
+  { id: 'architectural-trace', name: 'Architectural Trace', category: 'geometric', description: 'Drafted precision and measured balance.', icon: '▥', recommended: true },
   { id: 'ink-brush', name: 'Ink Brush', category: 'organic', description: 'Fluid, expressive movement.', icon: '⚡' },
   { id: 'sacred-geometry', name: 'Sacred Geometry', category: 'mystic', description: 'Structured symbolic precision.', icon: '⊕', recommended: true },
   { id: 'watercolor', name: 'Watercolor', category: 'organic', description: 'Soft tonal atmosphere.', icon: '〜' },
   { id: 'gold-leaf', name: 'Gold Leaf', category: 'luminous', description: 'Luxurious luminous finish.', icon: '♛' },
   { id: 'cosmic', name: 'Cosmic', category: 'mystic', description: 'Orbital celestial energy.', icon: '✦' },
-  { id: 'obsidian-mono', name: 'Obsidian Mono', category: 'modern', description: 'High-contrast monochrome depth.', icon: '▤' },
+  { id: 'lunar-etch', name: 'Lunar Etch', category: 'luminous', description: 'Silver etching under moonlit contrast.', icon: '☾' },
   { id: 'aurora-glow', name: 'Aurora Glow', category: 'luminous', description: 'Atmospheric color bloom.', icon: '☁' },
   { id: 'ember-trace', name: 'Ember Trace', category: 'luminous', description: 'Warm ember edge lighting.', icon: '♨' },
-  { id: 'echo-chamber', name: 'Echo Chamber', category: 'mystic', description: 'Layered cyclical resonance.', icon: '↺' },
+  { id: 'resonance-rings', name: 'Resonance Rings', category: 'mystic', description: 'Pulses radiating through layered rings.', icon: '◌' },
   { id: 'monolith-ink', name: 'Monolith Ink', category: 'modern', description: 'Grounded heavy-line authority.', icon: '✦' },
   { id: 'celestial-grid', name: 'Celestial Grid', category: 'geometric', description: 'Constellation-inspired symmetry.', icon: '✧' },
 ];
@@ -126,9 +126,13 @@ const StyleCard: React.FC<{
           <Text style={styles.iconText}>{option.icon}</Text>
         </View>
 
-        <Text style={styles.cardName}>{option.name}</Text>
+        <Text style={styles.cardName} numberOfLines={2}>
+          {option.name}
+        </Text>
         <Text style={styles.categoryText}>{option.category}</Text>
-        <Text style={styles.descriptionText}>{option.description}</Text>
+        <Text style={styles.descriptionText} numberOfLines={2}>
+          {option.description}
+        </Text>
 
         {option.recommended ? (
           <View style={styles.recommendedBadge}>
@@ -505,12 +509,14 @@ const styles = StyleSheet.create({
   cardColumn: {
     width: CARD_WIDTH,
     marginBottom: spacing.refineExpression.gridGap,
+    alignSelf: 'stretch',
   },
   styleCard: {
     width: CARD_WIDTH,
+    height: 184,
     backgroundColor: colors.refineExpression.cardBg,
     borderRadius: 16,
-    paddingVertical: spacing.refineExpression.cardVertical,
+    paddingVertical: 9,
     paddingHorizontal: spacing.refineExpression.cardHorizontal,
     borderWidth: 1,
     borderColor: colors.refineExpression.subtle,
@@ -545,7 +551,7 @@ const styles = StyleSheet.create({
     borderColor: colors.refineExpression.subtle,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: spacing.refineExpression.iconBottom,
+    marginBottom: 7,
   },
   iconBoxSelected: {
     borderColor: colors.gold,
@@ -561,8 +567,9 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: colors.refineExpression.text,
     letterSpacing: 0.5,
-    marginBottom: spacing.refineExpression.nameBottom,
-    lineHeight: 15,
+    marginBottom: 2,
+    lineHeight: 14,
+    minHeight: 26,
   },
   categoryText: {
     fontFamily: typography.fonts.heading,
@@ -570,17 +577,18 @@ const styles = StyleSheet.create({
     color: colors.refineExpression.muted,
     letterSpacing: 2,
     textTransform: 'uppercase',
-    marginBottom: spacing.refineExpression.categoryBottom,
+    marginBottom: 3,
   },
   descriptionText: {
     fontFamily: typography.fonts.body,
     fontSize: 11,
     color: colors.refineExpression.description,
     fontStyle: 'italic',
-    lineHeight: 16,
+    lineHeight: 15,
+    minHeight: 24,
   },
   recommendedBadge: {
-    marginTop: spacing.refineExpression.recommendedTop,
+    marginTop: 8,
     alignSelf: 'flex-start',
     borderRadius: 8,
     borderWidth: 1,
@@ -597,7 +605,7 @@ const styles = StyleSheet.create({
     textTransform: 'uppercase',
   },
   previewStripWrap: {
-    marginTop: spacing.refineExpression.previewTop,
+    marginTop: 6,
     height: 2,
     borderRadius: 2,
     overflow: 'hidden',

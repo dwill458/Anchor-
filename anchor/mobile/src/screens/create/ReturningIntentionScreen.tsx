@@ -29,13 +29,9 @@ import { TEACHINGS } from '@/constants/teaching';
 import { useAuthStore } from '@/stores/authStore';
 import { useAnchorStore } from '@/stores/anchorStore';
 import { useTrialStatus } from '@/hooks/useTrialStatus';
+import { analyzeIntention, detectGibberish, getGuidanceText } from '@/utils/intentionPatterns';
 
 const { height } = Dimensions.get('window');
-
-// Tense & negation detection patterns for real-time feedback
-const FUTURE_WORDS = /\b(will\b|going to|i'll|i'm going to|shall\b|plan to|want to\b|would like|i want)\b/i;
-const NEGATION_WORDS = /\b(don't|dont|do not|stop\b|avoid\b|not\b|never\b|won't|wont|can't|cant|no longer|give up)\b/i;
-const TENSE_NUDGE_COPY = "Make it present tense: 'I choose…' 'I return…'";
 
 type NavigationProp = StackNavigationProp<RootStackParamList, 'CreateAnchor'>;
 
@@ -63,8 +59,8 @@ export default function ReturningIntentionScreen() {
 
     // Reduced motion & tense nudge
     const [reduceMotion, setReduceMotion] = useState(false);
-    const [tenseNudge, setTenseNudge] = useState(false);
-    const tenseDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+    const [nudge, setNudge] = useState<string | null>(null);
+    const nudgeDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
     const fadeAnim = useRef(new Animated.Value(0)).current;
 
@@ -112,7 +108,7 @@ export default function ReturningIntentionScreen() {
     // Cleanup idle timer on unmount
     useEffect(() => () => {
         if (idleTimerRef.current) clearTimeout(idleTimerRef.current);
-        if (tenseDebounceRef.current) clearTimeout(tenseDebounceRef.current);
+        if (nudgeDebounceRef.current) clearTimeout(nudgeDebounceRef.current);
     }, []);
 
     // Check reduced motion accessibility setting on mount
@@ -188,8 +184,6 @@ export default function ReturningIntentionScreen() {
     const handleBlur = () => {
         setIsFocused(false);
         if (idleTimerRef.current) clearTimeout(idleTimerRef.current);
-        // Immediate tense check on blur
-        setTenseNudge(FUTURE_WORDS.test(intention) || NEGATION_WORDS.test(intention));
     };
 
     const handleIntentionChange = (text: string) => {
@@ -210,11 +204,32 @@ export default function ReturningIntentionScreen() {
                 }, 8000);
             }
 
-            // Tense / negation debounce: check after 1.2s idle
-            if (tenseDebounceRef.current) clearTimeout(tenseDebounceRef.current);
-            tenseDebounceRef.current = setTimeout(() => {
-                setTenseNudge(FUTURE_WORDS.test(text) || NEGATION_WORDS.test(text));
-            }, 1200);
+            if (text.length === 0) {
+                if (nudgeDebounceRef.current) clearTimeout(nudgeDebounceRef.current);
+                setNudge(null);
+                return;
+            }
+
+            if (text.length < 6) {
+                if (nudgeDebounceRef.current) clearTimeout(nudgeDebounceRef.current);
+                setNudge(null);
+                return;
+            }
+
+            if (nudgeDebounceRef.current) clearTimeout(nudgeDebounceRef.current);
+            nudgeDebounceRef.current = setTimeout(() => {
+                if (detectGibberish(text)) {
+                    setNudge("That doesn't look like an intention. What do you actually want?");
+                    return;
+                }
+
+                const intentionAnalysis = analyzeIntention(text);
+                const guidanceText = getGuidanceText(
+                    intentionAnalysis.hasFutureTense,
+                    intentionAnalysis.hasNegation
+                );
+                setNudge(guidanceText || null);
+            }, 600);
         }
     };
 
@@ -286,6 +301,12 @@ export default function ReturningIntentionScreen() {
                                 { opacity: fadeAnim },
                             ]}
                         >
+                            {nudge ? (
+                                <View style={styles.nudgeContainer}>
+                                    <Text style={styles.nudgeText}>{nudge}</Text>
+                                </View>
+                            ) : null}
+
                             <Animated.View
                                 style={[
                                     styles.inputContainer,
@@ -315,12 +336,8 @@ export default function ReturningIntentionScreen() {
                                 As always, you can refine or release later.
                             </Text>
 
-                            {/* Undertone (Pattern 1) — prioritized display: tense nudge > teaching > default */}
-                            {tenseNudge ? (
-                                <View style={styles.undertoneRow}>
-                                    <UndertoneLine text={TENSE_NUDGE_COPY} variant="emphasis" />
-                                </View>
-                            ) : undertoneText ? (
+                            {/* Undertone (Pattern 1) — prioritized display: teaching > default */}
+                            {undertoneText ? (
                                 <Animated.View style={[styles.undertoneRow, { opacity: undertoneOpacity }]}>
                                     <UndertoneLine text={undertoneText} variant="default" />
                                 </Animated.View>
@@ -418,6 +435,22 @@ const styles = StyleSheet.create({
         lineHeight: 28,
         minHeight: 90,
         textAlignVertical: 'top',
+    },
+    nudgeContainer: {
+        marginTop: -12,
+        marginBottom: 12,
+        paddingHorizontal: 12,
+        paddingVertical: 8,
+        borderLeftWidth: 2,
+        borderLeftColor: colors.gold,
+        backgroundColor: 'rgba(212, 175, 55, 0.08)',
+        borderRadius: 4,
+    },
+    nudgeText: {
+        fontFamily: typography.fontFamily.bodySerifItalic,
+        fontSize: 13,
+        color: colors.gold,
+        lineHeight: 18,
     },
     microCopy: {
         ...typography.body,

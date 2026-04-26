@@ -15,6 +15,7 @@ import { BlurView } from 'expo-blur';
 import { StatusBar } from 'expo-status-bar';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
+import Svg, { Circle, Path } from 'react-native-svg';
 import { RootStackParamList } from '@/types';
 import { colors } from '@/theme';
 import { ScreenHeader, ZenBackground } from '@/components/common';
@@ -56,7 +57,7 @@ export const EnhancementChoiceScreen: React.FC = () => {
       subtitle: 'Add visual resonance while preserving structure.',
       description: 'Choose from watercolor, line art, or geometric interpretations.',
       emoji: '✨',
-      estimatedTime: '~30–60 seconds',
+      estimatedTime: 'AI-REFINED',
       features: [],
       badge: 'Refine Anchor →',
     },
@@ -74,6 +75,7 @@ export const EnhancementChoiceScreen: React.FC = () => {
 
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const slideAnim = useRef(new Animated.Value(30)).current;
+  const refinePulseAnim = useRef(new Animated.Value(1)).current;
   const [selectedOption, setSelectedOption] = useState<string | null>(null);
 
   const {
@@ -100,6 +102,27 @@ export const EnhancementChoiceScreen: React.FC = () => {
         useNativeDriver: true,
       }),
     ]).start();
+
+    const pulseLoop = Animated.loop(
+      Animated.sequence([
+        Animated.timing(refinePulseAnim, {
+          toValue: 0.4,
+          duration: 1000,
+          useNativeDriver: true,
+        }),
+        Animated.timing(refinePulseAnim, {
+          toValue: 1,
+          duration: 1000,
+          useNativeDriver: true,
+        }),
+      ])
+    );
+
+    pulseLoop.start();
+
+    return () => {
+      pulseLoop.stop();
+    };
   }, []);
 
   const createAnchorAndNavigateToCharge = () => {
@@ -198,9 +221,16 @@ export const EnhancementChoiceScreen: React.FC = () => {
                   <Text style={styles.intentionLabel}>ROOTED INTENTION</Text>
                   <Text style={styles.intentionText}>“{intentionText}”</Text>
                   <View style={styles.lettersRow}>
-                    <Text style={styles.lettersText}>
-                      {distilledLetters.join('  ')}
-                    </Text>
+                    {distilledLetters.map((letter, index) => (
+                      <React.Fragment key={`${letter}-${index}`}>
+                        <View style={styles.letterChip}>
+                          <Text style={styles.letterChipText}>{letter}</Text>
+                        </View>
+                        {index < distilledLetters.length - 1 ? (
+                          <View style={styles.letterDivider} />
+                        ) : null}
+                      </React.Fragment>
+                    ))}
                   </View>
                 </View>
                 <View style={styles.intentionBorder} />
@@ -211,9 +241,16 @@ export const EnhancementChoiceScreen: React.FC = () => {
                   <Text style={styles.intentionLabel}>ROOTED INTENTION</Text>
                   <Text style={styles.intentionText}>“{intentionText}”</Text>
                   <View style={styles.lettersRow}>
-                    <Text style={styles.lettersText}>
-                      {distilledLetters.join('  ')}
-                    </Text>
+                    {distilledLetters.map((letter, index) => (
+                      <React.Fragment key={`${letter}-${index}`}>
+                        <View style={styles.letterChip}>
+                          <Text style={styles.letterChipText}>{letter}</Text>
+                        </View>
+                        {index < distilledLetters.length - 1 ? (
+                          <View style={styles.letterDivider} />
+                        ) : null}
+                      </React.Fragment>
+                    ))}
                   </View>
                 </View>
                 <View style={styles.intentionBorder} />
@@ -250,6 +287,11 @@ export const EnhancementChoiceScreen: React.FC = () => {
                 accessibilityRole="button"
                 accessibilityLabel={option.name}
               >
+                {option.id === 'enhance' ? (
+                  <View style={styles.recommendedBadge}>
+                    <Text style={styles.recommendedText}>RECOMMENDED</Text>
+                  </View>
+                ) : null}
                 {IS_ANDROID ? (
                   <View
                     style={[
@@ -264,6 +306,7 @@ export const EnhancementChoiceScreen: React.FC = () => {
                       option={option}
                       index={index}
                       isSelected={selectedOption === option.id}
+                      refinePulseAnim={refinePulseAnim}
                     />
                   </View>
                 ) : (
@@ -281,6 +324,7 @@ export const EnhancementChoiceScreen: React.FC = () => {
                       option={option}
                       index={index}
                       isSelected={selectedOption === option.id}
+                      refinePulseAnim={refinePulseAnim}
                     />
                   </BlurView>
                 )}
@@ -305,15 +349,9 @@ export const EnhancementChoiceScreen: React.FC = () => {
               },
             ]}
           >
-            <View style={styles.infoCard}>
-              <Text style={styles.infoIcon}>🔒</Text>
-              <View style={styles.infoTextContainer}>
-                <Text style={styles.infoLabel}>Structure locked</Text>
-                <Text style={styles.infoText}>
-                  “Styling affects appearance only. Your foundation and intention remain unchanged.”
-                </Text>
-              </View>
-            </View>
+            <Text style={styles.footerText}>
+              Styling shapes appearance only — your foundation and intention are permanent.
+            </Text>
           </Animated.View>
 
           {/* Bottom Spacer */}
@@ -327,34 +365,55 @@ export const EnhancementChoiceScreen: React.FC = () => {
 function OptionCardContent({
   option,
   index,
-  isSelected
+  isSelected,
+  refinePulseAnim,
 }: {
   option: EnhancementOption;
   index: number;
   isSelected: boolean;
+  refinePulseAnim: Animated.Value;
 }) {
+  const isEnhance = option.id === 'enhance';
+  const isPure = option.id === 'pure';
+
   return (
     <View style={[
       styles.cardContent,
-      option.id === 'enhance' && styles.cardContentGlow
+      isEnhance && styles.cardContentGlow
     ]}>
       {/* Header */}
       <View style={styles.optionHeader}>
         <View style={styles.emojiContainer}>
           <LinearGradient
             colors={
-              option.id === 'enhance'
+              isEnhance
                 ? ['rgba(212, 175, 55, 0.3)', 'rgba(212, 175, 55, 0.1)']
                 : ['rgba(192, 192, 192, 0.2)', 'rgba(192, 192, 192, 0.05)']
             }
             style={styles.emojiGradient}
           >
-            <Text style={styles.emoji}>{option.emoji}</Text>
+            {isPure ? (
+              <Svg width={22} height={22} viewBox="0 0 22 22" fill="none">
+                <Path
+                  d="M11 3 L11 19 M6 7 L11 3 L16 7 M7 19 L15 19"
+                  stroke="rgba(192,192,192,0.5)"
+                  strokeWidth={1.3}
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+                <Circle cx={11} cy={10} r={2} stroke="rgba(192,192,192,0.5)" strokeWidth={1.1} />
+              </Svg>
+            ) : (
+              <Text style={styles.emoji}>{option.emoji}</Text>
+            )}
           </LinearGradient>
         </View>
 
         <View style={styles.titleContainer}>
-          <Text style={styles.optionName}>{option.name}</Text>
+          <Text style={[
+            styles.optionName,
+            isPure && styles.optionNamePure,
+          ]}>{option.name}</Text>
           <Text style={styles.optionSubtitle}>{option.subtitle}</Text>
         </View>
       </View>
@@ -364,15 +423,26 @@ function OptionCardContent({
 
       {/* Footer: Time + Arrow */}
       <View style={styles.optionFooter}>
-        <View style={styles.timeContainerCompact}>
-          <Text style={styles.timeIcon}>⏱</Text>
-          <Text style={styles.timeText}>{option.estimatedTime}</Text>
+        <View style={[
+          styles.timeContainerCompact,
+          isPure && styles.timeContainerPure,
+        ]}>
+          {isEnhance ? (
+            <Animated.View style={[styles.timeDot, { opacity: refinePulseAnim }]} />
+          ) : (
+            <View style={[styles.timeDot, styles.timeDotPure]} />
+          )}
+          <Text style={[
+            styles.timeText,
+            isPure && styles.timeTextPure,
+          ]}>{option.estimatedTime}</Text>
         </View>
 
         <View style={styles.ctaContainer}>
           <Text style={[
             styles.ctaText,
-            option.id === 'enhance' && styles.ctaTextGold
+            isEnhance && styles.ctaTextGold,
+            isPure && styles.ctaTextPure,
           ]}>
             {option.badge}
           </Text>
@@ -464,12 +534,26 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
   },
-  lettersText: {
-    fontSize: 13,
-    fontFamily: typography.fonts.mono,
-    color: colors.gold,
-    letterSpacing: 4,
-    opacity: 0.5,
+  letterChip: {
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    borderWidth: 1,
+    borderColor: 'rgba(212,175,55,0.35)',
+    backgroundColor: 'rgba(212,175,55,0.06)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  letterChipText: {
+    fontSize: 12,
+    fontFamily: 'Cinzel-Regular',
+    fontWeight: '600',
+    color: '#D4AF37',
+  },
+  letterDivider: {
+    width: 16,
+    height: 1,
+    backgroundColor: 'rgba(212,175,55,0.20)',
   },
   intentionBorder: {
     position: 'absolute',
@@ -485,6 +569,7 @@ const styles = StyleSheet.create({
   },
   optionCardWrapper: {
     marginBottom: 20,
+    position: 'relative',
   },
   firstCard: {
     marginBottom: 20,
@@ -500,10 +585,13 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(26, 26, 29, 0.95)',
   },
   optionCardEnhance: {
-    borderColor: 'rgba(212, 175, 55, 0.25)',
+    borderWidth: 1.5,
+    borderColor: 'rgba(212,175,55,0.55)',
+    backgroundColor: 'rgba(212,175,55,0.05)',
   },
   optionCardPure: {
-    borderColor: 'rgba(192, 192, 192, 0.1)',
+    borderWidth: 1,
+    borderColor: 'rgba(192,192,192,0.18)',
   },
   optionCardSelected: {
     borderColor: colors.gold,
@@ -518,6 +606,23 @@ const styles = StyleSheet.create({
   },
   cardContentGlow: {
     backgroundColor: 'rgba(212, 175, 55, 0.02)',
+  },
+  recommendedBadge: {
+    position: 'absolute',
+    top: -11,
+    left: 20,
+    zIndex: 2,
+    backgroundColor: '#D4AF37',
+    paddingHorizontal: 10,
+    paddingVertical: 3,
+    borderRadius: 3,
+  },
+  recommendedText: {
+    fontSize: 9,
+    fontFamily: 'Cinzel-Regular',
+    fontWeight: '700',
+    letterSpacing: 2,
+    color: '#0F1419',
   },
   optionHeader: {
     flexDirection: 'row',
@@ -550,6 +655,9 @@ const styles = StyleSheet.create({
     marginBottom: 4,
     letterSpacing: 0.5,
   },
+  optionNamePure: {
+    color: 'rgba(245,245,220,0.55)',
+  },
   optionSubtitle: {
     fontSize: 14,
     fontFamily: typography.fonts.body,
@@ -579,16 +687,30 @@ const styles = StyleSheet.create({
     paddingVertical: 6,
     borderRadius: 20,
   },
-  timeIcon: {
-    fontSize: 14,
-    marginRight: 6,
-    opacity: 0.8,
+  timeContainerPure: {
+    backgroundColor: 'rgba(192,192,192,0.07)',
+    borderWidth: 1,
+    borderColor: 'rgba(192,192,192,0.12)',
+  },
+  timeDot: {
+    width: 7,
+    height: 7,
+    borderRadius: 3.5,
+    marginRight: 8,
+    backgroundColor: '#D4AF37',
+  },
+  timeDotPure: {
+    backgroundColor: 'rgba(192,192,192,0.50)',
   },
   timeText: {
     fontSize: 12,
     fontFamily: typography.fonts.body,
     color: colors.silver,
     opacity: 0.8,
+  },
+  timeTextPure: {
+    color: 'rgba(192,192,192,0.50)',
+    opacity: 1,
   },
   ctaContainer: {
     flexDirection: 'row',
@@ -604,42 +726,20 @@ const styles = StyleSheet.create({
   ctaTextGold: {
     color: colors.gold,
   },
+  ctaTextPure: {
+    color: 'rgba(245,245,220,0.45)',
+  },
   infoSection: {
     marginTop: 10,
     marginBottom: 30,
   },
-  infoCard: {
-    flexDirection: 'row',
-    padding: 20,
-    borderRadius: 16,
-    backgroundColor: 'rgba(255, 255, 255, 0.02)',
-    alignItems: 'flex-start',
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.05)',
-  },
-  infoIcon: {
-    fontSize: 20,
-    marginRight: 16,
-    opacity: 0.6,
-  },
-  infoTextContainer: {
-    flex: 1,
-  },
-  infoLabel: {
-    fontSize: 12,
-    fontFamily: typography.fonts.bodyBold,
-    color: colors.bone,
-    marginBottom: 4,
-    textTransform: 'uppercase',
-    letterSpacing: 1,
-  },
-  infoText: {
+  footerText: {
     fontSize: 13,
-    fontFamily: typography.fonts.body,
-    color: colors.silver,
-    lineHeight: 18,
+    fontFamily: 'CormorantGaramond-Italic',
+    color: 'rgba(245,245,220,0.30)',
+    textAlign: 'center',
+    paddingHorizontal: 16,
     fontStyle: 'italic',
-    opacity: 0.6,
   },
   bottomSpacer: {
     height: 40,

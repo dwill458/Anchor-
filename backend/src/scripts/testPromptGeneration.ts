@@ -86,6 +86,21 @@ const STYLE_PROMPTS: Record<AIStyle, { prompt: string; negativePrompt: string }>
       'Cosmic celestial sigil glowing with ethereal energy, nebula colors, starlight, deep space background',
     negativePrompt: 'planets, faces, realistic photo, solid shapes',
   },
+  architectural_trace: {
+    prompt:
+      'Architectural drafting precision, measured blueprint lines, clean technical elegance, grid discipline, illuminated engineering plan',
+    negativePrompt: 'new shapes, additional symbols, text, organic, messy, hand-drawn, loose sketching',
+  },
+  lunar_etch: {
+    prompt:
+      'Moonlit silver etching, quiet radiance, pale metallic highlights, nocturnal contrast, crescent glints',
+    negativePrompt: 'new shapes, additional symbols, text, warm colors, noisy texture, photography',
+  },
+  resonance_rings: {
+    prompt:
+      'Concentric resonance rings, layered pulse circles, waveform halos, radiating energy, cyclical echoes',
+    negativePrompt: 'new shapes, additional symbols, text, sharp geometry, clutter, static noise',
+  },
   minimal_line: {
     prompt:
       'Minimalist modern sigil with clean precise lines, contemporary design, subtle paper texture, crisp geometry',

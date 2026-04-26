@@ -5,7 +5,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import type { StackNavigationProp } from '@react-navigation/stack';
-import { Flame, Wind, Zap, ChevronRight } from 'lucide-react-native';
+import { Flame, Zap, ChevronRight } from 'lucide-react-native';
 import Animated, {
   Easing,
   useAnimatedStyle,
@@ -40,7 +40,8 @@ import { useNotificationController } from '@/hooks/useNotificationController';
 import { ConfirmUnchargedBurnSheet } from '@/components/modals/ConfirmUnchargedBurnSheet';
 
 type PracticeNavigationProp = StackNavigationProp<PracticeStackParamList, 'PracticeHome'>;
-type PendingMode = 'charge' | 'stabilize' | 'burn' | 'quickActivate' | null;
+// DEFERRED: type PendingMode = 'charge' | 'stabilize' | 'burn' | 'quickActivate' | null;
+type PendingMode = 'charge' | 'burn' | 'quickActivate' | null;
 
 const AUTO_TEACHING_KEY = 'practice_teaching_auto_seen_v2';
 const DEEP_CHARGE_MINUTES_MIN = 2;
@@ -70,13 +71,13 @@ function engagementRecency(anchor: Anchor): number {
 
 function toModeFromSessionType(type: SessionLogEntry['type']): Exclude<PendingMode, null> {
   if (type === 'activate') return 'quickActivate';
-  if (type === 'stabilize') return 'stabilize';
+  // DEFERRED: if (type === 'stabilize') return 'stabilize';
   return 'charge';
 }
 
 function toModeTitle(mode: Exclude<PendingMode, null>): string {
   if (mode === 'quickActivate') return FOCUS_SESSION_TITLE;
-  if (mode === 'stabilize') return PRACTICE_COPY.rituals.stabilize.title;
+  // DEFERRED: if (mode === 'stabilize') return PRACTICE_COPY.rituals.stabilize.title;
   if (mode === 'burn') return PRACTICE_COPY.rituals.burn.title;
   return PRACTICE_COPY.rituals.charge.title;
 }
@@ -336,14 +337,6 @@ export const PracticeScreen: React.FC = () => {
     [focusSessionDuration, navigateToVault]
   );
 
-  const startStabilize = useCallback(
-    (anchor: Anchor) => {
-      safeHaptics.selection();
-      navigation.navigate('StabilizeRitual', { anchorId: anchor.id });
-    },
-    [navigation]
-  );
-
   const startBurn = useCallback(
     (anchor: Anchor) => {
       safeHaptics.selection();
@@ -379,15 +372,13 @@ export const PracticeScreen: React.FC = () => {
       }
       if (mode === 'charge') {
         startCharge(target);
-      } else if (mode === 'stabilize') {
-        startStabilize(target);
       } else if (mode === 'quickActivate') {
         startQuickActivate(target);
       } else {
         startBurn(target);
       }
     },
-    [selectedAnchor, startBurn, startCharge, startStabilize, startQuickActivate]
+    [selectedAnchor, startBurn, startCharge, startQuickActivate]
   );
 
   const handleSelectAnchor = useCallback(
@@ -467,9 +458,9 @@ export const PracticeScreen: React.FC = () => {
         return;
       }
 
-      startStabilize(target);
+      startCharge(target);
     },
-    [defaultDeepChargeSeconds, selectedAnchor, startCharge, startQuickActivate, startStabilize]
+    [defaultDeepChargeSeconds, selectedAnchor, startCharge, startQuickActivate]
   );
 
   const isFading = threadState === 'fading';
@@ -622,17 +613,6 @@ export const PracticeScreen: React.FC = () => {
               onPress={() => {
                 markInteraction();
                 runMode('charge');
-              }}
-            />
-            <ModePortalTile
-              variant="stabilize"
-              title={PRACTICE_COPY.rituals.stabilize.title}
-              meaning={PRACTICE_COPY.rituals.stabilize.meaning}
-              durationHint={PRACTICE_COPY.rituals.stabilize.duration}
-              icon={<Wind size={16} color={colors.gold} />}
-              onPress={() => {
-                markInteraction();
-                runMode('stabilize');
               }}
             />
             <ModePortalTile

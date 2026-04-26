@@ -14,12 +14,76 @@ import { apiClient, fetchCompleteProfile } from '@/services/ApiClient';
 import { AuthService } from '@/services/AuthService';
 import { useAnchorStore } from '@/stores/anchorStore';
 import { calculateStreak } from '@/utils/streakHelpers';
-import { applyStabilizeCompletion, toDateOrNull } from '@/utils/stabilizeStats';
 import {
   createDeveloperMasterUser,
   DEVELOPER_MASTER_ACCOUNT_TOKEN,
 } from '@/utils/developerMasterAccount';
 import { logger } from '@/utils/logger';
+
+type StabilizeStats = {
+  stabilizesTotal: number;
+  stabilizeStreakDays: number;
+  lastStabilizeAt: Date | null;
+};
+
+type StabilizeCompletionFlags = {
+  sameDay: boolean;
+  reset: boolean;
+  incremented: boolean;
+};
+
+const toDateOrNull = (value: Date | string | null | undefined): Date | null => {
+  if (!value) return null;
+  const date = value instanceof Date ? value : new Date(value);
+  return Number.isNaN(date.getTime()) ? null : date;
+};
+
+const getDayDiffLocal = (now: Date, last: Date | string | null | undefined): number | null => {
+  const lastDate = toDateOrNull(last);
+  if (!lastDate) return null;
+
+  const nowDay = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+  const lastDay = new Date(
+    lastDate.getFullYear(),
+    lastDate.getMonth(),
+    lastDate.getDate()
+  ).getTime();
+  const diff = Math.round((nowDay - lastDay) / 86400000);
+  return diff < 0 ? 0 : diff;
+};
+
+const applyStabilizeCompletion = (
+  prev: StabilizeStats,
+  now: Date = new Date()
+): { next: StabilizeStats; flags: StabilizeCompletionFlags } => {
+  const diff = getDayDiffLocal(now, prev.lastStabilizeAt);
+  const sameDay = diff === 0;
+  const reset = diff !== null && diff > 1;
+
+  let nextStreakDays = prev.stabilizeStreakDays;
+  if (diff === null) {
+    nextStreakDays = 1;
+  } else if (sameDay) {
+    nextStreakDays = Math.max(1, prev.stabilizeStreakDays);
+  } else if (diff === 1) {
+    nextStreakDays = prev.stabilizeStreakDays + 1;
+  } else {
+    nextStreakDays = 1;
+  }
+
+  return {
+    next: {
+      stabilizesTotal: prev.stabilizesTotal + 1,
+      stabilizeStreakDays: nextStreakDays,
+      lastStabilizeAt: now,
+    },
+    flags: {
+      sameDay,
+      reset,
+      incremented: true,
+    },
+  };
+};
 
 /**
  * Hybrid storage engine that selectively routes sensitive data to SecureStore

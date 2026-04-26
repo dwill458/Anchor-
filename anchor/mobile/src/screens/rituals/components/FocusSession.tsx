@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Animated as RNAnimated,
-  Dimensions,
+  // DEFERRED: Dimensions,
   Platform,
   Pressable,
   StyleSheet,
@@ -48,7 +48,8 @@ const RING_STROKE = 6;
 
 const AnimatedCircle = Animated.createAnimatedComponent(Circle);
 
-type SessionStatus = 'running' | 'paused' | 'completed';
+// DEFERRED: type SessionStatus = 'running' | 'paused' | 'completed';
+type SessionStatus = 'arrive' | 'running' | 'paused' | 'completed';
 
 export type FocusSessionProps = {
   intentionText: string;
@@ -251,20 +252,32 @@ export const FocusSession: React.FC<FocusSessionProps> = ({
 
   const defaultDurationSeconds = useSettingsStore((state) => state.focusSessionDuration ?? 30);
   const focusSessionAudio = useSettingsStore((state) => state.focusSessionAudio ?? 'silent');
+  const arrivePhaseEnabled = useSettingsStore((state) => state.arrivePhaseEnabled ?? true);
   const reduceIntentionVisibility = useSettingsStore((state) => state.reduceIntentionVisibility ?? false);
   const resolvedDurationSeconds = durationSeconds ?? defaultDurationSeconds;
-  const totalMs = Math.max(1000, Math.round(resolvedDurationSeconds * 1000));
   const reduceMotionEnabled = useReduceMotionEnabled();
+  const arrivePhaseDurationMs = 5000;
+  const shouldUseArrivePhase =
+    arrivePhaseEnabled && !reduceMotionEnabled && resolvedDurationSeconds > 5;
+  const effectiveDurationSeconds = shouldUseArrivePhase
+    ? resolvedDurationSeconds - 5
+    : resolvedDurationSeconds;
+  // DEFERRED: const totalMs = Math.max(1000, Math.round(resolvedDurationSeconds * 1000));
+  const totalMs = Math.max(1000, Math.round(effectiveDurationSeconds * 1000));
   const { playSound } = useAudio();
   const { setActiveSession } = useNotificationController();
 
 
-  const [status, setStatus] = useState<SessionStatus>('running');
+  // DEFERRED: const [status, setStatus] = useState<SessionStatus>('running');
+  const [status, setStatus] = useState<SessionStatus>(shouldUseArrivePhase ? 'arrive' : 'running');
+  const [arriveCueIndex, setArriveCueIndex] = useState(0);
   const [secondsRemaining, setSecondsRemaining] = useState(Math.ceil(totalMs / 1000));
   const [groundNoteVisible, setGroundNoteVisible] = useState(!!groundNoteText);
   const groundNoteOpacity = useRef(new RNAnimated.Value(0)).current;
 
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const arriveIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const arriveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const endAtMsRef = useRef<number>(Date.now() + totalMs);
   const remainingMsRef = useRef<number>(totalMs);
   const renderedSecondsRef = useRef<number>(Math.ceil(totalMs / 1000));
@@ -279,6 +292,14 @@ export const FocusSession: React.FC<FocusSessionProps> = ({
   const flare = useSharedValue(0);
 
   const timerDisplay = useMemo(() => formatTime(secondsRemaining), [secondsRemaining]);
+  const arriveGuidanceText =
+    status === 'arrive'
+      ? arriveCueIndex === 0
+        ? 'BREATHE IN'
+        : 'BREATHE OUT'
+      : status === 'completed'
+        ? 'Sealed.'
+        : 'Hold the symbol. Let the words fade.';
 
   // Ground Note (Pattern 2): fade in, then auto-fade after 6s
   useEffect(() => {
@@ -306,6 +327,17 @@ export const FocusSession: React.FC<FocusSessionProps> = ({
     }
   }, []);
 
+  const clearArriveTimers = useCallback(() => {
+    if (arriveIntervalRef.current) {
+      clearInterval(arriveIntervalRef.current);
+      arriveIntervalRef.current = null;
+    }
+    if (arriveTimeoutRef.current) {
+      clearTimeout(arriveTimeoutRef.current);
+      arriveTimeoutRef.current = null;
+    }
+  }, []);
+
   const animateProgressToEnd = useCallback(
     (remainingMs: number) => {
       cancelAnimation(progress);
@@ -329,6 +361,7 @@ export const FocusSession: React.FC<FocusSessionProps> = ({
 
     completionTriggeredRef.current = true;
     clearTickInterval();
+    clearArriveTimers();
     bgSoundRef.current?.stop();
     bgSoundRef.current = null;
 
@@ -361,6 +394,7 @@ export const FocusSession: React.FC<FocusSessionProps> = ({
     onSessionCompleted?.();
   }, [
     animateProgressToEnd,
+    clearArriveTimers,
     clearTickInterval,
     flare,
     focusSessionAudio,
@@ -390,6 +424,24 @@ export const FocusSession: React.FC<FocusSessionProps> = ({
     clearTickInterval();
     intervalRef.current = setInterval(tickCountdown, 250);
   }, [clearTickInterval, tickCountdown]);
+
+  const startRunningPhase = useCallback(
+    (runningMs: number) => {
+      clearArriveTimers();
+      renderedSecondsRef.current = Math.ceil(runningMs / 1000);
+      remainingMsRef.current = runningMs;
+      endAtMsRef.current = Date.now() + runningMs;
+      setSecondsRemaining(renderedSecondsRef.current);
+      setStatus('running');
+
+      bgSoundRef.current?.stop();
+      bgSoundRef.current =
+        focusSessionAudio === 'ambient' ? playSound('prime-begin', 1, true) : null;
+      animateProgressToEnd(runningMs);
+      startTickInterval();
+    },
+    [animateProgressToEnd, clearArriveTimers, focusSessionAudio, playSound, startTickInterval]
+  );
 
   const handlePause = useCallback(() => {
     if (status !== 'running') {
@@ -453,12 +505,14 @@ export const FocusSession: React.FC<FocusSessionProps> = ({
   useEffect(() => {
     continuePressedRef.current = false;
     completionTriggeredRef.current = false;
+    setArriveCueIndex(0);
 
     renderedSecondsRef.current = Math.ceil(totalMs / 1000);
     remainingMsRef.current = totalMs;
     endAtMsRef.current = Date.now() + totalMs;
 
-    setStatus('running');
+    // DEFERRED: setStatus('running');
+    setStatus(shouldUseArrivePhase ? 'arrive' : 'running');
     setSecondsRemaining(renderedSecondsRef.current);
 
     progress.value = 0;
@@ -467,13 +521,26 @@ export const FocusSession: React.FC<FocusSessionProps> = ({
     glowBoost.value = 0.05;
 
     bgSoundRef.current?.stop();
-    bgSoundRef.current =
-      focusSessionAudio === 'ambient' ? playSound('prime-begin', 1, true) : null;
-    animateProgressToEnd(totalMs);
-    startTickInterval();
+    // DEFERRED: bgSoundRef.current =
+    // DEFERRED:   focusSessionAudio === 'ambient' ? playSound('prime-begin', 1, true) : null;
+    bgSoundRef.current = null;
+
+    if (shouldUseArrivePhase) {
+      progress.value = 0;
+      breathScale.value = 1;
+      arriveIntervalRef.current = setInterval(() => {
+        setArriveCueIndex((currentIndex) => (currentIndex === 0 ? 1 : 0));
+      }, arrivePhaseDurationMs / 2);
+      arriveTimeoutRef.current = setTimeout(() => {
+        startRunningPhase(totalMs);
+      }, arrivePhaseDurationMs);
+    } else {
+      startRunningPhase(totalMs);
+    }
 
     return () => {
       clearTickInterval();
+      clearArriveTimers();
       cancelAnimation(progress);
       cancelAnimation(breathScale);
       cancelAnimation(flare);
@@ -482,7 +549,7 @@ export const FocusSession: React.FC<FocusSessionProps> = ({
       bgSoundRef.current?.stop();
       bgSoundRef.current = null;
     };
-  }, [focusSessionAudio, playSound, totalMs]);
+  }, [clearArriveTimers, focusSessionAudio, playSound, shouldUseArrivePhase, startRunningPhase, totalMs]);
 
   useEffect(() => {
     if (reduceMotionEnabled || status !== 'running') {
@@ -585,6 +652,7 @@ export const FocusSession: React.FC<FocusSessionProps> = ({
               style={[
                 styles.anchorWrap,
                 anchorBreathStyle,
+                status === 'arrive' ? styles.anchorWrapArrive : null,
                 {
                   top: RING_STROKE * 2 + (RING_RADIUS * 2 - ANCHOR_SIZE) / 2,
                   left: (RING_SIZE - ANCHOR_SIZE) / 2,
@@ -593,21 +661,23 @@ export const FocusSession: React.FC<FocusSessionProps> = ({
             >
               <AnchorHero anchorImageUri={anchorImageUri} size={ANCHOR_SIZE} />
             </Animated.View>
-            <Animated.View style={[styles.timerChipWrap, timerChipStyle]}>
-              <GlassSurface style={styles.timerChip} intensity={16}>
-                <Text style={styles.timerLabel}>remaining</Text>
-                <Text style={styles.timerValue} testID="focus-session-timer">
-                  {timerDisplay}
-                </Text>
-              </GlassSurface>
-            </Animated.View>
+            {status !== 'arrive' ? (
+              <Animated.View style={[styles.timerChipWrap, timerChipStyle]}>
+                <GlassSurface style={styles.timerChip} intensity={16}>
+                  <Text style={styles.timerLabel}>remaining</Text>
+                  <Text style={styles.timerValue} testID="focus-session-timer">
+                    {timerDisplay}
+                  </Text>
+                </GlassSurface>
+              </Animated.View>
+            ) : null}
           </View>
         </View>
 
         <View style={styles.footer}>
           <GlassSurface style={styles.guidanceCard} intensity={16}>
             <Text style={styles.guidanceText} testID="focus-session-guidance">
-              {status === 'completed' ? 'Sealed.' : 'Hold the symbol. Let the words fade.'}
+              {arriveGuidanceText}
             </Text>
           </GlassSurface>
 
@@ -756,6 +826,9 @@ const styles = StyleSheet.create({
   },
   anchorWrap: {
     position: 'absolute',
+  },
+  anchorWrapArrive: {
+    opacity: 0.8,
   },
   anchorHero: {
     overflow: 'hidden',

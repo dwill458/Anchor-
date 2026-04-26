@@ -84,6 +84,9 @@ export type AIStyle =
   | 'ink_brush'
   | 'gold_leaf'
   | 'cosmic'
+  | 'architectural_trace'
+  | 'lunar_etch'
+  | 'resonance_rings'
   | 'minimal_line'
   | 'obsidian_mono'
   | 'aurora_glow'
@@ -123,6 +126,35 @@ const STRICT_NEGATIVE_PROMPT =
  * Each prompt now explicitly emphasizes preserving exact geometry
  */
 const STYLE_CONFIGS: Record<AIStyle, StyleConfig> = {
+  architectural_trace: {
+    name: 'architectural_trace',
+    method: 'canny',
+    category: 'geometric',
+    prompt:
+      'Restore and beautify the existing sigil. Preserve exact geometry and stroke paths. Apply architectural drafting precision as surface treatment only. Measured blueprint lines, subtle grid discipline, clean technical elegance, no ornamental drift. The original sigil geometry is untouched.',
+    negativePrompt: STRICT_NEGATIVE_PROMPT + ', organic, loose sketching, messy, hand-drawn',
+    conditioning_scale: 1.25,
+    guidance_scale: 6.5,
+    strength: 0.2,
+  },
+  lunar_etch: {
+    name: 'lunar_etch',
+    method: 'lineart',
+    category: 'hybrid',
+    prompt:
+      'Restore and beautify the existing sigil. Preserve exact geometry and stroke paths. Apply moonlit silver etching as surface treatment only. Pale metallic highlights, crescent glints, quiet darkness, refined contrast. The sigil structure remains exactly as drawn.',
+    negativePrompt: STRICT_NEGATIVE_PROMPT + ', warm colors, noisy texture, cartoon, photography',
+    strength: 0.24,
+  },
+  resonance_rings: {
+    name: 'resonance_rings',
+    method: 'lineart',
+    category: 'hybrid',
+    prompt:
+      'Restore and beautify the existing sigil. Preserve exact geometry and stroke paths. Apply concentric resonance rings as surface treatment only. Layered pulse circles, subtle waveform halos, radiating energy in the background. The sigil structure is preserved exactly.',
+    negativePrompt: STRICT_NEGATIVE_PROMPT + ', sharp geometry, clutter, static noise, photorealism',
+    strength: 0.26,
+  },
   watercolor: {
     name: 'watercolor',
     method: 'lineart',

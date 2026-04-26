@@ -34,11 +34,11 @@ export const FREE_VISIBLE_STYLE_COUNT = 4;
 
 export const REFINE_STYLES: RefineStyleOption[] = [
   {
-    id: 'minimal_line',
-    title: 'Minimal Line',
+    id: 'architectural_trace',
+    title: 'Architectural Trace',
     category: 'GEOMETRIC',
-    iconName: 'Target',
-    shortDescription: 'Crisp clarity and restraint.',
+    iconName: 'Sliders',
+    shortDescription: 'Drafted precision and measured balance.',
     recommendedForFirstAnchor: true,
   },
   {
@@ -78,11 +78,11 @@ export const REFINE_STYLES: RefineStyleOption[] = [
     shortDescription: 'Orbital celestial energy.',
   },
   {
-    id: 'obsidian_mono',
-    title: 'Obsidian Mono',
-    category: 'MODERN',
-    iconName: 'Sliders',
-    shortDescription: 'High-contrast monochrome depth.',
+    id: 'lunar_etch',
+    title: 'Lunar Etch',
+    category: 'LUMINOUS',
+    iconName: 'Crown',
+    shortDescription: 'Silver etching under moonlit contrast.',
   },
   {
     id: 'aurora_glow',
@@ -99,11 +99,11 @@ export const REFINE_STYLES: RefineStyleOption[] = [
     shortDescription: 'Warm ember edge lighting.',
   },
   {
-    id: 'echo_chamber',
-    title: 'Echo Chamber',
+    id: 'resonance_rings',
+    title: 'Resonance Rings',
     category: 'MYSTIC',
     iconName: 'Repeat',
-    shortDescription: 'Layered cyclical resonance.',
+    shortDescription: 'Pulses radiating through layered rings.',
   },
   {
     id: 'monolith_ink',

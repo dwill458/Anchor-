@@ -299,6 +299,7 @@ export interface SettingsState {
   threadStrengthSensitivity: ThreadStrengthSensitivity;
   restDays: number[];
   restDayPolicy: RestDayPolicy;
+  arrivePhaseEnabled: boolean;
   reduceIntentionVisibility: boolean;
 
   // Appearance
@@ -341,6 +342,7 @@ export interface SettingsState {
   setThreadStrengthSensitivity: (sensitivity: ThreadStrengthSensitivity) => void;
   setRestDays: (days: number[]) => void;
   setRestDayPolicy: (policy: RestDayPolicy) => void;
+  setArrivePhaseEnabled: (enabled: boolean) => void;
   setReduceIntentionVisibility: (enabled: boolean) => void;
 
   // Actions - Appearance
@@ -390,6 +392,7 @@ const DEFAULT_SETTINGS = {
   threadStrengthSensitivity: 'balanced' as ThreadStrengthSensitivity,
   restDays: [] as number[],
   restDayPolicy: 'build' as RestDayPolicy,
+  arrivePhaseEnabled: true,
   reduceIntentionVisibility: false,
   theme: 'zen_architect' as const,
   accentColor: '#D4AF37',
@@ -552,6 +555,13 @@ export const useSettingsStore = create<SettingsState>()(
         });
       },
 
+      setArrivePhaseEnabled: (enabled) => {
+        triggerHaptic();
+        set({
+          arrivePhaseEnabled: enabled,
+        });
+      },
+
       setReduceIntentionVisibility: (enabled) => {
         triggerHaptic();
         set({
@@ -688,9 +698,15 @@ export const useSettingsStore = create<SettingsState>()(
     {
       name: 'anchor-settings-storage',
       storage: createJSONStorage(() => AsyncStorage),
-      version: 10,
+      // DEFERRED: version: 10,
+      version: 11,
       // Handle migration
       migrate: (persistedState: any, version: number) => {
+        if (version === 10) {
+          return withDeveloperSettingsDefaults(persistedState, {
+            arrivePhaseEnabled: true,
+          });
+        }
         if (version === 9) {
           return withDeveloperSettingsDefaults(persistedState);
         }
@@ -818,6 +834,7 @@ export const useSettingsStore = create<SettingsState>()(
         threadStrengthSensitivity: state.threadStrengthSensitivity,
         restDays: state.restDays,
         restDayPolicy: state.restDayPolicy,
+        arrivePhaseEnabled: state.arrivePhaseEnabled,
         reduceIntentionVisibility: state.reduceIntentionVisibility,
         theme: state.theme,
         accentColor: state.accentColor,

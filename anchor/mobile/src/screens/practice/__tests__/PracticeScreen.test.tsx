@@ -283,7 +283,12 @@ describe('PracticeScreen', () => {
     fireEvent.press(screen.getByText('Begin Priming'));
 
     await waitFor(() => {
-      expect(mockNavigate).toHaveBeenCalledWith('StabilizeRitual', { anchorId: 'a55' });
+      expect(mockNavigateToVault).toHaveBeenCalledWith('Ritual', {
+        anchorId: 'a55',
+        ritualType: 'ritual',
+        durationSeconds: 14 * 60,
+        returnTo: 'practice',
+      });
     });
   });
 
