@@ -347,6 +347,9 @@ export type AIStyle =
   | 'ink_brush'
   | 'gold_leaf'
   | 'cosmic'
+  | 'architectural_trace'
+  | 'lunar_etch'
+  | 'resonance_rings'
   | 'minimal_line'
   | 'obsidian_mono'
   | 'aurora_glow'
@@ -741,7 +744,7 @@ export type RootStackParamList = {
 
 export type PracticeStackParamList = {
   PracticeHome: undefined;
-  StabilizeRitual: { anchorId: string };
+  // DEFERRED: StabilizeRitual: { anchorId: string };
   Evolve: undefined;
 };
 

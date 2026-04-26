@@ -857,7 +857,7 @@ const AnchorDetailsScreen = ({ navigation, route }) => {
       anchorId,
       intention: burnAnchor?.intentionText ?? burnAnchor?.intention ?? anchor.intention,
       sigilSvg: burnAnchor?.reinforcedSigilSvg ?? burnAnchor?.baseSigilSvg ?? '',
-      enhancedImageUrl: resolveBurnArtworkUri(burnAnchor) || anchor.sigilUri || undefined,
+      enhancedImageUrl: anchor.sigilUri || anchor.enhancedImageUrl || burnAnchor?.enhancedImageUrl || undefined,
     });
   };
 

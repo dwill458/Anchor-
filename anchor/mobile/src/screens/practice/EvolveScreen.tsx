@@ -16,7 +16,6 @@ import { colors, spacing, typography } from '@/theme';
 import { useAuthStore } from '@/stores/authStore';
 import { useAnchorStore } from '@/stores/anchorStore';
 import { useSettingsStore } from '@/stores/settingsStore';
-import { getEffectiveStabilizeStreakDays, toDateOrNull } from '@/utils/stabilizeStats';
 
 import { RitualScaffold } from '@/screens/rituals/components/RitualScaffold';
 import { RitualTopBar } from '@/screens/rituals/components/RitualTopBar';
@@ -33,6 +32,33 @@ type PathCardModel = {
   title: string;
   description: string;
   icon: React.ReactNode;
+};
+
+const toDateOrNull = (value: Date | string | null | undefined): Date | null => {
+  if (!value) return null;
+  const date = value instanceof Date ? value : new Date(value);
+  return Number.isNaN(date.getTime()) ? null : date;
+};
+
+const getEffectiveStabilizeStreakDays = (
+  streak: number,
+  last: Date | string | null | undefined,
+  now: Date = new Date()
+): number => {
+  const lastDate = toDateOrNull(last);
+  if (!lastDate) return 0;
+
+  const nowDay = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+  const lastDay = new Date(
+    lastDate.getFullYear(),
+    lastDate.getMonth(),
+    lastDate.getDate()
+  ).getTime();
+  const diff = Math.max(0, Math.round((nowDay - lastDay) / 86400000));
+
+  if (diff === 0) return Math.max(1, streak);
+  if (diff === 1) return Math.max(0, streak);
+  return 0;
 };
 
 const GlassCard: React.FC<{ children: React.ReactNode; style?: any }> = ({ children, style }) => {
@@ -103,7 +129,7 @@ export const EvolveScreen: React.FC = () => {
     {
       key: 'grounding',
       title: 'Grounding',
-      description: 'Stabilize variants, longer resets.',
+      description: 'Longer resets and settling rituals.',
       icon: <Feather color={colors.gold} size={22} />,
     },
     {
@@ -128,14 +154,6 @@ export const EvolveScreen: React.FC = () => {
 
   const navigateToCreateAnchor = () => {
     navigateToVault('CreateAnchor');
-  };
-
-  const navigateToStabilize = (anchor: Anchor | undefined) => {
-    if (!anchor) {
-      navigateToCreateAnchor();
-      return;
-    }
-    navigation.navigate('StabilizeRitual', { anchorId: anchor.id });
   };
 
   const navigateToReconnect = (anchor: Anchor | undefined) => {
@@ -184,11 +202,6 @@ export const EvolveScreen: React.FC = () => {
 
                 {path.key === 'grounding' ? (
                   <View style={styles.actionsRow}>
-                    <ActionChip
-                      label="Stabilize (30s)"
-                      onPress={() => navigateToStabilize(mostRecentAnchor)}
-                      emphasized
-                    />
                     <ActionChip
                       label="Longer Reset (2m)"
                       onPress={() => {}}

@@ -108,7 +108,7 @@ export default function AIAnalysisScreen() {
       distilledLetters,
       baseSigilSvg: sigilSvg || '',
       structureVariant: (sigilVariant as any) || 'balanced',
-      styleChoice: (analysis.aesthetic as any) || 'minimal_line',
+      styleChoice: (analysis.aesthetic as any) || 'architectural_trace',
     });
   };
 
