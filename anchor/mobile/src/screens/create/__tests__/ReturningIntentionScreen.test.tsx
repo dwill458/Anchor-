@@ -1,6 +1,6 @@
 import React from 'react';
 import { TextInput } from 'react-native';
-import { act, fireEvent, render, screen } from '@testing-library/react-native';
+import { fireEvent, render, screen } from '@testing-library/react-native';
 import ReturningIntentionScreen from '../ReturningIntentionScreen';
 
 const mockNavigate = jest.fn();
@@ -73,7 +73,6 @@ jest.mock('@/components/common', () => ({
 
 describe('ReturningIntentionScreen', () => {
   beforeEach(() => {
-    jest.useFakeTimers();
     mockNavigate.mockClear();
     mockSetPendingForgeIntent.mockClear();
     mockClearPendingForgeIntent.mockClear();
@@ -82,10 +81,6 @@ describe('ReturningIntentionScreen', () => {
     mockIsAuthenticated = true;
     mockHasActiveEntitlement = true;
     mockAnchorCount = 1;
-  });
-
-  afterEach(() => {
-    jest.useRealTimers();
   });
 
   it('prefills the pending forge intent and clears it after consuming', () => {
@@ -97,16 +92,13 @@ describe('ReturningIntentionScreen', () => {
     expect(mockClearPendingForgeIntent).toHaveBeenCalled();
   });
 
-  it('routes unauthenticated users to auth gate and preserves the typed intention', () => {
+  it('routes unauthenticated users to auth gate and preserves the typed intention', async () => {
     mockIsAuthenticated = false;
     render(<ReturningIntentionScreen />);
 
     const input = screen.UNSAFE_getByType(TextInput);
     fireEvent.changeText(input, 'Hold steady');
-    act(() => {
-      jest.advanceTimersByTime(250);
-    });
-
+    await new Promise((resolve) => setTimeout(resolve, 350));
     fireEvent.press(screen.getByText('Begin'));
 
     expect(mockSetPendingForgeIntent).toHaveBeenCalledWith('Hold steady');
@@ -114,16 +106,13 @@ describe('ReturningIntentionScreen', () => {
     expect(mockNavigate).toHaveBeenCalledWith('AuthGate');
   });
 
-  it('routes authenticated users without entitlement to paywall', () => {
+  it('routes authenticated users without entitlement to paywall', async () => {
     mockHasActiveEntitlement = false;
     render(<ReturningIntentionScreen />);
 
     const input = screen.UNSAFE_getByType(TextInput);
     fireEvent.changeText(input, 'Hold steady');
-    act(() => {
-      jest.advanceTimersByTime(250);
-    });
-
+    await new Promise((resolve) => setTimeout(resolve, 350));
     fireEvent.press(screen.getByText('Begin'));
 
     expect(mockSetPendingForgeIntent).toHaveBeenCalledWith('Hold steady');

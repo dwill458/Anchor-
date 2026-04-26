@@ -90,6 +90,16 @@ const applyStabilizeCompletion = (
  */
 const SECURE_KEYS = ['token'];
 
+const createClearedPendingFirstAnchorState = () => ({
+  shouldRedirectToCreation: false,
+  pendingForgeIntent: null,
+  pendingForgeResumeTarget: null,
+  pendingFirstAnchorDraft: null,
+  pendingFirstAnchorMutations: [] as PendingFirstAnchorMutation[],
+  isFinalizingPendingFirstAnchor: false,
+  pendingFirstAnchorError: null,
+});
+
 const hybridStorage: StateStorage = {
   getItem: async (name: string): Promise<string | null> => {
     const baseData = await AsyncStorage.getItem(name);
@@ -429,10 +439,7 @@ export const useAuthStore = create<AuthState>()(
 
       clearPendingFirstAnchorState: () =>
         set({
-          pendingFirstAnchorDraft: null,
-          pendingFirstAnchorMutations: [],
-          pendingFirstAnchorError: null,
-          isFinalizingPendingFirstAnchor: false,
+          ...createClearedPendingFirstAnchorState(),
         }),
 
       clearPendingFirstAnchorError: () =>
@@ -809,12 +816,9 @@ export const useAuthStore = create<AuthState>()(
           isAuthenticated: false,
           isOfflineMode: false,
           anchorCount: 0,
-          pendingForgeIntent: null,
-          pendingForgeResumeTarget: null,
           profileData: null,
           profileLastFetched: null,
-          isFinalizingPendingFirstAnchor: false,
-          pendingFirstAnchorError: null,
+          ...createClearedPendingFirstAnchorState(),
         }),
     }),
     {

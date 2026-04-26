@@ -539,7 +539,7 @@ function replaceSigilImage(primaryUri, fallbackUri, callback) {
     if (callback) callback();
   };
 
-  const timeoutId = setTimeout(finish, 1000);
+  const timeoutId = setTimeout(finish, 8000);
 
   let attemptedFallback = false;
   img.onload = () => {

@@ -258,6 +258,10 @@ export const ProfileScreen: React.FC = () => {
   const depth = getDepthLevel(totalPrimes);
   const nextDepth = getNextDepthLevel(totalPrimes);
   const depthProgress = getDepthProgress(totalPrimes);
+  const isCompactProfileLayout = width < 420;
+  const identityTextMaxWidth = isCompactProfileLayout
+    ? Math.min(120, Math.floor(width * 0.27))
+    : 165;
 
   const resolvedName =
     name || user?.displayName || user?.email?.split("@")[0] || "Practitioner";
@@ -355,29 +359,35 @@ export const ProfileScreen: React.FC = () => {
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
-        <View style={styles.identityRow}>
+        <View
+          style={[
+            styles.identityRow,
+            isCompactProfileLayout ? styles.identityRowCompact : null,
+          ]}
+        >
           <ProfileHeader
             displayName={resolvedName}
             subscriptionStatus={resolvedSubscriptionStatus}
           />
 
-          <View style={styles.identityTextWrap}>
-            <Text style={styles.identityName} numberOfLines={1}>
+          <View style={[styles.identityTextWrap, { maxWidth: identityTextMaxWidth }]}>
+            <Text style={styles.identityName}>
               {resolvedName}
             </Text>
             {resolvedAxiom ? (
-              <Text style={styles.identityAxiom} numberOfLines={1}>
+              <Text style={styles.identityAxiom}>
                 {resolvedAxiom}
               </Text>
             ) : null}
-            <Text
-              style={styles.memberSince}
-            >{`Member since ${memberSinceLabel}`}</Text>
+            <Text style={styles.memberSince}>{`Member since ${memberSinceLabel}`}</Text>
+            <Pressable
+              hitSlop={8}
+              onPress={() => setEditSheetOpen(true)}
+              style={styles.editButton}
+            >
+              <Text style={styles.editLabel}>Edit</Text>
+            </Pressable>
           </View>
-
-          <Pressable hitSlop={8} onPress={() => setEditSheetOpen(true)}>
-            <Text style={styles.editLabel}>Edit</Text>
-          </Pressable>
         </View>
 
         <Pressable onPress={() => setProgressionSheetVisible(true)}>
@@ -586,24 +596,31 @@ const styles = StyleSheet.create({
   },
   identityRow: {
     flexDirection: "row",
-    alignItems: "center",
+    alignItems: "flex-start",
     gap: spacing.md,
     marginBottom: spacing.lg,
   },
+  identityRowCompact: {
+    gap: spacing.sm,
+  },
   identityTextWrap: {
-    flex: 1,
+    flexShrink: 1,
+    minWidth: 0,
+    paddingTop: 6,
   },
   identityName: {
     fontFamily: typography.fonts.bodySerif,
-    fontSize: 26,
+    fontSize: 24,
     color: colors.bone,
     letterSpacing: 0.4,
+    lineHeight: 30,
   },
   identityAxiom: {
-    marginTop: 2,
+    marginTop: 4,
     fontFamily: typography.fonts.bodySerifItalic,
     fontSize: 13,
     color: withAlpha(colors.gold, 0.62),
+    lineHeight: 18,
   },
   memberSince: {
     marginTop: 4,
@@ -611,6 +628,11 @@ const styles = StyleSheet.create({
     fontSize: 11,
     color: withAlpha(colors.silver, 0.42),
     letterSpacing: 0.8,
+    lineHeight: 15,
+  },
+  editButton: {
+    marginTop: 8,
+    alignSelf: "flex-start",
   },
   editLabel: {
     fontFamily: typography.fonts.heading,
@@ -727,19 +749,22 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "flex-start",
-    marginBottom: 12,
+    marginBottom: 14,
   },
   depthLevelName: {
     fontFamily: typography.fonts.bodySerif,
     fontSize: 22,
+    lineHeight: 28,
   },
   depthPrimeCountWrap: {
     alignItems: "flex-end",
+    minWidth: 74,
+    paddingTop: 2,
   },
   depthPrimeCount: {
     fontFamily: typography.fonts.heading,
-    fontSize: 32,
-    lineHeight: 34,
+    fontSize: 30,
+    lineHeight: 32,
     color: colors.gold,
   },
   depthPrimeCountLabel: {
@@ -747,6 +772,7 @@ const styles = StyleSheet.create({
     fontSize: 10,
     color: withAlpha(colors.silver, 0.4),
     letterSpacing: 0.8,
+    marginTop: 2,
   },
   depthProgressRow: {
     flexDirection: "row",

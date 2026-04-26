@@ -5,7 +5,12 @@ import { render, screen, fireEvent } from '@testing-library/react-native';
 const mockNavigate = jest.fn();
 jest.mock('@react-navigation/native', () => ({
     ...jest.requireActual('@react-navigation/native'),
-    useNavigation: () => ({ navigate: mockNavigate, goBack: jest.fn(), replace: jest.fn() }),
+    useNavigation: () => ({
+        navigate: mockNavigate,
+        push: mockNavigate,
+        goBack: jest.fn(),
+        replace: jest.fn(),
+    }),
     useRoute: () => ({ params: {} }),
 }));
 
@@ -201,7 +206,7 @@ describe('VaultScreen', () => {
         expect(mockNavigate).toHaveBeenCalledWith('CreateAnchor');
     });
 
-    it('routes unauthenticated returning users to auth gate', () => {
+    it('routes unauthenticated returning users to the create flow', () => {
         mockIsAuthenticated = false;
         mockAnchors = [{
             id: 'a1',
@@ -217,11 +222,10 @@ describe('VaultScreen', () => {
         render(<VaultScreen />);
         fireEvent.press(screen.getByLabelText('Create new anchor'));
 
-        expect(mockSetPendingForgeResumeTarget).toHaveBeenCalledWith('CreateAnchor');
-        expect(mockNavigate).toHaveBeenCalledWith('AuthGate');
+        expect(mockNavigate).toHaveBeenCalledWith('CreateAnchor');
     });
 
-    it('routes authenticated users without entitlement to paywall', () => {
+    it('routes authenticated users without entitlement to the create flow', () => {
         mockHasActiveEntitlement = false;
         mockAnchors = [{
             id: 'a1',
@@ -237,7 +241,6 @@ describe('VaultScreen', () => {
         render(<VaultScreen />);
         fireEvent.press(screen.getByLabelText('Create new anchor'));
 
-        expect(mockSetPendingForgeResumeTarget).toHaveBeenCalledWith('CreateAnchor');
-        expect(mockNavigate).toHaveBeenCalledWith('Paywall');
+        expect(mockNavigate).toHaveBeenCalledWith('CreateAnchor');
     });
 });

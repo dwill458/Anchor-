@@ -15,7 +15,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
-import { useNavigation } from '@react-navigation/native';
+import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { RootStackParamList } from '@/types';
 import { distillIntention } from '@/utils/sigil/distillation';
@@ -114,6 +114,28 @@ export default function IntentionInputScreen() {
             useNativeDriver: true,
         }).start();
     }, []);
+
+    useFocusEffect(
+        React.useCallback(() => {
+            setIntention('');
+            setCharCount(0);
+            setCanSubmit(false);
+            setIsFocused(false);
+            setTenseNudge(false);
+            setUndertoneText(null);
+
+            if (idleTimerRef.current) clearTimeout(idleTimerRef.current);
+            if (tenseDebounceRef.current) clearTimeout(tenseDebounceRef.current);
+
+            undertoneOpacity.setValue(0);
+            focusAnim.setValue(0);
+
+            return () => {
+                if (idleTimerRef.current) clearTimeout(idleTimerRef.current);
+                if (tenseDebounceRef.current) clearTimeout(tenseDebounceRef.current);
+            };
+        }, [focusAnim, idleTimerRef, tenseDebounceRef, undertoneOpacity])
+    );
 
     // Cleanup idle timer on unmount
     useEffect(() => () => {

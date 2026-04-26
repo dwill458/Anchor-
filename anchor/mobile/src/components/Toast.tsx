@@ -4,7 +4,7 @@
  * Accessible toast notifications for user feedback.
  */
 
-import React, { useEffect, useRef } from 'react';
+import React, { useCallback, useEffect, useRef } from 'react';
 import { View, Text, StyleSheet, Animated, TouchableOpacity } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as Haptics from 'expo-haptics';
@@ -27,6 +27,36 @@ export const Toast: React.FC<ToastProps> = ({
 }) => {
   const opacity = useRef(new Animated.Value(0)).current;
   const translateY = useRef(new Animated.Value(-100)).current;
+  const dismissTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const isDismissingRef = useRef(false);
+
+  const handleDismiss = useCallback(() => {
+    if (isDismissingRef.current) {
+      return;
+    }
+
+    isDismissingRef.current = true;
+
+    if (dismissTimerRef.current) {
+      clearTimeout(dismissTimerRef.current);
+      dismissTimerRef.current = null;
+    }
+
+    Animated.parallel([
+      Animated.timing(opacity, {
+        toValue: 0,
+        duration: 200,
+        useNativeDriver: true,
+      }),
+      Animated.timing(translateY, {
+        toValue: -100,
+        duration: 200,
+        useNativeDriver: true,
+      }),
+    ]).start(() => {
+      onDismiss?.();
+    });
+  }, [onDismiss, opacity, translateY]);
 
   useEffect(() => {
     // Haptic feedback on show
@@ -55,29 +85,17 @@ export const Toast: React.FC<ToastProps> = ({
     ]).start();
 
     // Auto-dismiss after duration
-    const timer = setTimeout(() => {
+    dismissTimerRef.current = setTimeout(() => {
       handleDismiss();
     }, duration);
 
-    return () => clearTimeout(timer);
-  }, []);
-
-  const handleDismiss = () => {
-    Animated.parallel([
-      Animated.timing(opacity, {
-        toValue: 0,
-        duration: 200,
-        useNativeDriver: true,
-      }),
-      Animated.timing(translateY, {
-        toValue: -100,
-        duration: 200,
-        useNativeDriver: true,
-      }),
-    ]).start(() => {
-      onDismiss?.();
-    });
-  };
+    return () => {
+      if (dismissTimerRef.current) {
+        clearTimeout(dismissTimerRef.current);
+        dismissTimerRef.current = null;
+      }
+    };
+  }, [duration, handleDismiss, opacity, translateY, type]);
 
   const getColors = (): [string, string] => {
     switch (type) {

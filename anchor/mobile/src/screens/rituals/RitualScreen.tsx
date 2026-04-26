@@ -394,13 +394,13 @@ export const RitualScreen: React.FC = () => {
           Animated.timing(glowAnim, {
             toValue: 1,
             duration: 1200,
-            easing: EASING.IN_OUT,
+            easing: EASING.TRANSITION,
             useNativeDriver: true,
           }),
           Animated.timing(glowAnim, {
             toValue: 0,
             duration: 1200,
-            easing: EASING.IN_OUT,
+            easing: EASING.TRANSITION,
             useNativeDriver: true,
           }),
         ])
@@ -411,13 +411,13 @@ export const RitualScreen: React.FC = () => {
           Animated.timing(sealPulseAnim, {
             toValue: 1,
             duration: 2000,
-            easing: EASING.IN_OUT,
+            easing: EASING.TRANSITION,
             useNativeDriver: true,
           }),
           Animated.timing(sealPulseAnim, {
             toValue: 0,
             duration: 2000,
-            easing: EASING.IN_OUT,
+            easing: EASING.TRANSITION,
             useNativeDriver: true,
           }),
         ])

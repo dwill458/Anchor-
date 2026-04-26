@@ -223,7 +223,6 @@ export const ThreadStrengthBlock: React.FC<ThreadStrengthBlockProps> = ({
         <View style={styles.numsCol}>
           <Text style={[styles.totalCount, { color: c.num }]}>
             {totalSessionsCount}
-            <Text style={[styles.totalUnit, { color: c.label }]}> days</Text>
           </Text>
           <Text style={[styles.totalLabel, { color: c.label }]}>Total sessions primed</Text>
         </View>
@@ -299,10 +298,6 @@ const styles = StyleSheet.create({
     fontFamily: typography.fontFamily.serifBold,
     fontSize: 32,
     lineHeight: 34,
-  },
-  totalUnit: {
-    fontFamily: typography.fontFamily.serifBold,
-    fontSize: 13,
   },
   totalLabel: {
     fontFamily: typography.fontFamily.sans,
