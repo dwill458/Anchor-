@@ -118,6 +118,26 @@ export const ProfileStackNavigator: React.FC = () => {
         options={{ headerShown: false }}
       />
       <Stack.Screen
+        name="DefaultCharge"
+        component={SessionDefaultsScreen}
+        options={{ headerShown: false }}
+      />
+      <Stack.Screen
+        name="DefaultActivation"
+        component={SessionDefaultsScreen}
+        options={{ headerShown: false }}
+      />
+      <Stack.Screen
+        name="PrimingDefaults"
+        component={SessionDefaultsScreen}
+        options={{ headerShown: false }}
+      />
+      <Stack.Screen
+        name="DefaultFocusMode"
+        component={SessionDefaultsScreen}
+        options={{ headerShown: false }}
+      />
+      <Stack.Screen
         name="DailyPracticeGoal"
         component={DailyPracticeGoalScreen}
         options={{ headerShown: false }}
@@ -162,6 +182,11 @@ export const ProfileStackNavigator: React.FC = () => {
         name="HapticFeedback"
         component={HapticFeedbackScreen}
         options={{ headerTitle: 'Haptic Feedback' }}
+      />
+      <Stack.Screen
+        name="HapticIntensity"
+        component={HapticIntensityScreen}
+        options={{ headerTitle: 'Haptic Intensity' }}
       />
       <Stack.Screen
         name="DataPrivacy"

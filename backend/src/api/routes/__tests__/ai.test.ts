@@ -7,7 +7,10 @@ jest.mock('../../middleware/auth', () => ({
     req.user = { uid: 'firebase-user-1', email: 'test@example.com' };
     next();
   },
-  authMiddleware: (_req: any, _res: any, next: any) => next(),
+  authMiddleware: (req: any, _res: any, next: any) => {
+    req.user = { uid: 'firebase-user-1', email: 'test@example.com' };
+    next();
+  },
 }));
 
 const mockPrisma = {
@@ -45,6 +48,7 @@ jest.mock('../../../services/TTSService', () => ({
 }));
 
 import aiRouter from '../ai';
+import { generateAllMantraAudio, isTTSAvailable } from '../../../services/TTSService';
 
 function buildApp(): Application {
   const app = express();
@@ -106,5 +110,80 @@ describe('POST /api/ai/enhance-controlnet', () => {
     expect(res.body.variationUrls[0]).toBe(
       'http://localhost:8000/uploads/anchors/db-user-1/anchor-1/123e4567-variation-0.png'
     );
+  });
+});
+
+describe('POST /api/ai/mantra/audio', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    mockPrisma.user.findUnique.mockResolvedValue({ id: 'db-user-1' });
+    mockPrisma.anchor.findFirst.mockResolvedValue({ id: 'anchor-1', userId: 'db-user-1' });
+    (isTTSAvailable as jest.Mock).mockReturnValue(true);
+    (generateAllMantraAudio as jest.Mock).mockResolvedValue({
+      syllabic: 'https://cdn.example.com/syllabic.mp3',
+      rhythmic: 'https://cdn.example.com/rhythmic.mp3',
+      phonetic: 'https://cdn.example.com/phonetic.mp3',
+    });
+  });
+
+  it('ignores client-supplied userId and uses the authenticated anchor owner', async () => {
+    const res = await request(buildApp())
+      .post('/api/ai/mantra/audio')
+      .send({
+        mantras: {
+          syllabic: 'CL-OS',
+          rhythmic: 'CLO / S',
+          phonetic: 'klos',
+        },
+        userId: 'attacker-user',
+        anchorId: 'anchor-1',
+        voicePreset: 'neutral_calm',
+      });
+
+    expect(res.status).toBe(200);
+    expect(mockPrisma.user.findUnique).toHaveBeenCalledWith({
+      where: { authUid: 'firebase-user-1' },
+      select: { id: true },
+    });
+    expect(mockPrisma.anchor.findFirst).toHaveBeenCalledWith({
+      where: {
+        id: 'anchor-1',
+        userId: 'db-user-1',
+      },
+      select: {
+        id: true,
+        userId: true,
+      },
+    });
+    expect(generateAllMantraAudio).toHaveBeenCalledWith(
+      {
+        syllabic: 'CL-OS',
+        rhythmic: 'CLO / S',
+        phonetic: 'klos',
+      },
+      'db-user-1',
+      'anchor-1',
+      'neutral_calm'
+    );
+  });
+
+  it('fails closed when the authenticated user does not own the anchor', async () => {
+    mockPrisma.anchor.findFirst.mockResolvedValue(null);
+
+    const res = await request(buildApp())
+      .post('/api/ai/mantra/audio')
+      .send({
+        mantras: {
+          syllabic: 'CL-OS',
+          rhythmic: 'CLO / S',
+          phonetic: 'klos',
+        },
+        userId: 'attacker-user',
+        anchorId: 'anchor-1',
+      });
+
+    expect(res.status).toBe(404);
+    expect(res.body.error).toBe('Anchor not found');
+    expect(generateAllMantraAudio).not.toHaveBeenCalled();
   });
 });

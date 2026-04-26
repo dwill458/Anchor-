@@ -9,7 +9,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import * as FileSystem from 'expo-file-system';
+import * as FileSystem from 'expo-file-system/legacy';
 import { useNavigation } from '@react-navigation/native';
 import Animated, { Easing, useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
 import { WebView } from 'react-native-webview';
@@ -81,43 +81,6 @@ const inferMimeTypeFromUri = (uri: string): string => {
   return 'image/png';
 };
 
-const encodeArrayBufferToBase64 = (buffer: ArrayBuffer): string => {
-  const bytes = new Uint8Array(buffer);
-  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
-  let result = '';
-
-  for (let index = 0; index < bytes.length; index += 3) {
-    const byte1 = bytes[index] ?? 0;
-    const byte2 = bytes[index + 1] ?? 0;
-    const byte3 = bytes[index + 2] ?? 0;
-
-    const encoded1 = byte1 >> 2;
-    const encoded2 = ((byte1 & 3) << 4) | (byte2 >> 4);
-    const encoded3 = ((byte2 & 15) << 2) | (byte3 >> 6);
-    const encoded4 = byte3 & 63;
-
-    result += chars[encoded1];
-    result += chars[encoded2];
-    result += index + 1 < bytes.length ? chars[encoded3] : '=';
-    result += index + 2 < bytes.length ? chars[encoded4] : '=';
-  }
-
-  return result;
-};
-
-const readRemoteUriAsDataUri = async (uri: string): Promise<string> => {
-  const response = await fetch(uri);
-  if (!response.ok) {
-    throw new Error(`Burn artwork request failed with ${response.status}`);
-  }
-
-  const contentType = response.headers.get('content-type') || inferMimeTypeFromUri(uri);
-  const buffer = await response.arrayBuffer();
-  const base64 = encodeArrayBufferToBase64(buffer);
-
-  return `data:${contentType};base64,${base64}`;
-};
-
 const readDeviceFileUriAsDataUri = async (uri: string): Promise<string> => {
   const base64 = await FileSystem.readAsStringAsync(uri, {
     encoding: FileSystem.EncodingType.Base64,
@@ -131,8 +94,10 @@ const resolveWebViewImageUri = async (uri: string): Promise<string> => {
     return uri;
   }
 
+  // Remote HTTPS URLs can be loaded directly by <img> in the WebView — no conversion needed.
+  // Pre-converting to base64 creates payloads >500KB that cause injectJavaScript to fail silently.
   if (isRemoteUri(uri)) {
-    return readRemoteUriAsDataUri(uri);
+    return uri;
   }
 
   if (isDeviceFileUri(uri)) {
@@ -236,7 +201,10 @@ export const BurnAnimationOverlay: React.FC<BurnAnimationOverlayProps> = ({
   }, []);
 
   const queueTimer = useCallback((fn: () => void, delay: number): void => {
-    const timer = setTimeout(fn, delay);
+    const timer = setTimeout(() => {
+      timersRef.current = timersRef.current.filter((queuedTimer) => queuedTimer !== timer);
+      fn();
+    }, delay);
     timersRef.current.push(timer);
   }, []);
 
@@ -463,9 +431,8 @@ export const BurnAnimationOverlay: React.FC<BurnAnimationOverlayProps> = ({
             style={styles.webview}
             onLoad={handleWebViewLoad}
             onMessage={handleWebViewMessage}
-            originWhitelist={['*']}
-            allowFileAccess={true}
-            mixedContentMode="always"
+            originWhitelist={['about:blank', 'https://*']}
+            mixedContentMode="never"
             scrollEnabled={false}
             bounces={false}
             overScrollMode="never"

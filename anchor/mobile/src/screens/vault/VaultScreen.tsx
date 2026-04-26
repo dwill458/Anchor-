@@ -388,7 +388,7 @@ export const VaultScreen: React.FC = () => {
       source: 'vault',
       has_existing_anchors: anchors.length > 0,
     });
-    navigation.navigate(anchors.length === 0 ? 'FirstAnchorCreation' : 'CreateAnchor');
+    navigation.push(anchors.length === 0 ? 'FirstAnchorCreation' : 'CreateAnchor');
   }, [anchors.length, navigation]);
 
   const handleAnchorPress = useCallback(

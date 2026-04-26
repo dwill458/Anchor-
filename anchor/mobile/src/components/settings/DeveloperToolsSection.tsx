@@ -1,6 +1,5 @@
 import React from 'react';
 import { Alert, Pressable, StyleSheet, Text, View } from 'react-native';
-import type { AnchorSettings } from '@/types/settings';
 import NotificationService, { type NotificationType } from '@/services/NotificationService';
 import { useAnchorStore } from '@/stores/anchorStore';
 import { useSettingsStore } from '@/stores/settingsStore';
@@ -102,8 +101,6 @@ const TEST_NOTIFICATION_OPTIONS: Array<{
 ];
 
 export const DeveloperToolsSection: React.FC<DeveloperToolsSectionProps> = ({
-  settings,
-  updateSetting,
   resetSettings,
   onResetOnboarding,
 }) => {

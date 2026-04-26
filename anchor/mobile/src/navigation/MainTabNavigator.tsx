@@ -12,7 +12,7 @@
 import React, { useCallback, useRef } from 'react';
 import { AppState, View, Text, StyleSheet, Pressable } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Home, Compass, Zap } from 'lucide-react-native';
+import { Home, Zap } from 'lucide-react-native';
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
@@ -22,7 +22,6 @@ import * as Haptics from 'expo-haptics';
 
 import { VaultStackNavigator } from './VaultStackNavigator';
 import { PracticeStackNavigator } from './PracticeStackNavigator';
-import { DiscoverScreen } from '../screens/discover';
 import { SwipeableTabContainer } from '../components/transitions/SwipeableTabContainer';
 import { TabNavigationProvider } from '../contexts/TabNavigationContext';
 import { colors } from '@/theme';
@@ -176,6 +175,7 @@ export const MainTabNavigator: React.FC = () => {
   const anchorCount = useAnchorStore((state) => state.anchors.length);
   const shouldRedirectToCreation = useAuthStore((state) => state.shouldRedirectToCreation);
   const hasCheckedAutoOpen = useRef(false);
+  const autoOpenTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const toast = useToast();
 
   const [activeIndex, setActiveIndex] = React.useState(0);
@@ -205,36 +205,50 @@ export const MainTabNavigator: React.FC = () => {
   React.useEffect(() => {
     if (openDailyAnchorAutomatically && anchorCount > 0 && !hasCheckedAutoOpen.current) {
       hasCheckedAutoOpen.current = true;
-      setTimeout(() => {
+      autoOpenTimerRef.current = setTimeout(() => {
         setActiveIndex(0);
       }, 500);
     }
+
+    return () => {
+      if (autoOpenTimerRef.current) {
+        clearTimeout(autoOpenTimerRef.current);
+        autoOpenTimerRef.current = null;
+      }
+    };
   }, [anchorCount, openDailyAnchorAutomatically]);
 
   // Milestone queue drain — one milestone toast per 10s on app foreground
   React.useEffect(() => {
     let timerId: ReturnType<typeof setTimeout> | null = null;
 
+    const clearDrainTimer = () => {
+      if (!timerId) return;
+      clearTimeout(timerId);
+      timerId = null;
+    };
+
     const drain = () => {
       const milestoneId = useTeachingStore.getState().dequeueMilestone();
       if (!milestoneId) return;
       const content = TEACHINGS[milestoneId];
       if (content) toast.success(content.copy);
+      clearDrainTimer();
       timerId = setTimeout(drain, 10000);
     };
 
     const subscription = AppState.addEventListener('change', (nextState) => {
       if (nextState === 'active') {
-        if (timerId) clearTimeout(timerId);
+        clearDrainTimer();
         drain();
       } else {
-        if (timerId) clearTimeout(timerId);
+        clearDrainTimer();
       }
     });
 
     return () => {
       subscription.remove();
-      if (timerId) clearTimeout(timerId);
+      clearDrainTimer();
     };
   }, [toast]);
 
