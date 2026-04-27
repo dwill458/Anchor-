@@ -80,8 +80,8 @@ html, body {
 }
 
 #sigil-image-shell img {
-  width: 100%;
-  height: 100%;
+  width: 82%;
+  height: 82%;
   object-fit: cover;
   padding: 0;
   border-radius: 50%;
@@ -531,6 +531,7 @@ function replaceSigilImage(primaryUri, fallbackUri, callback) {
   const img = document.createElement('img');
   img.decoding = 'async';
   img.alt = '';
+  imageShell.innerHTML = '';
 
   let finished = false;
   const finish = () => {
@@ -544,17 +545,34 @@ function replaceSigilImage(primaryUri, fallbackUri, callback) {
   let attemptedFallback = false;
   img.onload = () => {
     clearTimeout(timeoutId);
-    imageShell.innerHTML = '';
     imageShell.appendChild(img);
+    if (window.ReactNativeWebView) {
+      window.ReactNativeWebView.postMessage(JSON.stringify({
+        event: 'burnArtworkLoaded',
+        usedFallback: attemptedFallback
+      }));
+    }
     requestAnimationFrame(() => {
       setTimeout(finish, 40);
     });
   };
   img.onerror = () => {
     if (!attemptedFallback && fallbackUri && img.src !== fallbackUri) {
+      if (window.ReactNativeWebView) {
+        window.ReactNativeWebView.postMessage(JSON.stringify({
+          event: 'burnArtworkError',
+          stage: 'primary'
+        }));
+      }
       attemptedFallback = true;
       img.src = fallbackUri;
     } else {
+      if (window.ReactNativeWebView) {
+        window.ReactNativeWebView.postMessage(JSON.stringify({
+          event: 'burnArtworkError',
+          stage: attemptedFallback ? 'fallback' : 'primary'
+        }));
+      }
       clearTimeout(timeoutId);
       finish();
     }
