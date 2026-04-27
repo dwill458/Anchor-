@@ -19,8 +19,8 @@ describe('burnRitualWebViewHtml', () => {
 
   it('renders injected artwork as a circular crop inside the sigil shell', () => {
     expect(burnRitualWebViewHtml).toContain('#sigil-image-shell img');
-    expect(burnRitualWebViewHtml).toContain('width: 72%');
-    expect(burnRitualWebViewHtml).toContain('height: 72%');
+    expect(burnRitualWebViewHtml).toContain('width: 82%');
+    expect(burnRitualWebViewHtml).toContain('height: 82%');
     expect(burnRitualWebViewHtml).toContain('object-fit: cover');
     expect(burnRitualWebViewHtml).toContain('border-radius: 50%');
   });
