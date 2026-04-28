@@ -22,6 +22,7 @@ import { useAuthStore } from '@/stores/authStore';
 import type { RootStackParamList } from '@/types';
 import { SettingsRow } from '@/components/settings/SettingsRow';
 import { SettingsSectionBlock } from '@/components/settings/SettingsSectionBlock';
+import NotificationService from '@/services/NotificationService';
 import { useNotificationController } from '../../hooks/useNotificationController';
 import { colors } from '@/theme';
 import {
@@ -311,6 +312,24 @@ export const SettingsScreen: React.FC = () => {
               type="toggle"
               toggleValue={settings.practiceGuidanceEnabled}
               onToggle={(value) => updateSetting('practiceGuidanceEnabled', value)}
+              disabled={isLoading}
+            />
+            <SettingsRow
+              title="Weekly Summary"
+              subtitle="Receive a reflection of your week on Sundays"
+              type="toggle"
+              toggleValue={settings.weeklySummaryEnabled}
+              onToggle={async (value) => {
+                await updateSetting('weeklySummaryEnabled', value);
+                // Also trigger scheduling update since we just changed the toggle
+                if (notifState) {
+                  if (value) {
+                    await NotificationService.scheduleWeeklySummary(notifState.active_hours_end);
+                  } else {
+                    await NotificationService.cancelWeeklySummary();
+                  }
+                }
+              }}
               disabled={isLoading}
             />
 

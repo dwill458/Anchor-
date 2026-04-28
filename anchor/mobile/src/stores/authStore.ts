@@ -712,6 +712,12 @@ export const useAuthStore = create<AuthState>()(
 
         const anchors = useAnchorStore.getState().anchors;
 
+        // If anchors haven't hydrated yet (empty store) but the user already
+        // has a persisted streak, skip — computing against [] would reset the
+        // streak to 0 incorrectly. computeStreak will run again after the next
+        // session when anchors are fully loaded.
+        if (anchors.length === 0 && (user.currentStreak ?? 0) > 0) return;
+
         // Use lastActivatedAt per anchor as the activation proxy (no full
         // activation history is stored client-side).
         const activationProxies = anchors

@@ -260,8 +260,8 @@ export const ProfileScreen: React.FC = () => {
   const depthProgress = getDepthProgress(totalPrimes);
   const isCompactProfileLayout = width < 420;
   const identityTextMaxWidth = isCompactProfileLayout
-    ? Math.min(120, Math.floor(width * 0.27))
-    : 165;
+    ? Math.min(180, Math.floor(width * 0.45))
+    : 220;
 
   const resolvedName =
     name || user?.displayName || user?.email?.split("@")[0] || "Practitioner";
@@ -444,9 +444,9 @@ export const ProfileScreen: React.FC = () => {
         <Pressable onPress={() => setProgressionSheetVisible(true)}>
           <CardShell>
             <Text style={styles.cardViewHint}>VIEW ▾</Text>
+            <SectionLabel>PRACTICE DEPTH</SectionLabel>
             <View style={styles.depthHeaderRow}>
               <View>
-                <SectionLabel>PRACTICE DEPTH</SectionLabel>
                 <Text style={[styles.depthLevelName, { color: depth.color }]}>
                   {depth.label}
                 </Text>
@@ -759,7 +759,7 @@ const styles = StyleSheet.create({
   depthPrimeCountWrap: {
     alignItems: "flex-end",
     minWidth: 74,
-    paddingTop: 2,
+    paddingTop: 6,
   },
   depthPrimeCount: {
     fontFamily: typography.fonts.heading,

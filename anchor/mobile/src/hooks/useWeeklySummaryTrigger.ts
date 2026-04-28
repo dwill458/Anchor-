@@ -58,6 +58,11 @@ export function useWeeklySummaryTrigger(): WeeklySummaryTriggerResult {
   }, [clearDeveloperPreview, currentWeekKey]);
 
   const shouldShow = useMemo(() => {
+    const settings = useSettingsStore.getState();
+    if (!settings.weeklySummaryEnabled && developerPreviewToken === 0) {
+      return false;
+    }
+
     if (developerPreviewToken > 0) {
       return true;
     }
@@ -68,11 +73,10 @@ export function useWeeklySummaryTrigger(): WeeklySummaryTriggerResult {
 
     const now = new Date();
     const isSunday = now.getDay() === 0;
-    const isWithinWindow = now.getHours() >= 18 && now.getHours() <= 23;
     const hasWeeklyPrime = totalPrimes >= 1;
     const hasDismissedThisWeek = dismissedWeekKey === currentWeekKey;
 
-    return isSunday && isWithinWindow && hasWeeklyPrime && !hasDismissedThisWeek;
+    return isSunday && hasWeeklyPrime && !hasDismissedThisWeek;
   }, [currentWeekKey, developerPreviewToken, dismissedWeekKey, hasLoadedDismissalState, totalPrimes]);
 
   return {

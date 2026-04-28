@@ -326,9 +326,8 @@ class NotificationService {
 
   /**
    * Schedule weekly summary.
-   * Default: Sunday evening at 19:00 (7 PM).
    */
-  async scheduleWeeklySummary(): Promise<string | null> {
+  async scheduleWeeklySummary(hour: number = 19): Promise<string | null> {
     await this.cancelWeeklySummary();
 
     return this.scheduleNotification({
@@ -342,7 +341,7 @@ class NotificationService {
       trigger: {
         type: Notifications.SchedulableTriggerInputTypes.CALENDAR,
         weekday: 1,
-        hour: 19,
+        hour,
         minute: 0,
         repeats: true,
         channelId: NOTIFICATION_CHANNELS.WEEKLY_SUMMARY,

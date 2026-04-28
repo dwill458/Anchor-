@@ -29,6 +29,7 @@ const SETTINGS_KEY_MAP: Record<keyof AnchorSettings, string> = {
   reduceIntentionVisibility: 'anchor:settings:reduceIntentionVisibility',
   hapticFeedback: 'anchor:settings:hapticFeedback',
   soundEffectsEnabled: 'anchor:settings:soundEffects',
+  weeklySummaryEnabled: 'anchor:settings:weeklySummaryEnabled',
 };
 
 const FOCUS_DURATION_PRESETS: ReadonlyArray<FocusDuration> = [10, 30, 60];
@@ -116,6 +117,7 @@ const getBridgeDefaults = (): AnchorSettings => {
     reduceIntentionVisibility: settings.reduceIntentionVisibility,
     hapticFeedback: mapHapticIntensityToFeedback(settings.hapticIntensity),
     soundEffectsEnabled: settings.soundEffectsEnabled,
+    weeklySummaryEnabled: settings.weeklySummaryEnabled,
   };
 };
 
@@ -139,6 +141,7 @@ const applySettingsToStores = (settings: AnchorSettings): void => {
     reduceIntentionVisibility: settings.reduceIntentionVisibility,
     hapticIntensity: mapFeedbackToHapticIntensity(settings.hapticFeedback),
     soundEffectsEnabled: settings.soundEffectsEnabled,
+    weeklySummaryEnabled: settings.weeklySummaryEnabled,
     guideMode: settings.practiceGuidanceEnabled,
   }));
 };

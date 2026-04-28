@@ -58,6 +58,9 @@ model Anchor {
   // Intention & Category
   intentionText         String
   category              String   // 'career', 'health', 'wealth', 'relationships', 'personal_growth', 'custom'
+  planetaryTier         String?  @default("saturn") // 'saturn', 'jupiter', 'mars', 'sun', 'venus'
+  classifierVersion     Int      @default(1) // 1=old 8-cat, 2=new 5-tier
+  classifierMeta        Json?    // {confidenceScore, llmUsed, timestamp}
 
   // ───────────────────────────────────────────────────
   // STRUCTURE LINEAGE (New Architecture)

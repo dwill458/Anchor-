@@ -34,11 +34,10 @@ jest.mock('@react-navigation/native', () => ({
 }));
 
 jest.mock('react-native-reanimated', () => {
+  const React = require('react');
   const Reanimated = require('react-native-reanimated/mock');
   Reanimated.default.call = () => { };
   Reanimated.useFrameCallback = jest.fn();
-  // FocusSession uses the legacy Animated API from react-native-reanimated:
-  // `new Animated.Value(n)`, `Animated.timing(...)`, `Animated.createAnimatedComponent()`
   Reanimated.default.Value = class {
     constructor(_val: number) {}
     setValue = jest.fn();
@@ -51,6 +50,12 @@ jest.mock('react-native-reanimated', () => {
   Reanimated.default.parallel = jest.fn(() => ({ start: jest.fn((cb?: () => void) => cb?.()) }));
   Reanimated.default.sequence = jest.fn(() => ({ start: jest.fn((cb?: () => void) => cb?.()) }));
   Reanimated.default.createAnimatedComponent = jest.fn((C: any) => C);
+  // Use React.useRef to return a stable shared-value object across re-renders,
+  // matching real Reanimated behavior (new object each call breaks useCallback deps).
+  Reanimated.useSharedValue = (init: any) => {
+    const ref = React.useRef({ value: init });
+    return ref.current;
+  };
   return Reanimated;
 });
 
@@ -91,6 +96,21 @@ jest.mock('@/hooks/useNotificationController', () => ({
     setActiveSession: mockSetActiveSession,
   }),
 }));
+
+// Helper: make useSettingsStore call the selector so values resolve correctly
+const mockSettingsState = (overrides: Record<string, unknown> = {}) => {
+  const base = {
+    focusSessionDuration: TEST_ACTIVATION_DURATION_SECONDS,
+    focusSessionAudio: 'silent',
+    arrivePhaseEnabled: false,
+    reduceIntentionVisibility: false,
+    primeSessionDuration: 120,
+    ...overrides,
+  };
+  (useSettingsStore as unknown as jest.Mock).mockImplementation((selector: any) =>
+    typeof selector === 'function' ? selector(base) : base
+  );
+};
 
 describe('ActivationScreen', () => {
   let mockGoBack: jest.Mock;
@@ -144,14 +164,13 @@ describe('ActivationScreen', () => {
       params: {
         anchorId: 'test-anchor-id',
         activationType: 'visual',
+        durationOverride: TEST_ACTIVATION_DURATION_SECONDS,
       },
     });
 
     mockNavigateToPractice.mockReset();
 
     mockGetAnchorById.mockReturnValue(mockAnchor);
-    // ActivationScreen uses the selector pattern: useAnchorStore(state => state.fn)
-    // so the mock must call the selector and return what it selects.
     (useAnchorStore as unknown as jest.Mock).mockImplementation((selector: any) => {
       const state = {
         getAnchorById: mockGetAnchorById,
@@ -168,13 +187,16 @@ describe('ActivationScreen', () => {
       anchors: [mockAnchor],
     }));
 
-    (useSettingsStore as unknown as jest.Mock).mockReturnValue({
-      defaultActivation: {
-        type: 'visual',
-        value: TEST_ACTIVATION_DURATION_SECONDS,
-        unit: 'seconds',
-      },
-    });
+    mockSettingsState();
+    // Also mock the static getState used directly by sessionStore's applyDecay
+    (useSettingsStore as any).getState = jest.fn(() => ({
+      focusSessionDuration: TEST_ACTIVATION_DURATION_SECONDS,
+      focusSessionAudio: 'silent',
+      arrivePhaseEnabled: false,
+      reduceIntentionVisibility: false,
+      threadStrengthSensitivity: 1,
+      restDays: [],
+    }));
 
     const toastProvider = require('@/components/ToastProvider');
     toastProvider.useToast.mockReturnValue({
@@ -199,30 +221,34 @@ describe('ActivationScreen', () => {
   it('renders redesigned focus session with required copy', () => {
     const { getByText } = render(<ActivationScreen />);
 
-    expect(getByText('Focus Session')).toBeTruthy();
-    expect(getByText('Intention')).toBeTruthy();
-    expect(getByText('remaining')).toBeTruthy();
-    expect(getByText('Hold the symbol. Let the words fade.')).toBeTruthy();
+    // New design: top bar shows "FOCUS" label and timer on the right
+    expect(getByText('FOCUS')).toBeTruthy();
     expect(getByText('00:02')).toBeTruthy();
+    // First guidance string shown in bottom area during running
+    expect(getByText('See it as already done.')).toBeTruthy();
   });
 
-  it('displays intention text', () => {
-    const { getByText } = render(<ActivationScreen />);
-    expect(getByText('I am confident')).toBeTruthy();
-  });
-
-  it('falls back to safe defaults when default activation settings are missing', () => {
-    (useSettingsStore as unknown as jest.Mock).mockReturnValue({});
-
-    const { getByText } = render(<ActivationScreen />);
-
-    expect(getByText('00:30')).toBeTruthy();
-  });
-
-  it('renders anchor not found when anchor is missing', () => {
+  it('displays anchor not found when anchor is missing', () => {
     mockGetAnchorById.mockReturnValue(undefined);
     const { getByText } = render(<ActivationScreen />);
     expect(getByText('Anchor not found')).toBeTruthy();
+  });
+
+  it('falls back to safe defaults when settings are missing', () => {
+    const navigation = require('@react-navigation/native');
+    navigation.useRoute.mockReturnValue({
+      params: { anchorId: 'test-anchor-id', activationType: 'visual' },
+    });
+    // arrivePhaseEnabled defaults to true when key is missing, which subtracts 5s
+    // from the display. Explicitly disable it so the test checks the raw default (30s).
+    (useSettingsStore as unknown as jest.Mock).mockImplementation((selector: any) => {
+      const base = { arrivePhaseEnabled: false };
+      return typeof selector === 'function' ? selector(base) : base;
+    });
+
+    const { getByText } = render(<ActivationScreen />);
+    // focusSessionDuration defaults to 30
+    expect(getByText('00:30')).toBeTruthy();
   });
 
   it('counts down in mm:ss format', async () => {
@@ -241,7 +267,8 @@ describe('ActivationScreen', () => {
 
     await sleep(1200);
 
-    await waitFor(() => expect(getByText('Paused')).toBeTruthy());
+    // After pause, resume button is shown, timer stays frozen
+    await waitFor(() => expect(getByTestId('focus-session-resume')).toBeTruthy());
     expect(getByText('00:02')).toBeTruthy();
 
     fireEvent.press(getByTestId('focus-session-resume'));
@@ -251,21 +278,25 @@ describe('ActivationScreen', () => {
     await waitFor(() => expect(getByText('00:01')).toBeTruthy(), { timeout: 2000 });
   });
 
-  it('shows completion state when timer reaches zero', async () => {
-    const { getByText } = render(<ActivationScreen />);
+  it('shows seal phase when timer reaches zero', async () => {
+    const { getByText, getByTestId } = render(<ActivationScreen />);
 
     await waitFor(() => {
-      expect(getByText('Sealed.')).toBeTruthy();
-      expect(getByText('Continue')).toBeTruthy();
+      // Seal phase: top bar shows "SEAL YOUR ANCHOR", hint below sigil
+      expect(getByText('SEAL YOUR ANCHOR')).toBeTruthy();
+      expect(getByText('Press and hold to seal')).toBeTruthy();
+      // Seal container has focus-session-continue testID
+      expect(getByTestId('focus-session-continue')).toBeTruthy();
     }, { timeout: 4000 });
   });
 
-  it('calls API only after tapping Continue', async () => {
+  it('calls API only after tapping the seal', async () => {
     const { getByTestId } = render(<ActivationScreen />);
 
     await waitFor(() => expect(getByTestId('focus-session-continue')).toBeTruthy(), { timeout: 4000 });
     expect(apiClient.post).not.toHaveBeenCalled();
 
+    // Tap the seal container (fires onPress = immediate complete)
     fireEvent.press(getByTestId('focus-session-continue'));
 
     // Now click Done in CompletionModal
@@ -282,7 +313,7 @@ describe('ActivationScreen', () => {
     ));
   });
 
-  it('updates local activation immediately on Continue', async () => {
+  it('updates local activation immediately on seal', async () => {
     const { getByTestId } = render(<ActivationScreen />);
 
     await waitFor(() => expect(getByTestId('focus-session-continue')).toBeTruthy(), { timeout: 4000 });
@@ -306,7 +337,7 @@ describe('ActivationScreen', () => {
     expect(apiClient.post).not.toHaveBeenCalled();
   });
 
-  it('does not show the exit warning once the focus session is complete', async () => {
+  it('does not show exit warning once the focus session is complete', async () => {
     const { getByTestId } = render(<ActivationScreen />);
 
     await waitFor(() => expect(getByTestId('focus-session-continue')).toBeTruthy(), { timeout: 4000 });
@@ -316,7 +347,7 @@ describe('ActivationScreen', () => {
     expect(getByTestId('completion-modal-done')).toBeTruthy();
   });
 
-  it('routes completed-session back attempts into reflection instead of the exit warning', async () => {
+  it('routes completed-session back attempts into reflection instead of exit warning', async () => {
     const { getByTestId } = render(<ActivationScreen />);
 
     await waitFor(() => expect(getByTestId('focus-session-continue')).toBeTruthy(), { timeout: 4000 });
@@ -344,6 +375,7 @@ describe('ActivationScreen', () => {
         anchorId: 'test-anchor-id',
         activationType: 'visual',
         returnTo: 'practice',
+        durationOverride: TEST_ACTIVATION_DURATION_SECONDS,
       },
     });
 
@@ -364,6 +396,7 @@ describe('ActivationScreen', () => {
       params: {
         anchorId: 'test-anchor-id',
         activationType: 'audio',
+        durationOverride: TEST_ACTIVATION_DURATION_SECONDS,
       },
     });
 
@@ -389,6 +422,7 @@ describe('ActivationScreen', () => {
     navigation.useRoute.mockReturnValue({
       params: {
         anchorId: 'test-anchor-id',
+        durationOverride: TEST_ACTIVATION_DURATION_SECONDS,
       },
     });
 
@@ -409,7 +443,7 @@ describe('ActivationScreen', () => {
     });
   });
 
-  it('handles API errors gracefully after Continue', async () => {
+  it('handles API errors gracefully after sealing', async () => {
     const error = new Error('Network error');
     (apiClient.post as jest.Mock).mockRejectedValue(error);
 

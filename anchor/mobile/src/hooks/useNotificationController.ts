@@ -19,6 +19,7 @@ import { syncNotificationStateToServer } from '@/services/NotificationSyncServic
 import { useAnchorStore } from '@/stores/anchorStore';
 import { useAuthStore } from '@/stores/authStore';
 import { useSessionStore } from '@/stores/sessionStore';
+import { useSettingsStore } from '@/stores/settingsStore';
 
 const NOTIFICATION_STATE_KEY = '@anchor_notification_state';
 export const useNotificationController = () => {
@@ -132,6 +133,13 @@ export const useNotificationController = () => {
       fireDate: tomorrow,
       deepLink: '/sanctuary',
     });
+
+    const settings = useSettingsStore.getState();
+    if (settings.weeklySummaryEnabled && state.notification_enabled) {
+      await NotificationService.scheduleWeeklySummary(state.active_hours_end);
+    } else {
+      await NotificationService.cancelWeeklySummary();
+    }
   }, []);
 
   const initOnAppOpen = useCallback(async () => {
@@ -245,6 +253,7 @@ export const useNotificationController = () => {
 
       if (!enabled) {
         await NotificationService.cancelNotification('micro-prime');
+        await NotificationService.cancelWeeklySummary();
       } else {
         await scheduleMicroPrime(state);
       }

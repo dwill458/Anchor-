@@ -15,6 +15,7 @@ import { RootStackParamList } from '@/types';
 import { colors, spacing, typography } from '@/theme';
 import { SigilSvg, ZenBackground } from '@/components/common';
 import { generateAllVariants, SigilGenerationResult, SigilVariant } from '@/utils/sigil/traditional-generator';
+import { classifyToTierPreliminary } from '@/utils/tierClassifier';
 
 type StructureType = 'focused' | 'ritual' | 'raw';
 type StructureCardType = StructureType | 'drawn';
@@ -111,9 +112,11 @@ export default function StructureForgeScreen() {
     );
   }, [glowOpacity]);
 
+  const { tier } = classifyToTierPreliminary(intention);
+
   const variants = useMemo<SigilGenerationResult[]>(
-    () => generateAllVariants(distilledLetters),
-    [distilledLetters]
+    () => generateAllVariants(distilledLetters, tier),
+    [distilledLetters, tier]
   );
 
   const previewGlowStyle = useAnimatedStyle(() => ({

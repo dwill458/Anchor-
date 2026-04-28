@@ -172,12 +172,21 @@ export const ChargeSetupScreen: React.FC = () => {
   const navigateToRitual = useCallback(
     (choice: DurationChoice) => {
       const config = chargeConfigByChoice[choice];
-      navigation.navigate('Ritual', {
-        anchorId,
-        ritualType: config.ritualType,
-        durationSeconds: config.durationSeconds,
-        returnTo,
-      });
+      if (choice === 'quick') {
+        navigation.replace('ActivationRitual', {
+          anchorId,
+          activationType: 'visual',
+          durationOverride: config.durationSeconds,
+          returnTo,
+        });
+      } else {
+        navigation.replace('Ritual', {
+          anchorId,
+          ritualType: config.ritualType as any,
+          durationSeconds: config.durationSeconds,
+          returnTo,
+        });
+      }
     },
     [anchorId, navigation, returnTo]
   );
@@ -451,7 +460,6 @@ const styles = StyleSheet.create({
     left: 0,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingTop: 32,
   },
   anchorFrame: {
     width: PRIME_ARTWORK_SIZE,
@@ -609,21 +617,17 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     borderRadius: 16,
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.08)',
+    borderWidth: 0.8,
+    borderColor: 'rgba(255,255,255,0.06)',
     backgroundColor: 'rgba(255,255,255,0.04)',
     paddingHorizontal: 12,
     paddingVertical: 18,
     minHeight: 144,
   },
   durationCardSelected: {
-    borderColor: 'rgba(212,175,55,0.45)',
-    backgroundColor: 'rgba(212,175,55,0.10)',
-    shadowColor: GOLD,
-    shadowOpacity: 0.18,
-    shadowRadius: 12,
-    shadowOffset: { width: 0, height: 0 },
-    elevation: 6,
+    borderColor: 'rgba(212,175,55,0.4)',
+    backgroundColor: 'rgba(212,175,55,0.08)',
+    borderWidth: 1.2,
   },
   checkCircle: {
     position: 'absolute',
