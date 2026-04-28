@@ -157,10 +157,11 @@ export const PracticeScreen: React.FC = () => {
 
   const threadState = getThreadState(threadStrength, lastPrimedAt);
   const hasPrimedToday = lastPrimedAt === localDateString(new Date());
+  const todayMode: 'focusSession' | 'deepPrime' = threadStrength < 40 ? 'focusSession' : 'deepPrime';
   const ctaTitle = PRACTICE_COPY.primaryCTA;
-  const ctaSubtitle = hasPrimedToday
+  const ctaSubtitle = todayMode === 'focusSession'
     ? 'Focus Session · 10–60 sec'
-    : 'Restore the thread · 10–60 sec';
+    : 'Deep Prime · 2 min to custom';
 
   const defaultDeepChargeSeconds = useMemo(
     () => getDefaultDeepChargeSeconds(primeSessionDuration),
@@ -555,11 +556,7 @@ export const PracticeScreen: React.FC = () => {
                 accessibilityRole="button"
                 onPress={() => {
                   markInteraction();
-                  if (latestAnchorSession) {
-                    runQuickRestartFromSession(latestAnchorSession);
-                    return;
-                  }
-                  runMode(suggestedRitual.type);
+                  runMode(todayMode === 'focusSession' ? 'quickActivate' : 'charge');
                 }}
                 style={({ pressed }) => [
                   styles.ctaPressable,
@@ -609,6 +606,12 @@ export const PracticeScreen: React.FC = () => {
               title={PRACTICE_COPY.rituals.charge.title}
               meaning={PRACTICE_COPY.rituals.charge.meaning}
               durationHint={PRACTICE_COPY.rituals.charge.duration}
+              durationNode={
+                <>
+                  {'2 mins to '}
+                  <Text style={{ color: '#D4AF37', textDecorationLine: 'underline' }}>custom</Text>
+                </>
+              }
               icon={<Zap size={16} color={colors.gold} />}
               onPress={() => {
                 markInteraction();

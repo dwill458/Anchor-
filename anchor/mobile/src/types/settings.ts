@@ -16,6 +16,7 @@ export interface AnchorSettings {
   reduceIntentionVisibility: boolean;
   hapticFeedback: 'none' | 'light' | 'medium' | 'strong';
   soundEffectsEnabled: boolean;
+  weeklySummaryEnabled: boolean;
 }
 
 export const DEFAULT_SETTINGS: AnchorSettings = {
@@ -29,4 +30,5 @@ export const DEFAULT_SETTINGS: AnchorSettings = {
   reduceIntentionVisibility: false,
   hapticFeedback: 'strong',
   soundEffectsEnabled: true,
+  weeklySummaryEnabled: true,
 };

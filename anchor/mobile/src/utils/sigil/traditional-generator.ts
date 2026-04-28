@@ -1,4 +1,6 @@
 import { logger } from '@/utils/logger';
+import { PlanetaryTier } from '@/types';
+import { getGridConfig, GridConfig } from './gridRegistry';
 
 /**
  * TRUE Sigil Generator - Planetary Grid Method (Kamea)
@@ -26,25 +28,22 @@ const SIGIL_RESULT_CACHE = new Map<string, SigilGenerationResult>();
 // ---------------------------------------------------------------------------
 
 // Pythagorean Numerology Mapping (1-9)
-const NUMEROLOGY_MAP: Record<string, number> = {
-  A: 1, J: 1, S: 1,
-  B: 2, K: 2, T: 2,
-  C: 3, L: 3, U: 3,
-  D: 4, M: 4, V: 4,
-  E: 5, N: 5, W: 5,
-  F: 6, O: 6, X: 6,
-  G: 7, P: 7, Y: 7,
-  H: 8, Q: 8, Z: 8,
-  I: 9, R: 9
-};
+function letterToNumber(letter: string, maxValue: number): number {
+  const code = letter.toUpperCase().charCodeAt(0) - 64; // A=1, B=2, ..., Z=26
+  if (code < 1 || code > 26) return 1;
 
-// 3x3 Grid Coordinate System (0-100 scale for ease)
-// We add a little 'wobble' offset in the generating function so it's not robotic
-const GRID_COORDS: Record<number, { x: number; y: number }> = {
-  1: { x: 20, y: 20 }, 2: { x: 50, y: 20 }, 3: { x: 80, y: 20 },
-  4: { x: 20, y: 50 }, 5: { x: 50, y: 50 }, 6: { x: 80, y: 50 },
-  7: { x: 20, y: 80 }, 8: { x: 50, y: 80 }, 9: { x: 80, y: 80 }
-};
+  if (maxValue >= 26) return code;
+
+  if (maxValue === 9) {
+    let sum = code;
+    while (sum > 9) {
+      sum = String(sum).split('').reduce((acc, digit) => acc + parseInt(digit, 10), 0);
+    }
+    return sum;
+  }
+
+  return ((code - 1) % maxValue) + 1;
+}
 
 // ---------------------------------------------------------------------------
 // 2. HELPER FUNCTIONS
@@ -63,8 +62,8 @@ function normalizeLettersInput(letters: unknown): string {
 /**
  * Clean and reduce the intent string (Austin Osman Spare method)
  */
-function processIntent(rawText: string, variant: SigilVariant): number[] {
-  if (!rawText) return [5]; // Fallback to center point
+function processIntent(rawText: string, variant: SigilVariant, maxValue: number): number[] {
+  if (!rawText) return [Math.ceil(maxValue / 2) || 1]; // Fallback to center point
 
   let processed = rawText;
 
@@ -77,7 +76,7 @@ function processIntent(rawText: string, variant: SigilVariant): number[] {
   processed = Array.from(new Set(processed.split(''))).join('');
 
   // Step 3: Map to numbers
-  let points = processed.split('').map(char => NUMEROLOGY_MAP[char] || 5);
+  let points = processed.split('').map(char => letterToNumber(char, maxValue));
 
   // Variant Logic:
   // Minimal: Simplify path further if too long
@@ -119,16 +118,16 @@ function jitter(val: number, seed: number, salt: number, intensity: number = 2):
 /**
  * Generate the SVG Path Data (d attribute)
  */
-function createSigilPath(points: number[], seed: number): string {
+function createSigilPath(points: number[], seed: number, gridConfig: GridConfig): string {
   if (points.length === 0) return '';
 
-  const start = GRID_COORDS[points[0]];
+  const start = gridConfig.coords[points[0]];
   if (!start) return '';
 
   let path = `M ${jitter(start.x, seed, 1)},${jitter(start.y, seed, 2)}`;
 
   for (let i = 1; i < points.length; i++) {
-    const curr = GRID_COORDS[points[i]];
+    const curr = gridConfig.coords[points[i]];
     if (curr) {
       const saltBase = i * 2 + 1;
       path += ` L ${jitter(curr.x, seed, saltBase)},${jitter(curr.y, seed, saltBase + 1)}`;
@@ -146,7 +145,7 @@ function createBorder(variant: SigilVariant): string {
   if (variant === 'minimal' || variant === 'balanced') return ''; // No border for minimal and balanced
 
   // "Hand-drawn" circle approximation
-  const r = 42;
+  const r = 44; // Increased from 42 to fit 20-80 grid comfortably
   const c = 50;
   // A slightly imperfect circle path
   const d = `
@@ -159,7 +158,7 @@ function createBorder(variant: SigilVariant): string {
 
   // Dense gets a double ring
   if (variant === 'dense') {
-    return `<path d="${d}" stroke="currentColor" stroke-width="1.5" fill="none" opacity="0.8" /><circle cx="50" cy="50" r="46" stroke="currentColor" stroke-width="0.5" fill="none" opacity="0.4" />`;
+    return `<path d="${d}" stroke="currentColor" stroke-width="1.5" fill="none" opacity="0.8" /><circle cx="50" cy="50" r="48" stroke="currentColor" stroke-width="0.5" fill="none" opacity="0.4" />`;
   }
 
   return `<path d="${d}" stroke="currentColor" stroke-width="1.5" fill="none" opacity="0.8" />`;
@@ -169,26 +168,40 @@ function createBorder(variant: SigilVariant): string {
 // 4. MAIN EXPORT
 // ---------------------------------------------------------------------------
 
+function calculateStrokeWidth(tier: PlanetaryTier, variant: SigilVariant, gridConfig: GridConfig): number {
+  const baseDensity: Record<number, Record<SigilVariant, number>> = {
+    3: { dense: 3, balanced: 2, minimal: 1.5 },
+    4: { dense: 2.5, balanced: 1.8, minimal: 1.2 },
+    5: { dense: 2, balanced: 1.5, minimal: 1 },
+    6: { dense: 1.8, balanced: 1.3, minimal: 0.9 },
+    7: { dense: 1.5, balanced: 1.1, minimal: 0.7 }
+  };
+  return baseDensity[gridConfig.size]?.[variant] ?? 2;
+}
+
 export function generateTrueSigil(
   letters: any,
+  tier: PlanetaryTier = PlanetaryTier.SATURN,
   variant: SigilVariant = 'balanced'
 ): SigilGenerationResult {
   const normalizedLetters = normalizeLettersInput(letters);
-  const cacheKey = `${variant}:${normalizedLetters || 'CENTER'}`;
+  const cacheKey = `${tier}:${variant}:${normalizedLetters || 'CENTER'}`;
   const cachedResult = SIGIL_RESULT_CACHE.get(cacheKey);
 
   if (cachedResult) {
     return cachedResult;
   }
 
+  const gridConfig = getGridConfig(tier);
+
   // 1. Logic Layer
-  const points = processIntent(normalizedLetters, variant);
+  const points = processIntent(normalizedLetters, variant, gridConfig.maxValue);
 
   // 2. Geometry Layer
   const seed = createSeed(cacheKey);
-  const pathData = createSigilPath(points, seed);
+  const pathData = createSigilPath(points, seed, gridConfig);
 
-  const strokeWidth = variant === 'dense' ? 3 : 2;
+  const strokeWidth = calculateStrokeWidth(tier, variant, gridConfig);
 
   // Assemble
   // NOTE: Do not add <filter>, <marker>, or marker-start/marker-end here.
@@ -205,12 +218,12 @@ export function generateTrueSigil(
   return result;
 }
 
-export function generateAllVariants(letters: any): SigilGenerationResult[] {
+export function generateAllVariants(letters: any, tier: PlanetaryTier = PlanetaryTier.SATURN): SigilGenerationResult[] {
   try {
     return [
-      generateTrueSigil(letters, 'dense'),
-      generateTrueSigil(letters, 'balanced'),
-      generateTrueSigil(letters, 'minimal'),
+      generateTrueSigil(letters, tier, 'dense'),
+      generateTrueSigil(letters, tier, 'balanced'),
+      generateTrueSigil(letters, tier, 'minimal'),
     ];
   } catch (error) {
     logger.error('Error generating sigil variants:', error);

@@ -301,6 +301,7 @@ export interface SettingsState {
   restDayPolicy: RestDayPolicy;
   arrivePhaseEnabled: boolean;
   reduceIntentionVisibility: boolean;
+  weeklySummaryEnabled: boolean;
 
   // Appearance
   theme: 'zen_architect' | 'dark' | 'light';
@@ -344,6 +345,7 @@ export interface SettingsState {
   setRestDayPolicy: (policy: RestDayPolicy) => void;
   setArrivePhaseEnabled: (enabled: boolean) => void;
   setReduceIntentionVisibility: (enabled: boolean) => void;
+  setWeeklySummaryEnabled: (enabled: boolean) => void;
 
   // Actions - Appearance
   setTheme: (theme: 'zen_architect' | 'dark' | 'light') => void;
@@ -394,6 +396,7 @@ const DEFAULT_SETTINGS = {
   restDayPolicy: 'build' as RestDayPolicy,
   arrivePhaseEnabled: true,
   reduceIntentionVisibility: false,
+  weeklySummaryEnabled: true,
   theme: 'zen_architect' as const,
   accentColor: '#D4AF37',
   vaultView: 'grid' as const,
@@ -566,6 +569,13 @@ export const useSettingsStore = create<SettingsState>()(
         triggerHaptic();
         set({
           reduceIntentionVisibility: enabled,
+        });
+      },
+
+      setWeeklySummaryEnabled: (enabled) => {
+        triggerHaptic();
+        set({
+          weeklySummaryEnabled: enabled,
         });
       },
 

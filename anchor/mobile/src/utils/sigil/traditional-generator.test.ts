@@ -6,8 +6,8 @@ import { generateTrueSigil, generateAllVariants } from './traditional-generator'
 
 describe('TRUE Sigil Generator', () => {
     it('returns deterministic SVG output for the same letters and variant', () => {
-        const first = generateTrueSigil(['A', 'B', 'C'], 'balanced');
-        const second = generateTrueSigil(['A', 'B', 'C'], 'balanced');
+        const first = generateTrueSigil(['A', 'B', 'C'], undefined, 'balanced');
+        const second = generateTrueSigil(['A', 'B', 'C'], undefined, 'balanced');
 
         expect(second).toBe(first);
         expect(second.svg).toBe(first.svg);
@@ -15,7 +15,7 @@ describe('TRUE Sigil Generator', () => {
 
     it('should generate a valid result for balanced variant', () => {
         const letters = ['A', 'B', 'C'];
-        const result = generateTrueSigil(letters, 'balanced');
+        const result = generateTrueSigil(letters, undefined, 'balanced');
 
         expect(result.variant).toBe('balanced');
         expect(result.svg).toContain('<svg');
@@ -42,8 +42,8 @@ describe('TRUE Sigil Generator', () => {
 
     it('should apply specific stroke widths for variants', () => {
         const letters = ['H', 'E', 'L', 'L', 'O'];
-        const dense = generateTrueSigil(letters, 'dense');
-        const balanced = generateTrueSigil(letters, 'balanced');
+        const dense = generateTrueSigil(letters, undefined, 'dense');
+        const balanced = generateTrueSigil(letters, undefined, 'balanced');
 
         expect(dense.svg).toContain('stroke-width="3"');
         expect(balanced.svg).toContain('stroke-width="2"');
@@ -51,8 +51,8 @@ describe('TRUE Sigil Generator', () => {
 
     it('should include border for dense/balanced but not minimal', () => {
         const letters = ['X'];
-        const dense = generateTrueSigil(letters, 'dense');
-        const minimal = generateTrueSigil(letters, 'minimal');
+        const dense = generateTrueSigil(letters, undefined, 'dense');
+        const minimal = generateTrueSigil(letters, undefined, 'minimal');
 
         // Dense has border path + main path (plus maybe others like double ring)
         expect((dense.svg.match(/<path/g) || []).length).toBeGreaterThanOrEqual(2);
@@ -65,8 +65,8 @@ describe('TRUE Sigil Generator', () => {
         // Markers were removed because react-native-svg does not reliably
         // support marker-start/marker-end and they caused crashes on device.
         const letters = ['A', 'Z'];
-        const balanced = generateTrueSigil(letters, 'balanced');
-        const minimal = generateTrueSigil(letters, 'minimal');
+        const balanced = generateTrueSigil(letters, undefined, 'balanced');
+        const minimal = generateTrueSigil(letters, undefined, 'minimal');
 
         expect(balanced.svg).not.toContain('marker-start="url(#dot-start)"');
         expect(balanced.svg).not.toContain('marker-start');
@@ -77,7 +77,7 @@ describe('TRUE Sigil Generator', () => {
 
     it('should handle empty or invalid input gracefully (processIntent adds fallback)', () => {
         // processIntent maps unknown/empty to 5 (Center of grid)
-        const result = generateTrueSigil([], 'balanced');
+        const result = generateTrueSigil([], undefined, 'balanced');
         expect(result.svg).toContain('<path'); // Should still have a path (likely a single point M ... L ...)
     });
 });

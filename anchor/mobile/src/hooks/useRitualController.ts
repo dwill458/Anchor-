@@ -313,7 +313,7 @@ export function useRitualController({
 
     // Start progress animation (0 → 1 over 1.5 seconds)
     const startTime = Date.now();
-    const sealDuration = 1500; // 1.5 seconds long-press
+    const sealDuration = config.sealHoldDurationMs ?? 1500;
 
     sealIntervalRef.current = setInterval(() => {
       const elapsed = Date.now() - startTime;
@@ -324,7 +324,7 @@ export function useRitualController({
         completeSeal();
       }
     }, 16); // ~60fps
-  }, [isSealPhase, isSealComplete]);
+  }, [config.sealHoldDurationMs, isSealPhase, isSealComplete]);
 
   const cancelSeal = useCallback(() => {
     setIsSealActive(false);
