@@ -96,14 +96,12 @@ export const PracticeScreen: React.FC = () => {
   const primeSessionDuration = useSettingsStore((state) => state.primeSessionDuration ?? 120);
   const focusSessionDuration = useSettingsStore((state) => state.focusSessionDuration ?? 30);
   const dailyPracticeGoal = useSettingsStore((state) => state.dailyPracticeGoal ?? 3);
-  const {
-    sessionLog,
-    threadStrength,
-    totalSessionsCount,
-    lastPrimedAt,
-    weekHistory,
-    applyDecay,
-  } = useSessionStore();
+  const sessionLog = useSessionStore((s) => s.sessionLog);
+  const threadStrength = useSessionStore((s) => s.threadStrength);
+  const totalSessionsCount = useSessionStore((s) => s.totalSessionsCount);
+  const lastPrimedAt = useSessionStore((s) => s.lastPrimedAt);
+  const weekHistory = useSessionStore((s) => s.weekHistory);
+  const applyDecay = useSessionStore((s) => s.applyDecay);
 
   const [selectorVisible, setSelectorVisible] = useState(false);
   const [infoVisible, setInfoVisible] = useState(false);

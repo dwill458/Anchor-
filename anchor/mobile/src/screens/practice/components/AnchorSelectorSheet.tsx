@@ -28,6 +28,56 @@ interface AnchorSelectorSheetProps {
 
 const ITEM_AVATAR = 40;
 
+const AnchorSelectorItem = React.memo(({ 
+  item, 
+  selected, 
+  nextRitual, 
+  onSelect 
+}: { 
+  item: Anchor; 
+  selected: boolean; 
+  nextRitual?: string; 
+  onSelect: (item: Anchor) => void 
+}) => {
+  const sigil = item.reinforcedSigilSvg ?? item.baseSigilSvg;
+  return (
+    <TouchableOpacity
+      onPress={() => onSelect(item)}
+      activeOpacity={0.8}
+      style={[styles.row, selected && styles.rowSelected]}
+      accessibilityRole="button"
+      accessibilityLabel={`Select ${item.intentionText}`}
+    >
+      <View style={styles.avatar}>
+        {item.enhancedImageUrl ? (
+          <OptimizedImage uri={item.enhancedImageUrl} style={styles.avatarImage} resizeMode="cover" />
+        ) : sigil ? (
+          <SvgXml xml={sigil} width={ITEM_AVATAR} height={ITEM_AVATAR} />
+        ) : (
+          <Text style={styles.fallback}>◈</Text>
+        )}
+      </View>
+      <View style={styles.rowBody}>
+        <Text style={styles.anchorName} numberOfLines={1}>
+          {item.intentionText}
+        </Text>
+        <Text style={styles.anchorMeta}>
+          {item.category.replace(/_/g, ' ')}
+        </Text>
+      </View>
+      {nextRitual ? (
+        <View style={styles.nextRitualBadge}>
+          <Text style={styles.nextRitualText}>{nextRitual}</Text>
+        </View>
+      ) : item.isCharged ? (
+        <View style={styles.chargedBadge}>
+          <Text style={styles.chargedText}>Charged</Text>
+        </View>
+      ) : null}
+    </TouchableOpacity>
+  );
+});
+
 export const AnchorSelectorSheet: React.FC<AnchorSelectorSheetProps> = ({
   visible,
   anchors,
@@ -50,6 +100,15 @@ export const AnchorSelectorSheet: React.FC<AnchorSelectorSheetProps> = ({
     if (!trimmed) return anchors;
     return anchors.filter((anchor) => anchor.intentionText.toLowerCase().includes(trimmed));
   }, [anchors, query]);
+
+  const renderItem = React.useCallback(({ item }: { item: Anchor }) => (
+    <AnchorSelectorItem
+      item={item}
+      selected={selectedAnchorId === item.id}
+      nextRitual={nextRituals?.[item.id]}
+      onSelect={onSelect}
+    />
+  ), [selectedAnchorId, nextRituals, onSelect]);
 
   return (
     <Modal
@@ -85,46 +144,11 @@ export const AnchorSelectorSheet: React.FC<AnchorSelectorSheetProps> = ({
             keyboardShouldPersistTaps="handled"
             contentContainerStyle={styles.listContent}
             ListEmptyComponent={<Text style={styles.emptyText}>No anchors found.</Text>}
-            renderItem={({ item }) => {
-              const sigil = item.reinforcedSigilSvg ?? item.baseSigilSvg;
-              const selected = selectedAnchorId === item.id;
-              return (
-                <TouchableOpacity
-                  onPress={() => onSelect(item)}
-                  activeOpacity={0.8}
-                  style={[styles.row, selected && styles.rowSelected]}
-                  accessibilityRole="button"
-                  accessibilityLabel={`Select ${item.intentionText}`}
-                >
-                  <View style={styles.avatar}>
-                    {item.enhancedImageUrl ? (
-                      <OptimizedImage uri={item.enhancedImageUrl} style={styles.avatarImage} resizeMode="cover" />
-                    ) : sigil ? (
-                      <SvgXml xml={sigil} width={ITEM_AVATAR} height={ITEM_AVATAR} />
-                    ) : (
-                      <Text style={styles.fallback}>◈</Text>
-                    )}
-                  </View>
-                  <View style={styles.rowBody}>
-                    <Text style={styles.anchorName} numberOfLines={1}>
-                      {item.intentionText}
-                    </Text>
-                    <Text style={styles.anchorMeta}>
-                      {item.category.replace(/_/g, ' ')}
-                    </Text>
-                  </View>
-                  {nextRituals?.[item.id] ? (
-                    <View style={styles.nextRitualBadge}>
-                      <Text style={styles.nextRitualText}>{nextRituals[item.id]}</Text>
-                    </View>
-                  ) : item.isCharged ? (
-                    <View style={styles.chargedBadge}>
-                      <Text style={styles.chargedText}>Charged</Text>
-                    </View>
-                  ) : null}
-                </TouchableOpacity>
-              );
-            }}
+            renderItem={renderItem}
+            removeClippedSubviews={Platform.OS === 'android'}
+            maxToRenderPerBatch={5}
+            windowSize={7}
+            initialNumToRender={8}
           />
         </View>
       </View>

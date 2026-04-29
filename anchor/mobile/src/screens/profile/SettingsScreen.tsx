@@ -132,8 +132,57 @@ const SectionHeader: React.FC<{ title: string; description?: string }> = ({
 export const SettingsScreen: React.FC = () => {
   const navigation = useNavigation<NativeStackNavigationProp<ProfileStackParamList>>();
   const { user, signOut, setHasCompletedOnboarding } = useAuthStore();
-  const settings = useSettingsStore();
-  const subStore = useSubscriptionStore();
+  const defaultActivation = useSettingsStore(s => s.defaultActivation);
+  const defaultCharge = useSettingsStore(s => s.defaultCharge);
+  const openDailyAnchorAutomatically = useSettingsStore(s => s.openDailyAnchorAutomatically);
+  const setOpenDailyAnchorAutomatically = useSettingsStore(s => s.setOpenDailyAnchorAutomatically);
+  const guideMode = useSettingsStore(s => s.guideMode);
+  const setGuideMode = useSettingsStore(s => s.setGuideMode);
+  const dailyPracticeGoal = useSettingsStore(s => s.dailyPracticeGoal);
+  const reduceIntentionVisibility = useSettingsStore(s => s.reduceIntentionVisibility);
+  const setReduceIntentionVisibility = useSettingsStore(s => s.setReduceIntentionVisibility);
+  const hapticIntensity = useSettingsStore(s => s.hapticIntensity);
+  const soundEffectsEnabled = useSettingsStore(s => s.soundEffectsEnabled);
+  const setSoundEffectsEnabled = useSettingsStore(s => s.setSoundEffectsEnabled);
+  const developerModeEnabled = useSettingsStore(s => s.developerModeEnabled);
+  const setDeveloperModeEnabled = useSettingsStore(s => s.setDeveloperModeEnabled);
+  const developerMasterAccountEnabled = useSettingsStore(s => s.developerMasterAccountEnabled);
+  const setDeveloperMasterAccountEnabled = useSettingsStore(s => s.setDeveloperMasterAccountEnabled);
+  const developerSkipOnboardingEnabled = useSettingsStore(s => s.developerSkipOnboardingEnabled);
+  const setDeveloperSkipOnboardingEnabled = useSettingsStore(s => s.setDeveloperSkipOnboardingEnabled);
+  const developerForceStreakBreakEnabled = useSettingsStore(s => s.developerForceStreakBreakEnabled);
+  const setDeveloperForceStreakBreakEnabled = useSettingsStore(s => s.setDeveloperForceStreakBreakEnabled);
+  const developerDeleteWithoutBurnEnabled = useSettingsStore(s => s.developerDeleteWithoutBurnEnabled);
+  const setDeveloperDeleteWithoutBurnEnabled = useSettingsStore(s => s.setDeveloperDeleteWithoutBurnEnabled);
+  const debugLoggingEnabled = useSettingsStore(s => s.debugLoggingEnabled);
+  const setDebugLoggingEnabled = useSettingsStore(s => s.setDebugLoggingEnabled);
+
+  const settings = {
+    defaultActivation, defaultCharge,
+    openDailyAnchorAutomatically, setOpenDailyAnchorAutomatically,
+    guideMode, setGuideMode,
+    dailyPracticeGoal,
+    reduceIntentionVisibility, setReduceIntentionVisibility,
+    hapticIntensity,
+    soundEffectsEnabled, setSoundEffectsEnabled,
+    developerModeEnabled, setDeveloperModeEnabled,
+    developerMasterAccountEnabled, setDeveloperMasterAccountEnabled,
+    developerSkipOnboardingEnabled, setDeveloperSkipOnboardingEnabled,
+    developerForceStreakBreakEnabled, setDeveloperForceStreakBreakEnabled,
+    developerDeleteWithoutBurnEnabled, setDeveloperDeleteWithoutBurnEnabled,
+    debugLoggingEnabled, setDebugLoggingEnabled,
+  };
+  const devTierOverride = useSubscriptionStore(s => s.devTierOverride);
+  const devOverrideEnabled = useSubscriptionStore(s => s.devOverrideEnabled);
+  const setDevOverrideEnabled = useSubscriptionStore(s => s.setDevOverrideEnabled);
+  const setDevTierOverride = useSubscriptionStore(s => s.setDevTierOverride);
+  const resetOverrides = useSubscriptionStore(s => s.resetOverrides);
+
+  const subStore = {
+    devTierOverride,
+    devOverrideEnabled, setDevOverrideEnabled,
+    setDevTierOverride, resetOverrides,
+  };
   // DEFERRED: freemium — { tier, isPro } replaced with trial-aware status
   // const { tier, isPro } = useSubscription();
   const { isTrialActive, isSubscribed, hasExpired, daysRemaining } = useTrialStatus();

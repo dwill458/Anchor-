@@ -115,7 +115,27 @@ export const DeveloperToolsSection: React.FC<DeveloperToolsSectionProps> = ({
   const [showWeeklyTools, setShowWeeklyTools] = React.useState(false);
   const [showMilestoneTools, setShowMilestoneTools] = React.useState(false);
   const subStore = useSubscriptionStore();
-  const settingsStore = useSettingsStore();
+  const developerModeEnabled = useSettingsStore((s) => s.developerModeEnabled);
+  const setDeveloperModeEnabled = useSettingsStore((s) => s.setDeveloperModeEnabled);
+  const developerMasterAccountEnabled = useSettingsStore((s) => s.developerMasterAccountEnabled);
+  const setDeveloperMasterAccountEnabled = useSettingsStore((s) => s.setDeveloperMasterAccountEnabled);
+  const developerSkipOnboardingEnabled = useSettingsStore((s) => s.developerSkipOnboardingEnabled);
+  const setDeveloperSkipOnboardingEnabled = useSettingsStore((s) => s.setDeveloperSkipOnboardingEnabled);
+  const developerForceStreakBreakEnabled = useSettingsStore((s) => s.developerForceStreakBreakEnabled);
+  const setDeveloperForceStreakBreakEnabled = useSettingsStore((s) => s.setDeveloperForceStreakBreakEnabled);
+  const developerDeleteWithoutBurnEnabled = useSettingsStore((s) => s.developerDeleteWithoutBurnEnabled);
+  const setDeveloperDeleteWithoutBurnEnabled = useSettingsStore((s) => s.setDeveloperDeleteWithoutBurnEnabled);
+  const debugLoggingEnabled = useSettingsStore((s) => s.debugLoggingEnabled);
+  const setDebugLoggingEnabled = useSettingsStore((s) => s.setDebugLoggingEnabled);
+
+  const settingsStore = {
+    developerModeEnabled, setDeveloperModeEnabled,
+    developerMasterAccountEnabled, setDeveloperMasterAccountEnabled,
+    developerSkipOnboardingEnabled, setDeveloperSkipOnboardingEnabled,
+    developerForceStreakBreakEnabled, setDeveloperForceStreakBreakEnabled,
+    developerDeleteWithoutBurnEnabled, setDeveloperDeleteWithoutBurnEnabled,
+    debugLoggingEnabled, setDebugLoggingEnabled,
+  };
 
   const selectedTier =
     subStore.devTierOverride === 'free' ? 'expired' : subStore.devTierOverride;
