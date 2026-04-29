@@ -39,7 +39,7 @@ const CATEGORY_CONFIG: Record<string, { label: string; color: string }> = {
   custom: { label: 'Custom', color: colors.text.tertiary },
 };
 
-export const AnchorCard: React.FC<AnchorCardProps> = ({
+const AnchorCardComponent: React.FC<AnchorCardProps> = ({
   anchor,
   onPress,
   reduceMotionEnabled = false,
@@ -235,6 +235,17 @@ export const AnchorCard: React.FC<AnchorCardProps> = ({
     </TouchableOpacity>
   );
 };
+
+export const AnchorCard = React.memo(AnchorCardComponent, (prevProps, nextProps) => {
+  return (
+    prevProps.anchor.id === nextProps.anchor.id &&
+    prevProps.anchor.isCharged === nextProps.anchor.isCharged &&
+    prevProps.anchor.activationCount === nextProps.anchor.activationCount &&
+    prevProps.anchor.isReleased === nextProps.anchor.isReleased &&
+    prevProps.reduceMotionEnabled === nextProps.reduceMotionEnabled &&
+    prevProps.variant === nextProps.variant
+  );
+});
 
 const { width } = Dimensions.get('window');
 const CARD_WIDTH = (width - spacing.lg * 2 - spacing.md) / 2;

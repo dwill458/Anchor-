@@ -75,7 +75,7 @@ const getStateOpacity = (state: PremiumGlowState): { aura: number; ring: number;
   }
 };
 
-export const PremiumAnchorGlow: React.FC<PremiumAnchorGlowProps> = ({
+const PremiumAnchorGlowComponent: React.FC<PremiumAnchorGlowProps> = ({
   size,
   state,
   variant,
@@ -274,6 +274,16 @@ export const PremiumAnchorGlow: React.FC<PremiumAnchorGlowProps> = ({
     </View>
   );
 };
+
+export const PremiumAnchorGlow = React.memo(PremiumAnchorGlowComponent, (prevProps, nextProps) => {
+  return (
+    prevProps.size === nextProps.size &&
+    prevProps.state === nextProps.state &&
+    prevProps.variant === nextProps.variant &&
+    prevProps.reduceMotionEnabled === nextProps.reduceMotionEnabled &&
+    prevProps.tier === nextProps.tier
+  );
+});
 
 const styles = StyleSheet.create({
   container: {

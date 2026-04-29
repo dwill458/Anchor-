@@ -12,7 +12,9 @@ import { RouteProp, useNavigation, useRoute } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
-import Animated, { useAnimatedStyle, useSharedValue, withSpring, withTiming } from 'react-native-reanimated';
+import Animated, { useAnimatedStyle, useSharedValue, withSpring, withTiming, Easing } from 'react-native-reanimated';
+import * as Haptics from 'expo-haptics';
+import { safeHaptics } from '@/utils/haptics';
 import type { AIStyle, RootStackParamList, SigilVariant } from '@/types';
 import { colors, spacing, typography } from '@/theme';
 import { ZenBackground } from '@/components/common';
@@ -78,6 +80,28 @@ const normalizeSigilVariant = (value: string | undefined): SigilVariant =>
   isSigilVariant(value) ? value : 'balanced';
 
 const toAIStyle = (id: StyleOption['id']): AIStyle => id.replace(/-/g, '_') as AIStyle;
+
+const getAmbientStyle = (category: string) => {
+  switch (category) {
+    case 'modern':
+    case 'geometric': return 'rgba(0, 0, 0, 0.05)';
+    case 'organic': return 'rgba(45, 55, 72, 0.06)';
+    case 'mystic': return 'rgba(212, 175, 55, 0.04)';
+    case 'luminous': return 'rgba(74, 144, 226, 0.05)';
+    default: return 'rgba(0, 0, 0, 0.05)';
+  }
+};
+
+const getWhisper = (category: string) => {
+  switch(category) {
+    case 'modern':
+    case 'geometric': return 'Clarity through restraint.';
+    case 'organic': return 'Motion carries intent.';
+    case 'mystic': return 'Order reveals meaning.';
+    case 'luminous': return 'Emotion softens form.';
+    default: return '';
+  }
+};
 
 const StyleCard: React.FC<{
   option: StyleOption;
@@ -180,6 +204,40 @@ export default function RefineExpressionScreen() {
     [selectedStyle]
   );
 
+  const ambientOpacity = useSharedValue(1);
+  const whisperOpacity = useSharedValue(1);
+  const [ambientColor, setAmbientColor] = useState(getAmbientStyle(selectedStyleOption.category));
+  const [whisperText, setWhisperText] = useState(getWhisper(selectedStyleOption.category));
+
+  const ambientAnimatedStyle = useAnimatedStyle(() => ({
+    opacity: ambientOpacity.value,
+  }));
+
+  const whisperAnimatedStyle = useAnimatedStyle(() => ({
+    opacity: whisperOpacity.value,
+  }));
+
+  const handleStyleSelect = useCallback((id: string) => {
+    if (id === selectedStyle) return;
+    
+    void safeHaptics.impact(Haptics.ImpactFeedbackStyle.Light);
+
+    const nextOption = STYLE_OPTIONS.find((s) => s.id === id);
+    if (!nextOption) return;
+
+    ambientOpacity.value = withTiming(0, { duration: 300 });
+    whisperOpacity.value = withTiming(0, { duration: 150 });
+
+    setTimeout(() => {
+      setSelectedStyle(id);
+      setAmbientColor(getAmbientStyle(nextOption.category));
+      setWhisperText(getWhisper(nextOption.category));
+
+      ambientOpacity.value = withTiming(1, { duration: 400, easing: Easing.inOut(Easing.ease) });
+      whisperOpacity.value = withTiming(1, { duration: 200 });
+    }, 150);
+  }, [selectedStyle, ambientOpacity, whisperOpacity]);
+
   const handleRefineAnchor = useCallback(() => {
     const payload: ForwardNavigationPayload = {
       intention,
@@ -214,16 +272,25 @@ export default function RefineExpressionScreen() {
   const renderStyleCard = useCallback(
     ({ item }: { item: StyleOption }) => (
       <View style={styles.cardColumn}>
-        <StyleCard option={item} isSelected={selectedStyle === item.id} onSelect={setSelectedStyle} />
+        <StyleCard option={item} isSelected={selectedStyle === item.id} onSelect={handleStyleSelect} />
       </View>
     ),
-    [selectedStyle]
+    [selectedStyle, handleStyleSelect]
   );
 
   return (
     <SafeAreaView style={styles.safeArea} edges={['top', 'bottom']}>
       <View style={styles.container}>
         <ZenBackground orbOpacity={0.08} animationDuration={700} />
+        
+        <Animated.View 
+          pointerEvents="none"
+          style={[
+            StyleSheet.absoluteFill,
+            { backgroundColor: ambientColor },
+            ambientAnimatedStyle
+          ]} 
+        />
 
         <View style={styles.headerRow}>
           <Pressable
@@ -317,6 +384,10 @@ export default function RefineExpressionScreen() {
               },
             ]}
           >
+            <Animated.Text style={[styles.whisperText, whisperAnimatedStyle]}>
+              {whisperText}
+            </Animated.Text>
+
             <Text style={styles.selectedLabel}>
               <Text style={styles.selectedLabelPrefix}>Selected style: </Text>
               <Text style={styles.selectedLabelValue}>{selectedStyleOption.name}</Text>
@@ -644,6 +715,14 @@ const styles = StyleSheet.create({
     fontSize: 10,
     color: colors.gold,
     letterSpacing: 1.5,
+  },
+  whisperText: {
+    fontSize: 13,
+    color: colors.text.secondary,
+    textAlign: 'center',
+    letterSpacing: 0.3,
+    fontFamily: typography.fonts.body,
+    marginBottom: spacing.md,
   },
   ctaOuter: {
     width: '100%',

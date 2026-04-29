@@ -315,12 +315,13 @@ export const FocusSession: React.FC<FocusSessionProps> = ({
   useEffect(() => {
     if (!groundNoteText) return;
     setGroundNoteVisible(true);
-    RNAnimated.timing(groundNoteOpacity, { toValue: 1, duration: 400, useNativeDriver: true }).start();
-    const t = setTimeout(() => {
+    RNAnimated.sequence([
+      RNAnimated.timing(groundNoteOpacity, { toValue: 1, duration: 400, useNativeDriver: true }),
+      RNAnimated.delay(6000),
       RNAnimated.timing(groundNoteOpacity, { toValue: 0, duration: 500, useNativeDriver: true })
-        .start(() => setGroundNoteVisible(false));
-    }, 6000);
-    return () => clearTimeout(t);
+    ]).start(({ finished }) => {
+      if (finished) setGroundNoteVisible(false);
+    });
   }, [groundNoteText]);
 
   // ── Timer utilities ────────────────────────────────────────────────────────
@@ -585,10 +586,11 @@ export const FocusSession: React.FC<FocusSessionProps> = ({
     transform: [{ scale: haloScale.value }],
   }));
 
-  // Progress bar drives off secondsRemaining (updates every 250ms with the timer tick)
-  const progressPercent = resolvedDurationSeconds > 0
-    ? Math.min(100, Math.max(0, (1 - secondsRemaining / resolvedDurationSeconds) * 100))
-    : 0;
+  const progressBarStyle = useAnimatedStyle(() => {
+    return {
+      width: `${progress.value * 100}%`,
+    };
+  });
 
   const bloomStyle = useAnimatedStyle(() => {
     const base = interpolate(progress.value, [0, 1], [0.1, 0.22]);
@@ -615,7 +617,7 @@ export const FocusSession: React.FC<FocusSessionProps> = ({
             <View style={styles.landingTextWrap}>
               <Text style={styles.landingTitle}>PREPARE</Text>
               <Text style={styles.landingSub}>
-                Settle your mind.{'\n'}The session will begin shortly.
+                Settle your mind.{'\n'}When you're centered, begin.
               </Text>
             </View>
             {!reduceIntentionVisibility && intentionText ? (
@@ -642,7 +644,7 @@ export const FocusSession: React.FC<FocusSessionProps> = ({
     );
   }
 
-  const showProgressBar = !isSeal && status !== 'arrive';
+  const showProgressBar = !isSeal;
 
   return (
     <RitualScaffold>
@@ -664,7 +666,7 @@ export const FocusSession: React.FC<FocusSessionProps> = ({
         {/* ── LINEAR PROGRESS BAR ── */}
         {showProgressBar && (
           <View style={styles.progressTrack}>
-            <View style={[styles.progressFill, { width: `${progressPercent}%` as any }]} />
+            <Animated.View style={[styles.progressFill, progressBarStyle]} />
           </View>
         )}
 

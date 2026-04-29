@@ -52,13 +52,13 @@ const OrbLayer: React.FC<{
   preset: OrbPreset;
   orbOpacity: number;
   reduceMotionEnabled: boolean;
-}> = ({ preset, orbOpacity, reduceMotionEnabled }) => {
+  isActive: boolean;
+}> = ({ preset, orbOpacity, reduceMotionEnabled, isActive }) => {
   const phase = useSharedValue(0);
 
   useEffect(() => {
-    if (reduceMotionEnabled) {
+    if (reduceMotionEnabled || !isActive) {
       cancelAnimation(phase);
-      phase.value = 0;
       return;
     }
 
@@ -74,7 +74,7 @@ const OrbLayer: React.FC<{
     return () => {
       cancelAnimation(phase);
     };
-  }, [phase, preset.duration, reduceMotionEnabled]);
+  }, [phase, preset.duration, reduceMotionEnabled, isActive]);
 
   const style = useAnimatedStyle(() => {
     const eased = reduceMotionEnabled ? 0 : interpolate(phase.value, [0, 1], [0, 1]);
@@ -105,6 +105,7 @@ const OrbLayer: React.FC<{
         },
       ]}
       pointerEvents="none"
+      renderToHardwareTextureAndroid={true}
     />
   );
 };
@@ -288,10 +289,9 @@ export const ZenBackground: React.FC<ZenBackgroundProps> = ({
   }, [variant]);
 
   const visibleOrbs = useMemo(() => {
-    if (!showOrbs) return [] as OrbPreset[];
     if (!isAndroid) return palette.orbPresets;
     return palette.orbPresets.slice(0, variant === 'practice' ? 1 : 2);
-  }, [isAndroid, palette.orbPresets, showOrbs, variant]);
+  }, [isAndroid, palette.orbPresets, variant]);
 
   return (
     <Animated.View pointerEvents="none" style={[styles.container, fadeStyle]}>
@@ -308,6 +308,7 @@ export const ZenBackground: React.FC<ZenBackgroundProps> = ({
           preset={orb}
           orbOpacity={orbOpacity}
           reduceMotionEnabled={reduceMotionEnabled}
+          isActive={showOrbs}
         />
       ))}
 

@@ -206,34 +206,44 @@ const FadeUp = ({ children, delay = 0 }) => {
 
 // ─── BREATHING GLOW (sigil bg) ───────────────────────────
 const BreathingGlow = ({ animate = true }: { animate?: boolean }) => {
-  const scale = useRef(new Animated.Value(animate ? 0.97 : 1.0)).current;
-  const opacity = useRef(new Animated.Value(animate ? 0.6 : 0.8)).current;
+  const scale = useSharedValue(animate ? 0.97 : 1.0);
+  const opacity = useSharedValue(animate ? 0.6 : 0.8);
 
   useEffect(() => {
     if (!animate) {
+      cancelAnimation(scale);
+      cancelAnimation(opacity);
       return;
     }
-    const loop = Animated.loop(
-      Animated.sequence([
-        Animated.parallel([
-          Animated.timing(scale, { toValue: 1.03, duration: 2200, useNativeDriver: true }),
-          Animated.timing(opacity, { toValue: 1.0, duration: 2200, useNativeDriver: true }),
-        ]),
-        Animated.parallel([
-          Animated.timing(scale, { toValue: 0.97, duration: 2200, useNativeDriver: true }),
-          Animated.timing(opacity, { toValue: 0.6, duration: 2200, useNativeDriver: true }),
-        ]),
-      ])
+    
+    scale.value = withRepeat(
+      withTiming(1.03, { duration: 2200, easing: ReanimatedEasing.inOut(ReanimatedEasing.ease) }),
+      -1,
+      true
     );
-    loop.start();
-    return () => loop.stop();
+    
+    opacity.value = withRepeat(
+      withTiming(1.0, { duration: 2200, easing: ReanimatedEasing.inOut(ReanimatedEasing.ease) }),
+      -1,
+      true
+    );
+
+    return () => {
+      cancelAnimation(scale);
+      cancelAnimation(opacity);
+    };
   }, [animate, opacity, scale]);
 
+  const style = useAnimatedStyle(() => ({
+    opacity: opacity.value,
+    transform: [{ scale: scale.value }],
+  }));
+
   return (
-    <Animated.View
+    <Reanimated.View
       style={[
         StyleSheet.absoluteFillObject,
-        { opacity, transform: [{ scale }] },
+        style,
       ]}
       pointerEvents="none"
     >
@@ -245,32 +255,37 @@ const BreathingGlow = ({ animate = true }: { animate?: boolean }) => {
         ]}
         style={StyleSheet.absoluteFillObject}
       />
-    </Animated.View>
+    </Reanimated.View>
   );
 };
 
 // ─── SHINE ANIMATION (activate button) ───────────────────
 const ShineButton = ({ onPress, children, style, animate = true }) => {
-  const shineX = useRef(new Animated.Value(-SCREEN_W)).current;
+  const shinePhase = useSharedValue(0);
 
   useEffect(() => {
-    if (!animate) return;
-    const loop = Animated.loop(
-      Animated.sequence([
-        Animated.timing(shineX, {
-          toValue: SCREEN_W * 1.5, duration: 900,
-          useNativeDriver: true, delay: 0,
-        }),
-        Animated.delay(2500),
-        Animated.timing(shineX, {
-          toValue: -SCREEN_W, duration: 0,
-          useNativeDriver: true,
-        }),
-      ])
+    if (!animate) {
+      cancelAnimation(shinePhase);
+      return;
+    }
+    
+    shinePhase.value = withRepeat(
+      withTiming(1, { duration: 3400, easing: ReanimatedEasing.linear }),
+      -1,
+      false
     );
-    loop.start();
-    return () => loop.stop();
-  }, [animate, shineX]);
+
+    return () => cancelAnimation(shinePhase);
+  }, [animate, shinePhase]);
+
+  const shineStyle = useAnimatedStyle(() => {
+    // 0 to 900ms = shine moves, 900ms to 3400ms = wait
+    // So ratio is 900/3400 = 0.2647
+    const progress = Math.min(1, shinePhase.value / 0.2647);
+    return {
+      transform: [{ translateX: interpolate(progress, [0, 1], [-SCREEN_W, SCREEN_W * 1.5]) }],
+    };
+  });
 
   return (
     <TouchableOpacity onPress={onPress} activeOpacity={0.85} style={style}>
@@ -282,10 +297,10 @@ const ShineButton = ({ onPress, children, style, animate = true }) => {
         >
           {children}
           {animate && (
-            <Animated.View
+            <Reanimated.View
               style={[
                 s.shineSweep,
-                { transform: [{ translateX: shineX }] },
+                shineStyle,
               ]}
               pointerEvents="none"
             />
@@ -540,17 +555,15 @@ const AnchorDetailsScreen = ({ navigation, route }) => {
   const { navigateToPractice } = useTabNavigation();
   const getAnchorById = useAnchorStore((state) => state.getAnchorById);
   const removeAnchor = useAnchorStore((state) => state.removeAnchor);
-  const {
-    defaultActivation,
-    setDefaultActivation,
-    developerDeleteWithoutBurnEnabled
-  } = useSettingsStore();
+  const defaultActivation = useSettingsStore((s) => s.defaultActivation);
+  const setDefaultActivation = useSettingsStore((s) => s.setDefaultActivation);
+  const developerDeleteWithoutBurnEnabled = useSettingsStore((s) => s.developerDeleteWithoutBurnEnabled);
   const sessionLog = useSessionStore((s) => s.sessionLog);
   const [isReady, setIsReady] = useState(false);
   const [activeDuration, setActiveDuration] = useState('30s');
   const [primerVisible, setPrimerVisible] = useState(false);
   const [moreRitualsVisible, setMoreRitualsVisible] = useState(false);
-  const [isScrollActive, setIsScrollActive] = useState(false);
+  const isScrollActiveRef = useRef(false);
   const [pendingExportAction, setPendingExportAction] = useState<'download' | 'wallpaper' | null>(null);
   const anchorCardRef = useRef<View>(null);
   const [isExporting, setIsExporting] = useState(false);
@@ -656,7 +669,7 @@ const AnchorDetailsScreen = ({ navigation, route }) => {
 
   const divineBreath = useSharedValue(0);
   const divineGlowActive = Boolean(anchor.charged || anchor.today === 'Primed');
-  const freezeDetailChrome = Platform.OS === 'android' && isScrollActive;
+  const freezeDetailChrome = Platform.OS === 'android' && isScrollActiveRef.current;
   const pauseExpensiveEffects = freezeDetailChrome;
   const enableAndroidHeavyChrome = Platform.OS !== 'android';
   const glowAnimationsActive = divineGlowActive && !pauseExpensiveEffects;
@@ -1032,11 +1045,11 @@ const AnchorDetailsScreen = ({ navigation, route }) => {
   }, [anchor.intention, anchorPractice.currentStreak, captureAndShare, isShareCardLoading]);
 
   const handleHeroScrollStart = useCallback(() => {
-    setIsScrollActive(true);
+    isScrollActiveRef.current = true;
   }, []);
 
   const handleHeroScrollStop = useCallback(() => {
-    setIsScrollActive(false);
+    isScrollActiveRef.current = false;
   }, []);
 
   // Removed renderHeroAction and renderRitualCards in favor of the new Primary CTA architecture.
@@ -1500,7 +1513,7 @@ const AnchorDetailsScreen = ({ navigation, route }) => {
         sigilSvg={anchor.baseSigilSvg}
         sigilUri={anchor.sigilUri}
         onExportComplete={(uri) => {
-          console.log('Anchor exported:', uri);
+          if (__DEV__) console.log('Anchor exported:', uri);
         }}
       />
     </View>

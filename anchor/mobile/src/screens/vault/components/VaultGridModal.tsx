@@ -5,6 +5,7 @@ import {
   FlatList,
   Image,
   Modal,
+  Platform,
   Pressable,
   StyleSheet,
   Text,
@@ -60,36 +61,48 @@ export const VaultGridModal: React.FC<VaultGridModalProps> = ({
     }
   }, [visible, fadeAnim, slideAnim]);
 
-  const renderItem = ({ item }: { item: Anchor }) => {
-    const imageUrl = item.enhancedImageUrl;
-    const sigilXml = item.reinforcedSigilSvg ?? item.baseSigilSvg;
+  const renderItem = React.useCallback(
+    ({ item }: { item: Anchor }) => {
+      const imageUrl = item.enhancedImageUrl;
+      const sigilXml = item.reinforcedSigilSvg ?? item.baseSigilSvg;
 
-    return (
-      <TouchableOpacity
-        style={styles.gridItem}
-        onPress={() => {
-          onAnchorPress(item.id);
-          onDismiss();
-        }}
-        activeOpacity={0.7}
-      >
-        <View style={styles.sigilThumb}>
-          {imageUrl ? (
-            <Image
-              source={{ uri: imageUrl }}
-              style={styles.thumbImage}
-              resizeMode="cover"
-            />
-          ) : (
-            <View style={styles.sigilFallback}>
-              <SvgXml xml={sigilXml} width={ITEM_SIZE * 0.6} height={ITEM_SIZE * 0.6} />
-            </View>
-          )}
-          <View style={[styles.statusDot, item.isCharged ? styles.dotCharged : styles.dotUncharged]} />
-        </View>
-      </TouchableOpacity>
-    );
-  };
+      return (
+        <TouchableOpacity
+          style={styles.gridItem}
+          onPress={() => {
+            onAnchorPress(item.id);
+            onDismiss();
+          }}
+          activeOpacity={0.7}
+        >
+          <View style={styles.sigilThumb}>
+            {imageUrl ? (
+              <Image
+                source={{ uri: imageUrl }}
+                style={styles.thumbImage}
+                resizeMode="cover"
+              />
+            ) : (
+              <View style={styles.sigilFallback}>
+                <SvgXml xml={sigilXml} width={ITEM_SIZE * 0.6} height={ITEM_SIZE * 0.6} />
+              </View>
+            )}
+            <View style={[styles.statusDot, item.isCharged ? styles.dotCharged : styles.dotUncharged]} />
+          </View>
+        </TouchableOpacity>
+      );
+    },
+    [onAnchorPress, onDismiss]
+  );
+
+  const getItemLayout = React.useCallback(
+    (_: any, index: number) => ({
+      length: ITEM_SIZE + COLUMN_GAP,
+      offset: (ITEM_SIZE + COLUMN_GAP) * Math.floor(index / NUM_COLUMNS),
+      index,
+    }),
+    []
+  );
 
   return (
     <Modal
@@ -128,6 +141,10 @@ export const VaultGridModal: React.FC<VaultGridModalProps> = ({
             contentContainerStyle={styles.listContent}
             columnWrapperStyle={styles.columnWrapper}
             showsVerticalScrollIndicator={false}
+            getItemLayout={getItemLayout}
+            removeClippedSubviews={Platform.OS === 'android'}
+            maxToRenderPerBatch={8}
+            windowSize={5}
           />
         </Animated.View>
       </View>

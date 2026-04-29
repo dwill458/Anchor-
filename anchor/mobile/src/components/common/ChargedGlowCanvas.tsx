@@ -114,7 +114,37 @@ export const ChargedGlowCanvas: React.FC<ChargedGlowCanvasProps> = ({
       sparkles:  Array.from({ length: PARTICLE_COUNT }, aaStroke),
       streaks:   Array.from({ length: 5  }, stroke),
     };
-  // PARTICLE_COUNT / RAY_COUNT are module-level constants, [] is correct here.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const cachedColors = useMemo(() => {
+    return {
+      halo: [
+        Skia.Color('rgba(255,215,80,0.42)'),
+        Skia.Color('rgba(255,180,30,0.20)'),
+        Skia.Color('rgba(255,150,0,0)'),
+      ],
+      innerGlow: [
+        Skia.Color('rgba(255,245,130,1)'),
+        Skia.Color('rgba(255,210,60,1)'),
+        Skia.Color('rgba(255,170,0,1)'),
+        Skia.Color('rgba(255,120,0,0)'),
+      ],
+      rays: Array.from({ length: RAY_COUNT }, () => [
+        Skia.Color('rgba(255,235,110,1)'),
+        Skia.Color('rgba(255,205,55,1)'),
+        Skia.Color('rgba(255,170,0,0)'),
+      ]),
+      outerDots: Array.from({ length: 24 }, () => Skia.Color('rgba(255,225,90,1)')),
+      innerDots: Array.from({ length: 16 }, () => Skia.Color('rgba(255,245,130,1)')),
+      particles: Array.from({ length: PARTICLE_COUNT }, () => Skia.Color('rgba(255,235,110,1)')),
+      sparkles: Array.from({ length: PARTICLE_COUNT }, () => Skia.Color('rgba(255,255,200,1)')),
+      streaks: Array.from({ length: 5 }, () => [
+        Skia.Color('rgba(255,245,150,0)'),
+        Skia.Color('rgba(255,235,110,1)'),
+        Skia.Color('rgba(255,200,60,0)'),
+      ]),
+    };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -145,11 +175,7 @@ export const ChargedGlowCanvas: React.FC<ChargedGlowCanvasProps> = ({
       const shader = Skia.Shader.MakeRadialGradient(
         { x: cx, y: cy },
         160 * s,
-        [
-          Skia.Color('rgba(255,215,80,0.42)'),
-          Skia.Color('rgba(255,180,30,0.20)'),
-          Skia.Color('rgba(255,150,0,0)'),
-        ],
+        cachedColors.halo,
         [0, 0.5, 1],
         TileMode.Clamp,
       );
@@ -162,15 +188,15 @@ export const ChargedGlowCanvas: React.FC<ChargedGlowCanvasProps> = ({
     {
       const pulse  = 0.7 + Math.sin(t * 1.8) * 0.3;
       const r      = 105 * pulse * s;
+      const arr = cachedColors.innerGlow;
+      arr[0][3] = 0.72 * pulse;
+      arr[1][3] = 0.45 * pulse;
+      arr[2][3] = 0.18 * pulse;
+
       const shader = Skia.Shader.MakeRadialGradient(
         { x: cx, y: cy },
         r,
-        [
-          Skia.Color(`rgba(255,245,130,${0.72 * pulse})`),
-          Skia.Color(`rgba(255,210,60,${0.45  * pulse})`),
-          Skia.Color(`rgba(255,170,0,${0.18   * pulse})`),
-          Skia.Color('rgba(255,120,0,0)'),
-        ],
+        arr,
         [0, 0.4, 0.8, 1],
         TileMode.Clamp,
       );
@@ -186,14 +212,14 @@ export const ChargedGlowCanvas: React.FC<ChargedGlowCanvasProps> = ({
       const x2       = cx + Math.cos(angle) * ray.len * s;
       const y2       = cy + Math.sin(angle) * ray.len * s;
 
+      const arr = cachedColors.rays[idx];
+      arr[0][3] = 0.85 * rayPulse;
+      arr[1][3] = 0.45 * rayPulse;
+
       const shader = Skia.Shader.MakeLinearGradient(
         { x: cx, y: cy },
         { x: x2, y: y2 },
-        [
-          Skia.Color(`rgba(255,235,110,${0.85 * rayPulse})`),
-          Skia.Color(`rgba(255,205,55,${0.45  * rayPulse})`),
-          Skia.Color('rgba(255,170,0,0)'),
-        ],
+        arr,
         [0, 0.55, 1],
         TileMode.Clamp,
       );
@@ -211,7 +237,9 @@ export const ChargedGlowCanvas: React.FC<ChargedGlowCanvasProps> = ({
       const a    = (i / 24) * PI * 2;
       const glow = 0.5 + Math.sin(t * 2 + i * 0.5) * 0.5;
       const p    = paints.outerDots[i];
-      p.setColor(Skia.Color(`rgba(255,225,90,${glow})`));
+      const c    = cachedColors.outerDots[i];
+      c[3]       = glow;
+      p.setColor(c);
       cnv.drawCircle(Math.cos(a) * 118 * s, Math.sin(a) * 118 * s, 3.5 * s, p);
     }
     cnv.restore();
@@ -224,7 +252,9 @@ export const ChargedGlowCanvas: React.FC<ChargedGlowCanvasProps> = ({
       const a    = (i / 16) * PI * 2;
       const glow = 0.55 + Math.sin(t * 3 + i * 0.8) * 0.45;
       const p    = paints.innerDots[i];
-      p.setColor(Skia.Color(`rgba(255,245,130,${glow})`));
+      const c    = cachedColors.innerDots[i];
+      c[3]       = glow;
+      p.setColor(c);
       cnv.drawCircle(Math.cos(a) * 88 * s, Math.sin(a) * 88 * s, 2.5 * s, p);
     }
     cnv.restore();
@@ -241,15 +271,19 @@ export const ChargedGlowCanvas: React.FC<ChargedGlowCanvasProps> = ({
       const alpha   = Math.min(1, pt.opacity * flicker * 1.4);
 
       const p = paints.particles[idx];
-      p.setColor(Skia.Color(`rgba(255,235,110,${alpha})`));
+      const c = cachedColors.particles[idx];
+      c[3]    = alpha;
+      p.setColor(c);
       cnv.drawCircle(px, py, pt.size * s * 1.35, p);
 
       // Sparkle cross on larger, brighter particles
       if (pt.size > 1.8 && flicker > 0.55) {
         const spark = 5 * s;
         const sp    = paints.sparkles[idx];
+        const sc    = cachedColors.sparkles[idx];
+        sc[3]       = alpha;
         sp.setStrokeWidth(0.8 * s);
-        sp.setColor(Skia.Color(`rgba(255,255,200,${alpha})`));
+        sp.setColor(sc);
         cnv.drawLine(px - spark, py,        px + spark, py,        sp);
         cnv.drawLine(px,         py - spark, px,        py + spark, sp);
       }
@@ -268,14 +302,13 @@ export const ChargedGlowCanvas: React.FC<ChargedGlowCanvasProps> = ({
         const len20  = 28 * s;
         const yTop   = sy - len20 * streakPhase;
         const yBot   = sy + len20 * (1 - streakPhase);
+        const arr    = cachedColors.streaks[i];
+        arr[1][3]    = alpha;
+
         const shader = Skia.Shader.MakeLinearGradient(
           { x: sx, y: yTop },
           { x: sx, y: yBot },
-          [
-            Skia.Color('rgba(255,245,150,0)'),
-            Skia.Color(`rgba(255,235,110,${alpha})`),
-            Skia.Color('rgba(255,200,60,0)'),
-          ],
+          arr,
           [0, 0.5, 1],
           TileMode.Clamp,
         );
