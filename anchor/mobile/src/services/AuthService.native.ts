@@ -7,6 +7,8 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as AppleAuthentication from 'expo-apple-authentication';
 import { API_URL } from '@/config';
 import { GOOGLE_IOS_CLIENT_ID, GOOGLE_WEB_CLIENT_ID } from '@/config';
+import { clearNotificationSession } from '@/services/NotificationSessionService';
+import { clearPushTokensFromServer } from '@/services/NotificationSyncService';
 
 let GoogleSignin: any = null;
 import {
@@ -350,10 +352,15 @@ export class AuthService {
   }
 
   static async signOut(): Promise<void> {
-    if (GoogleSignin) {
-      await GoogleSignin.signOut().catch(() => undefined);
+    try {
+      await clearPushTokensFromServer();
+      if (GoogleSignin) {
+        await GoogleSignin.signOut().catch(() => undefined);
+      }
+      await auth().signOut();
+    } finally {
+      await clearNotificationSession();
     }
-    await auth().signOut();
   }
 
   static hasAuthenticatedSession(): boolean {
@@ -416,8 +423,12 @@ export class AuthService {
         throw new Error(apiMessage ?? 'Failed to delete account from server.');
       }
 
-      // Delete Firebase Auth account
-      await currentUser.delete();
+      await AsyncStorage.removeItem(CACHED_USER_KEY).catch(() => undefined);
+      if (GoogleSignin) {
+        await GoogleSignin.signOut().catch(() => undefined);
+      }
+      await auth().signOut().catch(() => undefined);
+      await clearNotificationSession();
 
       logger.info('Account successfully deleted');
     } catch (error) {

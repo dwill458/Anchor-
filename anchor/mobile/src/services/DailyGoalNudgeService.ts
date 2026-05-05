@@ -3,7 +3,7 @@ import { useSessionStore, type SessionLogEntry } from '@/stores/sessionStore';
 import { useSettingsStore } from '@/stores/settingsStore';
 
 const DAILY_GOAL_CUTOFF_HOUR = 21;
-const COUNTED_SESSION_TYPES = new Set<SessionLogEntry['type']>(['activate']);
+const COUNTED_SESSION_TYPES = new Set<SessionLogEntry['type']>(['activate', 'reinforce']);
 
 export interface DailyGoalProgress {
   completedCount: number;
@@ -162,4 +162,3 @@ export const syncDailyGoalNudges = async ({
 
   return checkpoints;
 };
-

@@ -38,14 +38,12 @@ import { useTrialStatus } from '@/hooks/useTrialStatus';
 import { useReduceMotionEnabled } from '@/hooks/useReduceMotionEnabled';
 import { useSettingsReveal } from '@/components/transitions/SettingsRevealProvider';
 import type { ProfileStackParamList } from '@/navigation/ProfileStackNavigator';
+import { SUPPORT_EMAIL, SUPPORT_EMAIL_URL } from '@/constants/legal';
 import { colors, spacing } from '@/theme';
 import { ZenBackground } from '@/components/common';
 import NotificationService from '@/services/NotificationService';
-import { apiClient } from '@/services/ApiClient';
 import { AuthService } from '@/services/AuthService';
 import revenueCatService from '@/services/RevenueCatService';
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import auth from '@react-native-firebase/auth';
 
 const IS_ANDROID = Platform.OS === 'android';
 const SHOULD_ANIMATE_SECTION_ENTRANCE = Platform.OS === 'ios';
@@ -424,12 +422,7 @@ export const SettingsScreen: React.FC = () => {
         style: 'destructive',
         onPress: async () => {
           try {
-            await apiClient.delete('/auth/me');
-            const firebaseUser = auth().currentUser;
-            if (firebaseUser) {
-              await firebaseUser.delete();
-            }
-            await AsyncStorage.clear();
+            await AuthService.deleteAccount();
             signOut();
           } catch (error: any) {
             Alert.alert('Deletion Failed', error.message || 'Failed to delete account.');
@@ -475,8 +468,8 @@ export const SettingsScreen: React.FC = () => {
   };
 
   const handleContactSupport = () => {
-    Linking.openURL('mailto:support@getanchor.app').catch(() =>
-      Alert.alert('Contact Support', 'Email us at support@getanchor.app')
+    Linking.openURL(SUPPORT_EMAIL_URL).catch(() =>
+      Alert.alert('Contact Support', `Email us at ${SUPPORT_EMAIL}`)
     );
   };
 

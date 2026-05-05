@@ -571,9 +571,15 @@ const AnchorDetailsScreen = ({ navigation, route }) => {
   const [showExportSheet, setShowExportSheet] = useState(false);
   const [confirmUnchargedBurnVisible, setConfirmUnchargedBurnVisible] = useState(false);
   const [showShareCard, setShowShareCard] = useState(false);
+  const [shareFormat, setShareFormat] = useState<'square' | 'stories'>('square');
   const shareCardRef = useRef(null);
+  const shareCardRenderedRef = useRef(false);
   const shareCardTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const { captureAndShare, isLoading: isShareCardLoading } = useShareCard(shareCardRef);
+  const {
+    captureAndShare,
+    isLoading: isShareCardLoading,
+    setIsRendered: setShareCardRendered,
+  } = useShareCard(shareCardRef, shareCardRenderedRef);
 
   useEffect(() => {
     const task = InteractionManager.runAfterInteractions(() => {
@@ -1029,20 +1035,31 @@ const AnchorDetailsScreen = ({ navigation, route }) => {
       clearTimeout(shareCardTimeoutRef.current);
     }
 
+    shareCardRenderedRef.current = false;
+    setShareCardRendered(false);
     setShowShareCard(true);
     shareCardTimeoutRef.current = setTimeout(async () => {
       try {
-        await captureAndShare({
-          intention: anchor.intention,
-          daysPrimed: anchorPractice.currentStreak,
-          format: 'square',
-        });
+        await captureAndShare(
+          anchor.intention,
+          anchorPractice.currentStreak,
+          shareFormat
+        );
       } finally {
         setShowShareCard(false);
+        shareCardRenderedRef.current = false;
+        setShareCardRendered(false);
         shareCardTimeoutRef.current = null;
       }
-    }, 100);
-  }, [anchor.intention, anchorPractice.currentStreak, captureAndShare, isShareCardLoading]);
+    }, 250);
+  }, [
+    anchor.intention,
+    anchorPractice.currentStreak,
+    captureAndShare,
+    isShareCardLoading,
+    setShareCardRendered,
+    shareFormat,
+  ]);
 
   const handleHeroScrollStart = useCallback(() => {
     isScrollActiveRef.current = true;
@@ -1329,6 +1346,28 @@ const AnchorDetailsScreen = ({ navigation, route }) => {
               Share a branded card for messages and social, save the raw PNG, or open the wallpaper flow when you want the symbol on your lock screen.
             </Text>
             <View style={s.exportActionRow}>
+              <View style={s.formatToggleRow}>
+                <TouchableOpacity
+                  accessibilityRole="button"
+                  activeOpacity={0.85}
+                  onPress={() => setShareFormat('square')}
+                  style={[s.formatPill, shareFormat === 'square' && s.formatPillActive]}
+                >
+                  <Text style={[s.formatPillText, shareFormat === 'square' && s.formatPillTextActive]}>SQUARE</Text>
+                  <Text style={[s.formatPillDim, shareFormat === 'square' && s.formatPillDimActive]}>1:1</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  accessibilityRole="button"
+                  activeOpacity={0.85}
+                  onPress={() => setShareFormat('stories')}
+                  style={[s.formatPill, shareFormat === 'stories' && s.formatPillActive]}
+                >
+                  <Text style={[s.formatPillText, shareFormat === 'stories' && s.formatPillTextActive]}>STORIES</Text>
+                  <Text style={[s.formatPillDim, shareFormat === 'stories' && s.formatPillDimActive]}>9:16</Text>
+                </TouchableOpacity>
+              </View>
+
               <TouchableOpacity
                 accessibilityRole="button"
                 activeOpacity={0.85}
@@ -1484,9 +1523,14 @@ const AnchorDetailsScreen = ({ navigation, route }) => {
         <ShareCardRenderer
           ref={shareCardRef}
           anchorSVG={anchor.baseSigilSvg}
+          enhancedImageUrl={anchor.enhancedImageUrl}
           intention={anchor.intention}
           daysPrimed={anchorPractice.currentStreak}
-          format="square"
+          format={shareFormat}
+          onRenderReady={() => {
+            shareCardRenderedRef.current = true;
+            setShareCardRendered(true);
+          }}
         />
       )}
 
@@ -2284,6 +2328,44 @@ const s = StyleSheet.create({
   },
   exportActionRow: {
     gap: spacing.sm,
+  },
+  formatToggleRow: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  formatPill: {
+    flex: 1,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: 'rgba(212,175,55,0.18)',
+    backgroundColor: 'rgba(255,255,255,0.02)',
+    paddingVertical: 8,
+    paddingHorizontal: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  formatPillActive: {
+    borderColor: 'rgba(212,175,55,0.65)',
+    backgroundColor: 'rgba(212,175,55,0.06)',
+  },
+  formatPillText: {
+    color: 'rgba(245,245,220,0.5)',
+    fontFamily: typography.fontFamily.serif,
+    fontSize: 9,
+    letterSpacing: 1.4,
+    textTransform: 'uppercase',
+  },
+  formatPillTextActive: {
+    color: colors.gold,
+  },
+  formatPillDim: {
+    marginTop: 2,
+    color: 'rgba(245,245,220,0.42)',
+    fontFamily: typography.fontFamily.bodySerifItalic,
+    fontSize: 9,
+  },
+  formatPillDimActive: {
+    color: 'rgba(212,175,55,0.72)',
   },
   exportSecondaryRow: {
     flexDirection: 'row',

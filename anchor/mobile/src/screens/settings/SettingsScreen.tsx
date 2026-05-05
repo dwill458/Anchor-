@@ -20,6 +20,7 @@ import { useSettingsReveal } from '@/components/transitions/SettingsRevealProvid
 import { AuthService } from '@/services/AuthService';
 import { useAuthStore } from '@/stores/authStore';
 import type { RootStackParamList } from '@/types';
+import { LEGAL_URLS, SUPPORT_EMAIL_URL } from '@/constants/legal';
 import { SettingsRow } from '@/components/settings/SettingsRow';
 import { SettingsSectionBlock } from '@/components/settings/SettingsSectionBlock';
 import NotificationService from '@/services/NotificationService';
@@ -117,12 +118,21 @@ export const SettingsScreen: React.FC = () => {
           style: 'destructive',
           onPress: async () => {
             try {
+              await AuthService.signOut();
+            } catch (error) {
+              Alert.alert('Sign Out Failed', 'We could not sign you out right now.');
+              console.warn('[SettingsScreen] Failed to sign out cleanly', error);
+              return;
+            }
+
+            try {
               // Clear sync retry queue so stale anchor data is not carried over
               const { writeSecureValue } = require('@/stores/encryptedPersistStorage');
               await writeSecureValue('anchor-sync-retry-queue', '[]');
             } catch (error) {
               console.warn('[SettingsScreen] Failed to clear sync retry queue on sign-out', error);
             }
+
             signOut();
             setHasCompletedOnboarding(false);
             navigation.dispatch(
@@ -149,15 +159,21 @@ export const SettingsScreen: React.FC = () => {
           onPress: async () => {
             try {
               await AuthService.deleteAccount();
-              // Clear local data
-              const { writeSecureValue } = require('@/stores/encryptedPersistStorage');
-              await writeSecureValue('anchor-sync-retry-queue', '[]');
             } catch (error) {
               const message = error instanceof Error ? error.message : 'Failed to delete account';
               Alert.alert('Deletion Failed', message);
               console.error('[SettingsScreen] Failed to delete account', error);
               return;
             }
+
+            try {
+              // Clear local data
+              const { writeSecureValue } = require('@/stores/encryptedPersistStorage');
+              await writeSecureValue('anchor-sync-retry-queue', '[]');
+            } catch (error) {
+              console.warn('[SettingsScreen] Failed to clear sync retry queue after account deletion', error);
+            }
+
             signOut();
             setHasCompletedOnboarding(false);
             navigation.dispatch(
@@ -177,11 +193,11 @@ export const SettingsScreen: React.FC = () => {
   }, [setHasCompletedOnboarding]);
 
   const handlePrivacyPolicy = () => {
-    Linking.openURL('https://anchorintentions.com/privacy-policy');
+    Linking.openURL(LEGAL_URLS.privacyPolicy);
   };
 
   const handleSupport = () => {
-    Linking.openURL('https://anchorintentions.com/support');
+    Linking.openURL(LEGAL_URLS.support);
   };
 
   useEffect(
@@ -339,7 +355,23 @@ export const SettingsScreen: React.FC = () => {
               type="toggle"
               toggleValue={notifState?.notification_enabled ?? true}
               onToggle={(value) => {
-                void toggleNotifications(value);
+                void (async () => {
+                  if (!value) {
+                    await toggleNotifications(false);
+                    return;
+                  }
+
+                  const granted = await NotificationService.requestPermissions();
+                  if (!granted) {
+                    const message =
+                      NotificationService.getLastError()?.message ??
+                      'Please enable notifications in your device settings.';
+                    Alert.alert('Notification Permission Required', message);
+                    return;
+                  }
+
+                  await toggleNotifications(true);
+                })();
               }}
               disabled={isLoading}
               showDivider={!(notifState?.notification_enabled ?? true)}
@@ -409,12 +441,12 @@ export const SettingsScreen: React.FC = () => {
             <SettingsRow
               title="Privacy Policy"
               type="chevron"
-              onPress={() => void Linking.openURL('https://anchorintentions.com/privacy-policy')}
+              onPress={() => void Linking.openURL(LEGAL_URLS.privacyPolicy)}
             />
             <SettingsRow
               title="Terms of Service"
               type="chevron"
-              onPress={() => void Linking.openURL('https://anchorintentions.com/terms')}
+              onPress={() => void Linking.openURL(LEGAL_URLS.termsOfService)}
               showDivider={false}
             />
           </SettingsSectionBlock>
@@ -462,13 +494,12 @@ export const SettingsScreen: React.FC = () => {
               title="Contact Support"
               type="chevron"
               onPress={async () => {
-                const url = 'mailto:support@anchorintentions.com';
-                const supported = await Linking.canOpenURL(url);
+                const supported = await Linking.canOpenURL(SUPPORT_EMAIL_URL);
                 if (!supported) {
                   Alert.alert('Contact Support', 'Mail is not available on this device.');
                   return;
                 }
-                await Linking.openURL(url);
+                await Linking.openURL(SUPPORT_EMAIL_URL);
               }}
               showDivider={false}
             />

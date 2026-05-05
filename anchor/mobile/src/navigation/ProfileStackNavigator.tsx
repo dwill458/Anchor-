@@ -21,8 +21,6 @@ import {
   ThemeSelectionScreen,
   AccentColorScreen,
   VaultViewScreen,
-  MantraVoiceScreen,
-  VoiceStyleScreen,
   HapticIntensityScreen,
   DataPrivacyScreen,
 } from '../screens/profile';
@@ -47,8 +45,6 @@ export type ProfileStackParamList = {
   ThemeSelection: undefined;
   AccentColor: undefined;
   VaultView: undefined;
-  MantraVoice: undefined;
-  VoiceStyle: undefined;
   HapticFeedback: undefined;
   HapticIntensity: undefined;
   DataPrivacy: undefined;
@@ -167,16 +163,6 @@ export const ProfileStackNavigator: React.FC = () => {
         name="VaultView"
         component={VaultViewScreen}
         options={{ headerTitle: 'Vault View' }}
-      />
-      <Stack.Screen
-        name="MantraVoice"
-        component={MantraVoiceScreen}
-        options={{ headerTitle: 'Mantra Voice' }}
-      />
-      <Stack.Screen
-        name="VoiceStyle"
-        component={VoiceStyleScreen}
-        options={{ headerTitle: 'Voice Style' }}
       />
       <Stack.Screen
         name="HapticFeedback"

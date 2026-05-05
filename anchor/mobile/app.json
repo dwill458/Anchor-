@@ -10,10 +10,10 @@
       "web"
     ],
     "orientation": "portrait",
-    "icon": "./assets/anchor-icon.jpg",
+    "icon": "./assets/anchor-gold.png",
     "userInterfaceStyle": "dark",
     "splash": {
-      "image": "./assets/anchor-icon.jpg",
+      "image": "./assets/anchor-gold.png",
       "resizeMode": "contain",
       "backgroundColor": "#1A1A1D"
     },
@@ -25,26 +25,30 @@
       "bundleIdentifier": "com.anchor.app",
       "buildNumber": "1",
       "infoPlist": {
-        "NSCameraUsageDescription": "Anchor uses your camera to capture moments for your anchors.",
-        "NSMicrophoneUsageDescription": "Anchor uses your microphone to record audio mantras.",
+        "NSCameraUsageDescription": "Anchor uses your camera so you can take a profile photo.",
         "NSFaceIDUsageDescription": "Anchor uses Face ID to keep your anchors secure.",
-        "NSPhotoLibraryUsageDescription": "Anchor accesses your photo library to personalize your anchors.",
+        "NSPhotoLibraryUsageDescription": "Anchor accesses your photo library so you can choose a profile photo and save exported anchor artwork.",
         "NSPhotoLibraryAddUsageDescription": "Anchor saves exported anchor wallpapers to your photo library."
       }
     },
     "android": {
       "adaptiveIcon": {
-        "foregroundImage": "./assets/anchor-icon.jpg",
+        "foregroundImage": "./assets/anchor-gold.png",
         "backgroundColor": "#1A1A1D"
       },
-      "package": "com.anchor.app",
+      "package": "com.anchorintentions.app",
       "versionCode": 1,
       "googleServicesFile": "./google-services.json",
-      "permissions": [
+      "blockedPermissions": [
         "android.permission.RECORD_AUDIO",
+        "android.permission.READ_MEDIA_AUDIO"
+      ],
+      "permissions": [
         "android.permission.MODIFY_AUDIO_SETTINGS",
         "android.permission.CAMERA",
-        "android.permission.READ_MEDIA_IMAGES"
+        "android.permission.READ_MEDIA_IMAGES",
+        "android.permission.VIBRATE",
+        "android.permission.POST_NOTIFICATIONS"
       ]
     },
     "web": {

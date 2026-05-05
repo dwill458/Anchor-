@@ -5,7 +5,5 @@ export { SessionDefaultsScreen, DailyPracticeGoalScreen, ThreadStrengthScreen, R
 export * from './ThemeSelectionScreen';
 export * from './AccentColorScreen';
 export * from './VaultViewScreen';
-export * from './MantraVoiceScreen';
-export * from './VoiceStyleScreen';
 export * from './HapticIntensityScreen';
 export * from './DataPrivacyScreen';

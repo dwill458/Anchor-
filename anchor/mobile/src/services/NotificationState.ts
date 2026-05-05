@@ -1,4 +1,6 @@
 const DEFAULT_TIMEZONE = Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC';
+export const DEFAULT_NOTIFICATION_GOAL_PRIMES = 3;
+export const NOTIFICATION_STATE_STORAGE_KEY = '@anchor_notification_state';
 
 export interface NotificationState {
   primed_today: boolean;
@@ -45,7 +47,7 @@ export const initializeNotificationState = (): NotificationState => ({
   total_primes_this_week: 0,
   week_started_at: getMonday12AMLocal(),
   current_primes: 0,
-  goal_primes: 22,
+  goal_primes: DEFAULT_NOTIFICATION_GOAL_PRIMES,
   has_reached_goal_today: false,
   has_entered_burn_flow: false,
   sigil_in_vault: false,

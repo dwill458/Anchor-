@@ -35,6 +35,11 @@ model User {
   stabilizesTotal       Int      @default(0)
   stabilizeStreakDays   Int      @default(0)
   lastStabilizeAt       DateTime?
+  notificationState     Json?    @map("notification_state")
+  expoPushToken         String?  @map("expo_push_token")
+  fcmToken              String?  @map("fcm_token")
+  apnsToken             String?  @map("apns_token")
+  notificationsEnabled  Boolean  @default(true) @map("notifications_enabled")
 
   // Relations
   anchors               Anchor[]
