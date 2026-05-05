@@ -8,6 +8,7 @@ import {
   initializeNotificationState,
   isSameDay,
   isSameWeek,
+  NOTIFICATION_STATE_STORAGE_KEY,
 } from '@/services/NotificationState';
 import { isSovereign } from '@/services/NotificationPriority';
 import { NOTIFICATION_COPY } from '@/constants/NotificationCopy';
@@ -15,33 +16,37 @@ import {
   countDailyGoalCompletions,
   localDateString,
 } from '@/services/DailyGoalNudgeService';
-import { syncNotificationStateToServer } from '@/services/NotificationSyncService';
+import {
+  clearPushTokensFromServer,
+  syncNotificationStateToServer,
+  syncPushTokensToServer,
+} from '@/services/NotificationSyncService';
 import { useAnchorStore } from '@/stores/anchorStore';
 import { useAuthStore } from '@/stores/authStore';
 import { useSessionStore } from '@/stores/sessionStore';
 import { useSettingsStore } from '@/stores/settingsStore';
 
-const NOTIFICATION_STATE_KEY = '@anchor_notification_state';
 export const useNotificationController = () => {
   const [notifState, setNotifState] = useState<NotificationState | null>(null);
   const [isInitialized, setIsInitialized] = useState(false);
+  const dailyPracticeGoal = useSettingsStore((state) => state.dailyPracticeGoal ?? 3);
 
   const loadState = useCallback(async (): Promise<NotificationState> => {
-    const stored = await AsyncStorage.getItem(NOTIFICATION_STATE_KEY);
+    const stored = await AsyncStorage.getItem(NOTIFICATION_STATE_STORAGE_KEY);
     return stored ? JSON.parse(stored) : initializeNotificationState();
   }, []);
 
   const saveState = useCallback(async (state: NotificationState) => {
-    await AsyncStorage.setItem(NOTIFICATION_STATE_KEY, JSON.stringify(state));
+    await AsyncStorage.setItem(NOTIFICATION_STATE_STORAGE_KEY, JSON.stringify(state));
     setNotifState(state);
   }, []);
 
   const syncStateToServer = useCallback(async (state: NotificationState) => {
-    const userId =
-      (await AsyncStorage.getItem('@anchor_user_id')) ??
-      useAuthStore.getState().user?.id ??
-      null;
-    await syncNotificationStateToServer(userId, state);
+    if (!useAuthStore.getState().isAuthenticated) {
+      return;
+    }
+
+    await syncNotificationStateToServer(state);
   }, []);
 
   const syncWithStores = useCallback((state: NotificationState): NotificationState => {
@@ -54,6 +59,7 @@ export const useNotificationController = () => {
 
     return {
       ...state,
+      goal_primes: dailyPracticeGoal,
       current_primes: Math.max(state.current_primes, currentPrimes),
       total_primes_this_week: Math.max(
         state.total_primes_this_week,
@@ -72,9 +78,9 @@ export const useNotificationController = () => {
         sessionState.lastPrimedAt === localDateString(now),
       last_prime_at: latestPrime,
       has_reached_goal_today:
-        state.has_reached_goal_today || currentPrimes >= state.goal_primes,
+        state.has_reached_goal_today || currentPrimes >= dailyPracticeGoal,
     };
-  }, []);
+  }, [dailyPracticeGoal]);
 
   const reconcile = useCallback((input: NotificationState): NotificationState => {
     const now = new Date();
@@ -158,20 +164,49 @@ export const useNotificationController = () => {
 
       await saveState(state);
       await scheduleMicroPrime(state);
+      await syncStateToServer(state);
     } catch (err) {
       console.error('[NotificationController] initOnAppOpen error:', err);
     } finally {
       setIsInitialized(true);
     }
-  }, [loadState, reconcile, saveState, scheduleMicroPrime]);
+  }, [loadState, reconcile, saveState, scheduleMicroPrime, syncStateToServer]);
 
   useEffect(() => {
     void initOnAppOpen();
-  }, []); // empty dependency array — run once on mount only
+  }, [initOnAppOpen]);
+
+  useEffect(() => {
+    if (!isInitialized) {
+      return;
+    }
+
+    let cancelled = false;
+
+    const syncGoalWithSettings = async () => {
+      try {
+        const reconciledState = reconcile(await loadState());
+        if (cancelled) {
+          return;
+        }
+
+        await saveState(reconciledState);
+        await syncStateToServer(reconciledState);
+      } catch (err) {
+        console.error('[NotificationController] syncGoalWithSettings error:', err);
+      }
+    };
+
+    void syncGoalWithSettings();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [dailyPracticeGoal, isInitialized, loadState, reconcile, saveState, syncStateToServer]);
 
   const handlePrimeComplete = useCallback(async () => {
     try {
-      let state = await loadState();
+      let state = reconcile(await loadState());
 
       // Do NOT increment prime counts here — session save already handles this
       state.primed_today = true;
@@ -179,7 +214,9 @@ export const useNotificationController = () => {
       state.missed_yesterday = false;
       state.miss_streak = 0;
 
-      // Derive goal status from already-saved current_primes
+      state = syncWithStores(state);
+
+      // Derive goal status from current store-backed prime counts
       state.has_reached_goal_today = state.current_primes >= state.goal_primes;
 
       if (
@@ -195,7 +232,7 @@ export const useNotificationController = () => {
     } catch (err) {
       console.error('[NotificationController] handlePrimeComplete error:', err);
     }
-  }, [loadState, saveState, scheduleMicroPrime, syncStateToServer]);
+  }, [loadState, reconcile, saveState, scheduleMicroPrime, syncStateToServer, syncWithStores]);
 
   const handleBurnFlowEntered = useCallback(async () => {
     try {
@@ -254,8 +291,19 @@ export const useNotificationController = () => {
       if (!enabled) {
         await NotificationService.cancelNotification('micro-prime');
         await NotificationService.cancelWeeklySummary();
+        await clearPushTokensFromServer();
       } else {
         await scheduleMicroPrime(state);
+        const registration = await NotificationService.getRemotePushRegistration();
+        if (registration.permissionGranted) {
+          await syncPushTokensToServer({
+            expoPushToken: registration.expoPushToken,
+            fcmToken: registration.fcmToken,
+            apnsToken: registration.apnsToken,
+          });
+        } else {
+          await clearPushTokensFromServer();
+        }
       }
       await syncStateToServer(state);
     } catch (err) {

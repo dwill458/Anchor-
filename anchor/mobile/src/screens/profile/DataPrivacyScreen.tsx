@@ -15,6 +15,7 @@ import {
     Alert,
     Platform,
     Linking,
+    Share,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import {
@@ -31,6 +32,7 @@ import { BlurView } from 'expo-blur';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { colors, spacing } from '@/theme';
 import { ZenBackground } from '@/components/common';
+import { LEGAL_URLS } from '@/constants/legal';
 import { apiClient } from '@/services/ApiClient';
 
 const IS_ANDROID = Platform.OS === 'android';
@@ -82,7 +84,7 @@ export const DataPrivacyScreen: React.FC = () => {
     const handleExportData = () => {
         Alert.alert(
             'Export Data',
-            'All your anchors, rituals, and settings will be compiled into a secure archive and sent to your email.',
+            'Prepare a JSON export of your anchors, rituals, settings, and account activity to share or save.',
             [
                 { text: 'Cancel', style: 'cancel' },
                 {
@@ -90,10 +92,18 @@ export const DataPrivacyScreen: React.FC = () => {
                     onPress: async () => {
                         setIsExporting(true);
                         try {
-                            await apiClient.post('/auth/me/export');
-                            Alert.alert('Export Requested', 'Your data export has been initiated. You will receive an email shortly.');
+                            const response = await apiClient.get<{ success: boolean; data?: unknown }>('/auth/me/export');
+                            if (!response.data?.success || !response.data.data) {
+                                throw new Error('Failed to prepare your export.');
+                            }
+
+                            const exportJson = JSON.stringify(response.data.data, null, 2);
+                            await Share.share({
+                                title: 'Anchor Data Export',
+                                message: exportJson,
+                            });
                         } catch {
-                            Alert.alert('Export Failed', 'Could not initiate export. Please try again or contact support.');
+                            Alert.alert('Export Failed', 'Could not prepare your export. Please try again or contact support.');
                         } finally {
                             setIsExporting(false);
                         }
@@ -177,9 +187,10 @@ export const DataPrivacyScreen: React.FC = () => {
                     <CardWrapper {...cardProps} style={styles.sectionCard}>
                         <PrivacyItem
                             label="Export My Data"
-                            helperText="Download a copy of your account data in JSON format."
+                            helperText={isExporting ? 'Preparing your JSON export...' : 'Share a copy of your account data in JSON format.'}
                             icon={Download}
-                            onPress={handleExportData}
+                            onPress={isExporting ? undefined : handleExportData}
+                            value={isExporting ? 'Preparing…' : undefined}
                         />
                         <PrivacyItem
                             label="Clear Local Cache"
@@ -203,19 +214,19 @@ export const DataPrivacyScreen: React.FC = () => {
                             label="Privacy Policy"
                             helperText="How we protect and handle your data."
                             icon={ExternalLink}
-                            onPress={() => openUrl('https://anchorintentions.com/privacy-policy')}
+                            onPress={() => openUrl(LEGAL_URLS.privacyPolicy)}
                         />
                         <PrivacyItem
                             label="Terms of Service"
                             helperText="Rules for using the Anchor platform."
                             icon={ExternalLink}
-                            onPress={() => openUrl('https://anchor-app.io/terms')}
+                            onPress={() => openUrl(LEGAL_URLS.termsOfService)}
                         />
                         <PrivacyItem
                             label="Safety Guidelines"
                             helperText="Best practices for using Anchor safely."
                             icon={Info}
-                            onPress={() => openUrl('https://anchor-app.io/safety')}
+                            onPress={() => openUrl(LEGAL_URLS.safetyGuidelines)}
                         />
                     </CardWrapper>
 

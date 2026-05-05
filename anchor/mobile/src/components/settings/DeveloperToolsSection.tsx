@@ -4,7 +4,11 @@ import NotificationService, { type NotificationType } from '@/services/Notificat
 import { useAnchorStore } from '@/stores/anchorStore';
 import { useSettingsStore } from '@/stores/settingsStore';
 import { useForgeMomentStore } from '@/stores/forgeMomentStore';
-import { usePerformanceTier, type PerformanceTierOverride } from '@/hooks/usePerformanceTier';
+import {
+  useDetectedPerformanceTier,
+  usePerformanceTier,
+  type PerformanceTierOverride,
+} from '@/hooks/usePerformanceTier';
 import { useSubscriptionStore } from '@/stores/subscriptionStore';
 import { SettingsRow } from './SettingsRow';
 import { SettingsSectionBlock } from './SettingsSectionBlock';
@@ -35,14 +39,16 @@ const PerfTierPicker: React.FC = () => {
     devPerfTierOverride: s.devPerfTierOverride,
     setDevPerfTierOverride: s.setDevPerfTierOverride,
   }));
-  // Detected tier (no override applied — shows what the device would actually get)
-  const detectedTier = usePerformanceTier({ override: 'auto' });
+  const detectedTier = useDetectedPerformanceTier();
+  const autoTier = usePerformanceTier({ override: 'auto' });
 
   return (
     <View style={styles.segmentRow}>
       <View style={styles.perfTierHeader}>
         <Text style={styles.segmentTitle}>Performance Tier Override</Text>
-        <Text style={styles.perfTierDetected}>Detected: {detectedTier}</Text>
+        <Text style={styles.perfTierDetected}>
+          Device: {detectedTier} · Auto: {autoTier}
+        </Text>
       </View>
       <View style={styles.segmentedControl}>
         {PERF_TIERS.map(({ value, label }) => {
@@ -61,7 +67,8 @@ const PerfTierPicker: React.FC = () => {
         })}
       </View>
       <Text style={styles.perfTierHint}>
-        Forces render tier for all glow/animation components. Resets to Auto on app restart.
+        Override forces all glow and animation components. Device shows raw hardware class; Auto
+        also reflects battery saver and reduce-motion.
       </Text>
     </View>
   );

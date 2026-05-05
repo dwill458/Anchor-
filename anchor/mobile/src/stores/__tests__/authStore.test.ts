@@ -402,6 +402,27 @@ describe('authStore', () => {
       expect(state.pendingFirstAnchorError).toBeNull();
     });
 
+    it('should clear cached profile and offline session flags', () => {
+      useAuthStore.setState({
+        user: createMockUser(),
+        token: 'token-123',
+        isAuthenticated: true,
+        isOfflineMode: true,
+        profileData: {
+          user: createMockUser(),
+          settings: null,
+        } as any,
+        profileLastFetched: Date.now(),
+      });
+
+      useAuthStore.getState().signOut();
+
+      const state = useAuthStore.getState();
+      expect(state.profileData).toBeNull();
+      expect(state.profileLastFetched).toBeNull();
+      expect(state.isOfflineMode).toBe(false);
+    });
+
     it('should not affect onboarding status', () => {
       const { setUser, setToken, completeOnboarding, signOut } = useAuthStore.getState();
 

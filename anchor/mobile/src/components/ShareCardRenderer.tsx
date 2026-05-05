@@ -1,15 +1,13 @@
 import React, { forwardRef, useImperativeHandle, useMemo, useRef } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
-import ViewShot from 'react-native-view-shot';
+import { Image, PixelRatio, StyleSheet, Text, View } from 'react-native';
+import ViewShot, { captureRef, type CaptureOptions } from 'react-native-view-shot';
 import { LinearGradient } from 'expo-linear-gradient';
 import Svg, { Circle, Defs, Ellipse, Line, RadialGradient, Rect, Stop } from 'react-native-svg';
 import { SvgXml } from 'react-native-svg';
-import { colors, typography } from '@/theme';
+import { typography } from '@/theme';
 
 const NAVY = '#0F1419';
 const GOLD = '#D4AF37';
-const BONE = '#F5F5DC';
-const SILVER = '#C0C0C0';
 const DEEP_PURPLE = '#3E2C5B';
 const FALLBACK_SIGIL = `<svg viewBox="0 0 120 120" fill="none" xmlns="http://www.w3.org/2000/svg">
   <circle cx="60" cy="60" r="52" stroke="#D4AF37" stroke-width="1" opacity="0.22"/>
@@ -20,8 +18,9 @@ const FALLBACK_SIGIL = `<svg viewBox="0 0 120 120" fill="none" xmlns="http://www
 
 const FORMAT_SIZES = {
   square: { width: 1080, height: 1080 },
-  story: { width: 1170, height: 2532 },
+  stories: { width: 1170, height: 2532 },
 } as const;
+const DEVICE_SCALE = PixelRatio.get() || 1;
 
 const GRAIN_DOTS = Array.from({ length: 56 }, (_, index) => ({
   cx: ((index * 73) % 1000) + 20,
@@ -30,20 +29,22 @@ const GRAIN_DOTS = Array.from({ length: 56 }, (_, index) => ({
   opacity: index % 3 === 0 ? 0.06 : 0.035,
 }));
 
-type ShareCardFormat = keyof typeof FORMAT_SIZES;
+export type ShareCardFormat = keyof typeof FORMAT_SIZES;
 
 export interface ShareCardRendererProps {
   anchorSVG: string;
+  enhancedImageUrl?: string | null;
   intention: string;
   daysPrimed: number;
   format?: ShareCardFormat;
+  onRenderReady?: () => void;
 }
 
 export interface ShareCardRendererRef {
-  capture: () => Promise<string>;
+  capture: (options?: CaptureOptions) => Promise<string>;
 }
 
-interface CardMetrics {
+interface SquareMetrics {
   paddingHorizontal: number;
   paddingTop: number;
   paddingBottom: number;
@@ -62,65 +63,45 @@ interface CardMetrics {
   footerUrlSize: number;
   footerGap: number;
   ruleWidth: number;
-  showDaysStat: boolean;
 }
 
-function buildMetrics(format: ShareCardFormat): CardMetrics {
-  if (format === 'story') {
-    return {
-      paddingHorizontal: 94,
-      paddingTop: 140,
-      paddingBottom: 120,
-      cornerInset: 34,
-      cornerSize: 52,
-      brandFontSize: 21,
-      brandLetterSpacing: 8,
-      ringSize: 430,
-      sigilSize: 260,
-      intentFontSize: 52,
-      intentLineHeight: 66,
-      intentMaxWidth: 660,
-      statLabelFontSize: 18,
-      statValueFontSize: 28,
-      footerWordmarkSize: 34,
-      footerUrlSize: 24,
-      footerGap: 8,
-      ruleWidth: 140,
-      showDaysStat: false,
-    };
-  }
-
+function buildSquareMetrics(): SquareMetrics {
   return {
     paddingHorizontal: 84,
-    paddingTop: 74,
-    paddingBottom: 72,
+    paddingTop: 60,
+    paddingBottom: 60,
     cornerInset: 32,
     cornerSize: 46,
-    brandFontSize: 18,
-    brandLetterSpacing: 7,
-    ringSize: 340,
-    sigilSize: 208,
-    intentFontSize: 42,
-    intentLineHeight: 55,
-    intentMaxWidth: 690,
-    statLabelFontSize: 16,
-    statValueFontSize: 28,
-    footerWordmarkSize: 31,
-    footerUrlSize: 20,
-    footerGap: 8,
+    brandFontSize: 15,
+    brandLetterSpacing: 4,
+    ringSize: 580,
+    sigilSize: 520,
+    intentFontSize: 38,
+    intentLineHeight: 50,
+    intentMaxWidth: 840,
+    statLabelFontSize: 15,
+    statValueFontSize: 26,
+    footerWordmarkSize: 28,
+    footerUrlSize: 18,
+    footerGap: 6,
     ruleWidth: 120,
-    showDaysStat: true,
   };
+}
+
+function scalePx(value: number) {
+  return value / DEVICE_SCALE;
 }
 
 function Corner({
   position,
   inset,
   size,
+  borderWidth = 1,
 }: {
   position: 'tl' | 'tr' | 'bl' | 'br';
   inset: number;
   size: number;
+  borderWidth?: number;
 }) {
   return (
     <View
@@ -130,16 +111,19 @@ function Corner({
           width: size,
           height: size,
         },
-        position === 'tl' && { top: inset, left: inset, borderTopWidth: 1, borderLeftWidth: 1 },
-        position === 'tr' && { top: inset, right: inset, borderTopWidth: 1, borderRightWidth: 1 },
-        position === 'bl' && { bottom: inset, left: inset, borderBottomWidth: 1, borderLeftWidth: 1 },
-        position === 'br' && { bottom: inset, right: inset, borderBottomWidth: 1, borderRightWidth: 1 },
+        position === 'tl' && { top: inset, left: inset, borderTopWidth: borderWidth, borderLeftWidth: borderWidth },
+        position === 'tr' && { top: inset, right: inset, borderTopWidth: borderWidth, borderRightWidth: borderWidth },
+        position === 'bl' && { bottom: inset, left: inset, borderBottomWidth: borderWidth, borderLeftWidth: borderWidth },
+        position === 'br' && { bottom: inset, right: inset, borderBottomWidth: borderWidth, borderRightWidth: borderWidth },
       ]}
     />
   );
 }
 
-function BackgroundArt({ width, height }: { width: number; height: number }) {
+function BackgroundArt({ width, height, stories = false }: { width: number; height: number; stories?: boolean }) {
+  const coreCy = stories ? '42%' : '36%';
+  const coreOpacity = stories ? '0.45' : '0.62';
+
   return (
     <View style={StyleSheet.absoluteFill} pointerEvents="none">
       <LinearGradient
@@ -151,9 +135,9 @@ function BackgroundArt({ width, height }: { width: number; height: number }) {
 
       <Svg width={width} height={height} style={StyleSheet.absoluteFill}>
         <Defs>
-          <RadialGradient id="share-card-core-glow" cx="50%" cy="36%" rx="55%" ry="45%">
-            <Stop offset="0%" stopColor={DEEP_PURPLE} stopOpacity="0.62" />
-            <Stop offset="38%" stopColor={DEEP_PURPLE} stopOpacity="0.22" />
+          <RadialGradient id="share-card-core-glow" cx="50%" cy={coreCy} rx="55%" ry="45%">
+            <Stop offset="0%" stopColor={DEEP_PURPLE} stopOpacity={coreOpacity} />
+            <Stop offset="55%" stopColor={DEEP_PURPLE} stopOpacity="0" />
             <Stop offset="100%" stopColor={DEEP_PURPLE} stopOpacity="0" />
           </RadialGradient>
           <RadialGradient id="share-card-bottom-glow" cx="50%" cy="88%" rx="60%" ry="40%">
@@ -168,12 +152,12 @@ function BackgroundArt({ width, height }: { width: number; height: number }) {
 
         <Ellipse
           cx={width * 0.47}
-          cy={height * 0.36}
+          cy={height * (stories ? 0.41 : 0.36)}
           rx={width * 0.18}
-          ry={height * 0.11}
+          ry={height * (stories ? 0.09 : 0.11)}
           fill={DEEP_PURPLE}
-          opacity={0.22}
-          transform={`rotate(-12 ${width * 0.47} ${height * 0.36})`}
+          opacity={stories ? 0.16 : 0.22}
+          transform={`rotate(-12 ${width * 0.47} ${height * (stories ? 0.41 : 0.36)})`}
         />
         <Ellipse
           cx={width * 0.62}
@@ -211,12 +195,22 @@ function BackgroundArt({ width, height }: { width: number; height: number }) {
 
 function SigilRing({
   sigilXml,
+  enhancedImageUrl,
   ringSize,
   sigilSize,
+  borderWidth = 1,
+  glowOpacity = 0.22,
+  glowShadowOpacity = 0.58,
+  shadowRadius = 42,
 }: {
   sigilXml: string;
+  enhancedImageUrl?: string | null;
   ringSize: number;
   sigilSize: number;
+  borderWidth?: number;
+  glowOpacity?: number;
+  glowShadowOpacity?: number;
+  shadowRadius?: number;
 }) {
   return (
     <View
@@ -226,6 +220,7 @@ function SigilRing({
           width: ringSize,
           height: ringSize,
           borderRadius: ringSize / 2,
+          borderWidth,
         },
       ]}
     >
@@ -236,6 +231,9 @@ function SigilRing({
             width: ringSize * 0.92,
             height: ringSize * 0.92,
             borderRadius: (ringSize * 0.92) / 2,
+            backgroundColor: `rgba(62,44,91,${glowOpacity})`,
+            shadowOpacity: glowShadowOpacity,
+            shadowRadius,
           },
         ]}
       />
@@ -289,30 +287,36 @@ function SigilRing({
       </Svg>
 
       <View style={styles.sigilXmlWrap}>
-        <SvgXml xml={sigilXml || FALLBACK_SIGIL} width={sigilSize} height={sigilSize} />
+        {enhancedImageUrl ? (
+          <Image
+            source={{ uri: enhancedImageUrl }}
+            style={{ width: sigilSize, height: sigilSize, borderRadius: sigilSize / 2 }}
+            resizeMode="cover"
+          />
+        ) : (
+          <SvgXml xml={sigilXml || FALLBACK_SIGIL} width={sigilSize} height={sigilSize} />
+        )}
       </View>
     </View>
   );
 }
 
-function ShareCardSurface({
+function SquareCardSurface({
   anchorSVG,
+  enhancedImageUrl,
   intention,
   daysPrimed,
-  format,
-}: ShareCardRendererProps & { format: ShareCardFormat }) {
-  const size = FORMAT_SIZES[format];
-  const metrics = buildMetrics(format);
+}: ShareCardRendererProps) {
+  const size = FORMAT_SIZES.square;
+  const metrics = buildSquareMetrics();
   const safeIntention = useMemo(() => {
     const raw = intention?.trim() || 'Anchor intention unavailable';
-    const maxChars = format === 'story' ? 120 : 140;
     const normalized = raw.replace(/\s+/g, ' ');
-    const trimmed = normalized.length > maxChars
-      ? `${normalized.slice(0, maxChars - 1).trimEnd()}…`
-      : normalized;
+    const trimmed =
+      normalized.length > 140 ? `${normalized.slice(0, 139).trimEnd()}…` : normalized;
 
     return `"${trimmed.replace(/^"+|"+$/g, '')}"`;
-  }, [format, intention]);
+  }, [intention]);
 
   return (
     <View style={{ width: size.width, height: size.height, backgroundColor: NAVY }}>
@@ -341,12 +345,13 @@ function ShareCardSurface({
             },
           ]}
         >
-          Anchor · Cognitive Priming
+          Anchor · Intentions Made Visible
         </Text>
 
         <View style={styles.centerStack}>
           <SigilRing
             sigilXml={anchorSVG || FALLBACK_SIGIL}
+            enhancedImageUrl={enhancedImageUrl}
             ringSize={metrics.ringSize}
             sigilSize={metrics.sigilSize}
           />
@@ -358,34 +363,20 @@ function ShareCardSurface({
                 fontSize: metrics.intentFontSize,
                 lineHeight: metrics.intentLineHeight,
                 maxWidth: metrics.intentMaxWidth,
-                marginTop: format === 'story' ? 64 : 44,
+                marginTop: 28,
               },
             ]}
           >
             {safeIntention}
           </Text>
 
-          {metrics.showDaysStat ? (
-            <>
-              <View style={[styles.rule, { width: metrics.ruleWidth, marginTop: 34 }]} />
-              <View style={styles.statBlock}>
-                <Text style={[styles.statValue, { fontSize: metrics.statValueFontSize }]}>
-                  {Math.max(0, daysPrimed || 0)}
-                </Text>
-                <Text style={[styles.statLabel, { fontSize: metrics.statLabelFontSize }]}>
-                  DAYS PRIMED
-                </Text>
-              </View>
-            </>
-          ) : (
-            <>
-              <View style={[styles.rule, { width: metrics.ruleWidth, marginTop: 40 }]} />
-              <Text style={[styles.storyMeta, { fontSize: metrics.statLabelFontSize, marginTop: 22 }]}>
-                {Math.max(0, daysPrimed || 0)} DAYS PRIMED
-              </Text>
-              <View style={[styles.rule, { width: metrics.ruleWidth, marginTop: 22 }]} />
-            </>
-          )}
+          <View style={[styles.rule, { width: metrics.ruleWidth, marginTop: 34 }]} />
+          <View style={styles.statBlock}>
+            <Text style={[styles.statValue, { fontSize: metrics.statValueFontSize }]}>
+              {Math.max(0, daysPrimed || 0)}
+            </Text>
+            <Text style={[styles.statLabel, { fontSize: metrics.statLabelFontSize }]}>DAYS PRIMED</Text>
+          </View>
         </View>
 
         <View style={[styles.footer, { gap: metrics.footerGap }]}>
@@ -397,27 +388,173 @@ function ShareCardSurface({
   );
 }
 
+function StoriesCardSurface({
+  anchorSVG,
+  enhancedImageUrl,
+  intention,
+  daysPrimed,
+}: ShareCardRendererProps) {
+  const size = FORMAT_SIZES.stories;
+  const safeIntention = useMemo(() => {
+    const raw = intention?.trim() || 'Anchor intention unavailable';
+    return raw.replace(/\s+/g, ' ').replace(/^"+|"+$/g, '');
+  }, [intention]);
+
+  return (
+    <View
+      style={[
+        styles.storiesCanvas,
+        {
+          width: scalePx(size.width),
+          height: scalePx(size.height),
+        },
+      ]}
+    >
+      <BackgroundArt width={scalePx(size.width)} height={scalePx(size.height)} stories />
+      <Corner position="tl" inset={scalePx(40)} size={scalePx(36)} borderWidth={1.5} />
+      <Corner position="tr" inset={scalePx(40)} size={scalePx(36)} borderWidth={1.5} />
+      <Corner position="bl" inset={scalePx(40)} size={scalePx(36)} borderWidth={1.5} />
+      <Corner position="br" inset={scalePx(40)} size={scalePx(36)} borderWidth={1.5} />
+
+      <View style={[styles.storiesBrandZone, { height: scalePx(180), paddingBottom: scalePx(20) }]}>
+        <Text style={[styles.storiesBrandLine, { fontSize: scalePx(24), letterSpacing: scalePx(8) }]}>
+          Anchor · Intentions Made Visible
+        </Text>
+      </View>
+
+      <View style={[styles.storiesSigilZone, { height: scalePx(1460) }]}>
+        <View
+          style={[
+            styles.storiesSigilGlowClamp,
+            { width: scalePx(920), height: scalePx(920) },
+          ]}
+        >
+          <SigilRing
+            sigilXml={anchorSVG || FALLBACK_SIGIL}
+            enhancedImageUrl={enhancedImageUrl}
+            ringSize={scalePx(720)}
+            sigilSize={scalePx(664)}
+            borderWidth={2}
+            glowOpacity={0.18}
+            glowShadowOpacity={0.5}
+            shadowRadius={scalePx(84)}
+          />
+        </View>
+      </View>
+
+      <View
+        style={[
+          styles.storiesIntentionZone,
+          { height: scalePx(280), paddingHorizontal: scalePx(100) },
+        ]}
+      >
+        <View style={[styles.storiesRule, { width: scalePx(40) }]} />
+        <Text
+          style={[
+            styles.storiesIntentionText,
+            {
+              marginVertical: scalePx(28),
+              maxWidth: scalePx(970),
+              fontSize: scalePx(52),
+              lineHeight: scalePx(72),
+            },
+          ]}
+          numberOfLines={2}
+          ellipsizeMode="tail"
+        >
+          {safeIntention}
+        </Text>
+        <View style={[styles.storiesRule, { width: scalePx(40) }]} />
+      </View>
+
+      <View style={[styles.storiesStatZone, { height: scalePx(280) }]}>
+        <Text
+          style={[
+            styles.storiesDaysValue,
+            {
+              fontSize: scalePx(96),
+              lineHeight: scalePx(104),
+              letterSpacing: scalePx(4),
+            },
+          ]}
+        >
+          {Math.max(0, daysPrimed || 0)}
+        </Text>
+        <Text
+          style={[
+            styles.storiesDaysLabel,
+            {
+              marginTop: scalePx(8),
+              fontSize: scalePx(28),
+              letterSpacing: scalePx(12),
+            },
+          ]}
+        >
+          DAYS PRIMED
+        </Text>
+      </View>
+
+      <View style={[styles.storiesFooterZone, { height: scalePx(372), paddingBottom: scalePx(100) }]}>
+        <Text
+          style={[
+            styles.storiesWordmark,
+            {
+              fontSize: scalePx(48),
+              letterSpacing: scalePx(20),
+            },
+          ]}
+        >
+          Anchor
+        </Text>
+        <Text
+          style={[
+            styles.storiesUrl,
+            {
+              marginTop: scalePx(8),
+              fontSize: scalePx(32),
+            },
+          ]}
+        >
+          anchorintentions.com
+        </Text>
+      </View>
+    </View>
+  );
+}
+
 const ShareCardRenderer = forwardRef<ShareCardRendererRef, ShareCardRendererProps>(function ShareCardRenderer(
   {
     anchorSVG,
+    enhancedImageUrl,
     intention,
     daysPrimed,
     format = 'square',
+    onRenderReady,
   },
   ref
 ) {
-  const viewShotRef = useRef<any>(null);
+  const viewShotRef = useRef<ViewShot | null>(null);
   const size = FORMAT_SIZES[format];
+  const layoutSize = {
+    width: scalePx(size.width),
+    height: scalePx(size.height),
+  };
+  const readyFiredRef = useRef(false);
 
-  useImperativeHandle(ref, () => ({
-    async capture() {
-      const uri = await viewShotRef.current?.capture?.();
-      if (!uri) {
-        throw new Error('Unable to capture share card.');
-      }
-      return uri;
-    },
-  }), []);
+  useImperativeHandle(
+    ref,
+    () => ({
+      async capture(options) {
+        const target = viewShotRef.current;
+        const uri = target ? await captureRef(target, options) : null;
+        if (!uri) {
+          throw new Error('Unable to capture share card.');
+        }
+        return uri;
+      },
+    }),
+    []
+  );
 
   return (
     <View
@@ -428,27 +565,44 @@ const ShareCardRenderer = forwardRef<ShareCardRendererRef, ShareCardRendererProp
         {
           top: -9999,
           left: -9999,
-          width: size.width,
-          height: size.height,
+          width: layoutSize.width,
+          height: layoutSize.height,
         },
       ]}
     >
       <ViewShot
         ref={viewShotRef}
-        style={{ width: size.width, height: size.height }}
+        style={{ width: layoutSize.width, height: layoutSize.height }}
         options={{
           fileName: `anchor-share-card-${format}`,
           format: 'png',
           quality: 1,
           result: 'tmpfile',
         }}
+        onLayout={() => {
+          if (!readyFiredRef.current) {
+            readyFiredRef.current = true;
+            onRenderReady?.();
+          }
+        }}
       >
-        <ShareCardSurface
-          anchorSVG={anchorSVG}
-          intention={intention}
-          daysPrimed={daysPrimed}
-          format={format}
-        />
+        {format === 'stories' ? (
+          <StoriesCardSurface
+            anchorSVG={anchorSVG}
+            enhancedImageUrl={enhancedImageUrl}
+            intention={intention}
+            daysPrimed={daysPrimed}
+            format={format}
+          />
+        ) : (
+          <SquareCardSurface
+            anchorSVG={anchorSVG}
+            enhancedImageUrl={enhancedImageUrl}
+            intention={intention}
+            daysPrimed={daysPrimed}
+            format={format}
+          />
+        )}
       </ViewShot>
     </View>
   );
@@ -478,7 +632,6 @@ const styles = StyleSheet.create({
   sigilRing: {
     alignItems: 'center',
     justifyContent: 'center',
-    borderWidth: 1,
     borderColor: 'rgba(212,175,55,0.2)',
     backgroundColor: 'rgba(15,20,25,0.74)',
     shadowColor: DEEP_PURPLE,
@@ -490,11 +643,8 @@ const styles = StyleSheet.create({
   },
   sigilGlow: {
     position: 'absolute',
-    backgroundColor: 'rgba(62,44,91,0.22)',
     shadowColor: DEEP_PURPLE,
     shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.58,
-    shadowRadius: 42,
     elevation: 10,
   },
   sigilGuides: {
@@ -529,12 +679,6 @@ const styles = StyleSheet.create({
     color: 'rgba(192,192,192,0.42)',
     letterSpacing: 4,
   },
-  storyMeta: {
-    fontFamily: typography.fontFamily.serif,
-    color: 'rgba(212,175,55,0.38)',
-    letterSpacing: 4,
-    textAlign: 'center',
-  },
   footer: {
     alignItems: 'center',
   },
@@ -552,6 +696,102 @@ const styles = StyleSheet.create({
   corner: {
     position: 'absolute',
     borderColor: 'rgba(212,175,55,0.25)',
+  },
+  storiesCanvas: {
+    width: 1170,
+    height: 2532,
+    backgroundColor: NAVY,
+    overflow: 'hidden',
+  },
+  storiesBrandZone: {
+    height: 180,
+    justifyContent: 'flex-end',
+    alignItems: 'center',
+    paddingBottom: 20,
+  },
+  storiesBrandLine: {
+    fontFamily: typography.fontFamily.serif,
+    fontSize: 24,
+    letterSpacing: 8,
+    textTransform: 'uppercase',
+    textAlign: 'center',
+    color: 'rgba(212,175,55,0.45)',
+  },
+  storiesSigilZone: {
+    height: 1140,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  storiesSigilGlowClamp: {
+    width: 720,
+    height: 720,
+    alignItems: 'center',
+    justifyContent: 'center',
+    overflow: 'hidden',
+  },
+  storiesIntentionZone: {
+    height: 280,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 100,
+  },
+  storiesRule: {
+    width: 40,
+    height: 1,
+    backgroundColor: GOLD,
+    opacity: 0.9,
+  },
+  storiesIntentionText: {
+    marginVertical: 28,
+    maxWidth: 970,
+    textAlign: 'center',
+    color: 'rgba(245,245,220,0.6)',
+    fontFamily: typography.fontFamily.bodySerifItalic,
+    fontSize: 52,
+    lineHeight: 72,
+  },
+  storiesStatZone: {
+    height: 280,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  storiesDaysValue: {
+    fontFamily: typography.fontFamily.serifSemiBold,
+    fontSize: 96,
+    lineHeight: 104,
+    letterSpacing: 4,
+    color: GOLD,
+    textAlign: 'center',
+  },
+  storiesDaysLabel: {
+    marginTop: 8,
+    fontFamily: typography.fontFamily.serif,
+    fontSize: 28,
+    letterSpacing: 12,
+    color: 'rgba(192,192,192,0.45)',
+    textTransform: 'uppercase',
+    textAlign: 'center',
+  },
+  storiesFooterZone: {
+    height: 372,
+    justifyContent: 'flex-end',
+    alignItems: 'center',
+    paddingBottom: 100,
+  },
+  storiesWordmark: {
+    fontFamily: typography.fontFamily.serif,
+    fontSize: 48,
+    letterSpacing: 20,
+    color: 'rgba(212,175,55,0.6)',
+    textTransform: 'uppercase',
+    textAlign: 'center',
+  },
+  storiesUrl: {
+    marginTop: 8,
+    fontFamily: typography.fontFamily.bodySerifItalic,
+    fontSize: 32,
+    color: 'rgba(192,192,192,0.25)',
+    textAlign: 'center',
   },
 });
 

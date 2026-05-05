@@ -16,17 +16,21 @@ import Svg, { Circle, Line, Path } from 'react-native-svg';
 import { SvgXml } from 'react-native-svg';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import {
+  REVENUECAT_ANNUAL_PACKAGE_ID,
+  REVENUECAT_DEFAULT_PLAN_ID,
+  REVENUECAT_MONTHLY_PACKAGE_ID,
+} from '@/config';
 import { colors, typography } from '@/theme';
 import { withAlpha } from '@/utils/color';
 import { safeHaptics } from '@/utils/haptics';
 import { useAnchorStore } from '@/stores/anchorStore';
 import { useSettingsStore } from '@/stores/settingsStore';
-import { useSubscriptionStore } from '@/stores/subscriptionStore';
 import revenueCatService from '@/services/RevenueCatService';
 import { logger } from '@/utils/logger';
 import type { RootNavigatorParamList } from '@/navigation/RootNavigator';
 
-type PlanId = 'annual' | 'monthly' | 'lifetime';
+type PlanId = 'annual' | 'monthly';
 
 type PlanConfig = {
   id: PlanId;
@@ -40,21 +44,13 @@ type PlanConfig = {
 
 const PLANS: PlanConfig[] = [
   {
-    id: 'lifetime',
-    label: 'Lifetime',
-    amount: '$149',
-    period: 'one time',
-    description: 'First 500 founders · limited',
-    productId: '$rc_lifetime',
-    featured: true,
-  },
-  {
     id: 'annual',
     label: 'Annual',
     amount: '$59.99',
     period: '/year',
     description: '$5/mo · best value',
-    productId: '$rc_annual',
+    productId: REVENUECAT_ANNUAL_PACKAGE_ID,
+    featured: true,
   },
   {
     id: 'monthly',
@@ -62,7 +58,7 @@ const PLANS: PlanConfig[] = [
     amount: '$7.99',
     period: '/month',
     description: 'Pay as you go',
-    productId: '$rc_monthly',
+    productId: REVENUECAT_MONTHLY_PACKAGE_ID,
   },
 ];
 
@@ -83,7 +79,7 @@ export default function TrialEndScreen() {
     useNavigation<NativeStackNavigationProp<RootNavigatorParamList, 'TrialEndScreen'>>();
   const anchors = useAnchorStore((state) => state.anchors);
   const hapticIntensity = useSettingsStore((s) => s.hapticIntensity);
-  const [selectedId, setSelectedId] = useState<PlanId>('lifetime');
+  const [selectedId, setSelectedId] = useState<PlanId>(REVENUECAT_DEFAULT_PLAN_ID);
   const [isPurchasing, setIsPurchasing] = useState(false);
 
   const animations = useRef({
@@ -107,10 +103,6 @@ export default function TrialEndScreen() {
   };
 
   useEffect(() => {
-    // Running dev override as requested
-    useSubscriptionStore.getState().setDevOverrideEnabled(true);
-    useSubscriptionStore.getState().setDevTierOverride('pro');
-    
     triggerLight();
     logger.info('[Analytics] trial_end_screen_viewed');
 
@@ -165,11 +157,9 @@ export default function TrialEndScreen() {
 
   const ctaLabel = isPurchasing
     ? 'Processing…'
-    : selectedId === 'lifetime'
-      ? 'Claim Lifetime Access'
-      : selectedId === 'annual'
-        ? 'Continue with Annual'
-        : 'Continue with Monthly';
+    : selectedId === 'annual'
+      ? 'Continue with Annual'
+      : 'Continue with Monthly';
 
 
   const handleTierPress = (id: PlanId) => {

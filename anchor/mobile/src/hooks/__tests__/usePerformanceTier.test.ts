@@ -27,6 +27,10 @@ jest.mock('expo-battery', () => ({
 jest.mock('expo-device', () => ({
   deviceYearClass: null,
   totalMemory: null,
+  brand: null,
+  manufacturer: null,
+  modelName: null,
+  designName: null,
 }), { virtual: true });
 
 // Helpers
@@ -44,6 +48,14 @@ const setDeviceYearClass = (year: number | null) =>
   jest.replaceProperty(expoDevice(), 'deviceYearClass', year);
 const setTotalMemory = (bytes: number | null) =>
   jest.replaceProperty(expoDevice(), 'totalMemory', bytes);
+const setBrand = (brand: string | null) =>
+  jest.replaceProperty(expoDevice(), 'brand', brand);
+const setManufacturer = (manufacturer: string | null) =>
+  jest.replaceProperty(expoDevice(), 'manufacturer', manufacturer);
+const setModelName = (modelName: string | null) =>
+  jest.replaceProperty(expoDevice(), 'modelName', modelName);
+const setDesignName = (designName: string | null) =>
+  jest.replaceProperty(expoDevice(), 'designName', designName);
 
 beforeEach(() => {
   jest.restoreAllMocks();
@@ -61,6 +73,10 @@ beforeEach(() => {
   setPixelRatio(3);
   setDeviceYearClass(null);
   setTotalMemory(null);
+  setBrand(null);
+  setManufacturer(null);
+  setModelName(null);
+  setDesignName(null);
 });
 
 // ── Platform baseline (synchronous initial state) ─────────────────────────────
@@ -146,6 +162,29 @@ describe('expo-device total memory', () => {
   it('high for >= 3 GB RAM on iOS', () => {
     setOS('ios');
     setTotalMemory(6 * GB);
+    const { result } = renderHook(() => usePerformanceTier());
+    expect(result.current).toBe('high');
+  });
+});
+
+describe('known flagship Android models', () => {
+  it('keeps Galaxy S24 Ultra classified as high', () => {
+    setOS('android', 34);
+    setPixelRatio(3.5);
+    setBrand('samsung');
+    setModelName('SM-S928U');
+    setTotalMemory(1.5 * 1_073_741_824);
+
+    const { result } = renderHook(() => usePerformanceTier());
+    expect(result.current).toBe('high');
+  });
+
+  it('keeps Pixel 9 Pro classified as high', () => {
+    setOS('android', 35);
+    setBrand('google');
+    setModelName('Pixel 9 Pro');
+    setDeviceYearClass(2020);
+
     const { result } = renderHook(() => usePerformanceTier());
     expect(result.current).toBe('high');
   });

@@ -108,6 +108,7 @@ describe('useNotificationController', () => {
       active_hours_end: 21,
       notification_enabled: true,
       sovereign_rank: false,
+      goal_primes: 3,
     });
   });
 
@@ -143,6 +144,7 @@ describe('useNotificationController', () => {
     const savedState = JSON.parse(asyncStorage.setItem.mock.calls.at(-1)?.[1] ?? '{}');
     expect(savedState.primed_today).toBe(false);
     expect(savedState.has_reached_goal_today).toBe(false);
+    expect(savedState.goal_primes).toBe(3);
     expect(savedState.missed_yesterday).toBe(true);
     expect(savedState.miss_streak).toBe(2);
   });
@@ -176,6 +178,35 @@ describe('useNotificationController', () => {
 
     await waitFor(() => expect(result.current.isInitialized).toBe(true));
 
+    mockSessionStoreGetState.mockReturnValue(createSessionState({
+      totalSessionsCount: 50,
+      lastPrimedAt: '2026-04-23',
+      sessionLog: [
+        {
+          id: 'session-1',
+          anchorId: 'anchor-1',
+          type: 'activate',
+          durationSeconds: 30,
+          mode: 'silent',
+          completedAt: '2026-04-23T15:05:00.000Z',
+        },
+      ],
+      primingHistory: [
+        {
+          id: 'session-1',
+          anchorId: 'anchor-1',
+          type: 'activate',
+          completedAt: '2026-04-23T15:05:00.000Z',
+          localDate: '2026-04-23',
+          weekKey: '2026-W17',
+          weekStart: '2026-04-20T00:00:00.000Z',
+          weekdayIndex: 2,
+          hourOfDay: 15,
+          timeOfDay: 'afternoon',
+        },
+      ],
+    }));
+
     await act(async () => {
       await result.current.handlePrimeComplete();
     });
@@ -183,6 +214,94 @@ describe('useNotificationController', () => {
     const savedState = JSON.parse(asyncStorage.setItem.mock.calls.at(-1)?.[1] ?? '{}');
     expect(savedState.total_primes_all_time).toBe(50);
     expect(savedState.primed_today).toBe(true);
+    expect(savedState.goal_primes).toBe(3);
+  });
+
+  it('reconciles store-derived progress after a prime was already recorded locally', async () => {
+    asyncStorage.getItem.mockResolvedValue(JSON.stringify({
+      primed_today: false,
+      last_prime_at: null,
+      missed_yesterday: false,
+      miss_streak: 0,
+      app_opened_in_last_5_days: true,
+      last_app_open_at: '2026-04-22T10:00:00.000Z',
+      total_primes_this_week: 0,
+      week_started_at: '2026-04-20T00:00:00.000Z',
+      current_primes: 0,
+      goal_primes: 3,
+      has_reached_goal_today: false,
+      has_entered_burn_flow: false,
+      sigil_in_vault: false,
+      active_hours_start: 8,
+      active_hours_end: 21,
+      timezone: 'UTC',
+      notification_enabled: true,
+      total_primes_all_time: 0,
+      alchemist_milestones_count: 0,
+      sovereign_rank: false,
+      active_session: false,
+      weaver_enabled: true,
+    }));
+    mockSessionStoreGetState.mockReturnValue(createSessionState({
+      sessionLog: [
+        {
+          id: 'activate-1',
+          anchorId: 'anchor-1',
+          type: 'activate',
+          durationSeconds: 30,
+          mode: 'silent',
+          completedAt: '2026-04-23T09:00:00.000Z',
+        },
+        {
+          id: 'reinforce-1',
+          anchorId: 'anchor-1',
+          type: 'reinforce',
+          durationSeconds: 120,
+          mode: 'silent',
+          completedAt: '2026-04-23T11:00:00.000Z',
+        },
+      ],
+      totalSessionsCount: 2,
+      lastPrimedAt: '2026-04-23',
+      primingHistory: [
+        {
+          id: 'reinforce-1',
+          anchorId: 'anchor-1',
+          type: 'reinforce',
+          completedAt: '2026-04-23T11:00:00.000Z',
+          localDate: '2026-04-23',
+          weekKey: '2026-W17',
+          weekStart: '2026-04-20T00:00:00.000Z',
+          weekdayIndex: 2,
+          hourOfDay: 11,
+          timeOfDay: 'morning',
+        },
+        {
+          id: 'activate-1',
+          anchorId: 'anchor-1',
+          type: 'activate',
+          completedAt: '2026-04-23T09:00:00.000Z',
+          localDate: '2026-04-23',
+          weekKey: '2026-W17',
+          weekStart: '2026-04-20T00:00:00.000Z',
+          weekdayIndex: 2,
+          hourOfDay: 9,
+          timeOfDay: 'morning',
+        },
+      ],
+    }));
+    mockAnchorStoreGetState.mockReturnValue(createAnchorState({ totalPrimes: 2 }));
+
+    renderHook(() => useNotificationController());
+
+    await waitFor(() => expect(asyncStorage.setItem).toHaveBeenCalled());
+
+    const savedState = JSON.parse(asyncStorage.setItem.mock.calls.at(-1)?.[1] ?? '{}');
+    expect(savedState.current_primes).toBe(2);
+    expect(savedState.total_primes_this_week).toBe(2);
+    expect(savedState.total_primes_all_time).toBe(2);
+    expect(savedState.primed_today).toBe(true);
+    expect(savedState.last_prime_at).toBe('2026-04-23T11:00:00.000Z');
   });
 
   it('schedules sovereign micro-prime copy when sovereign rank is already active', async () => {
@@ -258,6 +377,35 @@ describe('useNotificationController', () => {
     mockScheduleLocalNotification.mockClear();
     mockCancelNotification.mockClear();
 
+    mockSessionStoreGetState.mockReturnValue(createSessionState({
+      totalSessionsCount: 1,
+      lastPrimedAt: '2026-04-23',
+      sessionLog: [
+        {
+          id: 'session-1',
+          anchorId: 'anchor-1',
+          type: 'activate',
+          durationSeconds: 30,
+          mode: 'silent',
+          completedAt: '2026-04-23T15:05:00.000Z',
+        },
+      ],
+      primingHistory: [
+        {
+          id: 'session-1',
+          anchorId: 'anchor-1',
+          type: 'activate',
+          completedAt: '2026-04-23T15:05:00.000Z',
+          localDate: '2026-04-23',
+          weekKey: '2026-W17',
+          weekStart: '2026-04-20T00:00:00.000Z',
+          weekdayIndex: 2,
+          hourOfDay: 15,
+          timeOfDay: 'afternoon',
+        },
+      ],
+    }));
+
     await act(async () => {
       await result.current.handlePrimeComplete();
     });
@@ -312,5 +460,89 @@ describe('useNotificationController', () => {
     expect(savedState.has_reached_goal_today).toBe(false);
     expect(savedState.has_entered_burn_flow).toBe(false);
     expect(savedState.sovereign_rank).toBe(true);
+  });
+
+  it('syncs completed-prime state only when the user is authenticated', async () => {
+    asyncStorage.getItem.mockResolvedValue(JSON.stringify({
+      primed_today: false,
+      last_prime_at: null,
+      missed_yesterday: false,
+      miss_streak: 0,
+      app_opened_in_last_5_days: true,
+      last_app_open_at: '2026-04-22T10:00:00.000Z',
+      total_primes_this_week: 0,
+      week_started_at: '2026-04-20T00:00:00.000Z',
+      current_primes: 1,
+      goal_primes: 3,
+      has_reached_goal_today: false,
+      has_entered_burn_flow: false,
+      sigil_in_vault: false,
+      active_hours_start: 8,
+      active_hours_end: 21,
+      timezone: 'UTC',
+      notification_enabled: true,
+      total_primes_all_time: 1,
+      alchemist_milestones_count: 0,
+      sovereign_rank: false,
+      active_session: false,
+      weaver_enabled: true,
+    }));
+
+    mockAuthStoreGetState.mockReturnValue({ user: { id: 'user-1' }, isAuthenticated: true });
+
+    const { result } = renderHook(() => useNotificationController());
+
+    await waitFor(() => expect(result.current.isInitialized).toBe(true));
+
+    await act(async () => {
+      await result.current.handlePrimeComplete();
+    });
+
+    expect(mockSyncNotificationStateToServer).toHaveBeenCalledWith(
+      expect.objectContaining({
+        primed_today: true,
+        current_primes: 1,
+      })
+    );
+
+    jest.clearAllMocks();
+    mockScheduleLocalNotification.mockResolvedValue('micro-prime');
+    mockCancelNotification.mockResolvedValue(undefined);
+    mockSyncNotificationStateToServer.mockResolvedValue(undefined);
+    asyncStorage.getItem.mockResolvedValue(JSON.stringify({
+      primed_today: false,
+      last_prime_at: null,
+      missed_yesterday: false,
+      miss_streak: 0,
+      app_opened_in_last_5_days: true,
+      last_app_open_at: '2026-04-22T10:00:00.000Z',
+      total_primes_this_week: 0,
+      week_started_at: '2026-04-20T00:00:00.000Z',
+      current_primes: 1,
+      goal_primes: 3,
+      has_reached_goal_today: false,
+      has_entered_burn_flow: false,
+      sigil_in_vault: false,
+      active_hours_start: 8,
+      active_hours_end: 21,
+      timezone: 'UTC',
+      notification_enabled: true,
+      total_primes_all_time: 1,
+      alchemist_milestones_count: 0,
+      sovereign_rank: false,
+      active_session: false,
+      weaver_enabled: true,
+    }));
+    mockAuthStoreGetState.mockReturnValue({ user: null, isAuthenticated: false });
+
+    const second = renderHook(() => useNotificationController());
+
+    await waitFor(() => expect(second.result.current.isInitialized).toBe(true));
+
+    await act(async () => {
+      await second.result.current.handlePrimeComplete();
+    });
+
+    expect(mockSyncNotificationStateToServer).not.toHaveBeenCalled();
   });
 });

@@ -2,15 +2,35 @@ import type { Notification } from 'expo-notifications';
 import * as Notifications from 'expo-notifications';
 import NotificationService, { NOTIFICATION_IDS } from '../NotificationService';
 
+jest.mock('expo-constants', () => ({
+  expoConfig: {
+    extra: {
+      eas: {
+        projectId: 'project-id-123',
+      },
+    },
+  },
+  easConfig: {
+    projectId: 'project-id-123',
+  },
+}));
+
 jest.mock('expo-notifications', () => ({
   setNotificationHandler: jest.fn(),
   getPermissionsAsync: jest.fn(),
   requestPermissionsAsync: jest.fn(),
+  getDevicePushTokenAsync: jest.fn(),
+  getExpoPushTokenAsync: jest.fn(),
   setNotificationChannelAsync: jest.fn(),
   scheduleNotificationAsync: jest.fn(),
   cancelScheduledNotificationAsync: jest.fn(),
   getAllScheduledNotificationsAsync: jest.fn(),
   cancelAllScheduledNotificationsAsync: jest.fn(),
+  IosAuthorizationStatus: {
+    AUTHORIZED: 2,
+    PROVISIONAL: 3,
+    EPHEMERAL: 4,
+  },
   AndroidImportance: {
     HIGH: 'high',
     DEFAULT: 'default',
@@ -29,12 +49,45 @@ describe('NotificationService', () => {
   });
 
   it('returns true when permissions are already granted', async () => {
-    (Notifications.getPermissionsAsync as jest.Mock).mockResolvedValue({ status: 'granted' });
+    (Notifications.getPermissionsAsync as jest.Mock).mockResolvedValue({
+      status: 'granted',
+      granted: true,
+      ios: { status: Notifications.IosAuthorizationStatus.AUTHORIZED },
+    });
 
     const result = await NotificationService.requestPermissions();
 
     expect(result).toBe(true);
     expect(Notifications.requestPermissionsAsync).not.toHaveBeenCalled();
+  });
+
+  it('returns expo and native push tokens when remote registration succeeds', async () => {
+    (Notifications.getPermissionsAsync as jest.Mock).mockResolvedValue({
+      status: 'granted',
+      granted: true,
+      ios: { status: Notifications.IosAuthorizationStatus.AUTHORIZED },
+    });
+    (Notifications.getDevicePushTokenAsync as jest.Mock).mockResolvedValue({
+      type: 'android',
+      data: 'fcm-token-1',
+    });
+    (Notifications.getExpoPushTokenAsync as jest.Mock).mockResolvedValue({
+      data: 'ExponentPushToken[abc123]',
+    });
+
+    const result = await NotificationService.getRemotePushRegistration();
+
+    expect(result).toEqual({
+      permissionGranted: true,
+      expoPushToken: 'ExponentPushToken[abc123]',
+      fcmToken: 'fcm-token-1',
+      apnsToken: null,
+    });
+    expect(Notifications.getExpoPushTokenAsync).toHaveBeenCalledWith(
+      expect.objectContaining({
+        projectId: 'project-id-123',
+      })
+    );
   });
 
   it('schedules ritual reminders with a deterministic identifier', async () => {

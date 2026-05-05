@@ -3,8 +3,6 @@
  *
  * Shown when a user's 7-day free trial has expired and they have no active subscription.
  * Presented over the main app so the user can review membership options or return home.
- *
- * Note: Purchase buttons are UI-only placeholders. RevenueCat integration is deferred.
  */
 
 import React, { useEffect, useMemo, useRef, useState } from 'react';
@@ -28,11 +26,15 @@ import Svg, { Circle, Defs, Path, RadialGradient, Rect, Stop, SvgXml } from 'rea
 import { colors, typography } from '@/theme';
 import { withAlpha } from '@/utils/color';
 import { useAnchorStore } from '@/stores/anchorStore';
-import { REVENUECAT_DEFAULT_PACKAGE_ID } from '@/config';
+import {
+  REVENUECAT_ANNUAL_PACKAGE_ID,
+  REVENUECAT_DEFAULT_PLAN_ID,
+  REVENUECAT_MONTHLY_PACKAGE_ID,
+} from '@/config';
 import revenueCatService from '@/services/RevenueCatService';
 import type { RootNavigatorParamList } from '@/navigation/RootNavigator';
 
-type PlanId = 'monthly' | 'annual' | 'lifetime';
+type PlanId = 'monthly' | 'annual';
 
 type PlanConfig = {
   id: PlanId;
@@ -49,23 +51,15 @@ const PLAN_OPTIONS: PlanConfig[] = [
     label: 'Monthly',
     amount: '$7.99',
     subtitle: 'per month',
-    productId: REVENUECAT_DEFAULT_PACKAGE_ID,
+    productId: REVENUECAT_MONTHLY_PACKAGE_ID,
   },
   {
     id: 'annual',
     label: 'Annual',
     amount: '$59.99',
     subtitle: '$5/mo · save 37%',
-    productId: '$rc_annual',
+    productId: REVENUECAT_ANNUAL_PACKAGE_ID,
     badge: 'BEST VALUE',
-  },
-  {
-    id: 'lifetime',
-    label: 'Lifetime',
-    amount: '$149',
-    subtitle: 'one time',
-    productId: '$rc_lifetime',
-    badge: 'LIMITED',
   },
 ];
 
@@ -138,7 +132,7 @@ export const PaywallScreen: React.FC = () => {
   const navigation = useNavigation<NativeStackNavigationProp<RootNavigatorParamList, 'Paywall'>>();
   const { height } = useWindowDimensions();
   const anchors = useAnchorStore((state) => state.anchors);
-  const [selectedPlanId, setSelectedPlanId] = useState<PlanId>('annual');
+  const [selectedPlanId, setSelectedPlanId] = useState<PlanId>(REVENUECAT_DEFAULT_PLAN_ID);
   const [isPurchasing, setIsPurchasing] = useState(false);
   const [isRestoring, setIsRestoring] = useState(false);
   const fadeAnim = useRef(new Animated.Value(0)).current;
@@ -219,15 +213,13 @@ export const PaywallScreen: React.FC = () => {
   }, [anchors]);
 
   const selectedPlan = useMemo(
-    () => PLAN_OPTIONS.find((plan) => plan.id === selectedPlanId) ?? PLAN_OPTIONS[1],
+    () => PLAN_OPTIONS.find((plan) => plan.id === selectedPlanId) ?? PLAN_OPTIONS[0],
     [selectedPlanId]
   );
   const ctaLabel =
     selectedPlan.id === 'monthly'
       ? 'Get Monthly Access'
-      : selectedPlan.id === 'lifetime'
-        ? 'Get Lifetime Access'
-        : 'Forge Free for 7 Days';
+      : 'Forge Free for 7 Days';
 
   const sigilSource = latestAnchor?.enhancedImageUrl ?? null;
   const sigilSvg = latestAnchor?.reinforcedSigilSvg ?? latestAnchor?.baseSigilSvg ?? null;

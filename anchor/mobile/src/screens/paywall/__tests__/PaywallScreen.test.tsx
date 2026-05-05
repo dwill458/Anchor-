@@ -21,6 +21,15 @@ describe('PaywallScreen', () => {
     mockReset.mockClear();
   });
 
+  it('shows only monthly and annual plans', () => {
+    render(<PaywallScreen />);
+
+    expect(screen.getByText('Monthly')).toBeTruthy();
+    expect(screen.getByText('Annual')).toBeTruthy();
+    expect(screen.queryByText('Lifetime')).toBeNull();
+    expect(screen.getByText('Get Monthly Access')).toBeTruthy();
+  });
+
   it('opens sign in from the paywall', () => {
     render(<PaywallScreen />);
 

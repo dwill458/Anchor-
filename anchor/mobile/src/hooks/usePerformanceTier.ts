@@ -27,6 +27,10 @@ export type PerformanceTierOverride = PerformanceTier | 'auto';
 interface ExpoDeviceModule {
   deviceYearClass?: number | null;
   totalMemory?: number | null;
+  brand?: string | null;
+  manufacturer?: string | null;
+  modelName?: string | null;
+  designName?: string | null;
 }
 
 interface ExpoBatteryPowerState {
@@ -56,6 +60,9 @@ const TIER_RANK: Record<PerformanceTier, number> = { high: 2, medium: 1, low: 0 
 
 const minTier = (a: PerformanceTier, b: PerformanceTier): PerformanceTier =>
   TIER_RANK[a] <= TIER_RANK[b] ? a : b;
+
+const maxTier = (a: PerformanceTier, b: PerformanceTier): PerformanceTier =>
+  TIER_RANK[a] >= TIER_RANK[b] ? a : b;
 
 const loadExpoDevice = (): ExpoDeviceModule | null => {
   try {
@@ -90,7 +97,31 @@ const detectPlatformTier = (): PerformanceTier => {
   return 'medium';
 };
 
-const detectDeviceTier = (): PerformanceTier => {
+const normalizeDeviceText = (value: string | null | undefined): string =>
+  (value ?? '').trim().toLowerCase();
+
+const isKnownHighEndAndroidDevice = (device: ExpoDeviceModule | null): boolean => {
+  if (!device || Platform.OS !== 'android') {
+    return false;
+  }
+
+  const brand = normalizeDeviceText(device.brand || device.manufacturer);
+  const model = normalizeDeviceText(device.modelName || device.designName);
+  const fingerprint = `${brand} ${model}`;
+
+  return (
+    /samsung/.test(brand) &&
+      /(s2[4-9].*ultra|sm-s92[8-9]\w*|sm-s93\d\w*|z fold\d|z flip\d)/.test(fingerprint)
+  ) || (
+    /google/.test(brand) &&
+      /(pixel\s?(8|9)(\s(pro|xl|fold))?)/.test(fingerprint)
+  ) || (
+    /oneplus/.test(brand) &&
+      /(oneplus\s?(12|13)|open)/.test(fingerprint)
+  );
+};
+
+export const getDetectedPerformanceTier = (): PerformanceTier => {
   let tier: PerformanceTier = detectPlatformTier();
   const device = loadExpoDevice();
 
@@ -99,6 +130,10 @@ const detectDeviceTier = (): PerformanceTier => {
   }
 
   try {
+    if (isKnownHighEndAndroidDevice(device)) {
+      return maxTier(tier, 'high');
+    }
+
     const yearClass = device.deviceYearClass;
     if (yearClass !== null && yearClass !== undefined) {
       if (yearClass < 2019) tier = minTier(tier, 'low');
@@ -123,7 +158,7 @@ export const usePerformanceTier = (
 ): PerformanceTier => {
   const { override = 'auto' } = options;
 
-  const [deviceTier] = useState<PerformanceTier>(detectDeviceTier);
+  const [deviceTier] = useState<PerformanceTier>(getDetectedPerformanceTier);
   const [lowPowerMode, setLowPowerMode] = useState(false);
   const [reduceMotion, setReduceMotion] = useState(false);
 
@@ -178,6 +213,11 @@ export const usePerformanceTier = (
     if (reduceMotion || lowPowerMode) return 'low';
     return deviceTier;
   }, [override, reduceMotion, lowPowerMode, deviceTier]);
+};
+
+export const useDetectedPerformanceTier = (): PerformanceTier => {
+  const [deviceTier] = useState<PerformanceTier>(getDetectedPerformanceTier);
+  return deviceTier;
 };
 
 /**

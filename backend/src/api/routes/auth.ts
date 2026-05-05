@@ -4,6 +4,7 @@
  * Handles user authentication and profile synchronization
  */
 
+import { Prisma } from '@prisma/client';
 import { Router, Response, NextFunction } from 'express';
 import { z } from 'zod';
 import rateLimit from 'express-rate-limit';
@@ -74,6 +75,22 @@ const UpdateSettingsSchema = z.object({
   hapticIntensity: z.number().min(1).max(5).optional(),
   vaultViewType: z.enum(['grid', 'list']).optional(),
 });
+
+const PushTokensSchema = z.object({
+  expoPushToken: z.string().min(1).nullable().optional(),
+  fcmToken: z.string().min(1).nullable().optional(),
+  apnsToken: z.string().min(1).nullable().optional(),
+});
+
+const NotificationStateSyncSchema = z.object({
+  notificationState: z.record(z.unknown()).optional(),
+  // Nested format sent by mobile client (syncPushTokensToServer)
+  pushTokens: PushTokensSchema.optional(),
+  replacePushTokens: z.boolean().optional(),
+}).refine(
+  (value) => value.notificationState !== undefined || value.pushTokens !== undefined,
+  'notificationState or pushTokens are required'
+);
 
 // Validates req.body against a schema; throws AppError on failure.
 function validate<T>(schema: z.ZodSchema<T>, data: unknown): T {
@@ -228,6 +245,77 @@ router.get('/me', authMiddleware, async (req: AuthRequest, res: Response, next: 
 });
 
 /**
+ * GET /api/auth/me/export
+ *
+ * Export the authenticated user's account data as JSON.
+ */
+router.get(
+  '/me/export',
+  authMiddleware,
+  async (req: AuthRequest, res: Response, next: NextFunction) => {
+    try {
+      if (!req.user) {
+        throw new AppError('User not authenticated', 401, 'UNAUTHORIZED');
+      }
+
+      const user = await prisma.user.findUnique({
+        where: { authUid: req.user.uid },
+        include: {
+          settings: true,
+          anchors: {
+            orderBy: { createdAt: 'desc' },
+            include: {
+              activations: { orderBy: { activatedAt: 'desc' } },
+              charges: { orderBy: { chargedAt: 'desc' } },
+            },
+          },
+          activations: { orderBy: { activatedAt: 'desc' } },
+          charges: { orderBy: { chargedAt: 'desc' } },
+          orders: { orderBy: { createdAt: 'desc' } },
+        },
+      });
+
+      if (!user) {
+        throw new AppError('User not found', 404, 'USER_NOT_FOUND');
+      }
+
+      const [syncQueue, burnedAnchors, flaggedContent] = await Promise.all([
+        prisma.syncQueue.findMany({
+          where: { userId: user.id },
+          orderBy: { createdAt: 'desc' },
+        }),
+        prisma.burnedAnchor.findMany({
+          where: { userId: user.id },
+          orderBy: { burnedAt: 'desc' },
+        }),
+        prisma.flaggedContent.findMany({
+          where: { userId: user.id },
+          orderBy: { createdAt: 'desc' },
+        }),
+      ]);
+
+      res.json({
+        success: true,
+        data: {
+          exportVersion: 1,
+          exportedAt: new Date().toISOString(),
+          account: user,
+          burnedAnchors,
+          flaggedContent,
+          syncQueue,
+        },
+      });
+    } catch (error) {
+      if (error instanceof AppError) {
+        next(error);
+        return;
+      }
+      next(new AppError('Failed to export account data', 500, 'EXPORT_ERROR'));
+    }
+  }
+);
+
+/**
  * PUT /api/auth/profile
  *
  * Update user profile
@@ -362,6 +450,109 @@ router.put(
 );
 
 /**
+ * PUT /api/auth/notification-state
+ *
+ * Persist merged notification state for the authenticated user.
+ * This path exists because the mobile app authenticates with Firebase, not Supabase Auth.
+ */
+router.put(
+  '/notification-state',
+  authMiddleware,
+  async (req: AuthRequest, res: Response, next: NextFunction) => {
+    try {
+      if (!req.user) {
+        throw new AppError('User not authenticated', 401, 'UNAUTHORIZED');
+      }
+
+      const { notificationState, pushTokens, replacePushTokens = true } = validate(
+        NotificationStateSyncSchema,
+        req.body
+      );
+
+      const user = await prisma.user.findUnique({
+        where: { authUid: req.user.uid },
+        select: { id: true },
+      });
+
+      if (!user) {
+        throw new AppError('User not found', 404, 'USER_NOT_FOUND');
+      }
+
+      const notificationEnabled = notificationState && Object.prototype.hasOwnProperty.call(
+        notificationState,
+        'notification_enabled'
+      )
+        ? Boolean(notificationState.notification_enabled)
+        : null;
+
+      const assignments: Prisma.Sql[] = [];
+
+      if (notificationState) {
+        const stateJson = JSON.stringify(notificationState);
+        assignments.push(
+          Prisma.sql`notification_state = COALESCE(notification_state, '{}'::jsonb) || ${stateJson}::jsonb`
+        );
+      }
+
+      if (notificationEnabled !== null) {
+        assignments.push(Prisma.sql`notifications_enabled = ${notificationEnabled}`);
+      }
+
+      if (pushTokens) {
+        if (replacePushTokens || Object.prototype.hasOwnProperty.call(pushTokens, 'expoPushToken')) {
+          assignments.push(Prisma.sql`expo_push_token = ${pushTokens.expoPushToken ?? null}`);
+        }
+        if (replacePushTokens || Object.prototype.hasOwnProperty.call(pushTokens, 'fcmToken')) {
+          assignments.push(Prisma.sql`fcm_token = ${pushTokens.fcmToken ?? null}`);
+        }
+        if (replacePushTokens || Object.prototype.hasOwnProperty.call(pushTokens, 'apnsToken')) {
+          assignments.push(Prisma.sql`apns_token = ${pushTokens.apnsToken ?? null}`);
+        }
+      }
+
+      const query = Prisma.sql`
+        UPDATE users
+        SET ${Prisma.join(assignments, ', ')}
+        WHERE id = ${user.id}
+        RETURNING notification_state, notifications_enabled, expo_push_token, fcm_token, apns_token
+      `;
+
+      const rows = await prisma.$queryRaw<
+        Array<{
+          notification_state: Prisma.JsonValue | null;
+          notifications_enabled: boolean;
+          expo_push_token: string | null;
+          fcm_token: string | null;
+          apns_token: string | null;
+        }>
+      >(query);
+
+      const updated = rows[0];
+      if (!updated) {
+        throw new AppError('User not found', 404, 'USER_NOT_FOUND');
+      }
+
+      res.json({
+        success: true,
+        data: {
+          notificationState: updated.notification_state ?? {},
+          notificationsEnabled: updated.notifications_enabled,
+          expoPushToken: updated.expo_push_token,
+          fcmToken: updated.fcm_token,
+          apnsToken: updated.apns_token,
+        },
+      });
+    } catch (error) {
+      if (error instanceof AppError) {
+        next(error);
+        return;
+      }
+      next(new AppError('Failed to sync notification state', 500, 'UPDATE_ERROR'));
+    }
+  }
+);
+
+/**
  * DELETE /api/auth/me
  *
  * Delete user account and all associated data (GDPR/CCPA compliant)
@@ -391,6 +582,21 @@ router.delete(
 
       if (!user) {
         throw new AppError('User not found', 404, 'USER_NOT_FOUND');
+      }
+
+      const firebaseAdmin = getFirebaseAdmin().auth();
+
+      try {
+        await firebaseAdmin.deleteUser(req.user.uid);
+      } catch (error) {
+        const code =
+          typeof error === 'object' && error && 'code' in error
+            ? String((error as { code?: unknown }).code)
+            : '';
+
+        if (code !== 'auth/user-not-found') {
+          throw new AppError('Failed to delete authentication account', 500, 'AUTH_DELETE_ERROR');
+        }
       }
 
       // Delete user (cascades handled by Prisma schema onDelete: Cascade)

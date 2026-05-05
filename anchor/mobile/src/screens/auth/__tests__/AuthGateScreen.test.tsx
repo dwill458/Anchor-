@@ -20,10 +20,18 @@ describe('AuthGateScreen', () => {
     mockGoBack.mockClear();
   });
 
+  it('shows only monthly and annual plans', () => {
+    render(<AuthGateScreen />);
+
+    expect(screen.getAllByText('Monthly').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('Annual').length).toBeGreaterThan(0);
+    expect(screen.queryByText('Lifetime')).toBeNull();
+  });
+
   it('opens account creation from the auth gate', () => {
     render(<AuthGateScreen />);
 
-    fireEvent.press(screen.getByLabelText('Forge Free for 7 Days, Annual selected'));
+    fireEvent.press(screen.getByLabelText('Start with Monthly, Monthly selected'));
 
     expect(mockNavigate).toHaveBeenCalledWith('Login', { initialTab: 'signup' });
   });

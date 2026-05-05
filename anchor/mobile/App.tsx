@@ -10,6 +10,8 @@ import {
   Dimensions,
 } from 'react-native';
 import { useFonts } from 'expo-font';
+import * as Notifications from 'expo-notifications';
+import type { DevicePushToken } from 'expo-notifications';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import {
@@ -55,6 +57,11 @@ import { loadSettingsSnapshot } from './src/hooks/useSettings';
 import { encryptedPersistStorage, readSecureValue } from './src/stores/encryptedPersistStorage';
 import { logger } from './src/utils/logger';
 import revenueCatService from './src/services/RevenueCatService';
+import NotificationService from './src/services/NotificationService';
+import {
+  clearPushTokensFromServer,
+  syncPushTokensToServer,
+} from './src/services/NotificationSyncService';
 
 function isNetworkError(error: unknown): boolean {
   if (!(error instanceof Error)) return false;
@@ -221,6 +228,7 @@ export default function App() {
     (state) => state.developerMasterAccountEnabled
   );
   const developerMasterAccountEnabledRef = useRef(developerMasterAccountEnabled);
+  const previousUserIdRef = useRef<string | null>(null);
   const developerSkipOnboardingEnabled = useSettingsStore(
     (state) => state.developerSkipOnboardingEnabled
   );
@@ -449,6 +457,55 @@ export default function App() {
 
     ErrorTrackingService.clearUser();
   }, [user?.displayName, user?.email, user?.id]);
+
+  useEffect(() => {
+    const previousUserId = previousUserIdRef.current;
+
+    if (previousUserId && previousUserId !== user?.id) {
+      void clearPushTokensFromServer();
+    }
+
+    previousUserIdRef.current = user?.id ?? null;
+  }, [user?.id]);
+
+  useEffect(() => {
+    if (!user?.id) {
+      return () => undefined;
+    }
+
+    let cancelled = false;
+
+    const syncRegistration = async (
+      devicePushToken?: DevicePushToken
+    ) => {
+      const registration = await NotificationService.getRemotePushRegistration(devicePushToken);
+      if (cancelled) {
+        return;
+      }
+
+      if (!registration.permissionGranted) {
+        await clearPushTokensFromServer();
+        return;
+      }
+
+      await syncPushTokensToServer({
+        expoPushToken: registration.expoPushToken,
+        fcmToken: registration.fcmToken,
+        apnsToken: registration.apnsToken,
+      });
+    };
+
+    void syncRegistration();
+
+    const subscription = Notifications.addPushTokenListener((devicePushToken) => {
+      void syncRegistration(devicePushToken);
+    });
+
+    return () => {
+      cancelled = true;
+      subscription.remove();
+    };
+  }, [user?.id]);
 
 
 
