@@ -263,7 +263,7 @@ export const FocusSession: React.FC<FocusSessionProps> = ({
   const resolvedDurationSeconds = durationSeconds ?? defaultDurationSeconds;
   const reduceMotionEnabled = useReduceMotionEnabled();
   const shouldUseArrivePhase =
-    arrivePhaseEnabled && !reduceMotionEnabled && resolvedDurationSeconds > 0;
+    arrivePhaseEnabled && resolvedDurationSeconds > 0;
   const totalMs = Math.max(1000, Math.round(resolvedDurationSeconds * 1000));
   const { playSound } = useAudio();
   const { setActiveSession } = useNotificationController();

@@ -36,6 +36,7 @@ import { ThreadStrengthBlock, getThreadState } from './components/ThreadStrength
 import { ModePortalTile } from './components/ModePortalTile';
 import { PracticeHubHeader } from './components/PracticeHubHeader';
 import { resolveBurnArtworkUri } from '@/screens/rituals/utils/resolveBurnArtworkUri';
+import { useAppPerformanceTier } from '@/hooks/useAppPerformanceTier';
 import { useNotificationController } from '@/hooks/useNotificationController';
 import { ConfirmUnchargedBurnSheet } from '@/components/modals/ConfirmUnchargedBurnSheet';
 
@@ -90,6 +91,7 @@ export const PracticeScreen: React.FC = () => {
   const isPracticeTabActive = activeTabIndex == null ? true : activeTabIndex === 1;
   const insets = useSafeAreaInsets();
   const reduceMotion = useReducedMotion();
+  const performanceTier = useAppPerformanceTier();
   const anchors = useAnchorStore((state) => state.anchors);
   const currentAnchorId = useAnchorStore((state) => state.currentAnchorId);
   const setCurrentAnchor = useAnchorStore((state) => state.setCurrentAnchor);
@@ -271,11 +273,12 @@ export const PracticeScreen: React.FC = () => {
   const heroAnim = useSharedValue(0);
   const portalsAnim = useSharedValue(0);
   const hasAnimatedRef = useRef(false);
+  const shouldAnimateIntro = !reduceMotion && performanceTier === 'high';
 
   useFocusEffect(
     useCallback(() => {
       if (!isPracticeTabActive) return () => undefined;
-      if (reduceMotion) {
+      if (!shouldAnimateIntro) {
         headerAnim.value = 1;
         threadAnim.value = 1;
         heroAnim.value = 1;
@@ -290,7 +293,7 @@ export const PracticeScreen: React.FC = () => {
       heroAnim.value = withDelay(130, withTiming(1, timing));
       portalsAnim.value = withDelay(200, withTiming(1, timing));
       return () => undefined;
-    }, [headerAnim, threadAnim, heroAnim, isPracticeTabActive, portalsAnim, reduceMotion])
+    }, [headerAnim, threadAnim, heroAnim, isPracticeTabActive, portalsAnim, shouldAnimateIntro])
   );
 
   const headerStyle = useAnimatedStyle(() => ({
@@ -488,7 +491,13 @@ export const PracticeScreen: React.FC = () => {
 
   return (
     <View style={styles.container}>
-      <ZenBackground variant="practice" showOrbs={isPracticeTabActive} showGrain showVignette />
+      <ZenBackground
+        variant="practice"
+        showOrbs={isPracticeTabActive}
+        showGrain
+        showVignette
+        performanceTier={performanceTier}
+      />
 
       <SafeAreaView style={styles.safeArea} edges={['top']}>
         <Animated.ScrollView

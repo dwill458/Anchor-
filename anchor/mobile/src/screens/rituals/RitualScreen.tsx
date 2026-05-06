@@ -24,7 +24,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import Svg, {
   Circle,
 } from 'react-native-svg';
-import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
+import { useFocusEffect, useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { useTabNavigation } from '@/contexts/TabNavigationContext';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { useAnchorStore } from '@/stores/anchorStore';
@@ -49,6 +49,44 @@ import { TIMING, EASING } from './utils/transitionConstants';
 import * as Speech from 'expo-speech';
 import { navigateToVaultDestination } from '@/navigation/firstAnchorGate';
 import { useNotificationController } from '@/hooks/useNotificationController';
+import { AnalyticsService } from '@/services/AnalyticsService';
+import { PostPrimeTraceModal } from './components/PostPrimeTraceModal';
+import { usePostPrimeTraceStore } from '@/stores/postPrimeTraceStore';
+import {
+  isPostPrimeTraceEligible,
+  markPostPrimeTraceAttemptStarted,
+} from '@/utils/postPrimeTraceEligibility';
+
+const AnimatedPhaseSegment = ({ progressValue, isPast }: { progressValue: number; isPast: boolean }) => {
+  const widthAnim = useRef(new Animated.Value(progressValue)).current;
+
+  useEffect(() => {
+    Animated.timing(widthAnim, {
+      toValue: progressValue,
+      duration: 1000,
+      easing: Easing.linear,
+      useNativeDriver: false,
+    }).start();
+  }, [progressValue]);
+
+  const width = widthAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: ['0%', '100%'],
+  });
+
+  const gradientColors = isPast ? (['#D4AF37', '#D4AF37'] as const) : (['#C8581A', '#D4AF37'] as const);
+
+  return (
+    <Animated.View style={[styles.deepPhaseTrackFill, { width }]}>
+      <LinearGradient
+        colors={gradientColors}
+        start={{ x: 0, y: 0.5 }}
+        end={{ x: 1, y: 0.5 }}
+        style={StyleSheet.absoluteFill}
+      />
+    </Animated.View>
+  );
+};
 
 const { width } = Dimensions.get('window');
 
@@ -233,6 +271,8 @@ export const RitualScreen: React.FC = () => {
   const primeSessionAudio = useSettingsStore((state) => state.primeSessionAudio ?? 'silent');
   const reduceIntentionVisibility = useSettingsStore((state) => state.reduceIntentionVisibility ?? false);
   const { handlePrimeComplete } = useNotificationController();
+  const beginPostPrimeTraceFlow = usePostPrimeTraceStore((state) => state.beginFlow);
+  const bumpThreadStrength = useSessionStore((state) => state.bumpThreadStrength);
   const anchor = getAnchorById(anchorId);
   const sigilSvg = anchor?.reinforcedSigilSvg ?? anchor?.baseSigilSvg ?? '';
   const isPendingFirstAnchor = pendingFirstAnchorDraft?.tempAnchorId === anchorId;
@@ -245,6 +285,8 @@ export const RitualScreen: React.FC = () => {
   const [showExitWarning, setShowExitWarning] = useState(false);
   const [showCompletion, setShowCompletion] = useState(false);
   const [isReady, setIsReady] = useState(false);
+  const [showPostPrimeTrace, setShowPostPrimeTrace] = useState(false);
+  const [pendingPostPrimeFlowId, setPendingPostPrimeFlowId] = useState<string | null>(null);
 
   useEffect(() => {
     const task = InteractionManager.runAfterInteractions(() => {
@@ -414,20 +456,36 @@ export const RitualScreen: React.FC = () => {
   ]);
 
   useEffect(() => {
-    Animated.timing(progressAnim, {
-      toValue: state.progress,
-      duration: 300,
-      useNativeDriver: true,
-    }).start();
-  }, [state.progress, progressAnim]);
+    if (state.isActive && !state.isComplete) {
+      const remainingSeconds = config.totalDurationSeconds - state.elapsedSeconds;
+      const duration = remainingSeconds * 1000;
+      if (duration > 0) {
+        progressAnim.stopAnimation((currentVal) => {
+          progressAnim.setValue(currentVal);
+          Animated.timing(progressAnim, {
+            toValue: 1,
+            duration: duration,
+            easing: Easing.linear,
+            useNativeDriver: false,
+          }).start();
+        });
+      }
+    } else {
+      progressAnim.stopAnimation((currentVal) => {
+        if (state.isComplete) {
+          progressAnim.setValue(1);
+        } else if (!state.isActive) {
+          progressAnim.setValue(currentVal);
+        } else {
+          progressAnim.setValue(0);
+        }
+      });
+    }
+  }, [state.isActive, state.isComplete, progressAnim]);
+
 
   useEffect(() => {
     if (state.isSealPhase && !state.isSealComplete) {
-      if (reduceMotionEnabled) {
-        glowAnim.setValue(1);
-        return;
-      }
-
       const glowLoop = Animated.loop(
         Animated.sequence([
           Animated.timing(glowAnim, {
@@ -501,7 +559,7 @@ export const RitualScreen: React.FC = () => {
 
     sealEntranceAnim.setValue(0);
     glowAnim.setValue(0);
-  }, [state.isSealPhase, state.isSealComplete, reduceMotionEnabled, glowAnim, sealPulseAnim, regularRingSpinA, regularRingSpinB, sealEntranceAnim]);
+  }, [state.isSealPhase, state.isSealComplete, glowAnim, sealPulseAnim, regularRingSpinA, regularRingSpinB, sealEntranceAnim]);
 
   useEffect(() => {
     if (state.currentInstruction === displayedInstruction) return;
@@ -605,7 +663,12 @@ export const RitualScreen: React.FC = () => {
             returnTo,
           });
         } else if (isDeepRitual) {
-          setShowCompletion(true);
+          const shouldOfferPostPrimeTrace = await isPostPrimeTraceEligible();
+          if (shouldOfferPostPrimeTrace) {
+            setShowPostPrimeTrace(true);
+          } else {
+            setShowCompletion(true);
+          }
         } else {
           exitingRef.current = true;
           navigation.replace('ChargeComplete', {
@@ -621,6 +684,65 @@ export const RitualScreen: React.FC = () => {
       Alert.alert('Error', 'Failed to save charge. Please try again.');
     }
   }
+
+  const handleSkipPostPrimeTrace = useCallback(() => {
+    setShowPostPrimeTrace(false);
+    setShowCompletion(true);
+  }, []);
+
+  const handleBeginPostPrimeTrace = useCallback(async () => {
+    await markPostPrimeTraceAttemptStarted();
+
+    const flowId = beginPostPrimeTraceFlow(anchorId);
+    setPendingPostPrimeFlowId(flowId);
+    setShowPostPrimeTrace(false);
+
+    (navigation as any).navigate('ManualReinforcement', {
+      source: 'post_prime_trace',
+      anchorId,
+    });
+  }, [anchorId, beginPostPrimeTraceFlow, navigation]);
+
+  useFocusEffect(
+    useCallback(() => {
+      if (!pendingPostPrimeFlowId) {
+        return () => undefined;
+      }
+
+      // Read synchronously — avoids waiting for a Zustand subscription re-render
+      const { activeFlow, clearFlow } = usePostPrimeTraceStore.getState();
+
+      if (
+        !activeFlow ||
+        activeFlow.flowId !== pendingPostPrimeFlowId ||
+        activeFlow.result === 'pending'
+      ) {
+        return () => undefined;
+      }
+
+      const completedPostPrimeTrace = activeFlow.result === 'completed';
+
+      clearFlow(pendingPostPrimeFlowId);
+      setPendingPostPrimeFlowId(null);
+
+      if (completedPostPrimeTrace) {
+        bumpThreadStrength(2);
+        AnalyticsService.track('post_prime_trace_completed', {
+          anchor_id: anchorId,
+          session_duration_seconds: config.totalDurationSeconds,
+        });
+      }
+
+      setShowCompletion(true);
+
+      return () => undefined;
+    }, [
+      config.totalDurationSeconds,
+      anchorId,
+      bumpThreadStrength,
+      pendingPostPrimeFlowId,
+    ])
+  );
 
   function handleBack() {
     if (state.isComplete || state.isSealComplete) {
@@ -835,7 +957,7 @@ export const RitualScreen: React.FC = () => {
   });
 
   useEffect(() => {
-    if (!isDeepRitual || reduceMotionEnabled || !isReady) {
+    if (!isDeepRitual || !isReady) {
       deepOrbitSpinA.setValue(0);
       deepOrbitSpinB.setValue(0);
       deepPulseA.setValue(0);
@@ -890,6 +1012,7 @@ export const RitualScreen: React.FC = () => {
         useNativeDriver: true,
       })
     );
+
     orbitALoop.start();
     orbitBLoop.start();
     pulseALoop.start();
@@ -913,7 +1036,7 @@ export const RitualScreen: React.FC = () => {
     deepPulseB,
     deepSigilFloat,
     isDeepRitual,
-    reduceMotionEnabled,
+    isReady,
   ]);
 
   const previousPhaseIndexRef = useRef(activePhaseIndex);
@@ -1116,11 +1239,9 @@ export const RitualScreen: React.FC = () => {
                 {deepPhaseProgress.map((progressValue, index) => (
                   <View key={`phase-segment-${index}`} style={styles.deepPhaseTrackSegment}>
                     {progressValue > 0 ? (
-                      <LinearGradient
-                        colors={index < activePhaseIndex ? ['#D4AF37', '#D4AF37'] : ['#C8581A', '#D4AF37']}
-                        start={{ x: 0, y: 0.5 }}
-                        end={{ x: 1, y: 0.5 }}
-                        style={[styles.deepPhaseTrackFill, { width: `${Math.round(progressValue * 100)}%` }]}
+                      <AnimatedPhaseSegment 
+                        progressValue={progressValue} 
+                        isPast={index < activePhaseIndex} 
                       />
                     ) : null}
                   </View>
@@ -1191,6 +1312,7 @@ export const RitualScreen: React.FC = () => {
                   <Animated.View style={[styles.deepOrbitDashOuter, { transform: [{ rotate: deepOrbitRotateB }] }]} />
                   <Animated.View style={[styles.deepOrbitDotOuter, { transform: [{ rotate: deepOrbitRotateA }] }]} />
                   <Animated.View style={[styles.deepOrbitDashInner, { transform: [{ rotate: deepOrbitRotateB }] }]} />
+
                   <Animated.View
                     style={[
                       styles.deepOrbRingOuter,
@@ -1245,6 +1367,7 @@ export const RitualScreen: React.FC = () => {
                       />
                     ))}
                   </Animated.View>
+
                   <Animated.View
                     style={[
                       styles.deepPulseRingOuter,
@@ -1566,6 +1689,12 @@ export const RitualScreen: React.FC = () => {
             </Animated.View>
           </>
         )}
+        <PostPrimeTraceModal
+          visible={showPostPrimeTrace}
+          anchor={anchor}
+          onTrace={handleBeginPostPrimeTrace}
+          onSkip={handleSkipPostPrimeTrace}
+        />
         <CompletionModal
           visible={showCompletion}
           sessionType="reinforce"

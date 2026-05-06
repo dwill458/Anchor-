@@ -15,7 +15,7 @@ import {
   Animated,
   Dimensions,
 } from 'react-native';
-import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
+import { useFocusEffect, useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { useTabNavigation } from '@/contexts/TabNavigationContext';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { SvgXml } from 'react-native-svg';
@@ -33,6 +33,13 @@ import { RitualScaffold } from './components/RitualScaffold';
 import { InstructionGlassCard } from './components/InstructionGlassCard';
 import { CompletionModal } from './components/CompletionModal';
 import { navigateToVaultDestination } from '@/navigation/firstAnchorGate';
+import { AnalyticsService } from '@/services/AnalyticsService';
+import { PostPrimeTraceModal } from './components/PostPrimeTraceModal';
+import { usePostPrimeTraceStore } from '@/stores/postPrimeTraceStore';
+import {
+  isPostPrimeTraceEligible,
+  markPostPrimeTraceAttemptStarted,
+} from '@/utils/postPrimeTraceEligibility';
 
 const { width } = Dimensions.get('window');
 const SYMBOL_SIZE = Math.min(width * 0.42, 180);
@@ -62,13 +69,87 @@ export const ChargeCompleteScreen: React.FC = () => {
 
   // Show CompletionModal first before the vault/activate CTAs
   const [completionDone, setCompletionDone] = useState(false);
-  const [showCompletion, setShowCompletion] = useState(true);
+  const [showCompletion, setShowCompletion] = useState(false);
+  const [showPostPrimeTrace, setShowPostPrimeTrace] = useState(false);
+  const [pendingPostPrimeFlowId, setPendingPostPrimeFlowId] = useState<string | null>(null);
+  
+  const beginPostPrimeTraceFlow = usePostPrimeTraceStore((state) => state.beginFlow);
+
+  useEffect(() => {
+    async function checkEligibility() {
+      const shouldOffer = await isPostPrimeTraceEligible();
+      if (shouldOffer) {
+        setShowPostPrimeTrace(true);
+      } else {
+        setShowCompletion(true);
+      }
+    }
+    checkEligibility();
+  }, []);
+
+  const handleSkipPostPrimeTrace = () => {
+    setShowPostPrimeTrace(false);
+    setShowCompletion(true);
+  };
+
+  const handleBeginPostPrimeTrace = async () => {
+    await markPostPrimeTraceAttemptStarted();
+
+    const flowId = beginPostPrimeTraceFlow(anchorId);
+    setPendingPostPrimeFlowId(flowId);
+    setShowPostPrimeTrace(false);
+
+    (navigation as any).navigate('ManualReinforcement', {
+      source: 'post_prime_trace',
+      anchorId,
+    });
+  };
+
+  useFocusEffect(
+    React.useCallback(() => {
+      if (!pendingPostPrimeFlowId) {
+        return () => undefined;
+      }
+
+      // Read synchronously — avoids waiting for a Zustand subscription re-render
+      const { activeFlow, clearFlow } = usePostPrimeTraceStore.getState();
+
+      if (
+        !activeFlow ||
+        activeFlow.flowId !== pendingPostPrimeFlowId ||
+        activeFlow.result === 'pending'
+      ) {
+        return () => undefined;
+      }
+
+      const completedPostPrimeTrace = activeFlow.result === 'completed';
+
+      clearFlow(pendingPostPrimeFlowId);
+      setPendingPostPrimeFlowId(null);
+
+      if (completedPostPrimeTrace) {
+        useSessionStore.getState().bumpThreadStrength(2);
+        AnalyticsService.track('post_prime_trace_completed', {
+          anchor_id: anchorId,
+          session_duration_seconds: routeDurationSeconds ?? primeSessionDuration,
+        });
+      }
+
+      setShowCompletion(true);
+
+      return () => undefined;
+    }, [
+      anchorId,
+      pendingPostPrimeFlowId,
+      routeDurationSeconds,
+      primeSessionDuration,
+    ])
+  );
 
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const scaleAnim = useRef(new Animated.Value(0.95)).current;
   const glowAnim = useRef(new Animated.Value(0)).current;
   const hasRecordedRef = useRef(false);
-
   // Only start the main screen animation after reflection is done
   useEffect(() => {
     if (!completionDone) return;
@@ -248,6 +329,13 @@ export const ChargeCompleteScreen: React.FC = () => {
           </Animated.View>
         )}
       </RitualScaffold>
+
+      <PostPrimeTraceModal
+        visible={showPostPrimeTrace}
+        anchor={anchor}
+        onTrace={handleBeginPostPrimeTrace}
+        onSkip={handleSkipPostPrimeTrace}
+      />
 
       {/* CompletionModal shows first before the vault CTAs */}
       <CompletionModal

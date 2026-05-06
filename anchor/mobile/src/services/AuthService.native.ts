@@ -52,6 +52,7 @@ function normalizeDate(value?: Date | string | null): Date {
 function normalizeUser(data: User): User {
   return {
     ...data,
+    isComped: data.isComped === true,
     createdAt: normalizeDate(data.createdAt),
     stabilizesTotal: data.stabilizesTotal ?? 0,
     stabilizeStreakDays: data.stabilizeStreakDays ?? 0,

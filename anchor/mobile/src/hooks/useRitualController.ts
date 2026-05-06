@@ -99,6 +99,12 @@ export function useRitualController({
   const lastPhaseIndexRef = useRef(-1);
   const bgSoundRef = useRef<{ stop: () => void } | null>(null);
 
+  // Wall-clock timestamp refs for accurate timer even when JS thread is delayed.
+  // Instead of accumulating +1/sec (which drifts on overloaded threads), we record
+  // when the timer last (re)started and how many seconds were already banked.
+  const timerStartedAtRef = useRef<number | null>(null);
+  const elapsedAtPauseRef = useRef<number>(0);
+
   const clearAllIntervals = useCallback(() => {
     if (timerIntervalRef.current) clearInterval(timerIntervalRef.current);
     if (hapticIntervalRef.current) clearInterval(hapticIntervalRef.current);
@@ -139,19 +145,24 @@ export function useRitualController({
   useEffect(() => {
     if (!isActive) return;
 
+    // Record the wall-clock start time for this active interval.
+    timerStartedAtRef.current = Date.now();
+
     timerIntervalRef.current = setInterval(() => {
-      setElapsedSeconds((prev: number) => {
-        const next = prev + 1;
+      const startedAt = timerStartedAtRef.current;
+      if (startedAt === null) return;
 
-        // Check if ritual is complete
-        if (next >= config.totalDurationSeconds) {
-          handleRitualComplete();
-          return config.totalDurationSeconds;
-        }
+      const wallElapsed = elapsedAtPauseRef.current + (Date.now() - startedAt) / 1000;
+      const next = Math.floor(wallElapsed);
 
-        return next;
-      });
-    }, 1000);
+      if (next >= config.totalDurationSeconds) {
+        setElapsedSeconds(config.totalDurationSeconds);
+        handleRitualComplete();
+        return;
+      }
+
+      setElapsedSeconds(next);
+    }, 250); // Poll at 250ms so display updates smoothly even when ticks are delayed
 
     return () => {
       if (timerIntervalRef.current) {
@@ -239,6 +250,8 @@ export function useRitualController({
   // ══════════════════════════════════════════════════════════════
 
   const start = useCallback(() => {
+    elapsedAtPauseRef.current = 0;
+    timerStartedAtRef.current = null;
     setIsActive(true);
     setElapsedSeconds(0);
     setIsComplete(false);
@@ -255,6 +268,11 @@ export function useRitualController({
   }, [config.totalDurationSeconds, config.phases.length, playSound, sessionAudioMode]);
 
   const pause = useCallback(() => {
+    // Bank the elapsed seconds so resume can continue from the right point.
+    if (timerStartedAtRef.current !== null) {
+      elapsedAtPauseRef.current += (Date.now() - timerStartedAtRef.current) / 1000;
+      timerStartedAtRef.current = null;
+    }
     setIsActive(false);
     bgSoundRef.current?.stop();
     bgSoundRef.current = null;
@@ -264,6 +282,7 @@ export function useRitualController({
   }, [elapsedSeconds]);
 
   const resume = useCallback(() => {
+    // timerStartedAtRef will be set when the timer useEffect fires on isActive → true.
     setIsActive(true);
     bgSoundRef.current =
       sessionAudioMode === 'ambient' ? playSound('prime-begin', 1, true) : null;
@@ -281,6 +300,8 @@ export function useRitualController({
     setIsSealComplete(false);
     setCurrentInstructionIndex(0);
     lastPhaseIndexRef.current = -1;
+    timerStartedAtRef.current = null;
+    elapsedAtPauseRef.current = 0;
     clearAllIntervals();
     ErrorTrackingService.addBreadcrumb('Ritual reset', 'ritual.lifecycle');
   }, [clearAllIntervals]);

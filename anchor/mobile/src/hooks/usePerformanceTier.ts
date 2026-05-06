@@ -160,6 +160,37 @@ export const usePerformanceTier = (
 
   const [deviceTier] = useState<PerformanceTier>(getDetectedPerformanceTier);
   const [lowPowerMode, setLowPowerMode] = useState(false);
+  const [reduceMotionEnabled, setReduceMotionEnabled] = useState(false);
+
+  // Accessibility reduce motion listener
+  useEffect(() => {
+    let mounted = true;
+    let sub: { remove(): void } | null = null;
+
+    AccessibilityInfo.isReduceMotionEnabled()
+      .then((enabled) => {
+        if (mounted) setReduceMotionEnabled(enabled);
+      })
+      .catch(() => {});
+
+    try {
+      sub = AccessibilityInfo.addEventListener(
+        'reduceMotionChanged',
+        (enabled) => {
+          if (mounted) setReduceMotionEnabled(enabled);
+        },
+      );
+    } catch {
+      // accessibility info not supported
+    }
+
+    return () => {
+      mounted = false;
+      if (sub && typeof sub.remove === 'function') {
+        sub.remove();
+      }
+    };
+  }, []);
 
   // Battery low-power / battery-saver listener
   useEffect(() => {
@@ -183,15 +214,17 @@ export const usePerformanceTier = (
 
     return () => {
       mounted = false;
-      sub?.remove();
+      if (sub && typeof sub.remove === 'function') {
+        sub.remove();
+      }
     };
   }, []);
 
   return useMemo<PerformanceTier>(() => {
     if (override !== 'auto') return override;
-    if (lowPowerMode) return 'low';
+    if (reduceMotionEnabled || lowPowerMode) return 'low';
     return deviceTier;
-  }, [override, lowPowerMode, deviceTier]);
+  }, [override, reduceMotionEnabled, lowPowerMode, deviceTier]);
 };
 
 export const useDetectedPerformanceTier = (): PerformanceTier => {

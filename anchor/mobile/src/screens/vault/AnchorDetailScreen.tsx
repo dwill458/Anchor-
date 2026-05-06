@@ -179,11 +179,17 @@ const toDisplayAnchor = (rawAnchor) => {
 };
 
 // ─── FADE-UP WRAPPER ─────────────────────────────────────
-const FadeUp = ({ children, delay = 0 }) => {
+const FadeUp = ({ children, delay = 0, animate = true }) => {
   const opacity = useRef(new Animated.Value(0)).current;
   const translateY = useRef(new Animated.Value(18)).current;
 
   useEffect(() => {
+    if (!animate) {
+      opacity.setValue(1);
+      translateY.setValue(0);
+      return;
+    }
+
     Animated.parallel([
       Animated.timing(opacity, {
         toValue: 1, duration: 500, delay,
@@ -194,7 +200,7 @@ const FadeUp = ({ children, delay = 0 }) => {
         useNativeDriver: true,
       }),
     ]).start();
-  }, []);
+  }, [animate, delay, opacity, translateY]);
 
   return (
     <Animated.View style={{ opacity, transform: [{ translateY }] }}>
@@ -552,6 +558,8 @@ const AnchorDetailsScreen = ({ navigation, route }) => {
   const insets = useSafeAreaInsets();
   const perfTier = useAppPerformanceTier();
   const isLowPerfDevice = perfTier === 'low';
+  const isReducedEffectsDevice = perfTier !== 'high';
+  const shouldAnimateIntro = perfTier === 'high';
   const { navigateToPractice } = useTabNavigation();
   const getAnchorById = useAnchorStore((state) => state.getAnchorById);
   const removeAnchor = useAnchorStore((state) => state.removeAnchor);
@@ -676,8 +684,8 @@ const AnchorDetailsScreen = ({ navigation, route }) => {
   const divineBreath = useSharedValue(0);
   const divineGlowActive = Boolean(anchor.charged || anchor.today === 'Primed');
   const freezeDetailChrome = Platform.OS === 'android' && isScrollActiveRef.current;
-  const pauseExpensiveEffects = freezeDetailChrome || isLowPerfDevice;
-  const enableDetailChromeGlow = Platform.OS !== 'android' && !isLowPerfDevice;
+  const pauseExpensiveEffects = freezeDetailChrome || isReducedEffectsDevice;
+  const enableDetailChromeGlow = Platform.OS !== 'android' && perfTier === 'high';
   const glowAnimationsActive = divineGlowActive && !pauseExpensiveEffects;
   const headerBlurIntensity = Platform.OS === 'ios'
     ? perfTier === 'high'
@@ -1103,9 +1111,10 @@ const AnchorDetailsScreen = ({ navigation, route }) => {
       {isReady && (
         <ZenBackground
           variant="practice"
-          showOrbs={!isLowPerfDevice}
+          showOrbs={perfTier === 'high'}
           showGrain
           showVignette
+          performanceTier={perfTier}
         />
       )}
 
@@ -1142,7 +1151,7 @@ const AnchorDetailsScreen = ({ navigation, route }) => {
 
         <View style={s.heroStack}>
           {/* ── TITLE CARD ── */}
-          <FadeUp delay={50}>
+          <FadeUp delay={50} animate={shouldAnimateIntro}>
             <Reanimated.View style={[s.animatedCardShell, Platform.OS === 'android' && s.animatedCardShellAndroid, isLowPerfDevice && s.lowPerfFlatCardShell, topCardPulseStyle]}>
               <LinearGradient
                 colors={CARD_GRADIENT}
@@ -1181,7 +1190,7 @@ const AnchorDetailsScreen = ({ navigation, route }) => {
           </FadeUp>
 
           {/* ── SIGIL CARD ── */}
-          <FadeUp delay={120}>
+          <FadeUp delay={120} animate={shouldAnimateIntro}>
             <View
               style={s.sigilAuraContainer}
               renderToHardwareTextureAndroid={freezeDetailChrome}
@@ -1253,7 +1262,7 @@ const AnchorDetailsScreen = ({ navigation, route }) => {
           </FadeUp>
 
           {/* ── STATS CARD ── */}
-          <FadeUp delay={180}>
+          <FadeUp delay={180} animate={shouldAnimateIntro}>
             <Reanimated.View style={[s.animatedCardShell, Platform.OS === 'android' && s.animatedCardShellAndroid, isLowPerfDevice && s.lowPerfFlatCardShell, statsCardPulseStyle]}>
               <LinearGradient colors={[colors.practice.threadSurface, colors.practice.threadSurface]} style={[s.card, s.statsCard, isLowPerfDevice && s.lowPerfNoCardShadow]}>
                 <View style={s.miniStreakCard}>
@@ -1308,7 +1317,7 @@ const AnchorDetailsScreen = ({ navigation, route }) => {
         </View>
 
         {/* ── PRIMARY CTA ── */}
-        <FadeUp delay={220}>
+        <FadeUp delay={220} animate={shouldAnimateIntro}>
           {anchor.isReleased ? (
             <View style={s.releasedStatusCard}>
               <View style={s.releasedStatusGradient}>
@@ -1340,7 +1349,7 @@ const AnchorDetailsScreen = ({ navigation, route }) => {
 
         {/* DEFERRED: Direct ritual entry points live on Practice. Restore the secondary ritual sheet here only if the detail screen regains mode-launch responsibilities. */}
 
-        <FadeUp delay={320}>
+        <FadeUp delay={320} animate={shouldAnimateIntro}>
           <LinearGradient
             colors={CARD_GRADIENT}
             style={[s.card, s.exportCard]}
@@ -1478,7 +1487,7 @@ const AnchorDetailsScreen = ({ navigation, route }) => {
 
         {/* ── DESTRUCTIVE ACTION ── */}
         {developerDeleteWithoutBurnEnabled && (
-          <FadeUp delay={380}>
+          <FadeUp delay={380} animate={shouldAnimateIntro}>
             <TouchableOpacity style={s.deleteBtn} onPress={handleDelete}>
               <Text style={s.deleteBtnText}>Delete Anchor</Text>
             </TouchableOpacity>
@@ -1486,7 +1495,7 @@ const AnchorDetailsScreen = ({ navigation, route }) => {
         )}
 
         {/* ── FOOTER ── */}
-        <FadeUp delay={400}>
+        <FadeUp delay={400} animate={shouldAnimateIntro}>
           <Text style={s.footerDate}>Created {anchor.createdAt}</Text>
         </FadeUp>
 

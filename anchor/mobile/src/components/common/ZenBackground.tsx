@@ -11,6 +11,7 @@ import Animated, {
   withTiming,
 } from 'react-native-reanimated';
 import { colors } from '@/theme';
+import type { PerformanceTier } from '@/hooks/usePerformanceTier';
 import { useReduceMotionEnabled } from '@/hooks/useReduceMotionEnabled';
 
 type ZenBackgroundVariant = 'default' | 'sanctuary' | 'practice' | 'creation';
@@ -38,6 +39,7 @@ interface ZenBackgroundProps {
   animationDuration?: number;
   showGrain?: boolean;
   showVignette?: boolean;
+  performanceTier?: PerformanceTier;
 }
 
 const GRAIN_POINTS = [
@@ -117,10 +119,17 @@ export const ZenBackground: React.FC<ZenBackgroundProps> = ({
   animationDuration = 800,
   showGrain = true,
   showVignette = true,
+  performanceTier = 'high',
 }) => {
   const reduceMotionEnabled = useReduceMotionEnabled();
   const fade = useSharedValue(0);
   const isAndroid = Platform.OS === 'android';
+  const animateOrbs = showOrbs && performanceTier === 'high';
+  const effectiveOrbOpacity = performanceTier === 'high'
+    ? orbOpacity
+    : performanceTier === 'medium'
+      ? orbOpacity * 0.65
+      : orbOpacity * 0.4;
 
   useEffect(() => {
     fade.value = withTiming(1, {
@@ -306,9 +315,9 @@ export const ZenBackground: React.FC<ZenBackgroundProps> = ({
         <OrbLayer
           key={orb.id}
           preset={orb}
-          orbOpacity={orbOpacity}
+          orbOpacity={effectiveOrbOpacity}
           reduceMotionEnabled={reduceMotionEnabled}
-          isActive={showOrbs}
+          isActive={animateOrbs}
         />
       ))}
 
