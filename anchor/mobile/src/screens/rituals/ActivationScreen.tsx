@@ -6,9 +6,9 @@
  * then records the session in sessionStore before navigating back.
  */
 
-import React, { useState, useMemo, useCallback } from 'react';
+import React, { useState, useMemo, useCallback, useEffect } from 'react';
 import { View, Text, StyleSheet } from 'react-native';
-import { useFocusEffect, useNavigation, useRoute, RouteProp } from '@react-navigation/native';
+import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { useTabNavigation } from '@/contexts/TabNavigationContext';
 import { useAnchorStore } from '../../stores/anchorStore';
 import { useAuthStore } from '@/stores/authStore';
@@ -63,6 +63,7 @@ export const ActivationScreen: React.FC = () => {
   const { recordShown } = useTeachingStore();
   const { handlePrimeComplete } = useNotificationController();
   const beginPostPrimeTraceFlow = usePostPrimeTraceStore((state) => state.beginFlow);
+  const activeFlow = usePostPrimeTraceStore((state) => state.activeFlow);
   const anchor = getAnchorById(anchorId);
   const isPendingFirstAnchor = pendingFirstAnchorDraft?.tempAnchorId === anchorId;
   const anchorHeroUri = anchor
@@ -271,47 +272,41 @@ export const ActivationScreen: React.FC = () => {
     });
   }, [anchorId, beginPostPrimeTraceFlow, navigation]);
 
-  useFocusEffect(
-    useCallback(() => {
-      if (!pendingPostPrimeFlowId) {
-        return () => undefined;
-      }
+  useEffect(() => {
+    if (!pendingPostPrimeFlowId) {
+      return;
+    }
 
-      // Read synchronously — avoids waiting for a Zustand subscription re-render
-      const { activeFlow, clearFlow } = usePostPrimeTraceStore.getState();
+    if (
+      !activeFlow ||
+      activeFlow.flowId !== pendingPostPrimeFlowId ||
+      activeFlow.result === 'pending'
+    ) {
+      return;
+    }
 
-      if (
-        !activeFlow ||
-        activeFlow.flowId !== pendingPostPrimeFlowId ||
-        activeFlow.result === 'pending'
-      ) {
-        return () => undefined;
-      }
+    const completedPostPrimeTrace = activeFlow.result === 'completed';
 
-      const completedPostPrimeTrace = activeFlow.result === 'completed';
+    usePostPrimeTraceStore.getState().clearFlow(pendingPostPrimeFlowId);
+    setPendingPostPrimeFlowId(null);
 
-      clearFlow(pendingPostPrimeFlowId);
-      setPendingPostPrimeFlowId(null);
+    if (completedPostPrimeTrace) {
+      bumpThreadStrength(2);
+      AnalyticsService.track('post_prime_trace_completed', {
+        anchor_id: anchorId,
+        session_duration_seconds: activationDurationSeconds,
+      });
+    }
 
-      if (completedPostPrimeTrace) {
-        bumpThreadStrength(2);
-        AnalyticsService.track('post_prime_trace_completed', {
-          anchor_id: anchorId,
-          session_duration_seconds: activationDurationSeconds,
-        });
-      }
-
-      showReflectionModal();
-
-      return () => undefined;
-    }, [
-      activationDurationSeconds,
-      anchorId,
-      bumpThreadStrength,
-      pendingPostPrimeFlowId,
-      showReflectionModal,
-    ])
-  );
+    showReflectionModal();
+  }, [
+    activeFlow,
+    activationDurationSeconds,
+    anchorId,
+    bumpThreadStrength,
+    pendingPostPrimeFlowId,
+    showReflectionModal,
+  ]);
 
   const exitSession = useCallback(() => {
     exitingRef.current = true;
