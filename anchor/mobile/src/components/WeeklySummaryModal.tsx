@@ -1,12 +1,10 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
-  Alert,
   Animated,
   Image,
   Modal,
   Pressable,
   ScrollView,
-  Share,
   StyleSheet,
   Text,
   TouchableOpacity,
@@ -14,12 +12,15 @@ import {
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import ViewShot from 'react-native-view-shot';
 import Svg, { Path, Polyline } from 'react-native-svg';
 import { useAnchorStore } from '@/stores/anchorStore';
 import { useWeeklyStats, type WeeklyStats } from '@/hooks/useWeeklyStats';
+import { useWeeklyShare } from '@/hooks/useWeeklyShare';
 import type { Anchor } from '@/types';
 import { SigilSvg } from '@/components/common/SigilSvg';
-import { ShareCard, type ShareCardRef } from '@/components/ShareCard';
+import { WeeklyShareCard } from '@/components/share/WeeklyShareCard';
+import { generateWeeklyInsight } from '@/utils/weeklyInsight';
 
 const GOLD = '#D4AF37';
 const NAVY = '#0F1419';
@@ -190,7 +191,9 @@ export function WeeklySummaryModal({
 }: WeeklySummaryModalProps) {
   const stats = useWeeklyStats();
   const anchors = useAnchorStore((state) => state.anchors);
-  const shareCardRef = useRef<ShareCardRef | null>(null);
+  const lifetimePrimes = useAnchorStore((state) => state.totalPrimes);
+  const viewShotRef = useRef<ViewShot>(null);
+  const { shareWeek, isCapturing } = useWeeklyShare(viewShotRef);
   const { bottom: bottomInset } = useSafeAreaInsets();
   const sheetTranslateY = useRef(new Animated.Value(48)).current;
   const backdropOpacity = useRef(new Animated.Value(0)).current;
@@ -203,6 +206,32 @@ export function WeeklySummaryModal({
     [anchors, stats]
   );
   const dominantDay = useMemo(() => dominantPrimingDay(stats.days), [stats.days]);
+  const weekData = useMemo(() => ({
+    weekNumber: stats.weekNumber,
+    dateRange: formatDateRange(stats.weekStart, stats.weekEnd),
+    totalPrimes: stats.totalPrimes,
+    daysShownUp: stats.daysShownUp,
+    threadGained: stats.threadDelta,
+    lifetimePrimes,
+    peakDayOfWeek: undefined as string | undefined,
+    peakTimeOfDay: undefined as string | undefined,
+    dominantAnchor: stats.dominantAnchor
+      ? {
+          intention: anchorData.intention,
+          imageUri: anchorData.artworkUri ?? undefined,
+          primesThisWeek: anchorData.weeklyPrimeCount,
+          threadStrength: anchorData.threadStrength,
+        }
+      : null,
+  }), [anchorData, lifetimePrimes, stats]);
+  const insight = useMemo(() => generateWeeklyInsight({
+    totalPrimes: weekData.totalPrimes,
+    daysShownUp: weekData.daysShownUp,
+    threadGained: weekData.threadGained,
+    peakDayOfWeek: weekData.peakDayOfWeek,
+    peakTimeOfDay: weekData.peakTimeOfDay,
+    isFirstPrimeEver: weekData.lifetimePrimes === weekData.totalPrimes,
+  }), [weekData]);
   const barScaleX = strengthProgress.interpolate({
     inputRange: [0, 1],
     outputRange: [0, Math.max(0, Math.min(1, anchorData.threadStrength / 100))],
@@ -254,28 +283,15 @@ export function WeeklySummaryModal({
   }, [backdropOpacity, nodeAnimations, sheetTranslateY, strengthProgress, visible]);
 
   const handleShare = async () => {
-    if (isSharing) {
+    if (isSharing || isCapturing) {
       return;
     }
 
     try {
       setIsSharing(true);
-      const uri = await shareCardRef.current?.capture();
-
-      if (!uri) {
-        throw new Error('Unable to capture weekly summary.');
-      }
-
-      await Share.share({
-        title: `Week ${stats.weekNumber} — threaded`,
-        message: `Week ${stats.weekNumber} — threaded. #AnchorApp`,
-        url: uri,
-      });
+      await shareWeek();
     } catch (error) {
-      Alert.alert(
-        'Share failed',
-        error instanceof Error ? error.message : 'Unable to open the weekly share card right now.'
-      );
+      console.warn('[WeeklySummaryModal] share failed', error);
     } finally {
       setIsSharing(false);
     }
@@ -294,6 +310,31 @@ export function WeeklySummaryModal({
       statusBarTranslucent
     >
       <View style={styles.overlayRoot}>
+        <View pointerEvents="none" style={styles.hiddenShare}>
+          <View collapsable={false}>
+            <ViewShot
+              ref={viewShotRef}
+              options={{ format: 'png', quality: 1.0 }}
+              style={styles.hiddenShot}
+            >
+              <WeeklyShareCard
+                weekNumber={weekData.weekNumber}
+                dateRange={weekData.dateRange}
+                dominantIntention={weekData.dominantAnchor?.intention ?? ''}
+                dominantAnchorImageUri={weekData.dominantAnchor?.imageUri}
+                primesThisWeek={weekData.dominantAnchor?.primesThisWeek ?? 0}
+                threadStrength={weekData.dominantAnchor?.threadStrength ?? 0}
+                totalPrimes={weekData.totalPrimes}
+                daysShownUp={weekData.daysShownUp}
+                threadGained={weekData.threadGained}
+                insightLine1={insight.line1}
+                insightLine2={insight.line2}
+                insightHighlight={insight.highlightPhrase}
+              />
+            </ViewShot>
+          </View>
+        </View>
+
         <Animated.View style={[StyleSheet.absoluteFillObject, { opacity: backdropOpacity }]}>
           <Pressable style={styles.backdrop} onPress={onDismiss} />
         </Animated.View>
@@ -403,16 +444,32 @@ export function WeeklySummaryModal({
               </View>
 
               <Text style={styles.insightLine}>
-                You prime most on <Text style={styles.insightHighlight}>{`${stats.peakPrimingWindow.day} ${stats.peakPrimingWindow.timeOfDay}.`}</Text>
+                {insight.line1.includes(insight.highlightPhrase)
+                  ? insight.line1.split(insight.highlightPhrase)[0]
+                  : insight.line1}
+                {insight.line1.includes(insight.highlightPhrase) ? (
+                  <Text style={styles.insightHighlight}>{insight.highlightPhrase}</Text>
+                ) : null}
+                {insight.line1.includes(insight.highlightPhrase)
+                  ? insight.line1.split(insight.highlightPhrase)[1]
+                  : ''}
                 {'\n'}
-                That's not habit yet — that's identity.
+                {insight.line2.includes(insight.highlightPhrase)
+                  ? insight.line2.split(insight.highlightPhrase)[0]
+                  : insight.line2}
+                {insight.line2.includes(insight.highlightPhrase) ? (
+                  <Text style={styles.insightHighlight}>{insight.highlightPhrase}</Text>
+                ) : null}
+                {insight.line2.includes(insight.highlightPhrase)
+                  ? insight.line2.split(insight.highlightPhrase)[1]
+                  : ''}
               </Text>
 
               <View style={[styles.actions, { paddingBottom: Math.max(bottomInset, 20) + 12 }]}>
-                <TouchableOpacity style={styles.primaryButton} onPress={handleShare} activeOpacity={0.84} disabled={isSharing}>
+                <TouchableOpacity style={styles.primaryButton} onPress={handleShare} activeOpacity={0.84} disabled={isCapturing || isSharing}>
                   <StarGlyph color={NAVY} />
                   <Text style={styles.primaryButtonText}>
-                    {isSharing ? 'SHARING THIS WEEK' : 'SHARE THIS WEEK'}
+                    {isCapturing || isSharing ? 'SHARING THIS WEEK' : 'SHARE THIS WEEK'}
                   </Text>
                 </TouchableOpacity>
 
@@ -424,9 +481,6 @@ export function WeeklySummaryModal({
           </LinearGradient>
         </Animated.View>
 
-        <View pointerEvents="none" collapsable={false} style={styles.hiddenShare}>
-          <ShareCard ref={shareCardRef} stats={stats} format="square" />
-        </View>
       </View>
     </Modal>
   );
@@ -740,7 +794,11 @@ const styles = StyleSheet.create({
   },
   hiddenShare: {
     position: 'absolute',
-    left: -2400,
-    top: 0,
+    left: -9999,
+    top: -9999,
+  },
+  hiddenShot: {
+    width: 390,
+    height: 390,
   },
 });

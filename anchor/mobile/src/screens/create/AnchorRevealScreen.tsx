@@ -209,7 +209,11 @@ export const AnchorRevealScreen: React.FC = () => {
                 sigilSvg: reinforcedSigilSvg || baseSigilSvg,
             });
         } else {
-            navigation.replace('ChargeSetup', { anchorId, autoStartOnSelection: true });
+            navigation.replace('ChargeSetup', {
+                anchorId,
+                autoStartOnSelection: true,
+                returnTo: 'vault',
+            });
         }
     };
 

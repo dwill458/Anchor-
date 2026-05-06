@@ -1,4 +1,4 @@
-import React, { forwardRef, useImperativeHandle, useMemo, useRef } from 'react';
+import React, { forwardRef, useCallback, useEffect, useImperativeHandle, useMemo, useRef, useState } from 'react';
 import { Image, PixelRatio, StyleSheet, Text, View } from 'react-native';
 import ViewShot, { captureRef, type CaptureOptions } from 'react-native-view-shot';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -33,7 +33,7 @@ export type ShareCardFormat = keyof typeof FORMAT_SIZES;
 
 export interface ShareCardRendererProps {
   anchorSVG: string;
-  enhancedImageUrl?: string | null;
+  artworkUri?: string | null;
   intention: string;
   daysPrimed: number;
   format?: ShareCardFormat;
@@ -42,6 +42,10 @@ export interface ShareCardRendererProps {
 
 export interface ShareCardRendererRef {
   capture: (options?: CaptureOptions) => Promise<string>;
+}
+
+interface ShareCardSurfaceProps extends ShareCardRendererProps {
+  onArtworkReady?: () => void;
 }
 
 interface SquareMetrics {
@@ -195,23 +199,48 @@ function BackgroundArt({ width, height, stories = false }: { width: number; heig
 
 function SigilRing({
   sigilXml,
-  enhancedImageUrl,
+  artworkUri,
   ringSize,
   sigilSize,
   borderWidth = 1,
   glowOpacity = 0.22,
   glowShadowOpacity = 0.58,
   shadowRadius = 42,
+  onArtworkReady,
 }: {
   sigilXml: string;
-  enhancedImageUrl?: string | null;
+  artworkUri?: string | null;
   ringSize: number;
   sigilSize: number;
   borderWidth?: number;
   glowOpacity?: number;
   glowShadowOpacity?: number;
   shadowRadius?: number;
+  onArtworkReady?: () => void;
 }) {
+  const [imageFailed, setImageFailed] = useState(false);
+  const didReportArtworkReadyRef = useRef(false);
+
+  const reportArtworkReady = useCallback(() => {
+    if (didReportArtworkReadyRef.current) {
+      return;
+    }
+
+    didReportArtworkReadyRef.current = true;
+    onArtworkReady?.();
+  }, [onArtworkReady]);
+
+  useEffect(() => {
+    setImageFailed(false);
+    didReportArtworkReadyRef.current = false;
+  }, [artworkUri]);
+
+  useEffect(() => {
+    if (!artworkUri || imageFailed) {
+      reportArtworkReady();
+    }
+  }, [artworkUri, imageFailed, reportArtworkReady]);
+
   return (
     <View
       style={[
@@ -287,11 +316,13 @@ function SigilRing({
       </Svg>
 
       <View style={styles.sigilXmlWrap}>
-        {enhancedImageUrl ? (
+        {artworkUri && !imageFailed ? (
           <Image
-            source={{ uri: enhancedImageUrl }}
+            source={{ uri: artworkUri }}
             style={{ width: sigilSize, height: sigilSize, borderRadius: sigilSize / 2 }}
             resizeMode="cover"
+            onLoadEnd={reportArtworkReady}
+            onError={() => setImageFailed(true)}
           />
         ) : (
           <SvgXml xml={sigilXml || FALLBACK_SIGIL} width={sigilSize} height={sigilSize} />
@@ -303,10 +334,11 @@ function SigilRing({
 
 function SquareCardSurface({
   anchorSVG,
-  enhancedImageUrl,
+  artworkUri,
   intention,
   daysPrimed,
-}: ShareCardRendererProps) {
+  onArtworkReady,
+}: ShareCardSurfaceProps) {
   const size = FORMAT_SIZES.square;
   const metrics = buildSquareMetrics();
   const safeIntention = useMemo(() => {
@@ -351,9 +383,10 @@ function SquareCardSurface({
         <View style={styles.centerStack}>
           <SigilRing
             sigilXml={anchorSVG || FALLBACK_SIGIL}
-            enhancedImageUrl={enhancedImageUrl}
+            artworkUri={artworkUri}
             ringSize={metrics.ringSize}
             sigilSize={metrics.sigilSize}
+            onArtworkReady={onArtworkReady}
           />
 
           <Text
@@ -390,10 +423,11 @@ function SquareCardSurface({
 
 function StoriesCardSurface({
   anchorSVG,
-  enhancedImageUrl,
+  artworkUri,
   intention,
   daysPrimed,
-}: ShareCardRendererProps) {
+  onArtworkReady,
+}: ShareCardSurfaceProps) {
   const size = FORMAT_SIZES.stories;
   const safeIntention = useMemo(() => {
     const raw = intention?.trim() || 'Anchor intention unavailable';
@@ -431,13 +465,14 @@ function StoriesCardSurface({
         >
           <SigilRing
             sigilXml={anchorSVG || FALLBACK_SIGIL}
-            enhancedImageUrl={enhancedImageUrl}
+            artworkUri={artworkUri}
             ringSize={scalePx(720)}
             sigilSize={scalePx(664)}
             borderWidth={2}
             glowOpacity={0.18}
             glowShadowOpacity={0.5}
             shadowRadius={scalePx(84)}
+            onArtworkReady={onArtworkReady}
           />
         </View>
       </View>
@@ -525,7 +560,7 @@ function StoriesCardSurface({
 const ShareCardRenderer = forwardRef<ShareCardRendererRef, ShareCardRendererProps>(function ShareCardRenderer(
   {
     anchorSVG,
-    enhancedImageUrl,
+    artworkUri,
     intention,
     daysPrimed,
     format = 'square',
@@ -540,6 +575,17 @@ const ShareCardRenderer = forwardRef<ShareCardRendererRef, ShareCardRendererProp
     height: scalePx(size.height),
   };
   const readyFiredRef = useRef(false);
+  const layoutReadyRef = useRef(false);
+  const artworkReadyRef = useRef(!artworkUri);
+
+  const maybeNotifyRenderReady = useCallback(() => {
+    if (readyFiredRef.current || !layoutReadyRef.current || !artworkReadyRef.current) {
+      return;
+    }
+
+    readyFiredRef.current = true;
+    onRenderReady?.();
+  }, [onRenderReady]);
 
   useImperativeHandle(
     ref,
@@ -580,27 +626,33 @@ const ShareCardRenderer = forwardRef<ShareCardRendererRef, ShareCardRendererProp
           result: 'tmpfile',
         }}
         onLayout={() => {
-          if (!readyFiredRef.current) {
-            readyFiredRef.current = true;
-            onRenderReady?.();
-          }
+          layoutReadyRef.current = true;
+          maybeNotifyRenderReady();
         }}
       >
         {format === 'stories' ? (
           <StoriesCardSurface
             anchorSVG={anchorSVG}
-            enhancedImageUrl={enhancedImageUrl}
+            artworkUri={artworkUri}
             intention={intention}
             daysPrimed={daysPrimed}
             format={format}
+            onArtworkReady={() => {
+              artworkReadyRef.current = true;
+              maybeNotifyRenderReady();
+            }}
           />
         ) : (
           <SquareCardSurface
             anchorSVG={anchorSVG}
-            enhancedImageUrl={enhancedImageUrl}
+            artworkUri={artworkUri}
             intention={intention}
             daysPrimed={daysPrimed}
             format={format}
+            onArtworkReady={() => {
+              artworkReadyRef.current = true;
+              maybeNotifyRenderReady();
+            }}
           />
         )}
       </ViewShot>

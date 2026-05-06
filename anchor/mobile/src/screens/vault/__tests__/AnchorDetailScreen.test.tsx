@@ -13,6 +13,19 @@ const mockRequestPermissionsAsync = jest.fn();
 const mockSaveToLibraryAsync = jest.fn();
 const mockToastError = jest.fn();
 const mockAnalyticsTrack = jest.fn();
+const mockShareCardRendererProps = jest.fn();
+const mockAnchor = {
+    id: 'anchor-123',
+    intentionText: 'Test Intention',
+    category: 'health',
+    distilledLetters: ['T', 'S', 'T'],
+    isCharged: false,
+    activationCount: 5,
+    createdAt: new Date(),
+    baseSigilSvg: '<svg></svg>',
+    enhancedImageUrl: undefined as string | undefined,
+    sigilUri: undefined as string | undefined,
+};
 
 jest.mock('react-native-view-shot', () => ({
     __esModule: true,
@@ -30,6 +43,9 @@ jest.mock('react-native-view-shot', () => ({
 jest.mock('expo-media-library', () => ({
     requestPermissionsAsync: (...args: any[]) => mockRequestPermissionsAsync(...args),
     saveToLibraryAsync: (...args: any[]) => mockSaveToLibraryAsync(...args),
+}));
+jest.mock('@/hooks/useAppPerformanceTier', () => ({
+    useAppPerformanceTier: () => 'high',
 }));
 jest.mock('@react-navigation/native', () => ({
     ...jest.requireActual('@react-navigation/native'),
@@ -52,14 +68,8 @@ jest.mock('@/stores/anchorStore', () => ({
     useAnchorStore: (selector: any) => {
         const state = {
             getAnchorById: (id: string) => ({
+                ...mockAnchor,
                 id,
-                intentionText: 'Test Intention',
-                category: 'health',
-                distilledLetters: ['T', 'S', 'T'],
-                isCharged: false,
-                activationCount: 5,
-                createdAt: new Date(),
-                baseSigilSvg: '<svg></svg>',
             }),
             removeAnchor: jest.fn(),
             currentAnchorId: null,
@@ -149,6 +159,25 @@ jest.mock('@/components/MoreRitualsSheet', () => ({
     MoreRitualsSheet: () => null,
 }));
 
+jest.mock('@/components/ShareCardRenderer', () => {
+    const React = require('react');
+    const { View } = require('react-native');
+
+    return React.forwardRef((props: any, ref: any) => {
+        mockShareCardRendererProps(props);
+
+        React.useImperativeHandle(ref, () => ({
+            capture: jest.fn(() => mockCaptureRef()),
+        }));
+
+        React.useEffect(() => {
+            props.onRenderReady?.();
+        }, [props.onRenderReady]);
+
+        return React.createElement(View, { testID: 'mock-share-card-renderer' });
+    });
+});
+
 jest.mock('@/screens/vault/components/DivineSigilAura', () => ({
     DivineSigilAura: () => null,
 }));
@@ -178,6 +207,9 @@ describe('AnchorDetailScreen', () => {
         mockSaveToLibraryAsync.mockReset();
         mockToastError.mockReset();
         mockAnalyticsTrack.mockReset();
+        mockShareCardRendererProps.mockReset();
+        mockAnchor.enhancedImageUrl = undefined;
+        mockAnchor.sigilUri = undefined;
         mockExportAnchorArtwork.mockResolvedValue({
             localUri: 'file:///tmp/anchor.png',
             filename: 'test-intention-wallpaper.png',
@@ -249,6 +281,21 @@ describe('AnchorDetailScreen', () => {
         }
 
         expect(mockSaveToLibraryAsync).not.toHaveBeenCalled();
+    });
+
+    it('passes legacy sigil artwork into the share card renderer', async () => {
+        mockAnchor.sigilUri = 'https://example.com/legacy-share-card.png';
+
+        render(<AnchorDetailScreen navigation={navigation} route={route} />);
+        fireEvent.press(screen.getByText('SHARE MY ANCHOR'));
+
+        await waitFor(() => {
+            expect(mockShareCardRendererProps).toHaveBeenCalledWith(
+                expect.objectContaining({
+                    artworkUri: 'https://example.com/legacy-share-card.png',
+                })
+            );
+        });
     });
 
     it('exports wallpaper from the detail screen', async () => {

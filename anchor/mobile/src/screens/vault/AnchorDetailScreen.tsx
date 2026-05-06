@@ -1523,7 +1523,7 @@ const AnchorDetailsScreen = ({ navigation, route }) => {
         <ShareCardRenderer
           ref={shareCardRef}
           anchorSVG={anchor.baseSigilSvg}
-          enhancedImageUrl={anchor.enhancedImageUrl}
+          artworkUri={anchor.sigilUri ?? anchor.enhancedImageUrl}
           intention={anchor.intention}
           daysPrimed={anchorPractice.currentStreak}
           format={shareFormat}

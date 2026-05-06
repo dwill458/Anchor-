@@ -15,6 +15,7 @@ import Svg, { Circle } from 'react-native-svg';
 import { SvgXml } from 'react-native-svg';
 import Animated, {
   Easing,
+  ReduceMotion,
   cancelAnimation,
   interpolate,
   runOnJS,
@@ -83,11 +84,10 @@ const OrbitRings: React.FC<OrbitRingsProps> = ({ radius, pausedDim, reduceMotion
   const rot2 = useSharedValue(0);
 
   useEffect(() => {
-    if (reduceMotion) return;
-    rot1.value = withRepeat(withTiming(360, { duration: 45000, easing: Easing.linear }), -1, false);
-    rot2.value = withRepeat(withTiming(-360, { duration: 60000, easing: Easing.linear }), -1, false);
+    rot1.value = withRepeat(withTiming(360, { duration: 45000, easing: Easing.linear, reduceMotion: ReduceMotion.Never }), -1, false, undefined, ReduceMotion.Never);
+    rot2.value = withRepeat(withTiming(-360, { duration: 60000, easing: Easing.linear, reduceMotion: ReduceMotion.Never }), -1, false, undefined, ReduceMotion.Never);
     return () => { cancelAnimation(rot1); cancelAnimation(rot2); };
-  }, [reduceMotion, rot1, rot2]);
+  }, [rot1, rot2]);
 
   const style1 = useAnimatedStyle(() => ({
     transform: [{ rotate: `${rot1.value}deg` }],
@@ -253,7 +253,7 @@ export const FocusSession: React.FC<FocusSessionProps> = ({
   groundNoteSecondary,
 }) => {
   const { width } = useWindowDimensions();
-  const ANCHOR_SIZE = Math.min(Math.round(width * 0.5), 210);
+  const ANCHOR_SIZE = Math.min(Math.round(width * 0.68), 280);
   const RING_RADIUS = ANCHOR_SIZE / 2 + 22;
 
   const defaultDurationSeconds = useSettingsStore((state) => state.focusSessionDuration ?? 30);
@@ -337,7 +337,7 @@ export const FocusSession: React.FC<FocusSessionProps> = ({
   const animateProgressToEnd = useCallback((remainingMs: number) => {
     cancelAnimation(progress);
     if (remainingMs <= 0) { progress.value = 1; return; }
-    progress.value = withTiming(1, { duration: remainingMs, easing: Easing.linear });
+    progress.value = withTiming(1, { duration: remainingMs, easing: Easing.linear, reduceMotion: ReduceMotion.Never });
   }, [progress]);
 
   // ── Completion ─────────────────────────────────────────────────────────────
@@ -446,14 +446,14 @@ export const FocusSession: React.FC<FocusSessionProps> = ({
 
   const handleSealPressIn = useCallback(() => {
     if (!isSeal) return;
-    sealProgress.value = withTiming(1, { duration: SEAL_HOLD_MS, easing: Easing.linear },
+    sealProgress.value = withTiming(1, { duration: SEAL_HOLD_MS, easing: Easing.linear, reduceMotion: ReduceMotion.Never },
       (finished) => { if (finished) runOnJS(triggerComplete)(); }
     );
   }, [isSeal, sealProgress, triggerComplete]);
 
   const handleSealPressOut = useCallback(() => {
     cancelAnimation(sealProgress);
-    sealProgress.value = withTiming(0, { duration: 200 });
+    sealProgress.value = withTiming(0, { duration: 200, reduceMotion: ReduceMotion.Never });
   }, [sealProgress]);
 
   // Tap also completes (for accessibility and tests)
@@ -512,40 +512,44 @@ export const FocusSession: React.FC<FocusSessionProps> = ({
 
   // ── Breath aura animation ──────────────────────────────────────────────────
   useEffect(() => {
-    if (status !== 'running' || reduceMotionEnabled) {
+    if (status !== 'running') {
       cancelAnimation(breathAnim);
       breathAnim.value = withTiming(0.35, { duration: 400 });
       return;
     }
     breathAnim.value = withRepeat(
       withSequence(
-        withTiming(1, { duration: BREATH_INHALE * 1000, easing: Easing.inOut(Easing.ease) }),
-        withTiming(1, { duration: BREATH_HOLD_S * 1000 }),
-        withTiming(0, { duration: BREATH_EXHALE * 1000, easing: Easing.inOut(Easing.ease) }),
+        withTiming(1, { duration: BREATH_INHALE * 1000, easing: Easing.inOut(Easing.ease), reduceMotion: ReduceMotion.Never }),
+        withTiming(1, { duration: BREATH_HOLD_S * 1000, reduceMotion: ReduceMotion.Never }),
+        withTiming(0, { duration: BREATH_EXHALE * 1000, easing: Easing.inOut(Easing.ease), reduceMotion: ReduceMotion.Never }),
       ),
       -1,
-      false
+      false,
+      undefined,
+      ReduceMotion.Never
     );
     return () => { cancelAnimation(breathAnim); };
-  }, [status, reduceMotionEnabled, breathAnim]);
+  }, [status, breathAnim]);
 
   // ── Sigil float animation ──────────────────────────────────────────────────
   useEffect(() => {
-    if (reduceMotionEnabled || status !== 'running') {
+    if (status !== 'running') {
       cancelAnimation(breathScale);
       breathScale.value = withTiming(1, { duration: 200 });
       return;
     }
     breathScale.value = withRepeat(
       withSequence(
-        withTiming(1.025, { duration: 2800, easing: Easing.inOut(Easing.sin) }),
-        withTiming(1, { duration: 2800, easing: Easing.inOut(Easing.sin) }),
+        withTiming(1.025, { duration: 2800, easing: Easing.inOut(Easing.sin), reduceMotion: ReduceMotion.Never }),
+        withTiming(1, { duration: 2800, easing: Easing.inOut(Easing.sin), reduceMotion: ReduceMotion.Never }),
       ),
       -1,
-      false
+      false,
+      undefined,
+      ReduceMotion.Never
     );
     return () => { cancelAnimation(breathScale); };
-  }, [breathScale, reduceMotionEnabled, status]);
+  }, [breathScale, status]);
 
   // ── Halo pulse animation ───────────────────────────────────────────────────
   useEffect(() => {
@@ -556,11 +560,13 @@ export const FocusSession: React.FC<FocusSessionProps> = ({
     }
     haloScale.value = withRepeat(
       withSequence(
-        withTiming(1.08, { duration: 3000, easing: Easing.inOut(Easing.sin) }),
-        withTiming(1, { duration: 3000, easing: Easing.inOut(Easing.sin) })
+        withTiming(1.08, { duration: 3000, easing: Easing.inOut(Easing.sin), reduceMotion: ReduceMotion.Never }),
+        withTiming(1, { duration: 3000, easing: Easing.inOut(Easing.sin), reduceMotion: ReduceMotion.Never })
       ),
       -1,
-      true
+      true,
+      undefined,
+      ReduceMotion.Never
     );
     return () => { cancelAnimation(haloScale); };
   }, [haloScale, reduceMotionEnabled, status]);

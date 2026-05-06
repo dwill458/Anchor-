@@ -372,4 +372,27 @@ describe('sessionStore', () => {
       expect(result.current.lastDecayDate).toBe(today);
     });
   });
+
+  describe('bumpThreadStrength', () => {
+    it('adds an explicit thread strength reward without recording a session', () => {
+      const { result } = renderHook(() => useSessionStore());
+
+      act(() => result.current.bumpThreadStrength(2));
+
+      expect(result.current.threadStrength).toBe(52);
+      expect(result.current.sessionLog).toHaveLength(0);
+      expect(result.current.totalSessionsCount).toBe(0);
+    });
+
+    it('caps explicit thread strength rewards at 100', () => {
+      const { result } = renderHook(() => useSessionStore());
+
+      act(() => {
+        useSessionStore.setState({ threadStrength: 99 });
+        result.current.bumpThreadStrength(5);
+      });
+
+      expect(result.current.threadStrength).toBe(100);
+    });
+  });
 });

@@ -466,6 +466,7 @@ export type RootStackParamList = {
   // ═══════════════════════════════════════════════════
   Vault: undefined;
   FirstAnchorAccountGate: undefined;
+  TrialSignUp: undefined;
   AnchorDetail: { anchorId: string };
   AuthGate: undefined;
   Paywall: undefined;
@@ -504,13 +505,19 @@ export type RootStackParamList = {
   };
 
   /** Step 4: Manual Reinforcement (guided tracing over base structure) */
-  ManualReinforcement: {
-    intentionText: string;
-    category: AnchorCategory;
-    distilledLetters: string[];
-    baseSigilSvg: string;
-    structureVariant: SigilVariant;
-  };
+  ManualReinforcement:
+    | {
+      source: 'creation';
+      intentionText: string;
+      category: AnchorCategory;
+      distilledLetters: string[];
+      baseSigilSvg: string;
+      structureVariant: SigilVariant;
+    }
+    | {
+      source: 'post_prime_trace';
+      anchorId: string;
+    };
 
   /** Step 5: Lock Structure (confirmation screen) */
   LockStructure: {

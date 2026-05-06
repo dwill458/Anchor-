@@ -2,13 +2,13 @@ import React from 'react';
 import { render, fireEvent, screen, waitFor } from '@testing-library/react-native';
 import { WallpaperPromptScreen } from '../WallpaperPromptScreen';
 
-const mockNavigate = jest.fn();
+const mockReplace = jest.fn();
 const mockSetWallpaperPromptSeen = jest.fn();
 const mockExportAnchorArtwork = jest.fn();
 
 jest.mock('@react-navigation/native', () => ({
   ...jest.requireActual('@react-navigation/native'),
-  useNavigation: () => ({ navigate: mockNavigate }),
+  useNavigation: () => ({ replace: mockReplace }),
   useRoute: () => ({
     params: {
       anchorId: 'anchor-123',
@@ -59,9 +59,10 @@ describe('WallpaperPromptScreen', () => {
     });
 
     expect(mockSetWallpaperPromptSeen).toHaveBeenCalledWith(true);
-    expect(mockNavigate).toHaveBeenCalledWith('ChargeSetup', {
+    expect(mockReplace).toHaveBeenCalledWith('ChargeSetup', {
       anchorId: 'anchor-123',
       autoStartOnSelection: true,
+      returnTo: 'vault',
     });
   });
 });

@@ -19,6 +19,7 @@ import Svg, { Path } from 'react-native-svg';
 import { useTabNavigation } from '@/contexts/TabNavigationContext';
 import { OptimizedImage, PremiumAnchorGlow, SigilSvg } from '@/components/common';
 import { useAnchorStore } from '@/stores/anchorStore';
+import { useAuthStore } from '@/stores/authStore';
 import { useSessionStore } from '@/stores/sessionStore';
 import { useSettingsStore } from '@/stores/settingsStore';
 import { useAudio } from '@/hooks/useAudio';
@@ -73,6 +74,7 @@ export const FirstPrimeCompleteScreen: React.FC = () => {
   const { playSound } = useAudio();
   const { handlePrimeComplete } = useNotificationController();
 
+  const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
   const anchor = getAnchorById(anchorId);
   const hasRecordedRef = useRef(false);
 
@@ -379,6 +381,12 @@ export const FirstPrimeCompleteScreen: React.FC = () => {
 
     if (returnTo === 'detail') {
       navigation.replace('AnchorDetail', { anchorId });
+      return;
+    }
+
+    // First-time flow: gate unauthenticated users through trial sign-up
+    if (!isAuthenticated) {
+      navigation.replace('TrialSignUp');
       return;
     }
 

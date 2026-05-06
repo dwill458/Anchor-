@@ -9,6 +9,27 @@ const CAPTURE_OPTIONS: Record<ShareCardFormat, { width: number; height: number; 
   stories: { width: 1170, height: 2532, quality: 0.82 },
 };
 
+type SharingModuleShape = {
+  isAvailableAsync?: () => Promise<boolean>;
+  shareAsync?: (url: string, options?: Record<string, unknown>) => Promise<void>;
+  default?: {
+    isAvailableAsync?: () => Promise<boolean>;
+    shareAsync?: (url: string, options?: Record<string, unknown>) => Promise<void>;
+  };
+};
+
+function resolveSharingModule(module: SharingModuleShape) {
+  if (typeof module.isAvailableAsync === 'function' || typeof module.shareAsync === 'function') {
+    return module;
+  }
+
+  if (module.default && (typeof module.default.isAvailableAsync === 'function' || typeof module.default.shareAsync === 'function')) {
+    return module.default;
+  }
+
+  return null;
+}
+
 export function useShareCard(
   shareCardRef: RefObject<ShareCardRendererRef | null>,
   isRenderedRef?: RefObject<boolean | null>
@@ -59,8 +80,16 @@ export function useShareCard(
         const normalizedUri = uri.startsWith('file://') ? uri : `file://${uri}`;
 
         try {
-          const Sharing = await import('expo-sharing');
-          const canShareFiles = await Sharing.isAvailableAsync();
+          const sharingModule = await import('expo-sharing');
+          const Sharing = resolveSharingModule(sharingModule);
+
+          if (!Sharing?.shareAsync) {
+            throw new Error('expo-sharing shareAsync unavailable');
+          }
+
+          const canShareFiles = Sharing.isAvailableAsync
+            ? await Sharing.isAvailableAsync()
+            : true;
 
           if (canShareFiles) {
             await Sharing.shareAsync(normalizedUri, {

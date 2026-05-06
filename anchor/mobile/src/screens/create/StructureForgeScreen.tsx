@@ -163,6 +163,7 @@ export default function StructureForgeScreen() {
     if (!selectedVariantSvg) return;
 
     (navigation as unknown as { navigate: (...args: any[]) => void }).navigate('ManualReinforcement', {
+      source: 'creation',
       intention,
       structureType: selectedStructure as StructureType,
       intentionText,
