@@ -15,6 +15,8 @@ export interface IntentionPatternDetection {
   shouldShowGuidance: boolean;
 }
 
+let lastAnalyzedText = '';
+
 /** Detect if intention uses future tense language */
 export function detectFutureTense(text: string): boolean {
   const futurePhrases = [
@@ -37,8 +39,20 @@ export function detectNegation(text: string): boolean {
   return negationPhrases.some((pattern) => pattern.test(text));
 }
 
+export function detectGibberish(text: string): boolean {
+  if (text.trim().length < 6) return false;
+  const letters = text.replace(/[^a-zA-Z]/g, '');
+  if (letters.length === 0) return false;
+  const vowels = letters.replace(/[^aeiouAEIOU]/g, '');
+  const vowelRatio = vowels.length / letters.length;
+  const unique = new Set(letters.toLowerCase()).size;
+  const uniqueRatio = unique / letters.length;
+  return vowelRatio < 0.15 && uniqueRatio < 0.5;
+}
+
 /** Analyze intention and return guidance flags */
 export function analyzeIntention(text: string): IntentionPatternDetection {
+  lastAnalyzedText = text;
   const hasFutureTense = detectFutureTense(text);
   const hasNegation = detectNegation(text);
 
@@ -55,6 +69,9 @@ export function getGuidanceText(
   hasFutureTense: boolean,
   hasNegation: boolean
 ): string {
+  if (detectGibberish(lastAnalyzedText)) {
+    return "That doesn't look like an intention. What do you actually want?";
+  }
   if (hasFutureTense && hasNegation) {
     return 'Try present tense & affirmative: "I choose…" or "I return…"';
   }

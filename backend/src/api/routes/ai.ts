@@ -74,6 +74,9 @@ const VALID_STYLES = [
   'ink_brush',
   'gold_leaf',
   'cosmic',
+  'architectural_trace',
+  'lunar_etch',
+  'resonance_rings',
   'minimal_line',
   'obsidian_mono',
   'aurora_glow',
@@ -106,7 +109,6 @@ const MantraAudioSchema = z.object({
     rhythmic: z.string(),
     phonetic: z.string(),
   }),
-  userId: z.string().min(1),
   anchorId: z.string().min(1),
   voicePreset: z.string().optional(),
 });
@@ -512,7 +514,47 @@ router.post(
     try {
       const parsed = validateOrRespond(MantraAudioSchema, req.body, res);
       if (!parsed) return;
-      const { mantras, userId, anchorId, voicePreset } = parsed;
+      const { mantras, anchorId, voicePreset } = parsed;
+
+      if (!req.user?.uid) {
+        res.status(401).json({
+          error: 'Authentication required',
+          message: 'A valid authentication token is required for mantra audio generation.',
+        });
+        return;
+      }
+
+      const dbUser = await prisma.user.findUnique({
+        where: { authUid: req.user.uid },
+        select: { id: true },
+      });
+
+      if (!dbUser) {
+        res.status(404).json({
+          error: 'User not found',
+          message: 'Create or sync your account before generating mantra audio.',
+        });
+        return;
+      }
+
+      const anchor = await prisma.anchor.findFirst({
+        where: {
+          id: anchorId,
+          userId: dbUser.id,
+        },
+        select: {
+          id: true,
+          userId: true,
+        },
+      });
+
+      if (!anchor) {
+        res.status(404).json({
+          error: 'Anchor not found',
+          message: 'Audio generation is only allowed for anchors you own.',
+        });
+        return;
+      }
 
       if (!isTTSAvailable()) {
         res.status(503).json({
@@ -529,8 +571,8 @@ router.post(
 
       const audioUrls = await generateAllMantraAudio(
         mantras,
-        userId,
-        anchorId,
+        anchor.userId,
+        anchor.id,
         voicePreset || 'neutral_calm'
       );
 

@@ -52,6 +52,18 @@ jest.mock('expo-media-library', () => ({
   saveToLibraryAsync: jest.fn(() => Promise.resolve()),
 }));
 
+jest.mock('expo-file-system', () => ({
+  readAsStringAsync: jest.fn(() => Promise.resolve('')),
+  EncodingType: {
+    Base64: 'base64',
+  },
+}));
+
+jest.mock('expo-sharing', () => ({
+  isAvailableAsync: jest.fn(() => Promise.resolve(true)),
+  shareAsync: jest.fn(() => Promise.resolve()),
+}));
+
 jest.mock('@sentry/react-native', () => {
   const addBreadcrumb = jest.fn();
   const routingIntegration = {
@@ -176,9 +188,11 @@ jest.mock('react-native-svg', () => ({
   SvgXml: 'SvgXml',
   Svg: 'Svg',
   Circle: 'Circle',
+  Ellipse: 'Ellipse',
   Path: 'Path',
   G: 'G',
   Line: 'Line',
+  Polyline: 'Polyline',
   Rect: 'Rect',
   Defs: 'Defs',
   Stop: 'Stop',

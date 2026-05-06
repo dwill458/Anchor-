@@ -282,7 +282,7 @@ const SignalVisual: React.FC = () => {
 /** Slide 4: pulsing sigil + orbit ring + badge. */
 const FinalVisual: React.FC = () => {
   const sigilSvg = React.useMemo(
-    () => generateTrueSigil('Deep work for 4 hours', 'balanced').svg,
+    () => generateTrueSigil('Deep work for 4 hours', undefined, 'balanced').svg,
     []
   );
   const pulse = useRef(new Animated.Value(1)).current;

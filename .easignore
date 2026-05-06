@@ -1,0 +1,13 @@
+.agents/
+.claude/
+backend/
+ai-service/
+anchor-v2/
+archive/
+design/
+docs/
+scripts/
+yu/
+supabase/
+.git/
+.DS_Store

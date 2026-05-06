@@ -1,4 +1,6 @@
 const DEFAULT_TIMEZONE = Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC';
+export const DEFAULT_NOTIFICATION_GOAL_PRIMES = 3;
+export const NOTIFICATION_STATE_STORAGE_KEY = '@anchor_notification_state';
 
 export interface NotificationState {
   primed_today: boolean;
@@ -22,6 +24,7 @@ export interface NotificationState {
   alchemist_milestones_count: number;
   sovereign_rank: boolean;
   active_session: boolean;
+  weaver_enabled: boolean;
 }
 
 export const getMonday12AMLocal = (): string => {
@@ -44,7 +47,7 @@ export const initializeNotificationState = (): NotificationState => ({
   total_primes_this_week: 0,
   week_started_at: getMonday12AMLocal(),
   current_primes: 0,
-  goal_primes: 22,
+  goal_primes: DEFAULT_NOTIFICATION_GOAL_PRIMES,
   has_reached_goal_today: false,
   has_entered_burn_flow: false,
   sigil_in_vault: false,
@@ -56,12 +59,17 @@ export const initializeNotificationState = (): NotificationState => ({
   alchemist_milestones_count: 0,
   sovereign_rank: false,
   active_session: false,
+  weaver_enabled: true,
 });
 
-export const isSameDay = (d1: Date, d2: Date): boolean =>
-  d1.getFullYear() === d2.getFullYear() &&
-  d1.getMonth() === d2.getMonth() &&
-  d1.getDate() === d2.getDate();
+export const isSameDay = (d1: Date | null, d2: Date | null): boolean => {
+  if (!d1 || !d2) return false;
+  return (
+    d1.getFullYear() === d2.getFullYear() &&
+    d1.getMonth() === d2.getMonth() &&
+    d1.getDate() === d2.getDate()
+  );
+};
 
 export const isSameWeek = (now: Date, weekStarted: string): boolean => {
   const weekStart = new Date(weekStarted).getTime();

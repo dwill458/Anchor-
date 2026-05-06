@@ -1,24 +1,24 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+// Anchor – Focus Session
+// Redesigned per Practice Session.html:
+// breath aura rings · top-bar layout · linear progress bar · seal press-and-hold
+
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   Animated as RNAnimated,
-  Dimensions,
-  Platform,
   Pressable,
   StyleSheet,
   Text,
-  TouchableOpacity,
   View,
   useWindowDimensions,
-  type StyleProp,
-  type ViewStyle,
 } from 'react-native';
-import { BlurView } from 'expo-blur';
 import Svg, { Circle } from 'react-native-svg';
 import { SvgXml } from 'react-native-svg';
 import Animated, {
   Easing,
+  ReduceMotion,
   cancelAnimation,
   interpolate,
+  runOnJS,
   type SharedValue,
   useAnimatedProps,
   useAnimatedStyle,
@@ -28,6 +28,8 @@ import Animated, {
   withTiming,
 } from 'react-native-reanimated';
 import * as Haptics from 'expo-haptics';
+import { LinearGradient } from 'expo-linear-gradient';
+import { Pause, Play } from 'lucide-react-native';
 import { colors, spacing, typography } from '@/theme';
 import { OptimizedImage } from '@/components/common';
 import { useReduceMotionEnabled } from '@/hooks/useReduceMotionEnabled';
@@ -35,203 +37,210 @@ import { useAudio } from '@/hooks/useAudio';
 import { safeHaptics } from '@/utils/haptics';
 import { RitualScaffold } from './RitualScaffold';
 import { useNotificationController } from '@/hooks/useNotificationController';
+import { useSettingsStore } from '@/stores/settingsStore';
 
-// Replaced with dynamic hooks inside component
-// const { width } = Dimensions.get('window');
-// const ANCHOR_SIZE = Math.min(Math.round(width * 0.58), 264);
-// const RING_RADIUS = ANCHOR_SIZE / 2 + 22;
-// const RING_STROKE = 6;
-// const RING_SIZE = RING_RADIUS * 2 + RING_STROKE * 4;
+// ─── Constants ────────────────────────────────────────────────────────────────
 
-const RING_STROKE = 6;
+const SEAL_HOLD_MS = 2500;
+const BREATH_INHALE = 4;   // seconds
+const BREATH_HOLD_S = 2;   // seconds
+const BREATH_EXHALE = 6;   // seconds
+const BREATH_TOTAL = BREATH_INHALE + BREATH_HOLD_S + BREATH_EXHALE; // 12s
+const RING_STROKE = 5;
 
-const AnimatedCircle = Animated.createAnimatedComponent(Circle);
+const GUIDANCE = [
+  'See it as already done.',
+  'Breathe with intention.',
+  'Feel it in your body.',
+  'This moment is yours.',
+  'Stand in your power.',
+  'Steady breath, steady mind.',
+  'Trust the process.',
+];
 
-type SessionStatus = 'running' | 'paused' | 'completed';
+// ─── Types ────────────────────────────────────────────────────────────────────
+
+type SessionStatus = 'arrive' | 'running' | 'paused' | 'completed';
 
 export type FocusSessionProps = {
   intentionText: string;
   anchorImageUri: string;
-  durationSeconds: number;
+  durationSeconds?: number;
   onComplete: () => void;
   onSessionCompleted?: () => void;
   onDismiss: () => void;
-  /** Ground Note (Pattern 2): auto-fades after 6s. Only shown when guideMode is on. */
   groundNoteText?: string;
   groundNoteSecondary?: string;
 };
 
-type GlassSurfaceProps = {
-  children: React.ReactNode;
-  style?: StyleProp<ViewStyle>;
-  intensity?: number;
+// ─── Sub-components ───────────────────────────────────────────────────────────
+
+// Orbital rings that spin around the sigil during the running phase
+type OrbitRingsProps = { radius: number; pausedDim: SharedValue<number>; reduceMotion: boolean };
+const OrbitRings: React.FC<OrbitRingsProps> = ({ radius, pausedDim, reduceMotion }) => {
+  const sz = radius * 2 + 60;
+  const cx = sz / 2;
+  const rot1 = useSharedValue(0);
+  const rot2 = useSharedValue(0);
+
+  useEffect(() => {
+    rot1.value = withRepeat(withTiming(360, { duration: 45000, easing: Easing.linear, reduceMotion: ReduceMotion.Never }), -1, false, undefined, ReduceMotion.Never);
+    rot2.value = withRepeat(withTiming(-360, { duration: 60000, easing: Easing.linear, reduceMotion: ReduceMotion.Never }), -1, false, undefined, ReduceMotion.Never);
+    return () => { cancelAnimation(rot1); cancelAnimation(rot2); };
+  }, [rot1, rot2]);
+
+  const style1 = useAnimatedStyle(() => ({
+    transform: [{ rotate: `${rot1.value}deg` }],
+    opacity: pausedDim.value,
+  }));
+  const style2 = useAnimatedStyle(() => ({
+    transform: [{ rotate: `${rot2.value}deg` }],
+    opacity: pausedDim.value,
+  }));
+
+  return (
+    <View style={{ position: 'absolute', top: '50%', left: '50%', marginTop: -sz / 2, marginLeft: -sz / 2, width: sz, height: sz }} pointerEvents="none">
+      <Animated.View style={[StyleSheet.absoluteFill, style1]}>
+        <Svg width={sz} height={sz}>
+          <Circle cx={cx} cy={cx} r={radius + 12} stroke="rgba(212,175,55,0.22)" strokeWidth={1} fill="none" strokeDasharray="4 8" />
+        </Svg>
+      </Animated.View>
+      <Animated.View style={[StyleSheet.absoluteFill, style2]}>
+        <Svg width={sz} height={sz}>
+          <Circle cx={cx} cy={cx} r={radius + 24} stroke="rgba(212,175,55,0.15)" strokeWidth={1} fill="none" strokeDasharray="2 6" />
+        </Svg>
+      </Animated.View>
+    </View>
+  );
 };
 
+const AnimatedCircle = Animated.createAnimatedComponent(Circle);
+
+// Three concentric aura rings that pulse with the breath cycle
+type BreathAuraProps = { breathAnim: SharedValue<number>; anchorSize: number };
+const BreathAura: React.FC<BreathAuraProps> = ({ breathAnim, anchorSize }) => {
+  const farSz = anchorSize * 1.55;
+  const midSz = anchorSize * 1.25;
+  const nearSz = anchorSize * 1.1;
+
+  const farStyle = useAnimatedStyle(() => ({
+    opacity: interpolate(breathAnim.value, [0, 1], [0.07, 0.18]),
+    transform: [{ scale: interpolate(breathAnim.value, [0, 1], [0.9, 1.12]) }],
+  }));
+  const midStyle = useAnimatedStyle(() => ({
+    opacity: interpolate(breathAnim.value, [0, 1], [0.12, 0.26]),
+    transform: [{ scale: interpolate(breathAnim.value, [0, 1], [0.92, 1.08]) }],
+  }));
+  const nearStyle = useAnimatedStyle(() => ({
+    opacity: interpolate(breathAnim.value, [0, 1], [0.18, 0.45]),
+    transform: [{ scale: interpolate(breathAnim.value, [0, 1], [0.94, 1.05]) }],
+  }));
+
+  const base = { position: 'absolute' as const, borderRadius: 9999, alignSelf: 'center' as const };
+  return (
+    <View style={{ position: 'absolute', width: farSz, height: farSz, top: '50%', left: '50%', marginTop: -farSz / 2, marginLeft: -farSz / 2 }} pointerEvents="none">
+      <Animated.View style={[base, { width: farSz, height: farSz, backgroundColor: `${colors.gold}1A` }, farStyle]} />
+      <Animated.View style={[base, { width: midSz, height: midSz, top: (farSz - midSz) / 2, left: (farSz - midSz) / 2, backgroundColor: `${colors.gold}28` }, midStyle]} />
+      <Animated.View style={[base, { width: nearSz, height: nearSz, top: (farSz - nearSz) / 2, left: (farSz - nearSz) / 2, borderWidth: 1, borderColor: `${colors.gold}48`, backgroundColor: `${colors.gold}10` }, nearStyle]} />
+    </View>
+  );
+};
+
+// Session countdown ring
 type ProgressRingProps = {
   radius: number;
-  strokeWidth: number;
   progress: SharedValue<number>;
   pausedDim: SharedValue<number>;
   flare: SharedValue<number>;
 };
+const ProgressRing: React.FC<ProgressRingProps> = ({ radius, progress, pausedDim, flare }) => {
+  const sz = radius * 2 + RING_STROKE * 4;
+  const cx = sz / 2;
+  const circ = 2 * Math.PI * radius;
 
-type GlassIconButtonProps = {
-  label: string;
-  icon: string;
-  onPress: () => void;
-  testID?: string;
-};
-
-type PrimaryButtonProps = {
-  label: string;
-  onPress: () => void;
-  testID?: string;
-};
-
-type AnchorHeroProps = {
-  anchorImageUri: string;
-  size: number;
-};
-
-const GlassSurface: React.FC<GlassSurfaceProps> = ({
-  children,
-  style,
-  intensity = 20,
-}) => {
-  if (Platform.OS === 'ios') {
-    return (
-      <BlurView tint="dark" intensity={intensity} style={[styles.glassSurface, style]}>
-        {children}
-      </BlurView>
-    );
-  }
-
-  return <View style={[styles.glassSurface, styles.androidGlassFallback, style, { backgroundColor: 'rgba(12, 17, 24, 0.92)' }]}>{children}</View>;
-};
-
-const GlassIconButton: React.FC<GlassIconButtonProps> = ({
-  label,
-  icon,
-  onPress,
-  testID,
-}) => {
-  return (
-    <Pressable
-      onPress={onPress}
-      style={styles.glassIconButton}
-      accessibilityRole="button"
-      accessibilityLabel={label}
-      testID={testID}
-    >
-      <Text style={styles.glassIconText}>{icon}</Text>
-    </Pressable>
-  );
-};
-
-const PrimaryButton: React.FC<PrimaryButtonProps> = ({
-  label,
-  onPress,
-  testID,
-}) => {
-  return (
-    <TouchableOpacity
-      onPress={onPress}
-      activeOpacity={0.85}
-      style={styles.primaryButton}
-      accessibilityRole="button"
-      accessibilityLabel={label}
-      testID={testID}
-    >
-      <Text style={styles.primaryButtonText}>{label}</Text>
-    </TouchableOpacity>
-  );
-};
-
-const ProgressRing: React.FC<ProgressRingProps> = ({
-  radius,
-  strokeWidth,
-  progress,
-  pausedDim,
-  flare,
-}) => {
-  const size = radius * 2 + strokeWidth * 4;
-  const center = size / 2;
-  const circumference = 2 * Math.PI * radius;
-
-  const trackAnimatedProps = useAnimatedProps(() => {
-    return {
-      opacity: (0.45 + progress.value * 0.1) * pausedDim.value,
-      strokeWidth,
-    };
-  });
-
-  const progressAnimatedProps = useAnimatedProps(() => {
-    return {
-      strokeDashoffset: circumference * (1 - progress.value),
-      opacity: (0.35 + 0.55 * progress.value + flare.value * 0.25) * pausedDim.value,
-      strokeWidth: strokeWidth + flare.value * 1.5,
-    };
-  });
+  const trackProps = useAnimatedProps(() => ({
+    opacity: (0.45 + progress.value * 0.1) * pausedDim.value,
+    strokeWidth: RING_STROKE,
+  }));
+  const fillProps = useAnimatedProps(() => ({
+    strokeDashoffset: circ * (1 - progress.value),
+    opacity: (0.35 + 0.55 * progress.value + flare.value * 0.25) * pausedDim.value,
+    strokeWidth: RING_STROKE + flare.value * 1.5,
+  }));
 
   return (
-    <View style={styles.progressRingWrap} pointerEvents="none">
-      <Svg width={size} height={size}>
-        <AnimatedCircle
-          cx={center}
-          cy={center}
-          r={radius}
-          stroke={`${colors.gold}26`}
-          fill="none"
-          animatedProps={trackAnimatedProps}
-        />
-        <AnimatedCircle
-          cx={center}
-          cy={center}
-          r={radius}
-          stroke={colors.gold}
-          fill="none"
-          strokeDasharray={circumference}
-          strokeLinecap="round"
-          rotation="-90"
-          origin={`${center}, ${center}`}
-          animatedProps={progressAnimatedProps}
-        />
+    <View style={{ position: 'absolute', top: '50%', left: '50%', marginTop: -sz / 2, marginLeft: -sz / 2, width: sz, height: sz }} pointerEvents="none">
+      <Svg width={sz} height={sz}>
+        <AnimatedCircle cx={cx} cy={cx} r={radius} stroke={`${colors.gold}26`} fill="none" animatedProps={trackProps} />
+        <AnimatedCircle cx={cx} cy={cx} r={radius} stroke={colors.gold} fill="none"
+          strokeDasharray={circ} strokeLinecap="round"
+          rotation="-90" origin={`${cx}, ${cx}`}
+          animatedProps={fillProps} />
       </Svg>
     </View>
   );
 };
 
-const AnchorHero: React.FC<AnchorHeroProps> = ({ anchorImageUri, size }) => {
-  const trimmed = anchorImageUri.trim();
-  const isSvgXml = trimmed.startsWith('<svg');
+// Seal hold ring — fills as user presses
+type SealRingProps = { radius: number; sealProgress: SharedValue<number> };
+const SealRing: React.FC<SealRingProps> = ({ radius, sealProgress }) => {
+  const sz = radius * 2 + RING_STROKE * 4;
+  const cx = sz / 2;
+  const circ = 2 * Math.PI * radius;
 
+  const trackProps = useAnimatedProps(() => ({ strokeWidth: 2, opacity: 0.18 }));
+  const fillProps = useAnimatedProps(() => ({
+    strokeDashoffset: circ * (1 - sealProgress.value),
+    opacity: 0.55 + sealProgress.value * 0.45,
+    strokeWidth: 2.5,
+  }));
+
+  return (
+    <View style={{ position: 'absolute', top: '50%', left: '50%', marginTop: -sz / 2, marginLeft: -sz / 2, width: sz, height: sz }} pointerEvents="none">
+      <Svg width={sz} height={sz}>
+        <AnimatedCircle cx={cx} cy={cx} r={radius} stroke={colors.gold} fill="none" animatedProps={trackProps} />
+        <AnimatedCircle cx={cx} cy={cx} r={radius} stroke={colors.gold} fill="none"
+          strokeDasharray={circ} strokeLinecap="round"
+          rotation="-90" origin={`${cx}, ${cx}`}
+          animatedProps={fillProps} />
+      </Svg>
+    </View>
+  );
+};
+
+// Anchor image (svg xml or remote url)
+type AnchorHeroProps = { anchorImageUri: string; size: number };
+const AnchorHero: React.FC<AnchorHeroProps> = ({ anchorImageUri, size }) => {
+  const isSvg = anchorImageUri.trim().startsWith('<svg');
   return (
     <View style={[styles.anchorHero, { width: size, height: size, borderRadius: size / 2 }]}>
       {anchorImageUri ? (
-        isSvgXml ? (
-          <SvgXml xml={anchorImageUri} width={size} height={size} />
-        ) : (
-          <OptimizedImage
-            uri={anchorImageUri}
-            style={{ width: size, height: size, borderRadius: size / 2 }}
-            resizeMode="cover"
-          />
-        )
+        isSvg
+          ? <SvgXml xml={anchorImageUri} width={size} height={size} />
+          : <OptimizedImage uri={anchorImageUri} style={{ width: size, height: size, borderRadius: size / 2 }} resizeMode="cover" />
       ) : (
-        <View style={styles.anchorFallbackWrap}>
-          <Text style={styles.anchorFallbackText}>*</Text>
+        <View style={styles.anchorFallback}>
+          <Text style={[styles.anchorFallbackText, { fontSize: size * 0.22 }]}>✦</Text>
         </View>
       )}
     </View>
   );
 };
 
+// Close button — matches prototype's circular glass pill
+const CloseButton: React.FC<{ onPress: () => void; testID?: string }> = ({ onPress, testID }) => (
+  <Pressable onPress={onPress} style={styles.closeBtn} testID={testID}
+    accessibilityRole="button" accessibilityLabel="Dismiss focus session">
+    <Text style={styles.closeBtnIcon}>✕</Text>
+  </Pressable>
+);
+
 const formatTime = (seconds: number): string => {
-  const clamped = Math.max(0, seconds);
-  const mins = Math.floor(clamped / 60);
-  const secs = clamped % 60;
-  return `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
+  const s = Math.max(0, Math.floor(seconds));
+  return `${String(Math.floor(s / 60)).padStart(2, '0')}:${String(s % 60).padStart(2, '0')}`;
 };
+
+// ─── Main Component ───────────────────────────────────────────────────────────
 
 export const FocusSession: React.FC<FocusSessionProps> = ({
   intentionText,
@@ -244,22 +253,35 @@ export const FocusSession: React.FC<FocusSessionProps> = ({
   groundNoteSecondary,
 }) => {
   const { width } = useWindowDimensions();
-  const ANCHOR_SIZE = Math.min(Math.round(width * 0.58), 264);
+  const ANCHOR_SIZE = Math.min(Math.round(width * 0.68), 280);
   const RING_RADIUS = ANCHOR_SIZE / 2 + 22;
-  const RING_SIZE = RING_RADIUS * 2 + RING_STROKE * 4;
 
-  const totalMs = Math.max(1000, Math.round(durationSeconds * 1000));
+  const defaultDurationSeconds = useSettingsStore((state) => state.focusSessionDuration ?? 30);
+  const focusSessionAudio = useSettingsStore((state) => state.focusSessionAudio ?? 'silent');
+  const arrivePhaseEnabled = useSettingsStore((state) => state.arrivePhaseEnabled ?? true);
+  const reduceIntentionVisibility = useSettingsStore((state) => state.reduceIntentionVisibility ?? false);
+  const resolvedDurationSeconds = durationSeconds ?? defaultDurationSeconds;
   const reduceMotionEnabled = useReduceMotionEnabled();
+  const shouldUseArrivePhase =
+    arrivePhaseEnabled && resolvedDurationSeconds > 0;
+  const totalMs = Math.max(1000, Math.round(resolvedDurationSeconds * 1000));
   const { playSound } = useAudio();
   const { setActiveSession } = useNotificationController();
 
-
-  const [status, setStatus] = useState<SessionStatus>('running');
+  // ── State ──────────────────────────────────────────────────────────────────
+  const [status, setStatus] = useState<SessionStatus>(
+    shouldUseArrivePhase ? 'arrive' : 'running'
+  );
+  const [arriveCueIndex, setArriveCueIndex] = useState(0);
   const [secondsRemaining, setSecondsRemaining] = useState(Math.ceil(totalMs / 1000));
+  const [guidanceIdx, setGuidanceIdx] = useState(0);
   const [groundNoteVisible, setGroundNoteVisible] = useState(!!groundNoteText);
   const groundNoteOpacity = useRef(new RNAnimated.Value(0)).current;
 
+  // ── Refs ───────────────────────────────────────────────────────────────────
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const arriveIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const arriveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const endAtMsRef = useRef<number>(Date.now() + totalMs);
   const remainingMsRef = useRef<number>(totalMs);
   const renderedSecondsRef = useRef<number>(Math.ceil(totalMs / 1000));
@@ -267,63 +289,63 @@ export const FocusSession: React.FC<FocusSessionProps> = ({
   const continuePressedRef = useRef(false);
   const bgSoundRef = useRef<{ stop: () => void } | null>(null);
 
+  // ── Shared values ──────────────────────────────────────────────────────────
   const progress = useSharedValue(0);
   const breathScale = useSharedValue(1);
+  const breathAnim = useSharedValue(0);    // 0=exhale, 1=inhale peak
   const glowBoost = useSharedValue(0);
   const pausedDim = useSharedValue(1);
   const flare = useSharedValue(0);
+  const sealProgress = useSharedValue(0);
+  const haloScale = useSharedValue(1);
 
-  const timerDisplay = useMemo(() => formatTime(secondsRemaining), [secondsRemaining]);
+  // ── Derived display values ─────────────────────────────────────────────────
+  const isSeal = status === 'completed';
+  const timerDisplay = formatTime(secondsRemaining);
+  // Breath cue from elapsed time in the session
+  const elapsedSeconds = resolvedDurationSeconds - secondsRemaining;
+  const breathPhase = elapsedSeconds % BREATH_TOTAL;
+  const breathCueText = breathPhase < BREATH_INHALE
+    ? 'Breathe in'
+    : breathPhase < BREATH_INHALE + BREATH_HOLD_S
+      ? 'Hold'
+      : 'Breathe out';
 
-  // Ground Note (Pattern 2): fade in, then auto-fade after 6s
+  // ── Ground note (teaching) ─────────────────────────────────────────────────
   useEffect(() => {
     if (!groundNoteText) return;
     setGroundNoteVisible(true);
-    RNAnimated.timing(groundNoteOpacity, {
-      toValue: 1,
-      duration: 400,
-      useNativeDriver: true,
-    }).start();
-    const timer = setTimeout(() => {
-      RNAnimated.timing(groundNoteOpacity, {
-        toValue: 0,
-        duration: 500,
-        useNativeDriver: true,
-      }).start(() => setGroundNoteVisible(false));
-    }, 6000);
-    return () => clearTimeout(timer);
+    RNAnimated.sequence([
+      RNAnimated.timing(groundNoteOpacity, { toValue: 1, duration: 400, useNativeDriver: true }),
+      RNAnimated.delay(6000),
+      RNAnimated.timing(groundNoteOpacity, { toValue: 0, duration: 500, useNativeDriver: true })
+    ]).start(({ finished }) => {
+      if (finished) setGroundNoteVisible(false);
+    });
   }, [groundNoteText]);
 
+  // ── Timer utilities ────────────────────────────────────────────────────────
   const clearTickInterval = useCallback(() => {
-    if (intervalRef.current) {
-      clearInterval(intervalRef.current);
-      intervalRef.current = null;
-    }
+    if (intervalRef.current) { clearInterval(intervalRef.current); intervalRef.current = null; }
   }, []);
 
-  const animateProgressToEnd = useCallback(
-    (remainingMs: number) => {
-      cancelAnimation(progress);
-      if (remainingMs <= 0) {
-        progress.value = 1;
-        return;
-      }
+  const clearArriveTimers = useCallback(() => {
+    if (arriveIntervalRef.current) { clearInterval(arriveIntervalRef.current); arriveIntervalRef.current = null; }
+    if (arriveTimeoutRef.current) { clearTimeout(arriveTimeoutRef.current); arriveTimeoutRef.current = null; }
+  }, []);
 
-      progress.value = withTiming(1, {
-        duration: remainingMs,
-        easing: Easing.linear,
-      });
-    },
-    [progress]
-  );
+  const animateProgressToEnd = useCallback((remainingMs: number) => {
+    cancelAnimation(progress);
+    if (remainingMs <= 0) { progress.value = 1; return; }
+    progress.value = withTiming(1, { duration: remainingMs, easing: Easing.linear, reduceMotion: ReduceMotion.Never });
+  }, [progress]);
 
+  // ── Completion ─────────────────────────────────────────────────────────────
   const completeSession = useCallback(() => {
-    if (completionTriggeredRef.current) {
-      return;
-    }
-
+    if (completionTriggeredRef.current) return;
     completionTriggeredRef.current = true;
     clearTickInterval();
+    clearArriveTimers();
     bgSoundRef.current?.stop();
     bgSoundRef.current = null;
 
@@ -350,32 +372,24 @@ export const FocusSession: React.FC<FocusSessionProps> = ({
     }
 
     void safeHaptics.notification(Haptics.NotificationFeedbackType.Success);
-    void playSound('prime-complete');
+    if (focusSessionAudio === 'ambient') void playSound('prime-complete');
     onSessionCompleted?.();
   }, [
-    animateProgressToEnd,
-    clearTickInterval,
-    flare,
-    glowBoost,
-    onSessionCompleted,
-    pausedDim,
-    playSound,
-    reduceMotionEnabled,
+    animateProgressToEnd, clearArriveTimers, clearTickInterval,
+    flare, focusSessionAudio, glowBoost, onSessionCompleted,
+    pausedDim, playSound, reduceMotionEnabled,
   ]);
 
+  // ── Tick countdown ─────────────────────────────────────────────────────────
   const tickCountdown = useCallback(() => {
     const remainingMs = Math.max(0, endAtMsRef.current - Date.now());
     remainingMsRef.current = remainingMs;
-
     const nextSeconds = Math.max(0, Math.ceil(remainingMs / 1000));
     if (nextSeconds !== renderedSecondsRef.current) {
       renderedSecondsRef.current = nextSeconds;
       setSecondsRemaining(nextSeconds);
     }
-
-    if (remainingMs <= 0) {
-      completeSession();
-    }
+    if (remainingMs <= 0) completeSession();
   }, [completeSession]);
 
   const startTickInterval = useCallback(() => {
@@ -383,14 +397,26 @@ export const FocusSession: React.FC<FocusSessionProps> = ({
     intervalRef.current = setInterval(tickCountdown, 250);
   }, [clearTickInterval, tickCountdown]);
 
-  const handlePause = useCallback(() => {
-    if (status !== 'running') {
-      return;
-    }
+  const startRunningPhase = useCallback((runningMs: number) => {
+    clearArriveTimers();
+    renderedSecondsRef.current = Math.ceil(runningMs / 1000);
+    remainingMsRef.current = runningMs;
+    endAtMsRef.current = Date.now() + runningMs;
+    setSecondsRemaining(renderedSecondsRef.current);
+    setStatus('running');
 
+    bgSoundRef.current?.stop();
+    bgSoundRef.current =
+      focusSessionAudio === 'ambient' ? playSound('prime-begin', 1, true) : null;
+    animateProgressToEnd(runningMs);
+    startTickInterval();
+  }, [animateProgressToEnd, clearArriveTimers, focusSessionAudio, playSound, startTickInterval]);
+
+  // ── Pause / Resume ─────────────────────────────────────────────────────────
+  const handlePause = useCallback(() => {
+    if (status !== 'running') return;
     const remainingMs = Math.max(0, endAtMsRef.current - Date.now());
     remainingMsRef.current = remainingMs;
-
     clearTickInterval();
     cancelAnimation(progress);
     pausedDim.value = withTiming(0.45, { duration: 180 });
@@ -400,497 +426,670 @@ export const FocusSession: React.FC<FocusSessionProps> = ({
   }, [clearTickInterval, pausedDim, progress, status]);
 
   const handleResume = useCallback(() => {
-    if (status !== 'paused') {
-      return;
-    }
-
-    if (remainingMsRef.current <= 0) {
-      completeSession();
-      return;
-    }
-
+    if (status !== 'paused') return;
+    if (remainingMsRef.current <= 0) { completeSession(); return; }
     endAtMsRef.current = Date.now() + remainingMsRef.current;
     pausedDim.value = withTiming(1, { duration: 200 });
     setStatus('running');
-    bgSoundRef.current = playSound('prime-begin', 1, true);
+    bgSoundRef.current =
+      focusSessionAudio === 'ambient' ? playSound('prime-begin', 1, true) : null;
     animateProgressToEnd(remainingMsRef.current);
     startTickInterval();
-  }, [
-    animateProgressToEnd,
-    completeSession,
-    pausedDim,
-    playSound,
-    startTickInterval,
-    status,
-  ]);
+  }, [animateProgressToEnd, completeSession, focusSessionAudio, pausedDim, playSound, startTickInterval, status]);
 
-  const handleContinue = useCallback(() => {
-    if (status !== 'completed' || continuePressedRef.current) {
-      return;
-    }
+  // ── Seal mechanic ──────────────────────────────────────────────────────────
+  const triggerComplete = useCallback(() => {
+    if (continuePressedRef.current) return;
+    continuePressedRef.current = true;
+    // Delay so user sees the fully-sealed ring before the modal overlays
+    setTimeout(onComplete, 400);
+  }, [onComplete]);
 
+  const handleSealPressIn = useCallback(() => {
+    if (!isSeal) return;
+    sealProgress.value = withTiming(1, { duration: SEAL_HOLD_MS, easing: Easing.linear, reduceMotion: ReduceMotion.Never },
+      (finished) => { if (finished) runOnJS(triggerComplete)(); }
+    );
+  }, [isSeal, sealProgress, triggerComplete]);
+
+  const handleSealPressOut = useCallback(() => {
+    // If completion is already in progress, don't reset the ring
+    if (continuePressedRef.current) return;
+    cancelAnimation(sealProgress);
+    sealProgress.value = withTiming(0, { duration: 200, reduceMotion: ReduceMotion.Never });
+  }, [sealProgress]);
+
+  // Tap also completes (for accessibility and tests)
+  const handleSealTap = useCallback(() => {
+    if (status !== 'completed' || continuePressedRef.current) return;
     continuePressedRef.current = true;
     onComplete();
   }, [onComplete, status]);
 
+  // ── Session lifecycle ──────────────────────────────────────────────────────
   useEffect(() => {
     void setActiveSession(true);
-    return () => {
-      void setActiveSession(false);
-    };
+    return () => { void setActiveSession(false); };
   }, [setActiveSession]);
 
   useEffect(() => {
     continuePressedRef.current = false;
     completionTriggeredRef.current = false;
+    setArriveCueIndex(0);
+    setGuidanceIdx(0);
 
     renderedSecondsRef.current = Math.ceil(totalMs / 1000);
     remainingMsRef.current = totalMs;
     endAtMsRef.current = Date.now() + totalMs;
-
-    setStatus('running');
+    setStatus(shouldUseArrivePhase ? 'arrive' : 'running');
     setSecondsRemaining(renderedSecondsRef.current);
 
     progress.value = 0;
     pausedDim.value = 1;
     flare.value = 0;
     glowBoost.value = 0.05;
-
+    breathAnim.value = 0;
+    sealProgress.value = 0;
     bgSoundRef.current?.stop();
-    bgSoundRef.current = playSound('prime-begin', 1, true);
-    animateProgressToEnd(totalMs);
-    startTickInterval();
+    bgSoundRef.current = null;
+
+    if (!shouldUseArrivePhase) {
+      startRunningPhase(totalMs);
+    }
 
     return () => {
       clearTickInterval();
+      clearArriveTimers();
       cancelAnimation(progress);
       cancelAnimation(breathScale);
+      cancelAnimation(breathAnim);
       cancelAnimation(flare);
       cancelAnimation(glowBoost);
       cancelAnimation(pausedDim);
+      cancelAnimation(sealProgress);
+      cancelAnimation(haloScale);
       bgSoundRef.current?.stop();
       bgSoundRef.current = null;
     };
-  }, [playSound, totalMs]);
+  }, [clearArriveTimers, shouldUseArrivePhase, startRunningPhase, totalMs]);
 
+  // ── Breath aura animation ──────────────────────────────────────────────────
   useEffect(() => {
-    if (reduceMotionEnabled || status !== 'running') {
+    if (status !== 'running') {
+      cancelAnimation(breathAnim);
+      breathAnim.value = withTiming(0.35, { duration: 400 });
+      return;
+    }
+    breathAnim.value = withRepeat(
+      withSequence(
+        withTiming(1, { duration: BREATH_INHALE * 1000, easing: Easing.inOut(Easing.ease), reduceMotion: ReduceMotion.Never }),
+        withTiming(1, { duration: BREATH_HOLD_S * 1000, reduceMotion: ReduceMotion.Never }),
+        withTiming(0, { duration: BREATH_EXHALE * 1000, easing: Easing.inOut(Easing.ease), reduceMotion: ReduceMotion.Never }),
+      ),
+      -1,
+      false,
+      undefined,
+      ReduceMotion.Never
+    );
+    return () => { cancelAnimation(breathAnim); };
+  }, [status, breathAnim]);
+
+  // ── Sigil float animation ──────────────────────────────────────────────────
+  useEffect(() => {
+    if (status !== 'running') {
       cancelAnimation(breathScale);
       breathScale.value = withTiming(1, { duration: 200 });
       return;
     }
-
     breathScale.value = withRepeat(
       withSequence(
-        withTiming(1.02, {
-          duration: 2500,
-          easing: Easing.inOut(Easing.sin),
-        }),
-        withTiming(1, {
-          duration: 2500,
-          easing: Easing.inOut(Easing.sin),
-        })
+        withTiming(1.025, { duration: 2800, easing: Easing.inOut(Easing.sin), reduceMotion: ReduceMotion.Never }),
+        withTiming(1, { duration: 2800, easing: Easing.inOut(Easing.sin), reduceMotion: ReduceMotion.Never }),
       ),
       -1,
-      false
+      false,
+      undefined,
+      ReduceMotion.Never
     );
+    return () => { cancelAnimation(breathScale); };
+  }, [breathScale, status]);
 
-    return () => {
-      cancelAnimation(breathScale);
-    };
-  }, [breathScale, reduceMotionEnabled, status]);
+  // ── Halo pulse animation ───────────────────────────────────────────────────
+  useEffect(() => {
+    if (status !== 'arrive' || reduceMotionEnabled) {
+      cancelAnimation(haloScale);
+      haloScale.value = withTiming(1, { duration: 400 });
+      return;
+    }
+    haloScale.value = withRepeat(
+      withSequence(
+        withTiming(1.08, { duration: 3000, easing: Easing.inOut(Easing.sin), reduceMotion: ReduceMotion.Never }),
+        withTiming(1, { duration: 3000, easing: Easing.inOut(Easing.sin), reduceMotion: ReduceMotion.Never })
+      ),
+      -1,
+      true,
+      undefined,
+      ReduceMotion.Never
+    );
+    return () => { cancelAnimation(haloScale); };
+  }, [haloScale, reduceMotionEnabled, status]);
 
-  const anchorBreathStyle = useAnimatedStyle(() => {
+  const handleBegin = useCallback(() => {
+    clearArriveTimers();
+    startRunningPhase(totalMs);
+  }, [clearArriveTimers, startRunningPhase, totalMs]);
+
+  // ── Guidance rotation ──────────────────────────────────────────────────────
+  useEffect(() => {
+    if (status !== 'running') return;
+    const id = setInterval(() => setGuidanceIdx((i) => (i + 1) % GUIDANCE.length), 12000);
+    return () => clearInterval(id);
+  }, [status]);
+
+  // ── Animated styles ────────────────────────────────────────────────────────
+  const anchorBreathStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: breathScale.value }],
+  }));
+
+  const haloAnimatedStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: haloScale.value }],
+  }));
+
+  const progressBarStyle = useAnimatedStyle(() => {
     return {
-      transform: [{ scale: breathScale.value }],
+      width: `${progress.value * 100}%`,
     };
   });
 
   const bloomStyle = useAnimatedStyle(() => {
-    const baseOpacity = interpolate(progress.value, [0, 1], [0.12, 0.28]);
-    const baseScale = interpolate(progress.value, [0, 1], [0.94, 1.18]);
-    const completionBoost = glowBoost.value + flare.value * 0.35;
-
+    const base = interpolate(progress.value, [0, 1], [0.1, 0.22]);
     return {
-      opacity: (baseOpacity + completionBoost) * pausedDim.value,
-      transform: [{ scale: baseScale + flare.value * 0.09 }],
+      opacity: (base + glowBoost.value + flare.value * 0.3) * pausedDim.value,
     };
   });
 
-  const timerChipStyle = useAnimatedStyle(() => {
-    return {
-      opacity: pausedDim.value,
-    };
-  });
+  // ─── Render ────────────────────────────────────────────────────────────────
+
+  if (status === 'arrive') {
+    return (
+      <RitualScaffold>
+        <View style={styles.container}>
+          <View style={styles.topBar}>
+            <CloseButton onPress={onDismiss} testID="focus-session-dismiss" />
+          </View>
+          <View style={[styles.center, { justifyContent: 'center' }]}>
+            <Animated.View style={[styles.haloRing, haloAnimatedStyle]}>
+              <View style={styles.haloInner}>
+                <AnchorHero anchorImageUri={anchorImageUri} size={ANCHOR_SIZE * 0.85} />
+              </View>
+            </Animated.View>
+            <View style={styles.landingTextWrap}>
+              <Text style={styles.landingTitle}>PREPARE</Text>
+              <Text style={styles.landingSub}>
+                Settle your mind.{'\n'}When you're centered, begin.
+              </Text>
+            </View>
+            {!reduceIntentionVisibility && intentionText ? (
+              <View style={styles.landingIntentionWrap}>
+                <Text style={styles.landingIntentionLabel}>INTENTION</Text>
+                <Text style={styles.landingIntentionText}>"{intentionText}"</Text>
+              </View>
+            ) : null}
+          </View>
+          <View style={styles.bottom}>
+            <Pressable onPress={handleBegin} style={styles.beginBtn}>
+              <LinearGradient
+                colors={[colors.gold, '#8a6f23']}
+                style={styles.beginBtnGradient}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+              >
+                <Text style={styles.beginBtnText}>Begin Session  →</Text>
+              </LinearGradient>
+            </Pressable>
+          </View>
+        </View>
+      </RitualScaffold>
+    );
+  }
+
+  const showProgressBar = !isSeal;
 
   return (
     <RitualScaffold>
       <View style={styles.container}>
-        <View style={styles.topRow}>
-          <View style={styles.topSpacer} />
-          <Text style={styles.title}>Focus Session</Text>
-          <GlassIconButton
-            label="Dismiss focus session"
-            icon="X"
-            onPress={onDismiss}
-            testID="focus-session-dismiss"
-          />
+
+        {/* ── TOP BAR ── */}
+        <View style={styles.topBar}>
+          <CloseButton onPress={onDismiss} testID="focus-session-dismiss" />
+          <Text style={[styles.sessionLabel, isSeal && styles.sessionLabelSeal]}>
+            {isSeal ? 'SEAL YOUR ANCHOR' : 'FOCUS'}
+          </Text>
+          {!isSeal ? (
+            <Text style={styles.timerTop} testID="focus-session-timer">{timerDisplay}</Text>
+          ) : (
+            <View style={styles.topBarSpacer} />
+          )}
         </View>
 
-        <View style={styles.intentionWrap}>
-          <View style={styles.intentionLabelChip}>
-            <Text style={styles.intentionLabelText}>Intention</Text>
+        {/* ── LINEAR PROGRESS BAR ── */}
+        {showProgressBar && (
+          <View style={styles.progressTrack}>
+            <Animated.View style={[styles.progressFill, progressBarStyle]} />
           </View>
-          <GlassSurface style={styles.intentionCard} intensity={18}>
-            <Text style={styles.intentionText}>{intentionText}</Text>
-          </GlassSurface>
-        </View>
+        )}
 
-        <View style={styles.heroSection}>
-          <View style={[styles.heroStack, { width: RING_SIZE, height: RING_SIZE + 62 }]}>
+        {/* ── CENTER STAGE ── */}
+        <View style={styles.center}>
+          <Pressable
+            style={[styles.sigilStage, { width: ANCHOR_SIZE, height: ANCHOR_SIZE }]}
+            onPressIn={isSeal ? handleSealPressIn : undefined}
+            onPressOut={isSeal ? handleSealPressOut : undefined}
+            onPress={isSeal ? handleSealTap : undefined}
+            disabled={!isSeal}
+            testID={isSeal ? 'focus-session-continue' : undefined}
+            accessibilityRole={isSeal ? 'button' : undefined}
+            accessibilityLabel={isSeal ? 'Seal your anchor — press and hold' : undefined}
+          >
+            {/* Bloom glow (behind aura) */}
             <Animated.View
+              pointerEvents="none"
               style={[
-                styles.anchorBloom,
+                styles.bloom,
+                {
+                  width: ANCHOR_SIZE * 1.7,
+                  height: ANCHOR_SIZE * 1.7,
+                  borderRadius: (ANCHOR_SIZE * 1.7) / 2,
+                  top: -(ANCHOR_SIZE * 0.35),
+                  left: -(ANCHOR_SIZE * 0.35),
+                },
                 bloomStyle,
-                {
-                  top: (RING_SIZE - ANCHOR_SIZE * 1.34) / 2,
-                  left: (RING_SIZE - ANCHOR_SIZE * 1.34) / 2,
-                  width: ANCHOR_SIZE * 1.34,
-                  height: ANCHOR_SIZE * 1.34,
-                  borderRadius: (ANCHOR_SIZE * 1.34) / 2,
-                }
               ]}
             />
-            <ProgressRing
-              radius={RING_RADIUS}
-              strokeWidth={RING_STROKE}
-              progress={progress}
-              pausedDim={pausedDim}
-              flare={flare}
-            />
-            <Animated.View
-              style={[
-                styles.anchorWrap,
-                anchorBreathStyle,
-                {
-                  top: RING_STROKE * 2 + (RING_RADIUS * 2 - ANCHOR_SIZE) / 2,
-                  left: (RING_SIZE - ANCHOR_SIZE) / 2,
-                }
-              ]}
-            >
+
+            {/* Breath aura rings */}
+            <BreathAura breathAnim={breathAnim} anchorSize={ANCHOR_SIZE} />
+
+            {/* Session or seal ring */}
+            {isSeal
+              ? <SealRing radius={RING_RADIUS} sealProgress={sealProgress} />
+              : <ProgressRing radius={RING_RADIUS} progress={progress} pausedDim={pausedDim} flare={flare} />
+            }
+
+            {/* Orbital Rings */}
+            {!isSeal && status === 'running' && (
+              <OrbitRings radius={RING_RADIUS} pausedDim={pausedDim} reduceMotion={reduceMotionEnabled} />
+            )}
+
+            {/* Sigil */}
+            <Animated.View style={anchorBreathStyle}>
               <AnchorHero anchorImageUri={anchorImageUri} size={ANCHOR_SIZE} />
             </Animated.View>
-            <Animated.View style={[styles.timerChipWrap, timerChipStyle]}>
-              <GlassSurface style={styles.timerChip} intensity={16}>
-                <Text style={styles.timerLabel}>remaining</Text>
-                <Text style={styles.timerValue} testID="focus-session-timer">
-                  {timerDisplay}
-                </Text>
-              </GlassSurface>
-            </Animated.View>
-          </View>
-        </View>
+          </Pressable>
 
-        <View style={styles.footer}>
-          <GlassSurface style={styles.guidanceCard} intensity={16}>
-            <Text style={styles.guidanceText} testID="focus-session-guidance">
-              {status === 'completed' ? 'Sealed.' : 'Hold the symbol. Let the words fade.'}
+          {/* ── BELOW-SIGIL CUE ── */}
+          {isSeal ? (
+            <Text style={styles.sealHint}>Press and hold to seal</Text>
+          ) : (
+            <Text style={[styles.breathCue, status === 'paused' && styles.breathCuePaused]}>
+              {breathCueText}
             </Text>
-          </GlassSurface>
-
-          {groundNoteVisible && groundNoteText ? (
-            <RNAnimated.View style={[styles.groundNoteWrap, { opacity: groundNoteOpacity }]}>
-              <Text style={styles.groundNoteText}>{groundNoteText}</Text>
-              {groundNoteSecondary ? (
-                <Text style={styles.groundNoteSecondary}>{groundNoteSecondary}</Text>
-              ) : null}
-            </RNAnimated.View>
-          ) : null}
-
-          {status === 'running' ? (
-            <TouchableOpacity
-              onPress={handlePause}
-              activeOpacity={0.82}
-              style={styles.pauseButton}
-              accessibilityRole="button"
-              accessibilityLabel="Pause"
-              testID="focus-session-pause"
-            >
-              <Text style={styles.pauseIcon}>||</Text>
-              <Text style={styles.pauseText}>Pause</Text>
-            </TouchableOpacity>
-          ) : null}
-
-          {status === 'paused' ? (
-            <View style={styles.pausedWrap}>
-              <Text style={styles.pausedText}>Paused</Text>
-              <PrimaryButton
-                label="Resume"
-                onPress={handleResume}
-                testID="focus-session-resume"
-              />
-            </View>
-          ) : null}
-
-          {status === 'completed' ? (
-            <PrimaryButton
-              label="Continue"
-              onPress={handleContinue}
-              testID="focus-session-continue"
-            />
-          ) : null}
+          )}
         </View>
+
+        {/* ── BOTTOM ── */}
+        <View style={styles.bottom}>
+          {isSeal ? (
+            <Text style={styles.sealSub}>When ready, press and hold the symbol above.</Text>
+          ) : (
+            <>
+              {!reduceIntentionVisibility && intentionText ? (
+                <View style={styles.focusIntentionWrap}>
+                  <View style={styles.intentionLabelChip}>
+                    <Text style={styles.intentionLabelText}>INTENTION</Text>
+                  </View>
+                  <Text style={styles.focusIntentionText}>{intentionText}</Text>
+                </View>
+              ) : null}
+
+              <Text style={styles.guidanceText} key={guidanceIdx}>
+                {GUIDANCE[guidanceIdx]}
+              </Text>
+
+              {groundNoteVisible && groundNoteText ? (
+                <RNAnimated.View style={[styles.groundNoteWrap, { opacity: groundNoteOpacity }]}>
+                  <Text style={styles.groundNoteText}>{groundNoteText}</Text>
+                  {groundNoteSecondary ? (
+                    <Text style={styles.groundNoteSecondary}>{groundNoteSecondary}</Text>
+                  ) : null}
+                </RNAnimated.View>
+              ) : null}
+
+              {status === 'running' && (
+                <Pressable onPress={handlePause} style={styles.pauseBtn}
+                  testID="focus-session-pause" accessibilityRole="button" accessibilityLabel="Pause">
+                  <Pause color="#FFFFFF" size={14} strokeWidth={2.5} />
+                  <Text style={styles.pauseBtnText}>Pause</Text>
+                </Pressable>
+              )}
+              {status === 'paused' && (
+                <Pressable onPress={handleResume} style={styles.pauseBtn}
+                  testID="focus-session-resume" accessibilityRole="button" accessibilityLabel="Resume">
+                  <Play color="#FFFFFF" size={14} strokeWidth={2.5} />
+                  <Text style={styles.pauseBtnText}>Resume</Text>
+                </Pressable>
+              )}
+            </>
+          )}
+        </View>
+
       </View>
     </RitualScaffold>
   );
 };
+
+// ─── Styles ───────────────────────────────────────────────────────────────────
+
+const GOLD_LINE = `${colors.gold}48`;
+const BONE_SOFT = 'rgba(245,240,232,0.62)';
+const BONE_FAINT = 'rgba(245,240,232,0.34)';
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
     paddingHorizontal: spacing.lg,
   },
-  topRow: {
-    minHeight: 52,
-    paddingTop: spacing.sm,
+
+  // ── Top bar ──
+  topBar: {
+    height: 52,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+    paddingTop: spacing.sm,
   },
-  topSpacer: {
-    width: 44,
-    height: 44,
-  },
-  title: {
-    fontSize: typography.sizes.h3,
-    fontFamily: typography.fonts.heading,
-    color: colors.gold,
-    letterSpacing: 0.5,
-    textAlign: 'center',
-  },
-  glassIconButton: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
+  closeBtn: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: GOLD_LINE,
+    backgroundColor: 'rgba(245,240,232,0.04)',
+    alignItems: 'center',
     justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: colors.ritual.glass,
-    borderWidth: 1,
-    borderColor: colors.ritual.border,
   },
-  glassIconText: {
-    color: colors.text.secondary,
-    fontFamily: typography.fonts.bodyBold,
-    fontSize: 15,
-    letterSpacing: 0.5,
+  closeBtnIcon: {
+    color: BONE_SOFT,
+    fontSize: 13,
+    lineHeight: 16,
+    fontFamily: typography.fontFamily.sans,
   },
-  intentionWrap: {
-    marginTop: spacing.md,
-    alignItems: 'center',
-  },
-  intentionLabelChip: {
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.xs,
-    borderRadius: 999,
-    borderWidth: 1,
-    borderColor: colors.ritual.border,
-    backgroundColor: colors.ritual.glass,
-    marginBottom: spacing.sm,
-  },
-  intentionLabelText: {
-    fontSize: typography.sizes.caption,
-    fontFamily: typography.fonts.bodyBold,
-    color: colors.text.secondary,
-    letterSpacing: 0.4,
-  },
-  intentionCard: {
-    width: '100%',
-    maxWidth: 480,
-    borderRadius: 18,
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.md,
-  },
-  intentionText: {
-    color: colors.text.primary,
-    fontFamily: typography.fonts.body,
-    fontSize: typography.sizes.body1,
-    lineHeight: typography.lineHeights.body1,
+  sessionLabel: {
+    fontFamily: typography.fontFamily.serif,
+    fontSize: 13,
+    letterSpacing: 3,
+    color: BONE_SOFT,
     textAlign: 'center',
+    flex: 1,
   },
-  heroSection: {
+  sessionLabelSeal: {
+    color: colors.gold,
+  },
+  timerTop: {
+    fontFamily: typography.fontFamily.mono,
+    fontSize: 12,
+    color: BONE_FAINT,
+    letterSpacing: 0.5,
+    minWidth: 32,
+    textAlign: 'right',
+  },
+  topBarSpacer: {
+    width: 32,
+  },
+
+  // ── Progress bar ──
+  progressTrack: {
+    height: 2,
+    marginHorizontal: 0,
+    marginBottom: 2,
+    backgroundColor: 'rgba(245,240,232,0.07)',
+    borderRadius: 1,
+    overflow: 'hidden',
+  },
+  progressFill: {
+    height: '100%',
+    backgroundColor: colors.gold,
+    borderRadius: 1,
+    shadowColor: colors.gold,
+    shadowOpacity: 0.5,
+    shadowRadius: 4,
+    shadowOffset: { width: 0, height: 0 },
+  },
+
+  // ── Center stage ──
+  center: {
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
+    gap: spacing.lg,
   },
-  heroStack: {
+  sigilStage: {
     alignItems: 'center',
-    justifyContent: 'flex-start',
+    justifyContent: 'center',
     position: 'relative',
   },
-  progressRingWrap: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-  },
-  anchorBloom: {
+  bloom: {
     position: 'absolute',
     backgroundColor: `${colors.gold}22`,
     shadowColor: colors.gold,
     shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.44,
-    shadowRadius: 28,
+    shadowOpacity: 0.5,
+    shadowRadius: 32,
     elevation: 16,
   },
-  anchorWrap: {
-    position: 'absolute',
-  },
+
+  // ── Anchor sigil ──
   anchorHero: {
     overflow: 'hidden',
     borderWidth: 1,
     borderColor: `${colors.gold}2A`,
     backgroundColor: colors.background.secondary,
   },
-  anchorFallbackWrap: {
+  anchorFallback: {
     flex: 1,
-    justifyContent: 'center',
     alignItems: 'center',
+    justifyContent: 'center',
   },
   anchorFallbackText: {
     color: colors.gold,
-    fontSize: 42,
-    lineHeight: 42,
-    fontFamily: typography.fonts.heading,
+    fontFamily: typography.fontFamily.serif,
   },
-  timerChipWrap: {
-    position: 'absolute',
-    bottom: 0,
-    width: '100%',
-    alignItems: 'center',
+
+  // ── Cues ──
+  breathCue: {
+    fontFamily: typography.fontFamily.bodySerifItalic,
+    fontSize: 16,
+    color: BONE_SOFT,
+    letterSpacing: 0.5,
+    textAlign: 'center',
   },
-  timerChip: {
-    borderRadius: 16,
-    paddingHorizontal: spacing.lg,
-    paddingTop: spacing.sm,
-    paddingBottom: spacing.md,
-    minWidth: 124,
-    alignItems: 'center',
+  breathCuePaused: {
+    opacity: 0.35,
   },
-  timerLabel: {
-    color: colors.text.secondary,
-    fontSize: typography.sizes.caption,
-    fontFamily: typography.fonts.body,
-    textTransform: 'lowercase',
-    letterSpacing: 0.45,
-  },
-  timerValue: {
+  sealHint: {
+    fontFamily: typography.fontFamily.serif,
+    fontSize: 12,
+    letterSpacing: 3,
     color: colors.gold,
-    fontFamily: typography.fonts.heading,
-    fontSize: 34,
-    lineHeight: 38,
-    marginTop: 1,
-    letterSpacing: 0.4,
+    textTransform: 'uppercase',
+    textAlign: 'center',
   },
-  footer: {
+
+  // ── Bottom ──
+  bottom: {
     paddingBottom: spacing.xl,
     alignItems: 'center',
-  },
-  guidanceCard: {
-    width: '100%',
-    maxWidth: 500,
-    borderRadius: 18,
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.md,
-    marginBottom: spacing.md,
+    gap: spacing.md,
+    minHeight: 120,
+    justifyContent: 'flex-end',
   },
   guidanceText: {
-    color: colors.text.primary,
-    fontFamily: typography.fonts.body,
-    fontSize: typography.sizes.body1,
+    fontFamily: typography.fontFamily.serif,
+    fontSize: 22,
+    color: colors.gold,
     textAlign: 'center',
-    lineHeight: typography.lineHeights.body1,
+    lineHeight: 32,
+    letterSpacing: 0.5,
+    textShadowColor: 'rgba(212,175,55,0.2)',
+    textShadowOffset: { width: 0, height: 2 },
+    textShadowRadius: 8,
   },
-  pauseButton: {
-    minHeight: 38,
+
+  // ── Landing Screen ──
+  haloRing: {
+    padding: 24,
     borderRadius: 999,
     borderWidth: 1,
-    borderColor: colors.ritual.border,
-    backgroundColor: colors.ritual.glass,
-    paddingHorizontal: spacing.md,
-    flexDirection: 'row',
+    borderColor: 'rgba(212,175,55,0.15)',
+    backgroundColor: 'rgba(212,175,55,0.03)',
+  },
+  haloInner: {
+    padding: 16,
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: 'rgba(212,175,55,0.3)',
+    backgroundColor: 'rgba(12,16,24,0.6)',
+  },
+  landingTextWrap: {
     alignItems: 'center',
-    justifyContent: 'center',
-    gap: spacing.xs,
-  },
-  pauseIcon: {
-    color: colors.text.secondary,
-    fontFamily: typography.fonts.bodyBold,
-    fontSize: 11,
-    letterSpacing: 0.2,
-    marginTop: -1,
-  },
-  pauseText: {
-    color: colors.text.secondary,
-    fontFamily: typography.fonts.bodyBold,
-    fontSize: typography.sizes.body2,
-    letterSpacing: 0.3,
-  },
-  pausedWrap: {
-    width: '100%',
-    alignItems: 'center',
+    marginTop: spacing.xl,
     gap: spacing.sm,
   },
-  pausedText: {
-    color: colors.text.secondary,
-    fontSize: typography.sizes.body2,
-    fontFamily: typography.fonts.bodyBold,
-    letterSpacing: 0.45,
+  landingTitle: {
+    fontFamily: typography.fontFamily.serif,
+    fontSize: 20,
+    letterSpacing: 6,
+    color: colors.gold,
   },
-  primaryButton: {
+  landingSub: {
+    fontFamily: typography.fontFamily.bodySerifItalic,
+    fontSize: 18,
+    color: BONE_SOFT,
+    textAlign: 'center',
+    lineHeight: 26,
+  },
+  beginBtn: {
     width: '100%',
-    maxWidth: 360,
-    height: 54,
-    borderRadius: 14,
-    backgroundColor: colors.gold,
-    justifyContent: 'center',
-    alignItems: 'center',
-    shadowColor: colors.gold,
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.26,
-    shadowRadius: 14,
-    elevation: 8,
-  },
-  primaryButtonText: {
-    color: colors.navy,
-    fontFamily: typography.fonts.bodyBold,
-    fontSize: typography.sizes.body1,
-    letterSpacing: 0.45,
-  },
-  glassSurface: {
-    borderWidth: 1,
-    borderColor: colors.ritual.border,
-    backgroundColor: colors.ritual.glass,
+    maxWidth: 280,
+    borderRadius: 100,
     overflow: 'hidden',
+    shadowColor: colors.gold,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.25,
+    shadowRadius: 12,
   },
-  androidGlassFallback: {
-    backgroundColor: colors.ritual.glassStrong,
+  beginBtnGradient: {
+    paddingVertical: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  beginBtnText: {
+    fontFamily: typography.fontFamily.sans,
+    fontWeight: '600',
+    fontSize: 16,
+    letterSpacing: 1.5,
+    color: '#080C10',
+    textTransform: 'uppercase',
+  },
+  pauseBtn: {
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.sm + 2,
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: GOLD_LINE,
+    backgroundColor: 'rgba(212,175,55,0.05)',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+  },
+  pauseBtnText: {
+    fontFamily: typography.fontFamily.sans,
+    fontSize: 13,
+    color: BONE_SOFT,
+    letterSpacing: 0.5,
+  },
+  sealSub: {
+    fontFamily: typography.fontFamily.bodySerifItalic,
+    fontSize: 15,
+    color: BONE_SOFT,
+    textAlign: 'center',
+    lineHeight: 22,
   },
   groundNoteWrap: {
     alignItems: 'center',
-    marginBottom: spacing.sm,
   },
   groundNoteText: {
     fontSize: 13,
-    fontFamily: typography.fonts.body,
-    color: colors.text.secondary,
+    fontFamily: typography.fontFamily.sans,
+    color: BONE_SOFT,
     textAlign: 'center',
     letterSpacing: 0.2,
   },
   groundNoteSecondary: {
     fontSize: 12,
-    fontFamily: typography.fonts.body,
-    color: colors.text.tertiary,
+    fontFamily: typography.fontFamily.sans,
+    color: BONE_FAINT,
     textAlign: 'center',
     marginTop: 2,
     letterSpacing: 0.2,
+  },
+  landingIntentionWrap: {
+    alignItems: 'center',
+    marginTop: spacing.md,
+    paddingHorizontal: spacing.xl,
+  },
+  landingIntentionLabel: {
+    fontFamily: typography.fontFamily.serif,
+    fontSize: 10,
+    color: colors.gold,
+    letterSpacing: 2,
+    marginBottom: 4,
+    opacity: 0.8,
+  },
+  landingIntentionText: {
+    fontFamily: typography.fontFamily.bodySerifItalic,
+    fontSize: 18,
+    color: colors.bone,
+    textAlign: 'center',
+    lineHeight: 26,
+    opacity: 0.9,
+  },
+  focusIntentionWrap: {
+    alignItems: 'center',
+    marginBottom: spacing.sm,
+    paddingHorizontal: spacing.lg,
+  },
+  intentionLabelChip: {
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 3,
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: 'rgba(212,175,55,0.3)',
+    backgroundColor: 'rgba(212,175,55,0.08)',
+    marginBottom: spacing.xs,
+  },
+  intentionLabelText: {
+    fontSize: 9,
+    fontFamily: typography.fontFamily.serif,
+    color: colors.gold,
+    letterSpacing: 2.5,
+  },
+  focusIntentionText: {
+    fontSize: 16,
+    fontFamily: typography.fontFamily.bodySerifItalic,
+    color: colors.bone,
+    textAlign: 'center',
+    opacity: 0.85,
+    lineHeight: 22,
   },
 });

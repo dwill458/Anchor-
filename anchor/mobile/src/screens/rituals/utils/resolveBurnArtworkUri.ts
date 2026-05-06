@@ -11,5 +11,5 @@ export const resolveBurnArtworkUri = (
     return undefined;
   }
 
-  return source.enhancedImageUrl ?? source.sigilUri ?? source.finalImageUrl ?? undefined;
+  return source.enhancedImageUrl || source.sigilUri || source.finalImageUrl || undefined;
 };

@@ -15,6 +15,7 @@ interface ModePortalTileProps {
   title: string;
   meaning: string;
   durationHint: string;
+  durationNode?: React.ReactNode;
   icon: React.ReactNode;
   style?: StyleProp<ViewStyle>;
   onPress: () => void;
@@ -27,6 +28,7 @@ export const ModePortalTile: React.FC<ModePortalTileProps> = ({
   title,
   meaning,
   durationHint,
+  durationNode,
   icon,
   style,
   onPress,
@@ -73,7 +75,7 @@ export const ModePortalTile: React.FC<ModePortalTileProps> = ({
         </View>
         <Text style={isFeatured ? styles.titleFeatured : styles.titleSecondary}>{title}</Text>
         <Text style={isFeatured ? styles.meaningFeatured : styles.meaningSecondary}>{meaning}</Text>
-        <Text style={isFeatured ? styles.durationFeatured : styles.durationSecondary}>{durationHint}</Text>
+        <Text style={isFeatured ? styles.durationFeatured : styles.durationSecondary}>{durationNode ?? durationHint}</Text>
       </View>
     </AnimatedPressable>
   );

@@ -21,6 +21,7 @@ jest.mock('express-rate-limit', () => jest.fn(() => (_req: any, _res: any, next:
 
 // Prisma mock — provide jest.fn() for every method used in auth routes
 const mockPrisma = {
+  $queryRaw: jest.fn(),
   user: {
     findUnique: jest.fn(),
     upsert: jest.fn(),
@@ -40,9 +41,11 @@ jest.mock('../../../lib/prisma', () => ({
 }));
 
 import { authMiddleware } from '../../middleware/auth';
+import { getFirebaseAdmin } from '../../../config/firebase';
 import authRouter from '../auth';
 
 const mockedAuthMiddleware = authMiddleware as jest.Mock;
+const mockedGetFirebaseAdmin = getFirebaseAdmin as jest.Mock;
 
 // ── Test App ─────────────────────────────────────────────────────────────────
 
@@ -64,6 +67,7 @@ const MOCK_DB_USER = {
   email: 'test@example.com',
   displayName: 'Test User',
   hasCompletedOnboarding: false,
+  isComped: false,
   subscriptionStatus: 'free',
   totalAnchorsCreated: 0,
   totalActivations: 0,
@@ -93,6 +97,14 @@ const MOCK_SETTINGS = {
 
 beforeEach(() => {
   jest.clearAllMocks();
+  delete process.env.COMPED_ACCESS_EMAILS;
+
+  mockedGetFirebaseAdmin.mockReturnValue({
+    auth: () => ({
+      getUser: jest.fn(),
+      deleteUser: jest.fn().mockResolvedValue(undefined),
+    }),
+  });
 
   mockedAuthMiddleware.mockImplementation((req: any, _res: any, next: any) => {
     req.user = MOCK_USER_AUTH;
@@ -144,6 +156,28 @@ describe('POST /api/auth/sync', () => {
     );
   });
 
+  it('marks allowlisted emails as comped during sync', async () => {
+    process.env.COMPED_ACCESS_EMAILS = 'test@example.com,other@example.com';
+    (mockPrisma.user.upsert as jest.Mock).mockResolvedValue({
+      ...MOCK_DB_USER,
+      isComped: true,
+    });
+    (mockPrisma.userSettings.upsert as jest.Mock).mockResolvedValue(MOCK_SETTINGS);
+
+    const res = await request(buildApp())
+      .post('/api/auth/sync')
+      .send({ displayName: 'Test User', authProvider: 'email' });
+
+    expect(res.status).toBe(200);
+    expect(res.body.data.isComped).toBe(true);
+    expect(mockPrisma.user.upsert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        update: expect.objectContaining({ isComped: true }),
+        create: expect.objectContaining({ isComped: true }),
+      })
+    );
+  });
+
   it('returns 400 when user has no email in token', async () => {
     mockedAuthMiddleware.mockImplementation((req: any, _res: any, next: any) => {
       req.user = { uid: 'firebase-uid-1' }; // no email
@@ -181,6 +215,7 @@ describe('GET /api/auth/me', () => {
 
     expect(res.status).toBe(200);
     expect(res.body.data.email).toBe('test@example.com');
+    expect(res.body.data.isComped).toBe(false);
     expect(res.body.data.settings).toBeDefined();
   });
 
@@ -272,6 +307,179 @@ describe('PUT /api/auth/settings', () => {
       .send({ notificationsEnabled: true });
 
     expect(res.status).toBe(404);
+  });
+});
+
+// ═════════════════════════════════════════════════════════════════════════════
+// PUT /api/auth/notification-state
+// ═════════════════════════════════════════════════════════════════════════════
+
+describe('PUT /api/auth/notification-state', () => {
+  it('syncs merged notification state for the authenticated user', async () => {
+    (mockPrisma.user.findUnique as jest.Mock).mockResolvedValue({ id: 'db-user-1' });
+    (mockPrisma.$queryRaw as jest.Mock).mockResolvedValue([
+      {
+        notification_state: {
+          notification_enabled: true,
+          active_hours_end: 21,
+        },
+        notifications_enabled: true,
+        expo_push_token: null,
+        fcm_token: null,
+        apns_token: null,
+      },
+    ]);
+
+    const res = await request(buildApp())
+      .put('/api/auth/notification-state')
+      .send({
+        notificationState: {
+          notification_enabled: true,
+          active_hours_end: 21,
+        },
+      });
+
+    expect(res.status).toBe(200);
+    expect(res.body.success).toBe(true);
+    expect(res.body.data.notificationsEnabled).toBe(true);
+    expect(mockPrisma.user.findUnique).toHaveBeenCalledWith({
+      where: { authUid: 'firebase-uid-1' },
+      select: { id: true },
+    });
+    expect(mockPrisma.$queryRaw).toHaveBeenCalledTimes(1);
+  });
+
+  it('derives notification-state ownership from the authenticated JWT context', async () => {
+    (mockPrisma.user.findUnique as jest.Mock).mockResolvedValue({ id: 'db-user-1' });
+    (mockPrisma.$queryRaw as jest.Mock).mockResolvedValue([
+      {
+        notification_state: {
+          notification_enabled: true,
+        },
+        notifications_enabled: true,
+        expo_push_token: null,
+        fcm_token: null,
+        apns_token: null,
+      },
+    ]);
+
+    const res = await request(buildApp())
+      .put('/api/auth/notification-state')
+      .send({
+        userId: 'forged-user-id',
+        notificationState: {
+          notification_enabled: true,
+        },
+      });
+
+    expect(res.status).toBe(200);
+    expect(mockPrisma.user.findUnique).toHaveBeenCalledWith({
+      where: { authUid: 'firebase-uid-1' },
+      select: { id: true },
+    });
+  });
+
+  it('upserts expo, FCM, and APNS tokens alongside notification state', async () => {
+    (mockPrisma.user.findUnique as jest.Mock).mockResolvedValue({ id: 'db-user-1' });
+    (mockPrisma.$queryRaw as jest.Mock).mockResolvedValue([
+      {
+        notification_state: {
+          notification_enabled: true,
+          timezone: 'UTC',
+        },
+        notifications_enabled: true,
+        expo_push_token: 'ExponentPushToken[abc123]',
+        fcm_token: 'fcm-token-1',
+        apns_token: 'apns-token-1',
+      },
+    ]);
+
+    const res = await request(buildApp())
+      .put('/api/auth/notification-state')
+      .send({
+        notificationState: {
+          notification_enabled: true,
+          timezone: 'UTC',
+        },
+        pushTokens: {
+          expoPushToken: 'ExponentPushToken[abc123]',
+          fcmToken: 'fcm-token-1',
+          apnsToken: 'apns-token-1',
+        },
+      });
+
+    expect(res.status).toBe(200);
+    expect(res.body.data.expoPushToken).toBe('ExponentPushToken[abc123]');
+    expect(res.body.data.fcmToken).toBe('fcm-token-1');
+    expect(res.body.data.apnsToken).toBe('apns-token-1');
+  });
+
+  it('allows token-only cleanup payloads without notificationState', async () => {
+    (mockPrisma.user.findUnique as jest.Mock).mockResolvedValue({ id: 'db-user-1' });
+    (mockPrisma.$queryRaw as jest.Mock).mockResolvedValue([
+      {
+        notification_state: {},
+        notifications_enabled: true,
+        expo_push_token: null,
+        fcm_token: null,
+        apns_token: null,
+      },
+    ]);
+
+    const res = await request(buildApp())
+      .put('/api/auth/notification-state')
+      .send({
+        pushTokens: {
+          expoPushToken: null,
+          fcmToken: null,
+          apnsToken: null,
+        },
+      });
+
+    expect(res.status).toBe(200);
+    expect(res.body.data.expoPushToken).toBeNull();
+    expect(res.body.data.fcmToken).toBeNull();
+    expect(res.body.data.apnsToken).toBeNull();
+  });
+
+  it('returns 404 when the authenticated user has no database row', async () => {
+    (mockPrisma.user.findUnique as jest.Mock).mockResolvedValue(null);
+
+    const res = await request(buildApp())
+      .put('/api/auth/notification-state')
+      .send({
+        notificationState: {
+          notification_enabled: false,
+        },
+      });
+
+    expect(res.status).toBe(404);
+    expect(res.body.error.code).toBe('USER_NOT_FOUND');
+  });
+
+  it('returns 500 when notification-state persistence fails', async () => {
+    (mockPrisma.user.findUnique as jest.Mock).mockResolvedValue({ id: 'db-user-1' });
+    (mockPrisma.$queryRaw as jest.Mock).mockRejectedValue(new Error('permission denied'));
+
+    const res = await request(buildApp())
+      .put('/api/auth/notification-state')
+      .send({
+        notificationState: {
+          notification_enabled: false,
+        },
+      });
+
+    expect(res.status).toBe(500);
+    expect(res.body.error.code).toBe('UPDATE_ERROR');
+  });
+
+  it('returns 400 when notificationState is missing', async () => {
+    const res = await request(buildApp())
+      .put('/api/auth/notification-state')
+      .send({});
+
+    expect(res.status).toBe(400);
+    expect(res.body.error.code).toBe('VALIDATION_ERROR');
   });
 });
 

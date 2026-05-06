@@ -1,6 +1,6 @@
 import { createClient } from 'npm:@supabase/supabase-js@2';
 
-type NotificationType = 'WEAVER' | 'MIRROR' | 'ALCHEMIST' | null;
+type NotificationType = 'WEAVER' | 'ALCHEMIST' | null;
 
 type NotificationState = {
   miss_streak?: number;
@@ -17,12 +17,16 @@ type NotificationState = {
   last_sent_at?: string;
   last_sent_type?: Exclude<NotificationType, null>;
   last_sent_utc_date?: string;
+  active_session?: boolean;
+  timezone?: string;
+  weaver_enabled?: boolean;
   [key: string]: unknown;
 };
 
 type UserRow = {
   id: string;
   notification_state: NotificationState | null;
+  expo_push_token: string | null;
   fcm_token: string | null;
   apns_token: string | null;
 };
@@ -42,17 +46,12 @@ const evalWeaver = (state: NotificationState): boolean => {
     (state.miss_streak ?? Number.MAX_SAFE_INTEGER) < 3 ||
     Boolean(state.app_opened_in_last_5_days);
 
-  return Boolean(state.missed_yesterday) && isStruggler && !Boolean(state.primed_today);
-};
-
-const evalMirror = (state: NotificationState): boolean => {
-  const now = new Date();
-  const day = now.getUTCDay();
-  const hour = now.getUTCHours();
-  const isMondayMorning = day === 1 && hour >= 6 && hour < 12;
-  const isSundayEvening = day === 0 && hour >= 18;
-
-  return (isMondayMorning || isSundayEvening) && (state.total_primes_this_week ?? 0) >= 1;
+  return (
+    Boolean(state.missed_yesterday) &&
+    isStruggler &&
+    !Boolean(state.primed_today) &&
+    state.weaver_enabled !== false
+  );
 };
 
 const evalAlchemist = (state: NotificationState): boolean =>
@@ -63,11 +62,9 @@ const evalAlchemist = (state: NotificationState): boolean =>
 const resolvePriority = (eligible: {
   alchemist: boolean;
   weaver: boolean;
-  mirror: boolean;
 }): NotificationType => {
   if (eligible.alchemist) return 'ALCHEMIST';
   if (eligible.weaver) return 'WEAVER';
-  if (eligible.mirror) return 'MIRROR';
   return null;
 };
 
@@ -82,16 +79,12 @@ const buildPayload = (type: NotificationType, state: NotificationState) => {
         body: 'One prime today ties the knot. Reconnect?',
         deepLink: '/sanctuary',
       };
-    case 'MIRROR':
-      return {
-        title: 'Your week in reflection.',
-        body: `${state.total_primes_this_week ?? 0} primes. You aren't just practicing-you're becoming.`,
-        deepLink: '/thread-review',
-      };
     case 'ALCHEMIST':
       return {
-        title: isSovereign(state) ? 'The Sigil awakens.' : 'The Sigil is fully charged.',
-        body: `${state.current_primes ?? 0} primes reached. Is it time to release to the Vault?`,
+        title: isSovereign(state)
+          ? 'The thread is woven.'
+          : 'The anchor is complete.',
+        body: `${state.current_primes ?? 0} primes forged. Is it time to release to the Vault?`,
         deepLink: '/burn-release',
       };
     default:
@@ -99,17 +92,113 @@ const buildPayload = (type: NotificationType, state: NotificationState) => {
   }
 };
 
+async function clearInvalidTokens(
+  userId: string,
+  invalid: {
+    expoPushToken?: boolean;
+    fcmToken?: boolean;
+    apnsToken?: boolean;
+  }
+): Promise<void> {
+  const updatePayload: Record<string, null> = {};
+
+  if (invalid.expoPushToken) {
+    updatePayload.expo_push_token = null;
+  }
+  if (invalid.fcmToken) {
+    updatePayload.fcm_token = null;
+  }
+  if (invalid.apnsToken) {
+    updatePayload.apns_token = null;
+  }
+
+  if (Object.keys(updatePayload).length === 0) {
+    return;
+  }
+
+  const { error } = await supabase.from('users').update(updatePayload).eq('id', userId);
+  if (error) {
+    throw error;
+  }
+}
+
+async function sendExpoPush(options: {
+  userId: string;
+  title: string;
+  body: string;
+  deepLink: string;
+  expoPushToken: string;
+}): Promise<{ sent: boolean; invalidExpoToken?: boolean }> {
+  const response = await fetch('https://exp.host/--/api/v2/push/send', {
+    method: 'POST',
+    headers: {
+      Accept: 'application/json',
+      'Accept-Encoding': 'gzip, deflate',
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      to: options.expoPushToken,
+      title: options.title,
+      body: options.body,
+      data: {
+        deepLink: options.deepLink,
+      },
+    }),
+  });
+
+  if (!response.ok) {
+    const failureBody = await response.text();
+    throw new Error(failureBody || 'Failed to send Expo push.');
+  }
+
+  const payload = await response.json().catch(() => null) as
+    | { data?: Array<{ status?: string; details?: { error?: string } }> }
+    | null;
+  const ticket = payload?.data?.[0];
+  const errorCode = ticket?.details?.error;
+
+  if (ticket?.status === 'ok') {
+    return { sent: true };
+  }
+
+  if (errorCode === 'DeviceNotRegistered') {
+    console.log(`[notifications] Invalid Expo push token for user ${options.userId}`);
+    return { sent: false, invalidExpoToken: true };
+  }
+
+  if (errorCode) {
+    throw new Error(`Expo push error: ${errorCode}`);
+  }
+
+  return { sent: false };
+}
+
 async function sendPush(options: {
   userId: string;
   title: string;
   body: string;
   deepLink: string;
+  expoPushToken?: string | null;
   fcmToken?: string | null;
   apnsToken?: string | null;
-}): Promise<boolean> {
+}): Promise<{
+  sent: boolean;
+  invalidExpoToken?: boolean;
+  invalidFcmToken?: boolean;
+}> {
+  if (options.expoPushToken) {
+    return sendExpoPush({
+      userId: options.userId,
+      title: options.title,
+      body: options.body,
+      deepLink: options.deepLink,
+      expoPushToken: options.expoPushToken,
+    });
+  }
+
   if (!options.fcmToken && !options.apnsToken) {
     console.log(`[notifications] No push token for user ${options.userId}`);
-    return false;
+    return { sent: false };
   }
 
   const fcmServerKey = Deno.env.get('FCM_SERVER_KEY');
@@ -117,7 +206,7 @@ async function sendPush(options: {
     console.log(
       `[notifications] Push provider not configured for user ${options.userId}; payload prepared only`
     );
-    return false;
+    return { sent: false };
   }
 
   const response = await fetch('https://fcm.googleapis.com/fcm/send', {
@@ -143,7 +232,21 @@ async function sendPush(options: {
     throw new Error(failureBody || 'Failed to send FCM push.');
   }
 
-  return true;
+  const payload = await response.json().catch(() => null) as
+    | { failure?: number; results?: Array<{ error?: string }> }
+    | null;
+  const errorCode = payload?.results?.[0]?.error;
+
+  if ((payload?.failure ?? 0) > 0 && errorCode) {
+    if (errorCode === 'InvalidRegistration' || errorCode === 'NotRegistered') {
+      console.log(`[notifications] Invalid FCM token for user ${options.userId}`);
+      return { sent: false, invalidFcmToken: true };
+    }
+
+    throw new Error(`FCM push error: ${errorCode}`);
+  }
+
+  return { sent: true };
 }
 
 async function markNotificationSent(
@@ -173,7 +276,7 @@ export async function handleTriggerAll(_req: Request): Promise<Response> {
   try {
     const { data: users, error } = await supabase
       .from('users')
-      .select('id, notification_state, fcm_token, apns_token')
+      .select('id, notification_state, expo_push_token, fcm_token, apns_token')
       .eq('notifications_enabled', true);
 
     if (error) {
@@ -189,7 +292,6 @@ export async function handleTriggerAll(_req: Request): Promise<Response> {
       const eligible = {
         alchemist: evalAlchemist(state),
         weaver: evalWeaver(state),
-        mirror: evalMirror(state),
       };
 
       const toFire = resolvePriority(eligible);
@@ -202,14 +304,22 @@ export async function handleTriggerAll(_req: Request): Promise<Response> {
         continue;
       }
 
-      const sent = await sendPush({
+      const result = await sendPush({
         userId: user.id,
         ...payload,
+        expoPushToken: user.expo_push_token,
         fcmToken: user.fcm_token,
         apnsToken: user.apns_token,
       });
 
-      if (sent) {
+      if (result.invalidExpoToken || result.invalidFcmToken) {
+        await clearInvalidTokens(user.id, {
+          expoPushToken: result.invalidExpoToken,
+          fcmToken: result.invalidFcmToken,
+        });
+      }
+
+      if (result.sent) {
         await markNotificationSent(user.id, state, toFire);
       }
     }
@@ -220,4 +330,3 @@ export async function handleTriggerAll(_req: Request): Promise<Response> {
     return new Response('Error', { status: 500 });
   }
 }
-

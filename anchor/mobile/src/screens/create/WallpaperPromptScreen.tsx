@@ -36,9 +36,13 @@ export const WallpaperPromptScreen: React.FC = () => {
 
   const proceed = () => {
     if (returnTo === 'vault') {
-      navigation.navigate('Vault');
+      navigation.replace('Vault');
     } else {
-      navigation.navigate('ChargeSetup', { anchorId, autoStartOnSelection: true });
+      navigation.replace('ChargeSetup', {
+        anchorId,
+        autoStartOnSelection: true,
+        returnTo: 'vault',
+      });
     }
   };
 

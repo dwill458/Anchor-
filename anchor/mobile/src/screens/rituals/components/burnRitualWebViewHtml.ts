@@ -80,8 +80,8 @@ html, body {
 }
 
 #sigil-image-shell img {
-  width: 72%;
-  height: 72%;
+  width: 82%;
+  height: 82%;
   object-fit: cover;
   padding: 0;
   border-radius: 50%;
@@ -171,12 +171,12 @@ html, body {
   </div>
 </div>
 
-<div id="status">Igniting\u2026</div>
+<div id="status">Igniting…</div>
 
 <script>
-// \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
+// ───────────────────────────────────────────────────────────────────────────
 //  SETUP
-// \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
+// ───────────────────────────────────────────────────────────────────────────
 const canvas = document.getElementById('c');
 const ctx    = canvas.getContext('2d');
 
@@ -196,7 +196,7 @@ wrap.style.height   = SIGIL_SIZE + 'px';
 wrap.style.left     = (window.innerWidth  - SIGIL_SIZE) / 2 + 'px';
 wrap.style.top      = (window.innerHeight - SIGIL_SIZE) / 2 + 'px';
 
-// Status position \u2014 below sigil
+// Status position — below sigil
 status.style.top = (window.innerHeight / 2 + SIGIL_SIZE / 2 + 48) + 'px';
 
 // Canvas full screen
@@ -211,9 +211,9 @@ window.addEventListener('resize', resizeCanvas);
 const CX = window.innerWidth  / 2;
 const CY = window.innerHeight / 2;
 
-// \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
+// ───────────────────────────────────────────────────────────────────────────
 //  PARTICLE CLASSES
-// \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
+// ───────────────────────────────────────────────────────────────────────────
 
 class Flame {
   constructor(phase) {
@@ -255,13 +255,13 @@ class Flame {
         this.x, this.y, this.size
       );
       if (this.life > 0.5) {
-        // Young flame \u2014 white-hot \u2192 amber \u2192 red
+        // Young flame — white-hot → amber → red
         g.addColorStop(0,    \`rgba(255,255,230,\${a})\`);
         g.addColorStop(0.2,  \`rgba(255,230,80,\${a * 0.9})\`);
         g.addColorStop(0.55, \`rgba(255,90,0,\${a * 0.6})\`);
         g.addColorStop(1,    \`rgba(160,10,0,0)\`);
       } else {
-        // Dying flame \u2014 orange \u2192 dark red
+        // Dying flame — orange → dark red
         g.addColorStop(0,   \`rgba(255,140,0,\${a * 0.85})\`);
         g.addColorStop(0.5, \`rgba(200,30,0,\${a * 0.45})\`);
         g.addColorStop(1,   \`rgba(100,0,0,0)\`);
@@ -271,7 +271,7 @@ class Flame {
       ctx.fillStyle = g;
       ctx.fill();
     } else {
-      // Spark \u2014 tiny bright dot with corona
+      // Spark — tiny bright dot with corona
       const r = this.size * 0.15;
       ctx.beginPath();
       ctx.arc(this.x, this.y, r, 0, Math.PI * 2);
@@ -334,17 +334,17 @@ class Ember {
   }
 }
 
-// \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
+// ───────────────────────────────────────────────────────────────────────────
 //  STATE
-// \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
+// ───────────────────────────────────────────────────────────────────────────
 let phase   = 'ignite';  // ignite | burning | embers | done
 let flames  = [];
 let embers  = [];
 let frameId = null;
 
-// \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
+// ───────────────────────────────────────────────────────────────────────────
 //  SPAWN HELPERS
-// \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
+// ───────────────────────────────────────────────────────────────────────────
 function spawnFlames() {
   const counts = { ignite: 5, burning: 16, embers: 6, done: 0 };
   const n = counts[phase] || 0;
@@ -357,9 +357,9 @@ function spawnEmbers() {
   for (let i = 0; i < n; i++) embers.push(new Ember());
 }
 
-// \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
+// ───────────────────────────────────────────────────────────────────────────
 //  BACKGROUND HEAT GLOW
-// \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
+// ───────────────────────────────────────────────────────────────────────────
 function drawHeatGlow() {
   const intensity = phase === 'burning' ? 1.0
                   : phase === 'ignite'  ? 0.45
@@ -388,9 +388,9 @@ function drawHeatGlow() {
   ctx.fillRect(0, 0, canvas.width, canvas.height);
 }
 
-// \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
+// ───────────────────────────────────────────────────────────────────────────
 //  MAIN RENDER LOOP
-// \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
+// ───────────────────────────────────────────────────────────────────────────
 function tick() {
   ctx.clearRect(0, 0, canvas.width, canvas.height);
 
@@ -402,7 +402,7 @@ function tick() {
   flames = flames.filter(p => p.life > 0);
   embers = embers.filter(p => p.life > 0);
 
-  // Draw order: embers (background) \u2192 flames (foreground)
+  // Draw order: embers (background) → flames (foreground)
   embers.forEach(p => { p.update(); p.draw(); });
   flames.forEach(p => { p.update(); p.draw(); });
 
@@ -411,10 +411,10 @@ function tick() {
   }
 }
 
-// \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
+// ───────────────────────────────────────────────────────────────────────────
 //  SIGIL BURN ANIMATION (pure CSS keyframes
 //  injected at runtime so timing is exact)
-// \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
+// ───────────────────────────────────────────────────────────────────────────
 function applySigilBurnCSS() {
   const style = document.createElement('style');
   style.textContent = \`
@@ -460,9 +460,9 @@ function resetAnimation(node) {
   void node.offsetHeight;
 }
 
-// \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
+// ───────────────────────────────────────────────────────────────────────────
 //  SEQUENCE CONTROLLER
-// \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
+// ───────────────────────────────────────────────────────────────────────────
 var pendingTimers = [];
 
 function cancelPendingTimers() {
@@ -471,10 +471,10 @@ function cancelPendingTimers() {
   cancelAnimationFrame(frameId);
 }
 
-function runSequence() {
+function runSequence(isCharged) {
   cancelPendingTimers();
   // Show status
-  status.textContent = 'Igniting\u2026';
+  status.textContent = 'Igniting…';
   status.classList.add('show');
   resetAnimation(circle);
   resetAnimation(imageShell);
@@ -483,28 +483,32 @@ function runSequence() {
   burnGlow.style.opacity = '0';
   burnVeil.style.opacity = '0';
 
-  // Phase 1 \u2014 ignite shake (0\u2013900ms)
+  // Phase 1 — ignite shake (0–900ms)
   phase = 'ignite';
   circle.style.animation = 'sigilShake 0.22s ease-in-out infinite';
   tick();
 
-  // Phase 2 \u2014 full burn (900ms)
+  // Phase 2 — full burn (900ms)
   pendingTimers.push(setTimeout(() => {
     phase = 'burning';
-    status.textContent = 'Releasing\u2026';
+    status.textContent = 'Releasing…';
     circle.style.animation = 'sigilFrameBurn 3.2s cubic-bezier(0.22, 0.61, 0.36, 1) forwards';
     imageShell.style.animation = 'sigilArtBurn 3.2s cubic-bezier(0.22, 0.61, 0.36, 1) forwards';
-    burnGlow.style.animation = 'burnGlowPulse 1.08s ease-in-out 3';
-    burnVeil.style.animation = 'burnVeilSweep 3.2s ease forwards';
+    
+    // Only show the mystical glow/veil if the anchor is charged
+    if (isCharged) {
+      burnGlow.style.animation = 'burnGlowPulse 1.08s ease-in-out 3';
+      burnVeil.style.animation = 'burnVeilSweep 3.2s ease forwards';
+    }
   }, 900));
 
-  // Phase 3 \u2014 embers (3800ms)
+  // Phase 3 — embers (3800ms)
   pendingTimers.push(setTimeout(() => {
     phase = 'embers';
     status.textContent = 'It is done.';
   }, 3800));
 
-  // Phase 4 \u2014 done (5800ms) \u2014 notify React Native
+  // Phase 4 — done (5800ms) — notify React Native
   pendingTimers.push(setTimeout(() => {
     phase = 'done';
     cancelAnimationFrame(frameId);
@@ -517,28 +521,60 @@ function runSequence() {
   }, 5800));
 }
 
-// \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
-//  RN \u2194 WEBVIEW BRIDGE
-//  RN sends: { cmd: 'start', sigilUri: '...', fallbackSigilUri: '...' }
-//  WebView sends back: { event: 'burnComplete' }
-// \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
-function replaceSigilImage(primaryUri, fallbackUri) {
+function replaceSigilImage(primaryUri, fallbackUri, callback) {
   const initialUri = primaryUri || fallbackUri;
-  if (!initialUri) return;
+  if (!initialUri) {
+    if (callback) callback();
+    return;
+  }
 
   const img = document.createElement('img');
   img.decoding = 'async';
   img.alt = '';
+  imageShell.innerHTML = '';
+
+  let finished = false;
+  const finish = () => {
+    if (finished) return;
+    finished = true;
+    if (callback) callback();
+  };
+
+  const timeoutId = setTimeout(finish, 8000);
 
   let attemptedFallback = false;
   img.onload = () => {
-    imageShell.innerHTML = '';
+    clearTimeout(timeoutId);
     imageShell.appendChild(img);
+    if (window.ReactNativeWebView) {
+      window.ReactNativeWebView.postMessage(JSON.stringify({
+        event: 'burnArtworkLoaded',
+        usedFallback: attemptedFallback
+      }));
+    }
+    requestAnimationFrame(() => {
+      setTimeout(finish, 40);
+    });
   };
   img.onerror = () => {
     if (!attemptedFallback && fallbackUri && img.src !== fallbackUri) {
+      if (window.ReactNativeWebView) {
+        window.ReactNativeWebView.postMessage(JSON.stringify({
+          event: 'burnArtworkError',
+          stage: 'primary'
+        }));
+      }
       attemptedFallback = true;
       img.src = fallbackUri;
+    } else {
+      if (window.ReactNativeWebView) {
+        window.ReactNativeWebView.postMessage(JSON.stringify({
+          event: 'burnArtworkError',
+          stage: attemptedFallback ? 'fallback' : 'primary'
+        }));
+      }
+      clearTimeout(timeoutId);
+      finish();
     }
   };
 
@@ -553,16 +589,15 @@ window.addEventListener('message', (e) => {
       return;
     }
     if (msg.cmd === 'start') {
-      // Replace placeholder with the anchor image and fall back to SVG if needed.
-      replaceSigilImage(msg.sigilUri, msg.fallbackSigilUri);
-      runSequence();
+      replaceSigilImage(msg.sigilUri, msg.fallbackSigilUri, () => {
+        runSequence(!!msg.isCharged);
+      });
     }
   } catch(_) {}
 });
 
-// Also support direct auto-start for standalone testing in browser
 if (!window.ReactNativeWebView) {
-  pendingTimers.push(setTimeout(() => runSequence(), 400));
+  pendingTimers.push(setTimeout(() => runSequence(true), 400));
 }
 </script>
 </body>

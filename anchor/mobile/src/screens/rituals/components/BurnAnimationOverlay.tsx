@@ -4,24 +4,31 @@ import {
   Alert,
   BackHandler,
   Dimensions,
+  Image,
   StyleSheet,
   Text,
   TouchableOpacity,
   View,
 } from 'react-native';
+import * as FileSystem from 'expo-file-system/legacy';
 import { useNavigation } from '@react-navigation/native';
 import Animated, { Easing, useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
 import { WebView } from 'react-native-webview';
 import type { WebViewMessageEvent } from 'react-native-webview';
 import { useReduceMotionEnabled } from '@/hooks/useReduceMotionEnabled';
 import { colors, spacing, typography } from '@/theme';
+import { logger } from '@/utils/logger';
 import { burnRitualWebViewHtml } from './burnRitualWebViewHtml';
 
 type CommitStatus = 'pending' | 'success' | 'error';
 type OverlayState = 'animating' | 'syncing' | 'success' | 'error';
 
-const { width: SCREEN_WIDTH } = Dimensions.get('window');
+const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 const DEFAULT_ERROR_MESSAGE = "Couldn't complete release. Try again.";
+const MAX_INJECTED_IMAGE_DATA_URI_BYTES = 450_000;
+const BURN_SIGIL_SIZE = Math.min(SCREEN_WIDTH * 0.58, 240);
+const BURN_NATIVE_ARTWORK_SIZE = BURN_SIGIL_SIZE * 0.82;
+const AnimatedImage = Animated.createAnimatedComponent(Image);
 
 export type BurnCommitFn = () => Promise<void>;
 
@@ -33,6 +40,7 @@ export interface BurnAnimationOverlayProps {
   onReturnToAnchor?: () => void;
   /** Ash Line (Pattern 8): bone-text whisper shown below subtitle in Phase 4 success. */
   ashLineText?: string;
+  isCharged: boolean;
 }
 
 const getErrorMessage = (error: unknown): string => {
@@ -48,30 +56,141 @@ type BurnStartPayload = {
   cmd: 'start';
   sigilUri?: string;
   fallbackSigilUri?: string;
+  isCharged?: boolean;
 };
 
-const isInlineRenderableUri = (uri: string): boolean =>
-  uri.startsWith('data:') || uri.startsWith('file:') || uri.startsWith('content:');
+const isInlineRenderableUri = (uri: string): boolean => uri.startsWith('data:');
 
-const blobToDataUri = async (blob: Blob): Promise<string> =>
-  new Promise((resolve, reject) => {
-    const reader = new FileReader();
+const isRemoteUri = (uri: string): boolean => /^https?:/i.test(uri);
 
-    reader.onerror = () => {
-      reject(new Error('Failed to serialize burn artwork.'));
-    };
+const isDeviceFileUri = (uri: string): boolean => /^(file|content|ph|assets-library):/i.test(uri);
 
-    reader.onloadend = () => {
-      if (typeof reader.result === 'string') {
-        resolve(reader.result);
-        return;
-      }
+const inferMimeTypeFromUri = (uri: string): string => {
+  const normalizedPath = uri.split('?')[0]?.toLowerCase() ?? '';
 
-      reject(new Error('Failed to serialize burn artwork.'));
-    };
+  if (normalizedPath.endsWith('.jpg') || normalizedPath.endsWith('.jpeg')) {
+    return 'image/jpeg';
+  }
+  if (normalizedPath.endsWith('.webp')) {
+    return 'image/webp';
+  }
+  if (normalizedPath.endsWith('.gif')) {
+    return 'image/gif';
+  }
+  if (normalizedPath.endsWith('.heic')) {
+    return 'image/heic';
+  }
+  if (normalizedPath.endsWith('.svg')) {
+    return 'image/svg+xml';
+  }
 
-    reader.readAsDataURL(blob);
+  return 'image/png';
+};
+
+const readDeviceFileUriAsDataUri = async (uri: string): Promise<string> => {
+  const base64 = await FileSystem.readAsStringAsync(uri, {
+    encoding: FileSystem.EncodingType.Base64,
   });
+
+  return `data:${inferMimeTypeFromUri(uri)};base64,${base64}`;
+};
+
+const getFileExtensionFromMimeType = (mimeType: string): string => {
+  if (mimeType === 'image/jpeg') return 'jpg';
+  if (mimeType === 'image/webp') return 'webp';
+  if (mimeType === 'image/gif') return 'gif';
+  if (mimeType === 'image/heic') return 'heic';
+  if (mimeType === 'image/svg+xml') return 'svg';
+  return 'png';
+};
+
+const writeInlineImageDataUriToCache = async (uri: string): Promise<string> => {
+  const match = uri.match(/^data:([^;,]+);base64,(.*)$/);
+  const cacheDirectory = FileSystem.cacheDirectory;
+  if (!match || !cacheDirectory) {
+    return uri;
+  }
+
+  const mimeType = match[1] || 'image/png';
+  const base64 = match[2] || '';
+  const extension = getFileExtensionFromMimeType(mimeType);
+  const fileUri = `${cacheDirectory}burn-artwork-${Date.now()}.${extension}`;
+
+  await FileSystem.writeAsStringAsync(fileUri, base64, {
+    encoding: FileSystem.EncodingType.Base64,
+  });
+
+  return fileUri;
+};
+
+const encodeArrayBufferToBase64 = (buffer: ArrayBuffer): string => {
+  const bytes = new Uint8Array(buffer);
+  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
+  let result = '';
+
+  for (let index = 0; index < bytes.length; index += 3) {
+    const byte1 = bytes[index] ?? 0;
+    const byte2 = bytes[index + 1] ?? 0;
+    const byte3 = bytes[index + 2] ?? 0;
+
+    const encoded1 = byte1 >> 2;
+    const encoded2 = ((byte1 & 3) << 4) | (byte2 >> 4);
+    const encoded3 = ((byte2 & 15) << 2) | (byte3 >> 6);
+    const encoded4 = byte3 & 63;
+
+    result += chars[encoded1];
+    result += chars[encoded2];
+    result += index + 1 < bytes.length ? chars[encoded3] : '=';
+    result += index + 2 < bytes.length ? chars[encoded4] : '=';
+  }
+
+  return result;
+};
+
+const readRemoteUriAsDataUri = async (uri: string): Promise<string> => {
+  const response = await fetch(uri);
+  if (!response.ok) {
+    throw new Error(`Burn artwork request failed with ${response.status}`);
+  }
+
+  const contentLength = Number(response.headers.get('content-length') ?? 0);
+  if (contentLength > MAX_INJECTED_IMAGE_DATA_URI_BYTES) {
+    return uri;
+  }
+
+  const responseContentType = response.headers.get('content-type') || '';
+  const contentType = responseContentType.startsWith('image/')
+    ? responseContentType
+    : inferMimeTypeFromUri(uri);
+  const buffer = await response.arrayBuffer();
+  if (buffer.byteLength > MAX_INJECTED_IMAGE_DATA_URI_BYTES) {
+    return uri;
+  }
+
+  const base64 = encodeArrayBufferToBase64(buffer);
+
+  return `data:${contentType};base64,${base64}`;
+};
+
+const resolveWebViewImageUri = async (uri: string): Promise<string> => {
+  if (isInlineRenderableUri(uri)) {
+    if (uri.length > MAX_INJECTED_IMAGE_DATA_URI_BYTES) {
+      return writeInlineImageDataUriToCache(uri);
+    }
+
+    return uri;
+  }
+
+  if (isRemoteUri(uri)) {
+    return readRemoteUriAsDataUri(uri);
+  }
+
+  if (isDeviceFileUri(uri)) {
+    return readDeviceFileUriAsDataUri(uri);
+  }
+
+  return uri;
+};
 
 const buildStartScript = (payload: BurnStartPayload): string => {
   const serialized = JSON.stringify(payload);
@@ -93,6 +212,7 @@ export const BurnAnimationOverlay: React.FC<BurnAnimationOverlayProps> = ({
   onReturnToSanctuary,
   onReturnToAnchor,
   ashLineText,
+  isCharged,
 }) => {
   const navigation = useNavigation<any>();
   const reduceMotionEnabled = useReduceMotionEnabled();
@@ -102,8 +222,12 @@ export const BurnAnimationOverlay: React.FC<BurnAnimationOverlayProps> = ({
   const [isRetrying, setIsRetrying] = useState(false);
   const [resolvedWebViewSigilUri, setResolvedWebViewSigilUri] = useState<string | undefined>(undefined);
   const [isWebViewSigilReady, setIsWebViewSigilReady] = useState(false);
+  const [isWebViewLoaded, setIsWebViewLoaded] = useState(false);
 
   const ashLineOpacity = useSharedValue(0);
+  const nativeArtworkOpacity = useSharedValue(1);
+  const nativeArtworkScale = useSharedValue(1);
+  const nativeArtworkTranslateY = useSharedValue(0);
 
   const webViewRef = useRef<WebView>(null);
   const isMountedRef = useRef(true);
@@ -122,7 +246,8 @@ export const BurnAnimationOverlay: React.FC<BurnAnimationOverlayProps> = ({
     return undefined;
   }, [sigilSvg]);
 
-  const sigilUri = useMemo(() => enhancedImageUrl ?? fallbackSigilUri, [enhancedImageUrl, fallbackSigilUri]);
+  const sigilUri = useMemo(() => enhancedImageUrl || fallbackSigilUri, [enhancedImageUrl, fallbackSigilUri]);
+  const hasEnhancedArtwork = Boolean(enhancedImageUrl);
 
   useEffect(() => {
     let isCancelled = false;
@@ -136,22 +261,8 @@ export const BurnAnimationOverlay: React.FC<BurnAnimationOverlayProps> = ({
         return;
       }
 
-      if (isInlineRenderableUri(sigilUri)) {
-        if (!isCancelled) {
-          setResolvedWebViewSigilUri(sigilUri);
-          setIsWebViewSigilReady(true);
-        }
-        return;
-      }
-
       try {
-        const response = await fetch(sigilUri);
-        if (!response.ok) {
-          throw new Error(`Burn artwork request failed with ${response.status}`);
-        }
-
-        const blob = await response.blob();
-        const dataUri = await blobToDataUri(blob);
+        const dataUri = await resolveWebViewImageUri(sigilUri);
 
         if (!isCancelled) {
           setResolvedWebViewSigilUri(dataUri);
@@ -180,7 +291,10 @@ export const BurnAnimationOverlay: React.FC<BurnAnimationOverlayProps> = ({
   }, []);
 
   const queueTimer = useCallback((fn: () => void, delay: number): void => {
-    const timer = setTimeout(fn, delay);
+    const timer = setTimeout(() => {
+      timersRef.current = timersRef.current.filter((queuedTimer) => queuedTimer !== timer);
+      fn();
+    }, delay);
     timersRef.current.push(timer);
   }, []);
 
@@ -310,25 +424,65 @@ export const BurnAnimationOverlay: React.FC<BurnAnimationOverlayProps> = ({
   }, [navigation, showCancelRitualDialog]);
 
   const ashLineStyle = useAnimatedStyle(() => ({ opacity: ashLineOpacity.value }));
+  const nativeArtworkStyle = useAnimatedStyle(() => ({
+    opacity: nativeArtworkOpacity.value,
+    transform: [
+      { scale: nativeArtworkScale.value },
+      { translateY: nativeArtworkTranslateY.value },
+    ],
+  }));
 
   const injectStartPayload = useCallback(() => {
-    if (startInjectedRef.current || !isWebViewSigilReady) {
+    if (startInjectedRef.current || !isWebViewLoaded || !isWebViewSigilReady) {
       return;
     }
 
     startInjectedRef.current = true;
+    nativeArtworkOpacity.value = 1;
+    nativeArtworkScale.value = 1;
+    nativeArtworkTranslateY.value = 0;
+    if (hasEnhancedArtwork) {
+      queueTimer(() => {
+        nativeArtworkOpacity.value = withTiming(0, {
+          duration: reduceMotionEnabled ? 0 : 3200,
+          easing: Easing.out(Easing.cubic),
+        });
+        nativeArtworkScale.value = withTiming(0.74, {
+          duration: reduceMotionEnabled ? 0 : 3200,
+          easing: Easing.out(Easing.cubic),
+        });
+        nativeArtworkTranslateY.value = withTiming(-BURN_NATIVE_ARTWORK_SIZE * 0.18, {
+          duration: reduceMotionEnabled ? 0 : 3200,
+          easing: Easing.out(Easing.cubic),
+        });
+      }, reduceMotionEnabled ? 0 : 900);
+    }
+
     webViewRef.current?.injectJavaScript(
       buildStartScript({
         cmd: 'start',
         sigilUri: resolvedWebViewSigilUri,
-        fallbackSigilUri,
+        fallbackSigilUri: hasEnhancedArtwork ? undefined : fallbackSigilUri,
+        isCharged,
       })
     );
-  }, [fallbackSigilUri, isWebViewSigilReady, resolvedWebViewSigilUri]);
+  }, [
+    fallbackSigilUri,
+    hasEnhancedArtwork,
+    isCharged,
+    isWebViewLoaded,
+    isWebViewSigilReady,
+    nativeArtworkOpacity,
+    nativeArtworkScale,
+    nativeArtworkTranslateY,
+    queueTimer,
+    reduceMotionEnabled,
+    resolvedWebViewSigilUri,
+  ]);
 
   const handleWebViewLoad = useCallback(() => {
-    injectStartPayload();
-  }, [injectStartPayload]);
+    setIsWebViewLoaded(true);
+  }, []);
 
   useEffect(() => {
     injectStartPayload();
@@ -340,12 +494,40 @@ export const BurnAnimationOverlay: React.FC<BurnAnimationOverlayProps> = ({
         const payload = JSON.parse(event.nativeEvent.data);
         if (payload?.event === 'burnComplete') {
           handleAnimationComplete();
+          return;
+        }
+
+        if (payload?.event === 'burnArtworkLoaded') {
+          logger.info('[BurnAnimationOverlay] Burn artwork loaded', {
+            usedFallback: Boolean(payload.usedFallback),
+            sourceType: resolvedWebViewSigilUri?.startsWith('data:')
+              ? 'data'
+              : resolvedWebViewSigilUri?.startsWith('file:')
+                ? 'file'
+                : resolvedWebViewSigilUri?.startsWith('http')
+                  ? 'remote'
+                  : 'unknown',
+          });
+          return;
+        }
+
+        if (payload?.event === 'burnArtworkError') {
+          logger.warn('[BurnAnimationOverlay] Burn artwork failed in WebView', {
+            stage: payload.stage,
+            sourceType: resolvedWebViewSigilUri?.startsWith('data:')
+              ? 'data'
+              : resolvedWebViewSigilUri?.startsWith('file:')
+                ? 'file'
+                : resolvedWebViewSigilUri?.startsWith('http')
+                  ? 'remote'
+                  : 'unknown',
+          });
         }
       } catch {
         // Ignore non-JSON bridge messages.
       }
     },
-    [handleAnimationComplete]
+    [handleAnimationComplete, resolvedWebViewSigilUri]
   );
 
   const unlockNavigation = useCallback(() => {
@@ -407,14 +589,30 @@ export const BurnAnimationOverlay: React.FC<BurnAnimationOverlayProps> = ({
             onLoad={handleWebViewLoad}
             onMessage={handleWebViewMessage}
             originWhitelist={['*']}
-            allowFileAccess={true}
             mixedContentMode="always"
+            allowFileAccess
+            allowFileAccessFromFileURLs
+            allowUniversalAccessFromFileURLs
             scrollEnabled={false}
             bounces={false}
             overScrollMode="never"
             showsVerticalScrollIndicator={false}
             showsHorizontalScrollIndicator={false}
           />
+
+          {hasEnhancedArtwork && resolvedWebViewSigilUri ? (
+            <AnimatedImage
+              source={{ uri: resolvedWebViewSigilUri }}
+              style={[styles.nativeArtwork, nativeArtworkStyle]}
+              resizeMode="cover"
+              onLoad={() => {
+                logger.info('[BurnAnimationOverlay] Native burn artwork loaded');
+              }}
+              onError={() => {
+                logger.warn('[BurnAnimationOverlay] Native burn artwork failed');
+              }}
+            />
+          ) : null}
 
           {overlayState === 'syncing' ? (
             <View style={styles.syncOverlay}>
@@ -491,6 +689,16 @@ const styles = StyleSheet.create({
   webview: {
     flex: 1,
     backgroundColor: '#050208',
+  },
+  nativeArtwork: {
+    position: 'absolute',
+    left: (SCREEN_WIDTH - BURN_NATIVE_ARTWORK_SIZE) / 2,
+    top: (SCREEN_HEIGHT - BURN_NATIVE_ARTWORK_SIZE) / 2,
+    width: BURN_NATIVE_ARTWORK_SIZE,
+    height: BURN_NATIVE_ARTWORK_SIZE,
+    borderRadius: BURN_NATIVE_ARTWORK_SIZE / 2,
+    zIndex: 3,
+    opacity: 0.92,
   },
   syncOverlay: {
     position: 'absolute',

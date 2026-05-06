@@ -245,6 +245,16 @@ ABSOLUTE PROHIBITIONS — DO NOT INCLUDE ANY OF THE FOLLOWING:
 NO WORDS. NO NUMBERS. NO LETTERS. NO CURRENCY. NO FINANCIAL IMAGERY.`;
 
     const styleTemplates: Record<string, string> = {
+      architectural_trace: `${structuralCore}
+
+STYLE: Architectural trace — precision drafting, measured geometry, blueprint discipline
+- Crisp drafting lines and grid logic, like an illuminated technical plan
+- Subtle crosshairs, compass arcs, and engineered symmetry
+- Clean technical elegance with restrained contrast and no ornamental drift
+
+${archetypeBlock}
+${hardBans}`,
+
       minimal_line: `${structuralCore}
 
 STYLE: Precision fine-line engraving — LIGHT LINES ON DARK
@@ -253,6 +263,16 @@ STYLE: Precision fine-line engraving — LIGHT LINES ON DARK
 - Single-weight crisp strokes only; no fills, no gradients, no color washes, no heavy shading
 - Decorative border motifs drawn from the archetypal theme — rendered as delicate fine-line engravings, not strictly hairline; they may have subtle weight and presence
 - Aesthetic: museum-quality dark-ground engraving plate — restrained, precise, minimal luxury
+
+${archetypeBlock}
+${hardBans}`,
+
+      lunar_etch: `${structuralCore}
+
+STYLE: Lunar etch — moonlit silver engraving, quiet radiance, nocturnal contrast
+- Pale metallic highlights and crescent glints on the sigil geometry
+- Dark ground with silver etching and soft celestial restraint
+- Refined, almost ritualistic contrast with a quiet luminous edge
 
 ${archetypeBlock}
 ${hardBans}`,
@@ -333,6 +353,16 @@ STYLE: Ember trace — glowing hot metal edges, forge and crucible aesthetic
 - Deep black or charcoal background
 - Sigil lines glow with molten amber-orange heat along their edges
 - Cooling dark contrasts with ember-bright highlights on the geometry only
+
+${archetypeBlock}
+${hardBans}`,
+
+      resonance_rings: `${structuralCore}
+
+STYLE: Resonance rings — concentric pulse circles, waveform halos, radiating energy
+- Layered rings of resonance extending from the sigil center
+- Gentle rhythmic wave patterns in the background only
+- Energy expressed as circles, echoes, and subtle vibration, not literal effects
 
 ${archetypeBlock}
 ${hardBans}`,

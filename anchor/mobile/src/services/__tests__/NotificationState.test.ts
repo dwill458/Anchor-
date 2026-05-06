@@ -24,7 +24,7 @@ describe('NotificationState', () => {
       miss_streak: 0,
       total_primes_this_week: 0,
       current_primes: 0,
-      goal_primes: 22,
+      goal_primes: 3,
       active_hours_start: 8,
       active_hours_end: 21,
       notification_enabled: true,

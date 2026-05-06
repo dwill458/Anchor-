@@ -2,6 +2,9 @@ apply plugin: "com.android.application"
 apply plugin: "org.jetbrains.kotlin.android"
 apply plugin: "com.facebook.react"
 
+def googleServicesFile = file("google-services.json")
+def isReleaseBuild = gradle.startParameter.taskNames.any { it.toLowerCase().contains("release") }
+
 def projectRoot = rootDir.getAbsoluteFile().getParentFile().getAbsolutePath()
 
 /**
@@ -81,7 +84,11 @@ def enableMinifyInReleaseBuilds = (findProperty('android.enableMinifyInReleaseBu
  */
 def jscFlavor = 'io.github.react-native-community:jsc-android:2026004.+'
 
-apply from: new File(["node", "--print", "require('path').dirname(require.resolve('@sentry/react-native/package.json'))"].execute().text.trim(), "sentry.gradle")
+try {
+    apply from: new File(["node", "--print", "require('path').dirname(require.resolve('@sentry/react-native/package.json'))"].execute().text.trim(), "sentry.gradle")
+} catch (Exception e) {
+    logger.info("Sentry gradle plugin not found, skipping: " + e.message)
+}
 
 android {
     ndkVersion rootProject.ext.ndkVersion
@@ -91,7 +98,7 @@ android {
 
     namespace 'com.anchor.app'
     defaultConfig {
-        applicationId 'com.anchor.app'
+        applicationId 'com.anchorintentions.app'
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion 35
         versionCode 1
@@ -183,4 +190,10 @@ dependencies {
     }
 }
 
-apply plugin: 'com.google.gms.google-services'
+if (googleServicesFile.exists()) {
+    apply plugin: 'com.google.gms.google-services'
+} else if (isReleaseBuild) {
+    throw new org.gradle.api.GradleException("google-services.json is required for release builds.")
+} else {
+    logger.lifecycle("google-services.json not found; skipping Google Services plugin for debug/development builds.")
+}

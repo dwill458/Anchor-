@@ -10,6 +10,8 @@ import {
   Dimensions,
 } from 'react-native';
 import { useFonts } from 'expo-font';
+import * as Notifications from 'expo-notifications';
+import type { DevicePushToken } from 'expo-notifications';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import {
@@ -50,14 +52,16 @@ import { ErrorTrackingService, setupGlobalErrorHandler } from './src/services/Er
 import { PerformanceMonitoring, type PerformanceTrace } from './src/services/PerformanceMonitoring';
 import { monitoringConfig } from './src/config/monitoring';
 import { AuthService } from './src/services/AuthService';
-import {
-  syncDailyGoalNudgesFromStores,
-  syncDailyReminderFromStores,
-} from './src/services/DailyGoalNudgeService';
+
 import { loadSettingsSnapshot } from './src/hooks/useSettings';
 import { encryptedPersistStorage, readSecureValue } from './src/stores/encryptedPersistStorage';
 import { logger } from './src/utils/logger';
 import revenueCatService from './src/services/RevenueCatService';
+import NotificationService from './src/services/NotificationService';
+import {
+  clearPushTokensFromServer,
+  syncPushTokensToServer,
+} from './src/services/NotificationSyncService';
 
 function isNetworkError(error: unknown): boolean {
   if (!(error instanceof Error)) return false;
@@ -125,7 +129,11 @@ function getMostRecentlyPrimedAnchorId(anchors: Anchor[]): string | undefined {
     })[0]?.id;
 }
 
-function buildPrimeOnLaunchInitialState(anchorId: string): InitialState {
+function buildPrimeOnLaunchInitialState(
+  anchorId: string,
+  durationSeconds: number,
+  ritualType: string
+): InitialState {
   return {
     index: 0,
     routes: [
@@ -136,9 +144,11 @@ function buildPrimeOnLaunchInitialState(anchorId: string): InitialState {
           routes: [
             { name: 'Vault' },
             {
-              name: 'ChargeSetup',
+              name: 'Ritual',
               params: {
                 anchorId,
+                durationSeconds,
+                ritualType,
               },
             },
           ],
@@ -171,15 +181,34 @@ async function resolvePrimeOnLaunchInitialState(): Promise<InitialState | undefi
     return undefined;
   }
 
-  return buildPrimeOnLaunchInitialState(anchorId);
+  let durationSeconds = 120;
+  let ritualType = 'ritual';
+
+  try {
+    const rawSettings = await AsyncStorage.getItem('anchor-settings-storage');
+    if (rawSettings) {
+      const parsedSettings = JSON.parse(rawSettings);
+      const settingsState = parsedSettings.state || {};
+      
+      if (typeof settingsState.primeSessionDuration === 'number') {
+        durationSeconds = settingsState.primeSessionDuration;
+      }
+      
+      if (settingsState.defaultCharge?.mode) {
+        ritualType = settingsState.defaultCharge.mode;
+      }
+    }
+  } catch (error) {
+    // Ignore and use defaults
+  }
+
+  return buildPrimeOnLaunchInitialState(anchorId, durationSeconds, ritualType);
 }
 
 export default function App() {
   const computeStreak = useAuthStore((state) => state.computeStreak);
   const user = useAuthStore((state) => state.user);
   const dailyPracticeGoal = useSettingsStore((state) => state.dailyPracticeGoal);
-  const dailyReminderEnabled = useSettingsStore((state) => state.dailyReminderEnabled);
-  const dailyReminderTime = useSettingsStore((state) => state.dailyReminderTime);
   const lastSessionId = useSessionStore((state) => state.lastSession?.id);
   const activeMilestone = useForgeMomentStore((state) => state.activeMilestone);
   const dismissMilestone = useForgeMomentStore((state) => state.dismissMilestone);
@@ -199,6 +228,7 @@ export default function App() {
     (state) => state.developerMasterAccountEnabled
   );
   const developerMasterAccountEnabledRef = useRef(developerMasterAccountEnabled);
+  const previousUserIdRef = useRef<string | null>(null);
   const developerSkipOnboardingEnabled = useSettingsStore(
     (state) => state.developerSkipOnboardingEnabled
   );
@@ -429,30 +459,61 @@ export default function App() {
   }, [user?.displayName, user?.email, user?.id]);
 
   useEffect(() => {
-    if (!settingsHydrated) {
-      return;
+    const previousUserId = previousUserIdRef.current;
+
+    if (previousUserId && previousUserId !== user?.id) {
+      void clearPushTokensFromServer();
     }
 
-    void syncDailyReminderFromStores();
-  }, [dailyReminderEnabled, dailyReminderTime, settingsHydrated]);
+    previousUserIdRef.current = user?.id ?? null;
+  }, [user?.id]);
 
   useEffect(() => {
-    if (!settingsHydrated) {
-      return;
+    if (!user?.id) {
+      return () => undefined;
     }
 
-    void syncDailyGoalNudgesFromStores();
-  }, [dailyPracticeGoal, dailyReminderEnabled, dailyReminderTime, lastSessionId, settingsHydrated]);
+    let cancelled = false;
+
+    const syncRegistration = async (
+      devicePushToken?: DevicePushToken
+    ) => {
+      const registration = await NotificationService.getRemotePushRegistration(devicePushToken);
+      if (cancelled) {
+        return;
+      }
+
+      if (!registration.permissionGranted) {
+        await clearPushTokensFromServer();
+        return;
+      }
+
+      await syncPushTokensToServer({
+        expoPushToken: registration.expoPushToken,
+        fcmToken: registration.fcmToken,
+        apnsToken: registration.apnsToken,
+      });
+    };
+
+    void syncRegistration();
+
+    const subscription = Notifications.addPushTokenListener((devicePushToken) => {
+      void syncRegistration(devicePushToken);
+    });
+
+    return () => {
+      cancelled = true;
+      subscription.remove();
+    };
+  }, [user?.id]);
+
+
 
   useEffect(() => {
     const subscription = AppState.addEventListener('change', (nextState) => {
       if (nextState === 'active') {
         ErrorTrackingService.addBreadcrumb('App foregrounded', 'app_state', { nextState });
         computeStreak();
-        if (settingsHydrated) {
-          void syncDailyReminderFromStores();
-          void syncDailyGoalNudgesFromStores();
-        }
       } else {
         ErrorTrackingService.addBreadcrumb('App state changed', 'app_state', { nextState });
       }

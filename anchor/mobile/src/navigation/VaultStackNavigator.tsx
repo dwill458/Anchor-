@@ -34,6 +34,7 @@ import {
   FirstPrimeCompleteScreen,
 } from '../screens/rituals';
 import { AuthGateScreen, FirstAnchorAccountGateScreen, LoginScreen, SignUpScreen } from '../screens/auth';
+import { TrialSignUpScreen } from '../screens/onboarding';
 import type { RootStackParamList } from '@/types';
 import { colors } from '@/theme';
 import { useAuthStore } from '@/stores/authStore';
@@ -232,6 +233,11 @@ export const VaultStackNavigator: React.FC<VaultStackNavigatorProps> = ({ onRout
         name="FirstPrimeComplete"
         component={FirstPrimeCompleteScreen}
         options={{ headerShown: false, animation: 'fade_from_bottom' }}
+      />
+      <Stack.Screen
+        name="TrialSignUp"
+        component={TrialSignUpScreen}
+        options={{ headerShown: false, animation: 'fade_from_bottom', gestureEnabled: false }}
       />
       <Stack.Screen
         name="ActivationRitual"

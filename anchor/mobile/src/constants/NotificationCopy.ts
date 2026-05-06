@@ -18,10 +18,11 @@ export const NOTIFICATION_COPY = {
   },
   alchemist: {
     standard: {
-      title: 'The Sigil is fully charged.',
+      title: 'The anchor is complete.',
+      // body dynamic: `${current_primes} primes forged. Is it time to release to the Vault?`
     },
     sovereign: {
-      title: 'The Sigil awakens.',
+      title: 'The thread is woven.',
     },
   },
 } as const;

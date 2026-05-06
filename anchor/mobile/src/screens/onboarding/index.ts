@@ -9,3 +9,4 @@ export { HowItWorksScreen } from './HowItWorksScreen';
 export { DailyLoopScreen } from './DailyLoopScreen';
 export { SaveProgressScreen } from './SaveProgressScreen';
 export { NarrativeOnboardingScreen } from './NarrativeOnboardingScreen';
+export { TrialSignUpScreen } from './TrialSignUpScreen';

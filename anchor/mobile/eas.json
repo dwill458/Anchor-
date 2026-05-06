@@ -32,6 +32,16 @@
         "prebuildCommand": "npx expo prebuild --platform ios --no-install"
       }
     },
+    "playstore": {
+      "distribution": "internal",
+      "env": {
+        "EXPO_PUBLIC_APP_ENV": "production",
+        "SENTRY_DISABLE_AUTO_UPLOAD": "true"
+      },
+      "android": {
+        "buildType": "app-bundle"
+      }
+    },
     "production": {
       "distribution": "store",
       "channel": "production",

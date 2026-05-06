@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   View,
   Text,
@@ -6,9 +6,11 @@ import {
   TouchableOpacity,
   Dimensions,
   Animated,
+  BackHandler,
+  Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
+import { useFocusEffect, useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { SvgXml } from 'react-native-svg';
 import { RootStackParamList, ReinforcementMetadata } from '@/types';
@@ -19,6 +21,7 @@ type LockStructureNavigationProp = StackNavigationProp<RootStackParamList, 'Lock
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const STRUCTURE_SIZE = SCREEN_WIDTH - 96;
+const AUTO_ADVANCE_DELAY_MS = 2500;
 
 /**
  * LockStructureScreen
@@ -51,11 +54,73 @@ export default function LockStructureScreen() {
   const [fadeAnim] = useState(new Animated.Value(0));
   const [scaleAnim] = useState(new Animated.Value(0.98));
   const [lockFadeAnim] = useState(new Animated.Value(0));
+  const autoAdvanceTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const wasReinforced = reinforcementMetadata?.completed ?? false;
   const wasSkipped = reinforcementMetadata?.skipped ?? false;
   const fidelityScore = reinforcementMetadata?.fidelityScore ?? 0;
   const displaySvg = reinforcedSigilSvg || baseSigilSvg;
+
+  const handleContinue = useCallback(() => {
+    navigation.navigate('EnhancementChoice', {
+      intentionText,
+      category,
+      distilledLetters,
+      baseSigilSvg,
+      reinforcedSigilSvg: reinforcedSigilSvg || undefined,
+      structureVariant,
+      reinforcementMetadata,
+    });
+  }, [
+    navigation,
+    intentionText,
+    category,
+    distilledLetters,
+    baseSigilSvg,
+    reinforcedSigilSvg,
+    structureVariant,
+    reinforcementMetadata,
+  ]);
+
+  const handleBack = useCallback(() => {
+    if (navigation.canGoBack()) {
+      navigation.goBack();
+      return;
+    }
+
+    navigation.replace('ManualReinforcement', {
+      source: 'creation',
+      intentionText,
+      category,
+      distilledLetters,
+      baseSigilSvg,
+      structureVariant,
+    });
+  }, [
+    navigation,
+    intentionText,
+    category,
+    distilledLetters,
+    baseSigilSvg,
+    structureVariant,
+  ]);
+
+  useFocusEffect(
+    useCallback(() => {
+      if (Platform.OS !== 'android') {
+        return undefined;
+      }
+
+      const subscription = BackHandler.addEventListener('hardwareBackPress', () => {
+        handleBack();
+        return true;
+      });
+
+      return () => {
+        subscription.remove();
+      };
+    }, [handleBack])
+  );
 
   useEffect(() => {
     // Phase 1 & 2: Symbol appears (200-600ms)
@@ -81,24 +146,23 @@ export default function LockStructureScreen() {
         useNativeDriver: true,
       }).start(() => {
         // Auto-advance after pause for comfortable reading (total ~4 seconds)
-        setTimeout(() => {
+        autoAdvanceTimeoutRef.current = setTimeout(() => {
           handleContinue();
-        }, 2500);
+        }, AUTO_ADVANCE_DELAY_MS);
       });
     });
-  }, []);
-
-  const handleContinue = () => {
-    navigation.navigate('EnhancementChoice', {
-      intentionText,
-      category,
-      distilledLetters,
-      baseSigilSvg,
-      reinforcedSigilSvg: reinforcedSigilSvg || undefined,
-      structureVariant,
-      reinforcementMetadata,
-    });
-  };
+    return () => {
+      if (autoAdvanceTimeoutRef.current) {
+        clearTimeout(autoAdvanceTimeoutRef.current);
+        autoAdvanceTimeoutRef.current = null;
+      }
+    };
+  }, [
+    fadeAnim,
+    scaleAnim,
+    lockFadeAnim,
+    handleContinue,
+  ]);
 
   const getSupportingCopy = () => {
     return 'This structure will hold your Anchor steady.';

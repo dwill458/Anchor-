@@ -45,7 +45,6 @@ import { AtmosphericOrbs } from './components/AtmosphericOrbs';
 import { HeroAnchorCard } from './components/HeroAnchorCard';
 import { AnchorStack } from './components/AnchorStack';
 import { ZenBackground } from '@/components/common';
-import { getEffectiveStabilizeStreakDays, toDateOrNull } from '@/utils/stabilizeStats';
 import { buildProfileGreeting } from '@/utils/profileGreeting';
 import type { Anchor, RootStackParamList } from '@/types';
 import { colors, typography } from '@/theme';
@@ -54,6 +53,7 @@ import { useTabNavigation } from '@/contexts/TabNavigationContext';
 import { isHighEndDevice } from '@/utils/deviceTier';
 import { useSettingsStore } from '@/stores/settingsStore';
 import { WeeklySummaryModal } from '@/components/WeeklySummaryModal'; import { useWeeklySummaryTrigger } from '@/hooks/useWeeklySummaryTrigger';
+import { VaultGridModal } from './components/VaultGridModal';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -211,6 +211,8 @@ export const VaultScreen: React.FC = () => {
   const developerForceStreakBreakEnabled = useSettingsStore(
     (state) => state.developerForceStreakBreakEnabled
   );
+  const focusSessionMode = useSettingsStore((state) => state.focusSessionMode ?? 'quick');
+  const primeSessionDuration = useSettingsStore((state) => state.primeSessionDuration ?? 120);
   const shouldRedirectToCreation = useAuthStore((s) => s.shouldRedirectToCreation);
   const setShouldRedirectToCreation = useAuthStore((s) => s.setShouldRedirectToCreation);
   const pendingFirstAnchorDraft = useAuthStore((s) => s.pendingFirstAnchorDraft);
@@ -228,6 +230,7 @@ export const VaultScreen: React.FC = () => {
   const toast = useToast();
   const { shouldShow, dismiss } = useWeeklySummaryTrigger();
   const [now, setNow] = useState(() => new Date());
+  const [gridVisible, setGridVisible] = useState(false);
 
   // ── Derived state ────────────────────────────────────────────────────────────
   const autoPrimary = useMemo(() => selectPrimaryAnchor(anchors), [anchors]);
@@ -264,18 +267,6 @@ export const VaultScreen: React.FC = () => {
       ),
     [now, profileName, profileTimezone, user?.displayName]
   );
-
-  const streakDays = useMemo(() => {
-    if (__DEV__ && developerForceStreakBreakEnabled) {
-      return 0;
-    }
-    const lastStabilizeAt = toDateOrNull(user?.lastStabilizeAt);
-    return getEffectiveStabilizeStreakDays(
-      user?.stabilizeStreakDays ?? 0,
-      lastStabilizeAt,
-      new Date(),
-    );
-  }, [developerForceStreakBreakEnabled, user?.lastStabilizeAt, user?.stabilizeStreakDays]);
 
   // ── Empty-state orbit animation ───────────────────────────────────────────────
   const orbitRotation = useSharedValue(0);
@@ -397,7 +388,7 @@ export const VaultScreen: React.FC = () => {
       source: 'vault',
       has_existing_anchors: anchors.length > 0,
     });
-    navigation.navigate(anchors.length === 0 ? 'FirstAnchorCreation' : 'CreateAnchor');
+    navigation.push(anchors.length === 0 ? 'FirstAnchorCreation' : 'CreateAnchor');
   }, [anchors.length, navigation]);
 
   const handleAnchorPress = useCallback(
@@ -415,7 +406,16 @@ export const VaultScreen: React.FC = () => {
 
   const handleActivate = useCallback((): void => {
     if (!primaryAnchor) return;
-    if (primaryAnchor.isCharged) {
+    if (focusSessionMode === 'deep') {
+      // Deep prime -- launch the full ritual/charge flow using the stored duration
+      navigation.navigate('Ritual', {
+        anchorId: primaryAnchor.id,
+        ritualType: 'ritual',
+        durationSeconds: primeSessionDuration,
+        returnTo: 'vault',
+      });
+    } else if (primaryAnchor.isCharged) {
+      // Quick / focus session
       navigation.navigate('ActivationRitual', {
         anchorId: primaryAnchor.id,
         activationType: 'visual',
@@ -423,7 +423,7 @@ export const VaultScreen: React.FC = () => {
     } else {
       navigation.navigate('ChargeSetup', { anchorId: primaryAnchor.id });
     }
-  }, [primaryAnchor, navigation]);
+  }, [focusSessionMode, primeSessionDuration, primaryAnchor, navigation]);
 
   // ── Render ────────────────────────────────────────────────────────────────────
 
@@ -473,13 +473,14 @@ export const VaultScreen: React.FC = () => {
             : renderActiveState({
                 anchors: stackAnchors,
                 primaryAnchor: primaryAnchor!,
-                streakDays,
                 shouldReduceMotion,
                 pulseDotStyle,
                 handleHeroPress,
                 handleActivate,
                 handleAnchorPress,
                 handleCreateAnchor,
+                onViewAll: () => setGridVisible(true),
+                isDeepPrimeMode: focusSessionMode === 'deep',
               })}
         </ScrollView>
 
@@ -506,6 +507,12 @@ export const VaultScreen: React.FC = () => {
         )}
       </SafeAreaView>
       <WeeklySummaryModal visible={shouldShow} onDismiss={dismiss} />
+      <VaultGridModal
+        visible={gridVisible}
+        onDismiss={() => setGridVisible(false)}
+        anchors={anchors}
+        onAnchorPress={handleAnchorPress}
+      />
     </View>
   );
 };
@@ -594,25 +601,27 @@ function renderEmptyState(props: EmptyStateProps) {
 interface ActiveStateProps {
   anchors: Anchor[];
   primaryAnchor: Anchor;
-  streakDays: number;
   shouldReduceMotion: boolean;
   pulseDotStyle: ReturnType<typeof useAnimatedStyle>;
   handleHeroPress: () => void;
   handleActivate: () => void;
   handleAnchorPress: (id: string) => void;
   handleCreateAnchor: () => void;
+  onViewAll: () => void;
+  isDeepPrimeMode: boolean;
 }
 
 function renderActiveState({
   anchors,
   primaryAnchor,
-  streakDays,
   shouldReduceMotion,
   pulseDotStyle,
   handleHeroPress,
   handleActivate,
   handleAnchorPress,
   handleCreateAnchor,
+  onViewAll,
+  isDeepPrimeMode,
 }: ActiveStateProps) {
   const isCharged = primaryAnchor.isCharged;
 
@@ -627,13 +636,6 @@ function renderActiveState({
           <Text style={styles.ctxSubLabel}>ACTIVE ANCHOR</Text>
           {/* DEFERRED: removed duplicate intention - intention shown below medallion */}
         </View>
-        {streakDays > 0 && (
-          <View style={styles.streakChip}>
-            <Text style={styles.streakFire}>🔥</Text>
-            <Text style={styles.streakCount}>{streakDays}</Text>
-            <Text style={styles.streakLabel}>day streak</Text>
-          </View>
-        )}
       </Animated2.View>
 
       {/* ── Hero card ── */}
@@ -658,11 +660,11 @@ function renderActiveState({
           onPress={handleActivate}
           activeOpacity={0.8}
           accessibilityRole="button"
-          accessibilityLabel={isCharged ? 'Prime Anchor' : 'Charge Anchor'}
+          accessibilityLabel="Prime Anchor"
         >
           <Animated2.View style={[styles.activatePulseDot, pulseDotStyle]} />
           <Text style={styles.activateBtnText}>
-            {isCharged ? 'PRIME ANCHOR' : 'CHARGE ANCHOR'}
+            PRIME ANCHOR
           </Text>
         </TouchableOpacity>
       </Animated2.View>
@@ -676,9 +678,7 @@ function renderActiveState({
           anchors={anchors}
           onAnchorPress={handleAnchorPress}
           onAddPress={handleCreateAnchor}
-          onViewAll={() => {
-            // Phase 3: full vault list
-          }}
+          onViewAll={onViewAll}
         />
       </Animated2.View>
     </>
@@ -873,30 +873,6 @@ const styles = StyleSheet.create({
     color: 'rgba(212,175,55,0.4)',
     textTransform: 'uppercase',
     marginBottom: 2,
-  },
-  streakChip: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    backgroundColor: 'rgba(212,175,55,0.07)',
-    borderWidth: 1,
-    borderColor: 'rgba(212,175,55,0.14)',
-    borderRadius: 20,
-    paddingVertical: 6,
-    paddingHorizontal: 14,
-  },
-  streakFire: {
-    fontSize: 12,
-  },
-  streakCount: {
-    fontFamily: 'Cinzel-SemiBold',
-    fontSize: 14,
-    color: colors.gold,
-  },
-  streakLabel: {
-    fontFamily: 'CormorantGaramond-Italic',
-    fontSize: 11,
-    color: 'rgba(192,192,192,0.45)',
   },
   heroWrap: {
     marginTop: 10,

@@ -27,20 +27,9 @@ const SETTINGS_KEY_MAP: Record<keyof AnchorSettings, string> = {
   focusDefaultMode: 'anchor:settings:focusDefaultMode',
   focusBurstGoal: 'anchor:settings:focusBurstGoal',
   reduceIntentionVisibility: 'anchor:settings:reduceIntentionVisibility',
-  dailyReminderEnabled: 'anchor:settings:dailyReminder',
-  dailyReminderTime: 'anchor:settings:dailyReminderTime',
-  streakProtectionAlertsEnabled: 'anchor:settings:streakAlerts',
-  weeklySummaryEnabled: 'anchor:settings:weeklySummary',
   hapticFeedback: 'anchor:settings:hapticFeedback',
   soundEffectsEnabled: 'anchor:settings:soundEffects',
-  dev_developerModeEnabled: 'anchor:dev:developerModeEnabled',
-  dev_overridesEnabled: 'anchor:dev:overridesEnabled',
-  dev_simulatedTier: 'anchor:dev:simulatedTier',
-  dev_masterAccount: 'anchor:dev:masterAccount',
-  dev_skipOnboarding: 'anchor:dev:skipOnboarding',
-  dev_allowDirectAnchorDelete: 'anchor:dev:allowDirectAnchorDelete',
-  dev_debugLogging: 'anchor:dev:debugLogging',
-  dev_forceStreakBreak: 'anchor:dev:forceStreakBreak',
+  weeklySummaryEnabled: 'anchor:settings:weeklySummaryEnabled',
 };
 
 const FOCUS_DURATION_PRESETS: ReadonlyArray<FocusDuration> = [10, 30, 60];
@@ -114,7 +103,6 @@ const mapDefaultActivationToFocusDuration = (): FocusDuration => {
 
 const getBridgeDefaults = (): AnchorSettings => {
   const settings = useSettingsStore.getState();
-  const subscription = useSubscriptionStore.getState();
 
   return {
     ...DEFAULT_SETTINGS,
@@ -127,20 +115,9 @@ const getBridgeDefaults = (): AnchorSettings => {
       settings.defaultActivation.mode === 'ambient' ? 'ambient' : DEFAULT_SETTINGS.focusDefaultMode,
     focusBurstGoal: settings.dailyPracticeGoal,
     reduceIntentionVisibility: settings.reduceIntentionVisibility,
-    dailyReminderEnabled: settings.dailyReminderEnabled,
-    dailyReminderTime: settings.dailyReminderTime,
-    streakProtectionAlertsEnabled: settings.streakProtectionAlerts,
-    weeklySummaryEnabled: settings.weeklySummaryEnabled,
     hapticFeedback: mapHapticIntensityToFeedback(settings.hapticIntensity),
     soundEffectsEnabled: settings.soundEffectsEnabled,
-    dev_developerModeEnabled: settings.developerModeEnabled,
-    dev_overridesEnabled: subscription.devOverrideEnabled,
-    dev_simulatedTier: subscription.devTierOverride,
-    dev_masterAccount: settings.developerMasterAccountEnabled,
-    dev_skipOnboarding: settings.developerSkipOnboardingEnabled,
-    dev_allowDirectAnchorDelete: settings.developerDeleteWithoutBurnEnabled,
-    dev_debugLogging: settings.debugLoggingEnabled,
-    dev_forceStreakBreak: settings.developerForceStreakBreakEnabled,
+    weeklySummaryEnabled: settings.weeklySummaryEnabled,
   };
 };
 
@@ -162,36 +139,11 @@ const applySettingsToStores = (settings: AnchorSettings): void => {
     openDailyAnchorAutomatically: settings.openDailyAnchorAutomatically,
     dailyPracticeGoal: clampFocusBurstGoal(settings.focusBurstGoal),
     reduceIntentionVisibility: settings.reduceIntentionVisibility,
-    dailyReminderEnabled: settings.dailyReminderEnabled,
-    dailyReminderTime: settings.dailyReminderTime,
-    streakProtectionAlerts: settings.streakProtectionAlertsEnabled,
-    weeklySummaryEnabled: settings.weeklySummaryEnabled,
     hapticIntensity: mapFeedbackToHapticIntensity(settings.hapticFeedback),
     soundEffectsEnabled: settings.soundEffectsEnabled,
-    developerModeEnabled: __DEV__ ? settings.dev_developerModeEnabled : current.developerModeEnabled,
-    developerMasterAccountEnabled: __DEV__
-      ? settings.dev_masterAccount
-      : current.developerMasterAccountEnabled,
-    developerSkipOnboardingEnabled: __DEV__
-      ? settings.dev_skipOnboarding
-      : current.developerSkipOnboardingEnabled,
-    developerForceStreakBreakEnabled: __DEV__
-      ? settings.dev_forceStreakBreak
-      : current.developerForceStreakBreakEnabled,
-    developerDeleteWithoutBurnEnabled: __DEV__
-      ? settings.dev_allowDirectAnchorDelete
-      : current.developerDeleteWithoutBurnEnabled,
-    debugLoggingEnabled: __DEV__ ? settings.dev_debugLogging : current.debugLoggingEnabled,
+    weeklySummaryEnabled: settings.weeklySummaryEnabled,
     guideMode: settings.practiceGuidanceEnabled,
   }));
-
-  if (__DEV__) {
-    useSubscriptionStore.setState((current) => ({
-      ...current,
-      devOverrideEnabled: settings.dev_overridesEnabled,
-      devTierOverride: settings.dev_simulatedTier,
-    }));
-  }
 };
 
 const loadStoredSettings = async (): Promise<Partial<AnchorSettings>> => {

@@ -10,6 +10,7 @@ import { encryptedPersistStorage } from './encryptedPersistStorage';
 import { useTeachingStore } from './teachingStore';
 import { apiClient } from '@/services/ApiClient';
 import { useAuthStore } from '@/stores/authStore';
+import { useSettingsStore } from '@/stores/settingsStore';
 import {
   buildPrimingHistoryEntry,
   getIsoWeekdayIndex,
@@ -19,6 +20,10 @@ import {
   localWeekStartString,
   type PrimingHistoryEntry,
 } from '@/utils/primingAnalytics';
+import {
+  calculateThreadDecay,
+  getThreadDecayStartDay,
+} from '@/utils/threadStrength';
 
 export type SessionType = 'activate' | 'reinforce' | 'stabilize';
 export type SessionMode = 'silent' | 'mantra' | 'ambient';
@@ -85,6 +90,8 @@ interface SessionState {
   resetIfNewDay: () => void;
   /** Apply thread strength decay for missed days. Call on app open / screen focus. */
   applyDecay: () => void;
+  /** Applies an explicit, non-session-based thread strength delta. */
+  bumpThreadStrength: (delta: number) => void;
 }
 
 const EMPTY_TODAY = (): DayPractice => ({ date: localDateString(new Date()), sessionsCount: 0, totalSeconds: 0 });
@@ -92,6 +99,37 @@ const EMPTY_WEEK = (): WeekPractice => ({ weekKey: isoWeekKey(new Date()), sessi
 const EMPTY_WEEK_HISTORY = (): boolean[] => [false, false, false, false, false, false, false];
 
 const LOG_CAP = 50;
+
+function parseLocalDate(dateString: string): Date {
+  const [year, month, day] = dateString.split('-').map(Number);
+  return new Date(year, (month ?? 1) - 1, day ?? 1, 12, 0, 0, 0);
+}
+
+function countDecayEligibleDays(
+  startDateExclusive: string,
+  endDateInclusive: string,
+  restDays: number[]
+): number {
+  const start = parseLocalDate(startDateExclusive);
+  const end = parseLocalDate(endDateInclusive);
+  if (end.getTime() <= start.getTime()) {
+    return 0;
+  }
+
+  const restDaySet = new Set(restDays);
+  const cursor = new Date(start);
+  cursor.setDate(cursor.getDate() + 1);
+
+  let eligibleDays = 0;
+  while (cursor.getTime() <= end.getTime()) {
+    if (!restDaySet.has(cursor.getDay())) {
+      eligibleDays += 1;
+    }
+    cursor.setDate(cursor.getDate() + 1);
+  }
+
+  return eligibleDays;
+}
 
 function coercePrimingHistory(entries: unknown): PrimingHistoryEntry[] {
   if (!Array.isArray(entries)) {
@@ -188,6 +226,9 @@ export const useSessionStore = create<SessionState>()(
         // Mon=0 … Sun=6
         const dayOfWeek = getIsoWeekdayIndex(eventDate);
         const isPrimingSession = isPrimingSessionType(entry.type);
+        const { restDays, restDayPolicy } = useSettingsStore.getState();
+        const isRestDay = restDays.includes(eventDate.getDay());
+        const shouldBuildThread = !isRestDay || restDayPolicy === 'build';
         const primingHistoryEntry = isPrimingSession
           ? buildPrimingHistoryEntry({
             id,
@@ -222,10 +263,7 @@ export const useSessionStore = create<SessionState>()(
           let journeyWeekStart = state.journeyWeekStart;
 
           if (isPrimingSession) {
-            const gain = entry.type === 'reinforce' ? 40 : 25;
-            threadStrength = Math.min(100, threadStrength + gain);
             totalSessionsCount = state.totalSessionsCount + 1;
-            lastPrimedAt = todayKey;
             if (primingHistoryEntry) {
               primingHistory = [primingHistoryEntry, ...state.primingHistory];
               journeyWeekStart = state.journeyWeekStart ?? primingHistoryEntry.weekStart ?? weekStart;
@@ -238,6 +276,12 @@ export const useSessionStore = create<SessionState>()(
               weekHistory = [...state.weekHistory];
             }
             weekHistory[dayOfWeek] = true;
+
+            if (shouldBuildThread) {
+              const gain = entry.type === 'reinforce' ? 40 : 25;
+              threadStrength = Math.min(100, threadStrength + gain);
+              lastPrimedAt = todayKey;
+            }
           }
 
           return {
@@ -314,40 +358,55 @@ export const useSessionStore = create<SessionState>()(
 
       applyDecay: () => {
         const { lastPrimedAt, threadStrength, lastDecayDate } = get();
+        const { threadStrengthSensitivity, restDays } = useSettingsStore.getState();
         const today = localDateString(new Date());
 
         // Already applied decay today — skip
         if (lastDecayDate === today) return;
 
-        // Mark decay as processed for today
-        set({ lastDecayDate: today });
-
         // Never primed or primed today — no decay
-        if (!lastPrimedAt || lastPrimedAt === today) return;
-
-        const primedMs = new Date(lastPrimedAt).getTime();
-        const todayMs = new Date(today).getTime();
-        const daysMissed = Math.max(0, Math.floor((todayMs - primedMs) / 86400000));
-        if (daysMissed <= 0) return;
-
-        // Days already accounted for (between lastPrimedAt and lastDecayDate)
-        const daysAlreadyDecayed = lastDecayDate
-          ? Math.max(0, Math.floor((new Date(lastDecayDate).getTime() - primedMs) / 86400000))
-          : 0;
-
-        if (daysAlreadyDecayed >= daysMissed) return;
-
-        // Apply incremental decay for each new missed day
-        let newStrength = threadStrength;
-        for (let d = daysAlreadyDecayed + 1; d <= daysMissed; d++) {
-          if (d === 1) {
-            newStrength = Math.max(10, newStrength - 30);
-          } else {
-            newStrength = Math.max(5, newStrength - 15);
-          }
+        if (!lastPrimedAt || lastPrimedAt === today) {
+          set({ lastDecayDate: today });
+          return;
         }
 
-        set({ threadStrength: newStrength });
+        const decayEligibleMissedDays = countDecayEligibleDays(lastPrimedAt, today, restDays);
+        const daysAlreadyDecayed = lastDecayDate
+          ? countDecayEligibleDays(lastPrimedAt, lastDecayDate, restDays)
+          : 0;
+
+        if (daysAlreadyDecayed >= decayEligibleMissedDays) {
+          set({ lastDecayDate: today });
+          return;
+        }
+
+        let newStrength = threadStrength;
+        const decayStartDay = getThreadDecayStartDay(threadStrengthSensitivity);
+
+        for (let missedDay = daysAlreadyDecayed + 1; missedDay <= decayEligibleMissedDays; missedDay += 1) {
+          const previousPenalty = calculateThreadDecay(missedDay - 1, threadStrengthSensitivity);
+          const nextPenalty = calculateThreadDecay(missedDay, threadStrengthSensitivity);
+          const penaltyDelta = nextPenalty - previousPenalty;
+
+          if (penaltyDelta <= 0) {
+            continue;
+          }
+
+          const minimumStrengthFloor = missedDay === decayStartDay ? 10 : 5;
+          newStrength = Math.max(minimumStrengthFloor, newStrength - penaltyDelta);
+        }
+
+        set({ threadStrength: newStrength, lastDecayDate: today });
+      },
+
+      bumpThreadStrength: (delta) => {
+        if (!Number.isFinite(delta) || delta === 0) {
+          return;
+        }
+
+        set((state) => ({
+          threadStrength: Math.max(0, Math.min(100, state.threadStrength + delta)),
+        }));
       },
     }),
     {

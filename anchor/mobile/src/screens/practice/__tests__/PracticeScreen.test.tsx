@@ -77,16 +77,19 @@ jest.mock('@/stores/authStore', () => ({
 }));
 
 jest.mock('@/stores/sessionStore', () => ({
-  useSessionStore: () => ({
-    todayPractice: { sessionsCount: 0, totalSeconds: 0, date: '2026-02-21' },
-    sessionLog: mockSessionLog,
-    threadStrength: mockThreadStrength,
-    totalSessionsCount: mockTotalSessionsCount,
-    lastPrimedAt: mockLastPrimedAt,
-    weekHistory: mockWeekHistory,
-    applyDecay: mockApplyDecay,
-    lastGraceDayUsedAt: null,
-  }),
+  useSessionStore: (selector?: (state: any) => any) => {
+    const state = {
+      todayPractice: { sessionsCount: 0, totalSeconds: 0, date: '2026-02-21' },
+      sessionLog: mockSessionLog,
+      threadStrength: mockThreadStrength,
+      totalSessionsCount: mockTotalSessionsCount,
+      lastPrimedAt: mockLastPrimedAt,
+      weekHistory: mockWeekHistory,
+      applyDecay: mockApplyDecay,
+      lastGraceDayUsedAt: null,
+    };
+    return selector ? selector(state) : state;
+  },
 }));
 
 jest.mock('@/stores/settingsStore', () => ({
@@ -283,7 +286,12 @@ describe('PracticeScreen', () => {
     fireEvent.press(screen.getByText('Begin Priming'));
 
     await waitFor(() => {
-      expect(mockNavigate).toHaveBeenCalledWith('StabilizeRitual', { anchorId: 'a55' });
+      expect(mockNavigateToVault).toHaveBeenCalledWith('Ritual', {
+        anchorId: 'a55',
+        ritualType: 'ritual',
+        durationSeconds: 14 * 60,
+        returnTo: 'practice',
+      });
     });
   });
 

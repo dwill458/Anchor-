@@ -13,18 +13,97 @@ import type {
 import { apiClient, fetchCompleteProfile } from '@/services/ApiClient';
 import { AuthService } from '@/services/AuthService';
 import { useAnchorStore } from '@/stores/anchorStore';
+import { useSubscriptionStore } from '@/stores/subscriptionStore';
 import { calculateStreak } from '@/utils/streakHelpers';
-import { applyStabilizeCompletion, toDateOrNull } from '@/utils/stabilizeStats';
 import {
   createDeveloperMasterUser,
   DEVELOPER_MASTER_ACCOUNT_TOKEN,
 } from '@/utils/developerMasterAccount';
 import { logger } from '@/utils/logger';
 
+type StabilizeStats = {
+  stabilizesTotal: number;
+  stabilizeStreakDays: number;
+  lastStabilizeAt: Date | null;
+};
+
+type StabilizeCompletionFlags = {
+  sameDay: boolean;
+  reset: boolean;
+  incremented: boolean;
+};
+
+const toDateOrNull = (value: Date | string | null | undefined): Date | null => {
+  if (!value) return null;
+  const date = value instanceof Date ? value : new Date(value);
+  return Number.isNaN(date.getTime()) ? null : date;
+};
+
+const getDayDiffLocal = (now: Date, last: Date | string | null | undefined): number | null => {
+  const lastDate = toDateOrNull(last);
+  if (!lastDate) return null;
+
+  const nowDay = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+  const lastDay = new Date(
+    lastDate.getFullYear(),
+    lastDate.getMonth(),
+    lastDate.getDate()
+  ).getTime();
+  const diff = Math.round((nowDay - lastDay) / 86400000);
+  return diff < 0 ? 0 : diff;
+};
+
+const applyStabilizeCompletion = (
+  prev: StabilizeStats,
+  now: Date = new Date()
+): { next: StabilizeStats; flags: StabilizeCompletionFlags } => {
+  const diff = getDayDiffLocal(now, prev.lastStabilizeAt);
+  const sameDay = diff === 0;
+  const reset = diff !== null && diff > 1;
+
+  let nextStreakDays = prev.stabilizeStreakDays;
+  if (diff === null) {
+    nextStreakDays = 1;
+  } else if (sameDay) {
+    nextStreakDays = Math.max(1, prev.stabilizeStreakDays);
+  } else if (diff === 1) {
+    nextStreakDays = prev.stabilizeStreakDays + 1;
+  } else {
+    nextStreakDays = 1;
+  }
+
+  return {
+    next: {
+      stabilizesTotal: prev.stabilizesTotal + 1,
+      stabilizeStreakDays: nextStreakDays,
+      lastStabilizeAt: now,
+    },
+    flags: {
+      sameDay,
+      reset,
+      incremented: true,
+    },
+  };
+};
+
 /**
  * Hybrid storage engine that selectively routes sensitive data to SecureStore
  */
 const SECURE_KEYS = ['token'];
+
+const createClearedPendingFirstAnchorState = () => ({
+  shouldRedirectToCreation: false,
+  pendingForgeIntent: null,
+  pendingForgeResumeTarget: null,
+  pendingFirstAnchorDraft: null,
+  pendingFirstAnchorMutations: [] as PendingFirstAnchorMutation[],
+  isFinalizingPendingFirstAnchor: false,
+  pendingFirstAnchorError: null,
+});
+
+function applyCompedAccessToSubscriptionStore(user: User | null): void {
+  useSubscriptionStore.getState().setRemoteCompedAccess(user?.isComped === true);
+}
 
 const hybridStorage: StateStorage = {
   getItem: async (name: string): Promise<string | null> => {
@@ -235,7 +314,8 @@ export const useAuthStore = create<AuthState>()(
       isOfflineMode: false,
 
       // Actions
-      setUser: (user) =>
+      setUser: (user) => {
+        applyCompedAccessToSubscriptionStore(user);
         set((state) => {
           const hasCompletedOnboarding = user
             ? Boolean(user.hasCompletedOnboarding)
@@ -246,19 +326,22 @@ export const useAuthStore = create<AuthState>()(
               ? {
                 ...user,
                 hasCompletedOnboarding,
+                isComped: user.isComped === true,
               }
               : null,
             isAuthenticated: !!user,
             hasCompletedOnboarding,
           };
-        }),
+        });
+      },
 
       setToken: (token) =>
         set({
           token,
         }),
 
-      setSession: (user, token) =>
+      setSession: (user, token) => {
+        applyCompedAccessToSubscriptionStore(user);
         set(() => {
           const hasCompletedOnboarding = Boolean(user.hasCompletedOnboarding);
 
@@ -266,13 +349,15 @@ export const useAuthStore = create<AuthState>()(
             user: {
               ...user,
               hasCompletedOnboarding,
+              isComped: user.isComped === true,
             },
             token,
             isAuthenticated: true,
             hasCompletedOnboarding,
             isLoading: false,
           };
-        }),
+        });
+      },
 
       setLoading: (loading) =>
         set({
@@ -310,8 +395,8 @@ export const useAuthStore = create<AuthState>()(
         })),
 
       enableDeveloperMasterAccount: () =>
-        set((state) => ({
-          user: createDeveloperMasterUser({
+        set((state) => {
+          const developerUser = createDeveloperMasterUser({
             hasCompletedOnboarding: state.hasCompletedOnboarding,
             totalAnchorsCreated: Math.max(
               state.anchorCount,
@@ -324,13 +409,19 @@ export const useAuthStore = create<AuthState>()(
             stabilizeStreakDays: state.user?.stabilizeStreakDays ?? 0,
             lastStabilizeAt: state.user?.lastStabilizeAt,
             createdAt: state.user?.createdAt ?? new Date(),
-          }),
-          token: DEVELOPER_MASTER_ACCOUNT_TOKEN,
-          isAuthenticated: true,
-          isLoading: false,
-          profileData: null,
-          profileLastFetched: null,
-        })),
+          });
+
+          applyCompedAccessToSubscriptionStore(developerUser);
+
+          return {
+            user: developerUser,
+            token: DEVELOPER_MASTER_ACCOUNT_TOKEN,
+            isAuthenticated: true,
+            isLoading: false,
+            profileData: null,
+            profileLastFetched: null,
+          };
+        }),
 
       setPendingForgeIntent: (pendingForgeIntent) =>
         set({
@@ -365,10 +456,7 @@ export const useAuthStore = create<AuthState>()(
 
       clearPendingFirstAnchorState: () =>
         set({
-          pendingFirstAnchorDraft: null,
-          pendingFirstAnchorMutations: [],
-          pendingFirstAnchorError: null,
-          isFinalizingPendingFirstAnchor: false,
+          ...createClearedPendingFirstAnchorState(),
         }),
 
       clearPendingFirstAnchorError: () =>
@@ -395,6 +483,7 @@ export const useAuthStore = create<AuthState>()(
           }
 
           const profileData = await fetchCompleteProfile();
+          applyCompedAccessToSubscriptionStore(profileData.user);
           const hasCompletedOnboarding = Boolean(profileData.user.hasCompletedOnboarding);
           set({
             profileData,
@@ -402,6 +491,7 @@ export const useAuthStore = create<AuthState>()(
             user: {
               ...profileData.user,
               hasCompletedOnboarding,
+              isComped: profileData.user.isComped === true,
             },
             hasCompletedOnboarding,
           });
@@ -641,6 +731,12 @@ export const useAuthStore = create<AuthState>()(
 
         const anchors = useAnchorStore.getState().anchors;
 
+        // If anchors haven't hydrated yet (empty store) but the user already
+        // has a persisted streak, skip — computing against [] would reset the
+        // streak to 0 incorrectly. computeStreak will run again after the next
+        // session when anchors are fully loaded.
+        if (anchors.length === 0 && (user.currentStreak ?? 0) > 0) return;
+
         // Use lastActivatedAt per anchor as the activation proxy (no full
         // activation history is stored client-side).
         const activationProxies = anchors
@@ -718,11 +814,14 @@ export const useAuthStore = create<AuthState>()(
           if (response.data?.success && updatedUser) {
             const normalizedUpdatedUser: User = {
               ...updatedUser,
+              isComped: updatedUser.isComped === true,
               createdAt: toDateOrNull(updatedUser.createdAt) ?? user.createdAt,
               stabilizesTotal: updatedUser.stabilizesTotal ?? next.stabilizesTotal,
               stabilizeStreakDays: updatedUser.stabilizeStreakDays ?? next.stabilizeStreakDays,
               lastStabilizeAt: toDateOrNull(updatedUser.lastStabilizeAt) ?? undefined,
             };
+
+            applyCompedAccessToSubscriptionStore(normalizedUpdatedUser);
 
             set((state) => ({
               user: state.user ? { ...state.user, ...normalizedUpdatedUser } : normalizedUpdatedUser,
@@ -738,26 +837,26 @@ export const useAuthStore = create<AuthState>()(
         return flags;
       },
 
-      signOut: () =>
+      signOut: () => {
+        applyCompedAccessToSubscriptionStore(null);
         set({
           user: null,
           token: null,
           isAuthenticated: false,
           isOfflineMode: false,
           anchorCount: 0,
-          pendingForgeIntent: null,
-          pendingForgeResumeTarget: null,
           profileData: null,
           profileLastFetched: null,
-          isFinalizingPendingFirstAnchor: false,
-          pendingFirstAnchorError: null,
-        }),
+          ...createClearedPendingFirstAnchorState(),
+        });
+      },
     }),
     {
       name: 'anchor-auth-storage',
       storage: createJSONStorage(() => hybridStorage),
       onRehydrateStorage: () => (state) => {
         if (state) {
+          applyCompedAccessToSubscriptionStore(state.user);
           // One-shot navigation flags should never survive an app restart.
           state.setShouldRedirectToCreation(false);
           // Recompute streak immediately after store hydrates from disk

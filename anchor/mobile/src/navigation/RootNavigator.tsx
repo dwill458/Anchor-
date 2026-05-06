@@ -91,6 +91,7 @@ export const RootNavigator: React.FC = () => {
         <Stack.Screen name="Onboarding" component={OnboardingNavigator} />
       ) : (
         <>
+          <Stack.Screen name="Main" component={MainTabNavigator} />
           {showTrialEnd && (
             <Stack.Screen
               name="TrialEndScreen"
@@ -98,7 +99,6 @@ export const RootNavigator: React.FC = () => {
               options={{ animation: 'default' }}
             />
           )}
-          <Stack.Screen name="Main" component={MainTabNavigator} />
           {/* Profile/Settings as modal */}
           <Stack.Screen
             name="Settings"

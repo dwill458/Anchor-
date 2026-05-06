@@ -59,13 +59,16 @@ const STYLE_NAMES: Record<string, string> = {
   ink_brush: 'Ink Brush',
   gold_leaf: 'Gold Leaf',
   cosmic: 'Cosmic',
-  minimal_line: 'Minimal Line',
-  obsidian_mono: 'Obsidian Mono',
+  architectural_trace: 'Architectural Trace',
+  lunar_etch: 'Lunar Etch',
   aurora_glow: 'Aurora Glow',
   ember_trace: 'Ember Trace',
-  echo_chamber: 'Echo Chamber',
+  resonance_rings: 'Resonance Rings',
   monolith_ink: 'Monolith Ink',
   celestial_grid: 'Celestial Grid',
+  minimal_line: 'Minimal Line',
+  obsidian_mono: 'Obsidian Mono',
+  echo_chamber: 'Echo Chamber',
 };
 
 export const AIVariationPickerScreen: React.FC = () => {

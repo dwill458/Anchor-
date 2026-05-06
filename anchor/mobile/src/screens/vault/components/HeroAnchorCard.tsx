@@ -147,7 +147,6 @@ const HeroAnchorCardInner: React.FC<HeroAnchorCardProps> = ({
             &ldquo;{anchor.intentionText}&rdquo;
           </Text>
           <View style={styles.nameRow}>
-            <Text style={styles.anchorName}>{anchorDisplayName(anchor)}</Text>
             <View style={styles.categoryTag}>
               <Text style={styles.categoryLabel}>{formatCategory(anchor.category)}</Text>
             </View>

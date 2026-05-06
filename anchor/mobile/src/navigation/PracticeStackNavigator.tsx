@@ -1,14 +1,15 @@
 /**
  * Anchor App - Practice Stack Navigator
  *
- * Practice flow: PracticeHome → StabilizeRitual → Evolve
+ * Practice flow: PracticeHome → Evolve
  */
 
 import React from 'react';
 import { NavigationContainer, useNavigationContainerRef } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import type { PracticeStackParamList } from '@/types';
-import { PracticeScreen, StabilizeRitualScreen, EvolveScreen } from '@/screens/practice';
+// DEFERRED: import { PracticeScreen, StabilizeRitualScreen, EvolveScreen } from '@/screens/practice';
+import { PracticeScreen, EvolveScreen } from '@/screens/practice';
 
 const Stack = createNativeStackNavigator<PracticeStackParamList>();
 
@@ -46,7 +47,6 @@ export const PracticeStackNavigator: React.FC<PracticeStackNavigatorProps> = ({ 
         }}
       >
         <Stack.Screen name="PracticeHome" component={PracticeScreen} />
-        <Stack.Screen name="StabilizeRitual" component={StabilizeRitualScreen} />
         <Stack.Screen name="Evolve" component={EvolveScreen} />
       </Stack.Navigator>
     </NavigationContainer>

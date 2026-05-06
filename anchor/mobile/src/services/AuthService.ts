@@ -7,6 +7,8 @@
  */
 
 import type { User, FirebaseUser } from '@/types';
+import { clearNotificationSession } from '@/services/NotificationSessionService';
+import { clearPushTokensFromServer } from '@/services/NotificationSyncService';
 import {
   DEVELOPER_MASTER_ACCOUNT_ID,
   DEVELOPER_MASTER_ACCOUNT_TOKEN,
@@ -28,6 +30,7 @@ const createMockUser = (overrides: Partial<User> = {}): User => ({
   email: 'guest@example.com',
   displayName: 'Guest User',
   hasCompletedOnboarding: false,
+  isComped: false,
   subscriptionStatus: 'free',
   totalAnchorsCreated: 5,
   totalActivations: 20,
@@ -148,7 +151,12 @@ export class AuthService {
 
   static async signOut(): Promise<void> {
     assertMockAuthEnabled();
-    await new Promise((resolve) => setTimeout(resolve, 500));
+    try {
+      await clearPushTokensFromServer();
+      await new Promise((resolve) => setTimeout(resolve, 500));
+    } finally {
+      await clearNotificationSession();
+    }
   }
 
   static hasAuthenticatedSession(): boolean {
@@ -192,7 +200,11 @@ export class AuthService {
 
   static async deleteAccount(): Promise<void> {
     assertMockAuthEnabled();
-    await new Promise((resolve) => setTimeout(resolve, 500));
+    try {
+      await new Promise((resolve) => setTimeout(resolve, 500));
+    } finally {
+      await clearNotificationSession();
+    }
   }
 
   static onAuthStateChanged(

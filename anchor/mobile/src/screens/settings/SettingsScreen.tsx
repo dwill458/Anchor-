@@ -12,31 +12,36 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Constants from 'expo-constants';
-import DateTimePicker, { type DateTimePickerEvent } from '@react-native-community/datetimepicker';
 import { useNavigation, CommonActions } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useSettingsState } from '@/hooks/useSettings';
+import { useSettingsStore } from '@/stores/settingsStore';
 import { useSettingsReveal } from '@/components/transitions/SettingsRevealProvider';
-import {
-  syncDailyGoalNudgesFromStores,
-  syncDailyReminderFromStores,
-} from '@/services/DailyGoalNudgeService';
-import NotificationService from '@/services/NotificationService';
 import { AuthService } from '@/services/AuthService';
 import { useAuthStore } from '@/stores/authStore';
 import type { RootStackParamList } from '@/types';
+import { LEGAL_URLS, SUPPORT_EMAIL, SUPPORT_EMAIL_URL } from '@/constants/legal';
 import { SettingsRow } from '@/components/settings/SettingsRow';
 import { SettingsSectionBlock } from '@/components/settings/SettingsSectionBlock';
+import NotificationService from '@/services/NotificationService';
 import { useNotificationController } from '../../hooks/useNotificationController';
 import { colors } from '@/theme';
 import {
-  formatFocusSummary,
-  formatGoalSummary,
   formatHapticFeedbackLabel,
-  formatPrimingSummary,
   SETTINGS_MUTED_TEXT,
   SETTINGS_SCREEN_BACKGROUND,
 } from './shared';
+
+const WEEKDAY_LABELS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+
+const formatDurationLabel = (durationSeconds: number): string => {
+  if (durationSeconds < 60) {
+    return `${durationSeconds}s`;
+  }
+
+  const minutes = Math.round(durationSeconds / 60);
+  return `${minutes} min`;
+};
 
 const restorePurchases = async (): Promise<void> => {
   try {
@@ -54,17 +59,30 @@ const restorePurchases = async (): Promise<void> => {
   Alert.alert('Restore Purchase', 'RevenueCat restorePurchases() is not available in this build.');
 };
 
-const PlaceholderTag: React.FC<{ label: string }> = ({ label }) => (
-  <View style={styles.placeholderTag}>
-    <Text style={styles.placeholderTagText}>{label}</Text>
-  </View>
-);
-
 export const SettingsScreen: React.FC = () => {
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const { settings, updateSetting, resetSettings, isLoading } = useSettingsState();
-  const { notifState, toggleNotifications, updateActiveHours } = useNotificationController();
-  const { setHasCompletedOnboarding, signOut } = useAuthStore();
+  const focusSessionMode = useSettingsStore((state) => state.focusSessionMode ?? 'quick');
+  const focusSessionDuration = useSettingsStore((state) => state.focusSessionDuration ?? 30);
+  const focusSessionAudio = useSettingsStore((state) => state.focusSessionAudio ?? 'silent');
+  const primeSessionDuration = useSettingsStore((state) => state.primeSessionDuration ?? 120);
+  const primeSessionAudio = useSettingsStore((state) => state.primeSessionAudio ?? 'silent');
+  const dailyPracticeGoal = useSettingsStore((state) => state.dailyPracticeGoal ?? 3);
+  const dailyPracticeGoalPreset = useSettingsStore(
+    (state) => state.dailyPracticeGoalPreset ?? 'three'
+  );
+  const threadStrengthSensitivity = useSettingsStore(
+    (state) => state.threadStrengthSensitivity ?? 'balanced'
+  );
+  const restDays = useSettingsStore((state) => state.restDays ?? []);
+  const { notifState, toggleNotifications, updateActiveHours, toggleWeaver } = useNotificationController();
+  const user = useAuthStore((state) => state.user);
+  const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
+  const profileEmail = useAuthStore((state) => state.profileData?.user?.email?.trim() ?? '');
+  const fetchProfile = useAuthStore((state) => state.fetchProfile);
+  const setUser = useAuthStore((state) => state.setUser);
+  const setHasCompletedOnboarding = useAuthStore((state) => state.setHasCompletedOnboarding);
+  const signOut = useAuthStore((state) => state.signOut);
   const reveal = useSettingsReveal();
   const [hourPickerTarget, setHourPickerTarget] = useState<'wake' | 'reminder' | null>(null);
   const hasMarkedReadyRef = useRef(false);
@@ -100,12 +118,21 @@ export const SettingsScreen: React.FC = () => {
           style: 'destructive',
           onPress: async () => {
             try {
+              await AuthService.signOut();
+            } catch (error) {
+              Alert.alert('Sign Out Failed', 'We could not sign you out right now.');
+              console.warn('[SettingsScreen] Failed to sign out cleanly', error);
+              return;
+            }
+
+            try {
               // Clear sync retry queue so stale anchor data is not carried over
               const { writeSecureValue } = require('@/stores/encryptedPersistStorage');
               await writeSecureValue('anchor-sync-retry-queue', '[]');
             } catch (error) {
               console.warn('[SettingsScreen] Failed to clear sync retry queue on sign-out', error);
             }
+
             signOut();
             setHasCompletedOnboarding(false);
             navigation.dispatch(
@@ -132,15 +159,21 @@ export const SettingsScreen: React.FC = () => {
           onPress: async () => {
             try {
               await AuthService.deleteAccount();
-              // Clear local data
-              const { writeSecureValue } = require('@/stores/encryptedPersistStorage');
-              await writeSecureValue('anchor-sync-retry-queue', '[]');
             } catch (error) {
               const message = error instanceof Error ? error.message : 'Failed to delete account';
               Alert.alert('Deletion Failed', message);
               console.error('[SettingsScreen] Failed to delete account', error);
               return;
             }
+
+            try {
+              // Clear local data
+              const { writeSecureValue } = require('@/stores/encryptedPersistStorage');
+              await writeSecureValue('anchor-sync-retry-queue', '[]');
+            } catch (error) {
+              console.warn('[SettingsScreen] Failed to clear sync retry queue after account deletion', error);
+            }
+
             signOut();
             setHasCompletedOnboarding(false);
             navigation.dispatch(
@@ -159,48 +192,23 @@ export const SettingsScreen: React.FC = () => {
     setHasCompletedOnboarding(false);
   }, [setHasCompletedOnboarding]);
 
-  const handleToggleDailyReminder = useCallback(
-    async (value: boolean) => {
-      if (value) {
-        const granted = await NotificationService.requestPermissions();
-        if (!granted) {
-          Alert.alert('Permission Denied', 'Please enable notifications in your device settings.');
-          return;
-        }
-      }
+  const handlePrivacyPolicy = () => {
+    Linking.openURL(LEGAL_URLS.privacyPolicy);
+  };
 
-      await updateSetting('dailyReminderEnabled', value);
+  const handleSupport = () => {
+    Linking.openURL(LEGAL_URLS.support);
+  };
 
-      if (value) {
-        await syncDailyReminderFromStores();
-      } else {
-        await NotificationService.cancelDailyReminder();
-      }
-
-      await syncDailyGoalNudgesFromStores();
-    },
-    [updateSetting]
-  );
-
-  const handleReminderTimeChange = useCallback(
-    async (event: DateTimePickerEvent, selectedDate?: Date) => {
-      if (!selectedDate || event.type !== 'set') {
-        return;
-      }
-
-      const hours = selectedDate.getHours().toString().padStart(2, '0');
-      const minutes = selectedDate.getMinutes().toString().padStart(2, '0');
-      const timeString = `${hours}:${minutes}`;
-
-      await updateSetting('dailyReminderTime', timeString);
-
-      if (settings.dailyReminderEnabled) {
-        await syncDailyReminderFromStores();
-        await syncDailyGoalNudgesFromStores(selectedDate);
-      }
-    },
-    [settings.dailyReminderEnabled, updateSetting]
-  );
+  const firebaseEmail = isAuthenticated
+    ? AuthService.getCurrentFirebaseUser?.()?.email?.trim() ?? ''
+    : '';
+  const accountEmail = user?.email?.trim() || profileEmail || firebaseEmail;
+  const accountSubtitle = isAuthenticated
+    ? accountEmail
+      ? 'Synced to this account'
+      : 'Syncing account details...'
+    : 'Not signed in';
 
   useEffect(
     () => () => {
@@ -210,6 +218,20 @@ export const SettingsScreen: React.FC = () => {
     },
     []
   );
+
+  useEffect(() => {
+    if (!isAuthenticated || !user?.id || user.email?.trim()) {
+      return;
+    }
+
+    if (firebaseEmail) {
+      setUser({ ...user, email: firebaseEmail });
+    }
+
+    void fetchProfile().catch((error) => {
+      console.warn('[SettingsScreen] Failed to refresh account profile', error);
+    });
+  }, [fetchProfile, firebaseEmail, isAuthenticated, setUser, user]);
 
   const formatHourLabel = useCallback((hour: number | null | undefined) => {
     const normalizedHour = Math.max(0, Math.min(23, hour ?? 0));
@@ -231,6 +253,30 @@ export const SettingsScreen: React.FC = () => {
     [hourPickerTarget, notifState?.active_hours_end, notifState?.active_hours_start, updateActiveHours]
   );
 
+  const sessionSummary =
+    focusSessionMode === 'deep'
+      ? `Deep Prime · ${formatDurationLabel(primeSessionDuration)} · ${primeSessionAudio === 'ambient' ? 'Ambient' : 'Silent'}`
+      : `Quick Prime · ${formatDurationLabel(focusSessionDuration)} · ${focusSessionAudio === 'ambient' ? 'Ambient' : 'Silent'}`;
+
+  const goalSummary =
+    dailyPracticeGoalPreset === 'once'
+      ? 'Once / day'
+      : dailyPracticeGoalPreset === 'three'
+        ? 'Three times / day'
+        : dailyPracticeGoalPreset === 'five'
+          ? 'Five times / day'
+          : `Custom · ${dailyPracticeGoal} / day`;
+
+  const threadStrengthSummary =
+    threadStrengthSensitivity.charAt(0).toUpperCase() + threadStrengthSensitivity.slice(1);
+
+  const restDaysSummary =
+    restDays.length === 0
+      ? 'None'
+      : restDays.length === 1
+        ? WEEKDAY_LABELS[restDays[0]]
+        : restDays.map((day) => WEEKDAY_LABELS[day].slice(0, 3)).join(', ');
+
   return (
     <View style={styles.container} onLayout={handleRootLayout}>
       <SafeAreaView style={styles.safeArea} edges={['bottom']}>
@@ -249,25 +295,41 @@ export const SettingsScreen: React.FC = () => {
           </Text>
           <SettingsSectionBlock>
             <SettingsRow
-              title="Priming Defaults"
-              value={formatPrimingSummary(settings)}
+              title="Session Defaults"
+              value={sessionSummary}
               type="chevron"
-              onPress={() => navigation.navigate('PrimingDefaults')}
+              onPress={() => navigation.navigate('SessionDefaults')}
               disabled={isLoading}
             />
             <SettingsRow
-              title="Default Focus Mode"
-              value={formatFocusSummary(settings)}
-              type="chevron"
-              onPress={() => navigation.navigate('DefaultFocusMode')}
-              disabled={isLoading}
-            />
-            <SettingsRow
-              title="Daily Focus Goal"
-              value={formatGoalSummary(settings.focusBurstGoal)}
+              title="Daily Practice Goal"
+              value={goalSummary}
               type="chevron"
               onPress={() => navigation.navigate('DailyPracticeGoal')}
               disabled={isLoading}
+            />
+            <SettingsRow
+              title="Thread Strength"
+              value={threadStrengthSummary}
+              type="chevron"
+              onPress={() => navigation.navigate('ThreadStrength')}
+              disabled={isLoading}
+            />
+            <SettingsRow
+              title="Rest Days"
+              value={restDaysSummary}
+              type="chevron"
+              onPress={() => navigation.navigate('RestDays')}
+              disabled={isLoading}
+            />
+            <SettingsRow
+              title="Hide Intention Text"
+              subtitle="During priming, show only the anchor"
+              type="toggle"
+              toggleValue={settings.reduceIntentionVisibility}
+              onToggle={(value) => updateSetting('reduceIntentionVisibility', value)}
+              disabled={isLoading}
+              showDivider={false}
             />
           </SettingsSectionBlock>
 
@@ -293,19 +355,47 @@ export const SettingsScreen: React.FC = () => {
               disabled={isLoading}
             />
             <SettingsRow
-              title="Hide Intention Text"
+              title="Weekly Summary"
+              subtitle="Receive a reflection of your week on Sundays"
               type="toggle"
-              toggleValue={settings.reduceIntentionVisibility}
-              onToggle={(value) => updateSetting('reduceIntentionVisibility', value)}
+              toggleValue={settings.weeklySummaryEnabled}
+              onToggle={async (value) => {
+                await updateSetting('weeklySummaryEnabled', value);
+                // Also trigger scheduling update since we just changed the toggle
+                if (notifState) {
+                  if (value) {
+                    await NotificationService.scheduleWeeklySummary(notifState.active_hours_end);
+                  } else {
+                    await NotificationService.cancelWeeklySummary();
+                  }
+                }
+              }}
               disabled={isLoading}
             />
+
             <SettingsRow
               title="Notifications"
               subtitle="Enable daily priming reminders"
               type="toggle"
               toggleValue={notifState?.notification_enabled ?? true}
               onToggle={(value) => {
-                void toggleNotifications(value);
+                void (async () => {
+                  if (!value) {
+                    await toggleNotifications(false);
+                    return;
+                  }
+
+                  const granted = await NotificationService.requestPermissions();
+                  if (!granted) {
+                    const message =
+                      NotificationService.getLastError()?.message ??
+                      'Please enable notifications in your device settings.';
+                    Alert.alert('Notification Permission Required', message);
+                    return;
+                  }
+
+                  await toggleNotifications(true);
+                })();
               }}
               disabled={isLoading}
               showDivider={!(notifState?.notification_enabled ?? true)}
@@ -327,69 +417,22 @@ export const SettingsScreen: React.FC = () => {
                   type="chevron"
                   onPress={() => setHourPickerTarget('reminder')}
                   disabled={isLoading}
+                  showDivider={true}
+                />
+                <SettingsRow
+                  title="Recovery Nudges"
+                  subtitle="Gentle reminder when you've missed a day"
+                  type="toggle"
+                  toggleValue={notifState?.weaver_enabled ?? true}
+                  onToggle={async (enabled) => void toggleWeaver(enabled)}
+                  disabled={isLoading}
                   showDivider={false}
                 />
               </>
             ) : null}
           </SettingsSectionBlock>
 
-          <Text style={styles.sectionLabel}>Notifications</Text>
-          <Text style={styles.sectionDescription}>Silence reminders to support consistency.</Text>
-          <SettingsSectionBlock>
-            <SettingsRow
-              title="Daily Reminder"
-              type="toggle"
-              toggleValue={settings.dailyReminderEnabled}
-              onToggle={handleToggleDailyReminder}
-              disabled={isLoading}
-              showDivider={settings.dailyReminderEnabled}
-            />
-            {settings.dailyReminderEnabled ? (
-              <View style={styles.inlineTimePickerContainer}>
-                <Text style={styles.inlineTimePickerLabel}>Reminder Time</Text>
-                <View style={styles.inlineDateTimePicker}>
-                  <DateTimePicker
-                    value={(() => {
-                      const [hours, minutes] = settings.dailyReminderTime.split(':').map(Number);
-                      const date = new Date();
-                      date.setHours(hours, minutes, 0, 0);
-                      return date;
-                    })()}
-                    mode="time"
-                    display="spinner"
-                    onChange={handleReminderTimeChange}
-                  />
-                </View>
-              </View>
-            ) : null}
-            <SettingsRow
-              title="Thread Strength Alerts"
-              type="toggle"
-              toggleValue={settings.streakProtectionAlertsEnabled}
-              onToggle={(value) => updateSetting('streakProtectionAlertsEnabled', value)}
-              disabled={isLoading}
-            />
-            <SettingsRow
-              title="Weekly Summary"
-              type="toggle"
-              toggleValue={settings.weeklySummaryEnabled}
-              onToggle={(value) => updateSetting('weeklySummaryEnabled', value)}
-              disabled={isLoading}
-              showDivider={false}
-            />
-          </SettingsSectionBlock>
-
-          <Text style={styles.sectionLabel}>Appearance</Text>
-          <SettingsSectionBlock>
-            <SettingsRow title="Theme" value="Zen Architect" type="chevron" onPress={() => {}} />
-            <SettingsRow
-              title="Accent Color"
-              value="Gold"
-              type="chevron"
-              onPress={() => {}}
-              showDivider={false}
-            />
-          </SettingsSectionBlock>
+          {/* Appearance section removed */}
 
           <Text style={styles.sectionLabel}>Audio & Haptics</Text>
           <SettingsSectionBlock>
@@ -414,20 +457,35 @@ export const SettingsScreen: React.FC = () => {
           <SettingsSectionBlock>
             <SettingsRow
               title="Email Address"
-              subtitle="Account sync coming soon"
-              type="none"
-              rightElement={<PlaceholderTag label="v1.1" />}
+              subtitle={accountSubtitle}
+              value={accountEmail || 'Not signed in'}
+              type="static"
             />
             <SettingsRow title="Sign Out" type="chevron" onPress={handleSignOut} />
             <SettingsRow
               title="Privacy Policy"
               type="chevron"
-              onPress={() => void Linking.openURL('https://anchorintentions.com/privacy')}
+              onPress={() => void Linking.openURL(LEGAL_URLS.privacyPolicy)}
             />
             <SettingsRow
               title="Terms of Service"
               type="chevron"
-              onPress={() => void Linking.openURL('https://anchorintentions.com/terms')}
+              onPress={() => void Linking.openURL(LEGAL_URLS.termsOfService)}
+              showDivider={false}
+            />
+          </SettingsSectionBlock>
+
+          <Text style={styles.sectionLabel}>Legal & Support</Text>
+          <SettingsSectionBlock>
+            <SettingsRow
+              title="Privacy Policy"
+              type="chevron"
+              onPress={handlePrivacyPolicy}
+            />
+            <SettingsRow
+              title="Support"
+              type="chevron"
+              onPress={handleSupport}
               showDivider={false}
             />
           </SettingsSectionBlock>
@@ -458,15 +516,15 @@ export const SettingsScreen: React.FC = () => {
             <SettingsRow title="App Version" value={appVersion} type="static" />
             <SettingsRow
               title="Contact Support"
+              subtitle={SUPPORT_EMAIL}
               type="chevron"
               onPress={async () => {
-                const url = 'mailto:support@anchorintentions.com';
-                const supported = await Linking.canOpenURL(url);
+                const supported = await Linking.canOpenURL(SUPPORT_EMAIL_URL);
                 if (!supported) {
                   Alert.alert('Contact Support', 'Mail is not available on this device.');
                   return;
                 }
-                await Linking.openURL(url);
+                await Linking.openURL(SUPPORT_EMAIL_URL);
               }}
               showDivider={false}
             />
@@ -474,8 +532,6 @@ export const SettingsScreen: React.FC = () => {
 
           {__DEV__ && DeveloperToolsSection ? (
             <DeveloperToolsSection
-              settings={settings}
-              updateSetting={updateSetting}
               resetSettings={resetSettings}
               onResetOnboarding={handleResetOnboarding}
             />
@@ -588,19 +644,6 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontFamily: 'Inter-Regular',
     lineHeight: 16,
-  },
-  placeholderTag: {
-    borderRadius: 4,
-    borderWidth: 0.5,
-    borderColor: 'rgba(212,175,55,0.15)',
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-  },
-  placeholderTagText: {
-    color: SETTINGS_MUTED_TEXT,
-    fontSize: 10,
-    fontFamily: 'Inter-Regular',
-    letterSpacing: 0.6,
   },
   benefitsRow: {
     paddingHorizontal: 20,

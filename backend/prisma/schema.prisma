@@ -20,6 +20,7 @@ model User {
   displayName           String?
   authProvider          String   // 'email', 'google', 'apple'
   authUid               String   @unique
+  isComped              Boolean  @default(false)
   subscriptionStatus    String   @default("free") // 'free', 'pro', 'pro_annual'
   subscriptionId        String?
   createdAt             DateTime @default(now())
@@ -35,6 +36,11 @@ model User {
   stabilizesTotal       Int      @default(0)
   stabilizeStreakDays   Int      @default(0)
   lastStabilizeAt       DateTime?
+  notificationState     Json?    @map("notification_state")
+  expoPushToken         String?  @map("expo_push_token")
+  fcmToken              String?  @map("fcm_token")
+  apnsToken             String?  @map("apns_token")
+  notificationsEnabled  Boolean  @default(true) @map("notifications_enabled")
 
   // Relations
   anchors               Anchor[]
@@ -58,6 +64,9 @@ model Anchor {
   // Intention & Category
   intentionText         String
   category              String   // 'career', 'health', 'wealth', 'relationships', 'personal_growth', 'custom'
+  planetaryTier         String?  @default("saturn") // 'saturn', 'jupiter', 'mars', 'sun', 'venus'
+  classifierVersion     Int      @default(1) // 1=old 8-cat, 2=new 5-tier
+  classifierMeta        Json?    // {confidenceScore, llmUsed, timestamp}
 
   // ───────────────────────────────────────────────────
   // STRUCTURE LINEAGE (New Architecture)

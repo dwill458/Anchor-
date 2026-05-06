@@ -23,6 +23,7 @@ describe('authStore', () => {
     email: 'test@example.com',
     displayName: 'Test User',
     hasCompletedOnboarding: true,
+    isComped: false,
     subscriptionStatus: 'free',
     totalAnchorsCreated: 0,
     totalActivations: 0,
@@ -60,6 +61,8 @@ describe('authStore', () => {
       onboardingSegment: null,
       shouldRedirectToCreation: false,
       anchorCount: 0,
+      pendingForgeIntent: null,
+      pendingForgeResumeTarget: null,
       pendingFirstAnchorDraft: null,
       pendingFirstAnchorMutations: [],
       isFinalizingPendingFirstAnchor: false,
@@ -364,6 +367,61 @@ describe('authStore', () => {
       expect(state.user).toBeNull();
       expect(state.token).toBeNull();
       expect(state.isAuthenticated).toBe(false);
+    });
+
+    it('should clear pending first-anchor and resume state', () => {
+      useAuthStore.setState({
+        shouldRedirectToCreation: true,
+        pendingForgeIntent: 'Return to the anchor I started',
+        pendingForgeResumeTarget: 'FirstAnchorAccountGate',
+        pendingFirstAnchorDraft: {
+          tempAnchorId: 'pending-anchor-1',
+          source: 'onboarding_first_anchor',
+          requiresAccountGate: true,
+          createdAt: new Date('2026-04-10T00:00:00.000Z'),
+        },
+        pendingFirstAnchorMutations: [
+          {
+            type: 'create_anchor',
+            tempAnchorId: 'pending-anchor-1',
+            queuedAt: new Date('2026-04-10T00:00:01.000Z').toISOString(),
+          },
+        ],
+        isFinalizingPendingFirstAnchor: true,
+        pendingFirstAnchorError: 'Failed to sync pending anchor',
+      });
+
+      useAuthStore.getState().signOut();
+
+      const state = useAuthStore.getState();
+      expect(state.shouldRedirectToCreation).toBe(false);
+      expect(state.pendingForgeIntent).toBeNull();
+      expect(state.pendingForgeResumeTarget).toBeNull();
+      expect(state.pendingFirstAnchorDraft).toBeNull();
+      expect(state.pendingFirstAnchorMutations).toEqual([]);
+      expect(state.isFinalizingPendingFirstAnchor).toBe(false);
+      expect(state.pendingFirstAnchorError).toBeNull();
+    });
+
+    it('should clear cached profile and offline session flags', () => {
+      useAuthStore.setState({
+        user: createMockUser(),
+        token: 'token-123',
+        isAuthenticated: true,
+        isOfflineMode: true,
+        profileData: {
+          user: createMockUser(),
+          settings: null,
+        } as any,
+        profileLastFetched: Date.now(),
+      });
+
+      useAuthStore.getState().signOut();
+
+      const state = useAuthStore.getState();
+      expect(state.profileData).toBeNull();
+      expect(state.profileLastFetched).toBeNull();
+      expect(state.isOfflineMode).toBe(false);
     });
 
     it('should not affect onboarding status', () => {

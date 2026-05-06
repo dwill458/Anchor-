@@ -4,7 +4,7 @@
  * Global toast notification manager with context.
  */
 
-import React, { createContext, useContext, useState, ReactNode, useRef } from 'react';
+import React, { createContext, useContext, useState, ReactNode, useRef, useCallback, useEffect } from 'react';
 import { View, StyleSheet } from 'react-native';
 import { Toast, ToastProps, ToastType } from './Toast';
 
@@ -25,8 +25,21 @@ interface ToastItem extends ToastProps {
 export const ToastProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const [toasts, setToasts] = useState<ToastItem[]>([]);
   const idCounterRef = useRef(0);
+  const timersRef = useRef(new Map<string, ReturnType<typeof setTimeout>>());
 
-  const showToast = (message: string, type: ToastType = 'info', duration: number = 3000) => {
+  const clearToastTimer = useCallback((id: string) => {
+    const timer = timersRef.current.get(id);
+    if (!timer) return;
+    clearTimeout(timer);
+    timersRef.current.delete(id);
+  }, []);
+
+  const removeToast = useCallback((id: string) => {
+    clearToastTimer(id);
+    setToasts((prev) => prev.filter((toast) => toast.id !== id));
+  }, [clearToastTimer]);
+
+  const showToast = useCallback((message: string, type: ToastType = 'info', duration: number = 3000) => {
     idCounterRef.current += 1;
     const id = `toast-${idCounterRef.current}`;
     const newToast: ToastItem = {
@@ -40,19 +53,21 @@ export const ToastProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     setToasts((prev) => [...prev, newToast]);
 
     // Auto-remove after duration + animation time
-    setTimeout(() => {
+    const timer = setTimeout(() => {
       removeToast(id);
     }, duration + 500);
-  };
+    timersRef.current.set(id, timer);
+  }, [removeToast]);
 
-  const removeToast = (id: string) => {
-    setToasts((prev) => prev.filter((toast) => toast.id !== id));
-  };
+  useEffect(() => () => {
+    timersRef.current.forEach((timer) => clearTimeout(timer));
+    timersRef.current.clear();
+  }, []);
 
-  const success = (message: string, duration?: number) => showToast(message, 'success', duration);
-  const error = (message: string, duration?: number) => showToast(message, 'error', duration);
-  const info = (message: string, duration?: number) => showToast(message, 'info', duration);
-  const warning = (message: string, duration?: number) => showToast(message, 'warning', duration);
+  const success = useCallback((message: string, duration?: number) => showToast(message, 'success', duration), [showToast]);
+  const error = useCallback((message: string, duration?: number) => showToast(message, 'error', duration), [showToast]);
+  const info = useCallback((message: string, duration?: number) => showToast(message, 'info', duration), [showToast]);
+  const warning = useCallback((message: string, duration?: number) => showToast(message, 'warning', duration), [showToast]);
 
   return (
     <ToastContext.Provider value={{ showToast, success, error, info, warning }}>

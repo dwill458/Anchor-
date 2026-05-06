@@ -188,6 +188,18 @@ describe('StorageService', () => {
       expect(url).toContain('syllabic.mp3');
     });
 
+    it('sanitizes audio storage path segments before building the object key', async () => {
+      const buffer = Buffer.from('audio-data');
+      const url = await uploadAudio(
+        buffer,
+        '../other-user',
+        'anchor/../../victim',
+        'phonetic?.mp3'
+      );
+
+      expect(url).toBe('local://mantras/-other-user/anchor-victim/phonetic-mp3.mp3');
+    });
+
     it('should upload to R2 and return public domain URL when configured', async () => {
       process.env.CLOUDFLARE_ACCOUNT_ID = 'test-account';
       process.env.CLOUDFLARE_R2_ACCESS_KEY_ID = 'access-key';

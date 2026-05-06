@@ -32,6 +32,7 @@ export interface TrialStatus {
 export function useTrialStatus(): TrialStatus {
     const subscriptionStatus = useSubscriptionStore((s) => s.subscriptionStatus);
     const trialStartDate = useSubscriptionStore((s) => s.trialStartDate);
+    const remoteCompedAccess = useSubscriptionStore((s) => s.remoteCompedAccess);
     const devOverrideEnabled = useSubscriptionStore((s) => s.devOverrideEnabled);
     const devTierOverride = useSubscriptionStore((s) => s.devTierOverride);
     const developerMasterAccountEnabled = useSettingsStore(
@@ -39,6 +40,18 @@ export function useTrialStatus(): TrialStatus {
     );
 
     if (__DEV__ && developerMasterAccountEnabled) {
+        return {
+            isTrialActive: false,
+            isSubscribed: true,
+            hasExpired: false,
+            trialExpired: false,
+            hasActiveEntitlement: true,
+            daysRemaining: 0,
+            subscriptionStatus: 'active',
+        };
+    }
+
+    if (remoteCompedAccess) {
         return {
             isTrialActive: false,
             isSubscribed: true,

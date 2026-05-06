@@ -25,6 +25,7 @@ import { OptimizedImage, SigilSvg } from '@/components/common';
 import { ErrorTrackingService } from '@/services/ErrorTrackingService';
 import { post } from '@/services/ApiClient';
 import { logger } from '@/utils/logger';
+import { classifyToTierPreliminary } from '@/utils/tierClassifier';
 import type { ApiResponse, Anchor } from '@/types';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
@@ -124,6 +125,8 @@ export const AnchorRevealScreen: React.FC = () => {
             ? `pending-first-anchor-${Date.now()}`
             : `anchor-${Date.now()}`;
 
+        const { tier, confidenceScore, isCustomFallback } = classifyToTierPreliminary(intentionText);
+
         try {
             if (isGuestFirstAnchor) {
                 clearPendingFirstAnchorState();
@@ -150,6 +153,9 @@ export const AnchorRevealScreen: React.FC = () => {
                     reinforcementMetadata: reinforcementMetadata || undefined,
                     enhancedImageUrl: enhancedImageUrl || undefined,
                     enhancementMetadata: enhancementMetadata || undefined,
+                    planetaryTier: tier,
+                    classifierVersion: 2,
+                    classifierMeta: { confidenceScore, isCustomFallback }
                 });
 
                 if (response?.success && response?.data?.id) {
@@ -182,6 +188,9 @@ export const AnchorRevealScreen: React.FC = () => {
             reinforcementMetadata,
             enhancementMetadata,
             enhancedImageUrl: enhancedImageUrl || undefined,
+            planetaryTier: tier,
+            classifierVersion: 2,
+            classifierMeta: { confidenceScore, isCustomFallback },
             isCharged: false,
             activationCount: 0,
             createdAt: new Date(),
@@ -193,14 +202,18 @@ export const AnchorRevealScreen: React.FC = () => {
         setTempEnhancedImage(null);
 
         if (!wallpaperPromptSeen) {
-            navigation.navigate('WallpaperPrompt', {
+            navigation.replace('WallpaperPrompt', {
                 anchorId,
                 intentionText,
                 enhancedImageUrl: enhancedImageUrl || undefined,
                 sigilSvg: reinforcedSigilSvg || baseSigilSvg,
             });
         } else {
-            navigation.navigate('ChargeSetup', { anchorId, autoStartOnSelection: true });
+            navigation.replace('ChargeSetup', {
+                anchorId,
+                autoStartOnSelection: true,
+                returnTo: 'vault',
+            });
         }
     };
 

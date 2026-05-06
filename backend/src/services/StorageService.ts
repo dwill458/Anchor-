@@ -53,6 +53,13 @@ function buildImageStorageKey(userId: string, anchorId: string, variationIndex: 
   return `anchors/${sanitizedUserId}/${sanitizedAnchorId}/${uniquePrefix}-variation-${variationIndex}.png`;
 }
 
+function buildAudioStorageKey(userId: string, anchorId: string, mantraStyle: string): string {
+  const sanitizedUserId = sanitizePathSegment(userId);
+  const sanitizedAnchorId = sanitizePathSegment(anchorId);
+  const sanitizedStyle = sanitizePathSegment(mantraStyle);
+  return `mantras/${sanitizedUserId}/${sanitizedAnchorId}/${sanitizedStyle}.mp3`;
+}
+
 /**
  * Initialize R2 client (S3-compatible)
  */
@@ -257,11 +264,10 @@ export async function uploadAudio(
       logger.warn('[Storage] R2 client not available, using local fallback for audio');
       // Return a deterministic local URI for development/CI environments
       // In production, R2 credentials will always be available
-      return `local://mantras/${userId}/${anchorId}/${mantraStyle}.mp3`;
+      return `local://${buildAudioStorageKey(userId, anchorId, mantraStyle)}`;
     }
 
-    // Generate unique filename
-    const fileName = `mantras/${userId}/${anchorId}/${mantraStyle}.mp3`;
+    const fileName = buildAudioStorageKey(userId, anchorId, mantraStyle);
 
     logger.info('[Storage] Uploading audio to R2', { fileName });
 
@@ -322,7 +328,7 @@ export async function deleteAnchorFiles(userId: string, anchorId: string): Promi
     // Delete mantra audio files
     const mantraStyles = ['syllabic', 'rhythmic', 'letterByLetter', 'phonetic'];
     for (const style of mantraStyles) {
-      const key = `mantras/${userId}/${anchorId}/${style}.mp3`;
+      const key = buildAudioStorageKey(userId, anchorId, style);
       try {
         await client.send(new DeleteObjectCommand({ Bucket: bucket, Key: key }));
       } catch (e) {

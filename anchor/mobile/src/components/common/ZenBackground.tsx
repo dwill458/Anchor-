@@ -11,6 +11,7 @@ import Animated, {
   withTiming,
 } from 'react-native-reanimated';
 import { colors } from '@/theme';
+import type { PerformanceTier } from '@/hooks/usePerformanceTier';
 import { useReduceMotionEnabled } from '@/hooks/useReduceMotionEnabled';
 
 type ZenBackgroundVariant = 'default' | 'sanctuary' | 'practice' | 'creation';
@@ -38,6 +39,7 @@ interface ZenBackgroundProps {
   animationDuration?: number;
   showGrain?: boolean;
   showVignette?: boolean;
+  performanceTier?: PerformanceTier;
 }
 
 const GRAIN_POINTS = [
@@ -52,13 +54,13 @@ const OrbLayer: React.FC<{
   preset: OrbPreset;
   orbOpacity: number;
   reduceMotionEnabled: boolean;
-}> = ({ preset, orbOpacity, reduceMotionEnabled }) => {
+  isActive: boolean;
+}> = ({ preset, orbOpacity, reduceMotionEnabled, isActive }) => {
   const phase = useSharedValue(0);
 
   useEffect(() => {
-    if (reduceMotionEnabled) {
+    if (reduceMotionEnabled || !isActive) {
       cancelAnimation(phase);
-      phase.value = 0;
       return;
     }
 
@@ -74,7 +76,7 @@ const OrbLayer: React.FC<{
     return () => {
       cancelAnimation(phase);
     };
-  }, [phase, preset.duration, reduceMotionEnabled]);
+  }, [phase, preset.duration, reduceMotionEnabled, isActive]);
 
   const style = useAnimatedStyle(() => {
     const eased = reduceMotionEnabled ? 0 : interpolate(phase.value, [0, 1], [0, 1]);
@@ -105,6 +107,7 @@ const OrbLayer: React.FC<{
         },
       ]}
       pointerEvents="none"
+      renderToHardwareTextureAndroid={true}
     />
   );
 };
@@ -116,10 +119,17 @@ export const ZenBackground: React.FC<ZenBackgroundProps> = ({
   animationDuration = 800,
   showGrain = true,
   showVignette = true,
+  performanceTier = 'high',
 }) => {
   const reduceMotionEnabled = useReduceMotionEnabled();
   const fade = useSharedValue(0);
   const isAndroid = Platform.OS === 'android';
+  const animateOrbs = showOrbs && performanceTier === 'high';
+  const effectiveOrbOpacity = performanceTier === 'high'
+    ? orbOpacity
+    : performanceTier === 'medium'
+      ? orbOpacity * 0.65
+      : orbOpacity * 0.4;
 
   useEffect(() => {
     fade.value = withTiming(1, {
@@ -288,10 +298,9 @@ export const ZenBackground: React.FC<ZenBackgroundProps> = ({
   }, [variant]);
 
   const visibleOrbs = useMemo(() => {
-    if (!showOrbs) return [] as OrbPreset[];
     if (!isAndroid) return palette.orbPresets;
     return palette.orbPresets.slice(0, variant === 'practice' ? 1 : 2);
-  }, [isAndroid, palette.orbPresets, showOrbs, variant]);
+  }, [isAndroid, palette.orbPresets, variant]);
 
   return (
     <Animated.View pointerEvents="none" style={[styles.container, fadeStyle]}>
@@ -306,8 +315,9 @@ export const ZenBackground: React.FC<ZenBackgroundProps> = ({
         <OrbLayer
           key={orb.id}
           preset={orb}
-          orbOpacity={orbOpacity}
+          orbOpacity={effectiveOrbOpacity}
           reduceMotionEnabled={reduceMotionEnabled}
+          isActive={animateOrbs}
         />
       ))}
 

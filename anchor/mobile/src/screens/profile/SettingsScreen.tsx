@@ -38,14 +38,12 @@ import { useTrialStatus } from '@/hooks/useTrialStatus';
 import { useReduceMotionEnabled } from '@/hooks/useReduceMotionEnabled';
 import { useSettingsReveal } from '@/components/transitions/SettingsRevealProvider';
 import type { ProfileStackParamList } from '@/navigation/ProfileStackNavigator';
+import { SUPPORT_EMAIL, SUPPORT_EMAIL_URL } from '@/constants/legal';
 import { colors, spacing } from '@/theme';
 import { ZenBackground } from '@/components/common';
 import NotificationService from '@/services/NotificationService';
-import { apiClient } from '@/services/ApiClient';
 import { AuthService } from '@/services/AuthService';
 import revenueCatService from '@/services/RevenueCatService';
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import auth from '@react-native-firebase/auth';
 
 const IS_ANDROID = Platform.OS === 'android';
 const SHOULD_ANIMATE_SECTION_ENTRANCE = Platform.OS === 'ios';
@@ -132,8 +130,57 @@ const SectionHeader: React.FC<{ title: string; description?: string }> = ({
 export const SettingsScreen: React.FC = () => {
   const navigation = useNavigation<NativeStackNavigationProp<ProfileStackParamList>>();
   const { user, signOut, setHasCompletedOnboarding } = useAuthStore();
-  const settings = useSettingsStore();
-  const subStore = useSubscriptionStore();
+  const defaultActivation = useSettingsStore(s => s.defaultActivation);
+  const defaultCharge = useSettingsStore(s => s.defaultCharge);
+  const openDailyAnchorAutomatically = useSettingsStore(s => s.openDailyAnchorAutomatically);
+  const setOpenDailyAnchorAutomatically = useSettingsStore(s => s.setOpenDailyAnchorAutomatically);
+  const guideMode = useSettingsStore(s => s.guideMode);
+  const setGuideMode = useSettingsStore(s => s.setGuideMode);
+  const dailyPracticeGoal = useSettingsStore(s => s.dailyPracticeGoal);
+  const reduceIntentionVisibility = useSettingsStore(s => s.reduceIntentionVisibility);
+  const setReduceIntentionVisibility = useSettingsStore(s => s.setReduceIntentionVisibility);
+  const hapticIntensity = useSettingsStore(s => s.hapticIntensity);
+  const soundEffectsEnabled = useSettingsStore(s => s.soundEffectsEnabled);
+  const setSoundEffectsEnabled = useSettingsStore(s => s.setSoundEffectsEnabled);
+  const developerModeEnabled = useSettingsStore(s => s.developerModeEnabled);
+  const setDeveloperModeEnabled = useSettingsStore(s => s.setDeveloperModeEnabled);
+  const developerMasterAccountEnabled = useSettingsStore(s => s.developerMasterAccountEnabled);
+  const setDeveloperMasterAccountEnabled = useSettingsStore(s => s.setDeveloperMasterAccountEnabled);
+  const developerSkipOnboardingEnabled = useSettingsStore(s => s.developerSkipOnboardingEnabled);
+  const setDeveloperSkipOnboardingEnabled = useSettingsStore(s => s.setDeveloperSkipOnboardingEnabled);
+  const developerForceStreakBreakEnabled = useSettingsStore(s => s.developerForceStreakBreakEnabled);
+  const setDeveloperForceStreakBreakEnabled = useSettingsStore(s => s.setDeveloperForceStreakBreakEnabled);
+  const developerDeleteWithoutBurnEnabled = useSettingsStore(s => s.developerDeleteWithoutBurnEnabled);
+  const setDeveloperDeleteWithoutBurnEnabled = useSettingsStore(s => s.setDeveloperDeleteWithoutBurnEnabled);
+  const debugLoggingEnabled = useSettingsStore(s => s.debugLoggingEnabled);
+  const setDebugLoggingEnabled = useSettingsStore(s => s.setDebugLoggingEnabled);
+
+  const settings = {
+    defaultActivation, defaultCharge,
+    openDailyAnchorAutomatically, setOpenDailyAnchorAutomatically,
+    guideMode, setGuideMode,
+    dailyPracticeGoal,
+    reduceIntentionVisibility, setReduceIntentionVisibility,
+    hapticIntensity,
+    soundEffectsEnabled, setSoundEffectsEnabled,
+    developerModeEnabled, setDeveloperModeEnabled,
+    developerMasterAccountEnabled, setDeveloperMasterAccountEnabled,
+    developerSkipOnboardingEnabled, setDeveloperSkipOnboardingEnabled,
+    developerForceStreakBreakEnabled, setDeveloperForceStreakBreakEnabled,
+    developerDeleteWithoutBurnEnabled, setDeveloperDeleteWithoutBurnEnabled,
+    debugLoggingEnabled, setDebugLoggingEnabled,
+  };
+  const devTierOverride = useSubscriptionStore(s => s.devTierOverride);
+  const devOverrideEnabled = useSubscriptionStore(s => s.devOverrideEnabled);
+  const setDevOverrideEnabled = useSubscriptionStore(s => s.setDevOverrideEnabled);
+  const setDevTierOverride = useSubscriptionStore(s => s.setDevTierOverride);
+  const resetOverrides = useSubscriptionStore(s => s.resetOverrides);
+
+  const subStore = {
+    devTierOverride,
+    devOverrideEnabled, setDevOverrideEnabled,
+    setDevTierOverride, resetOverrides,
+  };
   // DEFERRED: freemium — { tier, isPro } replaced with trial-aware status
   // const { tier, isPro } = useSubscription();
   const { isTrialActive, isSubscribed, hasExpired, daysRemaining } = useTrialStatus();
@@ -147,7 +194,6 @@ export const SettingsScreen: React.FC = () => {
   const section0 = useSharedValue(shouldAnimateSections ? 0 : 1);
   const section1 = useSharedValue(shouldAnimateSections ? 0 : 1);
   const section2 = useSharedValue(shouldAnimateSections ? 0 : 1);
-  const section3 = useSharedValue(shouldAnimateSections ? 0 : 1);
   const section4 = useSharedValue(shouldAnimateSections ? 0 : 1);
   const section5 = useSharedValue(shouldAnimateSections ? 0 : 1);
   const section6 = useSharedValue(shouldAnimateSections ? 0 : 1);
@@ -170,10 +216,6 @@ export const SettingsScreen: React.FC = () => {
   const animatedStyle2 = useAnimatedStyle(() => ({
     opacity: section2.value * exitValue.value,
     transform: [{ translateY: (1 - section2.value) * 14 + (1 - exitValue.value) * 6 }],
-  }));
-  const animatedStyle3 = useAnimatedStyle(() => ({
-    opacity: section3.value * exitValue.value,
-    transform: [{ translateY: (1 - section3.value) * 14 + (1 - exitValue.value) * 6 }],
   }));
   const animatedStyle4 = useAnimatedStyle(() => ({
     opacity: section4.value * exitValue.value,
@@ -205,7 +247,6 @@ export const SettingsScreen: React.FC = () => {
       section0,
       section1,
       section2,
-      section3,
       section4,
       section5,
       section6,
@@ -243,7 +284,6 @@ export const SettingsScreen: React.FC = () => {
     section0,
     section1,
     section2,
-    section3,
     section4,
     section5,
     section6,
@@ -310,37 +350,6 @@ export const SettingsScreen: React.FC = () => {
       hasMarkedReadyRef.current = true;
       reveal.markSettingsReady();
     });
-  };
-
-  const onTimeChange = (event: DateTimePickerEvent, selectedDate?: Date) => {
-    setShowTimePicker(false);
-    if (selectedDate && event.type === 'set') {
-      const hours = selectedDate.getHours().toString().padStart(2, '0');
-      const minutes = selectedDate.getMinutes().toString().padStart(2, '0');
-      const timeString = `${hours}:${minutes}`;
-      settings.setDailyReminderTime(timeString);
-
-      if (settings.dailyReminderEnabled) {
-        // DEFERRED: legacy notification call — superseded by NotificationService
-        // NotificationService.scheduleDailyReminder(timeString);
-      }
-    }
-  };
-
-  const handleToggleDailyReminder = async (value: boolean) => {
-    settings.setDailyReminderEnabled(value);
-    if (value) {
-      const granted = await NotificationService.requestPermissions();
-      if (granted) {
-        // DEFERRED: legacy notification call — superseded by NotificationService
-        // await NotificationService.scheduleDailyReminder(settings.dailyReminderTime);
-      } else {
-        settings.setDailyReminderEnabled(false);
-        Alert.alert('Permission Denied', 'Please enable notifications in your device settings.');
-      }
-    } else {
-      await NotificationService.cancelDailyReminder();
-    }
   };
 
   const formatActivationValue = () => {
@@ -413,12 +422,7 @@ export const SettingsScreen: React.FC = () => {
         style: 'destructive',
         onPress: async () => {
           try {
-            await apiClient.delete('/auth/me');
-            const firebaseUser = auth().currentUser;
-            if (firebaseUser) {
-              await firebaseUser.delete();
-            }
-            await AsyncStorage.clear();
+            await AuthService.deleteAccount();
             signOut();
           } catch (error: any) {
             Alert.alert('Deletion Failed', error.message || 'Failed to delete account.');
@@ -464,8 +468,8 @@ export const SettingsScreen: React.FC = () => {
   };
 
   const handleContactSupport = () => {
-    Linking.openURL('mailto:support@getanchor.app').catch(() =>
-      Alert.alert('Contact Support', 'Email us at support@getanchor.app')
+    Linking.openURL(SUPPORT_EMAIL_URL).catch(() =>
+      Alert.alert('Contact Support', `Email us at ${SUPPORT_EMAIL}`)
     );
   };
 
@@ -526,58 +530,17 @@ export const SettingsScreen: React.FC = () => {
                 onPress={() => navigation.navigate('DailyPracticeGoal')}
               />
               <ToggleItem
-                label="Reduce Intention Visibility"
+                label="Hide Intention Text"
+                helperText="During priming, show only the anchor"
                 value={settings.reduceIntentionVisibility}
                 onValueChange={settings.setReduceIntentionVisibility}
               />
             </CardWrapper>
           </Animated.View>
 
-          {deferredSectionsReady && (
+              {deferredSectionsReady && (
             <>
-              <Animated.View style={animatedStyle2}>
-                <SectionHeader title="Notifications" description="Gentle reminders to support consistency." />
-                <CardWrapper {...cardProps} style={styles.section}>
-                  <ToggleItem
-                    label="Daily Reminder"
-                    value={settings.dailyReminderEnabled}
-                    onValueChange={handleToggleDailyReminder}
-                  />
-                  {settings.dailyReminderEnabled && (
-                    <SettingItem
-                      label="Reminder Time"
-                      value={settings.dailyReminderTime}
-                      onPress={() => setShowTimePicker(true)}
-                    />
-                  )}
-                  <ToggleItem
-                    label="Streak Protection Alerts"
-                    value={settings.streakProtectionAlerts}
-                    onValueChange={settings.setStreakProtectionAlerts}
-                  />
-                  <ToggleItem
-                    label="Weekly Summary"
-                    value={settings.weeklySummaryEnabled}
-                    onValueChange={settings.setWeeklySummaryEnabled}
-                  />
-                </CardWrapper>
-              </Animated.View>
-
-              <Animated.View style={animatedStyle3}>
-                <SectionHeader title="Appearance" />
-                <CardWrapper {...cardProps} style={styles.section}>
-                  <SettingItem
-                    label="Theme"
-                    value={settings.theme === 'zen_architect' ? 'Zen Architect' : 'System'}
-                    onPress={() => navigation.navigate('ThemeSelection')}
-                  />
-                  <SettingItem
-                    label="Accent Color"
-                    value={settings.accentColor === '#D4AF37' ? 'Gold' : 'Custom'}
-                    onPress={() => navigation.navigate('AccentColor')}
-                  />
-                </CardWrapper>
-              </Animated.View>
+              {/* Appearance section removed */}
 
               <Animated.View style={animatedStyle4}>
                 <SectionHeader title="Audio & Haptics" />
@@ -726,6 +689,23 @@ export const SettingsScreen: React.FC = () => {
                           </View>
                         )}
                         <ToggleItem
+                          label="Master Account (Bypass All)"
+                          helperText="Grant full pro access regardless of subscription state."
+                          value={settings.developerMasterAccountEnabled}
+                          onValueChange={settings.setDeveloperMasterAccountEnabled}
+                        />
+                        <ToggleItem
+                          label="Skip Onboarding"
+                          value={settings.developerSkipOnboardingEnabled}
+                          onValueChange={settings.setDeveloperSkipOnboardingEnabled}
+                        />
+                        <ToggleItem
+                          label="Force Streak Break"
+                          helperText="Simulate a streak break in the Sanctuary."
+                          value={settings.developerForceStreakBreakEnabled}
+                          onValueChange={settings.setDeveloperForceStreakBreakEnabled}
+                        />
+                        <ToggleItem
                           label="Allow Direct Anchor Delete"
                           helperText="Show a developer-only delete action on anchor detail without burn ritual."
                           value={settings.developerDeleteWithoutBurnEnabled}
@@ -752,21 +732,7 @@ export const SettingsScreen: React.FC = () => {
             </>
           )}
 
-          <View style={styles.bottomSpacer} />
         </ScrollView>
-        {showTimePicker && (
-          <DateTimePicker
-            value={(() => {
-              const [hours, minutes] = settings.dailyReminderTime.split(':').map(Number);
-              const date = new Date();
-              date.setHours(hours, minutes, 0, 0);
-              return date;
-            })()}
-            mode="time"
-            is24Hour={true}
-            onChange={onTimeChange}
-          />
-        )}
       </SafeAreaView>
     </View>
   );

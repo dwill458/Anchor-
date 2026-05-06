@@ -14,20 +14,9 @@ export interface AnchorSettings {
   focusDefaultMode: FocusDefaultMode;
   focusBurstGoal: FocusBurstGoal;
   reduceIntentionVisibility: boolean;
-  dailyReminderEnabled: boolean;
-  dailyReminderTime: string;
-  streakProtectionAlertsEnabled: boolean;
-  weeklySummaryEnabled: boolean;
   hapticFeedback: 'none' | 'light' | 'medium' | 'strong';
   soundEffectsEnabled: boolean;
-  dev_developerModeEnabled: boolean;
-  dev_overridesEnabled: boolean;
-  dev_simulatedTier: SubscriptionTier;
-  dev_masterAccount: boolean;
-  dev_skipOnboarding: boolean;
-  dev_allowDirectAnchorDelete: boolean;
-  dev_debugLogging: boolean;
-  dev_forceStreakBreak: boolean;
+  weeklySummaryEnabled: boolean;
 }
 
 export const DEFAULT_SETTINGS: AnchorSettings = {
@@ -39,18 +28,7 @@ export const DEFAULT_SETTINGS: AnchorSettings = {
   focusDefaultMode: 'silent',
   focusBurstGoal: 3,
   reduceIntentionVisibility: false,
-  dailyReminderEnabled: false,
-  dailyReminderTime: '09:00',
-  streakProtectionAlertsEnabled: false,
-  weeklySummaryEnabled: false,
   hapticFeedback: 'strong',
   soundEffectsEnabled: true,
-  dev_developerModeEnabled: true,
-  dev_overridesEnabled: true,
-  dev_simulatedTier: 'pro',
-  dev_masterAccount: false,
-  dev_skipOnboarding: false,
-  dev_allowDirectAnchorDelete: false,
-  dev_debugLogging: false,
-  dev_forceStreakBreak: false,
+  weeklySummaryEnabled: true,
 };

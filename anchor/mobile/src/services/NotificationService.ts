@@ -1,6 +1,8 @@
 import * as Notifications from 'expo-notifications';
+import Constants from 'expo-constants';
 import { logger } from '@/utils/logger';
 import type {
+  DevicePushToken,
   Notification,
   NotificationRequest,
   NotificationContentInput,
@@ -68,6 +70,13 @@ export type NotificationClickAction =
   | { action: 'open_weekly_summary' }
   | { action: 'unknown' };
 
+export interface RemotePushRegistration {
+  permissionGranted: boolean;
+  expoPushToken: string | null;
+  fcmToken: string | null;
+  apnsToken: string | null;
+}
+
 type NotificationEvent = Notification | NotificationResponse;
 
 type MockScheduledNotification = NotificationRequest;
@@ -113,26 +122,25 @@ class NotificationService {
   async requestPermissions(): Promise<boolean> {
     this.lastError = null;
     try {
-      const { status: existingStatus } = await Notifications.getPermissionsAsync();
-      let finalStatus = existingStatus;
-
-      if (existingStatus !== 'granted') {
-        const { status } = await Notifications.requestPermissionsAsync();
-        finalStatus = status;
-      }
-
       if (IS_ANDROID) {
         await this.ensureAndroidChannels();
       }
 
-      if (finalStatus !== 'granted') {
+      const existingStatus = await Notifications.getPermissionsAsync();
+      let finalStatus = existingStatus;
+
+      if (!this.hasGrantedPermissions(existingStatus)) {
+        finalStatus = await Notifications.requestPermissionsAsync();
+      }
+
+      if (!this.hasGrantedPermissions(finalStatus)) {
         this.lastError = new ServiceError(
           'notifications/permission-denied',
           'Notification permissions were denied.'
         );
       }
 
-      return finalStatus === 'granted';
+      return this.hasGrantedPermissions(finalStatus);
     } catch (error) {
       this.recordError(
         new ServiceError(
@@ -142,6 +150,48 @@ class NotificationService {
         )
       );
       return false;
+    }
+  }
+
+  async getRemotePushRegistration(
+    devicePushToken?: DevicePushToken
+  ): Promise<RemotePushRegistration> {
+    const granted = await this.requestPermissions();
+    if (!granted) {
+      return {
+        permissionGranted: false,
+        expoPushToken: null,
+        fcmToken: null,
+        apnsToken: null,
+      };
+    }
+
+    try {
+      const nativeToken = devicePushToken ?? (await Notifications.getDevicePushTokenAsync());
+      const expoPushToken = await this.getExpoPushToken(nativeToken);
+      const normalizedToken = this.normalizeNativePushToken(nativeToken.data);
+
+      return {
+        permissionGranted: true,
+        expoPushToken,
+        fcmToken: nativeToken.type === 'android' ? normalizedToken : null,
+        apnsToken: nativeToken.type === 'ios' ? normalizedToken : null,
+      };
+    } catch (error) {
+      this.recordError(
+        new ServiceError(
+          'notifications/permission-request-failed',
+          'Failed to register the device for remote notifications.',
+          error
+        )
+      );
+
+      return {
+        permissionGranted: false,
+        expoPushToken: null,
+        fcmToken: null,
+        apnsToken: null,
+      };
     }
   }
 
@@ -326,9 +376,8 @@ class NotificationService {
 
   /**
    * Schedule weekly summary.
-   * Default: Sunday evening at 19:00 (7 PM).
    */
-  async scheduleWeeklySummary(): Promise<string | null> {
+  async scheduleWeeklySummary(hour: number = 19): Promise<string | null> {
     await this.cancelWeeklySummary();
 
     return this.scheduleNotification({
@@ -342,7 +391,7 @@ class NotificationService {
       trigger: {
         type: Notifications.SchedulableTriggerInputTypes.CALENDAR,
         weekday: 1,
-        hour: 19,
+        hour,
         minute: 0,
         repeats: true,
         channelId: NOTIFICATION_CHANNELS.WEEKLY_SUMMARY,
@@ -562,6 +611,42 @@ class NotificationService {
     if (__DEV__) {
       logger.error('[NotificationService]', error);
     }
+  }
+
+  private hasGrantedPermissions(
+    status: Notifications.NotificationPermissionsStatus
+  ): boolean {
+    if (status.granted || status.status === 'granted') {
+      return true;
+    }
+
+    const iosStatus = status.ios?.status;
+    return (
+      iosStatus === Notifications.IosAuthorizationStatus.AUTHORIZED ||
+      iosStatus === Notifications.IosAuthorizationStatus.PROVISIONAL ||
+      iosStatus === Notifications.IosAuthorizationStatus.EPHEMERAL
+    );
+  }
+
+  private async getExpoPushToken(devicePushToken: DevicePushToken): Promise<string | null> {
+    const projectId =
+      Constants.expoConfig?.extra?.eas?.projectId ?? Constants.easConfig?.projectId ?? null;
+
+    if (!projectId) {
+      logger.warn('[NotificationService] Missing Expo projectId; skipping Expo push token sync.');
+      return null;
+    }
+
+    const expoPushToken = await Notifications.getExpoPushTokenAsync({
+      projectId,
+      devicePushToken,
+    });
+
+    return typeof expoPushToken.data === 'string' ? expoPushToken.data : null;
+  }
+
+  private normalizeNativePushToken(data: DevicePushToken['data']): string | null {
+    return typeof data === 'string' ? data : null;
   }
 
   private parseTime(time: string): { hour: number; minute: number } | null {

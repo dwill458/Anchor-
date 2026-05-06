@@ -24,11 +24,13 @@ export const ProfileHeader: React.FC<ProfileHeaderProps> = ({
   displayName,
   subscriptionStatus: _subscriptionStatus,
 }) => {
-  // DEFERRED: trial badge removed, surfaced in ProfileScreen subscription section
   const { notifState } = useNotificationController();
   const user = useAuthStore((state) => state.user);
   const photo = useProfileStore((state) => state.photo);
   const mono = useProfileStore((state) => state.mono);
+  const isSubscribed = _subscriptionStatus === 'pro' || _subscriptionStatus === 'pro_annual';
+  const membershipLabel = isSubscribed ? 'MEMBER' : 'TRIAL';
+  const badgeColor = isSubscribed ? colors.gold : colors.silver;
 
   // Get first letter of display name or default to 'S' for Seeker
   const avatarInitial = displayName?.[0]?.toUpperCase() || 'S';
@@ -60,6 +62,11 @@ export const ProfileHeader: React.FC<ProfileHeaderProps> = ({
         </View>
 
         <Text style={styles.displayName}>{displayName || 'Seeker'}</Text>
+
+        <View style={[styles.badge, { borderColor: badgeColor }]}>
+          <Text style={[styles.badgeText, { color: badgeColor }]}>{membershipLabel}</Text>
+        </View>
+
         {notifState?.sovereign_rank ? (
           <View style={styles.sovereignBadge}>
             <Text style={styles.sovereignLabel}>Sovereign</Text>
@@ -81,6 +88,11 @@ export const ProfileHeader: React.FC<ProfileHeaderProps> = ({
         </View>
 
         <Text style={styles.displayName}>{displayName || 'Seeker'}</Text>
+
+        <View style={[styles.badge, { borderColor: badgeColor }]}>
+          <Text style={[styles.badgeText, { color: badgeColor }]}>{membershipLabel}</Text>
+        </View>
+
         {notifState?.sovereign_rank ? (
           <View style={styles.sovereignBadge}>
             <Text style={styles.sovereignLabel}>Sovereign</Text>
@@ -139,6 +151,17 @@ const styles = StyleSheet.create({
     color: '#D4AF37',
     letterSpacing: 1.5,
   },
-  // DEFERRED: trial badge removed, surfaced in ProfileScreen subscription section
-  // badge / badgeText styles deleted
+  badge: {
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.xs,
+    borderRadius: 20,
+    borderWidth: 1,
+  },
+  badgeText: {
+    fontFamily: 'Inter-SemiBold',
+    fontSize: 12,
+    fontWeight: '600',
+    textTransform: 'uppercase',
+    letterSpacing: 1,
+  },
 });

@@ -88,14 +88,14 @@ jest.mock('../components/BurnAnimationOverlay', () => {
 describe('BurningRitualScreen', () => {
   let mockNavigate: jest.Mock;
   let mockGoBack: jest.Mock;
-  let mockRemoveAnchor: jest.Mock;
+  let mockReleaseAnchor: jest.Mock;
   let mockAuthState = { isAuthenticated: true };
 
   beforeEach(() => {
     jest.clearAllMocks();
     mockNavigate = jest.fn();
     mockGoBack = jest.fn();
-    mockRemoveAnchor = jest.fn();
+    mockReleaseAnchor = jest.fn();
     mockAuthState = { isAuthenticated: true };
     (AuthService.getIdToken as jest.Mock).mockResolvedValue('token');
 
@@ -107,7 +107,7 @@ describe('BurningRitualScreen', () => {
 
     (useAnchorStore as unknown as jest.Mock).mockImplementation((selector: any) =>
       selector({
-        removeAnchor: mockRemoveAnchor,
+        releaseAnchor: mockReleaseAnchor,
         getAnchorById: jest.fn(() => ({
           id: 'test-anchor-id',
           baseSigilSvg: '<svg>store</svg>',
@@ -140,7 +140,7 @@ describe('BurningRitualScreen', () => {
     });
 
     await waitFor(() => {
-      expect(mockRemoveAnchor).toHaveBeenCalledWith('test-anchor-id');
+      expect(mockReleaseAnchor).toHaveBeenCalledWith('test-anchor-id');
       expect(AnalyticsService.track).toHaveBeenCalledWith(AnalyticsEvents.BURN_COMPLETED, {
         anchor_id: 'test-anchor-id',
       });
@@ -159,7 +159,7 @@ describe('BurningRitualScreen', () => {
     });
 
     await waitFor(() => {
-      expect(mockRemoveAnchor).not.toHaveBeenCalled();
+      expect(mockReleaseAnchor).not.toHaveBeenCalled();
       expect(AnalyticsService.track).toHaveBeenCalledWith(AnalyticsEvents.BURN_FAILED, {
         anchor_id: 'test-anchor-id',
       });
@@ -192,7 +192,7 @@ describe('BurningRitualScreen', () => {
   it('falls back to legacy sigilUri artwork when enhancedImageUrl is missing', () => {
     (useAnchorStore as unknown as jest.Mock).mockImplementation((selector: any) =>
       selector({
-        removeAnchor: mockRemoveAnchor,
+        releaseAnchor: mockReleaseAnchor,
         getAnchorById: jest.fn(() => ({
           id: 'test-anchor-id',
           baseSigilSvg: '<svg>store</svg>',
@@ -206,6 +206,25 @@ describe('BurningRitualScreen', () => {
     const { getByTestId } = render(<BurningRitualScreen />);
 
     expect(getByTestId('overlay-image').props.children).toBe('https://example.com/legacy-burn-hero.png');
+  });
+
+  it('prefers enhanced artwork over legacy sigilUri when both exist', () => {
+    (useAnchorStore as unknown as jest.Mock).mockImplementation((selector: any) =>
+      selector({
+        releaseAnchor: mockReleaseAnchor,
+        getAnchorById: jest.fn(() => ({
+          id: 'test-anchor-id',
+          baseSigilSvg: '<svg>store</svg>',
+          reinforcedSigilSvg: '<svg>reinforced</svg>',
+          enhancedImageUrl: 'https://example.com/preferred-burn-hero.png',
+          sigilUri: 'https://example.com/legacy-burn-hero.png',
+        })),
+      })
+    );
+
+    const { getByTestId } = render(<BurningRitualScreen />);
+
+    expect(getByTestId('overlay-image').props.children).toBe('https://example.com/preferred-burn-hero.png');
   });
 
   it('blocks burn commit when auth state is stale and there is no token', async () => {

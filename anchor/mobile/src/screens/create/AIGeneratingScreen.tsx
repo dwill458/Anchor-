@@ -50,6 +50,9 @@ const AnimatedPath = Animated.createAnimatedComponent(Path);
  * Style-specific refinement phrases for ritual experience
  */
 const STYLE_REFINEMENT_PHRASES: Record<AIStyle, string> = {
+  architectural_trace: 'Drafting precise lines and balance',
+  lunar_etch: 'Etching moonlit contrast and quiet radiance',
+  resonance_rings: 'Layering rhythmic pulse rings',
   minimal_line: 'Clarifying lines and balance',
   ink_brush: 'Introducing flow and motion',
   sacred_geometry: 'Aligning structure and proportion',
@@ -135,8 +138,9 @@ export default function AIGeneratingScreen() {
     const baseOpacity = 0.5;
 
     switch (styleChoice) {
+      case 'architectural_trace':
       case 'minimal_line':
-        // Minimal: Clean concentric circles with subtle snapping alignment
+        // Architectural trace: Clean concentric circles with subtle snapping alignment
         return (
           <Svg width={120} height={120} viewBox="0 0 120 120">
             {/* Outer circle */}
@@ -177,6 +181,79 @@ export default function AIGeneratingScreen() {
               fill={colors.gold}
               opacity={sparkleOpacity}
             />
+          </Svg>
+        );
+
+      case 'lunar_etch':
+        return (
+          <Svg width={120} height={120} viewBox="0 0 120 120">
+            <Circle
+              cx="60"
+              cy="60"
+              r="48"
+              stroke={colors.silver}
+              strokeWidth="1.5"
+              fill="none"
+              opacity={0.26}
+            />
+            <Path
+              d="M 81 28 C 63 26, 49 40, 49 60 C 49 80, 63 94, 81 92 C 71 84, 66 74, 66 60 C 66 46, 71 36, 81 28 Z"
+              stroke={colors.silver}
+              strokeWidth="2"
+              fill="none"
+              opacity={0.6}
+            />
+            <Circle cx="83" cy="39" r="2" fill={colors.silver} opacity={0.7} />
+            <Circle cx="90" cy="54" r="1.5" fill={colors.silver} opacity={0.5} />
+            <Circle cx="78" cy="74" r="1.5" fill={colors.silver} opacity={0.45} />
+            <AnimatedCircle
+              cx="60"
+              cy="60"
+              r="10"
+              stroke={colors.gold}
+              strokeWidth="1.25"
+              fill="none"
+              opacity={glowOpacity}
+            />
+          </Svg>
+        );
+
+      case 'resonance_rings':
+        return (
+          <Svg width={120} height={120} viewBox="0 0 120 120">
+            <Circle
+              cx="60"
+              cy="60"
+              r="48"
+              stroke={colors.gold}
+              strokeWidth="1.2"
+              fill="none"
+              opacity={0.22}
+            />
+            <Circle
+              cx="60"
+              cy="60"
+              r="36"
+              stroke={colors.gold}
+              strokeWidth="1.6"
+              fill="none"
+              opacity={0.35}
+              strokeDasharray="7,5"
+            />
+            <Circle
+              cx="60"
+              cy="60"
+              r="24"
+              stroke={colors.gold}
+              strokeWidth="2"
+              fill="none"
+              opacity={0.52}
+            />
+            <AnimatedG opacity={glowOpacity}>
+              <Path d="M 20 60 H 100" stroke={colors.gold} strokeWidth="1.2" fill="none" opacity={0.35} />
+              <Path d="M 60 20 V 100" stroke={colors.gold} strokeWidth="1.2" fill="none" opacity={0.35} />
+            </AnimatedG>
+            <AnimatedCircle cx="60" cy="60" r="5" fill={colors.gold} opacity={sparkleOpacity} />
           </Svg>
         );
 
@@ -707,8 +784,13 @@ export default function AIGeneratingScreen() {
 
     const getRotationDuration = () => {
       switch (styleChoice) {
+        case 'architectural_trace':
         case 'minimal_line':
           return 6000;
+        case 'lunar_etch':
+          return 11000;
+        case 'resonance_rings':
+          return 9000;
         case 'ink_brush':
           return 10000;
         case 'sacred_geometry':
@@ -843,14 +925,14 @@ export default function AIGeneratingScreen() {
   const rotation = rotateAnim.interpolate({
     inputRange: [0, 1],
     outputRange:
-      styleChoice === 'minimal_line'
+      styleChoice === 'architectural_trace' || styleChoice === 'minimal_line'
         ? ['0deg', '360deg'] // Will apply snapping via discrete steps
         : ['0deg', '360deg'],
   });
 
-  // For minimal_line, create snapping alignment effect
+  // For architectural_trace, create snapping alignment effect
   const getRotationTransform = () => {
-    if (styleChoice === 'minimal_line') {
+    if (styleChoice === 'architectural_trace' || styleChoice === 'minimal_line') {
       // Create 12 snapping points (every 30 degrees)
       const snappedRotation = rotateAnim.interpolate({
         inputRange: [

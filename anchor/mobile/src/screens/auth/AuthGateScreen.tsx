@@ -16,6 +16,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import Svg, { Circle, Defs, Path, RadialGradient, Rect, Stop, SvgXml } from 'react-native-svg';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { ZenBackground } from '@/components/common';
+import { REVENUECAT_DEFAULT_PLAN_ID } from '@/config';
 import { useAnchorStore } from '@/stores/anchorStore';
 import { useAuthStore } from '@/stores/authStore';
 import type { RootStackParamList } from '@/types';
@@ -27,7 +28,7 @@ type AuthGateNavigationProp = StackNavigationProp<RootStackParamList, 'AuthGate'
 const PREVIEW_FADE_ID = 'auth-gate-preview-fade';
 const VOID_GLOW_ID = 'auth-gate-void-glow';
 
-type PlanId = 'monthly' | 'annual' | 'lifetime';
+type PlanId = 'monthly' | 'annual';
 
 const PLAN_OPTIONS: Array<{
   id: PlanId;
@@ -38,7 +39,6 @@ const PLAN_OPTIONS: Array<{
 }> = [
   { id: 'monthly', label: 'Monthly', amount: '$7.99', subtitle: 'per month' },
   { id: 'annual', label: 'Annual', amount: '$59.99', subtitle: '$5/mo · save 37%', badge: 'BEST VALUE' },
-  { id: 'lifetime', label: 'Lifetime', amount: '$149', subtitle: 'one time', badge: 'LIMITED' },
 ];
 
 const VoidGlowBackdrop = React.memo(function VoidGlowBackdrop() {
@@ -115,7 +115,7 @@ export default function AuthGateScreen() {
   const navigation = useNavigation<AuthGateNavigationProp>();
   const { height } = useWindowDimensions();
   const anchors = useAnchorStore((state) => state.anchors);
-  const [selectedPlanId, setSelectedPlanId] = useState<PlanId>('annual');
+  const [selectedPlanId, setSelectedPlanId] = useState<PlanId>(REVENUECAT_DEFAULT_PLAN_ID);
   const clearPendingForgeIntent = useAuthStore((state) => state.clearPendingForgeIntent);
   const clearPendingForgeResumeTarget = useAuthStore((state) => state.clearPendingForgeResumeTarget);
   const fadeAnim = useRef(new Animated.Value(0)).current;
@@ -158,13 +158,13 @@ export default function AuthGateScreen() {
   const sigilSvg = latestAnchor?.reinforcedSigilSvg ?? latestAnchor?.baseSigilSvg ?? null;
   const previewHeight = Math.round(height * 0.48);
   const selectedPlan = useMemo(
-    () => PLAN_OPTIONS.find((plan) => plan.id === selectedPlanId) ?? PLAN_OPTIONS[1],
+    () => PLAN_OPTIONS.find((plan) => plan.id === selectedPlanId) ?? PLAN_OPTIONS[0],
     [selectedPlanId]
   );
   const ctaLabel =
     selectedPlan.id === 'annual'
       ? 'Forge Free for 7 Days'
-      : `Forge Free for 7 Days on ${selectedPlan.label}`;
+      : `Start with ${selectedPlan.label}`;
 
   return (
     <View style={styles.root}>

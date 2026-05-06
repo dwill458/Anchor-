@@ -14,6 +14,7 @@ export interface EnvConfig {
 
   // Security
   ALLOWED_ORIGINS?: string; // Comma-separated list of allowed origins
+  COMPED_ACCESS_EMAILS?: string; // Comma/space-separated list of comped account emails
 
   // Auth (Optional - for future Firebase Admin integration)
   FIREBASE_PROJECT_ID?: string;
@@ -175,6 +176,10 @@ export function validateEnv(): EnvConfig {
 
       // Security — never default to wildcard; require explicit config in production.
       ALLOWED_ORIGINS: validateString('ALLOWED_ORIGINS', process.env.ALLOWED_ORIGINS),
+      COMPED_ACCESS_EMAILS: validateString(
+        'COMPED_ACCESS_EMAILS',
+        process.env.COMPED_ACCESS_EMAILS
+      ),
     };
 
     // In production, critical variables must be present.

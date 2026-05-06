@@ -1,26 +1,25 @@
 import React from 'react';
 import { Alert, Pressable, StyleSheet, Text, View } from 'react-native';
-import type { AnchorSettings } from '@/types/settings';
 import NotificationService, { type NotificationType } from '@/services/NotificationService';
 import { useAnchorStore } from '@/stores/anchorStore';
 import { useSettingsStore } from '@/stores/settingsStore';
 import { useForgeMomentStore } from '@/stores/forgeMomentStore';
-import { usePerformanceTier, type PerformanceTierOverride } from '@/hooks/usePerformanceTier';
+import {
+  useDetectedPerformanceTier,
+  usePerformanceTier,
+  type PerformanceTierOverride,
+} from '@/hooks/usePerformanceTier';
+import { useSubscriptionStore } from '@/stores/subscriptionStore';
 import { SettingsRow } from './SettingsRow';
 import { SettingsSectionBlock } from './SettingsSectionBlock';
 
 interface DeveloperToolsSectionProps {
-  settings: AnchorSettings;
-  updateSetting: <K extends keyof AnchorSettings>(
-    key: K,
-    value: AnchorSettings[K]
-  ) => Promise<void> | void;
   resetSettings: () => Promise<void> | void;
   onResetOnboarding: () => Promise<void> | void;
 }
 
 const TIERS: ReadonlyArray<{
-  value: AnchorSettings['dev_simulatedTier'];
+  value: 'pro' | 'trial' | 'expired';
   label: string;
 }> = [
   { value: 'pro', label: 'Paid' },
@@ -40,14 +39,16 @@ const PerfTierPicker: React.FC = () => {
     devPerfTierOverride: s.devPerfTierOverride,
     setDevPerfTierOverride: s.setDevPerfTierOverride,
   }));
-  // Detected tier (no override applied — shows what the device would actually get)
-  const detectedTier = usePerformanceTier({ override: 'auto' });
+  const detectedTier = useDetectedPerformanceTier();
+  const autoTier = usePerformanceTier({ override: 'auto' });
 
   return (
     <View style={styles.segmentRow}>
       <View style={styles.perfTierHeader}>
         <Text style={styles.segmentTitle}>Performance Tier Override</Text>
-        <Text style={styles.perfTierDetected}>Detected: {detectedTier}</Text>
+        <Text style={styles.perfTierDetected}>
+          Device: {detectedTier} · Auto: {autoTier}
+        </Text>
       </View>
       <View style={styles.segmentedControl}>
         {PERF_TIERS.map(({ value, label }) => {
@@ -66,7 +67,8 @@ const PerfTierPicker: React.FC = () => {
         })}
       </View>
       <Text style={styles.perfTierHint}>
-        Forces render tier for all glow/animation components. Resets to Auto on app restart.
+        Override forces all glow and animation components. Device shows raw hardware class; Auto
+        also reflects battery saver and reduce-motion.
       </Text>
     </View>
   );
@@ -106,8 +108,6 @@ const TEST_NOTIFICATION_OPTIONS: Array<{
 ];
 
 export const DeveloperToolsSection: React.FC<DeveloperToolsSectionProps> = ({
-  settings,
-  updateSetting,
   resetSettings,
   onResetOnboarding,
 }) => {
@@ -121,8 +121,31 @@ export const DeveloperToolsSection: React.FC<DeveloperToolsSectionProps> = ({
   const [showNotificationTools, setShowNotificationTools] = React.useState(false);
   const [showWeeklyTools, setShowWeeklyTools] = React.useState(false);
   const [showMilestoneTools, setShowMilestoneTools] = React.useState(false);
+  const subStore = useSubscriptionStore();
+  const developerModeEnabled = useSettingsStore((s) => s.developerModeEnabled);
+  const setDeveloperModeEnabled = useSettingsStore((s) => s.setDeveloperModeEnabled);
+  const developerMasterAccountEnabled = useSettingsStore((s) => s.developerMasterAccountEnabled);
+  const setDeveloperMasterAccountEnabled = useSettingsStore((s) => s.setDeveloperMasterAccountEnabled);
+  const developerSkipOnboardingEnabled = useSettingsStore((s) => s.developerSkipOnboardingEnabled);
+  const setDeveloperSkipOnboardingEnabled = useSettingsStore((s) => s.setDeveloperSkipOnboardingEnabled);
+  const developerForceStreakBreakEnabled = useSettingsStore((s) => s.developerForceStreakBreakEnabled);
+  const setDeveloperForceStreakBreakEnabled = useSettingsStore((s) => s.setDeveloperForceStreakBreakEnabled);
+  const developerDeleteWithoutBurnEnabled = useSettingsStore((s) => s.developerDeleteWithoutBurnEnabled);
+  const setDeveloperDeleteWithoutBurnEnabled = useSettingsStore((s) => s.setDeveloperDeleteWithoutBurnEnabled);
+  const debugLoggingEnabled = useSettingsStore((s) => s.debugLoggingEnabled);
+  const setDebugLoggingEnabled = useSettingsStore((s) => s.setDebugLoggingEnabled);
+
+  const settingsStore = {
+    developerModeEnabled, setDeveloperModeEnabled,
+    developerMasterAccountEnabled, setDeveloperMasterAccountEnabled,
+    developerSkipOnboardingEnabled, setDeveloperSkipOnboardingEnabled,
+    developerForceStreakBreakEnabled, setDeveloperForceStreakBreakEnabled,
+    developerDeleteWithoutBurnEnabled, setDeveloperDeleteWithoutBurnEnabled,
+    debugLoggingEnabled, setDebugLoggingEnabled,
+  };
+
   const selectedTier =
-    settings.dev_simulatedTier === 'free' ? 'expired' : settings.dev_simulatedTier;
+    subStore.devTierOverride === 'free' ? 'expired' : subStore.devTierOverride;
   const triggerDeveloperWeeklySummaryPreview = useSettingsStore(
     (state) => state.triggerDeveloperWeeklySummaryPreview
   );
@@ -359,24 +382,24 @@ export const DeveloperToolsSection: React.FC<DeveloperToolsSectionProps> = ({
                 <SettingsRow
                   title="Developer Mode"
                   type="toggle"
-                  toggleValue={settings.dev_developerModeEnabled}
-                  onToggle={(value) => updateSetting('dev_developerModeEnabled', value)}
+                  toggleValue={settingsStore.developerModeEnabled}
+                  onToggle={settingsStore.setDeveloperModeEnabled}
                   isDev
                 />
                 <SettingsRow
                   title="Enable Dev Overrides"
                   subtitle="Bypass paywalls & gate logic"
                   type="toggle"
-                  toggleValue={settings.dev_overridesEnabled}
-                  onToggle={(value) => updateSetting('dev_overridesEnabled', value)}
+                  toggleValue={subStore.devOverrideEnabled}
+                  onToggle={subStore.setDevOverrideEnabled}
                   isDev
                 />
                 <SettingsRow
                   title="Master Account"
                   subtitle="Use a synthetic dev account and skip auth gates"
                   type="toggle"
-                  toggleValue={settings.dev_masterAccount}
-                  onToggle={(value) => updateSetting('dev_masterAccount', value)}
+                  toggleValue={settingsStore.developerMasterAccountEnabled}
+                  onToggle={settingsStore.setDeveloperMasterAccountEnabled}
                   isDev
                 />
                 <PerfTierPicker />
@@ -389,7 +412,7 @@ export const DeveloperToolsSection: React.FC<DeveloperToolsSectionProps> = ({
                       return (
                         <Pressable
                           key={value}
-                          onPress={() => updateSetting('dev_simulatedTier', value)}
+                          onPress={() => subStore.setDevTierOverride(value)}
                           style={[
                             styles.segmentButton,
                             selected ? styles.segmentButtonSelected : null,
@@ -407,32 +430,32 @@ export const DeveloperToolsSection: React.FC<DeveloperToolsSectionProps> = ({
                   title="Skip Onboarding"
                   subtitle="Jump directly to home"
                   type="toggle"
-                  toggleValue={settings.dev_skipOnboarding}
-                  onToggle={(value) => updateSetting('dev_skipOnboarding', value)}
+                  toggleValue={settingsStore.developerSkipOnboardingEnabled}
+                  onToggle={settingsStore.setDeveloperSkipOnboardingEnabled}
                   isDev
                 />
                 <SettingsRow
                   title="Allow Direct Anchor Delete"
                   subtitle="Delete without full ritual"
                   type="toggle"
-                  toggleValue={settings.dev_allowDirectAnchorDelete}
-                  onToggle={(value) => updateSetting('dev_allowDirectAnchorDelete', value)}
+                  toggleValue={settingsStore.developerDeleteWithoutBurnEnabled}
+                  onToggle={settingsStore.setDeveloperDeleteWithoutBurnEnabled}
                   isDev
                 />
                 <SettingsRow
                   title="Debug Console Logging"
                   subtitle="Verbose app logging"
                   type="toggle"
-                  toggleValue={settings.dev_debugLogging}
-                  onToggle={(value) => updateSetting('dev_debugLogging', value)}
+                  toggleValue={settingsStore.debugLoggingEnabled}
+                  onToggle={settingsStore.setDebugLoggingEnabled}
                   isDev
                 />
                 <SettingsRow
                   title="Force Streak Break"
                   subtitle="Test streak protection UI"
                   type="toggle"
-                  toggleValue={settings.dev_forceStreakBreak}
-                  onToggle={(value) => updateSetting('dev_forceStreakBreak', value)}
+                  toggleValue={settingsStore.developerForceStreakBreakEnabled}
+                  onToggle={settingsStore.setDeveloperForceStreakBreakEnabled}
                   isDev
                 />
                 <SettingsRow
