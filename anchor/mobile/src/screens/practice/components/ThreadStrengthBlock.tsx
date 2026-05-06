@@ -2,7 +2,7 @@ import React from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { SvgXml } from 'react-native-svg';
 import type { Anchor } from '@/types';
-import { OptimizedImage, RingGlowCanvas } from '@/components/common';
+import { BakedGlow, OptimizedImage, RingGlowCanvas } from '@/components/common';
 import { typography } from '@/theme';
 import { useReduceMotionEnabled } from '@/hooks/useReduceMotionEnabled';
 import { useAppPerformanceTier } from '@/hooks/useAppPerformanceTier';
@@ -171,6 +171,8 @@ export const ThreadStrengthBlock: React.FC<ThreadStrengthBlockProps> = ({
   const reduceMotionEnabled = useReduceMotionEnabled();
   const perfTier = useAppPerformanceTier();
   const glowIntensity = clampedStrength / 100;
+  const showAnimatedGlow = perfTier === 'high' && !reduceMotionEnabled;
+  const showStaticGlow = perfTier === 'medium' && state !== 'fading' && glowIntensity > 0.04;
   // Temporary QA fixture to validate the fading-state pip rendering before
   // re-connecting this view to the real week history.
   const renderedWeekHistory = state === 'fading'
@@ -188,14 +190,24 @@ export const ThreadStrengthBlock: React.FC<ThreadStrengthBlockProps> = ({
       <View style={styles.topRow}>
         {/* Wrapper sized to GLOW_SIZE so the canvas overflows the ring evenly */}
         <View style={styles.sigilRingWrap}>
-          {/* Particle glow fills wrapper — ring sits on top, unclipped */}
-          <RingGlowCanvas
-            size={GLOW_SIZE}
-            color={c.ring}
-            intensity={glowIntensity}
-            reduceMotionEnabled={reduceMotionEnabled}
-            tier={perfTier}
-          />
+          {showAnimatedGlow ? (
+            <RingGlowCanvas
+              size={GLOW_SIZE}
+              color={c.ring}
+              intensity={glowIntensity}
+              reduceMotionEnabled={reduceMotionEnabled}
+              tier={perfTier}
+            />
+          ) : null}
+          {showStaticGlow ? (
+            <BakedGlow
+              size={GLOW_SIZE}
+              color={c.ring}
+              baseOpacity={0.18 + glowIntensity * 0.08}
+              peakOpacity={0.18 + glowIntensity * 0.08}
+              reduceMotionEnabled={true}
+            />
+          ) : null}
           <View
             style={[
               styles.sigilRing,

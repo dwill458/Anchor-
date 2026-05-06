@@ -131,6 +131,9 @@ function applyTrialStatus(status: TrialStatusSnapshot): TrialStatusSnapshot {
   const subscriptionStore = useSubscriptionStore.getState();
   subscriptionStore.setRcTier(status.hasActiveEntitlement ? 'pro' : 'free');
   subscriptionStore.setTrialState(status);
+  if (status.hasActiveEntitlement) {
+    subscriptionStore.setSubscriptionStatus('active');
+  }
   return status;
 }
 

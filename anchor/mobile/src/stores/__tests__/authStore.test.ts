@@ -23,6 +23,7 @@ describe('authStore', () => {
     email: 'test@example.com',
     displayName: 'Test User',
     hasCompletedOnboarding: true,
+    isComped: false,
     subscriptionStatus: 'free',
     totalAnchorsCreated: 0,
     totalActivations: 0,

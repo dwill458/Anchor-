@@ -30,6 +30,7 @@ const createMockUser = (overrides: Partial<User> = {}): User => ({
   email: 'guest@example.com',
   displayName: 'Guest User',
   hasCompletedOnboarding: false,
+  isComped: false,
   subscriptionStatus: 'free',
   totalAnchorsCreated: 5,
   totalActivations: 20,

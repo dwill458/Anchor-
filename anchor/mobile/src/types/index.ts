@@ -129,6 +129,7 @@ export interface User {
   email: string;
   displayName?: string;
   hasCompletedOnboarding?: boolean;
+  isComped?: boolean;
   subscriptionStatus: SubscriptionStatus;
   totalAnchorsCreated: number;
   totalActivations: number;

@@ -12,6 +12,7 @@ import { AuthRequest, authMiddleware } from '../middleware/auth';
 import { AppError } from '../middleware/errorHandler';
 import { prisma } from '../../lib/prisma';
 import { getFirebaseAdmin } from '../../config/firebase';
+import { hasCompedAccess } from '../../utils/compedAccess';
 
 const router = Router();
 
@@ -50,6 +51,58 @@ function mapProviderIdToAuthProvider(providerId?: string): 'email' | 'google' | 
     default:
       return 'email';
   }
+}
+
+function serializeUser(user: {
+  id: string;
+  email: string;
+  displayName: string | null;
+  hasCompletedOnboarding: boolean;
+  isComped: boolean;
+  subscriptionStatus: string;
+  totalAnchorsCreated: number;
+  totalActivations: number;
+  currentStreak: number;
+  longestStreak: number;
+  stabilizesTotal: number;
+  stabilizeStreakDays: number;
+  lastStabilizeAt: Date | null;
+  createdAt: Date;
+}) {
+  return {
+    id: user.id,
+    email: user.email,
+    displayName: user.displayName,
+    hasCompletedOnboarding: user.hasCompletedOnboarding,
+    isComped: user.isComped,
+    subscriptionStatus: user.subscriptionStatus,
+    totalAnchorsCreated: user.totalAnchorsCreated,
+    totalActivations: user.totalActivations,
+    currentStreak: user.currentStreak,
+    longestStreak: user.longestStreak,
+    stabilizesTotal: user.stabilizesTotal,
+    stabilizeStreakDays: user.stabilizeStreakDays,
+    lastStabilizeAt: user.lastStabilizeAt,
+    createdAt: user.createdAt,
+  };
+}
+
+async function syncCompedFlag(user: {
+  id: string;
+  email: string;
+  isComped: boolean;
+}): Promise<boolean> {
+  const nextIsComped = hasCompedAccess(user.email);
+  if (user.isComped === nextIsComped) {
+    return nextIsComped;
+  }
+
+  await prisma.user.update({
+    where: { id: user.id },
+    data: { isComped: nextIsComped },
+  });
+
+  return nextIsComped;
 }
 
 // --- Zod schemas ---
@@ -135,6 +188,7 @@ router.post(
         );
       }
 
+      const isComped = hasCompedAccess(email);
       let provider = authProvider;
       if (!provider) {
         const firebaseUser = await getFirebaseAdmin().auth().getUser(req.user.uid);
@@ -146,6 +200,7 @@ router.post(
         update: {
           email,
           displayName: displayName || undefined,
+          isComped,
           ...(hasCompletedOnboarding === true && { hasCompletedOnboarding: true }),
           lastSeenAt: new Date(),
         },
@@ -154,6 +209,7 @@ router.post(
           email,
           displayName,
           authProvider: provider,
+          isComped,
           hasCompletedOnboarding: hasCompletedOnboarding === true,
           lastSeenAt: new Date(),
         },
@@ -167,21 +223,7 @@ router.post(
 
       res.json({
         success: true,
-        data: {
-          id: user.id,
-          email: user.email,
-          displayName: user.displayName,
-          hasCompletedOnboarding: user.hasCompletedOnboarding,
-          subscriptionStatus: user.subscriptionStatus,
-          totalAnchorsCreated: user.totalAnchorsCreated,
-          totalActivations: user.totalActivations,
-          currentStreak: user.currentStreak,
-          longestStreak: user.longestStreak,
-          stabilizesTotal: user.stabilizesTotal,
-          stabilizeStreakDays: user.stabilizeStreakDays,
-          lastStabilizeAt: user.lastStabilizeAt,
-          createdAt: user.createdAt,
-        },
+        data: serializeUser(user),
       });
     } catch (error) {
       if (error instanceof AppError) {
@@ -205,34 +247,25 @@ router.get('/me', authMiddleware, async (req: AuthRequest, res: Response, next: 
       throw new AppError('User not authenticated', 401, 'UNAUTHORIZED');
     }
 
-    const user = await prisma.user.findUnique({
+    const userRecord = await prisma.user.findUnique({
       where: { authUid: req.user.uid },
       include: {
         settings: true,
       },
     });
 
-    if (!user) {
+    if (!userRecord) {
       throw new AppError('User not found', 404, 'USER_NOT_FOUND');
     }
+
+    const isComped = await syncCompedFlag(userRecord);
+    const user = { ...userRecord, isComped };
 
     res.json({
       success: true,
       data: {
-        id: user.id,
-        email: user.email,
-        displayName: user.displayName,
-        hasCompletedOnboarding: user.hasCompletedOnboarding,
-        subscriptionStatus: user.subscriptionStatus,
-        totalAnchorsCreated: user.totalAnchorsCreated,
-        totalActivations: user.totalActivations,
-        currentStreak: user.currentStreak,
-        longestStreak: user.longestStreak,
-        stabilizesTotal: user.stabilizesTotal,
-        stabilizeStreakDays: user.stabilizeStreakDays,
-        lastStabilizeAt: user.lastStabilizeAt,
-        createdAt: user.createdAt,
-        settings: user.settings,
+        ...serializeUser(user),
+        settings: userRecord.settings,
       },
     });
   } catch (error) {
@@ -345,21 +378,10 @@ router.put(
 
       res.json({
         success: true,
-        data: {
-          id: user.id,
-          email: user.email,
-          displayName: user.displayName,
-          hasCompletedOnboarding: user.hasCompletedOnboarding,
-          subscriptionStatus: user.subscriptionStatus,
-          totalAnchorsCreated: user.totalAnchorsCreated,
-          totalActivations: user.totalActivations,
-          currentStreak: user.currentStreak,
-          longestStreak: user.longestStreak,
-          stabilizesTotal: user.stabilizesTotal,
-          stabilizeStreakDays: user.stabilizeStreakDays,
-          lastStabilizeAt: user.lastStabilizeAt,
-          createdAt: user.createdAt,
-        },
+        data: serializeUser({
+          ...user,
+          isComped: await syncCompedFlag(user),
+        }),
       });
     } catch (error) {
       if (error instanceof AppError) {

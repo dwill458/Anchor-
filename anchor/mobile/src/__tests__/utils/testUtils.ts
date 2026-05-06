@@ -14,6 +14,7 @@ export const createMockUser = (overrides?: Partial<User>): User => ({
   email: 'test@example.com',
   displayName: 'Test User',
   hasCompletedOnboarding: true,
+  isComped: false,
   subscriptionStatus: 'free' as SubscriptionStatus,
   totalAnchorsCreated: 5,
   totalActivations: 20,

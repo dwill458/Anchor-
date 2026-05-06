@@ -67,6 +67,7 @@ const MOCK_DB_USER = {
   email: 'test@example.com',
   displayName: 'Test User',
   hasCompletedOnboarding: false,
+  isComped: false,
   subscriptionStatus: 'free',
   totalAnchorsCreated: 0,
   totalActivations: 0,
@@ -96,6 +97,7 @@ const MOCK_SETTINGS = {
 
 beforeEach(() => {
   jest.clearAllMocks();
+  delete process.env.COMPED_ACCESS_EMAILS;
 
   mockedGetFirebaseAdmin.mockReturnValue({
     auth: () => ({
@@ -154,6 +156,28 @@ describe('POST /api/auth/sync', () => {
     );
   });
 
+  it('marks allowlisted emails as comped during sync', async () => {
+    process.env.COMPED_ACCESS_EMAILS = 'test@example.com,other@example.com';
+    (mockPrisma.user.upsert as jest.Mock).mockResolvedValue({
+      ...MOCK_DB_USER,
+      isComped: true,
+    });
+    (mockPrisma.userSettings.upsert as jest.Mock).mockResolvedValue(MOCK_SETTINGS);
+
+    const res = await request(buildApp())
+      .post('/api/auth/sync')
+      .send({ displayName: 'Test User', authProvider: 'email' });
+
+    expect(res.status).toBe(200);
+    expect(res.body.data.isComped).toBe(true);
+    expect(mockPrisma.user.upsert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        update: expect.objectContaining({ isComped: true }),
+        create: expect.objectContaining({ isComped: true }),
+      })
+    );
+  });
+
   it('returns 400 when user has no email in token', async () => {
     mockedAuthMiddleware.mockImplementation((req: any, _res: any, next: any) => {
       req.user = { uid: 'firebase-uid-1' }; // no email
@@ -191,6 +215,7 @@ describe('GET /api/auth/me', () => {
 
     expect(res.status).toBe(200);
     expect(res.body.data.email).toBe('test@example.com');
+    expect(res.body.data.isComped).toBe(false);
     expect(res.body.data.settings).toBeDefined();
   });
 

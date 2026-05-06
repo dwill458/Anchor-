@@ -24,6 +24,7 @@ interface TrialStatusSnapshot {
 interface SubscriptionState extends TrialStatusSnapshot {
     // Real state from RevenueCat (synced via hook/service)
     rcTier: SubscriptionStatus;
+    remoteCompedAccess: boolean;
 
     // Trial state (local, AsyncStorage-persisted)
     trialStartDate: string | null;
@@ -38,6 +39,7 @@ interface SubscriptionState extends TrialStatusSnapshot {
     setTrialStartDate: (date: string) => void;
     setSubscriptionStatus: (status: 'trial' | 'active' | 'expired') => void;
     setTrialState: (snapshot: TrialStatusSnapshot) => void;
+    setRemoteCompedAccess: (enabled: boolean) => void;
     setDevOverrideEnabled: (enabled: boolean) => void;
     setDevTierOverride: (tier: 'free' | 'pro' | 'trial' | 'expired') => void;
     resetOverrides: () => void;
@@ -50,6 +52,7 @@ export const useSubscriptionStore = create<SubscriptionState>()(
     persist(
         (set, get) => ({
             rcTier: 'free',
+            remoteCompedAccess: false,
             trialStartDate: null,
             subscriptionStatus: 'trial',
             devOverrideEnabled: false,
@@ -66,6 +69,7 @@ export const useSubscriptionStore = create<SubscriptionState>()(
             setTrialStartDate: (date) => set({ trialStartDate: date }),
             setSubscriptionStatus: (status) => set({ subscriptionStatus: status }),
             setTrialState: (snapshot) => set(snapshot),
+            setRemoteCompedAccess: (enabled) => set({ remoteCompedAccess: enabled }),
             setDevOverrideEnabled: (enabled) => set({ devOverrideEnabled: enabled }),
             setDevTierOverride: (tier) => set({ devTierOverride: tier }),
 
@@ -75,13 +79,22 @@ export const useSubscriptionStore = create<SubscriptionState>()(
             }),
 
             getEffectiveTier: () => {
-                const { devOverrideEnabled, devTierOverride, rcTier, subscriptionStatus, trialStartDate } = get();
+                const {
+                    devOverrideEnabled,
+                    devTierOverride,
+                    rcTier,
+                    remoteCompedAccess,
+                    subscriptionStatus,
+                    trialStartDate,
+                } = get();
 
                 if (__DEV__ && devOverrideEnabled) {
                     if (devTierOverride === 'expired' || devTierOverride === 'free') return 'free';
                     // 'trial' and 'pro' both grant full access
                     return 'pro';
                 }
+
+                if (remoteCompedAccess) return 'pro';
 
                 // Active paid subscription always wins
                 if (rcTier.startsWith('pro') || subscriptionStatus === 'active') return 'pro';

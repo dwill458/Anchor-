@@ -62,9 +62,7 @@ export const ActivationScreen: React.FC = () => {
   const { recordSession, bumpThreadStrength } = useSessionStore();
   const { recordShown } = useTeachingStore();
   const { handlePrimeComplete } = useNotificationController();
-  const activePostPrimeFlow = usePostPrimeTraceStore((state) => state.activeFlow);
   const beginPostPrimeTraceFlow = usePostPrimeTraceStore((state) => state.beginFlow);
-  const clearPostPrimeTraceFlow = usePostPrimeTraceStore((state) => state.clearFlow);
   const anchor = getAnchorById(anchorId);
   const isPendingFirstAnchor = pendingFirstAnchorDraft?.tempAnchorId === anchorId;
   const anchorHeroUri = anchor
@@ -275,18 +273,24 @@ export const ActivationScreen: React.FC = () => {
 
   useFocusEffect(
     useCallback(() => {
+      if (!pendingPostPrimeFlowId) {
+        return () => undefined;
+      }
+
+      // Read synchronously — avoids waiting for a Zustand subscription re-render
+      const { activeFlow, clearFlow } = usePostPrimeTraceStore.getState();
+
       if (
-        !pendingPostPrimeFlowId ||
-        !activePostPrimeFlow ||
-        activePostPrimeFlow.flowId !== pendingPostPrimeFlowId ||
-        activePostPrimeFlow.result === 'pending'
+        !activeFlow ||
+        activeFlow.flowId !== pendingPostPrimeFlowId ||
+        activeFlow.result === 'pending'
       ) {
         return () => undefined;
       }
 
-      const completedPostPrimeTrace = activePostPrimeFlow.result === 'completed';
+      const completedPostPrimeTrace = activeFlow.result === 'completed';
 
-      clearPostPrimeTraceFlow(pendingPostPrimeFlowId);
+      clearFlow(pendingPostPrimeFlowId);
       setPendingPostPrimeFlowId(null);
 
       if (completedPostPrimeTrace) {
@@ -302,10 +306,8 @@ export const ActivationScreen: React.FC = () => {
       return () => undefined;
     }, [
       activationDurationSeconds,
-      activePostPrimeFlow,
       anchorId,
       bumpThreadStrength,
-      clearPostPrimeTraceFlow,
       pendingPostPrimeFlowId,
       showReflectionModal,
     ])

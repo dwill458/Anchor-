@@ -80,6 +80,7 @@ jobs:
             exit 1
           fi
           echo "$FIREBASE_ANDROID_GOOGLE_SERVICES_JSON_B64" | base64 --decode > google-services.json
+          cp google-services.json android/app/google-services.json
         env:
           FIREBASE_ANDROID_GOOGLE_SERVICES_JSON_B64: ${{ secrets.FIREBASE_ANDROID_GOOGLE_SERVICES_JSON_B64 }}
 

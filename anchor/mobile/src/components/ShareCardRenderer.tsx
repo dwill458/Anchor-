@@ -69,26 +69,28 @@ interface SquareMetrics {
   ruleWidth: number;
 }
 
-function buildSquareMetrics(): SquareMetrics {
+function buildSquareMetrics(scale = 1): SquareMetrics {
+  const scaled = (value: number) => value * scale;
+
   return {
-    paddingHorizontal: 84,
-    paddingTop: 60,
-    paddingBottom: 60,
-    cornerInset: 32,
-    cornerSize: 46,
-    brandFontSize: 15,
-    brandLetterSpacing: 4,
-    ringSize: 580,
-    sigilSize: 520,
-    intentFontSize: 38,
-    intentLineHeight: 50,
-    intentMaxWidth: 840,
-    statLabelFontSize: 15,
-    statValueFontSize: 26,
-    footerWordmarkSize: 28,
-    footerUrlSize: 18,
-    footerGap: 6,
-    ruleWidth: 120,
+    paddingHorizontal: scaled(84),
+    paddingTop: scaled(60),
+    paddingBottom: scaled(60),
+    cornerInset: scaled(32),
+    cornerSize: scaled(46),
+    brandFontSize: scaled(15),
+    brandLetterSpacing: scaled(4),
+    ringSize: scaled(580),
+    sigilSize: scaled(520),
+    intentFontSize: scaled(38),
+    intentLineHeight: scaled(50),
+    intentMaxWidth: scaled(840),
+    statLabelFontSize: scaled(15),
+    statValueFontSize: scaled(26),
+    footerWordmarkSize: scaled(28),
+    footerUrlSize: scaled(18),
+    footerGap: scaled(6),
+    ruleWidth: scaled(120),
   };
 }
 
@@ -340,7 +342,12 @@ function SquareCardSurface({
   onArtworkReady,
 }: ShareCardSurfaceProps) {
   const size = FORMAT_SIZES.square;
-  const metrics = buildSquareMetrics();
+  const scale = 1 / DEVICE_SCALE;
+  const layoutSize = {
+    width: scalePx(size.width),
+    height: scalePx(size.height),
+  };
+  const metrics = buildSquareMetrics(scale);
   const safeIntention = useMemo(() => {
     const raw = intention?.trim() || 'Anchor intention unavailable';
     const normalized = raw.replace(/\s+/g, ' ');
@@ -351,8 +358,8 @@ function SquareCardSurface({
   }, [intention]);
 
   return (
-    <View style={{ width: size.width, height: size.height, backgroundColor: NAVY }}>
-      <BackgroundArt width={size.width} height={size.height} />
+    <View style={{ width: layoutSize.width, height: layoutSize.height, backgroundColor: NAVY }}>
+      <BackgroundArt width={layoutSize.width} height={layoutSize.height} />
       <Corner position="tl" inset={metrics.cornerInset} size={metrics.cornerSize} />
       <Corner position="tr" inset={metrics.cornerInset} size={metrics.cornerSize} />
       <Corner position="bl" inset={metrics.cornerInset} size={metrics.cornerSize} />
@@ -396,15 +403,15 @@ function SquareCardSurface({
                 fontSize: metrics.intentFontSize,
                 lineHeight: metrics.intentLineHeight,
                 maxWidth: metrics.intentMaxWidth,
-                marginTop: 28,
+                marginTop: scalePx(28),
               },
             ]}
           >
             {safeIntention}
           </Text>
 
-          <View style={[styles.rule, { width: metrics.ruleWidth, marginTop: 34 }]} />
-          <View style={styles.statBlock}>
+          <View style={[styles.rule, { width: metrics.ruleWidth, marginTop: scalePx(34) }]} />
+          <View style={[styles.statBlock, { marginTop: scalePx(26), gap: scalePx(8) }]}>
             <Text style={[styles.statValue, { fontSize: metrics.statValueFontSize }]}>
               {Math.max(0, daysPrimed || 0)}
             </Text>

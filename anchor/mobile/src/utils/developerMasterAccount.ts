@@ -14,6 +14,7 @@ export function createDeveloperMasterUser(overrides: Partial<User> = {}): User {
     email: 'dev+master@anchor.local',
     displayName: 'Developer Master',
     hasCompletedOnboarding: true,
+    isComped: true,
     subscriptionStatus: 'pro',
     totalAnchorsCreated: 0,
     totalActivations: 0,

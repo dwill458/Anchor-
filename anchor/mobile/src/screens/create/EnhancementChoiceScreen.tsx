@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
   View,
   Text,
@@ -8,12 +8,13 @@ import {
   Animated,
   Dimensions,
   Platform,
+  BackHandler,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { BlurView } from 'expo-blur';
 import { StatusBar } from 'expo-status-bar';
-import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
+import { useFocusEffect, useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
 import Svg, { Circle, Path } from 'react-native-svg';
 import { RootStackParamList } from '@/types';
@@ -87,6 +88,49 @@ export const EnhancementChoiceScreen: React.FC = () => {
     structureVariant,
     reinforcementMetadata,
   } = route.params;
+
+  const handleBack = useCallback(() => {
+    if (navigation.canGoBack()) {
+      navigation.goBack();
+      return;
+    }
+
+    navigation.replace('LockStructure', {
+      intentionText,
+      category,
+      distilledLetters,
+      baseSigilSvg,
+      reinforcedSigilSvg,
+      structureVariant,
+      reinforcementMetadata,
+    });
+  }, [
+    navigation,
+    intentionText,
+    category,
+    distilledLetters,
+    baseSigilSvg,
+    reinforcedSigilSvg,
+    structureVariant,
+    reinforcementMetadata,
+  ]);
+
+  useFocusEffect(
+    useCallback(() => {
+      if (Platform.OS !== 'android') {
+        return undefined;
+      }
+
+      const subscription = BackHandler.addEventListener('hardwareBackPress', () => {
+        handleBack();
+        return true;
+      });
+
+      return () => {
+        subscription.remove();
+      };
+    }, [handleBack])
+  );
 
   useEffect(() => {
     Animated.parallel([
@@ -169,7 +213,7 @@ export const EnhancementChoiceScreen: React.FC = () => {
       <SafeAreaView style={styles.safeArea}>
         {/* Back arrow */}
         <TouchableOpacity
-          onPress={() => navigation.goBack()}
+          onPress={handleBack}
           style={styles.backButton}
           accessibilityRole="button"
           accessibilityLabel="Go back"
