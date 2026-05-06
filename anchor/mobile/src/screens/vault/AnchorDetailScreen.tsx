@@ -47,7 +47,6 @@ import Reanimated, {
 } from 'react-native-reanimated';
 import { DivineSigilAura } from './components/DivineSigilAura';
 import {
-  BakedGlow,
   ChargedGlowCanvas,
   ZenBackground,
 } from '@/components/common';
@@ -552,6 +551,7 @@ const MiniWeekTrack = ({ weekHistory, lastPrimedAt }) => {
 const AnchorDetailsScreen = ({ navigation, route }) => {
   const insets = useSafeAreaInsets();
   const perfTier = useAppPerformanceTier();
+  const isLowPerfDevice = perfTier === 'low';
   const { navigateToPractice } = useTabNavigation();
   const getAnchorById = useAnchorStore((state) => state.getAnchorById);
   const removeAnchor = useAnchorStore((state) => state.removeAnchor);
@@ -676,8 +676,8 @@ const AnchorDetailsScreen = ({ navigation, route }) => {
   const divineBreath = useSharedValue(0);
   const divineGlowActive = Boolean(anchor.charged || anchor.today === 'Primed');
   const freezeDetailChrome = Platform.OS === 'android' && isScrollActiveRef.current;
-  const pauseExpensiveEffects = freezeDetailChrome;
-  const enableAndroidHeavyChrome = Platform.OS !== 'android';
+  const pauseExpensiveEffects = freezeDetailChrome || isLowPerfDevice;
+  const enableDetailChromeGlow = Platform.OS !== 'android' && !isLowPerfDevice;
   const glowAnimationsActive = divineGlowActive && !pauseExpensiveEffects;
   const headerBlurIntensity = Platform.OS === 'ios'
     ? perfTier === 'high'
@@ -714,7 +714,7 @@ const AnchorDetailsScreen = ({ navigation, route }) => {
   }, [divineBreath, divineGlowActive, pauseExpensiveEffects]);
 
   const topCardPulseStyle = useAnimatedStyle(() => {
-    if (!enableAndroidHeavyChrome) {
+    if (!enableDetailChromeGlow) {
       return {
         borderColor: colors.practice.cardFeaturedBorder,
         shadowOpacity: 0,
@@ -740,16 +740,16 @@ const AnchorDetailsScreen = ({ navigation, route }) => {
       shadowOpacity: interpolate(divineBreath.value, [0, 1], [0.12, 0.34]),
       shadowRadius: interpolate(divineBreath.value, [0, 1], [10, 20]),
     };
-  }, [divineBreath, enableAndroidHeavyChrome, glowAnimationsActive]);
+  }, [divineBreath, enableDetailChromeGlow, glowAnimationsActive]);
 
   const topCardAuraStyle = useAnimatedStyle(() => ({
-    opacity: enableAndroidHeavyChrome && glowAnimationsActive
+    opacity: enableDetailChromeGlow && glowAnimationsActive
       ? interpolate(divineBreath.value, [0, 1], [0.12, 0.34])
       : 0,
-  }), [divineBreath, enableAndroidHeavyChrome, glowAnimationsActive]);
+  }), [divineBreath, enableDetailChromeGlow, glowAnimationsActive]);
 
   const statsCardPulseStyle = useAnimatedStyle(() => {
-    if (!enableAndroidHeavyChrome) {
+    if (!enableDetailChromeGlow) {
       return {
         borderColor: colors.practice.threadBorder,
         shadowOpacity: 0,
@@ -775,13 +775,13 @@ const AnchorDetailsScreen = ({ navigation, route }) => {
       shadowOpacity: interpolate(divineBreath.value, [0, 1], [0.14, 0.4]),
       shadowRadius: interpolate(divineBreath.value, [0, 1], [12, 26]),
     };
-  }, [divineBreath, enableAndroidHeavyChrome, glowAnimationsActive]);
+  }, [divineBreath, enableDetailChromeGlow, glowAnimationsActive]);
 
   const statsCardAuraStyle = useAnimatedStyle(() => ({
-    opacity: enableAndroidHeavyChrome && glowAnimationsActive
+    opacity: enableDetailChromeGlow && glowAnimationsActive
       ? interpolate(divineBreath.value, [0, 1], [0.14, 0.36])
       : 0,
-  }), [divineBreath, enableAndroidHeavyChrome, glowAnimationsActive]);
+  }), [divineBreath, enableDetailChromeGlow, glowAnimationsActive]);
 
   useEffect(() => {
     if (defaultActivation?.unit !== 'seconds') return;
@@ -1100,7 +1100,14 @@ const AnchorDetailsScreen = ({ navigation, route }) => {
     <View style={[s.root, { paddingTop: insets.top }]}>
       <StatusBar barStyle="light-content" />
 
-      {isReady && <ZenBackground variant="practice" showOrbs showGrain showVignette />}
+      {isReady && (
+        <ZenBackground
+          variant="practice"
+          showOrbs={!isLowPerfDevice}
+          showGrain
+          showVignette
+        />
+      )}
 
       {/* ── HEADER ── */}
       {headerBlurIntensity > 0 ? (
@@ -1136,10 +1143,10 @@ const AnchorDetailsScreen = ({ navigation, route }) => {
         <View style={s.heroStack}>
           {/* ── TITLE CARD ── */}
           <FadeUp delay={50}>
-            <Reanimated.View style={[s.animatedCardShell, Platform.OS === 'android' && s.animatedCardShellAndroid, topCardPulseStyle]}>
+            <Reanimated.View style={[s.animatedCardShell, Platform.OS === 'android' && s.animatedCardShellAndroid, isLowPerfDevice && s.lowPerfFlatCardShell, topCardPulseStyle]}>
               <LinearGradient
                 colors={CARD_GRADIENT}
-                style={[s.card, s.cardGold, Platform.OS === 'android' && s.cardGoldAndroid]}
+                style={[s.card, s.cardGold, Platform.OS === 'android' && s.cardGoldAndroid, isLowPerfDevice && s.lowPerfNoCardShadow]}
               >
                 <Text style={s.anchorEyebrow}>CURRENT ANCHOR</Text>
                 <Text style={s.intentionText}>{anchor.intention}</Text>
@@ -1160,14 +1167,16 @@ const AnchorDetailsScreen = ({ navigation, route }) => {
                   </View>
                 </View>
               </LinearGradient>
-              <Reanimated.View pointerEvents="none" style={[s.cardAuraOverlay, topCardAuraStyle]}>
-                <LinearGradient
-                  colors={['rgba(255, 223, 133, 0.14)', 'rgba(245, 198, 82, 0.05)', 'rgba(255, 223, 133, 0.14)']}
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 1, y: 1 }}
-                  style={StyleSheet.absoluteFillObject}
-                />
-              </Reanimated.View>
+              {!isLowPerfDevice && (
+                <Reanimated.View pointerEvents="none" style={[s.cardAuraOverlay, topCardAuraStyle]}>
+                  <LinearGradient
+                    colors={['rgba(255, 223, 133, 0.14)', 'rgba(245, 198, 82, 0.05)', 'rgba(255, 223, 133, 0.14)']}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 1 }}
+                    style={StyleSheet.absoluteFillObject}
+                  />
+                </Reanimated.View>
+              )}
             </Reanimated.View>
           </FadeUp>
 
@@ -1179,36 +1188,30 @@ const AnchorDetailsScreen = ({ navigation, route }) => {
               needsOffscreenAlphaCompositing={freezeDetailChrome}
             >
               {/* DivineSigilAura only for uncharged — sits behind the card.
-                  On low-tier devices we swap in BakedGlow, which composites a
-                  single hardware-cached radial gradient instead of the full
-                  Skia particle canvas. */}
-              {!anchor.charged && isReady && (
+                  Low-tier devices skip the aura entirely to avoid extra
+                  offscreen compositing and the visible halo artifact. */}
+              {!anchor.charged && isReady && !isLowPerfDevice && (
                 <View pointerEvents="none" style={s.sigilAuraCanvas}>
-                  {perfTier === 'low' ? (
-                    <BakedGlow size={SCREEN_W * 1.25} />
-                  ) : (
-                    <DivineSigilAura
-                      size={SCREEN_W * 1.25}
-                      enabled
-                      breath={divineBreath}
-                      tier={pauseExpensiveEffects ? 'medium' : perfTier}
-                    />
-                  )}
+                  <DivineSigilAura
+                    size={SCREEN_W * 1.25}
+                    enabled
+                    breath={divineBreath}
+                    tier={pauseExpensiveEffects ? 'medium' : perfTier}
+                  />
                 </View>
               )}
-              <View style={[s.sigilCard, Platform.OS === 'android' && s.sigilCardAndroid]}>
+              <View style={[s.sigilCard, Platform.OS === 'android' && s.sigilCardAndroid, isLowPerfDevice && s.lowPerfNoSigilShadow]}>
                 <LinearGradient
                   colors={['#1a0f35', '#0d0820', '#080510']}
                   style={s.sigilWrapper}
                 >
-                  {!divineGlowActive && <BreathingGlow animate={perfTier === 'high' && !pauseExpensiveEffects} />}
+                  {!divineGlowActive && !isLowPerfDevice && (
+                    <BreathingGlow animate={perfTier === 'high' && !pauseExpensiveEffects} />
+                  )}
 
                   {/* ChargedGlowCanvas fills inside the card for charged
-                      anchors. Low-tier substitutes BakedGlow; medium-tier
-                      keeps the Skia look but freezes the per-frame update. */}
-                  {anchor.charged && perfTier === 'low' && isReady && (
-                    <BakedGlow size={SCREEN_W * 0.65} />
-                  )}
+                      anchors. Low-tier devices skip the glow entirely;
+                      medium-tier keeps the Skia look but freezes per-frame updates. */}
                   {anchor.charged && perfTier !== 'low' && isReady && (
                     <ChargedGlowCanvas
                       size={SCREEN_W * 0.65}
@@ -1229,7 +1232,7 @@ const AnchorDetailsScreen = ({ navigation, route }) => {
                       resizeMode="cover"
                     />
                   ) : anchor.baseSigilSvg ? (
-                    <View style={[s.sigilPlaceholder, Platform.OS === 'android' && s.sigilPlaceholderAndroid, anchor.charged && s.chargedSigilPlaceholder]}>
+                    <View style={[s.sigilPlaceholder, Platform.OS === 'android' && s.sigilPlaceholderAndroid, isLowPerfDevice && s.lowPerfNoSigilShadow, anchor.charged && s.chargedSigilPlaceholder]}>
                       <SvgXml
                         xml={anchor.baseSigilSvg}
                         width={SIGIL_CIRCLE_SIZE * (anchor.charged ? 0.72 : 1)}
@@ -1251,8 +1254,8 @@ const AnchorDetailsScreen = ({ navigation, route }) => {
 
           {/* ── STATS CARD ── */}
           <FadeUp delay={180}>
-            <Reanimated.View style={[s.animatedCardShell, Platform.OS === 'android' && s.animatedCardShellAndroid, statsCardPulseStyle]}>
-              <LinearGradient colors={[colors.practice.threadSurface, colors.practice.threadSurface]} style={[s.card, s.statsCard]}>
+            <Reanimated.View style={[s.animatedCardShell, Platform.OS === 'android' && s.animatedCardShellAndroid, isLowPerfDevice && s.lowPerfFlatCardShell, statsCardPulseStyle]}>
+              <LinearGradient colors={[colors.practice.threadSurface, colors.practice.threadSurface]} style={[s.card, s.statsCard, isLowPerfDevice && s.lowPerfNoCardShadow]}>
                 <View style={s.miniStreakCard}>
                   <View style={s.miniStreakLeft}>
                     <View style={s.miniStreakIcon}>
@@ -1290,14 +1293,16 @@ const AnchorDetailsScreen = ({ navigation, route }) => {
                   <Text style={{ color: C.textDim, fontSize: 12, marginLeft: spacing.xs }}>ⓘ</Text>
                 </View>
               </LinearGradient>
-              <Reanimated.View pointerEvents="none" style={[s.cardAuraOverlay, statsCardAuraStyle]}>
-                <LinearGradient
-                  colors={['rgba(255, 223, 133, 0.18)', 'rgba(245, 198, 82, 0.08)', 'rgba(255, 223, 133, 0.18)']}
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 1, y: 1 }}
-                  style={StyleSheet.absoluteFillObject}
-                />
-              </Reanimated.View>
+              {!isLowPerfDevice && (
+                <Reanimated.View pointerEvents="none" style={[s.cardAuraOverlay, statsCardAuraStyle]}>
+                  <LinearGradient
+                    colors={['rgba(255, 223, 133, 0.18)', 'rgba(245, 198, 82, 0.08)', 'rgba(255, 223, 133, 0.18)']}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 1 }}
+                    style={StyleSheet.absoluteFillObject}
+                  />
+                </Reanimated.View>
+              )}
             </Reanimated.View>
           </FadeUp>
         </View>
@@ -1629,6 +1634,11 @@ const s = StyleSheet.create({
   animatedCardShellAndroid: {
     elevation: 0,
   },
+  lowPerfFlatCardShell: {
+    elevation: 0,
+    shadowOpacity: 0,
+    shadowRadius: 0,
+  },
   cardAuraOverlay: {
     ...StyleSheet.absoluteFillObject,
     borderRadius: 14,
@@ -1643,6 +1653,11 @@ const s = StyleSheet.create({
     elevation: 4,
   },
   cardGoldAndroid: {
+    shadowOpacity: 0,
+    shadowRadius: 0,
+    elevation: 0,
+  },
+  lowPerfNoCardShadow: {
     shadowOpacity: 0,
     shadowRadius: 0,
     elevation: 0,
@@ -1760,6 +1775,11 @@ const s = StyleSheet.create({
     elevation: 8,
   },
   sigilCardAndroid: {
+    shadowOpacity: 0,
+    shadowRadius: 0,
+    elevation: 0,
+  },
+  lowPerfNoSigilShadow: {
     shadowOpacity: 0,
     shadowRadius: 0,
     elevation: 0,

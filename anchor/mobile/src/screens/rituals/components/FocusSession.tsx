@@ -441,7 +441,8 @@ export const FocusSession: React.FC<FocusSessionProps> = ({
   const triggerComplete = useCallback(() => {
     if (continuePressedRef.current) return;
     continuePressedRef.current = true;
-    onComplete();
+    // Delay so user sees the fully-sealed ring before the modal overlays
+    setTimeout(onComplete, 400);
   }, [onComplete]);
 
   const handleSealPressIn = useCallback(() => {
@@ -452,6 +453,8 @@ export const FocusSession: React.FC<FocusSessionProps> = ({
   }, [isSeal, sealProgress, triggerComplete]);
 
   const handleSealPressOut = useCallback(() => {
+    // If completion is already in progress, don't reset the ring
+    if (continuePressedRef.current) return;
     cancelAnimation(sealProgress);
     sealProgress.value = withTiming(0, { duration: 200, reduceMotion: ReduceMotion.Never });
   }, [sealProgress]);

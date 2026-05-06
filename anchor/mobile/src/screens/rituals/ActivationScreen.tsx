@@ -237,6 +237,10 @@ export const ActivationScreen: React.FC = () => {
     sessionCompletedRef.current = true;
     setShowExitWarning(false);
 
+    // Log the activation immediately when the seal completes — not gated on modal "Done"
+    void logActivationInBackground();
+    await handlePrimeComplete();
+
     if (isFirstPrimeForAnchor) {
       showReflectionModal();
       return;
@@ -250,7 +254,7 @@ export const ActivationScreen: React.FC = () => {
     }
 
     showReflectionModal();
-  }, [isFirstPrimeForAnchor, showReflectionModal]);
+  }, [handlePrimeComplete, isFirstPrimeForAnchor, logActivationInBackground, showReflectionModal]);
 
   const handleSkipPostPrimeTrace = useCallback(() => {
     showReflectionModal();
@@ -373,11 +377,6 @@ export const ActivationScreen: React.FC = () => {
       reflectionWord,
       completedAt: new Date().toISOString(),
     });
-
-    await handlePrimeComplete();
-
-    // Log to backend (non-blocking)
-    void logActivationInBackground();
 
     if (returnTo === 'practice') {
       const nav = navigation as any;
