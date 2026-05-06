@@ -160,7 +160,6 @@ export const usePerformanceTier = (
 
   const [deviceTier] = useState<PerformanceTier>(getDetectedPerformanceTier);
   const [lowPowerMode, setLowPowerMode] = useState(false);
-  const [reduceMotion, setReduceMotion] = useState(false);
 
   // Battery low-power / battery-saver listener
   useEffect(() => {
@@ -188,31 +187,11 @@ export const usePerformanceTier = (
     };
   }, []);
 
-  // Accessibility reduce-motion listener
-  useEffect(() => {
-    let mounted = true;
-    AccessibilityInfo.isReduceMotionEnabled()
-      .then((enabled) => {
-        if (mounted) setReduceMotion(enabled);
-      })
-      .catch(() => {
-        if (mounted) setReduceMotion(false);
-      });
-    const sub = AccessibilityInfo.addEventListener(
-      'reduceMotionChanged',
-      (isEnabled: boolean) => setReduceMotion(isEnabled),
-    );
-    return () => {
-      mounted = false;
-      sub.remove();
-    };
-  }, []);
-
   return useMemo<PerformanceTier>(() => {
     if (override !== 'auto') return override;
-    if (reduceMotion || lowPowerMode) return 'low';
+    if (lowPowerMode) return 'low';
     return deviceTier;
-  }, [override, reduceMotion, lowPowerMode, deviceTier]);
+  }, [override, lowPowerMode, deviceTier]);
 };
 
 export const useDetectedPerformanceTier = (): PerformanceTier => {

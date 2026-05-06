@@ -1,7 +1,9 @@
-import React, { useRef, useEffect, useCallback, useMemo } from 'react';
+import React, { useRef, useEffect, useCallback, useState } from 'react';
 import { View, StyleSheet, Image as RNImage } from 'react-native';
 import { WebView } from 'react-native-webview';
 import type { WebViewMessageEvent } from 'react-native-webview';
+import { Asset } from 'expo-asset';
+import * as FileSystem from 'expo-file-system/legacy';
 import { forgeWebViewHtml } from './forgeWebViewHtml';
 
 /** Interactive sigil forge demonstration for onboarding slide 3. */
@@ -18,20 +20,55 @@ export const ForgeDemo: React.FC<ForgeDemoProps> = ({ isActive, onForgeComplete 
   const webViewRef = useRef<WebView>(null);
   const prevActiveRef = useRef(false);
 
-  const imageUri = useMemo(
-    () => RNImage.resolveAssetSource(forgeRevealAsset).uri,
-    []
-  );
+  const [resolvedImageUri, setResolvedImageUri] = useState<string | null>(null);
+
+  useEffect(() => {
+    let isCancelled = false;
+    async function loadAsset() {
+      try {
+        const asset = Asset.fromModule(forgeRevealAsset);
+        if (!asset.localUri) {
+          await asset.downloadAsync();
+        }
+        if (isCancelled) return;
+
+        const uri = asset.localUri || asset.uri;
+        if (uri.startsWith('file:') || uri.startsWith('content:')) {
+          const base64 = await FileSystem.readAsStringAsync(uri, {
+            encoding: FileSystem.EncodingType.Base64,
+          });
+          setResolvedImageUri(`data:image/png;base64,${base64}`);
+        } else {
+          setResolvedImageUri(uri);
+        }
+      } catch (err) {
+        if (!isCancelled) {
+          setResolvedImageUri(RNImage.resolveAssetSource(forgeRevealAsset).uri);
+        }
+      }
+    }
+    loadAsset();
+    return () => {
+      isCancelled = true;
+    };
+  }, []);
 
   const injectImageUri = useCallback(() => {
+    if (!resolvedImageUri) return;
     webViewRef.current?.injectJavaScript(`
       (function() {
         var img = document.getElementById('forgeSigil');
-        if (img) img.src = ${JSON.stringify(imageUri)};
+        if (img) img.src = ${JSON.stringify(resolvedImageUri)};
       })();
       true;
     `);
-  }, [imageUri]);
+  }, [resolvedImageUri]);
+
+  useEffect(() => {
+    if (resolvedImageUri) {
+      injectImageUri();
+    }
+  }, [resolvedImageUri, injectImageUri]);
 
   useEffect(() => {
     if (isActive && !prevActiveRef.current) {
@@ -67,8 +104,11 @@ export const ForgeDemo: React.FC<ForgeDemoProps> = ({ isActive, onForgeComplete 
         style={styles.webview}
         onLoad={injectImageUri}
         onMessage={handleMessage}
-        originWhitelist={['about:blank']}
-        mixedContentMode="never"
+        originWhitelist={['*']}
+        allowFileAccess
+        allowFileAccessFromFileURLs
+        allowUniversalAccessFromFileURLs
+        mixedContentMode="always"
         scrollEnabled={false}
         bounces={false}
         overScrollMode="never"

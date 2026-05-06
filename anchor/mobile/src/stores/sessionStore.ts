@@ -90,6 +90,8 @@ interface SessionState {
   resetIfNewDay: () => void;
   /** Apply thread strength decay for missed days. Call on app open / screen focus. */
   applyDecay: () => void;
+  /** Applies an explicit, non-session-based thread strength delta. */
+  bumpThreadStrength: (delta: number) => void;
 }
 
 const EMPTY_TODAY = (): DayPractice => ({ date: localDateString(new Date()), sessionsCount: 0, totalSeconds: 0 });
@@ -395,6 +397,16 @@ export const useSessionStore = create<SessionState>()(
         }
 
         set({ threadStrength: newStrength, lastDecayDate: today });
+      },
+
+      bumpThreadStrength: (delta) => {
+        if (!Number.isFinite(delta) || delta === 0) {
+          return;
+        }
+
+        set((state) => ({
+          threadStrength: Math.max(0, Math.min(100, state.threadStrength + delta)),
+        }));
       },
     }),
     {

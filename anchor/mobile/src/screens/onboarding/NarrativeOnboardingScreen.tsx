@@ -482,7 +482,7 @@ export const NarrativeOnboardingScreen: React.FC<Props> = ({ navigation }) => {
     if (currentSlide < TOTAL - 1) {
       goToSlide(currentSlide + 1);
     } else {
-      // Slide 4 — complete onboarding, redirect to create flow
+      // Slide 4 — complete onboarding, redirect to first anchor creation
       setShouldRedirectToCreation(true);
       completeOnboarding();
       // RootNavigator switches to Main automatically on hasCompletedOnboarding change

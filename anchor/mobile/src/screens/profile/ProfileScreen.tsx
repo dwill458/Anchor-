@@ -259,9 +259,7 @@ export const ProfileScreen: React.FC = () => {
   const nextDepth = getNextDepthLevel(totalPrimes);
   const depthProgress = getDepthProgress(totalPrimes);
   const isCompactProfileLayout = width < 420;
-  const identityTextMaxWidth = isCompactProfileLayout
-    ? Math.min(180, Math.floor(width * 0.45))
-    : 220;
+  const identityTextMaxWidth = isCompactProfileLayout ? undefined : 220;
 
   const resolvedName =
     name || user?.displayName || user?.email?.split("@")[0] || "Practitioner";
@@ -370,7 +368,13 @@ export const ProfileScreen: React.FC = () => {
             subscriptionStatus={resolvedSubscriptionStatus}
           />
 
-          <View style={[styles.identityTextWrap, { maxWidth: identityTextMaxWidth }]}>
+          <View
+            style={[
+              styles.identityTextWrap,
+              isCompactProfileLayout ? styles.identityTextWrapCompact : null,
+              identityTextMaxWidth ? { maxWidth: identityTextMaxWidth } : null,
+            ]}
+          >
             <Text style={styles.identityName}>
               {resolvedName}
             </Text>
@@ -601,12 +605,19 @@ const styles = StyleSheet.create({
     marginBottom: spacing.lg,
   },
   identityRowCompact: {
+    flexDirection: "column",
+    alignItems: "stretch",
     gap: spacing.sm,
   },
   identityTextWrap: {
     flexShrink: 1,
     minWidth: 0,
     paddingTop: 6,
+  },
+  identityTextWrapCompact: {
+    width: "100%",
+    paddingTop: 0,
+    paddingHorizontal: spacing.md,
   },
   identityName: {
     fontFamily: typography.fonts.bodySerif,

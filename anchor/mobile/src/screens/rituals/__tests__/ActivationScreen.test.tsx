@@ -8,10 +8,12 @@ import React from 'react';
 import { render, waitFor, fireEvent, act } from '@testing-library/react-native';
 import { ActivationScreen } from '../ActivationScreen';
 import { useAnchorStore } from '@/stores/anchorStore';
+import { useAuthStore } from '@/stores/authStore';
 import { useSettingsStore } from '@/stores/settingsStore';
 import { apiClient } from '@/services/ApiClient';
 import { ErrorTrackingService } from '@/services/ErrorTrackingService';
 import { createMockAnchor } from '@/__tests__/utils/testUtils';
+import { usePostPrimeTraceStore } from '@/stores/postPrimeTraceStore';
 
 const TEST_ACTIVATION_DURATION_SECONDS = 2;
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
@@ -20,18 +22,27 @@ const mockPlaySound = jest.fn();
 const mockHandlePrimeComplete = jest.fn();
 const mockSetActiveSession = jest.fn();
 const mockRecordPrimeSession = jest.fn();
+const mockIsPostPrimeTraceEligible = jest.fn().mockResolvedValue(false);
+const mockMarkPostPrimeTraceAttemptStarted = jest.fn().mockResolvedValue(undefined);
 
-jest.mock('@react-navigation/native', () => ({
-  useRoute: jest.fn(() => ({
-    params: {
-      anchorId: 'test-anchor-id',
-      activationType: 'visual',
+jest.mock('@react-navigation/native', () => {
+  const React = require('react');
+
+  return {
+    useRoute: jest.fn(() => ({
+      params: {
+        anchorId: 'test-anchor-id',
+        activationType: 'visual',
+      },
+    })),
+    useNavigation: jest.fn(() => ({
+      goBack: jest.fn(),
+    })),
+    useFocusEffect: (effect: () => void | (() => void)) => {
+      React.useEffect(() => effect(), [effect]);
     },
-  })),
-  useNavigation: jest.fn(() => ({
-    goBack: jest.fn(),
-  })),
-}));
+  };
+});
 
 jest.mock('react-native-reanimated', () => {
   const React = require('react');
@@ -96,6 +107,11 @@ jest.mock('@/hooks/useNotificationController', () => ({
     setActiveSession: mockSetActiveSession,
   }),
 }));
+jest.mock('@/utils/postPrimeTraceEligibility', () => ({
+  isPostPrimeTraceEligible: (...args: any[]) => mockIsPostPrimeTraceEligible(...args),
+  markPostPrimeTraceAttemptStarted: (...args: any[]) =>
+    mockMarkPostPrimeTraceAttemptStarted(...args),
+}));
 
 // Helper: make useSettingsStore call the selector so values resolve correctly
 const mockSettingsState = (overrides: Record<string, unknown> = {}) => {
@@ -128,6 +144,7 @@ describe('ActivationScreen', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     mockPlaySound.mockClear();
+    useAuthStore.setState({ pendingFirstAnchorDraft: null });
 
     mockGoBack = jest.fn();
     mockPopToTop = jest.fn();
@@ -144,6 +161,11 @@ describe('ActivationScreen', () => {
     mockSetActiveSession.mockReset();
     mockSetActiveSession.mockResolvedValue(undefined);
     mockRecordPrimeSession.mockReset();
+    mockIsPostPrimeTraceEligible.mockReset();
+    mockIsPostPrimeTraceEligible.mockResolvedValue(false);
+    mockMarkPostPrimeTraceAttemptStarted.mockReset();
+    mockMarkPostPrimeTraceAttemptStarted.mockResolvedValue(undefined);
+    usePostPrimeTraceStore.setState({ activeFlow: null });
 
     mockAnchor = createMockAnchor({
       id: 'test-anchor-id',
@@ -300,6 +322,7 @@ describe('ActivationScreen', () => {
     fireEvent.press(getByTestId('focus-session-continue'));
 
     // Now click Done in CompletionModal
+    await waitFor(() => expect(getByTestId('completion-modal-done')).toBeTruthy());
     fireEvent.press(getByTestId('completion-modal-done'));
 
     await waitFor(() => expect(mockGoBack).toHaveBeenCalled());
@@ -318,6 +341,7 @@ describe('ActivationScreen', () => {
 
     await waitFor(() => expect(getByTestId('focus-session-continue')).toBeTruthy(), { timeout: 4000 });
     fireEvent.press(getByTestId('focus-session-continue'));
+    await waitFor(() => expect(getByTestId('completion-modal-done')).toBeTruthy());
     fireEvent.press(getByTestId('completion-modal-done'));
 
     await waitFor(() => expect(mockUpdateAnchor).toHaveBeenCalledWith('test-anchor-id', {
@@ -344,7 +368,7 @@ describe('ActivationScreen', () => {
     fireEvent.press(getByTestId('focus-session-dismiss'));
 
     expect(mockGoBack).not.toHaveBeenCalled();
-    expect(getByTestId('completion-modal-done')).toBeTruthy();
+    await waitFor(() => expect(getByTestId('completion-modal-done')).toBeTruthy());
   });
 
   it('routes completed-session back attempts into reflection instead of exit warning', async () => {
@@ -382,6 +406,7 @@ describe('ActivationScreen', () => {
     const { getByTestId } = render(<ActivationScreen />);
     await waitFor(() => expect(getByTestId('focus-session-continue')).toBeTruthy(), { timeout: 4000 });
     fireEvent.press(getByTestId('focus-session-continue'));
+    await waitFor(() => expect(getByTestId('completion-modal-done')).toBeTruthy());
     fireEvent.press(getByTestId('completion-modal-done'));
 
     await waitFor(() => {
@@ -404,6 +429,7 @@ describe('ActivationScreen', () => {
 
     await waitFor(() => expect(getByTestId('focus-session-continue')).toBeTruthy(), { timeout: 4000 });
     fireEvent.press(getByTestId('focus-session-continue'));
+    await waitFor(() => expect(getByTestId('completion-modal-done')).toBeTruthy());
     fireEvent.press(getByTestId('completion-modal-done'));
 
     await waitFor(() => {
@@ -430,6 +456,7 @@ describe('ActivationScreen', () => {
 
     await waitFor(() => expect(getByTestId('focus-session-continue')).toBeTruthy(), { timeout: 4000 });
     fireEvent.press(getByTestId('focus-session-continue'));
+    await waitFor(() => expect(getByTestId('completion-modal-done')).toBeTruthy());
     fireEvent.press(getByTestId('completion-modal-done'));
 
     await waitFor(() => {
@@ -443,6 +470,120 @@ describe('ActivationScreen', () => {
     });
   });
 
+  it('shows the post-prime trace prompt before reflection when eligible', async () => {
+    mockIsPostPrimeTraceEligible.mockResolvedValue(true);
+
+    const { getByTestId, queryByTestId } = render(<ActivationScreen />);
+
+    await waitFor(() => expect(getByTestId('focus-session-continue')).toBeTruthy(), { timeout: 4000 });
+    fireEvent.press(getByTestId('focus-session-continue'));
+
+    await waitFor(() => expect(getByTestId('post-prime-trace-modal')).toBeTruthy());
+    expect(queryByTestId('completion-modal-done')).toBeNull();
+  });
+
+  it('skips the post-prime trace prompt on the first prime session for an anchor', async () => {
+    mockIsPostPrimeTraceEligible.mockResolvedValue(true);
+    mockAnchor = createMockAnchor({
+      id: 'test-anchor-id',
+      intentionText: 'I am confident',
+      baseSigilSvg: '<svg></svg>',
+      isCharged: false,
+      activationCount: 0,
+      chargeCount: 0,
+      firstChargedAt: undefined,
+    });
+    mockGetAnchorById.mockReturnValue(mockAnchor);
+
+    const { getByTestId, queryByTestId } = render(<ActivationScreen />);
+
+    await waitFor(() => expect(getByTestId('focus-session-continue')).toBeTruthy(), { timeout: 4000 });
+    fireEvent.press(getByTestId('focus-session-continue'));
+
+    await waitFor(() => expect(getByTestId('completion-modal-done')).toBeTruthy());
+    expect(queryByTestId('post-prime-trace-modal')).toBeNull();
+    expect(mockIsPostPrimeTraceEligible).not.toHaveBeenCalled();
+  });
+
+  it('marks the anchor as charged when the first quick-prime completes', async () => {
+    mockAnchor = createMockAnchor({
+      id: 'test-anchor-id',
+      intentionText: 'I am confident',
+      baseSigilSvg: '<svg></svg>',
+      isCharged: false,
+      activationCount: 0,
+      chargeCount: 0,
+      firstChargedAt: undefined,
+      chargedAt: undefined,
+    });
+    mockGetAnchorById.mockReturnValue(mockAnchor);
+
+    const { getByTestId } = render(<ActivationScreen />);
+
+    await waitFor(() => expect(getByTestId('focus-session-continue')).toBeTruthy(), { timeout: 4000 });
+    fireEvent.press(getByTestId('focus-session-continue'));
+    await waitFor(() => expect(getByTestId('completion-modal-done')).toBeTruthy());
+    fireEvent.press(getByTestId('completion-modal-done'));
+
+    await waitFor(() =>
+      expect(mockUpdateAnchor).toHaveBeenCalledWith(
+        'test-anchor-id',
+        expect.objectContaining({
+          isCharged: true,
+          chargedAt: expect.any(Date),
+          firstChargedAt: expect.any(Date),
+          chargeCount: 1,
+          activationCount: 1,
+          lastActivatedAt: expect.any(Date),
+        })
+      )
+    );
+  });
+
+  it('skips post-prime trace into reflection without applying the trace flow', async () => {
+    mockIsPostPrimeTraceEligible.mockResolvedValue(true);
+
+    const { getByTestId } = render(<ActivationScreen />);
+
+    await waitFor(() => expect(getByTestId('focus-session-continue')).toBeTruthy(), { timeout: 4000 });
+    fireEvent.press(getByTestId('focus-session-continue'));
+
+    await waitFor(() => expect(getByTestId('post-prime-skip-button')).toBeTruthy());
+    fireEvent.press(getByTestId('post-prime-skip-button'));
+
+    await waitFor(() => expect(getByTestId('completion-modal-done')).toBeTruthy());
+    expect(mockNavigate).not.toHaveBeenCalledWith('ManualReinforcement', expect.anything());
+  });
+
+  it('starts post-prime trace and returns to reflection after a completed trace result', async () => {
+    mockIsPostPrimeTraceEligible.mockResolvedValue(true);
+
+    const { getByTestId } = render(<ActivationScreen />);
+
+    await waitFor(() => expect(getByTestId('focus-session-continue')).toBeTruthy(), { timeout: 4000 });
+    fireEvent.press(getByTestId('focus-session-continue'));
+
+    await waitFor(() => expect(getByTestId('post-prime-trace-button')).toBeTruthy());
+    fireEvent.press(getByTestId('post-prime-trace-button'));
+
+    expect(mockMarkPostPrimeTraceAttemptStarted).toHaveBeenCalled();
+    await waitFor(() =>
+      expect(mockNavigate).toHaveBeenCalledWith('ManualReinforcement', {
+        source: 'post_prime_trace',
+        anchorId: 'test-anchor-id',
+      })
+    );
+
+    const flowId = usePostPrimeTraceStore.getState().activeFlow?.flowId;
+    expect(flowId).toBeTruthy();
+
+    act(() => {
+      usePostPrimeTraceStore.getState().finishFlow(flowId!, 'completed');
+    });
+
+    await waitFor(() => expect(getByTestId('completion-modal-done')).toBeTruthy());
+  });
+
   it('handles API errors gracefully after sealing', async () => {
     const error = new Error('Network error');
     (apiClient.post as jest.Mock).mockRejectedValue(error);
@@ -451,6 +592,7 @@ describe('ActivationScreen', () => {
 
     await waitFor(() => expect(getByTestId('focus-session-continue')).toBeTruthy(), { timeout: 4000 });
     fireEvent.press(getByTestId('focus-session-continue'));
+    await waitFor(() => expect(getByTestId('completion-modal-done')).toBeTruthy());
     fireEvent.press(getByTestId('completion-modal-done'));
 
     await waitFor(() => {
@@ -468,5 +610,26 @@ describe('ActivationScreen', () => {
     expect(mockToastError).toHaveBeenCalledWith(
       'Activation completed but failed to sync. Will retry later.'
     );
+  });
+
+  it('replaces back to Vault after a creation-launched activation completes', async () => {
+    const navigation = require('@react-navigation/native');
+    navigation.useRoute.mockReturnValue({
+      params: {
+        anchorId: 'test-anchor-id',
+        activationType: 'visual',
+        returnTo: 'vault',
+        durationOverride: TEST_ACTIVATION_DURATION_SECONDS,
+      },
+    });
+
+    const { getByTestId } = render(<ActivationScreen />);
+
+    await waitFor(() => expect(getByTestId('focus-session-continue')).toBeTruthy(), { timeout: 4000 });
+    fireEvent.press(getByTestId('focus-session-continue'));
+    await waitFor(() => expect(getByTestId('completion-modal-done')).toBeTruthy());
+    fireEvent.press(getByTestId('completion-modal-done'));
+
+    await waitFor(() => expect(mockReplace).toHaveBeenCalledWith('Vault'));
   });
 });
