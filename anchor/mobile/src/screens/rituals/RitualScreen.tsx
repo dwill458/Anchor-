@@ -46,6 +46,11 @@ import { ProgressHaloRing } from './components/ProgressHaloRing';
 import { ConfirmModal } from './components/ConfirmModal';
 import { CompletionModal } from './components/CompletionModal';
 import { TIMING, EASING } from './utils/transitionConstants';
+import {
+  getDeepBreathCue,
+  getDeepBreathCycleProgress,
+  getDeepBreathTiming,
+} from './utils/deepBreath';
 import * as Speech from 'expo-speech';
 import { navigateToVaultDestination } from '@/navigation/firstAnchorGate';
 import { useNotificationController } from '@/hooks/useNotificationController';
@@ -103,14 +108,6 @@ type EmberParticle = {
   delay: number;
   isEmber: boolean;
 };
-
-const DEEP_PHASE_BREATHS: Record<string, { inhale: number; hold: number; exhale: number }> = {
-  breathwork: { inhale: 4, hold: 2, exhale: 6 },
-  'repeat intention': { inhale: 4, hold: 0, exhale: 6 },
-  visualization: { inhale: 5, hold: 0, exhale: 5 },
-  transfer: { inhale: 4, hold: 2, exhale: 4 },
-  seal: { inhale: 4, hold: 0, exhale: 4 },
-};
 const DEEP_OUTER_ORB_DOTS = Array.from({ length: 24 }, (_, index) => {
   const angle = (index / 24) * Math.PI * 2;
   return {
@@ -145,28 +142,6 @@ const formatLandingTime = (seconds: number) => {
   const mins = Math.floor(clamped / 60);
   const secs = clamped % 60;
   return `${mins}M ${String(secs).padStart(2, '0')}S`;
-};
-
-const getDeepBreathCue = (phaseTitle: string | undefined, phaseElapsed: number) => {
-  const key = phaseTitle?.toLowerCase().trim() ?? '';
-  const pattern = DEEP_PHASE_BREATHS[key];
-  if (!pattern) {
-    return '';
-  }
-
-  const cycleLength = pattern.inhale + pattern.hold + pattern.exhale;
-  if (cycleLength <= 0) {
-    return '';
-  }
-
-  const cycleTime = Math.max(0, phaseElapsed % cycleLength);
-  if (cycleTime < pattern.inhale) {
-    return 'Breathe in';
-  }
-  if (cycleTime < pattern.inhale + pattern.hold) {
-    return 'Hold';
-  }
-  return 'Breathe out';
 };
 
 const makeDeepEmbers = (count: number): EmberParticle[] =>
@@ -317,10 +292,7 @@ export const RitualScreen: React.FC = () => {
   const deepPhaseFlashAnim = useRef(new Animated.Value(0)).current;
   const deepOrbitSpinA = useRef(new Animated.Value(0)).current;
   const deepOrbitSpinB = useRef(new Animated.Value(0)).current;
-  const deepPulseA = useRef(new Animated.Value(0)).current;
-  const deepPulseB = useRef(new Animated.Value(0)).current;
-  const deepHaloBreath = useRef(new Animated.Value(0)).current;
-  const deepSigilFloat = useRef(new Animated.Value(0)).current;
+  const deepBreathAnim = useRef(new Animated.Value(0)).current;
   const sealEntranceAnim = useRef(new Animated.Value(0)).current;
   const sealPulseAnim = useRef(new Animated.Value(0)).current;
   const regularRingSpinA = useRef(new Animated.Value(0)).current;
@@ -891,6 +863,15 @@ export const RitualScreen: React.FC = () => {
     }
     return Math.min(Math.max(state.phaseElapsed / phase.durationSeconds, 0), 1);
   });
+  const deepBreathTiming = getDeepBreathTiming(state.currentPhase?.title);
+  const deepBreathInputRange = deepBreathTiming.hasHold
+    ? [0, deepBreathTiming.inhaleEnd, deepBreathTiming.holdEnd, 1]
+    : [0, deepBreathTiming.inhaleEnd, 1];
+  const interpolateDeepBreath = (holdOutputs: number[], noHoldOutputs: number[]) =>
+    deepBreathAnim.interpolate({
+      inputRange: deepBreathInputRange,
+      outputRange: deepBreathTiming.hasHold ? holdOutputs : noHoldOutputs,
+    });
   const deepOrbitRotateA = deepOrbitSpinA.interpolate({
     inputRange: [0, 1],
     outputRange: ['0deg', '360deg'],
@@ -899,71 +880,67 @@ export const RitualScreen: React.FC = () => {
     inputRange: [0, 1],
     outputRange: ['0deg', '-360deg'],
   });
-  const deepPulseAOpacity = deepPulseA.interpolate({
-    inputRange: [0, 0.5, 1],
-    outputRange: [0.08, 0.24, 0.08],
-  });
-  const deepPulseAScale = deepPulseA.interpolate({
-    inputRange: [0, 0.5, 1],
-    outputRange: [1, 1.03, 1],
-  });
-  const deepPulseBOpacity = deepPulseB.interpolate({
-    inputRange: [0, 0.5, 1],
-    outputRange: [0.13, 0.39, 0.13],
-  });
-  const deepPulseBScale = deepPulseB.interpolate({
-    inputRange: [0, 0.5, 1],
-    outputRange: [1, 1.03, 1],
-  });
-  const deepHaloScale = deepHaloBreath.interpolate({
-    inputRange: [0, 0.5, 1],
-    outputRange: [1, 1.06, 1],
-  });
-  const deepHaloOpacity = deepHaloBreath.interpolate({
-    inputRange: [0, 0.5, 1],
-    outputRange: [0.85, 1, 0.85],
-  });
-  const deepSigilTranslateY = deepSigilFloat.interpolate({
-    inputRange: [0, 0.5, 1],
-    outputRange: [0, -4, 0],
-  });
-  const deepSigilScale = deepSigilFloat.interpolate({
-    inputRange: [0, 0.5, 1],
-    outputRange: [1, 1.02, 1],
-  });
-  const deepAuraScale = deepPulseA.interpolate({
-    inputRange: [0, 0.5, 1],
-    outputRange: [0.9, 1.18, 0.9],
-  });
-  const deepAuraOpacity = deepPulseA.interpolate({
-    inputRange: [0, 0.5, 1],
-    outputRange: [0.3, 0.75, 0.3],
-  });
-  const deepInnerAuraScale = deepPulseB.interpolate({
-    inputRange: [0, 0.5, 1],
-    outputRange: [0.94, 1.08, 0.94],
-  });
-  const deepInnerAuraOpacity = deepPulseB.interpolate({
-    inputRange: [0, 0.5, 1],
-    outputRange: [0.16, 0.36, 0.16],
-  });
-  const deepOuterOrbOpacity = deepPulseA.interpolate({
-    inputRange: [0, 0.5, 1],
-    outputRange: [0.65, 1, 0.65],
-  });
-  const deepInnerOrbOpacity = deepPulseB.interpolate({
-    inputRange: [0, 0.5, 1],
-    outputRange: [0.62, 1, 0.62],
-  });
+  const deepPulseAOpacity = interpolateDeepBreath(
+    [0.08, 0.24, 0.24, 0.08],
+    [0.08, 0.24, 0.08]
+  );
+  const deepPulseAScale = interpolateDeepBreath(
+    [1, 1.04, 1.04, 1],
+    [1, 1.04, 1]
+  );
+  const deepPulseBOpacity = interpolateDeepBreath(
+    [0.13, 0.39, 0.39, 0.13],
+    [0.13, 0.39, 0.13]
+  );
+  const deepPulseBScale = interpolateDeepBreath(
+    [0.98, 1.03, 1.03, 0.98],
+    [0.98, 1.03, 0.98]
+  );
+  const deepHaloScale = interpolateDeepBreath(
+    [0.98, 1.08, 1.08, 0.98],
+    [0.98, 1.08, 0.98]
+  );
+  const deepHaloOpacity = interpolateDeepBreath(
+    [0.82, 1, 1, 0.82],
+    [0.82, 1, 0.82]
+  );
+  const deepSigilTranslateY = interpolateDeepBreath(
+    [0, -4, -4, 0],
+    [0, -4, 0]
+  );
+  const deepSigilScale = interpolateDeepBreath(
+    [0.99, 1.025, 1.025, 0.99],
+    [0.99, 1.025, 0.99]
+  );
+  const deepAuraScale = interpolateDeepBreath(
+    [0.92, 1.18, 1.18, 0.92],
+    [0.92, 1.18, 0.92]
+  );
+  const deepAuraOpacity = interpolateDeepBreath(
+    [0.28, 0.75, 0.75, 0.28],
+    [0.28, 0.75, 0.28]
+  );
+  const deepInnerAuraScale = interpolateDeepBreath(
+    [0.95, 1.1, 1.1, 0.95],
+    [0.95, 1.1, 0.95]
+  );
+  const deepInnerAuraOpacity = interpolateDeepBreath(
+    [0.14, 0.34, 0.34, 0.14],
+    [0.14, 0.34, 0.14]
+  );
+  const deepOuterOrbOpacity = interpolateDeepBreath(
+    [0.62, 1, 1, 0.62],
+    [0.62, 1, 0.62]
+  );
+  const deepInnerOrbOpacity = interpolateDeepBreath(
+    [0.6, 0.95, 0.95, 0.6],
+    [0.6, 0.95, 0.6]
+  );
 
   useEffect(() => {
     if (!isDeepRitual || !isReady) {
       deepOrbitSpinA.setValue(0);
       deepOrbitSpinB.setValue(0);
-      deepPulseA.setValue(0);
-      deepPulseB.setValue(0);
-      deepHaloBreath.setValue(0);
-      deepSigilFloat.setValue(0);
       return;
     }
 
@@ -981,62 +958,118 @@ export const RitualScreen: React.FC = () => {
         useNativeDriver: true,
       })
     );
-    const pulseALoop = Animated.loop(
-      Animated.timing(deepPulseA, {
-        toValue: 1,
-        duration: 5000,
-        useNativeDriver: true,
-      })
-    );
-    const pulseBLoop = Animated.loop(
-      Animated.sequence([
-        Animated.delay(700),
-        Animated.timing(deepPulseB, {
-          toValue: 1,
-          duration: 5000,
-          useNativeDriver: true,
-        }),
-      ])
-    );
-    const haloLoop = Animated.loop(
-      Animated.timing(deepHaloBreath, {
-        toValue: 1,
-        duration: 5000,
-        useNativeDriver: true,
-      })
-    );
-    const sigilLoop = Animated.loop(
-      Animated.timing(deepSigilFloat, {
-        toValue: 1,
-        duration: 5000,
-        useNativeDriver: true,
-      })
-    );
 
     orbitALoop.start();
     orbitBLoop.start();
-    pulseALoop.start();
-    pulseBLoop.start();
-    haloLoop.start();
-    sigilLoop.start();
 
     return () => {
       orbitALoop.stop();
       orbitBLoop.stop();
-      pulseALoop.stop();
-      pulseBLoop.stop();
-      haloLoop.stop();
-      sigilLoop.stop();
     };
   }, [
-    deepHaloBreath,
     deepOrbitSpinA,
     deepOrbitSpinB,
-    deepPulseA,
-    deepPulseB,
-    deepSigilFloat,
     isDeepRitual,
     isReady,
+  ]);
+
+  useEffect(() => {
+    let settleAnimation: Animated.CompositeAnimation | null = null;
+    let loopAnimation: Animated.CompositeAnimation | null = null;
+    let cancelled = false;
+
+    if (!isDeepRitual || !isReady) {
+      deepBreathAnim.setValue(0);
+      return () => undefined;
+    }
+
+    if (reduceMotionEnabled) {
+      deepBreathAnim.setValue(state.isSealPhase ? 0.68 : getDeepBreathCycleProgress(
+        state.currentPhase?.title,
+        state.phaseElapsed
+      ));
+      return () => undefined;
+    }
+
+    if (state.isSealPhase) {
+      deepBreathAnim.setValue(0.45);
+      loopAnimation = Animated.loop(
+        Animated.sequence([
+          Animated.timing(deepBreathAnim, {
+            toValue: 1,
+            duration: 1600,
+            easing: Easing.inOut(Easing.quad),
+            useNativeDriver: true,
+          }),
+          Animated.timing(deepBreathAnim, {
+            toValue: 0.45,
+            duration: 1600,
+            easing: Easing.inOut(Easing.quad),
+            useNativeDriver: true,
+          }),
+        ])
+      );
+      loopAnimation.start();
+      return () => {
+        loopAnimation?.stop();
+      };
+    }
+
+    const cycleProgress = getDeepBreathCycleProgress(
+      state.currentPhase?.title,
+      state.phaseElapsed
+    );
+    const cycleDurationMs = Math.max(400, Math.round(deepBreathTiming.cycleSeconds * 1000));
+
+    deepBreathAnim.setValue(cycleProgress);
+
+    if (!state.isActive) {
+      return () => undefined;
+    }
+
+    const startFullCycleLoop = () => {
+      if (cancelled) {
+        return;
+      }
+      deepBreathAnim.setValue(0);
+      loopAnimation = Animated.loop(
+        Animated.timing(deepBreathAnim, {
+          toValue: 1,
+          duration: cycleDurationMs,
+          easing: Easing.linear,
+          useNativeDriver: true,
+        })
+      );
+      loopAnimation.start();
+    };
+
+    settleAnimation = Animated.timing(deepBreathAnim, {
+      toValue: 1,
+      duration: Math.max(80, Math.round((1 - cycleProgress) * cycleDurationMs)),
+      easing: Easing.linear,
+      useNativeDriver: true,
+    });
+    settleAnimation.start(({ finished }) => {
+      if (finished) {
+        startFullCycleLoop();
+      }
+    });
+
+    return () => {
+      cancelled = true;
+      settleAnimation?.stop();
+      loopAnimation?.stop();
+    };
+  }, [
+    deepBreathAnim,
+    deepBreathTiming.cycleSeconds,
+    isDeepRitual,
+    isReady,
+    reduceMotionEnabled,
+    state.currentPhase?.title,
+    state.isActive,
+    state.isSealPhase,
+    state.phaseElapsed,
   ]);
 
   const previousPhaseIndexRef = useRef(activePhaseIndex);

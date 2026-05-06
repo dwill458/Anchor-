@@ -26,7 +26,7 @@ import { spawnSync } from 'node:child_process';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 
-const PACKAGE_NAME = process.env.ANCHOR_PACKAGE ?? 'com.anchor.app';
+const PACKAGE_NAME = process.env.ANCHOR_PACKAGE ?? 'com.anchorintentions.app';
 const SERIAL_FROM_ENV = process.env.ADB_SERIAL ?? '';
 const OUTPUT_DIR = path.resolve(__dirname, '../assets/store-screenshots');
 const TARGET_WIDTH = 1080;

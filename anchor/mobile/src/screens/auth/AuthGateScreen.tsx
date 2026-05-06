@@ -118,6 +118,7 @@ export default function AuthGateScreen() {
   const [selectedPlanId, setSelectedPlanId] = useState<PlanId>(REVENUECAT_DEFAULT_PLAN_ID);
   const clearPendingForgeIntent = useAuthStore((state) => state.clearPendingForgeIntent);
   const clearPendingForgeResumeTarget = useAuthStore((state) => state.clearPendingForgeResumeTarget);
+  const pendingFirstAnchorDraft = useAuthStore((state) => state.pendingFirstAnchorDraft);
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const slideAnim = useRef(new Animated.Value(20)).current;
 
@@ -135,12 +136,17 @@ export default function AuthGateScreen() {
   }, [clearPendingForgeIntent, clearPendingForgeResumeTarget, navigation]);
 
   const handleCreateAccount = useCallback(() => {
-    navigation.navigate('Login', { initialTab: 'signup' });
-  }, [navigation]);
+    navigation.navigate('Login', {
+      initialTab: 'signup',
+      context: pendingFirstAnchorDraft ? 'first_anchor_gate' : undefined,
+    });
+  }, [navigation, pendingFirstAnchorDraft]);
 
   const handleSignIn = useCallback(() => {
-    navigation.navigate('Login');
-  }, [navigation]);
+    navigation.navigate('Login', {
+      context: pendingFirstAnchorDraft ? 'first_anchor_gate' : undefined,
+    });
+  }, [navigation, pendingFirstAnchorDraft]);
 
   const latestAnchor = useMemo(() => {
     if (anchors.length === 0) {

@@ -96,7 +96,7 @@ android {
     buildToolsVersion rootProject.ext.buildToolsVersion
     compileSdk rootProject.ext.compileSdkVersion
 
-    namespace 'com.anchor.app'
+    namespace 'com.anchorintentions.app'
     defaultConfig {
         applicationId 'com.anchorintentions.app'
         minSdkVersion rootProject.ext.minSdkVersion
