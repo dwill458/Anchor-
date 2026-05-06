@@ -20,7 +20,7 @@ import { useSettingsReveal } from '@/components/transitions/SettingsRevealProvid
 import { AuthService } from '@/services/AuthService';
 import { useAuthStore } from '@/stores/authStore';
 import type { RootStackParamList } from '@/types';
-import { LEGAL_URLS, SUPPORT_EMAIL_URL } from '@/constants/legal';
+import { LEGAL_URLS, SUPPORT_EMAIL, SUPPORT_EMAIL_URL } from '@/constants/legal';
 import { SettingsRow } from '@/components/settings/SettingsRow';
 import { SettingsSectionBlock } from '@/components/settings/SettingsSectionBlock';
 import NotificationService from '@/services/NotificationService';
@@ -59,12 +59,6 @@ const restorePurchases = async (): Promise<void> => {
   Alert.alert('Restore Purchase', 'RevenueCat restorePurchases() is not available in this build.');
 };
 
-const PlaceholderTag: React.FC<{ label: string }> = ({ label }) => (
-  <View style={styles.placeholderTag}>
-    <Text style={styles.placeholderTagText}>{label}</Text>
-  </View>
-);
-
 export const SettingsScreen: React.FC = () => {
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const { settings, updateSetting, resetSettings, isLoading } = useSettingsState();
@@ -82,7 +76,13 @@ export const SettingsScreen: React.FC = () => {
   );
   const restDays = useSettingsStore((state) => state.restDays ?? []);
   const { notifState, toggleNotifications, updateActiveHours, toggleWeaver } = useNotificationController();
-  const { setHasCompletedOnboarding, signOut } = useAuthStore();
+  const user = useAuthStore((state) => state.user);
+  const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
+  const profileEmail = useAuthStore((state) => state.profileData?.user?.email?.trim() ?? '');
+  const fetchProfile = useAuthStore((state) => state.fetchProfile);
+  const setUser = useAuthStore((state) => state.setUser);
+  const setHasCompletedOnboarding = useAuthStore((state) => state.setHasCompletedOnboarding);
+  const signOut = useAuthStore((state) => state.signOut);
   const reveal = useSettingsReveal();
   const [hourPickerTarget, setHourPickerTarget] = useState<'wake' | 'reminder' | null>(null);
   const hasMarkedReadyRef = useRef(false);
@@ -200,6 +200,16 @@ export const SettingsScreen: React.FC = () => {
     Linking.openURL(LEGAL_URLS.support);
   };
 
+  const firebaseEmail = isAuthenticated
+    ? AuthService.getCurrentFirebaseUser?.()?.email?.trim() ?? ''
+    : '';
+  const accountEmail = user?.email?.trim() || profileEmail || firebaseEmail;
+  const accountSubtitle = isAuthenticated
+    ? accountEmail
+      ? 'Synced to this account'
+      : 'Syncing account details...'
+    : 'Not signed in';
+
   useEffect(
     () => () => {
       if (frameRef.current !== null) {
@@ -208,6 +218,20 @@ export const SettingsScreen: React.FC = () => {
     },
     []
   );
+
+  useEffect(() => {
+    if (!isAuthenticated || !user?.id || user.email?.trim()) {
+      return;
+    }
+
+    if (firebaseEmail) {
+      setUser({ ...user, email: firebaseEmail });
+    }
+
+    void fetchProfile().catch((error) => {
+      console.warn('[SettingsScreen] Failed to refresh account profile', error);
+    });
+  }, [fetchProfile, firebaseEmail, isAuthenticated, setUser, user]);
 
   const formatHourLabel = useCallback((hour: number | null | undefined) => {
     const normalizedHour = Math.max(0, Math.min(23, hour ?? 0));
@@ -433,9 +457,9 @@ export const SettingsScreen: React.FC = () => {
           <SettingsSectionBlock>
             <SettingsRow
               title="Email Address"
-              subtitle="Account sync coming soon"
-              type="none"
-              rightElement={<PlaceholderTag label="v1.1" />}
+              subtitle={accountSubtitle}
+              value={accountEmail || 'Not signed in'}
+              type="static"
             />
             <SettingsRow title="Sign Out" type="chevron" onPress={handleSignOut} />
             <SettingsRow
@@ -492,6 +516,7 @@ export const SettingsScreen: React.FC = () => {
             <SettingsRow title="App Version" value={appVersion} type="static" />
             <SettingsRow
               title="Contact Support"
+              subtitle={SUPPORT_EMAIL}
               type="chevron"
               onPress={async () => {
                 const supported = await Linking.canOpenURL(SUPPORT_EMAIL_URL);
@@ -619,19 +644,6 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontFamily: 'Inter-Regular',
     lineHeight: 16,
-  },
-  placeholderTag: {
-    borderRadius: 4,
-    borderWidth: 0.5,
-    borderColor: 'rgba(212,175,55,0.15)',
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-  },
-  placeholderTagText: {
-    color: SETTINGS_MUTED_TEXT,
-    fontSize: 10,
-    fontFamily: 'Inter-Regular',
-    letterSpacing: 0.6,
   },
   benefitsRow: {
     paddingHorizontal: 20,

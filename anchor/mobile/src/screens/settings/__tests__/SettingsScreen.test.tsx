@@ -14,6 +14,7 @@ const mockNotifState = {
   sovereign_rank: false,
   weaver_enabled: true,
 };
+const mockFetchProfile = jest.fn(() => Promise.resolve());
 const mockSettings = {
   openDailyAnchorAutomatically: false,
   practiceGuidanceEnabled: true,
@@ -32,6 +33,18 @@ const mockSettingsStoreState = {
   dailyPracticeGoalPreset: 'three' as const,
   threadStrengthSensitivity: 'balanced' as const,
   restDays: [] as number[],
+};
+const mockAuthStoreState = {
+  user: {
+    id: 'user-1',
+    email: 'member@anchor.test',
+  },
+  isAuthenticated: true,
+  profileData: null,
+  fetchProfile: mockFetchProfile,
+  setUser: jest.fn(),
+  setHasCompletedOnboarding: jest.fn(),
+  signOut: jest.fn(),
 };
 
 jest.mock('@react-native-community/datetimepicker', () => 'DateTimePicker');
@@ -52,7 +65,7 @@ jest.mock('@/components/transitions/SettingsRevealProvider', () => ({
 }));
 
 jest.mock('@/components/settings/SettingsRow', () => ({
-  SettingsRow: ({ title, type, onToggle, toggleValue, onPress }: any) => {
+  SettingsRow: ({ title, subtitle, value, rightElement, type, onToggle, toggleValue, onPress }: any) => {
     const ReactNative = require('react-native');
 
     return (
@@ -70,6 +83,9 @@ jest.mock('@/components/settings/SettingsRow', () => ({
         }}
       >
         <ReactNative.Text>{title}</ReactNative.Text>
+        {subtitle ? <ReactNative.Text>{subtitle}</ReactNative.Text> : null}
+        {value ? <ReactNative.Text>{value}</ReactNative.Text> : null}
+        {rightElement}
       </ReactNative.Pressable>
     );
   },
@@ -90,17 +106,8 @@ jest.mock('../../../hooks/useNotificationController', () => ({
 }));
 
 jest.mock('@/stores/authStore', () => ({
-  useAuthStore: (selector?: (state: {
-    setHasCompletedOnboarding: jest.Mock;
-    signOut: jest.Mock;
-  }) => unknown) => {
-    const state = {
-      setHasCompletedOnboarding: jest.fn(),
-      signOut: jest.fn(),
-    };
-
-    return selector ? selector(state) : state;
-  },
+  useAuthStore: (selector?: (state: typeof mockAuthStoreState) => unknown) =>
+    selector ? selector(mockAuthStoreState) : mockAuthStoreState,
 }));
 
 const NotificationService = require('@/services/NotificationService').default;
@@ -112,6 +119,22 @@ describe('SettingsScreen', () => {
     mockNotifState.notification_enabled = false;
     NotificationService.requestPermissions = mockRequestPermissions;
     NotificationService.getLastError = jest.fn(() => null);
+    mockAuthStoreState.user = {
+      id: 'user-1',
+      email: 'member@anchor.test',
+    };
+    mockAuthStoreState.isAuthenticated = true;
+    mockAuthStoreState.profileData = null;
+  });
+
+  it('renders the synced account email instead of placeholder copy', () => {
+    const screen = render(<SettingsScreen />);
+
+    expect(screen.getByText('member@anchor.test')).toBeTruthy();
+    expect(screen.getByText('Synced to this account')).toBeTruthy();
+    expect(screen.queryByText('Account sync coming soon')).toBeNull();
+    expect(screen.queryByText('v1.1')).toBeNull();
+    expect(mockFetchProfile).not.toHaveBeenCalled();
   });
 
   it('requests permission before enabling notifications', async () => {

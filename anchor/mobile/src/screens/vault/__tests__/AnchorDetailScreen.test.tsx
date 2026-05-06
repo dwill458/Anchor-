@@ -14,6 +14,8 @@ const mockSaveToLibraryAsync = jest.fn();
 const mockToastError = jest.fn();
 const mockAnalyticsTrack = jest.fn();
 const mockShareCardRendererProps = jest.fn();
+const mockZenBackgroundProps = jest.fn();
+let mockPerfTier: 'high' | 'medium' | 'low' = 'high';
 const mockAnchor = {
     id: 'anchor-123',
     intentionText: 'Test Intention',
@@ -45,8 +47,21 @@ jest.mock('expo-media-library', () => ({
     saveToLibraryAsync: (...args: any[]) => mockSaveToLibraryAsync(...args),
 }));
 jest.mock('@/hooks/useAppPerformanceTier', () => ({
-    useAppPerformanceTier: () => 'high',
+    useAppPerformanceTier: () => mockPerfTier,
 }));
+jest.mock('@/components/common', () => {
+    const React = require('react');
+    const { View } = require('react-native');
+
+    return {
+        BakedGlow: () => React.createElement(View, { testID: 'baked-glow' }),
+        ChargedGlowCanvas: () => React.createElement(View, { testID: 'charged-glow-canvas' }),
+        ZenBackground: (props: any) => {
+            mockZenBackgroundProps(props);
+            return React.createElement(View, { testID: 'zen-background' });
+        },
+    };
+});
 jest.mock('@react-navigation/native', () => ({
     ...jest.requireActual('@react-navigation/native'),
     useNavigation: () => ({ navigate: mockNavigate, goBack: jest.fn(), popToTop: jest.fn() }),
@@ -208,8 +223,11 @@ describe('AnchorDetailScreen', () => {
         mockToastError.mockReset();
         mockAnalyticsTrack.mockReset();
         mockShareCardRendererProps.mockReset();
+        mockZenBackgroundProps.mockReset();
+        mockPerfTier = 'high';
         mockAnchor.enhancedImageUrl = undefined;
         mockAnchor.sigilUri = undefined;
+        mockAnchor.isCharged = false;
         mockExportAnchorArtwork.mockResolvedValue({
             localUri: 'file:///tmp/anchor.png',
             filename: 'test-intention-wallpaper.png',
@@ -248,6 +266,24 @@ describe('AnchorDetailScreen', () => {
         expect(screen.getByText('Thread Strength')).toBeTruthy();
         expect(screen.getByText('The symbol is becoming part of you.')).toBeTruthy();
         expect(screen.getByTestId('anchor-detail-streak-value').props.children[0]).toBe(1);
+    });
+
+    it('disables anchor glow layers and background orbs on low-tier devices', async () => {
+        mockPerfTier = 'low';
+
+        render(<AnchorDetailScreen navigation={navigation} route={route} />);
+
+        expect(screen.queryByTestId('baked-glow')).toBeNull();
+        expect(screen.queryByTestId('charged-glow-canvas')).toBeNull();
+
+        await waitFor(() => {
+            expect(mockZenBackgroundProps).toHaveBeenCalledWith(
+                expect.objectContaining({
+                    variant: 'practice',
+                    showOrbs: false,
+                })
+            );
+        });
     });
 
     it('renders wallpaper and png export actions', () => {
