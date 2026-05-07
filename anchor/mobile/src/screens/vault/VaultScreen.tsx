@@ -236,21 +236,26 @@ export const VaultScreen: React.FC = () => {
   const [gridVisible, setGridVisible] = useState(false);
 
   // ── Derived state ────────────────────────────────────────────────────────────
-  const autoPrimary = useMemo(() => selectPrimaryAnchor(anchors), [anchors]);
+  const activeAnchors = useMemo(
+    () => anchors.filter((a) => !a.isReleased && !a.archivedAt),
+    [anchors],
+  );
+
+  const autoPrimary = useMemo(() => selectPrimaryAnchor(activeAnchors), [activeAnchors]);
 
   // Use the shared store's currentAnchorId so Practice tab stays in sync
   const primaryAnchor = useMemo(() => {
     if (currentAnchorId) {
-      const found = anchors.find((a) => a.id === currentAnchorId);
+      const found = activeAnchors.find((a) => a.id === currentAnchorId);
       if (found) return found;
     }
     return autoPrimary;
-  }, [currentAnchorId, anchors, autoPrimary]);
+  }, [currentAnchorId, activeAnchors, autoPrimary]);
 
   // Anchors to show in the stack — exclude the current hero
   const stackAnchors = useMemo(
-    () => anchors.filter((a) => a.id !== primaryAnchor?.id),
-    [anchors, primaryAnchor],
+    () => activeAnchors.filter((a) => a.id !== primaryAnchor?.id),
+    [activeAnchors, primaryAnchor],
   );
 
   useEffect(() => {
@@ -343,8 +348,8 @@ export const VaultScreen: React.FC = () => {
   }, [navigation, shouldGateFirstVaultEntry]);
 
   // ── Analytics tracking — fires once per user session, not on every anchor update ──
-  const anchorsLengthRef = React.useRef(anchors.length);
-  anchorsLengthRef.current = anchors.length;
+  const anchorsLengthRef = React.useRef(activeAnchors.length);
+  anchorsLengthRef.current = activeAnchors.length;
   useEffect(() => {
     if (!user) return;
     AnalyticsService.track(AnalyticsEvents.VAULT_VIEWED, { anchor_count: anchorsLengthRef.current });
@@ -389,10 +394,10 @@ export const VaultScreen: React.FC = () => {
     // }
     AnalyticsService.track(AnalyticsEvents.ANCHOR_CREATION_STARTED, {
       source: 'vault',
-      has_existing_anchors: anchors.length > 0,
+      has_existing_anchors: activeAnchors.length > 0,
     });
-    navigation.push(anchors.length === 0 ? 'FirstAnchorCreation' : 'CreateAnchor');
-  }, [anchors.length, navigation]);
+    navigation.push(activeAnchors.length === 0 ? 'FirstAnchorCreation' : 'CreateAnchor');
+  }, [activeAnchors.length, navigation]);
 
   const handleAnchorPress = useCallback(
     (anchorId: string): void => {
@@ -430,7 +435,7 @@ export const VaultScreen: React.FC = () => {
 
   // ── Render ────────────────────────────────────────────────────────────────────
 
-  if (isLoading && anchors.length === 0) {
+  if (isLoading && activeAnchors.length === 0) {
     return (
       <View style={styles.container}>
         <ZenBackground variant="sanctuary" showOrbs={isVaultTabActive} showGrain showVignette />
@@ -460,14 +465,14 @@ export const VaultScreen: React.FC = () => {
             />
           </Animated2.View>
 
-          {!isAuthenticated && anchors.length > 0 && !bannerDismissed && (
+          {!isAuthenticated && activeAnchors.length > 0 && !bannerDismissed && (
             <GuestReturnBanner
               onPractice={handleActivate}
               onDismiss={() => setBannerDismissed(true)}
             />
           )}
 
-          {anchors.length === 0
+          {activeAnchors.length === 0
             ? renderEmptyState({
                 handleCreateAnchor,
                 shouldReduceMotion,
@@ -487,7 +492,7 @@ export const VaultScreen: React.FC = () => {
               })}
         </ScrollView>
 
-        {anchors.length > 0 && (
+        {activeAnchors.length > 0 && (
           <View style={styles.createZone}>
             <LinearGradient
               colors={['transparent', CREATE_ZONE_BG]}
@@ -513,7 +518,7 @@ export const VaultScreen: React.FC = () => {
       <VaultGridModal
         visible={gridVisible}
         onDismiss={() => setGridVisible(false)}
-        anchors={anchors}
+        anchors={activeAnchors}
         onAnchorPress={handleAnchorPress}
       />
     </View>
