@@ -50,14 +50,14 @@ const PLAN_OPTIONS: PlanConfig[] = [
     id: 'monthly',
     label: 'Monthly',
     amount: '$7.99',
-    subtitle: 'per month',
+    subtitle: 'Start. Cancel anytime.',
     productId: REVENUECAT_MONTHLY_PACKAGE_ID,
   },
   {
     id: 'annual',
     label: 'Annual',
     amount: '$59.99',
-    subtitle: '$5/mo · save 37%',
+    subtitle: 'Build the practice. $5/mo · save 37%',
     productId: REVENUECAT_ANNUAL_PACKAGE_ID,
     badge: 'BEST VALUE',
   },
@@ -216,10 +216,7 @@ export const PaywallScreen: React.FC = () => {
     () => PLAN_OPTIONS.find((plan) => plan.id === selectedPlanId) ?? PLAN_OPTIONS[0],
     [selectedPlanId]
   );
-  const ctaLabel =
-    selectedPlan.id === 'monthly'
-      ? 'Get Monthly Access'
-      : 'Forge Free for 7 Days';
+  const ctaLabel = 'FORGE MY PRACTICE';
 
   const sigilSource = latestAnchor?.enhancedImageUrl ?? null;
   const sigilSvg = latestAnchor?.reinforcedSigilSvg ?? latestAnchor?.baseSigilSvg ?? null;
@@ -293,12 +290,12 @@ export const PaywallScreen: React.FC = () => {
               <Text style={styles.eyebrow}>SAVE YOUR ANCHOR</Text>
 
               <Text style={styles.headline}>
-                Your anchor is{'\n'}
-                ready to <Text style={styles.headlineForge}>forge.</Text>
+                The work doesn't stop{'\n'}
+                <Text style={styles.headlineForge}>here.</Text>
               </Text>
 
               <Text style={styles.bodyCopy}>
-                Create an account to save your work, track your practice, and build more anchors.
+                You've started a practice. Keep the thread strong.
               </Text>
 
               <View style={styles.dividerRow}>
@@ -374,7 +371,7 @@ export const PaywallScreen: React.FC = () => {
                 <Text style={styles.ctaText}>{isPurchasing ? 'Processing…' : ctaLabel}</Text>
               </Pressable>
 
-              <Text style={styles.trialNote}>Cancel anytime</Text>
+              <Text style={styles.trialNote}>Cancel anytime. Your anchors stay.</Text>
 
               <Pressable
                 onPress={handleRestorePurchase}
