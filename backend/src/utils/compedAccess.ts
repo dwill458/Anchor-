@@ -11,7 +11,7 @@ function readCompedEmailSet(): Set<string> {
   return new Set(
     raw
       .split(/[\s,;]+/)
-      .map((value) => value.trim())
+      .map(value => value.trim())
       .filter(Boolean)
       .map(normalizeEmail)
   );

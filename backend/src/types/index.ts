@@ -114,11 +114,11 @@ export type AnchorCategory =
  * Planetary Tier for Anchor classification (5-tier system)
  */
 export enum PlanetaryTier {
-  SATURN = 'saturn',    // 3×3, Discipline/Boundaries
-  JUPITER = 'jupiter',  // 4×4, Wealth/Growth
-  MARS = 'mars',        // 5×5, Energy/Physicality
-  SUN = 'sun',          // 6×6, Identity/Clarity
-  VENUS = 'venus'       // 7×7, Peace/Harmony
+  SATURN = 'saturn', // 3×3, Discipline/Boundaries
+  JUPITER = 'jupiter', // 4×4, Wealth/Growth
+  MARS = 'mars', // 5×5, Energy/Physicality
+  SUN = 'sun', // 6×6, Identity/Clarity
+  VENUS = 'venus', // 7×7, Peace/Harmony
 }
 
 /**
@@ -130,7 +130,7 @@ export const CATEGORY_TO_TIER: Record<AnchorCategory, PlanetaryTier> = {
   health: PlanetaryTier.MARS,
   relationships: PlanetaryTier.VENUS,
   personal_growth: PlanetaryTier.SATURN,
-  custom: PlanetaryTier.SATURN
+  custom: PlanetaryTier.SATURN,
 };
 
 // ============================================================================
@@ -145,7 +145,7 @@ export interface CreateAnchorRequest {
   category: AnchorCategory;
   planetaryTier?: PlanetaryTier | string;
   classifierVersion?: number;
-  classifierMeta?: Record<string, any>;
+  classifierMeta?: Record<string, unknown>;
   distilledLetters: string[];
   baseSigilSvg: string;
   reinforcedSigilSvg?: string;
