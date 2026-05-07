@@ -135,6 +135,32 @@ describe('StorageService', () => {
       const result = await uploadImageFromBuffer(Buffer.from('data'), 'user', 'anchor', 0);
       expect(result).toMatch(/^data:image\/png;base64,/);
     });
+
+    it('throws in production when R2 is not configured instead of falling back to local storage', async () => {
+      process.env.NODE_ENV = 'production';
+
+      await expect(uploadImageFromBuffer(Buffer.from('data'), 'user', 'anchor', 0)).rejects.toThrow(
+        'CLOUDFLARE_ACCOUNT_ID'
+      );
+    });
+
+    it('throws in production when an R2 upload fails instead of returning a fallback URL', async () => {
+      process.env.NODE_ENV = 'production';
+      process.env.CLOUDFLARE_ACCOUNT_ID = 'test-account';
+      process.env.CLOUDFLARE_R2_ACCESS_KEY_ID = 'access-key';
+      process.env.CLOUDFLARE_R2_SECRET_ACCESS_KEY = 'secret-key';
+      process.env.CLOUDFLARE_R2_BUCKET_NAME = 'anchor-assets';
+      process.env.CLOUDFLARE_R2_PUBLIC_DOMAIN = 'https://cdn.example.com';
+
+      (Upload as unknown as jest.Mock).mockImplementation(() => ({
+        done: jest.fn().mockRejectedValue(new Error('R2 error')),
+      }));
+
+      await expect(uploadImageFromBuffer(Buffer.from('data'), 'user', 'anchor', 0)).rejects.toThrow(
+        'R2 error'
+      );
+      expect(fs.writeFileSync).not.toHaveBeenCalled();
+    });
   });
 
   // ============================================================================
@@ -273,6 +299,15 @@ describe('StorageService', () => {
       const url = await getSignedUrl('anchors/user/anchor/image.png');
       expect(url).toContain('r2.cloudflarestorage.com');
       expect(url).toContain('anchors/user/anchor/image.png');
+    });
+
+    it('throws in production when the public domain is missing', async () => {
+      process.env.NODE_ENV = 'production';
+      process.env.CLOUDFLARE_R2_BUCKET_NAME = 'anchor-assets';
+
+      await expect(getSignedUrl('anchors/user/anchor/image.png')).rejects.toThrow(
+        'CLOUDFLARE_R2_PUBLIC_DOMAIN'
+      );
     });
   });
 

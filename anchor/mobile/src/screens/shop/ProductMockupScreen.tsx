@@ -18,6 +18,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { RouteProp, useRoute, useNavigation } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
+import { ENABLE_MERCH } from '@/config';
 import { SvgXml } from 'react-native-svg';
 import { colors, spacing, typography } from '@/theme';
 import { RootStackParamList } from '@/types';
@@ -51,6 +52,19 @@ export const ProductMockupScreen: React.FC = () => {
 
     const [selectedSize, setSelectedSize] = useState(SIZES[productType][0]);
     const [selectedColor, setSelectedColor] = useState(COLORS[productType][0]);
+
+    if (!ENABLE_MERCH) {
+        return (
+            <SafeAreaView style={styles.container}>
+                <View style={styles.disabledContainer}>
+                    <Text style={styles.title}>Physical Anchors Are Unavailable</Text>
+                    <Text style={styles.disabledText}>
+                        Merch is disabled for v1 and this preview flow is not active in production.
+                    </Text>
+                </View>
+            </SafeAreaView>
+        );
+    }
 
     const handleContinue = () => {
         // Navigate to checkout
@@ -174,6 +188,26 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         borderBottomWidth: 1,
         borderBottomColor: 'rgba(212, 175, 55, 0.1)',
+    },
+    disabledContainer: {
+        flex: 1,
+        alignItems: 'center',
+        justifyContent: 'center',
+        paddingHorizontal: spacing.xl,
+    },
+    title: {
+        fontFamily: typography.fonts.heading,
+        fontSize: typography.sizes.h3,
+        color: colors.gold,
+        marginBottom: spacing.sm,
+        textAlign: 'center',
+    },
+    disabledText: {
+        fontFamily: typography.fonts.body,
+        fontSize: typography.sizes.body2,
+        color: colors.text.secondary,
+        textAlign: 'center',
+        lineHeight: 22,
     },
     mockupWrapper: {
         width: width * 0.8,

@@ -128,7 +128,7 @@ export const useAnchorStore = create<AnchorState>()(
         }));
 
         const authStore = useAuthStore.getState();
-        if (authStore.isAuthenticated && authStore.user?.id) {
+        if (AnchorSyncService.isConfigured() && authStore.isAuthenticated && authStore.user?.id) {
           void AnchorSyncService.upsertAnchor(anchor, authStore.user.id)
             .then((syncedAnchor) => {
               get().applySyncedAnchor(anchor.localId ?? anchor.id, syncedAnchor);
@@ -159,7 +159,12 @@ export const useAnchorStore = create<AnchorState>()(
           const updatedAnchor = nextAnchors.find((anchor) => matchesAnchorReference(anchor, id));
 
           const authStore = useAuthStore.getState();
-          if (updatedAnchor && authStore.isAuthenticated && authStore.user?.id) {
+          if (
+            AnchorSyncService.isConfigured() &&
+            updatedAnchor &&
+            authStore.isAuthenticated &&
+            authStore.user?.id
+          ) {
             void AnchorSyncService.upsertAnchor(updatedAnchor, authStore.user.id)
               .then((syncedAnchor) => {
                 get().applySyncedAnchor(updatedAnchor.localId ?? updatedAnchor.id, syncedAnchor);
@@ -291,7 +296,11 @@ export const useAnchorStore = create<AnchorState>()(
 
       flushPendingSync: async () => {
         const authStore = useAuthStore.getState();
-        if (!authStore.isAuthenticated || !authStore.user?.id) {
+        if (
+          !AnchorSyncService.isConfigured() ||
+          !authStore.isAuthenticated ||
+          !authStore.user?.id
+        ) {
           return;
         }
 
