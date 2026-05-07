@@ -7,6 +7,7 @@
 import { useAuthStore } from '../authStore';
 import { useAnchorStore } from '../anchorStore';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import * as SecureStore from 'expo-secure-store';
 import { apiClient } from '@/services/ApiClient';
 import { AuthService } from '@/services/AuthService';
 import type { Anchor, User } from '@/types';
@@ -441,7 +442,7 @@ describe('authStore', () => {
   });
 
   describe('Persistence', () => {
-    it('should persist user to AsyncStorage', async () => {
+    it('should persist user to encrypted secure storage', async () => {
       const { setUser } = useAuthStore.getState();
       const mockUser = createMockUser();
 
@@ -450,11 +451,14 @@ describe('authStore', () => {
       // Wait for persistence
       await new Promise(resolve => setTimeout(resolve, 100));
 
-      // AsyncStorage should have been called
-      expect(AsyncStorage.setItem).toHaveBeenCalled();
+      expect(SecureStore.setItemAsync).toHaveBeenCalled();
+      expect(AsyncStorage.setItem).not.toHaveBeenCalledWith(
+        'anchor-auth-storage',
+        expect.any(String)
+      );
     });
 
-    it('should persist token to AsyncStorage', async () => {
+    it('should persist token to encrypted secure storage', async () => {
       const { setToken } = useAuthStore.getState();
 
       setToken('test-token');
@@ -462,10 +466,14 @@ describe('authStore', () => {
       // Wait for persistence
       await new Promise(resolve => setTimeout(resolve, 100));
 
-      expect(AsyncStorage.setItem).toHaveBeenCalled();
+      expect(SecureStore.setItemAsync).toHaveBeenCalled();
+      expect(AsyncStorage.setItem).not.toHaveBeenCalledWith(
+        'anchor-auth-storage',
+        expect.any(String)
+      );
     });
 
-    it('should persist isAuthenticated to AsyncStorage', async () => {
+    it('should persist isAuthenticated to encrypted secure storage', async () => {
       const { setUser } = useAuthStore.getState();
 
       setUser(createMockUser());
@@ -473,10 +481,14 @@ describe('authStore', () => {
       // Wait for persistence
       await new Promise(resolve => setTimeout(resolve, 100));
 
-      expect(AsyncStorage.setItem).toHaveBeenCalled();
+      expect(SecureStore.setItemAsync).toHaveBeenCalled();
+      expect(AsyncStorage.setItem).not.toHaveBeenCalledWith(
+        'anchor-auth-storage',
+        expect.any(String)
+      );
     });
 
-    it('should persist hasCompletedOnboarding to AsyncStorage', async () => {
+    it('should persist hasCompletedOnboarding to encrypted secure storage', async () => {
       const { completeOnboarding } = useAuthStore.getState();
 
       completeOnboarding();
@@ -484,7 +496,11 @@ describe('authStore', () => {
       // Wait for persistence
       await new Promise(resolve => setTimeout(resolve, 100));
 
-      expect(AsyncStorage.setItem).toHaveBeenCalled();
+      expect(SecureStore.setItemAsync).toHaveBeenCalled();
+      expect(AsyncStorage.setItem).not.toHaveBeenCalledWith(
+        'anchor-auth-storage',
+        expect.any(String)
+      );
     });
 
     it('should not persist isLoading (transient state)', async () => {

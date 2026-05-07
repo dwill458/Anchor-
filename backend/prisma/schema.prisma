@@ -48,6 +48,8 @@ model User {
   charges               Charge[]
   orders                Order[]
   settings              UserSettings?
+  burnedAnchors         BurnedAnchor[]
+  flaggedContent        FlaggedContent[]
 
   @@map("users")
 }
@@ -195,6 +197,7 @@ model BurnedAnchor {
   id                    String   @id @default(uuid())
   originalAnchorId      String   @unique
   userId                String
+  user                  User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   intentionText         String
   category              String
   distilledLetters      String[]
@@ -283,6 +286,7 @@ model FlaggedContent {
   imageUrl  String
   reason    String
   userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   createdAt DateTime @default(now())
 
   @@index([anchorId])

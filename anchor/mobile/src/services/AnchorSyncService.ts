@@ -1,5 +1,9 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { SUPABASE_ANON_KEY, SUPABASE_URL } from '@/config';
+import {
+  ENABLE_LEGACY_SUPABASE_SYNC,
+  SUPABASE_ANON_KEY,
+  SUPABASE_URL,
+} from '@/config';
 import { readSecureValue, writeSecureValue } from '@/stores/encryptedPersistStorage';
 import type { Anchor, AnchorCategory, EnhancementMetadata, ReinforcementMetadata } from '@/types';
 import { logger } from '@/utils/logger';
@@ -76,7 +80,7 @@ function toIsoString(value?: Date): string | null {
 }
 
 function isConfigured(): boolean {
-  return Boolean(SUPABASE_URL && SUPABASE_ANON_KEY);
+  return ENABLE_LEGACY_SUPABASE_SYNC && Boolean(SUPABASE_URL && SUPABASE_ANON_KEY);
 }
 
 function buildHeaders(): HeadersInit {
@@ -206,7 +210,7 @@ class AnchorSyncService {
 
   async upsertAnchor(anchor: Anchor, userId: string): Promise<Anchor> {
     if (!isConfigured()) {
-      throw new Error('Supabase sync is not configured.');
+      throw new Error('Legacy Supabase sync is disabled.');
     }
 
     const normalizedAnchor = normalizeAnchor(anchor);
@@ -235,6 +239,10 @@ class AnchorSyncService {
   }
 
   async migrateAnchors(anchors: Anchor[], userId: string): Promise<Anchor[]> {
+    if (!isConfigured()) {
+      return anchors.map(normalizeAnchor);
+    }
+
     const migrated: Anchor[] = [];
 
     for (const anchor of anchors) {
@@ -252,6 +260,10 @@ class AnchorSyncService {
   }
 
   async enqueueRetry(anchor: Anchor, userId: string): Promise<void> {
+    if (!isConfigured()) {
+      return;
+    }
+
     const queue = await readQueue();
     const localReferenceId = getLocalReferenceId(anchor);
     const deduped = queue.filter(
@@ -267,6 +279,10 @@ class AnchorSyncService {
   }
 
   async flushRetryQueue(userId: string): Promise<Anchor[]> {
+    if (!isConfigured()) {
+      return [];
+    }
+
     const queue = await readQueue();
     if (queue.length === 0) {
       return [];

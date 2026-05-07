@@ -17,6 +17,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { RouteProp, useRoute, useNavigation } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
+import { ENABLE_MERCH } from '@/config';
 import { SvgXml } from 'react-native-svg';
 import { colors, spacing, typography } from '@/theme';
 import { RootStackParamList } from '@/types';
@@ -80,6 +81,19 @@ export const ProductSelectionScreen: React.FC = () => {
 
     const { anchorId, sigilSvg, intentionText } = route.params;
     const [selectedProduct, setSelectedProduct] = useState<ProductType | null>(null);
+
+    if (!ENABLE_MERCH) {
+        return (
+            <SafeAreaView style={styles.container}>
+                <View style={styles.disabledContainer}>
+                    <Text style={styles.title}>Physical Anchors Are Unavailable</Text>
+                    <Text style={styles.subtitle}>
+                        Merch is disabled for v1 and this flow is not active in production.
+                    </Text>
+                </View>
+            </SafeAreaView>
+        );
+    }
 
     const handleProductSelect = (productType: ProductType) => {
         setSelectedProduct(productType);
@@ -152,6 +166,12 @@ const styles = StyleSheet.create({
         paddingTop: spacing.xl,
         paddingBottom: spacing.lg,
         alignItems: 'center',
+    },
+    disabledContainer: {
+        flex: 1,
+        alignItems: 'center',
+        justifyContent: 'center',
+        paddingHorizontal: spacing.xl,
     },
     title: {
         fontFamily: typography.fonts.heading,

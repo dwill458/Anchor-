@@ -22,6 +22,7 @@ jest.mock('express-rate-limit', () => jest.fn(() => (_req: any, _res: any, next:
 // Prisma mock — provide jest.fn() for every method used in auth routes
 const mockPrisma = {
   $queryRaw: jest.fn(),
+  $transaction: jest.fn(),
   user: {
     findUnique: jest.fn(),
     upsert: jest.fn(),
@@ -31,7 +32,16 @@ const mockPrisma = {
   userSettings: {
     upsert: jest.fn(),
   },
+  burnedAnchor: {
+    findMany: jest.fn(),
+    deleteMany: jest.fn(),
+  },
+  flaggedContent: {
+    findMany: jest.fn(),
+    deleteMany: jest.fn(),
+  },
   syncQueue: {
+    findMany: jest.fn(),
     deleteMany: jest.fn(),
   },
 };
@@ -98,6 +108,7 @@ const MOCK_SETTINGS = {
 beforeEach(() => {
   jest.clearAllMocks();
   delete process.env.COMPED_ACCESS_EMAILS;
+  (mockPrisma.$transaction as jest.Mock).mockImplementation(async (callback: any) => callback(mockPrisma));
 
   mockedGetFirebaseAdmin.mockReturnValue({
     auth: () => ({
@@ -226,6 +237,36 @@ describe('GET /api/auth/me', () => {
 
     expect(res.status).toBe(404);
     expect(res.body.error.code).toBe('USER_NOT_FOUND');
+  });
+});
+
+// ═════════════════════════════════════════════════════════════════════════════
+// GET /api/auth/me/export
+// ═════════════════════════════════════════════════════════════════════════════
+
+describe('GET /api/auth/me/export', () => {
+  it('exports flagged content keyed by either DB user id or legacy auth uid', async () => {
+    (mockPrisma.user.findUnique as jest.Mock).mockResolvedValue({
+      ...MOCK_DB_USER,
+      settings: MOCK_SETTINGS,
+      anchors: [],
+      activations: [],
+      charges: [],
+      orders: [],
+    });
+    (mockPrisma.syncQueue.findMany as jest.Mock).mockResolvedValue([]);
+    (mockPrisma.burnedAnchor.findMany as jest.Mock).mockResolvedValue([]);
+    (mockPrisma.flaggedContent.findMany as jest.Mock).mockResolvedValue([]);
+
+    const res = await request(buildApp()).get('/api/auth/me/export');
+
+    expect(res.status).toBe(200);
+    expect(mockPrisma.flaggedContent.findMany).toHaveBeenCalledWith({
+      where: {
+        OR: [{ userId: 'db-user-1' }, { userId: 'firebase-uid-1' }],
+      },
+      orderBy: { createdAt: 'desc' },
+    });
   });
 });
 
@@ -491,12 +532,23 @@ describe('DELETE /api/auth/me', () => {
   it('deletes user and returns 200 with deletedUserId', async () => {
     (mockPrisma.user.findUnique as jest.Mock).mockResolvedValue(MOCK_DB_USER);
     (mockPrisma.user.delete as jest.Mock).mockResolvedValue(MOCK_DB_USER);
+    (mockPrisma.flaggedContent.deleteMany as jest.Mock).mockResolvedValue({ count: 1 });
+    (mockPrisma.burnedAnchor.deleteMany as jest.Mock).mockResolvedValue({ count: 1 });
     (mockPrisma.syncQueue.deleteMany as jest.Mock).mockResolvedValue({ count: 0 });
 
     const res = await request(buildApp()).delete('/api/auth/me');
 
     expect(res.status).toBe(200);
     expect(res.body.data.deletedUserId).toBe('db-user-1');
+    expect(res.body.data.authAccountDeleted).toBe(true);
+    expect(mockPrisma.flaggedContent.deleteMany).toHaveBeenCalledWith({
+      where: {
+        OR: [{ userId: 'db-user-1' }, { userId: 'firebase-uid-1' }],
+      },
+    });
+    expect(mockPrisma.burnedAnchor.deleteMany).toHaveBeenCalledWith({
+      where: { userId: 'db-user-1' },
+    });
     expect(mockPrisma.user.delete).toHaveBeenCalledWith(
       expect.objectContaining({ where: { id: 'db-user-1' } })
     );
@@ -513,11 +565,30 @@ describe('DELETE /api/auth/me', () => {
 
   it('returns 500 on database deletion error', async () => {
     (mockPrisma.user.findUnique as jest.Mock).mockResolvedValue(MOCK_DB_USER);
-    (mockPrisma.user.delete as jest.Mock).mockRejectedValue(new Error('FK constraint'));
+    (mockPrisma.$transaction as jest.Mock).mockRejectedValue(new Error('FK constraint'));
 
     const res = await request(buildApp()).delete('/api/auth/me');
 
     expect(res.status).toBe(500);
     expect(res.body.error.code).toBe('DELETE_ERROR');
+  });
+
+  it('returns success when app data is deleted but firebase auth cleanup fails', async () => {
+    (mockPrisma.user.findUnique as jest.Mock).mockResolvedValue(MOCK_DB_USER);
+    (mockPrisma.user.delete as jest.Mock).mockResolvedValue(MOCK_DB_USER);
+    (mockPrisma.flaggedContent.deleteMany as jest.Mock).mockResolvedValue({ count: 1 });
+    (mockPrisma.burnedAnchor.deleteMany as jest.Mock).mockResolvedValue({ count: 1 });
+    (mockPrisma.syncQueue.deleteMany as jest.Mock).mockResolvedValue({ count: 0 });
+    mockedGetFirebaseAdmin.mockReturnValue({
+      auth: () => ({
+        getUser: jest.fn(),
+        deleteUser: jest.fn().mockRejectedValue({ code: 'auth/internal-error' }),
+      }),
+    });
+
+    const res = await request(buildApp()).delete('/api/auth/me');
+
+    expect(res.status).toBe(200);
+    expect(res.body.data.authAccountDeleted).toBe(false);
   });
 });

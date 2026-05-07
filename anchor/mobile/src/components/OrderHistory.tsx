@@ -15,6 +15,7 @@ import {
     ActivityIndicator,
 } from 'react-native';
 import { Package, ExternalLink } from 'lucide-react-native';
+import { ENABLE_MERCH } from '@/config';
 import { colors, spacing, typography } from '@/theme';
 import { get } from '@/services/ApiClient';
 import { format } from 'date-fns';
@@ -34,6 +35,10 @@ export const OrderHistory: React.FC = () => {
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
+        if (!ENABLE_MERCH) {
+            setLoading(false);
+            return;
+        }
         fetchOrders();
     }, []);
 
@@ -118,6 +123,18 @@ export const OrderHistory: React.FC = () => {
         return (
             <View style={styles.centerContainer}>
                 <ActivityIndicator color={colors.gold} />
+            </View>
+        );
+    }
+
+    if (!ENABLE_MERCH) {
+        return (
+            <View style={styles.emptyContainer}>
+                <Package color={colors.text.tertiary} size={48} strokeWidth={1} />
+                <Text style={styles.emptyText}>Physical anchors are unavailable in v1</Text>
+                <Text style={styles.emptySubtext}>
+                    Order history will appear here when merch launches.
+                </Text>
             </View>
         );
     }

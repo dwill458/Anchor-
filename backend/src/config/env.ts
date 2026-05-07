@@ -15,6 +15,7 @@ export interface EnvConfig {
   // Security
   ALLOWED_ORIGINS?: string; // Comma-separated list of allowed origins
   COMPED_ACCESS_EMAILS?: string; // Comma/space-separated list of comped account emails
+  ENABLE_MERCH: boolean;
 
   // Auth (Optional - for future Firebase Admin integration)
   FIREBASE_PROJECT_ID?: string;
@@ -100,6 +101,22 @@ function validateEnum<T extends string>(
   return value as T;
 }
 
+function validateBoolean(key: string, value: unknown, defaultValue: boolean): boolean {
+  if (value === undefined || value === null || value === '') {
+    return defaultValue;
+  }
+
+  if (value === 'true' || value === true) {
+    return true;
+  }
+
+  if (value === 'false' || value === false) {
+    return false;
+  }
+
+  throw new EnvValidationError(`Environment variable ${key} must be true or false`);
+}
+
 export function validateEnv(): EnvConfig {
   try {
     const config: EnvConfig = {
@@ -180,6 +197,7 @@ export function validateEnv(): EnvConfig {
         'COMPED_ACCESS_EMAILS',
         process.env.COMPED_ACCESS_EMAILS
       ),
+      ENABLE_MERCH: validateBoolean('ENABLE_MERCH', process.env.ENABLE_MERCH, false),
     };
 
     // In production, critical variables must be present.
@@ -189,6 +207,11 @@ export function validateEnv(): EnvConfig {
         'FIREBASE_PRIVATE_KEY',
         'FIREBASE_CLIENT_EMAIL',
         'ALLOWED_ORIGINS',
+        'CLOUDFLARE_ACCOUNT_ID',
+        'CLOUDFLARE_R2_ACCESS_KEY_ID',
+        'CLOUDFLARE_R2_SECRET_ACCESS_KEY',
+        'CLOUDFLARE_R2_BUCKET_NAME',
+        'CLOUDFLARE_R2_PUBLIC_DOMAIN',
       ];
       for (const key of productionRequired) {
         if (!config[key]) {
@@ -202,7 +225,14 @@ export function validateEnv(): EnvConfig {
       logger.warn('REPLICATE_API_TOKEN not configured - AI enhancement will run in mock mode');
     }
 
-    if (!config.CLOUDFLARE_ACCOUNT_ID || !config.CLOUDFLARE_R2_ACCESS_KEY_ID) {
+    if (
+      config.NODE_ENV !== 'production' &&
+      (!config.CLOUDFLARE_ACCOUNT_ID ||
+        !config.CLOUDFLARE_R2_ACCESS_KEY_ID ||
+        !config.CLOUDFLARE_R2_SECRET_ACCESS_KEY ||
+        !config.CLOUDFLARE_R2_BUCKET_NAME ||
+        !config.CLOUDFLARE_R2_PUBLIC_DOMAIN)
+    ) {
       logger.warn('Cloudflare R2 credentials not configured - storage will run in mock mode');
     }
 

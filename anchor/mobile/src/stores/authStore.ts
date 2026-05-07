@@ -2,6 +2,11 @@ import { create } from 'zustand';
 import { persist, createJSONStorage, StateStorage } from 'zustand/middleware';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as SecureStore from 'expo-secure-store';
+import {
+  encryptedPersistStorage,
+  readSecureValue,
+  writeSecureValue,
+} from './encryptedPersistStorage';
 import type {
   Anchor,
   ApiResponse,
@@ -87,9 +92,12 @@ const applyStabilizeCompletion = (
 };
 
 /**
- * Hybrid storage engine that selectively routes sensitive data to SecureStore
+ * Legacy auth persistence stored the JSON payload in AsyncStorage and only the
+ * token in SecureStore. Migrate that split format into the encrypted chunked
+ * SecureStore payload on first read, then keep auth persistence off plaintext
+ * storage entirely.
  */
-const SECURE_KEYS = ['token'];
+const LEGACY_SECURE_KEYS = ['token'] as const;
 
 const createClearedPendingFirstAnchorState = () => ({
   shouldRedirectToCreation: false,
@@ -105,54 +113,70 @@ function applyCompedAccessToSubscriptionStore(user: User | null): void {
   useSubscriptionStore.getState().setRemoteCompedAccess(user?.isComped === true);
 }
 
-const hybridStorage: StateStorage = {
+async function readLegacyAuthStorage(name: string): Promise<string | null> {
+  const baseData = await AsyncStorage.getItem(name);
+  const legacyToken = await SecureStore.getItemAsync(`${name}_token`);
+
+  if (!baseData) {
+    if (legacyToken) {
+      await SecureStore.deleteItemAsync(`${name}_token`);
+    }
+    return null;
+  }
+
+  try {
+    const parsed = JSON.parse(baseData);
+    if (legacyToken) {
+      parsed.state = {
+        ...parsed.state,
+        token: legacyToken,
+      };
+    }
+
+    const migratedValue = JSON.stringify(parsed);
+    await writeSecureValue(name, migratedValue);
+    await AsyncStorage.removeItem(name);
+    await Promise.all(
+      LEGACY_SECURE_KEYS.map((key) => SecureStore.deleteItemAsync(`${name}_${key}`))
+    );
+    return migratedValue;
+  } catch (error) {
+    logger.error('Failed to migrate legacy auth storage data:', error);
+    return null;
+  }
+}
+
+const encryptedAuthStorage: StateStorage = {
   getItem: async (name: string): Promise<string | null> => {
-    const baseData = await AsyncStorage.getItem(name);
-    if (!baseData) return null;
-
     try {
-      const parsed = JSON.parse(baseData);
-
-      // Hydrate secure keys from SecureStore
-      for (const key of SECURE_KEYS) {
-        const securedValue = await SecureStore.getItemAsync(`${name}_${key}`);
-        if (securedValue) {
-          parsed.state[key] = securedValue;
-        }
+      const secureValue = await readSecureValue(name);
+      if (secureValue != null) {
+        return secureValue;
       }
 
-      return JSON.stringify(parsed);
+      return await readLegacyAuthStorage(name);
     } catch (error) {
-      logger.error('Failed to parse auth storage data:', error);
-      return null;
+      logger.error('Failed to read auth storage data:', error);
+      return await readLegacyAuthStorage(name);
     }
   },
   setItem: async (name: string, value: string): Promise<void> => {
     try {
-      const parsed = JSON.parse(value);
-      const state = { ...parsed.state };
-
-      // Extract and save secure keys to SecureStore
-      for (const key of SECURE_KEYS) {
-        if (state[key]) {
-          await SecureStore.setItemAsync(`${name}_${key}`, state[key]);
-          delete state[key]; // Don't save in AsyncStorage
-        } else {
-          await SecureStore.deleteItemAsync(`${name}_${key}`);
-        }
-      }
-
-      // Save the sanitized state in AsyncStorage
-      await AsyncStorage.setItem(name, JSON.stringify({ ...parsed, state }));
+      await writeSecureValue(name, value);
+      await AsyncStorage.removeItem(name);
+      await Promise.all(
+        LEGACY_SECURE_KEYS.map((key) => SecureStore.deleteItemAsync(`${name}_${key}`))
+      );
     } catch (error) {
       logger.error('Failed to save auth storage data:', error);
+      throw error;
     }
   },
   removeItem: async (name: string): Promise<void> => {
-    await AsyncStorage.removeItem(name);
-    for (const key of SECURE_KEYS) {
-      await SecureStore.deleteItemAsync(`${name}_${key}`);
-    }
+    await encryptedPersistStorage.removeItem(name);
+    await Promise.all(
+      LEGACY_SECURE_KEYS.map((key) => SecureStore.deleteItemAsync(`${name}_${key}`))
+    );
   },
 };
 
@@ -286,7 +310,7 @@ interface AuthState {
 }
 
 /**
- * Authentication store with hybrid persistence (AsyncStorage + SecureStore)
+ * Authentication store with encrypted persistence
  */
 export const useAuthStore = create<AuthState>()(
   persist(
@@ -853,7 +877,7 @@ export const useAuthStore = create<AuthState>()(
     }),
     {
       name: 'anchor-auth-storage',
-      storage: createJSONStorage(() => hybridStorage),
+      storage: createJSONStorage(() => encryptedAuthStorage),
       onRehydrateStorage: () => (state) => {
         if (state) {
           applyCompedAccessToSubscriptionStore(state.user);

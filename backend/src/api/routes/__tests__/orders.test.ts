@@ -14,7 +14,7 @@ import { errorHandler } from '../../middleware/errorHandler';
 
 jest.mock('../../middleware/auth');
 
-// orders.ts instantiates its own PrismaClient — mock the module
+// orders.ts uses the shared Prisma singleton.
 const mockPrismaInstance = {
   user: {
     findUnique: jest.fn(),
@@ -28,8 +28,8 @@ const mockPrismaInstance = {
   },
 };
 
-jest.mock('@prisma/client', () => ({
-  PrismaClient: jest.fn().mockImplementation(() => mockPrismaInstance),
+jest.mock('../../../lib/prisma', () => ({
+  prisma: mockPrismaInstance,
 }));
 
 import { authMiddleware } from '../../middleware/auth';

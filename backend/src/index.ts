@@ -117,9 +117,11 @@ app.use((req: Request, _res: Response, next) => {
   next();
 });
 
-// Serve uploaded files statically (fallback storage)
-const path = require('path');
-app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
+// Development/test only: expose local upload fallback paths.
+if (env.NODE_ENV !== 'production') {
+  const path = require('path');
+  app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
+}
 
 // ============================================================================
 // Health Check
@@ -175,7 +177,9 @@ app.use('/api/practice', practiceRoutes);
 app.use('/api/ai', aiRoutes);
 
 // Order routes (Phase 4)
-app.use('/api/orders', orderRoutes);
+if (env.ENABLE_MERCH) {
+  app.use('/api/orders', orderRoutes);
+}
 
 // Content moderation routes
 app.use('/api/content', contentRoutes);
