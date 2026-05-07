@@ -128,6 +128,27 @@ function mapAuthError(error: unknown): Error {
   const code = typeof error === 'object' && error && 'code' in error
     ? String((error as { code?: unknown }).code)
     : '';
+  const message =
+    error instanceof Error
+      ? error.message
+      : typeof error === 'string'
+        ? error
+        : '';
+
+  if (
+    code === 'auth/configuration-not-found' ||
+    message.includes('CONFIGURATION_NOT_FOUND')
+  ) {
+    return new Error(
+      'Authentication is misconfigured in this build. Firebase Android config or signing fingerprints are missing. Rebuild after updating Firebase.'
+    );
+  }
+
+  if (message.includes('DEVELOPER_ERROR')) {
+    return new Error(
+      'Google sign-in is misconfigured for this build. Add this build signing key to Firebase/Google Cloud, then rebuild the app.'
+    );
+  }
 
   switch (code) {
     case 'auth/email-already-in-use':

@@ -54,6 +54,7 @@ import { isHighEndDevice } from '@/utils/deviceTier';
 import { useSettingsStore } from '@/stores/settingsStore';
 import { WeeklySummaryModal } from '@/components/WeeklySummaryModal'; import { useWeeklySummaryTrigger } from '@/hooks/useWeeklySummaryTrigger';
 import { VaultGridModal } from './components/VaultGridModal';
+import { usePostFirstAnchorPaywall } from '@/hooks/usePostFirstAnchorPaywall';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -203,6 +204,8 @@ export const VaultScreen: React.FC = () => {
   const navigation = useNavigation<VaultScreenNavigationProp>();
   const { registerTabNav, activeTabIndex } = useTabNavigation();
   const isVaultTabActive = activeTabIndex == null ? true : activeTabIndex === 0;
+
+  usePostFirstAnchorPaywall();
 
   const { user, isAuthenticated } = useAuthStore();
   const [bannerDismissed, setBannerDismissed] = useState(false);

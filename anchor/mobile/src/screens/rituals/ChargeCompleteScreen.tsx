@@ -15,7 +15,7 @@ import {
   Animated,
   Dimensions,
 } from 'react-native';
-import { useFocusEffect, useNavigation, useRoute, RouteProp } from '@react-navigation/native';
+import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { useTabNavigation } from '@/contexts/TabNavigationContext';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { SvgXml } from 'react-native-svg';
@@ -74,6 +74,7 @@ export const ChargeCompleteScreen: React.FC = () => {
   const [pendingPostPrimeFlowId, setPendingPostPrimeFlowId] = useState<string | null>(null);
   
   const beginPostPrimeTraceFlow = usePostPrimeTraceStore((state) => state.beginFlow);
+  const activeFlow = usePostPrimeTraceStore((state) => state.activeFlow);
 
   useEffect(() => {
     async function checkEligibility() {
@@ -105,46 +106,40 @@ export const ChargeCompleteScreen: React.FC = () => {
     });
   };
 
-  useFocusEffect(
-    React.useCallback(() => {
-      if (!pendingPostPrimeFlowId) {
-        return () => undefined;
-      }
+  useEffect(() => {
+    if (!pendingPostPrimeFlowId) {
+      return;
+    }
 
-      // Read synchronously — avoids waiting for a Zustand subscription re-render
-      const { activeFlow, clearFlow } = usePostPrimeTraceStore.getState();
+    if (
+      !activeFlow ||
+      activeFlow.flowId !== pendingPostPrimeFlowId ||
+      activeFlow.result === 'pending'
+    ) {
+      return;
+    }
 
-      if (
-        !activeFlow ||
-        activeFlow.flowId !== pendingPostPrimeFlowId ||
-        activeFlow.result === 'pending'
-      ) {
-        return () => undefined;
-      }
+    const completedPostPrimeTrace = activeFlow.result === 'completed';
 
-      const completedPostPrimeTrace = activeFlow.result === 'completed';
+    usePostPrimeTraceStore.getState().clearFlow(pendingPostPrimeFlowId);
+    setPendingPostPrimeFlowId(null);
 
-      clearFlow(pendingPostPrimeFlowId);
-      setPendingPostPrimeFlowId(null);
+    if (completedPostPrimeTrace) {
+      useSessionStore.getState().bumpThreadStrength(2);
+      AnalyticsService.track('post_prime_trace_completed', {
+        anchor_id: anchorId,
+        session_duration_seconds: routeDurationSeconds ?? primeSessionDuration,
+      });
+    }
 
-      if (completedPostPrimeTrace) {
-        useSessionStore.getState().bumpThreadStrength(2);
-        AnalyticsService.track('post_prime_trace_completed', {
-          anchor_id: anchorId,
-          session_duration_seconds: routeDurationSeconds ?? primeSessionDuration,
-        });
-      }
-
-      setShowCompletion(true);
-
-      return () => undefined;
-    }, [
-      anchorId,
-      pendingPostPrimeFlowId,
-      routeDurationSeconds,
-      primeSessionDuration,
-    ])
-  );
+    setShowCompletion(true);
+  }, [
+    activeFlow,
+    anchorId,
+    pendingPostPrimeFlowId,
+    primeSessionDuration,
+    routeDurationSeconds,
+  ]);
 
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const scaleAnim = useRef(new Animated.Value(0.95)).current;

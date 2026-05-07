@@ -3,6 +3,7 @@ import { fireEvent, render, screen } from '@testing-library/react-native';
 
 const mockNavigate = jest.fn();
 const mockGoBack = jest.fn();
+let mockPendingFirstAnchorDraft: { tempAnchorId: string } | null = null;
 
 jest.mock('@react-navigation/native', () => ({
   ...jest.requireActual('@react-navigation/native'),
@@ -12,12 +13,22 @@ jest.mock('@react-navigation/native', () => ({
   }),
 }));
 
+jest.mock('@/stores/authStore', () => ({
+  useAuthStore: (selector: (state: Record<string, unknown>) => unknown) =>
+    selector({
+      clearPendingForgeIntent: jest.fn(),
+      clearPendingForgeResumeTarget: jest.fn(),
+      pendingFirstAnchorDraft: mockPendingFirstAnchorDraft,
+    }),
+}));
+
 import AuthGateScreen from '../AuthGateScreen';
 
 describe('AuthGateScreen', () => {
   beforeEach(() => {
     mockNavigate.mockClear();
     mockGoBack.mockClear();
+    mockPendingFirstAnchorDraft = null;
   });
 
   it('shows only monthly and annual plans', () => {
@@ -41,7 +52,20 @@ describe('AuthGateScreen', () => {
 
     fireEvent.press(screen.getByLabelText('Already forging? Sign in'));
 
-    expect(mockNavigate).toHaveBeenCalledWith('Login');
+    expect(mockNavigate).toHaveBeenCalledWith('Login', { context: undefined });
+  });
+
+  it('routes first-anchor account creation through the account-finalization flow', () => {
+    mockPendingFirstAnchorDraft = { tempAnchorId: 'pending-first-anchor-1' };
+
+    render(<AuthGateScreen />);
+
+    fireEvent.press(screen.getByLabelText('Start with Monthly, Monthly selected'));
+
+    expect(mockNavigate).toHaveBeenCalledWith('Login', {
+      initialTab: 'signup',
+      context: 'first_anchor_gate',
+    });
   });
 
   it('dismisses the auth gate when Close is pressed', () => {

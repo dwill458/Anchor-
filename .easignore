@@ -11,3 +11,20 @@ yu/
 supabase/
 .git/
 .DS_Store
+# Root files
+/*.png
+/*.log
+/*.txt
+/*.xml
+# Mobile build artifacts and caches
+anchor/mobile/.expo/
+anchor/mobile/dist/
+anchor/mobile/dist_android_check/
+anchor/mobile/dist_android_check2/
+anchor/mobile/coverage/
+anchor/mobile/.jest-cache/
+anchor/mobile/android/.gradle/
+anchor/mobile/android/app/build/
+anchor/mobile/android/build/
+anchor/mobile/node_modules/
+
