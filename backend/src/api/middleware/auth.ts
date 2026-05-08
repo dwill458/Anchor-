@@ -8,6 +8,20 @@ import { Request, Response, NextFunction } from 'express';
 import { getFirebaseAdmin } from '../../config/firebase';
 
 /**
+ * Developer master account constants — mirrors the mobile-side values in
+ * `anchor/mobile/src/utils/developerMasterAccount.ts`.
+ * Recognised in non-production environments only.
+ */
+export const DEV_MASTER_TOKEN = 'mock-dev-master-token';
+export const DEV_MASTER_UID = 'dev-master-account';
+const DEV_MASTER_EMAIL = 'dev+master@anchor.local';
+
+/** Returns true when the token matches the dev-master bypass (non-prod only). */
+function isDevMasterToken(token: string): boolean {
+  return process.env.NODE_ENV !== 'production' && token === DEV_MASTER_TOKEN;
+}
+
+/**
  * Extended Request interface with user information
  */
 export interface AuthRequest extends Request {
@@ -48,6 +62,13 @@ export const authMiddleware = async (
     }
 
     const token = authHeader.substring(7); // Remove 'Bearer ' prefix
+
+    // Dev master account bypass — non-production only
+    if (isDevMasterToken(token)) {
+      req.user = { uid: DEV_MASTER_UID, email: DEV_MASTER_EMAIL };
+      next();
+      return;
+    }
 
     // Mock auth is ONLY permitted in explicit development/test environments.
     // A hard check on NODE_ENV !== 'production' ensures this path is
@@ -121,6 +142,14 @@ export const optionalAuthMiddleware = async (
 
     if (authHeader && authHeader.startsWith('Bearer ')) {
       const token = authHeader.substring(7);
+
+      // Dev master account bypass — non-production only
+      if (isDevMasterToken(token)) {
+        req.user = { uid: DEV_MASTER_UID, email: DEV_MASTER_EMAIL };
+        next();
+        return;
+      }
+
       const firebaseAdmin = getFirebaseAdmin();
       const decoded = await firebaseAdmin.auth().verifyIdToken(token);
 

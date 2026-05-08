@@ -1,7 +1,7 @@
 /**
  * Anchor App - Main Tab Navigator (Premium iOS swipe animation)
  *
- * Uses SwipeableTabContainer so all three tab screens stay mounted and
+ * Uses SwipeableTabContainer so active tab screens stay mounted and
  * visible simultaneously — both the incoming and outgoing screens animate
  * (true parallax: outgoing moves at 28% speed).
  *
@@ -12,7 +12,7 @@
 import React, { useCallback, useRef } from 'react';
 import { AppState, View, Text, StyleSheet, Pressable } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Home, Compass, Zap } from 'lucide-react-native';
+import { Home, Zap } from 'lucide-react-native';
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
@@ -22,7 +22,6 @@ import * as Haptics from 'expo-haptics';
 
 import { VaultStackNavigator } from './VaultStackNavigator';
 import { PracticeStackNavigator } from './PracticeStackNavigator';
-import { DiscoverScreen } from '../screens/discover';
 import { SwipeableTabContainer } from '../components/transitions/SwipeableTabContainer';
 import { TabNavigationProvider } from '../contexts/TabNavigationContext';
 import { colors } from '@/theme';
@@ -110,26 +109,34 @@ const TABS = [
       />
     ),
   },
-  {
-    label: 'DISCOVER',
-    icon: (active: boolean) => (
-      <Compass
-        color={active ? GOLD : INACTIVE_COLOR}
-        size={TAB_ICON_SIZE}
-        strokeWidth={TAB_ICON_STROKE_WIDTH}
-        fill="none"
-        testID="tab-icon-discover"
-      />
-    ),
-  },
+  // DEFERRED: Re-enable Discovery when the tab has a functional destination and bottom-nav space is intentionally expanded back to three items.
+  // {
+  //   label: 'DISCOVER',
+  //   icon: (active: boolean) => (
+  //     <Compass
+  //       color={active ? GOLD : INACTIVE_COLOR}
+  //       size={TAB_ICON_SIZE}
+  //       strokeWidth={TAB_ICON_STROKE_WIDTH}
+  //       fill="none"
+  //       testID="tab-icon-discover"
+  //     />
+  //   ),
+  // },
 ];
+
+const ACTIVE_TAB_COUNT = TABS.length;
 
 export const CustomTabBar: React.FC<CustomTabBarProps> = ({ activeIndex, onTabPress }) => {
   const insets = useSafeAreaInsets();
+  const isCompactTabSet = ACTIVE_TAB_COUNT < 3;
 
   return (
     <View
-      style={[styles.bar, { height: 82 + Math.max(insets.bottom, 0) }]}
+      style={[
+        styles.bar,
+        isCompactTabSet && styles.barCompact,
+        { height: 82 + Math.max(insets.bottom, 0) },
+      ]}
       testID="custom-tab-bar"
     >
       {TABS.map((tab, index) => {
@@ -168,6 +175,7 @@ export const MainTabNavigator: React.FC = () => {
   const anchorCount = useAnchorStore((state) => state.anchors.length);
   const shouldRedirectToCreation = useAuthStore((state) => state.shouldRedirectToCreation);
   const hasCheckedAutoOpen = useRef(false);
+  const autoOpenTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const toast = useToast();
 
   const [activeIndex, setActiveIndex] = React.useState(0);
@@ -190,43 +198,57 @@ export const MainTabNavigator: React.FC = () => {
   const isTabBarVisible = React.useMemo(() => {
     if (activeIndex === 0) return vaultRouteName === 'Vault';
     if (activeIndex === 1) return practiceRouteName === 'PracticeHome';
-    return true; // Discover
+    return false;
   }, [activeIndex, vaultRouteName, practiceRouteName]);
 
   // Auto-open daily anchor
   React.useEffect(() => {
     if (openDailyAnchorAutomatically && anchorCount > 0 && !hasCheckedAutoOpen.current) {
       hasCheckedAutoOpen.current = true;
-      setTimeout(() => {
+      autoOpenTimerRef.current = setTimeout(() => {
         setActiveIndex(0);
       }, 500);
     }
+
+    return () => {
+      if (autoOpenTimerRef.current) {
+        clearTimeout(autoOpenTimerRef.current);
+        autoOpenTimerRef.current = null;
+      }
+    };
   }, [anchorCount, openDailyAnchorAutomatically]);
 
   // Milestone queue drain — one milestone toast per 10s on app foreground
   React.useEffect(() => {
     let timerId: ReturnType<typeof setTimeout> | null = null;
 
+    const clearDrainTimer = () => {
+      if (!timerId) return;
+      clearTimeout(timerId);
+      timerId = null;
+    };
+
     const drain = () => {
       const milestoneId = useTeachingStore.getState().dequeueMilestone();
       if (!milestoneId) return;
       const content = TEACHINGS[milestoneId];
       if (content) toast.success(content.copy);
+      clearDrainTimer();
       timerId = setTimeout(drain, 10000);
     };
 
     const subscription = AppState.addEventListener('change', (nextState) => {
       if (nextState === 'active') {
-        if (timerId) clearTimeout(timerId);
+        clearDrainTimer();
         drain();
       } else {
-        if (timerId) clearTimeout(timerId);
+        clearDrainTimer();
       }
     });
 
     return () => {
       subscription.remove();
-      if (timerId) clearTimeout(timerId);
+      clearDrainTimer();
     };
   }, [toast]);
 
@@ -236,12 +258,13 @@ export const MainTabNavigator: React.FC = () => {
         <SwipeableTabContainer
           activeIndex={activeIndex}
           onIndexChange={handleIndexChange}
-          tabCount={3}
+          tabCount={ACTIVE_TAB_COUNT}
           swipeEnabled={isTabBarVisible}
         >
           <VaultStackNavigator onRouteChange={setVaultRouteName} />
           <PracticeStackNavigator onRouteChange={setPracticeRouteName} />
-          <DiscoverScreen />
+          {/* DEFERRED: Restore DiscoverScreen here if the bottom nav returns to a three-tab layout. */}
+          {/* <DiscoverScreen /> */}
         </SwipeableTabContainer>
 
         {isTabBarVisible && (
@@ -269,6 +292,10 @@ const styles = StyleSheet.create({
     paddingTop: 14,
     paddingBottom: 0,
     height: 82,
+  },
+  barCompact: {
+    justifyContent: 'space-evenly',
+    paddingHorizontal: 18,
   },
   tabButton: {
     flex: 1,

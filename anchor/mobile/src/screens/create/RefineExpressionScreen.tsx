@@ -12,7 +12,9 @@ import { RouteProp, useNavigation, useRoute } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
-import Animated, { useAnimatedStyle, useSharedValue, withSpring, withTiming } from 'react-native-reanimated';
+import Animated, { useAnimatedStyle, useSharedValue, withSpring, withTiming, Easing } from 'react-native-reanimated';
+import * as Haptics from 'expo-haptics';
+import { safeHaptics } from '@/utils/haptics';
 import type { AIStyle, RootStackParamList, SigilVariant } from '@/types';
 import { colors, spacing, typography } from '@/theme';
 import { ZenBackground } from '@/components/common';
@@ -29,16 +31,16 @@ interface StyleOption {
 }
 
 const STYLE_OPTIONS: StyleOption[] = [
-  { id: 'minimal-line', name: 'Minimal Line', category: 'geometric', description: 'Crisp clarity and restraint.', icon: '◎', recommended: true },
+  { id: 'architectural-trace', name: 'Architectural Trace', category: 'geometric', description: 'Drafted precision and measured balance.', icon: '▥', recommended: true },
   { id: 'ink-brush', name: 'Ink Brush', category: 'organic', description: 'Fluid, expressive movement.', icon: '⚡' },
   { id: 'sacred-geometry', name: 'Sacred Geometry', category: 'mystic', description: 'Structured symbolic precision.', icon: '⊕', recommended: true },
   { id: 'watercolor', name: 'Watercolor', category: 'organic', description: 'Soft tonal atmosphere.', icon: '〜' },
   { id: 'gold-leaf', name: 'Gold Leaf', category: 'luminous', description: 'Luxurious luminous finish.', icon: '♛' },
   { id: 'cosmic', name: 'Cosmic', category: 'mystic', description: 'Orbital celestial energy.', icon: '✦' },
-  { id: 'obsidian-mono', name: 'Obsidian Mono', category: 'modern', description: 'High-contrast monochrome depth.', icon: '▤' },
+  { id: 'lunar-etch', name: 'Lunar Etch', category: 'luminous', description: 'Silver etching under moonlit contrast.', icon: '☾' },
   { id: 'aurora-glow', name: 'Aurora Glow', category: 'luminous', description: 'Atmospheric color bloom.', icon: '☁' },
   { id: 'ember-trace', name: 'Ember Trace', category: 'luminous', description: 'Warm ember edge lighting.', icon: '♨' },
-  { id: 'echo-chamber', name: 'Echo Chamber', category: 'mystic', description: 'Layered cyclical resonance.', icon: '↺' },
+  { id: 'resonance-rings', name: 'Resonance Rings', category: 'mystic', description: 'Pulses radiating through layered rings.', icon: '◌' },
   { id: 'monolith-ink', name: 'Monolith Ink', category: 'modern', description: 'Grounded heavy-line authority.', icon: '✦' },
   { id: 'celestial-grid', name: 'Celestial Grid', category: 'geometric', description: 'Constellation-inspired symmetry.', icon: '✧' },
 ];
@@ -78,6 +80,28 @@ const normalizeSigilVariant = (value: string | undefined): SigilVariant =>
   isSigilVariant(value) ? value : 'balanced';
 
 const toAIStyle = (id: StyleOption['id']): AIStyle => id.replace(/-/g, '_') as AIStyle;
+
+const getAmbientStyle = (category: string) => {
+  switch (category) {
+    case 'modern':
+    case 'geometric': return 'rgba(0, 0, 0, 0.05)';
+    case 'organic': return 'rgba(45, 55, 72, 0.06)';
+    case 'mystic': return 'rgba(212, 175, 55, 0.04)';
+    case 'luminous': return 'rgba(74, 144, 226, 0.05)';
+    default: return 'rgba(0, 0, 0, 0.05)';
+  }
+};
+
+const getWhisper = (category: string) => {
+  switch(category) {
+    case 'modern':
+    case 'geometric': return 'Clarity through restraint.';
+    case 'organic': return 'Motion carries intent.';
+    case 'mystic': return 'Order reveals meaning.';
+    case 'luminous': return 'Emotion softens form.';
+    default: return '';
+  }
+};
 
 const StyleCard: React.FC<{
   option: StyleOption;
@@ -126,9 +150,13 @@ const StyleCard: React.FC<{
           <Text style={styles.iconText}>{option.icon}</Text>
         </View>
 
-        <Text style={styles.cardName}>{option.name}</Text>
+        <Text style={styles.cardName} numberOfLines={2}>
+          {option.name}
+        </Text>
         <Text style={styles.categoryText}>{option.category}</Text>
-        <Text style={styles.descriptionText}>{option.description}</Text>
+        <Text style={styles.descriptionText} numberOfLines={2}>
+          {option.description}
+        </Text>
 
         {option.recommended ? (
           <View style={styles.recommendedBadge}>
@@ -176,6 +204,40 @@ export default function RefineExpressionScreen() {
     [selectedStyle]
   );
 
+  const ambientOpacity = useSharedValue(1);
+  const whisperOpacity = useSharedValue(1);
+  const [ambientColor, setAmbientColor] = useState(getAmbientStyle(selectedStyleOption.category));
+  const [whisperText, setWhisperText] = useState(getWhisper(selectedStyleOption.category));
+
+  const ambientAnimatedStyle = useAnimatedStyle(() => ({
+    opacity: ambientOpacity.value,
+  }));
+
+  const whisperAnimatedStyle = useAnimatedStyle(() => ({
+    opacity: whisperOpacity.value,
+  }));
+
+  const handleStyleSelect = useCallback((id: string) => {
+    if (id === selectedStyle) return;
+    
+    void safeHaptics.impact(Haptics.ImpactFeedbackStyle.Light);
+
+    const nextOption = STYLE_OPTIONS.find((s) => s.id === id);
+    if (!nextOption) return;
+
+    ambientOpacity.value = withTiming(0, { duration: 300 });
+    whisperOpacity.value = withTiming(0, { duration: 150 });
+
+    setTimeout(() => {
+      setSelectedStyle(id);
+      setAmbientColor(getAmbientStyle(nextOption.category));
+      setWhisperText(getWhisper(nextOption.category));
+
+      ambientOpacity.value = withTiming(1, { duration: 400, easing: Easing.inOut(Easing.ease) });
+      whisperOpacity.value = withTiming(1, { duration: 200 });
+    }, 150);
+  }, [selectedStyle, ambientOpacity, whisperOpacity]);
+
   const handleRefineAnchor = useCallback(() => {
     const payload: ForwardNavigationPayload = {
       intention,
@@ -210,16 +272,25 @@ export default function RefineExpressionScreen() {
   const renderStyleCard = useCallback(
     ({ item }: { item: StyleOption }) => (
       <View style={styles.cardColumn}>
-        <StyleCard option={item} isSelected={selectedStyle === item.id} onSelect={setSelectedStyle} />
+        <StyleCard option={item} isSelected={selectedStyle === item.id} onSelect={handleStyleSelect} />
       </View>
     ),
-    [selectedStyle]
+    [selectedStyle, handleStyleSelect]
   );
 
   return (
     <SafeAreaView style={styles.safeArea} edges={['top', 'bottom']}>
       <View style={styles.container}>
         <ZenBackground orbOpacity={0.08} animationDuration={700} />
+        
+        <Animated.View 
+          pointerEvents="none"
+          style={[
+            StyleSheet.absoluteFill,
+            { backgroundColor: ambientColor },
+            ambientAnimatedStyle
+          ]} 
+        />
 
         <View style={styles.headerRow}>
           <Pressable
@@ -313,6 +384,10 @@ export default function RefineExpressionScreen() {
               },
             ]}
           >
+            <Animated.Text style={[styles.whisperText, whisperAnimatedStyle]}>
+              {whisperText}
+            </Animated.Text>
+
             <Text style={styles.selectedLabel}>
               <Text style={styles.selectedLabelPrefix}>Selected style: </Text>
               <Text style={styles.selectedLabelValue}>{selectedStyleOption.name}</Text>
@@ -505,12 +580,14 @@ const styles = StyleSheet.create({
   cardColumn: {
     width: CARD_WIDTH,
     marginBottom: spacing.refineExpression.gridGap,
+    alignSelf: 'stretch',
   },
   styleCard: {
     width: CARD_WIDTH,
+    height: 184,
     backgroundColor: colors.refineExpression.cardBg,
     borderRadius: 16,
-    paddingVertical: spacing.refineExpression.cardVertical,
+    paddingVertical: 9,
     paddingHorizontal: spacing.refineExpression.cardHorizontal,
     borderWidth: 1,
     borderColor: colors.refineExpression.subtle,
@@ -545,7 +622,7 @@ const styles = StyleSheet.create({
     borderColor: colors.refineExpression.subtle,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: spacing.refineExpression.iconBottom,
+    marginBottom: 7,
   },
   iconBoxSelected: {
     borderColor: colors.gold,
@@ -561,8 +638,9 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: colors.refineExpression.text,
     letterSpacing: 0.5,
-    marginBottom: spacing.refineExpression.nameBottom,
-    lineHeight: 15,
+    marginBottom: 2,
+    lineHeight: 14,
+    minHeight: 26,
   },
   categoryText: {
     fontFamily: typography.fonts.heading,
@@ -570,17 +648,18 @@ const styles = StyleSheet.create({
     color: colors.refineExpression.muted,
     letterSpacing: 2,
     textTransform: 'uppercase',
-    marginBottom: spacing.refineExpression.categoryBottom,
+    marginBottom: 3,
   },
   descriptionText: {
     fontFamily: typography.fonts.body,
     fontSize: 11,
     color: colors.refineExpression.description,
     fontStyle: 'italic',
-    lineHeight: 16,
+    lineHeight: 15,
+    minHeight: 24,
   },
   recommendedBadge: {
-    marginTop: spacing.refineExpression.recommendedTop,
+    marginTop: 8,
     alignSelf: 'flex-start',
     borderRadius: 8,
     borderWidth: 1,
@@ -597,7 +676,7 @@ const styles = StyleSheet.create({
     textTransform: 'uppercase',
   },
   previewStripWrap: {
-    marginTop: spacing.refineExpression.previewTop,
+    marginTop: 6,
     height: 2,
     borderRadius: 2,
     overflow: 'hidden',
@@ -636,6 +715,14 @@ const styles = StyleSheet.create({
     fontSize: 10,
     color: colors.gold,
     letterSpacing: 1.5,
+  },
+  whisperText: {
+    fontSize: 13,
+    color: colors.text.secondary,
+    textAlign: 'center',
+    letterSpacing: 0.3,
+    fontFamily: typography.fonts.body,
+    marginBottom: spacing.md,
   },
   ctaOuter: {
     width: '100%',

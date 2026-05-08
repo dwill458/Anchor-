@@ -84,6 +84,9 @@ export type AIStyle =
   | 'ink_brush'
   | 'gold_leaf'
   | 'cosmic'
+  | 'architectural_trace'
+  | 'lunar_etch'
+  | 'resonance_rings'
   | 'minimal_line'
   | 'obsidian_mono'
   | 'aurora_glow'
@@ -123,6 +126,36 @@ const STRICT_NEGATIVE_PROMPT =
  * Each prompt now explicitly emphasizes preserving exact geometry
  */
 const STYLE_CONFIGS: Record<AIStyle, StyleConfig> = {
+  architectural_trace: {
+    name: 'architectural_trace',
+    method: 'canny',
+    category: 'geometric',
+    prompt:
+      'Restore and beautify the existing sigil. Preserve exact geometry and stroke paths. Apply architectural drafting precision as surface treatment only. Measured blueprint lines, subtle grid discipline, clean technical elegance, no ornamental drift. The original sigil geometry is untouched.',
+    negativePrompt: STRICT_NEGATIVE_PROMPT + ', organic, loose sketching, messy, hand-drawn',
+    conditioning_scale: 1.25,
+    guidance_scale: 6.5,
+    strength: 0.2,
+  },
+  lunar_etch: {
+    name: 'lunar_etch',
+    method: 'lineart',
+    category: 'hybrid',
+    prompt:
+      'Restore and beautify the existing sigil. Preserve exact geometry and stroke paths. Apply moonlit silver etching as surface treatment only. Pale metallic highlights, crescent glints, quiet darkness, refined contrast. The sigil structure remains exactly as drawn.',
+    negativePrompt: STRICT_NEGATIVE_PROMPT + ', warm colors, noisy texture, cartoon, photography',
+    strength: 0.24,
+  },
+  resonance_rings: {
+    name: 'resonance_rings',
+    method: 'lineart',
+    category: 'hybrid',
+    prompt:
+      'Restore and beautify the existing sigil. Preserve exact geometry and stroke paths. Apply concentric resonance rings as surface treatment only. Layered pulse circles, subtle waveform halos, radiating energy in the background. The sigil structure is preserved exactly.',
+    negativePrompt:
+      STRICT_NEGATIVE_PROMPT + ', sharp geometry, clutter, static noise, photorealism',
+    strength: 0.26,
+  },
   watercolor: {
     name: 'watercolor',
     method: 'lineart',
@@ -154,11 +187,12 @@ const STYLE_CONFIGS: Record<AIStyle, StyleConfig> = {
     method: 'lineart',
     category: 'organic',
     prompt:
-      'Restore and beautify the existing sigil. Preserve exact geometry and stroke paths. ' +
-      'Apply traditional ink brush texture as surface treatment only. Sumi-e aesthetic, ' +
-      'ink wash gradients, rice paper texture. Zen calligraphy feel. ' +
-      'The sigil structure remains precisely as drawn.',
-    negativePrompt: STRICT_NEGATIVE_PROMPT + ', digital, 3d, color, modern, thick lines',
+      'Restore and beautify the existing sigil while preserving exact geometry and stroke paths. ' +
+      'Render it in an expressive traditional ink brush sumi-e style with flowing brush pressure, ' +
+      'visible dry-brush texture, ink wash gradients, subtle feathering, rice paper texture, ' +
+      'and elegant zen calligraphic energy. Keep the sigil structure exactly as drawn, but make ' +
+      'the brushwork feel organic, tactile, and artistically alive.',
+    negativePrompt: STRICT_NEGATIVE_PROMPT + ', digital, 3d, modern',
     strength: 0.25,
   },
   gold_leaf: {
@@ -509,8 +543,8 @@ export interface ControlNetEnhancementResult {
  *
  * Provider Priority:
  * 1. Gemini 3 Pro Image (if configured) - High-fidelity structural preservation, 4 variations in parallel
- *    - Premium tier: gemini-3-pro-image-preview (highest quality)
- *    - Draft tier: gemini-3-flash-preview (faster, lower cost)
+ *    - All tiers currently use gemini-3-pro-image-preview (Nano Banana)
+ *    - Tier affects variation count and internal cost/latency estimates
  * 2. Replicate (fallback) - ControlNet implementation with sequential generation
  *
  * @param request - Enhancement request with SVG, style, user ID, and optional tier
@@ -527,8 +561,7 @@ export async function enhanceSigilWithAI(
     try {
       logger.info('[AIEnhancer] Using Gemini image model as primary provider', {
         tier,
-        model:
-          tier === 'pro_upgrade' ? 'gemini-3-pro-image-preview' : 'gemini-3.1-flash-image-preview',
+        model: 'gemini-3-pro-image-preview',
       });
 
       // premium = 4 variations; pro_upgrade (slower model) and draft = 2 variations
@@ -659,7 +692,7 @@ export async function enhanceSigilWithControlNet(
       throw new Error(`Invalid style choice: ${request.styleChoice}`);
     }
 
-    logger.info('[ControlNet Enhancement] Starting STRICT structure-preserving generation', {
+    logger.info('[AI Enhancement] Starting STRICT structure-preserving generation', {
       style: request.styleChoice,
       method: styleConfig.method,
       conditioning_scale: styleConfig.conditioning_scale || CONTROLNET_CONFIG.conditioning_scale,
@@ -677,8 +710,8 @@ export async function enhanceSigilWithControlNet(
     const isMockMode = !apiToken || apiToken === 'your-replicate-token';
 
     if (isMockMode) {
-      logger.warn('[ControlNet Enhancement] Running in MOCK MODE (No valid API Token)');
-      logger.debug('[ControlNet Enhancement] Enhanced prompt with intention', {
+      logger.warn('[AI Enhancement] Running in MOCK MODE (No valid API Token)');
+      logger.debug('[AI Enhancement] Enhanced prompt with intention', {
         style: request.styleChoice,
         intentionText: request.intentionText || '(none)',
         hasSymbols: symbolInstructions.length > 0,
@@ -722,7 +755,7 @@ export async function enhanceSigilWithControlNet(
 
     // Step 1: Rasterize SVG to high-contrast PNG for ControlNet
     // Enhanced with stroke thickening for better edge survival
-    logger.info('[ControlNet Enhancement] Rasterizing SVG with stroke thickening');
+    logger.info('[AI Enhancement] Rasterizing SVG with stroke thickening');
     const rasterResult = await rasterizeSVG(request.sigilSvg, {
       width: 1024,
       height: 1024,
@@ -733,7 +766,7 @@ export async function enhanceSigilWithControlNet(
       padding: 0.12, // 12% padding for edge protection
     });
 
-    logger.debug('[ControlNet Enhancement] Rasterization complete', {
+    logger.debug('[AI Enhancement] Rasterization complete', {
       size: rasterResult.size,
       processingTimeMs: rasterResult.processingTimeMs,
     });
@@ -756,7 +789,7 @@ export async function enhanceSigilWithControlNet(
 
     // Note: enhancedPrompt already built before mock mode check (line ~574)
 
-    logger.info('[ControlNet Enhancement] Generating variations with STRICT params', {
+    logger.info('[AI Enhancement] Generating variations with STRICT params', {
       model: styleConfig.method,
       style: request.styleChoice,
       intentionText: request.intentionText || '(none)',
@@ -770,7 +803,7 @@ export async function enhanceSigilWithControlNet(
     // Step 6: Generate variations SEQUENTIALLY to avoid rate limiting
     // Replicate limits free/low-credit accounts to 1 concurrent request
     logger.info(
-      `[ControlNet Enhancement] Generating variations sequentially for style: ${request.styleChoice}`
+      `[AI Enhancement] Generating variations sequentially for style: ${request.styleChoice}`
     );
 
     const rawResults: { imageUrl: string; seed: number; index: number }[] = [];
@@ -779,9 +812,7 @@ export async function enhanceSigilWithControlNet(
     for (let i = 0; i < numVariations; i++) {
       const variationStart = Date.now();
       const seed = 2000 + i * 456;
-      logger.info(
-        `[ControlNet Enhancement] Starting variation ${i + 1}/${numVariations} (seed: ${seed})`
-      );
+      logger.info(`[AI Enhancement] Starting variation ${i + 1}/${numVariations} (seed: ${seed})`);
 
       try {
         const output = await replicate.run(model, {
@@ -806,7 +837,7 @@ export async function enhanceSigilWithControlNet(
 
         const variationTime = Math.round((Date.now() - variationStart) / 1000);
         logger.info(
-          `[ControlNet Enhancement] Variation ${i + 1}/${numVariations} complete (${variationTime}s)`
+          `[AI Enhancement] Variation ${i + 1}/${numVariations} complete (${variationTime}s)`
         );
 
         // Extract URL from output
@@ -827,7 +858,7 @@ export async function enhanceSigilWithControlNet(
         }
       } catch (err: unknown) {
         logger.error(
-          `[ControlNet Enhancement] Error in variation ${i + 1}`,
+          `[AI Enhancement] Error in variation ${i + 1}`,
           err instanceof Error ? err : new Error(String(err))
         );
         throw err;
@@ -836,7 +867,7 @@ export async function enhanceSigilWithControlNet(
 
     // Step 7: Build variation results with REAL structure scores
     // Uses actual pixel comparison between original control image and generated output
-    logger.info('[ControlNet Enhancement] Computing real structure match scores...');
+    logger.info('[AI Enhancement] Computing real structure match scores...');
 
     const variations: VariationResult[] = [];
 
@@ -856,7 +887,7 @@ export async function enhanceSigilWithControlNet(
           classification: matchResult.classification,
         };
 
-        logger.debug(`[ControlNet Enhancement] Variation ${result.index + 1} scores`, {
+        logger.debug(`[AI Enhancement] Variation ${result.index + 1} scores`, {
           iou: matchResult.iouScore.toFixed(3),
           combined: matchResult.combinedScore.toFixed(3),
           classification: matchResult.classification,
@@ -871,7 +902,7 @@ export async function enhanceSigilWithControlNet(
       } catch (error) {
         // On error, use conservative fallback score
         logger.warn(
-          `[ControlNet Enhancement] Structure match failed for variation ${result.index + 1}`,
+          `[AI Enhancement] Structure match failed for variation ${result.index + 1}`,
           error
         );
 
@@ -900,7 +931,7 @@ export async function enhanceSigilWithControlNet(
 
     const generationTime = Math.round((Date.now() - startTime) / 1000);
 
-    logger.info('[ControlNet Enhancement] Complete with structure validation', {
+    logger.info('[AI Enhancement] Complete with structure validation', {
       variations: variations.length,
       passingCount,
       bestScore: variations[bestVariationIndex].structureMatch.combinedScore.toFixed(3),
@@ -922,7 +953,7 @@ export async function enhanceSigilWithControlNet(
       bestVariationIndex,
     };
   } catch (error) {
-    logger.error('[ControlNet Enhancement] Error', error);
+    logger.error('[AI Enhancement] Error', error);
     throw new Error(
       `ControlNet enhancement failed: ${error instanceof Error ? error.message : 'Unknown error'}`
     );
@@ -933,9 +964,10 @@ export async function enhanceSigilWithControlNet(
  * Estimate generation time for ControlNet enhancement
  * Returns estimate based on available provider (Gemini vs Replicate)
  */
-export function estimateControlNetGenerationTime(
-  tier: 'draft' | 'premium' | 'pro_upgrade' = 'premium'
-): { min: number; max: number } {
+export function estimateGenerationTime(tier: 'draft' | 'premium' | 'pro_upgrade' = 'premium'): {
+  min: number;
+  max: number;
+} {
   const geminiService = getGeminiImageService();
   if (geminiService.isAvailable()) {
     // Gemini 3: Parallel generation

@@ -59,7 +59,7 @@ export interface HeroAnchorCardProps {
   reduceMotionEnabled?: boolean;
 }
 
-export const HeroAnchorCard: React.FC<HeroAnchorCardProps> = ({
+const HeroAnchorCardInner: React.FC<HeroAnchorCardProps> = ({
   anchor,
   onPress,
   reduceMotionEnabled = false,
@@ -147,7 +147,6 @@ export const HeroAnchorCard: React.FC<HeroAnchorCardProps> = ({
             &ldquo;{anchor.intentionText}&rdquo;
           </Text>
           <View style={styles.nameRow}>
-            <Text style={styles.anchorName}>{anchorDisplayName(anchor)}</Text>
             <View style={styles.categoryTag}>
               <Text style={styles.categoryLabel}>{formatCategory(anchor.category)}</Text>
             </View>
@@ -157,6 +156,8 @@ export const HeroAnchorCard: React.FC<HeroAnchorCardProps> = ({
     </TouchableOpacity>
   );
 };
+
+export const HeroAnchorCard = React.memo(HeroAnchorCardInner);
 
 // ─── Styles ───────────────────────────────────────────────────────────────────
 

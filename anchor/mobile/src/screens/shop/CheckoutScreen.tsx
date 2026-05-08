@@ -18,6 +18,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { RouteProp, useRoute, useNavigation } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
+import { ENABLE_MERCH } from '@/config';
 import { colors, spacing, typography } from '@/theme';
 import { RootStackParamList } from '@/types';
 import { post } from '@/services/ApiClient';
@@ -39,6 +40,19 @@ export const CheckoutScreen: React.FC = () => {
     const [state, setState] = useState('');
     const [zip, setZip] = useState('');
     const [isLoading, setIsLoading] = useState(false);
+
+    if (!ENABLE_MERCH) {
+        return (
+            <SafeAreaView style={styles.container}>
+                <View style={styles.disabledContainer}>
+                    <Text style={styles.title}>Physical Anchors Are Unavailable</Text>
+                    <Text style={styles.subtitle}>
+                        Merch is disabled for v1 and checkout is not active in production.
+                    </Text>
+                </View>
+            </SafeAreaView>
+        );
+    }
 
     const handleComplete = async () => {
         if (!name || !email || !address || !city || !state || !zip) {
@@ -190,6 +204,12 @@ const styles = StyleSheet.create({
     header: {
         paddingTop: spacing.xl,
         paddingBottom: spacing.lg,
+    },
+    disabledContainer: {
+        flex: 1,
+        alignItems: 'center',
+        justifyContent: 'center',
+        paddingHorizontal: spacing.xl,
     },
     title: {
         fontFamily: typography.fonts.heading,

@@ -1,0 +1,26 @@
+bcd90620243e49fba4ea879149b4561e
+'use strict';
+
+Object.defineProperty(exports, "__esModule", {
+  value: true
+});
+exports.isShareableRef = void 0;
+Object.defineProperty(exports, "makeShareable", {
+  enumerable: true,
+  get: function get() {
+    return _serializable.makeShareable;
+  }
+});
+Object.defineProperty(exports, "makeShareableCloneOnUIRecursive", {
+  enumerable: true,
+  get: function get() {
+    return _serializable.makeShareableCloneOnUIRecursive;
+  }
+});
+exports.shareableMappingCache = exports.makeShareableCloneRecursive = void 0;
+var _serializable = require("./serializable.js");
+var _serializableMappingCache = require("./serializableMappingCache.js");
+var makeShareableCloneRecursive = exports.makeShareableCloneRecursive = _serializable.createSerializable;
+var isShareableRef = exports.isShareableRef = _serializable.isSerializableRef;
+var shareableMappingCache = exports.shareableMappingCache = _serializableMappingCache.serializableMappingCache;
+//# sourceMappingURL=data:application/json;charset=utf-8;base64,eyJ2ZXJzaW9uIjozLCJuYW1lcyI6WyJPYmplY3QiLCJkZWZpbmVQcm9wZXJ0eSIsImV4cG9ydHMiLCJ2YWx1ZSIsImlzU2hhcmVhYmxlUmVmIiwiZW51bWVyYWJsZSIsImdldCIsIl9zZXJpYWxpemFibGUiLCJtYWtlU2hhcmVhYmxlIiwibWFrZVNoYXJlYWJsZUNsb25lT25VSVJlY3Vyc2l2ZSIsInNoYXJlYWJsZU1hcHBpbmdDYWNoZSIsIm1ha2VTaGFyZWFibGVDbG9uZVJlY3Vyc2l2ZSIsInJlcXVpcmUiLCJfc2VyaWFsaXphYmxlTWFwcGluZ0NhY2hlIiwiY3JlYXRlU2VyaWFsaXphYmxlIiwiaXNTZXJpYWxpemFibGVSZWYiLCJzZXJpYWxpemFibGVNYXBwaW5nQ2FjaGUiXSwic291cmNlcyI6WyIuLi8uLi9zcmMvZGVwcmVjYXRlZC50cyJdLCJzb3VyY2VzQ29udGVudCI6W251bGxdLCJtYXBwaW5ncyI6IkFBQUEsWUFBWTs7QUFBQUEsTUFBQSxDQUFBQyxjQUFBLENBQUFDLE9BQUE7RUFBQUMsS0FBQTtBQUFBO0FBQUFELE9BQUEsQ0FBQUUsY0FBQTtBQUFBSixNQUFBLENBQUFDLGNBQUEsQ0FBQUMsT0FBQTtFQUFBRyxVQUFBO0VBQUFDLEdBQUEsV0FBQUEsSUFBQTtJQUFBLE9BQUFDLGFBQUEsQ0FBQUMsYUFBQTtFQUFBO0FBQUE7QUFBQVIsTUFBQSxDQUFBQyxjQUFBLENBQUFDLE9BQUE7RUFBQUcsVUFBQTtFQUFBQyxHQUFBLFdBQUFBLElBQUE7SUFBQSxPQUFBQyxhQUFBLENBQUFFLCtCQUFBO0VBQUE7QUFBQTtBQUFBUCxPQUFBLENBQUFRLHFCQUFBLEdBQUFSLE9BQUEsQ0FBQVMsMkJBQUE7QUFFWixJQUFBSixhQUFBLEdBQUFLLE9BQUE7QUFNQSxJQUFBQyx5QkFBQSxHQUFBRCxPQUFBO0FBZ0JPLElBQU1ELDJCQUErQyxHQUFBVCxPQUFBLENBQUFTLDJCQUFBLEdBQzFERyxnQ0FBa0I7QUFHYixJQUFNVixjQUFjLEdBQUFGLE9BQUEsQ0FBQUUsY0FBQSxHQUFHVywrQkFBaUI7QUFHeEMsSUFBTUwscUJBQXFCLEdBQUFSLE9BQUEsQ0FBQVEscUJBQUEsR0FBR00sa0RBQXdCIiwiaWdub3JlTGlzdCI6W119

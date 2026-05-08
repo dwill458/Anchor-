@@ -7,14 +7,30 @@
 
 import { S3Client, DeleteObjectCommand } from '@aws-sdk/client-s3';
 import { Upload } from '@aws-sdk/lib-storage';
-import { v4 as _uuidv4 } from 'uuid';
 import axios from 'axios';
 import fs from 'fs';
 import path from 'path';
+import { randomUUID } from 'crypto';
 import { logger } from '../utils/logger';
 
 interface UploadUrlOptions {
   baseUrl?: string;
+}
+
+function isProduction(): boolean {
+  return process.env.NODE_ENV === 'production';
+}
+
+function requireStorageConfig(key: string, value: string | undefined): string {
+  if (value) {
+    return value;
+  }
+
+  if (isProduction()) {
+    throw new Error(`Cloudflare R2 configuration missing: ${key}`);
+  }
+
+  return '';
 }
 
 function getLocalUploadsDir(): string {
@@ -29,30 +45,70 @@ function normalizeBaseUrl(baseUrl?: string): string | undefined {
   return baseUrl.replace(/\/+$/, '');
 }
 
-function buildLocalUploadUrl(fileName: string, options?: UploadUrlOptions): string {
+function buildLocalUploadUrl(storageKey: string, options?: UploadUrlOptions): string {
   const configuredBaseUrl = normalizeBaseUrl(options?.baseUrl);
   if (configuredBaseUrl) {
-    return `${configuredBaseUrl}/uploads/${fileName}`;
+    return `${configuredBaseUrl}/uploads/${storageKey}`;
   }
 
   const localIp = process.env.LOCAL_IP || '127.0.0.1';
   const port = process.env.PORT || '8000';
-  return `http://${localIp}:${port}/uploads/${fileName}`;
+  return `http://${localIp}:${port}/uploads/${storageKey}`;
+}
+
+function getPublicAssetBaseUrl(bucket: string): string {
+  const publicDomain = process.env.CLOUDFLARE_R2_PUBLIC_DOMAIN;
+  if (publicDomain) {
+    return publicDomain.replace(/\/+$/, '');
+  }
+
+  if (isProduction()) {
+    throw new Error('Cloudflare R2 configuration missing: CLOUDFLARE_R2_PUBLIC_DOMAIN');
+  }
+
+  return `https://${bucket}.r2.cloudflarestorage.com`;
+}
+
+function sanitizePathSegment(value: string): string {
+  const trimmed = (value || '').trim();
+  const sanitized = trimmed.replace(/[^a-zA-Z0-9_-]/g, '-').replace(/-+/g, '-');
+  return sanitized || 'unknown';
+}
+
+function buildImageStorageKey(userId: string, anchorId: string, variationIndex: number): string {
+  const sanitizedUserId = sanitizePathSegment(userId);
+  const sanitizedAnchorId = sanitizePathSegment(anchorId);
+  const uniquePrefix = `${Date.now()}-${randomUUID()}`;
+  return `anchors/${sanitizedUserId}/${sanitizedAnchorId}/${uniquePrefix}-variation-${variationIndex}.png`;
+}
+
+function buildAudioStorageKey(userId: string, anchorId: string, mantraStyle: string): string {
+  const sanitizedUserId = sanitizePathSegment(userId);
+  const sanitizedAnchorId = sanitizePathSegment(anchorId);
+  const sanitizedStyle = sanitizePathSegment(mantraStyle);
+  return `mantras/${sanitizedUserId}/${sanitizedAnchorId}/${sanitizedStyle}.mp3`;
 }
 
 /**
  * Initialize R2 client (S3-compatible)
  */
-function getR2Client(): S3Client {
-  const accountId = process.env.CLOUDFLARE_ACCOUNT_ID;
-  const accessKeyId = process.env.CLOUDFLARE_R2_ACCESS_KEY_ID;
-  const secretAccessKey = process.env.CLOUDFLARE_R2_SECRET_ACCESS_KEY;
+function getR2Client(): S3Client | null {
+  const accountId = requireStorageConfig(
+    'CLOUDFLARE_ACCOUNT_ID',
+    process.env.CLOUDFLARE_ACCOUNT_ID
+  );
+  const accessKeyId = requireStorageConfig(
+    'CLOUDFLARE_R2_ACCESS_KEY_ID',
+    process.env.CLOUDFLARE_R2_ACCESS_KEY_ID
+  );
+  const secretAccessKey = requireStorageConfig(
+    'CLOUDFLARE_R2_SECRET_ACCESS_KEY',
+    process.env.CLOUDFLARE_R2_SECRET_ACCESS_KEY
+  );
 
   if (!accountId || !accessKeyId || !secretAccessKey) {
-    // Allow mock mode if credentials missing
-    // throw new Error('Cloudflare R2 credentials not configured');
     logger.warn('[Storage] R2 credentials missing. Running in mock mode.');
-    return null as unknown as S3Client;
+    return null;
   }
 
   // R2 endpoint format: https://<account_id>.r2.cloudflarestorage.com
@@ -72,8 +128,16 @@ function getR2Client(): S3Client {
  * Get bucket name from environment
  */
 function getBucketName(): string {
-  const bucket = process.env.CLOUDFLARE_R2_BUCKET_NAME || 'anchor-assets';
-  return bucket;
+  const bucket = process.env.CLOUDFLARE_R2_BUCKET_NAME;
+  if (bucket) {
+    return bucket;
+  }
+
+  if (isProduction()) {
+    throw new Error('Cloudflare R2 configuration missing: CLOUDFLARE_R2_BUCKET_NAME');
+  }
+
+  return 'anchor-assets';
 }
 
 /**
@@ -88,21 +152,69 @@ export async function uploadImageFromBuffer(
   options?: UploadUrlOptions
 ): Promise<string> {
   try {
-    logger.info('[Storage] Uploading image from buffer (LOCAL STORAGE for development)');
+    const objectKey = buildImageStorageKey(userId, anchorId, variationIndex);
+    const client = getR2Client();
+    const bucket = getBucketName();
 
-    // Ensure absolute path to uploads directory in backend root
-    const uploadsDir = getLocalUploadsDir();
+    if (client) {
+      logger.info('[Storage] Uploading image buffer to R2', { key: objectKey });
+      try {
+        const upload = new Upload({
+          client,
+          params: {
+            Bucket: bucket,
+            Key: objectKey,
+            Body: imageBuffer,
+            ContentType: 'image/png',
+            CacheControl: 'public, max-age=31536000',
+          },
+        });
 
-    if (!fs.existsSync(uploadsDir)) {
-      fs.mkdirSync(uploadsDir, { recursive: true });
+        await upload.done();
+
+        return `${getPublicAssetBaseUrl(bucket)}/${objectKey}`;
+      } catch (r2Error) {
+        if (isProduction()) {
+          throw r2Error;
+        }
+
+        logger.warn('[Storage] R2 upload failed, falling back to local storage', {
+          error: r2Error instanceof Error ? r2Error.message : 'Unknown',
+        });
+        // Fall through to local/data-URI fallback below
+      }
     }
 
-    const fileName = `${anchorId}-${variationIndex}.png`;
-    const localFilePath = path.join(uploadsDir, fileName);
-    fs.writeFileSync(localFilePath, imageBuffer);
+    logger.info('[Storage] Uploading image from buffer (LOCAL STORAGE fallback)', {
+      key: objectKey,
+    });
 
-    logger.info(`[Storage] Saved buffer to local disk: ${localFilePath}`);
-    return buildLocalUploadUrl(fileName, options);
+    try {
+      // Ensure absolute path to uploads directory in backend root
+      const uploadsDir = getLocalUploadsDir();
+      const localFilePath = path.join(uploadsDir, objectKey);
+      const localDir = path.dirname(localFilePath);
+
+      if (!fs.existsSync(localDir)) {
+        fs.mkdirSync(localDir, { recursive: true });
+      }
+
+      fs.writeFileSync(localFilePath, imageBuffer);
+
+      logger.info(`[Storage] Saved buffer to local disk: ${localFilePath}`);
+      return buildLocalUploadUrl(objectKey, options);
+    } catch (localError) {
+      // Local filesystem unavailable (e.g. ephemeral container) — return inline data URI
+      // so dev/preview builds can still display the generated image.
+      logger.warn('[Storage] Local filesystem unavailable, returning data URI', {
+        error: localError instanceof Error ? localError.message : 'Unknown',
+      });
+      if (isProduction()) {
+        throw localError;
+      }
+
+      return `data:image/png;base64,${imageBuffer.toString('base64')}`;
+    }
   } catch (error) {
     logger.error('[Storage] Upload from buffer error', error);
     throw new Error(
@@ -198,12 +310,10 @@ export async function uploadAudio(
     if (!client) {
       logger.warn('[Storage] R2 client not available, using local fallback for audio');
       // Return a deterministic local URI for development/CI environments
-      // In production, R2 credentials will always be available
-      return `local://mantras/${userId}/${anchorId}/${mantraStyle}.mp3`;
+      return `local://${buildAudioStorageKey(userId, anchorId, mantraStyle)}`;
     }
 
-    // Generate unique filename
-    const fileName = `mantras/${userId}/${anchorId}/${mantraStyle}.mp3`;
+    const fileName = buildAudioStorageKey(userId, anchorId, mantraStyle);
 
     logger.info('[Storage] Uploading audio to R2', { fileName });
 
@@ -221,12 +331,7 @@ export async function uploadAudio(
     await upload.done();
 
     // Return public URL
-    const publicDomain = process.env.CLOUDFLARE_R2_PUBLIC_DOMAIN;
-    if (publicDomain) {
-      return `${publicDomain}/${fileName}`;
-    }
-
-    return `https://${bucket}.r2.cloudflarestorage.com/${fileName}`;
+    return `${getPublicAssetBaseUrl(bucket)}/${fileName}`;
   } catch (error) {
     logger.error('[Storage] Audio upload failed', error);
     throw new Error(
@@ -242,6 +347,11 @@ export async function deleteAnchorFiles(userId: string, anchorId: string): Promi
   try {
     const client = getR2Client();
     const bucket = getBucketName();
+
+    if (!client) {
+      logger.warn('[Storage] R2 client not available, skipping remote file deletion', { anchorId });
+      return;
+    }
 
     // Delete all variations
     for (let i = 0; i < 4; i++) {
@@ -264,7 +374,7 @@ export async function deleteAnchorFiles(userId: string, anchorId: string): Promi
     // Delete mantra audio files
     const mantraStyles = ['syllabic', 'rhythmic', 'letterByLetter', 'phonetic'];
     for (const style of mantraStyles) {
-      const key = `mantras/${userId}/${anchorId}/${style}.mp3`;
+      const key = buildAudioStorageKey(userId, anchorId, style);
       try {
         await client.send(new DeleteObjectCommand({ Bucket: bucket, Key: key }));
       } catch (e) {
@@ -285,13 +395,8 @@ export async function deleteAnchorFiles(userId: string, anchorId: string): Promi
 export async function getSignedUrl(filePath: string, _expiresIn: number = 3600): Promise<string> {
   // For now, return public URL
   // In production, implement signed URLs for private content
-  const publicDomain = process.env.CLOUDFLARE_R2_PUBLIC_DOMAIN;
-  if (publicDomain) {
-    return `${publicDomain}/${filePath}`;
-  }
-
   const bucket = getBucketName();
-  return `https://${bucket}.r2.cloudflarestorage.com/${filePath}`;
+  return `${getPublicAssetBaseUrl(bucket)}/${filePath}`;
 }
 
 /**

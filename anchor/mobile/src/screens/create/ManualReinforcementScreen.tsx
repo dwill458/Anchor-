@@ -18,6 +18,9 @@ import { RootStackParamList, AnchorCategory, SigilVariant } from '@/types';
 import { colors, spacing, typography } from '@/theme';
 import { ZenBackground, UndertoneLine } from '@/components/common';
 import { useAuthStore } from '@/stores/authStore';
+import { useAnchorStore } from '@/stores/anchorStore';
+import { useAudio } from '@/hooks/useAudio';
+import { usePostPrimeTraceStore } from '@/stores/postPrimeTraceStore';
 import { useTeachingStore } from '@/stores/teachingStore';
 import { AnalyticsService } from '@/services/AnalyticsService';
 import {
@@ -76,14 +79,38 @@ interface TraceHintState {
 export default function ManualReinforcementScreen() {
   const route = useRoute<ManualReinforcementRouteProp>();
   const navigation = useNavigation<ManualReinforcementNavigationProp>();
+  const { playSound } = useAudio();
+  const getAnchorById = useAnchorStore((state) => state.getAnchorById);
+  const activePostPrimeFlow = usePostPrimeTraceStore((state) => state.activeFlow);
+  const finishPostPrimeTraceFlow = usePostPrimeTraceStore((state) => state.finishFlow);
 
-  const {
-    intentionText,
-    category,
-    distilledLetters,
-    baseSigilSvg,
-    structureVariant,
-  } = route.params;
+  const isPostPrimeTrace = route.params.source === 'post_prime_trace';
+  const postPrimeAnchor = getAnchorById(
+    isPostPrimeTrace ? route.params.anchorId : ''
+  );
+  const postPrimeSigilSvg = postPrimeAnchor
+    ? postPrimeAnchor.reinforcedSigilSvg ?? postPrimeAnchor.baseSigilSvg
+    : '';
+  const creationParams = !isPostPrimeTrace ? route.params : null;
+  const intentionText = isPostPrimeTrace
+    ? postPrimeAnchor?.intentionText ?? ''
+    : creationParams?.intentionText ?? '';
+  const category: AnchorCategory = isPostPrimeTrace
+    ? postPrimeAnchor?.category ?? 'custom'
+    : creationParams?.category ?? 'custom';
+  const distilledLetters = isPostPrimeTrace
+    ? postPrimeAnchor?.distilledLetters ?? []
+    : creationParams?.distilledLetters ?? [];
+  const baseSigilSvg = isPostPrimeTrace
+    ? postPrimeSigilSvg
+    : creationParams?.baseSigilSvg ?? '';
+  const structureVariant: SigilVariant = isPostPrimeTrace
+    ? postPrimeAnchor?.structureVariant ?? 'balanced'
+    : creationParams?.structureVariant ?? 'balanced';
+  const activePostPrimeFlowId =
+    isPostPrimeTrace && activePostPrimeFlow?.anchorId === route.params.anchorId
+      ? activePostPrimeFlow.flowId
+      : null;
 
   // Drawing state
   const [strokes, setStrokes] = useState<Stroke[]>([]);
@@ -109,6 +136,7 @@ export default function ManualReinforcementScreen() {
   const trackedShownRef = useRef<Record<string, true>>({});
   const trackedTriggersRef = useRef<Partial<Record<TraceHintTrigger, true>>>({});
   const recordedFirstTimeSeenRef = useRef(false);
+  const resolvedPostPrimeTraceRef = useRef(false);
 
   const baseHintSeed = useMemo(() => {
     const anchorSeed = `${category}:${structureVariant}:${distilledLetters.join('')}`;
@@ -205,10 +233,18 @@ export default function ManualReinforcementScreen() {
   }, [hasStartedDrawing]);
 
   useEffect(() => {
+    if (isPostPrimeTrace) {
+      return;
+    }
+
     trackHint(hintState.hint, hintState.trigger);
-  }, [hintState, trackHint]);
+  }, [hintState, isPostPrimeTrace, trackHint]);
 
   useEffect(() => {
+    if (isPostPrimeTrace) {
+      return;
+    }
+
     if (!canvasReady || hasStartedDrawing || overrideAppliedRef.current) {
       return;
     }
@@ -223,7 +259,38 @@ export default function ManualReinforcementScreen() {
     return () => {
       clearTimeout(timeoutId);
     };
-  }, [canvasReady, hasStartedDrawing, applyHintOverride]);
+  }, [canvasReady, hasStartedDrawing, applyHintOverride, isPostPrimeTrace]);
+
+  const resolvePostPrimeTrace = useCallback(
+    (result: 'completed' | 'skipped') => {
+      if (!isPostPrimeTrace) {
+        return;
+      }
+
+      if (resolvedPostPrimeTraceRef.current) {
+        return;
+      }
+
+      resolvedPostPrimeTraceRef.current = true;
+
+      if (activePostPrimeFlowId) {
+        finishPostPrimeTraceFlow(activePostPrimeFlowId, result);
+      }
+
+      navigation.goBack();
+    },
+    [activePostPrimeFlowId, finishPostPrimeTraceFlow, isPostPrimeTrace, navigation]
+  );
+
+  useEffect(() => {
+    return () => {
+      if (!isPostPrimeTrace || resolvedPostPrimeTraceRef.current || !activePostPrimeFlowId) {
+        return;
+      }
+
+      finishPostPrimeTraceFlow(activePostPrimeFlowId, 'skipped');
+    };
+  }, [activePostPrimeFlowId, finishPostPrimeTraceFlow, isPostPrimeTrace]);
 
   // Handlers that will be called from UI thread
   const handleGestureStart = (x: number, y: number) => {
@@ -264,6 +331,10 @@ export default function ManualReinforcementScreen() {
       // Calculate new fidelity score
       const newFidelity = calculateFidelity(updatedStrokes);
       setFidelityScore(newFidelity);
+
+      if (isPostPrimeTrace) {
+        void playSound('letter-drop', 0.65);
+      }
     }
 
     currentStrokeRef.current = [];
@@ -300,9 +371,15 @@ export default function ManualReinforcementScreen() {
     const timeSpentMs = Date.now() - startTime.current;
     const reinforcedSvg = strokesToSvg();
 
-    if (strokeCount > 0) {
+    if (!isPostPrimeTrace && strokeCount > 0) {
       setUserFlag('hasTracedBefore', true);
       exhaustTraceHint(TRACE_HINT_FIRST_TIME_EXHAUSTION_ID);
+    }
+
+    if (isPostPrimeTrace) {
+      void playSound('forge-seal');
+      resolvePostPrimeTrace('completed');
+      return;
     }
 
     navigation.navigate('LockStructure', {
@@ -310,7 +387,7 @@ export default function ManualReinforcementScreen() {
       category,
       distilledLetters,
       baseSigilSvg,
-      reinforcedSigilSvg: reinforcedSvg,
+      reinforcedSigilSvg: undefined,
       structureVariant,
       reinforcementMetadata: {
         completed: true,
@@ -331,6 +408,12 @@ export default function ManualReinforcementScreen() {
     const timeSpentMs = Date.now() - startTime.current;
 
     setShowSkipModal(false);
+
+    if (isPostPrimeTrace) {
+      resolvePostPrimeTrace('skipped');
+      return;
+    }
+
     navigation.navigate('LockStructure', {
       intentionText,
       category,
@@ -385,15 +468,37 @@ export default function ManualReinforcementScreen() {
     ]);
   };
 
+  if (isPostPrimeTrace && !postPrimeAnchor) {
+    return (
+      <SafeAreaView style={styles.container}>
+        <ZenBackground />
+        <View style={styles.missingAnchorWrap}>
+          <Text style={styles.title}>Trace unavailable</Text>
+          <Text style={styles.subtitle}>We couldn&apos;t load your anchor for retracing.</Text>
+          <TouchableOpacity
+            style={styles.completeButton}
+            onPress={() => resolvePostPrimeTrace('skipped')}
+            accessibilityRole="button"
+            accessibilityLabel="Return"
+          >
+            <Text style={styles.completeButtonText}>Return</Text>
+          </TouchableOpacity>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
   return (
     <SafeAreaView style={styles.container}>
       <ZenBackground />
 
       {/* Header */}
       <View style={styles.header}>
-        <Text style={styles.title}>Trace Your Structure</Text>
+        <Text style={styles.title}>{isPostPrimeTrace ? 'Trace to deepen' : 'Trace Your Structure'}</Text>
         <Text style={styles.subtitle}>
-          Move slowly over the lines. Let your hand remember.
+          {isPostPrimeTrace
+            ? 'Refine and deepen'
+            : 'Move slowly over the lines. Let your hand remember.'}
         </Text>
       </View>
 
@@ -442,11 +547,13 @@ export default function ManualReinforcementScreen() {
           </View>
         </GestureDetector>
 
-        <View style={styles.hintOverlay}>
-          <View style={styles.hintLine}>
-            <UndertoneLine text={hintState.hint.copy} variant="default" />
+        {!isPostPrimeTrace ? (
+          <View style={styles.hintOverlay}>
+            <View style={styles.hintLine}>
+              <UndertoneLine text={hintState.hint.copy} variant="default" />
+            </View>
           </View>
-        </View>
+        ) : null}
       </View>
 
       {/* Control Buttons */}
@@ -480,19 +587,23 @@ export default function ManualReinforcementScreen() {
           onPress={handleComplete}
           disabled={strokeCount === 0}
           accessibilityRole="button"
-          accessibilityLabel="Lock Structure"
+          accessibilityLabel={isPostPrimeTrace ? 'Complete trace' : 'Lock Structure'}
           accessibilityState={{ disabled: strokeCount === 0 }}
         >
-          <Text style={styles.completeButtonText}>Lock Structure</Text>
+          <Text style={styles.completeButtonText}>
+            {isPostPrimeTrace ? 'Complete trace' : 'Lock Structure'}
+          </Text>
         </TouchableOpacity>
 
         <TouchableOpacity
           style={styles.skipButton}
           onPress={handleSkip}
           accessibilityRole="button"
-          accessibilityLabel="Continue without tracing"
+          accessibilityLabel={isPostPrimeTrace ? 'Skip' : 'Continue without tracing'}
         >
-          <Text style={styles.skipButtonText}>Continue without tracing</Text>
+          <Text style={styles.skipButtonText}>
+            {isPostPrimeTrace ? 'Skip' : 'Continue without tracing'}
+          </Text>
         </TouchableOpacity>
       </View>
 
@@ -507,27 +618,35 @@ export default function ManualReinforcementScreen() {
           />
           <View style={styles.modalOverlay} pointerEvents="box-none">
             <View style={styles.modalContent} accessibilityViewIsModal={true}>
-              <Text style={styles.modalTitle}>Continue Without Tracing</Text>
+              <Text style={styles.modalTitle}>
+                {isPostPrimeTrace ? 'Skip Trace?' : 'Continue Without Tracing'}
+              </Text>
               <Text style={styles.modalBody}>
-                Some find tracing deepens their focus. It's completely optional.
+                {isPostPrimeTrace
+                  ? 'You can return to your reflection without tracing again.'
+                  : 'Some find tracing deepens their focus. It&apos;s completely optional.'}
               </Text>
 
               <TouchableOpacity
                 style={styles.modalPrimaryButton}
                 onPress={handleCancelSkip}
                 accessibilityRole="button"
-                accessibilityLabel="Stay and Trace"
+                accessibilityLabel={isPostPrimeTrace ? 'Keep Tracing' : 'Stay and Trace'}
               >
-                <Text style={styles.modalPrimaryButtonText}>Stay and Trace</Text>
+                <Text style={styles.modalPrimaryButtonText}>
+                  {isPostPrimeTrace ? 'Keep Tracing' : 'Stay and Trace'}
+                </Text>
               </TouchableOpacity>
 
               <TouchableOpacity
                 style={styles.modalSecondaryButton}
                 onPress={handleConfirmSkip}
                 accessibilityRole="button"
-                accessibilityLabel="Continue"
+                accessibilityLabel={isPostPrimeTrace ? 'Skip' : 'Continue'}
               >
-                <Text style={styles.modalSecondaryButtonText}>Continue</Text>
+                <Text style={styles.modalSecondaryButtonText}>
+                  {isPostPrimeTrace ? 'Skip' : 'Continue'}
+                </Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -645,6 +764,11 @@ const styles = StyleSheet.create({
     fontFamily: typography.fonts.body,
     fontSize: typography.sizes.body2,
     color: colors.text.secondary,
+  },
+  missingAnchorWrap: {
+    flex: 1,
+    justifyContent: 'center',
+    paddingHorizontal: spacing.lg,
   },
   modalRoot: {
     ...StyleSheet.absoluteFillObject,

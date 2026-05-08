@@ -1,8 +1,10 @@
-import React, { useRef, useEffect, useCallback, useMemo } from 'react';
+import React, { useRef, useEffect, useMemo, useState } from 'react';
 import { View, StyleSheet, Image as RNImage } from 'react-native';
 import { WebView } from 'react-native-webview';
 import type { WebViewMessageEvent } from 'react-native-webview';
-import { forgeWebViewHtml } from './forgeWebViewHtml';
+import { Asset } from 'expo-asset';
+import * as FileSystem from 'expo-file-system/legacy';
+import { getForgeWebViewHtml } from './forgeWebViewHtml';
 
 /** Interactive sigil forge demonstration for onboarding slide 3. */
 interface ForgeDemoProps {
@@ -18,22 +20,71 @@ export const ForgeDemo: React.FC<ForgeDemoProps> = ({ isActive, onForgeComplete 
   const webViewRef = useRef<WebView>(null);
   const prevActiveRef = useRef(false);
 
-  const imageUri = useMemo(
-    () => RNImage.resolveAssetSource(forgeRevealAsset).uri,
-    []
-  );
-
-  const injectImageUri = useCallback(() => {
-    webViewRef.current?.injectJavaScript(`
-      (function() {
-        var img = document.getElementById('forgeSigil');
-        if (img) img.src = ${JSON.stringify(imageUri)};
-      })();
-      true;
-    `);
-  }, [imageUri]);
+  const [resolvedImageUri, setResolvedImageUri] = useState<string | null>(null);
 
   useEffect(() => {
+    let isCancelled = false;
+
+    const toInlineDataUri = async (sourceUri: string): Promise<string | null> => {
+      const looksReadable =
+        sourceUri.startsWith('file:') ||
+        sourceUri.startsWith('content:') ||
+        sourceUri.startsWith('/');
+
+      if (!looksReadable) {
+        return null;
+      }
+
+      try {
+        const base64 = await FileSystem.readAsStringAsync(sourceUri, {
+          encoding: FileSystem.EncodingType.Base64,
+        });
+        return `data:image/png;base64,${base64}`;
+      } catch {
+        return null;
+      }
+    };
+
+    async function loadAsset() {
+      try {
+        const asset = Asset.fromModule(forgeRevealAsset);
+        if (!asset.localUri) {
+          await asset.downloadAsync();
+        }
+        if (isCancelled) return;
+
+        const resolvedAssetUri = RNImage.resolveAssetSource(forgeRevealAsset).uri;
+        const candidateUris = [asset.localUri, resolvedAssetUri, asset.uri].filter(
+          (uri): uri is string => Boolean(uri)
+        );
+
+        for (const candidateUri of candidateUris) {
+          const inlinedUri = await toInlineDataUri(candidateUri);
+          if (isCancelled) return;
+          if (inlinedUri) {
+            setResolvedImageUri(inlinedUri);
+            return;
+          }
+        }
+
+        setResolvedImageUri(candidateUris[0] ?? null);
+      } catch (err) {
+        if (!isCancelled) {
+          setResolvedImageUri(RNImage.resolveAssetSource(forgeRevealAsset).uri);
+        }
+      }
+    }
+    loadAsset();
+    return () => {
+      isCancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!resolvedImageUri) {
+      return;
+    }
+
     if (isActive && !prevActiveRef.current) {
       // Transitioned from inactive → active: reset to idle
       webViewRef.current?.injectJavaScript(`
@@ -46,7 +97,12 @@ export const ForgeDemo: React.FC<ForgeDemoProps> = ({ isActive, onForgeComplete 
       `);
     }
     prevActiveRef.current = isActive;
-  }, [isActive]);
+  }, [isActive, resolvedImageUri]);
+
+  const webViewHtml = useMemo(
+    () => (resolvedImageUri ? getForgeWebViewHtml(resolvedImageUri) : null),
+    [resolvedImageUri]
+  );
 
   const handleMessage = (event: WebViewMessageEvent) => {
     try {
@@ -61,21 +117,26 @@ export const ForgeDemo: React.FC<ForgeDemoProps> = ({ isActive, onForgeComplete 
 
   return (
     <View style={styles.container}>
-      <WebView
-        ref={webViewRef}
-        source={{ html: forgeWebViewHtml }}
-        style={styles.webview}
-        onLoad={injectImageUri}
-        onMessage={handleMessage}
-        originWhitelist={['*']}
-        allowFileAccess={true}
-        mixedContentMode="always"
-        scrollEnabled={false}
-        bounces={false}
-        overScrollMode="never"
-        showsVerticalScrollIndicator={false}
-        showsHorizontalScrollIndicator={false}
-      />
+      {webViewHtml ? (
+        <WebView
+          ref={webViewRef}
+          source={{ html: webViewHtml }}
+          style={styles.webview}
+          onMessage={handleMessage}
+          originWhitelist={['*']}
+          allowFileAccess
+          allowFileAccessFromFileURLs
+          allowUniversalAccessFromFileURLs
+          mixedContentMode="always"
+          scrollEnabled={false}
+          bounces={false}
+          overScrollMode="never"
+          showsVerticalScrollIndicator={false}
+          showsHorizontalScrollIndicator={false}
+        />
+      ) : (
+        <View style={styles.placeholder} />
+      )}
     </View>
   );
 };
@@ -91,5 +152,13 @@ const styles = StyleSheet.create({
     width: 320,
     height: 320,
     backgroundColor: 'transparent',
+  },
+  placeholder: {
+    width: 320,
+    height: 320,
+    borderRadius: 4,
+    borderWidth: 1,
+    borderColor: 'rgba(212,175,55,0.2)',
+    backgroundColor: 'rgba(15, 20, 25, 0.85)',
   },
 });

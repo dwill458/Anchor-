@@ -4,6 +4,7 @@
 
 import { renderHook, act } from '@testing-library/react-hooks';
 import { useSessionStore } from '../sessionStore';
+import type { RestDayPolicy, ThreadStrengthSensitivity } from '../settingsStore';
 
 // Mock dependencies
 jest.mock('@/stores/authStore', () => ({
@@ -31,6 +32,18 @@ jest.mock('@/services/ApiClient', () => ({
   },
 }));
 
+const mockSettingsStoreState = {
+  threadStrengthSensitivity: 'balanced' as ThreadStrengthSensitivity,
+  restDays: [] as number[],
+  restDayPolicy: 'build' as RestDayPolicy,
+};
+
+jest.mock('@/stores/settingsStore', () => ({
+  useSettingsStore: {
+    getState: () => mockSettingsStoreState,
+  },
+}));
+
 // Helper to build a session entry (minus id)
 const makeEntry = (
   overrides: Partial<{
@@ -48,13 +61,19 @@ const makeEntry = (
   ...overrides,
 });
 
+const localDateString = (date: Date): string =>
+  `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+
 // Reset store to initial state before each test
 beforeEach(() => {
+  mockSettingsStoreState.threadStrengthSensitivity = 'balanced';
+  mockSettingsStoreState.restDays = [];
+  mockSettingsStoreState.restDayPolicy = 'build';
   const { result } = renderHook(() => useSessionStore());
   act(() => {
     useSessionStore.setState({
       lastSession: null,
-      todayPractice: { date: new Date().toISOString().slice(0, 10), sessionsCount: 0, totalSeconds: 0 },
+      todayPractice: { date: localDateString(new Date()), sessionsCount: 0, totalSeconds: 0 },
       weeklyPractice: { weekKey: 'test-week', sessionsCount: 0, totalSeconds: 0 },
       lastGraceDayUsedAt: null,
       sessionLog: [],
@@ -63,6 +82,8 @@ beforeEach(() => {
       lastPrimedAt: null,
       weekHistory: [false, false, false, false, false, false, false],
       weekHistoryKey: 'test-week',
+      primingHistory: [],
+      journeyWeekStart: null,
       lastDecayDate: null,
     });
   });
@@ -159,7 +180,7 @@ describe('sessionStore', () => {
     it('sets lastPrimedAt for activate sessions', () => {
       const { result } = renderHook(() => useSessionStore());
       act(() => result.current.recordSession(makeEntry({ type: 'activate' })));
-      expect(result.current.lastPrimedAt).toBe(new Date().toISOString().slice(0, 10));
+      expect(result.current.lastPrimedAt).toBe(localDateString(new Date()));
     });
 
     it('caps sessionLog at 50 entries', () => {
@@ -181,6 +202,27 @@ describe('sessionStore', () => {
       const ids = result.current.sessionLog.map((s) => s.id);
       expect(new Set(ids).size).toBe(2);
     });
+
+    it('records uncapped priming history metadata for activate sessions', () => {
+      const { result } = renderHook(() => useSessionStore());
+      act(() => result.current.recordSession(makeEntry({ type: 'activate' })));
+
+      expect(result.current.primingHistory).toHaveLength(1);
+      expect(result.current.primingHistory[0]).toEqual(
+        expect.objectContaining({
+          anchorId: 'anchor-1',
+          type: 'activate',
+          localDate: localDateString(new Date()),
+        })
+      );
+    });
+
+    it('sets journeyWeekStart from the first priming session', () => {
+      const { result } = renderHook(() => useSessionStore());
+      act(() => result.current.recordSession(makeEntry({ type: 'reinforce' })));
+
+      expect(result.current.journeyWeekStart).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+    });
   });
 
   describe('consumeGraceDay', () => {
@@ -194,7 +236,7 @@ describe('sessionStore', () => {
 
   describe('resetIfNewDay', () => {
     it('does not reset todayPractice if the date matches today', () => {
-      const today = new Date().toISOString().slice(0, 10);
+      const today = localDateString(new Date());
       const { result } = renderHook(() => useSessionStore());
       act(() => {
         useSessionStore.setState({
@@ -214,7 +256,7 @@ describe('sessionStore', () => {
         result.current.resetIfNewDay();
       });
       expect(result.current.todayPractice.sessionsCount).toBe(0);
-      expect(result.current.todayPractice.date).toBe(new Date().toISOString().slice(0, 10));
+      expect(result.current.todayPractice.date).toBe(localDateString(new Date()));
     });
   });
 
@@ -226,7 +268,7 @@ describe('sessionStore', () => {
     });
 
     it('does nothing if already applied decay today', () => {
-      const today = new Date().toISOString().slice(0, 10);
+      const today = localDateString(new Date());
       const { result } = renderHook(() => useSessionStore());
       act(() => {
         useSessionStore.setState({ lastDecayDate: today, threadStrength: 30 });
@@ -236,7 +278,7 @@ describe('sessionStore', () => {
     });
 
     it('does nothing if last primed today', () => {
-      const today = new Date().toISOString().slice(0, 10);
+      const today = localDateString(new Date());
       const { result } = renderHook(() => useSessionStore());
       act(() => {
         useSessionStore.setState({ lastPrimedAt: today, threadStrength: 80 });
@@ -245,8 +287,8 @@ describe('sessionStore', () => {
       expect(result.current.threadStrength).toBe(80);
     });
 
-    it('applies 30-point decay for 1 missed day', () => {
-      const yesterday = new Date(Date.now() - 86400000).toISOString().slice(0, 10);
+    it('does not decay on the first missed day with balanced sensitivity', () => {
+      const yesterday = localDateString(new Date(Date.now() - 86400000));
       const { result } = renderHook(() => useSessionStore());
       act(() => {
         useSessionStore.setState({
@@ -256,11 +298,26 @@ describe('sessionStore', () => {
         });
         result.current.applyDecay();
       });
-      expect(result.current.threadStrength).toBe(30); // 60 - 30
+      expect(result.current.threadStrength).toBe(60);
     });
 
-    it('does not drop below 10 on the first missed day', () => {
-      const yesterday = new Date(Date.now() - 86400000).toISOString().slice(0, 10);
+    it('applies 30-point decay on the second missed day with balanced sensitivity', () => {
+      const twoDaysAgo = localDateString(new Date(Date.now() - 2 * 86400000));
+      const { result } = renderHook(() => useSessionStore());
+      act(() => {
+        useSessionStore.setState({
+          lastPrimedAt: twoDaysAgo,
+          threadStrength: 60,
+          lastDecayDate: null,
+        });
+        result.current.applyDecay();
+      });
+      expect(result.current.threadStrength).toBe(30);
+    });
+
+    it('does not drop below 10 on the first decay day', () => {
+      mockSettingsStoreState.threadStrengthSensitivity = 'strict';
+      const yesterday = localDateString(new Date(Date.now() - 86400000));
       const { result } = renderHook(() => useSessionStore());
       act(() => {
         useSessionStore.setState({
@@ -273,15 +330,69 @@ describe('sessionStore', () => {
       expect(result.current.threadStrength).toBe(10); // floored at 10
     });
 
+    it('skips decay for lenient sensitivity until the third missed day', () => {
+      mockSettingsStoreState.threadStrengthSensitivity = 'lenient';
+      const twoDaysAgo = localDateString(new Date(Date.now() - 2 * 86400000));
+      const { result } = renderHook(() => useSessionStore());
+      act(() => {
+        useSessionStore.setState({
+          lastPrimedAt: twoDaysAgo,
+          threadStrength: 70,
+          lastDecayDate: null,
+        });
+        result.current.applyDecay();
+      });
+      expect(result.current.threadStrength).toBe(70);
+    });
+
+    it('skips decay entirely when the missed day is a configured rest day', () => {
+      mockSettingsStoreState.threadStrengthSensitivity = 'strict';
+      const yesterday = localDateString(new Date(Date.now() - 86400000));
+      mockSettingsStoreState.restDays = [new Date().getDay()];
+      const { result } = renderHook(() => useSessionStore());
+      act(() => {
+        useSessionStore.setState({
+          lastPrimedAt: yesterday,
+          threadStrength: 70,
+          lastDecayDate: null,
+        });
+        result.current.applyDecay();
+      });
+      expect(result.current.threadStrength).toBe(70);
+    });
+
     it('marks lastDecayDate as today after applying', () => {
-      const yesterday = new Date(Date.now() - 86400000).toISOString().slice(0, 10);
-      const today = new Date().toISOString().slice(0, 10);
+      const yesterday = localDateString(new Date(Date.now() - 86400000));
+      const today = localDateString(new Date());
       const { result } = renderHook(() => useSessionStore());
       act(() => {
         useSessionStore.setState({ lastPrimedAt: yesterday, lastDecayDate: null });
         result.current.applyDecay();
       });
       expect(result.current.lastDecayDate).toBe(today);
+    });
+  });
+
+  describe('bumpThreadStrength', () => {
+    it('adds an explicit thread strength reward without recording a session', () => {
+      const { result } = renderHook(() => useSessionStore());
+
+      act(() => result.current.bumpThreadStrength(2));
+
+      expect(result.current.threadStrength).toBe(52);
+      expect(result.current.sessionLog).toHaveLength(0);
+      expect(result.current.totalSessionsCount).toBe(0);
+    });
+
+    it('caps explicit thread strength rewards at 100', () => {
+      const { result } = renderHook(() => useSessionStore());
+
+      act(() => {
+        useSessionStore.setState({ threadStrength: 99 });
+        result.current.bumpThreadStrength(5);
+      });
+
+      expect(result.current.threadStrength).toBe(100);
     });
   });
 });

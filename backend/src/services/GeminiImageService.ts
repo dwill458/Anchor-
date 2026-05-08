@@ -1,7 +1,8 @@
 /**
  * Gemini Image Service - Integration with Google's GenAI SDK
  *
- * Uses Gemini 2.0 Flash (Experimental) which supports native image generation.
+ * Uses Gemini 3.1 Flash (Nano Banana 2) for standard enhancements and
+ * Gemini 3 Pro for regenerations / 4K downloads.
  */
 
 import { GoogleGenAI } from '@google/genai';
@@ -35,24 +36,29 @@ interface ModelConfig {
   useNanoBanana?: boolean;
 }
 
+// Flash model: used for all standard enhancements (paid default)
+// Pro model: reserved for regenerations (attempt 3+) and 4K downloads
+const FLASH_MODEL = process.env.GEMINI_FLASH_MODEL || 'gemini-3.1-flash-image-preview';
+const PRO_MODEL = process.env.GEMINI_PRO_MODEL || 'gemini-3-pro-image-preview';
+
 const MODEL_CONFIGS: Record<QualityTier, ModelConfig> = {
   draft: {
-    modelId: 'gemini-3.1-flash-image-preview',
-    displayName: 'Gemini 3.1 Flash Image (Draft)',
-    costPerImage: 0.01,
+    modelId: FLASH_MODEL,
+    displayName: 'Gemini Flash (standard)',
+    costPerImage: 0.005,
     estimatedTimeSeconds: 3,
     useNanoBanana: true,
   },
   premium: {
-    modelId: 'gemini-3.1-flash-image-preview',
-    displayName: 'Gemini 3.1 Flash Image (Premium)',
-    costPerImage: 0.02,
-    estimatedTimeSeconds: 4,
+    modelId: FLASH_MODEL,
+    displayName: 'Gemini Flash (standard)',
+    costPerImage: 0.005,
+    estimatedTimeSeconds: 3,
     useNanoBanana: true,
   },
   pro_upgrade: {
-    modelId: 'gemini-3-pro-image-preview',
-    displayName: 'Gemini 3 Pro Image (Pro Upgrade)',
+    modelId: PRO_MODEL,
+    displayName: 'Gemini Pro (regeneration / 4K)',
     costPerImage: 0.04,
     estimatedTimeSeconds: 8,
     useNanoBanana: true,
@@ -166,12 +172,25 @@ export class GeminiImageService {
     // 3. Get model configuration
     const modelConfig = MODEL_CONFIGS[tier];
 
-    // 4. Generate all variations in parallel
-    const variations = await Promise.all(
-      Array.from({ length: numberOfVariations }, (_, i) =>
-        this.generateVariation(baseImageBuffer, prompt, i, modelConfig)
-      )
-    );
+    // 4. Generate variations in batches of 2 (paid plan — no free-tier rate limit concerns).
+    //    Two concurrent calls per batch cuts wall-clock time roughly in half vs sequential.
+    const INTER_BATCH_DELAY_MS = 2500;
+    const variations: ImageVariation[] = [];
+    const BATCH_SIZE = 2;
+    for (let i = 0; i < numberOfVariations; i += BATCH_SIZE) {
+      const indices = Array.from(
+        { length: Math.min(BATCH_SIZE, numberOfVariations - i) },
+        (_, k) => i + k
+      );
+      const batch = await Promise.all(
+        indices.map(idx => this.generateVariation(baseImageBuffer, prompt, idx, modelConfig))
+      );
+      variations.push(...batch);
+
+      if (i + BATCH_SIZE < numberOfVariations) {
+        await new Promise(resolve => setTimeout(resolve, INTER_BATCH_DELAY_MS));
+      }
+    }
 
     const totalTime = Math.round((Date.now() - startTime) / 1000);
 
@@ -226,14 +245,34 @@ ABSOLUTE PROHIBITIONS — DO NOT INCLUDE ANY OF THE FOLLOWING:
 NO WORDS. NO NUMBERS. NO LETTERS. NO CURRENCY. NO FINANCIAL IMAGERY.`;
 
     const styleTemplates: Record<string, string> = {
+      architectural_trace: `${structuralCore}
+
+STYLE: Architectural trace — precision drafting, measured geometry, blueprint discipline
+- Crisp drafting lines and grid logic, like an illuminated technical plan
+- Subtle crosshairs, compass arcs, and engineered symmetry
+- Clean technical elegance with restrained contrast and no ornamental drift
+
+${archetypeBlock}
+${hardBans}`,
+
       minimal_line: `${structuralCore}
 
-STYLE: Precision fine-line engraving — BLACK INK ON WHITE
-- ALL lines and strokes must be pure BLACK — absolutely no gold, yellow, amber, cream, or colored strokes
-- Background: white or off-white — no dark or colored backgrounds
-- Single-weight hairline black strokes only; no fills, no gradients, no color washes, no shading
-- Decorative motifs rendered as delicate black hairline filigree in borders only
-- Aesthetic: museum-quality engraving plate — restrained, precise, minimal luxury
+STYLE: Precision fine-line engraving — LIGHT LINES ON DARK
+- Background: deep black, dark charcoal, or very dark navy — rich and dark
+- ALL sigil lines and strokes in pure white, silver, or a soft luminous light tone that contrasts sharply against the dark background
+- Single-weight crisp strokes only; no fills, no gradients, no color washes, no heavy shading
+- Decorative border motifs drawn from the archetypal theme — rendered as delicate fine-line engravings, not strictly hairline; they may have subtle weight and presence
+- Aesthetic: museum-quality dark-ground engraving plate — restrained, precise, minimal luxury
+
+${archetypeBlock}
+${hardBans}`,
+
+      lunar_etch: `${structuralCore}
+
+STYLE: Lunar etch — moonlit silver engraving, quiet radiance, nocturnal contrast
+- Pale metallic highlights and crescent glints on the sigil geometry
+- Dark ground with silver etching and soft celestial restraint
+- Refined, almost ritualistic contrast with a quiet luminous edge
 
 ${archetypeBlock}
 ${hardBans}`,
@@ -314,6 +353,16 @@ STYLE: Ember trace — glowing hot metal edges, forge and crucible aesthetic
 - Deep black or charcoal background
 - Sigil lines glow with molten amber-orange heat along their edges
 - Cooling dark contrasts with ember-bright highlights on the geometry only
+
+${archetypeBlock}
+${hardBans}`,
+
+      resonance_rings: `${structuralCore}
+
+STYLE: Resonance rings — concentric pulse circles, waveform halos, radiating energy
+- Layered rings of resonance extending from the sigil center
+- Gentle rhythmic wave patterns in the background only
+- Energy expressed as circles, echoes, and subtle vibration, not literal effects
 
 ${archetypeBlock}
 ${hardBans}`,
@@ -791,8 +840,9 @@ REFERENCE IMAGE INSTRUCTION: The attached image shows the sigil structure that m
         timeoutPromise,
       ]);
 
-      // Extract image from response
-      const imageData = response.candidates?.[0]?.content?.parts?.[0]?.inlineData?.data;
+      const imageData = response.candidates
+        ?.flatMap(candidate => candidate.content?.parts ?? [])
+        ?.find(part => typeof part.inlineData?.data === 'string')?.inlineData?.data;
 
       if (!imageData) {
         throw new GeminiError(

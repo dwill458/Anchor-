@@ -150,6 +150,79 @@ router.use(async (req: AuthRequest, res: Response, next: NextFunction) => {
 });
 
 /**
+ * POST /api/anchors/classify-tier
+ *
+ * Fallback classification using LLM
+ *
+ * Body:
+ * - intentionText
+ */
+router.post('/classify-tier', async (req: AuthRequest, res: Response, next: NextFunction) => {
+  try {
+    const { intentionText } = req.body;
+    if (!intentionText || typeof intentionText !== 'string') {
+      throw new AppError('Invalid intention text', 400, 'VALIDATION_ERROR');
+    }
+
+    const { GoogleGenAI } = require('@google/genai');
+    const ai = new GoogleGenAI({});
+
+    const prompt = `You are a mystical classification engine for the Anchor manifestation app.
+Map the user's intention into exactly ONE of the following 5 planetary tiers based on its themes:
+1. "saturn": Discipline, personal growth, boundaries, shedding habits.
+2. "jupiter": Career, wealth, ambition, abundance, scaling up.
+3. "mars": Health, vitality, physical energy, protection, fitness.
+4. "sun": Identity, core desires, raw intent, pure will, clarity.
+5. "venus": Relationships, love, peace, harmony, experiences.
+
+Return ONLY a JSON object with two fields:
+{
+  "tier": "<one of: saturn, jupiter, mars, sun, venus>",
+  "confidenceScore": <number between 0 and 1>
+}
+
+Intention: "${intentionText}"`;
+
+    const response = await ai.models.generateContent({
+      model: 'gemini-2.5-flash',
+      contents: prompt,
+      config: {
+        responseMimeType: 'application/json',
+      }
+    });
+
+    const resultText = response.text || "{}";
+    let tier = 'saturn';
+    let confidenceScore = 0.5;
+
+    try {
+      const parsed = JSON.parse(resultText);
+      if (['saturn', 'jupiter', 'mars', 'sun', 'venus'].includes(parsed.tier)) {
+        tier = parsed.tier;
+      }
+      confidenceScore = typeof parsed.confidenceScore === 'number' ? parsed.confidenceScore : 0.5;
+    } catch (e) {
+      logger.warn('[ClassifyTier] Failed to parse LLM response', { resultText });
+    }
+
+    res.json({
+      success: true,
+      data: {
+        tier,
+        confidenceScore
+      }
+    });
+  } catch (error) {
+    if (error instanceof AppError) {
+      next(error);
+      return;
+    }
+    logger.error('[ClassifyTier] Error', error);
+    next(new AppError('Failed to classify tier', 500, 'CLASSIFY_ERROR'));
+  }
+});
+
+/**
  * POST /api/anchors
  *
  * Create a new anchor (updated for new architecture)
@@ -162,6 +235,9 @@ router.use(async (req: AuthRequest, res: Response, next: NextFunction) => {
  * - structureVariant: Which variant chosen ('dense' | 'balanced' | 'minimal')
  *
  * Optional Body Fields (New Architecture):
+ * - planetaryTier: Planetary tier ('saturn', 'jupiter', 'mars', 'sun', 'venus')
+ * - classifierVersion: Version of the classifier (1=legacy, 2=5-tier)
+ * - classifierMeta: Metadata for classification logic
  * - reinforcedSigilSvg: User-traced reinforcement version
  * - reinforcementMetadata: Manual reinforcement session data
  * - enhancedImageUrl: AI-styled image URL
@@ -172,12 +248,21 @@ router.use(async (req: AuthRequest, res: Response, next: NextFunction) => {
  */
 router.post('/', async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
+    const CreateAnchorExtendedSchema = CreateAnchorSchema.extend({
+      planetaryTier: z.string().optional(),
+      classifierVersion: z.number().optional(),
+      classifierMeta: z.unknown().optional(),
+    });
+
     const {
       intentionText,
       category,
       distilledLetters,
       baseSigilSvg,
       structureVariant,
+      planetaryTier,
+      classifierVersion,
+      classifierMeta,
       reinforcedSigilSvg,
       reinforcementMetadata,
       enhancedImageUrl,
@@ -185,7 +270,7 @@ router.post('/', async (req: AuthRequest, res: Response, next: NextFunction) => 
       mantraText,
       mantraPronunciation,
       mantraAudioUrl,
-    } = validate(CreateAnchorSchema, req.body);
+    } = validate(CreateAnchorExtendedSchema, req.body);
 
     const userId = req.dbUser!.id;
 
@@ -196,6 +281,9 @@ router.post('/', async (req: AuthRequest, res: Response, next: NextFunction) => 
         intentionText,
         category,
         distilledLetters,
+        planetaryTier: planetaryTier || 'saturn',
+        classifierVersion: classifierVersion || 1,
+        classifierMeta: classifierMeta ?? Prisma.JsonNull,
 
         // Structure lineage
         baseSigilSvg,

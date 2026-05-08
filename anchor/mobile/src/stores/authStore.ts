@@ -2,67 +2,181 @@ import { create } from 'zustand';
 import { persist, createJSONStorage, StateStorage } from 'zustand/middleware';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as SecureStore from 'expo-secure-store';
-import type { ApiResponse, ProfileData, User } from '@/types';
+import {
+  encryptedPersistStorage,
+  readSecureValue,
+  writeSecureValue,
+} from './encryptedPersistStorage';
+import type {
+  Anchor,
+  ApiResponse,
+  PendingFirstAnchorDraft,
+  PendingFirstAnchorMutation,
+  ProfileData,
+  User,
+} from '@/types';
 import { apiClient, fetchCompleteProfile } from '@/services/ApiClient';
 import { AuthService } from '@/services/AuthService';
 import { useAnchorStore } from '@/stores/anchorStore';
+import { useSubscriptionStore } from '@/stores/subscriptionStore';
 import { calculateStreak } from '@/utils/streakHelpers';
-import { applyStabilizeCompletion, toDateOrNull } from '@/utils/stabilizeStats';
+import {
+  createDeveloperMasterUser,
+  DEVELOPER_MASTER_ACCOUNT_TOKEN,
+} from '@/utils/developerMasterAccount';
 import { logger } from '@/utils/logger';
 
+type StabilizeStats = {
+  stabilizesTotal: number;
+  stabilizeStreakDays: number;
+  lastStabilizeAt: Date | null;
+};
+
+type StabilizeCompletionFlags = {
+  sameDay: boolean;
+  reset: boolean;
+  incremented: boolean;
+};
+
+const toDateOrNull = (value: Date | string | null | undefined): Date | null => {
+  if (!value) return null;
+  const date = value instanceof Date ? value : new Date(value);
+  return Number.isNaN(date.getTime()) ? null : date;
+};
+
+const getDayDiffLocal = (now: Date, last: Date | string | null | undefined): number | null => {
+  const lastDate = toDateOrNull(last);
+  if (!lastDate) return null;
+
+  const nowDay = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+  const lastDay = new Date(
+    lastDate.getFullYear(),
+    lastDate.getMonth(),
+    lastDate.getDate()
+  ).getTime();
+  const diff = Math.round((nowDay - lastDay) / 86400000);
+  return diff < 0 ? 0 : diff;
+};
+
+const applyStabilizeCompletion = (
+  prev: StabilizeStats,
+  now: Date = new Date()
+): { next: StabilizeStats; flags: StabilizeCompletionFlags } => {
+  const diff = getDayDiffLocal(now, prev.lastStabilizeAt);
+  const sameDay = diff === 0;
+  const reset = diff !== null && diff > 1;
+
+  let nextStreakDays = prev.stabilizeStreakDays;
+  if (diff === null) {
+    nextStreakDays = 1;
+  } else if (sameDay) {
+    nextStreakDays = Math.max(1, prev.stabilizeStreakDays);
+  } else if (diff === 1) {
+    nextStreakDays = prev.stabilizeStreakDays + 1;
+  } else {
+    nextStreakDays = 1;
+  }
+
+  return {
+    next: {
+      stabilizesTotal: prev.stabilizesTotal + 1,
+      stabilizeStreakDays: nextStreakDays,
+      lastStabilizeAt: now,
+    },
+    flags: {
+      sameDay,
+      reset,
+      incremented: true,
+    },
+  };
+};
+
 /**
- * Hybrid storage engine that selectively routes sensitive data to SecureStore
+ * Legacy auth persistence stored the JSON payload in AsyncStorage and only the
+ * token in SecureStore. Migrate that split format into the encrypted chunked
+ * SecureStore payload on first read, then keep auth persistence off plaintext
+ * storage entirely.
  */
-const SECURE_KEYS = ['token'];
+const LEGACY_SECURE_KEYS = ['token'] as const;
 
-const hybridStorage: StateStorage = {
+const createClearedPendingFirstAnchorState = () => ({
+  shouldRedirectToCreation: false,
+  pendingForgeIntent: null,
+  pendingForgeResumeTarget: null,
+  pendingFirstAnchorDraft: null,
+  pendingFirstAnchorMutations: [] as PendingFirstAnchorMutation[],
+  isFinalizingPendingFirstAnchor: false,
+  pendingFirstAnchorError: null,
+});
+
+function applyCompedAccessToSubscriptionStore(user: User | null): void {
+  useSubscriptionStore.getState().setRemoteCompedAccess(user?.isComped === true);
+}
+
+async function readLegacyAuthStorage(name: string): Promise<string | null> {
+  const baseData = await AsyncStorage.getItem(name);
+  const legacyToken = await SecureStore.getItemAsync(`${name}_token`);
+
+  if (!baseData) {
+    if (legacyToken) {
+      await SecureStore.deleteItemAsync(`${name}_token`);
+    }
+    return null;
+  }
+
+  try {
+    const parsed = JSON.parse(baseData);
+    if (legacyToken) {
+      parsed.state = {
+        ...parsed.state,
+        token: legacyToken,
+      };
+    }
+
+    const migratedValue = JSON.stringify(parsed);
+    await writeSecureValue(name, migratedValue);
+    await AsyncStorage.removeItem(name);
+    await Promise.all(
+      LEGACY_SECURE_KEYS.map((key) => SecureStore.deleteItemAsync(`${name}_${key}`))
+    );
+    return migratedValue;
+  } catch (error) {
+    logger.error('Failed to migrate legacy auth storage data:', error);
+    return null;
+  }
+}
+
+const encryptedAuthStorage: StateStorage = {
   getItem: async (name: string): Promise<string | null> => {
-    const baseData = await AsyncStorage.getItem(name);
-    if (!baseData) return null;
-
     try {
-      const parsed = JSON.parse(baseData);
-
-      // Hydrate secure keys from SecureStore
-      for (const key of SECURE_KEYS) {
-        const securedValue = await SecureStore.getItemAsync(`${name}_${key}`);
-        if (securedValue) {
-          parsed.state[key] = securedValue;
-        }
+      const secureValue = await readSecureValue(name);
+      if (secureValue != null) {
+        return secureValue;
       }
 
-      return JSON.stringify(parsed);
+      return await readLegacyAuthStorage(name);
     } catch (error) {
-      logger.error('Failed to parse auth storage data:', error);
-      return null;
+      logger.error('Failed to read auth storage data:', error);
+      return await readLegacyAuthStorage(name);
     }
   },
   setItem: async (name: string, value: string): Promise<void> => {
     try {
-      const parsed = JSON.parse(value);
-      const state = { ...parsed.state };
-
-      // Extract and save secure keys to SecureStore
-      for (const key of SECURE_KEYS) {
-        if (state[key]) {
-          await SecureStore.setItemAsync(`${name}_${key}`, state[key]);
-          delete state[key]; // Don't save in AsyncStorage
-        } else {
-          await SecureStore.deleteItemAsync(`${name}_${key}`);
-        }
-      }
-
-      // Save the sanitized state in AsyncStorage
-      await AsyncStorage.setItem(name, JSON.stringify({ ...parsed, state }));
+      await writeSecureValue(name, value);
+      await AsyncStorage.removeItem(name);
+      await Promise.all(
+        LEGACY_SECURE_KEYS.map((key) => SecureStore.deleteItemAsync(`${name}_${key}`))
+      );
     } catch (error) {
       logger.error('Failed to save auth storage data:', error);
+      throw error;
     }
   },
   removeItem: async (name: string): Promise<void> => {
-    await AsyncStorage.removeItem(name);
-    for (const key of SECURE_KEYS) {
-      await SecureStore.deleteItemAsync(`${name}_${key}`);
-    }
+    await encryptedPersistStorage.removeItem(name);
+    await Promise.all(
+      LEGACY_SECURE_KEYS.map((key) => SecureStore.deleteItemAsync(`${name}_${key}`))
+    );
   },
 };
 
@@ -70,6 +184,59 @@ const hybridStorage: StateStorage = {
  * Onboarding segment type
  */
 export type OnboardingSegment = 'athlete' | 'entrepreneur' | 'wellness';
+
+function normalizeAnchorDate(value?: Date | string | null): Date | undefined {
+  if (!value) return undefined;
+  return value instanceof Date ? value : new Date(value);
+}
+
+function normalizeAnchor(anchor: Anchor): Anchor {
+  return {
+    ...anchor,
+    createdAt: normalizeAnchorDate(anchor.createdAt) ?? new Date(),
+    updatedAt: normalizeAnchorDate(anchor.updatedAt) ?? new Date(),
+    chargedAt: normalizeAnchorDate(anchor.chargedAt),
+    firstChargedAt: normalizeAnchorDate(anchor.firstChargedAt),
+    ignitedAt: normalizeAnchorDate(anchor.ignitedAt),
+    lastActivatedAt: normalizeAnchorDate(anchor.lastActivatedAt),
+    releasedAt: normalizeAnchorDate(anchor.releasedAt),
+    archivedAt: normalizeAnchorDate(anchor.archivedAt),
+  };
+}
+
+function buildAnchorCreatePayload(anchor: Anchor) {
+  return {
+    intentionText: anchor.intentionText,
+    category: anchor.category,
+    distilledLetters: anchor.distilledLetters,
+    baseSigilSvg: anchor.baseSigilSvg,
+    structureVariant: anchor.structureVariant,
+    reinforcedSigilSvg: anchor.reinforcedSigilSvg,
+    reinforcementMetadata: anchor.reinforcementMetadata,
+    enhancedImageUrl: anchor.enhancedImageUrl,
+    enhancementMetadata: anchor.enhancementMetadata,
+    mantraText: anchor.mantraText,
+    mantraPronunciation: anchor.mantraPronunciation,
+    mantraAudioUrl: anchor.mantraAudioUrl,
+  };
+}
+
+function getNextPendingMutationIndex(
+  mutations: PendingFirstAnchorMutation[],
+  startIndex: number
+): number {
+  let nextIndex = startIndex;
+
+  while (nextIndex < mutations.length && mutations[nextIndex]?.type === 'create_anchor') {
+    nextIndex += 1;
+  }
+
+  return nextIndex;
+}
+
+function isMockAuthToken(token: string | null | undefined): boolean {
+  return typeof token === 'string' && (token === 'mock-jwt-token' || token.startsWith('mock-'));
+}
 
 /**
  * Authentication state interface
@@ -84,10 +251,19 @@ interface AuthState {
   onboardingSegment: OnboardingSegment | null;
   shouldRedirectToCreation: boolean;
   anchorCount: number;
+  pendingForgeIntent: string | null;
+  pendingForgeResumeTarget: string | null;
+  pendingFirstAnchorDraft: PendingFirstAnchorDraft | null;
+  pendingFirstAnchorMutations: PendingFirstAnchorMutation[];
+  isFinalizingPendingFirstAnchor: boolean;
+  pendingFirstAnchorError: string | null;
 
   // NEW: Profile caching fields
   profileData: ProfileData | null;
   profileLastFetched: number | null;
+
+  // Offline mode
+  isOfflineMode: boolean;
 
   // Actions
   setUser: (user: User | null) => void;
@@ -100,6 +276,17 @@ interface AuthState {
   setOnboardingSegment: (segment: OnboardingSegment) => void;
   setShouldRedirectToCreation: (should: boolean) => void;
   incrementAnchorCount: () => void;
+  enableDeveloperMasterAccount: () => void;
+  setPendingForgeIntent: (intent: string | null) => void;
+  clearPendingForgeIntent: () => void;
+  setPendingForgeResumeTarget: (target: string | null) => void;
+  clearPendingForgeResumeTarget: () => void;
+  setPendingFirstAnchorDraft: (draft: PendingFirstAnchorDraft | null) => void;
+  enqueuePendingFirstAnchorMutation: (mutation: PendingFirstAnchorMutation) => void;
+  clearPendingFirstAnchorState: () => void;
+  clearPendingFirstAnchorError: () => void;
+  finalizePendingFirstAnchorDraft: () => Promise<boolean>;
+  setOfflineMode: (offline: boolean) => void;
   signOut: () => void;
 
   // NEW: Profile actions
@@ -123,7 +310,7 @@ interface AuthState {
 }
 
 /**
- * Authentication store with hybrid persistence (AsyncStorage + SecureStore)
+ * Authentication store with encrypted persistence
  */
 export const useAuthStore = create<AuthState>()(
   persist(
@@ -137,32 +324,64 @@ export const useAuthStore = create<AuthState>()(
       onboardingSegment: null,
       shouldRedirectToCreation: false,
       anchorCount: 0,
+      pendingForgeIntent: null,
+      pendingForgeResumeTarget: null,
+      pendingFirstAnchorDraft: null,
+      pendingFirstAnchorMutations: [],
+      isFinalizingPendingFirstAnchor: false,
+      pendingFirstAnchorError: null,
 
       // NEW: Profile caching initial state
       profileData: null,
       profileLastFetched: null,
       wallpaperPromptSeen: false,
+      isOfflineMode: false,
 
       // Actions
-      setUser: (user) =>
-        set({
-          user,
-          isAuthenticated: !!user,
-        }),
+      setUser: (user) => {
+        applyCompedAccessToSubscriptionStore(user);
+        set((state) => {
+          const hasCompletedOnboarding = user
+            ? Boolean(user.hasCompletedOnboarding)
+            : state.hasCompletedOnboarding;
+
+          return {
+            user: user
+              ? {
+                ...user,
+                hasCompletedOnboarding,
+                isComped: user.isComped === true,
+              }
+              : null,
+            isAuthenticated: !!user,
+            hasCompletedOnboarding,
+          };
+        });
+      },
 
       setToken: (token) =>
         set({
           token,
         }),
 
-      setSession: (user, token) =>
-        set({
-          user,
-          token,
-          isAuthenticated: true,
-          hasCompletedOnboarding: user.hasCompletedOnboarding ?? false,
-          isLoading: false,
-        }),
+      setSession: (user, token) => {
+        applyCompedAccessToSubscriptionStore(user);
+        set(() => {
+          const hasCompletedOnboarding = Boolean(user.hasCompletedOnboarding);
+
+          return {
+            user: {
+              ...user,
+              hasCompletedOnboarding,
+              isComped: user.isComped === true,
+            },
+            token,
+            isAuthenticated: true,
+            hasCompletedOnboarding,
+            isLoading: false,
+          };
+        });
+      },
 
       setLoading: (loading) =>
         set({
@@ -199,6 +418,79 @@ export const useAuthStore = create<AuthState>()(
           anchorCount: state.anchorCount + 1,
         })),
 
+      enableDeveloperMasterAccount: () =>
+        set((state) => {
+          const developerUser = createDeveloperMasterUser({
+            hasCompletedOnboarding: state.hasCompletedOnboarding,
+            totalAnchorsCreated: Math.max(
+              state.anchorCount,
+              state.user?.totalAnchorsCreated ?? 0
+            ),
+            totalActivations: state.user?.totalActivations ?? 0,
+            currentStreak: state.user?.currentStreak ?? 0,
+            longestStreak: state.user?.longestStreak ?? 0,
+            stabilizesTotal: state.user?.stabilizesTotal ?? 0,
+            stabilizeStreakDays: state.user?.stabilizeStreakDays ?? 0,
+            lastStabilizeAt: state.user?.lastStabilizeAt,
+            createdAt: state.user?.createdAt ?? new Date(),
+          });
+
+          applyCompedAccessToSubscriptionStore(developerUser);
+
+          return {
+            user: developerUser,
+            token: DEVELOPER_MASTER_ACCOUNT_TOKEN,
+            isAuthenticated: true,
+            isLoading: false,
+            profileData: null,
+            profileLastFetched: null,
+          };
+        }),
+
+      setPendingForgeIntent: (pendingForgeIntent) =>
+        set({
+          pendingForgeIntent,
+        }),
+
+      clearPendingForgeIntent: () =>
+        set({
+          pendingForgeIntent: null,
+        }),
+
+      setPendingForgeResumeTarget: (pendingForgeResumeTarget) =>
+        set({
+          pendingForgeResumeTarget,
+        }),
+
+      clearPendingForgeResumeTarget: () =>
+        set({
+          pendingForgeResumeTarget: null,
+        }),
+
+      setPendingFirstAnchorDraft: (pendingFirstAnchorDraft) =>
+        set({
+          pendingFirstAnchorDraft,
+          pendingFirstAnchorError: null,
+        }),
+
+      enqueuePendingFirstAnchorMutation: (mutation) =>
+        set((state) => ({
+          pendingFirstAnchorMutations: [...state.pendingFirstAnchorMutations, mutation],
+        })),
+
+      clearPendingFirstAnchorState: () =>
+        set({
+          ...createClearedPendingFirstAnchorState(),
+        }),
+
+      clearPendingFirstAnchorError: () =>
+        set({
+          pendingFirstAnchorError: null,
+        }),
+
+      setOfflineMode: (isOfflineMode) =>
+        set({ isOfflineMode }),
+
       setWallpaperPromptSeen: (wallpaperPromptSeen) =>
         set({ wallpaperPromptSeen }),
 
@@ -215,10 +507,17 @@ export const useAuthStore = create<AuthState>()(
           }
 
           const profileData = await fetchCompleteProfile();
+          applyCompedAccessToSubscriptionStore(profileData.user);
+          const hasCompletedOnboarding = Boolean(profileData.user.hasCompletedOnboarding);
           set({
             profileData,
             profileLastFetched: now,
-            user: profileData.user, // Keep user in sync
+            user: {
+              ...profileData.user,
+              hasCompletedOnboarding,
+              isComped: profileData.user.isComped === true,
+            },
+            hasCompletedOnboarding,
           });
         } catch (error) {
           logger.error('Failed to fetch profile:', error);
@@ -237,11 +536,230 @@ export const useAuthStore = create<AuthState>()(
         set({ profileData: null, profileLastFetched: null });
       },
 
+      finalizePendingFirstAnchorDraft: async () => {
+        const {
+          pendingFirstAnchorDraft,
+          pendingFirstAnchorMutations,
+          isFinalizingPendingFirstAnchor,
+          user,
+        } = get();
+
+        if (!pendingFirstAnchorDraft) {
+          return true;
+        }
+
+        if (isFinalizingPendingFirstAnchor) {
+          return false;
+        }
+
+        set({
+          isFinalizingPendingFirstAnchor: true,
+          pendingFirstAnchorError: null,
+        });
+
+        try {
+          const anchorStore = useAnchorStore.getState();
+          const localAnchor = anchorStore.getAnchorById(pendingFirstAnchorDraft.tempAnchorId);
+          const relevantMutations = pendingFirstAnchorMutations.filter(
+            (mutation) => mutation.tempAnchorId === pendingFirstAnchorDraft.tempAnchorId
+          );
+
+          if (!localAnchor) {
+            throw new Error('Your first anchor draft could not be found.');
+          }
+
+          const idToken = await AuthService.getIdToken();
+
+          // Mock auth cannot reach the real backend. Clear the gate and keep the
+          // locally created anchor so development and tests remain usable.
+          if (isMockAuthToken(idToken)) {
+            if (user?.id && localAnchor.userId !== user.id) {
+              anchorStore.updateAnchor(localAnchor.id, { userId: user.id });
+            }
+
+            set((state) => ({
+              pendingFirstAnchorDraft: null,
+              pendingFirstAnchorMutations: [],
+              isFinalizingPendingFirstAnchor: false,
+              pendingFirstAnchorError: null,
+              user: state.user
+                ? {
+                  ...state.user,
+                  totalAnchorsCreated: state.user.totalAnchorsCreated + 1,
+                }
+                : state.user,
+              profileData: state.profileData
+                ? {
+                  ...state.profileData,
+                  user: {
+                    ...state.profileData.user,
+                    totalAnchorsCreated: state.profileData.user.totalAnchorsCreated + 1,
+                  },
+                }
+                : state.profileData,
+            }));
+
+            return true;
+          }
+
+          const persistPendingDraftProgress = (updates: Partial<PendingFirstAnchorDraft>) => {
+            set((state) => ({
+              pendingFirstAnchorDraft:
+                state.pendingFirstAnchorDraft?.tempAnchorId === pendingFirstAnchorDraft.tempAnchorId
+                  ? {
+                    ...state.pendingFirstAnchorDraft,
+                    ...updates,
+                  }
+                  : state.pendingFirstAnchorDraft,
+            }));
+          };
+
+          let backendAnchorId = pendingFirstAnchorDraft.backendAnchorId;
+          let nextPendingMutationIndex = pendingFirstAnchorDraft.nextPendingMutationIndex ?? 0;
+          let finalizedAnchor = normalizeAnchor(
+            backendAnchorId
+              ? ({
+                ...localAnchor,
+                id: backendAnchorId,
+              } as Anchor)
+              : localAnchor
+          );
+
+          if (!backendAnchorId) {
+            const createResponse = await apiClient.post<ApiResponse<Anchor>>(
+              '/api/anchors',
+              buildAnchorCreatePayload(localAnchor)
+            );
+
+            if (!createResponse.data?.success || !createResponse.data.data?.id) {
+              throw new Error('We could not save your first anchor yet.');
+            }
+
+            backendAnchorId = createResponse.data.data.id;
+            nextPendingMutationIndex = getNextPendingMutationIndex(relevantMutations, 0);
+            finalizedAnchor = normalizeAnchor({
+              ...localAnchor,
+              ...createResponse.data.data,
+              id: backendAnchorId,
+            } as Anchor);
+
+            persistPendingDraftProgress({
+              backendAnchorId,
+              nextPendingMutationIndex,
+            });
+          }
+
+          for (let index = nextPendingMutationIndex; index < relevantMutations.length; index += 1) {
+            const mutation = relevantMutations[index];
+
+            if (mutation.type === 'create_anchor') {
+              nextPendingMutationIndex = index + 1;
+              persistPendingDraftProgress({ nextPendingMutationIndex });
+              continue;
+            }
+
+            if (mutation.type === 'charge_anchor') {
+              const chargeResponse = await apiClient.post<ApiResponse<Anchor>>(
+                `/api/anchors/${finalizedAnchor.id}/charge`,
+                {
+                  chargeType: mutation.chargeType,
+                  durationSeconds: mutation.durationSeconds,
+                }
+              );
+
+              if (!chargeResponse.data?.success || !chargeResponse.data.data) {
+                throw new Error('Your first anchor was created, but charging did not sync.');
+              }
+
+              finalizedAnchor = normalizeAnchor({
+                ...finalizedAnchor,
+                ...chargeResponse.data.data,
+              } as Anchor);
+              nextPendingMutationIndex = index + 1;
+              persistPendingDraftProgress({ nextPendingMutationIndex });
+              continue;
+            }
+
+            if (mutation.type === 'activate_anchor') {
+              const activationResponse = await apiClient.post<ApiResponse<Anchor>>(
+                `/api/anchors/${finalizedAnchor.id}/activate`,
+                {
+                  activationType: mutation.activationType,
+                  durationSeconds: mutation.durationSeconds,
+                }
+              );
+
+              if (!activationResponse.data?.success || !activationResponse.data.data) {
+                throw new Error('Your first anchor was created, but activation did not sync.');
+              }
+
+              finalizedAnchor = normalizeAnchor({
+                ...finalizedAnchor,
+                ...activationResponse.data.data,
+              } as Anchor);
+              nextPendingMutationIndex = index + 1;
+              persistPendingDraftProgress({ nextPendingMutationIndex });
+            }
+          }
+
+          const nextAnchors = anchorStore.anchors.map((anchor) =>
+            anchor.id === pendingFirstAnchorDraft.tempAnchorId ? finalizedAnchor : anchor
+          );
+          anchorStore.setAnchors(nextAnchors);
+
+          if (anchorStore.currentAnchorId === pendingFirstAnchorDraft.tempAnchorId) {
+            anchorStore.setCurrentAnchor(finalizedAnchor.id);
+          }
+
+          set((state) => ({
+            pendingFirstAnchorDraft: null,
+            pendingFirstAnchorMutations: [],
+            isFinalizingPendingFirstAnchor: false,
+            pendingFirstAnchorError: null,
+            user: state.user
+              ? {
+                ...state.user,
+                totalAnchorsCreated: state.user.totalAnchorsCreated + 1,
+              }
+              : state.user,
+            profileData: state.profileData
+              ? {
+                ...state.profileData,
+                user: {
+                  ...state.profileData.user,
+                  totalAnchorsCreated: state.profileData.user.totalAnchorsCreated + 1,
+                },
+              }
+              : state.profileData,
+          }));
+
+          return true;
+        } catch (error) {
+          const message =
+            error instanceof Error
+              ? error.message
+              : 'We could not finish saving your first anchor.';
+
+          logger.warn('Failed to finalize first anchor draft', error);
+          set({
+            isFinalizingPendingFirstAnchor: false,
+            pendingFirstAnchorError: message,
+          });
+          return false;
+        }
+      },
+
       computeStreak: () => {
         const { user } = get();
         if (!user) return;
 
         const anchors = useAnchorStore.getState().anchors;
+
+        // If anchors haven't hydrated yet (empty store) but the user already
+        // has a persisted streak, skip — computing against [] would reset the
+        // streak to 0 incorrectly. computeStreak will run again after the next
+        // session when anchors are fully loaded.
+        if (anchors.length === 0 && (user.currentStreak ?? 0) > 0) return;
 
         // Use lastActivatedAt per anchor as the activation proxy (no full
         // activation history is stored client-side).
@@ -300,7 +818,7 @@ export const useAuthStore = create<AuthState>()(
 
         try {
           const token = await AuthService.getIdToken();
-          const isMockToken = typeof token === 'string' && token.startsWith('mock-');
+          const isMockToken = isMockAuthToken(token);
 
           if (isMockToken) {
             return flags;
@@ -320,11 +838,14 @@ export const useAuthStore = create<AuthState>()(
           if (response.data?.success && updatedUser) {
             const normalizedUpdatedUser: User = {
               ...updatedUser,
+              isComped: updatedUser.isComped === true,
               createdAt: toDateOrNull(updatedUser.createdAt) ?? user.createdAt,
               stabilizesTotal: updatedUser.stabilizesTotal ?? next.stabilizesTotal,
               stabilizeStreakDays: updatedUser.stabilizeStreakDays ?? next.stabilizeStreakDays,
               lastStabilizeAt: toDateOrNull(updatedUser.lastStabilizeAt) ?? undefined,
             };
+
+            applyCompedAccessToSubscriptionStore(normalizedUpdatedUser);
 
             set((state) => ({
               user: state.user ? { ...state.user, ...normalizedUpdatedUser } : normalizedUpdatedUser,
@@ -340,21 +861,26 @@ export const useAuthStore = create<AuthState>()(
         return flags;
       },
 
-      signOut: () =>
+      signOut: () => {
+        applyCompedAccessToSubscriptionStore(null);
         set({
           user: null,
           token: null,
           isAuthenticated: false,
+          isOfflineMode: false,
           anchorCount: 0,
           profileData: null,
           profileLastFetched: null,
-        }),
+          ...createClearedPendingFirstAnchorState(),
+        });
+      },
     }),
     {
       name: 'anchor-auth-storage',
-      storage: createJSONStorage(() => hybridStorage),
+      storage: createJSONStorage(() => encryptedAuthStorage),
       onRehydrateStorage: () => (state) => {
         if (state) {
+          applyCompedAccessToSubscriptionStore(state.user);
           // One-shot navigation flags should never survive an app restart.
           state.setShouldRedirectToCreation(false);
           // Recompute streak immediately after store hydrates from disk
@@ -370,6 +896,8 @@ export const useAuthStore = create<AuthState>()(
         hasCompletedOnboarding: state.hasCompletedOnboarding,
         onboardingSegment: state.onboardingSegment,
         anchorCount: state.anchorCount,
+        pendingFirstAnchorDraft: state.pendingFirstAnchorDraft,
+        pendingFirstAnchorMutations: state.pendingFirstAnchorMutations,
         profileData: state.profileData,
         profileLastFetched: state.profileLastFetched,
         wallpaperPromptSeen: state.wallpaperPromptSeen,

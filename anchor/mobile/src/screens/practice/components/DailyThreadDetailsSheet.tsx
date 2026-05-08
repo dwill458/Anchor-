@@ -1,9 +1,9 @@
 import React from 'react';
 import {
-  FlatList,
   Modal,
   Platform,
   Pressable,
+  ScrollView,
   StyleSheet,
   Text,
   View,
@@ -34,6 +34,8 @@ export const DailyThreadDetailsSheet: React.FC<DailyThreadDetailsSheetProps> = (
   streakDays,
   sessions,
 }) => {
+  const topSessions = React.useMemo(() => sessions.slice(0, 6), [sessions]);
+
   return (
     <Modal transparent visible={visible} animationType="slide" onRequestClose={onClose}>
       <View style={styles.root}>
@@ -59,17 +61,17 @@ export const DailyThreadDetailsSheet: React.FC<DailyThreadDetailsSheetProps> = (
           </View>
 
           <Text style={styles.sectionTitle}>Recent sessions</Text>
-          <FlatList
-            data={sessions.slice(0, 6)}
-            keyExtractor={(item) => item.id}
-            contentContainerStyle={styles.listContent}
-            ListEmptyComponent={<Text style={styles.empty}>No sessions yet.</Text>}
-            renderItem={({ item }) => (
-              <View style={styles.sessionRow}>
-                <Text style={styles.sessionText}>{formatSessionLabel(item)}</Text>
-              </View>
+          <ScrollView contentContainerStyle={styles.listContent}>
+            {topSessions.length === 0 ? (
+              <Text style={styles.empty}>No sessions yet.</Text>
+            ) : (
+              topSessions.map((item) => (
+                <View key={item.id} style={styles.sessionRow}>
+                  <Text style={styles.sessionText}>{formatSessionLabel(item)}</Text>
+                </View>
+              ))
             )}
-          />
+          </ScrollView>
         </View>
       </View>
     </Modal>

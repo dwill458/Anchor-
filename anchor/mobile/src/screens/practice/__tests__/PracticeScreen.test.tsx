@@ -14,6 +14,7 @@ jest.mock('react-native-reanimated', () => {
 
 const mockNavigate = jest.fn();
 const mockNavigateToVault = jest.fn();
+const mockRegisterTabNav = jest.fn();
 const mockSetCurrentAnchor = jest.fn((id?: string) => {
   mockCurrentAnchorId = id;
 });
@@ -30,6 +31,7 @@ const mockApplyDecay = jest.fn();
 const mockSettingsState: any = {
   defaultActivation: { mode: 'silent', unit: 'seconds', value: 30 },
   defaultCharge: { mode: 'ritual', preset: '5m', customMinutes: undefined },
+  dailyPracticeGoal: 3,
 };
 
 jest.mock('@react-navigation/native', () => {
@@ -50,6 +52,8 @@ jest.mock('@react-navigation/native', () => {
 jest.mock('@/contexts/TabNavigationContext', () => ({
   useTabNavigation: () => ({
     navigateToVault: mockNavigateToVault,
+    registerTabNav: mockRegisterTabNav,
+    activeTabIndex: 1,
   }),
 }));
 
@@ -73,16 +77,19 @@ jest.mock('@/stores/authStore', () => ({
 }));
 
 jest.mock('@/stores/sessionStore', () => ({
-  useSessionStore: () => ({
-    todayPractice: { sessionsCount: 0, totalSeconds: 0, date: '2026-02-21' },
-    sessionLog: mockSessionLog,
-    threadStrength: mockThreadStrength,
-    totalSessionsCount: mockTotalSessionsCount,
-    lastPrimedAt: mockLastPrimedAt,
-    weekHistory: mockWeekHistory,
-    applyDecay: mockApplyDecay,
-    lastGraceDayUsedAt: null,
-  }),
+  useSessionStore: (selector?: (state: any) => any) => {
+    const state = {
+      todayPractice: { sessionsCount: 0, totalSeconds: 0, date: '2026-02-21' },
+      sessionLog: mockSessionLog,
+      threadStrength: mockThreadStrength,
+      totalSessionsCount: mockTotalSessionsCount,
+      lastPrimedAt: mockLastPrimedAt,
+      weekHistory: mockWeekHistory,
+      applyDecay: mockApplyDecay,
+      lastGraceDayUsedAt: null,
+    };
+    return selector ? selector(state) : state;
+  },
 }));
 
 jest.mock('@/stores/settingsStore', () => ({
@@ -122,6 +129,7 @@ describe('PracticeScreen', () => {
     (AsyncStorage.getItem as jest.Mock).mockResolvedValue('1');
     mockNavigate.mockReset();
     mockNavigateToVault.mockReset();
+    mockRegisterTabNav.mockReset();
     mockSetCurrentAnchor.mockClear();
     mockSetCurrentAnchor.mockImplementation((id?: string) => {
       mockCurrentAnchorId = id;
@@ -132,6 +140,7 @@ describe('PracticeScreen', () => {
     mockSettingsState.defaultCharge.mode = 'ritual';
     mockSettingsState.defaultCharge.preset = '5m';
     mockSettingsState.defaultCharge.customMinutes = undefined;
+    mockSettingsState.dailyPracticeGoal = 3;
     mockAnchors = [];
     mockSessionLog = [];
     mockThreadStrength = 10;
@@ -147,6 +156,9 @@ describe('PracticeScreen', () => {
 
     expect(screen.getByText('Practice')).toBeTruthy();
     expect(screen.getByText('Return to the symbol. Keep the thread.')).toBeTruthy();
+    expect(screen.getByText("TODAY'S GOAL")).toBeTruthy();
+    expect(screen.getByText('0 / 3')).toBeTruthy();
+    expect(screen.getByText('3 sessions remaining today')).toBeTruthy();
     expect(screen.getByText('Begin Priming')).toBeTruthy();
     expect(screen.getByText('Restore the thread · 10–60 sec')).toBeTruthy();
     expect(screen.getByText('DEEP PRIME')).toBeTruthy();
@@ -274,7 +286,35 @@ describe('PracticeScreen', () => {
     fireEvent.press(screen.getByText('Begin Priming'));
 
     await waitFor(() => {
-      expect(mockNavigate).toHaveBeenCalledWith('StabilizeRitual', { anchorId: 'a55' });
+      expect(mockNavigateToVault).toHaveBeenCalledWith('Ritual', {
+        anchorId: 'a55',
+        ritualType: 'ritual',
+        durationSeconds: 14 * 60,
+        returnTo: 'practice',
+      });
+    });
+  });
+
+  it('uses burn fallbacks when launching release from practice', async () => {
+    mockAnchors = [
+      buildAnchor('a88', 'Fallback should be used', {
+        intentionText: undefined,
+        intention: 'Legacy intention',
+        reinforcedSigilSvg: '<svg>reinforced</svg>',
+        enhancedImageUrl: undefined,
+      }),
+    ];
+
+    const screen = render(<PracticeScreen />);
+    fireEvent.press(screen.getByText('RELEASE'));
+
+    await waitFor(() => {
+      expect(mockNavigateToVault).toHaveBeenCalledWith('ConfirmBurn', {
+        anchorId: 'a88',
+        intention: 'Legacy intention',
+        sigilSvg: '<svg>reinforced</svg>',
+        enhancedImageUrl: undefined,
+      });
     });
   });
 
@@ -287,6 +327,68 @@ describe('PracticeScreen', () => {
     expect(screen.getByText('Focus Session · 10–60 sec')).toBeTruthy();
   });
 
+  it('shows partial progress toward the daily goal from activate and reinforce sessions', async () => {
+    mockAnchors = [buildAnchor('a4', 'Keep the thread')];
+    mockSessionLog = [
+      {
+        id: 's1',
+        anchorId: 'a4',
+        type: 'activate',
+        durationSeconds: 30,
+        mode: 'silent',
+        completedAt: new Date().toISOString(),
+      },
+      {
+        id: 's2',
+        anchorId: 'a4',
+        type: 'reinforce',
+        durationSeconds: 300,
+        mode: 'silent',
+        completedAt: new Date().toISOString(),
+      },
+    ];
+
+    const screen = render(<PracticeScreen />);
+
+    expect(screen.getByText('2 / 3')).toBeTruthy();
+    expect(screen.getByText('1 session remaining today')).toBeTruthy();
+  });
+
+  it('shows a terminal state when the daily goal is complete', async () => {
+    mockAnchors = [buildAnchor('a5', 'Finish strong')];
+    mockSessionLog = [
+      {
+        id: 's1',
+        anchorId: 'a5',
+        type: 'activate',
+        durationSeconds: 30,
+        mode: 'silent',
+        completedAt: new Date().toISOString(),
+      },
+      {
+        id: 's2',
+        anchorId: 'a5',
+        type: 'reinforce',
+        durationSeconds: 300,
+        mode: 'silent',
+        completedAt: new Date().toISOString(),
+      },
+      {
+        id: 's3',
+        anchorId: 'a5',
+        type: 'activate',
+        durationSeconds: 30,
+        mode: 'silent',
+        completedAt: new Date().toISOString(),
+      },
+    ];
+
+    const screen = render(<PracticeScreen />);
+
+    expect(screen.getByText('3 / 3')).toBeTruthy();
+    expect(screen.getByText('Goal complete for today')).toBeTruthy();
+  });
+
   it('opens teaching sheet from info icon', async () => {
     mockAnchors = [buildAnchor('a1', 'Calm focus')];
     const screen = render(<PracticeScreen />);
@@ -294,8 +396,11 @@ describe('PracticeScreen', () => {
     fireEvent.press(screen.getByLabelText('Practice mode help'));
 
     await waitFor(() => {
-      expect(screen.getByText('How the three modes work')).toBeTruthy();
-      expect(screen.getByText('Got it')).toBeTruthy();
+      expect(screen.getByText('Three Modes to Prime')).toBeTruthy();
+      expect(screen.getByText('Imprint')).toBeTruthy();
+      expect(screen.getByText('Deep Prime')).toBeTruthy();
+      expect(screen.getByText('Seal')).toBeTruthy();
+      expect(screen.getByText('Got It')).toBeTruthy();
     });
   });
 });

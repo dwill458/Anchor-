@@ -193,7 +193,8 @@ export const MantraCreationScreen: React.FC = () => {
 
   const addAnchor = useAnchorStore((state) => state.addAnchor);
   const updateAnchor = useAnchorStore((state) => state.updateAnchor);
-  const { incrementAnchorCount } = useAuthStore();
+  const authUser = useAuthStore((state) => state.user);
+  const incrementAnchorCount = useAuthStore((state) => state.incrementAnchorCount);
 
   const canRecord = true;
 
@@ -325,7 +326,8 @@ export const MantraCreationScreen: React.FC = () => {
         anchorIdRef.current = anchorId;
         addAnchor({
           id: anchorId,
-          userId: 'user-123',
+          localId: anchorId,
+          userId: authUser?.id || 'user-local',
           intentionText: anchorPayload.intentionText || '',
           category: anchorPayload.category || 'custom',
           distilledLetters: anchorPayload.distilledLetters || [],
@@ -363,6 +365,7 @@ export const MantraCreationScreen: React.FC = () => {
       route.params.reinforcementMetadata,
       route.params.structureVariant,
       updateAnchor,
+      authUser?.id,
     ]
   );
 

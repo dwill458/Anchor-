@@ -1,0 +1,172 @@
+a4dfabc88c006cfc90287115d22e5767
+'use strict';
+
+var _interopRequireDefault = require("@babel/runtime/helpers/interopRequireDefault").default;
+Object.defineProperty(exports, "__esModule", {
+  value: true
+});
+exports.createJSWorkletsModule = createJSWorkletsModule;
+var _classCallCheck2 = _interopRequireDefault(require("@babel/runtime/helpers/classCallCheck"));
+var _createClass2 = _interopRequireDefault(require("@babel/runtime/helpers/createClass"));
+var _index = require("../PlatformChecker/index.js");
+var _mockedRequestAnimationFrame = require("../runLoop/uiRuntime/mockedRequestAnimationFrame.js");
+var _WorkletsError = require("../WorkletsError.js");
+function createJSWorkletsModule() {
+  return new JSWorklets();
+}
+var requestAnimationFrameImpl = _index.IS_JEST || !globalThis.requestAnimationFrame ? _mockedRequestAnimationFrame.mockedRequestAnimationFrame : globalThis.requestAnimationFrame;
+var JSWorklets = function () {
+  function JSWorklets() {
+    (0, _classCallCheck2.default)(this, JSWorklets);
+  }
+  return (0, _createClass2.default)(JSWorklets, [{
+    key: "createSerializable",
+    value: function createSerializable() {
+      throw new _WorkletsError.WorkletsError('createSerializable should never be called in JSWorklets.');
+    }
+  }, {
+    key: "createSerializableString",
+    value: function createSerializableString() {
+      throw new _WorkletsError.WorkletsError('createSerializableString should never be called in JSWorklets.');
+    }
+  }, {
+    key: "createSerializableNumber",
+    value: function createSerializableNumber() {
+      throw new _WorkletsError.WorkletsError('createSerializableNumber should never be called in JSWorklets.');
+    }
+  }, {
+    key: "createSerializableBoolean",
+    value: function createSerializableBoolean() {
+      throw new _WorkletsError.WorkletsError('createSerializableBoolean should never be called in JSWorklets.');
+    }
+  }, {
+    key: "createSerializableBigInt",
+    value: function createSerializableBigInt() {
+      throw new _WorkletsError.WorkletsError('createSerializableBigInt should never be called in JSWorklets.');
+    }
+  }, {
+    key: "createSerializableUndefined",
+    value: function createSerializableUndefined() {
+      throw new _WorkletsError.WorkletsError('createSerializableUndefined should never be called in JSWorklets.');
+    }
+  }, {
+    key: "createSerializableNull",
+    value: function createSerializableNull() {
+      throw new _WorkletsError.WorkletsError('createSerializableNull should never be called in JSWorklets.');
+    }
+  }, {
+    key: "createSerializableTurboModuleLike",
+    value: function createSerializableTurboModuleLike() {
+      throw new _WorkletsError.WorkletsError('createSerializableTurboModuleLike should never be called in JSWorklets.');
+    }
+  }, {
+    key: "createSerializableObject",
+    value: function createSerializableObject() {
+      throw new _WorkletsError.WorkletsError('createSerializableObject should never be called in JSWorklets.');
+    }
+  }, {
+    key: "createSerializableMap",
+    value: function createSerializableMap() {
+      throw new _WorkletsError.WorkletsError('createSerializableMap should never be called in JSWorklets.');
+    }
+  }, {
+    key: "createSerializableSet",
+    value: function createSerializableSet() {
+      throw new _WorkletsError.WorkletsError('createSerializableSet should never be called in JSWorklets.');
+    }
+  }, {
+    key: "createSerializableImport",
+    value: function createSerializableImport() {
+      throw new _WorkletsError.WorkletsError('createSerializableImport should never be called in JSWorklets.');
+    }
+  }, {
+    key: "createSerializableHostObject",
+    value: function createSerializableHostObject() {
+      throw new _WorkletsError.WorkletsError('createSerializableHostObject should never be called in JSWorklets.');
+    }
+  }, {
+    key: "createSerializableArray",
+    value: function createSerializableArray() {
+      throw new _WorkletsError.WorkletsError('createSerializableArray should never be called in JSWorklets.');
+    }
+  }, {
+    key: "createSerializableInitializer",
+    value: function createSerializableInitializer() {
+      throw new _WorkletsError.WorkletsError('createSerializableInitializer should never be called in JSWorklets.');
+    }
+  }, {
+    key: "createSerializableFunction",
+    value: function createSerializableFunction() {
+      throw new _WorkletsError.WorkletsError('createSerializableFunction should never be called in JSWorklets.');
+    }
+  }, {
+    key: "createSerializableWorklet",
+    value: function createSerializableWorklet() {
+      throw new _WorkletsError.WorkletsError('createSerializableWorklet should never be called in JSWorklets.');
+    }
+  }, {
+    key: "scheduleOnUI",
+    value: function scheduleOnUI(worklet) {
+      requestAnimationFrameImpl(worklet);
+    }
+  }, {
+    key: "executeOnUIRuntimeSync",
+    value: function executeOnUIRuntimeSync() {
+      throw new _WorkletsError.WorkletsError('`executeOnUIRuntimeSync` is not available in JSWorklets.');
+    }
+  }, {
+    key: "createWorkletRuntime",
+    value: function createWorkletRuntime() {
+      throw new _WorkletsError.WorkletsError('createWorkletRuntime is not available in JSWorklets.');
+    }
+  }, {
+    key: "scheduleOnRuntime",
+    value: function scheduleOnRuntime() {
+      throw new _WorkletsError.WorkletsError('scheduleOnRuntime is not available in JSWorklets.');
+    }
+  }, {
+    key: "createSynchronizable",
+    value: function createSynchronizable() {
+      throw new _WorkletsError.WorkletsError('createSynchronizable should never be called in JSWorklets.');
+    }
+  }, {
+    key: "synchronizableGetDirty",
+    value: function synchronizableGetDirty() {
+      throw new _WorkletsError.WorkletsError('synchronizableGetDirty should never be called in JSWorklets.');
+    }
+  }, {
+    key: "synchronizableGetBlocking",
+    value: function synchronizableGetBlocking() {
+      throw new _WorkletsError.WorkletsError('synchronizableGetBlocking should never be called in JSWorklets.');
+    }
+  }, {
+    key: "synchronizableSetBlocking",
+    value: function synchronizableSetBlocking() {
+      throw new _WorkletsError.WorkletsError('synchronizableSetBlocking should never be called in JSWorklets.');
+    }
+  }, {
+    key: "synchronizableLock",
+    value: function synchronizableLock() {
+      throw new _WorkletsError.WorkletsError('synchronizableLock should never be called in JSWorklets.');
+    }
+  }, {
+    key: "synchronizableUnlock",
+    value: function synchronizableUnlock() {
+      throw new _WorkletsError.WorkletsError('synchronizableUnlock should never be called in JSWorklets.');
+    }
+  }, {
+    key: "reportFatalErrorOnJS",
+    value: function reportFatalErrorOnJS() {
+      throw new _WorkletsError.WorkletsError('reportFatalErrorOnJS should never be called in JSWorklets.');
+    }
+  }, {
+    key: "getStaticFeatureFlag",
+    value: function getStaticFeatureFlag() {
+      return false;
+    }
+  }, {
+    key: "setDynamicFeatureFlag",
+    value: function setDynamicFeatureFlag() {}
+  }]);
+}();
+//# sourceMappingURL=data:application/json;charset=utf-8;base64,eyJ2ZXJzaW9uIjozLCJuYW1lcyI6WyJfaW50ZXJvcFJlcXVpcmVEZWZhdWx0IiwicmVxdWlyZSIsImRlZmF1bHQiLCJPYmplY3QiLCJkZWZpbmVQcm9wZXJ0eSIsImV4cG9ydHMiLCJ2YWx1ZSIsImNyZWF0ZUpTV29ya2xldHNNb2R1bGUiLCJfY2xhc3NDYWxsQ2hlY2syIiwiX2NyZWF0ZUNsYXNzMiIsIl9pbmRleCIsIl9tb2NrZWRSZXF1ZXN0QW5pbWF0aW9uRnJhbWUiLCJfV29ya2xldHNFcnJvciIsIkpTV29ya2xldHMiLCJyZXF1ZXN0QW5pbWF0aW9uRnJhbWVJbXBsIiwiSVNfSkVTVCIsImdsb2JhbFRoaXMiLCJyZXF1ZXN0QW5pbWF0aW9uRnJhbWUiLCJtb2NrZWRSZXF1ZXN0QW5pbWF0aW9uRnJhbWUiLCJrZXkiLCJjcmVhdGVTZXJpYWxpemFibGUiLCJXb3JrbGV0c0Vycm9yIiwiY3JlYXRlU2VyaWFsaXphYmxlU3RyaW5nIiwiY3JlYXRlU2VyaWFsaXphYmxlTnVtYmVyIiwiY3JlYXRlU2VyaWFsaXphYmxlQm9vbGVhbiIsImNyZWF0ZVNlcmlhbGl6YWJsZUJpZ0ludCIsImNyZWF0ZVNlcmlhbGl6YWJsZVVuZGVmaW5lZCIsImNyZWF0ZVNlcmlhbGl6YWJsZU51bGwiLCJjcmVhdGVTZXJpYWxpemFibGVUdXJib01vZHVsZUxpa2UiLCJjcmVhdGVTZXJpYWxpemFibGVPYmplY3QiLCJjcmVhdGVTZXJpYWxpemFibGVNYXAiLCJjcmVhdGVTZXJpYWxpemFibGVTZXQiLCJjcmVhdGVTZXJpYWxpemFibGVJbXBvcnQiLCJjcmVhdGVTZXJpYWxpemFibGVIb3N0T2JqZWN0IiwiY3JlYXRlU2VyaWFsaXphYmxlQXJyYXkiLCJjcmVhdGVTZXJpYWxpemFibGVJbml0aWFsaXplciIsImNyZWF0ZVNlcmlhbGl6YWJsZUZ1bmN0aW9uIiwiY3JlYXRlU2VyaWFsaXphYmxlV29ya2xldCIsInNjaGVkdWxlT25VSSIsIndvcmtsZXQiLCJleGVjdXRlT25VSVJ1bnRpbWVTeW5jIiwiY3JlYXRlV29ya2xldFJ1bnRpbWUiLCJzY2hlZHVsZU9uUnVudGltZSIsImNyZWF0ZVN5bmNocm9uaXphYmxlIiwic3luY2hyb25pemFibGVHZXREaXJ0eSIsInN5bmNocm9uaXphYmxlR2V0QmxvY2tpbmciLCJzeW5jaHJvbml6YWJsZVNldEJsb2NraW5nIiwic3luY2hyb25pemFibGVMb2NrIiwic3luY2hyb25pemFibGVVbmxvY2siLCJyZXBvcnRGYXRhbEVycm9yT25KUyIsImdldFN0YXRpY0ZlYXR1cmVGbGFnIiwic2V0RHluYW1pY0ZlYXR1cmVGbGFnIl0sInNvdXJjZXMiOlsiLi4vLi4vLi4vc3JjL1dvcmtsZXRzTW9kdWxlL0pTV29ya2xldHMudHMiXSwic291cmNlc0NvbnRlbnQiOltudWxsXSwibWFwcGluZ3MiOiJBQUFBLFlBQVk7O0FBQUEsSUFBQUEsc0JBQUEsR0FBQUMsT0FBQSxpREFBQUMsT0FBQTtBQUFBQyxNQUFBLENBQUFDLGNBQUEsQ0FBQUMsT0FBQTtFQUFBQyxLQUFBO0FBQUE7QUFBQUQsT0FBQSxDQUFBRSxzQkFBQSxHQUFBQSxzQkFBQTtBQUFBLElBQUFDLGdCQUFBLEdBQUFSLHNCQUFBLENBQUFDLE9BQUE7QUFBQSxJQUFBUSxhQUFBLEdBQUFULHNCQUFBLENBQUFDLE9BQUE7QUFFWixJQUFBUyxNQUFBLEdBQUFULE9BQUE7QUFDQSxJQUFBVSw0QkFBQSxHQUFBVixPQUFBO0FBQ0EsSUFBQVcsY0FBQSxHQUFBWCxPQUFBO0FBSU8sU0FBU00sc0JBQXNCQSxDQUFBLEVBQW9CO0VBQ3hELE9BQU8sSUFBSU0sVUFBVSxDQUFDLENBQUM7QUFDekI7QUFLQSxJQUFNQyx5QkFBeUIsR0FDN0JDLGNBQU8sSUFBSSxDQUFDQyxVQUFVLENBQUNDLHFCQUFxQixHQUN4Q0Msd0RBQTJCLEdBQzNCRixVQUFVLENBQUNDLHFCQUFxQjtBQUFBLElBRWhDSixVQUFVO0VBQUEsU0FBQUEsV0FBQTtJQUFBLElBQUFMLGdCQUFBLENBQUFOLE9BQUEsUUFBQVcsVUFBQTtFQUFBO0VBQUEsV0FBQUosYUFBQSxDQUFB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

@@ -1,0 +1,407 @@
+3694eb2114b68115f324a287b961a111
+'use strict';
+
+Object.defineProperty(exports, "__esModule", {
+  value: true
+});
+exports.Bezier = void 0;
+var _common = require("./common");
+var NEWTON_ITERATIONS = 4;
+var NEWTON_MIN_SLOPE = 0.001;
+var SUBDIVISION_PRECISION = 0.0000001;
+var SUBDIVISION_MAX_ITERATIONS = 10;
+var kSplineTableSize = 11;
+var kSampleStepSize = 1.0 / (kSplineTableSize - 1.0);
+var _worklet_861750260573_init_data = {
+  code: "function A_BezierTs1(aA1,aA2){return 1.0-3.0*aA2+3.0*aA1;}",
+  location: "C:\\Users\\dwill\\.gemini\\antigravity\\scratch\\Anchor\\anchor\\mobile\\node_modules\\react-native-reanimated\\src\\Bezier.ts",
+  sourceMap: "{\"version\":3,\"names\":[\"A_BezierTs1\",\"aA1\",\"aA2\"],\"sources\":[\"C:/Users/dwill/.gemini/antigravity/scratch/Anchor/anchor/mobile/node_modules/react-native-reanimated/src/Bezier.ts\"],\"mappings\":\"AAmBA,SAAAA,WAAoCA,CAAAC,GAAS,CAAAC,GAAA,EAE3C,MAAO,IAAG,CAAG,GAAG,CAAGA,GAAG,CAAG,GAAG,CAAGD,GAAG,CACpC\",\"ignoreList\":[]}"
+};
+var A = function A_BezierTs1Factory(_ref) {
+  var _worklet_861750260573_init_data = _ref._worklet_861750260573_init_data;
+  var _e = [new global.Error(), 1, -27];
+  var A = function A(aA1, aA2) {
+    return 1.0 - 3.0 * aA2 + 3.0 * aA1;
+  };
+  A.__closure = {};
+  A.__workletHash = 861750260573;
+  A.__pluginVersion = "0.5.1";
+  A.__initData = _worklet_861750260573_init_data;
+  A.__stackDetails = _e;
+  return A;
+}({
+  _worklet_861750260573_init_data: _worklet_861750260573_init_data
+});
+var _worklet_15931788865116_init_data = {
+  code: "function B_BezierTs2(aA1,aA2){return 3.0*aA2-6.0*aA1;}",
+  location: "C:\\Users\\dwill\\.gemini\\antigravity\\scratch\\Anchor\\anchor\\mobile\\node_modules\\react-native-reanimated\\src\\Bezier.ts",
+  sourceMap: "{\"version\":3,\"names\":[\"B_BezierTs2\",\"aA1\",\"aA2\"],\"sources\":[\"C:/Users/dwill/.gemini/antigravity/scratch/Anchor/anchor/mobile/node_modules/react-native-reanimated/src/Bezier.ts\"],\"mappings\":\"AAuBA,SAAAA,WAAoCA,CAAAC,GAAS,CAAAC,GAAA,EAE3C,MAAO,IAAG,CAAGA,GAAG,CAAG,GAAG,CAAGD,GAAG,CAC9B\",\"ignoreList\":[]}"
+};
+var B = function B_BezierTs2Factory(_ref2) {
+  var _worklet_15931788865116_init_data = _ref2._worklet_15931788865116_init_data;
+  var _e = [new global.Error(), 1, -27];
+  var B = function B(aA1, aA2) {
+    return 3.0 * aA2 - 6.0 * aA1;
+  };
+  B.__closure = {};
+  B.__workletHash = 15931788865116;
+  B.__pluginVersion = "0.5.1";
+  B.__initData = _worklet_15931788865116_init_data;
+  B.__stackDetails = _e;
+  return B;
+}({
+  _worklet_15931788865116_init_data: _worklet_15931788865116_init_data
+});
+var _worklet_1843480333279_init_data = {
+  code: "function C_BezierTs3(aA1){return 3.0*aA1;}",
+  location: "C:\\Users\\dwill\\.gemini\\antigravity\\scratch\\Anchor\\anchor\\mobile\\node_modules\\react-native-reanimated\\src\\Bezier.ts",
+  sourceMap: "{\"version\":3,\"names\":[\"C_BezierTs3\",\"aA1\"],\"sources\":[\"C:/Users/dwill/.gemini/antigravity/scratch/Anchor/anchor/mobile/node_modules/react-native-reanimated/src/Bezier.ts\"],\"mappings\":\"AA2BA,SAAAA,WAAwBA,CAAAC,GAAA,EAEtB,MAAO,IAAG,CAAGA,GAAG,CAClB\",\"ignoreList\":[]}"
+};
+var C = function C_BezierTs3Factory(_ref3) {
+  var _worklet_1843480333279_init_data = _ref3._worklet_1843480333279_init_data;
+  var _e = [new global.Error(), 1, -27];
+  var C = function C(aA1) {
+    return 3.0 * aA1;
+  };
+  C.__closure = {};
+  C.__workletHash = 1843480333279;
+  C.__pluginVersion = "0.5.1";
+  C.__initData = _worklet_1843480333279_init_data;
+  C.__stackDetails = _e;
+  return C;
+}({
+  _worklet_1843480333279_init_data: _worklet_1843480333279_init_data
+});
+var _worklet_8550114449079_init_data = {
+  code: "function calcBezier_BezierTs4(aT,aA1,aA2){const{A,B,C}=this.__closure;return((A(aA1,aA2)*aT+B(aA1,aA2))*aT+C(aA1))*aT;}",
+  location: "C:\\Users\\dwill\\.gemini\\antigravity\\scratch\\Anchor\\anchor\\mobile\\node_modules\\react-native-reanimated\\src\\Bezier.ts",
+  sourceMap: "{\"version\":3,\"names\":[\"calcBezier_BezierTs4\",\"aT\",\"aA1\",\"aA2\",\"A\",\"B\",\"C\",\"__closure\"],\"sources\":[\"C:/Users/dwill/.gemini/antigravity/scratch/Anchor/anchor/mobile/node_modules/react-native-reanimated/src/Bezier.ts\"],\"mappings\":\"AAgCA,SAAAA,qBAAAC,EAAA,CAAAC,GAAA,CAAAC,GAAA,QAAAC,CAAA,CAAAC,CAAA,CAAAC,CAAA,OAAAC,SAAA,SAAAH,CAAA,CAAAF,GAAA,CAAAC,GAAA,EAAAF,EAAA,CAAAI,CAAA,CAAAH,GAAA,CAAAC,GAAA,GAAAF,EAAA,CAAAK,CAAA,CAAAJ,GAAA,GAAAD,EAAA,CACA\",\"ignoreList\":[]}"
+};
+var calcBezier = function calcBezier_BezierTs4Factory(_ref4) {
+  var _worklet_8550114449079_init_data = _ref4._worklet_8550114449079_init_data,
+    A = _ref4.A,
+    B = _ref4.B,
+    C = _ref4.C;
+  var _e = [new global.Error(), -4, -27];
+  var calcBezier = function calcBezier(aT, aA1, aA2) {
+    return ((A(aA1, aA2) * aT + B(aA1, aA2)) * aT + C(aA1)) * aT;
+  };
+  calcBezier.__closure = {
+    A: A,
+    B: B,
+    C: C
+  };
+  calcBezier.__workletHash = 8550114449079;
+  calcBezier.__pluginVersion = "0.5.1";
+  calcBezier.__initData = _worklet_8550114449079_init_data;
+  calcBezier.__stackDetails = _e;
+  return calcBezier;
+}({
+  _worklet_8550114449079_init_data: _worklet_8550114449079_init_data,
+  A: A,
+  B: B,
+  C: C
+});
+var _worklet_6391598310698_init_data = {
+  code: "function getSlope_BezierTs5(aT,aA1,aA2){const{A,B,C}=this.__closure;return 3.0*A(aA1,aA2)*aT*aT+2.0*B(aA1,aA2)*aT+C(aA1);}",
+  location: "C:\\Users\\dwill\\.gemini\\antigravity\\scratch\\Anchor\\anchor\\mobile\\node_modules\\react-native-reanimated\\src\\Bezier.ts",
+  sourceMap: "{\"version\":3,\"names\":[\"getSlope_BezierTs5\",\"aT\",\"aA1\",\"aA2\",\"A\",\"B\",\"C\",\"__closure\"],\"sources\":[\"C:/Users/dwill/.gemini/antigravity/scratch/Anchor/anchor/mobile/node_modules/react-native-reanimated/src/Bezier.ts\"],\"mappings\":\"AAsCA,SAAAA,mBAAAC,EAAA,CAAAC,GAAA,CAAAC,GAAA,QAAAC,CAAA,CAAAC,CAAA,CAAAC,CAAA,OAAAC,SAAA,YAAAH,CAAA,CAAAF,GAAA,CAAAC,GAAA,EAAAF,EAAA,CAAAA,EAAA,KAAAI,CAAA,CAAAH,GAAA,CAAAC,GAAA,EAAAF,EAAA,CAAAK,CAAA,CAAAJ,GAAA,EACA\",\"ignoreList\":[]}"
+};
+var getSlope = function getSlope_BezierTs5Factory(_ref5) {
+  var _worklet_6391598310698_init_data = _ref5._worklet_6391598310698_init_data,
+    A = _ref5.A,
+    B = _ref5.B,
+    C = _ref5.C;
+  var _e = [new global.Error(), -4, -27];
+  var getSlope = function getSlope(aT, aA1, aA2) {
+    return 3.0 * A(aA1, aA2) * aT * aT + 2.0 * B(aA1, aA2) * aT + C(aA1);
+  };
+  getSlope.__closure = {
+    A: A,
+    B: B,
+    C: C
+  };
+  getSlope.__workletHash = 6391598310698;
+  getSlope.__pluginVersion = "0.5.1";
+  getSlope.__initData = _worklet_6391598310698_init_data;
+  getSlope.__stackDetails = _e;
+  return getSlope;
+}({
+  _worklet_6391598310698_init_data: _worklet_6391598310698_init_data,
+  A: A,
+  B: B,
+  C: C
+});
+var _worklet_15540270826686_init_data = {
+  code: "function binarySubdivide_BezierTs6(aX,aA,aB,mX1,mX2){const{calcBezier,SUBDIVISION_PRECISION,SUBDIVISION_MAX_ITERATIONS}=this.__closure;let currentX;let currentT;let i=0;do{currentT=aA+(aB-aA)/2.0;currentX=calcBezier(currentT,mX1,mX2)-aX;if(currentX>0.0){aB=currentT;}else{aA=currentT;}}while(Math.abs(currentX)>SUBDIVISION_PRECISION&&++i<SUBDIVISION_MAX_ITERATIONS);return currentT;}",
+  location: "C:\\Users\\dwill\\.gemini\\antigravity\\scratch\\Anchor\\anchor\\mobile\\node_modules\\react-native-reanimated\\src\\Bezier.ts",
+  sourceMap: "{\"version\":3,\"names\":[\"binarySubdivide_BezierTs6\",\"aX\",\"aA\",\"aB\",\"mX1\",\"mX2\",\"calcBezier\",\"SUBDIVISION_PRECISION\",\"SUBDIVISION_MAX_ITERATIONS\",\"__closure\",\"currentX\",\"currentT\",\"i\",\"Math\",\"abs\"],\"sources\":[\"C:/Users/dwill/.gemini/antigravity/scratch/Anchor/anchor/mobile/node_modules/react-native-reanimated/src/Bezier.ts\"],\"mappings\":\"AA4CA,SAAAA,yBAGEA,CAAAC,EAAU,CACVC,EAAW,CACXC,EAAA,CACDC,GAAS,CAAAC,GAAA,QAAAC,UAAA,CAAAC,qBAAA,CAAAC,0BAAA,OAAAC,SAAA,CAER,GAAI,CAAAC,QAAQ,CACZ,GAAI,CAAAC,QAAQ,CACZ,GAAI,CAAAC,CAAC,CAAG,CAAC,CACT,EAAG,CACDD,QAAQ,CAAGT,EAAE,CAAG,CAACC,EAAE,CAAGD,EAAE,EAAI,GAAG,CAC/BQ,QAAQ,CAAGJ,UAAU,CAACK,QAAQ,CAAEP,GAAG,CAAEC,GAAG,CAAC,CAAGJ,EAAE,CAC9C,GAAIS,QAAQ,CAAG,GAAG,CAAE,CAClBP,EAAE,CAAGQ,QAAQ,CACf,CAAC,IAAM,CACLT,EAAE,CAAGS,QAAQ,CACf,CACF,CAAC,MACCE,IAAI,CAACC,GAAG,CAACJ,QAAQ,CAAC,CAAGH,qBAAqB,EAC1C,EAAEK,CAAC,CAAGJ,0BAA0B,EAElC,MAAO,CAAAG,QAAQ,CACjB\",\"ignoreList\":[]}"
+};
+var binarySubdivide = function binarySubdivide_BezierTs6Factory(_ref6) {
+  var _worklet_15540270826686_init_data = _ref6._worklet_15540270826686_init_data,
+    calcBezier = _ref6.calcBezier,
+    SUBDIVISION_PRECISION = _ref6.SUBDIVISION_PRECISION,
+    SUBDIVISION_MAX_ITERATIONS = _ref6.SUBDIVISION_MAX_ITERATIONS;
+  var _e = [new global.Error(), -4, -27];
+  var binarySubdivide = function binarySubdivide(aX, aA, aB, mX1, mX2) {
+    var currentX;
+    var currentT;
+    var i = 0;
+    do {
+      currentT = aA + (aB - aA) / 2.0;
+      currentX = calcBezier(currentT, mX1, mX2) - aX;
+      if (currentX > 0.0) {
+        aB = currentT;
+      } else {
+        aA = currentT;
+      }
+    } while (Math.abs(currentX) > SUBDIVISION_PRECISION && ++i < SUBDIVISION_MAX_ITERATIONS);
+    return currentT;
+  };
+  binarySubdivide.__closure = {
+    calcBezier: calcBezier,
+    SUBDIVISION_PRECISION: SUBDIVISION_PRECISION,
+    SUBDIVISION_MAX_ITERATIONS: SUBDIVISION_MAX_ITERATIONS
+  };
+  binarySubdivide.__workletHash = 15540270826686;
+  binarySubdivide.__pluginVersion = "0.5.1";
+  binarySubdivide.__initData = _worklet_15540270826686_init_data;
+  binarySubdivide.__stackDetails = _e;
+  return binarySubdivide;
+}({
+  _worklet_15540270826686_init_data: _worklet_15540270826686_init_data,
+  calcBezier: calcBezier,
+  SUBDIVISION_PRECISION: SUBDIVISION_PRECISION,
+  SUBDIVISION_MAX_ITERATIONS: SUBDIVISION_MAX_ITERATIONS
+});
+var _worklet_14670662438800_init_data = {
+  code: "function newtonRaphsonIterate_BezierTs7(aX,aGuessT,mX1,mX2){const{NEWTON_ITERATIONS,getSlope,calcBezier}=this.__closure;for(let i=0;i<NEWTON_ITERATIONS;++i){const currentSlope=getSlope(aGuessT,mX1,mX2);if(currentSlope===0.0){return aGuessT;}const currentX=calcBezier(aGuessT,mX1,mX2)-aX;aGuessT-=currentX/currentSlope;}return aGuessT;}",
+  location: "C:\\Users\\dwill\\.gemini\\antigravity\\scratch\\Anchor\\anchor\\mobile\\node_modules\\react-native-reanimated\\src\\Bezier.ts",
+  sourceMap: "{\"version\":3,\"names\":[\"newtonRaphsonIterate_BezierTs7\",\"aX\",\"aGuessT\",\"mX1\",\"mX2\",\"NEWTON_ITERATIONS\",\"getSlope\",\"calcBezier\",\"__closure\",\"i\",\"currentSlope\",\"currentX\"],\"sources\":[\"C:/Users/dwill/.gemini/antigravity/scratch/Anchor/anchor/mobile/node_modules/react-native-reanimated/src/Bezier.ts\"],\"mappings\":\"AAsEA,SAAAA,8BAEEA,CAAAC,EAAe,CACfC,OACA,CACDC,GAAS,CAAAC,GAAA,QAAAC,iBAAA,CAAAC,QAAA,CAAAC,UAAA,OAAAC,SAAA,CAER,IAAK,GAAI,CAAAC,CAAC,CAAG,CAAC,CAAEA,CAAC,CAAGJ,iBAAiB,CAAE,EAAEI,CAAC,CAAE,CAC1C,KAAM,CAAAC,YAAY,CAAGJ,QAAQ,CAACJ,OAAO,CAAEC,GAAG,CAAEC,GAAG,CAAC,CAChD,GAAIM,YAAY,GAAK,GAAG,CAAE,CACxB,MAAO,CAAAR,OAAO,CAChB,CACA,KAAM,CAAAS,QAAQ,CAAGJ,UAAU,CAACL,OAAO,CAAEC,GAAG,CAAEC,GAAG,CAAC,CAAGH,EAAE,CACnDC,OAAO,EAAIS,QAAQ,CAAGD,YAAY,CACpC,CACA,MAAO,CAAAR,OAAO,CAChB\",\"ignoreList\":[]}"
+};
+var newtonRaphsonIterate = function newtonRaphsonIterate_BezierTs7Factory(_ref7) {
+  var _worklet_14670662438800_init_data = _ref7._worklet_14670662438800_init_data,
+    NEWTON_ITERATIONS = _ref7.NEWTON_ITERATIONS,
+    getSlope = _ref7.getSlope,
+    calcBezier = _ref7.calcBezier;
+  var _e = [new global.Error(), -4, -27];
+  var newtonRaphsonIterate = function newtonRaphsonIterate(aX, aGuessT, mX1, mX2) {
+    for (var i = 0; i < NEWTON_ITERATIONS; ++i) {
+      var currentSlope = getSlope(aGuessT, mX1, mX2);
+      if (currentSlope === 0.0) {
+        return aGuessT;
+      }
+      var currentX = calcBezier(aGuessT, mX1, mX2) - aX;
+      aGuessT -= currentX / currentSlope;
+    }
+    return aGuessT;
+  };
+  newtonRaphsonIterate.__closure = {
+    NEWTON_ITERATIONS: NEWTON_ITERATIONS,
+    getSlope: getSlope,
+    calcBezier: calcBezier
+  };
+  newtonRaphsonIterate.__workletHash = 14670662438800;
+  newtonRaphsonIterate.__pluginVersion = "0.5.1";
+  newtonRaphsonIterate.__initData = _worklet_14670662438800_init_data;
+  newtonRaphsonIterate.__stackDetails = _e;
+  return newtonRaphsonIterate;
+}({
+  _worklet_14670662438800_init_data: _worklet_14670662438800_init_data,
+  NEWTON_ITERATIONS: NEWTON_ITERATIONS,
+  getSlope: getSlope,
+  calcBezier: calcBezier
+});
+var _worklet_6349334780122_init_data = {
+  code: "function LinearEasing_BezierTs8(x){return x;}",
+  location: "C:\\Users\\dwill\\.gemini\\antigravity\\scratch\\Anchor\\anchor\\mobile\\node_modules\\react-native-reanimated\\src\\Bezier.ts",
+  sourceMap: "{\"version\":3,\"names\":[\"LinearEasing_BezierTs8\",\"x\"],\"sources\":[\"C:/Users/dwill/.gemini/antigravity/scratch/Anchor/anchor/mobile/node_modules/react-native-reanimated/src/Bezier.ts\"],\"mappings\":\"AAgGE,SAAAA,sBAAyCA,CAAAC,CAAA,EAEvC,MAAO,CAAAA,CAAC,CACV\",\"ignoreList\":[]}"
+};
+var _worklet_14810426314210_init_data = {
+  code: "function getTForX_BezierTs9(aX){const{kSplineTableSize,sampleValues,kSampleStepSize,getSlope,mX1,mX2,NEWTON_MIN_SLOPE,newtonRaphsonIterate,binarySubdivide}=this.__closure;let intervalStart=0.0;let currentSample=1;const lastSample=kSplineTableSize-1;for(;currentSample!==lastSample&&sampleValues[currentSample]<=aX;++currentSample){intervalStart+=kSampleStepSize;}--currentSample;const dist=(aX-sampleValues[currentSample])/(sampleValues[currentSample+1]-sampleValues[currentSample]);const guessForT=intervalStart+dist*kSampleStepSize;const initialSlope=getSlope(guessForT,mX1,mX2);if(initialSlope>=NEWTON_MIN_SLOPE){return newtonRaphsonIterate(aX,guessForT,mX1,mX2);}else if(initialSlope===0.0){return guessForT;}else{return binarySubdivide(aX,intervalStart,intervalStart+kSampleStepSize,mX1,mX2);}}",
+  location: "C:\\Users\\dwill\\.gemini\\antigravity\\scratch\\Anchor\\anchor\\mobile\\node_modules\\react-native-reanimated\\src\\Bezier.ts",
+  sourceMap: "{\"version\":3,\"names\":[\"getTForX_BezierTs9\",\"aX\",\"kSplineTableSize\",\"sampleValues\",\"kSampleStepSize\",\"getSlope\",\"mX1\",\"mX2\",\"NEWTON_MIN_SLOPE\",\"newtonRaphsonIterate\",\"binarySubdivide\",\"__closure\",\"intervalStart\",\"currentSample\",\"lastSample\",\"dist\",\"guessForT\",\"initialSlope\"],\"sources\":[\"C:/Users/dwill/.gemini/antigravity/scratch/Anchor/anchor/mobile/node_modules/react-native-reanimated/src/Bezier.ts\"],\"mappings\":\"AAoHE,SAAAA,kBAAsCA,CAAAC,EAAA,QAAAC,gBAAA,CAAAC,YAAA,CAAAC,eAAA,CAAAC,QAAA,CAAAC,GAAA,CAAAC,GAAA,CAAAC,gBAAA,CAAAC,oBAAA,CAAAC,eAAA,OAAAC,SAAA,CAEpC,GAAI,CAAAC,aAAa,CAAG,GAAG,CACvB,GAAI,CAAAC,aAAa,CAAG,CAAC,CACrB,KAAM,CAAAC,UAAU,CAAGZ,gBAAgB,CAAG,CAAC,CAEvC,KAEEW,aAAa,GAAKC,UAAU,EAAIX,YAAY,CAACU,aAAa,CAAC,EAAIZ,EAAE,CACjE,EAAEY,aAAa,CACf,CACAD,aAAa,EAAIR,eAAe,CAClC,CACA,EAAES,aAAa,CAGf,KAAM,CAAAE,IAAI,CACR,CAACd,EAAE,CAAGE,YAAY,CAACU,aAAa,CAAC,GAChCV,YAAY,CAACU,aAAa,CAAG,CAAC,CAAC,CAAGV,YAAY,CAACU,aAAa,CAAC,CAAC,CACjE,KAAM,CAAAG,SAAS,CAAGJ,aAAa,CAAGG,IAAI,CAAGX,eAAe,CAExD,KAAM,CAAAa,YAAY,CAAGZ,QAAQ,CAACW,SAAS,CAAEV,GAAG,CAAEC,GAAG,CAAC,CAClD,GAAIU,YAAY,EAAIT,gBAAgB,CAAE,CACpC,MAAO,CAAAC,oBAAoB,CAACR,EAAE,CAAEe,SAAS,CAAEV,GAAG,CAAEC,GAAG,CAAC,CACtD,CAAC,IAAM,IAAIU,YAAY,GAAK,GAAG,CAAE,CAC/B,MAAO,CAAAD,SAAS,CAClB,CAAC,IAAM,CACL,MAAO,CAAAN,eAAe,CACpBT,EAAE,CACFW,aAAa,CACbA,aAAa,CAAGR,eAAe,CAC/BE,GAAG,CACHC,GACF,CAAC,CACH,CACF\",\"ignoreList\":[]}"
+};
+var _worklet_7501932047887_init_data = {
+  code: "function BezierEasing_BezierTs10(x){const{mX1,mY1,mX2,mY2,calcBezier,getTForX}=this.__closure;if(mX1===mY1&&mX2===mY2){return x;}if(x===0){return 0;}if(x===1){return 1;}return calcBezier(getTForX(x),mY1,mY2);}",
+  location: "C:\\Users\\dwill\\.gemini\\antigravity\\scratch\\Anchor\\anchor\\mobile\\node_modules\\react-native-reanimated\\src\\Bezier.ts",
+  sourceMap: "{\"version\":3,\"names\":[\"BezierEasing_BezierTs10\",\"x\",\"mX1\",\"mY1\",\"mX2\",\"mY2\",\"calcBezier\",\"getTForX\",\"__closure\"],\"sources\":[\"C:/Users/dwill/.gemini/antigravity/scratch/Anchor/anchor/mobile/node_modules/react-native-reanimated/src/Bezier.ts\"],\"mappings\":\"AAyJS,SAAAA,uBAAyBA,CAAAC,CAAA,QAAAC,GAAA,CAAAC,GAAA,CAAAC,GAAA,CAAAC,GAAA,CAAAC,UAAA,CAAAC,QAAA,OAAAC,SAAA,CAE9B,GAAIN,GAAG,GAAKC,GAAG,EAAIC,GAAG,GAAKC,GAAG,CAAE,CAC9B,MAAO,CAAAJ,CAAC,CACV,CAEA,GAAIA,CAAC,GAAK,CAAC,CAAE,CACX,MAAO,EAAC,CACV,CACA,GAAIA,CAAC,GAAK,CAAC,CAAE,CACX,MAAO,EAAC,CACV,CACA,MAAO,CAAAK,UAAU,CAACC,QAAQ,CAACN,CAAC,CAAC,CAAEE,GAAG,CAAEE,GAAG,CAAC,CAC1C\",\"ignoreList\":[]}"
+};
+var _worklet_9126418723283_init_data = {
+  code: "function Bezier_BezierTs11(mX1,mY1,mX2,mY2){const{_worklet_6349334780122_init_data,kSplineTableSize,calcBezier,kSampleStepSize,_worklet_14810426314210_init_data,getSlope,NEWTON_MIN_SLOPE,newtonRaphsonIterate,binarySubdivide,_worklet_7501932047887_init_data}=this.__closure;const LinearEasing=function Bezier_BezierTs11({_worklet_6349334780122_init_data:_worklet_6349334780122_init_data}){const _e=[new global.Error(),1,-27];const LinearEasing=function(x){return x;};LinearEasing.__closure={};LinearEasing.__workletHash=6349334780122;LinearEasing.__pluginVersion=\"0.5.1\";LinearEasing.__initData=_worklet_6349334780122_init_data;LinearEasing.__stackDetails=_e;return LinearEasing;}({_worklet_6349334780122_init_data:_worklet_6349334780122_init_data});if(!(mX1>=0&&mX1<=1&&mX2>=0&&mX2<=1)){throw new ReanimatedError('Bezier x values must be in [0, 1] range.');}if(mX1===mY1&&mX2===mY2){return LinearEasing;}const sampleValues=new Array(kSplineTableSize);for(let i=0;i<kSplineTableSize;++i){sampleValues[i]=calcBezier(i*kSampleStepSize,mX1,mX2);}const getTForX=function getTForX_BezierTs9Factory({_worklet_14810426314210_init_data:_worklet_14810426314210_init_data,kSplineTableSize:kSplineTableSize,sampleValues:sampleValues,kSampleStepSize:kSampleStepSize,getSlope:getSlope,mX1:mX1,mX2:mX2,NEWTON_MIN_SLOPE:NEWTON_MIN_SLOPE,newtonRaphsonIterate:newtonRaphsonIterate,binarySubdivide:binarySubdivide}){const _e=[new global.Error(),-10,-27];const getTForX=function(aX){let intervalStart=0.0;let currentSample=1;const lastSample=kSplineTableSize-1;for(;currentSample!==lastSample&&sampleValues[currentSample]<=aX;++currentSample){intervalStart+=kSampleStepSize;}--currentSample;const dist=(aX-sampleValues[currentSample])/(sampleValues[currentSample+1]-sampleValues[currentSample]);const guessForT=intervalStart+dist*kSampleStepSize;const initialSlope=getSlope(guessForT,mX1,mX2);if(initialSlope>=NEWTON_MIN_SLOPE){return newtonRaphsonIterate(aX,guessForT,mX1,mX2);}else if(initialSlope===0.0){return guessForT;}else{return binarySubdivide(aX,intervalStart,intervalStart+kSampleStepSize,mX1,mX2);}};getTForX.__closure={kSplineTableSize:kSplineTableSize,sampleValues:sampleValues,kSampleStepSize:kSampleStepSize,getSlope:getSlope,mX1:mX1,mX2:mX2,NEWTON_MIN_SLOPE:NEWTON_MIN_SLOPE,newtonRaphsonIterate:newtonRaphsonIterate,binarySubdivide:binarySubdivide};getTForX.__workletHash=14810426314210;getTForX.__pluginVersion=\"0.5.1\";getTForX.__initData=_worklet_14810426314210_init_data;getTForX.__stackDetails=_e;return getTForX;}({_worklet_14810426314210_init_data:_worklet_14810426314210_init_data,kSplineTableSize:kSplineTableSize,sampleValues:sampleValues,kSampleStepSize:kSampleStepSize,getSlope:getSlope,mX1:mX1,mX2:mX2,NEWTON_MIN_SLOPE:NEWTON_MIN_SLOPE,newtonRaphsonIterate:newtonRaphsonIterate,binarySubdivide:binarySubdivide});return function BezierEasing_BezierTs10Factory({_worklet_7501932047887_init_data:_worklet_7501932047887_init_data,mX1:mX1,mY1:mY1,mX2:mX2,mY2:mY2,calcBezier:calcBezier,getTForX:getTForX}){const _e=[new global.Error(),-7,-27];const BezierEasing=function(x){if(mX1===mY1&&mX2===mY2){return x;}if(x===0){return 0;}if(x===1){return 1;}return calcBezier(getTForX(x),mY1,mY2);};BezierEasing.__closure={mX1:mX1,mY1:mY1,mX2:mX2,mY2:mY2,calcBezier:calcBezier,getTForX:getTForX};BezierEasing.__workletHash=7501932047887;BezierEasing.__pluginVersion=\"0.5.1\";BezierEasing.__initData=_worklet_7501932047887_init_data;BezierEasing.__stackDetails=_e;return BezierEasing;}({_worklet_7501932047887_init_data:_worklet_7501932047887_init_data,mX1:mX1,mY1:mY1,mX2:mX2,mY2:mY2,calcBezier:calcBezier,getTForX:getTForX});}",
+  location: "C:\\Users\\dwill\\.gemini\\antigravity\\scratch\\Anchor\\anchor\\mobile\\node_modules\\react-native-reanimated\\src\\Bezier.ts",
+  sourceMap: "{\"version\":3,\"names\":[\"Bezier_BezierTs11\",\"mX1\",\"mY1\",\"mX2\",\"mY2\",\"_worklet_6349334780122_init_data\",\"kSplineTableSize\",\"calcBezier\",\"kSampleStepSize\",\"_worklet_14810426314210_init_data\",\"getSlope\",\"NEWTON_MIN_SLOPE\",\"newtonRaphsonIterate\",\"binarySubdivide\",\"_worklet_7501932047887_init_data\",\"__closure\",\"LinearEasing\",\"_e\",\"global\",\"Error\",\"x\",\"__workletHash\",\"__pluginVersion\",\"__initData\",\"__stackDetails\",\"ReanimatedError\",\"sampleValues\",\"Array\",\"i\",\"getTForX\",\"getTForX_BezierTs9Factory\",\"aX\",\"intervalStart\",\"currentSample\",\"lastSample\",\"dist\",\"guessForT\",\"initialSlope\",\"BezierEasing_BezierTs10Factory\",\"BezierEasing\"],\"sources\":[\"C:/Users/dwill/.gemini/antigravity/scratch/Anchor/anchor/mobile/node_modules/react-native-reanimated/src/Bezier.ts\"],\"mappings\":\"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\",\"ignoreList\":[]}"
+};
+var Bezier = exports.Bezier = function Bezier_BezierTs11Factory(_ref8) {
+  var _worklet_9126418723283_init_data = _ref8._worklet_9126418723283_init_data,
+    _worklet_6349334780122_init_data = _ref8._worklet_6349334780122_init_data,
+    kSplineTableSize = _ref8.kSplineTableSize,
+    calcBezier = _ref8.calcBezier,
+    kSampleStepSize = _ref8.kSampleStepSize,
+    _worklet_14810426314210_init_data = _ref8._worklet_14810426314210_init_data,
+    getSlope = _ref8.getSlope,
+    NEWTON_MIN_SLOPE = _ref8.NEWTON_MIN_SLOPE,
+    newtonRaphsonIterate = _ref8.newtonRaphsonIterate,
+    binarySubdivide = _ref8.binarySubdivide,
+    _worklet_7501932047887_init_data = _ref8._worklet_7501932047887_init_data;
+  var _e = [new global.Error(), -11, -27];
+  var Bezier = function Bezier(mX1, mY1, mX2, mY2) {
+    var LinearEasing = function LinearEasing_BezierTs8Factory(_ref9) {
+      var _worklet_6349334780122_init_data = _ref9._worklet_6349334780122_init_data;
+      var _e = [new global.Error(), 1, -27];
+      var LinearEasing = function LinearEasing(x) {
+        return x;
+      };
+      LinearEasing.__closure = {};
+      LinearEasing.__workletHash = 6349334780122;
+      LinearEasing.__pluginVersion = "0.5.1";
+      LinearEasing.__initData = _worklet_6349334780122_init_data;
+      LinearEasing.__stackDetails = _e;
+      return LinearEasing;
+    }({
+      _worklet_6349334780122_init_data: _worklet_6349334780122_init_data
+    });
+    if (!(mX1 >= 0 && mX1 <= 1 && mX2 >= 0 && mX2 <= 1)) {
+      throw new _common.ReanimatedError('Bezier x values must be in [0, 1] range.');
+    }
+    if (mX1 === mY1 && mX2 === mY2) {
+      return LinearEasing;
+    }
+    var sampleValues = new Array(kSplineTableSize);
+    for (var i = 0; i < kSplineTableSize; ++i) {
+      sampleValues[i] = calcBezier(i * kSampleStepSize, mX1, mX2);
+    }
+    var getTForX = function getTForX_BezierTs9Factory(_ref0) {
+      var _worklet_14810426314210_init_data = _ref0._worklet_14810426314210_init_data,
+        kSplineTableSize = _ref0.kSplineTableSize,
+        sampleValues = _ref0.sampleValues,
+        kSampleStepSize = _ref0.kSampleStepSize,
+        getSlope = _ref0.getSlope,
+        mX1 = _ref0.mX1,
+        mX2 = _ref0.mX2,
+        NEWTON_MIN_SLOPE = _ref0.NEWTON_MIN_SLOPE,
+        newtonRaphsonIterate = _ref0.newtonRaphsonIterate,
+        binarySubdivide = _ref0.binarySubdivide;
+      var _e = [new global.Error(), -10, -27];
+      var getTForX = function getTForX(aX) {
+        var intervalStart = 0.0;
+        var currentSample = 1;
+        var lastSample = kSplineTableSize - 1;
+        for (; currentSample !== lastSample && sampleValues[currentSample] <= aX; ++currentSample) {
+          intervalStart += kSampleStepSize;
+        }
+        --currentSample;
+        var dist = (aX - sampleValues[currentSample]) / (sampleValues[currentSample + 1] - sampleValues[currentSample]);
+        var guessForT = intervalStart + dist * kSampleStepSize;
+        var initialSlope = getSlope(guessForT, mX1, mX2);
+        if (initialSlope >= NEWTON_MIN_SLOPE) {
+          return newtonRaphsonIterate(aX, guessForT, mX1, mX2);
+        } else if (initialSlope === 0.0) {
+          return guessForT;
+        } else {
+          return binarySubdivide(aX, intervalStart, intervalStart + kSampleStepSize, mX1, mX2);
+        }
+      };
+      getTForX.__closure = {
+        kSplineTableSize: kSplineTableSize,
+        sampleValues: sampleValues,
+        kSampleStepSize: kSampleStepSize,
+        getSlope: getSlope,
+        mX1: mX1,
+        mX2: mX2,
+        NEWTON_MIN_SLOPE: NEWTON_MIN_SLOPE,
+        newtonRaphsonIterate: newtonRaphsonIterate,
+        binarySubdivide: binarySubdivide
+      };
+      getTForX.__workletHash = 14810426314210;
+      getTForX.__pluginVersion = "0.5.1";
+      getTForX.__initData = _worklet_14810426314210_init_data;
+      getTForX.__stackDetails = _e;
+      return getTForX;
+    }({
+      _worklet_14810426314210_init_data: _worklet_14810426314210_init_data,
+      kSplineTableSize: kSplineTableSize,
+      sampleValues: sampleValues,
+      kSampleStepSize: kSampleStepSize,
+      getSlope: getSlope,
+      mX1: mX1,
+      mX2: mX2,
+      NEWTON_MIN_SLOPE: NEWTON_MIN_SLOPE,
+      newtonRaphsonIterate: newtonRaphsonIterate,
+      binarySubdivide: binarySubdivide
+    });
+    return function BezierEasing_BezierTs10Factory(_ref1) {
+      var _worklet_7501932047887_init_data = _ref1._worklet_7501932047887_init_data,
+        mX1 = _ref1.mX1,
+        mY1 = _ref1.mY1,
+        mX2 = _ref1.mX2,
+        mY2 = _ref1.mY2,
+        calcBezier = _ref1.calcBezier,
+        getTForX = _ref1.getTForX;
+      var _e = [new global.Error(), -7, -27];
+      var BezierEasing = function BezierEasing(x) {
+        if (mX1 === mY1 && mX2 === mY2) {
+          return x;
+        }
+        if (x === 0) {
+          return 0;
+        }
+        if (x === 1) {
+          return 1;
+        }
+        return calcBezier(getTForX(x), mY1, mY2);
+      };
+      BezierEasing.__closure = {
+        mX1: mX1,
+        mY1: mY1,
+        mX2: mX2,
+        mY2: mY2,
+        calcBezier: calcBezier,
+        getTForX: getTForX
+      };
+      BezierEasing.__workletHash = 7501932047887;
+      BezierEasing.__pluginVersion = "0.5.1";
+      BezierEasing.__initData = _worklet_7501932047887_init_data;
+      BezierEasing.__stackDetails = _e;
+      return BezierEasing;
+    }({
+      _worklet_7501932047887_init_data: _worklet_7501932047887_init_data,
+      mX1: mX1,
+      mY1: mY1,
+      mX2: mX2,
+      mY2: mY2,
+      calcBezier: calcBezier,
+      getTForX: getTForX
+    });
+  };
+  Bezier.__closure = {
+    _worklet_6349334780122_init_data: _worklet_6349334780122_init_data,
+    kSplineTableSize: kSplineTableSize,
+    calcBezier: calcBezier,
+    kSampleStepSize: kSampleStepSize,
+    _worklet_14810426314210_init_data: _worklet_14810426314210_init_data,
+    getSlope: getSlope,
+    NEWTON_MIN_SLOPE: NEWTON_MIN_SLOPE,
+    newtonRaphsonIterate: newtonRaphsonIterate,
+    binarySubdivide: binarySubdivide,
+    _worklet_7501932047887_init_data: _worklet_7501932047887_init_data
+  };
+  Bezier.__workletHash = 9126418723283;
+  Bezier.__pluginVersion = "0.5.1";
+  Bezier.__initData = _worklet_9126418723283_init_data;
+  Bezier.__stackDetails = _e;
+  return Bezier;
+}({
+  _worklet_9126418723283_init_data: _worklet_9126418723283_init_data,
+  _worklet_6349334780122_init_data: _worklet_6349334780122_init_data,
+  kSplineTableSize: kSplineTableSize,
+  calcBezier: calcBezier,
+  kSampleStepSize: kSampleStepSize,
+  _worklet_14810426314210_init_data: _worklet_14810426314210_init_data,
+  getSlope: getSlope,
+  NEWTON_MIN_SLOPE: NEWTON_MIN_SLOPE,
+  newtonRaphsonIterate: newtonRaphsonIterate,
+  binarySubdivide: binarySubdivide,
+  _worklet_7501932047887_init_data: _worklet_7501932047887_init_data
+});
+//# sourceMappingURL=data:application/json;charset=utf-8;base64,eyJ2ZXJzaW9uIjozLCJuYW1lcyI6WyJPYmplY3QiLCJkZWZpbmVQcm9wZXJ0eSIsImV4cG9ydHMiLCJ2YWx1ZSIsIkJlemllciIsIl9jb21tb24iLCJyZXF1aXJlIiwiTkVXVE9OX0lURVJBVElPTlMiLCJORVdUT05fTUlOX1NMT1BFIiwiU1VCRElWSVNJT05fUFJFQ0lTSU9OIiwiU1VCRElWSVNJT05fTUFYX0lURVJBVElPTlMiLCJrU3BsaW5lVGFibGVTaXplIiwia1NhbXBsZVN0ZXBTaXplIiwiX3dvcmtsZXRfODYxNzUwMjYwNTczX2luaXRfZGF0YSIsImNvZGUiLCJsb2NhdGlvbiIsInNvdXJjZU1hcCIsIkEiLCJBX0JlemllclRzMUZhY3RvcnkiLCJfcmVmIiwiX2UiLCJnbG9iYWwiLCJFcnJvciIsImFBMSIsImFBMiIsIl9fY2xvc3VyZSIsIl9fd29ya2xldEhhc2giLCJfX3BsdWdpblZlcnNpb24iLCJfX2luaXREYXRhIiwiX19zdGFja0RldGFpbHMiLCJfd29ya2xldF8xNTkzMTc4ODg2NTExNl9pbml0X2RhdGEiLCJCIiwiQl9CZXppZXJUczJGYWN0b3J5IiwiX3JlZjIiLCJfd29ya2xldF8xODQzNDgwMzMzMjc5X2luaXRfZGF0YSIsIkMiLCJDX0JlemllclRzM0ZhY3RvcnkiLCJfcmVmMyIsIl93b3JrbGV0Xzg1NTAxMTQ0NDkwNzlfaW5pdF9kYXRhIiwiY2FsY0JlemllciIsImNhbGNCZXppZXJfQmV6aWVyVHM0RmFjdG9yeSIsIl9yZWY0IiwiYVQiLCJfd29ya2xldF82MzkxNTk4MzEwNjk4X2luaXRfZGF0YSIsImdldFNsb3BlIiwiZ2V0U2xvcGVfQmV6aWVyVHM1RmFjdG9yeSIsIl9yZWY1IiwiX3dvcmtsZXRfMTU1NDAyNzA4MjY2ODZfaW5pdF9kYXRhIiwiYmluYXJ5U3ViZGl2aWRlIiwiYmluYXJ5U3ViZGl2aWRlX0JlemllclRzNkZhY3RvcnkiLCJfcmVmNiIsImFYIiwiYUEiLCJhQiIsIm1YMSIsIm1YMiIsImN1cnJlbnRYIiwiY3VycmVudFQiLCJpIiwiTWF0aCIsImFicyIsIl93b3JrbGV0XzE0NjcwNjYyNDM4ODAwX2luaXRfZGF0YSIsIm5ld3RvblJhcGhzb25JdGVyYXRlIiwibmV3dG9uUmFwaHNvbkl0ZXJhdGVfQmV6aWVyVHM3RmFjdG9yeSIsIl9yZWY3IiwiYUd1ZXNzVCIsImN1cnJlbnRTbG9wZSIsIl93b3JrbGV0XzYzNDkzMzQ3ODAxMjJfaW5pdF9kYXRhIiwiX3dvcmtsZXRfMTQ4MTA0MjYzMTQyMTBfaW5pdF9kYXRhIiwiX3dvcmtsZXRfNzUwMTkzMjA0Nzg4N19pbml0X2RhdGEiLCJfd29ya2xldF85MTI2NDE4NzIzMjgzX2luaXRfZGF0YSIsIkJlemllcl9CZXppZXJUczExRmFjdG9yeSIsIl9yZWY4IiwibVkxIiwibVkyIiwiTGluZWFyRWFzaW5nIiwiTGluZWFyRWFzaW5nX0JlemllclRzOEZhY3RvcnkiLCJfcmVmOSIsIngiLCJSZWFuaW1hdGVkRXJyb3IiLCJzYW1wbGVWYWx1ZXMiLCJBcnJheSIsImdldFRGb3JYIiwiZ2V0VEZvclhfQmV6aWVyVHM5RmFjdG9yeSIsIl9yZWYwIiwiaW50ZXJ2YWxTdGFydCIsImN1cnJlbnRTYW1wbGUiLCJsYXN0U2FtcGxlIiwiZGlzdCIsImd1ZXNzRm9yVCIsImluaXRpYWxTbG9wZSIsIkJlemllckVhc2luZ19CZXppZXJUczEwRmFjdG9yeSIsIl9yZWYxIiwiQmV6aWVyRWFzaW5nIl0sInNvdXJjZXMiOlsiQmV6aWVyLnRzIl0sInNvdXJjZXNDb250ZW50IjpbIid1c2Ugc3RyaWN0JztcblxuaW1wb3J0IHsgUmVhbmltYXRlZEVycm9yIH0gZnJvbSAnLi9jb21tb24nO1xuXG4vKipcbiAqIGh0dHBzOi8vZ2l0aHViLmNvbS9ncmUvYmV6aWVyLWVhc2luZyBCZXppZXJFYXNpbmcgLSB1c2UgYmV6aWVyIGN1cnZlIGZvclxuICogdHJhbnNpdGlvbiBlYXNpbmcgZnVuY3Rpb24gYnkgR2HDq3RhbiBSZW5hdWRlYXUgMjAxNCAtIDIwMTUg4oCTIE1JVCBMaWNlbnNlXG4gKi9cblxuLy8gVGhlc2UgdmFsdWVzIGFyZSBlc3RhYmxpc2hlZCBieSBlbXBpcmljaXNtIHdpdGggdGVzdHMgKHRyYWRlb2ZmOiBwZXJmb3JtYW5jZSBWUyBwcmVjaXNpb24pXG5cbmNvbnN0IE5FV1RPTl9JVEVSQVRJT05TID0gNDtcbmNvbnN0IE5FV1RPTl9NSU5fU0xPUEUgPSAwLjAwMTtcbmNvbnN0IFNVQkRJVklTSU9OX1BSRUNJU0lPTiA9IDAuMDAwMDAwMTtcbmNvbnN0IFNVQkRJVklTSU9OX01BWF9JVEVSQVRJT05TID0gMTA7XG5cbmNvbnN0IGtTcGxpbmVUYWJsZVNpemUgPSAxMTtcbmNvbnN0IGtTYW1wbGVTdGVwU2l6ZSA9IDEuMCAvIChrU3BsaW5lVGFibGVTaXplIC0gMS4wKTtcblxuZnVuY3Rpb24gQShhQTE6IG51bWJlciwgYUEyOiBudW1iZXIpOiBudW1iZXIge1xuICAnd29ya2xldCc7XG4gIHJldHVybiAxLjAgLSAzLjAgKiBhQTIgKyAzLjAgKiBhQTE7XG59XG5mdW5jdGlvbiBCKGFBMTogbnVtYmVyLCBhQTI6IG51bWJlcik6IG51bWJlciB7XG4gICd3b3JrbGV0JztcbiAgcmV0dXJuIDMuMCAqIGFBMiAtIDYuMCAqIGFBMTtcbn1cbmZ1bmN0aW9uIEMoYUExOiBudW1iZXIpIHtcbiAgJ3dvcmtsZXQnO1xuICByZXR1cm4gMy4wICogYUExO1xufVxuXG4vLyBSZXR1cm5zIHgodCkgZ2l2ZW4gdCwgeDEsIGFuZCB4Miwgb3IgeSh0KSBnaXZlbiB0LCB5MSwgYW5kIHkyLlxuZnVuY3Rpb24gY2FsY0JlemllcihhVDogbnVtYmVyLCBhQTE6IG51bWJlciwgYUEyOiBudW1iZXIpOiBudW1iZXIge1xuICAnd29ya2xldCc7XG4gIHJldHVybiAoKEEoYUExLCBhQTIpICogYVQgKyBCKGFBMSwgYUEyKSkgKiBhVCArIEMoYUExKSkgKiBhVDtcbn1cblxuLy8gUmV0dXJucyBkeC9kdCBnaXZlbiB0LCB4MSwgYW5kIHgyLCBvciBkeS9kdCBnaXZlbiB0LCB5MSwgYW5kIHkyLlxuZnVuY3Rpb24gZ2V0U2xvcGUoYVQ6IG51bWJlciwgYUExOiBudW1iZXIsIGFBMjogbnVtYmVyKTogbnVtYmVyIHtcbiAgJ3dvcmtsZXQnO1xuICByZXR1cm4gMy4wICogQShhQTEsIGFBMikgKiBhVCAqIGFUICsgMi4wICogQihhQTEsIGFBMikgKiBhVCArIEMoYUExKTtcbn1cblxuZnVuY3Rpb24gYmluYXJ5U3ViZGl2aWRlKFxuICBhWDogbnVtYmVyLFxuICBhQTogbnVtYmVyLFxuICBhQjogbnVtYmVyLFxuICBtWDE6IG51bWJlcixcbiAgbVgyOiBudW1iZXJcbik6IG51bWJlciB7XG4gICd3b3JrbGV0JztcbiAgbGV0IGN1cnJlbnRYO1xuICBsZXQgY3VycmVudFQ7XG4gIGxldCBpID0gMDtcbiAgZG8ge1xuICAgIGN1cnJlbnRUID0gYUEgKyAoYUIgLSBhQSkgLyAyLjA7XG4gICAgY3VycmVudFggPSBjYWxjQmV6aWVyKGN1cnJlbnRULCBtWDEsIG1YMikgLSBhWDtcbiAgICBpZiAoY3VycmVudFggPiAwLjApIHtcbiAgICAgIGFCID0gY3VycmVudFQ7XG4gICAgfSBlbHNlIHtcbiAgICAgIGFBID0gY3VycmVudFQ7XG4gICAgfVxuICB9IHdoaWxlIChcbiAgICBNYXRoLmFicyhjdXJyZW50WCkgPiBTVUJESVZJU0lPTl9QUkVDSVNJT04gJiZcbiAgICArK2kgPCBTVUJESVZJU0lPTl9NQVhfSVRFUkFUSU9OU1xuICApO1xuICByZXR1cm4gY3VycmVudFQ7XG59XG5cbmZ1bmN0aW9uIG5ld3RvblJhcGhzb25JdGVyYXRlKFxuICBhWDogbnVtYmVyLFxuICBhR3Vlc3NUOiBudW1iZXIsXG4gIG1YMTogbnVtYmVyLFxuICBtWDI6IG51bWJlclxuKTogbnVtYmVyIHtcbiAgJ3dvcmtsZXQnO1xuICBmb3IgKGxldCBpID0gMDsgaSA8IE5FV1RPTl9JVEVSQVRJT05TOyArK2kpIHtcbiAgICBjb25zdCBjdXJyZW50U2xvcGUgPSBnZXRTbG9wZShhR3Vlc3NULCBtWDEsIG1YMik7XG4gICAgaWYgKGN1cnJlbnRTbG9wZSA9PT0gMC4wKSB7XG4gICAgICByZXR1cm4gYUd1ZXNzVDtcbiAgICB9XG4gICAgY29uc3QgY3VycmVudFggPSBjYWxjQmV6aWVyKGFHdWVzc1QsIG1YMSwgbVgyKSAtIGFYO1xuICAgIGFHdWVzc1QgLT0gY3VycmVudFggLyBjdXJyZW50U2xvcGU7XG4gIH1cbiAgcmV0dXJuIGFHdWVzc1Q7XG59XG5cbmV4cG9ydCBmdW5jdGlvbiBCZXppZXIoXG4gIG1YMTogbnVtYmVyLFxuICBtWTE6IG51bWJlcixcbiAgbVgyOiBudW1iZXIsXG4gIG1ZMjogbnVtYmVyXG4pOiAoeDogbnVtYmVyKSA9PiBudW1iZXIge1xuICAnd29ya2xldCc7XG5cbiAgZnVuY3Rpb24gTGluZWFyRWFzaW5nKHg6IG51bWJlcik6IG51bWJlciB7XG4gICAgJ3dvcmtsZXQnO1xuICAgIHJldHVybiB4O1xuICB9XG5cbiAgaWYgKCEobVgxID49IDAgJiYgbVgxIDw9IDEgJiYgbVgyID49IDAgJiYgbVgyIDw9IDEpKSB7XG4gICAgdGhyb3cgbmV3IFJlYW5pbWF0ZWRFcnJvcignQmV6aWVyIHggdmFsdWVzIG11c3QgYmUgaW4gWzAsIDFdIHJhbmdlLicpO1xuICB9XG5cbiAgaWYgKG1YMSA9PT0gbVkxICYmIG1YMiA9PT0gbVkyKSB7XG4gICAgcmV0dXJuIExpbmVhckVhc2luZztcbiAgfVxuXG4gIGNvbnN0IHNhbXBsZVZhbHVlcyA9IG5ldyBBcnJheShrU3BsaW5lVGFibGVTaXplKTtcblxuICAvLyBQcmVjb21wdXRlIHNhbXBsZXMgdGFibGVcbiAgZm9yIChsZXQgaSA9IDA7IGkgPCBrU3BsaW5lVGFibGVTaXplOyArK2kpIHtcbiAgICBzYW1wbGVWYWx1ZXNbaV0gPSBjYWxjQmV6aWVyKGkgKiBrU2FtcGxlU3RlcFNpemUsIG1YMSwgbVgyKTtcbiAgfVxuXG4gIGZ1bmN0aW9uIGdldFRGb3JYKGFYOiBudW1iZXIpOiBudW1iZXIge1xuICAgICd3b3JrbGV0JztcbiAgICBsZXQgaW50ZXJ2YWxTdGFydCA9IDAuMDtcbiAgICBsZXQgY3VycmVudFNhbXBsZSA9IDE7XG4gICAgY29uc3QgbGFzdFNhbXBsZSA9IGtTcGxpbmVUYWJsZVNpemUgLSAxO1xuXG4gICAgZm9yIChcbiAgICAgIDtcbiAgICAgIGN1cnJlbnRTYW1wbGUgIT09IGxhc3RTYW1wbGUgJiYgc2FtcGxlVmFsdWVzW2N1cnJlbnRTYW1wbGVdIDw9IGFYO1xuICAgICAgKytjdXJyZW50U2FtcGxlXG4gICAgKSB7XG4gICAgICBpbnRlcnZhbFN0YXJ0ICs9IGtTYW1wbGVTdGVwU2l6ZTtcbiAgICB9XG4gICAgLS1jdXJyZW50U2FtcGxlO1xuXG4gICAgLy8gSW50ZXJwb2xhdGUgdG8gcHJvdmlkZSBhbiBpbml0aWFsIGd1ZXNzIGZvciB0XG4gICAgY29uc3QgZGlzdCA9XG4gICAgICAoYVggLSBzYW1wbGVWYWx1ZXNbY3VycmVudFNhbXBsZV0pIC9cbiAgICAgIChzYW1wbGVWYWx1ZXNbY3VycmVudFNhbXBsZSArIDFdIC0gc2FtcGxlVmFsdWVzW2N1cnJlbnRTYW1wbGVdKTtcbiAgICBjb25zdCBndWVzc0ZvclQgPSBpbnRlcnZhbFN0YXJ0ICsgZGlzdCAqIGtTYW1wbGVTdGVwU2l6ZTtcblxuICAgIGNvbnN0IGluaXRpYWxTbG9wZSA9IGdldFNsb3BlKGd1ZXNzRm9yVCwgbVgxLCBtWDIpO1xuICAgIGlmIChpbml0aWFsU2xvcGUgPj0gTkVXVE9OX01JTl9TTE9QRSkge1xuICAgICAgcmV0dXJuIG5ld3RvblJhcGhzb25JdGVyYXRlKGFYLCBndWVzc0ZvclQsIG1YMSwgbVgyKTtcbiAgICB9IGVsc2UgaWYgKGluaXRpYWxTbG9wZSA9PT0gMC4wKSB7XG4gICAgICByZXR1cm4gZ3Vlc3NGb3JUO1xuICAgIH0gZWxzZSB7XG4gICAgICByZXR1cm4gYmluYXJ5U3ViZGl2aWRlKFxuICAgICAgICBhWCxcbiAgICAgICAgaW50ZXJ2YWxTdGFydCxcbiAgICAgICAgaW50ZXJ2YWxTdGFydCArIGtTYW1wbGVTdGVwU2l6ZSxcbiAgICAgICAgbVgxLFxuICAgICAgICBtWDJcbiAgICAgICk7XG4gICAgfVxuICB9XG5cbiAgcmV0dXJuIGZ1bmN0aW9uIEJlemllckVhc2luZyh4KSB7XG4gICAgJ3dvcmtsZXQnO1xuICAgIGlmIChtWDEgPT09IG1ZMSAmJiBtWDIgPT09IG1ZMikge1xuICAgICAgcmV0dXJuIHg7IC8vIGxpbmVhclxuICAgIH1cbiAgICAvLyBCZWNhdXNlIEphdmFTY3JpcHQgbnVtYmVyIGFyZSBpbXByZWNpc2UsIHdlIHNob3VsZCBndWFyYW50ZWUgdGhlIGV4dHJlbWVzIGFyZSByaWdodC5cbiAgICBpZiAoeCA9PT0gMCkge1xuICAgICAgcmV0dXJuIDA7XG4gICAgfVxuICAgIGlmICh4ID09PSAxKSB7XG4gICAgICByZXR1cm4gMTtcbiAgICB9XG4gICAgcmV0dXJuIGNhbGNCZXppZXIoZ2V0VEZvclgoeCksIG1ZMSwgbVkyKTtcbiAgfTtcbn1cbiJdLCJtYXBwaW5ncyI6IkFBQUEsWUFBWTs7QUFBQ0EsTUFBQSxDQUFBQyxjQUFBLENBQUFDLE9BQUE7RUFBQUMsS0FBQTtBQUFBO0FBQUFELE9BQUEsQ0FBQUUsTUFBQTtBQUViLElBQUFDLE9BQUEsR0FBQUMsT0FBQTtBQVNBLElBQU1DLGlCQUFpQixHQUFHLENBQUM7QUFDM0IsSUFBTUMsZ0JBQWdCLEdBQUcsS0FBSztBQUM5QixJQUFNQyxxQkFBcUIsR0FBRyxTQUFTO0FBQ3ZDLElBQU1DLDBCQUEwQixHQUFHLEVBQUU7QUFFckMsSUFBTUMsZ0JBQWdCLEdBQUcsRUFBRTtBQUMzQixJQUFNQyxlQUFlLEdBQUcsR0FBRyxJQUFJRCxnQkFBZ0IsR0FBRyxHQUFHLENBQUM7QUFBQyxJQUFBRSwrQkFBQTtFQUFBQyxJQUFBO0VBQUFDLFFBQUE7RUFBQUMsU0FBQTtBQUFBO0FBQUEsSUFBQUMsQ0FBQSxHQUV2RCxTQUFBQyxtQkFBQUMsSUFBQTtFQUFBLElBQUFOLCtCQUFBLEdBQUFNLElBQUEsQ0FBQU4sK0JBQUE7RUFBQSxJQUFBTyxFQUFBLFFBQUFDLE1BQUEsQ0FBQUMsS0FBQTtFQUFBLElBQUFMLENBQUEsWUFBQUEsRUFBV00sR0FBVyxF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

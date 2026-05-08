@@ -6,13 +6,14 @@
  * then records the session in sessionStore before navigating back.
  */
 
-import React, { useState, useMemo, useCallback } from 'react';
+import React, { useState, useMemo, useCallback, useEffect } from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { useTabNavigation } from '@/contexts/TabNavigationContext';
 import { useAnchorStore } from '../../stores/anchorStore';
 import { useAuthStore } from '@/stores/authStore';
-import { useSettingsStore, type DefaultActivationSetting } from '@/stores/settingsStore';
+import { useForgeMomentStore } from '@/stores/forgeMomentStore';
+import { useSettingsStore } from '@/stores/settingsStore';
 import { useSessionStore } from '@/stores/sessionStore';
 import { useTeachingStore } from '@/stores/teachingStore';
 import type { RootStackParamList } from '@/types';
@@ -25,41 +26,19 @@ import { RitualScaffold } from './components/RitualScaffold';
 import { FocusSession } from './components/FocusSession';
 import { CompletionModal } from './components/CompletionModal';
 import { ConfirmModal } from './components/ConfirmModal';
+import { PostPrimeTraceModal } from './components/PostPrimeTraceModal';
 import { useTeachingGate } from '@/utils/useTeachingGate';
 import { TEACHINGS } from '@/constants/teaching';
+import { getCurrentRank } from '@/utils/practiceRank';
+import { useNotificationController } from '@/hooks/useNotificationController';
+import { usePostPrimeTraceStore } from '@/stores/postPrimeTraceStore';
+import { navigateToVaultDestination } from '@/navigation/firstAnchorGate';
+import {
+  isPostPrimeTraceEligible,
+  markPostPrimeTraceAttemptStarted,
+} from '@/utils/postPrimeTraceEligibility';
 
 type ActivationRouteProp = RouteProp<RootStackParamList, 'ActivationRitual'>;
-
-const FALLBACK_DEFAULT_ACTIVATION: DefaultActivationSetting = {
-  type: 'visual',
-  value: 30,
-  unit: 'seconds',
-  mode: 'silent',
-};
-
-function resolveDefaultActivation(
-  setting?: Partial<DefaultActivationSetting> | null
-): DefaultActivationSetting {
-  const candidate = setting ?? {};
-  const unit =
-    candidate.unit === 'minutes' ||
-    candidate.unit === 'seconds' ||
-    candidate.unit === 'reps' ||
-    candidate.unit === 'breaths'
-      ? candidate.unit
-      : FALLBACK_DEFAULT_ACTIVATION.unit;
-  const value =
-    typeof candidate.value === 'number' && Number.isFinite(candidate.value)
-      ? candidate.value
-      : FALLBACK_DEFAULT_ACTIVATION.value;
-
-  return {
-    type: candidate.type ?? FALLBACK_DEFAULT_ACTIVATION.type,
-    unit,
-    value,
-    mode: candidate.mode ?? FALLBACK_DEFAULT_ACTIVATION.mode,
-  };
-}
 
 export const ActivationScreen: React.FC = () => {
   const navigation = useNavigation();
@@ -70,18 +49,31 @@ export const ActivationScreen: React.FC = () => {
 
   const getAnchorById = useAnchorStore((state) => state.getAnchorById);
   const updateAnchor = useAnchorStore((state) => state.updateAnchor);
+  const incrementTotalPrimes = useAnchorStore((state) => state.incrementTotalPrimes);
+  const recordPrimeSession = useAnchorStore((state) => state.recordPrimeSession);
   const computeStreak = useAuthStore((state) => state.computeStreak);
-  const { defaultActivation } = useSettingsStore();
-  const resolvedDefaultActivation = useMemo(
-    () => resolveDefaultActivation(defaultActivation),
-    [defaultActivation]
+  const pendingFirstAnchorDraft = useAuthStore((state) => state.pendingFirstAnchorDraft);
+  const enqueuePendingFirstAnchorMutation = useAuthStore(
+    (state) => state.enqueuePendingFirstAnchorMutation
   );
-  const { recordSession } = useSessionStore();
+  const queueMilestone = useForgeMomentStore((state) => state.queueMilestone);
+  const focusSessionDuration = useSettingsStore((state) => state.focusSessionDuration ?? 30);
+  const focusSessionAudio = useSettingsStore((state) => state.focusSessionAudio ?? 'silent');
+  const { recordSession, bumpThreadStrength } = useSessionStore();
   const { recordShown } = useTeachingStore();
+  const { handlePrimeComplete } = useNotificationController();
+  const beginPostPrimeTraceFlow = usePostPrimeTraceStore((state) => state.beginFlow);
+  const activeFlow = usePostPrimeTraceStore((state) => state.activeFlow);
   const anchor = getAnchorById(anchorId);
+  const isPendingFirstAnchor = pendingFirstAnchorDraft?.tempAnchorId === anchorId;
   const anchorHeroUri = anchor
     ? anchor.enhancedImageUrl || anchor.reinforcedSigilSvg || anchor.baseSigilSvg || ''
     : '';
+  const isFirstPrimeForAnchor =
+    !anchor?.isCharged &&
+    !anchor?.firstChargedAt &&
+    (anchor?.chargeCount ?? 0) === 0 &&
+    (anchor?.activationCount ?? 0) === 0;
 
   // Ground Note (Pattern 2): shown on first charge session, guide ON
   const groundNoteTeaching = useTeachingGate({
@@ -96,7 +88,9 @@ export const ActivationScreen: React.FC = () => {
   });
 
   const [showCompletion, setShowCompletion] = useState(false);
+  const [showPostPrimeTrace, setShowPostPrimeTrace] = useState(false);
   const [showExitWarning, setShowExitWarning] = useState(false);
+  const [pendingPostPrimeFlowId, setPendingPostPrimeFlowId] = useState<string | null>(null);
   const exitingRef = React.useRef(false);
   const sessionCompletedRef = React.useRef(false);
 
@@ -119,31 +113,71 @@ export const ActivationScreen: React.FC = () => {
     // durationOverride (from "Continue" flow) takes precedence
     if (durationOverride != null && durationOverride > 0) return durationOverride;
 
-    if (resolvedDefaultActivation.unit === 'minutes') {
-      const clampedMinutes = Math.max(1, Math.min(30, Math.round(resolvedDefaultActivation.value)));
-      return clampedMinutes * 60;
-    }
-
-    if (resolvedDefaultActivation.unit === 'seconds') {
-      const clampedValue = Math.max(1, Math.min(600, Math.round(resolvedDefaultActivation.value)));
-      return clampedValue;
-    }
-
-    return 30;
-  }, [durationOverride, resolvedDefaultActivation.unit, resolvedDefaultActivation.value]);
+    return Math.max(10, Math.min(120, Math.round(focusSessionDuration)));
+  }, [durationOverride, focusSessionDuration]);
 
   const logActivationInBackground = useCallback(async (): Promise<void> => {
     const localActivationTime = new Date();
     const currentActivationCount = anchor?.activationCount ?? 0;
+    const chargedAt = isFirstPrimeForAnchor ? localActivationTime : anchor?.chargedAt;
+    const authStateBefore = useAuthStore.getState().user;
+    const previousLongestStreak = authStateBefore?.longestStreak ?? 0;
+    const previousTotalPrimes = Math.max(
+      useAnchorStore.getState().totalPrimes,
+      useAnchorStore
+        .getState()
+        .anchors.reduce((sum, currentAnchor) => sum + (currentAnchor.activationCount ?? 0), 0)
+    );
+    const previousRank = getCurrentRank(previousTotalPrimes);
 
     updateAnchor(anchorId, {
       activationCount: currentActivationCount + 1,
       lastActivatedAt: localActivationTime,
+      ...(isFirstPrimeForAnchor
+        ? {
+            isCharged: true,
+            chargedAt,
+            firstChargedAt: anchor?.firstChargedAt ?? chargedAt,
+            chargeCount: (anchor?.chargeCount ?? 0) + 1,
+          }
+        : {}),
     });
 
+    incrementTotalPrimes();
     computeStreak();
 
+    const nextTotalPrimes = previousTotalPrimes + 1;
+    const nextRank = getCurrentRank(nextTotalPrimes);
+    const nextLongestStreak = useAuthStore.getState().user?.longestStreak ?? previousLongestStreak;
+
+    if (nextRank.name !== previousRank.name && nextRank.name !== 'Initiate') {
+      void queueMilestone({
+        type: 'rank',
+        name: nextRank.name,
+        primeCount: nextTotalPrimes,
+      });
+    }
+
+    if (previousLongestStreak < 100 && nextLongestStreak >= 100) {
+      void queueMilestone({
+        type: 'constancy',
+        name: '100 Days',
+      });
+    }
+
     try {
+      if (isPendingFirstAnchor) {
+        enqueuePendingFirstAnchorMutation({
+          type: 'activate_anchor',
+          tempAnchorId: anchorId,
+          activationType: activationType || 'visual',
+          durationSeconds: activationDurationSeconds,
+          queuedAt: localActivationTime.toISOString(),
+        });
+        toast.success('Activation saved for your first anchor');
+        return;
+      }
+
       const response = await apiClient.post(`/api/anchors/${anchorId}/activate`, {
         activationType: activationType || 'visual',
         durationSeconds: activationDurationSeconds,
@@ -169,19 +203,110 @@ export const ActivationScreen: React.FC = () => {
 
       toast.error('Activation completed but failed to sync. Will retry later.');
     }
-  }, [activationDurationSeconds, activationType, anchor?.activationCount, anchorId, computeStreak, toast, updateAnchor]);
+  }, [
+    activationDurationSeconds,
+    activationType,
+    anchor?.activationCount,
+    anchorId,
+    computeStreak,
+    enqueuePendingFirstAnchorMutation,
+    incrementTotalPrimes,
+    isPendingFirstAnchor,
+    isFirstPrimeForAnchor,
+    queueMilestone,
+    toast,
+    updateAnchor,
+  ]);
 
   // Show completion modal instead of immediately going back
   const handleSessionCompleted = useCallback(() => {
     sessionCompletedRef.current = true;
     setShowExitWarning(false);
-  }, []);
+    recordPrimeSession();
+  }, [recordPrimeSession]);
 
-  const handleComplete = useCallback(() => {
+  const showReflectionModal = useCallback(() => {
     sessionCompletedRef.current = true;
+    setShowPostPrimeTrace(false);
     setShowExitWarning(false);
     setShowCompletion(true);
   }, []);
+
+  const handleComplete = useCallback(async () => {
+    sessionCompletedRef.current = true;
+    setShowExitWarning(false);
+
+    // Log the activation immediately when the seal completes — not gated on modal "Done"
+    void logActivationInBackground();
+    await handlePrimeComplete();
+
+    if (isFirstPrimeForAnchor) {
+      showReflectionModal();
+      return;
+    }
+
+    const shouldOfferPostPrimeTrace = await isPostPrimeTraceEligible();
+
+    if (shouldOfferPostPrimeTrace) {
+      setShowPostPrimeTrace(true);
+      return;
+    }
+
+    showReflectionModal();
+  }, [handlePrimeComplete, isFirstPrimeForAnchor, logActivationInBackground, showReflectionModal]);
+
+  const handleSkipPostPrimeTrace = useCallback(() => {
+    showReflectionModal();
+  }, [showReflectionModal]);
+
+  const handleBeginPostPrimeTrace = useCallback(async () => {
+    await markPostPrimeTraceAttemptStarted();
+
+    const flowId = beginPostPrimeTraceFlow(anchorId);
+    setPendingPostPrimeFlowId(flowId);
+    setShowPostPrimeTrace(false);
+
+    (navigation as any).navigate('ManualReinforcement', {
+      source: 'post_prime_trace',
+      anchorId,
+    });
+  }, [anchorId, beginPostPrimeTraceFlow, navigation]);
+
+  useEffect(() => {
+    if (!pendingPostPrimeFlowId) {
+      return;
+    }
+
+    if (
+      !activeFlow ||
+      activeFlow.flowId !== pendingPostPrimeFlowId ||
+      activeFlow.result === 'pending'
+    ) {
+      return;
+    }
+
+    const completedPostPrimeTrace = activeFlow.result === 'completed';
+
+    usePostPrimeTraceStore.getState().clearFlow(pendingPostPrimeFlowId);
+    setPendingPostPrimeFlowId(null);
+
+    if (completedPostPrimeTrace) {
+      bumpThreadStrength(2);
+      AnalyticsService.track('post_prime_trace_completed', {
+        anchor_id: anchorId,
+        session_duration_seconds: activationDurationSeconds,
+      });
+    }
+
+    showReflectionModal();
+  }, [
+    activeFlow,
+    activationDurationSeconds,
+    anchorId,
+    bumpThreadStrength,
+    pendingPostPrimeFlowId,
+    showReflectionModal,
+  ]);
 
   const exitSession = useCallback(() => {
     exitingRef.current = true;
@@ -200,6 +325,11 @@ export const ActivationScreen: React.FC = () => {
 
     if (returnTo === 'detail') {
       (navigation as any).navigate('AnchorDetail', { anchorId });
+      return;
+    }
+
+    if (returnTo === 'vault') {
+      navigateToVaultDestination(navigation as any, 'replace');
       return;
     }
 
@@ -230,7 +360,7 @@ export const ActivationScreen: React.FC = () => {
     return unsubscribe;
   }, [handleComplete, navigation, promptExitSession]);
 
-  const handleCompletionDone = useCallback((reflectionWord?: string) => {
+  const handleCompletionDone = useCallback(async (reflectionWord?: string) => {
     setShowCompletion(false);
     setShowExitWarning(false);
     exitingRef.current = true;
@@ -240,13 +370,10 @@ export const ActivationScreen: React.FC = () => {
       anchorId,
       type: 'activate',
       durationSeconds: activationDurationSeconds,
-      mode: resolvedDefaultActivation.mode,
+      mode: focusSessionAudio,
       reflectionWord,
       completedAt: new Date().toISOString(),
     });
-
-    // Log to backend (non-blocking)
-    void logActivationInBackground();
 
     if (returnTo === 'practice') {
       const nav = navigation as any;
@@ -263,6 +390,8 @@ export const ActivationScreen: React.FC = () => {
       });
     } else if (returnTo === 'detail') {
       (navigation as any).navigate('AnchorDetail', { anchorId });
+    } else if (returnTo === 'vault') {
+      navigateToVaultDestination(navigation as any, 'replace');
     } else {
       navigation.goBack();
     }
@@ -273,7 +402,8 @@ export const ActivationScreen: React.FC = () => {
     navigateToPractice,
     navigation,
     recordSession,
-    resolvedDefaultActivation.mode,
+    handlePrimeComplete,
+    focusSessionAudio,
     returnTo,
   ]);
 
@@ -304,6 +434,12 @@ export const ActivationScreen: React.FC = () => {
           }
           promptExitSession();
         }}
+      />
+      <PostPrimeTraceModal
+        visible={showPostPrimeTrace}
+        anchor={anchor}
+        onTrace={handleBeginPostPrimeTrace}
+        onSkip={handleSkipPostPrimeTrace}
       />
       <CompletionModal
         visible={showCompletion}

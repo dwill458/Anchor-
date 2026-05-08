@@ -27,6 +27,7 @@ const createAnchor = (overrides?: Partial<Anchor>): Anchor => ({
 const createUser = (overrides?: Partial<User>): User => ({
   id: 'user-1',
   email: 'user@example.com',
+  isComped: false,
   subscriptionStatus: 'free',
   totalAnchorsCreated: 1,
   totalActivations: 2,

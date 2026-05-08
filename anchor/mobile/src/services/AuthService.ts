@@ -7,6 +7,13 @@
  */
 
 import type { User, FirebaseUser } from '@/types';
+import { clearNotificationSession } from '@/services/NotificationSessionService';
+import { clearPushTokensFromServer } from '@/services/NotificationSyncService';
+import {
+  DEVELOPER_MASTER_ACCOUNT_ID,
+  DEVELOPER_MASTER_ACCOUNT_TOKEN,
+  isDeveloperMasterAccountEnabled,
+} from '@/utils/developerMasterAccount';
 
 export interface AuthResult {
   user: User;
@@ -14,11 +21,16 @@ export interface AuthResult {
   isNewUser: boolean;
 }
 
+export interface AuthSyncOptions {
+  hasCompletedOnboarding?: boolean;
+}
+
 const createMockUser = (overrides: Partial<User> = {}): User => ({
   id: 'mock-uid-123',
   email: 'guest@example.com',
   displayName: 'Guest User',
   hasCompletedOnboarding: false,
+  isComped: false,
   subscriptionStatus: 'free',
   totalAnchorsCreated: 5,
   totalActivations: 20,
@@ -49,12 +61,19 @@ export class AuthService {
     }
   }
 
-  static async signInWithEmail(email: string, _password: string): Promise<AuthResult> {
+  static async signInWithEmail(
+    email: string,
+    _password: string,
+    options?: AuthSyncOptions
+  ): Promise<AuthResult> {
     assertMockAuthEnabled();
     await new Promise((resolve) => setTimeout(resolve, 1000));
 
     return {
-      user: createMockUser({ email, hasCompletedOnboarding: true }),
+      user: createMockUser({
+        email,
+        hasCompletedOnboarding: options?.hasCompletedOnboarding ?? true,
+      }),
       token: 'mock-jwt-token',
       isNewUser: false,
     };
@@ -63,7 +82,8 @@ export class AuthService {
   static async signUpWithEmail(
     email: string,
     _password: string,
-    displayName?: string
+    displayName?: string,
+    options?: AuthSyncOptions
   ): Promise<AuthResult> {
     assertMockAuthEnabled();
     await new Promise((resolve) => setTimeout(resolve, 1000));
@@ -73,7 +93,7 @@ export class AuthService {
         id: 'mock-uid-new',
         email,
         displayName: displayName || 'New User',
-        hasCompletedOnboarding: false,
+        hasCompletedOnboarding: options?.hasCompletedOnboarding ?? false,
         totalAnchorsCreated: 0,
         totalActivations: 0,
         currentStreak: 0,
@@ -100,6 +120,22 @@ export class AuthService {
     };
   }
 
+  static async signInWithApple(): Promise<AuthResult> {
+    assertMockAuthEnabled();
+    await new Promise((resolve) => setTimeout(resolve, 1000));
+
+    return {
+      user: createMockUser({
+        id: 'mock-uid-apple',
+        email: 'apple-user@example.com',
+        displayName: 'Apple Guest',
+        hasCompletedOnboarding: true,
+      }),
+      token: 'mock-jwt-token',
+      isNewUser: false,
+    };
+  }
+
   static async syncCurrentUser(): Promise<AuthResult | null> {
     assertMockAuthEnabled();
     return {
@@ -109,14 +145,35 @@ export class AuthService {
     };
   }
 
+  static async getCachedUser(): Promise<User | null> {
+    return null;
+  }
+
   static async signOut(): Promise<void> {
     assertMockAuthEnabled();
-    await new Promise((resolve) => setTimeout(resolve, 500));
+    try {
+      await clearPushTokensFromServer();
+      await new Promise((resolve) => setTimeout(resolve, 500));
+    } finally {
+      await clearNotificationSession();
+    }
+  }
+
+  static hasAuthenticatedSession(): boolean {
+    return mockAuthEnabled;
   }
 
   static getCurrentFirebaseUser(): FirebaseUser | null {
     if (!mockAuthEnabled) {
-      return null;
+      if (!isDeveloperMasterAccountEnabled()) {
+        return null;
+      }
+
+      return {
+        uid: DEVELOPER_MASTER_ACCOUNT_ID,
+        email: 'dev+master@anchor.local',
+        displayName: 'Developer Master',
+      };
     }
 
     return {
@@ -128,7 +185,9 @@ export class AuthService {
 
   static async getIdToken(): Promise<string | null> {
     if (!mockAuthEnabled) {
-      return null;
+      return isDeveloperMasterAccountEnabled()
+        ? DEVELOPER_MASTER_ACCOUNT_TOKEN
+        : null;
     }
 
     return 'mock-jwt-token';
@@ -137,6 +196,15 @@ export class AuthService {
   static async sendPasswordResetEmail(_email: string): Promise<void> {
     assertMockAuthEnabled();
     await new Promise((resolve) => setTimeout(resolve, 500));
+  }
+
+  static async deleteAccount(): Promise<void> {
+    assertMockAuthEnabled();
+    try {
+      await new Promise((resolve) => setTimeout(resolve, 500));
+    } finally {
+      await clearNotificationSession();
+    }
   }
 
   static onAuthStateChanged(

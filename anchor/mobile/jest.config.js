@@ -6,7 +6,11 @@
 
 module.exports = {
   preset: 'jest-expo',
+  rootDir: '.',
+  roots: ['<rootDir>/src'],
   testEnvironment: 'node',
+  cacheDirectory: '<rootDir>/.jest-cache',
+  watchman: false,
   // Limit parallel workers to prevent OOM on CI runners with 2 GB RAM
   maxWorkers: 2,
   setupFilesAfterEnv: ['<rootDir>/src/__tests__/setup.ts'],
@@ -37,6 +41,10 @@ module.exports = {
     '**/__tests__/**/*.test.{ts,tsx}',
     '**/*.test.{ts,tsx}',
     '**/*.spec.{ts,tsx}',
+  ],
+  testPathIgnorePatterns: [
+    '/node_modules/',
+    '/\\.pr-worktree/',
   ],
   moduleFileExtensions: ['ts', 'tsx', 'js', 'jsx', 'json', 'node'],
 };

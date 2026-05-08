@@ -21,10 +21,11 @@ import { useAnchorStore, useTempStore } from '@/stores/anchorStore';
 import { useAuthStore } from '@/stores/authStore';
 import { useSettingsStore } from '@/stores/settingsStore';
 import { analyzeIntention, getGuidanceText } from '@/utils/intentionPatterns';
-import { OptimizedImage } from '@/components/common/OptimizedImage';
+import { OptimizedImage, SigilSvg } from '@/components/common';
 import { ErrorTrackingService } from '@/services/ErrorTrackingService';
 import { post } from '@/services/ApiClient';
 import { logger } from '@/utils/logger';
+import { classifyToTierPreliminary } from '@/utils/tierClassifier';
 import type { ApiResponse, Anchor } from '@/types';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
@@ -42,6 +43,13 @@ export const AnchorRevealScreen: React.FC = () => {
     const incrementAnchorCount = useAuthStore((state) => state.incrementAnchorCount);
     const wallpaperPromptSeen = useAuthStore((state) => state.wallpaperPromptSeen);
     const authUser = useAuthStore((state) => state.user);
+    const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
+    const existingAnchorCount = useAuthStore((state) => state.anchorCount);
+    const setPendingFirstAnchorDraft = useAuthStore((state) => state.setPendingFirstAnchorDraft);
+    const enqueuePendingFirstAnchorMutation = useAuthStore(
+        (state) => state.enqueuePendingFirstAnchorMutation
+    );
+    const clearPendingFirstAnchorState = useAuthStore((state) => state.clearPendingFirstAnchorState);
     const [isSaving, setIsSaving] = useState(false);
 
     const {
@@ -112,27 +120,50 @@ export const AnchorRevealScreen: React.FC = () => {
             has_image: Boolean(enhancedImageUrl),
         });
 
-        let anchorId = `anchor-${Date.now()}`; // fallback local ID
+        const isGuestFirstAnchor = !isAuthenticated && existingAnchorCount === 0;
+        let anchorId = isGuestFirstAnchor
+            ? `pending-first-anchor-${Date.now()}`
+            : `anchor-${Date.now()}`;
+
+        const { tier, confidenceScore, isCustomFallback } = classifyToTierPreliminary(intentionText);
 
         try {
-            // Persist anchor to backend — this is the source of truth
-            const response = await post<ApiResponse<Anchor>>('/api/anchors', {
-                intentionText,
-                category,
-                distilledLetters,
-                baseSigilSvg,
-                structureVariant: structureVariant || 'balanced',
-                reinforcedSigilSvg: reinforcedSigilSvg || undefined,
-                reinforcementMetadata: reinforcementMetadata || undefined,
-                enhancedImageUrl: enhancedImageUrl || undefined,
-                enhancementMetadata: enhancementMetadata || undefined,
-            });
-
-            if (response?.success && response?.data?.id) {
-                anchorId = response.data.id;
-                logger.info('[AnchorReveal] Anchor saved to backend', { anchorId });
+            if (isGuestFirstAnchor) {
+                clearPendingFirstAnchorState();
+                setPendingFirstAnchorDraft({
+                    tempAnchorId: anchorId,
+                    source: 'onboarding_first_anchor',
+                    requiresAccountGate: true,
+                    createdAt: new Date(),
+                });
+                enqueuePendingFirstAnchorMutation({
+                    type: 'create_anchor',
+                    tempAnchorId: anchorId,
+                    queuedAt: new Date().toISOString(),
+                });
             } else {
-                logger.warn('[AnchorReveal] Backend returned unexpected response, using local ID', { response });
+                // Persist anchor to backend — this is the source of truth
+                const response = await post<ApiResponse<Anchor>>('/api/anchors', {
+                    intentionText,
+                    category,
+                    distilledLetters,
+                    baseSigilSvg,
+                    structureVariant: structureVariant || 'balanced',
+                    reinforcedSigilSvg: reinforcedSigilSvg || undefined,
+                    reinforcementMetadata: reinforcementMetadata || undefined,
+                    enhancedImageUrl: enhancedImageUrl || undefined,
+                    enhancementMetadata: enhancementMetadata || undefined,
+                    planetaryTier: tier,
+                    classifierVersion: 2,
+                    classifierMeta: { confidenceScore, isCustomFallback }
+                });
+
+                if (response?.success && response?.data?.id) {
+                    anchorId = response.data.id;
+                    logger.info('[AnchorReveal] Anchor saved to backend', { anchorId });
+                } else {
+                    logger.warn('[AnchorReveal] Backend returned unexpected response, using local ID', { response });
+                }
             }
         } catch (err) {
             logger.warn('[AnchorReveal] Failed to save anchor to backend, proceeding locally', err);
@@ -157,6 +188,9 @@ export const AnchorRevealScreen: React.FC = () => {
             reinforcementMetadata,
             enhancementMetadata,
             enhancedImageUrl: enhancedImageUrl || undefined,
+            planetaryTier: tier,
+            classifierVersion: 2,
+            classifierMeta: { confidenceScore, isCustomFallback },
             isCharged: false,
             activationCount: 0,
             createdAt: new Date(),
@@ -168,14 +202,18 @@ export const AnchorRevealScreen: React.FC = () => {
         setTempEnhancedImage(null);
 
         if (!wallpaperPromptSeen) {
-            navigation.navigate('WallpaperPrompt', {
+            navigation.replace('WallpaperPrompt', {
                 anchorId,
                 intentionText,
                 enhancedImageUrl: enhancedImageUrl || undefined,
                 sigilSvg: reinforcedSigilSvg || baseSigilSvg,
             });
         } else {
-            navigation.navigate('ChargeSetup', { anchorId, autoStartOnSelection: true });
+            navigation.replace('ChargeSetup', {
+                anchorId,
+                autoStartOnSelection: true,
+                returnTo: 'vault',
+            });
         }
     };
 
@@ -210,11 +248,22 @@ export const AnchorRevealScreen: React.FC = () => {
                         ]}
                     >
                         <View style={styles.imageCard}>
-                            <OptimizedImage
-                                uri={enhancedImageUrl || ''}
-                                style={styles.image}
-                                resizeMode="cover"
-                            />
+                            {enhancedImageUrl ? (
+                                <OptimizedImage
+                                    uri={enhancedImageUrl}
+                                    style={styles.image}
+                                    resizeMode="cover"
+                                />
+                            ) : (
+                                <View style={styles.sigilWrapper}>
+                                    <SigilSvg
+                                        xml={reinforcedSigilSvg || baseSigilSvg}
+                                        width={IMAGE_SIZE - 80}
+                                        height={IMAGE_SIZE - 80}
+                                        color={colors.gold}
+                                    />
+                                </View>
+                            )}
                             <View style={styles.glowOverlay} />
                         </View>
                     </Animated.View>
@@ -231,11 +280,7 @@ export const AnchorRevealScreen: React.FC = () => {
                         <Text style={styles.label}>ROOTED IN YOUR INTENTION</Text>
                         <BlurView intensity={20} tint="dark" style={styles.intentionCard}>
                             <View style={styles.intentionBorder} />
-                            <Text
-                                style={styles.intentionText}
-                                numberOfLines={2}
-                                ellipsizeMode="tail"
-                            >
+                            <Text style={styles.intentionText}>
                                 {intentionText}
                             </Text>
                         </BlurView>
@@ -337,13 +382,14 @@ const styles = StyleSheet.create({
     content: {
         flex: 1,
         alignItems: 'center',
-        justifyContent: 'center',
+        justifyContent: 'flex-start',
         paddingHorizontal: spacing.xl,
+        paddingTop: spacing.md,
     },
     imageContainer: {
         width: IMAGE_SIZE,
         height: IMAGE_SIZE,
-        marginBottom: 40,
+        marginBottom: 20,
         shadowColor: colors.gold,
         shadowOffset: { width: 0, height: 0 },
         shadowOpacity: 0.4,
@@ -362,6 +408,11 @@ const styles = StyleSheet.create({
     image: {
         width: '100%',
         height: '100%',
+    },
+    sigilWrapper: {
+        ...StyleSheet.absoluteFillObject,
+        alignItems: 'center',
+        justifyContent: 'center',
     },
     glowOverlay: {
         ...StyleSheet.absoluteFillObject,
@@ -418,14 +469,14 @@ const styles = StyleSheet.create({
     },
     footer: {
         paddingHorizontal: spacing.lg,
-        paddingBottom: 40,
+        paddingBottom: 20,
     },
     ctaHelperText: {
         ...typography.caption,
         fontSize: 13,
         color: colors.text.secondary,
         textAlign: 'center',
-        marginBottom: spacing.md,
+        marginBottom: spacing.sm,
         fontStyle: 'italic',
         letterSpacing: 0.3,
     },

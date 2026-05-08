@@ -1,0 +1,76 @@
+98ae89fa50c7961590e62dec86406560
+'use strict';
+
+Object.defineProperty(exports, "__esModule", {
+  value: true
+});
+exports.setupRequestAnimationFrame = void 0;
+var _threads = require("../../threads.js");
+var _worklet_7832889354830_init_data = {
+  code: "function setupRequestAnimationFrame_requestAnimationFrameJs1(){const{callMicrotasks}=this.__closure;const nativeRequestAnimationFrame=globalThis.requestAnimationFrame;let queuedCallbacks=[];let queuedCallbacksBegin=0;let queuedCallbacksEnd=0;let flushedCallbacks=queuedCallbacks;let flushedCallbacksBegin=0;let flushedCallbacksEnd=0;let flushRequested=false;globalThis.__flushAnimationFrame=function(timestamp){flushedCallbacks=queuedCallbacks;queuedCallbacks=[];flushedCallbacksBegin=queuedCallbacksBegin;flushedCallbacksEnd=queuedCallbacksEnd;queuedCallbacksBegin=queuedCallbacksEnd;for(const callback of flushedCallbacks){callback(timestamp);}flushedCallbacksBegin=flushedCallbacksEnd;callMicrotasks();};globalThis.requestAnimationFrame=function(callback){const handle=queuedCallbacksEnd++;queuedCallbacks.push(callback);if(!flushRequested){flushRequested=true;nativeRequestAnimationFrame(function(timestamp){flushRequested=false;globalThis.__frameTimestamp=timestamp;globalThis.__flushAnimationFrame(timestamp);globalThis.__frameTimestamp=undefined;});}return handle;};globalThis.cancelAnimationFrame=function(handle){if(handle<flushedCallbacksBegin||handle>=queuedCallbacksEnd){return;}if(handle<flushedCallbacksEnd){flushedCallbacks[handle-flushedCallbacksBegin]=function(){};}else{queuedCallbacks[handle-queuedCallbacksBegin]=function(){};}};}",
+  location: "C:\\Users\\dwill\\.gemini\\antigravity\\scratch\\Anchor\\anchor\\mobile\\node_modules\\react-native-worklets\\lib\\module\\runLoop\\uiRuntime\\requestAnimationFrame.js",
+  sourceMap: "{\"version\":3,\"names\":[\"setupRequestAnimationFrame_requestAnimationFrameJs1\",\"callMicrotasks\",\"__closure\",\"nativeRequestAnimationFrame\",\"globalThis\",\"requestAnimationFrame\",\"queuedCallbacks\",\"queuedCallbacksBegin\",\"queuedCallbacksEnd\",\"flushedCallbacks\",\"flushedCallbacksBegin\",\"flushedCallbacksEnd\",\"flushRequested\",\"__flushAnimationFrame\",\"timestamp\",\"callback\",\"handle\",\"push\",\"__frameTimestamp\",\"undefined\",\"cancelAnimationFrame\"],\"sources\":[\"C:/Users/dwill/.gemini/antigravity/scratch/Anchor/anchor/mobile/node_modules/react-native-worklets/lib/module/runLoop/uiRuntime/requestAnimationFrame.js\"],\"mappings\":\"AAGO,SAAAA,mDAAsCA,CAAA,QAAAC,cAAA,OAAAC,SAAA,CAG3C,KAAM,CAAAC,2BAA2B,CAAGC,UAAU,CAACC,qBAAqB,CACpE,GAAI,CAAAC,eAAe,CAAG,EAAE,CACxB,GAAI,CAAAC,oBAAoB,CAAG,CAAC,CAC5B,GAAI,CAAAC,kBAAkB,CAAG,CAAC,CAC1B,GAAI,CAAAC,gBAAgB,CAAGH,eAAe,CACtC,GAAI,CAAAI,qBAAqB,CAAG,CAAC,CAC7B,GAAI,CAAAC,mBAAmB,CAAG,CAAC,CAC3B,GAAI,CAAAC,cAAc,CAAG,KAAK,CAC1BR,UAAU,CAACS,qBAAqB,CAAG,SAAAC,SAAS,CAAI,CAC9CL,gBAAgB,CAAGH,eAAe,CAClCA,eAAe,CAAG,EAAE,CACpBI,qBAAqB,CAAGH,oBAAoB,CAC5CI,mBAAmB,CAAGH,kBAAkB,CACxCD,oBAAoB,CAAGC,kBAAkB,CACzC,IAAK,KAAM,CAAAO,QAAQ,GAAI,CAAAN,gBAAgB,CAAE,CACvCM,QAAQ,CAACD,SAAS,CAAC,CACrB,CACAJ,qBAAqB,CAAGC,mBAAmB,CAC3CV,cAAc,CAAC,CAAC,CAClB,CAAC,CACDG,UAAU,CAACC,qBAAqB,CAAG,SAAAU,QAAQ,CAAI,CAC7C,KAAM,CAAAC,MAAM,CAAGR,kBAAkB,EAAE,CACnCF,eAAe,CAACW,IAAI,CAACF,QAAQ,CAAC,CAC9B,GAAI,CAACH,cAAc,CAAE,CACnBA,cAAc,CAAG,IAAI,CACrBT,2BAA2B,CAAC,SAAAW,SAAS,CAAI,CACvCF,cAAc,CAAG,KAAK,CACtBR,UAAU,CAACc,gBAAgB,CAAGJ,SAAS,CACvCV,UAAU,CAACS,qBAAqB,CAACC,SAAS,CAAC,CAC3CV,UAAU,CAACc,gBAAgB,CAAGC,SAAS,CACzC,CAAC,CAAC,CACJ,CACA,MAAO,CAAAH,MAAM,CACf,CAAC,CACDZ,UAAU,CAACgB,oBAAoB,CAAG,SAAAJ,MAAM,CAAI,CAC1C,GAAIA,MAAM,CAAGN,qBAAqB,EAAIM,MAAM,EAAIR,kBAAkB,CAAE,CAClE,OACF,CACA,GAAIQ,MAAM,CAAGL,mBAAmB,CAAE,CAChCF,gBAAgB,CAACO,MAAM,CAAGN,qBAAqB,CAAC,CAAG,UAAM,CAAC,CAAC,CAC7D,CAAC,IAAM,CACLJ,eAAe,CAACU,MAAM,CAAGT,oBAAoB,CAAC,CAAG,UAAM,CAAC,CAAC,CAC3D,CACF,CAAC,CACH\",\"ignoreList\":[]}"
+};
+var setupRequestAnimationFrame = exports.setupRequestAnimationFrame = function setupRequestAnimationFrame_requestAnimationFrameJs1Factory(_ref) {
+  var _worklet_7832889354830_init_data = _ref._worklet_7832889354830_init_data,
+    callMicrotasks = _ref.callMicrotasks;
+  var _e = [new global.Error(), -2, -27];
+  var setupRequestAnimationFrame = function setupRequestAnimationFrame() {
+    var nativeRequestAnimationFrame = globalThis.requestAnimationFrame;
+    var queuedCallbacks = [];
+    var queuedCallbacksBegin = 0;
+    var queuedCallbacksEnd = 0;
+    var flushedCallbacks = queuedCallbacks;
+    var flushedCallbacksBegin = 0;
+    var flushedCallbacksEnd = 0;
+    var flushRequested = false;
+    globalThis.__flushAnimationFrame = function (timestamp) {
+      flushedCallbacks = queuedCallbacks;
+      queuedCallbacks = [];
+      flushedCallbacksBegin = queuedCallbacksBegin;
+      flushedCallbacksEnd = queuedCallbacksEnd;
+      queuedCallbacksBegin = queuedCallbacksEnd;
+      for (var callback of flushedCallbacks) {
+        callback(timestamp);
+      }
+      flushedCallbacksBegin = flushedCallbacksEnd;
+      callMicrotasks();
+    };
+    globalThis.requestAnimationFrame = function (callback) {
+      var handle = queuedCallbacksEnd++;
+      queuedCallbacks.push(callback);
+      if (!flushRequested) {
+        flushRequested = true;
+        nativeRequestAnimationFrame(function (timestamp) {
+          flushRequested = false;
+          globalThis.__frameTimestamp = timestamp;
+          globalThis.__flushAnimationFrame(timestamp);
+          globalThis.__frameTimestamp = undefined;
+        });
+      }
+      return handle;
+    };
+    globalThis.cancelAnimationFrame = function (handle) {
+      if (handle < flushedCallbacksBegin || handle >= queuedCallbacksEnd) {
+        return;
+      }
+      if (handle < flushedCallbacksEnd) {
+        flushedCallbacks[handle - flushedCallbacksBegin] = function () {};
+      } else {
+        queuedCallbacks[handle - queuedCallbacksBegin] = function () {};
+      }
+    };
+  };
+  setupRequestAnimationFrame.__closure = {
+    callMicrotasks: callMicrotasks
+  };
+  setupRequestAnimationFrame.__workletHash = 7832889354830;
+  setupRequestAnimationFrame.__pluginVersion = "0.5.1";
+  setupRequestAnimationFrame.__initData = _worklet_7832889354830_init_data;
+  setupRequestAnimationFrame.__stackDetails = _e;
+  return setupRequestAnimationFrame;
+}({
+  _worklet_7832889354830_init_data: _worklet_7832889354830_init_data,
+  callMicrotasks: _threads.callMicrotasks
+});
+//# sourceMappingURL=data:application/json;charset=utf-8;base64,eyJ2ZXJzaW9uIjozLCJuYW1lcyI6WyJPYmplY3QiLCJkZWZpbmVQcm9wZXJ0eSIsImV4cG9ydHMiLCJ2YWx1ZSIsInNldHVwUmVxdWVzdEFuaW1hdGlvbkZyYW1lIiwiX3RocmVhZHMiLCJyZXF1aXJlIiwiX3dvcmtsZXRfNzgzMjg4OTM1NDgzMF9pbml0X2RhdGEiLCJjb2RlIiwibG9jYXRpb24iLCJzb3VyY2VNYXAiLCJzZXR1cFJlcXVlc3RBbmltYXRpb25GcmFtZV9yZXF1ZXN0QW5pbWF0aW9uRnJhbWVKczFGYWN0b3J5IiwiX3JlZiIsImNhbGxNaWNyb3Rhc2tzIiwiX2UiLCJnbG9iYWwiLCJFcnJvciIsIm5hdGl2ZVJlcXVlc3RBbmltYXRpb25GcmFtZSIsImdsb2JhbFRoaXMiLCJyZXF1ZXN0QW5pbWF0aW9uRnJhbWUiLCJxdWV1ZWRDYWxsYmFja3MiLCJxdWV1ZWRDYWxsYmFja3NCZWdpbiIsInF1ZXVlZENhbGxiYWNrc0VuZCIsImZsdXNoZWRDYWxsYmFja3MiLCJmbHVzaGVkQ2FsbGJhY2tzQmVnaW4iLCJmbHVzaGVkQ2FsbGJhY2tzRW5kIiwiZmx1c2hSZXF1ZXN0ZWQiLCJfX2ZsdXNoQW5pbWF0aW9uRnJhbWUiLCJ0aW1lc3RhbXAiLCJjYWxsYmFjayIsImhhbmRsZSIsInB1c2giLCJfX2ZyYW1lVGltZXN0YW1wIiwidW5kZWZpbmVkIiwiY2FuY2VsQW5pbWF0aW9uRnJhbWUiLCJfX2Nsb3N1cmUiLCJfX3dvcmtsZXRIYXNoIiwiX19wbHVnaW5WZXJzaW9uIiwiX19pbml0RGF0YSIsIl9fc3RhY2tEZXRhaWxzIl0sInNvdXJjZXMiOlsiLi4vLi4vLi4vLi4vc3JjL3J1bkxvb3AvdWlSdW50aW1lL3JlcXVlc3RBbmltYXRpb25GcmFtZS50cyJdLCJzb3VyY2VzQ29udGVudCI6W251bGxdLCJtYXBwaW5ncyI6IkFBQUEsWUFBWTs7QUFBQUEsTUFBQSxDQUFBQyxjQUFBLENBQUFDLE9BQUE7RUFBQUMsS0FBQTtBQUFBO0FBQUFELE9BQUEsQ0FBQUUsMEJBQUE7QUFFWixJQUFBQyxRQUFBLEdBQUFDLE9BQUE7QUFBOEMsSUFBQUMsZ0NBQUE7RUFBQUMsSUFBQTtFQUFBQyxRQUFBO0VBQUFDLFNBQUE7QUFBQTtBQUFBLElBQUFOLDBCQUFBLEdBQUFGLE9BQUEsQ0FBQUUsMEJBQUEsR0FFdkMsU0FBQU8sMkRBQUFDLElBQUE7RUFBQSxJQUFBTCxnQ0FBQSxHQUFBSyxJQUFBLENBQUFMLGdDQUFBO0lBNEJITSxjQUFjLEdBQUFELElBQUEsQ0FBZEMsY0FBYztFQUFBLElBQUFDLEVBQUEsUUFBQUMsTUFBQSxDQUFBQyxLQUFBO0VBQUEsSUFBQVosMEJBQUEsWUFBQUEsMkJBQUEsRUE1QjJCO0lBRTNDLElBQU1hLDJCQUEyQixHQUFHQyxVQUFVLENBQUNDLHFCQUFxQjtJQUVwRSxJQUFJQyxlQUFnRCxHQUFHLEVBQUU7SUFDekQsSUFBSUMsb0JBQW9CLEdBQUcsQ0FBQztJQUM1QixJQUFJQyxrQkFBa0IsR0FBRyxDQUFDO0lBRTFCLElBQUlDLGdCQUFnQixHQUFHSCxlQUFlO0lBQ3RDLElBQUlJLHFCQUFxQixHQUFHLENBQUM7SUFDN0IsSUFBSUMsbUJBQW1CLEdBQUcsQ0FBQztJQUUzQixJQUFJQyxjQUFjLEdBQUcsS0FBSztJQUUxQlIsVUFBVSxDQUFDUyxxQkFBcUIsR0FBSSxVQUFBQyxTQUFpQixFQUFLO01BQ3hETCxnQkFBZ0IsR0FBR0gsZUFBZTtNQUNsQ0EsZUFBZSxHQUFHLEVBQUU7TUFFcEJJLHFCQUFxQixHQUFHSCxvQkFBb0I7TUFDNUNJLG1CQUFtQixHQUFHSCxrQkFBa0I7TUFDeENELG9CQUFvQixHQUFHQyxrQkFBa0I7TUFFekMsS0FBSyxJQUFNTyxRQUFRLElBQUlOLGdCQUFnQixFQUFFO1FBQ3ZDTSxRQUFRLENBQUNELFNBQVMsQ0FBQztNQUNyQjtNQUVBSixxQkFBcUIsR0FBR0MsbUJBQW1CO01BRTNDWixjQUFjLENBQUMsQ0FBQztJQUNsQixDQUFDO0lBRURLLFVBQVUsQ0FBQ0MscUJBQXFCLEdBQzlCLFVBQUFVLFFBQXFDLEVBQzFCO01BQ1gsSUFBTUMsTUFBTSxHQUFHUixrQkFBa0IsRUFBRTtNQUVuQ0YsZUFBZSxDQUFDVyxJQUFJLENBQUNGLFFBQVEsQ0FBQztNQUM5QixJQUFJLENBQUNILGNBQWMsRUFBRTtRQUNuQkEsY0FBYyxHQUFHLElBQUk7UUFFckJULDJCQUEyQixDQUFFLFVBQUFXLFNBQVMsRUFBSztVQUN6Q0YsY0FBYyxHQUFHLEtBQUs7VUFDdEJSLFVBQVUsQ0FBQ2MsZ0JBQWdCLEdBQUdKLFNBQVM7VUFDdkNWLFVBQVUsQ0FBQ1MscUJBQXFCLENBQUNDLFNBQVMsQ0FBQztVQUMzQ1YsVUFBVSxDQUFDYyxnQkFBZ0IsR0FBR0MsU0FBUztRQUN6QyxDQUFDLENBQUM7TUFDSjtNQUNBLE9BQU9ILE1BQU07SUFDZixDQUFDO0lBRURaLFVBQVUsQ0FBQ2dCLG9CQUFvQixHQUFJLFVBQUFKLE1BQWMsRUFBSztNQUNwRCxJQUFJQSxNQUFNLEdBQUdOLHFCQUFxQixJQUFJTSxNQUFNLElBQUlSLGtCQUFrQixFQUFFO1FBQ2xFO01BQ0Y7TUFFQSxJQUFJUSxNQUFNLEdBQUdMLG1CQUFtQixFQUFFO1FBQ2hDRixnQkFBZ0IsQ0FBQ08sTUFBTSxHQUFHTixxQkFBcUIsQ0FBQyxHQUFHLFlBQU0sQ0FBQyxDQUFDO01BQzdELENBQUMsTUFBTTtRQUNMSixlQUFlLENBQUNVLE1BQU0sR0FBR1Qsb0JBQW9CLENBQUMsR0FBRyxZQUFNLENBQUMsQ0FBQztNQUMzRDtJQUNGLENBQUM7RUFDSDtFQUFBakIsMEJBQUEsQ0FBQStCLFNBQUE7SUFqQ0l0QixjQUFjLEVBQWRBO0VBQWM7RUFBQVQsMEJBQUEsQ0FBQWdDLGFBQUE7RUFBQWhDLDBCQUFBLENBQUFpQyxlQUFBO0VBQUFqQywwQkFBQSxDQUFBa0MsVUFBQSxHQUFBL0IsZ0NBQUE7RUFBQUgsMEJBQUEsQ0FBQW1DLGNBQUEsR0FBQXpCLEVBQUE7RUFBQSxPQUFBViwwQkFBQTtBQUFBLENBNUJYO0VBQUFHLGdDQUFBLEVBQUFBLGdDQUFBO0VBNEJITSxjQUFjLEVBQWRBO0FBQWMiLCJpZ25vcmVMaXN0IjpbXX0=

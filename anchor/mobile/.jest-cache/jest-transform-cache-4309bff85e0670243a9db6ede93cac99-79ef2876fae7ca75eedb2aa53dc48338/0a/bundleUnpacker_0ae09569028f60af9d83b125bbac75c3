@@ -1,0 +1,52 @@
+46535fa97dca77b3e3763580e3e894ce
+'use strict';
+
+Object.defineProperty(exports, "__esModule", {
+  value: true
+});
+exports.bundleValueUnpacker = bundleValueUnpacker;
+var _logger = require("./logger.js");
+var _WorkletsError = require("./WorkletsError.js");
+var handleCache = new WeakMap();
+function bundleValueUnpacker(objectToUnpack, category, remoteFunctionName) {
+  var workletHash = objectToUnpack.__workletHash;
+  if (workletHash !== undefined) {
+    return getWorklet(workletHash, objectToUnpack.__closure);
+  } else if (objectToUnpack.__init !== undefined) {
+    var value = handleCache.get(objectToUnpack);
+    if (value === undefined) {
+      value = objectToUnpack.__init();
+      handleCache.set(objectToUnpack, value);
+    }
+    return value;
+  } else if (category === 'RemoteFunction') {
+    var remoteFunctionHolder = function remoteFunctionHolder() {
+      var label = remoteFunctionName ? `function \`${remoteFunctionName}\`` : 'anonymous function';
+      throw new _WorkletsError.WorkletsError(`Tried to synchronously call a non-worklet ${label} on the UI thread.
+See https://docs.swmansion.com/react-native-reanimated/docs/guides/troubleshooting#tried-to-synchronously-call-a-non-worklet-function-on-the-ui-thread for more details.`);
+    };
+    remoteFunctionHolder.__remoteFunction = objectToUnpack;
+    return remoteFunctionHolder;
+  } else {
+    throw new _WorkletsError.WorkletsError(`Data type in category "${category}" not recognized by value unpacker: "${globalThis._toString(objectToUnpack)}".`);
+  }
+}
+function getWorklet(workletHash, closureVariables) {
+  var worklet;
+  if (__DEV__) {
+    try {
+      worklet = getWorkletFromMetroRequire(workletHash, closureVariables);
+    } catch (_e) {
+      _logger.logger.error('Unable to resolve worklet with hash ' + workletHash + '. Try reloading the app.');
+    }
+  } else {
+    worklet = getWorkletFromMetroRequire(workletHash, closureVariables);
+  }
+  return worklet;
+}
+var metroRequire = globalThis.__r;
+function getWorkletFromMetroRequire(workletHash, closureVariables) {
+  var factory = metroRequire(workletHash).default;
+  return factory(closureVariables);
+}
+//# sourceMappingURL=data:application/json;charset=utf-8;base64,eyJ2ZXJzaW9uIjozLCJuYW1lcyI6WyJPYmplY3QiLCJkZWZpbmVQcm9wZXJ0eSIsImV4cG9ydHMiLCJ2YWx1ZSIsImJ1bmRsZVZhbHVlVW5wYWNrZXIiLCJfbG9nZ2VyIiwicmVxdWlyZSIsIl9Xb3JrbGV0c0Vycm9yIiwiaGFuZGxlQ2FjaGUiLCJXZWFrTWFwIiwib2JqZWN0VG9VbnBhY2siLCJjYXRlZ29yeSIsInJlbW90ZUZ1bmN0aW9uTmFtZSIsIndvcmtsZXRIYXNoIiwiX193b3JrbGV0SGFzaCIsInVuZGVmaW5lZCIsImdldFdvcmtsZXQiLCJfX2Nsb3N1cmUiLCJfX2luaXQiLCJnZXQiLCJzZXQiLCJyZW1vdGVGdW5jdGlvbkhvbGRlciIsImxhYmVsIiwiV29ya2xldHNFcnJvciIsIl9fcmVtb3RlRnVuY3Rpb24iLCJnbG9iYWxUaGlzIiwiX3RvU3RyaW5nIiwiY2xvc3VyZVZhcmlhYmxlcyIsIndvcmtsZXQiLCJfX0RFVl9fIiwiZ2V0V29ya2xldEZyb21NZXRyb1JlcXVpcmUiLCJfZSIsImxvZ2dlciIsImVycm9yIiwibWV0cm9SZXF1aXJlIiwiX19yIiwiZmFjdG9yeSIsImRlZmF1bHQiXSwic291cmNlcyI6WyIuLi8uLi9zcmMvYnVuZGxlVW5wYWNrZXIudHMiXSwic291cmNlc0NvbnRlbnQiOltudWxsXSwibWFwcGluZ3MiOiJBQUFBLFlBQVk7O0FBQUFBLE1BQUEsQ0FBQUMsY0FBQSxDQUFBQyxPQUFBO0VBQUFDLEtBQUE7QUFBQTtBQUFBRCxPQUFBLENBQUFFLG1CQUFBLEdBQUFBLG1CQUFBO0FBQ1osSUFBQUMsT0FBQSxHQUFBQyxPQUFBO0FBQ0EsSUFBQUMsY0FBQSxHQUFBRCxPQUFBO0FBR0EsSUFBTUUsV0FBVyxHQUFHLElBQUlDLE9BQU8sQ0FBMkIsQ0FBQztBQUVwRCxTQUFTTCxtQkFBbUJBLENBQ2pDTSxjQUE4QixFQUM5QkMsUUFBaUIsRUFDakJDLGtCQUEyQixFQUNsQjtFQUNULElBQU1DLFdBQVcsR0FBR0gsY0FBYyxDQUFDSSxhQUFhO0VBQ2hELElBQUlELFdBQVcsS0FBS0UsU0FBUyxFQUFFO0lBQzdCLE9BQU9DLFVBQVUsQ0FBQ0gsV0FBVyxFQUFFSCxjQUFjLENBQUNPLFNBQVMsQ0FBQztFQUMxRCxDQUFDLE1BQU0sSUFBSVAsY0FBYyxDQUFDUSxNQUFNLEtBQUtILFNBQVMsRUFBRTtJQUM5QyxJQUFJWixLQUFLLEdBQUdLLFdBQVcsQ0FBQ1csR0FBRyxDQUFDVCxjQUFjLENBQUM7SUFDM0MsSUFBSVAsS0FBSyxLQUFLWSxTQUFTLEVBQUU7TUFDdkJaLEtBQUssR0FBR08sY0FBYyxDQUFDUSxNQUFNLENBQUMsQ0FBQztNQUMvQlYsV0FBVyxDQUFDWSxHQUFHLENBQUNWLGNBQWMsRUFBRVAsS0FBSyxDQUFDO0lBQ3hDO0lBQ0EsT0FBT0EsS0FBSztFQUNkLENBQUMsTUFBTSxJQUFJUSxRQUFRLEtBQUssZ0JBQWdCLEVBQUU7SUFDeEMsSUFBTVUsb0JBQW9CLEdBQUcsU0FBdkJBLG9CQUFvQkEsQ0FBQSxFQUFTO01BQ2pDLElBQU1DLEtBQUssR0FBR1Ysa0JBQWtCLEdBQzVCLGNBQWNBLGtCQUFrQixJQUFJLEdBQ3BDLG9CQUFvQjtNQUN4QixNQUFNLElBQUlXLDRCQUFhLENBQUMsNkNBQTZDRCxLQUFLO0FBQ2hGLHlLQUF5SyxDQUFDO0lBQ3RLLENBQUM7SUFDREQsb0JBQW9CLENBQUNHLGdCQUFnQixHQUFHZCxjQUFjO0lBQ3RELE9BQU9XLG9CQUFvQjtFQUM3QixDQUFDLE1BQU07SUFDTCxNQUFNLElBQUlFLDRCQUFhLENBQ3JCLDBCQUEwQlosUUFBUSx3Q0FBd0NjLFVBQVUsQ0FBQ0MsU0FBUyxDQUM1RmhCLGNBQ0YsQ0FBQyxJQUNILENBQUM7RUFDSDtBQUNGO0FBRUEsU0FBU00sVUFBVUEsQ0FDakJILFdBQW1CLEVBQ25CYyxnQkFBeUMsRUFDWjtFQUM3QixJQUFJQyxPQUFPO0VBQ1gsSUFBSUMsT0FBTyxFQUFFO0lBQ1gsSUFBSTtNQUNGRCxPQUFPLEdBQUdFLDBCQUEwQixDQUFDakIsV0FBVyxFQUFFYyxnQkFBZ0IsQ0FBQztJQUNyRSxDQUFDLENBQUMsT0FBT0ksRUFBRSxFQUFFO01BQ1hDLGNBQU0sQ0FBQ0MsS0FBSyxDQUNWLHNDQUFzQyxHQUNwQ3BCLFdBQVcsR0FDWCwwQkFDSixDQUFDO0lBQ0g7RUFDRixDQUFDLE1BQU07SUFDTGUsT0FBTyxHQUFHRSwwQkFBMEIsQ0FBQ2pCLFdBQVcsRUFBRWMsZ0JBQWdCLENBQUM7RUFDckU7RUFDQSxPQUFPQyxPQUFPO0FBQ2hCO0FBRUEsSUFBTU0sWUFBWSxHQUFHVCxVQUFVLENBQUNVLEdBQUc7QUFFbkMsU0FBU0wsMEJBQTBCQSxDQUNqQ2pCLFdBQW1CLEVBQ25CYyxnQkFBeUMsRUFDeEI7RUFDakIsSUFBTVMsT0FBTyxHQUFHRixZQUFZLENBQUNyQixXQUFXLENBQUMsQ0FBQ3dCLE9BQXlCO0VBQ25FLE9BQU9ELE9BQU8sQ0FBQ1QsZ0JBQWdCLENBQUM7QUFDbEMiLCJpZ25vcmVMaXN0IjpbXX0=

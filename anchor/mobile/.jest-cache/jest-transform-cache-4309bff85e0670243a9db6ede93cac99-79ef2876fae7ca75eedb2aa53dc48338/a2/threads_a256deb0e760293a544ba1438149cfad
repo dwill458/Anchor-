@@ -1,0 +1,460 @@
+f3fd9fb3596afc1cf4e174f1b694d704
+'use strict';
+
+var _interopRequireDefault = require("@babel/runtime/helpers/interopRequireDefault").default;
+Object.defineProperty(exports, "__esModule", {
+  value: true
+});
+exports.callMicrotasks = void 0;
+exports.executeOnUIRuntimeSync = executeOnUIRuntimeSync;
+exports.runOnJS = void 0;
+exports.runOnUI = runOnUI;
+exports.runOnUIAsync = runOnUIAsync;
+exports.runOnUISync = runOnUISync;
+exports.scheduleOnRN = void 0;
+exports.scheduleOnUI = scheduleOnUI;
+exports.setupMicrotasks = void 0;
+exports.unstable_eventLoopTask = unstable_eventLoopTask;
+var _slicedToArray2 = _interopRequireDefault(require("@babel/runtime/helpers/slicedToArray"));
+var _toConsumableArray2 = _interopRequireDefault(require("@babel/runtime/helpers/toConsumableArray"));
+var _index = require("./PlatformChecker/index.js");
+var _runtimeKind = require("./runtimeKind.js");
+var _serializable = require("./serializable.js");
+var _serializableMappingCache = require("./serializableMappingCache.js");
+var _workletFunction = require("./workletFunction.js");
+var _WorkletsError = require("./WorkletsError.js");
+var _index2 = require("./WorkletsModule/index.js");
+var runOnUIQueue = [];
+var _worklet_4463399413847_init_data = {
+  code: "function setupMicrotasks_threadsJs1(){let microtasksQueue=[];let isExecutingMicrotasksQueue=false;global.queueMicrotask=function(callback){microtasksQueue.push(callback);};global._microtaskQueueFinalizers=[];global.__callMicrotasks=function(){if(isExecutingMicrotasksQueue){return;}try{isExecutingMicrotasksQueue=true;for(let index=0;index<microtasksQueue.length;index+=1){microtasksQueue[index]();}microtasksQueue=[];global._microtaskQueueFinalizers.forEach(function(finalizer){return finalizer();});}finally{isExecutingMicrotasksQueue=false;}};}",
+  location: "C:\\Users\\dwill\\.gemini\\antigravity\\scratch\\Anchor\\anchor\\mobile\\node_modules\\react-native-worklets\\lib\\module\\threads.js",
+  sourceMap: "{\"version\":3,\"names\":[\"setupMicrotasks_threadsJs1\",\"microtasksQueue\",\"isExecutingMicrotasksQueue\",\"global\",\"queueMicrotask\",\"callback\",\"push\",\"_microtaskQueueFinalizers\",\"__callMicrotasks\",\"index\",\"length\",\"forEach\",\"finalizer\"],\"sources\":[\"C:/Users/dwill/.gemini/antigravity/scratch/Anchor/anchor/mobile/node_modules/react-native-worklets/lib/module/threads.js\"],\"mappings\":\"AAUO,SAAAA,0BAA2BA,CAAA,EAGhC,GAAI,CAAAC,eAAe,CAAG,EAAE,CACxB,GAAI,CAAAC,0BAA0B,CAAG,KAAK,CACtCC,MAAM,CAACC,cAAc,CAAG,SAAAC,QAAQ,CAAI,CAClCJ,eAAe,CAACK,IAAI,CAACD,QAAQ,CAAC,CAChC,CAAC,CACDF,MAAM,CAACI,yBAAyB,CAAG,EAAE,CACrCJ,MAAM,CAACK,gBAAgB,CAAG,UAAM,CAC9B,GAAIN,0BAA0B,CAAE,CAC9B,OACF,CACA,GAAI,CACFA,0BAA0B,CAAG,IAAI,CACjC,IAAK,GAAI,CAAAO,KAAK,CAAG,CAAC,CAAEA,KAAK,CAAGR,eAAe,CAACS,MAAM,CAAED,KAAK,EAAI,CAAC,CAAE,CAE9DR,eAAe,CAACQ,KAAK,CAAC,CAAC,CAAC,CAC1B,CACAR,eAAe,CAAG,EAAE,CACpBE,MAAM,CAACI,yBAAyB,CAACI,OAAO,CAAC,SAAAC,SAAS,QAAI,CAAAA,SAAS,CAAC,CAAC,GAAC,CACpE,CAAC,OAAS,CACRV,0BAA0B,CAAG,KAAK,CACpC,CACF,CAAC,CACH\",\"ignoreList\":[]}"
+};
+var setupMicrotasks = exports.setupMicrotasks = function setupMicrotasks_threadsJs1Factory(_ref) {
+  var _worklet_4463399413847_init_data = _ref._worklet_4463399413847_init_data;
+  var _e = [new global.Error(), 1, -27];
+  var setupMicrotasks = function setupMicrotasks() {
+    var microtasksQueue = [];
+    var isExecutingMicrotasksQueue = false;
+    global.queueMicrotask = function (callback) {
+      microtasksQueue.push(callback);
+    };
+    global._microtaskQueueFinalizers = [];
+    global.__callMicrotasks = function () {
+      if (isExecutingMicrotasksQueue) {
+        return;
+      }
+      try {
+        isExecutingMicrotasksQueue = true;
+        for (var index = 0; index < microtasksQueue.length; index += 1) {
+          microtasksQueue[index]();
+        }
+        microtasksQueue = [];
+        global._microtaskQueueFinalizers.forEach(function (finalizer) {
+          return finalizer();
+        });
+      } finally {
+        isExecutingMicrotasksQueue = false;
+      }
+    };
+  };
+  setupMicrotasks.__closure = {};
+  setupMicrotasks.__workletHash = 4463399413847;
+  setupMicrotasks.__pluginVersion = "0.5.1";
+  setupMicrotasks.__initData = _worklet_4463399413847_init_data;
+  setupMicrotasks.__stackDetails = _e;
+  return setupMicrotasks;
+}({
+  _worklet_4463399413847_init_data: _worklet_4463399413847_init_data
+});
+var _worklet_6162042684295_init_data = {
+  code: "function callMicrotasksOnUIThread_threadsJs2(){global.__callMicrotasks();}",
+  location: "C:\\Users\\dwill\\.gemini\\antigravity\\scratch\\Anchor\\anchor\\mobile\\node_modules\\react-native-worklets\\lib\\module\\threads.js",
+  sourceMap: "{\"version\":3,\"names\":[\"callMicrotasksOnUIThread_threadsJs2\",\"global\",\"__callMicrotasks\"],\"sources\":[\"C:/Users/dwill/.gemini/antigravity/scratch/Anchor/anchor/mobile/node_modules/react-native-worklets/lib/module/threads.js\"],\"mappings\":\"AAoCA,SAAAA,mCAAoCA,CAAA,EAGlCC,MAAM,CAACC,gBAAgB,CAAC,CAAC,CAC3B\",\"ignoreList\":[]}"
+};
+var callMicrotasksOnUIThread = function callMicrotasksOnUIThread_threadsJs2Factory(_ref2) {
+  var _worklet_6162042684295_init_data = _ref2._worklet_6162042684295_init_data;
+  var _e = [new global.Error(), 1, -27];
+  var callMicrotasksOnUIThread = function callMicrotasksOnUIThread() {
+    global.__callMicrotasks();
+  };
+  callMicrotasksOnUIThread.__closure = {};
+  callMicrotasksOnUIThread.__workletHash = 6162042684295;
+  callMicrotasksOnUIThread.__pluginVersion = "0.5.1";
+  callMicrotasksOnUIThread.__initData = _worklet_6162042684295_init_data;
+  callMicrotasksOnUIThread.__stackDetails = _e;
+  return callMicrotasksOnUIThread;
+}({
+  _worklet_6162042684295_init_data: _worklet_6162042684295_init_data
+});
+var callMicrotasks = exports.callMicrotasks = _index.SHOULD_BE_USE_WEB ? function () {} : callMicrotasksOnUIThread;
+function scheduleOnUI(worklet) {
+  for (var _len = arguments.length, args = new Array(_len > 1 ? _len - 1 : 0), _key = 1; _key < _len; _key++) {
+    args[_key - 1] = arguments[_key];
+  }
+  runOnUI(worklet).apply(void 0, args);
+}
+var _worklet_11108901834577_init_data = {
+  code: "function threadsJs3(){const{worklet,args}=this.__closure;worklet(...args);}",
+  location: "C:\\Users\\dwill\\.gemini\\antigravity\\scratch\\Anchor\\anchor\\mobile\\node_modules\\react-native-worklets\\lib\\module\\threads.js",
+  sourceMap: "{\"version\":3,\"names\":[\"threadsJs3\",\"worklet\",\"args\",\"__closure\"],\"sources\":[\"C:/Users/dwill/.gemini/antigravity/scratch/Anchor/anchor/mobile/node_modules/react-native-worklets/lib/module/threads.js\"],\"mappings\":\"AAyGqD,SAAAA,UAAMA,CAAA,QAAAC,OAAA,CAAAC,IAAA,OAAAC,SAAA,CAGnDF,OAAO,CAAC,GAAGC,IAAI,CAAC,CAClB\",\"ignoreList\":[]}"
+};
+function runOnUI(worklet) {
+  if (__DEV__ && !_index.SHOULD_BE_USE_WEB && !(0, _workletFunction.isWorkletFunction)(worklet) && !worklet.__bundleData) {
+    throw new _WorkletsError.WorkletsError('`runOnUI` can only be used with worklets.');
+  }
+  return function () {
+    for (var _len2 = arguments.length, args = new Array(_len2), _key2 = 0; _key2 < _len2; _key2++) {
+      args[_key2] = arguments[_key2];
+    }
+    if (_index.IS_JEST) {
+      _index2.WorkletsModule.scheduleOnUI((0, _serializable.createSerializable)(function threadsJs3Factory(_ref3) {
+        var _worklet_11108901834577_init_data = _ref3._worklet_11108901834577_init_data,
+          worklet = _ref3.worklet,
+          args = _ref3.args;
+        var _e = [new global.Error(), -3, -27];
+        var threadsJs3 = function threadsJs3() {
+          worklet.apply(void 0, (0, _toConsumableArray2.default)(args));
+        };
+        threadsJs3.__closure = {
+          worklet: worklet,
+          args: args
+        };
+        threadsJs3.__workletHash = 11108901834577;
+        threadsJs3.__pluginVersion = "0.5.1";
+        threadsJs3.__initData = _worklet_11108901834577_init_data;
+        threadsJs3.__stackDetails = _e;
+        return threadsJs3;
+      }({
+        _worklet_11108901834577_init_data: _worklet_11108901834577_init_data,
+        worklet: worklet,
+        args: args
+      })));
+      return;
+    }
+    if (__DEV__) {
+      (0, _serializable.createSerializable)(worklet);
+      (0, _serializable.createSerializable)(args);
+    }
+    enqueueUI(worklet, args);
+  };
+}
+var _worklet_1417455388571_init_data = {
+  code: "function runOnUIWorklet_threadsJs4(){throw new WorkletsError('`runOnUI` cannot be called on the UI runtime. Please call the function synchronously or use `queueMicrotask` or `requestAnimationFrame` instead.');}",
+  location: "C:\\Users\\dwill\\.gemini\\antigravity\\scratch\\Anchor\\anchor\\mobile\\node_modules\\react-native-worklets\\lib\\module\\threads.js",
+  sourceMap: "{\"version\":3,\"names\":[\"runOnUIWorklet_threadsJs4\",\"WorkletsError\"],\"sources\":[\"C:/Users/dwill/.gemini/antigravity/scratch/Anchor/anchor/mobile/node_modules/react-native-worklets/lib/module/threads.js\"],\"mappings\":\"AA6HE,SAAAA,yBAA0BA,CAAA,EAGxB,KAAM,IAAI,CAAAC,aAAa,CAAC,kJAAkJ,CAAC,CAC7K\",\"ignoreList\":[]}"
+};
+if (__DEV__) {
+  var runOnUIWorklet = function runOnUIWorklet_threadsJs4Factory(_ref4) {
+    var _worklet_1417455388571_init_data = _ref4._worklet_1417455388571_init_data;
+    var _e = [new global.Error(), 1, -27];
+    var runOnUIWorklet = function runOnUIWorklet() {
+      throw new _WorkletsError.WorkletsError('`runOnUI` cannot be called on the UI runtime. Please call the function synchronously or use `queueMicrotask` or `requestAnimationFrame` instead.');
+    };
+    runOnUIWorklet.__closure = {};
+    runOnUIWorklet.__workletHash = 1417455388571;
+    runOnUIWorklet.__pluginVersion = "0.5.1";
+    runOnUIWorklet.__initData = _worklet_1417455388571_init_data;
+    runOnUIWorklet.__stackDetails = _e;
+    return runOnUIWorklet;
+  }({
+    _worklet_1417455388571_init_data: _worklet_1417455388571_init_data
+  });
+  var serializableRunOnUIWorklet = (0, _serializable.createSerializable)(runOnUIWorklet);
+  _serializableMappingCache.serializableMappingCache.set(runOnUI, serializableRunOnUIWorklet);
+}
+function runOnUISync(worklet) {
+  for (var _len3 = arguments.length, args = new Array(_len3 > 1 ? _len3 - 1 : 0), _key3 = 1; _key3 < _len3; _key3++) {
+    args[_key3 - 1] = arguments[_key3];
+  }
+  return executeOnUIRuntimeSync(worklet).apply(void 0, args);
+}
+var _worklet_11036196228115_init_data = {
+  code: "function threadsJs5(){const{worklet,args,makeShareableCloneOnUIRecursive}=this.__closure;const result=worklet(...args);return makeShareableCloneOnUIRecursive(result);}",
+  location: "C:\\Users\\dwill\\.gemini\\antigravity\\scratch\\Anchor\\anchor\\mobile\\node_modules\\react-native-worklets\\lib\\module\\threads.js",
+  sourceMap: "{\"version\":3,\"names\":[\"threadsJs5\",\"worklet\",\"args\",\"makeShareableCloneOnUIRecursive\",\"__closure\",\"result\"],\"sources\":[\"C:/Users/dwill/.gemini/antigravity/scratch/Anchor/anchor/mobile/node_modules/react-native-worklets/lib/module/threads.js\"],\"mappings\":\"AAkKoE,SAAAA,UAAMA,CAAA,QAAAC,OAAA,CAAAC,IAAA,CAAAC,+BAAA,OAAAC,SAAA,CAGpE,KAAM,CAAAC,MAAM,CAAGJ,OAAO,CAAC,GAAGC,IAAI,CAAC,CAC/B,MAAO,CAAAC,+BAA+B,CAACE,MAAM,CAAC,CAChD\",\"ignoreList\":[]}"
+};
+function executeOnUIRuntimeSync(worklet) {
+  return function () {
+    for (var _len4 = arguments.length, args = new Array(_len4), _key4 = 0; _key4 < _len4; _key4++) {
+      args[_key4] = arguments[_key4];
+    }
+    return _index2.WorkletsModule.executeOnUIRuntimeSync((0, _serializable.createSerializable)(function threadsJs5Factory(_ref5) {
+      var _worklet_11036196228115_init_data = _ref5._worklet_11036196228115_init_data,
+        worklet = _ref5.worklet,
+        args = _ref5.args,
+        makeShareableCloneOnUIRecursive = _ref5.makeShareableCloneOnUIRecursive;
+      var _e = [new global.Error(), -4, -27];
+      var threadsJs5 = function threadsJs5() {
+        var result = worklet.apply(void 0, (0, _toConsumableArray2.default)(args));
+        return makeShareableCloneOnUIRecursive(result);
+      };
+      threadsJs5.__closure = {
+        worklet: worklet,
+        args: args,
+        makeShareableCloneOnUIRecursive: makeShareableCloneOnUIRecursive
+      };
+      threadsJs5.__workletHash = 11036196228115;
+      threadsJs5.__pluginVersion = "0.5.1";
+      threadsJs5.__initData = _worklet_11036196228115_init_data;
+      threadsJs5.__stackDetails = _e;
+      return threadsJs5;
+    }({
+      _worklet_11036196228115_init_data: _worklet_11036196228115_init_data,
+      worklet: worklet,
+      args: args,
+      makeShareableCloneOnUIRecursive: _serializable.makeShareableCloneOnUIRecursive
+    })));
+  };
+}
+function runWorkletOnJS(worklet) {
+  for (var _len5 = arguments.length, args = new Array(_len5 > 1 ? _len5 - 1 : 0), _key5 = 1; _key5 < _len5; _key5++) {
+    args[_key5 - 1] = arguments[_key5];
+  }
+  worklet.apply(void 0, args);
+}
+var _worklet_7311604395258_init_data = {
+  code: "function runOnJS_threadsJs6(fun){const runOnJS_threadsJs6=this._recur;const{SHOULD_BE_USE_WEB,RuntimeKind,isWorkletFunction,runWorkletOnJS,makeShareableCloneOnUIRecursive}=this.__closure;if(SHOULD_BE_USE_WEB||globalThis.__RUNTIME_KIND===RuntimeKind.ReactNative){return function(...args){return queueMicrotask(args.length?function(){return fun(...args);}:fun);};}if(isWorkletFunction(fun)){return function(...args){return runOnJS_threadsJs6(runWorkletOnJS)(fun,...args);};}if(fun.__remoteFunction){fun=fun.__remoteFunction;}const scheduleOnJS=typeof fun==='function'?global._scheduleHostFunctionOnJS:global._scheduleRemoteFunctionOnJS;return function(...args){scheduleOnJS(fun,args.length>0?makeShareableCloneOnUIRecursive(args):undefined);};}",
+  location: "C:\\Users\\dwill\\.gemini\\antigravity\\scratch\\Anchor\\anchor\\mobile\\node_modules\\react-native-worklets\\lib\\module\\threads.js",
+  sourceMap: "{\"version\":3,\"names\":[\"runOnJS_threadsJs6\",\"fun\",\"_recur\",\"SHOULD_BE_USE_WEB\",\"RuntimeKind\",\"isWorkletFunction\",\"runWorkletOnJS\",\"makeShareableCloneOnUIRecursive\",\"__closure\",\"globalThis\",\"__RUNTIME_KIND\",\"ReactNative\",\"args\",\"queueMicrotask\",\"length\",\"__remoteFunction\",\"scheduleOnJS\",\"global\",\"_scheduleHostFunctionOnJS\",\"_scheduleRemoteFunctionOnJS\",\"undefined\"],\"sources\":[\"C:/Users/dwill/.gemini/antigravity/scratch/Anchor/anchor/mobile/node_modules/react-native-worklets/lib/module/threads.js\"],\"mappings\":\"AA8LO,SAAAA,kBAAsBA,CAAAC,GAAA,QAAAD,kBAAA,MAAAE,MAAA,OAAAC,iBAAA,CAAAC,WAAA,CAAAC,iBAAA,CAAAC,cAAA,CAAAC,+BAAA,OAAAC,SAAA,CAG3B,GAAIL,iBAAiB,EAAIM,UAAU,CAACC,cAAc,GAAKN,WAAW,CAACO,WAAW,CAAE,CAE9E,MAAO,UAAC,GAAGC,IAAI,QAAK,CAAAC,cAAc,CAACD,IAAI,CAACE,MAAM,CAAG,iBAAM,CAAAb,GAAG,CAAC,GAAGW,IAAI,CAAC,GAAGX,GAAG,CAAC,GAC5E,CACA,GAAII,iBAAiB,CAACJ,GAAG,CAAC,CAAE,CAI1B,MAAO,UAAC,GAAGW,IAAI,QAAK,CAAAZ,kBAAQ,CAAAM,cAAwB,EAAAL,GAAK,IAAAW,IAAA,IAC3D,CACA,GAAIX,GAAG,CAACc,gBAAgB,CAAE,CAKxBd,GAAG,CAAGA,GAAG,CAACc,gBAAgB,CAC5B,CACA,KAAM,CAAAC,YAAY,CAAG,MAAO,CAAAf,GAAG,GAAK,UAAU,CAAGgB,MAAM,CAACC,yBAAyB,CAAGD,MAAM,CAACE,2BAA2B,CACtH,MAAO,UAAC,GAAGP,IAAI,CAAK,CAClBI,YAAY,CAACf,GAAG,CAAEW,IAAI,CAACE,MAAM,CAAG,CAAC,CAAGP,+BAA+B,CAACK,IAAI,CAAC,CAAGQ,SAAS,CAAC,CACxF,CAAC,CACH\",\"ignoreList\":[]}"
+};
+var runOnJS = exports.runOnJS = function runOnJS_threadsJs6Factory(_ref6) {
+  var _worklet_7311604395258_init_data = _ref6._worklet_7311604395258_init_data,
+    SHOULD_BE_USE_WEB = _ref6.SHOULD_BE_USE_WEB,
+    RuntimeKind = _ref6.RuntimeKind,
+    isWorkletFunction = _ref6.isWorkletFunction,
+    runWorkletOnJS = _ref6.runWorkletOnJS,
+    makeShareableCloneOnUIRecursive = _ref6.makeShareableCloneOnUIRecursive;
+  var _e = [new global.Error(), -6, -27];
+  var _runOnJS = function runOnJS(fun) {
+    if (SHOULD_BE_USE_WEB || globalThis.__RUNTIME_KIND === RuntimeKind.ReactNative) {
+      return function () {
+        for (var _len6 = arguments.length, args = new Array(_len6), _key6 = 0; _key6 < _len6; _key6++) {
+          args[_key6] = arguments[_key6];
+        }
+        return queueMicrotask(args.length ? function () {
+          return fun.apply(void 0, args);
+        } : fun);
+      };
+    }
+    if (isWorkletFunction(fun)) {
+      return function () {
+        for (var _len7 = arguments.length, args = new Array(_len7), _key7 = 0; _key7 < _len7; _key7++) {
+          args[_key7] = arguments[_key7];
+        }
+        return _runOnJS(runWorkletOnJS).apply(void 0, [fun].concat(args));
+      };
+    }
+    if (fun.__remoteFunction) {
+      fun = fun.__remoteFunction;
+    }
+    var scheduleOnJS = typeof fun === 'function' ? global._scheduleHostFunctionOnJS : global._scheduleRemoteFunctionOnJS;
+    return function () {
+      for (var _len8 = arguments.length, args = new Array(_len8), _key8 = 0; _key8 < _len8; _key8++) {
+        args[_key8] = arguments[_key8];
+      }
+      scheduleOnJS(fun, args.length > 0 ? makeShareableCloneOnUIRecursive(args) : undefined);
+    };
+  };
+  _runOnJS.__closure = {
+    SHOULD_BE_USE_WEB: SHOULD_BE_USE_WEB,
+    RuntimeKind: RuntimeKind,
+    isWorkletFunction: isWorkletFunction,
+    runWorkletOnJS: runWorkletOnJS,
+    makeShareableCloneOnUIRecursive: makeShareableCloneOnUIRecursive
+  };
+  _runOnJS.__workletHash = 7311604395258;
+  _runOnJS.__pluginVersion = "0.5.1";
+  _runOnJS.__initData = _worklet_7311604395258_init_data;
+  _runOnJS.__stackDetails = _e;
+  return _runOnJS;
+}({
+  _worklet_7311604395258_init_data: _worklet_7311604395258_init_data,
+  SHOULD_BE_USE_WEB: _index.SHOULD_BE_USE_WEB,
+  RuntimeKind: _runtimeKind.RuntimeKind,
+  isWorkletFunction: _workletFunction.isWorkletFunction,
+  runWorkletOnJS: runWorkletOnJS,
+  makeShareableCloneOnUIRecursive: _serializable.makeShareableCloneOnUIRecursive
+});
+var _worklet_1962057170269_init_data = {
+  code: "function scheduleOnRN_threadsJs7(fun,...args){const{runOnJS}=this.__closure;runOnJS(fun)(...args);}",
+  location: "C:\\Users\\dwill\\.gemini\\antigravity\\scratch\\Anchor\\anchor\\mobile\\node_modules\\react-native-worklets\\lib\\module\\threads.js",
+  sourceMap: "{\"version\":3,\"names\":[\"scheduleOnRN_threadsJs7\",\"fun\",\"args\",\"runOnJS\",\"__closure\"],\"sources\":[\"C:/Users/dwill/.gemini/antigravity/scratch/Anchor/anchor/mobile/node_modules/react-native-worklets/lib/module/threads.js\"],\"mappings\":\"AA8OO,SAAAA,uBAA8BA,CAAAC,GAAI,CAAE,GAAAC,IAAA,QAAAC,OAAA,OAAAC,SAAA,CAGzCD,OAAO,CAACF,GAAG,CAAC,CAAC,GAAGC,IAAI,CAAC,CACvB\",\"ignoreList\":[]}"
+};
+var scheduleOnRN = exports.scheduleOnRN = function scheduleOnRN_threadsJs7Factory(_ref7) {
+  var _worklet_1962057170269_init_data = _ref7._worklet_1962057170269_init_data,
+    runOnJS = _ref7.runOnJS;
+  var _e = [new global.Error(), -2, -27];
+  var scheduleOnRN = function scheduleOnRN(fun) {
+    for (var _len9 = arguments.length, args = new Array(_len9 > 1 ? _len9 - 1 : 0), _key9 = 1; _key9 < _len9; _key9++) {
+      args[_key9 - 1] = arguments[_key9];
+    }
+    runOnJS(fun).apply(void 0, args);
+  };
+  scheduleOnRN.__closure = {
+    runOnJS: runOnJS
+  };
+  scheduleOnRN.__workletHash = 1962057170269;
+  scheduleOnRN.__pluginVersion = "0.5.1";
+  scheduleOnRN.__initData = _worklet_1962057170269_init_data;
+  scheduleOnRN.__stackDetails = _e;
+  return scheduleOnRN;
+}({
+  _worklet_1962057170269_init_data: _worklet_1962057170269_init_data,
+  runOnJS: runOnJS
+});
+var _worklet_1655652225370_init_data = {
+  code: "function threadsJs8(){const{worklet,args}=this.__closure;worklet(...args);}",
+  location: "C:\\Users\\dwill\\.gemini\\antigravity\\scratch\\Anchor\\anchor\\mobile\\node_modules\\react-native-worklets\\lib\\module\\threads.js",
+  sourceMap: "{\"version\":3,\"names\":[\"threadsJs8\",\"worklet\",\"args\",\"__closure\"],\"sources\":[\"C:/Users/dwill/.gemini/antigravity/scratch/Anchor/anchor/mobile/node_modules/react-native-worklets/lib/module/threads.js\"],\"mappings\":\"AAuRuD,SAAAA,UAAMA,CAAA,QAAAC,OAAA,CAAAC,IAAA,OAAAC,SAAA,CAGnDF,OAAO,CAAC,GAAGC,IAAI,CAAC,CAClB\",\"ignoreList\":[]}"
+};
+function runOnUIAsync(worklet) {
+  if (__DEV__ && !_index.SHOULD_BE_USE_WEB && !(0, _workletFunction.isWorkletFunction)(worklet)) {
+    throw new _WorkletsError.WorkletsError('`runOnUIAsync` can only be used with worklets.');
+  }
+  return function () {
+    for (var _len0 = arguments.length, args = new Array(_len0), _key0 = 0; _key0 < _len0; _key0++) {
+      args[_key0] = arguments[_key0];
+    }
+    return new Promise(function (resolve) {
+      if (_index.IS_JEST) {
+        _index2.WorkletsModule.scheduleOnUI((0, _serializable.createSerializable)(function threadsJs8Factory(_ref8) {
+          var _worklet_1655652225370_init_data = _ref8._worklet_1655652225370_init_data,
+            worklet = _ref8.worklet,
+            args = _ref8.args;
+          var _e = [new global.Error(), -3, -27];
+          var threadsJs8 = function threadsJs8() {
+            worklet.apply(void 0, (0, _toConsumableArray2.default)(args));
+          };
+          threadsJs8.__closure = {
+            worklet: worklet,
+            args: args
+          };
+          threadsJs8.__workletHash = 1655652225370;
+          threadsJs8.__pluginVersion = "0.5.1";
+          threadsJs8.__initData = _worklet_1655652225370_init_data;
+          threadsJs8.__stackDetails = _e;
+          return threadsJs8;
+        }({
+          _worklet_1655652225370_init_data: _worklet_1655652225370_init_data,
+          worklet: worklet,
+          args: args
+        })));
+        return;
+      }
+      if (__DEV__) {
+        (0, _serializable.createSerializable)(worklet);
+        (0, _serializable.createSerializable)(args);
+      }
+      enqueueUI(worklet, args, resolve);
+    });
+  };
+}
+var _worklet_7493684755254_init_data = {
+  code: "function runOnUIAsyncWorklet_threadsJs9(){throw new WorkletsError('`runOnUIAsync` cannot be called on the UI runtime. Please call the function synchronously or use `queueMicrotask` or `requestAnimationFrame` instead.');}",
+  location: "C:\\Users\\dwill\\.gemini\\antigravity\\scratch\\Anchor\\anchor\\mobile\\node_modules\\react-native-worklets\\lib\\module\\threads.js",
+  sourceMap: "{\"version\":3,\"names\":[\"runOnUIAsyncWorklet_threadsJs9\",\"WorkletsError\"],\"sources\":[\"C:/Users/dwill/.gemini/antigravity/scratch/Anchor/anchor/mobile/node_modules/react-native-worklets/lib/module/threads.js\"],\"mappings\":\"AA4SE,SAAAA,8BAA+BA,CAAA,EAG7B,KAAM,IAAI,CAAAC,aAAa,CAAC,uJAAuJ,CAAC,CAClL\",\"ignoreList\":[]}"
+};
+if (__DEV__) {
+  var runOnUIAsyncWorklet = function runOnUIAsyncWorklet_threadsJs9Factory(_ref9) {
+    var _worklet_7493684755254_init_data = _ref9._worklet_7493684755254_init_data;
+    var _e = [new global.Error(), 1, -27];
+    var runOnUIAsyncWorklet = function runOnUIAsyncWorklet() {
+      throw new _WorkletsError.WorkletsError('`runOnUIAsync` cannot be called on the UI runtime. Please call the function synchronously or use `queueMicrotask` or `requestAnimationFrame` instead.');
+    };
+    runOnUIAsyncWorklet.__closure = {};
+    runOnUIAsyncWorklet.__workletHash = 7493684755254;
+    runOnUIAsyncWorklet.__pluginVersion = "0.5.1";
+    runOnUIAsyncWorklet.__initData = _worklet_7493684755254_init_data;
+    runOnUIAsyncWorklet.__stackDetails = _e;
+    return runOnUIAsyncWorklet;
+  }({
+    _worklet_7493684755254_init_data: _worklet_7493684755254_init_data
+  });
+  var serializableRunOnUIAsyncWorklet = (0, _serializable.createSerializable)(runOnUIAsyncWorklet);
+  _serializableMappingCache.serializableMappingCache.set(runOnUIAsync, serializableRunOnUIAsyncWorklet);
+}
+function enqueueUI(worklet, args, resolve) {
+  var job = [worklet, args, resolve];
+  runOnUIQueue.push(job);
+  if (runOnUIQueue.length === 1) {
+    flushUIQueue();
+  }
+}
+var _worklet_12726195542958_init_data = {
+  code: "function threadsJs10(){const{queue,runOnJS,callMicrotasks}=this.__closure;queue.forEach(function([workletFunction,workletArgs,jobResolve]){const result=workletFunction(...workletArgs);if(jobResolve){runOnJS(jobResolve)(result);}});callMicrotasks();}",
+  location: "C:\\Users\\dwill\\.gemini\\antigravity\\scratch\\Anchor\\anchor\\mobile\\node_modules\\react-native-worklets\\lib\\module\\threads.js",
+  sourceMap: "{\"version\":3,\"names\":[\"threadsJs10\",\"queue\",\"runOnJS\",\"callMicrotasks\",\"__closure\",\"forEach\",\"workletFunction\",\"workletArgs\",\"jobResolve\",\"result\"],\"sources\":[\"C:/Users/dwill/.gemini/antigravity/scratch/Anchor/anchor/mobile/node_modules/react-native-worklets/lib/module/threads.js\"],\"mappings\":\"AA+TmD,SAAAA,WAAMA,CAAA,QAAAC,KAAA,CAAAC,OAAA,CAAAC,cAAA,OAAAC,SAAA,CAGnDH,KAAK,CAACI,OAAO,CAAC,SAAC,CAACC,eAAe,CAAEC,WAAW,CAAEC,UAAU,CAAC,CAAK,CAC5D,KAAM,CAAAC,MAAM,CAAGH,eAAe,CAAC,GAAGC,WAAW,CAAC,CAC9C,GAAIC,UAAU,CAAE,CACdN,OAAO,CAACM,UAAU,CAAC,CAACC,MAAM,CAAC,CAC7B,CACF,CAAC,CAAC,CACFN,cAAc,CAAC,CAAC,CAClB\",\"ignoreList\":[]}"
+};
+function flushUIQueue() {
+  queueMicrotask(function () {
+    var queue = runOnUIQueue;
+    runOnUIQueue = [];
+    _index2.WorkletsModule.scheduleOnUI((0, _serializable.createSerializable)(function threadsJs10Factory(_ref0) {
+      var _worklet_12726195542958_init_data = _ref0._worklet_12726195542958_init_data,
+        queue = _ref0.queue,
+        runOnJS = _ref0.runOnJS,
+        callMicrotasks = _ref0.callMicrotasks;
+      var _e = [new global.Error(), -4, -27];
+      var threadsJs10 = function threadsJs10() {
+        queue.forEach(function (_ref1) {
+          var _ref10 = (0, _slicedToArray2.default)(_ref1, 3),
+            workletFunction = _ref10[0],
+            workletArgs = _ref10[1],
+            jobResolve = _ref10[2];
+          var result = workletFunction.apply(void 0, (0, _toConsumableArray2.default)(workletArgs));
+          if (jobResolve) {
+            runOnJS(jobResolve)(result);
+          }
+        });
+        callMicrotasks();
+      };
+      threadsJs10.__closure = {
+        queue: queue,
+        runOnJS: runOnJS,
+        callMicrotasks: callMicrotasks
+      };
+      threadsJs10.__workletHash = 12726195542958;
+      threadsJs10.__pluginVersion = "0.5.1";
+      threadsJs10.__initData = _worklet_12726195542958_init_data;
+      threadsJs10.__stackDetails = _e;
+      return threadsJs10;
+    }({
+      _worklet_12726195542958_init_data: _worklet_12726195542958_init_data,
+      queue: queue,
+      runOnJS: runOnJS,
+      callMicrotasks: callMicrotasks
+    })));
+  });
+}
+var _worklet_2837864279798_init_data = {
+  code: "function threadsJs11(...args){const{worklet,callMicrotasks}=this.__closure;worklet(...args);callMicrotasks();}",
+  location: "C:\\Users\\dwill\\.gemini\\antigravity\\scratch\\Anchor\\anchor\\mobile\\node_modules\\react-native-worklets\\lib\\module\\threads.js",
+  sourceMap: "{\"version\":3,\"names\":[\"threadsJs11\",\"args\",\"worklet\",\"callMicrotasks\",\"__closure\"],\"sources\":[\"C:/Users/dwill/.gemini/antigravity/scratch/Anchor/anchor/mobile/node_modules/react-native-worklets/lib/module/threads.js\"],\"mappings\":\"AAmVS,QAAC,CAAAA,WAAYA,CAAA,GAAAC,IAAA,QAAAC,OAAA,CAAAC,cAAA,OAAAC,SAAA,CAGlBF,OAAO,CAAC,GAAGD,IAAI,CAAC,CAChBE,cAAc,CAAC,CAAC,CAClB\",\"ignoreList\":[]}"
+};
+function unstable_eventLoopTask(worklet) {
+  return function threadsJs11Factory(_ref11) {
+    var _worklet_2837864279798_init_data = _ref11._worklet_2837864279798_init_data,
+      worklet = _ref11.worklet,
+      callMicrotasks = _ref11.callMicrotasks;
+    var _e = [new global.Error(), -3, -27];
+    var threadsJs11 = function threadsJs11() {
+      worklet.apply(void 0, arguments);
+      callMicrotasks();
+    };
+    threadsJs11.__closure = {
+      worklet: worklet,
+      callMicrotasks: callMicrotasks
+    };
+    threadsJs11.__workletHash = 2837864279798;
+    threadsJs11.__pluginVersion = "0.5.1";
+    threadsJs11.__initData = _worklet_2837864279798_init_data;
+    threadsJs11.__stackDetails = _e;
+    return threadsJs11;
+  }({
+    _worklet_2837864279798_init_data: _worklet_2837864279798_init_data,
+    worklet: worklet,
+    callMicrotasks: callMicrotasks
+  });
+}
+//# sourceMappingURL=data:application/json;charset=utf-8;base64,eyJ2ZXJzaW9uIjozLCJuYW1lcyI6WyJfaW50ZXJvcFJlcXVpcmVEZWZhdWx0IiwicmVxdWlyZSIsImRlZmF1bHQiLCJPYmplY3QiLCJkZWZpbmVQcm9wZXJ0eSIsImV4cG9ydHMiLCJ2YWx1ZSIsImNhbGxNaWNyb3Rhc2tzIiwiZXhlY3V0ZU9uVUlSdW50aW1lU3luYyIsInJ1bk9uSlMiLCJydW5PblVJIiwicnVuT25VSUFzeW5jIiwicnVuT25VSVN5bmMiLCJzY2hlZHVsZU9uUk4iLCJzY2hlZHVsZU9uVUkiLCJzZXR1cE1pY3JvdGFza3MiLCJ1bnN0YWJsZV9ldmVudExvb3BUYXNrIiwiX3NsaWNlZFRvQXJyYXkyIiwiX3RvQ29uc3VtYWJsZUFycmF5MiIsIl9pbmRleCIsIl9ydW50aW1lS2luZCIsIl9zZXJpYWxpemFibGUiLCJfc2VyaWFsaXphYmxlTWFwcGluZ0NhY2hlIiwiX3dvcmtsZXRGdW5jdGlvbiIsIl9Xb3JrbGV0c0Vycm9yIiwiX2luZGV4MiIsInJ1bk9uVUlRdWV1ZSIsIl93b3JrbGV0XzQ0NjMzOTk0MTM4NDdfaW5pdF9kYXRhIiwiY29kZSIsImxvY2F0aW9uIiwic291cmNlTWFwIiwic2V0dXBNaWNyb3Rhc2tzX3RocmVhZHNKczFGYWN0b3J5IiwiX3JlZiIsIl9lIiwiZ2xvYmFsIiwiRXJyb3IiLCJtaWNyb3Rhc2tzUXVldWUiLCJpc0V4ZWN1dGluZ01pY3JvdGFza3NRdWV1ZSIsInF1ZXVlTWljcm90YXNrIiwiY2FsbGJhY2siLCJwdXNoIiwiX21pY3JvdGFza1F1ZXVlRmluYWxpemVycyIsIl9fY2FsbE1pY3JvdGFza3MiLCJpbmRleCIsImxlbmd0aCIsImZvckVhY2giLCJmaW5hbGl6ZXIiLCJfX2Nsb3N1cmUiLCJfX3dvcmtsZXRIYXNoIiwiX19wbHVnaW5WZXJzaW9uIiwiX19pbml0RGF0YSIsIl9fc3RhY2tEZXRhaWxzIiwiX3dvcmtsZXRfNjE2MjA0MjY4NDI5NV9pbml0X2RhdGEiLCJjYWxsTWljcm90YXNrc09uVUlUaHJlYWQiLCJjYWxsTWljcm90YXNrc09uVUlUaHJlYWRfdGhyZWFkc0pzMkZhY3RvcnkiLCJfcmVmMiIsIlNIT1VMRF9CRV9VU0VfV0VCIiwid29ya2xldCIsIl9sZW4iLCJhcmd1bWVudHMiLCJhcmdzIiwiQXJyYXkiLCJfa2V5IiwiYXBwbHkiLCJfd29ya2xldF8xMTEwODkwMTgzNDU3N19pbml0X2RhdGEiLCJfX0RFVl9fIiwiaXNXb3JrbGV0RnVuY3Rpb24iLCJfX2J1bmRsZURhdGEiLCJXb3JrbGV0c0Vycm9yIiwiX2xlbjIiLCJfa2V5MiIsIklTX0pFU1QiLCJXb3JrbGV0c01vZHVsZSIsImNyZWF0ZVNlcmlhbGl6YWJsZSIsInRocmVhZHNKczNGYWN0b3J5IiwiX3JlZjMiLCJ0aHJlYWRzSnMzIiwiZW5xdWV1ZVVJIiwiX3dvcmtsZXRfMTQxNzQ1NTM4ODU3MV9pbml0X2RhdGEiLCJydW5PblVJV29ya2xldCIsInJ1bk9uVUlXb3JrbGV0X3RocmVhZHNKczRGYWN0b3J5IiwiX3JlZjQiLCJzZXJpYWxpemFibGVSdW5PblVJV29ya2xldCIsInNlcmlhbGl6YWJsZU1hcHBpbmdDYWNoZSIsInNldCIsIl9sZW4zIiwiX2tleTMiLCJfd29ya2xldF8xMTAzNjE5NjIyODExNV9pbml0X2RhdGEiLCJfbGVuNCIsIl9rZXk0IiwidGhyZWFkc0pzNUZhY3RvcnkiLCJfcmVmNSIsIm1ha2VTaGFyZWFibGVDbG9uZU9uVUlSZWN1cnNpdmUiLCJ0aHJlYWRzSnM1IiwicmVzdWx0IiwicnVuV29ya2xldE9uSlMiLCJfbGVuNSIsIl9rZXk1IiwiX3dvcmtsZXRfNzMxMTYwNDM5NTI1OF9pbml0X2RhdGEiLCJydW5PbkpTX3RocmVhZHNKczZGYWN0b3J5IiwiX3JlZjYiLCJSdW50aW1lS2luZCIsIl9ydW5PbkpTIiwiZnVuIiwiZ2xvYmFsVGhpcyIsIl9fUlVOVElNRV9LSU5EIiwiUmVhY3ROYXRpdmUiLCJfbGVuNiIsIl9rZXk2IiwiX2xlbjciLCJfa2V5NyIsImNvbmNhdCIsIl9fcmVtb3RlRnVuY3Rpb24iLCJzY2hlZHVsZU9uSlMiLCJfc2NoZWR1bGVIb3N0RnVuY3Rpb25PbkpTIiwiX3NjaGVkdWxlUmVtb3RlRnVuY3Rpb25PbkpTIiwiX2xlbjgiLCJfa2V5OCIsInVuZGVmaW5lZCIsIl93b3JrbGV0XzE5NjIwNTcxNzAyNjlfaW5pdF9kYXRhIiwic2NoZWR1bGVPblJOX3RocmVhZHNKczdGYWN0b3J5IiwiX3JlZjciLCJfbGVuOSIsIl9rZXk5IiwiX3dvcmtsZXRfMTY1NTY1MjIyNTM3MF9pbml0X2RhdGEiLCJfbGVuMCIsIl9rZXkwIiwiUHJvbWlzZSIsInJlc29sdmUiLCJ0aHJlYWRzSnM4RmFjdG9yeSIsIl9yZWY4IiwidGhyZWFkc0pzOCIsIl93b3JrbGV0Xzc0OTM2ODQ3NTUyNTRfaW5pdF9kYXRhIiwicnVuT25VSUFzeW5jV29ya2xldCIsInJ1bk9uVUlBc3luY1dvcmtsZXRfdGhyZWFkc0pzOUZhY3RvcnkiLCJfcmVmOSIsInNlcmlhbGl6YWJsZVJ1bk9uVUlBc3luY1dvcmtsZXQiLCJqb2IiLCJmbHVzaFVJUXVldWUiLCJfd29ya2xldF8xMjcyNjE5NTU0Mjk1OF9pbml0X2RhdGEiLCJxdWV1ZSIsInRocmVhZHNKczEwRmFjdG9yeSIsIl9yZWYwIiwidGhyZWFkc0pzMTAiLCJfcmVmMSIsIl9yZWYxMCIsIndvcmtsZXRGdW5jdGlvbiIsIndvcmtsZXRBcmdzIiwiam9iUmVzb2x2ZSIsIl93b3JrbGV0XzI4Mzc4NjQyNzk3OThfaW5pdF9kYXRhIiwidGhyZWFkc0pzMTFGYWN0b3J5IiwiX3JlZjExIiwidGhyZWFkc0pzMTEiXSwic291cmNlcyI6WyIuLi8uLi9zcmMvdGhyZWFkcy50cyJdLCJzb3VyY2VzQ29udGVudCI6W251bGxdLCJtYXBwaW5ncyI6IkFBQUEsWUFBWTs7QUFBQSxJQUFBQSxzQkFBQSxHQUFBQyxPQUFBLGlEQUFBQyxPQUFBO0FBQUFDLE1BQUEsQ0FBQUMsY0FBQSxDQUFBQyxPQUFBO0VBQUFDLEtBQUE7QUFBQTtBQUFBRCxPQUFBLENBQUFFLGNBQUE7QUFBQUYsT0FBQSxDQUFBRyxzQkFBQSxHQUFBQSxzQkFBQTtBQUFB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

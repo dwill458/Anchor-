@@ -1,0 +1,87 @@
+4ac3abc89805205700af923bc9856a96
+'use strict';
+
+Object.defineProperty(exports, "__esModule", {
+  value: true
+});
+exports.setupTaskQueue = exports.pushTask = exports.pushMicrotask = void 0;
+var _worklet_14411094571135_init_data = {
+  code: "function setupTaskQueue_taskQueueJs1(){const queue={microtasks:[],timeoutCallbacks:new Map()};globalThis._taskQueue=queue;globalThis.__runTimeoutCallback=function(handlerId){const task=queue.timeoutCallbacks.get(handlerId);task===null||task===void 0||task();queue.timeoutCallbacks.delete(handlerId);globalThis.__flushMicrotasks();};globalThis.__flushMicrotasks=function(){for(let i=0;i<queue.microtasks.length;i++){queue.microtasks[i]();}queue.microtasks=[];};}",
+  location: "C:\\Users\\dwill\\.gemini\\antigravity\\scratch\\Anchor\\anchor\\mobile\\node_modules\\react-native-worklets\\lib\\module\\runLoop\\workletRuntime\\taskQueue.js",
+  sourceMap: "{\"version\":3,\"names\":[\"setupTaskQueue_taskQueueJs1\",\"queue\",\"microtasks\",\"timeoutCallbacks\",\"Map\",\"globalThis\",\"_taskQueue\",\"__runTimeoutCallback\",\"handlerId\",\"task\",\"get\",\"delete\",\"__flushMicrotasks\",\"i\",\"length\"],\"sources\":[\"C:/Users/dwill/.gemini/antigravity/scratch/Anchor/anchor/mobile/node_modules/react-native-worklets/lib/module/runLoop/workletRuntime/taskQueue.js\"],\"mappings\":\"AAEO,SAAAA,2BAA0BA,CAAA,EAG/B,KAAM,CAAAC,KAAK,CAAG,CACZC,UAAU,CAAE,EAAE,CACdC,gBAAgB,CAAE,GAAI,CAAAC,GAAG,CAAC,CAC5B,CAAC,CACDC,UAAU,CAACC,UAAU,CAAGL,KAAK,CAC7BI,UAAU,CAACE,oBAAoB,CAAG,SAAUC,SAAS,CAAE,CACrD,KAAM,CAAAC,IAAI,CAAGR,KAAK,CAACE,gBAAgB,CAACO,GAAG,CAACF,SAAS,CAAC,CAClDC,IAAI,SAAJA,IAAI,WAAJA,IAAI,CAAG,CAAC,CACRR,KAAK,CAACE,gBAAgB,CAACQ,MAAM,CAACH,SAAS,CAAC,CACxCH,UAAU,CAACO,iBAAiB,CAAC,CAAC,CAChC,CAAC,CACDP,UAAU,CAACO,iBAAiB,CAAG,UAAY,CACzC,IAAK,GAAI,CAAAC,CAAC,CAAG,CAAC,CAAEA,CAAC,CAAGZ,KAAK,CAACC,UAAU,CAACY,MAAM,CAAED,CAAC,EAAE,CAAE,CAChDZ,KAAK,CAACC,UAAU,CAACW,CAAC,CAAC,CAAC,CAAC,CACvB,CACAZ,KAAK,CAACC,UAAU,CAAG,EAAE,CACvB,CAAC,CACH\",\"ignoreList\":[]}"
+};
+var setupTaskQueue = exports.setupTaskQueue = function setupTaskQueue_taskQueueJs1Factory(_ref) {
+  var _worklet_14411094571135_init_data = _ref._worklet_14411094571135_init_data;
+  var _e = [new global.Error(), 1, -27];
+  var setupTaskQueue = function setupTaskQueue() {
+    var queue = {
+      microtasks: [],
+      timeoutCallbacks: new Map()
+    };
+    globalThis._taskQueue = queue;
+    globalThis.__runTimeoutCallback = function (handlerId) {
+      var task = queue.timeoutCallbacks.get(handlerId);
+      task == null || task();
+      queue.timeoutCallbacks.delete(handlerId);
+      globalThis.__flushMicrotasks();
+    };
+    globalThis.__flushMicrotasks = function () {
+      for (var i = 0; i < queue.microtasks.length; i++) {
+        queue.microtasks[i]();
+      }
+      queue.microtasks = [];
+    };
+  };
+  setupTaskQueue.__closure = {};
+  setupTaskQueue.__workletHash = 14411094571135;
+  setupTaskQueue.__pluginVersion = "0.5.1";
+  setupTaskQueue.__initData = _worklet_14411094571135_init_data;
+  setupTaskQueue.__stackDetails = _e;
+  return setupTaskQueue;
+}({
+  _worklet_14411094571135_init_data: _worklet_14411094571135_init_data
+});
+var _worklet_7022395586560_init_data = {
+  code: "function pushMicrotask_taskQueueJs2(callback){const queue=globalThis._taskQueue;queue.microtasks.push(callback);}",
+  location: "C:\\Users\\dwill\\.gemini\\antigravity\\scratch\\Anchor\\anchor\\mobile\\node_modules\\react-native-worklets\\lib\\module\\runLoop\\workletRuntime\\taskQueue.js",
+  sourceMap: "{\"version\":3,\"names\":[\"pushMicrotask_taskQueueJs2\",\"callback\",\"queue\",\"globalThis\",\"_taskQueue\",\"microtasks\",\"push\"],\"sources\":[\"C:/Users/dwill/.gemini/antigravity/scratch/Anchor/anchor/mobile/node_modules/react-native-worklets/lib/module/runLoop/workletRuntime/taskQueue.js\"],\"mappings\":\"AAuBO,SAAAA,0BAAiCA,CAAAC,QAAA,EAGtC,KAAM,CAAAC,KAAK,CAAGC,UAAU,CAACC,UAAU,CACnCF,KAAK,CAACG,UAAU,CAACC,IAAI,CAACL,QAAQ,CAAC,CACjC\",\"ignoreList\":[]}"
+};
+var pushMicrotask = exports.pushMicrotask = function pushMicrotask_taskQueueJs2Factory(_ref2) {
+  var _worklet_7022395586560_init_data = _ref2._worklet_7022395586560_init_data;
+  var _e = [new global.Error(), 1, -27];
+  var pushMicrotask = function pushMicrotask(callback) {
+    var queue = globalThis._taskQueue;
+    queue.microtasks.push(callback);
+  };
+  pushMicrotask.__closure = {};
+  pushMicrotask.__workletHash = 7022395586560;
+  pushMicrotask.__pluginVersion = "0.5.1";
+  pushMicrotask.__initData = _worklet_7022395586560_init_data;
+  pushMicrotask.__stackDetails = _e;
+  return pushMicrotask;
+}({
+  _worklet_7022395586560_init_data: _worklet_7022395586560_init_data
+});
+var _worklet_13575747098278_init_data = {
+  code: "function pushTask_taskQueueJs3(callback,handlerId,delay){const queue=globalThis._taskQueue;queue.timeoutCallbacks.set(handlerId,callback);globalThis._scheduleTimeoutCallback(delay,handlerId);}",
+  location: "C:\\Users\\dwill\\.gemini\\antigravity\\scratch\\Anchor\\anchor\\mobile\\node_modules\\react-native-worklets\\lib\\module\\runLoop\\workletRuntime\\taskQueue.js",
+  sourceMap: "{\"version\":3,\"names\":[\"pushTask_taskQueueJs3\",\"callback\",\"handlerId\",\"delay\",\"queue\",\"globalThis\",\"_taskQueue\",\"timeoutCallbacks\",\"set\",\"_scheduleTimeoutCallback\"],\"sources\":[\"C:/Users/dwill/.gemini/antigravity/scratch/Anchor/anchor/mobile/node_modules/react-native-worklets/lib/module/runLoop/workletRuntime/taskQueue.js\"],\"mappings\":\"AA6BO,SAAAA,qBAA4BA,CAAAC,QAAS,CAAEC,SAAO,CAAAC,KAAA,EAGnD,KAAM,CAAAC,KAAK,CAAGC,UAAU,CAACC,UAAU,CACnCF,KAAK,CAACG,gBAAgB,CAACC,GAAG,CAACN,SAAS,CAAED,QAAQ,CAAC,CAC/CI,UAAU,CAACI,wBAAwB,CAACN,KAAK,CAAED,SAAS,CAAC,CACvD\",\"ignoreList\":[]}"
+};
+var pushTask = exports.pushTask = function pushTask_taskQueueJs3Factory(_ref3) {
+  var _worklet_13575747098278_init_data = _ref3._worklet_13575747098278_init_data;
+  var _e = [new global.Error(), 1, -27];
+  var pushTask = function pushTask(callback, handlerId, delay) {
+    var queue = globalThis._taskQueue;
+    queue.timeoutCallbacks.set(handlerId, callback);
+    globalThis._scheduleTimeoutCallback(delay, handlerId);
+  };
+  pushTask.__closure = {};
+  pushTask.__workletHash = 13575747098278;
+  pushTask.__pluginVersion = "0.5.1";
+  pushTask.__initData = _worklet_13575747098278_init_data;
+  pushTask.__stackDetails = _e;
+  return pushTask;
+}({
+  _worklet_13575747098278_init_data: _worklet_13575747098278_init_data
+});
+//# sourceMappingURL=data:application/json;charset=utf-8;base64,eyJ2ZXJzaW9uIjozLCJuYW1lcyI6WyJPYmplY3QiLCJkZWZpbmVQcm9wZXJ0eSIsImV4cG9ydHMiLCJ2YWx1ZSIsInNldHVwVGFza1F1ZXVlIiwicHVzaFRhc2siLCJwdXNoTWljcm90YXNrIiwiX3dvcmtsZXRfMTQ0MTEwOTQ1NzExMzVfaW5pdF9kYXRhIiwiY29kZSIsImxvY2F0aW9uIiwic291cmNlTWFwIiwic2V0dXBUYXNrUXVldWVfdGFza1F1ZXVlSnMxRmFjdG9yeSIsIl9yZWYiLCJfZSIsImdsb2JhbCIsIkVycm9yIiwicXVldWUiLCJtaWNyb3Rhc2tzIiwidGltZW91dENhbGxiYWNrcyIsIk1hcCIsImdsb2JhbFRoaXMiLCJfdGFza1F1ZXVlIiwiX19ydW5UaW1lb3V0Q2FsbGJhY2siLCJoYW5kbGVySWQiLCJ0YXNrIiwiZ2V0IiwiZGVsZXRlIiwiX19mbHVzaE1pY3JvdGFza3MiLCJpIiwibGVuZ3RoIiwiX19jbG9zdXJlIiwiX193b3JrbGV0SGFzaCIsIl9fcGx1Z2luVmVyc2lvbiIsIl9faW5pdERhdGEiLCJfX3N0YWNrRGV0YWlscyIsIl93b3JrbGV0XzcwMjIzOTU1ODY1NjBfaW5pdF9kYXRhIiwicHVzaE1pY3JvdGFza190YXNrUXVldWVKczJGYWN0b3J5IiwiX3JlZjIiLCJjYWxsYmFjayIsInB1c2giLCJfd29ya2xldF8xMzU3NTc0NzA5ODI3OF9pbml0X2RhdGEiLCJwdXNoVGFza190YXNrUXVldWVKczNGYWN0b3J5IiwiX3JlZjMiLCJkZWxheSIsInNldCIsIl9zY2hlZHVsZVRpbWVvdXRDYWxsYmFjayJdLCJzb3VyY2VzIjpbIi4uLy4uLy4uLy4uL3NyYy9ydW5Mb29wL3dvcmtsZXRSdW50aW1lL3Rhc2tRdWV1ZS50cyJdLCJzb3VyY2VzQ29udGVudCI6W251bGxdLCJtYXBwaW5ncyI6IkFBQUEsWUFBWTs7QUFBQUEsTUFBQSxDQUFBQyxjQUFBLENBQUFDLE9BQUE7RUFBQUMsS0FBQTtBQUFBO0FBQUFELE9BQUEsQ0FBQUUsY0FBQSxHQUFBRixPQUFBLENBQUFHLFFBQUEsR0FBQUgsT0FBQSxDQUFBSSxhQUFBO0FBQUEsSUFBQUMsaUNBQUE7RUFBQUMsSUFBQTtFQUFBQyxRQUFBO0VBQUFDLFNBQUE7QUFBQTtBQUFBLElBQUFOLGNBQUEsR0FBQUYsT0FBQSxDQUFBRSxjQUFBLEdBU0wsU0FBQU8sbUNBQUFDLElBQUE7RUFBQSxJQUFBTCxpQ0FBQSxHQUFBSyxJQUFBLENBQUFMLGlDQUFBO0VBQUEsSUFBQU0sRUFBQSxRQUFBQyxNQUFBLENBQUFDLEtBQUE7RUFBQSxJQUFBWCxjQUFBLFlBQUFBLGVBQUEsRUFBMEI7SUFFL0IsSUFBTVksS0FBWSxHQUFHO01BQ25CQyxVQUFVLEVBQUUsRUFBRTtNQUNkQyxnQkFBZ0IsRUFBRSxJQUFJQyxHQUFHLENBQUM7SUFDNUIsQ0FBQztJQUNEQyxVQUFVLENBQUNDLFVBQVUsR0FBR0wsS0FBSztJQUU3QkksVUFBVSxDQUFDRSxvQkFBb0IsR0FBRyxVQUFVQyxTQUFpQixFQUFFO01BQzdELElBQU1DLElBQUksR0FBR1IsS0FBSyxDQUFDRSxnQkFBZ0IsQ0FBQ08sR0FBRyxDQUFDRixTQUFTLENBQUM7TUFDbERDLElBQUksWUFBSkEsSUFBSSxDQUFHLENBQUM7TUFDUlIsS0FBSyxDQUFDRSxnQkFBZ0IsQ0FBQ1EsTUFBTSxDQUFDSCxTQUFTLENBQUM7TUFDeENILFVBQVUsQ0FBQ08saUJBQWlCLENBQUMsQ0FBQztJQUNoQyxDQUFDO0lBRURQLFVBQVUsQ0FBQ08saUJBQWlCLEdBQUcsWUFBWTtNQUN6QyxLQUFLLElBQUlDLENBQUMsR0FBRyxDQUFDLEVBQUVBLENBQUMsR0FBR1osS0FBSyxDQUFDQyxVQUFVLENBQUNZLE1BQU0sRUFBRUQsQ0FBQyxFQUFFLEVBQUU7UUFDaERaLEtBQUssQ0FBQ0MsVUFBVSxDQUFDVyxDQUFDLENBQUMsQ0FBQyxDQUFDO01BQ3ZCO01BQ0FaLEtBQUssQ0FBQ0MsVUFBVSxHQUFHLEVBQUU7SUFDdkIsQ0FBQztFQUNIO0VBQUFiLGNBQUEsQ0FBQTBCLFNBQUE7RUFBQTFCLGNBQUEsQ0FBQTJCLGFBQUE7RUFBQTNCLGNBQUEsQ0FBQTRCLGVBQUE7RUFBQTVCLGNBQUEsQ0FBQTZCLFVBQUEsR0FBQTFCLGlDQUFBO0VBQUFILGNBQUEsQ0FBQThCLGNBQUEsR0FBQXJCLEVBQUE7RUFBQSxPQUFBVCxjQUFBO0FBQUEsQ0FyQk87RUFBQUcsaUNBQUEsRUFBQUE7QUFBQTtBQUFBLElBQUE0QixnQ0FBQTtFQUFBM0IsSUFBQTtFQUFBQyxRQUFBO0VBQUFDLFNBQUE7QUFBQTtBQUFBLElBQUFKLGFBQUEsR0FBQUosT0FBQSxDQUFBSSxhQUFBLEdBdUJBLFNBQUE4QixrQ0FBQUMsS0FBQTtFQUFBLElBQUFGLGdDQUFBLEdBQUFFLEtBQUEsQ0FBQUYsZ0NBQUE7RUFBQSxJQUFBdEIsRUFBQSxRQUFBQyxNQUFBLENBQUFDLEtBQUE7RUFBQSxJQUFBVCxhQUFBLFlBQUFBLGNBQXVCZ0MsUUFBa0IsRUFBRTtJQUVoRCxJQUFNdEIsS0FBSyxHQUFHSSxVQUFVLENBQUNDLFVBQVU7SUFDbkNMLEtBQUssQ0FBQ0MsVUFBVSxDQUFDc0IsSUFBSSxDQUFDRCxRQUFRLENBQUM7RUFDakM7RUFBQWhDLGFBQUEsQ0FBQXdCLFNBQUE7RUFBQXhCLGFBQUEsQ0FBQXlCLGFBQUE7RUFBQXpCLGFBQUEsQ0FBQTBCLGVBQUE7RUFBQTFCLGFBQUEsQ0FBQTJCLFVBQUEsR0FBQUUsZ0NBQUE7RUFBQTdCLGFBQUEsQ0FBQTRCLGNBQUEsR0FBQXJCLEVBQUE7RUFBQSxPQUFBUCxhQUFBO0FBQUEsQ0FKTztFQUFBNkIsZ0NBQUEsRUFBQUE7QUFBQTtBQUFBLElBQUFLLGlDQUFBO0VBQUFoQyxJQUFBO0VBQUFDLFFBQUE7RUFBQUMsU0FBQTtBQUFBO0FBQUEsSUFBQUwsUUFBQSxHQUFBSCxPQUFBLENBQUFHLFFBQUEsR0FNQSxTQUFBb0MsNkJBQUFDLEtBQUE7RUFBQSxJQUFBRixpQ0FBQSxHQUFBRSxLQUFBLENBQUFGLGlDQUFBO0VBQUEsSUFBQTNCLEVBQUEsUUFBQUMsTUFBQSxDQUFBQyxLQUFBO0VBQUEsSUFBQVYsUUFBQSxZQUFBQSxTQUFrQmlDLFFBQWtCLEVBQUVmLFNBQWlCLEVBQUVvQixLQUFhLEVBQUU7SUFFN0UsSUFBTTNCLEtBQUssR0FBR0ksVUFBVSxDQUFDQyxVQUFVO0lBQ25DTCxLQUFLLENBQUNFLGdCQUFnQixDQUFDMEIsR0FBRyxDQUFDckIsU0FBUyxFQUFFZSxRQUFRLENBQUM7SUFDL0NsQixVQUFVLENBQUN5Qix3QkFBd0IsQ0FBQ0YsS0FBSyxFQUFFcEIsU0FBUyxDQUFDO0VBQ3ZEO0VBQUFsQixRQUFBLENBQUF5QixTQUFBO0VBQUF6QixRQUFBLENBQUEwQixhQUFBO0VBQUExQixRQUFBLENBQUEyQixlQUFBO0VBQUEzQixRQUFBLENBQUE0QixVQUFBLEdBQUFPLGlDQUFBO0VBQUFuQyxRQUFBLENBQUE2QixjQUFBLEdBQUFyQixFQUFBO0VBQUEsT0FBQVIsUUFBQTtBQUFBLENBTE87RUFBQW1DLGlDQUFBLEVBQUFBO0FBQUEiLCJpZ25vcmVMaXN0IjpbXX0=

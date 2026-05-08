@@ -44,7 +44,7 @@ export const SaveProgressScreen: React.FC<Props> = ({ navigation }) => {
   const { completeOnboarding } = useAuthStore();
 
   const handleCreateAccount = () => {
-    navigation.navigate('SignUp');
+    navigation.navigate('Login', { initialTab: 'signup' });
   };
 
   const handleSignIn = () => {

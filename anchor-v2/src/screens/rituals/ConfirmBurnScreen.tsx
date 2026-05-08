@@ -32,7 +32,7 @@ export const ConfirmBurnScreen: React.FC = () => {
   const route = useRoute<ConfirmBurnRouteProp>();
   const navigation = useNavigation<ConfirmBurnNavigationProp>();
 
-  const { anchorId, intention, sigilSvg } = route.params;
+  const { anchorId, intention, sigilSvg, enhancedImageUrl } = route.params;
   const [confirmInput, setConfirmInput] = useState('');
 
   const isConfirmed = confirmInput.toUpperCase() === CONFIRM_TEXT;
@@ -53,6 +53,7 @@ export const ConfirmBurnScreen: React.FC = () => {
       anchorId,
       intention,
       sigilSvg,
+      enhancedImageUrl,
     });
   };
 

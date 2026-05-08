@@ -1,9 +1,24 @@
 import 'react-native-gesture-handler';
 import React, { useEffect, useRef } from 'react';
-import { AppState, StatusBar, View, StyleSheet, Platform, Dimensions } from 'react-native';
+import {
+  Animated,
+  AppState,
+  StatusBar,
+  View,
+  StyleSheet,
+  Platform,
+  Dimensions,
+} from 'react-native';
 import { useFonts } from 'expo-font';
+import * as Notifications from 'expo-notifications';
+import type { DevicePushToken } from 'expo-notifications';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
-import { NavigationContainer, useNavigationContainerRef } from '@react-navigation/native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import {
+  NavigationContainer,
+  useNavigationContainerRef,
+  type InitialState,
+} from '@react-navigation/native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { enableScreens } from 'react-native-screens';
 import {
@@ -19,14 +34,47 @@ import {
 import { RootNavigator } from './src/navigation';
 import { ErrorBoundary } from './src/components/ErrorBoundary';
 import { ToastProvider } from './src/components/ToastProvider';
+import { ForgeMomentOverlay } from './src/components/ForgeMomentOverlay';
+import { useTrialStatus } from './src/hooks/useTrialStatus';
 import { useAuthStore } from './src/stores/authStore';
+import { useForgeMomentStore } from './src/stores/forgeMomentStore';
+import { useSessionStore } from './src/stores/sessionStore';
+import { useSettingsStore } from './src/stores/settingsStore';
 import { SettingsRevealProvider } from './src/components/transitions/SettingsRevealProvider';
 import type { RootNavigatorParamList } from './src/navigation/RootNavigator';
+import {
+  buildExpiredTrialPaywallNavigationState,
+  buildMainRootNavigationState,
+  shouldShowOnboardingFlow,
+} from './src/navigation/rootNavigationState';
+import type { Anchor } from './src/types';
 import { ErrorTrackingService, setupGlobalErrorHandler } from './src/services/ErrorTrackingService';
 import { PerformanceMonitoring, type PerformanceTrace } from './src/services/PerformanceMonitoring';
 import { monitoringConfig } from './src/config/monitoring';
 import { AuthService } from './src/services/AuthService';
+
+import { loadSettingsSnapshot } from './src/hooks/useSettings';
+import { encryptedPersistStorage, readSecureValue } from './src/stores/encryptedPersistStorage';
 import { logger } from './src/utils/logger';
+import revenueCatService from './src/services/RevenueCatService';
+import NotificationService from './src/services/NotificationService';
+import {
+  clearPushTokensFromServer,
+  syncPushTokensToServer,
+} from './src/services/NotificationSyncService';
+
+function isNetworkError(error: unknown): boolean {
+  if (!(error instanceof Error)) return false;
+  const msg = error.message.toLowerCase();
+  return (
+    msg.includes('network') ||
+    msg.includes('fetch') ||
+    msg.includes('econnrefused') ||
+    msg.includes('timeout') ||
+    msg.includes('failed to connect') ||
+    msg.includes('network request failed')
+  );
+}
 
 const { width } = Dimensions.get('window');
 const isWeb = Platform.OS === 'web';
@@ -47,12 +95,151 @@ const AppTheme = {
   },
 };
 
+const PRIME_ON_LAUNCH_KEY = '@anchor_prime_on_launch';
+const ANCHOR_VAULT_STORAGE_KEY = 'anchor-vault-storage';
+const RECOVERY_DUMP_MARKER_KEY = '@anchor_recovery_dump_complete';
+const RECOVERY_DUMP_VAULT_KEY = '@anchor_recovery_dump_vault';
+const PRIME_ON_LAUNCH_FADE_DURATION_MS = 300;
+
+function parseStoredBoolean(rawValue: string | null): boolean {
+  if (rawValue == null) {
+    return false;
+  }
+
+  try {
+    return JSON.parse(rawValue) === true;
+  } catch {
+    return rawValue === 'true' || rawValue === '1';
+  }
+}
+
+function toMillis(value?: Date | string): number {
+  if (!value) return 0;
+  const parsed = value instanceof Date ? value : new Date(value);
+  return Number.isNaN(parsed.getTime()) ? 0 : parsed.getTime();
+}
+
+function getMostRecentlyPrimedAnchorId(anchors: Anchor[]): string | undefined {
+  return anchors
+    .filter((anchor) => !anchor.isReleased && !anchor.archivedAt && anchor.chargedAt != null)
+    .sort((left, right) => {
+      const primedDelta = toMillis(right.chargedAt) - toMillis(left.chargedAt);
+      if (primedDelta !== 0) return primedDelta;
+      return toMillis(right.updatedAt) - toMillis(left.updatedAt);
+    })[0]?.id;
+}
+
+function buildPrimeOnLaunchInitialState(
+  anchorId: string,
+  durationSeconds: number,
+  ritualType: string
+): InitialState {
+  return {
+    index: 0,
+    routes: [
+      {
+        name: 'Main',
+        state: {
+          index: 1,
+          routes: [
+            { name: 'Vault' },
+            {
+              name: 'Ritual',
+              params: {
+                anchorId,
+                durationSeconds,
+                ritualType,
+              },
+            },
+          ],
+        },
+      },
+    ],
+  };
+}
+
+async function resolvePrimeOnLaunchInitialState(): Promise<InitialState | undefined> {
+  const primeOnLaunchEnabled = parseStoredBoolean(await AsyncStorage.getItem(PRIME_ON_LAUNCH_KEY));
+  if (!primeOnLaunchEnabled) {
+    return undefined;
+  }
+
+  const rawAnchorStore = await encryptedPersistStorage.getItem(ANCHOR_VAULT_STORAGE_KEY);
+  if (!rawAnchorStore) {
+    return undefined;
+  }
+
+  const parsedStore = JSON.parse(rawAnchorStore) as {
+    state?: {
+      anchors?: Anchor[];
+    };
+  };
+  const persistedAnchors = Array.isArray(parsedStore.state?.anchors) ? parsedStore.state.anchors : [];
+  const anchorId = getMostRecentlyPrimedAnchorId(persistedAnchors);
+
+  if (!anchorId) {
+    return undefined;
+  }
+
+  let durationSeconds = 120;
+  let ritualType = 'ritual';
+
+  try {
+    const rawSettings = await AsyncStorage.getItem('anchor-settings-storage');
+    if (rawSettings) {
+      const parsedSettings = JSON.parse(rawSettings);
+      const settingsState = parsedSettings.state || {};
+      
+      if (typeof settingsState.primeSessionDuration === 'number') {
+        durationSeconds = settingsState.primeSessionDuration;
+      }
+      
+      if (settingsState.defaultCharge?.mode) {
+        ritualType = settingsState.defaultCharge.mode;
+      }
+    }
+  } catch (error) {
+    // Ignore and use defaults
+  }
+
+  return buildPrimeOnLaunchInitialState(anchorId, durationSeconds, ritualType);
+}
+
 export default function App() {
   const computeStreak = useAuthStore((state) => state.computeStreak);
   const user = useAuthStore((state) => state.user);
+  const dailyPracticeGoal = useSettingsStore((state) => state.dailyPracticeGoal);
+  const lastSessionId = useSessionStore((state) => state.lastSession?.id);
+  const activeMilestone = useForgeMomentStore((state) => state.activeMilestone);
+  const dismissMilestone = useForgeMomentStore((state) => state.dismissMilestone);
   const navRef = useNavigationContainerRef<RootNavigatorParamList>();
   const routeNameRef = useRef<string | undefined>(undefined);
   const screenTraceRef = useRef<PerformanceTrace | null>(null);
+  const hasPresentedExpiredPaywallRef = useRef(false);
+  const launchOpacity = useRef(new Animated.Value(1)).current;
+  const [settingsHydrated, setSettingsHydrated] = React.useState(false);
+  const [launchStateResolved, setLaunchStateResolved] = React.useState(false);
+  const [initialNavigationState, setInitialNavigationState] = React.useState<
+    InitialState | undefined
+  >(undefined);
+  const [shouldFadePrimeOnLaunch, setShouldFadePrimeOnLaunch] = React.useState(false);
+  const hasCompletedOnboarding = useAuthStore((state) => state.hasCompletedOnboarding);
+  const developerMasterAccountEnabled = useSettingsStore(
+    (state) => state.developerMasterAccountEnabled
+  );
+  const developerMasterAccountEnabledRef = useRef(developerMasterAccountEnabled);
+  const previousUserIdRef = useRef<string | null>(null);
+  const developerSkipOnboardingEnabled = useSettingsStore(
+    (state) => state.developerSkipOnboardingEnabled
+  );
+  const shouldBypassOnboarding =
+    __DEV__ && (developerSkipOnboardingEnabled || developerMasterAccountEnabled);
+  const showOnboarding = shouldShowOnboardingFlow(
+    hasCompletedOnboarding,
+    shouldBypassOnboarding
+  );
+  const { hasExpired, isSubscribed } = useTrialStatus();
+  const showExpiredTrialPaywall = !showOnboarding && hasExpired && !isSubscribed;
   const [fontsLoaded] = useFonts({
     'Cinzel-Regular': Cinzel_400Regular,
     'Cinzel-SemiBold': Cinzel_600SemiBold,
@@ -64,6 +251,98 @@ export default function App() {
     'CormorantGaramond-Regular': CrimsonPro_400Regular,
     'CormorantGaramond-Italic': CrimsonPro_400Regular_Italic,
   });
+
+  useEffect(() => {
+    if (!__DEV__) {
+      return;
+    }
+
+    let cancelled = false;
+
+    void (async () => {
+      const existingMarker = await AsyncStorage.getItem(RECOVERY_DUMP_MARKER_KEY);
+      if (existingMarker === '1') {
+        return;
+      }
+
+      const vaultState = await readSecureValue(ANCHOR_VAULT_STORAGE_KEY);
+      if (!vaultState || cancelled) {
+        return;
+      }
+
+      await AsyncStorage.setItem(RECOVERY_DUMP_VAULT_KEY, vaultState);
+      await AsyncStorage.setItem(RECOVERY_DUMP_MARKER_KEY, '1');
+      logger.warn('[Recovery] Copied encrypted anchor vault state into AsyncStorage for recovery.');
+    })().catch((error) => {
+      logger.warn('[Recovery] Failed to dump encrypted anchor vault state', error);
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    let isMounted = true;
+
+    loadSettingsSnapshot()
+      .catch((error) => {
+        logger.error('Failed to hydrate settings snapshot', error);
+      })
+      .finally(() => {
+        if (isMounted) {
+          setSettingsHydrated(true);
+        }
+      });
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    let isMounted = true;
+
+    resolvePrimeOnLaunchInitialState()
+      .then((initialState) => {
+        if (!isMounted) {
+          return;
+        }
+
+        setInitialNavigationState(initialState);
+        const shouldFade = initialState != null;
+        setShouldFadePrimeOnLaunch(shouldFade);
+        launchOpacity.setValue(shouldFade ? 0 : 1);
+      })
+      .catch((error) => {
+        logger.error('Failed to resolve Prime on Launch initial state', error);
+      })
+      .finally(() => {
+        if (isMounted) {
+          setLaunchStateResolved(true);
+        }
+      });
+
+    return () => {
+      isMounted = false;
+    };
+  }, [launchOpacity]);
+
+  useEffect(() => {
+    if (!launchStateResolved || !shouldFadePrimeOnLaunch) {
+      return;
+    }
+
+    Animated.timing(launchOpacity, {
+      toValue: 1,
+      duration: PRIME_ON_LAUNCH_FADE_DURATION_MS,
+      useNativeDriver: true,
+    }).start();
+  }, [launchOpacity, launchStateResolved, shouldFadePrimeOnLaunch]);
+
+  useEffect(() => {
+    developerMasterAccountEnabledRef.current = developerMasterAccountEnabled;
+  }, [developerMasterAccountEnabled]);
 
   useEffect(() => {
     AuthService.initialize();
@@ -81,7 +360,11 @@ export default function App() {
         }
 
         const store = useAuthStore.getState();
-        store.signOut();
+        if (__DEV__ && developerMasterAccountEnabledRef.current) {
+          store.enableDeveloperMasterAccount();
+        } else {
+          store.signOut();
+        }
         store.setLoading(false);
         return;
       }
@@ -106,8 +389,21 @@ export default function App() {
           return;
         }
 
-        logger.error('Failed to restore authenticated session', error);
         const store = useAuthStore.getState();
+        const isNetwork = isNetworkError(error);
+
+        if (isNetwork) {
+          const cached = await AuthService.getCachedUser().catch(() => null);
+          if (cached && firebaseUser) {
+            const token = await AuthService.getIdToken().catch(() => '') ?? '';
+            store.setSession(cached, token);
+            store.setOfflineMode(true);
+            logger.warn('Network unreachable — restored session from cache (offline mode)');
+            return;
+          }
+        }
+
+        logger.error('Failed to restore authenticated session', error);
         store.signOut();
         store.setLoading(false);
       }
@@ -120,6 +416,24 @@ export default function App() {
   }, []);
 
   useEffect(() => {
+    if (AuthService.hasAuthenticatedSession()) {
+      return;
+    }
+
+    const store = useAuthStore.getState();
+    if (__DEV__ && developerMasterAccountEnabled) {
+      store.enableDeveloperMasterAccount();
+      return;
+    }
+
+    store.signOut();
+    store.setLoading(false);
+  }, [developerMasterAccountEnabled]);
+
+  useEffect(() => {
+    // Configure RevenueCat SDK anonymously on app start.
+    // We'll log in with the real user ID once auth resolves.
+    revenueCatService.configure();
     ErrorTrackingService.initialize({
       enabled: monitoringConfig.sentryEnabled,
       environment: monitoringConfig.environment,
@@ -134,11 +448,66 @@ export default function App() {
   useEffect(() => {
     if (user?.id) {
       ErrorTrackingService.setUser(user.id, user.email, user.displayName);
+      // Log in to RevenueCat with the Firebase UID so purchases are linked to this account.
+      revenueCatService.logIn(user.id).catch((error) => {
+        logger.warn('[RevenueCat] logIn failed', error);
+      });
       return;
     }
 
     ErrorTrackingService.clearUser();
   }, [user?.displayName, user?.email, user?.id]);
+
+  useEffect(() => {
+    const previousUserId = previousUserIdRef.current;
+
+    if (previousUserId && previousUserId !== user?.id) {
+      void clearPushTokensFromServer();
+    }
+
+    previousUserIdRef.current = user?.id ?? null;
+  }, [user?.id]);
+
+  useEffect(() => {
+    if (!user?.id) {
+      return () => undefined;
+    }
+
+    let cancelled = false;
+
+    const syncRegistration = async (
+      devicePushToken?: DevicePushToken
+    ) => {
+      const registration = await NotificationService.getRemotePushRegistration(devicePushToken);
+      if (cancelled) {
+        return;
+      }
+
+      if (!registration.permissionGranted) {
+        await clearPushTokensFromServer();
+        return;
+      }
+
+      await syncPushTokensToServer({
+        expoPushToken: registration.expoPushToken,
+        fcmToken: registration.fcmToken,
+        apnsToken: registration.apnsToken,
+      });
+    };
+
+    void syncRegistration();
+
+    const subscription = Notifications.addPushTokenListener((devicePushToken) => {
+      void syncRegistration(devicePushToken);
+    });
+
+    return () => {
+      cancelled = true;
+      subscription.remove();
+    };
+  }, [user?.id]);
+
+
 
   useEffect(() => {
     const subscription = AppState.addEventListener('change', (nextState) => {
@@ -150,7 +519,7 @@ export default function App() {
       }
     });
     return () => subscription.remove();
-  }, [computeStreak]);
+  }, [computeStreak, settingsHydrated]);
 
   useEffect(() => {
     return () => {
@@ -159,7 +528,32 @@ export default function App() {
     };
   }, []);
 
-  if (!fontsLoaded) {
+  useEffect(() => {
+    if (!navRef.isReady()) {
+      return;
+    }
+
+    const currentRouteName = navRef.getCurrentRoute()?.name;
+    if (!currentRouteName) {
+      return;
+    }
+
+    if (showExpiredTrialPaywall) {
+      if (!hasPresentedExpiredPaywallRef.current) {
+        hasPresentedExpiredPaywallRef.current = true;
+        navRef.resetRoot(buildExpiredTrialPaywallNavigationState());
+      }
+      return;
+    }
+
+    hasPresentedExpiredPaywallRef.current = false;
+
+    if (currentRouteName === 'Paywall') {
+      navRef.resetRoot(buildMainRootNavigationState());
+    }
+  }, [navRef, showExpiredTrialPaywall]);
+
+  if (!fontsLoaded || !launchStateResolved) {
     return <View style={styles.fontLoadingFallback} />;
   }
 
@@ -169,10 +563,11 @@ export default function App() {
         <GestureHandlerRootView style={{ flex: 1 }}>
           <SafeAreaProvider>
             <View style={styles.webContainer}>
-              <View style={styles.appContainer}>
+              <Animated.View style={[styles.appContainer, { opacity: launchOpacity }]}>
                 <SettingsRevealProvider navigationRef={navRef}>
                   <NavigationContainer
                     ref={navRef}
+                    initialState={initialNavigationState}
                     theme={AppTheme}
                     onReady={() => {
                       ErrorTrackingService.registerNavigationContainer(navRef);
@@ -213,9 +608,13 @@ export default function App() {
                   >
                     <StatusBar barStyle="light-content" backgroundColor="#1A1A1D" />
                     <RootNavigator />
+                    <ForgeMomentOverlay
+                      milestone={activeMilestone}
+                      onDismiss={dismissMilestone}
+                    />
                   </NavigationContainer>
                 </SettingsRevealProvider>
-              </View>
+              </Animated.View>
             </View>
           </SafeAreaProvider>
         </GestureHandlerRootView>

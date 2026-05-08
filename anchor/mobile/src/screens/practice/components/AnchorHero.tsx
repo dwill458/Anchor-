@@ -2,6 +2,8 @@ import React from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { ChevronDown } from 'lucide-react-native';
 import type { Anchor } from '@/types';
+import { OptimizedImage } from '@/components/common';
+import { SvgXml } from 'react-native-svg';
 import { colors, spacing, typography } from '@/theme';
 
 interface AnchorHeroProps {
@@ -11,9 +13,9 @@ interface AnchorHeroProps {
 
 function getName(anchor?: Anchor): string {
   if (!anchor) return 'Select an anchor';
-  const value = anchor.intentionText.trim();
+  const value = anchor.intentionText?.trim() || '';
   if (!value) return 'Select an anchor';
-  return value.length > 42 ? `${value.slice(0, 41)}...` : value;
+  return value.length > 20 ? `${value.slice(0, 20)}...` : value;
 }
 
 export const AnchorHero: React.FC<AnchorHeroProps> = ({ anchor, onPress }) => {
@@ -26,6 +28,21 @@ export const AnchorHero: React.FC<AnchorHeroProps> = ({ anchor, onPress }) => {
     >
       <Text style={styles.switcherLabel}>Current anchor</Text>
       <View style={styles.switcherValueWrap}>
+        {anchor && (
+          <View style={styles.sigilThumbWrap}>
+            {anchor.enhancedImageUrl ? (
+              <OptimizedImage
+                uri={anchor.enhancedImageUrl}
+                style={styles.sigilThumb}
+                resizeMode="cover"
+              />
+            ) : anchor.baseSigilSvg ? (
+              <SvgXml xml={anchor.baseSigilSvg} width={18} height={18} />
+            ) : (
+              <Text style={styles.sigilFallback}>◈</Text>
+            )}
+          </View>
+        )}
         <Text style={styles.switcherValue} numberOfLines={1}>
           {getName(anchor)}
         </Text>
@@ -64,5 +81,26 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: colors.text.primary,
     maxWidth: 200,
+  },
+  sigilThumbWrap: {
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    backgroundColor: 'rgba(12, 12, 18, 0.9)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: '#2a2a38',
+  },
+  sigilThumb: {
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+  },
+  sigilFallback: {
+    fontFamily: typography.fontFamily.serif,
+    fontSize: 10,
+    color: '#555a6a',
   },
 });

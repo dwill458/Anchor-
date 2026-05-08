@@ -2,15 +2,35 @@ import type { Notification } from 'expo-notifications';
 import * as Notifications from 'expo-notifications';
 import NotificationService, { NOTIFICATION_IDS } from '../NotificationService';
 
+jest.mock('expo-constants', () => ({
+  expoConfig: {
+    extra: {
+      eas: {
+        projectId: 'project-id-123',
+      },
+    },
+  },
+  easConfig: {
+    projectId: 'project-id-123',
+  },
+}));
+
 jest.mock('expo-notifications', () => ({
   setNotificationHandler: jest.fn(),
   getPermissionsAsync: jest.fn(),
   requestPermissionsAsync: jest.fn(),
+  getDevicePushTokenAsync: jest.fn(),
+  getExpoPushTokenAsync: jest.fn(),
   setNotificationChannelAsync: jest.fn(),
   scheduleNotificationAsync: jest.fn(),
   cancelScheduledNotificationAsync: jest.fn(),
   getAllScheduledNotificationsAsync: jest.fn(),
   cancelAllScheduledNotificationsAsync: jest.fn(),
+  IosAuthorizationStatus: {
+    AUTHORIZED: 2,
+    PROVISIONAL: 3,
+    EPHEMERAL: 4,
+  },
   AndroidImportance: {
     HIGH: 'high',
     DEFAULT: 'default',
@@ -18,6 +38,8 @@ jest.mock('expo-notifications', () => ({
   },
   SchedulableTriggerInputTypes: {
     CALENDAR: 'calendar',
+    DATE: 'date',
+    TIME_INTERVAL: 'timeInterval',
   },
 }));
 
@@ -27,12 +49,45 @@ describe('NotificationService', () => {
   });
 
   it('returns true when permissions are already granted', async () => {
-    (Notifications.getPermissionsAsync as jest.Mock).mockResolvedValue({ status: 'granted' });
+    (Notifications.getPermissionsAsync as jest.Mock).mockResolvedValue({
+      status: 'granted',
+      granted: true,
+      ios: { status: Notifications.IosAuthorizationStatus.AUTHORIZED },
+    });
 
     const result = await NotificationService.requestPermissions();
 
     expect(result).toBe(true);
     expect(Notifications.requestPermissionsAsync).not.toHaveBeenCalled();
+  });
+
+  it('returns expo and native push tokens when remote registration succeeds', async () => {
+    (Notifications.getPermissionsAsync as jest.Mock).mockResolvedValue({
+      status: 'granted',
+      granted: true,
+      ios: { status: Notifications.IosAuthorizationStatus.AUTHORIZED },
+    });
+    (Notifications.getDevicePushTokenAsync as jest.Mock).mockResolvedValue({
+      type: 'android',
+      data: 'fcm-token-1',
+    });
+    (Notifications.getExpoPushTokenAsync as jest.Mock).mockResolvedValue({
+      data: 'ExponentPushToken[abc123]',
+    });
+
+    const result = await NotificationService.getRemotePushRegistration();
+
+    expect(result).toEqual({
+      permissionGranted: true,
+      expoPushToken: 'ExponentPushToken[abc123]',
+      fcmToken: 'fcm-token-1',
+      apnsToken: null,
+    });
+    expect(Notifications.getExpoPushTokenAsync).toHaveBeenCalledWith(
+      expect.objectContaining({
+        projectId: 'project-id-123',
+      })
+    );
   });
 
   it('schedules ritual reminders with a deterministic identifier', async () => {
@@ -43,6 +98,68 @@ describe('NotificationService', () => {
     expect(id).toBe('ritual-123');
     expect(Notifications.cancelScheduledNotificationAsync).toHaveBeenCalledWith(
       `${NOTIFICATION_IDS.RITUAL_REMINDER_PREFIX}:anchor-1`
+    );
+  });
+
+  it('schedules developer test notifications as one-time local notifications', async () => {
+    (Notifications.scheduleNotificationAsync as jest.Mock).mockResolvedValue('dev-test-id');
+
+    const id = await NotificationService.scheduleDeveloperTestNotification('daily_reminder', 5);
+
+    expect(id).toBe('dev-test-id');
+    expect(Notifications.scheduleNotificationAsync).toHaveBeenCalledWith(
+      expect.objectContaining({
+        identifier: expect.stringMatching(/^dev-test:daily_reminder:/),
+        content: expect.objectContaining({
+          title: 'Test: Return to Your Anchor',
+          data: expect.objectContaining({
+            type: 'daily_reminder',
+            environment: expect.any(String),
+          }),
+        }),
+        trigger: expect.objectContaining({
+          type: Notifications.SchedulableTriggerInputTypes.TIME_INTERVAL,
+          seconds: 5,
+          channelId: 'daily-reminders',
+        }),
+      })
+    );
+  });
+
+  it('filters and clears only developer test notifications', async () => {
+    (Notifications.getAllScheduledNotificationsAsync as jest.Mock).mockResolvedValue([
+      {
+        identifier: 'dev-test:daily_reminder:1',
+        content: {},
+        trigger: { type: 'date' },
+      },
+      {
+        identifier: `${NOTIFICATION_IDS.DAILY_REMINDER}`,
+        content: {},
+        trigger: { type: 'calendar' },
+      },
+      {
+        identifier: 'dev-test:weekly_summary:2',
+        content: {},
+        trigger: { type: 'date' },
+      },
+    ]);
+
+    const scheduled = await NotificationService.getDeveloperTestNotifications();
+    const clearedCount = await NotificationService.cancelDeveloperTestNotifications();
+
+    expect(scheduled.map((notification) => notification.identifier)).toEqual([
+      'dev-test:daily_reminder:1',
+      'dev-test:weekly_summary:2',
+    ]);
+    expect(clearedCount).toBe(2);
+    expect(Notifications.cancelScheduledNotificationAsync).toHaveBeenNthCalledWith(
+      1,
+      'dev-test:daily_reminder:1'
+    );
+    expect(Notifications.cancelScheduledNotificationAsync).toHaveBeenNthCalledWith(
+      2,
+      'dev-test:weekly_summary:2'
     );
   });
 

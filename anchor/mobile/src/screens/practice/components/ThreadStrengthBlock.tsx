@@ -2,9 +2,10 @@ import React from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { SvgXml } from 'react-native-svg';
 import type { Anchor } from '@/types';
-import { OptimizedImage, RingGlowCanvas } from '@/components/common';
+import { BakedGlow, OptimizedImage, RingGlowCanvas } from '@/components/common';
 import { typography } from '@/theme';
 import { useReduceMotionEnabled } from '@/hooks/useReduceMotionEnabled';
+import { useAppPerformanceTier } from '@/hooks/useAppPerformanceTier';
 
 export type ThreadState = 'strong' | 'fading' | 'recover';
 
@@ -168,7 +169,10 @@ export const ThreadStrengthBlock: React.FC<ThreadStrengthBlockProps> = ({
   const sigil = anchor?.reinforcedSigilSvg ?? anchor?.baseSigilSvg;
   const clampedStrength = Math.max(0, Math.min(100, threadStrength));
   const reduceMotionEnabled = useReduceMotionEnabled();
+  const perfTier = useAppPerformanceTier();
   const glowIntensity = clampedStrength / 100;
+  const showAnimatedGlow = perfTier === 'high' && !reduceMotionEnabled;
+  const showStaticGlow = perfTier === 'medium' && state !== 'fading' && glowIntensity > 0.04;
   // Temporary QA fixture to validate the fading-state pip rendering before
   // re-connecting this view to the real week history.
   const renderedWeekHistory = state === 'fading'
@@ -186,13 +190,24 @@ export const ThreadStrengthBlock: React.FC<ThreadStrengthBlockProps> = ({
       <View style={styles.topRow}>
         {/* Wrapper sized to GLOW_SIZE so the canvas overflows the ring evenly */}
         <View style={styles.sigilRingWrap}>
-          {/* Particle glow fills wrapper — ring sits on top, unclipped */}
-          <RingGlowCanvas
-            size={GLOW_SIZE}
-            color={c.ring}
-            intensity={glowIntensity}
-            reduceMotionEnabled={reduceMotionEnabled}
-          />
+          {showAnimatedGlow ? (
+            <RingGlowCanvas
+              size={GLOW_SIZE}
+              color={c.ring}
+              intensity={glowIntensity}
+              reduceMotionEnabled={reduceMotionEnabled}
+              tier={perfTier}
+            />
+          ) : null}
+          {showStaticGlow ? (
+            <BakedGlow
+              size={GLOW_SIZE}
+              color={c.ring}
+              baseOpacity={0.18 + glowIntensity * 0.08}
+              peakOpacity={0.18 + glowIntensity * 0.08}
+              reduceMotionEnabled={true}
+            />
+          ) : null}
           <View
             style={[
               styles.sigilRing,
@@ -220,7 +235,6 @@ export const ThreadStrengthBlock: React.FC<ThreadStrengthBlockProps> = ({
         <View style={styles.numsCol}>
           <Text style={[styles.totalCount, { color: c.num }]}>
             {totalSessionsCount}
-            <Text style={[styles.totalUnit, { color: c.label }]}> days</Text>
           </Text>
           <Text style={[styles.totalLabel, { color: c.label }]}>Total sessions primed</Text>
         </View>
@@ -239,8 +253,6 @@ export const ThreadStrengthBlock: React.FC<ThreadStrengthBlockProps> = ({
         </View>
       </View>
 
-      {/* 7-day week pip track */}
-      <WeekTrack weekHistory={renderedWeekHistory} state={state} />
 
       {/* Micro-copy */}
       <Text style={[styles.msg, { color: c.msg, borderTopColor: c.msgBorder }]}>
@@ -298,10 +310,6 @@ const styles = StyleSheet.create({
     fontFamily: typography.fontFamily.serifBold,
     fontSize: 32,
     lineHeight: 34,
-  },
-  totalUnit: {
-    fontFamily: typography.fontFamily.serifBold,
-    fontSize: 13,
   },
   totalLabel: {
     fontFamily: typography.fontFamily.sans,

@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useRef } from 'react';
 import { Animated, Easing, StyleSheet, View } from 'react-native';
 import { colors } from '@/theme';
+import type { PerformanceTier } from '@/hooks/usePerformanceTier';
 
 export type PremiumGlowState = 'dormant' | 'charged' | 'active' | 'stale';
 export type PremiumGlowVariant = 'card' | 'detail' | 'ritual';
@@ -10,6 +11,12 @@ interface PremiumAnchorGlowProps {
   state: PremiumGlowState;
   variant: PremiumGlowVariant;
   reduceMotionEnabled?: boolean;
+  /**
+   * Rendering budget. `'low'` suppresses this component entirely so the
+   * caller can substitute BakedGlow. `'medium'` drops the dashed ring
+   * layers that force CPU rasterization on Android.
+   */
+  tier?: PerformanceTier;
 }
 
 interface VariantConfig {
@@ -68,14 +75,18 @@ const getStateOpacity = (state: PremiumGlowState): { aura: number; ring: number;
   }
 };
 
-export const PremiumAnchorGlow: React.FC<PremiumAnchorGlowProps> = ({
+const PremiumAnchorGlowComponent: React.FC<PremiumAnchorGlowProps> = ({
   size,
   state,
   variant,
   reduceMotionEnabled = false,
+  tier = 'high',
 }) => {
-  const animationsEnabled = !reduceMotionEnabled && process.env.NODE_ENV !== 'test';
-  const hasRingLayers = state === 'charged' || state === 'active';
+  const isLowTier = tier === 'low';
+  const animationsEnabled =
+    !isLowTier && !reduceMotionEnabled && process.env.NODE_ENV !== 'test';
+  const hasRingLayers =
+    tier === 'high' && (state === 'charged' || state === 'active');
   const variantConfig = useMemo(() => getVariantConfig(variant), [variant]);
   const opacityConfig = useMemo(() => getStateOpacity(state), [state]);
 
@@ -185,6 +196,10 @@ export const PremiumAnchorGlow: React.FC<PremiumAnchorGlowProps> = ({
   const auraSize = size * variantConfig.auraScale;
   const ringSize = size * variantConfig.ringScale;
 
+  if (isLowTier) {
+    return null;
+  }
+
   return (
     <View style={styles.container} pointerEvents="none">
       <Animated.View
@@ -259,6 +274,16 @@ export const PremiumAnchorGlow: React.FC<PremiumAnchorGlowProps> = ({
     </View>
   );
 };
+
+export const PremiumAnchorGlow = React.memo(PremiumAnchorGlowComponent, (prevProps, nextProps) => {
+  return (
+    prevProps.size === nextProps.size &&
+    prevProps.state === nextProps.state &&
+    prevProps.variant === nextProps.variant &&
+    prevProps.reduceMotionEnabled === nextProps.reduceMotionEnabled &&
+    prevProps.tier === nextProps.tier
+  );
+});
 
 const styles = StyleSheet.create({
   container: {

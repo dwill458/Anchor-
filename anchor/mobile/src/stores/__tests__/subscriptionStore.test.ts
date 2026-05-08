@@ -11,6 +11,12 @@ beforeEach(() => {
   act(() => {
     result.current.setRcTier('free');
     result.current.resetOverrides();
+    result.current.setRemoteCompedAccess(false);
+    useSubscriptionStore.setState({
+      trialStartDate: null,
+      subscriptionStatus: 'expired',
+      remoteCompedAccess: false,
+    });
   });
 });
 
@@ -137,6 +143,14 @@ describe('subscriptionStore', () => {
         result.current.setDevTierOverride('free');
       });
       expect(result.current.getEffectiveTier()).toBe('free');
+    });
+
+    it('returns pro when remote comped access is enabled', () => {
+      const { result } = renderHook(() => useSubscriptionStore());
+      act(() => {
+        result.current.setRemoteCompedAccess(true);
+      });
+      expect(result.current.getEffectiveTier()).toBe('pro');
     });
 
     it('ignores dev override when devOverrideEnabled is false', () => {

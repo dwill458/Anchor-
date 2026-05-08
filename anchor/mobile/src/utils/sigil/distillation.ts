@@ -33,7 +33,69 @@ export interface DistillationResult {
 /**
  * Set of vowels to remove (case-insensitive)
  */
-const VOWELS = new Set(['a', 'e', 'i', 'o', 'u', 'A', 'E', 'I', 'O', 'U']);
+const DISTILLATION_CACHE = new Map<string, DistillationResult>();
+const UPPERCASE_A = 65;
+const UPPERCASE_Z = 90;
+const LOWERCASE_A = 97;
+const LOWERCASE_Z = 122;
+
+function toUpperAlphaCode(charCode: number): number | null {
+  if (charCode >= UPPERCASE_A && charCode <= UPPERCASE_Z) {
+    return charCode;
+  }
+
+  if (charCode >= LOWERCASE_A && charCode <= LOWERCASE_Z) {
+    return charCode - 32;
+  }
+
+  return null;
+}
+
+function isVowelCode(charCode: number): boolean {
+  return (
+    charCode === 65 ||
+    charCode === 69 ||
+    charCode === 73 ||
+    charCode === 79 ||
+    charCode === 85
+  );
+}
+
+function extractAlphaCharacters(input: string): string {
+  let output = '';
+
+  for (let i = 0; i < input.length; i += 1) {
+    const upperCode = toUpperAlphaCode(input.charCodeAt(i));
+    if (upperCode != null) {
+      output += String.fromCharCode(upperCode);
+    }
+  }
+
+  return output;
+}
+
+function extractConsonants(input: string): string {
+  let output = '';
+
+  for (let i = 0; i < input.length; i += 1) {
+    const upperCode = toUpperAlphaCode(input.charCodeAt(i));
+    if (upperCode != null && !isVowelCode(upperCode)) {
+      output += String.fromCharCode(upperCode);
+    }
+  }
+
+  return output;
+}
+
+function containsAlphabeticCharacter(input: string): boolean {
+  for (let i = 0; i < input.length; i += 1) {
+    if (toUpperAlphaCode(input.charCodeAt(i)) != null) {
+      return true;
+    }
+  }
+
+  return false;
+}
 
 /**
  * Distill an intention text into essential letters using the Austin Osman Spare method
@@ -50,47 +112,50 @@ const VOWELS = new Set(['a', 'e', 'i', 'o', 'u', 'A', 'E', 'I', 'O', 'U']);
  * // result.finalLetters = ["F", "N", "D", "R", "P", "C"]
  */
 export function distillIntention(intentionText: string): DistillationResult {
+  const cachedResult = DISTILLATION_CACHE.get(intentionText);
+  if (cachedResult) {
+    return cachedResult;
+  }
+
   // Store original input
   const original = intentionText;
 
-  // Step 1: Remove spaces
-  const withoutSpaces = intentionText.replace(/\s+/g, '');
-
   // Step 2: Remove vowels and track them
   const removedVowels: string[] = [];
-  let withoutVowels = '';
-
-  for (const char of withoutSpaces) {
-    if (VOWELS.has(char)) {
-      removedVowels.push(char.toUpperCase());
-    } else if (/[a-zA-Z]/.test(char)) {
-      // Only keep alphabetic characters (skip numbers, punctuation)
-      withoutVowels += char;
-    }
-  }
-
-  // Step 3: Remove duplicate letters (keep first occurrence)
   const removedDuplicates: string[] = [];
   const finalLetters: string[] = [];
-  const seen = new Set<string>();
+  const seen = new Set<number>();
 
-  for (const char of withoutVowels) {
-    const upperChar = char.toUpperCase();
+  for (let i = 0; i < intentionText.length; i += 1) {
+    const upperCode = toUpperAlphaCode(intentionText.charCodeAt(i));
+    if (upperCode == null) {
+      continue;
+    }
 
-    if (!seen.has(upperChar)) {
-      seen.add(upperChar);
+    const upperChar = String.fromCharCode(upperCode);
+
+    if (isVowelCode(upperCode)) {
+      removedVowels.push(upperChar);
+      continue;
+    }
+
+    if (!seen.has(upperCode)) {
+      seen.add(upperCode);
       finalLetters.push(upperChar);
     } else {
       removedDuplicates.push(upperChar);
     }
   }
 
-  return {
+  const result = {
     original,
     finalLetters,
     removedVowels,
     removedDuplicates,
   };
+
+  DISTILLATION_CACHE.set(intentionText, result);
+  return result;
 }
 
 /**
@@ -105,8 +170,8 @@ export function distillIntention(intentionText: string): DistillationResult {
  * // "CLOSETHEDEAL → CLSTHD → C L O S T H D"
  */
 export function getDistillationSummary(result: DistillationResult): string {
-  const withoutSpaces = result.original.replace(/\s+/g, '').toUpperCase();
-  const withoutVowels = result.finalLetters.join('') + result.removedDuplicates.join('');
+  const withoutSpaces = extractAlphaCharacters(result.original);
+  const withoutVowels = extractConsonants(result.original);
   const final = result.finalLetters.join(' ');
 
   return `${withoutSpaces} → ${withoutVowels} → ${final}`;
@@ -131,7 +196,7 @@ export function validateIntention(intentionText: string): {
   }
 
   // Check if contains at least one letter
-  if (!/[a-zA-Z]/.test(intentionText)) {
+  if (!containsAlphabeticCharacter(intentionText)) {
     return {
       isValid: false,
       error: 'Intention must contain at least one letter',

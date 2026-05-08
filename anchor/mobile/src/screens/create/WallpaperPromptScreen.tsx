@@ -32,10 +32,18 @@ export const WallpaperPromptScreen: React.FC = () => {
   const exportCanvasRef = useRef<AnchorArtworkExportCanvasHandle | null>(null);
   const [isExporting, setIsExporting] = useState(false);
 
-  const { anchorId, intentionText, enhancedImageUrl, sigilSvg } = route.params;
+  const { anchorId, intentionText, enhancedImageUrl, sigilSvg, returnTo } = route.params;
 
   const proceed = () => {
-    navigation.navigate('ChargeSetup', { anchorId, autoStartOnSelection: true });
+    if (returnTo === 'vault') {
+      navigation.replace('Vault');
+    } else {
+      navigation.replace('ChargeSetup', {
+        anchorId,
+        autoStartOnSelection: true,
+        returnTo: 'vault',
+      });
+    }
   };
 
   const handleSetWallpaper = async () => {

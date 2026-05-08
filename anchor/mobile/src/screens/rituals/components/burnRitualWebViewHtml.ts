@@ -40,6 +40,7 @@ html, body {
 }
 
 #sigil-circle {
+  position: relative;
   border-radius: 50%;
   border: 1.5px solid rgba(201,168,76,0.4);
   display: flex;
@@ -51,13 +52,84 @@ html, body {
     rgba(10,13,20,0.96) 70%
   );
   box-shadow: 0 0 30px rgba(201,168,76,0.15);
-  /* burn animation added by JS */
+  isolation: isolate;
+  contain: layout paint;
   will-change: transform, opacity, filter;
 }
 
+#sigil-image-shell {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  overflow: hidden;
+}
+
 #sigil-img {
-  width: 60%; height: 60%;
+  width: 100%;
+  height: 100%;
   object-fit: contain;
+  padding: 14%;
+  image-rendering: auto;
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+  transform: translateZ(0);
+  filter: drop-shadow(0 0 14px rgba(236,208,120,0.18));
+}
+
+#sigil-image-shell img {
+  width: 82%;
+  height: 82%;
+  object-fit: cover;
+  padding: 0;
+  border-radius: 50%;
+  image-rendering: auto;
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+  transform: translateZ(0);
+  filter: drop-shadow(0 0 14px rgba(236,208,120,0.18));
+}
+
+#sigil-img {
+  opacity: 0.92;
+}
+
+#burn-glow,
+#burn-veil {
+  position: absolute;
+  inset: -14%;
+  border-radius: 50%;
+  opacity: 0;
+  pointer-events: none;
+}
+
+#burn-glow {
+  z-index: 3;
+  background:
+    radial-gradient(circle at 50% 72%,
+      rgba(255,179,69,0.34) 0%,
+      rgba(255,99,0,0.22) 24%,
+      rgba(93,18,0,0.09) 50%,
+      rgba(0,0,0,0) 76%
+    );
+  filter: blur(18px);
+  mix-blend-mode: screen;
+}
+
+#burn-veil {
+  z-index: 4;
+  background:
+    linear-gradient(180deg,
+      rgba(255,214,153,0) 0%,
+      rgba(255,214,153,0.06) 26%,
+      rgba(255,176,77,0.18) 38%,
+      rgba(255,108,19,0.56) 54%,
+      rgba(50,8,0,0.84) 68%,
+      rgba(0,0,0,0.98) 100%
+    );
+  filter: blur(8px) saturate(1.2);
 }
 
 /* Status label */
@@ -84,29 +156,36 @@ html, body {
 
 <div id="sigil-wrap">
   <div id="sigil-circle">
-    <!-- RN will inject a base64 image via postMessage, or use the SVG placeholder -->
-    <svg id="sigil-img" viewBox="0 0 100 100" fill="none">
-      <polygon points="50,10 90,80 10,80" stroke="#C9A84C" stroke-width="1.5" fill="none" opacity="0.75"/>
-      <circle cx="50" cy="50" r="20" stroke="#C9A84C" stroke-width="1" fill="none" opacity="0.55"/>
-      <line x1="50" y1="10" x2="50" y2="90" stroke="#C9A84C" stroke-width="1" opacity="0.45"/>
-      <line x1="10" y1="50" x2="90" y2="50" stroke="#C9A84C" stroke-width="1" opacity="0.45"/>
-      <circle cx="50" cy="50" r="4" fill="#C9A84C" opacity="0.9"/>
-    </svg>
+    <div id="sigil-image-shell">
+      <!-- RN will inject a base64 image via postMessage, or use the SVG placeholder -->
+      <svg id="sigil-img" viewBox="0 0 100 100" fill="none">
+        <polygon points="50,10 90,80 10,80" stroke="#C9A84C" stroke-width="1.5" fill="none" opacity="0.75"/>
+        <circle cx="50" cy="50" r="20" stroke="#C9A84C" stroke-width="1" fill="none" opacity="0.55"/>
+        <line x1="50" y1="10" x2="50" y2="90" stroke="#C9A84C" stroke-width="1" opacity="0.45"/>
+        <line x1="10" y1="50" x2="90" y2="50" stroke="#C9A84C" stroke-width="1" opacity="0.45"/>
+        <circle cx="50" cy="50" r="4" fill="#C9A84C" opacity="0.9"/>
+      </svg>
+    </div>
+    <div id="burn-glow"></div>
+    <div id="burn-veil"></div>
   </div>
 </div>
 
-<div id="status">Igniting\u2026</div>
+<div id="status">Igniting…</div>
 
 <script>
-// \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
+// ───────────────────────────────────────────────────────────────────────────
 //  SETUP
-// \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
+// ───────────────────────────────────────────────────────────────────────────
 const canvas = document.getElementById('c');
 const ctx    = canvas.getContext('2d');
 
 const SIGIL_SIZE = Math.min(window.innerWidth * 0.58, 240);
 const wrap  = document.getElementById('sigil-wrap');
 const circle = document.getElementById('sigil-circle');
+const imageShell = document.getElementById('sigil-image-shell');
+const burnGlow = document.getElementById('burn-glow');
+const burnVeil = document.getElementById('burn-veil');
 const status = document.getElementById('status');
 
 // Size and center sigil
@@ -117,7 +196,7 @@ wrap.style.height   = SIGIL_SIZE + 'px';
 wrap.style.left     = (window.innerWidth  - SIGIL_SIZE) / 2 + 'px';
 wrap.style.top      = (window.innerHeight - SIGIL_SIZE) / 2 + 'px';
 
-// Status position \u2014 below sigil
+// Status position — below sigil
 status.style.top = (window.innerHeight / 2 + SIGIL_SIZE / 2 + 48) + 'px';
 
 // Canvas full screen
@@ -132,9 +211,9 @@ window.addEventListener('resize', resizeCanvas);
 const CX = window.innerWidth  / 2;
 const CY = window.innerHeight / 2;
 
-// \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
+// ───────────────────────────────────────────────────────────────────────────
 //  PARTICLE CLASSES
-// \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
+// ───────────────────────────────────────────────────────────────────────────
 
 class Flame {
   constructor(phase) {
@@ -176,13 +255,13 @@ class Flame {
         this.x, this.y, this.size
       );
       if (this.life > 0.5) {
-        // Young flame \u2014 white-hot \u2192 amber \u2192 red
+        // Young flame — white-hot → amber → red
         g.addColorStop(0,    \`rgba(255,255,230,\${a})\`);
         g.addColorStop(0.2,  \`rgba(255,230,80,\${a * 0.9})\`);
         g.addColorStop(0.55, \`rgba(255,90,0,\${a * 0.6})\`);
         g.addColorStop(1,    \`rgba(160,10,0,0)\`);
       } else {
-        // Dying flame \u2014 orange \u2192 dark red
+        // Dying flame — orange → dark red
         g.addColorStop(0,   \`rgba(255,140,0,\${a * 0.85})\`);
         g.addColorStop(0.5, \`rgba(200,30,0,\${a * 0.45})\`);
         g.addColorStop(1,   \`rgba(100,0,0,0)\`);
@@ -192,7 +271,7 @@ class Flame {
       ctx.fillStyle = g;
       ctx.fill();
     } else {
-      // Spark \u2014 tiny bright dot with corona
+      // Spark — tiny bright dot with corona
       const r = this.size * 0.15;
       ctx.beginPath();
       ctx.arc(this.x, this.y, r, 0, Math.PI * 2);
@@ -255,17 +334,17 @@ class Ember {
   }
 }
 
-// \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
+// ───────────────────────────────────────────────────────────────────────────
 //  STATE
-// \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
+// ───────────────────────────────────────────────────────────────────────────
 let phase   = 'ignite';  // ignite | burning | embers | done
 let flames  = [];
 let embers  = [];
 let frameId = null;
 
-// \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
+// ───────────────────────────────────────────────────────────────────────────
 //  SPAWN HELPERS
-// \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
+// ───────────────────────────────────────────────────────────────────────────
 function spawnFlames() {
   const counts = { ignite: 5, burning: 16, embers: 6, done: 0 };
   const n = counts[phase] || 0;
@@ -278,9 +357,9 @@ function spawnEmbers() {
   for (let i = 0; i < n; i++) embers.push(new Ember());
 }
 
-// \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
+// ───────────────────────────────────────────────────────────────────────────
 //  BACKGROUND HEAT GLOW
-// \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
+// ───────────────────────────────────────────────────────────────────────────
 function drawHeatGlow() {
   const intensity = phase === 'burning' ? 1.0
                   : phase === 'ignite'  ? 0.45
@@ -309,9 +388,9 @@ function drawHeatGlow() {
   ctx.fillRect(0, 0, canvas.width, canvas.height);
 }
 
-// \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
+// ───────────────────────────────────────────────────────────────────────────
 //  MAIN RENDER LOOP
-// \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
+// ───────────────────────────────────────────────────────────────────────────
 function tick() {
   ctx.clearRect(0, 0, canvas.width, canvas.height);
 
@@ -323,7 +402,7 @@ function tick() {
   flames = flames.filter(p => p.life > 0);
   embers = embers.filter(p => p.life > 0);
 
-  // Draw order: embers (background) \u2192 flames (foreground)
+  // Draw order: embers (background) → flames (foreground)
   embers.forEach(p => { p.update(); p.draw(); });
   flames.forEach(p => { p.update(); p.draw(); });
 
@@ -332,58 +411,105 @@ function tick() {
   }
 }
 
-// \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
+// ───────────────────────────────────────────────────────────────────────────
 //  SIGIL BURN ANIMATION (pure CSS keyframes
 //  injected at runtime so timing is exact)
-// \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
+// ───────────────────────────────────────────────────────────────────────────
 function applySigilBurnCSS() {
   const style = document.createElement('style');
   style.textContent = \`
     @keyframes sigilShake {
-      0%,100% { transform: rotate(0deg)   scale(1);    }
-      25%      { transform: rotate(-1.8deg) scale(1.04); }
-      75%      { transform: rotate(1.8deg)  scale(0.96); }
+      0%,100% { transform: rotate(0deg) scale(1); }
+      25% { transform: rotate(-1.4deg) scale(1.02); }
+      75% { transform: rotate(1.4deg) scale(0.985); }
     }
-    @keyframes sigilBurn {
-      0%   { transform: scale(1);    opacity: 1;   filter: brightness(1)   saturate(1)   hue-rotate(0deg);   }
-      20%  { transform: scale(1.08); opacity: 1;   filter: brightness(3)   saturate(0.3) hue-rotate(20deg);  }
-      50%  { transform: scale(0.85); opacity: 0.7; filter: brightness(5)   saturate(0)   hue-rotate(30deg);  }
-      80%  { transform: scale(0.45); opacity: 0.3; filter: brightness(8)   saturate(0)   hue-rotate(40deg);  }
-      100% { transform: scale(0.05); opacity: 0;   filter: brightness(12)  saturate(0);  }
+    @keyframes sigilFrameBurn {
+      0% { transform: scale(1); opacity: 1; filter: brightness(1) saturate(1); }
+      18% { transform: scale(1.03); opacity: 1; filter: brightness(1.28) saturate(1.12); }
+      48% { transform: scale(0.98); opacity: 1; filter: brightness(1.46) saturate(0.94); }
+      78% { transform: scale(0.84); opacity: 0.82; filter: brightness(1.88) saturate(0.18) blur(1px); }
+      100% { transform: scale(0.62); opacity: 0; filter: brightness(2.2) saturate(0) blur(6px); }
+    }
+    @keyframes sigilArtBurn {
+      0% { transform: scale(1) translateY(0); opacity: 1; filter: brightness(1) saturate(1) contrast(1.04); }
+      16% { transform: scale(1.02) translateY(0); opacity: 1; filter: brightness(1.2) saturate(1.08) contrast(1.06); }
+      40% { transform: scale(0.995) translateY(-2%); opacity: 0.98; filter: brightness(1.42) saturate(0.88) contrast(1.1); }
+      68% { transform: scale(0.92) translateY(-8%); opacity: 0.74; filter: brightness(1.7) saturate(0.34) contrast(1.14) blur(0.6px); }
+      100% { transform: scale(0.74) translateY(-18%); opacity: 0; filter: brightness(2.35) saturate(0) contrast(1.18) blur(3px); }
+    }
+    @keyframes burnVeilSweep {
+      0% { opacity: 0; transform: translateY(46%) scale(1.12) rotate(0deg); }
+      18% { opacity: 0.18; }
+      44% { opacity: 0.82; transform: translateY(12%) scale(1.02) rotate(-2deg); }
+      72% { opacity: 0.94; transform: translateY(-24%) scale(0.96) rotate(1deg); }
+      100% { opacity: 0; transform: translateY(-54%) scale(0.88) rotate(2deg); }
+    }
+    @keyframes burnGlowPulse {
+      0%, 100% { opacity: 0; transform: scale(0.78); }
+      20% { opacity: 0.42; }
+      55% { opacity: 0.88; transform: scale(1.04); }
     }
   \`;
   document.head.appendChild(style);
 }
 applySigilBurnCSS();
 
-// \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
-//  SEQUENCE CONTROLLER
-// \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
-function runSequence() {
-  // Show status
-  status.textContent = 'Igniting\u2026';
-  status.classList.add('show');
+function resetAnimation(node) {
+  if (!node) return;
+  node.style.animation = 'none';
+  void node.offsetHeight;
+}
 
-  // Phase 1 \u2014 ignite shake (0\u2013900ms)
+// ───────────────────────────────────────────────────────────────────────────
+//  SEQUENCE CONTROLLER
+// ───────────────────────────────────────────────────────────────────────────
+var pendingTimers = [];
+
+function cancelPendingTimers() {
+  pendingTimers.forEach(function(id) { clearTimeout(id); });
+  pendingTimers = [];
+  cancelAnimationFrame(frameId);
+}
+
+function runSequence(isCharged) {
+  cancelPendingTimers();
+  // Show status
+  status.textContent = 'Igniting…';
+  status.classList.add('show');
+  resetAnimation(circle);
+  resetAnimation(imageShell);
+  resetAnimation(burnGlow);
+  resetAnimation(burnVeil);
+  burnGlow.style.opacity = '0';
+  burnVeil.style.opacity = '0';
+
+  // Phase 1 — ignite shake (0–900ms)
   phase = 'ignite';
   circle.style.animation = 'sigilShake 0.22s ease-in-out infinite';
   tick();
 
-  // Phase 2 \u2014 full burn (900ms)
-  setTimeout(() => {
+  // Phase 2 — full burn (900ms)
+  pendingTimers.push(setTimeout(() => {
     phase = 'burning';
-    status.textContent = 'Releasing\u2026';
-    circle.style.animation = 'sigilBurn 3.2s ease forwards';
-  }, 900);
+    status.textContent = 'Releasing…';
+    circle.style.animation = 'sigilFrameBurn 3.2s cubic-bezier(0.22, 0.61, 0.36, 1) forwards';
+    imageShell.style.animation = 'sigilArtBurn 3.2s cubic-bezier(0.22, 0.61, 0.36, 1) forwards';
+    
+    // Only show the mystical glow/veil if the anchor is charged
+    if (isCharged) {
+      burnGlow.style.animation = 'burnGlowPulse 1.08s ease-in-out 3';
+      burnVeil.style.animation = 'burnVeilSweep 3.2s ease forwards';
+    }
+  }, 900));
 
-  // Phase 3 \u2014 embers (3800ms)
-  setTimeout(() => {
+  // Phase 3 — embers (3800ms)
+  pendingTimers.push(setTimeout(() => {
     phase = 'embers';
     status.textContent = 'It is done.';
-  }, 3800);
+  }, 3800));
 
-  // Phase 4 \u2014 done (5800ms) \u2014 notify React Native
-  setTimeout(() => {
+  // Phase 4 — done (5800ms) — notify React Native
+  pendingTimers.push(setTimeout(() => {
     phase = 'done';
     cancelAnimationFrame(frameId);
     status.classList.remove('show');
@@ -392,30 +518,63 @@ function runSequence() {
     if (window.ReactNativeWebView) {
       window.ReactNativeWebView.postMessage(JSON.stringify({ event: 'burnComplete' }));
     }
-  }, 5800);
+  }, 5800));
 }
 
-// \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
-//  RN \u2194 WEBVIEW BRIDGE
-//  RN sends: { cmd: 'start', sigilUri: '...', fallbackSigilUri: '...' }
-//  WebView sends back: { event: 'burnComplete' }
-// \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
-function replaceSigilImage(primaryUri, fallbackUri) {
+function replaceSigilImage(primaryUri, fallbackUri, callback) {
   const initialUri = primaryUri || fallbackUri;
-  if (!initialUri) return;
+  if (!initialUri) {
+    if (callback) callback();
+    return;
+  }
 
   const img = document.createElement('img');
-  img.style.cssText = 'width:100%;height:100%;object-fit:cover;border-radius:50%;';
+  img.decoding = 'async';
+  img.alt = '';
+  imageShell.innerHTML = '';
+
+  let finished = false;
+  const finish = () => {
+    if (finished) return;
+    finished = true;
+    if (callback) callback();
+  };
+
+  const timeoutId = setTimeout(finish, 8000);
 
   let attemptedFallback = false;
   img.onload = () => {
-    circle.innerHTML = '';
-    circle.appendChild(img);
+    clearTimeout(timeoutId);
+    imageShell.appendChild(img);
+    if (window.ReactNativeWebView) {
+      window.ReactNativeWebView.postMessage(JSON.stringify({
+        event: 'burnArtworkLoaded',
+        usedFallback: attemptedFallback
+      }));
+    }
+    requestAnimationFrame(() => {
+      setTimeout(finish, 40);
+    });
   };
   img.onerror = () => {
     if (!attemptedFallback && fallbackUri && img.src !== fallbackUri) {
+      if (window.ReactNativeWebView) {
+        window.ReactNativeWebView.postMessage(JSON.stringify({
+          event: 'burnArtworkError',
+          stage: 'primary'
+        }));
+      }
       attemptedFallback = true;
       img.src = fallbackUri;
+    } else {
+      if (window.ReactNativeWebView) {
+        window.ReactNativeWebView.postMessage(JSON.stringify({
+          event: 'burnArtworkError',
+          stage: attemptedFallback ? 'fallback' : 'primary'
+        }));
+      }
+      clearTimeout(timeoutId);
+      finish();
     }
   };
 
@@ -425,17 +584,20 @@ function replaceSigilImage(primaryUri, fallbackUri) {
 window.addEventListener('message', (e) => {
   try {
     const msg = JSON.parse(e.data);
+    if (msg.cmd === 'cleanup') {
+      cancelPendingTimers();
+      return;
+    }
     if (msg.cmd === 'start') {
-      // Replace placeholder with the anchor image and fall back to SVG if needed.
-      replaceSigilImage(msg.sigilUri, msg.fallbackSigilUri);
-      runSequence();
+      replaceSigilImage(msg.sigilUri, msg.fallbackSigilUri, () => {
+        runSequence(!!msg.isCharged);
+      });
     }
   } catch(_) {}
 });
 
-// Also support direct auto-start for standalone testing in browser
 if (!window.ReactNativeWebView) {
-  setTimeout(() => runSequence(), 400);
+  pendingTimers.push(setTimeout(() => runSequence(true), 400));
 }
 </script>
 </body>

@@ -1,11 +1,11 @@
 /**
  * Inlined HTML for the ForgeDemo WebView.
  *
- * Kept as a TypeScript string constant instead of a `require()` asset to avoid
+ * Kept as a TypeScript string factory instead of a `require()` asset to avoid
  * Metro resolving the .html file to an http:// URI in certain Expo build modes,
  * which Android 9+ blocks with ERR_CLEARTEXT_NOT_PERMITTED.
  */
-export const forgeWebViewHtml = `<!DOCTYPE html>
+export const getForgeWebViewHtml = (imageUri: string) => `<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="UTF-8">
@@ -116,11 +116,16 @@ export const forgeWebViewHtml = `<!DOCTYPE html>
 <script>
   var forgeAnimating = false;
   var forgeComplete = false;
+  var initialSigilSrc = ${JSON.stringify(imageUri)};
 
   var intentionEl = document.getElementById('intentionText');
   var sigilEl = document.getElementById('forgeSigil');
   var btn = document.getElementById('forgeBtn');
   var particlesEl = document.getElementById('forgeParticles');
+
+  if (initialSigilSrc) {
+    sigilEl.src = initialSigilSrc;
+  }
 
   function spawnParticles() {
     for (var i = 0; i < 3; i++) {

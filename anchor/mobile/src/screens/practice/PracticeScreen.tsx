@@ -1,11 +1,11 @@
-import React, { useCallback, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { StyleSheet, View, Text, Pressable, Platform, InteractionManager } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import type { StackNavigationProp } from '@react-navigation/stack';
-import { Flame, Wind, Zap, ChevronRight } from 'lucide-react-native';
+import { Flame, Zap, ChevronRight } from 'lucide-react-native';
 import Animated, {
   Easing,
   useAnimatedStyle,
@@ -20,49 +20,40 @@ import { useTabNavigation } from '@/contexts/TabNavigationContext';
 import { useAnchorStore } from '@/stores/anchorStore';
 import { useSessionStore } from '@/stores/sessionStore';
 import type { SessionLogEntry } from '@/stores/sessionStore';
-import { useSettingsStore, type DefaultChargeSetting } from '@/stores/settingsStore';
+import { useSettingsStore } from '@/stores/settingsStore';
+import { countDailyGoalCompletions } from '@/services/DailyGoalNudgeService';
 import { safeHaptics } from '@/utils/haptics';
 import { colors, spacing, typography } from '@/theme';
 import { PRACTICE_COPY } from '@/constants/copy';
+import { PracticeInfoModal } from '@/components/PracticeInfoModal';
+import { ThreadStrengthSheet } from '@/components/practice/ThreadStrengthSheet';
 import { AnchorHero } from './components/AnchorHero';
 import { AnchorSelectorSheet } from './components/AnchorSelectorSheet';
+import { DailyGoalProgressCard } from './components/DailyGoalProgressCard';
 import { ThreadStrengthBlock, getThreadState } from './components/ThreadStrengthBlock';
-import { InfoSheet } from './components/InfoSheet';
+// DEFERRED: replaced by PracticeInfoModal to preserve rollback path.
+// import { InfoSheet } from './components/InfoSheet';
 import { ModePortalTile } from './components/ModePortalTile';
 import { PracticeHubHeader } from './components/PracticeHubHeader';
+import { resolveBurnArtworkUri } from '@/screens/rituals/utils/resolveBurnArtworkUri';
+import { useAppPerformanceTier } from '@/hooks/useAppPerformanceTier';
+import { useNotificationController } from '@/hooks/useNotificationController';
+import { ConfirmUnchargedBurnSheet } from '@/components/modals/ConfirmUnchargedBurnSheet';
 
 type PracticeNavigationProp = StackNavigationProp<PracticeStackParamList, 'PracticeHome'>;
-type PendingMode = 'charge' | 'stabilize' | 'burn' | 'quickActivate' | null;
+// DEFERRED: type PendingMode = 'charge' | 'stabilize' | 'burn' | 'quickActivate' | null;
+type PendingMode = 'charge' | 'burn' | 'quickActivate' | null;
 
 const AUTO_TEACHING_KEY = 'practice_teaching_auto_seen_v2';
 const DEEP_CHARGE_MINUTES_MIN = 2;
 const DEEP_CHARGE_MINUTES_MAX = 30;
 const FOCUS_SESSION_TITLE = 'FOCUS SESSION';
 
-function getDefaultDeepChargeSeconds(defaultCharge: DefaultChargeSetting): number {
-  if (defaultCharge.preset === 'custom') {
-    const customMinutes = Math.min(
-      DEEP_CHARGE_MINUTES_MAX,
-      Math.max(
-        DEEP_CHARGE_MINUTES_MIN,
-        Math.round(defaultCharge.customMinutes ?? DEEP_CHARGE_MINUTES_MIN)
-      )
-    );
-    return customMinutes * 60;
-  }
-
-  switch (defaultCharge.preset) {
-    case '10m':
-      return 10 * 60;
-    case '5m':
-      return 5 * 60;
-    case '2m':
-      return 2 * 60;
-    case '30s':
-    case '1m':
-    default:
-      return 2 * 60;
-  }
+function getDefaultDeepChargeSeconds(primeSessionDuration: number): number {
+  return Math.min(
+    DEEP_CHARGE_MINUTES_MAX * 60,
+    Math.max(DEEP_CHARGE_MINUTES_MIN * 60, Math.round(primeSessionDuration))
+  );
 }
 
 function toMillis(value?: Date | string): number {
@@ -81,40 +72,50 @@ function engagementRecency(anchor: Anchor): number {
 
 function toModeFromSessionType(type: SessionLogEntry['type']): Exclude<PendingMode, null> {
   if (type === 'activate') return 'quickActivate';
-  if (type === 'stabilize') return 'stabilize';
+  // DEFERRED: if (type === 'stabilize') return 'stabilize';
   return 'charge';
 }
 
 function toModeTitle(mode: Exclude<PendingMode, null>): string {
   if (mode === 'quickActivate') return FOCUS_SESSION_TITLE;
-  if (mode === 'stabilize') return PRACTICE_COPY.rituals.stabilize.title;
+  // DEFERRED: if (mode === 'stabilize') return PRACTICE_COPY.rituals.stabilize.title;
   if (mode === 'burn') return PRACTICE_COPY.rituals.burn.title;
   return PRACTICE_COPY.rituals.charge.title;
 }
 
 export const PracticeScreen: React.FC = () => {
+  useNotificationController();
+
   const navigation = useNavigation<PracticeNavigationProp>();
-  const { navigateToVault, activeTabIndex } = useTabNavigation();
+  const { navigateToVault, registerTabNav, activeTabIndex } = useTabNavigation();
   const isPracticeTabActive = activeTabIndex == null ? true : activeTabIndex === 1;
   const insets = useSafeAreaInsets();
   const reduceMotion = useReducedMotion();
+  const performanceTier = useAppPerformanceTier();
   const anchors = useAnchorStore((state) => state.anchors);
   const currentAnchorId = useAnchorStore((state) => state.currentAnchorId);
   const setCurrentAnchor = useAnchorStore((state) => state.setCurrentAnchor);
-  const { defaultCharge } = useSettingsStore();
-  const {
-    sessionLog,
-    threadStrength,
-    totalSessionsCount,
-    lastPrimedAt,
-    weekHistory,
-    applyDecay,
-  } = useSessionStore();
+  const primeSessionDuration = useSettingsStore((state) => state.primeSessionDuration ?? 120);
+  const focusSessionDuration = useSettingsStore((state) => state.focusSessionDuration ?? 30);
+  const dailyPracticeGoal = useSettingsStore((state) => state.dailyPracticeGoal ?? 3);
+  const sessionLog = useSessionStore((s) => s.sessionLog);
+  const threadStrength = useSessionStore((s) => s.threadStrength);
+  const totalSessionsCount = useSessionStore((s) => s.totalSessionsCount);
+  const lastPrimedAt = useSessionStore((s) => s.lastPrimedAt);
+  const weekHistory = useSessionStore((s) => s.weekHistory);
+  const applyDecay = useSessionStore((s) => s.applyDecay);
 
   const [selectorVisible, setSelectorVisible] = useState(false);
   const [infoVisible, setInfoVisible] = useState(false);
   const [pendingMode, setPendingMode] = useState<PendingMode>(null);
   const [autoTeachingSeen, setAutoTeachingSeen] = useState<boolean | null>(null);
+  const [confirmUnchargedBurnVisible, setConfirmUnchargedBurnVisible] = useState(false);
+  const [threadSheetVisible, setThreadSheetVisible] = useState(false);
+
+  useEffect(() => {
+    registerTabNav(1, navigation as any);
+    return () => registerTabNav(1, null);
+  }, [navigation, registerTabNav]);
 
   const selectableAnchors = useMemo(
     () =>
@@ -156,14 +157,19 @@ export const PracticeScreen: React.FC = () => {
 
   const threadState = getThreadState(threadStrength, lastPrimedAt);
   const hasPrimedToday = lastPrimedAt === localDateString(new Date());
+  const todayMode: 'focusSession' | 'deepPrime' = threadStrength < 40 ? 'focusSession' : 'deepPrime';
   const ctaTitle = PRACTICE_COPY.primaryCTA;
-  const ctaSubtitle = hasPrimedToday
+  const ctaSubtitle = todayMode === 'focusSession'
     ? 'Focus Session · 10–60 sec'
-    : 'Restore the thread · 10–60 sec';
+    : 'Deep Prime · 2 min to custom';
 
   const defaultDeepChargeSeconds = useMemo(
-    () => getDefaultDeepChargeSeconds(defaultCharge),
-    [defaultCharge.customMinutes, defaultCharge.preset]
+    () => getDefaultDeepChargeSeconds(primeSessionDuration),
+    [primeSessionDuration]
+  );
+  const completedGoalSessions = useMemo(
+    () => countDailyGoalCompletions(sessionLog),
+    [sessionLog]
   );
 
   const interactionRef = useRef(false);
@@ -267,11 +273,12 @@ export const PracticeScreen: React.FC = () => {
   const heroAnim = useSharedValue(0);
   const portalsAnim = useSharedValue(0);
   const hasAnimatedRef = useRef(false);
+  const shouldAnimateIntro = !reduceMotion && performanceTier === 'high';
 
   useFocusEffect(
     useCallback(() => {
       if (!isPracticeTabActive) return () => undefined;
-      if (reduceMotion) {
+      if (!shouldAnimateIntro) {
         headerAnim.value = 1;
         threadAnim.value = 1;
         heroAnim.value = 1;
@@ -286,7 +293,7 @@ export const PracticeScreen: React.FC = () => {
       heroAnim.value = withDelay(130, withTiming(1, timing));
       portalsAnim.value = withDelay(200, withTiming(1, timing));
       return () => undefined;
-    }, [headerAnim, threadAnim, heroAnim, isPracticeTabActive, portalsAnim, reduceMotion])
+    }, [headerAnim, threadAnim, heroAnim, isPracticeTabActive, portalsAnim, shouldAnimateIntro])
   );
 
   const headerStyle = useAnimatedStyle(() => ({
@@ -320,7 +327,7 @@ export const PracticeScreen: React.FC = () => {
   );
 
   const startQuickActivate = useCallback(
-    (anchor: Anchor, durationOverride = 30) => {
+    (anchor: Anchor, durationOverride = focusSessionDuration) => {
       safeHaptics.selection();
       navigateToVault('ActivationRitual', {
         anchorId: anchor.id,
@@ -329,25 +336,29 @@ export const PracticeScreen: React.FC = () => {
         returnTo: 'practice',
       });
     },
-    [navigateToVault]
-  );
-
-  const startStabilize = useCallback(
-    (anchor: Anchor) => {
-      safeHaptics.selection();
-      navigation.navigate('StabilizeRitual', { anchorId: anchor.id });
-    },
-    [navigation]
+    [focusSessionDuration, navigateToVault]
   );
 
   const startBurn = useCallback(
     (anchor: Anchor) => {
       safeHaptics.selection();
+      if (!anchor.isCharged) {
+        setConfirmUnchargedBurnVisible(true);
+        return;
+      }
+      executeBurn(anchor);
+    },
+    []
+  );
+
+  const executeBurn = useCallback(
+    (anchor: Anchor) => {
+      setConfirmUnchargedBurnVisible(false);
       navigateToVault('ConfirmBurn', {
         anchorId: anchor.id,
-        intention: anchor.intentionText,
-        sigilSvg: anchor.baseSigilSvg ?? '',
-        enhancedImageUrl: anchor.enhancedImageUrl,
+        intention: anchor.intentionText ?? (anchor as Anchor & { intention?: string }).intention ?? '',
+        sigilSvg: anchor.reinforcedSigilSvg ?? anchor.baseSigilSvg ?? '',
+        enhancedImageUrl: resolveBurnArtworkUri(anchor),
       });
     },
     [navigateToVault]
@@ -363,15 +374,13 @@ export const PracticeScreen: React.FC = () => {
       }
       if (mode === 'charge') {
         startCharge(target);
-      } else if (mode === 'stabilize') {
-        startStabilize(target);
       } else if (mode === 'quickActivate') {
         startQuickActivate(target);
       } else {
         startBurn(target);
       }
     },
-    [selectedAnchor, startBurn, startCharge, startStabilize, startQuickActivate]
+    [selectedAnchor, startBurn, startCharge, startQuickActivate]
   );
 
   const handleSelectAnchor = useCallback(
@@ -451,9 +460,9 @@ export const PracticeScreen: React.FC = () => {
         return;
       }
 
-      startStabilize(target);
+      startCharge(target);
     },
-    [defaultDeepChargeSeconds, selectedAnchor, startCharge, startQuickActivate, startStabilize]
+    [defaultDeepChargeSeconds, selectedAnchor, startCharge, startQuickActivate]
   );
 
   const isFading = threadState === 'fading';
@@ -482,7 +491,13 @@ export const PracticeScreen: React.FC = () => {
 
   return (
     <View style={styles.container}>
-      <ZenBackground variant="practice" showOrbs={isPracticeTabActive} showGrain showVignette />
+      <ZenBackground
+        variant="practice"
+        showOrbs={isPracticeTabActive}
+        showGrain
+        showVignette
+        performanceTier={performanceTier}
+      />
 
       <SafeAreaView style={styles.safeArea} edges={['top']}>
         <Animated.ScrollView
@@ -490,7 +505,6 @@ export const PracticeScreen: React.FC = () => {
           contentContainerStyle={[styles.scrollContent, { paddingBottom: 120 + insets.bottom }]}
           onTouchStart={markInteraction}
           onScrollBeginDrag={markInteraction}
-          scrollEventThrottle={16}
         >
           <Animated.View style={headerStyle}>
             <PracticeHubHeader
@@ -502,12 +516,33 @@ export const PracticeScreen: React.FC = () => {
           </Animated.View>
 
           <Animated.View style={threadStyle}>
-            <ThreadStrengthBlock
-              threadStrength={threadStrength}
-              totalSessionsCount={totalSessionsCount}
-              lastPrimedAt={lastPrimedAt}
-              weekHistory={weekHistory}
-              anchor={selectedAnchor}
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="View thread strength history"
+              onPress={() => {
+                markInteraction();
+                setThreadSheetVisible(true);
+              }}
+              style={({ pressed }) => [
+                styles.threadPressable,
+                pressed && styles.threadPressablePressed,
+              ]}
+            >
+              <ThreadStrengthBlock
+                threadStrength={threadStrength}
+                totalSessionsCount={totalSessionsCount}
+                lastPrimedAt={lastPrimedAt}
+                weekHistory={weekHistory}
+                anchor={selectedAnchor}
+              />
+              <Text style={styles.threadViewHint}>VIEW ▾</Text>
+            </Pressable>
+          </Animated.View>
+
+          <Animated.View style={threadStyle}>
+            <DailyGoalProgressCard
+              completedCount={completedGoalSessions}
+              goal={dailyPracticeGoal}
             />
           </Animated.View>
 
@@ -528,11 +563,7 @@ export const PracticeScreen: React.FC = () => {
                 accessibilityRole="button"
                 onPress={() => {
                   markInteraction();
-                  if (latestAnchorSession) {
-                    runQuickRestartFromSession(latestAnchorSession);
-                    return;
-                  }
-                  runMode(suggestedRitual.type);
+                  runMode(todayMode === 'focusSession' ? 'quickActivate' : 'charge');
                 }}
                 style={({ pressed }) => [
                   styles.ctaPressable,
@@ -582,21 +613,16 @@ export const PracticeScreen: React.FC = () => {
               title={PRACTICE_COPY.rituals.charge.title}
               meaning={PRACTICE_COPY.rituals.charge.meaning}
               durationHint={PRACTICE_COPY.rituals.charge.duration}
+              durationNode={
+                <>
+                  {'2 mins to '}
+                  <Text style={{ color: '#D4AF37', textDecorationLine: 'underline' }}>custom</Text>
+                </>
+              }
               icon={<Zap size={16} color={colors.gold} />}
               onPress={() => {
                 markInteraction();
                 runMode('charge');
-              }}
-            />
-            <ModePortalTile
-              variant="stabilize"
-              title={PRACTICE_COPY.rituals.stabilize.title}
-              meaning={PRACTICE_COPY.rituals.stabilize.meaning}
-              durationHint={PRACTICE_COPY.rituals.stabilize.duration}
-              icon={<Wind size={16} color={colors.gold} />}
-              onPress={() => {
-                markInteraction();
-                runMode('stabilize');
               }}
             />
             <ModePortalTile
@@ -638,9 +664,31 @@ export const PracticeScreen: React.FC = () => {
         }}
       />
 
+      <ThreadStrengthSheet
+        visible={threadSheetVisible}
+        onClose={() => setThreadSheetVisible(false)}
+      />
+
+      {/* DEFERRED: previous practice teaching sheet retained for rollback.
       <InfoSheet
         visible={infoVisible}
         onClose={() => {
+          setInfoVisible(false);
+          markInteraction();
+        }}
+      />
+      */}
+      
+      <ConfirmUnchargedBurnSheet
+        visible={confirmUnchargedBurnVisible}
+        onConfirm={() => selectedAnchor && executeBurn(selectedAnchor)}
+        onCancel={() => setConfirmUnchargedBurnVisible(false)}
+        intentionText={selectedAnchor?.intentionText}
+      />
+
+      <PracticeInfoModal
+        isVisible={infoVisible}
+        onDismiss={() => {
           setInfoVisible(false);
           markInteraction();
         }}
@@ -666,6 +714,21 @@ const styles = StyleSheet.create({
   portalsWrap: {
     gap: spacing.sm,
   },
+  threadPressable: {
+    position: 'relative',
+  },
+  threadPressablePressed: {
+    opacity: 0.92,
+  },
+  threadViewHint: {
+    position: 'absolute',
+    top: 14,
+    right: 16,
+    fontFamily: typography.fontFamily.sans,
+    fontSize: 10,
+    letterSpacing: 1.2,
+    color: 'rgba(212,175,55,0.5)',
+  },
   ctaPressable: {
     marginBottom: spacing.md,
   },
@@ -675,6 +738,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+    backgroundColor: '#070a10',
     shadowColor: colors.gold,
     shadowOpacity: 0.3,
     shadowRadius: 16,

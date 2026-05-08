@@ -20,6 +20,7 @@ model User {
   displayName           String?
   authProvider          String   // 'email', 'google', 'apple'
   authUid               String   @unique
+  isComped              Boolean  @default(false)
   subscriptionStatus    String   @default("free") // 'free', 'pro', 'pro_annual'
   subscriptionId        String?
   createdAt             DateTime @default(now())
@@ -35,6 +36,11 @@ model User {
   stabilizesTotal       Int      @default(0)
   stabilizeStreakDays   Int      @default(0)
   lastStabilizeAt       DateTime?
+  notificationState     Json?    @map("notification_state")
+  expoPushToken         String?  @map("expo_push_token")
+  fcmToken              String?  @map("fcm_token")
+  apnsToken             String?  @map("apns_token")
+  notificationsEnabled  Boolean  @default(true) @map("notifications_enabled")
 
   // Relations
   anchors               Anchor[]
@@ -42,6 +48,8 @@ model User {
   charges               Charge[]
   orders                Order[]
   settings              UserSettings?
+  burnedAnchors         BurnedAnchor[]
+  flaggedContent        FlaggedContent[]
 
   @@map("users")
 }
@@ -58,6 +66,9 @@ model Anchor {
   // Intention & Category
   intentionText         String
   category              String   // 'career', 'health', 'wealth', 'relationships', 'personal_growth', 'custom'
+  planetaryTier         String?  @default("saturn") // 'saturn', 'jupiter', 'mars', 'sun', 'venus'
+  classifierVersion     Int      @default(1) // 1=old 8-cat, 2=new 5-tier
+  classifierMeta        Json?    // {confidenceScore, llmUsed, timestamp}
 
   // ───────────────────────────────────────────────────
   // STRUCTURE LINEAGE (New Architecture)
@@ -186,6 +197,7 @@ model BurnedAnchor {
   id                    String   @id @default(uuid())
   originalAnchorId      String   @unique
   userId                String
+  user                  User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   intentionText         String
   category              String
   distilledLetters      String[]
@@ -262,6 +274,24 @@ model UserSettings {
   updatedAt             DateTime @updatedAt
 
   @@map("user_settings")
+}
+
+// ============================================================================
+// Content Moderation
+// ============================================================================
+
+model FlaggedContent {
+  id        String   @id @default(uuid())
+  anchorId  String
+  imageUrl  String
+  reason    String
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+
+  @@index([anchorId])
+  @@index([userId])
+  @@map("flagged_content")
 }
 
 // ============================================================================

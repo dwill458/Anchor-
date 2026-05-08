@@ -1,0 +1,2 @@
+ALTER TABLE "users"
+ADD COLUMN "isComped" BOOLEAN NOT NULL DEFAULT false;

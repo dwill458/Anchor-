@@ -4,6 +4,7 @@
  * Handles user authentication and profile synchronization
  */
 
+import { Prisma } from '@prisma/client';
 import { Router, Response, NextFunction } from 'express';
 import { z } from 'zod';
 import rateLimit from 'express-rate-limit';
@@ -11,6 +12,7 @@ import { AuthRequest, authMiddleware } from '../middleware/auth';
 import { AppError } from '../middleware/errorHandler';
 import { prisma } from '../../lib/prisma';
 import { getFirebaseAdmin } from '../../config/firebase';
+import { hasCompedAccess } from '../../utils/compedAccess';
 
 const router = Router();
 
@@ -51,11 +53,64 @@ function mapProviderIdToAuthProvider(providerId?: string): 'email' | 'google' | 
   }
 }
 
+function serializeUser(user: {
+  id: string;
+  email: string;
+  displayName: string | null;
+  hasCompletedOnboarding: boolean;
+  isComped: boolean;
+  subscriptionStatus: string;
+  totalAnchorsCreated: number;
+  totalActivations: number;
+  currentStreak: number;
+  longestStreak: number;
+  stabilizesTotal: number;
+  stabilizeStreakDays: number;
+  lastStabilizeAt: Date | null;
+  createdAt: Date;
+}) {
+  return {
+    id: user.id,
+    email: user.email,
+    displayName: user.displayName,
+    hasCompletedOnboarding: user.hasCompletedOnboarding,
+    isComped: user.isComped,
+    subscriptionStatus: user.subscriptionStatus,
+    totalAnchorsCreated: user.totalAnchorsCreated,
+    totalActivations: user.totalActivations,
+    currentStreak: user.currentStreak,
+    longestStreak: user.longestStreak,
+    stabilizesTotal: user.stabilizesTotal,
+    stabilizeStreakDays: user.stabilizeStreakDays,
+    lastStabilizeAt: user.lastStabilizeAt,
+    createdAt: user.createdAt,
+  };
+}
+
+async function syncCompedFlag(user: {
+  id: string;
+  email: string;
+  isComped: boolean;
+}): Promise<boolean> {
+  const nextIsComped = hasCompedAccess(user.email);
+  if (user.isComped === nextIsComped) {
+    return nextIsComped;
+  }
+
+  await prisma.user.update({
+    where: { id: user.id },
+    data: { isComped: nextIsComped },
+  });
+
+  return nextIsComped;
+}
+
 // --- Zod schemas ---
 
 const SyncSchema = z.object({
   displayName: z.string().optional(),
   authProvider: z.enum(['email', 'google', 'apple']).optional(),
+  hasCompletedOnboarding: z.boolean().optional(),
 });
 
 const UpdateProfileSchema = z.object({
@@ -74,6 +129,22 @@ const UpdateSettingsSchema = z.object({
   vaultViewType: z.enum(['grid', 'list']).optional(),
 });
 
+const PushTokensSchema = z.object({
+  expoPushToken: z.string().min(1).nullable().optional(),
+  fcmToken: z.string().min(1).nullable().optional(),
+  apnsToken: z.string().min(1).nullable().optional(),
+});
+
+const NotificationStateSyncSchema = z.object({
+  notificationState: z.record(z.unknown()).optional(),
+  // Nested format sent by mobile client (syncPushTokensToServer)
+  pushTokens: PushTokensSchema.optional(),
+  replacePushTokens: z.boolean().optional(),
+}).refine(
+  (value) => value.notificationState !== undefined || value.pushTokens !== undefined,
+  'notificationState or pushTokens are required'
+);
+
 // Validates req.body against a schema; throws AppError on failure.
 function validate<T>(schema: z.ZodSchema<T>, data: unknown): T {
   const result = schema.safeParse(data);
@@ -82,6 +153,16 @@ function validate<T>(schema: z.ZodSchema<T>, data: unknown): T {
     throw new AppError(`Validation error: ${message}`, 400, 'VALIDATION_ERROR');
   }
   return result.data;
+}
+
+function buildFlaggedContentUserWhere(user: { id: string; authUid: string }) {
+  if (user.id === user.authUid) {
+    return { userId: user.id };
+  }
+
+  return {
+    OR: [{ userId: user.id }, { userId: user.authUid }],
+  };
 }
 
 /**
@@ -106,7 +187,7 @@ router.post(
         throw new AppError('User not authenticated', 401, 'UNAUTHORIZED');
       }
 
-      const { displayName, authProvider } = validate(SyncSchema, req.body);
+      const { displayName, authProvider, hasCompletedOnboarding } = validate(SyncSchema, req.body);
       const email = req.user.email;
 
       if (!email) {
@@ -117,6 +198,7 @@ router.post(
         );
       }
 
+      const isComped = hasCompedAccess(email);
       let provider = authProvider;
       if (!provider) {
         const firebaseUser = await getFirebaseAdmin().auth().getUser(req.user.uid);
@@ -128,6 +210,8 @@ router.post(
         update: {
           email,
           displayName: displayName || undefined,
+          isComped,
+          ...(hasCompletedOnboarding === true && { hasCompletedOnboarding: true }),
           lastSeenAt: new Date(),
         },
         create: {
@@ -135,6 +219,8 @@ router.post(
           email,
           displayName,
           authProvider: provider,
+          isComped,
+          hasCompletedOnboarding: hasCompletedOnboarding === true,
           lastSeenAt: new Date(),
         },
       });
@@ -147,21 +233,7 @@ router.post(
 
       res.json({
         success: true,
-        data: {
-          id: user.id,
-          email: user.email,
-          displayName: user.displayName,
-          hasCompletedOnboarding: user.hasCompletedOnboarding,
-          subscriptionStatus: user.subscriptionStatus,
-          totalAnchorsCreated: user.totalAnchorsCreated,
-          totalActivations: user.totalActivations,
-          currentStreak: user.currentStreak,
-          longestStreak: user.longestStreak,
-          stabilizesTotal: user.stabilizesTotal,
-          stabilizeStreakDays: user.stabilizeStreakDays,
-          lastStabilizeAt: user.lastStabilizeAt,
-          createdAt: user.createdAt,
-        },
+        data: serializeUser(user),
       });
     } catch (error) {
       if (error instanceof AppError) {
@@ -185,34 +257,25 @@ router.get('/me', authMiddleware, async (req: AuthRequest, res: Response, next: 
       throw new AppError('User not authenticated', 401, 'UNAUTHORIZED');
     }
 
-    const user = await prisma.user.findUnique({
+    const userRecord = await prisma.user.findUnique({
       where: { authUid: req.user.uid },
       include: {
         settings: true,
       },
     });
 
-    if (!user) {
+    if (!userRecord) {
       throw new AppError('User not found', 404, 'USER_NOT_FOUND');
     }
+
+    const isComped = await syncCompedFlag(userRecord);
+    const user = { ...userRecord, isComped };
 
     res.json({
       success: true,
       data: {
-        id: user.id,
-        email: user.email,
-        displayName: user.displayName,
-        hasCompletedOnboarding: user.hasCompletedOnboarding,
-        subscriptionStatus: user.subscriptionStatus,
-        totalAnchorsCreated: user.totalAnchorsCreated,
-        totalActivations: user.totalActivations,
-        currentStreak: user.currentStreak,
-        longestStreak: user.longestStreak,
-        stabilizesTotal: user.stabilizesTotal,
-        stabilizeStreakDays: user.stabilizeStreakDays,
-        lastStabilizeAt: user.lastStabilizeAt,
-        createdAt: user.createdAt,
-        settings: user.settings,
+        ...serializeUser(user),
+        settings: userRecord.settings,
       },
     });
   } catch (error) {
@@ -223,6 +286,77 @@ router.get('/me', authMiddleware, async (req: AuthRequest, res: Response, next: 
     next(new AppError('Failed to fetch user', 500, 'FETCH_ERROR'));
   }
 });
+
+/**
+ * GET /api/auth/me/export
+ *
+ * Export the authenticated user's account data as JSON.
+ */
+router.get(
+  '/me/export',
+  authMiddleware,
+  async (req: AuthRequest, res: Response, next: NextFunction) => {
+    try {
+      if (!req.user) {
+        throw new AppError('User not authenticated', 401, 'UNAUTHORIZED');
+      }
+
+      const user = await prisma.user.findUnique({
+        where: { authUid: req.user.uid },
+        include: {
+          settings: true,
+          anchors: {
+            orderBy: { createdAt: 'desc' },
+            include: {
+              activations: { orderBy: { activatedAt: 'desc' } },
+              charges: { orderBy: { chargedAt: 'desc' } },
+            },
+          },
+          activations: { orderBy: { activatedAt: 'desc' } },
+          charges: { orderBy: { chargedAt: 'desc' } },
+          orders: { orderBy: { createdAt: 'desc' } },
+        },
+      });
+
+      if (!user) {
+        throw new AppError('User not found', 404, 'USER_NOT_FOUND');
+      }
+
+      const [syncQueue, burnedAnchors, flaggedContent] = await Promise.all([
+        prisma.syncQueue.findMany({
+          where: { userId: user.id },
+          orderBy: { createdAt: 'desc' },
+        }),
+        prisma.burnedAnchor.findMany({
+          where: { userId: user.id },
+          orderBy: { burnedAt: 'desc' },
+        }),
+        prisma.flaggedContent.findMany({
+          where: buildFlaggedContentUserWhere(user),
+          orderBy: { createdAt: 'desc' },
+        }),
+      ]);
+
+      res.json({
+        success: true,
+        data: {
+          exportVersion: 1,
+          exportedAt: new Date().toISOString(),
+          account: user,
+          burnedAnchors,
+          flaggedContent,
+          syncQueue,
+        },
+      });
+    } catch (error) {
+      if (error instanceof AppError) {
+        next(error);
+        return;
+      }
+      next(new AppError('Failed to export account data', 500, 'EXPORT_ERROR'));
+    }
+  }
+);
 
 /**
  * PUT /api/auth/profile
@@ -254,21 +388,10 @@ router.put(
 
       res.json({
         success: true,
-        data: {
-          id: user.id,
-          email: user.email,
-          displayName: user.displayName,
-          hasCompletedOnboarding: user.hasCompletedOnboarding,
-          subscriptionStatus: user.subscriptionStatus,
-          totalAnchorsCreated: user.totalAnchorsCreated,
-          totalActivations: user.totalActivations,
-          currentStreak: user.currentStreak,
-          longestStreak: user.longestStreak,
-          stabilizesTotal: user.stabilizesTotal,
-          stabilizeStreakDays: user.stabilizeStreakDays,
-          lastStabilizeAt: user.lastStabilizeAt,
-          createdAt: user.createdAt,
-        },
+        data: serializeUser({
+          ...user,
+          isComped: await syncCompedFlag(user),
+        }),
       });
     } catch (error) {
       if (error instanceof AppError) {
@@ -359,6 +482,109 @@ router.put(
 );
 
 /**
+ * PUT /api/auth/notification-state
+ *
+ * Persist merged notification state for the authenticated user.
+ * This path exists because the mobile app authenticates with Firebase, not Supabase Auth.
+ */
+router.put(
+  '/notification-state',
+  authMiddleware,
+  async (req: AuthRequest, res: Response, next: NextFunction) => {
+    try {
+      if (!req.user) {
+        throw new AppError('User not authenticated', 401, 'UNAUTHORIZED');
+      }
+
+      const { notificationState, pushTokens, replacePushTokens = true } = validate(
+        NotificationStateSyncSchema,
+        req.body
+      );
+
+      const user = await prisma.user.findUnique({
+        where: { authUid: req.user.uid },
+        select: { id: true },
+      });
+
+      if (!user) {
+        throw new AppError('User not found', 404, 'USER_NOT_FOUND');
+      }
+
+      const notificationEnabled = notificationState && Object.prototype.hasOwnProperty.call(
+        notificationState,
+        'notification_enabled'
+      )
+        ? Boolean(notificationState.notification_enabled)
+        : null;
+
+      const assignments: Prisma.Sql[] = [];
+
+      if (notificationState) {
+        const stateJson = JSON.stringify(notificationState);
+        assignments.push(
+          Prisma.sql`notification_state = COALESCE(notification_state, '{}'::jsonb) || ${stateJson}::jsonb`
+        );
+      }
+
+      if (notificationEnabled !== null) {
+        assignments.push(Prisma.sql`notifications_enabled = ${notificationEnabled}`);
+      }
+
+      if (pushTokens) {
+        if (replacePushTokens || Object.prototype.hasOwnProperty.call(pushTokens, 'expoPushToken')) {
+          assignments.push(Prisma.sql`expo_push_token = ${pushTokens.expoPushToken ?? null}`);
+        }
+        if (replacePushTokens || Object.prototype.hasOwnProperty.call(pushTokens, 'fcmToken')) {
+          assignments.push(Prisma.sql`fcm_token = ${pushTokens.fcmToken ?? null}`);
+        }
+        if (replacePushTokens || Object.prototype.hasOwnProperty.call(pushTokens, 'apnsToken')) {
+          assignments.push(Prisma.sql`apns_token = ${pushTokens.apnsToken ?? null}`);
+        }
+      }
+
+      const query = Prisma.sql`
+        UPDATE users
+        SET ${Prisma.join(assignments, ', ')}
+        WHERE id = ${user.id}
+        RETURNING notification_state, notifications_enabled, expo_push_token, fcm_token, apns_token
+      `;
+
+      const rows = await prisma.$queryRaw<
+        Array<{
+          notification_state: Prisma.JsonValue | null;
+          notifications_enabled: boolean;
+          expo_push_token: string | null;
+          fcm_token: string | null;
+          apns_token: string | null;
+        }>
+      >(query);
+
+      const updated = rows[0];
+      if (!updated) {
+        throw new AppError('User not found', 404, 'USER_NOT_FOUND');
+      }
+
+      res.json({
+        success: true,
+        data: {
+          notificationState: updated.notification_state ?? {},
+          notificationsEnabled: updated.notifications_enabled,
+          expoPushToken: updated.expo_push_token,
+          fcmToken: updated.fcm_token,
+          apnsToken: updated.apns_token,
+        },
+      });
+    } catch (error) {
+      if (error instanceof AppError) {
+        next(error);
+        return;
+      }
+      next(new AppError('Failed to sync notification state', 500, 'UPDATE_ERROR'));
+    }
+  }
+);
+
+/**
  * DELETE /api/auth/me
  *
  * Delete user account and all associated data (GDPR/CCPA compliant)
@@ -390,27 +616,45 @@ router.delete(
         throw new AppError('User not found', 404, 'USER_NOT_FOUND');
       }
 
-      // Delete user (cascades handled by Prisma schema onDelete: Cascade)
-      // This will automatically delete:
-      // - anchors (which cascade to activations and charges)
-      // - activations
-      // - charges
-      // - orders
-      // - settings
-      await prisma.user.delete({
-        where: { id: user.id },
+      await prisma.$transaction(async tx => {
+        await tx.flaggedContent.deleteMany({
+          where: buildFlaggedContentUserWhere(user),
+        });
+        await tx.burnedAnchor.deleteMany({
+          where: { userId: user.id },
+        });
+        await tx.syncQueue.deleteMany({
+          where: { userId: user.id },
+        });
+        await tx.user.delete({
+          where: { id: user.id },
+        });
       });
 
-      // Also clean up sync queue (not in schema relations)
-      await prisma.syncQueue.deleteMany({
-        where: { userId: user.id },
-      });
+      const firebaseAdmin = getFirebaseAdmin().auth();
+      let authAccountDeleted = true;
+
+      try {
+        await firebaseAdmin.deleteUser(req.user.uid);
+      } catch (error) {
+        const code =
+          typeof error === 'object' && error && 'code' in error
+            ? String((error as { code?: unknown }).code)
+            : '';
+
+        if (code !== 'auth/user-not-found') {
+          authAccountDeleted = false;
+        }
+      }
 
       res.json({
         success: true,
         data: {
-          message: 'Account successfully deleted',
+          message: authAccountDeleted
+            ? 'Account successfully deleted'
+            : 'Account data deleted; authentication account requires manual cleanup',
           deletedUserId: user.id,
+          authAccountDeleted,
         },
       });
     } catch (error) {

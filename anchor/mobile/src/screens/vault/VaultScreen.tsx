@@ -6,7 +6,7 @@
  *   Active — at least one anchor; surface the primary sigil as a hero card
  */
 
-import React, { useCallback, useEffect, useMemo } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   InteractionManager,
   ScrollView,
@@ -31,8 +31,8 @@ import {
 } from 'react-native-reanimated';
 import { useAnchorStore } from '../../stores/anchorStore';
 import { useAuthStore } from '../../stores/authStore';
+import { useProfileStore } from '@/stores/profileStore';
 import { useToast } from '../../components/ToastProvider';
-import { AnchorLimitModal } from '../../components/modals/AnchorLimitModal';
 import { AnchorGridSkeleton } from '../../components/skeletons/AnchorCardSkeleton';
 // DEFERRED: freemium — useSubscription removed; freemium tier gates replaced with trial model
 // import { useSubscription } from '../../hooks/useSubscription';
@@ -45,11 +45,16 @@ import { AtmosphericOrbs } from './components/AtmosphericOrbs';
 import { HeroAnchorCard } from './components/HeroAnchorCard';
 import { AnchorStack } from './components/AnchorStack';
 import { ZenBackground } from '@/components/common';
-import { getEffectiveStabilizeStreakDays, toDateOrNull } from '@/utils/stabilizeStats';
+import { buildProfileGreeting } from '@/utils/profileGreeting';
 import type { Anchor, RootStackParamList } from '@/types';
-import { colors } from '@/theme';
+import { colors, typography } from '@/theme';
+import { withAlpha } from '@/utils/color';
 import { useTabNavigation } from '@/contexts/TabNavigationContext';
+import { isHighEndDevice } from '@/utils/deviceTier';
 import { useSettingsStore } from '@/stores/settingsStore';
+import { WeeklySummaryModal } from '@/components/WeeklySummaryModal'; import { useWeeklySummaryTrigger } from '@/hooks/useWeeklySummaryTrigger';
+import { VaultGridModal } from './components/VaultGridModal';
+import { usePostFirstAnchorPaywall } from '@/hooks/usePostFirstAnchorPaywall';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -70,6 +75,84 @@ const GHOST_SIGIL_2 = `<svg viewBox="0 0 45 45" fill="none" stroke="#D4AF37" str
   <circle cx="22" cy="22" r="14" opacity=".5"/>
   <circle cx="22" cy="22" r="5" opacity=".7"/>
 </svg>`;
+
+// ─── GuestReturnBanner ───────────────────────────────────────────────────────
+
+interface GuestReturnBannerProps {
+  onPractice: () => void;
+  onDismiss: () => void;
+}
+
+function GuestReturnBanner({ onPractice, onDismiss }: GuestReturnBannerProps) {
+  return (
+    <View style={bannerStyles.container}>
+      <View style={bannerStyles.textWrap}>
+        <Text style={bannerStyles.title}>Your anchor is here.</Text>
+        <Text style={bannerStyles.sub}>Ready to practice?</Text>
+      </View>
+      <TouchableOpacity onPress={onPractice} style={bannerStyles.cta} activeOpacity={0.8}>
+        <Text style={bannerStyles.ctaText}>Begin</Text>
+      </TouchableOpacity>
+      <TouchableOpacity onPress={onDismiss} style={bannerStyles.dismiss} activeOpacity={0.6} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+        <Text style={bannerStyles.dismissText}>✕</Text>
+      </TouchableOpacity>
+    </View>
+  );
+}
+
+const bannerStyles = StyleSheet.create({
+  container: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginHorizontal: H_PAD,
+    marginBottom: 16,
+    paddingVertical: 14,
+    paddingLeft: 16,
+    paddingRight: 10,
+    backgroundColor: withAlpha(colors.gold, 0.08),
+    borderWidth: 1,
+    borderColor: withAlpha(colors.gold, 0.25),
+    borderRadius: 10,
+    gap: 10,
+  },
+  textWrap: {
+    flex: 1,
+    gap: 2,
+  },
+  title: {
+    fontFamily: typography.fonts.heading,
+    fontSize: 14,
+    color: colors.bone,
+    letterSpacing: 0.2,
+  },
+  sub: {
+    fontFamily: typography.fonts.bodySerif,
+    fontSize: 13,
+    fontWeight: '300',
+    color: withAlpha(colors.bone, 0.6),
+  },
+  cta: {
+    paddingHorizontal: 14,
+    paddingVertical: 7,
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: withAlpha(colors.gold, 0.5),
+  },
+  ctaText: {
+    fontFamily: typography.fonts.headingBold,
+    fontSize: 11,
+    letterSpacing: 1.2,
+    textTransform: 'uppercase',
+    color: colors.gold,
+  },
+  dismiss: {
+    padding: 4,
+  },
+  dismissText: {
+    fontSize: 12,
+    color: withAlpha(colors.bone, 0.35),
+  },
+});
 
 // ─── selectPrimaryAnchor ──────────────────────────────────────────────────────
 
@@ -104,16 +187,6 @@ export function selectPrimaryAnchor(anchors: Anchor[]): Anchor | null {
   return [...anchors].sort((a, b) => toMs(b.createdAt) - toMs(a.createdAt))[0];
 }
 
-// ─── Greeting helper ──────────────────────────────────────────────────────────
-
-function buildGreeting(displayName: string | undefined): string {
-  const hour = new Date().getHours();
-  const salutation =
-    hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening';
-  const firstName = displayName?.split(' ')[0];
-  return firstName ? `${salutation}, ${firstName}` : salutation;
-}
-
 // ─── Animation helpers ────────────────────────────────────────────────────────
 
 type VaultScreenNavigationProp = StackNavigationProp<RootStackParamList, 'Vault'>;
@@ -132,12 +205,21 @@ export const VaultScreen: React.FC = () => {
   const { registerTabNav, activeTabIndex } = useTabNavigation();
   const isVaultTabActive = activeTabIndex == null ? true : activeTabIndex === 0;
 
-  const { user } = useAuthStore();
+  usePostFirstAnchorPaywall();
+
+  const { user, isAuthenticated } = useAuthStore();
+  const [bannerDismissed, setBannerDismissed] = useState(false);
+  const profileName = useProfileStore((state) => state.name);
+  const profileTimezone = useProfileStore((state) => state.timezone);
   const developerForceStreakBreakEnabled = useSettingsStore(
     (state) => state.developerForceStreakBreakEnabled
   );
+  const focusSessionMode = useSettingsStore((state) => state.focusSessionMode ?? 'quick');
+  const primeSessionDuration = useSettingsStore((state) => state.primeSessionDuration ?? 120);
   const shouldRedirectToCreation = useAuthStore((s) => s.shouldRedirectToCreation);
   const setShouldRedirectToCreation = useAuthStore((s) => s.setShouldRedirectToCreation);
+  const pendingFirstAnchorDraft = useAuthStore((s) => s.pendingFirstAnchorDraft);
+  const shouldGateFirstVaultEntry = Boolean(pendingFirstAnchorDraft?.requiresAccountGate);
 
   const anchors = useAnchorStore((s) => s.anchors);
   const currentAnchorId = useAnchorStore((s) => s.currentAnchorId);
@@ -146,45 +228,53 @@ export const VaultScreen: React.FC = () => {
   const setLoading = useAnchorStore((s) => s.setLoading);
   const setError = useAnchorStore((s) => s.setError);
 
-  // DEFERRED: freemium — isFree / features.maxAnchors gate removed; all trial/active users have unlimited anchors
-  // const { isFree, features } = useSubscription();
-  const [showAnchorLimitModal, setShowAnchorLimitModal] = React.useState(false);
-
   const reduceMotionEnabled = useReduceMotionEnabled();
   const shouldReduceMotion = reduceMotionEnabled || !isVaultTabActive;
   const toast = useToast();
+  const { shouldShow, dismiss } = useWeeklySummaryTrigger();
+  const [now, setNow] = useState(() => new Date());
+  const [gridVisible, setGridVisible] = useState(false);
 
   // ── Derived state ────────────────────────────────────────────────────────────
-  const autoPrimary = useMemo(() => selectPrimaryAnchor(anchors), [anchors]);
+  const activeAnchors = useMemo(
+    () => anchors.filter((a) => !a.isReleased && !a.archivedAt),
+    [anchors],
+  );
+
+  const autoPrimary = useMemo(() => selectPrimaryAnchor(activeAnchors), [activeAnchors]);
 
   // Use the shared store's currentAnchorId so Practice tab stays in sync
   const primaryAnchor = useMemo(() => {
     if (currentAnchorId) {
-      const found = anchors.find((a) => a.id === currentAnchorId);
+      const found = activeAnchors.find((a) => a.id === currentAnchorId);
       if (found) return found;
     }
     return autoPrimary;
-  }, [currentAnchorId, anchors, autoPrimary]);
+  }, [currentAnchorId, activeAnchors, autoPrimary]);
 
   // Anchors to show in the stack — exclude the current hero
   const stackAnchors = useMemo(
-    () => anchors.filter((a) => a.id !== primaryAnchor?.id),
-    [anchors, primaryAnchor],
+    () => activeAnchors.filter((a) => a.id !== primaryAnchor?.id),
+    [activeAnchors, primaryAnchor],
   );
 
-  const greeting = useMemo(() => buildGreeting(user?.displayName), [user?.displayName]);
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setNow(new Date());
+    }, 60_000);
 
-  const streakDays = useMemo(() => {
-    if (__DEV__ && developerForceStreakBreakEnabled) {
-      return 0;
-    }
-    const lastStabilizeAt = toDateOrNull(user?.lastStabilizeAt);
-    return getEffectiveStabilizeStreakDays(
-      user?.stabilizeStreakDays ?? 0,
-      lastStabilizeAt,
-      new Date(),
-    );
-  }, [developerForceStreakBreakEnabled, user?.lastStabilizeAt, user?.stabilizeStreakDays]);
+    return () => clearInterval(timer);
+  }, []);
+
+  const greeting = useMemo(
+    () =>
+      buildProfileGreeting(
+        profileName || user?.displayName,
+        profileTimezone,
+        now
+      ),
+    [now, profileName, profileTimezone, user?.displayName]
+  );
 
   // ── Empty-state orbit animation ───────────────────────────────────────────────
   const orbitRotation = useSharedValue(0);
@@ -249,6 +339,22 @@ export const VaultScreen: React.FC = () => {
     navigation,
   ]);
 
+  useEffect(() => {
+    if (!shouldGateFirstVaultEntry) {
+      return;
+    }
+
+    navigation.replace('FirstAnchorAccountGate');
+  }, [navigation, shouldGateFirstVaultEntry]);
+
+  // ── Analytics tracking — fires once per user session, not on every anchor update ──
+  const anchorsLengthRef = React.useRef(activeAnchors.length);
+  anchorsLengthRef.current = activeAnchors.length;
+  useEffect(() => {
+    if (!user) return;
+    AnalyticsService.track(AnalyticsEvents.VAULT_VIEWED, { anchor_count: anchorsLengthRef.current });
+  }, [user?.id]); // eslint-disable-line react-hooks/exhaustive-deps
+
   // ── Data fetching ─────────────────────────────────────────────────────────────
   const fetchAnchors = useCallback(async (): Promise<void> => {
     if (!user) return;
@@ -256,9 +362,7 @@ export const VaultScreen: React.FC = () => {
     setLoading(true);
     setError(null);
     try {
-      await new Promise((resolve) => setTimeout(resolve, 1000));
-      trace.putAttribute('anchor_count', anchors.length);
-      AnalyticsService.track(AnalyticsEvents.VAULT_VIEWED, { anchor_count: anchors.length });
+      trace.putAttribute('anchor_count', String(anchorsLengthRef.current));
     } catch (error) {
       const msg = (error as Error).message;
       setError(msg);
@@ -272,7 +376,7 @@ export const VaultScreen: React.FC = () => {
       setLoading(false);
       trace.stop();
     }
-  }, [user, setLoading, setError, toast, anchors.length]);
+  }, [user, setLoading, setError, toast]);
 
   useEffect(() => { fetchAnchors(); }, [fetchAnchors]);
 
@@ -290,10 +394,10 @@ export const VaultScreen: React.FC = () => {
     // }
     AnalyticsService.track(AnalyticsEvents.ANCHOR_CREATION_STARTED, {
       source: 'vault',
-      has_existing_anchors: anchors.length > 0,
+      has_existing_anchors: activeAnchors.length > 0,
     });
-    navigation.navigate(anchors.length === 0 ? 'FirstAnchorCreation' : 'CreateAnchor');
-  }, [anchors.length, navigation]);
+    navigation.push(activeAnchors.length === 0 ? 'FirstAnchorCreation' : 'CreateAnchor');
+  }, [activeAnchors.length, navigation]);
 
   const handleAnchorPress = useCallback(
     (anchorId: string): void => {
@@ -310,7 +414,16 @@ export const VaultScreen: React.FC = () => {
 
   const handleActivate = useCallback((): void => {
     if (!primaryAnchor) return;
-    if (primaryAnchor.isCharged) {
+    if (focusSessionMode === 'deep') {
+      // Deep prime -- launch the full ritual/charge flow using the stored duration
+      navigation.navigate('Ritual', {
+        anchorId: primaryAnchor.id,
+        ritualType: 'ritual',
+        durationSeconds: primeSessionDuration,
+        returnTo: 'vault',
+      });
+    } else if (primaryAnchor.isCharged) {
+      // Quick / focus session
       navigation.navigate('ActivationRitual', {
         anchorId: primaryAnchor.id,
         activationType: 'visual',
@@ -318,25 +431,11 @@ export const VaultScreen: React.FC = () => {
     } else {
       navigation.navigate('ChargeSetup', { anchorId: primaryAnchor.id });
     }
-  }, [primaryAnchor, navigation]);
-
-  const handleUpgradeFromLimit = useCallback((): void => {
-    setShowAnchorLimitModal(false);
-    AnalyticsService.track(AnalyticsEvents.UPGRADE_INITIATED, {
-      source: 'anchor_limit_modal',
-      trigger: 'max_anchors_reached',
-    });
-    navigation.navigate('Settings');
-  }, [navigation]);
-
-  const handleBurnFromLimit = useCallback((): void => {
-    setShowAnchorLimitModal(false);
-    toast.info('Select an anchor to release and make room for a new one');
-  }, [toast]);
+  }, [focusSessionMode, primeSessionDuration, primaryAnchor, navigation]);
 
   // ── Render ────────────────────────────────────────────────────────────────────
 
-  if (isLoading && anchors.length === 0) {
+  if (isLoading && activeAnchors.length === 0) {
     return (
       <View style={styles.container}>
         <ZenBackground variant="sanctuary" showOrbs={isVaultTabActive} showGrain showVignette />
@@ -350,7 +449,7 @@ export const VaultScreen: React.FC = () => {
   return (
     <View style={styles.container}>
       <ZenBackground variant="sanctuary" showOrbs={isVaultTabActive} showGrain showVignette />
-      <AtmosphericOrbs reduceMotionEnabled={shouldReduceMotion} />
+      {isHighEndDevice && <AtmosphericOrbs reduceMotionEnabled={shouldReduceMotion} />}
 
       <SafeAreaView style={styles.safeArea} edges={['top']}>
         <ScrollView
@@ -366,7 +465,14 @@ export const VaultScreen: React.FC = () => {
             />
           </Animated2.View>
 
-          {anchors.length === 0
+          {!isAuthenticated && activeAnchors.length > 0 && !bannerDismissed && (
+            <GuestReturnBanner
+              onPractice={handleActivate}
+              onDismiss={() => setBannerDismissed(true)}
+            />
+          )}
+
+          {activeAnchors.length === 0
             ? renderEmptyState({
                 handleCreateAnchor,
                 shouldReduceMotion,
@@ -375,17 +481,18 @@ export const VaultScreen: React.FC = () => {
             : renderActiveState({
                 anchors: stackAnchors,
                 primaryAnchor: primaryAnchor!,
-                streakDays,
                 shouldReduceMotion,
                 pulseDotStyle,
                 handleHeroPress,
                 handleActivate,
                 handleAnchorPress,
                 handleCreateAnchor,
+                onViewAll: () => setGridVisible(true),
+                isDeepPrimeMode: focusSessionMode === 'deep',
               })}
         </ScrollView>
 
-        {anchors.length > 0 && (
+        {activeAnchors.length > 0 && (
           <View style={styles.createZone}>
             <LinearGradient
               colors={['transparent', CREATE_ZONE_BG]}
@@ -407,14 +514,12 @@ export const VaultScreen: React.FC = () => {
           </View>
         )}
       </SafeAreaView>
-
-      <AnchorLimitModal
-        visible={showAnchorLimitModal}
-        currentCount={anchors.length}
-        maxCount={features.maxAnchors}
-        onClose={() => setShowAnchorLimitModal(false)}
-        onUpgrade={handleUpgradeFromLimit}
-        onBurnAnchor={handleBurnFromLimit}
+      <WeeklySummaryModal visible={shouldShow} onDismiss={dismiss} />
+      <VaultGridModal
+        visible={gridVisible}
+        onDismiss={() => setGridVisible(false)}
+        anchors={activeAnchors}
+        onAnchorPress={handleAnchorPress}
       />
     </View>
   );
@@ -504,25 +609,27 @@ function renderEmptyState(props: EmptyStateProps) {
 interface ActiveStateProps {
   anchors: Anchor[];
   primaryAnchor: Anchor;
-  streakDays: number;
   shouldReduceMotion: boolean;
   pulseDotStyle: ReturnType<typeof useAnimatedStyle>;
   handleHeroPress: () => void;
   handleActivate: () => void;
   handleAnchorPress: (id: string) => void;
   handleCreateAnchor: () => void;
+  onViewAll: () => void;
+  isDeepPrimeMode: boolean;
 }
 
 function renderActiveState({
   anchors,
   primaryAnchor,
-  streakDays,
   shouldReduceMotion,
   pulseDotStyle,
   handleHeroPress,
   handleActivate,
   handleAnchorPress,
   handleCreateAnchor,
+  onViewAll,
+  isDeepPrimeMode,
 }: ActiveStateProps) {
   const isCharged = primaryAnchor.isCharged;
 
@@ -537,13 +644,6 @@ function renderActiveState({
           <Text style={styles.ctxSubLabel}>ACTIVE ANCHOR</Text>
           {/* DEFERRED: removed duplicate intention - intention shown below medallion */}
         </View>
-        {streakDays > 0 && (
-          <View style={styles.streakChip}>
-            <Text style={styles.streakFire}>🔥</Text>
-            <Text style={styles.streakCount}>{streakDays}</Text>
-            <Text style={styles.streakLabel}>day streak</Text>
-          </View>
-        )}
       </Animated2.View>
 
       {/* ── Hero card ── */}
@@ -568,11 +668,11 @@ function renderActiveState({
           onPress={handleActivate}
           activeOpacity={0.8}
           accessibilityRole="button"
-          accessibilityLabel={isCharged ? 'Activate Anchor' : 'Charge Anchor'}
+          accessibilityLabel="Prime Anchor"
         >
           <Animated2.View style={[styles.activatePulseDot, pulseDotStyle]} />
           <Text style={styles.activateBtnText}>
-            {isCharged ? 'ACTIVATE ANCHOR' : 'CHARGE ANCHOR'}
+            PRIME ANCHOR
           </Text>
         </TouchableOpacity>
       </Animated2.View>
@@ -586,9 +686,7 @@ function renderActiveState({
           anchors={anchors}
           onAnchorPress={handleAnchorPress}
           onAddPress={handleCreateAnchor}
-          onViewAll={() => {
-            // Phase 3: full vault list
-          }}
+          onViewAll={onViewAll}
         />
       </Animated2.View>
     </>
@@ -783,30 +881,6 @@ const styles = StyleSheet.create({
     color: 'rgba(212,175,55,0.4)',
     textTransform: 'uppercase',
     marginBottom: 2,
-  },
-  streakChip: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    backgroundColor: 'rgba(212,175,55,0.07)',
-    borderWidth: 1,
-    borderColor: 'rgba(212,175,55,0.14)',
-    borderRadius: 20,
-    paddingVertical: 6,
-    paddingHorizontal: 14,
-  },
-  streakFire: {
-    fontSize: 12,
-  },
-  streakCount: {
-    fontFamily: 'Cinzel-SemiBold',
-    fontSize: 14,
-    color: colors.gold,
-  },
-  streakLabel: {
-    fontFamily: 'CormorantGaramond-Italic',
-    fontSize: 11,
-    color: 'rgba(192,192,192,0.45)',
   },
   heroWrap: {
     marginTop: 10,

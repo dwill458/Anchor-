@@ -20,10 +20,10 @@ import type { Anchor } from '@/types';
 
 interface StackCardProps {
   anchor: Anchor;
-  onPress: () => void;
+  onPress: (id: string) => void;
 }
 
-const StackCard: React.FC<StackCardProps> = ({ anchor, onPress }) => {
+const StackCard = React.memo<StackCardProps>(({ anchor, onPress }) => {
   const imageUrl = anchor.enhancedImageUrl;
   const sigilXml = anchor.reinforcedSigilSvg ?? anchor.baseSigilSvg;
   // Truncate intention to ~18 chars so it fits the narrow card
@@ -34,7 +34,7 @@ const StackCard: React.FC<StackCardProps> = ({ anchor, onPress }) => {
   return (
     <TouchableOpacity
       style={styles.stackCard}
-      onPress={onPress}
+      onPress={() => onPress(anchor.id)}
       activeOpacity={0.7}
       accessibilityRole="button"
       accessibilityLabel={anchor.intentionText}
@@ -56,7 +56,7 @@ const StackCard: React.FC<StackCardProps> = ({ anchor, onPress }) => {
       <View style={[styles.statusDot, anchor.isCharged ? styles.dotCharged : styles.dotUncharged]} />
     </TouchableOpacity>
   );
-};
+});
 
 // ─── AnchorStack ─────────────────────────────────────────────────────────────
 
@@ -73,6 +73,10 @@ export const AnchorStack: React.FC<AnchorStackProps> = ({
   onAddPress: _onAddPress,
   onViewAll,
 }) => {
+  const handlePress = React.useCallback((id: string) => {
+    onAnchorPress(id);
+  }, [onAnchorPress]);
+
   return (
     <View style={styles.container}>
       {/* Section header */}
@@ -93,7 +97,7 @@ export const AnchorStack: React.FC<AnchorStackProps> = ({
           <StackCard
             key={anchor.id}
             anchor={anchor}
-            onPress={() => onAnchorPress(anchor.id)}
+            onPress={handlePress}
           />
         ))}
 

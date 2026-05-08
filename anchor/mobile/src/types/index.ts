@@ -16,9 +16,13 @@
  */
 export interface Anchor {
   id: string;
+  localId?: string;
   userId: string;
   intentionText: string;
   category: AnchorCategory;
+  planetaryTier?: PlanetaryTier | string;
+  classifierVersion?: number;
+  classifierMeta?: Record<string, any>;
   distilledLetters: string[];
 
   // ───────────────────────────────────────────────────
@@ -83,6 +87,31 @@ export type AnchorCategory =
   | 'custom';
 
 /**
+ * Planetary Tier for Anchor classification (5-tier system)
+ */
+export enum PlanetaryTier {
+  SATURN = 'saturn',    // 3×3, Discipline/Boundaries
+  JUPITER = 'jupiter',  // 4×4, Wealth/Growth
+  MARS = 'mars',        // 5×5, Energy/Physicality
+  SUN = 'sun',          // 6×6, Identity/Clarity
+  VENUS = 'venus'       // 7×7, Peace/Harmony
+}
+
+/**
+ * Maps legacy categories to the new 5-tier planetary system
+ */
+export const CATEGORY_TO_TIER: Record<AnchorCategory, PlanetaryTier> = {
+  career: PlanetaryTier.JUPITER,
+  wealth: PlanetaryTier.JUPITER,
+  health: PlanetaryTier.MARS,
+  relationships: PlanetaryTier.VENUS,
+  personal_growth: PlanetaryTier.SATURN,
+  desire: PlanetaryTier.SUN,
+  experience: PlanetaryTier.VENUS,
+  custom: PlanetaryTier.SATURN
+};
+
+/**
  * Result of the letter distillation process (Austin Osman Spare method)
  */
 export interface DistillationResult {
@@ -100,6 +129,7 @@ export interface User {
   email: string;
   displayName?: string;
   hasCompletedOnboarding?: boolean;
+  isComped?: boolean;
   subscriptionStatus: SubscriptionStatus;
   totalAnchorsCreated: number;
   totalActivations: number;
@@ -110,6 +140,44 @@ export interface User {
   lastStabilizeAt?: Date;
   createdAt: Date;
 }
+
+export type AuthScreenContext = 'onboarding' | 'first_anchor_gate';
+export type AuthScreenInitialTab = 'signin' | 'signup';
+
+export interface AuthScreenParams {
+  context?: AuthScreenContext;
+  initialTab?: AuthScreenInitialTab;
+}
+
+export interface PendingFirstAnchorDraft {
+  tempAnchorId: string;
+  source: 'onboarding_first_anchor';
+  requiresAccountGate: boolean;
+  createdAt: Date;
+  backendAnchorId?: string;
+  nextPendingMutationIndex?: number;
+}
+
+export type PendingFirstAnchorMutation =
+  | {
+    type: 'create_anchor';
+    tempAnchorId: string;
+    queuedAt: string;
+  }
+  | {
+    type: 'charge_anchor';
+    tempAnchorId: string;
+    chargeType: ChargeType;
+    durationSeconds: number;
+    queuedAt: string;
+  }
+  | {
+    type: 'activate_anchor';
+    tempAnchorId: string;
+    activationType: ActivationType;
+    durationSeconds: number;
+    queuedAt: string;
+  };
 
 /**
  * User subscription status
@@ -279,6 +347,9 @@ export interface EnhancementMetadata {
   /** AI model identifier (e.g., 'sdxl-controlnet-canny-v1') */
   modelUsed: string;
 
+  /** Provider that generated the artwork (e.g., 'gemini', 'replicate') */
+  provider?: string;
+
   /** ControlNet method used (e.g., 'canny', 'lineart') */
   controlMethod: 'canny' | 'lineart' | string;
 
@@ -305,6 +376,9 @@ export type AIStyle =
   | 'ink_brush'
   | 'gold_leaf'
   | 'cosmic'
+  | 'architectural_trace'
+  | 'lunar_etch'
+  | 'resonance_rings'
   | 'minimal_line'
   | 'obsidian_mono'
   | 'aurora_glow'
@@ -312,6 +386,17 @@ export type AIStyle =
   | 'echo_chamber'
   | 'monolith_ink'
   | 'celestial_grid';
+
+export interface GeneratedVariation {
+  imageUrl: string;
+  structureMatchScore?: number;
+  iouScore?: number;
+  edgeOverlapScore?: number;
+  structurePreserved?: boolean;
+  classification?: string;
+  wasComposited?: boolean;
+  seed?: number;
+}
 
 /**
  * Legacy AI styles (deprecated, kept for backward compatibility)
@@ -381,10 +466,16 @@ export type RootStackParamList = {
   // VAULT & ANCHOR MANAGEMENT
   // ═══════════════════════════════════════════════════
   Vault: undefined;
+  FirstAnchorAccountGate: undefined;
+  TrialSignUp: undefined;
   AnchorDetail: { anchorId: string };
+  AuthGate: undefined;
+  Paywall: undefined;
   CreateAnchor: undefined;
   /** First anchor creation after onboarding — shows new-user IntentionInputScreen */
   FirstAnchorCreation: undefined;
+  Login: AuthScreenParams | undefined;
+  SignUp: AuthScreenParams | undefined;
 
   // ═══════════════════════════════════════════════════
   // CREATION FLOW (New Canonical Order)
@@ -415,13 +506,19 @@ export type RootStackParamList = {
   };
 
   /** Step 4: Manual Reinforcement (guided tracing over base structure) */
-  ManualReinforcement: {
-    intentionText: string;
-    category: AnchorCategory;
-    distilledLetters: string[];
-    baseSigilSvg: string;
-    structureVariant: SigilVariant;
-  };
+  ManualReinforcement:
+    | {
+      source: 'creation';
+      intentionText: string;
+      category: AnchorCategory;
+      distilledLetters: string[];
+      baseSigilSvg: string;
+      structureVariant: SigilVariant;
+    }
+    | {
+      source: 'post_prime_trace';
+      anchorId: string;
+    };
 
   /** Step 5: Lock Structure (confirmation screen) */
   LockStructure: {
@@ -478,9 +575,14 @@ export type RootStackParamList = {
     reinforcedSigilSvg?: string;
     structureVariant: SigilVariant;
     styleChoice: AIStyle;
-    variations: string[];
+    variations: Array<string | GeneratedVariation>;
     reinforcementMetadata?: ReinforcementMetadata;
     prompt?: string;
+    negativePrompt?: string;
+    modelUsed?: string;
+    provider?: string;
+    controlMethod?: string;
+    generationTimeMs?: number;
   };
 
   /** Step 7d: Anchor Reveal (Show selected anchor before mantra) */
@@ -566,6 +668,7 @@ export type RootStackParamList = {
     intentionText: string;
     enhancedImageUrl?: string;
     sigilSvg?: string;
+    returnTo?: 'charge_setup' | 'vault';
   };
   ChargeSetup: {
     anchorId: string;
@@ -587,7 +690,18 @@ export type RootStackParamList = {
     returnTo?: 'vault' | 'practice' | 'detail';
   };
   SealAnchor: { anchorId: string; returnTo?: 'vault' | 'practice' | 'detail' };
-  ChargeComplete: { anchorId: string; returnTo?: 'vault' | 'practice' | 'detail' };
+  ChargeComplete: {
+    anchorId: string;
+    durationSeconds?: number;
+    returnTo?: 'vault' | 'practice' | 'detail';
+  };
+  FirstPrimeComplete: {
+    anchorId: string;
+    sessionCount: number;
+    threadStrength: number;
+    durationSeconds: number;
+    returnTo?: 'vault' | 'practice' | 'detail';
+  };
 
   // Activation
   ActivationRitual: {
@@ -637,11 +751,18 @@ export type RootStackParamList = {
   // PROFILE & SETTINGS
   // ═══════════════════════════════════════════════════
   Settings: undefined;
-  DefaultCharge: undefined;
-  DefaultActivation: undefined;
-  PrimingDefaults: undefined;
-  DefaultFocusMode: undefined;
+  SessionDefaults: undefined;
   DailyPracticeGoal: undefined;
+  ThreadStrength: undefined;
+  RestDays: undefined;
+  // DEFERRED: replaced by SessionDefaultsScreen.
+  DefaultCharge: undefined;
+  // DEFERRED: replaced by SessionDefaultsScreen.
+  DefaultActivation: undefined;
+  // DEFERRED: replaced by SessionDefaultsScreen.
+  PrimingDefaults: undefined;
+  // DEFERRED: replaced by SessionDefaultsScreen.
+  DefaultFocusMode: undefined;
 
   // Appearance Settings
   ThemeSelection: undefined;
@@ -651,7 +772,7 @@ export type RootStackParamList = {
   // Audio & Haptics Settings
   MantraVoice: undefined;
   VoiceStyle: undefined;
-  HapticIntensity: undefined;
+  HapticFeedback: undefined;
 
   // Data & Privacy Settings
   DataPrivacy: undefined;
@@ -659,7 +780,7 @@ export type RootStackParamList = {
 
 export type PracticeStackParamList = {
   PracticeHome: undefined;
-  StabilizeRitual: { anchorId: string };
+  // DEFERRED: StabilizeRitual: { anchorId: string };
   Evolve: undefined;
 };
 
@@ -676,13 +797,13 @@ export type OnboardingStackParamList = {
   HowItWorks: undefined;
   DailyLoop: undefined;
   SaveProgress: undefined;
-  Login: undefined;
-  SignUp: undefined;
+  Login: AuthScreenParams | undefined;
+  SignUp: AuthScreenParams | undefined;
 };
 
 export type AuthStackParamList = {
-  Login: undefined;
-  SignUp: undefined;
+  Login: AuthScreenParams | undefined;
+  SignUp: AuthScreenParams | undefined;
   Onboarding: undefined;
 };
 

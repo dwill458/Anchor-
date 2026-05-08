@@ -1,0 +1,218 @@
+bd717150c3676903117b4bc64528402b
+'use strict';
+
+var _interopRequireDefault = require("@babel/runtime/helpers/interopRequireDefault").default;
+Object.defineProperty(exports, "__esModule", {
+  value: true
+});
+exports.createNativeWorkletsModule = createNativeWorkletsModule;
+var _classCallCheck2 = _interopRequireDefault(require("@babel/runtime/helpers/classCallCheck"));
+var _createClass2 = _interopRequireDefault(require("@babel/runtime/helpers/createClass"));
+var _classPrivateFieldLooseBase2 = _interopRequireDefault(require("@babel/runtime/helpers/classPrivateFieldLooseBase"));
+var _classPrivateFieldLooseKey2 = _interopRequireDefault(require("@babel/runtime/helpers/classPrivateFieldLooseKey"));
+var _runtimeKind = require("../runtimeKind.js");
+var _index = require("../specs/index.js");
+var _checkCppVersion = require("../utils/checkCppVersion.js");
+var _jsVersion = require("../utils/jsVersion.js");
+var _WorkletsError = require("../WorkletsError.js");
+function createNativeWorkletsModule() {
+  return new NativeWorklets();
+}
+var _workletsModuleProxy = (0, _classPrivateFieldLooseKey2.default)("workletsModuleProxy");
+var _serializableUndefined = (0, _classPrivateFieldLooseKey2.default)("serializableUndefined");
+var _serializableNull = (0, _classPrivateFieldLooseKey2.default)("serializableNull");
+var _serializableTrue = (0, _classPrivateFieldLooseKey2.default)("serializableTrue");
+var _serializableFalse = (0, _classPrivateFieldLooseKey2.default)("serializableFalse");
+var NativeWorklets = function () {
+  function NativeWorklets() {
+    (0, _classCallCheck2.default)(this, NativeWorklets);
+    Object.defineProperty(this, _workletsModuleProxy, {
+      writable: true,
+      value: void 0
+    });
+    Object.defineProperty(this, _serializableUndefined, {
+      writable: true,
+      value: void 0
+    });
+    Object.defineProperty(this, _serializableNull, {
+      writable: true,
+      value: void 0
+    });
+    Object.defineProperty(this, _serializableTrue, {
+      writable: true,
+      value: void 0
+    });
+    Object.defineProperty(this, _serializableFalse, {
+      writable: true,
+      value: void 0
+    });
+    globalThis._WORKLETS_VERSION_JS = _jsVersion.jsVersion;
+    if (global.__workletsModuleProxy === undefined && globalThis.__RUNTIME_KIND === _runtimeKind.RuntimeKind.ReactNative) {
+      _index.WorkletsTurboModule == null || _index.WorkletsTurboModule.installTurboModule();
+    }
+    if (global.__workletsModuleProxy === undefined) {
+      throw new _WorkletsError.WorkletsError(`Native part of Worklets doesn't seem to be initialized.
+See https://docs.swmansion.com/react-native-worklets/docs/guides/troubleshooting#native-part-of-worklets-doesnt-seem-to-be-initialized for more details.`);
+    }
+    if (__DEV__) {
+      (0, _checkCppVersion.checkCppVersion)();
+    }
+    (0, _classPrivateFieldLooseBase2.default)(this, _workletsModuleProxy)[_workletsModuleProxy] = global.__workletsModuleProxy;
+    (0, _classPrivateFieldLooseBase2.default)(this, _serializableNull)[_serializableNull] = (0, _classPrivateFieldLooseBase2.default)(this, _workletsModuleProxy)[_workletsModuleProxy].createSerializableNull();
+    (0, _classPrivateFieldLooseBase2.default)(this, _serializableUndefined)[_serializableUndefined] = (0, _classPrivateFieldLooseBase2.default)(this, _workletsModuleProxy)[_workletsModuleProxy].createSerializableUndefined();
+    (0, _classPrivateFieldLooseBase2.default)(this, _serializableTrue)[_serializableTrue] = (0, _classPrivateFieldLooseBase2.default)(this, _workletsModuleProxy)[_workletsModuleProxy].createSerializableBoolean(true);
+    (0, _classPrivateFieldLooseBase2.default)(this, _serializableFalse)[_serializableFalse] = (0, _classPrivateFieldLooseBase2.default)(this, _workletsModuleProxy)[_workletsModuleProxy].createSerializableBoolean(false);
+  }
+  return (0, _createClass2.default)(NativeWorklets, [{
+    key: "createSerializable",
+    value: function createSerializable(value, shouldPersistRemote, nativeStateSource) {
+      return (0, _classPrivateFieldLooseBase2.default)(this, _workletsModuleProxy)[_workletsModuleProxy].createSerializable(value, shouldPersistRemote, nativeStateSource);
+    }
+  }, {
+    key: "createSerializableImport",
+    value: function createSerializableImport(from, to) {
+      return (0, _classPrivateFieldLooseBase2.default)(this, _workletsModuleProxy)[_workletsModuleProxy].createSerializableImport(from, to);
+    }
+  }, {
+    key: "createSerializableString",
+    value: function createSerializableString(str) {
+      return (0, _classPrivateFieldLooseBase2.default)(this, _workletsModuleProxy)[_workletsModuleProxy].createSerializableString(str);
+    }
+  }, {
+    key: "createSerializableNumber",
+    value: function createSerializableNumber(num) {
+      return (0, _classPrivateFieldLooseBase2.default)(this, _workletsModuleProxy)[_workletsModuleProxy].createSerializableNumber(num);
+    }
+  }, {
+    key: "createSerializableBoolean",
+    value: function createSerializableBoolean(bool) {
+      return bool ? (0, _classPrivateFieldLooseBase2.default)(this, _serializableTrue)[_serializableTrue] : (0, _classPrivateFieldLooseBase2.default)(this, _serializableFalse)[_serializableFalse];
+    }
+  }, {
+    key: "createSerializableBigInt",
+    value: function createSerializableBigInt(bigInt) {
+      return (0, _classPrivateFieldLooseBase2.default)(this, _workletsModuleProxy)[_workletsModuleProxy].createSerializableBigInt(bigInt);
+    }
+  }, {
+    key: "createSerializableUndefined",
+    value: function createSerializableUndefined() {
+      return (0, _classPrivateFieldLooseBase2.default)(this, _serializableUndefined)[_serializableUndefined];
+    }
+  }, {
+    key: "createSerializableNull",
+    value: function createSerializableNull() {
+      return (0, _classPrivateFieldLooseBase2.default)(this, _serializableNull)[_serializableNull];
+    }
+  }, {
+    key: "createSerializableTurboModuleLike",
+    value: function createSerializableTurboModuleLike(props, proto) {
+      return (0, _classPrivateFieldLooseBase2.default)(this, _workletsModuleProxy)[_workletsModuleProxy].createSerializableTurboModuleLike(props, proto);
+    }
+  }, {
+    key: "createSerializableObject",
+    value: function createSerializableObject(obj, shouldRetainRemote, nativeStateSource) {
+      return (0, _classPrivateFieldLooseBase2.default)(this, _workletsModuleProxy)[_workletsModuleProxy].createSerializableObject(obj, shouldRetainRemote, nativeStateSource);
+    }
+  }, {
+    key: "createSerializableHostObject",
+    value: function createSerializableHostObject(obj) {
+      return (0, _classPrivateFieldLooseBase2.default)(this, _workletsModuleProxy)[_workletsModuleProxy].createSerializableHostObject(obj);
+    }
+  }, {
+    key: "createSerializableArray",
+    value: function createSerializableArray(array, shouldRetainRemote) {
+      return (0, _classPrivateFieldLooseBase2.default)(this, _workletsModuleProxy)[_workletsModuleProxy].createSerializableArray(array, shouldRetainRemote);
+    }
+  }, {
+    key: "createSerializableMap",
+    value: function createSerializableMap(keys, values) {
+      return (0, _classPrivateFieldLooseBase2.default)(this, _workletsModuleProxy)[_workletsModuleProxy].createSerializableMap(keys, values);
+    }
+  }, {
+    key: "createSerializableSet",
+    value: function createSerializableSet(values) {
+      return (0, _classPrivateFieldLooseBase2.default)(this, _workletsModuleProxy)[_workletsModuleProxy].createSerializableSet(values);
+    }
+  }, {
+    key: "createSerializableInitializer",
+    value: function createSerializableInitializer(obj) {
+      return (0, _classPrivateFieldLooseBase2.default)(this, _workletsModuleProxy)[_workletsModuleProxy].createSerializableInitializer(obj);
+    }
+  }, {
+    key: "createSerializableFunction",
+    value: function createSerializableFunction(func) {
+      return (0, _classPrivateFieldLooseBase2.default)(this, _workletsModuleProxy)[_workletsModuleProxy].createSerializableFunction(func);
+    }
+  }, {
+    key: "createSerializableWorklet",
+    value: function createSerializableWorklet(worklet, shouldPersistRemote) {
+      return (0, _classPrivateFieldLooseBase2.default)(this, _workletsModuleProxy)[_workletsModuleProxy].createSerializableWorklet(worklet, shouldPersistRemote);
+    }
+  }, {
+    key: "scheduleOnUI",
+    value: function scheduleOnUI(serializable) {
+      return (0, _classPrivateFieldLooseBase2.default)(this, _workletsModuleProxy)[_workletsModuleProxy].scheduleOnUI(serializable);
+    }
+  }, {
+    key: "executeOnUIRuntimeSync",
+    value: function executeOnUIRuntimeSync(serializable) {
+      return (0, _classPrivateFieldLooseBase2.default)(this, _workletsModuleProxy)[_workletsModuleProxy].executeOnUIRuntimeSync(serializable);
+    }
+  }, {
+    key: "createWorkletRuntime",
+    value: function createWorkletRuntime(name, initializer, useDefaultQueue, customQueue, enableEventLoop) {
+      return (0, _classPrivateFieldLooseBase2.default)(this, _workletsModuleProxy)[_workletsModuleProxy].createWorkletRuntime(name, initializer, useDefaultQueue, customQueue, enableEventLoop);
+    }
+  }, {
+    key: "scheduleOnRuntime",
+    value: function scheduleOnRuntime(workletRuntime, serializableWorklet) {
+      return (0, _classPrivateFieldLooseBase2.default)(this, _workletsModuleProxy)[_workletsModuleProxy].scheduleOnRuntime(workletRuntime, serializableWorklet);
+    }
+  }, {
+    key: "createSynchronizable",
+    value: function createSynchronizable(value) {
+      return (0, _classPrivateFieldLooseBase2.default)(this, _workletsModuleProxy)[_workletsModuleProxy].createSynchronizable(value);
+    }
+  }, {
+    key: "synchronizableGetDirty",
+    value: function synchronizableGetDirty(synchronizableRef) {
+      return (0, _classPrivateFieldLooseBase2.default)(this, _workletsModuleProxy)[_workletsModuleProxy].synchronizableGetDirty(synchronizableRef);
+    }
+  }, {
+    key: "synchronizableGetBlocking",
+    value: function synchronizableGetBlocking(synchronizableRef) {
+      return (0, _classPrivateFieldLooseBase2.default)(this, _workletsModuleProxy)[_workletsModuleProxy].synchronizableGetBlocking(synchronizableRef);
+    }
+  }, {
+    key: "synchronizableSetBlocking",
+    value: function synchronizableSetBlocking(synchronizableRef, value) {
+      return (0, _classPrivateFieldLooseBase2.default)(this, _workletsModuleProxy)[_workletsModuleProxy].synchronizableSetBlocking(synchronizableRef, value);
+    }
+  }, {
+    key: "synchronizableLock",
+    value: function synchronizableLock(synchronizableRef) {
+      return (0, _classPrivateFieldLooseBase2.default)(this, _workletsModuleProxy)[_workletsModuleProxy].synchronizableLock(synchronizableRef);
+    }
+  }, {
+    key: "synchronizableUnlock",
+    value: function synchronizableUnlock(synchronizableRef) {
+      return (0, _classPrivateFieldLooseBase2.default)(this, _workletsModuleProxy)[_workletsModuleProxy].synchronizableUnlock(synchronizableRef);
+    }
+  }, {
+    key: "reportFatalErrorOnJS",
+    value: function reportFatalErrorOnJS(message, stack, name, jsEngine) {
+      return (0, _classPrivateFieldLooseBase2.default)(this, _workletsModuleProxy)[_workletsModuleProxy].reportFatalErrorOnJS(message, stack, name, jsEngine);
+    }
+  }, {
+    key: "getStaticFeatureFlag",
+    value: function getStaticFeatureFlag(name) {
+      return (0, _classPrivateFieldLooseBase2.default)(this, _workletsModuleProxy)[_workletsModuleProxy].getStaticFeatureFlag(name);
+    }
+  }, {
+    key: "setDynamicFeatureFlag",
+    value: function setDynamicFeatureFlag(name, value) {
+      (0, _classPrivateFieldLooseBase2.default)(this, _workletsModuleProxy)[_workletsModuleProxy].setDynamicFeatureFlag(name, value);
+    }
+  }]);
+}();
+//# sourceMappingURL=data:application/json;charset=utf-8;base64,eyJ2ZXJzaW9uIjozLCJuYW1lcyI6WyJfaW50ZXJvcFJlcXVpcmVEZWZhdWx0IiwicmVxdWlyZSIsImRlZmF1bHQiLCJPYmplY3QiLCJkZWZpbmVQcm9wZXJ0eSIsImV4cG9ydHMiLCJ2YWx1ZSIsImNyZWF0ZU5hdGl2ZVdvcmtsZXRzTW9kdWxlIiwiX2NsYXNzQ2FsbENoZWNrMiIsIl9jcmVhdGVDbGFzczIiLCJfY2xhc3NQcml2YXRlRmllbGRMb29zZUJhc2UyIiwiX2NsYXNzUHJpdmF0ZUZpZWxkTG9vc2VLZXkyIiwiX3J1bnRpbWVLaW5kIiwiX2luZGV4IiwiX2NoZWNrQ3BwVmVyc2lvbiIsIl9qc1ZlcnNpb24iLCJfV29ya2xldHNFcnJvciIsIk5hdGl2ZVdvcmtsZXRzIiwiX3dvcmtsZXRzTW9kdWxlUHJveHkiLCJfc2VyaWFsaXphYmxlVW5kZWZpbmVkIiwiX3NlcmlhbGl6YWJsZU51bGwiLCJfc2VyaWFsaXphYmxlVHJ1ZSIsIl9zZXJpYWxpemFibGVGYWxzZSIsIndyaXRhYmxlIiwiZ2xvYmFsVGhpcyIsIl9XT1JLTEVUU19WRVJTSU9OX0pTIiwianNWZXJzaW9uIiwiZ2xvYmFsIiwiX193b3JrbGV0c01vZHVsZVByb3h5IiwidW5kZWZpbmVkIiwiX19SVU5USU1FX0tJTkQiLCJSdW50aW1lS2luZCIsIlJlYWN0TmF0aXZlIiwiV29ya2xldHNUdXJib01vZHVsZSIsImluc3RhbGxUdXJib01vZHVsZSIsIldvcmtsZXRzRXJyb3IiLCJfX0RFVl9fIiwiY2hlY2tDcHBWZXJzaW9uIiwiY3JlYXRlU2VyaWFsaXphYmxlTnVsbCIsImNyZWF0ZVNlcmlhbGl6YWJsZVVuZGVmaW5lZCIsImNyZWF0ZVNlcmlhbGl6YWJsZUJvb2xlYW4iLCJrZXkiLCJjcmVhdGVTZXJpYWxpemFibGUiLCJzaG91bGRQZXJzaXN0UmVtb3RlIiwibmF0aXZlU3RhdGVTb3VyY2UiLCJjcmVhdGVTZXJpYWxpemFibGVJbXBvcnQiLCJmcm9tIiwidG8iLCJjcmVhdGVTZXJpYWxpemFibGVTdHJpbmciLCJzdHIiLCJjcmVhdGVTZXJpYWxpemFibGVOdW1iZXIiLCJudW0iLCJib29sIiwiY3JlYXRlU2VyaWFsaXphYmxlQmlnSW50IiwiYmlnSW50IiwiY3JlYXRlU2VyaWFsaXphYmxlVHVyYm9Nb2R1bGVMaWtlIiwicHJvcHMiLCJwcm90byIsImNyZWF0ZVNlcmlhbGl6YWJsZU9iamVjdCIsIm9iaiIsInNob3VsZFJldGFpblJlbW90ZSIsImNyZWF0ZVNlcmlhbGl6YWJsZUhvc3RPYmplY3QiLCJjcmVhdGVTZXJpYWxpemFibGVBcnJheSIsImFycmF5IiwiY3JlYXRlU2VyaWFsaXphYmxlTWFwIiwia2V5cyIsInZhbHVlcyIsImNyZWF0ZVNlcmlhbGl6YWJsZVNldCIsImNyZWF0ZVNlcmlhbGl6YWJsZUluaXRpYWxpemVyIiwiY3JlYXRlU2VyaWFsaXphYmxlRnVuY3Rpb24iLCJmdW5jIiwiY3JlYXRlU2VyaWFsaXphYmxlV29ya2xldCIsIndvcmtsZXQiLCJzY2hlZHVsZU9uVUkiLCJzZXJpYWxpemFibGUiLCJleGVjdXRlT25VSVJ1bnRpbWVTeW5jIiwiY3JlYXRlV29ya2xldFJ1bnRpbWUiLCJuYW1lIiwiaW5pdGlhbGl6ZXIiLCJ1c2VEZWZhdWx0UXVldWUiLCJjdXN0b21RdWV1ZSIsImVuYWJsZUV2ZW50TG9vcCIsInNjaGVkdWxlT25SdW50aW1lIiwid29ya2xldFJ1bnRpbWUiLCJzZXJpYWxpemFibGVXb3JrbGV0IiwiY3JlYXRlU3luY2hyb25pemFibGUiLCJzeW5jaHJvbml6YWJsZUdldERpcnR5Iiwic3luY2hyb25pemFibGVSZWYiLCJzeW5jaHJvbml6YWJsZUdldEJsb2NraW5nIiwic3luY2hyb25pemFibGVTZXRCbG9ja2luZyIsInN5bmNocm9uaXphYmxlTG9jayIsInN5bmNocm9uaXphYmxlVW5sb2NrIiwicmVwb3J0RmF0YWxFcnJvck9uSlMiLCJtZXNzYWdlIiwic3RhY2siLCJqc0VuZ2luZSIsImdldFN0YXRpY0ZlYXR1cmVGbGFnIiwic2V0RHluYW1pY0ZlYXR1cmVGbGFnIl0sInNvdXJjZXMiOlsiLi4vLi4vLi4vc3JjL1dvcmtsZXRzTW9kdWxlL05hdGl2ZVdvcmtsZXRzLnRzIl0sInNvdXJjZXNDb250ZW50IjpbbnVsbF0sIm1hcHBpbmdzIjoiQUFBQSxZQUFZOztBQUFBLElBQUFBLHNCQUFBLEdBQUFDLE9BQUEsaURBQUFDLE9BQUE7QUFBQUMsTUFBQSxDQUFBQyxjQUFBLENBQUFDLE9BQUE7RUFBQUMsS0FBQTtBQUFBO0FBQUFELE9BQUEsQ0FBQUUsMEJBQUEsR0FBQUEsMEJBQUE7QUFBQSxJQUFBQyxnQkFBQSxHQUFBUixzQkFBQSxDQUFBQyxPQUFBO0FBQUEsSUFBQVEsYUFBQSxHQUFBVCxzQkFBQSxDQUFBQyxPQUFBO0FBQUEsSUFBQVMsNEJBQUEsR0FBQVYsc0JBQUEsQ0FBQUMsT0FBQTtBQUFBLElBQUFVLDJCQUFBLEdBQUFYLHNCQUFBLENBQUFDLE9BQUE7QUFFWixJQUFBVyxZQUFBLEdBQUFYLE9BQUE7QUFDQSxJQUFBWSxNQUFBLEdBQUFaLE9BQUE7QUFFQSxJQUFBYSxnQkFBQSxHQUFBYixPQUFBO0FBQ0EsSUFBQWMsVUFBQSxHQUFBZCxPQUFBO0FBQ0EsSUFBQWUsY0FBQSxHQUFBZixPQUFBO0FBT08sU0FBU00sMEJBQTBCQSxDQUFBLEVBQW9CO0VBQzVELE9BQU8sSUFBSVUsY0FBYyxDQUFDLENBQUM7QUFDN0I7QUFBQSxJQUFBQyxvQkFBQSxPQUFBUCwyQkFBQSxDQUFBVCxPQUFBO0FBQUEsSUFBQWlCLHNCQUFBLE9BQUFSLDJCQUFBLENBQUFULE9BQUE7QUFBQSxJQUFBa0IsaUJBQUEsT0FBQVQsMkJBQUEsQ0FBQVQsT0FBQTtBQUFBLElBQUFtQixpQkFBQSxPQUFBViwyQkFBQSxDQUFBVCxPQUFBO0FBQUEsSUFBQW9CLGtCQUFBLE9BQUFYLDJCQUFBLENBQUFULE9BQUE7QUFBQSxJQUVNZSxjQUFjO0VBT2xCLFNBQUFBLGVBQUEsRUFBYztJQUFBLElBQUFULGdCQUFBLENBQUFOLE9BQUEsUUFBQWUsY0FBQTtJQUFBZCxNQUFBLENBQUFDLGNBQUEsT0FBQWMsb0JBQUE7TUFB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

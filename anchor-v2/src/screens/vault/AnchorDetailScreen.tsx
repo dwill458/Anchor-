@@ -149,6 +149,7 @@ export const AnchorDetailScreen: React.FC = () => {
       anchorId: anchor.id,
       intention: anchor.intentionText,
       sigilSvg: anchor.baseSigilSvg,
+      enhancedImageUrl: anchor.enhancedImageUrl,
     });
   };
 

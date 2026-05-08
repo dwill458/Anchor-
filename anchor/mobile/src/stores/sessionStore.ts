@@ -6,10 +6,24 @@
  */
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import { encryptedPersistStorage } from './encryptedPersistStorage';
 import { useTeachingStore } from './teachingStore';
 import { apiClient } from '@/services/ApiClient';
 import { useAuthStore } from '@/stores/authStore';
+import { useSettingsStore } from '@/stores/settingsStore';
+import {
+  buildPrimingHistoryEntry,
+  getIsoWeekdayIndex,
+  isoWeekKey,
+  isPrimingSessionType,
+  localDateString,
+  localWeekStartString,
+  type PrimingHistoryEntry,
+} from '@/utils/primingAnalytics';
+import {
+  calculateThreadDecay,
+  getThreadDecayStartDay,
+} from '@/utils/threadStrength';
 
 export type SessionType = 'activate' | 'reinforce' | 'stabilize';
 export type SessionMode = 'silent' | 'mantra' | 'ambient';
@@ -62,6 +76,10 @@ interface SessionState {
   weekHistory: boolean[];
   /** ISO week key (e.g. "2026-W11") — used to detect week rollover. */
   weekHistoryKey: string;
+  /** Uncapped priming history with local day/time metadata for analytics. */
+  primingHistory: PrimingHistoryEntry[];
+  /** Monday date for the user's first tracked priming week. */
+  journeyWeekStart: string | null;
   /** YYYY-MM-DD of the last day decay was applied — prevents double-apply. */
   lastDecayDate: string | null;
 
@@ -72,22 +90,8 @@ interface SessionState {
   resetIfNewDay: () => void;
   /** Apply thread strength decay for missed days. Call on app open / screen focus. */
   applyDecay: () => void;
-}
-
-// ─── Helpers ─────────────────────────────────────────────────────────────────
-
-function localDateString(d: Date): string {
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-}
-
-/** ISO week key: e.g. "2026-W07" */
-function isoWeekKey(d: Date): string {
-  const tmp = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
-  const dayOfWeek = tmp.getUTCDay() || 7; // Monday = 1
-  tmp.setUTCDate(tmp.getUTCDate() + 4 - dayOfWeek);
-  const yearStart = new Date(Date.UTC(tmp.getUTCFullYear(), 0, 1));
-  const weekNo = Math.ceil(((tmp.getTime() - yearStart.getTime()) / 86400000 + 1) / 7);
-  return `${tmp.getUTCFullYear()}-W${String(weekNo).padStart(2, '0')}`;
+  /** Applies an explicit, non-session-based thread strength delta. */
+  bumpThreadStrength: (delta: number) => void;
 }
 
 const EMPTY_TODAY = (): DayPractice => ({ date: localDateString(new Date()), sessionsCount: 0, totalSeconds: 0 });
@@ -95,6 +99,96 @@ const EMPTY_WEEK = (): WeekPractice => ({ weekKey: isoWeekKey(new Date()), sessi
 const EMPTY_WEEK_HISTORY = (): boolean[] => [false, false, false, false, false, false, false];
 
 const LOG_CAP = 50;
+
+function parseLocalDate(dateString: string): Date {
+  const [year, month, day] = dateString.split('-').map(Number);
+  return new Date(year, (month ?? 1) - 1, day ?? 1, 12, 0, 0, 0);
+}
+
+function countDecayEligibleDays(
+  startDateExclusive: string,
+  endDateInclusive: string,
+  restDays: number[]
+): number {
+  const start = parseLocalDate(startDateExclusive);
+  const end = parseLocalDate(endDateInclusive);
+  if (end.getTime() <= start.getTime()) {
+    return 0;
+  }
+
+  const restDaySet = new Set(restDays);
+  const cursor = new Date(start);
+  cursor.setDate(cursor.getDate() + 1);
+
+  let eligibleDays = 0;
+  while (cursor.getTime() <= end.getTime()) {
+    if (!restDaySet.has(cursor.getDay())) {
+      eligibleDays += 1;
+    }
+    cursor.setDate(cursor.getDate() + 1);
+  }
+
+  return eligibleDays;
+}
+
+function coercePrimingHistory(entries: unknown): PrimingHistoryEntry[] {
+  if (!Array.isArray(entries)) {
+    return [];
+  }
+
+  return entries
+    .map((entry) => {
+      if (
+        !entry ||
+        typeof entry !== 'object' ||
+        typeof (entry as PrimingHistoryEntry).id !== 'string' ||
+        typeof (entry as PrimingHistoryEntry).anchorId !== 'string' ||
+        !isPrimingSessionType(String((entry as PrimingHistoryEntry).type)) ||
+        typeof (entry as PrimingHistoryEntry).completedAt !== 'string' ||
+        typeof (entry as PrimingHistoryEntry).localDate !== 'string' ||
+        typeof (entry as PrimingHistoryEntry).weekKey !== 'string' ||
+        typeof (entry as PrimingHistoryEntry).weekStart !== 'string' ||
+        typeof (entry as PrimingHistoryEntry).weekdayIndex !== 'number' ||
+        typeof (entry as PrimingHistoryEntry).hourOfDay !== 'number' ||
+        typeof (entry as PrimingHistoryEntry).timeOfDay !== 'string'
+      ) {
+        return null;
+      }
+
+      return entry as PrimingHistoryEntry;
+    })
+    .filter((entry): entry is PrimingHistoryEntry => entry !== null);
+}
+
+function derivePrimingHistoryFromSessionLog(sessionLog: unknown): PrimingHistoryEntry[] {
+  if (!Array.isArray(sessionLog)) {
+    return [];
+  }
+
+  return sessionLog
+    .map((entry, index) => {
+      if (
+        !entry ||
+        typeof entry !== 'object' ||
+        typeof (entry as SessionLogEntry).anchorId !== 'string' ||
+        !isPrimingSessionType(String((entry as SessionLogEntry).type)) ||
+        typeof (entry as SessionLogEntry).completedAt !== 'string'
+      ) {
+        return null;
+      }
+
+      return buildPrimingHistoryEntry({
+        id:
+          typeof (entry as SessionLogEntry).id === 'string'
+            ? (entry as SessionLogEntry).id
+            : `migrated-prime-${index}`,
+        anchorId: (entry as SessionLogEntry).anchorId,
+        type: (entry as SessionLogEntry).type as 'activate' | 'reinforce',
+        completedAt: (entry as SessionLogEntry).completedAt,
+      });
+    })
+    .filter((entry): entry is PrimingHistoryEntry => entry !== null);
+}
 
 // ─── Store ────────────────────────────────────────────────────────────────────
 
@@ -111,6 +205,8 @@ export const useSessionStore = create<SessionState>()(
       lastPrimedAt: null,
       weekHistory: EMPTY_WEEK_HISTORY(),
       weekHistoryKey: isoWeekKey(new Date()),
+      primingHistory: [],
+      journeyWeekStart: null,
       lastDecayDate: null,
 
       recordSession: (entry) => {
@@ -122,12 +218,25 @@ export const useSessionStore = create<SessionState>()(
         const id = `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
         const full: SessionLogEntry = { id, ...entry };
 
-        const now = new Date();
-        const todayKey = localDateString(now);
-        const weekKey = isoWeekKey(now);
+        const completedAtDate = new Date(entry.completedAt);
+        const eventDate = Number.isNaN(completedAtDate.getTime()) ? new Date() : completedAtDate;
+        const todayKey = localDateString(eventDate);
+        const weekKey = isoWeekKey(eventDate);
+        const weekStart = localWeekStartString(eventDate);
         // Mon=0 … Sun=6
-        const dayOfWeek = (now.getDay() + 6) % 7;
-        const isPrimingSession = entry.type === 'activate' || entry.type === 'reinforce';
+        const dayOfWeek = getIsoWeekdayIndex(eventDate);
+        const isPrimingSession = isPrimingSessionType(entry.type);
+        const { restDays, restDayPolicy } = useSettingsStore.getState();
+        const isRestDay = restDays.includes(eventDate.getDay());
+        const shouldBuildThread = !isRestDay || restDayPolicy === 'build';
+        const primingHistoryEntry = isPrimingSession
+          ? buildPrimingHistoryEntry({
+            id,
+            anchorId: entry.anchorId,
+            type: entry.type as 'activate' | 'reinforce',
+            completedAt: entry.completedAt,
+          })
+          : null;
 
         set((state) => {
           // Reset today counters if date has changed
@@ -150,12 +259,15 @@ export const useSessionStore = create<SessionState>()(
           let lastPrimedAt = state.lastPrimedAt;
           let weekHistory = state.weekHistory;
           let weekHistoryKey = state.weekHistoryKey;
+          let primingHistory = state.primingHistory;
+          let journeyWeekStart = state.journeyWeekStart;
 
           if (isPrimingSession) {
-            const gain = entry.type === 'reinforce' ? 40 : 25;
-            threadStrength = Math.min(100, threadStrength + gain);
             totalSessionsCount = state.totalSessionsCount + 1;
-            lastPrimedAt = todayKey;
+            if (primingHistoryEntry) {
+              primingHistory = [primingHistoryEntry, ...state.primingHistory];
+              journeyWeekStart = state.journeyWeekStart ?? primingHistoryEntry.weekStart ?? weekStart;
+            }
             // Reset week history on new week
             if (state.weekHistoryKey !== weekKey) {
               weekHistory = EMPTY_WEEK_HISTORY();
@@ -164,6 +276,12 @@ export const useSessionStore = create<SessionState>()(
               weekHistory = [...state.weekHistory];
             }
             weekHistory[dayOfWeek] = true;
+
+            if (shouldBuildThread) {
+              const gain = entry.type === 'reinforce' ? 40 : 25;
+              threadStrength = Math.min(100, threadStrength + gain);
+              lastPrimedAt = todayKey;
+            }
           }
 
           return {
@@ -184,6 +302,8 @@ export const useSessionStore = create<SessionState>()(
             lastPrimedAt,
             weekHistory,
             weekHistoryKey,
+            primingHistory,
+            journeyWeekStart,
           };
         });
 
@@ -238,60 +358,89 @@ export const useSessionStore = create<SessionState>()(
 
       applyDecay: () => {
         const { lastPrimedAt, threadStrength, lastDecayDate } = get();
+        const { threadStrengthSensitivity, restDays } = useSettingsStore.getState();
         const today = localDateString(new Date());
 
         // Already applied decay today — skip
         if (lastDecayDate === today) return;
 
-        // Mark decay as processed for today
-        set({ lastDecayDate: today });
-
         // Never primed or primed today — no decay
-        if (!lastPrimedAt || lastPrimedAt === today) return;
-
-        const primedMs = new Date(lastPrimedAt).getTime();
-        const todayMs = new Date(today).getTime();
-        const daysMissed = Math.max(0, Math.floor((todayMs - primedMs) / 86400000));
-        if (daysMissed <= 0) return;
-
-        // Days already accounted for (between lastPrimedAt and lastDecayDate)
-        const daysAlreadyDecayed = lastDecayDate
-          ? Math.max(0, Math.floor((new Date(lastDecayDate).getTime() - primedMs) / 86400000))
-          : 0;
-
-        if (daysAlreadyDecayed >= daysMissed) return;
-
-        // Apply incremental decay for each new missed day
-        let newStrength = threadStrength;
-        for (let d = daysAlreadyDecayed + 1; d <= daysMissed; d++) {
-          if (d === 1) {
-            newStrength = Math.max(10, newStrength - 30);
-          } else {
-            newStrength = Math.max(5, newStrength - 15);
-          }
+        if (!lastPrimedAt || lastPrimedAt === today) {
+          set({ lastDecayDate: today });
+          return;
         }
 
-        set({ threadStrength: newStrength });
+        const decayEligibleMissedDays = countDecayEligibleDays(lastPrimedAt, today, restDays);
+        const daysAlreadyDecayed = lastDecayDate
+          ? countDecayEligibleDays(lastPrimedAt, lastDecayDate, restDays)
+          : 0;
+
+        if (daysAlreadyDecayed >= decayEligibleMissedDays) {
+          set({ lastDecayDate: today });
+          return;
+        }
+
+        let newStrength = threadStrength;
+        const decayStartDay = getThreadDecayStartDay(threadStrengthSensitivity);
+
+        for (let missedDay = daysAlreadyDecayed + 1; missedDay <= decayEligibleMissedDays; missedDay += 1) {
+          const previousPenalty = calculateThreadDecay(missedDay - 1, threadStrengthSensitivity);
+          const nextPenalty = calculateThreadDecay(missedDay, threadStrengthSensitivity);
+          const penaltyDelta = nextPenalty - previousPenalty;
+
+          if (penaltyDelta <= 0) {
+            continue;
+          }
+
+          const minimumStrengthFloor = missedDay === decayStartDay ? 10 : 5;
+          newStrength = Math.max(minimumStrengthFloor, newStrength - penaltyDelta);
+        }
+
+        set({ threadStrength: newStrength, lastDecayDate: today });
+      },
+
+      bumpThreadStrength: (delta) => {
+        if (!Number.isFinite(delta) || delta === 0) {
+          return;
+        }
+
+        set((state) => ({
+          threadStrength: Math.max(0, Math.min(100, state.threadStrength + delta)),
+        }));
       },
     }),
     {
       name: 'anchor-session-storage',
-      storage: createJSONStorage(() => AsyncStorage),
-      version: 2,
+      storage: createJSONStorage(() => encryptedPersistStorage),
+      version: 3,
       migrate: (persistedState: unknown, version: number) => {
+        const s = (persistedState as Partial<SessionState>) ?? {};
+        const migratedState: Partial<SessionState> = { ...s };
+
         if (version < 2) {
-          const s = persistedState as Partial<SessionState>;
-          return {
-            ...s,
-            threadStrength: 50,
-            totalSessionsCount: 0,
-            lastPrimedAt: null,
-            weekHistory: EMPTY_WEEK_HISTORY(),
-            weekHistoryKey: isoWeekKey(new Date()),
-            lastDecayDate: null,
-          };
+          migratedState.threadStrength = 50;
+          migratedState.totalSessionsCount = 0;
+          migratedState.lastPrimedAt = null;
+          migratedState.weekHistory = EMPTY_WEEK_HISTORY();
+          migratedState.weekHistoryKey = isoWeekKey(new Date());
+          migratedState.lastDecayDate = null;
         }
-        return persistedState as SessionState;
+
+        if (version < 3) {
+          const primingHistory = derivePrimingHistoryFromSessionLog(s.sessionLog);
+          const existingPrimingHistory = coercePrimingHistory(s.primingHistory);
+          const hydratedPrimingHistory =
+            existingPrimingHistory.length > 0 ? existingPrimingHistory : primingHistory;
+          const oldestPrimingEntry = hydratedPrimingHistory[hydratedPrimingHistory.length - 1] ?? null;
+
+          migratedState.primingHistory = hydratedPrimingHistory;
+          migratedState.journeyWeekStart =
+            typeof s.journeyWeekStart === 'string'
+              ? s.journeyWeekStart
+              : oldestPrimingEntry?.weekStart ?? null;
+        }
+
+        return migratedState as SessionState;
       },
     }
   )

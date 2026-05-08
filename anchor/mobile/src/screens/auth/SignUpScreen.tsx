@@ -23,20 +23,18 @@ import { StackNavigationProp } from '@react-navigation/stack';
 import { colors, spacing, typography } from '@/theme';
 import { useAuthStore } from '../../stores/authStore';
 import { AuthService } from '../../services/AuthService';
+import type { AuthScreenParams, OnboardingStackParamList, RootStackParamList } from '@/types';
 
-type AuthStackParamList = {
-  Login: undefined;
-  SignUp: undefined;
-  Onboarding: undefined;
-};
+type SharedAuthParamList = RootStackParamList & OnboardingStackParamList;
 
-type SignUpScreenNavigationProp = StackNavigationProp<AuthStackParamList, 'SignUp'>;
+type SignUpScreenNavigationProp = StackNavigationProp<SharedAuthParamList, 'SignUp'>;
 
 interface SignUpScreenProps {
   navigation: SignUpScreenNavigationProp;
+  route?: { params?: AuthScreenParams };
 }
 
-export const SignUpScreen: React.FC<SignUpScreenProps> = ({ navigation }) => {
+export const SignUpScreen: React.FC<SignUpScreenProps> = ({ navigation, route }) => {
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -46,6 +44,7 @@ export const SignUpScreen: React.FC<SignUpScreenProps> = ({ navigation }) => {
   const [focusedField, setFocusedField] = useState<string | null>(null);
 
   const { setSession } = useAuthStore();
+  const context = route?.params?.context;
 
   const fadeAnim = React.useRef(new Animated.Value(0)).current;
 
@@ -69,8 +68,14 @@ export const SignUpScreen: React.FC<SignUpScreenProps> = ({ navigation }) => {
     }
     setLoading(true);
     try {
-      const result = await AuthService.signUpWithEmail(email, password, name);
+      const result = await AuthService.signUpWithEmail(email, password, name, {
+        hasCompletedOnboarding: context === 'first_anchor_gate' ? true : undefined,
+      });
       setSession(result.user, result.token);
+
+      if (context === 'first_anchor_gate') {
+        navigation.replace('FirstAnchorAccountGate');
+      }
     } catch (err: any) {
       setError(err.message || 'Sign up failed');
     } finally {
@@ -179,7 +184,7 @@ export const SignUpScreen: React.FC<SignUpScreenProps> = ({ navigation }) => {
 
               <View style={styles.footer}>
                 <Text style={styles.footerText}>Already have an account? </Text>
-                <TouchableOpacity onPress={() => navigation.navigate('Login')}>
+                <TouchableOpacity onPress={() => navigation.navigate('Login', route?.params)}>
                   <Text style={styles.footerLink}>Sign In</Text>
                 </TouchableOpacity>
               </View>

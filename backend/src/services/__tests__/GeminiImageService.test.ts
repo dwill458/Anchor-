@@ -106,22 +106,22 @@ describe('GeminiImageService', () => {
   describe('getCostEstimate', () => {
     it('should calculate cost for draft tier (1 variation)', () => {
       const service = new GeminiImageService();
-      // draft: $0.01 per image
+      // draft: $0.005 per image
       const cost = service.getCostEstimate(1, 'draft');
-      expect(cost).toBe(0.01);
+      expect(cost).toBe(0.005);
     });
 
     it('should calculate cost for draft tier (2 variations)', () => {
       const service = new GeminiImageService();
       const cost = service.getCostEstimate(2, 'draft');
-      expect(cost).toBe(0.02);
+      expect(cost).toBe(0.01);
     });
 
     it('should calculate cost for premium tier (4 variations)', () => {
       const service = new GeminiImageService();
-      // premium: $0.02 per image × 4 = $0.08
+      // premium: $0.005 per image × 4 = $0.02
       const cost = service.getCostEstimate(4, 'premium');
-      expect(cost).toBe(0.08);
+      expect(cost).toBe(0.02);
     });
 
     it('should calculate cost for pro_upgrade tier (4 variations)', () => {
@@ -133,8 +133,8 @@ describe('GeminiImageService', () => {
 
     it('should default to 4 variations and premium tier', () => {
       const service = new GeminiImageService();
-      // premium: $0.02 × 4 = $0.08
-      expect(service.getCostEstimate()).toBe(0.08);
+      // premium: $0.005 × 4 = $0.02
+      expect(service.getCostEstimate()).toBe(0.02);
     });
   });
 
@@ -153,10 +153,10 @@ describe('GeminiImageService', () => {
 
     it('should return time bounds for premium tier', () => {
       const service = new GeminiImageService();
-      // premium: estimatedTimeSeconds = 4, so min = 12, max = 24
+      // premium: estimatedTimeSeconds = 3, so min = 9, max = 18
       const estimate = service.getTimeEstimate('premium');
-      expect(estimate.min).toBe(12);
-      expect(estimate.max).toBe(24);
+      expect(estimate.min).toBe(9);
+      expect(estimate.max).toBe(18);
     });
 
     it('should return time bounds for pro_upgrade tier', () => {

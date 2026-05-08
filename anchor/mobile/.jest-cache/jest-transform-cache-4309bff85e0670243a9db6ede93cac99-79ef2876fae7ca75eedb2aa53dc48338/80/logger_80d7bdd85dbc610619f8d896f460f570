@@ -1,0 +1,205 @@
+38fe9e2a57827b5544c728b4d99dd3a9
+'use strict';
+
+Object.defineProperty(exports, "__esModule", {
+  value: true
+});
+exports.updateLoggerConfig = exports.logger = exports.getLoggerConfig = exports.ReanimatedLogLevel = void 0;
+var PREFIX = '[Reanimated]';
+var DOCS_URL = 'https://docs.swmansion.com/react-native-reanimated/docs/debugging/logger-configuration';
+var DOCS_REFERENCE = `If you don't want to see this message, you can disable the \`strict\` mode. Refer to:\n${DOCS_URL} for more details.`;
+var ReanimatedLogLevel = exports.ReanimatedLogLevel = function (ReanimatedLogLevel) {
+  ReanimatedLogLevel[ReanimatedLogLevel["warn"] = 1] = "warn";
+  ReanimatedLogLevel[ReanimatedLogLevel["error"] = 2] = "error";
+  return ReanimatedLogLevel;
+}({});
+var _worklet_13128826946940_init_data = {
+  code: "function logToConsole_loggerTs1(data){const{ReanimatedLogLevel}=this.__closure;switch(data.level){case ReanimatedLogLevel.warn:console.warn(data.message);break;case ReanimatedLogLevel.error:console.error(data.message);break;}}",
+  location: "C:\\Users\\dwill\\.gemini\\antigravity\\scratch\\Anchor\\anchor\\mobile\\node_modules\\react-native-reanimated\\src\\common\\logger.ts",
+  sourceMap: "{\"version\":3,\"names\":[\"logToConsole_loggerTs1\",\"data\",\"ReanimatedLogLevel\",\"__closure\",\"level\",\"warn\",\"console\",\"message\",\"error\"],\"sources\":[\"C:/Users/dwill/.gemini/antigravity/scratch/Anchor/anchor/mobile/node_modules/react-native-reanimated/src/common/logger.ts\"],\"mappings\":\"AA6BA,SAAAA,sBAAqCA,CAAAC,IAAA,QAAAC,kBAAA,OAAAC,SAAA,CAEnC,OAAQF,IAAI,CAACG,KAAK,EAChB,IAAK,CAAAF,kBAAkB,CAACG,IAAI,CAC1BC,OAAO,CAACD,IAAI,CAACJ,IAAI,CAACM,OAAO,CAAC,CAC1B,MACF,IAAK,CAAAL,kBAAkB,CAACM,KAAK,CAC3BF,OAAO,CAACE,KAAK,CAACP,IAAI,CAACM,OAAO,CAAC,CAC3B,MACJ,CACF\",\"ignoreList\":[]}"
+};
+var logToConsole = function logToConsole_loggerTs1Factory(_ref) {
+  var _worklet_13128826946940_init_data = _ref._worklet_13128826946940_init_data,
+    ReanimatedLogLevel = _ref.ReanimatedLogLevel;
+  var _e = [new global.Error(), -2, -27];
+  var logToConsole = function logToConsole(data) {
+    switch (data.level) {
+      case ReanimatedLogLevel.warn:
+        console.warn(data.message);
+        break;
+      case ReanimatedLogLevel.error:
+        console.error(data.message);
+        break;
+    }
+  };
+  logToConsole.__closure = {
+    ReanimatedLogLevel: ReanimatedLogLevel
+  };
+  logToConsole.__workletHash = 13128826946940;
+  logToConsole.__pluginVersion = "0.5.1";
+  logToConsole.__initData = _worklet_13128826946940_init_data;
+  logToConsole.__stackDetails = _e;
+  return logToConsole;
+}({
+  _worklet_13128826946940_init_data: _worklet_13128826946940_init_data,
+  ReanimatedLogLevel: ReanimatedLogLevel
+});
+var DEFAULT_LOGGER_CONFIG = {
+  logFunction: logToConsole,
+  level: ReanimatedLogLevel.warn,
+  strict: true
+};
+var _worklet_9702617282885_init_data = {
+  code: "function getLoggerConfig_loggerTs2(){const{DEFAULT_LOGGER_CONFIG}=this.__closure;if(!global.__reanimatedLoggerConfig){global.__reanimatedLoggerConfig=DEFAULT_LOGGER_CONFIG;}return global.__reanimatedLoggerConfig;}",
+  location: "C:\\Users\\dwill\\.gemini\\antigravity\\scratch\\Anchor\\anchor\\mobile\\node_modules\\react-native-reanimated\\src\\common\\logger.ts",
+  sourceMap: "{\"version\":3,\"names\":[\"getLoggerConfig_loggerTs2\",\"DEFAULT_LOGGER_CONFIG\",\"__closure\",\"global\",\"__reanimatedLoggerConfig\"],\"sources\":[\"C:/Users/dwill/.gemini/antigravity/scratch/Anchor/anchor/mobile/node_modules/react-native-reanimated/src/common/logger.ts\"],\"mappings\":\"AAoDO,SAAAA,yBAA2BA,CAAA,QAAAC,qBAAA,OAAAC,SAAA,CAEhC,GAAI,CAACC,MAAM,CAACC,wBAAwB,CAAE,CACpCD,MAAM,CAACC,wBAAwB,CAAGH,qBAAqB,CACzD,CACA,MAAO,CAAAE,MAAM,CAACC,wBAAwB,CACxC\",\"ignoreList\":[]}"
+};
+var getLoggerConfig = exports.getLoggerConfig = function getLoggerConfig_loggerTs2Factory(_ref2) {
+  var _worklet_9702617282885_init_data = _ref2._worklet_9702617282885_init_data,
+    DEFAULT_LOGGER_CONFIG = _ref2.DEFAULT_LOGGER_CONFIG;
+  var _e = [new global.Error(), -2, -27];
+  var getLoggerConfig = function getLoggerConfig() {
+    if (!global.__reanimatedLoggerConfig) {
+      global.__reanimatedLoggerConfig = DEFAULT_LOGGER_CONFIG;
+    }
+    return global.__reanimatedLoggerConfig;
+  };
+  getLoggerConfig.__closure = {
+    DEFAULT_LOGGER_CONFIG: DEFAULT_LOGGER_CONFIG
+  };
+  getLoggerConfig.__workletHash = 9702617282885;
+  getLoggerConfig.__pluginVersion = "0.5.1";
+  getLoggerConfig.__initData = _worklet_9702617282885_init_data;
+  getLoggerConfig.__stackDetails = _e;
+  return getLoggerConfig;
+}({
+  _worklet_9702617282885_init_data: _worklet_9702617282885_init_data,
+  DEFAULT_LOGGER_CONFIG: DEFAULT_LOGGER_CONFIG
+});
+var _worklet_11404361802805_init_data = {
+  code: "function updateLoggerConfig_loggerTs3(currentConfig,options){const{DEFAULT_LOGGER_CONFIG}=this.__closure;var _options$level,_options$strict;global.__reanimatedLoggerConfig={...currentConfig,level:(_options$level=options===null||options===void 0?void 0:options.level)!==null&&_options$level!==void 0?_options$level:DEFAULT_LOGGER_CONFIG.level,strict:(_options$strict=options===null||options===void 0?void 0:options.strict)!==null&&_options$strict!==void 0?_options$strict:DEFAULT_LOGGER_CONFIG.strict};}",
+  location: "C:\\Users\\dwill\\.gemini\\antigravity\\scratch\\Anchor\\anchor\\mobile\\node_modules\\react-native-reanimated\\src\\common\\logger.ts",
+  sourceMap: "{\"version\":3,\"names\":[\"updateLoggerConfig_loggerTs3\",\"currentConfig\",\"options\",\"DEFAULT_LOGGER_CONFIG\",\"__closure\",\"_options$level\",\"_options$strict\",\"global\",\"__reanimatedLoggerConfig\",\"level\",\"strict\"],\"sources\":[\"C:/Users/dwill/.gemini/antigravity/scratch/Anchor/anchor/mobile/node_modules/react-native-reanimated/src/common/logger.ts\"],\"mappings\":\"AAsEO,SAAAA,4BACLA,CAAAC,aAC+B,CAC/BC,OAAA,QAAAC,qBAAA,OAAAC,SAAA,KAAAC,cAAA,CAAAC,eAAA,CAEAC,MAAM,CAACC,wBAAwB,CAAG,CAChC,GAAGP,aAAa,CAEhBQ,KAAK,EAAAJ,cAAA,CAAEH,OAAO,SAAPA,OAAO,iBAAPA,OAAO,CAAEO,KAAK,UAAAJ,cAAA,UAAAA,cAAA,CAAIF,qBAAqB,CAACM,KAAK,CACpDC,MAAM,EAAAJ,eAAA,CAAEJ,OAAO,SAAPA,OAAO,iBAAPA,OAAO,CAAEQ,MAAM,UAAAJ,eAAA,UAAAA,eAAA,CAAIH,qBAAqB,CAACO,MACnD,CAAC,CACH\",\"ignoreList\":[]}"
+};
+var updateLoggerConfig = exports.updateLoggerConfig = function updateLoggerConfig_loggerTs3Factory(_ref3) {
+  var _worklet_11404361802805_init_data = _ref3._worklet_11404361802805_init_data,
+    DEFAULT_LOGGER_CONFIG = _ref3.DEFAULT_LOGGER_CONFIG;
+  var _e = [new global.Error(), -2, -27];
+  var updateLoggerConfig = function updateLoggerConfig(currentConfig, options) {
+    var _options$level, _options$strict;
+    global.__reanimatedLoggerConfig = Object.assign({}, currentConfig, {
+      level: (_options$level = options == null ? void 0 : options.level) != null ? _options$level : DEFAULT_LOGGER_CONFIG.level,
+      strict: (_options$strict = options == null ? void 0 : options.strict) != null ? _options$strict : DEFAULT_LOGGER_CONFIG.strict
+    });
+  };
+  updateLoggerConfig.__closure = {
+    DEFAULT_LOGGER_CONFIG: DEFAULT_LOGGER_CONFIG
+  };
+  updateLoggerConfig.__workletHash = 11404361802805;
+  updateLoggerConfig.__pluginVersion = "0.5.1";
+  updateLoggerConfig.__initData = _worklet_11404361802805_init_data;
+  updateLoggerConfig.__stackDetails = _e;
+  return updateLoggerConfig;
+}({
+  _worklet_11404361802805_init_data: _worklet_11404361802805_init_data,
+  DEFAULT_LOGGER_CONFIG: DEFAULT_LOGGER_CONFIG
+});
+var _worklet_2107691615445_init_data = {
+  code: "function handleLog_loggerTs4(level,message,options){const{getLoggerConfig,DOCS_REFERENCE,PREFIX}=this.__closure;const config=getLoggerConfig();if(options.strict&&!config.strict||level<config.level){return;}if(options.strict){message+=\"\\n\\n\"+DOCS_REFERENCE;}config.logFunction({level:level,message:PREFIX+\" \"+message});}",
+  location: "C:\\Users\\dwill\\.gemini\\antigravity\\scratch\\Anchor\\anchor\\mobile\\node_modules\\react-native-reanimated\\src\\common\\logger.ts",
+  sourceMap: "{\"version\":3,\"names\":[\"handleLog_loggerTs4\",\"level\",\"message\",\"options\",\"getLoggerConfig\",\"DOCS_REFERENCE\",\"PREFIX\",\"__closure\",\"config\",\"strict\",\"logFunction\"],\"sources\":[\"C:/Users/dwill/.gemini/antigravity/scratch/Anchor/anchor/mobile/node_modules/react-native-reanimated/src/common/logger.ts\"],\"mappings\":\"AAuFA,SAAAA,mBAEEA,CAAAC,KAAe,CACfC,OAAmB,CACnBC,OAAA,QAAAC,eAAA,CAAAC,cAAA,CAAAC,MAAA,OAAAC,SAAA,CAEA,KAAM,CAAAC,MAAM,CAAGJ,eAAe,CAAC,CAAC,CAChC,GAGGD,OAAO,CAACM,MAAM,EAAI,CAACD,MAAM,CAACC,MAAM,EAEjCR,KAAK,CAAGO,MAAM,CAACP,KAAK,CACpB,CACA,OACF,CAEA,GAAIE,OAAO,CAACM,MAAM,CAAE,CAClBP,OAAO,SAAWG,cAAgB,CACpC,CAEAG,MAAM,CAACE,WAAW,CAAC,CACjBT,KAAK,CAALA,KAAK,CACLC,OAAO,CAAKI,MAAM,KAAIJ,OACxB,CAAC,CAAC,CACJ\",\"ignoreList\":[]}"
+};
+var handleLog = function handleLog_loggerTs4Factory(_ref4) {
+  var _worklet_2107691615445_init_data = _ref4._worklet_2107691615445_init_data,
+    getLoggerConfig = _ref4.getLoggerConfig,
+    DOCS_REFERENCE = _ref4.DOCS_REFERENCE,
+    PREFIX = _ref4.PREFIX;
+  var _e = [new global.Error(), -4, -27];
+  var handleLog = function handleLog(level, message, options) {
+    var config = getLoggerConfig();
+    if (options.strict && !config.strict || level < config.level) {
+      return;
+    }
+    if (options.strict) {
+      message += `\n\n${DOCS_REFERENCE}`;
+    }
+    config.logFunction({
+      level: level,
+      message: `${PREFIX} ${message}`
+    });
+  };
+  handleLog.__closure = {
+    getLoggerConfig: getLoggerConfig,
+    DOCS_REFERENCE: DOCS_REFERENCE,
+    PREFIX: PREFIX
+  };
+  handleLog.__workletHash = 2107691615445;
+  handleLog.__pluginVersion = "0.5.1";
+  handleLog.__initData = _worklet_2107691615445_init_data;
+  handleLog.__stackDetails = _e;
+  return handleLog;
+}({
+  _worklet_2107691615445_init_data: _worklet_2107691615445_init_data,
+  getLoggerConfig: getLoggerConfig,
+  DOCS_REFERENCE: DOCS_REFERENCE,
+  PREFIX: PREFIX
+});
+var _worklet_7967196972200_init_data = {
+  code: "function warn_loggerTs5(message,options={}){const{handleLog,ReanimatedLogLevel}=this.__closure;handleLog(ReanimatedLogLevel.warn,message,options);}",
+  location: "C:\\Users\\dwill\\.gemini\\antigravity\\scratch\\Anchor\\anchor\\mobile\\node_modules\\react-native-reanimated\\src\\common\\logger.ts",
+  sourceMap: "{\"version\":3,\"names\":[\"warn_loggerTs5\",\"message\",\"options\",\"handleLog\",\"ReanimatedLogLevel\",\"__closure\",\"warn\"],\"sources\":[\"C:/Users/dwill/.gemini/antigravity/scratch/Anchor/anchor/mobile/node_modules/react-native-reanimated/src/common/logger.ts\"],\"mappings\":\"AAmHE,SAAAA,cAA6BA,CAAEC,OAAiB,CAAAC,OAAA,WAAAC,SAAA,CAAAC,kBAAA,OAAAC,SAAA,CAE9CF,SAAS,CAACC,kBAAkB,CAACE,IAAI,CAAEL,OAAO,CAAEC,OAAO,CAAC,CACtD\",\"ignoreList\":[]}"
+};
+var _worklet_13350371619307_init_data = {
+  code: "function error_loggerTs6(message,options={}){const{handleLog,ReanimatedLogLevel}=this.__closure;handleLog(ReanimatedLogLevel.error,message,options);}",
+  location: "C:\\Users\\dwill\\.gemini\\antigravity\\scratch\\Anchor\\anchor\\mobile\\node_modules\\react-native-reanimated\\src\\common\\logger.ts",
+  sourceMap: "{\"version\":3,\"names\":[\"error_loggerTs6\",\"message\",\"options\",\"handleLog\",\"ReanimatedLogLevel\",\"__closure\",\"error\"],\"sources\":[\"C:/Users/dwill/.gemini/antigravity/scratch/Anchor/anchor/mobile/node_modules/react-native-reanimated/src/common/logger.ts\"],\"mappings\":\"AAuHE,SAAAA,eAA8BA,CAAEC,OAAiB,CAAAC,OAAA,WAAAC,SAAA,CAAAC,kBAAA,OAAAC,SAAA,CAE/CF,SAAS,CAACC,kBAAkB,CAACE,KAAK,CAAEL,OAAO,CAAEC,OAAO,CAAC,CACvD\",\"ignoreList\":[]}"
+};
+var logger = exports.logger = {
+  warn: function warn_loggerTs5Factory(_ref5) {
+    var _worklet_7967196972200_init_data = _ref5._worklet_7967196972200_init_data,
+      handleLog = _ref5.handleLog,
+      ReanimatedLogLevel = _ref5.ReanimatedLogLevel;
+    var _e = [new global.Error(), -3, -27];
+    var warn = function warn(message) {
+      var options = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : {};
+      handleLog(ReanimatedLogLevel.warn, message, options);
+    };
+    warn.__closure = {
+      handleLog: handleLog,
+      ReanimatedLogLevel: ReanimatedLogLevel
+    };
+    warn.__workletHash = 7967196972200;
+    warn.__pluginVersion = "0.5.1";
+    warn.__initData = _worklet_7967196972200_init_data;
+    warn.__stackDetails = _e;
+    return warn;
+  }({
+    _worklet_7967196972200_init_data: _worklet_7967196972200_init_data,
+    handleLog: handleLog,
+    ReanimatedLogLevel: ReanimatedLogLevel
+  }),
+  error: function error_loggerTs6Factory(_ref6) {
+    var _worklet_13350371619307_init_data = _ref6._worklet_13350371619307_init_data,
+      handleLog = _ref6.handleLog,
+      ReanimatedLogLevel = _ref6.ReanimatedLogLevel;
+    var _e = [new global.Error(), -3, -27];
+    var error = function error(message) {
+      var options = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : {};
+      handleLog(ReanimatedLogLevel.error, message, options);
+    };
+    error.__closure = {
+      handleLog: handleLog,
+      ReanimatedLogLevel: ReanimatedLogLevel
+    };
+    error.__workletHash = 13350371619307;
+    error.__pluginVersion = "0.5.1";
+    error.__initData = _worklet_13350371619307_init_data;
+    error.__stackDetails = _e;
+    return error;
+  }({
+    _worklet_13350371619307_init_data: _worklet_13350371619307_init_data,
+    handleLog: handleLog,
+    ReanimatedLogLevel: ReanimatedLogLevel
+  })
+};
+//# sourceMappingURL=data:application/json;charset=utf-8;base64,eyJ2ZXJzaW9uIjozLCJuYW1lcyI6WyJPYmplY3QiLCJkZWZpbmVQcm9wZXJ0eSIsImV4cG9ydHMiLCJ2YWx1ZSIsInVwZGF0ZUxvZ2dlckNvbmZpZyIsImxvZ2dlciIsImdldExvZ2dlckNvbmZpZyIsIlJlYW5pbWF0ZWRMb2dMZXZlbCIsIlBSRUZJWCIsIkRPQ1NfVVJMIiwiRE9DU19SRUZFUkVOQ0UiLCJfd29ya2xldF8xMzEyODgyNjk0Njk0MF9pbml0X2RhdGEiLCJjb2RlIiwibG9jYXRpb24iLCJzb3VyY2VNYXAiLCJsb2dUb0NvbnNvbGUiLCJsb2dUb0NvbnNvbGVfbG9nZ2VyVHMxRmFjdG9yeSIsIl9yZWYiLCJfZSIsImdsb2JhbCIsIkVycm9yIiwiZGF0YSIsImxldmVsIiwid2FybiIsImNvbnNvbGUiLCJtZXNzYWdlIiwiZXJyb3IiLCJfX2Nsb3N1cmUiLCJfX3dvcmtsZXRIYXNoIiwiX19wbHVnaW5WZXJzaW9uIiwiX19pbml0RGF0YSIsIl9fc3RhY2tEZXRhaWxzIiwiREVGQVVMVF9MT0dHRVJfQ09ORklHIiwibG9nRnVuY3Rpb24iLCJzdHJpY3QiLCJfd29ya2xldF85NzAyNjE3MjgyODg1X2luaXRfZGF0YSIsImdldExvZ2dlckNvbmZpZ19sb2dnZXJUczJGYWN0b3J5IiwiX3JlZjIiLCJfX3JlYW5pbWF0ZWRMb2dnZXJDb25maWciLCJfd29ya2xldF8xMTQwNDM2MTgwMjgwNV9pbml0X2RhdGEiLCJ1cGRhdGVMb2dnZXJDb25maWdfbG9nZ2VyVHMzRmFjdG9yeSIsIl9yZWYzIiwiY3VycmVudENvbmZpZyIsIm9wdGlvbnMiLCJfb3B0aW9ucyRsZXZlbCIsIl9vcHRpb25zJHN0cmljdCIsImFzc2lnbiIsIl93b3JrbGV0XzIxMDc2OTE2MTU0NDVfaW5pdF9kYXRhIiwiaGFuZGxlTG9nIiwiaGFuZGxlTG9nX2xvZ2dlclRzNEZhY3RvcnkiLCJfcmVmNCIsImNvbmZpZyIsIl93b3JrbGV0Xzc5NjcxOTY5NzIyMDBfaW5pdF9kYXRhIiwiX3dvcmtsZXRfMTMzNTAzNzE2MTkzMDdfaW5pdF9kYXRhIiwid2Fybl9sb2dnZXJUczVGYWN0b3J5IiwiX3JlZjUiLCJhcmd1bWVudHMiLCJsZW5ndGgiLCJ1bmRlZmluZWQiLCJlcnJvcl9sb2dnZXJUczZGYWN0b3J5IiwiX3JlZjYiXSwic291cmNlcyI6WyJsb2dnZXIudHMiXSwic291cmNlc0NvbnRlbnQiOlsiLyogZXNsaW50LWRpc2FibGUgcmVhbmltYXRlZC91c2UtbG9nZ2VyICovXG4ndXNlIHN0cmljdCc7XG5cbmNvbnN0IFBSRUZJWCA9ICdbUmVhbmltYXRlZF0nO1xuY29uc3QgRE9DU19VUkwgPVxuICAnaHR0cHM6Ly9kb2NzLnN3bWFuc2lvbi5jb20vcmVhY3QtbmF0aXZlLXJlYW5pbWF0ZWQvZG9jcy9kZWJ1Z2dpbmcvbG9nZ2VyLWNvbmZpZ3VyYXRpb24nO1xuY29uc3QgRE9DU19SRUZFUkVOQ0UgPSBgSWYgeW91IGRvbid0IHdhbnQgdG8gc2VlIHRoaXMgbWVzc2FnZSwgeW91IGNhbiBkaXNhYmxlIHRoZSBcXGBzdHJpY3RcXGAgbW9kZS4gUmVmZXIgdG86XFxuJHtET0NTX1VSTH0gZm9yIG1vcmUgZGV0YWlscy5gO1xuXG5leHBvcnQgZW51bSBSZWFuaW1hdGVkTG9nTGV2ZWwge1xuICB3YXJuID0gMSxcbiAgZXJyb3IgPSAyLFxufVxuXG50eXBlIExvZ0RhdGEgPSB7XG4gIGxldmVsOiBSZWFuaW1hdGVkTG9nTGV2ZWw7XG4gIG1lc3NhZ2U6IHN0cmluZztcbn07XG5cbnR5cGUgTG9nRnVuY3Rpb24gPSAoZGF0YTogTG9nRGF0YSkgPT4gdm9pZDtcblxuZXhwb3J0IHR5cGUgTG9nZ2VyQ29uZmlnID0ge1xuICBsZXZlbD86IFJlYW5pbWF0ZWRMb2dMZXZlbDtcbiAgc3RyaWN0PzogYm9vbGVhbjtcbn07XG5cbmV4cG9ydCB0eXBlIExvZ2dlckNvbmZpZ0ludGVybmFsID0ge1xuICBsb2dGdW5jdGlvbjogTG9nRnVuY3Rpb247XG59ICYgUmVxdWlyZWQ8TG9nZ2VyQ29uZmlnPjtcblxuZnVuY3Rpb24gbG9nVG9Db25zb2xlKGRhdGE6IExvZ0RhdGEpIHtcbiAgJ3dvcmtsZXQnO1xuICBzd2l0Y2ggKGRhdGEubGV2ZWwpIHtcbiAgICBjYXNlIFJlYW5pbWF0ZWRMb2dMZXZlbC53YXJuOlxuICAgICAgY29uc29sZS53YXJuKGRhdGEubWVzc2FnZSk7XG4gICAgICBicmVhaztcbiAgICBjYXNlIFJlYW5pbWF0ZWRMb2dMZXZlbC5lcnJvcjpcbiAgICAgIGNvbnNvbGUuZXJyb3IoZGF0YS5tZXNzYWdlKTtcbiAgICAgIGJyZWFrO1xuICB9XG59XG5cbmNvbnN0IERFRkFVTFRfTE9HR0VSX0NPTkZJRzogTG9nZ2VyQ29uZmlnSW50ZXJuYWwgPSB7XG4gIGxvZ0Z1bmN0aW9uOiBsb2dUb0NvbnNvbGUsXG4gIGxldmVsOiBSZWFuaW1hdGVkTG9nTGV2ZWwud2FybixcbiAgc3RyaWN0OiB0cnVlLFxufTtcblxuLyoqXG4gKiBDdXJyZW50IGxvZ2dlciBjb25maWcgZ2V0dGVyLlxuICpcbiAqIEByZXR1cm5zIFRoZSBjdXJyZW50IGxvZ2dlciBjb25maWd1cmF0aW9uIG9iamVjdC5cbiAqL1xuZXhwb3J0IGZ1bmN0aW9uIGdldExvZ2dlckNvbmZpZygpIHtcbiAgJ3dvcmtsZXQnO1xuICBpZiAoIWdsb2JhbC5fX3JlYW5pbWF0ZWRMb2dnZXJDb25maWcpIHtcbiAgICBnbG9iYWwuX19yZWFuaW1hdGVkTG9nZ2VyQ29uZmlnID0gREVGQVVMVF9MT0dHRVJfQ09ORklHO1xuICB9XG4gIHJldHVybiBnbG9iYWwuX19yZWFuaW1hdGVkTG9nZ2VyQ29uZmlnO1xufVxuXG4vKipcbiAqIFVwZGF0ZXMgbG9nZ2VyIGNvbmZpZ3VyYXRpb24uXG4gKlxuICogQHBhcmFtIGN1cnJlbnRDb25maWcgLSBUaGUgY3VycmVudCBsb2dnZXIgY29uZmlndXJhdGlvbiBvYmplY3QuXG4gKiBAcGFyYW0gb3B0aW9ucyAtIFRoZSBuZXcgbG9nZ2VyIGNvbmZpZ3VyYXRpb24gdG8gYXBwbHkuXG4gKlxuICogICAtIExldmVsOiBUaGUgbWluaW11bSBsb2cgbGV2ZWwgdG8gZGlzcGxheS5cbiAqICAgLSBTdHJpY3Q6IFdoZXRoZXIgdG8gbG9nIHdhcm5pbmdzIGFuZCBlcnJvcnMgdGhhdCBhcmUgbm90IHN0cmljdC4gRGVmYXVsdHMgdG9cbiAqICAgICAgIGZhbHNlLlxuICovXG5leHBvcnQgZnVuY3Rpb24gdXBkYXRlTG9nZ2VyQ29uZmlnKFxuICBjdXJyZW50Q29uZmlnOiBMb2dnZXJDb25maWdJbnRlcm5hbCxcbiAgb3B0aW9ucz86IFBhcnRpYWw8TG9nZ2VyQ29uZmlnPlxuKSB7XG4gICd3b3JrbGV0JztcbiAgZ2xvYmFsLl9fcmVhbmltYXRlZExvZ2dlckNvbmZpZyA9IHtcbiAgICAuLi5jdXJyZW50Q29uZmlnLFxuICAgIC8vIERvbid0IHJldXNlIHByZXZpb3VzIGxldmVsIGFuZCBzdHJpY3QgdmFsdWVzIGZyb20gdGhlIGN1cnJlbnQgY29uZmlnXG4gICAgbGV2ZWw6IG9wdGlvbnM/LmxldmVsID8/IERFRkFVTFRfTE9HR0VSX0NPTkZJRy5sZXZlbCxcbiAgICBzdHJpY3Q6IG9wdGlvbnM/LnN0cmljdCA/PyBERUZBVUxUX0xPR0dFUl9DT05GSUcuc3RyaWN0LFxuICB9O1xufVxuXG50eXBlIExvZ09wdGlvbnMgPSB7XG4gIHN0cmljdD86IGJvb2xlYW47XG59O1xuXG5mdW5jdGlvbiBoYW5kbGVMb2coXG4gIGxldmVsOiBSZWFuaW1hdGVkTG9nTGV2ZWwsXG4gIG1lc3NhZ2U6IHN0cmluZyxcbiAgb3B0aW9uczogTG9nT3B0aW9uc1xuKSB7XG4gICd3b3JrbGV0JztcbiAgY29uc3QgY29uZmlnID0gZ2V0TG9nZ2VyQ29uZmlnKCk7XG4gIGlmIChcbiAgICAvLyBEb24ndCBsb2cgaWYgdGhlIGxvZyBpcyBtYXJrZWQgYXMgc3RyaWN0LW9ubHkgYW5kIHRoZSBjb25maWcgZG9lc24ndFxuICAgIC8vIGVuYWJsZSBzdHJpY3QgbG9nZ2luZ1xuICAgIChvcHRpb25zLnN0cmljdCAmJiAhY29uZmlnLnN0cmljdCkgfHxcbiAgICAvLyBEb24ndCBsb2cgaWYgdGhlIGxvZyBsZXZlbCBpcyBiZWxvdyB0aGUgbWluaW11bSBjb25maWd1cmVkIGxldmVsXG4gICAgbGV2ZWwgPCBjb25maWcubGV2ZWxcbiAgKSB7XG4gICAgcmV0dXJuO1xuICB9XG5cbiAgaWYgKG9wdGlvbnMuc3RyaWN0KSB7XG4gICAgbWVzc2FnZSArPSBgXFxuXFxuJHtET0NTX1JFRkVSRU5DRX1gO1xuICB9XG5cbiAgY29uZmlnLmxvZ0Z1bmN0aW9uKHtcbiAgICBsZXZlbCxcbiAgICBtZXNzYWdlOiBgJHtQUkVGSVh9ICR7bWVzc2FnZX1gLFxuICB9KTtcbn1cblxuZXhwb3J0IGNvbnN0IGxvZ2dlciA9IHtcbiAgd2FybihtZXNzYWdlOiBzdHJpbmcsIG9wdGlvbnM6IExvZ09wdGlvbnMgPSB7fSkge1xuICAgICd3b3JrbGV0JztcbiAgICBoYW5kbGVMb2coUmVhbmltYXRlZExvZ0xldmVsLndhcm4sIG1lc3NhZ2UsIG9wdGlvbnMpO1xuICB9LFxuICBlcnJvcihtZXNzYWdlOiBzdHJpbmcsIG9wdGlvbnM6IExvZ09wdGlvbnMgPSB7fSkge1xuICAgICd3b3JrbGV0JztcbiAgICBoYW5kbGVMb2coUmVhbmltYXRlZExvZ0xldmVsLmVycm9yLCBtZXNzYWdlLCBvcHRpb25zKTtcbiAgfSxcbn07XG4iXSwibWFwcGluZ3MiOiJBQUNBLFlBQVk7O0FBQUNBLE1BQUEsQ0FBQUMsY0FBQSxDQUFBQyxPQUFBO0VBQUFDLEtBQUE7QUFBQTtBQUFBRCxPQUFBLENBQUFFLGtCQUFBLEdBQUFGLE9BQUEsQ0FBQUcsTUFBQSxHQUFBSCxPQUFBLENBQUFJLGVBQUEsR0FBQUosT0FBQSxDQUFBSyxrQkFBQTtBQUViLElBQU1DLE1BQU0sR0FBRyxjQUFjO0FBQzdCLElBQU1DLFFBQVEsR0FDWix3RkFBd0Y7QUFDMUYsSUFBTUMsY0FBYyxHQUFHLDBGQUEwRkQsUUFBUSxvQkFBb0I7QUFBQyxJQUVsSUYsa0JBQWtCLEdBQUFMLE9BQUEsQ0FBQUssa0JBQUEsYUFBbEJBLGtCQUFrQjtFQUFsQkEsa0JBQWtCLENBQWxC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

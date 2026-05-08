@@ -22,8 +22,8 @@ export function getEntitlements(tier: 'free' | 'pro'): Entitlements {
         return {
             tier: 'pro',
             maxAnchors: Infinity,
-            aiStyleCount: 12, // All available styles
-            aiVariationCount: 4, // 4 variations for Pro
+            aiStyleCount: 12,
+            aiVariationCount: 4,
             canTraceAnchor: true,
             canForgeAnchor: true,
             canUseArchivedFilter: true,
@@ -31,15 +31,15 @@ export function getEntitlements(tier: 'free' | 'pro'): Entitlements {
         };
     }
 
-    // default: Free tier
+    // DEFERRED: freemium tier removed, replaced by trial model
     return {
         tier: 'free',
-        maxAnchors: 2, // As requested: Free users get 2 anchors
-        aiStyleCount: 4, // Limit to basic styles
-        aiVariationCount: 2, // 2 variations for Free
+        maxAnchors: Infinity,
+        aiStyleCount: 12,
+        aiVariationCount: 4,
         canTraceAnchor: true,
-        canForgeAnchor: false, // Gated feature
-        canUseArchivedFilter: false, // Gated feature
-        canExportHD: false,
+        canForgeAnchor: true,
+        canUseArchivedFilter: true,
+        canExportHD: true,
     };
 }

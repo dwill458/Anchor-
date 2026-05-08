@@ -2,7 +2,7 @@ import React, { useCallback } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
-import { SettingsIcon } from '@/components/icons/SettingsIcon';
+import { User } from 'lucide-react-native';
 import { colors } from '@/theme';
 
 interface SanctuaryHeaderProps {
@@ -15,7 +15,7 @@ export const SanctuaryHeader: React.FC<SanctuaryHeaderProps> = ({ reduceMotionEn
   const insets = useSafeAreaInsets();
   const navigation = useNavigation<any>();
 
-  const handleOpenSettings = useCallback(() => {
+  const handleOpenProfile = useCallback(() => {
     navigation.navigate('Settings');
   }, [navigation]);
 
@@ -36,14 +36,14 @@ export const SanctuaryHeader: React.FC<SanctuaryHeaderProps> = ({ reduceMotionEn
       </View>
       <Pressable
         style={styles.settingsButton}
-        onPress={handleOpenSettings}
+        onPress={handleOpenProfile}
         accessibilityRole="button"
-        accessibilityLabel="Settings"
+        accessibilityLabel="Profile"
       >
         <View style={styles.settingsMeasureTarget}>
           <View style={styles.settingsInnerGlow} />
           <View style={styles.settingsInnerRing}>
-            <SettingsIcon size={17} color={colors.sanctuary.goldBright} glow={false} />
+            <User size={17} color={colors.sanctuary.goldBright} />
           </View>
         </View>
       </Pressable>

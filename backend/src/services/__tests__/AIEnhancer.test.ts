@@ -17,7 +17,7 @@ import {
   enhanceSigilWithAI,
   enhanceSigilWithControlNet,
   getCostEstimate,
-  estimateControlNetGenerationTime,
+  estimateGenerationTime,
   ControlNetEnhancementRequest,
   ControlNetEnhancementResult,
   AIStyle,
@@ -114,7 +114,7 @@ describe('AIEnhancer Service', () => {
   // Time Estimation Tests
   // ============================================================================
 
-  describe('estimateControlNetGenerationTime', () => {
+  describe('estimateGenerationTime', () => {
     it('should return Gemini time estimate when available', () => {
       const mockGeminiService = {
         isAvailable: jest.fn().mockReturnValue(true),
@@ -122,7 +122,7 @@ describe('AIEnhancer Service', () => {
       };
       (GeminiImageService as jest.Mock).mockImplementation(() => mockGeminiService);
 
-      const estimate = estimateControlNetGenerationTime('premium');
+      const estimate = estimateGenerationTime('premium');
 
       expect(estimate).toEqual({ min: 24, max: 40 });
       expect(mockGeminiService.getTimeEstimate).toHaveBeenCalledWith('premium');
@@ -135,7 +135,7 @@ describe('AIEnhancer Service', () => {
       };
       (GeminiImageService as jest.Mock).mockImplementation(() => mockGeminiService);
 
-      const estimate = estimateControlNetGenerationTime('draft');
+      const estimate = estimateGenerationTime('draft');
 
       expect(estimate).toEqual({ min: 9, max: 15 });
     });
@@ -146,7 +146,7 @@ describe('AIEnhancer Service', () => {
       };
       (GeminiImageService as jest.Mock).mockImplementation(() => mockGeminiService);
 
-      const estimate = estimateControlNetGenerationTime('premium');
+      const estimate = estimateGenerationTime('premium');
 
       expect(estimate).toEqual({ min: 40, max: 60 });
     });
@@ -215,7 +215,7 @@ describe('AIEnhancer Service', () => {
         ],
         prompt: 'Test prompt',
         negativePrompt: 'Test negative',
-        model: 'gemini-3-flash-preview',
+        model: 'gemini-3-pro-image-preview',
         totalTimeSeconds: 12,
         costUSD: 0.04,
         tier: 'draft' as const,

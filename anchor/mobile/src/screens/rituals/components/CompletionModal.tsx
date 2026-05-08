@@ -31,6 +31,7 @@ import Animated, {
   withTiming,
   withRepeat,
   withSequence,
+  withDelay,
   cancelAnimation,
   interpolate,
 } from 'react-native-reanimated';
@@ -73,7 +74,6 @@ export const CompletionModal: React.FC<CompletionModalProps> = ({
   const { recordShown } = useTeachingStore();
 
   const sealWhisperOpacity = useSharedValue(teachingLine ? 0 : 0);
-  const sealWhisperTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const fadeAnim = useSharedValue(0);
   const glowAnim = useSharedValue(0);
@@ -94,16 +94,16 @@ export const CompletionModal: React.FC<CompletionModalProps> = ({
         trigger: 'post_complete',
         guide_mode: true,
       });
-      sealWhisperOpacity.value = withTiming(1, { duration: 400 });
-      sealWhisperTimerRef.current = setTimeout(() => {
-        sealWhisperOpacity.value = withTiming(0, { duration: 500 });
-      }, 5000);
+      sealWhisperOpacity.value = withSequence(
+        withTiming(1, { duration: 400 }),
+        withDelay(5000, withTiming(0, { duration: 500 }))
+      );
     } else if (!visible) {
-      if (sealWhisperTimerRef.current) clearTimeout(sealWhisperTimerRef.current);
+      cancelAnimation(sealWhisperOpacity);
       sealWhisperOpacity.value = 0;
     }
     return () => {
-      if (sealWhisperTimerRef.current) clearTimeout(sealWhisperTimerRef.current);
+      cancelAnimation(sealWhisperOpacity);
     };
   }, [visible, teachingLine, teachingId, sealWhisperOpacity]);
 
@@ -148,7 +148,7 @@ export const CompletionModal: React.FC<CompletionModalProps> = ({
     setCustomWord('');
     safeHaptics.impact(Haptics.ImpactFeedbackStyle.Light);
     // Fade seal whisper on first interaction
-    if (sealWhisperTimerRef.current) clearTimeout(sealWhisperTimerRef.current);
+    cancelAnimation(sealWhisperOpacity);
     sealWhisperOpacity.value = withTiming(0, { duration: 300 });
   };
 

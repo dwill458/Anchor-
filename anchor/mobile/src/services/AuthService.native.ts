@@ -3,14 +3,33 @@
  */
 
 import auth, { FirebaseAuthTypes } from '@react-native-firebase/auth';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import * as AppleAuthentication from 'expo-apple-authentication';
 import { API_URL } from '@/config';
+import { GOOGLE_IOS_CLIENT_ID, GOOGLE_WEB_CLIENT_ID } from '@/config';
+import { clearNotificationSession } from '@/services/NotificationSessionService';
+import { clearPushTokensFromServer } from '@/services/NotificationSyncService';
+
+let GoogleSignin: any = null;
+import {
+  DEVELOPER_MASTER_ACCOUNT_ID,
+  DEVELOPER_MASTER_ACCOUNT_TOKEN,
+  isDeveloperMasterAccountEnabled,
+} from '@/utils/developerMasterAccount';
 import { logger } from '@/utils/logger';
 import type { ApiResponse, FirebaseUser, User } from '@/types';
+
+const CACHED_USER_KEY = 'anchor:cached_user';
+let googleConfigured = false;
 
 export interface AuthResult {
   user: User;
   token: string;
   isNewUser: boolean;
+}
+
+export interface AuthSyncOptions {
+  hasCompletedOnboarding?: boolean;
 }
 
 type AuthProvider = 'email' | 'google' | 'apple';
@@ -33,6 +52,7 @@ function normalizeDate(value?: Date | string | null): Date {
 function normalizeUser(data: User): User {
   return {
     ...data,
+    isComped: data.isComped === true,
     createdAt: normalizeDate(data.createdAt),
     stabilizesTotal: data.stabilizesTotal ?? 0,
     stabilizeStreakDays: data.stabilizeStreakDays ?? 0,
@@ -66,6 +86,22 @@ function getAuthProvider(user: FirebaseAuthTypes.User): AuthProvider {
   return providerIdToAuthProvider(providerId);
 }
 
+function generateNonce(length = 32): string {
+  const charset = '0123456789ABCDEFGHIJKLMNOPQRSTUVXYZabcdefghijklmnopqrstuvwxyz-._';
+  const values = new Uint32Array(length);
+  const cryptoApi = globalThis.crypto?.getRandomValues?.bind(globalThis.crypto);
+
+  if (cryptoApi) {
+    cryptoApi(values);
+  } else {
+    for (let index = 0; index < length; index += 1) {
+      values[index] = Math.floor(Math.random() * 0xffffffff);
+    }
+  }
+
+  return Array.from(values, (value) => charset[value % charset.length]).join('');
+}
+
 function messageFromApiError(payload: ApiResponse<User> | { error?: unknown } | null | undefined): string | null {
   if (!payload || typeof payload !== 'object') {
     return null;
@@ -92,13 +128,33 @@ function mapAuthError(error: unknown): Error {
   const code = typeof error === 'object' && error && 'code' in error
     ? String((error as { code?: unknown }).code)
     : '';
+  const message =
+    error instanceof Error
+      ? error.message
+      : typeof error === 'string'
+        ? error
+        : '';
+
+  if (
+    code === 'auth/configuration-not-found' ||
+    message.includes('CONFIGURATION_NOT_FOUND')
+  ) {
+    return new Error(
+      'Authentication is misconfigured in this build. Firebase Android config or signing fingerprints are missing. Rebuild after updating Firebase.'
+    );
+  }
+
+  if (message.includes('DEVELOPER_ERROR')) {
+    return new Error(
+      'Google sign-in is misconfigured for this build. Add this build signing key to Firebase/Google Cloud, then rebuild the app.'
+    );
+  }
 
   switch (code) {
     case 'auth/email-already-in-use':
       return new Error('That email is already in use.');
     case 'auth/invalid-email':
       return new Error('Enter a valid email address.');
-    case 'auth/invalid-credential':
     case 'auth/user-not-found':
     case 'auth/wrong-password':
       return new Error('Incorrect email or password.');
@@ -108,15 +164,41 @@ function mapAuthError(error: unknown): Error {
       return new Error('Too many attempts. Try again later.');
     case 'auth/network-request-failed':
       return new Error('Network error. Please check your connection.');
+    case 'auth/account-exists-with-different-credential':
+      return new Error('An account already exists with a different sign-in method.');
+    case 'auth/invalid-credential':
+      return new Error('That sign-in credential is invalid or expired.');
     default:
       return error instanceof Error ? error : new Error('Authentication failed.');
   }
 }
 
+function configureGoogleSignin(): void {
+  if (googleConfigured) {
+    return;
+  }
+
+  if (!GoogleSignin) {
+    GoogleSignin = require('@react-native-google-signin/google-signin').GoogleSignin;
+  }
+
+  if (!GOOGLE_WEB_CLIENT_ID) {
+    throw new Error('Google sign-in is not configured. Set EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID.');
+  }
+
+  GoogleSignin.configure({
+    webClientId: GOOGLE_WEB_CLIENT_ID,
+    iosClientId: GOOGLE_IOS_CLIENT_ID || undefined,
+  });
+
+  googleConfigured = true;
+}
+
 async function syncUserWithBackend(
   firebaseUser: FirebaseAuthTypes.User,
   idToken: string,
-  displayNameOverride?: string
+  displayNameOverride?: string,
+  options?: AuthSyncOptions
 ): Promise<User> {
   const response = await fetch(`${API_URL}/api/auth/sync`, {
     method: 'POST',
@@ -127,6 +209,7 @@ async function syncUserWithBackend(
     body: JSON.stringify({
       displayName: displayNameOverride ?? firebaseUser.displayName ?? undefined,
       authProvider: getAuthProvider(firebaseUser),
+      hasCompletedOnboarding: options?.hasCompletedOnboarding === true ? true : undefined,
     }),
   });
 
@@ -142,10 +225,11 @@ async function syncUserWithBackend(
 
 async function buildAuthResult(
   firebaseUser: FirebaseAuthTypes.User,
-  displayNameOverride?: string
+  displayNameOverride?: string,
+  options?: AuthSyncOptions
 ): Promise<AuthResult> {
   const idToken = await firebaseUser.getIdToken();
-  const user = await syncUserWithBackend(firebaseUser, idToken, displayNameOverride);
+  const user = await syncUserWithBackend(firebaseUser, idToken, displayNameOverride, options);
 
   return {
     user,
@@ -159,10 +243,14 @@ export class AuthService {
     auth();
   }
 
-  static async signInWithEmail(email: string, password: string): Promise<AuthResult> {
+  static async signInWithEmail(
+    email: string,
+    password: string,
+    options?: AuthSyncOptions
+  ): Promise<AuthResult> {
     try {
       const credential = await auth().signInWithEmailAndPassword(email.trim(), password);
-      return await buildAuthResult(credential.user);
+      return await buildAuthResult(credential.user, undefined, options);
     } catch (error) {
       logger.error('Failed to sign in with email', error);
       throw mapAuthError(error);
@@ -172,7 +260,8 @@ export class AuthService {
   static async signUpWithEmail(
     email: string,
     password: string,
-    displayName?: string
+    displayName?: string,
+    options?: AuthSyncOptions
   ): Promise<AuthResult> {
     try {
       const credential = await auth().createUserWithEmailAndPassword(email.trim(), password);
@@ -184,7 +273,7 @@ export class AuthService {
       }
 
       const currentUser = auth().currentUser ?? credential.user;
-      return await buildAuthResult(currentUser, trimmedName);
+      return await buildAuthResult(currentUser, trimmedName, options);
     } catch (error) {
       logger.error('Failed to sign up with email', error);
       await auth().signOut().catch(() => undefined);
@@ -193,7 +282,70 @@ export class AuthService {
   }
 
   static async signInWithGoogle(): Promise<AuthResult> {
-    throw new Error('Google sign-in is not configured yet.');
+    try {
+      configureGoogleSignin();
+      await GoogleSignin.hasPlayServices({ showPlayServicesUpdateDialog: true });
+      const response = await GoogleSignin.signIn();
+      if (response.type !== 'success') {
+        throw new Error('Google sign-in was cancelled.');
+      }
+
+      const idToken = response.data?.idToken;
+
+      if (!idToken) {
+        throw new Error('Google sign-in did not return an ID token.');
+      }
+
+      const credential = auth.GoogleAuthProvider.credential(idToken);
+      const firebaseCredential = await auth().signInWithCredential(credential);
+      return await buildAuthResult(firebaseCredential.user);
+    } catch (error) {
+      logger.error('Failed to sign in with Google', error);
+      throw mapAuthError(error);
+    }
+  }
+
+  static async signInWithApple(): Promise<AuthResult> {
+    try {
+      const isAvailable = await AppleAuthentication.isAvailableAsync();
+      if (!isAvailable) {
+        throw new Error('Apple sign-in is not available on this device.');
+      }
+
+      const nonce = generateNonce();
+      const appleCredential = await AppleAuthentication.signInAsync({
+        nonce,
+        requestedScopes: [
+          AppleAuthentication.AppleAuthenticationScope.FULL_NAME,
+          AppleAuthentication.AppleAuthenticationScope.EMAIL,
+        ],
+      });
+
+      if (!appleCredential.identityToken) {
+        throw new Error('Apple sign-in did not return an identity token.');
+      }
+
+      const provider = new auth.OAuthProvider('apple.com');
+      const credential = provider.credential(appleCredential.identityToken, nonce);
+      const firebaseCredential = await auth().signInWithCredential(credential);
+
+      const displayName =
+        [appleCredential.fullName?.givenName, appleCredential.fullName?.familyName]
+          .filter(Boolean)
+          .join(' ')
+          .trim() || undefined;
+
+      if (displayName && !firebaseCredential.user.displayName) {
+        await firebaseCredential.user.updateProfile({ displayName });
+        await firebaseCredential.user.reload();
+      }
+
+      const currentUser = auth().currentUser ?? firebaseCredential.user;
+      return await buildAuthResult(currentUser, displayName);
+    } catch (error) {
+      logger.error('Failed to sign in with Apple', error);
+      throw mapAuthError(error);
+    }
   }
 
   static async syncCurrentUser(): Promise<AuthResult | null> {
@@ -203,26 +355,63 @@ export class AuthService {
     }
 
     try {
-      return await buildAuthResult(currentUser);
+      const result = await buildAuthResult(currentUser);
+      AsyncStorage.setItem(CACHED_USER_KEY, JSON.stringify(result.user)).catch(() => {});
+      return result;
     } catch (error) {
       logger.error('Failed to sync current Firebase user', error);
       throw mapAuthError(error);
     }
   }
 
+  static async getCachedUser(): Promise<User | null> {
+    try {
+      const raw = await AsyncStorage.getItem(CACHED_USER_KEY);
+      return raw ? (JSON.parse(raw) as User) : null;
+    } catch {
+      return null;
+    }
+  }
+
   static async signOut(): Promise<void> {
-    await auth().signOut();
+    try {
+      await clearPushTokensFromServer();
+      if (GoogleSignin) {
+        await GoogleSignin.signOut().catch(() => undefined);
+      }
+      await auth().signOut();
+    } finally {
+      await clearNotificationSession();
+    }
+  }
+
+  static hasAuthenticatedSession(): boolean {
+    return auth().currentUser != null;
   }
 
   static getCurrentFirebaseUser(): FirebaseUser | null {
     const currentUser = auth().currentUser;
-    return currentUser ? toFirebaseUser(currentUser) : null;
+    if (currentUser) {
+      return toFirebaseUser(currentUser);
+    }
+
+    if (!isDeveloperMasterAccountEnabled()) {
+      return null;
+    }
+
+    return {
+      uid: DEVELOPER_MASTER_ACCOUNT_ID,
+      email: 'dev+master@anchor.local',
+      displayName: 'Developer Master',
+    };
   }
 
   static async getIdToken(forceRefresh: boolean = false): Promise<string | null> {
     const currentUser = auth().currentUser;
     if (!currentUser) {
-      return null;
+      return isDeveloperMasterAccountEnabled()
+        ? DEVELOPER_MASTER_ACCOUNT_TOKEN
+        : null;
     }
 
     return currentUser.getIdToken(forceRefresh);
@@ -230,6 +419,46 @@ export class AuthService {
 
   static async sendPasswordResetEmail(email: string): Promise<void> {
     await auth().sendPasswordResetEmail(email.trim());
+  }
+
+  static async deleteAccount(): Promise<void> {
+    const currentUser = auth().currentUser;
+    if (!currentUser) {
+      throw new Error('No user is currently signed in.');
+    }
+
+    try {
+      const idToken = await currentUser.getIdToken();
+
+      // Call backend to delete account records
+      const response = await fetch(`${API_URL}/api/auth/me`, {
+        method: 'DELETE',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${idToken}`,
+        },
+      });
+
+      if (!response.ok) {
+        const payload = await response.json().catch(() => null);
+        const apiMessage = messageFromApiError(payload);
+        throw new Error(apiMessage ?? 'Failed to delete account from server.');
+      }
+
+      await AsyncStorage.removeItem(CACHED_USER_KEY).catch(() => undefined);
+      if (GoogleSignin) {
+        await GoogleSignin.signOut().catch(() => undefined);
+      }
+      await auth().signOut().catch(() => undefined);
+      await clearNotificationSession();
+
+      logger.info('Account successfully deleted');
+    } catch (error) {
+      logger.error('Failed to delete account', error);
+      throw error instanceof Error
+        ? error
+        : new Error('An unexpected error occurred while deleting your account.');
+    }
   }
 
   static onAuthStateChanged(

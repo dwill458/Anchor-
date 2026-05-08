@@ -14,6 +14,7 @@ import {
   useFrameCallback,
   useSharedValue,
 } from 'react-native-reanimated';
+import type { PerformanceTier } from '@/hooks/usePerformanceTier';
 
 interface RingGlowCanvasProps {
   /** Hint for initial canvas size; actual size measured via onLayout. */
@@ -23,6 +24,12 @@ interface RingGlowCanvasProps {
   /** 0–1. At 0 the canvas draws nothing. */
   intensity: number;
   reduceMotionEnabled?: boolean;
+  /**
+   * Rendering budget. `'low'` suppresses the canvas entirely.
+   * `'medium'` freezes the per-frame callback so the SkPicture renders once
+   * (static halo + pulsing glow snapshot) instead of recomputing 60×/sec.
+   */
+  tier?: PerformanceTier;
 }
 
 function hexToRgb(hex: string): [number, number, number] {
@@ -39,7 +46,10 @@ export const RingGlowCanvas: React.FC<RingGlowCanvasProps> = ({
   color,
   intensity,
   reduceMotionEnabled = false,
+  tier = 'high',
 }) => {
+  const frozen = tier === 'medium' || reduceMotionEnabled;
+  const suppressed = tier === 'low';
   const canvasW = useSharedValue(size);
   const svR = useSharedValue(0);
   const svG = useSharedValue(0);
@@ -93,7 +103,7 @@ export const RingGlowCanvas: React.FC<RingGlowCanvasProps> = ({
     if (info.timeSincePreviousFrame != null) {
       time.value += info.timeSincePreviousFrame / 1000;
     }
-  }, !reduceMotionEnabled);
+  }, !frozen && !suppressed);
 
   const picture = useDerivedValue(() => {
     const W = canvasW.value;
@@ -167,6 +177,10 @@ export const RingGlowCanvas: React.FC<RingGlowCanvasProps> = ({
 
     return recorder.finishRecordingAsPicture();
   });
+
+  if (suppressed) {
+    return null;
+  }
 
   return (
     <View

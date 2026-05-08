@@ -23,9 +23,8 @@ import {
   Dimensions,
   Alert,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
-import { BlurView } from 'expo-blur';
 import { StatusBar } from 'expo-status-bar';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
@@ -60,18 +59,22 @@ const STYLE_NAMES: Record<string, string> = {
   ink_brush: 'Ink Brush',
   gold_leaf: 'Gold Leaf',
   cosmic: 'Cosmic',
-  minimal_line: 'Minimal Line',
-  obsidian_mono: 'Obsidian Mono',
+  architectural_trace: 'Architectural Trace',
+  lunar_etch: 'Lunar Etch',
   aurora_glow: 'Aurora Glow',
   ember_trace: 'Ember Trace',
-  echo_chamber: 'Echo Chamber',
+  resonance_rings: 'Resonance Rings',
   monolith_ink: 'Monolith Ink',
   celestial_grid: 'Celestial Grid',
+  minimal_line: 'Minimal Line',
+  obsidian_mono: 'Obsidian Mono',
+  echo_chamber: 'Echo Chamber',
 };
 
 export const AIVariationPickerScreen: React.FC = () => {
   const navigation = useNavigation<EnhancedVersionPickerNavigationProp>();
   const route = useRoute<EnhancedVersionPickerRouteProp>();
+  const insets = useSafeAreaInsets();
 
   // Extract params from route (Phase 3 ControlNet flow)
   const {
@@ -85,6 +88,11 @@ export const AIVariationPickerScreen: React.FC = () => {
     variations,
     reinforcementMetadata,
     prompt, // Fix: Destructure prompt so it's defined in scope (optional)
+    negativePrompt,
+    modelUsed,
+    provider,
+    controlMethod,
+    generationTimeMs,
   } = route.params;
 
   // Selected variation index (0-3)
@@ -190,11 +198,12 @@ export const AIVariationPickerScreen: React.FC = () => {
 
       const enhancementMetadata = {
         styleApplied: styleChoice,
-        modelUsed: 'sdxl-controlnet',
-        controlMethod: 'canny' as const,
-        generationTimeMs: 0,
+        modelUsed: modelUsed || 'unknown-model',
+        provider: provider || 'unknown',
+        controlMethod: controlMethod || 'lineart',
+        generationTimeMs: generationTimeMs || 0,
         promptUsed: prompt || '',
-        negativePrompt: '',
+        negativePrompt: negativePrompt || '',
         appliedAt: new Date(),
       };
 
@@ -236,7 +245,12 @@ export const AIVariationPickerScreen: React.FC = () => {
 
         <ScrollView
           style={styles.scrollView}
-          contentContainerStyle={styles.scrollContent}
+          contentContainerStyle={[
+            styles.scrollContent,
+            {
+              paddingBottom: insets.bottom + 96,
+            },
+          ]}
           showsVerticalScrollIndicator={false}
         >
           {/* Title Section */}
@@ -275,7 +289,7 @@ export const AIVariationPickerScreen: React.FC = () => {
             </View>
           </Animated.View>
 
-          {/* Intention Card */}
+          {/* Intention Micro-Label */}
           <Animated.View
             style={[
               styles.intentionSection,
@@ -292,11 +306,9 @@ export const AIVariationPickerScreen: React.FC = () => {
               },
             ]}
           >
-            <Text style={styles.intentionLabel}>ROOTED IN YOUR INTENTION</Text>
-            <BlurView intensity={20} tint="dark" style={styles.intentionCard}>
-              <View style={styles.intentionBorder} />
-              <Text style={styles.intentionText}>"{intentionText}"</Text>
-            </BlurView>
+            <Text style={styles.intentionText}>
+              <Text style={styles.intentionTextEmphasis}>"{intentionText}"</Text>
+            </Text>
           </Animated.View>
 
           {/* Variations Grid */}
@@ -389,31 +401,7 @@ export const AIVariationPickerScreen: React.FC = () => {
               })}
             </View>
           </Animated.View>
-
-          {/* Symbolic Structure Details */}
-          <Animated.View
-            style={[
-              styles.detailsSection,
-              {
-                opacity: fadeAnim,
-                transform: [
-                  {
-                    translateY: slideAnim.interpolate({
-                      inputRange: [0, 30],
-                      outputRange: [0, 60],
-                    }),
-                  },
-                ],
-              },
-            ]}
-          >
-            <BlurView intensity={15} tint="dark" style={styles.detailsCard}>
-              <Text style={styles.detailsLabel}>SYMBOLIC STRUCTURE</Text>
-              <Text style={styles.detailsText}>
-                This Anchor preserves the geometry of your intention: "{intentionText}". The unique structure holds your focus, while the aesthetic amplifies its resonance.
-              </Text>
-            </BlurView>
-          </Animated.View>
+          {/* DEFERRED: Move Symbolic Structure explanation to AnchorDetailScreen v1.1 */}
 
           {/* Bottom spacer for button */}
           <View style={styles.bottomSpacer} />
@@ -423,6 +411,9 @@ export const AIVariationPickerScreen: React.FC = () => {
         <Animated.View
           style={[
             styles.continueContainer,
+            {
+              paddingBottom: insets.bottom + 20,
+            },
             {
               opacity: fadeAnim,
               transform: [
@@ -474,11 +465,11 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     paddingHorizontal: 24,
-    paddingBottom: 140, // Space for fixed button + nav bar
+    flexGrow: 1,
   },
   titleSection: {
     paddingTop: 8,
-    paddingBottom: 24,
+    paddingBottom: 16,
   },
   title: {
     fontSize: 28,
@@ -498,8 +489,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     backgroundColor: 'rgba(212, 175, 55, 0.1)',
     borderRadius: 12,
-    padding: 16,
-    marginBottom: 24,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    marginBottom: 8,
     borderWidth: 1,
     borderColor: 'rgba(212, 175, 55, 0.3)',
   },
@@ -537,48 +529,29 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   intentionSection: {
-    marginBottom: 32,
-  },
-  intentionLabel: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: colors.silver,
-    letterSpacing: 1.5,
-    marginBottom: 12,
-    opacity: 0.7,
-  },
-  intentionCard: {
-    borderRadius: 16,
-    padding: 20,
-    borderWidth: 1,
-    borderColor: 'rgba(212, 175, 55, 0.2)',
-    backgroundColor: 'rgba(26, 26, 29, 0.4)',
-    position: 'relative',
-    overflow: 'hidden',
-  },
-  intentionBorder: {
-    position: 'absolute',
-    left: 0,
-    top: 0,
-    bottom: 0,
-    width: 3,
-    backgroundColor: colors.gold,
+    marginBottom: 8,
   },
   intentionText: {
-    fontSize: 17,
+    fontSize: 12,
     fontStyle: 'italic',
+    color: colors.silver,
+    textAlign: 'center',
+    letterSpacing: 0.5,
+  },
+  intentionTextEmphasis: {
     color: colors.bone,
-    lineHeight: 26,
+    fontStyle: 'normal',
   },
   gridSection: {
-    marginBottom: 24,
+    marginTop: 16,
+    marginBottom: 16,
   },
   guidanceText: {
     fontSize: 14,
     color: colors.silver,
     fontStyle: 'italic',
     textAlign: 'center',
-    marginBottom: 20,
+    marginBottom: 12,
     opacity: 0.9,
     paddingHorizontal: 12,
   },
@@ -680,43 +653,19 @@ const styles = StyleSheet.create({
     elevation: 10,
   },
   variationLabel: {
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: '600',
     color: colors.silver,
     textAlign: 'center',
-    marginTop: 12,
+    marginTop: 8,
   },
   variationLabelSelected: {
     color: colors.gold,
     fontWeight: '700',
   },
-  detailsSection: {
-    marginBottom: 24,
-  },
-  detailsCard: {
-    borderRadius: 16,
-    padding: 20,
-    borderWidth: 1,
-    borderColor: 'rgba(192, 192, 192, 0.15)',
-    backgroundColor: 'rgba(26, 26, 29, 0.3)',
-  },
-  detailsLabel: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: colors.silver,
-    letterSpacing: 1.5,
-    marginBottom: 12,
-    opacity: 0.7,
-  },
-  detailsText: {
-    fontSize: 13,
-    fontStyle: 'italic',
-    color: colors.silver,
-    lineHeight: 20,
-    opacity: 0.8,
-  },
   bottomSpacer: {
-    height: 20,
+    flexGrow: 1,
+    minHeight: 12,
   },
   continueContainer: {
     position: 'absolute',
@@ -724,7 +673,6 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     paddingHorizontal: 24,
-    paddingBottom: 100, // Space above nav bar (80px nav + 20px padding)
     paddingTop: 16,
     backgroundColor: 'transparent',
   },

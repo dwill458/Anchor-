@@ -27,10 +27,36 @@ export const ActiveAnchorsGrid: React.FC<ActiveAnchorsGridProps> = ({
   if (anchors.length === 0) {
     return null;
   }
-
-  const handleAnchorPress = (anchor: Anchor) => {
+  const handleAnchorPress = React.useCallback((anchor: Anchor) => {
     onAnchorPress?.(anchor.id);
-  };
+  }, [onAnchorPress]);
+
+  const renderItem = React.useCallback(({ item }: { item: RedactedAnchor }) => (
+    <TouchableOpacity
+      style={styles.cardWrapper}
+      activeOpacity={0.8}
+      onPress={() => onAnchorPress?.(item.id)}
+    >
+      <AnchorCard
+        anchor={{
+          id: item.id,
+          userId: '',
+          intentionText: item.displayLabel,
+          category: item.category || 'custom',
+          distilledLetters: [],
+          baseSigilSvg: item.baseSigilSvg,
+          structureVariant: 'balanced',
+          isCharged: item.isCharged,
+          activationCount: item.activationCount,
+          enhancedImageUrl: item.enhancedImageUrl,
+          createdAt: item.createdAt,
+          updatedAt: item.createdAt,
+        } as Anchor}
+        onPress={handleAnchorPress}
+        reduceMotionEnabled={reduceMotionEnabled}
+      />
+    </TouchableOpacity>
+  ), [onAnchorPress, handleAnchorPress, reduceMotionEnabled]);
 
   return (
     <View style={styles.container}>
@@ -41,33 +67,7 @@ export const ActiveAnchorsGrid: React.FC<ActiveAnchorsGridProps> = ({
         keyExtractor={(item) => item.id}
         numColumns={2}
         columnWrapperStyle={styles.row}
-        renderItem={({ item }) => (
-          <TouchableOpacity
-            style={styles.cardWrapper}
-            activeOpacity={0.8}
-            onPress={() => onAnchorPress?.(item.id)}
-          >
-            <AnchorCard
-              anchor={{
-                // Core required fields
-                id: item.id,
-                userId: '',
-                intentionText: item.displayLabel, // Use redacted label
-                category: item.category || 'custom',
-                distilledLetters: [],
-                baseSigilSvg: item.baseSigilSvg,
-                structureVariant: 'balanced',
-                isCharged: item.isCharged,
-                activationCount: item.activationCount,
-                enhancedImageUrl: item.enhancedImageUrl,
-                createdAt: item.createdAt,
-                updatedAt: item.createdAt,
-              } as Anchor}
-              onPress={handleAnchorPress}
-              reduceMotionEnabled={reduceMotionEnabled}
-            />
-          </TouchableOpacity>
-        )}
+        renderItem={renderItem}
         scrollEnabled={false}
       />
     </View>

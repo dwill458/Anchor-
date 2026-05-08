@@ -1,5 +1,5 @@
 // @ts-nocheck
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   View,
   Text,
@@ -8,24 +8,29 @@ import {
   StyleSheet,
   Animated,
   Dimensions,
+  InteractionManager,
   StatusBar,
   Image,
   Alert,
   Modal,
+  Share,
+  Platform,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { BlurView } from 'expo-blur';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { format, isToday } from 'date-fns';
 import { SvgXml } from 'react-native-svg';
-import { ChevronRight, Zap } from 'lucide-react-native';
+import { ChevronRight, Share2, Zap } from 'lucide-react-native';
 import { MoreRitualsSheet, RitualType } from '@/components/MoreRitualsSheet';
 import { useTabNavigation } from '@/contexts/TabNavigationContext';
 import { useAnchorStore } from '@/stores/anchorStore';
 import { useSettingsStore } from '@/stores/settingsStore';
 import { useSessionStore } from '@/stores/sessionStore';
-import { del } from '@/services/ApiClient';
+import { del, post } from '@/services/ApiClient';
 import { exportAnchorArtwork } from '@/services/AnchorArtworkExportService';
+import { captureRef } from 'react-native-view-shot';
+import * as MediaLibrary from 'expo-media-library';
 import { safeHaptics } from '@/utils/haptics';
 import * as Haptics from 'expo-haptics';
 import { colors, spacing, typography } from '@/theme';
@@ -42,10 +47,15 @@ import Reanimated, {
 } from 'react-native-reanimated';
 import { DivineSigilAura } from './components/DivineSigilAura';
 import {
-  AnchorArtworkExportCanvas,
   ChargedGlowCanvas,
   ZenBackground,
 } from '@/components/common';
+import { useAppPerformanceTier } from '@/hooks/useAppPerformanceTier';
+import { resolveBurnArtworkUri } from '@/screens/rituals/utils/resolveBurnArtworkUri';
+import { ExportAnchorSheet } from '@/components/ExportAnchorSheet';
+import { ConfirmUnchargedBurnSheet } from '@/components/modals/ConfirmUnchargedBurnSheet';
+import ShareCardRenderer from '@/components/ShareCardRenderer';
+import { useShareCard } from '@/hooks/useShareCard';
 
 const { width: SCREEN_W } = Dimensions.get('window');
 const SIGIL_CIRCLE_SIZE = Math.round(SCREEN_W * 0.62);
@@ -130,6 +140,7 @@ const toDisplayAnchor = (rawAnchor) => {
     [];
 
   const charged = Boolean(rawAnchor.charged ?? rawAnchor.isCharged);
+  const released = Boolean(rawAnchor.isReleased);
   const todayActivated =
     rawAnchor.today ??
     (lastActivatedDate && isToday(lastActivatedDate) ? 'Primed' : null);
@@ -143,6 +154,10 @@ const toDisplayAnchor = (rawAnchor) => {
     intention,
     category: categoryLabel,
     charged,
+    isReleased: released,
+    releasedAt:
+      formatDate(rawAnchor.releasedAt, 'MMMM d, yyyy') ??
+      (rawAnchor.releasedAt ? String(rawAnchor.releasedAt) : null),
     lastActivated:
       rawAnchor.lastActivated ??
       formatDate(rawAnchor.lastActivatedAt, 'MMM d, yyyy'),
@@ -164,11 +179,17 @@ const toDisplayAnchor = (rawAnchor) => {
 };
 
 // ─── FADE-UP WRAPPER ─────────────────────────────────────
-const FadeUp = ({ children, delay = 0 }) => {
+const FadeUp = ({ children, delay = 0, animate = true }) => {
   const opacity = useRef(new Animated.Value(0)).current;
   const translateY = useRef(new Animated.Value(18)).current;
 
   useEffect(() => {
+    if (!animate) {
+      opacity.setValue(1);
+      translateY.setValue(0);
+      return;
+    }
+
     Animated.parallel([
       Animated.timing(opacity, {
         toValue: 1, duration: 500, delay,
@@ -179,7 +200,7 @@ const FadeUp = ({ children, delay = 0 }) => {
         useNativeDriver: true,
       }),
     ]).start();
-  }, []);
+  }, [animate, delay, opacity, translateY]);
 
   return (
     <Animated.View style={{ opacity, transform: [{ translateY }] }}>
@@ -189,32 +210,45 @@ const FadeUp = ({ children, delay = 0 }) => {
 };
 
 // ─── BREATHING GLOW (sigil bg) ───────────────────────────
-const BreathingGlow = () => {
-  const scale = useRef(new Animated.Value(0.97)).current;
-  const opacity = useRef(new Animated.Value(0.6)).current;
+const BreathingGlow = ({ animate = true }: { animate?: boolean }) => {
+  const scale = useSharedValue(animate ? 0.97 : 1.0);
+  const opacity = useSharedValue(animate ? 0.6 : 0.8);
 
   useEffect(() => {
-    const loop = Animated.loop(
-      Animated.sequence([
-        Animated.parallel([
-          Animated.timing(scale, { toValue: 1.03, duration: 2200, useNativeDriver: true }),
-          Animated.timing(opacity, { toValue: 1.0, duration: 2200, useNativeDriver: true }),
-        ]),
-        Animated.parallel([
-          Animated.timing(scale, { toValue: 0.97, duration: 2200, useNativeDriver: true }),
-          Animated.timing(opacity, { toValue: 0.6, duration: 2200, useNativeDriver: true }),
-        ]),
-      ])
+    if (!animate) {
+      cancelAnimation(scale);
+      cancelAnimation(opacity);
+      return;
+    }
+    
+    scale.value = withRepeat(
+      withTiming(1.03, { duration: 2200, easing: ReanimatedEasing.inOut(ReanimatedEasing.ease) }),
+      -1,
+      true
     );
-    loop.start();
-    return () => loop.stop();
-  }, []);
+    
+    opacity.value = withRepeat(
+      withTiming(1.0, { duration: 2200, easing: ReanimatedEasing.inOut(ReanimatedEasing.ease) }),
+      -1,
+      true
+    );
+
+    return () => {
+      cancelAnimation(scale);
+      cancelAnimation(opacity);
+    };
+  }, [animate, opacity, scale]);
+
+  const style = useAnimatedStyle(() => ({
+    opacity: opacity.value,
+    transform: [{ scale: scale.value }],
+  }));
 
   return (
-    <Animated.View
+    <Reanimated.View
       style={[
         StyleSheet.absoluteFillObject,
-        { opacity, transform: [{ scale }] },
+        style,
       ]}
       pointerEvents="none"
     >
@@ -226,31 +260,37 @@ const BreathingGlow = () => {
         ]}
         style={StyleSheet.absoluteFillObject}
       />
-    </Animated.View>
+    </Reanimated.View>
   );
 };
 
 // ─── SHINE ANIMATION (activate button) ───────────────────
-const ShineButton = ({ onPress, children, style }) => {
-  const shineX = useRef(new Animated.Value(-SCREEN_W)).current;
+const ShineButton = ({ onPress, children, style, animate = true }) => {
+  const shinePhase = useSharedValue(0);
 
   useEffect(() => {
-    const loop = Animated.loop(
-      Animated.sequence([
-        Animated.timing(shineX, {
-          toValue: SCREEN_W * 1.5, duration: 900,
-          useNativeDriver: true, delay: 0,
-        }),
-        Animated.delay(2500),
-        Animated.timing(shineX, {
-          toValue: -SCREEN_W, duration: 0,
-          useNativeDriver: true,
-        }),
-      ])
+    if (!animate) {
+      cancelAnimation(shinePhase);
+      return;
+    }
+    
+    shinePhase.value = withRepeat(
+      withTiming(1, { duration: 3400, easing: ReanimatedEasing.linear }),
+      -1,
+      false
     );
-    loop.start();
-    return () => loop.stop();
-  }, []);
+
+    return () => cancelAnimation(shinePhase);
+  }, [animate, shinePhase]);
+
+  const shineStyle = useAnimatedStyle(() => {
+    // 0 to 900ms = shine moves, 900ms to 3400ms = wait
+    // So ratio is 900/3400 = 0.2647
+    const progress = Math.min(1, shinePhase.value / 0.2647);
+    return {
+      transform: [{ translateX: interpolate(progress, [0, 1], [-SCREEN_W, SCREEN_W * 1.5]) }],
+    };
+  });
 
   return (
     <TouchableOpacity onPress={onPress} activeOpacity={0.85} style={style}>
@@ -261,13 +301,15 @@ const ShineButton = ({ onPress, children, style }) => {
           style={s.activateInner}
         >
           {children}
-          <Animated.View
-            style={[
-              s.shineSweep,
-              { transform: [{ translateX: shineX }] },
-            ]}
-            pointerEvents="none"
-          />
+          {animate && (
+            <Reanimated.View
+              style={[
+                s.shineSweep,
+                shineStyle,
+              ]}
+              pointerEvents="none"
+            />
+          )}
         </LinearGradient>
       </View>
     </TouchableOpacity>
@@ -452,10 +494,10 @@ const RitualCard = ({ icon, title, subtitle, helper, onPress, isMuted = false, i
   );
 };
 
-const PrimerModal = ({ visible, onActivate, onSkip, onCancel }) => (
+const PrimerModal = ({ visible, onActivate, onSkip, onCancel, blurIntensity = 30 }) => (
   <Modal visible={visible} transparent animationType="fade">
     <View style={rs.modalOverlay}>
-      <BlurView intensity={30} tint="dark" style={StyleSheet.absoluteFillObject} />
+      <BlurView intensity={blurIntensity} tint="dark" style={StyleSheet.absoluteFillObject} />
       <View style={rs.modalContent}>
         <LinearGradient colors={CARD_GRADIENT} style={[rs.card, { padding: 24, paddingVertical: 32 }]}>
           <Text style={rs.modalTitle}>Primer Activation</Text>
@@ -514,39 +556,81 @@ const MiniWeekTrack = ({ weekHistory, lastPrimedAt }) => {
 
 const AnchorDetailsScreen = ({ navigation, route }) => {
   const insets = useSafeAreaInsets();
+  const perfTier = useAppPerformanceTier();
+  const isLowPerfDevice = perfTier === 'low';
+  const isReducedEffectsDevice = perfTier !== 'high';
+  const shouldAnimateIntro = perfTier === 'high';
   const { navigateToPractice } = useTabNavigation();
   const getAnchorById = useAnchorStore((state) => state.getAnchorById);
   const removeAnchor = useAnchorStore((state) => state.removeAnchor);
-  const { defaultActivation, setDefaultActivation } = useSettingsStore();
+  const defaultActivation = useSettingsStore((s) => s.defaultActivation);
+  const setDefaultActivation = useSettingsStore((s) => s.setDefaultActivation);
+  const developerDeleteWithoutBurnEnabled = useSettingsStore((s) => s.developerDeleteWithoutBurnEnabled);
   const sessionLog = useSessionStore((s) => s.sessionLog);
+  const [isReady, setIsReady] = useState(false);
   const [activeDuration, setActiveDuration] = useState('30s');
   const [primerVisible, setPrimerVisible] = useState(false);
   const [moreRitualsVisible, setMoreRitualsVisible] = useState(false);
-  const [exportBusyMode, setExportBusyMode] = useState(null);
-  const exportCanvasRef = useRef(null);
+  const isScrollActiveRef = useRef(false);
+  const [pendingExportAction, setPendingExportAction] = useState<'download' | 'wallpaper' | null>(null);
+  const anchorCardRef = useRef<View>(null);
+  const [isExporting, setIsExporting] = useState(false);
+  const mediaLibraryPermissionRef = useRef<MediaLibrary.PermissionResponse | null>(null);
+  const [showExportSheet, setShowExportSheet] = useState(false);
+  const [confirmUnchargedBurnVisible, setConfirmUnchargedBurnVisible] = useState(false);
+  const [showShareCard, setShowShareCard] = useState(false);
+  const [shareFormat, setShareFormat] = useState<'square' | 'stories'>('square');
+  const shareCardRef = useRef(null);
+  const shareCardRenderedRef = useRef(false);
+  const shareCardTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const {
+    captureAndShare,
+    isLoading: isShareCardLoading,
+    setIsRendered: setShareCardRendered,
+  } = useShareCard(shareCardRef, shareCardRenderedRef);
+
+  useEffect(() => {
+    const task = InteractionManager.runAfterInteractions(() => {
+      setIsReady(true);
+    });
+    return () => task.cancel();
+  }, []);
+
+  useEffect(() => () => {
+    if (shareCardTimeoutRef.current) {
+      clearTimeout(shareCardTimeoutRef.current);
+    }
+  }, []);
+
+  // Permissions are requested lazily on export to avoid native-module errors
+  // or unhandled rejections surfacing as a LogBox popup during navigation.
 
   const routeAnchor = route?.params?.anchor;
   const anchorId = route?.params?.anchorId ?? routeAnchor?.id;
   const storeAnchor = anchorId ? getAnchorById(anchorId) : null;
   const sourceAnchor = routeAnchor ?? storeAnchor;
-  const anchor = toDisplayAnchor(sourceAnchor) ?? {
-    id: anchorId,
-    name: 'Untitled Anchor',
-    intention: 'No intention found for this anchor.',
-    category: 'Custom',
-    charged: false,
-    lastActivated: null,
-    streak: 0,
-    today: null,
-    distilled: [],
-    sigilUri: null,
-    createdAt: 'Unknown',
-    practiceCreate: true,
-    practiceCharge: false,
-    practiceActivateDays: 0,
-    baseSigilSvg: '',
-    enhancedImageUrl: null,
-  };
+  const anchor = useMemo(
+    () =>
+      toDisplayAnchor(sourceAnchor) ?? {
+        id: anchorId,
+        name: 'Untitled Anchor',
+        intention: 'No intention found for this anchor.',
+        category: 'Custom',
+        charged: false,
+        lastActivated: null,
+        streak: 0,
+        today: null,
+        distilled: [],
+        sigilUri: null,
+        createdAt: 'Unknown',
+        practiceCreate: true,
+        practiceCharge: false,
+        practiceActivateDays: 0,
+        baseSigilSvg: '',
+        enhancedImageUrl: null,
+      },
+    [sourceAnchor] // eslint-disable-line react-hooks/exhaustive-deps
+  );
   const anchorPractice = useMemo(() => {
     if (!anchorId) {
       return {
@@ -599,11 +683,27 @@ const AnchorDetailsScreen = ({ navigation, route }) => {
 
   const divineBreath = useSharedValue(0);
   const divineGlowActive = Boolean(anchor.charged || anchor.today === 'Primed');
+  const freezeDetailChrome = Platform.OS === 'android' && isScrollActiveRef.current;
+  const pauseExpensiveEffects = freezeDetailChrome || isReducedEffectsDevice;
+  const enableDetailChromeGlow = Platform.OS !== 'android' && perfTier === 'high';
+  const glowAnimationsActive = divineGlowActive && !pauseExpensiveEffects;
+  const headerBlurIntensity = Platform.OS === 'ios'
+    ? perfTier === 'high'
+      ? 30
+      : perfTier === 'medium'
+        ? 12
+        : 0
+    : 0;
 
   useEffect(() => {
     if (!divineGlowActive) {
       cancelAnimation(divineBreath);
       divineBreath.value = 0;
+      return;
+    }
+
+    if (pauseExpensiveEffects) {
+      cancelAnimation(divineBreath);
       return;
     }
 
@@ -618,17 +718,23 @@ const AnchorDetailsScreen = ({ navigation, route }) => {
 
     return () => {
       cancelAnimation(divineBreath);
-      divineBreath.value = 0;
     };
-  }, [divineBreath, divineGlowActive]);
+  }, [divineBreath, divineGlowActive, pauseExpensiveEffects]);
 
   const topCardPulseStyle = useAnimatedStyle(() => {
-    if (!divineGlowActive) {
+    if (!enableDetailChromeGlow) {
+      return {
+        borderColor: colors.practice.cardFeaturedBorder,
+        shadowOpacity: 0,
+        shadowRadius: 0,
+      };
+    }
+
+    if (!glowAnimationsActive) {
       return {
         borderColor: C.purpleBorder,
         shadowOpacity: 0.08,
         shadowRadius: 12,
-        elevation: 4,
       };
     }
 
@@ -641,21 +747,29 @@ const AnchorDetailsScreen = ({ navigation, route }) => {
       shadowColor: C.gold,
       shadowOpacity: interpolate(divineBreath.value, [0, 1], [0.12, 0.34]),
       shadowRadius: interpolate(divineBreath.value, [0, 1], [10, 20]),
-      elevation: Math.round(interpolate(divineBreath.value, [0, 1], [4, 12])),
     };
-  }, [divineBreath, divineGlowActive]);
+  }, [divineBreath, enableDetailChromeGlow, glowAnimationsActive]);
 
   const topCardAuraStyle = useAnimatedStyle(() => ({
-    opacity: divineGlowActive ? interpolate(divineBreath.value, [0, 1], [0.12, 0.34]) : 0,
-  }), [divineBreath, divineGlowActive]);
+    opacity: enableDetailChromeGlow && glowAnimationsActive
+      ? interpolate(divineBreath.value, [0, 1], [0.12, 0.34])
+      : 0,
+  }), [divineBreath, enableDetailChromeGlow, glowAnimationsActive]);
 
   const statsCardPulseStyle = useAnimatedStyle(() => {
-    if (!divineGlowActive) {
+    if (!enableDetailChromeGlow) {
+      return {
+        borderColor: colors.practice.threadBorder,
+        shadowOpacity: 0,
+        shadowRadius: 0,
+      };
+    }
+
+    if (!glowAnimationsActive) {
       return {
         borderColor: C.purpleBorder,
         shadowOpacity: 0.08,
         shadowRadius: 12,
-        elevation: 4,
       };
     }
 
@@ -668,13 +782,14 @@ const AnchorDetailsScreen = ({ navigation, route }) => {
       shadowColor: C.gold,
       shadowOpacity: interpolate(divineBreath.value, [0, 1], [0.14, 0.4]),
       shadowRadius: interpolate(divineBreath.value, [0, 1], [12, 26]),
-      elevation: Math.round(interpolate(divineBreath.value, [0, 1], [4, 14])),
     };
-  }, [divineBreath, divineGlowActive]);
+  }, [divineBreath, enableDetailChromeGlow, glowAnimationsActive]);
 
   const statsCardAuraStyle = useAnimatedStyle(() => ({
-    opacity: divineGlowActive ? interpolate(divineBreath.value, [0, 1], [0.14, 0.36]) : 0,
-  }), [divineBreath, divineGlowActive]);
+    opacity: enableDetailChromeGlow && glowAnimationsActive
+      ? interpolate(divineBreath.value, [0, 1], [0.14, 0.36])
+      : 0,
+  }), [divineBreath, enableDetailChromeGlow, glowAnimationsActive]);
 
   useEffect(() => {
     if (defaultActivation?.unit !== 'seconds') return;
@@ -751,13 +866,25 @@ const AnchorDetailsScreen = ({ navigation, route }) => {
   const handleBurn = () => {
     if (!anchorId) return;
 
+    if (!anchor.charged) {
+      setConfirmUnchargedBurnVisible(true);
+      return;
+    }
+
+    executeBurn();
+  };
+
+  const executeBurn = () => {
+    if (!anchorId) return;
+    setConfirmUnchargedBurnVisible(false);
+
     const burnAnchor = storeAnchor ?? sourceAnchor;
 
     navigation.navigate('ConfirmBurn', {
       anchorId,
       intention: burnAnchor?.intentionText ?? burnAnchor?.intention ?? anchor.intention,
       sigilSvg: burnAnchor?.reinforcedSigilSvg ?? burnAnchor?.baseSigilSvg ?? '',
-      enhancedImageUrl: burnAnchor?.enhancedImageUrl,
+      enhancedImageUrl: anchor.sigilUri || anchor.enhancedImageUrl || burnAnchor?.enhancedImageUrl || undefined,
     });
   };
 
@@ -815,271 +942,414 @@ const AnchorDetailsScreen = ({ navigation, route }) => {
     ]);
   };
 
-  const captureAnchorArtwork = async () => {
-    const uri = await exportCanvasRef.current?.capture?.();
-    if (!uri) {
-      throw new Error('Unable to generate your anchor artwork right now.');
+  const ensureMediaLibraryPermission = async () => {
+    if (mediaLibraryPermissionRef.current?.granted) return true;
+    try {
+      const result = await MediaLibrary.requestPermissionsAsync();
+      mediaLibraryPermissionRef.current = result;
+      return Boolean(result?.granted);
+    } catch {
+      return false;
     }
-    return uri;
   };
 
-  const handleArtworkExport = async (mode) => {
-    if (!anchorId) {
-      Alert.alert('Anchor unavailable', 'Unable to export because no anchor ID was provided.');
+  useEffect(() => {
+    if (!pendingExportAction) return;
+
+    let cancelled = false;
+
+    const task = InteractionManager.runAfterInteractions(() => {
+      requestAnimationFrame(() => {
+        requestAnimationFrame(async () => {
+          if (cancelled || !anchorCardRef.current) {
+            if (!cancelled) {
+              setPendingExportAction(null);
+              setIsExporting(false);
+            }
+            return;
+          }
+
+          try {
+            const granted = await ensureMediaLibraryPermission();
+            if (!granted) {
+              Alert.alert(
+                'Permission needed',
+                pendingExportAction === 'download'
+                  ? 'Please allow photo library access to save this anchor.'
+                  : 'Please allow photo library access to share this anchor.'
+              );
+              return;
+            }
+
+            const uri = await captureRef(anchorCardRef, { format: 'png', quality: 1 });
+            await MediaLibrary.saveToLibraryAsync(uri);
+
+            if (pendingExportAction === 'wallpaper') {
+              await Share.share({ url: uri });
+            } else {
+              Alert.alert('Saved', 'Your anchor has been saved to your photo library.');
+            }
+          } catch {
+            Alert.alert(
+              'Error',
+              pendingExportAction === 'wallpaper'
+                ? 'Could not open share sheet.'
+                : 'Could not save image. Please check your permissions.'
+            );
+          } finally {
+            if (!cancelled) {
+              setPendingExportAction(null);
+              setIsExporting(false);
+            }
+          }
+        });
+      });
+    });
+
+    return () => {
+      cancelled = true;
+      task.cancel();
+    };
+  }, [pendingExportAction]);
+
+  const handleDownloadPNG = async () => {
+    if (isExporting) return;
+    const perm = await MediaLibrary.requestPermissionsAsync();
+    if (perm.status !== 'granted') {
+      Alert.alert('Permission Required', 'Grant photo library access to save your sigil.');
+      return;
+    }
+    setIsExporting(true);
+    setPendingExportAction('download');
+  };
+
+  const handleSetWallpaper = async () => {
+    if (isExporting) return;
+    const perm = await MediaLibrary.requestPermissionsAsync();
+    if (perm.status !== 'granted') {
+      Alert.alert('Permission Required', 'Grant photo library access to share your sigil.');
+      return;
+    }
+    setIsExporting(true);
+    setPendingExportAction('wallpaper');
+  };
+
+  const handleShareAnchor = useCallback(() => {
+    if (isShareCardLoading) {
       return;
     }
 
-    setExportBusyMode(mode);
-
-    try {
-      await exportAnchorArtwork({
-        anchor: {
-          anchorName: sourceAnchor?.name ?? sourceAnchor?.title ?? anchor.name ?? 'Anchor',
-          intentionText: sourceAnchor?.intentionText ?? sourceAnchor?.intention ?? anchor.intention,
-        },
-        mode,
-        captureArtwork: captureAnchorArtwork,
-      });
-
-      if (mode === 'download') {
-        Alert.alert('PNG saved', 'Saved to your photo library.');
-      }
-    } catch (error) {
-      Alert.alert(
-        mode === 'download' ? 'PNG export failed' : 'Wallpaper export failed',
-        error?.message ?? 'Unable to export this anchor right now.'
-      );
-    } finally {
-      setExportBusyMode(null);
+    if (shareCardTimeoutRef.current) {
+      clearTimeout(shareCardTimeoutRef.current);
     }
-  };
+
+    shareCardRenderedRef.current = false;
+    setShareCardRendered(false);
+    setShowShareCard(true);
+    shareCardTimeoutRef.current = setTimeout(async () => {
+      try {
+        await captureAndShare(
+          anchor.intention,
+          anchorPractice.currentStreak,
+          shareFormat
+        );
+      } finally {
+        setShowShareCard(false);
+        shareCardRenderedRef.current = false;
+        setShareCardRendered(false);
+        shareCardTimeoutRef.current = null;
+      }
+    }, 250);
+  }, [
+    anchor.intention,
+    anchorPractice.currentStreak,
+    captureAndShare,
+    isShareCardLoading,
+    setShareCardRendered,
+    shareFormat,
+  ]);
+
+  const handleHeroScrollStart = useCallback(() => {
+    isScrollActiveRef.current = true;
+  }, []);
+
+  const handleHeroScrollStop = useCallback(() => {
+    isScrollActiveRef.current = false;
+  }, []);
 
   // Removed renderHeroAction and renderRitualCards in favor of the new Primary CTA architecture.
 
+  const handleReportContent = () => {
+    const imageUrl = anchor.sigilUri ?? anchor.enhancedImageUrl ?? '';
+    if (!imageUrl || !anchor.id) return;
+
+    Alert.alert(
+      'Report AI Content',
+      'Why are you reporting this sigil?',
+      [
+        { text: 'Inappropriate', onPress: () => submitContentReport(anchor.id, imageUrl, 'inappropriate') },
+        { text: 'Harmful', onPress: () => submitContentReport(anchor.id, imageUrl, 'harmful') },
+        { text: 'Other', onPress: () => submitContentReport(anchor.id, imageUrl, 'other') },
+        { text: 'Cancel', style: 'cancel' },
+      ]
+    );
+  };
+
+  const submitContentReport = async (anchorId: string, imageUrl: string, reason: string) => {
+    try {
+      await post('/content/flag', { anchorId, imageUrl, reason });
+      Alert.alert('Reported', 'Thank you. Our team will review this content.');
+    } catch {
+      Alert.alert('Error', 'Could not submit report. Please try again.');
+    }
+  };
 
   return (
     <View style={[s.root, { paddingTop: insets.top }]}>
       <StatusBar barStyle="light-content" />
 
-      <ZenBackground variant="practice" showOrbs showGrain showVignette />
+      {isReady && (
+        <ZenBackground
+          variant="practice"
+          showOrbs={perfTier === 'high'}
+          showGrain
+          showVignette
+          performanceTier={perfTier}
+        />
+      )}
 
       {/* ── HEADER ── */}
-      <BlurView intensity={30} tint="dark" style={s.header}>
-        <TouchableOpacity onPress={() => navigation?.goBack()} style={s.backBtn}>
-          <Text style={s.backArrow}>←</Text>
-        </TouchableOpacity>
-        <Text style={s.headerTitle}>ANCHOR DETAILS</Text>
-      </BlurView>
+      {headerBlurIntensity > 0 ? (
+        <BlurView
+          intensity={headerBlurIntensity}
+          tint="dark"
+          style={s.header}
+        >
+          <TouchableOpacity onPress={() => navigation?.goBack()} style={s.backBtn}>
+            <Text style={s.backArrow}>←</Text>
+          </TouchableOpacity>
+          <Text style={s.headerTitle}>ANCHOR DETAILS</Text>
+        </BlurView>
+      ) : (
+        <View style={[s.header, s.headerFallback]}>
+          <TouchableOpacity onPress={() => navigation?.goBack()} style={s.backBtn}>
+            <Text style={s.backArrow}>←</Text>
+          </TouchableOpacity>
+          <Text style={s.headerTitle}>ANCHOR DETAILS</Text>
+        </View>
+      )}
 
       <ScrollView
         contentContainerStyle={[s.scroll, { paddingBottom: insets.bottom + spacing.xl + spacing.sm }]}
         showsVerticalScrollIndicator={false}
+        onScrollBeginDrag={handleHeroScrollStart}
+        onMomentumScrollBegin={handleHeroScrollStart}
+        onScrollEndDrag={handleHeroScrollStop}
+        onMomentumScrollEnd={handleHeroScrollStop}
+        scrollEventThrottle={16}
       >
 
-        {/* ── TITLE CARD ── */}
-        <FadeUp delay={50}>
-          <Reanimated.View style={[s.animatedCardShell, topCardPulseStyle]}>
-            <LinearGradient
-              colors={CARD_GRADIENT}
-              style={[s.card, s.cardGold]}
-            >
-              <Text style={s.anchorEyebrow}>CURRENT ANCHOR</Text>
-              <Text style={s.intentionText}>{anchor.intention}</Text>
-              <View style={s.badgeRow}>
-                <View style={s.badgeDesire}>
-                  <View style={[s.badgeDot, { backgroundColor: colors.gold }]} />
-                  <Text style={[s.badgeText, { color: colors.gold }]}>{anchor.category}</Text>
-                </View>
-                <View style={[s.badgeCharged, !anchor.charged && s.badgeDormant]}>
-                  <Text style={s.badgeIcon}>{anchor.charged ? '⚡' : '💤'}</Text>
-                  <Text style={[s.badgeText, { color: anchor.charged ? C.goldBright : C.textDim }]}>
-                    {anchor.charged ? 'Primed' : 'Dormant'}
-                  </Text>
-                </View>
-              </View>
-            </LinearGradient>
-            <Reanimated.View pointerEvents="none" style={[s.cardAuraOverlay, topCardAuraStyle]}>
+        <View style={s.heroStack}>
+          {/* ── TITLE CARD ── */}
+          <FadeUp delay={50} animate={shouldAnimateIntro}>
+            <Reanimated.View style={[s.animatedCardShell, Platform.OS === 'android' && s.animatedCardShellAndroid, isLowPerfDevice && s.lowPerfFlatCardShell, topCardPulseStyle]}>
               <LinearGradient
-                colors={['rgba(255, 223, 133, 0.14)', 'rgba(245, 198, 82, 0.05)', 'rgba(255, 223, 133, 0.14)']}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 1 }}
-                style={StyleSheet.absoluteFillObject}
-              />
-            </Reanimated.View>
-          </Reanimated.View>
-        </FadeUp>
-
-        {/* ── SIGIL CARD ── */}
-        <FadeUp delay={120}>
-          <View style={s.sigilAuraContainer}>
-            {/* DivineSigilAura only for uncharged — sits behind the card */}
-            {!anchor.charged && (
-              <View pointerEvents="none" style={s.sigilAuraCanvas}>
-                <DivineSigilAura
-                  size={SCREEN_W * 1.25}
-                  enabled={divineGlowActive}
-                  breath={divineBreath}
-                />
-              </View>
-            )}
-            <View style={s.sigilCard}>
-              <LinearGradient
-                colors={['#1a0f35', '#0d0820', '#080510']}
-                style={s.sigilWrapper}
+                colors={CARD_GRADIENT}
+                style={[s.card, s.cardGold, Platform.OS === 'android' && s.cardGoldAndroid, isLowPerfDevice && s.lowPerfNoCardShadow]}
               >
-                {!divineGlowActive && <BreathingGlow />}
-
-                {/* ChargedGlowCanvas fills inside the card for charged anchors */}
-                {anchor.charged && (
-                  <ChargedGlowCanvas
-                    size={SCREEN_W * 0.65}
-                    reduceMotionEnabled={false}
-                  />
-                )}
-
-                {/* Purple backdrop for charged anchors */}
-                {anchor.charged && (
-                  <View style={s.chargedSigilBackdrop} />
-                )}
-
-                {anchor.sigilUri ? (
-                  <Image
-                    source={{ uri: anchor.sigilUri }}
-                    style={[s.sigilImage, anchor.charged && s.chargedSigilImage]}
-                    resizeMode="cover"
-                  />
-                ) : anchor.baseSigilSvg ? (
-                  <View style={[s.sigilPlaceholder, anchor.charged && s.chargedSigilPlaceholder]}>
-                    <SvgXml
-                      xml={anchor.baseSigilSvg}
-                      width={SIGIL_CIRCLE_SIZE * (anchor.charged ? 0.72 : 1)}
-                      height={SIGIL_CIRCLE_SIZE * (anchor.charged ? 0.72 : 1)}
-                    />
+                <Text style={s.anchorEyebrow}>CURRENT ANCHOR</Text>
+                <Text style={s.intentionText}>{anchor.intention}</Text>
+                <View style={s.badgeRow}>
+                  <View style={s.badgeDesire}>
+                    <View style={[s.badgeDot, { backgroundColor: colors.gold }]} />
+                    <Text style={[s.badgeText, { color: colors.gold }]}>{anchor.category}</Text>
                   </View>
-                ) : (
-                  <LinearGradient
-                    colors={['#2a1a60', '#0f0830', '#050015']}
-                    style={[s.sigilPlaceholder, anchor.charged && s.chargedSigilPlaceholder]}
-                  >
-                    <Text style={{ fontSize: 72 }}>🎵</Text>
-                  </LinearGradient>
-                )}
-              </LinearGradient>
-            </View>
-          </View>
-        </FadeUp>
-
-        {/* ── STATS CARD ── */}
-        <FadeUp delay={180}>
-          <Reanimated.View style={[s.animatedCardShell, statsCardPulseStyle]}>
-            <LinearGradient colors={[colors.practice.threadSurface, colors.practice.threadSurface]} style={[s.card, s.statsCard]}>
-              <View style={s.miniStreakCard}>
-                <View style={s.miniStreakLeft}>
-                  <View style={s.miniStreakIcon}>
-                    <Zap size={16} color={colors.gold} />
-                  </View>
-                  <View>
-                    <Text testID="anchor-detail-streak-value" style={s.miniStreakNum}>
-                      {anchorPractice.currentStreak}
-                      <Text style={s.miniStreakUnit}> {currentStreakUnit}</Text>
+                  <View style={[
+                    s.badgeCharged,
+                    Platform.OS === 'android' && s.badgeChargedAndroid,
+                    anchor.isReleased ? s.badgeReleased : (!anchor.charged && s.badgeDormant)
+                  ]}>
+                    <Text style={s.badgeIcon}>{anchor.isReleased ? '🔥' : (anchor.charged ? '⚡' : '💤')}</Text>
+                    <Text style={[s.badgeText, { color: anchor.isReleased ? colors.silver : (anchor.charged ? C.goldBright : C.textDim) }]}>
+                      {anchor.isReleased ? 'Released' : (anchor.charged ? 'Primed' : 'Dormant')}
                     </Text>
-                    <Text style={s.miniStreakSub}>Sessions Primed</Text>
                   </View>
                 </View>
-
-                <View style={s.miniDays}>
-                  <View style={s.miniThreadBarWrap}>
-                    <View style={[s.miniThreadBar, { width: `${threadStrengthValue}%` }]} />
-                  </View>
-                  <MiniWeekTrack weekHistory={anchorPractice.weekHistory} lastPrimedAt={anchorPractice.lastPrimedAt} />
-                </View>
-              </View>
-
-              <Text style={s.miniAffirmation}>The symbol is becoming part of you.</Text>
-
-              {/* Distilled row */}
-              <View style={s.distilledRow}>
-                <Text style={s.distilledLabel}>DISTILLED</Text>
-                <View style={s.distilledTags}>
-                  {anchor.distilled.map((t) => (
-                    <View key={t} style={s.distilledTag}>
-                      <Text style={s.distilledTagText}>{t}</Text>
-                    </View>
-                  ))}
-                </View>
-                <Text style={{ color: C.textDim, fontSize: 12, marginLeft: spacing.xs }}>ⓘ</Text>
-              </View>
-            </LinearGradient>
-            <Reanimated.View pointerEvents="none" style={[s.cardAuraOverlay, statsCardAuraStyle]}>
-              <LinearGradient
-                colors={['rgba(255, 223, 133, 0.18)', 'rgba(245, 198, 82, 0.08)', 'rgba(255, 223, 133, 0.18)']}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 1 }}
-                style={StyleSheet.absoluteFillObject}
-              />
+              </LinearGradient>
+              {!isLowPerfDevice && (
+                <Reanimated.View pointerEvents="none" style={[s.cardAuraOverlay, topCardAuraStyle]}>
+                  <LinearGradient
+                    colors={['rgba(255, 223, 133, 0.14)', 'rgba(245, 198, 82, 0.05)', 'rgba(255, 223, 133, 0.14)']}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 1 }}
+                    style={StyleSheet.absoluteFillObject}
+                  />
+                </Reanimated.View>
+              )}
             </Reanimated.View>
-          </Reanimated.View>
-        </FadeUp>
+          </FadeUp>
+
+          {/* ── SIGIL CARD ── */}
+          <FadeUp delay={120} animate={shouldAnimateIntro}>
+            <View
+              style={s.sigilAuraContainer}
+              renderToHardwareTextureAndroid={freezeDetailChrome}
+              needsOffscreenAlphaCompositing={freezeDetailChrome}
+            >
+              {/* DivineSigilAura only for uncharged — sits behind the card.
+                  Low-tier devices skip the aura entirely to avoid extra
+                  offscreen compositing and the visible halo artifact. */}
+              {!anchor.charged && isReady && !isLowPerfDevice && (
+                <View pointerEvents="none" style={s.sigilAuraCanvas}>
+                  <DivineSigilAura
+                    size={SCREEN_W * 1.25}
+                    enabled
+                    breath={divineBreath}
+                    tier={pauseExpensiveEffects ? 'medium' : perfTier}
+                  />
+                </View>
+              )}
+              <View style={[s.sigilCard, Platform.OS === 'android' && s.sigilCardAndroid, isLowPerfDevice && s.lowPerfNoSigilShadow]}>
+                <LinearGradient
+                  colors={['#1a0f35', '#0d0820', '#080510']}
+                  style={s.sigilWrapper}
+                >
+                  {!divineGlowActive && !isLowPerfDevice && (
+                    <BreathingGlow animate={perfTier === 'high' && !pauseExpensiveEffects} />
+                  )}
+
+                  {/* ChargedGlowCanvas fills inside the card for charged
+                      anchors. Low-tier devices skip the glow entirely;
+                      medium-tier keeps the Skia look but freezes per-frame updates. */}
+                  {anchor.charged && perfTier !== 'low' && isReady && (
+                    <ChargedGlowCanvas
+                      size={SCREEN_W * 0.65}
+                      reduceMotionEnabled={pauseExpensiveEffects}
+                      tier={pauseExpensiveEffects ? 'medium' : perfTier}
+                    />
+                  )}
+
+                  {/* Purple backdrop for charged anchors */}
+                  {anchor.charged && (
+                    <View style={s.chargedSigilBackdrop} />
+                  )}
+
+                  {anchor.sigilUri ? (
+                    <Image
+                      source={{ uri: anchor.sigilUri }}
+                      style={[s.sigilImage, anchor.charged && s.chargedSigilImage, anchor.isReleased && s.releasedSigilImage]}
+                      resizeMode="cover"
+                    />
+                  ) : anchor.baseSigilSvg ? (
+                    <View style={[s.sigilPlaceholder, Platform.OS === 'android' && s.sigilPlaceholderAndroid, isLowPerfDevice && s.lowPerfNoSigilShadow, anchor.charged && s.chargedSigilPlaceholder]}>
+                      <SvgXml
+                        xml={anchor.baseSigilSvg}
+                        width={SIGIL_CIRCLE_SIZE * (anchor.charged ? 0.72 : 1)}
+                        height={SIGIL_CIRCLE_SIZE * (anchor.charged ? 0.72 : 1)}
+                      />
+                    </View>
+                  ) : (
+                    <LinearGradient
+                      colors={['#2a1a60', '#0f0830', '#050015']}
+                      style={[s.sigilPlaceholder, anchor.charged && s.chargedSigilPlaceholder]}
+                    >
+                      <Text style={{ fontSize: 72 }}>🎵</Text>
+                    </LinearGradient>
+                  )}
+                </LinearGradient>
+              </View>
+            </View>
+          </FadeUp>
+
+          {/* ── STATS CARD ── */}
+          <FadeUp delay={180} animate={shouldAnimateIntro}>
+            <Reanimated.View style={[s.animatedCardShell, Platform.OS === 'android' && s.animatedCardShellAndroid, isLowPerfDevice && s.lowPerfFlatCardShell, statsCardPulseStyle]}>
+              <LinearGradient colors={[colors.practice.threadSurface, colors.practice.threadSurface]} style={[s.card, s.statsCard, isLowPerfDevice && s.lowPerfNoCardShadow]}>
+                <View style={s.miniStreakCard}>
+                  <View style={s.miniStreakLeft}>
+                    <View style={s.miniStreakIcon}>
+                      <Zap size={16} color={colors.gold} />
+                    </View>
+                    <View>
+                      <Text testID="anchor-detail-streak-value" style={s.miniStreakNum}>
+                        {anchorPractice.currentStreak}
+                        <Text style={s.miniStreakUnit}> {currentStreakUnit}</Text>
+                      </Text>
+                      <Text style={s.miniStreakSub}>Thread Strength</Text>
+                    </View>
+                  </View>
+
+                  <View style={s.miniDays}>
+                    <View style={s.miniThreadBarWrap}>
+                      <View style={[s.miniThreadBar, { width: `${threadStrengthValue}%` }]} />
+                    </View>
+                    <MiniWeekTrack weekHistory={anchorPractice.weekHistory} lastPrimedAt={anchorPractice.lastPrimedAt} />
+                  </View>
+                </View>
+
+                <Text style={s.miniAffirmation}>The symbol is becoming part of you.</Text>
+
+                {/* Distilled row */}
+                <View style={s.distilledRow}>
+                  <Text style={s.distilledLabel}>DISTILLED</Text>
+                  <View style={s.distilledTags}>
+                    {anchor.distilled.map((t) => (
+                      <View key={t} style={s.distilledTag}>
+                        <Text style={s.distilledTagText}>{t}</Text>
+                      </View>
+                    ))}
+                  </View>
+                  <Text style={{ color: C.textDim, fontSize: 12, marginLeft: spacing.xs }}>ⓘ</Text>
+                </View>
+              </LinearGradient>
+              {!isLowPerfDevice && (
+                <Reanimated.View pointerEvents="none" style={[s.cardAuraOverlay, statsCardAuraStyle]}>
+                  <LinearGradient
+                    colors={['rgba(255, 223, 133, 0.18)', 'rgba(245, 198, 82, 0.08)', 'rgba(255, 223, 133, 0.18)']}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 1 }}
+                    style={StyleSheet.absoluteFillObject}
+                  />
+                </Reanimated.View>
+              )}
+            </Reanimated.View>
+          </FadeUp>
+        </View>
 
         {/* ── PRIMARY CTA ── */}
-        <FadeUp delay={220}>
-          <TouchableOpacity
-            style={s.primaryCtaCard}
-            activeOpacity={0.8}
-            onPress={handlePracticePress}
-          >
-            <View style={s.primaryCtaGradient}>
-              <View style={s.primaryCtaLeft}>
-                <Text style={s.primaryCtaLabel}>Ready to prime?</Text>
-                <Text style={s.primaryCtaTitle}>Open Practice</Text>
-              </View>
-              <View style={s.primaryCtaArrow}>
-                <ChevronRight size={18} color={colors.gold} />
+        <FadeUp delay={220} animate={shouldAnimateIntro}>
+          {anchor.isReleased ? (
+            <View style={s.releasedStatusCard}>
+              <View style={s.releasedStatusGradient}>
+                <View style={s.releasedStatusLeft}>
+                  <Text style={s.releasedStatusLabel}>Ceremony Complete</Text>
+                  <Text style={s.releasedStatusTitle}>This anchor has been released.</Text>
+                  <Text style={s.releasedStatusDate}>Success on {anchor.releasedAt}</Text>
+                </View>
               </View>
             </View>
-          </TouchableOpacity>
+          ) : (
+            <TouchableOpacity
+              style={s.primaryCtaCard}
+              activeOpacity={0.8}
+              onPress={handlePracticePress}
+            >
+              <View style={s.primaryCtaGradient}>
+                <View style={s.primaryCtaLeft}>
+                  <Text style={s.primaryCtaLabel}>Ready to prime?</Text>
+                  <Text style={s.primaryCtaTitle}>Open Practice</Text>
+                </View>
+                <View style={s.primaryCtaArrow}>
+                  <ChevronRight size={18} color={colors.gold} />
+                </View>
+              </View>
+            </TouchableOpacity>
+          )}
         </FadeUp>
 
         {/* DEFERRED: Direct ritual entry points live on Practice. Restore the secondary ritual sheet here only if the detail screen regains mode-launch responsibilities. */}
 
-        {/* ── YOUR PRACTICE ── */}
-        <FadeUp delay={260}>
-          <LinearGradient
-            colors={CARD_GRADIENT}
-            style={s.card}
-          >
-            <View style={s.practiceHeader}>
-              <Text style={s.practiceTitle}>Your Practice</Text>
-              <Text style={{ color: C.goldDim, fontSize: 11 }}>▼</Text>
-            </View>
-            <View style={{ gap: spacing.sm + spacing.xs }}>
-              {[
-                { label: 'Create', done: anchor.practiceCreate, tag: '✓', progress: null },
-                { label: 'Prime', done: anchor.practiceCharge, tag: '✓', progress: null },
-                { label: 'Activate daily', done: false, tag: null, progress: `${anchor.practiceActivateDays}/7` },
-              ].map((item) => (
-                <View key={item.label} style={s.practiceItem}>
-                  <View style={[
-                    s.practiceCheck,
-                    item.done ? s.checkComplete : s.checkProgress,
-                  ]}>
-                    <Text style={[
-                      s.practiceCheckText,
-                      { color: item.done ? C.gold : 'rgba(160,130,220,0.7)' },
-                    ]}>
-                      {item.tag ?? item.progress}
-                    </Text>
-                  </View>
-                  <Text style={[s.practiceLabel, !item.done && { color: C.textSec }]}>
-                    {item.label}
-                  </Text>
-                </View>
-              ))}
-            </View>
-          </LinearGradient>
-        </FadeUp>
-
-        <FadeUp delay={320}>
+        <FadeUp delay={320} animate={shouldAnimateIntro}>
           <LinearGradient
             colors={CARD_GRADIENT}
             style={[s.card, s.exportCard]}
@@ -1087,39 +1357,81 @@ const AnchorDetailsScreen = ({ navigation, route }) => {
             <Text style={s.exportEyebrow}>WALLPAPER & EXPORT</Text>
             <Text style={s.exportTitle}>Keep your anchor where you will actually see it.</Text>
             <Text style={s.exportBody}>
-              Generate a branded PNG from this anchor, save it to your device, or open the share sheet so you can set it as wallpaper manually.
+              Share a branded card for messages and social, save the raw PNG, or open the wallpaper flow when you want the symbol on your lock screen.
             </Text>
             <View style={s.exportActionRow}>
-              <TouchableOpacity
-                accessibilityRole="button"
-                activeOpacity={0.85}
-                disabled={Boolean(exportBusyMode)}
-                onPress={() => handleArtworkExport('wallpaper')}
-                style={[s.exportActionButton, s.exportActionPrimary, exportBusyMode && s.exportActionDisabled]}
-                testID="anchor-detail-set-wallpaper-button"
-              >
-                <Text style={s.exportActionPrimaryText}>
-                  {exportBusyMode === 'wallpaper' ? 'Preparing...' : 'Set as Wallpaper'}
-                </Text>
-              </TouchableOpacity>
+              <View style={s.formatToggleRow}>
+                <TouchableOpacity
+                  accessibilityRole="button"
+                  activeOpacity={0.85}
+                  onPress={() => setShareFormat('square')}
+                  style={[s.formatPill, shareFormat === 'square' && s.formatPillActive]}
+                >
+                  <Text style={[s.formatPillText, shareFormat === 'square' && s.formatPillTextActive]}>SQUARE</Text>
+                  <Text style={[s.formatPillDim, shareFormat === 'square' && s.formatPillDimActive]}>1:1</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  accessibilityRole="button"
+                  activeOpacity={0.85}
+                  onPress={() => setShareFormat('stories')}
+                  style={[s.formatPill, shareFormat === 'stories' && s.formatPillActive]}
+                >
+                  <Text style={[s.formatPillText, shareFormat === 'stories' && s.formatPillTextActive]}>STORIES</Text>
+                  <Text style={[s.formatPillDim, shareFormat === 'stories' && s.formatPillDimActive]}>9:16</Text>
+                </TouchableOpacity>
+              </View>
 
               <TouchableOpacity
                 accessibilityRole="button"
                 activeOpacity={0.85}
-                disabled={Boolean(exportBusyMode)}
-                onPress={() => handleArtworkExport('download')}
-                style={[s.exportActionButton, s.exportActionSecondary, exportBusyMode && s.exportActionDisabled]}
-                testID="anchor-detail-download-png-button"
+                disabled={isShareCardLoading}
+                onPress={handleShareAnchor}
+                style={[s.exportActionButton, s.exportActionPrimary, isShareCardLoading && s.exportActionDisabled]}
+                testID="anchor-detail-share-button"
               >
-                <Text style={s.exportActionSecondaryText}>
-                  {exportBusyMode === 'download' ? 'Saving...' : 'Download PNG'}
-                </Text>
+                <View style={s.exportActionPrimaryContent}>
+                  <Share2 size={16} color={colors.background.primary} />
+                  <Text style={s.exportActionPrimaryText}>
+                    {isShareCardLoading ? 'Sharing...' : 'SHARE MY ANCHOR'}
+                  </Text>
+                </View>
               </TouchableOpacity>
+
+              <View style={s.exportSecondaryRow}>
+                <TouchableOpacity
+                  accessibilityRole="button"
+                  activeOpacity={0.85}
+                  disabled={isExporting}
+                  onPress={handleSetWallpaper}
+                  style={[
+                    s.exportActionButton,
+                    s.exportActionSecondary,
+                    s.exportActionHalf,
+                    isExporting && s.exportActionDisabled,
+                  ]}
+                  testID="anchor-detail-set-wallpaper-button"
+                >
+                  <Text style={s.exportActionSecondaryText}>
+                    {isExporting ? 'Opening...' : 'Set as Wallpaper'}
+                  </Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  accessibilityRole="button"
+                  activeOpacity={0.85}
+                  onPress={() => setShowExportSheet(true)}
+                  style={[s.exportActionButton, s.exportActionSecondary, s.exportActionHalf]}
+                  testID="anchor-detail-download-png-button"
+                >
+                  <Text style={s.exportActionSecondaryText}>SAVE PNG</Text>
+                </TouchableOpacity>
+              </View>
             </View>
           </LinearGradient>
         </FadeUp>
 
-        {/* ── PHYSICAL ANCHOR ── */}
+        {/* DEFERRED: Physical Anchor merchandising stays hidden until the flow, copy, and fulfillment path are functional again.
         <FadeUp delay={360}>
           <LinearGradient
             colors={CARD_GRADIENT}
@@ -1171,28 +1483,70 @@ const AnchorDetailsScreen = ({ navigation, route }) => {
             <Text style={s.physicalTags}>Keychains · Prints · Apparel</Text>
           </LinearGradient>
         </FadeUp>
+        */}
 
         {/* ── DESTRUCTIVE ACTION ── */}
-        <FadeUp delay={380}>
-          <TouchableOpacity style={s.deleteBtn} onPress={handleDelete}>
-            <Text style={s.deleteBtnText}>Delete Anchor</Text>
-          </TouchableOpacity>
-        </FadeUp>
+        {developerDeleteWithoutBurnEnabled && (
+          <FadeUp delay={380} animate={shouldAnimateIntro}>
+            <TouchableOpacity style={s.deleteBtn} onPress={handleDelete}>
+              <Text style={s.deleteBtnText}>Delete Anchor</Text>
+            </TouchableOpacity>
+          </FadeUp>
+        )}
 
         {/* ── FOOTER ── */}
-        <FadeUp delay={400}>
+        <FadeUp delay={400} animate={shouldAnimateIntro}>
           <Text style={s.footerDate}>Created {anchor.createdAt}</Text>
         </FadeUp>
 
       </ScrollView>
 
-      <AnchorArtworkExportCanvas
-        ref={exportCanvasRef}
-        anchorName={sourceAnchor?.name ?? sourceAnchor?.title ?? anchor.name ?? 'Anchor'}
-        intentionText={sourceAnchor?.intentionText ?? sourceAnchor?.intention ?? anchor.intention}
-        enhancedImageUrl={sourceAnchor?.enhancedImageUrl ?? anchor.enhancedImageUrl}
-        sigilSvg={sourceAnchor?.reinforcedSigilSvg ?? sourceAnchor?.baseSigilSvg ?? anchor.baseSigilSvg}
-      />
+      {/* ── HIDDEN CAPTURE TARGET — mount only while exporting so it doesn't
+          consume layout/raster budget during normal scrolling. */}
+      {pendingExportAction && (
+        <View
+          ref={anchorCardRef}
+          style={{
+            position: 'absolute',
+            left: -9999,
+            width: 1170,
+            height: 2532,
+            backgroundColor: '#0F1419',
+            alignItems: 'center',
+            justifyContent: 'center',
+          }}
+          collapsable={false}
+        >
+          <View style={{ width: 1170 * 0.65, aspectRatio: 1, alignItems: 'center', justifyContent: 'center' }}>
+            {anchor.sigilUri ? (
+              <Image source={{ uri: anchor.sigilUri }} style={{ width: '100%', height: '100%', borderRadius: 999 }} resizeMode="cover" />
+            ) : anchor.baseSigilSvg ? (
+              <SvgXml xml={anchor.baseSigilSvg} width={1170 * 0.65} height={1170 * 0.65} />
+            ) : null}
+          </View>
+          <Text style={{ color: '#F5F5DC', fontFamily: 'CormorantGaramond-Regular', fontSize: 28, textAlign: 'center', marginTop: 48, paddingHorizontal: 80 }}>
+            {anchor.intention}
+          </Text>
+          <Text style={{ color: '#D4AF37', fontFamily: 'Cinzel-Regular', fontSize: 18, letterSpacing: 8, textAlign: 'center', marginTop: 24, marginBottom: 80 }}>
+            ANCHOR
+          </Text>
+        </View>
+      )}
+
+      {showShareCard && (
+        <ShareCardRenderer
+          ref={shareCardRef}
+          anchorSVG={anchor.baseSigilSvg}
+          artworkUri={anchor.sigilUri ?? anchor.enhancedImageUrl}
+          intention={anchor.intention}
+          daysPrimed={anchorPractice.currentStreak}
+          format={shareFormat}
+          onRenderReady={() => {
+            shareCardRenderedRef.current = true;
+            setShareCardRendered(true);
+          }}
+        />
+      )}
 
       {/* DEFERRED: MoreRitualsSheet stays off-screen while Anchor Details only routes into Practice. */}
       {/*
@@ -1203,6 +1557,23 @@ const AnchorDetailsScreen = ({ navigation, route }) => {
         isCharged={anchor.charged}
       />
       */}
+
+      <ConfirmUnchargedBurnSheet
+        visible={confirmUnchargedBurnVisible}
+        onConfirm={executeBurn}
+        onCancel={() => setConfirmUnchargedBurnVisible(false)}
+        intentionText={anchor.intention}
+      />
+
+      <ExportAnchorSheet
+        isVisible={showExportSheet}
+        onClose={() => setShowExportSheet(false)}
+        sigilSvg={anchor.baseSigilSvg}
+        sigilUri={anchor.sigilUri}
+        onExportComplete={(uri) => {
+          if (__DEV__) console.log('Anchor exported:', uri);
+        }}
+      />
     </View>
   );
 };
@@ -1239,9 +1610,17 @@ const s = StyleSheet.create({
     letterSpacing: 3,
     color: C.silverDim,
   },
+  headerFallback: {
+    backgroundColor: 'rgba(8, 10, 16, 0.94)',
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: 'rgba(201,168,76,0.12)',
+  },
   scroll: {
     paddingHorizontal: spacing.md,
     paddingTop: spacing.md,
+    gap: spacing.md,
+  },
+  heroStack: {
     gap: spacing.md,
   },
 
@@ -1259,6 +1638,15 @@ const s = StyleSheet.create({
     borderWidth: 1.2,
     borderColor: colors.practice.cardFeaturedBorder,
     overflow: 'hidden',
+    elevation: 6,
+  },
+  animatedCardShellAndroid: {
+    elevation: 0,
+  },
+  lowPerfFlatCardShell: {
+    elevation: 0,
+    shadowOpacity: 0,
+    shadowRadius: 0,
   },
   cardAuraOverlay: {
     ...StyleSheet.absoluteFillObject,
@@ -1272,6 +1660,16 @@ const s = StyleSheet.create({
     shadowOpacity: 0.08,
     shadowRadius: 20,
     elevation: 4,
+  },
+  cardGoldAndroid: {
+    shadowOpacity: 0,
+    shadowRadius: 0,
+    elevation: 0,
+  },
+  lowPerfNoCardShadow: {
+    shadowOpacity: 0,
+    shadowRadius: 0,
+    elevation: 0,
   },
 
   // ── TITLE CARD ──
@@ -1335,6 +1733,16 @@ const s = StyleSheet.create({
     shadowColor: C.gold,
     shadowOpacity: 0.2, shadowRadius: 8,
   },
+  badgeChargedAndroid: {
+    shadowOpacity: 0,
+    shadowRadius: 0,
+    elevation: 0,
+  },
+  badgeReleased: {
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    borderColor: 'rgba(255, 255, 255, 0.2)',
+    shadowOpacity: 0,
+  },
   badgeDormant: {
     backgroundColor: colors.practice.heroSwitcherSurface,
     borderColor: colors.practice.heroSwitcherBorder,
@@ -1375,6 +1783,16 @@ const s = StyleSheet.create({
     shadowRadius: 30,
     elevation: 8,
   },
+  sigilCardAndroid: {
+    shadowOpacity: 0,
+    shadowRadius: 0,
+    elevation: 0,
+  },
+  lowPerfNoSigilShadow: {
+    shadowOpacity: 0,
+    shadowRadius: 0,
+    elevation: 0,
+  },
   sigilWrapper: {
     width: '100%',
     aspectRatio: 1,
@@ -1388,6 +1806,10 @@ const s = StyleSheet.create({
     borderWidth: 2,
     borderColor: 'rgba(201,168,76,0.35)',
   },
+  releasedSigilImage: {
+    opacity: 0.4,
+    borderColor: 'rgba(255, 255, 255, 0.1)',
+  },
   sigilPlaceholder: {
     width: '78%',
     aspectRatio: 1,
@@ -1398,6 +1820,11 @@ const s = StyleSheet.create({
     justifyContent: 'center',
     shadowColor: C.gold,
     shadowOpacity: 0.2, shadowRadius: 20,
+  },
+  sigilPlaceholderAndroid: {
+    shadowOpacity: 0,
+    shadowRadius: 0,
+    elevation: 0,
   },
   chargedSigilBackdrop: {
     position: 'absolute',
@@ -1564,6 +1991,45 @@ const s = StyleSheet.create({
     color: C.textDim,
     textTransform: 'uppercase',
     marginBottom: 6,
+  },
+  // Released Status
+  releasedStatusCard: {
+    marginHorizontal: 4,
+    borderRadius: 16,
+    overflow: 'hidden',
+    backgroundColor: 'rgba(255, 255, 255, 0.03)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.1)',
+  },
+  releasedStatusGradient: {
+    padding: 20,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  releasedStatusLeft: {
+    flex: 1,
+  },
+  releasedStatusLabel: {
+    fontFamily: typography.fontFamily.serif,
+    fontSize: 10,
+    letterSpacing: 1.5,
+    color: colors.silver,
+    textTransform: 'uppercase',
+    marginBottom: 4,
+    opacity: 0.8,
+  },
+  releasedStatusTitle: {
+    fontFamily: typography.fontFamily.serifSemiBold,
+    fontSize: 18,
+    color: colors.bone,
+    marginBottom: 4,
+  },
+  releasedStatusDate: {
+    fontFamily: typography.fontFamily.sans,
+    fontSize: 12,
+    color: colors.silver,
+    opacity: 0.6,
   },
   statValue: {
     fontFamily: 'serif',
@@ -1892,11 +2358,56 @@ const s = StyleSheet.create({
   exportActionRow: {
     gap: spacing.sm,
   },
+  formatToggleRow: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  formatPill: {
+    flex: 1,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: 'rgba(212,175,55,0.18)',
+    backgroundColor: 'rgba(255,255,255,0.02)',
+    paddingVertical: 8,
+    paddingHorizontal: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  formatPillActive: {
+    borderColor: 'rgba(212,175,55,0.65)',
+    backgroundColor: 'rgba(212,175,55,0.06)',
+  },
+  formatPillText: {
+    color: 'rgba(245,245,220,0.5)',
+    fontFamily: typography.fontFamily.serif,
+    fontSize: 9,
+    letterSpacing: 1.4,
+    textTransform: 'uppercase',
+  },
+  formatPillTextActive: {
+    color: colors.gold,
+  },
+  formatPillDim: {
+    marginTop: 2,
+    color: 'rgba(245,245,220,0.42)',
+    fontFamily: typography.fontFamily.bodySerifItalic,
+    fontSize: 9,
+  },
+  formatPillDimActive: {
+    color: 'rgba(212,175,55,0.72)',
+  },
+  exportSecondaryRow: {
+    flexDirection: 'row',
+    gap: spacing.sm,
+  },
   exportActionButton: {
     alignItems: 'center',
     borderRadius: 14,
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.md,
+  },
+  exportActionHalf: {
+    flex: 1,
   },
   exportActionPrimary: {
     backgroundColor: colors.gold,
@@ -1905,6 +2416,12 @@ const s = StyleSheet.create({
     backgroundColor: 'rgba(255,255,255,0.04)',
     borderWidth: 1,
     borderColor: 'rgba(255,255,255,0.08)',
+  },
+  exportActionPrimaryContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: spacing.sm,
   },
   exportActionPrimaryText: {
     color: colors.background.primary,
@@ -1931,6 +2448,22 @@ const s = StyleSheet.create({
     color: C.textDim,
     textDecorationLine: 'underline',
   },
+  deleteBtn: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: 'rgba(244,67,54,0.5)',
+    backgroundColor: 'rgba(244,67,54,0.08)',
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.md,
+  },
+  deleteBtnText: {
+    color: colors.error,
+    fontFamily: typography.fontFamily.serifSemiBold,
+    fontSize: 14,
+    letterSpacing: 0.4,
+  },
 
   // ── FOOTER ──
   footerDate: {
@@ -1938,5 +2471,20 @@ const s = StyleSheet.create({
     fontSize: 11, fontStyle: 'italic',
     color: C.textDim, textAlign: 'center',
     paddingVertical: spacing.sm, letterSpacing: 0.5,
+  },
+
+  // ── REPORT CONTENT ──
+  reportButton: {
+    alignSelf: 'center',
+    paddingVertical: spacing.xs,
+    paddingHorizontal: spacing.md,
+    marginTop: spacing.xs,
+    marginBottom: spacing.sm,
+  },
+  reportButtonText: {
+    fontFamily: typography.fontFamily.sans,
+    fontSize: 11,
+    color: 'rgba(255,255,255,0.25)',
+    letterSpacing: 0.3,
   },
 });

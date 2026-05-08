@@ -1,0 +1,42 @@
+a6316a4d033efa354e3d1b214013a3a7
+'use strict';
+
+var _interopRequireDefault = require("@babel/runtime/helpers/interopRequireDefault").default;
+Object.defineProperty(exports, "__esModule", {
+  value: true
+});
+exports.checkCppVersion = checkCppVersion;
+exports.matchVersion = matchVersion;
+var _slicedToArray2 = _interopRequireDefault(require("@babel/runtime/helpers/slicedToArray"));
+var _logger = require("../logger.js");
+var _WorkletsError = require("../WorkletsError.js");
+var _jsVersion = require("./jsVersion.js");
+function checkCppVersion() {
+  var cppVersion = global._WORKLETS_VERSION_CPP;
+  if (cppVersion === undefined) {
+    _logger.logger.warn(`Couldn't determine the version of the native part of Worklets.
+    See \`https://docs.swmansion.com/react-native-worklets/docs/guides/troubleshooting#couldnt-determine-the-version-of-the-native-part-of-worklets\` for more details.`);
+    return;
+  }
+  var ok = matchVersion(_jsVersion.jsVersion, cppVersion);
+  if (!ok) {
+    throw new _WorkletsError.WorkletsError(`Mismatch between JavaScript part and native part of Worklets (${_jsVersion.jsVersion} vs ${cppVersion}).
+    See \`https://docs.swmansion.com/react-native-worklets/docs/guides/troubleshooting#mismatch-between-javascript-part-and-native-part-of-worklets\` for more details.`);
+  }
+}
+function matchVersion(version1, version2) {
+  if (version1.match(/^\d+\.\d+\.\d+$/) && version2.match(/^\d+\.\d+\.\d+$/)) {
+    var _version1$split = version1.split('.'),
+      _version1$split2 = (0, _slicedToArray2.default)(_version1$split, 2),
+      major1 = _version1$split2[0],
+      minor1 = _version1$split2[1];
+    var _version2$split = version2.split('.'),
+      _version2$split2 = (0, _slicedToArray2.default)(_version2$split, 2),
+      major2 = _version2$split2[0],
+      minor2 = _version2$split2[1];
+    return major1 === major2 && minor1 === minor2;
+  } else {
+    return version1 === version2;
+  }
+}
+//# sourceMappingURL=data:application/json;charset=utf-8;base64,eyJ2ZXJzaW9uIjozLCJuYW1lcyI6WyJfaW50ZXJvcFJlcXVpcmVEZWZhdWx0IiwicmVxdWlyZSIsImRlZmF1bHQiLCJPYmplY3QiLCJkZWZpbmVQcm9wZXJ0eSIsImV4cG9ydHMiLCJ2YWx1ZSIsImNoZWNrQ3BwVmVyc2lvbiIsIm1hdGNoVmVyc2lvbiIsIl9zbGljZWRUb0FycmF5MiIsIl9sb2dnZXIiLCJfV29ya2xldHNFcnJvciIsIl9qc1ZlcnNpb24iLCJjcHBWZXJzaW9uIiwiZ2xvYmFsIiwiX1dPUktMRVRTX1ZFUlNJT05fQ1BQIiwidW5kZWZpbmVkIiwibG9nZ2VyIiwid2FybiIsIm9rIiwianNWZXJzaW9uIiwiV29ya2xldHNFcnJvciIsInZlcnNpb24xIiwidmVyc2lvbjIiLCJtYXRjaCIsIl92ZXJzaW9uMSRzcGxpdCIsInNwbGl0IiwiX3ZlcnNpb24xJHNwbGl0MiIsIm1ham9yMSIsIm1pbm9yMSIsIl92ZXJzaW9uMiRzcGxpdCIsIl92ZXJzaW9uMiRzcGxpdDIiLCJtYWpvcjIiLCJtaW5vcjIiXSwic291cmNlcyI6WyIuLi8uLi8uLi9zcmMvdXRpbHMvY2hlY2tDcHBWZXJzaW9uLnRzIl0sInNvdXJjZXNDb250ZW50IjpbbnVsbF0sIm1hcHBpbmdzIjoiQUFBQSxZQUFZOztBQUFBLElBQUFBLHNCQUFBLEdBQUFDLE9BQUEsaURBQUFDLE9BQUE7QUFBQUMsTUFBQSxDQUFBQyxjQUFBLENBQUFDLE9BQUE7RUFBQUMsS0FBQTtBQUFBO0FBQUFELE9BQUEsQ0FBQUUsZUFBQSxHQUFBQSxlQUFBO0FBQUFGLE9BQUEsQ0FBQUcsWUFBQSxHQUFBQSxZQUFBO0FBQUEsSUFBQUMsZUFBQSxHQUFBVCxzQkFBQSxDQUFBQyxPQUFBO0FBQ1osSUFBQVMsT0FBQSxHQUFBVCxPQUFBO0FBQ0EsSUFBQVUsY0FBQSxHQUFBVixPQUFBO0FBQ0EsSUFBQVcsVUFBQSxHQUFBWCxPQUFBO0FBRU8sU0FBU00sZUFBZUEsQ0FBQSxFQUFHO0VBQ2hDLElBQU1NLFVBQVUsR0FBR0MsTUFBTSxDQUFDQyxxQkFBcUI7RUFDL0MsSUFBSUYsVUFBVSxLQUFLRyxTQUFTLEVBQUU7SUFDNUJDLGNBQU0sQ0FBQ0MsSUFBSSxDQUNUO0FBQ04sd0tBQ0ksQ0FBQztJQUNEO0VBQ0Y7RUFDQSxJQUFNQyxFQUFFLEdBQUdYLFlBQVksQ0FBQ1ksb0JBQVMsRUFBRVAsVUFBVSxDQUFDO0VBQzlDLElBQUksQ0FBQ00sRUFBRSxFQUFFO0lBQ1AsTUFBTSxJQUFJRSw0QkFBYSxDQUNyQixpRUFBaUVELG9CQUFTLE9BQU9QLFVBQVU7QUFDakcsd0tBQ0ksQ0FBQztFQUNIO0FBQ0Y7QUFFTyxTQUFTTCxZQUFZQSxDQUFDYyxRQUFnQixFQUFFQyxRQUFnQixFQUFFO0VBQy9ELElBQUlELFFBQVEsQ0FBQ0UsS0FBSyxDQUFDLGlCQUFpQixDQUFDLElBQUlELFFBQVEsQ0FBQ0MsS0FBSyxDQUFDLGlCQUFpQixDQUFDLEVBQUU7SUFFMUUsSUFBQUMsZUFBQSxHQUF5QkgsUUFBUSxDQUFDSSxLQUFLLENBQUMsR0FBRyxDQUFDO01BQUFDLGdCQUFBLE9BQUFsQixlQUFBLENBQUFQLE9BQUEsRUFBQXVCLGVBQUE7TUFBckNHLE1BQU0sR0FBQUQsZ0JBQUE7TUFBRUUsTUFBTSxHQUFBRixnQkFBQTtJQUNyQixJQUFBRyxlQUFBLEdBQXlCUCxRQUFRLENBQUNHLEtBQUssQ0FBQyxHQUFHLENBQUM7TUFBQUssZ0JBQUEsT0FBQXRCLGVBQUEsQ0FBQVAsT0FBQSxFQUFBNEIsZUFBQTtNQUFyQ0UsTUFBTSxHQUFBRCxnQkFBQTtNQUFFRSxNQUFNLEdBQUFGLGdCQUFBO0lBQ3JCLE9BQU9ILE1BQU0sS0FBS0ksTUFBTSxJQUFJSCxNQUFNLEtBQUtJLE1BQU07RUFDL0MsQ0FBQyxNQUFNO0lBRUwsT0FBT1gsUUFBUSxLQUFLQyxRQUFRO0VBQzlCO0FBQ0YiLCJpZ25vcmVMaXN0IjpbXX0=

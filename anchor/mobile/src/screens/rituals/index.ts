@@ -10,6 +10,7 @@ export { BreathingAnimation } from './BreathingAnimation';
 export { RitualScreen } from './RitualScreen';
 export { SealAnchorScreen } from './SealAnchorScreen';
 export { ChargeCompleteScreen } from './ChargeCompleteScreen';
+export { FirstPrimeCompleteScreen } from './FirstPrimeCompleteScreen';
 
 // Activation & Burning
 export { ActivationScreen } from './ActivationScreen';

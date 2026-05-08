@@ -52,6 +52,34 @@ jest.mock('expo-media-library', () => ({
   saveToLibraryAsync: jest.fn(() => Promise.resolve()),
 }));
 
+jest.mock('expo-file-system', () => ({
+  readAsStringAsync: jest.fn(() => Promise.resolve('')),
+  EncodingType: {
+    Base64: 'base64',
+  },
+}));
+
+jest.mock('expo-secure-store', () => {
+  const store = new Map<string, string>();
+
+  return {
+    getItemAsync: jest.fn((key: string) => Promise.resolve(store.get(key) ?? null)),
+    setItemAsync: jest.fn((key: string, value: string) => {
+      store.set(key, value);
+      return Promise.resolve();
+    }),
+    deleteItemAsync: jest.fn((key: string) => {
+      store.delete(key);
+      return Promise.resolve();
+    }),
+  };
+});
+
+jest.mock('expo-sharing', () => ({
+  isAvailableAsync: jest.fn(() => Promise.resolve(true)),
+  shareAsync: jest.fn(() => Promise.resolve()),
+}));
+
 jest.mock('@sentry/react-native', () => {
   const addBreadcrumb = jest.fn();
   const routingIntegration = {
@@ -176,9 +204,11 @@ jest.mock('react-native-svg', () => ({
   SvgXml: 'SvgXml',
   Svg: 'Svg',
   Circle: 'Circle',
+  Ellipse: 'Ellipse',
   Path: 'Path',
   G: 'G',
   Line: 'Line',
+  Polyline: 'Polyline',
   Rect: 'Rect',
   Defs: 'Defs',
   Stop: 'Stop',
@@ -249,6 +279,7 @@ jest.mock('@/services/AuthService', () => ({
   AuthService: {
     getIdToken: jest.fn().mockResolvedValue(null),
     getCurrentUser: jest.fn().mockReturnValue(null),
+    getCachedUser: jest.fn().mockResolvedValue(null),
     signOut: jest.fn().mockResolvedValue(undefined),
   },
 }));

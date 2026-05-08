@@ -35,6 +35,8 @@ export interface RitualConfig {
   phases: RitualPhase[];
   /** Duration of seal gesture at the end (seconds) */
   sealDurationSeconds: number;
+  /** Press-and-hold duration required to finish the seal gesture */
+  sealHoldDurationMs: number;
   /** Success haptic after seal completes */
   sealSuccessHaptic: Haptics.NotificationFeedbackType;
 }
@@ -49,6 +51,7 @@ export const FOCUS_30S_CONFIG: RitualConfig = {
   name: 'Focus Charge',
   totalDurationSeconds: 30,
   sealDurationSeconds: 3,
+  sealHoldDurationMs: 1500,
   sealSuccessHaptic: Haptics.NotificationFeedbackType.Success,
   phases: [
     {
@@ -73,6 +76,7 @@ export const FOCUS_2M_CONFIG: RitualConfig = {
   name: 'Focus Charge',
   totalDurationSeconds: 120,
   sealDurationSeconds: 3,
+  sealHoldDurationMs: 1500,
   sealSuccessHaptic: Haptics.NotificationFeedbackType.Success,
   phases: [
     {
@@ -99,6 +103,7 @@ export const FOCUS_5M_CONFIG: RitualConfig = {
   name: 'Focus Charge',
   totalDurationSeconds: 300,
   sealDurationSeconds: 3,
+  sealHoldDurationMs: 1500,
   sealSuccessHaptic: Haptics.NotificationFeedbackType.Success,
   phases: [
     {
@@ -130,6 +135,7 @@ export const RITUAL_5M_CONFIG: RitualConfig = {
   name: 'Ritual Charge',
   totalDurationSeconds: 300,
   sealDurationSeconds: 3,
+  sealHoldDurationMs: 2800,
   sealSuccessHaptic: Haptics.NotificationFeedbackType.Success,
   phases: [
     // Phase 1: Breathwork (30s)
@@ -147,10 +153,10 @@ export const RITUAL_5M_CONFIG: RitualConfig = {
       hapticStyle: Haptics.ImpactFeedbackStyle.Light,
     },
 
-    // Phase 2: Mantra (60s)
+    // Phase 2: Repeat Intention (60s)
     {
       number: 2,
-      title: 'Mantra',
+      title: 'Repeat Intention',
       durationSeconds: 60,
       instructions: [
         'Speak it softly. Let it sink in.',
@@ -198,7 +204,7 @@ export const RITUAL_5M_CONFIG: RitualConfig = {
       title: 'Seal',
       durationSeconds: 90,
       instructions: [
-        'Hold steady. Seal the link.',
+        'Hold steady. Let the anchor settle.',
         'Feel the connection lock in.',
         'This is your anchor now.',
       ],
@@ -215,6 +221,7 @@ export const RITUAL_10M_CONFIG: RitualConfig = {
   name: 'Ritual Charge',
   totalDurationSeconds: 600,
   sealDurationSeconds: 3,
+  sealHoldDurationMs: 2800,
   sealSuccessHaptic: Haptics.NotificationFeedbackType.Success,
   phases: [
     // Phase 1: Breathwork (60s)
@@ -233,10 +240,10 @@ export const RITUAL_10M_CONFIG: RitualConfig = {
       hapticStyle: Haptics.ImpactFeedbackStyle.Light,
     },
 
-    // Phase 2: Mantra (120s)
+    // Phase 2: Repeat Intention (120s)
     {
       number: 2,
-      title: 'Mantra',
+      title: 'Repeat Intention',
       durationSeconds: 120,
       instructions: [
         'Speak it softly. Let it sink in.',
@@ -288,7 +295,7 @@ export const RITUAL_10M_CONFIG: RitualConfig = {
       title: 'Seal',
       durationSeconds: 150,
       instructions: [
-        'Hold steady. Seal the link.',
+        'Hold steady. Let the anchor settle.',
         'Feel the connection lock in.',
         'This is your anchor now.',
         'The bond is unbreakable.',
@@ -347,6 +354,7 @@ function generateCustomRitualConfig(
       name: 'Focus Charge',
       totalDurationSeconds: clampedDuration,
       sealDurationSeconds: 3,
+      sealHoldDurationMs: 1500,
       sealSuccessHaptic: Haptics.NotificationFeedbackType.Success,
       phases: [
         {
@@ -389,7 +397,7 @@ function generateCustomRitualConfig(
       },
       {
         number: 2,
-        title: 'Mantra',
+        title: 'Repeat Intention',
         durationSeconds: Math.round(60 * ratio),
         instructions: [
           'Speak it softly. Let it sink in.',
@@ -434,7 +442,7 @@ function generateCustomRitualConfig(
         title: 'Seal',
         durationSeconds: Math.round(90 * ratio),
         instructions: [
-          'Hold steady. Seal the link.',
+          'Hold steady. Let the anchor settle.',
           'Feel the connection lock in.',
           'This is your anchor now.',
           'The bond is unbreakable.',
@@ -450,6 +458,7 @@ function generateCustomRitualConfig(
       name: 'Ritual Charge',
       totalDurationSeconds: clampedDuration,
       sealDurationSeconds: 3,
+      sealHoldDurationMs: 2800,
       sealSuccessHaptic: Haptics.NotificationFeedbackType.Success,
       phases,
     };

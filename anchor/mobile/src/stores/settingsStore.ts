@@ -2,9 +2,15 @@ import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Haptics from 'expo-haptics';
+import type { PerformanceTierOverride } from '@/hooks/usePerformanceTier';
 
 export type ChargeMode = 'focus' | 'ritual';
 export type ChargeDurationPreset = '30s' | '1m' | '2m' | '5m' | '10m' | 'custom';
+export type FocusSessionMode = 'quick' | 'deep';
+export type SessionAudioMode = 'silent' | 'ambient';
+export type DailyPracticeGoalPreset = 'once' | 'three' | 'five' | 'custom';
+export type ThreadStrengthSensitivity = 'lenient' | 'balanced' | 'strict';
+export type RestDayPolicy = 'build' | 'neutral';
 
 export interface DefaultChargeSetting {
   mode: ChargeMode;
@@ -29,6 +35,153 @@ export interface DefaultActivationSetting {
 const clampNumber = (value: number, min: number, max: number): number =>
   Math.min(max, Math.max(min, Math.round(value)));
 
+const clampFocusSessionDuration = (value: number): number =>
+  clampNumber(value, 10, 120);
+
+const clampPrimeSessionDuration = (value: number): number =>
+  clampNumber(value, 120, 7200);
+
+const normalizeSessionAudioMode = (value: unknown): SessionAudioMode =>
+  value === 'ambient' ? 'ambient' : 'silent';
+
+const normalizeFocusSessionMode = (value: unknown): FocusSessionMode =>
+  value === 'deep' ? 'deep' : 'quick';
+
+const normalizeDailyPracticeGoalPreset = (
+  value: unknown,
+  goal: number
+): DailyPracticeGoalPreset => {
+  if (value === 'once' || value === 'three' || value === 'five' || value === 'custom') {
+    return value;
+  }
+
+  if (goal === 1) return 'once';
+  if (goal === 3) return 'three';
+  if (goal === 5) return 'five';
+  return 'custom';
+};
+
+const normalizeThreadStrengthSensitivity = (value: unknown): ThreadStrengthSensitivity => {
+  if (value === 'lenient' || value === 'strict') {
+    return value;
+  }
+
+  return 'balanced';
+};
+
+const normalizeRestDays = (value: unknown): number[] => {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+
+  return Array.from(
+    new Set(
+      value
+        .map((day) => Number(day))
+        .filter((day) => Number.isInteger(day) && day >= 0 && day <= 6)
+    )
+  ).sort((left, right) => left - right);
+};
+
+const normalizeRestDayPolicy = (value: unknown): RestDayPolicy =>
+  value === 'neutral' ? 'neutral' : 'build';
+
+const deriveFocusSessionDuration = (persistedState: any): number => {
+  if (typeof persistedState?.focusSessionDuration === 'number') {
+    return clampFocusSessionDuration(persistedState.focusSessionDuration);
+  }
+
+  const defaultActivation = persistedState?.defaultActivation;
+  if (defaultActivation?.unit === 'minutes' && typeof defaultActivation.value === 'number') {
+    return clampFocusSessionDuration(defaultActivation.value * 60);
+  }
+  if (defaultActivation?.unit === 'seconds' && typeof defaultActivation.value === 'number') {
+    return clampFocusSessionDuration(defaultActivation.value);
+  }
+
+  return 30;
+};
+
+const derivePrimeSessionDuration = (persistedState: any): number => {
+  if (typeof persistedState?.primeSessionDuration === 'number') {
+    return clampPrimeSessionDuration(persistedState.primeSessionDuration);
+  }
+
+  const defaultCharge = persistedState?.defaultCharge;
+  if (!defaultCharge) {
+    return 120;
+  }
+
+  if (defaultCharge.preset === 'custom') {
+    return clampPrimeSessionDuration((defaultCharge.customMinutes ?? 5) * 60);
+  }
+
+  switch (defaultCharge.preset) {
+    case '10m':
+      return 600;
+    case '5m':
+      return 300;
+    case '2m':
+    case '1m':
+    case '30s':
+    default:
+      return 120;
+  }
+};
+
+const deriveFocusSessionAudio = (persistedState: any): SessionAudioMode =>
+  normalizeSessionAudioMode(
+    persistedState?.focusSessionAudio ?? persistedState?.defaultActivation?.mode
+  );
+
+const deriveDailyPracticeGoal = (persistedState: any): number =>
+  clampNumber(persistedState?.dailyPracticeGoal ?? 3, 1, 20);
+
+const deriveDefaultChargeFromPrimeSession = (
+  currentCharge: DefaultChargeSetting,
+  durationSeconds: number
+): DefaultChargeSetting => {
+  if (durationSeconds === 120) {
+    return { mode: 'ritual', preset: '2m', customMinutes: undefined };
+  }
+  if (durationSeconds === 300) {
+    return { mode: 'ritual', preset: '5m', customMinutes: undefined };
+  }
+  if (durationSeconds === 600) {
+    return { mode: 'ritual', preset: '10m', customMinutes: undefined };
+  }
+
+  return {
+    mode: 'ritual',
+    preset: 'custom',
+    customMinutes: clampNumber(Math.round(durationSeconds / 60), 2, 120),
+  };
+};
+
+const deriveDefaultActivationFromFocusSession = (
+  currentActivation: DefaultActivationSetting,
+  durationSeconds: number,
+  audioMode: SessionAudioMode
+): DefaultActivationSetting => {
+  if (durationSeconds > 60) {
+    return normalizeDefaultActivation({
+      ...currentActivation,
+      type: 'visual',
+      unit: 'minutes',
+      value: Math.round(durationSeconds / 60),
+      mode: audioMode,
+    });
+  }
+
+  return normalizeDefaultActivation({
+    ...currentActivation,
+    type: 'visual',
+    unit: 'seconds',
+    value: durationSeconds,
+    mode: audioMode,
+  });
+};
+
 const normalizeDefaultCharge = (setting: DefaultChargeSetting): DefaultChargeSetting => {
   if (setting.preset !== 'custom') {
     return {
@@ -41,7 +194,7 @@ const normalizeDefaultCharge = (setting: DefaultChargeSetting): DefaultChargeSet
   return {
     mode: setting.mode,
     preset: 'custom',
-    customMinutes: clampNumber(setting.customMinutes ?? 5, 1, 30),
+    customMinutes: clampNumber(setting.customMinutes ?? 5, 1, 120),
   };
 };
 
@@ -86,6 +239,47 @@ const clampPersistedSettings = (persistedState: any) => {
   return nextState;
 };
 
+const getDefaultDebugLoggingEnabled = (): boolean =>
+  __DEV__ && process.env.EXPO_PUBLIC_DEBUG_LOGGING === 'true';
+
+const withDeveloperSettingsDefaults = (
+  persistedState: any,
+  overrides: Record<string, unknown> = {}
+) => {
+  const clampedState = clampPersistedSettings(persistedState);
+  const dailyPracticeGoal = deriveDailyPracticeGoal(clampedState);
+  const derivedFocusSessionMode =
+    clampedState?.focusSessionMode ??
+    (clampedState?.defaultCharge?.mode === 'ritual' ? 'deep' : 'quick');
+
+  return {
+    ...clampedState,
+    focusSessionMode: normalizeFocusSessionMode(derivedFocusSessionMode),
+    focusSessionDuration: deriveFocusSessionDuration(clampedState),
+    focusSessionAudio: deriveFocusSessionAudio(clampedState),
+    primeSessionDuration: derivePrimeSessionDuration(clampedState),
+    primeSessionAudio: normalizeSessionAudioMode(clampedState?.primeSessionAudio),
+    dailyPracticeGoal,
+    dailyPracticeGoalPreset: normalizeDailyPracticeGoalPreset(
+      clampedState?.dailyPracticeGoalPreset,
+      dailyPracticeGoal
+    ),
+    threadStrengthSensitivity: normalizeThreadStrengthSensitivity(
+      clampedState?.threadStrengthSensitivity
+    ),
+    restDays: normalizeRestDays(clampedState?.restDays),
+    restDayPolicy: normalizeRestDayPolicy(clampedState?.restDayPolicy),
+    developerSkipOnboardingEnabled: persistedState?.developerSkipOnboardingEnabled ?? false,
+    developerForceStreakBreakEnabled: persistedState?.developerForceStreakBreakEnabled ?? false,
+    developerDeleteWithoutBurnEnabled: persistedState?.developerDeleteWithoutBurnEnabled ?? false,
+    developerMasterAccountEnabled: persistedState?.developerMasterAccountEnabled ?? false,
+    developerWeeklySummaryPreviewToken: 0,
+    debugLoggingEnabled:
+      persistedState?.debugLoggingEnabled ?? getDefaultDebugLoggingEnabled(),
+    ...overrides,
+  };
+};
+
 /**
  * Settings state interface
  */
@@ -93,15 +287,20 @@ export interface SettingsState {
   // Practice Settings
   defaultCharge: DefaultChargeSetting;
   defaultActivation: DefaultActivationSetting;
+  focusSessionMode: FocusSessionMode;
+  focusSessionDuration: number;
+  focusSessionAudio: SessionAudioMode;
+  primeSessionDuration: number;
+  primeSessionAudio: SessionAudioMode;
 
   openDailyAnchorAutomatically: boolean;
   dailyPracticeGoal: number;
+  dailyPracticeGoalPreset: DailyPracticeGoalPreset;
+  threadStrengthSensitivity: ThreadStrengthSensitivity;
+  restDays: number[];
+  restDayPolicy: RestDayPolicy;
+  arrivePhaseEnabled: boolean;
   reduceIntentionVisibility: boolean;
-
-  // Notifications
-  dailyReminderEnabled: boolean;
-  dailyReminderTime: string; // Format: "HH:MM"
-  streakProtectionAlerts: boolean;
   weeklySummaryEnabled: boolean;
 
   // Appearance
@@ -116,26 +315,36 @@ export interface SettingsState {
   soundEffectsEnabled: boolean;
   mantraAudioByDefault: boolean;
   developerModeEnabled: boolean;
+  developerMasterAccountEnabled: boolean;
   developerSkipOnboardingEnabled: boolean;
   developerForceStreakBreakEnabled: boolean;
   developerDeleteWithoutBurnEnabled: boolean;
+  developerWeeklySummaryPreviewToken: number;
   debugLoggingEnabled: boolean;
   /** Guide Mode — contextual first-time hints. true = on-only + both; false = both only. */
   guideMode: boolean;
+
+  // Dev-only, session-only (not persisted). Forces a specific render tier.
+  devPerfTierOverride: PerformanceTierOverride;
 
   // Actions - Practice Settings
   setDefaultCharge: (setting: DefaultChargeSetting) => void;
   setDefaultActivation: (setting: DefaultActivationSetting) => void;
   setDefaultActivationMode: (mode: ActivationMode) => void;
+  setFocusSessionMode: (mode: FocusSessionMode) => void;
+  setFocusSessionDuration: (durationSeconds: number) => void;
+  setFocusSessionAudio: (mode: SessionAudioMode) => void;
+  setPrimeSessionDuration: (durationSeconds: number) => void;
+  setPrimeSessionAudio: (mode: SessionAudioMode) => void;
   setGuideMode: (enabled: boolean) => void;
   setOpenDailyAnchorAutomatically: (enabled: boolean) => void;
   setDailyPracticeGoal: (goal: number) => void;
+  setDailyPracticeGoalPreset: (preset: DailyPracticeGoalPreset) => void;
+  setThreadStrengthSensitivity: (sensitivity: ThreadStrengthSensitivity) => void;
+  setRestDays: (days: number[]) => void;
+  setRestDayPolicy: (policy: RestDayPolicy) => void;
+  setArrivePhaseEnabled: (enabled: boolean) => void;
   setReduceIntentionVisibility: (enabled: boolean) => void;
-
-  // Actions - Notifications
-  setDailyReminderEnabled: (enabled: boolean) => void;
-  setDailyReminderTime: (time: string) => void;
-  setStreakProtectionAlerts: (enabled: boolean) => void;
   setWeeklySummaryEnabled: (enabled: boolean) => void;
 
   // Actions - Appearance
@@ -150,10 +359,14 @@ export interface SettingsState {
   setSoundEffectsEnabled: (enabled: boolean) => void;
   setMantraAudioByDefault: (enabled: boolean) => void;
   setDeveloperModeEnabled: (enabled: boolean) => void;
+  setDeveloperMasterAccountEnabled: (enabled: boolean) => void;
   setDeveloperSkipOnboardingEnabled: (enabled: boolean) => void;
   setDeveloperForceStreakBreakEnabled: (enabled: boolean) => void;
   setDeveloperDeleteWithoutBurnEnabled: (enabled: boolean) => void;
+  triggerDeveloperWeeklySummaryPreview: () => void;
+  clearDeveloperWeeklySummaryPreview: () => void;
   setDebugLoggingEnabled: (enabled: boolean) => void;
+  setDevPerfTierOverride: (override: PerformanceTierOverride) => void;
 
   // Utility Actions
   resetToDefaults: () => void;
@@ -170,13 +383,20 @@ const DEFAULT_SETTINGS = {
     unit: 'seconds' as ActivationUnit,
     mode: 'silent' as ActivationMode,
   },
+  focusSessionMode: 'quick' as FocusSessionMode,
+  focusSessionDuration: 30,
+  focusSessionAudio: 'silent' as SessionAudioMode,
+  primeSessionDuration: 120,
+  primeSessionAudio: 'silent' as SessionAudioMode,
   openDailyAnchorAutomatically: false,
   dailyPracticeGoal: 3,
+  dailyPracticeGoalPreset: 'three' as DailyPracticeGoalPreset,
+  threadStrengthSensitivity: 'balanced' as ThreadStrengthSensitivity,
+  restDays: [] as number[],
+  restDayPolicy: 'build' as RestDayPolicy,
+  arrivePhaseEnabled: true,
   reduceIntentionVisibility: false,
-  dailyReminderEnabled: false,
-  dailyReminderTime: '09:00',
-  streakProtectionAlerts: false,
-  weeklySummaryEnabled: false,
+  weeklySummaryEnabled: true,
   theme: 'zen_architect' as const,
   accentColor: '#D4AF37',
   vaultView: 'grid' as const,
@@ -186,11 +406,14 @@ const DEFAULT_SETTINGS = {
   soundEffectsEnabled: true,
   mantraAudioByDefault: true,
   developerModeEnabled: false,
+  developerMasterAccountEnabled: false,
   developerSkipOnboardingEnabled: false,
   developerForceStreakBreakEnabled: false,
   developerDeleteWithoutBurnEnabled: false,
+  developerWeeklySummaryPreviewToken: 0,
   debugLoggingEnabled: __DEV__ && process.env.EXPO_PUBLIC_DEBUG_LOGGING === 'true',
   guideMode: true,
+  devPerfTierOverride: 'auto' as PerformanceTierOverride,
 };
 
 /**
@@ -212,15 +435,22 @@ export const useSettingsStore = create<SettingsState>()(
       // Practice Settings Actions
       setDefaultCharge: (setting) => {
         triggerHaptic();
-        set({
-          defaultCharge: normalizeDefaultCharge(setting),
-        });
+        const normalized = normalizeDefaultCharge(setting);
+        set(() => ({
+          defaultCharge: normalized,
+          focusSessionMode: normalized.mode === 'ritual' ? 'deep' : 'quick',
+          primeSessionDuration: derivePrimeSessionDuration({ defaultCharge: normalized }),
+        }));
       },
 
       setDefaultActivation: (setting) => {
         triggerHaptic();
+        const normalized = normalizeDefaultActivation(setting);
+        const derivedAudioMode = normalized.mode === 'ambient' ? 'ambient' : 'silent';
         set({
-          defaultActivation: normalizeDefaultActivation(setting),
+          defaultActivation: normalized,
+          focusSessionDuration: deriveFocusSessionDuration({ defaultActivation: normalized }),
+          focusSessionAudio: derivedAudioMode,
         });
       },
 
@@ -228,7 +458,60 @@ export const useSettingsStore = create<SettingsState>()(
         triggerHaptic();
         set((state) => ({
           defaultActivation: { ...state.defaultActivation, mode },
+          focusSessionAudio: mode === 'ambient' ? 'ambient' : 'silent',
         }));
+      },
+
+      setFocusSessionMode: (mode) => {
+        triggerHaptic();
+        set({
+          focusSessionMode: mode,
+        });
+      },
+
+      setFocusSessionDuration: (durationSeconds) => {
+        triggerHaptic();
+        set((state) => {
+          const nextDuration = clampFocusSessionDuration(durationSeconds);
+          return {
+            focusSessionDuration: nextDuration,
+            defaultActivation: deriveDefaultActivationFromFocusSession(
+              state.defaultActivation,
+              nextDuration,
+              state.focusSessionAudio
+            ),
+          };
+        });
+      },
+
+      setFocusSessionAudio: (mode) => {
+        triggerHaptic();
+        set((state) => ({
+          focusSessionAudio: mode,
+          defaultActivation: deriveDefaultActivationFromFocusSession(
+            state.defaultActivation,
+            state.focusSessionDuration,
+            mode
+          ),
+        }));
+      },
+
+      setPrimeSessionDuration: (durationSeconds) => {
+        triggerHaptic();
+        set((state) => {
+          const nextDuration = clampPrimeSessionDuration(durationSeconds);
+          return {
+            primeSessionDuration: nextDuration,
+            defaultCharge: deriveDefaultChargeFromPrimeSession(state.defaultCharge, nextDuration),
+          };
+        });
+      },
+
+      setPrimeSessionAudio: (mode) => {
+        triggerHaptic();
+        set({
+          primeSessionAudio: mode,
+        });
       },
 
       setOpenDailyAnchorAutomatically: (enabled) => {
@@ -240,8 +523,45 @@ export const useSettingsStore = create<SettingsState>()(
 
       setDailyPracticeGoal: (goal) => {
         triggerHaptic();
+        const nextGoal = Math.max(1, Math.min(20, goal));
         set({
-          dailyPracticeGoal: Math.max(1, Math.min(20, goal)),
+          dailyPracticeGoal: nextGoal,
+          dailyPracticeGoalPreset: normalizeDailyPracticeGoalPreset(undefined, nextGoal),
+        });
+      },
+
+      setDailyPracticeGoalPreset: (preset) => {
+        triggerHaptic();
+        set({
+          dailyPracticeGoalPreset: preset,
+        });
+      },
+
+      setThreadStrengthSensitivity: (sensitivity) => {
+        triggerHaptic();
+        set({
+          threadStrengthSensitivity: sensitivity,
+        });
+      },
+
+      setRestDays: (days) => {
+        triggerHaptic();
+        set({
+          restDays: normalizeRestDays(days),
+        });
+      },
+
+      setRestDayPolicy: (policy) => {
+        triggerHaptic();
+        set({
+          restDayPolicy: policy,
+        });
+      },
+
+      setArrivePhaseEnabled: (enabled) => {
+        triggerHaptic();
+        set({
+          arrivePhaseEnabled: enabled,
         });
       },
 
@@ -252,28 +572,6 @@ export const useSettingsStore = create<SettingsState>()(
         });
       },
 
-      // Notifications Actions
-      setDailyReminderEnabled: (enabled) => {
-        triggerHaptic();
-        set({
-          dailyReminderEnabled: enabled,
-        });
-      },
-
-      setDailyReminderTime: (time) => {
-        triggerHaptic();
-        set({
-          dailyReminderTime: time,
-        });
-      },
-
-      setStreakProtectionAlerts: (enabled) => {
-        triggerHaptic();
-        set({
-          streakProtectionAlerts: enabled,
-        });
-      },
-
       setWeeklySummaryEnabled: (enabled) => {
         triggerHaptic();
         set({
@@ -281,7 +579,6 @@ export const useSettingsStore = create<SettingsState>()(
         });
       },
 
-      // Appearance Actions
       setTheme: (theme) => {
         triggerHaptic();
         set({
@@ -303,7 +600,6 @@ export const useSettingsStore = create<SettingsState>()(
         });
       },
 
-      // Audio & Haptics Actions
       setMantraVoice: (voice) => {
         triggerHaptic();
         set({
@@ -344,6 +640,13 @@ export const useSettingsStore = create<SettingsState>()(
         });
       },
 
+      setDeveloperMasterAccountEnabled: (enabled: boolean) => {
+        triggerHaptic();
+        set({
+          developerMasterAccountEnabled: enabled,
+        });
+      },
+
       setDeveloperSkipOnboardingEnabled: (enabled: boolean) => {
         triggerHaptic();
         set({
@@ -365,6 +668,19 @@ export const useSettingsStore = create<SettingsState>()(
         });
       },
 
+      triggerDeveloperWeeklySummaryPreview: () => {
+        triggerHaptic();
+        set({
+          developerWeeklySummaryPreviewToken: Date.now(),
+        });
+      },
+
+      clearDeveloperWeeklySummaryPreview: () => {
+        set({
+          developerWeeklySummaryPreviewToken: 0,
+        });
+      },
+
       setDebugLoggingEnabled: (enabled) => {
         triggerHaptic();
         set({
@@ -375,6 +691,10 @@ export const useSettingsStore = create<SettingsState>()(
       setGuideMode: (enabled) => {
         triggerHaptic();
         set({ guideMode: enabled });
+      },
+
+      setDevPerfTierOverride: (override) => {
+        set({ devPerfTierOverride: override });
       },
 
       // Utility Actions
@@ -388,84 +708,95 @@ export const useSettingsStore = create<SettingsState>()(
     {
       name: 'anchor-settings-storage',
       storage: createJSONStorage(() => AsyncStorage),
-      version: 8,
+      // DEFERRED: version: 10,
+      version: 11,
       // Handle migration
       migrate: (persistedState: any, version: number) => {
+        if (version === 10) {
+          return withDeveloperSettingsDefaults(persistedState, {
+            arrivePhaseEnabled: true,
+          });
+        }
+        if (version === 9) {
+          return withDeveloperSettingsDefaults(persistedState);
+        }
         if (version === 7) {
-          const next = clampPersistedSettings(persistedState);
-          return {
-            ...next,
+          return withDeveloperSettingsDefaults(persistedState, {
             developerSkipOnboardingEnabled: false,
             developerForceStreakBreakEnabled: false,
-          };
+            developerDeleteWithoutBurnEnabled: false,
+            developerMasterAccountEnabled: false,
+          });
         }
         if (version === 6) {
-          const next = clampPersistedSettings(persistedState);
-          return {
-            ...next,
+          return withDeveloperSettingsDefaults(persistedState, {
             debugLoggingEnabled: false,
             developerSkipOnboardingEnabled: false,
             developerForceStreakBreakEnabled: false,
-          };
+            developerDeleteWithoutBurnEnabled: false,
+            developerMasterAccountEnabled: false,
+          });
         }
         if (version === 5) {
-          // v5→v6: add guideMode. Existing users (v5) are veterans → default OFF.
-          // New installs hit DEFAULT_SETTINGS directly (guideMode: true).
-          const next = clampPersistedSettings(persistedState);
-          return {
-            ...next,
+          return withDeveloperSettingsDefaults(persistedState, {
             guideMode: false,
             debugLoggingEnabled: false,
             developerSkipOnboardingEnabled: false,
             developerForceStreakBreakEnabled: false,
-          };
+            developerDeleteWithoutBurnEnabled: false,
+            developerMasterAccountEnabled: false,
+          });
         }
         if (version === 4) {
-          // Add mode field to defaultActivation
-          const next = clampPersistedSettings(persistedState);
+          const next = withDeveloperSettingsDefaults(persistedState, {
+            guideMode: false,
+            debugLoggingEnabled: false,
+            developerSkipOnboardingEnabled: false,
+            developerForceStreakBreakEnabled: false,
+            developerDeleteWithoutBurnEnabled: false,
+            developerMasterAccountEnabled: false,
+          });
           if (next?.defaultActivation && !next.defaultActivation.mode) {
             next.defaultActivation.mode = 'silent';
           }
-          return {
-            ...next,
-            guideMode: false,
-            debugLoggingEnabled: false,
-            developerSkipOnboardingEnabled: false,
-            developerForceStreakBreakEnabled: false,
-          };
+          return next;
         }
         if (version === 3) {
-          return {
-            ...clampPersistedSettings(persistedState),
+          return withDeveloperSettingsDefaults(persistedState, {
             debugLoggingEnabled: false,
             developerSkipOnboardingEnabled: false,
             developerForceStreakBreakEnabled: false,
-          };
+            developerDeleteWithoutBurnEnabled: false,
+            developerMasterAccountEnabled: false,
+          });
         }
         if (version === 2) {
-          return {
-            ...clampPersistedSettings(persistedState),
+          return withDeveloperSettingsDefaults(persistedState, {
             debugLoggingEnabled: false,
             developerSkipOnboardingEnabled: false,
             developerForceStreakBreakEnabled: false,
-          };
+            developerDeleteWithoutBurnEnabled: false,
+            developerMasterAccountEnabled: false,
+          });
         }
         if (version === 1) {
-          // Migration from version 1 to 2 (renaming fields)
-          return {
-            ...clampPersistedSettings({
-            ...persistedState,
-            openDailyAnchorAutomatically: persistedState.autoOpenDailyAnchor ?? false,
-            streakProtectionAlerts: persistedState.streakProtectionEnabled ?? false,
-            weeklySummaryEnabled: persistedState.weeklyReflectionEnabled ?? false,
-            }),
+          return withDeveloperSettingsDefaults(
+            {
+              ...persistedState,
+              openDailyAnchorAutomatically: persistedState.autoOpenDailyAnchor ?? false,
+              streakProtectionAlerts: persistedState.streakProtectionEnabled ?? false,
+              weeklySummaryEnabled: persistedState.weeklyReflectionEnabled ?? false,
+            },
+            {
             debugLoggingEnabled: false,
             developerSkipOnboardingEnabled: false,
             developerForceStreakBreakEnabled: false,
-          };
+              developerDeleteWithoutBurnEnabled: false,
+              developerMasterAccountEnabled: false,
+            }
+          );
         }
         if (version === 0) {
-          // Legacy migration
           const defaultCharge = {
             mode: persistedState.defaultChargeMode || 'focus',
             preset: persistedState.defaultChargePreset || '30s',
@@ -478,42 +809,43 @@ export const useSettingsStore = create<SettingsState>()(
             unit: persistedState.defaultActivationUnit || 'seconds',
           };
 
-          return {
-            ...clampPersistedSettings({
+          return withDeveloperSettingsDefaults(
+            {
               ...persistedState,
               defaultCharge,
               defaultActivation,
               openDailyAnchorAutomatically: persistedState.autoOpenDailyAnchor ?? false,
               streakProtectionAlerts: persistedState.streakProtectionEnabled ?? false,
               weeklySummaryEnabled: persistedState.weeklyReflectionEnabled ?? false,
-            }),
+            },
+            {
             debugLoggingEnabled: false,
             developerSkipOnboardingEnabled: false,
             developerForceStreakBreakEnabled: false,
-          };
+              developerDeleteWithoutBurnEnabled: false,
+              developerMasterAccountEnabled: false,
+            }
+          );
         }
-        return {
-          ...clampPersistedSettings(persistedState),
-          developerSkipOnboardingEnabled:
-            persistedState?.developerSkipOnboardingEnabled ?? false,
-          developerForceStreakBreakEnabled:
-            persistedState?.developerForceStreakBreakEnabled ?? false,
-          debugLoggingEnabled:
-            persistedState?.debugLoggingEnabled ??
-            (__DEV__ && process.env.EXPO_PUBLIC_DEBUG_LOGGING === 'true'),
-        };
+        return withDeveloperSettingsDefaults(persistedState);
       },
       // Only persist user preference settings
       partialize: (state) => ({
         defaultCharge: state.defaultCharge,
         defaultActivation: state.defaultActivation,
+        focusSessionMode: state.focusSessionMode,
+        focusSessionDuration: state.focusSessionDuration,
+        focusSessionAudio: state.focusSessionAudio,
+        primeSessionDuration: state.primeSessionDuration,
+        primeSessionAudio: state.primeSessionAudio,
         openDailyAnchorAutomatically: state.openDailyAnchorAutomatically,
         dailyPracticeGoal: state.dailyPracticeGoal,
+        dailyPracticeGoalPreset: state.dailyPracticeGoalPreset,
+        threadStrengthSensitivity: state.threadStrengthSensitivity,
+        restDays: state.restDays,
+        restDayPolicy: state.restDayPolicy,
+        arrivePhaseEnabled: state.arrivePhaseEnabled,
         reduceIntentionVisibility: state.reduceIntentionVisibility,
-        dailyReminderEnabled: state.dailyReminderEnabled,
-        dailyReminderTime: state.dailyReminderTime,
-        streakProtectionAlerts: state.streakProtectionAlerts,
-        weeklySummaryEnabled: state.weeklySummaryEnabled,
         theme: state.theme,
         accentColor: state.accentColor,
         vaultView: state.vaultView,
@@ -523,6 +855,7 @@ export const useSettingsStore = create<SettingsState>()(
         soundEffectsEnabled: state.soundEffectsEnabled,
         mantraAudioByDefault: state.mantraAudioByDefault,
         developerModeEnabled: state.developerModeEnabled,
+        developerMasterAccountEnabled: state.developerMasterAccountEnabled,
         developerSkipOnboardingEnabled: state.developerSkipOnboardingEnabled,
         developerForceStreakBreakEnabled: state.developerForceStreakBreakEnabled,
         developerDeleteWithoutBurnEnabled: state.developerDeleteWithoutBurnEnabled,

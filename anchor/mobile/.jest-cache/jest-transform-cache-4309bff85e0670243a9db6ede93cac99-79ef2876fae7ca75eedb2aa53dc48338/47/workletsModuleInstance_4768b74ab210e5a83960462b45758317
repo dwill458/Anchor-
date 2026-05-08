@@ -1,0 +1,12 @@
+f97e7e7af4e6f3ad5f5d79690816a30e
+'use strict';
+
+Object.defineProperty(exports, "__esModule", {
+  value: true
+});
+exports.WorkletsModule = void 0;
+var _index = require("../PlatformChecker/index.js");
+var _JSWorklets = require("./JSWorklets.js");
+var _NativeWorklets = require("./NativeWorklets.js");
+var WorkletsModule = exports.WorkletsModule = _index.SHOULD_BE_USE_WEB ? (0, _JSWorklets.createJSWorkletsModule)() : (0, _NativeWorklets.createNativeWorkletsModule)();
+//# sourceMappingURL=data:application/json;charset=utf-8;base64,eyJ2ZXJzaW9uIjozLCJuYW1lcyI6WyJPYmplY3QiLCJkZWZpbmVQcm9wZXJ0eSIsImV4cG9ydHMiLCJ2YWx1ZSIsIldvcmtsZXRzTW9kdWxlIiwiX2luZGV4IiwicmVxdWlyZSIsIl9KU1dvcmtsZXRzIiwiX05hdGl2ZVdvcmtsZXRzIiwiU0hPVUxEX0JFX1VTRV9XRUIiLCJjcmVhdGVKU1dvcmtsZXRzTW9kdWxlIiwiY3JlYXRlTmF0aXZlV29ya2xldHNNb2R1bGUiXSwic291cmNlcyI6WyIuLi8uLi8uLi9zcmMvV29ya2xldHNNb2R1bGUvd29ya2xldHNNb2R1bGVJbnN0YW5jZS50cyJdLCJzb3VyY2VzQ29udGVudCI6W251bGxdLCJtYXBwaW5ncyI6IkFBQUEsWUFBWTs7QUFBQUEsTUFBQSxDQUFBQyxjQUFBLENBQUFDLE9BQUE7RUFBQUMsS0FBQTtBQUFBO0FBQUFELE9BQUEsQ0FBQUUsY0FBQTtBQUVaLElBQUFDLE1BQUEsR0FBQUMsT0FBQTtBQUNBLElBQUFDLFdBQUEsR0FBQUQsT0FBQTtBQUNBLElBQUFFLGVBQUEsR0FBQUYsT0FBQTtBQUVPLElBQU1GLGNBQWMsR0FBQUYsT0FBQSxDQUFBRSxjQUFBLEdBQUdLLHdCQUFpQixHQUMzQyxJQUFBQyxrQ0FBc0IsRUFBQyxDQUFDLEdBQ3hCLElBQUFDLDBDQUEwQixFQUFDLENBQUMiLCJpZ25vcmVMaXN0IjpbXX0=

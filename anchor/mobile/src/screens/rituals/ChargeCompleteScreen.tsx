@@ -21,15 +21,25 @@ import { StackNavigationProp } from '@react-navigation/stack';
 import { SvgXml } from 'react-native-svg';
 import * as Haptics from 'expo-haptics';
 import { useAnchorStore } from '@/stores/anchorStore';
+import { useAuthStore } from '@/stores/authStore';
 import { useSessionStore } from '@/stores/sessionStore';
 import { useSettingsStore } from '@/stores/settingsStore';
 import type { RootStackParamList } from '@/types';
 import { colors, spacing, typography } from '@/theme';
 import { OptimizedImage, PremiumAnchorGlow } from '@/components/common';
 import { useReduceMotionEnabled } from '@/hooks/useReduceMotionEnabled';
+import { useNotificationController } from '@/hooks/useNotificationController';
 import { RitualScaffold } from './components/RitualScaffold';
 import { InstructionGlassCard } from './components/InstructionGlassCard';
 import { CompletionModal } from './components/CompletionModal';
+import { navigateToVaultDestination } from '@/navigation/firstAnchorGate';
+import { AnalyticsService } from '@/services/AnalyticsService';
+import { PostPrimeTraceModal } from './components/PostPrimeTraceModal';
+import { usePostPrimeTraceStore } from '@/stores/postPrimeTraceStore';
+import {
+  isPostPrimeTraceEligible,
+  markPostPrimeTraceAttemptStarted,
+} from '@/utils/postPrimeTraceEligibility';
 
 const { width } = Dimensions.get('window');
 const SYMBOL_SIZE = Math.min(width * 0.42, 180);
@@ -44,22 +54,97 @@ export const ChargeCompleteScreen: React.FC = () => {
   const navigation = useNavigation<ChargeCompleteNavigationProp>();
   const { navigateToPractice } = useTabNavigation();
   const route = useRoute<ChargeCompleteRouteProp>();
-  const { anchorId, returnTo } = route.params;
+  const { anchorId, durationSeconds: routeDurationSeconds, returnTo } = route.params;
 
   const getAnchorById = useAnchorStore((state) => state.getAnchorById);
+  const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
+  const wallpaperPromptSeen = useAuthStore((state) => state.wallpaperPromptSeen);
   const { recordSession } = useSessionStore();
-  const { defaultCharge } = useSettingsStore();
+  const defaultCharge = useSettingsStore((state) => state.defaultCharge);
+  const primeSessionDuration = useSettingsStore((state) => state.primeSessionDuration ?? 120);
+  const primeSessionAudio = useSettingsStore((state) => state.primeSessionAudio ?? 'silent');
   const reduceMotionEnabled = useReduceMotionEnabled();
+  const { handlePrimeComplete } = useNotificationController();
   const anchor = getAnchorById(anchorId);
 
   // Show CompletionModal first before the vault/activate CTAs
   const [completionDone, setCompletionDone] = useState(false);
-  const [showCompletion, setShowCompletion] = useState(true);
+  const [showCompletion, setShowCompletion] = useState(false);
+  const [showPostPrimeTrace, setShowPostPrimeTrace] = useState(false);
+  const [pendingPostPrimeFlowId, setPendingPostPrimeFlowId] = useState<string | null>(null);
+  
+  const beginPostPrimeTraceFlow = usePostPrimeTraceStore((state) => state.beginFlow);
+  const activeFlow = usePostPrimeTraceStore((state) => state.activeFlow);
+
+  useEffect(() => {
+    async function checkEligibility() {
+      const shouldOffer = await isPostPrimeTraceEligible();
+      if (shouldOffer) {
+        setShowPostPrimeTrace(true);
+      } else {
+        setShowCompletion(true);
+      }
+    }
+    checkEligibility();
+  }, []);
+
+  const handleSkipPostPrimeTrace = () => {
+    setShowPostPrimeTrace(false);
+    setShowCompletion(true);
+  };
+
+  const handleBeginPostPrimeTrace = async () => {
+    await markPostPrimeTraceAttemptStarted();
+
+    const flowId = beginPostPrimeTraceFlow(anchorId);
+    setPendingPostPrimeFlowId(flowId);
+    setShowPostPrimeTrace(false);
+
+    (navigation as any).navigate('ManualReinforcement', {
+      source: 'post_prime_trace',
+      anchorId,
+    });
+  };
+
+  useEffect(() => {
+    if (!pendingPostPrimeFlowId) {
+      return;
+    }
+
+    if (
+      !activeFlow ||
+      activeFlow.flowId !== pendingPostPrimeFlowId ||
+      activeFlow.result === 'pending'
+    ) {
+      return;
+    }
+
+    const completedPostPrimeTrace = activeFlow.result === 'completed';
+
+    usePostPrimeTraceStore.getState().clearFlow(pendingPostPrimeFlowId);
+    setPendingPostPrimeFlowId(null);
+
+    if (completedPostPrimeTrace) {
+      useSessionStore.getState().bumpThreadStrength(2);
+      AnalyticsService.track('post_prime_trace_completed', {
+        anchor_id: anchorId,
+        session_duration_seconds: routeDurationSeconds ?? primeSessionDuration,
+      });
+    }
+
+    setShowCompletion(true);
+  }, [
+    activeFlow,
+    anchorId,
+    pendingPostPrimeFlowId,
+    primeSessionDuration,
+    routeDurationSeconds,
+  ]);
 
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const scaleAnim = useRef(new Animated.Value(0.95)).current;
   const glowAnim = useRef(new Animated.Value(0)).current;
-
+  const hasRecordedRef = useRef(false);
   // Only start the main screen animation after reflection is done
   useEffect(() => {
     if (!completionDone) return;
@@ -102,12 +187,25 @@ export const ChargeCompleteScreen: React.FC = () => {
 
   const handleSaveToVault = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+
+    // Re-fire wallpaper prompt for guest users after their first practice session
+    if (!isAuthenticated && !wallpaperPromptSeen && anchor) {
+      navigation.navigate('WallpaperPrompt', {
+        anchorId,
+        intentionText: anchor.intentionText,
+        enhancedImageUrl: anchor.enhancedImageUrl ?? undefined,
+        sigilSvg: (anchor.reinforcedSigilSvg ?? anchor.baseSigilSvg) ?? undefined,
+        returnTo: 'vault',
+      });
+      return;
+    }
+
     if (returnTo === 'practice') {
       navigateToPractice();
     } else if (returnTo === 'detail') {
       navigation.navigate('AnchorDetail', { anchorId });
     } else {
-      navigation.navigate('Vault');
+      navigateToVaultDestination(navigation);
     }
   };
 
@@ -119,22 +217,30 @@ export const ChargeCompleteScreen: React.FC = () => {
     });
   };
 
-  const handleCompletionDone = (reflectionWord?: string) => {
-    // Derive reinforce duration from defaultCharge preset
+  const handleCompletionDone = async (reflectionWord?: string) => {
+    if (hasRecordedRef.current) {
+      return;
+    }
+    hasRecordedRef.current = true;
+
+    // Fall back to the user's default only when the ritual route did not pass
+    // the actual session duration.
     const presetSeconds: Record<string, number> = {
       '30s': 30, '1m': 60, '2m': 120, '5m': 300, '10m': 600, '20m': 1200,
       custom: (defaultCharge.customMinutes ?? 5) * 60,
     };
-    const durationSeconds = presetSeconds[defaultCharge.preset] ?? 300;
+    const durationSeconds =
+      routeDurationSeconds ?? primeSessionDuration ?? presetSeconds[defaultCharge.preset] ?? 300;
 
     recordSession({
       anchorId,
       type: 'reinforce',
       durationSeconds,
-      mode: defaultCharge.mode === 'ritual' ? 'mantra' : 'silent',
+      mode: primeSessionAudio,
       reflectionWord,
       completedAt: new Date().toISOString(),
     });
+    await handlePrimeComplete();
 
     setShowCompletion(false);
     setCompletionDone(true);
@@ -218,6 +324,13 @@ export const ChargeCompleteScreen: React.FC = () => {
           </Animated.View>
         )}
       </RitualScaffold>
+
+      <PostPrimeTraceModal
+        visible={showPostPrimeTrace}
+        anchor={anchor}
+        onTrace={handleBeginPostPrimeTrace}
+        onSkip={handleSkipPostPrimeTrace}
+      />
 
       {/* CompletionModal shows first before the vault CTAs */}
       <CompletionModal

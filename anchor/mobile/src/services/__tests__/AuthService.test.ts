@@ -9,6 +9,22 @@
  */
 
 jest.unmock('@/services/AuthService');
+jest.mock('@react-native-google-signin/google-signin', () => ({
+  GoogleSignin: {
+    configure: jest.fn(),
+    hasPlayServices: jest.fn(),
+    signIn: jest.fn(),
+    signOut: jest.fn(),
+  },
+}));
+jest.mock('expo-apple-authentication', () => ({
+  isAvailableAsync: jest.fn().mockResolvedValue(true),
+  signInAsync: jest.fn(),
+  AppleAuthenticationScope: {
+    FULL_NAME: 0,
+    EMAIL: 1,
+  },
+}));
 
 import { AuthService } from '../AuthService';
 
@@ -18,12 +34,15 @@ describe('AuthService (web/test fallback)', () => {
     it('has signInWithEmail', () => expect(typeof AuthService.signInWithEmail).toBe('function'));
     it('has signUpWithEmail', () => expect(typeof AuthService.signUpWithEmail).toBe('function'));
     it('has signInWithGoogle', () => expect(typeof AuthService.signInWithGoogle).toBe('function'));
+    it('has signInWithApple', () => expect(typeof AuthService.signInWithApple).toBe('function'));
     it('has syncCurrentUser', () => expect(typeof AuthService.syncCurrentUser).toBe('function'));
     it('has signOut', () => expect(typeof AuthService.signOut).toBe('function'));
+    it('has hasAuthenticatedSession', () => expect(typeof AuthService.hasAuthenticatedSession).toBe('function'));
     it('has getCurrentFirebaseUser', () => expect(typeof AuthService.getCurrentFirebaseUser).toBe('function'));
     it('has getIdToken', () => expect(typeof AuthService.getIdToken).toBe('function'));
     it('has sendPasswordResetEmail', () => expect(typeof AuthService.sendPasswordResetEmail).toBe('function'));
     it('has onAuthStateChanged', () => expect(typeof AuthService.onAuthStateChanged).toBe('function'));
+    it('has getCachedUser', () => expect(typeof AuthService.getCachedUser).toBe('function'));
   });
 
   describe('getCurrentFirebaseUser', () => {
@@ -31,6 +50,12 @@ describe('AuthService (web/test fallback)', () => {
       const result = AuthService.getCurrentFirebaseUser();
       // Returns null when mock auth disabled, or a mock user when enabled
       expect(result === null || (typeof result === 'object' && 'uid' in result!)).toBe(true);
+    });
+  });
+
+  describe('hasAuthenticatedSession', () => {
+    it('returns a boolean', () => {
+      expect(typeof AuthService.hasAuthenticatedSession()).toBe('boolean');
     });
   });
 
@@ -114,6 +139,19 @@ describe('AuthService (web/test fallback)', () => {
       });
       delete process.env.EXPO_PUBLIC_ENABLE_MOCK_AUTH;
       const result = await AS!.signInWithGoogle().catch(() => null);
+      if (result) {
+        expect(result.token).toBe('mock-jwt-token');
+      }
+    });
+
+    it('signInWithApple resolves with a user', async () => {
+      process.env.EXPO_PUBLIC_ENABLE_MOCK_AUTH = 'true';
+      let AS: typeof AuthService;
+      jest.isolateModules(() => {
+        AS = require('../AuthService').AuthService;
+      });
+      delete process.env.EXPO_PUBLIC_ENABLE_MOCK_AUTH;
+      const result = await AS!.signInWithApple().catch(() => null);
       if (result) {
         expect(result.token).toBe('mock-jwt-token');
       }

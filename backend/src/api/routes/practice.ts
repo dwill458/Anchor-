@@ -135,6 +135,7 @@ router.post('/stabilize', async (req: AuthRequest, res: Response, next: NextFunc
         email: updated.email,
         displayName: updated.displayName,
         hasCompletedOnboarding: updated.hasCompletedOnboarding,
+        isComped: updated.isComped,
         subscriptionStatus: updated.subscriptionStatus,
         totalAnchorsCreated: updated.totalAnchorsCreated,
         totalActivations: updated.totalActivations,

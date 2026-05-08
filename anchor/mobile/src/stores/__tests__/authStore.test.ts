@@ -5,8 +5,12 @@
  */
 
 import { useAuthStore } from '../authStore';
+import { useAnchorStore } from '../anchorStore';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import type { User } from '@/types';
+import * as SecureStore from 'expo-secure-store';
+import { apiClient } from '@/services/ApiClient';
+import { AuthService } from '@/services/AuthService';
+import type { Anchor, User } from '@/types';
 
 // Mock AsyncStorage
 jest.mock('@react-native-async-storage/async-storage', () =>
@@ -20,6 +24,7 @@ describe('authStore', () => {
     email: 'test@example.com',
     displayName: 'Test User',
     hasCompletedOnboarding: true,
+    isComped: false,
     subscriptionStatus: 'free',
     totalAnchorsCreated: 0,
     totalActivations: 0,
@@ -28,6 +33,21 @@ describe('authStore', () => {
     stabilizesTotal: 0,
     stabilizeStreakDays: 0,
     createdAt: new Date(),
+    ...overrides,
+  });
+
+  const createMockAnchor = (overrides?: Partial<Anchor>): Anchor => ({
+    id: 'temp-anchor-1',
+    userId: 'guest-user',
+    intentionText: 'I move with focus',
+    category: 'career',
+    distilledLetters: ['M', 'V', 'F'],
+    baseSigilSvg: '<svg />',
+    structureVariant: 'balanced',
+    isCharged: false,
+    activationCount: 0,
+    createdAt: new Date('2026-04-10T00:00:00.000Z'),
+    updatedAt: new Date('2026-04-10T00:00:00.000Z'),
     ...overrides,
   });
 
@@ -42,8 +62,23 @@ describe('authStore', () => {
       onboardingSegment: null,
       shouldRedirectToCreation: false,
       anchorCount: 0,
+      pendingForgeIntent: null,
+      pendingForgeResumeTarget: null,
+      pendingFirstAnchorDraft: null,
+      pendingFirstAnchorMutations: [],
+      isFinalizingPendingFirstAnchor: false,
+      pendingFirstAnchorError: null,
       profileData: null,
       profileLastFetched: null,
+      wallpaperPromptSeen: false,
+      isOfflineMode: false,
+    });
+    useAnchorStore.setState({
+      anchors: [],
+      isLoading: false,
+      error: null,
+      lastSyncedAt: null,
+      currentAnchorId: undefined,
     });
     jest.clearAllMocks();
   });
@@ -129,6 +164,16 @@ describe('authStore', () => {
       setUser(user);
 
       expect(useAuthStore.getState().user?.displayName).toBe('Custom Name');
+    });
+
+    it('should use the authenticated user onboarding state', () => {
+      const { setUser, setHasCompletedOnboarding } = useAuthStore.getState();
+      setHasCompletedOnboarding(true);
+
+      setUser(createMockUser({ hasCompletedOnboarding: false }));
+
+      expect(useAuthStore.getState().hasCompletedOnboarding).toBe(false);
+      expect(useAuthStore.getState().user?.hasCompletedOnboarding).toBe(false);
     });
   });
 
@@ -325,6 +370,61 @@ describe('authStore', () => {
       expect(state.isAuthenticated).toBe(false);
     });
 
+    it('should clear pending first-anchor and resume state', () => {
+      useAuthStore.setState({
+        shouldRedirectToCreation: true,
+        pendingForgeIntent: 'Return to the anchor I started',
+        pendingForgeResumeTarget: 'FirstAnchorAccountGate',
+        pendingFirstAnchorDraft: {
+          tempAnchorId: 'pending-anchor-1',
+          source: 'onboarding_first_anchor',
+          requiresAccountGate: true,
+          createdAt: new Date('2026-04-10T00:00:00.000Z'),
+        },
+        pendingFirstAnchorMutations: [
+          {
+            type: 'create_anchor',
+            tempAnchorId: 'pending-anchor-1',
+            queuedAt: new Date('2026-04-10T00:00:01.000Z').toISOString(),
+          },
+        ],
+        isFinalizingPendingFirstAnchor: true,
+        pendingFirstAnchorError: 'Failed to sync pending anchor',
+      });
+
+      useAuthStore.getState().signOut();
+
+      const state = useAuthStore.getState();
+      expect(state.shouldRedirectToCreation).toBe(false);
+      expect(state.pendingForgeIntent).toBeNull();
+      expect(state.pendingForgeResumeTarget).toBeNull();
+      expect(state.pendingFirstAnchorDraft).toBeNull();
+      expect(state.pendingFirstAnchorMutations).toEqual([]);
+      expect(state.isFinalizingPendingFirstAnchor).toBe(false);
+      expect(state.pendingFirstAnchorError).toBeNull();
+    });
+
+    it('should clear cached profile and offline session flags', () => {
+      useAuthStore.setState({
+        user: createMockUser(),
+        token: 'token-123',
+        isAuthenticated: true,
+        isOfflineMode: true,
+        profileData: {
+          user: createMockUser(),
+          settings: null,
+        } as any,
+        profileLastFetched: Date.now(),
+      });
+
+      useAuthStore.getState().signOut();
+
+      const state = useAuthStore.getState();
+      expect(state.profileData).toBeNull();
+      expect(state.profileLastFetched).toBeNull();
+      expect(state.isOfflineMode).toBe(false);
+    });
+
     it('should not affect onboarding status', () => {
       const { setUser, setToken, completeOnboarding, signOut } = useAuthStore.getState();
 
@@ -342,7 +442,7 @@ describe('authStore', () => {
   });
 
   describe('Persistence', () => {
-    it('should persist user to AsyncStorage', async () => {
+    it('should persist user to encrypted secure storage', async () => {
       const { setUser } = useAuthStore.getState();
       const mockUser = createMockUser();
 
@@ -351,11 +451,14 @@ describe('authStore', () => {
       // Wait for persistence
       await new Promise(resolve => setTimeout(resolve, 100));
 
-      // AsyncStorage should have been called
-      expect(AsyncStorage.setItem).toHaveBeenCalled();
+      expect(SecureStore.setItemAsync).toHaveBeenCalled();
+      expect(AsyncStorage.setItem).not.toHaveBeenCalledWith(
+        'anchor-auth-storage',
+        expect.any(String)
+      );
     });
 
-    it('should persist token to AsyncStorage', async () => {
+    it('should persist token to encrypted secure storage', async () => {
       const { setToken } = useAuthStore.getState();
 
       setToken('test-token');
@@ -363,10 +466,14 @@ describe('authStore', () => {
       // Wait for persistence
       await new Promise(resolve => setTimeout(resolve, 100));
 
-      expect(AsyncStorage.setItem).toHaveBeenCalled();
+      expect(SecureStore.setItemAsync).toHaveBeenCalled();
+      expect(AsyncStorage.setItem).not.toHaveBeenCalledWith(
+        'anchor-auth-storage',
+        expect.any(String)
+      );
     });
 
-    it('should persist isAuthenticated to AsyncStorage', async () => {
+    it('should persist isAuthenticated to encrypted secure storage', async () => {
       const { setUser } = useAuthStore.getState();
 
       setUser(createMockUser());
@@ -374,10 +481,14 @@ describe('authStore', () => {
       // Wait for persistence
       await new Promise(resolve => setTimeout(resolve, 100));
 
-      expect(AsyncStorage.setItem).toHaveBeenCalled();
+      expect(SecureStore.setItemAsync).toHaveBeenCalled();
+      expect(AsyncStorage.setItem).not.toHaveBeenCalledWith(
+        'anchor-auth-storage',
+        expect.any(String)
+      );
     });
 
-    it('should persist hasCompletedOnboarding to AsyncStorage', async () => {
+    it('should persist hasCompletedOnboarding to encrypted secure storage', async () => {
       const { completeOnboarding } = useAuthStore.getState();
 
       completeOnboarding();
@@ -385,7 +496,11 @@ describe('authStore', () => {
       // Wait for persistence
       await new Promise(resolve => setTimeout(resolve, 100));
 
-      expect(AsyncStorage.setItem).toHaveBeenCalled();
+      expect(SecureStore.setItemAsync).toHaveBeenCalled();
+      expect(AsyncStorage.setItem).not.toHaveBeenCalledWith(
+        'anchor-auth-storage',
+        expect.any(String)
+      );
     });
 
     it('should not persist isLoading (transient state)', async () => {
@@ -450,7 +565,7 @@ describe('authStore', () => {
       setHasCompletedOnboarding(false);
 
       // Complete registration
-      setUser(createMockUser({ email: 'newuser@example.com' }));
+      setUser(createMockUser({ email: 'newuser@example.com', hasCompletedOnboarding: false }));
       setToken('new-user-token');
       setLoading(false);
 
@@ -477,6 +592,143 @@ describe('authStore', () => {
 
       setUser(null);
       expect(useAuthStore.getState().isAuthenticated).toBe(false);
+    });
+  });
+
+  describe('Pending first anchor state', () => {
+    it('should enqueue pending first-anchor mutations in order', () => {
+      const {
+        setPendingFirstAnchorDraft,
+        enqueuePendingFirstAnchorMutation,
+      } = useAuthStore.getState();
+
+      setPendingFirstAnchorDraft({
+        tempAnchorId: 'pending-anchor-1',
+        source: 'onboarding_first_anchor',
+        requiresAccountGate: true,
+        createdAt: new Date(),
+      });
+
+      enqueuePendingFirstAnchorMutation({
+        type: 'create_anchor',
+        tempAnchorId: 'pending-anchor-1',
+        queuedAt: new Date().toISOString(),
+      });
+      enqueuePendingFirstAnchorMutation({
+        type: 'charge_anchor',
+        tempAnchorId: 'pending-anchor-1',
+        chargeType: 'initial_quick',
+        durationSeconds: 30,
+        queuedAt: new Date().toISOString(),
+      });
+
+      expect(useAuthStore.getState().pendingFirstAnchorMutations.map((item) => item.type)).toEqual([
+        'create_anchor',
+        'charge_anchor',
+      ]);
+    });
+
+    it('should clear pending first-anchor state', () => {
+      const {
+        setPendingFirstAnchorDraft,
+        enqueuePendingFirstAnchorMutation,
+        clearPendingFirstAnchorState,
+      } = useAuthStore.getState();
+
+      setPendingFirstAnchorDraft({
+        tempAnchorId: 'pending-anchor-1',
+        source: 'onboarding_first_anchor',
+        requiresAccountGate: true,
+        createdAt: new Date(),
+      });
+      enqueuePendingFirstAnchorMutation({
+        type: 'create_anchor',
+        tempAnchorId: 'pending-anchor-1',
+        queuedAt: new Date().toISOString(),
+      });
+
+      clearPendingFirstAnchorState();
+
+      expect(useAuthStore.getState().pendingFirstAnchorDraft).toBeNull();
+      expect(useAuthStore.getState().pendingFirstAnchorMutations).toEqual([]);
+    });
+  });
+
+  describe('finalizePendingFirstAnchorDraft', () => {
+    it('should resume from the created backend anchor on retry', async () => {
+      const localAnchor = createMockAnchor();
+      const createdAnchor = createMockAnchor({
+        id: 'server-anchor-1',
+        userId: 'user-123',
+      });
+      const chargedAnchor = createMockAnchor({
+        id: 'server-anchor-1',
+        userId: 'user-123',
+        isCharged: true,
+        chargeCount: 1,
+        chargedAt: new Date('2026-04-10T00:01:00.000Z'),
+      });
+
+      useAnchorStore.getState().setAnchors([localAnchor]);
+      useAnchorStore.getState().setCurrentAnchor(localAnchor.id);
+
+      useAuthStore.setState({
+        user: createMockUser(),
+        isAuthenticated: true,
+        hasCompletedOnboarding: true,
+        pendingFirstAnchorDraft: {
+          tempAnchorId: localAnchor.id,
+          source: 'onboarding_first_anchor',
+          requiresAccountGate: true,
+          createdAt: new Date('2026-04-10T00:00:00.000Z'),
+        },
+        pendingFirstAnchorMutations: [
+          {
+            type: 'create_anchor',
+            tempAnchorId: localAnchor.id,
+            queuedAt: new Date('2026-04-10T00:00:01.000Z').toISOString(),
+          },
+          {
+            type: 'charge_anchor',
+            tempAnchorId: localAnchor.id,
+            chargeType: 'initial_quick',
+            durationSeconds: 30,
+            queuedAt: new Date('2026-04-10T00:00:02.000Z').toISOString(),
+          },
+        ],
+      });
+
+      const postMock = jest.spyOn(apiClient, 'post');
+      postMock
+        .mockResolvedValueOnce({
+          data: { success: true, data: createdAnchor },
+        } as any)
+        .mockRejectedValueOnce(new Error('Charging sync failed'))
+        .mockResolvedValueOnce({
+          data: { success: true, data: chargedAnchor },
+        } as any);
+
+      (AuthService.getIdToken as jest.Mock).mockResolvedValue('firebase-id-token');
+
+      const firstAttempt = await useAuthStore.getState().finalizePendingFirstAnchorDraft();
+
+      expect(firstAttempt).toBe(false);
+      expect(useAuthStore.getState().pendingFirstAnchorDraft?.backendAnchorId).toBe('server-anchor-1');
+      expect(useAuthStore.getState().pendingFirstAnchorDraft?.nextPendingMutationIndex).toBe(1);
+
+      const secondAttempt = await useAuthStore.getState().finalizePendingFirstAnchorDraft();
+
+      expect(secondAttempt).toBe(true);
+      expect(postMock.mock.calls.map(([url]) => url)).toEqual([
+        '/api/anchors',
+        '/api/anchors/server-anchor-1/charge',
+        '/api/anchors/server-anchor-1/charge',
+      ]);
+      expect(postMock.mock.calls.filter(([url]) => url === '/api/anchors')).toHaveLength(1);
+      expect(useAuthStore.getState().pendingFirstAnchorDraft).toBeNull();
+      expect(useAnchorStore.getState().anchors[0]?.id).toBe('server-anchor-1');
+
+      postMock.mockRestore();
     });
   });
 });

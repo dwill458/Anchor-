@@ -110,6 +110,29 @@ export type AnchorCategory =
   | 'personal_growth'
   | 'custom';
 
+/**
+ * Planetary Tier for Anchor classification (5-tier system)
+ */
+export enum PlanetaryTier {
+  SATURN = 'saturn', // 3×3, Discipline/Boundaries
+  JUPITER = 'jupiter', // 4×4, Wealth/Growth
+  MARS = 'mars', // 5×5, Energy/Physicality
+  SUN = 'sun', // 6×6, Identity/Clarity
+  VENUS = 'venus', // 7×7, Peace/Harmony
+}
+
+/**
+ * Maps legacy categories to the new 5-tier planetary system
+ */
+export const CATEGORY_TO_TIER: Record<AnchorCategory, PlanetaryTier> = {
+  career: PlanetaryTier.JUPITER,
+  wealth: PlanetaryTier.JUPITER,
+  health: PlanetaryTier.MARS,
+  relationships: PlanetaryTier.VENUS,
+  personal_growth: PlanetaryTier.SATURN,
+  custom: PlanetaryTier.SATURN,
+};
+
 // ============================================================================
 // Request/Response Types
 // ============================================================================
@@ -120,6 +143,9 @@ export type AnchorCategory =
 export interface CreateAnchorRequest {
   intentionText: string;
   category: AnchorCategory;
+  planetaryTier?: PlanetaryTier | string;
+  classifierVersion?: number;
+  classifierMeta?: Record<string, unknown>;
   distilledLetters: string[];
   baseSigilSvg: string;
   reinforcedSigilSvg?: string;
@@ -279,8 +305,9 @@ export const STYLE_PROMPTS: Record<AIStyle, StylePromptConfig> = {
     method: 'lineart',
     category: 'organic',
     prompt:
-      'traditional ink brush calligraphy, flowing brushstrokes, zen aesthetic, black ink on paper, japanese sumi-e',
-    negativePrompt: 'new shapes, additional symbols, text, digital, 3d, color, modern',
+      'Restore and beautify the existing sigil while preserving exact geometry and stroke paths. Render it in an expressive traditional ink brush sumi-e style with flowing brush pressure, visible dry-brush texture, ink wash gradients, subtle feathering, rice paper texture, and elegant zen calligraphic energy. Keep the sigil structure exactly as drawn, but make the brushwork feel organic, tactile, and artistically alive.',
+    negativePrompt:
+      'extra lines, decorative circle, mandala, compass, runes, glyphs, occult seal, emblem, logo redesign, reinterpretation, frame, border, symmetry embellishment, altered shape, new symbols, added elements, changed geometry, distorted lines, additional rings, extra patterns, modified structure, redesigned form, digital, 3d, modern',
   },
   gold_leaf: {
     name: 'gold_leaf',

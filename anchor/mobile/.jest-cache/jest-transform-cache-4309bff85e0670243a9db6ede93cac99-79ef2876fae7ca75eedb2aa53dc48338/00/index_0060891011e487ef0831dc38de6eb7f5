@@ -1,0 +1,58 @@
+9560de75ab38f853fefacd05cd095525
+'use strict';
+
+Object.defineProperty(exports, "__esModule", {
+  value: true
+});
+exports.setupRunLoop = void 0;
+var _setImmediatePolyfill = require("../common/setImmediatePolyfill.js");
+var _setIntervalPolyfill = require("../common/setIntervalPolyfill.js");
+var _queueMicrotask = require("./queueMicrotask.js");
+var _requestAnimationFramePolyfill = require("./requestAnimationFramePolyfill.js");
+var _setTimeout = require("./setTimeout.js");
+var _taskQueue = require("./taskQueue.js");
+var _worklet_15238113080553_init_data = {
+  code: "function setupRunLoop_indexJs1(animationQueuePollingRate){const{setupTaskQueue,setupQueueMicrotask,setupSetTimeout,setupRequestAnimationFrame,setupSetImmediate,setupSetInterval}=this.__closure;setupTaskQueue();setupQueueMicrotask();setupSetTimeout();setupRequestAnimationFrame(animationQueuePollingRate);setupSetImmediate();setupSetInterval();}",
+  location: "C:\\Users\\dwill\\.gemini\\antigravity\\scratch\\Anchor\\anchor\\mobile\\node_modules\\react-native-worklets\\lib\\module\\runLoop\\workletRuntime\\index.js",
+  sourceMap: "{\"version\":3,\"names\":[\"setupRunLoop_indexJs1\",\"animationQueuePollingRate\",\"setupTaskQueue\",\"setupQueueMicrotask\",\"setupSetTimeout\",\"setupRequestAnimationFrame\",\"setupSetImmediate\",\"setupSetInterval\",\"__closure\"],\"sources\":[\"C:/Users/dwill/.gemini/antigravity/scratch/Anchor/anchor/mobile/node_modules/react-native-worklets/lib/module/runLoop/workletRuntime/index.js\"],\"mappings\":\"AAQO,SAAAA,qBAAsBA,CAAAC,yBAA2B,QAAAC,cAAA,CAAAC,mBAAA,CAAAC,eAAA,CAAAC,0BAAA,CAAAC,iBAAA,CAAAC,gBAAA,OAAAC,SAAA,CAGtDN,cAAc,CAAC,CAAC,CAChBC,mBAAmB,CAAC,CAAC,CACrBC,eAAe,CAAC,CAAC,CACjBC,0BAA0B,CAACJ,yBAAyB,CAAC,CACrDK,iBAAiB,CAAC,CAAC,CACnBC,gBAAgB,CAAC,CAAC,CACpB\",\"ignoreList\":[]}"
+};
+var setupRunLoop = exports.setupRunLoop = function setupRunLoop_indexJs1Factory(_ref) {
+  var _worklet_15238113080553_init_data = _ref._worklet_15238113080553_init_data,
+    setupTaskQueue = _ref.setupTaskQueue,
+    setupQueueMicrotask = _ref.setupQueueMicrotask,
+    setupSetTimeout = _ref.setupSetTimeout,
+    setupRequestAnimationFrame = _ref.setupRequestAnimationFrame,
+    setupSetImmediate = _ref.setupSetImmediate,
+    setupSetInterval = _ref.setupSetInterval;
+  var _e = [new global.Error(), -7, -27];
+  var setupRunLoop = function setupRunLoop(animationQueuePollingRate) {
+    setupTaskQueue();
+    setupQueueMicrotask();
+    setupSetTimeout();
+    setupRequestAnimationFrame(animationQueuePollingRate);
+    setupSetImmediate();
+    setupSetInterval();
+  };
+  setupRunLoop.__closure = {
+    setupTaskQueue: setupTaskQueue,
+    setupQueueMicrotask: setupQueueMicrotask,
+    setupSetTimeout: setupSetTimeout,
+    setupRequestAnimationFrame: setupRequestAnimationFrame,
+    setupSetImmediate: setupSetImmediate,
+    setupSetInterval: setupSetInterval
+  };
+  setupRunLoop.__workletHash = 15238113080553;
+  setupRunLoop.__pluginVersion = "0.5.1";
+  setupRunLoop.__initData = _worklet_15238113080553_init_data;
+  setupRunLoop.__stackDetails = _e;
+  return setupRunLoop;
+}({
+  _worklet_15238113080553_init_data: _worklet_15238113080553_init_data,
+  setupTaskQueue: _taskQueue.setupTaskQueue,
+  setupQueueMicrotask: _queueMicrotask.setupQueueMicrotask,
+  setupSetTimeout: _setTimeout.setupSetTimeout,
+  setupRequestAnimationFrame: _requestAnimationFramePolyfill.setupRequestAnimationFrame,
+  setupSetImmediate: _setImmediatePolyfill.setupSetImmediate,
+  setupSetInterval: _setIntervalPolyfill.setupSetInterval
+});
+//# sourceMappingURL=data:application/json;charset=utf-8;base64,eyJ2ZXJzaW9uIjozLCJuYW1lcyI6WyJPYmplY3QiLCJkZWZpbmVQcm9wZXJ0eSIsImV4cG9ydHMiLCJ2YWx1ZSIsInNldHVwUnVuTG9vcCIsIl9zZXRJbW1lZGlhdGVQb2x5ZmlsbCIsInJlcXVpcmUiLCJfc2V0SW50ZXJ2YWxQb2x5ZmlsbCIsIl9xdWV1ZU1pY3JvdGFzayIsIl9yZXF1ZXN0QW5pbWF0aW9uRnJhbWVQb2x5ZmlsbCIsIl9zZXRUaW1lb3V0IiwiX3Rhc2tRdWV1ZSIsIl93b3JrbGV0XzE1MjM4MTEzMDgwNTUzX2luaXRfZGF0YSIsImNvZGUiLCJsb2NhdGlvbiIsInNvdXJjZU1hcCIsInNldHVwUnVuTG9vcF9pbmRleEpzMUZhY3RvcnkiLCJfcmVmIiwic2V0dXBUYXNrUXVldWUiLCJzZXR1cFF1ZXVlTWljcm90YXNrIiwic2V0dXBTZXRUaW1lb3V0Iiwic2V0dXBSZXF1ZXN0QW5pbWF0aW9uRnJhbWUiLCJzZXR1cFNldEltbWVkaWF0ZSIsInNldHVwU2V0SW50ZXJ2YWwiLCJfZSIsImdsb2JhbCIsIkVycm9yIiwiYW5pbWF0aW9uUXVldWVQb2xsaW5nUmF0ZSIsIl9fY2xvc3VyZSIsIl9fd29ya2xldEhhc2giLCJfX3BsdWdpblZlcnNpb24iLCJfX2luaXREYXRhIiwiX19zdGFja0RldGFpbHMiXSwic291cmNlcyI6WyIuLi8uLi8uLi8uLi9zcmMvcnVuTG9vcC93b3JrbGV0UnVudGltZS9pbmRleC50cyJdLCJzb3VyY2VzQ29udGVudCI6W251bGxdLCJtYXBwaW5ncyI6IkFBQUEsWUFBWTs7QUFBQUEsTUFBQSxDQUFBQyxjQUFBLENBQUFDLE9BQUE7RUFBQUMsS0FBQTtBQUFBO0FBQUFELE9BQUEsQ0FBQUUsWUFBQTtBQUVaLElBQUFDLHFCQUFBLEdBQUFDLE9BQUE7QUFDQSxJQUFBQyxvQkFBQSxHQUFBRCxPQUFBO0FBQ0EsSUFBQUUsZUFBQSxHQUFBRixPQUFBO0FBQ0EsSUFBQUcsOEJBQUEsR0FBQUgsT0FBQTtBQUNBLElBQUFJLFdBQUEsR0FBQUosT0FBQTtBQUNBLElBQUFLLFVBQUEsR0FBQUwsT0FBQTtBQUE0QyxJQUFBTSxpQ0FBQTtFQUFBQyxJQUFBO0VBQUFDLFFBQUE7RUFBQUMsU0FBQTtBQUFBO0FBQUEsSUFBQVgsWUFBQSxHQUFBRixPQUFBLENBQUFFLFlBQUEsR0FFckMsU0FBQVksNkJBQUFDLElBQUE7RUFBQSxJQUFBTCxpQ0FBQSxHQUFBSyxJQUFBLENBQUFMLGlDQUFBO0lBRUxNLGNBQWMsR0FBQUQsSUFBQSxDQUFkQyxjQUFjO0lBQ2RDLG1CQUFtQixHQUFBRixJQUFBLENBQW5CRSxtQkFBbUI7SUFDbkJDLGVBQWUsR0FBQUgsSUFBQSxDQUFmRyxlQUFlO0lBQ2ZDLDBCQUEwQixHQUFBSixJQUFBLENBQTFCSSwwQkFBMEI7SUFDMUJDLGlCQUFpQixHQUFBTCxJQUFBLENBQWpCSyxpQkFBaUI7SUFDakJDLGdCQUFnQixHQUFBTixJQUFBLENBQWhCTSxnQkFBZ0I7RUFBQSxJQUFBQyxFQUFBLFFBQUFDLE1BQUEsQ0FBQUMsS0FBQTtFQUFBLElBQUF0QixZQUFBLFlBQUFBLGFBUFd1Qix5QkFBaUMsRUFBRTtJQUU5RFQsY0FBYyxDQUFDLENBQUM7SUFDaEJDLG1CQUFtQixDQUFDLENBQUM7SUFDckJDLGVBQWUsQ0FBQyxDQUFDO0lBQ2pCQywwQkFBMEIsQ0FBQ00seUJBQXlCLENBQUM7SUFDckRMLGlCQUFpQixDQUFDLENBQUM7SUFDbkJDLGdCQUFnQixDQUFDLENBQUM7RUFDcEI7RUFBQW5CLFlBQUEsQ0FBQXdCLFNBQUE7SUFORVYsY0FBYyxFQUFkQSxjQUFjO0lBQ2RDLG1CQUFtQixFQUFuQkEsbUJBQW1CO0lBQ25CQyxlQUFlLEVBQWZBLGVBQWU7SUFDZkMsMEJBQTBCLEVBQTFCQSwwQkFBMEI7SUFDMUJDLGlCQUFpQixFQUFqQkEsaUJBQWlCO0lBQ2pCQyxnQkFBZ0IsRUFBaEJBO0VBQWdCO0VBQUFuQixZQUFBLENBQUF5QixhQUFBO0VBQUF6QixZQUFBLENBQUEwQixlQUFBO0VBQUExQixZQUFBLENBQUEyQixVQUFBLEdBQUFuQixpQ0FBQTtFQUFBUixZQUFBLENBQUE0QixjQUFBLEdBQUFSLEVBQUE7RUFBQSxPQUFBcEIsWUFBQTtBQUFBLENBUFg7RUFBQVEsaUNBQUEsRUFBQUEsaUNBQUE7RUFFTE0sY0FBYyxFQUFkQSx5QkFBYztFQUNkQyxtQkFBbUIsRUFBbkJBLG1DQUFtQjtFQUNuQkMsZUFBZSxFQUFmQSwyQkFBZTtFQUNmQywwQkFBMEIsRUFBMUJBLHlEQUEwQjtFQUMxQkMsaUJBQWlCLEVBQWpCQSx1Q0FBaUI7RUFDakJDLGdCQUFnQixFQUFoQkE7QUFBZ0IiLCJpZ25vcmVMaXN0IjpbXX0=
