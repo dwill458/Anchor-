@@ -23,6 +23,7 @@ import { format, isToday } from 'date-fns';
 import { SvgXml } from 'react-native-svg';
 import { ChevronRight, Share2, Zap } from 'lucide-react-native';
 import { MoreRitualsSheet, RitualType } from '@/components/MoreRitualsSheet';
+import { useToast } from '@/components/ToastProvider';
 import { useTabNavigation } from '@/contexts/TabNavigationContext';
 import { useAnchorStore } from '@/stores/anchorStore';
 import { useSettingsStore } from '@/stores/settingsStore';
@@ -561,6 +562,7 @@ const AnchorDetailsScreen = ({ navigation, route }) => {
   const isReducedEffectsDevice = perfTier !== 'high';
   const shouldAnimateIntro = perfTier === 'high';
   const { navigateToPractice } = useTabNavigation();
+  const toast = useToast();
   const getAnchorById = useAnchorStore((state) => state.getAnchorById);
   const removeAnchor = useAnchorStore((state) => state.removeAnchor);
   const defaultActivation = useSettingsStore((s) => s.defaultActivation);
@@ -972,12 +974,7 @@ const AnchorDetailsScreen = ({ navigation, route }) => {
           try {
             const granted = await ensureMediaLibraryPermission();
             if (!granted) {
-              Alert.alert(
-                'Permission needed',
-                pendingExportAction === 'download'
-                  ? 'Please allow photo library access to save this anchor.'
-                  : 'Please allow photo library access to share this anchor.'
-              );
+              toast.warning('Allow photo library access to save your sigil');
               return;
             }
 
@@ -986,15 +983,15 @@ const AnchorDetailsScreen = ({ navigation, route }) => {
 
             if (pendingExportAction === 'wallpaper') {
               await Share.share({ url: uri });
+              toast.info('Save the image, then set it as your wallpaper in Settings');
             } else {
-              Alert.alert('Saved', 'Your anchor has been saved to your photo library.');
+              toast.success('Anchor saved to your photo library');
             }
           } catch {
-            Alert.alert(
-              'Error',
+            toast.error(
               pendingExportAction === 'wallpaper'
-                ? 'Could not open share sheet.'
-                : 'Could not save image. Please check your permissions.'
+                ? 'Could not open share sheet'
+                : 'Could not save image. Check your permissions.'
             );
           } finally {
             if (!cancelled) {
@@ -1016,7 +1013,7 @@ const AnchorDetailsScreen = ({ navigation, route }) => {
     if (isExporting) return;
     const perm = await MediaLibrary.requestPermissionsAsync();
     if (perm.status !== 'granted') {
-      Alert.alert('Permission Required', 'Grant photo library access to save your sigil.');
+      toast.warning('Allow photo library access to save your sigil');
       return;
     }
     setIsExporting(true);
@@ -1027,7 +1024,7 @@ const AnchorDetailsScreen = ({ navigation, route }) => {
     if (isExporting) return;
     const perm = await MediaLibrary.requestPermissionsAsync();
     if (perm.status !== 'granted') {
-      Alert.alert('Permission Required', 'Grant photo library access to share your sigil.');
+      toast.warning('Allow photo library access to share your sigil');
       return;
     }
     setIsExporting(true);

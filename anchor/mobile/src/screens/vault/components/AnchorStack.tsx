@@ -15,6 +15,7 @@ import {
 import { SvgXml } from 'react-native-svg';
 import { colors } from '@/theme';
 import type { Anchor } from '@/types';
+import { isAnchorReleased } from '../utils/anchorStateHelpers';
 
 // ─── StackCard ────────────────────────────────────────────────────────────────
 
@@ -73,6 +74,11 @@ export const AnchorStack: React.FC<AnchorStackProps> = ({
   onAddPress: _onAddPress,
   onViewAll,
 }) => {
+  const visibleAnchors = React.useMemo(
+    () => anchors.filter((anchor) => !isAnchorReleased(anchor)),
+    [anchors]
+  );
+
   const handlePress = React.useCallback((id: string) => {
     onAnchorPress(id);
   }, [onAnchorPress]);
@@ -93,7 +99,7 @@ export const AnchorStack: React.FC<AnchorStackProps> = ({
         showsHorizontalScrollIndicator={false}
         contentContainerStyle={styles.scrollContent}
       >
-        {anchors.map((anchor) => (
+        {visibleAnchors.map((anchor) => (
           <StackCard
             key={anchor.id}
             anchor={anchor}

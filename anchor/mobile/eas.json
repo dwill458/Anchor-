@@ -53,6 +53,7 @@
         "buildType": "app-bundle"
       },
       "ios": {
+        "autoIncrement": true,
         "prebuildCommand": "npx expo prebuild --platform ios --no-install"
       }
     }

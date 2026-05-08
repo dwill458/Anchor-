@@ -216,6 +216,56 @@ describe('VaultScreen', () => {
         expect(mockNavigate).toHaveBeenCalledWith('CreateAnchor');
     });
 
+    it('hides released anchors from Sanctuary content', () => {
+        mockAnchors = [
+            {
+                id: 'active-anchor',
+                intentionText: 'Build focus',
+                category: 'career',
+                isCharged: false,
+                activationCount: 0,
+                baseSigilSvg: '<svg></svg>',
+                createdAt: new Date(),
+                updatedAt: new Date(),
+            },
+            {
+                id: 'released-anchor',
+                intentionText: 'Old burn',
+                category: 'career',
+                isCharged: true,
+                isReleased: true,
+                releasedAt: new Date(),
+                activationCount: 2,
+                baseSigilSvg: '<svg></svg>',
+                createdAt: new Date(),
+                updatedAt: new Date(),
+            },
+        ];
+
+        render(<VaultScreen />);
+        expect(screen.getByText('Hero: Build focus')).toBeTruthy();
+        expect(screen.getByText('Stack: 0')).toBeTruthy();
+    });
+
+    it('shows the empty sanctuary state when only released anchors remain', () => {
+        mockAnchors = [{
+            id: 'released-anchor',
+            intentionText: 'Old burn',
+            category: 'career',
+            isCharged: true,
+            isReleased: true,
+            releasedAt: new Date(),
+            activationCount: 2,
+            baseSigilSvg: '<svg></svg>',
+            createdAt: new Date(),
+            updatedAt: new Date(),
+        }];
+
+        render(<VaultScreen />);
+        expect(screen.getByText(/FORGE YOUR FIRST ANCHOR/)).toBeTruthy();
+        expect(screen.queryByText('CREATE NEW ANCHOR')).toBeNull();
+    });
+
     it('routes unauthenticated returning users to the create flow', () => {
         mockIsAuthenticated = false;
         mockAnchors = [{

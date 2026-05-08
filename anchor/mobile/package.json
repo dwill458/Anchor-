@@ -11,7 +11,8 @@
     "test": "jest",
     "test:watch": "jest --watch",
     "test:coverage": "jest --coverage",
-    "test:verbose": "jest --verbose"
+    "test:verbose": "jest --verbose",
+    "adb-reverse": "node ../../scripts/adb-reverse-monitor.js"
   },
   "dependencies": {
     "@expo-google-fonts/cinzel": "^0.4.2",
