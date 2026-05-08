@@ -24,7 +24,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import Svg, {
   Circle,
 } from 'react-native-svg';
-import { useFocusEffect, useNavigation, useRoute, RouteProp } from '@react-navigation/native';
+import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { useTabNavigation } from '@/contexts/TabNavigationContext';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { useAnchorStore } from '@/stores/anchorStore';
@@ -247,6 +247,7 @@ export const RitualScreen: React.FC = () => {
   const reduceIntentionVisibility = useSettingsStore((state) => state.reduceIntentionVisibility ?? false);
   const { handlePrimeComplete } = useNotificationController();
   const beginPostPrimeTraceFlow = usePostPrimeTraceStore((state) => state.beginFlow);
+  const activeFlow = usePostPrimeTraceStore((state) => state.activeFlow);
   const bumpThreadStrength = useSessionStore((state) => state.bumpThreadStrength);
   const anchor = getAnchorById(anchorId);
   const sigilSvg = anchor?.reinforcedSigilSvg ?? anchor?.baseSigilSvg ?? '';
@@ -675,46 +676,40 @@ export const RitualScreen: React.FC = () => {
     });
   }, [anchorId, beginPostPrimeTraceFlow, navigation]);
 
-  useFocusEffect(
-    useCallback(() => {
-      if (!pendingPostPrimeFlowId) {
-        return () => undefined;
-      }
+  useEffect(() => {
+    if (!pendingPostPrimeFlowId) {
+      return;
+    }
 
-      // Read synchronously — avoids waiting for a Zustand subscription re-render
-      const { activeFlow, clearFlow } = usePostPrimeTraceStore.getState();
+    if (
+      !activeFlow ||
+      activeFlow.flowId !== pendingPostPrimeFlowId ||
+      activeFlow.result === 'pending'
+    ) {
+      return;
+    }
 
-      if (
-        !activeFlow ||
-        activeFlow.flowId !== pendingPostPrimeFlowId ||
-        activeFlow.result === 'pending'
-      ) {
-        return () => undefined;
-      }
+    const completedPostPrimeTrace = activeFlow.result === 'completed';
 
-      const completedPostPrimeTrace = activeFlow.result === 'completed';
+    usePostPrimeTraceStore.getState().clearFlow(pendingPostPrimeFlowId);
+    setPendingPostPrimeFlowId(null);
 
-      clearFlow(pendingPostPrimeFlowId);
-      setPendingPostPrimeFlowId(null);
+    if (completedPostPrimeTrace) {
+      bumpThreadStrength(2);
+      AnalyticsService.track('post_prime_trace_completed', {
+        anchor_id: anchorId,
+        session_duration_seconds: config.totalDurationSeconds,
+      });
+    }
 
-      if (completedPostPrimeTrace) {
-        bumpThreadStrength(2);
-        AnalyticsService.track('post_prime_trace_completed', {
-          anchor_id: anchorId,
-          session_duration_seconds: config.totalDurationSeconds,
-        });
-      }
-
-      setShowCompletion(true);
-
-      return () => undefined;
-    }, [
-      config.totalDurationSeconds,
-      anchorId,
-      bumpThreadStrength,
-      pendingPostPrimeFlowId,
-    ])
-  );
+    setShowCompletion(true);
+  }, [
+    activeFlow,
+    anchorId,
+    bumpThreadStrength,
+    config.totalDurationSeconds,
+    pendingPostPrimeFlowId,
+  ]);
 
   function handleBack() {
     if (state.isComplete || state.isSealComplete) {
