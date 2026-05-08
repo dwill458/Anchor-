@@ -17,6 +17,7 @@ import { SvgXml } from 'react-native-svg';
 import { colors, typography } from '@/theme';
 import type { Anchor } from '@/types';
 import { withAlpha } from '@/utils/color';
+import { isAnchorReleased } from '../utils/anchorStateHelpers';
 
 const { width } = Dimensions.get('window');
 const MODAL_WIDTH = width - 32;
@@ -38,6 +39,10 @@ export const VaultGridModal: React.FC<VaultGridModalProps> = ({
   anchors,
   onAnchorPress,
 }) => {
+  const visibleAnchors = React.useMemo(
+    () => anchors.filter((anchor) => !isAnchorReleased(anchor)),
+    [anchors]
+  );
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const slideAnim = useRef(new Animated.Value(20)).current;
 
@@ -134,7 +139,7 @@ export const VaultGridModal: React.FC<VaultGridModalProps> = ({
           </View>
 
           <FlatList
-            data={anchors}
+            data={visibleAnchors}
             renderItem={renderItem}
             keyExtractor={(item) => item.id}
             numColumns={NUM_COLUMNS}

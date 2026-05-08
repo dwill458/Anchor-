@@ -55,6 +55,7 @@ import { useSettingsStore } from '@/stores/settingsStore';
 import { WeeklySummaryModal } from '@/components/WeeklySummaryModal'; import { useWeeklySummaryTrigger } from '@/hooks/useWeeklySummaryTrigger';
 import { VaultGridModal } from './components/VaultGridModal';
 import { usePostFirstAnchorPaywall } from '@/hooks/usePostFirstAnchorPaywall';
+import { isAnchorReleased } from './utils/anchorStateHelpers';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -236,21 +237,26 @@ export const VaultScreen: React.FC = () => {
   const [gridVisible, setGridVisible] = useState(false);
 
   // ── Derived state ────────────────────────────────────────────────────────────
-  const autoPrimary = useMemo(() => selectPrimaryAnchor(anchors), [anchors]);
+  const sanctuaryAnchors = useMemo(
+    () => anchors.filter((anchor) => !isAnchorReleased(anchor)),
+    [anchors]
+  );
+
+  const autoPrimary = useMemo(() => selectPrimaryAnchor(sanctuaryAnchors), [sanctuaryAnchors]);
 
   // Use the shared store's currentAnchorId so Practice tab stays in sync
   const primaryAnchor = useMemo(() => {
     if (currentAnchorId) {
-      const found = anchors.find((a) => a.id === currentAnchorId);
+      const found = sanctuaryAnchors.find((a) => a.id === currentAnchorId);
       if (found) return found;
     }
     return autoPrimary;
-  }, [currentAnchorId, anchors, autoPrimary]);
+  }, [currentAnchorId, sanctuaryAnchors, autoPrimary]);
 
   // Anchors to show in the stack — exclude the current hero
   const stackAnchors = useMemo(
-    () => anchors.filter((a) => a.id !== primaryAnchor?.id),
-    [anchors, primaryAnchor],
+    () => sanctuaryAnchors.filter((a) => a.id !== primaryAnchor?.id),
+    [sanctuaryAnchors, primaryAnchor],
   );
 
   useEffect(() => {
@@ -460,14 +466,14 @@ export const VaultScreen: React.FC = () => {
             />
           </Animated2.View>
 
-          {!isAuthenticated && anchors.length > 0 && !bannerDismissed && (
+          {!isAuthenticated && sanctuaryAnchors.length > 0 && !bannerDismissed && (
             <GuestReturnBanner
               onPractice={handleActivate}
               onDismiss={() => setBannerDismissed(true)}
             />
           )}
 
-          {anchors.length === 0
+          {sanctuaryAnchors.length === 0
             ? renderEmptyState({
                 handleCreateAnchor,
                 shouldReduceMotion,
@@ -487,7 +493,7 @@ export const VaultScreen: React.FC = () => {
               })}
         </ScrollView>
 
-        {anchors.length > 0 && (
+        {sanctuaryAnchors.length > 0 && (
           <View style={styles.createZone}>
             <LinearGradient
               colors={['transparent', CREATE_ZONE_BG]}
@@ -513,7 +519,7 @@ export const VaultScreen: React.FC = () => {
       <VaultGridModal
         visible={gridVisible}
         onDismiss={() => setGridVisible(false)}
-        anchors={anchors}
+        anchors={sanctuaryAnchors}
         onAnchorPress={handleAnchorPress}
       />
     </View>

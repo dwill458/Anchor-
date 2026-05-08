@@ -152,7 +152,8 @@ const STYLE_CONFIGS: Record<AIStyle, StyleConfig> = {
     category: 'hybrid',
     prompt:
       'Restore and beautify the existing sigil. Preserve exact geometry and stroke paths. Apply concentric resonance rings as surface treatment only. Layered pulse circles, subtle waveform halos, radiating energy in the background. The sigil structure is preserved exactly.',
-    negativePrompt: STRICT_NEGATIVE_PROMPT + ', sharp geometry, clutter, static noise, photorealism',
+    negativePrompt:
+      STRICT_NEGATIVE_PROMPT + ', sharp geometry, clutter, static noise, photorealism',
     strength: 0.26,
   },
   watercolor: {

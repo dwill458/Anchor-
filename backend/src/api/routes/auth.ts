@@ -155,6 +155,16 @@ function validate<T>(schema: z.ZodSchema<T>, data: unknown): T {
   return result.data;
 }
 
+function buildFlaggedContentUserWhere(user: { id: string; authUid: string }) {
+  if (user.id === user.authUid) {
+    return { userId: user.id };
+  }
+
+  return {
+    OR: [{ userId: user.id }, { userId: user.authUid }],
+  };
+}
+
 /**
  * POST /api/auth/sync
  *
@@ -322,7 +332,7 @@ router.get(
           orderBy: { burnedAt: 'desc' },
         }),
         prisma.flaggedContent.findMany({
-          where: { userId: user.id },
+          where: buildFlaggedContentUserWhere(user),
           orderBy: { createdAt: 'desc' },
         }),
       ]);
@@ -606,7 +616,23 @@ router.delete(
         throw new AppError('User not found', 404, 'USER_NOT_FOUND');
       }
 
+      await prisma.$transaction(async tx => {
+        await tx.flaggedContent.deleteMany({
+          where: buildFlaggedContentUserWhere(user),
+        });
+        await tx.burnedAnchor.deleteMany({
+          where: { userId: user.id },
+        });
+        await tx.syncQueue.deleteMany({
+          where: { userId: user.id },
+        });
+        await tx.user.delete({
+          where: { id: user.id },
+        });
+      });
+
       const firebaseAdmin = getFirebaseAdmin().auth();
+      let authAccountDeleted = true;
 
       try {
         await firebaseAdmin.deleteUser(req.user.uid);
@@ -617,31 +643,18 @@ router.delete(
             : '';
 
         if (code !== 'auth/user-not-found') {
-          throw new AppError('Failed to delete authentication account', 500, 'AUTH_DELETE_ERROR');
+          authAccountDeleted = false;
         }
       }
-
-      // Delete user (cascades handled by Prisma schema onDelete: Cascade)
-      // This will automatically delete:
-      // - anchors (which cascade to activations and charges)
-      // - activations
-      // - charges
-      // - orders
-      // - settings
-      await prisma.user.delete({
-        where: { id: user.id },
-      });
-
-      // Also clean up sync queue (not in schema relations)
-      await prisma.syncQueue.deleteMany({
-        where: { userId: user.id },
-      });
 
       res.json({
         success: true,
         data: {
-          message: 'Account successfully deleted',
+          message: authAccountDeleted
+            ? 'Account successfully deleted'
+            : 'Account data deleted; authentication account requires manual cleanup',
           deletedUserId: user.id,
+          authAccountDeleted,
         },
       });
     } catch (error) {

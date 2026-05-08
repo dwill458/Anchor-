@@ -30,6 +30,9 @@ export const REVENUECAT_DEFAULT_PLAN_ID =
   REVENUECAT_DEFAULT_PACKAGE_ID === REVENUECAT_ANNUAL_PACKAGE_ID ? 'annual' : 'monthly';
 export const GOOGLE_WEB_CLIENT_ID = process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID ?? '';
 export const GOOGLE_IOS_CLIENT_ID = process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID ?? '';
+export const ENABLE_LEGACY_SUPABASE_SYNC =
+  process.env.EXPO_PUBLIC_ENABLE_LEGACY_SUPABASE_SYNC === 'true';
+export const ENABLE_MERCH = process.env.EXPO_PUBLIC_ENABLE_MERCH === 'true';
 
 export const Config = {
   API_URL,
@@ -43,4 +46,6 @@ export const Config = {
   REVENUECAT_DEFAULT_PLAN_ID,
   GOOGLE_WEB_CLIENT_ID,
   GOOGLE_IOS_CLIENT_ID,
+  ENABLE_LEGACY_SUPABASE_SYNC,
+  ENABLE_MERCH,
 };

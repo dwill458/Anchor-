@@ -50,11 +50,16 @@ class PostAuthFlowService {
     }
 
     const anchorStore = useAnchorStore.getState();
-    // Keep the full local collection during account transition so we do not
-    // discard user progress before the sync layer can reconcile it.
-    const migratedAnchors = await AnchorSyncService.migrateAnchors(anchorStore.anchors, patchedUser.id);
-    anchorStore.setAnchors(migratedAnchors);
-    await anchorStore.flushPendingSync();
+    if (AnchorSyncService.isConfigured()) {
+      // Keep the full local collection during account transition so we do not
+      // discard user progress before the sync layer can reconcile it.
+      const migratedAnchors = await AnchorSyncService.migrateAnchors(
+        anchorStore.anchors,
+        patchedUser.id
+      );
+      anchorStore.setAnchors(migratedAnchors);
+      await anchorStore.flushPendingSync();
+    }
 
     // Pull the user's anchors from the Railway backend to enable cross-device sync.
     // Skip if there is a pending first-anchor draft: it will be finalized via

@@ -9,6 +9,7 @@ const mockRefreshTrialStatus = jest.fn();
 jest.mock('@/services/AnchorSyncService', () => ({
   __esModule: true,
   default: {
+    isConfigured: jest.fn(() => true),
     migrateAnchors: (...args: unknown[]) => mockMigrateAnchors(...args),
     flushRetryQueue: jest.fn().mockResolvedValue([]),
   },

@@ -19,15 +19,29 @@ router.post('/flag', authMiddleware, async (req: AuthRequest, res: Response) => 
     return;
   }
 
+  if (!req.user?.uid) {
+    res.status(401).json({ success: false, error: 'User not authenticated' });
+    return;
+  }
+
   const { anchorId, imageUrl, reason } = parsed.data;
-  const userId = req.user!.uid;
 
   try {
-    await prisma.flaggedContent.create({
-      data: { anchorId, imageUrl, reason, userId },
+    const dbUser = await prisma.user.findUnique({
+      where: { authUid: req.user.uid },
+      select: { id: true },
     });
 
-    logger.info('[Content] Content flagged', { anchorId, reason, userId });
+    if (!dbUser) {
+      res.status(404).json({ success: false, error: 'User not found' });
+      return;
+    }
+
+    await prisma.flaggedContent.create({
+      data: { anchorId, imageUrl, reason, userId: dbUser.id },
+    });
+
+    logger.info('[Content] Content flagged', { anchorId, reason, userId: dbUser.id });
     res.status(201).json({ success: true });
   } catch (error) {
     logger.error('[Content] Failed to save flagged content', error);

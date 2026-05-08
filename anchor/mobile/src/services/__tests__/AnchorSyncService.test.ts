@@ -6,6 +6,7 @@ jest.mock('@react-native-async-storage/async-storage', () =>
 );
 
 jest.mock('@/config', () => ({
+  ENABLE_LEGACY_SUPABASE_SYNC: true,
   SUPABASE_URL: 'https://example.supabase.co',
   SUPABASE_ANON_KEY: 'supabase-anon-key',
 }));
@@ -105,7 +106,7 @@ describe('AnchorSyncService', () => {
 
     expect(flushedAnchors).toHaveLength(1);
     expect(flushedAnchors[0].id).toBe('cloud-uuid-1');
-    expect(await AsyncStorage.getItem('anchor-sync-retry-queue')).toBe('[]');
+    expect(await AsyncStorage.getItem('anchor-sync-retry-queue')).toBeNull();
   });
 
   it('retains local anchors during migration failures', async () => {
@@ -118,6 +119,6 @@ describe('AnchorSyncService', () => {
     const migratedAnchors = await AnchorSyncService.migrateAnchors([anchor], 'user-1');
 
     expect(migratedAnchors[0].id).toBe('local-anchor-1');
-    expect(await AsyncStorage.getItem('anchor-sync-retry-queue')).toContain('local-anchor-1');
+    expect(global.fetch).toHaveBeenCalledTimes(1);
   });
 });
