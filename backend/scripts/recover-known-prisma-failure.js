@@ -1,14 +1,17 @@
 const { execFileSync } = require('child_process');
 const { PrismaClient } = require('@prisma/client');
 
-const TARGET_MIGRATION = '20260506010000_add_user_data_cleanup_foreign_keys';
+const TARGET_MIGRATIONS = [
+  '20260506010000_add_user_data_cleanup_foreign_keys',
+  '20260508000000_diagnose_and_fix_orphaned_rows',
+];
 const prisma = new PrismaClient();
 
 function getNpxCommand() {
   return process.platform === 'win32' ? 'npx.cmd' : 'npx';
 }
 
-async function loadMigrationState() {
+async function loadMigrationState(migrationName) {
   try {
     const rows = await prisma.$queryRawUnsafe(
       `
@@ -18,7 +21,7 @@ async function loadMigrationState() {
         ORDER BY started_at DESC
         LIMIT 1
       `,
-      TARGET_MIGRATION
+      migrationName
     );
 
     return Array.isArray(rows) ? rows[0] ?? null : null;
@@ -35,29 +38,31 @@ async function loadMigrationState() {
   }
 }
 
-function resolveFailedMigration() {
+function resolveFailedMigration(migrationName) {
   execFileSync(
     getNpxCommand(),
-    ['prisma', 'migrate', 'resolve', '--rolled-back', TARGET_MIGRATION, '--schema', 'prisma/schema.prisma'],
+    ['prisma', 'migrate', 'resolve', '--rolled-back', migrationName, '--schema', 'prisma/schema.prisma'],
     { stdio: 'inherit' }
   );
 }
 
 async function main() {
-  const migration = await loadMigrationState();
+  for (const migrationName of TARGET_MIGRATIONS) {
+    const migration = await loadMigrationState(migrationName);
 
-  if (!migration) {
-    console.log(`[prisma-recover] No ${TARGET_MIGRATION} migration record found. Skipping recovery.`);
-    return;
+    if (!migration) {
+      console.log(`[prisma-recover] No ${migrationName} migration record found. Skipping recovery.`);
+      continue;
+    }
+
+    if (migration.finished_at || migration.rolled_back_at) {
+      console.log(`[prisma-recover] ${migrationName} is already resolved. Skipping recovery.`);
+      continue;
+    }
+
+    console.log(`[prisma-recover] Found failed ${migrationName}. Marking it rolled back so deploy can continue.`);
+    resolveFailedMigration(migrationName);
   }
-
-  if (migration.finished_at || migration.rolled_back_at) {
-    console.log(`[prisma-recover] ${TARGET_MIGRATION} is already resolved. Skipping recovery.`);
-    return;
-  }
-
-  console.log(`[prisma-recover] Found failed ${TARGET_MIGRATION}. Marking it rolled back so deploy can continue.`);
-  resolveFailedMigration();
 }
 
 main()
