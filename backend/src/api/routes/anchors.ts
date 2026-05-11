@@ -6,6 +6,7 @@
 
 import { Router, Response, NextFunction } from 'express';
 import rateLimit, { ipKeyGenerator } from 'express-rate-limit';
+import { GoogleGenAI } from '@google/genai';
 import { RedisStore } from 'rate-limit-redis';
 import { z } from 'zod';
 import { Prisma } from '@prisma/client';
@@ -273,7 +274,6 @@ router.post(
     try {
       const { intentionText } = validate(ClassifyTierSchema, req.body);
 
-      const { GoogleGenAI } = require('@google/genai');
       const ai = new GoogleGenAI({});
 
       const systemPrompt = `You classify a user's intention into exactly one Anchor planetary tier.

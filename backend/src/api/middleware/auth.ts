@@ -19,7 +19,11 @@ const DEV_MASTER_EMAIL = 'dev+master@anchor.local';
 
 /** Returns true when the token matches the dev-master bypass (non-prod only). */
 function isDevMasterToken(token: string): boolean {
-  return process.env.NODE_ENV !== 'production' && DEV_MASTER_TOKEN.length > 0 && token === DEV_MASTER_TOKEN;
+  return (
+    process.env.NODE_ENV !== 'production' &&
+    DEV_MASTER_TOKEN.length > 0 &&
+    token === DEV_MASTER_TOKEN
+  );
 }
 
 /**

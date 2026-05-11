@@ -108,7 +108,9 @@ const MOCK_SETTINGS = {
 beforeEach(() => {
   jest.clearAllMocks();
   delete process.env.COMPED_ACCESS_EMAILS;
-  (mockPrisma.$transaction as jest.Mock).mockImplementation(async (callback: any) => callback(mockPrisma));
+  (mockPrisma.$transaction as jest.Mock).mockImplementation(async (callback: any) =>
+    callback(mockPrisma)
+  );
 
   mockedGetFirebaseAdmin.mockReturnValue({
     auth: () => ({
@@ -151,13 +153,11 @@ describe('POST /api/auth/sync', () => {
     });
     (mockPrisma.userSettings.upsert as jest.Mock).mockResolvedValue(MOCK_SETTINGS);
 
-    const res = await request(buildApp())
-      .post('/api/auth/sync')
-      .send({
-        displayName: 'Test User',
-        authProvider: 'email',
-        hasCompletedOnboarding: true,
-      });
+    const res = await request(buildApp()).post('/api/auth/sync').send({
+      displayName: 'Test User',
+      authProvider: 'email',
+      hasCompletedOnboarding: true,
+    });
 
     expect(res.status).toBe(200);
     expect(mockPrisma.user.upsert).toHaveBeenCalledWith(
@@ -517,9 +517,7 @@ describe('PUT /api/auth/notification-state', () => {
   });
 
   it('returns 400 when notificationState is missing', async () => {
-    const res = await request(buildApp())
-      .put('/api/auth/notification-state')
-      .send({});
+    const res = await request(buildApp()).put('/api/auth/notification-state').send({});
 
     expect(res.status).toBe(400);
     expect(res.body.error.code).toBe('VALIDATION_ERROR');

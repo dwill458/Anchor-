@@ -339,7 +339,7 @@ router.get(
       const authUid = req.user.uid;
 
       const user = await prisma.user.findUnique({
-        where: { authUid: req.user.uid },
+        where: { authUid },
         include: {
           settings: true,
           anchors: {

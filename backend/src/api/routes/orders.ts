@@ -51,7 +51,9 @@ router.post('/', async (req: AuthRequest, res: Response, next: NextFunction) => 
     // Validation using Zod
     const validationResult = CreateOrderSchema.safeParse(req.body);
     if (!validationResult.success) {
-      const message = validationResult.error.errors.map(e => `${e.path.join('.')}: ${e.message}`).join(', ');
+      const message = validationResult.error.errors
+        .map(e => `${e.path.join('.')}: ${e.message}`)
+        .join(', ');
       throw new AppError(`Validation error: ${message}`, 400, 'VALIDATION_ERROR');
     }
 
@@ -105,7 +107,11 @@ router.post('/', async (req: AuthRequest, res: Response, next: NextFunction) => 
       data: order,
     });
   } catch (error) {
-    return next(error instanceof AppError ? error : new AppError('Failed to create order', 500, 'CREATE_ERROR'));
+    return next(
+      error instanceof AppError
+        ? error
+        : new AppError('Failed to create order', 500, 'CREATE_ERROR')
+    );
   }
 });
 
@@ -138,7 +144,9 @@ router.get('/', async (req: AuthRequest, res: Response, next: NextFunction) => {
       data: orders,
     });
   } catch (error) {
-    return next(error instanceof AppError ? error : new AppError('Failed to fetch orders', 500, 'FETCH_ERROR'));
+    return next(
+      error instanceof AppError ? error : new AppError('Failed to fetch orders', 500, 'FETCH_ERROR')
+    );
   }
 });
 

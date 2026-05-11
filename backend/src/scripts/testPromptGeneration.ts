@@ -89,7 +89,8 @@ const STYLE_PROMPTS: Record<AIStyle, { prompt: string; negativePrompt: string }>
   architectural_trace: {
     prompt:
       'Architectural drafting precision, measured blueprint lines, clean technical elegance, grid discipline, illuminated engineering plan',
-    negativePrompt: 'new shapes, additional symbols, text, organic, messy, hand-drawn, loose sketching',
+    negativePrompt:
+      'new shapes, additional symbols, text, organic, messy, hand-drawn, loose sketching',
   },
   lunar_etch: {
     prompt:

@@ -213,7 +213,10 @@ export function validateEnv(): EnvConfig {
       SENTRY_DSN: validateString('SENTRY_DSN', process.env.SENTRY_DSN),
       SENTRY_TRACES_SAMPLE_RATE: Math.max(
         0,
-        Math.min(1, validateNumber('SENTRY_TRACES_SAMPLE_RATE', process.env.SENTRY_TRACES_SAMPLE_RATE, 0.1))
+        Math.min(
+          1,
+          validateNumber('SENTRY_TRACES_SAMPLE_RATE', process.env.SENTRY_TRACES_SAMPLE_RATE, 0.1)
+        )
       ),
     };
 

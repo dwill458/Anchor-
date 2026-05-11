@@ -10,6 +10,7 @@ import cors from 'cors';
 import helmet from 'helmet';
 import rateLimit from 'express-rate-limit';
 import dotenv from 'dotenv';
+import path from 'path';
 import authRoutes from './api/routes/auth';
 import anchorRoutes from './api/routes/anchors';
 import aiRoutes from './api/routes/ai';
@@ -98,7 +99,7 @@ if (sentryEnabled) {
       }
 
       if (event.exception?.values) {
-        event.exception.values = event.exception.values.map((value) => ({
+        event.exception.values = event.exception.values.map(value => ({
           ...value,
           value: scrubSensitiveString(value.value),
         }));
@@ -125,10 +126,7 @@ process.on('uncaughtException', (error: Error) => {
 
 process.on('unhandledRejection', (reason: unknown) => {
   const error = reason instanceof Error ? reason : new Error(String(reason));
-  logger.error(
-    'Unhandled promise rejection — shutting down',
-    error
-  );
+  logger.error('Unhandled promise rejection — shutting down', error);
   if (sentryEnabled) {
     Sentry.captureException(error);
     void Sentry.close(2_000).finally(() => process.exit(1));
@@ -226,7 +224,6 @@ app.use((req: Request, _res: Response, next) => {
 
 // Development/test only: expose local upload fallback paths.
 if (env.NODE_ENV !== 'production') {
-  const path = require('path');
   app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
 }
 

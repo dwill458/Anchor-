@@ -196,7 +196,9 @@ describe('optionalAuthMiddleware', () => {
     };
     const mockRes = { status: statusMock, json: jsonMock } as any;
     (getFirebaseAdmin as jest.Mock).mockReturnValue({
-      auth: () => ({ verifyIdToken: jest.fn().mockRejectedValue({ code: 'auth/invalid-id-token' }) }),
+      auth: () => ({
+        verifyIdToken: jest.fn().mockRejectedValue({ code: 'auth/invalid-id-token' }),
+      }),
     });
 
     await optionalAuthMiddleware(mockReq as AuthRequest, mockRes, mockNext);

@@ -81,9 +81,7 @@ describe('POST /api/practice/stabilize', () => {
   });
 
   it('returns 200 and updated user on success', async () => {
-    const res = await request(app)
-      .post('/api/practice/stabilize')
-      .send(VALID_BODY);
+    const res = await request(app).post('/api/practice/stabilize').send(VALID_BODY);
 
     expect(res.status).toBe(200);
     expect(res.body.success).toBe(true);
@@ -108,9 +106,7 @@ describe('POST /api/practice/stabilize', () => {
       next(); // no req.user set
     });
 
-    const res = await request(app)
-      .post('/api/practice/stabilize')
-      .send(VALID_BODY);
+    const res = await request(app).post('/api/practice/stabilize').send(VALID_BODY);
 
     expect(res.status).toBe(401);
   });
@@ -118,9 +114,7 @@ describe('POST /api/practice/stabilize', () => {
   it('returns 404 when user not found in database', async () => {
     mockPrisma.user.findUnique.mockResolvedValue(null);
 
-    const res = await request(app)
-      .post('/api/practice/stabilize')
-      .send(VALID_BODY);
+    const res = await request(app).post('/api/practice/stabilize').send(VALID_BODY);
 
     expect(res.status).toBe(404);
   });
@@ -159,7 +153,11 @@ describe('POST /api/practice/stabilize', () => {
 
   describe('streak logic', () => {
     it('sets streak to 1 when no prior stabilize', async () => {
-      mockPrisma.user.findUnique.mockResolvedValue({ ...MOCK_DB_USER, lastStabilizeAt: null, stabilizeStreakDays: 0 });
+      mockPrisma.user.findUnique.mockResolvedValue({
+        ...MOCK_DB_USER,
+        lastStabilizeAt: null,
+        stabilizeStreakDays: 0,
+      });
 
       await request(app).post('/api/practice/stabilize').send(VALID_BODY);
 

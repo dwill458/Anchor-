@@ -77,12 +77,10 @@ router.post('/stabilize', async (req: AuthRequest, res: Response, next: NextFunc
       throw new AppError('User not authenticated', 401, 'UNAUTHORIZED');
     }
 
-    const {
-      completedAt,
-      timezoneOffsetMinutes,
-      lastStabilizeTimezoneOffsetMinutes,
-      stabilizeStreakDaysClient,
-    } = validate(StabilizeSchema, req.body ?? {});
+    const { completedAt, timezoneOffsetMinutes, lastStabilizeTimezoneOffsetMinutes } = validate(
+      StabilizeSchema,
+      req.body ?? {}
+    );
 
     const completedAtDate = new Date(completedAt);
 
