@@ -22,7 +22,7 @@ const syncLimiter = rateLimit({
   max: 20,
   standardHeaders: true,
   legacyHeaders: false,
-  keyGenerator: (req) => (req as AuthRequest).user?.uid || ipKeyGenerator(req.ip ?? ''),
+  keyGenerator: req => (req as AuthRequest).user?.uid || ipKeyGenerator(req.ip ?? ''),
   message: {
     success: false,
     error: { code: 'TOO_MANY_REQUESTS', message: 'Too many sync attempts, please try again later' },
@@ -34,7 +34,7 @@ const deleteAccountLimiter = rateLimit({
   max: 3,
   standardHeaders: true,
   legacyHeaders: false,
-  keyGenerator: (req) => (req as AuthRequest).user?.uid || ipKeyGenerator(req.ip ?? ''),
+  keyGenerator: req => (req as AuthRequest).user?.uid || ipKeyGenerator(req.ip ?? ''),
   message: {
     success: false,
     error: {
@@ -164,15 +164,17 @@ const PushTokensSchema = z.object({
   apnsToken: z.string().min(1).nullable().optional(),
 });
 
-const NotificationStateSyncSchema = z.object({
-  notificationState: z.record(z.unknown()).optional(),
-  // Nested format sent by mobile client (syncPushTokensToServer)
-  pushTokens: PushTokensSchema.optional(),
-  replacePushTokens: z.boolean().optional(),
-}).refine(
-  (value) => value.notificationState !== undefined || value.pushTokens !== undefined,
-  'notificationState or pushTokens are required'
-);
+const NotificationStateSyncSchema = z
+  .object({
+    notificationState: z.record(z.unknown()).optional(),
+    // Nested format sent by mobile client (syncPushTokensToServer)
+    pushTokens: PushTokensSchema.optional(),
+    replacePushTokens: z.boolean().optional(),
+  })
+  .refine(
+    value => value.notificationState !== undefined || value.pushTokens !== undefined,
+    'notificationState or pushTokens are required'
+  );
 
 // Validates req.body against a schema; throws AppError on failure.
 function validate<T>(schema: z.ZodSchema<T>, data: unknown): T {
@@ -235,7 +237,7 @@ router.post(
         provider = mapProviderIdToAuthProvider(firebaseUser.providerData[0]?.providerId);
       }
 
-      const user = await prisma.$transaction(async (tx) => {
+      const user = await prisma.$transaction(async tx => {
         const syncedUser = await tx.user.upsert({
           where: { authUid },
           update: {
@@ -480,7 +482,7 @@ router.put(
         vaultViewType,
       });
 
-      const settings = await prisma.$transaction(async (tx) => {
+      const settings = await prisma.$transaction(async tx => {
         const user = await tx.user.findUnique({
           where: { authUid },
         });
@@ -532,10 +534,11 @@ router.put(
       }
       const authUid = req.user.uid;
 
-      const { notificationState, pushTokens, replacePushTokens = true } = validate(
-        NotificationStateSyncSchema,
-        req.body
-      );
+      const {
+        notificationState,
+        pushTokens,
+        replacePushTokens = true,
+      } = validate(NotificationStateSyncSchema, req.body);
 
       const user = await prisma.user.findUnique({
         where: { authUid },
@@ -546,12 +549,11 @@ router.put(
         throw new AppError('User not found', 404, 'USER_NOT_FOUND');
       }
 
-      const notificationEnabled = notificationState && Object.prototype.hasOwnProperty.call(
-        notificationState,
-        'notification_enabled'
-      )
-        ? Boolean(notificationState.notification_enabled)
-        : null;
+      const notificationEnabled =
+        notificationState &&
+        Object.prototype.hasOwnProperty.call(notificationState, 'notification_enabled')
+          ? Boolean(notificationState.notification_enabled)
+          : null;
 
       const assignments: Prisma.Sql[] = [];
 
@@ -567,7 +569,10 @@ router.put(
       }
 
       if (pushTokens) {
-        if (replacePushTokens || Object.prototype.hasOwnProperty.call(pushTokens, 'expoPushToken')) {
+        if (
+          replacePushTokens ||
+          Object.prototype.hasOwnProperty.call(pushTokens, 'expoPushToken')
+        ) {
           assignments.push(Prisma.sql`expo_push_token = ${pushTokens.expoPushToken ?? null}`);
         }
         if (replacePushTokens || Object.prototype.hasOwnProperty.call(pushTokens, 'fcmToken')) {
