@@ -159,8 +159,8 @@ describe('PracticeScreen', () => {
     expect(screen.getByText("TODAY'S GOAL")).toBeTruthy();
     expect(screen.getByText('0 / 3')).toBeTruthy();
     expect(screen.getByText('3 sessions remaining today')).toBeTruthy();
-    expect(screen.getByText('Begin Priming')).toBeTruthy();
-    expect(screen.getByText('Restore the thread · 10–60 sec')).toBeTruthy();
+    expect(screen.getByText('Restore Thread')).toBeTruthy();
+    expect(screen.getByText('Focus Session · 10–60 sec to restore')).toBeTruthy();
     expect(screen.getByText('DEEP PRIME')).toBeTruthy();
     expect(screen.getByText('STABILIZE')).toBeTruthy();
     expect(screen.getAllByText('FOCUS SESSION').length).toBeGreaterThan(0);
@@ -283,7 +283,7 @@ describe('PracticeScreen', () => {
     ];
 
     const screen = render(<PracticeScreen />);
-    fireEvent.press(screen.getByText('Begin Priming'));
+    fireEvent.press(screen.getByText('Restore Thread'));
 
     await waitFor(() => {
       expect(mockNavigateToVault).toHaveBeenCalledWith('Ritual', {
