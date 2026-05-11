@@ -45,6 +45,7 @@ const aiHourlyLimiter = rateLimit({
     message: 'You have reached the AI classification limit. Please try again in an hour.',
   },
   store: new RedisStore({
+    prefix: 'rl:anchors:classify-tier:',
     sendCommand: (...args: string[]) => redisClient.sendCommand(args),
   }),
 });

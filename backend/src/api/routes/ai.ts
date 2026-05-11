@@ -49,6 +49,7 @@ const aiHourlyLimiter = rateLimit({
     message: 'You have reached the AI enhancement limit. Please try again in an hour.',
   },
   store: new RedisStore({
+    prefix: 'rl:ai:hourly:',
     sendCommand: (...args: string[]) => redisClient.sendCommand(args),
   }),
 });
@@ -69,6 +70,7 @@ const aiDailyLimiter = rateLimit({
     message: `You have reached your daily limit of ${AI_DAILY_LIMIT} AI generations. Try again tomorrow.`,
   },
   store: new RedisStore({
+    prefix: 'rl:ai:daily:',
     sendCommand: (...args: string[]) => redisClient.sendCommand(args),
   }),
 });

@@ -7,7 +7,7 @@
 import { Prisma } from '@prisma/client';
 import { Router, Response, NextFunction } from 'express';
 import { z } from 'zod';
-import rateLimit from 'express-rate-limit';
+import rateLimit, { ipKeyGenerator } from 'express-rate-limit';
 import { AuthRequest, authMiddleware } from '../middleware/auth';
 import { AppError } from '../middleware/errorHandler';
 import { prisma } from '../../lib/prisma';
@@ -22,7 +22,7 @@ const syncLimiter = rateLimit({
   max: 20,
   standardHeaders: true,
   legacyHeaders: false,
-  keyGenerator: (req) => (req as AuthRequest).user?.uid || req.ip || '',
+  keyGenerator: (req) => (req as AuthRequest).user?.uid || ipKeyGenerator(req.ip ?? ''),
   message: {
     success: false,
     error: { code: 'TOO_MANY_REQUESTS', message: 'Too many sync attempts, please try again later' },
@@ -34,7 +34,7 @@ const deleteAccountLimiter = rateLimit({
   max: 3,
   standardHeaders: true,
   legacyHeaders: false,
-  keyGenerator: (req) => (req as AuthRequest).user?.uid || req.ip || '',
+  keyGenerator: (req) => (req as AuthRequest).user?.uid || ipKeyGenerator(req.ip ?? ''),
   message: {
     success: false,
     error: {
