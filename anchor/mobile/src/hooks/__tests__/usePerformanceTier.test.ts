@@ -7,7 +7,7 @@
  * - For async signals (battery, reduce-motion), we flush pending promises
  *   with act(async () => Promise.resolve()) before asserting.
  */
-import { renderHook, act } from '@testing-library/react-hooks';
+import { renderHook, act } from '@testing-library/react-native';
 import { Platform, PixelRatio, AccessibilityInfo } from 'react-native';
 import { usePerformanceTier, tierPolicy } from '../usePerformanceTier';
 

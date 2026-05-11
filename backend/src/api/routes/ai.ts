@@ -32,6 +32,22 @@ import { redisClient } from '../../lib/redis';
 
 const router = express.Router();
 
+const aiHourlyLimiterStore =
+  process.env.NODE_ENV === 'test' || !process.env.REDIS_URL
+    ? undefined
+    : new RedisStore({
+        prefix: 'rl:ai:hourly:',
+        sendCommand: (...args: string[]) => redisClient.sendCommand(args),
+      });
+
+const aiDailyLimiterStore =
+  process.env.NODE_ENV === 'test' || !process.env.REDIS_URL
+    ? undefined
+    : new RedisStore({
+        prefix: 'rl:ai:daily:',
+        sendCommand: (...args: string[]) => redisClient.sendCommand(args),
+      });
+
 // Per-user rate limiter for the AI image generation endpoint.
 // Keyed on the authenticated user's Firebase UID (set by authMiddleware before
 // this runs), falling back to IP for any unauthenticated edge cases.
@@ -48,10 +64,7 @@ const aiHourlyLimiter = rateLimit({
     error: 'Too many AI generation requests',
     message: 'You have reached the AI enhancement limit. Please try again in an hour.',
   },
-  store: new RedisStore({
-    prefix: 'rl:ai:hourly:',
-    sendCommand: (...args: string[]) => redisClient.sendCommand(args),
-  }),
+  store: aiHourlyLimiterStore,
 });
 
 // Daily AI generation limit per user — prevents runaway API costs.
@@ -69,10 +82,7 @@ const aiDailyLimiter = rateLimit({
     error: 'Daily generation limit reached',
     message: `You have reached your daily limit of ${AI_DAILY_LIMIT} AI generations. Try again tomorrow.`,
   },
-  store: new RedisStore({
-    prefix: 'rl:ai:daily:',
-    sendCommand: (...args: string[]) => redisClient.sendCommand(args),
-  }),
+  store: aiDailyLimiterStore,
 });
 
 // --- Zod schemas ---

@@ -13,6 +13,11 @@ import { errorHandler } from '../../middleware/errorHandler';
 // ── Mocks ──────────────────────────────────────────────────────────────────────
 
 jest.mock('../../middleware/auth');
+jest.mock('../../../config/env', () => ({
+  env: {
+    ENABLE_MERCH: true,
+  },
+}));
 
 // orders.ts uses the shared Prisma singleton.
 const mockPrismaInstance = {
@@ -77,7 +82,14 @@ const VALID_CREATE_BODY = {
   productType: 'print',
   size: 'M',
   color: 'black',
-  shippingInfo: { name: 'Jane Doe', address: '123 Main St', city: 'NYC', zip: '10001' },
+  shippingInfo: {
+    name: 'Jane Doe',
+    addressLine1: '123 Main St',
+    city: 'NYC',
+    state: 'NY',
+    postalCode: '10001',
+    country: 'US',
+  },
 };
 
 // ── Tests ─────────────────────────────────────────────────────────────────────
@@ -171,7 +183,6 @@ describe('POST /api/orders', () => {
       ['hoodie', 6500 + 1200 + 500],
       ['t-shirt', 3200 + 800 + 250],
       ['phone-case', 2800 + 600 + 200],
-      ['unknown-type', 3500 + 800 + 250], // falls back to print pricing
     ];
 
     test.each(products)('calculates total for %s correctly', async (productType, expectedTotal) => {
@@ -184,6 +195,19 @@ describe('POST /api/orders', () => {
           data: expect.objectContaining({ totalCents: expectedTotal }),
         })
       );
+    });
+
+    it('rejects unknown product types during validation', async () => {
+      const res = await request(app)
+        .post('/api/orders')
+        .send({ ...VALID_CREATE_BODY, productType: 'unknown-type' });
+
+      expect(res.status).toBe(400);
+      expect(res.body.success).toBe(false);
+      expect(res.body.error).toMatchObject({
+        code: 'VALIDATION_ERROR',
+      });
+      expect(mockPrismaInstance.order.create).not.toHaveBeenCalled();
     });
   });
 });

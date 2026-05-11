@@ -215,6 +215,7 @@ router.post(
       if (!req.user?.uid) {
         throw new AppError('User not authenticated', 401, 'UNAUTHORIZED');
       }
+      const authUid = req.user.uid;
 
       const { displayName, authProvider, hasCompletedOnboarding } = validate(SyncSchema, req.body);
       const email = req.user.email;
@@ -230,13 +231,13 @@ router.post(
       const isComped = hasCompedAccess(email);
       let provider = authProvider;
       if (!provider) {
-        const firebaseUser = await getFirebaseAdmin().auth().getUser(req.user.uid);
+        const firebaseUser = await getFirebaseAdmin().auth().getUser(authUid);
         provider = mapProviderIdToAuthProvider(firebaseUser.providerData[0]?.providerId);
       }
 
       const user = await prisma.$transaction(async (tx) => {
         const syncedUser = await tx.user.upsert({
-          where: { authUid: req.user.uid },
+          where: { authUid },
           update: {
             email,
             displayName: displayName || undefined,
@@ -245,7 +246,7 @@ router.post(
             lastSeenAt: new Date(),
           },
           create: {
-            authUid: req.user.uid,
+            authUid,
             email,
             displayName,
             authProvider: provider,
@@ -333,6 +334,7 @@ router.get(
       if (!req.user) {
         throw new AppError('User not authenticated', 401, 'UNAUTHORIZED');
       }
+      const authUid = req.user.uid;
 
       const user = await prisma.user.findUnique({
         where: { authUid: req.user.uid },
@@ -458,6 +460,7 @@ router.put(
       if (!req.user) {
         throw new AppError('User not authenticated', 401, 'UNAUTHORIZED');
       }
+      const authUid = req.user.uid;
 
       const {
         notificationsEnabled,
@@ -479,7 +482,7 @@ router.put(
 
       const settings = await prisma.$transaction(async (tx) => {
         const user = await tx.user.findUnique({
-          where: { authUid: req.user.uid },
+          where: { authUid },
         });
 
         if (!user) {
@@ -527,6 +530,7 @@ router.put(
       if (!req.user) {
         throw new AppError('User not authenticated', 401, 'UNAUTHORIZED');
       }
+      const authUid = req.user.uid;
 
       const { notificationState, pushTokens, replacePushTokens = true } = validate(
         NotificationStateSyncSchema,
@@ -534,7 +538,7 @@ router.put(
       );
 
       const user = await prisma.user.findUnique({
-        where: { authUid: req.user.uid },
+        where: { authUid },
         select: { id: true },
       });
 

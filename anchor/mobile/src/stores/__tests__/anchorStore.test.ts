@@ -4,7 +4,7 @@
  * Unit tests for Zustand anchor store
  */
 
-import { renderHook, act } from '@testing-library/react-hooks';
+import { renderHook, act } from '@testing-library/react-native';
 import { useAnchorStore } from '../anchorStore';
 import { createMockAnchor, createMockAnchors } from '../../__tests__/utils/testUtils';
 

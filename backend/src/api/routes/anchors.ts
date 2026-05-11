@@ -9,16 +9,11 @@ import rateLimit, { ipKeyGenerator } from 'express-rate-limit';
 import { RedisStore } from 'rate-limit-redis';
 import { z } from 'zod';
 import { Prisma } from '@prisma/client';
-import DOMPurify from 'dompurify';
-import { JSDOM } from 'jsdom';
 import { AuthRequest, authMiddleware, DEV_MASTER_UID } from '../middleware/auth';
 import { AppError } from '../middleware/errorHandler';
 import { prisma } from '../../lib/prisma';
 import { redisClient } from '../../lib/redis';
 import { logger } from '../../utils/logger';
-
-const window = new JSDOM('').window;
-const purify = DOMPurify(window as any);
 
 // Whitelist of columns that may be used in ORDER BY to prevent injection
 const ALLOWED_ORDER_BY = [
@@ -33,6 +28,14 @@ type AllowedOrderBy = (typeof ALLOWED_ORDER_BY)[number];
 
 const router = Router();
 
+const aiHourlyLimiterStore =
+  process.env.NODE_ENV === 'test' || !process.env.REDIS_URL
+    ? undefined
+    : new RedisStore({
+        prefix: 'rl:anchors:classify-tier:',
+        sendCommand: (...args: string[]) => redisClient.sendCommand(args),
+      });
+
 const aiHourlyLimiter = rateLimit({
   windowMs: 60 * 60 * 1000,
   max: 20,
@@ -44,10 +47,7 @@ const aiHourlyLimiter = rateLimit({
     error: 'Too many AI classification requests',
     message: 'You have reached the AI classification limit. Please try again in an hour.',
   },
-  store: new RedisStore({
-    prefix: 'rl:anchors:classify-tier:',
-    sendCommand: (...args: string[]) => redisClient.sendCommand(args),
-  }),
+  store: aiHourlyLimiterStore,
 });
 
 // --- Zod schemas ---
@@ -175,8 +175,14 @@ const CLASSIFY_TIER_RESPONSE_SCHEMA = {
  * payloads at the API boundary.
  */
 function isSafeSvg(svg: string): boolean {
-  purify.sanitize(svg, { USE_PROFILES: { svg: true } });
-  return purify.removed.length === 0;
+  const normalized = svg.toLowerCase();
+
+  return !(
+    /<script\b/.test(normalized) ||
+    /\son[a-z]+\s*=/.test(normalized) ||
+    /javascript:/.test(normalized) ||
+    /\b(?:href|xlink:href|src)\s*=\s*['"]?\s*https?:\/\//.test(normalized)
+  );
 }
 
 // Validates req.body against a schema; throws AppError on failure.

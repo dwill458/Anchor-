@@ -72,7 +72,7 @@ export const errorHandler = (
     },
   };
 
-  if (process.env.EXPOSE_ERROR_STACK === 'true') {
+  if (process.env.EXPOSE_ERROR_STACK === 'true' || process.env.NODE_ENV === 'development') {
     response.error.stack = err.stack;
   }
 

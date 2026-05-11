@@ -8,4 +8,6 @@ export const redisClient = createClient({
 redisClient.on('error', (err) => logger.error('Redis Client Error', err));
 
 // Connect automatically when imported, but catch errors to prevent app crash if Redis is down
-redisClient.connect().catch(console.error);
+if (process.env.NODE_ENV !== 'test') {
+  redisClient.connect().catch(console.error);
+}

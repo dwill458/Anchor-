@@ -2,7 +2,7 @@
  * subscriptionStore Tests
  */
 
-import { renderHook, act } from '@testing-library/react-hooks';
+import { renderHook, act } from '@testing-library/react-native';
 import { useSubscriptionStore } from '../subscriptionStore';
 
 // Reset the store state before each test
