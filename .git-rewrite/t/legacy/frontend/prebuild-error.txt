@@ -1,0 +1,19 @@
+[33m[1m! [22mGit branch has uncommited file changes[39m
+[36m-[39m [1mClearing android[22m[32m√[39m Cleared android code
+[33m[1mWarning: [22mRoot-level [1m"expo"[22m object found. Ignoring extra keys in Expo config: "name", "displayName"
+[90mLearn more: https://expo.fyi/root-expo-object[0m[0m
+[31mPluginError: Package "expo-haptics" does not contain a valid config plugin.[39m
+[31mLearn more: https://docs.expo.dev/guides/config-plugins/#creating-a-plugin[39m
+[31m[39m
+[31mUnexpected token ':'[39m
+[90mSyntaxError: Unexpected token ':'[39m
+[90m    at compileSourceTextModule (node:internal/modules/esm/utils:346:16)[39m
+[90m    at ModuleLoader.importSyncForRequire (node:internal/modules/esm/loader:382:18)[39m
+[90m    at loadESMFromCJS (node:internal/modules/cjs/loader:1363:24)[39m
+[90m    at Module._compile (node:internal/modules/cjs/loader:1503:5)[39m
+[90m    at Module._extensions..js (node:internal/modules/cjs/loader:1623:10)[39m
+[90m    at Module.load (node:internal/modules/cjs/loader:1266:32)[39m
+[90m    at Module._load (node:internal/modules/cjs/loader:1091:12)[39m
+[90m    at Module.require (node:internal/modules/cjs/loader:1289:19)[39m
+[90m    at require (node:internal/modules/helpers:182:18)[39m
+[90m    at requirePluginFile (C:\Users\dwill\.gemini\antigravity\scratch\Anchor\frontend\node_modules\@expo\config-plugins\build\utils\plugin-resolver.js:207:12)[39m

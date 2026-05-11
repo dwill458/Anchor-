@@ -35,6 +35,8 @@ bugreport-*.zip
 credentials.json
 credentials/
 google-service-account.json
+GoogleService-Info.plist
+google-services.json
 
 # TypeScript
 *.tsbuildinfo

@@ -138,36 +138,67 @@ export const authMiddleware = async (
  */
 export const optionalAuthMiddleware = async (
   req: AuthRequest,
-  _res: Response,
+  res: Response,
   next: NextFunction
 ): Promise<void> => {
   try {
     const authHeader = req.headers.authorization;
 
-    if (authHeader && authHeader.startsWith('Bearer ')) {
-      const token = authHeader.substring(7);
-
-      // Dev master account bypass — non-production only
-      if (isDevMasterToken(token)) {
-        req.user = { uid: DEV_MASTER_UID, email: DEV_MASTER_EMAIL };
-        Sentry.setUser({ id: DEV_MASTER_UID });
-        next();
-        return;
-      }
-
-      const firebaseAdmin = getFirebaseAdmin();
-      const decoded = await firebaseAdmin.auth().verifyIdToken(token);
-
-      req.user = {
-        uid: decoded.uid,
-        email: decoded.email,
-      };
-      Sentry.setUser({ id: decoded.uid });
+    if (!authHeader) {
+      next();
+      return;
     }
 
+    if (!authHeader.startsWith('Bearer ')) {
+      res.status(401).json({
+        success: false,
+        error: { code: 'INVALID_TOKEN', message: 'Invalid authentication token' },
+      });
+      return;
+    }
+
+    const token = authHeader.substring(7);
+
+    // Dev master account bypass — non-production only
+    if (isDevMasterToken(token)) {
+      req.user = { uid: DEV_MASTER_UID, email: DEV_MASTER_EMAIL };
+      Sentry.setUser({ id: DEV_MASTER_UID });
+      next();
+      return;
+    }
+
+    const firebaseAdmin = getFirebaseAdmin();
+    const decoded = await firebaseAdmin.auth().verifyIdToken(token);
+
+    req.user = {
+      uid: decoded.uid,
+      email: decoded.email,
+    };
+    Sentry.setUser({ id: decoded.uid });
+
     next();
-  } catch (error) {
-    // Silently fail for optional auth
-    next();
+  } catch (error: unknown) {
+    const code: string = (error as { code?: string })?.code ?? '';
+
+    if (code === 'auth/id-token-expired') {
+      res.status(401).json({
+        success: false,
+        error: { code: 'TOKEN_EXPIRED', message: 'Authentication token has expired' },
+      });
+      return;
+    }
+
+    if (code.startsWith('auth/')) {
+      res.status(401).json({
+        success: false,
+        error: { code: 'INVALID_TOKEN', message: 'Invalid authentication token' },
+      });
+      return;
+    }
+
+    res.status(500).json({
+      success: false,
+      error: { code: 'AUTH_ERROR', message: 'Authentication failed' },
+    });
   }
 };

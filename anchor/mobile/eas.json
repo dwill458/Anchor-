@@ -62,7 +62,8 @@
         "SENTRY_DISABLE_AUTO_UPLOAD": "false"
       },
       "android": {
-        "buildType": "app-bundle"
+        "buildType": "app-bundle",
+        "autoIncrement": true
       },
       "ios": {
         "autoIncrement": true,
@@ -73,9 +74,9 @@
   "submit": {
     "production": {
       "ios": {
-        "appleId": "APPLE_ID_PLACEHOLDER",
-        "ascAppId": "APP_STORE_CONNECT_APP_ID_PLACEHOLDER",
-        "appleTeamId": "APPLE_TEAM_ID_PLACEHOLDER"
+        "appleId": "your-actual-apple-id@email.com",
+        "ascAppId": "YOUR_ASC_APP_ID",
+        "appleTeamId": "YOUR_APPLE_TEAM_ID"
       },
       "android": {
         "serviceAccountKeyPath": "./google-service-account.json",

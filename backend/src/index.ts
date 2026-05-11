@@ -54,6 +54,17 @@ function scrubSensitiveSentryData<T extends Record<string, unknown> | undefined>
   return value;
 }
 
+function scrubSensitiveString(value: string | undefined): string | undefined {
+  if (!value) {
+    return value;
+  }
+
+  return value
+    .replace(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/gi, '[redacted-email]')
+    .replace(/Bearer\s+[A-Za-z0-9\-._~+/]+=*/gi, 'Bearer [redacted]')
+    .replace(/(?:(?:token|secret|password|authorization)=)[^&\s]+/gi, '$1[redacted]');
+}
+
 if (sentryEnabled) {
   Sentry.init({
     dsn: env.SENTRY_DSN,
@@ -70,8 +81,27 @@ if (sentryEnabled) {
         scrubSensitiveSentryData(event.request.headers as Record<string, unknown>);
       }
 
+      if (event.request?.data && typeof event.request.data === 'object') {
+        scrubSensitiveSentryData(event.request.data as Record<string, unknown>);
+      }
+
+      if (typeof event.request?.query_string === 'string') {
+        event.request.query_string = scrubSensitiveString(event.request.query_string);
+      }
+
       if (event.extra) {
         scrubSensitiveSentryData(event.extra as Record<string, unknown>);
+      }
+
+      if (event.message) {
+        event.message = scrubSensitiveString(event.message);
+      }
+
+      if (event.exception?.values) {
+        event.exception.values = event.exception.values.map((value) => ({
+          ...value,
+          value: scrubSensitiveString(value.value),
+        }));
       }
 
       return event;

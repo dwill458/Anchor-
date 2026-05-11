@@ -187,19 +187,28 @@ describe('optionalAuthMiddleware', () => {
     expect(mockReq.user).toEqual({ uid: 'opt-uid', email: 'opt@example.com' });
   });
 
-  it('should call next silently even when token verification fails', async () => {
+  it('should return 401 when token verification fails', async () => {
     const mockNext = jest.fn();
+    const statusMock = jest.fn().mockReturnThis();
+    const jsonMock = jest.fn();
     const mockReq: Partial<AuthRequest> = {
       headers: { authorization: 'Bearer bad-token' },
     };
-    const mockRes = {} as Response;
+    const mockRes = { status: statusMock, json: jsonMock } as any;
     (getFirebaseAdmin as jest.Mock).mockReturnValue({
-      auth: () => ({ verifyIdToken: jest.fn().mockRejectedValue(new Error('Invalid')) }),
+      auth: () => ({ verifyIdToken: jest.fn().mockRejectedValue({ code: 'auth/invalid-id-token' }) }),
     });
 
     await optionalAuthMiddleware(mockReq as AuthRequest, mockRes, mockNext);
 
-    expect(mockNext).toHaveBeenCalled();
+    expect(statusMock).toHaveBeenCalledWith(401);
+    expect(jsonMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        success: false,
+        error: expect.objectContaining({ code: 'INVALID_TOKEN' }),
+      })
+    );
+    expect(mockNext).not.toHaveBeenCalled();
     expect(mockReq.user).toBeUndefined();
   });
 });

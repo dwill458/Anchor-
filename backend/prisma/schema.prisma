@@ -51,6 +51,7 @@ model User {
   settings              UserSettings?
   burnedAnchors         BurnedAnchor[]
   flaggedContent        FlaggedContent[]
+  syncQueue             SyncQueue[]
 
   @@map("users")
 }
@@ -305,6 +306,7 @@ model FlaggedContent {
 model SyncQueue {
   id                    String   @id @default(uuid())
   userId                String
+  user                  User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   action                String   // 'create_anchor', 'activate', 'charge', etc.
   entityType            String   // 'anchor', 'activation', 'charge'
   entityData            Json

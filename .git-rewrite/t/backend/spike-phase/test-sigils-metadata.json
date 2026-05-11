@@ -1,0 +1,122 @@
+[
+  {
+    "id": 1,
+    "intention": "I attract wealth",
+    "distilledLetters": "TRCTWLTH",
+    "complexity": "Medium",
+    "variant": "balanced",
+    "purpose": "Baseline test",
+    "svgPath": "sigil_1_balanced_medium.svg",
+    "pngPath": "sigil_1_balanced_medium.png",
+    "svgSize": 707,
+    "pngSize": 29627
+  },
+  {
+    "id": 2,
+    "intention": "I am confident",
+    "distilledLetters": "MCNFDNT",
+    "complexity": "Medium",
+    "variant": "balanced",
+    "purpose": "Standard complexity",
+    "svgPath": "sigil_2_balanced_medium.svg",
+    "pngPath": "sigil_2_balanced_medium.png",
+    "svgSize": 709,
+    "pngSize": 21238
+  },
+  {
+    "id": 3,
+    "intention": "Protect my home",
+    "distilledLetters": "PRTCTMYHM",
+    "complexity": "High",
+    "variant": "dense",
+    "purpose": "Complex structure",
+    "svgPath": "sigil_3_dense_high.svg",
+    "pngPath": "sigil_3_dense_high.png",
+    "svgSize": 864,
+    "pngSize": 35600
+  },
+  {
+    "id": 4,
+    "intention": "Find peace",
+    "distilledLetters": "FNDPC",
+    "complexity": "Low",
+    "variant": "minimal",
+    "purpose": "Simple structure",
+    "svgPath": "sigil_4_minimal_low.svg",
+    "pngPath": "sigil_4_minimal_low.png",
+    "svgSize": 506,
+    "pngSize": 5963
+  },
+  {
+    "id": 5,
+    "intention": "Creative power",
+    "distilledLetters": "CRTVPWR",
+    "complexity": "Medium",
+    "variant": "dense",
+    "purpose": "Dense variant test",
+    "svgPath": "sigil_5_dense_medium.svg",
+    "pngPath": "sigil_5_dense_medium.png",
+    "svgSize": 825,
+    "pngSize": 38830
+  },
+  {
+    "id": 6,
+    "intention": "Heal my body",
+    "distilledLetters": "HLMYBDY",
+    "complexity": "Medium",
+    "variant": "balanced",
+    "purpose": "Organic flow",
+    "svgPath": "sigil_6_balanced_medium.svg",
+    "pngPath": "sigil_6_balanced_medium.png",
+    "svgSize": 709,
+    "pngSize": 28116
+  },
+  {
+    "id": 7,
+    "intention": "Success flows",
+    "distilledLetters": "SCCSFLWS",
+    "complexity": "High",
+    "variant": "dense",
+    "purpose": "Complex dense",
+    "svgPath": "sigil_7_dense_high.svg",
+    "pngPath": "sigil_7_dense_high.png",
+    "svgSize": 785,
+    "pngSize": 34388
+  },
+  {
+    "id": 8,
+    "intention": "Love returns",
+    "distilledLetters": "LVRTNS",
+    "complexity": "Low",
+    "variant": "minimal",
+    "purpose": "Simple minimal",
+    "svgPath": "sigil_8_minimal_low.svg",
+    "pngPath": "sigil_8_minimal_low.png",
+    "svgSize": 430,
+    "pngSize": 8446
+  },
+  {
+    "id": 9,
+    "intention": "Transform self",
+    "distilledLetters": "TRNSFRMSLF",
+    "complexity": "Very High",
+    "variant": "dense",
+    "purpose": "Edge case complexity",
+    "svgPath": "sigil_9_dense_very_high.svg",
+    "pngPath": "sigil_9_dense_very_high.png",
+    "svgSize": 864,
+    "pngSize": 38194
+  },
+  {
+    "id": 10,
+    "intention": "Be free",
+    "distilledLetters": "BFR",
+    "complexity": "Very Low",
+    "variant": "minimal",
+    "purpose": "Edge case simplicity",
+    "svgPath": "sigil_10_minimal_very_low.svg",
+    "pngPath": "sigil_10_minimal_very_low.png",
+    "svgSize": 428,
+    "pngSize": 5593
+  }
+]
