@@ -156,12 +156,17 @@ export const PracticeScreen: React.FC = () => {
   );
 
   const threadState = getThreadState(threadStrength, lastPrimedAt);
+  const isFading = threadState === 'fading';
   const hasPrimedToday = lastPrimedAt === localDateString(new Date());
   const todayMode: 'focusSession' | 'deepPrime' = threadStrength < 40 ? 'focusSession' : 'deepPrime';
-  const ctaTitle = PRACTICE_COPY.primaryCTA;
-  const ctaSubtitle = todayMode === 'focusSession'
-    ? 'Focus Session · 10–60 sec'
-    : 'Deep Prime · 2 min to custom';
+  const ctaTitle = isFading ? 'Restore Thread' : PRACTICE_COPY.primaryCTA;
+  const ctaSubtitle = isFading
+    ? (todayMode === 'focusSession'
+        ? 'Focus Session · 10–60 sec to restore'
+        : 'Deep Prime · 2 min to restore')
+    : (todayMode === 'focusSession'
+        ? 'Focus Session · 10–60 sec'
+        : 'Deep Prime · 2 min to custom');
 
   const defaultDeepChargeSeconds = useMemo(
     () => getDefaultDeepChargeSeconds(primeSessionDuration),
@@ -465,7 +470,6 @@ export const PracticeScreen: React.FC = () => {
     [defaultDeepChargeSeconds, selectedAnchor, startCharge, startQuickActivate]
   );
 
-  const isFading = threadState === 'fading';
 
   const suggestedRitual = useMemo(() => {
     if (!selectedAnchor) return null;
@@ -570,18 +574,6 @@ export const PracticeScreen: React.FC = () => {
                   { opacity: pressed ? 0.9 : 1, transform: [{ scale: pressed ? 0.98 : 1 }] },
                 ]}
               >
-                {isFading ? (
-                  <View style={[styles.ctaButton, styles.ctaButtonFading]}>
-                    <View style={styles.ctaLeft}>
-                      <Text style={[styles.ctaLabel, styles.ctaLabelFading]}>TODAY'S PRACTICE</Text>
-                      <Text style={[styles.ctaTitle, styles.ctaTitleFading]}>{ctaTitle}</Text>
-                      <Text style={[styles.ctaSubtitle, styles.ctaSubtitleFading]}>{ctaSubtitle}</Text>
-                    </View>
-                    <View style={[styles.ctaArrow, styles.ctaArrowFading]}>
-                      <ChevronRight size={18} color="#3a3a4a" />
-                    </View>
-                  </View>
-                ) : (
                   <LinearGradient
                     colors={[
                       colors.practice.ctaGradientStart,
@@ -601,7 +593,6 @@ export const PracticeScreen: React.FC = () => {
                       <ChevronRight size={18} color={colors.practice.ctaTextPrimary} />
                     </View>
                   </LinearGradient>
-                )}
               </Pressable>
             </Animated.View>
           )}
@@ -776,25 +767,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  ctaButtonFading: {
-    backgroundColor: '#1e2028',
-    borderWidth: 1,
-    borderColor: '#2a2a38',
-    shadowOpacity: 0,
-    elevation: 0,
-  },
-  ctaLabelFading: {
-    color: '#555a6a',
-  },
-  ctaTitleFading: {
-    color: '#3a3a4a',
-  },
-  ctaSubtitleFading: {
-    color: '#3a3a4a',
-  },
-  ctaArrowFading: {
-    backgroundColor: '#2a2a38',
-  },
+
   sectionLabel: {
     fontFamily: typography.fontFamily.serif,
     fontSize: 10,
