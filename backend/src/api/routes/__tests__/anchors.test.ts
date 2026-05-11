@@ -84,7 +84,10 @@ const MOCK_ANCHOR = {
   mantraAudioUrl: null,
   generationMethod: 'automated',
   isCharged: false,
+  chargeCount: 0,
   chargedAt: null,
+  firstChargedAt: null,
+  ignitedAt: null,
   chargeMethod: null,
   isArchived: false,
   archivedAt: null,
@@ -407,6 +410,7 @@ describe('POST /api/anchors/:id/charge', () => {
     (mockPrisma.anchor.update as jest.Mock).mockResolvedValue({
       ...MOCK_ANCHOR,
       isCharged: true,
+      chargeCount: 1,
     });
 
     const res = await request(buildApp())
@@ -416,6 +420,14 @@ describe('POST /api/anchors/:id/charge', () => {
     expect(res.status).toBe(200);
     expect(res.body.data.isCharged).toBe(true);
     expect(mockPrisma.charge.create).toHaveBeenCalledTimes(1);
+    expect(mockPrisma.anchor.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          chargeCount: { increment: 1 },
+          firstChargedAt: expect.any(Date),
+        }),
+      })
+    );
   });
 
   it('returns 400 when chargeType is invalid', async () => {
@@ -460,6 +472,8 @@ describe('POST /api/anchors/:id/activate', () => {
     (mockPrisma.activation.create as jest.Mock).mockResolvedValue({});
     (mockPrisma.anchor.update as jest.Mock).mockResolvedValue({
       ...MOCK_ANCHOR,
+      isCharged: true,
+      chargeCount: 1,
       activationCount: 1,
     });
     (mockPrisma.user.update as jest.Mock).mockResolvedValue(MOCK_DB_USER);
@@ -474,6 +488,15 @@ describe('POST /api/anchors/:id/activate', () => {
     expect(mockPrisma.user.update).toHaveBeenCalledWith(
       expect.objectContaining({
         data: expect.objectContaining({ totalActivations: { increment: 1 } }),
+      })
+    );
+    expect(mockPrisma.anchor.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          isCharged: true,
+          chargeCount: { increment: 1 },
+          firstChargedAt: expect.any(Date),
+        }),
       })
     );
   });

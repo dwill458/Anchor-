@@ -50,6 +50,10 @@ Set `EXPO_PUBLIC_API_URL` in `anchor/mobile/.env` to point at the backend API wh
 
 This app uses `@react-native-firebase/app` and `@react-native-firebase/auth`, so Firebase config must be handled as environment-specific secret material.
 
+### Sentry build secrets
+
+Preview and production EAS builds are expected to upload Sentry source maps. Configure `SENTRY_AUTH_TOKEN` as an EAS secret, and provide `SENTRY_ORG` / `SENTRY_PROJECT` the same way unless you hardcode them in `sentry.properties`.
+
 ### Canonical config file
 
 - Runtime config: `anchor/mobile/google-services.json`

@@ -23,6 +23,7 @@ import { StackNavigationProp } from '@react-navigation/stack';
 import { colors, spacing, typography } from '@/theme';
 import { useAuthStore } from '../../stores/authStore';
 import { AuthService } from '../../services/AuthService';
+import PostAuthFlowService from '../../services/PostAuthFlowService';
 import type { AuthScreenParams, OnboardingStackParamList, RootStackParamList } from '@/types';
 
 type SharedAuthParamList = RootStackParamList & OnboardingStackParamList;
@@ -43,7 +44,7 @@ export const SignUpScreen: React.FC<SignUpScreenProps> = ({ navigation, route })
   const [error, setError] = useState('');
   const [focusedField, setFocusedField] = useState<string | null>(null);
 
-  const { setSession } = useAuthStore();
+  const hasCompletedOnboarding = useAuthStore((state) => state.hasCompletedOnboarding);
   const context = route?.params?.context;
 
   const fadeAnim = React.useRef(new Animated.Value(0)).current;
@@ -71,7 +72,13 @@ export const SignUpScreen: React.FC<SignUpScreenProps> = ({ navigation, route })
       const result = await AuthService.signUpWithEmail(email, password, name, {
         hasCompletedOnboarding: context === 'first_anchor_gate' ? true : undefined,
       });
-      setSession(result.user, result.token);
+      await PostAuthFlowService.run({
+        user: result.user,
+        token: result.token,
+        preserveCompletedOnboarding:
+          hasCompletedOnboarding || context === 'first_anchor_gate',
+        launchTrialPurchase: false,
+      });
 
       if (context === 'first_anchor_gate') {
         navigation.replace('FirstAnchorAccountGate');

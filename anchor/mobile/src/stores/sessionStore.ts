@@ -92,11 +92,30 @@ interface SessionState {
   applyDecay: () => void;
   /** Applies an explicit, non-session-based thread strength delta. */
   bumpThreadStrength: (delta: number) => void;
+  reset: () => void;
 }
 
 const EMPTY_TODAY = (): DayPractice => ({ date: localDateString(new Date()), sessionsCount: 0, totalSeconds: 0 });
 const EMPTY_WEEK = (): WeekPractice => ({ weekKey: isoWeekKey(new Date()), sessionsCount: 0, totalSeconds: 0 });
 const EMPTY_WEEK_HISTORY = (): boolean[] => [false, false, false, false, false, false, false];
+const createInitialSessionState = (): Omit<
+  SessionState,
+  'recordSession' | 'consumeGraceDay' | 'resetIfNewDay' | 'applyDecay' | 'bumpThreadStrength' | 'reset'
+> => ({
+  lastSession: null,
+  todayPractice: EMPTY_TODAY(),
+  weeklyPractice: EMPTY_WEEK(),
+  lastGraceDayUsedAt: null,
+  sessionLog: [],
+  threadStrength: 50,
+  totalSessionsCount: 0,
+  lastPrimedAt: null,
+  weekHistory: EMPTY_WEEK_HISTORY(),
+  weekHistoryKey: isoWeekKey(new Date()),
+  primingHistory: [],
+  journeyWeekStart: null,
+  lastDecayDate: null,
+});
 
 const LOG_CAP = 50;
 
@@ -195,19 +214,7 @@ function derivePrimingHistoryFromSessionLog(sessionLog: unknown): PrimingHistory
 export const useSessionStore = create<SessionState>()(
   persist(
     (set, get) => ({
-      lastSession: null,
-      todayPractice: EMPTY_TODAY(),
-      weeklyPractice: EMPTY_WEEK(),
-      lastGraceDayUsedAt: null,
-      sessionLog: [],
-      threadStrength: 50,
-      totalSessionsCount: 0,
-      lastPrimedAt: null,
-      weekHistory: EMPTY_WEEK_HISTORY(),
-      weekHistoryKey: isoWeekKey(new Date()),
-      primingHistory: [],
-      journeyWeekStart: null,
-      lastDecayDate: null,
+      ...createInitialSessionState(),
 
       recordSession: (entry) => {
         // Apply decay before granting any priming gains so sessions started
@@ -407,6 +414,10 @@ export const useSessionStore = create<SessionState>()(
         set((state) => ({
           threadStrength: Math.max(0, Math.min(100, state.threadStrength + delta)),
         }));
+      },
+
+      reset: () => {
+        set(createInitialSessionState());
       },
     }),
     {

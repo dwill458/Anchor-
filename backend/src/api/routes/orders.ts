@@ -5,11 +5,30 @@
  */
 
 import { NextFunction, Router, Response } from 'express';
+import { z } from 'zod';
 import { AuthRequest, authMiddleware } from '../middleware/auth';
 import { AppError } from '../middleware/errorHandler';
 import { prisma } from '../../lib/prisma';
+import { env } from '../../config/env';
 
 const router = Router();
+
+// Zod validation schemas
+const CreateOrderSchema = z.object({
+  anchorId: z.string().min(1),
+  productType: z.enum(['print', 'keychain', 'hoodie', 't-shirt', 'phone-case']),
+  size: z.string().min(1).max(50).optional(),
+  color: z.string().min(1).max(50).optional(),
+  shippingInfo: z.object({
+    name: z.string().min(1).max(100),
+    addressLine1: z.string().min(1).max(100),
+    addressLine2: z.string().max(100).optional().nullable(),
+    city: z.string().min(1).max(100),
+    state: z.string().min(1).max(100),
+    postalCode: z.string().min(1).max(20),
+    country: z.string().min(2).max(10),
+  }),
+});
 
 // All order routes require authentication
 router.use(authMiddleware);
@@ -21,16 +40,22 @@ router.use(authMiddleware);
  */
 router.post('/', async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
+    if (!env.ENABLE_MERCH) {
+      throw new AppError('Merchandise ordering is currently disabled', 403, 'FEATURE_DISABLED');
+    }
+
     if (!req.user) {
       throw new AppError('User not authenticated', 401, 'UNAUTHORIZED');
     }
 
-    const { anchorId, productType, size, color, shippingInfo } = req.body;
-
-    // Validation
-    if (!anchorId || !productType || !shippingInfo) {
-      throw new AppError('Missing required fields', 400, 'VALIDATION_ERROR');
+    // Validation using Zod
+    const validationResult = CreateOrderSchema.safeParse(req.body);
+    if (!validationResult.success) {
+      const message = validationResult.error.errors.map(e => `${e.path.join('.')}: ${e.message}`).join(', ');
+      throw new AppError(`Validation error: ${message}`, 400, 'VALIDATION_ERROR');
     }
+
+    const { anchorId, productType, size, color, shippingInfo } = validationResult.data;
 
     // Get user from database
     const user = await prisma.user.findUnique({

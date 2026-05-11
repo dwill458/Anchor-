@@ -27,6 +27,8 @@ import {
   getAvailableVoicePresets,
 } from '../../services/TTSService';
 import { logger } from '../../utils/logger';
+import { RedisStore } from 'rate-limit-redis';
+import { redisClient } from '../../lib/redis';
 
 const router = express.Router();
 
@@ -46,12 +48,14 @@ const aiHourlyLimiter = rateLimit({
     error: 'Too many AI generation requests',
     message: 'You have reached the AI enhancement limit. Please try again in an hour.',
   },
+  store: new RedisStore({
+    sendCommand: (...args: string[]) => redisClient.sendCommand(args),
+  }),
 });
 
 // Daily AI generation limit per user — prevents runaway API costs.
 // Dev master account is exempt. Configurable via AI_DAILY_LIMIT env var.
-// NOTE: Uses in-memory store; resets on server restart. For production,
-// consider rate-limit-redis or a DB-backed counter.
+// NOTE: Uses RedisStore to persist across Railway restarts/multi-instance.
 const AI_DAILY_LIMIT = parseInt(process.env.AI_DAILY_LIMIT || '10', 10);
 const aiDailyLimiter = rateLimit({
   windowMs: 24 * 60 * 60 * 1000, // 24 hours
@@ -64,6 +68,9 @@ const aiDailyLimiter = rateLimit({
     error: 'Daily generation limit reached',
     message: `You have reached your daily limit of ${AI_DAILY_LIMIT} AI generations. Try again tomorrow.`,
   },
+  store: new RedisStore({
+    sendCommand: (...args: string[]) => redisClient.sendCommand(args),
+  }),
 });
 
 // --- Zod schemas ---

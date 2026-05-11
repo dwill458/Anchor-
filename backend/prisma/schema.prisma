@@ -17,6 +17,7 @@ datasource db {
 model User {
   id                    String   @id @default(uuid())
   email                 String   @unique
+  passwordHash          String?
   displayName           String?
   authProvider          String   // 'email', 'google', 'apple'
   authUid               String   @unique
@@ -115,7 +116,10 @@ model Anchor {
   // CHARGING STATUS
   // ───────────────────────────────────────────────────
   isCharged             Boolean  @default(false)
+  chargeCount           Int      @default(0)
   chargedAt             DateTime?
+  firstChargedAt        DateTime?
+  ignitedAt             DateTime?
   chargeMethod          String?  // 'quick', 'deep'
 
   // ───────────────────────────────────────────────────

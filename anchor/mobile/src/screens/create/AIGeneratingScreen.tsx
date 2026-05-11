@@ -80,8 +80,10 @@ export default function AIGeneratingScreen() {
   const route = useRoute<AIGeneratingRouteProp>();
   const navigation = useNavigation<AIGeneratingNavigationProp>();
   const user = useAuthStore((state) => state.user);
+  const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
   // All paid users get Flash (Nano Banana 2) by default.
   // Pro model escalated server-side on regeneration (attempt 2+).
+  const { hasActiveEntitlement } = useTrialStatus();
 
   const {
     intentionText,
@@ -606,6 +608,36 @@ export default function AIGeneratingScreen() {
       return;
     }
 
+    if (!isAuthenticated) {
+      Alert.alert('Account Required', 'Sign in before generating AI artwork.', [
+        {
+          text: 'Sign In',
+          onPress: () => navigation.replace('FirstAnchorAccountGate'),
+        },
+        {
+          text: 'Go Back',
+          style: 'cancel',
+          onPress: () => navigation.goBack(),
+        },
+      ]);
+      return;
+    }
+
+    if (!hasActiveEntitlement) {
+      Alert.alert('Subscription Required', 'Your trial has ended. Renew access to generate AI artwork.', [
+        {
+          text: 'View Paywall',
+          onPress: () => navigation.navigate('Paywall'),
+        },
+        {
+          text: 'Go Back',
+          style: 'cancel',
+          onPress: () => navigation.goBack(),
+        },
+      ]);
+      return;
+    }
+
     const userId = user?.id || `dev-user-${Date.now()}`;
     const trace = PerformanceMonitoring.startTrace('ai_enhance', {
       style_choice: styleChoice,
@@ -764,6 +796,8 @@ export default function AIGeneratingScreen() {
     category,
     clearGenerationResources,
     distilledLetters,
+    hasActiveEntitlement,
+    isAuthenticated,
     intentionText,
     navigation,
     reinforcementMetadata,

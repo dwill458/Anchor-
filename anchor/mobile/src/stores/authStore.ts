@@ -18,6 +18,7 @@ import type {
 import { apiClient, fetchCompleteProfile } from '@/services/ApiClient';
 import { AuthService } from '@/services/AuthService';
 import { useAnchorStore } from '@/stores/anchorStore';
+import { useSessionStore } from '@/stores/sessionStore';
 import { useSubscriptionStore } from '@/stores/subscriptionStore';
 import { calculateStreak } from '@/utils/streakHelpers';
 import {
@@ -98,6 +99,11 @@ const applyStabilizeCompletion = (
  * storage entirely.
  */
 const LEGACY_SECURE_KEYS = ['token'] as const;
+const ANCHOR_VAULT_STORAGE_KEY = 'anchor-vault-storage';
+const ANCHOR_SESSION_STORAGE_KEY = 'anchor-session-storage';
+const CACHED_USER_KEY = 'anchor:cached_user';
+const RECOVERY_DUMP_MARKER_KEY = '@anchor_recovery_dump_complete';
+const RECOVERY_DUMP_VAULT_KEY = '@anchor_recovery_dump_vault';
 
 const createClearedPendingFirstAnchorState = () => ({
   shouldRedirectToCreation: false,
@@ -863,6 +869,8 @@ export const useAuthStore = create<AuthState>()(
 
       signOut: () => {
         applyCompedAccessToSubscriptionStore(null);
+        useAnchorStore.getState().clearAnchors();
+        useSessionStore.getState().reset();
         set({
           user: null,
           token: null,
@@ -872,6 +880,15 @@ export const useAuthStore = create<AuthState>()(
           profileData: null,
           profileLastFetched: null,
           ...createClearedPendingFirstAnchorState(),
+        });
+        void Promise.all([
+          encryptedPersistStorage.removeItem(ANCHOR_VAULT_STORAGE_KEY),
+          encryptedPersistStorage.removeItem(ANCHOR_SESSION_STORAGE_KEY),
+          AsyncStorage.removeItem(CACHED_USER_KEY),
+          AsyncStorage.removeItem(RECOVERY_DUMP_MARKER_KEY),
+          AsyncStorage.removeItem(RECOVERY_DUMP_VAULT_KEY),
+        ]).catch((error) => {
+          logger.warn('Failed to fully clear persisted local auth data on sign out', error);
         });
       },
     }),

@@ -5,6 +5,7 @@
  */
 
 import { Request, Response, NextFunction } from 'express';
+import * as Sentry from '@sentry/node';
 import { getFirebaseAdmin } from '../../config/firebase';
 
 /**
@@ -12,13 +13,13 @@ import { getFirebaseAdmin } from '../../config/firebase';
  * `anchor/mobile/src/utils/developerMasterAccount.ts`.
  * Recognised in non-production environments only.
  */
-export const DEV_MASTER_TOKEN = 'mock-dev-master-token';
+export const DEV_MASTER_TOKEN = process.env.DEV_MASTER_TOKEN ?? '';
 export const DEV_MASTER_UID = 'dev-master-account';
 const DEV_MASTER_EMAIL = 'dev+master@anchor.local';
 
 /** Returns true when the token matches the dev-master bypass (non-prod only). */
 function isDevMasterToken(token: string): boolean {
-  return process.env.NODE_ENV !== 'production' && token === DEV_MASTER_TOKEN;
+  return process.env.NODE_ENV !== 'production' && DEV_MASTER_TOKEN.length > 0 && token === DEV_MASTER_TOKEN;
 }
 
 /**
@@ -66,6 +67,7 @@ export const authMiddleware = async (
     // Dev master account bypass — non-production only
     if (isDevMasterToken(token)) {
       req.user = { uid: DEV_MASTER_UID, email: DEV_MASTER_EMAIL };
+      Sentry.setUser({ id: DEV_MASTER_UID });
       next();
       return;
     }
@@ -83,6 +85,7 @@ export const authMiddleware = async (
 
     if (allowMockAuth && mockToken && token === mockToken) {
       req.user = { uid: 'mock-uid-123', email: 'guest@example.com' };
+      Sentry.setUser({ id: req.user.uid });
       next();
       return;
     }
@@ -96,6 +99,7 @@ export const authMiddleware = async (
       uid: decoded.uid,
       email: decoded.email,
     };
+    Sentry.setUser({ id: decoded.uid });
 
     next();
   } catch (error: unknown) {
@@ -146,6 +150,7 @@ export const optionalAuthMiddleware = async (
       // Dev master account bypass — non-production only
       if (isDevMasterToken(token)) {
         req.user = { uid: DEV_MASTER_UID, email: DEV_MASTER_EMAIL };
+        Sentry.setUser({ id: DEV_MASTER_UID });
         next();
         return;
       }
@@ -157,6 +162,7 @@ export const optionalAuthMiddleware = async (
         uid: decoded.uid,
         email: decoded.email,
       };
+      Sentry.setUser({ id: decoded.uid });
     }
 
     next();

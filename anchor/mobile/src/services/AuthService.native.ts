@@ -230,6 +230,7 @@ async function buildAuthResult(
 ): Promise<AuthResult> {
   const idToken = await firebaseUser.getIdToken();
   const user = await syncUserWithBackend(firebaseUser, idToken, displayNameOverride, options);
+  await AsyncStorage.setItem(CACHED_USER_KEY, JSON.stringify(user)).catch(() => undefined);
 
   return {
     user,
@@ -381,6 +382,7 @@ export class AuthService {
       }
       await auth().signOut();
     } finally {
+      await AsyncStorage.removeItem(CACHED_USER_KEY).catch(() => undefined);
       await clearNotificationSession();
     }
   }
@@ -409,7 +411,7 @@ export class AuthService {
   static async getIdToken(forceRefresh: boolean = false): Promise<string | null> {
     const currentUser = auth().currentUser;
     if (!currentUser) {
-      return isDeveloperMasterAccountEnabled()
+      return isDeveloperMasterAccountEnabled() && DEVELOPER_MASTER_ACCOUNT_TOKEN
         ? DEVELOPER_MASTER_ACCOUNT_TOKEN
         : null;
     }

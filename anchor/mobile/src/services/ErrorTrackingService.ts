@@ -30,6 +30,28 @@ const normalizeError = (error: unknown): Error => {
   return new Error('Unknown error');
 };
 
+const SENSITIVE_EVENT_KEYS = new Set(['authorization', 'cookie', 'set-cookie', 'x-api-key']);
+
+const scrubSensitiveData = (value: unknown): void => {
+  if (!value || typeof value !== 'object') {
+    return;
+  }
+
+  if (Array.isArray(value)) {
+    value.forEach(scrubSensitiveData);
+    return;
+  }
+
+  Object.entries(value).forEach(([key, nestedValue]) => {
+    if (SENSITIVE_EVENT_KEYS.has(key.toLowerCase())) {
+      delete (value as Record<string, unknown>)[key];
+      return;
+    }
+
+    scrubSensitiveData(nestedValue);
+  });
+};
+
 export const routingInstrumentation = Sentry.reactNavigationIntegration();
 
 class ErrorTracking {
@@ -76,6 +98,7 @@ class ErrorTracking {
       enabled: this.enabled,
       release: config?.release ?? monitoringConfig.release,
       environment: config?.environment ?? monitoringConfig.environment,
+      sendDefaultPii: false,
       tracesSampleRate: config?.traceSampleRate ?? monitoringConfig.traceSampleRate,
       profilesSampleRate: config?.profileSampleRate ?? monitoringConfig.profileSampleRate,
       enableAutoSessionTracking: true,
@@ -85,6 +108,29 @@ class ErrorTracking {
         routingInstrumentation,
         Sentry.reactNativeTracingIntegration(),
       ],
+      beforeSend(event) {
+        if (event.user) {
+          event.user = event.user.id ? { id: event.user.id } : undefined;
+        }
+
+        if (event.request?.headers) {
+          scrubSensitiveData(event.request.headers);
+        }
+
+        if (event.extra) {
+          scrubSensitiveData(event.extra);
+        }
+
+        if (event.breadcrumbs) {
+          event.breadcrumbs.forEach((breadcrumb) => {
+            if (breadcrumb.data) {
+              scrubSensitiveData(breadcrumb.data);
+            }
+          });
+        }
+
+        return event;
+      },
     });
 
     Sentry.setTag('platform', Platform.OS);
@@ -110,15 +156,13 @@ class ErrorTracking {
     }
   }
 
-  setUser(userId: string, email?: string, displayName?: string): void {
+  setUser(userId: string): void {
     if (!this.canUseSentry()) {
       return;
     }
 
     Sentry.setUser({
       id: userId,
-      email,
-      username: displayName,
     });
   }
 

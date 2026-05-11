@@ -6,6 +6,7 @@
 
 import { useAuthStore } from '../authStore';
 import { useAnchorStore } from '../anchorStore';
+import { useSessionStore } from '../sessionStore';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as SecureStore from 'expo-secure-store';
 import { apiClient } from '@/services/ApiClient';
@@ -423,6 +424,36 @@ describe('authStore', () => {
       expect(state.profileData).toBeNull();
       expect(state.profileLastFetched).toBeNull();
       expect(state.isOfflineMode).toBe(false);
+    });
+
+    it('should clear the vault and session history on sign out', () => {
+      useAnchorStore.getState().addAnchor(createMockAnchor());
+      useSessionStore.setState({
+        lastSession: {
+          id: 'session-1',
+          anchorId: 'temp-anchor-1',
+          type: 'activate',
+          durationSeconds: 60,
+          mode: 'silent',
+          completedAt: new Date('2026-04-10T00:00:00.000Z').toISOString(),
+        },
+        sessionLog: [
+          {
+            id: 'session-1',
+            anchorId: 'temp-anchor-1',
+            type: 'activate',
+            durationSeconds: 60,
+            mode: 'silent',
+            completedAt: new Date('2026-04-10T00:00:00.000Z').toISOString(),
+          },
+        ],
+      } as any);
+
+      useAuthStore.getState().signOut();
+
+      expect(useAnchorStore.getState().anchors).toEqual([]);
+      expect(useSessionStore.getState().lastSession).toBeNull();
+      expect(useSessionStore.getState().sessionLog).toEqual([]);
     });
 
     it('should not affect onboarding status', () => {

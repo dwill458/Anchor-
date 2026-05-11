@@ -5,6 +5,7 @@ import { useAuthStore } from '@/stores/authStore';
 const mockMigrateAnchors = jest.fn();
 const mockLogIn = jest.fn();
 const mockRefreshTrialStatus = jest.fn();
+const mockHydrateAuthenticatedData = jest.fn();
 
 jest.mock('@/services/AnchorSyncService', () => ({
   __esModule: true,
@@ -21,6 +22,13 @@ jest.mock('@/services/RevenueCatService', () => ({
     logIn: (...args: unknown[]) => mockLogIn(...args),
     refreshTrialStatus: (...args: unknown[]) => mockRefreshTrialStatus(...args),
     purchaseDefaultTrialPackage: jest.fn(),
+  },
+}));
+
+jest.mock('@/services/AuthHydrationService', () => ({
+  __esModule: true,
+  default: {
+    hydrateAuthenticatedData: (...args: unknown[]) => mockHydrateAuthenticatedData(...args),
   },
 }));
 
@@ -56,6 +64,7 @@ describe('PostAuthFlowService', () => {
     mockLogIn.mockResolvedValue({ hasActiveEntitlement: true });
     mockRefreshTrialStatus.mockResolvedValue({ hasActiveEntitlement: true });
     mockMigrateAnchors.mockImplementation(async (anchors: unknown[]) => anchors);
+    mockHydrateAuthenticatedData.mockResolvedValue(undefined);
 
     await PostAuthFlowService.run({
       user,
@@ -65,6 +74,9 @@ describe('PostAuthFlowService', () => {
     });
 
     expect(mockMigrateAnchors).toHaveBeenCalledTimes(1);
+    expect(mockHydrateAuthenticatedData).toHaveBeenCalledWith({
+      skipAnchorRefresh: false,
+    });
     expect(mockMigrateAnchors).toHaveBeenCalledWith(
       expect.arrayContaining([
         expect.objectContaining({ id: 'local-anchor', userId: 'user-123' }),

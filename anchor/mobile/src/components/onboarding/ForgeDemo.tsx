@@ -15,6 +15,7 @@ interface ForgeDemoProps {
 
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 const forgeRevealAsset = require('../../../assets/onboarding anchor.png') as number;
+const ALLOWED_WEBVIEW_SCHEMES = ['about:blank', 'data:'];
 
 export const ForgeDemo: React.FC<ForgeDemoProps> = ({ isActive, onForgeComplete }) => {
   const webViewRef = useRef<WebView>(null);
@@ -115,6 +116,9 @@ export const ForgeDemo: React.FC<ForgeDemoProps> = ({ isActive, onForgeComplete 
     }
   };
 
+  const handleShouldStartLoad = (request: { url: string }) =>
+    ALLOWED_WEBVIEW_SCHEMES.some((scheme) => request.url.startsWith(scheme));
+
   return (
     <View style={styles.container}>
       {webViewHtml ? (
@@ -123,11 +127,14 @@ export const ForgeDemo: React.FC<ForgeDemoProps> = ({ isActive, onForgeComplete 
           source={{ html: webViewHtml }}
           style={styles.webview}
           onMessage={handleMessage}
-          originWhitelist={['*']}
-          allowFileAccess
-          allowFileAccessFromFileURLs
-          allowUniversalAccessFromFileURLs
-          mixedContentMode="always"
+          onShouldStartLoadWithRequest={handleShouldStartLoad}
+          originWhitelist={['about:blank', 'data:*']}
+          allowFileAccess={false}
+          allowFileAccessFromFileURLs={false}
+          allowUniversalAccessFromFileURLs={false}
+          mixedContentMode="never"
+          javaScriptCanOpenWindowsAutomatically={false}
+          setSupportMultipleWindows={false}
           scrollEnabled={false}
           bounces={false}
           overScrollMode="never"

@@ -1,0 +1,4 @@
+ALTER TABLE "anchors"
+ADD COLUMN "chargeCount" INTEGER NOT NULL DEFAULT 0,
+ADD COLUMN "firstChargedAt" TIMESTAMP(3),
+ADD COLUMN "ignitedAt" TIMESTAMP(3);

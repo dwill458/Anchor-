@@ -139,6 +139,7 @@ describe('POST /api/auth/sync', () => {
     expect(res.status).toBe(200);
     expect(res.body.success).toBe(true);
     expect(res.body.data.email).toBe('test@example.com');
+    expect(mockPrisma.$transaction).toHaveBeenCalledTimes(1);
     expect(mockPrisma.user.upsert).toHaveBeenCalledTimes(1);
     expect(mockPrisma.userSettings.upsert).toHaveBeenCalledTimes(1);
   });
@@ -323,6 +324,7 @@ describe('PUT /api/auth/settings', () => {
 
     expect(res.status).toBe(200);
     expect(res.body.data.notificationsEnabled).toBe(false);
+    expect(mockPrisma.$transaction).toHaveBeenCalledTimes(1);
   });
 
   it('returns 400 for invalid dailyReminderTime format', async () => {

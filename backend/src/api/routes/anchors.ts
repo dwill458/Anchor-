@@ -7,10 +7,15 @@
 import { Router, Response, NextFunction } from 'express';
 import { z } from 'zod';
 import { Prisma } from '@prisma/client';
+import DOMPurify from 'dompurify';
+import { JSDOM } from 'jsdom';
 import { AuthRequest, authMiddleware } from '../middleware/auth';
 import { AppError } from '../middleware/errorHandler';
 import { prisma } from '../../lib/prisma';
 import { logger } from '../../utils/logger';
+
+const window = new JSDOM('').window;
+const purify = DOMPurify(window as any);
 
 // Whitelist of columns that may be used in ORDER BY to prevent injection
 const ALLOWED_ORDER_BY = [
@@ -45,7 +50,22 @@ const CreateAnchorSchema = z.object({
     })
     .optional(),
   reinforcementMetadata: z.unknown().optional(),
-  enhancedImageUrl: z.string().optional(),
+  enhancedImageUrl: z.string().url().refine((val) => {
+    try {
+      const url = new URL(val);
+      const isR2 = url.hostname.endsWith('r2.cloudflarestorage.com');
+      let isCustom = false;
+      if (process.env.CLOUDFLARE_R2_PUBLIC_DOMAIN) {
+        try {
+          isCustom = url.hostname === new URL(process.env.CLOUDFLARE_R2_PUBLIC_DOMAIN).hostname;
+        } catch {
+          isCustom = url.hostname === process.env.CLOUDFLARE_R2_PUBLIC_DOMAIN.replace(/^https?:\/\//, '').split('/')[0];
+        }
+      }
+      const isLocal = process.env.NODE_ENV !== 'production' && (url.hostname === '127.0.0.1' || url.hostname === 'localhost' || url.hostname.startsWith('192.168.'));
+      return isR2 || isCustom || isLocal;
+    } catch { return false; }
+  }, { message: 'Invalid storage domain' }).optional(),
   enhancementMetadata: z.unknown().optional(),
   mantraText: z.string().optional(),
   mantraPronunciation: z.string().optional(),
@@ -65,7 +85,22 @@ const UpdateAnchorSchema = z.object({
     .nullable()
     .optional(),
   reinforcementMetadata: z.unknown().optional(),
-  enhancedImageUrl: z.string().url().max(2048).nullable().optional(),
+  enhancedImageUrl: z.string().url().max(2048).refine((val) => {
+    try {
+      const url = new URL(val);
+      const isR2 = url.hostname.endsWith('r2.cloudflarestorage.com');
+      let isCustom = false;
+      if (process.env.CLOUDFLARE_R2_PUBLIC_DOMAIN) {
+        try {
+          isCustom = url.hostname === new URL(process.env.CLOUDFLARE_R2_PUBLIC_DOMAIN).hostname;
+        } catch {
+          isCustom = url.hostname === process.env.CLOUDFLARE_R2_PUBLIC_DOMAIN.replace(/^https?:\/\//, '').split('/')[0];
+        }
+      }
+      const isLocal = process.env.NODE_ENV !== 'production' && (url.hostname === '127.0.0.1' || url.hostname === 'localhost' || url.hostname.startsWith('192.168.'));
+      return isR2 || isCustom || isLocal;
+    } catch { return false; }
+  }, { message: 'Invalid storage domain' }).nullable().optional(),
   enhancementMetadata: z.unknown().optional(),
   mantraText: z.string().max(500).nullable().optional(),
   mantraPronunciation: z.string().max(500).nullable().optional(),
@@ -99,13 +134,8 @@ const ActivateAnchorSchema = z.object({
  * payloads at the API boundary.
  */
 function isSafeSvg(svg: string): boolean {
-  if (/<script[\s>]/i.test(svg)) return false;
-  if (/\bon\w+\s*=/i.test(svg)) return false; // onload=, onclick=, etc.
-  if (/javascript\s*:/i.test(svg)) return false; // javascript: URIs
-  if (/data\s*:\s*text\/html/i.test(svg)) return false; // data:text/html URIs
-  // Reject absolute external URLs in href/xlink:href/src attributes
-  if (/(?:href|src)\s*=\s*["']https?:\/\//i.test(svg)) return false;
-  return true;
+  purify.sanitize(svg, { USE_PROFILES: { svg: true } });
+  return purify.removed.length === 0;
 }
 
 // Validates req.body against a schema; throws AppError on failure.

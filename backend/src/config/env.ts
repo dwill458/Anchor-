@@ -16,6 +16,7 @@ export interface EnvConfig {
   ALLOWED_ORIGINS?: string; // Comma-separated list of allowed origins
   COMPED_ACCESS_EMAILS?: string; // Comma/space-separated list of comped account emails
   ENABLE_MERCH: boolean;
+  EXPOSE_ERROR_STACK: boolean;
 
   // Auth (Optional - for future Firebase Admin integration)
   FIREBASE_PROJECT_ID?: string;
@@ -41,6 +42,10 @@ export interface EnvConfig {
   // JWT
   JWT_SECRET?: string;
   JWT_EXPIRES_IN?: string;
+
+  // Monitoring
+  SENTRY_DSN?: string;
+  SENTRY_TRACES_SAMPLE_RATE: number;
 }
 
 class EnvValidationError extends Error {
@@ -198,6 +203,18 @@ export function validateEnv(): EnvConfig {
         process.env.COMPED_ACCESS_EMAILS
       ),
       ENABLE_MERCH: validateBoolean('ENABLE_MERCH', process.env.ENABLE_MERCH, false),
+      EXPOSE_ERROR_STACK: validateBoolean(
+        'EXPOSE_ERROR_STACK',
+        process.env.EXPOSE_ERROR_STACK,
+        false
+      ),
+
+      // Monitoring
+      SENTRY_DSN: validateString('SENTRY_DSN', process.env.SENTRY_DSN),
+      SENTRY_TRACES_SAMPLE_RATE: Math.max(
+        0,
+        Math.min(1, validateNumber('SENTRY_TRACES_SAMPLE_RATE', process.env.SENTRY_TRACES_SAMPLE_RATE, 0.1))
+      ),
     };
 
     // In production, critical variables must be present.

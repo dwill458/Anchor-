@@ -1,6 +1,6 @@
-import type { Anchor, ApiResponse, User } from '@/types';
+import type { User } from '@/types';
 import AnchorSyncService from '@/services/AnchorSyncService';
-import { apiClient } from '@/services/ApiClient';
+import AuthHydrationService from '@/services/AuthHydrationService';
 import RevenueCatService, { TrialStatusSnapshot } from '@/services/RevenueCatService';
 import { useAnchorStore } from '@/stores/anchorStore';
 import { useAuthStore } from '@/stores/authStore';
@@ -61,22 +61,13 @@ class PostAuthFlowService {
       await anchorStore.flushPendingSync();
     }
 
-    // Pull the user's anchors from the Railway backend to enable cross-device sync.
-    // Skip if there is a pending first-anchor draft: it will be finalized via
-    // FirstAnchorAccountGateScreen and would be wiped from the local store if we
-    // overwrote anchors here before finalization completes.
     const { pendingFirstAnchorDraft } = useAuthStore.getState();
-    if (!pendingFirstAnchorDraft) {
-      try {
-        const response = await apiClient.get<ApiResponse<Anchor[]>>('/api/anchors', {
-          params: { limit: 100, orderBy: 'updatedAt', order: 'desc' },
-        });
-        if (response.data?.success && Array.isArray(response.data.data) && response.data.data.length > 0) {
-          anchorStore.setAnchors(response.data.data as Anchor[]);
-        }
-      } catch (error) {
-        logger.warn('[PostAuthFlowService] Failed to fetch anchors from backend', error);
-      }
+    try {
+      await AuthHydrationService.hydrateAuthenticatedData({
+        skipAnchorRefresh: Boolean(pendingFirstAnchorDraft),
+      });
+    } catch (error) {
+      logger.warn('[PostAuthFlowService] Failed to hydrate authenticated data', error);
     }
 
     return {

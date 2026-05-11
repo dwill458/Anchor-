@@ -13,6 +13,14 @@ jest.mock('@react-navigation/native', () => ({
   }),
 }));
 
+jest.mock('../../services/RevenueCatService', () => ({
+  __esModule: true,
+  default: {
+    purchasePackageByIdentifier: jest.fn(),
+    refreshTrialStatus: jest.fn(),
+  },
+}));
+
 import { PaywallScreen } from '../PaywallScreen';
 
 describe('PaywallScreen', () => {
@@ -36,5 +44,20 @@ describe('PaywallScreen', () => {
     fireEvent.press(screen.getByLabelText('Already forging? Sign in'));
 
     expect(mockDispatch).toHaveBeenCalled();
+  });
+
+  it('calls purchasePackageByIdentifier when a plan is selected', async () => {
+    const RevenueCatService = require('../../services/RevenueCatService').default;
+    RevenueCatService.purchasePackageByIdentifier.mockResolvedValueOnce({
+      status: { hasActiveEntitlement: true },
+      dismissed: false,
+    });
+
+    render(<PaywallScreen />);
+
+    const purchaseButton = screen.getByText('Get Monthly Access');
+    fireEvent.press(purchaseButton);
+
+    expect(RevenueCatService.purchasePackageByIdentifier).toHaveBeenCalled();
   });
 });
