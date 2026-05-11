@@ -1,0 +1,33 @@
+{
+  "name": "Anchor",
+  "displayName": "Anchor",
+  "expo": {
+    "name": "Anchor",
+    "slug": "anchor-app",
+    "version": "0.1.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "dark",
+    "splash": {
+      "resizeMode": "contain",
+      "backgroundColor": "#1A1A1D"
+    },
+    "assetBundlePatterns": [
+      "**/*"
+    ],
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.anchor.app"
+    },
+    "android": {
+      "adaptiveIcon": {
+        "backgroundColor": "#1A1A1D"
+      },
+      "package": "com.anchor.app"
+    },
+    "plugins": [
+      "expo-av",
+      "expo-haptics"
+    ],
+    "newArchEnabled": false
+  }
+}

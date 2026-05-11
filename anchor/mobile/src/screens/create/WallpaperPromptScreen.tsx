@@ -1,6 +1,5 @@
 import React, { useRef, useState } from 'react';
 import {
-  Alert,
   Platform,
   View,
   Text,
@@ -14,6 +13,7 @@ import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { RootStackParamList } from '@/types';
 import { useAuthStore } from '@/stores/authStore';
+import { useToast } from '@/components/ToastProvider';
 import {
   AnchorArtworkExportCanvas,
   AnchorArtworkExportCanvasHandle,
@@ -29,6 +29,7 @@ export const WallpaperPromptScreen: React.FC = () => {
   const navigation = useNavigation<WallpaperPromptNavigationProp>();
   const route = useRoute<WallpaperPromptRouteProp>();
   const setWallpaperPromptSeen = useAuthStore((state) => state.setWallpaperPromptSeen);
+  const toast = useToast();
   const exportCanvasRef = useRef<AnchorArtworkExportCanvasHandle | null>(null);
   const [isExporting, setIsExporting] = useState(false);
 
@@ -64,9 +65,9 @@ export const WallpaperPromptScreen: React.FC = () => {
           return uri;
         },
       });
+      toast.info('Save the image from the share sheet, then set it as your wallpaper in Settings');
     } catch (error) {
-      Alert.alert(
-        'Wallpaper export failed',
+      toast.error(
         error instanceof Error ? error.message : 'Unable to export this wallpaper right now.'
       );
     } finally {

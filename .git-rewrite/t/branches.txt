@@ -1,0 +1,12 @@
+  origin/HEAD -> origin/claude/build-anchor-app-aspHi
+  origin/claude/audit-anchor-app-2QAdA
+  origin/claude/build-anchor-app-aspHi
+  origin/claude/fix-emulation-error-ijmuf
+  origin/claude/plan-next-tasks-NWVAK
+  origin/claude/pull-fix-emulation-branch-J8575
+  origin/claude/remove-marking-handbook-1tiT7
+  origin/claude/review-anchor-handoff-Epnqh
+  origin/claude/review-phase-2.6-plan-HwN6x
+  origin/feat/premium-auth-redesign
+  origin/feature/mvp-sigil-generator
+  origin/fix-emulation

@@ -968,6 +968,12 @@ export const RitualScreen: React.FC = () => {
     isReady,
   ]);
 
+  // Read phaseElapsed via ref so the breath effect doesn't tear down every second.
+  const phaseElapsedRef = useRef(state.phaseElapsed);
+  useEffect(() => {
+    phaseElapsedRef.current = state.phaseElapsed;
+  }, [state.phaseElapsed]);
+
   useEffect(() => {
     let settleAnimation: Animated.CompositeAnimation | null = null;
     let loopAnimation: Animated.CompositeAnimation | null = null;
@@ -981,7 +987,7 @@ export const RitualScreen: React.FC = () => {
     if (reduceMotionEnabled) {
       deepBreathAnim.setValue(state.isSealPhase ? 0.68 : getDeepBreathCycleProgress(
         state.currentPhase?.title,
-        state.phaseElapsed
+        phaseElapsedRef.current
       ));
       return () => undefined;
     }
@@ -1012,7 +1018,7 @@ export const RitualScreen: React.FC = () => {
 
     const cycleProgress = getDeepBreathCycleProgress(
       state.currentPhase?.title,
-      state.phaseElapsed
+      phaseElapsedRef.current
     );
     const cycleDurationMs = Math.max(400, Math.round(deepBreathTiming.cycleSeconds * 1000));
 
@@ -1064,7 +1070,6 @@ export const RitualScreen: React.FC = () => {
     state.currentPhase?.title,
     state.isActive,
     state.isSealPhase,
-    state.phaseElapsed,
   ]);
 
   const previousPhaseIndexRef = useRef(activePhaseIndex);
@@ -1220,7 +1225,7 @@ export const RitualScreen: React.FC = () => {
                           resizeMode="cover"
                         />
                       ) : (
-                        <SigilSvg xml={sigilSvg} width={198} height={198} />
+                        <SigilSvg xml={sigilSvg} width={240} height={240} />
                       )}
                     </Animated.View>
                   </View>
@@ -1496,7 +1501,7 @@ export const RitualScreen: React.FC = () => {
                         resizeMode="cover"
                       />
                     ) : (
-                      <SigilSvg xml={sigilSvg} width={198} height={198} />
+                      <SigilSvg xml={sigilSvg} width={240} height={240} />
                     )}
                   </Animated.View>
                 </Pressable>
@@ -2015,9 +2020,9 @@ const styles = StyleSheet.create({
   },
   deepSigilContainer: {
     position: 'absolute',
-    width: 198,
-    height: 198,
-    borderRadius: 99,
+    width: 240,
+    height: 240,
+    borderRadius: 120,
     overflow: 'hidden',
     borderWidth: 1,
     borderColor: 'rgba(212,175,55,0.25)',
@@ -2179,9 +2184,9 @@ const styles = StyleSheet.create({
     borderRadius: SYMBOL_SIZE / 2,
   },
   deepSigilImage: {
-    width: 198,
-    height: 198,
-    borderRadius: 99,
+    width: 240,
+    height: 240,
+    borderRadius: 120,
   },
   phaseTitle: {
     fontSize: typography.sizes.h3,

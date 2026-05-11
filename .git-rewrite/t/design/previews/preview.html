@@ -1,0 +1,288 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Anchor App - Preview</title>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700&family=Playfair+Display:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --charcoal: #1A1A1D;
+            --navy: #0F1419;
+            --gold: #D4AF37;
+            --bone: #F5F5DC;
+            --deep-purple: #3E2C5B;
+            --bronze: #CD7F32;
+            --silver: #C0C0C0;
+            --bg-primary: #0F1419;
+            --bg-secondary: #1A1A1D;
+            --bg-card: #252529;
+            --text-primary: #F5F5DC;
+            --text-secondary: #C0C0C0;
+            --text-tertiary: #9E9E9E;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            background-color: var(--bg-primary);
+            color: var(--text-primary);
+            font-family: 'Outfit', sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            overflow: hidden;
+        }
+
+        .phone-container {
+            width: 375px;
+            height: 812px;
+            background-color: var(--bg-primary);
+            border: 8px solid var(--charcoal);
+            border-radius: 40px;
+            position: relative;
+            overflow: hidden;
+            box-shadow: 0 50px 100px rgba(0,0,0,0.5), 0 0 20px rgba(212, 175, 55, 0.1);
+            display: flex;
+            flex-direction: column;
+        }
+
+        .screen {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            padding: 40px 24px;
+            transition: transform 0.5s ease;
+        }
+
+        .skip-btn {
+            align-self: flex-end;
+            color: var(--text-secondary);
+            font-size: 14px;
+            cursor: pointer;
+            z-index: 10;
+        }
+
+        .slider {
+            flex: 1;
+            display: flex;
+            overflow: hidden;
+            position: relative;
+        }
+
+        .slide {
+            min-width: 100%;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            text-align: center;
+            padding: 20px;
+            transition: opacity 0.5s ease;
+        }
+
+        .icon {
+            font-size: 80px;
+            margin-bottom: 40px;
+            filter: drop-shadow(0 0 10px rgba(212, 175, 55, 0.3));
+        }
+
+        h2 {
+            font-family: 'Playfair Display', serif;
+            font-size: 32px;
+            color: var(--gold);
+            margin-bottom: 20px;
+            letter-spacing: 0.5px;
+        }
+
+        p {
+            font-size: 16px;
+            color: var(--text-secondary);
+            line-height: 1.6;
+            margin-bottom: 20px;
+        }
+
+        .footer {
+            padding: 24px;
+            display: flex;
+            flex-direction: column;
+            gap: 24px;
+        }
+
+        .pagination {
+            display: flex;
+            justify-content: center;
+            gap: 8px;
+        }
+
+        .dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 4px;
+            background-color: var(--charcoal);
+            transition: all 0.3s ease;
+        }
+
+        .dot.active {
+            background-color: var(--gold);
+            width: 24px;
+        }
+
+        .next-btn {
+            background-color: var(--gold);
+            color: var(--charcoal);
+            height: 56px;
+            border-radius: 12px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-weight: 700;
+            cursor: pointer;
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
+        }
+
+        .next-btn:active {
+            transform: scale(0.98);
+        }
+
+        .next-btn:hover {
+            box-shadow: 0 0 20px rgba(212, 175, 55, 0.4);
+        }
+
+        /* Status bar mock */
+        .status-bar {
+            height: 44px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0 24px;
+            font-size: 14px;
+            color: var(--text-primary);
+        }
+
+        /* Animation */
+        .fade-in {
+            animation: fadeIn 0.8s ease forwards;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+    </style>
+</head>
+<body>
+    <div class="phone-container">
+        <div class="status-bar">
+            <span>9:41</span>
+            <div>🔋 Signal Wifi</div>
+        </div>
+        
+        <div class="screen">
+            <div class="skip-btn">Skip</div>
+            
+            <div class="slider" id="slider">
+                <div class="slide" id="slide">
+                    <div class="icon" id="slide-icon">⚓</div>
+                    <h2 id="slide-title">Welcome to Anchor</h2>
+                    <p id="slide-desc">Transform your intentions into powerful visual symbols that guide your journey to success.</p>
+                </div>
+            </div>
+
+            <div class="footer">
+                <div class="pagination" id="pagination">
+                    <div class="dot active"></div>
+                    <div class="dot"></div>
+                    <div class="dot"></div>
+                    <div class="dot"></div>
+                    <div class="dot"></div>
+                </div>
+                
+                <div class="next-btn" id="next-btn">Next</div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const SLIDES = [
+            {
+                title: 'Welcome to Anchor',
+                description: 'Transform your intentions into powerful visual symbols that guide your journey to success.',
+                icon: '⚓'
+            },
+            {
+                title: 'Create Your Anchors',
+                description: 'Enter your intention and watch as it becomes a unique symbol charged with your focused energy.',
+                icon: '✨'
+            },
+            {
+                title: 'Charge with Ritual',
+                description: 'Engage in guided rituals to infuse your anchor with intention through visualization and focus.',
+                icon: '🔥'
+            },
+            {
+                title: 'Activate Daily',
+                description: 'Build momentum through daily activation. Each interaction strengthens your connection to your goals.',
+                icon: '🎯'
+            },
+            {
+                title: 'Manifest Your Vision',
+                description: 'Track your progress, maintain your streak, and watch your intentions become reality.',
+                icon: '🌟'
+            }
+        ];
+
+        let currentIndex = 0;
+        const iconEl = document.getElementById('slide-icon');
+        const titleEl = document.getElementById('slide-title');
+        const descEl = document.getElementById('slide-desc');
+        const nextBtn = document.getElementById('next-btn');
+        const dots = document.querySelectorAll('.dot');
+
+        function updateSlide() {
+            const slide = SLIDES[currentIndex];
+            
+            // Animation reset
+            const content = document.getElementById('slide');
+            content.style.opacity = 0;
+            
+            setTimeout(() => {
+                iconEl.textContent = slide.icon;
+                titleEl.textContent = slide.title;
+                descEl.textContent = slide.description;
+                
+                dots.forEach((dot, i) => {
+                    dot.classList.toggle('active', i === currentIndex);
+                });
+
+                if (currentIndex === SLIDES.length - 1) {
+                    nextBtn.textContent = 'Get Started';
+                } else {
+                    nextBtn.textContent = 'Next';
+                }
+                
+                content.style.opacity = 1;
+            }, 300);
+        }
+
+        nextBtn.addEventListener('click', () => {
+            if (currentIndex < SLIDES.length - 1) {
+                currentIndex++;
+                updateSlide();
+            } else {
+                alert('App "Started"! In a real environment, this would navigate to the Login screen.');
+            }
+        });
+
+        document.querySelector('.skip-btn').addEventListener('click', () => {
+            currentIndex = SLIDES.length - 1;
+            updateSlide();
+        });
+    </script>
+</body>
+</html>

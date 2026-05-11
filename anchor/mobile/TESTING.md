@@ -46,7 +46,7 @@ src/
 ### Unit Tests for Stores
 
 ```typescript
-import { renderHook, act } from '@testing-library/react-hooks';
+import { renderHook, act } from '@testing-library/react-native';
 import { useAnchorStore } from '../anchorStore';
 import { createMockAnchor } from '../../__tests__/utils/testUtils';
 

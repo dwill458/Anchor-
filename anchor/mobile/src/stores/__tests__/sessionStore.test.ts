@@ -2,7 +2,7 @@
  * sessionStore Tests
  */
 
-import { renderHook, act } from '@testing-library/react-hooks';
+import { renderHook, act } from '@testing-library/react-native';
 import { useSessionStore } from '../sessionStore';
 import type { RestDayPolicy, ThreadStrengthSensitivity } from '../settingsStore';
 

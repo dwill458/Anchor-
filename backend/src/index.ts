@@ -5,10 +5,12 @@
  */
 
 import express, { Application, Request, Response } from 'express';
+import * as Sentry from '@sentry/node';
 import cors from 'cors';
 import helmet from 'helmet';
 import rateLimit from 'express-rate-limit';
 import dotenv from 'dotenv';
+import path from 'path';
 import authRoutes from './api/routes/auth';
 import anchorRoutes from './api/routes/anchors';
 import aiRoutes from './api/routes/ai';
@@ -25,20 +27,111 @@ dotenv.config();
 
 // Validate environment variables (imported env.ts automatically validates)
 
+const sentryEnabled = Boolean(env.SENTRY_DSN);
+
+function scrubSensitiveSentryData<T extends Record<string, unknown> | undefined>(value: T): T {
+  if (!value) {
+    return value;
+  }
+
+  for (const key of Object.keys(value)) {
+    const normalizedKey = key.toLowerCase();
+    if (
+      normalizedKey === 'authorization' ||
+      normalizedKey === 'cookie' ||
+      normalizedKey === 'set-cookie' ||
+      normalizedKey === 'x-api-key'
+    ) {
+      delete value[key];
+      continue;
+    }
+
+    const nested = value[key];
+    if (nested && typeof nested === 'object' && !Array.isArray(nested)) {
+      scrubSensitiveSentryData(nested as Record<string, unknown>);
+    }
+  }
+
+  return value;
+}
+
+function scrubSensitiveString(value: string | undefined): string | undefined {
+  if (!value) {
+    return value;
+  }
+
+  return value
+    .replace(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/gi, '[redacted-email]')
+    .replace(/Bearer\s+[A-Za-z0-9\-._~+/]+=*/gi, 'Bearer [redacted]')
+    .replace(/(?:(?:token|secret|password|authorization)=)[^&\s]+/gi, '$1[redacted]');
+}
+
+if (sentryEnabled) {
+  Sentry.init({
+    dsn: env.SENTRY_DSN,
+    environment: env.NODE_ENV,
+    sendDefaultPii: false,
+    tracesSampleRate: env.SENTRY_TRACES_SAMPLE_RATE,
+    integrations: [Sentry.expressIntegration()],
+    beforeSend(event) {
+      if (event.user) {
+        event.user = event.user.id ? { id: event.user.id } : undefined;
+      }
+
+      if (event.request?.headers) {
+        scrubSensitiveSentryData(event.request.headers as Record<string, unknown>);
+      }
+
+      if (event.request?.data && typeof event.request.data === 'object') {
+        scrubSensitiveSentryData(event.request.data as Record<string, unknown>);
+      }
+
+      if (typeof event.request?.query_string === 'string') {
+        event.request.query_string = scrubSensitiveString(event.request.query_string);
+      }
+
+      if (event.extra) {
+        scrubSensitiveSentryData(event.extra as Record<string, unknown>);
+      }
+
+      if (event.message) {
+        event.message = scrubSensitiveString(event.message);
+      }
+
+      if (event.exception?.values) {
+        event.exception.values = event.exception.values.map(value => ({
+          ...value,
+          value: scrubSensitiveString(value.value),
+        }));
+      }
+
+      return event;
+    },
+  });
+}
+
 // ============================================================================
 // Process-level error handlers — must be registered before any async work
 // ============================================================================
 
 process.on('uncaughtException', (error: Error) => {
   logger.error('Uncaught exception — shutting down', error);
+  if (sentryEnabled) {
+    Sentry.captureException(error);
+    void Sentry.close(2_000).finally(() => process.exit(1));
+    return;
+  }
   process.exit(1);
 });
 
 process.on('unhandledRejection', (reason: unknown) => {
-  logger.error(
-    'Unhandled promise rejection — shutting down',
-    reason instanceof Error ? reason : new Error(String(reason))
-  );
+  const error = reason instanceof Error ? reason : new Error(String(reason));
+  logger.error('Unhandled promise rejection — shutting down', error);
+  if (sentryEnabled) {
+    Sentry.captureException(error);
+    void Sentry.close(2_000).finally(() => process.exit(1));
+    return;
+  }
   process.exit(1);
 });
 
@@ -49,9 +142,21 @@ const PORT = env.PORT;
 // express-rate-limit can read X-Forwarded-For safely.
 app.set('trust proxy', 1);
 
+const legacyRequestHandler = sentryEnabled
+  ? (
+      Sentry as typeof Sentry & {
+        Handlers?: { requestHandler?: () => express.RequestHandler };
+      }
+    ).Handlers?.requestHandler?.()
+  : undefined;
+
 // ============================================================================
 // Middleware
 // ============================================================================
+
+if (legacyRequestHandler) {
+  app.use(legacyRequestHandler);
+}
 
 // High-level security headers
 app.use(helmet());
@@ -119,7 +224,6 @@ app.use((req: Request, _res: Response, next) => {
 
 // Development/test only: expose local upload fallback paths.
 if (env.NODE_ENV !== 'production') {
-  const path = require('path');
   app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
 }
 
@@ -193,6 +297,10 @@ app.use('/api/content', contentRoutes);
 // 404 handler - must come after all routes
 app.use(notFoundHandler);
 
+if (sentryEnabled) {
+  Sentry.setupExpressErrorHandler(app);
+}
+
 // Global error handler - must be last
 app.use(errorHandler);
 
@@ -215,6 +323,9 @@ async function shutdown(signal: string): Promise<void> {
   server.close(async () => {
     try {
       await prisma.$disconnect();
+      if (sentryEnabled) {
+        await Sentry.close(2_000);
+      }
       logger.info('Database connections closed');
     } catch (err) {
       logger.error(

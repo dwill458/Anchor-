@@ -95,13 +95,11 @@ describe('POST /api/ai/enhance-controlnet', () => {
       'http://localhost:8000/uploads/anchors/db-user-1/anchor-1/123e4567-variation-0.png'
     );
 
-    const res = await request(buildApp())
-      .post('/api/ai/enhance-controlnet')
-      .send({
-        sigilSvg: '<svg><rect/></svg>',
-        styleChoice: 'watercolor',
-        anchorId: 'anchor-1',
-      });
+    const res = await request(buildApp()).post('/api/ai/enhance-controlnet').send({
+      sigilSvg: '<svg><rect/></svg>',
+      styleChoice: 'watercolor',
+      anchorId: 'anchor-1',
+    });
 
     expect(res.status).toBe(200);
     expect(res.body.variations[0].imageUrl).toBe(

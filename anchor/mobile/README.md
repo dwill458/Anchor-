@@ -1,244 +1,130 @@
-<<<<<<< ours
-<<<<<<< ours
-<<<<<<< ours
-# Anchor v2 - Expo Development Build
-
-This app uses an Expo development build (`expo-dev-client`) with native Android/iOS projects checked in.
-=======
 # Anchor Mobile
 
-React Native + Expo app for Anchor.
->>>>>>> theirs
-=======
-# Anchor Mobile
+Expo development build for Anchor's current mobile client.
 
-React Native + Expo app for Anchor.
->>>>>>> theirs
-=======
-# Anchor Mobile
+This app is the active React Native front end for Anchor. It is built with Expo, TypeScript, Zustand, React Navigation, Firebase Auth, and native modules for audio, haptics, sharing, notifications, and secure storage. The codebase is in active testing and release hardening ahead of the June 1, 2026 target release.
 
-React Native + Expo app for Anchor.
->>>>>>> theirs
+## What This App Covers
+
+- Onboarding and authentication
+- Sanctuary / vault browsing
+- Intention entry and sigil creation
+- Letter distillation and structure forging
+- Optional manual reinforcement
+- Structure lock and optional AI enhancement
+- Mantra generation and audio playback
+- Charging, activation, and burning rituals
+- Practice flow, profile, settings, trial, and paywall screens
 
 ## Quick Start
+
+This app expects an Expo development build. Use `Expo Go` only if the current feature set you need is supported in that client.
 
 ```bash
 cd anchor/mobile
 npm install
-<<<<<<< ours
-<<<<<<< ours
-<<<<<<< ours
-
-# Start Metro for the dev client
-npx expo start --dev-client --clear
-
-# Build and install the Android development client
-npm run android
+npx expo start --dev-client
 ```
 
-If you are using a USB-connected Android device or emulator, run:
+If you are testing on a physical Android device, make sure Metro is reachable from the device. On USB-connected setups, run:
 
 ```bash
 adb reverse tcp:8081 tcp:8081
 ```
 
-If you are using a physical device over Wi-Fi, keep the phone on the same network as your computer. If LAN discovery is unreliable, start Metro with:
+On macOS, you can also run a native simulator build when needed:
 
 ```bash
-npx expo start --dev-client --host tunnel --clear
+npm run ios
 ```
 
-## What's Different from v1
-=======
-npm start
-```
+On Windows or when the local native build path is problematic, use the startup guide in the repo root for the development-client workflow.
 
-## Firebase and Secret Handling (Required)
->>>>>>> theirs
-=======
-npm start
-```
+## Environment
 
-## Firebase and Secret Handling (Required)
->>>>>>> theirs
+### API URL
 
-This app uses `@react-native-firebase/app` / `auth`, so Firebase config must be handled as **environment-specific secret material**.
+Set `EXPO_PUBLIC_API_URL` in `anchor/mobile/.env` to point at the backend API when you are not using a local default.
 
-### Canonical config location
+### Firebase config
 
-- Runtime/build config path used by Expo: `anchor/mobile/google-services.json` (via `android.googleServicesFile` in `app.json`).
-- `anchor/mobile/android/app/google-services.json` should **not** be committed. It is a generated/native copy and creates duplicate drift risk.
+This app uses `@react-native-firebase/app` and `@react-native-firebase/auth`, so Firebase config must be handled as environment-specific secret material.
 
-### What is committed vs not committed
+### Sentry build secrets
 
-- ✅ Committed: `anchor/mobile/google-services.json.example` (template only, no real keys).
-- ❌ Not committed: `anchor/mobile/google-services.json`.
-- ❌ Not committed: `anchor/mobile/android/app/google-services.json`.
+Preview and production EAS builds are expected to upload Sentry source maps. Configure `SENTRY_AUTH_TOKEN` as an EAS secret, and provide `SENTRY_ORG` / `SENTRY_PROJECT` the same way unless you hardcode them in `sentry.properties`.
 
-### Local development
+### Canonical config file
 
-1. Copy template:
-   ```bash
-   cp anchor/mobile/google-services.json.example anchor/mobile/google-services.json
-   ```
-2. Replace placeholder values with your Firebase Android app config from Firebase Console.
-3. Do **not** commit the generated file.
+- Runtime config: `anchor/mobile/google-services.json`
+- Template: `anchor/mobile/google-services.json.example`
+- Generated native copy that should not be committed: `anchor/mobile/android/app/google-services.json`
 
-### CI / Build pipeline expectations
+### Local setup
 
-GitHub Actions writes `anchor/mobile/google-services.json` at build time from secret `FIREBASE_ANDROID_GOOGLE_SERVICES_JSON_B64`.
-
-- Store this secret as a **base64-encoded full JSON file** in GitHub Actions secrets/environments.
-- Decode happens only for Android/all platform builds, immediately before `eas build`.
-
-Generate secret payload:
+1. Copy the template:
 
 ```bash
-base64 -w 0 anchor/mobile/google-services.json
-```
-<<<<<<< ours
-
-=======
-npm start
+cp anchor/mobile/google-services.json.example anchor/mobile/google-services.json
 ```
 
-## Firebase and Secret Handling (Required)
+2. Replace placeholders with the Firebase Android app config from Firebase Console.
+3. Do not commit the generated config file.
 
-This app uses `@react-native-firebase/app` / `auth`, so Firebase config must be handled as **environment-specific secret material**.
+### CI / build pipeline
 
-### Canonical config location
+GitHub Actions can write `anchor/mobile/google-services.json` from the `FIREBASE_ANDROID_GOOGLE_SERVICES_JSON_B64` secret.
 
-- Runtime/build config path used by Expo: `anchor/mobile/google-services.json` (via `android.googleServicesFile` in `app.json`).
-- `anchor/mobile/android/app/google-services.json` should **not** be committed. It is a generated/native copy and creates duplicate drift risk.
+## Project Structure
 
-### What is committed vs not committed
+```text
+anchor/mobile/
+├── src/
+│   ├── screens/     # Auth, create, rituals, vault, practice, profile, settings, shop
+│   ├── components/  # Shared UI, cards, modals, transitions, icons
+│   ├── services/    # API, auth, sync, storage, analytics, notifications, TTS
+│   ├── stores/      # Zustand state
+│   ├── hooks/       # Reusable React hooks
+│   ├── utils/       # Sigil logic, helpers, logging, telemetry utilities
+│   └── __tests__/   # Test suites
+├── TESTING.md       # Mobile testing guide
+├── MONITORING.md    # Analytics and observability guide
+└── app.json         # Expo config and native permissions
+```
 
-- ✅ Committed: `anchor/mobile/google-services.json.example` (template only, no real keys).
-- ❌ Not committed: `anchor/mobile/google-services.json`.
-- ❌ Not committed: `anchor/mobile/android/app/google-services.json`.
+## Development
 
-### Local development
-
-1. Copy template:
-   ```bash
-   cp anchor/mobile/google-services.json.example anchor/mobile/google-services.json
-   ```
-2. Replace placeholder values with your Firebase Android app config from Firebase Console.
-3. Do **not** commit the generated file.
-
-### CI / Build pipeline expectations
-
-GitHub Actions writes `anchor/mobile/google-services.json` at build time from secret `FIREBASE_ANDROID_GOOGLE_SERVICES_JSON_B64`.
-
-- Store this secret as a **base64-encoded full JSON file** in GitHub Actions secrets/environments.
-- Decode happens only for Android/all platform builds, immediately before `eas build`.
-
-Generate secret payload:
+### Test
 
 ```bash
-base64 -w 0 anchor/mobile/google-services.json
+npm test
 ```
 
->>>>>>> theirs
-=======
-
->>>>>>> theirs
-(macOS: `base64 anchor/mobile/google-services.json | tr -d '\n'`)
-
-## Security hardening requirements (Firebase backend)
-
-Leaked mobile config should not grant data access. Enforce these controls in Firebase project `anchor-ac6d6`:
-
-1. **Firestore/Storage rules: default deny** and explicit least-privilege allow paths only.
-2. **Auth-required access** for all user data paths (`request.auth != null` + ownership checks).
-3. **App Check enforcement ON** for Firestore, Storage, and callable Functions used by this app.
-4. **No wildcard public writes/reads** for production collections/buckets.
-5. **Rules and App Check changes tested** in staging before production rollout.
-
-### Verification checklist (run before release)
-<<<<<<< ours
-<<<<<<< ours
-
-<<<<<<< ours
-1. Install or rebuild the development client with `npm run android` or `npm run ios`
-2. Start Metro with `npx expo start --dev-client --clear`
-3. Launch the installed Anchor development build
-4. If Android is connected by USB, run `adb reverse tcp:8081 tcp:8081`
-=======
-- Confirm App Check enforcement toggled to **Enforced** in Firebase Console for used products.
-- Validate unauthenticated requests are denied.
-- Validate cross-user reads/writes are denied.
-- Validate expected authenticated user operations still succeed.
->>>>>>> theirs
-
-## Credential rotation guidance (if repo was public)
-
-Because Firebase API keys/project IDs were previously committed, rotate sensitive credentials and trust anchors:
-
-1. Rotate any exposed API keys in Google Cloud Console.
-2. Re-issue compromised service account keys (if any were ever committed).
-3. Revisit OAuth client restrictions/package SHA constraints.
-4. Audit Firebase Auth authorized domains and remove unknown entries.
-5. Review recent access logs for suspicious use.
-
-=======
-
-- Confirm App Check enforcement toggled to **Enforced** in Firebase Console for used products.
-- Validate unauthenticated requests are denied.
-- Validate cross-user reads/writes are denied.
-- Validate expected authenticated user operations still succeed.
-
-## Credential rotation guidance (if repo was public)
-
-Because Firebase API keys/project IDs were previously committed, rotate sensitive credentials and trust anchors:
-
-1. Rotate any exposed API keys in Google Cloud Console.
-2. Re-issue compromised service account keys (if any were ever committed).
-3. Revisit OAuth client restrictions/package SHA constraints.
-4. Audit Firebase Auth authorized domains and remove unknown entries.
-5. Review recent access logs for suspicious use.
-
->>>>>>> theirs
-=======
-
-- Confirm App Check enforcement toggled to **Enforced** in Firebase Console for used products.
-- Validate unauthenticated requests are denied.
-- Validate cross-user reads/writes are denied.
-- Validate expected authenticated user operations still succeed.
-
-## Credential rotation guidance (if repo was public)
-
-Because Firebase API keys/project IDs were previously committed, rotate sensitive credentials and trust anchors:
-
-1. Rotate any exposed API keys in Google Cloud Console.
-2. Re-issue compromised service account keys (if any were ever committed).
-3. Revisit OAuth client restrictions/package SHA constraints.
-4. Audit Firebase Auth authorized domains and remove unknown entries.
-5. Review recent access logs for suspicious use.
-
->>>>>>> theirs
-## Build notes
+### Watch mode
 
 ```bash
-# Prebuild native projects when needed
-npx expo prebuild
-
-# Android debug build
-cd android && ./gradlew assembleDebug
+npm run test:watch
 ```
-<<<<<<< ours
-<<<<<<< ours
-<<<<<<< ours
 
-## Notes
+### Coverage
 
-- Uses Expo SDK 54
+```bash
+npm run test:coverage
+```
+
+## Platform Notes
+
+- Expo SDK 54
 - React Native 0.81.5
-- TypeScript enabled
-- Zustand for state management
-=======
->>>>>>> theirs
-=======
->>>>>>> theirs
-=======
->>>>>>> theirs
+- TypeScript strict mode
+- `expo-dev-client` is enabled
+- Native Android and iOS projects are checked in
+- The app uses Firebase Auth, Sentry, RevenueCat, notifications, sharing, and secure storage
+
+## Related Docs
+
+- [Root README](../../README.md)
+- [Startup Guide](../../docs/runbooks/STARTUP_GUIDE.md)
+- [Testing Guide](./TESTING.md)
+- [Monitoring Guide](./MONITORING.md)
+

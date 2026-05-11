@@ -31,6 +31,13 @@ bugreport-*.zip
 .env*.local
 .env
 
+# EAS/credentials (never commit private signing material)
+credentials.json
+credentials/
+google-service-account.json
+GoogleService-Info.plist
+google-services.json
+
 # TypeScript
 *.tsbuildinfo
 

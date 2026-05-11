@@ -10,7 +10,12 @@
 import express, { Response } from 'express';
 import rateLimit, { ipKeyGenerator } from 'express-rate-limit';
 import { z } from 'zod';
-import { AuthRequest, authMiddleware, optionalAuthMiddleware, DEV_MASTER_UID } from '../middleware/auth';
+import {
+  AuthRequest,
+  authMiddleware,
+  optionalAuthMiddleware,
+  DEV_MASTER_UID,
+} from '../middleware/auth';
 import { prisma } from '../../lib/prisma';
 import {
   getCostEstimate,
@@ -27,8 +32,26 @@ import {
   getAvailableVoicePresets,
 } from '../../services/TTSService';
 import { logger } from '../../utils/logger';
+import { RedisStore } from 'rate-limit-redis';
+import { redisClient } from '../../lib/redis';
 
 const router = express.Router();
+
+const aiHourlyLimiterStore =
+  process.env.NODE_ENV === 'test' || !process.env.REDIS_URL
+    ? undefined
+    : new RedisStore({
+        prefix: 'rl:ai:hourly:',
+        sendCommand: (...args: string[]) => redisClient.sendCommand(args),
+      });
+
+const aiDailyLimiterStore =
+  process.env.NODE_ENV === 'test' || !process.env.REDIS_URL
+    ? undefined
+    : new RedisStore({
+        prefix: 'rl:ai:daily:',
+        sendCommand: (...args: string[]) => redisClient.sendCommand(args),
+      });
 
 // Per-user rate limiter for the AI image generation endpoint.
 // Keyed on the authenticated user's Firebase UID (set by authMiddleware before
@@ -40,30 +63,31 @@ const aiHourlyLimiter = rateLimit({
   max: 20,
   standardHeaders: true,
   legacyHeaders: false,
-  keyGenerator: (req) => (req as AuthRequest).user?.uid || ipKeyGenerator(req.ip ?? ''),
-  skip: (req) => (req as AuthRequest).user?.uid === DEV_MASTER_UID,
+  keyGenerator: req => (req as AuthRequest).user?.uid || ipKeyGenerator(req.ip ?? ''),
+  skip: req => (req as AuthRequest).user?.uid === DEV_MASTER_UID,
   message: {
     error: 'Too many AI generation requests',
     message: 'You have reached the AI enhancement limit. Please try again in an hour.',
   },
+  store: aiHourlyLimiterStore,
 });
 
 // Daily AI generation limit per user — prevents runaway API costs.
 // Dev master account is exempt. Configurable via AI_DAILY_LIMIT env var.
-// NOTE: Uses in-memory store; resets on server restart. For production,
-// consider rate-limit-redis or a DB-backed counter.
+// NOTE: Uses RedisStore to persist across Railway restarts/multi-instance.
 const AI_DAILY_LIMIT = parseInt(process.env.AI_DAILY_LIMIT || '10', 10);
 const aiDailyLimiter = rateLimit({
   windowMs: 24 * 60 * 60 * 1000, // 24 hours
   max: AI_DAILY_LIMIT,
   standardHeaders: true,
   legacyHeaders: false,
-  keyGenerator: (req) => (req as AuthRequest).user?.uid || ipKeyGenerator(req.ip ?? ''),
-  skip: (req) => (req as AuthRequest).user?.uid === DEV_MASTER_UID,
+  keyGenerator: req => (req as AuthRequest).user?.uid || ipKeyGenerator(req.ip ?? ''),
+  skip: req => (req as AuthRequest).user?.uid === DEV_MASTER_UID,
   message: {
     error: 'Daily generation limit reached',
     message: `You have reached your daily limit of ${AI_DAILY_LIMIT} AI generations. Try again tomorrow.`,
   },
+  store: aiDailyLimiterStore,
 });
 
 // --- Zod schemas ---
@@ -167,312 +191,316 @@ const AI_GENERATION_TIMEOUT_MS = 3 * 60 * 1000;
 
 // Handler shared by /enhance and legacy /enhance-controlnet alias
 async function handleEnhance(req: AuthRequest, res: Response): Promise<void> {
-    try {
-      const parsed = validateOrRespond(EnhanceSchema, req.body, res);
-      if (!parsed) return;
+  try {
+    const parsed = validateOrRespond(EnhanceSchema, req.body, res);
+    if (!parsed) return;
 
-      // Onboarding flow generates a "temp-*" anchor before the user has an
-      // account. Those requests are permitted without auth (still IP rate
-      // limited above). Every other path must be authenticated.
-      const isTempAnchor = parsed.anchorId.startsWith('temp-');
-      if (!isTempAnchor && !req.user?.uid) {
-        res.status(401).json({
-          error: 'Authentication required',
-          message: 'A valid authentication token is required for AI enhancement.',
-        });
-        return;
-      }
-
-      const {
-        sigilSvg,
-        styleChoice,
-        anchorId,
-        intentionText: bodyIntentionText,
-        intention: bodyIntention,
-        validateStructure,
-        autoComposite,
-        provider, // Optional: 'gemini' | 'replicate' | 'auto' (default: 'auto')
-        tier, // Optional: 'draft' | 'premium' (default: 'premium')
-        generationAttempt, // Optional: int starting at 1; pro users upgrade to pro model at attempt 3+
-      } = parsed;
-
-      // Support both field names for maximum compatibility
-      const intentionText = bodyIntentionText || bodyIntention;
-
-      // Sanitize attempt count — default to 1 if missing or invalid
-      const parsedAttempt =
-        typeof generationAttempt === 'number' && generationAttempt > 0 ? generationAttempt : 1;
-
-      // Flash for all standard enhancements; Pro model only on regeneration (attempt 2+)
-      const effectiveTier: 'draft' | 'premium' | 'pro_upgrade' =
-        parsedAttempt >= 2
-          ? 'pro_upgrade'
-          : 'premium';
-
-      // --- Database lookups ---
-      // Anonymous onboarding requests (temp-* anchor) skip the user lookup
-      // and use a synthetic storage id so uploaded images are still namespaced.
-      // Dev master account also bypasses DB lookup — it has no real DB record.
-      let user: { id: string };
-      if (req.user?.uid && req.user.uid !== DEV_MASTER_UID) {
-        let dbUser: { id: string } | null;
-        try {
-          dbUser = await prisma.user.findUnique({
-            where: { authUid: req.user.uid },
-            select: { id: true },
-          });
-        } catch (dbError) {
-          logger.error('[AI Enhance] Database error during user lookup', dbError);
-          res.status(503).json({
-            error: 'Service temporarily unavailable',
-            message: 'Unable to reach the database. Please try again shortly.',
-          });
-          return;
-        }
-
-        if (!dbUser) {
-          res.status(404).json({
-            error: 'User not found',
-            message: 'Create or sync your account before generating AI artwork.',
-          });
-          return;
-        }
-        user = dbUser;
-      } else {
-        // Anonymous onboarding path or dev master account — synthesize a
-        // throwaway id for storage pathing. Nothing is persisted to the User table.
-        user = { id: req.user?.uid ?? `anon-${Date.now()}` };
-      }
-
-      const isTempAnchorRequest = anchorId.startsWith('temp-');
-      const storageAnchorId = isTempAnchorRequest ? `temp-${Date.now()}` : anchorId;
-
-      if (!isTempAnchorRequest) {
-        let anchor: { id: string } | null;
-        try {
-          anchor = await prisma.anchor.findFirst({
-            where: {
-              id: anchorId,
-              userId: user.id,
-            },
-            select: { id: true },
-          });
-        } catch (dbError) {
-          logger.error('[AI Enhance] Database error during anchor lookup', dbError);
-          res.status(503).json({
-            error: 'Service temporarily unavailable',
-            message: 'Unable to reach the database. Please try again shortly.',
-          });
-          return;
-        }
-
-        if (!anchor) {
-          res.status(404).json({
-            error: 'Anchor not found',
-            message: 'AI enhancement is only allowed for anchors you own.',
-          });
-          return;
-        }
-      }
-
-      logger.debug('[API] enhance request', {
-        sigilSvgLength: sigilSvg?.length || 0,
-        styleChoice,
-        userId: user.id,
-        anchorId,
-        validateStructure,
-        autoComposite,
-        provider: provider || 'auto',
-        tier: tier || 'premium',
-        generationAttempt: parsedAttempt,
-        effectiveTier,
+    // Onboarding flow generates a "temp-*" anchor before the user has an
+    // account. Those requests are permitted without auth (still IP rate
+    // limited above). Every other path must be authenticated.
+    const isTempAnchor = parsed.anchorId.startsWith('temp-');
+    if (!isTempAnchor && !req.user?.uid) {
+      res.status(401).json({
+        error: 'Authentication required',
+        message: 'A valid authentication token is required for AI enhancement.',
       });
+      return;
+    }
 
-      logger.info('[AI Enhance] Enhancing sigil with STRICT structure preservation', {
-        anchorId,
-        style: styleChoice,
-        validateStructure: validateStructure !== false,
-        provider: provider || 'auto',
-      });
+    const {
+      sigilSvg,
+      styleChoice,
+      anchorId,
+      intentionText: bodyIntentionText,
+      intention: bodyIntention,
+      validateStructure,
+      autoComposite,
+      provider, // Optional: 'gemini' | 'replicate' | 'auto' (default: 'auto')
+      tier, // Optional: 'draft' | 'premium' (default: 'premium')
+      generationAttempt, // Optional: int starting at 1; pro users upgrade to pro model at attempt 3+
+    } = parsed;
 
-      const requestBaseUrl = `${req.protocol}://${req.get('host')}`;
+    // Support both field names for maximum compatibility
+    const intentionText = bodyIntentionText || bodyIntention;
 
-      // --- AI Generation (with timeout) ---
-      // Use enhanceSigilWithAI for automatic provider selection (Google → Replicate fallback)
-      // Or use enhanceSigilWithControlNet directly for Replicate-only
-      const useNewPipeline = provider !== 'replicate';
+    // Sanitize attempt count — default to 1 if missing or invalid
+    const parsedAttempt =
+      typeof generationAttempt === 'number' && generationAttempt > 0 ? generationAttempt : 1;
 
-      let enhancementResult: Awaited<ReturnType<typeof enhanceSigilWithAI>>;
+    // Flash for all standard enhancements; Pro model only on regeneration (attempt 2+)
+    const effectiveTier: 'draft' | 'premium' | 'pro_upgrade' =
+      parsedAttempt >= 2 ? 'pro_upgrade' : 'premium';
+
+    // --- Database lookups ---
+    // Anonymous onboarding requests (temp-* anchor) skip the user lookup
+    // and use a synthetic storage id so uploaded images are still namespaced.
+    // Dev master account also bypasses DB lookup — it has no real DB record.
+    let user: { id: string };
+    if (req.user?.uid && req.user.uid !== DEV_MASTER_UID) {
+      let dbUser: { id: string } | null;
       try {
-        enhancementResult = await withTimeout(
-          useNewPipeline
-            ? enhanceSigilWithAI({
-                sigilSvg,
-                styleChoice: styleChoice as AIStyle,
-                userId: user.id,
-                intentionText,
-                validateStructure: validateStructure !== false,
-                autoComposite: autoComposite === true,
-                tier: effectiveTier,
-              })
-            : enhanceSigilWithControlNet({
-                sigilSvg,
-                styleChoice: styleChoice as AIStyle,
-                userId: user.id,
-                intentionText,
-                validateStructure: validateStructure !== false,
-                autoComposite: autoComposite === true,
-                tier: effectiveTier,
-              }),
-          AI_GENERATION_TIMEOUT_MS,
-          'AI image generation'
-        );
-      } catch (aiError: unknown) {
-        const err = aiError as Error & { code?: string; status?: number };
-        if (err.code === 'UPSTREAM_TIMEOUT') {
-          logger.error('[AI Enhance] Generation timed out', {
-            anchorId,
-            style: styleChoice,
-            provider: provider || 'auto',
-          });
-          res.status(504).json({
-            error: 'Generation timed out',
-            message: 'The AI service took too long to respond. Please try again.',
-          });
-          return;
-        }
-        // Surface provider-level quota/auth errors distinctly
-        if (
-          err.status === 429 ||
-          err.message?.includes('quota') ||
-          err.message?.includes('rate limit')
-        ) {
-          logger.warn('[AI Enhance] Upstream rate limit hit', { anchorId, message: err.message });
-          res.status(503).json({
-            error: 'AI service rate limit reached',
-            message: 'The image generation service is busy. Please wait a moment and try again.',
-          });
-          return;
-        }
-        logger.error('[AI Enhance] AI generation failed', aiError);
-        res.status(502).json({
-          error: 'AI generation failed',
-          message: 'The upstream image generation service encountered an error. Please try again.',
+        dbUser = await prisma.user.findUnique({
+          where: { authUid: req.user.uid },
+          select: { id: true },
+        });
+      } catch (dbError) {
+        logger.error('[AI Enhance] Database error during user lookup', dbError);
+        res.status(503).json({
+          error: 'Service temporarily unavailable',
+          message: 'Unable to reach the database. Please try again shortly.',
         });
         return;
       }
 
-      logger.info('[AI Enhance] Generated variations with structure scores', {
-        count: enhancementResult.variations.length,
-        passingCount: enhancementResult.passingCount,
-        bestScore:
-          enhancementResult.variations[enhancementResult.bestVariationIndex]?.structureMatch
-            .combinedScore,
-        style: enhancementResult.styleApplied,
-        method: enhancementResult.controlMethod,
-      });
-
-      // --- Upload variations to R2 (per-variation error handling) ---
-      const uploadedVariations: Array<{
-        imageUrl: string;
-        structureMatchScore: number;
-        iouScore: number;
-        edgeOverlapScore: number;
-        structurePreserved: boolean;
-        classification: string;
-        wasComposited: boolean;
-        seed: number;
-      }> = [];
-
-      for (let i = 0; i < enhancementResult.variations.length; i++) {
-        const variation = enhancementResult.variations[i];
-        let permanentUrl: string;
-        try {
-          permanentUrl = await uploadImageFromUrl(variation.imageUrl, user.id, storageAnchorId, i, {
-            baseUrl: requestBaseUrl,
-          });
-        } catch (uploadError) {
-          logger.error('[AI Enhance] Failed to upload variation to storage', {
-            variationIndex: i,
-            anchorId,
-            error: uploadError instanceof Error ? uploadError.message : String(uploadError),
-          });
-          // Skip failed uploads rather than aborting the entire response;
-          // at least return successfully generated variations.
-          continue;
-        }
-
-        uploadedVariations.push({
-          imageUrl: permanentUrl,
-          structureMatchScore: variation.structureMatch.combinedScore,
-          iouScore: variation.structureMatch.iouScore,
-          edgeOverlapScore: variation.structureMatch.edgeOverlapScore,
-          structurePreserved: variation.structureMatch.structurePreserved,
-          classification: variation.structureMatch.classification,
-          wasComposited: variation.wasComposited,
-          seed: variation.seed,
+      if (!dbUser) {
+        res.status(404).json({
+          error: 'User not found',
+          message: 'Create or sync your account before generating AI artwork.',
         });
+        return;
       }
+      user = dbUser;
+    } else {
+      // Anonymous onboarding path or dev master account — synthesize a
+      // throwaway id for storage pathing. Nothing is persisted to the User table.
+      user = { id: req.user?.uid ?? `anon-${Date.now()}` };
+    }
 
-      if (uploadedVariations.length === 0) {
-        logger.error('[AI Enhance] All variation uploads failed', { anchorId, style: styleChoice });
-        res.status(502).json({
-          error: 'Image storage failed',
-          message: 'AI images were generated but could not be saved. Please try again.',
+    const isTempAnchorRequest = anchorId.startsWith('temp-');
+    const storageAnchorId = isTempAnchorRequest ? `temp-${Date.now()}` : anchorId;
+
+    if (!isTempAnchorRequest) {
+      let anchor: { id: string } | null;
+      try {
+        anchor = await prisma.anchor.findFirst({
+          where: {
+            id: anchorId,
+            userId: user.id,
+          },
+          select: { id: true },
+        });
+      } catch (dbError) {
+        logger.error('[AI Enhance] Database error during anchor lookup', dbError);
+        res.status(503).json({
+          error: 'Service temporarily unavailable',
+          message: 'Unable to reach the database. Please try again shortly.',
         });
         return;
       }
 
-      // Recalculate bestVariationIndex based on successfully uploaded variations
-      const bestVariationIndex = uploadedVariations.reduce(
-        (best, v, idx) =>
-          v.structureMatchScore > uploadedVariations[best].structureMatchScore ? idx : best,
-        0
+      if (!anchor) {
+        res.status(404).json({
+          error: 'Anchor not found',
+          message: 'AI enhancement is only allowed for anchors you own.',
+        });
+        return;
+      }
+    }
+
+    logger.debug('[API] enhance request', {
+      sigilSvgLength: sigilSvg?.length || 0,
+      styleChoice,
+      userId: user.id,
+      anchorId,
+      validateStructure,
+      autoComposite,
+      provider: provider || 'auto',
+      tier: tier || 'premium',
+      generationAttempt: parsedAttempt,
+      effectiveTier,
+    });
+
+    logger.info('[AI Enhance] Enhancing sigil with STRICT structure preservation', {
+      anchorId,
+      style: styleChoice,
+      validateStructure: validateStructure !== false,
+      provider: provider || 'auto',
+    });
+
+    const requestBaseUrl = `${req.protocol}://${req.get('host')}`;
+
+    // --- AI Generation (with timeout) ---
+    // Use enhanceSigilWithAI for automatic provider selection (Google → Replicate fallback)
+    // Or use enhanceSigilWithControlNet directly for Replicate-only
+    const useNewPipeline = provider !== 'replicate';
+
+    let enhancementResult: Awaited<ReturnType<typeof enhanceSigilWithAI>>;
+    try {
+      enhancementResult = await withTimeout(
+        useNewPipeline
+          ? enhanceSigilWithAI({
+              sigilSvg,
+              styleChoice: styleChoice as AIStyle,
+              userId: user.id,
+              intentionText,
+              validateStructure: validateStructure !== false,
+              autoComposite: autoComposite === true,
+              tier: effectiveTier,
+            })
+          : enhanceSigilWithControlNet({
+              sigilSvg,
+              styleChoice: styleChoice as AIStyle,
+              userId: user.id,
+              intentionText,
+              validateStructure: validateStructure !== false,
+              autoComposite: autoComposite === true,
+              tier: effectiveTier,
+            }),
+        AI_GENERATION_TIMEOUT_MS,
+        'AI image generation'
       );
-
-      // Determine which provider was actually used
-      const modelLower = enhancementResult.model.toLowerCase();
-      const usedProvider =
-        modelLower.includes('gemini') || modelLower.includes('imagen')
-          ? 'gemini'
-          : modelLower.includes('controlnet')
-            ? 'replicate'
-            : 'unknown';
-
-      res.json({
-        success: true,
-        // New format with structure scores
-        variations: uploadedVariations,
-        // Legacy format for backward compatibility
-        variationUrls: uploadedVariations.map(v => v.imageUrl),
-        // Generation metadata
-        prompt: enhancementResult.prompt,
-        negativePrompt: enhancementResult.negativePrompt,
-        generationTime: enhancementResult.generationTime,
-        model: enhancementResult.model,
-        controlMethod: enhancementResult.controlMethod,
-        styleApplied: enhancementResult.styleApplied,
-        // Provider information
-        provider: usedProvider,
-        // Structure validation summary
-        structureThreshold: enhancementResult.structureThreshold,
-        passingCount: enhancementResult.passingCount,
-        bestVariationIndex,
-        allPreserved: enhancementResult.passingCount === enhancementResult.variations.length,
+    } catch (aiError: unknown) {
+      const err = aiError as Error & { code?: string; status?: number };
+      if (err.code === 'UPSTREAM_TIMEOUT') {
+        logger.error('[AI Enhance] Generation timed out', {
+          anchorId,
+          style: styleChoice,
+          provider: provider || 'auto',
+        });
+        res.status(504).json({
+          error: 'Generation timed out',
+          message: 'The AI service took too long to respond. Please try again.',
+        });
+        return;
+      }
+      // Surface provider-level quota/auth errors distinctly
+      if (
+        err.status === 429 ||
+        err.message?.includes('quota') ||
+        err.message?.includes('rate limit')
+      ) {
+        logger.warn('[AI Enhance] Upstream rate limit hit', { anchorId, message: err.message });
+        res.status(503).json({
+          error: 'AI service rate limit reached',
+          message: 'The image generation service is busy. Please wait a moment and try again.',
+        });
+        return;
+      }
+      logger.error('[AI Enhance] AI generation failed', aiError);
+      res.status(502).json({
+        error: 'AI generation failed',
+        message: 'The upstream image generation service encountered an error. Please try again.',
       });
-    } catch (error) {
-      logger.error('[AI Enhance] Unexpected enhancement error', error);
-      res.status(500).json({
-        error: 'Internal server error',
-        message: 'An unexpected error occurred during AI enhancement.',
+      return;
+    }
+
+    logger.info('[AI Enhance] Generated variations with structure scores', {
+      count: enhancementResult.variations.length,
+      passingCount: enhancementResult.passingCount,
+      bestScore:
+        enhancementResult.variations[enhancementResult.bestVariationIndex]?.structureMatch
+          .combinedScore,
+      style: enhancementResult.styleApplied,
+      method: enhancementResult.controlMethod,
+    });
+
+    // --- Upload variations to R2 (per-variation error handling) ---
+    const uploadedVariations: Array<{
+      imageUrl: string;
+      structureMatchScore: number;
+      iouScore: number;
+      edgeOverlapScore: number;
+      structurePreserved: boolean;
+      classification: string;
+      wasComposited: boolean;
+      seed: number;
+    }> = [];
+
+    for (let i = 0; i < enhancementResult.variations.length; i++) {
+      const variation = enhancementResult.variations[i];
+      let permanentUrl: string;
+      try {
+        permanentUrl = await uploadImageFromUrl(variation.imageUrl, user.id, storageAnchorId, i, {
+          baseUrl: requestBaseUrl,
+        });
+      } catch (uploadError) {
+        logger.error('[AI Enhance] Failed to upload variation to storage', {
+          variationIndex: i,
+          anchorId,
+          error: uploadError instanceof Error ? uploadError.message : String(uploadError),
+        });
+        // Skip failed uploads rather than aborting the entire response;
+        // at least return successfully generated variations.
+        continue;
+      }
+
+      uploadedVariations.push({
+        imageUrl: permanentUrl,
+        structureMatchScore: variation.structureMatch.combinedScore,
+        iouScore: variation.structureMatch.iouScore,
+        edgeOverlapScore: variation.structureMatch.edgeOverlapScore,
+        structurePreserved: variation.structureMatch.structurePreserved,
+        classification: variation.structureMatch.classification,
+        wasComposited: variation.wasComposited,
+        seed: variation.seed,
       });
     }
+
+    if (uploadedVariations.length === 0) {
+      logger.error('[AI Enhance] All variation uploads failed', { anchorId, style: styleChoice });
+      res.status(502).json({
+        error: 'Image storage failed',
+        message: 'AI images were generated but could not be saved. Please try again.',
+      });
+      return;
+    }
+
+    // Recalculate bestVariationIndex based on successfully uploaded variations
+    const bestVariationIndex = uploadedVariations.reduce(
+      (best, v, idx) =>
+        v.structureMatchScore > uploadedVariations[best].structureMatchScore ? idx : best,
+      0
+    );
+
+    // Determine which provider was actually used
+    const modelLower = enhancementResult.model.toLowerCase();
+    const usedProvider =
+      modelLower.includes('gemini') || modelLower.includes('imagen')
+        ? 'gemini'
+        : modelLower.includes('controlnet')
+          ? 'replicate'
+          : 'unknown';
+
+    res.json({
+      success: true,
+      // New format with structure scores
+      variations: uploadedVariations,
+      // Legacy format for backward compatibility
+      variationUrls: uploadedVariations.map(v => v.imageUrl),
+      // Generation metadata
+      prompt: enhancementResult.prompt,
+      negativePrompt: enhancementResult.negativePrompt,
+      generationTime: enhancementResult.generationTime,
+      model: enhancementResult.model,
+      controlMethod: enhancementResult.controlMethod,
+      styleApplied: enhancementResult.styleApplied,
+      // Provider information
+      provider: usedProvider,
+      // Structure validation summary
+      structureThreshold: enhancementResult.structureThreshold,
+      passingCount: enhancementResult.passingCount,
+      bestVariationIndex,
+      allPreserved: enhancementResult.passingCount === enhancementResult.variations.length,
+    });
+  } catch (error) {
+    logger.error('[AI Enhance] Unexpected enhancement error', error);
+    res.status(500).json({
+      error: 'Internal server error',
+      message: 'An unexpected error occurred during AI enhancement.',
+    });
+  }
 }
 
 // Primary route
 router.post('/enhance', optionalAuthMiddleware, aiDailyLimiter, aiHourlyLimiter, handleEnhance);
 // Legacy alias — keeps older mobile builds working
-router.post('/enhance-controlnet', optionalAuthMiddleware, aiDailyLimiter, aiHourlyLimiter, handleEnhance);
+router.post(
+  '/enhance-controlnet',
+  optionalAuthMiddleware,
+  aiDailyLimiter,
+  aiHourlyLimiter,
+  handleEnhance
+);
 
 /**
  * POST /api/ai/mantra

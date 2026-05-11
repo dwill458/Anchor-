@@ -17,6 +17,7 @@ datasource db {
 model User {
   id                    String   @id @default(uuid())
   email                 String   @unique
+  passwordHash          String?
   displayName           String?
   authProvider          String   // 'email', 'google', 'apple'
   authUid               String   @unique
@@ -50,6 +51,7 @@ model User {
   settings              UserSettings?
   burnedAnchors         BurnedAnchor[]
   flaggedContent        FlaggedContent[]
+  syncQueue             SyncQueue[]
 
   @@map("users")
 }
@@ -115,7 +117,10 @@ model Anchor {
   // CHARGING STATUS
   // ───────────────────────────────────────────────────
   isCharged             Boolean  @default(false)
+  chargeCount           Int      @default(0)
   chargedAt             DateTime?
+  firstChargedAt        DateTime?
+  ignitedAt             DateTime?
   chargeMethod          String?  // 'quick', 'deep'
 
   // ───────────────────────────────────────────────────
@@ -301,6 +306,7 @@ model FlaggedContent {
 model SyncQueue {
   id                    String   @id @default(uuid())
   userId                String
+  user                  User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   action                String   // 'create_anchor', 'activate', 'charge', etc.
   entityType            String   // 'anchor', 'activation', 'charge'
   entityData            Json

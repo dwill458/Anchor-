@@ -10,6 +10,9 @@
       "distribution": "internal",
       "env": {
         "EXPO_PUBLIC_APP_ENV": "development",
+        "EXPO_PUBLIC_ENABLE_LEGACY_SUPABASE_SYNC": "false",
+        "EXPO_PUBLIC_ENABLE_MERCH": "false",
+        "EXPO_PUBLIC_ENABLE_MOCK_AUTH": "false",
         "SENTRY_DISABLE_AUTO_UPLOAD": "true"
       },
       "android": {},
@@ -23,7 +26,10 @@
       "channel": "preview",
       "env": {
         "EXPO_PUBLIC_APP_ENV": "staging",
-        "SENTRY_DISABLE_AUTO_UPLOAD": "true"
+        "EXPO_PUBLIC_ENABLE_LEGACY_SUPABASE_SYNC": "false",
+        "EXPO_PUBLIC_ENABLE_MERCH": "false",
+        "EXPO_PUBLIC_ENABLE_MOCK_AUTH": "false",
+        "SENTRY_DISABLE_AUTO_UPLOAD": "false"
       },
       "android": {
         "buildType": "apk"
@@ -36,6 +42,9 @@
       "distribution": "internal",
       "env": {
         "EXPO_PUBLIC_APP_ENV": "production",
+        "EXPO_PUBLIC_ENABLE_LEGACY_SUPABASE_SYNC": "false",
+        "EXPO_PUBLIC_ENABLE_MERCH": "false",
+        "EXPO_PUBLIC_ENABLE_MOCK_AUTH": "false",
         "SENTRY_DISABLE_AUTO_UPLOAD": "true"
       },
       "android": {
@@ -47,12 +56,17 @@
       "channel": "production",
       "env": {
         "EXPO_PUBLIC_APP_ENV": "production",
-        "SENTRY_DISABLE_AUTO_UPLOAD": "true"
+        "EXPO_PUBLIC_ENABLE_LEGACY_SUPABASE_SYNC": "false",
+        "EXPO_PUBLIC_ENABLE_MERCH": "false",
+        "EXPO_PUBLIC_ENABLE_MOCK_AUTH": "false",
+        "SENTRY_DISABLE_AUTO_UPLOAD": "false"
       },
       "android": {
-        "buildType": "app-bundle"
+        "buildType": "app-bundle",
+        "autoIncrement": true
       },
       "ios": {
+        "autoIncrement": true,
         "prebuildCommand": "npx expo prebuild --platform ios --no-install"
       }
     }
@@ -60,9 +74,9 @@
   "submit": {
     "production": {
       "ios": {
-        "appleId": "APPLE_ID_PLACEHOLDER",
-        "ascAppId": "APP_STORE_CONNECT_APP_ID_PLACEHOLDER",
-        "appleTeamId": "APPLE_TEAM_ID_PLACEHOLDER"
+        "appleId": "your-actual-apple-id@email.com",
+        "ascAppId": "YOUR_ASC_APP_ID",
+        "appleTeamId": "YOUR_APPLE_TEAM_ID"
       },
       "android": {
         "serviceAccountKeyPath": "./google-service-account.json",

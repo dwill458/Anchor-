@@ -288,21 +288,27 @@ export const useNotificationController = () => {
       state.notification_enabled = enabled;
       await saveState(state);
 
+      const isAuthenticated = useAuthStore.getState().isAuthenticated;
+
       if (!enabled) {
         await NotificationService.cancelNotification('micro-prime');
         await NotificationService.cancelWeeklySummary();
-        await clearPushTokensFromServer();
+        if (isAuthenticated) {
+          await clearPushTokensFromServer();
+        }
       } else {
         await scheduleMicroPrime(state);
-        const registration = await NotificationService.getRemotePushRegistration();
-        if (registration.permissionGranted) {
-          await syncPushTokensToServer({
-            expoPushToken: registration.expoPushToken,
-            fcmToken: registration.fcmToken,
-            apnsToken: registration.apnsToken,
-          });
-        } else {
-          await clearPushTokensFromServer();
+        if (isAuthenticated) {
+          const registration = await NotificationService.getRemotePushRegistration();
+          if (registration.permissionGranted) {
+            await syncPushTokensToServer({
+              expoPushToken: registration.expoPushToken,
+              fcmToken: registration.fcmToken,
+              apnsToken: registration.apnsToken,
+            });
+          } else {
+            await clearPushTokensFromServer();
+          }
         }
       }
       await syncStateToServer(state);

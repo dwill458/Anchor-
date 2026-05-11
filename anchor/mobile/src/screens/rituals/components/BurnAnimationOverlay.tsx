@@ -28,6 +28,7 @@ const DEFAULT_ERROR_MESSAGE = "Couldn't complete release. Try again.";
 const MAX_INJECTED_IMAGE_DATA_URI_BYTES = 450_000;
 const BURN_SIGIL_SIZE = Math.min(SCREEN_WIDTH * 0.58, 240);
 const BURN_NATIVE_ARTWORK_SIZE = BURN_SIGIL_SIZE * 0.82;
+const ALLOWED_WEBVIEW_SCHEMES = ['about:blank', 'data:'];
 const AnimatedImage = Animated.createAnimatedComponent(Image);
 
 export type BurnCommitFn = () => Promise<void>;
@@ -484,6 +485,12 @@ export const BurnAnimationOverlay: React.FC<BurnAnimationOverlayProps> = ({
     setIsWebViewLoaded(true);
   }, []);
 
+  const handleShouldStartLoad = useCallback(
+    (request: { url: string }) =>
+      ALLOWED_WEBVIEW_SCHEMES.some((scheme) => request.url.startsWith(scheme)),
+    []
+  );
+
   useEffect(() => {
     injectStartPayload();
   }, [injectStartPayload]);
@@ -588,11 +595,14 @@ export const BurnAnimationOverlay: React.FC<BurnAnimationOverlayProps> = ({
             style={styles.webview}
             onLoad={handleWebViewLoad}
             onMessage={handleWebViewMessage}
-            originWhitelist={['*']}
-            mixedContentMode="always"
-            allowFileAccess
-            allowFileAccessFromFileURLs
-            allowUniversalAccessFromFileURLs
+            onShouldStartLoadWithRequest={handleShouldStartLoad}
+            originWhitelist={['about:blank', 'data:*']}
+            mixedContentMode="never"
+            allowFileAccess={false}
+            allowFileAccessFromFileURLs={false}
+            allowUniversalAccessFromFileURLs={false}
+            javaScriptCanOpenWindowsAutomatically={false}
+            setSupportMultipleWindows={false}
             scrollEnabled={false}
             bounces={false}
             overScrollMode="never"

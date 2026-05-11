@@ -2,7 +2,7 @@ import type { User } from '@/types';
 import { useSettingsStore } from '@/stores/settingsStore';
 
 export const DEVELOPER_MASTER_ACCOUNT_ID = 'dev-master-account';
-export const DEVELOPER_MASTER_ACCOUNT_TOKEN = 'mock-dev-master-token';
+export const DEVELOPER_MASTER_ACCOUNT_TOKEN = process.env.EXPO_PUBLIC_DEV_MASTER_TOKEN ?? '';
 
 export function isDeveloperMasterAccountEnabled(): boolean {
   return __DEV__ && useSettingsStore.getState().developerMasterAccountEnabled;

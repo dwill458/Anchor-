@@ -5,6 +5,7 @@
  */
 
 import { Request, Response, NextFunction } from 'express';
+import * as Sentry from '@sentry/node';
 import { getFirebaseAdmin } from '../../config/firebase';
 
 /**
@@ -12,13 +13,17 @@ import { getFirebaseAdmin } from '../../config/firebase';
  * `anchor/mobile/src/utils/developerMasterAccount.ts`.
  * Recognised in non-production environments only.
  */
-export const DEV_MASTER_TOKEN = 'mock-dev-master-token';
+export const DEV_MASTER_TOKEN = process.env.DEV_MASTER_TOKEN ?? '';
 export const DEV_MASTER_UID = 'dev-master-account';
 const DEV_MASTER_EMAIL = 'dev+master@anchor.local';
 
 /** Returns true when the token matches the dev-master bypass (non-prod only). */
 function isDevMasterToken(token: string): boolean {
-  return process.env.NODE_ENV !== 'production' && token === DEV_MASTER_TOKEN;
+  return (
+    process.env.NODE_ENV !== 'production' &&
+    DEV_MASTER_TOKEN.length > 0 &&
+    token === DEV_MASTER_TOKEN
+  );
 }
 
 /**
@@ -66,6 +71,7 @@ export const authMiddleware = async (
     // Dev master account bypass — non-production only
     if (isDevMasterToken(token)) {
       req.user = { uid: DEV_MASTER_UID, email: DEV_MASTER_EMAIL };
+      Sentry.setUser({ id: DEV_MASTER_UID });
       next();
       return;
     }
@@ -83,6 +89,7 @@ export const authMiddleware = async (
 
     if (allowMockAuth && mockToken && token === mockToken) {
       req.user = { uid: 'mock-uid-123', email: 'guest@example.com' };
+      Sentry.setUser({ id: req.user.uid });
       next();
       return;
     }
@@ -96,6 +103,7 @@ export const authMiddleware = async (
       uid: decoded.uid,
       email: decoded.email,
     };
+    Sentry.setUser({ id: decoded.uid });
 
     next();
   } catch (error: unknown) {
@@ -134,34 +142,67 @@ export const authMiddleware = async (
  */
 export const optionalAuthMiddleware = async (
   req: AuthRequest,
-  _res: Response,
+  res: Response,
   next: NextFunction
 ): Promise<void> => {
   try {
     const authHeader = req.headers.authorization;
 
-    if (authHeader && authHeader.startsWith('Bearer ')) {
-      const token = authHeader.substring(7);
-
-      // Dev master account bypass — non-production only
-      if (isDevMasterToken(token)) {
-        req.user = { uid: DEV_MASTER_UID, email: DEV_MASTER_EMAIL };
-        next();
-        return;
-      }
-
-      const firebaseAdmin = getFirebaseAdmin();
-      const decoded = await firebaseAdmin.auth().verifyIdToken(token);
-
-      req.user = {
-        uid: decoded.uid,
-        email: decoded.email,
-      };
+    if (!authHeader) {
+      next();
+      return;
     }
 
+    if (!authHeader.startsWith('Bearer ')) {
+      res.status(401).json({
+        success: false,
+        error: { code: 'INVALID_TOKEN', message: 'Invalid authentication token' },
+      });
+      return;
+    }
+
+    const token = authHeader.substring(7);
+
+    // Dev master account bypass — non-production only
+    if (isDevMasterToken(token)) {
+      req.user = { uid: DEV_MASTER_UID, email: DEV_MASTER_EMAIL };
+      Sentry.setUser({ id: DEV_MASTER_UID });
+      next();
+      return;
+    }
+
+    const firebaseAdmin = getFirebaseAdmin();
+    const decoded = await firebaseAdmin.auth().verifyIdToken(token);
+
+    req.user = {
+      uid: decoded.uid,
+      email: decoded.email,
+    };
+    Sentry.setUser({ id: decoded.uid });
+
     next();
-  } catch (error) {
-    // Silently fail for optional auth
-    next();
+  } catch (error: unknown) {
+    const code: string = (error as { code?: string })?.code ?? '';
+
+    if (code === 'auth/id-token-expired') {
+      res.status(401).json({
+        success: false,
+        error: { code: 'TOKEN_EXPIRED', message: 'Authentication token has expired' },
+      });
+      return;
+    }
+
+    if (code.startsWith('auth/')) {
+      res.status(401).json({
+        success: false,
+        error: { code: 'INVALID_TOKEN', message: 'Invalid authentication token' },
+      });
+      return;
+    }
+
+    res.status(500).json({
+      success: false,
+      error: { code: 'AUTH_ERROR', message: 'Authentication failed' },
+    });
   }
 };

@@ -7,7 +7,7 @@
 import { Prisma } from '@prisma/client';
 import { Router, Response, NextFunction } from 'express';
 import { z } from 'zod';
-import rateLimit from 'express-rate-limit';
+import rateLimit, { ipKeyGenerator } from 'express-rate-limit';
 import { AuthRequest, authMiddleware } from '../middleware/auth';
 import { AppError } from '../middleware/errorHandler';
 import { prisma } from '../../lib/prisma';
@@ -22,6 +22,7 @@ const syncLimiter = rateLimit({
   max: 20,
   standardHeaders: true,
   legacyHeaders: false,
+  keyGenerator: req => (req as AuthRequest).user?.uid || ipKeyGenerator(req.ip ?? ''),
   message: {
     success: false,
     error: { code: 'TOO_MANY_REQUESTS', message: 'Too many sync attempts, please try again later' },
@@ -33,6 +34,7 @@ const deleteAccountLimiter = rateLimit({
   max: 3,
   standardHeaders: true,
   legacyHeaders: false,
+  keyGenerator: req => (req as AuthRequest).user?.uid || ipKeyGenerator(req.ip ?? ''),
   message: {
     success: false,
     error: {
@@ -105,6 +107,33 @@ async function syncCompedFlag(user: {
   return nextIsComped;
 }
 
+function buildSettingsUpsertData(settings: {
+  notificationsEnabled?: boolean;
+  dailyReminderTime?: string;
+  streakProtection?: boolean;
+  defaultChargeDuration?: number;
+  hapticIntensity?: number;
+  vaultViewType?: 'grid' | 'list';
+}) {
+  const {
+    notificationsEnabled,
+    dailyReminderTime,
+    streakProtection,
+    defaultChargeDuration,
+    hapticIntensity,
+    vaultViewType,
+  } = settings;
+
+  return {
+    ...(notificationsEnabled !== undefined && { notificationsEnabled }),
+    ...(dailyReminderTime && { dailyReminderTime }),
+    ...(streakProtection !== undefined && { streakProtection }),
+    ...(defaultChargeDuration !== undefined && { defaultChargeDuration }),
+    ...(hapticIntensity !== undefined && { hapticIntensity }),
+    ...(vaultViewType && { vaultViewType }),
+  };
+}
+
 // --- Zod schemas ---
 
 const SyncSchema = z.object({
@@ -135,15 +164,17 @@ const PushTokensSchema = z.object({
   apnsToken: z.string().min(1).nullable().optional(),
 });
 
-const NotificationStateSyncSchema = z.object({
-  notificationState: z.record(z.unknown()).optional(),
-  // Nested format sent by mobile client (syncPushTokensToServer)
-  pushTokens: PushTokensSchema.optional(),
-  replacePushTokens: z.boolean().optional(),
-}).refine(
-  (value) => value.notificationState !== undefined || value.pushTokens !== undefined,
-  'notificationState or pushTokens are required'
-);
+const NotificationStateSyncSchema = z
+  .object({
+    notificationState: z.record(z.unknown()).optional(),
+    // Nested format sent by mobile client (syncPushTokensToServer)
+    pushTokens: PushTokensSchema.optional(),
+    replacePushTokens: z.boolean().optional(),
+  })
+  .refine(
+    value => value.notificationState !== undefined || value.pushTokens !== undefined,
+    'notificationState or pushTokens are required'
+  );
 
 // Validates req.body against a schema; throws AppError on failure.
 function validate<T>(schema: z.ZodSchema<T>, data: unknown): T {
@@ -186,6 +217,7 @@ router.post(
       if (!req.user?.uid) {
         throw new AppError('User not authenticated', 401, 'UNAUTHORIZED');
       }
+      const authUid = req.user.uid;
 
       const { displayName, authProvider, hasCompletedOnboarding } = validate(SyncSchema, req.body);
       const email = req.user.email;
@@ -201,34 +233,38 @@ router.post(
       const isComped = hasCompedAccess(email);
       let provider = authProvider;
       if (!provider) {
-        const firebaseUser = await getFirebaseAdmin().auth().getUser(req.user.uid);
+        const firebaseUser = await getFirebaseAdmin().auth().getUser(authUid);
         provider = mapProviderIdToAuthProvider(firebaseUser.providerData[0]?.providerId);
       }
 
-      const user = await prisma.user.upsert({
-        where: { authUid: req.user.uid },
-        update: {
-          email,
-          displayName: displayName || undefined,
-          isComped,
-          ...(hasCompletedOnboarding === true && { hasCompletedOnboarding: true }),
-          lastSeenAt: new Date(),
-        },
-        create: {
-          authUid: req.user.uid,
-          email,
-          displayName,
-          authProvider: provider,
-          isComped,
-          hasCompletedOnboarding: hasCompletedOnboarding === true,
-          lastSeenAt: new Date(),
-        },
-      });
+      const user = await prisma.$transaction(async tx => {
+        const syncedUser = await tx.user.upsert({
+          where: { authUid },
+          update: {
+            email,
+            displayName: displayName || undefined,
+            isComped,
+            ...(hasCompletedOnboarding === true && { hasCompletedOnboarding: true }),
+            lastSeenAt: new Date(),
+          },
+          create: {
+            authUid,
+            email,
+            displayName,
+            authProvider: provider,
+            isComped,
+            hasCompletedOnboarding: hasCompletedOnboarding === true,
+            lastSeenAt: new Date(),
+          },
+        });
 
-      await prisma.userSettings.upsert({
-        where: { userId: user.id },
-        update: {},
-        create: { userId: user.id },
+        await tx.userSettings.upsert({
+          where: { userId: syncedUser.id },
+          update: {},
+          create: { userId: syncedUser.id },
+        });
+
+        return syncedUser;
       });
 
       res.json({
@@ -300,9 +336,10 @@ router.get(
       if (!req.user) {
         throw new AppError('User not authenticated', 401, 'UNAUTHORIZED');
       }
+      const authUid = req.user.uid;
 
       const user = await prisma.user.findUnique({
-        where: { authUid: req.user.uid },
+        where: { authUid },
         include: {
           settings: true,
           anchors: {
@@ -425,6 +462,7 @@ router.put(
       if (!req.user) {
         throw new AppError('User not authenticated', 401, 'UNAUTHORIZED');
       }
+      const authUid = req.user.uid;
 
       const {
         notificationsEnabled,
@@ -435,36 +473,35 @@ router.put(
         vaultViewType,
       } = validate(UpdateSettingsSchema, req.body);
 
-      // Find user to get their ID
-      const user = await prisma.user.findUnique({
-        where: { authUid: req.user.uid },
+      const settingsData = buildSettingsUpsertData({
+        notificationsEnabled,
+        dailyReminderTime,
+        streakProtection,
+        defaultChargeDuration,
+        hapticIntensity,
+        vaultViewType,
       });
 
-      if (!user) {
-        throw new AppError('User not found', 404, 'USER_NOT_FOUND');
-      }
+      const settings = await prisma.$transaction(async tx => {
+        const user = await tx.user.findUnique({
+          where: { authUid },
+        });
 
-      // Update settings (upsert in case they don't exist yet)
-      const settings = await prisma.userSettings.upsert({
-        where: { userId: user.id },
-        update: {
-          ...(notificationsEnabled !== undefined && { notificationsEnabled }),
-          ...(dailyReminderTime && { dailyReminderTime }),
-          ...(streakProtection !== undefined && { streakProtection }),
-          ...(defaultChargeDuration !== undefined && { defaultChargeDuration }),
-          ...(hapticIntensity !== undefined && { hapticIntensity }),
-          ...(vaultViewType && { vaultViewType }),
-          updatedAt: new Date(),
-        },
-        create: {
-          userId: user.id,
-          ...(notificationsEnabled !== undefined && { notificationsEnabled }),
-          ...(dailyReminderTime && { dailyReminderTime }),
-          ...(streakProtection !== undefined && { streakProtection }),
-          ...(defaultChargeDuration !== undefined && { defaultChargeDuration }),
-          ...(hapticIntensity !== undefined && { hapticIntensity }),
-          ...(vaultViewType && { vaultViewType }),
-        },
+        if (!user) {
+          throw new AppError('User not found', 404, 'USER_NOT_FOUND');
+        }
+
+        return tx.userSettings.upsert({
+          where: { userId: user.id },
+          update: {
+            ...settingsData,
+            updatedAt: new Date(),
+          },
+          create: {
+            userId: user.id,
+            ...settingsData,
+          },
+        });
       });
 
       res.json({
@@ -495,14 +532,16 @@ router.put(
       if (!req.user) {
         throw new AppError('User not authenticated', 401, 'UNAUTHORIZED');
       }
+      const authUid = req.user.uid;
 
-      const { notificationState, pushTokens, replacePushTokens = true } = validate(
-        NotificationStateSyncSchema,
-        req.body
-      );
+      const {
+        notificationState,
+        pushTokens,
+        replacePushTokens = true,
+      } = validate(NotificationStateSyncSchema, req.body);
 
       const user = await prisma.user.findUnique({
-        where: { authUid: req.user.uid },
+        where: { authUid },
         select: { id: true },
       });
 
@@ -510,12 +549,11 @@ router.put(
         throw new AppError('User not found', 404, 'USER_NOT_FOUND');
       }
 
-      const notificationEnabled = notificationState && Object.prototype.hasOwnProperty.call(
-        notificationState,
-        'notification_enabled'
-      )
-        ? Boolean(notificationState.notification_enabled)
-        : null;
+      const notificationEnabled =
+        notificationState &&
+        Object.prototype.hasOwnProperty.call(notificationState, 'notification_enabled')
+          ? Boolean(notificationState.notification_enabled)
+          : null;
 
       const assignments: Prisma.Sql[] = [];
 
@@ -531,7 +569,10 @@ router.put(
       }
 
       if (pushTokens) {
-        if (replacePushTokens || Object.prototype.hasOwnProperty.call(pushTokens, 'expoPushToken')) {
+        if (
+          replacePushTokens ||
+          Object.prototype.hasOwnProperty.call(pushTokens, 'expoPushToken')
+        ) {
           assignments.push(Prisma.sql`expo_push_token = ${pushTokens.expoPushToken ?? null}`);
         }
         if (replacePushTokens || Object.prototype.hasOwnProperty.call(pushTokens, 'fcmToken')) {
@@ -540,6 +581,10 @@ router.put(
         if (replacePushTokens || Object.prototype.hasOwnProperty.call(pushTokens, 'apnsToken')) {
           assignments.push(Prisma.sql`apns_token = ${pushTokens.apnsToken ?? null}`);
         }
+      }
+
+      if (assignments.length === 0) {
+        throw new AppError('No fields to update', 400, 'VALIDATION_ERROR');
       }
 
       const query = Prisma.sql`

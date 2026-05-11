@@ -46,12 +46,7 @@ export const FirstAnchorAccountGateScreen: React.FC = () => {
       return;
     }
 
-    // Account is optional during the trial — lower the gate and send them straight to Vault.
     if (!isAuthenticated) {
-      setPendingFirstAnchorDraft({ ...pendingFirstAnchorDraft, requiresAccountGate: false });
-      setWallpaperPromptSeen(false); // Re-arm so wallpaper prompt fires after first practice
-      completeOnboarding();
-      navigation.replace('Vault');
       return;
     }
 
@@ -78,9 +73,6 @@ export const FirstAnchorAccountGateScreen: React.FC = () => {
     navigation,
     pendingFirstAnchorDraft,
     pendingFirstAnchorError,
-    setPendingFirstAnchorDraft,
-    setWallpaperPromptSeen,
-    completeOnboarding,
   ]);
 
   const handleCreateAccount = React.useCallback(() => {

@@ -1,0 +1,17 @@
+appId: com.anchor.mobile
+---
+- launchApp
+- tapOn: "Sign In" # Assuming there's a sign in button
+- tapOn: "Email"
+- inputText: "test@example.com"
+- tapOn: "Password"
+- inputText: "password123"
+- tapOn: "Submit"
+- tapOn: "Create Anchor"
+- tapOn: "Intention"
+- inputText: "My Maestro Test Intention"
+- tapOn: "Distill"
+- tapOn: "Generate"
+- tapOn: "Reveal"
+- tapOn: "Burn"
+- assertVisible: "Sanctuary" # or whatever the success screen is

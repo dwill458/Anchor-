@@ -185,7 +185,7 @@ export class AuthService {
 
   static async getIdToken(): Promise<string | null> {
     if (!mockAuthEnabled) {
-      return isDeveloperMasterAccountEnabled()
+      return isDeveloperMasterAccountEnabled() && DEVELOPER_MASTER_ACCOUNT_TOKEN
         ? DEVELOPER_MASTER_ACCOUNT_TOKEN
         : null;
     }

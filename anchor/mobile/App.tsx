@@ -58,6 +58,7 @@ import { encryptedPersistStorage, readSecureValue } from './src/stores/encrypted
 import { logger } from './src/utils/logger';
 import revenueCatService from './src/services/RevenueCatService';
 import NotificationService from './src/services/NotificationService';
+import AuthHydrationService from './src/services/AuthHydrationService';
 import {
   clearPushTokensFromServer,
   syncPushTokensToServer,
@@ -384,6 +385,16 @@ export default function App() {
         }
 
         store.setSession(session.user, session.token);
+        store.setOfflineMode(false);
+        store.setLoading(false);
+
+        try {
+          await AuthHydrationService.hydrateAuthenticatedData({
+            skipAnchorRefresh: Boolean(useAuthStore.getState().pendingFirstAnchorDraft),
+          });
+        } catch (hydrationError) {
+          logger.warn('Authenticated session restored, but data hydration failed', hydrationError);
+        }
       } catch (error) {
         if (!isActive || currentVersion !== authStateVersion) {
           return;
@@ -398,6 +409,7 @@ export default function App() {
             const token = await AuthService.getIdToken().catch(() => '') ?? '';
             store.setSession(cached, token);
             store.setOfflineMode(true);
+            store.setLoading(false);
             logger.warn('Network unreachable — restored session from cache (offline mode)');
             return;
           }
@@ -447,7 +459,7 @@ export default function App() {
 
   useEffect(() => {
     if (user?.id) {
-      ErrorTrackingService.setUser(user.id, user.email, user.displayName);
+      ErrorTrackingService.setUser(user.id);
       // Log in to RevenueCat with the Firebase UID so purchases are linked to this account.
       revenueCatService.logIn(user.id).catch((error) => {
         logger.warn('[RevenueCat] logIn failed', error);

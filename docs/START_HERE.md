@@ -2,7 +2,7 @@
 
 ## What is Anchor?
 
-Anchor is a production-ready mobile platform that transforms abstract goals into tangible, AI-generated visual sigils. Built with React Native (Expo 52) and backed by Supabase + Prisma, it fuses ancient sigil magick methodology from Austin Osman Spare and Phil Cooper with modern Stable Diffusion XL for intelligent symbol generation. Users embed intentions into their daily subconscious through ritualistic charging and activation.
+Anchor is a near-production mobile platform that transforms abstract goals into tangible, AI-generated visual sigils. Built with React Native and backed by Prisma, it fuses sigil methodology with structure-preserving AI enhancement so users can embed intentions into a daily ritual flow.
 
 ---
 
@@ -12,16 +12,16 @@ Anchor is a production-ready mobile platform that transforms abstract goals into
 
 | Directory | Purpose | Status |
 |-----------|---------|--------|
-| **`/apps/mobile/`** | **Current mobile app** (React Native + Expo 52) | 🟢 **Production-ready** |
+| **`/anchor/mobile/`** | **Current mobile app** (React Native + Expo) | 🟢 **Active & testing** |
 | **`/backend/`** | **API server** (Node.js + Express + Prisma) | 🟢 **Active** |
 
 ### 🧟 Legacy Code
 
 | Directory | Purpose | Status |
 |-----------|---------|--------|
-| **`/legacy/frontend/`** | Original frontend implementation | ⚠️ **Deprecated - Do not use** |
+| **`/archive/legacy-frontend/`** | Original frontend implementation | ⚠️ **Deprecated - Do not use** |
 
-See `/legacy/frontend/README.md` for details on why this code is archived.
+See `/archive/legacy-frontend/README.md` for details on why this code is archived.
 
 ### 📚 Documentation
 
@@ -45,10 +45,10 @@ See `/legacy/frontend/README.md` for details on why this code is archived.
 ### Run the Mobile App
 
 ```bash
-cd apps/mobile
+cd anchor/mobile
 npm install
 cp .env.example .env  # Configure your environment
-npx expo start
+npx expo start --dev-client
 ```
 
 See **`/docs/runbooks/STARTUP_GUIDE.md`** for detailed setup instructions.
@@ -69,15 +69,15 @@ npm run dev
 
 ### Essential Reading
 
-1. **[Main README](/README.md)** - Complete project overview, tech stack, roadmap
+1. **[Main README](/README.md)** - Complete project overview, tech stack, and release status
 2. **[Product Handoff](/docs/product/Anchor_App_Comprehensive_Handoff_Document.pdf)** - Original product specification
 3. **[Startup Guide](/docs/runbooks/STARTUP_GUIDE.md)** - Detailed setup instructions
-4. **[Mobile App Details](/apps/mobile/README.md)** - Current mobile app specifics
+4. **[Mobile App Details](/docs/runbooks/STARTUP_GUIDE.md)** - Current mobile app setup and launch specifics
 
 ### For Developers
 
-- **[Testing Guide](/apps/mobile/TESTING.md)** - How to write and run tests (48 tests, 35% coverage)
-- **[Monitoring Guide](/apps/mobile/MONITORING.md)** - Analytics, error tracking, performance monitoring
+- **[Testing Guide](/anchor/mobile/TESTING.md)** - How to write and run tests
+- **[Monitoring Guide](/anchor/mobile/MONITORING.md)** - Analytics, error tracking, performance monitoring
 - **[Contributing Guidelines](/CONTRIBUTING.md)** - Code standards and development workflow
 
 ### For Product & Design
@@ -92,13 +92,13 @@ npm run dev
 
 ```
 Anchor/
-├── apps/
-│   └── mobile/          ← React Native app (Expo 52, TypeScript)
+├── anchor/
+│   └── mobile/          ← React Native app (Expo, TypeScript)
 │
 ├── backend/             ← Node.js API (Express, Prisma, PostgreSQL)
 │
-├── legacy/
-│   └── frontend/        ← Deprecated original implementation
+├── archive/
+│   └── legacy-frontend/ ← Deprecated original implementation
 │
 ├── docs/
 │   ├── prs/             ← PR documentation
@@ -114,15 +114,14 @@ Anchor/
 
 ## 🎯 Current Status
 
-**Version**: v1.0.0 (Production-ready)
-**Last Audit**: January 2026 (Phase 2.7 - Mid-Month Audit)
-**Code Health**: 9.0/10 (up from 5.5/10)
-**Test Coverage**: 35% (48 passing tests, target: 70%)
+**Version**: v2.0.0-stable
+**Current Status**: Active testing / release hardening
+**Launch Target**: June 1, 2026
 
 ### What's Working
 
 - ✅ Complete MVP - Full anchor creation, charging, and activation flows
-- ✅ AI Enhancement - Stable Diffusion XL integration with intelligent symbol selection
+- ✅ AI Enhancement - Structure-preserving enhancement with style selection and validation
 - ✅ Audio Mantras - Google TTS integration with 3 voice presets
 - ✅ Manual Forge - Interactive sigil drawing canvas
 - ✅ Production Monitoring - Analytics, error tracking, performance monitoring
@@ -131,11 +130,7 @@ Anchor/
 
 ### Next Steps
 
-See the [Development Roadmap](/README.md#-development-roadmap) in the main README for:
-- Phase 3: Burning Ritual (in progress)
-- Phase 4: Advanced Features (planned)
-- Phase 5: Monetization (planned)
-- Phase 6: Polish & Deploy (planned)
+See the main README release notes and the startup guide for the current launch checklist.
 
 ---
 
@@ -143,9 +138,9 @@ See the [Development Roadmap](/README.md#-development-roadmap) in the main READM
 
 ### Which version should I use?
 
-**Use `/apps/mobile/`** - This is the current, production-ready version with all features and improvements.
+**Use `/anchor/mobile/`** - This is the current active mobile app.
 
-**Never use `/legacy/frontend/`** - This is archived legacy code. All valid code has been migrated.
+**Never use `/archive/legacy-frontend/`** - This is archived legacy code. All valid code has been migrated.
 
 ### How do I run the app?
 
@@ -163,9 +158,9 @@ See `/CONTRIBUTING.md` for code standards and development workflow.
 
 ### Where are the tests?
 
-- Test files: `/apps/mobile/src/__tests__/` and component `__tests__/` folders
-- Testing guide: `/apps/mobile/TESTING.md`
-- Run tests: `cd apps/mobile && npm test`
+- Test files: `/anchor/mobile/src/__tests__/` and component `__tests__/` folders
+- Testing guide: `/anchor/mobile/TESTING.md`
+- Run tests: `cd anchor/mobile && npm test`
 
 ---
 
@@ -174,7 +169,7 @@ See `/CONTRIBUTING.md` for code standards and development workflow.
 1. Check `/README.md` for comprehensive documentation
 2. Read `/CONTRIBUTING.md` for development guidelines
 3. Review `/docs/runbooks/STARTUP_GUIDE.md` for setup help
-4. Check `/apps/mobile/TESTING.md` or `/apps/mobile/MONITORING.md` for specific guides
+4. Check `/anchor/mobile/TESTING.md` or `/anchor/mobile/MONITORING.md` for specific guides
 
 ---
 

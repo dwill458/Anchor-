@@ -84,7 +84,10 @@ const MOCK_ANCHOR = {
   mantraAudioUrl: null,
   generationMethod: 'automated',
   isCharged: false,
+  chargeCount: 0,
   chargedAt: null,
+  firstChargedAt: null,
+  ignitedAt: null,
   chargeMethod: null,
   isArchived: false,
   archivedAt: null,
@@ -113,6 +116,13 @@ beforeEach(() => {
   mockedAuthMiddleware.mockImplementation((req: any, _res: any, next: any) => {
     req.user = MOCK_USER_AUTH;
     next();
+  });
+
+  (mockPrisma.$transaction as jest.Mock).mockImplementation(async (callback: any) => {
+    if (typeof callback === 'function') {
+      return callback(mockPrisma);
+    }
+    return callback;
   });
 });
 
@@ -403,10 +413,10 @@ describe('POST /api/anchors/:id/charge', () => {
   it('creates charge record and returns updated anchor', async () => {
     (mockPrisma.user.findUnique as jest.Mock).mockResolvedValue(MOCK_DB_USER);
     (mockPrisma.anchor.findFirst as jest.Mock).mockResolvedValue(MOCK_ANCHOR);
-    (mockPrisma.charge.create as jest.Mock).mockResolvedValue({});
     (mockPrisma.anchor.update as jest.Mock).mockResolvedValue({
       ...MOCK_ANCHOR,
       isCharged: true,
+      chargeCount: 1,
     });
 
     const res = await request(buildApp())
@@ -416,6 +426,15 @@ describe('POST /api/anchors/:id/charge', () => {
     expect(res.status).toBe(200);
     expect(res.body.data.isCharged).toBe(true);
     expect(mockPrisma.charge.create).toHaveBeenCalledTimes(1);
+    expect(mockPrisma.$transaction).toHaveBeenCalledTimes(1);
+    expect(mockPrisma.anchor.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          chargeCount: { increment: 1 },
+          firstChargedAt: expect.any(Date),
+        }),
+      })
+    );
   });
 
   it('returns 400 when chargeType is invalid', async () => {
@@ -457,7 +476,6 @@ describe('POST /api/anchors/:id/activate', () => {
   it('records activation and increments activationCount', async () => {
     (mockPrisma.user.findUnique as jest.Mock).mockResolvedValue(MOCK_DB_USER);
     (mockPrisma.anchor.findFirst as jest.Mock).mockResolvedValue(MOCK_ANCHOR);
-    (mockPrisma.activation.create as jest.Mock).mockResolvedValue({});
     (mockPrisma.anchor.update as jest.Mock).mockResolvedValue({
       ...MOCK_ANCHOR,
       activationCount: 1,
@@ -471,9 +489,18 @@ describe('POST /api/anchors/:id/activate', () => {
     expect(res.status).toBe(200);
     expect(res.body.data.activationCount).toBe(1);
     expect(mockPrisma.activation.create).toHaveBeenCalledTimes(1);
+    expect(mockPrisma.$transaction).toHaveBeenCalledTimes(1);
     expect(mockPrisma.user.update).toHaveBeenCalledWith(
       expect.objectContaining({
         data: expect.objectContaining({ totalActivations: { increment: 1 } }),
+      })
+    );
+    expect(mockPrisma.anchor.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          activationCount: { increment: 1 },
+          lastActivatedAt: expect.any(Date),
+        }),
       })
     );
   });
