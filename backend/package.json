@@ -5,7 +5,7 @@
   "main": "dist/index.js",
   "scripts": {
     "dev": "nodemon --exec ts-node --transpile-only src/index.ts",
-    "postinstall": "prisma generate",
+    "postinstall": "prisma generate && npm install --package-lock-only",
     "build": "tsc",
     "prisma:recover-known-failures": "node scripts/recover-known-prisma-failure.js",
     "start": "npm run prisma:recover-known-failures && prisma migrate deploy && node dist/index.js",
