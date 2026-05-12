@@ -134,6 +134,14 @@ function getR2Client(): S3Client | null {
   // R2 endpoint format: https://<account_id>.r2.cloudflarestorage.com
   const endpoint = `https://${accountId}.r2.cloudflarestorage.com`;
 
+  logger.info('[Storage] R2 config', {
+    endpoint,
+    bucket: normalizeEnvValue(process.env.CLOUDFLARE_R2_BUCKET_NAME),
+    accessKeyIdLength: accessKeyId.length,
+    accessKeyIdPrefix: accessKeyId.slice(0, 4),
+    secretKeyLength: secretAccessKey.length,
+  });
+
   return new S3Client({
     region: 'auto', // R2 uses 'auto' region
     endpoint,
