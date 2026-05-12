@@ -15,11 +15,8 @@ jest.mock('../../utils/logger');
 jest.mock('fs');
 jest.mock('axios');
 jest.mock('@aws-sdk/client-s3');
-jest.mock('@aws-sdk/lib-storage');
-
 import fs from 'fs';
 import axios from 'axios';
-import { Upload } from '@aws-sdk/lib-storage';
 import { S3Client, DeleteObjectCommand } from '@aws-sdk/client-s3';
 
 import {
@@ -152,14 +149,38 @@ describe('StorageService', () => {
       process.env.CLOUDFLARE_R2_BUCKET_NAME = 'anchor-assets';
       process.env.CLOUDFLARE_R2_PUBLIC_DOMAIN = 'https://cdn.example.com';
 
-      (Upload as unknown as jest.Mock).mockImplementation(() => ({
-        done: jest.fn().mockRejectedValue(new Error('R2 error')),
-      }));
+      const mockSend = jest.fn().mockRejectedValue(new Error('R2 error'));
+      (S3Client as jest.Mock).mockImplementation(() => ({ send: mockSend }));
 
       await expect(uploadImageFromBuffer(Buffer.from('data'), 'user', 'anchor', 0)).rejects.toThrow(
         'R2 error'
       );
       expect(fs.writeFileSync).not.toHaveBeenCalled();
+    });
+
+    it('strips surrounding quotes from R2 env vars before signing requests', async () => {
+      process.env.CLOUDFLARE_ACCOUNT_ID = '"test-account"';
+      process.env.CLOUDFLARE_R2_ACCESS_KEY_ID = '"access-key"';
+      process.env.CLOUDFLARE_R2_SECRET_ACCESS_KEY = '"secret-key"';
+      process.env.CLOUDFLARE_R2_BUCKET_NAME = '"anchor-assets"';
+      process.env.CLOUDFLARE_R2_PUBLIC_DOMAIN = '"https://cdn.example.com/"';
+
+      const mockSend = jest.fn().mockResolvedValue({});
+      (S3Client as jest.Mock).mockImplementation(() => ({ send: mockSend }));
+
+      const result = await uploadImageFromBuffer(Buffer.from('data'), 'user', 'anchor', 0);
+
+      expect(S3Client).toHaveBeenCalledWith(
+        expect.objectContaining({
+          endpoint: 'https://test-account.r2.cloudflarestorage.com',
+          forcePathStyle: true,
+          credentials: {
+            accessKeyId: 'access-key',
+            secretAccessKey: 'secret-key',
+          },
+        })
+      );
+      expect(result).toContain('https://cdn.example.com/anchors/user/anchor/');
     });
   });
 
@@ -232,13 +253,13 @@ describe('StorageService', () => {
       process.env.CLOUDFLARE_R2_SECRET_ACCESS_KEY = 'secret-key';
       process.env.CLOUDFLARE_R2_PUBLIC_DOMAIN = 'https://cdn.example.com';
 
-      const mockDone = jest.fn().mockResolvedValue({});
-      (Upload as unknown as jest.Mock).mockImplementation(() => ({ done: mockDone }));
+      const mockSend = jest.fn().mockResolvedValue({});
+      (S3Client as jest.Mock).mockImplementation(() => ({ send: mockSend }));
 
       const buffer = Buffer.from('audio-data');
       const url = await uploadAudio(buffer, 'user-1', 'anchor-1', 'syllabic');
 
-      expect(mockDone).toHaveBeenCalled();
+      expect(mockSend).toHaveBeenCalled();
       expect(url).toContain('https://cdn.example.com');
       expect(url).toContain('syllabic.mp3');
     });
@@ -248,9 +269,8 @@ describe('StorageService', () => {
       process.env.CLOUDFLARE_R2_ACCESS_KEY_ID = 'access-key';
       process.env.CLOUDFLARE_R2_SECRET_ACCESS_KEY = 'secret-key';
 
-      (Upload as unknown as jest.Mock).mockImplementation(() => ({
-        done: jest.fn().mockRejectedValue(new Error('R2 error')),
-      }));
+      const mockSend = jest.fn().mockRejectedValue(new Error('R2 error'));
+      (S3Client as jest.Mock).mockImplementation(() => ({ send: mockSend }));
 
       await expect(uploadAudio(Buffer.from('audio'), 'user', 'anchor', 'rhythmic')).rejects.toThrow(
         'Failed to upload audio'
