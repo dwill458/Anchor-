@@ -5,8 +5,7 @@
  * Stores AI-generated anchor images and mantra audio files.
  */
 
-import { S3Client, DeleteObjectCommand } from '@aws-sdk/client-s3';
-import { Upload } from '@aws-sdk/lib-storage';
+import { S3Client, DeleteObjectCommand, PutObjectCommand } from '@aws-sdk/client-s3';
 import axios from 'axios';
 import fs from 'fs';
 import path from 'path';
@@ -21,9 +20,30 @@ function isProduction(): boolean {
   return process.env.NODE_ENV === 'production';
 }
 
-function requireStorageConfig(key: string, value: string | undefined): string {
-  if (value) {
+function normalizeEnvValue(value: string | undefined): string | undefined {
+  if (typeof value !== 'string') {
     return value;
+  }
+
+  const trimmed = value.trim();
+  if (!trimmed) {
+    return undefined;
+  }
+
+  const startsWithQuote = trimmed.startsWith('"') || trimmed.startsWith("'");
+  const endsWithQuote = trimmed.endsWith('"') || trimmed.endsWith("'");
+
+  if (startsWithQuote && endsWithQuote && trimmed.length >= 2) {
+    return trimmed.slice(1, -1).trim();
+  }
+
+  return trimmed;
+}
+
+function requireStorageConfig(key: string, value: string | undefined): string {
+  const normalized = normalizeEnvValue(value);
+  if (normalized) {
+    return normalized;
   }
 
   if (isProduction()) {
@@ -57,7 +77,7 @@ function buildLocalUploadUrl(storageKey: string, options?: UploadUrlOptions): st
 }
 
 function getPublicAssetBaseUrl(bucket: string): string {
-  const publicDomain = process.env.CLOUDFLARE_R2_PUBLIC_DOMAIN;
+  const publicDomain = normalizeEnvValue(process.env.CLOUDFLARE_R2_PUBLIC_DOMAIN);
   if (publicDomain) {
     return publicDomain.replace(/\/+$/, '');
   }
@@ -114,9 +134,19 @@ function getR2Client(): S3Client | null {
   // R2 endpoint format: https://<account_id>.r2.cloudflarestorage.com
   const endpoint = `https://${accountId}.r2.cloudflarestorage.com`;
 
+  logger.info('[Storage] R2 config', {
+    endpoint,
+    bucket: normalizeEnvValue(process.env.CLOUDFLARE_R2_BUCKET_NAME),
+    accessKeyIdLength: accessKeyId.length,
+    accessKeyIdPrefix: accessKeyId.slice(0, 4),
+    secretKeyLength: secretAccessKey.length,
+  });
+
   return new S3Client({
     region: 'auto', // R2 uses 'auto' region
     endpoint,
+    forcePathStyle: true,
+    requestChecksumCalculation: 'WHEN_REQUIRED', // R2 doesn't support AWS SDK v3 auto-checksums
     credentials: {
       accessKeyId,
       secretAccessKey,
@@ -128,7 +158,7 @@ function getR2Client(): S3Client | null {
  * Get bucket name from environment
  */
 function getBucketName(): string {
-  const bucket = process.env.CLOUDFLARE_R2_BUCKET_NAME;
+  const bucket = normalizeEnvValue(process.env.CLOUDFLARE_R2_BUCKET_NAME);
   if (bucket) {
     return bucket;
   }
@@ -159,18 +189,15 @@ export async function uploadImageFromBuffer(
     if (client) {
       logger.info('[Storage] Uploading image buffer to R2', { key: objectKey });
       try {
-        const upload = new Upload({
-          client,
-          params: {
+        await client.send(
+          new PutObjectCommand({
             Bucket: bucket,
             Key: objectKey,
             Body: imageBuffer,
             ContentType: 'image/png',
             CacheControl: 'public, max-age=31536000',
-          },
-        });
-
-        await upload.done();
+          })
+        );
 
         return `${getPublicAssetBaseUrl(bucket)}/${objectKey}`;
       } catch (r2Error) {
@@ -317,18 +344,15 @@ export async function uploadAudio(
 
     logger.info('[Storage] Uploading audio to R2', { fileName });
 
-    const upload = new Upload({
-      client,
-      params: {
+    await client.send(
+      new PutObjectCommand({
         Bucket: bucket,
         Key: fileName,
         Body: audioBuffer,
         ContentType: 'audio/mpeg',
         CacheControl: 'public, max-age=31536000',
-      },
-    });
-
-    await upload.done();
+      })
+    );
 
     // Return public URL
     return `${getPublicAssetBaseUrl(bucket)}/${fileName}`;

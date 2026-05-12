@@ -17,6 +17,7 @@ import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { RootStackParamList, Symbol, AnalysisResult } from '@/types'; // Ensure this path is correct
 import { apiClient } from '@/services/ApiClient';
+import { API_URL } from '@/config';
 import { logger } from '@/utils/logger';
 
 // Design System Colors (Zen Architect)
@@ -102,6 +103,7 @@ export default function AIAnalysisScreen() {
 
   const handleGenerateVariations = () => {
     if (!analysis) return;
+    void fetch(`${API_URL}/health`).catch(() => {});
     navigation.navigate('AIGenerating', {
       intentionText,
       category,

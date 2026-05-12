@@ -673,10 +673,11 @@ export default function AIGeneratingScreen() {
         }
 
         setProgress((prev) => {
-          if (prev >= 95) {
-            return 95;
-          }
-          return prev + 3.5;
+          if (prev >= 94) return prev;
+          // Decelerate: fast start, then asymptotically slow toward 94%.
+          // Never reaches 94 on its own — only the API response sets 100.
+          const increment = Math.max(0.15, (94 - prev) * 0.035);
+          return prev + increment;
         });
       }, 800);
 

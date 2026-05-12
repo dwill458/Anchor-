@@ -7,4 +7,8 @@ declare module '@aws-sdk/client-s3' {
   export class DeleteObjectCommand {
     constructor(input: unknown);
   }
+
+  export class PutObjectCommand {
+    constructor(input: unknown);
+  }
 }

@@ -18,6 +18,7 @@ import { safeHaptics } from '@/utils/haptics';
 import type { AIStyle, RootStackParamList, SigilVariant } from '@/types';
 import { colors, spacing, typography } from '@/theme';
 import { ZenBackground } from '@/components/common';
+import { API_URL } from '@/config';
 
 type StyleCategory = 'all' | 'modern' | 'luminous' | 'mystic' | 'geometric' | 'organic';
 
@@ -239,6 +240,10 @@ export default function RefineExpressionScreen() {
   }, [selectedStyle, ambientOpacity, whisperOpacity]);
 
   const handleRefineAnchor = useCallback(() => {
+    // Wake Railway before the real request arrives so cold-start latency doesn't
+    // block the AI call that fires ~1-2s later in AIGeneratingScreen.
+    void fetch(`${API_URL}/health`).catch(() => {});
+
     const payload: ForwardNavigationPayload = {
       intention,
       sigilSvg,
