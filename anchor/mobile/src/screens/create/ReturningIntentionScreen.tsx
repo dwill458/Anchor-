@@ -12,6 +12,7 @@ import {
     Dimensions,
     Easing,
     AccessibilityInfo,
+    BackHandler,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
@@ -110,6 +111,15 @@ export default function ReturningIntentionScreen() {
         if (idleTimerRef.current) clearTimeout(idleTimerRef.current);
         if (nudgeDebounceRef.current) clearTimeout(nudgeDebounceRef.current);
     }, []);
+
+    // Handle Android hardware back button — go back to sanctuary instead of closing the app
+    useEffect(() => {
+        const backHandler = BackHandler.addEventListener('hardwareBackPress', () => {
+            navigation.goBack();
+            return true;
+        });
+        return () => backHandler.remove();
+    }, [navigation]);
 
     // Check reduced motion accessibility setting on mount
     useEffect(() => {
@@ -271,6 +281,17 @@ export default function ReturningIntentionScreen() {
             <ZenBackground variant="creation" />
 
             <SafeAreaView style={styles.safeArea}>
+                <Animated.View style={[styles.backButtonWrapper, { opacity: fadeAnim }]}>
+                    <TouchableOpacity
+                        onPress={() => navigation.goBack()}
+                        style={styles.backButton}
+                        activeOpacity={0.7}
+                        accessibilityRole="button"
+                        accessibilityLabel="Back to sanctuary"
+                    >
+                        <Text style={styles.backIcon}>←</Text>
+                    </TouchableOpacity>
+                </Animated.View>
                 <KeyboardAvoidingView
                     behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
                     style={styles.keyboardView}
@@ -489,5 +510,22 @@ const styles = StyleSheet.create({
     },
     continueTextDisabled: {
         color: 'rgba(255, 255, 255, 0.3)',
+    },
+    backButtonWrapper: {
+        position: 'absolute',
+        top: spacing.md,
+        left: spacing.xl,
+        zIndex: 10,
+    },
+    backButton: {
+        width: 44,
+        height: 44,
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    backIcon: {
+        fontSize: 22,
+        color: colors.gold,
+        opacity: 0.7,
     },
 });
