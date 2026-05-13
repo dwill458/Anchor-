@@ -1567,6 +1567,7 @@ const AnchorDetailsScreen = ({ navigation, route }) => {
         onClose={() => setShowExportSheet(false)}
         sigilSvg={anchor.baseSigilSvg}
         sigilUri={anchor.sigilUri}
+        intention={anchor.intention}
         onExportComplete={(uri) => {
           if (__DEV__) console.log('Anchor exported:', uri);
         }}

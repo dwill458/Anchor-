@@ -37,6 +37,9 @@ const mockPrisma = {
   charge: { create: jest.fn() },
   activation: { create: jest.fn() },
   burnedAnchor: { create: jest.fn() },
+  anchorVariationPool: {
+    updateMany: jest.fn(),
+  },
   $transaction: jest.fn(),
 };
 
@@ -124,6 +127,7 @@ beforeEach(() => {
     }
     return callback;
   });
+  (mockPrisma.anchorVariationPool.updateMany as jest.Mock).mockResolvedValue({ count: 1 });
 });
 
 // ═════════════════════════════════════════════════════════════════════════════
@@ -194,6 +198,61 @@ describe('POST /api/anchors', () => {
 
     expect(res.status).toBe(500);
     expect(res.body.error.code).toBe('CREATE_ERROR');
+  });
+
+  it('consumes the selected pooled variation and releases the rest of the reservation set', async () => {
+    (mockPrisma.user.findUnique as jest.Mock).mockResolvedValue(MOCK_DB_USER);
+    (mockPrisma.anchor.create as jest.Mock).mockResolvedValue(MOCK_ANCHOR);
+    (mockPrisma.user.update as jest.Mock).mockResolvedValue(MOCK_DB_USER);
+    (mockPrisma.anchorVariationPool.updateMany as jest.Mock)
+      .mockResolvedValueOnce({ count: 1 })
+      .mockResolvedValueOnce({ count: 2 });
+
+    const res = await request(buildApp())
+      .post('/api/anchors')
+      .send({
+        ...VALID_CREATE_BODY,
+        enhancedImageUrl: 'http://localhost:8000/variation.png',
+        enhancementMetadata: {
+          styleApplied: 'watercolor',
+          modelUsed: 'gemini-3.1-flash-image-preview',
+          controlMethod: 'lineart',
+          generationTimeMs: 1200,
+          promptUsed: 'prompt',
+          negativePrompt: 'negative',
+          appliedAt: new Date().toISOString(),
+          variationId: 'pool-variation-1',
+          reuseRequestId: 'reuse-request-1',
+        },
+      });
+
+    expect(res.status).toBe(201);
+    expect(mockPrisma.anchorVariationPool.updateMany).toHaveBeenNthCalledWith(
+      1,
+      expect.objectContaining({
+        where: expect.objectContaining({
+          id: 'pool-variation-1',
+          reservedByRequestId: 'reuse-request-1',
+          status: 'reserved',
+        }),
+        data: expect.objectContaining({
+          status: 'consumed',
+          selectedByAnchorId: 'anchor-1',
+        }),
+      })
+    );
+    expect(mockPrisma.anchorVariationPool.updateMany).toHaveBeenNthCalledWith(
+      2,
+      expect.objectContaining({
+        where: expect.objectContaining({
+          reservedByRequestId: 'reuse-request-1',
+          status: 'reserved',
+        }),
+        data: expect.objectContaining({
+          status: 'available',
+        }),
+      })
+    );
   });
 });
 

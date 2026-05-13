@@ -22,7 +22,12 @@ jest.mock('@/stores/anchorStore', () => ({ useAnchorStore: (selector: any) => {
     const state = { anchors: [], addAnchor: jest.fn(), updateAnchor: jest.fn() };
     return selector ? selector(state) : state;
 }}));
-jest.mock('@/stores/authStore', () => ({ useAuthStore: () => ({ user: null, anchorCount: 0, incrementAnchorCount: jest.fn() }) }));
+jest.mock('@/stores/authStore', () => ({
+    useAuthStore: (selector: any) => {
+        const state = { user: null, anchorCount: 0, incrementAnchorCount: jest.fn() };
+        return selector ? selector(state) : state;
+    }
+}));
 jest.mock('@/stores/subscriptionStore', () => ({ useSubscriptionStore: () => ({ getEffectiveTier: () => 'free' }) }));
 
 jest.mock('expo-audio', () => ({

@@ -1,5 +1,6 @@
 import React from 'react';
 import { render, fireEvent, screen, waitFor } from '@testing-library/react-native';
+import { ToastProvider } from '@/components/ToastProvider';
 import { WallpaperPromptScreen } from '../WallpaperPromptScreen';
 
 const mockReplace = jest.fn();
@@ -43,7 +44,11 @@ describe('WallpaperPromptScreen', () => {
   });
 
   it('uses the shared export flow before continuing', async () => {
-    render(<WallpaperPromptScreen />);
+    render(
+      <ToastProvider>
+        <WallpaperPromptScreen />
+      </ToastProvider>
+    );
 
     fireEvent.press(screen.getByText('SET AS WALLPAPER'));
 

@@ -16,6 +16,11 @@ jest.mock('../../middleware/auth', () => ({
 const mockPrisma = {
   user: { findUnique: jest.fn() },
   anchor: { findFirst: jest.fn() },
+  anchorVariationPool: {
+    updateMany: jest.fn(),
+    findMany: jest.fn(),
+    create: jest.fn(),
+  },
 };
 
 jest.mock('../../../lib/prisma', () => ({
@@ -63,6 +68,14 @@ describe('POST /api/ai/enhance-controlnet', () => {
     jest.clearAllMocks();
     mockPrisma.user.findUnique.mockResolvedValue({ id: 'db-user-1' });
     mockPrisma.anchor.findFirst.mockResolvedValue({ id: 'anchor-1' });
+    mockPrisma.anchorVariationPool.updateMany.mockResolvedValue({ count: 0 });
+    mockPrisma.anchorVariationPool.findMany.mockResolvedValue([]);
+    mockPrisma.anchorVariationPool.create.mockImplementation(async ({ data }: any) => ({
+      id: `pool-${data.imageUrl.split('/').pop()}`,
+      ...data,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    }));
   });
 
   it('returns storage URLs exactly as returned by uploadImageFromUrl', async () => {
@@ -108,6 +121,112 @@ describe('POST /api/ai/enhance-controlnet', () => {
     expect(res.body.variationUrls[0]).toBe(
       'http://localhost:8000/uploads/anchors/db-user-1/anchor-1/123e4567-variation-0.png'
     );
+  });
+
+  it('reuses up to three saved variations and generates only the missing count', async () => {
+    const pooledRows = [
+      {
+        id: 'pool-a',
+        fingerprint: 'fp',
+        status: 'reserved',
+        reservedByRequestId: 'reuse-req',
+        imageUrl: 'https://cdn.example.com/pool-a.png',
+        structureMatchScore: 0.91,
+        iouScore: 0.9,
+        edgeOverlapScore: 0.89,
+        structurePreserved: true,
+        classification: 'Structure Preserved',
+        seed: 101,
+        createdAt: new Date('2026-01-01'),
+      },
+      {
+        id: 'pool-b',
+        fingerprint: 'fp',
+        status: 'reserved',
+        reservedByRequestId: 'reuse-req',
+        imageUrl: 'https://cdn.example.com/pool-b.png',
+        structureMatchScore: 0.92,
+        iouScore: 0.91,
+        edgeOverlapScore: 0.9,
+        structurePreserved: true,
+        classification: 'Structure Preserved',
+        seed: 102,
+        createdAt: new Date('2026-01-02'),
+      },
+      {
+        id: 'pool-c',
+        fingerprint: 'fp',
+        status: 'reserved',
+        reservedByRequestId: 'reuse-req',
+        imageUrl: 'https://cdn.example.com/pool-c.png',
+        structureMatchScore: 0.93,
+        iouScore: 0.92,
+        edgeOverlapScore: 0.91,
+        structurePreserved: true,
+        classification: 'Structure Preserved',
+        seed: 103,
+        createdAt: new Date('2026-01-03'),
+      },
+    ];
+
+    mockPrisma.anchorVariationPool.findMany
+      .mockResolvedValueOnce(
+        pooledRows.map(({ reservedByRequestId: _reservedByRequestId, ...row }) => ({
+          ...row,
+          status: 'available',
+          reservedByRequestId: null,
+        }))
+      )
+      .mockResolvedValueOnce(pooledRows);
+
+    mockEnhanceSigilWithAI.mockResolvedValue({
+      variations: [
+        {
+          imageUrl: 'https://upstream.example.com/generated-only-one.png',
+          structureMatch: {
+            combinedScore: 0.95,
+            iouScore: 0.96,
+            edgeOverlapScore: 0.94,
+            structurePreserved: true,
+            classification: 'Structure Preserved',
+          },
+          wasComposited: false,
+          seed: 77,
+        },
+      ],
+      passingCount: 1,
+      bestVariationIndex: 0,
+      model: 'gemini-3.1-flash-image-preview',
+      prompt: 'prompt',
+      negativePrompt: 'negative',
+      generationTime: 2,
+      controlMethod: 'lineart',
+      styleApplied: 'watercolor',
+      structureThreshold: 0.8,
+    });
+    mockUploadImageFromUrl.mockResolvedValue('https://cdn.example.com/generated-only-one.png');
+
+    const res = await request(buildApp()).post('/api/ai/enhance').send({
+      sigilSvg: '<svg><rect/></svg>',
+      styleChoice: 'watercolor',
+      anchorId: 'anchor-1',
+      intentionText: 'I move with precision',
+    });
+
+    expect(res.status).toBe(200);
+    expect(mockEnhanceSigilWithAI).toHaveBeenCalledWith(
+      expect.objectContaining({
+        numberOfVariations: 1,
+      })
+    );
+    expect(res.body.variations).toHaveLength(4);
+    expect(res.body.variations.slice(0, 3).map((variation: any) => variation.variationId)).toEqual([
+      'pool-a',
+      'pool-b',
+      'pool-c',
+    ]);
+    expect(res.body.variations[3].variationId).toBe('pool-generated-only-one.png');
+    expect(res.body.reuseRequestId).toEqual(expect.any(String));
   });
 });
 

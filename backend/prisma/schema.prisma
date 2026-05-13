@@ -157,6 +157,39 @@ model Anchor {
   @@map("anchors")
 }
 
+model AnchorVariationPool {
+  id                   String   @id @default(cuid())
+  fingerprint          String
+  intentionKey         String   @map("intention_key")
+  structureHash        String   @map("structure_hash")
+  styleChoice          String   @map("style_choice")
+  imageUrl             String   @map("image_url")
+  status               String   @default("available") // 'available' | 'reserved' | 'consumed'
+  reservedByRequestId  String?  @map("reserved_by_request_id")
+  reservedAt           DateTime? @map("reserved_at")
+  reservedUntil        DateTime? @map("reserved_until")
+  selectedByAnchorId   String?  @map("selected_by_anchor_id")
+  selectedAt           DateTime? @map("selected_at")
+  sourceProvider       String?  @map("source_provider")
+  sourceModel          String?  @map("source_model")
+  sourcePrompt         String?  @map("source_prompt") @db.Text
+  sourceNegativePrompt String?  @map("source_negative_prompt") @db.Text
+  seed                 Int?
+  structureMatchScore  Float?   @map("structure_match_score")
+  iouScore             Float?   @map("iou_score")
+  edgeOverlapScore     Float?   @map("edge_overlap_score")
+  structurePreserved   Boolean? @map("structure_preserved")
+  classification       String?
+  createdAt            DateTime @default(now()) @map("created_at")
+  updatedAt            DateTime @updatedAt @map("updated_at")
+
+  @@index([fingerprint, status])
+  @@index([reservedByRequestId])
+  @@index([reservedUntil])
+  @@index([selectedByAnchorId])
+  @@map("anchor_variation_pool")
+}
+
 // ============================================================================
 // Activation & Charging
 // ============================================================================

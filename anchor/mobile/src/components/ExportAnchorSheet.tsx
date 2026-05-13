@@ -50,15 +50,17 @@ type Props = {
   onClose: () => void;
   sigilSvg?: string;
   sigilUri?: string;
+  intention?: string;
   onExportComplete?: (uri: string) => void;
 };
 
-export function ExportAnchorSheet({ isVisible, onClose, sigilSvg, sigilUri, onExportComplete }: Props) {
+export function ExportAnchorSheet({ isVisible, onClose, sigilSvg, sigilUri, intention, onExportComplete }: Props) {
   const insets = useSafeAreaInsets();
   const [mounted, setMounted] = useState(isVisible);
   const [format, setFormat] = useState<'square' | 'wallpaper' | 'print'>('square');
   const [resolution, setResolution] = useState<'standard' | 'high'>('high');
   const [transparentBG, setTransparentBG] = useState(true);
+  const [includeIntention, setIncludeIntention] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
 
   const rendererRef = useRef(null);
@@ -95,10 +97,9 @@ export function ExportAnchorSheet({ isVisible, onClose, sigilSvg, sigilUri, onEx
     if (result) {
       onExportComplete?.(result.uri);
       void safeHaptics.notification(Haptics.NotificationFeedbackType.Success);
-      onClose();
       setShowSuccess(true);
     }
-  }, [downloadAnchor, format, onClose, onExportComplete, resolution, transparentBG]);
+  }, [downloadAnchor, format, onExportComplete, resolution, transparentBG, includeIntention]);
 
   const selectFormat = useCallback((f) => {
     setFormat(f);
@@ -112,6 +113,11 @@ export function ExportAnchorSheet({ isVisible, onClose, sigilSvg, sigilUri, onEx
 
   const toggleTransparent = useCallback(() => {
     setTransparentBG((v) => !v);
+    void safeHaptics.selection();
+  }, []);
+
+  const toggleIncludeIntention = useCallback(() => {
+    setIncludeIntention((v) => !v);
     void safeHaptics.selection();
   }, []);
 
@@ -237,6 +243,30 @@ export function ExportAnchorSheet({ isVisible, onClose, sigilSvg, sigilUri, onEx
               </TouchableOpacity>
             </View>
 
+            {/* Include intention toggle */}
+            {!!intention && (
+              <>
+                <View style={styles.toggleRow}>
+                  <View style={{ flex: 1, marginRight: spacing.md }}>
+                    <Text style={styles.toggleLabel}>INCLUDE INTENTION</Text>
+                    <Text style={styles.toggleSub}>Embed your words in the image</Text>
+                  </View>
+                  <TouchableOpacity
+                    style={[styles.toggle, includeIntention && styles.toggleOn]}
+                    onPress={toggleIncludeIntention}
+                    activeOpacity={0.8}
+                    accessibilityRole="switch"
+                    accessibilityState={{ checked: includeIntention }}
+                  >
+                    <View style={[styles.toggleThumb, includeIntention && styles.toggleThumbOn]} />
+                  </TouchableOpacity>
+                </View>
+                {includeIntention && (
+                  <Text style={styles.intentionPreview}>{intention}</Text>
+                )}
+              </>
+            )}
+
             {/* CTA */}
             <TouchableOpacity
               style={[styles.ctaWrapper, isLoading && styles.ctaDisabled]}
@@ -269,6 +299,7 @@ export function ExportAnchorSheet({ isVisible, onClose, sigilSvg, sigilUri, onEx
             transparentBG={transparentBG}
             sigilSvg={sigilSvg}
             sigilUri={sigilUri}
+            intention={includeIntention ? intention : undefined}
           />
         </View>
       </Modal>
@@ -278,7 +309,10 @@ export function ExportAnchorSheet({ isVisible, onClose, sigilSvg, sigilUri, onEx
         visible={showSuccess}
         format={format}
         resolution={resolution}
-        onDismiss={() => setShowSuccess(false)}
+        onDismiss={() => {
+          setShowSuccess(false);
+          onClose();
+        }}
       />
     </>
   );
@@ -458,6 +492,15 @@ const styles = StyleSheet.create({
   toggleThumbOn: {
     backgroundColor: colors.gold,
     alignSelf: 'flex-end',
+  },
+  intentionPreview: {
+    fontFamily: typography.fonts.bodySerifItalic,
+    fontSize: 11,
+    color: 'rgba(212,175,55,0.6)',
+    textAlign: 'center',
+    letterSpacing: 0.4,
+    marginBottom: spacing.md,
+    paddingHorizontal: spacing.sm,
   },
   ctaWrapper: {
     borderRadius: 12,
