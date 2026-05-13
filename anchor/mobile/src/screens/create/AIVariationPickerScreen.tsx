@@ -45,6 +45,8 @@ interface VariationAsset {
   id: string;
   fullUri: string;
   isHeavyInline: boolean;
+  variationId?: string;
+  reusedFromPool?: boolean;
 }
 
 type EnhancedVersionPickerRouteProp = RouteProp<RootStackParamList, 'EnhancedVersionPicker'>;
@@ -93,6 +95,7 @@ export const AIVariationPickerScreen: React.FC = () => {
     provider,
     controlMethod,
     generationTimeMs,
+    reuseRequestId,
   } = route.params;
 
   // Selected variation index (0-3)
@@ -149,6 +152,14 @@ export const AIVariationPickerScreen: React.FC = () => {
         id: `variation_${index}`,
         fullUri,
         isHeavyInline: base64Length > MAX_INLINE_PREVIEW_BYTES,
+        variationId:
+          variation && typeof variation === 'object' && 'variationId' in variation
+            ? String((variation as any).variationId ?? '')
+            : undefined,
+        reusedFromPool:
+          variation && typeof variation === 'object' && 'reusedFromPool' in variation
+            ? Boolean((variation as any).reusedFromPool)
+            : false,
       };
     });
   }, [variations]);
@@ -205,6 +216,9 @@ export const AIVariationPickerScreen: React.FC = () => {
         promptUsed: prompt || '',
         negativePrompt: negativePrompt || '',
         appliedAt: new Date(),
+        variationId: selectedVariation.variationId || undefined,
+        reuseRequestId: reuseRequestId || undefined,
+        reusedFromPool: selectedVariation.reusedFromPool || false,
       };
 
       // Store heavy inline images in temp store to avoid nav param size limits

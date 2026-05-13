@@ -43,6 +43,11 @@ describe('IntentionInputScreen', () => {
         mockNavigate.mockClear();
     });
 
+    afterEach(() => {
+        jest.clearAllTimers();
+        jest.useRealTimers();
+    });
+
     it('stub: renders correctly', () => {
         render(<IntentionInputScreen />);
         expect(screen.getByText('What are you anchoring right now?')).toBeTruthy();

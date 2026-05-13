@@ -1,4 +1,5 @@
 import React from 'react';
+import { Animated } from 'react-native';
 import { render, screen } from '@testing-library/react-native';
 import LetterDistillationScreen from '../LetterDistillationScreen';
 
@@ -51,6 +52,22 @@ describe('LetterDistillationScreen', () => {
     mockAuthAnchorCount = 0;
     mockLocalAnchorCount = 0;
     mockTotalAnchorsCreated = 0;
+    jest.useFakeTimers();
+    const animation = () => ({
+      start: jest.fn((cb?: () => void) => cb?.()),
+      stop: jest.fn(),
+    });
+    jest.spyOn(Animated, 'timing').mockReturnValue(animation() as any);
+    jest.spyOn(Animated, 'sequence').mockReturnValue(animation() as any);
+    jest.spyOn(Animated, 'parallel').mockReturnValue(animation() as any);
+    jest.spyOn(Animated, 'loop').mockReturnValue(animation() as any);
+  });
+
+  afterEach(() => {
+    jest.runOnlyPendingTimers();
+    jest.clearAllTimers();
+    jest.restoreAllMocks();
+    jest.useRealTimers();
   });
 
   it('shows skip for returning users with locally stored anchors', () => {

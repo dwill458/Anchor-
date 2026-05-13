@@ -364,6 +364,15 @@ export interface EnhancementMetadata {
 
   /** When AI enhancement was applied */
   appliedAt: Date;
+
+  /** Reserved pool variation selected by the user, if applicable */
+  variationId?: string;
+
+  /** Reservation group returned by the AI enhancement endpoint */
+  reuseRequestId?: string;
+
+  /** Whether this option came from the saved variation pool */
+  reusedFromPool?: boolean;
 }
 
 /**
@@ -388,6 +397,7 @@ export type AIStyle =
   | 'celestial_grid';
 
 export interface GeneratedVariation {
+  variationId?: string;
   imageUrl: string;
   structureMatchScore?: number;
   iouScore?: number;
@@ -396,6 +406,7 @@ export interface GeneratedVariation {
   classification?: string;
   wasComposited?: boolean;
   seed?: number;
+  reusedFromPool?: boolean;
 }
 
 /**
@@ -583,6 +594,7 @@ export type RootStackParamList = {
     provider?: string;
     controlMethod?: string;
     generationTimeMs?: number;
+    reuseRequestId?: string;
   };
 
   /** Step 7d: Anchor Reveal (Show selected anchor before mantra) */

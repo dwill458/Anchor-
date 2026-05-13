@@ -228,6 +228,33 @@ function validate<T>(schema: z.ZodSchema<T>, data: unknown): T {
   return result.data;
 }
 
+function extractVariationReservation(metadata: unknown): {
+  variationId: string;
+  reuseRequestId: string;
+} | null {
+  if (!metadata || typeof metadata !== 'object') {
+    return null;
+  }
+
+  const variationId =
+    'variationId' in metadata && typeof metadata.variationId === 'string'
+      ? metadata.variationId.trim()
+      : '';
+  const reuseRequestId =
+    'reuseRequestId' in metadata && typeof metadata.reuseRequestId === 'string'
+      ? metadata.reuseRequestId.trim()
+      : '';
+
+  if (!variationId || !reuseRequestId) {
+    return null;
+  }
+
+  return {
+    variationId,
+    reuseRequestId,
+  };
+}
+
 // All anchor routes require authentication
 router.use(authMiddleware);
 
@@ -387,46 +414,97 @@ router.post('/', async (req: AuthRequest, res: Response, next: NextFunction) => 
     } = validate(CreateAnchorExtendedSchema, req.body);
 
     const userId = req.dbUser!.id;
+    const variationReservation = extractVariationReservation(enhancementMetadata);
 
-    // Create anchor with new architecture fields
-    const anchor = await prisma.anchor.create({
-      data: {
-        userId,
-        intentionText,
-        category,
-        distilledLetters,
-        planetaryTier: planetaryTier || 'saturn',
-        classifierVersion: classifierVersion || 1,
-        classifierMeta: classifierMeta ?? Prisma.JsonNull,
+    const anchor = await prisma.$transaction(async tx => {
+      // Create anchor with new architecture fields
+      const createdAnchor = await tx.anchor.create({
+        data: {
+          userId,
+          intentionText,
+          category,
+          distilledLetters,
+          planetaryTier: planetaryTier || 'saturn',
+          classifierVersion: classifierVersion || 1,
+          classifierMeta: classifierMeta ?? Prisma.JsonNull,
 
-        // Structure lineage
-        baseSigilSvg,
-        reinforcedSigilSvg: reinforcedSigilSvg || null,
-        enhancedImageUrl: enhancedImageUrl || null,
+          // Structure lineage
+          baseSigilSvg,
+          reinforcedSigilSvg: reinforcedSigilSvg || null,
+          enhancedImageUrl: enhancedImageUrl || null,
 
-        // Creation path metadata
-        structureVariant: structureVariant || 'balanced',
-        reinforcementMetadata: reinforcementMetadata ?? Prisma.JsonNull,
-        enhancementMetadata: enhancementMetadata ?? Prisma.JsonNull,
+          // Creation path metadata
+          structureVariant: structureVariant || 'balanced',
+          reinforcementMetadata: reinforcementMetadata ?? Prisma.JsonNull,
+          enhancementMetadata: enhancementMetadata ?? Prisma.JsonNull,
 
-        // Mantra
-        mantraText: mantraText || null,
-        mantraPronunciation: mantraPronunciation || null,
-        mantraAudioUrl: mantraAudioUrl || null,
+          // Mantra
+          mantraText: mantraText || null,
+          mantraPronunciation: mantraPronunciation || null,
+          mantraAudioUrl: mantraAudioUrl || null,
 
-        // Legacy fields (for backward compatibility)
-        generationMethod: reinforcedSigilSvg ? 'manual' : 'automated',
-      },
-    });
-
-    // Update user stats
-    await prisma.user.update({
-      where: { id: userId },
-      data: {
-        totalAnchorsCreated: {
-          increment: 1,
+          // Legacy fields (for backward compatibility)
+          generationMethod: reinforcedSigilSvg ? 'manual' : 'automated',
         },
-      },
+      });
+
+      // Update user stats
+      await tx.user.update({
+        where: { id: userId },
+        data: {
+          totalAnchorsCreated: {
+            increment: 1,
+          },
+        },
+      });
+
+      if (variationReservation) {
+        const now = new Date();
+        const consumedUpdate = await tx.anchorVariationPool.updateMany({
+          where: {
+            id: variationReservation.variationId,
+            reservedByRequestId: variationReservation.reuseRequestId,
+            status: 'reserved',
+          },
+          data: {
+            status: 'consumed',
+            reservedByRequestId: null,
+            reservedAt: null,
+            reservedUntil: null,
+            selectedByAnchorId: createdAnchor.id,
+            selectedAt: now,
+          },
+        });
+
+        await tx.anchorVariationPool.updateMany({
+          where: {
+            reservedByRequestId: variationReservation.reuseRequestId,
+            status: 'reserved',
+            NOT: {
+              id: variationReservation.variationId,
+            },
+          },
+          data: {
+            status: 'available',
+            reservedByRequestId: null,
+            reservedAt: null,
+            reservedUntil: null,
+          },
+        });
+
+        if (consumedUpdate.count === 0) {
+          logger.warn(
+            '[Anchors] Variation reservation could not be consumed during anchor creation',
+            {
+              anchorId: createdAnchor.id,
+              variationId: variationReservation.variationId,
+              reuseRequestId: variationReservation.reuseRequestId,
+            }
+          );
+        }
+      }
+
+      return createdAnchor;
     });
 
     res.status(201).json({
