@@ -605,7 +605,8 @@ async function handleEnhance(req: AuthRequest, res: Response): Promise<void> {
         logger.warn('[AI Enhance] Failed to insert generated variation into reuse pool', {
           anchorId,
           imageUrl: variation.imageUrl,
-          error: poolInsertError instanceof Error ? poolInsertError.message : String(poolInsertError),
+          error:
+            poolInsertError instanceof Error ? poolInsertError.message : String(poolInsertError),
         });
         pooledGeneratedVariations.push(variation);
       }

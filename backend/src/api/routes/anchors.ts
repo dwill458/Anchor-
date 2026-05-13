@@ -228,12 +228,10 @@ function validate<T>(schema: z.ZodSchema<T>, data: unknown): T {
   return result.data;
 }
 
-function extractVariationReservation(metadata: unknown):
-  | {
-      variationId: string;
-      reuseRequestId: string;
-    }
-  | null {
+function extractVariationReservation(metadata: unknown): {
+  variationId: string;
+  reuseRequestId: string;
+} | null {
   if (!metadata || typeof metadata !== 'object') {
     return null;
   }
@@ -418,7 +416,7 @@ router.post('/', async (req: AuthRequest, res: Response, next: NextFunction) => 
     const userId = req.dbUser!.id;
     const variationReservation = extractVariationReservation(enhancementMetadata);
 
-    const anchor = await prisma.$transaction(async (tx) => {
+    const anchor = await prisma.$transaction(async tx => {
       // Create anchor with new architecture fields
       const createdAnchor = await tx.anchor.create({
         data: {
@@ -495,11 +493,14 @@ router.post('/', async (req: AuthRequest, res: Response, next: NextFunction) => 
         });
 
         if (consumedUpdate.count === 0) {
-          logger.warn('[Anchors] Variation reservation could not be consumed during anchor creation', {
-            anchorId: createdAnchor.id,
-            variationId: variationReservation.variationId,
-            reuseRequestId: variationReservation.reuseRequestId,
-          });
+          logger.warn(
+            '[Anchors] Variation reservation could not be consumed during anchor creation',
+            {
+              anchorId: createdAnchor.id,
+              variationId: variationReservation.variationId,
+              reuseRequestId: variationReservation.reuseRequestId,
+            }
+          );
         }
       }
 
