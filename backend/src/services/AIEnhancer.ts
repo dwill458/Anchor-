@@ -369,6 +369,7 @@ export interface ControlNetEnhancementRequest {
   validateStructure?: boolean; // Enable structure validation (default: true)
   autoComposite?: boolean; // Auto-composite if structure drifts (default: false)
   tier?: 'draft' | 'premium' | 'pro_upgrade'; // Quality tier for Gemini (default: 'premium')
+  numberOfVariations?: number; // Override for partial pool refill (default derived from tier)
 }
 
 /**
@@ -564,8 +565,11 @@ export async function enhanceSigilWithAI(
         model: 'gemini-3-pro-image-preview',
       });
 
-      // premium = 4 variations; pro_upgrade (slower model) and draft = 2 variations
-      const numberOfVariations = tier === 'premium' ? 4 : 2;
+      // premium = 4 variations by default; reuse-pool callers can request fewer.
+      const numberOfVariations = Math.max(
+        1,
+        request.numberOfVariations ?? (tier === 'premium' ? 4 : 2)
+      );
 
       const result = await geminiService.enhanceSigil({
         baseSigilSvg: request.sigilSvg,
@@ -717,12 +721,17 @@ export async function enhanceSigilWithControlNet(
         hasSymbols: symbolInstructions.length > 0,
       });
 
-      const mockUrls = [
-        `https://api.dicebear.com/7.x/shapes/png?seed=${request.userId}-${request.styleChoice}-1&backgroundColor=1a1a1d&shape1Color=d4af37`,
-        `https://api.dicebear.com/7.x/shapes/png?seed=${request.userId}-${request.styleChoice}-2&backgroundColor=0f1419&shape1Color=cd7f32`,
-        `https://api.dicebear.com/7.x/shapes/png?seed=${request.userId}-${request.styleChoice}-3&backgroundColor=3e2c5b&shape1Color=f5f5dc`,
-        `https://api.dicebear.com/7.x/shapes/png?seed=${request.userId}-${request.styleChoice}-4&backgroundColor=1a1a1d&shape1Color=c0c0c0`,
-      ];
+      const numVariations = Math.max(1, request.numberOfVariations ?? 4);
+      const mockPalette = [
+        ['1a1a1d', 'd4af37'],
+        ['0f1419', 'cd7f32'],
+        ['3e2c5b', 'f5f5dc'],
+        ['1a1a1d', 'c0c0c0'],
+      ] as const;
+      const mockUrls = Array.from({ length: numVariations }, (_, i) => {
+        const [backgroundColor, shapeColor] = mockPalette[i % mockPalette.length];
+        return `https://api.dicebear.com/7.x/shapes/png?seed=${request.userId}-${request.styleChoice}-${i + 1}&backgroundColor=${backgroundColor}&shape1Color=${shapeColor}`;
+      });
 
       // Mock structure scores (all passing in mock mode)
       const mockVariations: VariationResult[] = mockUrls.map((url, i) => ({
@@ -748,7 +757,7 @@ export async function enhanceSigilWithControlNet(
         styleApplied: request.styleChoice,
         generationTime: 5,
         structureThreshold: STRUCTURE_THRESHOLDS.preserved,
-        passingCount: 4,
+        passingCount: mockVariations.length,
         bestVariationIndex: 0,
       };
     }
@@ -807,7 +816,7 @@ export async function enhanceSigilWithControlNet(
     );
 
     const rawResults: { imageUrl: string; seed: number; index: number }[] = [];
-    const numVariations = 2; // Reduced from 4 to 2 for speed (can increase with higher credits)
+    const numVariations = Math.max(1, request.numberOfVariations ?? 2);
 
     for (let i = 0; i < numVariations; i++) {
       const variationStart = Date.now();

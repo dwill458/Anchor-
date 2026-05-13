@@ -744,6 +744,7 @@ export default function AIGeneratingScreen() {
           controlMethod: result.controlMethod || '',
           generationTimeMs:
             typeof result.generationTime === 'number' ? result.generationTime * 1000 : 0,
+          reuseRequestId: result.reuseRequestId || '',
         });
       }, 500);
     } catch (error) {

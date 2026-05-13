@@ -8,6 +8,7 @@
  */
 
 import express, { Response } from 'express';
+import { createHash, randomUUID } from 'crypto';
 import rateLimit, { ipKeyGenerator } from 'express-rate-limit';
 import { z } from 'zod';
 import {
@@ -36,6 +37,9 @@ import { RedisStore } from 'rate-limit-redis';
 import { redisClient } from '../../lib/redis';
 
 const router = express.Router();
+const TOTAL_VARIATION_OPTIONS = 4;
+const MAX_REUSED_VARIATIONS = 3;
+const RESERVATION_TTL_MINUTES = 30;
 
 const aiHourlyLimiterStore =
   process.env.NODE_ENV === 'test' || !process.env.REDIS_URL
@@ -148,6 +152,47 @@ function validateOrRespond<T>(schema: z.ZodSchema<T>, data: unknown, res: Respon
   }
   return result.data;
 }
+
+function normalizeIntentionKey(intentionText?: string): string {
+  return (intentionText || '')
+    .toLowerCase()
+    .trim()
+    .replace(/[^a-z0-9]+/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function hashSigilSvg(sigilSvg: string): string {
+  return createHash('sha256').update(sigilSvg).digest('hex');
+}
+
+function buildVariationFingerprint(input: {
+  sigilSvg: string;
+  intentionText?: string;
+  styleChoice: string;
+}): { fingerprint: string; intentionKey: string; structureHash: string } {
+  const intentionKey = normalizeIntentionKey(input.intentionText);
+  const structureHash = hashSigilSvg(input.sigilSvg);
+  const fingerprint = `${input.styleChoice}::${structureHash}::${intentionKey}`;
+  return { fingerprint, intentionKey, structureHash };
+}
+
+function buildReservationExpiry(): Date {
+  return new Date(Date.now() + RESERVATION_TTL_MINUTES * 60 * 1000);
+}
+
+type ClientVariation = {
+  variationId: string;
+  imageUrl: string;
+  structureMatchScore: number;
+  iouScore: number;
+  edgeOverlapScore: number;
+  structurePreserved: boolean;
+  classification: string;
+  wasComposited: boolean;
+  seed: number;
+  reusedFromPool: boolean;
+};
 
 /**
  * POST /api/ai/enhance
@@ -318,6 +363,92 @@ async function handleEnhance(req: AuthRequest, res: Response): Promise<void> {
     });
 
     const requestBaseUrl = `${req.protocol}://${req.get('host')}`;
+    const reuseRequestId = randomUUID();
+    const { fingerprint, intentionKey, structureHash } = buildVariationFingerprint({
+      sigilSvg,
+      intentionText,
+      styleChoice,
+    });
+
+    let reservedPoolVariations: ClientVariation[] = [];
+    try {
+      await prisma.anchorVariationPool.updateMany({
+        where: {
+          status: 'reserved',
+          reservedUntil: { lt: new Date() },
+        },
+        data: {
+          status: 'available',
+          reservedByRequestId: null,
+          reservedAt: null,
+          reservedUntil: null,
+        },
+      });
+
+      const poolCandidates = await prisma.anchorVariationPool.findMany({
+        where: {
+          fingerprint,
+          status: 'available',
+        },
+        orderBy: {
+          createdAt: 'asc',
+        },
+        take: MAX_REUSED_VARIATIONS,
+      });
+
+      if (poolCandidates.length > 0) {
+        const candidateIds = poolCandidates.map(variation => variation.id);
+        await prisma.anchorVariationPool.updateMany({
+          where: {
+            id: { in: candidateIds },
+            status: 'available',
+          },
+          data: {
+            status: 'reserved',
+            reservedByRequestId: reuseRequestId,
+            reservedAt: new Date(),
+            reservedUntil: buildReservationExpiry(),
+          },
+        });
+
+        const reservedPoolRows = await prisma.anchorVariationPool.findMany({
+          where: {
+            id: { in: candidateIds },
+            status: 'reserved',
+            reservedByRequestId: reuseRequestId,
+          },
+        });
+
+        const reservedById = new Map(reservedPoolRows.map(variation => [variation.id, variation]));
+        reservedPoolVariations = candidateIds
+          .map(id => reservedById.get(id))
+          .filter((variation): variation is NonNullable<typeof variation> => Boolean(variation))
+          .map(variation => ({
+            variationId: variation.id,
+            imageUrl: variation.imageUrl,
+            structureMatchScore: variation.structureMatchScore ?? 0,
+            iouScore: variation.iouScore ?? 0,
+            edgeOverlapScore: variation.edgeOverlapScore ?? 0,
+            structurePreserved: variation.structurePreserved ?? false,
+            classification: variation.classification ?? 'Reused',
+            wasComposited: false,
+            seed: variation.seed ?? 0,
+            reusedFromPool: true,
+          }));
+      }
+    } catch (poolError) {
+      logger.warn('[AI Enhance] Variation pool lookup failed; continuing with fresh generation', {
+        anchorId,
+        style: styleChoice,
+        error: poolError instanceof Error ? poolError.message : String(poolError),
+      });
+      reservedPoolVariations = [];
+    }
+
+    const numberOfVariationsToGenerate = Math.max(
+      1,
+      TOTAL_VARIATION_OPTIONS - reservedPoolVariations.length
+    );
 
     // --- AI Generation (with timeout) ---
     // Use enhanceSigilWithAI for automatic provider selection (Google → Replicate fallback)
@@ -336,6 +467,7 @@ async function handleEnhance(req: AuthRequest, res: Response): Promise<void> {
               validateStructure: validateStructure !== false,
               autoComposite: autoComposite === true,
               tier: effectiveTier,
+              numberOfVariations: numberOfVariationsToGenerate,
             })
           : enhanceSigilWithControlNet({
               sigilSvg,
@@ -345,6 +477,7 @@ async function handleEnhance(req: AuthRequest, res: Response): Promise<void> {
               validateStructure: validateStructure !== false,
               autoComposite: autoComposite === true,
               tier: effectiveTier,
+              numberOfVariations: numberOfVariationsToGenerate,
             }),
         AI_GENERATION_TIMEOUT_MS,
         'AI image generation'
@@ -395,16 +528,7 @@ async function handleEnhance(req: AuthRequest, res: Response): Promise<void> {
     });
 
     // --- Upload variations to R2 (per-variation error handling) ---
-    const uploadedVariations: Array<{
-      imageUrl: string;
-      structureMatchScore: number;
-      iouScore: number;
-      edgeOverlapScore: number;
-      structurePreserved: boolean;
-      classification: string;
-      wasComposited: boolean;
-      seed: number;
-    }> = [];
+    const uploadedVariations: ClientVariation[] = [];
 
     for (let i = 0; i < enhancementResult.variations.length; i++) {
       const variation = enhancementResult.variations[i];
@@ -425,6 +549,7 @@ async function handleEnhance(req: AuthRequest, res: Response): Promise<void> {
       }
 
       uploadedVariations.push({
+        variationId: '',
         imageUrl: permanentUrl,
         structureMatchScore: variation.structureMatch.combinedScore,
         iouScore: variation.structureMatch.iouScore,
@@ -433,26 +558,10 @@ async function handleEnhance(req: AuthRequest, res: Response): Promise<void> {
         classification: variation.structureMatch.classification,
         wasComposited: variation.wasComposited,
         seed: variation.seed,
+        reusedFromPool: false,
       });
     }
 
-    if (uploadedVariations.length === 0) {
-      logger.error('[AI Enhance] All variation uploads failed', { anchorId, style: styleChoice });
-      res.status(502).json({
-        error: 'Image storage failed',
-        message: 'AI images were generated but could not be saved. Please try again.',
-      });
-      return;
-    }
-
-    // Recalculate bestVariationIndex based on successfully uploaded variations
-    const bestVariationIndex = uploadedVariations.reduce(
-      (best, v, idx) =>
-        v.structureMatchScore > uploadedVariations[best].structureMatchScore ? idx : best,
-      0
-    );
-
-    // Determine which provider was actually used
     const modelLower = enhancementResult.model.toLowerCase();
     const usedProvider =
       modelLower.includes('gemini') || modelLower.includes('imagen')
@@ -461,12 +570,72 @@ async function handleEnhance(req: AuthRequest, res: Response): Promise<void> {
           ? 'replicate'
           : 'unknown';
 
+    const pooledGeneratedVariations: ClientVariation[] = [];
+    for (const variation of uploadedVariations) {
+      try {
+        const pooledVariation = await prisma.anchorVariationPool.create({
+          data: {
+            fingerprint,
+            intentionKey,
+            structureHash,
+            styleChoice,
+            imageUrl: variation.imageUrl,
+            status: 'reserved',
+            reservedByRequestId: reuseRequestId,
+            reservedAt: new Date(),
+            reservedUntil: buildReservationExpiry(),
+            sourceProvider: usedProvider,
+            sourceModel: enhancementResult.model,
+            sourcePrompt: enhancementResult.prompt,
+            sourceNegativePrompt: enhancementResult.negativePrompt,
+            seed: variation.seed,
+            structureMatchScore: variation.structureMatchScore,
+            iouScore: variation.iouScore,
+            edgeOverlapScore: variation.edgeOverlapScore,
+            structurePreserved: variation.structurePreserved,
+            classification: variation.classification,
+          },
+        });
+
+        pooledGeneratedVariations.push({
+          ...variation,
+          variationId: pooledVariation.id,
+        });
+      } catch (poolInsertError) {
+        logger.warn('[AI Enhance] Failed to insert generated variation into reuse pool', {
+          anchorId,
+          imageUrl: variation.imageUrl,
+          error: poolInsertError instanceof Error ? poolInsertError.message : String(poolInsertError),
+        });
+        pooledGeneratedVariations.push(variation);
+      }
+    }
+
+    const responseVariations = [...reservedPoolVariations, ...pooledGeneratedVariations];
+
+    if (responseVariations.length === 0) {
+      logger.error('[AI Enhance] All variation uploads failed', { anchorId, style: styleChoice });
+      res.status(502).json({
+        error: 'Image storage failed',
+        message: 'AI images were generated but could not be saved. Please try again.',
+      });
+      return;
+    }
+
+    // Recalculate bestVariationIndex based on successfully prepared variations
+    const bestVariationIndex = responseVariations.reduce(
+      (best, v, idx) =>
+        v.structureMatchScore > responseVariations[best].structureMatchScore ? idx : best,
+      0
+    );
+    const passingCount = responseVariations.filter(v => v.structurePreserved).length;
+
     res.json({
       success: true,
       // New format with structure scores
-      variations: uploadedVariations,
+      variations: responseVariations,
       // Legacy format for backward compatibility
-      variationUrls: uploadedVariations.map(v => v.imageUrl),
+      variationUrls: responseVariations.map(v => v.imageUrl),
       // Generation metadata
       prompt: enhancementResult.prompt,
       negativePrompt: enhancementResult.negativePrompt,
@@ -476,11 +645,12 @@ async function handleEnhance(req: AuthRequest, res: Response): Promise<void> {
       styleApplied: enhancementResult.styleApplied,
       // Provider information
       provider: usedProvider,
+      reuseRequestId,
       // Structure validation summary
       structureThreshold: enhancementResult.structureThreshold,
-      passingCount: enhancementResult.passingCount,
+      passingCount,
       bestVariationIndex,
-      allPreserved: enhancementResult.passingCount === enhancementResult.variations.length,
+      allPreserved: passingCount === responseVariations.length,
     });
   } catch (error) {
     logger.error('[AI Enhance] Unexpected enhancement error', error);
