@@ -73,6 +73,7 @@ describe('authStore', () => {
       profileLastFetched: null,
       wallpaperPromptSeen: false,
       isOfflineMode: false,
+      isGuest: false,
     });
     useAnchorStore.setState({
       anchors: [],
