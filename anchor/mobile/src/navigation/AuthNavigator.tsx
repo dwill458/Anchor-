@@ -4,12 +4,6 @@
  * Authentication flow: Login → SignUp ↔ Onboarding
  */
 
-/**
- * Anchor App - Auth Navigator
- *
- * Authentication flow: Login → SignUp ↔ Onboarding
- */
-
 import React from 'react';
 import { createStackNavigator } from '@react-navigation/stack';
 import { LoginScreen, SignUpScreen, OnboardingScreen } from '../screens/auth';
