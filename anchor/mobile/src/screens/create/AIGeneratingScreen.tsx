@@ -81,6 +81,7 @@ export default function AIGeneratingScreen() {
   const navigation = useNavigation<AIGeneratingNavigationProp>();
   const user = useAuthStore((state) => state.user);
   const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
+  const anchorCount = useAuthStore((state) => state.anchorCount);
   // All paid users get Flash (Nano Banana 2) by default.
   // Pro model escalated server-side on regeneration (attempt 2+).
   const { hasActiveEntitlement } = useTrialStatus();
@@ -609,17 +610,48 @@ export default function AIGeneratingScreen() {
     }
 
     if (!isAuthenticated) {
-      Alert.alert('Account Required', 'Sign in before generating AI artwork.', [
-        {
-          text: 'Sign In',
-          onPress: () => navigation.replace('FirstAnchorAccountGate'),
-        },
-        {
-          text: 'Go Back',
-          style: 'cancel',
-          onPress: () => navigation.goBack(),
-        },
-      ]);
+      if (anchorCount === 0) {
+        Alert.alert(
+          'Continue Without AI',
+          'AI refinement needs an account right now. You can still finish your first anchor with the forged symbol.',
+          [
+            {
+              text: 'Use Forged Anchor',
+              onPress: () =>
+                navigation.replace('AnchorReveal', {
+                  intentionText,
+                  category,
+                  distilledLetters,
+                  baseSigilSvg,
+                  reinforcedSigilSvg,
+                  structureVariant,
+                  reinforcementMetadata,
+                }),
+            },
+            {
+              text: 'Sign In',
+              onPress: () => navigation.replace('FirstAnchorAccountGate'),
+            },
+            {
+              text: 'Go Back',
+              style: 'cancel',
+              onPress: () => navigation.goBack(),
+            },
+          ]
+        );
+      } else {
+        Alert.alert('Account Required', 'Sign in before generating AI artwork.', [
+          {
+            text: 'Sign In',
+            onPress: () => navigation.replace('FirstAnchorAccountGate'),
+          },
+          {
+            text: 'Go Back',
+            style: 'cancel',
+            onPress: () => navigation.goBack(),
+          },
+        ]);
+      }
       return;
     }
 
@@ -794,6 +826,7 @@ export default function AIGeneratingScreen() {
     }
   }, [
     API_URL,
+    anchorCount,
     baseSigilSvg,
     category,
     clearGenerationResources,

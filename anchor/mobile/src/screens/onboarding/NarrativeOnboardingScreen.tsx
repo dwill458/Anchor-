@@ -13,8 +13,8 @@ import {
   TouchableOpacity,
   Animated,
   Easing,
-  Dimensions,
   Platform,
+  useWindowDimensions,
 } from 'react-native';
 import { BlurView } from 'expo-blur';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -30,13 +30,6 @@ import { colors, typography } from '@/theme';
 const anchorLogoOfficial = require('../../../assets/anchor-gold.png') as number;
 
 type Props = NativeStackScreenProps<OnboardingStackParamList, 'Welcome'>;
-
-const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
-// Phones shorter than ~810dp logical height (e.g. Moto One Ace ~772dp) need a
-// smaller visual block so the headline + body text aren't pushed off-screen.
-const SMALL_SCREEN = SCREEN_HEIGHT < 810;
-const VISUAL_SCALE = SMALL_SCREEN ? Math.max(0.72, (SCREEN_HEIGHT * 0.34) / 320) : 1;
-const VISUAL_AREA_HEIGHT = SMALL_SCREEN ? Math.round(SCREEN_HEIGHT * 0.40) : 370;
 
 const EASE_IN_OUT = Easing.inOut(Easing.ease);
 const LABEL_FONT_SIZE = typography.fontSize.xs - 2;
@@ -456,6 +449,12 @@ const Ornament: React.FC = () => (
 
 export const NarrativeOnboardingScreen: React.FC<Props> = ({ navigation }) => {
   const { completeOnboarding, setShouldRedirectToCreation } = useAuthStore();
+  const { width, height } = useWindowDimensions();
+  const isShortScreen = height < 810;
+  const isCompactLayout = isShortScreen || width < 390;
+  const contentWidth = Math.min(width - (isCompactLayout ? 48 : 72), 360);
+  const visualScale = isShortScreen ? Math.max(0.72, (height * 0.34) / 320) : 1;
+  const visualAreaHeight = isShortScreen ? Math.round(height * 0.40) : 370;
 
   const [currentSlide, setCurrentSlide] = useState(0);
   const slideOpacity = useRef(new Animated.Value(1)).current;
@@ -498,11 +497,11 @@ export const NarrativeOnboardingScreen: React.FC<Props> = ({ navigation }) => {
   const handleSkip = () => goToSlide(TOTAL - 1);
 
   const renderVisual = (slide: OnboardingSlide) => {
-    const scaledSize = Math.round(VISUAL_SCALE * 320);
+    const scaledSize = Math.round(visualScale * 320);
     const wrapSmall = (child: React.ReactNode): React.ReactNode =>
-      SMALL_SCREEN ? (
+      isShortScreen ? (
         <View style={{ width: scaledSize, height: scaledSize, alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
-          <View style={{ transform: [{ scale: VISUAL_SCALE }] }}>
+          <View style={{ transform: [{ scale: visualScale }] }}>
             {child}
           </View>
         </View>
@@ -513,7 +512,7 @@ export const NarrativeOnboardingScreen: React.FC<Props> = ({ navigation }) => {
       case 'signal':    return wrapSmall(<SignalVisual />);
       case 'forge':     return <ForgeDemo isActive={currentSlide === 2} />;
       case 'usecases':  return (
-        <View style={styles.useCasesWrapper}>
+        <View style={[styles.useCasesWrapper, { width: contentWidth }]}>
           {USE_CASES.map((item, i) => (
             <UseCaseCard
               key={item.label}
@@ -557,22 +556,41 @@ export const NarrativeOnboardingScreen: React.FC<Props> = ({ navigation }) => {
         </TouchableOpacity>
       )}
 
-      <Animated.View style={[styles.slideContent, { opacity: slideOpacity }]}>
-        <View style={styles.visualArea}>
+      <Animated.View
+        style={[
+          styles.slideContent,
+          isShortScreen && styles.slideContentShort,
+          { opacity: slideOpacity },
+        ]}
+      >
+        <View style={[styles.visualArea, { height: visualAreaHeight }]}>
           {renderVisual(slide)}
         </View>
 
-        <View style={styles.textArea}>
+        <View style={[styles.textArea, isCompactLayout && styles.textAreaCompact]}>
           <Ornament />
           <Text style={styles.label}>{slide.label}</Text>
-          <Text style={styles.headline}>
+          <Text
+            style={[
+              styles.headline,
+              isCompactLayout && styles.headlineCompact,
+            ]}
+          >
             {renderHeadline(slide.headline)}
           </Text>
-          <Text style={styles.body}>{slide.body}</Text>
+          <Text style={[styles.body, isCompactLayout && styles.bodyCompact]}>
+            {slide.body}
+          </Text>
         </View>
       </Animated.View>
 
-      <View style={styles.footer}>
+      <View
+        style={[
+          styles.footer,
+          isShortScreen && styles.footerShort,
+          isCompactLayout && styles.footerCompact,
+        ]}
+      >
         <View style={styles.dots}>
           {SLIDES.map((_, i) => (
             <TouchableOpacity
@@ -646,18 +664,24 @@ const styles = StyleSheet.create({
   signInBtnText: { fontFamily: typography.fonts.heading, fontSize: MICRO_FONT_SIZE + 1, letterSpacing: 1.8, color: colors.gold },
   skipBtn: { position: 'absolute', top: 54, right: 20, zIndex: 20, flexDirection: 'row', alignItems: 'center', paddingHorizontal: 10, paddingVertical: 5, borderRadius: 16, borderWidth: 1, borderColor: withAlpha(colors.bone, 0.18), backgroundColor: withAlpha(colors.bone, 0.05) },
   skipText: { fontFamily: typography.fonts.heading, fontSize: MICRO_FONT_SIZE + 1, letterSpacing: 2, color: colors.silver },
-  slideContent: { flex: 1, paddingTop: SMALL_SCREEN ? 28 : 44 },
-  visualArea: { height: VISUAL_AREA_HEIGHT, alignItems: 'center', justifyContent: 'center' },
+  slideContent: { flex: 1, paddingTop: 44 },
+  slideContentShort: { paddingTop: 28 },
+  visualArea: { height: 370, alignItems: 'center', justifyContent: 'center' },
   textArea: { flex: 1, paddingHorizontal: 36 },
-  useCasesWrapper: { width: SCREEN_WIDTH - 72, gap: 10 },
+  textAreaCompact: { paddingHorizontal: 24 },
+  useCasesWrapper: { gap: 10, alignSelf: 'center' },
   ornament: { flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 10 },
   ornamentLine: { flex: 1, borderBottomWidth: 1, borderBottomColor: withAlpha(colors.gold, 0.3) },
   ornamentDiamond: { width: 5, height: 5, backgroundColor: colors.gold, opacity: 0.6, transform: [{ rotate: '45deg' }] },
   label: { fontFamily: typography.fonts.heading, fontSize: LABEL_FONT_SIZE, letterSpacing: 2.5, color: colors.gold, textTransform: 'uppercase', marginBottom: 14, opacity: 0.8 },
   headline: { fontFamily: typography.fonts.headingSemiBold, fontSize: typography.sizes.h2, color: colors.bone, lineHeight: typography.lineHeights.h2, marginBottom: 18, letterSpacing: -0.2 },
+  headlineCompact: { fontSize: 28, lineHeight: 34, marginBottom: 14 },
   headlineGold: { color: colors.gold, fontFamily: typography.fonts.headingSemiBold },
   body: { fontFamily: typography.fontFamily.sans, fontSize: BODY_FONT_SIZE, color: colors.silver, lineHeight: 27, letterSpacing: 0.2 },
-  footer: { paddingHorizontal: 36, paddingBottom: Platform.OS === 'android' ? (SMALL_SCREEN ? 16 : 24) : 12, alignItems: 'center', gap: SMALL_SCREEN ? 16 : 24 },
+  bodyCompact: { fontSize: typography.fontSize.md, lineHeight: 24 },
+  footer: { paddingHorizontal: 36, paddingBottom: Platform.OS === 'android' ? 24 : 12, alignItems: 'center', gap: 24 },
+  footerShort: { paddingBottom: Platform.OS === 'android' ? 16 : 12, gap: 16 },
+  footerCompact: { paddingHorizontal: 24 },
   dots: { flexDirection: 'row', gap: 8, alignItems: 'center' },
   dot: { height: 6, borderRadius: 3 },
   dotActive: { width: 24, backgroundColor: colors.gold },
