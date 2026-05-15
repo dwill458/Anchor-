@@ -384,9 +384,9 @@ export const FirstPrimeCompleteScreen: React.FC = () => {
       return;
     }
 
-    // First-time flow: gate unauthenticated users through trial sign-up
+    // First-time flow: prompt unauthenticated users to create an account before sanctuary
     if (!isAuthenticated) {
-      navigation.replace('TrialSignUp');
+      navigation.replace('FirstAnchorAccountGate');
       return;
     }
 

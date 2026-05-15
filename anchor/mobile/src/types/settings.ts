@@ -17,6 +17,8 @@ export interface AnchorSettings {
   hapticFeedback: 'none' | 'light' | 'medium' | 'strong';
   soundEffectsEnabled: boolean;
   weeklySummaryEnabled: boolean;
+  weeklySummaryDay: number;
+  weeklySummaryTime: string;
 }
 
 export const DEFAULT_SETTINGS: AnchorSettings = {
@@ -31,4 +33,6 @@ export const DEFAULT_SETTINGS: AnchorSettings = {
   hapticFeedback: 'strong',
   soundEffectsEnabled: true,
   weeklySummaryEnabled: true,
+  weeklySummaryDay: 0,
+  weeklySummaryTime: '19:00',
 };

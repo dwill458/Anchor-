@@ -81,6 +81,7 @@ export default function AIGeneratingScreen() {
   const navigation = useNavigation<AIGeneratingNavigationProp>();
   const user = useAuthStore((state) => state.user);
   const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
+  const anchorCount = useAuthStore((state) => state.anchorCount);
   // All paid users get Flash (Nano Banana 2) by default.
   // Pro model escalated server-side on regeneration (attempt 2+).
   const { hasActiveEntitlement } = useTrialStatus();
@@ -608,34 +609,40 @@ export default function AIGeneratingScreen() {
       return;
     }
 
-    if (!isAuthenticated) {
-      Alert.alert('Account Required', 'Sign in before generating AI artwork.', [
-        {
-          text: 'Sign In',
-          onPress: () => navigation.replace('FirstAnchorAccountGate'),
-        },
-        {
-          text: 'Go Back',
-          style: 'cancel',
-          onPress: () => navigation.goBack(),
-        },
-      ]);
-      return;
-    }
+    // First anchor is part of the onboarding flow — bypass auth and entitlement checks.
+    // The account-creation gate is shown after the first prime ritual, before Sanctuary.
+    const isFirstAnchor = anchorCount === 0;
 
-    if (!hasActiveEntitlement) {
-      Alert.alert('Subscription Required', 'Your trial has ended. Renew access to generate AI artwork.', [
-        {
-          text: 'View Paywall',
-          onPress: () => navigation.navigate('Paywall'),
-        },
-        {
-          text: 'Go Back',
-          style: 'cancel',
-          onPress: () => navigation.goBack(),
-        },
-      ]);
-      return;
+    if (!isFirstAnchor) {
+      if (!isAuthenticated) {
+        Alert.alert('Account Required', 'Sign in before generating AI artwork.', [
+          {
+            text: 'Sign In',
+            onPress: () => navigation.replace('FirstAnchorAccountGate'),
+          },
+          {
+            text: 'Go Back',
+            style: 'cancel',
+            onPress: () => navigation.goBack(),
+          },
+        ]);
+        return;
+      }
+
+      if (!hasActiveEntitlement) {
+        Alert.alert('Subscription Required', 'Your trial has ended. Renew access to generate AI artwork.', [
+          {
+            text: 'View Paywall',
+            onPress: () => navigation.navigate('Paywall'),
+          },
+          {
+            text: 'Go Back',
+            style: 'cancel',
+            onPress: () => navigation.goBack(),
+          },
+        ]);
+        return;
+      }
     }
 
     const userId = user?.id || `dev-user-${Date.now()}`;
@@ -794,6 +801,7 @@ export default function AIGeneratingScreen() {
     }
   }, [
     API_URL,
+    anchorCount,
     baseSigilSvg,
     category,
     clearGenerationResources,
