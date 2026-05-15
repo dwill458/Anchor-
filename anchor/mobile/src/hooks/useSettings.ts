@@ -30,6 +30,8 @@ const SETTINGS_KEY_MAP: Record<keyof AnchorSettings, string> = {
   hapticFeedback: 'anchor:settings:hapticFeedback',
   soundEffectsEnabled: 'anchor:settings:soundEffects',
   weeklySummaryEnabled: 'anchor:settings:weeklySummaryEnabled',
+  weeklySummaryDay: 'anchor:settings:weeklySummaryDay',
+  weeklySummaryTime: 'anchor:settings:weeklySummaryTime',
 };
 
 const FOCUS_DURATION_PRESETS: ReadonlyArray<FocusDuration> = [10, 30, 60];
@@ -118,6 +120,8 @@ const getBridgeDefaults = (): AnchorSettings => {
     hapticFeedback: mapHapticIntensityToFeedback(settings.hapticIntensity),
     soundEffectsEnabled: settings.soundEffectsEnabled,
     weeklySummaryEnabled: settings.weeklySummaryEnabled,
+    weeklySummaryDay: settings.weeklySummaryDay,
+    weeklySummaryTime: settings.weeklySummaryTime,
   };
 };
 
@@ -142,6 +146,8 @@ const applySettingsToStores = (settings: AnchorSettings): void => {
     hapticIntensity: mapFeedbackToHapticIntensity(settings.hapticFeedback),
     soundEffectsEnabled: settings.soundEffectsEnabled,
     weeklySummaryEnabled: settings.weeklySummaryEnabled,
+    weeklySummaryDay: settings.weeklySummaryDay,
+    weeklySummaryTime: settings.weeklySummaryTime,
     guideMode: settings.practiceGuidanceEnabled,
   }));
 };

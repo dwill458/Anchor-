@@ -47,6 +47,8 @@ import revenueCatService from '@/services/RevenueCatService';
 
 const IS_ANDROID = Platform.OS === 'android';
 const SHOULD_ANIMATE_SECTION_ENTRANCE = Platform.OS === 'ios';
+const SHOW_DEVELOPER_TOOLS =
+  __DEV__ || process.env.EXPO_PUBLIC_APP_ENV !== 'production';
 const DEV_SUBSCRIPTION_TIER_OPTIONS = [
   { value: 'pro', label: 'PAID' },
   { value: 'trial', label: 'TRIAL' },
@@ -67,6 +69,11 @@ type ToggleItemProps = {
   helperText?: string;
   value: boolean;
   onValueChange: (value: boolean) => void;
+};
+
+type DevShortcutButtonProps = {
+  label: string;
+  onPress: () => void;
 };
 
 const SettingItem: React.FC<SettingItemProps> = ({
@@ -112,9 +119,15 @@ const ToggleItem: React.FC<ToggleItemProps> = ({
       onValueChange={onValueChange}
       trackColor={{ false: 'rgba(255, 255, 255, 0.1)', true: colors.gold }}
       thumbColor={value ? colors.navy : colors.silver}
-      ios_backgroundColor="rgba(255, 255, 255, 0.1)"
-    />
-  </View>
+    ios_backgroundColor="rgba(255, 255, 255, 0.1)"
+  />
+</View>
+);
+
+const DevShortcutButton: React.FC<DevShortcutButtonProps> = ({ label, onPress }) => (
+  <TouchableOpacity style={styles.devShortcutButton} onPress={onPress} activeOpacity={0.8}>
+    <Text style={styles.devShortcutButtonText}>{label}</Text>
+  </TouchableOpacity>
 );
 
 const SectionHeader: React.FC<{ title: string; description?: string }> = ({
@@ -148,12 +161,18 @@ export const SettingsScreen: React.FC = () => {
   const setDeveloperMasterAccountEnabled = useSettingsStore(s => s.setDeveloperMasterAccountEnabled);
   const developerSkipOnboardingEnabled = useSettingsStore(s => s.developerSkipOnboardingEnabled);
   const setDeveloperSkipOnboardingEnabled = useSettingsStore(s => s.setDeveloperSkipOnboardingEnabled);
+  const developerFlowTestingEnabled = useSettingsStore(s => s.developerFlowTestingEnabled);
+  const setDeveloperFlowTestingEnabled = useSettingsStore(s => s.setDeveloperFlowTestingEnabled);
   const developerForceStreakBreakEnabled = useSettingsStore(s => s.developerForceStreakBreakEnabled);
   const setDeveloperForceStreakBreakEnabled = useSettingsStore(s => s.setDeveloperForceStreakBreakEnabled);
   const developerDeleteWithoutBurnEnabled = useSettingsStore(s => s.developerDeleteWithoutBurnEnabled);
   const setDeveloperDeleteWithoutBurnEnabled = useSettingsStore(s => s.setDeveloperDeleteWithoutBurnEnabled);
   const debugLoggingEnabled = useSettingsStore(s => s.debugLoggingEnabled);
   const setDebugLoggingEnabled = useSettingsStore(s => s.setDebugLoggingEnabled);
+  const clearProfile = useAuthStore((state) => state.clearProfile);
+  const clearPendingFirstAnchorState = useAuthStore((state) => state.clearPendingFirstAnchorState);
+  const clearPendingFirstAnchorError = useAuthStore((state) => state.clearPendingFirstAnchorError);
+  const setLoading = useAuthStore((state) => state.setLoading);
 
   const settings = {
     defaultActivation, defaultCharge,
@@ -166,6 +185,7 @@ export const SettingsScreen: React.FC = () => {
     developerModeEnabled, setDeveloperModeEnabled,
     developerMasterAccountEnabled, setDeveloperMasterAccountEnabled,
     developerSkipOnboardingEnabled, setDeveloperSkipOnboardingEnabled,
+    developerFlowTestingEnabled, setDeveloperFlowTestingEnabled,
     developerForceStreakBreakEnabled, setDeveloperForceStreakBreakEnabled,
     developerDeleteWithoutBurnEnabled, setDeveloperDeleteWithoutBurnEnabled,
     debugLoggingEnabled, setDebugLoggingEnabled,
@@ -174,6 +194,10 @@ export const SettingsScreen: React.FC = () => {
   const devOverrideEnabled = useSubscriptionStore(s => s.devOverrideEnabled);
   const setDevOverrideEnabled = useSubscriptionStore(s => s.setDevOverrideEnabled);
   const setDevTierOverride = useSubscriptionStore(s => s.setDevTierOverride);
+  const setRemoteCompedAccess = useSubscriptionStore((s) => s.setRemoteCompedAccess);
+  const setRcTier = useSubscriptionStore((s) => s.setRcTier);
+  const setSubscriptionStatus = useSubscriptionStore((s) => s.setSubscriptionStatus);
+  const setTrialStartDate = useSubscriptionStore((s) => s.setTrialStartDate);
   const resetOverrides = useSubscriptionStore(s => s.resetOverrides);
 
   const subStore = {
@@ -473,10 +497,69 @@ export const SettingsScreen: React.FC = () => {
     );
   };
 
+  const handleResetAuthAndTrialState = async () => {
+    Alert.alert(
+      'Reset auth and trial state?',
+      'This clears the signed-in user, onboarding completion, pending first-anchor gates, and trial status.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Reset',
+          style: 'destructive',
+          onPress: async () => {
+            clearPendingFirstAnchorError();
+            clearPendingFirstAnchorState();
+            clearProfile();
+            setHasCompletedOnboarding(false);
+            setLoading(false);
+            setRemoteCompedAccess(false);
+            setRcTier('free');
+            setSubscriptionStatus('trial');
+            setTrialStartDate(new Date().toISOString());
+            resetOverrides();
+            await AuthService.signOut().catch(() => undefined);
+            signOut();
+          },
+        },
+      ]
+    );
+  };
+
+  const handleResetToExpiredTrial = async () => {
+    Alert.alert(
+      'Reset to expired trial?',
+      'This signs you out, clears pending gates, and sets the trial to an expired state so the paywall appears again.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Reset',
+          style: 'destructive',
+          onPress: async () => {
+            clearPendingFirstAnchorError();
+            clearPendingFirstAnchorState();
+            clearProfile();
+            setLoading(false);
+            setRemoteCompedAccess(false);
+            setRcTier('free');
+            setSubscriptionStatus('expired');
+            setTrialStartDate(new Date(Date.now() - 8 * 86_400_000).toISOString());
+            resetOverrides();
+            await AuthService.signOut().catch(() => undefined);
+            signOut();
+          },
+        },
+      ]
+    );
+  };
+
   const CardWrapper = View;
   const cardProps = {};
   const selectedDevTier =
     subStore.devTierOverride === 'free' ? 'expired' : subStore.devTierOverride;
+
+  const openDevRoute = (route: string, params?: Record<string, unknown>) => {
+    (navigation as any).navigate(route, params);
+  };
 
   return (
     <View style={styles.container} onLayout={handleRootLayout}>
@@ -643,11 +726,11 @@ export const SettingsScreen: React.FC = () => {
                 </CardWrapper>
               </Animated.View>
 
-              {__DEV__ && (
+              {SHOW_DEVELOPER_TOOLS && (
                 <Animated.View style={animatedStyle9}>
                   <SectionHeader
                     title="Developer Tools"
-                    description="Simulate subscription state for UI testing"
+                    description="Available in development and internal test builds."
                   />
                   <CardWrapper {...cardProps} style={styles.section}>
                     <ToggleItem
@@ -699,6 +782,56 @@ export const SettingsScreen: React.FC = () => {
                           value={settings.developerSkipOnboardingEnabled}
                           onValueChange={settings.setDeveloperSkipOnboardingEnabled}
                         />
+                        <ToggleItem
+                          label="Test Auth & Monetization Flow"
+                          helperText="Unlock quick links for sign-up, trial, and paywall screens."
+                          value={settings.developerFlowTestingEnabled}
+                          onValueChange={settings.setDeveloperFlowTestingEnabled}
+                        />
+                        {settings.developerFlowTestingEnabled && (
+                          <View style={styles.devShortcutGrid}>
+                            <DevShortcutButton
+                              label="Open Onboarding"
+                              onPress={() => openDevRoute('Onboarding')}
+                            />
+                            <DevShortcutButton
+                              label="Open Sign In"
+                              onPress={() =>
+                                openDevRoute('Login', { initialTab: 'signin' })
+                              }
+                            />
+                            <DevShortcutButton
+                              label="Open Sign Up"
+                              onPress={() =>
+                                openDevRoute('Login', { initialTab: 'signup' })
+                              }
+                            />
+                            <DevShortcutButton
+                              label="Open Trial Sign Up"
+                              onPress={() => openDevRoute('TrialSignUp')}
+                            />
+                            <DevShortcutButton
+                              label="Open Auth Gate"
+                              onPress={() => openDevRoute('AuthGate')}
+                            />
+                            <DevShortcutButton
+                              label="Open Paywall"
+                              onPress={() => openDevRoute('Paywall')}
+                            />
+                            <DevShortcutButton
+                              label="Open First Gate"
+                              onPress={() => openDevRoute('FirstAnchorAccountGate')}
+                            />
+                            <DevShortcutButton
+                              label="Reset Auth & Trial"
+                              onPress={() => void handleResetAuthAndTrialState()}
+                            />
+                            <DevShortcutButton
+                              label="Reset to Expired"
+                              onPress={() => void handleResetToExpiredTrial()}
+                            />
+                          </View>
+                        )}
                         <ToggleItem
                           label="Force Streak Break"
                           helperText="Simulate a streak break in the Sanctuary."
@@ -810,6 +943,31 @@ const styles = StyleSheet.create({
     marginTop: 6,
   },
   destructiveText: { color: colors.error },
+  devShortcutGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    paddingHorizontal: spacing.lg,
+    paddingBottom: spacing.lg,
+    paddingTop: spacing.xs,
+    justifyContent: 'space-between',
+  },
+  devShortcutButton: {
+    width: '48%',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(212, 175, 55, 0.28)',
+    backgroundColor: 'rgba(212, 175, 55, 0.06)',
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.md,
+    marginBottom: 10,
+  },
+  devShortcutButtonText: {
+    color: colors.gold,
+    fontSize: 13,
+    fontWeight: '700',
+    letterSpacing: 0.4,
+    textAlign: 'center',
+  },
   proBenefits: { paddingHorizontal: spacing.lg, paddingVertical: spacing.md },
   proBenefitsTitle: {
     fontSize: 14,
