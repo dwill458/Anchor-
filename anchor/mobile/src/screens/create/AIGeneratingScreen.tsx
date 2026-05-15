@@ -611,47 +611,29 @@ export default function AIGeneratingScreen() {
 
     if (!isAuthenticated) {
       if (anchorCount === 0) {
-        Alert.alert(
-          'Continue Without AI',
-          'AI refinement needs an account right now. You can still finish your first anchor with the forged symbol.',
-          [
-            {
-              text: 'Use Forged Anchor',
-              onPress: () =>
-                navigation.replace('AnchorReveal', {
-                  intentionText,
-                  category,
-                  distilledLetters,
-                  baseSigilSvg,
-                  reinforcedSigilSvg,
-                  structureVariant,
-                  reinforcementMetadata,
-                }),
-            },
-            {
-              text: 'Sign In',
-              onPress: () => navigation.replace('FirstAnchorAccountGate'),
-            },
-            {
-              text: 'Go Back',
-              style: 'cancel',
-              onPress: () => navigation.goBack(),
-            },
-          ]
-        );
-      } else {
-        Alert.alert('Account Required', 'Sign in before generating AI artwork.', [
-          {
-            text: 'Sign In',
-            onPress: () => navigation.replace('FirstAnchorAccountGate'),
-          },
-          {
-            text: 'Go Back',
-            style: 'cancel',
-            onPress: () => navigation.goBack(),
-          },
-        ]);
+        navigation.replace('AnchorReveal', {
+          intentionText,
+          category,
+          distilledLetters,
+          baseSigilSvg,
+          reinforcedSigilSvg,
+          structureVariant,
+          reinforcementMetadata,
+        });
+        return;
       }
+
+      Alert.alert('Account Required', 'Sign in before generating AI artwork.', [
+        {
+          text: 'Sign In',
+          onPress: () => navigation.replace('FirstAnchorAccountGate'),
+        },
+        {
+          text: 'Go Back',
+          style: 'cancel',
+          onPress: () => navigation.goBack(),
+        },
+      ]);
       return;
     }
 

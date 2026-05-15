@@ -70,18 +70,23 @@ export const SignUpScreen: React.FC<SignUpScreenProps> = ({ navigation, route })
     setLoading(true);
     try {
       const result = await AuthService.signUpWithEmail(email, password, name, {
-        hasCompletedOnboarding: context === 'first_anchor_gate' ? true : undefined,
+        hasCompletedOnboarding:
+          context === 'first_anchor_gate' || context === 'save_progress' ? true : undefined,
       });
       await PostAuthFlowService.run({
         user: result.user,
         token: result.token,
         preserveCompletedOnboarding:
-          hasCompletedOnboarding || context === 'first_anchor_gate',
+          hasCompletedOnboarding ||
+          context === 'first_anchor_gate' ||
+          context === 'save_progress',
         launchTrialPurchase: false,
       });
 
       if (context === 'first_anchor_gate') {
-        navigation.replace('FirstAnchorAccountGate');
+        (navigation as any).replace('FirstAnchorAccountGate');
+      } else if (context === 'save_progress') {
+        (navigation as any).replace('Vault');
       }
     } catch (err: any) {
       setError(err.message || 'Sign up failed');
@@ -191,7 +196,7 @@ export const SignUpScreen: React.FC<SignUpScreenProps> = ({ navigation, route })
 
               <View style={styles.footer}>
                 <Text style={styles.footerText}>Already have an account? </Text>
-                <TouchableOpacity onPress={() => navigation.navigate('Login', route?.params)}>
+                <TouchableOpacity onPress={() => (navigation as any).navigate('Login', route?.params)}>
                   <Text style={styles.footerLink}>Sign In</Text>
                 </TouchableOpacity>
               </View>

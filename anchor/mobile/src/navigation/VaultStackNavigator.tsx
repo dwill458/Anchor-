@@ -33,7 +33,13 @@ import {
   ChargeCompleteScreen,
   FirstPrimeCompleteScreen,
 } from '../screens/rituals';
-import { AuthGateScreen, FirstAnchorAccountGateScreen, LoginScreen, SignUpScreen } from '../screens/auth';
+import {
+  AuthGateScreen,
+  FirstAnchorAccountGateScreen,
+  LoginScreen,
+  SaveProgressScreen,
+  SignUpScreen,
+} from '../screens/auth';
 import { TrialSignUpScreen } from '../screens/onboarding';
 import type { RootStackParamList } from '@/types';
 import { colors } from '@/theme';
@@ -98,6 +104,11 @@ export const VaultStackNavigator: React.FC<VaultStackNavigatorProps> = ({ onRout
       <Stack.Screen
         name="FirstAnchorAccountGate"
         component={FirstAnchorAccountGateScreen}
+        options={{ headerShown: false, gestureEnabled: false }}
+      />
+      <Stack.Screen
+        name="SaveProgress"
+        component={SaveProgressScreen}
         options={{ headerShown: false, gestureEnabled: false }}
       />
       <Stack.Screen
