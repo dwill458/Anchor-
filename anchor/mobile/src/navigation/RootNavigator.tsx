@@ -19,7 +19,6 @@ import { MainTabNavigator } from './MainTabNavigator';
 import { ProfileStackNavigator } from './ProfileStackNavigator';
 import { PaywallScreen } from '../screens/paywall/PaywallScreen';
 import TrialEndScreen from '../screens/TrialEndScreen';
-import { shouldShowOnboardingFlow } from './rootNavigationState';
 import { useAuthStore } from '../stores/authStore';
 import { useSettingsStore } from '../stores/settingsStore';
 import { useSubscriptionStore } from '../stores/subscriptionStore';
