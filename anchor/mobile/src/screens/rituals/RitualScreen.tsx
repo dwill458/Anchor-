@@ -5,7 +5,7 @@
  * Keeps existing ritual behavior while upgrading the surface language.
  */
 
-import React, { useRef, useEffect, useState, useCallback } from 'react';
+import React, { useRef, useEffect, useState, useCallback, useMemo } from 'react';
 import {
   View,
   Text,
@@ -62,27 +62,35 @@ import {
   markPostPrimeTraceAttemptStarted,
 } from '@/utils/postPrimeTraceEligibility';
 
-const AnimatedPhaseSegment = ({ progressValue, isPast }: { progressValue: number; isPast: boolean }) => {
-  const widthAnim = useRef(new Animated.Value(progressValue)).current;
-
-  useEffect(() => {
-    Animated.timing(widthAnim, {
-      toValue: progressValue,
-      duration: 1000,
-      easing: Easing.linear,
-      useNativeDriver: false,
-    }).start();
-  }, [progressValue]);
-
-  const width = widthAnim.interpolate({
-    inputRange: [0, 1],
+// Single source of truth: derive each segment's width from the global progressAnim,
+// which is already wall-clock-driven by useRitualController + the progressAnim effect.
+// This avoids the previous mount-on-nonzero "pop in" and the per-segment Animated.timing
+// race that produced juddery, stalled timer animation on the deep prime screen.
+const DeepPhaseSegment = ({
+  progressAnim,
+  startProgress,
+  endProgress,
+  isPast,
+}: {
+  progressAnim: Animated.Value;
+  startProgress: number;
+  endProgress: number;
+  isPast: boolean;
+}) => {
+  // interpolate requires strictly-increasing inputs; nudge zero-length phases.
+  const safeEnd = endProgress > startProgress ? endProgress : startProgress + 0.0001;
+  const widthAnim = progressAnim.interpolate({
+    inputRange: [startProgress, safeEnd],
     outputRange: ['0%', '100%'],
+    extrapolate: 'clamp',
   });
 
-  const gradientColors = isPast ? (['#D4AF37', '#D4AF37'] as const) : (['#C8581A', '#D4AF37'] as const);
+  const gradientColors = isPast
+    ? (['#D4AF37', '#D4AF37'] as const)
+    : (['#C8581A', '#D4AF37'] as const);
 
   return (
-    <Animated.View style={[styles.deepPhaseTrackFill, { width }]}>
+    <Animated.View style={[styles.deepPhaseTrackFill, { width: widthAnim }]}>
       <LinearGradient
         colors={gradientColors}
         start={{ x: 0, y: 0.5 }}
@@ -428,32 +436,58 @@ export const RitualScreen: React.FC = () => {
     state.isComplete,
   ]);
 
+  // Wall-clock-driven progress for the entire timer animation. Used both for the focus
+  // ProgressHaloRing strokeDashoffset and for the deep prime phase segment widths.
+  // Fires on lifecycle transitions only (start / pause / resume / complete). The
+  // ongoing Animated.timing handles smooth interpolation between integer-second ticks.
   useEffect(() => {
-    if (state.isActive && !state.isComplete) {
-      const remainingSeconds = config.totalDurationSeconds - state.elapsedSeconds;
-      const duration = remainingSeconds * 1000;
-      if (duration > 0) {
-        progressAnim.stopAnimation((currentVal) => {
-          progressAnim.setValue(currentVal);
-          Animated.timing(progressAnim, {
-            toValue: 1,
-            duration: duration,
-            easing: Easing.linear,
-            useNativeDriver: false,
-          }).start();
-        });
-      }
-    } else {
-      progressAnim.stopAnimation((currentVal) => {
-        if (state.isComplete) {
-          progressAnim.setValue(1);
-        } else if (!state.isActive) {
-          progressAnim.setValue(currentVal);
-        } else {
-          progressAnim.setValue(0);
-        }
+    const totalDuration = Math.max(1, config.totalDurationSeconds);
+
+    if (state.isComplete) {
+      progressAnim.stopAnimation(() => {
+        progressAnim.setValue(1);
       });
+      return;
     }
+
+    if (!state.isActive) {
+      // Paused or idle: freeze at current value (do not snap, preserves sub-second precision).
+      progressAnim.stopAnimation();
+      return;
+    }
+
+    // Active: align to where we should be (handles fresh start after reset where the
+    // held value can be stale), then linearly animate to 1 over the remaining time.
+    const expectedProgress = Math.min(
+      1,
+      Math.max(0, state.elapsedSeconds / totalDuration)
+    );
+    const remainingSeconds = totalDuration - state.elapsedSeconds;
+
+    progressAnim.stopAnimation((currentVal) => {
+      // Snap if held value is far from expected (e.g., after reset); otherwise preserve
+      // currentVal so pause→resume continues smoothly with sub-second precision.
+      const startVal =
+        Math.abs(currentVal - expectedProgress) > 0.01 ? expectedProgress : currentVal;
+      progressAnim.setValue(startVal);
+
+      if (remainingSeconds <= 0) {
+        progressAnim.setValue(1);
+        return;
+      }
+
+      Animated.timing(progressAnim, {
+        toValue: 1,
+        duration: remainingSeconds * 1000,
+        easing: Easing.linear,
+        useNativeDriver: false,
+      }).start();
+    });
+    // Effect intentionally only fires on lifecycle transitions (isActive / isComplete).
+    // state.elapsedSeconds + config.totalDurationSeconds are read inside the effect but
+    // captured fresh at the transition moment, which is exactly the snapshot we want.
+    // Including them in deps would restart the timing animation every second tick.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [state.isActive, state.isComplete, progressAnim]);
 
 
@@ -843,21 +877,19 @@ export const RitualScreen: React.FC = () => {
   const deepPhaseTime = formatMSS(phaseRemaining);
   const deepTotalTime = formatMSS(state.remainingSeconds);
   const deepPauseLabel = state.isActive ? 'Pause' : 'Resume';
-  const deepPhaseProgress = config.phases.map((phase, index) => {
-    if (state.isComplete) {
-      return 1;
-    }
-    if (index < activePhaseIndex) {
-      return 1;
-    }
-    if (index > activePhaseIndex) {
-      return 0;
-    }
-    if (phase.durationSeconds <= 0) {
-      return 0;
-    }
-    return Math.min(Math.max(state.phaseElapsed / phase.durationSeconds, 0), 1);
-  });
+  // Pre-compute each phase's [start, end] position within the total progress (0..1).
+  // The deep phase bars interpolate their width from progressAnim using these ranges,
+  // so the bars share the same wall-clock-driven timeline as the rest of the timer.
+  const phaseProgressRanges = useMemo(() => {
+    const totalSeconds = Math.max(1, config.totalDurationSeconds);
+    let accumSeconds = 0;
+    return config.phases.map((phase) => {
+      const startProgress = accumSeconds / totalSeconds;
+      accumSeconds += Math.max(0, phase.durationSeconds);
+      const endProgress = Math.min(1, accumSeconds / totalSeconds);
+      return { startProgress, endProgress };
+    });
+  }, [config.phases, config.totalDurationSeconds]);
   const deepBreathTiming = getDeepBreathTiming(state.currentPhase?.title);
   const deepBreathInputRange = deepBreathTiming.hasHold
     ? [0, deepBreathTiming.inhaleEnd, deepBreathTiming.holdEnd, 1]
@@ -1269,16 +1301,19 @@ export const RitualScreen: React.FC = () => {
 
             <Animated.View style={[styles.deepPhaseTrackWrap, { opacity: phaseIndicatorOpacityAnim }]}>
               <View style={styles.deepPhaseTrackRow}>
-                {deepPhaseProgress.map((progressValue, index) => (
-                  <View key={`phase-segment-${index}`} style={styles.deepPhaseTrackSegment}>
-                    {progressValue > 0 ? (
-                      <AnimatedPhaseSegment 
-                        progressValue={progressValue} 
-                        isPast={index < activePhaseIndex} 
+                {config.phases.map((_phase, index) => {
+                  const range = phaseProgressRanges[index] ?? { startProgress: 0, endProgress: 0 };
+                  return (
+                    <View key={`phase-segment-${index}`} style={styles.deepPhaseTrackSegment}>
+                      <DeepPhaseSegment
+                        progressAnim={progressAnim}
+                        startProgress={range.startProgress}
+                        endProgress={range.endProgress}
+                        isPast={index < activePhaseIndex}
                       />
-                    ) : null}
-                  </View>
-                ))}
+                    </View>
+                  );
+                })}
               </View>
             </Animated.View>
 

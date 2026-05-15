@@ -450,8 +450,11 @@ const Ornament: React.FC = () => (
 export const NarrativeOnboardingScreen: React.FC<Props> = ({ navigation }) => {
   const { completeOnboarding, setShouldRedirectToCreation } = useAuthStore();
   const { width, height } = useWindowDimensions();
-  const isCompactLayout = height < 780 || width < 390;
+  const isShortScreen = height < 810;
+  const isCompactLayout = isShortScreen || width < 390;
   const contentWidth = Math.min(width - (isCompactLayout ? 48 : 72), 360);
+  const visualScale = isShortScreen ? Math.max(0.72, (height * 0.34) / 320) : 1;
+  const visualAreaHeight = isShortScreen ? Math.round(height * 0.40) : 370;
 
   const [currentSlide, setCurrentSlide] = useState(0);
   const slideOpacity = useRef(new Animated.Value(1)).current;
@@ -494,9 +497,19 @@ export const NarrativeOnboardingScreen: React.FC<Props> = ({ navigation }) => {
   const handleSkip = () => goToSlide(TOTAL - 1);
 
   const renderVisual = (slide: OnboardingSlide) => {
+    const scaledSize = Math.round(visualScale * 320);
+    const wrapSmall = (child: React.ReactNode): React.ReactNode =>
+      isShortScreen ? (
+        <View style={{ width: scaledSize, height: scaledSize, alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
+          <View style={{ transform: [{ scale: visualScale }] }}>
+            {child}
+          </View>
+        </View>
+      ) : child;
+
     switch (slide.visual) {
-      case 'orbits':    return <OrbitsVisual />;
-      case 'signal':    return <SignalVisual />;
+      case 'orbits':    return wrapSmall(<OrbitsVisual />);
+      case 'signal':    return wrapSmall(<SignalVisual />);
       case 'forge':     return <ForgeDemo isActive={currentSlide === 2} />;
       case 'usecases':  return (
         <View style={[styles.useCasesWrapper, { width: contentWidth }]}>
@@ -510,7 +523,7 @@ export const NarrativeOnboardingScreen: React.FC<Props> = ({ navigation }) => {
           ))}
         </View>
       );
-      case 'final':     return <FinalVisual />;
+      case 'final':     return wrapSmall(<FinalVisual />);
     }
   };
 
@@ -543,8 +556,14 @@ export const NarrativeOnboardingScreen: React.FC<Props> = ({ navigation }) => {
         </TouchableOpacity>
       )}
 
-      <Animated.View style={[styles.slideContent, { opacity: slideOpacity }]}>
-        <View style={[styles.visualArea, isCompactLayout && styles.visualAreaCompact]}>
+      <Animated.View
+        style={[
+          styles.slideContent,
+          isShortScreen && styles.slideContentShort,
+          { opacity: slideOpacity },
+        ]}
+      >
+        <View style={[styles.visualArea, { height: visualAreaHeight }]}>
           {renderVisual(slide)}
         </View>
 
@@ -565,7 +584,13 @@ export const NarrativeOnboardingScreen: React.FC<Props> = ({ navigation }) => {
         </View>
       </Animated.View>
 
-      <View style={[styles.footer, isCompactLayout && styles.footerCompact]}>
+      <View
+        style={[
+          styles.footer,
+          isShortScreen && styles.footerShort,
+          isCompactLayout && styles.footerCompact,
+        ]}
+      >
         <View style={styles.dots}>
           {SLIDES.map((_, i) => (
             <TouchableOpacity
@@ -640,8 +665,8 @@ const styles = StyleSheet.create({
   skipBtn: { position: 'absolute', top: 54, right: 20, zIndex: 20, flexDirection: 'row', alignItems: 'center', paddingHorizontal: 10, paddingVertical: 5, borderRadius: 16, borderWidth: 1, borderColor: withAlpha(colors.bone, 0.18), backgroundColor: withAlpha(colors.bone, 0.05) },
   skipText: { fontFamily: typography.fonts.heading, fontSize: MICRO_FONT_SIZE + 1, letterSpacing: 2, color: colors.silver },
   slideContent: { flex: 1, paddingTop: 44 },
+  slideContentShort: { paddingTop: 28 },
   visualArea: { height: 370, alignItems: 'center', justifyContent: 'center' },
-  visualAreaCompact: { height: 318 },
   textArea: { flex: 1, paddingHorizontal: 36 },
   textAreaCompact: { paddingHorizontal: 24 },
   useCasesWrapper: { gap: 10, alignSelf: 'center' },
@@ -655,7 +680,8 @@ const styles = StyleSheet.create({
   body: { fontFamily: typography.fontFamily.sans, fontSize: BODY_FONT_SIZE, color: colors.silver, lineHeight: 27, letterSpacing: 0.2 },
   bodyCompact: { fontSize: typography.fontSize.md, lineHeight: 24 },
   footer: { paddingHorizontal: 36, paddingBottom: Platform.OS === 'android' ? 24 : 12, alignItems: 'center', gap: 24 },
-  footerCompact: { paddingHorizontal: 24, paddingBottom: Platform.OS === 'android' ? 20 : 10, gap: 18 },
+  footerShort: { paddingBottom: Platform.OS === 'android' ? 16 : 12, gap: 16 },
+  footerCompact: { paddingHorizontal: 24 },
   dots: { flexDirection: 'row', gap: 8, alignItems: 'center' },
   dot: { height: 6, borderRadius: 3 },
   dotActive: { width: 24, backgroundColor: colors.gold },
