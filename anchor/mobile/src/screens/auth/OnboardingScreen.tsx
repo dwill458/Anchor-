@@ -388,9 +388,11 @@ export const OnboardingScreen: React.FC = () => {
     } else {
       // Slide 4 — "Forge Your First Anchor →"
       setShouldRedirectToCreation(true);
-      completeOnboarding();
       // @ts-expect-error navigation types
-      navigation.replace('Main');
+      navigation.navigate('SaveProgress', {
+        anchorIntention: '',
+        anchorSvg: '',
+      });
     }
   };
 

@@ -817,6 +817,10 @@ export type AuthStackParamList = {
   Login: AuthScreenParams | undefined;
   SignUp: AuthScreenParams | undefined;
   Onboarding: undefined;
+  SaveProgress: {
+    anchorIntention: string;
+    anchorSvg: string;
+  };
 };
 
 // ============================================================================
