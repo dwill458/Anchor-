@@ -20,6 +20,13 @@
     "assetBundlePatterns": [
       "**/*"
     ],
+    "runtimeVersion": "1.0.0",
+    "updates": {
+      "enabled": true,
+      "checkAutomatically": "ON_LOAD",
+      "fallbackToCacheTimeout": 0,
+      "url": "https://u.expo.dev/8fc5bf55-b18f-41c9-a8ce-767b307debb7"
+    },
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.anchorintentions.app",

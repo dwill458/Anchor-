@@ -73,8 +73,8 @@ export const FirstPrimeCompleteScreen: React.FC = () => {
   const primeSessionAudio = useSettingsStore((state) => state.primeSessionAudio ?? 'silent');
   const { playSound } = useAudio();
   const { handlePrimeComplete } = useNotificationController();
-
   const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
+
   const anchor = getAnchorById(anchorId);
   const hasRecordedRef = useRef(false);
 
@@ -386,10 +386,7 @@ export const FirstPrimeCompleteScreen: React.FC = () => {
 
     // First-time flow: show save gate before sanctuary for unauthenticated users
     if (!isAuthenticated) {
-      navigation.replace('SaveProgress', {
-        anchorIntention: intentionText,
-        anchorSvg: symbolSvg,
-      });
+      navigation.replace('SaveProgress', { anchorId });
       return;
     }
 

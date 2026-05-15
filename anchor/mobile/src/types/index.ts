@@ -141,7 +141,7 @@ export interface User {
   createdAt: Date;
 }
 
-export type AuthScreenContext = 'onboarding' | 'first_anchor_gate';
+export type AuthScreenContext = 'onboarding' | 'first_anchor_gate' | 'save_progress';
 export type AuthScreenInitialTab = 'signin' | 'signup';
 
 export interface AuthScreenParams {
@@ -478,10 +478,7 @@ export type RootStackParamList = {
   // ═══════════════════════════════════════════════════
   Vault: undefined;
   FirstAnchorAccountGate: undefined;
-  SaveProgress: {
-    anchorIntention: string;
-    anchorSvg: string;
-  };
+  SaveProgress: { anchorId: string };
   TrialSignUp: undefined;
   AnchorDetail: { anchorId: string };
   AuthGate: undefined;

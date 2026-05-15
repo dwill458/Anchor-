@@ -33,7 +33,13 @@ import {
   ChargeCompleteScreen,
   FirstPrimeCompleteScreen,
 } from '../screens/rituals';
-import { AuthGateScreen, FirstAnchorAccountGateScreen, LoginScreen, SignUpScreen, SaveProgressScreen } from '../screens/auth';
+import {
+  AuthGateScreen,
+  FirstAnchorAccountGateScreen,
+  LoginScreen,
+  SaveProgressScreen,
+  SignUpScreen,
+} from '../screens/auth';
 import { TrialSignUpScreen } from '../screens/onboarding';
 import type { RootStackParamList } from '@/types';
 import { colors } from '@/theme';

@@ -145,12 +145,16 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ navigation, route }) =
       user: result.user,
       token: result.token,
       preserveCompletedOnboarding:
-        hasCompletedOnboarding || context === 'first_anchor_gate',
+        hasCompletedOnboarding ||
+        context === 'first_anchor_gate' ||
+        context === 'save_progress',
       launchTrialPurchase: false,
     });
 
     if (context === 'first_anchor_gate') {
-      navigation.replace('FirstAnchorAccountGate');
+      (navigation as any).replace('FirstAnchorAccountGate');
+    } else if (context === 'save_progress') {
+      (navigation as any).replace('Vault');
     }
   };
 
@@ -164,7 +168,8 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ navigation, route }) =
     setLoading(true);
     try {
       const result = await AuthService.signInWithEmail(email, password, {
-        hasCompletedOnboarding: context === 'first_anchor_gate' ? true : undefined,
+        hasCompletedOnboarding:
+          context === 'first_anchor_gate' || context === 'save_progress' ? true : undefined,
       });
       await completeAuth(result);
     } catch (err: any) {
@@ -188,7 +193,8 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ navigation, route }) =
     setLoading(true);
     try {
       const result = await AuthService.signUpWithEmail(email, password, name, {
-        hasCompletedOnboarding: context === 'first_anchor_gate' ? true : undefined,
+        hasCompletedOnboarding:
+          context === 'first_anchor_gate' || context === 'save_progress' ? true : undefined,
       });
       await completeAuth(result);
     } catch (err: any) {
