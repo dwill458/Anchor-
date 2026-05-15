@@ -609,47 +609,40 @@ export default function AIGeneratingScreen() {
       return;
     }
 
-    if (!isAuthenticated) {
-      if (anchorCount === 0) {
-        navigation.replace('AnchorReveal', {
-          intentionText,
-          category,
-          distilledLetters,
-          baseSigilSvg,
-          reinforcedSigilSvg,
-          structureVariant,
-          reinforcementMetadata,
-        });
+    // First anchor is part of the onboarding flow — bypass auth and entitlement checks.
+    // The account-creation gate is shown after the first prime ritual, before Sanctuary.
+    const isFirstAnchor = anchorCount === 0;
+
+    if (!isFirstAnchor) {
+      if (!isAuthenticated) {
+        Alert.alert('Account Required', 'Sign in before generating AI artwork.', [
+          {
+            text: 'Sign In',
+            onPress: () => navigation.replace('FirstAnchorAccountGate'),
+          },
+          {
+            text: 'Go Back',
+            style: 'cancel',
+            onPress: () => navigation.goBack(),
+          },
+        ]);
         return;
       }
 
-      Alert.alert('Account Required', 'Sign in before generating AI artwork.', [
-        {
-          text: 'Sign In',
-          onPress: () => navigation.replace('FirstAnchorAccountGate'),
-        },
-        {
-          text: 'Go Back',
-          style: 'cancel',
-          onPress: () => navigation.goBack(),
-        },
-      ]);
-      return;
-    }
-
-    if (!hasActiveEntitlement) {
-      Alert.alert('Subscription Required', 'Your trial has ended. Renew access to generate AI artwork.', [
-        {
-          text: 'View Paywall',
-          onPress: () => navigation.navigate('Paywall'),
-        },
-        {
-          text: 'Go Back',
-          style: 'cancel',
-          onPress: () => navigation.goBack(),
-        },
-      ]);
-      return;
+      if (!hasActiveEntitlement) {
+        Alert.alert('Subscription Required', 'Your trial has ended. Renew access to generate AI artwork.', [
+          {
+            text: 'View Paywall',
+            onPress: () => navigation.navigate('Paywall'),
+          },
+          {
+            text: 'Go Back',
+            style: 'cancel',
+            onPress: () => navigation.goBack(),
+          },
+        ]);
+        return;
+      }
     }
 
     const userId = user?.id || `dev-user-${Date.now()}`;

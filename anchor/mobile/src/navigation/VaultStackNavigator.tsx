@@ -109,7 +109,7 @@ export const VaultStackNavigator: React.FC<VaultStackNavigatorProps> = ({ onRout
       <Stack.Screen
         name="SaveProgress"
         component={SaveProgressScreen}
-        options={{ headerShown: false, gestureEnabled: false }}
+        options={{ headerShown: false, gestureEnabled: false, animation: 'fade_from_bottom' }}
       />
       <Stack.Screen
         name="AuthGate"
