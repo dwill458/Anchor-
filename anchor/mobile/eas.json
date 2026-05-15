@@ -9,10 +9,19 @@
       "developmentClient": true,
       "distribution": "internal",
       "env": {
+        "EXPO_PUBLIC_API_URL": "https://anchor-production-26bf.up.railway.app",
         "EXPO_PUBLIC_APP_ENV": "development",
+        "EXPO_PUBLIC_DEBUG_LOGGING": "true",
         "EXPO_PUBLIC_ENABLE_LEGACY_SUPABASE_SYNC": "false",
         "EXPO_PUBLIC_ENABLE_MERCH": "false",
         "EXPO_PUBLIC_ENABLE_MOCK_AUTH": "false",
+        "EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID": "355245459823-u5kcrff85firkt437u1qs2udp365o59t.apps.googleusercontent.com",
+        "EXPO_PUBLIC_REVENUECAT_API_KEY": "goog_FrflxNtkvcxQTrcatSsJbLQqQSC",
+        "EXPO_PUBLIC_REVENUECAT_DEFAULT_PACKAGE_ID": "$rc_monthly",
+        "EXPO_PUBLIC_REVENUECAT_ENTITLEMENT_ID": "pro",
+        "EXPO_PUBLIC_SENTRY_DSN": "https://3534e9110add705fbdd3d87f4946b617@o4510989757448192.ingest.us.sentry.io/4510989766361088",
+        "EXPO_PUBLIC_SUPABASE_ANON_KEY": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImtheHJpd2ZrcGZ4anNkb3h1aHdlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM3ODk2MjEsImV4cCI6MjA4OTM2NTYyMX0.hRPJ9zf81t8bW4kj1knSm-UEKxF0foUnTVoRnFRt6hU",
+        "EXPO_PUBLIC_SUPABASE_URL": "https://kaxriwfkpfxjsdoxuhwe.supabase.co",
         "SENTRY_DISABLE_AUTO_UPLOAD": "true"
       },
       "android": {},
@@ -25,10 +34,19 @@
       "distribution": "internal",
       "channel": "preview",
       "env": {
+        "EXPO_PUBLIC_API_URL": "https://anchor-production-26bf.up.railway.app",
         "EXPO_PUBLIC_APP_ENV": "staging",
+        "EXPO_PUBLIC_DEBUG_LOGGING": "false",
         "EXPO_PUBLIC_ENABLE_LEGACY_SUPABASE_SYNC": "false",
         "EXPO_PUBLIC_ENABLE_MERCH": "false",
         "EXPO_PUBLIC_ENABLE_MOCK_AUTH": "false",
+        "EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID": "355245459823-u5kcrff85firkt437u1qs2udp365o59t.apps.googleusercontent.com",
+        "EXPO_PUBLIC_REVENUECAT_API_KEY": "goog_FrflxNtkvcxQTrcatSsJbLQqQSC",
+        "EXPO_PUBLIC_REVENUECAT_DEFAULT_PACKAGE_ID": "$rc_monthly",
+        "EXPO_PUBLIC_REVENUECAT_ENTITLEMENT_ID": "pro",
+        "EXPO_PUBLIC_SENTRY_DSN": "https://3534e9110add705fbdd3d87f4946b617@o4510989757448192.ingest.us.sentry.io/4510989766361088",
+        "EXPO_PUBLIC_SUPABASE_ANON_KEY": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImtheHJpd2ZrcGZ4anNkb3h1aHdlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM3ODk2MjEsImV4cCI6MjA4OTM2NTYyMX0.hRPJ9zf81t8bW4kj1knSm-UEKxF0foUnTVoRnFRt6hU",
+        "EXPO_PUBLIC_SUPABASE_URL": "https://kaxriwfkpfxjsdoxuhwe.supabase.co",
         "SENTRY_DISABLE_AUTO_UPLOAD": "false"
       },
       "android": {
@@ -41,10 +59,19 @@
     "playstore": {
       "distribution": "internal",
       "env": {
+        "EXPO_PUBLIC_API_URL": "https://anchor-production-26bf.up.railway.app",
         "EXPO_PUBLIC_APP_ENV": "production",
+        "EXPO_PUBLIC_DEBUG_LOGGING": "false",
         "EXPO_PUBLIC_ENABLE_LEGACY_SUPABASE_SYNC": "false",
         "EXPO_PUBLIC_ENABLE_MERCH": "false",
         "EXPO_PUBLIC_ENABLE_MOCK_AUTH": "false",
+        "EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID": "355245459823-u5kcrff85firkt437u1qs2udp365o59t.apps.googleusercontent.com",
+        "EXPO_PUBLIC_REVENUECAT_API_KEY": "goog_FrflxNtkvcxQTrcatSsJbLQqQSC",
+        "EXPO_PUBLIC_REVENUECAT_DEFAULT_PACKAGE_ID": "$rc_monthly",
+        "EXPO_PUBLIC_REVENUECAT_ENTITLEMENT_ID": "pro",
+        "EXPO_PUBLIC_SENTRY_DSN": "https://3534e9110add705fbdd3d87f4946b617@o4510989757448192.ingest.us.sentry.io/4510989766361088",
+        "EXPO_PUBLIC_SUPABASE_ANON_KEY": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImtheHJpd2ZrcGZ4anNkb3h1aHdlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM3ODk2MjEsImV4cCI6MjA4OTM2NTYyMX0.hRPJ9zf81t8bW4kj1knSm-UEKxF0foUnTVoRnFRt6hU",
+        "EXPO_PUBLIC_SUPABASE_URL": "https://kaxriwfkpfxjsdoxuhwe.supabase.co",
         "SENTRY_DISABLE_AUTO_UPLOAD": "true"
       },
       "android": {
@@ -55,10 +82,19 @@
       "distribution": "store",
       "channel": "production",
       "env": {
+        "EXPO_PUBLIC_API_URL": "https://anchor-production-26bf.up.railway.app",
         "EXPO_PUBLIC_APP_ENV": "production",
+        "EXPO_PUBLIC_DEBUG_LOGGING": "false",
         "EXPO_PUBLIC_ENABLE_LEGACY_SUPABASE_SYNC": "false",
         "EXPO_PUBLIC_ENABLE_MERCH": "false",
         "EXPO_PUBLIC_ENABLE_MOCK_AUTH": "false",
+        "EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID": "355245459823-u5kcrff85firkt437u1qs2udp365o59t.apps.googleusercontent.com",
+        "EXPO_PUBLIC_REVENUECAT_API_KEY": "goog_FrflxNtkvcxQTrcatSsJbLQqQSC",
+        "EXPO_PUBLIC_REVENUECAT_DEFAULT_PACKAGE_ID": "$rc_monthly",
+        "EXPO_PUBLIC_REVENUECAT_ENTITLEMENT_ID": "pro",
+        "EXPO_PUBLIC_SENTRY_DSN": "https://3534e9110add705fbdd3d87f4946b617@o4510989757448192.ingest.us.sentry.io/4510989766361088",
+        "EXPO_PUBLIC_SUPABASE_ANON_KEY": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImtheHJpd2ZrcGZ4anNkb3h1aHdlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM3ODk2MjEsImV4cCI6MjA4OTM2NTYyMX0.hRPJ9zf81t8bW4kj1knSm-UEKxF0foUnTVoRnFRt6hU",
+        "EXPO_PUBLIC_SUPABASE_URL": "https://kaxriwfkpfxjsdoxuhwe.supabase.co",
         "SENTRY_DISABLE_AUTO_UPLOAD": "false"
       },
       "android": {
