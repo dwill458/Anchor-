@@ -7,5 +7,6 @@
 export { LoginScreen } from './LoginScreen';
 export { SignUpScreen } from './SignUpScreen';
 export { OnboardingScreen } from './OnboardingScreen';
+export { SaveProgressScreen } from './SaveProgressScreen';
 export { default as AuthGateScreen } from './AuthGateScreen';
 export { FirstAnchorAccountGateScreen } from './FirstAnchorAccountGateScreen';

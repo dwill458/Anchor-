@@ -478,6 +478,10 @@ export type RootStackParamList = {
   // ═══════════════════════════════════════════════════
   Vault: undefined;
   FirstAnchorAccountGate: undefined;
+  SaveProgress: {
+    anchorIntention: string;
+    anchorSvg: string;
+  };
   TrialSignUp: undefined;
   AnchorDetail: { anchorId: string };
   AuthGate: undefined;

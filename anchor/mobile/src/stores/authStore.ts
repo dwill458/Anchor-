@@ -271,6 +271,9 @@ interface AuthState {
   // Offline mode
   isOfflineMode: boolean;
 
+  // Guest mode
+  isGuest: boolean;
+
   // Actions
   setUser: (user: User | null) => void;
   setToken: (token: string | null) => void;
@@ -293,6 +296,7 @@ interface AuthState {
   clearPendingFirstAnchorError: () => void;
   finalizePendingFirstAnchorDraft: () => Promise<boolean>;
   setOfflineMode: (offline: boolean) => void;
+  setIsGuest: (value: boolean) => void;
   signOut: () => void;
 
   // NEW: Profile actions
@@ -342,6 +346,7 @@ export const useAuthStore = create<AuthState>()(
       profileLastFetched: null,
       wallpaperPromptSeen: false,
       isOfflineMode: false,
+      isGuest: false,
 
       // Actions
       setUser: (user) => {
@@ -496,6 +501,9 @@ export const useAuthStore = create<AuthState>()(
 
       setOfflineMode: (isOfflineMode) =>
         set({ isOfflineMode }),
+
+      setIsGuest: (isGuest) =>
+        set({ isGuest }),
 
       setWallpaperPromptSeen: (wallpaperPromptSeen) =>
         set({ wallpaperPromptSeen }),
@@ -918,6 +926,7 @@ export const useAuthStore = create<AuthState>()(
         profileData: state.profileData,
         profileLastFetched: state.profileLastFetched,
         wallpaperPromptSeen: state.wallpaperPromptSeen,
+        isGuest: state.isGuest,
       }),
     }
   )
