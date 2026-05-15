@@ -175,6 +175,12 @@ export const SettingsScreen: React.FC = () => {
     );
   }, [navigation, signOut, setHasCompletedOnboarding]);
 
+  const handleSignIn = useCallback(() => {
+    navigation.navigate('Login', {
+      initialTab: 'signin',
+    });
+  }, [navigation]);
+
   const handleDeleteAccount = useCallback(() => {
     Alert.alert(
       'Delete Account',
@@ -519,7 +525,16 @@ export const SettingsScreen: React.FC = () => {
               value={accountEmail || 'Not signed in'}
               type="static"
             />
-            <SettingsRow title="Sign Out" type="chevron" onPress={handleSignOut} />
+            {isAuthenticated ? (
+              <SettingsRow title="Sign Out" type="chevron" onPress={handleSignOut} />
+            ) : (
+              <SettingsRow
+                title="Sign In"
+                subtitle="Create or reconnect your account"
+                type="chevron"
+                onPress={handleSignIn}
+              />
+            )}
             <SettingsRow
               title="Privacy Policy"
               type="chevron"

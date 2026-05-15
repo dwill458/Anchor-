@@ -15,6 +15,7 @@ const mockNotifState = {
   weaver_enabled: true,
 };
 const mockFetchProfile = jest.fn(() => Promise.resolve());
+const mockNavigate = jest.fn();
 const mockSettings = {
   openDailyAnchorAutomatically: false,
   practiceGuidanceEnabled: true,
@@ -50,6 +51,15 @@ const mockAuthStoreState = {
 };
 
 jest.mock('@react-native-community/datetimepicker', () => 'DateTimePicker');
+
+jest.mock('@react-navigation/native', () => ({
+  useNavigation: () => ({
+    navigate: mockNavigate,
+  }),
+  CommonActions: {
+    reset: jest.fn(),
+  },
+}));
 
 jest.mock('@/hooks/useSettings', () => ({
   useSettingsState: () => ({
@@ -137,6 +147,24 @@ describe('SettingsScreen', () => {
     expect(screen.queryByText('Account sync coming soon')).toBeNull();
     expect(screen.queryByText('v1.1')).toBeNull();
     expect(mockFetchProfile).not.toHaveBeenCalled();
+  });
+
+  it('shows a sign-in link for signed-out users', () => {
+    mockAuthStoreState.user = null as any;
+    mockAuthStoreState.isAuthenticated = false;
+
+    const screen = render(<SettingsScreen />);
+
+    expect(screen.getAllByText('Not signed in').length).toBeGreaterThan(0);
+    expect(screen.getByText('Sign In')).toBeTruthy();
+    expect(screen.getByText('Create or reconnect your account')).toBeTruthy();
+    expect(screen.queryByText('Sign Out')).toBeNull();
+
+    fireEvent.press(screen.getByTestId('settings-row-Sign In'));
+
+    expect(mockNavigate).toHaveBeenCalledWith('Login', {
+      initialTab: 'signin',
+    });
   });
 
   it('requests permission before enabling notifications', async () => {
