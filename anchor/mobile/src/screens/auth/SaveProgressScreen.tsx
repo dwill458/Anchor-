@@ -12,17 +12,20 @@ import {
 import { SvgXml, Svg, Path } from 'react-native-svg';
 import { LinearGradient } from 'expo-linear-gradient';
 import { BlurView } from 'expo-blur';
-import type { StackScreenProps } from '@react-navigation/stack';
-import type { AuthStackParamList } from '@/navigation/AuthNavigator';
+import { useNavigation, useRoute } from '@react-navigation/native';
+import type { StackNavigationProp } from '@react-navigation/stack';
+import type { RouteProp } from '@react-navigation/native';
 import { useAuthStore } from '@/stores/authStore';
 import { AuthService } from '@/services/AuthService';
 import { colors } from '@/theme/colors';
 import { typography } from '@/theme/typography';
+import type { RootStackParamList } from '@/types';
 
 // Design token not in colors.ts — rgba(245,245,220,0.55)
 const BONE_DIM = 'rgba(245,245,220,0.55)';
 
-type Props = StackScreenProps<AuthStackParamList, 'SaveProgress'>;
+type SaveProgressNavProp = StackNavigationProp<RootStackParamList, 'SaveProgress'>;
+type SaveProgressRouteProp = RouteProp<RootStackParamList, 'SaveProgress'>;
 
 const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 
@@ -47,7 +50,9 @@ const GoogleIcon: React.FC = () => (
   </Svg>
 );
 
-export const SaveProgressScreen: React.FC<Props> = ({ route, navigation }): React.ReactElement => {
+export const SaveProgressScreen: React.FC = (): React.ReactElement => {
+  const navigation = useNavigation<SaveProgressNavProp>();
+  const route = useRoute<SaveProgressRouteProp>();
   const { anchorIntention, anchorSvg } = route.params;
 
   const { setAuthenticated, setHasCompletedOnboarding, setIsGuest } = useAuthStore();
@@ -112,6 +117,7 @@ export const SaveProgressScreen: React.FC<Props> = ({ route, navigation }): Reac
       await AuthService.signInWithGoogle();
       setAuthenticated(true);
       setHasCompletedOnboarding(true);
+      navigation.replace('Vault');
     } catch (_error) {
       setGoogleError('Google sign-in failed. Try again.');
     } finally {
@@ -122,6 +128,7 @@ export const SaveProgressScreen: React.FC<Props> = ({ route, navigation }): Reac
   const handleSkip = (): void => {
     setIsGuest(true);
     setHasCompletedOnboarding(true);
+    navigation.replace('Vault');
   };
 
   return (
@@ -241,7 +248,7 @@ export const SaveProgressScreen: React.FC<Props> = ({ route, navigation }): Reac
           {/* Button 1 — SEAL MY PROGRESS */}
           <TouchableOpacity
             style={styles.btnPrimary}
-            onPress={(): void => navigation.navigate('SignUp', undefined)}
+            onPress={(): void => { navigation.navigate('SignUp'); }}
             activeOpacity={0.85}
           >
             <Text style={styles.btnPrimaryText}>SEAL MY PROGRESS</Text>
@@ -269,7 +276,7 @@ export const SaveProgressScreen: React.FC<Props> = ({ route, navigation }): Reac
           {/* Button 3 — Use Email Instead */}
           <TouchableOpacity
             style={styles.btnEmail}
-            onPress={(): void => navigation.navigate('SignUp', undefined)}
+            onPress={(): void => { navigation.navigate('SignUp'); }}
             activeOpacity={0.85}
           >
             <Text style={styles.btnEmailText}>Use Email Instead</Text>
@@ -346,7 +353,7 @@ const styles = StyleSheet.create({
     borderTopLeftRadius: 22,
     borderTopRightRadius: 22,
     borderTopWidth: 1,
-    // gold + '38' hex = ~22% opacity
+    // gold + ~22% opacity
     borderTopColor: 'rgba(212,175,55,0.22)',
     backgroundColor: '#141c26',
     paddingBottom: 32,

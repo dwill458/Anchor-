@@ -384,9 +384,12 @@ export const FirstPrimeCompleteScreen: React.FC = () => {
       return;
     }
 
-    // First-time flow: prompt unauthenticated users to create an account before sanctuary
+    // First-time flow: show save gate before sanctuary for unauthenticated users
     if (!isAuthenticated) {
-      navigation.replace('FirstAnchorAccountGate');
+      navigation.replace('SaveProgress', {
+        anchorIntention: intentionText,
+        anchorSvg: symbolSvg,
+      });
       return;
     }
 

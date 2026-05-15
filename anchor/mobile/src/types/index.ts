@@ -478,6 +478,10 @@ export type RootStackParamList = {
   // ═══════════════════════════════════════════════════
   Vault: undefined;
   FirstAnchorAccountGate: undefined;
+  SaveProgress: {
+    anchorIntention: string;
+    anchorSvg: string;
+  };
   TrialSignUp: undefined;
   AnchorDetail: { anchorId: string };
   AuthGate: undefined;
@@ -817,10 +821,6 @@ export type AuthStackParamList = {
   Login: AuthScreenParams | undefined;
   SignUp: AuthScreenParams | undefined;
   Onboarding: undefined;
-  SaveProgress: {
-    anchorIntention: string;
-    anchorSvg: string;
-  };
 };
 
 // ============================================================================
