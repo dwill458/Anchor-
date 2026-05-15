@@ -67,7 +67,7 @@ function useTrialInit() {
 export const RootNavigator: React.FC = () => {
   useTrialInit();
 
-  const { hasCompletedOnboarding, isAuthenticated, isGuest } = useAuthStore();
+  const { hasCompletedOnboarding } = useAuthStore();
   const developerMasterAccountEnabled = useSettingsStore(
     (state) => state.developerMasterAccountEnabled
   );
@@ -76,8 +76,7 @@ export const RootNavigator: React.FC = () => {
   );
   const shouldBypassOnboarding =
     __DEV__ && (developerSkipOnboardingEnabled || developerMasterAccountEnabled);
-  const showOnboarding =
-    !shouldBypassOnboarding && ((!isAuthenticated && !isGuest) || !hasCompletedOnboarding);
+  const showOnboarding = !shouldBypassOnboarding && !hasCompletedOnboarding;
 
   const { hasExpired, isSubscribed } = useTrialStatus();
   const showTrialEnd = !showOnboarding && hasExpired && !isSubscribed;
