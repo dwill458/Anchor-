@@ -1,149 +1,101 @@
-import React, { useRef, useEffect, useMemo, useState } from 'react';
-import { View, StyleSheet, Image as RNImage } from 'react-native';
-import { WebView } from 'react-native-webview';
-import type { WebViewMessageEvent } from 'react-native-webview';
-import { Asset } from 'expo-asset';
-import * as FileSystem from 'expo-file-system/legacy';
-import { getForgeWebViewHtml } from './forgeWebViewHtml';
+import React, { useRef, useEffect, useState, useCallback } from 'react';
+import {
+  View,
+  Text,
+  Image,
+  TouchableOpacity,
+  Animated,
+  StyleSheet,
+} from 'react-native';
 
-/** Interactive sigil forge demonstration for onboarding slide 3. */
+const forgeRevealAsset = require('../../../assets/onboarding anchor.png') as number;
+
 interface ForgeDemoProps {
-  /** When this flips false → true, the demo resets to idle state. */
   isActive: boolean;
   onForgeComplete?: () => void;
 }
 
-// eslint-disable-next-line @typescript-eslint/no-var-requires
-const forgeRevealAsset = require('../../../assets/onboarding anchor.png') as number;
-const ALLOWED_WEBVIEW_SCHEMES = ['about:blank', 'data:'];
+type Phase = 'idle' | 'forging' | 'complete';
 
 export const ForgeDemo: React.FC<ForgeDemoProps> = ({ isActive, onForgeComplete }) => {
-  const webViewRef = useRef<WebView>(null);
-  const prevActiveRef = useRef(false);
+  const [phase, setPhase] = useState<Phase>('idle');
+  const intentionOpacity = useRef(new Animated.Value(1)).current;
+  const sigilOpacity = useRef(new Animated.Value(0)).current;
+  const sigilGlow = useRef(new Animated.Value(0)).current;
+  const timersRef = useRef<ReturnType<typeof setTimeout>[]>([]);
 
-  const [resolvedImageUri, setResolvedImageUri] = useState<string | null>(null);
-
-  useEffect(() => {
-    let isCancelled = false;
-
-    const toInlineDataUri = async (sourceUri: string): Promise<string | null> => {
-      const looksReadable =
-        sourceUri.startsWith('file:') ||
-        sourceUri.startsWith('content:') ||
-        sourceUri.startsWith('/');
-
-      if (!looksReadable) {
-        return null;
-      }
-
-      try {
-        const base64 = await FileSystem.readAsStringAsync(sourceUri, {
-          encoding: FileSystem.EncodingType.Base64,
-        });
-        return `data:image/png;base64,${base64}`;
-      } catch {
-        return null;
-      }
-    };
-
-    async function loadAsset() {
-      try {
-        const asset = Asset.fromModule(forgeRevealAsset);
-        if (!asset.localUri) {
-          await asset.downloadAsync();
-        }
-        if (isCancelled) return;
-
-        const resolvedAssetUri = RNImage.resolveAssetSource(forgeRevealAsset).uri;
-        const candidateUris = [asset.localUri, resolvedAssetUri, asset.uri].filter(
-          (uri): uri is string => Boolean(uri)
-        );
-
-        for (const candidateUri of candidateUris) {
-          const inlinedUri = await toInlineDataUri(candidateUri);
-          if (isCancelled) return;
-          if (inlinedUri) {
-            setResolvedImageUri(inlinedUri);
-            return;
-          }
-        }
-
-        setResolvedImageUri(candidateUris[0] ?? null);
-      } catch (err) {
-        if (!isCancelled) {
-          setResolvedImageUri(RNImage.resolveAssetSource(forgeRevealAsset).uri);
-        }
-      }
-    }
-    loadAsset();
-    return () => {
-      isCancelled = true;
-    };
+  const clearAllTimers = useCallback(() => {
+    timersRef.current.forEach(clearTimeout);
+    timersRef.current = [];
   }, []);
 
+  const reset = useCallback(() => {
+    clearAllTimers();
+    setPhase('idle');
+    intentionOpacity.setValue(1);
+    sigilOpacity.setValue(0);
+    sigilGlow.setValue(0);
+  }, [clearAllTimers, intentionOpacity, sigilOpacity, sigilGlow]);
+
   useEffect(() => {
-    if (!resolvedImageUri) {
-      return;
+    if (isActive) {
+      reset();
     }
+  }, [isActive, reset]);
 
-    if (isActive && !prevActiveRef.current) {
-      // Transitioned from inactive → active: reset to idle
-      webViewRef.current?.injectJavaScript(`
-        (function() {
-          var e = new MessageEvent('message', { data: JSON.stringify({ cmd: 'reset' }) });
-          document.dispatchEvent(e);
-          window.dispatchEvent(e);
-        })();
-        true;
-      `);
-    }
-    prevActiveRef.current = isActive;
-  }, [isActive, resolvedImageUri]);
+  useEffect(() => () => clearAllTimers(), [clearAllTimers]);
 
-  const webViewHtml = useMemo(
-    () => (resolvedImageUri ? getForgeWebViewHtml(resolvedImageUri) : null),
-    [resolvedImageUri]
-  );
+  const handleForge = useCallback(() => {
+    if (phase !== 'idle') return;
+    setPhase('forging');
 
-  const handleMessage = (event: WebViewMessageEvent) => {
-    try {
-      const data = JSON.parse(event.nativeEvent.data) as { event: string };
-      if (data.event === 'forgeComplete') {
-        onForgeComplete?.();
-      }
-    } catch {
-      // ignore
-    }
-  };
+    Animated.timing(intentionOpacity, {
+      toValue: 0,
+      duration: 700,
+      useNativeDriver: true,
+    }).start();
 
-  const handleShouldStartLoad = (request: { url: string }) =>
-    ALLOWED_WEBVIEW_SCHEMES.some((scheme) => request.url.startsWith(scheme));
+    const t1 = setTimeout(() => {
+      Animated.sequence([
+        Animated.timing(sigilOpacity, { toValue: 1, duration: 600, useNativeDriver: true }),
+        Animated.timing(sigilGlow, { toValue: 1, duration: 400, useNativeDriver: true }),
+      ]).start();
+      setPhase('complete');
+      onForgeComplete?.();
+    }, 900);
+
+    timersRef.current.push(t1);
+  }, [phase, intentionOpacity, sigilOpacity, sigilGlow, onForgeComplete]);
+
+  const btnLabel = phase === 'idle' ? '⚡ FORGE' : phase === 'forging' ? 'Forging...' : '✓ Forged';
+  const btnActive = phase === 'idle';
 
   return (
     <View style={styles.container}>
-      {webViewHtml ? (
-        <WebView
-          ref={webViewRef}
-          source={{ html: webViewHtml }}
-          style={styles.webview}
-          onMessage={handleMessage}
-          onShouldStartLoadWithRequest={handleShouldStartLoad}
-          originWhitelist={['about:blank', 'data:*']}
-          allowFileAccess={false}
-          allowFileAccessFromFileURLs={false}
-          allowUniversalAccessFromFileURLs={false}
-          mixedContentMode="never"
-          javaScriptCanOpenWindowsAutomatically={false}
-          setSupportMultipleWindows={false}
-          scrollEnabled={false}
-          bounces={false}
-          overScrollMode="never"
-          showsVerticalScrollIndicator={false}
-          showsHorizontalScrollIndicator={false}
-        />
-      ) : (
-        <View style={styles.placeholder} />
-      )}
+      <View style={styles.forge}>
+        <Animated.Text style={[styles.intentionText, { opacity: intentionOpacity }]}>
+          "Deep work for 4 hours"
+        </Animated.Text>
+
+        <Animated.View style={[styles.sigilWrap, { opacity: sigilOpacity }]}>
+          <Image
+            source={forgeRevealAsset}
+            style={styles.sigil}
+            resizeMode="contain"
+          />
+        </Animated.View>
+
+        <TouchableOpacity
+          onPress={handleForge}
+          activeOpacity={0.75}
+          style={[styles.forgeBtn, !btnActive && styles.forgeBtnDone]}
+          disabled={!btnActive}
+        >
+          <Text style={[styles.forgeBtnText, !btnActive && styles.forgeBtnTextDone]}>
+            {btnLabel}
+          </Text>
+        </TouchableOpacity>
+      </View>
     </View>
   );
 };
@@ -155,17 +107,66 @@ const styles = StyleSheet.create({
     borderRadius: 4,
     overflow: 'hidden',
   },
-  webview: {
-    width: 320,
-    height: 320,
-    backgroundColor: 'transparent',
-  },
-  placeholder: {
-    width: 320,
-    height: 320,
-    borderRadius: 4,
+  forge: {
+    flex: 1,
+    backgroundColor: 'rgba(15, 20, 25, 0.85)',
     borderWidth: 1,
     borderColor: 'rgba(212,175,55,0.2)',
-    backgroundColor: 'rgba(15, 20, 25, 0.85)',
+    borderRadius: 4,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  intentionText: {
+    position: 'absolute',
+    top: 24,
+    left: 0,
+    right: 0,
+    textAlign: 'center',
+    fontFamily: 'Georgia',
+    fontSize: 14,
+    fontStyle: 'italic',
+    color: '#C0C0C0',
+    letterSpacing: 0.7,
+  },
+  sigilWrap: {
+    width: 200,
+    height: 200,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  sigil: {
+    width: 200,
+    height: 200,
+  },
+  forgeBtn: {
+    position: 'absolute',
+    bottom: 20,
+    paddingHorizontal: 28,
+    paddingVertical: 8,
+    backgroundColor: '#D4AF37',
+    borderRadius: 6,
+    shadowColor: '#D4AF37',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.4,
+    shadowRadius: 8,
+    elevation: 6,
+  },
+  forgeBtnDone: {
+    backgroundColor: 'rgba(212,175,55,0.15)',
+    borderWidth: 1,
+    borderColor: 'rgba(212,175,55,0.3)',
+    shadowOpacity: 0,
+    elevation: 0,
+  },
+  forgeBtnText: {
+    fontFamily: 'Georgia',
+    fontSize: 10,
+    fontWeight: '700',
+    letterSpacing: 3,
+    color: '#0F1419',
+    textTransform: 'uppercase',
+  },
+  forgeBtnTextDone: {
+    color: '#D4AF37',
   },
 });
