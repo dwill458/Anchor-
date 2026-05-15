@@ -133,7 +133,7 @@ export const AnchorRevealScreen: React.FC = () => {
                 setPendingFirstAnchorDraft({
                     tempAnchorId: anchorId,
                     source: 'onboarding_first_anchor',
-                    requiresAccountGate: true,
+                    requiresAccountGate: false,
                     createdAt: new Date(),
                 });
                 enqueuePendingFirstAnchorMutation({

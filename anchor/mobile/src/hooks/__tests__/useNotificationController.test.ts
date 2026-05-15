@@ -1,9 +1,12 @@
 import { renderHook, act, waitFor } from '@testing-library/react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useNotificationController } from '../useNotificationController';
+import { useSettingsStore } from '@/stores/settingsStore';
 
 const mockScheduleLocalNotification = jest.fn();
+const mockScheduleWeeklySummary = jest.fn();
 const mockCancelNotification = jest.fn();
+const mockCancelWeeklySummary = jest.fn();
 const mockAnchorStoreGetState = jest.fn();
 const mockSessionStoreGetState = jest.fn();
 const mockAuthStoreGetState = jest.fn();
@@ -13,7 +16,9 @@ jest.mock('@/services/NotificationService', () => ({
   __esModule: true,
   default: {
     scheduleLocalNotification: (...args: unknown[]) => mockScheduleLocalNotification(...args),
+    scheduleWeeklySummary: (...args: unknown[]) => mockScheduleWeeklySummary(...args),
     cancelNotification: (...args: unknown[]) => mockCancelNotification(...args),
+    cancelWeeklySummary: (...args: unknown[]) => mockCancelWeeklySummary(...args),
   },
 }));
 
@@ -70,10 +75,17 @@ describe('useNotificationController', () => {
     mockAnchorStoreGetState.mockReturnValue(createAnchorState());
     mockSessionStoreGetState.mockReturnValue(createSessionState());
     mockAuthStoreGetState.mockReturnValue({ user: null });
+    useSettingsStore.setState({
+      weeklySummaryEnabled: true,
+      weeklySummaryDay: 0,
+      weeklySummaryTime: '19:30',
+    });
     asyncStorage.getItem.mockResolvedValue(null);
     asyncStorage.setItem.mockResolvedValue(undefined);
     mockCancelNotification.mockResolvedValue(undefined);
     mockScheduleLocalNotification.mockResolvedValue('micro-prime');
+    mockScheduleWeeklySummary.mockResolvedValue('weekly-summary');
+    mockCancelWeeklySummary.mockResolvedValue(undefined);
     mockSyncNotificationStateToServer.mockResolvedValue(undefined);
   });
 
@@ -81,7 +93,7 @@ describe('useNotificationController', () => {
     jest.useRealTimers();
   });
 
-  it('initializes notification state on first launch and schedules micro-prime for tomorrow at active_hours_end', async () => {
+  it('initializes notification state on first launch and schedules micro-prime plus the weekly summary at the selected time', async () => {
     const { result } = renderHook(() => useNotificationController());
 
     await waitFor(() => expect(result.current.isInitialized).toBe(true));
@@ -100,6 +112,8 @@ describe('useNotificationController', () => {
     expect(scheduledAt.getDate()).toBe(24);
     expect(scheduledAt.getHours()).toBe(21);
     expect(scheduledAt.getMinutes()).toBe(0);
+
+    expect(mockScheduleWeeklySummary).toHaveBeenCalledWith(0, '19:30');
 
     const savedState = JSON.parse(asyncStorage.setItem.mock.calls.at(-1)?.[1] ?? '{}');
     expect(savedState).toMatchObject({

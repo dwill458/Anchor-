@@ -54,7 +54,6 @@ import { isHighEndDevice } from '@/utils/deviceTier';
 import { useSettingsStore } from '@/stores/settingsStore';
 import { WeeklySummaryModal } from '@/components/WeeklySummaryModal'; import { useWeeklySummaryTrigger } from '@/hooks/useWeeklySummaryTrigger';
 import { VaultGridModal } from './components/VaultGridModal';
-import { usePostFirstAnchorPaywall } from '@/hooks/usePostFirstAnchorPaywall';
 import { isAnchorReleased } from './utils/anchorStateHelpers';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
@@ -206,8 +205,6 @@ export const VaultScreen: React.FC = () => {
   const { registerTabNav, activeTabIndex } = useTabNavigation();
   const isVaultTabActive = activeTabIndex == null ? true : activeTabIndex === 0;
 
-  usePostFirstAnchorPaywall();
-
   const { user, isAuthenticated } = useAuthStore();
   const [bannerDismissed, setBannerDismissed] = useState(false);
   const profileName = useProfileStore((state) => state.name);
@@ -219,8 +216,6 @@ export const VaultScreen: React.FC = () => {
   const primeSessionDuration = useSettingsStore((state) => state.primeSessionDuration ?? 120);
   const shouldRedirectToCreation = useAuthStore((s) => s.shouldRedirectToCreation);
   const setShouldRedirectToCreation = useAuthStore((s) => s.setShouldRedirectToCreation);
-  const pendingFirstAnchorDraft = useAuthStore((s) => s.pendingFirstAnchorDraft);
-  const shouldGateFirstVaultEntry = Boolean(pendingFirstAnchorDraft?.requiresAccountGate);
 
   const anchors = useAnchorStore((s) => s.anchors);
   const currentAnchorId = useAnchorStore((s) => s.currentAnchorId);
@@ -339,14 +334,6 @@ export const VaultScreen: React.FC = () => {
     setShouldRedirectToCreation,
     navigation,
   ]);
-
-  useEffect(() => {
-    if (!shouldGateFirstVaultEntry) {
-      return;
-    }
-
-    navigation.replace('FirstAnchorAccountGate');
-  }, [navigation, shouldGateFirstVaultEntry]);
 
   // ── Analytics tracking — fires once per user session, not on every anchor update ──
   const anchorsLengthRef = React.useRef(anchors.length);

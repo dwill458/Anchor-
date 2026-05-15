@@ -377,8 +377,21 @@ class NotificationService {
   /**
    * Schedule weekly summary.
    */
-  async scheduleWeeklySummary(hour: number = 19): Promise<string | null> {
+  async scheduleWeeklySummary(day: number = 0, time: string = '19:00'): Promise<string | null> {
     await this.cancelWeeklySummary();
+
+    const parsed = this.parseTime(time);
+    if (!parsed) {
+      this.recordError(
+        new ServiceError(
+          'notifications/invalid-time',
+          `Invalid weekly summary time "${time}". Expected HH:MM.`
+        )
+      );
+      return null;
+    }
+
+    const normalizedDay = Number.isInteger(day) && day >= 0 && day <= 6 ? day : 0;
 
     return this.scheduleNotification({
       identifier: NOTIFICATION_IDS.WEEKLY_SUMMARY,
@@ -390,9 +403,9 @@ class NotificationService {
       },
       trigger: {
         type: Notifications.SchedulableTriggerInputTypes.CALENDAR,
-        weekday: 1,
-        hour,
-        minute: 0,
+        weekday: normalizedDay + 1,
+        hour: parsed.hour,
+        minute: parsed.minute,
         repeats: true,
         channelId: NOTIFICATION_CHANNELS.WEEKLY_SUMMARY,
       },

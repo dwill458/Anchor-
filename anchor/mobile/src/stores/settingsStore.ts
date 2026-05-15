@@ -47,6 +47,28 @@ const normalizeSessionAudioMode = (value: unknown): SessionAudioMode =>
 const normalizeFocusSessionMode = (value: unknown): FocusSessionMode =>
   value === 'deep' ? 'deep' : 'quick';
 
+const normalizeWeeklySummaryTime = (value: unknown): string => {
+  if (typeof value !== 'string') {
+    return '19:00';
+  }
+
+  const match = /^([01]\d|2[0-3]):([0-5]\d)$/.exec(value);
+  if (!match) {
+    return '19:00';
+  }
+
+  return `${match[1]}:${match[2]}`;
+};
+
+const normalizeWeeklySummaryDay = (value: unknown): number => {
+  const day = Number(value);
+  if (!Number.isInteger(day) || day < 0 || day > 6) {
+    return 0;
+  }
+
+  return day;
+};
+
 const normalizeDailyPracticeGoalPreset = (
   value: unknown,
   goal: number
@@ -264,12 +286,15 @@ const withDeveloperSettingsDefaults = (
       clampedState?.dailyPracticeGoalPreset,
       dailyPracticeGoal
     ),
+    weeklySummaryTime: normalizeWeeklySummaryTime(clampedState?.weeklySummaryTime),
+    weeklySummaryDay: normalizeWeeklySummaryDay(clampedState?.weeklySummaryDay),
     threadStrengthSensitivity: normalizeThreadStrengthSensitivity(
       clampedState?.threadStrengthSensitivity
     ),
     restDays: normalizeRestDays(clampedState?.restDays),
     restDayPolicy: normalizeRestDayPolicy(clampedState?.restDayPolicy),
     developerSkipOnboardingEnabled: persistedState?.developerSkipOnboardingEnabled ?? false,
+    developerFlowTestingEnabled: persistedState?.developerFlowTestingEnabled ?? false,
     developerForceStreakBreakEnabled: persistedState?.developerForceStreakBreakEnabled ?? false,
     developerDeleteWithoutBurnEnabled: persistedState?.developerDeleteWithoutBurnEnabled ?? false,
     developerMasterAccountEnabled: persistedState?.developerMasterAccountEnabled ?? false,
@@ -302,6 +327,8 @@ export interface SettingsState {
   arrivePhaseEnabled: boolean;
   reduceIntentionVisibility: boolean;
   weeklySummaryEnabled: boolean;
+  weeklySummaryDay: number;
+  weeklySummaryTime: string;
 
   // Appearance
   theme: 'zen_architect' | 'dark' | 'light';
@@ -317,6 +344,7 @@ export interface SettingsState {
   developerModeEnabled: boolean;
   developerMasterAccountEnabled: boolean;
   developerSkipOnboardingEnabled: boolean;
+  developerFlowTestingEnabled: boolean;
   developerForceStreakBreakEnabled: boolean;
   developerDeleteWithoutBurnEnabled: boolean;
   developerWeeklySummaryPreviewToken: number;
@@ -346,6 +374,8 @@ export interface SettingsState {
   setArrivePhaseEnabled: (enabled: boolean) => void;
   setReduceIntentionVisibility: (enabled: boolean) => void;
   setWeeklySummaryEnabled: (enabled: boolean) => void;
+  setWeeklySummaryDay: (day: number) => void;
+  setWeeklySummaryTime: (time: string) => void;
 
   // Actions - Appearance
   setTheme: (theme: 'zen_architect' | 'dark' | 'light') => void;
@@ -361,6 +391,7 @@ export interface SettingsState {
   setDeveloperModeEnabled: (enabled: boolean) => void;
   setDeveloperMasterAccountEnabled: (enabled: boolean) => void;
   setDeveloperSkipOnboardingEnabled: (enabled: boolean) => void;
+  setDeveloperFlowTestingEnabled: (enabled: boolean) => void;
   setDeveloperForceStreakBreakEnabled: (enabled: boolean) => void;
   setDeveloperDeleteWithoutBurnEnabled: (enabled: boolean) => void;
   triggerDeveloperWeeklySummaryPreview: () => void;
@@ -397,6 +428,8 @@ const DEFAULT_SETTINGS = {
   arrivePhaseEnabled: true,
   reduceIntentionVisibility: false,
   weeklySummaryEnabled: true,
+  weeklySummaryDay: 0,
+  weeklySummaryTime: '19:00',
   theme: 'zen_architect' as const,
   accentColor: '#D4AF37',
   vaultView: 'grid' as const,
@@ -408,6 +441,7 @@ const DEFAULT_SETTINGS = {
   developerModeEnabled: false,
   developerMasterAccountEnabled: false,
   developerSkipOnboardingEnabled: false,
+  developerFlowTestingEnabled: false,
   developerForceStreakBreakEnabled: false,
   developerDeleteWithoutBurnEnabled: false,
   developerWeeklySummaryPreviewToken: 0,
@@ -579,6 +613,20 @@ export const useSettingsStore = create<SettingsState>()(
         });
       },
 
+      setWeeklySummaryDay: (day) => {
+        triggerHaptic();
+        set({
+          weeklySummaryDay: normalizeWeeklySummaryDay(day),
+        });
+      },
+
+      setWeeklySummaryTime: (time) => {
+        triggerHaptic();
+        set({
+          weeklySummaryTime: normalizeWeeklySummaryTime(time),
+        });
+      },
+
       setTheme: (theme) => {
         triggerHaptic();
         set({
@@ -654,6 +702,13 @@ export const useSettingsStore = create<SettingsState>()(
         });
       },
 
+      setDeveloperFlowTestingEnabled: (enabled: boolean) => {
+        triggerHaptic();
+        set({
+          developerFlowTestingEnabled: enabled,
+        });
+      },
+
       setDeveloperForceStreakBreakEnabled: (enabled: boolean) => {
         triggerHaptic();
         set({
@@ -709,9 +764,12 @@ export const useSettingsStore = create<SettingsState>()(
       name: 'anchor-settings-storage',
       storage: createJSONStorage(() => AsyncStorage),
       // DEFERRED: version: 10,
-      version: 11,
+      version: 12,
       // Handle migration
       migrate: (persistedState: any, version: number) => {
+        if (version === 11) {
+          return withDeveloperSettingsDefaults(persistedState);
+        }
         if (version === 10) {
           return withDeveloperSettingsDefaults(persistedState, {
             arrivePhaseEnabled: true,
@@ -723,6 +781,7 @@ export const useSettingsStore = create<SettingsState>()(
         if (version === 7) {
           return withDeveloperSettingsDefaults(persistedState, {
             developerSkipOnboardingEnabled: false,
+            developerFlowTestingEnabled: false,
             developerForceStreakBreakEnabled: false,
             developerDeleteWithoutBurnEnabled: false,
             developerMasterAccountEnabled: false,
@@ -732,6 +791,7 @@ export const useSettingsStore = create<SettingsState>()(
           return withDeveloperSettingsDefaults(persistedState, {
             debugLoggingEnabled: false,
             developerSkipOnboardingEnabled: false,
+            developerFlowTestingEnabled: false,
             developerForceStreakBreakEnabled: false,
             developerDeleteWithoutBurnEnabled: false,
             developerMasterAccountEnabled: false,
@@ -742,6 +802,7 @@ export const useSettingsStore = create<SettingsState>()(
             guideMode: false,
             debugLoggingEnabled: false,
             developerSkipOnboardingEnabled: false,
+            developerFlowTestingEnabled: false,
             developerForceStreakBreakEnabled: false,
             developerDeleteWithoutBurnEnabled: false,
             developerMasterAccountEnabled: false,
@@ -752,6 +813,7 @@ export const useSettingsStore = create<SettingsState>()(
             guideMode: false,
             debugLoggingEnabled: false,
             developerSkipOnboardingEnabled: false,
+            developerFlowTestingEnabled: false,
             developerForceStreakBreakEnabled: false,
             developerDeleteWithoutBurnEnabled: false,
             developerMasterAccountEnabled: false,
@@ -765,6 +827,7 @@ export const useSettingsStore = create<SettingsState>()(
           return withDeveloperSettingsDefaults(persistedState, {
             debugLoggingEnabled: false,
             developerSkipOnboardingEnabled: false,
+            developerFlowTestingEnabled: false,
             developerForceStreakBreakEnabled: false,
             developerDeleteWithoutBurnEnabled: false,
             developerMasterAccountEnabled: false,
@@ -774,6 +837,7 @@ export const useSettingsStore = create<SettingsState>()(
           return withDeveloperSettingsDefaults(persistedState, {
             debugLoggingEnabled: false,
             developerSkipOnboardingEnabled: false,
+            developerFlowTestingEnabled: false,
             developerForceStreakBreakEnabled: false,
             developerDeleteWithoutBurnEnabled: false,
             developerMasterAccountEnabled: false,
@@ -790,8 +854,9 @@ export const useSettingsStore = create<SettingsState>()(
             {
             debugLoggingEnabled: false,
             developerSkipOnboardingEnabled: false,
+            developerFlowTestingEnabled: false,
             developerForceStreakBreakEnabled: false,
-              developerDeleteWithoutBurnEnabled: false,
+            developerDeleteWithoutBurnEnabled: false,
               developerMasterAccountEnabled: false,
             }
           );
@@ -821,6 +886,7 @@ export const useSettingsStore = create<SettingsState>()(
             {
             debugLoggingEnabled: false,
             developerSkipOnboardingEnabled: false,
+            developerFlowTestingEnabled: false,
             developerForceStreakBreakEnabled: false,
               developerDeleteWithoutBurnEnabled: false,
               developerMasterAccountEnabled: false,
@@ -854,9 +920,12 @@ export const useSettingsStore = create<SettingsState>()(
         hapticIntensity: state.hapticIntensity,
         soundEffectsEnabled: state.soundEffectsEnabled,
         mantraAudioByDefault: state.mantraAudioByDefault,
+        weeklySummaryDay: state.weeklySummaryDay,
+        weeklySummaryTime: state.weeklySummaryTime,
         developerModeEnabled: state.developerModeEnabled,
         developerMasterAccountEnabled: state.developerMasterAccountEnabled,
         developerSkipOnboardingEnabled: state.developerSkipOnboardingEnabled,
+        developerFlowTestingEnabled: state.developerFlowTestingEnabled,
         developerForceStreakBreakEnabled: state.developerForceStreakBreakEnabled,
         developerDeleteWithoutBurnEnabled: state.developerDeleteWithoutBurnEnabled,
         debugLoggingEnabled: state.debugLoggingEnabled,

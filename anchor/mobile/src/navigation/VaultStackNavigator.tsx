@@ -48,13 +48,9 @@ interface VaultStackNavigatorProps {
 export const VaultStackNavigator: React.FC<VaultStackNavigatorProps> = ({ onRouteChange }) => {
   const shouldRedirectToCreation = useAuthStore((state) => state.shouldRedirectToCreation);
   const setShouldRedirectToCreation = useAuthStore((state) => state.setShouldRedirectToCreation);
-  const pendingFirstAnchorDraft = useAuthStore((state) => state.pendingFirstAnchorDraft);
-  const shouldGateFirstVaultEntry = Boolean(pendingFirstAnchorDraft?.requiresAccountGate);
   const initialRouteName = shouldRedirectToCreation
     ? 'FirstAnchorCreation'
-    : shouldGateFirstVaultEntry
-      ? 'FirstAnchorAccountGate'
-      : 'Vault';
+    : 'Vault';
 
   React.useEffect(() => {
     if (shouldRedirectToCreation) {

@@ -30,6 +30,9 @@ export const useNotificationController = () => {
   const [notifState, setNotifState] = useState<NotificationState | null>(null);
   const [isInitialized, setIsInitialized] = useState(false);
   const dailyPracticeGoal = useSettingsStore((state) => state.dailyPracticeGoal ?? 3);
+  const weeklySummaryEnabled = useSettingsStore((state) => state.weeklySummaryEnabled ?? true);
+  const weeklySummaryDay = useSettingsStore((state) => state.weeklySummaryDay ?? 0);
+  const weeklySummaryTime = useSettingsStore((state) => state.weeklySummaryTime ?? '19:00');
 
   const loadState = useCallback(async (): Promise<NotificationState> => {
     const stored = await AsyncStorage.getItem(NOTIFICATION_STATE_STORAGE_KEY);
@@ -140,12 +143,6 @@ export const useNotificationController = () => {
       deepLink: '/sanctuary',
     });
 
-    const settings = useSettingsStore.getState();
-    if (settings.weeklySummaryEnabled && state.notification_enabled) {
-      await NotificationService.scheduleWeeklySummary(state.active_hours_end);
-    } else {
-      await NotificationService.cancelWeeklySummary();
-    }
   }, []);
 
   const initOnAppOpen = useCallback(async () => {
@@ -203,6 +200,29 @@ export const useNotificationController = () => {
       cancelled = true;
     };
   }, [dailyPracticeGoal, isInitialized, loadState, reconcile, saveState, syncStateToServer]);
+
+  useEffect(() => {
+    if (!isInitialized || !notifState) {
+      return;
+    }
+
+    const syncWeeklySummarySchedule = async () => {
+      if (!notifState.notification_enabled || !weeklySummaryEnabled) {
+        await NotificationService.cancelWeeklySummary();
+        return;
+      }
+
+      await NotificationService.scheduleWeeklySummary(weeklySummaryDay, weeklySummaryTime);
+    };
+
+    void syncWeeklySummarySchedule();
+  }, [
+    isInitialized,
+    notifState?.notification_enabled,
+    weeklySummaryDay,
+    weeklySummaryEnabled,
+    weeklySummaryTime,
+  ]);
 
   const handlePrimeComplete = useCallback(async () => {
     try {
