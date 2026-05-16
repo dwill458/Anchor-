@@ -4,13 +4,46 @@
  * Handles user authentication and profile synchronization
  */
 
-import { Router, Response } from 'express';
+import { Router, Response, NextFunction } from 'express';
 import { PrismaClient } from '@prisma/client';
 import { AuthRequest, authMiddleware } from '../middleware/auth';
 import { AppError } from '../middleware/errorHandler';
+import { logger } from '../../utils/logger';
 
 const router = Router();
 const prisma = new PrismaClient();
+
+const AUTH_PROVIDER_ALIASES: Record<string, 'email' | 'google' | 'apple'> = {
+  email: 'email',
+  password: 'email',
+  google: 'google',
+  'google.com': 'google',
+  apple: 'apple',
+  'apple.com': 'apple',
+};
+
+function normalizeAuthProvider(authProvider: unknown): 'email' | 'google' | 'apple' | null {
+  if (typeof authProvider !== 'string') {
+    return null;
+  }
+
+  return AUTH_PROVIDER_ALIASES[authProvider.toLowerCase()] ?? null;
+}
+
+function handleAuthRouteError(
+  error: unknown,
+  next: NextFunction,
+  fallbackMessage: string,
+  fallbackCode: string
+): void {
+  if (error instanceof AppError) {
+    next(error);
+    return;
+  }
+
+  logger.error(fallbackMessage, error);
+  next(new AppError(fallbackMessage, 500, fallbackCode));
+}
 
 /**
  * POST /api/auth/sync
@@ -24,7 +57,7 @@ const prisma = new PrismaClient();
  * - displayName: User display name (optional)
  * - authProvider: 'email' | 'google' | 'apple'
  */
-router.post('/sync', async (req: AuthRequest, res: Response) => {
+router.post('/sync', async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
     const { authUid, email, displayName, authProvider } = req.body;
 
@@ -33,7 +66,8 @@ router.post('/sync', async (req: AuthRequest, res: Response) => {
       throw new AppError('Missing required fields: authUid and email', 400, 'VALIDATION_ERROR');
     }
 
-    if (!['email', 'google', 'apple'].includes(authProvider)) {
+    const normalizedAuthProvider = normalizeAuthProvider(authProvider);
+    if (!normalizedAuthProvider) {
       throw new AppError('Invalid authProvider', 400, 'VALIDATION_ERROR');
     }
 
@@ -49,6 +83,7 @@ router.post('/sync', async (req: AuthRequest, res: Response) => {
         data: {
           email,
           displayName: displayName || user.displayName,
+          authProvider: normalizedAuthProvider,
           lastSeenAt: new Date(),
         },
       });
@@ -59,7 +94,7 @@ router.post('/sync', async (req: AuthRequest, res: Response) => {
           authUid,
           email,
           displayName,
-          authProvider,
+          authProvider: normalizedAuthProvider,
           lastSeenAt: new Date(),
         },
       });
@@ -88,10 +123,7 @@ router.post('/sync', async (req: AuthRequest, res: Response) => {
       },
     });
   } catch (error) {
-    if (error instanceof AppError) {
-      throw error;
-    }
-    throw new AppError('Failed to sync user', 500, 'SYNC_ERROR');
+    handleAuthRouteError(error, next, 'Failed to sync user', 'SYNC_ERROR');
   }
 });
 
@@ -101,7 +133,7 @@ router.post('/sync', async (req: AuthRequest, res: Response) => {
  * Get current authenticated user's profile
  * Requires authentication
  */
-router.get('/me', authMiddleware, async (req: AuthRequest, res: Response) => {
+router.get('/me', authMiddleware, async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
     if (!req.user) {
       throw new AppError('User not authenticated', 401, 'UNAUTHORIZED');
@@ -135,10 +167,7 @@ router.get('/me', authMiddleware, async (req: AuthRequest, res: Response) => {
       },
     });
   } catch (error) {
-    if (error instanceof AppError) {
-      throw error;
-    }
-    throw new AppError('Failed to fetch user', 500, 'FETCH_ERROR');
+    handleAuthRouteError(error, next, 'Failed to fetch user', 'FETCH_ERROR');
   }
 });
 
@@ -151,44 +180,45 @@ router.get('/me', authMiddleware, async (req: AuthRequest, res: Response) => {
  * Body:
  * - displayName: New display name (optional)
  */
-router.put('/profile', authMiddleware, async (req: AuthRequest, res: Response) => {
-  try {
-    if (!req.user) {
-      throw new AppError('User not authenticated', 401, 'UNAUTHORIZED');
+router.put(
+  '/profile',
+  authMiddleware,
+  async (req: AuthRequest, res: Response, next: NextFunction) => {
+    try {
+      if (!req.user) {
+        throw new AppError('User not authenticated', 401, 'UNAUTHORIZED');
+      }
+
+      const { displayName } = req.body;
+
+      const user = await prisma.user.update({
+        where: { authUid: req.user.uid },
+        data: {
+          displayName: displayName || undefined,
+          updatedAt: new Date(),
+        },
+      });
+
+      res.json({
+        success: true,
+        data: {
+          id: user.id,
+          email: user.email,
+          displayName: user.displayName,
+          hasCompletedOnboarding: user.hasCompletedOnboarding,
+          subscriptionStatus: user.subscriptionStatus,
+          totalAnchorsCreated: user.totalAnchorsCreated,
+          totalActivations: user.totalActivations,
+          currentStreak: user.currentStreak,
+          longestStreak: user.longestStreak,
+          createdAt: user.createdAt,
+        },
+      });
+    } catch (error) {
+      handleAuthRouteError(error, next, 'Failed to update profile', 'UPDATE_ERROR');
     }
-
-    const { displayName } = req.body;
-
-    const user = await prisma.user.update({
-      where: { authUid: req.user.uid },
-      data: {
-        displayName: displayName || undefined,
-        updatedAt: new Date(),
-      },
-    });
-
-    res.json({
-      success: true,
-      data: {
-        id: user.id,
-        email: user.email,
-        displayName: user.displayName,
-        hasCompletedOnboarding: user.hasCompletedOnboarding,
-        subscriptionStatus: user.subscriptionStatus,
-        totalAnchorsCreated: user.totalAnchorsCreated,
-        totalActivations: user.totalActivations,
-        currentStreak: user.currentStreak,
-        longestStreak: user.longestStreak,
-        createdAt: user.createdAt,
-      },
-    });
-  } catch (error) {
-    if (error instanceof AppError) {
-      throw error;
-    }
-    throw new AppError('Failed to update profile', 500, 'UPDATE_ERROR');
   }
-});
+);
 
 /**
  * PUT /api/auth/settings
@@ -204,77 +234,78 @@ router.put('/profile', authMiddleware, async (req: AuthRequest, res: Response) =
  * - hapticIntensity: Number 1-5 (optional)
  * - vaultViewType: 'grid' | 'list' (optional)
  */
-router.put('/settings', authMiddleware, async (req: AuthRequest, res: Response) => {
-  try {
-    if (!req.user) {
-      throw new AppError('User not authenticated', 401, 'UNAUTHORIZED');
+router.put(
+  '/settings',
+  authMiddleware,
+  async (req: AuthRequest, res: Response, next: NextFunction) => {
+    try {
+      if (!req.user) {
+        throw new AppError('User not authenticated', 401, 'UNAUTHORIZED');
+      }
+
+      const {
+        notificationsEnabled,
+        dailyReminderTime,
+        streakProtection,
+        defaultChargeDuration,
+        hapticIntensity,
+        vaultViewType,
+      } = req.body;
+
+      // Validation
+      if (dailyReminderTime && !/^([01]\d|2[0-3]):([0-5]\d)$/.test(dailyReminderTime)) {
+        throw new AppError('Invalid dailyReminderTime format. Use HH:MM', 400, 'VALIDATION_ERROR');
+      }
+
+      if (hapticIntensity !== undefined && (hapticIntensity < 1 || hapticIntensity > 5)) {
+        throw new AppError('hapticIntensity must be between 1 and 5', 400, 'VALIDATION_ERROR');
+      }
+
+      if (vaultViewType && !['grid', 'list'].includes(vaultViewType)) {
+        throw new AppError('vaultViewType must be "grid" or "list"', 400, 'VALIDATION_ERROR');
+      }
+
+      // Find user to get their ID
+      const user = await prisma.user.findUnique({
+        where: { authUid: req.user.uid },
+      });
+
+      if (!user) {
+        throw new AppError('User not found', 404, 'USER_NOT_FOUND');
+      }
+
+      // Update settings (upsert in case they don't exist yet)
+      const settings = await prisma.userSettings.upsert({
+        where: { userId: user.id },
+        update: {
+          ...(notificationsEnabled !== undefined && { notificationsEnabled }),
+          ...(dailyReminderTime && { dailyReminderTime }),
+          ...(streakProtection !== undefined && { streakProtection }),
+          ...(defaultChargeDuration !== undefined && { defaultChargeDuration }),
+          ...(hapticIntensity !== undefined && { hapticIntensity }),
+          ...(vaultViewType && { vaultViewType }),
+          updatedAt: new Date(),
+        },
+        create: {
+          userId: user.id,
+          ...(notificationsEnabled !== undefined && { notificationsEnabled }),
+          ...(dailyReminderTime && { dailyReminderTime }),
+          ...(streakProtection !== undefined && { streakProtection }),
+          ...(defaultChargeDuration !== undefined && { defaultChargeDuration }),
+          ...(hapticIntensity !== undefined && { hapticIntensity }),
+          ...(vaultViewType && { vaultViewType }),
+        },
+      });
+
+      res.json({
+        success: true,
+        data: settings,
+      });
+    } catch (error) {
+      handleAuthRouteError(error, next, 'Failed to update settings', 'UPDATE_ERROR');
     }
-
-    const {
-      notificationsEnabled,
-      dailyReminderTime,
-      streakProtection,
-      defaultChargeDuration,
-      hapticIntensity,
-      vaultViewType,
-    } = req.body;
-
-    // Validation
-    if (dailyReminderTime && !/^([01]\d|2[0-3]):([0-5]\d)$/.test(dailyReminderTime)) {
-      throw new AppError('Invalid dailyReminderTime format. Use HH:MM', 400, 'VALIDATION_ERROR');
-    }
-
-    if (hapticIntensity !== undefined && (hapticIntensity < 1 || hapticIntensity > 5)) {
-      throw new AppError('hapticIntensity must be between 1 and 5', 400, 'VALIDATION_ERROR');
-    }
-
-    if (vaultViewType && !['grid', 'list'].includes(vaultViewType)) {
-      throw new AppError('vaultViewType must be "grid" or "list"', 400, 'VALIDATION_ERROR');
-    }
-
-    // Find user to get their ID
-    const user = await prisma.user.findUnique({
-      where: { authUid: req.user.uid },
-    });
-
-    if (!user) {
-      throw new AppError('User not found', 404, 'USER_NOT_FOUND');
-    }
-
-    // Update settings (upsert in case they don't exist yet)
-    const settings = await prisma.userSettings.upsert({
-      where: { userId: user.id },
-      update: {
-        ...(notificationsEnabled !== undefined && { notificationsEnabled }),
-        ...(dailyReminderTime && { dailyReminderTime }),
-        ...(streakProtection !== undefined && { streakProtection }),
-        ...(defaultChargeDuration !== undefined && { defaultChargeDuration }),
-        ...(hapticIntensity !== undefined && { hapticIntensity }),
-        ...(vaultViewType && { vaultViewType }),
-        updatedAt: new Date(),
-      },
-      create: {
-        userId: user.id,
-        ...(notificationsEnabled !== undefined && { notificationsEnabled }),
-        ...(dailyReminderTime && { dailyReminderTime }),
-        ...(streakProtection !== undefined && { streakProtection }),
-        ...(defaultChargeDuration !== undefined && { defaultChargeDuration }),
-        ...(hapticIntensity !== undefined && { hapticIntensity }),
-        ...(vaultViewType && { vaultViewType }),
-      },
-    });
-
-    res.json({
-      success: true,
-      data: settings,
-    });
-  } catch (error) {
-    if (error instanceof AppError) {
-      throw error;
-    }
-    throw new AppError('Failed to update settings', 500, 'UPDATE_ERROR');
   }
-});
+);
 
 /**
  * DELETE /api/auth/me
@@ -289,50 +320,51 @@ router.put('/settings', authMiddleware, async (req: AuthRequest, res: Response) 
  * - Sync queue entries
  * - User record
  */
-router.delete('/me', authMiddleware, async (req: AuthRequest, res: Response) => {
-  try {
-    if (!req.user) {
-      throw new AppError('User not authenticated', 401, 'UNAUTHORIZED');
+router.delete(
+  '/me',
+  authMiddleware,
+  async (req: AuthRequest, res: Response, next: NextFunction) => {
+    try {
+      if (!req.user) {
+        throw new AppError('User not authenticated', 401, 'UNAUTHORIZED');
+      }
+
+      // Find user
+      const user = await prisma.user.findUnique({
+        where: { authUid: req.user.uid },
+      });
+
+      if (!user) {
+        throw new AppError('User not found', 404, 'USER_NOT_FOUND');
+      }
+
+      // Delete user (cascades handled by Prisma schema onDelete: Cascade)
+      // This will automatically delete:
+      // - anchors (which cascade to activations and charges)
+      // - activations
+      // - charges
+      // - orders
+      // - settings
+      await prisma.user.delete({
+        where: { id: user.id },
+      });
+
+      // Also clean up sync queue (not in schema relations)
+      await prisma.syncQueue.deleteMany({
+        where: { userId: user.id },
+      });
+
+      res.json({
+        success: true,
+        data: {
+          message: 'Account successfully deleted',
+          deletedUserId: user.id,
+        },
+      });
+    } catch (error) {
+      handleAuthRouteError(error, next, 'Failed to delete account', 'DELETE_ERROR');
     }
-
-    // Find user
-    const user = await prisma.user.findUnique({
-      where: { authUid: req.user.uid },
-    });
-
-    if (!user) {
-      throw new AppError('User not found', 404, 'USER_NOT_FOUND');
-    }
-
-    // Delete user (cascades handled by Prisma schema onDelete: Cascade)
-    // This will automatically delete:
-    // - anchors (which cascade to activations and charges)
-    // - activations
-    // - charges
-    // - orders
-    // - settings
-    await prisma.user.delete({
-      where: { id: user.id },
-    });
-
-    // Also clean up sync queue (not in schema relations)
-    await prisma.syncQueue.deleteMany({
-      where: { userId: user.id },
-    });
-
-    res.json({
-      success: true,
-      data: {
-        message: 'Account successfully deleted',
-        deletedUserId: user.id,
-      },
-    });
-  } catch (error) {
-    if (error instanceof AppError) {
-      throw error;
-    }
-    throw new AppError('Failed to delete account', 500, 'DELETE_ERROR');
   }
-});
+);
 
 export default router;

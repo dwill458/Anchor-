@@ -103,8 +103,7 @@ async function testNanoBananaAPI() {
                 responseModalities: ['IMAGE'],
                 // @ts-ignore
                 imageConfig: {
-                    aspectRatio: '1:1',
-                    numberOfImages: 1
+                    aspectRatio: '1:1'
                 }
             }
         });
