@@ -14,6 +14,7 @@ import { API_URL } from '@/config';
 jest.mock('../AuthService', () => ({
   AuthService: {
     getIdToken: jest.fn(),
+    syncCurrentUser: jest.fn(),
   },
 }));
 
@@ -24,6 +25,11 @@ describe('ApiClient', () => {
     mock = new MockAdapter(apiClient);
     jest.clearAllMocks();
     (AuthService.getIdToken as jest.Mock).mockResolvedValue('test-token');
+    (AuthService.syncCurrentUser as jest.Mock).mockResolvedValue({
+      user: { id: 'user-1' },
+      token: 'test-token',
+      isNewUser: false,
+    });
   });
 
   afterEach(() => {
@@ -108,6 +114,35 @@ describe('ApiClient', () => {
       mock.onGet('/test').reply(404);
 
       await expect(get('/test')).rejects.toThrow('Resource not found.');
+    });
+
+    it('re-syncs the backend user once when an authenticated request returns USER_NOT_FOUND', async () => {
+      mock
+        .onGet('/test')
+        .replyOnce(404, {
+          error: {
+            code: 'USER_NOT_FOUND',
+            message: 'User not found',
+          },
+        })
+        .onGet('/test')
+        .reply(200, { success: true, recovered: true });
+
+      await expect(get('/test')).resolves.toEqual({ success: true, recovered: true });
+      expect(AuthService.syncCurrentUser).toHaveBeenCalledTimes(1);
+    });
+
+    it('surfaces the original USER_NOT_FOUND error when backend re-sync fails', async () => {
+      (AuthService.syncCurrentUser as jest.Mock).mockRejectedValueOnce(new Error('sync failed'));
+      mock.onGet('/test').reply(404, {
+        error: {
+          code: 'USER_NOT_FOUND',
+          message: 'User not found',
+        },
+      });
+
+      await expect(get('/test')).rejects.toThrow('User not found');
+      expect(AuthService.syncCurrentUser).toHaveBeenCalledTimes(1);
     });
 
     it('should handle 429 Too Many Requests', async () => {

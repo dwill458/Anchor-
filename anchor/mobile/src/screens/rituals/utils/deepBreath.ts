@@ -9,7 +9,7 @@ export const DEEP_PHASE_BREATHS: Record<string, DeepBreathPattern> = {
   'repeat intention': { inhale: 4, hold: 0, exhale: 6 },
   visualization: { inhale: 5, hold: 0, exhale: 5 },
   transfer: { inhale: 4, hold: 2, exhale: 4 },
-  seal: { inhale: 4, hold: 0, exhale: 4 },
+  seal: { inhale: 4, hold: 0, exhale: 6 },
 };
 
 const FALLBACK_DEEP_BREATH_PATTERN: DeepBreathPattern = {
