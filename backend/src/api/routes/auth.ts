@@ -328,15 +328,27 @@ router.post(
         return;
       }
 
-      logger.error(
-        'Auth sync failed',
-        error instanceof Error ? error : new Error(String(error)),
-        {
+      if (error instanceof Prisma.PrismaClientKnownRequestError) {
+        logger.error('Auth sync Prisma error', error, {
           authUid: req.user?.uid,
           authProvider: req.body?.authProvider,
           path: req.path,
-        }
-      );
+          prismaCode: error.code,
+          prismaMeta: error.meta,
+        });
+      } else if (error instanceof Prisma.PrismaClientValidationError) {
+        logger.error('Auth sync Prisma validation error', error, {
+          authUid: req.user?.uid,
+          authProvider: req.body?.authProvider,
+          path: req.path,
+        });
+      } else {
+        logger.error('Auth sync unexpected error', error, {
+          authUid: req.user?.uid,
+          authProvider: req.body?.authProvider,
+          path: req.path,
+        });
+      }
 
       next(new AppError('Failed to sync user', 500, 'SYNC_ERROR'));
     }
