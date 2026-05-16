@@ -107,6 +107,33 @@ async function syncCompedFlag(user: {
   return nextIsComped;
 }
 
+function buildUserSyncPayload(input: {
+  email: string;
+  displayName?: string;
+  authProvider: 'email' | 'google' | 'apple';
+  isComped: boolean;
+  hasCompletedOnboarding?: boolean;
+  lastSeenAt: Date;
+}) {
+  const {
+    email,
+    displayName,
+    authProvider,
+    isComped,
+    hasCompletedOnboarding,
+    lastSeenAt,
+  } = input;
+
+  return {
+    email,
+    displayName: displayName || undefined,
+    authProvider,
+    isComped,
+    ...(hasCompletedOnboarding === true && { hasCompletedOnboarding: true }),
+    lastSeenAt,
+  };
+}
+
 function buildSettingsUpsertData(settings: {
   notificationsEnabled?: boolean;
   dailyReminderTime?: string;
@@ -237,26 +264,49 @@ router.post(
         provider = mapProviderIdToAuthProvider(firebaseUser.providerData[0]?.providerId);
       }
 
+      const lastSeenAt = new Date();
+      const syncPayload = buildUserSyncPayload({
+        email,
+        displayName,
+        authProvider: provider,
+        isComped,
+        hasCompletedOnboarding,
+        lastSeenAt,
+      });
+
       const user = await prisma.$transaction(async tx => {
-        const syncedUser = await tx.user.upsert({
+        const existingByAuthUid = await tx.user.findUnique({
           where: { authUid },
-          update: {
-            email,
-            displayName: displayName || undefined,
-            isComped,
-            ...(hasCompletedOnboarding === true && { hasCompletedOnboarding: true }),
-            lastSeenAt: new Date(),
-          },
-          create: {
-            authUid,
-            email,
-            displayName,
-            authProvider: provider,
-            isComped,
-            hasCompletedOnboarding: hasCompletedOnboarding === true,
-            lastSeenAt: new Date(),
-          },
         });
+
+        const syncedUser = existingByAuthUid
+          ? await tx.user.update({
+              where: { authUid },
+              data: syncPayload,
+            })
+          : await (async () => {
+              const existingByEmail = await tx.user.findUnique({
+                where: { email },
+              });
+
+              if (existingByEmail) {
+                return tx.user.update({
+                  where: { id: existingByEmail.id },
+                  data: {
+                    ...syncPayload,
+                    authUid,
+                  },
+                });
+              }
+
+              return tx.user.create({
+                data: {
+                  authUid,
+                  ...syncPayload,
+                  hasCompletedOnboarding: hasCompletedOnboarding === true,
+                },
+              });
+            })();
 
         await tx.userSettings.upsert({
           where: { userId: syncedUser.id },
