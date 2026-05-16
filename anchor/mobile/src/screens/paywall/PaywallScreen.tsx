@@ -9,6 +9,7 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   Alert,
   Animated,
+  BackHandler,
   Image,
   Pressable,
   ScrollView,
@@ -145,6 +146,14 @@ export const PaywallScreen: React.FC = () => {
     ]).start();
   }, [fadeAnim, slideAnim]);
 
+  useEffect(() => {
+    const backHandler = BackHandler.addEventListener('hardwareBackPress', () => {
+      navigation.goBack();
+      return true;
+    });
+    return () => backHandler.remove();
+  }, [navigation]);
+
   const handleBackToHome = () => {
     navigation.reset({
       index: 0,
@@ -234,6 +243,15 @@ export const PaywallScreen: React.FC = () => {
             },
           ]}
         >
+          <Pressable
+            onPress={() => navigation.goBack()}
+            accessibilityRole="button"
+            accessibilityLabel="Dismiss"
+            style={({ pressed }) => [styles.dismissButton, pressed && styles.dismissButtonPressed]}
+          >
+            <Text style={styles.dismissIcon}>✕</Text>
+          </Pressable>
+
           <View style={[styles.previewZone, { height: previewHeight }]}>
             <LinearGradient
               colors={[colors.navy, colors.deepPurple, colors.black]}
@@ -705,6 +723,23 @@ const styles = StyleSheet.create({
   },
   ctaButtonDisabled: {
     opacity: 0.6,
+  },
+  dismissButton: {
+    position: 'absolute',
+    top: 8,
+    right: 16,
+    width: 44,
+    height: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: 10,
+  },
+  dismissButtonPressed: {
+    opacity: 0.6,
+  },
+  dismissIcon: {
+    fontSize: 18,
+    color: colors.silver,
   },
   restoreButton: {
     alignItems: 'center',
