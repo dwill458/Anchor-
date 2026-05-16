@@ -71,7 +71,22 @@ function serializeUser(user: {
   stabilizeStreakDays: number;
   lastStabilizeAt: Date | null;
   createdAt: Date;
-}) {
+}): {
+  id: string;
+  email: string;
+  displayName: string | null;
+  hasCompletedOnboarding: boolean;
+  isComped: boolean;
+  subscriptionStatus: string;
+  totalAnchorsCreated: number;
+  totalActivations: number;
+  currentStreak: number;
+  longestStreak: number;
+  stabilizesTotal: number;
+  stabilizeStreakDays: number;
+  lastStabilizeAt: Date | null;
+  createdAt: Date;
+} {
   return {
     id: user.id,
     email: user.email,
@@ -115,15 +130,15 @@ function buildUserSyncPayload(input: {
   isComped: boolean;
   hasCompletedOnboarding?: boolean;
   lastSeenAt: Date;
-}) {
-  const {
-    email,
-    displayName,
-    authProvider,
-    isComped,
-    hasCompletedOnboarding,
-    lastSeenAt,
-  } = input;
+}): {
+  email: string;
+  displayName: string | undefined;
+  authProvider: 'email' | 'google' | 'apple';
+  isComped: boolean;
+  hasCompletedOnboarding?: true;
+  lastSeenAt: Date;
+} {
+  const { email, displayName, authProvider, isComped, hasCompletedOnboarding, lastSeenAt } = input;
 
   return {
     email,
@@ -142,7 +157,14 @@ function buildSettingsUpsertData(settings: {
   defaultChargeDuration?: number;
   hapticIntensity?: number;
   vaultViewType?: 'grid' | 'list';
-}) {
+}): {
+  notificationsEnabled?: boolean;
+  dailyReminderTime?: string;
+  streakProtection?: boolean;
+  defaultChargeDuration?: number;
+  hapticIntensity?: number;
+  vaultViewType?: 'grid' | 'list';
+} {
   const {
     notificationsEnabled,
     dailyReminderTime,
@@ -214,7 +236,10 @@ function validate<T>(schema: z.ZodSchema<T>, data: unknown): T {
   return result.data;
 }
 
-function buildFlaggedContentUserWhere(user: { id: string; authUid: string }) {
+function buildFlaggedContentUserWhere(user: { id: string; authUid: string }): {
+  userId?: string;
+  OR?: Array<{ userId: string }>;
+} {
   if (user.id === user.authUid) {
     return { userId: user.id };
   }

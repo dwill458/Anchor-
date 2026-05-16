@@ -48,7 +48,7 @@
         "monochromeImage": "./assets/anchor-gold.png"
       },
       "package": "com.anchorintentions.app",
-      "versionCode": 2,
+      "versionCode": 3,
       "googleServicesFile": "./google-services.json",
       "blockedPermissions": [
         "android.permission.RECORD_AUDIO",
