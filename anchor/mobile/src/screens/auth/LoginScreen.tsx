@@ -30,6 +30,7 @@ try {
   // Native module not available in this build
 }
 import { colors, typography } from '@/theme';
+import { ENABLE_GOOGLE_SIGN_IN } from '@/config';
 import { useAuthStore } from '../../stores/authStore';
 import { AuthService } from '../../services/AuthService';
 import PostAuthFlowService from '../../services/PostAuthFlowService';
@@ -273,6 +274,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ navigation, route }) =
 
   const isSignIn = tab === 'signin';
   const ctaCopy = isSignIn ? 'ENTER THE SANCTUARY' : 'FORGE YOUR PATH';
+  const showGoogleSignIn = ENABLE_GOOGLE_SIGN_IN;
 
   const renderField = (
     key: Exclude<FocusedField, null>,
@@ -418,32 +420,36 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ navigation, route }) =
                     </View>
                   ) : null}
 
-                  <View style={styles.ssoButtonWrap}>
-                    {GoogleSigninButton ? (
-                      <GoogleSigninButton
-                        size={GoogleSigninButton.Size.Wide}
-                        color={GoogleSigninButton.Color.Dark}
-                        style={styles.googleButton}
-                        onPress={() => {
-                          void handleGoogleSignIn();
-                        }}
-                        disabled={loading}
-                      />
-                    ) : (
-                      <TouchableOpacity
-                        style={styles.googleButton}
-                        onPress={() => void handleGoogleSignIn()}
-                        disabled={loading}
-                      >
-                        <Text style={styles.googleFallbackText}>Continue with Google</Text>
-                      </TouchableOpacity>
-                    )}
-                  </View>
+                  {showGoogleSignIn ? (
+                    <View style={styles.ssoButtonWrap}>
+                      {GoogleSigninButton ? (
+                        <GoogleSigninButton
+                          size={GoogleSigninButton.Size.Wide}
+                          color={GoogleSigninButton.Color.Dark}
+                          style={styles.googleButton}
+                          onPress={() => {
+                            void handleGoogleSignIn();
+                          }}
+                          disabled={loading}
+                        />
+                      ) : (
+                        <TouchableOpacity
+                          style={styles.googleButton}
+                          onPress={() => void handleGoogleSignIn()}
+                          disabled={loading}
+                        >
+                          <Text style={styles.googleFallbackText}>Continue with Google</Text>
+                        </TouchableOpacity>
+                      )}
+                    </View>
+                  ) : null}
                 </View>
 
                 <View style={styles.dividerRow}>
                   <View style={styles.dividerLine} />
-                  <Text style={styles.dividerText}>or continue with email</Text>
+                  <Text style={styles.dividerText}>
+                    {isAppleAvailable || showGoogleSignIn ? 'or continue with email' : 'continue with email'}
+                  </Text>
                   <View style={styles.dividerLine} />
                 </View>
 

@@ -6,7 +6,7 @@ import auth, { FirebaseAuthTypes } from '@react-native-firebase/auth';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as AppleAuthentication from 'expo-apple-authentication';
 import { API_URL } from '@/config';
-import { GOOGLE_IOS_CLIENT_ID, GOOGLE_WEB_CLIENT_ID } from '@/config';
+import { ENABLE_GOOGLE_SIGN_IN, GOOGLE_IOS_CLIENT_ID, GOOGLE_WEB_CLIENT_ID } from '@/config';
 import { clearNotificationSession } from '@/services/NotificationSessionService';
 import { clearPushTokensFromServer } from '@/services/NotificationSyncService';
 
@@ -174,6 +174,10 @@ function mapAuthError(error: unknown): Error {
 }
 
 function configureGoogleSignin(): void {
+  if (!ENABLE_GOOGLE_SIGN_IN) {
+    throw new Error('Google sign-in is temporarily unavailable in this build.');
+  }
+
   if (googleConfigured) {
     return;
   }
