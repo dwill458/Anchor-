@@ -13,6 +13,7 @@ import { AppError } from '../middleware/errorHandler';
 import { prisma } from '../../lib/prisma';
 import { getFirebaseAdmin } from '../../config/firebase';
 import { hasCompedAccess } from '../../utils/compedAccess';
+import { logger } from '../../utils/logger';
 
 const router = Router();
 
@@ -326,6 +327,17 @@ router.post(
         next(error);
         return;
       }
+
+      logger.error(
+        'Auth sync failed',
+        error instanceof Error ? error : new Error(String(error)),
+        {
+          authUid: req.user?.uid,
+          authProvider: req.body?.authProvider,
+          path: req.path,
+        }
+      );
+
       next(new AppError('Failed to sync user', 500, 'SYNC_ERROR'));
     }
   }
