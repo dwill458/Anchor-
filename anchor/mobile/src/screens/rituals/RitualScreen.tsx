@@ -110,6 +110,16 @@ const RING_CIRCUMFERENCE = 2 * Math.PI * RING_RADIUS;
 const ARRIVE_PHASE_SECONDS = 8;
 const ARRIVE_CHROME_FADE_MS = 500;
 const ARRIVE_BREATH_PHASE_MS = 4000;
+const SEAL_HEADLINE = 'Seal Your Intention';
+const SEAL_SUPPORT_LINE =
+  'Breathe with the rhythm. Let each exhale settle your intention into the symbol.';
+const SEAL_INTENTION_LABEL = 'Your intention';
+const SEAL_COMPLETE_HEADLINE = 'It is sealed.';
+const SEAL_COMPLETE_SUPPORT = 'Your anchor now carries the intention forward.';
+const SEAL_CONTINUE_LABEL = 'Continue';
+const SEAL_HOLD_PROMPT = 'Hold gently to seal';
+const SEAL_INHALE_DURATION_MS = 4000;
+const SEAL_EXHALE_DURATION_MS = 6000;
 type EmberParticle = {
   x: number;
   bottom: number;
@@ -119,6 +129,8 @@ type EmberParticle = {
   delay: number;
   isEmber: boolean;
 };
+
+type SealCopyMode = 'active' | 'complete';
 const DEEP_OUTER_ORB_DOTS = Array.from({ length: 24 }, (_, index) => {
   const angle = (index / 24) * Math.PI * 2;
   return {
@@ -274,6 +286,9 @@ export const RitualScreen: React.FC = () => {
   const [isReady, setIsReady] = useState(false);
   const [showPostPrimeTrace, setShowPostPrimeTrace] = useState(false);
   const [pendingPostPrimeFlowId, setPendingPostPrimeFlowId] = useState<string | null>(null);
+  const [sealCopyMode, setSealCopyMode] = useState<SealCopyMode>('active');
+  const [sealBreathLabel, setSealBreathLabel] = useState<'Inhale' | 'Exhale'>('Inhale');
+  const [showSealContinue, setShowSealContinue] = useState(false);
 
   useEffect(() => {
     const task = InteractionManager.runAfterInteractions(() => {
@@ -311,6 +326,13 @@ export const RitualScreen: React.FC = () => {
   const deepBreathAnim = useRef(new Animated.Value(0)).current;
   const sealEntranceAnim = useRef(new Animated.Value(0)).current;
   const sealPulseAnim = useRef(new Animated.Value(0)).current;
+  const sealTitleOpacityAnim = useRef(new Animated.Value(0)).current;
+  const sealIntentionOpacityAnim = useRef(new Animated.Value(0)).current;
+  const sealSupportOpacityAnim = useRef(new Animated.Value(0)).current;
+  const sealBreathOpacityAnim = useRef(new Animated.Value(0)).current;
+  const sealCopySwapAnim = useRef(new Animated.Value(1)).current;
+  const sealContinueOpacityAnim = useRef(new Animated.Value(0)).current;
+  const sealIntentionGlowAnim = useRef(new Animated.Value(0)).current;
   const regularRingSpinA = useRef(new Animated.Value(0)).current;
   const regularRingSpinB = useRef(new Animated.Value(0)).current;
   const sessionChromeOpacity = useRef(
@@ -324,6 +346,7 @@ export const RitualScreen: React.FC = () => {
     config.phases[0]?.instructions[0] ?? ''
   );
   const deepEmbers = useRef<EmberParticle[]>(makeDeepEmbers(22)).current;
+  const sealBreathTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     AccessibilityInfo.isReduceMotionEnabled().then((v) => setReduceMotionEnabled(v));
@@ -562,17 +585,95 @@ export const RitualScreen: React.FC = () => {
 
   useEffect(() => {
     if (state.isSealPhase && !state.isSealComplete) {
+      setSealCopyMode('active');
+      setShowSealContinue(false);
+      setSealBreathLabel('Inhale');
+
+      if (sealBreathTimeoutRef.current) {
+        clearTimeout(sealBreathTimeoutRef.current);
+      }
+
+      const loopBreathLabel = () => {
+        setSealBreathLabel('Inhale');
+        sealBreathTimeoutRef.current = setTimeout(() => {
+          setSealBreathLabel('Exhale');
+          sealBreathTimeoutRef.current = setTimeout(loopBreathLabel, SEAL_EXHALE_DURATION_MS);
+        }, SEAL_INHALE_DURATION_MS);
+      };
+
+      loopBreathLabel();
+
+      if (reduceMotionEnabled) {
+        sealTitleOpacityAnim.setValue(1);
+        sealIntentionOpacityAnim.setValue(1);
+        sealSupportOpacityAnim.setValue(1);
+        sealBreathOpacityAnim.setValue(1);
+        sealCopySwapAnim.setValue(1);
+        sealContinueOpacityAnim.setValue(0);
+      } else {
+        sealTitleOpacityAnim.setValue(0);
+        sealIntentionOpacityAnim.setValue(0);
+        sealSupportOpacityAnim.setValue(0);
+        sealBreathOpacityAnim.setValue(0);
+        sealCopySwapAnim.setValue(1);
+        sealContinueOpacityAnim.setValue(0);
+        sealIntentionGlowAnim.setValue(0);
+
+        Animated.stagger(180, [
+          Animated.timing(sealTitleOpacityAnim, {
+            toValue: 1,
+            duration: 850,
+            easing: EASING.ENTRY,
+            useNativeDriver: true,
+          }),
+          Animated.timing(sealIntentionOpacityAnim, {
+            toValue: 1,
+            duration: 850,
+            easing: EASING.ENTRY,
+            useNativeDriver: true,
+          }),
+          Animated.timing(sealSupportOpacityAnim, {
+            toValue: 1,
+            duration: 900,
+            easing: EASING.ENTRY,
+            useNativeDriver: true,
+          }),
+          Animated.timing(sealBreathOpacityAnim, {
+            toValue: 1,
+            duration: 900,
+            easing: EASING.ENTRY,
+            useNativeDriver: true,
+          }),
+        ]).start();
+
+        Animated.sequence([
+          Animated.delay(2200),
+          Animated.timing(sealIntentionGlowAnim, {
+            toValue: 1,
+            duration: 1400,
+            easing: EASING.TRANSITION,
+            useNativeDriver: true,
+          }),
+          Animated.timing(sealIntentionGlowAnim, {
+            toValue: 0,
+            duration: 1800,
+            easing: EASING.TRANSITION,
+            useNativeDriver: true,
+          }),
+        ]).start();
+      }
+
       const glowLoop = Animated.loop(
         Animated.sequence([
           Animated.timing(glowAnim, {
             toValue: 1,
-            duration: 1200,
+            duration: SEAL_INHALE_DURATION_MS,
             easing: EASING.TRANSITION,
             useNativeDriver: true,
           }),
           Animated.timing(glowAnim, {
-            toValue: 0,
-            duration: 1200,
+            toValue: 0.2,
+            duration: SEAL_EXHALE_DURATION_MS,
             easing: EASING.TRANSITION,
             useNativeDriver: true,
           }),
@@ -583,13 +684,13 @@ export const RitualScreen: React.FC = () => {
         Animated.sequence([
           Animated.timing(sealPulseAnim, {
             toValue: 1,
-            duration: 2000,
+            duration: SEAL_INHALE_DURATION_MS,
             easing: EASING.TRANSITION,
             useNativeDriver: true,
           }),
           Animated.timing(sealPulseAnim, {
             toValue: 0,
-            duration: 2000,
+            duration: SEAL_EXHALE_DURATION_MS,
             easing: EASING.TRANSITION,
             useNativeDriver: true,
           }),
@@ -626,6 +727,10 @@ export const RitualScreen: React.FC = () => {
       spinLoopB.start();
 
       return () => {
+        if (sealBreathTimeoutRef.current) {
+          clearTimeout(sealBreathTimeoutRef.current);
+          sealBreathTimeoutRef.current = null;
+        }
         glowLoop.stop();
         pulseLoop.stop();
         spinLoopA.stop();
@@ -633,9 +738,29 @@ export const RitualScreen: React.FC = () => {
       };
     }
 
+    if (sealBreathTimeoutRef.current) {
+      clearTimeout(sealBreathTimeoutRef.current);
+      sealBreathTimeoutRef.current = null;
+    }
     sealEntranceAnim.setValue(0);
     glowAnim.setValue(0);
-  }, [state.isSealPhase, state.isSealComplete, glowAnim, sealPulseAnim, regularRingSpinA, regularRingSpinB, sealEntranceAnim]);
+  }, [
+    glowAnim,
+    reduceMotionEnabled,
+    sealBreathOpacityAnim,
+    sealContinueOpacityAnim,
+    sealCopySwapAnim,
+    sealEntranceAnim,
+    sealIntentionGlowAnim,
+    sealIntentionOpacityAnim,
+    sealPulseAnim,
+    sealSupportOpacityAnim,
+    sealTitleOpacityAnim,
+    regularRingSpinA,
+    regularRingSpinB,
+    state.isSealComplete,
+    state.isSealPhase,
+  ]);
 
   useEffect(() => {
     if (state.currentInstruction === displayedInstruction) return;
@@ -678,81 +803,49 @@ export const RitualScreen: React.FC = () => {
     isCompletingRef.current = true;
 
     try {
-      let chargeType: 'initial_quick' | 'initial_deep' | 'recharge' = 'initial_quick';
-
-      if (ritualType === 'quick' || ritualType === 'focus') {
-        chargeType = 'initial_quick';
-      } else if (ritualType === 'deep' || ritualType === 'ritual') {
-        chargeType = 'initial_deep';
-      }
-
-      let backendSyncFailed = false;
-
-      if (isPendingFirstAnchor) {
-        enqueuePendingFirstAnchorMutation({
-          type: 'charge_anchor',
-          tempAnchorId: anchorId,
-          chargeType,
-          durationSeconds: config.totalDurationSeconds,
-          queuedAt: new Date().toISOString(),
-        });
+      if (reduceMotionEnabled) {
+        setSealCopyMode('complete');
+        setShowSealContinue(true);
+        sealBreathOpacityAnim.setValue(0);
+        sealCopySwapAnim.setValue(1);
+        sealContinueOpacityAnim.setValue(1);
       } else {
-        const token = await AuthService.getIdToken();
-        const isMockToken =
-          typeof token === 'string' && (token === 'mock-jwt-token' || token.startsWith('mock-'));
+        Animated.timing(sealBreathOpacityAnim, {
+          toValue: 0,
+          duration: 500,
+          easing: EASING.TRANSITION,
+          useNativeDriver: true,
+        }).start();
 
-        if (isMockToken) {
-          backendSyncFailed = false;
-        } else {
-          try {
-            await apiClient.post(`/api/anchors/${anchorId}/charge`, {
-              chargeType,
-              durationSeconds: config.totalDurationSeconds,
-            });
-          } catch (syncError) {
-            backendSyncFailed = true;
-            logger.warn('Charge sync failed, saving locally only', syncError);
+        Animated.timing(sealCopySwapAnim, {
+          toValue: 0,
+          duration: 260,
+          easing: EASING.TRANSITION,
+          useNativeDriver: true,
+        }).start(({ finished }) => {
+          if (!finished) return;
+          setSealCopyMode('complete');
+          Animated.timing(sealCopySwapAnim, {
+            toValue: 1,
+            duration: 760,
+            easing: EASING.ENTRY,
+            useNativeDriver: true,
+          }).start();
+        });
+
+        Animated.sequence([
+          Animated.delay(760),
+          Animated.timing(sealContinueOpacityAnim, {
+            toValue: 1,
+            duration: 720,
+            easing: EASING.ENTRY,
+            useNativeDriver: true,
+          }),
+        ]).start(({ finished }) => {
+          if (finished) {
+            setShowSealContinue(true);
           }
-        }
-      }
-
-      const chargedAt = new Date();
-      await updateAnchor(anchorId, {
-        isCharged: true,
-        chargedAt,
-        firstChargedAt: anchor?.firstChargedAt ?? chargedAt,
-        chargeCount: (anchor?.chargeCount ?? 0) + 1,
-      });
-
-      if (backendSyncFailed && isMountedRef.current) {
-        Alert.alert('Saved Locally', 'Anchor charge saved. Sync will retry later.');
-      }
-
-      if (isMountedRef.current) {
-        if (isFirstPrimeForAnchor) {
-          exitingRef.current = true;
-          navigation.replace('FirstPrimeComplete', {
-            anchorId,
-            sessionCount: 1,
-            threadStrength: 1,
-            durationSeconds: config.totalDurationSeconds,
-            returnTo,
-          });
-        } else if (isDeepRitual) {
-          const shouldOfferPostPrimeTrace = await isPostPrimeTraceEligible();
-          if (shouldOfferPostPrimeTrace) {
-            setShowPostPrimeTrace(true);
-          } else {
-            setShowCompletion(true);
-          }
-        } else {
-          exitingRef.current = true;
-          navigation.replace('ChargeComplete', {
-            anchorId,
-            durationSeconds: config.totalDurationSeconds,
-            returnTo,
-          });
-        }
+        });
       }
     } catch (error) {
       isCompletingRef.current = false;
@@ -814,7 +907,106 @@ export const RitualScreen: React.FC = () => {
     pendingPostPrimeFlowId,
   ]);
 
+  const continueFromSeal = useCallback(async () => {
+    let chargeType: 'initial_quick' | 'initial_deep' | 'recharge' = 'initial_quick';
+
+    if (ritualType === 'quick' || ritualType === 'focus') {
+      chargeType = 'initial_quick';
+    } else if (ritualType === 'deep' || ritualType === 'ritual') {
+      chargeType = 'initial_deep';
+    }
+
+    let backendSyncFailed = false;
+
+    if (isPendingFirstAnchor) {
+      enqueuePendingFirstAnchorMutation({
+        type: 'charge_anchor',
+        tempAnchorId: anchorId,
+        chargeType,
+        durationSeconds: config.totalDurationSeconds,
+        queuedAt: new Date().toISOString(),
+      });
+    } else {
+      const token = await AuthService.getIdToken();
+      const isMockToken =
+        typeof token === 'string' && (token === 'mock-jwt-token' || token.startsWith('mock-'));
+
+      if (!isMockToken) {
+        try {
+          await apiClient.post(`/api/anchors/${anchorId}/charge`, {
+            chargeType,
+            durationSeconds: config.totalDurationSeconds,
+          });
+        } catch (syncError) {
+          backendSyncFailed = true;
+          logger.warn('Charge sync failed, saving locally only', syncError);
+        }
+      }
+    }
+
+    const chargedAt = new Date();
+    await updateAnchor(anchorId, {
+      isCharged: true,
+      chargedAt,
+      firstChargedAt: anchor?.firstChargedAt ?? chargedAt,
+      chargeCount: (anchor?.chargeCount ?? 0) + 1,
+    });
+
+    if (backendSyncFailed && isMountedRef.current) {
+      Alert.alert('Saved Locally', 'Anchor charge saved. Sync will retry later.');
+    }
+
+    if (!isMountedRef.current) {
+      return;
+    }
+
+    if (isFirstPrimeForAnchor) {
+      exitingRef.current = true;
+      navigation.replace('FirstPrimeComplete', {
+        anchorId,
+        sessionCount: 1,
+        threadStrength: 1,
+        durationSeconds: config.totalDurationSeconds,
+        returnTo,
+      });
+      return;
+    }
+
+    if (isDeepRitual) {
+      const shouldOfferPostPrimeTrace = await isPostPrimeTraceEligible();
+      if (shouldOfferPostPrimeTrace) {
+        setShowPostPrimeTrace(true);
+      } else {
+        setShowCompletion(true);
+      }
+      return;
+    }
+
+    exitingRef.current = true;
+    navigation.replace('ChargeComplete', {
+      anchorId,
+      durationSeconds: config.totalDurationSeconds,
+      returnTo,
+    });
+  }, [
+    anchor?.chargeCount,
+    anchor?.firstChargedAt,
+    anchorId,
+    config.totalDurationSeconds,
+    enqueuePendingFirstAnchorMutation,
+    isDeepRitual,
+    isFirstPrimeForAnchor,
+    isPendingFirstAnchor,
+    navigation,
+    returnTo,
+    ritualType,
+    updateAnchor,
+  ]);
+
   function handleBack() {
+    if (state.isSealComplete && !showSealContinue) {
+      return;
+    }
     if (state.isComplete || state.isSealComplete) {
       exitRitual();
       return;
@@ -869,13 +1061,19 @@ export const RitualScreen: React.FC = () => {
     }
 
     const unsubscribe = nav.addListener('beforeRemove', (event: any) => {
-      if (exitingRef.current || state.isComplete || state.isSealComplete) return;
+      if (
+        exitingRef.current ||
+        state.isComplete ||
+        (state.isSealComplete && showSealContinue)
+      ) {
+        return;
+      }
       event.preventDefault();
       setShowExitWarning(true);
     });
 
     return unsubscribe;
-  }, [navigation, state.isComplete, state.isSealComplete]);
+  }, [navigation, showSealContinue, state.isComplete, state.isSealComplete]);
 
   const handleSealPressIn = () => {
     if (state.isSealPhase && !state.isSealComplete) {
@@ -930,12 +1128,16 @@ export const RitualScreen: React.FC = () => {
     ?? config.phases[state.totalPhases - 1]?.title
     ?? 'Seal';
   const deepPhaseName = deepPhaseTitle.toUpperCase();
-  const deepInstructionText = state.isSealPhase
-    ? 'Hold your Anchor to seal it in.'
-    : displayedInstruction;
+  const sealHeadline = sealCopyMode === 'complete' ? SEAL_COMPLETE_HEADLINE : SEAL_HEADLINE;
+  const sealSupportLine =
+    sealCopyMode === 'complete' ? SEAL_COMPLETE_SUPPORT : SEAL_SUPPORT_LINE;
+  const sealIntentText = anchor ? `"${anchor.intentionText}"` : '""';
+  const deepInstructionText = state.isSealPhase ? sealSupportLine : displayedInstruction;
   const deepBreathCue = state.isSealPhase
-    ? (state.sealProgress > 0 ? 'Hold...' : 'Press and hold to seal')
+    ? sealBreathLabel
     : getDeepBreathCue(state.currentPhase?.title, state.phaseElapsed);
+  const showSealHoldPrompt =
+    state.isSealPhase && !state.isSealComplete && state.sealProgress === 0;
   const currentPhaseDuration = state.currentPhase?.durationSeconds ?? 1;
   const phaseRemaining = state.isComplete
     ? 0
@@ -1402,15 +1604,17 @@ export const RitualScreen: React.FC = () => {
               <View style={styles.deepHeaderSpacer} />
             </Animated.View>
 
-            <View style={styles.deepPhaseLabelWrap}>
-              <Text style={styles.deepPhaseLabelText}>{deepPhaseName}</Text>
-              <LinearGradient
-                colors={['rgba(212,175,55,0)', 'rgba(212,175,55,0.42)', 'rgba(212,175,55,0)']}
-                start={{ x: 0, y: 0.5 }}
-                end={{ x: 1, y: 0.5 }}
-                style={styles.deepPhaseDivider}
-              />
-            </View>
+            {!state.isSealPhase ? (
+              <View style={styles.deepPhaseLabelWrap}>
+                <Text style={styles.deepPhaseLabelText}>{deepPhaseName}</Text>
+                <LinearGradient
+                  colors={['rgba(212,175,55,0)', 'rgba(212,175,55,0.42)', 'rgba(212,175,55,0)']}
+                  start={{ x: 0, y: 0.5 }}
+                  end={{ x: 1, y: 0.5 }}
+                  style={styles.deepPhaseDivider}
+                />
+              </View>
+            ) : null}
 
             <View style={styles.deepCenterContent}>
               <Animated.View
@@ -1611,36 +1815,136 @@ export const RitualScreen: React.FC = () => {
                 </Pressable>
               </Animated.View>
 
-              {!reduceIntentionVisibility && anchor.intentionText ? (
-                <View style={styles.deepIntentionWrap}>
-                  <Text style={styles.deepIntentionLabel}>INTENTION</Text>
-                  <Text style={styles.deepIntentionText}>{anchor.intentionText}</Text>
+              {state.isSealPhase ? (
+                <View style={styles.sealTextStack}>
+                  <Animated.Text
+                    style={[
+                      styles.sealHeadline,
+                      {
+                        opacity: Animated.multiply(
+                          sealTitleOpacityAnim,
+                          sealCopySwapAnim
+                        ),
+                      },
+                    ]}
+                  >
+                    {sealHeadline}
+                  </Animated.Text>
+
+                  {!reduceIntentionVisibility && anchor.intentionText ? (
+                    <Animated.View
+                      style={[
+                        styles.sealIntentionCard,
+                        {
+                          opacity: sealIntentionOpacityAnim,
+                          borderColor:
+                            sealCopyMode === 'complete'
+                              ? 'rgba(212,175,55,0.34)'
+                              : colors.ritual.border,
+                          transform: [
+                            {
+                              scale: Animated.add(
+                                1,
+                                Animated.multiply(sealIntentionGlowAnim, 0.015)
+                              ),
+                            },
+                          ],
+                        },
+                      ]}
+                    >
+                      <Text style={styles.sealIntentionLabel}>{SEAL_INTENTION_LABEL}</Text>
+                      <Animated.Text
+                        style={[
+                          styles.sealIntentionText,
+                          {
+                            opacity: Animated.add(
+                              0.92,
+                              Animated.multiply(sealIntentionGlowAnim, 0.08)
+                            ),
+                          },
+                        ]}
+                      >
+                        {sealIntentText}
+                      </Animated.Text>
+                    </Animated.View>
+                  ) : null}
+
+                  <Animated.Text
+                    style={[
+                      styles.sealSupportText,
+                      {
+                        opacity: Animated.multiply(
+                          sealSupportOpacityAnim,
+                          sealCopySwapAnim
+                        ),
+                      },
+                    ]}
+                  >
+                    {sealSupportLine}
+                  </Animated.Text>
+
+                  <Animated.View
+                    style={[
+                      styles.sealBreathWrap,
+                      { opacity: sealBreathOpacityAnim },
+                    ]}
+                  >
+                    <Text style={styles.sealBreathText}>{sealBreathLabel}</Text>
+                    {showSealHoldPrompt ? (
+                      <Text style={styles.sealHoldPrompt}>{SEAL_HOLD_PROMPT}</Text>
+                    ) : null}
+                  </Animated.View>
+
+                  {showSealContinue ? (
+                    <Animated.View style={{ opacity: sealContinueOpacityAnim }}>
+                      <TouchableOpacity
+                        onPress={continueFromSeal}
+                        activeOpacity={0.86}
+                        style={styles.sealContinueButton}
+                        accessibilityRole="button"
+                        accessibilityLabel={SEAL_CONTINUE_LABEL}
+                      >
+                        <Text style={styles.sealContinueButtonText}>
+                          {SEAL_CONTINUE_LABEL}
+                        </Text>
+                      </TouchableOpacity>
+                    </Animated.View>
+                  ) : null}
                 </View>
-              ) : null}
+              ) : (
+                <>
+                  {!reduceIntentionVisibility && anchor.intentionText ? (
+                    <View style={styles.deepIntentionWrap}>
+                      <Text style={styles.deepIntentionLabel}>INTENTION</Text>
+                      <Text style={styles.deepIntentionText}>{anchor.intentionText}</Text>
+                    </View>
+                  ) : null}
 
-              <Animated.Text
-                style={[
-                  styles.deepBreathCue,
-                  !state.isActive && !state.isSealPhase ? styles.deepBreathCuePaused : null,
-                  { opacity: instructionContainerOpacityAnim },
-                ]}
-              >
-                {deepBreathCue}
-              </Animated.Text>
+                  <Animated.Text
+                    style={[
+                      styles.deepBreathCue,
+                      !state.isActive && !state.isSealPhase ? styles.deepBreathCuePaused : null,
+                      { opacity: instructionContainerOpacityAnim },
+                    ]}
+                  >
+                    {deepBreathCue}
+                  </Animated.Text>
 
-              <Animated.View
-                style={[
-                  styles.deepInstructionContainer,
-                  {
-                    opacity: Animated.multiply(
-                      instructionFadeAnim,
-                      instructionContainerOpacityAnim
-                    ),
-                  },
-                ]}
-              >
-                <Text style={styles.deepInstructionText}>{deepInstructionText}</Text>
-              </Animated.View>
+                  <Animated.View
+                    style={[
+                      styles.deepInstructionContainer,
+                      {
+                        opacity: Animated.multiply(
+                          instructionFadeAnim,
+                          instructionContainerOpacityAnim
+                        ),
+                      },
+                    ]}
+                  >
+                    <Text style={styles.deepInstructionText}>{deepInstructionText}</Text>
+                  </Animated.View>
+                </>
+              )}
             </View>
 
             <Animated.View style={[styles.deepBottomSection, { opacity: bottomSectionOpacityAnim }]}>
@@ -1797,46 +2101,132 @@ export const RitualScreen: React.FC = () => {
                 </Pressable>
               </Animated.View>
 
-              {state.currentPhase ? (
-                <Text style={styles.phaseTitle}>{state.currentPhase.title}</Text>
-              ) : null}
-
-              {!reduceIntentionVisibility && anchor.intentionText ? (
-                <View style={styles.intentionWrap}>
-                  <View style={styles.intentionLabelChip}>
-                    <Text style={styles.intentionLabelText}>INTENTION</Text>
-                  </View>
-                  <Text style={styles.intentionText}>{anchor.intentionText}</Text>
-                </View>
-              ) : null}
-
-              <Animated.View
-                style={[
-                  styles.instructionContainer,
-                  {
-                    opacity: Animated.multiply(
-                      instructionFadeAnim,
-                      instructionContainerOpacityAnim
-                    ),
-                  },
-                ]}
-              >
-                {state.isSealPhase ? (
+              {state.isSealPhase ? (
+                <View style={styles.sealTextStack}>
                   <Animated.Text
                     style={[
-                      styles.sealPhaseInstruction,
+                      styles.sealHeadline,
                       {
-                        opacity: Animated.add(0.7, Animated.multiply(glowAnim, 0.3)),
-                        transform: [{ translateY: Animated.multiply(glowAnim, -2) }],
+                        opacity: Animated.multiply(
+                          sealTitleOpacityAnim,
+                          sealCopySwapAnim
+                        ),
                       },
                     ]}
                   >
-                    {displayedInstruction}
+                    {sealHeadline}
                   </Animated.Text>
-                ) : (
-                  <InstructionGlassCard text={displayedInstruction} />
-                )}
-              </Animated.View>
+
+                  {!reduceIntentionVisibility && anchor.intentionText ? (
+                    <Animated.View
+                      style={[
+                        styles.sealIntentionCard,
+                        {
+                          opacity: sealIntentionOpacityAnim,
+                          borderColor:
+                            sealCopyMode === 'complete'
+                              ? 'rgba(212,175,55,0.34)'
+                              : colors.ritual.border,
+                          transform: [
+                            {
+                              scale: Animated.add(
+                                1,
+                                Animated.multiply(sealIntentionGlowAnim, 0.015)
+                              ),
+                            },
+                          ],
+                        },
+                      ]}
+                    >
+                      <Text style={styles.sealIntentionLabel}>{SEAL_INTENTION_LABEL}</Text>
+                      <Animated.Text
+                        style={[
+                          styles.sealIntentionText,
+                          {
+                            opacity: Animated.add(
+                              0.92,
+                              Animated.multiply(sealIntentionGlowAnim, 0.08)
+                            ),
+                          },
+                        ]}
+                      >
+                        {sealIntentText}
+                      </Animated.Text>
+                    </Animated.View>
+                  ) : null}
+
+                  <Animated.Text
+                    style={[
+                      styles.sealSupportText,
+                      {
+                        opacity: Animated.multiply(
+                          sealSupportOpacityAnim,
+                          sealCopySwapAnim
+                        ),
+                      },
+                    ]}
+                  >
+                    {sealSupportLine}
+                  </Animated.Text>
+
+                  <Animated.View
+                    style={[
+                      styles.sealBreathWrap,
+                      { opacity: sealBreathOpacityAnim },
+                    ]}
+                  >
+                    <Text style={styles.sealBreathText}>{sealBreathLabel}</Text>
+                    {showSealHoldPrompt ? (
+                      <Text style={styles.sealHoldPrompt}>{SEAL_HOLD_PROMPT}</Text>
+                    ) : null}
+                  </Animated.View>
+
+                  {showSealContinue ? (
+                    <Animated.View style={{ opacity: sealContinueOpacityAnim }}>
+                      <TouchableOpacity
+                        onPress={continueFromSeal}
+                        activeOpacity={0.86}
+                        style={styles.sealContinueButton}
+                        accessibilityRole="button"
+                        accessibilityLabel={SEAL_CONTINUE_LABEL}
+                      >
+                        <Text style={styles.sealContinueButtonText}>
+                          {SEAL_CONTINUE_LABEL}
+                        </Text>
+                      </TouchableOpacity>
+                    </Animated.View>
+                  ) : null}
+                </View>
+              ) : (
+                <>
+                  {state.currentPhase ? (
+                    <Text style={styles.phaseTitle}>{state.currentPhase.title}</Text>
+                  ) : null}
+
+                  {!reduceIntentionVisibility && anchor.intentionText ? (
+                    <View style={styles.intentionWrap}>
+                      <View style={styles.intentionLabelChip}>
+                        <Text style={styles.intentionLabelText}>INTENTION</Text>
+                      </View>
+                      <Text style={styles.intentionText}>{anchor.intentionText}</Text>
+                    </View>
+                  ) : null}
+
+                  <Animated.View
+                    style={[
+                      styles.instructionContainer,
+                      {
+                        opacity: Animated.multiply(
+                          instructionFadeAnim,
+                          instructionContainerOpacityAnim
+                        ),
+                      },
+                    ]}
+                  >
+                    <InstructionGlassCard text={displayedInstruction} />
+                  </Animated.View>
+                </>
+              )}
             </View>
 
             <Animated.View style={[styles.bottomSection, { opacity: bottomSectionOpacityAnim }]}>
@@ -2179,6 +2569,101 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     paddingHorizontal: 24,
   },
+  sealTextStack: {
+    width: '100%',
+    maxWidth: 380,
+    alignItems: 'center',
+    gap: spacing.md,
+    paddingHorizontal: spacing.md,
+  },
+  sealHeadline: {
+    fontSize: 30,
+    lineHeight: 38,
+    fontFamily: typography.fonts.heading,
+    color: colors.bone,
+    textAlign: 'center',
+    letterSpacing: 0.8,
+  },
+  sealIntentionCard: {
+    width: '100%',
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.md,
+    borderRadius: 22,
+    borderWidth: 1,
+    backgroundColor: 'rgba(15, 20, 25, 0.52)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: colors.gold,
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.18,
+    shadowRadius: 18,
+  },
+  sealIntentionLabel: {
+    fontSize: 11,
+    lineHeight: 16,
+    fontFamily: typography.fonts.heading,
+    color: colors.gold,
+    letterSpacing: 2.2,
+    textTransform: 'uppercase',
+    marginBottom: spacing.xs,
+  },
+  sealIntentionText: {
+    fontSize: 18,
+    lineHeight: 28,
+    fontFamily: typography.fonts.bodyBold,
+    color: colors.bone,
+    textAlign: 'center',
+  },
+  sealSupportText: {
+    fontSize: typography.sizes.body1,
+    lineHeight: typography.lineHeights.body1 + 2,
+    fontFamily: typography.fonts.body,
+    color: 'rgba(245,240,232,0.82)',
+    textAlign: 'center',
+  },
+  sealBreathWrap: {
+    minHeight: 46,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  sealBreathText: {
+    fontSize: 13,
+    lineHeight: 18,
+    fontFamily: typography.fonts.bodyBold,
+    color: colors.gold,
+    letterSpacing: 1.8,
+    textTransform: 'uppercase',
+    textAlign: 'center',
+  },
+  sealHoldPrompt: {
+    marginTop: spacing.xs,
+    fontSize: typography.sizes.caption,
+    lineHeight: typography.lineHeights.caption,
+    fontFamily: typography.fonts.body,
+    color: 'rgba(245,240,232,0.58)',
+    textAlign: 'center',
+  },
+  sealContinueButton: {
+    minWidth: 180,
+    paddingHorizontal: spacing.xl,
+    paddingVertical: 14,
+    borderRadius: 999,
+    backgroundColor: colors.gold,
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: colors.gold,
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.28,
+    shadowRadius: 20,
+    elevation: 10,
+  },
+  sealContinueButtonText: {
+    fontSize: typography.sizes.button,
+    lineHeight: 22,
+    fontFamily: typography.fonts.bodyBold,
+    color: colors.navy,
+    letterSpacing: 0.3,
+  },
   deepBreathCue: {
     minHeight: 20,
     marginBottom: 18,
@@ -2390,17 +2875,6 @@ const styles = StyleSheet.create({
     fontFamily: typography.fonts.body,
     color: colors.text.secondary,
     letterSpacing: 0.3,
-  },
-  sealPhaseInstruction: {
-    fontSize: 22,
-    fontFamily: typography.fonts.heading,
-    color: colors.white,
-    textAlign: 'center',
-    letterSpacing: 1.2,
-    lineHeight: 32,
-    textShadowColor: 'rgba(212,175,55,0.4)',
-    textShadowOffset: { width: 0, height: 0 },
-    textShadowRadius: 10,
   },
   chargedDashedRing: {
     position: 'absolute',
