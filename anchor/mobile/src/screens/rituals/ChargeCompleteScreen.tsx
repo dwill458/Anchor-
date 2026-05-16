@@ -59,6 +59,8 @@ export const ChargeCompleteScreen: React.FC = () => {
   const getAnchorById = useAnchorStore((state) => state.getAnchorById);
   const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
   const wallpaperPromptSeen = useAuthStore((state) => state.wallpaperPromptSeen);
+  const pendingFirstAnchorDraft = useAuthStore((state) => state.pendingFirstAnchorDraft);
+  const isPendingFirstAnchor = pendingFirstAnchorDraft?.tempAnchorId === anchorId;
   const { recordSession } = useSessionStore();
   const defaultCharge = useSettingsStore((state) => state.defaultCharge);
   const primeSessionDuration = useSettingsStore((state) => state.primeSessionDuration ?? 120);
@@ -187,6 +189,12 @@ export const ChargeCompleteScreen: React.FC = () => {
 
   const handleSaveToVault = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+
+    // Show save progress gate for guest users completing their first anchor
+    if (!isAuthenticated && isPendingFirstAnchor) {
+      navigation.navigate('SaveProgress', { anchorId });
+      return;
+    }
 
     // Re-fire wallpaper prompt for guest users after their first practice session
     if (!isAuthenticated && !wallpaperPromptSeen && anchor) {
