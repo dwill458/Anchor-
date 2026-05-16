@@ -13,6 +13,7 @@ import { AppError } from '../middleware/errorHandler';
 import { prisma } from '../../lib/prisma';
 import { getFirebaseAdmin } from '../../config/firebase';
 import { hasCompedAccess } from '../../utils/compedAccess';
+import { logger } from '../../utils/logger';
 
 const router = Router();
 
@@ -326,6 +327,23 @@ router.post(
         next(error);
         return;
       }
+
+      if (error instanceof Prisma.PrismaClientKnownRequestError) {
+        logger.error('Auth sync Prisma error', error, {
+          path: '/api/auth/sync',
+          prismaCode: error.code,
+          prismaMeta: error.meta,
+        });
+      } else if (error instanceof Prisma.PrismaClientValidationError) {
+        logger.error('Auth sync Prisma validation error', error, {
+          path: '/api/auth/sync',
+        });
+      } else {
+        logger.error('Auth sync unexpected error', error, {
+          path: '/api/auth/sync',
+        });
+      }
+
       next(new AppError('Failed to sync user', 500, 'SYNC_ERROR'));
     }
   }

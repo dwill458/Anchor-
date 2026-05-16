@@ -36,6 +36,7 @@ interface AnchorRequestMetadata {
 
 type AnchorRequestConfig = InternalAxiosRequestConfig & {
   metadata?: AnchorRequestMetadata;
+  _anchorUserSyncRetried?: boolean;
 };
 
 // ============================================================================
@@ -163,6 +164,26 @@ apiClient.interceptors.response.use(
     }
 
     const apiError = error.response.data?.error;
+    const isMissingBackendUser =
+      error.response.status === 404 &&
+      apiError?.code === 'USER_NOT_FOUND' &&
+      Boolean(requestConfig?.url) &&
+      requestConfig?.url !== '/api/auth/sync' &&
+      requestConfig?._anchorUserSyncRetried !== true;
+
+    if (isMissingBackendUser && requestConfig) {
+      requestConfig._anchorUserSyncRetried = true;
+
+      try {
+        const session = await AuthService.syncCurrentUser();
+        if (session) {
+          return await apiClient(requestConfig);
+        }
+      } catch (syncError) {
+        logger.warn('[ApiClient] Failed to recover missing backend user via auth sync', syncError);
+      }
+    }
+
     let apiMessage: string | undefined;
     if (typeof apiError === 'string') {
       apiMessage = apiError;
