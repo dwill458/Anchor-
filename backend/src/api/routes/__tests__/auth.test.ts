@@ -26,6 +26,7 @@ const mockPrisma = {
   user: {
     findUnique: jest.fn(),
     upsert: jest.fn(),
+    create: jest.fn(),
     update: jest.fn(),
     delete: jest.fn(),
   },
@@ -131,7 +132,10 @@ beforeEach(() => {
 
 describe('POST /api/auth/sync', () => {
   it('creates or updates user and returns profile', async () => {
-    (mockPrisma.user.upsert as jest.Mock).mockResolvedValue(MOCK_DB_USER);
+    (mockPrisma.user.findUnique as jest.Mock)
+      .mockResolvedValueOnce(MOCK_DB_USER)
+      .mockResolvedValueOnce(null);
+    (mockPrisma.user.update as jest.Mock).mockResolvedValue(MOCK_DB_USER);
     (mockPrisma.userSettings.upsert as jest.Mock).mockResolvedValue(MOCK_SETTINGS);
 
     const res = await request(buildApp())
@@ -142,12 +146,17 @@ describe('POST /api/auth/sync', () => {
     expect(res.body.success).toBe(true);
     expect(res.body.data.email).toBe('test@example.com');
     expect(mockPrisma.$transaction).toHaveBeenCalledTimes(1);
-    expect(mockPrisma.user.upsert).toHaveBeenCalledTimes(1);
+    expect(mockPrisma.user.findUnique).toHaveBeenCalledTimes(1);
+    expect(mockPrisma.user.update).toHaveBeenCalledTimes(1);
     expect(mockPrisma.userSettings.upsert).toHaveBeenCalledTimes(1);
   });
 
   it('promotes onboarding completion when requested during sync', async () => {
-    (mockPrisma.user.upsert as jest.Mock).mockResolvedValue({
+    (mockPrisma.user.findUnique as jest.Mock).mockResolvedValue({
+      ...MOCK_DB_USER,
+      hasCompletedOnboarding: true,
+    });
+    (mockPrisma.user.update as jest.Mock).mockResolvedValue({
       ...MOCK_DB_USER,
       hasCompletedOnboarding: true,
     });
@@ -160,17 +169,20 @@ describe('POST /api/auth/sync', () => {
     });
 
     expect(res.status).toBe(200);
-    expect(mockPrisma.user.upsert).toHaveBeenCalledWith(
+    expect(mockPrisma.user.update).toHaveBeenCalledWith(
       expect.objectContaining({
-        update: expect.objectContaining({ hasCompletedOnboarding: true }),
-        create: expect.objectContaining({ hasCompletedOnboarding: true }),
+        data: expect.objectContaining({ hasCompletedOnboarding: true }),
       })
     );
   });
 
   it('marks allowlisted emails as comped during sync', async () => {
     process.env.COMPED_ACCESS_EMAILS = 'test@example.com,other@example.com';
-    (mockPrisma.user.upsert as jest.Mock).mockResolvedValue({
+    (mockPrisma.user.findUnique as jest.Mock).mockResolvedValue({
+      ...MOCK_DB_USER,
+      isComped: true,
+    });
+    (mockPrisma.user.update as jest.Mock).mockResolvedValue({
       ...MOCK_DB_USER,
       isComped: true,
     });
@@ -182,12 +194,53 @@ describe('POST /api/auth/sync', () => {
 
     expect(res.status).toBe(200);
     expect(res.body.data.isComped).toBe(true);
-    expect(mockPrisma.user.upsert).toHaveBeenCalledWith(
+    expect(mockPrisma.user.update).toHaveBeenCalledWith(
       expect.objectContaining({
-        update: expect.objectContaining({ isComped: true }),
-        create: expect.objectContaining({ isComped: true }),
+        data: expect.objectContaining({ isComped: true }),
       })
     );
+  });
+
+  it('links an existing user by email when auth uid changes', async () => {
+    (mockPrisma.user.findUnique as jest.Mock)
+      .mockResolvedValueOnce(null)
+      .mockResolvedValueOnce(MOCK_DB_USER);
+    (mockPrisma.user.update as jest.Mock).mockResolvedValue({
+      ...MOCK_DB_USER,
+      authUid: 'firebase-uid-1',
+      authProvider: 'google',
+    });
+    (mockPrisma.userSettings.upsert as jest.Mock).mockResolvedValue(MOCK_SETTINGS);
+
+    const res = await request(buildApp())
+      .post('/api/auth/sync')
+      .send({ displayName: 'Test User', authProvider: 'google' });
+
+    expect(res.status).toBe(200);
+    expect(mockPrisma.user.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { id: MOCK_DB_USER.id },
+        data: expect.objectContaining({
+          authUid: 'firebase-uid-1',
+          authProvider: 'google',
+        }),
+      })
+    );
+  });
+
+  it('creates a user when no auth uid or email match exists', async () => {
+    (mockPrisma.user.findUnique as jest.Mock)
+      .mockResolvedValueOnce(null)
+      .mockResolvedValueOnce(null);
+    (mockPrisma.user.create as jest.Mock).mockResolvedValue(MOCK_DB_USER);
+    (mockPrisma.userSettings.upsert as jest.Mock).mockResolvedValue(MOCK_SETTINGS);
+
+    const res = await request(buildApp())
+      .post('/api/auth/sync')
+      .send({ displayName: 'Test User', authProvider: 'google' });
+
+    expect(res.status).toBe(200);
+    expect(mockPrisma.user.create).toHaveBeenCalledTimes(1);
   });
 
   it('returns 400 when user has no email in token', async () => {
@@ -203,7 +256,7 @@ describe('POST /api/auth/sync', () => {
   });
 
   it('returns 500 on database error', async () => {
-    (mockPrisma.user.upsert as jest.Mock).mockRejectedValue(new Error('DB error'));
+    (mockPrisma.user.findUnique as jest.Mock).mockRejectedValue(new Error('DB error'));
 
     const res = await request(buildApp()).post('/api/auth/sync').send({ authProvider: 'google' });
 
