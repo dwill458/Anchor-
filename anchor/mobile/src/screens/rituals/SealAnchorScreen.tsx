@@ -30,7 +30,6 @@ import { OptimizedImage, PremiumAnchorGlow } from '@/components/common';
 import { useReduceMotionEnabled } from '@/hooks/useReduceMotionEnabled';
 import { logger } from '@/utils/logger';
 import { RitualScaffold } from './components/RitualScaffold';
-import { InstructionGlassCard } from './components/InstructionGlassCard';
 
 // Visual constants
 const ORB_SIZE = 240;
@@ -43,12 +42,17 @@ const GLOW_SIZE = 360;
 // Animation timing
 const SEAL_DURATION = 3000; // 3 seconds
 const HAPTIC_INTERVAL = 500; // Gentle haptic every 0.5s
+const VISIBLE_TRANSITION_DURATION = 450;
+const BREATH_PHASE_DURATION = 4000; // Minimum 4s inhale + 4s exhale cadence
 
 const AnimatedCircle = Animated.createAnimatedComponent(Circle);
 const AnimatedBlurView = Animated.createAnimatedComponent(BlurView);
 
 type SealAnchorRouteProp = RouteProp<RootStackParamList, 'SealAnchor'>;
-type SealAnchorNavigationProp = StackNavigationProp<RootStackParamList, 'SealAnchor'>;
+type SealAnchorNavigationProp = StackNavigationProp<
+  RootStackParamList,
+  'SealAnchor'
+>;
 
 export const SealAnchorScreen: React.FC = () => {
   const navigation = useNavigation<SealAnchorNavigationProp>();
@@ -76,6 +80,7 @@ export const SealAnchorScreen: React.FC = () => {
   const orbScaleAnim = useRef(new Animated.Value(1)).current;
   const bloomScaleAnim = useRef(new Animated.Value(1)).current;
   const bloomOpacityAnim = useRef(new Animated.Value(0)).current;
+  const chromeOpacityAnim = useRef(new Animated.Value(1)).current;
 
   // Refs for intervals/timeouts
   const holdTimerRef = useRef<NodeJS.Timeout | null>(null);
@@ -118,16 +123,21 @@ export const SealAnchorScreen: React.FC = () => {
       useNativeDriver: false,
     }).start();
 
-    // Start glow intensification
+    // Dim decorative chrome so the intention remains dominant during the breath.
     Animated.parallel([
       Animated.timing(glowScaleAnim, {
-        toValue: 1.5,
+        toValue: 1.25,
         duration: SEAL_DURATION,
         useNativeDriver: true,
       }),
       Animated.timing(glowOpacityAnim, {
-        toValue: 0.8,
-        duration: SEAL_DURATION,
+        toValue: 0,
+        duration: VISIBLE_TRANSITION_DURATION,
+        useNativeDriver: true,
+      }),
+      Animated.timing(chromeOpacityAnim, {
+        toValue: 0,
+        duration: VISIBLE_TRANSITION_DURATION,
         useNativeDriver: true,
       }),
     ]).start();
@@ -137,15 +147,15 @@ export const SealAnchorScreen: React.FC = () => {
       Animated.sequence([
         Animated.timing(orbScaleAnim, {
           toValue: 1.08,
-          duration: 1500,
+          duration: BREATH_PHASE_DURATION,
           useNativeDriver: true,
         }),
         Animated.timing(orbScaleAnim, {
           toValue: 1.0,
-          duration: 1500,
+          duration: BREATH_PHASE_DURATION,
           useNativeDriver: true,
         }),
-      ])
+      ]),
     ).start();
 
     // Periodic haptics during hold
@@ -182,26 +192,32 @@ export const SealAnchorScreen: React.FC = () => {
     glowScaleAnim.stopAnimation();
     glowOpacityAnim.stopAnimation();
     orbScaleAnim.stopAnimation();
+    chromeOpacityAnim.stopAnimation();
 
     Animated.parallel([
       Animated.timing(progressAnim, {
         toValue: 0,
-        duration: 300,
+        duration: VISIBLE_TRANSITION_DURATION,
         useNativeDriver: false,
       }),
       Animated.timing(glowScaleAnim, {
         toValue: 1.0,
-        duration: 300,
+        duration: VISIBLE_TRANSITION_DURATION,
         useNativeDriver: true,
       }),
       Animated.timing(glowOpacityAnim, {
         toValue: 0.3,
-        duration: 300,
+        duration: VISIBLE_TRANSITION_DURATION,
         useNativeDriver: true,
       }),
       Animated.timing(orbScaleAnim, {
         toValue: 1.0,
-        duration: 300,
+        duration: VISIBLE_TRANSITION_DURATION,
+        useNativeDriver: true,
+      }),
+      Animated.timing(chromeOpacityAnim, {
+        toValue: 1,
+        duration: VISIBLE_TRANSITION_DURATION,
         useNativeDriver: true,
       }),
     ]).start();
@@ -216,22 +232,29 @@ export const SealAnchorScreen: React.FC = () => {
     // Success haptic
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
 
+    // Restore seal UI chrome after the active breath completes.
+    Animated.timing(chromeOpacityAnim, {
+      toValue: 1,
+      duration: VISIBLE_TRANSITION_DURATION,
+      useNativeDriver: true,
+    }).start();
+
     // Bloom effect
     Animated.parallel([
       Animated.timing(bloomScaleAnim, {
         toValue: 2.5,
-        duration: 400,
+        duration: 600,
         useNativeDriver: true,
       }),
       Animated.sequence([
         Animated.timing(bloomOpacityAnim, {
           toValue: 1,
-          duration: 200,
+          duration: 400,
           useNativeDriver: true,
         }),
         Animated.timing(bloomOpacityAnim, {
           toValue: 0,
-          duration: 600,
+          duration: 900,
           useNativeDriver: true,
         }),
       ]),
@@ -260,7 +283,7 @@ export const SealAnchorScreen: React.FC = () => {
         } else {
           navigation.replace('ChargeComplete', { anchorId, returnTo });
         }
-      }, 800);
+      }, 1200);
     } catch (error) {
       logger.warn('Failed to update anchor locally', error);
       Alert.alert('Error', 'Failed to save seal. Please try again.');
@@ -297,7 +320,7 @@ export const SealAnchorScreen: React.FC = () => {
             }
           },
         },
-      ]
+      ],
     );
   };
 
@@ -342,6 +365,11 @@ export const SealAnchorScreen: React.FC = () => {
 
       {/* Center Content */}
       <View style={styles.centerContent}>
+        {/* Intention Text */}
+        <Text style={styles.intentionText} numberOfLines={3}>
+          "{anchor.intentionText}"
+        </Text>
+
         {/* Glow Halo (behind orb) */}
         <Animated.View
           style={[
@@ -372,6 +400,7 @@ export const SealAnchorScreen: React.FC = () => {
               styles.orbContainer,
               {
                 transform: [{ scale: orbScaleAnim }],
+                opacity: chromeOpacityAnim,
               },
             ]}
           >
@@ -427,44 +456,42 @@ export const SealAnchorScreen: React.FC = () => {
             )}
 
             {/* Progress Ring (SVG overlay) */}
-            <Svg
-              width={ORB_SIZE}
-              height={ORB_SIZE}
-              style={styles.progressRing}
+            <Animated.View
+              style={[styles.progressRing, { opacity: chromeOpacityAnim }]}
             >
-              {/* Background ring (subtle) */}
-              <Circle
-                cx={ORB_SIZE / 2}
-                cy={ORB_SIZE / 2}
-                r={RING_RADIUS}
-                stroke={`${colors.gold}20`}
-                strokeWidth={RING_STROKE_WIDTH}
-                fill="none"
-              />
+              <Svg width={ORB_SIZE} height={ORB_SIZE}>
+                {/* Background ring (subtle) */}
+                <Circle
+                  cx={ORB_SIZE / 2}
+                  cy={ORB_SIZE / 2}
+                  r={RING_RADIUS}
+                  stroke={`${colors.gold}20`}
+                  strokeWidth={RING_STROKE_WIDTH}
+                  fill="none"
+                />
 
-              {/* Progress ring */}
-              <AnimatedCircle
-                cx={ORB_SIZE / 2}
-                cy={ORB_SIZE / 2}
-                r={RING_RADIUS}
-                stroke={colors.gold}
-                strokeWidth={RING_STROKE_WIDTH}
-                fill="none"
-                strokeDasharray={RING_CIRCUMFERENCE}
-                strokeDashoffset={strokeDashoffset}
-                strokeLinecap="round"
-                rotation="-90"
-                origin={`${ORB_SIZE / 2}, ${ORB_SIZE / 2}`}
-              />
-            </Svg>
+                {/* Progress ring */}
+                <AnimatedCircle
+                  cx={ORB_SIZE / 2}
+                  cy={ORB_SIZE / 2}
+                  r={RING_RADIUS}
+                  stroke={colors.gold}
+                  strokeWidth={RING_STROKE_WIDTH}
+                  fill="none"
+                  strokeDasharray={RING_CIRCUMFERENCE}
+                  strokeDashoffset={strokeDashoffset}
+                  strokeLinecap="round"
+                  rotation="-90"
+                  origin={`${ORB_SIZE / 2}, ${ORB_SIZE / 2}`}
+                />
+              </Svg>
+            </Animated.View>
           </Animated.View>
         </Pressable>
 
-        {/* Instruction Text */}
+        {/* Breath Cue Text */}
         {!isComplete && (
-          <View style={styles.instructionCardWrap}>
-            <InstructionGlassCard text="Hold to seal" emphasized />
-          </View>
+          <Text style={styles.instructionText}>Breathe and hold</Text>
         )}
 
         {/* Bloom Effect (on completion) */}
@@ -583,10 +610,25 @@ const styles = StyleSheet.create({
     left: 0,
   },
 
-  instructionCardWrap: {
-    width: '100%',
-    maxWidth: 280,
+  // ────────────────────────────────────────────────────────────
+  // Intention + Breath Cue Text
+  // ────────────────────────────────────────────────────────────
+  intentionText: {
+    ...typography.bodySerifItalic,
+    maxWidth: '84%' as any,
+    marginBottom: spacing.xxl,
+    fontSize: typography.sizes.h2 + 6,
+    lineHeight: typography.lineHeights.h1,
+    color: colors.bone,
+    textAlign: 'center',
+  },
+  instructionText: {
     marginTop: spacing.xl,
+    fontSize: typography.sizes.body2,
+    fontFamily: typography.fonts.bodyBold,
+    color: colors.gold,
+    letterSpacing: 2.4,
+    textTransform: 'uppercase' as const,
   },
 
   // ────────────────────────────────────────────────────────────

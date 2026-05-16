@@ -107,6 +107,9 @@ const SYMBOL_SIZE = Math.min(width * 0.54, 220);
 const RING_RADIUS = 124;
 const RING_STROKE_WIDTH = 4;
 const RING_CIRCUMFERENCE = 2 * Math.PI * RING_RADIUS;
+const ARRIVE_PHASE_SECONDS = 8;
+const ARRIVE_CHROME_FADE_MS = 500;
+const ARRIVE_BREATH_PHASE_MS = 4000;
 type EmberParticle = {
   x: number;
   bottom: number;
@@ -289,6 +292,10 @@ export const RitualScreen: React.FC = () => {
   const isDeepRitual = ritualType === 'ritual' || ritualType === 'deep';
   const [isLanding, setIsLanding] = useState(isDeepRitual);
 
+  const arrivePhaseEnabled =
+    (ritualType === 'focus' || ritualType === 'quick') &&
+    config.totalDurationSeconds > 5;
+
   // Animated values
   const progressAnim = useRef(new Animated.Value(0)).current;
   const glowAnim = useRef(new Animated.Value(0)).current;
@@ -306,6 +313,11 @@ export const RitualScreen: React.FC = () => {
   const sealPulseAnim = useRef(new Animated.Value(0)).current;
   const regularRingSpinA = useRef(new Animated.Value(0)).current;
   const regularRingSpinB = useRef(new Animated.Value(0)).current;
+  const sessionChromeOpacity = useRef(
+    new Animated.Value(arrivePhaseEnabled ? 0 : 1),
+  ).current;
+  const arriveBreathScaleAnim = useRef(new Animated.Value(1)).current;
+  const arriveBreathOpacityAnim = useRef(new Animated.Value(0.55)).current;
 
   const instructionFadeAnim = useRef(new Animated.Value(1)).current;
   const [displayedInstruction, setDisplayedInstruction] = useState(
@@ -330,6 +342,12 @@ export const RitualScreen: React.FC = () => {
     onPhaseChange: handlePhaseChange,
     onSealComplete: handleSealComplete,
   });
+
+  const isArrivePhase =
+    arrivePhaseEnabled &&
+    state.elapsedSeconds < ARRIVE_PHASE_SECONDS &&
+    !state.isComplete &&
+    !state.isSealPhase;
 
   useEffect(() => {
     if (reduceMotionEnabled) {
@@ -385,6 +403,57 @@ export const RitualScreen: React.FC = () => {
       actions.reset();
     };
   }, [actions.start, actions.reset, isDeepRitual]);
+
+  // ══════════════════════════════════════════════════════════════
+  // LIFECYCLE: Arrive phase breath cue + chrome transition
+  // ══════════════════════════════════════════════════════════════
+
+  useEffect(() => {
+    Animated.timing(sessionChromeOpacity, {
+      toValue: isArrivePhase ? 0 : 1,
+      duration: ARRIVE_CHROME_FADE_MS,
+      useNativeDriver: true,
+    }).start();
+
+    if (!isArrivePhase) {
+      arriveBreathScaleAnim.setValue(1);
+      arriveBreathOpacityAnim.setValue(0.55);
+      return;
+    }
+
+    const breathLoop = Animated.loop(
+      Animated.parallel([
+        Animated.sequence([
+          Animated.timing(arriveBreathScaleAnim, {
+            toValue: 1.08,
+            duration: ARRIVE_BREATH_PHASE_MS,
+            useNativeDriver: true,
+          }),
+          Animated.timing(arriveBreathScaleAnim, {
+            toValue: 1,
+            duration: ARRIVE_BREATH_PHASE_MS,
+            useNativeDriver: true,
+          }),
+        ]),
+        Animated.sequence([
+          Animated.timing(arriveBreathOpacityAnim, {
+            toValue: 0.85,
+            duration: ARRIVE_BREATH_PHASE_MS,
+            useNativeDriver: true,
+          }),
+          Animated.timing(arriveBreathOpacityAnim, {
+            toValue: 0.55,
+            duration: ARRIVE_BREATH_PHASE_MS,
+            useNativeDriver: true,
+          }),
+        ]),
+      ]),
+    );
+
+    breathLoop.start();
+
+    return () => breathLoop.stop();
+  }, [isArrivePhase]);
 
   const handleBeginPriming = () => {
     setIsLanding(false);
@@ -1603,6 +1672,28 @@ export const RitualScreen: React.FC = () => {
           </>
         ) : (
           <>
+            {isArrivePhase && (
+              <View style={styles.arriveContainer}>
+                <Animated.View
+                  style={[
+                    styles.arriveBreathHalo,
+                    {
+                      opacity: arriveBreathOpacityAnim,
+                      transform: [{ scale: arriveBreathScaleAnim }],
+                    },
+                  ]}
+                />
+                <Text style={styles.arriveIntentionText}>
+                  "{anchor.intentionText}"
+                </Text>
+                <Text style={styles.arriveBreathCue}>Breathe into it</Text>
+              </View>
+            )}
+
+            <Animated.View
+              style={[styles.sessionChrome, { opacity: sessionChromeOpacity }]}
+              pointerEvents={isArrivePhase ? 'none' : 'auto'}
+            >
             <Animated.View style={{ opacity: phaseIndicatorOpacityAnim }}>
               <RitualTopBar onBack={handleBack} phaseLabel={phaseLabel} />
             </Animated.View>
@@ -1754,6 +1845,7 @@ export const RitualScreen: React.FC = () => {
                   <Text style={styles.timerText}>{state.formattedRemaining} remaining</Text>
                 </View>
               )}
+            </Animated.View>
             </Animated.View>
           </>
         )}
@@ -2190,6 +2282,46 @@ const styles = StyleSheet.create({
     letterSpacing: 0.6,
     textTransform: 'uppercase',
   },
+  sessionChrome: {
+    flex: 1,
+  },
+
+  arriveContainer: {
+    ...StyleSheet.absoluteFillObject,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: spacing.xl,
+    zIndex: 5,
+  },
+
+  arriveBreathHalo: {
+    position: 'absolute',
+    width: width * 0.72,
+    height: width * 0.72,
+    borderRadius: (width * 0.72) / 2,
+    borderWidth: 1,
+    borderColor: `${colors.gold}30`,
+    backgroundColor: `${colors.gold}08`,
+  },
+
+  arriveIntentionText: {
+    ...typography.bodySerifItalic,
+    fontSize: typography.sizes.h2 + 4,
+    lineHeight: typography.lineHeights.h2 + 8,
+    color: colors.bone,
+    textAlign: 'center',
+    marginBottom: spacing.lg,
+  },
+
+  arriveBreathCue: {
+    fontSize: typography.sizes.body2,
+    fontFamily: typography.fonts.bodyBold,
+    color: colors.gold,
+    textAlign: 'center',
+    letterSpacing: 2.4,
+    textTransform: 'uppercase',
+  },
+
   centerContent: {
     flex: 1,
     justifyContent: 'center',

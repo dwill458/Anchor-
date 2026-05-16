@@ -74,6 +74,12 @@ export const typography = {
   h4: { fontFamily: 'Cinzel-Regular', fontSize: 18, lineHeight: 24 },
   body: { fontFamily: 'Inter-Regular', fontSize: 16, lineHeight: 24 },
   bodyBold: { fontFamily: 'Inter-SemiBold', fontSize: 16, lineHeight: 24 },
+  bodySerifItalic: {
+    fontFamily: 'CormorantGaramond-Italic',
+    fontStyle: 'italic' as const,
+    fontSize: 16,
+    lineHeight: 24,
+  },
   caption: { fontFamily: 'Inter-Regular', fontSize: 12, lineHeight: 16 },
 
   // Compatibility objects for components accessing .fontFamily
