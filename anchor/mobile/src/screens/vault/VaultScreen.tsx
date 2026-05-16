@@ -315,19 +315,7 @@ export const VaultScreen: React.FC = () => {
   useEffect(() => {
     if (shouldRedirectToCreation) {
       setShouldRedirectToCreation(false);
-      // DEFERRED: freemium — anchor limit check removed; trial/active users have unlimited anchors
-      // if (isFree && anchors.length >= features.maxAnchors) {
-      //   setShowAnchorLimitModal(true);
-      //   return;
-      // }
-
-      const task = InteractionManager.runAfterInteractions(() => {
-        navigation.replace('FirstAnchorCreation');
-      });
-
-      return () => {
-        task.cancel();
-      };
+      navigation.replace('FirstAnchorCreation');
     }
   }, [
     shouldRedirectToCreation,
