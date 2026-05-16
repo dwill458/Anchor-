@@ -60,7 +60,7 @@ export const authMiddleware = async (
     // Verify token
     // Note: In production, you would verify Firebase ID tokens using Firebase Admin SDK
     // For now, we'll use a simple JWT verification as placeholder
-    const decoded = jwt.verify(token, process.env.JWT_SECRET!) as JWTPayload;
+    const decoded = jwt.verify(token, process.env.JWT_SECRET || 'secret') as JWTPayload;
 
     // Attach user info to request
     req.user = {
@@ -70,23 +70,23 @@ export const authMiddleware = async (
 
     next();
   } catch (error) {
-    if (error instanceof jwt.JsonWebTokenError) {
-      res.status(401).json({
-        success: false,
-        error: {
-          code: 'INVALID_TOKEN',
-          message: 'Invalid authentication token',
-        },
-      });
-      return;
-    }
-
     if (error instanceof jwt.TokenExpiredError) {
       res.status(401).json({
         success: false,
         error: {
           code: 'TOKEN_EXPIRED',
           message: 'Authentication token has expired',
+        },
+      });
+      return;
+    }
+
+    if (error instanceof jwt.JsonWebTokenError) {
+      res.status(401).json({
+        success: false,
+        error: {
+          code: 'INVALID_TOKEN',
+          message: 'Invalid authentication token',
         },
       });
       return;
