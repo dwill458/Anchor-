@@ -330,17 +330,23 @@ router.post(
 
       if (error instanceof Prisma.PrismaClientKnownRequestError) {
         logger.error('Auth sync Prisma error', error, {
-          path: '/api/auth/sync',
+          authUid: req.user?.uid,
+          authProvider: req.body?.authProvider,
+          path: req.path,
           prismaCode: error.code,
           prismaMeta: error.meta,
         });
       } else if (error instanceof Prisma.PrismaClientValidationError) {
         logger.error('Auth sync Prisma validation error', error, {
-          path: '/api/auth/sync',
+          authUid: req.user?.uid,
+          authProvider: req.body?.authProvider,
+          path: req.path,
         });
       } else {
         logger.error('Auth sync unexpected error', error, {
-          path: '/api/auth/sync',
+          authUid: req.user?.uid,
+          authProvider: req.body?.authProvider,
+          path: req.path,
         });
       }
 
