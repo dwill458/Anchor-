@@ -19,6 +19,7 @@ import {
   AccessibilityInfo,
   Platform,
   InteractionManager,
+  useWindowDimensions,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import Svg, {
@@ -35,6 +36,7 @@ import { useRitualController } from '@/hooks/useRitualController';
 import { getRitualConfig } from '@/config/ritualConfigs';
 import { apiClient } from '@/services/ApiClient';
 import { AuthService } from '@/services/AuthService';
+import BackendAnchorService, { isBackendAnchorId } from '@/services/BackendAnchorService';
 import type { RootStackParamList } from '@/types';
 import { colors, spacing, typography } from '@/theme';
 import { SigilSvg, OptimizedImage, PremiumAnchorGlow } from '@/components/common';
@@ -248,6 +250,7 @@ const DeepEmberDot: React.FC<{ particle: EmberParticle; reduceMotionEnabled: boo
 };
 
 export const RitualScreen: React.FC = () => {
+  const { height: screenHeight } = useWindowDimensions();
   const navigation = useNavigation<RitualNavigationProp>();
   const { navigateToPractice } = useTabNavigation();
   const route = useRoute<RitualRouteProp>();
@@ -291,6 +294,12 @@ export const RitualScreen: React.FC = () => {
   const [sealCopyMode, setSealCopyMode] = useState<SealCopyMode>('active');
   const [sealBreathLabel, setSealBreathLabel] = useState<'Inhale' | 'Exhale'>('Inhale');
   const [showSealContinue, setShowSealContinue] = useState(false);
+  const isCompactHeight = screenHeight <= 820;
+  const isVeryCompactHeight = screenHeight <= 760;
+  const deepArtworkFrameSize = isVeryCompactHeight ? 248 : isCompactHeight ? 286 : 340;
+  const deepArtworkScale = deepArtworkFrameSize / 340;
+  const landingArtworkFrameSize = isVeryCompactHeight ? 252 : isCompactHeight ? 288 : 340;
+  const landingArtworkScale = landingArtworkFrameSize / 340;
 
   useMissingAnchorRedirect(!isAnchorMissing, navigation);
 
@@ -921,6 +930,7 @@ export const RitualScreen: React.FC = () => {
     }
 
     let backendSyncFailed = false;
+    let effectiveAnchorId = anchorId;
 
     if (isPendingFirstAnchor) {
       enqueuePendingFirstAnchorMutation({
@@ -931,13 +941,21 @@ export const RitualScreen: React.FC = () => {
         queuedAt: new Date().toISOString(),
       });
     } else {
+      try {
+        const persistedAnchor = await BackendAnchorService.ensureServerAnchor(anchorId);
+        effectiveAnchorId = persistedAnchor?.id ?? anchorId;
+      } catch (syncError) {
+        backendSyncFailed = true;
+        logger.warn('Anchor create sync failed before charge, saving locally only', syncError);
+      }
+
       const token = await AuthService.getIdToken();
       const isMockToken =
         typeof token === 'string' && (token === 'mock-jwt-token' || token.startsWith('mock-'));
 
-      if (!isMockToken) {
+      if (!backendSyncFailed && isBackendAnchorId(effectiveAnchorId) && !isMockToken) {
         try {
-          await apiClient.post(`/api/anchors/${anchorId}/charge`, {
+          await apiClient.post(`/api/anchors/${effectiveAnchorId}/charge`, {
             chargeType,
             durationSeconds: config.totalDurationSeconds,
           });
@@ -945,6 +963,8 @@ export const RitualScreen: React.FC = () => {
           backendSyncFailed = true;
           logger.warn('Charge sync failed, saving locally only', syncError);
         }
+      } else if (!isBackendAnchorId(effectiveAnchorId)) {
+        backendSyncFailed = true;
       }
     }
 
@@ -967,7 +987,7 @@ export const RitualScreen: React.FC = () => {
     if (isFirstPrimeForAnchor) {
       exitingRef.current = true;
       navigation.replace('FirstPrimeComplete', {
-        anchorId,
+        anchorId: effectiveAnchorId,
         sessionCount: 1,
         threadStrength: 1,
         durationSeconds: config.totalDurationSeconds,
@@ -988,7 +1008,7 @@ export const RitualScreen: React.FC = () => {
 
     exitingRef.current = true;
     navigation.replace('ChargeComplete', {
-      anchorId,
+      anchorId: effectiveAnchorId,
       durationSeconds: config.totalDurationSeconds,
       returnTo,
     });
@@ -1486,20 +1506,382 @@ export const RitualScreen: React.FC = () => {
                   <View style={styles.deepHeaderSpacer} />
                 </View>
 
-                <View style={styles.landingCenterContent}>
+                <View
+                  style={[
+                    styles.landingCenterContent,
+                    isCompactHeight ? styles.landingCenterContentCompact : null,
+                  ]}
+                >
                   <Text style={styles.landingTitle}>DEEP PRIMING</Text>
-                  <Text style={styles.landingTimeText}>{formatLandingTime(config.totalDurationSeconds)}</Text>
+                  <Text
+                    style={[
+                      styles.landingTimeText,
+                      isCompactHeight ? styles.landingTimeTextCompact : null,
+                    ]}
+                  >
+                    {formatLandingTime(config.totalDurationSeconds)}
+                  </Text>
 
-                  <View style={styles.landingSigilWrapper}>
+                  <View
+                    style={[
+                      styles.landingSigilWrapper,
+                      isCompactHeight ? styles.landingSigilWrapperCompact : null,
+                      { width: landingArtworkFrameSize, height: landingArtworkFrameSize },
+                    ]}
+                  >
+                    <View
+                      style={[
+                        styles.deepArtworkCanvas,
+                        { transform: [{ scale: landingArtworkScale }] },
+                      ]}
+                    >
+                      <Animated.View style={[styles.deepOrbitSolid, { transform: [{ rotate: deepOrbitRotateA }] }]} />
+                      <Animated.View style={[styles.deepOrbitDashOuter, { transform: [{ rotate: deepOrbitRotateB }] }]} />
+                      <Animated.View style={[styles.deepOrbitDotOuter, { transform: [{ rotate: deepOrbitRotateA }] }]} />
+                      <Animated.View style={[styles.deepOrbitDashInner, { transform: [{ rotate: deepOrbitRotateB }] }]} />
+
+                      <Animated.View
+                        style={[
+                          styles.deepSigilContainer,
+                          { transform: [{ translateY: deepSigilTranslateY }] },
+                        ]}
+                      >
+                        <LinearGradient
+                          colors={['#F6EFD8', '#E7D8AE', '#B99654']}
+                          start={{ x: 0.28, y: 0.18 }}
+                          end={{ x: 0.88, y: 0.96 }}
+                          style={StyleSheet.absoluteFill}
+                        />
+                        {!anchor.enhancedImageUrl ? (
+                          <View pointerEvents="none" style={styles.deepSigilEtchLayer}>
+                            {[30, 48, 66, 84].map((ringSize) => (
+                              <View
+                                key={`etch-ring-${ringSize}`}
+                                style={[
+                                  styles.deepSigilEtchRing,
+                                  {
+                                    width: ringSize * 2,
+                                    height: ringSize * 2,
+                                    borderRadius: ringSize,
+                                  },
+                                ]}
+                              />
+                            ))}
+                          </View>
+                        ) : null}
+                        {anchor.enhancedImageUrl ? (
+                          <OptimizedImage
+                            uri={anchor.enhancedImageUrl}
+                            style={[styles.symbolImage, styles.deepSigilImage]}
+                            resizeMode="cover"
+                          />
+                        ) : (
+                          <SigilSvg xml={sigilSvg} width={240} height={240} />
+                        )}
+                      </Animated.View>
+                    </View>
+                  </View>
+
+                  <View
+                    style={[
+                      styles.landingTimelineRow,
+                      isCompactHeight ? styles.landingTimelineRowCompact : null,
+                    ]}
+                  >
+                    {config.phases.map((p, i) => (
+                      <View
+                        key={i}
+                        style={[
+                          styles.landingTimelineBox,
+                          isCompactHeight ? styles.landingTimelineBoxCompact : null,
+                        ]}
+                      >
+                        <Text
+                          style={[
+                            styles.landingTimelineNum,
+                            isCompactHeight ? styles.landingTimelineNumCompact : null,
+                          ]}
+                        >
+                          0{i + 1}
+                        </Text>
+                        <Text
+                          style={[
+                            styles.landingTimelineText,
+                            isCompactHeight ? styles.landingTimelineTextCompact : null,
+                          ]}
+                        >
+                          {p.title}
+                        </Text>
+                      </View>
+                    ))}
+                  </View>
+
+                  {!reduceIntentionVisibility && anchor.intentionText ? (
+                    <View
+                      style={[
+                        styles.landingIntentionWrap,
+                        isCompactHeight ? styles.landingIntentionWrapCompact : null,
+                      ]}
+                    >
+                      <Text style={styles.landingIntentionLabel}>INTENTION</Text>
+                      <Text
+                        style={[
+                          styles.landingIntentionText,
+                          isCompactHeight ? styles.landingIntentionTextCompact : null,
+                        ]}
+                      >
+                        "{anchor.intentionText}"
+                      </Text>
+                    </View>
+                  ) : null}
+                </View>
+
+                <View
+                  style={[
+                    styles.landingBottomSection,
+                    isCompactHeight ? styles.landingBottomSectionCompact : null,
+                  ]}
+                >
+                  <Pressable onPress={handleBeginPriming} style={styles.landingBeginBtn}>
+                    <LinearGradient
+                      colors={['#D4AF37', '#8a6f23']}
+                      style={styles.landingBeginBtnGradient}
+                      start={{ x: 0, y: 0 }}
+                      end={{ x: 1, y: 1 }}
+                    >
+                      <Text style={styles.landingBeginBtnText}>Begin priming  →</Text>
+                    </LinearGradient>
+                  </Pressable>
+                  <Text style={styles.landingFooterText}>
+                    {config.phases.length} phases. Close your eyes between guidance.
+                  </Text>
+                </View>
+              </View>
+            ) : (
+              <>
+                <Animated.View pointerEvents="none" style={[styles.deepPhaseFlash, { opacity: deepPhaseFlashAnim }]} />
+
+            <Animated.View
+              style={[
+                styles.deepPhaseTrackWrap,
+                isCompactHeight ? styles.deepPhaseTrackWrapCompact : null,
+                { opacity: phaseIndicatorOpacityAnim },
+              ]}
+            >
+              <View style={styles.deepPhaseTrackRow}>
+                {config.phases.map((_phase, index) => {
+                  const range = phaseProgressRanges[index] ?? { startProgress: 0, endProgress: 0 };
+                  return (
+                    <View key={`phase-segment-${index}`} style={styles.deepPhaseTrackSegment}>
+                      <DeepPhaseSegment
+                        progressAnim={progressAnim}
+                        startProgress={range.startProgress}
+                        endProgress={range.endProgress}
+                        isPast={index < activePhaseIndex}
+                      />
+                    </View>
+                  );
+                })}
+              </View>
+            </Animated.View>
+
+            <Animated.View style={[styles.deepHeaderRow, { opacity: phaseIndicatorOpacityAnim }]}>
+              <TouchableOpacity
+                onPress={handleBack}
+                activeOpacity={0.82}
+                style={styles.deepCloseButton}
+                accessibilityRole="button"
+                accessibilityLabel="Exit ritual"
+              >
+                <Text style={styles.deepCloseIcon}>×</Text>
+              </TouchableOpacity>
+              <View style={styles.deepPhasePill}>
+                <Text style={styles.deepPhasePillText}>{phaseLabelForDeep}</Text>
+              </View>
+              <View style={styles.deepHeaderSpacer} />
+            </Animated.View>
+
+            {!state.isSealPhase ? (
+              <View style={[styles.deepPhaseLabelWrap, isCompactHeight ? styles.deepPhaseLabelWrapCompact : null]}>
+                <Text style={styles.deepPhaseLabelText}>{deepPhaseName}</Text>
+                <LinearGradient
+                  colors={['rgba(212,175,55,0)', 'rgba(212,175,55,0.42)', 'rgba(212,175,55,0)']}
+                  start={{ x: 0, y: 0.5 }}
+                  end={{ x: 1, y: 0.5 }}
+                  style={styles.deepPhaseDivider}
+                />
+              </View>
+            ) : null}
+
+            <View style={[styles.deepCenterContent, isCompactHeight ? styles.deepCenterContentCompact : null]}>
+              <Animated.View
+                style={[
+                  styles.deepSymbolWrapper,
+                  isCompactHeight ? styles.deepSymbolWrapperCompact : null,
+                  { width: deepArtworkFrameSize, height: deepArtworkFrameSize },
+                  { opacity: ringOpacityAnim, transform: [{ scale: ringScale }, { scale: pressScaleAnim }] },
+                ]}
+              >
+                <Pressable
+                  onPressIn={handleSealPressIn}
+                  onPressOut={handleSealPressOut}
+                  disabled={!state.isSealPhase || state.isSealComplete}
+                  style={styles.deepPressable}
+                >
+                  <View
+                    style={[
+                      styles.deepArtworkCanvas,
+                      { transform: [{ scale: deepArtworkScale }] },
+                    ]}
+                  >
+                    <Animated.View
+                      pointerEvents="none"
+                      style={[
+                        styles.deepAuraOuter,
+                        {
+                          opacity: deepAuraOpacity,
+                          transform: [{ scale: deepAuraScale }],
+                        },
+                      ]}
+                    />
+                    <Animated.View
+                      pointerEvents="none"
+                      style={[
+                        styles.deepAuraInner,
+                        {
+                          opacity: deepInnerAuraOpacity,
+                          transform: [{ scale: deepInnerAuraScale }],
+                        },
+                      ]}
+                    />
                     <Animated.View style={[styles.deepOrbitSolid, { transform: [{ rotate: deepOrbitRotateA }] }]} />
                     <Animated.View style={[styles.deepOrbitDashOuter, { transform: [{ rotate: deepOrbitRotateB }] }]} />
                     <Animated.View style={[styles.deepOrbitDotOuter, { transform: [{ rotate: deepOrbitRotateA }] }]} />
                     <Animated.View style={[styles.deepOrbitDashInner, { transform: [{ rotate: deepOrbitRotateB }] }]} />
-                    
+
+                    <Animated.View
+                      style={[
+                        styles.deepOrbRingOuter,
+                        {
+                          opacity: deepOuterOrbOpacity,
+                          transform: [{ rotate: deepOrbitRotateA }],
+                        },
+                      ]}
+                    >
+                      {DEEP_OUTER_ORB_DOTS.map((dot, index) => (
+                        <View
+                          key={`outer-orb-dot-${index}`}
+                          style={[
+                            styles.deepOrbDotOuter,
+                            {
+                              top: 160 - dot.size / 2,
+                              left: 160 - dot.size / 2,
+                              width: dot.size,
+                              height: dot.size,
+                              borderRadius: dot.size / 2,
+                              opacity: Math.min(1, dot.opacity),
+                              transform: [{ translateX: dot.x }, { translateY: dot.y }],
+                            },
+                          ]}
+                        />
+                      ))}
+                    </Animated.View>
+                    <Animated.View
+                      style={[
+                        styles.deepOrbRingInner,
+                        {
+                          opacity: deepInnerOrbOpacity,
+                          transform: [{ rotate: deepOrbitRotateB }],
+                        },
+                      ]}
+                    >
+                      {DEEP_INNER_ORB_DOTS.map((dot, index) => (
+                        <View
+                          key={`inner-orb-dot-${index}`}
+                          style={[
+                            styles.deepOrbDotInner,
+                            {
+                              top: 140 - dot.size / 2,
+                              left: 140 - dot.size / 2,
+                              width: dot.size,
+                              height: dot.size,
+                              borderRadius: dot.size / 2,
+                              opacity: Math.min(1, dot.opacity),
+                              transform: [{ translateX: dot.x }, { translateY: dot.y }],
+                            },
+                          ]}
+                        />
+                      ))}
+                    </Animated.View>
+
+                    <Animated.View
+                      style={[
+                        styles.deepPulseRingOuter,
+                        {
+                          opacity: deepPulseAOpacity,
+                          transform: [{ scale: deepPulseAScale }],
+                        },
+                      ]}
+                    />
+                    <Animated.View
+                      style={[
+                        styles.deepPulseRingInner,
+                        {
+                          opacity: deepPulseBOpacity,
+                          transform: [{ scale: deepPulseBScale }],
+                        },
+                      ]}
+                    />
+                    <Animated.View
+                      style={[
+                        styles.deepEmberHalo,
+                        {
+                          opacity: deepHaloOpacity,
+                          transform: [{ scale: deepHaloScale }],
+                        },
+                      ]}
+                    />
+
+                    <View style={styles.premiumGlowLayer}>
+                      <PremiumAnchorGlow
+                        size={SYMBOL_SIZE}
+                        state={state.isSealPhase ? 'charged' : 'active'}
+                        variant="ritual"
+                        reduceMotionEnabled={reduceMotionEnabled}
+                      />
+                    </View>
+
+                    {state.isSealPhase ? (
+                      <Svg width={340} height={340} style={styles.deepSealRingSvg}>
+                        <Circle
+                          cx={170}
+                          cy={170}
+                          r={154}
+                          fill="none"
+                          stroke="rgba(212,175,55,0.12)"
+                          strokeWidth={2}
+                        />
+                        <Circle
+                          cx={170}
+                          cy={170}
+                          r={154}
+                          fill="none"
+                          stroke="#D4AF37"
+                          strokeWidth={2.5}
+                          strokeLinecap="round"
+                          strokeDasharray={deepSealCircumference}
+                          strokeDashoffset={deepSealDashoffset}
+                          transform="rotate(-90 170 170)"
+                        />
+                      </Svg>
+                    ) : null}
+
                     <Animated.View
                       style={[
                         styles.deepSigilContainer,
-                        { transform: [{ translateY: deepSigilTranslateY }] },
+                        {
+                          transform: [{ translateY: deepSigilTranslateY }, { scale: deepSigilScale }],
+                        },
                       ]}
                     >
                       <LinearGradient
@@ -1536,286 +1918,6 @@ export const RitualScreen: React.FC = () => {
                       )}
                     </Animated.View>
                   </View>
-
-                  <View style={styles.landingTimelineRow}>
-                    {config.phases.map((p, i) => (
-                      <View key={i} style={styles.landingTimelineBox}>
-                        <Text style={styles.landingTimelineNum}>0{i + 1}</Text>
-                        <Text style={styles.landingTimelineText}>{p.title}</Text>
-                      </View>
-                    ))}
-                  </View>
-
-                  {!reduceIntentionVisibility && anchor.intentionText ? (
-                    <View style={styles.landingIntentionWrap}>
-                      <Text style={styles.landingIntentionLabel}>INTENTION</Text>
-                      <Text style={styles.landingIntentionText}>"{anchor.intentionText}"</Text>
-                    </View>
-                  ) : null}
-                </View>
-
-                <View style={styles.landingBottomSection}>
-                  <Pressable onPress={handleBeginPriming} style={styles.landingBeginBtn}>
-                    <LinearGradient
-                      colors={['#D4AF37', '#8a6f23']}
-                      style={styles.landingBeginBtnGradient}
-                      start={{ x: 0, y: 0 }}
-                      end={{ x: 1, y: 1 }}
-                    >
-                      <Text style={styles.landingBeginBtnText}>Begin priming  →</Text>
-                    </LinearGradient>
-                  </Pressable>
-                  <Text style={styles.landingFooterText}>
-                    {config.phases.length} phases. Close your eyes between guidance.
-                  </Text>
-                </View>
-              </View>
-            ) : (
-              <>
-                <Animated.View pointerEvents="none" style={[styles.deepPhaseFlash, { opacity: deepPhaseFlashAnim }]} />
-
-            <Animated.View style={[styles.deepPhaseTrackWrap, { opacity: phaseIndicatorOpacityAnim }]}>
-              <View style={styles.deepPhaseTrackRow}>
-                {config.phases.map((_phase, index) => {
-                  const range = phaseProgressRanges[index] ?? { startProgress: 0, endProgress: 0 };
-                  return (
-                    <View key={`phase-segment-${index}`} style={styles.deepPhaseTrackSegment}>
-                      <DeepPhaseSegment
-                        progressAnim={progressAnim}
-                        startProgress={range.startProgress}
-                        endProgress={range.endProgress}
-                        isPast={index < activePhaseIndex}
-                      />
-                    </View>
-                  );
-                })}
-              </View>
-            </Animated.View>
-
-            <Animated.View style={[styles.deepHeaderRow, { opacity: phaseIndicatorOpacityAnim }]}>
-              <TouchableOpacity
-                onPress={handleBack}
-                activeOpacity={0.82}
-                style={styles.deepCloseButton}
-                accessibilityRole="button"
-                accessibilityLabel="Exit ritual"
-              >
-                <Text style={styles.deepCloseIcon}>×</Text>
-              </TouchableOpacity>
-              <View style={styles.deepPhasePill}>
-                <Text style={styles.deepPhasePillText}>{phaseLabelForDeep}</Text>
-              </View>
-              <View style={styles.deepHeaderSpacer} />
-            </Animated.View>
-
-            {!state.isSealPhase ? (
-              <View style={styles.deepPhaseLabelWrap}>
-                <Text style={styles.deepPhaseLabelText}>{deepPhaseName}</Text>
-                <LinearGradient
-                  colors={['rgba(212,175,55,0)', 'rgba(212,175,55,0.42)', 'rgba(212,175,55,0)']}
-                  start={{ x: 0, y: 0.5 }}
-                  end={{ x: 1, y: 0.5 }}
-                  style={styles.deepPhaseDivider}
-                />
-              </View>
-            ) : null}
-
-            <View style={styles.deepCenterContent}>
-              <Animated.View
-                style={[
-                  styles.deepSymbolWrapper,
-                  { opacity: ringOpacityAnim, transform: [{ scale: ringScale }, { scale: pressScaleAnim }] },
-                ]}
-              >
-                <Pressable
-                  onPressIn={handleSealPressIn}
-                  onPressOut={handleSealPressOut}
-                  disabled={!state.isSealPhase || state.isSealComplete}
-                  style={styles.deepPressable}
-                >
-                  <Animated.View
-                    pointerEvents="none"
-                    style={[
-                      styles.deepAuraOuter,
-                      {
-                        opacity: deepAuraOpacity,
-                        transform: [{ scale: deepAuraScale }],
-                      },
-                    ]}
-                  />
-                  <Animated.View
-                    pointerEvents="none"
-                    style={[
-                      styles.deepAuraInner,
-                      {
-                        opacity: deepInnerAuraOpacity,
-                        transform: [{ scale: deepInnerAuraScale }],
-                      },
-                    ]}
-                  />
-                  <Animated.View style={[styles.deepOrbitSolid, { transform: [{ rotate: deepOrbitRotateA }] }]} />
-                  <Animated.View style={[styles.deepOrbitDashOuter, { transform: [{ rotate: deepOrbitRotateB }] }]} />
-                  <Animated.View style={[styles.deepOrbitDotOuter, { transform: [{ rotate: deepOrbitRotateA }] }]} />
-                  <Animated.View style={[styles.deepOrbitDashInner, { transform: [{ rotate: deepOrbitRotateB }] }]} />
-
-                  <Animated.View
-                    style={[
-                      styles.deepOrbRingOuter,
-                      {
-                        opacity: deepOuterOrbOpacity,
-                        transform: [{ rotate: deepOrbitRotateA }],
-                      },
-                    ]}
-                  >
-                    {DEEP_OUTER_ORB_DOTS.map((dot, index) => (
-                      <View
-                        key={`outer-orb-dot-${index}`}
-                        style={[
-                          styles.deepOrbDotOuter,
-                          {
-                            top: 160 - dot.size / 2,
-                            left: 160 - dot.size / 2,
-                            width: dot.size,
-                            height: dot.size,
-                            borderRadius: dot.size / 2,
-                            opacity: Math.min(1, dot.opacity),
-                            transform: [{ translateX: dot.x }, { translateY: dot.y }],
-                          },
-                        ]}
-                      />
-                    ))}
-                  </Animated.View>
-                  <Animated.View
-                    style={[
-                      styles.deepOrbRingInner,
-                      {
-                        opacity: deepInnerOrbOpacity,
-                        transform: [{ rotate: deepOrbitRotateB }],
-                      },
-                    ]}
-                  >
-                    {DEEP_INNER_ORB_DOTS.map((dot, index) => (
-                      <View
-                        key={`inner-orb-dot-${index}`}
-                        style={[
-                          styles.deepOrbDotInner,
-                          {
-                            top: 140 - dot.size / 2,
-                            left: 140 - dot.size / 2,
-                            width: dot.size,
-                            height: dot.size,
-                            borderRadius: dot.size / 2,
-                            opacity: Math.min(1, dot.opacity),
-                            transform: [{ translateX: dot.x }, { translateY: dot.y }],
-                          },
-                        ]}
-                      />
-                    ))}
-                  </Animated.View>
-
-                  <Animated.View
-                    style={[
-                      styles.deepPulseRingOuter,
-                      {
-                        opacity: deepPulseAOpacity,
-                        transform: [{ scale: deepPulseAScale }],
-                      },
-                    ]}
-                  />
-                  <Animated.View
-                    style={[
-                      styles.deepPulseRingInner,
-                      {
-                        opacity: deepPulseBOpacity,
-                        transform: [{ scale: deepPulseBScale }],
-                      },
-                    ]}
-                  />
-                  <Animated.View
-                    style={[
-                      styles.deepEmberHalo,
-                      {
-                        opacity: deepHaloOpacity,
-                        transform: [{ scale: deepHaloScale }],
-                      },
-                    ]}
-                  />
-
-                  <View style={styles.premiumGlowLayer}>
-                    <PremiumAnchorGlow
-                      size={SYMBOL_SIZE}
-                      state={state.isSealPhase ? 'charged' : 'active'}
-                      variant="ritual"
-                      reduceMotionEnabled={reduceMotionEnabled}
-                    />
-                  </View>
-
-                  {state.isSealPhase ? (
-                    <Svg width={340} height={340} style={styles.deepSealRingSvg}>
-                      <Circle
-                        cx={170}
-                        cy={170}
-                        r={154}
-                        fill="none"
-                        stroke="rgba(212,175,55,0.12)"
-                        strokeWidth={2}
-                      />
-                      <Circle
-                        cx={170}
-                        cy={170}
-                        r={154}
-                        fill="none"
-                        stroke="#D4AF37"
-                        strokeWidth={2.5}
-                        strokeLinecap="round"
-                        strokeDasharray={deepSealCircumference}
-                        strokeDashoffset={deepSealDashoffset}
-                        transform="rotate(-90 170 170)"
-                      />
-                    </Svg>
-                  ) : null}
-
-                  <Animated.View
-                    style={[
-                      styles.deepSigilContainer,
-                      {
-                        transform: [{ translateY: deepSigilTranslateY }, { scale: deepSigilScale }],
-                      },
-                    ]}
-                  >
-                    <LinearGradient
-                      colors={['#F6EFD8', '#E7D8AE', '#B99654']}
-                      start={{ x: 0.28, y: 0.18 }}
-                      end={{ x: 0.88, y: 0.96 }}
-                      style={StyleSheet.absoluteFill}
-                    />
-                    {!anchor.enhancedImageUrl ? (
-                      <View pointerEvents="none" style={styles.deepSigilEtchLayer}>
-                        {[30, 48, 66, 84].map((ringSize) => (
-                          <View
-                            key={`etch-ring-${ringSize}`}
-                            style={[
-                              styles.deepSigilEtchRing,
-                              {
-                                width: ringSize * 2,
-                                height: ringSize * 2,
-                                borderRadius: ringSize,
-                              },
-                            ]}
-                          />
-                        ))}
-                      </View>
-                    ) : null}
-                    {anchor.enhancedImageUrl ? (
-                      <OptimizedImage
-                        uri={anchor.enhancedImageUrl}
-                        style={[styles.symbolImage, styles.deepSigilImage]}
-                        resizeMode="cover"
-                      />
-                    ) : (
-                      <SigilSvg xml={sigilSvg} width={240} height={240} />
-                    )}
-                  </Animated.View>
                 </Pressable>
               </Animated.View>
 
@@ -1918,15 +2020,28 @@ export const RitualScreen: React.FC = () => {
               ) : (
                 <>
                   {!reduceIntentionVisibility && anchor.intentionText ? (
-                    <View style={styles.deepIntentionWrap}>
+                    <View
+                      style={[
+                        styles.deepIntentionWrap,
+                        isCompactHeight ? styles.deepIntentionWrapCompact : null,
+                      ]}
+                    >
                       <Text style={styles.deepIntentionLabel}>INTENTION</Text>
-                      <Text style={styles.deepIntentionText}>{anchor.intentionText}</Text>
+                      <Text
+                        style={[
+                          styles.deepIntentionText,
+                          isCompactHeight ? styles.deepIntentionTextCompact : null,
+                        ]}
+                      >
+                        {anchor.intentionText}
+                      </Text>
                     </View>
                   ) : null}
 
                   <Animated.Text
                     style={[
                       styles.deepBreathCue,
+                      isCompactHeight ? styles.deepBreathCueCompact : null,
                       !state.isActive && !state.isSealPhase ? styles.deepBreathCuePaused : null,
                       { opacity: instructionContainerOpacityAnim },
                     ]}
@@ -1937,6 +2052,7 @@ export const RitualScreen: React.FC = () => {
                   <Animated.View
                     style={[
                       styles.deepInstructionContainer,
+                      isCompactHeight ? styles.deepInstructionContainerCompact : null,
                       {
                         opacity: Animated.multiply(
                           instructionFadeAnim,
@@ -1945,22 +2061,59 @@ export const RitualScreen: React.FC = () => {
                       },
                     ]}
                   >
-                    <Text style={styles.deepInstructionText}>{deepInstructionText}</Text>
+                    <Text
+                      style={[
+                        styles.deepInstructionText,
+                        isCompactHeight ? styles.deepInstructionTextCompact : null,
+                      ]}
+                    >
+                      {deepInstructionText}
+                    </Text>
                   </Animated.View>
                 </>
               )}
             </View>
 
-            <Animated.View style={[styles.deepBottomSection, { opacity: bottomSectionOpacityAnim }]}>
+            <Animated.View
+              style={[
+                styles.deepBottomSection,
+                isCompactHeight ? styles.deepBottomSectionCompact : null,
+                { opacity: bottomSectionOpacityAnim },
+              ]}
+            >
               {!state.isSealPhase && (
-                <View style={styles.deepTimerRow}>
-                  <View style={styles.deepPhaseTimerPill}>
+                <View style={[styles.deepTimerRow, isCompactHeight ? styles.deepTimerRowCompact : null]}>
+                  <View
+                    style={[
+                      styles.deepPhaseTimerPill,
+                      isCompactHeight ? styles.deepTimerPillCompact : null,
+                    ]}
+                  >
                     <Text style={styles.deepTimerLabelEmber}>THIS PHASE</Text>
-                    <Text style={styles.deepTimerDigitsEmber}>{deepPhaseTime}</Text>
+                    <Text
+                      style={[
+                        styles.deepTimerDigitsEmber,
+                        isCompactHeight ? styles.deepTimerDigitsCompact : null,
+                      ]}
+                    >
+                      {deepPhaseTime}
+                    </Text>
                   </View>
-                  <View style={styles.deepTotalTimerPill}>
+                  <View
+                    style={[
+                      styles.deepTotalTimerPill,
+                      isCompactHeight ? styles.deepTimerPillCompact : null,
+                    ]}
+                  >
                     <Text style={styles.deepTimerLabelGold}>TOTAL LEFT</Text>
-                    <Text style={styles.deepTimerDigitsGold}>{deepTotalTime}</Text>
+                    <Text
+                      style={[
+                        styles.deepTimerDigitsGold,
+                        isCompactHeight ? styles.deepTimerDigitsCompact : null,
+                      ]}
+                    >
+                      {deepTotalTime}
+                    </Text>
                   </View>
                 </View>
               )}
@@ -2330,6 +2483,9 @@ const styles = StyleSheet.create({
     paddingTop: 56,
     paddingHorizontal: 20,
   },
+  deepPhaseTrackWrapCompact: {
+    paddingTop: 40,
+  },
   deepPhaseTrackRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -2396,6 +2552,9 @@ const styles = StyleSheet.create({
     marginTop: 14,
     alignItems: 'center',
   },
+  deepPhaseLabelWrapCompact: {
+    marginTop: 8,
+  },
   deepPhaseLabelText: {
     fontSize: 15,
     fontFamily: typography.fonts.heading,
@@ -2415,6 +2574,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.md,
     paddingTop: spacing.sm,
   },
+  deepCenterContentCompact: {
+    paddingTop: 0,
+  },
   deepSymbolWrapper: {
     position: 'relative',
     justifyContent: 'center',
@@ -2423,9 +2585,18 @@ const styles = StyleSheet.create({
     height: 340,
     marginBottom: 14,
   },
+  deepSymbolWrapperCompact: {
+    marginBottom: 8,
+  },
   deepPressable: {
     width: '100%',
     height: '100%',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  deepArtworkCanvas: {
+    width: 340,
+    height: 340,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -2573,6 +2744,10 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     paddingHorizontal: 24,
   },
+  deepInstructionContainerCompact: {
+    minHeight: 56,
+    paddingHorizontal: 18,
+  },
   sealTextStack: {
     width: '100%',
     maxWidth: 380,
@@ -2677,6 +2852,10 @@ const styles = StyleSheet.create({
     letterSpacing: 0.6,
     textAlign: 'center',
   },
+  deepBreathCueCompact: {
+    marginBottom: 12,
+    fontSize: 15,
+  },
   deepBreathCuePaused: {
     opacity: 0.35,
   },
@@ -2690,6 +2869,10 @@ const styles = StyleSheet.create({
     textShadowOffset: { width: 0, height: 1 },
     textShadowRadius: 20,
   },
+  deepInstructionTextCompact: {
+    fontSize: 18,
+    lineHeight: 25,
+  },
   deepBottomSection: {
     paddingHorizontal: 24,
     paddingBottom: 32,
@@ -2698,11 +2881,19 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 16,
   },
+  deepBottomSectionCompact: {
+    paddingBottom: 20,
+    minHeight: 112,
+    gap: 12,
+  },
   deepTimerRow: {
     width: '100%',
     flexDirection: 'row',
     justifyContent: 'space-between',
     gap: 12,
+  },
+  deepTimerRowCompact: {
+    gap: 10,
   },
   deepPhaseTimerPill: {
     flex: 1,
@@ -2713,6 +2904,10 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(200,88,26,0.28)',
     backgroundColor: 'rgba(200,88,26,0.12)',
     alignItems: 'center',
+  },
+  deepTimerPillCompact: {
+    paddingHorizontal: 14,
+    paddingVertical: 8,
   },
   deepTotalTimerPill: {
     flex: 1,
@@ -2755,6 +2950,9 @@ const styles = StyleSheet.create({
     textShadowColor: 'rgba(212,175,55,0.28)',
     textShadowOffset: { width: 0, height: 0 },
     textShadowRadius: 10,
+  },
+  deepTimerDigitsCompact: {
+    fontSize: 18,
   },
   deepPauseButton: {
     borderRadius: 999,
@@ -2954,6 +3152,10 @@ const styles = StyleSheet.create({
     marginBottom: spacing.sm,
     paddingHorizontal: spacing.xl,
   },
+  deepIntentionWrapCompact: {
+    marginBottom: 6,
+    paddingHorizontal: spacing.lg,
+  },
   deepIntentionLabel: {
     fontSize: 8,
     fontFamily: typography.fonts.heading,
@@ -2967,6 +3169,10 @@ const styles = StyleSheet.create({
     color: 'rgba(245,240,232,0.7)',
     textAlign: 'center',
     lineHeight: 22,
+  },
+  deepIntentionTextCompact: {
+    fontSize: 14,
+    lineHeight: 20,
   },
   landingContent: {
     flex: 1,
@@ -2983,6 +3189,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingTop: 16,
   },
+  landingCenterContentCompact: {
+    paddingTop: 10,
+  },
   landingTitle: {
     fontFamily: typography.fonts.heading,
     fontSize: 14,
@@ -2997,12 +3206,19 @@ const styles = StyleSheet.create({
     marginBottom: 12,
     letterSpacing: 1.5,
   },
+  landingTimeTextCompact: {
+    fontSize: 28,
+    marginBottom: 8,
+  },
   landingSigilWrapper: {
     width: 340,
     height: 340,
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 20,
+  },
+  landingSigilWrapperCompact: {
+    marginBottom: 12,
   },
   landingTimelineRow: {
     flexDirection: 'row',
@@ -3012,6 +3228,10 @@ const styles = StyleSheet.create({
     marginBottom: 16,
     paddingHorizontal: 16,
     width: '100%',
+  },
+  landingTimelineRowCompact: {
+    marginBottom: 10,
+    paddingHorizontal: 12,
   },
   landingTimelineBox: {
     flex: 1,
@@ -3023,11 +3243,18 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     backgroundColor: 'rgba(212,175,55,0.05)',
   },
+  landingTimelineBoxCompact: {
+    paddingVertical: 9,
+  },
   landingTimelineNum: {
     fontFamily: typography.fonts.mono,
     fontSize: 10,
     color: '#D4AF37',
     marginBottom: 4,
+  },
+  landingTimelineNumCompact: {
+    fontSize: 9,
+    marginBottom: 3,
   },
   landingTimelineText: {
     fontFamily: typography.fonts.mono,
@@ -3037,9 +3264,15 @@ const styles = StyleSheet.create({
     textTransform: 'uppercase',
     textAlign: 'center',
   },
+  landingTimelineTextCompact: {
+    fontSize: 6,
+  },
   landingIntentionWrap: {
     alignItems: 'center',
     paddingHorizontal: 24,
+  },
+  landingIntentionWrapCompact: {
+    paddingHorizontal: 20,
   },
   landingIntentionLabel: {
     fontFamily: typography.fonts.heading,
@@ -3055,10 +3288,17 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     lineHeight: 26,
   },
+  landingIntentionTextCompact: {
+    fontSize: 16,
+    lineHeight: 22,
+  },
   landingBottomSection: {
     paddingBottom: 40,
     paddingHorizontal: 24,
     alignItems: 'center',
+  },
+  landingBottomSectionCompact: {
+    paddingBottom: 24,
   },
   landingBeginBtn: {
     width: '100%',

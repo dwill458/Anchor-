@@ -27,6 +27,43 @@ const ALLOWED_ORDER_BY = [
 ] as const;
 type AllowedOrderBy = (typeof ALLOWED_ORDER_BY)[number];
 
+// Only select the fields the current clients actively consume. This keeps
+// vault hydration resilient even when legacy/deprecated columns contain data
+// Prisma can no longer deserialize cleanly in production.
+const ANCHOR_LIST_SELECT: Prisma.AnchorSelect = {
+  id: true,
+  userId: true,
+  intentionText: true,
+  category: true,
+  planetaryTier: true,
+  classifierVersion: true,
+  classifierMeta: true,
+  distilledLetters: true,
+  baseSigilSvg: true,
+  reinforcedSigilSvg: true,
+  enhancedImageUrl: true,
+  structureVariant: true,
+  reinforcementMetadata: true,
+  enhancementMetadata: true,
+  mantraText: true,
+  mantraPronunciation: true,
+  mantraAudioUrl: true,
+  isCharged: true,
+  chargeCount: true,
+  chargedAt: true,
+  firstChargedAt: true,
+  ignitedAt: true,
+  chargeMethod: true,
+  isArchived: true,
+  archivedAt: true,
+  isShared: true,
+  sharedAt: true,
+  activationCount: true,
+  lastActivatedAt: true,
+  createdAt: true,
+  updatedAt: true,
+};
+
 const router = Router();
 
 const aiHourlyLimiterStore =
@@ -516,6 +553,56 @@ router.post('/', async (req: AuthRequest, res: Response, next: NextFunction) => 
       next(error);
       return;
     }
+
+    if (error instanceof Prisma.PrismaClientKnownRequestError) {
+      logger.error('Create anchor Prisma error', error, {
+        userId: req.dbUser?.id,
+        path: req.path,
+        prismaCode: error.code,
+        prismaMeta: error.meta,
+        payload: {
+          category: req.body?.category,
+          structureVariant: req.body?.structureVariant,
+          hasDistilledLetters: Array.isArray(req.body?.distilledLetters),
+          hasBaseSigilSvg: typeof req.body?.baseSigilSvg === 'string',
+          hasReinforcedSigilSvg: typeof req.body?.reinforcedSigilSvg === 'string',
+          hasEnhancedImageUrl: typeof req.body?.enhancedImageUrl === 'string',
+          hasEnhancementMetadata: req.body?.enhancementMetadata != null,
+          hasClassifierMeta: req.body?.classifierMeta != null,
+        },
+      });
+    } else if (error instanceof Prisma.PrismaClientValidationError) {
+      logger.error('Create anchor Prisma validation error', error, {
+        userId: req.dbUser?.id,
+        path: req.path,
+        payload: {
+          category: req.body?.category,
+          structureVariant: req.body?.structureVariant,
+          hasDistilledLetters: Array.isArray(req.body?.distilledLetters),
+          hasBaseSigilSvg: typeof req.body?.baseSigilSvg === 'string',
+          hasReinforcedSigilSvg: typeof req.body?.reinforcedSigilSvg === 'string',
+          hasEnhancedImageUrl: typeof req.body?.enhancedImageUrl === 'string',
+          hasEnhancementMetadata: req.body?.enhancementMetadata != null,
+          hasClassifierMeta: req.body?.classifierMeta != null,
+        },
+      });
+    } else {
+      logger.error('Create anchor unexpected error', error, {
+        userId: req.dbUser?.id,
+        path: req.path,
+        payload: {
+          category: req.body?.category,
+          structureVariant: req.body?.structureVariant,
+          hasDistilledLetters: Array.isArray(req.body?.distilledLetters),
+          hasBaseSigilSvg: typeof req.body?.baseSigilSvg === 'string',
+          hasReinforcedSigilSvg: typeof req.body?.reinforcedSigilSvg === 'string',
+          hasEnhancedImageUrl: typeof req.body?.enhancedImageUrl === 'string',
+          hasEnhancementMetadata: req.body?.enhancementMetadata != null,
+          hasClassifierMeta: req.body?.classifierMeta != null,
+        },
+      });
+    }
+
     next(new AppError('Failed to create anchor', 500, 'CREATE_ERROR'));
   }
 });
@@ -583,6 +670,7 @@ router.get('/', async (req: AuthRequest, res: Response, next: NextFunction) => {
 
     const anchors = await prisma.anchor.findMany({
       where,
+      select: ANCHOR_LIST_SELECT,
       orderBy: {
         [orderBy]: order,
       },
@@ -606,21 +694,51 @@ router.get('/', async (req: AuthRequest, res: Response, next: NextFunction) => {
       return;
     }
 
-    logger.error('[Anchors] Failed to fetch anchors', error instanceof Error ? error : new Error(String(error)), {
-      userId: req.dbUser?.id,
-      category: req.query.category,
-      isCharged: req.query.isCharged,
-      orderBy: req.query.orderBy,
-      order: req.query.order,
-      limit: req.query.limit,
-      cursor: req.query.cursor,
-    });
-
     if (error instanceof Prisma.PrismaClientKnownRequestError) {
+      logger.error('Fetch anchors Prisma error', error, {
+        userId: req.dbUser?.id,
+        path: req.path,
+        prismaCode: error.code,
+        prismaMeta: error.meta,
+        query: {
+          category: req.query.category,
+          isCharged: req.query.isCharged,
+          orderBy: req.query.orderBy,
+          order: req.query.order,
+          limit: req.query.limit,
+          cursor: req.query.cursor,
+        },
+      });
       if (error.code === 'P2021' || error.code === 'P2022') {
         next(new AppError('Database schema is out of date', 503, 'SCHEMA_MISMATCH'));
         return;
       }
+    } else if (error instanceof Prisma.PrismaClientValidationError) {
+      logger.error('Fetch anchors Prisma validation error', error, {
+        userId: req.dbUser?.id,
+        path: req.path,
+        query: {
+          category: req.query.category,
+          isCharged: req.query.isCharged,
+          orderBy: req.query.orderBy,
+          order: req.query.order,
+          limit: req.query.limit,
+          cursor: req.query.cursor,
+        },
+      });
+    } else {
+      logger.error('Fetch anchors unexpected error', error, {
+        userId: req.dbUser?.id,
+        path: req.path,
+        query: {
+          category: req.query.category,
+          isCharged: req.query.isCharged,
+          orderBy: req.query.orderBy,
+          order: req.query.order,
+          limit: req.query.limit,
+          cursor: req.query.cursor,
+        },
+      });
     }
 
     next(new AppError('Failed to fetch anchors', 500, 'FETCH_ERROR'));

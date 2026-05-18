@@ -273,6 +273,30 @@ describe('GET /api/anchors', () => {
     expect(res.body.meta.total).toBe(1);
   });
 
+  it('selects only the supported anchor fields for list hydration', async () => {
+    (mockPrisma.user.findUnique as jest.Mock).mockResolvedValue(MOCK_DB_USER);
+    (mockPrisma.anchor.findMany as jest.Mock).mockResolvedValue([MOCK_ANCHOR]);
+
+    await request(buildApp()).get('/api/anchors');
+
+    expect(mockPrisma.anchor.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        select: expect.objectContaining({
+          id: true,
+          userId: true,
+          intentionText: true,
+          category: true,
+          baseSigilSvg: true,
+          reinforcedSigilSvg: true,
+          enhancedImageUrl: true,
+          structureVariant: true,
+          enhancementMetadata: true,
+          lastActivatedAt: true,
+        }),
+      })
+    );
+  });
+
   it('applies category filter when provided', async () => {
     (mockPrisma.user.findUnique as jest.Mock).mockResolvedValue(MOCK_DB_USER);
     (mockPrisma.anchor.findMany as jest.Mock).mockResolvedValue([]);
