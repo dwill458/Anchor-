@@ -18,7 +18,22 @@ import { usePostPrimeTraceStore } from '@/stores/postPrimeTraceStore';
 const TEST_ACTIVATION_DURATION_SECONDS = 2;
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 const mockNavigateToPractice = jest.fn();
+const mockCreateManagedPlayer = jest.fn();
 const mockPlaySound = jest.fn();
+const createMockManagedPlayer = () => ({
+  pause: jest.fn(),
+  play: jest.fn(),
+  setVolume: jest.fn(),
+  stop: jest.fn(),
+});
+const mockAmbientPlayer = createMockManagedPlayer();
+const mockGuidance60StartPlayer = createMockManagedPlayer();
+const mockGuidance60MiddlePlayer = createMockManagedPlayer();
+const mockGuidance60EndPlayer = createMockManagedPlayer();
+const mockGuidance120OpeningPlayer = createMockManagedPlayer();
+const mockGuidance120GroundingPlayer = createMockManagedPlayer();
+const mockGuidance120DeepeningPlayer = createMockManagedPlayer();
+const mockGuidance120ClosingPlayer = createMockManagedPlayer();
 const mockHandlePrimeComplete = jest.fn();
 const mockSetActiveSession = jest.fn();
 const mockRecordPrimeSession = jest.fn();
@@ -87,6 +102,7 @@ jest.mock('@/services/ApiClient');
 jest.mock('@/services/ErrorTrackingService');
 jest.mock('@/hooks/useAudio', () => ({
   useAudio: () => ({
+    createManagedPlayer: mockCreateManagedPlayer,
     playSound: mockPlaySound,
   }),
 }));
@@ -139,15 +155,61 @@ describe('ActivationScreen', () => {
   let mockReplace: jest.Mock;
   let mockAddListener: jest.Mock;
   let mockGetAnchorById: jest.Mock;
+  let mockApplySyncedAnchor: jest.Mock;
   let mockUpdateAnchor: jest.Mock;
   let mockIncrementTotalPrimes: jest.Mock;
   let mockToastSuccess: jest.Mock;
   let mockToastError: jest.Mock;
   let mockAnchor: any;
+  let mockAnchors: any[];
 
   beforeEach(() => {
     jest.clearAllMocks();
+    mockCreateManagedPlayer.mockReset();
+    mockCreateManagedPlayer.mockImplementation((key: string) => {
+      if (key === 'focus-session-ambient') return mockAmbientPlayer;
+      if (key === 'focus-session-120s-opening') return mockGuidance120OpeningPlayer;
+      if (key === 'focus-session-120s-grounding') return mockGuidance120GroundingPlayer;
+      if (key === 'focus-session-120s-deepening') return mockGuidance120DeepeningPlayer;
+      if (key === 'focus-session-120s-closing') return mockGuidance120ClosingPlayer;
+      if (key === 'focus-session-60s-start') return mockGuidance60StartPlayer;
+      if (key === 'focus-session-60s-middle') return mockGuidance60MiddlePlayer;
+      if (key === 'focus-session-60s-end') return mockGuidance60EndPlayer;
+      return null;
+    });
     mockPlaySound.mockClear();
+    mockAmbientPlayer.pause.mockReset();
+    mockAmbientPlayer.play.mockReset();
+    mockAmbientPlayer.setVolume.mockReset();
+    mockAmbientPlayer.stop.mockReset();
+    mockGuidance60StartPlayer.pause.mockReset();
+    mockGuidance60StartPlayer.play.mockReset();
+    mockGuidance60StartPlayer.setVolume.mockReset();
+    mockGuidance60StartPlayer.stop.mockReset();
+    mockGuidance60MiddlePlayer.pause.mockReset();
+    mockGuidance60MiddlePlayer.play.mockReset();
+    mockGuidance60MiddlePlayer.setVolume.mockReset();
+    mockGuidance60MiddlePlayer.stop.mockReset();
+    mockGuidance60EndPlayer.pause.mockReset();
+    mockGuidance60EndPlayer.play.mockReset();
+    mockGuidance60EndPlayer.setVolume.mockReset();
+    mockGuidance60EndPlayer.stop.mockReset();
+    mockGuidance120OpeningPlayer.pause.mockReset();
+    mockGuidance120OpeningPlayer.play.mockReset();
+    mockGuidance120OpeningPlayer.setVolume.mockReset();
+    mockGuidance120OpeningPlayer.stop.mockReset();
+    mockGuidance120GroundingPlayer.pause.mockReset();
+    mockGuidance120GroundingPlayer.play.mockReset();
+    mockGuidance120GroundingPlayer.setVolume.mockReset();
+    mockGuidance120GroundingPlayer.stop.mockReset();
+    mockGuidance120DeepeningPlayer.pause.mockReset();
+    mockGuidance120DeepeningPlayer.play.mockReset();
+    mockGuidance120DeepeningPlayer.setVolume.mockReset();
+    mockGuidance120DeepeningPlayer.stop.mockReset();
+    mockGuidance120ClosingPlayer.pause.mockReset();
+    mockGuidance120ClosingPlayer.play.mockReset();
+    mockGuidance120ClosingPlayer.setVolume.mockReset();
+    mockGuidance120ClosingPlayer.stop.mockReset();
     useAuthStore.setState({ pendingFirstAnchorDraft: null });
 
     mockGoBack = jest.fn();
@@ -156,6 +218,17 @@ describe('ActivationScreen', () => {
     mockReplace = jest.fn();
     mockAddListener = jest.fn(() => jest.fn());
     mockGetAnchorById = jest.fn();
+    mockApplySyncedAnchor = jest.fn((referenceId: string, syncedAnchor: any) => {
+      mockAnchors = [
+        syncedAnchor.localId
+          ? syncedAnchor
+          : { ...syncedAnchor, localId: referenceId },
+      ];
+      mockAnchor = mockAnchors[0];
+      mockGetAnchorById.mockImplementation((id: string) =>
+        mockAnchors.find((anchor) => anchor.id === id || anchor.localId === id)
+      );
+    });
     mockUpdateAnchor = jest.fn();
     mockIncrementTotalPrimes = jest.fn();
     mockToastSuccess = jest.fn();
@@ -178,6 +251,7 @@ describe('ActivationScreen', () => {
       baseSigilSvg: '<svg></svg>',
       isCharged: true,
     });
+    mockAnchors = [mockAnchor];
 
     const navigation = require('@react-navigation/native');
     navigation.useNavigation.mockReturnValue({
@@ -201,17 +275,20 @@ describe('ActivationScreen', () => {
     (useAnchorStore as unknown as jest.Mock).mockImplementation((selector: any) => {
       const state = {
         getAnchorById: mockGetAnchorById,
+        applySyncedAnchor: mockApplySyncedAnchor,
         updateAnchor: mockUpdateAnchor,
         incrementTotalPrimes: mockIncrementTotalPrimes,
         recordPrimeSession: mockRecordPrimeSession,
         totalPrimes: 0,
-        anchors: [mockAnchor],
+        anchors: mockAnchors,
       };
       return typeof selector === 'function' ? selector(state) : state;
     });
     (useAnchorStore as any).getState = jest.fn(() => ({
+      getAnchorById: mockGetAnchorById,
+      applySyncedAnchor: mockApplySyncedAnchor,
       totalPrimes: 0,
-      anchors: [mockAnchor],
+      anchors: mockAnchors,
     }));
 
     mockSettingsState();
@@ -246,13 +323,16 @@ describe('ActivationScreen', () => {
   });
 
   it('renders redesigned focus session with required copy', () => {
-    const { getByText } = render(<ActivationScreen />);
+    const { getByText, queryByText } = render(<ActivationScreen />);
 
     // New design: top bar shows "FOCUS" label and timer on the right
     expect(getByText('FOCUS')).toBeTruthy();
     expect(getByText('00:02')).toBeTruthy();
     // First guidance string shown in bottom area during running
     expect(getByText('See it as already done.')).toBeTruthy();
+    expect(queryByText('Breathe in')).toBeNull();
+    expect(queryByText('Hold')).toBeNull();
+    expect(queryByText('Breathe out')).toBeNull();
   });
 
   it('displays anchor not found when anchor is missing', () => {
@@ -276,6 +356,41 @@ describe('ActivationScreen', () => {
     const { getByText } = render(<ActivationScreen />);
     // focusSessionDuration defaults to 30
     expect(getByText('00:30')).toBeTruthy();
+  });
+
+  it('briefly holds the prepare screen before the focus session starts after pressing begin', async () => {
+    const navigation = require('@react-navigation/native');
+    navigation.useRoute.mockReturnValue({
+      params: {
+        anchorId: 'test-anchor-id',
+        activationType: 'visual',
+        durationOverride: 10,
+      },
+    });
+    mockSettingsState({
+      arrivePhaseEnabled: true,
+      focusSessionDuration: 10,
+    });
+    (useSettingsStore as any).getState = jest.fn(() => ({
+      focusSessionDuration: 10,
+      focusSessionAudio: 'silent',
+      arrivePhaseEnabled: true,
+      reduceIntentionVisibility: false,
+      threadStrengthSensitivity: 1,
+      restDays: [],
+    }));
+
+    const { getByText, queryByText } = render(<ActivationScreen />);
+
+    expect(getByText('PREPARE')).toBeTruthy();
+
+    fireEvent.press(getByText('Begin Session  →'));
+    await sleep(150);
+
+    expect(getByText('PREPARE')).toBeTruthy();
+    expect(queryByText('FOCUS')).toBeNull();
+
+    await waitFor(() => expect(getByText('FOCUS')).toBeTruthy(), { timeout: 1500 });
   });
 
   it('counts down in mm:ss format', async () => {
@@ -303,6 +418,274 @@ describe('ActivationScreen', () => {
     await sleep(1100);
 
     await waitFor(() => expect(getByText('00:01')).toBeTruthy(), { timeout: 2000 });
+  });
+
+  it('plays the 60-second focus start, middle, and end cues at scheduled points', async () => {
+    const navigation = require('@react-navigation/native');
+    const now = 1_700_000_100_000;
+    const dateNowSpy = jest.spyOn(Date, 'now').mockReturnValue(now);
+
+    navigation.useRoute.mockReturnValue({
+      params: {
+        anchorId: 'test-anchor-id',
+        activationType: 'visual',
+        durationOverride: 60,
+      },
+    });
+    mockSettingsState({
+      focusSessionAudio: 'ambient',
+      focusSessionDuration: 60,
+    });
+    (useSettingsStore as any).getState = jest.fn(() => ({
+      focusSessionDuration: 60,
+      focusSessionAudio: 'ambient',
+      arrivePhaseEnabled: false,
+      reduceIntentionVisibility: false,
+      threadStrengthSensitivity: 1,
+      restDays: [],
+    }));
+
+    const { unmount } = render(<ActivationScreen />);
+
+    expect(mockCreateManagedPlayer).toHaveBeenCalledWith(
+      'focus-session-60s-start',
+      expect.objectContaining({
+        onFinish: expect.any(Function),
+      })
+    );
+    expect(mockGuidance60StartPlayer.play).toHaveBeenCalledTimes(1);
+
+    dateNowSpy.mockReturnValue(now + 28_000);
+    await sleep(350);
+
+    await waitFor(() =>
+      expect(mockCreateManagedPlayer).toHaveBeenCalledWith(
+        'focus-session-60s-middle',
+        expect.objectContaining({
+          onFinish: expect.any(Function),
+        })
+      )
+    );
+    expect(mockGuidance60StartPlayer.stop).toHaveBeenCalled();
+    expect(mockGuidance60MiddlePlayer.play).toHaveBeenCalledTimes(1);
+
+    dateNowSpy.mockReturnValue(now + 54_500);
+    await sleep(350);
+
+    await waitFor(() =>
+      expect(mockCreateManagedPlayer).toHaveBeenCalledWith(
+        'focus-session-60s-end',
+        expect.objectContaining({
+          onFinish: expect.any(Function),
+        })
+      )
+    );
+    expect(mockGuidance60MiddlePlayer.stop).toHaveBeenCalled();
+    expect(mockGuidance60EndPlayer.play).toHaveBeenCalledTimes(1);
+
+    unmount();
+    dateNowSpy.mockRestore();
+  });
+
+  it('starts, ducks, pauses, resumes, and cleans up the ambient bed during a voice-guided focus session', async () => {
+    const navigation = require('@react-navigation/native');
+
+    navigation.useRoute.mockReturnValue({
+      params: {
+        anchorId: 'test-anchor-id',
+        activationType: 'visual',
+        durationOverride: 60,
+      },
+    });
+    mockSettingsState({
+      focusSessionAudio: 'ambient',
+      focusSessionDuration: 60,
+    });
+    (useSettingsStore as any).getState = jest.fn(() => ({
+      focusSessionDuration: 60,
+      focusSessionAudio: 'ambient',
+      arrivePhaseEnabled: false,
+      reduceIntentionVisibility: false,
+      threadStrengthSensitivity: 1,
+      restDays: [],
+    }));
+
+    const { getByTestId, unmount } = render(<ActivationScreen />);
+
+    expect(mockCreateManagedPlayer).toHaveBeenCalledWith(
+      'focus-session-ambient',
+      expect.objectContaining({
+        loop: true,
+        volume: 0,
+      })
+    );
+    expect(mockAmbientPlayer.play).toHaveBeenCalledTimes(1);
+
+    await waitFor(() => expect(mockAmbientPlayer.setVolume).toHaveBeenCalled(), {
+      timeout: 1500,
+    });
+
+    fireEvent.press(getByTestId('focus-session-pause'));
+    await waitFor(() => expect(mockAmbientPlayer.pause).toHaveBeenCalledTimes(1));
+    expect(mockGuidance60StartPlayer.pause).toHaveBeenCalledTimes(1);
+
+    fireEvent.press(getByTestId('focus-session-resume'));
+    await waitFor(() => expect(mockAmbientPlayer.play).toHaveBeenCalledTimes(2));
+    await waitFor(() => expect(mockGuidance60StartPlayer.play).toHaveBeenCalledTimes(2));
+
+    unmount();
+
+    await waitFor(() => expect(mockAmbientPlayer.stop).toHaveBeenCalledTimes(1), {
+      timeout: 1500,
+    });
+  });
+
+  it('plays the 90-second focus cues at 0s, 45s, and 85s using the 60-second files', async () => {
+    const navigation = require('@react-navigation/native');
+    const now = 1_700_000_200_000;
+    const dateNowSpy = jest.spyOn(Date, 'now').mockReturnValue(now);
+
+    navigation.useRoute.mockReturnValue({
+      params: {
+        anchorId: 'test-anchor-id',
+        activationType: 'visual',
+        durationOverride: 90,
+      },
+    });
+    mockSettingsState({
+      focusSessionAudio: 'ambient',
+      focusSessionDuration: 90,
+    });
+    (useSettingsStore as any).getState = jest.fn(() => ({
+      focusSessionDuration: 90,
+      focusSessionAudio: 'ambient',
+      arrivePhaseEnabled: false,
+      reduceIntentionVisibility: false,
+      threadStrengthSensitivity: 1,
+      restDays: [],
+    }));
+
+    const { unmount } = render(<ActivationScreen />);
+
+    expect(mockCreateManagedPlayer).toHaveBeenCalledWith(
+      'focus-session-60s-start',
+      expect.objectContaining({
+        onFinish: expect.any(Function),
+      })
+    );
+    expect(mockGuidance60StartPlayer.play).toHaveBeenCalledTimes(1);
+
+    dateNowSpy.mockReturnValue(now + 46_000);
+    await sleep(350);
+
+    await waitFor(() =>
+      expect(mockCreateManagedPlayer).toHaveBeenCalledWith(
+        'focus-session-60s-middle',
+        expect.objectContaining({
+          onFinish: expect.any(Function),
+        })
+      )
+    );
+    expect(mockGuidance60StartPlayer.stop).toHaveBeenCalled();
+    expect(mockGuidance60MiddlePlayer.play).toHaveBeenCalledTimes(1);
+
+    dateNowSpy.mockReturnValue(now + 85_500);
+    await sleep(350);
+
+    await waitFor(() =>
+      expect(mockCreateManagedPlayer).toHaveBeenCalledWith(
+        'focus-session-60s-end',
+        expect.objectContaining({
+          onFinish: expect.any(Function),
+        })
+      )
+    );
+    expect(mockGuidance60MiddlePlayer.stop).toHaveBeenCalled();
+    expect(mockGuidance60EndPlayer.play).toHaveBeenCalledTimes(1);
+
+    unmount();
+    dateNowSpy.mockRestore();
+  });
+
+  it('plays the 120-second focus cues at 0s, 40s, 80s, and 115s', async () => {
+    const navigation = require('@react-navigation/native');
+    const now = 1_700_000_300_000;
+    const dateNowSpy = jest.spyOn(Date, 'now').mockReturnValue(now);
+
+    navigation.useRoute.mockReturnValue({
+      params: {
+        anchorId: 'test-anchor-id',
+        activationType: 'visual',
+        durationOverride: 120,
+      },
+    });
+    mockSettingsState({
+      focusSessionAudio: 'ambient',
+      focusSessionDuration: 120,
+    });
+    (useSettingsStore as any).getState = jest.fn(() => ({
+      focusSessionDuration: 120,
+      focusSessionAudio: 'ambient',
+      arrivePhaseEnabled: false,
+      reduceIntentionVisibility: false,
+      threadStrengthSensitivity: 1,
+      restDays: [],
+    }));
+
+    const { unmount } = render(<ActivationScreen />);
+
+    expect(mockCreateManagedPlayer).toHaveBeenCalledWith(
+      'focus-session-120s-opening',
+      expect.objectContaining({
+        onFinish: expect.any(Function),
+      })
+    );
+    expect(mockGuidance120OpeningPlayer.play).toHaveBeenCalledTimes(1);
+
+    dateNowSpy.mockReturnValue(now + 40_500);
+    await sleep(350);
+
+    await waitFor(() =>
+      expect(mockCreateManagedPlayer).toHaveBeenCalledWith(
+        'focus-session-120s-grounding',
+        expect.objectContaining({
+          onFinish: expect.any(Function),
+        })
+      )
+    );
+    expect(mockGuidance120OpeningPlayer.stop).toHaveBeenCalled();
+    expect(mockGuidance120GroundingPlayer.play).toHaveBeenCalledTimes(1);
+
+    dateNowSpy.mockReturnValue(now + 80_500);
+    await sleep(350);
+
+    await waitFor(() =>
+      expect(mockCreateManagedPlayer).toHaveBeenCalledWith(
+        'focus-session-120s-deepening',
+        expect.objectContaining({
+          onFinish: expect.any(Function),
+        })
+      )
+    );
+    expect(mockGuidance120GroundingPlayer.stop).toHaveBeenCalled();
+    expect(mockGuidance120DeepeningPlayer.play).toHaveBeenCalledTimes(1);
+
+    dateNowSpy.mockReturnValue(now + 115_500);
+    await sleep(350);
+
+    await waitFor(() =>
+      expect(mockCreateManagedPlayer).toHaveBeenCalledWith(
+        'focus-session-120s-closing',
+        expect.objectContaining({
+          onFinish: expect.any(Function),
+        })
+      )
+    );
+    expect(mockGuidance120DeepeningPlayer.stop).toHaveBeenCalled();
+    expect(mockGuidance120ClosingPlayer.play).toHaveBeenCalledTimes(1);
+
+    unmount();
+    dateNowSpy.mockRestore();
   });
 
   it('shows seal phase when timer reaches zero', async () => {
@@ -355,14 +738,50 @@ describe('ActivationScreen', () => {
     }));
   });
 
-  it('dismiss button exits without activating', () => {
+  it('dismiss button exits without activating', async () => {
     const { getByTestId, getByText } = render(<ActivationScreen />);
 
     fireEvent.press(getByTestId('focus-session-dismiss'));
 
     expect(getByText('Exit Focus Session?')).toBeTruthy();
     fireEvent.press(getByText('Exit'));
-    expect(mockGoBack).toHaveBeenCalled();
+    await waitFor(() => expect(mockGoBack).toHaveBeenCalled());
+    expect(apiClient.post).not.toHaveBeenCalled();
+  });
+
+  it('fades and stops the ambient bed before exiting an ambient focus session', async () => {
+    const navigation = require('@react-navigation/native');
+    navigation.useRoute.mockReturnValue({
+      params: {
+        anchorId: 'test-anchor-id',
+        activationType: 'visual',
+        durationOverride: 60,
+      },
+    });
+    mockSettingsState({
+      focusSessionAudio: 'ambient',
+      focusSessionDuration: 60,
+    });
+    (useSettingsStore as any).getState = jest.fn(() => ({
+      focusSessionDuration: 60,
+      focusSessionAudio: 'ambient',
+      arrivePhaseEnabled: false,
+      reduceIntentionVisibility: false,
+      threadStrengthSensitivity: 1,
+      restDays: [],
+    }));
+
+    const { getByTestId, getByText } = render(<ActivationScreen />);
+
+    fireEvent.press(getByTestId('focus-session-dismiss'));
+    fireEvent.press(getByText('Exit'));
+
+    await waitFor(() => expect(mockAmbientPlayer.stop).toHaveBeenCalledTimes(1), {
+      timeout: 2000,
+    });
+    await waitFor(() => expect(mockGoBack).toHaveBeenCalled(), {
+      timeout: 2000,
+    });
     expect(apiClient.post).not.toHaveBeenCalled();
   });
 
@@ -635,6 +1054,82 @@ describe('ActivationScreen', () => {
       );
       expect(mockToastError).toHaveBeenCalledWith('This anchor is no longer available.');
       expect(mockNavigateToVaultDestination).toHaveBeenCalled();
+    });
+  });
+
+  it('promotes a local temp anchor id before activating', async () => {
+    const navigation = require('@react-navigation/native');
+    const localTempAnchor = createMockAnchor({
+      id: 'anchor-1779092632674',
+      intentionText: 'I am confident',
+      baseSigilSvg: '<svg></svg>',
+      isCharged: true,
+    });
+
+    navigation.useRoute.mockReturnValue({
+      params: {
+        anchorId: localTempAnchor.id,
+        activationType: 'visual',
+        durationOverride: TEST_ACTIVATION_DURATION_SECONDS,
+      },
+    });
+
+    mockAnchor = localTempAnchor;
+    mockAnchors = [localTempAnchor];
+    mockGetAnchorById.mockImplementation((id: string) =>
+      mockAnchors.find((anchor) => anchor.id === id || anchor.localId === id)
+    );
+    (useAnchorStore as any).getState = jest.fn(() => ({
+      getAnchorById: mockGetAnchorById,
+      applySyncedAnchor: mockApplySyncedAnchor,
+      totalPrimes: 0,
+      anchors: mockAnchors,
+    }));
+    (apiClient.post as jest.Mock)
+      .mockResolvedValueOnce({
+        data: {
+          success: true,
+          data: {
+            ...localTempAnchor,
+            id: 'server-anchor-123',
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString(),
+          },
+        },
+      })
+      .mockResolvedValueOnce({
+        data: {
+          data: {
+            activationCount: 5,
+            lastActivatedAt: new Date().toISOString(),
+          },
+        },
+      });
+
+    const { getByTestId } = render(<ActivationScreen />);
+
+    await waitFor(() => expect(getByTestId('focus-session-continue')).toBeTruthy(), { timeout: 4000 });
+    fireEvent.press(getByTestId('focus-session-continue'));
+    await waitFor(() => expect(getByTestId('completion-modal-done')).toBeTruthy());
+    fireEvent.press(getByTestId('completion-modal-done'));
+
+    await waitFor(() => {
+      expect(apiClient.post).toHaveBeenNthCalledWith(
+        1,
+        '/api/anchors',
+        expect.objectContaining({
+          intentionText: localTempAnchor.intentionText,
+          baseSigilSvg: localTempAnchor.baseSigilSvg,
+        })
+      );
+      expect(apiClient.post).toHaveBeenNthCalledWith(
+        2,
+        '/api/anchors/server-anchor-123/activate',
+        {
+          activationType: 'visual',
+          durationSeconds: TEST_ACTIVATION_DURATION_SECONDS,
+        }
+      );
     });
   });
 

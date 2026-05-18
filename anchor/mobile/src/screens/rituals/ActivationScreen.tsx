@@ -19,9 +19,11 @@ import { useTeachingStore } from '@/stores/teachingStore';
 import type { RootStackParamList } from '@/types';
 import { colors, spacing, typography } from '@/theme';
 import { apiClient } from '@/services/ApiClient';
+import BackendAnchorService, { isBackendAnchorId } from '@/services/BackendAnchorService';
 import { ErrorTrackingService } from '@/services/ErrorTrackingService';
 import { AnalyticsService } from '@/services/AnalyticsService';
 import { useToast } from '@/components/ToastProvider';
+import { logger } from '@/utils/logger';
 import { RitualScaffold } from './components/RitualScaffold';
 import { FocusSession } from './components/FocusSession';
 import { CompletionModal } from './components/CompletionModal';
@@ -97,6 +99,7 @@ export const ActivationScreen: React.FC = () => {
   const [pendingPostPrimeFlowId, setPendingPostPrimeFlowId] = useState<string | null>(null);
   const exitingRef = React.useRef(false);
   const sessionCompletedRef = React.useRef(false);
+  const focusSessionExitAudioHandlerRef = React.useRef<(() => Promise<void>) | null>(null);
 
   // Record ground note shown (once, on render — gate already enforces lifetime limit)
   React.useEffect(() => {
@@ -133,6 +136,8 @@ export const ActivationScreen: React.FC = () => {
         .anchors.reduce((sum, currentAnchor) => sum + (currentAnchor.activationCount ?? 0), 0)
     );
     const previousRank = getCurrentRank(previousTotalPrimes);
+    let effectiveAnchorId = anchorId;
+    let backendSyncFailed = false;
 
     updateAnchor(anchorId, {
       activationCount: currentActivationCount + 1,
@@ -182,7 +187,24 @@ export const ActivationScreen: React.FC = () => {
         return;
       }
 
-      const response = await apiClient.post(`/api/anchors/${anchorId}/activate`, {
+      try {
+        const persistedAnchor = await BackendAnchorService.ensureServerAnchor(anchorId);
+        effectiveAnchorId = persistedAnchor?.id ?? anchorId;
+      } catch (syncError) {
+        backendSyncFailed = true;
+        logger.warn('Anchor create sync failed before activation, saving locally only', syncError);
+      }
+
+      if (!backendSyncFailed && !isBackendAnchorId(effectiveAnchorId)) {
+        backendSyncFailed = true;
+      }
+
+      if (backendSyncFailed) {
+        toast.error('Activation completed but failed to sync. Will retry later.');
+        return;
+      }
+
+      const response = await apiClient.post(`/api/anchors/${effectiveAnchorId}/activate`, {
         activationType: activationType || 'visual',
         durationSeconds: activationDurationSeconds,
       });
@@ -318,9 +340,10 @@ export const ActivationScreen: React.FC = () => {
     showReflectionModal,
   ]);
 
-  const exitSession = useCallback(() => {
+  const exitSession = useCallback(async () => {
     exitingRef.current = true;
     setShowExitWarning(false);
+    await focusSessionExitAudioHandlerRef.current?.();
 
     if (returnTo === 'practice') {
       const nav = navigation as any;
@@ -446,6 +469,9 @@ export const ActivationScreen: React.FC = () => {
         onSessionCompleted={handleSessionCompleted}
         groundNoteText={groundNoteTeaching?.copy}
         groundNoteSecondary={groundNoteTeaching?.copySecondary}
+        registerExitAudioHandler={(handler) => {
+          focusSessionExitAudioHandlerRef.current = handler;
+        }}
         onDismiss={() => {
           if (sessionCompletedRef.current) {
             handleComplete();

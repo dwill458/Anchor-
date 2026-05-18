@@ -15,6 +15,8 @@ const mockToastError = jest.fn();
 const mockAnalyticsTrack = jest.fn();
 const mockShareCardRendererProps = jest.fn();
 const mockZenBackgroundProps = jest.fn();
+const mockDel = jest.fn();
+const mockRemoveAnchor = jest.fn();
 let mockPerfTier: 'high' | 'medium' | 'low' = 'high';
 const mockAnchor = {
     id: 'anchor-123',
@@ -86,7 +88,7 @@ jest.mock('@/stores/anchorStore', () => ({
                 ...mockAnchor,
                 id,
             }),
-            removeAnchor: jest.fn(),
+            removeAnchor: mockRemoveAnchor,
             currentAnchorId: null,
         };
         return selector ? selector(state) : state;
@@ -147,7 +149,7 @@ jest.mock('@/utils/haptics', () => ({
 }));
 
 jest.mock('@/services/ApiClient', () => ({
-    del: jest.fn(),
+    del: (...args: any[]) => mockDel(...args),
 }));
 
 jest.mock('@/services/AnchorArtworkExportService', () => ({
@@ -224,10 +226,13 @@ describe('AnchorDetailScreen', () => {
         mockAnalyticsTrack.mockReset();
         mockShareCardRendererProps.mockReset();
         mockZenBackgroundProps.mockReset();
+        mockDel.mockReset();
+        mockRemoveAnchor.mockReset();
         mockPerfTier = 'high';
         mockAnchor.enhancedImageUrl = undefined;
         mockAnchor.sigilUri = undefined;
         mockAnchor.isCharged = false;
+        mockDel.mockResolvedValue({ success: true });
         mockExportAnchorArtwork.mockResolvedValue({
             localUri: 'file:///tmp/anchor.png',
             filename: 'test-intention-wallpaper.png',
@@ -351,5 +356,22 @@ describe('AnchorDetailScreen', () => {
             expect(screen.getByText('SAVE PNG')).toBeTruthy();
         });
         expect(Share.share).not.toHaveBeenCalled();
+    });
+
+    it('shows the delete action in production and recommends burn & release first', async () => {
+        render(<AnchorDetailScreen navigation={navigation} route={route} />);
+
+        fireEvent.press(screen.getByText('Delete Anchor'));
+
+        expect(screen.getByText('Burn & Release is the proper ritual.')).toBeTruthy();
+        expect(screen.getByText('Delete Anyway')).toBeTruthy();
+
+        fireEvent.press(screen.getByText('Delete Anyway'));
+
+        await waitFor(() => {
+            expect(mockDel).toHaveBeenCalledWith('/api/anchors/anchor-123');
+            expect(mockRemoveAnchor).toHaveBeenCalledWith('anchor-123');
+            expect(navigation.popToTop).toHaveBeenCalled();
+        });
     });
 });

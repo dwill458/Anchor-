@@ -55,6 +55,7 @@ import { useAppPerformanceTier } from '@/hooks/useAppPerformanceTier';
 import { resolveBurnArtworkUri } from '@/screens/rituals/utils/resolveBurnArtworkUri';
 import { ExportAnchorSheet } from '@/components/ExportAnchorSheet';
 import { ConfirmUnchargedBurnSheet } from '@/components/modals/ConfirmUnchargedBurnSheet';
+import { ConfirmDeleteAnchorSheet } from '@/components/modals/ConfirmDeleteAnchorSheet';
 import ShareCardRenderer from '@/components/ShareCardRenderer';
 import { useShareCard } from '@/hooks/useShareCard';
 
@@ -567,7 +568,6 @@ const AnchorDetailsScreen = ({ navigation, route }) => {
   const removeAnchor = useAnchorStore((state) => state.removeAnchor);
   const defaultActivation = useSettingsStore((s) => s.defaultActivation);
   const setDefaultActivation = useSettingsStore((s) => s.setDefaultActivation);
-  const developerDeleteWithoutBurnEnabled = useSettingsStore((s) => s.developerDeleteWithoutBurnEnabled);
   const sessionLog = useSessionStore((s) => s.sessionLog);
   const [isReady, setIsReady] = useState(false);
   const [activeDuration, setActiveDuration] = useState('30s');
@@ -580,6 +580,7 @@ const AnchorDetailsScreen = ({ navigation, route }) => {
   const mediaLibraryPermissionRef = useRef<MediaLibrary.PermissionResponse | null>(null);
   const [showExportSheet, setShowExportSheet] = useState(false);
   const [confirmUnchargedBurnVisible, setConfirmUnchargedBurnVisible] = useState(false);
+  const [confirmDeleteVisible, setConfirmDeleteVisible] = useState(false);
   const [showShareCard, setShowShareCard] = useState(false);
   const [shareFormat, setShareFormat] = useState<'square' | 'stories'>('square');
   const shareCardRef = useRef(null);
@@ -925,23 +926,22 @@ const AnchorDetailsScreen = ({ navigation, route }) => {
 
   const handleDelete = () => {
     if (!anchorId) return;
+    setConfirmDeleteVisible(true);
+  };
 
-    Alert.alert('Delete Anchor', 'Delete this anchor permanently?', [
-      { text: 'Cancel', style: 'cancel' },
-      {
-        text: 'Delete',
-        style: 'destructive',
-        onPress: async () => {
-          try {
-            await del(`/api/anchors/${anchorId}`);
-          } catch {
-            // Keep local delete behavior even if backend is unreachable.
-          }
-          removeAnchor(anchorId);
-          navigation.popToTop();
-        },
-      },
-    ]);
+  const confirmDeleteAnchor = async () => {
+    if (!anchorId) return;
+
+    setConfirmDeleteVisible(false);
+
+    try {
+      await del(`/api/anchors/${anchorId}`);
+    } catch {
+      // Keep local delete behavior even if backend is unreachable.
+    }
+
+    removeAnchor(anchorId);
+    navigation.popToTop();
   };
 
   const ensureMediaLibraryPermission = async () => {
@@ -1483,7 +1483,7 @@ const AnchorDetailsScreen = ({ navigation, route }) => {
         */}
 
         {/* ── DESTRUCTIVE ACTION ── */}
-        {developerDeleteWithoutBurnEnabled && (
+        {!anchor.isReleased && (
           <FadeUp delay={380} animate={shouldAnimateIntro}>
             <TouchableOpacity style={s.deleteBtn} onPress={handleDelete}>
               <Text style={s.deleteBtnText}>Delete Anchor</Text>
@@ -1560,6 +1560,17 @@ const AnchorDetailsScreen = ({ navigation, route }) => {
         onConfirm={executeBurn}
         onCancel={() => setConfirmUnchargedBurnVisible(false)}
         intentionText={anchor.intention}
+      />
+
+      <ConfirmDeleteAnchorSheet
+        visible={confirmDeleteVisible}
+        intentionText={anchor.intention}
+        onBurnInstead={() => {
+          setConfirmDeleteVisible(false);
+          handleBurn();
+        }}
+        onDelete={confirmDeleteAnchor}
+        onCancel={() => setConfirmDeleteVisible(false)}
       />
 
       <ExportAnchorSheet

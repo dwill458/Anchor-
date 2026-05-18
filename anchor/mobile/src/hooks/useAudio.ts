@@ -4,6 +4,17 @@ import { useSettingsStore } from '@/stores/settingsStore';
 
 const SOUND_FILES = {
   'forge-seal': require('../assets/sounds/forge-seal.wav'),
+  'focus-session-ambient': require('../assets/sounds/focus-session-ambient.mp3'),
+  'focus-session-10s': require('../assets/sounds/focus-session-10s.mp3'),
+  'focus-session-120s-closing': require('../assets/sounds/focus-session-120s-closing.mp3'),
+  'focus-session-120s-deepening': require('../assets/sounds/focus-session-120s-deepening.mp3'),
+  'focus-session-120s-grounding': require('../assets/sounds/focus-session-120s-grounding.mp3'),
+  'focus-session-120s-opening': require('../assets/sounds/focus-session-120s-opening.mp3'),
+  'focus-session-30s-end': require('../assets/sounds/focus-session-30s-end.mp3'),
+  'focus-session-30s-start': require('../assets/sounds/focus-session-30s-start.mp3'),
+  'focus-session-60s-end': require('../assets/sounds/focus-session-60s-end.mp3'),
+  'focus-session-60s-middle': require('../assets/sounds/focus-session-60s-middle.mp3'),
+  'focus-session-60s-start': require('../assets/sounds/focus-session-60s-start.mp3'),
   'letter-drop': require('../assets/sounds/letter-drop.wav'),
   'prime-begin': require('../assets/sounds/prime-begin.wav'),
   'prime-complete': require('../assets/sounds/prime-complete.wav'),
@@ -12,6 +23,18 @@ const SOUND_FILES = {
 } as const;
 
 type SoundKey = keyof typeof SOUND_FILES;
+type ManagedAudioPlayerOptions = {
+  loop?: boolean;
+  onFinish?: () => void;
+  volume?: number;
+};
+
+export type ManagedAudioPlayer = {
+  pause: () => void;
+  play: () => void;
+  setVolume: (volume: number) => void;
+  stop: () => void;
+};
 
 export function useAudio() {
   const soundEffectsEnabled = useSettingsStore((state) => state.soundEffectsEnabled);
@@ -66,8 +89,11 @@ export function useAudio() {
     }
   }, [cleanupAllPlayers, soundEffectsEnabled]);
 
-  const playSound = useCallback(
-    (key: SoundKey, volume: number = 1, loop: boolean = false) => {
+  const createManagedPlayer = useCallback(
+    (
+      key: SoundKey,
+      { loop = false, onFinish, volume = 1 }: ManagedAudioPlayerOptions = {}
+    ): ManagedAudioPlayer | null => {
       if (!soundEffectsEnabled) {
         return null;
       }
@@ -92,15 +118,28 @@ export function useAudio() {
 
         const subscription = player.addListener('playbackStatusUpdate', (status) => {
           if (status.didJustFinish && !loop) {
+            onFinish?.();
             cleanup();
           }
         });
 
-        player.play();
         return {
-          stop: () => {
-            cleanup();
-          }
+          pause: () => {
+            if (!didCleanUp) {
+              player.pause();
+            }
+          },
+          play: () => {
+            if (!didCleanUp) {
+              player.play();
+            }
+          },
+          setVolume: (value: number) => {
+            if (!didCleanUp) {
+              player.volume = Math.max(0, Math.min(1, value));
+            }
+          },
+          stop: cleanup,
         };
       } catch {
         // Fail silently - audio is non-critical.
@@ -110,5 +149,20 @@ export function useAudio() {
     [cleanupPlayer, soundEffectsEnabled]
   );
 
-  return { playSound };
+  const playSound = useCallback(
+    (key: SoundKey, volume: number = 1, loop: boolean = false) => {
+      const player = createManagedPlayer(key, { loop, volume });
+      if (!player) {
+        return null;
+      }
+
+      player.play();
+      return {
+        stop: player.stop,
+      };
+    },
+    [createManagedPlayer]
+  );
+
+  return { createManagedPlayer, playSound };
 }

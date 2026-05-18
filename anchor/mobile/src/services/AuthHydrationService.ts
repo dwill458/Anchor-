@@ -2,6 +2,7 @@ import { apiClient, fetchCompleteProfile } from '@/services/ApiClient';
 import { useAnchorStore } from '@/stores/anchorStore';
 import { useAuthStore } from '@/stores/authStore';
 import type { Anchor, ApiResponse, ProfileData, User } from '@/types';
+import { isBackendAnchorId } from '@/services/BackendAnchorService';
 
 function normalizeDate(value?: Date | string | null): Date | undefined {
   if (!value) return undefined;
@@ -78,7 +79,10 @@ class AuthHydrationService {
 
     if (!options.skipAnchorRefresh) {
       const anchorStore = useAnchorStore.getState();
-      anchorStore.setAnchors(remoteAnchors);
+      const preservedLocalAnchors = anchorStore.anchors.filter(
+        (anchor) => !isBackendAnchorId(anchor.id)
+      );
+      anchorStore.setAnchors([...remoteAnchors, ...preservedLocalAnchors]);
       anchorStore.markSynced();
     }
 

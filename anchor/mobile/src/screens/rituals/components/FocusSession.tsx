@@ -2,7 +2,7 @@
 // Redesigned per Practice Session.html:
 // breath aura rings · top-bar layout · linear progress bar · seal press-and-hold
 
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Animated as RNAnimated,
   Pressable,
@@ -33,7 +33,7 @@ import { Pause, Play } from 'lucide-react-native';
 import { colors, spacing, typography } from '@/theme';
 import { OptimizedImage } from '@/components/common';
 import { useReduceMotionEnabled } from '@/hooks/useReduceMotionEnabled';
-import { useAudio } from '@/hooks/useAudio';
+import { type ManagedAudioPlayer, useAudio } from '@/hooks/useAudio';
 import { safeHaptics } from '@/utils/haptics';
 import { RitualScaffold } from './RitualScaffold';
 import { useNotificationController } from '@/hooks/useNotificationController';
@@ -43,10 +43,20 @@ import { useSettingsStore } from '@/stores/settingsStore';
 
 const SEAL_HOLD_MS = 2500;
 const BREATH_INHALE = 4;   // seconds
-const BREATH_HOLD_S = 2;   // seconds
-const BREATH_EXHALE = 6;   // seconds
-const BREATH_TOTAL = BREATH_INHALE + BREATH_HOLD_S + BREATH_EXHALE; // 12s
+const BREATH_HOLD_S = 1;   // seconds
+const BREATH_EXHALE = 5;   // seconds
+const BREATH_TOTAL = BREATH_INHALE + BREATH_HOLD_S + BREATH_EXHALE; // 10s
 const RING_STROKE = 5;
+const ARRIVE_BEGIN_FADE_MS = 260;
+const ARRIVE_BEGIN_DELAY_MS = 360;
+const FOCUS_AMBIENT_KEY = 'focus-session-ambient' as const;
+const FOCUS_AMBIENT_BASE_VOLUME = 0.14;
+const FOCUS_AMBIENT_DUCKED_VOLUME = 0.09;
+const FOCUS_AMBIENT_FADE_IN_MS = 900;
+const FOCUS_AMBIENT_FADE_OUT_MS = 650;
+const FOCUS_AMBIENT_DUCK_MS = 180;
+const FOCUS_AMBIENT_UNDUCK_MS = 260;
+const FOCUS_AMBIENT_FADE_STEP_MS = 50;
 
 const GUIDANCE = [
   'See it as already done.',
@@ -61,6 +71,25 @@ const GUIDANCE = [
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 type SessionStatus = 'arrive' | 'running' | 'paused' | 'completed';
+type GuidanceCueKey =
+  | 'focus-session-10s'
+  | 'focus-session-120s-closing'
+  | 'focus-session-120s-deepening'
+  | 'focus-session-120s-grounding'
+  | 'focus-session-120s-opening'
+  | 'focus-session-30s-start'
+  | 'focus-session-30s-end'
+  | 'focus-session-60s-start'
+  | 'focus-session-60s-middle'
+  | 'focus-session-60s-end';
+type GuidanceCueName = 'start' | 'middle' | 'grounding' | 'deepening' | 'end';
+type FocusGuidanceProfile = {
+  cues: Array<{
+    key: GuidanceCueKey;
+    name: GuidanceCueName;
+    triggerAtRemainingMs: number;
+  }>;
+};
 
 export type FocusSessionProps = {
   intentionText: string;
@@ -69,6 +98,7 @@ export type FocusSessionProps = {
   onComplete: () => void;
   onSessionCompleted?: () => void;
   onDismiss: () => void;
+  registerExitAudioHandler?: (handler: (() => Promise<void>) | null) => void;
   groundNoteText?: string;
   groundNoteSecondary?: string;
 };
@@ -249,6 +279,7 @@ export const FocusSession: React.FC<FocusSessionProps> = ({
   onComplete,
   onSessionCompleted,
   onDismiss,
+  registerExitAudioHandler,
   groundNoteText,
   groundNoteSecondary,
 }) => {
@@ -265,7 +296,62 @@ export const FocusSession: React.FC<FocusSessionProps> = ({
   const shouldUseArrivePhase =
     arrivePhaseEnabled && resolvedDurationSeconds > 0;
   const totalMs = Math.max(1000, Math.round(resolvedDurationSeconds * 1000));
-  const { playSound } = useAudio();
+  const focusGuidanceProfile = useMemo<FocusGuidanceProfile | null>(() => {
+    if (focusSessionAudio !== 'ambient') {
+      return null;
+    }
+
+    if (resolvedDurationSeconds === 10) {
+      return {
+        cues: [
+          { key: 'focus-session-10s', name: 'start', triggerAtRemainingMs: totalMs },
+        ],
+      };
+    }
+
+    if (resolvedDurationSeconds === 30) {
+      return {
+        cues: [
+          { key: 'focus-session-30s-start', name: 'start', triggerAtRemainingMs: totalMs },
+          { key: 'focus-session-30s-end', name: 'end', triggerAtRemainingMs: 6300 },
+        ],
+      };
+    }
+
+    if (resolvedDurationSeconds === 60) {
+      return {
+        cues: [
+          { key: 'focus-session-60s-start', name: 'start', triggerAtRemainingMs: totalMs },
+          { key: 'focus-session-60s-middle', name: 'middle', triggerAtRemainingMs: 32415 },
+          { key: 'focus-session-60s-end', name: 'end', triggerAtRemainingMs: 5980 },
+        ],
+      };
+    }
+
+    if (resolvedDurationSeconds === 90) {
+      return {
+        cues: [
+          { key: 'focus-session-60s-start', name: 'start', triggerAtRemainingMs: totalMs },
+          { key: 'focus-session-60s-middle', name: 'middle', triggerAtRemainingMs: 45000 },
+          { key: 'focus-session-60s-end', name: 'end', triggerAtRemainingMs: 5000 },
+        ],
+      };
+    }
+
+    if (resolvedDurationSeconds === 120) {
+      return {
+        cues: [
+          { key: 'focus-session-120s-opening', name: 'start', triggerAtRemainingMs: totalMs },
+          { key: 'focus-session-120s-grounding', name: 'grounding', triggerAtRemainingMs: 80000 },
+          { key: 'focus-session-120s-deepening', name: 'deepening', triggerAtRemainingMs: 40000 },
+          { key: 'focus-session-120s-closing', name: 'end', triggerAtRemainingMs: 5000 },
+        ],
+      };
+    }
+
+    return null;
+  }, [focusSessionAudio, resolvedDurationSeconds, totalMs]);
+  const { createManagedPlayer, playSound } = useAudio();
   const { setActiveSession } = useNotificationController();
 
   // ── State ──────────────────────────────────────────────────────────────────
@@ -273,9 +359,11 @@ export const FocusSession: React.FC<FocusSessionProps> = ({
     shouldUseArrivePhase ? 'arrive' : 'running'
   );
   const [arriveCueIndex, setArriveCueIndex] = useState(0);
+  const [isBeginningSession, setIsBeginningSession] = useState(false);
   const [secondsRemaining, setSecondsRemaining] = useState(Math.ceil(totalMs / 1000));
   const [guidanceIdx, setGuidanceIdx] = useState(0);
   const [groundNoteVisible, setGroundNoteVisible] = useState(!!groundNoteText);
+  const arrivePhaseOpacity = useRef(new RNAnimated.Value(1)).current;
   const groundNoteOpacity = useRef(new RNAnimated.Value(0)).current;
 
   // ── Refs ───────────────────────────────────────────────────────────────────
@@ -288,6 +376,19 @@ export const FocusSession: React.FC<FocusSessionProps> = ({
   const completionTriggeredRef = useRef(false);
   const continuePressedRef = useRef(false);
   const bgSoundRef = useRef<{ stop: () => void } | null>(null);
+  const ambientAudioRef = useRef<ManagedAudioPlayer | null>(null);
+  const ambientFadeIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const ambientVolumeRef = useRef(0);
+  const guidanceAudioRef = useRef<ManagedAudioPlayer | null>(null);
+  const guidanceCueRef = useRef<GuidanceCueName | null>(null);
+  const guidanceCuePlayedRef = useRef<Record<GuidanceCueName, boolean>>({
+    start: false,
+    middle: false,
+    grounding: false,
+    deepening: false,
+    end: false,
+  });
+  const voiceCueActiveRef = useRef(false);
 
   // ── Shared values ──────────────────────────────────────────────────────────
   const progress = useSharedValue(0);
@@ -302,14 +403,6 @@ export const FocusSession: React.FC<FocusSessionProps> = ({
   // ── Derived display values ─────────────────────────────────────────────────
   const isSeal = status === 'completed';
   const timerDisplay = formatTime(secondsRemaining);
-  // Breath cue from elapsed time in the session
-  const elapsedSeconds = resolvedDurationSeconds - secondsRemaining;
-  const breathPhase = elapsedSeconds % BREATH_TOTAL;
-  const breathCueText = breathPhase < BREATH_INHALE
-    ? 'Breathe in'
-    : breathPhase < BREATH_INHALE + BREATH_HOLD_S
-      ? 'Hold'
-      : 'Breathe out';
 
   // ── Ground note (teaching) ─────────────────────────────────────────────────
   useEffect(() => {
@@ -340,6 +433,199 @@ export const FocusSession: React.FC<FocusSessionProps> = ({
     progress.value = withTiming(1, { duration: remainingMs, easing: Easing.linear, reduceMotion: ReduceMotion.Never });
   }, [progress]);
 
+  const clearAmbientFade = useCallback(() => {
+    if (ambientFadeIntervalRef.current) {
+      clearInterval(ambientFadeIntervalRef.current);
+      ambientFadeIntervalRef.current = null;
+    }
+  }, []);
+
+  const setAmbientVolume = useCallback((volume: number) => {
+    const clamped = Math.max(0, Math.min(1, volume));
+    ambientVolumeRef.current = clamped;
+    ambientAudioRef.current?.setVolume(clamped);
+  }, []);
+
+  const fadeAmbientTo = useCallback((
+    targetVolume: number,
+    durationMs: number,
+    onComplete?: () => void
+  ) => {
+    if (!ambientAudioRef.current) {
+      onComplete?.();
+      return;
+    }
+
+    clearAmbientFade();
+    const fromVolume = ambientVolumeRef.current;
+    const toVolume = Math.max(0, Math.min(1, targetVolume));
+
+    if (durationMs <= 0 || Math.abs(fromVolume - toVolume) < 0.001) {
+      setAmbientVolume(toVolume);
+      onComplete?.();
+      return;
+    }
+
+    const stepCount = Math.max(1, Math.round(durationMs / FOCUS_AMBIENT_FADE_STEP_MS));
+    let step = 0;
+    ambientFadeIntervalRef.current = setInterval(() => {
+      step += 1;
+      const progressRatio = step / stepCount;
+      setAmbientVolume(fromVolume + (toVolume - fromVolume) * progressRatio);
+      if (step >= stepCount) {
+        clearAmbientFade();
+        onComplete?.();
+      }
+    }, FOCUS_AMBIENT_FADE_STEP_MS);
+  }, [clearAmbientFade, setAmbientVolume]);
+
+  const restoreAmbientBed = useCallback(() => {
+    if (!ambientAudioRef.current) {
+      return;
+    }
+    fadeAmbientTo(FOCUS_AMBIENT_BASE_VOLUME, FOCUS_AMBIENT_UNDUCK_MS);
+  }, [fadeAmbientTo]);
+
+  const duckAmbientBed = useCallback(() => {
+    if (!ambientAudioRef.current) {
+      return;
+    }
+    fadeAmbientTo(FOCUS_AMBIENT_DUCKED_VOLUME, FOCUS_AMBIENT_DUCK_MS);
+  }, [fadeAmbientTo]);
+
+  const startAmbientBed = useCallback(() => {
+    if (focusSessionAudio !== 'ambient') {
+      return;
+    }
+
+    if (!ambientAudioRef.current) {
+      ambientAudioRef.current = createManagedPlayer(FOCUS_AMBIENT_KEY, {
+        loop: true,
+        volume: 0,
+      });
+      ambientVolumeRef.current = 0;
+    }
+
+    ambientAudioRef.current?.play();
+    fadeAmbientTo(
+      voiceCueActiveRef.current ? FOCUS_AMBIENT_DUCKED_VOLUME : FOCUS_AMBIENT_BASE_VOLUME,
+      FOCUS_AMBIENT_FADE_IN_MS
+    );
+  }, [createManagedPlayer, fadeAmbientTo, focusSessionAudio]);
+
+  const pauseAmbientBed = useCallback(() => {
+    clearAmbientFade();
+    ambientAudioRef.current?.pause();
+  }, [clearAmbientFade]);
+
+  const stopAmbientBed = useCallback((fadeOut: boolean) => {
+    if (!ambientAudioRef.current) {
+      return;
+    }
+
+    const player = ambientAudioRef.current;
+    const finishStop = () => {
+      if (ambientAudioRef.current === player) {
+        player.stop();
+        ambientAudioRef.current = null;
+        ambientVolumeRef.current = 0;
+      }
+    };
+
+    if (!fadeOut) {
+      clearAmbientFade();
+      finishStop();
+      return;
+    }
+
+    fadeAmbientTo(0, FOCUS_AMBIENT_FADE_OUT_MS, finishStop);
+  }, [clearAmbientFade, fadeAmbientTo]);
+
+  const stopGuidanceAudio = useCallback(() => {
+    guidanceAudioRef.current?.stop();
+    guidanceAudioRef.current = null;
+    guidanceCueRef.current = null;
+    voiceCueActiveRef.current = false;
+  }, []);
+
+  const fadeOutSessionAudio = useCallback(() => {
+    bgSoundRef.current?.stop();
+    bgSoundRef.current = null;
+    stopGuidanceAudio();
+
+    return new Promise<void>((resolve) => {
+      if (!ambientAudioRef.current) {
+        resolve();
+        return;
+      }
+
+      const player = ambientAudioRef.current;
+      fadeAmbientTo(0, FOCUS_AMBIENT_FADE_OUT_MS, () => {
+        if (ambientAudioRef.current === player) {
+          player.stop();
+          ambientAudioRef.current = null;
+          ambientVolumeRef.current = 0;
+        }
+        resolve();
+      });
+    });
+  }, [fadeAmbientTo, stopGuidanceAudio]);
+
+  const resetGuidanceAudio = useCallback(() => {
+    stopGuidanceAudio();
+    guidanceCuePlayedRef.current = {
+      start: false,
+      middle: false,
+      grounding: false,
+      deepening: false,
+      end: false,
+    };
+  }, [stopGuidanceAudio]);
+
+  const playGuidanceCue = useCallback((cue: GuidanceCueName) => {
+    if (!focusGuidanceProfile || guidanceCuePlayedRef.current[cue]) {
+      return;
+    }
+
+    const cueConfig = focusGuidanceProfile.cues.find((entry) => entry.name === cue);
+    if (!cueConfig) {
+      return;
+    }
+
+    stopGuidanceAudio();
+    guidanceCueRef.current = cue;
+    guidanceCuePlayedRef.current[cue] = true;
+    voiceCueActiveRef.current = true;
+    duckAmbientBed();
+    guidanceAudioRef.current = createManagedPlayer(cueConfig.key, {
+      onFinish: () => {
+        guidanceAudioRef.current = null;
+        guidanceCueRef.current = null;
+        voiceCueActiveRef.current = false;
+        restoreAmbientBed();
+      },
+    });
+    guidanceAudioRef.current?.play();
+  }, [createManagedPlayer, duckAmbientBed, focusGuidanceProfile, restoreAmbientBed, stopGuidanceAudio]);
+
+  const pauseGuidanceAudio = useCallback(() => {
+    guidanceAudioRef.current?.pause();
+  }, []);
+
+  const maybePlayScheduledGuidanceCue = useCallback((remainingMs: number) => {
+    if (!focusGuidanceProfile) {
+      return;
+    }
+
+    const nextCue = focusGuidanceProfile.cues.find(
+      (cue) => !guidanceCuePlayedRef.current[cue.name] && remainingMs <= cue.triggerAtRemainingMs
+    );
+
+    if (nextCue) {
+      playGuidanceCue(nextCue.name);
+    }
+  }, [focusGuidanceProfile, playGuidanceCue]);
+
   // ── Completion ─────────────────────────────────────────────────────────────
   const completeSession = useCallback(() => {
     if (completionTriggeredRef.current) return;
@@ -348,6 +634,8 @@ export const FocusSession: React.FC<FocusSessionProps> = ({
     clearArriveTimers();
     bgSoundRef.current?.stop();
     bgSoundRef.current = null;
+    stopAmbientBed(true);
+    stopGuidanceAudio();
 
     remainingMsRef.current = 0;
     renderedSecondsRef.current = 0;
@@ -372,12 +660,14 @@ export const FocusSession: React.FC<FocusSessionProps> = ({
     }
 
     void safeHaptics.notification(Haptics.NotificationFeedbackType.Success);
-    if (focusSessionAudio === 'ambient') void playSound('prime-complete');
+    if (focusSessionAudio === 'ambient' && !focusGuidanceProfile) {
+      void playSound('prime-complete');
+    }
     onSessionCompleted?.();
   }, [
     animateProgressToEnd, clearArriveTimers, clearTickInterval,
-    flare, focusSessionAudio, glowBoost, onSessionCompleted,
-    pausedDim, playSound, reduceMotionEnabled,
+    flare, focusSessionAudio, focusGuidanceProfile, glowBoost, onSessionCompleted,
+    pausedDim, playSound, reduceMotionEnabled, stopAmbientBed, stopGuidanceAudio,
   ]);
 
   // ── Tick countdown ─────────────────────────────────────────────────────────
@@ -389,8 +679,11 @@ export const FocusSession: React.FC<FocusSessionProps> = ({
       renderedSecondsRef.current = nextSeconds;
       setSecondsRemaining(nextSeconds);
     }
+    if (remainingMs > 0) {
+      maybePlayScheduledGuidanceCue(remainingMs);
+    }
     if (remainingMs <= 0) completeSession();
-  }, [completeSession]);
+  }, [completeSession, maybePlayScheduledGuidanceCue]);
 
   const startTickInterval = useCallback(() => {
     clearTickInterval();
@@ -406,11 +699,27 @@ export const FocusSession: React.FC<FocusSessionProps> = ({
     setStatus('running');
 
     bgSoundRef.current?.stop();
-    bgSoundRef.current =
-      focusSessionAudio === 'ambient' ? playSound('prime-begin', 1, true) : null;
+    bgSoundRef.current = null;
+    startAmbientBed();
+    resetGuidanceAudio();
+    if (focusGuidanceProfile) {
+      maybePlayScheduledGuidanceCue(runningMs);
+    } else if (focusSessionAudio === 'ambient') {
+      bgSoundRef.current = playSound('prime-begin', 1, true);
+    }
     animateProgressToEnd(runningMs);
     startTickInterval();
-  }, [animateProgressToEnd, clearArriveTimers, focusSessionAudio, playSound, startTickInterval]);
+  }, [
+    animateProgressToEnd,
+    clearArriveTimers,
+    focusGuidanceProfile,
+    focusSessionAudio,
+    maybePlayScheduledGuidanceCue,
+    playSound,
+    resetGuidanceAudio,
+    startAmbientBed,
+    startTickInterval,
+  ]);
 
   // ── Pause / Resume ─────────────────────────────────────────────────────────
   const handlePause = useCallback(() => {
@@ -423,7 +732,11 @@ export const FocusSession: React.FC<FocusSessionProps> = ({
     setStatus('paused');
     bgSoundRef.current?.stop();
     bgSoundRef.current = null;
-  }, [clearTickInterval, pausedDim, progress, status]);
+    pauseAmbientBed();
+    if (focusGuidanceProfile) {
+      pauseGuidanceAudio();
+    }
+  }, [clearTickInterval, focusGuidanceProfile, pauseAmbientBed, pauseGuidanceAudio, pausedDim, progress, status]);
 
   const handleResume = useCallback(() => {
     if (status !== 'paused') return;
@@ -431,11 +744,31 @@ export const FocusSession: React.FC<FocusSessionProps> = ({
     endAtMsRef.current = Date.now() + remainingMsRef.current;
     pausedDim.value = withTiming(1, { duration: 200 });
     setStatus('running');
-    bgSoundRef.current =
-      focusSessionAudio === 'ambient' ? playSound('prime-begin', 1, true) : null;
+    startAmbientBed();
+    if (focusGuidanceProfile) {
+      if (guidanceAudioRef.current) {
+        guidanceAudioRef.current.play();
+      } else {
+        maybePlayScheduledGuidanceCue(remainingMsRef.current);
+      }
+    } else {
+      bgSoundRef.current =
+        focusSessionAudio === 'ambient' ? playSound('prime-begin', 1, true) : null;
+    }
     animateProgressToEnd(remainingMsRef.current);
     startTickInterval();
-  }, [animateProgressToEnd, completeSession, focusSessionAudio, pausedDim, playSound, startTickInterval, status]);
+  }, [
+    animateProgressToEnd,
+    completeSession,
+    focusGuidanceProfile,
+    focusSessionAudio,
+    maybePlayScheduledGuidanceCue,
+    pausedDim,
+    playSound,
+    startAmbientBed,
+    startTickInterval,
+    status,
+  ]);
 
   // ── Seal mechanic ──────────────────────────────────────────────────────────
   const triggerComplete = useCallback(() => {
@@ -473,8 +806,20 @@ export const FocusSession: React.FC<FocusSessionProps> = ({
   }, [setActiveSession]);
 
   useEffect(() => {
+    if (!registerExitAudioHandler) {
+      return;
+    }
+
+    registerExitAudioHandler(fadeOutSessionAudio);
+    return () => {
+      registerExitAudioHandler(null);
+    };
+  }, [fadeOutSessionAudio, registerExitAudioHandler]);
+
+  useEffect(() => {
     continuePressedRef.current = false;
     completionTriggeredRef.current = false;
+    setIsBeginningSession(false);
     setArriveCueIndex(0);
     setGuidanceIdx(0);
 
@@ -483,6 +828,7 @@ export const FocusSession: React.FC<FocusSessionProps> = ({
     endAtMsRef.current = Date.now() + totalMs;
     setStatus(shouldUseArrivePhase ? 'arrive' : 'running');
     setSecondsRemaining(renderedSecondsRef.current);
+    arrivePhaseOpacity.setValue(1);
 
     progress.value = 0;
     pausedDim.value = 1;
@@ -492,6 +838,8 @@ export const FocusSession: React.FC<FocusSessionProps> = ({
     sealProgress.value = 0;
     bgSoundRef.current?.stop();
     bgSoundRef.current = null;
+    stopAmbientBed(false);
+    resetGuidanceAudio();
 
     if (!shouldUseArrivePhase) {
       startRunningPhase(totalMs);
@@ -510,8 +858,10 @@ export const FocusSession: React.FC<FocusSessionProps> = ({
       cancelAnimation(haloScale);
       bgSoundRef.current?.stop();
       bgSoundRef.current = null;
+      stopAmbientBed(false);
+      stopGuidanceAudio();
     };
-  }, [clearArriveTimers, shouldUseArrivePhase, startRunningPhase, totalMs]);
+  }, [clearArriveTimers, resetGuidanceAudio, shouldUseArrivePhase, startRunningPhase, stopAmbientBed, stopGuidanceAudio, totalMs]);
 
   // ── Breath aura animation ──────────────────────────────────────────────────
   useEffect(() => {
@@ -543,8 +893,9 @@ export const FocusSession: React.FC<FocusSessionProps> = ({
     }
     breathScale.value = withRepeat(
       withSequence(
-        withTiming(1.025, { duration: 2800, easing: Easing.inOut(Easing.sin), reduceMotion: ReduceMotion.Never }),
-        withTiming(1, { duration: 2800, easing: Easing.inOut(Easing.sin), reduceMotion: ReduceMotion.Never }),
+        withTiming(1.035, { duration: BREATH_INHALE * 1000, easing: Easing.inOut(Easing.ease), reduceMotion: ReduceMotion.Never }),
+        withTiming(1.035, { duration: BREATH_HOLD_S * 1000, reduceMotion: ReduceMotion.Never }),
+        withTiming(1, { duration: BREATH_EXHALE * 1000, easing: Easing.inOut(Easing.ease), reduceMotion: ReduceMotion.Never }),
       ),
       -1,
       false,
@@ -575,9 +926,22 @@ export const FocusSession: React.FC<FocusSessionProps> = ({
   }, [haloScale, reduceMotionEnabled, status]);
 
   const handleBegin = useCallback(() => {
+    if (isBeginningSession) {
+      return;
+    }
     clearArriveTimers();
-    startRunningPhase(totalMs);
-  }, [clearArriveTimers, startRunningPhase, totalMs]);
+    setIsBeginningSession(true);
+    RNAnimated.timing(arrivePhaseOpacity, {
+      toValue: 0,
+      duration: ARRIVE_BEGIN_FADE_MS,
+      useNativeDriver: true,
+    }).start();
+    arriveTimeoutRef.current = setTimeout(() => {
+      arrivePhaseOpacity.setValue(1);
+      setIsBeginningSession(false);
+      startRunningPhase(totalMs);
+    }, ARRIVE_BEGIN_DELAY_MS);
+  }, [arrivePhaseOpacity, clearArriveTimers, isBeginningSession, startRunningPhase, totalMs]);
 
   // ── Guidance rotation ──────────────────────────────────────────────────────
   useEffect(() => {
@@ -613,7 +977,7 @@ export const FocusSession: React.FC<FocusSessionProps> = ({
   if (status === 'arrive') {
     return (
       <RitualScaffold>
-        <View style={styles.container}>
+        <RNAnimated.View style={[styles.container, { opacity: arrivePhaseOpacity }]}>
           <View style={styles.topBar}>
             <CloseButton onPress={onDismiss} testID="focus-session-dismiss" />
           </View>
@@ -637,10 +1001,10 @@ export const FocusSession: React.FC<FocusSessionProps> = ({
             ) : null}
           </View>
           <View style={styles.bottom}>
-            <Pressable onPress={handleBegin} style={styles.beginBtn}>
+            <Pressable onPress={handleBegin} style={styles.beginBtn} disabled={isBeginningSession}>
               <LinearGradient
                 colors={[colors.gold, '#8a6f23']}
-                style={styles.beginBtnGradient}
+                style={[styles.beginBtnGradient, isBeginningSession && styles.beginBtnGradientDisabled]}
                 start={{ x: 0, y: 0 }}
                 end={{ x: 1, y: 1 }}
               >
@@ -648,7 +1012,7 @@ export const FocusSession: React.FC<FocusSessionProps> = ({
               </LinearGradient>
             </Pressable>
           </View>
-        </View>
+        </RNAnimated.View>
       </RitualScaffold>
     );
   }
@@ -727,14 +1091,9 @@ export const FocusSession: React.FC<FocusSessionProps> = ({
             </Animated.View>
           </Pressable>
 
-          {/* ── BELOW-SIGIL CUE ── */}
           {isSeal ? (
             <Text style={styles.sealHint}>Press and hold to seal</Text>
-          ) : (
-            <Text style={[styles.breathCue, status === 'paused' && styles.breathCuePaused]}>
-              {breathCueText}
-            </Text>
-          )}
+          ) : null}
         </View>
 
         {/* ── BOTTOM ── */}
@@ -906,16 +1265,6 @@ const styles = StyleSheet.create({
   },
 
   // ── Cues ──
-  breathCue: {
-    fontFamily: typography.fontFamily.bodySerifItalic,
-    fontSize: 16,
-    color: BONE_SOFT,
-    letterSpacing: 0.5,
-    textAlign: 'center',
-  },
-  breathCuePaused: {
-    opacity: 0.35,
-  },
   sealHint: {
     fontFamily: typography.fontFamily.serif,
     fontSize: 12,
@@ -932,6 +1281,7 @@ const styles = StyleSheet.create({
     gap: spacing.md,
     minHeight: 120,
     justifyContent: 'flex-end',
+    width: '100%',
   },
   guidanceText: {
     fontFamily: typography.fontFamily.serif,
@@ -992,6 +1342,9 @@ const styles = StyleSheet.create({
     paddingVertical: 18,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  beginBtnGradientDisabled: {
+    opacity: 0.86,
   },
   beginBtnText: {
     fontFamily: typography.fontFamily.sans,
@@ -1068,6 +1421,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: spacing.sm,
     paddingHorizontal: spacing.lg,
+    width: '100%',
   },
   intentionLabelChip: {
     paddingHorizontal: spacing.sm,
@@ -1091,5 +1445,6 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     opacity: 0.85,
     lineHeight: 22,
+    width: '100%',
   },
 });
