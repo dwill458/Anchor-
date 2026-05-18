@@ -27,6 +27,43 @@ const ALLOWED_ORDER_BY = [
 ] as const;
 type AllowedOrderBy = (typeof ALLOWED_ORDER_BY)[number];
 
+// Only select the fields the current clients actively consume. This keeps
+// vault hydration resilient even when legacy/deprecated columns contain data
+// Prisma can no longer deserialize cleanly in production.
+const ANCHOR_LIST_SELECT: Prisma.AnchorSelect = {
+  id: true,
+  userId: true,
+  intentionText: true,
+  category: true,
+  planetaryTier: true,
+  classifierVersion: true,
+  classifierMeta: true,
+  distilledLetters: true,
+  baseSigilSvg: true,
+  reinforcedSigilSvg: true,
+  enhancedImageUrl: true,
+  structureVariant: true,
+  reinforcementMetadata: true,
+  enhancementMetadata: true,
+  mantraText: true,
+  mantraPronunciation: true,
+  mantraAudioUrl: true,
+  isCharged: true,
+  chargeCount: true,
+  chargedAt: true,
+  firstChargedAt: true,
+  ignitedAt: true,
+  chargeMethod: true,
+  isArchived: true,
+  archivedAt: true,
+  isShared: true,
+  sharedAt: true,
+  activationCount: true,
+  lastActivatedAt: true,
+  createdAt: true,
+  updatedAt: true,
+};
+
 const router = Router();
 
 const aiHourlyLimiterStore =
@@ -583,6 +620,7 @@ router.get('/', async (req: AuthRequest, res: Response, next: NextFunction) => {
 
     const anchors = await prisma.anchor.findMany({
       where,
+      select: ANCHOR_LIST_SELECT,
       orderBy: {
         [orderBy]: order,
       },
