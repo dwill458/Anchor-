@@ -9,6 +9,7 @@ import MockAdapter from 'axios-mock-adapter';
 import { apiClient, get, post, put, del } from '../ApiClient';
 import { AuthService } from '../AuthService';
 import { API_URL } from '@/config';
+import { ErrorTrackingService } from '../ErrorTrackingService';
 
 // Mock AuthService
 jest.mock('../AuthService', () => ({
@@ -20,6 +21,7 @@ jest.mock('../AuthService', () => ({
 
 describe('ApiClient', () => {
   let mock: MockAdapter;
+  let dateNowSpy: jest.SpyInstance<number, []>;
 
   beforeEach(() => {
     mock = new MockAdapter(apiClient);
@@ -30,10 +32,12 @@ describe('ApiClient', () => {
       token: 'test-token',
       isNewUser: false,
     });
+    dateNowSpy = jest.spyOn(Date, 'now');
   });
 
   afterEach(() => {
     mock.reset();
+    dateNowSpy.mockRestore();
   });
 
   describe('Configuration', () => {
@@ -88,6 +92,38 @@ describe('ApiClient', () => {
   });
 
   describe('Response Interceptor - Error Handling', () => {
+    it('records slow successful requests without creating a Sentry issue', async () => {
+      const addBreadcrumbSpy = jest.spyOn(ErrorTrackingService, 'addBreadcrumb');
+      const captureMessageSpy = jest.spyOn(ErrorTrackingService, 'captureMessage');
+
+      dateNowSpy
+        .mockReturnValueOnce(1_000)
+        .mockReturnValueOnce(1_001)
+        .mockReturnValueOnce(4_500);
+
+      mock.onGet('/slow-success').reply(200, { success: true });
+
+      await expect(get('/slow-success')).resolves.toEqual({ success: true });
+
+      expect(captureMessageSpy).not.toHaveBeenCalledWith(
+        'Slow API request: GET /slow-success',
+        expect.anything()
+      );
+
+      const slowRequestBreadcrumb = addBreadcrumbSpy.mock.calls.find(
+        ([message, category]) => message === 'Slow API request' && category === 'performance.api'
+      );
+
+      expect(slowRequestBreadcrumb).toBeDefined();
+      expect(slowRequestBreadcrumb?.[2]).toEqual(
+        expect.objectContaining({
+          method: 'GET',
+          url: '/slow-success',
+          status_code: 200,
+        })
+      );
+    });
+
     it('should handle network errors', async () => {
       mock.onGet('/test').networkError();
 

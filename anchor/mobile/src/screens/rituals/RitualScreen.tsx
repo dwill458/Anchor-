@@ -61,6 +61,7 @@ import {
   isPostPrimeTraceEligible,
   markPostPrimeTraceAttemptStarted,
 } from '@/utils/postPrimeTraceEligibility';
+import { useMissingAnchorRedirect } from './utils/useMissingAnchorRedirect';
 
 // Single source of truth: derive each segment's width from the global progressAnim,
 // which is already wall-clock-driven by useRitualController + the progressAnim effect.
@@ -274,6 +275,7 @@ export const RitualScreen: React.FC = () => {
   const bumpThreadStrength = useSessionStore((state) => state.bumpThreadStrength);
   const anchor = getAnchorById(anchorId);
   const sigilSvg = anchor?.reinforcedSigilSvg ?? anchor?.baseSigilSvg ?? '';
+  const isAnchorMissing = !anchor;
   const isPendingFirstAnchor = pendingFirstAnchorDraft?.tempAnchorId === anchorId;
   const isFirstPrimeForAnchor =
     !anchor?.isCharged &&
@@ -289,6 +291,8 @@ export const RitualScreen: React.FC = () => {
   const [sealCopyMode, setSealCopyMode] = useState<SealCopyMode>('active');
   const [sealBreathLabel, setSealBreathLabel] = useState<'Inhale' | 'Exhale'>('Inhale');
   const [showSealContinue, setShowSealContinue] = useState(false);
+
+  useMissingAnchorRedirect(!isAnchorMissing, navigation);
 
   useEffect(() => {
     const task = InteractionManager.runAfterInteractions(() => {
@@ -1415,7 +1419,7 @@ export const RitualScreen: React.FC = () => {
   const deepSealCircumference = 2 * Math.PI * 154;
   const deepSealDashoffset = deepSealCircumference * (1 - state.sealProgress);
 
-  if (!anchor) {
+  if (isAnchorMissing) {
     return (
       <RitualScaffold>
         <View style={styles.errorContainer}>
