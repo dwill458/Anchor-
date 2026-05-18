@@ -98,16 +98,19 @@ class Logger {
 
   debug(message: string, meta?: unknown): void {
     if (!this.shouldLog(LogLevel.DEBUG)) return;
+    // eslint-disable-next-line no-console
     console.log(this.formatMessage('DEBUG', message, meta));
   }
 
   info(message: string, meta?: unknown): void {
     if (!this.shouldLog(LogLevel.INFO)) return;
+    // eslint-disable-next-line no-console
     console.info(this.formatMessage('INFO', message, meta));
   }
 
   warn(message: string, meta?: unknown): void {
     if (!this.shouldLog(LogLevel.WARN)) return;
+    // eslint-disable-next-line no-console
     console.warn(this.formatMessage('WARN', message, meta));
   }
 
@@ -117,6 +120,7 @@ class Logger {
       error instanceof Error
         ? { message: error.message, stack: error.stack, ...(meta as object) }
         : { error, ...(meta as object) };
+    // eslint-disable-next-line no-console
     console.error(this.formatMessage('ERROR', message, errorMeta));
   }
 

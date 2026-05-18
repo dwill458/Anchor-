@@ -40,6 +40,7 @@ import {
   isPostPrimeTraceEligible,
   markPostPrimeTraceAttemptStarted,
 } from '@/utils/postPrimeTraceEligibility';
+import { useMissingAnchorRedirect } from './utils/useMissingAnchorRedirect';
 
 const { width } = Dimensions.get('window');
 const SYMBOL_SIZE = Math.min(width * 0.42, 180);
@@ -68,6 +69,9 @@ export const ChargeCompleteScreen: React.FC = () => {
   const reduceMotionEnabled = useReduceMotionEnabled();
   const { handlePrimeComplete } = useNotificationController();
   const anchor = getAnchorById(anchorId);
+  const isAnchorMissing = !anchor;
+
+  useMissingAnchorRedirect(!isAnchorMissing, navigation);
 
   // Show CompletionModal first before the vault/activate CTAs
   const [completionDone, setCompletionDone] = useState(false);
@@ -254,7 +258,7 @@ export const ChargeCompleteScreen: React.FC = () => {
     setCompletionDone(true);
   };
 
-  if (!anchor) {
+  if (isAnchorMissing) {
     return (
       <RitualScaffold>
         <View style={styles.errorContainer}>

@@ -24,6 +24,7 @@ const mockSetActiveSession = jest.fn();
 const mockRecordPrimeSession = jest.fn();
 const mockIsPostPrimeTraceEligible = jest.fn().mockResolvedValue(false);
 const mockMarkPostPrimeTraceAttemptStarted = jest.fn().mockResolvedValue(undefined);
+const mockNavigateToVaultDestination = jest.fn();
 
 jest.mock('@react-navigation/native', () => {
   const React = require('react');
@@ -112,6 +113,9 @@ jest.mock('@/utils/postPrimeTraceEligibility', () => ({
   markPostPrimeTraceAttemptStarted: (...args: any[]) =>
     mockMarkPostPrimeTraceAttemptStarted(...args),
 }));
+jest.mock('@/navigation/firstAnchorGate', () => ({
+  navigateToVaultDestination: (...args: any[]) => mockNavigateToVaultDestination(...args),
+}));
 
 // Helper: make useSettingsStore call the selector so values resolve correctly
 const mockSettingsState = (overrides: Record<string, unknown> = {}) => {
@@ -165,6 +169,7 @@ describe('ActivationScreen', () => {
     mockIsPostPrimeTraceEligible.mockResolvedValue(false);
     mockMarkPostPrimeTraceAttemptStarted.mockReset();
     mockMarkPostPrimeTraceAttemptStarted.mockResolvedValue(undefined);
+    mockNavigateToVaultDestination.mockReset();
     usePostPrimeTraceStore.setState({ activeFlow: null });
 
     mockAnchor = createMockAnchor({
@@ -253,7 +258,7 @@ describe('ActivationScreen', () => {
   it('displays anchor not found when anchor is missing', () => {
     mockGetAnchorById.mockReturnValue(undefined);
     const { getByText } = render(<ActivationScreen />);
-    expect(getByText('Anchor not found')).toBeTruthy();
+    expect(getByText('Anchor not found. Returning to vault...')).toBeTruthy();
   });
 
   it('falls back to safe defaults when settings are missing', () => {
@@ -612,7 +617,28 @@ describe('ActivationScreen', () => {
     );
   });
 
-  it('replaces back to Vault after a creation-launched activation completes', async () => {
+  it('treats anchor-not-found sync failures as handled state instead of a Sentry exception', async () => {
+    const error = new Error('Anchor not found');
+    (apiClient.post as jest.Mock).mockRejectedValue(error);
+
+    const { getByTestId } = render(<ActivationScreen />);
+
+    await waitFor(() => expect(getByTestId('focus-session-continue')).toBeTruthy(), { timeout: 4000 });
+    fireEvent.press(getByTestId('focus-session-continue'));
+    await waitFor(() => expect(getByTestId('completion-modal-done')).toBeTruthy());
+    fireEvent.press(getByTestId('completion-modal-done'));
+
+    await waitFor(() => {
+      expect(ErrorTrackingService.captureException).not.toHaveBeenCalledWith(
+        error,
+        expect.anything()
+      );
+      expect(mockToastError).toHaveBeenCalledWith('This anchor is no longer available.');
+      expect(mockNavigateToVaultDestination).toHaveBeenCalled();
+    });
+  });
+
+  it('redirects back to Vault after a creation-launched activation completes', async () => {
     const navigation = require('@react-navigation/native');
     navigation.useRoute.mockReturnValue({
       params: {
@@ -630,6 +656,11 @@ describe('ActivationScreen', () => {
     await waitFor(() => expect(getByTestId('completion-modal-done')).toBeTruthy());
     fireEvent.press(getByTestId('completion-modal-done'));
 
-    await waitFor(() => expect(mockReplace).toHaveBeenCalledWith('Vault'));
+    await waitFor(() =>
+      expect(mockNavigateToVaultDestination).toHaveBeenCalledWith(
+        expect.anything(),
+        'replace'
+      )
+    );
   });
 });

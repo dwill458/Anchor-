@@ -154,7 +154,12 @@ router.get('/', async (req: AuthRequest, res: Response, next: NextFunction) => {
  * Helper function to calculate pricing
  * In production, this would integrate with Printful or similar API
  */
-function calculatePricing(productType: string) {
+function calculatePricing(productType: string): {
+  subtotal: number;
+  shipping: number;
+  tax: number;
+  total: number;
+} {
   const pricing: Record<string, { subtotal: number; shipping: number; tax: number }> = {
     print: { subtotal: 3500, shipping: 800, tax: 250 },
     keychain: { subtotal: 1800, shipping: 500, tax: 150 },

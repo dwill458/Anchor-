@@ -30,6 +30,7 @@ import { OptimizedImage, PremiumAnchorGlow } from '@/components/common';
 import { useReduceMotionEnabled } from '@/hooks/useReduceMotionEnabled';
 import { logger } from '@/utils/logger';
 import { RitualScaffold } from './components/RitualScaffold';
+import { useMissingAnchorRedirect } from './utils/useMissingAnchorRedirect';
 
 // Visual constants
 const ORB_SIZE = 240;
@@ -64,10 +65,13 @@ export const SealAnchorScreen: React.FC = () => {
   const anchor = getAnchorById(anchorId);
   const heroSigilSvg = anchor?.reinforcedSigilSvg ?? anchor?.baseSigilSvg ?? '';
   const reduceMotionEnabled = useReduceMotionEnabled();
+  const isAnchorMissing = !anchor;
   const isFirstPrimeForAnchor =
     !anchor?.isCharged &&
     !anchor?.firstChargedAt &&
     (anchor?.chargeCount ?? 0) === 0;
+
+  useMissingAnchorRedirect(!isAnchorMissing, navigation);
 
   // State
   const [isHolding, setIsHolding] = useState(false);
@@ -91,7 +95,7 @@ export const SealAnchorScreen: React.FC = () => {
   // NULL SAFETY: Defensive handling
   // ═════════════════════════════════════════════════════════════
 
-  if (!anchor) {
+  if (isAnchorMissing) {
     return (
       <RitualScaffold>
         <View style={styles.errorContainer}>

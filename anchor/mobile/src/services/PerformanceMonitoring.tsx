@@ -1,6 +1,6 @@
 import React from 'react';
 import { monitoringConfig } from '@/config/monitoring';
-import { ErrorSeverity, ErrorTrackingService } from './ErrorTrackingService';
+import { ErrorTrackingService } from './ErrorTrackingService';
 import { logger } from '@/utils/logger';
 
 /**
@@ -103,11 +103,15 @@ class Performance {
     });
 
     if (duration >= this.slowThresholdMs) {
-      ErrorTrackingService.captureMessage(`Slow operation: ${metric.name}`, ErrorSeverity.Warning);
       ErrorTrackingService.addBreadcrumb('Slow operation detected', 'performance', {
         trace_id: traceId,
         name: metric.name,
         duration_ms: duration,
+      });
+      logger.warn('[Performance] Slow operation detected', {
+        traceId,
+        name: metric.name,
+        durationMs: duration,
       });
     }
 

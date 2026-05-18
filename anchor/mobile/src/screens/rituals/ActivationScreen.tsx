@@ -37,6 +37,7 @@ import {
   isPostPrimeTraceEligible,
   markPostPrimeTraceAttemptStarted,
 } from '@/utils/postPrimeTraceEligibility';
+import { useMissingAnchorRedirect } from './utils/useMissingAnchorRedirect';
 
 type ActivationRouteProp = RouteProp<RootStackParamList, 'ActivationRitual'>;
 
@@ -74,6 +75,9 @@ export const ActivationScreen: React.FC = () => {
     !anchor?.firstChargedAt &&
     (anchor?.chargeCount ?? 0) === 0 &&
     (anchor?.activationCount ?? 0) === 0;
+  const isAnchorMissing = !anchor;
+
+  useMissingAnchorRedirect(!isAnchorMissing, navigation);
 
   // Ground Note (Pattern 2): shown on first charge session, guide ON
   const groundNoteTeaching = useTeachingGate({
@@ -192,6 +196,12 @@ export const ActivationScreen: React.FC = () => {
 
       toast.success('Activation logged successfully');
     } catch (error) {
+      if (error instanceof Error && error.message === 'Anchor not found') {
+        toast.error('This anchor is no longer available.');
+        navigateToVaultDestination(navigation as any, 'replace');
+        return;
+      }
+
       ErrorTrackingService.captureException(
         error instanceof Error ? error : new Error('Unknown error during anchor activation'),
         {
@@ -416,11 +426,11 @@ export const ActivationScreen: React.FC = () => {
     returnTo,
   ]);
 
-  if (!anchor) {
+  if (isAnchorMissing) {
     return (
       <RitualScaffold>
         <View style={styles.errorContainer}>
-          <Text style={styles.errorText}>Anchor not found</Text>
+          <Text style={styles.errorText}>Anchor not found. Returning to vault...</Text>
         </View>
       </RitualScaffold>
     );

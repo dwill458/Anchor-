@@ -111,10 +111,18 @@ apiClient.interceptors.response.use(
     });
 
     if (duration >= monitoringConfig.slowRequestThresholdMs) {
-      ErrorTrackingService.captureMessage(
-        `Slow API request: ${(requestConfig.method ?? 'get').toUpperCase()} ${requestConfig.url}`,
-        ErrorSeverity.Warning
-      );
+      logger.warn('[ApiClient] Slow API request', {
+        method: (requestConfig.method ?? 'get').toUpperCase(),
+        url: requestConfig.url,
+        status: response.status,
+        durationMs: duration,
+      });
+      ErrorTrackingService.addBreadcrumb('Slow API request', 'performance.api', {
+        method: (requestConfig.method ?? 'get').toUpperCase(),
+        url: requestConfig.url,
+        status_code: response.status,
+        duration_ms: duration,
+      });
     }
 
     return response;

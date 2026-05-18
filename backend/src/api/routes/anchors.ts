@@ -605,6 +605,24 @@ router.get('/', async (req: AuthRequest, res: Response, next: NextFunction) => {
       next(error);
       return;
     }
+
+    logger.error('[Anchors] Failed to fetch anchors', error instanceof Error ? error : new Error(String(error)), {
+      userId: req.dbUser?.id,
+      category: req.query.category,
+      isCharged: req.query.isCharged,
+      orderBy: req.query.orderBy,
+      order: req.query.order,
+      limit: req.query.limit,
+      cursor: req.query.cursor,
+    });
+
+    if (error instanceof Prisma.PrismaClientKnownRequestError) {
+      if (error.code === 'P2021' || error.code === 'P2022') {
+        next(new AppError('Database schema is out of date', 503, 'SCHEMA_MISMATCH'));
+        return;
+      }
+    }
+
     next(new AppError('Failed to fetch anchors', 500, 'FETCH_ERROR'));
   }
 });
