@@ -61,13 +61,28 @@ class PostAuthFlowService {
       await anchorStore.flushPendingSync();
     }
 
+    const hydrateAuthenticatedData = async (skipAnchorRefresh: boolean) => {
+      try {
+        await AuthHydrationService.hydrateAuthenticatedData({
+          skipAnchorRefresh,
+        });
+      } catch (error) {
+        logger.warn('[PostAuthFlowService] Failed to hydrate authenticated data', error);
+      }
+    };
+
     const { pendingFirstAnchorDraft } = useAuthStore.getState();
-    try {
-      await AuthHydrationService.hydrateAuthenticatedData({
-        skipAnchorRefresh: Boolean(pendingFirstAnchorDraft),
-      });
-    } catch (error) {
-      logger.warn('[PostAuthFlowService] Failed to hydrate authenticated data', error);
+    const hasPendingFirstAnchorDraft = Boolean(pendingFirstAnchorDraft);
+
+    await hydrateAuthenticatedData(hasPendingFirstAnchorDraft);
+
+    if (hasPendingFirstAnchorDraft) {
+      const didFinalizePendingFirstAnchor =
+        await useAuthStore.getState().finalizePendingFirstAnchorDraft();
+
+      if (didFinalizePendingFirstAnchor) {
+        await hydrateAuthenticatedData(false);
+      }
     }
 
     return {

@@ -54,6 +54,7 @@ import {
 import { useAppPerformanceTier } from '@/hooks/useAppPerformanceTier';
 import { resolveBurnArtworkUri } from '@/screens/rituals/utils/resolveBurnArtworkUri';
 import { ExportAnchorSheet } from '@/components/ExportAnchorSheet';
+import { ThreadStrengthSheet, resolveAnchorStrengthPct } from '@/components/ThreadStrengthSheet';
 import { ConfirmUnchargedBurnSheet } from '@/components/modals/ConfirmUnchargedBurnSheet';
 import { ConfirmDeleteAnchorSheet } from '@/components/modals/ConfirmDeleteAnchorSheet';
 import ShareCardRenderer from '@/components/ShareCardRenderer';
@@ -581,6 +582,7 @@ const AnchorDetailsScreen = ({ navigation, route }) => {
   const [showExportSheet, setShowExportSheet] = useState(false);
   const [confirmUnchargedBurnVisible, setConfirmUnchargedBurnVisible] = useState(false);
   const [confirmDeleteVisible, setConfirmDeleteVisible] = useState(false);
+  const [threadStrengthSheetVisible, setThreadStrengthSheetVisible] = useState(false);
   const [showShareCard, setShowShareCard] = useState(false);
   const [shareFormat, setShareFormat] = useState<'square' | 'stories'>('square');
   const shareCardRef = useRef(null);
@@ -672,16 +674,16 @@ const AnchorDetailsScreen = ({ navigation, route }) => {
       weekHistory: weekHistoryForAnchor,
     };
   }, [anchorId, sessionLog]);
-  const threadStrengthValue = Math.max(
-    0,
-    Math.min(
-      100,
-      Math.max(
-        Math.round((anchorPractice.weekHistory.filter(Boolean).length / 7) * 100),
-        anchorPractice.totalPrimingSessions > 0 ? Math.round((anchorPractice.currentStreak / 7) * 100) : 0
-      )
-    )
-  );
+  const threadStrengthValue = resolveAnchorStrengthPct({
+    storedStrength: sourceAnchor?.threadStrength ?? null,
+    totalSessions: anchorPractice.totalPrimingSessions,
+    currentStreak: anchorPractice.currentStreak,
+    thisWeekDays: MINI_WEEK_DAYS.map((day, index) => ({
+      day,
+      type: anchorPractice.weekHistory[index] ? 'focus' : 'empty',
+      isToday: false,
+    })),
+  });
   const currentStreakUnit = anchorPractice.currentStreak === 1 ? 'Day' : 'Days';
 
   const divineBreath = useSharedValue(0);
@@ -1260,56 +1262,64 @@ const AnchorDetailsScreen = ({ navigation, route }) => {
 
           {/* ── STATS CARD ── */}
           <FadeUp delay={180} animate={shouldAnimateIntro}>
-            <Reanimated.View style={[s.animatedCardShell, Platform.OS === 'android' && s.animatedCardShellAndroid, isLowPerfDevice && s.lowPerfFlatCardShell, statsCardPulseStyle]}>
-              <LinearGradient colors={[colors.practice.threadSurface, colors.practice.threadSurface]} style={[s.card, s.statsCard, isLowPerfDevice && s.lowPerfNoCardShadow]}>
-                <View style={s.miniStreakCard}>
-                  <View style={s.miniStreakLeft}>
-                    <View style={s.miniStreakIcon}>
-                      <Zap size={16} color={colors.gold} />
-                    </View>
-                    <View>
-                      <Text testID="anchor-detail-streak-value" style={s.miniStreakNum}>
-                        {anchorPractice.currentStreak}
-                        <Text style={s.miniStreakUnit}> {currentStreakUnit}</Text>
-                      </Text>
-                      <Text style={s.miniStreakSub}>Thread Strength</Text>
-                    </View>
-                  </View>
-
-                  <View style={s.miniDays}>
-                    <View style={s.miniThreadBarWrap}>
-                      <View style={[s.miniThreadBar, { width: `${threadStrengthValue}%` }]} />
-                    </View>
-                    <MiniWeekTrack weekHistory={anchorPractice.weekHistory} lastPrimedAt={anchorPractice.lastPrimedAt} />
-                  </View>
-                </View>
-
-                <Text style={s.miniAffirmation}>The symbol is becoming part of you.</Text>
-
-                {/* Distilled row */}
-                <View style={s.distilledRow}>
-                  <Text style={s.distilledLabel}>DISTILLED</Text>
-                  <View style={s.distilledTags}>
-                    {anchor.distilled.map((t) => (
-                      <View key={t} style={s.distilledTag}>
-                        <Text style={s.distilledTagText}>{t}</Text>
+            <TouchableOpacity
+              activeOpacity={0.92}
+              accessibilityRole="button"
+              accessibilityLabel="Open this anchor thread strength"
+              testID="anchor-thread-strength-row"
+              onPress={() => setThreadStrengthSheetVisible(true)}
+            >
+              <Reanimated.View style={[s.animatedCardShell, Platform.OS === 'android' && s.animatedCardShellAndroid, isLowPerfDevice && s.lowPerfFlatCardShell, statsCardPulseStyle]}>
+                <LinearGradient colors={[colors.practice.threadSurface, colors.practice.threadSurface]} style={[s.card, s.statsCard, isLowPerfDevice && s.lowPerfNoCardShadow]}>
+                  <View style={s.miniStreakCard}>
+                    <View style={s.miniStreakLeft}>
+                      <View style={s.miniStreakIcon}>
+                        <Zap size={16} color={colors.gold} />
                       </View>
-                    ))}
+                      <View>
+                        <Text testID="anchor-detail-streak-value" style={s.miniStreakNum}>
+                          {anchorPractice.currentStreak}
+                          <Text style={s.miniStreakUnit}> {currentStreakUnit}</Text>
+                        </Text>
+                        <Text style={s.miniStreakSub}>Thread Strength</Text>
+                      </View>
+                    </View>
+
+                    <View style={s.miniDays}>
+                      <View style={s.miniThreadBarWrap}>
+                        <View style={[s.miniThreadBar, { width: `${threadStrengthValue}%` }]} />
+                      </View>
+                      <MiniWeekTrack weekHistory={anchorPractice.weekHistory} lastPrimedAt={anchorPractice.lastPrimedAt} />
+                    </View>
                   </View>
-                  <Text style={{ color: C.textDim, fontSize: 12, marginLeft: spacing.xs }}>ⓘ</Text>
-                </View>
-              </LinearGradient>
-              {!isLowPerfDevice && (
-                <Reanimated.View pointerEvents="none" style={[s.cardAuraOverlay, statsCardAuraStyle]}>
-                  <LinearGradient
-                    colors={['rgba(255, 223, 133, 0.18)', 'rgba(245, 198, 82, 0.08)', 'rgba(255, 223, 133, 0.18)']}
-                    start={{ x: 0, y: 0 }}
-                    end={{ x: 1, y: 1 }}
-                    style={StyleSheet.absoluteFillObject}
-                  />
-                </Reanimated.View>
-              )}
-            </Reanimated.View>
+
+                  <Text style={s.miniAffirmation}>The symbol is becoming part of you.</Text>
+
+                  {/* Distilled row */}
+                  <View style={s.distilledRow}>
+                    <Text style={s.distilledLabel}>DISTILLED</Text>
+                    <View style={s.distilledTags}>
+                      {anchor.distilled.map((t) => (
+                        <View key={t} style={s.distilledTag}>
+                          <Text style={s.distilledTagText}>{t}</Text>
+                        </View>
+                      ))}
+                    </View>
+                    <Text style={{ color: C.textDim, fontSize: 12, marginLeft: spacing.xs }}>ⓘ</Text>
+                  </View>
+                </LinearGradient>
+                {!isLowPerfDevice && (
+                  <Reanimated.View pointerEvents="none" style={[s.cardAuraOverlay, statsCardAuraStyle]}>
+                    <LinearGradient
+                      colors={['rgba(255, 223, 133, 0.18)', 'rgba(245, 198, 82, 0.08)', 'rgba(255, 223, 133, 0.18)']}
+                      start={{ x: 0, y: 0 }}
+                      end={{ x: 1, y: 1 }}
+                      style={StyleSheet.absoluteFillObject}
+                    />
+                  </Reanimated.View>
+                )}
+              </Reanimated.View>
+            </TouchableOpacity>
           </FadeUp>
         </View>
 
@@ -1571,6 +1581,12 @@ const AnchorDetailsScreen = ({ navigation, route }) => {
         }}
         onDelete={confirmDeleteAnchor}
         onCancel={() => setConfirmDeleteVisible(false)}
+      />
+
+      <ThreadStrengthSheet
+        visible={threadStrengthSheetVisible}
+        onClose={() => setThreadStrengthSheetVisible(false)}
+        anchorId={anchor.id}
       />
 
       <ExportAnchorSheet

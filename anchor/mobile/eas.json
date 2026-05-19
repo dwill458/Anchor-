@@ -100,7 +100,7 @@
         "EXPO_PUBLIC_SENTRY_DSN": "https://3534e9110add705fbdd3d87f4946b617@o4510989757448192.ingest.us.sentry.io/4510989766361088",
         "EXPO_PUBLIC_SUPABASE_ANON_KEY": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImtheHJpd2ZrcGZ4anNkb3h1aHdlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM3ODk2MjEsImV4cCI6MjA4OTM2NTYyMX0.hRPJ9zf81t8bW4kj1knSm-UEKxF0foUnTVoRnFRt6hU",
         "EXPO_PUBLIC_SUPABASE_URL": "https://kaxriwfkpfxjsdoxuhwe.supabase.co",
-        "SENTRY_DISABLE_AUTO_UPLOAD": "false"
+        "SENTRY_DISABLE_AUTO_UPLOAD": "true"
       },
       "android": {
         "buildType": "app-bundle",

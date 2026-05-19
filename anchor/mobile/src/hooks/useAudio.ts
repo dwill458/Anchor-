@@ -3,6 +3,33 @@ import { createAudioPlayer, setAudioModeAsync, type AudioPlayer } from 'expo-aud
 import { useSettingsStore } from '@/stores/settingsStore';
 
 const SOUND_FILES = {
+  'deep-prime-ambient': require('../assets/sounds/deep-prime-ambient.mp3'),
+  'deep-prime-2m-closing': require('../assets/sounds/deep-prime-2m-closing.mp3'),
+  'deep-prime-2m-deepening': require('../assets/sounds/deep-prime-2m-deepening.mp3'),
+  'deep-prime-2m-intention': require('../assets/sounds/deep-prime-2m-intention.mp3'),
+  'deep-prime-2m-opening': require('../assets/sounds/deep-prime-2m-opening.mp3'),
+  'deep-prime-5m-closing': require('../assets/sounds/deep-prime-5m-closing.mp3'),
+  'deep-prime-5m-deepening': require('../assets/sounds/deep-prime-5m-deepening.mp3'),
+  'deep-prime-5m-intention': require('../assets/sounds/deep-prime-5m-intention.mp3'),
+  'deep-prime-5m-opening': require('../assets/sounds/deep-prime-5m-opening.mp3'),
+  'deep-prime-5m-reinforcement': require('../assets/sounds/deep-prime-5m-reinforcement.mp3'),
+  'deep-prime-5m-return': require('../assets/sounds/deep-prime-5m-return.mp3'),
+  'deep-prime-10m-closing': require('../assets/sounds/deep-prime-10m-closing.mp3'),
+  'deep-prime-10m-deepening': require('../assets/sounds/deep-prime-10m-deepening.mp3'),
+  'deep-prime-10m-intention': require('../assets/sounds/deep-prime-10m-intention.mp3'),
+  'deep-prime-10m-opening': require('../assets/sounds/deep-prime-10m-opening.mp3'),
+  'deep-prime-10m-reinforcement': require('../assets/sounds/deep-prime-10m-reinforcement.mp3'),
+  'deep-prime-10m-return': require('../assets/sounds/deep-prime-10m-return.mp3'),
+  'deep-prime-10m-settling': require('../assets/sounds/deep-prime-10m-settling.mp3'),
+  'deep-prime-10m-visualization': require('../assets/sounds/deep-prime-10m-visualization.mp3'),
+  'deep-prime-15m-closing': require('../assets/sounds/deep-prime-15m-closing.mp3'),
+  'deep-prime-15m-deepening': require('../assets/sounds/deep-prime-15m-deepening.mp3'),
+  'deep-prime-15m-intention': require('../assets/sounds/deep-prime-15m-intention.mp3'),
+  'deep-prime-15m-opening': require('../assets/sounds/deep-prime-15m-opening.mp3'),
+  'deep-prime-15m-reinforcement': require('../assets/sounds/deep-prime-15m-reinforcement.mp3'),
+  'deep-prime-15m-return': require('../assets/sounds/deep-prime-15m-return.mp3'),
+  'deep-prime-15m-settling': require('../assets/sounds/deep-prime-15m-settling.mp3'),
+  'deep-prime-15m-visualization': require('../assets/sounds/deep-prime-15m-visualization.mp3'),
   'forge-seal': require('../assets/sounds/forge-seal.wav'),
   'focus-session-ambient': require('../assets/sounds/focus-session-ambient.mp3'),
   'focus-session-10s': require('../assets/sounds/focus-session-10s.mp3'),
@@ -22,7 +49,7 @@ const SOUND_FILES = {
   'ui-select': require('../assets/sounds/ui-select.wav'),
 } as const;
 
-type SoundKey = keyof typeof SOUND_FILES;
+export type SoundKey = keyof typeof SOUND_FILES;
 type ManagedAudioPlayerOptions = {
   loop?: boolean;
   onFinish?: () => void;

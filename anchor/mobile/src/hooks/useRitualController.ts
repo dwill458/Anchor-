@@ -62,6 +62,7 @@ export interface UseRitualControllerOptions {
   onComplete?: () => void;
   onPhaseChange?: (phase: RitualPhase, index: number) => void;
   onSealComplete?: () => void;
+  manageSessionAudioExternally?: boolean;
 }
 
 /**
@@ -72,6 +73,7 @@ export function useRitualController({
   onComplete,
   onPhaseChange,
   onSealComplete,
+  manageSessionAudioExternally = false,
 }: UseRitualControllerOptions): RitualController {
   const { playSound } = useAudio();
   const focusSessionAudio = useSettingsStore((state) => state.focusSessionAudio ?? 'silent');
@@ -259,13 +261,21 @@ export function useRitualController({
     setSealProgress(0);
     bgSoundRef.current?.stop();
     bgSoundRef.current =
-      sessionAudioMode === 'ambient' ? playSound('prime-begin', 1, true) : null;
+      sessionAudioMode === 'ambient' && !manageSessionAudioExternally
+        ? playSound('prime-begin', 1, true)
+        : null;
     ErrorTrackingService.addBreadcrumb('Ritual started', 'ritual.lifecycle', {
       duration_seconds: config.totalDurationSeconds,
       phase_count: config.phases.length,
     });
     void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-  }, [config.totalDurationSeconds, config.phases.length, playSound, sessionAudioMode]);
+  }, [
+    config.totalDurationSeconds,
+    config.phases.length,
+    manageSessionAudioExternally,
+    playSound,
+    sessionAudioMode,
+  ]);
 
   const pause = useCallback(() => {
     // Bank the elapsed seconds so resume can continue from the right point.
@@ -285,11 +295,13 @@ export function useRitualController({
     // timerStartedAtRef will be set when the timer useEffect fires on isActive → true.
     setIsActive(true);
     bgSoundRef.current =
-      sessionAudioMode === 'ambient' ? playSound('prime-begin', 1, true) : null;
+      sessionAudioMode === 'ambient' && !manageSessionAudioExternally
+        ? playSound('prime-begin', 1, true)
+        : null;
     ErrorTrackingService.addBreadcrumb('Ritual resumed', 'ritual.lifecycle', {
       elapsed_seconds: elapsedSeconds,
     });
-  }, [elapsedSeconds, playSound, sessionAudioMode]);
+  }, [elapsedSeconds, manageSessionAudioExternally, playSound, sessionAudioMode]);
 
   const reset = useCallback(() => {
     setIsActive(false);
