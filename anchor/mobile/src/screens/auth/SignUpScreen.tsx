@@ -83,7 +83,13 @@ export const SignUpScreen: React.FC<SignUpScreenProps> = ({ navigation, route })
         launchTrialPurchase: false,
       });
 
+      const shouldRouteThroughFirstAnchorGate = Boolean(
+        useAuthStore.getState().pendingFirstAnchorDraft
+      );
+
       if (context === 'first_anchor_gate') {
+        (navigation as any).replace('FirstAnchorAccountGate');
+      } else if (context === 'save_progress' && shouldRouteThroughFirstAnchorGate) {
         (navigation as any).replace('FirstAnchorAccountGate');
       } else if (context === 'save_progress') {
         (navigation as any).replace('Vault');

@@ -106,6 +106,7 @@ jest.mock('@/stores/settingsStore', () => ({
             reduceIntentionVisibility: false,
             developerModeEnabled: false,
             developerDeleteWithoutBurnEnabled: false,
+            threadStrengthSensitivity: 'strict',
             defaultActivation: { type: 'visual', value: 30, unit: 'seconds' },
             setDefaultActivation: jest.fn(),
         };
@@ -133,6 +134,32 @@ jest.mock('@/stores/sessionStore', () => ({
                     durationSeconds: 300,
                     mode: 'silent',
                     completedAt: new Date().toISOString(),
+                },
+            ],
+            primingHistory: [
+                {
+                    id: 'session-1',
+                    anchorId: 'anchor-123',
+                    type: 'activate',
+                    completedAt: new Date().toISOString(),
+                    localDate: today,
+                    weekKey: '2026-W21',
+                    weekStart: today,
+                    weekdayIndex: 0,
+                    hourOfDay: 9,
+                    timeOfDay: 'morning',
+                },
+                {
+                    id: 'session-2',
+                    anchorId: 'anchor-999',
+                    type: 'reinforce',
+                    completedAt: new Date().toISOString(),
+                    localDate: today,
+                    weekKey: '2026-W21',
+                    weekStart: today,
+                    weekdayIndex: 0,
+                    hourOfDay: 10,
+                    timeOfDay: 'morning',
                 },
             ],
             threadStrength: 28,
@@ -271,6 +298,15 @@ describe('AnchorDetailScreen', () => {
         expect(screen.getByText('Thread Strength')).toBeTruthy();
         expect(screen.getByText('The symbol is becoming part of you.')).toBeTruthy();
         expect(screen.getByTestId('anchor-detail-streak-value').props.children[0]).toBe(1);
+    });
+
+    it('opens the per-anchor thread strength sheet from the stats row', () => {
+        render(<AnchorDetailScreen navigation={navigation} route={route} />);
+
+        fireEvent.press(screen.getByTestId('anchor-thread-strength-row'));
+
+        expect(screen.getByText(/This Anchor . Thread Strength/)).toBeTruthy();
+        expect(screen.getByText(/Sensitivity:/)).toBeTruthy();
     });
 
     it('disables anchor glow layers and background orbs on low-tier devices', async () => {

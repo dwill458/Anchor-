@@ -61,6 +61,7 @@ export interface Anchor {
   firstChargedAt?: Date;
   ignitedAt?: Date;
   activationCount: number;
+  threadStrength?: number;
   lastActivatedAt?: Date;
   isReleased?: boolean;
   releasedAt?: Date;

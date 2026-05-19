@@ -48,11 +48,6 @@ import { ProgressHaloRing } from './components/ProgressHaloRing';
 import { ConfirmModal } from './components/ConfirmModal';
 import { CompletionModal } from './components/CompletionModal';
 import { TIMING, EASING } from './utils/transitionConstants';
-import {
-  getDeepBreathCue,
-  getDeepBreathCycleProgress,
-  getDeepBreathTiming,
-} from './utils/deepBreath';
 import * as Speech from 'expo-speech';
 import { navigateToVaultDestination } from '@/navigation/firstAnchorGate';
 import { useNotificationController } from '@/hooks/useNotificationController';
@@ -64,6 +59,7 @@ import {
   markPostPrimeTraceAttemptStarted,
 } from '@/utils/postPrimeTraceEligibility';
 import { useMissingAnchorRedirect } from './utils/useMissingAnchorRedirect';
+import { useDeepPrimeSessionAudio } from './hooks/useDeepPrimeSessionAudio';
 
 // Single source of truth: derive each segment's width from the global progressAnim,
 // which is already wall-clock-driven by useRitualController + the progressAnim effect.
@@ -113,6 +109,12 @@ const RING_CIRCUMFERENCE = 2 * Math.PI * RING_RADIUS;
 const ARRIVE_PHASE_SECONDS = 8;
 const ARRIVE_CHROME_FADE_MS = 500;
 const ARRIVE_BREATH_PHASE_MS = 4000;
+const DEEP_PRIME_BREATH_INHALE_S = 4;
+const DEEP_PRIME_BREATH_HOLD_S = 1;
+const DEEP_PRIME_BREATH_EXHALE_S = 5;
+const DEEP_PRIME_BREATH_TOTAL_S =
+  DEEP_PRIME_BREATH_INHALE_S + DEEP_PRIME_BREATH_HOLD_S + DEEP_PRIME_BREATH_EXHALE_S;
+const SUPPORTED_DEEP_PRIME_GUIDED_DURATIONS = new Set([120, 300, 600, 900]);
 const SEAL_HEADLINE = 'Seal Your Intention';
 const SEAL_SUPPORT_LINE =
   'Breathe with the rhythm. Let each exhale settle your intention into the symbol.';
@@ -318,6 +320,10 @@ export const RitualScreen: React.FC = () => {
       : primeSessionDuration);
   const config = getRitualConfig(ritualType, resolvedDurationSeconds);
   const isDeepRitual = ritualType === 'ritual' || ritualType === 'deep';
+  const shouldUseDeepPrimeImmersiveAudio =
+    isDeepRitual &&
+    primeSessionAudio === 'ambient' &&
+    SUPPORTED_DEEP_PRIME_GUIDED_DURATIONS.has(config.totalDurationSeconds);
   const [isLanding, setIsLanding] = useState(isDeepRitual);
 
   const arrivePhaseEnabled =
@@ -377,6 +383,16 @@ export const RitualScreen: React.FC = () => {
     onComplete: handleRitualComplete,
     onPhaseChange: handlePhaseChange,
     onSealComplete: handleSealComplete,
+    manageSessionAudioExternally: shouldUseDeepPrimeImmersiveAudio,
+  });
+  const {
+    fadeOutAndStop: fadeOutDeepPrimeAudio,
+    hasVoiceGuidance: shouldHideDeepPrimeGuidanceText,
+  } = useDeepPrimeSessionAudio({
+    durationSeconds: config.totalDurationSeconds,
+    enabled: shouldUseDeepPrimeImmersiveAudio,
+    isActive: state.isActive,
+    isComplete: state.isComplete,
   });
 
   const isArrivePhase =
@@ -1038,9 +1054,10 @@ export const RitualScreen: React.FC = () => {
     setShowExitWarning(true);
   }
 
-  const exitRitual = useCallback(() => {
+  const exitRitual = useCallback(async () => {
     exitingRef.current = true;
     setShowExitWarning(false);
+    await fadeOutDeepPrimeAudio();
 
     if (returnTo === 'practice') {
       const nav = navigation as any;
@@ -1059,7 +1076,7 @@ export const RitualScreen: React.FC = () => {
     }
 
     navigateToVaultDestination(navigation);
-  }, [anchorId, navigateToPractice, navigation, returnTo]);
+  }, [fadeOutDeepPrimeAudio, navigateToPractice, navigation, returnTo]);
 
   const handleCompletionDone = useCallback(async (reflectionWord?: string) => {
     setShowCompletion(false);
@@ -1157,18 +1174,12 @@ export const RitualScreen: React.FC = () => {
     sealCopyMode === 'complete' ? SEAL_COMPLETE_SUPPORT : SEAL_SUPPORT_LINE;
   const sealIntentText = anchor ? `"${anchor.intentionText}"` : '""';
   const deepInstructionText = state.isSealPhase ? sealSupportLine : displayedInstruction;
-  const deepBreathCue = state.isSealPhase
-    ? sealBreathLabel
-    : getDeepBreathCue(state.currentPhase?.title, state.phaseElapsed);
   const showSealHoldPrompt =
     state.isSealPhase && !state.isSealComplete && state.sealProgress === 0;
   const currentPhaseDuration = state.currentPhase?.durationSeconds ?? 1;
   const phaseRemaining = state.isComplete
     ? 0
     : Math.max(0, currentPhaseDuration - state.phaseElapsed);
-  const phaseProgress = state.isComplete
-    ? 1
-    : Math.min(Math.max(state.phaseElapsed / currentPhaseDuration, 0), 1);
   const deepPhaseTime = formatMSS(phaseRemaining);
   const deepTotalTime = formatMSS(state.remainingSeconds);
   const deepPauseLabel = state.isActive ? 'Pause' : 'Resume';
@@ -1185,14 +1196,16 @@ export const RitualScreen: React.FC = () => {
       return { startProgress, endProgress };
     });
   }, [config.phases, config.totalDurationSeconds]);
-  const deepBreathTiming = getDeepBreathTiming(state.currentPhase?.title);
-  const deepBreathInputRange = deepBreathTiming.hasHold
-    ? [0, deepBreathTiming.inhaleEnd, deepBreathTiming.holdEnd, 1]
-    : [0, deepBreathTiming.inhaleEnd, 1];
-  const interpolateDeepBreath = (holdOutputs: number[], noHoldOutputs: number[]) =>
+  const deepBreathInputRange = [
+    0,
+    DEEP_PRIME_BREATH_INHALE_S / DEEP_PRIME_BREATH_TOTAL_S,
+    (DEEP_PRIME_BREATH_INHALE_S + DEEP_PRIME_BREATH_HOLD_S) / DEEP_PRIME_BREATH_TOTAL_S,
+    1,
+  ];
+  const interpolateDeepBreath = (outputRange: number[]) =>
     deepBreathAnim.interpolate({
       inputRange: deepBreathInputRange,
-      outputRange: deepBreathTiming.hasHold ? holdOutputs : noHoldOutputs,
+      outputRange,
     });
   const deepOrbitRotateA = deepOrbitSpinA.interpolate({
     inputRange: [0, 1],
@@ -1202,62 +1215,20 @@ export const RitualScreen: React.FC = () => {
     inputRange: [0, 1],
     outputRange: ['0deg', '-360deg'],
   });
-  const deepPulseAOpacity = interpolateDeepBreath(
-    [0.08, 0.24, 0.24, 0.08],
-    [0.08, 0.24, 0.08]
-  );
-  const deepPulseAScale = interpolateDeepBreath(
-    [1, 1.04, 1.04, 1],
-    [1, 1.04, 1]
-  );
-  const deepPulseBOpacity = interpolateDeepBreath(
-    [0.13, 0.39, 0.39, 0.13],
-    [0.13, 0.39, 0.13]
-  );
-  const deepPulseBScale = interpolateDeepBreath(
-    [0.98, 1.03, 1.03, 0.98],
-    [0.98, 1.03, 0.98]
-  );
-  const deepHaloScale = interpolateDeepBreath(
-    [0.98, 1.08, 1.08, 0.98],
-    [0.98, 1.08, 0.98]
-  );
-  const deepHaloOpacity = interpolateDeepBreath(
-    [0.82, 1, 1, 0.82],
-    [0.82, 1, 0.82]
-  );
-  const deepSigilTranslateY = interpolateDeepBreath(
-    [0, -4, -4, 0],
-    [0, -4, 0]
-  );
-  const deepSigilScale = interpolateDeepBreath(
-    [0.99, 1.025, 1.025, 0.99],
-    [0.99, 1.025, 0.99]
-  );
-  const deepAuraScale = interpolateDeepBreath(
-    [0.92, 1.18, 1.18, 0.92],
-    [0.92, 1.18, 0.92]
-  );
-  const deepAuraOpacity = interpolateDeepBreath(
-    [0.28, 0.75, 0.75, 0.28],
-    [0.28, 0.75, 0.28]
-  );
-  const deepInnerAuraScale = interpolateDeepBreath(
-    [0.95, 1.1, 1.1, 0.95],
-    [0.95, 1.1, 0.95]
-  );
-  const deepInnerAuraOpacity = interpolateDeepBreath(
-    [0.14, 0.34, 0.34, 0.14],
-    [0.14, 0.34, 0.14]
-  );
-  const deepOuterOrbOpacity = interpolateDeepBreath(
-    [0.62, 1, 1, 0.62],
-    [0.62, 1, 0.62]
-  );
-  const deepInnerOrbOpacity = interpolateDeepBreath(
-    [0.6, 0.95, 0.95, 0.6],
-    [0.6, 0.95, 0.6]
-  );
+  const deepPulseAOpacity = interpolateDeepBreath([0.08, 0.18, 0.18, 0.08]);
+  const deepPulseAScale = interpolateDeepBreath([1, 1.03, 1.03, 1]);
+  const deepPulseBOpacity = interpolateDeepBreath([0.12, 0.26, 0.26, 0.12]);
+  const deepPulseBScale = interpolateDeepBreath([1, 1.04, 1.04, 1]);
+  const deepHaloScale = interpolateDeepBreath([1, 1.06, 1.06, 1]);
+  const deepHaloOpacity = interpolateDeepBreath([0.84, 1, 1, 0.84]);
+  const deepSigilTranslateY = interpolateDeepBreath([0, 0, 0, 0]);
+  const deepSigilScale = interpolateDeepBreath([1, 1.035, 1.035, 1]);
+  const deepAuraScale = interpolateDeepBreath([0.96, 1.08, 1.08, 0.96]);
+  const deepAuraOpacity = interpolateDeepBreath([0.22, 0.52, 0.52, 0.22]);
+  const deepInnerAuraScale = interpolateDeepBreath([0.98, 1.05, 1.05, 0.98]);
+  const deepInnerAuraOpacity = interpolateDeepBreath([0.12, 0.28, 0.28, 0.12]);
+  const deepOuterOrbOpacity = interpolateDeepBreath([0.68, 0.84, 0.84, 0.68]);
+  const deepInnerOrbOpacity = interpolateDeepBreath([0.64, 0.8, 0.8, 0.64]);
 
   useEffect(() => {
     if (!isDeepRitual || !isReady) {
@@ -1295,11 +1266,11 @@ export const RitualScreen: React.FC = () => {
     isReady,
   ]);
 
-  // Read phaseElapsed via ref so the breath effect doesn't tear down every second.
-  const phaseElapsedRef = useRef(state.phaseElapsed);
+  // Read elapsedSeconds via ref so the breath effect doesn't tear down every second.
+  const elapsedSecondsRef = useRef(state.elapsedSeconds);
   useEffect(() => {
-    phaseElapsedRef.current = state.phaseElapsed;
-  }, [state.phaseElapsed]);
+    elapsedSecondsRef.current = state.elapsedSeconds;
+  }, [state.elapsedSeconds]);
 
   useEffect(() => {
     let settleAnimation: Animated.CompositeAnimation | null = null;
@@ -1311,11 +1282,12 @@ export const RitualScreen: React.FC = () => {
       return () => undefined;
     }
 
+    const cycleProgress =
+      (Math.max(0, elapsedSecondsRef.current) % DEEP_PRIME_BREATH_TOTAL_S) / DEEP_PRIME_BREATH_TOTAL_S;
+    const cycleDurationMs = DEEP_PRIME_BREATH_TOTAL_S * 1000;
+
     if (reduceMotionEnabled) {
-      deepBreathAnim.setValue(state.isSealPhase ? 0.68 : getDeepBreathCycleProgress(
-        state.currentPhase?.title,
-        phaseElapsedRef.current
-      ));
+      deepBreathAnim.setValue(state.isSealPhase ? 0.68 : cycleProgress);
       return () => undefined;
     }
 
@@ -1342,12 +1314,6 @@ export const RitualScreen: React.FC = () => {
         loopAnimation?.stop();
       };
     }
-
-    const cycleProgress = getDeepBreathCycleProgress(
-      state.currentPhase?.title,
-      phaseElapsedRef.current
-    );
-    const cycleDurationMs = Math.max(400, Math.round(deepBreathTiming.cycleSeconds * 1000));
 
     deepBreathAnim.setValue(cycleProgress);
 
@@ -1390,11 +1356,9 @@ export const RitualScreen: React.FC = () => {
     };
   }, [
     deepBreathAnim,
-    deepBreathTiming.cycleSeconds,
     isDeepRitual,
     isReady,
     reduceMotionEnabled,
-    state.currentPhase?.title,
     state.isActive,
     state.isSealPhase,
   ]);
@@ -1995,7 +1959,6 @@ export const RitualScreen: React.FC = () => {
                       { opacity: sealBreathOpacityAnim },
                     ]}
                   >
-                    <Text style={styles.sealBreathText}>{sealBreathLabel}</Text>
                     {showSealHoldPrompt ? (
                       <Text style={styles.sealHoldPrompt}>{SEAL_HOLD_PROMPT}</Text>
                     ) : null}
@@ -2038,38 +2001,29 @@ export const RitualScreen: React.FC = () => {
                     </View>
                   ) : null}
 
-                  <Animated.Text
-                    style={[
-                      styles.deepBreathCue,
-                      isCompactHeight ? styles.deepBreathCueCompact : null,
-                      !state.isActive && !state.isSealPhase ? styles.deepBreathCuePaused : null,
-                      { opacity: instructionContainerOpacityAnim },
-                    ]}
-                  >
-                    {deepBreathCue}
-                  </Animated.Text>
-
-                  <Animated.View
-                    style={[
-                      styles.deepInstructionContainer,
-                      isCompactHeight ? styles.deepInstructionContainerCompact : null,
-                      {
-                        opacity: Animated.multiply(
-                          instructionFadeAnim,
-                          instructionContainerOpacityAnim
-                        ),
-                      },
-                    ]}
-                  >
-                    <Text
+                  {!shouldHideDeepPrimeGuidanceText ? (
+                    <Animated.View
                       style={[
-                        styles.deepInstructionText,
-                        isCompactHeight ? styles.deepInstructionTextCompact : null,
+                        styles.deepInstructionContainer,
+                        isCompactHeight ? styles.deepInstructionContainerCompact : null,
+                        {
+                          opacity: Animated.multiply(
+                            instructionFadeAnim,
+                            instructionContainerOpacityAnim
+                          ),
+                        },
                       ]}
                     >
-                      {deepInstructionText}
-                    </Text>
-                  </Animated.View>
+                      <Text
+                        style={[
+                          styles.deepInstructionText,
+                          isCompactHeight ? styles.deepInstructionTextCompact : null,
+                        ]}
+                      >
+                        {deepInstructionText}
+                      </Text>
+                    </Animated.View>
+                  ) : null}
                 </>
               )}
             </View>
