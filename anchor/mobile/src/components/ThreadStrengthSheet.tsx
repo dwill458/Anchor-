@@ -1,5 +1,6 @@
 import React, { useMemo } from 'react';
 import {
+  Image,
   Modal,
   Pressable,
   ScrollView,
@@ -9,14 +10,14 @@ import {
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import Svg, { Circle } from 'react-native-svg';
-import { Zap } from 'lucide-react-native';
+import { SvgXml } from 'react-native-svg';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAnchorStore } from '@/stores/anchorStore';
 import { useSessionStore, type SessionLogEntry } from '@/stores/sessionStore';
 import { useSettingsStore } from '@/stores/settingsStore';
 import type { PrimingHistoryEntry } from '@/utils/primingAnalytics';
 import { calculateStreak } from '@/utils/streakHelpers';
-import { colors, spacing, typography } from '@/theme';
+import { spacing, typography } from '@/theme';
 
 export interface ThreadStrengthSheetProps {
   visible: boolean;
@@ -357,6 +358,9 @@ export const ThreadStrengthSheet: React.FC<ThreadStrengthSheetProps> = ({
     [data.strengthPct, data.totalSessions]
   );
   const intention = anchor?.intentionText ?? 'This anchor';
+  const sigilUri =
+    ((anchor as { sigilUri?: string | null } | undefined)?.sigilUri ?? anchor?.enhancedImageUrl) || null;
+  const sigilSvg = anchor?.baseSigilSvg ?? '';
 
   if (!visible) {
     return null;
@@ -380,8 +384,22 @@ export const ThreadStrengthSheet: React.FC<ThreadStrengthSheetProps> = ({
             contentContainerStyle={styles.scrollContent}
           >
             <View style={styles.header}>
-              <View style={styles.thumb}>
-                <Zap size={18} color={colors.gold} />
+              <View style={styles.thumb} testID="thread-strength-sheet-sigil">
+                {sigilUri ? (
+                  <Image
+                    source={{ uri: sigilUri }}
+                    style={styles.thumbImage}
+                    resizeMode="cover"
+                  />
+                ) : sigilSvg ? (
+                  <SvgXml
+                    xml={sigilSvg}
+                    width="72%"
+                    height="72%"
+                  />
+                ) : (
+                  <View style={styles.thumbFallback} />
+                )}
               </View>
 
               <View style={styles.headerMeta}>
@@ -532,11 +550,23 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 20,
+    overflow: 'hidden',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: 'rgba(255,255,255,0.03)',
+    backgroundColor: 'rgba(10,13,18,0.92)',
     borderWidth: 1,
     borderColor: 'rgba(212,175,55,0.26)',
+  },
+  thumbImage: {
+    width: '100%',
+    height: '100%',
+  },
+  thumbFallback: {
+    width: '68%',
+    height: '68%',
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: 'rgba(212,175,55,0.2)',
   },
   headerMeta: {
     flex: 1,

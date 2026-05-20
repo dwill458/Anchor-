@@ -131,10 +131,10 @@ describe('GeminiImageService', () => {
       expect(cost).toBe(0.16);
     });
 
-    it('should default to 4 variations and premium tier', () => {
+    it('should default to 2 variations and premium tier', () => {
       const service = new GeminiImageService();
-      // premium: $0.005 × 4 = $0.02
-      expect(service.getCostEstimate()).toBe(0.02);
+      // premium: $0.005 × 2 = $0.01
+      expect(service.getCostEstimate()).toBe(0.01);
     });
   });
 

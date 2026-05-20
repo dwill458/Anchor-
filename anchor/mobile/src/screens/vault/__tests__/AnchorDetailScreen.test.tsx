@@ -307,6 +307,7 @@ describe('AnchorDetailScreen', () => {
 
         expect(screen.getByText(/This Anchor . Thread Strength/)).toBeTruthy();
         expect(screen.getByText(/Sensitivity:/)).toBeTruthy();
+        expect(screen.getByTestId('thread-strength-sheet-sigil')).toBeTruthy();
     });
 
     it('disables anchor glow layers and background orbs on low-tier devices', async () => {

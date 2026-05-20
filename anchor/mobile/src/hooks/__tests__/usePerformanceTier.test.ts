@@ -16,22 +16,10 @@ import { usePerformanceTier, tierPolicy } from '../usePerformanceTier';
 let mockIsReduceMotionEnabled: jest.Mock;
 let mockAddAccessibilityListener: jest.Mock;
 let mockPixelRatioGet: jest.SpiedFunction<typeof PixelRatio.get>;
-const mockGetPowerStateAsync = jest.fn().mockResolvedValue({ lowPowerMode: false });
-const mockAddLowPowerModeListener = jest.fn().mockReturnValue({ remove: jest.fn() });
+const expoBattery = require('expo-battery');
+const mockGetPowerStateAsync = expoBattery.getPowerStateAsync;
+const mockAddLowPowerModeListener = expoBattery.addLowPowerModeListener;
 
-jest.mock('expo-battery', () => ({
-  getPowerStateAsync: mockGetPowerStateAsync,
-  addLowPowerModeListener: mockAddLowPowerModeListener,
-}), { virtual: true });
-
-jest.mock('expo-device', () => ({
-  deviceYearClass: null,
-  totalMemory: null,
-  brand: null,
-  manufacturer: null,
-  modelName: null,
-  designName: null,
-}), { virtual: true });
 
 // Helpers
 const flushAsync = () => act(async () => { await Promise.resolve(); });

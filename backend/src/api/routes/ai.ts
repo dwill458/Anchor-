@@ -37,8 +37,8 @@ import { RedisStore } from 'rate-limit-redis';
 import { redisClient } from '../../lib/redis';
 
 const router = express.Router();
-const TOTAL_VARIATION_OPTIONS = 4;
-const MAX_REUSED_VARIATIONS = 3;
+const TOTAL_VARIATION_OPTIONS = 2;
+const MAX_REUSED_VARIATIONS = 2;
 const RESERVATION_TTL_MINUTES = 30;
 
 const aiHourlyLimiterStore =

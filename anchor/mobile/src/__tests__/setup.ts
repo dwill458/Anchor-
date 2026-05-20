@@ -297,6 +297,22 @@ jest.mock('@/contexts/TabNavigationContext', () => ({
   })),
 }));
 
+// Mock expo-device
+jest.mock('expo-device', () => ({
+  deviceYearClass: null,
+  totalMemory: null,
+  brand: null,
+  manufacturer: null,
+  modelName: null,
+  designName: null,
+}));
+
+// Mock expo-battery
+jest.mock('expo-battery', () => ({
+  getPowerStateAsync: jest.fn().mockResolvedValue({ lowPowerMode: false }),
+  addLowPowerModeListener: jest.fn().mockReturnValue({ remove: jest.fn() }),
+}));
+
 // Silence console warnings in tests
 global.console = {
   ...console,
@@ -306,3 +322,4 @@ global.console = {
 
 // Set up test timeout
 jest.setTimeout(10000);
+

@@ -1,5 +1,5 @@
 import React from 'react';
-import { render, fireEvent, screen } from '@testing-library/react-native';
+import { render, fireEvent, screen, waitFor } from '@testing-library/react-native';
 import { MantraCreationScreen } from '../MantraCreationScreen';
 
 // Mock navigation
@@ -83,11 +83,14 @@ describe('MantraCreationScreen', () => {
         expect(screen.getAllByText('⏸').length).toBeGreaterThan(0);
     });
 
-    it('stub: Continue navigates to AnchorReveal', () => {
+    it('stub: Continue navigates to charge setup with auto-start enabled', async () => {
         render(<MantraCreationScreen />);
         fireEvent.press(screen.getByText('Continue to Ritual ›'));
-        expect(mockNavigate).toHaveBeenCalledWith('ChargeSetup', expect.objectContaining({
-            anchorId: expect.any(String),
-        }));
+        await waitFor(() => {
+            expect(mockNavigate).toHaveBeenCalledWith('ChargeSetup', expect.objectContaining({
+                anchorId: expect.any(String),
+                autoStartOnSelection: true,
+            }));
+        });
     });
 });
