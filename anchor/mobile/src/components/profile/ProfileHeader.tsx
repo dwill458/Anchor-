@@ -18,21 +18,19 @@ import { useNotificationController } from '../../hooks/useNotificationController
 interface ProfileHeaderProps {
   displayName: string | null | undefined;
   subscriptionStatus: SubscriptionStatus;
+  compact?: boolean;
 }
 
 export const ProfileHeader: React.FC<ProfileHeaderProps> = ({
   displayName,
   subscriptionStatus: _subscriptionStatus,
+  compact = false,
 }) => {
   const { notifState } = useNotificationController();
   const user = useAuthStore((state) => state.user);
   const photo = useProfileStore((state) => state.photo);
   const mono = useProfileStore((state) => state.mono);
-  const isSubscribed = _subscriptionStatus === 'pro' || _subscriptionStatus === 'pro_annual';
-  const membershipLabel = isSubscribed ? 'MEMBER' : 'TRIAL';
-  const badgeColor = isSubscribed ? colors.gold : colors.silver;
 
-  // Get first letter of display name or default to 'S' for Seeker
   const avatarInitial = displayName?.[0]?.toUpperCase() || 'S';
   const trimmedPhoto = photo?.trim();
   const selectedAvatarSource = mono.startsWith('avatar_')
@@ -45,6 +43,22 @@ export const ProfileHeader: React.FC<ProfileHeaderProps> = ({
         ? getDefaultAvatar(user.id)
         : null
     );
+
+  if (compact) {
+    return (
+      <View style={styles.compactContainer}>
+        {avatarSource ? (
+          <Image
+            source={avatarSource}
+            style={styles.compactImage}
+            resizeMode="cover"
+          />
+        ) : (
+          <Text style={styles.avatarText}>{avatarInitial}</Text>
+        )}
+      </View>
+    );
+  }
 
   return (
     Platform.OS === 'ios' ? (
@@ -62,10 +76,6 @@ export const ProfileHeader: React.FC<ProfileHeaderProps> = ({
         </View>
 
         <Text style={styles.displayName}>{displayName || 'Seeker'}</Text>
-
-        <View style={[styles.badge, { borderColor: badgeColor }]}>
-          <Text style={[styles.badgeText, { color: badgeColor }]}>{membershipLabel}</Text>
-        </View>
 
         {notifState?.sovereign_rank ? (
           <View style={styles.sovereignBadge}>
@@ -89,10 +99,6 @@ export const ProfileHeader: React.FC<ProfileHeaderProps> = ({
 
         <Text style={styles.displayName}>{displayName || 'Seeker'}</Text>
 
-        <View style={[styles.badge, { borderColor: badgeColor }]}>
-          <Text style={[styles.badgeText, { color: badgeColor }]}>{membershipLabel}</Text>
-        </View>
-
         {notifState?.sovereign_rank ? (
           <View style={styles.sovereignBadge}>
             <Text style={styles.sovereignLabel}>Sovereign</Text>
@@ -104,6 +110,16 @@ export const ProfileHeader: React.FC<ProfileHeaderProps> = ({
 };
 
 const styles = StyleSheet.create({
+  compactContainer: {
+    width: '100%',
+    height: '100%',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  compactImage: {
+    width: '100%',
+    height: '100%',
+  },
   container: {
     alignItems: 'center',
     padding: spacing.lg,
@@ -150,18 +166,5 @@ const styles = StyleSheet.create({
     fontSize: 11,
     color: '#D4AF37',
     letterSpacing: 1.5,
-  },
-  badge: {
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.xs,
-    borderRadius: 20,
-    borderWidth: 1,
-  },
-  badgeText: {
-    fontFamily: 'Inter-SemiBold',
-    fontSize: 12,
-    fontWeight: '600',
-    textTransform: 'uppercase',
-    letterSpacing: 1,
   },
 });

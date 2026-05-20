@@ -45,9 +45,12 @@ describe('PaywallScreen', () => {
 
     fireEvent.press(screen.getByLabelText('Already forging? Sign in'));
 
-    expect(mockNavigate).toHaveBeenCalledWith('Login', {
-      initialTab: 'signin',
-      context: 'paywall',
+    expect(mockNavigate).toHaveBeenCalledWith('Settings', {
+      screen: 'Login',
+      params: {
+        initialTab: 'signin',
+        context: 'paywall',
+      },
     });
   });
 

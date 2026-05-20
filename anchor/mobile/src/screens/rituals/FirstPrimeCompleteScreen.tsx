@@ -28,6 +28,7 @@ import { AnalyticsService } from '@/services/AnalyticsService';
 import { colors, spacing, typography } from '@/theme';
 import type { RootStackParamList } from '@/types';
 import { navigateToVaultDestination } from '@/navigation/firstAnchorGate';
+import { queueProgressionMilestonesFromStores } from '@/utils/progressionMilestones';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -170,6 +171,7 @@ export const FirstPrimeCompleteScreen: React.FC = () => {
         mode: primeSessionAudio,
         completedAt: new Date().toISOString(),
       });
+      void queueProgressionMilestonesFromStores();
       void handlePrimeComplete();
       AnalyticsService.track('first_prime_completed', {
         anchor_id: anchorId,

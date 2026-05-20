@@ -60,6 +60,7 @@ import {
 } from '@/utils/postPrimeTraceEligibility';
 import { useMissingAnchorRedirect } from './utils/useMissingAnchorRedirect';
 import { useDeepPrimeSessionAudio } from './hooks/useDeepPrimeSessionAudio';
+import { queueProgressionMilestonesFromStores } from '@/utils/progressionMilestones';
 
 // Single source of truth: derive each segment's width from the global progressAnim,
 // which is already wall-clock-driven by useRitualController + the progressAnim effect.
@@ -1091,6 +1092,7 @@ export const RitualScreen: React.FC = () => {
       reflectionWord,
     });
 
+    await queueProgressionMilestonesFromStores();
     await handlePrimeComplete();
     exitRitual();
   }, [anchorId, config.totalDurationSeconds, primeSessionAudio, recordSession, handlePrimeComplete, exitRitual]);

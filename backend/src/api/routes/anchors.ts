@@ -1033,12 +1033,24 @@ router.post('/:id/activate', async (req: AuthRequest, res: Response, next: NextF
     const anchor = await prisma.$transaction(async tx => {
       const existingAnchor = await tx.anchor.findFirst({
         where: { id, userId },
-        select: { id: true },
+        select: {
+          id: true,
+          isCharged: true,
+          firstChargedAt: true,
+          chargeCount: true,
+          activationCount: true,
+        },
       });
 
       if (!existingAnchor) {
         throw new AppError('Anchor not found', 404, 'ANCHOR_NOT_FOUND');
       }
+
+      const isFirstPrime =
+        !existingAnchor.isCharged &&
+        !existingAnchor.firstChargedAt &&
+        (existingAnchor.chargeCount ?? 0) === 0 &&
+        (existingAnchor.activationCount ?? 0) === 0;
 
       await tx.activation.create({
         data: {
@@ -1050,6 +1062,19 @@ router.post('/:id/activate', async (req: AuthRequest, res: Response, next: NextF
         },
       });
 
+      if (isFirstPrime) {
+        await tx.charge.create({
+          data: {
+            userId,
+            anchorId: id,
+            chargeType: 'initial_quick',
+            durationSeconds,
+            completed: true,
+            chargedAt: activatedAt,
+          },
+        });
+      }
+
       const updatedAnchor = await tx.anchor.update({
         where: { id },
         data: {
@@ -1057,6 +1082,15 @@ router.post('/:id/activate', async (req: AuthRequest, res: Response, next: NextF
             increment: 1,
           },
           lastActivatedAt: activatedAt,
+          ...(isFirstPrime && {
+            isCharged: true,
+            chargeCount: {
+              increment: 1,
+            },
+            chargedAt: activatedAt,
+            firstChargedAt: activatedAt,
+            chargeMethod: 'quick',
+          }),
         },
       });
 

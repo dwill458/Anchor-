@@ -162,7 +162,10 @@ export const PaywallScreen: React.FC = () => {
   };
 
   const handleSignIn = () => {
-    (navigation as any).navigate('Login', { initialTab: 'signin', context: 'paywall' });
+    navigation.navigate('Settings', {
+      screen: 'Login',
+      params: { initialTab: 'signin', context: 'paywall' },
+    });
   };
 
   const handlePurchase = async (productId: string) => {

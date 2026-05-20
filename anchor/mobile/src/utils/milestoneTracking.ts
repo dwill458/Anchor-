@@ -1,41 +1,38 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import {
+  getEarnedMarkNames,
+  getEarnedRankNames,
+  type MarkName,
+  type RankMetrics,
+  type RankName,
+} from '@/utils/progression';
 
 const MILESTONE_KEY = 'anchor-milestone-dates';
 const PRE_LAUNCH_SENTINEL = 'pre-launch';
 
 export interface MilestoneDates {
-  rank: Record<string, string>;
-  depth: Record<string, string>;
+  rank: Partial<Record<RankName, string>>;
+  mark: Partial<Record<MarkName, string>>;
+}
+
+export interface MilestoneRecordResult {
+  rank: RankName[];
+  mark: MarkName[];
 }
 
 const EMPTY_MILESTONE_DATES: MilestoneDates = {
   rank: {},
-  depth: {},
+  mark: {},
 };
 
 const listeners = new Set<() => void>();
-
-const RANK_THRESHOLDS: { name: string; min: number }[] = [
-  { name: 'Initiate', min: 0 },
-  { name: 'Practitioner', min: 10 },
-  { name: 'Architect', min: 50 },
-  { name: 'Sovereign', min: 200 },
-];
-
-const DEPTH_THRESHOLDS: { name: string; min: number }[] = [
-  { name: 'Surface', min: 0 },
-  { name: 'Grounded', min: 25 },
-  { name: 'Rooted', min: 75 },
-  { name: 'Embedded', min: 150 },
-  { name: 'Sovereign', min: 300 },
-];
 
 function notifyListeners(): void {
   listeners.forEach((listener) => {
     try {
       listener();
     } catch {
-      // Milestone subscriptions are best-effort only.
+      // Best-effort only.
     }
   });
 }
@@ -52,9 +49,9 @@ function sanitizeMilestoneDates(value: unknown): MilestoneDates {
       raw.rank && typeof raw.rank === 'object' && !Array.isArray(raw.rank)
         ? { ...raw.rank }
         : {},
-    depth:
-      raw.depth && typeof raw.depth === 'object' && !Array.isArray(raw.depth)
-        ? { ...raw.depth }
+    mark:
+      raw.mark && typeof raw.mark === 'object' && !Array.isArray(raw.mark)
+        ? { ...raw.mark }
         : {},
   };
 }
@@ -64,7 +61,7 @@ async function writeMilestoneDates(next: MilestoneDates): Promise<void> {
     await AsyncStorage.setItem(MILESTONE_KEY, JSON.stringify(next));
     notifyListeners();
   } catch {
-    // Milestone tracking must never throw into calling flows.
+    // Must never throw into product flows.
   }
 }
 
@@ -81,66 +78,75 @@ export async function getMilestoneDates(): Promise<MilestoneDates> {
   }
 }
 
-export async function checkAndRecordMilestones(totalPrimes: number): Promise<void> {
+export async function checkAndRecordMilestones(
+  metrics: RankMetrics
+): Promise<MilestoneRecordResult> {
   try {
     const existing = await getMilestoneDates();
     const next: MilestoneDates = {
       rank: { ...existing.rank },
-      depth: { ...existing.depth },
+      mark: { ...existing.mark },
     };
     const today = new Date().toISOString().split('T')[0];
-    let didChange = false;
+    const result: MilestoneRecordResult = {
+      rank: [],
+      mark: [],
+    };
 
-    RANK_THRESHOLDS.forEach((threshold) => {
-      if (totalPrimes >= threshold.min && !next.rank[threshold.name]) {
-        next.rank[threshold.name] = today;
-        didChange = true;
+    for (const rankName of getEarnedRankNames(metrics)) {
+      if (!next.rank[rankName]) {
+        next.rank[rankName] = today;
+        result.rank.push(rankName);
       }
-    });
+    }
 
-    DEPTH_THRESHOLDS.forEach((threshold) => {
-      if (totalPrimes >= threshold.min && !next.depth[threshold.name]) {
-        next.depth[threshold.name] = today;
-        didChange = true;
+    for (const markName of getEarnedMarkNames(metrics.practiceDays)) {
+      if (!next.mark[markName]) {
+        next.mark[markName] = today;
+        result.mark.push(markName);
       }
-    });
+    }
 
-    if (didChange) {
+    if (result.rank.length > 0 || result.mark.length > 0) {
       await writeMilestoneDates(next);
     }
+
+    return result;
   } catch {
-    // Milestone tracking must never throw into calling flows.
+    return { rank: [], mark: [] };
   }
 }
 
-export async function backfillMilestoneDates(totalPrimes: number): Promise<void> {
+export async function backfillMilestoneDates(
+  metrics: RankMetrics
+): Promise<void> {
   try {
     const existing = await getMilestoneDates();
     const next: MilestoneDates = {
       rank: { ...existing.rank },
-      depth: { ...existing.depth },
+      mark: { ...existing.mark },
     };
     let didChange = false;
 
-    RANK_THRESHOLDS.forEach((threshold) => {
-      if (totalPrimes >= threshold.min && !next.rank[threshold.name]) {
-        next.rank[threshold.name] = PRE_LAUNCH_SENTINEL;
+    for (const rankName of getEarnedRankNames(metrics)) {
+      if (!next.rank[rankName]) {
+        next.rank[rankName] = PRE_LAUNCH_SENTINEL;
         didChange = true;
       }
-    });
+    }
 
-    DEPTH_THRESHOLDS.forEach((threshold) => {
-      if (totalPrimes >= threshold.min && !next.depth[threshold.name]) {
-        next.depth[threshold.name] = PRE_LAUNCH_SENTINEL;
+    for (const markName of getEarnedMarkNames(metrics.practiceDays)) {
+      if (!next.mark[markName]) {
+        next.mark[markName] = PRE_LAUNCH_SENTINEL;
         didChange = true;
       }
-    });
+    }
 
     if (didChange) {
       await writeMilestoneDates(next);
     }
   } catch {
-    // Milestone tracking must never throw into calling flows.
+    // Must never throw into product flows.
   }
 }
 
@@ -151,4 +157,3 @@ export function subscribeToMilestoneDates(listener: () => void): () => void {
     listeners.delete(listener);
   };
 }
-

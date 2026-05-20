@@ -12,7 +12,6 @@ import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { useTabNavigation } from '@/contexts/TabNavigationContext';
 import { useAnchorStore } from '../../stores/anchorStore';
 import { useAuthStore } from '@/stores/authStore';
-import { useForgeMomentStore } from '@/stores/forgeMomentStore';
 import { useSettingsStore } from '@/stores/settingsStore';
 import { useSessionStore } from '@/stores/sessionStore';
 import { useTeachingStore } from '@/stores/teachingStore';
@@ -31,7 +30,6 @@ import { ConfirmModal } from './components/ConfirmModal';
 import { PostPrimeTraceModal } from './components/PostPrimeTraceModal';
 import { useTeachingGate } from '@/utils/useTeachingGate';
 import { TEACHINGS } from '@/constants/teaching';
-import { getCurrentRank } from '@/utils/practiceRank';
 import { useNotificationController } from '@/hooks/useNotificationController';
 import { usePostPrimeTraceStore } from '@/stores/postPrimeTraceStore';
 import { navigateToVaultDestination } from '@/navigation/firstAnchorGate';
@@ -40,6 +38,7 @@ import {
   markPostPrimeTraceAttemptStarted,
 } from '@/utils/postPrimeTraceEligibility';
 import { useMissingAnchorRedirect } from './utils/useMissingAnchorRedirect';
+import { queueProgressionMilestonesFromStores } from '@/utils/progressionMilestones';
 
 type ActivationRouteProp = RouteProp<RootStackParamList, 'ActivationRitual'>;
 
@@ -59,7 +58,6 @@ export const ActivationScreen: React.FC = () => {
   const enqueuePendingFirstAnchorMutation = useAuthStore(
     (state) => state.enqueuePendingFirstAnchorMutation
   );
-  const queueMilestone = useForgeMomentStore((state) => state.queueMilestone);
   const focusSessionDuration = useSettingsStore((state) => state.focusSessionDuration ?? 30);
   const focusSessionAudio = useSettingsStore((state) => state.focusSessionAudio ?? 'silent');
   const { recordSession, bumpThreadStrength } = useSessionStore();
@@ -127,15 +125,6 @@ export const ActivationScreen: React.FC = () => {
     const localActivationTime = new Date();
     const currentActivationCount = anchor?.activationCount ?? 0;
     const chargedAt = isFirstPrimeForAnchor ? localActivationTime : anchor?.chargedAt;
-    const authStateBefore = useAuthStore.getState().user;
-    const previousLongestStreak = authStateBefore?.longestStreak ?? 0;
-    const previousTotalPrimes = Math.max(
-      useAnchorStore.getState().totalPrimes,
-      useAnchorStore
-        .getState()
-        .anchors.reduce((sum, currentAnchor) => sum + (currentAnchor.activationCount ?? 0), 0)
-    );
-    const previousRank = getCurrentRank(previousTotalPrimes);
     let effectiveAnchorId = anchorId;
     let backendSyncFailed = false;
 
@@ -154,25 +143,6 @@ export const ActivationScreen: React.FC = () => {
 
     incrementTotalPrimes();
     computeStreak();
-
-    const nextTotalPrimes = previousTotalPrimes + 1;
-    const nextRank = getCurrentRank(nextTotalPrimes);
-    const nextLongestStreak = useAuthStore.getState().user?.longestStreak ?? previousLongestStreak;
-
-    if (nextRank.name !== previousRank.name && nextRank.name !== 'Initiate') {
-      void queueMilestone({
-        type: 'rank',
-        name: nextRank.name,
-        primeCount: nextTotalPrimes,
-      });
-    }
-
-    if (previousLongestStreak < 100 && nextLongestStreak >= 100) {
-      void queueMilestone({
-        type: 'constancy',
-        name: '100 Days',
-      });
-    }
 
     try {
       if (isPendingFirstAnchor) {
@@ -210,9 +180,14 @@ export const ActivationScreen: React.FC = () => {
       });
 
       if (response.data.data) {
+        const data = response.data.data;
         updateAnchor(anchorId, {
-          activationCount: response.data.data.activationCount,
-          lastActivatedAt: new Date(response.data.data.lastActivatedAt),
+          activationCount: data.activationCount,
+          lastActivatedAt: data.lastActivatedAt ? new Date(data.lastActivatedAt) : undefined,
+          isCharged: data.isCharged,
+          chargedAt: data.chargedAt ? new Date(data.chargedAt) : undefined,
+          firstChargedAt: data.firstChargedAt ? new Date(data.firstChargedAt) : undefined,
+          chargeCount: data.chargeCount,
         });
       }
 
@@ -245,7 +220,6 @@ export const ActivationScreen: React.FC = () => {
     incrementTotalPrimes,
     isPendingFirstAnchor,
     isFirstPrimeForAnchor,
-    queueMilestone,
     toast,
     updateAnchor,
   ]);
@@ -411,6 +385,7 @@ export const ActivationScreen: React.FC = () => {
       reflectionWord,
       completedAt: new Date().toISOString(),
     });
+    await queueProgressionMilestonesFromStores();
 
     if (returnTo === 'practice') {
       const nav = navigation as any;

@@ -1,5 +1,5 @@
 import { redactAnchor, redactAnchors } from '../privacyHelpers';
-import { Anchor } from '../types';
+import type { Anchor } from '@/types';
 
 describe('privacyHelpers', () => {
   const mockBaseAnchor: Anchor = {
@@ -7,12 +7,14 @@ describe('privacyHelpers', () => {
     userId: 'user-1',
     intentionText: 'I want to build a successful startup',
     category: 'career',
+    distilledLetters: ['B', 'L', 'D'],
     isCharged: true,
     activationCount: 5,
     enhancedImageUrl: 'https://example.com/image.png',
     baseSigilSvg: '<svg>sigil</svg>',
-    createdAt: '2026-05-20T00:00:00.000Z',
-    updatedAt: '2026-05-20T00:00:00.000Z',
+    structureVariant: 'balanced',
+    createdAt: new Date('2026-05-20T00:00:00.000Z'),
+    updatedAt: new Date('2026-05-20T00:00:00.000Z'),
   };
 
   describe('redactAnchor', () => {
@@ -45,7 +47,7 @@ describe('privacyHelpers', () => {
     it('falls back to ID snippet if category is missing or null', () => {
       const noCategoryAnchor: Anchor = {
         ...mockBaseAnchor,
-        category: undefined,
+        category: undefined as any,
       };
 
       const result = redactAnchor(noCategoryAnchor);
@@ -71,7 +73,7 @@ describe('privacyHelpers', () => {
         {
           ...mockBaseAnchor,
           id: 'anchor-nocat-777777',
-          category: undefined,
+          category: undefined as any,
         },
       ];
 

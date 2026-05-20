@@ -371,6 +371,7 @@ async function handleEnhance(req: AuthRequest, res: Response): Promise<void> {
     });
 
     let reservedPoolVariations: ClientVariation[] = [];
+    let reservedPoolRows: any[] = [];
     try {
       await prisma.anchorVariationPool.updateMany({
         where: {
@@ -411,7 +412,7 @@ async function handleEnhance(req: AuthRequest, res: Response): Promise<void> {
           },
         });
 
-        const reservedPoolRows = await prisma.anchorVariationPool.findMany({
+        reservedPoolRows = await prisma.anchorVariationPool.findMany({
           where: {
             id: { in: candidateIds },
             status: 'reserved',
@@ -443,172 +444,201 @@ async function handleEnhance(req: AuthRequest, res: Response): Promise<void> {
         error: poolError instanceof Error ? poolError.message : String(poolError),
       });
       reservedPoolVariations = [];
+      reservedPoolRows = [];
     }
 
-    const numberOfVariationsToGenerate = Math.max(
-      1,
-      TOTAL_VARIATION_OPTIONS - reservedPoolVariations.length
-    );
+    const numberOfVariationsToGenerate = TOTAL_VARIATION_OPTIONS - reservedPoolVariations.length;
 
-    // --- AI Generation (with timeout) ---
-    // Use enhanceSigilWithAI for automatic provider selection (Google → Replicate fallback)
-    // Or use enhanceSigilWithControlNet directly for Replicate-only
-    const useNewPipeline = provider !== 'replicate';
-
-    let enhancementResult: Awaited<ReturnType<typeof enhanceSigilWithAI>>;
-    try {
-      enhancementResult = await withTimeout(
-        useNewPipeline
-          ? enhanceSigilWithAI({
-              sigilSvg,
-              styleChoice: styleChoice as AIStyle,
-              userId: user.id,
-              intentionText,
-              validateStructure: validateStructure !== false,
-              autoComposite: autoComposite === true,
-              tier: effectiveTier,
-              numberOfVariations: numberOfVariationsToGenerate,
-            })
-          : enhanceSigilWithControlNet({
-              sigilSvg,
-              styleChoice: styleChoice as AIStyle,
-              userId: user.id,
-              intentionText,
-              validateStructure: validateStructure !== false,
-              autoComposite: autoComposite === true,
-              tier: effectiveTier,
-              numberOfVariations: numberOfVariationsToGenerate,
-            }),
-        AI_GENERATION_TIMEOUT_MS,
-        'AI image generation'
-      );
-    } catch (aiError: unknown) {
-      const err = aiError as Error & { code?: string; status?: number };
-      if (err.code === 'UPSTREAM_TIMEOUT') {
-        logger.error('[AI Enhance] Generation timed out', {
-          anchorId,
-          style: styleChoice,
-          provider: provider || 'auto',
-        });
-        res.status(504).json({
-          error: 'Generation timed out',
-          message: 'The AI service took too long to respond. Please try again.',
-        });
-        return;
-      }
-      // Surface provider-level quota/auth errors distinctly
-      if (
-        err.status === 429 ||
-        err.message?.includes('quota') ||
-        err.message?.includes('rate limit')
-      ) {
-        logger.warn('[AI Enhance] Upstream rate limit hit', { anchorId, message: err.message });
-        res.status(503).json({
-          error: 'AI service rate limit reached',
-          message: 'The image generation service is busy. Please wait a moment and try again.',
-        });
-        return;
-      }
-      logger.error('[AI Enhance] AI generation failed', aiError);
-      res.status(502).json({
-        error: 'AI generation failed',
-        message: 'The upstream image generation service encountered an error. Please try again.',
-      });
-      return;
-    }
-
-    logger.info('[AI Enhance] Generated variations with structure scores', {
-      count: enhancementResult.variations.length,
-      passingCount: enhancementResult.passingCount,
-      bestScore:
-        enhancementResult.variations[enhancementResult.bestVariationIndex]?.structureMatch
-          .combinedScore,
-      style: enhancementResult.styleApplied,
-      method: enhancementResult.controlMethod,
-    });
-
-    // --- Upload variations to R2 (per-variation error handling) ---
-    const uploadedVariations: ClientVariation[] = [];
-
-    for (let i = 0; i < enhancementResult.variations.length; i++) {
-      const variation = enhancementResult.variations[i];
-      let permanentUrl: string;
-      try {
-        permanentUrl = await uploadImageFromUrl(variation.imageUrl, user.id, storageAnchorId, i, {
-          baseUrl: requestBaseUrl,
-        });
-      } catch (uploadError) {
-        logger.error('[AI Enhance] Failed to upload variation to storage', {
-          variationIndex: i,
-          anchorId,
-          error: uploadError instanceof Error ? uploadError.message : String(uploadError),
-        });
-        // Skip failed uploads rather than aborting the entire response;
-        // at least return successfully generated variations.
-        continue;
-      }
-
-      uploadedVariations.push({
-        variationId: '',
-        imageUrl: permanentUrl,
-        structureMatchScore: variation.structureMatch.combinedScore,
-        iouScore: variation.structureMatch.iouScore,
-        edgeOverlapScore: variation.structureMatch.edgeOverlapScore,
-        structurePreserved: variation.structureMatch.structurePreserved,
-        classification: variation.structureMatch.classification,
-        wasComposited: variation.wasComposited,
-        seed: variation.seed,
-        reusedFromPool: false,
-      });
-    }
-
-    const modelLower = enhancementResult.model.toLowerCase();
-    const usedProvider =
-      modelLower.includes('gemini') || modelLower.includes('imagen')
-        ? 'gemini'
-        : modelLower.includes('controlnet')
-          ? 'replicate'
-          : 'unknown';
+    let promptUsed = '';
+    let negativePromptUsed = '';
+    let generationTime = 0;
+    let modelName = 'none';
+    let controlMethod = 'none';
+    let styleApplied = styleChoice;
+    let usedProvider = 'none';
+    let structureThreshold = 0.85;
 
     const pooledGeneratedVariations: ClientVariation[] = [];
-    for (const variation of uploadedVariations) {
-      try {
-        const pooledVariation = await prisma.anchorVariationPool.create({
-          data: {
-            fingerprint,
-            intentionKey,
-            structureHash,
-            styleChoice,
-            imageUrl: variation.imageUrl,
-            status: 'reserved',
-            reservedByRequestId: reuseRequestId,
-            reservedAt: new Date(),
-            reservedUntil: buildReservationExpiry(),
-            sourceProvider: usedProvider,
-            sourceModel: enhancementResult.model,
-            sourcePrompt: enhancementResult.prompt,
-            sourceNegativePrompt: enhancementResult.negativePrompt,
-            seed: variation.seed,
-            structureMatchScore: variation.structureMatchScore,
-            iouScore: variation.iouScore,
-            edgeOverlapScore: variation.edgeOverlapScore,
-            structurePreserved: variation.structurePreserved,
-            classification: variation.classification,
-          },
-        });
 
-        pooledGeneratedVariations.push({
-          ...variation,
-          variationId: pooledVariation.id,
+    if (numberOfVariationsToGenerate > 0) {
+      // --- AI Generation (with timeout) ---
+      // Use enhanceSigilWithAI for automatic provider selection (Google → Replicate fallback)
+      // Or use enhanceSigilWithControlNet directly for Replicate-only
+      const useNewPipeline = provider !== 'replicate';
+
+      let enhancementResult: Awaited<ReturnType<typeof enhanceSigilWithAI>>;
+      try {
+        enhancementResult = await withTimeout(
+          useNewPipeline
+            ? enhanceSigilWithAI({
+                sigilSvg,
+                styleChoice: styleChoice as AIStyle,
+                userId: user.id,
+                intentionText,
+                validateStructure: validateStructure !== false,
+                autoComposite: autoComposite === true,
+                tier: effectiveTier,
+                numberOfVariations: numberOfVariationsToGenerate,
+              })
+            : enhanceSigilWithControlNet({
+                sigilSvg,
+                styleChoice: styleChoice as AIStyle,
+                userId: user.id,
+                intentionText,
+                validateStructure: validateStructure !== false,
+                autoComposite: autoComposite === true,
+                tier: effectiveTier,
+                numberOfVariations: numberOfVariationsToGenerate,
+              }),
+          AI_GENERATION_TIMEOUT_MS,
+          'AI image generation'
+        );
+      } catch (aiError: unknown) {
+        const err = aiError as Error & { code?: string; status?: number };
+        if (err.code === 'UPSTREAM_TIMEOUT') {
+          logger.error('[AI Enhance] Generation timed out', {
+            anchorId,
+            style: styleChoice,
+            provider: provider || 'auto',
+          });
+          res.status(504).json({
+            error: 'Generation timed out',
+            message: 'The AI service took too long to respond. Please try again.',
+          });
+          return;
+        }
+        // Surface provider-level quota/auth errors distinctly
+        if (
+          err.status === 429 ||
+          err.message?.includes('quota') ||
+          err.message?.includes('rate limit')
+        ) {
+          logger.warn('[AI Enhance] Upstream rate limit hit', { anchorId, message: err.message });
+          res.status(503).json({
+            error: 'AI service rate limit reached',
+            message: 'The image generation service is busy. Please wait a moment and try again.',
+          });
+          return;
+        }
+        logger.error('[AI Enhance] AI generation failed', aiError);
+        res.status(502).json({
+          error: 'AI generation failed',
+          message: 'The upstream image generation service encountered an error. Please try again.',
         });
-      } catch (poolInsertError) {
-        logger.warn('[AI Enhance] Failed to insert generated variation into reuse pool', {
-          anchorId,
-          imageUrl: variation.imageUrl,
-          error:
-            poolInsertError instanceof Error ? poolInsertError.message : String(poolInsertError),
+        return;
+      }
+
+      logger.info('[AI Enhance] Generated variations with structure scores', {
+        count: enhancementResult.variations.length,
+        passingCount: enhancementResult.passingCount,
+        bestScore:
+          enhancementResult.variations[enhancementResult.bestVariationIndex]?.structureMatch
+            .combinedScore,
+        style: enhancementResult.styleApplied,
+        method: enhancementResult.controlMethod,
+      });
+
+      promptUsed = enhancementResult.prompt;
+      negativePromptUsed = enhancementResult.negativePrompt;
+      generationTime = enhancementResult.generationTime;
+      modelName = enhancementResult.model;
+      controlMethod = enhancementResult.controlMethod;
+      styleApplied = enhancementResult.styleApplied;
+      structureThreshold = enhancementResult.structureThreshold;
+
+      const modelLower = enhancementResult.model.toLowerCase();
+      usedProvider =
+        modelLower.includes('gemini') || modelLower.includes('imagen')
+          ? 'gemini'
+          : modelLower.includes('controlnet')
+            ? 'replicate'
+            : 'unknown';
+
+      // --- Upload variations to R2 (per-variation error handling) ---
+      const uploadedVariations: ClientVariation[] = [];
+
+      for (let i = 0; i < enhancementResult.variations.length; i++) {
+        const variation = enhancementResult.variations[i];
+        let permanentUrl: string;
+        try {
+          permanentUrl = await uploadImageFromUrl(variation.imageUrl, user.id, storageAnchorId, i, {
+            baseUrl: requestBaseUrl,
+          });
+        } catch (uploadError) {
+          logger.error('[AI Enhance] Failed to upload variation to storage', {
+            variationIndex: i,
+            anchorId,
+            error: uploadError instanceof Error ? uploadError.message : String(uploadError),
+          });
+          // Skip failed uploads rather than aborting the entire response;
+          // at least return successfully generated variations.
+          continue;
+        }
+
+        uploadedVariations.push({
+          variationId: '',
+          imageUrl: permanentUrl,
+          structureMatchScore: variation.structureMatch.combinedScore,
+          iouScore: variation.structureMatch.iouScore,
+          edgeOverlapScore: variation.structureMatch.edgeOverlapScore,
+          structurePreserved: variation.structureMatch.structurePreserved,
+          classification: variation.structureMatch.classification,
+          wasComposited: variation.wasComposited,
+          seed: variation.seed,
+          reusedFromPool: false,
         });
-        pooledGeneratedVariations.push(variation);
+      }
+
+      for (const variation of uploadedVariations) {
+        try {
+          const pooledVariation = await prisma.anchorVariationPool.create({
+            data: {
+              fingerprint,
+              intentionKey,
+              structureHash,
+              styleChoice,
+              imageUrl: variation.imageUrl,
+              status: 'reserved',
+              reservedByRequestId: reuseRequestId,
+              reservedAt: new Date(),
+              reservedUntil: buildReservationExpiry(),
+              sourceProvider: usedProvider,
+              sourceModel: modelName,
+              sourcePrompt: promptUsed,
+              sourceNegativePrompt: negativePromptUsed,
+              seed: variation.seed,
+              structureMatchScore: variation.structureMatchScore,
+              iouScore: variation.iouScore,
+              edgeOverlapScore: variation.edgeOverlapScore,
+              structurePreserved: variation.structurePreserved,
+              classification: variation.classification,
+            },
+          });
+
+          pooledGeneratedVariations.push({
+            ...variation,
+            variationId: pooledVariation.id,
+          });
+        } catch (poolInsertError) {
+          logger.warn('[AI Enhance] Failed to insert generated variation into reuse pool', {
+            anchorId,
+            imageUrl: variation.imageUrl,
+            error:
+              poolInsertError instanceof Error ? poolInsertError.message : String(poolInsertError),
+          });
+          pooledGeneratedVariations.push(variation);
+        }
+      }
+    } else {
+      const firstReserved = reservedPoolRows[0];
+      if (firstReserved) {
+        usedProvider = firstReserved.sourceProvider || 'unknown';
+        modelName = firstReserved.sourceModel || 'unknown';
+        promptUsed = firstReserved.sourcePrompt || '';
+        negativePromptUsed = firstReserved.sourceNegativePrompt || '';
+        generationTime = 0;
+        controlMethod = 'lineart';
+        styleApplied = (firstReserved.styleChoice as AIStyle) || styleChoice;
       }
     }
 
@@ -638,17 +668,17 @@ async function handleEnhance(req: AuthRequest, res: Response): Promise<void> {
       // Legacy format for backward compatibility
       variationUrls: responseVariations.map(v => v.imageUrl),
       // Generation metadata
-      prompt: enhancementResult.prompt,
-      negativePrompt: enhancementResult.negativePrompt,
-      generationTime: enhancementResult.generationTime,
-      model: enhancementResult.model,
-      controlMethod: enhancementResult.controlMethod,
-      styleApplied: enhancementResult.styleApplied,
+      prompt: promptUsed,
+      negativePrompt: negativePromptUsed,
+      generationTime: generationTime,
+      model: modelName,
+      controlMethod: controlMethod,
+      styleApplied: styleApplied,
       // Provider information
       provider: usedProvider,
       reuseRequestId,
       // Structure validation summary
-      structureThreshold: enhancementResult.structureThreshold,
+      structureThreshold: structureThreshold,
       passingCount,
       bestVariationIndex,
       allPreserved: passingCount === responseVariations.length,
