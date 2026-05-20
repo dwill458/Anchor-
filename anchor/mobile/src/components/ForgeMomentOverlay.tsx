@@ -22,7 +22,7 @@ import Svg, {
 } from 'react-native-svg';
 import { colors, typography } from '@/theme';
 import { withAlpha } from '@/utils/color';
-import { RANK_TIERS } from '@/utils/practiceRank';
+import { MARK_TIERS, RANK_TIERS } from '@/utils/progression';
 import type { ForgeMomentMilestone } from '@/stores/forgeMomentStore';
 
 interface ForgeMomentOverlayProps {
@@ -36,10 +36,13 @@ const EXIT_DURATION_MS = 800;
 const DISMISS_MS = 7800;
 
 const subtitles: Record<string, string> = {
-  Practitioner: 'The practice has taken root.',
-  Architect: 'Fifty primes. The thread holds.',
-  Sovereign: 'Two hundred. This is who you are now.',
-  '100 Days': 'Constancy is the rarest discipline.',
+  Practitioner: 'You returned enough times for change to notice.',
+  Architect: 'You build with intention. The pattern is working through you.',
+  Sovereign: 'The practice informs how you move.',
+  'First Return Mark': 'Forged at 3 practice days',
+  'Steady Thread Mark': 'Forged at 7 practice days',
+  'Discipline Mark': 'Forged at 30 practice days',
+  'Constancy Mark': 'Forged at 100 practice days',
 };
 
 function buildCompassRosePoints(size: number): string {
@@ -322,13 +325,13 @@ export const ForgeMomentOverlay: React.FC<ForgeMomentOverlayProps> = ({
   }
 
   const isRank = milestone.type === 'rank';
-  const milestonePrimeCount =
-    milestone.primeCount ??
-    RANK_TIERS.find((tier) => tier.name === milestone.name)?.minPrimes ??
-    100;
-  const previousRanks = RANK_TIERS.filter(
-    (tier) => tier.minPrimes > 0 && tier.minPrimes < milestonePrimeCount
+  const currentRankIndex = RANK_TIERS.findIndex(
+    (tier) => tier.name === milestone.name
   );
+  const previousRanks =
+    currentRankIndex > 0 ? RANK_TIERS.slice(1, currentRankIndex) : [];
+  const resolvedMarkSubtitle =
+    MARK_TIERS.find((tier) => tier.name === milestone.name)?.subtitle ?? '';
 
   return (
     <Animated.View pointerEvents="box-none" style={[StyleSheet.absoluteFillObject, { opacity: overlayOpacity }]}>
@@ -488,13 +491,17 @@ export const ForgeMomentOverlay: React.FC<ForgeMomentOverlayProps> = ({
             ]}
           >
             <Text style={styles.eyebrow}>
-              {isRank ? 'RANK ACHIEVED' : 'CONSTANCY MARK FORGED'}
+              {isRank ? 'RANK ACHIEVED' : 'MARK FORGED'}
             </Text>
             <Text style={styles.title}>{milestone.name}</Text>
 
             {isRank ? (
               <View style={styles.rankMetrics}>
-                <Text style={styles.primeCountLabel}>{`Prime Count: ${milestonePrimeCount}`}</Text>
+                <Text style={styles.primeCountLabel}>
+                  {milestone.primeCount
+                    ? `Prime Count: ${milestone.primeCount}`
+                    : 'Practice identity affirmed'}
+                </Text>
                 <View style={styles.progressRodRow}>
                   <View style={styles.arrowCapLeft} />
                   <View style={styles.progressRod}>
@@ -511,13 +518,17 @@ export const ForgeMomentOverlay: React.FC<ForgeMomentOverlayProps> = ({
                   <View style={styles.arrowCapRight} />
                 </View>
                 <View style={styles.progressLabels}>
-                  <Text style={styles.progressLeftLabel}>{milestonePrimeCount}</Text>
+                  <Text style={styles.progressLeftLabel}>
+                    {milestone.primeCount ?? ''}
+                  </Text>
                   <Text style={styles.progressRightLabel}>Total Primes</Text>
                 </View>
               </View>
             ) : null}
 
-            <Text style={styles.subtitle}>{subtitles[milestone.name] ?? ''}</Text>
+            <Text style={styles.subtitle}>
+              {isRank ? subtitles[milestone.name] ?? '' : resolvedMarkSubtitle}
+            </Text>
           </Animated.View>
         </View>
 

@@ -41,6 +41,7 @@ import {
   markPostPrimeTraceAttemptStarted,
 } from '@/utils/postPrimeTraceEligibility';
 import { useMissingAnchorRedirect } from './utils/useMissingAnchorRedirect';
+import { queueProgressionMilestonesFromStores } from '@/utils/progressionMilestones';
 
 const { width } = Dimensions.get('window');
 const SYMBOL_SIZE = Math.min(width * 0.42, 180);
@@ -252,7 +253,10 @@ export const ChargeCompleteScreen: React.FC = () => {
       reflectionWord,
       completedAt: new Date().toISOString(),
     });
-    await handlePrimeComplete();
+
+    await queueProgressionMilestonesFromStores();
+    // Fire-and-forget — notification sync + server update should not block the UI transition
+    handlePrimeComplete();
 
     setShowCompletion(false);
     setCompletionDone(true);

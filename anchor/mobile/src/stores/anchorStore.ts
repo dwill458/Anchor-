@@ -14,7 +14,6 @@ import AnchorSyncService from '@/services/AnchorSyncService';
 import { useAuthStore } from '@/stores/authStore';
 import { getAdjustedDateString } from '@/utils/dateUtils';
 import { logger } from '@/utils/logger';
-import { checkAndRecordMilestones } from '@/utils/milestoneTracking';
 
 const normalizeDate = (value?: Date | string): Date | undefined => {
   if (!value) return undefined;
@@ -200,8 +199,6 @@ export const useAnchorStore = create<AnchorState>()(
         set({
           totalPrimes: nextTotalPrimes,
         });
-
-        checkAndRecordMilestones(nextTotalPrimes).catch(() => {});
       },
 
       recordPrimeSession: () => {

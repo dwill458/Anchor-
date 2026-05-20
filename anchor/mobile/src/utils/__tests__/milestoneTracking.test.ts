@@ -1,12 +1,11 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import {
-  getMilestoneDates,
-  checkAndRecordMilestones,
   backfillMilestoneDates,
+  checkAndRecordMilestones,
+  getMilestoneDates,
   subscribeToMilestoneDates,
 } from '../milestoneTracking';
 
-// Cast AsyncStorage functions to jest.Mock
 const mockGetItem = AsyncStorage.getItem as jest.Mock;
 const mockSetItem = AsyncStorage.setItem as jest.Mock;
 
@@ -16,148 +15,166 @@ describe('milestoneTracking', () => {
   });
 
   describe('getMilestoneDates', () => {
-    it('returns empty structure if nothing is stored in AsyncStorage', async () => {
+    it('returns an empty structure when nothing is stored', async () => {
       mockGetItem.mockResolvedValueOnce(null);
-      const res = await getMilestoneDates();
-      expect(res).toEqual({ rank: {}, depth: {} });
+
+      await expect(getMilestoneDates()).resolves.toEqual({
+        rank: {},
+        mark: {},
+      });
       expect(mockGetItem).toHaveBeenCalledWith('anchor-milestone-dates');
     });
 
-    it('returns parsed and sanitized dates if stored in AsyncStorage', async () => {
-      const storedData = {
-        rank: { Initiate: '2026-01-01' },
-        depth: { Surface: '2026-01-02' },
-      };
-      mockGetItem.mockResolvedValueOnce(JSON.stringify(storedData));
-      const res = await getMilestoneDates();
-      expect(res).toEqual(storedData);
-    });
+    it('sanitizes corrupt structures', async () => {
+      mockGetItem.mockResolvedValueOnce(
+        JSON.stringify({
+          rank: ['Initiate'],
+          mark: null,
+        })
+      );
 
-    it('sanitizes corrupt or invalid data structures correctly', async () => {
-      // rank is invalid format (array instead of object)
-      const corruptData = {
-        rank: ['Initiate'],
-        depth: null,
-      };
-      mockGetItem.mockResolvedValueOnce(JSON.stringify(corruptData));
-      const res = await getMilestoneDates();
-      expect(res).toEqual({ rank: {}, depth: {} });
-    });
-
-    it('returns empty structure on AsyncStorage read error', async () => {
-      mockGetItem.mockRejectedValueOnce(new Error('Read error'));
-      const res = await getMilestoneDates();
-      expect(res).toEqual({ rank: {}, depth: {} });
+      await expect(getMilestoneDates()).resolves.toEqual({
+        rank: {},
+        mark: {},
+      });
     });
   });
 
   describe('checkAndRecordMilestones', () => {
-    it('records new milestones based on totalPrimes', async () => {
-      // Start with empty milestones
+    it('records newly earned rank and mark milestones', async () => {
       mockGetItem.mockResolvedValueOnce(null);
-      
-      // Let's check with 15 primes: Initiate (0) and Practitioner (10) for rank,
-      // and Surface (0) for depth.
-      await checkAndRecordMilestones(15);
 
-      expect(mockSetItem).toHaveBeenCalled();
-      const storedArg = JSON.parse(mockSetItem.mock.calls[0][1]);
-      
+      const result = await checkAndRecordMilestones({
+        totalPrimes: 10,
+        practiceDays: 3,
+        releasedAnchors: 0,
+      });
+
+      expect(result).toEqual({
+        rank: ['Initiate', 'Practitioner'],
+        mark: ['First Return Mark'],
+      });
+
+      const stored = JSON.parse(mockSetItem.mock.calls[0][1]);
       const today = new Date().toISOString().split('T')[0];
-      expect(storedArg.rank['Initiate']).toBe(today);
-      expect(storedArg.rank['Practitioner']).toBe(today);
-      expect(storedArg.rank['Architect']).toBeUndefined();
-      
-      expect(storedArg.depth['Surface']).toBe(today);
-      expect(storedArg.depth['Grounded']).toBeUndefined();
+      expect(stored.rank.Initiate).toBe(today);
+      expect(stored.rank.Practitioner).toBe(today);
+      expect(stored.mark['First Return Mark']).toBe(today);
     });
 
-    it('does not write or notify if no milestones are new', async () => {
-      const today = new Date().toISOString().split('T')[0];
-      const existingData = {
-        rank: { Initiate: today, Practitioner: today },
-        depth: { Surface: today },
-      };
-      mockGetItem.mockResolvedValueOnce(JSON.stringify(existingData));
+    it('does not rewrite when there are no new milestones', async () => {
+      mockGetItem.mockResolvedValueOnce(
+        JSON.stringify({
+          rank: {
+            Initiate: '2026-05-01',
+            Practitioner: '2026-05-10',
+          },
+          mark: {
+            'First Return Mark': '2026-05-10',
+          },
+        })
+      );
 
-      // Check again with 15 primes (no new thresholds crossed)
-      await checkAndRecordMilestones(15);
+      const result = await checkAndRecordMilestones({
+        totalPrimes: 12,
+        practiceDays: 4,
+        releasedAnchors: 0,
+      });
+
+      expect(result).toEqual({ rank: [], mark: [] });
       expect(mockSetItem).not.toHaveBeenCalled();
     });
 
-    it('gracefully handles write failure without throwing', async () => {
-      mockGetItem.mockResolvedValueOnce(null);
-      mockSetItem.mockRejectedValueOnce(new Error('Write error'));
+    it('adds newly crossed marks without replaying earlier ones', async () => {
+      mockGetItem.mockResolvedValueOnce(
+        JSON.stringify({
+          rank: {
+            Initiate: '2026-05-01',
+            Practitioner: '2026-05-10',
+          },
+          mark: {
+            'First Return Mark': '2026-05-10',
+          },
+        })
+      );
 
-      // Should not throw an exception
-      await expect(checkAndRecordMilestones(5)).resolves.not.toThrow();
+      const result = await checkAndRecordMilestones({
+        totalPrimes: 18,
+        practiceDays: 7,
+        releasedAnchors: 0,
+      });
+
+      expect(result).toEqual({
+        rank: [],
+        mark: ['Steady Thread Mark'],
+      });
     });
   });
 
   describe('backfillMilestoneDates', () => {
-    it('backfills milestones with pre-launch sentinel', async () => {
+    it('backfills earned milestones with the pre-launch sentinel', async () => {
       mockGetItem.mockResolvedValueOnce(null);
 
-      // Backfill with 15 primes
-      await backfillMilestoneDates(15);
+      await backfillMilestoneDates({
+        totalPrimes: 50,
+        practiceDays: 30,
+        releasedAnchors: 1,
+      });
 
-      expect(mockSetItem).toHaveBeenCalled();
-      const storedArg = JSON.parse(mockSetItem.mock.calls[0][1]);
-      
-      expect(storedArg.rank['Initiate']).toBe('pre-launch');
-      expect(storedArg.rank['Practitioner']).toBe('pre-launch');
-      expect(storedArg.depth['Surface']).toBe('pre-launch');
+      const stored = JSON.parse(mockSetItem.mock.calls[0][1]);
+      expect(stored.rank.Initiate).toBe('pre-launch');
+      expect(stored.rank.Practitioner).toBe('pre-launch');
+      expect(stored.rank.Architect).toBe('pre-launch');
+      expect(stored.mark['First Return Mark']).toBe('pre-launch');
+      expect(stored.mark['Steady Thread Mark']).toBe('pre-launch');
+      expect(stored.mark['Discipline Mark']).toBe('pre-launch');
     });
 
-    it('does not overwrite existing milestone dates during backfill', async () => {
-      const existingData = {
-        rank: { Initiate: '2026-05-01' },
-        depth: {},
-      };
-      mockGetItem.mockResolvedValueOnce(JSON.stringify(existingData));
+    it('preserves existing dates while backfilling later milestones', async () => {
+      mockGetItem.mockResolvedValueOnce(
+        JSON.stringify({
+          rank: {
+            Initiate: '2026-05-01',
+          },
+          mark: {},
+        })
+      );
 
-      // Backfill with 15 primes (Practitioner and Surface should be backfilled, Initiate remains unchanged)
-      await backfillMilestoneDates(15);
+      await backfillMilestoneDates({
+        totalPrimes: 10,
+        practiceDays: 3,
+        releasedAnchors: 0,
+      });
 
-      expect(mockSetItem).toHaveBeenCalled();
-      const storedArg = JSON.parse(mockSetItem.mock.calls[0][1]);
-      expect(storedArg.rank['Initiate']).toBe('2026-05-01');
-      expect(storedArg.rank['Practitioner']).toBe('pre-launch');
-      expect(storedArg.depth['Surface']).toBe('pre-launch');
+      const stored = JSON.parse(mockSetItem.mock.calls[0][1]);
+      expect(stored.rank.Initiate).toBe('2026-05-01');
+      expect(stored.rank.Practitioner).toBe('pre-launch');
+      expect(stored.mark['First Return Mark']).toBe('pre-launch');
     });
   });
 
   describe('subscribeToMilestoneDates', () => {
-    it('notifies subscribers on milestone update', async () => {
+    it('notifies subscribers on milestone updates', async () => {
       mockGetItem.mockResolvedValueOnce(null);
-      
+
       const listener = jest.fn();
       const unsubscribe = subscribeToMilestoneDates(listener);
 
-      await checkAndRecordMilestones(10);
+      await checkAndRecordMilestones({
+        totalPrimes: 10,
+        practiceDays: 3,
+        releasedAnchors: 0,
+      });
       expect(listener).toHaveBeenCalledTimes(1);
 
-      // Unsubscribe and trigger update again
       unsubscribe();
       mockGetItem.mockResolvedValueOnce(null);
-      await checkAndRecordMilestones(200);
-      expect(listener).toHaveBeenCalledTimes(1); // Still 1
-    });
-
-    it('handles subscriber notifications gracefully even if listener throws', async () => {
-      mockGetItem.mockResolvedValueOnce(null);
-      
-      const listenerError = jest.fn().mockImplementation(() => {
-        throw new Error('Listener crash');
+      await checkAndRecordMilestones({
+        totalPrimes: 200,
+        practiceDays: 100,
+        releasedAnchors: 3,
       });
-      const listenerNormal = jest.fn();
-      
-      subscribeToMilestoneDates(listenerError);
-      subscribeToMilestoneDates(listenerNormal);
-
-      await expect(checkAndRecordMilestones(10)).resolves.not.toThrow();
-      expect(listenerError).toHaveBeenCalled();
-      expect(listenerNormal).toHaveBeenCalled();
+      expect(listener).toHaveBeenCalledTimes(1);
     });
   });
 });

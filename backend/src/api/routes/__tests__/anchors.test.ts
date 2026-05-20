@@ -556,11 +556,18 @@ describe('POST /api/anchors/:id/charge', () => {
 describe('POST /api/anchors/:id/activate', () => {
   const VALID_ACTIVATE_BODY = { activationType: 'visual', durationSeconds: 30 };
 
-  it('records activation and increments activationCount', async () => {
+  it('records activation and increments activationCount (subsequent activation)', async () => {
     (mockPrisma.user.findUnique as jest.Mock).mockResolvedValue(MOCK_DB_USER);
-    (mockPrisma.anchor.findFirst as jest.Mock).mockResolvedValue(MOCK_ANCHOR);
+    // Mock anchor that is already charged
+    (mockPrisma.anchor.findFirst as jest.Mock).mockResolvedValue({
+      ...MOCK_ANCHOR,
+      isCharged: true,
+      chargeCount: 1,
+    });
     (mockPrisma.anchor.update as jest.Mock).mockResolvedValue({
       ...MOCK_ANCHOR,
+      isCharged: true,
+      chargeCount: 1,
       activationCount: 1,
     });
     (mockPrisma.user.update as jest.Mock).mockResolvedValue(MOCK_DB_USER);
@@ -572,6 +579,7 @@ describe('POST /api/anchors/:id/activate', () => {
     expect(res.status).toBe(200);
     expect(res.body.data.activationCount).toBe(1);
     expect(mockPrisma.activation.create).toHaveBeenCalledTimes(1);
+    expect(mockPrisma.charge.create).not.toHaveBeenCalled();
     expect(mockPrisma.$transaction).toHaveBeenCalledTimes(1);
     expect(mockPrisma.user.update).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -580,10 +588,47 @@ describe('POST /api/anchors/:id/activate', () => {
     );
     expect(mockPrisma.anchor.update).toHaveBeenCalledWith(
       expect.objectContaining({
-        data: expect.objectContaining({
+        data: {
           activationCount: { increment: 1 },
           lastActivatedAt: expect.any(Date),
-        }),
+        },
+      })
+    );
+  });
+
+  it('charges the anchor on the first activation', async () => {
+    (mockPrisma.user.findUnique as jest.Mock).mockResolvedValue(MOCK_DB_USER);
+    // Mock anchor that is not yet charged (dormant)
+    (mockPrisma.anchor.findFirst as jest.Mock).mockResolvedValue(MOCK_ANCHOR);
+    (mockPrisma.anchor.update as jest.Mock).mockResolvedValue({
+      ...MOCK_ANCHOR,
+      isCharged: true,
+      chargeCount: 1,
+      activationCount: 1,
+    });
+    (mockPrisma.user.update as jest.Mock).mockResolvedValue(MOCK_DB_USER);
+
+    const res = await request(buildApp())
+      .post('/api/anchors/anchor-1/activate')
+      .send(VALID_ACTIVATE_BODY);
+
+    expect(res.status).toBe(200);
+    expect(res.body.data.isCharged).toBe(true);
+    expect(res.body.data.chargeCount).toBe(1);
+    expect(mockPrisma.activation.create).toHaveBeenCalledTimes(1);
+    expect(mockPrisma.charge.create).toHaveBeenCalledTimes(1);
+    expect(mockPrisma.$transaction).toHaveBeenCalledTimes(1);
+    expect(mockPrisma.anchor.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: {
+          activationCount: { increment: 1 },
+          lastActivatedAt: expect.any(Date),
+          isCharged: true,
+          chargeCount: { increment: 1 },
+          chargedAt: expect.any(Date),
+          firstChargedAt: expect.any(Date),
+          chargeMethod: 'quick',
+        },
       })
     );
   });

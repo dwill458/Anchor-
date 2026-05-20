@@ -15,6 +15,7 @@ import { useToast } from '@/components/ToastProvider';
 import { resolveBurnArtworkUri } from './utils/resolveBurnArtworkUri';
 import { AuthService } from '@/services/AuthService';
 import { useNotificationController } from '../../hooks/useNotificationController';
+import { queueProgressionMilestonesFromStores } from '@/utils/progressionMilestones';
 
 type BurningRitualRouteProp = RouteProp<RootStackParamList, 'BurningRitual'>;
 type BurningRitualNavigationProp = StackNavigationProp<RootStackParamList, 'BurningRitual'>;
@@ -67,6 +68,7 @@ export const BurningRitualScreen: React.FC = () => {
 
     // Local update happens for everyone
     releaseAnchor(anchorId);
+    await queueProgressionMilestonesFromStores();
     await handleSigilVaulted();
     AnalyticsService.track(AnalyticsEvents.BURN_COMPLETED, { anchor_id: anchorId });
 
