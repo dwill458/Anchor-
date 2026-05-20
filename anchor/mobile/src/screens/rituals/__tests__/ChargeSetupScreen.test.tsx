@@ -4,6 +4,7 @@ import { ChargeSetupScreen } from '../ChargeSetupScreen';
 
 // Mock navigation
 const mockNavigate = jest.fn();
+const mockReplace = jest.fn();
 const mockRouteParams: Record<string, unknown> = { anchorId: 'anchor-123' };
 const mockAnchor = {
     id: 'anchor-123',
@@ -16,7 +17,7 @@ const mockAnchor = {
 
 jest.mock('@react-navigation/native', () => ({
     ...jest.requireActual('@react-navigation/native'),
-    useNavigation: () => ({ navigate: mockNavigate, goBack: jest.fn() }),
+    useNavigation: () => ({ navigate: mockNavigate, replace: mockReplace, goBack: jest.fn() }),
     useRoute: () => ({ params: mockRouteParams }),
     useFocusEffect: jest.fn((cb: any) => {
         const React = require('react');
@@ -107,6 +108,7 @@ jest.mock('react-native-reanimated', () => {
 describe('ChargeSetupScreen', () => {
     beforeEach(() => {
         mockNavigate.mockClear();
+        mockReplace.mockClear();
         Object.keys(mockRouteParams).forEach((key) => delete mockRouteParams[key]);
         Object.assign(mockRouteParams, { anchorId: 'anchor-123' });
         mockAnchor.baseSigilSvg = '<svg></svg>';
@@ -163,7 +165,7 @@ describe('ChargeSetupScreen', () => {
         render(<ChargeSetupScreen />);
         fireEvent.press(screen.getByLabelText('Deep Prime duration'));
 
-        expect(mockNavigate).toHaveBeenCalledWith('Ritual', {
+        expect(mockReplace).toHaveBeenCalledWith('Ritual', {
             anchorId: 'anchor-123',
             ritualType: 'ritual',
             durationSeconds: 180,

@@ -20,7 +20,6 @@ let mockIsLoading = false;
 let mockIsAuthenticated = true;
 let mockHasActiveEntitlement = true;
 const mockSetPendingForgeResumeTarget = jest.fn();
-const mockUsePostFirstAnchorPaywall = jest.fn();
 
 jest.mock('@/stores/anchorStore', () => ({
     useAnchorStore: (selector: any) => {
@@ -54,10 +53,6 @@ jest.mock('@/hooks/useSubscription', () => ({
 jest.mock('@/hooks/useTrialStatus', () => ({
     useTrialStatus: () => ({ hasActiveEntitlement: mockHasActiveEntitlement }),
 }));
-jest.mock('@/hooks/usePostFirstAnchorPaywall', () => ({
-    usePostFirstAnchorPaywall: () => mockUsePostFirstAnchorPaywall(),
-}));
-
 jest.mock('@/contexts/TabNavigationContext', () => ({
     useTabNavigation: () => ({
         registerTabNav: jest.fn(),
@@ -136,16 +131,10 @@ describe('VaultScreen', () => {
     beforeEach(() => {
         mockNavigate.mockClear();
         mockSetPendingForgeResumeTarget.mockClear();
-        mockUsePostFirstAnchorPaywall.mockClear();
         mockAnchors = [];
         mockIsLoading = false;
         mockIsAuthenticated = true;
         mockHasActiveEntitlement = true;
-    });
-
-    it('mounts the post-first-anchor paywall guard', () => {
-        render(<VaultScreen />);
-        expect(mockUsePostFirstAnchorPaywall).toHaveBeenCalled();
     });
 
     it('renders empty state when no anchors', () => {

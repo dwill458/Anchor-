@@ -142,7 +142,7 @@ export interface User {
   createdAt: Date;
 }
 
-export type AuthScreenContext = 'onboarding' | 'first_anchor_gate' | 'save_progress';
+export type AuthScreenContext = 'onboarding' | 'first_anchor_gate' | 'save_progress' | 'paywall';
 export type AuthScreenInitialTab = 'signin' | 'signup';
 
 export interface AuthScreenParams {
