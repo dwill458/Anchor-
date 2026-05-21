@@ -22,6 +22,7 @@ import {
   Animated,
   Dimensions,
   Alert,
+  FlatList,
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -37,11 +38,12 @@ import { OptimizedImage } from '@/components/common/OptimizedImage';
 import { ErrorTrackingService } from '@/services/ErrorTrackingService';
 import { PerformanceMonitoring } from '@/services/PerformanceMonitoring';
 
-const { width: SCREEN_WIDTH } = Dimensions.get('window');
+const { width: screenWidth } = Dimensions.get('window');
+const CIRCLE_SIZE = (screenWidth / 2) - 20;
+const CIRCLE_RADIUS = CIRCLE_SIZE / 2;
 const MAX_VISIBLE_VARIATIONS = 2;
 const ROMAN_NUMERALS = ['I', 'II'] as const;
 const FORM_LABELS = ['Form I', 'Form II'] as const;
-const IMAGE_SIZE = (SCREEN_WIDTH - 44) / 2; // Larger 2-up circles while staying stable on small screens
 const MAX_INLINE_PREVIEW_BYTES = 700_000;
 
 interface VariationAsset {
@@ -346,8 +348,16 @@ export const AIVariationPickerScreen: React.FC = () => {
             ]}
           >
             <Text style={styles.guidanceText}>Trust your first instinct. Choose the form that feels most visceral.</Text>
-            <View style={styles.grid}>
-              {normalizedVariations.map((variation, index) => {
+            <FlatList
+              data={normalizedVariations}
+              numColumns={2}
+              keyExtractor={(item) => item.id}
+              columnWrapperStyle={{
+                justifyContent: 'space-between',
+                paddingHorizontal: 0
+              }}
+              style={{ marginTop: 40, marginBottom: 20, marginHorizontal: -4 }}
+              renderItem={({ item: variation, index }) => {
                 const isSelected = selectedIndex === index;
                 const shouldHydrateImage =
                   !variation.isHeavyInline || hydratedIndexes.has(index) || isSelected;
@@ -364,7 +374,7 @@ export const AIVariationPickerScreen: React.FC = () => {
                     <Animated.View
                       style={[
                         styles.variationCard,
-                        isSelected && styles.variationCardSelected,
+                        isSelected ? styles.variationCardSelected : styles.variationCardUnselected,
                       ]}
                     >
                       {/* Image Container */}
@@ -401,15 +411,16 @@ export const AIVariationPickerScreen: React.FC = () => {
                     <Text
                       style={[
                         styles.variationLabel,
-                        isSelected && styles.variationLabelSelected,
+                        isSelected ? styles.variationLabelSelected : styles.variationLabelUnselected,
                       ]}
                     >
                       {FORM_LABELS[index] ?? `Form ${ROMAN_NUMERALS[index] ?? index + 1}`}
                     </Text>
                   </TouchableOpacity>
                 );
-              })}
-            </View>
+              }}
+              scrollEnabled={false}
+            />
           </Animated.View>
           {/* DEFERRED: Move Symbolic Structure explanation to AnchorDetailScreen v1.1 */}
 
@@ -574,21 +585,24 @@ const styles = StyleSheet.create({
     marginHorizontal: -2,
   },
   variationWrapper: {
-    width: IMAGE_SIZE,
+    flex: 1,
+    alignItems: 'center',
   },
   variationCard: {
-    width: IMAGE_SIZE,
-    aspectRatio: 1,
-    borderRadius: IMAGE_SIZE / 2,
+    width: CIRCLE_SIZE,
+    height: CIRCLE_SIZE,
+    borderRadius: CIRCLE_RADIUS,
     overflow: 'hidden',
-    borderWidth: 1,
-    borderColor: 'rgba(245,245,220,0.12)',
     backgroundColor: colors.charcoal,
     position: 'relative',
   },
   variationCardSelected: {
-    borderColor: '#D4AF37',
     borderWidth: 2.5,
+    borderColor: '#D4AF37',
+  },
+  variationCardUnselected: {
+    borderWidth: 1,
+    borderColor: 'rgba(245,245,220,0.12)',
   },
   imageContainer: {
     flex: 1,
@@ -629,8 +643,8 @@ const styles = StyleSheet.create({
   },
   selectedBadge: {
     position: 'absolute',
-    top: 2,
-    right: 6,
+    top: 4,
+    right: 4,
     width: 24,
     height: 24,
     borderRadius: 12,
@@ -639,9 +653,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   checkIcon: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: colors.charcoal,
+    fontSize: 13,
+    color: '#0F1419',
   },
   selectedGlow: {
     position: 'absolute',
@@ -649,7 +662,7 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     bottom: 0,
-    borderRadius: IMAGE_SIZE / 2,
+    borderRadius: CIRCLE_RADIUS,
     shadowColor: colors.gold,
     shadowOffset: { width: 0, height: 0 },
     shadowOpacity: 0.6,
@@ -659,14 +672,16 @@ const styles = StyleSheet.create({
   variationLabel: {
     fontSize: 13,
     fontFamily: 'Cinzel-Regular',
-    fontWeight: '600',
-    color: 'rgba(245,245,220,0.45)',
     textAlign: 'center',
     marginTop: 10,
   },
   variationLabelSelected: {
     color: '#D4AF37',
     fontWeight: '700',
+  },
+  variationLabelUnselected: {
+    color: 'rgba(245,245,220,0.45)',
+    fontWeight: '600',
   },
   bottomSpacer: {
     flexGrow: 1,

@@ -7,7 +7,7 @@
  */
 
 import React, { useState, useMemo, useCallback, useEffect } from 'react';
-import { View, Text, StyleSheet } from 'react-native';
+import { View, Text, StyleSheet, InteractionManager } from 'react-native';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { useTabNavigation } from '@/contexts/TabNavigationContext';
 import { useAnchorStore } from '../../stores/anchorStore';
@@ -39,6 +39,11 @@ import {
 } from '@/utils/postPrimeTraceEligibility';
 import { useMissingAnchorRedirect } from './utils/useMissingAnchorRedirect';
 import { queueProgressionMilestonesFromStores } from '@/utils/progressionMilestones';
+import {
+  buildRecoveredChargeState,
+  isFirstPrimeForAnchor as isAnchorFirstPrime,
+  needsChargeStateBackfill,
+} from '@/utils/anchorPriming';
 
 type ActivationRouteProp = RouteProp<RootStackParamList, 'ActivationRitual'>;
 
@@ -70,11 +75,8 @@ export const ActivationScreen: React.FC = () => {
   const anchorHeroUri = anchor
     ? anchor.enhancedImageUrl || anchor.reinforcedSigilSvg || anchor.baseSigilSvg || ''
     : '';
-  const isFirstPrimeForAnchor =
-    !anchor?.isCharged &&
-    !anchor?.firstChargedAt &&
-    (anchor?.chargeCount ?? 0) === 0 &&
-    (anchor?.activationCount ?? 0) === 0;
+  const isFirstPrimeForAnchor = isAnchorFirstPrime(anchor);
+  const shouldBackfillChargeState = needsChargeStateBackfill(anchor);
   const isAnchorMissing = !anchor;
 
   useMissingAnchorRedirect(!isAnchorMissing, navigation);
@@ -98,6 +100,7 @@ export const ActivationScreen: React.FC = () => {
   const exitingRef = React.useRef(false);
   const sessionCompletedRef = React.useRef(false);
   const focusSessionExitAudioHandlerRef = React.useRef<(() => Promise<void>) | null>(null);
+  const completionTransitionTaskRef = React.useRef<{ cancel?: () => void } | null>(null);
 
   // Record ground note shown (once, on render — gate already enforces lifetime limit)
   React.useEffect(() => {
@@ -124,21 +127,19 @@ export const ActivationScreen: React.FC = () => {
   const logActivationInBackground = useCallback(async (): Promise<void> => {
     const localActivationTime = new Date();
     const currentActivationCount = anchor?.activationCount ?? 0;
-    const chargedAt = isFirstPrimeForAnchor ? localActivationTime : anchor?.chargedAt;
+    const recoveredChargeState =
+      isFirstPrimeForAnchor
+        ? buildRecoveredChargeState(anchor, localActivationTime, { incrementChargeCount: true })
+        : shouldBackfillChargeState
+          ? buildRecoveredChargeState(anchor, localActivationTime)
+          : null;
     let effectiveAnchorId = anchorId;
     let backendSyncFailed = false;
 
     updateAnchor(anchorId, {
       activationCount: currentActivationCount + 1,
       lastActivatedAt: localActivationTime,
-      ...(isFirstPrimeForAnchor
-        ? {
-            isCharged: true,
-            chargedAt,
-            firstChargedAt: anchor?.firstChargedAt ?? chargedAt,
-            chargeCount: (anchor?.chargeCount ?? 0) + 1,
-          }
-        : {}),
+      ...(recoveredChargeState ?? {}),
     });
 
     incrementTotalPrimes();
@@ -181,13 +182,29 @@ export const ActivationScreen: React.FC = () => {
 
       if (response.data.data) {
         const data = response.data.data;
+        const serverChargeState: Partial<typeof recoveredChargeState> = {};
+
+        if (data.isCharged != null) {
+          serverChargeState.isCharged = data.isCharged;
+        }
+
+        if (data.chargedAt) {
+          serverChargeState.chargedAt = new Date(data.chargedAt);
+        }
+
+        if (data.firstChargedAt) {
+          serverChargeState.firstChargedAt = new Date(data.firstChargedAt);
+        }
+
+        if (data.chargeCount != null) {
+          serverChargeState.chargeCount = data.chargeCount;
+        }
+
         updateAnchor(anchorId, {
           activationCount: data.activationCount,
           lastActivatedAt: data.lastActivatedAt ? new Date(data.lastActivatedAt) : undefined,
-          isCharged: data.isCharged,
-          chargedAt: data.chargedAt ? new Date(data.chargedAt) : undefined,
-          firstChargedAt: data.firstChargedAt ? new Date(data.firstChargedAt) : undefined,
-          chargeCount: data.chargeCount,
+          ...(recoveredChargeState ?? {}),
+          ...serverChargeState,
         });
       }
 
@@ -220,6 +237,7 @@ export const ActivationScreen: React.FC = () => {
     incrementTotalPrimes,
     isPendingFirstAnchor,
     isFirstPrimeForAnchor,
+    shouldBackfillChargeState,
     toast,
     updateAnchor,
   ]);
@@ -235,7 +253,12 @@ export const ActivationScreen: React.FC = () => {
     sessionCompletedRef.current = true;
     setShowPostPrimeTrace(false);
     setShowExitWarning(false);
-    setShowCompletion(true);
+
+    completionTransitionTaskRef.current?.cancel?.();
+    completionTransitionTaskRef.current = InteractionManager.runAfterInteractions(() => {
+      setShowCompletion(true);
+      completionTransitionTaskRef.current = null;
+    });
   }, []);
 
   const handleComplete = useCallback(async () => {
@@ -277,6 +300,12 @@ export const ActivationScreen: React.FC = () => {
       anchorId,
     });
   }, [anchorId, beginPostPrimeTraceFlow, navigation]);
+
+  useEffect(() => {
+    return () => {
+      completionTransitionTaskRef.current?.cancel?.();
+    };
+  }, []);
 
   useEffect(() => {
     if (!pendingPostPrimeFlowId) {
