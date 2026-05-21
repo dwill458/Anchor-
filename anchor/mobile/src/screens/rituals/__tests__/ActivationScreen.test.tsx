@@ -964,6 +964,41 @@ describe('ActivationScreen', () => {
     );
   });
 
+  it('backfills charged state for anchors that already have activation history', async () => {
+    mockIsPostPrimeTraceEligible.mockResolvedValue(true);
+    mockAnchor = createMockAnchor({
+      id: 'test-anchor-id',
+      intentionText: 'I am confident',
+      baseSigilSvg: '<svg></svg>',
+      isCharged: false,
+      activationCount: 3,
+      chargeCount: 0,
+      firstChargedAt: undefined,
+      chargedAt: undefined,
+      lastActivatedAt: new Date('2026-05-19T14:00:00.000Z'),
+    });
+    mockGetAnchorById.mockReturnValue(mockAnchor);
+
+    const { getByTestId } = render(<ActivationScreen />);
+
+    await waitFor(() => expect(getByTestId('focus-session-continue')).toBeTruthy(), { timeout: 4000 });
+    fireEvent.press(getByTestId('focus-session-continue'));
+
+    await waitFor(() => expect(getByTestId('post-prime-trace-modal')).toBeTruthy());
+    expect(mockIsPostPrimeTraceEligible).toHaveBeenCalled();
+    expect(mockUpdateAnchor).toHaveBeenCalledWith(
+      'test-anchor-id',
+      expect.objectContaining({
+        isCharged: true,
+        chargedAt: expect.any(Date),
+        firstChargedAt: expect.any(Date),
+        chargeCount: 1,
+        activationCount: 4,
+        lastActivatedAt: expect.any(Date),
+      })
+    );
+  });
+
   it('skips post-prime trace into reflection without applying the trace flow', async () => {
     mockIsPostPrimeTraceEligible.mockResolvedValue(true);
 

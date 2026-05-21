@@ -14,6 +14,7 @@ import {
   TouchableOpacity,
   Animated,
   Dimensions,
+  InteractionManager,
 } from 'react-native';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { useTabNavigation } from '@/contexts/TabNavigationContext';
@@ -89,7 +90,9 @@ export const ChargeCompleteScreen: React.FC = () => {
       if (shouldOffer) {
         setShowPostPrimeTrace(true);
       } else {
-        setShowCompletion(true);
+        InteractionManager.runAfterInteractions(() => {
+          setShowCompletion(true);
+        });
       }
     }
     checkEligibility();
@@ -97,7 +100,9 @@ export const ChargeCompleteScreen: React.FC = () => {
 
   const handleSkipPostPrimeTrace = () => {
     setShowPostPrimeTrace(false);
-    setShowCompletion(true);
+    InteractionManager.runAfterInteractions(() => {
+      setShowCompletion(true);
+    });
   };
 
   const handleBeginPostPrimeTrace = async () => {
@@ -139,7 +144,9 @@ export const ChargeCompleteScreen: React.FC = () => {
       });
     }
 
-    setShowCompletion(true);
+    InteractionManager.runAfterInteractions(() => {
+      setShowCompletion(true);
+    });
   }, [
     activeFlow,
     anchorId,

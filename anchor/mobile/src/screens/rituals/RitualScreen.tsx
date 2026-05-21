@@ -50,6 +50,7 @@ import { CompletionModal } from './components/CompletionModal';
 import { TIMING, EASING } from './utils/transitionConstants';
 import * as Speech from 'expo-speech';
 import { navigateToVaultDestination } from '@/navigation/firstAnchorGate';
+import { isFirstPrimeForAnchor as isAnchorFirstPrime } from '@/utils/anchorPriming';
 import { useNotificationController } from '@/hooks/useNotificationController';
 import { AnalyticsService } from '@/services/AnalyticsService';
 import { PostPrimeTraceModal } from './components/PostPrimeTraceModal';
@@ -67,65 +68,18 @@ import { queueProgressionMilestonesFromStores } from '@/utils/progressionMilesto
 // This avoids the previous mount-on-nonzero "pop in" and the per-segment Animated.timing
 // race that produced juddery, stalled timer animation on the deep prime screen.
 const DeepPhaseSegment = ({
-  isActive,
-  isCurrent,
+  progressAnim,
+  startProgress,
+  endProgress,
   isPast,
-  phaseElapsed,
-  durationSeconds,
 }: {
-  isActive: boolean;
-  isCurrent: boolean;
+  progressAnim: Animated.Value;
+  startProgress: number;
+  endProgress: number;
   isPast: boolean;
-  phaseElapsed: number;
-  durationSeconds: number;
 }) => {
-  const segmentProgressAnim = useRef(new Animated.Value(0)).current;
-
-  useEffect(() => {
-    if (isPast) {
-      segmentProgressAnim.setValue(1);
-      return;
-    }
-    if (!isCurrent) {
-      segmentProgressAnim.setValue(0);
-      return;
-    }
-
-    const totalDuration = Math.max(1, durationSeconds);
-    const expectedProgress = Math.min(1, Math.max(0, phaseElapsed / totalDuration));
-    const remainingSeconds = totalDuration - phaseElapsed;
-
-    if (!isActive) {
-      segmentProgressAnim.stopAnimation();
-      segmentProgressAnim.setValue(expectedProgress);
-      return;
-    }
-
-    segmentProgressAnim.stopAnimation((currentVal) => {
-      const startVal =
-        Math.abs(currentVal - expectedProgress) > 0.05 ? expectedProgress : currentVal;
-      segmentProgressAnim.setValue(startVal);
-
-      if (remainingSeconds <= 0) {
-        segmentProgressAnim.setValue(1);
-        return;
-      }
-
-      Animated.timing(segmentProgressAnim, {
-        toValue: 1,
-        duration: remainingSeconds * 1000,
-        easing: Easing.linear,
-        useNativeDriver: false,
-      }).start();
-    });
-
-    return () => {
-      segmentProgressAnim.stopAnimation();
-    };
-  }, [isActive, isCurrent, isPast, phaseElapsed, durationSeconds, segmentProgressAnim]);
-
-  const widthAnim = segmentProgressAnim.interpolate({
-    inputRange: [0, 1],
+  const widthAnim = progressAnim.interpolate({
+    inputRange: [startProgress, endProgress],
     outputRange: ['0%', '100%'],
     extrapolate: 'clamp',
   });
@@ -328,10 +282,7 @@ export const RitualScreen: React.FC = () => {
   const sigilSvg = anchor?.reinforcedSigilSvg ?? anchor?.baseSigilSvg ?? '';
   const isAnchorMissing = !anchor;
   const isPendingFirstAnchor = pendingFirstAnchorDraft?.tempAnchorId === anchorId;
-  const isFirstPrimeForAnchor =
-    !anchor?.isCharged &&
-    !anchor?.firstChargedAt &&
-    (anchor?.chargeCount ?? 0) === 0;
+  const isFirstPrimeForAnchor = isAnchorFirstPrime(anchor);
 
   const [reduceMotionEnabled, setReduceMotionEnabled] = useState(false);
   const [showExitWarning, setShowExitWarning] = useState(false);
@@ -348,6 +299,8 @@ export const RitualScreen: React.FC = () => {
   const deepArtworkScale = deepArtworkFrameSize / 340;
   const landingArtworkFrameSize = isVeryCompactHeight ? 252 : isCompactHeight ? 288 : 340;
   const landingArtworkScale = landingArtworkFrameSize / 340;
+  const deepSigilSize = SYMBOL_SIZE / deepArtworkScale;
+  const deepLandingSigilSize = SYMBOL_SIZE / landingArtworkScale;
 
   useMissingAnchorRedirect(!isAnchorMissing, navigation);
 
@@ -931,7 +884,9 @@ export const RitualScreen: React.FC = () => {
 
   const handleSkipPostPrimeTrace = useCallback(() => {
     setShowPostPrimeTrace(false);
-    setShowCompletion(true);
+    InteractionManager.runAfterInteractions(() => {
+      setShowCompletion(true);
+    });
   }, []);
 
   const handleBeginPostPrimeTrace = useCallback(async () => {
@@ -973,7 +928,9 @@ export const RitualScreen: React.FC = () => {
       });
     }
 
-    setShowCompletion(true);
+    InteractionManager.runAfterInteractions(() => {
+      setShowCompletion(true);
+    });
   }, [
     activeFlow,
     anchorId,
@@ -1530,7 +1487,12 @@ export const RitualScreen: React.FC = () => {
                       <Animated.View
                         style={[
                           styles.deepSigilContainer,
-                          { transform: [{ translateY: deepSigilTranslateY }] },
+                          {
+                            width: deepLandingSigilSize,
+                            height: deepLandingSigilSize,
+                            borderRadius: deepLandingSigilSize / 2,
+                            transform: [{ translateY: deepSigilTranslateY }],
+                          },
                         ]}
                       >
                         <LinearGradient
@@ -1559,11 +1521,18 @@ export const RitualScreen: React.FC = () => {
                         {anchor.enhancedImageUrl ? (
                           <OptimizedImage
                             uri={anchor.enhancedImageUrl}
-                            style={[styles.symbolImage, styles.deepSigilImage]}
+                            style={[
+                              styles.symbolImage,
+                              {
+                                width: deepLandingSigilSize,
+                                height: deepLandingSigilSize,
+                                borderRadius: deepLandingSigilSize / 2,
+                              },
+                            ]}
                             resizeMode="cover"
                           />
                         ) : (
-                          <SigilSvg xml={sigilSvg} width={240} height={240} />
+                          <SigilSvg xml={sigilSvg} width={deepLandingSigilSize} height={deepLandingSigilSize} />
                         )}
                       </Animated.View>
                     </View>
@@ -1660,11 +1629,10 @@ export const RitualScreen: React.FC = () => {
                   return (
                     <View key={`phase-segment-${index}`} style={styles.deepPhaseTrackSegment}>
                       <DeepPhaseSegment
-                        isActive={state.isActive}
-                        isCurrent={index === activePhaseIndex}
+                        progressAnim={progressAnim}
+                        startProgress={phaseProgressRanges[index].startProgress}
+                        endProgress={phaseProgressRanges[index].endProgress}
                         isPast={index < activePhaseIndex}
-                        phaseElapsed={state.phaseElapsed}
-                        durationSeconds={phase.durationSeconds}
                       />
                     </View>
                   );
@@ -1867,6 +1835,9 @@ export const RitualScreen: React.FC = () => {
                       style={[
                         styles.deepSigilContainer,
                         {
+                          width: deepSigilSize,
+                          height: deepSigilSize,
+                          borderRadius: deepSigilSize / 2,
                           transform: [{ translateY: deepSigilTranslateY }, { scale: deepSigilScale }],
                         },
                       ]}
@@ -1897,11 +1868,18 @@ export const RitualScreen: React.FC = () => {
                       {anchor.enhancedImageUrl ? (
                         <OptimizedImage
                           uri={anchor.enhancedImageUrl}
-                          style={[styles.symbolImage, styles.deepSigilImage]}
+                          style={[
+                            styles.symbolImage,
+                            {
+                              width: deepSigilSize,
+                              height: deepSigilSize,
+                              borderRadius: deepSigilSize / 2,
+                            },
+                          ]}
                           resizeMode="cover"
                         />
                       ) : (
-                        <SigilSvg xml={sigilSvg} width={240} height={240} />
+                        <SigilSvg xml={sigilSvg} width={deepSigilSize} height={deepSigilSize} />
                       )}
                     </Animated.View>
                   </View>
