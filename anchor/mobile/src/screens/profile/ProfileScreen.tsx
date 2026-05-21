@@ -29,7 +29,8 @@ import type { ApiResponse, Anchor, User } from '@/types';
 
 const CARD_RADIUS = 16;
 const GRID_GAP = 10;
-const TRACK_SEGMENTS = 18;
+const RANK_PIPS = 8;
+const DEPTH_SEGMENTS = 20;
 
 const MARK_SEAL_XML = `
   <svg viewBox="0 0 44 44" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -78,12 +79,12 @@ const SegmentedTrack: React.FC<{
   color: string;
 }> = ({ progress, color }) => (
   <View style={styles.segmentRow}>
-    {Array.from({ length: TRACK_SEGMENTS }).map((_, index) => (
+    {Array.from({ length: DEPTH_SEGMENTS }).map((_, index) => (
       <View
         key={index}
         style={[
           styles.segment,
-          index < Math.round(progress * TRACK_SEGMENTS)
+          index < Math.round(progress * DEPTH_SEGMENTS)
             ? {
                 backgroundColor: color,
                 borderColor: withAlpha(color, 0.7),
@@ -332,133 +333,82 @@ export const ProfileScreen: React.FC = () => {
             ]}
           >
             <CardMetaRow label="RANK" />
-            <Text style={styles.rankName}>{progression.rank.currentName}</Text>
-            <View style={styles.rankProgressSection}>
-              <View style={styles.rankTrack}>
+            <View style={styles.rankHead}>
+              <Text style={styles.rankName}>{progression.rank.currentName}</Text>
+              {!progression.rank.isMax ? (
+                <Text style={styles.rankNext}>{progression.rank.guidance}</Text>
+              ) : null}
+            </View>
+            <View style={styles.pipRow}>
+              {Array.from({ length: RANK_PIPS }).map((_, index) => (
                 <View
+                  key={index}
                   style={[
-                    styles.rankFill,
-                    {
-                      width: `${Math.min(
-                        progression.rank.progress * 100,
-                        100
-                      )}%` as any,
-                    },
+                    styles.pip,
+                    index < Math.round(progression.rank.progress * RANK_PIPS)
+                      ? styles.pipOn
+                      : null,
                   ]}
                 />
-                <View
-                  style={[
-                    styles.rankThumb,
-                    {
-                      left: `${Math.min(
-                        progression.rank.progress * 100,
-                        100
-                      )}%` as any,
-                    },
-                  ]}
-                />
-              </View>
-              <View style={styles.milestoneRow}>
-                {progression.rank.tiers.map((tier) => (
-                  <View key={tier.name} style={styles.milestoneTick}>
-                    <View
-                      style={[
-                        styles.milestoneTickBar,
-                        tier.isReached
-                          ? styles.milestoneTickBarReached
-                          : null,
-                        tier.isCurrent
-                          ? styles.milestoneTickBarCurrent
-                          : null,
-                      ]}
-                    />
-                    <Text
-                      style={[
-                        styles.milestoneLabel,
-                        tier.isReached ? styles.milestoneLabelReached : null,
-                        tier.isCurrent ? styles.milestoneLabelCurrent : null,
-                      ]}
-                    >
-                      {tier.name}
-                    </Text>
-                  </View>
+              ))}
+            </View>
+            <View style={styles.rankSpine}>
+              <View style={styles.rankTierRow}>
+                {(['Initiate', 'Practitioner', 'Architect', 'Sovereign'] as const).map((name) => (
+                  <Text
+                    key={name}
+                    style={[
+                      styles.rankTierText,
+                      name === progression.rank.currentName ? styles.rankTierTextActive : null,
+                    ]}
+                  >
+                    {name}
+                  </Text>
                 ))}
               </View>
-            </View>
-            <View style={styles.rankCaptionWrap}>
-              <Text style={styles.rankCaption}>{progression.rank.guidance}</Text>
             </View>
           </CardShell>
         </Pressable>
 
-        {/* Deepest practice card */}
+        {/* Deepest Practice card */}
         <Pressable onPress={() => setProgressionSheetVisible(true)}>
           <CardShell>
             <CardMetaRow label="DEEPEST PRACTICE" />
             {progression.deepestPractice.empty ? (
               <View style={styles.emptyDepthState}>
-                <Text style={styles.emptyDepthTitle}>
-                  {progression.deepestPractice.title}
-                </Text>
-                <Text style={styles.emptyDepthSubtitle}>
-                  {progression.deepestPractice.subtitle}
-                </Text>
+                <Text style={styles.emptyDepthTitle}>{progression.deepestPractice.title}</Text>
+                <Text style={styles.emptyDepthSubtitle}>{progression.deepestPractice.subtitle}</Text>
               </View>
             ) : (
               <>
-                <View style={styles.depthHeaderRow}>
-                  <Text
-                    style={[
-                      styles.depthTierName,
-                      { color: progression.deepestPractice.tierColor },
-                    ]}
-                  >
-                    {progression.deepestPractice.tierName}
-                  </Text>
-                  <View style={styles.depthSigilTile}>
-                    {progression.deepestPractice.artworkUri ? (
-                      <OptimizedImage
-                        uri={progression.deepestPractice.artworkUri}
-                        style={styles.depthSigilImage}
-                        resizeMode="cover"
-                      />
-                    ) : progression.deepestPractice.sigilXml ? (
-                      <SvgXml
-                        xml={progression.deepestPractice.sigilXml}
-                        width={36}
-                        height={36}
-                      />
-                    ) : null}
-                    <View style={styles.depthSigilBadge}>
-                      <Text style={styles.depthSigilBadgeText}>
-                        {progression.activeAnchors}
-                      </Text>
-                    </View>
+                <View style={styles.depthHead}>
+                  <View style={styles.depthLevelWrap}>
+                    <Text
+                      style={[
+                        styles.depthLevel,
+                        { color: progression.deepestPractice.tierColor },
+                      ]}
+                    >
+                      {progression.deepestPractice.tierName}
+                    </Text>
+                    <Text style={styles.depthAnchorTitle} numberOfLines={1}>
+                      {progression.deepestPractice.title}
+                    </Text>
+                  </View>
+                  <View style={styles.depthPrimeWrap}>
+                    <Text style={styles.depthPrimeBig}>
+                      {progression.deepestPractice.stats.primes}
+                    </Text>
+                    <Text style={styles.depthPrimeSub}>{'primes on\nthis Anchor'}</Text>
                   </View>
                 </View>
-
-                <Text style={styles.depthDesc}>
-                  {progression.deepestPractice.title}
-                </Text>
 
                 <SegmentedTrack
                   progress={progression.deepestPractice.progress}
                   color={progression.deepestPractice.tierColor}
                 />
 
-                <View style={styles.depthFooterRow}>
-                  <Text style={styles.depthGuidance}>
-                    {progression.deepestPractice.guidance}
-                  </Text>
-                  <View style={styles.depthPrimeCountWrap}>
-                    <Text style={styles.depthPrimeCount}>
-                      {progression.deepestPractice.stats.primes}
-                    </Text>
-                    <Text style={styles.depthPrimeCountLabel}>
-                      total primes
-                    </Text>
-                  </View>
-                </View>
+                <Text style={styles.depthHint}>{progression.deepestPractice.guidance}</Text>
               </>
             )}
           </CardShell>
@@ -725,90 +675,71 @@ const styles = StyleSheet.create({
     letterSpacing: 1.8,
   },
   // Rank card
+  rankHead: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 8,
+    marginBottom: 13,
+  },
   rankName: {
     fontFamily: typography.fontFamily.serifSemiBold,
-    fontSize: 28,
-    color: colors.bone,
+    fontSize: 26,
+    color: colors.silver,
+    lineHeight: 28,
   },
-  rankProgressSection: {
-    gap: 8,
-  },
-  rankTrack: {
-    height: 2,
-    backgroundColor: withAlpha(colors.white, 0.07),
-    borderRadius: 999,
-    position: 'relative',
-  },
-  rankFill: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    bottom: 0,
-    borderRadius: 999,
-    backgroundColor: colors.gold,
-    shadowColor: colors.gold,
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.4,
-    shadowRadius: 5,
-  },
-  rankThumb: {
-    position: 'absolute',
-    top: '50%' as any,
-    marginTop: -4.5,
-    marginLeft: -4.5,
-    width: 9,
-    height: 9,
-    borderRadius: 4.5,
-    backgroundColor: colors.gold,
-    borderWidth: 1.5,
-    borderColor: colors.black,
-    shadowColor: colors.gold,
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.8,
-    shadowRadius: 8,
-  },
-  milestoneRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-  },
-  milestoneTick: {
-    alignItems: 'center',
-    gap: 4,
-  },
-  milestoneTickBar: {
-    width: 1,
-    height: 5,
-    backgroundColor: withAlpha(colors.white, 0.1),
-  },
-  milestoneTickBarReached: {
-    backgroundColor: withAlpha(colors.gold, 0.3),
-  },
-  milestoneTickBarCurrent: {
-    backgroundColor: colors.gold,
-  },
-  milestoneLabel: {
-    fontFamily: typography.fonts.heading,
-    fontSize: 7.5,
-    letterSpacing: 0.5,
-    color: withAlpha(colors.silver, 0.28),
-    textTransform: 'uppercase',
-  },
-  milestoneLabelReached: {
-    color: withAlpha(colors.gold, 0.45),
-  },
-  milestoneLabelCurrent: {
-    color: colors.gold,
-  },
-  rankCaptionWrap: {
-    paddingTop: 10,
-    borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: withAlpha(colors.white, 0.05),
-  },
-  rankCaption: {
+  rankNext: {
     fontFamily: typography.fonts.bodySerifItalic,
     fontStyle: 'italic',
-    fontSize: 13,
-    color: withAlpha(colors.silver, 0.38),
+    fontSize: 12,
+    color: withAlpha(colors.silver, 0.82),
+    textAlign: 'right',
+    flex: 1,
+  },
+  pipRow: {
+    flexDirection: 'row',
+    gap: 5,
+    marginBottom: 10,
+  },
+  pip: {
+    flex: 1,
+    height: 3,
+    borderRadius: 999,
+    backgroundColor: withAlpha(colors.white, 0.07),
+  },
+  pipOn: {
+    backgroundColor: colors.gold,
+    shadowColor: colors.gold,
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+  },
+  rankSpine: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  rankTierRow: {
+    flexDirection: 'row',
+    flex: 1,
+    justifyContent: 'space-between',
+    marginRight: 8,
+    gap: 4,
+  },
+  rankTierText: {
+    fontFamily: typography.fonts.heading,
+    fontSize: 8,
+    letterSpacing: 0.6,
+    color: withAlpha(colors.silver, 0.48),
+    textTransform: 'uppercase',
+  },
+  rankTierTextActive: {
+    color: colors.gold,
+  },
+  rankPrimeLbl: {
+    fontFamily: typography.fonts.heading,
+    fontSize: 10,
+    color: withAlpha(colors.gold, 0.45),
   },
   // Segmented track (depth card)
   segmentRow: {
@@ -823,7 +754,99 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: withAlpha(colors.bone, 0.04),
   },
-  // Empty depth state
+  // Depth card
+  depthHead: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    marginBottom: 14,
+  },
+  depthLevel: {
+    fontFamily: typography.fontFamily.serifSemiBold,
+    fontSize: 24,
+    lineHeight: 28,
+  },
+  depthPrimeWrap: {
+    alignItems: 'flex-end',
+    paddingTop: 4,
+  },
+  depthPrimeBig: {
+    fontFamily: typography.fontFamily.serifBold,
+    fontSize: 28,
+    color: colors.gold,
+    lineHeight: 32,
+    fontWeight: '700' as any,
+  },
+  depthPrimeSub: {
+    ...typography.caption,
+    color: withAlpha(colors.silver, 0.48),
+    marginTop: 2,
+    textAlign: 'right',
+  },
+  depthFooterRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 12,
+    marginBottom: 10,
+  },
+  depthHint: {
+    fontFamily: typography.fonts.bodySerifItalic,
+    fontStyle: 'italic',
+    fontSize: 12,
+    color: withAlpha(colors.silver, 0.82),
+    flex: 1,
+  },
+  depthStatWrap: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  depthStat: {
+    alignItems: 'center',
+    minWidth: 34,
+  },
+  depthStatVal: {
+    fontFamily: typography.fonts.heading,
+    fontSize: 14,
+    color: colors.gold,
+    lineHeight: 16,
+  },
+  depthStatValMuted: {
+    color: withAlpha(colors.silver, 0.52),
+  },
+  depthStatLbl: {
+    ...typography.caption,
+    fontSize: 9,
+    color: withAlpha(colors.silver, 0.48),
+    letterSpacing: 0.5,
+    marginTop: 2,
+  },
+  depthStatDiv: {
+    width: 1,
+    height: 22,
+    backgroundColor: withAlpha(colors.white, 0.06),
+  },
+  depthFine: {
+    fontFamily: typography.fonts.bodySerifItalic,
+    fontStyle: 'italic',
+    fontSize: 10,
+    color: withAlpha(colors.silver, 0.48),
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: withAlpha(colors.white, 0.05),
+    paddingTop: 10,
+  },
+  depthLevelWrap: {
+    flex: 1,
+    marginRight: 8,
+  },
+  depthAnchorTitle: {
+    fontFamily: typography.fonts.bodySerifItalic,
+    fontStyle: 'italic',
+    fontSize: 11,
+    color: withAlpha(colors.silver, 0.52),
+    marginTop: 2,
+  },
   emptyDepthState: {
     minHeight: 118,
     justifyContent: 'center',
@@ -837,75 +860,6 @@ const styles = StyleSheet.create({
   emptyDepthSubtitle: {
     ...typography.body,
     color: withAlpha(colors.bone, 0.78),
-  },
-  // Depth card
-  depthHeaderRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    gap: 16,
-  },
-  depthTierName: {
-    fontFamily: typography.fontFamily.serifSemiBold,
-    fontSize: 24,
-    color: colors.bone,
-    flex: 1,
-  },
-  depthSigilTile: {
-    width: 60,
-    height: 60,
-    borderRadius: 10,
-    backgroundColor: withAlpha(colors.gold, 0.05),
-    borderWidth: 1,
-    borderColor: withAlpha(colors.gold, 0.16),
-    alignItems: 'center',
-    justifyContent: 'center',
-    position: 'relative',
-  },
-  depthSigilImage: {
-    width: 60,
-    height: 60,
-    borderRadius: 9,
-  },
-  depthSigilBadge: {
-    position: 'absolute',
-    top: -7,
-    right: -7,
-    width: 20,
-    height: 20,
-    borderRadius: 10,
-    backgroundColor: colors.gold,
-    alignItems: 'center',
-    justifyContent: 'center',
-    shadowColor: colors.gold,
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.5,
-    shadowRadius: 6,
-  },
-  depthSigilBadgeText: {
-    fontFamily: typography.fonts.headingBold,
-    fontSize: 9,
-    color: colors.black,
-  },
-  depthDesc: {
-    fontFamily: typography.fonts.bodySerif,
-    fontSize: 13,
-    color: withAlpha(colors.silver, 0.38),
-    lineHeight: 20,
-  },
-  depthFooterRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingTop: 10,
-    borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: withAlpha(colors.white, 0.04),
-    gap: 12,
-  },
-  depthGuidance: {
-    ...typography.body,
-    color: withAlpha(colors.bone, 0.78),
-    flex: 1,
   },
   depthPrimeCountWrap: {
     alignItems: 'flex-end',

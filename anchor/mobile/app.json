@@ -28,7 +28,7 @@
       "url": "https://u.expo.dev/8fc5bf55-b18f-41c9-a8ce-767b307debb7"
     },
     "ios": {
-      "supportsTablet": true,
+      "supportsTablet": false,
       "bundleIdentifier": "com.anchorintentions.app",
       "buildNumber": "1",
       "googleServicesFile": "./GoogleService-Info.plist",

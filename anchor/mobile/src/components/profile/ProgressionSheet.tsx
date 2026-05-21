@@ -1,5 +1,7 @@
-import React from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
+  Animated,
+  Easing,
   Modal,
   Pressable,
   ScrollView,
@@ -7,10 +9,15 @@ import {
   Text,
   View,
 } from 'react-native';
-import { LinearGradient } from 'expo-linear-gradient';
 import { useProgressionData } from '@/hooks/useProgressionData';
+import {
+  backfillMilestoneDates,
+  checkAndRecordMilestones,
+  getMilestoneDates,
+} from '@/utils/milestoneTracking';
 import { colors, spacing, typography } from '@/theme';
 import { withAlpha } from '@/utils/color';
+import type { MilestoneDates } from '@/utils/milestoneTracking';
 import type { RequirementStatus } from '@/utils/progression';
 
 interface ProgressionSheetProps {
@@ -18,38 +25,315 @@ interface ProgressionSheetProps {
   onClose: () => void;
 }
 
-function formatRequirement(requirement: RequirementStatus): string {
-  return `${requirement.current}/${requirement.required} ${requirement.label}`;
+// Formats unmet requirements for the "next" tier, or full requirements for others.
+function buildTierThresholdText(
+  requirements: RequirementStatus[],
+  isNext: boolean,
+  isReached: boolean,
+  achievedDate: string | null
+): string {
+  if (requirements.length === 0) {
+    return 'Starting tier';
+  }
+
+  const allReqText = requirements
+    .map((r) => `${r.required} ${r.shortLabel}`)
+    .join(' · ');
+
+  if (isReached) {
+    if (achievedDate === 'pre-launch') return `${allReqText} · Before tracking`;
+    if (achievedDate) return `${allReqText} · ${achievedDate}`;
+    return allReqText;
+  }
+
+  if (isNext) {
+    const unmet = requirements.filter((r) => !r.met);
+    if (unmet.length > 0) {
+      return unmet
+        .map((r) => `${r.required - r.current} ${r.shortLabel} away`)
+        .join(' · ');
+    }
+  }
+
+  return allReqText;
 }
 
-const RequirementRow: React.FC<{ requirement: RequirementStatus }> = ({
-  requirement,
-}) => (
-  <View style={styles.requirementRow}>
-    <Text
-      style={[
-        styles.requirementCheck,
-        requirement.met ? styles.requirementCheckMet : styles.requirementCheckUnmet,
-      ]}
-    >
-      {requirement.met ? '✓' : '○'}
-    </Text>
-    <Text
-      style={[
-        styles.requirementText,
-        requirement.met ? styles.requirementTextMet : null,
-      ]}
-    >
-      {formatRequirement(requirement)}
-    </Text>
-  </View>
-);
+// ─── ProgressTrack ────────────────────────────────────────────────────────────
+// Renders an animated progress bar with evenly-spaced tier dots and labels.
+// `targetFillPct` (0–100) is the resting position; `fillAnim` animates toward it.
+
+const ProgressTrack: React.FC<{
+  label: string;
+  posLabel: string;
+  tierNames: readonly string[];
+  currentTierIndex: number;
+  targetFillPct: number;
+  isDepth?: boolean;
+  fillAnim: Animated.Value;
+  pulseAnim: Animated.Value;
+}> = ({
+  label,
+  posLabel,
+  tierNames,
+  currentTierIndex,
+  targetFillPct,
+  isDepth,
+  fillAnim,
+  pulseAnim,
+}) => {
+  const n = tierNames.length;
+  const dotsPositions = tierNames.map((_, idx) =>
+    n <= 1 ? 0 : (idx / (n - 1)) * 100
+  );
+
+  const safeTarget = Math.max(targetFillPct, 0.01);
+
+  const fillWidth = fillAnim.interpolate({
+    inputRange: [0, safeTarget],
+    outputRange: ['0%', `${targetFillPct}%`],
+    extrapolate: 'clamp',
+  });
+
+  const cursorScale = pulseAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: [1, 1.3],
+  });
+
+  return (
+    <View style={styles.trackBlock}>
+      <View style={styles.trackHd}>
+        <Text style={styles.trackSysLbl}>{label}</Text>
+        <Text style={styles.trackPosLbl}>{posLabel}</Text>
+      </View>
+
+      <View style={styles.trackBar}>
+        <View style={styles.trackBg} />
+
+        <Animated.View style={[styles.trackFillWrap, { width: fillWidth }]}>
+          <View style={styles.trackFill} />
+        </Animated.View>
+
+        {dotsPositions.map((dotPct, idx) => (
+          <View
+            key={idx}
+            style={[
+              isDepth ? styles.trackDotSq : styles.trackDot,
+              idx <= currentTierIndex
+                ? styles.trackDotReached
+                : styles.trackDotUnreached,
+              { left: `${dotPct}%` as any },
+            ]}
+          />
+        ))}
+
+        <Animated.View
+          style={[
+            styles.trackCursor,
+            {
+              left: `${targetFillPct}%` as any,
+              opacity: pulseAnim,
+              transform: [{ scale: cursorScale }],
+            },
+          ]}
+        />
+      </View>
+
+      <View style={styles.trackLabels}>
+        {tierNames.map((name, idx) => (
+          <View
+            key={name}
+            style={[
+              styles.trackLabelItem,
+              { left: `${dotsPositions[idx]}%` as any },
+              idx === n - 1 ? styles.trackLabelItemLast : null,
+            ]}
+          >
+            <View style={styles.trackTick} />
+            <Text
+              style={[
+                styles.trackLabelTxt,
+                idx <= currentTierIndex ? styles.trackLabelTxtReached : null,
+                idx === currentTierIndex ? styles.trackLabelTxtCurrent : null,
+              ]}
+            >
+              {name}
+            </Text>
+          </View>
+        ))}
+      </View>
+    </View>
+  );
+};
+
+// ─── TierRow ──────────────────────────────────────────────────────────────────
+
+const TierRow: React.FC<{
+  tier: { name: string; color: string; copy: string };
+  isCurrent: boolean;
+  isReached: boolean;
+  isNext: boolean;
+  achievedDate: string | null;
+  requirements: RequirementStatus[];
+  isDepth?: boolean;
+}> = ({
+  tier,
+  isCurrent,
+  isReached,
+  isNext,
+  achievedDate,
+  requirements,
+  isDepth,
+}) => {
+  const thresholdText = buildTierThresholdText(
+    requirements,
+    isNext,
+    isReached,
+    achievedDate
+  );
+
+  return (
+    <View style={[styles.tierRow, !isReached ? styles.tierRowUnreached : null]}>
+      <View
+        style={[
+          isDepth ? styles.tierDotSq : styles.tierDot,
+          {
+            backgroundColor: isReached ? tier.color : 'rgba(255,255,255,0.12)',
+            borderColor: isReached ? tier.color : 'transparent',
+          },
+        ]}
+      />
+      <View style={styles.tierBody}>
+        <View style={styles.tierName}>
+          <Text style={[styles.tierNameText, { color: tier.color }]}>
+            {tier.name}
+          </Text>
+          {isCurrent ? (
+            <Text style={styles.tierBadge}>CURRENT</Text>
+          ) : null}
+        </View>
+        <Text style={styles.tierCopy}>{tier.copy}</Text>
+        <Text style={styles.tierThreshold}>{thresholdText}</Text>
+      </View>
+    </View>
+  );
+};
+
+// ─── ProgressionSheet ─────────────────────────────────────────────────────────
 
 export const ProgressionSheet: React.FC<ProgressionSheetProps> = ({
   visible,
   onClose,
 }) => {
   const progression = useProgressionData();
+  const [milestoneDates, setMilestoneDates] = useState<MilestoneDates>({
+    rank: {},
+    mark: {},
+  });
+  const [milestoneDatesLoaded, setMilestoneDatesLoaded] = useState(false);
+
+  const rankFillAnim = useRef(new Animated.Value(0)).current;
+  const depthFillAnim = useRef(new Animated.Value(0)).current;
+  const pulseAnim = useRef(new Animated.Value(0.4)).current;
+  const pulseLoopRef = useRef<Animated.CompositeAnimation | null>(null);
+
+  const rankFillPct = progression.rank.progress * 100;
+  const depthFillPct = progression.deepestPractice.empty
+    ? 0
+    : progression.deepestPractice.progress * 100;
+
+  // Load multi-factor milestone dates when sheet opens
+  useEffect(() => {
+    if (!visible) return;
+
+    const loadDates = async () => {
+      const metrics = {
+        totalPrimes: progression.totalPrimes,
+        practiceDays: progression.practiceDays,
+        releasedAnchors: progression.releasedAnchors,
+      };
+      await backfillMilestoneDates(metrics);
+      await checkAndRecordMilestones(metrics);
+      const dates = await getMilestoneDates();
+      setMilestoneDates(dates);
+      setMilestoneDatesLoaded(true);
+    };
+
+    loadDates();
+  }, [
+    visible,
+    progression.totalPrimes,
+    progression.practiceDays,
+    progression.releasedAnchors,
+  ]);
+
+  // Animate tracks on open; reset on close
+  useEffect(() => {
+    if (!visible) {
+      rankFillAnim.setValue(0);
+      depthFillAnim.setValue(0);
+      pulseLoopRef.current?.stop();
+      setMilestoneDatesLoaded(false);
+      return;
+    }
+
+    pulseLoopRef.current = Animated.loop(
+      Animated.sequence([
+        Animated.timing(pulseAnim, {
+          toValue: 0.9,
+          duration: 2500,
+          easing: Easing.inOut(Easing.sin),
+          useNativeDriver: false,
+        }),
+        Animated.timing(pulseAnim, {
+          toValue: 0.4,
+          duration: 2500,
+          easing: Easing.inOut(Easing.sin),
+          useNativeDriver: false,
+        }),
+      ])
+    );
+    pulseLoopRef.current.start();
+
+    const fillTimer = setTimeout(() => {
+      Animated.parallel([
+        Animated.timing(rankFillAnim, {
+          toValue: rankFillPct,
+          duration: 800,
+          easing: Easing.out(Easing.cubic),
+          useNativeDriver: false,
+        }),
+        Animated.timing(depthFillAnim, {
+          toValue: depthFillPct,
+          duration: 800,
+          easing: Easing.out(Easing.cubic),
+          useNativeDriver: false,
+        }),
+      ]).start();
+    }, 200);
+
+    return () => {
+      clearTimeout(fillTimer);
+    };
+  }, [
+    visible,
+    rankFillPct,
+    depthFillPct,
+    rankFillAnim,
+    depthFillAnim,
+    pulseAnim,
+  ]);
+
+  const rankTiers = progression.rank.tiers;
+  const depthTiers = progression.deepestPractice.tiers;
+
+  const rankCurrentIdx = rankTiers.findIndex((t) => t.isCurrent);
+  const depthCurrentIdx = depthTiers.findIndex((t) => t.isCurrent);
+
+  const rankTierNames = rankTiers.map((t) => t.name);
+  const depthTierNames = depthTiers.map((t) => t.name);
+
+  const nextRankName = rankTiers.find((t) => !t.isReached)?.name ?? null;
+  const nextDepthName = depthTiers.find((t) => !t.isReached)?.name ?? null;
 
   if (!visible) {
     return null;
@@ -66,197 +350,145 @@ export const ProgressionSheet: React.FC<ProgressionSheetProps> = ({
         <Pressable style={styles.overlay} onPress={onClose} />
 
         <View style={styles.sheet}>
-          <View style={styles.sheetHeader}>
-            <View style={styles.handle} />
-            <Pressable onPress={onClose} hitSlop={12} style={styles.closeButton}>
-              <Text style={styles.closeLabel}>✕</Text>
-            </Pressable>
-          </View>
+          <View style={styles.sheetHandle} />
 
           <ScrollView
-            style={styles.scrollView}
-            contentContainerStyle={styles.scrollContent}
+            style={styles.sheetScroll}
             showsVerticalScrollIndicator={false}
           >
-            <View style={styles.header}>
-              <Text style={styles.title}>Your Progression</Text>
-              <Text style={styles.subtitle}>
-                Your private practice is taking shape.
-              </Text>
+            {/* Header */}
+            <View style={styles.shHeader}>
+              <Text style={styles.shTitle}>Your Progression</Text>
+              <Text style={styles.shSub}>Every prime compounds. None are lost.</Text>
             </View>
 
-            <LinearGradient
-              colors={[withAlpha(colors.purple, 0.42), withAlpha(colors.navy, 0.94)]}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 1 }}
-              style={styles.summaryCard}
-            >
+            {/* Hero: total primes + rank guidance */}
+            <View style={styles.shHero}>
               <View>
-                <Text style={styles.summaryLabel}>RANK</Text>
-                <Text
-                  style={[styles.summaryValue, { color: progression.rank.color }]}
-                >
-                  {progression.rank.currentName}
+                <Text style={styles.shPrimeCount}>{progression.totalPrimes}</Text>
+                <Text style={styles.shPrimeLbl}>TOTAL PRIMES</Text>
+              </View>
+              <View style={styles.shAside}>
+                <Text style={styles.shAsideName} numberOfLines={4}>
+                  {progression.rank.isMax
+                    ? 'Highest rank reached'
+                    : progression.rank.guidance}
                 </Text>
-                <Text style={styles.summaryCopy}>{progression.rank.description}</Text>
               </View>
-              <View style={styles.summaryDivider} />
-              <View style={styles.summaryStats}>
-                <Text style={styles.summaryStat}>{`${progression.practiceDays} practice days`}</Text>
-                <Text style={styles.summaryStat}>{`${progression.totalPrimes} total primes`}</Text>
-                <Text style={styles.summaryStat}>{`${progression.releasedAnchors} released anchors`}</Text>
-              </View>
-            </LinearGradient>
-
-            <View style={styles.section}>
-              <Text style={styles.sectionLabel}>RANK</Text>
-              {progression.rank.tiers.map((tier) => (
-                <View
-                  key={tier.name}
-                  style={[
-                    styles.tierCard,
-                    tier.isCurrent ? styles.tierCardCurrent : null,
-                  ]}
-                >
-                  <View style={styles.tierHeader}>
-                    <View style={styles.tierTitleWrap}>
-                      <Text style={[styles.tierTitle, { color: tier.color }]}>
-                        {tier.name}
-                      </Text>
-                      {tier.isCurrent ? (
-                        <Text style={styles.currentBadge}>Current</Text>
-                      ) : null}
-                    </View>
-                    {tier.isReached ? (
-                      <Text style={styles.tierReached}>Reached</Text>
-                    ) : null}
-                  </View>
-                  <Text style={styles.tierDescription}>{tier.description}</Text>
-                  {tier.requirements.length > 0 ? (
-                    <View style={styles.requirementsBlock}>
-                      {tier.requirements.map((requirement) => (
-                        <RequirementRow
-                          key={`${tier.name}-${requirement.key}`}
-                          requirement={requirement}
-                        />
-                      ))}
-                    </View>
-                  ) : (
-                    <Text style={styles.beginningCopy}>
-                      Beginning state of the practice.
-                    </Text>
-                  )}
-                </View>
-              ))}
             </View>
 
-            <View style={styles.section}>
-              <Text style={styles.sectionLabel}>DEEPEST PRACTICE</Text>
-              {progression.deepestPractice.empty ? (
-                <View style={styles.tierCard}>
-                  <Text style={styles.tierTitle}>
-                    {progression.deepestPractice.title}
-                  </Text>
-                  <Text style={styles.tierDescription}>
-                    {progression.deepestPractice.subtitle}
-                  </Text>
-                </View>
-              ) : (
-                <View style={styles.detailHero}>
-                  <Text style={styles.detailLabel}>ANCHOR IN PRACTICE</Text>
-                  <Text style={styles.detailTitle}>
-                    {progression.deepestPractice.title}
-                  </Text>
-                  <Text
-                    style={[
-                      styles.detailMetric,
-                      { color: progression.deepestPractice.tierColor },
-                    ]}
-                  >
-                    {`${progression.deepestPractice.tierName} · ${progression.deepestPractice.stats.primes} primes`}
-                  </Text>
-                  <Text style={styles.detailDescription}>
-                    {progression.deepestPractice.description}
-                  </Text>
-                </View>
-              )}
+            {/* Tracks */}
+            <View style={styles.shTracks}>
+              <ProgressTrack
+                label="RANK"
+                posLabel={
+                  progression.rank.isMax
+                    ? 'Sovereign'
+                    : nextRankName
+                      ? `to ${nextRankName}`
+                      : ''
+                }
+                tierNames={rankTierNames}
+                currentTierIndex={rankCurrentIdx >= 0 ? rankCurrentIdx : 0}
+                targetFillPct={rankFillPct}
+                fillAnim={rankFillAnim}
+                pulseAnim={pulseAnim}
+              />
 
-              {progression.deepestPractice.tiers.map((tier) => (
-                <View
-                  key={tier.name}
-                  style={[
-                    styles.tierCard,
-                    tier.isCurrent ? styles.tierCardCurrent : null,
-                  ]}
-                >
-                  <View style={styles.tierHeader}>
-                    <View style={styles.tierTitleWrap}>
-                      <Text style={[styles.tierTitle, { color: tier.color }]}>
-                        {tier.name}
-                      </Text>
-                      {tier.isCurrent ? (
-                        <Text style={styles.currentBadge}>Current</Text>
-                      ) : null}
-                    </View>
-                    {tier.isReached ? (
-                      <Text style={styles.tierReached}>Reached</Text>
-                    ) : null}
-                  </View>
-                  <Text style={styles.tierDescription}>{tier.description}</Text>
-                  {tier.requirements.length > 0 ? (
-                    <View style={styles.requirementsBlock}>
-                      {tier.requirements.map((requirement) => (
-                        <RequirementRow
-                          key={`${tier.name}-${requirement.key}`}
-                          requirement={requirement}
-                        />
-                      ))}
-                    </View>
-                  ) : (
-                    <Text style={styles.beginningCopy}>
-                      Default depth before repetition begins.
-                    </Text>
-                  )}
-                </View>
-              ))}
+              <ProgressTrack
+                label="DEEPEST PRACTICE"
+                posLabel={
+                  progression.deepestPractice.empty
+                    ? 'No anchor yet'
+                    : nextDepthName
+                      ? `to ${nextDepthName}`
+                      : 'Maximum depth reached'
+                }
+                tierNames={depthTierNames}
+                currentTierIndex={depthCurrentIdx >= 0 ? depthCurrentIdx : 0}
+                targetFillPct={depthFillPct}
+                isDepth
+                fillAnim={depthFillAnim}
+                pulseAnim={pulseAnim}
+              />
             </View>
 
-            <View style={styles.section}>
-              <Text style={styles.sectionLabel}>NEXT MARK</Text>
-              <View style={styles.detailHero}>
-                <Text style={styles.detailLabel}>CURRENT TARGET</Text>
-                <Text style={styles.detailTitle}>{progression.nextMark.name}</Text>
-                <Text style={styles.detailMetric}>
-                  {`${progression.nextMark.current}/${progression.nextMark.required}`}
-                </Text>
-                <Text style={styles.detailDescription}>
-                  {progression.nextMark.subtitle}
+            <View style={styles.shDivider} />
+
+            {/* Rank tier list */}
+            <View style={styles.shCopySec}>
+              <View style={styles.shCopyHd}>
+                <Text style={styles.shCopyTitle}>RANK</Text>
+                <Text style={styles.shCopyTagline}>
+                  Your standing through depth + consistency
                 </Text>
               </View>
 
-              {progression.nextMark.tiers.map((tier) => (
-                <View
+              {rankTiers.map((tier, idx) => (
+                <TierRow
                   key={tier.name}
-                  style={[
-                    styles.tierCard,
-                    tier.isCurrent ? styles.tierCardCurrent : null,
-                  ]}
-                >
-                  <View style={styles.tierHeader}>
-                    <View style={styles.tierTitleWrap}>
-                      <Text style={styles.tierTitle}>{tier.name}</Text>
-                      {tier.isCurrent ? (
-                        <Text style={styles.currentBadge}>Current</Text>
-                      ) : null}
-                    </View>
-                    {tier.isReached ? (
-                      <Text style={styles.tierReached}>Forged</Text>
-                    ) : null}
-                  </View>
-                  <Text style={styles.tierDescription}>{tier.subtitle}</Text>
-                </View>
+                  tier={{
+                    name: tier.name,
+                    color: tier.color,
+                    copy: tier.description,
+                  }}
+                  isCurrent={tier.isCurrent}
+                  isReached={tier.isReached}
+                  isNext={
+                    !tier.isReached &&
+                    idx === (rankCurrentIdx >= 0 ? rankCurrentIdx : 0) + 1
+                  }
+                  achievedDate={
+                    milestoneDatesLoaded
+                      ? (milestoneDates.rank[
+                          tier.name as keyof typeof milestoneDates.rank
+                        ] ?? null)
+                      : null
+                  }
+                  requirements={tier.requirements}
+                />
               ))}
             </View>
+
+            <View style={styles.shDivider} />
+
+            {/* Deepest Practice tier list */}
+            <View style={styles.shCopySec}>
+              <View style={styles.shCopyHd}>
+                <Text style={styles.shCopyTitle}>DEEPEST PRACTICE</Text>
+                <Text style={styles.shCopyTagline}>
+                  {progression.deepestPractice.empty
+                    ? 'Your relationship with a symbol'
+                    : 'Your relationship with this symbol'}
+                </Text>
+              </View>
+
+              {depthTiers.map((tier, idx) => (
+                <TierRow
+                  key={tier.name}
+                  tier={{
+                    name: tier.name,
+                    color: tier.color,
+                    copy: tier.description,
+                  }}
+                  isCurrent={tier.isCurrent}
+                  isReached={tier.isReached}
+                  isNext={
+                    !tier.isReached &&
+                    idx === (depthCurrentIdx >= 0 ? depthCurrentIdx : 0) + 1
+                  }
+                  achievedDate={null}
+                  requirements={tier.requirements}
+                  isDepth
+                />
+              ))}
+            </View>
+
+            <Text style={styles.shFine}>
+              {progression.deepestPractice.empty
+                ? 'Forge an Anchor to begin deepening a symbol.'
+                : 'Depth on your strongest active Anchor · never resets'}
+            </Text>
           </ScrollView>
         </View>
       </View>
@@ -267,218 +499,314 @@ export const ProgressionSheet: React.FC<ProgressionSheetProps> = ({
 const styles = StyleSheet.create({
   modalRoot: {
     flex: 1,
-    justifyContent: 'flex-end',
   },
   overlay: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(5, 7, 10, 0.72)',
+    backgroundColor: 'rgba(0,0,0,0.72)',
   },
   sheet: {
-    height: '90%',
-    backgroundColor: '#111820',
-    borderTopLeftRadius: 26,
-    borderTopRightRadius: 26,
+    flex: 1,
+    marginTop: 60,
+    backgroundColor: '#131c27',
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
     borderWidth: 1,
     borderBottomWidth: 0,
-    borderColor: withAlpha(colors.gold, 0.14),
-    overflow: 'hidden',
+    borderColor: withAlpha(colors.gold, 0.16),
   },
-  sheetHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingTop: 10,
-    paddingHorizontal: 16,
-    paddingBottom: 4,
-  },
-  handle: {
-    width: 42,
+  sheetHandle: {
+    width: 40,
     height: 4,
-    borderRadius: 2,
-    backgroundColor: withAlpha(colors.gold, 0.35),
-  },
-  closeButton: {
-    position: 'absolute',
-    right: 16,
-    padding: 4,
-  },
-  closeLabel: {
-    ...typography.caption,
-    fontSize: 16,
-    color: withAlpha(colors.silver, 0.6),
-  },
-  scrollView: {
-    flex: 1,
-  },
-  scrollContent: {
-    paddingHorizontal: spacing.lg,
-    paddingTop: spacing.lg,
-    paddingBottom: 36,
-  },
-  header: {
-    marginBottom: spacing.md,
-  },
-  title: {
-    fontFamily: typography.fontFamily.serifSemiBold,
-    fontSize: 24,
-    color: colors.bone,
-    marginBottom: 4,
-  },
-  subtitle: {
-    ...typography.body,
-    color: withAlpha(colors.bone, 0.78),
-  },
-  summaryCard: {
-    borderRadius: 18,
-    padding: spacing.md,
-    borderWidth: 1,
-    borderColor: withAlpha(colors.gold, 0.12),
-    marginBottom: spacing.lg,
-  },
-  summaryLabel: {
-    ...typography.caption,
-    color: withAlpha(colors.gold, 0.72),
-    letterSpacing: 1.4,
-    textTransform: 'uppercase',
-  },
-  summaryValue: {
-    fontFamily: typography.fontFamily.serifSemiBold,
-    fontSize: 28,
-    marginTop: 6,
-  },
-  summaryCopy: {
-    ...typography.body,
-    color: withAlpha(colors.bone, 0.82),
-    marginTop: 6,
-  },
-  summaryDivider: {
-    height: 1,
-    backgroundColor: withAlpha(colors.gold, 0.12),
-    marginVertical: 14,
-  },
-  summaryStats: {
-    gap: 4,
-  },
-  summaryStat: {
-    ...typography.body,
-    color: withAlpha(colors.silver, 0.82),
-  },
-  section: {
-    marginBottom: spacing.lg,
-  },
-  sectionLabel: {
-    ...typography.caption,
-    color: withAlpha(colors.gold, 0.72),
-    textTransform: 'uppercase',
-    letterSpacing: 1.8,
-    marginBottom: spacing.sm,
-  },
-  detailHero: {
-    borderRadius: 18,
-    padding: spacing.md,
-    backgroundColor: withAlpha(colors.ritual.glassStrong, 0.96),
-    borderWidth: 1,
-    borderColor: withAlpha(colors.gold, 0.12),
-    marginBottom: spacing.sm,
-  },
-  detailLabel: {
-    ...typography.caption,
-    color: withAlpha(colors.silver, 0.72),
-    letterSpacing: 1.1,
-    textTransform: 'uppercase',
-  },
-  detailTitle: {
-    fontFamily: typography.fontFamily.serifSemiBold,
-    fontSize: 22,
-    color: colors.bone,
-    marginTop: 6,
-  },
-  detailMetric: {
-    ...typography.bodyBold,
-    color: colors.gold,
-    marginTop: 6,
-  },
-  detailDescription: {
-    ...typography.body,
-    color: withAlpha(colors.bone, 0.8),
-    marginTop: 8,
-  },
-  tierCard: {
-    borderRadius: 18,
-    padding: spacing.md,
-    backgroundColor: withAlpha(colors.ritual.glassStrong, 0.94),
-    borderWidth: 1,
-    borderColor: withAlpha(colors.bone, 0.06),
-    marginBottom: spacing.sm,
-  },
-  tierCardCurrent: {
-    borderColor: withAlpha(colors.gold, 0.24),
-  },
-  tierHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    gap: 12,
+    borderRadius: 999,
+    backgroundColor: withAlpha(colors.gold, 0.2),
+    alignSelf: 'center',
+    marginTop: 14,
     marginBottom: 6,
   },
-  tierTitleWrap: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
+  sheetScroll: {
     flex: 1,
   },
-  tierTitle: {
-    fontFamily: typography.fontFamily.serifSemiBold,
-    fontSize: 19,
+  // Header
+  shHeader: {
+    marginBottom: 20,
+    paddingHorizontal: 20,
+    paddingTop: 14,
+  },
+  shTitle: {
+    ...typography.h2,
     color: colors.bone,
+    marginBottom: 3,
   },
-  currentBadge: {
-    ...typography.caption,
-    color: colors.gold,
-    textTransform: 'uppercase',
-    letterSpacing: 1.1,
-  },
-  tierReached: {
-    ...typography.caption,
-    color: withAlpha(colors.gold, 0.82),
-    textTransform: 'uppercase',
-    letterSpacing: 1.1,
-  },
-  tierDescription: {
+  shSub: {
     ...typography.body,
-    color: withAlpha(colors.bone, 0.8),
+    fontStyle: 'italic',
+    color: withAlpha(colors.bone, 0.78),
   },
-  beginningCopy: {
-    ...typography.body,
-    color: withAlpha(colors.silver, 0.76),
-    marginTop: 8,
-  },
-  requirementsBlock: {
-    marginTop: 10,
-    gap: 8,
-  },
-  requirementRow: {
+  // Hero card
+  shHero: {
+    marginHorizontal: 20,
+    marginBottom: 30,
+    paddingHorizontal: 24,
+    paddingVertical: 26,
+    minHeight: 144,
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: withAlpha(colors.gold, 0.15),
+    backgroundColor: withAlpha(colors.gold, 0.05),
     flexDirection: 'row',
-    alignItems: 'center',
+    justifyContent: 'space-between',
+    alignItems: 'stretch',
+    gap: 18,
+  },
+  shPrimeCount: {
+    ...typography.h1,
+    fontSize: 58,
+    color: colors.gold,
+    lineHeight: 60,
+  },
+  shPrimeLbl: {
+    ...typography.caption,
+    color: colors.silver,
+    marginTop: 6,
+    letterSpacing: 1.6,
+    textTransform: 'uppercase',
+  },
+  shAside: {
+    flex: 1,
+    alignItems: 'flex-end',
+    justifyContent: 'center',
+    paddingLeft: 6,
+  },
+  shAsideName: {
+    ...typography.bodySerifItalic,
+    fontSize: 14,
+    color: colors.gold,
+    textAlign: 'right',
+    lineHeight: 21,
+  },
+  // Tracks
+  shTracks: {
+    paddingHorizontal: 20,
+    gap: 20,
+    marginBottom: 28,
+  },
+  trackBlock: {
     gap: 10,
   },
-  requirementCheck: {
-    width: 18,
-    textAlign: 'center',
-    fontSize: 14,
+  trackHd: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'baseline',
   },
-  requirementCheckMet: {
+  trackSysLbl: {
+    ...typography.caption,
+    color: colors.silver,
+    letterSpacing: 1.6,
+    textTransform: 'uppercase',
+  },
+  trackPosLbl: {
+    ...typography.bodySerifItalic,
+    fontSize: 11,
+    color: withAlpha(colors.silver, 0.65),
+  },
+  trackBar: {
+    height: 14,
+    alignItems: 'center',
+  },
+  trackBg: {
+    ...StyleSheet.absoluteFillObject,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: withAlpha(colors.bone, 0.06),
+  },
+  trackFillWrap: {
+    ...StyleSheet.absoluteFillObject,
+    height: 6,
+    borderRadius: 3,
+    overflow: 'hidden',
+  },
+  trackFill: {
+    flex: 1,
+    backgroundColor: colors.gold,
+  },
+  trackDot: {
+    position: 'absolute',
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    borderWidth: 2,
+    borderColor: '#131c27',
+    transform: [{ translateX: -5 }, { translateY: -2 }],
+  },
+  trackDotSq: {
+    position: 'absolute',
+    width: 10,
+    height: 10,
+    borderRadius: 2,
+    borderWidth: 2,
+    borderColor: '#131c27',
+    transform: [{ translateX: -5 }, { translateY: -2 }],
+  },
+  trackDotReached: {
+    backgroundColor: colors.silver,
+  },
+  trackDotUnreached: {
+    backgroundColor: withAlpha(colors.bone, 0.12),
+    borderColor: 'transparent',
+  },
+  trackCursor: {
+    position: 'absolute',
+    width: 14,
+    height: 14,
+    borderRadius: 7,
+    backgroundColor: colors.gold,
+    borderWidth: 2,
+    borderColor: '#131c27',
+    transform: [{ translateX: -7 }, { translateY: -2 }],
+    shadowColor: colors.gold,
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.12,
+    shadowRadius: 6,
+  },
+  trackLabels: {
+    position: 'relative',
+    height: 36,
+    marginTop: 2,
+  },
+  trackLabelItem: {
+    position: 'absolute',
+    alignItems: 'center',
+    transform: [{ translateX: -15 }],
+  },
+  trackLabelItemLast: {
+    transform: [{ translateX: -30 }],
+  },
+  trackTick: {
+    width: 1,
+    height: 5,
+    backgroundColor: withAlpha(colors.bone, 0.1),
+  },
+  trackLabelTxt: {
+    ...typography.caption,
+    fontSize: 7.5,
+    color: withAlpha(colors.silver, 0.3),
+    marginTop: 2,
+    textAlign: 'center',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  trackLabelTxtReached: {
+    color: withAlpha(colors.silver, 0.62),
+  },
+  trackLabelTxtCurrent: {
     color: colors.gold,
   },
-  requirementCheckUnmet: {
-    color: withAlpha(colors.silver, 0.54),
+  // Divider
+  shDivider: {
+    height: 1,
+    backgroundColor: withAlpha(colors.bone, 0.06),
+    marginVertical: 24,
   },
-  requirementText: {
-    ...typography.body,
+  // Copy sections
+  shCopySec: {
+    paddingHorizontal: 20,
+    marginBottom: 24,
+  },
+  shCopyHd: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'baseline',
+    gap: 12,
+    marginBottom: 14,
+  },
+  shCopyTitle: {
+    ...typography.caption,
+    color: colors.silver,
+    letterSpacing: 1.6,
+    textTransform: 'uppercase',
+  },
+  shCopyTagline: {
+    ...typography.bodySerifItalic,
+    fontSize: 10,
+    color: withAlpha(colors.silver, 0.42),
+    textAlign: 'right',
+  },
+  // Tier rows
+  tierRow: {
+    flexDirection: 'row',
+    gap: 14,
+    paddingVertical: 14,
+    borderBottomWidth: 1,
+    borderBottomColor: withAlpha(colors.bone, 0.05),
+  },
+  tierRowUnreached: {
+    opacity: 0.35,
+  },
+  tierDot: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    borderWidth: 2,
+    marginTop: 4,
+    flexShrink: 0,
+  },
+  tierDotSq: {
+    width: 10,
+    height: 10,
+    borderRadius: 2,
+    borderWidth: 2,
+    marginTop: 4,
+    flexShrink: 0,
+  },
+  tierBody: {
     flex: 1,
-    color: withAlpha(colors.silver, 0.82),
   },
-  requirementTextMet: {
-    color: withAlpha(colors.bone, 0.84),
+  tierName: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 2,
+  },
+  tierNameText: {
+    ...typography.h3,
+    fontSize: 14,
+  },
+  tierBadge: {
+    ...typography.caption,
+    fontSize: 7.5,
+    color: colors.gold,
+    backgroundColor: withAlpha(colors.gold, 0.1),
+    borderWidth: 1,
+    borderColor: withAlpha(colors.gold, 0.22),
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 2,
+    textTransform: 'uppercase',
+    letterSpacing: 0.8,
+  },
+  tierCopy: {
+    ...typography.bodySerifItalic,
+    fontSize: 13,
+    color: withAlpha(colors.silver, 0.74),
+    lineHeight: 18,
+    marginTop: 2,
+  },
+  tierThreshold: {
+    ...typography.caption,
+    fontSize: 9.5,
+    color: withAlpha(colors.silver, 0.28),
+    marginTop: 4,
+    textTransform: 'uppercase',
+    letterSpacing: 0.7,
+  },
+  // Footer fine print
+  shFine: {
+    ...typography.bodySerifItalic,
+    fontSize: 11,
+    color: withAlpha(colors.silver, 0.32),
+    textAlign: 'center',
+    paddingHorizontal: 20,
+    paddingTop: 8,
+    paddingBottom: 48,
   },
 });

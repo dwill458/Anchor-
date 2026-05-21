@@ -1296,8 +1296,11 @@ const AnchorDetailsScreen = ({ navigation, route }) => {
                   <Text style={s.miniAffirmation}>The symbol is becoming part of you.</Text>
 
                   {/* Distilled row */}
-                  <View style={s.distilledRow}>
-                    <Text style={s.distilledLabel}>DISTILLED</Text>
+                  <View style={s.distilledSection}>
+                    <View style={s.distilledHeader}>
+                      <Text style={s.distilledLabel}>DISTILLED</Text>
+                      <Text style={{ color: C.textDim, fontSize: 12 }}>ⓘ</Text>
+                    </View>
                     <View style={s.distilledTags}>
                       {anchor.distilled.map((t) => (
                         <View key={t} style={s.distilledTag}>
@@ -1305,7 +1308,6 @@ const AnchorDetailsScreen = ({ navigation, route }) => {
                         </View>
                       ))}
                     </View>
-                    <Text style={{ color: C.textDim, fontSize: 12, marginLeft: spacing.xs }}>ⓘ</Text>
                   </View>
                 </LinearGradient>
                 {!isLowPerfDevice && (
@@ -2063,15 +2065,17 @@ const s = StyleSheet.create({
     color: C.textPrimary,
     letterSpacing: 0.5,
   },
-  distilledRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: spacing.sm,
+  distilledSection: {
     paddingTop: spacing.sm,
     marginTop: spacing.xs,
     borderTopWidth: 1,
     borderTopColor: 'rgba(212,175,55,0.08)',
+    gap: spacing.xs,
+  },
+  distilledHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
   },
   distilledLabel: {
     fontFamily: typography.fontFamily.serif,
@@ -2080,7 +2084,11 @@ const s = StyleSheet.create({
     color: C.silverDim,
     textTransform: 'uppercase',
   },
-  distilledTags: { flexDirection: 'row', gap: spacing.xs + 2 },
+  distilledTags: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: spacing.xs + 2,
+  },
   distilledTag: {
     borderWidth: 1, borderColor: colors.practice.cardSecondaryBorder,
     borderRadius: 6, paddingVertical: 2, paddingHorizontal: 7,
