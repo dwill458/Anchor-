@@ -67,20 +67,65 @@ import { queueProgressionMilestonesFromStores } from '@/utils/progressionMilesto
 // This avoids the previous mount-on-nonzero "pop in" and the per-segment Animated.timing
 // race that produced juddery, stalled timer animation on the deep prime screen.
 const DeepPhaseSegment = ({
-  progressAnim,
-  startProgress,
-  endProgress,
+  isActive,
+  isCurrent,
   isPast,
+  phaseElapsed,
+  durationSeconds,
 }: {
-  progressAnim: Animated.Value;
-  startProgress: number;
-  endProgress: number;
+  isActive: boolean;
+  isCurrent: boolean;
   isPast: boolean;
+  phaseElapsed: number;
+  durationSeconds: number;
 }) => {
-  // interpolate requires strictly-increasing inputs; nudge zero-length phases.
-  const safeEnd = endProgress > startProgress ? endProgress : startProgress + 0.0001;
-  const widthAnim = progressAnim.interpolate({
-    inputRange: [startProgress, safeEnd],
+  const segmentProgressAnim = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    if (isPast) {
+      segmentProgressAnim.setValue(1);
+      return;
+    }
+    if (!isCurrent) {
+      segmentProgressAnim.setValue(0);
+      return;
+    }
+
+    const totalDuration = Math.max(1, durationSeconds);
+    const expectedProgress = Math.min(1, Math.max(0, phaseElapsed / totalDuration));
+    const remainingSeconds = totalDuration - phaseElapsed;
+
+    if (!isActive) {
+      segmentProgressAnim.stopAnimation();
+      segmentProgressAnim.setValue(expectedProgress);
+      return;
+    }
+
+    segmentProgressAnim.stopAnimation((currentVal) => {
+      const startVal =
+        Math.abs(currentVal - expectedProgress) > 0.05 ? expectedProgress : currentVal;
+      segmentProgressAnim.setValue(startVal);
+
+      if (remainingSeconds <= 0) {
+        segmentProgressAnim.setValue(1);
+        return;
+      }
+
+      Animated.timing(segmentProgressAnim, {
+        toValue: 1,
+        duration: remainingSeconds * 1000,
+        easing: Easing.linear,
+        useNativeDriver: false,
+      }).start();
+    });
+
+    return () => {
+      segmentProgressAnim.stopAnimation();
+    };
+  }, [isActive, isCurrent, isPast, phaseElapsed, durationSeconds, segmentProgressAnim]);
+
+  const widthAnim = segmentProgressAnim.interpolate({
+    inputRange: [0, 1],
     outputRange: ['0%', '100%'],
     extrapolate: 'clamp',
   });
@@ -297,7 +342,7 @@ export const RitualScreen: React.FC = () => {
   const [sealCopyMode, setSealCopyMode] = useState<SealCopyMode>('active');
   const [sealBreathLabel, setSealBreathLabel] = useState<'Inhale' | 'Exhale'>('Inhale');
   const [showSealContinue, setShowSealContinue] = useState(false);
-  const isCompactHeight = screenHeight <= 820;
+  const isCompactHeight = screenHeight <= 880;
   const isVeryCompactHeight = screenHeight <= 760;
   const deepArtworkFrameSize = isVeryCompactHeight ? 248 : isCompactHeight ? 286 : 340;
   const deepArtworkScale = deepArtworkFrameSize / 340;
@@ -1198,16 +1243,10 @@ export const RitualScreen: React.FC = () => {
       return { startProgress, endProgress };
     });
   }, [config.phases, config.totalDurationSeconds]);
-  const deepBreathInputRange = [
-    0,
-    DEEP_PRIME_BREATH_INHALE_S / DEEP_PRIME_BREATH_TOTAL_S,
-    (DEEP_PRIME_BREATH_INHALE_S + DEEP_PRIME_BREATH_HOLD_S) / DEEP_PRIME_BREATH_TOTAL_S,
-    1,
-  ];
   const interpolateDeepBreath = (outputRange: number[]) =>
     deepBreathAnim.interpolate({
-      inputRange: deepBreathInputRange,
-      outputRange,
+      inputRange: [0, 1],
+      outputRange: [outputRange[0], outputRange[1]],
     });
   const deepOrbitRotateA = deepOrbitSpinA.interpolate({
     inputRange: [0, 1],
@@ -1268,28 +1307,16 @@ export const RitualScreen: React.FC = () => {
     isReady,
   ]);
 
-  // Read elapsedSeconds via ref so the breath effect doesn't tear down every second.
-  const elapsedSecondsRef = useRef(state.elapsedSeconds);
   useEffect(() => {
-    elapsedSecondsRef.current = state.elapsedSeconds;
-  }, [state.elapsedSeconds]);
-
-  useEffect(() => {
-    let settleAnimation: Animated.CompositeAnimation | null = null;
     let loopAnimation: Animated.CompositeAnimation | null = null;
-    let cancelled = false;
 
     if (!isDeepRitual || !isReady) {
       deepBreathAnim.setValue(0);
       return () => undefined;
     }
 
-    const cycleProgress =
-      (Math.max(0, elapsedSecondsRef.current) % DEEP_PRIME_BREATH_TOTAL_S) / DEEP_PRIME_BREATH_TOTAL_S;
-    const cycleDurationMs = DEEP_PRIME_BREATH_TOTAL_S * 1000;
-
     if (reduceMotionEnabled) {
-      deepBreathAnim.setValue(state.isSealPhase ? 0.68 : cycleProgress);
+      deepBreathAnim.setValue(state.isSealPhase ? 0.68 : 0.35);
       return () => undefined;
     }
 
@@ -1317,43 +1344,37 @@ export const RitualScreen: React.FC = () => {
       };
     }
 
-    deepBreathAnim.setValue(cycleProgress);
-
     if (!state.isActive) {
+      Animated.timing(deepBreathAnim, {
+        toValue: 0.35,
+        duration: 400,
+        easing: Easing.inOut(Easing.ease),
+        useNativeDriver: true,
+      }).start();
       return () => undefined;
     }
 
-    const startFullCycleLoop = () => {
-      if (cancelled) {
-        return;
-      }
-      deepBreathAnim.setValue(0);
-      loopAnimation = Animated.loop(
+    deepBreathAnim.setValue(0);
+    loopAnimation = Animated.loop(
+      Animated.sequence([
         Animated.timing(deepBreathAnim, {
           toValue: 1,
-          duration: cycleDurationMs,
-          easing: Easing.linear,
+          duration: DEEP_PRIME_BREATH_INHALE_S * 1000,
+          easing: Easing.inOut(Easing.ease),
           useNativeDriver: true,
-        })
-      );
-      loopAnimation.start();
-    };
-
-    settleAnimation = Animated.timing(deepBreathAnim, {
-      toValue: 1,
-      duration: Math.max(80, Math.round((1 - cycleProgress) * cycleDurationMs)),
-      easing: Easing.linear,
-      useNativeDriver: true,
-    });
-    settleAnimation.start(({ finished }) => {
-      if (finished) {
-        startFullCycleLoop();
-      }
-    });
+        }),
+        Animated.delay(DEEP_PRIME_BREATH_HOLD_S * 1000),
+        Animated.timing(deepBreathAnim, {
+          toValue: 0,
+          duration: DEEP_PRIME_BREATH_EXHALE_S * 1000,
+          easing: Easing.inOut(Easing.ease),
+          useNativeDriver: true,
+        }),
+      ])
+    );
+    loopAnimation.start();
 
     return () => {
-      cancelled = true;
-      settleAnimation?.stop();
       loopAnimation?.stop();
     };
   }, [
@@ -1635,15 +1656,15 @@ export const RitualScreen: React.FC = () => {
               ]}
             >
               <View style={styles.deepPhaseTrackRow}>
-                {config.phases.map((_phase, index) => {
-                  const range = phaseProgressRanges[index] ?? { startProgress: 0, endProgress: 0 };
+                {config.phases.map((phase, index) => {
                   return (
                     <View key={`phase-segment-${index}`} style={styles.deepPhaseTrackSegment}>
                       <DeepPhaseSegment
-                        progressAnim={progressAnim}
-                        startProgress={range.startProgress}
-                        endProgress={range.endProgress}
+                        isActive={state.isActive}
+                        isCurrent={index === activePhaseIndex}
                         isPast={index < activePhaseIndex}
+                        phaseElapsed={state.phaseElapsed}
+                        durationSeconds={phase.durationSeconds}
                       />
                     </View>
                   );

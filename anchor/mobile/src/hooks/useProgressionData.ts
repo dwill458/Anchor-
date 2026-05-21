@@ -3,6 +3,7 @@ import { useAnchorStore } from '@/stores/anchorStore';
 import { useProfileStore } from '@/stores/profileStore';
 import { useSessionStore } from '@/stores/sessionStore';
 import type { Anchor } from '@/types';
+import type { PrimeRankName, PrimeDepthName } from '@/utils/milestoneTracking';
 import {
   DEPTH_TIERS,
   MARK_TIERS,
@@ -28,6 +29,67 @@ import {
   type RequirementStatus,
 } from '@/utils/progression';
 
+// Prime-only tier definitions for the progression sheet
+export const PRIME_RANK_TIERS = [
+  {
+    name: 'Initiate' as const,
+    min: 0,
+    color: '#C0C0C0',
+    copy: 'You started when others stalled.',
+  },
+  {
+    name: 'Practitioner' as const,
+    min: 10,
+    color: '#D4AF37',
+    copy: 'You returned enough times for change to notice.',
+  },
+  {
+    name: 'Architect' as const,
+    min: 50,
+    color: '#C0A060',
+    copy: 'You shape reality through deliberate pattern.',
+  },
+  {
+    name: 'Sovereign' as const,
+    min: 200,
+    color: '#E8D5A0',
+    copy: 'Mastery through repetition. Authority through depth.',
+  },
+] as const;
+
+export const PRIME_DEPTH_TIERS = [
+  {
+    name: 'Surface' as const,
+    min: 0,
+    color: '#C0C0C0',
+    copy: 'The first imprint. Meaning has been marked, but not yet embodied.',
+  },
+  {
+    name: 'Grounded' as const,
+    min: 25,
+    color: '#9A8A6A',
+    copy: 'The pattern is taking root. Repetition is beginning to shape response.',
+  },
+  {
+    name: 'Rooted' as const,
+    min: 75,
+    color: '#B8973A',
+    copy: 'The pattern repeats without force. Momentum has replaced effort.',
+  },
+  {
+    name: 'Embedded' as const,
+    min: 150,
+    color: '#D4AF37',
+    copy: 'The anchor now lives below conscious thought.',
+  },
+  {
+    name: 'Sovereign' as const,
+    min: 300,
+    color: '#E8D5A0',
+    copy: 'You no longer reach for alignment. You move from it.',
+  },
+] as const;
+
 interface TierDetail<TName extends string> {
   name: TName;
   color: string;
@@ -35,6 +97,15 @@ interface TierDetail<TName extends string> {
   isCurrent: boolean;
   isReached: boolean;
   requirements: RequirementStatus[];
+}
+
+interface PrimeTier {
+  name: string;
+  min: number;
+  color: string;
+  copy: string;
+  isCurrent: boolean;
+  isReached: boolean;
 }
 
 interface DeepestPracticeDisplay {
@@ -66,6 +137,7 @@ export interface ProgressionData {
   activeAnchors: number;
   releasedAnchors: number;
   hasAnchors: boolean;
+  forgedCount: number;
   rank: {
     currentName: RankName;
     color: string;
@@ -90,6 +162,19 @@ export interface ProgressionData {
       isCurrent: boolean;
       isReached: boolean;
     }>;
+  };
+  // Prime-only progression for sheet/cards
+  primeRank: {
+    current: PrimeTier;
+    next: PrimeTier | null;
+    progress: number;
+    primesToNext: number | null;
+  };
+  primeDepth: {
+    current: PrimeTier;
+    next: PrimeTier | null;
+    progress: number;
+    primesToNext: number | null;
   };
 }
 
@@ -132,6 +217,51 @@ function buildDepthTierDetails(stats: AnchorPrimeStats, currentName: DepthName) 
       requirements,
     };
   });
+}
+
+function computePrimeTierProgress(
+  totalPrimes: number,
+  tiers: readonly { name: string; min: number; color: string; copy: string }[],
+  maxPrimes: number
+): { current: PrimeTier; next: PrimeTier | null; progress: number; primesToNext: number | null } {
+  let currentIdx = 0;
+  for (let i = tiers.length - 1; i >= 0; i--) {
+    if (totalPrimes >= tiers[i].min) {
+      currentIdx = i;
+      break;
+    }
+  }
+
+  const currentTier = tiers[currentIdx];
+  const nextTier = tiers[currentIdx + 1] ?? null;
+
+  const currentMin = currentTier.min;
+  const nextMin = nextTier?.min ?? maxPrimes;
+  const progress = nextTier ? Math.min(1, (totalPrimes - currentMin) / (nextMin - currentMin)) : 1;
+  const primesToNext = nextTier ? Math.max(0, nextTier.min - totalPrimes) : null;
+
+  return {
+    current: {
+      name: currentTier.name,
+      min: currentTier.min,
+      color: currentTier.color,
+      copy: currentTier.copy,
+      isCurrent: true,
+      isReached: true,
+    },
+    next: nextTier
+      ? {
+          name: nextTier.name,
+          min: nextTier.min,
+          color: nextTier.color,
+          copy: nextTier.copy,
+          isCurrent: false,
+          isReached: false,
+        }
+      : null,
+    progress,
+    primesToNext,
+  };
 }
 
 export function useProgressionData(): ProgressionData {
@@ -190,6 +320,10 @@ export function useProgressionData(): ProgressionData {
           ),
         };
 
+    // Prime-only rank/depth (for sheet and new profile cards)
+    const primeRank = computePrimeTierProgress(totalPrimes, PRIME_RANK_TIERS, 200);
+    const primeDepth = computePrimeTierProgress(totalPrimes, PRIME_DEPTH_TIERS, 300);
+
     return {
       totalPrimes,
       countedPrimes,
@@ -197,6 +331,7 @@ export function useProgressionData(): ProgressionData {
       activeAnchors,
       releasedAnchors,
       hasAnchors: anchors.length > 0,
+      forgedCount: anchors.length,
       rank: {
         currentName: rankState.tier.name,
         color: rankState.tier.color,
@@ -224,6 +359,8 @@ export function useProgressionData(): ProgressionData {
           isReached: practiceDays >= tier.threshold,
         })),
       },
+      primeRank,
+      primeDepth,
     };
   }, [anchors, primingHistory, storedTotalPrimes, timezone]);
 }
