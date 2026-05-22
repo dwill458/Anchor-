@@ -320,8 +320,6 @@ export const RitualScreen: React.FC = () => {
   const deepPulseOuterSize = deepHeroSize * 1.02;
   const deepPulseInnerSize = deepHeroSize * 0.92;
   const deepEmberHaloSize = deepHeroSize * 0.94;
-  const deepPremiumGlowSize = deepHeroSize * 0.78;
-  const deepGlowLayerSize = deepHeroSize * 1.28;
 
   useMissingAnchorRedirect(!isAnchorMissing, navigation);
 
@@ -2012,15 +2010,6 @@ export const RitualScreen: React.FC = () => {
                       ]}
                     />
 
-                    <View style={[styles.premiumGlowLayer, { width: deepGlowLayerSize, height: deepGlowLayerSize }]}>
-                      <PremiumAnchorGlow
-                        size={deepPremiumGlowSize}
-                        state={state.isSealPhase ? 'charged' : 'active'}
-                        variant="ritual"
-                        reduceMotionEnabled={reduceMotionEnabled}
-                      />
-                    </View>
-
                     {state.isSealPhase ? (
                       <Svg width={deepSealSvgSize} height={deepSealSvgSize} style={styles.deepSealRingSvg}>
                         <Circle
@@ -2914,13 +2903,13 @@ const styles = StyleSheet.create({
     width: '100%',
     maxWidth: 360,
     minHeight: 72,
-    marginTop: 8,
+    marginTop: 24,
     justifyContent: 'center',
     paddingHorizontal: 24,
   },
   deepInstructionContainerCompact: {
     minHeight: 56,
-    marginTop: 6,
+    marginTop: 18,
     paddingHorizontal: 18,
   },
   sealTextStack: {
@@ -3324,35 +3313,37 @@ const styles = StyleSheet.create({
   },
   deepIntentionWrap: {
     alignItems: 'center',
-    marginTop: 18,
-    marginBottom: 8,
+    marginTop: 28,
+    marginBottom: 6,
     paddingHorizontal: spacing.xl,
+    transform: [{ translateY: 24 }],
   },
   deepIntentionWrapCompact: {
-    marginTop: 12,
-    marginBottom: 6,
+    marginTop: 22,
+    marginBottom: 4,
     paddingHorizontal: spacing.lg,
+    transform: [{ translateY: 18 }],
   },
   deepIntentionLabel: {
-    fontSize: 9,
+    fontSize: 10,
     fontFamily: typography.fonts.heading,
     color: 'rgba(240,208,96,0.86)',
-    letterSpacing: 3,
+    letterSpacing: 3.4,
     marginBottom: 5,
   },
   deepIntentionText: {
-    fontSize: 17,
+    fontSize: 23,
     fontFamily: typography.fonts.bodyBold,
     color: '#F6EFD8',
     textAlign: 'center',
-    lineHeight: 24,
+    lineHeight: 31,
     textShadowColor: 'rgba(0,0,0,0.82)',
     textShadowOffset: { width: 0, height: 1 },
     textShadowRadius: 14,
   },
   deepIntentionTextCompact: {
-    fontSize: 15,
-    lineHeight: 22,
+    fontSize: 21,
+    lineHeight: 29,
   },
   landingContent: {
     flex: 1,
