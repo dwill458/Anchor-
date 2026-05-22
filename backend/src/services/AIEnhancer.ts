@@ -176,10 +176,11 @@ const STYLE_CONFIGS: Record<AIStyle, StyleConfig> = {
     prompt:
       'Restore and beautify the existing sigil. Preserve exact geometry and stroke paths. ' +
       'Apply rich multi-layer sacred geometry as surface treatment. Multiple visible systems in the ' +
-      'background: Flower of Life, Metatron\'s Cube, Sri Yantra, golden spiral — layer at least 2 together. ' +
+      "background: Flower of Life, Metatron's Cube, Sri Yantra, golden spiral — layer at least 2 together. " +
       'Rich color palette: deep indigo, violet, gold, rose, teal, amber — each geometric layer in a ' +
       'distinct hue or opacity for real visual depth. The original sigil geometry is untouched.',
-    negativePrompt: STRICT_NEGATIVE_PROMPT + ', organic, soft, messy, hand-drawn, monochrome, single color',
+    negativePrompt:
+      STRICT_NEGATIVE_PROMPT + ', organic, soft, messy, hand-drawn, monochrome, single color',
     conditioning_scale: 1.2,
     strength: 0.3,
   },
@@ -206,7 +207,8 @@ const STYLE_CONFIGS: Record<AIStyle, StyleConfig> = {
       'fragments, gilded halo glow blooming outward from the sigil. Background in any dark moody tone ' +
       'that serves the gold — charcoal, warm black, aged parchment, deep indigo. No imposed border style. ' +
       'Gold is a living light source, not just a surface finish. The sigil shape remains exactly as designed.',
-    negativePrompt: STRICT_NEGATIVE_PROMPT + ', modern, photography, people, Gothic border, filigree frame',
+    negativePrompt:
+      STRICT_NEGATIVE_PROMPT + ', modern, photography, people, Gothic border, filigree frame',
     conditioning_scale: 1.2,
     strength: 0.28,
   },
@@ -568,10 +570,7 @@ export async function enhanceSigilWithAI(
       });
 
       // 2 variations by default; reuse-pool callers can request fewer.
-      const numberOfVariations = Math.max(
-        1,
-        request.numberOfVariations ?? 2
-      );
+      const numberOfVariations = Math.max(1, request.numberOfVariations ?? 2);
 
       const result = await geminiService.enhanceSigil({
         baseSigilSvg: request.sigilSvg,
