@@ -5,7 +5,6 @@ import { logger } from '@/utils/logger';
 
 const UUID_PATTERN =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
-const LOCAL_TEMP_ANCHOR_ID_PREFIXES = ['anchor-', 'pending-first-anchor-'] as const;
 
 function normalizeDate(value?: string | Date | null): Date | undefined {
   if (!value) return undefined;
@@ -52,11 +51,7 @@ export function isBackendAnchorId(anchorId: string | undefined | null): boolean 
     return false;
   }
 
-  if (UUID_PATTERN.test(anchorId)) {
-    return true;
-  }
-
-  return !LOCAL_TEMP_ANCHOR_ID_PREFIXES.some((prefix) => anchorId.startsWith(prefix));
+  return UUID_PATTERN.test(anchorId);
 }
 
 function getAnchorFromStore(
