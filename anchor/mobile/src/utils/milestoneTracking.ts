@@ -1,41 +1,38 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import {
+  getEarnedMarkNames,
+  getEarnedRankNames,
+  type MarkName,
+  type RankMetrics,
+  type RankName,
+} from '@/utils/progression';
 
 const MILESTONE_KEY = 'anchor-milestone-dates';
 const PRE_LAUNCH_SENTINEL = 'pre-launch';
 
 export interface MilestoneDates {
-  rank: Record<string, string>;
-  depth: Record<string, string>;
+  rank: Partial<Record<RankName, string>>;
+  mark: Partial<Record<MarkName, string>>;
+}
+
+export interface MilestoneRecordResult {
+  rank: RankName[];
+  mark: MarkName[];
 }
 
 const EMPTY_MILESTONE_DATES: MilestoneDates = {
   rank: {},
-  depth: {},
+  mark: {},
 };
 
 const listeners = new Set<() => void>();
-
-const RANK_THRESHOLDS: { name: string; min: number }[] = [
-  { name: 'Initiate', min: 0 },
-  { name: 'Practitioner', min: 10 },
-  { name: 'Architect', min: 50 },
-  { name: 'Sovereign', min: 200 },
-];
-
-const DEPTH_THRESHOLDS: { name: string; min: number }[] = [
-  { name: 'Surface', min: 0 },
-  { name: 'Grounded', min: 25 },
-  { name: 'Rooted', min: 75 },
-  { name: 'Embedded', min: 150 },
-  { name: 'Sovereign', min: 300 },
-];
 
 function notifyListeners(): void {
   listeners.forEach((listener) => {
     try {
       listener();
     } catch {
-      // Milestone subscriptions are best-effort only.
+      // Best-effort only.
     }
   });
 }
@@ -52,9 +49,9 @@ function sanitizeMilestoneDates(value: unknown): MilestoneDates {
       raw.rank && typeof raw.rank === 'object' && !Array.isArray(raw.rank)
         ? { ...raw.rank }
         : {},
-    depth:
-      raw.depth && typeof raw.depth === 'object' && !Array.isArray(raw.depth)
-        ? { ...raw.depth }
+    mark:
+      raw.mark && typeof raw.mark === 'object' && !Array.isArray(raw.mark)
+        ? { ...raw.mark }
         : {},
   };
 }
@@ -64,7 +61,7 @@ async function writeMilestoneDates(next: MilestoneDates): Promise<void> {
     await AsyncStorage.setItem(MILESTONE_KEY, JSON.stringify(next));
     notifyListeners();
   } catch {
-    // Milestone tracking must never throw into calling flows.
+    // Must never throw into product flows.
   }
 }
 
@@ -81,66 +78,75 @@ export async function getMilestoneDates(): Promise<MilestoneDates> {
   }
 }
 
-export async function checkAndRecordMilestones(totalPrimes: number): Promise<void> {
+export async function checkAndRecordMilestones(
+  metrics: RankMetrics
+): Promise<MilestoneRecordResult> {
   try {
     const existing = await getMilestoneDates();
     const next: MilestoneDates = {
       rank: { ...existing.rank },
-      depth: { ...existing.depth },
+      mark: { ...existing.mark },
     };
     const today = new Date().toISOString().split('T')[0];
-    let didChange = false;
+    const result: MilestoneRecordResult = {
+      rank: [],
+      mark: [],
+    };
 
-    RANK_THRESHOLDS.forEach((threshold) => {
-      if (totalPrimes >= threshold.min && !next.rank[threshold.name]) {
-        next.rank[threshold.name] = today;
-        didChange = true;
+    for (const rankName of getEarnedRankNames(metrics)) {
+      if (!next.rank[rankName]) {
+        next.rank[rankName] = today;
+        result.rank.push(rankName);
       }
-    });
+    }
 
-    DEPTH_THRESHOLDS.forEach((threshold) => {
-      if (totalPrimes >= threshold.min && !next.depth[threshold.name]) {
-        next.depth[threshold.name] = today;
-        didChange = true;
+    for (const markName of getEarnedMarkNames(metrics.practiceDays)) {
+      if (!next.mark[markName]) {
+        next.mark[markName] = today;
+        result.mark.push(markName);
       }
-    });
+    }
 
-    if (didChange) {
+    if (result.rank.length > 0 || result.mark.length > 0) {
       await writeMilestoneDates(next);
     }
+
+    return result;
   } catch {
-    // Milestone tracking must never throw into calling flows.
+    return { rank: [], mark: [] };
   }
 }
 
-export async function backfillMilestoneDates(totalPrimes: number): Promise<void> {
+export async function backfillMilestoneDates(
+  metrics: RankMetrics
+): Promise<void> {
   try {
     const existing = await getMilestoneDates();
     const next: MilestoneDates = {
       rank: { ...existing.rank },
-      depth: { ...existing.depth },
+      mark: { ...existing.mark },
     };
     let didChange = false;
 
-    RANK_THRESHOLDS.forEach((threshold) => {
-      if (totalPrimes >= threshold.min && !next.rank[threshold.name]) {
-        next.rank[threshold.name] = PRE_LAUNCH_SENTINEL;
+    for (const rankName of getEarnedRankNames(metrics)) {
+      if (!next.rank[rankName]) {
+        next.rank[rankName] = PRE_LAUNCH_SENTINEL;
         didChange = true;
       }
-    });
+    }
 
-    DEPTH_THRESHOLDS.forEach((threshold) => {
-      if (totalPrimes >= threshold.min && !next.depth[threshold.name]) {
-        next.depth[threshold.name] = PRE_LAUNCH_SENTINEL;
+    for (const markName of getEarnedMarkNames(metrics.practiceDays)) {
+      if (!next.mark[markName]) {
+        next.mark[markName] = PRE_LAUNCH_SENTINEL;
         didChange = true;
       }
-    });
+    }
 
     if (didChange) {
       await writeMilestoneDates(next);
     }
   } catch {
-    // Milestone tracking must never throw into calling flows.
+    // Must never throw into product flows.
   }
 }
 
@@ -152,3 +158,144 @@ export function subscribeToMilestoneDates(listener: () => void): () => void {
   };
 }
 
+// Prime-only progression sheet milestone tracking (separate from multi-factor rank milestones)
+export type PrimeRankName = 'Initiate' | 'Practitioner' | 'Architect' | 'Sovereign';
+export type PrimeDepthName = 'Surface' | 'Grounded' | 'Rooted' | 'Embedded' | 'Sovereign';
+
+export interface SheetMilestoneDates {
+  rank: Partial<Record<PrimeRankName, string>>;
+  depth: Partial<Record<PrimeDepthName, string>>;
+}
+
+const SHEET_MILESTONE_KEY = 'anchor-sheet-milestone-dates';
+
+const PRIME_RANK_MINS: Record<PrimeRankName, number> = {
+  Initiate: 0,
+  Practitioner: 10,
+  Architect: 50,
+  Sovereign: 200,
+};
+
+const PRIME_DEPTH_MINS: Record<PrimeDepthName, number> = {
+  Surface: 0,
+  Grounded: 25,
+  Rooted: 75,
+  Embedded: 150,
+  Sovereign: 300,
+};
+
+const EMPTY_SHEET_MILESTONE_DATES: SheetMilestoneDates = {
+  rank: {},
+  depth: {},
+};
+
+function sanitizeSheetMilestoneDates(value: unknown): SheetMilestoneDates {
+  if (!value || typeof value !== 'object') {
+    return { ...EMPTY_SHEET_MILESTONE_DATES };
+  }
+
+  const raw = value as Partial<SheetMilestoneDates>;
+
+  return {
+    rank:
+      raw.rank && typeof raw.rank === 'object' && !Array.isArray(raw.rank)
+        ? { ...raw.rank }
+        : {},
+    depth:
+      raw.depth && typeof raw.depth === 'object' && !Array.isArray(raw.depth)
+        ? { ...raw.depth }
+        : {},
+  };
+}
+
+async function writeSheetMilestoneDates(next: SheetMilestoneDates): Promise<void> {
+  try {
+    await AsyncStorage.setItem(SHEET_MILESTONE_KEY, JSON.stringify(next));
+  } catch {
+    // Must never throw into product flows.
+  }
+}
+
+export async function getSheetMilestoneDates(): Promise<SheetMilestoneDates> {
+  try {
+    const stored = await AsyncStorage.getItem(SHEET_MILESTONE_KEY);
+    if (!stored) {
+      return { ...EMPTY_SHEET_MILESTONE_DATES };
+    }
+
+    return sanitizeSheetMilestoneDates(JSON.parse(stored));
+  } catch {
+    return { ...EMPTY_SHEET_MILESTONE_DATES };
+  }
+}
+
+export async function checkAndRecordSheetMilestones(totalPrimes: number): Promise<void> {
+  try {
+    const existing = await getSheetMilestoneDates();
+    const next: SheetMilestoneDates = {
+      rank: { ...existing.rank },
+      depth: { ...existing.depth },
+    };
+    const today = new Date().toISOString().split('T')[0];
+    let didChange = false;
+
+    // Check rank tiers (prime-only)
+    const rankTierNames: PrimeRankName[] = ['Initiate', 'Practitioner', 'Architect', 'Sovereign'];
+    for (const rankName of rankTierNames) {
+      if (totalPrimes >= PRIME_RANK_MINS[rankName] && !next.rank[rankName]) {
+        next.rank[rankName] = today;
+        didChange = true;
+      }
+    }
+
+    // Check depth tiers (prime-only)
+    const depthTierNames: PrimeDepthName[] = ['Surface', 'Grounded', 'Rooted', 'Embedded', 'Sovereign'];
+    for (const depthName of depthTierNames) {
+      if (totalPrimes >= PRIME_DEPTH_MINS[depthName] && !next.depth[depthName]) {
+        next.depth[depthName] = today;
+        didChange = true;
+      }
+    }
+
+    if (didChange) {
+      await writeSheetMilestoneDates(next);
+    }
+  } catch {
+    // Must never throw into product flows.
+  }
+}
+
+export async function backfillSheetMilestones(totalPrimes: number): Promise<void> {
+  try {
+    const existing = await getSheetMilestoneDates();
+    const next: SheetMilestoneDates = {
+      rank: { ...existing.rank },
+      depth: { ...existing.depth },
+    };
+    let didChange = false;
+
+    // Backfill rank tiers
+    const rankTierNames: PrimeRankName[] = ['Initiate', 'Practitioner', 'Architect', 'Sovereign'];
+    for (const rankName of rankTierNames) {
+      if (totalPrimes >= PRIME_RANK_MINS[rankName] && !next.rank[rankName]) {
+        next.rank[rankName] = PRE_LAUNCH_SENTINEL;
+        didChange = true;
+      }
+    }
+
+    // Backfill depth tiers
+    const depthTierNames: PrimeDepthName[] = ['Surface', 'Grounded', 'Rooted', 'Embedded', 'Sovereign'];
+    for (const depthName of depthTierNames) {
+      if (totalPrimes >= PRIME_DEPTH_MINS[depthName] && !next.depth[depthName]) {
+        next.depth[depthName] = PRE_LAUNCH_SENTINEL;
+        didChange = true;
+      }
+    }
+
+    if (didChange) {
+      await writeSheetMilestoneDates(next);
+    }
+  } catch {
+    // Must never throw into product flows.
+  }
+}

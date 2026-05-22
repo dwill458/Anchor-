@@ -25,6 +25,8 @@ import {
   DataPrivacyScreen,
 } from '../screens/profile';
 import { HapticFeedbackScreen } from '../screens/settings';
+import { LoginScreen } from '../screens/auth';
+import type { AuthScreenParams } from '@/types';
 import { colors } from '@/theme';
 
 export type ProfileStackParamList = {
@@ -48,6 +50,7 @@ export type ProfileStackParamList = {
   HapticFeedback: undefined;
   HapticIntensity: undefined;
   DataPrivacy: undefined;
+  Login: AuthScreenParams | undefined;
 };
 
 const Stack = createNativeStackNavigator<ProfileStackParamList>();
@@ -178,6 +181,11 @@ export const ProfileStackNavigator: React.FC = () => {
         name="DataPrivacy"
         component={DataPrivacyScreen}
         options={{ headerTitle: 'Data & Privacy' }}
+      />
+      <Stack.Screen
+        name="Login"
+        component={LoginScreen}
+        options={{ headerShown: false }}
       />
     </Stack.Navigator>
   );

@@ -28,6 +28,8 @@ import { AnalyticsService } from '@/services/AnalyticsService';
 import { colors, spacing, typography } from '@/theme';
 import type { RootStackParamList } from '@/types';
 import { navigateToVaultDestination } from '@/navigation/firstAnchorGate';
+import { queueProgressionMilestonesFromStores } from '@/utils/progressionMilestones';
+import { buildRecoveredChargeState } from '@/utils/anchorPriming';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -156,7 +158,9 @@ export const FirstPrimeCompleteScreen: React.FC = () => {
 
       // Count the very first priming session toward lifetime Total Primes
       const currentActivationCount = useAnchorStore.getState().getAnchorById(anchorId)?.activationCount ?? 0;
+      const recoveredChargeState = buildRecoveredChargeState(anchor, new Date());
       updateAnchor(anchorId, {
+        ...recoveredChargeState,
         activationCount: currentActivationCount + 1,
         lastActivatedAt: new Date(),
       });
@@ -170,6 +174,7 @@ export const FirstPrimeCompleteScreen: React.FC = () => {
         mode: primeSessionAudio,
         completedAt: new Date().toISOString(),
       });
+      void queueProgressionMilestonesFromStores();
       void handlePrimeComplete();
       AnalyticsService.track('first_prime_completed', {
         anchor_id: anchorId,

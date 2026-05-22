@@ -221,7 +221,7 @@ const normalizeDefaultCharge = (setting: DefaultChargeSetting): DefaultChargeSet
 };
 
 const normalizeDefaultActivation = (setting: DefaultActivationSetting): DefaultActivationSetting => {
-  const mode: ActivationMode = setting.mode ?? 'silent';
+  const mode: ActivationMode = setting.mode ?? 'ambient';
   if (setting.unit === 'seconds') {
     return {
       ...setting,
@@ -254,7 +254,7 @@ const clampPersistedSettings = (persistedState: any) => {
       type: persistedState.defaultActivation.type ?? 'visual',
       unit: persistedState.defaultActivation.unit ?? 'seconds',
       value: persistedState.defaultActivation.value ?? 10,
-      mode: persistedState.defaultActivation.mode ?? 'silent',
+      mode: persistedState.defaultActivation.mode ?? 'ambient',
     });
   }
 
@@ -412,11 +412,11 @@ const DEFAULT_SETTINGS = {
     type: 'visual' as ActivationType,
     value: 30,
     unit: 'seconds' as ActivationUnit,
-    mode: 'silent' as ActivationMode,
+    mode: 'ambient' as ActivationMode,
   },
   focusSessionMode: 'quick' as FocusSessionMode,
   focusSessionDuration: 30,
-  focusSessionAudio: 'silent' as SessionAudioMode,
+  focusSessionAudio: 'ambient' as SessionAudioMode,
   primeSessionDuration: 120,
   primeSessionAudio: 'silent' as SessionAudioMode,
   openDailyAnchorAutomatically: false,

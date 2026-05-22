@@ -188,8 +188,8 @@ export const PracticeInfoModal: React.FC<PracticeInfoModalProps> = ({
 
           <Text style={styles.title}>Three Modes to Prime</Text>
           <Text style={styles.subtitle}>
-            Three core priming modes. Four ways to practice them. Build thread strength
-            however you have time.
+            Three core priming modes. Four ways to practice them. Whenever time allows,
+            build thread strength.
           </Text>
 
           <ScrollView

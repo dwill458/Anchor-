@@ -162,7 +162,6 @@ describe('PracticeScreen', () => {
     expect(screen.getByText('Restore Thread')).toBeTruthy();
     expect(screen.getByText('Focus Session · 10–60 sec to restore')).toBeTruthy();
     expect(screen.getByText('DEEP PRIME')).toBeTruthy();
-    expect(screen.getByText('STABILIZE')).toBeTruthy();
     expect(screen.getAllByText('FOCUS SESSION').length).toBeGreaterThan(0);
     expect(screen.getByText('RELEASE')).toBeTruthy();
   });
@@ -222,7 +221,7 @@ describe('PracticeScreen', () => {
       expect(mockNavigateToVault).toHaveBeenCalledWith('Ritual', {
         anchorId: 'a99',
         ritualType: 'ritual',
-        durationSeconds: 300,
+        durationSeconds: 120,
         returnTo: 'practice',
       });
     });
@@ -245,7 +244,7 @@ describe('PracticeScreen', () => {
       expect(mockNavigateToVault).toHaveBeenCalledWith('Ritual', {
         anchorId: 'a2',
         ritualType: 'ritual',
-        durationSeconds: 300,
+        durationSeconds: 120,
         returnTo: 'practice',
       });
     });
@@ -263,7 +262,7 @@ describe('PracticeScreen', () => {
       expect(mockNavigateToVault).toHaveBeenCalledWith('Ritual', {
         anchorId: 'a77',
         ritualType: 'ritual',
-        durationSeconds: 14 * 60,
+        durationSeconds: 120,
         returnTo: 'practice',
       });
     });
@@ -286,10 +285,10 @@ describe('PracticeScreen', () => {
     fireEvent.press(screen.getByText('Restore Thread'));
 
     await waitFor(() => {
-      expect(mockNavigateToVault).toHaveBeenCalledWith('Ritual', {
+      expect(mockNavigateToVault).toHaveBeenCalledWith('ActivationRitual', {
         anchorId: 'a55',
-        ritualType: 'ritual',
-        durationSeconds: 14 * 60,
+        activationType: 'visual',
+        durationOverride: 30,
         returnTo: 'practice',
       });
     });

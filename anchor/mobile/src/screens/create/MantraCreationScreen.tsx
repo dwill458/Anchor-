@@ -25,6 +25,7 @@ import { colors, spacing, typography } from '@/theme';
 import type {
   Anchor,
   AnchorCategory,
+  ApiResponse,
   EnhancementMetadata,
   ReinforcementMetadata,
   RootStackParamList,
@@ -32,6 +33,8 @@ import type {
 } from '@/types';
 import { useAnchorStore } from '@/stores/anchorStore';
 import { useAuthStore } from '@/stores/authStore';
+import { post } from '@/services/ApiClient';
+import { logger } from '@/utils/logger';
 
 type MantraStyle = 'rhythmic' | 'deep' | 'clear';
 
@@ -300,7 +303,7 @@ export const MantraCreationScreen: React.FC = () => {
   }, []);
 
   const ensureAnchor = useCallback(
-    (option: MantraOption) => {
+    async (option: MantraOption) => {
       const providedVariant = route.params.structureVariant;
       const structureVariant: SigilVariant = isSigilVariant(providedVariant)
         ? providedVariant
@@ -322,7 +325,37 @@ export const MantraCreationScreen: React.FC = () => {
       };
 
       if (!anchorIdRef.current) {
-        const anchorId = `anchor-${Date.now()}`;
+        let anchorId = `anchor-${Date.now()}`;
+
+        if (authUser?.id) {
+          try {
+            const response = await post<ApiResponse<Anchor>>('/api/anchors', {
+              intentionText: anchorPayload.intentionText,
+              category: anchorPayload.category,
+              distilledLetters: anchorPayload.distilledLetters,
+              baseSigilSvg: anchorPayload.baseSigilSvg,
+              reinforcedSigilSvg: anchorPayload.reinforcedSigilSvg,
+              structureVariant: anchorPayload.structureVariant,
+              reinforcementMetadata: anchorPayload.reinforcementMetadata,
+              enhancedImageUrl: anchorPayload.enhancedImageUrl,
+              enhancementMetadata: anchorPayload.enhancementMetadata,
+              mantraText: anchorPayload.mantraText,
+              mantraAudioUrl: anchorPayload.mantraAudioUrl,
+            });
+
+            if (response?.success && response.data?.id) {
+              anchorId = response.data.id;
+              logger.info('[MantraCreation] Anchor saved to backend', { anchorId });
+            } else {
+              logger.warn('[MantraCreation] Backend returned unexpected response, using local ID', {
+                response,
+              });
+            }
+          } catch (error) {
+            logger.warn('[MantraCreation] Failed to save anchor to backend, proceeding locally', error);
+          }
+        }
+
         anchorIdRef.current = anchorId;
         addAnchor({
           id: anchorId,
@@ -450,8 +483,8 @@ export const MantraCreationScreen: React.FC = () => {
     await startRecording();
   }, [isRecording, startRecording, stopRecording]);
 
-  const handleContinue = useCallback(() => {
-    const anchorId = ensureAnchor(selectedMantraOption);
+  const handleContinue = useCallback(async () => {
+    const anchorId = await ensureAnchor(selectedMantraOption);
     if (!anchorId) {
       return;
     }

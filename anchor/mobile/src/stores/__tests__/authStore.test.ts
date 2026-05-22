@@ -762,5 +762,77 @@ describe('authStore', () => {
 
       postMock.mockRestore();
     });
+
+    it('should replace an already-promoted local/backend anchor with finalized charged data', async () => {
+      const localAnchor = createMockAnchor({ id: 'temp-anchor-1' });
+      const promotedLocalAnchor = createMockAnchor({
+        id: 'server-anchor-1',
+        localId: localAnchor.id,
+        userId: 'user-123',
+        isCharged: false,
+        chargeCount: 0,
+      });
+      const chargedAnchorResponse = {
+        id: 'server-anchor-1',
+        userId: 'user-123',
+      } as Partial<Anchor>;
+
+      useAnchorStore.getState().setAnchors([promotedLocalAnchor]);
+      useAnchorStore.getState().setCurrentAnchor(localAnchor.id);
+
+      useAuthStore.setState({
+        user: createMockUser(),
+        isAuthenticated: true,
+        hasCompletedOnboarding: true,
+        pendingFirstAnchorDraft: {
+          tempAnchorId: localAnchor.id,
+          source: 'onboarding_first_anchor',
+          requiresAccountGate: true,
+          createdAt: new Date('2026-04-10T00:00:00.000Z'),
+          backendAnchorId: 'server-anchor-1',
+          nextPendingMutationIndex: 1,
+        },
+        pendingFirstAnchorMutations: [
+          {
+            type: 'create_anchor',
+            tempAnchorId: localAnchor.id,
+            queuedAt: new Date('2026-04-10T00:00:01.000Z').toISOString(),
+          },
+          {
+            type: 'charge_anchor',
+            tempAnchorId: localAnchor.id,
+            chargeType: 'initial_quick',
+            durationSeconds: 30,
+            queuedAt: new Date('2026-04-10T00:00:02.000Z').toISOString(),
+          },
+        ],
+      });
+
+      const postMock = jest.spyOn(apiClient, 'post').mockResolvedValue({
+        data: { success: true, data: chargedAnchorResponse },
+      } as any);
+
+      (AuthService.getIdToken as jest.Mock).mockResolvedValue('firebase-id-token');
+
+      const result = await useAuthStore.getState().finalizePendingFirstAnchorDraft();
+
+      expect(result).toBe(true);
+      expect(postMock).toHaveBeenCalledWith('/api/anchors/server-anchor-1/charge', {
+        chargeType: 'initial_quick',
+        durationSeconds: 30,
+      });
+      expect(useAnchorStore.getState().anchors).toHaveLength(1);
+      expect(useAnchorStore.getState().anchors[0]).toEqual(
+        expect.objectContaining({
+          id: 'server-anchor-1',
+          localId: localAnchor.id,
+          isCharged: true,
+          chargeCount: 1,
+        })
+      );
+      expect(useAnchorStore.getState().currentAnchorId).toBe('server-anchor-1');
+
+      postMock.mockRestore();
+    });
   });
 });

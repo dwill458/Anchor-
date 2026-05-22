@@ -4,9 +4,11 @@ import { create } from 'zustand';
 export const LAST_MILESTONE_SHOWN_KEY = '@anchor_last_milestone_shown';
 
 export interface ForgeMomentMilestone {
-  type: 'rank' | 'constancy';
+  type: 'rank' | 'mark';
   name: string;
   primeCount?: number;
+  rankName?: string;
+  markIndex?: number;
 }
 
 interface ForgeMomentState {

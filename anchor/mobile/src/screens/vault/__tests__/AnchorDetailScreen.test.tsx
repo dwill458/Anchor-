@@ -15,6 +15,8 @@ const mockToastError = jest.fn();
 const mockAnalyticsTrack = jest.fn();
 const mockShareCardRendererProps = jest.fn();
 const mockZenBackgroundProps = jest.fn();
+const mockDel = jest.fn();
+const mockRemoveAnchor = jest.fn();
 let mockPerfTier: 'high' | 'medium' | 'low' = 'high';
 const mockAnchor = {
     id: 'anchor-123',
@@ -86,7 +88,7 @@ jest.mock('@/stores/anchorStore', () => ({
                 ...mockAnchor,
                 id,
             }),
-            removeAnchor: jest.fn(),
+            removeAnchor: mockRemoveAnchor,
             currentAnchorId: null,
         };
         return selector ? selector(state) : state;
@@ -104,6 +106,7 @@ jest.mock('@/stores/settingsStore', () => ({
             reduceIntentionVisibility: false,
             developerModeEnabled: false,
             developerDeleteWithoutBurnEnabled: false,
+            threadStrengthSensitivity: 'strict',
             defaultActivation: { type: 'visual', value: 30, unit: 'seconds' },
             setDefaultActivation: jest.fn(),
         };
@@ -133,6 +136,32 @@ jest.mock('@/stores/sessionStore', () => ({
                     completedAt: new Date().toISOString(),
                 },
             ],
+            primingHistory: [
+                {
+                    id: 'session-1',
+                    anchorId: 'anchor-123',
+                    type: 'activate',
+                    completedAt: new Date().toISOString(),
+                    localDate: today,
+                    weekKey: '2026-W21',
+                    weekStart: today,
+                    weekdayIndex: 0,
+                    hourOfDay: 9,
+                    timeOfDay: 'morning',
+                },
+                {
+                    id: 'session-2',
+                    anchorId: 'anchor-999',
+                    type: 'reinforce',
+                    completedAt: new Date().toISOString(),
+                    localDate: today,
+                    weekKey: '2026-W21',
+                    weekStart: today,
+                    weekdayIndex: 0,
+                    hourOfDay: 10,
+                    timeOfDay: 'morning',
+                },
+            ],
             threadStrength: 28,
             totalSessionsCount: 2,
             lastPrimedAt: today,
@@ -147,7 +176,7 @@ jest.mock('@/utils/haptics', () => ({
 }));
 
 jest.mock('@/services/ApiClient', () => ({
-    del: jest.fn(),
+    del: (...args: any[]) => mockDel(...args),
 }));
 
 jest.mock('@/services/AnchorArtworkExportService', () => ({
@@ -224,10 +253,13 @@ describe('AnchorDetailScreen', () => {
         mockAnalyticsTrack.mockReset();
         mockShareCardRendererProps.mockReset();
         mockZenBackgroundProps.mockReset();
+        mockDel.mockReset();
+        mockRemoveAnchor.mockReset();
         mockPerfTier = 'high';
         mockAnchor.enhancedImageUrl = undefined;
         mockAnchor.sigilUri = undefined;
         mockAnchor.isCharged = false;
+        mockDel.mockResolvedValue({ success: true });
         mockExportAnchorArtwork.mockResolvedValue({
             localUri: 'file:///tmp/anchor.png',
             filename: 'test-intention-wallpaper.png',
@@ -266,6 +298,16 @@ describe('AnchorDetailScreen', () => {
         expect(screen.getByText('Thread Strength')).toBeTruthy();
         expect(screen.getByText('The symbol is becoming part of you.')).toBeTruthy();
         expect(screen.getByTestId('anchor-detail-streak-value').props.children[0]).toBe(1);
+    });
+
+    it('opens the per-anchor thread strength sheet from the stats row', () => {
+        render(<AnchorDetailScreen navigation={navigation} route={route} />);
+
+        fireEvent.press(screen.getByTestId('anchor-thread-strength-row'));
+
+        expect(screen.getByText(/This Anchor . Thread Strength/)).toBeTruthy();
+        expect(screen.getByText(/Sensitivity:/)).toBeTruthy();
+        expect(screen.getByTestId('thread-strength-sheet-sigil')).toBeTruthy();
     });
 
     it('disables anchor glow layers and background orbs on low-tier devices', async () => {
@@ -351,5 +393,22 @@ describe('AnchorDetailScreen', () => {
             expect(screen.getByText('SAVE PNG')).toBeTruthy();
         });
         expect(Share.share).not.toHaveBeenCalled();
+    });
+
+    it('shows the delete action in production and recommends burn & release first', async () => {
+        render(<AnchorDetailScreen navigation={navigation} route={route} />);
+
+        fireEvent.press(screen.getByText('Delete Anchor'));
+
+        expect(screen.getByText('Burn & Release is the proper ritual.')).toBeTruthy();
+        expect(screen.getByText('Delete Anyway')).toBeTruthy();
+
+        fireEvent.press(screen.getByText('Delete Anyway'));
+
+        await waitFor(() => {
+            expect(mockDel).toHaveBeenCalledWith('/api/anchors/anchor-123');
+            expect(mockRemoveAnchor).toHaveBeenCalledWith('anchor-123');
+            expect(navigation.popToTop).toHaveBeenCalled();
+        });
     });
 });

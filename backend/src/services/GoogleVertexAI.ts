@@ -344,7 +344,7 @@ Based on "${intention}", add minimal symbolic touches:
   public getCostEstimate(num: number = 4): number {
     return num * 0.04;
   }
-  public getTimeEstimate() {
+  public getTimeEstimate(): { min: number; max: number } {
     return { min: 25, max: 40 };
   }
 }

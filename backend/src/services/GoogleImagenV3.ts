@@ -41,7 +41,7 @@ export class GoogleImagenV3 {
     totalTimeSeconds: number;
     costUSD: number;
   }> {
-    const { baseSigilSvg, intentionText, styleApproach, numberOfVariations = 4 } = params;
+    const { baseSigilSvg, intentionText, styleApproach, numberOfVariations = 2 } = params;
 
     logger.info('[ImagenV3] Starting sigil enhancement', { styleApproach, numberOfVariations });
 

@@ -15,7 +15,7 @@ import {
 import { SvgXml } from 'react-native-svg';
 import { colors } from '@/theme';
 import type { Anchor } from '@/types';
-import { isAnchorReleased } from '../utils/anchorStateHelpers';
+import { hasIgnited, isAnchorReleased } from '../utils/anchorStateHelpers';
 
 // ─── StackCard ────────────────────────────────────────────────────────────────
 
@@ -54,7 +54,7 @@ const StackCard = React.memo<StackCardProps>(({ anchor, onPress }) => {
         )}
       </View>
       <Text style={styles.cardLabel} numberOfLines={2}>{label}</Text>
-      <View style={[styles.statusDot, anchor.isCharged ? styles.dotCharged : styles.dotUncharged]} />
+      <View style={[styles.statusDot, hasIgnited(anchor) ? styles.dotCharged : styles.dotUncharged]} />
     </TouchableOpacity>
   );
 });

@@ -120,7 +120,7 @@ export class GeminiImageService {
     return !!this.apiKey && this.apiKey !== '';
   }
 
-  public getCostEstimate(numVariations: number = 4, tier: QualityTier = 'premium'): number {
+  public getCostEstimate(numVariations: number = 2, tier: QualityTier = 'premium'): number {
     return numVariations * MODEL_CONFIGS[tier].costPerImage;
   }
 
@@ -166,14 +166,14 @@ export class GeminiImageService {
     // 1. Convert SVG to PNG
     const baseImageBuffer = await this.svgToPng(baseSigilSvg);
 
-    // 2. Create intention-aware prompt
-    const prompt = this.createPrompt(intentionText, styleApproach);
-
-    // 3. Get model configuration
+    // 2. Get model configuration
     const modelConfig = MODEL_CONFIGS[tier];
+    const prompt = this.createPrompt(intentionText, styleApproach, 0);
 
-    // 4. Generate variations in batches of 2 (paid plan — no free-tier rate limit concerns).
+    // 3. Generate variations in batches of 2 (paid plan — no free-tier rate limit concerns).
     //    Two concurrent calls per batch cuts wall-clock time roughly in half vs sequential.
+    //    Each variation gets its own prompt with a distinct compositional stance so the
+    //    2 outputs are guaranteed to diverge visually within the same style.
     const INTER_BATCH_DELAY_MS = 2500;
     const variations: ImageVariation[] = [];
     const BATCH_SIZE = 2;
@@ -183,7 +183,14 @@ export class GeminiImageService {
         (_, k) => i + k
       );
       const batch = await Promise.all(
-        indices.map(idx => this.generateVariation(baseImageBuffer, prompt, idx, modelConfig))
+        indices.map(idx =>
+          this.generateVariation(
+            baseImageBuffer,
+            this.createPrompt(intentionText, styleApproach, idx),
+            idx,
+            modelConfig
+          )
+        )
       );
       variations.push(...batch);
 
@@ -211,7 +218,7 @@ export class GeminiImageService {
     };
   }
 
-  private createPrompt(intention: string, style: string): string {
+  private createPrompt(intention: string, style: string, variationIndex: number = 0): string {
     const archetypeBlock = this.getArchetypeMotifs(intention);
 
     const structuralCore =
@@ -231,17 +238,18 @@ STRUCTURAL PRESERVATION — HIGHEST PRIORITY:
 3. No text, words, letters, or numbers of any kind`;
 
     const hardBans = `
-ABSOLUTE PROHIBITIONS — DO NOT INCLUDE ANY OF THE FOLLOWING:
+STRICT AVOIDANCE RULES — KEEP THESE OUT OR STRONGLY DE-EMPHASIZED:
 ✗ Text, words, letters, phrases, sentences, or any readable characters whatsoever
 ✗ Numbers, numerals, digits, or numeric symbols of any kind
 ✗ Currency: dollar signs ($), pound (£), euro (€), yen (¥), coins, coin stacks, banknotes, bills, cash, wallets, credit cards
 ✗ Financial: bank logos, charts, graphs, bar charts, pie charts, stock tickers, financial instruments
-✗ Literal depictions of objects directly named in the intention — no direct illustration
-✗ Literal people, human faces, human figures, or recognizable portraits
-✗ Clipart, icon packs, sticker-style imagery, flat vector icons, or emoji-style symbols
-✗ Photorealistic photography — keep to illustration, engraving, or filigree aesthetic
-✗ Brand logos, watermarks, copyright symbols
-✗ Literal chains, literal keys, literal locks, literal weapons, literal animals as main subjects
+✗ Recognizable brand logos, watermarks, copyright symbols
+✗ Clipart, icon-pack, sticker-style, emoji-style, or flat app-icon aesthetics
+✗ Photorealistic photography as the dominant rendering mode — keep the image illustrative, engraved, painterly, or atmospheric
+✗ Recognizable human faces, portraits, or literal people as the main subject
+✗ Overly literal object depictions directly illustrating the intention in a blunt or front-and-center way
+✓ Symbolic motifs are allowed when they are abstracted, ornamental, secondary, and integrated into the border, background, texture field, or negative space
+✓ Objects such as keys, locks, chains, animals, tools, or weapons may appear only as subtle symbolic accents, not as the dominant subject
 NO WORDS. NO NUMBERS. NO LETTERS. NO CURRENCY. NO FINANCIAL IMAGERY.`;
 
     const styleTemplates: Record<string, string> = {
@@ -299,20 +307,24 @@ ${hardBans}`,
 
       sacred_geometry: `${structuralCore}
 
-STYLE: Sacred geometry — golden ratio, Flower of Life, mathematical harmony
-- Geometric background patterns (Metatron's Cube, Flower of Life) as faint underlayer only
-- Precise measured linework; gold, deep blue, or dark purple palette
-- Background geometry never competes with or distorts the main sigil
+STYLE: Sacred geometry — rich multi-system layering, vibrant color depth, mathematical wonder
+- Multiple sacred geometry systems are VISIBLE and present in the background: Flower of Life, Metatron's Cube, Sri Yantra, Vesica Piscis, golden spiral, Seed of Life, Platonic solid projections — layer at least 2–3 systems together
+- These patterns have real presence and color — they are NOT a faint underlayer; they carry visual weight and depth
+- Rich, varied color palette across the entire composition: deep indigo, electric violet, warm gold, dusty rose, teal, amber, celestial blue — multiple hues coexist in layered harmony
+- Each geometric layer rendered in a distinct color or opacity to create visual depth and separation
+- Background geometry never competes with or distorts the main sigil structure — it exists behind and around it
 
 ${archetypeBlock}
 ${hardBans}`,
 
       gold_leaf: `${structuralCore}
 
-STYLE: Illuminated manuscript — gold leaf gilding, jewel-tone colors, Gothic filigree
-- Rich gold leaf finish on the main sigil lines
-- Deep jewel-tone background (ruby, sapphire, or emerald)
-- Ornate border in Celtic or Gothic filigree style
+STYLE: Illuminated gold — free-form gilding, precious metal atmosphere, living luminance
+- Gold is the ruling element: liquid gold, scattered gold dust, gilded halos, and luminous gold-wash bloom
+- Background can be any moody dark tone that serves the gold — aged parchment, deep charcoal, warm black, misty indigo, velvety midnight, burnt umber — no prescribed palette
+- Gold is not confined to the sigil lines: let it bloom outward as scattered leaf fragments, ambient particles, and glowing atmospheric haze
+- No mandatory border style — any decoration must feel organic to the composition, never imposed or Gothic-by-default
+- Aesthetic: precious, luminous, alive — gold as light source, not just surface finish
 
 ${archetypeBlock}
 ${hardBans}`,
@@ -398,7 +410,26 @@ ${archetypeBlock}
 ${hardBans}`,
     };
 
-    return styleTemplates[style] || styleTemplates.watercolor;
+    const stanceBlock =
+      variationIndex % 2 === 0
+        ? `
+COMPOSITIONAL STANCE — VARIATION A (CENTRED):
+- The sigil is a fixed centre of gravity; treat it as the still point of the composition
+- All decorative motifs and atmospheric elements cluster inward toward the sigil
+- Background texture is densest close to the sigil and fades toward the outer edge
+- Border and peripheral space are open and restrained — energy lives at the core
+- Overall feeling: contained, focused, complete — a mandala at rest`
+        : `
+COMPOSITIONAL STANCE — VARIATION B (EXPANSIVE):
+- The sigil is a point of emanation; treat it as a source radiating outward
+- Background elements and motifs push toward the outer margins and periphery
+- Texture and energy are most intense at the edges, quieter near the sigil centre
+- The sigil sits in open negative space; surrounding field carries the weight
+- Overall feeling: expansive, reaching, dynamic — a signal sent into open space`;
+
+    const baseTemplate = styleTemplates[style] || styleTemplates.watercolor;
+    return `${baseTemplate}
+${stanceBlock}`;
   }
 
   /**

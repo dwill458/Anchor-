@@ -26,6 +26,7 @@ import {
   DEVELOPER_MASTER_ACCOUNT_TOKEN,
 } from '@/utils/developerMasterAccount';
 import { logger } from '@/utils/logger';
+import { buildRecoveredChargeState } from '@/utils/anchorPriming';
 
 type StabilizeStats = {
   stabilizesTotal: number;
@@ -208,6 +209,32 @@ function normalizeAnchor(anchor: Anchor): Anchor {
     releasedAt: normalizeAnchorDate(anchor.releasedAt),
     archivedAt: normalizeAnchorDate(anchor.archivedAt),
   };
+}
+
+function mergeServerAnchor(existing: Anchor, incoming: Partial<Anchor>): Anchor {
+  return normalizeAnchor({
+    ...existing,
+    ...incoming,
+    isCharged: incoming.isCharged ?? existing.isCharged,
+    chargeCount: incoming.chargeCount ?? existing.chargeCount,
+    activationCount: incoming.activationCount ?? existing.activationCount,
+    chargedAt: normalizeAnchorDate(incoming.chargedAt) ?? existing.chargedAt,
+    firstChargedAt: normalizeAnchorDate(incoming.firstChargedAt) ?? existing.firstChargedAt,
+    ignitedAt: normalizeAnchorDate(incoming.ignitedAt) ?? existing.ignitedAt,
+    lastActivatedAt: normalizeAnchorDate(incoming.lastActivatedAt) ?? existing.lastActivatedAt,
+  } as Anchor);
+}
+
+function matchesPendingDraftAnchor(
+  anchor: Anchor,
+  tempAnchorId: string,
+  backendAnchorId?: string
+): boolean {
+  return (
+    anchor.id === tempAnchorId ||
+    anchor.localId === tempAnchorId ||
+    (backendAnchorId != null && (anchor.id === backendAnchorId || anchor.localId === backendAnchorId))
+  );
 }
 
 function buildAnchorCreatePayload(anchor: Anchor) {
@@ -651,11 +678,10 @@ export const useAuthStore = create<AuthState>()(
 
             backendAnchorId = createResponse.data.data.id;
             nextPendingMutationIndex = getNextPendingMutationIndex(relevantMutations, 0);
-            finalizedAnchor = normalizeAnchor({
-              ...localAnchor,
+            finalizedAnchor = mergeServerAnchor(localAnchor, {
               ...createResponse.data.data,
               id: backendAnchorId,
-            } as Anchor);
+            } as Partial<Anchor>);
 
             persistPendingDraftProgress({
               backendAnchorId,
@@ -685,10 +711,11 @@ export const useAuthStore = create<AuthState>()(
                 throw new Error('Your first anchor was created, but charging did not sync.');
               }
 
-              finalizedAnchor = normalizeAnchor({
-                ...finalizedAnchor,
-                ...chargeResponse.data.data,
-              } as Anchor);
+              finalizedAnchor = mergeServerAnchor(finalizedAnchor, chargeResponse.data.data as Partial<Anchor>);
+              finalizedAnchor = mergeServerAnchor(
+                finalizedAnchor,
+                buildRecoveredChargeState(finalizedAnchor, new Date())
+              );
               nextPendingMutationIndex = index + 1;
               persistPendingDraftProgress({ nextPendingMutationIndex });
               continue;
@@ -707,18 +734,25 @@ export const useAuthStore = create<AuthState>()(
                 throw new Error('Your first anchor was created, but activation did not sync.');
               }
 
-              finalizedAnchor = normalizeAnchor({
-                ...finalizedAnchor,
-                ...activationResponse.data.data,
-              } as Anchor);
+              finalizedAnchor = mergeServerAnchor(
+                finalizedAnchor,
+                activationResponse.data.data as Partial<Anchor>
+              );
               nextPendingMutationIndex = index + 1;
               persistPendingDraftProgress({ nextPendingMutationIndex });
             }
           }
 
-          const nextAnchors = anchorStore.anchors.map((anchor) =>
-            anchor.id === pendingFirstAnchorDraft.tempAnchorId ? finalizedAnchor : anchor
+          const existingMatch = anchorStore.anchors.some((anchor) =>
+            matchesPendingDraftAnchor(anchor, pendingFirstAnchorDraft.tempAnchorId, finalizedAnchor.id)
           );
+          const nextAnchors = existingMatch
+            ? anchorStore.anchors.map((anchor) =>
+              matchesPendingDraftAnchor(anchor, pendingFirstAnchorDraft.tempAnchorId, finalizedAnchor.id)
+                ? finalizedAnchor
+                : anchor
+            )
+            : [finalizedAnchor, ...anchorStore.anchors];
           anchorStore.setAnchors(nextAnchors);
 
           if (anchorStore.currentAnchorId === pendingFirstAnchorDraft.tempAnchorId) {

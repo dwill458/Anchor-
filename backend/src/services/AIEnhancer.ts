@@ -63,8 +63,8 @@ export function getCostEstimate(tier: 'draft' | 'premium' | 'pro_upgrade' = 'pre
   const geminiService = getGeminiImageService();
   if (geminiService.isAvailable()) {
     // Draft: 2 variations × $0.02 = $0.04 (free users)
-    // Premium: 4 variations × $0.04 = $0.16 (paid users)
-    const numVariations = tier === 'draft' ? 2 : 4;
+    // Premium: 2 variations × $0.04 = $0.08 (paid users)
+    const numVariations = 2;
     return geminiService.getCostEstimate(numVariations, tier);
   }
   // Fallback to Replicate: ~$0.01 per image × 2 variations = $0.02
@@ -175,12 +175,14 @@ const STYLE_CONFIGS: Record<AIStyle, StyleConfig> = {
     category: 'geometric',
     prompt:
       'Restore and beautify the existing sigil. Preserve exact geometry and stroke paths. ' +
-      'Apply golden metallic sheen as surface treatment only. Sacred geometry aesthetic, ' +
-      'precise lines with subtle glow. Mathematical perfection in texture, not form. ' +
-      'The original sigil geometry is untouched.',
-    negativePrompt: STRICT_NEGATIVE_PROMPT + ', organic, soft, messy, hand-drawn',
-    conditioning_scale: 1.25, // Higher for geometric precision
-    strength: 0.22,
+      'Apply rich multi-layer sacred geometry as surface treatment. Multiple visible systems in the ' +
+      "background: Flower of Life, Metatron's Cube, Sri Yantra, golden spiral — layer at least 2 together. " +
+      'Rich color palette: deep indigo, violet, gold, rose, teal, amber — each geometric layer in a ' +
+      'distinct hue or opacity for real visual depth. The original sigil geometry is untouched.',
+    negativePrompt:
+      STRICT_NEGATIVE_PROMPT + ', organic, soft, messy, hand-drawn, monochrome, single color',
+    conditioning_scale: 1.2,
+    strength: 0.3,
   },
   ink_brush: {
     name: 'ink_brush',
@@ -201,12 +203,14 @@ const STYLE_CONFIGS: Record<AIStyle, StyleConfig> = {
     category: 'hybrid',
     prompt:
       'Restore and beautify the existing sigil. Preserve exact geometry and stroke paths. ' +
-      'Apply gold leaf gilding texture as surface treatment only. Illuminated manuscript style, ' +
-      'precious metal sheen, ornate texture on the existing lines. Medieval luxury aesthetic. ' +
-      'The sigil shape remains exactly as designed.',
-    negativePrompt: STRICT_NEGATIVE_PROMPT + ', modern, photography, people',
+      'Apply free-form gold atmosphere as surface treatment. Liquid gold sheen, scattered gold leaf ' +
+      'fragments, gilded halo glow blooming outward from the sigil. Background in any dark moody tone ' +
+      'that serves the gold — charcoal, warm black, aged parchment, deep indigo. No imposed border style. ' +
+      'Gold is a living light source, not just a surface finish. The sigil shape remains exactly as designed.',
+    negativePrompt:
+      STRICT_NEGATIVE_PROMPT + ', modern, photography, people, Gothic border, filigree frame',
     conditioning_scale: 1.2,
-    strength: 0.25,
+    strength: 0.28,
   },
   cosmic: {
     name: 'cosmic',
@@ -523,7 +527,7 @@ export interface VariationResult {
  * Result from ControlNet enhancement
  */
 export interface ControlNetEnhancementResult {
-  variations: VariationResult[]; // Array of 4 variations with scores
+  variations: VariationResult[]; // Array of 2 variations with scores
   variationUrls: string[]; // Legacy: just the URLs for backward compat
   prompt: string; // Prompt used
   negativePrompt: string; // Negative prompt used
@@ -543,7 +547,7 @@ export interface ControlNetEnhancementResult {
  * with automatic fallback to Replicate if Gemini is unavailable or fails.
  *
  * Provider Priority:
- * 1. Gemini 3 Pro Image (if configured) - High-fidelity structural preservation, 4 variations in parallel
+ * 1. Gemini 3 Pro Image (if configured) - High-fidelity structural preservation, 2 variations in parallel
  *    - All tiers currently use gemini-3-pro-image-preview (Nano Banana)
  *    - Tier affects variation count and internal cost/latency estimates
  * 2. Replicate (fallback) - ControlNet implementation with sequential generation
@@ -565,11 +569,8 @@ export async function enhanceSigilWithAI(
         model: 'gemini-3-pro-image-preview',
       });
 
-      // premium = 4 variations by default; reuse-pool callers can request fewer.
-      const numberOfVariations = Math.max(
-        1,
-        request.numberOfVariations ?? (tier === 'premium' ? 4 : 2)
-      );
+      // 2 variations by default; reuse-pool callers can request fewer.
+      const numberOfVariations = Math.max(1, request.numberOfVariations ?? 2);
 
       const result = await geminiService.enhanceSigil({
         baseSigilSvg: request.sigilSvg,
@@ -664,7 +665,7 @@ export async function enhanceSigilWithAI(
 }
 
 /**
- * Generate 4 AI-enhanced variations using ControlNet with STRICT structure preservation
+ * Generate 2 AI-enhanced variations using ControlNet with STRICT structure preservation
  *
  * NOTE: This is now the Replicate-specific implementation used as fallback.
  * For the new primary path, use enhanceSigilWithAI() which tries Google Vertex AI first.
@@ -721,7 +722,7 @@ export async function enhanceSigilWithControlNet(
         hasSymbols: symbolInstructions.length > 0,
       });
 
-      const numVariations = Math.max(1, request.numberOfVariations ?? 4);
+      const numVariations = Math.max(1, request.numberOfVariations ?? 2);
       const mockPalette = [
         ['1a1a1d', 'd4af37'],
         ['0f1419', 'cd7f32'],

@@ -51,3 +51,13 @@ google-services.json
 coverage/
 .jest-cache/
 
+# Android build artifacts (not needed for EAS cloud builds)
+android/build/
+android/.gradle/
+android/app/build/
+android/.idea/
+
+# iOS build artifacts
+ios/build/
+ios/Pods/
+

@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from 'react';
 import {
   Pressable,
   ScrollView,
@@ -6,41 +6,39 @@ import {
   Text,
   useWindowDimensions,
   View,
-} from "react-native";
-import Constants from "expo-constants";
-import { LinearGradient } from "expo-linear-gradient";
-import { StatusBar } from "expo-status-bar";
-import { SvgXml } from "react-native-svg";
-import { OptimizedImage } from "@/components/common";
-import { useAuthStore } from "@/stores/authStore";
-import { useAnchorStore } from "@/stores/anchorStore";
-import { useProfileStore } from "@/stores/profileStore";
-import { useToast } from "@/components/ToastProvider";
-import { ProfileHeader } from "@/components/profile/ProfileHeader";
-import { ProgressionSheet } from "@/components/profile/ProgressionSheet";
-import { EditProfileSheet } from "@/components/EditProfileSheet";
-import { useTrialStatus } from "@/hooks/useTrialStatus";
-import { colors, spacing, typography } from "@/theme";
-import { withAlpha } from "@/utils/color";
-import {
-  getDepthLevel,
-  getDepthProgress,
-  getNextDepthLevel,
-} from "@/utils/practiceDepth";
-import {
-  getCurrentRank,
-  getNextRank,
-  getRankProgress,
-  RANK_TIERS,
-} from "@/utils/practiceRank";
-import { apiClient } from "@/services/ApiClient";
-import { logger } from "@/utils/logger";
-import type { ApiResponse, Anchor, User } from "@/types";
+} from 'react-native';
+import Constants from 'expo-constants';
+import { LinearGradient } from 'expo-linear-gradient';
+import { StatusBar } from 'expo-status-bar';
+import { SvgXml } from 'react-native-svg';
+import { OptimizedImage } from '@/components/common';
+import { useAuthStore } from '@/stores/authStore';
+import { useAnchorStore } from '@/stores/anchorStore';
+import { useProfileStore } from '@/stores/profileStore';
+import { useToast } from '@/components/ToastProvider';
+import { ProfileHeader } from '@/components/profile/ProfileHeader';
+import { ProgressionSheet } from '@/components/profile/ProgressionSheet';
+import { EditProfileSheet } from '@/components/EditProfileSheet';
+import { useTrialStatus } from '@/hooks/useTrialStatus';
+import { useProgressionData } from '@/hooks/useProgressionData';
+import { colors, spacing, typography } from '@/theme';
+import { withAlpha } from '@/utils/color';
+import { apiClient } from '@/services/ApiClient';
+import { logger } from '@/utils/logger';
+import type { ApiResponse, Anchor, User } from '@/types';
 
-const RANK_PIPS = 8;
-const DEPTH_SEGMENTS = 20;
 const CARD_RADIUS = 16;
 const GRID_GAP = 10;
+const RANK_PIPS = 8;
+const DEPTH_SEGMENTS = 20;
+
+const MARK_SEAL_XML = `
+  <svg viewBox="0 0 44 44" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <circle cx="22" cy="22" r="17.5" stroke="rgba(212,175,55,0.45)" />
+    <circle cx="22" cy="22" r="12.5" stroke="rgba(212,175,55,0.22)" />
+    <path d="M22 10.5 L24.7 18.1 L32.8 18.1 L26.2 22.9 L28.7 30.6 L22 25.9 L15.3 30.6 L17.8 22.9 L11.2 18.1 L19.3 18.1 Z" fill="rgba(212,175,55,0.18)" stroke="rgba(212,175,55,0.82)" stroke-width="1.1" />
+  </svg>
+`;
 
 const CardShell: React.FC<{
   children: React.ReactNode;
@@ -66,13 +64,45 @@ const SectionLabel: React.FC<{ children: React.ReactNode }> = ({
   children,
 }) => <Text style={styles.sectionLabel}>{children}</Text>;
 
-const StatTile: React.FC<{ value: string; label: string }> = ({
+const CardMetaRow: React.FC<{
+  label: string;
+  showView?: boolean;
+}> = ({ label, showView = true }) => (
+  <View style={styles.cardMetaRow}>
+    <SectionLabel>{label}</SectionLabel>
+    {showView ? <Text style={styles.cardViewHint}>VIEW ▾</Text> : null}
+  </View>
+);
+
+const SegmentedTrack: React.FC<{
+  progress: number;
+  color: string;
+}> = ({ progress, color }) => (
+  <View style={styles.segmentRow}>
+    {Array.from({ length: DEPTH_SEGMENTS }).map((_, index) => (
+      <View
+        key={index}
+        style={[
+          styles.segment,
+          index < Math.round(progress * DEPTH_SEGMENTS)
+            ? {
+                backgroundColor: color,
+                borderColor: withAlpha(color, 0.7),
+              }
+            : null,
+        ]}
+      />
+    ))}
+  </View>
+);
+
+const StatCell: React.FC<{ value: string; label: string }> = ({
   value,
   label,
 }) => (
-  <View style={styles.statTile}>
-    <Text style={styles.statValue}>{value}</Text>
-    <Text style={styles.statLabel}>{label}</Text>
+  <View style={styles.statCell}>
+    <Text style={styles.statCellValue}>{value}</Text>
+    <Text style={styles.statCellLabel}>{label}</Text>
   </View>
 );
 
@@ -93,7 +123,7 @@ const VaultCell: React.FC<{
   }
 
   const isBurned = Boolean(
-    anchor.isReleased || anchor.archivedAt || anchor.releasedAt,
+    anchor.isReleased || anchor.archivedAt || anchor.releasedAt
   );
   const sigilXml = anchor.reinforcedSigilSvg || anchor.baseSigilSvg;
   const enhancedImageUrl = anchor.enhancedImageUrl;
@@ -140,81 +170,12 @@ const VaultCell: React.FC<{
   );
 };
 
-const ConstancyBlock: React.FC<{
-  earned: boolean;
-  currentStreak: number;
-}> = ({ earned, currentStreak }) => (
-  <CardShell
-    gradient={
-      earned
-        ? [withAlpha(colors.gold, 0.08), withAlpha(colors.purple, 0.42)]
-        : undefined
-    }
-  >
-    <View style={styles.constancyRow}>
-      <View
-        style={[
-          styles.constancySeal,
-          earned ? styles.constancySealEarned : styles.constancySealLocked,
-        ]}
-      >
-        {earned ? (
-          <SvgXml
-            xml={`
-              <svg viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg">
-                <circle cx="20" cy="20" r="14" stroke="${colors.gold}" stroke-width="1" opacity="0.5" />
-                <path d="M20 6 L22 17 L33 17 L24 24 L27 35 L20 28 L13 35 L16 24 L7 17 L18 17 Z" stroke="${colors.gold}" stroke-width="1.2" fill="rgba(212,175,55,0.15)" />
-              </svg>
-            `}
-            width={22}
-            height={22}
-          />
-        ) : (
-          <Text style={styles.constancyQuestion}>?</Text>
-        )}
-      </View>
-
-      <View style={styles.constancyCopy}>
-        <Text
-          style={[
-            styles.constancyLabel,
-            earned ? styles.constancyLabelEarned : null,
-          ]}
-        >
-          CONSTANCY MARK
-        </Text>
-        <Text
-          style={[
-            styles.constancyText,
-            earned ? styles.constancyTextEarned : null,
-          ]}
-        >
-          {earned
-            ? "100 Days of Practice"
-            : "Forged at 100 consecutuve days primed"}
-        </Text>
-      </View>
-
-      <Text
-        style={[
-          styles.constancyMetric,
-          earned ? styles.constancyMetricEarned : null,
-        ]}
-      >
-        {earned ? "Earned" : `${Math.min(currentStreak, 100)}/100`}
-      </Text>
-    </View>
-  </CardShell>
-);
-
 export const ProfileScreen: React.FC = () => {
   const toast = useToast();
   const { width } = useWindowDimensions();
   const user = useAuthStore((state) => state.user);
   const setUser = useAuthStore((state) => state.setUser);
   const anchors = useAnchorStore((state) => state.anchors);
-  const storedTotalPrimes = useAnchorStore((state) => state.totalPrimes);
-  const primeStreak = useAnchorStore((state) => state.primeStreak);
   const {
     name,
     axiom,
@@ -225,6 +186,7 @@ export const ProfileScreen: React.FC = () => {
     updateProfile,
     syncFromUser,
   } = useProfileStore();
+  const progression = useProgressionData();
 
   const [editSheetOpen, setEditSheetOpen] = useState(false);
   const [progressionSheetVisible, setProgressionSheetVisible] = useState(false);
@@ -235,34 +197,8 @@ export const ProfileScreen: React.FC = () => {
     }
   }, [syncFromUser, user]);
 
-  const lifetimePrimesFromAnchors = useMemo(
-    () =>
-      anchors.reduce((sum, anchor) => sum + (anchor.activationCount ?? 0), 0),
-    [anchors],
-  );
-  const totalPrimes = Math.max(storedTotalPrimes, lifetimePrimesFromAnchors);
-  const anchorsForged = anchors.length;
-  const activeAnchors = anchors.filter(
-    (anchor) => !anchor.isReleased && !anchor.archivedAt,
-  ).length;
-  const releasedAnchors = anchors.filter(
-    (anchor) => anchor.isReleased || anchor.archivedAt,
-  ).length;
-  const currentStreak = user?.currentStreak ?? 0;
-  const longestStreak = user?.longestStreak ?? 0;
-  const constancyEarned = longestStreak >= 100;
-
-  const rank = getCurrentRank(totalPrimes);
-  const nextRank = getNextRank(totalPrimes);
-  const rankProgress = getRankProgress(totalPrimes);
-  const depth = getDepthLevel(totalPrimes);
-  const nextDepth = getNextDepthLevel(totalPrimes);
-  const depthProgress = getDepthProgress(totalPrimes);
-  const isCompactProfileLayout = width < 420;
-  const identityTextMaxWidth = isCompactProfileLayout ? undefined : 220;
-
   const resolvedName =
-    name || user?.displayName || user?.email?.split("@")[0] || "Practitioner";
+    name || user?.displayName || user?.email?.split('@')[0] || 'Practitioner';
   const resolvedAxiom = axiom.trim();
   const resolvedTimezone = timezone;
   const memberSinceDate = memberSince
@@ -272,20 +208,20 @@ export const ProfileScreen: React.FC = () => {
       : null;
   const memberSinceLabel =
     memberSinceDate && !Number.isNaN(memberSinceDate.getTime())
-      ? memberSinceDate.toLocaleString("en-US", {
-          month: "short",
-          year: "numeric",
+      ? memberSinceDate.toLocaleString('en-US', {
+          month: 'short',
+          year: 'numeric',
         })
-      : "Now";
+      : 'Now';
 
   const vaultAnchors = useMemo(
     () =>
       [...anchors].sort(
         (left, right) =>
           new Date(left.createdAt).getTime() -
-          new Date(right.createdAt).getTime(),
+          new Date(right.createdAt).getTime()
       ),
-    [anchors],
+    [anchors]
   );
   const paddedVaultAnchors = useMemo(() => {
     const remainder = vaultAnchors.length % 4;
@@ -297,7 +233,7 @@ export const ProfileScreen: React.FC = () => {
   }, [vaultAnchors]);
 
   const cellSize = Math.floor((width - spacing.lg * 2 - GRID_GAP * 3) / 4);
-  const appVersion = Constants.expoConfig?.version ?? "1.0.0";
+  const appVersion = Constants.expoConfig?.version ?? '1.0.0';
 
   const handleSaveProfile = async (updates: {
     name: string;
@@ -314,10 +250,10 @@ export const ProfileScreen: React.FC = () => {
 
       try {
         const response = await apiClient.patch<ApiResponse<User>>(
-          "/api/users/me",
+          '/api/users/me',
           {
             displayName: updates.name,
-          },
+          }
         );
 
         if (response.data?.success && response.data.data) {
@@ -325,14 +261,14 @@ export const ProfileScreen: React.FC = () => {
         }
       } catch (error) {
         logger.warn(
-          "[ProfileScreen] Failed to sync display name remotely",
-          error,
+          '[ProfileScreen] Failed to sync display name remotely',
+          error
         );
       }
     }
 
     setEditSheetOpen(false);
-    toast.success("Profile updated");
+    toast.success('Profile updated');
   };
 
   const { isSubscribed } = useTrialStatus();
@@ -357,167 +293,182 @@ export const ProfileScreen: React.FC = () => {
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
-        <View
-          style={[
-            styles.identityRow,
-            isCompactProfileLayout ? styles.identityRowCompact : null,
-          ]}
-        >
-          <ProfileHeader
-            displayName={resolvedName}
-            subscriptionStatus={resolvedSubscriptionStatus}
-          />
-
-          <View
-            style={[
-              styles.identityTextWrap,
-              isCompactProfileLayout ? styles.identityTextWrapCompact : null,
-              identityTextMaxWidth ? { maxWidth: identityTextMaxWidth } : null,
-            ]}
-          >
-            <Text style={styles.identityName}>
-              {resolvedName}
-            </Text>
-            {resolvedAxiom ? (
-              <Text style={styles.identityAxiom}>
-                {resolvedAxiom}
-              </Text>
-            ) : null}
-            <Text style={styles.memberSince}>{`Member since ${memberSinceLabel}`}</Text>
-            <Pressable
-              hitSlop={8}
-              onPress={() => setEditSheetOpen(true)}
-              style={styles.editButton}
-            >
-              <Text style={styles.editLabel}>Edit</Text>
-            </Pressable>
+        {/* Hero header */}
+        <View style={styles.heroHeader}>
+          <View style={styles.avatarWrap}>
+            <View style={styles.avatarRingOuter} />
+            <View style={styles.avatarRingMid} />
+            <View style={styles.avatarGlow} />
+            <View style={styles.avatarCircle}>
+              <ProfileHeader
+                displayName={resolvedName}
+                subscriptionStatus={resolvedSubscriptionStatus}
+                compact
+              />
+            </View>
           </View>
+          <Text style={styles.heroName}>{resolvedName}</Text>
+          <Text style={styles.heroSub}>
+            <Text style={styles.heroRankHighlight}>
+              {progression.rank.currentName}
+            </Text>
+            {'  ·  '}
+            {`Member since ${memberSinceLabel}`}
+          </Text>
+          <Pressable
+            hitSlop={8}
+            onPress={() => setEditSheetOpen(true)}
+            style={styles.editButton}
+          >
+            <Text style={styles.editLabel}>Edit Profile</Text>
+          </Pressable>
         </View>
 
+        {/* Rank card */}
         <Pressable onPress={() => setProgressionSheetVisible(true)}>
           <CardShell
             gradient={[
-              withAlpha(colors.purple, 0.54),
-              withAlpha(colors.navy, 0.92),
+              withAlpha(colors.purple, 0.5),
+              withAlpha(colors.navy, 0.94),
             ]}
           >
-            <Text style={styles.cardViewHint}>VIEW ▾</Text>
-            <SectionLabel>RANK</SectionLabel>
-            <View style={styles.rankHeaderRow}>
-              <Text style={[styles.rankName, { color: rank.color }]}>
-                {rank.name}
-              </Text>
-              <Text style={styles.rankNextText}>
-                {nextRank
-                  ? `${nextRank.name} at ${nextRank.minPrimes} primes →`
-                  : "Highest rank reached"}
-              </Text>
+            <CardMetaRow label="RANK" />
+            <View style={styles.rankHead}>
+              <Text style={styles.rankName}>{progression.rank.currentName}</Text>
+              {!progression.rank.isMax ? (
+                <Text style={styles.rankNext}>{progression.rank.guidance}</Text>
+              ) : null}
             </View>
-            <View style={styles.rankPipRow}>
+            <View style={styles.pipRow}>
               {Array.from({ length: RANK_PIPS }).map((_, index) => (
                 <View
                   key={index}
                   style={[
-                    styles.rankPip,
-                    index < Math.round(rankProgress * RANK_PIPS)
-                      ? styles.rankPipFilled
+                    styles.pip,
+                    index < Math.round(progression.rank.progress * RANK_PIPS)
+                      ? styles.pipOn
                       : null,
                   ]}
                 />
               ))}
             </View>
-            <View style={styles.rankSpineRow}>
+            <View style={styles.rankSpine}>
               <View style={styles.rankTierRow}>
-                {RANK_TIERS.map((tier) => (
+                {(['Initiate', 'Practitioner', 'Architect', 'Sovereign'] as const).map((name) => (
                   <Text
-                    key={tier.name}
+                    key={name}
                     style={[
                       styles.rankTierText,
-                      tier.name === rank.name ? styles.rankTierTextActive : null,
+                      name === progression.rank.currentName ? styles.rankTierTextActive : null,
                     ]}
                   >
-                    {tier.name}
+                    {name}
                   </Text>
                 ))}
               </View>
-              <Text style={styles.rankCountLabel}>{`${totalPrimes}p`}</Text>
             </View>
           </CardShell>
         </Pressable>
 
+        {/* Deepest Practice card */}
         <Pressable onPress={() => setProgressionSheetVisible(true)}>
           <CardShell>
-            <Text style={styles.cardViewHint}>VIEW ▾</Text>
-            <SectionLabel>PRACTICE DEPTH</SectionLabel>
-            <View style={styles.depthHeaderRow}>
-              <View>
-                <Text style={[styles.depthLevelName, { color: depth.color }]}>
-                  {depth.label}
+            <CardMetaRow label="DEEPEST PRACTICE" />
+            {progression.deepestPractice.empty ? (
+              <View style={styles.emptyDepthState}>
+                <Text style={styles.emptyDepthTitle}>{progression.deepestPractice.title}</Text>
+                <Text style={styles.emptyDepthSubtitle}>{progression.deepestPractice.subtitle}</Text>
+              </View>
+            ) : (
+              <>
+                <View style={styles.depthHead}>
+                  <View style={styles.depthLevelWrap}>
+                    <Text
+                      style={[
+                        styles.depthLevel,
+                        { color: progression.deepestPractice.tierColor },
+                      ]}
+                    >
+                      {progression.deepestPractice.tierName}
+                    </Text>
+                    <Text style={styles.depthAnchorTitle} numberOfLines={1}>
+                      {progression.deepestPractice.title}
+                    </Text>
+                  </View>
+                  <View style={styles.depthPrimeWrap}>
+                    <Text style={styles.depthPrimeBig}>
+                      {progression.deepestPractice.stats.primes}
+                    </Text>
+                    <Text style={styles.depthPrimeSub}>{'primes on\nthis Anchor'}</Text>
+                  </View>
+                </View>
+
+                <SegmentedTrack
+                  progress={progression.deepestPractice.progress}
+                  color={progression.deepestPractice.tierColor}
+                />
+
+                <Text style={styles.depthHint}>{progression.deepestPractice.guidance}</Text>
+              </>
+            )}
+          </CardShell>
+        </Pressable>
+
+        {/* Next mark card */}
+        <Pressable onPress={() => setProgressionSheetVisible(true)}>
+          <CardShell
+            gradient={
+              progression.nextMark.earned
+                ? [withAlpha(colors.gold, 0.08), withAlpha(colors.purple, 0.4)]
+                : undefined
+            }
+          >
+            <CardMetaRow label="NEXT MARK" showView={false} />
+            <View style={styles.markRow}>
+              <View
+                style={[
+                  styles.markSeal,
+                  progression.nextMark.earned ? styles.markSealEarned : null,
+                ]}
+              >
+                <SvgXml xml={MARK_SEAL_XML} width={28} height={28} />
+              </View>
+
+              <View style={styles.markCopy}>
+                <Text style={styles.markName}>{progression.nextMark.name}</Text>
+                <Text style={styles.markSubtitle}>
+                  {progression.nextMark.subtitle}
                 </Text>
               </View>
-              <View style={styles.depthPrimeCountWrap}>
-                <Text style={styles.depthPrimeCount}>{totalPrimes}</Text>
-                <Text style={styles.depthPrimeCountLabel}>total primes</Text>
-              </View>
-            </View>
 
-            <View style={styles.depthProgressRow}>
-              {Array.from({ length: DEPTH_SEGMENTS }).map((_, index) => (
-                <View
-                  key={index}
-                  style={[
-                    styles.depthSegment,
-                    index < Math.round(depthProgress * DEPTH_SEGMENTS)
-                      ? { backgroundColor: depth.color, shadowColor: depth.color }
-                      : null,
-                  ]}
-                />
-              ))}
-            </View>
-
-            <View style={styles.depthFooterRow}>
-              <Text style={styles.depthHint}>
-                {nextDepth
-                  ? `${nextDepth.minPrimes - totalPrimes} primes to ${nextDepth.label}`
-                  : "Maximum depth reached"}
-              </Text>
-
-              <View style={styles.depthStatsWrap}>
-                <View style={styles.depthStatItem}>
-                  <Text style={styles.depthStatValue}>{anchorsForged}</Text>
-                  <Text style={styles.depthStatLabel}>forged</Text>
-                </View>
-                <View style={styles.depthDivider} />
-                <View style={styles.depthStatItem}>
-                  <Text
-                    style={[styles.depthStatValue, styles.depthStatValueMuted]}
-                  >
-                    {releasedAnchors}
-                  </Text>
-                  <Text style={styles.depthStatLabel}>released</Text>
-                </View>
-              </View>
-            </View>
-
-            <View style={styles.depthFinePrintRow}>
-              <Text style={styles.depthFinePrint}>
-                Cumulative across all anchors · never resets
+              <Text style={styles.markMetric}>
+                {`${progression.nextMark.current}/${progression.nextMark.required}`}
               </Text>
             </View>
           </CardShell>
         </Pressable>
 
-        <ConstancyBlock
-          earned={constancyEarned}
-          currentStreak={currentStreak}
-        />
-
-        <View style={styles.statsRow}>
-          <StatTile value={String(primeStreak)} label={"Thread\nStrength"} />
-          <StatTile value={String(totalPrimes)} label={"Total\nPrimes"} />
-          <StatTile value={String(activeAnchors)} label={"Active\nAnchors"} />
+        {/* Stats card */}
+        <View style={styles.statsCard}>
+          <View style={styles.statsInner}>
+            <StatCell
+              value={String(progression.practiceDays)}
+              label={'Practice\nDays'}
+            />
+            <View style={styles.statDivider} />
+            <StatCell
+              value={String(progression.totalPrimes)}
+              label={'Total\nPrimes'}
+            />
+            <View style={styles.statDivider} />
+            <StatCell
+              value={String(progression.activeAnchors)}
+              label={'Active\nAnchors'}
+            />
+          </View>
         </View>
 
+        {/* Vault */}
         <View style={styles.vaultHeaderRow}>
           <View style={styles.vaultHeaderLine} />
           <Text style={styles.vaultHeaderText}>THE VAULT</Text>
@@ -537,8 +488,6 @@ export const ProfileScreen: React.FC = () => {
         <Text style={styles.vaultFinePrint}>
           Each mark is permanent. The intention released.
         </Text>
-
-        {/* DEFERRED: moved to PracticeScreen only */}
 
         <Text style={styles.versionText}>{`Version ${appVersion}`}</Text>
       </ScrollView>
@@ -577,466 +526,524 @@ const styles = StyleSheet.create({
     paddingBottom: 44,
   },
   backgroundOrb: {
-    position: "absolute",
-    borderRadius: 999,
+    position: 'absolute',
+    width: 240,
+    height: 240,
+    borderRadius: 120,
+    backgroundColor: withAlpha(colors.purple, 0.18),
   },
   backgroundOrbLeft: {
-    width: 260,
-    height: 220,
-    left: -60,
-    top: 10,
-    backgroundColor: withAlpha(colors.purple, 0.34),
+    top: 72,
+    left: -84,
   },
   backgroundOrbRight: {
-    width: 220,
-    height: 180,
-    right: -70,
-    top: 110,
-    backgroundColor: withAlpha(colors.gold, 0.05),
+    top: 260,
+    right: -96,
   },
   backgroundDust: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: withAlpha(colors.white, 0.01),
+    backgroundColor: withAlpha(colors.gold, 0.015),
   },
-  identityRow: {
-    flexDirection: "row",
-    alignItems: "flex-start",
-    gap: spacing.md,
-    marginBottom: spacing.lg,
+  // Hero header
+  heroHeader: {
+    alignItems: 'center',
+    paddingTop: 24,
+    paddingBottom: 20,
   },
-  identityRowCompact: {
-    flexDirection: "column",
-    alignItems: "stretch",
-    gap: spacing.sm,
+  avatarWrap: {
+    width: 92,
+    height: 92,
+    marginBottom: 16,
+    position: 'relative',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  identityTextWrap: {
-    flexShrink: 1,
-    minWidth: 0,
-    paddingTop: 6,
-  },
-  identityTextWrapCompact: {
-    width: "100%",
-    paddingTop: 0,
-    paddingHorizontal: spacing.md,
-  },
-  identityName: {
-    fontFamily: typography.fonts.bodySerif,
-    fontSize: 24,
-    color: colors.bone,
-    letterSpacing: 0.4,
-    lineHeight: 30,
-  },
-  identityAxiom: {
-    marginTop: 4,
-    fontFamily: typography.fonts.bodySerifItalic,
-    fontSize: 13,
-    color: withAlpha(colors.gold, 0.62),
-    lineHeight: 18,
-  },
-  memberSince: {
-    marginTop: 4,
-    fontFamily: typography.fonts.body,
-    fontSize: 11,
-    color: withAlpha(colors.silver, 0.42),
-    letterSpacing: 0.8,
-    lineHeight: 15,
-  },
-  editButton: {
-    marginTop: 8,
-    alignSelf: "flex-start",
-  },
-  editLabel: {
-    fontFamily: typography.fonts.heading,
-    fontSize: 12,
-    color: withAlpha(colors.gold, 0.7),
-    letterSpacing: 1.1,
-  },
-  cardOuter: {
-    marginBottom: spacing.md,
-    borderRadius: CARD_RADIUS,
+  avatarRingOuter: {
+    position: 'absolute',
+    width: 112,
+    height: 112,
+    borderRadius: 56,
     borderWidth: 1,
     borderColor: withAlpha(colors.gold, 0.1),
-    overflow: "hidden",
   },
-  cardBackground: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: withAlpha(colors.white, 0.03),
+  avatarRingMid: {
+    position: 'absolute',
+    width: 100,
+    height: 100,
+    borderRadius: 50,
+    borderWidth: 1,
+    borderColor: withAlpha(colors.gold, 0.38),
+  },
+  avatarGlow: {
+    position: 'absolute',
+    width: 140,
+    height: 140,
+    borderRadius: 70,
+    backgroundColor: withAlpha(colors.gold, 0.07),
+  },
+  avatarCircle: {
+    width: 92,
+    height: 92,
+    borderRadius: 46,
+    backgroundColor: colors.black,
+    borderWidth: 1,
+    borderColor: withAlpha(colors.gold, 0.28),
+    overflow: 'hidden',
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: colors.gold,
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.1,
+    shadowRadius: 20,
+    elevation: 4,
+  },
+  heroName: {
+    fontFamily: typography.fonts.heading,
+    fontSize: 24,
+    letterSpacing: 2.8,
+    color: colors.bone,
+    marginBottom: 6,
+  },
+  heroSub: {
+    fontFamily: typography.fonts.heading,
+    fontSize: 8.5,
+    letterSpacing: 2.5,
+    color: withAlpha(colors.silver, 0.38),
+    marginBottom: 14,
+    textTransform: 'uppercase',
+  },
+  heroRankHighlight: {
+    color: withAlpha(colors.gold, 0.5),
+  },
+  editButton: {
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: withAlpha(colors.gold, 0.28),
+    paddingHorizontal: 14,
+    paddingVertical: 5,
+    backgroundColor: withAlpha(colors.gold, 0.04),
+  },
+  editLabel: {
+    ...typography.caption,
+    letterSpacing: 1.8,
+    color: withAlpha(colors.gold, 0.72),
+    textTransform: 'uppercase',
+  },
+  // Cards
+  cardOuter: {
+    position: 'relative',
+    borderRadius: CARD_RADIUS,
+    overflow: 'hidden',
+    marginBottom: spacing.md,
+    borderWidth: 1,
+    borderColor: withAlpha(colors.gold, 0.12),
   },
   cardGradient: {
     ...StyleSheet.absoluteFillObject,
   },
+  cardBackground: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: withAlpha(colors.ritual.glassStrong, 0.92),
+  },
   cardShimmer: {
-    position: "absolute",
+    position: 'absolute',
     top: 0,
     left: 0,
     right: 0,
     height: 1,
-    backgroundColor: withAlpha(colors.gold, 0.28),
+    backgroundColor: withAlpha(colors.gold, 0.46),
   },
   cardContent: {
-    position: "relative",
-    paddingHorizontal: spacing.md,
-    paddingVertical: 16,
+    padding: spacing.md,
+    gap: 12,
+  },
+  cardMetaRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
   },
   cardViewHint: {
-    position: "absolute",
-    top: 16,
-    right: spacing.md,
-    fontFamily: typography.fonts.heading,
-    fontSize: 10,
-    color: withAlpha(colors.gold, 0.5),
-    letterSpacing: 1,
+    ...typography.caption,
+    color: withAlpha(colors.gold, 0.7),
+    letterSpacing: 1.1,
+    textTransform: 'uppercase',
   },
   sectionLabel: {
-    fontFamily: typography.fonts.heading,
-    fontSize: 9,
-    color: colors.gold,
-    letterSpacing: 2.5,
-    marginBottom: 6,
+    ...typography.caption,
+    color: withAlpha(colors.silver, 0.82),
+    textTransform: 'uppercase',
+    letterSpacing: 1.8,
   },
-  rankHeaderRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    gap: spacing.sm,
-    marginBottom: 12,
+  // Rank card
+  rankHead: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 8,
+    marginBottom: 13,
   },
   rankName: {
-    fontFamily: typography.fonts.bodySerif,
-    fontSize: 24,
+    fontFamily: typography.fontFamily.serifSemiBold,
+    fontSize: 26,
+    color: colors.silver,
+    lineHeight: 28,
   },
-  rankNextText: {
-    flexShrink: 1,
-    textAlign: "right",
+  rankNext: {
     fontFamily: typography.fonts.bodySerifItalic,
+    fontStyle: 'italic',
     fontSize: 12,
-    color: withAlpha(colors.silver, 0.56),
+    color: withAlpha(colors.silver, 0.82),
+    textAlign: 'right',
+    flex: 1,
   },
-  rankPipRow: {
-    flexDirection: "row",
+  pipRow: {
+    flexDirection: 'row',
     gap: 5,
     marginBottom: 10,
   },
-  rankPip: {
+  pip: {
     flex: 1,
     height: 3,
     borderRadius: 999,
-    backgroundColor: withAlpha(colors.white, 0.08),
+    backgroundColor: withAlpha(colors.white, 0.07),
   },
-  rankPipFilled: {
+  pipOn: {
     backgroundColor: colors.gold,
     shadowColor: colors.gold,
     shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.22,
+    shadowOpacity: 0.3,
     shadowRadius: 4,
-    elevation: 3,
   },
-  rankSpineRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
+  rankSpine: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
   },
   rankTierRow: {
+    flexDirection: 'row',
     flex: 1,
-    flexDirection: "row",
-    justifyContent: "space-between",
-    marginRight: spacing.sm,
+    justifyContent: 'space-between',
+    marginRight: 8,
+    gap: 4,
   },
   rankTierText: {
     fontFamily: typography.fonts.heading,
     fontSize: 8,
-    color: withAlpha(colors.silver, 0.3),
-    letterSpacing: 0.8,
+    letterSpacing: 0.6,
+    color: withAlpha(colors.silver, 0.48),
+    textTransform: 'uppercase',
   },
   rankTierTextActive: {
     color: colors.gold,
   },
-  rankCountLabel: {
+  rankPrimeLbl: {
     fontFamily: typography.fonts.heading,
     fontSize: 10,
-    color: withAlpha(colors.gold, 0.48),
+    color: withAlpha(colors.gold, 0.45),
   },
-  depthHeaderRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "flex-start",
+  // Segmented track (depth card)
+  segmentRow: {
+    flexDirection: 'row',
+    gap: 6,
+  },
+  segment: {
+    flex: 1,
+    height: 6,
+    borderRadius: 999,
+    backgroundColor: withAlpha(colors.bone, 0.08),
+    borderWidth: 1,
+    borderColor: withAlpha(colors.bone, 0.04),
+  },
+  // Depth card
+  depthHead: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
     marginBottom: 14,
   },
-  depthLevelName: {
-    fontFamily: typography.fonts.bodySerif,
-    fontSize: 22,
+  depthLevel: {
+    fontFamily: typography.fontFamily.serifSemiBold,
+    fontSize: 24,
     lineHeight: 28,
   },
-  depthPrimeCountWrap: {
-    alignItems: "flex-end",
-    minWidth: 74,
-    paddingTop: 6,
+  depthPrimeWrap: {
+    alignItems: 'flex-end',
+    paddingTop: 4,
   },
-  depthPrimeCount: {
-    fontFamily: typography.fonts.heading,
-    fontSize: 30,
-    lineHeight: 32,
+  depthPrimeBig: {
+    fontFamily: typography.fontFamily.serifBold,
+    fontSize: 28,
     color: colors.gold,
+    lineHeight: 32,
+    fontWeight: '700' as any,
   },
-  depthPrimeCountLabel: {
-    fontFamily: typography.fonts.body,
-    fontSize: 10,
-    color: withAlpha(colors.silver, 0.4),
-    letterSpacing: 0.8,
+  depthPrimeSub: {
+    ...typography.caption,
+    color: withAlpha(colors.silver, 0.48),
     marginTop: 2,
-  },
-  depthProgressRow: {
-    flexDirection: "row",
-    gap: 3,
-    marginBottom: 10,
-  },
-  depthSegment: {
-    flex: 1,
-    height: 3,
-    borderRadius: 999,
-    backgroundColor: withAlpha(colors.white, 0.06),
+    textAlign: 'right',
   },
   depthFooterRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    gap: spacing.md,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 12,
+    marginBottom: 10,
   },
   depthHint: {
-    flex: 1,
     fontFamily: typography.fonts.bodySerifItalic,
+    fontStyle: 'italic',
     fontSize: 12,
-    color: withAlpha(colors.silver, 0.54),
+    color: withAlpha(colors.silver, 0.82),
+    flex: 1,
   },
-  depthStatsWrap: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: spacing.sm,
+  depthStatWrap: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
   },
-  depthStatItem: {
-    alignItems: "center",
-    minWidth: 36,
+  depthStat: {
+    alignItems: 'center',
+    minWidth: 34,
   },
-  depthStatValue: {
+  depthStatVal: {
     fontFamily: typography.fonts.heading,
     fontSize: 14,
     color: colors.gold,
+    lineHeight: 16,
   },
-  depthStatValueMuted: {
-    color: withAlpha(colors.silver, 0.56),
+  depthStatValMuted: {
+    color: withAlpha(colors.silver, 0.52),
   },
-  depthStatLabel: {
-    fontFamily: typography.fonts.body,
+  depthStatLbl: {
+    ...typography.caption,
     fontSize: 9,
-    color: withAlpha(colors.silver, 0.34),
-    letterSpacing: 0.6,
+    color: withAlpha(colors.silver, 0.48),
+    letterSpacing: 0.5,
+    marginTop: 2,
   },
-  depthDivider: {
+  depthStatDiv: {
     width: 1,
     height: 22,
     backgroundColor: withAlpha(colors.white, 0.06),
   },
-  depthFinePrintRow: {
-    marginTop: 12,
-    paddingTop: 10,
-    borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: withAlpha(colors.white, 0.06),
-  },
-  depthFinePrint: {
+  depthFine: {
     fontFamily: typography.fonts.bodySerifItalic,
+    fontStyle: 'italic',
     fontSize: 10,
-    color: withAlpha(colors.silver, 0.28),
+    color: withAlpha(colors.silver, 0.48),
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: withAlpha(colors.white, 0.05),
+    paddingTop: 10,
   },
-  constancyRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: spacing.md,
-  },
-  constancySeal: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  constancySealLocked: {
-    backgroundColor: withAlpha(colors.white, 0.03),
-    borderWidth: 1,
-    borderStyle: "dashed",
-    borderColor: withAlpha(colors.silver, 0.24),
-  },
-  constancySealEarned: {
-    backgroundColor: withAlpha(colors.gold, 0.14),
-    borderWidth: 1,
-    borderColor: withAlpha(colors.gold, 0.3),
-    shadowColor: colors.gold,
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.18,
-    shadowRadius: 14,
-    elevation: 4,
-  },
-  constancyQuestion: {
-    fontFamily: typography.fonts.heading,
-    fontSize: 18,
-    color: withAlpha(colors.silver, 0.34),
-  },
-  constancyCopy: {
+  depthLevelWrap: {
     flex: 1,
+    marginRight: 8,
   },
-  constancyLabel: {
-    fontFamily: typography.fonts.heading,
-    fontSize: 9,
-    letterSpacing: 2.5,
-    color: withAlpha(colors.silver, 0.34),
-    marginBottom: 4,
-  },
-  constancyLabelEarned: {
-    color: withAlpha(colors.gold, 0.72),
-  },
-  constancyText: {
+  depthAnchorTitle: {
     fontFamily: typography.fonts.bodySerifItalic,
-    fontSize: 12,
-    color: withAlpha(colors.silver, 0.4),
+    fontStyle: 'italic',
+    fontSize: 11,
+    color: withAlpha(colors.silver, 0.52),
+    marginTop: 2,
   },
-  constancyTextEarned: {
-    fontFamily: typography.fonts.bodySerif,
-    fontSize: 13,
+  emptyDepthState: {
+    minHeight: 118,
+    justifyContent: 'center',
+    gap: 8,
+  },
+  emptyDepthTitle: {
+    fontFamily: typography.fontFamily.serifSemiBold,
+    fontSize: 20,
     color: colors.bone,
   },
-  constancyMetric: {
-    fontFamily: typography.fonts.body,
-    fontSize: 12,
-    color: withAlpha(colors.silver, 0.44),
+  emptyDepthSubtitle: {
+    ...typography.body,
+    color: withAlpha(colors.bone, 0.78),
   },
-  constancyMetricEarned: {
-    fontFamily: typography.fonts.heading,
-    fontSize: 9,
-    color: withAlpha(colors.gold, 0.58),
-    letterSpacing: 0.5,
+  depthPrimeCountWrap: {
+    alignItems: 'flex-end',
+    minWidth: 74,
   },
-  statsRow: {
-    flexDirection: "row",
-    gap: spacing.sm,
-    marginBottom: spacing.lg,
+  depthPrimeCount: {
+    fontFamily: typography.fontFamily.serifSemiBold,
+    fontSize: 34,
+    color: colors.bone,
+    lineHeight: 36,
   },
-  statTile: {
+  depthPrimeCountLabel: {
+    ...typography.caption,
+    color: withAlpha(colors.silver, 0.75),
+    textAlign: 'right',
+  },
+  // Mark card
+  markRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 14,
+  },
+  markSeal: {
+    width: 52,
+    height: 52,
+    borderRadius: 26,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: withAlpha(colors.gold, 0.06),
+    borderWidth: 1,
+    borderColor: withAlpha(colors.gold, 0.14),
+  },
+  markSealEarned: {
+    shadowColor: colors.gold,
+    shadowOpacity: 0.28,
+    shadowRadius: 10,
+    elevation: 4,
+  },
+  markCopy: {
     flex: 1,
-    borderRadius: 12,
+    gap: 4,
+  },
+  markName: {
+    fontFamily: typography.fontFamily.serifSemiBold,
+    fontSize: 20,
+    color: colors.bone,
+  },
+  markSubtitle: {
+    ...typography.body,
+    color: withAlpha(colors.bone, 0.78),
+  },
+  markMetric: {
+    fontFamily: typography.fontFamily.serifSemiBold,
+    fontSize: 24,
+    color: colors.gold,
+  },
+  // Stats card
+  statsCard: {
+    borderRadius: 14,
     borderWidth: 1,
     borderColor: withAlpha(colors.gold, 0.09),
-    backgroundColor: withAlpha(colors.white, 0.03),
-    paddingVertical: 14,
+    borderTopColor: withAlpha(colors.gold, 0.22),
+    backgroundColor: withAlpha(colors.white, 0.02),
+    overflow: 'hidden',
+    marginBottom: spacing.lg,
+  },
+  statsInner: {
+    flexDirection: 'row',
+  },
+  statCell: {
+    flex: 1,
+    alignItems: 'center',
+    paddingVertical: 16,
     paddingHorizontal: 8,
-    alignItems: "center",
+    gap: 5,
   },
-  statValue: {
-    fontFamily: typography.fonts.heading,
-    fontSize: 22,
+  statDivider: {
+    width: 1,
+    backgroundColor: withAlpha(colors.gold, 0.07),
+    marginVertical: 10,
+  },
+  statCellValue: {
+    fontFamily: typography.fonts.headingBold,
+    fontSize: 28,
     color: colors.gold,
-    marginBottom: 4,
+    lineHeight: 28,
   },
-  statLabel: {
+  statCellLabel: {
     fontFamily: typography.fonts.body,
-    fontSize: 11,
-    color: withAlpha(colors.silver, 0.5),
-    textAlign: "center",
-    lineHeight: 15,
+    fontSize: 9.5,
+    letterSpacing: 1.2,
+    color: withAlpha(colors.silver, 0.38),
+    textAlign: 'center',
+    lineHeight: 14,
+    textTransform: 'uppercase',
   },
+  // Vault
   vaultHeaderRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 12,
-    marginBottom: 14,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    marginBottom: spacing.md,
   },
   vaultHeaderLine: {
     flex: 1,
     height: 1,
-    backgroundColor: withAlpha(colors.gold, 0.08),
+    backgroundColor: withAlpha(colors.gold, 0.12),
   },
   vaultHeaderText: {
-    fontFamily: typography.fonts.heading,
-    fontSize: 9,
-    color: withAlpha(colors.gold, 0.45),
-    letterSpacing: 2.4,
+    ...typography.caption,
+    color: withAlpha(colors.gold, 0.72),
+    letterSpacing: 2.2,
   },
   vaultGrid: {
-    flexDirection: "row",
-    flexWrap: "wrap",
+    flexDirection: 'row',
+    flexWrap: 'wrap',
     gap: GRID_GAP,
   },
   vaultCell: {
-    borderRadius: 10,
-    overflow: "hidden",
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  vaultActiveCell: {
+    borderRadius: 14,
+    overflow: 'hidden',
+    alignItems: 'center',
+    justifyContent: 'center',
     borderWidth: 1,
-    borderColor: withAlpha(colors.gold, 0.22),
-    backgroundColor: withAlpha(colors.gold, 0.06),
-  },
-  vaultBurnedCell: {
-    borderWidth: 1,
-    borderColor: withAlpha(colors.white, 0.06),
-    backgroundColor: withAlpha(colors.white, 0.02),
   },
   vaultPlaceholder: {
-    borderWidth: 1,
-    borderStyle: "dashed",
-    borderColor: withAlpha(colors.white, 0.05),
-    backgroundColor: withAlpha(colors.white, 0.01),
+    backgroundColor: withAlpha(colors.bone, 0.03),
+    borderColor: withAlpha(colors.bone, 0.04),
+  },
+  vaultActiveCell: {
+    backgroundColor: withAlpha(colors.ritual.glassStrong, 0.92),
+    borderColor: withAlpha(colors.gold, 0.14),
+  },
+  vaultBurnedCell: {
+    backgroundColor: withAlpha(colors.charcoal, 0.8),
+    borderColor: withAlpha(colors.bone, 0.08),
   },
   vaultGlow: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: withAlpha(colors.gold, 0.05),
-  },
-  vaultSigilWrap: {
-    opacity: 1,
-  },
-  vaultSigilWrapBurned: {
-    opacity: 0.18,
+    position: 'absolute',
+    width: '72%',
+    height: '72%',
+    borderRadius: 999,
+    backgroundColor: withAlpha(colors.gold, 0.08),
   },
   vaultArtworkWrap: {
-    ...StyleSheet.absoluteFillObject,
+    width: '100%',
+    height: '100%',
   },
   vaultArtworkWrapBurned: {
-    opacity: 0.24,
+    opacity: 0.66,
   },
   vaultArtwork: {
-    width: "100%",
-    height: "100%",
+    width: '100%',
+    height: '100%',
   },
   vaultBurnedImageWash: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: withAlpha(colors.silver, 0.18),
+    backgroundColor: withAlpha(colors.black, 0.34),
+  },
+  vaultSigilWrap: {
+    opacity: 0.94,
+  },
+  vaultSigilWrapBurned: {
+    opacity: 0.48,
   },
   emberDot: {
-    position: "absolute",
-    right: 5,
-    bottom: 5,
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-    backgroundColor: "rgba(200, 90, 30, 0.6)",
-    shadowColor: "rgba(200, 90, 30, 0.9)",
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.9,
-    shadowRadius: 5,
-    elevation: 3,
+    position: 'absolute',
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    bottom: 10,
+    right: 10,
+    backgroundColor: withAlpha(colors.bronze, 0.9),
   },
   vaultFinePrint: {
-    marginTop: 12,
-    marginBottom: spacing.xl,
-    textAlign: "center",
-    fontFamily: typography.fonts.bodySerifItalic,
-    fontSize: 11,
-    color: withAlpha(colors.silver, 0.24),
+    ...typography.caption,
+    color: withAlpha(colors.silver, 0.74),
+    marginTop: spacing.md,
+    textAlign: 'center',
   },
   versionText: {
-    textAlign: "center",
-    fontFamily: typography.fonts.body,
-    fontSize: 11,
-    color: withAlpha(colors.silver, 0.2),
-    letterSpacing: 1,
+    ...typography.caption,
+    color: withAlpha(colors.silver, 0.5),
+    textAlign: 'center',
+    marginTop: spacing.lg,
   },
 });

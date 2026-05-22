@@ -553,6 +553,56 @@ router.post('/', async (req: AuthRequest, res: Response, next: NextFunction) => 
       next(error);
       return;
     }
+
+    if (error instanceof Prisma.PrismaClientKnownRequestError) {
+      logger.error('Create anchor Prisma error', error, {
+        userId: req.dbUser?.id,
+        path: req.path,
+        prismaCode: error.code,
+        prismaMeta: error.meta,
+        payload: {
+          category: req.body?.category,
+          structureVariant: req.body?.structureVariant,
+          hasDistilledLetters: Array.isArray(req.body?.distilledLetters),
+          hasBaseSigilSvg: typeof req.body?.baseSigilSvg === 'string',
+          hasReinforcedSigilSvg: typeof req.body?.reinforcedSigilSvg === 'string',
+          hasEnhancedImageUrl: typeof req.body?.enhancedImageUrl === 'string',
+          hasEnhancementMetadata: req.body?.enhancementMetadata != null,
+          hasClassifierMeta: req.body?.classifierMeta != null,
+        },
+      });
+    } else if (error instanceof Prisma.PrismaClientValidationError) {
+      logger.error('Create anchor Prisma validation error', error, {
+        userId: req.dbUser?.id,
+        path: req.path,
+        payload: {
+          category: req.body?.category,
+          structureVariant: req.body?.structureVariant,
+          hasDistilledLetters: Array.isArray(req.body?.distilledLetters),
+          hasBaseSigilSvg: typeof req.body?.baseSigilSvg === 'string',
+          hasReinforcedSigilSvg: typeof req.body?.reinforcedSigilSvg === 'string',
+          hasEnhancedImageUrl: typeof req.body?.enhancedImageUrl === 'string',
+          hasEnhancementMetadata: req.body?.enhancementMetadata != null,
+          hasClassifierMeta: req.body?.classifierMeta != null,
+        },
+      });
+    } else {
+      logger.error('Create anchor unexpected error', error, {
+        userId: req.dbUser?.id,
+        path: req.path,
+        payload: {
+          category: req.body?.category,
+          structureVariant: req.body?.structureVariant,
+          hasDistilledLetters: Array.isArray(req.body?.distilledLetters),
+          hasBaseSigilSvg: typeof req.body?.baseSigilSvg === 'string',
+          hasReinforcedSigilSvg: typeof req.body?.reinforcedSigilSvg === 'string',
+          hasEnhancedImageUrl: typeof req.body?.enhancedImageUrl === 'string',
+          hasEnhancementMetadata: req.body?.enhancementMetadata != null,
+          hasClassifierMeta: req.body?.classifierMeta != null,
+        },
+      });
+    }
+
     next(new AppError('Failed to create anchor', 500, 'CREATE_ERROR'));
   }
 });
@@ -643,6 +693,54 @@ router.get('/', async (req: AuthRequest, res: Response, next: NextFunction) => {
       next(error);
       return;
     }
+
+    if (error instanceof Prisma.PrismaClientKnownRequestError) {
+      logger.error('Fetch anchors Prisma error', error, {
+        userId: req.dbUser?.id,
+        path: req.path,
+        prismaCode: error.code,
+        prismaMeta: error.meta,
+        query: {
+          category: req.query.category,
+          isCharged: req.query.isCharged,
+          orderBy: req.query.orderBy,
+          order: req.query.order,
+          limit: req.query.limit,
+          cursor: req.query.cursor,
+        },
+      });
+      if (error.code === 'P2021' || error.code === 'P2022') {
+        next(new AppError('Database schema is out of date', 503, 'SCHEMA_MISMATCH'));
+        return;
+      }
+    } else if (error instanceof Prisma.PrismaClientValidationError) {
+      logger.error('Fetch anchors Prisma validation error', error, {
+        userId: req.dbUser?.id,
+        path: req.path,
+        query: {
+          category: req.query.category,
+          isCharged: req.query.isCharged,
+          orderBy: req.query.orderBy,
+          order: req.query.order,
+          limit: req.query.limit,
+          cursor: req.query.cursor,
+        },
+      });
+    } else {
+      logger.error('Fetch anchors unexpected error', error, {
+        userId: req.dbUser?.id,
+        path: req.path,
+        query: {
+          category: req.query.category,
+          isCharged: req.query.isCharged,
+          orderBy: req.query.orderBy,
+          order: req.query.order,
+          limit: req.query.limit,
+          cursor: req.query.cursor,
+        },
+      });
+    }
+
     next(new AppError('Failed to fetch anchors', 500, 'FETCH_ERROR'));
   }
 });
@@ -935,7 +1033,9 @@ router.post('/:id/activate', async (req: AuthRequest, res: Response, next: NextF
     const anchor = await prisma.$transaction(async tx => {
       const existingAnchor = await tx.anchor.findFirst({
         where: { id, userId },
-        select: { id: true },
+        select: {
+          id: true,
+        },
       });
 
       if (!existingAnchor) {
@@ -951,6 +1051,40 @@ router.post('/:id/activate', async (req: AuthRequest, res: Response, next: NextF
           activatedAt,
         },
       });
+
+      const firstPrimeTransition = await tx.anchor.updateMany({
+        where: {
+          id,
+          userId,
+          isCharged: false,
+          firstChargedAt: null,
+          chargeCount: 0,
+          activationCount: 0,
+        },
+        data: {
+          isCharged: true,
+          chargeCount: {
+            increment: 1,
+          },
+          chargedAt: activatedAt,
+          firstChargedAt: activatedAt,
+          chargeMethod: 'quick',
+        },
+      });
+      const didCreateFirstPrimeCharge = firstPrimeTransition.count === 1;
+
+      if (didCreateFirstPrimeCharge) {
+        await tx.charge.create({
+          data: {
+            userId,
+            anchorId: id,
+            chargeType: 'initial_quick',
+            durationSeconds,
+            completed: true,
+            chargedAt: activatedAt,
+          },
+        });
+      }
 
       const updatedAnchor = await tx.anchor.update({
         where: { id },

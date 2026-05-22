@@ -71,7 +71,7 @@ describe('AIEnhancer Service', () => {
       const cost = getCostEstimate('premium');
 
       expect(cost).toBe(0.16);
-      expect(mockGeminiService.getCostEstimate).toHaveBeenCalledWith(4, 'premium');
+      expect(mockGeminiService.getCostEstimate).toHaveBeenCalledWith(2, 'premium');
     });
 
     it('should return draft tier cost estimate (2 variations)', () => {
@@ -197,7 +197,7 @@ describe('AIEnhancer Service', () => {
         baseSigilSvg: mockSigilSvg,
         intentionText: mockIntentionText,
         styleApproach: 'watercolor',
-        numberOfVariations: 4,
+        numberOfVariations: 2,
         tier: 'premium',
       });
 
@@ -308,7 +308,7 @@ describe('AIEnhancer Service', () => {
         baseSigilSvg: mockSigilSvg,
         intentionText: '', // Should default to empty string
         styleApproach: 'cosmic',
-        numberOfVariations: 4,
+        numberOfVariations: 2,
         tier: 'premium',
       });
 
@@ -333,7 +333,7 @@ describe('AIEnhancer Service', () => {
 
       const result = await enhanceSigilWithControlNet(request);
 
-      expect(result.variations).toHaveLength(4);
+      expect(result.variations).toHaveLength(2);
       expect(result.styleApplied).toBe('gold_leaf');
       expect(result.variationUrls[0]).toContain('dicebear.com');
       expect(result.prompt).toContain('Restore and beautify');
@@ -476,7 +476,7 @@ describe('AIEnhancer Service', () => {
 
       // Since we're in mock mode (no token), it should still work
       const result = await enhanceSigilWithControlNet(request);
-      expect(result.variationUrls).toHaveLength(4);
+      expect(result.variationUrls).toHaveLength(2);
     });
 
     it('should handle SVG rasterization failure', async () => {
@@ -546,7 +546,7 @@ describe('AIEnhancer Service', () => {
 
       const result = await enhanceSigilWithControlNet(request);
 
-      expect(result.variations).toHaveLength(4);
+      expect(result.variations).toHaveLength(2);
       result.variations.forEach(variation => {
         expect(variation.structureMatch).toBeDefined();
         expect(variation.structureMatch.iouScore).toBeGreaterThanOrEqual(0);
@@ -567,9 +567,9 @@ describe('AIEnhancer Service', () => {
 
       const result = await enhanceSigilWithControlNet(request);
 
-      expect(result.passingCount).toBe(4); // All pass in mock mode
+      expect(result.passingCount).toBe(2); // All pass in mock mode
       expect(result.bestVariationIndex).toBeGreaterThanOrEqual(0);
-      expect(result.bestVariationIndex).toBeLessThan(4);
+      expect(result.bestVariationIndex).toBeLessThan(2);
       expect(result.structureThreshold).toBe(0.85);
     });
   });
@@ -600,7 +600,7 @@ describe('AIEnhancer Service', () => {
       const result = await enhanceSigilWithControlNet(request);
 
       expect(result.styleApplied).toBe(style);
-      expect(result.variations).toHaveLength(4);
+      expect(result.variations).toHaveLength(2);
       expect(result.prompt).toContain('Restore and beautify');
       expect(result.negativePrompt).toContain('extra lines, decorative circle');
     });

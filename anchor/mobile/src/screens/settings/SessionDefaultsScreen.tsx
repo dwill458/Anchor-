@@ -23,7 +23,7 @@ import { colors, spacing, typography } from '@/theme';
 
 type SessionTab = 'focus' | 'prime';
 type FocusDurationOption = 10 | 30 | 60 | 120;
-type PrimeDurationOption = 120 | 300 | 600 | 'custom';
+type PrimeDurationOption = 120 | 300 | 600 | 900 | 'custom';
 
 const FOCUS_DURATION_OPTIONS: Array<{ label: string; value: FocusDurationOption }> = [
   { label: '10s', value: 10 },
@@ -36,12 +36,18 @@ const PRIME_DURATION_OPTIONS: Array<{ label: string; value: Exclude<PrimeDuratio
   { label: '2 min', value: 120 },
   { label: '5 min', value: 300 },
   { label: '10 min', value: 600 },
+  { label: '15 min', value: 900 },
 ];
 
 const clampPrimeMinutes = (value: number): number => Math.min(120, Math.max(2, Math.round(value)));
 
 const resolveInitialPrimeSelection = (durationSeconds: number): PrimeDurationOption => {
-  if (durationSeconds === 120 || durationSeconds === 300 || durationSeconds === 600) {
+  if (
+    durationSeconds === 120 ||
+    durationSeconds === 300 ||
+    durationSeconds === 600 ||
+    durationSeconds === 900
+  ) {
     return durationSeconds;
   }
 
@@ -431,6 +437,7 @@ const styles = StyleSheet.create({
   },
   primeDurationGrid: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     gap: 10,
   },
   durationButton: {

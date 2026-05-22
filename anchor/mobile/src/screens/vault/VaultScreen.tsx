@@ -54,7 +54,7 @@ import { isHighEndDevice } from '@/utils/deviceTier';
 import { useSettingsStore } from '@/stores/settingsStore';
 import { WeeklySummaryModal } from '@/components/WeeklySummaryModal'; import { useWeeklySummaryTrigger } from '@/hooks/useWeeklySummaryTrigger';
 import { VaultGridModal } from './components/VaultGridModal';
-import { isAnchorReleased } from './utils/anchorStateHelpers';
+import { hasIgnited, isAnchorReleased } from './utils/anchorStateHelpers';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -398,7 +398,7 @@ export const VaultScreen: React.FC = () => {
         durationSeconds: primeSessionDuration,
         returnTo: 'vault',
       });
-    } else if (primaryAnchor.isCharged) {
+    } else if (hasIgnited(primaryAnchor)) {
       // Quick / focus session
       navigation.navigate('ActivationRitual', {
         anchorId: primaryAnchor.id,

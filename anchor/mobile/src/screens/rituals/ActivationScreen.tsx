@@ -7,21 +7,22 @@
  */
 
 import React, { useState, useMemo, useCallback, useEffect } from 'react';
-import { View, Text, StyleSheet } from 'react-native';
+import { View, Text, StyleSheet, InteractionManager } from 'react-native';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { useTabNavigation } from '@/contexts/TabNavigationContext';
 import { useAnchorStore } from '../../stores/anchorStore';
 import { useAuthStore } from '@/stores/authStore';
-import { useForgeMomentStore } from '@/stores/forgeMomentStore';
 import { useSettingsStore } from '@/stores/settingsStore';
 import { useSessionStore } from '@/stores/sessionStore';
 import { useTeachingStore } from '@/stores/teachingStore';
 import type { RootStackParamList } from '@/types';
 import { colors, spacing, typography } from '@/theme';
 import { apiClient } from '@/services/ApiClient';
+import BackendAnchorService, { isBackendAnchorId } from '@/services/BackendAnchorService';
 import { ErrorTrackingService } from '@/services/ErrorTrackingService';
 import { AnalyticsService } from '@/services/AnalyticsService';
 import { useToast } from '@/components/ToastProvider';
+import { logger } from '@/utils/logger';
 import { RitualScaffold } from './components/RitualScaffold';
 import { FocusSession } from './components/FocusSession';
 import { CompletionModal } from './components/CompletionModal';
@@ -29,7 +30,6 @@ import { ConfirmModal } from './components/ConfirmModal';
 import { PostPrimeTraceModal } from './components/PostPrimeTraceModal';
 import { useTeachingGate } from '@/utils/useTeachingGate';
 import { TEACHINGS } from '@/constants/teaching';
-import { getCurrentRank } from '@/utils/practiceRank';
 import { useNotificationController } from '@/hooks/useNotificationController';
 import { usePostPrimeTraceStore } from '@/stores/postPrimeTraceStore';
 import { navigateToVaultDestination } from '@/navigation/firstAnchorGate';
@@ -37,6 +37,13 @@ import {
   isPostPrimeTraceEligible,
   markPostPrimeTraceAttemptStarted,
 } from '@/utils/postPrimeTraceEligibility';
+import { useMissingAnchorRedirect } from './utils/useMissingAnchorRedirect';
+import { queueProgressionMilestonesFromStores } from '@/utils/progressionMilestones';
+import {
+  buildRecoveredChargeState,
+  isFirstPrimeForAnchor as isAnchorFirstPrime,
+  needsChargeStateBackfill,
+} from '@/utils/anchorPriming';
 
 type ActivationRouteProp = RouteProp<RootStackParamList, 'ActivationRitual'>;
 
@@ -56,7 +63,6 @@ export const ActivationScreen: React.FC = () => {
   const enqueuePendingFirstAnchorMutation = useAuthStore(
     (state) => state.enqueuePendingFirstAnchorMutation
   );
-  const queueMilestone = useForgeMomentStore((state) => state.queueMilestone);
   const focusSessionDuration = useSettingsStore((state) => state.focusSessionDuration ?? 30);
   const focusSessionAudio = useSettingsStore((state) => state.focusSessionAudio ?? 'silent');
   const { recordSession, bumpThreadStrength } = useSessionStore();
@@ -69,11 +75,11 @@ export const ActivationScreen: React.FC = () => {
   const anchorHeroUri = anchor
     ? anchor.enhancedImageUrl || anchor.reinforcedSigilSvg || anchor.baseSigilSvg || ''
     : '';
-  const isFirstPrimeForAnchor =
-    !anchor?.isCharged &&
-    !anchor?.firstChargedAt &&
-    (anchor?.chargeCount ?? 0) === 0 &&
-    (anchor?.activationCount ?? 0) === 0;
+  const isFirstPrimeForAnchor = isAnchorFirstPrime(anchor);
+  const shouldBackfillChargeState = needsChargeStateBackfill(anchor);
+  const isAnchorMissing = !anchor;
+
+  useMissingAnchorRedirect(!isAnchorMissing, navigation);
 
   // Ground Note (Pattern 2): shown on first charge session, guide ON
   const groundNoteTeaching = useTeachingGate({
@@ -93,6 +99,8 @@ export const ActivationScreen: React.FC = () => {
   const [pendingPostPrimeFlowId, setPendingPostPrimeFlowId] = useState<string | null>(null);
   const exitingRef = React.useRef(false);
   const sessionCompletedRef = React.useRef(false);
+  const focusSessionExitAudioHandlerRef = React.useRef<(() => Promise<void>) | null>(null);
+  const completionTransitionTaskRef = React.useRef<{ cancel?: () => void } | null>(null);
 
   // Record ground note shown (once, on render — gate already enforces lifetime limit)
   React.useEffect(() => {
@@ -119,51 +127,23 @@ export const ActivationScreen: React.FC = () => {
   const logActivationInBackground = useCallback(async (): Promise<void> => {
     const localActivationTime = new Date();
     const currentActivationCount = anchor?.activationCount ?? 0;
-    const chargedAt = isFirstPrimeForAnchor ? localActivationTime : anchor?.chargedAt;
-    const authStateBefore = useAuthStore.getState().user;
-    const previousLongestStreak = authStateBefore?.longestStreak ?? 0;
-    const previousTotalPrimes = Math.max(
-      useAnchorStore.getState().totalPrimes,
-      useAnchorStore
-        .getState()
-        .anchors.reduce((sum, currentAnchor) => sum + (currentAnchor.activationCount ?? 0), 0)
-    );
-    const previousRank = getCurrentRank(previousTotalPrimes);
+    const recoveredChargeState =
+      isFirstPrimeForAnchor
+        ? buildRecoveredChargeState(anchor, localActivationTime, { incrementChargeCount: true })
+        : shouldBackfillChargeState
+          ? buildRecoveredChargeState(anchor, localActivationTime)
+          : null;
+    let effectiveAnchorId = anchorId;
+    let backendSyncFailed = false;
 
     updateAnchor(anchorId, {
       activationCount: currentActivationCount + 1,
       lastActivatedAt: localActivationTime,
-      ...(isFirstPrimeForAnchor
-        ? {
-            isCharged: true,
-            chargedAt,
-            firstChargedAt: anchor?.firstChargedAt ?? chargedAt,
-            chargeCount: (anchor?.chargeCount ?? 0) + 1,
-          }
-        : {}),
+      ...(recoveredChargeState ?? {}),
     });
 
     incrementTotalPrimes();
     computeStreak();
-
-    const nextTotalPrimes = previousTotalPrimes + 1;
-    const nextRank = getCurrentRank(nextTotalPrimes);
-    const nextLongestStreak = useAuthStore.getState().user?.longestStreak ?? previousLongestStreak;
-
-    if (nextRank.name !== previousRank.name && nextRank.name !== 'Initiate') {
-      void queueMilestone({
-        type: 'rank',
-        name: nextRank.name,
-        primeCount: nextTotalPrimes,
-      });
-    }
-
-    if (previousLongestStreak < 100 && nextLongestStreak >= 100) {
-      void queueMilestone({
-        type: 'constancy',
-        name: '100 Days',
-      });
-    }
 
     try {
       if (isPendingFirstAnchor) {
@@ -178,20 +158,64 @@ export const ActivationScreen: React.FC = () => {
         return;
       }
 
-      const response = await apiClient.post(`/api/anchors/${anchorId}/activate`, {
+      try {
+        const persistedAnchor = await BackendAnchorService.ensureServerAnchor(anchorId);
+        effectiveAnchorId = persistedAnchor?.id ?? anchorId;
+      } catch (syncError) {
+        backendSyncFailed = true;
+        logger.warn('Anchor create sync failed before activation, saving locally only', syncError);
+      }
+
+      if (!backendSyncFailed && !isBackendAnchorId(effectiveAnchorId)) {
+        backendSyncFailed = true;
+      }
+
+      if (backendSyncFailed) {
+        toast.error('Activation completed but failed to sync. Will retry later.');
+        return;
+      }
+
+      const response = await apiClient.post(`/api/anchors/${effectiveAnchorId}/activate`, {
         activationType: activationType || 'visual',
         durationSeconds: activationDurationSeconds,
       });
 
       if (response.data.data) {
+        const data = response.data.data;
+        const serverChargeState: Partial<typeof recoveredChargeState> = {};
+
+        if (data.isCharged != null) {
+          serverChargeState.isCharged = data.isCharged;
+        }
+
+        if (data.chargedAt) {
+          serverChargeState.chargedAt = new Date(data.chargedAt);
+        }
+
+        if (data.firstChargedAt) {
+          serverChargeState.firstChargedAt = new Date(data.firstChargedAt);
+        }
+
+        if (data.chargeCount != null) {
+          serverChargeState.chargeCount = data.chargeCount;
+        }
+
         updateAnchor(anchorId, {
-          activationCount: response.data.data.activationCount,
-          lastActivatedAt: new Date(response.data.data.lastActivatedAt),
+          activationCount: data.activationCount,
+          lastActivatedAt: data.lastActivatedAt ? new Date(data.lastActivatedAt) : undefined,
+          ...(recoveredChargeState ?? {}),
+          ...serverChargeState,
         });
       }
 
       toast.success('Activation logged successfully');
     } catch (error) {
+      if (error instanceof Error && error.message === 'Anchor not found') {
+        toast.error('This anchor is no longer available.');
+        navigateToVaultDestination(navigation as any, 'replace');
+        return;
+      }
+
       ErrorTrackingService.captureException(
         error instanceof Error ? error : new Error('Unknown error during anchor activation'),
         {
@@ -213,7 +237,7 @@ export const ActivationScreen: React.FC = () => {
     incrementTotalPrimes,
     isPendingFirstAnchor,
     isFirstPrimeForAnchor,
-    queueMilestone,
+    shouldBackfillChargeState,
     toast,
     updateAnchor,
   ]);
@@ -229,7 +253,12 @@ export const ActivationScreen: React.FC = () => {
     sessionCompletedRef.current = true;
     setShowPostPrimeTrace(false);
     setShowExitWarning(false);
-    setShowCompletion(true);
+
+    completionTransitionTaskRef.current?.cancel?.();
+    completionTransitionTaskRef.current = InteractionManager.runAfterInteractions(() => {
+      setShowCompletion(true);
+      completionTransitionTaskRef.current = null;
+    });
   }, []);
 
   const handleComplete = useCallback(async () => {
@@ -273,6 +302,12 @@ export const ActivationScreen: React.FC = () => {
   }, [anchorId, beginPostPrimeTraceFlow, navigation]);
 
   useEffect(() => {
+    return () => {
+      completionTransitionTaskRef.current?.cancel?.();
+    };
+  }, []);
+
+  useEffect(() => {
     if (!pendingPostPrimeFlowId) {
       return;
     }
@@ -308,9 +343,10 @@ export const ActivationScreen: React.FC = () => {
     showReflectionModal,
   ]);
 
-  const exitSession = useCallback(() => {
+  const exitSession = useCallback(async () => {
     exitingRef.current = true;
     setShowExitWarning(false);
+    await focusSessionExitAudioHandlerRef.current?.();
 
     if (returnTo === 'practice') {
       const nav = navigation as any;
@@ -378,6 +414,7 @@ export const ActivationScreen: React.FC = () => {
       reflectionWord,
       completedAt: new Date().toISOString(),
     });
+    await queueProgressionMilestonesFromStores();
 
     if (returnTo === 'practice') {
       const nav = navigation as any;
@@ -416,11 +453,11 @@ export const ActivationScreen: React.FC = () => {
     returnTo,
   ]);
 
-  if (!anchor) {
+  if (isAnchorMissing) {
     return (
       <RitualScaffold>
         <View style={styles.errorContainer}>
-          <Text style={styles.errorText}>Anchor not found</Text>
+          <Text style={styles.errorText}>Anchor not found. Returning to vault...</Text>
         </View>
       </RitualScaffold>
     );
@@ -436,6 +473,9 @@ export const ActivationScreen: React.FC = () => {
         onSessionCompleted={handleSessionCompleted}
         groundNoteText={groundNoteTeaching?.copy}
         groundNoteSecondary={groundNoteTeaching?.copySecondary}
+        registerExitAudioHandler={(handler) => {
+          focusSessionExitAudioHandlerRef.current = handler;
+        }}
         onDismiss={() => {
           if (sessionCompletedRef.current) {
             handleComplete();

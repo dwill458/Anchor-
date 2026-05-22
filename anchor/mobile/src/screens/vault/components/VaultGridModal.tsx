@@ -17,7 +17,7 @@ import { SvgXml } from 'react-native-svg';
 import { colors, typography } from '@/theme';
 import type { Anchor } from '@/types';
 import { withAlpha } from '@/utils/color';
-import { isAnchorReleased } from '../utils/anchorStateHelpers';
+import { hasIgnited, isAnchorReleased } from '../utils/anchorStateHelpers';
 
 const { width } = Dimensions.get('window');
 const MODAL_WIDTH = width - 32;
@@ -92,7 +92,7 @@ export const VaultGridModal: React.FC<VaultGridModalProps> = ({
                 <SvgXml xml={sigilXml} width={ITEM_SIZE * 0.6} height={ITEM_SIZE * 0.6} />
               </View>
             )}
-            <View style={[styles.statusDot, item.isCharged ? styles.dotCharged : styles.dotUncharged]} />
+            <View style={[styles.statusDot, hasIgnited(item) ? styles.dotCharged : styles.dotUncharged]} />
           </View>
         </TouchableOpacity>
       );

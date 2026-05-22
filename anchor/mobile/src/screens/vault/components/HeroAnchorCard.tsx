@@ -25,6 +25,7 @@ import Animated, {
 import { SvgXml } from 'react-native-svg';
 import { colors } from '@/theme';
 import type { Anchor, AnchorCategory } from '@/types';
+import { hasIgnited } from '../utils/anchorStateHelpers';
 
 // ─── helpers ─────────────────────────────────────────────────────────────────
 
@@ -133,7 +134,7 @@ const HeroAnchorCardInner: React.FC<HeroAnchorCardProps> = ({
           </View>
 
           {/* Charged badge */}
-          {anchor.isCharged && (
+          {hasIgnited(anchor) && (
             <View style={styles.chargedBadge}>
               <View style={styles.badgeDot} />
               <Text style={styles.badgeText}>CHARGED</Text>

@@ -2,11 +2,11 @@
  * Anchor App - Enhanced Version Picker Screen (Phase 3)
  *
  * Step 7c in anchor creation flow (after AIGenerating with ControlNet).
- * User selects from 4 ControlNet-enhanced variations that preserve
+ * User selects from 2 ControlNet-enhanced variations that preserve
  * the structure while applying the chosen artistic style.
  *
  * Features:
- * - Displays 4 variations in 2x2 grid
+ * - Displays 2 variations in a 2-column layout
  * - Shows selected style applied
  * - Structure preservation indicator
  *      Zen Architect styling with entrance animations
@@ -22,6 +22,7 @@ import {
   Animated,
   Dimensions,
   Alert,
+  FlatList,
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -29,7 +30,7 @@ import { StatusBar } from 'expo-status-bar';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { RootStackParamList } from '@/types';
-import { colors } from '@/theme';
+import { colors, typography } from '@/theme';
 import { ScreenHeader, ZenBackground } from '@/components/common';
 import { logger } from '@/utils/logger';
 import { useTempStore } from '@/stores/anchorStore';
@@ -37,8 +38,12 @@ import { OptimizedImage } from '@/components/common/OptimizedImage';
 import { ErrorTrackingService } from '@/services/ErrorTrackingService';
 import { PerformanceMonitoring } from '@/services/PerformanceMonitoring';
 
-const { width: SCREEN_WIDTH } = Dimensions.get('window');
-const IMAGE_SIZE = (SCREEN_WIDTH - 80) / 2; // 2 columns with proper spacing (24px padding * 2 + 16px gap)
+const { width: screenWidth } = Dimensions.get('window');
+const CIRCLE_SIZE = (screenWidth / 2) - 20;
+const CIRCLE_RADIUS = CIRCLE_SIZE / 2;
+const MAX_VISIBLE_VARIATIONS = 2;
+const ROMAN_NUMERALS = ['I', 'II'] as const;
+const FORM_LABELS = ['Form I', 'Form II'] as const;
 const MAX_INLINE_PREVIEW_BYTES = 700_000;
 
 interface VariationAsset {
@@ -98,7 +103,7 @@ export const AIVariationPickerScreen: React.FC = () => {
     reuseRequestId,
   } = route.params;
 
-  // Selected variation index (0-3)
+  // Selected variation index (0-1)
   const [selectedIndex, setSelectedIndex] = useState<number>(0);
   const [hydratedIndexes, setHydratedIndexes] = useState<Set<number>>(new Set([0]));
 
@@ -132,7 +137,7 @@ export const AIVariationPickerScreen: React.FC = () => {
   const setTempEnhancedImage = useTempStore((state) => state.setTempEnhancedImage);
 
   const normalizedVariations = useMemo<VariationAsset[]>(() => {
-    return variations.map((variation, index) => {
+    return variations.slice(0, MAX_VISIBLE_VARIATIONS).map((variation, index) => {
       let fullUri = '';
       if (typeof variation === 'string') {
         fullUri = variation;
@@ -343,10 +348,19 @@ export const AIVariationPickerScreen: React.FC = () => {
             ]}
           >
             <Text style={styles.guidanceText}>Trust your first instinct. Choose the form that feels most visceral.</Text>
-            <View style={styles.grid}>
-              {normalizedVariations.map((variation, index) => {
+            <FlatList
+              data={normalizedVariations}
+              numColumns={2}
+              keyExtractor={(item) => item.id}
+              columnWrapperStyle={{
+                justifyContent: 'space-between',
+                paddingHorizontal: 0
+              }}
+              style={{ marginTop: 40, marginBottom: 20, marginHorizontal: -4 }}
+              renderItem={({ item: variation, index }) => {
                 const isSelected = selectedIndex === index;
-                const shouldHydrateImage = !variation.isHeavyInline || hydratedIndexes.has(index) || isSelected;
+                const shouldHydrateImage =
+                  !variation.isHeavyInline || hydratedIndexes.has(index) || isSelected;
                 return (
                   <TouchableOpacity
                     key={variation.id}
@@ -354,13 +368,13 @@ export const AIVariationPickerScreen: React.FC = () => {
                     activeOpacity={0.85}
                     style={styles.variationWrapper}
                     accessibilityRole="button"
-                    accessibilityLabel={`Variation ${index + 1}`}
+                    accessibilityLabel={FORM_LABELS[index] ?? `Form ${ROMAN_NUMERALS[index] ?? index + 1}`}
                     accessibilityState={{ selected: isSelected }}
                   >
                     <Animated.View
                       style={[
                         styles.variationCard,
-                        isSelected && styles.variationCardSelected,
+                        isSelected ? styles.variationCardSelected : styles.variationCardUnselected,
                       ]}
                     >
                       {/* Image Container */}
@@ -380,40 +394,33 @@ export const AIVariationPickerScreen: React.FC = () => {
 
                       {/* Number Badge */}
                       <View style={styles.numberBadge}>
-                        <Text style={styles.numberText}>{index + 1}</Text>
+                        <Text style={styles.numberText}>{ROMAN_NUMERALS[index] ?? index + 1}</Text>
                       </View>
 
                       {/* Selected Check */}
                       {isSelected && (
                         <View style={styles.selectedBadge}>
-                          <LinearGradient
-                            colors={[colors.gold, colors.bronze]}
-                            style={styles.selectedBadgeGradient}
-                          >
-                            <Text style={styles.checkIcon}>✓</Text>
-                          </LinearGradient>
+                          <Text style={styles.checkIcon}>✓</Text>
                         </View>
                       )}
 
-                      {/* Glow effect when selected */}
-                      {isSelected && (
-                        <View style={styles.selectedGlow} />
-                      )}
+                      {/* DEFERRED: Selected glow replaced by gold ring treatment. */}
                     </Animated.View>
 
                     {/* Label */}
                     <Text
                       style={[
                         styles.variationLabel,
-                        isSelected && styles.variationLabelSelected,
+                        isSelected ? styles.variationLabelSelected : styles.variationLabelUnselected,
                       ]}
                     >
-                      Variation {index + 1}
+                      {FORM_LABELS[index] ?? `Form ${ROMAN_NUMERALS[index] ?? index + 1}`}
                     </Text>
                   </TouchableOpacity>
                 );
-              })}
-            </View>
+              }}
+              scrollEnabled={false}
+            />
           </Animated.View>
           {/* DEFERRED: Move Symbolic Structure explanation to AnchorDetailScreen v1.1 */}
 
@@ -460,6 +467,7 @@ export const AIVariationPickerScreen: React.FC = () => {
               <Text style={styles.continueArrow}>→</Text>
             </LinearGradient>
           </TouchableOpacity>
+          <Text style={styles.finalityNote}>This cannot be changed once sealed</Text>
         </Animated.View>
       </SafeAreaView>
     </View>
@@ -572,25 +580,29 @@ const styles = StyleSheet.create({
   grid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 16,
+    gap: 12,
     justifyContent: 'space-between',
+    marginHorizontal: -2,
   },
   variationWrapper: {
-    width: IMAGE_SIZE,
+    flex: 1,
+    alignItems: 'center',
   },
   variationCard: {
-    width: IMAGE_SIZE,
-    aspectRatio: 1,
-    borderRadius: IMAGE_SIZE / 2,
+    width: CIRCLE_SIZE,
+    height: CIRCLE_SIZE,
+    borderRadius: CIRCLE_RADIUS,
     overflow: 'hidden',
-    borderWidth: 2,
-    borderColor: 'rgba(212, 175, 55, 0.15)',
     backgroundColor: colors.charcoal,
     position: 'relative',
   },
   variationCardSelected: {
-    borderColor: colors.gold,
-    borderWidth: 3,
+    borderWidth: 2.5,
+    borderColor: '#D4AF37',
+  },
+  variationCardUnselected: {
+    borderWidth: 1,
+    borderColor: 'rgba(245,245,220,0.12)',
   },
   imageContainer: {
     flex: 1,
@@ -631,27 +643,18 @@ const styles = StyleSheet.create({
   },
   selectedBadge: {
     position: 'absolute',
-    top: 12,
-    right: 12,
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    overflow: 'hidden',
-    shadowColor: colors.gold,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.5,
-    shadowRadius: 8,
-    elevation: 8,
-  },
-  selectedBadgeGradient: {
-    flex: 1,
+    top: 4,
+    right: 4,
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: '#D4AF37',
     justifyContent: 'center',
     alignItems: 'center',
   },
   checkIcon: {
-    fontSize: 20,
-    fontWeight: '700',
-    color: colors.charcoal,
+    fontSize: 13,
+    color: '#0F1419',
   },
   selectedGlow: {
     position: 'absolute',
@@ -659,7 +662,7 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     bottom: 0,
-    borderRadius: IMAGE_SIZE / 2,
+    borderRadius: CIRCLE_RADIUS,
     shadowColor: colors.gold,
     shadowOffset: { width: 0, height: 0 },
     shadowOpacity: 0.6,
@@ -668,14 +671,17 @@ const styles = StyleSheet.create({
   },
   variationLabel: {
     fontSize: 13,
-    fontWeight: '600',
-    color: colors.silver,
+    fontFamily: 'Cinzel-Regular',
     textAlign: 'center',
-    marginTop: 8,
+    marginTop: 10,
   },
   variationLabelSelected: {
-    color: colors.gold,
+    color: '#D4AF37',
     fontWeight: '700',
+  },
+  variationLabelUnselected: {
+    color: 'rgba(245,245,220,0.45)',
+    fontWeight: '600',
   },
   bottomSpacer: {
     flexGrow: 1,
@@ -717,5 +723,12 @@ const styles = StyleSheet.create({
     fontSize: 20,
     color: colors.charcoal,
     fontWeight: '300',
+  },
+  finalityNote: {
+    fontFamily: typography.fonts.bodySerifItalic,
+    fontSize: 11,
+    color: 'rgba(245,245,220,0.25)',
+    textAlign: 'center',
+    marginTop: 8,
   },
 });

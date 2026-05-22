@@ -14,6 +14,7 @@ import {
   TouchableOpacity,
   Animated,
   Dimensions,
+  InteractionManager,
 } from 'react-native';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { useTabNavigation } from '@/contexts/TabNavigationContext';
@@ -40,6 +41,8 @@ import {
   isPostPrimeTraceEligible,
   markPostPrimeTraceAttemptStarted,
 } from '@/utils/postPrimeTraceEligibility';
+import { useMissingAnchorRedirect } from './utils/useMissingAnchorRedirect';
+import { queueProgressionMilestonesFromStores } from '@/utils/progressionMilestones';
 
 const { width } = Dimensions.get('window');
 const SYMBOL_SIZE = Math.min(width * 0.42, 180);
@@ -68,6 +71,9 @@ export const ChargeCompleteScreen: React.FC = () => {
   const reduceMotionEnabled = useReduceMotionEnabled();
   const { handlePrimeComplete } = useNotificationController();
   const anchor = getAnchorById(anchorId);
+  const isAnchorMissing = !anchor;
+
+  useMissingAnchorRedirect(!isAnchorMissing, navigation);
 
   // Show CompletionModal first before the vault/activate CTAs
   const [completionDone, setCompletionDone] = useState(false);
@@ -84,7 +90,9 @@ export const ChargeCompleteScreen: React.FC = () => {
       if (shouldOffer) {
         setShowPostPrimeTrace(true);
       } else {
-        setShowCompletion(true);
+        InteractionManager.runAfterInteractions(() => {
+          setShowCompletion(true);
+        });
       }
     }
     checkEligibility();
@@ -92,7 +100,9 @@ export const ChargeCompleteScreen: React.FC = () => {
 
   const handleSkipPostPrimeTrace = () => {
     setShowPostPrimeTrace(false);
-    setShowCompletion(true);
+    InteractionManager.runAfterInteractions(() => {
+      setShowCompletion(true);
+    });
   };
 
   const handleBeginPostPrimeTrace = async () => {
@@ -134,7 +144,9 @@ export const ChargeCompleteScreen: React.FC = () => {
       });
     }
 
-    setShowCompletion(true);
+    InteractionManager.runAfterInteractions(() => {
+      setShowCompletion(true);
+    });
   }, [
     activeFlow,
     anchorId,
@@ -248,13 +260,16 @@ export const ChargeCompleteScreen: React.FC = () => {
       reflectionWord,
       completedAt: new Date().toISOString(),
     });
-    await handlePrimeComplete();
+
+    await queueProgressionMilestonesFromStores();
+    // Fire-and-forget — notification sync + server update should not block the UI transition
+    handlePrimeComplete();
 
     setShowCompletion(false);
     setCompletionDone(true);
   };
 
-  if (!anchor) {
+  if (isAnchorMissing) {
     return (
       <RitualScaffold>
         <View style={styles.errorContainer}>

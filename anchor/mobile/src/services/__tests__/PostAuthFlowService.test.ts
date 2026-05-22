@@ -6,6 +6,7 @@ const mockMigrateAnchors = jest.fn();
 const mockLogIn = jest.fn();
 const mockRefreshTrialStatus = jest.fn();
 const mockHydrateAuthenticatedData = jest.fn();
+const mockFinalizePendingFirstAnchorDraft = jest.fn();
 
 jest.mock('@/services/AnchorSyncService', () => ({
   __esModule: true,
@@ -51,7 +52,10 @@ describe('PostAuthFlowService', () => {
       isFinalizingPendingFirstAnchor: false,
       pendingFirstAnchorError: null,
       isOfflineMode: false,
+      finalizePendingFirstAnchorDraft: mockFinalizePendingFirstAnchorDraft,
     } as any);
+
+    mockFinalizePendingFirstAnchorDraft.mockResolvedValue(true);
   });
 
   it('migrates all local anchors during post-auth setup', async () => {
@@ -86,5 +90,39 @@ describe('PostAuthFlowService', () => {
     );
     expect(useAnchorStore.getState().anchors).toHaveLength(2);
     expect(useAuthStore.getState().user?.id).toBe('user-123');
+  });
+
+  it('finalizes a pending first anchor draft before leaving post-auth setup', async () => {
+    const user = createMockUser({ id: 'user-123' });
+
+    useAuthStore.setState({
+      pendingFirstAnchorDraft: {
+        tempAnchorId: 'pending-first-anchor-1',
+        source: 'onboarding_first_anchor',
+        requiresAccountGate: false,
+        createdAt: new Date('2026-05-18T08:00:00.000Z'),
+      },
+    } as any);
+
+    mockLogIn.mockResolvedValue({ hasActiveEntitlement: true });
+    mockRefreshTrialStatus.mockResolvedValue({ hasActiveEntitlement: true });
+    mockMigrateAnchors.mockResolvedValue([]);
+    mockHydrateAuthenticatedData.mockResolvedValue(undefined);
+    mockFinalizePendingFirstAnchorDraft.mockResolvedValue(true);
+
+    await PostAuthFlowService.run({
+      user,
+      token: 'token-123',
+      preserveCompletedOnboarding: false,
+      launchTrialPurchase: false,
+    });
+
+    expect(mockHydrateAuthenticatedData).toHaveBeenNthCalledWith(1, {
+      skipAnchorRefresh: true,
+    });
+    expect(mockFinalizePendingFirstAnchorDraft).toHaveBeenCalledTimes(1);
+    expect(mockHydrateAuthenticatedData).toHaveBeenNthCalledWith(2, {
+      skipAnchorRefresh: false,
+    });
   });
 });

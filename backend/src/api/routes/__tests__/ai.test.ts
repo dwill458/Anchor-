@@ -123,8 +123,9 @@ describe('POST /api/ai/enhance-controlnet', () => {
     );
   });
 
-  it('reuses up to three saved variations and generates only the missing count', async () => {
-    const pooledRows = [
+  it('reuses saved variations and generates only the missing count to reach TOTAL_VARIATION_OPTIONS', async () => {
+    // Scenario 1: Only 1 variation available in pool, we need to generate 1 more
+    const pooledRowsOne = [
       {
         id: 'pool-a',
         fingerprint: 'fp',
@@ -139,45 +140,17 @@ describe('POST /api/ai/enhance-controlnet', () => {
         seed: 101,
         createdAt: new Date('2026-01-01'),
       },
-      {
-        id: 'pool-b',
-        fingerprint: 'fp',
-        status: 'reserved',
-        reservedByRequestId: 'reuse-req',
-        imageUrl: 'https://cdn.example.com/pool-b.png',
-        structureMatchScore: 0.92,
-        iouScore: 0.91,
-        edgeOverlapScore: 0.9,
-        structurePreserved: true,
-        classification: 'Structure Preserved',
-        seed: 102,
-        createdAt: new Date('2026-01-02'),
-      },
-      {
-        id: 'pool-c',
-        fingerprint: 'fp',
-        status: 'reserved',
-        reservedByRequestId: 'reuse-req',
-        imageUrl: 'https://cdn.example.com/pool-c.png',
-        structureMatchScore: 0.93,
-        iouScore: 0.92,
-        edgeOverlapScore: 0.91,
-        structurePreserved: true,
-        classification: 'Structure Preserved',
-        seed: 103,
-        createdAt: new Date('2026-01-03'),
-      },
     ];
 
     mockPrisma.anchorVariationPool.findMany
       .mockResolvedValueOnce(
-        pooledRows.map(({ reservedByRequestId: _reservedByRequestId, ...row }) => ({
+        pooledRowsOne.map(({ reservedByRequestId: _reservedByRequestId, ...row }) => ({
           ...row,
           status: 'available',
           reservedByRequestId: null,
         }))
       )
-      .mockResolvedValueOnce(pooledRows);
+      .mockResolvedValueOnce(pooledRowsOne);
 
     mockEnhanceSigilWithAI.mockResolvedValue({
       variations: [
@@ -206,7 +179,7 @@ describe('POST /api/ai/enhance-controlnet', () => {
     });
     mockUploadImageFromUrl.mockResolvedValue('https://cdn.example.com/generated-only-one.png');
 
-    const res = await request(buildApp()).post('/api/ai/enhance').send({
+    let res = await request(buildApp()).post('/api/ai/enhance').send({
       sigilSvg: '<svg><rect/></svg>',
       styleChoice: 'watercolor',
       anchorId: 'anchor-1',
@@ -219,14 +192,78 @@ describe('POST /api/ai/enhance-controlnet', () => {
         numberOfVariations: 1,
       })
     );
-    expect(res.body.variations).toHaveLength(4);
-    expect(res.body.variations.slice(0, 3).map((variation: any) => variation.variationId)).toEqual([
-      'pool-a',
-      'pool-b',
-      'pool-c',
-    ]);
-    expect(res.body.variations[3].variationId).toBe('pool-generated-only-one.png');
+    expect(res.body.variations).toHaveLength(2);
+    expect(res.body.variations[0].variationId).toBe('pool-a');
+    expect(res.body.variations[1].variationId).toBe('pool-generated-only-one.png');
     expect(res.body.reuseRequestId).toEqual(expect.any(String));
+
+    // Reset mocks for Scenario 2
+    jest.clearAllMocks();
+    mockPrisma.user.findUnique.mockResolvedValue({ id: 'db-user-1' });
+    mockPrisma.anchor.findFirst.mockResolvedValue({ id: 'anchor-1' });
+    mockPrisma.anchorVariationPool.updateMany.mockResolvedValue({ count: 0 });
+    mockPrisma.anchorVariationPool.create.mockImplementation(async ({ data }: any) => ({
+      id: `pool-${data.imageUrl.split('/').pop()}`,
+      ...data,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    }));
+
+    // Scenario 2: 2 variations available in pool, we need to generate 0
+    const pooledRowsTwo = [
+      {
+        id: 'pool-a',
+        fingerprint: 'fp',
+        status: 'reserved',
+        reservedByRequestId: 'reuse-req',
+        imageUrl: 'https://cdn.example.com/pool-a.png',
+        structureMatchScore: 0.91,
+        iouScore: 0.9,
+        edgeOverlapScore: 0.89,
+        structurePreserved: true,
+        classification: 'Structure Preserved',
+        seed: 101,
+        createdAt: new Date('2026-01-01'),
+      },
+      {
+        id: 'pool-b',
+        fingerprint: 'fp',
+        status: 'reserved',
+        reservedByRequestId: 'reuse-req',
+        imageUrl: 'https://cdn.example.com/pool-b.png',
+        structureMatchScore: 0.92,
+        iouScore: 0.91,
+        edgeOverlapScore: 0.9,
+        structurePreserved: true,
+        classification: 'Structure Preserved',
+        seed: 102,
+        createdAt: new Date('2026-01-02'),
+      },
+    ];
+
+    mockPrisma.anchorVariationPool.findMany
+      .mockResolvedValueOnce(
+        pooledRowsTwo.map(({ reservedByRequestId: _reservedByRequestId, ...row }) => ({
+          ...row,
+          status: 'available',
+          reservedByRequestId: null,
+        }))
+      )
+      .mockResolvedValueOnce(pooledRowsTwo);
+
+    res = await request(buildApp()).post('/api/ai/enhance').send({
+      sigilSvg: '<svg><rect/></svg>',
+      styleChoice: 'watercolor',
+      anchorId: 'anchor-1',
+      intentionText: 'I move with precision',
+    });
+
+    expect(res.status).toBe(200);
+    // Generation should NOT have been called
+    expect(mockEnhanceSigilWithAI).not.toHaveBeenCalled();
+    expect(res.body.variations).toHaveLength(2);
+    expect(res.body.variations[0].variationId).toBe('pool-a');
+    expect(res.body.variations[1].variationId).toBe('pool-b');
   });
 });
 

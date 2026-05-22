@@ -10,7 +10,7 @@
       "web"
     ],
     "orientation": "portrait",
-    "icon": "./assets/anchor-gold.png",
+    "icon": "./assets/anchor-icon.png",
     "userInterfaceStyle": "dark",
     "splash": {
       "image": "./assets/anchor-gold.png",
@@ -28,7 +28,7 @@
       "url": "https://u.expo.dev/8fc5bf55-b18f-41c9-a8ce-767b307debb7"
     },
     "ios": {
-      "supportsTablet": true,
+      "supportsTablet": false,
       "bundleIdentifier": "com.anchorintentions.app",
       "buildNumber": "1",
       "googleServicesFile": "./GoogleService-Info.plist",
@@ -44,19 +44,21 @@
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/anchor-gold.png",
-        "backgroundColor": "#1A1A1D"
+        "backgroundColor": "#1A1A1D",
+        "monochromeImage": "./assets/anchor-gold.png"
       },
       "package": "com.anchorintentions.app",
-      "versionCode": 1,
+      "versionCode": 7,
       "googleServicesFile": "./google-services.json",
       "blockedPermissions": [
         "android.permission.RECORD_AUDIO",
-        "android.permission.READ_MEDIA_AUDIO"
+        "android.permission.READ_MEDIA_AUDIO",
+        "android.permission.READ_MEDIA_IMAGES",
+        "android.permission.READ_MEDIA_VIDEO"
       ],
       "permissions": [
         "android.permission.MODIFY_AUDIO_SETTINGS",
         "android.permission.CAMERA",
-        "android.permission.READ_MEDIA_IMAGES",
         "android.permission.VIBRATE",
         "android.permission.POST_NOTIFICATIONS"
       ]

@@ -27,6 +27,7 @@ type TabIndex = 0 | 1 | 2;
 
 interface StackNavRef {
   navigate: (screen: string, params?: object) => void;
+  push: (screen: string, params?: object) => void;
   popToTop: () => void;
 }
 
@@ -68,7 +69,7 @@ export const TabNavigationProvider: React.FC<TabNavigationProviderProps> = ({
       // even when Vault is currently off-screen. When the tab switches, the
       // target screen is already on top.
       if (screen && tabNavRefs.current[0]) {
-        tabNavRefs.current[0].navigate(screen, params);
+        tabNavRefs.current[0].push(screen, params);
       }
       onIndexChange(0);
     },

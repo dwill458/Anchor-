@@ -19,6 +19,7 @@ import {
   AccessibilityInfo,
   Platform,
   InteractionManager,
+  useWindowDimensions,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import Svg, {
@@ -35,6 +36,7 @@ import { useRitualController } from '@/hooks/useRitualController';
 import { getRitualConfig } from '@/config/ritualConfigs';
 import { apiClient } from '@/services/ApiClient';
 import { AuthService } from '@/services/AuthService';
+import BackendAnchorService, { isBackendAnchorId } from '@/services/BackendAnchorService';
 import type { RootStackParamList } from '@/types';
 import { colors, spacing, typography } from '@/theme';
 import { SigilSvg, OptimizedImage, PremiumAnchorGlow } from '@/components/common';
@@ -46,13 +48,9 @@ import { ProgressHaloRing } from './components/ProgressHaloRing';
 import { ConfirmModal } from './components/ConfirmModal';
 import { CompletionModal } from './components/CompletionModal';
 import { TIMING, EASING } from './utils/transitionConstants';
-import {
-  getDeepBreathCue,
-  getDeepBreathCycleProgress,
-  getDeepBreathTiming,
-} from './utils/deepBreath';
 import * as Speech from 'expo-speech';
 import { navigateToVaultDestination } from '@/navigation/firstAnchorGate';
+import { isFirstPrimeForAnchor as isAnchorFirstPrime } from '@/utils/anchorPriming';
 import { useNotificationController } from '@/hooks/useNotificationController';
 import { AnalyticsService } from '@/services/AnalyticsService';
 import { PostPrimeTraceModal } from './components/PostPrimeTraceModal';
@@ -61,6 +59,9 @@ import {
   isPostPrimeTraceEligible,
   markPostPrimeTraceAttemptStarted,
 } from '@/utils/postPrimeTraceEligibility';
+import { useMissingAnchorRedirect } from './utils/useMissingAnchorRedirect';
+import { useDeepPrimeSessionAudio } from './hooks/useDeepPrimeSessionAudio';
+import { queueProgressionMilestonesFromStores } from '@/utils/progressionMilestones';
 
 // Single source of truth: derive each segment's width from the global progressAnim,
 // which is already wall-clock-driven by useRitualController + the progressAnim effect.
@@ -77,10 +78,8 @@ const DeepPhaseSegment = ({
   endProgress: number;
   isPast: boolean;
 }) => {
-  // interpolate requires strictly-increasing inputs; nudge zero-length phases.
-  const safeEnd = endProgress > startProgress ? endProgress : startProgress + 0.0001;
   const widthAnim = progressAnim.interpolate({
-    inputRange: [startProgress, safeEnd],
+    inputRange: [startProgress, endProgress],
     outputRange: ['0%', '100%'],
     extrapolate: 'clamp',
   });
@@ -107,6 +106,25 @@ const SYMBOL_SIZE = Math.min(width * 0.54, 220);
 const RING_RADIUS = 124;
 const RING_STROKE_WIDTH = 4;
 const RING_CIRCUMFERENCE = 2 * Math.PI * RING_RADIUS;
+const ARRIVE_PHASE_SECONDS = 8;
+const ARRIVE_CHROME_FADE_MS = 500;
+const ARRIVE_BREATH_PHASE_MS = 4000;
+const DEEP_PRIME_BREATH_INHALE_S = 4;
+const DEEP_PRIME_BREATH_HOLD_S = 1;
+const DEEP_PRIME_BREATH_EXHALE_S = 5;
+const DEEP_PRIME_BREATH_TOTAL_S =
+  DEEP_PRIME_BREATH_INHALE_S + DEEP_PRIME_BREATH_HOLD_S + DEEP_PRIME_BREATH_EXHALE_S;
+const SUPPORTED_DEEP_PRIME_GUIDED_DURATIONS = new Set([120, 300, 600, 900]);
+const SEAL_HEADLINE = 'Seal Your Intention';
+const SEAL_SUPPORT_LINE =
+  'Breathe with the rhythm. Let each exhale settle your intention into the symbol.';
+const SEAL_INTENTION_LABEL = 'Your intention';
+const SEAL_COMPLETE_HEADLINE = 'It is sealed.';
+const SEAL_COMPLETE_SUPPORT = 'Your anchor now carries the intention forward.';
+const SEAL_CONTINUE_LABEL = 'Continue';
+const SEAL_HOLD_PROMPT = 'Hold gently to seal';
+const SEAL_INHALE_DURATION_MS = 4000;
+const SEAL_EXHALE_DURATION_MS = 6000;
 type EmberParticle = {
   x: number;
   bottom: number;
@@ -116,6 +134,8 @@ type EmberParticle = {
   delay: number;
   isEmber: boolean;
 };
+
+type SealCopyMode = 'active' | 'complete';
 const DEEP_OUTER_ORB_DOTS = Array.from({ length: 24 }, (_, index) => {
   const angle = (index / 24) * Math.PI * 2;
   return {
@@ -232,6 +252,7 @@ const DeepEmberDot: React.FC<{ particle: EmberParticle; reduceMotionEnabled: boo
 };
 
 export const RitualScreen: React.FC = () => {
+  const { width: screenWidth, height: screenHeight } = useWindowDimensions();
   const navigation = useNavigation<RitualNavigationProp>();
   const { navigateToPractice } = useTabNavigation();
   const route = useRoute<RitualRouteProp>();
@@ -259,11 +280,9 @@ export const RitualScreen: React.FC = () => {
   const bumpThreadStrength = useSessionStore((state) => state.bumpThreadStrength);
   const anchor = getAnchorById(anchorId);
   const sigilSvg = anchor?.reinforcedSigilSvg ?? anchor?.baseSigilSvg ?? '';
+  const isAnchorMissing = !anchor;
   const isPendingFirstAnchor = pendingFirstAnchorDraft?.tempAnchorId === anchorId;
-  const isFirstPrimeForAnchor =
-    !anchor?.isCharged &&
-    !anchor?.firstChargedAt &&
-    (anchor?.chargeCount ?? 0) === 0;
+  const isFirstPrimeForAnchor = isAnchorFirstPrime(anchor);
 
   const [reduceMotionEnabled, setReduceMotionEnabled] = useState(false);
   const [showExitWarning, setShowExitWarning] = useState(false);
@@ -271,6 +290,31 @@ export const RitualScreen: React.FC = () => {
   const [isReady, setIsReady] = useState(false);
   const [showPostPrimeTrace, setShowPostPrimeTrace] = useState(false);
   const [pendingPostPrimeFlowId, setPendingPostPrimeFlowId] = useState<string | null>(null);
+  const [sealCopyMode, setSealCopyMode] = useState<SealCopyMode>('active');
+  const [sealBreathLabel, setSealBreathLabel] = useState<'Inhale' | 'Exhale'>('Inhale');
+  const [showSealContinue, setShowSealContinue] = useState(false);
+  const isCompactHeight = screenHeight <= 880;
+  const deepHeroSize = Math.min(Math.round(screenWidth * 0.68), 280);
+  const deepLandingHeroSize = Math.round(deepHeroSize * 0.85);
+  const deepRingRadius = deepHeroSize / 2 + 22;
+  const deepSealSvgSize = deepRingRadius * 2 + RING_STROKE_WIDTH * 4;
+  const deepSealCenter = deepSealSvgSize / 2;
+  const deepSealCircumference = 2 * Math.PI * deepRingRadius;
+  const deepStageSize = deepHeroSize;
+  const deepAuraOuterSize = deepHeroSize * 1.55;
+  const deepAuraInnerSize = deepHeroSize * 1.25;
+  const deepOrbitSolidSize = deepHeroSize * 1.04;
+  const deepOrbitDashOuterSize = deepHeroSize * 1.25;
+  const deepOrbitDotOuterSize = deepHeroSize * 1.4;
+  const deepOrbitDashInnerSize = deepHeroSize * 1.55;
+  const deepOrbRingOuterSize = deepHeroSize * 1.45;
+  const deepOrbRingInnerSize = deepHeroSize * 1.25;
+  const deepOrbScale = deepHeroSize / 240;
+  const deepPulseOuterSize = deepHeroSize * 1.1;
+  const deepPulseInnerSize = deepHeroSize * 0.96;
+  const deepEmberHaloSize = deepHeroSize * 1.02;
+
+  useMissingAnchorRedirect(!isAnchorMissing, navigation);
 
   useEffect(() => {
     const task = InteractionManager.runAfterInteractions(() => {
@@ -287,7 +331,15 @@ export const RitualScreen: React.FC = () => {
       : primeSessionDuration);
   const config = getRitualConfig(ritualType, resolvedDurationSeconds);
   const isDeepRitual = ritualType === 'ritual' || ritualType === 'deep';
+  const shouldUseDeepPrimeImmersiveAudio =
+    isDeepRitual &&
+    primeSessionAudio === 'ambient' &&
+    SUPPORTED_DEEP_PRIME_GUIDED_DURATIONS.has(config.totalDurationSeconds);
   const [isLanding, setIsLanding] = useState(isDeepRitual);
+
+  const arrivePhaseEnabled =
+    (ritualType === 'focus' || ritualType === 'quick') &&
+    config.totalDurationSeconds > 5;
 
   // Animated values
   const progressAnim = useRef(new Animated.Value(0)).current;
@@ -304,14 +356,33 @@ export const RitualScreen: React.FC = () => {
   const deepBreathAnim = useRef(new Animated.Value(0)).current;
   const sealEntranceAnim = useRef(new Animated.Value(0)).current;
   const sealPulseAnim = useRef(new Animated.Value(0)).current;
+  const sealTitleOpacityAnim = useRef(new Animated.Value(0)).current;
+  const sealIntentionOpacityAnim = useRef(new Animated.Value(0)).current;
+  const sealSupportOpacityAnim = useRef(new Animated.Value(0)).current;
+  const sealBreathOpacityAnim = useRef(new Animated.Value(0)).current;
+  const sealCopySwapAnim = useRef(new Animated.Value(1)).current;
+  const sealContinueOpacityAnim = useRef(new Animated.Value(0)).current;
+  const sealIntentionGlowAnim = useRef(new Animated.Value(0)).current;
   const regularRingSpinA = useRef(new Animated.Value(0)).current;
   const regularRingSpinB = useRef(new Animated.Value(0)).current;
+  const sessionChromeOpacity = useRef(
+    new Animated.Value(arrivePhaseEnabled ? 0 : 1),
+  ).current;
+  const arriveBreathScaleAnim = useRef(new Animated.Value(1)).current;
+  const arriveBreathOpacityAnim = useRef(new Animated.Value(0.55)).current;
 
   const instructionFadeAnim = useRef(new Animated.Value(1)).current;
   const [displayedInstruction, setDisplayedInstruction] = useState(
     config.phases[0]?.instructions[0] ?? ''
   );
   const deepEmbers = useRef<EmberParticle[]>(makeDeepEmbers(22)).current;
+  const sealBreathTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const deepTotalMs = Math.max(1000, Math.round(config.totalDurationSeconds * 1000));
+  const deepTimerIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const deepEndAtMsRef = useRef<number>(Date.now() + deepTotalMs);
+  const deepRemainingMsRef = useRef<number>(deepTotalMs);
+  const [deepRemainingMs, setDeepRemainingMs] = useState(deepTotalMs);
+  const deepSealAutoCompleteStartedRef = useRef(false);
 
   useEffect(() => {
     AccessibilityInfo.isReduceMotionEnabled().then((v) => setReduceMotionEnabled(v));
@@ -329,7 +400,98 @@ export const RitualScreen: React.FC = () => {
     onComplete: handleRitualComplete,
     onPhaseChange: handlePhaseChange,
     onSealComplete: handleSealComplete,
+    manageSessionAudioExternally: shouldUseDeepPrimeImmersiveAudio,
   });
+  const {
+    fadeOutAndStop: fadeOutDeepPrimeAudio,
+    hasVoiceGuidance: shouldHideDeepPrimeGuidanceText,
+  } = useDeepPrimeSessionAudio({
+    durationSeconds: config.totalDurationSeconds,
+    enabled: shouldUseDeepPrimeImmersiveAudio,
+    isActive: state.isActive,
+    isComplete: state.isComplete,
+  });
+
+  const clearDeepTimerInterval = useCallback(() => {
+    if (deepTimerIntervalRef.current) {
+      clearInterval(deepTimerIntervalRef.current);
+      deepTimerIntervalRef.current = null;
+    }
+  }, []);
+
+  const syncDeepRemainingMs = useCallback((remainingMs: number) => {
+    const nextRemainingMs = Math.max(0, remainingMs);
+    deepRemainingMsRef.current = nextRemainingMs;
+    setDeepRemainingMs(nextRemainingMs);
+  }, []);
+
+  const animateDeepProgressToEnd = useCallback((remainingMs: number) => {
+    progressAnim.stopAnimation();
+    if (remainingMs <= 0) {
+      progressAnim.setValue(1);
+      return;
+    }
+
+    Animated.timing(progressAnim, {
+      toValue: 1,
+      duration: remainingMs,
+      easing: Easing.linear,
+      useNativeDriver: false,
+    }).start();
+  }, [progressAnim]);
+
+  const tickDeepTimer = useCallback(() => {
+    const remainingMs = Math.max(0, deepEndAtMsRef.current - Date.now());
+    syncDeepRemainingMs(remainingMs);
+
+    if (remainingMs <= 0) {
+      clearDeepTimerInterval();
+    }
+  }, [clearDeepTimerInterval, syncDeepRemainingMs]);
+
+  const startDeepTimer = useCallback((runningMs: number) => {
+    const nextRunningMs = Math.max(0, runningMs);
+    clearDeepTimerInterval();
+    deepEndAtMsRef.current = Date.now() + nextRunningMs;
+    syncDeepRemainingMs(nextRunningMs);
+    animateDeepProgressToEnd(nextRunningMs);
+    deepTimerIntervalRef.current = setInterval(tickDeepTimer, 250);
+  }, [animateDeepProgressToEnd, clearDeepTimerInterval, syncDeepRemainingMs, tickDeepTimer]);
+
+  const pauseDeepTimer = useCallback(() => {
+    const remainingMs = Math.max(0, deepEndAtMsRef.current - Date.now());
+    clearDeepTimerInterval();
+    progressAnim.stopAnimation();
+    syncDeepRemainingMs(remainingMs);
+  }, [clearDeepTimerInterval, progressAnim, syncDeepRemainingMs]);
+
+  const resumeDeepTimer = useCallback(() => {
+    if (deepRemainingMsRef.current <= 0) {
+      syncDeepRemainingMs(0);
+      progressAnim.setValue(1);
+      return;
+    }
+    startDeepTimer(deepRemainingMsRef.current);
+  }, [progressAnim, startDeepTimer, syncDeepRemainingMs]);
+
+  useEffect(() => {
+    clearDeepTimerInterval();
+    deepEndAtMsRef.current = Date.now() + deepTotalMs;
+    deepRemainingMsRef.current = deepTotalMs;
+    setDeepRemainingMs(deepTotalMs);
+    deepSealAutoCompleteStartedRef.current = false;
+    progressAnim.setValue(0);
+
+    return () => {
+      clearDeepTimerInterval();
+    };
+  }, [clearDeepTimerInterval, deepTotalMs, progressAnim]);
+
+  const isArrivePhase =
+    arrivePhaseEnabled &&
+    state.elapsedSeconds < ARRIVE_PHASE_SECONDS &&
+    !state.isComplete &&
+    !state.isSealPhase;
 
   useEffect(() => {
     if (reduceMotionEnabled) {
@@ -386,8 +548,64 @@ export const RitualScreen: React.FC = () => {
     };
   }, [actions.start, actions.reset, isDeepRitual]);
 
+  // ══════════════════════════════════════════════════════════════
+  // LIFECYCLE: Arrive phase breath cue + chrome transition
+  // ══════════════════════════════════════════════════════════════
+
+  useEffect(() => {
+    Animated.timing(sessionChromeOpacity, {
+      toValue: isArrivePhase ? 0 : 1,
+      duration: ARRIVE_CHROME_FADE_MS,
+      useNativeDriver: true,
+    }).start();
+
+    if (!isArrivePhase) {
+      arriveBreathScaleAnim.setValue(1);
+      arriveBreathOpacityAnim.setValue(0.55);
+      return;
+    }
+
+    const breathLoop = Animated.loop(
+      Animated.parallel([
+        Animated.sequence([
+          Animated.timing(arriveBreathScaleAnim, {
+            toValue: 1.08,
+            duration: ARRIVE_BREATH_PHASE_MS,
+            useNativeDriver: true,
+          }),
+          Animated.timing(arriveBreathScaleAnim, {
+            toValue: 1,
+            duration: ARRIVE_BREATH_PHASE_MS,
+            useNativeDriver: true,
+          }),
+        ]),
+        Animated.sequence([
+          Animated.timing(arriveBreathOpacityAnim, {
+            toValue: 0.85,
+            duration: ARRIVE_BREATH_PHASE_MS,
+            useNativeDriver: true,
+          }),
+          Animated.timing(arriveBreathOpacityAnim, {
+            toValue: 0.55,
+            duration: ARRIVE_BREATH_PHASE_MS,
+            useNativeDriver: true,
+          }),
+        ]),
+      ]),
+    );
+
+    breathLoop.start();
+
+    return () => breathLoop.stop();
+  }, [isArrivePhase]);
+
   const handleBeginPriming = () => {
     setIsLanding(false);
+    if (isDeepRitual) {
+      deepSealAutoCompleteStartedRef.current = false;
+      progressAnim.setValue(0);
+      startDeepTimer(deepTotalMs);
+    }
     actions.start();
   };
 
@@ -441,6 +659,10 @@ export const RitualScreen: React.FC = () => {
   // Fires on lifecycle transitions only (start / pause / resume / complete). The
   // ongoing Animated.timing handles smooth interpolation between integer-second ticks.
   useEffect(() => {
+    if (isDeepRitual) {
+      return;
+    }
+
     const totalDuration = Math.max(1, config.totalDurationSeconds);
 
     if (state.isComplete) {
@@ -488,22 +710,100 @@ export const RitualScreen: React.FC = () => {
     // captured fresh at the transition moment, which is exactly the snapshot we want.
     // Including them in deps would restart the timing animation every second tick.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [state.isActive, state.isComplete, progressAnim]);
+  }, [isDeepRitual, state.isActive, state.isComplete, progressAnim]);
 
 
   useEffect(() => {
     if (state.isSealPhase && !state.isSealComplete) {
+      setSealCopyMode('active');
+      setShowSealContinue(false);
+      setSealBreathLabel('Inhale');
+
+      if (sealBreathTimeoutRef.current) {
+        clearTimeout(sealBreathTimeoutRef.current);
+      }
+
+      const loopBreathLabel = () => {
+        setSealBreathLabel('Inhale');
+        sealBreathTimeoutRef.current = setTimeout(() => {
+          setSealBreathLabel('Exhale');
+          sealBreathTimeoutRef.current = setTimeout(loopBreathLabel, SEAL_EXHALE_DURATION_MS);
+        }, SEAL_INHALE_DURATION_MS);
+      };
+
+      loopBreathLabel();
+
+      if (reduceMotionEnabled) {
+        sealTitleOpacityAnim.setValue(1);
+        sealIntentionOpacityAnim.setValue(1);
+        sealSupportOpacityAnim.setValue(1);
+        sealBreathOpacityAnim.setValue(1);
+        sealCopySwapAnim.setValue(1);
+        sealContinueOpacityAnim.setValue(0);
+      } else {
+        sealTitleOpacityAnim.setValue(0);
+        sealIntentionOpacityAnim.setValue(0);
+        sealSupportOpacityAnim.setValue(0);
+        sealBreathOpacityAnim.setValue(0);
+        sealCopySwapAnim.setValue(1);
+        sealContinueOpacityAnim.setValue(0);
+        sealIntentionGlowAnim.setValue(0);
+
+        Animated.stagger(180, [
+          Animated.timing(sealTitleOpacityAnim, {
+            toValue: 1,
+            duration: 850,
+            easing: EASING.ENTRY,
+            useNativeDriver: true,
+          }),
+          Animated.timing(sealIntentionOpacityAnim, {
+            toValue: 1,
+            duration: 850,
+            easing: EASING.ENTRY,
+            useNativeDriver: true,
+          }),
+          Animated.timing(sealSupportOpacityAnim, {
+            toValue: 1,
+            duration: 900,
+            easing: EASING.ENTRY,
+            useNativeDriver: true,
+          }),
+          Animated.timing(sealBreathOpacityAnim, {
+            toValue: 1,
+            duration: 900,
+            easing: EASING.ENTRY,
+            useNativeDriver: true,
+          }),
+        ]).start();
+
+        Animated.sequence([
+          Animated.delay(2200),
+          Animated.timing(sealIntentionGlowAnim, {
+            toValue: 1,
+            duration: 1400,
+            easing: EASING.TRANSITION,
+            useNativeDriver: true,
+          }),
+          Animated.timing(sealIntentionGlowAnim, {
+            toValue: 0,
+            duration: 1800,
+            easing: EASING.TRANSITION,
+            useNativeDriver: true,
+          }),
+        ]).start();
+      }
+
       const glowLoop = Animated.loop(
         Animated.sequence([
           Animated.timing(glowAnim, {
             toValue: 1,
-            duration: 1200,
+            duration: SEAL_INHALE_DURATION_MS,
             easing: EASING.TRANSITION,
             useNativeDriver: true,
           }),
           Animated.timing(glowAnim, {
-            toValue: 0,
-            duration: 1200,
+            toValue: 0.2,
+            duration: SEAL_EXHALE_DURATION_MS,
             easing: EASING.TRANSITION,
             useNativeDriver: true,
           }),
@@ -514,13 +814,13 @@ export const RitualScreen: React.FC = () => {
         Animated.sequence([
           Animated.timing(sealPulseAnim, {
             toValue: 1,
-            duration: 2000,
+            duration: SEAL_INHALE_DURATION_MS,
             easing: EASING.TRANSITION,
             useNativeDriver: true,
           }),
           Animated.timing(sealPulseAnim, {
             toValue: 0,
-            duration: 2000,
+            duration: SEAL_EXHALE_DURATION_MS,
             easing: EASING.TRANSITION,
             useNativeDriver: true,
           }),
@@ -557,6 +857,10 @@ export const RitualScreen: React.FC = () => {
       spinLoopB.start();
 
       return () => {
+        if (sealBreathTimeoutRef.current) {
+          clearTimeout(sealBreathTimeoutRef.current);
+          sealBreathTimeoutRef.current = null;
+        }
         glowLoop.stop();
         pulseLoop.stop();
         spinLoopA.stop();
@@ -564,9 +868,29 @@ export const RitualScreen: React.FC = () => {
       };
     }
 
+    if (sealBreathTimeoutRef.current) {
+      clearTimeout(sealBreathTimeoutRef.current);
+      sealBreathTimeoutRef.current = null;
+    }
     sealEntranceAnim.setValue(0);
     glowAnim.setValue(0);
-  }, [state.isSealPhase, state.isSealComplete, glowAnim, sealPulseAnim, regularRingSpinA, regularRingSpinB, sealEntranceAnim]);
+  }, [
+    glowAnim,
+    reduceMotionEnabled,
+    sealBreathOpacityAnim,
+    sealContinueOpacityAnim,
+    sealCopySwapAnim,
+    sealEntranceAnim,
+    sealIntentionGlowAnim,
+    sealIntentionOpacityAnim,
+    sealPulseAnim,
+    sealSupportOpacityAnim,
+    sealTitleOpacityAnim,
+    regularRingSpinA,
+    regularRingSpinB,
+    state.isSealComplete,
+    state.isSealPhase,
+  ]);
 
   useEffect(() => {
     if (state.currentInstruction === displayedInstruction) return;
@@ -609,81 +933,58 @@ export const RitualScreen: React.FC = () => {
     isCompletingRef.current = true;
 
     try {
-      let chargeType: 'initial_quick' | 'initial_deep' | 'recharge' = 'initial_quick';
-
-      if (ritualType === 'quick' || ritualType === 'focus') {
-        chargeType = 'initial_quick';
-      } else if (ritualType === 'deep' || ritualType === 'ritual') {
-        chargeType = 'initial_deep';
+      if (isDeepRitual) {
+        setSealCopyMode('complete');
+        setShowSealContinue(false);
+        sealBreathOpacityAnim.setValue(0);
+        sealCopySwapAnim.setValue(1);
+        sealContinueOpacityAnim.setValue(0);
+        return;
       }
 
-      let backendSyncFailed = false;
-
-      if (isPendingFirstAnchor) {
-        enqueuePendingFirstAnchorMutation({
-          type: 'charge_anchor',
-          tempAnchorId: anchorId,
-          chargeType,
-          durationSeconds: config.totalDurationSeconds,
-          queuedAt: new Date().toISOString(),
-        });
+      if (reduceMotionEnabled) {
+        setSealCopyMode('complete');
+        setShowSealContinue(true);
+        sealBreathOpacityAnim.setValue(0);
+        sealCopySwapAnim.setValue(1);
+        sealContinueOpacityAnim.setValue(1);
       } else {
-        const token = await AuthService.getIdToken();
-        const isMockToken =
-          typeof token === 'string' && (token === 'mock-jwt-token' || token.startsWith('mock-'));
+        Animated.timing(sealBreathOpacityAnim, {
+          toValue: 0,
+          duration: 500,
+          easing: EASING.TRANSITION,
+          useNativeDriver: true,
+        }).start();
 
-        if (isMockToken) {
-          backendSyncFailed = false;
-        } else {
-          try {
-            await apiClient.post(`/api/anchors/${anchorId}/charge`, {
-              chargeType,
-              durationSeconds: config.totalDurationSeconds,
-            });
-          } catch (syncError) {
-            backendSyncFailed = true;
-            logger.warn('Charge sync failed, saving locally only', syncError);
+        Animated.timing(sealCopySwapAnim, {
+          toValue: 0,
+          duration: 260,
+          easing: EASING.TRANSITION,
+          useNativeDriver: true,
+        }).start(({ finished }) => {
+          if (!finished) return;
+          setSealCopyMode('complete');
+          Animated.timing(sealCopySwapAnim, {
+            toValue: 1,
+            duration: 760,
+            easing: EASING.ENTRY,
+            useNativeDriver: true,
+          }).start();
+        });
+
+        Animated.sequence([
+          Animated.delay(760),
+          Animated.timing(sealContinueOpacityAnim, {
+            toValue: 1,
+            duration: 720,
+            easing: EASING.ENTRY,
+            useNativeDriver: true,
+          }),
+        ]).start(({ finished }) => {
+          if (finished) {
+            setShowSealContinue(true);
           }
-        }
-      }
-
-      const chargedAt = new Date();
-      await updateAnchor(anchorId, {
-        isCharged: true,
-        chargedAt,
-        firstChargedAt: anchor?.firstChargedAt ?? chargedAt,
-        chargeCount: (anchor?.chargeCount ?? 0) + 1,
-      });
-
-      if (backendSyncFailed && isMountedRef.current) {
-        Alert.alert('Saved Locally', 'Anchor charge saved. Sync will retry later.');
-      }
-
-      if (isMountedRef.current) {
-        if (isFirstPrimeForAnchor) {
-          exitingRef.current = true;
-          navigation.replace('FirstPrimeComplete', {
-            anchorId,
-            sessionCount: 1,
-            threadStrength: 1,
-            durationSeconds: config.totalDurationSeconds,
-            returnTo,
-          });
-        } else if (isDeepRitual) {
-          const shouldOfferPostPrimeTrace = await isPostPrimeTraceEligible();
-          if (shouldOfferPostPrimeTrace) {
-            setShowPostPrimeTrace(true);
-          } else {
-            setShowCompletion(true);
-          }
-        } else {
-          exitingRef.current = true;
-          navigation.replace('ChargeComplete', {
-            anchorId,
-            durationSeconds: config.totalDurationSeconds,
-            returnTo,
-          });
-        }
+        });
       }
     } catch (error) {
       isCompletingRef.current = false;
@@ -694,7 +995,9 @@ export const RitualScreen: React.FC = () => {
 
   const handleSkipPostPrimeTrace = useCallback(() => {
     setShowPostPrimeTrace(false);
-    setShowCompletion(true);
+    InteractionManager.runAfterInteractions(() => {
+      setShowCompletion(true);
+    });
   }, []);
 
   const handleBeginPostPrimeTrace = useCallback(async () => {
@@ -736,7 +1039,9 @@ export const RitualScreen: React.FC = () => {
       });
     }
 
-    setShowCompletion(true);
+    InteractionManager.runAfterInteractions(() => {
+      setShowCompletion(true);
+    });
   }, [
     activeFlow,
     anchorId,
@@ -745,17 +1050,11 @@ export const RitualScreen: React.FC = () => {
     pendingPostPrimeFlowId,
   ]);
 
-  function handleBack() {
-    if (state.isComplete || state.isSealComplete) {
-      exitRitual();
-      return;
-    }
-    setShowExitWarning(true);
-  }
-
-  const exitRitual = useCallback(() => {
+  const exitRitual = useCallback(async () => {
     exitingRef.current = true;
     setShowExitWarning(false);
+    clearDeepTimerInterval();
+    await fadeOutDeepPrimeAudio();
 
     if (returnTo === 'practice') {
       const nav = navigation as any;
@@ -774,7 +1073,146 @@ export const RitualScreen: React.FC = () => {
     }
 
     navigateToVaultDestination(navigation);
-  }, [anchorId, navigateToPractice, navigation, returnTo]);
+  }, [anchorId, clearDeepTimerInterval, fadeOutDeepPrimeAudio, navigateToPractice, navigation, returnTo]);
+
+  const continueFromSeal = useCallback(async () => {
+    let chargeType: 'initial_quick' | 'initial_deep' | 'recharge' = 'initial_quick';
+
+    if (ritualType === 'quick' || ritualType === 'focus') {
+      chargeType = 'initial_quick';
+    } else if (ritualType === 'deep' || ritualType === 'ritual') {
+      chargeType = 'initial_deep';
+    }
+
+    let backendSyncFailed = false;
+    let effectiveAnchorId = anchorId;
+
+    if (isPendingFirstAnchor) {
+      enqueuePendingFirstAnchorMutation({
+        type: 'charge_anchor',
+        tempAnchorId: anchorId,
+        chargeType,
+        durationSeconds: config.totalDurationSeconds,
+        queuedAt: new Date().toISOString(),
+      });
+    } else {
+      try {
+        const persistedAnchor = await BackendAnchorService.ensureServerAnchor(anchorId);
+        effectiveAnchorId = persistedAnchor?.id ?? anchorId;
+      } catch (syncError) {
+        backendSyncFailed = true;
+        logger.warn('Anchor create sync failed before charge, saving locally only', syncError);
+      }
+
+      const token = await AuthService.getIdToken();
+      const isMockToken =
+        typeof token === 'string' && (token === 'mock-jwt-token' || token.startsWith('mock-'));
+
+      if (!backendSyncFailed && isBackendAnchorId(effectiveAnchorId) && !isMockToken) {
+        try {
+          await apiClient.post(`/api/anchors/${effectiveAnchorId}/charge`, {
+            chargeType,
+            durationSeconds: config.totalDurationSeconds,
+          });
+        } catch (syncError) {
+          backendSyncFailed = true;
+          logger.warn('Charge sync failed, saving locally only', syncError);
+        }
+      } else if (!isBackendAnchorId(effectiveAnchorId)) {
+        backendSyncFailed = true;
+      }
+    }
+
+    const chargedAt = new Date();
+    await updateAnchor(anchorId, {
+      isCharged: true,
+      chargedAt,
+      firstChargedAt: anchor?.firstChargedAt ?? chargedAt,
+      chargeCount: (anchor?.chargeCount ?? 0) + 1,
+    });
+
+    if (backendSyncFailed && isMountedRef.current) {
+      Alert.alert('Saved Locally', 'Anchor charge saved. Sync will retry later.');
+    }
+
+    if (!isMountedRef.current) {
+      return;
+    }
+
+    if (isDeepRitual) {
+      recordSession({
+        anchorId,
+        type: 'reinforce',
+        durationSeconds: config.totalDurationSeconds,
+        mode: primeSessionAudio,
+        completedAt: new Date().toISOString(),
+      });
+      await queueProgressionMilestonesFromStores();
+      await handlePrimeComplete();
+      await exitRitual();
+      return;
+    }
+
+    if (isFirstPrimeForAnchor) {
+      exitingRef.current = true;
+      navigation.replace('FirstPrimeComplete', {
+        anchorId: effectiveAnchorId,
+        sessionCount: 1,
+        threadStrength: 1,
+        durationSeconds: config.totalDurationSeconds,
+        returnTo,
+      });
+      return;
+    }
+
+    exitingRef.current = true;
+    navigation.replace('ChargeComplete', {
+      anchorId: effectiveAnchorId,
+      durationSeconds: config.totalDurationSeconds,
+      returnTo,
+    });
+  }, [
+    anchor?.chargeCount,
+    anchor?.firstChargedAt,
+    anchorId,
+    config.totalDurationSeconds,
+    enqueuePendingFirstAnchorMutation,
+    exitRitual,
+    handlePrimeComplete,
+    isDeepRitual,
+    isFirstPrimeForAnchor,
+    isPendingFirstAnchor,
+    navigation,
+    primeSessionAudio,
+    recordSession,
+    returnTo,
+    ritualType,
+    updateAnchor,
+  ]);
+
+  useEffect(() => {
+    if (!isDeepRitual || !state.isSealComplete || deepSealAutoCompleteStartedRef.current) {
+      return;
+    }
+
+    deepSealAutoCompleteStartedRef.current = true;
+    const autoCompleteTimeout = setTimeout(() => {
+      void continueFromSeal();
+    }, reduceMotionEnabled ? 0 : 350);
+
+    return () => clearTimeout(autoCompleteTimeout);
+  }, [continueFromSeal, isDeepRitual, reduceMotionEnabled, state.isSealComplete]);
+
+  function handleBack() {
+    if (state.isSealComplete && !showSealContinue) {
+      return;
+    }
+    if (state.isComplete || state.isSealComplete) {
+      exitRitual();
+      return;
+    }
+    setShowExitWarning(true);
+  }
 
   const handleCompletionDone = useCallback(async (reflectionWord?: string) => {
     setShowCompletion(false);
@@ -789,6 +1227,7 @@ export const RitualScreen: React.FC = () => {
       reflectionWord,
     });
 
+    await queueProgressionMilestonesFromStores();
     await handlePrimeComplete();
     exitRitual();
   }, [anchorId, config.totalDurationSeconds, primeSessionAudio, recordSession, handlePrimeComplete, exitRitual]);
@@ -800,13 +1239,19 @@ export const RitualScreen: React.FC = () => {
     }
 
     const unsubscribe = nav.addListener('beforeRemove', (event: any) => {
-      if (exitingRef.current || state.isComplete || state.isSealComplete) return;
+      if (
+        exitingRef.current ||
+        state.isComplete ||
+        (state.isSealComplete && showSealContinue)
+      ) {
+        return;
+      }
       event.preventDefault();
       setShowExitWarning(true);
     });
 
     return unsubscribe;
-  }, [navigation, state.isComplete, state.isSealComplete]);
+  }, [navigation, showSealContinue, state.isComplete, state.isSealComplete]);
 
   const handleSealPressIn = () => {
     if (state.isSealPhase && !state.isSealComplete) {
@@ -861,21 +1306,19 @@ export const RitualScreen: React.FC = () => {
     ?? config.phases[state.totalPhases - 1]?.title
     ?? 'Seal';
   const deepPhaseName = deepPhaseTitle.toUpperCase();
-  const deepInstructionText = state.isSealPhase
-    ? 'Hold your Anchor to seal it in.'
-    : displayedInstruction;
-  const deepBreathCue = state.isSealPhase
-    ? (state.sealProgress > 0 ? 'Hold...' : 'Press and hold to seal')
-    : getDeepBreathCue(state.currentPhase?.title, state.phaseElapsed);
+  const sealHeadline = sealCopyMode === 'complete' ? SEAL_COMPLETE_HEADLINE : SEAL_HEADLINE;
+  const sealSupportLine =
+    sealCopyMode === 'complete' ? SEAL_COMPLETE_SUPPORT : SEAL_SUPPORT_LINE;
+  const sealIntentText = anchor ? `"${anchor.intentionText}"` : '""';
+  const deepInstructionText = state.isSealPhase ? sealSupportLine : displayedInstruction;
+  const showSealHoldPrompt =
+    state.isSealPhase && !state.isSealComplete && state.sealProgress === 0;
   const currentPhaseDuration = state.currentPhase?.durationSeconds ?? 1;
   const phaseRemaining = state.isComplete
     ? 0
     : Math.max(0, currentPhaseDuration - state.phaseElapsed);
-  const phaseProgress = state.isComplete
-    ? 1
-    : Math.min(Math.max(state.phaseElapsed / currentPhaseDuration, 0), 1);
   const deepPhaseTime = formatMSS(phaseRemaining);
-  const deepTotalTime = formatMSS(state.remainingSeconds);
+  const deepTotalTime = formatMSS(Math.ceil(deepRemainingMs / 1000));
   const deepPauseLabel = state.isActive ? 'Pause' : 'Resume';
   // Pre-compute each phase's [start, end] position within the total progress (0..1).
   // The deep phase bars interpolate their width from progressAnim using these ranges,
@@ -890,14 +1333,10 @@ export const RitualScreen: React.FC = () => {
       return { startProgress, endProgress };
     });
   }, [config.phases, config.totalDurationSeconds]);
-  const deepBreathTiming = getDeepBreathTiming(state.currentPhase?.title);
-  const deepBreathInputRange = deepBreathTiming.hasHold
-    ? [0, deepBreathTiming.inhaleEnd, deepBreathTiming.holdEnd, 1]
-    : [0, deepBreathTiming.inhaleEnd, 1];
-  const interpolateDeepBreath = (holdOutputs: number[], noHoldOutputs: number[]) =>
+  const interpolateDeepBreath = (outputRange: number[]) =>
     deepBreathAnim.interpolate({
-      inputRange: deepBreathInputRange,
-      outputRange: deepBreathTiming.hasHold ? holdOutputs : noHoldOutputs,
+      inputRange: [0, 1],
+      outputRange: [outputRange[0], outputRange[1]],
     });
   const deepOrbitRotateA = deepOrbitSpinA.interpolate({
     inputRange: [0, 1],
@@ -907,62 +1346,20 @@ export const RitualScreen: React.FC = () => {
     inputRange: [0, 1],
     outputRange: ['0deg', '-360deg'],
   });
-  const deepPulseAOpacity = interpolateDeepBreath(
-    [0.08, 0.24, 0.24, 0.08],
-    [0.08, 0.24, 0.08]
-  );
-  const deepPulseAScale = interpolateDeepBreath(
-    [1, 1.04, 1.04, 1],
-    [1, 1.04, 1]
-  );
-  const deepPulseBOpacity = interpolateDeepBreath(
-    [0.13, 0.39, 0.39, 0.13],
-    [0.13, 0.39, 0.13]
-  );
-  const deepPulseBScale = interpolateDeepBreath(
-    [0.98, 1.03, 1.03, 0.98],
-    [0.98, 1.03, 0.98]
-  );
-  const deepHaloScale = interpolateDeepBreath(
-    [0.98, 1.08, 1.08, 0.98],
-    [0.98, 1.08, 0.98]
-  );
-  const deepHaloOpacity = interpolateDeepBreath(
-    [0.82, 1, 1, 0.82],
-    [0.82, 1, 0.82]
-  );
-  const deepSigilTranslateY = interpolateDeepBreath(
-    [0, -4, -4, 0],
-    [0, -4, 0]
-  );
-  const deepSigilScale = interpolateDeepBreath(
-    [0.99, 1.025, 1.025, 0.99],
-    [0.99, 1.025, 0.99]
-  );
-  const deepAuraScale = interpolateDeepBreath(
-    [0.92, 1.18, 1.18, 0.92],
-    [0.92, 1.18, 0.92]
-  );
-  const deepAuraOpacity = interpolateDeepBreath(
-    [0.28, 0.75, 0.75, 0.28],
-    [0.28, 0.75, 0.28]
-  );
-  const deepInnerAuraScale = interpolateDeepBreath(
-    [0.95, 1.1, 1.1, 0.95],
-    [0.95, 1.1, 0.95]
-  );
-  const deepInnerAuraOpacity = interpolateDeepBreath(
-    [0.14, 0.34, 0.34, 0.14],
-    [0.14, 0.34, 0.14]
-  );
-  const deepOuterOrbOpacity = interpolateDeepBreath(
-    [0.62, 1, 1, 0.62],
-    [0.62, 1, 0.62]
-  );
-  const deepInnerOrbOpacity = interpolateDeepBreath(
-    [0.6, 0.95, 0.95, 0.6],
-    [0.6, 0.95, 0.6]
-  );
+  const deepPulseAOpacity = interpolateDeepBreath([0.07, 0.18]);
+  const deepPulseAScale = interpolateDeepBreath([0.9, 1.12]);
+  const deepPulseBOpacity = interpolateDeepBreath([0.12, 0.26]);
+  const deepPulseBScale = interpolateDeepBreath([0.92, 1.08]);
+  const deepHaloScale = interpolateDeepBreath([1, 1.035]);
+  const deepHaloOpacity = interpolateDeepBreath([0.82, 1]);
+  const deepSigilTranslateY = interpolateDeepBreath([0, 0]);
+  const deepSigilScale = interpolateDeepBreath([1, 1.035]);
+  const deepAuraScale = interpolateDeepBreath([0.9, 1.12]);
+  const deepAuraOpacity = interpolateDeepBreath([0.07, 0.18]);
+  const deepInnerAuraScale = interpolateDeepBreath([0.92, 1.08]);
+  const deepInnerAuraOpacity = interpolateDeepBreath([0.12, 0.26]);
+  const deepOuterOrbOpacity = interpolateDeepBreath([0.68, 0.84]);
+  const deepInnerOrbOpacity = interpolateDeepBreath([0.64, 0.8]);
 
   useEffect(() => {
     if (!isDeepRitual || !isReady) {
@@ -1000,16 +1397,8 @@ export const RitualScreen: React.FC = () => {
     isReady,
   ]);
 
-  // Read phaseElapsed via ref so the breath effect doesn't tear down every second.
-  const phaseElapsedRef = useRef(state.phaseElapsed);
   useEffect(() => {
-    phaseElapsedRef.current = state.phaseElapsed;
-  }, [state.phaseElapsed]);
-
-  useEffect(() => {
-    let settleAnimation: Animated.CompositeAnimation | null = null;
     let loopAnimation: Animated.CompositeAnimation | null = null;
-    let cancelled = false;
 
     if (!isDeepRitual || !isReady) {
       deepBreathAnim.setValue(0);
@@ -1017,10 +1406,7 @@ export const RitualScreen: React.FC = () => {
     }
 
     if (reduceMotionEnabled) {
-      deepBreathAnim.setValue(state.isSealPhase ? 0.68 : getDeepBreathCycleProgress(
-        state.currentPhase?.title,
-        phaseElapsedRef.current
-      ));
+      deepBreathAnim.setValue(state.isSealPhase ? 0.68 : 0.35);
       return () => undefined;
     }
 
@@ -1048,58 +1434,44 @@ export const RitualScreen: React.FC = () => {
       };
     }
 
-    const cycleProgress = getDeepBreathCycleProgress(
-      state.currentPhase?.title,
-      phaseElapsedRef.current
-    );
-    const cycleDurationMs = Math.max(400, Math.round(deepBreathTiming.cycleSeconds * 1000));
-
-    deepBreathAnim.setValue(cycleProgress);
-
     if (!state.isActive) {
+      Animated.timing(deepBreathAnim, {
+        toValue: 0.35,
+        duration: 400,
+        easing: Easing.inOut(Easing.ease),
+        useNativeDriver: true,
+      }).start();
       return () => undefined;
     }
 
-    const startFullCycleLoop = () => {
-      if (cancelled) {
-        return;
-      }
-      deepBreathAnim.setValue(0);
-      loopAnimation = Animated.loop(
+    deepBreathAnim.setValue(0);
+    loopAnimation = Animated.loop(
+      Animated.sequence([
         Animated.timing(deepBreathAnim, {
           toValue: 1,
-          duration: cycleDurationMs,
-          easing: Easing.linear,
+          duration: DEEP_PRIME_BREATH_INHALE_S * 1000,
+          easing: Easing.inOut(Easing.ease),
           useNativeDriver: true,
-        })
-      );
-      loopAnimation.start();
-    };
-
-    settleAnimation = Animated.timing(deepBreathAnim, {
-      toValue: 1,
-      duration: Math.max(80, Math.round((1 - cycleProgress) * cycleDurationMs)),
-      easing: Easing.linear,
-      useNativeDriver: true,
-    });
-    settleAnimation.start(({ finished }) => {
-      if (finished) {
-        startFullCycleLoop();
-      }
-    });
+        }),
+        Animated.delay(DEEP_PRIME_BREATH_HOLD_S * 1000),
+        Animated.timing(deepBreathAnim, {
+          toValue: 0,
+          duration: DEEP_PRIME_BREATH_EXHALE_S * 1000,
+          easing: Easing.inOut(Easing.ease),
+          useNativeDriver: true,
+        }),
+      ])
+    );
+    loopAnimation.start();
 
     return () => {
-      cancelled = true;
-      settleAnimation?.stop();
       loopAnimation?.stop();
     };
   }, [
     deepBreathAnim,
-    deepBreathTiming.cycleSeconds,
     isDeepRitual,
     isReady,
     reduceMotionEnabled,
-    state.currentPhase?.title,
     state.isActive,
     state.isSealPhase,
   ]);
@@ -1135,16 +1507,17 @@ export const RitualScreen: React.FC = () => {
       return;
     }
     if (state.isActive) {
+      pauseDeepTimer();
       actions.pause();
     } else {
+      resumeDeepTimer();
       actions.resume();
     }
   };
 
-  const deepSealCircumference = 2 * Math.PI * 154;
   const deepSealDashoffset = deepSealCircumference * (1 - state.sealProgress);
 
-  if (!anchor) {
+  if (isAnchorMissing) {
     return (
       <RitualScaffold>
         <View style={styles.errorContainer}>
@@ -1211,75 +1584,154 @@ export const RitualScreen: React.FC = () => {
                   <View style={styles.deepHeaderSpacer} />
                 </View>
 
-                <View style={styles.landingCenterContent}>
+                <View
+                  style={[
+                    styles.landingCenterContent,
+                    isCompactHeight ? styles.landingCenterContentCompact : null,
+                  ]}
+                >
                   <Text style={styles.landingTitle}>DEEP PRIMING</Text>
-                  <Text style={styles.landingTimeText}>{formatLandingTime(config.totalDurationSeconds)}</Text>
+                  <Text
+                    style={[
+                      styles.landingTimeText,
+                      isCompactHeight ? styles.landingTimeTextCompact : null,
+                    ]}
+                  >
+                    {formatLandingTime(config.totalDurationSeconds)}
+                  </Text>
 
-                  <View style={styles.landingSigilWrapper}>
-                    <Animated.View style={[styles.deepOrbitSolid, { transform: [{ rotate: deepOrbitRotateA }] }]} />
-                    <Animated.View style={[styles.deepOrbitDashOuter, { transform: [{ rotate: deepOrbitRotateB }] }]} />
-                    <Animated.View style={[styles.deepOrbitDotOuter, { transform: [{ rotate: deepOrbitRotateA }] }]} />
-                    <Animated.View style={[styles.deepOrbitDashInner, { transform: [{ rotate: deepOrbitRotateB }] }]} />
-                    
-                    <Animated.View
+                  <View
+                    style={[
+                      styles.landingSigilWrapper,
+                      isCompactHeight ? styles.landingSigilWrapperCompact : null,
+                      { width: deepLandingHeroSize, height: deepLandingHeroSize },
+                    ]}
+                  >
+                    <View
                       style={[
-                        styles.deepSigilContainer,
-                        { transform: [{ translateY: deepSigilTranslateY }] },
+                        styles.deepArtworkCanvas,
+                        { width: deepLandingHeroSize, height: deepLandingHeroSize },
                       ]}
                     >
-                      <LinearGradient
-                        colors={['#F6EFD8', '#E7D8AE', '#B99654']}
-                        start={{ x: 0.28, y: 0.18 }}
-                        end={{ x: 0.88, y: 0.96 }}
-                        style={StyleSheet.absoluteFill}
-                      />
-                      {!anchor.enhancedImageUrl ? (
-                        <View pointerEvents="none" style={styles.deepSigilEtchLayer}>
-                          {[30, 48, 66, 84].map((ringSize) => (
-                            <View
-                              key={`etch-ring-${ringSize}`}
-                              style={[
-                                styles.deepSigilEtchRing,
-                                {
-                                  width: ringSize * 2,
-                                  height: ringSize * 2,
-                                  borderRadius: ringSize,
-                                },
-                              ]}
-                            />
-                          ))}
-                        </View>
-                      ) : null}
-                      {anchor.enhancedImageUrl ? (
-                        <OptimizedImage
-                          uri={anchor.enhancedImageUrl}
-                          style={[styles.symbolImage, styles.deepSigilImage]}
-                          resizeMode="cover"
+                      <Animated.View style={[styles.deepOrbitSolid, { transform: [{ rotate: deepOrbitRotateA }] }]} />
+                      <Animated.View style={[styles.deepOrbitDashOuter, { transform: [{ rotate: deepOrbitRotateB }] }]} />
+                      <Animated.View style={[styles.deepOrbitDotOuter, { transform: [{ rotate: deepOrbitRotateA }] }]} />
+                      <Animated.View style={[styles.deepOrbitDashInner, { transform: [{ rotate: deepOrbitRotateB }] }]} />
+
+                      <Animated.View
+                        style={[
+                          styles.deepSigilContainer,
+                          {
+                            width: deepLandingHeroSize,
+                            height: deepLandingHeroSize,
+                            borderRadius: deepLandingHeroSize / 2,
+                            transform: [{ translateY: deepSigilTranslateY }],
+                          },
+                        ]}
+                      >
+                        <LinearGradient
+                          colors={['#F6EFD8', '#E7D8AE', '#B99654']}
+                          start={{ x: 0.28, y: 0.18 }}
+                          end={{ x: 0.88, y: 0.96 }}
+                          style={StyleSheet.absoluteFill}
                         />
-                      ) : (
-                        <SigilSvg xml={sigilSvg} width={240} height={240} />
-                      )}
-                    </Animated.View>
+                        {!anchor.enhancedImageUrl ? (
+                          <View pointerEvents="none" style={styles.deepSigilEtchLayer}>
+                            {[30, 48, 66, 84].map((ringSize) => (
+                              <View
+                                key={`etch-ring-${ringSize}`}
+                                style={[
+                                  styles.deepSigilEtchRing,
+                                  {
+                                    width: ringSize * 2,
+                                    height: ringSize * 2,
+                                    borderRadius: ringSize,
+                                  },
+                                ]}
+                              />
+                            ))}
+                          </View>
+                        ) : null}
+                        {anchor.enhancedImageUrl ? (
+                          <OptimizedImage
+                            uri={anchor.enhancedImageUrl}
+                            style={[
+                              styles.symbolImage,
+                              {
+                                width: deepLandingHeroSize,
+                                height: deepLandingHeroSize,
+                                borderRadius: deepLandingHeroSize / 2,
+                              },
+                            ]}
+                            resizeMode="cover"
+                          />
+                        ) : (
+                          <SigilSvg xml={sigilSvg} width={deepLandingHeroSize} height={deepLandingHeroSize} />
+                        )}
+                      </Animated.View>
+                    </View>
                   </View>
 
-                  <View style={styles.landingTimelineRow}>
+                  <View
+                    style={[
+                      styles.landingTimelineRow,
+                      isCompactHeight ? styles.landingTimelineRowCompact : null,
+                    ]}
+                  >
                     {config.phases.map((p, i) => (
-                      <View key={i} style={styles.landingTimelineBox}>
-                        <Text style={styles.landingTimelineNum}>0{i + 1}</Text>
-                        <Text style={styles.landingTimelineText}>{p.title}</Text>
+                      <View
+                        key={i}
+                        style={[
+                          styles.landingTimelineBox,
+                          isCompactHeight ? styles.landingTimelineBoxCompact : null,
+                        ]}
+                      >
+                        <Text
+                          style={[
+                            styles.landingTimelineNum,
+                            isCompactHeight ? styles.landingTimelineNumCompact : null,
+                          ]}
+                        >
+                          0{i + 1}
+                        </Text>
+                        <Text
+                          style={[
+                            styles.landingTimelineText,
+                            isCompactHeight ? styles.landingTimelineTextCompact : null,
+                          ]}
+                        >
+                          {p.title}
+                        </Text>
                       </View>
                     ))}
                   </View>
 
                   {!reduceIntentionVisibility && anchor.intentionText ? (
-                    <View style={styles.landingIntentionWrap}>
+                    <View
+                      style={[
+                        styles.landingIntentionWrap,
+                        isCompactHeight ? styles.landingIntentionWrapCompact : null,
+                      ]}
+                    >
                       <Text style={styles.landingIntentionLabel}>INTENTION</Text>
-                      <Text style={styles.landingIntentionText}>"{anchor.intentionText}"</Text>
+                      <Text
+                        style={[
+                          styles.landingIntentionText,
+                          isCompactHeight ? styles.landingIntentionTextCompact : null,
+                        ]}
+                      >
+                        "{anchor.intentionText}"
+                      </Text>
                     </View>
                   ) : null}
                 </View>
 
-                <View style={styles.landingBottomSection}>
+                <View
+                  style={[
+                    styles.landingBottomSection,
+                    isCompactHeight ? styles.landingBottomSectionCompact : null,
+                  ]}
+                >
                   <Pressable onPress={handleBeginPriming} style={styles.landingBeginBtn}>
                     <LinearGradient
                       colors={['#D4AF37', '#8a6f23']}
@@ -1299,16 +1751,21 @@ export const RitualScreen: React.FC = () => {
               <>
                 <Animated.View pointerEvents="none" style={[styles.deepPhaseFlash, { opacity: deepPhaseFlashAnim }]} />
 
-            <Animated.View style={[styles.deepPhaseTrackWrap, { opacity: phaseIndicatorOpacityAnim }]}>
+            <Animated.View
+              style={[
+                styles.deepPhaseTrackWrap,
+                isCompactHeight ? styles.deepPhaseTrackWrapCompact : null,
+                { opacity: phaseIndicatorOpacityAnim },
+              ]}
+            >
               <View style={styles.deepPhaseTrackRow}>
-                {config.phases.map((_phase, index) => {
-                  const range = phaseProgressRanges[index] ?? { startProgress: 0, endProgress: 0 };
+                {config.phases.map((phase, index) => {
                   return (
                     <View key={`phase-segment-${index}`} style={styles.deepPhaseTrackSegment}>
                       <DeepPhaseSegment
                         progressAnim={progressAnim}
-                        startProgress={range.startProgress}
-                        endProgress={range.endProgress}
+                        startProgress={phaseProgressRanges[index].startProgress}
+                        endProgress={phaseProgressRanges[index].endProgress}
                         isPast={index < activePhaseIndex}
                       />
                     </View>
@@ -1333,20 +1790,24 @@ export const RitualScreen: React.FC = () => {
               <View style={styles.deepHeaderSpacer} />
             </Animated.View>
 
-            <View style={styles.deepPhaseLabelWrap}>
-              <Text style={styles.deepPhaseLabelText}>{deepPhaseName}</Text>
-              <LinearGradient
-                colors={['rgba(212,175,55,0)', 'rgba(212,175,55,0.42)', 'rgba(212,175,55,0)']}
-                start={{ x: 0, y: 0.5 }}
-                end={{ x: 1, y: 0.5 }}
-                style={styles.deepPhaseDivider}
-              />
-            </View>
+            {!state.isSealPhase ? (
+              <View style={[styles.deepPhaseLabelWrap, isCompactHeight ? styles.deepPhaseLabelWrapCompact : null]}>
+                <Text style={styles.deepPhaseLabelText}>{deepPhaseName}</Text>
+                <LinearGradient
+                  colors={['rgba(212,175,55,0)', 'rgba(212,175,55,0.42)', 'rgba(212,175,55,0)']}
+                  start={{ x: 0, y: 0.5 }}
+                  end={{ x: 1, y: 0.5 }}
+                  style={styles.deepPhaseDivider}
+                />
+              </View>
+            ) : null}
 
-            <View style={styles.deepCenterContent}>
+            <View style={[styles.deepCenterContent, isCompactHeight ? styles.deepCenterContentCompact : null]}>
               <Animated.View
                 style={[
                   styles.deepSymbolWrapper,
+                  isCompactHeight ? styles.deepSymbolWrapperCompact : null,
+                  { width: deepStageSize, height: deepStageSize },
                   { opacity: ringOpacityAnim, transform: [{ scale: ringScale }, { scale: pressScaleAnim }] },
                 ]}
               >
@@ -1355,235 +1816,418 @@ export const RitualScreen: React.FC = () => {
                   onPressOut={handleSealPressOut}
                   disabled={!state.isSealPhase || state.isSealComplete}
                   style={styles.deepPressable}
+                  testID={state.isSealPhase ? 'deep-prime-seal' : undefined}
+                  accessibilityRole={state.isSealPhase ? 'button' : undefined}
+                  accessibilityLabel={state.isSealPhase ? 'Seal your anchor' : undefined}
                 >
-                  <Animated.View
-                    pointerEvents="none"
+                  <View
                     style={[
-                      styles.deepAuraOuter,
-                      {
-                        opacity: deepAuraOpacity,
-                        transform: [{ scale: deepAuraScale }],
-                      },
-                    ]}
-                  />
-                  <Animated.View
-                    pointerEvents="none"
-                    style={[
-                      styles.deepAuraInner,
-                      {
-                        opacity: deepInnerAuraOpacity,
-                        transform: [{ scale: deepInnerAuraScale }],
-                      },
-                    ]}
-                  />
-                  <Animated.View style={[styles.deepOrbitSolid, { transform: [{ rotate: deepOrbitRotateA }] }]} />
-                  <Animated.View style={[styles.deepOrbitDashOuter, { transform: [{ rotate: deepOrbitRotateB }] }]} />
-                  <Animated.View style={[styles.deepOrbitDotOuter, { transform: [{ rotate: deepOrbitRotateA }] }]} />
-                  <Animated.View style={[styles.deepOrbitDashInner, { transform: [{ rotate: deepOrbitRotateB }] }]} />
-
-                  <Animated.View
-                    style={[
-                      styles.deepOrbRingOuter,
-                      {
-                        opacity: deepOuterOrbOpacity,
-                        transform: [{ rotate: deepOrbitRotateA }],
-                      },
+                      styles.deepArtworkCanvas,
+                      { width: deepStageSize, height: deepStageSize },
                     ]}
                   >
-                    {DEEP_OUTER_ORB_DOTS.map((dot, index) => (
-                      <View
-                        key={`outer-orb-dot-${index}`}
-                        style={[
-                          styles.deepOrbDotOuter,
-                          {
-                            top: 160 - dot.size / 2,
-                            left: 160 - dot.size / 2,
-                            width: dot.size,
-                            height: dot.size,
-                            borderRadius: dot.size / 2,
-                            opacity: Math.min(1, dot.opacity),
-                            transform: [{ translateX: dot.x }, { translateY: dot.y }],
-                          },
-                        ]}
-                      />
-                    ))}
-                  </Animated.View>
-                  <Animated.View
-                    style={[
-                      styles.deepOrbRingInner,
-                      {
-                        opacity: deepInnerOrbOpacity,
-                        transform: [{ rotate: deepOrbitRotateB }],
-                      },
-                    ]}
-                  >
-                    {DEEP_INNER_ORB_DOTS.map((dot, index) => (
-                      <View
-                        key={`inner-orb-dot-${index}`}
-                        style={[
-                          styles.deepOrbDotInner,
-                          {
-                            top: 140 - dot.size / 2,
-                            left: 140 - dot.size / 2,
-                            width: dot.size,
-                            height: dot.size,
-                            borderRadius: dot.size / 2,
-                            opacity: Math.min(1, dot.opacity),
-                            transform: [{ translateX: dot.x }, { translateY: dot.y }],
-                          },
-                        ]}
-                      />
-                    ))}
-                  </Animated.View>
-
-                  <Animated.View
-                    style={[
-                      styles.deepPulseRingOuter,
-                      {
-                        opacity: deepPulseAOpacity,
-                        transform: [{ scale: deepPulseAScale }],
-                      },
-                    ]}
-                  />
-                  <Animated.View
-                    style={[
-                      styles.deepPulseRingInner,
-                      {
-                        opacity: deepPulseBOpacity,
-                        transform: [{ scale: deepPulseBScale }],
-                      },
-                    ]}
-                  />
-                  <Animated.View
-                    style={[
-                      styles.deepEmberHalo,
-                      {
-                        opacity: deepHaloOpacity,
-                        transform: [{ scale: deepHaloScale }],
-                      },
-                    ]}
-                  />
-
-                  <View style={styles.premiumGlowLayer}>
-                    <PremiumAnchorGlow
-                      size={SYMBOL_SIZE}
-                      state={state.isSealPhase ? 'charged' : 'active'}
-                      variant="ritual"
-                      reduceMotionEnabled={reduceMotionEnabled}
+                    <Animated.View
+                      pointerEvents="none"
+                      style={[
+                        styles.deepAuraOuter,
+                        {
+                          width: deepAuraOuterSize,
+                          height: deepAuraOuterSize,
+                          borderRadius: deepAuraOuterSize / 2,
+                          opacity: deepAuraOpacity,
+                          transform: [{ scale: deepAuraScale }],
+                        },
+                      ]}
                     />
-                  </View>
-
-                  {state.isSealPhase ? (
-                    <Svg width={340} height={340} style={styles.deepSealRingSvg}>
-                      <Circle
-                        cx={170}
-                        cy={170}
-                        r={154}
-                        fill="none"
-                        stroke="rgba(212,175,55,0.12)"
-                        strokeWidth={2}
-                      />
-                      <Circle
-                        cx={170}
-                        cy={170}
-                        r={154}
-                        fill="none"
-                        stroke="#D4AF37"
-                        strokeWidth={2.5}
-                        strokeLinecap="round"
-                        strokeDasharray={deepSealCircumference}
-                        strokeDashoffset={deepSealDashoffset}
-                        transform="rotate(-90 170 170)"
-                      />
-                    </Svg>
-                  ) : null}
-
-                  <Animated.View
-                    style={[
-                      styles.deepSigilContainer,
-                      {
-                        transform: [{ translateY: deepSigilTranslateY }, { scale: deepSigilScale }],
-                      },
-                    ]}
-                  >
-                    <LinearGradient
-                      colors={['#F6EFD8', '#E7D8AE', '#B99654']}
-                      start={{ x: 0.28, y: 0.18 }}
-                      end={{ x: 0.88, y: 0.96 }}
-                      style={StyleSheet.absoluteFill}
+                    <Animated.View
+                      pointerEvents="none"
+                      style={[
+                        styles.deepAuraInner,
+                        {
+                          width: deepAuraInnerSize,
+                          height: deepAuraInnerSize,
+                          borderRadius: deepAuraInnerSize / 2,
+                          opacity: deepInnerAuraOpacity,
+                          transform: [{ scale: deepInnerAuraScale }],
+                        },
+                      ]}
                     />
-                    {!anchor.enhancedImageUrl ? (
-                      <View pointerEvents="none" style={styles.deepSigilEtchLayer}>
-                        {[30, 48, 66, 84].map((ringSize) => (
-                          <View
-                            key={`etch-ring-${ringSize}`}
-                            style={[
-                              styles.deepSigilEtchRing,
-                              {
-                                width: ringSize * 2,
-                                height: ringSize * 2,
-                                borderRadius: ringSize,
-                              },
-                            ]}
-                          />
-                        ))}
-                      </View>
+                    <Animated.View style={[styles.deepOrbitSolid, { width: deepOrbitSolidSize, height: deepOrbitSolidSize, borderRadius: deepOrbitSolidSize / 2, transform: [{ rotate: deepOrbitRotateA }] }]} />
+                    <Animated.View style={[styles.deepOrbitDashOuter, { width: deepOrbitDashOuterSize, height: deepOrbitDashOuterSize, borderRadius: deepOrbitDashOuterSize / 2, transform: [{ rotate: deepOrbitRotateB }] }]} />
+                    <Animated.View style={[styles.deepOrbitDotOuter, { width: deepOrbitDotOuterSize, height: deepOrbitDotOuterSize, borderRadius: deepOrbitDotOuterSize / 2, transform: [{ rotate: deepOrbitRotateA }] }]} />
+                    <Animated.View style={[styles.deepOrbitDashInner, { width: deepOrbitDashInnerSize, height: deepOrbitDashInnerSize, borderRadius: deepOrbitDashInnerSize / 2, transform: [{ rotate: deepOrbitRotateB }] }]} />
+
+                    <Animated.View
+                      style={[
+                        styles.deepOrbRingOuter,
+                        {
+                          width: deepOrbRingOuterSize,
+                          height: deepOrbRingOuterSize,
+                          opacity: deepOuterOrbOpacity,
+                          transform: [{ rotate: deepOrbitRotateA }],
+                        },
+                      ]}
+                    >
+                      {DEEP_OUTER_ORB_DOTS.map((dot, index) => (
+                        <View
+                          key={`outer-orb-dot-${index}`}
+                          style={[
+                            styles.deepOrbDotOuter,
+                            {
+                              left: deepOrbRingOuterSize / 2 - dot.size / 2,
+                              top: deepOrbRingOuterSize / 2 - dot.size / 2,
+                              width: dot.size,
+                              height: dot.size,
+                              borderRadius: dot.size / 2,
+                              opacity: Math.min(1, dot.opacity),
+                              transform: [{ translateX: dot.x * deepOrbScale }, { translateY: dot.y * deepOrbScale }],
+                            },
+                          ]}
+                        />
+                      ))}
+                    </Animated.View>
+                    <Animated.View
+                      style={[
+                        styles.deepOrbRingInner,
+                        {
+                          width: deepOrbRingInnerSize,
+                          height: deepOrbRingInnerSize,
+                          opacity: deepInnerOrbOpacity,
+                          transform: [{ rotate: deepOrbitRotateB }],
+                        },
+                      ]}
+                    >
+                      {DEEP_INNER_ORB_DOTS.map((dot, index) => (
+                        <View
+                          key={`inner-orb-dot-${index}`}
+                          style={[
+                            styles.deepOrbDotInner,
+                            {
+                              top: deepOrbRingInnerSize / 2 - dot.size / 2,
+                              left: deepOrbRingInnerSize / 2 - dot.size / 2,
+                              width: dot.size,
+                              height: dot.size,
+                              borderRadius: dot.size / 2,
+                              opacity: Math.min(1, dot.opacity),
+                              transform: [{ translateX: dot.x * deepOrbScale }, { translateY: dot.y * deepOrbScale }],
+                            },
+                          ]}
+                        />
+                      ))}
+                    </Animated.View>
+
+                    <Animated.View
+                      style={[
+                        styles.deepPulseRingOuter,
+                        {
+                          width: deepPulseOuterSize,
+                          height: deepPulseOuterSize,
+                          borderRadius: deepPulseOuterSize / 2,
+                          opacity: deepPulseAOpacity,
+                          transform: [{ scale: deepPulseAScale }],
+                        },
+                      ]}
+                    />
+                    <Animated.View
+                      style={[
+                        styles.deepPulseRingInner,
+                        {
+                          width: deepPulseInnerSize,
+                          height: deepPulseInnerSize,
+                          borderRadius: deepPulseInnerSize / 2,
+                          opacity: deepPulseBOpacity,
+                          transform: [{ scale: deepPulseBScale }],
+                        },
+                      ]}
+                    />
+                    <Animated.View
+                      style={[
+                        styles.deepEmberHalo,
+                        {
+                          width: deepEmberHaloSize,
+                          height: deepEmberHaloSize,
+                          borderRadius: deepEmberHaloSize / 2,
+                          opacity: deepHaloOpacity,
+                          transform: [{ scale: deepHaloScale }],
+                        },
+                      ]}
+                    />
+
+                    <View style={[styles.premiumGlowLayer, { width: deepHeroSize * 1.72, height: deepHeroSize * 1.72 }]}>
+                      <PremiumAnchorGlow
+                        size={deepHeroSize}
+                        state={state.isSealPhase ? 'charged' : 'active'}
+                        variant="ritual"
+                        reduceMotionEnabled={reduceMotionEnabled}
+                      />
+                    </View>
+
+                    {state.isSealPhase ? (
+                      <Svg width={deepSealSvgSize} height={deepSealSvgSize} style={styles.deepSealRingSvg}>
+                        <Circle
+                          cx={deepSealCenter}
+                          cy={deepSealCenter}
+                          r={deepRingRadius}
+                          fill="none"
+                          stroke="rgba(212,175,55,0.12)"
+                          strokeWidth={2}
+                        />
+                        <Circle
+                          cx={deepSealCenter}
+                          cy={deepSealCenter}
+                          r={deepRingRadius}
+                          fill="none"
+                          stroke="#D4AF37"
+                          strokeWidth={2.5}
+                          strokeLinecap="round"
+                          strokeDasharray={deepSealCircumference}
+                          strokeDashoffset={deepSealDashoffset}
+                          transform={`rotate(-90 ${deepSealCenter} ${deepSealCenter})`}
+                        />
+                      </Svg>
                     ) : null}
-                    {anchor.enhancedImageUrl ? (
-                      <OptimizedImage
-                        uri={anchor.enhancedImageUrl}
-                        style={[styles.symbolImage, styles.deepSigilImage]}
-                        resizeMode="cover"
+
+                    <Animated.View
+                      style={[
+                        styles.deepSigilContainer,
+                        {
+                          width: deepHeroSize,
+                          height: deepHeroSize,
+                          borderRadius: deepHeroSize / 2,
+                          transform: [{ translateY: deepSigilTranslateY }, { scale: deepSigilScale }],
+                        },
+                      ]}
+                    >
+                      <LinearGradient
+                        colors={['#F6EFD8', '#E7D8AE', '#B99654']}
+                        start={{ x: 0.28, y: 0.18 }}
+                        end={{ x: 0.88, y: 0.96 }}
+                        style={StyleSheet.absoluteFill}
                       />
-                    ) : (
-                      <SigilSvg xml={sigilSvg} width={240} height={240} />
-                    )}
-                  </Animated.View>
+                      {!anchor.enhancedImageUrl ? (
+                        <View pointerEvents="none" style={styles.deepSigilEtchLayer}>
+                          {[0.25, 0.4, 0.55, 0.7].map((ringScaleValue) => {
+                            const ringSize = deepHeroSize * ringScaleValue;
+                            return (
+                              <View
+                                key={`etch-ring-${ringScaleValue}`}
+                                style={[
+                                  styles.deepSigilEtchRing,
+                                  {
+                                    width: ringSize,
+                                    height: ringSize,
+                                    borderRadius: ringSize / 2,
+                                  },
+                                ]}
+                              />
+                            );
+                          })}
+                        </View>
+                      ) : null}
+                      {anchor.enhancedImageUrl ? (
+                        <OptimizedImage
+                          uri={anchor.enhancedImageUrl}
+                          style={[
+                            styles.symbolImage,
+                            {
+                              width: deepHeroSize,
+                              height: deepHeroSize,
+                              borderRadius: deepHeroSize / 2,
+                            },
+                          ]}
+                          resizeMode="cover"
+                        />
+                      ) : (
+                        <SigilSvg xml={sigilSvg} width={deepHeroSize} height={deepHeroSize} />
+                      )}
+                    </Animated.View>
+                  </View>
                 </Pressable>
               </Animated.View>
 
-              {!reduceIntentionVisibility && anchor.intentionText ? (
-                <View style={styles.deepIntentionWrap}>
-                  <Text style={styles.deepIntentionLabel}>INTENTION</Text>
-                  <Text style={styles.deepIntentionText}>{anchor.intentionText}</Text>
+              {state.isSealPhase ? (
+                <View style={styles.sealTextStack}>
+                  <Animated.Text
+                    style={[
+                      styles.sealHeadline,
+                      {
+                        opacity: Animated.multiply(
+                          sealTitleOpacityAnim,
+                          sealCopySwapAnim
+                        ),
+                      },
+                    ]}
+                  >
+                    {sealHeadline}
+                  </Animated.Text>
+
+                  {!reduceIntentionVisibility && anchor.intentionText ? (
+                    <Animated.View
+                      style={[
+                        styles.sealIntentionCard,
+                        {
+                          opacity: sealIntentionOpacityAnim,
+                          borderColor:
+                            sealCopyMode === 'complete'
+                              ? 'rgba(212,175,55,0.34)'
+                              : colors.ritual.border,
+                          transform: [
+                            {
+                              scale: Animated.add(
+                                1,
+                                Animated.multiply(sealIntentionGlowAnim, 0.015)
+                              ),
+                            },
+                          ],
+                        },
+                      ]}
+                    >
+                      <Text style={styles.sealIntentionLabel}>{SEAL_INTENTION_LABEL}</Text>
+                      <Animated.Text
+                        style={[
+                          styles.sealIntentionText,
+                          {
+                            opacity: Animated.add(
+                              0.92,
+                              Animated.multiply(sealIntentionGlowAnim, 0.08)
+                            ),
+                          },
+                        ]}
+                      >
+                        {sealIntentText}
+                      </Animated.Text>
+                    </Animated.View>
+                  ) : null}
+
+                  <Animated.Text
+                    style={[
+                      styles.sealSupportText,
+                      {
+                        opacity: Animated.multiply(
+                          sealSupportOpacityAnim,
+                          sealCopySwapAnim
+                        ),
+                      },
+                    ]}
+                  >
+                    {sealSupportLine}
+                  </Animated.Text>
+
+                  <Animated.View
+                    style={[
+                      styles.sealBreathWrap,
+                      { opacity: sealBreathOpacityAnim },
+                    ]}
+                  >
+                    {showSealHoldPrompt ? (
+                      <Text style={styles.sealHoldPrompt}>{SEAL_HOLD_PROMPT}</Text>
+                    ) : null}
+                  </Animated.View>
+
+                  {showSealContinue ? (
+                    <Animated.View style={{ opacity: sealContinueOpacityAnim }}>
+                      <TouchableOpacity
+                        onPress={continueFromSeal}
+                        activeOpacity={0.86}
+                        style={styles.sealContinueButton}
+                        accessibilityRole="button"
+                        accessibilityLabel={SEAL_CONTINUE_LABEL}
+                      >
+                        <Text style={styles.sealContinueButtonText}>
+                          {SEAL_CONTINUE_LABEL}
+                        </Text>
+                      </TouchableOpacity>
+                    </Animated.View>
+                  ) : null}
                 </View>
-              ) : null}
+              ) : (
+                <>
+                  {!reduceIntentionVisibility && anchor.intentionText ? (
+                    <View
+                      style={[
+                        styles.deepIntentionWrap,
+                        isCompactHeight ? styles.deepIntentionWrapCompact : null,
+                      ]}
+                    >
+                      <Text style={styles.deepIntentionLabel}>INTENTION</Text>
+                      <Text
+                        style={[
+                          styles.deepIntentionText,
+                          isCompactHeight ? styles.deepIntentionTextCompact : null,
+                        ]}
+                      >
+                        {anchor.intentionText}
+                      </Text>
+                    </View>
+                  ) : null}
 
-              <Animated.Text
-                style={[
-                  styles.deepBreathCue,
-                  !state.isActive && !state.isSealPhase ? styles.deepBreathCuePaused : null,
-                  { opacity: instructionContainerOpacityAnim },
-                ]}
-              >
-                {deepBreathCue}
-              </Animated.Text>
-
-              <Animated.View
-                style={[
-                  styles.deepInstructionContainer,
-                  {
-                    opacity: Animated.multiply(
-                      instructionFadeAnim,
-                      instructionContainerOpacityAnim
-                    ),
-                  },
-                ]}
-              >
-                <Text style={styles.deepInstructionText}>{deepInstructionText}</Text>
-              </Animated.View>
+                  {!shouldHideDeepPrimeGuidanceText ? (
+                    <Animated.View
+                      style={[
+                        styles.deepInstructionContainer,
+                        isCompactHeight ? styles.deepInstructionContainerCompact : null,
+                        {
+                          opacity: Animated.multiply(
+                            instructionFadeAnim,
+                            instructionContainerOpacityAnim
+                          ),
+                        },
+                      ]}
+                    >
+                      <Text
+                        style={[
+                          styles.deepInstructionText,
+                          isCompactHeight ? styles.deepInstructionTextCompact : null,
+                        ]}
+                      >
+                        {deepInstructionText}
+                      </Text>
+                    </Animated.View>
+                  ) : null}
+                </>
+              )}
             </View>
 
-            <Animated.View style={[styles.deepBottomSection, { opacity: bottomSectionOpacityAnim }]}>
+            <Animated.View
+              style={[
+                styles.deepBottomSection,
+                isCompactHeight ? styles.deepBottomSectionCompact : null,
+                { opacity: bottomSectionOpacityAnim },
+              ]}
+            >
               {!state.isSealPhase && (
-                <View style={styles.deepTimerRow}>
-                  <View style={styles.deepPhaseTimerPill}>
+                <View style={[styles.deepTimerRow, isCompactHeight ? styles.deepTimerRowCompact : null]}>
+                  <View
+                    style={[
+                      styles.deepPhaseTimerPill,
+                      isCompactHeight ? styles.deepTimerPillCompact : null,
+                    ]}
+                  >
                     <Text style={styles.deepTimerLabelEmber}>THIS PHASE</Text>
-                    <Text style={styles.deepTimerDigitsEmber}>{deepPhaseTime}</Text>
+                    <Text
+                      style={[
+                        styles.deepTimerDigitsEmber,
+                        isCompactHeight ? styles.deepTimerDigitsCompact : null,
+                      ]}
+                    >
+                      {deepPhaseTime}
+                    </Text>
                   </View>
-                  <View style={styles.deepTotalTimerPill}>
+                  <View
+                    style={[
+                      styles.deepTotalTimerPill,
+                      isCompactHeight ? styles.deepTimerPillCompact : null,
+                    ]}
+                  >
                     <Text style={styles.deepTimerLabelGold}>TOTAL LEFT</Text>
-                    <Text style={styles.deepTimerDigitsGold}>{deepTotalTime}</Text>
+                    <Text
+                      style={[
+                        styles.deepTimerDigitsGold,
+                        isCompactHeight ? styles.deepTimerDigitsCompact : null,
+                      ]}
+                    >
+                      {deepTotalTime}
+                    </Text>
                   </View>
                 </View>
               )}
@@ -1603,6 +2247,28 @@ export const RitualScreen: React.FC = () => {
           </>
         ) : (
           <>
+            {isArrivePhase && (
+              <View style={styles.arriveContainer}>
+                <Animated.View
+                  style={[
+                    styles.arriveBreathHalo,
+                    {
+                      opacity: arriveBreathOpacityAnim,
+                      transform: [{ scale: arriveBreathScaleAnim }],
+                    },
+                  ]}
+                />
+                <Text style={styles.arriveIntentionText}>
+                  "{anchor.intentionText}"
+                </Text>
+                <Text style={styles.arriveBreathCue}>Breathe into it</Text>
+              </View>
+            )}
+
+            <Animated.View
+              style={[styles.sessionChrome, { opacity: sessionChromeOpacity }]}
+              pointerEvents={isArrivePhase ? 'none' : 'auto'}
+            >
             <Animated.View style={{ opacity: phaseIndicatorOpacityAnim }}>
               <RitualTopBar onBack={handleBack} phaseLabel={phaseLabel} />
             </Animated.View>
@@ -1706,46 +2372,132 @@ export const RitualScreen: React.FC = () => {
                 </Pressable>
               </Animated.View>
 
-              {state.currentPhase ? (
-                <Text style={styles.phaseTitle}>{state.currentPhase.title}</Text>
-              ) : null}
-
-              {!reduceIntentionVisibility && anchor.intentionText ? (
-                <View style={styles.intentionWrap}>
-                  <View style={styles.intentionLabelChip}>
-                    <Text style={styles.intentionLabelText}>INTENTION</Text>
-                  </View>
-                  <Text style={styles.intentionText}>{anchor.intentionText}</Text>
-                </View>
-              ) : null}
-
-              <Animated.View
-                style={[
-                  styles.instructionContainer,
-                  {
-                    opacity: Animated.multiply(
-                      instructionFadeAnim,
-                      instructionContainerOpacityAnim
-                    ),
-                  },
-                ]}
-              >
-                {state.isSealPhase ? (
+              {state.isSealPhase ? (
+                <View style={styles.sealTextStack}>
                   <Animated.Text
                     style={[
-                      styles.sealPhaseInstruction,
+                      styles.sealHeadline,
                       {
-                        opacity: Animated.add(0.7, Animated.multiply(glowAnim, 0.3)),
-                        transform: [{ translateY: Animated.multiply(glowAnim, -2) }],
+                        opacity: Animated.multiply(
+                          sealTitleOpacityAnim,
+                          sealCopySwapAnim
+                        ),
                       },
                     ]}
                   >
-                    {displayedInstruction}
+                    {sealHeadline}
                   </Animated.Text>
-                ) : (
-                  <InstructionGlassCard text={displayedInstruction} />
-                )}
-              </Animated.View>
+
+                  {!reduceIntentionVisibility && anchor.intentionText ? (
+                    <Animated.View
+                      style={[
+                        styles.sealIntentionCard,
+                        {
+                          opacity: sealIntentionOpacityAnim,
+                          borderColor:
+                            sealCopyMode === 'complete'
+                              ? 'rgba(212,175,55,0.34)'
+                              : colors.ritual.border,
+                          transform: [
+                            {
+                              scale: Animated.add(
+                                1,
+                                Animated.multiply(sealIntentionGlowAnim, 0.015)
+                              ),
+                            },
+                          ],
+                        },
+                      ]}
+                    >
+                      <Text style={styles.sealIntentionLabel}>{SEAL_INTENTION_LABEL}</Text>
+                      <Animated.Text
+                        style={[
+                          styles.sealIntentionText,
+                          {
+                            opacity: Animated.add(
+                              0.92,
+                              Animated.multiply(sealIntentionGlowAnim, 0.08)
+                            ),
+                          },
+                        ]}
+                      >
+                        {sealIntentText}
+                      </Animated.Text>
+                    </Animated.View>
+                  ) : null}
+
+                  <Animated.Text
+                    style={[
+                      styles.sealSupportText,
+                      {
+                        opacity: Animated.multiply(
+                          sealSupportOpacityAnim,
+                          sealCopySwapAnim
+                        ),
+                      },
+                    ]}
+                  >
+                    {sealSupportLine}
+                  </Animated.Text>
+
+                  <Animated.View
+                    style={[
+                      styles.sealBreathWrap,
+                      { opacity: sealBreathOpacityAnim },
+                    ]}
+                  >
+                    <Text style={styles.sealBreathText}>{sealBreathLabel}</Text>
+                    {showSealHoldPrompt ? (
+                      <Text style={styles.sealHoldPrompt}>{SEAL_HOLD_PROMPT}</Text>
+                    ) : null}
+                  </Animated.View>
+
+                  {showSealContinue ? (
+                    <Animated.View style={{ opacity: sealContinueOpacityAnim }}>
+                      <TouchableOpacity
+                        onPress={continueFromSeal}
+                        activeOpacity={0.86}
+                        style={styles.sealContinueButton}
+                        accessibilityRole="button"
+                        accessibilityLabel={SEAL_CONTINUE_LABEL}
+                      >
+                        <Text style={styles.sealContinueButtonText}>
+                          {SEAL_CONTINUE_LABEL}
+                        </Text>
+                      </TouchableOpacity>
+                    </Animated.View>
+                  ) : null}
+                </View>
+              ) : (
+                <>
+                  {state.currentPhase ? (
+                    <Text style={styles.phaseTitle}>{state.currentPhase.title}</Text>
+                  ) : null}
+
+                  {!reduceIntentionVisibility && anchor.intentionText ? (
+                    <View style={styles.intentionWrap}>
+                      <View style={styles.intentionLabelChip}>
+                        <Text style={styles.intentionLabelText}>INTENTION</Text>
+                      </View>
+                      <Text style={styles.intentionText}>{anchor.intentionText}</Text>
+                    </View>
+                  ) : null}
+
+                  <Animated.View
+                    style={[
+                      styles.instructionContainer,
+                      {
+                        opacity: Animated.multiply(
+                          instructionFadeAnim,
+                          instructionContainerOpacityAnim
+                        ),
+                      },
+                    ]}
+                  >
+                    <InstructionGlassCard text={displayedInstruction} />
+                  </Animated.View>
+                </>
+              )}
             </View>
 
             <Animated.View style={[styles.bottomSection, { opacity: bottomSectionOpacityAnim }]}>
@@ -1754,6 +2506,7 @@ export const RitualScreen: React.FC = () => {
                   <Text style={styles.timerText}>{state.formattedRemaining} remaining</Text>
                 </View>
               )}
+            </Animated.View>
             </Animated.View>
           </>
         )}
@@ -1844,6 +2597,9 @@ const styles = StyleSheet.create({
     paddingTop: 56,
     paddingHorizontal: 20,
   },
+  deepPhaseTrackWrapCompact: {
+    paddingTop: 40,
+  },
   deepPhaseTrackRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -1910,6 +2666,9 @@ const styles = StyleSheet.create({
     marginTop: 14,
     alignItems: 'center',
   },
+  deepPhaseLabelWrapCompact: {
+    marginTop: 8,
+  },
   deepPhaseLabelText: {
     fontSize: 15,
     fontFamily: typography.fonts.heading,
@@ -1929,6 +2688,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.md,
     paddingTop: spacing.sm,
   },
+  deepCenterContentCompact: {
+    paddingTop: 0,
+  },
   deepSymbolWrapper: {
     position: 'relative',
     justifyContent: 'center',
@@ -1937,9 +2699,18 @@ const styles = StyleSheet.create({
     height: 340,
     marginBottom: 14,
   },
+  deepSymbolWrapperCompact: {
+    marginBottom: 8,
+  },
   deepPressable: {
     width: '100%',
     height: '100%',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  deepArtworkCanvas: {
+    width: 340,
+    height: 340,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -2087,6 +2858,105 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     paddingHorizontal: 24,
   },
+  deepInstructionContainerCompact: {
+    minHeight: 56,
+    paddingHorizontal: 18,
+  },
+  sealTextStack: {
+    width: '100%',
+    maxWidth: 380,
+    alignItems: 'center',
+    gap: spacing.md,
+    paddingHorizontal: spacing.md,
+  },
+  sealHeadline: {
+    fontSize: 30,
+    lineHeight: 38,
+    fontFamily: typography.fonts.heading,
+    color: colors.bone,
+    textAlign: 'center',
+    letterSpacing: 0.8,
+  },
+  sealIntentionCard: {
+    width: '100%',
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.md,
+    borderRadius: 22,
+    borderWidth: 1,
+    backgroundColor: 'rgba(15, 20, 25, 0.52)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: colors.gold,
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.18,
+    shadowRadius: 18,
+  },
+  sealIntentionLabel: {
+    fontSize: 11,
+    lineHeight: 16,
+    fontFamily: typography.fonts.heading,
+    color: colors.gold,
+    letterSpacing: 2.2,
+    textTransform: 'uppercase',
+    marginBottom: spacing.xs,
+  },
+  sealIntentionText: {
+    fontSize: 18,
+    lineHeight: 28,
+    fontFamily: typography.fonts.bodyBold,
+    color: colors.bone,
+    textAlign: 'center',
+  },
+  sealSupportText: {
+    fontSize: typography.sizes.body1,
+    lineHeight: typography.lineHeights.body1 + 2,
+    fontFamily: typography.fonts.body,
+    color: 'rgba(245,240,232,0.82)',
+    textAlign: 'center',
+  },
+  sealBreathWrap: {
+    minHeight: 46,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  sealBreathText: {
+    fontSize: 13,
+    lineHeight: 18,
+    fontFamily: typography.fonts.bodyBold,
+    color: colors.gold,
+    letterSpacing: 1.8,
+    textTransform: 'uppercase',
+    textAlign: 'center',
+  },
+  sealHoldPrompt: {
+    marginTop: spacing.xs,
+    fontSize: typography.sizes.caption,
+    lineHeight: typography.lineHeights.caption,
+    fontFamily: typography.fonts.body,
+    color: 'rgba(245,240,232,0.58)',
+    textAlign: 'center',
+  },
+  sealContinueButton: {
+    minWidth: 180,
+    paddingHorizontal: spacing.xl,
+    paddingVertical: 14,
+    borderRadius: 999,
+    backgroundColor: colors.gold,
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: colors.gold,
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.28,
+    shadowRadius: 20,
+    elevation: 10,
+  },
+  sealContinueButtonText: {
+    fontSize: typography.sizes.button,
+    lineHeight: 22,
+    fontFamily: typography.fonts.bodyBold,
+    color: colors.navy,
+    letterSpacing: 0.3,
+  },
   deepBreathCue: {
     minHeight: 20,
     marginBottom: 18,
@@ -2095,6 +2965,10 @@ const styles = StyleSheet.create({
     color: 'rgba(245,240,232,0.72)',
     letterSpacing: 0.6,
     textAlign: 'center',
+  },
+  deepBreathCueCompact: {
+    marginBottom: 12,
+    fontSize: 15,
   },
   deepBreathCuePaused: {
     opacity: 0.35,
@@ -2109,6 +2983,10 @@ const styles = StyleSheet.create({
     textShadowOffset: { width: 0, height: 1 },
     textShadowRadius: 20,
   },
+  deepInstructionTextCompact: {
+    fontSize: 18,
+    lineHeight: 25,
+  },
   deepBottomSection: {
     paddingHorizontal: 24,
     paddingBottom: 32,
@@ -2117,11 +2995,19 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 16,
   },
+  deepBottomSectionCompact: {
+    paddingBottom: 20,
+    minHeight: 112,
+    gap: 12,
+  },
   deepTimerRow: {
     width: '100%',
     flexDirection: 'row',
     justifyContent: 'space-between',
     gap: 12,
+  },
+  deepTimerRowCompact: {
+    gap: 10,
   },
   deepPhaseTimerPill: {
     flex: 1,
@@ -2132,6 +3018,10 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(200,88,26,0.28)',
     backgroundColor: 'rgba(200,88,26,0.12)',
     alignItems: 'center',
+  },
+  deepTimerPillCompact: {
+    paddingHorizontal: 14,
+    paddingVertical: 8,
   },
   deepTotalTimerPill: {
     flex: 1,
@@ -2175,6 +3065,9 @@ const styles = StyleSheet.create({
     textShadowOffset: { width: 0, height: 0 },
     textShadowRadius: 10,
   },
+  deepTimerDigitsCompact: {
+    fontSize: 18,
+  },
   deepPauseButton: {
     borderRadius: 999,
     borderWidth: 1,
@@ -2190,6 +3083,46 @@ const styles = StyleSheet.create({
     letterSpacing: 0.6,
     textTransform: 'uppercase',
   },
+  sessionChrome: {
+    flex: 1,
+  },
+
+  arriveContainer: {
+    ...StyleSheet.absoluteFillObject,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: spacing.xl,
+    zIndex: 5,
+  },
+
+  arriveBreathHalo: {
+    position: 'absolute',
+    width: width * 0.72,
+    height: width * 0.72,
+    borderRadius: (width * 0.72) / 2,
+    borderWidth: 1,
+    borderColor: `${colors.gold}30`,
+    backgroundColor: `${colors.gold}08`,
+  },
+
+  arriveIntentionText: {
+    ...typography.bodySerifItalic,
+    fontSize: typography.sizes.h2 + 4,
+    lineHeight: typography.lineHeights.h2 + 8,
+    color: colors.bone,
+    textAlign: 'center',
+    marginBottom: spacing.lg,
+  },
+
+  arriveBreathCue: {
+    fontSize: typography.sizes.body2,
+    fontFamily: typography.fonts.bodyBold,
+    color: colors.gold,
+    textAlign: 'center',
+    letterSpacing: 2.4,
+    textTransform: 'uppercase',
+  },
+
   centerContent: {
     flex: 1,
     justifyContent: 'center',
@@ -2258,17 +3191,6 @@ const styles = StyleSheet.create({
     fontFamily: typography.fonts.body,
     color: colors.text.secondary,
     letterSpacing: 0.3,
-  },
-  sealPhaseInstruction: {
-    fontSize: 22,
-    fontFamily: typography.fonts.heading,
-    color: colors.white,
-    textAlign: 'center',
-    letterSpacing: 1.2,
-    lineHeight: 32,
-    textShadowColor: 'rgba(212,175,55,0.4)',
-    textShadowOffset: { width: 0, height: 0 },
-    textShadowRadius: 10,
   },
   chargedDashedRing: {
     position: 'absolute',
@@ -2344,6 +3266,10 @@ const styles = StyleSheet.create({
     marginBottom: spacing.sm,
     paddingHorizontal: spacing.xl,
   },
+  deepIntentionWrapCompact: {
+    marginBottom: 6,
+    paddingHorizontal: spacing.lg,
+  },
   deepIntentionLabel: {
     fontSize: 8,
     fontFamily: typography.fonts.heading,
@@ -2357,6 +3283,10 @@ const styles = StyleSheet.create({
     color: 'rgba(245,240,232,0.7)',
     textAlign: 'center',
     lineHeight: 22,
+  },
+  deepIntentionTextCompact: {
+    fontSize: 14,
+    lineHeight: 20,
   },
   landingContent: {
     flex: 1,
@@ -2373,6 +3303,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingTop: 16,
   },
+  landingCenterContentCompact: {
+    paddingTop: 10,
+  },
   landingTitle: {
     fontFamily: typography.fonts.heading,
     fontSize: 14,
@@ -2387,12 +3320,19 @@ const styles = StyleSheet.create({
     marginBottom: 12,
     letterSpacing: 1.5,
   },
+  landingTimeTextCompact: {
+    fontSize: 28,
+    marginBottom: 8,
+  },
   landingSigilWrapper: {
     width: 340,
     height: 340,
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 20,
+  },
+  landingSigilWrapperCompact: {
+    marginBottom: 12,
   },
   landingTimelineRow: {
     flexDirection: 'row',
@@ -2402,6 +3342,10 @@ const styles = StyleSheet.create({
     marginBottom: 16,
     paddingHorizontal: 16,
     width: '100%',
+  },
+  landingTimelineRowCompact: {
+    marginBottom: 10,
+    paddingHorizontal: 12,
   },
   landingTimelineBox: {
     flex: 1,
@@ -2413,11 +3357,18 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     backgroundColor: 'rgba(212,175,55,0.05)',
   },
+  landingTimelineBoxCompact: {
+    paddingVertical: 9,
+  },
   landingTimelineNum: {
     fontFamily: typography.fonts.mono,
     fontSize: 10,
     color: '#D4AF37',
     marginBottom: 4,
+  },
+  landingTimelineNumCompact: {
+    fontSize: 9,
+    marginBottom: 3,
   },
   landingTimelineText: {
     fontFamily: typography.fonts.mono,
@@ -2427,9 +3378,15 @@ const styles = StyleSheet.create({
     textTransform: 'uppercase',
     textAlign: 'center',
   },
+  landingTimelineTextCompact: {
+    fontSize: 6,
+  },
   landingIntentionWrap: {
     alignItems: 'center',
     paddingHorizontal: 24,
+  },
+  landingIntentionWrapCompact: {
+    paddingHorizontal: 20,
   },
   landingIntentionLabel: {
     fontFamily: typography.fonts.heading,
@@ -2445,10 +3402,17 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     lineHeight: 26,
   },
+  landingIntentionTextCompact: {
+    fontSize: 16,
+    lineHeight: 22,
+  },
   landingBottomSection: {
     paddingBottom: 40,
     paddingHorizontal: 24,
     alignItems: 'center',
+  },
+  landingBottomSectionCompact: {
+    paddingBottom: 24,
   },
   landingBeginBtn: {
     width: '100%',

@@ -7,6 +7,8 @@ import {
     Animated,
     Dimensions,
     ActivityIndicator,
+    ScrollView,
+    useWindowDimensions,
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -38,6 +40,7 @@ export const AnchorRevealScreen: React.FC = () => {
     const navigation = useNavigation<AnchorRevealNavigationProp>();
     const route = useRoute<AnchorRevealRouteProp>();
     const insets = useSafeAreaInsets();
+    const { width: screenWidth, height: screenHeight } = useWindowDimensions();
     const guideMode = useSettingsStore((state) => state.guideMode);
     const addAnchor = useAnchorStore((state) => state.addAnchor);
     const incrementAnchorCount = useAuthStore((state) => state.incrementAnchorCount);
@@ -75,6 +78,8 @@ export const AnchorRevealScreen: React.FC = () => {
         intentionAnalysis.hasFutureTense,
         intentionAnalysis.hasNegation
     );
+    const isCompactHeight = screenHeight <= 820;
+    const imageSize = Math.min(screenWidth - 64, isCompactHeight ? 272 : SCREEN_WIDTH - 64);
 
     // Animations
     const fadeAnim = useRef(new Animated.Value(0)).current;
@@ -237,17 +242,32 @@ export const AnchorRevealScreen: React.FC = () => {
                     <View style={styles.headerSpacer} />
                 </View>
 
+                <ScrollView
+                    bounces={false}
+                    showsVerticalScrollIndicator={false}
+                    contentContainerStyle={[
+                        styles.scrollContent,
+                        { paddingBottom: Math.max(insets.bottom, 20) },
+                    ]}
+                >
                 <View style={styles.content}>
                     <Animated.View
                         style={[
                             styles.imageContainer,
                             {
+                                width: imageSize,
+                                height: imageSize,
                                 opacity: fadeAnim,
                                 transform: [{ scale: scaleAnim }],
                             },
                         ]}
                     >
-                        <View style={styles.imageCard}>
+                        <View
+                            style={[
+                                styles.imageCard,
+                                { borderRadius: imageSize / 2 },
+                            ]}
+                        >
                             {enhancedImageUrl ? (
                                 <OptimizedImage
                                     uri={enhancedImageUrl}
@@ -258,13 +278,13 @@ export const AnchorRevealScreen: React.FC = () => {
                                 <View style={styles.sigilWrapper}>
                                     <SigilSvg
                                         xml={reinforcedSigilSvg || baseSigilSvg}
-                                        width={IMAGE_SIZE - 80}
-                                        height={IMAGE_SIZE - 80}
+                                        width={imageSize - 80}
+                                        height={imageSize - 80}
                                         color={colors.gold}
                                     />
                                 </View>
                             )}
-                            <View style={styles.glowOverlay} />
+                            <View style={[styles.glowOverlay, { borderRadius: imageSize / 2 }]} />
                         </View>
                     </Animated.View>
 
@@ -343,6 +363,7 @@ export const AnchorRevealScreen: React.FC = () => {
                         </LinearGradient>
                     </TouchableOpacity>
                 </Animated.View>
+                </ScrollView>
             </SafeAreaView>
         </View>
     );
@@ -355,6 +376,9 @@ const styles = StyleSheet.create({
     },
     safeArea: {
         flex: 1,
+    },
+    scrollContent: {
+        flexGrow: 1,
     },
     header: {
         flexDirection: 'row',

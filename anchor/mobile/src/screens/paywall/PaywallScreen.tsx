@@ -18,7 +18,7 @@ import {
   View,
   useWindowDimensions,
 } from 'react-native';
-import { CommonActions, useNavigation } from '@react-navigation/native';
+import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -162,17 +162,10 @@ export const PaywallScreen: React.FC = () => {
   };
 
   const handleSignIn = () => {
-    navigation.dispatch(
-      CommonActions.reset({
-        index: 0,
-        routes: [
-          {
-            name: 'Onboarding',
-            state: { routes: [{ name: 'Login' }], index: 0 },
-          },
-        ],
-      })
-    );
+    navigation.navigate('Settings', {
+      screen: 'Login',
+      params: { initialTab: 'signin', context: 'paywall' },
+    });
   };
 
   const handlePurchase = async (productId: string) => {
