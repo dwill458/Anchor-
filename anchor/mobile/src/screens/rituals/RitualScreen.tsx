@@ -71,16 +71,18 @@ const DeepPhaseSegment = ({
   progressAnim,
   startProgress,
   endProgress,
+  fillWidth,
   isPast,
 }: {
   progressAnim: Animated.Value;
   startProgress: number;
   endProgress: number;
+  fillWidth: number;
   isPast: boolean;
 }) => {
   const widthAnim = progressAnim.interpolate({
     inputRange: [startProgress, endProgress],
-    outputRange: ['0%', '100%'],
+    outputRange: [0, fillWidth],
     extrapolate: 'clamp',
   });
 
@@ -295,24 +297,31 @@ export const RitualScreen: React.FC = () => {
   const [showSealContinue, setShowSealContinue] = useState(false);
   const isCompactHeight = screenHeight <= 880;
   const deepHeroSize = Math.min(Math.round(screenWidth * 0.68), 280);
-  const deepLandingHeroSize = Math.round(deepHeroSize * 0.85);
+  const deepLandingHeroSize = Math.round(deepHeroSize * (isCompactHeight ? 0.74 : 0.78));
+  const deepLandingOrbitSolidSize = deepLandingHeroSize * 1.02;
+  const deepLandingOrbitDashOuterSize = deepLandingHeroSize * 1.16;
+  const deepLandingOrbitDotOuterSize = deepLandingHeroSize * 1.28;
+  const deepLandingOrbitDashInnerSize = deepLandingHeroSize * 1.34;
+  const deepLandingStageSize = deepLandingOrbitDashInnerSize;
   const deepRingRadius = deepHeroSize / 2 + 22;
   const deepSealSvgSize = deepRingRadius * 2 + RING_STROKE_WIDTH * 4;
   const deepSealCenter = deepSealSvgSize / 2;
   const deepSealCircumference = 2 * Math.PI * deepRingRadius;
   const deepStageSize = deepHeroSize;
-  const deepAuraOuterSize = deepHeroSize * 1.55;
-  const deepAuraInnerSize = deepHeroSize * 1.25;
-  const deepOrbitSolidSize = deepHeroSize * 1.04;
-  const deepOrbitDashOuterSize = deepHeroSize * 1.25;
-  const deepOrbitDotOuterSize = deepHeroSize * 1.4;
-  const deepOrbitDashInnerSize = deepHeroSize * 1.55;
-  const deepOrbRingOuterSize = deepHeroSize * 1.45;
-  const deepOrbRingInnerSize = deepHeroSize * 1.25;
+  const deepAuraOuterSize = deepHeroSize * 1.32;
+  const deepAuraInnerSize = deepHeroSize * 1.14;
+  const deepOrbitSolidSize = deepHeroSize * 1.02;
+  const deepOrbitDashOuterSize = deepHeroSize * 1.16;
+  const deepOrbitDotOuterSize = deepHeroSize * 1.26;
+  const deepOrbitDashInnerSize = deepHeroSize * 1.34;
+  const deepOrbRingOuterSize = deepHeroSize * 1.3;
+  const deepOrbRingInnerSize = deepHeroSize * 1.14;
   const deepOrbScale = deepHeroSize / 240;
-  const deepPulseOuterSize = deepHeroSize * 1.1;
-  const deepPulseInnerSize = deepHeroSize * 0.96;
-  const deepEmberHaloSize = deepHeroSize * 1.02;
+  const deepPulseOuterSize = deepHeroSize * 1.02;
+  const deepPulseInnerSize = deepHeroSize * 0.92;
+  const deepEmberHaloSize = deepHeroSize * 0.94;
+  const deepPremiumGlowSize = deepHeroSize * 0.78;
+  const deepGlowLayerSize = deepHeroSize * 1.28;
 
   useMissingAnchorRedirect(!isAnchorMissing, navigation);
 
@@ -331,6 +340,15 @@ export const RitualScreen: React.FC = () => {
       : primeSessionDuration);
   const config = getRitualConfig(ritualType, resolvedDurationSeconds);
   const isDeepRitual = ritualType === 'ritual' || ritualType === 'deep';
+  const deepPhaseTrackHorizontalPadding = 20;
+  const deepPhaseTrackGap = 4;
+  const deepPhaseSegmentWidth = Math.max(
+    0,
+    (screenWidth -
+      deepPhaseTrackHorizontalPadding * 2 -
+      deepPhaseTrackGap * Math.max(0, config.phases.length - 1)) /
+      Math.max(1, config.phases.length)
+  );
   const shouldUseDeepPrimeImmersiveAudio =
     isDeepRitual &&
     primeSessionAudio === 'ambient' &&
@@ -1347,17 +1365,17 @@ export const RitualScreen: React.FC = () => {
     outputRange: ['0deg', '-360deg'],
   });
   const deepPulseAOpacity = interpolateDeepBreath([0.07, 0.18]);
-  const deepPulseAScale = interpolateDeepBreath([0.9, 1.12]);
+  const deepPulseAScale = interpolateDeepBreath([0.94, 1.04]);
   const deepPulseBOpacity = interpolateDeepBreath([0.12, 0.26]);
-  const deepPulseBScale = interpolateDeepBreath([0.92, 1.08]);
-  const deepHaloScale = interpolateDeepBreath([1, 1.035]);
+  const deepPulseBScale = interpolateDeepBreath([0.96, 1.035]);
+  const deepHaloScale = interpolateDeepBreath([0.98, 1.02]);
   const deepHaloOpacity = interpolateDeepBreath([0.82, 1]);
   const deepSigilTranslateY = interpolateDeepBreath([0, 0]);
   const deepSigilScale = interpolateDeepBreath([1, 1.035]);
-  const deepAuraScale = interpolateDeepBreath([0.9, 1.12]);
-  const deepAuraOpacity = interpolateDeepBreath([0.07, 0.18]);
-  const deepInnerAuraScale = interpolateDeepBreath([0.92, 1.08]);
-  const deepInnerAuraOpacity = interpolateDeepBreath([0.12, 0.26]);
+  const deepAuraScale = interpolateDeepBreath([0.96, 1.045]);
+  const deepAuraOpacity = interpolateDeepBreath([0.06, 0.14]);
+  const deepInnerAuraScale = interpolateDeepBreath([0.98, 1.035]);
+  const deepInnerAuraOpacity = interpolateDeepBreath([0.1, 0.2]);
   const deepOuterOrbOpacity = interpolateDeepBreath([0.68, 0.84]);
   const deepInnerOrbOpacity = interpolateDeepBreath([0.64, 0.8]);
 
@@ -1604,19 +1622,59 @@ export const RitualScreen: React.FC = () => {
                     style={[
                       styles.landingSigilWrapper,
                       isCompactHeight ? styles.landingSigilWrapperCompact : null,
-                      { width: deepLandingHeroSize, height: deepLandingHeroSize },
+                      { width: deepLandingStageSize, height: deepLandingStageSize },
                     ]}
                   >
                     <View
                       style={[
                         styles.deepArtworkCanvas,
-                        { width: deepLandingHeroSize, height: deepLandingHeroSize },
+                        { width: deepLandingStageSize, height: deepLandingStageSize },
                       ]}
                     >
-                      <Animated.View style={[styles.deepOrbitSolid, { transform: [{ rotate: deepOrbitRotateA }] }]} />
-                      <Animated.View style={[styles.deepOrbitDashOuter, { transform: [{ rotate: deepOrbitRotateB }] }]} />
-                      <Animated.View style={[styles.deepOrbitDotOuter, { transform: [{ rotate: deepOrbitRotateA }] }]} />
-                      <Animated.View style={[styles.deepOrbitDashInner, { transform: [{ rotate: deepOrbitRotateB }] }]} />
+                      <Animated.View
+                        style={[
+                          styles.deepOrbitSolid,
+                          {
+                            width: deepLandingOrbitSolidSize,
+                            height: deepLandingOrbitSolidSize,
+                            borderRadius: deepLandingOrbitSolidSize / 2,
+                            transform: [{ rotate: deepOrbitRotateA }],
+                          },
+                        ]}
+                      />
+                      <Animated.View
+                        style={[
+                          styles.deepOrbitDashOuter,
+                          {
+                            width: deepLandingOrbitDashOuterSize,
+                            height: deepLandingOrbitDashOuterSize,
+                            borderRadius: deepLandingOrbitDashOuterSize / 2,
+                            transform: [{ rotate: deepOrbitRotateB }],
+                          },
+                        ]}
+                      />
+                      <Animated.View
+                        style={[
+                          styles.deepOrbitDotOuter,
+                          {
+                            width: deepLandingOrbitDotOuterSize,
+                            height: deepLandingOrbitDotOuterSize,
+                            borderRadius: deepLandingOrbitDotOuterSize / 2,
+                            transform: [{ rotate: deepOrbitRotateA }],
+                          },
+                        ]}
+                      />
+                      <Animated.View
+                        style={[
+                          styles.deepOrbitDashInner,
+                          {
+                            width: deepLandingOrbitDashInnerSize,
+                            height: deepLandingOrbitDashInnerSize,
+                            borderRadius: deepLandingOrbitDashInnerSize / 2,
+                            transform: [{ rotate: deepOrbitRotateB }],
+                          },
+                        ]}
+                      />
 
                       <Animated.View
                         style={[
@@ -1766,6 +1824,7 @@ export const RitualScreen: React.FC = () => {
                         progressAnim={progressAnim}
                         startProgress={phaseProgressRanges[index].startProgress}
                         endProgress={phaseProgressRanges[index].endProgress}
+                        fillWidth={deepPhaseSegmentWidth}
                         isPast={index < activePhaseIndex}
                       />
                     </View>
@@ -1953,9 +2012,9 @@ export const RitualScreen: React.FC = () => {
                       ]}
                     />
 
-                    <View style={[styles.premiumGlowLayer, { width: deepHeroSize * 1.72, height: deepHeroSize * 1.72 }]}>
+                    <View style={[styles.premiumGlowLayer, { width: deepGlowLayerSize, height: deepGlowLayerSize }]}>
                       <PremiumAnchorGlow
-                        size={deepHeroSize}
+                        size={deepPremiumGlowSize}
                         state={state.isSealPhase ? 'charged' : 'active'}
                         variant="ritual"
                         reduceMotionEnabled={reduceMotionEnabled}
@@ -2719,18 +2778,18 @@ const styles = StyleSheet.create({
     width: 286,
     height: 286,
     borderRadius: 143,
-    backgroundColor: 'rgba(212,175,55,0.14)',
+    backgroundColor: 'rgba(212,175,55,0.1)',
     shadowColor: '#D4AF37',
     shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.26,
-    shadowRadius: 24,
+    shadowOpacity: 0.2,
+    shadowRadius: 18,
   },
   deepAuraInner: {
     position: 'absolute',
     width: 232,
     height: 232,
     borderRadius: 116,
-    backgroundColor: 'rgba(212,175,55,0.08)',
+    backgroundColor: 'rgba(212,175,55,0.06)',
   },
   deepOrbitSolid: {
     position: 'absolute',
@@ -2817,8 +2876,8 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(0,0,0,0)',
     shadowColor: '#C8581A',
     shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.42,
-    shadowRadius: 38,
+    shadowOpacity: 0.32,
+    shadowRadius: 26,
     elevation: 12,
   },
   deepSealRingSvg: {
@@ -2855,11 +2914,13 @@ const styles = StyleSheet.create({
     width: '100%',
     maxWidth: 360,
     minHeight: 72,
+    marginTop: 8,
     justifyContent: 'center',
     paddingHorizontal: 24,
   },
   deepInstructionContainerCompact: {
     minHeight: 56,
+    marginTop: 6,
     paddingHorizontal: 18,
   },
   sealTextStack: {
@@ -2974,18 +3035,18 @@ const styles = StyleSheet.create({
     opacity: 0.35,
   },
   deepInstructionText: {
-    color: 'rgba(245,240,232,0.92)',
-    fontSize: 20,
+    color: '#FFF4DF',
+    fontSize: 21,
     fontFamily: typography.fonts.bodySerifItalic,
-    lineHeight: 29,
+    lineHeight: 30,
     textAlign: 'center',
     textShadowColor: 'rgba(0,0,0,0.8)',
     textShadowOffset: { width: 0, height: 1 },
     textShadowRadius: 20,
   },
   deepInstructionTextCompact: {
-    fontSize: 18,
-    lineHeight: 25,
+    fontSize: 19,
+    lineHeight: 27,
   },
   deepBottomSection: {
     paddingHorizontal: 24,
@@ -3263,30 +3324,35 @@ const styles = StyleSheet.create({
   },
   deepIntentionWrap: {
     alignItems: 'center',
-    marginBottom: spacing.sm,
+    marginTop: 18,
+    marginBottom: 8,
     paddingHorizontal: spacing.xl,
   },
   deepIntentionWrapCompact: {
+    marginTop: 12,
     marginBottom: 6,
     paddingHorizontal: spacing.lg,
   },
   deepIntentionLabel: {
-    fontSize: 8,
+    fontSize: 9,
     fontFamily: typography.fonts.heading,
-    color: 'rgba(212,175,55,0.5)',
+    color: 'rgba(240,208,96,0.86)',
     letterSpacing: 3,
-    marginBottom: 4,
+    marginBottom: 5,
   },
   deepIntentionText: {
-    fontSize: 15,
-    fontFamily: 'CormorantGaramond_400Italic',
-    color: 'rgba(245,240,232,0.7)',
+    fontSize: 17,
+    fontFamily: typography.fonts.bodyBold,
+    color: '#F6EFD8',
     textAlign: 'center',
-    lineHeight: 22,
+    lineHeight: 24,
+    textShadowColor: 'rgba(0,0,0,0.82)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 14,
   },
   deepIntentionTextCompact: {
-    fontSize: 14,
-    lineHeight: 20,
+    fontSize: 15,
+    lineHeight: 22,
   },
   landingContent: {
     flex: 1,
@@ -3301,10 +3367,10 @@ const styles = StyleSheet.create({
   landingCenterContent: {
     flex: 1,
     alignItems: 'center',
-    paddingTop: 16,
+    paddingTop: 8,
   },
   landingCenterContentCompact: {
-    paddingTop: 10,
+    paddingTop: 4,
   },
   landingTitle: {
     fontFamily: typography.fonts.heading,
@@ -3314,43 +3380,43 @@ const styles = StyleSheet.create({
   },
   landingTimeText: {
     fontFamily: typography.fonts.mono,
-    fontSize: 32,
+    fontSize: 31,
     color: '#F6EFD8',
-    marginTop: 8,
-    marginBottom: 12,
+    marginTop: 6,
+    marginBottom: 8,
     letterSpacing: 1.5,
   },
   landingTimeTextCompact: {
-    fontSize: 28,
-    marginBottom: 8,
+    fontSize: 27,
+    marginBottom: 6,
   },
   landingSigilWrapper: {
     width: 340,
     height: 340,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 20,
+    marginBottom: 14,
   },
   landingSigilWrapperCompact: {
-    marginBottom: 12,
+    marginBottom: 8,
   },
   landingTimelineRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: 4,
-    marginBottom: 16,
+    marginBottom: 14,
     paddingHorizontal: 16,
     width: '100%',
   },
   landingTimelineRowCompact: {
-    marginBottom: 10,
+    marginBottom: 8,
     paddingHorizontal: 12,
   },
   landingTimelineBox: {
     flex: 1,
     alignItems: 'center',
-    paddingVertical: 12,
+    paddingVertical: 10,
     paddingHorizontal: 0,
     borderWidth: 1,
     borderColor: 'rgba(212,175,55,0.15)',
@@ -3358,7 +3424,7 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(212,175,55,0.05)',
   },
   landingTimelineBoxCompact: {
-    paddingVertical: 9,
+    paddingVertical: 8,
   },
   landingTimelineNum: {
     fontFamily: typography.fonts.mono,
@@ -3393,7 +3459,7 @@ const styles = StyleSheet.create({
     fontSize: 10,
     color: '#D4AF37',
     letterSpacing: 2,
-    marginBottom: 8,
+    marginBottom: 6,
   },
   landingIntentionText: {
     fontFamily: typography.fonts.bodySerifItalic,
@@ -3407,12 +3473,12 @@ const styles = StyleSheet.create({
     lineHeight: 22,
   },
   landingBottomSection: {
-    paddingBottom: 40,
+    paddingBottom: 34,
     paddingHorizontal: 24,
     alignItems: 'center',
   },
   landingBottomSectionCompact: {
-    paddingBottom: 24,
+    paddingBottom: 20,
   },
   landingBeginBtn: {
     width: '100%',
