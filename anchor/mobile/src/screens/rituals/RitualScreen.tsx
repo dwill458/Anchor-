@@ -308,8 +308,8 @@ export const RitualScreen: React.FC = () => {
   const deepSealCenter = deepSealSvgSize / 2;
   const deepSealCircumference = 2 * Math.PI * deepRingRadius;
   const deepStageSize = deepHeroSize;
-  const deepAuraOuterSize = deepHeroSize * 1.32;
-  const deepAuraInnerSize = deepHeroSize * 1.14;
+  const deepAuraOuterSize = deepHeroSize * 1.55;
+  const deepAuraInnerSize = deepHeroSize * 1.25;
   const deepOrbitSolidSize = deepHeroSize * 1.02;
   const deepOrbitDashOuterSize = deepHeroSize * 1.16;
   const deepOrbitDotOuterSize = deepHeroSize * 1.26;
@@ -317,8 +317,8 @@ export const RitualScreen: React.FC = () => {
   const deepOrbRingOuterSize = deepHeroSize * 1.3;
   const deepOrbRingInnerSize = deepHeroSize * 1.14;
   const deepOrbScale = deepHeroSize / 240;
-  const deepPulseOuterSize = deepHeroSize * 1.02;
-  const deepPulseInnerSize = deepHeroSize * 0.92;
+  const deepPulseOuterSize = deepHeroSize * 1.1;
+  const deepPulseInnerSize = deepHeroSize * 0.96;
   const deepEmberHaloSize = deepHeroSize * 0.94;
 
   useMissingAnchorRedirect(!isAnchorMissing, navigation);
@@ -1362,18 +1362,18 @@ export const RitualScreen: React.FC = () => {
     inputRange: [0, 1],
     outputRange: ['0deg', '-360deg'],
   });
-  const deepPulseAOpacity = interpolateDeepBreath([0.07, 0.18]);
-  const deepPulseAScale = interpolateDeepBreath([0.94, 1.04]);
+  const deepPulseAOpacity = interpolateDeepBreath([0.18, 0.45]);
+  const deepPulseAScale = interpolateDeepBreath([0.94, 1.05]);
   const deepPulseBOpacity = interpolateDeepBreath([0.12, 0.26]);
-  const deepPulseBScale = interpolateDeepBreath([0.96, 1.035]);
+  const deepPulseBScale = interpolateDeepBreath([0.94, 1.05]);
   const deepHaloScale = interpolateDeepBreath([0.98, 1.02]);
   const deepHaloOpacity = interpolateDeepBreath([0.82, 1]);
   const deepSigilTranslateY = interpolateDeepBreath([0, 0]);
   const deepSigilScale = interpolateDeepBreath([1, 1.035]);
-  const deepAuraScale = interpolateDeepBreath([0.96, 1.045]);
-  const deepAuraOpacity = interpolateDeepBreath([0.06, 0.14]);
-  const deepInnerAuraScale = interpolateDeepBreath([0.98, 1.035]);
-  const deepInnerAuraOpacity = interpolateDeepBreath([0.1, 0.2]);
+  const deepAuraScale = interpolateDeepBreath([0.9, 1.12]);
+  const deepAuraOpacity = interpolateDeepBreath([0.07, 0.18]);
+  const deepInnerAuraScale = interpolateDeepBreath([0.92, 1.08]);
+  const deepInnerAuraOpacity = interpolateDeepBreath([0.12, 0.26]);
   const deepOuterOrbOpacity = interpolateDeepBreath([0.68, 0.84]);
   const deepInnerOrbOpacity = interpolateDeepBreath([0.64, 0.8]);
 
