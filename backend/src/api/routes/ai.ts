@@ -371,7 +371,7 @@ async function handleEnhance(req: AuthRequest, res: Response): Promise<void> {
     });
 
     let reservedPoolVariations: ClientVariation[] = [];
-    let reservedPoolRows: any[] = [];
+    let reservedPoolRows: Awaited<ReturnType<typeof prisma.anchorVariationPool.findMany>> = [];
     try {
       await prisma.anchorVariationPool.updateMany({
         where: {

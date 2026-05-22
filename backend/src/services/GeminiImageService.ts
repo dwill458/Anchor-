@@ -238,17 +238,18 @@ STRUCTURAL PRESERVATION — HIGHEST PRIORITY:
 3. No text, words, letters, or numbers of any kind`;
 
     const hardBans = `
-ABSOLUTE PROHIBITIONS — DO NOT INCLUDE ANY OF THE FOLLOWING:
+STRICT AVOIDANCE RULES — KEEP THESE OUT OR STRONGLY DE-EMPHASIZED:
 ✗ Text, words, letters, phrases, sentences, or any readable characters whatsoever
 ✗ Numbers, numerals, digits, or numeric symbols of any kind
 ✗ Currency: dollar signs ($), pound (£), euro (€), yen (¥), coins, coin stacks, banknotes, bills, cash, wallets, credit cards
 ✗ Financial: bank logos, charts, graphs, bar charts, pie charts, stock tickers, financial instruments
-✗ Literal depictions of objects directly named in the intention — no direct illustration
-✗ Literal people, human faces, human figures, or recognizable portraits
-✗ Clipart, icon packs, sticker-style imagery, flat vector icons, or emoji-style symbols
-✗ Photorealistic photography — keep to illustration, engraving, or filigree aesthetic
-✗ Brand logos, watermarks, copyright symbols
-✗ Literal chains, literal keys, literal locks, literal weapons, literal animals as main subjects
+✗ Recognizable brand logos, watermarks, copyright symbols
+✗ Clipart, icon-pack, sticker-style, emoji-style, or flat app-icon aesthetics
+✗ Photorealistic photography as the dominant rendering mode — keep the image illustrative, engraved, painterly, or atmospheric
+✗ Recognizable human faces, portraits, or literal people as the main subject
+✗ Overly literal object depictions directly illustrating the intention in a blunt or front-and-center way
+✓ Symbolic motifs are allowed when they are abstracted, ornamental, secondary, and integrated into the border, background, texture field, or negative space
+✓ Objects such as keys, locks, chains, animals, tools, or weapons may appear only as subtle symbolic accents, not as the dominant subject
 NO WORDS. NO NUMBERS. NO LETTERS. NO CURRENCY. NO FINANCIAL IMAGERY.`;
 
     const styleTemplates: Record<string, string> = {

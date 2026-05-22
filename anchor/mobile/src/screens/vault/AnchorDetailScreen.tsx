@@ -1422,7 +1422,7 @@ const AnchorDetailsScreen = ({ navigation, route }) => {
                   testID="anchor-detail-set-wallpaper-button"
                 >
                   <Text style={s.exportActionSecondaryText}>
-                    {isExporting ? 'Opening...' : 'Set as Wallpaper'}
+                    {isExporting ? 'OPENING...' : 'SET AS WALLPAPER'}
                   </Text>
                 </TouchableOpacity>
 
@@ -2435,20 +2435,24 @@ const s = StyleSheet.create({
   },
   exportActionButton: {
     alignItems: 'center',
-    borderRadius: 14,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.md,
+    justifyContent: 'center',
   },
   exportActionHalf: {
     flex: 1,
   },
   exportActionPrimary: {
     backgroundColor: colors.gold,
+    borderRadius: 14,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.md,
   },
   exportActionSecondary: {
-    backgroundColor: 'rgba(255,255,255,0.04)',
+    borderRadius: 8,
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.08)',
+    borderColor: 'rgba(212,175,55,0.18)',
+    backgroundColor: 'rgba(255,255,255,0.02)',
+    paddingVertical: 8,
+    paddingHorizontal: 14,
   },
   exportActionPrimaryContent: {
     flexDirection: 'row',
@@ -2463,10 +2467,11 @@ const s = StyleSheet.create({
     letterSpacing: 0.4,
   },
   exportActionSecondaryText: {
-    color: C.textPrimary,
-    fontFamily: 'Inter-SemiBold',
-    fontSize: 14,
-    letterSpacing: 0.3,
+    color: 'rgba(245,245,220,0.5)',
+    fontFamily: typography.fontFamily.serif,
+    fontSize: 9,
+    letterSpacing: 1.4,
+    textTransform: 'uppercase',
   },
   exportActionDisabled: {
     opacity: 0.6,
