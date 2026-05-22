@@ -1362,18 +1362,18 @@ export const RitualScreen: React.FC = () => {
     inputRange: [0, 1],
     outputRange: ['0deg', '-360deg'],
   });
-  const deepPulseAOpacity = interpolateDeepBreath([0.18, 0.45]);
-  const deepPulseAScale = interpolateDeepBreath([0.94, 1.05]);
-  const deepPulseBOpacity = interpolateDeepBreath([0.12, 0.26]);
-  const deepPulseBScale = interpolateDeepBreath([0.94, 1.05]);
-  const deepHaloScale = interpolateDeepBreath([0.98, 1.02]);
+  const deepPulseAOpacity = interpolateDeepBreath([0.2, 0.55]);
+  const deepPulseAScale = interpolateDeepBreath([0.88, 1.16]);
+  const deepPulseBOpacity = interpolateDeepBreath([0.16, 0.38]);
+  const deepPulseBScale = interpolateDeepBreath([0.92, 1.1]);
+  const deepHaloScale = interpolateDeepBreath([0.96, 1.05]);
   const deepHaloOpacity = interpolateDeepBreath([0.82, 1]);
   const deepSigilTranslateY = interpolateDeepBreath([0, 0]);
-  const deepSigilScale = interpolateDeepBreath([1, 1.035]);
+  const deepSigilScale = interpolateDeepBreath([0.985, 1.07]);
   const deepAuraScale = interpolateDeepBreath([0.9, 1.12]);
-  const deepAuraOpacity = interpolateDeepBreath([0.07, 0.18]);
+  const deepAuraOpacity = interpolateDeepBreath([0.08, 0.24]);
   const deepInnerAuraScale = interpolateDeepBreath([0.92, 1.08]);
-  const deepInnerAuraOpacity = interpolateDeepBreath([0.12, 0.26]);
+  const deepInnerAuraOpacity = interpolateDeepBreath([0.14, 0.34]);
   const deepOuterOrbOpacity = interpolateDeepBreath([0.68, 0.84]);
   const deepInnerOrbOpacity = interpolateDeepBreath([0.64, 0.8]);
 
@@ -2847,7 +2847,7 @@ const styles = StyleSheet.create({
     height: 244,
     borderRadius: 122,
     borderWidth: 1,
-    borderColor: 'rgba(212,175,55,0.22)',
+    borderColor: 'rgba(212,175,55,0.36)',
   },
   deepPulseRingInner: {
     position: 'absolute',
@@ -2855,7 +2855,7 @@ const styles = StyleSheet.create({
     height: 214,
     borderRadius: 107,
     borderWidth: 1,
-    borderColor: 'rgba(212,175,55,0.12)',
+    borderColor: 'rgba(212,175,55,0.24)',
   },
   deepEmberHalo: {
     position: 'absolute',
