@@ -13,6 +13,9 @@ const mockPlaySound = jest.fn();
 const mockHandlePrimeComplete = jest.fn();
 const mockNavigateToPractice = jest.fn();
 const mockNavigateToVaultDestination = jest.fn();
+const mockUpdateAnchor = jest.fn();
+const mockRecordSession = jest.fn();
+const mockQueueProgressionMilestones = jest.fn();
 
 const createMockManagedPlayer = () => ({
   pause: jest.fn(),
@@ -114,9 +117,30 @@ jest.mock('@/hooks/useNotificationController', () => ({
     handlePrimeComplete: mockHandlePrimeComplete,
   }),
 }));
+jest.mock('@/services/AuthService', () => ({
+  AuthService: {
+    getIdToken: jest.fn().mockResolvedValue('mock-jwt-token'),
+  },
+}));
+jest.mock('@/services/BackendAnchorService', () => ({
+  __esModule: true,
+  default: {
+    ensureServerAnchor: jest.fn().mockResolvedValue({ id: 'test-anchor-id' }),
+  },
+  isBackendAnchorId: jest.fn(() => false),
+}));
+jest.mock('@/services/ApiClient', () => ({
+  apiClient: {
+    post: jest.fn().mockResolvedValue({ data: {} }),
+  },
+}));
 jest.mock('@/utils/postPrimeTraceEligibility', () => ({
   isPostPrimeTraceEligible: jest.fn().mockResolvedValue(false),
   markPostPrimeTraceAttemptStarted: jest.fn().mockResolvedValue(undefined),
+}));
+jest.mock('@/utils/progressionMilestones', () => ({
+  queueProgressionMilestonesFromStores: (...args: any[]) =>
+    mockQueueProgressionMilestones(...args),
 }));
 jest.mock('@/navigation/firstAnchorGate', () => ({
   navigateToVaultDestination: (...args: any[]) => mockNavigateToVaultDestination(...args),
@@ -243,6 +267,11 @@ describe('RitualScreen', () => {
     mockHandlePrimeComplete.mockResolvedValue(undefined);
     mockNavigateToPractice.mockReset();
     mockNavigateToVaultDestination.mockReset();
+    mockUpdateAnchor.mockReset();
+    mockUpdateAnchor.mockResolvedValue(undefined);
+    mockRecordSession.mockReset();
+    mockQueueProgressionMilestones.mockReset();
+    mockQueueProgressionMilestones.mockResolvedValue(undefined);
 
     mockAnchor = createMockAnchor({
       id: 'test-anchor-id',
@@ -269,7 +298,7 @@ describe('RitualScreen', () => {
     (useAnchorStore as unknown as jest.Mock).mockImplementation((selector: any) => {
       const state = {
         getAnchorById: jest.fn(() => mockAnchor),
-        updateAnchor: jest.fn(),
+        updateAnchor: mockUpdateAnchor,
       };
       return typeof selector === 'function' ? selector(state) : state;
     });
@@ -281,7 +310,7 @@ describe('RitualScreen', () => {
     });
     (useSessionStore as unknown as jest.Mock).mockImplementation((selector: any) => {
       const state = {
-        recordSession: jest.fn(),
+        recordSession: mockRecordSession,
         bumpThreadStrength: jest.fn(),
       };
       return typeof selector === 'function' ? selector(state) : state;
@@ -352,6 +381,65 @@ describe('RitualScreen', () => {
     );
     expect(mockPrimeDeepeningPlayer.stop).toHaveBeenCalledTimes(1);
     expect(mockPrimeClosingPlayer.play).toHaveBeenCalledTimes(1);
+
+    unmount();
+    dateNowSpy.mockRestore();
+  });
+
+  it('renders the active Deep Prime sigil at the Focus Session hero size', async () => {
+    const { getByText, getByTestId } = render(<RitualScreen />);
+
+    fireEvent.press(getByText(/Begin priming/i));
+
+    await waitFor(() => expect(getByText(/breathwork/i)).toBeTruthy());
+    expect(getByTestId('sigil-svg').props.style).toEqual(
+      expect.objectContaining({
+        width: 280,
+        height: 280,
+      })
+    );
+  });
+
+  it('auto-saves and returns to Practice after the Deep Prime seal hold', async () => {
+    const navigation = require('@react-navigation/native');
+    const now = 1_700_001_000_000;
+    const dateNowSpy = jest.spyOn(Date, 'now').mockReturnValue(now);
+
+    navigation.useRoute.mockReturnValue({
+      params: {
+        anchorId: 'test-anchor-id',
+        ritualType: 'ritual',
+        durationSeconds: 30,
+        returnTo: 'practice',
+      },
+    });
+
+    const { getByText, getByTestId, queryByTestId, unmount } = render(<RitualScreen />);
+
+    fireEvent.press(getByText(/Begin priming/i));
+    dateNowSpy.mockReturnValue(now + 30_500);
+
+    await waitFor(() => expect(getByTestId('deep-prime-seal')).toBeTruthy(), {
+      timeout: 2000,
+    });
+
+    dateNowSpy.mockReturnValue(now + 30_600);
+    fireEvent(getByTestId('deep-prime-seal'), 'pressIn');
+    dateNowSpy.mockReturnValue(now + 33_500);
+
+    await waitFor(() => expect(mockUpdateAnchor).toHaveBeenCalled(), {
+      timeout: 4000,
+    });
+    expect(mockRecordSession).toHaveBeenCalledWith(
+      expect.objectContaining({
+        anchorId: 'test-anchor-id',
+        type: 'reinforce',
+        durationSeconds: 30,
+      })
+    );
+    expect(mockHandlePrimeComplete).toHaveBeenCalled();
+    expect(mockNavigateToPractice).toHaveBeenCalled();
+    expect(queryByTestId('completion-modal-done')).toBeNull();
 
     unmount();
     dateNowSpy.mockRestore();

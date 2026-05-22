@@ -252,7 +252,7 @@ const DeepEmberDot: React.FC<{ particle: EmberParticle; reduceMotionEnabled: boo
 };
 
 export const RitualScreen: React.FC = () => {
-  const { height: screenHeight } = useWindowDimensions();
+  const { width: screenWidth, height: screenHeight } = useWindowDimensions();
   const navigation = useNavigation<RitualNavigationProp>();
   const { navigateToPractice } = useTabNavigation();
   const route = useRoute<RitualRouteProp>();
@@ -294,13 +294,25 @@ export const RitualScreen: React.FC = () => {
   const [sealBreathLabel, setSealBreathLabel] = useState<'Inhale' | 'Exhale'>('Inhale');
   const [showSealContinue, setShowSealContinue] = useState(false);
   const isCompactHeight = screenHeight <= 880;
-  const isVeryCompactHeight = screenHeight <= 760;
-  const deepArtworkFrameSize = isVeryCompactHeight ? 248 : isCompactHeight ? 286 : 340;
-  const deepArtworkScale = deepArtworkFrameSize / 340;
-  const landingArtworkFrameSize = isVeryCompactHeight ? 252 : isCompactHeight ? 288 : 340;
-  const landingArtworkScale = landingArtworkFrameSize / 340;
-  const deepSigilSize = SYMBOL_SIZE / deepArtworkScale;
-  const deepLandingSigilSize = SYMBOL_SIZE / landingArtworkScale;
+  const deepHeroSize = Math.min(Math.round(screenWidth * 0.68), 280);
+  const deepLandingHeroSize = Math.round(deepHeroSize * 0.85);
+  const deepRingRadius = deepHeroSize / 2 + 22;
+  const deepSealSvgSize = deepRingRadius * 2 + RING_STROKE_WIDTH * 4;
+  const deepSealCenter = deepSealSvgSize / 2;
+  const deepSealCircumference = 2 * Math.PI * deepRingRadius;
+  const deepStageSize = deepHeroSize;
+  const deepAuraOuterSize = deepHeroSize * 1.55;
+  const deepAuraInnerSize = deepHeroSize * 1.25;
+  const deepOrbitSolidSize = deepHeroSize * 1.04;
+  const deepOrbitDashOuterSize = deepHeroSize * 1.25;
+  const deepOrbitDotOuterSize = deepHeroSize * 1.4;
+  const deepOrbitDashInnerSize = deepHeroSize * 1.55;
+  const deepOrbRingOuterSize = deepHeroSize * 1.45;
+  const deepOrbRingInnerSize = deepHeroSize * 1.25;
+  const deepOrbScale = deepHeroSize / 240;
+  const deepPulseOuterSize = deepHeroSize * 1.1;
+  const deepPulseInnerSize = deepHeroSize * 0.96;
+  const deepEmberHaloSize = deepHeroSize * 1.02;
 
   useMissingAnchorRedirect(!isAnchorMissing, navigation);
 
@@ -365,6 +377,12 @@ export const RitualScreen: React.FC = () => {
   );
   const deepEmbers = useRef<EmberParticle[]>(makeDeepEmbers(22)).current;
   const sealBreathTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const deepTotalMs = Math.max(1000, Math.round(config.totalDurationSeconds * 1000));
+  const deepTimerIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const deepEndAtMsRef = useRef<number>(Date.now() + deepTotalMs);
+  const deepRemainingMsRef = useRef<number>(deepTotalMs);
+  const [deepRemainingMs, setDeepRemainingMs] = useState(deepTotalMs);
+  const deepSealAutoCompleteStartedRef = useRef(false);
 
   useEffect(() => {
     AccessibilityInfo.isReduceMotionEnabled().then((v) => setReduceMotionEnabled(v));
@@ -393,6 +411,81 @@ export const RitualScreen: React.FC = () => {
     isActive: state.isActive,
     isComplete: state.isComplete,
   });
+
+  const clearDeepTimerInterval = useCallback(() => {
+    if (deepTimerIntervalRef.current) {
+      clearInterval(deepTimerIntervalRef.current);
+      deepTimerIntervalRef.current = null;
+    }
+  }, []);
+
+  const syncDeepRemainingMs = useCallback((remainingMs: number) => {
+    const nextRemainingMs = Math.max(0, remainingMs);
+    deepRemainingMsRef.current = nextRemainingMs;
+    setDeepRemainingMs(nextRemainingMs);
+  }, []);
+
+  const animateDeepProgressToEnd = useCallback((remainingMs: number) => {
+    progressAnim.stopAnimation();
+    if (remainingMs <= 0) {
+      progressAnim.setValue(1);
+      return;
+    }
+
+    Animated.timing(progressAnim, {
+      toValue: 1,
+      duration: remainingMs,
+      easing: Easing.linear,
+      useNativeDriver: false,
+    }).start();
+  }, [progressAnim]);
+
+  const tickDeepTimer = useCallback(() => {
+    const remainingMs = Math.max(0, deepEndAtMsRef.current - Date.now());
+    syncDeepRemainingMs(remainingMs);
+
+    if (remainingMs <= 0) {
+      clearDeepTimerInterval();
+    }
+  }, [clearDeepTimerInterval, syncDeepRemainingMs]);
+
+  const startDeepTimer = useCallback((runningMs: number) => {
+    const nextRunningMs = Math.max(0, runningMs);
+    clearDeepTimerInterval();
+    deepEndAtMsRef.current = Date.now() + nextRunningMs;
+    syncDeepRemainingMs(nextRunningMs);
+    animateDeepProgressToEnd(nextRunningMs);
+    deepTimerIntervalRef.current = setInterval(tickDeepTimer, 250);
+  }, [animateDeepProgressToEnd, clearDeepTimerInterval, syncDeepRemainingMs, tickDeepTimer]);
+
+  const pauseDeepTimer = useCallback(() => {
+    const remainingMs = Math.max(0, deepEndAtMsRef.current - Date.now());
+    clearDeepTimerInterval();
+    progressAnim.stopAnimation();
+    syncDeepRemainingMs(remainingMs);
+  }, [clearDeepTimerInterval, progressAnim, syncDeepRemainingMs]);
+
+  const resumeDeepTimer = useCallback(() => {
+    if (deepRemainingMsRef.current <= 0) {
+      syncDeepRemainingMs(0);
+      progressAnim.setValue(1);
+      return;
+    }
+    startDeepTimer(deepRemainingMsRef.current);
+  }, [progressAnim, startDeepTimer, syncDeepRemainingMs]);
+
+  useEffect(() => {
+    clearDeepTimerInterval();
+    deepEndAtMsRef.current = Date.now() + deepTotalMs;
+    deepRemainingMsRef.current = deepTotalMs;
+    setDeepRemainingMs(deepTotalMs);
+    deepSealAutoCompleteStartedRef.current = false;
+    progressAnim.setValue(0);
+
+    return () => {
+      clearDeepTimerInterval();
+    };
+  }, [clearDeepTimerInterval, deepTotalMs, progressAnim]);
 
   const isArrivePhase =
     arrivePhaseEnabled &&
@@ -508,6 +601,11 @@ export const RitualScreen: React.FC = () => {
 
   const handleBeginPriming = () => {
     setIsLanding(false);
+    if (isDeepRitual) {
+      deepSealAutoCompleteStartedRef.current = false;
+      progressAnim.setValue(0);
+      startDeepTimer(deepTotalMs);
+    }
     actions.start();
   };
 
@@ -561,6 +659,10 @@ export const RitualScreen: React.FC = () => {
   // Fires on lifecycle transitions only (start / pause / resume / complete). The
   // ongoing Animated.timing handles smooth interpolation between integer-second ticks.
   useEffect(() => {
+    if (isDeepRitual) {
+      return;
+    }
+
     const totalDuration = Math.max(1, config.totalDurationSeconds);
 
     if (state.isComplete) {
@@ -608,7 +710,7 @@ export const RitualScreen: React.FC = () => {
     // captured fresh at the transition moment, which is exactly the snapshot we want.
     // Including them in deps would restart the timing animation every second tick.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [state.isActive, state.isComplete, progressAnim]);
+  }, [isDeepRitual, state.isActive, state.isComplete, progressAnim]);
 
 
   useEffect(() => {
@@ -831,6 +933,15 @@ export const RitualScreen: React.FC = () => {
     isCompletingRef.current = true;
 
     try {
+      if (isDeepRitual) {
+        setSealCopyMode('complete');
+        setShowSealContinue(false);
+        sealBreathOpacityAnim.setValue(0);
+        sealCopySwapAnim.setValue(1);
+        sealContinueOpacityAnim.setValue(0);
+        return;
+      }
+
       if (reduceMotionEnabled) {
         setSealCopyMode('complete');
         setShowSealContinue(true);
@@ -939,6 +1050,31 @@ export const RitualScreen: React.FC = () => {
     pendingPostPrimeFlowId,
   ]);
 
+  const exitRitual = useCallback(async () => {
+    exitingRef.current = true;
+    setShowExitWarning(false);
+    clearDeepTimerInterval();
+    await fadeOutDeepPrimeAudio();
+
+    if (returnTo === 'practice') {
+      const nav = navigation as any;
+      if (typeof nav.popToTop === 'function') {
+        nav.popToTop();
+      } else {
+        navigateToVaultDestination(navigation);
+      }
+      navigateToPractice();
+      return;
+    }
+
+    if (returnTo === 'detail') {
+      navigation.navigate('AnchorDetail', { anchorId });
+      return;
+    }
+
+    navigateToVaultDestination(navigation);
+  }, [anchorId, clearDeepTimerInterval, fadeOutDeepPrimeAudio, navigateToPractice, navigation, returnTo]);
+
   const continueFromSeal = useCallback(async () => {
     let chargeType: 'initial_quick' | 'initial_deep' | 'recharge' = 'initial_quick';
 
@@ -1003,6 +1139,20 @@ export const RitualScreen: React.FC = () => {
       return;
     }
 
+    if (isDeepRitual) {
+      recordSession({
+        anchorId,
+        type: 'reinforce',
+        durationSeconds: config.totalDurationSeconds,
+        mode: primeSessionAudio,
+        completedAt: new Date().toISOString(),
+      });
+      await queueProgressionMilestonesFromStores();
+      await handlePrimeComplete();
+      await exitRitual();
+      return;
+    }
+
     if (isFirstPrimeForAnchor) {
       exitingRef.current = true;
       navigation.replace('FirstPrimeComplete', {
@@ -1012,16 +1162,6 @@ export const RitualScreen: React.FC = () => {
         durationSeconds: config.totalDurationSeconds,
         returnTo,
       });
-      return;
-    }
-
-    if (isDeepRitual) {
-      const shouldOfferPostPrimeTrace = await isPostPrimeTraceEligible();
-      if (shouldOfferPostPrimeTrace) {
-        setShowPostPrimeTrace(true);
-      } else {
-        setShowCompletion(true);
-      }
       return;
     }
 
@@ -1037,14 +1177,31 @@ export const RitualScreen: React.FC = () => {
     anchorId,
     config.totalDurationSeconds,
     enqueuePendingFirstAnchorMutation,
+    exitRitual,
+    handlePrimeComplete,
     isDeepRitual,
     isFirstPrimeForAnchor,
     isPendingFirstAnchor,
     navigation,
+    primeSessionAudio,
+    recordSession,
     returnTo,
     ritualType,
     updateAnchor,
   ]);
+
+  useEffect(() => {
+    if (!isDeepRitual || !state.isSealComplete || deepSealAutoCompleteStartedRef.current) {
+      return;
+    }
+
+    deepSealAutoCompleteStartedRef.current = true;
+    const autoCompleteTimeout = setTimeout(() => {
+      void continueFromSeal();
+    }, reduceMotionEnabled ? 0 : 350);
+
+    return () => clearTimeout(autoCompleteTimeout);
+  }, [continueFromSeal, isDeepRitual, reduceMotionEnabled, state.isSealComplete]);
 
   function handleBack() {
     if (state.isSealComplete && !showSealContinue) {
@@ -1056,30 +1213,6 @@ export const RitualScreen: React.FC = () => {
     }
     setShowExitWarning(true);
   }
-
-  const exitRitual = useCallback(async () => {
-    exitingRef.current = true;
-    setShowExitWarning(false);
-    await fadeOutDeepPrimeAudio();
-
-    if (returnTo === 'practice') {
-      const nav = navigation as any;
-      if (typeof nav.popToTop === 'function') {
-        nav.popToTop();
-      } else {
-        navigateToVaultDestination(navigation);
-      }
-      navigateToPractice();
-      return;
-    }
-
-    if (returnTo === 'detail') {
-      navigation.navigate('AnchorDetail', { anchorId });
-      return;
-    }
-
-    navigateToVaultDestination(navigation);
-  }, [fadeOutDeepPrimeAudio, navigateToPractice, navigation, returnTo]);
 
   const handleCompletionDone = useCallback(async (reflectionWord?: string) => {
     setShowCompletion(false);
@@ -1185,7 +1318,7 @@ export const RitualScreen: React.FC = () => {
     ? 0
     : Math.max(0, currentPhaseDuration - state.phaseElapsed);
   const deepPhaseTime = formatMSS(phaseRemaining);
-  const deepTotalTime = formatMSS(state.remainingSeconds);
+  const deepTotalTime = formatMSS(Math.ceil(deepRemainingMs / 1000));
   const deepPauseLabel = state.isActive ? 'Pause' : 'Resume';
   // Pre-compute each phase's [start, end] position within the total progress (0..1).
   // The deep phase bars interpolate their width from progressAnim using these ranges,
@@ -1213,20 +1346,20 @@ export const RitualScreen: React.FC = () => {
     inputRange: [0, 1],
     outputRange: ['0deg', '-360deg'],
   });
-  const deepPulseAOpacity = interpolateDeepBreath([0.08, 0.18, 0.18, 0.08]);
-  const deepPulseAScale = interpolateDeepBreath([1, 1.03, 1.03, 1]);
-  const deepPulseBOpacity = interpolateDeepBreath([0.12, 0.26, 0.26, 0.12]);
-  const deepPulseBScale = interpolateDeepBreath([1, 1.04, 1.04, 1]);
-  const deepHaloScale = interpolateDeepBreath([1, 1.06, 1.06, 1]);
-  const deepHaloOpacity = interpolateDeepBreath([0.84, 1, 1, 0.84]);
-  const deepSigilTranslateY = interpolateDeepBreath([0, 0, 0, 0]);
-  const deepSigilScale = interpolateDeepBreath([1, 1.035, 1.035, 1]);
-  const deepAuraScale = interpolateDeepBreath([0.96, 1.08, 1.08, 0.96]);
-  const deepAuraOpacity = interpolateDeepBreath([0.22, 0.52, 0.52, 0.22]);
-  const deepInnerAuraScale = interpolateDeepBreath([0.98, 1.05, 1.05, 0.98]);
-  const deepInnerAuraOpacity = interpolateDeepBreath([0.12, 0.28, 0.28, 0.12]);
-  const deepOuterOrbOpacity = interpolateDeepBreath([0.68, 0.84, 0.84, 0.68]);
-  const deepInnerOrbOpacity = interpolateDeepBreath([0.64, 0.8, 0.8, 0.64]);
+  const deepPulseAOpacity = interpolateDeepBreath([0.07, 0.18]);
+  const deepPulseAScale = interpolateDeepBreath([0.9, 1.12]);
+  const deepPulseBOpacity = interpolateDeepBreath([0.12, 0.26]);
+  const deepPulseBScale = interpolateDeepBreath([0.92, 1.08]);
+  const deepHaloScale = interpolateDeepBreath([1, 1.035]);
+  const deepHaloOpacity = interpolateDeepBreath([0.82, 1]);
+  const deepSigilTranslateY = interpolateDeepBreath([0, 0]);
+  const deepSigilScale = interpolateDeepBreath([1, 1.035]);
+  const deepAuraScale = interpolateDeepBreath([0.9, 1.12]);
+  const deepAuraOpacity = interpolateDeepBreath([0.07, 0.18]);
+  const deepInnerAuraScale = interpolateDeepBreath([0.92, 1.08]);
+  const deepInnerAuraOpacity = interpolateDeepBreath([0.12, 0.26]);
+  const deepOuterOrbOpacity = interpolateDeepBreath([0.68, 0.84]);
+  const deepInnerOrbOpacity = interpolateDeepBreath([0.64, 0.8]);
 
   useEffect(() => {
     if (!isDeepRitual || !isReady) {
@@ -1374,13 +1507,14 @@ export const RitualScreen: React.FC = () => {
       return;
     }
     if (state.isActive) {
+      pauseDeepTimer();
       actions.pause();
     } else {
+      resumeDeepTimer();
       actions.resume();
     }
   };
 
-  const deepSealCircumference = 2 * Math.PI * 154;
   const deepSealDashoffset = deepSealCircumference * (1 - state.sealProgress);
 
   if (isAnchorMissing) {
@@ -1470,13 +1604,13 @@ export const RitualScreen: React.FC = () => {
                     style={[
                       styles.landingSigilWrapper,
                       isCompactHeight ? styles.landingSigilWrapperCompact : null,
-                      { width: landingArtworkFrameSize, height: landingArtworkFrameSize },
+                      { width: deepLandingHeroSize, height: deepLandingHeroSize },
                     ]}
                   >
                     <View
                       style={[
                         styles.deepArtworkCanvas,
-                        { transform: [{ scale: landingArtworkScale }] },
+                        { width: deepLandingHeroSize, height: deepLandingHeroSize },
                       ]}
                     >
                       <Animated.View style={[styles.deepOrbitSolid, { transform: [{ rotate: deepOrbitRotateA }] }]} />
@@ -1488,9 +1622,9 @@ export const RitualScreen: React.FC = () => {
                         style={[
                           styles.deepSigilContainer,
                           {
-                            width: deepLandingSigilSize,
-                            height: deepLandingSigilSize,
-                            borderRadius: deepLandingSigilSize / 2,
+                            width: deepLandingHeroSize,
+                            height: deepLandingHeroSize,
+                            borderRadius: deepLandingHeroSize / 2,
                             transform: [{ translateY: deepSigilTranslateY }],
                           },
                         ]}
@@ -1524,15 +1658,15 @@ export const RitualScreen: React.FC = () => {
                             style={[
                               styles.symbolImage,
                               {
-                                width: deepLandingSigilSize,
-                                height: deepLandingSigilSize,
-                                borderRadius: deepLandingSigilSize / 2,
+                                width: deepLandingHeroSize,
+                                height: deepLandingHeroSize,
+                                borderRadius: deepLandingHeroSize / 2,
                               },
                             ]}
                             resizeMode="cover"
                           />
                         ) : (
-                          <SigilSvg xml={sigilSvg} width={deepLandingSigilSize} height={deepLandingSigilSize} />
+                          <SigilSvg xml={sigilSvg} width={deepLandingHeroSize} height={deepLandingHeroSize} />
                         )}
                       </Animated.View>
                     </View>
@@ -1673,7 +1807,7 @@ export const RitualScreen: React.FC = () => {
                 style={[
                   styles.deepSymbolWrapper,
                   isCompactHeight ? styles.deepSymbolWrapperCompact : null,
-                  { width: deepArtworkFrameSize, height: deepArtworkFrameSize },
+                  { width: deepStageSize, height: deepStageSize },
                   { opacity: ringOpacityAnim, transform: [{ scale: ringScale }, { scale: pressScaleAnim }] },
                 ]}
               >
@@ -1682,11 +1816,14 @@ export const RitualScreen: React.FC = () => {
                   onPressOut={handleSealPressOut}
                   disabled={!state.isSealPhase || state.isSealComplete}
                   style={styles.deepPressable}
+                  testID={state.isSealPhase ? 'deep-prime-seal' : undefined}
+                  accessibilityRole={state.isSealPhase ? 'button' : undefined}
+                  accessibilityLabel={state.isSealPhase ? 'Seal your anchor' : undefined}
                 >
                   <View
                     style={[
                       styles.deepArtworkCanvas,
-                      { transform: [{ scale: deepArtworkScale }] },
+                      { width: deepStageSize, height: deepStageSize },
                     ]}
                   >
                     <Animated.View
@@ -1694,6 +1831,9 @@ export const RitualScreen: React.FC = () => {
                       style={[
                         styles.deepAuraOuter,
                         {
+                          width: deepAuraOuterSize,
+                          height: deepAuraOuterSize,
+                          borderRadius: deepAuraOuterSize / 2,
                           opacity: deepAuraOpacity,
                           transform: [{ scale: deepAuraScale }],
                         },
@@ -1704,20 +1844,25 @@ export const RitualScreen: React.FC = () => {
                       style={[
                         styles.deepAuraInner,
                         {
+                          width: deepAuraInnerSize,
+                          height: deepAuraInnerSize,
+                          borderRadius: deepAuraInnerSize / 2,
                           opacity: deepInnerAuraOpacity,
                           transform: [{ scale: deepInnerAuraScale }],
                         },
                       ]}
                     />
-                    <Animated.View style={[styles.deepOrbitSolid, { transform: [{ rotate: deepOrbitRotateA }] }]} />
-                    <Animated.View style={[styles.deepOrbitDashOuter, { transform: [{ rotate: deepOrbitRotateB }] }]} />
-                    <Animated.View style={[styles.deepOrbitDotOuter, { transform: [{ rotate: deepOrbitRotateA }] }]} />
-                    <Animated.View style={[styles.deepOrbitDashInner, { transform: [{ rotate: deepOrbitRotateB }] }]} />
+                    <Animated.View style={[styles.deepOrbitSolid, { width: deepOrbitSolidSize, height: deepOrbitSolidSize, borderRadius: deepOrbitSolidSize / 2, transform: [{ rotate: deepOrbitRotateA }] }]} />
+                    <Animated.View style={[styles.deepOrbitDashOuter, { width: deepOrbitDashOuterSize, height: deepOrbitDashOuterSize, borderRadius: deepOrbitDashOuterSize / 2, transform: [{ rotate: deepOrbitRotateB }] }]} />
+                    <Animated.View style={[styles.deepOrbitDotOuter, { width: deepOrbitDotOuterSize, height: deepOrbitDotOuterSize, borderRadius: deepOrbitDotOuterSize / 2, transform: [{ rotate: deepOrbitRotateA }] }]} />
+                    <Animated.View style={[styles.deepOrbitDashInner, { width: deepOrbitDashInnerSize, height: deepOrbitDashInnerSize, borderRadius: deepOrbitDashInnerSize / 2, transform: [{ rotate: deepOrbitRotateB }] }]} />
 
                     <Animated.View
                       style={[
                         styles.deepOrbRingOuter,
                         {
+                          width: deepOrbRingOuterSize,
+                          height: deepOrbRingOuterSize,
                           opacity: deepOuterOrbOpacity,
                           transform: [{ rotate: deepOrbitRotateA }],
                         },
@@ -1729,13 +1874,13 @@ export const RitualScreen: React.FC = () => {
                           style={[
                             styles.deepOrbDotOuter,
                             {
-                              top: 160 - dot.size / 2,
-                              left: 160 - dot.size / 2,
+                              left: deepOrbRingOuterSize / 2 - dot.size / 2,
+                              top: deepOrbRingOuterSize / 2 - dot.size / 2,
                               width: dot.size,
                               height: dot.size,
                               borderRadius: dot.size / 2,
                               opacity: Math.min(1, dot.opacity),
-                              transform: [{ translateX: dot.x }, { translateY: dot.y }],
+                              transform: [{ translateX: dot.x * deepOrbScale }, { translateY: dot.y * deepOrbScale }],
                             },
                           ]}
                         />
@@ -1745,6 +1890,8 @@ export const RitualScreen: React.FC = () => {
                       style={[
                         styles.deepOrbRingInner,
                         {
+                          width: deepOrbRingInnerSize,
+                          height: deepOrbRingInnerSize,
                           opacity: deepInnerOrbOpacity,
                           transform: [{ rotate: deepOrbitRotateB }],
                         },
@@ -1756,13 +1903,13 @@ export const RitualScreen: React.FC = () => {
                           style={[
                             styles.deepOrbDotInner,
                             {
-                              top: 140 - dot.size / 2,
-                              left: 140 - dot.size / 2,
+                              top: deepOrbRingInnerSize / 2 - dot.size / 2,
+                              left: deepOrbRingInnerSize / 2 - dot.size / 2,
                               width: dot.size,
                               height: dot.size,
                               borderRadius: dot.size / 2,
                               opacity: Math.min(1, dot.opacity),
-                              transform: [{ translateX: dot.x }, { translateY: dot.y }],
+                              transform: [{ translateX: dot.x * deepOrbScale }, { translateY: dot.y * deepOrbScale }],
                             },
                           ]}
                         />
@@ -1773,6 +1920,9 @@ export const RitualScreen: React.FC = () => {
                       style={[
                         styles.deepPulseRingOuter,
                         {
+                          width: deepPulseOuterSize,
+                          height: deepPulseOuterSize,
+                          borderRadius: deepPulseOuterSize / 2,
                           opacity: deepPulseAOpacity,
                           transform: [{ scale: deepPulseAScale }],
                         },
@@ -1782,6 +1932,9 @@ export const RitualScreen: React.FC = () => {
                       style={[
                         styles.deepPulseRingInner,
                         {
+                          width: deepPulseInnerSize,
+                          height: deepPulseInnerSize,
+                          borderRadius: deepPulseInnerSize / 2,
                           opacity: deepPulseBOpacity,
                           transform: [{ scale: deepPulseBScale }],
                         },
@@ -1791,15 +1944,18 @@ export const RitualScreen: React.FC = () => {
                       style={[
                         styles.deepEmberHalo,
                         {
+                          width: deepEmberHaloSize,
+                          height: deepEmberHaloSize,
+                          borderRadius: deepEmberHaloSize / 2,
                           opacity: deepHaloOpacity,
                           transform: [{ scale: deepHaloScale }],
                         },
                       ]}
                     />
 
-                    <View style={styles.premiumGlowLayer}>
+                    <View style={[styles.premiumGlowLayer, { width: deepHeroSize * 1.72, height: deepHeroSize * 1.72 }]}>
                       <PremiumAnchorGlow
-                        size={SYMBOL_SIZE}
+                        size={deepHeroSize}
                         state={state.isSealPhase ? 'charged' : 'active'}
                         variant="ritual"
                         reduceMotionEnabled={reduceMotionEnabled}
@@ -1807,26 +1963,26 @@ export const RitualScreen: React.FC = () => {
                     </View>
 
                     {state.isSealPhase ? (
-                      <Svg width={340} height={340} style={styles.deepSealRingSvg}>
+                      <Svg width={deepSealSvgSize} height={deepSealSvgSize} style={styles.deepSealRingSvg}>
                         <Circle
-                          cx={170}
-                          cy={170}
-                          r={154}
+                          cx={deepSealCenter}
+                          cy={deepSealCenter}
+                          r={deepRingRadius}
                           fill="none"
                           stroke="rgba(212,175,55,0.12)"
                           strokeWidth={2}
                         />
                         <Circle
-                          cx={170}
-                          cy={170}
-                          r={154}
+                          cx={deepSealCenter}
+                          cy={deepSealCenter}
+                          r={deepRingRadius}
                           fill="none"
                           stroke="#D4AF37"
                           strokeWidth={2.5}
                           strokeLinecap="round"
                           strokeDasharray={deepSealCircumference}
                           strokeDashoffset={deepSealDashoffset}
-                          transform="rotate(-90 170 170)"
+                          transform={`rotate(-90 ${deepSealCenter} ${deepSealCenter})`}
                         />
                       </Svg>
                     ) : null}
@@ -1835,9 +1991,9 @@ export const RitualScreen: React.FC = () => {
                       style={[
                         styles.deepSigilContainer,
                         {
-                          width: deepSigilSize,
-                          height: deepSigilSize,
-                          borderRadius: deepSigilSize / 2,
+                          width: deepHeroSize,
+                          height: deepHeroSize,
+                          borderRadius: deepHeroSize / 2,
                           transform: [{ translateY: deepSigilTranslateY }, { scale: deepSigilScale }],
                         },
                       ]}
@@ -1850,19 +2006,22 @@ export const RitualScreen: React.FC = () => {
                       />
                       {!anchor.enhancedImageUrl ? (
                         <View pointerEvents="none" style={styles.deepSigilEtchLayer}>
-                          {[30, 48, 66, 84].map((ringSize) => (
-                            <View
-                              key={`etch-ring-${ringSize}`}
-                              style={[
-                                styles.deepSigilEtchRing,
-                                {
-                                  width: ringSize * 2,
-                                  height: ringSize * 2,
-                                  borderRadius: ringSize,
-                                },
-                              ]}
-                            />
-                          ))}
+                          {[0.25, 0.4, 0.55, 0.7].map((ringScaleValue) => {
+                            const ringSize = deepHeroSize * ringScaleValue;
+                            return (
+                              <View
+                                key={`etch-ring-${ringScaleValue}`}
+                                style={[
+                                  styles.deepSigilEtchRing,
+                                  {
+                                    width: ringSize,
+                                    height: ringSize,
+                                    borderRadius: ringSize / 2,
+                                  },
+                                ]}
+                              />
+                            );
+                          })}
                         </View>
                       ) : null}
                       {anchor.enhancedImageUrl ? (
@@ -1871,15 +2030,15 @@ export const RitualScreen: React.FC = () => {
                           style={[
                             styles.symbolImage,
                             {
-                              width: deepSigilSize,
-                              height: deepSigilSize,
-                              borderRadius: deepSigilSize / 2,
+                              width: deepHeroSize,
+                              height: deepHeroSize,
+                              borderRadius: deepHeroSize / 2,
                             },
                           ]}
                           resizeMode="cover"
                         />
                       ) : (
-                        <SigilSvg xml={sigilSvg} width={deepSigilSize} height={deepSigilSize} />
+                        <SigilSvg xml={sigilSvg} width={deepHeroSize} height={deepHeroSize} />
                       )}
                     </Animated.View>
                   </View>
