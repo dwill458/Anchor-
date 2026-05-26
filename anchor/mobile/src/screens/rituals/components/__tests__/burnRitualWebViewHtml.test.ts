@@ -24,4 +24,8 @@ describe('burnRitualWebViewHtml', () => {
     expect(burnRitualWebViewHtml).toContain('object-fit: cover');
     expect(burnRitualWebViewHtml).toContain('border-radius: 50%');
   });
+
+  it('does not reference cleartext http assets', () => {
+    expect(burnRitualWebViewHtml).not.toContain('http://');
+  });
 });

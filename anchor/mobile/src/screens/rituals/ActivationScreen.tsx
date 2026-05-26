@@ -7,7 +7,7 @@
  */
 
 import React, { useState, useMemo, useCallback, useEffect } from 'react';
-import { View, Text, StyleSheet, InteractionManager } from 'react-native';
+import { BackHandler, View, Text, StyleSheet, InteractionManager } from 'react-native';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { useTabNavigation } from '@/contexts/TabNavigationContext';
 import { useAnchorStore } from '../../stores/anchorStore';
@@ -399,6 +399,24 @@ export const ActivationScreen: React.FC = () => {
 
     return unsubscribe;
   }, [handleComplete, navigation, promptExitSession]);
+
+  useEffect(() => {
+    const hardwareBackSubscription = BackHandler.addEventListener('hardwareBackPress', () => {
+      if (exitingRef.current) {
+        return false;
+      }
+      if (sessionCompletedRef.current) {
+        handleComplete();
+        return true;
+      }
+      promptExitSession();
+      return true;
+    });
+
+    return () => {
+      hardwareBackSubscription.remove();
+    };
+  }, [handleComplete, promptExitSession]);
 
   const handleCompletionDone = useCallback(async (reflectionWord?: string) => {
     setShowCompletion(false);

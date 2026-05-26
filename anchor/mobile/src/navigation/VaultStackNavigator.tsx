@@ -6,6 +6,7 @@
 
 import React from 'react';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
+import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { VaultScreen, AnchorDetailScreen } from '../screens/vault';
 import {
   IntentionInputScreen,
@@ -65,35 +66,36 @@ export const VaultStackNavigator: React.FC<VaultStackNavigatorProps> = ({ onRout
   }, [setShouldRedirectToCreation, shouldRedirectToCreation]);
 
   return (
-    <Stack.Navigator
-      initialRouteName={initialRouteName}
-      screenListeners={{
-        state: (event) => {
-          const state = event.data.state as {
-            index: number;
-            routes: Array<{ name: string }>;
-          } | undefined;
-          const routeName = state?.routes?.[state.index]?.name;
-          if (routeName) onRouteChange?.(routeName);
-        },
-      }}
-      screenOptions={{
-        headerShown: true,
-        animation: 'slide_from_right',
-        gestureEnabled: true,
-        gestureDirection: 'horizontal',
-        headerStyle: {
-          backgroundColor: '#080C10',
-        },
-        headerTintColor: colors.gold,
-        headerTitleStyle: {
-          fontFamily: 'Cinzel-Regular',
-          fontSize: 15,
-        },
-        headerShadowVisible: false,
-        contentStyle: { backgroundColor: colors.background.primary },
-      }}
-    >
+    <ErrorBoundary>
+      <Stack.Navigator
+        initialRouteName={initialRouteName}
+        screenListeners={{
+          state: (event) => {
+            const state = event.data.state as {
+              index: number;
+              routes: Array<{ name: string }>;
+            } | undefined;
+            const routeName = state?.routes?.[state.index]?.name;
+            if (routeName) onRouteChange?.(routeName);
+          },
+        }}
+        screenOptions={{
+          headerShown: true,
+          animation: 'slide_from_right',
+          gestureEnabled: true,
+          gestureDirection: 'horizontal',
+          headerStyle: {
+            backgroundColor: '#080C10',
+          },
+          headerTintColor: colors.gold,
+          headerTitleStyle: {
+            fontFamily: 'Cinzel-Regular',
+            fontSize: 15,
+          },
+          headerShadowVisible: false,
+          contentStyle: { backgroundColor: colors.background.primary },
+        }}
+      >
       <Stack.Screen
         name="Vault"
         component={VaultScreen}
@@ -257,11 +259,12 @@ export const VaultStackNavigator: React.FC<VaultStackNavigatorProps> = ({ onRout
         component={ConfirmBurnScreen}
         options={{ title: 'Burn & Release', headerShown: false, animation: 'fade_from_bottom' }}
       />
-      <Stack.Screen
-        name="BurningRitual"
-        component={BurningRitualScreen}
-        options={{ title: 'Releasing...', headerShown: false, animation: 'fade_from_bottom' }}
-      />
-    </Stack.Navigator>
+        <Stack.Screen
+          name="BurningRitual"
+          component={BurningRitualScreen}
+          options={{ title: 'Releasing...', headerShown: false, animation: 'fade_from_bottom' }}
+        />
+      </Stack.Navigator>
+    </ErrorBoundary>
   );
 };
