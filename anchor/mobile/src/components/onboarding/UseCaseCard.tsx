@@ -47,9 +47,9 @@ const ICON_SVGS: Record<UseCaseItem['iconType'], string> = {
 
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 const ANCHOR_IMAGES: Record<UseCaseItem['iconType'], number> = {
-  code: require('../../../assets/onboarding anchor.png') as number,
-  lift: require('../../../assets/physical anchor onboarding.png') as number,
-  pitch: require('../../../assets/high stakes onboarding anchor.png') as number,
+  code: require('../../../assets/onboarding anchor.webp') as number,
+  lift: require('../../../assets/physical anchor onboarding.webp') as number,
+  pitch: require('../../../assets/high stakes onboarding anchor.webp') as number,
 };
 
 /**

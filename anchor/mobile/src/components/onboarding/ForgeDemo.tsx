@@ -8,7 +8,7 @@ import {
   StyleSheet,
 } from 'react-native';
 
-const forgeRevealAsset = require('../../../assets/onboarding anchor.png') as number;
+const forgeRevealAsset = require('../../../assets/onboarding anchor.webp') as number;
 
 interface ForgeDemoProps {
   isActive: boolean;

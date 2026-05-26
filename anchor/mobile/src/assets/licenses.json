@@ -1,0 +1,314 @@
+{
+    "@expo-google-fonts/cinzel@0.4.2": {
+        "licenses": "MIT AND OFL-1.1",
+        "repository": "https://github.com/expo/google-fonts",
+        "licenseUrl": "https://github.com/expo/google-fonts/raw/master/LICENSE",
+        "parents": "anchor-v2"
+    },
+    "@expo-google-fonts/crimson-pro@0.4.2": {
+        "licenses": "MIT AND OFL-1.1",
+        "repository": "https://github.com/expo/google-fonts",
+        "licenseUrl": "https://github.com/expo/google-fonts/raw/master/LICENSE",
+        "parents": "anchor-v2"
+    },
+    "@expo-google-fonts/inter@0.4.2": {
+        "licenses": "MIT AND OFL-1.1",
+        "repository": "https://github.com/expo/google-fonts",
+        "licenseUrl": "https://github.com/expo/google-fonts/raw/master/LICENSE",
+        "parents": "anchor-v2"
+    },
+    "@expo/metro-runtime@6.1.2": {
+        "licenses": "MIT",
+        "repository": "https://github.com/expo/expo",
+        "licenseUrl": "https://github.com/expo/expo",
+        "parents": "anchor-v2"
+    },
+    "@react-native-async-storage/async-storage@2.2.0": {
+        "licenses": "MIT",
+        "repository": "https://github.com/react-native-async-storage/async-storage",
+        "licenseUrl": "https://github.com/react-native-async-storage/async-storage/raw/master/LICENSE",
+        "parents": "anchor-v2"
+    },
+    "@react-native-community/datetimepicker@8.4.4": {
+        "licenses": "MIT",
+        "repository": "https://github.com/react-native-community/datetimepicker",
+        "licenseUrl": "https://github.com/react-native-community/datetimepicker/raw/master/LICENSE.md",
+        "parents": "anchor-v2"
+    },
+    "@react-native-community/slider@5.0.1": {
+        "licenses": "MIT",
+        "repository": "https://github.com/callstack/react-native-slider",
+        "licenseUrl": "https://github.com/callstack/react-native-slider",
+        "parents": "anchor-v2"
+    },
+    "@react-native-firebase/app@24.0.0": {
+        "licenses": "Apache-2.0",
+        "repository": "https://github.com/invertase/react-native-firebase/tree/main/packages/app",
+        "licenseUrl": "https://github.com/invertase/react-native-firebase/tree/main/packages/app/raw/master/LICENSE",
+        "parents": "anchor-v2"
+    },
+    "@react-native-firebase/auth@24.0.0": {
+        "licenses": "Apache-2.0",
+        "repository": "https://github.com/invertase/react-native-firebase/tree/main/packages/auth",
+        "licenseUrl": "https://github.com/invertase/react-native-firebase/tree/main/packages/auth/raw/master/LICENSE",
+        "parents": "anchor-v2"
+    },
+    "@react-native-google-signin/google-signin@16.1.2": {
+        "licenses": "MIT",
+        "repository": "https://github.com/react-native-google-signin/google-signin",
+        "licenseUrl": "https://github.com/react-native-google-signin/google-signin/raw/master/LICENSE",
+        "parents": "anchor-v2"
+    },
+    "@react-navigation/bottom-tabs@6.6.1": {
+        "licenses": "MIT",
+        "repository": "https://github.com/react-navigation/react-navigation",
+        "licenseUrl": "https://github.com/react-navigation/react-navigation/raw/master/LICENSE",
+        "parents": "anchor-v2"
+    },
+    "@react-navigation/native-stack@6.11.0": {
+        "licenses": "MIT",
+        "repository": "https://github.com/react-navigation/react-navigation",
+        "licenseUrl": "https://github.com/react-navigation/react-navigation/raw/master/LICENSE",
+        "parents": "anchor-v2"
+    },
+    "@react-navigation/native@6.1.18": {
+        "licenses": "MIT",
+        "repository": "https://github.com/react-navigation/react-navigation",
+        "licenseUrl": "https://github.com/react-navigation/react-navigation/raw/master/LICENSE",
+        "parents": "anchor-v2"
+    },
+    "@react-navigation/stack@6.4.1": {
+        "licenses": "MIT",
+        "repository": "https://github.com/react-navigation/react-navigation",
+        "licenseUrl": "https://github.com/react-navigation/react-navigation/raw/master/LICENSE",
+        "parents": "anchor-v2"
+    },
+    "@sentry/react-native@7.2.0": {
+        "licenses": "MIT",
+        "repository": "https://github.com/getsentry/sentry-react-native",
+        "licenseUrl": "https://github.com/getsentry/sentry-react-native/raw/master/LICENSE.md",
+        "parents": "anchor-v2"
+    },
+    "@shopify/react-native-skia@2.2.12": {
+        "licenses": "MIT",
+        "repository": "https://github.com/Shopify/react-native-skia",
+        "licenseUrl": "https://github.com/Shopify/react-native-skia/raw/master/LICENSE.md",
+        "parents": "anchor-v2"
+    },
+    "axios@1.16.0": {
+        "licenses": "MIT",
+        "repository": "https://github.com/axios/axios",
+        "licenseUrl": "https://github.com/axios/axios/raw/master/LICENSE",
+        "parents": "anchor-v2"
+    },
+    "date-fns@3.6.0": {
+        "licenses": "MIT",
+        "repository": "https://github.com/date-fns/date-fns",
+        "licenseUrl": "https://github.com/date-fns/date-fns/raw/master/LICENSE.md",
+        "parents": "anchor-v2"
+    },
+    "expo-apple-authentication@8.0.8": {
+        "licenses": "MIT",
+        "repository": "https://github.com/expo/expo",
+        "licenseUrl": "https://github.com/expo/expo",
+        "parents": "anchor-v2"
+    },
+    "expo-asset@12.0.13": {
+        "licenses": "MIT",
+        "repository": "https://github.com/expo/expo",
+        "licenseUrl": "https://github.com/expo/expo",
+        "parents": "anchor-v2"
+    },
+    "expo-audio@1.1.1": {
+        "licenses": "MIT",
+        "repository": "https://github.com/expo/expo",
+        "licenseUrl": "https://github.com/expo/expo",
+        "parents": "anchor-v2"
+    },
+    "expo-battery@10.0.8": {
+        "licenses": "MIT",
+        "repository": "https://github.com/expo/expo",
+        "licenseUrl": "https://github.com/expo/expo",
+        "parents": "anchor-v2"
+    },
+    "expo-blur@15.0.8": {
+        "licenses": "MIT",
+        "repository": "https://github.com/expo/expo",
+        "licenseUrl": "https://github.com/expo/expo",
+        "parents": "anchor-v2"
+    },
+    "expo-dev-client@6.0.21": {
+        "licenses": "MIT",
+        "repository": "https://github.com/expo/expo",
+        "licenseUrl": "https://github.com/expo/expo",
+        "parents": "anchor-v2"
+    },
+    "expo-device@8.0.10": {
+        "licenses": "MIT",
+        "repository": "https://github.com/expo/expo",
+        "licenseUrl": "https://github.com/expo/expo",
+        "parents": "anchor-v2"
+    },
+    "expo-haptics@15.0.8": {
+        "licenses": "MIT",
+        "repository": "https://github.com/expo/expo",
+        "licenseUrl": "https://github.com/expo/expo",
+        "parents": "anchor-v2"
+    },
+    "expo-image-picker@17.0.11": {
+        "licenses": "MIT",
+        "repository": "https://github.com/expo/expo",
+        "licenseUrl": "https://github.com/expo/expo",
+        "parents": "anchor-v2"
+    },
+    "expo-linear-gradient@15.0.8": {
+        "licenses": "MIT",
+        "repository": "https://github.com/expo/expo",
+        "licenseUrl": "https://github.com/expo/expo",
+        "parents": "anchor-v2"
+    },
+    "expo-local-authentication@17.0.8": {
+        "licenses": "MIT",
+        "repository": "https://github.com/expo/expo",
+        "licenseUrl": "https://github.com/expo/expo",
+        "parents": "anchor-v2"
+    },
+    "expo-media-library@18.2.1": {
+        "licenses": "MIT",
+        "repository": "https://github.com/expo/expo",
+        "licenseUrl": "https://github.com/expo/expo",
+        "parents": "anchor-v2"
+    },
+    "expo-notifications@0.32.17": {
+        "licenses": "MIT",
+        "repository": "https://github.com/expo/expo",
+        "licenseUrl": "https://github.com/expo/expo",
+        "parents": "anchor-v2"
+    },
+    "expo-secure-store@15.0.8": {
+        "licenses": "MIT",
+        "repository": "https://github.com/expo/expo",
+        "licenseUrl": "https://github.com/expo/expo",
+        "parents": "anchor-v2"
+    },
+    "expo-sharing@14.0.8": {
+        "licenses": "MIT",
+        "repository": "https://github.com/expo/expo",
+        "licenseUrl": "https://github.com/expo/expo",
+        "parents": "anchor-v2"
+    },
+    "expo-speech@14.0.8": {
+        "licenses": "MIT",
+        "repository": "https://github.com/expo/expo",
+        "licenseUrl": "https://github.com/expo/expo",
+        "parents": "anchor-v2"
+    },
+    "expo-status-bar@3.0.9": {
+        "licenses": "MIT",
+        "repository": "https://github.com/expo/expo",
+        "licenseUrl": "https://github.com/expo/expo",
+        "parents": "anchor-v2"
+    },
+    "expo-updates@29.0.17": {
+        "licenses": "MIT",
+        "repository": "https://github.com/expo/expo",
+        "licenseUrl": "https://github.com/expo/expo",
+        "parents": "anchor-v2"
+    },
+    "expo@54.0.34": {
+        "licenses": "MIT",
+        "repository": "https://github.com/expo/expo",
+        "licenseUrl": "https://github.com/expo/expo",
+        "parents": "anchor-v2"
+    },
+    "lucide-react-native@0.562.0": {
+        "licenses": "ISC",
+        "repository": "https://github.com/lucide-icons/lucide",
+        "licenseUrl": "https://github.com/lucide-icons/lucide/raw/master/LICENSE",
+        "parents": "anchor-v2"
+    },
+    "promise@8.3.0": {
+        "licenses": "MIT",
+        "repository": "https://github.com/then/promise",
+        "licenseUrl": "https://github.com/then/promise/raw/master/LICENSE",
+        "parents": "anchor-v2"
+    },
+    "react-dom@19.1.0": {
+        "licenses": "MIT",
+        "repository": "https://github.com/facebook/react",
+        "licenseUrl": "https://github.com/facebook/react/raw/master/LICENSE",
+        "parents": "anchor-v2"
+    },
+    "react-native-gesture-handler@2.28.0": {
+        "licenses": "MIT",
+        "repository": "https://github.com/software-mansion/react-native-gesture-handler",
+        "licenseUrl": "https://github.com/software-mansion/react-native-gesture-handler/raw/master/LICENSE",
+        "parents": "anchor-v2"
+    },
+    "react-native-purchases@9.15.2": {
+        "licenses": "MIT",
+        "repository": "https://github.com/revenuecat/react-native-purchases",
+        "licenseUrl": "https://github.com/revenuecat/react-native-purchases/raw/master/LICENSE",
+        "parents": "anchor-v2"
+    },
+    "react-native-reanimated@4.1.6": {
+        "licenses": "MIT",
+        "repository": "https://github.com/software-mansion/react-native-reanimated",
+        "licenseUrl": "https://github.com/software-mansion/react-native-reanimated/raw/master/LICENSE",
+        "parents": "anchor-v2"
+    },
+    "react-native-safe-area-context@5.6.2": {
+        "licenses": "MIT",
+        "repository": "https://github.com/AppAndFlow/react-native-safe-area-context",
+        "licenseUrl": "https://github.com/AppAndFlow/react-native-safe-area-context/raw/master/LICENSE",
+        "parents": "anchor-v2"
+    },
+    "react-native-screens@4.16.0": {
+        "licenses": "MIT",
+        "repository": "https://github.com/software-mansion/react-native-screens",
+        "licenseUrl": "https://github.com/software-mansion/react-native-screens/raw/master/LICENSE",
+        "parents": "anchor-v2"
+    },
+    "react-native-svg@15.12.1": {
+        "licenses": "MIT",
+        "repository": "https://github.com/react-native-community/react-native-svg",
+        "licenseUrl": "https://github.com/react-native-community/react-native-svg/raw/master/LICENSE",
+        "parents": "anchor-v2"
+    },
+    "react-native-view-shot@4.0.3": {
+        "licenses": "MIT",
+        "repository": "https://github.com/gre/react-native-view-shot",
+        "licenseUrl": "https://github.com/gre/react-native-view-shot/raw/master/LICENSE",
+        "parents": "anchor-v2"
+    },
+    "react-native-webview@13.15.0": {
+        "licenses": "MIT",
+        "repository": "https://github.com/react-native-webview/react-native-webview",
+        "licenseUrl": "https://github.com/react-native-webview/react-native-webview/raw/master/LICENSE",
+        "parents": "anchor-v2"
+    },
+    "react-native-worklets@0.5.1": {
+        "licenses": "MIT",
+        "repository": "https://github.com/software-mansion/react-native-reanimated",
+        "licenseUrl": "https://github.com/software-mansion/react-native-reanimated/raw/master/LICENSE",
+        "parents": "anchor-v2"
+    },
+    "react-native@0.81.5": {
+        "licenses": "MIT",
+        "repository": "https://github.com/facebook/react-native",
+        "licenseUrl": "https://github.com/facebook/react-native/raw/master/LICENSE",
+        "parents": "anchor-v2"
+    },
+    "react@19.1.0": {
+        "licenses": "MIT",
+        "repository": "https://github.com/facebook/react",
+        "licenseUrl": "https://github.com/facebook/react/raw/master/LICENSE",
+        "parents": "anchor-v2"
+    },
+    "zustand@4.5.7": {
+        "licenses": "MIT",
+        "repository": "https://github.com/pmndrs/zustand",
+        "licenseUrl": "https://github.com/pmndrs/zustand/raw/master/LICENSE",
+        "parents": "anchor-v2"
+    }
+}

@@ -723,6 +723,7 @@ export const SettingsScreen: React.FC = () => {
                 <CardWrapper {...cardProps} style={styles.section}>
                   <SettingItem label="App Version" value="1.0.0" showChevron={false} />
                   <SettingItem label="Contact Support" onPress={handleContactSupport} />
+                  <SettingItem label="Open Source Licenses" onPress={() => navigation.navigate('Licenses')} />
                 </CardWrapper>
               </Animated.View>
 

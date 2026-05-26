@@ -59,6 +59,7 @@ import { ConfirmUnchargedBurnSheet } from '@/components/modals/ConfirmUnchargedB
 import { ConfirmDeleteAnchorSheet } from '@/components/modals/ConfirmDeleteAnchorSheet';
 import ShareCardRenderer from '@/components/ShareCardRenderer';
 import { useShareCard } from '@/hooks/useShareCard';
+import { logger } from '@/utils/logger';
 
 const { width: SCREEN_W } = Dimensions.get('window');
 const SIGIL_CIRCLE_SIZE = Math.round(SCREEN_W * 0.62);
@@ -1598,7 +1599,7 @@ const AnchorDetailsScreen = ({ navigation, route }) => {
         sigilUri={anchor.sigilUri}
         intention={anchor.intention}
         onExportComplete={(uri) => {
-          if (__DEV__) console.log('Anchor exported:', uri);
+          logger.info('[AnchorDetail] Anchor exported', { uri });
         }}
       />
     </View>

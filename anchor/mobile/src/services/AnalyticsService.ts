@@ -37,6 +37,8 @@ export interface UserProperties {
  * AnalyticsService.screen('VaultScreen');
  * ```
  */
+import { logger } from '@/utils/logger';
+
 class Analytics {
   private enabled: boolean = true;
   private userId: string | null = null;
@@ -48,9 +50,7 @@ class Analytics {
   initialize(config?: { enabled?: boolean }): void {
     this.enabled = config?.enabled ?? true;
 
-    if (__DEV__) {
-      console.log('[Analytics] Initialized', { enabled: this.enabled });
-    }
+    logger.info('[Analytics] Initialized', { enabled: this.enabled });
 
     // INTEGRATION: Wire your analytics provider here before shipping.
     // Example: Mixpanel.init(process.env.EXPO_PUBLIC_MIXPANEL_TOKEN);
@@ -66,9 +66,7 @@ class Analytics {
     this.userId = userId;
     this.userProperties = { ...this.userProperties, ...properties };
 
-    if (__DEV__) {
-      console.log('[Analytics] Identify', { userId, properties });
-    }
+    logger.info('[Analytics] Identify', { userId, properties });
 
     // INTEGRATION: Identify user in your analytics provider.
     // Example: Mixpanel.identify(userId);
@@ -91,9 +89,7 @@ class Analytics {
       timestamp: new Date(),
     };
 
-    if (__DEV__) {
-      console.log('[Analytics] Track', event);
-    }
+    logger.info('[Analytics] Track', event);
 
     // INTEGRATION: Track event in your analytics provider.
     // Example: Mixpanel.track(eventName, properties);
@@ -118,9 +114,7 @@ class Analytics {
 
     this.userProperties = { ...this.userProperties, ...properties };
 
-    if (__DEV__) {
-      console.log('[Analytics] Set user properties', properties);
-    }
+    logger.info('[Analytics] Set user properties', properties);
 
     // INTEGRATION: Set user properties in your analytics provider.
     // Example: Mixpanel.getPeople().set(properties);
@@ -132,9 +126,7 @@ class Analytics {
   incrementProperty(property: string, value: number = 1): void {
     if (!this.enabled) return;
 
-    if (__DEV__) {
-      console.log('[Analytics] Increment', { property, value });
-    }
+    logger.info('[Analytics] Increment', { property, value });
 
     // INTEGRATION: Increment property in your analytics provider.
     // Example: Mixpanel.getPeople().increment(property, value);
@@ -149,9 +141,7 @@ class Analytics {
     this.userId = null;
     this.userProperties = {};
 
-    if (__DEV__) {
-      console.log('[Analytics] Reset');
-    }
+    logger.info('[Analytics] Reset');
 
     // INTEGRATION: Reset in your analytics provider.
     // Example: Mixpanel.reset();
@@ -163,9 +153,7 @@ class Analytics {
   setEnabled(enabled: boolean): void {
     this.enabled = enabled;
 
-    if (__DEV__) {
-      console.log('[Analytics] Set enabled', enabled);
-    }
+    logger.info('[Analytics] Set enabled', enabled);
   }
 }
 

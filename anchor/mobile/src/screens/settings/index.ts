@@ -4,6 +4,7 @@ export { SessionDefaultsScreen } from './SessionDefaultsScreen';
 export { ThreadStrengthScreen } from './ThreadStrengthScreen';
 export { RestDaysScreen } from './RestDaysScreen';
 export { HapticFeedbackScreen } from './HapticFeedbackScreen';
+export { LicensesScreen } from './LicensesScreen';
 // DEFERRED: replaced by SessionDefaultsScreen.
 // export { PrimingDefaultsScreen } from './PrimingDefaultsScreen';
 // DEFERRED: replaced by SessionDefaultsScreen.

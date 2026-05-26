@@ -18,6 +18,7 @@ import { Package, ExternalLink } from 'lucide-react-native';
 import { ENABLE_MERCH } from '@/config';
 import { colors, spacing, typography } from '@/theme';
 import { get } from '@/services/ApiClient';
+import { logger } from '@/utils/logger';
 import { format } from 'date-fns';
 
 interface Order {
@@ -47,7 +48,7 @@ export const OrderHistory: React.FC = () => {
             const response = await get<{ data: Order[] }>('/api/orders');
             setOrders(response.data);
         } catch (error) {
-            console.error('Failed to fetch orders:', error);
+            logger.error('[OrderHistory] Failed to fetch orders', error);
         } finally {
             setLoading(false);
         }
@@ -70,7 +71,7 @@ export const OrderHistory: React.FC = () => {
 
     const handleTrackingPress = (trackingNumber: string) => {
         // In production, open tracking link
-        console.log('Open tracking:', trackingNumber);
+        logger.info('[OrderHistory] Open tracking', { trackingNumber });
     };
 
     const renderOrder = ({ item }: { item: Order }) => (
