@@ -920,8 +920,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     borderRadius: 14,
     borderWidth: 1,
-    borderColor: 'rgba(212,175,55,0.28)',
-    backgroundColor: 'rgba(212,175,55,0.04)',
+    borderColor: 'rgba(212,175,55,0.34)',
+    backgroundColor: 'rgba(212,175,55,0.06)',
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
@@ -946,7 +946,7 @@ const styles = StyleSheet.create({
     fontFamily: 'Cinzel-SemiBold',
     fontSize: 11.5,
     letterSpacing: 2.5,
-    color: 'rgba(212,175,55,0.82)',
+    color: 'rgba(212,175,55,0.9)',
   },
 });
 

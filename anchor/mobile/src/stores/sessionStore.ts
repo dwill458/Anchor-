@@ -100,6 +100,7 @@ interface SessionState {
     totalActivations: number;
     currentStreak: number;
     anchors: Array<{ lastActivatedAt?: Date }>;
+    primingHistory?: PrimingHistoryEntry[];
   }) => void;
   reset: () => void;
 }
@@ -425,7 +426,7 @@ export const useSessionStore = create<SessionState>()(
         }));
       },
 
-      hydrateFromBackend: ({ totalActivations, currentStreak, anchors }) => {
+      hydrateFromBackend: ({ totalActivations, currentStreak, anchors, primingHistory }) => {
         const { totalSessionsCount } = get();
 
         // Only seed if the local store is empty but the backend has data.
@@ -433,18 +434,25 @@ export const useSessionStore = create<SessionState>()(
 
         const now = new Date();
         const currentWeekKey = isoWeekKey(now);
+        const hydratedPrimingHistory = coercePrimingHistory(primingHistory);
+        const sortedPrimingHistory = hydratedPrimingHistory
+          .slice()
+          .sort(
+            (left, right) =>
+              new Date(right.completedAt).getTime() - new Date(left.completedAt).getTime()
+          );
+        const latestAnchorActivation = anchors.reduce<Date | null>((latest, anchor) => {
+          if (!anchor.lastActivatedAt) return latest;
+          if (!latest || anchor.lastActivatedAt > latest) return anchor.lastActivatedAt;
+          return latest;
+        }, null);
 
-        // Most recent activation across all anchors.
-        let latestActivatedAt: Date | null = null;
-        for (const anchor of anchors) {
-          if (anchor.lastActivatedAt) {
-            if (!latestActivatedAt || anchor.lastActivatedAt > latestActivatedAt) {
-              latestActivatedAt = anchor.lastActivatedAt;
-            }
-          }
-        }
-
-        const lastPrimedAt = latestActivatedAt ? localDateString(latestActivatedAt) : null;
+        const mostRecentEntry = sortedPrimingHistory[0] ?? null;
+        const lastPrimedAt = mostRecentEntry
+          ? localDateString(new Date(mostRecentEntry.completedAt))
+          : latestAnchorActivation
+            ? localDateString(latestAnchorActivation)
+            : null;
 
         // Thread strength proportional to streak. applyDecay will erode it
         // for any missed days since lastPrimedAt.
@@ -453,20 +461,38 @@ export const useSessionStore = create<SessionState>()(
         else if (currentStreak >= 3) threadStrength = 75;
         else if (currentStreak >= 1) threadStrength = 60;
 
-        // Mark days in the current ISO week where an anchor was activated.
+        // Mark days in the current ISO week where a priming session was completed.
         const weekHistory = EMPTY_WEEK_HISTORY();
-        for (const anchor of anchors) {
-          if (anchor.lastActivatedAt && isoWeekKey(anchor.lastActivatedAt) === currentWeekKey) {
-            weekHistory[getIsoWeekdayIndex(anchor.lastActivatedAt)] = true;
+        for (const entry of sortedPrimingHistory) {
+          const completedAt = new Date(entry.completedAt);
+          if (!Number.isNaN(completedAt.getTime()) && isoWeekKey(completedAt) === currentWeekKey) {
+            weekHistory[getIsoWeekdayIndex(completedAt)] = true;
           }
         }
+
+        if (sortedPrimingHistory.length === 0 && latestAnchorActivation && isoWeekKey(latestAnchorActivation) === currentWeekKey) {
+          weekHistory[getIsoWeekdayIndex(latestAnchorActivation)] = true;
+        }
+
+        const sessionLog = sortedPrimingHistory.slice(0, LOG_CAP).map((entry) => ({
+          id: entry.id,
+          anchorId: entry.anchorId,
+          type: entry.type,
+          durationSeconds: entry.type === 'reinforce' ? 120 : 30,
+          mode: 'silent' as const,
+          completedAt: entry.completedAt,
+        }));
 
         set({
           totalSessionsCount: totalActivations,
           lastPrimedAt,
           threadStrength,
+          lastSession: sessionLog[0] ?? null,
+          sessionLog,
           weekHistory,
           weekHistoryKey: currentWeekKey,
+          primingHistory: sortedPrimingHistory,
+          journeyWeekStart: sortedPrimingHistory[sortedPrimingHistory.length - 1]?.weekStart ?? null,
           // Treat decay as applied through lastPrimedAt so applyDecay only
           // charges for missed days after that date.
           lastDecayDate: lastPrimedAt,
