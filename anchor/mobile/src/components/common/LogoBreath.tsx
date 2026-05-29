@@ -81,7 +81,7 @@ export const LogoBreath: React.FC<LogoBreathProps> = ({ onComplete }) => {
             >
                 {/* Official Logo */}
                 <Image
-                    source={require('../../../assets/anchor-logo-official.jpg')}
+                    source={require('../../../assets/anchor-icon.png')}
                     style={styles.logoImage}
                     resizeMode="contain"
                 />

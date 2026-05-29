@@ -7,6 +7,13 @@
 
 import { Anchor } from '@/types';
 import { differenceInDays, differenceInHours, differenceInMinutes, format } from 'date-fns';
+import { isoWeekKey } from '@/utils/primingAnalytics';
+
+interface ActivationRecord {
+  anchorId: string;
+  type: string;
+  completedAt: string;
+}
 
 export type AnchorState = 'dormant' | 'charged' | 'active' | 'stale';
 
@@ -89,19 +96,17 @@ export function getDaysSinceLastActivation(lastActivatedAt: Date | string): numb
 }
 
 /**
- * Estimates activations this week
- * TODO: Replace with actual activation history when available
- * Currently uses simplified logic based on lastActivatedAt
+ * Counts activate/reinforce sessions for this anchor in the current ISO week.
+ * Pass sessionLog from useSessionStore (capped at 50 entries).
  */
-export function getActivationsThisWeek(anchor: Anchor): number {
-  // Placeholder logic - needs full activation history array
-  if (!anchor.lastActivatedAt) return 0;
-
-  const daysSince = getDaysSinceLastActivation(anchor.lastActivatedAt);
-
-  // If activated within the last 7 days, count as 1
-  // In reality, we'd iterate through an activations[] array and count this week's entries
-  return daysSince < 7 ? 1 : 0;
+export function getActivationsThisWeek(anchor: Anchor, sessionLog: ActivationRecord[]): number {
+  const currentWeek = isoWeekKey(new Date());
+  return sessionLog.filter(
+    (entry) =>
+      entry.anchorId === anchor.id &&
+      (entry.type === 'activate' || entry.type === 'reinforce') &&
+      isoWeekKey(new Date(entry.completedAt)) === currentWeek
+  ).length;
 }
 
 /**
