@@ -44,6 +44,30 @@ jest.mock('@/components/ToastProvider', () => ({
   }),
 }));
 
+jest.mock('@/hooks/useNotificationController', () => ({
+  useNotificationController: () => ({
+    handleBurnFlowEntered: jest.fn().mockResolvedValue(undefined),
+    handleSigilVaulted: jest.fn().mockResolvedValue(undefined),
+  }),
+}));
+
+jest.mock('@/utils/progressionMilestones', () => ({
+  queueProgressionMilestonesFromStores: jest.fn().mockResolvedValue(undefined),
+}));
+
+jest.mock('@/stores/teachingStore', () => ({
+  useTeachingStore: jest.fn(() => ({
+    setUserFlag: jest.fn(),
+    queueMilestone: jest.fn(),
+    recordShown: jest.fn(),
+    userFlags: { hasCompletedFirstBurn: false },
+  })),
+}));
+
+jest.mock('@/utils/useTeachingGate', () => ({
+  useTeachingGate: jest.fn(() => null),
+}));
+
 jest.mock('../components/BurnAnimationOverlay', () => {
   const React = require('react');
   const { View, Text, TouchableOpacity } = require('react-native');

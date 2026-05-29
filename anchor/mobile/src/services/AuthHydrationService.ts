@@ -4,6 +4,7 @@ import { useAuthStore } from '@/stores/authStore';
 import { useSessionStore } from '@/stores/sessionStore';
 import type { Anchor, ApiResponse, ProfileData, User } from '@/types';
 import { isBackendAnchorId } from '@/services/BackendAnchorService';
+import { buildPrimingHistoryEntry, type PrimingHistoryEntry } from '@/utils/primingAnalytics';
 
 function normalizeDate(value?: Date | string | null): Date | undefined {
   if (!value) return undefined;
@@ -47,13 +48,44 @@ function normalizeProfileData(profileData: ProfileData): ProfileData {
   };
 }
 
+type ExportActivation = {
+  id: string;
+  anchorId: string;
+  activationType: 'visual' | 'mantra' | 'deep';
+  durationSeconds?: number | null;
+  activatedAt: string;
+};
+
+type AccountExportResponse = {
+  success: boolean;
+  data?: {
+    account?: {
+      activations?: ExportActivation[];
+    };
+  };
+};
+
+function mapExportActivationsToPrimingHistory(activations: ExportActivation[]): PrimingHistoryEntry[] {
+  return activations
+    .map((activation) => {
+      const type = activation.activationType === 'deep' ? 'reinforce' : 'activate';
+      return buildPrimingHistoryEntry({
+        id: activation.id,
+        anchorId: activation.anchorId,
+        type,
+        completedAt: activation.activatedAt,
+      });
+    })
+    .filter((entry): entry is PrimingHistoryEntry => entry !== null);
+}
+
 interface HydrateOptions {
   skipAnchorRefresh?: boolean;
 }
 
 class AuthHydrationService {
   async hydrateAuthenticatedData(options: HydrateOptions = {}): Promise<void> {
-    const [profileData, anchorsResponse] = await Promise.all([
+    const [profileData, anchorsResponse, exportResponse] = await Promise.all([
       fetchCompleteProfile(),
       apiClient.get<ApiResponse<Anchor[]>>('/api/anchors', {
         params: {
@@ -62,12 +94,16 @@ class AuthHydrationService {
           order: 'desc',
         },
       }),
+      apiClient.get<AccountExportResponse>('/api/auth/me/export'),
     ]);
 
     const normalizedProfileData = normalizeProfileData(profileData);
     const remoteAnchors = Array.isArray(anchorsResponse.data?.data)
       ? anchorsResponse.data.data.map(normalizeAnchor)
       : [];
+    const primingHistory = mapExportActivationsToPrimingHistory(
+      exportResponse.data?.data?.account?.activations ?? []
+    );
 
     const authStore = useAuthStore.getState();
     authStore.setUser(normalizedProfileData.user);
@@ -91,6 +127,7 @@ class AuthHydrationService {
       totalActivations: normalizedProfileData.user.totalActivations,
       currentStreak: normalizedProfileData.user.currentStreak,
       anchors: remoteAnchors,
+      primingHistory,
     });
 
     useAuthStore.getState().computeStreak();
