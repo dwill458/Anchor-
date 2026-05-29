@@ -332,7 +332,7 @@ describe('AnchorDetailScreen', () => {
         render(<AnchorDetailScreen navigation={navigation} route={route} />);
         expect(screen.getByText('WALLPAPER & EXPORT')).toBeTruthy();
         expect(screen.getByText('SHARE MY ANCHOR')).toBeTruthy();
-        expect(screen.getByText('Set as Wallpaper')).toBeTruthy();
+        expect(screen.getByText('SET AS WALLPAPER')).toBeTruthy();
         expect(screen.getByText('SAVE PNG')).toBeTruthy();
     });
 
@@ -378,7 +378,7 @@ describe('AnchorDetailScreen', () => {
 
     it('exports wallpaper from the detail screen', async () => {
         render(<AnchorDetailScreen navigation={navigation} route={route} />);
-        fireEvent.press(screen.getByText('Set as Wallpaper'));
+        fireEvent.press(screen.getByText('SET AS WALLPAPER'));
         await waitFor(() => {
             expect(mockCaptureRef).toHaveBeenCalled();
             expect(mockSaveToLibraryAsync).toHaveBeenCalledWith('file:///tmp/anchor-card.png');

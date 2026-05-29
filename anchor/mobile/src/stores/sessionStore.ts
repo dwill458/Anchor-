@@ -92,6 +92,15 @@ interface SessionState {
   applyDecay: () => void;
   /** Applies an explicit, non-session-based thread strength delta. */
   bumpThreadStrength: (delta: number) => void;
+  /**
+   * Seeds the store from backend data on first sign-in.
+   * No-op if the local store already has recorded sessions.
+   */
+  hydrateFromBackend: (params: {
+    totalActivations: number;
+    currentStreak: number;
+    anchors: Array<{ lastActivatedAt?: Date }>;
+  }) => void;
   reset: () => void;
 }
 
@@ -100,7 +109,7 @@ const EMPTY_WEEK = (): WeekPractice => ({ weekKey: isoWeekKey(new Date()), sessi
 const EMPTY_WEEK_HISTORY = (): boolean[] => [false, false, false, false, false, false, false];
 const createInitialSessionState = (): Omit<
   SessionState,
-  'recordSession' | 'consumeGraceDay' | 'resetIfNewDay' | 'applyDecay' | 'bumpThreadStrength' | 'reset'
+  'recordSession' | 'consumeGraceDay' | 'resetIfNewDay' | 'applyDecay' | 'bumpThreadStrength' | 'hydrateFromBackend' | 'reset'
 > => ({
   lastSession: null,
   todayPractice: EMPTY_TODAY(),
@@ -414,6 +423,54 @@ export const useSessionStore = create<SessionState>()(
         set((state) => ({
           threadStrength: Math.max(0, Math.min(100, state.threadStrength + delta)),
         }));
+      },
+
+      hydrateFromBackend: ({ totalActivations, currentStreak, anchors }) => {
+        const { totalSessionsCount } = get();
+
+        // Only seed if the local store is empty but the backend has data.
+        if (totalSessionsCount > 0 || totalActivations === 0) return;
+
+        const now = new Date();
+        const currentWeekKey = isoWeekKey(now);
+
+        // Most recent activation across all anchors.
+        let latestActivatedAt: Date | null = null;
+        for (const anchor of anchors) {
+          if (anchor.lastActivatedAt) {
+            if (!latestActivatedAt || anchor.lastActivatedAt > latestActivatedAt) {
+              latestActivatedAt = anchor.lastActivatedAt;
+            }
+          }
+        }
+
+        const lastPrimedAt = latestActivatedAt ? localDateString(latestActivatedAt) : null;
+
+        // Thread strength proportional to streak. applyDecay will erode it
+        // for any missed days since lastPrimedAt.
+        let threadStrength = 50;
+        if (currentStreak >= 7) threadStrength = 90;
+        else if (currentStreak >= 3) threadStrength = 75;
+        else if (currentStreak >= 1) threadStrength = 60;
+
+        // Mark days in the current ISO week where an anchor was activated.
+        const weekHistory = EMPTY_WEEK_HISTORY();
+        for (const anchor of anchors) {
+          if (anchor.lastActivatedAt && isoWeekKey(anchor.lastActivatedAt) === currentWeekKey) {
+            weekHistory[getIsoWeekdayIndex(anchor.lastActivatedAt)] = true;
+          }
+        }
+
+        set({
+          totalSessionsCount: totalActivations,
+          lastPrimedAt,
+          threadStrength,
+          weekHistory,
+          weekHistoryKey: currentWeekKey,
+          // Treat decay as applied through lastPrimedAt so applyDecay only
+          // charges for missed days after that date.
+          lastDecayDate: lastPrimedAt,
+        });
       },
 
       reset: () => {

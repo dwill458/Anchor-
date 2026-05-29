@@ -1,6 +1,7 @@
 import { apiClient, fetchCompleteProfile } from '@/services/ApiClient';
 import { useAnchorStore } from '@/stores/anchorStore';
 import { useAuthStore } from '@/stores/authStore';
+import { useSessionStore } from '@/stores/sessionStore';
 import type { Anchor, ApiResponse, ProfileData, User } from '@/types';
 import { isBackendAnchorId } from '@/services/BackendAnchorService';
 
@@ -85,6 +86,12 @@ class AuthHydrationService {
       anchorStore.setAnchors([...remoteAnchors, ...preservedLocalAnchors]);
       anchorStore.markSynced();
     }
+
+    useSessionStore.getState().hydrateFromBackend({
+      totalActivations: normalizedProfileData.user.totalActivations,
+      currentStreak: normalizedProfileData.user.currentStreak,
+      anchors: remoteAnchors,
+    });
 
     useAuthStore.getState().computeStreak();
   }

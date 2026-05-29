@@ -10,6 +10,7 @@ import { Pressable, StyleSheet, Platform } from 'react-native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { useNavigation } from '@react-navigation/native';
 import { X } from 'lucide-react-native';
+import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { SettingsIcon } from '@/components/icons';
 import {
   ProfileScreen,
@@ -59,135 +60,137 @@ export const ProfileStackNavigator: React.FC = () => {
   const rootNavigation = useNavigation<any>();
 
   return (
-    <Stack.Navigator
-      screenOptions={{
-        headerShown: true,
-        animation: 'slide_from_right',
-        gestureEnabled: Platform.OS === 'ios',
-        headerStyle: {
-          backgroundColor: '#080C10',
-        },
-        headerShadowVisible: false,
-        headerTintColor: colors.gold,
-        headerTitleStyle: {
-          fontFamily: 'Cinzel-Regular',
-          fontSize: 15,
-        },
-        headerBackTitleVisible: false,
-        contentStyle: { backgroundColor: '#080C10' },
-      }}
-    >
-      <Stack.Screen
-        name="Profile"
-        component={ProfileScreen}
-        options={({ navigation }) => ({
-          headerTitle: 'Profile',
-          headerLeft: () => (
-            <Pressable
-              onPress={() => rootNavigation.goBack()}
-              hitSlop={12}
-              accessibilityRole="button"
-              accessibilityLabel="Close"
-              style={styles.closeButton}
-            >
-              <X color={colors.gold} size={22} />
-            </Pressable>
-          ),
-          headerRight: () => (
-            <Pressable
-              onPress={() => navigation.navigate('Settings')}
-              hitSlop={12}
-              accessibilityRole="button"
-              accessibilityLabel="Settings"
-              style={styles.navButton}
-            >
-              <SettingsIcon size={17} color={colors.gold} glow={false} />
-            </Pressable>
-          ),
-        })}
-      />
-      <Stack.Screen
-        name="Settings"
-        component={SettingsScreen}
-        options={{ headerTitle: 'Settings' }}
-      />
-      <Stack.Screen
-        name="SessionDefaults"
-        component={SessionDefaultsScreen}
-        options={{ headerShown: false }}
-      />
-      <Stack.Screen
-        name="DefaultCharge"
-        component={SessionDefaultsScreen}
-        options={{ headerShown: false }}
-      />
-      <Stack.Screen
-        name="DefaultActivation"
-        component={SessionDefaultsScreen}
-        options={{ headerShown: false }}
-      />
-      <Stack.Screen
-        name="PrimingDefaults"
-        component={SessionDefaultsScreen}
-        options={{ headerShown: false }}
-      />
-      <Stack.Screen
-        name="DefaultFocusMode"
-        component={SessionDefaultsScreen}
-        options={{ headerShown: false }}
-      />
-      <Stack.Screen
-        name="DailyPracticeGoal"
-        component={DailyPracticeGoalScreen}
-        options={{ headerShown: false }}
-      />
-      <Stack.Screen
-        name="ThreadStrength"
-        component={ThreadStrengthScreen}
-        options={{ headerShown: false }}
-      />
-      <Stack.Screen
-        name="RestDays"
-        component={RestDaysScreen}
-        options={{ headerShown: false }}
-      />
-      {/* DEFERRED: legacy practice-settings routes replaced by SessionDefaultsScreen. */}
-      <Stack.Screen
-        name="ThemeSelection"
-        component={ThemeSelectionScreen}
-        options={{ headerTitle: 'Theme' }}
-      />
-      <Stack.Screen
-        name="AccentColor"
-        component={AccentColorScreen}
-        options={{ headerTitle: 'Accent Color' }}
-      />
-      <Stack.Screen
-        name="VaultView"
-        component={VaultViewScreen}
-        options={{ headerTitle: 'Vault View' }}
-      />
-      <Stack.Screen
-        name="HapticFeedback"
-        component={HapticFeedbackScreen}
-        options={{ headerTitle: 'Haptic Feedback' }}
-      />
-      <Stack.Screen
-        name="HapticIntensity"
-        component={HapticIntensityScreen}
-        options={{ headerTitle: 'Haptic Intensity' }}
-      />
-      <Stack.Screen
-        name="DataPrivacy"
-        component={DataPrivacyScreen}
-        options={{ headerTitle: 'Data & Privacy' }}
-      />
-      <Stack.Screen
-        name="Login"
-        component={LoginScreen}
-        options={{ headerShown: false }}
-      />
-    </Stack.Navigator>
+    <ErrorBoundary>
+      <Stack.Navigator
+        screenOptions={{
+          headerShown: true,
+          animation: 'slide_from_right',
+          gestureEnabled: Platform.OS === 'ios',
+          headerStyle: {
+            backgroundColor: '#080C10',
+          },
+          headerShadowVisible: false,
+          headerTintColor: colors.gold,
+          headerTitleStyle: {
+            fontFamily: 'Cinzel-Regular',
+            fontSize: 15,
+          },
+          headerBackTitleVisible: false,
+          contentStyle: { backgroundColor: '#080C10' },
+        }}
+      >
+        <Stack.Screen
+          name="Profile"
+          component={ProfileScreen}
+          options={({ navigation }) => ({
+            headerTitle: 'Profile',
+            headerLeft: () => (
+              <Pressable
+                onPress={() => rootNavigation.goBack()}
+                hitSlop={12}
+                accessibilityRole="button"
+                accessibilityLabel="Close"
+                style={styles.closeButton}
+              >
+                <X color={colors.gold} size={22} />
+              </Pressable>
+            ),
+            headerRight: () => (
+              <Pressable
+                onPress={() => navigation.navigate('Settings')}
+                hitSlop={12}
+                accessibilityRole="button"
+                accessibilityLabel="Settings"
+                style={styles.navButton}
+              >
+                <SettingsIcon size={17} color={colors.gold} glow={false} />
+              </Pressable>
+            ),
+          })}
+        />
+        <Stack.Screen
+          name="Settings"
+          component={SettingsScreen}
+          options={{ headerTitle: 'Settings' }}
+        />
+        <Stack.Screen
+          name="SessionDefaults"
+          component={SessionDefaultsScreen}
+          options={{ headerShown: false }}
+        />
+        <Stack.Screen
+          name="DefaultCharge"
+          component={SessionDefaultsScreen}
+          options={{ headerShown: false }}
+        />
+        <Stack.Screen
+          name="DefaultActivation"
+          component={SessionDefaultsScreen}
+          options={{ headerShown: false }}
+        />
+        <Stack.Screen
+          name="PrimingDefaults"
+          component={SessionDefaultsScreen}
+          options={{ headerShown: false }}
+        />
+        <Stack.Screen
+          name="DefaultFocusMode"
+          component={SessionDefaultsScreen}
+          options={{ headerShown: false }}
+        />
+        <Stack.Screen
+          name="DailyPracticeGoal"
+          component={DailyPracticeGoalScreen}
+          options={{ headerShown: false }}
+        />
+        <Stack.Screen
+          name="ThreadStrength"
+          component={ThreadStrengthScreen}
+          options={{ headerShown: false }}
+        />
+        <Stack.Screen
+          name="RestDays"
+          component={RestDaysScreen}
+          options={{ headerShown: false }}
+        />
+        {/* DEFERRED: legacy practice-settings routes replaced by SessionDefaultsScreen. */}
+        <Stack.Screen
+          name="ThemeSelection"
+          component={ThemeSelectionScreen}
+          options={{ headerTitle: 'Theme' }}
+        />
+        <Stack.Screen
+          name="AccentColor"
+          component={AccentColorScreen}
+          options={{ headerTitle: 'Accent Color' }}
+        />
+        <Stack.Screen
+          name="VaultView"
+          component={VaultViewScreen}
+          options={{ headerTitle: 'Vault View' }}
+        />
+        <Stack.Screen
+          name="HapticFeedback"
+          component={HapticFeedbackScreen}
+          options={{ headerTitle: 'Haptic Feedback' }}
+        />
+        <Stack.Screen
+          name="HapticIntensity"
+          component={HapticIntensityScreen}
+          options={{ headerTitle: 'Haptic Intensity' }}
+        />
+        <Stack.Screen
+          name="DataPrivacy"
+          component={DataPrivacyScreen}
+          options={{ headerTitle: 'Data & Privacy' }}
+        />
+        <Stack.Screen
+          name="Login"
+          component={LoginScreen}
+          options={{ headerShown: false }}
+        />
+      </Stack.Navigator>
+    </ErrorBoundary>
   );
 };
 

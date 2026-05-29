@@ -55,7 +55,6 @@ const THREAD_COPY: Record<ThreadState, string> = {
 };
 
 const DAYS = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
-const QA_FADING_WEEK_HISTORY = [true, true, true, true, true, false, false];
 
 function localDateString(d: Date): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
@@ -173,11 +172,6 @@ export const ThreadStrengthBlock: React.FC<ThreadStrengthBlockProps> = ({
   const glowIntensity = clampedStrength / 100;
   const showAnimatedGlow = perfTier === 'high' && !reduceMotionEnabled;
   const showStaticGlow = perfTier === 'medium' && state !== 'fading' && glowIntensity > 0.04;
-  // Temporary QA fixture to validate the fading-state pip rendering before
-  // re-connecting this view to the real week history.
-  const renderedWeekHistory = state === 'fading'
-    ? QA_FADING_WEEK_HISTORY
-    : (weekHistory ?? QA_FADING_WEEK_HISTORY);
 
   return (
     <View
@@ -253,6 +247,8 @@ export const ThreadStrengthBlock: React.FC<ThreadStrengthBlockProps> = ({
         </View>
       </View>
 
+
+      <WeekTrack weekHistory={weekHistory} state={state} />
 
       {/* Micro-copy */}
       <Text style={[styles.msg, { color: c.msg, borderTopColor: c.msgBorder }]}>

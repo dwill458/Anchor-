@@ -723,6 +723,8 @@ export const SettingsScreen: React.FC = () => {
                 <CardWrapper {...cardProps} style={styles.section}>
                   <SettingItem label="App Version" value="1.0.0" showChevron={false} />
                   <SettingItem label="Contact Support" onPress={handleContactSupport} />
+                  {/* DEFERRED: this profile/SettingsScreen is shadowed by screens/settings/SettingsScreen; 'Licenses' is not in ProfileStackParamList. Cast matches the existing nav escape-hatch (see 'Paywall' as any above) so tsc passes without deleting the rollback copy. */}
+                  <SettingItem label="Open Source Licenses" onPress={() => navigation.navigate('Licenses' as any)} />
                 </CardWrapper>
               </Animated.View>
 

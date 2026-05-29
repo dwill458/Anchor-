@@ -1155,6 +1155,18 @@ export const RitualScreen: React.FC = () => {
       return;
     }
 
+    if (isFirstPrimeForAnchor) {
+      exitingRef.current = true;
+      navigation.replace('FirstPrimeComplete', {
+        anchorId: effectiveAnchorId,
+        sessionCount: 1,
+        threadStrength: 1,
+        durationSeconds: config.totalDurationSeconds,
+        returnTo,
+      });
+      return;
+    }
+
     if (isDeepRitual) {
       recordSession({
         anchorId,
@@ -1166,18 +1178,6 @@ export const RitualScreen: React.FC = () => {
       await queueProgressionMilestonesFromStores();
       await handlePrimeComplete();
       await exitRitual();
-      return;
-    }
-
-    if (isFirstPrimeForAnchor) {
-      exitingRef.current = true;
-      navigation.replace('FirstPrimeComplete', {
-        anchorId: effectiveAnchorId,
-        sessionCount: 1,
-        threadStrength: 1,
-        durationSeconds: config.totalDurationSeconds,
-        returnTo,
-      });
       return;
     }
 

@@ -4,8 +4,10 @@
  * 2-step ritual flow: Reflect -> Release
  */
 
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
+  Alert,
+  BackHandler,
   Keyboard,
   StyleSheet,
   Text,
@@ -55,6 +57,7 @@ export const ConfirmBurnScreen: React.FC = () => {
   const resolvedSigilSvg = sigilSvg || anchor?.reinforcedSigilSvg || anchor?.baseSigilSvg || '';
   const resolvedEnhancedImageUrl = enhancedImageUrl || resolveBurnArtworkUri(anchor);
   const [isAuthVerified, setIsAuthVerified] = useState(IS_TEST_ENV);
+  const isLeavingRef = useRef(false);
 
   const [currentStep, setCurrentStep] = useState<BurnStep>('reflect');
   const [releaseText, setReleaseText] = useState('');
@@ -82,6 +85,7 @@ export const ConfirmBurnScreen: React.FC = () => {
 
       // If no token and trial has expired (no entitlement), force to AuthGate
       if (!token && !hasActiveEntitlement) {
+        isLeavingRef.current = true;
         navigation.replace('AuthGate');
         return;
       }
@@ -93,6 +97,17 @@ export const ConfirmBurnScreen: React.FC = () => {
       cancelled = true;
     };
   }, [navigation, hasActiveEntitlement]);
+
+  const confirmLeave = useCallback((onConfirm: () => void) => {
+    Alert.alert(
+      'Leave Burn Ritual?',
+      'You will need to begin this release ritual again if you leave now.',
+      [
+        { text: 'Stay', style: 'cancel' },
+        { text: 'Leave', style: 'destructive', onPress: onConfirm },
+      ]
+    );
+  }, []);
 
   useEffect(() => {
     if (!reflectTeaching) return;
@@ -133,14 +148,18 @@ export const ConfirmBurnScreen: React.FC = () => {
     return <Text style={styles.sigilFallback}>✶</Text>;
   }, [resolvedEnhancedImageUrl, resolvedSigilSvg]);
 
-  const handleBack = () => {
+  const handleBack = useCallback(() => {
     if (currentStep === 'release') {
       setCurrentStep('reflect');
       setReleaseText('');
       return;
     }
-    navigation.goBack();
-  };
+
+    confirmLeave(() => {
+      isLeavingRef.current = true;
+      navigation.goBack();
+    });
+  }, [confirmLeave, currentStep, navigation]);
 
   const handleContinue = () => {
     if (!isAuthVerified) return;
@@ -165,6 +184,7 @@ export const ConfirmBurnScreen: React.FC = () => {
       anchor_id: anchorId,
     });
 
+    isLeavingRef.current = true;
     navigation.navigate('BurningRitual', {
       anchorId,
       intention,
@@ -187,6 +207,33 @@ export const ConfirmBurnScreen: React.FC = () => {
 
   const ctaLabel = currentStep === 'reflect' ? 'Continue' : 'Burn Now';
   const ctaDisabled = !isAuthVerified || (currentStep === 'release' && !isReleaseReady);
+
+  useEffect(() => {
+    const nav = navigation as any;
+    if (typeof nav.addListener !== 'function') {
+      return () => undefined;
+    }
+
+    const beforeRemoveUnsubscribe = nav.addListener('beforeRemove', (event: any) => {
+      if (isLeavingRef.current) return;
+      event.preventDefault();
+      confirmLeave(() => {
+        isLeavingRef.current = true;
+        navigation.dispatch(event.data.action);
+      });
+    });
+
+    const hardwareBackSubscription = BackHandler.addEventListener('hardwareBackPress', () => {
+      if (isLeavingRef.current) return false;
+      handleBack();
+      return true;
+    });
+
+    return () => {
+      beforeRemoveUnsubscribe();
+      hardwareBackSubscription.remove();
+    };
+  }, [confirmLeave, handleBack, navigation]);
 
   return (
     <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
