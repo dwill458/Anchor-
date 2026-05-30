@@ -53,7 +53,7 @@ export const ModeSelectionStep: React.FC<ModeSelectionStepProps> = ({
       {/* Step header */}
       <View style={styles.header}>
         <Text style={styles.stepIndicator}>STEP 1 OF 2</Text>
-        <Text style={styles.title}>Charging Mode</Text>
+        <Text style={styles.title}>Priming Mode</Text>
         <Text style={styles.subtitle}>Choose how deeply you want to connect.</Text>
       </View>
 
@@ -74,7 +74,7 @@ export const ModeSelectionStep: React.FC<ModeSelectionStepProps> = ({
                 </View>
 
                 {/* Title */}
-                <Text style={styles.cardTitle}>Focus Charge</Text>
+                <Text style={styles.cardTitle}>Focus Prime</Text>
 
                 {/* Description */}
                 <Text style={styles.cardDescription}>
@@ -98,7 +98,7 @@ export const ModeSelectionStep: React.FC<ModeSelectionStepProps> = ({
                 </View>
 
                 {/* Title */}
-                <Text style={styles.cardTitle}>Focus Charge</Text>
+                <Text style={styles.cardTitle}>Focus Prime</Text>
 
                 {/* Description */}
                 <Text style={styles.cardDescription}>
@@ -131,7 +131,7 @@ export const ModeSelectionStep: React.FC<ModeSelectionStepProps> = ({
                 </View>
 
                 {/* Title */}
-                <Text style={styles.cardTitle}>Ritual Charge</Text>
+                <Text style={styles.cardTitle}>Deep Practice</Text>
 
                 {/* Description */}
                 <Text style={styles.cardDescription}>
@@ -155,7 +155,7 @@ export const ModeSelectionStep: React.FC<ModeSelectionStepProps> = ({
                 </View>
 
                 {/* Title */}
-                <Text style={styles.cardTitle}>Ritual Charge</Text>
+                <Text style={styles.cardTitle}>Deep Practice</Text>
 
                 {/* Description */}
                 <Text style={styles.cardDescription}>

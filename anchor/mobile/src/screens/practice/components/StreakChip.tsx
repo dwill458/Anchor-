@@ -38,7 +38,7 @@ export const StreakChip: React.FC<StreakChipProps> = ({ currentStreak }) => {
                 onPress={handlePress}
                 activeOpacity={0.7}
                 accessibilityRole="button"
-                accessibilityLabel={`Streak of ${currentStreak} days`}
+                accessibilityLabel={`Constancy of ${currentStreak} days`}
             >
                 <Text style={styles.chipText}>Day {currentStreak}</Text>
             </TouchableOpacity>
@@ -54,7 +54,7 @@ export const StreakChip: React.FC<StreakChipProps> = ({ currentStreak }) => {
                         <TouchableWithoutFeedback>
                             <BlurView intensity={30} tint="dark" style={styles.sheetContainer}>
                                 <View style={styles.dragHandle} />
-                                <Text style={styles.sheetTitle}>Streak</Text>
+                                <Text style={styles.sheetTitle}>Constancy</Text>
                                 <Text style={styles.sheetBody}>
                                     Return once per day to keep the flame.
                                 </Text>

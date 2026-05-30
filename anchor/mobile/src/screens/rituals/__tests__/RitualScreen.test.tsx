@@ -462,7 +462,7 @@ describe('RitualScreen', () => {
     await waitFor(() => expect(mockPrimeOpeningPlayer.play).toHaveBeenCalledTimes(2));
 
     await act(async () => {
-      fireEvent.press(getByLabelText('Exit ritual'));
+      fireEvent.press(getByLabelText('Exit practice'));
     });
     fireEvent.press(getByText('Exit'));
 

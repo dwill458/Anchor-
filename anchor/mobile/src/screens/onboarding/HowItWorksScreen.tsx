@@ -33,13 +33,13 @@ const STEPS = [
   },
   {
     number: '2',
-    title: 'Forge Your Sigil',
+    title: 'Forge Your Anchor',
     description: 'We transform your intention into a personal visual symbol—your Anchor.',
     icon: Sparkles,
   },
   {
     number: '3',
-    title: 'Charge with Ritual',
+    title: 'Prime with Practice',
     description: 'Build the connection through embodied practice—breath, focus, emotion.',
     icon: Flame,
   },

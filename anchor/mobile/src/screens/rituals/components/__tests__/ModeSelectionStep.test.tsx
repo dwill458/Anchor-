@@ -18,8 +18,8 @@ describe('ModeSelectionStep', () => {
   it('renders both mode cards', () => {
     render(<ModeSelectionStep onSelectMode={mockOnSelectMode} />);
 
-    expect(screen.getByText('Focus Charge')).toBeTruthy();
-    expect(screen.getByText('Ritual Charge')).toBeTruthy();
+    expect(screen.getByText('Focus Prime')).toBeTruthy();
+    expect(screen.getByText('Deep Practice')).toBeTruthy();
   });
 
   it('displays correct descriptions for each mode', () => {
@@ -29,10 +29,10 @@ describe('ModeSelectionStep', () => {
     expect(screen.getByText('A guided, immersive experience')).toBeTruthy();
   });
 
-  it('calls onSelectMode with "focus" when Focus Charge is pressed', async () => {
+  it('calls onSelectMode with "focus" when Focus Prime is pressed', async () => {
     render(<ModeSelectionStep onSelectMode={mockOnSelectMode} />);
 
-    const focusCard = screen.getByText('Focus Charge');
+    const focusCard = screen.getByText('Focus Prime');
     fireEvent.press(focusCard);
 
     await waitFor(() => {
@@ -40,10 +40,10 @@ describe('ModeSelectionStep', () => {
     });
   });
 
-  it('calls onSelectMode with "ritual" when Ritual Charge is pressed', async () => {
+  it('calls onSelectMode with "ritual" when Deep Practice is pressed', async () => {
     render(<ModeSelectionStep onSelectMode={mockOnSelectMode} />);
 
-    const ritualCard = screen.getByText('Ritual Charge');
+    const ritualCard = screen.getByText('Deep Practice');
     fireEvent.press(ritualCard);
 
     await waitFor(() => {
@@ -57,10 +57,10 @@ describe('ModeSelectionStep', () => {
     expect(screen.getByText('STEP 1 OF 2')).toBeTruthy();
   });
 
-  it('displays charging mode title', () => {
+  it('displays priming mode title', () => {
     render(<ModeSelectionStep onSelectMode={mockOnSelectMode} />);
 
-    expect(screen.getByText('Charging Mode')).toBeTruthy();
+    expect(screen.getByText('Priming Mode')).toBeTruthy();
   });
 
   it('displays subtitle with instructions', () => {
@@ -77,7 +77,7 @@ describe('ModeSelectionStep', () => {
     expect(screen.getByText('Quick energy boost')).toBeTruthy();
   });
 
-  it('displays benefit items for Ritual mode', () => {
+  it('displays benefit items for Deep Practice mode', () => {
     render(<ModeSelectionStep onSelectMode={mockOnSelectMode} />);
 
     expect(screen.getByText('5 min, 10 min, or custom')).toBeTruthy();
@@ -88,7 +88,7 @@ describe('ModeSelectionStep', () => {
   it('only calls onSelectMode once per press', async () => {
     render(<ModeSelectionStep onSelectMode={mockOnSelectMode} />);
 
-    const focusCard = screen.getByText('Focus Charge');
+    const focusCard = screen.getByText('Focus Prime');
     fireEvent.press(focusCard);
 
     await waitFor(() => {

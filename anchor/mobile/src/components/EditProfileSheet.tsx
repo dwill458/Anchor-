@@ -321,7 +321,7 @@ export const EditProfileSheet: React.FC<EditProfileSheetProps> = ({
 
               <View style={styles.fieldBlock}>
                 <FieldLabel>TIMEZONE</FieldLabel>
-                <FieldHint>Auto-detected · used for streak accuracy</FieldHint>
+                <FieldHint>Auto-detected · used for Constancy accuracy</FieldHint>
                 <Pressable
                   onPress={() => setTimezoneOpen((value) => !value)}
                   style={[

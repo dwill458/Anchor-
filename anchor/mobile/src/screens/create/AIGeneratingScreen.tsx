@@ -763,7 +763,7 @@ export default function AIGeneratingScreen() {
 
       setProgress(0);
 
-      let errorMessage = 'Failed to enhance sigil. Please try again.';
+      let errorMessage = 'Failed to enhance anchor. Please try again.';
       if (error instanceof Error) {
         if (error.name === 'AbortError') {
           errorMessage = 'Generation timed out. The AI is taking too long. Please try again.';

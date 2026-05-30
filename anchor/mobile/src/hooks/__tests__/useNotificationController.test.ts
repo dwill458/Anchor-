@@ -11,6 +11,7 @@ const mockAnchorStoreGetState = jest.fn();
 const mockSessionStoreGetState = jest.fn();
 const mockAuthStoreGetState = jest.fn();
 const mockSyncNotificationStateToServer = jest.fn();
+const mockGetPendingNotificationStateSync = jest.fn();
 
 jest.mock('@/services/NotificationService', () => ({
   __esModule: true,
@@ -43,6 +44,8 @@ jest.mock('@/stores/authStore', () => ({
 jest.mock('@/services/NotificationSyncService', () => ({
   syncNotificationStateToServer: (...args: unknown[]) =>
     mockSyncNotificationStateToServer(...args),
+  getPendingNotificationStateSync: (...args: unknown[]) =>
+    mockGetPendingNotificationStateSync(...args),
 }));
 
 type AsyncStorageMock = {
@@ -87,6 +90,7 @@ describe('useNotificationController', () => {
     mockScheduleWeeklySummary.mockResolvedValue('weekly-summary');
     mockCancelWeeklySummary.mockResolvedValue(undefined);
     mockSyncNotificationStateToServer.mockResolvedValue(undefined);
+    mockGetPendingNotificationStateSync.mockResolvedValue(null);
   });
 
   afterEach(() => {
@@ -358,6 +362,43 @@ describe('useNotificationController', () => {
     expect(scheduledAt.getMinutes()).toBe(0);
   });
 
+  it('suppresses micro-prime and weekly summary when a higher-priority cloud push already fired today', async () => {
+    asyncStorage.getItem.mockResolvedValue(JSON.stringify({
+      primed_today: false,
+      last_prime_at: null,
+      missed_yesterday: false,
+      miss_streak: 0,
+      app_opened_in_last_5_days: true,
+      last_app_open_at: '2026-04-22T10:00:00.000Z',
+      total_primes_this_week: 1,
+      week_started_at: '2026-04-20T00:00:00.000Z',
+      current_primes: 0,
+      goal_primes: 3,
+      has_reached_goal_today: false,
+      has_entered_burn_flow: false,
+      sigil_in_vault: false,
+      active_hours_start: 8,
+      active_hours_end: 21,
+      timezone: 'UTC',
+      notification_enabled: true,
+      total_primes_all_time: 10,
+      alchemist_milestones_count: 0,
+      sovereign_rank: false,
+      active_session: false,
+      weaver_enabled: true,
+      last_sent_type: 'WEAVER',
+      last_sent_utc_date: '2026-04-23',
+    }));
+
+    renderHook(() => useNotificationController());
+
+    await waitFor(() => expect(mockCancelNotification).toHaveBeenCalledWith('micro-prime'));
+
+    expect(mockScheduleLocalNotification).not.toHaveBeenCalled();
+    expect(mockCancelWeeklySummary).toHaveBeenCalled();
+    expect(mockScheduleWeeklySummary).not.toHaveBeenCalled();
+  });
+
   it('cancels the existing micro-prime after a prime completes and does not reschedule the same day', async () => {
     const storedState = {
       primed_today: false,
@@ -557,5 +598,48 @@ describe('useNotificationController', () => {
     });
 
     expect(mockSyncNotificationStateToServer).not.toHaveBeenCalled();
+  });
+
+  it('retries pending notification sync state on the next authenticated sync', async () => {
+    asyncStorage.getItem.mockResolvedValue(JSON.stringify({
+      primed_today: false,
+      last_prime_at: null,
+      missed_yesterday: false,
+      miss_streak: 0,
+      app_opened_in_last_5_days: true,
+      last_app_open_at: '2026-04-22T10:00:00.000Z',
+      total_primes_this_week: 0,
+      week_started_at: '2026-04-20T00:00:00.000Z',
+      current_primes: 1,
+      goal_primes: 3,
+      has_reached_goal_today: false,
+      has_entered_burn_flow: false,
+      sigil_in_vault: false,
+      active_hours_start: 8,
+      active_hours_end: 21,
+      timezone: 'UTC',
+      notification_enabled: true,
+      total_primes_all_time: 1,
+      alchemist_milestones_count: 0,
+      sovereign_rank: false,
+      active_session: false,
+      weaver_enabled: true,
+    }));
+    mockAuthStoreGetState.mockReturnValue({ user: { id: 'user-1' }, isAuthenticated: true });
+    mockGetPendingNotificationStateSync.mockResolvedValue({
+      notification_enabled: false,
+      current_primes: 0,
+    });
+
+    renderHook(() => useNotificationController());
+
+    await waitFor(() => expect(mockSyncNotificationStateToServer).toHaveBeenCalled());
+
+    expect(mockSyncNotificationStateToServer).toHaveBeenCalledWith(
+      expect.objectContaining({
+        notification_enabled: true,
+        current_primes: 1,
+      })
+    );
   });
 });

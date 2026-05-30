@@ -157,15 +157,15 @@ export const DefaultChargeSettings: React.FC = () => {
         >
           {/* Mode Section */}
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Charging Mode</Text>
+            <Text style={styles.sectionTitle}>Priming Mode</Text>
             <Text style={styles.sectionDescription}>
-              Choose your preferred approach for daily anchor charging
+              Choose your preferred approach for daily anchor priming
             </Text>
 
             <View style={styles.optionsList}>
               <ModeCard
                 mode="focus"
-                label="Focus Charge"
+                label="Focus Prime"
                 description="Brief, regular energy alignment"
                 icon={<Zap color={colors.gold} size={24} />}
                 isSelected={defaultCharge.mode === 'focus'}
@@ -173,7 +173,7 @@ export const DefaultChargeSettings: React.FC = () => {
               />
               <ModeCard
                 mode="ritual"
-                label="Ritual Charge"
+                label="Deep Practice"
                 description="Enhanced, meditative ceremony"
                 icon={<Clock color={colors.gold} size={24} />}
                 isSelected={defaultCharge.mode === 'ritual'}
@@ -187,8 +187,8 @@ export const DefaultChargeSettings: React.FC = () => {
             <Text style={styles.sectionTitle}>Default Duration</Text>
             <Text style={styles.sectionDescription}>
               {defaultCharge.mode === 'ritual'
-                ? 'Deep Charge defaults support 1-30 minutes.'
-                : 'Quick Charge uses faster preset durations.'}
+                ? 'Deep Practice defaults support 1-30 minutes.'
+                : 'Focus Prime uses faster preset durations.'}
             </Text>
 
             <View style={styles.presetGrid}>
@@ -227,10 +227,10 @@ export const DefaultChargeSettings: React.FC = () => {
             <InfoBoxWrapper {...infoProps} style={styles.infoBox}>
               <View style={styles.infoTitleRow}>
                 <Info color={colors.gold} size={18} style={{ marginRight: spacing.sm }} />
-                <Text style={styles.infoTitle}>About Charging</Text>
+                 <Text style={styles.infoTitle}>About Priming</Text>
               </View>
               <Text style={styles.infoText}>
-                Charging your anchor daily strengthens the neurological bond between the symbol and your intention.
+                Priming your anchor daily strengthens the neurological bond between the symbol and your intention.
               </Text>
             </InfoBoxWrapper>
           </View>

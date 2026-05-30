@@ -20,9 +20,6 @@ const mockSettings = {
   openDailyAnchorAutomatically: false,
   practiceGuidanceEnabled: true,
   reduceIntentionVisibility: false,
-  weeklySummaryEnabled: false,
-  weeklySummaryDay: 0,
-  weeklySummaryTime: '19:00',
   hapticFeedback: 'strong' as const,
   soundEffectsEnabled: true,
 };
@@ -194,18 +191,4 @@ describe('SettingsScreen', () => {
     });
   });
 
-  it('lets the user change the weekly summary day and time', async () => {
-    const screen = render(<SettingsScreen />);
-
-    fireEvent.press(screen.getByTestId('settings-row-Weekly Summary Day'));
-    fireEvent.press(screen.getByText('Wednesday'));
-
-    fireEvent.press(screen.getByTestId('settings-row-Weekly Summary Time'));
-    fireEvent.press(screen.getByText('7:30 PM'));
-
-    await waitFor(() => {
-      expect(mockUpdateSetting).toHaveBeenCalledWith('weeklySummaryDay', 3);
-      expect(mockUpdateSetting).toHaveBeenCalledWith('weeklySummaryTime', '19:30');
-    });
-  });
 });

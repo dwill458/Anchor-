@@ -41,11 +41,10 @@ import type {
   RootStackParamList,
 } from '@/types';
 
-type SharedAuthParamList = RootStackParamList & OnboardingStackParamList;
 type AuthTab = AuthScreenInitialTab;
 type FocusedField = 'name' | 'email' | 'password' | 'confirmPassword' | null;
 
-type LoginScreenNavigationProp = StackNavigationProp<SharedAuthParamList, 'Login'>;
+type LoginScreenNavigationProp = StackNavigationProp<RootStackParamList, 'Login'>;
 
 interface LoginScreenProps {
   navigation: LoginScreenNavigationProp;
@@ -158,13 +157,13 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ navigation, route }) =
     );
 
     if (context === 'first_anchor_gate') {
-      (navigation as any).replace('FirstAnchorAccountGate');
+      navigation.replace('FirstAnchorAccountGate');
     } else if (context === 'save_progress' && shouldRouteThroughFirstAnchorGate) {
-      (navigation as any).replace('FirstAnchorAccountGate');
+      navigation.replace('FirstAnchorAccountGate');
     } else if (context === 'save_progress') {
-      (navigation as any).replace('Vault');
+      navigation.replace('Vault');
     } else if (context === 'paywall') {
-      (navigation as any).replace('Vault');
+      navigation.replace('Vault');
     }
   };
 

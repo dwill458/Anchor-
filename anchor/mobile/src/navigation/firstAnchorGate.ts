@@ -2,7 +2,7 @@ import { useAuthStore } from '@/stores/authStore';
 
 export type VaultEntryRouteName = 'Vault' | 'FirstAnchorAccountGate';
 
-type VaultNavigationLike = {
+export type VaultNavigationLike = {
   navigate: (name: VaultEntryRouteName) => void;
   replace?: (name: VaultEntryRouteName) => void;
 };

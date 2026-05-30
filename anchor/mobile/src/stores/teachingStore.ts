@@ -59,34 +59,37 @@ export interface TeachingState {
   queueMilestone: (id: string) => void;
   dequeueMilestone: () => string | undefined;
   clearSessionSeen: () => void;
+  reset: () => void;
   setUserFlag: (flag: keyof TeachingUserFlags, value: boolean) => void;
   recordTraceHintSeen: (id: string) => void;
   exhaustTraceHint: (id: string) => void;
   isTraceHintExhausted: (id: string) => boolean;
 }
 
+const createInitialTeachingState = () => ({
+  schemaVersion: 2 as const,
+  showCounts: {},
+  lastShownAt: {},
+  exhaustedIds: {},
+  pendingMilestones: [],
+  lastVeilCardAt: null,
+  userFlags: {
+    hasCreatedFirstAnchor: false,
+    hasCompletedFirstCharge: false,
+    hasCompletedFirstBurn: false,
+    hasCompletedFirstStabilize: false,
+    hasTracedBefore: false,
+  },
+  traceHintSeenCounts: {},
+  traceHintExhaustedIds: {},
+  sessionSeenIds: [],
+  sessionSeenPatterns: [],
+});
+
 export const useTeachingStore = create<TeachingState>()(
   persist(
     (set, get) => ({
-      schemaVersion: 2 as const,
-      showCounts: {},
-      lastShownAt: {},
-      exhaustedIds: {},
-      pendingMilestones: [],
-      lastVeilCardAt: null,
-      userFlags: {
-        hasCreatedFirstAnchor: false,
-        hasCompletedFirstCharge: false,
-        hasCompletedFirstBurn: false,
-        hasCompletedFirstStabilize: false,
-        hasTracedBefore: false,
-      },
-      traceHintSeenCounts: {},
-      traceHintExhaustedIds: {},
-
-      // Session-only — initialized empty, not persisted
-      sessionSeenIds: [],
-      sessionSeenPatterns: [],
+      ...createInitialTeachingState(),
 
       recordShown: (id, pattern, maxShows) => {
         set((state) => {
@@ -146,6 +149,10 @@ export const useTeachingStore = create<TeachingState>()(
 
       clearSessionSeen: () => {
         set({ sessionSeenIds: [], sessionSeenPatterns: [] });
+      },
+
+      reset: () => {
+        set(createInitialTeachingState());
       },
 
       setUserFlag: (flag, value) => {

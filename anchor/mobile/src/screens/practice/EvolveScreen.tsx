@@ -111,13 +111,13 @@ export const EvolveScreen: React.FC = () => {
   const statsLine = useMemo(() => {
     const total = user?.stabilizesTotal ?? 0;
     if (__DEV__ && developerForceStreakBreakEnabled) {
-      return `Stabilizes: ${total} • Streak: 0 days`;
+      return `Stabilizes: ${total} • Constancy: 0 days`;
     }
     const effectiveStreak = getEffectiveStabilizeStreakDays(
       user?.stabilizeStreakDays ?? 0,
       toDateOrNull(user?.lastStabilizeAt)
     );
-    return `Stabilizes: ${total} • Streak: ${effectiveStreak} ${effectiveStreak === 1 ? 'day' : 'days'}`;
+    return `Stabilizes: ${total} • Constancy: ${effectiveStreak} ${effectiveStreak === 1 ? 'day' : 'days'}`;
   }, [
     developerForceStreakBreakEnabled,
     user?.lastStabilizeAt,
@@ -129,19 +129,19 @@ export const EvolveScreen: React.FC = () => {
     {
       key: 'grounding',
       title: 'Grounding',
-      description: 'Longer resets and settling rituals.',
+      description: 'Longer resets and settling practices.',
       icon: <Feather color={colors.gold} size={22} />,
     },
     {
       key: 'focus',
       title: 'Focus',
-      description: 'Activation sessions, timers, mantras.',
+      description: 'Focus Sessions, timers, mantras.',
       icon: <Target color={colors.gold} size={22} />,
     },
     {
       key: 'release',
       title: 'Release',
-      description: 'Burn ritual, closure ceremonies.',
+      description: 'Burn & Release, closure ceremonies.',
       icon: <Flame color={colors.gold} size={22} />,
     },
     {

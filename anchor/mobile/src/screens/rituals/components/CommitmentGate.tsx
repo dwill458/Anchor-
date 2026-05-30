@@ -75,12 +75,12 @@ export const CommitmentGate: React.FC<CommitmentGateProps> = ({
   const getButtonLabel = (): string => {
     if (!depth) return 'Select a depth';
 
-    return depth === 'light' ? 'Begin Charging' : 'Enter Ritual';
+    return depth === 'light' ? 'Begin Priming' : 'Enter Practice';
   };
 
   const getAccessibilityHint = (): string => {
     if (!isEnabled) {
-      return 'Select a charging mode and duration to continue';
+      return 'Select a priming mode and duration to continue';
     }
 
     const durationMinutes = Math.floor((duration || 0) / 60);
@@ -91,7 +91,7 @@ export const CommitmentGate: React.FC<CommitmentGateProps> = ({
         ? '1 minute'
         : `${durationMinutes} minutes`;
 
-    return `Starts your ${durationText} ${depth} charging ritual`;
+    return `Starts your ${durationText} ${depth} priming practice`;
   };
 
   // ══════════════════════════════════════════════════════════════

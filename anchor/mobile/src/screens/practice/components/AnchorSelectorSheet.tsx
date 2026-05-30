@@ -71,7 +71,7 @@ const AnchorSelectorItem = React.memo(({
         </View>
       ) : item.isCharged ? (
         <View style={styles.chargedBadge}>
-          <Text style={styles.chargedText}>Charged</Text>
+          <Text style={styles.chargedText}>Primed</Text>
         </View>
       ) : null}
     </TouchableOpacity>

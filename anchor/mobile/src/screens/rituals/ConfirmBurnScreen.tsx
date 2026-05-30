@@ -100,8 +100,8 @@ export const ConfirmBurnScreen: React.FC = () => {
 
   const confirmLeave = useCallback((onConfirm: () => void) => {
     Alert.alert(
-      'Leave Burn Ritual?',
-      'You will need to begin this release ritual again if you leave now.',
+      'Leave Burn & Release?',
+      'You will need to begin this Burn & Release practice again if you leave now.',
       [
         { text: 'Stay', style: 'cancel' },
         { text: 'Leave', style: 'destructive', onPress: onConfirm },
@@ -190,7 +190,7 @@ export const ConfirmBurnScreen: React.FC = () => {
       intention,
       sigilSvg: resolvedSigilSvg,
       enhancedImageUrl: resolvedEnhancedImageUrl,
-    } as any);
+    });
   };
 
   const handleReleaseInput = (value: string) => {
@@ -209,12 +209,8 @@ export const ConfirmBurnScreen: React.FC = () => {
   const ctaDisabled = !isAuthVerified || (currentStep === 'release' && !isReleaseReady);
 
   useEffect(() => {
-    const nav = navigation as any;
-    if (typeof nav.addListener !== 'function') {
-      return () => undefined;
-    }
-
-    const beforeRemoveUnsubscribe = nav.addListener('beforeRemove', (event: any) => {
+    if (typeof navigation.addListener !== 'function') return () => undefined;
+    const beforeRemoveUnsubscribe = navigation.addListener('beforeRemove', (event: any) => {
       if (isLeavingRef.current) return;
       event.preventDefault();
       confirmLeave(() => {

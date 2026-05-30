@@ -295,7 +295,7 @@ export const SealAnchorScreen: React.FC = () => {
   const handleSkip = () => {
     Alert.alert(
       'Skip Sealing?',
-      'Your anchor will be saved without the sealing ritual.',
+      'Your anchor will be saved without the sealing practice.',
       [
         { text: 'Cancel', style: 'cancel' },
         {

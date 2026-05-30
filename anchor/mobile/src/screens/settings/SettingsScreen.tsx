@@ -45,30 +45,6 @@ const formatDurationLabel = (durationSeconds: number): string => {
   return `${minutes} min`;
 };
 
-const parseTimeString = (value: string): { hour: number; minute: number } => {
-  const match = /^([01]\d|2[0-3]):([0-5]\d)$/.exec(value);
-  if (!match) {
-    return { hour: 19, minute: 0 };
-  }
-
-  return {
-    hour: Number(match[1]),
-    minute: Number(match[2]),
-  };
-};
-
-const formatTimeLabel = (value: string): string => {
-  const parsed = parseTimeString(value);
-  const meridiem = parsed.hour >= 12 ? 'PM' : 'AM';
-  const hour12 = parsed.hour % 12 || 12;
-  return `${hour12}:${String(parsed.minute).padStart(2, '0')} ${meridiem}`;
-};
-
-const formatTimeValue = (hour: number, minute: number): string =>
-  `${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}`;
-
-const formatWeekdayLabel = (day: number): string => WEEKDAY_LABELS[Math.max(0, Math.min(6, day))];
-
 const restorePurchases = async (): Promise<void> => {
   try {
     const purchasesModule = require('react-native-purchases');
@@ -110,9 +86,7 @@ export const SettingsScreen: React.FC = () => {
   const setHasCompletedOnboarding = useAuthStore((state) => state.setHasCompletedOnboarding);
   const signOut = useAuthStore((state) => state.signOut);
   const reveal = useSettingsReveal();
-  const [timePickerTarget, setTimePickerTarget] = useState<
-    'wake' | 'reminder' | 'weeklySummaryDay' | 'weeklySummaryTime' | null
-  >(null);
+  const [timePickerTarget, setTimePickerTarget] = useState<'wake' | 'reminder' | null>(null);
   const hasMarkedReadyRef = useRef(false);
   const frameRef = useRef<number | null>(null);
   const appVersion = Constants.expoConfig?.version ?? '1.0.0';
@@ -275,13 +249,11 @@ export const SettingsScreen: React.FC = () => {
   }, []);
 
   const handleTimeSelection = useCallback(
-    async (hour: number, minute = 0) => {
+    async (hour: number) => {
       if (timePickerTarget === 'wake') {
         await updateActiveHours(hour, notifState?.active_hours_end ?? 21);
       } else if (timePickerTarget === 'reminder') {
         await updateActiveHours(notifState?.active_hours_start ?? 8, hour);
-      } else if (timePickerTarget === 'weeklySummaryTime') {
-        await updateSetting('weeklySummaryTime', formatTimeValue(hour, minute));
       }
 
       setTimePickerTarget(null);
@@ -291,7 +263,6 @@ export const SettingsScreen: React.FC = () => {
       notifState?.active_hours_start,
       timePickerTarget,
       updateActiveHours,
-      updateSetting,
     ]
   );
 
@@ -318,9 +289,6 @@ export const SettingsScreen: React.FC = () => {
       : restDays.length === 1
         ? WEEKDAY_LABELS[restDays[0]]
         : restDays.map((day) => WEEKDAY_LABELS[day].slice(0, 3)).join(', ');
-
-  const weeklySummaryTime = settings.weeklySummaryTime ?? '19:00';
-  const weeklySummaryDay = settings.weeklySummaryDay ?? 0;
 
   return (
     <View style={styles.container} onLayout={handleRootLayout}>
@@ -399,47 +367,10 @@ export const SettingsScreen: React.FC = () => {
               onToggle={(value) => updateSetting('practiceGuidanceEnabled', value)}
               disabled={isLoading}
             />
-            <SettingsRow
-              title="Weekly Summary"
-              subtitle={`Receive a reflection of your week on ${formatWeekdayLabel(weeklySummaryDay)}s`}
-              type="toggle"
-              toggleValue={settings.weeklySummaryEnabled}
-              onToggle={async (value) => {
-                await updateSetting('weeklySummaryEnabled', value);
-                // Also trigger scheduling update since we just changed the toggle
-                if (notifState) {
-                  if (value) {
-                    await NotificationService.scheduleWeeklySummary(
-                      weeklySummaryDay,
-                      weeklySummaryTime
-                    );
-                  } else {
-                    await NotificationService.cancelWeeklySummary();
-                  }
-                }
-              }}
-              disabled={isLoading}
-            />
-            <SettingsRow
-              title="Weekly Summary Day"
-              subtitle="Choose the weekday for the reflection"
-              value={formatWeekdayLabel(weeklySummaryDay)}
-              type="chevron"
-              onPress={() => setTimePickerTarget('weeklySummaryDay')}
-              disabled={isLoading}
-            />
-            <SettingsRow
-              title="Weekly Summary Time"
-              subtitle="Choose when the weekly reflection lands"
-              value={formatTimeLabel(weeklySummaryTime)}
-              type="chevron"
-              onPress={() => setTimePickerTarget('weeklySummaryTime')}
-              disabled={isLoading}
-            />
 
             <SettingsRow
               title="Notifications"
-              subtitle="Enable daily priming reminders"
+              subtitle="Enable Prime reminders and weekly reflections"
               type="toggle"
               toggleValue={notifState?.notification_enabled ?? true}
               onToggle={(value) => {
@@ -638,105 +569,43 @@ export const SettingsScreen: React.FC = () => {
                 ? 'Select Wake Time'
                 : timePickerTarget === 'reminder'
                   ? 'Select Reminder Time'
-                  : timePickerTarget === 'weeklySummaryDay'
-                    ? 'Select Weekly Summary Day'
-                    : 'Select Weekly Summary Time'}
+                  : 'Select Time'}
             </Text>
             <ScrollView
               style={styles.hourPickerList}
               contentContainerStyle={styles.hourPickerListContent}
               showsVerticalScrollIndicator={false}
             >
-              {timePickerTarget === 'weeklySummaryDay'
-                ? WEEKDAY_LABELS.map((label, day) => {
-                    const isSelected = weeklySummaryDay === day;
+              {Array.from({ length: 24 }, (_, hour) => {
+                const activeHour =
+                  timePickerTarget === 'wake'
+                    ? notifState?.active_hours_start ?? 8
+                    : notifState?.active_hours_end ?? 21;
+                const isSelected = activeHour === hour;
 
-                    return (
-                      <TouchableOpacity
-                        key={label}
-                        style={[
-                          styles.hourPickerOption,
-                          isSelected ? styles.hourPickerOptionActive : null,
-                        ]}
-                        activeOpacity={0.8}
-                        onPress={() => {
-                          void (async () => {
-                            await updateSetting('weeklySummaryDay', day);
-                            setTimePickerTarget(null);
-                          })();
-                        }}
-                      >
-                        <Text
-                          style={[
-                            styles.hourPickerOptionText,
-                            isSelected ? styles.hourPickerOptionTextActive : null,
-                          ]}
-                        >
-                          {label}
-                        </Text>
-                      </TouchableOpacity>
-                    );
-                  })
-                : timePickerTarget === 'weeklySummaryTime'
-                  ? Array.from({ length: 48 }, (_, index) => {
-                    const hour = Math.floor(index / 2);
-                    const minute = index % 2 === 0 ? 0 : 30;
-                    const activeTime = parseTimeString(weeklySummaryTime);
-                    const isSelected = activeTime.hour === hour && activeTime.minute === minute;
-
-                    return (
-                      <TouchableOpacity
-                        key={`${hour}:${minute}`}
-                        style={[
-                          styles.hourPickerOption,
-                          isSelected ? styles.hourPickerOptionActive : null,
-                        ]}
-                        activeOpacity={0.8}
-                        onPress={() => {
-                          void handleTimeSelection(hour, minute);
-                        }}
-                      >
-                        <Text
-                          style={[
-                            styles.hourPickerOptionText,
-                            isSelected ? styles.hourPickerOptionTextActive : null,
-                          ]}
-                        >
-                          {formatTimeLabel(formatTimeValue(hour, minute))}
-                        </Text>
-                      </TouchableOpacity>
-                    );
-                  })
-                : Array.from({ length: 24 }, (_, hour) => {
-                    const activeHour =
-                      timePickerTarget === 'wake'
-                        ? notifState?.active_hours_start ?? 8
-                        : notifState?.active_hours_end ?? 21;
-                    const isSelected = activeHour === hour;
-
-                    return (
-                      <TouchableOpacity
-                        key={hour}
-                        style={[
-                          styles.hourPickerOption,
-                          isSelected ? styles.hourPickerOptionActive : null,
-                        ]}
-                        activeOpacity={0.8}
-                        onPress={() => {
-                          void handleTimeSelection(hour);
-                        }}
-                      >
-                        <Text
-                          style={[
-                            styles.hourPickerOptionText,
-                            isSelected ? styles.hourPickerOptionTextActive : null,
-                          ]}
-                        >
-                          {formatHourLabel(hour)}
-                        </Text>
-                      </TouchableOpacity>
-                    );
-                  })}
+                return (
+                  <TouchableOpacity
+                    key={hour}
+                    style={[
+                      styles.hourPickerOption,
+                      isSelected ? styles.hourPickerOptionActive : null,
+                    ]}
+                    activeOpacity={0.8}
+                    onPress={() => {
+                      void handleTimeSelection(hour);
+                    }}
+                  >
+                    <Text
+                      style={[
+                        styles.hourPickerOptionText,
+                        isSelected ? styles.hourPickerOptionTextActive : null,
+                      ]}
+                    >
+                      {formatHourLabel(hour)}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
             </ScrollView>
           </Pressable>
         </Pressable>

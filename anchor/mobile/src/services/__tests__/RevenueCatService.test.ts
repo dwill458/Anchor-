@@ -41,6 +41,7 @@ describe('RevenueCatService', () => {
   const mockSetRcTier = jest.fn();
   const mockSetTrialState = jest.fn();
   const mockSetSubscriptionStatus = jest.fn();
+  const mockSetRcSynced = jest.fn();
 
   beforeEach(() => {
     jest.clearAllMocks();
@@ -48,6 +49,13 @@ describe('RevenueCatService', () => {
       setRcTier: mockSetRcTier,
       setTrialState: mockSetTrialState,
       setSubscriptionStatus: mockSetSubscriptionStatus,
+      setRcSynced: mockSetRcSynced,
+      // Fields read by getCurrentStatus() (fallback path on caught errors)
+      isInTrial: false,
+      isSubscribed: false,
+      hasActiveEntitlement: false,
+      daysRemaining: null,
+      trialExpired: false,
     });
   });
 

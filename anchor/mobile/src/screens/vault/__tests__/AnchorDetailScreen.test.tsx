@@ -400,7 +400,7 @@ describe('AnchorDetailScreen', () => {
 
         fireEvent.press(screen.getByText('Delete Anchor'));
 
-        expect(screen.getByText('Burn & Release is the proper ritual.')).toBeTruthy();
+        expect(screen.getByText('Burn & Release is the proper practice.')).toBeTruthy();
         expect(screen.getByText('Delete Anyway')).toBeTruthy();
 
         fireEvent.press(screen.getByText('Delete Anyway'));

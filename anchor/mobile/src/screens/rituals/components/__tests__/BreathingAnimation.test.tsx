@@ -70,7 +70,7 @@ describe('BreathingAnimation', () => {
   it('displays subtitle text', () => {
     render(<BreathingAnimation />);
 
-    expect(screen.getByText('Prepare yourself for the ritual')).toBeTruthy();
+    expect(screen.getByText('Prepare yourself for the practice')).toBeTruthy();
   });
 
   it('changes instruction to "Breathe out..." after 1.5 seconds', () => {

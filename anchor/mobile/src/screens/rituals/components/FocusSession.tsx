@@ -265,11 +265,6 @@ const CloseButton: React.FC<{ onPress: () => void; testID?: string }> = ({ onPre
   </Pressable>
 );
 
-const formatTime = (seconds: number): string => {
-  const s = Math.max(0, Math.floor(seconds));
-  return `${String(Math.floor(s / 60)).padStart(2, '0')}:${String(s % 60).padStart(2, '0')}`;
-};
-
 // ─── Main Component ───────────────────────────────────────────────────────────
 
 export const FocusSession: React.FC<FocusSessionProps> = ({
@@ -400,9 +395,7 @@ export const FocusSession: React.FC<FocusSessionProps> = ({
   const sealProgress = useSharedValue(0);
   const haloScale = useSharedValue(1);
 
-  // ── Derived display values ─────────────────────────────────────────────────
   const isSeal = status === 'completed';
-  const timerDisplay = formatTime(secondsRemaining);
 
   // ── Ground note (teaching) ─────────────────────────────────────────────────
   useEffect(() => {
@@ -959,12 +952,6 @@ export const FocusSession: React.FC<FocusSessionProps> = ({
     transform: [{ scale: haloScale.value }],
   }));
 
-  const progressBarStyle = useAnimatedStyle(() => {
-    return {
-      width: `${progress.value * 100}%`,
-    };
-  });
-
   const bloomStyle = useAnimatedStyle(() => {
     const base = interpolate(progress.value, [0, 1], [0.1, 0.22]);
     return {
@@ -1017,8 +1004,6 @@ export const FocusSession: React.FC<FocusSessionProps> = ({
     );
   }
 
-  const showProgressBar = !isSeal;
-
   return (
     <RitualScaffold>
       <View style={styles.container}>
@@ -1029,19 +1014,8 @@ export const FocusSession: React.FC<FocusSessionProps> = ({
           <Text style={[styles.sessionLabel, isSeal && styles.sessionLabelSeal]}>
             {isSeal ? 'SEAL YOUR ANCHOR' : 'FOCUS'}
           </Text>
-          {!isSeal ? (
-            <Text style={styles.timerTop} testID="focus-session-timer">{timerDisplay}</Text>
-          ) : (
-            <View style={styles.topBarSpacer} />
-          )}
+          <View style={styles.topBarSpacer} />
         </View>
-
-        {/* ── LINEAR PROGRESS BAR ── */}
-        {showProgressBar && (
-          <View style={styles.progressTrack}>
-            <Animated.View style={[styles.progressFill, progressBarStyle]} />
-          </View>
-        )}
 
         {/* ── CENTER STAGE ── */}
         <View style={styles.center}>
@@ -1194,35 +1168,8 @@ const styles = StyleSheet.create({
   sessionLabelSeal: {
     color: colors.gold,
   },
-  timerTop: {
-    fontFamily: typography.fontFamily.mono,
-    fontSize: 12,
-    color: BONE_FAINT,
-    letterSpacing: 0.5,
-    minWidth: 32,
-    textAlign: 'right',
-  },
   topBarSpacer: {
     width: 32,
-  },
-
-  // ── Progress bar ──
-  progressTrack: {
-    height: 2,
-    marginHorizontal: 0,
-    marginBottom: 2,
-    backgroundColor: 'rgba(245,240,232,0.07)',
-    borderRadius: 1,
-    overflow: 'hidden',
-  },
-  progressFill: {
-    height: '100%',
-    backgroundColor: colors.gold,
-    borderRadius: 1,
-    shadowColor: colors.gold,
-    shadowOpacity: 0.5,
-    shadowRadius: 4,
-    shadowOffset: { width: 0, height: 0 },
   },
 
   // ── Center stage ──

@@ -1,6 +1,6 @@
 import React from 'react';
 import { TextInput } from 'react-native';
-import { fireEvent, render, screen } from '@testing-library/react-native';
+import { act, fireEvent, render, screen } from '@testing-library/react-native';
 import ReturningIntentionScreen from '../ReturningIntentionScreen';
 
 const mockNavigate = jest.fn();
@@ -118,5 +118,23 @@ describe('ReturningIntentionScreen', () => {
     expect(mockSetPendingForgeIntent).toHaveBeenCalledWith('Hold steady');
     expect(mockSetPendingForgeResumeTarget).toHaveBeenCalledWith('CreateAnchor');
     expect(mockNavigate).toHaveBeenCalledWith('Paywall');
+  });
+
+  it.each([
+    ['zzzzzz', "That doesn't look like an intention. What do you actually want?"],
+    ['I will focus today', 'Try present tense: "I choose…" "I am…" or "I return…"'],
+    ["I don't check social media", 'Try affirmative: "I choose…" instead of "I don\'t…"'],
+  ])('shows shared intention guidance for %s', (text, guidance) => {
+    jest.useFakeTimers();
+    render(<ReturningIntentionScreen />);
+    const input = screen.UNSAFE_getByType(TextInput);
+
+    fireEvent.changeText(input, text);
+    act(() => {
+      jest.advanceTimersByTime(700);
+    });
+
+    expect(screen.getByText(guidance)).toBeTruthy();
+    jest.useRealTimers();
   });
 });

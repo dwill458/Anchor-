@@ -55,7 +55,7 @@ export const DailyThreadDetailsSheet: React.FC<DailyThreadDetailsSheetProps> = (
               <Text style={styles.metricValue}>{`${Math.min(todaySessionsCount, 1)}/1`}</Text>
             </View>
             <View style={styles.metricCard}>
-              <Text style={styles.metricLabel}>Streak</Text>
+              <Text style={styles.metricLabel}>Constancy</Text>
               <Text style={styles.metricValue}>{`${streakDays}d`}</Text>
             </View>
           </View>

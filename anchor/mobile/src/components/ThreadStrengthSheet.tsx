@@ -431,11 +431,11 @@ export const ThreadStrengthSheet: React.FC<ThreadStrengthSheetProps> = ({
               </View>
               <View style={styles.statCard}>
                 <Text style={styles.statValue}>{data.currentStreak}</Text>
-                <Text style={styles.statLabel}>Current Streak</Text>
+                <Text style={styles.statLabel}>Current Constancy</Text>
               </View>
               <View style={styles.statCard}>
                 <Text style={styles.statValue}>{data.longestStreak}</Text>
-                <Text style={styles.statLabel}>Longest Streak</Text>
+                <Text style={styles.statLabel}>Longest Constancy</Text>
               </View>
               <View style={styles.statCard}>
                 <Text style={[styles.statValue, styles.statValuePurple]}>{data.deepPrimePct}%</Text>

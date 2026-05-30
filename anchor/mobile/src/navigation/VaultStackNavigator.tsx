@@ -188,7 +188,7 @@ export const VaultStackNavigator: React.FC<VaultStackNavigatorProps> = ({ onRout
       <Stack.Screen
         name="ManualForge"
         component={ManualForgeScreen}
-        options={{ title: 'Forge Your Sigil', headerShown: false }}
+        options={{ title: 'Forge Your Anchor', headerShown: false }}
       />
       <Stack.Screen
         name="AIGenerating"

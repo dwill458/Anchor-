@@ -34,6 +34,9 @@ interface SubscriptionState extends TrialStatusSnapshot {
     devOverrideEnabled: boolean;
     devTierOverride: 'free' | 'pro' | 'trial' | 'expired';
 
+    // True once RevenueCat has returned at least one real response (not persisted — resets on reinstall)
+    rcSynced: boolean;
+
     // Actions
     setRcTier: (tier: SubscriptionStatus) => void;
     setTrialStartDate: (date: string) => void;
@@ -42,6 +45,7 @@ interface SubscriptionState extends TrialStatusSnapshot {
     setRemoteCompedAccess: (enabled: boolean) => void;
     setDevOverrideEnabled: (enabled: boolean) => void;
     setDevTierOverride: (tier: 'free' | 'pro' | 'trial' | 'expired') => void;
+    setRcSynced: (synced: boolean) => void;
     resetOverrides: () => void;
 
     // Computed values (accessed via selectors or the hook)
@@ -57,6 +61,7 @@ export const useSubscriptionStore = create<SubscriptionState>()(
             subscriptionStatus: 'trial',
             devOverrideEnabled: false,
             devTierOverride: 'pro',
+            rcSynced: false,
 
             // RevenueCat-derived trial status fields
             isInTrial: false,
@@ -72,6 +77,7 @@ export const useSubscriptionStore = create<SubscriptionState>()(
             setRemoteCompedAccess: (enabled) => set({ remoteCompedAccess: enabled }),
             setDevOverrideEnabled: (enabled) => set({ devOverrideEnabled: enabled }),
             setDevTierOverride: (tier) => set({ devTierOverride: tier }),
+            setRcSynced: (synced) => set({ rcSynced: synced }),
 
             resetOverrides: () => set({
                 devOverrideEnabled: false,
@@ -86,6 +92,8 @@ export const useSubscriptionStore = create<SubscriptionState>()(
                     remoteCompedAccess,
                     subscriptionStatus,
                     trialStartDate,
+                    hasActiveEntitlement,
+                    rcSynced,
                 } = get();
 
                 if (__DEV__ && devOverrideEnabled) {
@@ -99,7 +107,12 @@ export const useSubscriptionStore = create<SubscriptionState>()(
                 // Active paid subscription always wins
                 if (rcTier.startsWith('pro') || subscriptionStatus === 'active') return 'pro';
 
-                // Trial grants full access while days remain
+                // After RC has confirmed state, require entitlement (closes reinstall trial bypass)
+                if (rcSynced) {
+                    return hasActiveEntitlement ? 'pro' : 'free';
+                }
+
+                // Before RC sync: fall back to local trial clock (offline UX cache)
                 if (subscriptionStatus === 'trial' && computeDaysRemaining(trialStartDate) > 0) return 'pro';
 
                 return 'free';
