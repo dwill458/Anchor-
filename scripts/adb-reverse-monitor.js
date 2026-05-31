@@ -124,6 +124,57 @@ function printHeader() {
   console.log(`${COLORS.bright}${COLORS.cyan}====================================================${COLORS.reset}\n`);
 }
 
+let lastKnownIp = null;
+let wifiReconnectAttempts = 0;
+
+function getDeviceIp(serial) {
+  try {
+    const output = execSync(`"${ADB_PATH}" -s ${serial} shell ip address show wlan0`, { encoding: 'utf8' });
+    const match = output.match(/inet\s+(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})/);
+    return match ? match[1] : null;
+  } catch (e) {
+    try {
+      const output = execSync(`"${ADB_PATH}" -s ${serial} shell ip route`, { encoding: 'utf8' });
+      const match = output.match(/src\s+(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})/);
+      return match ? match[1] : null;
+    } catch (err) {
+      return null;
+    }
+  }
+}
+
+function enableWifiAdb(serial) {
+  try {
+    console.log(`\n${COLORS.bright}${COLORS.yellow}[📶 WI-FI SETUP]${COLORS.reset} Enabling wireless ADB on ${serial}...`);
+    execSync(`"${ADB_PATH}" -s ${serial} tcpip 5555`);
+    
+    // Give ADB a brief moment to cycle the connection
+    let ip = null;
+    for (let attempt = 0; attempt < 3; attempt++) {
+      ip = getDeviceIp(serial);
+      if (ip) break;
+      execSync('node -e "setTimeout(() => {}, 1000)"'); // sync wait
+    }
+    
+    if (ip) {
+      lastKnownIp = ip;
+      console.log(`  ${COLORS.green}✔${COLORS.reset} Device IP found: ${COLORS.bright}${ip}${COLORS.reset}`);
+      console.log(`  Connecting to ${ip}:5555...`);
+      try {
+        execSync(`"${ADB_PATH}" connect ${ip}:5555`, { stdio: 'inherit' });
+      } catch (err) {
+        // sometimes the first connect attempt fails right after tcpip command, try once more
+        execSync('node -e "setTimeout(() => {}, 1000)"');
+        execSync(`"${ADB_PATH}" connect ${ip}:5555`, { stdio: 'inherit' });
+      }
+    } else {
+      console.log(`  ${COLORS.red}✘${COLORS.reset} Could not find device Wi-Fi IP address.`);
+    }
+  } catch (e) {
+    console.log(`  ${COLORS.red}✘${COLORS.reset} Wi-Fi setup failed: ${e.message.split('\n')[0]}`);
+  }
+}
+
 // Check devices
 function checkDevices() {
   try {
@@ -132,6 +183,9 @@ function checkDevices() {
     
     // Parse serials
     const currentDevices = new Map();
+    let hasUsbDevice = false;
+    let hasWifiDevice = false;
+    
     for (let i = 1; i < lines.length; i++) {
       const line = lines[i].trim();
       if (!line) continue;
@@ -140,7 +194,40 @@ function checkDevices() {
       if (parts.length >= 2 && parts[1] === 'device') {
         const serial = parts[0];
         currentDevices.set(serial, true);
+        if (serial.includes(':5555') || serial.includes('.')) {
+          hasWifiDevice = true;
+          // Extract IP to save as last known
+          const ipPart = serial.split(':')[0];
+          if (ipPart) lastKnownIp = ipPart;
+        } else {
+          hasUsbDevice = true;
+        }
       }
+    }
+
+    // If a USB device is plugged in but not connected wirelessly, set it up
+    if (hasUsbDevice && !hasWifiDevice) {
+      for (const serial of currentDevices.keys()) {
+        if (!serial.includes(':5555') && !serial.includes('.')) {
+          enableWifiAdb(serial);
+          // Recheck devices after a short pause to pick up the new wireless connection
+          setTimeout(checkDevices, 1500);
+          return;
+        }
+      }
+    }
+
+    // If no devices are connected but we have a lastKnownIp, try to reconnect
+    if (currentDevices.size === 0 && lastKnownIp) {
+      wifiReconnectAttempts++;
+      if (wifiReconnectAttempts % 5 === 1) { // Try to connect every ~10s to avoid spamming too fast
+        process.stdout.write(`\r${COLORS.yellow}🔄${COLORS.reset} Reconnecting to ${lastKnownIp}:5555...`);
+        try {
+          execSync(`"${ADB_PATH}" connect ${lastKnownIp}:5555`, { stdio: 'ignore' });
+        } catch (e) {}
+      }
+    } else if (currentDevices.size > 0) {
+      wifiReconnectAttempts = 0;
     }
 
     // Handle disconnected devices
@@ -165,7 +252,11 @@ function checkDevices() {
     if (knownDevices.size === 0) {
       const spinner = SPINNER_FRAMES[spinnerIndex % SPINNER_FRAMES.length];
       spinnerIndex++;
-      process.stdout.write(`\r${COLORS.yellow}${spinner}${COLORS.reset} Monitoring ADB: ${COLORS.dim}No devices connected. Plug in your device via USB...${COLORS.reset}`);
+      let msg = `No devices connected. Plug in your device via USB...`;
+      if (lastKnownIp) {
+        msg = `No devices connected. Auto-reconnecting to last known IP: ${lastKnownIp}...`;
+      }
+      process.stdout.write(`\r${COLORS.yellow}${spinner}${COLORS.reset} Monitoring ADB: ${COLORS.dim}${msg}${COLORS.reset}`);
     } else {
       const spinner = SPINNER_FRAMES[spinnerIndex % SPINNER_FRAMES.length];
       spinnerIndex++;

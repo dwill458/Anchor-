@@ -848,7 +848,6 @@ export const useSettingsStore = create<SettingsState>()(
             {
               ...persistedState,
               openDailyAnchorAutomatically: persistedState.autoOpenDailyAnchor ?? false,
-              streakProtectionAlerts: persistedState.streakProtectionEnabled ?? false,
               weeklySummaryEnabled: persistedState.weeklyReflectionEnabled ?? false,
             },
             {
@@ -880,7 +879,6 @@ export const useSettingsStore = create<SettingsState>()(
               defaultCharge,
               defaultActivation,
               openDailyAnchorAutomatically: persistedState.autoOpenDailyAnchor ?? false,
-              streakProtectionAlerts: persistedState.streakProtectionEnabled ?? false,
               weeklySummaryEnabled: persistedState.weeklyReflectionEnabled ?? false,
             },
             {

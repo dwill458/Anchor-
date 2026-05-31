@@ -92,4 +92,17 @@ describe('IntentionInputScreen', () => {
         }));
         jest.useRealTimers();
     });
+
+    it.each([
+        ['zzzzzz', "That doesn't look like an intention. What do you actually want?"],
+        ['I will focus today', 'Try present tense: "I choose…" "I am…" or "I return…"'],
+        ["I don't check social media", 'Try affirmative: "I choose…" instead of "I don\'t…"'],
+    ])('shows shared intention guidance for %s', (text, guidance) => {
+        render(<IntentionInputScreen />);
+        const input = screen.getByLabelText('What are you anchoring right now?');
+
+        fireEvent.changeText(input, text);
+
+        expect(screen.getByText(guidance)).toBeTruthy();
+    });
 });

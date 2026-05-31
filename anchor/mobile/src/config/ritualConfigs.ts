@@ -48,7 +48,7 @@ export interface RitualConfig {
 /** Focus Charge - 30 seconds */
 export const FOCUS_30S_CONFIG: RitualConfig = {
   id: 'focus_30s',
-  name: 'Focus Charge',
+  name: 'Focus Prime',
   totalDurationSeconds: 30,
   sealDurationSeconds: 3,
   sealHoldDurationMs: 1500,
@@ -73,7 +73,7 @@ export const FOCUS_30S_CONFIG: RitualConfig = {
 /** Focus Charge - 2 minutes */
 export const FOCUS_2M_CONFIG: RitualConfig = {
   id: 'focus_2m',
-  name: 'Focus Charge',
+  name: 'Focus Prime',
   totalDurationSeconds: 120,
   sealDurationSeconds: 3,
   sealHoldDurationMs: 1500,
@@ -100,7 +100,7 @@ export const FOCUS_2M_CONFIG: RitualConfig = {
 /** Focus Charge - 5 minutes */
 export const FOCUS_5M_CONFIG: RitualConfig = {
   id: 'focus_5m',
-  name: 'Focus Charge',
+  name: 'Focus Prime',
   totalDurationSeconds: 300,
   sealDurationSeconds: 3,
   sealHoldDurationMs: 1500,
@@ -132,7 +132,7 @@ export const FOCUS_5M_CONFIG: RitualConfig = {
 /** Ritual Charge - 5 minutes (legacy DEEP_CHARGE_CONFIG) */
 export const RITUAL_5M_CONFIG: RitualConfig = {
   id: 'ritual_5m',
-  name: 'Ritual Charge',
+  name: 'Deep Practice',
   totalDurationSeconds: 300,
   sealDurationSeconds: 3,
   sealHoldDurationMs: 2800,
@@ -218,7 +218,7 @@ export const RITUAL_5M_CONFIG: RitualConfig = {
 /** Ritual Charge - 10 minutes (extended multi-phase experience) */
 export const RITUAL_10M_CONFIG: RitualConfig = {
   id: 'ritual_10m',
-  name: 'Ritual Charge',
+  name: 'Deep Practice',
   totalDurationSeconds: 600,
   sealDurationSeconds: 3,
   sealHoldDurationMs: 2800,
@@ -351,7 +351,7 @@ function generateCustomRitualConfig(
 
     return {
       id: `focus_custom_${clampedDuration}s`,
-      name: 'Focus Charge',
+      name: 'Focus Prime',
       totalDurationSeconds: clampedDuration,
       sealDurationSeconds: 3,
       sealHoldDurationMs: 1500,
@@ -455,7 +455,7 @@ function generateCustomRitualConfig(
 
     return {
       id: `ritual_custom_${clampedDuration}s`,
-      name: 'Ritual Charge',
+      name: 'Deep Practice',
       totalDurationSeconds: clampedDuration,
       sealDurationSeconds: 3,
       sealHoldDurationMs: 2800,

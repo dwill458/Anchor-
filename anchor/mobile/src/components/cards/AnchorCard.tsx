@@ -181,7 +181,7 @@ const AnchorCardComponent: React.FC<AnchorCardProps> = ({
             {anchor.isCharged && !anchor.isReleased && (
               <View style={[styles.chargedPill, isSanctuary && styles.sanctuaryChargedPill]}>
                 <View style={[styles.pillGlass, isSanctuary && styles.sanctuaryPillGlass]}>
-                  <Text style={styles.pillText}>CHARGED</Text>
+                  <Text style={styles.pillText}>PRIMED</Text>
                   <Animated.View style={sparkleStyle}>
                     <Text style={[styles.pillIcon, isSanctuary && styles.sanctuaryPillIcon]}>✧</Text>
                   </Animated.View>

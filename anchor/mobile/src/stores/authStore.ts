@@ -17,9 +17,11 @@ import type {
 } from '@/types';
 import { apiClient, fetchCompleteProfile } from '@/services/ApiClient';
 import { AuthService } from '@/services/AuthService';
+import { clearNotificationSession } from '@/services/NotificationSessionService';
 import { useAnchorStore } from '@/stores/anchorStore';
 import { useSessionStore } from '@/stores/sessionStore';
 import { useSubscriptionStore } from '@/stores/subscriptionStore';
+import { useTeachingStore } from '@/stores/teachingStore';
 import { calculateStreak } from '@/utils/streakHelpers';
 import {
   createDeveloperMasterUser,
@@ -105,6 +107,7 @@ const ANCHOR_SESSION_STORAGE_KEY = 'anchor-session-storage';
 const CACHED_USER_KEY = 'anchor:cached_user';
 const RECOVERY_DUMP_MARKER_KEY = '@anchor_recovery_dump_complete';
 const RECOVERY_DUMP_VAULT_KEY = '@anchor_recovery_dump_vault';
+const LAST_MILESTONE_SHOWN_KEY = '@anchor_last_milestone_shown';
 
 const createClearedPendingFirstAnchorState = () => ({
   shouldRedirectToCreation: false,
@@ -708,7 +711,7 @@ export const useAuthStore = create<AuthState>()(
               );
 
               if (!chargeResponse.data?.success || !chargeResponse.data.data) {
-                throw new Error('Your first anchor was created, but charging did not sync.');
+                throw new Error('Your first anchor was created, but priming did not sync.');
               }
 
               finalizedAnchor = mergeServerAnchor(finalizedAnchor, chargeResponse.data.data as Partial<Anchor>);
@@ -913,6 +916,7 @@ export const useAuthStore = create<AuthState>()(
         applyCompedAccessToSubscriptionStore(null);
         useAnchorStore.getState().clearAnchors();
         useSessionStore.getState().reset();
+        useTeachingStore.getState().reset();
         set({
           user: null,
           token: null,
@@ -923,12 +927,16 @@ export const useAuthStore = create<AuthState>()(
           profileLastFetched: null,
           ...createClearedPendingFirstAnchorState(),
         });
+        // Intentionally preserved: local trial cache is device-level/offline UX state.
+        // Do not clear anchor-subscription-override-storage on account sign-out.
         void Promise.all([
+          clearNotificationSession(),
           encryptedPersistStorage.removeItem(ANCHOR_VAULT_STORAGE_KEY),
           encryptedPersistStorage.removeItem(ANCHOR_SESSION_STORAGE_KEY),
           AsyncStorage.removeItem(CACHED_USER_KEY),
           AsyncStorage.removeItem(RECOVERY_DUMP_MARKER_KEY),
           AsyncStorage.removeItem(RECOVERY_DUMP_VAULT_KEY),
+          AsyncStorage.removeItem(LAST_MILESTONE_SHOWN_KEY),
         ]).catch((error) => {
           logger.warn('Failed to fully clear persisted local auth data on sign out', error);
         });

@@ -1,10 +1,10 @@
 import { useEffect } from 'react';
 import { InteractionManager } from 'react-native';
-import { navigateToVaultDestination } from '@/navigation/firstAnchorGate';
+import { navigateToVaultDestination, type VaultNavigationLike } from '@/navigation/firstAnchorGate';
 
 export function useMissingAnchorRedirect(
   hasAnchor: boolean,
-  navigation: unknown,
+  navigation: VaultNavigationLike,
   mode: 'replace' | 'navigate' = 'replace'
 ): void {
   useEffect(() => {
@@ -13,7 +13,7 @@ export function useMissingAnchorRedirect(
     }
 
     const task = InteractionManager.runAfterInteractions(() => {
-      navigateToVaultDestination(navigation as any, mode);
+      navigateToVaultDestination(navigation, mode);
     });
 
     return () => task.cancel();

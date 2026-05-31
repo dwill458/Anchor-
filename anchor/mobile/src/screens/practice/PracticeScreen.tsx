@@ -113,7 +113,7 @@ export const PracticeScreen: React.FC = () => {
   const [threadSheetVisible, setThreadSheetVisible] = useState(false);
 
   useEffect(() => {
-    registerTabNav(1, navigation as any);
+    registerTabNav(1, navigation as unknown as Parameters<typeof registerTabNav>[1]);
     return () => registerTabNav(1, null);
   }, [navigation, registerTabNav]);
 

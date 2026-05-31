@@ -277,7 +277,7 @@ export const VaultScreen: React.FC = () => {
   const pulseDotOpacity = useSharedValue(1);
 
   useEffect(() => {
-    registerTabNav(0, navigation as any);
+    registerTabNav(0, navigation as unknown as Parameters<typeof registerTabNav>[1]);
     return () => registerTabNav(0, null);
   }, [navigation, registerTabNav]);
 
@@ -518,7 +518,7 @@ export function VaultEmptyStateContent({
     <View style={styles.emptyStateFill} testID="vault-empty-state-fill">
       {/* Kicker */}
       <Animated2.View entering={getFadeUp(150, shouldReduceMotion)}>
-        <Text style={styles.emptyKicker}>YOUR RITUAL SPACE AWAITS</Text>
+        <Text style={styles.emptyKicker}>YOUR PRACTICE SPACE AWAITS</Text>
       </Animated2.View>
 
       {/* Ritual circle */}
@@ -920,8 +920,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     borderRadius: 14,
     borderWidth: 1,
-    borderColor: 'rgba(212,175,55,0.28)',
-    backgroundColor: 'rgba(212,175,55,0.04)',
+    borderColor: 'rgba(212,175,55,0.34)',
+    backgroundColor: 'rgba(212,175,55,0.06)',
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
@@ -946,7 +946,7 @@ const styles = StyleSheet.create({
     fontFamily: 'Cinzel-SemiBold',
     fontSize: 11.5,
     letterSpacing: 2.5,
-    color: 'rgba(212,175,55,0.82)',
+    color: 'rgba(212,175,55,0.9)',
   },
 });
 

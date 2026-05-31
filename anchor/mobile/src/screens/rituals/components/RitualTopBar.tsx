@@ -30,7 +30,7 @@ export const RitualTopBar: React.FC<RitualTopBarProps> = ({
         style={[styles.backButton, disableBack ? styles.backButtonDisabled : null]}
         disabled={disableBack}
         accessibilityRole="button"
-        accessibilityLabel="Exit ritual"
+        accessibilityLabel="Exit practice"
         accessibilityState={{ disabled: disableBack }}
       >
         <Text style={styles.backIcon}>×</Text>

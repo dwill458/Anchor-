@@ -196,7 +196,7 @@ export const BreathingAnimation: React.FC = () => {
         </View>
 
         {/* Subtitle text */}
-        <Text style={styles.subtitle}>Prepare yourself for the ritual</Text>
+        <Text style={styles.subtitle}>Prepare yourself for the practice</Text>
       </View>
 
       {/* Progress indicator - subtle dots showing breathing progress */}

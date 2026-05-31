@@ -385,10 +385,10 @@ export const BurnAnimationOverlay: React.FC<BurnAnimationOverlayProps> = ({
 
   const showCancelRitualDialog = useCallback((onConfirm: () => void) => {
     Alert.alert(
-      'Cancel Ritual?',
+      'Cancel Practice?',
       'Cancelling will stop the burn. Your anchor will not be released.',
       [
-        { text: 'Continue Ritual', style: 'cancel' },
+        { text: 'Continue Practice', style: 'cancel' },
         { text: 'Cancel', style: 'destructive', onPress: onConfirm },
       ]
     );
@@ -627,7 +627,7 @@ export const BurnAnimationOverlay: React.FC<BurnAnimationOverlayProps> = ({
           {overlayState === 'syncing' ? (
             <View style={styles.syncOverlay}>
               <ActivityIndicator color={colors.gold} size="small" />
-              <Text style={styles.syncText}>Finalizing ritual</Text>
+              <Text style={styles.syncText}>Finalizing practice</Text>
             </View>
           ) : null}
         </View>

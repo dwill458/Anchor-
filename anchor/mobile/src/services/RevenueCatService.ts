@@ -127,10 +127,13 @@ function deriveTrialStatus(customerInfo: CustomerInfo | null | undefined): Trial
   };
 }
 
-function applyTrialStatus(status: TrialStatusSnapshot): TrialStatusSnapshot {
+function applyTrialStatus(status: TrialStatusSnapshot, synced = false): TrialStatusSnapshot {
   const subscriptionStore = useSubscriptionStore.getState();
   subscriptionStore.setRcTier(status.hasActiveEntitlement ? 'pro' : 'free');
   subscriptionStore.setTrialState(status);
+  if (synced) {
+    subscriptionStore.setRcSynced(true);
+  }
   if (status.hasActiveEntitlement) {
     subscriptionStore.setSubscriptionStatus('active');
   }
@@ -192,9 +195,14 @@ class RevenueCatService {
     }
 
     this.configure(userId);
-    const response = await purchases.logIn(userId);
-    const status = deriveTrialStatus(extractCustomerInfo(response));
-    return applyTrialStatus(status);
+    try {
+      const response = await purchases.logIn(userId);
+      const status = deriveTrialStatus(extractCustomerInfo(response));
+      return applyTrialStatus(status, true);
+    } catch (error) {
+      logger.error('[RevenueCatService] logIn failed', error);
+      return this.getCurrentStatus();
+    }
   }
 
   async refreshTrialStatus(): Promise<TrialStatusSnapshot> {
@@ -203,9 +211,14 @@ class RevenueCatService {
       return applyTrialStatus(DEFAULT_TRIAL_STATUS);
     }
 
-    const customerInfo = await purchases.getCustomerInfo();
-    const status = deriveTrialStatus(customerInfo);
-    return applyTrialStatus(status);
+    try {
+      const customerInfo = await purchases.getCustomerInfo();
+      const status = deriveTrialStatus(customerInfo);
+      return applyTrialStatus(status, true);
+    } catch (error) {
+      logger.error('[RevenueCatService] refreshTrialStatus failed', error);
+      return this.getCurrentStatus();
+    }
   }
 
   async purchaseDefaultTrialPackage(): Promise<{
@@ -239,7 +252,7 @@ class RevenueCatService {
       const response = await purchases.purchasePackage(selectedPackage);
       const status = deriveTrialStatus(extractCustomerInfo(response));
       return {
-        status: applyTrialStatus(status),
+        status: applyTrialStatus(status, true),
         dismissed: false,
       };
     } catch (error) {
@@ -279,7 +292,7 @@ class RevenueCatService {
 
       const response = await purchases.purchasePackage(selectedPackage);
       const status = deriveTrialStatus(extractCustomerInfo(response));
-      return { status: applyTrialStatus(status), dismissed: false };
+      return { status: applyTrialStatus(status, true), dismissed: false };
     } catch (error) {
       if (isUserCancelled(error)) {
         return { status: await this.refreshTrialStatus(), dismissed: true };
@@ -295,9 +308,14 @@ class RevenueCatService {
       return applyTrialStatus(DEFAULT_TRIAL_STATUS);
     }
 
-    const customerInfo = await purchases.restorePurchases();
-    const status = deriveTrialStatus(customerInfo);
-    return applyTrialStatus(status);
+    try {
+      const customerInfo = await purchases.restorePurchases();
+      const status = deriveTrialStatus(customerInfo);
+      return applyTrialStatus(status, true);
+    } catch (error) {
+      logger.error('[RevenueCatService] restorePurchases failed', error);
+      throw error;
+    }
   }
 
   getCurrentStatus(): TrialStatusSnapshot {
@@ -345,7 +363,7 @@ class RevenueCatService {
 
     return purchases.addCustomerInfoUpdateListener((info) => {
       // Keep the Zustand store in sync on every entitlement change.
-      applyTrialStatus(deriveTrialStatus(info));
+      applyTrialStatus(deriveTrialStatus(info), true);
       listener(info);
     });
   }

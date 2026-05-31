@@ -22,20 +22,26 @@ import * as Haptics from 'expo-haptics';
 import { format } from 'date-fns';
 import { Anchor } from '@/types';
 import { colors, spacing, typography } from '@/theme';
-import { AnchorState } from '../utils/anchorStateHelpers';
 import { safeHaptics } from '@/utils/haptics';
+import { useSessionStore } from '@/stores/sessionStore';
+import { calculateStreakWithGrace } from '@/utils/streak';
 
 interface PracticePathCardProps {
   anchor: Anchor;
-  anchorState: AnchorState;
   activationsThisWeek: number;
 }
 
 export const PracticePathCard: React.FC<PracticePathCardProps> = ({
   anchor,
-  anchorState,
   activationsThisWeek,
 }) => {
+  const sessionLog = useSessionStore((state) => state.sessionLog);
+  const lastGraceDayUsedAt = useSessionStore((state) => state.lastGraceDayUsedAt);
+
+  const anchorSessions = sessionLog.filter((s) => s.anchorId === anchor.id);
+  const streak = calculateStreakWithGrace(anchorSessions, lastGraceDayUsedAt);
+  const streakText = `${streak.currentStreak} ${streak.currentStreak === 1 ? 'day' : 'days'}`;
+
   const [isExpanded, setIsExpanded] = useState(false);
   const heightAnim = useRef(new Animated.Value(0)).current;
   const rotateAnim = useRef(new Animated.Value(0)).current;
@@ -94,13 +100,13 @@ export const PracticePathCard: React.FC<PracticePathCardProps> = ({
           onPress={toggleExpanded}
           activeOpacity={0.7}
           accessibilityRole="button"
-          accessibilityLabel={`Your Practice. Streak: ${activationsThisWeek > 0 ? '1 day' : '0 days'}. ${isExpanded ? 'Collapse' : 'Expand'}`}
+          accessibilityLabel={`Your Practice. Constancy: ${streakText}. ${isExpanded ? 'Collapse' : 'Expand'}`}
         >
           <Text style={styles.title}>Your Practice</Text>
           <View style={styles.headerRight}>
-            {activationsThisWeek > 0 && (
+            {streak.currentStreak > 0 && (
               <Text style={styles.headerStreak}>
-                {activationsThisWeek > 0 ? '1 day' : '0 days'} streak
+                {streakText} Constancy
               </Text>
             )}
             <Animated.Text
@@ -137,7 +143,7 @@ export const PracticePathCard: React.FC<PracticePathCardProps> = ({
                 <Text style={styles.nextBadge}>Next</Text>
               </View>
             )}
-            <Text style={styles.checklistText}>Charge</Text>
+            <Text style={styles.checklistText}>Prime</Text>
           </View>
 
           {/* Step 3: Activate daily */}
@@ -147,7 +153,7 @@ export const PracticePathCard: React.FC<PracticePathCardProps> = ({
                 {activationsThisWeek}/7
               </Text>
             </View>
-            <Text style={styles.checklistText}>Activate daily</Text>
+            <Text style={styles.checklistText}>Prime daily</Text>
           </View>
         </View>
 
@@ -164,7 +170,7 @@ export const PracticePathCard: React.FC<PracticePathCardProps> = ({
           <View style={styles.divider} />
 
           {/* Activation history section */}
-          <Text style={styles.sectionTitle}>Recent Activations</Text>
+            <Text style={styles.sectionTitle}>Recent Focus Sessions</Text>
 
           {anchor.activationCount > 0 && anchor.lastActivatedAt ? (
             <View style={styles.historyList}>
@@ -177,22 +183,19 @@ export const PracticePathCard: React.FC<PracticePathCardProps> = ({
               <TouchableOpacity
                 style={styles.viewAllLink}
                 accessibilityRole="button"
-                accessibilityLabel="View all activations, coming soon"
+                accessibilityLabel="View all focus sessions, coming soon"
               >
-                <Text style={styles.viewAllText}>View all activations (soon)</Text>
+                <Text style={styles.viewAllText}>View all focus sessions (soon)</Text>
               </TouchableOpacity>
             </View>
           ) : (
-            <Text style={styles.emptyText}>No activations yet</Text>
+            <Text style={styles.emptyText}>No focus sessions yet</Text>
           )}
 
           {/* Streak context */}
           <View style={styles.streakSection}>
-            <Text style={styles.streakLabel}>Streak:</Text>
-            <Text style={styles.streakValue}>
-              {/* TODO: Calculate real streak from activation history */}
-              {activationsThisWeek > 0 ? '1 day' : '0 days'}
-            </Text>
+            <Text style={styles.streakLabel}>Constancy:</Text>
+            <Text style={styles.streakValue}>{streakText}</Text>
           </View>
         </Animated.View>
       </View>

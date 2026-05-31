@@ -977,7 +977,7 @@ const AnchorDetailsScreen = ({ navigation, route }) => {
           try {
             const granted = await ensureMediaLibraryPermission();
             if (!granted) {
-              toast.warning('Allow photo library access to save your sigil');
+              toast.warning('Allow photo library access to save your anchor');
               return;
             }
 
@@ -1027,7 +1027,7 @@ const AnchorDetailsScreen = ({ navigation, route }) => {
     if (isExporting) return;
     const perm = await MediaLibrary.requestPermissionsAsync();
     if (perm.status !== 'granted') {
-      toast.warning('Allow photo library access to share your sigil');
+      toast.warning('Allow photo library access to share your anchor');
       return;
     }
     setIsExporting(true);
@@ -1085,7 +1085,7 @@ const AnchorDetailsScreen = ({ navigation, route }) => {
 
     Alert.alert(
       'Report AI Content',
-      'Why are you reporting this sigil?',
+      'Why are you reporting this anchor?',
       [
         { text: 'Inappropriate', onPress: () => submitContentReport(anchor.id, imageUrl, 'inappropriate') },
         { text: 'Harmful', onPress: () => submitContentReport(anchor.id, imageUrl, 'harmful') },

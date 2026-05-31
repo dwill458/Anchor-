@@ -18,6 +18,8 @@ import {
 } from '@/services/DailyGoalNudgeService';
 import {
   clearPushTokensFromServer,
+  getPendingNotificationStateSync,
+  type SyncedNotificationState,
   syncNotificationStateToServer,
   syncPushTokensToServer,
 } from '@/services/NotificationSyncService';
@@ -26,33 +28,77 @@ import { useAuthStore } from '@/stores/authStore';
 import { useSessionStore } from '@/stores/sessionStore';
 import { useSettingsStore } from '@/stores/settingsStore';
 
+type NotificationStateWithSyncMetadata = SyncedNotificationState;
+
+const NOTIFICATION_PRIORITY_ORDER = ['ALCHEMIST', 'WEAVER', 'MIRROR', 'MICRO_PRIME'] as const;
+
+const getNotificationDayString = (date: Date, timezone: string): string => {
+  const adjusted = new Date(date.getTime() - 2 * 60 * 60 * 1000);
+
+  try {
+    return new Intl.DateTimeFormat('en-CA', {
+      timeZone: timezone || 'UTC',
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+    }).format(adjusted);
+  } catch {
+    return adjusted.toISOString().slice(0, 10);
+  }
+};
+
+const wasHigherPriorityNotificationSentToday = (
+  state: NotificationStateWithSyncMetadata,
+  candidate: 'MIRROR' | 'MICRO_PRIME'
+): boolean => {
+  const lastSentType = state.last_sent_type;
+  if (!lastSentType || !state.last_sent_utc_date) {
+    return false;
+  }
+
+  const today = getNotificationDayString(new Date(), state.timezone);
+  if (state.last_sent_utc_date !== today) {
+    return false;
+  }
+
+  const candidatePriority = NOTIFICATION_PRIORITY_ORDER.indexOf(candidate);
+  const lastSentPriority = NOTIFICATION_PRIORITY_ORDER.indexOf(lastSentType);
+
+  return lastSentPriority !== -1 && candidatePriority !== -1 && lastSentPriority < candidatePriority;
+};
+
 export const useNotificationController = () => {
-  const [notifState, setNotifState] = useState<NotificationState | null>(null);
+  const [notifState, setNotifState] = useState<NotificationStateWithSyncMetadata | null>(null);
   const [isInitialized, setIsInitialized] = useState(false);
   const dailyPracticeGoal = useSettingsStore((state) => state.dailyPracticeGoal ?? 3);
-  const weeklySummaryEnabled = useSettingsStore((state) => state.weeklySummaryEnabled ?? true);
   const weeklySummaryDay = useSettingsStore((state) => state.weeklySummaryDay ?? 0);
   const weeklySummaryTime = useSettingsStore((state) => state.weeklySummaryTime ?? '19:00');
 
-  const loadState = useCallback(async (): Promise<NotificationState> => {
+  const loadState = useCallback(async (): Promise<NotificationStateWithSyncMetadata> => {
     const stored = await AsyncStorage.getItem(NOTIFICATION_STATE_STORAGE_KEY);
     return stored ? JSON.parse(stored) : initializeNotificationState();
   }, []);
 
-  const saveState = useCallback(async (state: NotificationState) => {
+  const saveState = useCallback(async (state: NotificationStateWithSyncMetadata) => {
     await AsyncStorage.setItem(NOTIFICATION_STATE_STORAGE_KEY, JSON.stringify(state));
     setNotifState(state);
   }, []);
 
-  const syncStateToServer = useCallback(async (state: NotificationState) => {
+  const syncStateToServer = useCallback(async (
+    state: NotificationStateWithSyncMetadata
+  ): Promise<NotificationStateWithSyncMetadata | null> => {
     if (!useAuthStore.getState().isAuthenticated) {
-      return;
+      return null;
     }
 
-    await syncNotificationStateToServer(state);
+    const pendingState = await getPendingNotificationStateSync();
+    const nextState = pendingState ? { ...pendingState, ...state } : state;
+    return syncNotificationStateToServer(nextState);
   }, []);
 
-  const syncWithStores = useCallback((state: NotificationState): NotificationState => {
+  const syncWithStores = useCallback((
+    state: NotificationStateWithSyncMetadata
+  ): NotificationStateWithSyncMetadata => {
     const now = new Date();
     const sessionState = useSessionStore.getState();
     const anchorState = useAnchorStore.getState();
@@ -85,7 +131,9 @@ export const useNotificationController = () => {
     };
   }, [dailyPracticeGoal]);
 
-  const reconcile = useCallback((input: NotificationState): NotificationState => {
+  const reconcile = useCallback((
+    input: NotificationStateWithSyncMetadata
+  ): NotificationStateWithSyncMetadata => {
     const now = new Date();
     const state = syncWithStores({ ...input });
     const lastPrimeDate = state.last_prime_at
@@ -120,10 +168,14 @@ export const useNotificationController = () => {
     return state;
   }, [syncWithStores]);
 
-  const scheduleMicroPrime = useCallback(async (state: NotificationState) => {
+  const scheduleMicroPrime = useCallback(async (state: NotificationStateWithSyncMetadata) => {
     await NotificationService.cancelNotification('micro-prime');
 
-    if (!state.notification_enabled || state.primed_today) {
+    if (
+      !state.notification_enabled ||
+      state.primed_today ||
+      wasHigherPriorityNotificationSentToday(state, 'MICRO_PRIME')
+    ) {
       return;
     }
 
@@ -161,7 +213,10 @@ export const useNotificationController = () => {
 
       await saveState(state);
       await scheduleMicroPrime(state);
-      await syncStateToServer(state);
+      const syncedState = await syncStateToServer(state);
+      if (syncedState) {
+        await saveState(syncedState);
+      }
     } catch (err) {
       console.error('[NotificationController] initOnAppOpen error:', err);
     } finally {
@@ -188,7 +243,10 @@ export const useNotificationController = () => {
         }
 
         await saveState(reconciledState);
-        await syncStateToServer(reconciledState);
+        const syncedState = await syncStateToServer(reconciledState);
+        if (syncedState && !cancelled) {
+          await saveState(syncedState);
+        }
       } catch (err) {
         console.error('[NotificationController] syncGoalWithSettings error:', err);
       }
@@ -207,7 +265,12 @@ export const useNotificationController = () => {
     }
 
     const syncWeeklySummarySchedule = async () => {
-      if (!notifState.notification_enabled || !weeklySummaryEnabled) {
+      if (!notifState.notification_enabled) {
+        await NotificationService.cancelWeeklySummary();
+        return;
+      }
+
+      if (wasHigherPriorityNotificationSentToday(notifState, 'MIRROR')) {
         await NotificationService.cancelWeeklySummary();
         return;
       }
@@ -220,7 +283,6 @@ export const useNotificationController = () => {
     isInitialized,
     notifState?.notification_enabled,
     weeklySummaryDay,
-    weeklySummaryEnabled,
     weeklySummaryTime,
   ]);
 
@@ -248,7 +310,10 @@ export const useNotificationController = () => {
 
       await saveState(state);
       await scheduleMicroPrime(state);
-      await syncStateToServer(state);
+      const syncedState = await syncStateToServer(state);
+      if (syncedState) {
+        await saveState(syncedState);
+      }
     } catch (err) {
       console.error('[NotificationController] handlePrimeComplete error:', err);
     }
@@ -259,7 +324,10 @@ export const useNotificationController = () => {
       const state = reconcile(await loadState());
       state.has_entered_burn_flow = true;
       await saveState(state);
-      await syncStateToServer(state);
+      const syncedState = await syncStateToServer(state);
+      if (syncedState) {
+        await saveState(syncedState);
+      }
     } catch (err) {
       console.error('[NotificationController] handleBurnFlowEntered error:', err);
     }
@@ -283,7 +351,10 @@ export const useNotificationController = () => {
       }
 
       await saveState(state);
-      await syncStateToServer(state);
+      const syncedState = await syncStateToServer(state);
+      if (syncedState) {
+        await saveState(syncedState);
+      }
     } catch (err) {
       console.error('[NotificationController] handleSigilVaulted error:', err);
     }
@@ -296,7 +367,10 @@ export const useNotificationController = () => {
       state.active_hours_end = end;
       await saveState(state);
       await scheduleMicroPrime(state);
-      await syncStateToServer(state);
+      const syncedState = await syncStateToServer(state);
+      if (syncedState) {
+        await saveState(syncedState);
+      }
     } catch (err) {
       console.error('[NotificationController] updateActiveHours error:', err);
     }
@@ -306,6 +380,7 @@ export const useNotificationController = () => {
     try {
       const state = reconcile(await loadState());
       state.notification_enabled = enabled;
+      useSettingsStore.setState({ weeklySummaryEnabled: enabled });
       await saveState(state);
 
       const isAuthenticated = useAuthStore.getState().isAuthenticated;
@@ -331,7 +406,10 @@ export const useNotificationController = () => {
           }
         }
       }
-      await syncStateToServer(state);
+      const syncedState = await syncStateToServer(state);
+      if (syncedState) {
+        await saveState(syncedState);
+      }
     } catch (err) {
       console.error('[NotificationController] toggleNotifications error:', err);
     }
@@ -358,7 +436,10 @@ export const useNotificationController = () => {
       const state = reconcile(await loadState());
       state.weaver_enabled = enabled;
       await saveState(state);
-      await syncStateToServer(state);
+      const syncedState = await syncStateToServer(state);
+      if (syncedState) {
+        await saveState(syncedState);
+      }
     } catch (err) {
       console.error('[NotificationController] toggleWeaver error:', err);
     }

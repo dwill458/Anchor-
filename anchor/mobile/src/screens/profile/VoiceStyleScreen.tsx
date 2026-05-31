@@ -42,7 +42,7 @@ const VOICE_STYLE_OPTIONS: VoiceStyleOption[] = [
   {
     id: 'neutral',
     name: 'Neutral',
-    description: 'Balanced and clear. Works well for everyday activation.',
+    description: 'Balanced and clear. Works well for everyday focus sessions.',
     icon: Minus,
   },
   {

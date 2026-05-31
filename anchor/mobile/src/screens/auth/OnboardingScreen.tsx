@@ -14,10 +14,12 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { SvgXml } from 'react-native-svg';
 import { useNavigation } from '@react-navigation/native';
+import { StackNavigationProp } from '@react-navigation/stack';
+import type { RootNavigatorParamList } from '@/navigation/RootNavigator';
 import { useAuthStore } from '../../stores/authStore';
 import { generateTrueSigil } from '@/utils/sigil/traditional-generator';
 import { ForgeDemo } from '@/components/onboarding/ForgeDemo';
-const anchorLogoImg = require('../../../assets/anchor-logo-official.jpg');
+const anchorLogoImg = require('../../../assets/anchor-icon.png');
 import { UseCaseCard } from '@/components/onboarding/UseCaseCard';
 import type { UseCaseItem } from '@/components/onboarding/UseCaseCard';
 
@@ -352,7 +354,7 @@ const Ornament: React.FC = () => (
 // Main screen
 // ---------------------------------------------------------------------------
 export const OnboardingScreen: React.FC = () => {
-  const navigation = useNavigation();
+  const navigation = useNavigation<StackNavigationProp<RootNavigatorParamList>>();
   const { completeOnboarding, setShouldRedirectToCreation } = useAuthStore();
 
   const [currentSlide, setCurrentSlide] = useState(0);
@@ -389,7 +391,6 @@ export const OnboardingScreen: React.FC = () => {
       // Slide 4 — "Forge Your First Anchor →"
       setShouldRedirectToCreation(true);
       completeOnboarding();
-      // @ts-expect-error navigation types
       navigation.replace('Main');
     }
   };

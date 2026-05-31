@@ -35,6 +35,11 @@ export const ENABLE_LEGACY_SUPABASE_SYNC =
   process.env.EXPO_PUBLIC_ENABLE_LEGACY_SUPABASE_SYNC === 'true';
 export const ENABLE_MERCH = process.env.EXPO_PUBLIC_ENABLE_MERCH === 'true';
 
+if (!__DEV__ && (!REVENUECAT_API_KEY || !REVENUECAT_ENTITLEMENT_ID)) {
+  // eslint-disable-next-line no-console
+  console.error('[config] RevenueCat env not injected — IAP will silently fail');
+}
+
 export const Config = {
   API_URL,
   SUPABASE_URL,

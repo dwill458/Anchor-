@@ -137,7 +137,7 @@ const HeroAnchorCardInner: React.FC<HeroAnchorCardProps> = ({
           {hasIgnited(anchor) && (
             <View style={styles.chargedBadge}>
               <View style={styles.badgeDot} />
-              <Text style={styles.badgeText}>CHARGED</Text>
+              <Text style={styles.badgeText}>PRIMED</Text>
             </View>
           )}
         </View>
@@ -212,12 +212,16 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 5,
-    backgroundColor: 'rgba(212,175,55,0.15)',
+    backgroundColor: 'rgba(8,12,16,0.62)',
     borderWidth: 1,
-    borderColor: 'rgba(212,175,55,0.4)',
+    borderColor: 'rgba(212,175,55,0.58)',
     borderRadius: 20,
     paddingVertical: 4,
     paddingHorizontal: 10,
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.22,
+    shadowRadius: 10,
     elevation: 8,
   },
   badgeDot: {
@@ -236,6 +240,9 @@ const styles = StyleSheet.create({
     fontSize: 9,
     letterSpacing: 1.8,
     color: colors.gold,
+    textShadowColor: 'rgba(0,0,0,0.45)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 2,
     textTransform: 'uppercase',
   },
   textInfo: {

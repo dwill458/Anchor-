@@ -26,9 +26,7 @@ import { AuthService } from '../../services/AuthService';
 import PostAuthFlowService from '../../services/PostAuthFlowService';
 import type { AuthScreenParams, OnboardingStackParamList, RootStackParamList } from '@/types';
 
-type SharedAuthParamList = RootStackParamList & OnboardingStackParamList;
-
-type SignUpScreenNavigationProp = StackNavigationProp<SharedAuthParamList, 'SignUp'>;
+type SignUpScreenNavigationProp = StackNavigationProp<RootStackParamList, 'SignUp'>;
 
 interface SignUpScreenProps {
   navigation: SignUpScreenNavigationProp;
@@ -88,11 +86,11 @@ export const SignUpScreen: React.FC<SignUpScreenProps> = ({ navigation, route })
       );
 
       if (context === 'first_anchor_gate') {
-        (navigation as any).replace('FirstAnchorAccountGate');
+        navigation.replace('FirstAnchorAccountGate');
       } else if (context === 'save_progress' && shouldRouteThroughFirstAnchorGate) {
-        (navigation as any).replace('FirstAnchorAccountGate');
+        navigation.replace('FirstAnchorAccountGate');
       } else if (context === 'save_progress') {
-        (navigation as any).replace('Vault');
+        navigation.replace('Vault');
       }
     } catch (err: any) {
       setError(err.message || 'Sign up failed');
@@ -202,7 +200,7 @@ export const SignUpScreen: React.FC<SignUpScreenProps> = ({ navigation, route })
 
               <View style={styles.footer}>
                 <Text style={styles.footerText}>Already have an account? </Text>
-                <TouchableOpacity onPress={() => (navigation as any).navigate('Login', route?.params)}>
+                <TouchableOpacity onPress={() => navigation.navigate('Login', route?.params)}>
                   <Text style={styles.footerLink}>Sign In</Text>
                 </TouchableOpacity>
               </View>

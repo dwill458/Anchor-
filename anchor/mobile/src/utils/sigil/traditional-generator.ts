@@ -238,7 +238,7 @@ export function generateAllVariants(letters: any, tier: PlanetaryTier = Planetar
 
 export const VARIANT_METADATA = {
   dense: {
-    title: 'Ritual',
+    title: 'Practice',
     description: 'Dense geometry with containing circles',
   },
   balanced: {
