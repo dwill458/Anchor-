@@ -41,6 +41,7 @@ jest.mock('@/components/common', () => ({
 describe('IntentionInputScreen', () => {
     beforeEach(() => {
         mockNavigate.mockClear();
+        jest.useFakeTimers();
     });
 
     afterEach(() => {
@@ -61,14 +62,12 @@ describe('IntentionInputScreen', () => {
     });
 
     it('stub: enables Continue button after valid input', async () => {
-        jest.useFakeTimers();
         render(<IntentionInputScreen />);
         const input = screen.getByLabelText('What are you anchoring right now?');
         fireEvent.changeText(input, 'Stay calm under pressure');
         act(() => { jest.advanceTimersByTime(500); });
         const continueBtn = screen.getByRole('button', { name: 'Continue' });
         expect(continueBtn.props.accessibilityState?.disabled).not.toBe(true);
-        jest.useRealTimers();
     });
 
     it('stub: enforces 100 character max length', () => {
@@ -81,7 +80,6 @@ describe('IntentionInputScreen', () => {
     });
 
     it('stub: navigates to DistillationAnimation on submit', () => {
-        jest.useFakeTimers();
         render(<IntentionInputScreen />);
         const input = screen.getByLabelText('What are you anchoring right now?');
         fireEvent.changeText(input, 'Stay calm under pressure');
@@ -90,7 +88,6 @@ describe('IntentionInputScreen', () => {
         expect(mockNavigate).toHaveBeenCalledWith('LetterDistillation', expect.objectContaining({
             intentionText: 'Stay calm under pressure',
         }));
-        jest.useRealTimers();
     });
 
     it.each([
