@@ -1,6 +1,6 @@
 import React from 'react';
 import { TextInput } from 'react-native';
-import { act, fireEvent, render, screen } from '@testing-library/react-native';
+import { act, cleanup, fireEvent, render, screen } from '@testing-library/react-native';
 import ReturningIntentionScreen from '../ReturningIntentionScreen';
 
 const mockNavigate = jest.fn();
@@ -85,10 +85,13 @@ describe('ReturningIntentionScreen', () => {
   });
 
   afterEach(() => {
-    // Advance past the longest animation (600ms) so RAF-backed animations complete
-    // before we clear timers — prevents TRLN cleanup from restarting them with real timers.
+    // Flush all pending timers (animations, debounce) then explicitly unmount while
+    // fake timers are still active. TRLN's automatic afterEach cleanup then finds
+    // nothing to do, avoiding a hang when it calls act() with real timers running
+    // alongside JS-driven (useNativeDriver:false) Animated.timing callbacks.
     act(() => { jest.advanceTimersByTime(1000); });
     jest.clearAllTimers();
+    act(() => { cleanup(); });
     jest.useRealTimers();
   });
 

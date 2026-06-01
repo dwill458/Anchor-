@@ -1,5 +1,5 @@
 import React from 'react';
-import { render, fireEvent, screen, act } from '@testing-library/react-native';
+import { render, cleanup, fireEvent, screen, act } from '@testing-library/react-native';
 import IntentionInputScreen from '../IntentionInputScreen';
 
 // Mock navigation
@@ -45,7 +45,9 @@ describe('IntentionInputScreen', () => {
     });
 
     afterEach(() => {
+        act(() => { jest.advanceTimersByTime(1000); });
         jest.clearAllTimers();
+        act(() => { cleanup(); });
         jest.useRealTimers();
     });
 
