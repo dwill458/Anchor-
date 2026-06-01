@@ -85,6 +85,9 @@ describe('ReturningIntentionScreen', () => {
   });
 
   afterEach(() => {
+    // Advance past the longest animation (600ms) so RAF-backed animations complete
+    // before we clear timers — prevents TRLN cleanup from restarting them with real timers.
+    act(() => { jest.advanceTimersByTime(1000); });
     jest.clearAllTimers();
     jest.useRealTimers();
   });
