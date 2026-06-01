@@ -13,8 +13,9 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { SvgXml } from 'react-native-svg';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, type CompositeNavigationProp } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
+import type { AuthStackParamList } from '../../types';
 import type { RootNavigatorParamList } from '@/navigation/RootNavigator';
 import { useAuthStore } from '../../stores/authStore';
 import { generateTrueSigil } from '@/utils/sigil/traditional-generator';

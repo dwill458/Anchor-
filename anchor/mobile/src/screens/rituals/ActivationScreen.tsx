@@ -9,6 +9,7 @@
 import React, { useState, useMemo, useCallback, useEffect } from 'react';
 import { BackHandler, View, Text, StyleSheet, InteractionManager } from 'react-native';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { useTabNavigation } from '@/contexts/TabNavigationContext';
 import { useAnchorStore } from '../../stores/anchorStore';
@@ -47,10 +48,10 @@ import {
 } from '@/utils/anchorPriming';
 
 type ActivationRouteProp = RouteProp<RootStackParamList, 'ActivationRitual'>;
-type ActivationNavigationProp = StackNavigationProp<RootStackParamList, 'ActivationRitual'>;
+type ActivationNavigationProp = NativeStackNavigationProp<RootStackParamList, 'ActivationRitual'>;
 
 export const ActivationScreen: React.FC = () => {
-  const navigation = useNavigation<ActivationNavigationProp>();
+  const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const { navigateToPractice } = useTabNavigation();
   const route = useRoute<ActivationRouteProp>();
   const { anchorId, activationType, durationOverride, returnTo } = route.params;
@@ -355,7 +356,11 @@ export const ActivationScreen: React.FC = () => {
     await focusSessionExitAudioHandlerRef.current?.();
 
     if (returnTo === 'practice') {
-      if (typeof navigation.popToTop === 'function') navigation.popToTop();
+      if (typeof navigation.popToTop === 'function') {
+        navigation.popToTop();
+      } else {
+        navigation.goBack();
+      }
       navigateToPractice();
       return;
     }
@@ -382,7 +387,9 @@ export const ActivationScreen: React.FC = () => {
   }, []);
 
   React.useEffect(() => {
-    if (typeof navigation.addListener !== 'function') return () => undefined;
+    if (typeof navigation.addListener !== 'function') {
+      return () => undefined;
+    }
     const unsubscribe = navigation.addListener('beforeRemove', (event: any) => {
       if (exitingRef.current) return;
       if (sessionCompletedRef.current) {
@@ -432,7 +439,9 @@ export const ActivationScreen: React.FC = () => {
     await queueProgressionMilestonesFromStores();
 
     if (returnTo === 'practice') {
-      if (typeof navigation.popToTop === 'function') navigation.popToTop();
+      if (typeof navigation.popToTop === 'function') {
+        navigation.popToTop();
+      }
       navigateToPractice();
     } else if (returnTo === 'reinforce') {
       navigation.replace('Ritual', {

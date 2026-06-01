@@ -277,7 +277,7 @@ export const VaultScreen: React.FC = () => {
   const pulseDotOpacity = useSharedValue(1);
 
   useEffect(() => {
-    registerTabNav(0, navigation as unknown as Parameters<typeof registerTabNav>[1]);
+    registerTabNav(0, navigation);
     return () => registerTabNav(0, null);
   }, [navigation, registerTabNav]);
 

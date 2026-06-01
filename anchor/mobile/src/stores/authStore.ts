@@ -933,7 +933,7 @@ export const useAuthStore = create<AuthState>()(
           clearNotificationSession(),
           encryptedPersistStorage.removeItem(ANCHOR_VAULT_STORAGE_KEY),
           encryptedPersistStorage.removeItem(ANCHOR_SESSION_STORAGE_KEY),
-          AsyncStorage.removeItem(CACHED_USER_KEY),
+          encryptedPersistStorage.removeItem(CACHED_USER_KEY),
           AsyncStorage.removeItem(RECOVERY_DUMP_MARKER_KEY),
           AsyncStorage.removeItem(RECOVERY_DUMP_VAULT_KEY),
           AsyncStorage.removeItem(LAST_MILESTONE_SHOWN_KEY),

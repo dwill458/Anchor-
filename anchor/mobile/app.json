@@ -93,6 +93,7 @@
       }
     },
     "android": {
+      "allowBackup": false,
       "adaptiveIcon": {
         "foregroundImage": "./assets/anchor-gold.png",
         "backgroundColor": "#1A1A1D",

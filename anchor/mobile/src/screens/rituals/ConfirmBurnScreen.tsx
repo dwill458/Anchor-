@@ -209,8 +209,11 @@ export const ConfirmBurnScreen: React.FC = () => {
   const ctaDisabled = !isAuthVerified || (currentStep === 'release' && !isReleaseReady);
 
   useEffect(() => {
-    if (typeof navigation.addListener !== 'function') return () => undefined;
-    const beforeRemoveUnsubscribe = navigation.addListener('beforeRemove', (event: any) => {
+    if (typeof navigation.addListener !== 'function') {
+      return () => undefined;
+    }
+
+    const beforeRemoveUnsubscribe = navigation.addListener('beforeRemove', (event) => {
       if (isLeavingRef.current) return;
       event.preventDefault();
       confirmLeave(() => {
