@@ -308,7 +308,7 @@ describe('PracticeScreen', () => {
     fireEvent.press(screen.getByText('RELEASE'));
 
     await waitFor(() => {
-      expect(mockNavigateToVault).toHaveBeenCalledWith('ConfirmBurn', {
+      expect(mockNavigate).toHaveBeenCalledWith('ConfirmBurn', {
         anchorId: 'a88',
         intention: 'Legacy intention',
         sigilSvg: '<svg>reinforced</svg>',

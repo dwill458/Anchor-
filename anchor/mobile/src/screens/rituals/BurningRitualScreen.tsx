@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect } from 'react';
 import { RouteProp, useNavigation, useRoute } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
+import { useTabNavigation } from '@/contexts/TabNavigationContext';
 import { BurnAnimationOverlay } from './components/BurnAnimationOverlay';
 import { RootStackParamList } from '@/types';
 import { post } from '@/services/ApiClient';
@@ -23,6 +24,7 @@ type BurningRitualNavigationProp = StackNavigationProp<RootStackParamList, 'Burn
 export const BurningRitualScreen: React.FC = () => {
   const route = useRoute<BurningRitualRouteProp>();
   const navigation = useNavigation<BurningRitualNavigationProp>();
+  const { navigateToVault } = useTabNavigation();
   const releaseAnchor = useAnchorStore((state) => state.releaseAnchor);
   const getAnchorById = useAnchorStore((state) => state.getAnchorById);
   const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
@@ -110,8 +112,13 @@ export const BurningRitualScreen: React.FC = () => {
   ]);
 
   const handleReturnToSanctuary = useCallback(() => {
-    navigation.navigate('Vault');
-  }, [navigation]);
+    if (typeof navigation.popToTop === 'function') {
+      navigation.popToTop();
+    } else {
+      navigation.goBack();
+    }
+    navigateToVault();
+  }, [navigation, navigateToVault]);
 
   const handleReturnToAnchor = useCallback(() => {
     navigation.goBack();

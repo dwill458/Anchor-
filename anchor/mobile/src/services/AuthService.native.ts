@@ -402,7 +402,7 @@ export class AuthService {
       }
       await auth().signOut();
     } finally {
-      await encryptedPersistStorage.removeItem(CACHED_USER_KEY).catch(() => undefined);
+      await Promise.resolve(encryptedPersistStorage.removeItem(CACHED_USER_KEY)).catch(() => undefined);
       await clearNotificationSession();
     }
   }
@@ -467,7 +467,7 @@ export class AuthService {
         throw new Error(apiMessage ?? 'Failed to delete account from server.');
       }
 
-      await encryptedPersistStorage.removeItem(CACHED_USER_KEY).catch(() => undefined);
+      await Promise.resolve(encryptedPersistStorage.removeItem(CACHED_USER_KEY)).catch(() => undefined);
       if (GoogleSignin) {
         await GoogleSignin.signOut().catch(() => undefined);
       }

@@ -796,6 +796,18 @@ export type PracticeStackParamList = {
   PracticeHome: undefined;
   // DEFERRED: StabilizeRitual: { anchorId: string };
   Evolve: undefined;
+  ConfirmBurn: {
+    anchorId: string;
+    intention: string;
+    sigilSvg: string;
+    enhancedImageUrl?: string;
+  };
+  BurningRitual: {
+    anchorId: string;
+    intention: string;
+    sigilSvg: string;
+    enhancedImageUrl?: string;
+  };
 };
 
 export type MainTabParamList = {
