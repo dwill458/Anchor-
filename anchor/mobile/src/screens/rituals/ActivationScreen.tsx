@@ -9,6 +9,8 @@
 import React, { useState, useMemo, useCallback, useEffect } from 'react';
 import { BackHandler, View, Text, StyleSheet, InteractionManager } from 'react-native';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import { StackNavigationProp } from '@react-navigation/stack';
 import { useTabNavigation } from '@/contexts/TabNavigationContext';
 import { useAnchorStore } from '../../stores/anchorStore';
 import { useAuthStore } from '@/stores/authStore';
@@ -46,9 +48,10 @@ import {
 } from '@/utils/anchorPriming';
 
 type ActivationRouteProp = RouteProp<RootStackParamList, 'ActivationRitual'>;
+type ActivationNavigationProp = NativeStackNavigationProp<RootStackParamList, 'ActivationRitual'>;
 
 export const ActivationScreen: React.FC = () => {
-  const navigation = useNavigation();
+  const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const { navigateToPractice } = useTabNavigation();
   const route = useRoute<ActivationRouteProp>();
   const { anchorId, activationType, durationOverride, returnTo } = route.params;
@@ -99,6 +102,7 @@ export const ActivationScreen: React.FC = () => {
   const [pendingPostPrimeFlowId, setPendingPostPrimeFlowId] = useState<string | null>(null);
   const exitingRef = React.useRef(false);
   const sessionCompletedRef = React.useRef(false);
+  const hasLoggedActivationRef = React.useRef(false);
   const focusSessionExitAudioHandlerRef = React.useRef<(() => Promise<void>) | null>(null);
   const completionTransitionTaskRef = React.useRef<{ cancel?: () => void } | null>(null);
 
@@ -125,6 +129,9 @@ export const ActivationScreen: React.FC = () => {
   }, [durationOverride, focusSessionDuration]);
 
   const logActivationInBackground = useCallback(async (): Promise<void> => {
+    if (hasLoggedActivationRef.current) return;
+    hasLoggedActivationRef.current = true;
+
     const localActivationTime = new Date();
     const currentActivationCount = anchor?.activationCount ?? 0;
     const recoveredChargeState =
@@ -212,7 +219,7 @@ export const ActivationScreen: React.FC = () => {
     } catch (error) {
       if (error instanceof Error && error.message === 'Anchor not found') {
         toast.error('This anchor is no longer available.');
-        navigateToVaultDestination(navigation as any, 'replace');
+        navigateToVaultDestination(navigation, 'replace');
         return;
       }
 
@@ -295,7 +302,7 @@ export const ActivationScreen: React.FC = () => {
     setPendingPostPrimeFlowId(flowId);
     setShowPostPrimeTrace(false);
 
-    (navigation as any).navigate('ManualReinforcement', {
+    navigation.navigate('ManualReinforcement', {
       source: 'post_prime_trace',
       anchorId,
     });
@@ -349,9 +356,8 @@ export const ActivationScreen: React.FC = () => {
     await focusSessionExitAudioHandlerRef.current?.();
 
     if (returnTo === 'practice') {
-      const nav = navigation as any;
-      if (typeof nav.popToTop === 'function') {
-        nav.popToTop();
+      if (typeof navigation.popToTop === 'function') {
+        navigation.popToTop();
       } else {
         navigation.goBack();
       }
@@ -360,15 +366,15 @@ export const ActivationScreen: React.FC = () => {
     }
 
     if (returnTo === 'detail') {
-      (navigation as any).navigate('AnchorDetail', { anchorId });
+      navigation.navigate('AnchorDetail', { anchorId });
       return;
     }
 
     if (returnTo === 'vault') {
       if (isPendingFirstAnchor) {
-        (navigation as any).replace('SaveProgress', { anchorId });
+        navigation.replace('SaveProgress', { anchorId });
       } else {
-        navigateToVaultDestination(navigation as any, 'replace');
+        navigateToVaultDestination(navigation, 'replace');
       }
       return;
     }
@@ -381,12 +387,10 @@ export const ActivationScreen: React.FC = () => {
   }, []);
 
   React.useEffect(() => {
-    const nav = navigation as any;
-    if (typeof nav.addListener !== 'function') {
+    if (typeof navigation.addListener !== 'function') {
       return () => undefined;
     }
-
-    const unsubscribe = nav.addListener('beforeRemove', (event: any) => {
+    const unsubscribe = navigation.addListener('beforeRemove', (event: any) => {
       if (exitingRef.current) return;
       if (sessionCompletedRef.current) {
         event.preventDefault();
@@ -435,25 +439,24 @@ export const ActivationScreen: React.FC = () => {
     await queueProgressionMilestonesFromStores();
 
     if (returnTo === 'practice') {
-      const nav = navigation as any;
-      if (typeof nav.popToTop === 'function') {
-        nav.popToTop();
+      if (typeof navigation.popToTop === 'function') {
+        navigation.popToTop();
       }
       navigateToPractice();
     } else if (returnTo === 'reinforce') {
-      (navigation as any).replace('Ritual', {
+      navigation.replace('Ritual', {
         anchorId,
         ritualType: 'ritual',
         durationSeconds: 300,
         returnTo: 'detail',
       });
     } else if (returnTo === 'detail') {
-      (navigation as any).navigate('AnchorDetail', { anchorId });
+      navigation.navigate('AnchorDetail', { anchorId });
     } else if (returnTo === 'vault') {
       if (isPendingFirstAnchor) {
-        (navigation as any).replace('SaveProgress', { anchorId });
+        navigation.replace('SaveProgress', { anchorId });
       } else {
-        navigateToVaultDestination(navigation as any, 'replace');
+        navigateToVaultDestination(navigation, 'replace');
       }
     } else {
       navigation.goBack();

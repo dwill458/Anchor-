@@ -487,9 +487,36 @@ export default function App() {
 
     let cancelled = false;
 
+    const hasGrantedNotificationPermissions = (
+      status: Notifications.NotificationPermissionsStatus
+    ): boolean => {
+      if (status.granted || status.status === 'granted') {
+        return true;
+      }
+      const iosStatus = status.ios?.status;
+      return (
+        iosStatus === Notifications.IosAuthorizationStatus.AUTHORIZED ||
+        iosStatus === Notifications.IosAuthorizationStatus.PROVISIONAL ||
+        iosStatus === Notifications.IosAuthorizationStatus.EPHEMERAL
+      );
+    };
+
     const syncRegistration = async (
       devicePushToken?: DevicePushToken
     ) => {
+      // Don't trigger the OS permission prompt at cold start. Only sync push
+      // registration when the user has already granted notifications; the
+      // Settings master toggle (an explicit user action) performs the first
+      // request via getRemotePushRegistration().
+      const permissions = await Notifications.getPermissionsAsync();
+      if (cancelled) {
+        return;
+      }
+      if (!hasGrantedNotificationPermissions(permissions)) {
+        await clearPushTokensFromServer();
+        return;
+      }
+
       const registration = await NotificationService.getRemotePushRegistration(devicePushToken);
       if (cancelled) {
         return;

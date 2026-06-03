@@ -28,7 +28,7 @@ const BENEFITS = [
   {
     icon: Clock,
     title: 'Just 60 Seconds',
-    description: 'Daily activation takes less than a minute—easy to sustain.',
+    description: 'Daily Focus Session takes less than a minute-easy to sustain.',
   },
   {
     icon: Repeat,
@@ -37,7 +37,7 @@ const BENEFITS = [
   },
   {
     icon: TrendingUp,
-    title: 'Track Your Streak',
+    title: 'Track Your Constancy',
     description: 'Watch your commitment grow as you build an unbroken chain.',
   },
 ];

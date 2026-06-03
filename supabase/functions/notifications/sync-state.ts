@@ -12,6 +12,26 @@ const adminClient = createClient(
   Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
 );
 
+type ExistingUserRow = {
+  id: string;
+  notification_state: NotificationState | null;
+  updated_at?: string | null;
+};
+
+const stripServerManagedNotificationFields = (
+  notificationState: NotificationState
+): NotificationState => {
+  const {
+    last_sent_at: _lastSentAt,
+    last_sent_type: _lastSentType,
+    last_sent_utc_date: _lastSentUtcDate,
+    updated_at: _updatedAt,
+    ...clientManagedState
+  } = notificationState;
+
+  return clientManagedState;
+};
+
 export async function handleSyncState(req: Request): Promise<Response> {
   try {
     const authHeader = req.headers.get('authorization') ?? req.headers.get('Authorization');
@@ -56,24 +76,28 @@ export async function handleSyncState(req: Request): Promise<Response> {
 
     const { data: existingUser, error: fetchError } = await adminClient
       .from('users')
-      .select('id, notification_state')
+      .select('id, notification_state, updated_at')
       .eq('email', authUser.email)
-      .single();
+      .single<ExistingUserRow>();
 
     if (fetchError) {
       throw fetchError;
     }
 
-    const mergedState = notificationState
+    const sanitizedNotificationState = notificationState
+      ? stripServerManagedNotificationFields(notificationState)
+      : undefined;
+
+    const mergedState = sanitizedNotificationState
       ? {
         ...(existingUser?.notification_state ?? {}),
-        ...notificationState,
+        ...sanitizedNotificationState,
       }
       : (existingUser?.notification_state ?? {});
 
     const updatePayload: Record<string, unknown> = { notification_state: mergedState };
-    if (notificationState && 'notification_enabled' in notificationState) {
-      updatePayload.notifications_enabled = Boolean(notificationState.notification_enabled);
+    if (sanitizedNotificationState && 'notification_enabled' in sanitizedNotificationState) {
+      updatePayload.notifications_enabled = Boolean(sanitizedNotificationState.notification_enabled);
     }
 
     if (pushTokens) {
@@ -88,16 +112,45 @@ export async function handleSyncState(req: Request): Promise<Response> {
       }
     }
 
-    const { error } = await adminClient
+    updatePayload.updated_at = new Date().toISOString();
+
+    let updateQuery = adminClient
       .from('users')
       .update(updatePayload)
       .eq('id', existingUser.id);
+
+    updateQuery = existingUser.updated_at
+      ? updateQuery.eq('updated_at', existingUser.updated_at)
+      : updateQuery.is('updated_at', null);
+
+    const { data: updatedUser, error } = await updateQuery
+      .select('notification_state, updated_at')
+      .maybeSingle();
 
     if (error) {
       throw error;
     }
 
-    return new Response('OK', { status: 200 });
+    if (!updatedUser) {
+      return new Response(
+        JSON.stringify({ error: 'Notification state update conflict.' }),
+        {
+          status: 409,
+          headers: { 'Content-Type': 'application/json' },
+        }
+      );
+    }
+
+    return new Response(
+      JSON.stringify({
+        notificationState: updatedUser.notification_state,
+        updatedAt: updatedUser.updated_at,
+      }),
+      {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      }
+    );
   } catch (error) {
     console.error('[notifications/sync-state] Error:', error);
     return new Response('Error', { status: 500 });

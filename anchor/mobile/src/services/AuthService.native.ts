@@ -4,6 +4,11 @@
 
 import auth, { FirebaseAuthTypes } from '@react-native-firebase/auth';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import {
+  encryptedPersistStorage,
+  readSecureValue,
+  writeSecureValue,
+} from '@/stores/encryptedPersistStorage';
 import * as AppleAuthentication from 'expo-apple-authentication';
 import { API_URL } from '@/config';
 import { ENABLE_GOOGLE_SIGN_IN, GOOGLE_IOS_CLIENT_ID, GOOGLE_WEB_CLIENT_ID } from '@/config';
@@ -234,7 +239,8 @@ async function buildAuthResult(
 ): Promise<AuthResult> {
   const idToken = await firebaseUser.getIdToken();
   const user = await syncUserWithBackend(firebaseUser, idToken, displayNameOverride, options);
-  await AsyncStorage.setItem(CACHED_USER_KEY, JSON.stringify(user)).catch(() => undefined);
+  await writeSecureValue(CACHED_USER_KEY, JSON.stringify(user)).catch(() => undefined);
+  await AsyncStorage.removeItem(CACHED_USER_KEY).catch(() => undefined);
 
   return {
     user,
@@ -361,7 +367,8 @@ export class AuthService {
 
     try {
       const result = await buildAuthResult(currentUser);
-      AsyncStorage.setItem(CACHED_USER_KEY, JSON.stringify(result.user)).catch(() => {});
+      await writeSecureValue(CACHED_USER_KEY, JSON.stringify(result.user)).catch(() => {});
+      await AsyncStorage.removeItem(CACHED_USER_KEY).catch(() => {});
       return result;
     } catch (error) {
       logger.error('Failed to sync current Firebase user', error);
@@ -371,8 +378,17 @@ export class AuthService {
 
   static async getCachedUser(): Promise<User | null> {
     try {
-      const raw = await AsyncStorage.getItem(CACHED_USER_KEY);
-      return raw ? (JSON.parse(raw) as User) : null;
+      const raw = await readSecureValue(CACHED_USER_KEY);
+      if (raw) {
+        return JSON.parse(raw) as User;
+      }
+      const legacyRaw = await AsyncStorage.getItem(CACHED_USER_KEY);
+      if (legacyRaw) {
+        await writeSecureValue(CACHED_USER_KEY, legacyRaw).catch(() => {});
+        await AsyncStorage.removeItem(CACHED_USER_KEY).catch(() => {});
+        return JSON.parse(legacyRaw) as User;
+      }
+      return null;
     } catch {
       return null;
     }
@@ -386,7 +402,7 @@ export class AuthService {
       }
       await auth().signOut();
     } finally {
-      await AsyncStorage.removeItem(CACHED_USER_KEY).catch(() => undefined);
+      await Promise.resolve(encryptedPersistStorage.removeItem(CACHED_USER_KEY)).catch(() => undefined);
       await clearNotificationSession();
     }
   }
@@ -451,7 +467,7 @@ export class AuthService {
         throw new Error(apiMessage ?? 'Failed to delete account from server.');
       }
 
-      await AsyncStorage.removeItem(CACHED_USER_KEY).catch(() => undefined);
+      await Promise.resolve(encryptedPersistStorage.removeItem(CACHED_USER_KEY)).catch(() => undefined);
       if (GoogleSignin) {
         await GoogleSignin.signOut().catch(() => undefined);
       }

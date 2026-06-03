@@ -137,7 +137,7 @@ const HeroAnchorCardInner: React.FC<HeroAnchorCardProps> = ({
           {hasIgnited(anchor) && (
             <View style={styles.chargedBadge}>
               <View style={styles.badgeDot} />
-              <Text style={styles.badgeText}>CHARGED</Text>
+              <Text style={styles.badgeText}>PRIMED</Text>
             </View>
           )}
         </View>

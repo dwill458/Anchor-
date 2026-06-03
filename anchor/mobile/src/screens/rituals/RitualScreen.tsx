@@ -1023,7 +1023,7 @@ export const RitualScreen: React.FC = () => {
     setPendingPostPrimeFlowId(flowId);
     setShowPostPrimeTrace(false);
 
-    (navigation as any).navigate('ManualReinforcement', {
+    navigation.navigate('ManualReinforcement', {
       source: 'post_prime_trace',
       anchorId,
     });
@@ -1073,11 +1073,8 @@ export const RitualScreen: React.FC = () => {
     await fadeOutDeepPrimeAudio();
 
     if (returnTo === 'practice') {
-      const nav = navigation as any;
-      if (typeof nav.popToTop === 'function') {
-        nav.popToTop();
-      } else {
-        navigateToVaultDestination(navigation);
+      if (typeof navigation.popToTop === 'function') {
+        navigation.popToTop();
       }
       navigateToPractice();
       return;
@@ -1249,12 +1246,8 @@ export const RitualScreen: React.FC = () => {
   }, [anchorId, config.totalDurationSeconds, primeSessionAudio, recordSession, handlePrimeComplete, exitRitual]);
 
   useEffect(() => {
-    const nav = navigation as any;
-    if (typeof nav.addListener !== 'function') {
-      return () => undefined;
-    }
-
-    const unsubscribe = nav.addListener('beforeRemove', (event: any) => {
+    if (typeof navigation.addListener !== 'function') return () => undefined;
+    const unsubscribe = navigation.addListener('beforeRemove', (event: any) => {
       if (
         exitingRef.current ||
         state.isComplete ||
@@ -1592,7 +1585,7 @@ export const RitualScreen: React.FC = () => {
                     activeOpacity={0.82}
                     style={styles.deepCloseButton}
                     accessibilityRole="button"
-                    accessibilityLabel="Exit ritual"
+                    accessibilityLabel="Exit practice"
                   >
                     <Text style={styles.deepCloseIcon}>×</Text>
                   </TouchableOpacity>
@@ -1837,7 +1830,7 @@ export const RitualScreen: React.FC = () => {
                 activeOpacity={0.82}
                 style={styles.deepCloseButton}
                 accessibilityRole="button"
-                accessibilityLabel="Exit ritual"
+                accessibilityLabel="Exit practice"
               >
                 <Text style={styles.deepCloseIcon}>×</Text>
               </TouchableOpacity>
@@ -2572,7 +2565,7 @@ export const RitualScreen: React.FC = () => {
         />
         <ConfirmModal
           visible={showExitWarning}
-          title="Exit Ritual?"
+          title="Exit Practice?"
           body="You will need to start over if you leave now."
           primaryCtaLabel="Exit"
           secondaryCtaLabel="Stay"

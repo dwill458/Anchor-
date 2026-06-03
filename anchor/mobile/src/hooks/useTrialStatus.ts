@@ -35,6 +35,8 @@ export function useTrialStatus(): TrialStatus {
     const remoteCompedAccess = useSubscriptionStore((s) => s.remoteCompedAccess);
     const devOverrideEnabled = useSubscriptionStore((s) => s.devOverrideEnabled);
     const devTierOverride = useSubscriptionStore((s) => s.devTierOverride);
+    const rcSynced = useSubscriptionStore((s) => s.rcSynced);
+    const rcHasActiveEntitlement = useSubscriptionStore((s) => s.hasActiveEntitlement);
     const developerMasterAccountEnabled = useSettingsStore(
         (s) => s.developerMasterAccountEnabled
     );
@@ -104,10 +106,11 @@ export function useTrialStatus(): TrialStatus {
 
     const daysRemaining = computeDaysRemaining(trialStartDate);
     const isSubscribed = subscriptionStatus === 'active';
-    const isTrialActive = subscriptionStatus === 'trial' && daysRemaining > 0;
-    const hasExpired =
-        subscriptionStatus === 'expired' ||
-        (subscriptionStatus === 'trial' && daysRemaining === 0);
+
+    // Before RC syncs use local clock; after sync require the entitlement (closes reinstall bypass)
+    const localTrialActive = subscriptionStatus === 'trial' && daysRemaining > 0;
+    const isTrialActive = rcSynced ? (rcHasActiveEntitlement && !isSubscribed) : localTrialActive;
+    const hasExpired = !isSubscribed && !isTrialActive;
 
     return {
         isTrialActive,

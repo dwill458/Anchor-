@@ -112,7 +112,7 @@ export const ChargeCompleteScreen: React.FC = () => {
     setPendingPostPrimeFlowId(flowId);
     setShowPostPrimeTrace(false);
 
-    (navigation as any).navigate('ManualReinforcement', {
+    navigation.navigate('ManualReinforcement', {
       source: 'post_prime_trace',
       anchorId,
     });

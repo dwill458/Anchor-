@@ -176,7 +176,7 @@ export function RefineStyleCard({
           <Animated.View style={[styles.lockOverlay, lockOverlayStyle]}>
             <View style={styles.lockBadge}>
               <Lock size={14} color={colors.gold} />
-              <Text style={styles.lockText}>PRO</Text>
+              <Text style={styles.lockText}>MEMBER</Text>
             </View>
           </Animated.View>
         )}

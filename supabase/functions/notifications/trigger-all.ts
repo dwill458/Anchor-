@@ -15,9 +15,10 @@ type NotificationState = {
   total_primes_all_time?: number;
   alchemist_milestones_count?: number;
   last_sent_at?: string;
-  last_sent_type?: Exclude<NotificationType, null>;
+  last_sent_type?: 'WEAVER' | 'ALCHEMIST' | 'MIRROR' | 'MICRO_PRIME';
   last_sent_utc_date?: string;
   active_session?: boolean;
+  active_hours_end?: number;
   timezone?: string;
   weaver_enabled?: boolean;
   [key: string]: unknown;
@@ -29,6 +30,7 @@ type UserRow = {
   expo_push_token: string | null;
   fcm_token: string | null;
   apns_token: string | null;
+  updated_at?: string | null;
 };
 
 const supabase = createClient(
@@ -36,10 +38,51 @@ const supabase = createClient(
   Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
 );
 
-const utcDateString = (date: Date): string => date.toISOString().slice(0, 10);
+const DEFAULT_TIMEZONE = 'UTC';
+const DEFAULT_SEND_HOUR = 21;
+const DATE_FORMATTER_LOCALE = 'en-CA';
 
-const alreadySentToday = (state: NotificationState, now: Date): boolean =>
-  state.last_sent_utc_date === utcDateString(now);
+const getValidTimezone = (timezone?: string): string => timezone || DEFAULT_TIMEZONE;
+
+const withTwoHourBuffer = (date: Date): Date => new Date(date.getTime() - 2 * 60 * 60 * 1000);
+
+export const notificationDateString = (
+  date: Date,
+  timezone?: string
+): string => {
+  const adjusted = withTwoHourBuffer(date);
+
+  try {
+    return new Intl.DateTimeFormat(DATE_FORMATTER_LOCALE, {
+      timeZone: getValidTimezone(timezone),
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+    }).format(adjusted);
+  } catch {
+    return adjusted.toISOString().slice(0, 10);
+  }
+};
+
+export const localHourForTimezone = (date: Date, timezone?: string): number => {
+  try {
+    const parts = new Intl.DateTimeFormat('en-US', {
+      timeZone: getValidTimezone(timezone),
+      hour: '2-digit',
+      hour12: false,
+    }).formatToParts(date);
+    const hour = Number(parts.find((part) => part.type === 'hour')?.value ?? Number.NaN);
+    return Number.isNaN(hour) ? date.getUTCHours() : hour;
+  } catch {
+    return date.getUTCHours();
+  }
+};
+
+export const alreadySentToday = (state: NotificationState, now: Date): boolean =>
+  state.last_sent_utc_date === notificationDateString(now, state.timezone);
+
+export const isAllowedSendHour = (state: NotificationState, now: Date): boolean =>
+  localHourForTimezone(now, state.timezone) === (state.active_hours_end ?? DEFAULT_SEND_HOUR);
 
 const evalWeaver = (state: NotificationState): boolean => {
   const isStruggler =
@@ -252,23 +295,35 @@ async function sendPush(options: {
 async function markNotificationSent(
   userId: string,
   existingState: NotificationState,
-  type: Exclude<NotificationType, null>
+  type: Exclude<NotificationType, null>,
+  existingUpdatedAt?: string | null
 ): Promise<void> {
   const now = new Date();
   const nextState: NotificationState = {
     ...existingState,
     last_sent_at: now.toISOString(),
     last_sent_type: type,
-    last_sent_utc_date: utcDateString(now),
+    last_sent_utc_date: notificationDateString(now, existingState.timezone),
   };
 
-  const { error } = await supabase
+  let query = supabase
     .from('users')
-    .update({ notification_state: nextState })
+    .update({
+      notification_state: nextState,
+      updated_at: now.toISOString(),
+    })
     .eq('id', userId);
+
+  query = existingUpdatedAt ? query.eq('updated_at', existingUpdatedAt) : query.is('updated_at', null);
+
+  const { data, error } = await query.select('id').maybeSingle();
 
   if (error) {
     throw error;
+  }
+
+  if (!data) {
+    console.warn(`[notifications] Skipped stale notification_state update for user ${userId}`);
   }
 }
 
@@ -276,7 +331,7 @@ export async function handleTriggerAll(_req: Request): Promise<Response> {
   try {
     const { data: users, error } = await supabase
       .from('users')
-      .select('id, notification_state, expo_push_token, fcm_token, apns_token')
+      .select('id, notification_state, expo_push_token, fcm_token, apns_token, updated_at')
       .eq('notifications_enabled', true);
 
     if (error) {
@@ -285,7 +340,13 @@ export async function handleTriggerAll(_req: Request): Promise<Response> {
 
     for (const user of (users ?? []) as UserRow[]) {
       const state = user.notification_state ?? {};
-      if (alreadySentToday(state, new Date())) {
+      const now = new Date();
+
+      if (!isAllowedSendHour(state, now)) {
+        continue;
+      }
+
+      if (alreadySentToday(state, now)) {
         continue;
       }
 
@@ -320,7 +381,7 @@ export async function handleTriggerAll(_req: Request): Promise<Response> {
       }
 
       if (result.sent) {
-        await markNotificationSent(user.id, state, toFire);
+        await markNotificationSent(user.id, state, toFire, user.updated_at);
       }
     }
 

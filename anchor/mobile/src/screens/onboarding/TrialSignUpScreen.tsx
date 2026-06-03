@@ -38,8 +38,8 @@ type TrialNavProp = StackNavigationProp<RootStackParamList, 'TrialSignUp'>;
 
 const BENEFITS = [
   { icon: '⚡', label: 'Forge unlimited anchors' },
-  { icon: '✦', label: 'AI sigil enhancement' },
-  { icon: '◎', label: 'Full practice tracking & streaks' },
+  { icon: '✦', label: 'AI anchor enhancement' },
+  { icon: '◎', label: 'Full practice tracking & Constancy' },
   { icon: '☁', label: 'Sync across devices' },
 ];
 

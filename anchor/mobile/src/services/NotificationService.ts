@@ -313,7 +313,7 @@ class NotificationService {
     return this.scheduleNotification({
       identifier: reminderId,
       content: {
-        title: 'Ritual Reminder',
+        title: 'Prime Reminder',
         body: 'Your anchor is waiting when you are ready.',
         sound: CUSTOM_NOTIFICATION_SOUND,
         data: this.buildPayload('ritual_reminder', {
@@ -352,7 +352,7 @@ class NotificationService {
     return this.scheduleNotification({
       identifier: NOTIFICATION_IDS.STREAK_PROTECTION,
       content: {
-        title: 'Streak Protection',
+        title: 'Prime Streak',
         body: 'Your anchor is waiting. A moment now keeps the thread alive.',
         sound: CUSTOM_NOTIFICATION_SOUND,
         data: this.buildPayload('streak_protection'),
@@ -590,7 +590,7 @@ class NotificationService {
       });
 
       await Notifications.setNotificationChannelAsync(NOTIFICATION_CHANNELS.RITUAL_REMINDERS, {
-        name: 'Ritual Reminders',
+        name: 'Prime Reminders',
         importance: Notifications.AndroidImportance.DEFAULT,
         vibrationPattern: [0, 250, 250, 250],
         lightColor: DEFAULT_LIGHT_COLOR,
@@ -598,7 +598,7 @@ class NotificationService {
       });
 
       await Notifications.setNotificationChannelAsync(NOTIFICATION_CHANNELS.STREAK_PROTECTION, {
-        name: 'Streak Protection',
+        name: 'Prime Streak',
         importance: Notifications.AndroidImportance.DEFAULT,
         lightColor: DEFAULT_LIGHT_COLOR,
         sound: CUSTOM_NOTIFICATION_SOUND,
@@ -733,7 +733,7 @@ class NotificationService {
         return {
           identifier,
           content: {
-            title: 'Test: Ritual Reminder',
+            title: 'Test: Prime Reminder',
             body: 'Developer test for the ritual reminder notification.',
             sound: CUSTOM_NOTIFICATION_SOUND,
             data: this.buildPayload('ritual_reminder', {
@@ -750,7 +750,7 @@ class NotificationService {
         return {
           identifier,
           content: {
-            title: 'Test: Streak Protection',
+            title: 'Test: Prime Streak',
             body: 'Developer test for the streak protection notification.',
             sound: CUSTOM_NOTIFICATION_SOUND,
             data: this.buildPayload('streak_protection'),

@@ -58,7 +58,7 @@ export const ConfirmDeleteAnchorSheet: React.FC<ConfirmDeleteAnchorSheetProps> =
             <View style={styles.handle} />
 
             <Text style={styles.eyebrow}>ANCHOR WARNING</Text>
-            <Text style={styles.title}>Burn & Release is the proper ritual.</Text>
+            <Text style={styles.title}>Burn & Release is the proper practice.</Text>
 
             {intentionText ? (
               <Text style={styles.intention} numberOfLines={2}>

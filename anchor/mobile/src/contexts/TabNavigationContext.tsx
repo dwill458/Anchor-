@@ -22,22 +22,26 @@
  */
 
 import React, { createContext, useCallback, useContext, useRef } from 'react';
+import type { RootStackParamList } from '@/types';
 
 type TabIndex = 0 | 1 | 2;
 
 interface StackNavRef {
-  navigate: (screen: string, params?: object) => void;
-  push: (screen: string, params?: object) => void;
+  navigate: (screen: string, params?: any) => void;
+  push: (screen: string, params?: any) => void;
   popToTop: () => void;
 }
 
 interface TabNavigationContextValue {
   /** Switch to Vault tab, optionally pushing a specific screen immediately */
-  navigateToVault: (screen?: string, params?: object) => void;
+  navigateToVault: <RouteName extends keyof RootStackParamList>(
+    screen?: RouteName,
+    params?: RootStackParamList[RouteName]
+  ) => void;
   /** Switch to Practice tab */
   navigateToPractice: () => void;
   /** Register the navigation object from a tab's root screen */
-  registerTabNav: (tabIndex: TabIndex, nav: StackNavRef | null) => void;
+  registerTabNav: (tabIndex: TabIndex, nav: any) => void;
   /** Currently selected top-level tab index */
   activeTabIndex: number;
 }
@@ -56,14 +60,17 @@ export const TabNavigationProvider: React.FC<TabNavigationProviderProps> = ({
   activeIndex = 0,
 }) => {
   // Refs to each tab's root screen navigation — registered by VaultScreen + PracticeScreen
-  const tabNavRefs = useRef<(StackNavRef | null)[]>([null, null, null]);
+  const tabNavRefs = useRef<(any | null)[]>([null, null, null]);
 
-  const registerTabNav = useCallback((tabIndex: TabIndex, nav: StackNavRef | null) => {
+  const registerTabNav = useCallback((tabIndex: TabIndex, nav: any) => {
     tabNavRefs.current[tabIndex] = nav;
   }, []);
 
   const navigateToVault = useCallback(
-    (screen?: string, params?: object) => {
+    <RouteName extends keyof RootStackParamList>(
+      screen?: RouteName,
+      params?: RootStackParamList[RouteName]
+    ) => {
       // Push the target screen onto VaultStack BEFORE switching tab.
       // VaultStack is always rendered (SwipeableTabContainer), so this works
       // even when Vault is currently off-screen. When the tab switches, the

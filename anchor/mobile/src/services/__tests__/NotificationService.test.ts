@@ -99,6 +99,13 @@ describe('NotificationService', () => {
     expect(Notifications.cancelScheduledNotificationAsync).toHaveBeenCalledWith(
       `${NOTIFICATION_IDS.RITUAL_REMINDER_PREFIX}:anchor-1`
     );
+    expect(Notifications.scheduleNotificationAsync).toHaveBeenCalledWith(
+      expect.objectContaining({
+        content: expect.objectContaining({
+          title: 'Prime Reminder',
+        }),
+      })
+    );
   });
 
   it('schedules developer test notifications as one-time local notifications', async () => {
@@ -192,5 +199,19 @@ describe('NotificationService', () => {
     const response = NotificationService.handleNotificationClick(notification);
 
     expect(response).toEqual({ action: 'open_ritual_reminder', anchorId: 'anchor-1' });
+  });
+
+  it('uses the updated Prime copy for streak protection alerts', async () => {
+    (Notifications.scheduleNotificationAsync as jest.Mock).mockResolvedValue('streak-123');
+
+    await NotificationService.scheduleStreakProtectionAlert();
+
+    expect(Notifications.scheduleNotificationAsync).toHaveBeenCalledWith(
+      expect.objectContaining({
+        content: expect.objectContaining({
+          title: 'Prime Streak',
+        }),
+      })
+    );
   });
 });

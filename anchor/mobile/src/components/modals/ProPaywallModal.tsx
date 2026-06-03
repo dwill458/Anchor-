@@ -52,7 +52,7 @@ const FEATURE_CONTENT = {
     subtitle: 'Draw your anchor exactly as you envision it.',
     icon: '🔥',
     benefits: [
-      'Build a sigil that feels truly yours',
+      'Build an anchor that feels truly yours',
       'Blank canvas with pro-grade tools',
       '6 brush styles',
       'Symmetry modes',
@@ -278,7 +278,7 @@ export function ProPaywallModal({
               start={{ x: 0, y: 0 }}
               end={{ x: 1, y: 1 }}
             >
-              <Text style={styles.proBadgeText}>PRO FEATURE</Text>
+              <Text style={styles.proBadgeText}>MEMBER FEATURE</Text>
             </LinearGradient>
           </View>
 

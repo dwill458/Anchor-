@@ -156,7 +156,7 @@ export const DefaultActivationSettings: React.FC = () => {
       },
       {
         type: 'full',
-        label: 'Full Activation',
+        label: 'Full Focus Session',
         description: 'Combined visual and mantra practice',
         icons: [
           <Eye color={colors.gold} size={22} />,
@@ -178,9 +178,9 @@ export const DefaultActivationSettings: React.FC = () => {
           showsVerticalScrollIndicator={false}
         >
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Activation Type</Text>
+            <Text style={styles.sectionTitle}>Focus Session Type</Text>
             <Text style={styles.sectionDescription}>
-              Choose how you prefer to activate your anchors during daily practice
+              Choose how you prefer to use your anchors during daily practice
             </Text>
 
             <View style={styles.optionsList}>
@@ -266,10 +266,10 @@ export const DefaultActivationSettings: React.FC = () => {
             <InfoBoxWrapper {...infoProps} style={styles.infoBox}>
               <View style={styles.infoTitleRow}>
                 <Info color={colors.gold} size={18} style={{ marginRight: spacing.sm }} />
-                <Text style={styles.infoTitle}>About Activation</Text>
+                <Text style={styles.infoTitle}>About Focus Sessions</Text>
               </View>
               <Text style={styles.infoText}>
-                Activation is your daily practice of reconnecting with your anchor's intention. This setting determines your preferred activation method.
+                A Focus Session is your daily practice of reconnecting with your anchor's intention. This setting determines your preferred method.
               </Text>
             </InfoBoxWrapper>
           </View>

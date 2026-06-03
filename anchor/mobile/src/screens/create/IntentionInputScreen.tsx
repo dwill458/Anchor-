@@ -26,13 +26,9 @@ import { useTeachingGate } from '@/utils/useTeachingGate';
 import { useTeachingStore } from '@/stores/teachingStore';
 import { AnalyticsService } from '@/services/AnalyticsService';
 import { TEACHINGS } from '@/constants/teaching';
+import { useIntentionValidation } from '@/hooks/useIntentionValidation';
 
 const { height } = Dimensions.get('window');
-
-// Tense & negation detection patterns for real-time feedback
-const FUTURE_WORDS = /\b(will\b|going to|i'll|i'm going to|shall\b|plan to|want to\b|would like|i want)\b/i;
-const NEGATION_WORDS = /\b(don't|dont|do not|stop\b|avoid\b|not\b|never\b|won't|wont|can't|cant|no longer|give up)\b/i;
-const TENSE_NUDGE_COPY = "Make it present tense: 'I choose…' 'I return…'";
 
 type NavigationProp = StackNavigationProp<RootStackParamList, 'CreateAnchor'>;
 
@@ -41,10 +37,10 @@ export default function IntentionInputScreen() {
     const { recordShown } = useTeachingStore();
 
     const [intention, setIntention] = useState('');
-    const [charCount, setCharCount] = useState(0);
     const [placeholder, setPlaceholder] = useState('');
     const [isFocused, setIsFocused] = useState(false);
-    const [canSubmit, setCanSubmit] = useState(false);
+    const [delayedCanSubmit, setDelayedCanSubmit] = useState(false);
+    const intentionValidation = useIntentionValidation(intention);
 
     // Teaching: Undertone state
     const [undertoneText, setUndertoneText] = useState<string | null>(null);
@@ -53,10 +49,8 @@ export default function IntentionInputScreen() {
     const firstTimeShownRef = useRef(false);
     const hesitationShownRef = useRef(false);
 
-    // Reduced motion & tense nudge
+    // Reduced motion
     const [reduceMotion, setReduceMotion] = useState(false);
-    const [tenseNudge, setTenseNudge] = useState(false);
-    const tenseDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
     const fadeAnim = useRef(new Animated.Value(0)).current;
     const focusAnim = useRef(new Animated.Value(0)).current;
@@ -118,29 +112,24 @@ export default function IntentionInputScreen() {
     useFocusEffect(
         React.useCallback(() => {
             setIntention('');
-            setCharCount(0);
-            setCanSubmit(false);
+            setDelayedCanSubmit(false);
             setIsFocused(false);
-            setTenseNudge(false);
             setUndertoneText(null);
 
             if (idleTimerRef.current) clearTimeout(idleTimerRef.current);
-            if (tenseDebounceRef.current) clearTimeout(tenseDebounceRef.current);
 
             undertoneOpacity.setValue(0);
             focusAnim.setValue(0);
 
             return () => {
                 if (idleTimerRef.current) clearTimeout(idleTimerRef.current);
-                if (tenseDebounceRef.current) clearTimeout(tenseDebounceRef.current);
             };
-        }, [focusAnim, idleTimerRef, tenseDebounceRef, undertoneOpacity])
+        }, [focusAnim, idleTimerRef, undertoneOpacity])
     );
 
     // Cleanup idle timer on unmount
     useEffect(() => () => {
         if (idleTimerRef.current) clearTimeout(idleTimerRef.current);
-        if (tenseDebounceRef.current) clearTimeout(tenseDebounceRef.current);
     }, []);
 
     // Check reduced motion accessibility setting on mount
@@ -159,18 +148,16 @@ export default function IntentionInputScreen() {
     }, [isFocused]);
 
     const maxChars = 100;
-    const minChars = 3;
-    const isValid = charCount >= minChars && charCount <= maxChars;
 
     // 300ms delay before enabling CTA
     useEffect(() => {
-        if (isValid) {
-            const timer = setTimeout(() => setCanSubmit(true), 300);
+        if (intentionValidation.canSubmit) {
+            const timer = setTimeout(() => setDelayedCanSubmit(true), 300);
             return () => clearTimeout(timer);
         } else {
-            setCanSubmit(false);
+            setDelayedCanSubmit(false);
         }
-    }, [isValid]);
+    }, [intentionValidation.canSubmit]);
 
     const handleFocus = () => {
         setIsFocused(true);
@@ -188,14 +175,11 @@ export default function IntentionInputScreen() {
     const handleBlur = () => {
         setIsFocused(false);
         if (idleTimerRef.current) clearTimeout(idleTimerRef.current);
-        // Immediate tense check on blur
-        setTenseNudge(FUTURE_WORDS.test(intention) || NEGATION_WORDS.test(intention));
     };
 
     const handleIntentionChange = (text: string) => {
         if (text.length <= maxChars) {
             setIntention(text);
-            setCharCount(text.length);
 
             // Reset idle timer on every keystroke
             if (idleTimerRef.current) clearTimeout(idleTimerRef.current);
@@ -211,16 +195,11 @@ export default function IntentionInputScreen() {
                 }, 8000);
             }
 
-            // Tense / negation debounce: check after 1.2s idle
-            if (tenseDebounceRef.current) clearTimeout(tenseDebounceRef.current);
-            tenseDebounceRef.current = setTimeout(() => {
-                setTenseNudge(FUTURE_WORDS.test(text) || NEGATION_WORDS.test(text));
-            }, 1200);
         }
     };
 
     const handleContinue = () => {
-        if (canSubmit) {
+        if (delayedCanSubmit) {
             const distillation = distillIntention(intention);
             const category = detectCategoryFromText(intention);
             navigation.navigate('LetterDistillation', {
@@ -287,10 +266,10 @@ export default function IntentionInputScreen() {
                                 You can refine or release this later.
                             </Text>
 
-                            {/* Undertone (Pattern 1) — prioritized display: tense nudge > teaching > default */}
-                            {tenseNudge ? (
+                            {/* Undertone (Pattern 1) — prioritized display: guidance > teaching > default */}
+                            {intentionValidation.guidanceText ? (
                                 <View style={styles.undertoneRow}>
-                                    <UndertoneLine text={TENSE_NUDGE_COPY} variant="emphasis" />
+                                    <UndertoneLine text={intentionValidation.guidanceText} variant="emphasis" />
                                 </View>
                             ) : undertoneText ? (
                                 <Animated.View style={[styles.undertoneRow, { opacity: undertoneOpacity }]}>
@@ -310,18 +289,18 @@ export default function IntentionInputScreen() {
                         <TouchableOpacity
                             onPress={handleContinue}
                             activeOpacity={0.8}
-                            disabled={!canSubmit}
+                            disabled={!delayedCanSubmit}
                             style={[
                                 styles.continueButton,
-                                !canSubmit && styles.continueButtonDisabled
+                                !delayedCanSubmit && styles.continueButtonDisabled
                             ]}
                             accessibilityRole="button"
                             accessibilityLabel="Continue"
-                            accessibilityState={{ disabled: !canSubmit }}
+                            accessibilityState={{ disabled: !delayedCanSubmit }}
                         >
                             <Text style={[
                                 styles.continueText,
-                                !canSubmit && styles.continueTextDisabled
+                                !delayedCanSubmit && styles.continueTextDisabled
                             ]}>
                                 Continue
                             </Text>

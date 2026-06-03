@@ -47,7 +47,7 @@ export const DepthCard: React.FC<DepthCardProps> = ({
 
   const config = {
     deep: {
-      label: 'Deep Ritual',
+      label: 'Deep Practice',
       subtitle: 'A guided, immersive experience',
       description: 'Multi-phase ceremony for lasting transformation',
       durations: '5 min · 10 min · Custom',
@@ -57,7 +57,7 @@ export const DepthCard: React.FC<DepthCardProps> = ({
       glowColor: colors.bronze,
     },
     light: {
-      label: 'Light Charge',
+      label: 'Focus Prime',
       subtitle: 'A brief moment of alignment',
       description: 'Quick energy boost for focused attention',
       durations: '30 sec · 2 min · 5 min',
@@ -97,7 +97,7 @@ export const DepthCard: React.FC<DepthCardProps> = ({
         onPress={handlePress}
         activeOpacity={0.8}
         accessibilityRole="radio"
-        accessibilityLabel={type === 'light' ? 'Focus mode' : 'Ritual mode'}
+        accessibilityLabel={type === 'light' ? 'Focus mode' : 'Practice mode'}
         accessibilityState={{ selected: isSelected }}
         style={styles.touchable}
       >

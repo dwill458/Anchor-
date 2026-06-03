@@ -58,7 +58,7 @@ export const DailyStreakStrip: React.FC<DailyStreakStripProps> = ({
       style={styles.pressable}
       onPress={onPress}
       accessibilityRole="button"
-      accessibilityLabel={`Daily streak: ${streakDays} days. View details`}
+      accessibilityLabel={`Daily Constancy: ${streakDays} days. View details`}
       accessibilityHint="Opens your practice tab"
     >
       <View style={styles.container}>
@@ -87,7 +87,7 @@ export const DailyStreakStrip: React.FC<DailyStreakStripProps> = ({
         <View style={styles.left}>
           <Text style={styles.flame}>🔥</Text>
           <View>
-            <Text style={styles.title}>Daily Streak</Text>
+            <Text style={styles.title}>Daily Constancy</Text>
             <Text style={styles.hint}>Keep the momentum going</Text>
           </View>
         </View>

@@ -1,5 +1,5 @@
 import React from 'react';
-import { render, fireEvent, screen, act } from '@testing-library/react-native';
+import { render, cleanup, fireEvent, screen, act } from '@testing-library/react-native';
 import IntentionInputScreen from '../IntentionInputScreen';
 
 // Mock navigation
@@ -41,10 +41,13 @@ jest.mock('@/components/common', () => ({
 describe('IntentionInputScreen', () => {
     beforeEach(() => {
         mockNavigate.mockClear();
+        jest.useFakeTimers();
     });
 
     afterEach(() => {
+        act(() => { jest.advanceTimersByTime(1000); });
         jest.clearAllTimers();
+        act(() => { cleanup(); });
         jest.useRealTimers();
     });
 
@@ -61,14 +64,12 @@ describe('IntentionInputScreen', () => {
     });
 
     it('stub: enables Continue button after valid input', async () => {
-        jest.useFakeTimers();
         render(<IntentionInputScreen />);
         const input = screen.getByLabelText('What are you anchoring right now?');
         fireEvent.changeText(input, 'Stay calm under pressure');
         act(() => { jest.advanceTimersByTime(500); });
         const continueBtn = screen.getByRole('button', { name: 'Continue' });
         expect(continueBtn.props.accessibilityState?.disabled).not.toBe(true);
-        jest.useRealTimers();
     });
 
     it('stub: enforces 100 character max length', () => {
@@ -81,7 +82,6 @@ describe('IntentionInputScreen', () => {
     });
 
     it('stub: navigates to DistillationAnimation on submit', () => {
-        jest.useFakeTimers();
         render(<IntentionInputScreen />);
         const input = screen.getByLabelText('What are you anchoring right now?');
         fireEvent.changeText(input, 'Stay calm under pressure');
@@ -90,6 +90,18 @@ describe('IntentionInputScreen', () => {
         expect(mockNavigate).toHaveBeenCalledWith('LetterDistillation', expect.objectContaining({
             intentionText: 'Stay calm under pressure',
         }));
-        jest.useRealTimers();
+    });
+
+    it.each([
+        ['zzzzzz', "That doesn't look like an intention. What do you actually want?"],
+        ['I will focus today', 'Try present tense: "I choose…" "I am…" or "I return…"'],
+        ["I don't check social media", 'Try affirmative: "I choose…" instead of "I don\'t…"'],
+    ])('shows shared intention guidance for %s', (text, guidance) => {
+        render(<IntentionInputScreen />);
+        const input = screen.getByLabelText('What are you anchoring right now?');
+
+        fireEvent.changeText(input, text);
+
+        expect(screen.getByText(guidance)).toBeTruthy();
     });
 });

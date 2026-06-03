@@ -108,6 +108,9 @@ tmp/
 temp/
 *.tmp
 .cache/
+graphify-out/cache/
+graphify-out/.graphify_*
+graphify-out/manifest.json
 
 # ----------------------------------------------------------------------------
 # Logs

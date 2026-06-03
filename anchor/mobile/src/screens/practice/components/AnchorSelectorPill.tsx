@@ -54,7 +54,7 @@ export const AnchorSelectorPill: React.FC<AnchorSelectorPillProps> = ({ anchor, 
         {anchor?.isCharged ? (
           <View style={styles.chargedBadge}>
             <View style={styles.badgeHalo} />
-            <Text style={styles.chargedText}>Charged</Text>
+            <Text style={styles.chargedText}>Primed</Text>
           </View>
         ) : null}
       </GlassCard>

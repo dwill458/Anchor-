@@ -29,19 +29,19 @@ const SEGMENT_CONTENT = {
   athlete: {
     headline: 'Your Mind is Your Edge',
     problem: 'Training your body is easy. Training your mind to stay consistent, focused, and resilient? That\'s the real challenge.',
-    solution: 'Anchor transforms your mental game into a daily ritual - giving you the same discipline for your mindset that you have for your training.',
+    solution: 'Anchor transforms your mental game into a daily practice - giving you the same discipline for your mindset that you have for your training.',
     icon: Target,
   },
   entrepreneur: {
     headline: 'Intentions Without Systems Fade',
     problem: 'You set big goals. You have the vision. But without a daily practice to anchor your focus, clarity slips away in the noise.',
-    solution: 'Anchor gives you a ritual to turn fleeting intentions into consistent action - so you build momentum, not just motivation.',
+    solution: 'Anchor gives you a practice to turn fleeting intentions into consistent action - so you build momentum, not just motivation.',
     icon: Zap,
   },
   wellness: {
     headline: 'Peace Requires Practice',
     problem: 'You want to feel grounded, calm, and connected. But the chaos of daily life makes it hard to hold onto that feeling.',
-    solution: 'Anchor creates a personal ritual that brings you back to center - so inner peace becomes a daily practice, not just a wish.',
+    solution: 'Anchor creates a personal practice that brings you back to center - so inner peace becomes a daily practice, not just a wish.',
     icon: Target,
   },
 };
