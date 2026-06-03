@@ -17,6 +17,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { RouteProp, useNavigation, useRoute } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
+import { useTabNavigation } from '@/contexts/TabNavigationContext';
 import { SvgXml } from 'react-native-svg';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as Haptics from 'expo-haptics';
@@ -49,6 +50,7 @@ const IS_TEST_ENV = Boolean(process.env.JEST_WORKER_ID);
 export const ConfirmBurnScreen: React.FC = () => {
   const route = useRoute<ConfirmBurnRouteProp>();
   const navigation = useNavigation<ConfirmBurnNavigationProp>();
+  const { navigateToVault } = useTabNavigation();
   const { anchorId, intention, sigilSvg, enhancedImageUrl } = route.params;
   const getAnchorById = useAnchorStore((state) => state.getAnchorById);
   const { recordShown } = useTeachingStore();
@@ -83,10 +85,12 @@ export const ConfirmBurnScreen: React.FC = () => {
 
       if (cancelled) return;
 
-      // If no token and trial has expired (no entitlement), force to AuthGate
+      // If no token and trial has expired (no entitlement), force to AuthGate.
+      // Works whether this screen is in VaultStack or PracticeStack.
       if (!token && !hasActiveEntitlement) {
         isLeavingRef.current = true;
-        navigation.replace('AuthGate');
+        navigation.goBack();
+        navigateToVault('AuthGate');
         return;
       }
 
@@ -96,7 +100,7 @@ export const ConfirmBurnScreen: React.FC = () => {
     return () => {
       cancelled = true;
     };
-  }, [navigation, hasActiveEntitlement]);
+  }, [navigation, hasActiveEntitlement, navigateToVault]);
 
   const confirmLeave = useCallback((onConfirm: () => void) => {
     Alert.alert(
