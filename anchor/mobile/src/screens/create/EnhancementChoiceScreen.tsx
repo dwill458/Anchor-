@@ -26,6 +26,7 @@ import { typography } from '@/theme';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const IS_ANDROID = Platform.OS === 'android';
+const OPTION_NAVIGATION_DELAY_MS = 300;
 
 interface EnhancementOption {
   id: 'pure' | 'enhance';
@@ -77,7 +78,8 @@ export const EnhancementChoiceScreen: React.FC = () => {
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const slideAnim = useRef(new Animated.Value(30)).current;
   const refinePulseAnim = useRef(new Animated.Value(1)).current;
-  const [selectedOption, setSelectedOption] = useState<string | null>(null);
+  const optionNavigationTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [selectedOption, setSelectedOption] = useState<EnhancementOption['id'] | null>(null);
 
   const {
     intentionText,
@@ -166,8 +168,12 @@ export const EnhancementChoiceScreen: React.FC = () => {
 
     return () => {
       pulseLoop.stop();
+      if (optionNavigationTimerRef.current) {
+        clearTimeout(optionNavigationTimerRef.current);
+        optionNavigationTimerRef.current = null;
+      }
     };
-  }, []);
+  }, [fadeAnim, refinePulseAnim, slideAnim]);
 
   const createAnchorAndNavigateToCharge = () => {
     navigation.navigate('AnchorReveal', {
@@ -181,12 +187,18 @@ export const EnhancementChoiceScreen: React.FC = () => {
     });
   };
 
-  const handleOptionSelect = (optionId: string) => {
-    setSelectedOption(optionId);
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+  const handleOptionSelect = (optionId: EnhancementOption['id']) => {
+    if (optionNavigationTimerRef.current) {
+      clearTimeout(optionNavigationTimerRef.current);
+    }
 
-    // Add slight delay for visual feedback
-    setTimeout(() => {
+    setSelectedOption(optionId);
+    void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+
+    optionNavigationTimerRef.current = setTimeout(() => {
+      optionNavigationTimerRef.current = null;
+      setSelectedOption(null);
+
       if (optionId === 'pure') {
         createAnchorAndNavigateToCharge();
       } else if (optionId === 'enhance') {
@@ -200,8 +212,7 @@ export const EnhancementChoiceScreen: React.FC = () => {
           reinforcementMetadata,
         });
       }
-      setSelectedOption(null);
-    }, 300);
+    }, OPTION_NAVIGATION_DELAY_MS);
   };
 
   return (
@@ -264,18 +275,7 @@ export const EnhancementChoiceScreen: React.FC = () => {
                 <View style={styles.intentionContent}>
                   <Text style={styles.intentionLabel}>ROOTED INTENTION</Text>
                   <Text style={styles.intentionText}>“{intentionText}”</Text>
-                  <View style={styles.lettersRow}>
-                    {distilledLetters.map((letter, index) => (
-                      <React.Fragment key={`${letter}-${index}`}>
-                        <View style={styles.letterChip}>
-                          <Text style={styles.letterChipText}>{letter}</Text>
-                        </View>
-                        {index < distilledLetters.length - 1 ? (
-                          <View style={styles.letterDivider} />
-                        ) : null}
-                      </React.Fragment>
-                    ))}
-                  </View>
+                  <RootedLetters letters={distilledLetters} />
                 </View>
                 <View style={styles.intentionBorder} />
               </View>
@@ -284,18 +284,7 @@ export const EnhancementChoiceScreen: React.FC = () => {
                 <View style={styles.intentionContent}>
                   <Text style={styles.intentionLabel}>ROOTED INTENTION</Text>
                   <Text style={styles.intentionText}>“{intentionText}”</Text>
-                  <View style={styles.lettersRow}>
-                    {distilledLetters.map((letter, index) => (
-                      <React.Fragment key={`${letter}-${index}`}>
-                        <View style={styles.letterChip}>
-                          <Text style={styles.letterChipText}>{letter}</Text>
-                        </View>
-                        {index < distilledLetters.length - 1 ? (
-                          <View style={styles.letterDivider} />
-                        ) : null}
-                      </React.Fragment>
-                    ))}
-                  </View>
+                  <RootedLetters letters={distilledLetters} />
                 </View>
                 <View style={styles.intentionBorder} />
               </BlurView>
@@ -346,6 +335,14 @@ export const EnhancementChoiceScreen: React.FC = () => {
                       selectedOption === option.id && styles.optionCardSelected,
                     ]}
                   >
+                    <View
+                      pointerEvents="none"
+                      testID={`expression-option-overlay-${option.id}`}
+                      style={[
+                        styles.optionInteractionOverlay,
+                        selectedOption === option.id && styles.optionInteractionOverlayVisible,
+                      ]}
+                    />
                     <OptionCardContent
                       option={option}
                       index={index}
@@ -364,6 +361,14 @@ export const EnhancementChoiceScreen: React.FC = () => {
                       selectedOption === option.id && styles.optionCardSelected,
                     ]}
                   >
+                    <View
+                      pointerEvents="none"
+                      testID={`expression-option-overlay-${option.id}`}
+                      style={[
+                        styles.optionInteractionOverlay,
+                        selectedOption === option.id && styles.optionInteractionOverlayVisible,
+                      ]}
+                    />
                     <OptionCardContent
                       option={option}
                       index={index}
@@ -405,6 +410,30 @@ export const EnhancementChoiceScreen: React.FC = () => {
     </View>
   );
 };
+
+function RootedLetters({ letters }: { letters: string[] }) {
+  return (
+    <ScrollView
+      horizontal
+      bounces={false}
+      showsHorizontalScrollIndicator={false}
+      style={styles.lettersScroll}
+      contentContainerStyle={styles.lettersRow}
+      testID="rooted-letters-scroll"
+    >
+      {letters.map((letter, index) => (
+        <React.Fragment key={`${letter}-${index}`}>
+          <View style={styles.letterChip}>
+            <Text style={styles.letterChipText}>{letter}</Text>
+          </View>
+          {index < letters.length - 1 ? (
+            <View style={styles.letterDivider} />
+          ) : null}
+        </React.Fragment>
+      ))}
+    </ScrollView>
+  );
+}
 
 function OptionCardContent({
   option,
@@ -577,6 +606,10 @@ const styles = StyleSheet.create({
   lettersRow: {
     flexDirection: 'row',
     alignItems: 'center',
+    paddingRight: 4,
+  },
+  lettersScroll: {
+    maxWidth: '100%',
   },
   letterChip: {
     width: 30,
@@ -645,11 +678,21 @@ const styles = StyleSheet.create({
     shadowRadius: 15,
     elevation: 10,
   },
+  optionInteractionOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'transparent',
+    opacity: 0,
+  },
+  optionInteractionOverlayVisible: {
+    backgroundColor: 'rgba(212, 175, 55, 0.16)',
+    opacity: 1,
+  },
   cardContent: {
     padding: 24,
+    position: 'relative',
+    zIndex: 1,
   },
   cardContentGlow: {
-    backgroundColor: 'rgba(212, 175, 55, 0.02)',
   },
   recommendedBadge: {
     position: 'absolute',

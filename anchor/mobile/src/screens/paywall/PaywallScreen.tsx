@@ -343,26 +343,41 @@ export const PaywallScreen: React.FC = () => {
                       onPress={() => setSelectedPlanId(plan.id)}
                       accessibilityRole="button"
                       accessibilityLabel={`${plan.label} plan ${plan.amount}`}
+                      testID={`paywall-plan-${plan.id}`}
                       style={({ pressed }) => [
                         styles.planCard,
                         isSelected ? styles.planCardSelected : styles.planCardUnselected,
                         pressed && styles.planCardPressed,
                       ]}
                     >
-                      {plan.badge ? (
-                        <View style={styles.planBadge}>
-                          <Text style={styles.planBadgeText}>{plan.badge}</Text>
-                        </View>
-                      ) : null}
+                      {({ pressed }) => (
+                        <>
+                          <View
+                            pointerEvents="none"
+                            testID={`paywall-plan-overlay-${plan.id}`}
+                            style={[
+                              styles.planCardFill,
+                              isSelected && styles.planCardFillSelected,
+                              pressed && styles.planCardFillPressed,
+                            ]}
+                          />
 
-                      <Text style={styles.planLabel}>{plan.label}</Text>
+                          {plan.badge ? (
+                            <View style={styles.planBadge}>
+                              <Text style={styles.planBadgeText}>{plan.badge}</Text>
+                            </View>
+                          ) : null}
 
-                      <View style={styles.planPriceWrap}>
-                        <Text style={[styles.planAmount, isSelected && styles.planAmountSelected]}>
-                          {plan.amount}
-                        </Text>
-                        <Text style={styles.planSubtitle}>{plan.subtitle}</Text>
-                      </View>
+                          <Text style={styles.planLabel}>{plan.label}</Text>
+
+                          <View style={styles.planPriceWrap}>
+                            <Text style={[styles.planAmount, isSelected && styles.planAmountSelected]}>
+                              {plan.amount}
+                            </Text>
+                            <Text style={styles.planSubtitle}>{plan.subtitle}</Text>
+                          </View>
+                        </>
+                      )}
                     </Pressable>
                   );
                 })}
@@ -591,14 +606,26 @@ const styles = StyleSheet.create({
     paddingBottom: 12,
     overflow: 'hidden',
     justifyContent: 'space-between',
+    position: 'relative',
   },
   planCardPressed: {
     transform: [{ scale: 0.99 }],
   },
+  planCardFill: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: withAlpha(colors.gold, 0.03),
+    opacity: 1,
+  },
+  planCardFillSelected: {
+    backgroundColor: withAlpha(colors.gold, 0.12),
+  },
+  planCardFillPressed: {
+    backgroundColor: withAlpha(colors.gold, 0.18),
+  },
   planCardSelected: {
     borderWidth: 1,
     borderColor: colors.gold,
-    backgroundColor: withAlpha(colors.gold, 0.1),
+    backgroundColor: 'transparent',
     shadowColor: colors.gold,
     shadowOffset: { width: 0, height: 0 },
     shadowOpacity: 0.15,
@@ -608,7 +635,7 @@ const styles = StyleSheet.create({
   planCardUnselected: {
     borderWidth: 1,
     borderColor: withAlpha(colors.gold, 0.2),
-    backgroundColor: withAlpha(colors.gold, 0.03),
+    backgroundColor: 'transparent',
   },
   planBadge: {
     position: 'absolute',
@@ -621,6 +648,7 @@ const styles = StyleSheet.create({
     borderBottomRightRadius: 0,
     paddingHorizontal: 6,
     paddingVertical: 3,
+    zIndex: 2,
   },
   planBadgeText: {
     fontFamily: typography.fonts.headingBold,
@@ -636,9 +664,13 @@ const styles = StyleSheet.create({
     textTransform: 'uppercase',
     textAlign: 'center',
     marginBottom: 4,
+    position: 'relative',
+    zIndex: 1,
   },
   planPriceWrap: {
     gap: 2,
+    position: 'relative',
+    zIndex: 1,
   },
   planAmount: {
     fontFamily: typography.fonts.headingSemiBold,

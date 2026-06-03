@@ -37,6 +37,13 @@ jest.mock('expo-linear-gradient', () => ({
   LinearGradient: 'LinearGradient',
 }));
 
+jest.mock('expo-splash-screen', () => ({
+  preventAutoHideAsync: jest.fn(() => Promise.resolve(true)),
+  hideAsync: jest.fn(() => Promise.resolve()),
+  hide: jest.fn(),
+  setOptions: jest.fn(),
+}));
+
 jest.mock('expo-blur', () => ({
   BlurView: 'BlurView',
 }));
@@ -322,4 +329,3 @@ global.console = {
 
 // Set up test timeout
 jest.setTimeout(10000);
-

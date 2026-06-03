@@ -100,7 +100,7 @@
         "monochromeImage": "./assets/anchor-monochrome.png"
       },
       "package": "com.anchorintentions.app",
-      "versionCode": 10,
+      "versionCode": 11,
       "googleServicesFile": "./google-services.json",
       "blockedPermissions": [
         "android.permission.RECORD_AUDIO",
@@ -124,6 +124,19 @@
       "expo-apple-authentication",
       "@sentry/react-native/expo",
       "expo-secure-store",
+      [
+        "expo-splash-screen",
+        {
+          "image": "./assets/anchor-gold.png",
+          "imageWidth": 200,
+          "resizeMode": "contain",
+          "backgroundColor": "#1A1A1D",
+          "dark": {
+            "image": "./assets/anchor-gold.png",
+            "backgroundColor": "#1A1A1D"
+          }
+        }
+      ],
       "@react-native-community/datetimepicker",
       "@sentry/react-native",
       "expo-audio",
