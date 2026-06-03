@@ -20,6 +20,7 @@ jest.mock('@react-navigation/native', () => ({
   useNavigation: jest.fn(() => ({
     navigate: jest.fn(),
     goBack: jest.fn(),
+    popToTop: jest.fn(),
   })),
 }));
 
@@ -68,6 +69,16 @@ jest.mock('@/utils/useTeachingGate', () => ({
   useTeachingGate: jest.fn(() => null),
 }));
 
+const mockNavigateToVault = jest.fn();
+jest.mock('@/contexts/TabNavigationContext', () => ({
+  useTabNavigation: () => ({
+    navigateToVault: mockNavigateToVault,
+    navigateToPractice: jest.fn(),
+    registerTabNav: jest.fn(),
+    activeTabIndex: 0,
+  }),
+}));
+
 jest.mock('../components/BurnAnimationOverlay', () => {
   const React = require('react');
   const { View, Text, TouchableOpacity } = require('react-native');
@@ -112,6 +123,7 @@ jest.mock('../components/BurnAnimationOverlay', () => {
 describe('BurningRitualScreen', () => {
   let mockNavigate: jest.Mock;
   let mockGoBack: jest.Mock;
+  let mockPopToTop: jest.Mock;
   let mockReleaseAnchor: jest.Mock;
   let mockAuthState = { isAuthenticated: true };
 
@@ -119,6 +131,7 @@ describe('BurningRitualScreen', () => {
     jest.clearAllMocks();
     mockNavigate = jest.fn();
     mockGoBack = jest.fn();
+    mockPopToTop = jest.fn();
     mockReleaseAnchor = jest.fn();
     mockAuthState = { isAuthenticated: true };
     (AuthService.getIdToken as jest.Mock).mockResolvedValue('token');
@@ -127,6 +140,7 @@ describe('BurningRitualScreen', () => {
     navigation.useNavigation.mockReturnValue({
       navigate: mockNavigate,
       goBack: mockGoBack,
+      popToTop: mockPopToTop,
     });
 
     (useAnchorStore as unknown as jest.Mock).mockImplementation((selector: any) =>
@@ -196,7 +210,8 @@ describe('BurningRitualScreen', () => {
     const { getByText } = render(<BurningRitualScreen />);
     fireEvent.press(getByText('Return to Sanctuary'));
 
-    expect(mockNavigate).toHaveBeenCalledWith('Vault');
+    expect(mockPopToTop).toHaveBeenCalled();
+    expect(mockNavigateToVault).toHaveBeenCalled();
   });
 
   it('returns to previous screen when return-to-anchor is pressed', () => {
