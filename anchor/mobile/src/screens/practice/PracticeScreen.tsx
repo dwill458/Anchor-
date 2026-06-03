@@ -359,14 +359,14 @@ export const PracticeScreen: React.FC = () => {
   const executeBurn = useCallback(
     (anchor: Anchor) => {
       setConfirmUnchargedBurnVisible(false);
-      navigateToVault('ConfirmBurn', {
+      navigation.navigate('ConfirmBurn', {
         anchorId: anchor.id,
         intention: anchor.intentionText ?? (anchor as Anchor & { intention?: string }).intention ?? '',
         sigilSvg: anchor.reinforcedSigilSvg ?? anchor.baseSigilSvg ?? '',
         enhancedImageUrl: resolveBurnArtworkUri(anchor),
       });
     },
-    [navigateToVault]
+    [navigation]
   );
 
   const runMode = useCallback(
