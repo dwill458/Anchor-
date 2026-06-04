@@ -2,7 +2,7 @@
   "expo": {
     "name": "Anchor",
     "slug": "anchor",
-    "version": "1.0.1",
+    "version": "1.0.2",
     "newArchEnabled": true,
     "platforms": [
       "ios",
@@ -20,7 +20,7 @@
     "assetBundlePatterns": [
       "**/*"
     ],
-    "runtimeVersion": "1.0.1",
+    "runtimeVersion": "1.0.2",
     "updates": {
       "enabled": true,
       "checkAutomatically": "ON_LOAD",
