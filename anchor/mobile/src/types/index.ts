@@ -131,6 +131,7 @@ export interface User {
   displayName?: string;
   hasCompletedOnboarding?: boolean;
   isComped?: boolean;
+  settings?: UserSettings | null;
   subscriptionStatus: SubscriptionStatus;
   totalAnchorsCreated: number;
   totalActivations: number;
@@ -194,6 +195,11 @@ export interface UserSettings {
   dailyReminderTime: string; // HH:MM format
   streakProtection: boolean;
   defaultChargeDuration: number; // in seconds
+  focusSessionMode: 'quick' | 'deep';
+  focusSessionDuration: number;
+  focusSessionAudio: 'silent' | 'ambient';
+  primeSessionDuration: number;
+  primeSessionAudio: 'silent' | 'ambient';
   hapticIntensity: number; // 1-5 scale
   vaultViewType: 'grid' | 'list';
   updatedAt: Date;

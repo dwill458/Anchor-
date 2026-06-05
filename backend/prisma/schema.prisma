@@ -304,6 +304,11 @@ model UserSettings {
 
   // Defaults
   defaultChargeDuration Int      @default(300) // seconds
+  focusSessionMode      String   @default("quick")
+  focusSessionDuration  Int      @default(30) // seconds
+  focusSessionAudio     String   @default("ambient")
+  primeSessionDuration   Int      @default(120) // seconds
+  primeSessionAudio     String   @default("ambient")
   hapticIntensity       Int      @default(3)   // 1-5 scale
 
   // UI Preferences

@@ -418,7 +418,7 @@ const DEFAULT_SETTINGS = {
   focusSessionDuration: 30,
   focusSessionAudio: 'ambient' as SessionAudioMode,
   primeSessionDuration: 120,
-  primeSessionAudio: 'silent' as SessionAudioMode,
+  primeSessionAudio: 'ambient' as SessionAudioMode,
   openDailyAnchorAutomatically: false,
   dailyPracticeGoal: 3,
   dailyPracticeGoalPreset: 'three' as DailyPracticeGoalPreset,

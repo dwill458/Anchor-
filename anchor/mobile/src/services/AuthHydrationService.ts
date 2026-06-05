@@ -2,7 +2,8 @@ import { apiClient, fetchCompleteProfile } from '@/services/ApiClient';
 import { useAnchorStore } from '@/stores/anchorStore';
 import { useAuthStore } from '@/stores/authStore';
 import { useSessionStore } from '@/stores/sessionStore';
-import type { Anchor, ApiResponse, ProfileData, User } from '@/types';
+import { useSettingsStore } from '@/stores/settingsStore';
+import type { Anchor, ApiResponse, ProfileData, User, UserSettings } from '@/types';
 import { isBackendAnchorId } from '@/services/BackendAnchorService';
 import { buildPrimingHistoryEntry, type PrimingHistoryEntry } from '@/utils/primingAnalytics';
 
@@ -34,7 +35,31 @@ function normalizeUser(user: User): User {
     lastStabilizeAt: normalizeDate(user.lastStabilizeAt),
     stabilizesTotal: user.stabilizesTotal ?? 0,
     stabilizeStreakDays: user.stabilizeStreakDays ?? 0,
+    settings: user.settings ? normalizeUserSettings(user.settings) : user.settings,
   };
+}
+
+function normalizeUserSettings(settings: UserSettings): UserSettings {
+  return {
+    ...settings,
+    updatedAt: normalizeDate(settings.updatedAt) ?? new Date(),
+  };
+}
+
+function applyProfileSettings(settings?: UserSettings | null): void {
+  if (!settings) {
+    return;
+  }
+
+  const normalized = normalizeUserSettings(settings);
+  useSettingsStore.setState((current) => ({
+    ...current,
+    focusSessionMode: normalized.focusSessionMode ?? current.focusSessionMode,
+    focusSessionDuration: normalized.focusSessionDuration ?? current.focusSessionDuration,
+    focusSessionAudio: normalized.focusSessionAudio ?? current.focusSessionAudio,
+    primeSessionDuration: normalized.primeSessionDuration ?? current.primeSessionDuration,
+    primeSessionAudio: normalized.primeSessionAudio ?? current.primeSessionAudio,
+  }));
 }
 
 function normalizeProfileData(profileData: ProfileData): ProfileData {
@@ -113,6 +138,7 @@ class AuthHydrationService {
       hasCompletedOnboarding: Boolean(normalizedProfileData.user.hasCompletedOnboarding),
       isOfflineMode: false,
     });
+    applyProfileSettings(normalizedProfileData.user.settings);
 
     if (!options.skipAnchorRefresh) {
       const anchorStore = useAnchorStore.getState();

@@ -274,7 +274,7 @@ export const RitualScreen: React.FC = () => {
   const soundEffectsEnabled = useSettingsStore((state) => state.soundEffectsEnabled);
   const focusSessionDuration = useSettingsStore((state) => state.focusSessionDuration ?? 30);
   const primeSessionDuration = useSettingsStore((state) => state.primeSessionDuration ?? 120);
-  const primeSessionAudio = useSettingsStore((state) => state.primeSessionAudio ?? 'silent');
+  const primeSessionAudio = useSettingsStore((state) => state.primeSessionAudio ?? 'ambient');
   const reduceIntentionVisibility = useSettingsStore((state) => state.reduceIntentionVisibility ?? false);
   const { handlePrimeComplete } = useNotificationController();
   const beginPostPrimeTraceFlow = usePostPrimeTraceStore((state) => state.beginFlow);

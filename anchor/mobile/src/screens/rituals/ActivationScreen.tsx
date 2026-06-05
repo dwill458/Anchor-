@@ -67,7 +67,7 @@ export const ActivationScreen: React.FC = () => {
     (state) => state.enqueuePendingFirstAnchorMutation
   );
   const focusSessionDuration = useSettingsStore((state) => state.focusSessionDuration ?? 30);
-  const focusSessionAudio = useSettingsStore((state) => state.focusSessionAudio ?? 'silent');
+  const focusSessionAudio = useSettingsStore((state) => state.focusSessionAudio ?? 'ambient');
   const { recordSession, bumpThreadStrength } = useSessionStore();
   const { recordShown } = useTeachingStore();
   const { handlePrimeComplete } = useNotificationController();
