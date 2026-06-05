@@ -135,4 +135,24 @@ describe('RevenueCatService', () => {
     expect(status.hasActiveEntitlement).toBe(true);
     expect(status.isSubscribed).toBe(true);
   });
+
+  it('throws an error if no current offering is found', async () => {
+    mockPurchases.getOfferings.mockResolvedValueOnce({
+      current: null,
+    });
+
+    await expect(
+      RevenueCatService.purchasePackageByIdentifier('test_product')
+    ).rejects.toThrow('[RevenueCat] No active offerings found.');
+  });
+
+  it('throws an error if the selected package is not found in offerings', async () => {
+    mockPurchases.getOfferings.mockResolvedValueOnce({
+      current: { availablePackages: [] },
+    });
+
+    await expect(
+      RevenueCatService.purchasePackageByIdentifier('test_product')
+    ).rejects.toThrow('[RevenueCat] Package "test_product" was not found in the available offerings.');
+  });
 });

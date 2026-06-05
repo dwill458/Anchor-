@@ -275,7 +275,7 @@ export async function del<T = unknown>(url: string): Promise<T> {
 // Profile API Functions (Phase 1: Private Profile)
 // ============================================================================
 
-import { Anchor, ProfileData, User, UserStats } from '@/types';
+import { Anchor, ProfileData, User, UserSettings, UserStats } from '@/types';
 import { redactAnchors } from '@/utils/privacyHelpers';
 
 /**
@@ -289,6 +289,29 @@ export async function fetchUserProfile(): Promise<User> {
   if (!response.data.success || !response.data.data) {
     throw new Error(response.data.error?.message || 'Failed to fetch profile');
   }
+  return response.data.data;
+}
+
+/**
+ * Update the authenticated user's persisted settings.
+ */
+export async function updateUserSettings(
+  settings: Partial<
+    Pick<
+      UserSettings,
+      | 'focusSessionMode'
+      | 'focusSessionDuration'
+      | 'focusSessionAudio'
+      | 'primeSessionDuration'
+      | 'primeSessionAudio'
+    >
+  >
+): Promise<UserSettings> {
+  const response = await apiClient.put<ApiResponse<UserSettings>>('/api/auth/settings', settings);
+  if (!response.data.success || !response.data.data) {
+    throw new Error(response.data.error?.message || 'Failed to update settings');
+  }
+
   return response.data.data;
 }
 

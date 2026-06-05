@@ -84,6 +84,9 @@ jobs:
         env:
           FIREBASE_ANDROID_GOOGLE_SERVICES_JSON_B64: ${{ secrets.FIREBASE_ANDROID_GOOGLE_SERVICES_JSON_B64 }}
 
+      - name: Validate Firebase config
+        run: node ./scripts/validate-firebase-config.js --profile ${{ steps.resolve.outputs.profile }}
+
       # ── Build ──────────────────────────────────────────────────────────────
       - name: EAS Build
         run: |

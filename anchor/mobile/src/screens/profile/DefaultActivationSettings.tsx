@@ -242,7 +242,7 @@ export const DefaultActivationSettings: React.FC = () => {
             </Text>
             <View style={styles.durationChipRow}>
               {MODES.map(({ mode, label }) => {
-                const selected = (defaultActivation.mode ?? 'silent') === mode;
+                const selected = (defaultActivation.mode ?? 'ambient') === mode;
                 return (
                   <TouchableOpacity
                     key={mode}

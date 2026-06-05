@@ -14,6 +14,8 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import { ArrowLeft, Clock3, Music4, VolumeX } from 'lucide-react-native';
 import { LinearGradient } from 'expo-linear-gradient';
+import { updateUserSettings } from '@/services/ApiClient';
+import { useAuthStore } from '@/stores/authStore';
 import {
   useSettingsStore,
   type FocusSessionMode,
@@ -91,12 +93,13 @@ const DurationButton: React.FC<{
 
 export const SessionDefaultsScreen: React.FC = () => {
   const navigation = useNavigation();
+  const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
   const focusSessionMode = useSettingsStore((state) => state.focusSessionMode ?? 'quick');
   const { width: screenWidth } = useWindowDimensions();
   const storedFocusDuration = useSettingsStore((state) => state.focusSessionDuration ?? 30);
-  const storedFocusAudio = useSettingsStore((state) => state.focusSessionAudio ?? 'silent');
+  const storedFocusAudio = useSettingsStore((state) => state.focusSessionAudio ?? 'ambient');
   const storedPrimeDuration = useSettingsStore((state) => state.primeSessionDuration ?? 120);
-  const storedPrimeAudio = useSettingsStore((state) => state.primeSessionAudio ?? 'silent');
+  const storedPrimeAudio = useSettingsStore((state) => state.primeSessionAudio ?? 'ambient');
   const setFocusSessionMode = useSettingsStore((state) => state.setFocusSessionMode);
   const setFocusSessionDuration = useSettingsStore((state) => state.setFocusSessionDuration);
   const setFocusSessionAudio = useSettingsStore((state) => state.setFocusSessionAudio);
@@ -154,6 +157,17 @@ export const SessionDefaultsScreen: React.FC = () => {
     setFocusSessionAudio(focusAudio);
     setPrimeSessionDuration(resolvedPrimeDurationSeconds);
     setPrimeSessionAudio(primeAudio);
+    if (isAuthenticated) {
+      void updateUserSettings({
+        focusSessionMode: nextMode,
+        focusSessionDuration: focusDuration,
+        focusSessionAudio: focusAudio,
+        primeSessionDuration: resolvedPrimeDurationSeconds,
+        primeSessionAudio: primeAudio,
+      }).catch((error) => {
+        console.warn('[SessionDefaultsScreen] Failed to sync session defaults to profile', error);
+      });
+    }
     navigation.goBack();
   };
 

@@ -226,27 +226,27 @@ class RevenueCatService {
     dismissed: boolean;
   }> {
     const purchases = getPurchasesModule();
-    if (!purchases?.getOfferings || !purchases.purchasePackage) {
-      return {
-        status: applyTrialStatus(DEFAULT_TRIAL_STATUS),
-        dismissed: false,
-      };
+    if (!purchases) {
+      throw new Error('[RevenueCat] Billing service is unavailable. The native module react-native-purchases is not loaded.');
+    }
+    if (!purchases.getOfferings || !purchases.purchasePackage) {
+      throw new Error('[RevenueCat] Billing service is misconfigured or unavailable on this platform.');
     }
 
     try {
       const offerings = await purchases.getOfferings();
       const currentOffering = offerings.current;
-      const availablePackages = currentOffering?.availablePackages ?? [];
+      if (!currentOffering) {
+        throw new Error('[RevenueCat] No active offerings found. Please ensure you have set a Current Offering in the RevenueCat dashboard.');
+      }
+
+      const availablePackages = currentOffering.availablePackages ?? [];
       const selectedPackage =
         availablePackages.find((pkg) => pkg.identifier === REVENUECAT_DEFAULT_PACKAGE_ID) ??
         availablePackages[0];
 
       if (!selectedPackage) {
-        logger.warn('[RevenueCatService] No purchase package available for trial start');
-        return {
-          status: await this.refreshTrialStatus(),
-          dismissed: false,
-        };
+        throw new Error(`[RevenueCat] No purchase package available for trial start (expected "${REVENUECAT_DEFAULT_PACKAGE_ID}"). Please check your RevenueCat dashboard package configuration.`);
       }
 
       const response = await purchases.purchasePackage(selectedPackage);
@@ -274,20 +274,27 @@ class RevenueCatService {
     dismissed: boolean;
   }> {
     const purchases = getPurchasesModule();
-    if (!purchases?.getOfferings || !purchases.purchasePackage) {
-      return { status: applyTrialStatus(DEFAULT_TRIAL_STATUS), dismissed: false };
+    if (!purchases) {
+      throw new Error('[RevenueCat] Billing service is unavailable. The native module react-native-purchases is not loaded.');
+    }
+    if (!purchases.getOfferings || !purchases.purchasePackage) {
+      throw new Error('[RevenueCat] Billing service is misconfigured or unavailable on this platform.');
     }
 
     try {
       const offerings = await purchases.getOfferings();
-      const availablePackages = offerings.current?.availablePackages ?? [];
+      const currentOffering = offerings.current;
+      if (!currentOffering) {
+        throw new Error('[RevenueCat] No active offerings found. Please ensure you have set a Current Offering in the RevenueCat dashboard.');
+      }
+
+      const availablePackages = currentOffering.availablePackages ?? [];
       const selectedPackage =
         availablePackages.find((pkg) => pkg.identifier === productId) ??
         availablePackages[0];
 
       if (!selectedPackage) {
-        logger.warn('[RevenueCatService] No package found for identifier', productId);
-        return { status: await this.refreshTrialStatus(), dismissed: false };
+        throw new Error(`[RevenueCat] Package "${productId}" was not found in the available offerings. Please verify your RevenueCat package mappings and Google Play Console product IDs.`);
       }
 
       const response = await purchases.purchasePackage(selectedPackage);
@@ -304,8 +311,11 @@ class RevenueCatService {
 
   async restorePurchases(): Promise<TrialStatusSnapshot> {
     const purchases = getPurchasesModule();
-    if (!purchases?.restorePurchases) {
-      return applyTrialStatus(DEFAULT_TRIAL_STATUS);
+    if (!purchases) {
+      throw new Error('[RevenueCat] Billing service is unavailable. The native module react-native-purchases is not loaded.');
+    }
+    if (!purchases.restorePurchases) {
+      throw new Error('[RevenueCat] Restore purchases is not supported on this platform.');
     }
 
     try {
