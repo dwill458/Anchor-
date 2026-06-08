@@ -174,7 +174,7 @@ describe('VaultScreen', () => {
         );
     });
 
-    it('shows hero card when anchor limit is reached', () => {
+    it('shows hero card when anchor limit is reached', async () => {
         mockAnchors = Array.from({ length: 3 }, (_, i) => ({
             id: `a${i}`,
             intentionText: `Anchor ${i}`,
@@ -186,7 +186,7 @@ describe('VaultScreen', () => {
             updatedAt: new Date(),
         }));
         render(<VaultScreen />);
-        expect(screen.getByText('Hero: Anchor 0')).toBeTruthy();
+        expect(await screen.findByText('Hero: Anchor 0')).toBeTruthy();
     });
 
     it('tapping persistent create button navigates to create anchor', () => {
