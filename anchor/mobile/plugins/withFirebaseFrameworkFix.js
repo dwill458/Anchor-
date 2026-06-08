@@ -2,13 +2,13 @@ const { withDangerousMod } = require('@expo/config-plugins');
 const path = require('path');
 const fs = require('fs');
 
-// Appends a post_install hook that sets
-// CLANG_ALLOW_NON_MODULAR_INCLUDES_IN_FRAMEWORK_MODULES=YES on every pod
-// target so RNFBApp can include React-Core headers while
-// use_frameworks! :linkage => :static is active (required by Firebase iOS
-// SDK 11 / @react-native-firebase v24).
-// CocoaPods accumulates all post_install blocks and runs them in order,
-// so appending a second block is safe.
+// Injects CLANG_ALLOW_NON_MODULAR_INCLUDES_IN_FRAMEWORK_MODULES=YES into
+// the expo-generated post_install block so RNFBApp can include React-Core
+// headers while use_frameworks! :linkage => :static is active (required by
+// @react-native-firebase v24 / Firebase iOS SDK 11).
+//
+// NOTE: expo's Podfile has `post_install` indented inside the target block,
+// so the match must NOT be anchored to the start of the line.
 module.exports = function withFirebaseFrameworkFix(config) {
   return withDangerousMod(config, [
     'ios',
@@ -20,15 +20,21 @@ module.exports = function withFirebaseFrameworkFix(config) {
         return cfg;
       }
 
-      podfile += `
-post_install do |installer|
-  installer.pods_project.targets.each do |target|
-    target.build_configurations.each do |config|
-      config.build_settings['CLANG_ALLOW_NON_MODULAR_INCLUDES_IN_FRAMEWORK_MODULES'] = 'YES'
-    end
-  end
-end
-`;
+      const clangFix = [
+        '    # Allow RNFBApp/RNFBAuth to include React-Core headers inside frameworks',
+        '    installer.pods_project.targets.each do |target|',
+        '      target.build_configurations.each do |config|',
+        "        config.build_settings['CLANG_ALLOW_NON_MODULAR_INCLUDES_IN_FRAMEWORK_MODULES'] = 'YES'",
+        '      end',
+        '    end',
+      ].join('\n');
+
+      // Match without line anchor — the expo Podfile indents post_install
+      // inside the target block so ^ would not match.
+      podfile = podfile.replace(
+        /post_install do \|installer\|/,
+        `post_install do |installer|\n${clangFix}`
+      );
 
       fs.writeFileSync(podfilePath, podfile);
       return cfg;
