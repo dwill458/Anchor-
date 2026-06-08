@@ -37,12 +37,7 @@ credentials/
 google-service-account.json
 GoogleService-Info.plist
 google-services.json
-
-# Re-include build-time config needed by cloud EAS builds.
-!.env
-!google-services.json
-!GoogleService-Info.plist
-!android/app/google-services.json
+ios/
 
 # TypeScript
 *.tsbuildinfo
@@ -50,6 +45,14 @@ google-services.json
 # Testing
 coverage/
 .jest-cache/
+eas_build_log.txt
+expo*_output.txt
+jest-results.json
+tsc*.txt
+errors*.txt
+branches.txt
+vault_diff.txt
+android.view.*
 
 # Android build artifacts (not needed for EAS cloud builds)
 android/build/
@@ -60,4 +63,3 @@ android/.idea/
 # iOS build artifacts
 ios/build/
 ios/Pods/
-
