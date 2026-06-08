@@ -4,6 +4,11 @@ import type { StateStorage } from 'zustand/middleware';
 
 import { logger } from '@/utils/logger';
 
+type AsyncStateStorage = StateStorage & {
+  setItem: (name: string, value: string) => Promise<void>;
+  removeItem: (name: string) => Promise<void>;
+};
+
 const SECURE_META_SUFFIX = '__secure_meta';
 const SECURE_CHUNK_PREFIX = '__secure_chunk_';
 const SECURE_CHUNK_SIZE = 1800;
@@ -106,7 +111,7 @@ async function migrateLegacyAsyncStorageValue(name: string): Promise<string | nu
  * - Supports payloads larger than platform key-value limits by chunking.
  * - Migrates legacy unencrypted AsyncStorage blobs on first read.
  */
-export const encryptedPersistStorage: StateStorage = {
+export const encryptedPersistStorage: AsyncStateStorage = {
   getItem: async (name: string): Promise<string | null> => {
     try {
       const secureValue = await readSecureValue(name);

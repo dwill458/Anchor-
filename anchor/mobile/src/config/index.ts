@@ -1,3 +1,5 @@
+import { Platform } from 'react-native';
+
 /**
  * Anchor App - Configuration
  *
@@ -22,7 +24,14 @@ export const SUPABASE_URL = process.env.EXPO_PUBLIC_SUPABASE_URL ?? '';
 export const SUPABASE_ANON_KEY = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY ?? '';
 export const REVENUECAT_MONTHLY_PACKAGE_ID = '$rc_monthly';
 export const REVENUECAT_ANNUAL_PACKAGE_ID = '$rc_annual';
-export const REVENUECAT_API_KEY = process.env.EXPO_PUBLIC_REVENUECAT_API_KEY ?? '';
+const platformRevenueCatApiKey =
+  Platform.OS === 'ios'
+    ? process.env.EXPO_PUBLIC_REVENUECAT_IOS_API_KEY
+    : Platform.OS === 'android'
+      ? process.env.EXPO_PUBLIC_REVENUECAT_ANDROID_API_KEY
+      : undefined;
+export const REVENUECAT_API_KEY =
+  platformRevenueCatApiKey ?? process.env.EXPO_PUBLIC_REVENUECAT_API_KEY ?? '';
 export const REVENUECAT_ENTITLEMENT_ID = process.env.EXPO_PUBLIC_REVENUECAT_ENTITLEMENT_ID ?? '';
 export const REVENUECAT_DEFAULT_PACKAGE_ID =
   process.env.EXPO_PUBLIC_REVENUECAT_DEFAULT_PACKAGE_ID ?? REVENUECAT_MONTHLY_PACKAGE_ID;

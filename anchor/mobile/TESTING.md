@@ -149,6 +149,17 @@ await mockApiError('Network error', 100);
 | Functions | 70% |
 | Lines | 70% |
 
+## iOS Release Verification
+
+The unit test suite is necessary but not sufficient for iOS release signoff. Before promoting a production build, run the release checklist in [docs/runbooks/IOS_RELEASE.md](../../docs/runbooks/IOS_RELEASE.md) and explicitly verify:
+
+- cold start and auth hydration on a release build
+- Apple Sign-In and Google Sign-In
+- RevenueCat purchase, restore, and entitlement sync
+- notification permission request and production APNs registration
+- anchor creation, ritual flow, export/share, and biometric unlock
+- Sentry startup/error reporting and OTA update behavior
+
 ## Best Practices
 
 ### 1. Test Behavior, Not Implementation

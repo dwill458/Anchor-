@@ -30,6 +30,9 @@ bugreport-*.zip
 # Local env files
 .env*.local
 .env
+/ios/.xcode.env
+/ios/.xcode.env.local
+/ios/
 
 # EAS/credentials (never commit private signing material)
 credentials.json
@@ -38,9 +41,21 @@ google-service-account.json
 GoogleService-Info.plist
 google-services.json
 
+# iOS native generated/dependency state
+/ios/Pods/
+/ios/build/
+
 # TypeScript
 *.tsbuildinfo
 
 # Testing
 coverage/
 .jest-cache/
+eas_build_log.txt
+expo*_output.txt
+jest-results.json
+tsc*.txt
+errors*.txt
+branches.txt
+vault_diff.txt
+android.view.*
