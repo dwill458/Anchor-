@@ -37,6 +37,9 @@ credentials/
 google-service-account.json
 GoogleService-Info.plist
 google-services.json
+# Re-include the runtime Firebase configs written by CI immediately before eas build
+!GoogleService-Info.plist
+!google-services.json
 ios/
 
 # TypeScript
