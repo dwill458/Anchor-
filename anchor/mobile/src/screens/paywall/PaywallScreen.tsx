@@ -340,7 +340,10 @@ export const PaywallScreen: React.FC = () => {
                   return (
                     <Pressable
                       key={plan.id}
-                      onPress={() => setSelectedPlanId(plan.id)}
+                      onPress={() => {
+                        setSelectedPlanId(plan.id);
+                        handlePurchase(plan.productId);
+                      }}
                       accessibilityRole="button"
                       accessibilityLabel={`${plan.label} plan ${plan.amount}`}
                       testID={`paywall-plan-${plan.id}`}

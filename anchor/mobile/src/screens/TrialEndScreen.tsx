@@ -134,13 +134,13 @@ export default function TrialEndScreen() {
 
   const selectedPlan = PLANS.find((p) => p.id === selectedId) ?? PLANS[0];
 
-  const handlePurchase = async () => {
+  const purchasePlan = async (productId: string) => {
     triggerMedium();
     if (isPurchasing) return;
     setIsPurchasing(true);
     try {
       const { status, dismissed } = await revenueCatService.purchasePackageByIdentifier(
-        selectedPlan.productId
+        productId
       );
       if (!dismissed && status.hasActiveEntitlement) {
         if (hapticsOn) {
@@ -155,6 +155,10 @@ export default function TrialEndScreen() {
     }
   };
 
+  const handlePurchase = () => {
+    purchasePlan(selectedPlan.productId);
+  };
+
   const ctaLabel = isPurchasing
     ? 'Processing…'
     : selectedId === 'annual'
@@ -166,6 +170,10 @@ export default function TrialEndScreen() {
     triggerSelection();
     setSelectedId(id);
     logger.info('[Analytics] trial_tier_selected', { tier: id });
+    const plan = PLANS.find((p) => p.id === id);
+    if (plan) {
+      purchasePlan(plan.productId);
+    }
   };
 
   const animatedStyle = (i: number) => ({

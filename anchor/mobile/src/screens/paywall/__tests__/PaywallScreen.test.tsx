@@ -30,6 +30,16 @@ describe('PaywallScreen', () => {
     mockNavigate.mockClear();
     mockDispatch.mockClear();
     mockReset.mockClear();
+    const RevenueCatService = require('@/services/RevenueCatService').default;
+    RevenueCatService.purchasePackageByIdentifier.mockReset();
+    RevenueCatService.purchasePackageByIdentifier.mockResolvedValue({
+      status: { hasActiveEntitlement: false },
+      dismissed: true,
+    });
+    RevenueCatService.restorePurchases.mockReset();
+    RevenueCatService.restorePurchases.mockResolvedValue({
+      hasActiveEntitlement: false,
+    });
   });
 
   it('shows only monthly and annual plans', () => {
@@ -85,7 +95,7 @@ describe('PaywallScreen', () => {
     });
   });
 
-  it('purchases the currently selected plan', async () => {
+  it('purchases the plan immediately when a plan card is pressed', async () => {
     const RevenueCatService = require('@/services/RevenueCatService').default;
     RevenueCatService.purchasePackageByIdentifier.mockResolvedValueOnce({
       status: { hasActiveEntitlement: false },
@@ -95,7 +105,6 @@ describe('PaywallScreen', () => {
     render(<PaywallScreen />);
 
     fireEvent.press(screen.getByTestId('paywall-plan-annual'));
-    fireEvent.press(screen.getByText('FORGE MY PRACTICE'));
 
     await waitFor(() => {
       expect(RevenueCatService.purchasePackageByIdentifier).toHaveBeenCalledWith('$rc_annual');
