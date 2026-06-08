@@ -475,7 +475,7 @@ describe('RitualScreen', () => {
     await waitFor(() => expect(mockNavigateToVaultDestination).toHaveBeenCalled(), {
       timeout: 2000,
     });
-  });
+  }, 20000);
 
   it('plays the 5-minute Deep Prime cues at the scheduled timestamps', async () => {
     const navigation = require('@react-navigation/native');

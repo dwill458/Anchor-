@@ -1,0 +1,49 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+platform="${1:-${EAS_BUILD_PLATFORM:-all}}"
+
+required_vars=(
+  EXPO_PUBLIC_API_URL
+  EXPO_PUBLIC_APP_ENV
+  EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID
+  EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID
+  EXPO_PUBLIC_REVENUECAT_ENTITLEMENT_ID
+  EXPO_PUBLIC_SUPABASE_URL
+  EXPO_PUBLIC_SUPABASE_ANON_KEY
+)
+
+missing=()
+
+for var_name in "${required_vars[@]}"; do
+  if [[ -z "${!var_name:-}" ]]; then
+    missing+=("$var_name")
+  fi
+done
+
+if [[ "$platform" != "android" ]] && [[ -z "${EXPO_PUBLIC_REVENUECAT_IOS_API_KEY:-}" && -z "${EXPO_PUBLIC_REVENUECAT_API_KEY:-}" ]]; then
+  missing+=("EXPO_PUBLIC_REVENUECAT_IOS_API_KEY or EXPO_PUBLIC_REVENUECAT_API_KEY")
+fi
+
+if [[ "$platform" != "ios" ]] && [[ -z "${EXPO_PUBLIC_REVENUECAT_ANDROID_API_KEY:-}" && -z "${EXPO_PUBLIC_REVENUECAT_API_KEY:-}" ]]; then
+  missing+=("EXPO_PUBLIC_REVENUECAT_ANDROID_API_KEY or EXPO_PUBLIC_REVENUECAT_API_KEY")
+fi
+
+if [[ ${#missing[@]} -gt 0 ]]; then
+  printf 'Missing required mobile release config:\n' >&2
+  printf '  - %s\n' "${missing[@]}" >&2
+  exit 1
+fi
+
+if [[ "$platform" != "android" ]] && [[ ! -f "GoogleService-Info.plist" ]]; then
+  echo "Missing GoogleService-Info.plist in anchor/mobile" >&2
+  exit 1
+fi
+
+if [[ "$platform" != "ios" ]] && [[ ! -f "google-services.json" ]]; then
+  echo "Missing google-services.json in anchor/mobile" >&2
+  exit 1
+fi
+
+echo "Mobile release config looks complete."

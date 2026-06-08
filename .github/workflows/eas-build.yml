@@ -4,9 +4,6 @@ on:
   # Preview build: every push to main after CI passes
   push:
     branches: [main]
-
-  # Production build: push a semver tag like v1.0.0
-  push_tag:
     tags: ['v*.*.*']
 
   # Manual trigger for any profile on any branch
@@ -72,6 +69,15 @@ jobs:
             echo "platform=all" >> $GITHUB_OUTPUT
           fi
 
+          profile="${{ github.event_name == 'workflow_dispatch' && github.event.inputs.profile || (startsWith(github.ref, 'refs/tags/') && 'production') || 'preview' }}"
+          if [ "$profile" = "development" ]; then
+            echo "app_env=development" >> $GITHUB_OUTPUT
+          elif [ "$profile" = "production" ]; then
+            echo "app_env=production" >> $GITHUB_OUTPUT
+          else
+            echo "app_env=staging" >> $GITHUB_OUTPUT
+          fi
+
       - name: Materialize Android Firebase config
         if: ${{ steps.resolve.outputs.platform == 'android' || steps.resolve.outputs.platform == 'all' }}
         run: |
@@ -84,8 +90,31 @@ jobs:
         env:
           FIREBASE_ANDROID_GOOGLE_SERVICES_JSON_B64: ${{ secrets.FIREBASE_ANDROID_GOOGLE_SERVICES_JSON_B64 }}
 
-      - name: Validate Firebase config
-        run: node ./scripts/validate-firebase-config.js --profile ${{ steps.resolve.outputs.profile }}
+      - name: Materialize iOS Firebase config
+        if: ${{ steps.resolve.outputs.platform == 'ios' || steps.resolve.outputs.platform == 'all' }}
+        run: |
+          if [ -z "${FIREBASE_IOS_GOOGLE_SERVICE_INFO_PLIST_B64}" ]; then
+            echo "Missing FIREBASE_IOS_GOOGLE_SERVICE_INFO_PLIST_B64 secret" >&2
+            exit 1
+          fi
+          echo "$FIREBASE_IOS_GOOGLE_SERVICE_INFO_PLIST_B64" | base64 --decode > GoogleService-Info.plist
+        env:
+          FIREBASE_IOS_GOOGLE_SERVICE_INFO_PLIST_B64: ${{ secrets.FIREBASE_IOS_GOOGLE_SERVICE_INFO_PLIST_B64 }}
+
+      - name: Validate mobile release config
+        run: bash ./scripts/validate-release-config.sh "${{ steps.resolve.outputs.platform }}"
+        env:
+          EXPO_PUBLIC_API_URL: ${{ vars.EXPO_PUBLIC_API_URL }}
+          EXPO_PUBLIC_APP_ENV: ${{ steps.resolve.outputs.app_env }}
+          EXPO_PUBLIC_ENABLE_GOOGLE_SIGN_IN: ${{ vars.EXPO_PUBLIC_ENABLE_GOOGLE_SIGN_IN || 'true' }}
+          EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID: ${{ vars.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID }}
+          EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID: ${{ vars.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID }}
+          EXPO_PUBLIC_REVENUECAT_ANDROID_API_KEY: ${{ secrets.EXPO_PUBLIC_REVENUECAT_ANDROID_API_KEY }}
+          EXPO_PUBLIC_REVENUECAT_IOS_API_KEY: ${{ secrets.EXPO_PUBLIC_REVENUECAT_IOS_API_KEY }}
+          EXPO_PUBLIC_REVENUECAT_ENTITLEMENT_ID: ${{ vars.EXPO_PUBLIC_REVENUECAT_ENTITLEMENT_ID }}
+          EXPO_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.EXPO_PUBLIC_SUPABASE_ANON_KEY }}
+          EXPO_PUBLIC_SUPABASE_URL: ${{ vars.EXPO_PUBLIC_SUPABASE_URL }}
+          EXPO_PUBLIC_SENTRY_DSN: ${{ secrets.SENTRY_DSN }}
 
       # ── Build ──────────────────────────────────────────────────────────────
       - name: EAS Build
@@ -96,10 +125,25 @@ jobs:
             --non-interactive \
             --no-wait
         env:
-          EXPO_PUBLIC_APP_ENV: ${{ steps.resolve.outputs.profile == 'production' && 'production' || 'staging' }}
+          EXPO_PUBLIC_API_URL: ${{ vars.EXPO_PUBLIC_API_URL }}
+          EXPO_PUBLIC_APP_ENV: ${{ steps.resolve.outputs.app_env }}
+          EXPO_PUBLIC_DEBUG_LOGGING: ${{ steps.resolve.outputs.profile == 'development' && 'true' || 'false' }}
+          EXPO_PUBLIC_ENABLE_GOOGLE_SIGN_IN: ${{ vars.EXPO_PUBLIC_ENABLE_GOOGLE_SIGN_IN || 'true' }}
+          EXPO_PUBLIC_ENABLE_LEGACY_SUPABASE_SYNC: 'false'
+          EXPO_PUBLIC_ENABLE_MERCH: 'false'
+          EXPO_PUBLIC_ENABLE_MOCK_AUTH: 'false'
+          EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID: ${{ vars.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID }}
+          EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID: ${{ vars.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID }}
+          EXPO_PUBLIC_REVENUECAT_ANDROID_API_KEY: ${{ secrets.EXPO_PUBLIC_REVENUECAT_ANDROID_API_KEY }}
+          EXPO_PUBLIC_REVENUECAT_DEFAULT_PACKAGE_ID: ${{ vars.EXPO_PUBLIC_REVENUECAT_DEFAULT_PACKAGE_ID || '$rc_monthly' }}
+          EXPO_PUBLIC_REVENUECAT_ENTITLEMENT_ID: ${{ vars.EXPO_PUBLIC_REVENUECAT_ENTITLEMENT_ID }}
+          EXPO_PUBLIC_REVENUECAT_IOS_API_KEY: ${{ secrets.EXPO_PUBLIC_REVENUECAT_IOS_API_KEY }}
           EXPO_PUBLIC_SENTRY_DSN: ${{ secrets.SENTRY_DSN }}
           EXPO_PUBLIC_SENTRY_TRACES_SAMPLE_RATE: ${{ steps.resolve.outputs.profile == 'production' && '0.2' || '1.0' }}
           EXPO_PUBLIC_SENTRY_PROFILES_SAMPLE_RATE: ${{ steps.resolve.outputs.profile == 'production' && '0.1' || '1.0' }}
+          EXPO_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.EXPO_PUBLIC_SUPABASE_ANON_KEY }}
+          EXPO_PUBLIC_SUPABASE_URL: ${{ vars.EXPO_PUBLIC_SUPABASE_URL }}
+          EXPO_NO_DOTENV: '1'
 
   # ── Auto-submit to stores (production tag only) ────────────────────────────
   eas-submit:

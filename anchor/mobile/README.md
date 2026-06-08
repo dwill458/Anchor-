@@ -2,7 +2,7 @@
 
 Expo development build for Anchor's current mobile client.
 
-This app is the active React Native front end for Anchor. It is built with Expo, TypeScript, Zustand, React Navigation, Firebase Auth, and native modules for audio, haptics, sharing, notifications, and secure storage. The codebase is in active testing and release hardening ahead of the June 1, 2026 target release.
+This app is the active React Native front end for Anchor. It is built with Expo, TypeScript, Zustand, React Navigation, Firebase Auth, and native modules for audio, haptics, sharing, notifications, and secure storage. The codebase is in active testing and release hardening for the iOS App Store v1.
 
 ## What This App Covers
 
@@ -42,9 +42,19 @@ On Windows or when the local native build path is problematic, use the startup g
 
 ## Environment
 
+### Source of truth
+
+Runtime and release config now come from three places only:
+
+- Local development: `anchor/mobile/.env`
+- EAS cloud builds: EAS environment variables / secrets plus secret files
+- GitHub Actions release builds: GitHub `vars` / `secrets`, materialized into the EAS job
+
+Do not commit live `.env`, Firebase config files, or build logs back into the repo.
+
 ### API URL
 
-Set `EXPO_PUBLIC_API_URL` in `anchor/mobile/.env` to point at the backend API when you are not using a local default.
+Set `EXPO_PUBLIC_API_URL` in `anchor/mobile/.env` only when you need to override the default backend target for a local build.
 
 ### Firebase config
 
@@ -54,27 +64,37 @@ This app uses `@react-native-firebase/app` and `@react-native-firebase/auth`, so
 
 Preview and production EAS builds are expected to upload Sentry source maps. Configure `SENTRY_AUTH_TOKEN` as an EAS secret, and provide `SENTRY_ORG` / `SENTRY_PROJECT` the same way unless you hardcode them in `sentry.properties`.
 
-### Canonical config file
+### Canonical config files
 
-- Runtime config: `anchor/mobile/google-services.json`
-- Template: `anchor/mobile/google-services.json.example`
+- Android runtime config: `anchor/mobile/google-services.json`
+- Android template: `anchor/mobile/google-services.json.example`
+- iOS runtime config: `anchor/mobile/GoogleService-Info.plist`
+- iOS template: `anchor/mobile/GoogleService-Info.plist.example`
 - Generated native copy that should not be committed: `anchor/mobile/android/app/google-services.json`
 
 ### Local setup
 
-1. Copy the template:
+1. Copy the templates:
 
 ```bash
 cp anchor/mobile/google-services.json.example anchor/mobile/google-services.json
+cp anchor/mobile/GoogleService-Info.plist.example anchor/mobile/GoogleService-Info.plist
 ```
 
-2. Replace placeholders with the Firebase Android app config from Firebase Console.
-3. Do not commit the generated config file.
+2. Replace placeholders with the Firebase Android and iOS app configs from Firebase Console.
+3. Do not commit the generated config files.
 
 ### CI / build pipeline
 
-GitHub Actions can write `anchor/mobile/google-services.json` from the `FIREBASE_ANDROID_GOOGLE_SERVICES_JSON_B64` secret.
-Before EAS build submission, run `npm run validate:firebase-config -- --profile preview` (or the target profile) to confirm the Android package, Firebase project, and Google OAuth client IDs still point at the same auth identity.
+GitHub Actions writes the Firebase files from secrets:
+
+- `FIREBASE_ANDROID_GOOGLE_SERVICES_JSON_B64`
+- `FIREBASE_IOS_GOOGLE_SERVICE_INFO_PLIST_B64`
+
+### Release config
+
+- RevenueCat now prefers platform-specific env vars: `EXPO_PUBLIC_REVENUECAT_IOS_API_KEY` and `EXPO_PUBLIC_REVENUECAT_ANDROID_API_KEY`
+- iOS release process, App Store metadata, and preflight validation live in [docs/runbooks/IOS_RELEASE.md](../../docs/runbooks/IOS_RELEASE.md)
 
 ## Project Structure
 
@@ -119,12 +139,14 @@ npm run test:coverage
 - React Native 0.81.5
 - TypeScript strict mode
 - `expo-dev-client` is enabled
-- Native Android and iOS projects are checked in
+- Android native project is checked in
+- iOS native output is prebuild-generated locally and should not be committed as release source of truth
 - The app uses Firebase Auth, Sentry, RevenueCat, notifications, sharing, and secure storage
 
 ## Related Docs
 
 - [Root README](../../README.md)
 - [Startup Guide](../../docs/runbooks/STARTUP_GUIDE.md)
+- [iOS Release Runbook](../../docs/runbooks/IOS_RELEASE.md)
 - [Testing Guide](./TESTING.md)
 - [Monitoring Guide](./MONITORING.md)
