@@ -94,12 +94,17 @@ jobs:
         if: ${{ steps.resolve.outputs.platform == 'ios' || steps.resolve.outputs.platform == 'all' }}
         run: |
           if [ -z "${FIREBASE_IOS_GOOGLE_SERVICE_INFO_PLIST_B64}" ]; then
-            echo "Missing FIREBASE_IOS_GOOGLE_SERVICE_INFO_PLIST_B64 secret" >&2
-            exit 1
+            if [ "$PROFILE" = "production" ]; then
+              echo "Missing FIREBASE_IOS_GOOGLE_SERVICE_INFO_PLIST_B64 secret (required for production)" >&2
+              exit 1
+            fi
+            echo "::warning::FIREBASE_IOS_GOOGLE_SERVICE_INFO_PLIST_B64 not set — skipping iOS Firebase config (non-production build)"
+          else
+            echo "$FIREBASE_IOS_GOOGLE_SERVICE_INFO_PLIST_B64" | base64 --decode > GoogleService-Info.plist
           fi
-          echo "$FIREBASE_IOS_GOOGLE_SERVICE_INFO_PLIST_B64" | base64 --decode > GoogleService-Info.plist
         env:
           FIREBASE_IOS_GOOGLE_SERVICE_INFO_PLIST_B64: ${{ secrets.FIREBASE_IOS_GOOGLE_SERVICE_INFO_PLIST_B64 }}
+          PROFILE: ${{ steps.resolve.outputs.profile }}
 
       - name: Validate mobile release config
         run: bash ./scripts/validate-release-config.sh "${{ steps.resolve.outputs.platform }}"
