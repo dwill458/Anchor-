@@ -123,7 +123,9 @@
       [
         "expo-build-properties",
         {
-          "ios": {}
+          "ios": {
+            "useFrameworks": "static"
+          }
         }
       ],
       "./plugins/withFirebaseFrameworkFix",
