@@ -39,7 +39,6 @@
         "buildType": "apk"
       },
       "ios": {
-        "image": "latest",
         "prebuildCommand": "npx expo prebuild --platform ios --no-install"
       }
     },
