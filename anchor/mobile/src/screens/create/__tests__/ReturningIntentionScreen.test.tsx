@@ -1,6 +1,6 @@
 import React from 'react';
 import { TextInput } from 'react-native';
-import { act, fireEvent, render, screen } from '@testing-library/react-native';
+import { act, cleanup, fireEvent, render, screen } from '@testing-library/react-native';
 import ReturningIntentionScreen from '../ReturningIntentionScreen';
 
 const mockNavigate = jest.fn();
@@ -81,6 +81,18 @@ describe('ReturningIntentionScreen', () => {
     mockIsAuthenticated = true;
     mockHasActiveEntitlement = true;
     mockAnchorCount = 1;
+    jest.useFakeTimers();
+  });
+
+  afterEach(() => {
+    // Flush all pending timers (animations, debounce) then explicitly unmount while
+    // fake timers are still active. TRLN's automatic afterEach cleanup then finds
+    // nothing to do, avoiding a hang when it calls act() with real timers running
+    // alongside JS-driven (useNativeDriver:false) Animated.timing callbacks.
+    act(() => { jest.advanceTimersByTime(1000); });
+    jest.clearAllTimers();
+    act(() => { cleanup(); });
+    jest.useRealTimers();
   });
 
   it('prefills the pending forge intent and clears it after consuming', () => {
@@ -92,13 +104,13 @@ describe('ReturningIntentionScreen', () => {
     expect(mockClearPendingForgeIntent).toHaveBeenCalled();
   });
 
-  it('routes unauthenticated users to auth gate and preserves the typed intention', async () => {
+  it('routes unauthenticated users to auth gate and preserves the typed intention', () => {
     mockIsAuthenticated = false;
     render(<ReturningIntentionScreen />);
 
     const input = screen.UNSAFE_getByType(TextInput);
     fireEvent.changeText(input, 'Hold steady');
-    await new Promise((resolve) => setTimeout(resolve, 350));
+    act(() => { jest.advanceTimersByTime(350); });
     fireEvent.press(screen.getByText('Begin'));
 
     expect(mockSetPendingForgeIntent).toHaveBeenCalledWith('Hold steady');
@@ -106,13 +118,13 @@ describe('ReturningIntentionScreen', () => {
     expect(mockNavigate).toHaveBeenCalledWith('AuthGate');
   });
 
-  it('routes authenticated users without entitlement to paywall', async () => {
+  it('routes authenticated users without entitlement to paywall', () => {
     mockHasActiveEntitlement = false;
     render(<ReturningIntentionScreen />);
 
     const input = screen.UNSAFE_getByType(TextInput);
     fireEvent.changeText(input, 'Hold steady');
-    await new Promise((resolve) => setTimeout(resolve, 350));
+    act(() => { jest.advanceTimersByTime(350); });
     fireEvent.press(screen.getByText('Begin'));
 
     expect(mockSetPendingForgeIntent).toHaveBeenCalledWith('Hold steady');
@@ -125,7 +137,6 @@ describe('ReturningIntentionScreen', () => {
     ['I will focus today', 'Try present tense: "I choose…" "I am…" or "I return…"'],
     ["I don't check social media", 'Try affirmative: "I choose…" instead of "I don\'t…"'],
   ])('shows shared intention guidance for %s', (text, guidance) => {
-    jest.useFakeTimers();
     render(<ReturningIntentionScreen />);
     const input = screen.UNSAFE_getByType(TextInput);
 
@@ -135,6 +146,5 @@ describe('ReturningIntentionScreen', () => {
     });
 
     expect(screen.getByText(guidance)).toBeTruthy();
-    jest.useRealTimers();
   });
 });
