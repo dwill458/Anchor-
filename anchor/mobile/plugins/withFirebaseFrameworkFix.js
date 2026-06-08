@@ -2,9 +2,11 @@ const { withDangerousMod } = require('@expo/config-plugins');
 const path = require('path');
 const fs = require('fs');
 
-// Injects CLANG_ALLOW_NON_MODULAR_INCLUDES_IN_FRAMEWORK_MODULES=YES into the
-// existing expo-generated post_install block so that RNFBApp can include
-// React-Core headers while use_frameworks! :linkage => :static is active.
+// Adds `use_modular_headers!` to the Podfile so that Swift pods
+// (FirebaseCoreInternal, GoogleUtilities) generate module maps.
+// This fixes the pod install error with @react-native-firebase v24 /
+// Firebase iOS SDK 11 without enabling use_frameworks!, which would
+// cause RNFBApp to fail to compile due to non-modular React-Core headers.
 module.exports = function withFirebaseFrameworkFix(config) {
   return withDangerousMod(config, [
     'ios',
@@ -12,24 +14,14 @@ module.exports = function withFirebaseFrameworkFix(config) {
       const podfilePath = path.join(cfg.modRequest.platformProjectRoot, 'Podfile');
       let podfile = fs.readFileSync(podfilePath, 'utf8');
 
-      const marker = 'CLANG_ALLOW_NON_MODULAR_INCLUDES_IN_FRAMEWORK_MODULES';
-      if (podfile.includes(marker)) {
+      if (podfile.includes('use_modular_headers!')) {
         return cfg;
       }
 
-      const injection = `
-  # Allow RNFBApp to include non-modular React-Core headers under use_frameworks!
-  installer.pods_project.targets.each do |target|
-    target.build_configurations.each do |config|
-      config.build_settings['CLANG_ALLOW_NON_MODULAR_INCLUDES_IN_FRAMEWORK_MODULES'] = 'YES'
-    end
-  end
-`;
-
-      // Insert right after the opening line of the existing post_install block
+      // Insert after the platform declaration line e.g. "platform :ios, '15.1'"
       podfile = podfile.replace(
-        /^(post_install do \|installer\|)/m,
-        `$1${injection}`
+        /(platform :ios,[^\n]+\n)/,
+        `$1use_modular_headers!\n`
       );
 
       fs.writeFileSync(podfilePath, podfile);
