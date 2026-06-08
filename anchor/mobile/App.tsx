@@ -10,6 +10,7 @@ import {
   Dimensions,
 } from 'react-native';
 import { useFonts } from 'expo-font';
+import * as SplashScreen from 'expo-splash-screen';
 import * as Notifications from 'expo-notifications';
 import type { DevicePushToken } from 'expo-notifications';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
@@ -79,6 +80,15 @@ function isNetworkError(error: unknown): boolean {
 
 const { width } = Dimensions.get('window');
 const isWeb = Platform.OS === 'web';
+const SPLASH_BACKGROUND_COLOR = '#1A1A1D';
+
+if (!isWeb) {
+  void SplashScreen.preventAutoHideAsync();
+  SplashScreen.setOptions({
+    duration: 400,
+    fade: true,
+  });
+}
 
 if (!isWeb) {
   enableScreens(true);
@@ -252,6 +262,7 @@ export default function App() {
     'CormorantGaramond-Regular': CrimsonPro_400Regular,
     'CormorantGaramond-Italic': CrimsonPro_400Regular_Italic,
   });
+  const appIsReady = fontsLoaded && launchStateResolved;
 
   useEffect(() => {
     if (!__DEV__) {
@@ -340,6 +351,16 @@ export default function App() {
       useNativeDriver: true,
     }).start();
   }, [launchOpacity, launchStateResolved, shouldFadePrimeOnLaunch]);
+
+  useEffect(() => {
+    if (!appIsReady || isWeb) {
+      return;
+    }
+
+    void SplashScreen.hideAsync().catch((error) => {
+      logger.warn('[SplashScreen] Failed to hide native splash screen', error);
+    });
+  }, [appIsReady]);
 
   useEffect(() => {
     developerMasterAccountEnabledRef.current = developerMasterAccountEnabled;
@@ -592,7 +613,7 @@ export default function App() {
     }
   }, [navRef, showExpiredTrialPaywall]);
 
-  if (!fontsLoaded || !launchStateResolved) {
+  if (!appIsReady) {
     return <View style={styles.fontLoadingFallback} />;
   }
 
@@ -674,7 +695,7 @@ const styles = StyleSheet.create({
     width: '100%',
     maxWidth: isWeb ? 450 : undefined, // Mobile width on web
     maxHeight: isWeb ? 900 : undefined, // Mobile height on web
-    backgroundColor: '#0F1419',
+    backgroundColor: SPLASH_BACKGROUND_COLOR,
     overflow: 'hidden',
     // shadow for web
     ...Platform.select({
@@ -691,6 +712,6 @@ const styles = StyleSheet.create({
   },
   fontLoadingFallback: {
     flex: 1,
-    backgroundColor: '#09060f',
+    backgroundColor: SPLASH_BACKGROUND_COLOR,
   },
 });

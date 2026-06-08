@@ -7,6 +7,7 @@
 import { get, fetchCompleteProfile } from '@/services/ApiClient';
 import { useAnchorStore } from '@/stores/anchorStore';
 import { useAuthStore } from '@/stores/authStore';
+import { useSettingsStore } from '@/stores/settingsStore';
 import type { Anchor, ApiResponse, ProfileData, RedactedAnchor, User } from '@/types';
 import { ServiceError } from './ServiceErrors';
 
@@ -42,6 +43,12 @@ const normalizeUser = (user: User): User => ({
   stabilizesTotal: user.stabilizesTotal ?? 0,
   stabilizeStreakDays: user.stabilizeStreakDays ?? 0,
   lastStabilizeAt: normalizeDate(user.lastStabilizeAt),
+  settings: user.settings
+    ? {
+      ...user.settings,
+      updatedAt: normalizeDate(user.settings.updatedAt) ?? new Date(),
+    }
+    : user.settings,
 });
 
 const normalizeRedactedAnchor = (anchor: RedactedAnchor): RedactedAnchor => ({
@@ -54,6 +61,21 @@ const normalizeProfileData = (profile: ProfileData): ProfileData => ({
   user: normalizeUser(profile.user),
   activeAnchors: profile.activeAnchors.map(normalizeRedactedAnchor),
 });
+
+const applyProfileSettings = (user: User): void => {
+  if (!user.settings) {
+    return;
+  }
+
+  useSettingsStore.setState((current) => ({
+    ...current,
+    focusSessionMode: user.settings?.focusSessionMode ?? current.focusSessionMode,
+    focusSessionDuration: user.settings?.focusSessionDuration ?? current.focusSessionDuration,
+    focusSessionAudio: user.settings?.focusSessionAudio ?? current.focusSessionAudio,
+    primeSessionDuration: user.settings?.primeSessionDuration ?? current.primeSessionDuration,
+    primeSessionAudio: user.settings?.primeSessionAudio ?? current.primeSessionAudio,
+  }));
+};
 
 /**
  * Sync Service
@@ -118,6 +140,7 @@ class SyncService {
         profileData,
         profileLastFetched: Date.now(),
       });
+      applyProfileSettings(profileData.user);
     } catch (error) {
       const message =
         error instanceof Error ? error.message : 'Failed to sync user profile.';

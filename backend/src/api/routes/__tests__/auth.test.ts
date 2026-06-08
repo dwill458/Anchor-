@@ -25,6 +25,7 @@ const mockPrisma = {
   $transaction: jest.fn(),
   user: {
     findUnique: jest.fn(),
+    findFirst: jest.fn(),
     upsert: jest.fn(),
     create: jest.fn(),
     update: jest.fn(),
@@ -99,6 +100,11 @@ const MOCK_SETTINGS = {
   dailyReminderTime: '09:00',
   streakProtection: false,
   defaultChargeDuration: 300,
+  focusSessionMode: 'quick',
+  focusSessionDuration: 30,
+  focusSessionAudio: 'ambient',
+  primeSessionDuration: 120,
+  primeSessionAudio: 'ambient',
   hapticIntensity: 3,
   vaultViewType: 'grid',
   updatedAt: new Date('2024-01-01'),
@@ -132,9 +138,7 @@ beforeEach(() => {
 
 describe('POST /api/auth/sync', () => {
   it('creates or updates user and returns profile', async () => {
-    (mockPrisma.user.findUnique as jest.Mock)
-      .mockResolvedValueOnce(MOCK_DB_USER)
-      .mockResolvedValueOnce(null);
+    (mockPrisma.user.findUnique as jest.Mock).mockResolvedValueOnce(MOCK_DB_USER);
     (mockPrisma.user.update as jest.Mock).mockResolvedValue(MOCK_DB_USER);
     (mockPrisma.userSettings.upsert as jest.Mock).mockResolvedValue(MOCK_SETTINGS);
 
@@ -203,8 +207,8 @@ describe('POST /api/auth/sync', () => {
 
   it('links an existing user by email when auth uid changes', async () => {
     (mockPrisma.user.findUnique as jest.Mock)
-      .mockResolvedValueOnce(null)
-      .mockResolvedValueOnce(MOCK_DB_USER);
+      .mockResolvedValueOnce(null);
+    (mockPrisma.user.findFirst as jest.Mock).mockResolvedValueOnce(MOCK_DB_USER);
     (mockPrisma.user.update as jest.Mock).mockResolvedValue({
       ...MOCK_DB_USER,
       authUid: 'firebase-uid-1',
@@ -230,8 +234,8 @@ describe('POST /api/auth/sync', () => {
 
   it('creates a user when no auth uid or email match exists', async () => {
     (mockPrisma.user.findUnique as jest.Mock)
-      .mockResolvedValueOnce(null)
       .mockResolvedValueOnce(null);
+    (mockPrisma.user.findFirst as jest.Mock).mockResolvedValueOnce(null);
     (mockPrisma.user.create as jest.Mock).mockResolvedValue(MOCK_DB_USER);
     (mockPrisma.userSettings.upsert as jest.Mock).mockResolvedValue(MOCK_SETTINGS);
 
@@ -241,6 +245,51 @@ describe('POST /api/auth/sync', () => {
 
     expect(res.status).toBe(200);
     expect(mockPrisma.user.create).toHaveBeenCalledTimes(1);
+  });
+
+  it('links an existing user by email case-insensitively and normalizes the stored email', async () => {
+    mockedAuthMiddleware.mockImplementation((req: any, _res: any, next: any) => {
+      req.user = { uid: 'firebase-uid-2', email: 'Test@Example.com ' };
+      next();
+    });
+
+    (mockPrisma.user.findUnique as jest.Mock).mockResolvedValueOnce(null);
+    (mockPrisma.user.findFirst as jest.Mock).mockResolvedValueOnce({
+      ...MOCK_DB_USER,
+      email: 'TEST@example.com',
+    });
+    (mockPrisma.user.update as jest.Mock).mockResolvedValue({
+      ...MOCK_DB_USER,
+      authUid: 'firebase-uid-2',
+      authProvider: 'google',
+      email: 'test@example.com',
+    });
+    (mockPrisma.userSettings.upsert as jest.Mock).mockResolvedValue(MOCK_SETTINGS);
+
+    const res = await request(buildApp())
+      .post('/api/auth/sync')
+      .send({ displayName: 'Test User', authProvider: 'google' });
+
+    expect(res.status).toBe(200);
+    expect(mockPrisma.user.findFirst).toHaveBeenCalledWith({
+      where: {
+        email: {
+          equals: 'test@example.com',
+          mode: 'insensitive',
+        },
+      },
+    });
+    expect(mockPrisma.user.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { id: MOCK_DB_USER.id },
+        data: expect.objectContaining({
+          email: 'test@example.com',
+          authUid: 'firebase-uid-2',
+          authProvider: 'google',
+        }),
+      })
+    );
+    expect(res.body.data.email).toBe('test@example.com');
   });
 
   it('returns 400 when user has no email in token', async () => {
@@ -378,6 +427,49 @@ describe('PUT /api/auth/settings', () => {
     expect(res.status).toBe(200);
     expect(res.body.data.notificationsEnabled).toBe(false);
     expect(mockPrisma.$transaction).toHaveBeenCalledTimes(1);
+  });
+
+  it('updates session audio defaults and returns 200', async () => {
+    (mockPrisma.user.findUnique as jest.Mock).mockResolvedValue(MOCK_DB_USER);
+    (mockPrisma.userSettings.upsert as jest.Mock).mockResolvedValue({
+      ...MOCK_SETTINGS,
+      focusSessionAudio: 'silent',
+      primeSessionAudio: 'silent',
+    });
+
+    const res = await request(buildApp())
+      .put('/api/auth/settings')
+      .send({
+        focusSessionAudio: 'silent',
+        primeSessionAudio: 'silent',
+      });
+
+    expect(res.status).toBe(200);
+    expect(res.body.data.focusSessionAudio).toBe('silent');
+    expect(res.body.data.primeSessionAudio).toBe('silent');
+  });
+
+  it('updates session mode and duration defaults and returns 200', async () => {
+    (mockPrisma.user.findUnique as jest.Mock).mockResolvedValue(MOCK_DB_USER);
+    (mockPrisma.userSettings.upsert as jest.Mock).mockResolvedValue({
+      ...MOCK_SETTINGS,
+      focusSessionMode: 'deep',
+      focusSessionDuration: 60,
+      primeSessionDuration: 300,
+    });
+
+    const res = await request(buildApp())
+      .put('/api/auth/settings')
+      .send({
+        focusSessionMode: 'deep',
+        focusSessionDuration: 60,
+        primeSessionDuration: 300,
+      });
+
+    expect(res.status).toBe(200);
+    expect(res.body.data.focusSessionMode).toBe('deep');
+    expect(res.body.data.focusSessionDuration).toBe(60);
+    expect(res.body.data.primeSessionDuration).toBe(300);
   });
 
   it('returns 400 for invalid dailyReminderTime format', async () => {

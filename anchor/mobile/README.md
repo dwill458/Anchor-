@@ -74,6 +74,7 @@ cp anchor/mobile/google-services.json.example anchor/mobile/google-services.json
 ### CI / build pipeline
 
 GitHub Actions can write `anchor/mobile/google-services.json` from the `FIREBASE_ANDROID_GOOGLE_SERVICES_JSON_B64` secret.
+Before EAS build submission, run `npm run validate:firebase-config -- --profile preview` (or the target profile) to confirm the Android package, Firebase project, and Google OAuth client IDs still point at the same auth identity.
 
 ## Project Structure
 
@@ -127,4 +128,3 @@ npm run test:coverage
 - [Startup Guide](../../docs/runbooks/STARTUP_GUIDE.md)
 - [Testing Guide](./TESTING.md)
 - [Monitoring Guide](./MONITORING.md)
-

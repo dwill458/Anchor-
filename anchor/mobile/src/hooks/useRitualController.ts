@@ -76,8 +76,8 @@ export function useRitualController({
   manageSessionAudioExternally = false,
 }: UseRitualControllerOptions): RitualController {
   const { playSound } = useAudio();
-  const focusSessionAudio = useSettingsStore((state) => state.focusSessionAudio ?? 'silent');
-  const primeSessionAudio = useSettingsStore((state) => state.primeSessionAudio ?? 'silent');
+  const focusSessionAudio = useSettingsStore((state) => state.focusSessionAudio ?? 'ambient');
+  const primeSessionAudio = useSettingsStore((state) => state.primeSessionAudio ?? 'ambient');
   const sessionAudioMode = config.id.startsWith('focus') ? focusSessionAudio : primeSessionAudio;
   // ══════════════════════════════════════════════════════════════
   // STATE

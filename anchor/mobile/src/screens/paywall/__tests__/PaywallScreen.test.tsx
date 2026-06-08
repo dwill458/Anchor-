@@ -1,4 +1,5 @@
 import React from 'react';
+import { StyleSheet } from 'react-native';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react-native';
 
 const mockNavigate = jest.fn();
@@ -54,6 +55,19 @@ describe('PaywallScreen', () => {
     });
   });
 
+  it('applies a full-card selected fill to the chosen plan', () => {
+    render(<PaywallScreen />);
+
+    fireEvent.press(screen.getByTestId('paywall-plan-annual'));
+
+    expect(
+      StyleSheet.flatten(screen.getByTestId('paywall-plan-overlay-annual').props.style).backgroundColor
+    ).toContain('0.12');
+    expect(
+      StyleSheet.flatten(screen.getByTestId('paywall-plan-overlay-monthly').props.style).backgroundColor
+    ).toContain('0.03');
+  });
+
   it('calls purchasePackageByIdentifier when the CTA is pressed', async () => {
     const RevenueCatService = require('@/services/RevenueCatService').default;
     RevenueCatService.purchasePackageByIdentifier.mockResolvedValueOnce({
@@ -68,6 +82,23 @@ describe('PaywallScreen', () => {
 
     await waitFor(() => {
       expect(RevenueCatService.purchasePackageByIdentifier).toHaveBeenCalled();
+    });
+  });
+
+  it('purchases the currently selected plan', async () => {
+    const RevenueCatService = require('@/services/RevenueCatService').default;
+    RevenueCatService.purchasePackageByIdentifier.mockResolvedValueOnce({
+      status: { hasActiveEntitlement: false },
+      dismissed: true,
+    });
+
+    render(<PaywallScreen />);
+
+    fireEvent.press(screen.getByTestId('paywall-plan-annual'));
+    fireEvent.press(screen.getByText('FORGE MY PRACTICE'));
+
+    await waitFor(() => {
+      expect(RevenueCatService.purchasePackageByIdentifier).toHaveBeenCalledWith('$rc_annual');
     });
   });
 });

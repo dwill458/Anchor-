@@ -2,6 +2,7 @@ import { createMockAnchor, createMockUser } from '@/__tests__/utils/testUtils';
 import { useAnchorStore } from '@/stores/anchorStore';
 import { useAuthStore } from '@/stores/authStore';
 import { useSessionStore } from '@/stores/sessionStore';
+import { useSettingsStore } from '@/stores/settingsStore';
 
 const mockApiGet = jest.fn();
 const mockFetchCompleteProfile = jest.fn();
@@ -47,6 +48,13 @@ describe('AuthHydrationService', () => {
       isFinalizingPendingFirstAnchor: false,
       pendingFirstAnchorError: null,
       isOfflineMode: false,
+    } as any);
+    useSettingsStore.setState({
+      focusSessionMode: 'quick',
+      focusSessionDuration: 30,
+      focusSessionAudio: 'silent',
+      primeSessionDuration: 120,
+      primeSessionAudio: 'silent',
     } as any);
   });
 
@@ -95,7 +103,23 @@ describe('AuthHydrationService', () => {
       throw new Error(`Unexpected url: ${url}`);
     });
     mockFetchCompleteProfile.mockResolvedValue({
-      user: createMockUser(),
+      user: createMockUser({
+        settings: {
+          userId: 'user-1',
+          notificationsEnabled: true,
+          dailyReminderTime: '09:00',
+          streakProtection: true,
+          defaultChargeDuration: 300,
+          focusSessionMode: 'deep',
+          focusSessionDuration: 60,
+          focusSessionAudio: 'ambient',
+          primeSessionDuration: 300,
+          primeSessionAudio: 'ambient',
+          hapticIntensity: 3,
+          vaultViewType: 'grid',
+          updatedAt: new Date(),
+        },
+      }),
       stats: {},
       activeAnchors: [],
     });
@@ -113,5 +137,10 @@ describe('AuthHydrationService', () => {
       `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}-${String(new Date().getDate()).padStart(2, '0')}`
     );
     expect(useSessionStore.getState().weekHistory.some(Boolean)).toBe(true);
+    expect(useSettingsStore.getState().focusSessionMode).toBe('deep');
+    expect(useSettingsStore.getState().focusSessionDuration).toBe(60);
+    expect(useSettingsStore.getState().focusSessionAudio).toBe('ambient');
+    expect(useSettingsStore.getState().primeSessionDuration).toBe(300);
+    expect(useSettingsStore.getState().primeSessionAudio).toBe('ambient');
   });
 });

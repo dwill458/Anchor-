@@ -66,9 +66,9 @@ export const SettingsScreen: React.FC = () => {
   const { settings, updateSetting, resetSettings, isLoading } = useSettingsState();
   const focusSessionMode = useSettingsStore((state) => state.focusSessionMode ?? 'quick');
   const focusSessionDuration = useSettingsStore((state) => state.focusSessionDuration ?? 30);
-  const focusSessionAudio = useSettingsStore((state) => state.focusSessionAudio ?? 'silent');
+  const focusSessionAudio = useSettingsStore((state) => state.focusSessionAudio ?? 'ambient');
   const primeSessionDuration = useSettingsStore((state) => state.primeSessionDuration ?? 120);
-  const primeSessionAudio = useSettingsStore((state) => state.primeSessionAudio ?? 'silent');
+  const primeSessionAudio = useSettingsStore((state) => state.primeSessionAudio ?? 'ambient');
   const dailyPracticeGoal = useSettingsStore((state) => state.dailyPracticeGoal ?? 3);
   const dailyPracticeGoalPreset = useSettingsStore(
     (state) => state.dailyPracticeGoalPreset ?? 'three'

@@ -14,7 +14,7 @@ const MODES: { key: ActivationMode; label: string }[] = [
 ];
 
 export const SoundModeToggle: React.FC = () => {
-  const defaultActivationMode = useSettingsStore((state) => state.defaultActivation.mode ?? 'silent');
+  const defaultActivationMode = useSettingsStore((state) => state.defaultActivation.mode ?? 'ambient');
   const setDefaultActivationMode = useSettingsStore((state) => state.setDefaultActivationMode);
   const normalizedMode = useMemo(
     () => (defaultActivationMode === 'mantra' ? 'silent' : defaultActivationMode),

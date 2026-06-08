@@ -2,7 +2,7 @@
  * Anchor App - Sign Up Screen (Optimized for Android)
  */
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -16,11 +16,20 @@ import {
   ActivityIndicator,
   Animated,
   Dimensions,
+  Alert,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { BlurView } from 'expo-blur';
 import { StackNavigationProp } from '@react-navigation/stack';
+import * as AppleAuthentication from 'expo-apple-authentication';
+let GoogleSigninButton: any = null;
+try {
+  GoogleSigninButton = require('@react-native-google-signin/google-signin').GoogleSigninButton;
+} catch {
+  // Native module not available in this build
+}
 import { colors, spacing, typography } from '@/theme';
+import { ENABLE_GOOGLE_SIGN_IN } from '@/config';
 import { useAuthStore } from '../../stores/authStore';
 import { AuthService } from '../../services/AuthService';
 import PostAuthFlowService from '../../services/PostAuthFlowService';
@@ -41,6 +50,7 @@ export const SignUpScreen: React.FC<SignUpScreenProps> = ({ navigation, route })
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [focusedField, setFocusedField] = useState<string | null>(null);
+  const [isAppleAvailable, setIsAppleAvailable] = useState(false);
 
   const hasCompletedOnboarding = useAuthStore((state) => state.hasCompletedOnboarding);
   const context = route?.params?.context;
@@ -55,8 +65,53 @@ export const SignUpScreen: React.FC<SignUpScreenProps> = ({ navigation, route })
     }).start();
   }, []);
 
+  useEffect(() => {
+    let mounted = true;
+    void AppleAuthentication.isAvailableAsync()
+      .then((available) => {
+        if (mounted) setIsAppleAvailable(available);
+      })
+      .catch(() => {
+        if (mounted) setIsAppleAvailable(false);
+      });
+
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
+  const resetError = () => {
+    if (error) {
+      setError('');
+    }
+  };
+
+  const completeAuth = async (result: Awaited<ReturnType<typeof AuthService.signUpWithEmail>>) => {
+    await PostAuthFlowService.run({
+      user: result.user,
+      token: result.token,
+      preserveCompletedOnboarding:
+        hasCompletedOnboarding ||
+        context === 'first_anchor_gate' ||
+        context === 'save_progress',
+      launchTrialPurchase: false,
+    });
+
+    const shouldRouteThroughFirstAnchorGate = Boolean(
+      useAuthStore.getState().pendingFirstAnchorDraft
+    );
+
+    if (context === 'first_anchor_gate') {
+      navigation.replace('FirstAnchorAccountGate');
+    } else if (context === 'save_progress' && shouldRouteThroughFirstAnchorGate) {
+      navigation.replace('FirstAnchorAccountGate');
+    } else if (context === 'save_progress') {
+      navigation.replace('Vault');
+    }
+  };
+
   const handleSignUp = async () => {
-    setError('');
+    resetError();
     if (!name.trim() || !email.trim() || !password || !confirmPassword) {
       setError('Please fill in all fields');
       return;
@@ -71,33 +126,55 @@ export const SignUpScreen: React.FC<SignUpScreenProps> = ({ navigation, route })
         hasCompletedOnboarding:
           context === 'first_anchor_gate' || context === 'save_progress' ? true : undefined,
       });
-      await PostAuthFlowService.run({
-        user: result.user,
-        token: result.token,
-        preserveCompletedOnboarding:
-          hasCompletedOnboarding ||
-          context === 'first_anchor_gate' ||
-          context === 'save_progress',
-        launchTrialPurchase: false,
-      });
-
-      const shouldRouteThroughFirstAnchorGate = Boolean(
-        useAuthStore.getState().pendingFirstAnchorDraft
-      );
-
-      if (context === 'first_anchor_gate') {
-        navigation.replace('FirstAnchorAccountGate');
-      } else if (context === 'save_progress' && shouldRouteThroughFirstAnchorGate) {
-        navigation.replace('FirstAnchorAccountGate');
-      } else if (context === 'save_progress') {
-        navigation.replace('Vault');
-      }
+      await completeAuth(result);
     } catch (err: any) {
       setError(err.message || 'Sign up failed');
     } finally {
       setLoading(false);
     }
   };
+
+  const handleAppleSignUp = () => {
+    resetError();
+    setLoading(true);
+    void (async () => {
+      try {
+        const result = await AuthService.signInWithApple();
+        await completeAuth(result);
+      } catch (err: any) {
+        if (err?.code === 'ERR_REQUEST_CANCELED') {
+          return;
+        }
+        const message = err?.message || 'Apple sign-up failed';
+        setError(message);
+        Alert.alert('Apple sign-up', message);
+      } finally {
+        setLoading(false);
+      }
+    })();
+  };
+
+  const handleGoogleSignUp = () => {
+    resetError();
+    setLoading(true);
+    void (async () => {
+      try {
+        const result = await AuthService.signInWithGoogle();
+        await completeAuth(result);
+      } catch (err: any) {
+        if (err?.message === 'Google sign-in was cancelled.') {
+          return;
+        }
+        const message = err?.message || 'Google sign-up failed';
+        setError(message);
+        Alert.alert('Google sign-up', message);
+      } finally {
+        setLoading(false);
+      }
+    })();
+  };
+
+  const showGoogleSignUp = ENABLE_GOOGLE_SIGN_IN;
 
 
 
@@ -129,6 +206,54 @@ export const SignUpScreen: React.FC<SignUpScreenProps> = ({ navigation, route })
                   <BlurView intensity={20} tint="dark" style={StyleSheet.absoluteFill} />
                 )}
                 <View style={styles.cardInner}>
+                  <View style={styles.ssoRow}>
+                    {isAppleAvailable ? (
+                      <View style={styles.ssoButtonWrap}>
+                        <AppleAuthentication.AppleAuthenticationButton
+                          buttonType={AppleAuthentication.AppleAuthenticationButtonType.CONTINUE}
+                          buttonStyle={AppleAuthentication.AppleAuthenticationButtonStyle.BLACK}
+                          cornerRadius={11}
+                          style={styles.appleButton}
+                          onPress={() => {
+                            void handleAppleSignUp();
+                          }}
+                        />
+                      </View>
+                    ) : null}
+
+                    {showGoogleSignUp ? (
+                      <View style={styles.ssoButtonWrap}>
+                        {GoogleSigninButton ? (
+                          <GoogleSigninButton
+                            size={GoogleSigninButton.Size.Wide}
+                            color={GoogleSigninButton.Color.Dark}
+                            style={styles.googleButton}
+                            onPress={() => {
+                              void handleGoogleSignUp();
+                            }}
+                            disabled={loading}
+                          />
+                        ) : (
+                          <TouchableOpacity
+                            style={styles.googleButton}
+                            onPress={() => void handleGoogleSignUp()}
+                            disabled={loading}
+                          >
+                            <Text style={styles.googleFallbackText}>Continue with Google</Text>
+                          </TouchableOpacity>
+                        )}
+                      </View>
+                    ) : null}
+                  </View>
+
+                  <View style={styles.dividerRow}>
+                    <View style={styles.dividerLine} />
+                    <Text style={styles.dividerText}>
+                      {isAppleAvailable || showGoogleSignUp ? 'or continue with email' : 'continue with email'}
+                    </Text>
+                    <View style={styles.dividerLine} />
+                  </View>
+
                   <View style={styles.inputGroup}>
                     <Text style={styles.label}>Full Name</Text>
                     <TextInput
@@ -225,6 +350,46 @@ const styles = StyleSheet.create({
   card: { borderRadius: 24, overflow: 'hidden', borderWidth: 1, borderColor: 'rgba(212, 175, 55, 0.2)' },
   androidCard: { backgroundColor: 'rgba(26, 26, 29, 0.95)' },
   cardInner: { padding: 24 },
+  ssoRow: {
+    flexDirection: 'row',
+    gap: 10,
+    marginBottom: 22,
+  },
+  ssoButtonWrap: {
+    flex: 1,
+    minHeight: 48,
+  },
+  appleButton: {
+    width: '100%',
+    height: 48,
+  },
+  googleButton: {
+    width: '100%',
+    height: 48,
+  },
+  googleFallbackText: {
+    color: colors.bone,
+    fontFamily: typography.fonts.bodySerif,
+    fontSize: 15,
+    textAlign: 'center',
+  },
+  dividerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    marginVertical: 22,
+  },
+  dividerLine: {
+    flex: 1,
+    height: 1,
+    backgroundColor: 'rgba(212, 175, 55, 0.2)',
+  },
+  dividerText: {
+    fontFamily: typography.fonts.heading,
+    fontSize: 12,
+    letterSpacing: 2,
+    color: 'rgba(245, 245, 220, 0.2)',
+  },
   inputGroup: { marginBottom: 16 },
   label: { color: colors.bone, marginBottom: 6, fontSize: 14, fontWeight: '600' },
   input: { height: 56, backgroundColor: 'rgba(15, 20, 25, 0.5)', borderRadius: 12, paddingHorizontal: 16, color: colors.bone, borderWidth: 2, borderColor: 'rgba(192, 192, 192, 0.2)' },

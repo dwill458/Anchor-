@@ -283,7 +283,7 @@ export const FocusSession: React.FC<FocusSessionProps> = ({
   const RING_RADIUS = ANCHOR_SIZE / 2 + 22;
 
   const defaultDurationSeconds = useSettingsStore((state) => state.focusSessionDuration ?? 30);
-  const focusSessionAudio = useSettingsStore((state) => state.focusSessionAudio ?? 'silent');
+  const focusSessionAudio = useSettingsStore((state) => state.focusSessionAudio ?? 'ambient');
   const arrivePhaseEnabled = useSettingsStore((state) => state.arrivePhaseEnabled ?? true);
   const reduceIntentionVisibility = useSettingsStore((state) => state.reduceIntentionVisibility ?? false);
   const resolvedDurationSeconds = durationSeconds ?? defaultDurationSeconds;

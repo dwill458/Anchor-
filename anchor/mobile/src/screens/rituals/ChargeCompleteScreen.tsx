@@ -67,7 +67,7 @@ export const ChargeCompleteScreen: React.FC = () => {
   const { recordSession } = useSessionStore();
   const defaultCharge = useSettingsStore((state) => state.defaultCharge);
   const primeSessionDuration = useSettingsStore((state) => state.primeSessionDuration ?? 120);
-  const primeSessionAudio = useSettingsStore((state) => state.primeSessionAudio ?? 'silent');
+  const primeSessionAudio = useSettingsStore((state) => state.primeSessionAudio ?? 'ambient');
   const reduceMotionEnabled = useReduceMotionEnabled();
   const { handlePrimeComplete } = useNotificationController();
   const anchor = getAnchorById(anchorId);

@@ -56,6 +56,10 @@ function mapProviderIdToAuthProvider(providerId?: string): 'email' | 'google' | 
   }
 }
 
+function normalizeEmail(email: string): string {
+  return email.trim().toLowerCase();
+}
+
 function serializeUser(user: {
   id: string;
   email: string;
@@ -155,6 +159,11 @@ function buildSettingsUpsertData(settings: {
   dailyReminderTime?: string;
   streakProtection?: boolean;
   defaultChargeDuration?: number;
+  focusSessionMode?: 'quick' | 'deep';
+  focusSessionDuration?: number;
+  focusSessionAudio?: 'silent' | 'ambient';
+  primeSessionDuration?: number;
+  primeSessionAudio?: 'silent' | 'ambient';
   hapticIntensity?: number;
   vaultViewType?: 'grid' | 'list';
 }): {
@@ -162,6 +171,11 @@ function buildSettingsUpsertData(settings: {
   dailyReminderTime?: string;
   streakProtection?: boolean;
   defaultChargeDuration?: number;
+  focusSessionMode?: 'quick' | 'deep';
+  focusSessionDuration?: number;
+  focusSessionAudio?: 'silent' | 'ambient';
+  primeSessionDuration?: number;
+  primeSessionAudio?: 'silent' | 'ambient';
   hapticIntensity?: number;
   vaultViewType?: 'grid' | 'list';
 } {
@@ -170,6 +184,11 @@ function buildSettingsUpsertData(settings: {
     dailyReminderTime,
     streakProtection,
     defaultChargeDuration,
+    focusSessionMode,
+    focusSessionDuration,
+    focusSessionAudio,
+    primeSessionDuration,
+    primeSessionAudio,
     hapticIntensity,
     vaultViewType,
   } = settings;
@@ -179,6 +198,11 @@ function buildSettingsUpsertData(settings: {
     ...(dailyReminderTime && { dailyReminderTime }),
     ...(streakProtection !== undefined && { streakProtection }),
     ...(defaultChargeDuration !== undefined && { defaultChargeDuration }),
+    ...(focusSessionMode !== undefined && { focusSessionMode }),
+    ...(focusSessionDuration !== undefined && { focusSessionDuration }),
+    ...(focusSessionAudio !== undefined && { focusSessionAudio }),
+    ...(primeSessionDuration !== undefined && { primeSessionDuration }),
+    ...(primeSessionAudio !== undefined && { primeSessionAudio }),
     ...(hapticIntensity !== undefined && { hapticIntensity }),
     ...(vaultViewType && { vaultViewType }),
   };
@@ -204,6 +228,11 @@ const UpdateSettingsSchema = z.object({
     .optional(),
   streakProtection: z.boolean().optional(),
   defaultChargeDuration: z.number().min(30).max(3600).optional(),
+  focusSessionMode: z.enum(['quick', 'deep']).optional(),
+  focusSessionDuration: z.number().min(10).max(120).optional(),
+  focusSessionAudio: z.enum(['silent', 'ambient']).optional(),
+  primeSessionDuration: z.number().min(120).max(7200).optional(),
+  primeSessionAudio: z.enum(['silent', 'ambient']).optional(),
   hapticIntensity: z.number().min(1).max(5).optional(),
   vaultViewType: z.enum(['grid', 'list']).optional(),
 });
@@ -273,7 +302,17 @@ router.post(
       const authUid = req.user.uid;
 
       const { displayName, authProvider, hasCompletedOnboarding } = validate(SyncSchema, req.body);
-      const email = req.user.email;
+      const rawEmail = req.user.email;
+
+      if (!rawEmail) {
+        throw new AppError(
+          'Authenticated user is missing an email address',
+          400,
+          'INVALID_AUTH_CONTEXT'
+        );
+      }
+
+      const email = normalizeEmail(rawEmail);
 
       if (!email) {
         throw new AppError(
@@ -311,8 +350,13 @@ router.post(
               data: syncPayload,
             })
           : await (async () => {
-              const existingByEmail = await tx.user.findUnique({
-                where: { email },
+              const existingByEmail = await tx.user.findFirst({
+                where: {
+                  email: {
+                    equals: email,
+                    mode: 'insensitive',
+                  },
+                },
               });
 
               if (existingByEmail) {
@@ -550,6 +594,11 @@ router.put(
  * - dailyReminderTime: String in HH:MM format (optional)
  * - streakProtection: Boolean (optional)
  * - defaultChargeDuration: Number in seconds (optional)
+ * - focusSessionMode: 'quick' | 'deep' (optional)
+ * - focusSessionDuration: Number in seconds (optional)
+ * - focusSessionAudio: 'silent' | 'ambient' (optional)
+ * - primeSessionDuration: Number in seconds (optional)
+ * - primeSessionAudio: 'silent' | 'ambient' (optional)
  * - hapticIntensity: Number 1-5 (optional)
  * - vaultViewType: 'grid' | 'list' (optional)
  */
@@ -568,6 +617,11 @@ router.put(
         dailyReminderTime,
         streakProtection,
         defaultChargeDuration,
+        focusSessionMode,
+        focusSessionDuration,
+        focusSessionAudio,
+        primeSessionDuration,
+        primeSessionAudio,
         hapticIntensity,
         vaultViewType,
       } = validate(UpdateSettingsSchema, req.body);
@@ -577,6 +631,11 @@ router.put(
         dailyReminderTime,
         streakProtection,
         defaultChargeDuration,
+        focusSessionMode,
+        focusSessionDuration,
+        focusSessionAudio,
+        primeSessionDuration,
+        primeSessionAudio,
         hapticIntensity,
         vaultViewType,
       });

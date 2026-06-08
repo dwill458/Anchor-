@@ -37,6 +37,13 @@ jest.mock('expo-linear-gradient', () => ({
   LinearGradient: 'LinearGradient',
 }));
 
+jest.mock('expo-splash-screen', () => ({
+  preventAutoHideAsync: jest.fn(() => Promise.resolve(true)),
+  hideAsync: jest.fn(() => Promise.resolve()),
+  hide: jest.fn(),
+  setOptions: jest.fn(),
+}));
+
 jest.mock('expo-blur', () => ({
   BlurView: 'BlurView',
 }));
@@ -329,4 +336,3 @@ jest.setTimeout(10000);
 // None of our tests assert on animated values, so animations being visual no-ops is fine.
 (global as any).requestAnimationFrame = jest.fn().mockReturnValue(0);
 (global as any).cancelAnimationFrame = jest.fn();
-

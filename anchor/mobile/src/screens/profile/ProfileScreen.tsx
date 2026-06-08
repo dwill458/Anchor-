@@ -485,9 +485,7 @@ export const ProfileScreen: React.FC = () => {
           ))}
         </View>
 
-        <Text style={styles.vaultFinePrint}>
-          Each mark is permanent. The intention released.
-        </Text>
+        <Text style={styles.vaultFinePrint}>Each mark is permanent.</Text>
 
         <Text style={styles.versionText}>{`Version ${appVersion}`}</Text>
       </ScrollView>

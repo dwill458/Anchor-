@@ -72,7 +72,7 @@ export const FirstPrimeCompleteScreen: React.FC = () => {
   const incrementTotalPrimes = useAnchorStore((state) => state.incrementTotalPrimes);
   const recordPrimeSession = useAnchorStore((state) => state.recordPrimeSession);
   const recordSession = useSessionStore((state) => state.recordSession);
-  const primeSessionAudio = useSettingsStore((state) => state.primeSessionAudio ?? 'silent');
+  const primeSessionAudio = useSettingsStore((state) => state.primeSessionAudio ?? 'ambient');
   const { playSound } = useAudio();
   const { handlePrimeComplete } = useNotificationController();
   const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
