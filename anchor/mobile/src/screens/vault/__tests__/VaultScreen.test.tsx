@@ -175,7 +175,7 @@ describe('VaultScreen', () => {
         );
     });
 
-    it('shows hero card when anchor limit is reached', () => {
+    it('shows hero card when anchor limit is reached', async () => {
         mockAnchors = Array.from({ length: 3 }, (_, i) => ({
             id: `a${i}`,
             intentionText: `Anchor ${i}`,
