@@ -107,7 +107,7 @@ jobs:
           PROFILE: ${{ steps.resolve.outputs.profile }}
 
       - name: Validate mobile release config
-        run: bash ./scripts/validate-release-config.sh "${{ steps.resolve.outputs.platform }}"
+        run: bash ./scripts/validate-release-config.sh "${{ steps.resolve.outputs.platform }}" "${{ steps.resolve.outputs.profile }}"
         env:
           EXPO_PUBLIC_API_URL: ${{ vars.EXPO_PUBLIC_API_URL }}
           EXPO_PUBLIC_APP_ENV: ${{ steps.resolve.outputs.app_env }}
