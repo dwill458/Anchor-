@@ -34,6 +34,18 @@ const mockPrisma = {
   userSettings: {
     upsert: jest.fn(),
   },
+  anchor: {
+    findMany: jest.fn(),
+  },
+  activation: {
+    findMany: jest.fn(),
+  },
+  charge: {
+    findMany: jest.fn(),
+  },
+  order: {
+    findMany: jest.fn(),
+  },
   burnedAnchor: {
     findMany: jest.fn(),
     deleteMany: jest.fn(),
@@ -352,11 +364,11 @@ describe('GET /api/auth/me/export', () => {
     (mockPrisma.user.findUnique as jest.Mock).mockResolvedValue({
       ...MOCK_DB_USER,
       settings: MOCK_SETTINGS,
-      anchors: [],
-      activations: [],
-      charges: [],
-      orders: [],
     });
+    (mockPrisma.anchor.findMany as jest.Mock).mockResolvedValue([]);
+    (mockPrisma.activation.findMany as jest.Mock).mockResolvedValue([]);
+    (mockPrisma.charge.findMany as jest.Mock).mockResolvedValue([]);
+    (mockPrisma.order.findMany as jest.Mock).mockResolvedValue([]);
     (mockPrisma.syncQueue.findMany as jest.Mock).mockResolvedValue([]);
     (mockPrisma.burnedAnchor.findMany as jest.Mock).mockResolvedValue([]);
     (mockPrisma.flaggedContent.findMany as jest.Mock).mockResolvedValue([]);
@@ -370,6 +382,30 @@ describe('GET /api/auth/me/export', () => {
       },
       orderBy: { createdAt: 'desc' },
     });
+    expect(res.body.data.account.passwordHash).toBeUndefined();
+  });
+
+  it('returns partial export data when an optional export section fails', async () => {
+    (mockPrisma.user.findUnique as jest.Mock).mockResolvedValue({
+      ...MOCK_DB_USER,
+      settings: MOCK_SETTINGS,
+      passwordHash: 'should-not-export',
+    });
+    (mockPrisma.anchor.findMany as jest.Mock).mockResolvedValue([{ id: 'anchor-1' }]);
+    (mockPrisma.activation.findMany as jest.Mock).mockResolvedValue([]);
+    (mockPrisma.charge.findMany as jest.Mock).mockResolvedValue([]);
+    (mockPrisma.order.findMany as jest.Mock).mockRejectedValue(new Error('orders unavailable'));
+    (mockPrisma.syncQueue.findMany as jest.Mock).mockResolvedValue([]);
+    (mockPrisma.burnedAnchor.findMany as jest.Mock).mockResolvedValue([]);
+    (mockPrisma.flaggedContent.findMany as jest.Mock).mockResolvedValue([]);
+
+    const res = await request(buildApp()).get('/api/auth/me/export');
+
+    expect(res.status).toBe(200);
+    expect(res.body.success).toBe(true);
+    expect(res.body.data.account.anchors).toEqual([{ id: 'anchor-1' }]);
+    expect(res.body.data.account.orders).toEqual([]);
+    expect(res.body.data.account.passwordHash).toBeUndefined();
   });
 });
 
