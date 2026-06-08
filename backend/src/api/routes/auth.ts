@@ -278,6 +278,24 @@ function buildFlaggedContentUserWhere(user: { id: string; authUid: string }): {
   };
 }
 
+async function getExportSection<T>(
+  section: string,
+  context: { authUid: string; userId?: string },
+  resolver: () => Promise<T>,
+  fallback: T
+): Promise<T> {
+  try {
+    return await resolver();
+  } catch (error) {
+    logger.error(
+      `Account export section failed: ${section}`,
+      error instanceof Error ? error : new Error(String(error)),
+      context
+    );
+    return fallback;
+  }
+}
+
 /**
  * POST /api/auth/sync
  *
@@ -483,18 +501,32 @@ router.get(
 
       const user = await prisma.user.findUnique({
         where: { authUid },
-        include: {
+        select: {
+          id: true,
+          email: true,
+          displayName: true,
+          authProvider: true,
+          authUid: true,
+          isComped: true,
+          subscriptionStatus: true,
+          subscriptionId: true,
+          createdAt: true,
+          updatedAt: true,
+          lastSeenAt: true,
+          hasCompletedOnboarding: true,
+          totalAnchorsCreated: true,
+          totalActivations: true,
+          currentStreak: true,
+          longestStreak: true,
+          stabilizesTotal: true,
+          stabilizeStreakDays: true,
+          lastStabilizeAt: true,
+          notificationState: true,
+          expoPushToken: true,
+          fcmToken: true,
+          apnsToken: true,
+          notificationsEnabled: true,
           settings: true,
-          anchors: {
-            orderBy: { createdAt: 'desc' },
-            include: {
-              activations: { orderBy: { activatedAt: 'desc' } },
-              charges: { orderBy: { chargedAt: 'desc' } },
-            },
-          },
-          activations: { orderBy: { activatedAt: 'desc' } },
-          charges: { orderBy: { chargedAt: 'desc' } },
-          orders: { orderBy: { createdAt: 'desc' } },
         },
       });
 
@@ -502,27 +534,99 @@ router.get(
         throw new AppError('User not found', 404, 'USER_NOT_FOUND');
       }
 
-      const [syncQueue, burnedAnchors, flaggedContent] = await Promise.all([
-        prisma.syncQueue.findMany({
-          where: { userId: user.id },
-          orderBy: { createdAt: 'desc' },
-        }),
-        prisma.burnedAnchor.findMany({
-          where: { userId: user.id },
-          orderBy: { burnedAt: 'desc' },
-        }),
-        prisma.flaggedContent.findMany({
-          where: buildFlaggedContentUserWhere(user),
-          orderBy: { createdAt: 'desc' },
-        }),
+      const exportContext = { authUid, userId: user.id };
+      const [anchors, activations, charges, orders, syncQueue, burnedAnchors, flaggedContent] = await Promise.all([
+        getExportSection(
+          'anchors',
+          exportContext,
+          () =>
+            prisma.anchor.findMany({
+              where: { userId: user.id },
+              orderBy: { createdAt: 'desc' },
+              include: {
+                activations: { orderBy: { activatedAt: 'desc' } },
+                charges: { orderBy: { chargedAt: 'desc' } },
+              },
+            }),
+          []
+        ),
+        getExportSection(
+          'activations',
+          exportContext,
+          () =>
+            prisma.activation.findMany({
+              where: { userId: user.id },
+              orderBy: { activatedAt: 'desc' },
+            }),
+          []
+        ),
+        getExportSection(
+          'charges',
+          exportContext,
+          () =>
+            prisma.charge.findMany({
+              where: { userId: user.id },
+              orderBy: { chargedAt: 'desc' },
+            }),
+          []
+        ),
+        getExportSection(
+          'orders',
+          exportContext,
+          () =>
+            prisma.order.findMany({
+              where: { userId: user.id },
+              orderBy: { createdAt: 'desc' },
+            }),
+          []
+        ),
+        getExportSection(
+          'syncQueue',
+          exportContext,
+          () =>
+            prisma.syncQueue.findMany({
+              where: { userId: user.id },
+              orderBy: { createdAt: 'desc' },
+            }),
+          []
+        ),
+        getExportSection(
+          'burnedAnchors',
+          exportContext,
+          () =>
+            prisma.burnedAnchor.findMany({
+              where: { userId: user.id },
+              orderBy: { burnedAt: 'desc' },
+            }),
+          []
+        ),
+        getExportSection(
+          'flaggedContent',
+          exportContext,
+          () =>
+            prisma.flaggedContent.findMany({
+              where: buildFlaggedContentUserWhere(user),
+              orderBy: { createdAt: 'desc' },
+            }),
+          []
+        ),
       ]);
+      const { passwordHash: _passwordHash, ...exportedUser } = user as typeof user & {
+        passwordHash?: string | null;
+      };
 
       res.json({
         success: true,
         data: {
           exportVersion: 1,
           exportedAt: new Date().toISOString(),
-          account: user,
+          account: {
+            ...exportedUser,
+            anchors,
+            activations,
+            charges,
+            orders,
+          },
           burnedAnchors,
           flaggedContent,
           syncQueue,

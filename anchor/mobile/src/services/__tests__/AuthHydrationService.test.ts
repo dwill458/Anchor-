@@ -143,4 +143,48 @@ describe('AuthHydrationService', () => {
     expect(useSettingsStore.getState().primeSessionDuration).toBe(300);
     expect(useSettingsStore.getState().primeSessionAudio).toBe('ambient');
   });
+
+  it('hydrates profile and anchors when account export fails', async () => {
+    const remoteAnchor = createMockAnchor({
+      id: 'server-anchor-2',
+      updatedAt: new Date('2026-05-18T08:10:00.000Z'),
+    });
+    const user = createMockUser({
+      hasCompletedOnboarding: true,
+      totalActivations: 17,
+      currentStreak: 3,
+    });
+
+    mockApiGet.mockImplementation(async (url: string) => {
+      if (url === '/api/anchors') {
+        return {
+          data: {
+            data: [remoteAnchor],
+          },
+        };
+      }
+
+      if (url === '/api/auth/me/export') {
+        throw new Error('EXPORT_ERROR');
+      }
+
+      throw new Error(`Unexpected url: ${url}`);
+    });
+    mockFetchCompleteProfile.mockResolvedValue({
+      user,
+      stats: {},
+      activeAnchors: [],
+    });
+
+    await AuthHydrationService.hydrateAuthenticatedData();
+
+    expect(useAuthStore.getState().user).toEqual(expect.objectContaining({ id: user.id }));
+    expect(useAuthStore.getState().hasCompletedOnboarding).toBe(true);
+    expect(useAnchorStore.getState().anchors).toEqual([
+      expect.objectContaining({ id: 'server-anchor-2' }),
+    ]);
+    expect(useSessionStore.getState().totalSessionsCount).toBe(17);
+    expect(useSessionStore.getState().threadStrength).toBe(75);
+    expect(useSessionStore.getState().primingHistory).toEqual([]);
+  });
 });

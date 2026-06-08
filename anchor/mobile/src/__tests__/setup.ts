@@ -329,3 +329,10 @@ global.console = {
 
 // Set up test timeout
 jest.setTimeout(10000);
+
+// Make requestAnimationFrame a no-op. jest.useFakeTimers() (modern mode) does NOT
+// fake RAF, so without this, Animated.timing(..., {useNativeDriver:false}) keeps
+// scheduling real RAF callbacks that TRLN's act()-based cleanup waits for indefinitely.
+// None of our tests assert on animated values, so animations being visual no-ops is fine.
+(global as any).requestAnimationFrame = jest.fn().mockReturnValue(0);
+(global as any).cancelAnimationFrame = jest.fn();

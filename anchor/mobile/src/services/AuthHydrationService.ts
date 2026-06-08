@@ -6,6 +6,7 @@ import { useSettingsStore } from '@/stores/settingsStore';
 import type { Anchor, ApiResponse, ProfileData, User, UserSettings } from '@/types';
 import { isBackendAnchorId } from '@/services/BackendAnchorService';
 import { buildPrimingHistoryEntry, type PrimingHistoryEntry } from '@/utils/primingAnalytics';
+import { logger } from '@/utils/logger';
 
 function normalizeDate(value?: Date | string | null): Date | undefined {
   if (!value) return undefined;
@@ -119,7 +120,10 @@ class AuthHydrationService {
           order: 'desc',
         },
       }),
-      apiClient.get<AccountExportResponse>('/api/auth/me/export'),
+      apiClient.get<AccountExportResponse>('/api/auth/me/export').catch((error) => {
+        logger.warn('[AuthHydrationService] Account export hydration failed', error);
+        return null;
+      }),
     ]);
 
     const normalizedProfileData = normalizeProfileData(profileData);
@@ -127,7 +131,7 @@ class AuthHydrationService {
       ? anchorsResponse.data.data.map(normalizeAnchor)
       : [];
     const primingHistory = mapExportActivationsToPrimingHistory(
-      exportResponse.data?.data?.account?.activations ?? []
+      exportResponse?.data?.data?.account?.activations ?? []
     );
 
     const authStore = useAuthStore.getState();
