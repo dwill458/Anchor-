@@ -173,6 +173,10 @@ function mapAuthError(error: unknown): Error {
       return new Error('An account already exists with a different sign-in method.');
     case 'auth/invalid-credential':
       return new Error('That sign-in credential is invalid or expired.');
+    case 'auth/provider-already-linked':
+      return new Error('A password is already linked to this account.');
+    case 'auth/requires-recent-login':
+      return new Error('Please sign out and sign back in, then try again.');
     default:
       return error instanceof Error ? error : new Error('Authentication failed.');
   }
@@ -480,6 +484,24 @@ export class AuthService {
       throw error instanceof Error
         ? error
         : new Error('An unexpected error occurred while deleting your account.');
+    }
+  }
+
+  static getLinkedProviders(): string[] {
+    const currentUser = auth().currentUser;
+    if (!currentUser) return [];
+    return currentUser.providerData.map((p) => p.providerId);
+  }
+
+  static async linkEmailPassword(email: string, password: string): Promise<void> {
+    const currentUser = auth().currentUser;
+    if (!currentUser) throw new Error('No user is currently signed in.');
+    try {
+      const credential = auth.EmailAuthProvider.credential(email.trim(), password);
+      await currentUser.linkWithCredential(credential);
+    } catch (error) {
+      logger.error('Failed to link email/password', error);
+      throw mapAuthError(error);
     }
   }
 

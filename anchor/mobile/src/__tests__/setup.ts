@@ -59,12 +59,20 @@ jest.mock('expo-media-library', () => ({
   saveToLibraryAsync: jest.fn(() => Promise.resolve()),
 }));
 
-jest.mock('expo-file-system', () => ({
+const mockExpoFileSystem = {
+  documentDirectory: 'file:///documents/',
   readAsStringAsync: jest.fn(() => Promise.resolve('')),
+  copyAsync: jest.fn(() => Promise.resolve()),
+  makeDirectoryAsync: jest.fn(() => Promise.resolve()),
+  deleteAsync: jest.fn(() => Promise.resolve()),
+  getInfoAsync: jest.fn(() => Promise.resolve({ exists: false })),
   EncodingType: {
     Base64: 'base64',
   },
-}));
+};
+
+jest.mock('expo-file-system', () => mockExpoFileSystem);
+jest.mock('expo-file-system/legacy', () => mockExpoFileSystem);
 
 jest.mock('expo-secure-store', () => {
   const store = new Map<string, string>();
