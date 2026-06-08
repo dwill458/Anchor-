@@ -26,7 +26,6 @@
     "preview": {
       "distribution": "internal",
       "channel": "preview",
-      "image": "latest",
       "env": {
         "EXPO_PUBLIC_APP_ENV": "staging",
         "EXPO_PUBLIC_DEBUG_LOGGING": "false",
@@ -40,6 +39,7 @@
         "buildType": "apk"
       },
       "ios": {
+        "image": "latest",
         "prebuildCommand": "npx expo prebuild --platform ios --no-install"
       }
     },
