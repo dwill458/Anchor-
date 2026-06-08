@@ -128,6 +128,7 @@
           }
         }
       ],
+      "./plugins/withFirebaseFrameworkFix",
       "@react-native-firebase/app",
       "expo-apple-authentication",
       "@sentry/react-native/expo",
