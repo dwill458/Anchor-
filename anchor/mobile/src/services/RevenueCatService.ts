@@ -30,6 +30,18 @@ interface CustomerInfo {
 
 interface RevenueCatPackage {
   identifier?: string;
+  packageType?: string;
+  storeProduct?: {
+    priceString?: string;
+    pricePerMonthString?: string | null;
+    pricePerYearString?: string | null;
+    subscriptionPeriod?: string | null;
+    introPrice?: {
+      priceString?: string;
+      cycles?: number;
+      period?: string;
+    } | null;
+  };
 }
 
 interface RevenueCatOffering {
@@ -38,6 +50,18 @@ interface RevenueCatOffering {
 
 interface RevenueCatOfferings {
   current?: RevenueCatOffering | null;
+}
+
+export interface RevenueCatPackagePresentation {
+  identifier: string;
+  packageType: string | null;
+  priceString: string | null;
+  pricePerMonthString: string | null;
+  pricePerYearString: string | null;
+  subscriptionPeriod: string | null;
+  introPriceString: string | null;
+  introPriceCycles: number | null;
+  introPricePeriod: string | null;
 }
 
 interface RevenueCatLogInResult {
@@ -171,6 +195,39 @@ function isUserCancelled(error: unknown): boolean {
 }
 
 class RevenueCatService {
+  private async getCurrentOffering(): Promise<RevenueCatOffering> {
+    const purchases = getPurchasesModule();
+    if (!purchases) {
+      throw new Error('[RevenueCat] Billing service is unavailable. The native module react-native-purchases is not loaded.');
+    }
+    if (!purchases.getOfferings) {
+      throw new Error('[RevenueCat] Billing service is misconfigured or unavailable on this platform.');
+    }
+
+    const offerings = await purchases.getOfferings();
+    const currentOffering = offerings.current;
+    if (!currentOffering) {
+      throw new Error('[RevenueCat] No active offerings found. Please ensure you have set a Current Offering in the RevenueCat dashboard.');
+    }
+
+    return currentOffering;
+  }
+
+  private findPackageByIdentifier(
+    availablePackages: RevenueCatPackage[],
+    productId: string
+  ): RevenueCatPackage {
+    const selectedPackage =
+      availablePackages.find((pkg) => pkg.identifier === productId) ??
+      availablePackages[0];
+
+    if (!selectedPackage) {
+      throw new Error(`[RevenueCat] Package "${productId}" was not found in the available offerings. Please verify your RevenueCat package mappings and Google Play Console product IDs.`);
+    }
+
+    return selectedPackage;
+  }
+
   configure(userId?: string): void {
     const purchases = getPurchasesModule();
     if (!purchases?.configure || !REVENUECAT_API_KEY) {
@@ -234,20 +291,12 @@ class RevenueCatService {
     }
 
     try {
-      const offerings = await purchases.getOfferings();
-      const currentOffering = offerings.current;
-      if (!currentOffering) {
-        throw new Error('[RevenueCat] No active offerings found. Please ensure you have set a Current Offering in the RevenueCat dashboard.');
-      }
-
+      const currentOffering = await this.getCurrentOffering();
       const availablePackages = currentOffering.availablePackages ?? [];
-      const selectedPackage =
-        availablePackages.find((pkg) => pkg.identifier === REVENUECAT_DEFAULT_PACKAGE_ID) ??
-        availablePackages[0];
-
-      if (!selectedPackage) {
-        throw new Error(`[RevenueCat] No purchase package available for trial start (expected "${REVENUECAT_DEFAULT_PACKAGE_ID}"). Please check your RevenueCat dashboard package configuration.`);
-      }
+      const selectedPackage = this.findPackageByIdentifier(
+        availablePackages,
+        REVENUECAT_DEFAULT_PACKAGE_ID
+      );
 
       const response = await purchases.purchasePackage(selectedPackage);
       const status = deriveTrialStatus(extractCustomerInfo(response));
@@ -282,20 +331,9 @@ class RevenueCatService {
     }
 
     try {
-      const offerings = await purchases.getOfferings();
-      const currentOffering = offerings.current;
-      if (!currentOffering) {
-        throw new Error('[RevenueCat] No active offerings found. Please ensure you have set a Current Offering in the RevenueCat dashboard.');
-      }
-
+      const currentOffering = await this.getCurrentOffering();
       const availablePackages = currentOffering.availablePackages ?? [];
-      const selectedPackage =
-        availablePackages.find((pkg) => pkg.identifier === productId) ??
-        availablePackages[0];
-
-      if (!selectedPackage) {
-        throw new Error(`[RevenueCat] Package "${productId}" was not found in the available offerings. Please verify your RevenueCat package mappings and Google Play Console product IDs.`);
-      }
+      const selectedPackage = this.findPackageByIdentifier(availablePackages, productId);
 
       const response = await purchases.purchasePackage(selectedPackage);
       const status = deriveTrialStatus(extractCustomerInfo(response));
@@ -326,6 +364,31 @@ class RevenueCatService {
       logger.error('[RevenueCatService] restorePurchases failed', error);
       throw error;
     }
+  }
+
+  async getPackagePresentations(productIds: string[]): Promise<Record<string, RevenueCatPackagePresentation>> {
+    const currentOffering = await this.getCurrentOffering();
+    const availablePackages = currentOffering.availablePackages ?? [];
+
+    return productIds.reduce<Record<string, RevenueCatPackagePresentation>>((accumulator, productId) => {
+      const selectedPackage = availablePackages.find((pkg) => pkg.identifier === productId);
+      if (!selectedPackage) {
+        return accumulator;
+      }
+
+      accumulator[productId] = {
+        identifier: productId,
+        packageType: selectedPackage.packageType ?? null,
+        priceString: selectedPackage.storeProduct?.priceString ?? null,
+        pricePerMonthString: selectedPackage.storeProduct?.pricePerMonthString ?? null,
+        pricePerYearString: selectedPackage.storeProduct?.pricePerYearString ?? null,
+        subscriptionPeriod: selectedPackage.storeProduct?.subscriptionPeriod ?? null,
+        introPriceString: selectedPackage.storeProduct?.introPrice?.priceString ?? null,
+        introPriceCycles: selectedPackage.storeProduct?.introPrice?.cycles ?? null,
+        introPricePeriod: selectedPackage.storeProduct?.introPrice?.period ?? null,
+      };
+      return accumulator;
+    }, {});
   }
 
   getCurrentStatus(): TrialStatusSnapshot {

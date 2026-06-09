@@ -11,6 +11,7 @@ import {
   Animated,
   BackHandler,
   Image,
+  Linking,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -32,7 +33,8 @@ import {
   REVENUECAT_DEFAULT_PLAN_ID,
   REVENUECAT_MONTHLY_PACKAGE_ID,
 } from '@/config';
-import revenueCatService from '@/services/RevenueCatService';
+import { LEGAL_URLS } from '@/constants/legal';
+import revenueCatService, { RevenueCatPackagePresentation } from '@/services/RevenueCatService';
 import type { RootNavigatorParamList } from '@/navigation/RootNavigator';
 
 type PlanId = 'monthly' | 'annual';
@@ -40,8 +42,6 @@ type PlanId = 'monthly' | 'annual';
 type PlanConfig = {
   id: PlanId;
   label: string;
-  amount: string;
-  subtitle: string;
   productId: string;
   badge?: string;
 };
@@ -50,15 +50,11 @@ const PLAN_OPTIONS: PlanConfig[] = [
   {
     id: 'monthly',
     label: 'Monthly',
-    amount: '$7.99',
-    subtitle: 'Start. Cancel anytime.',
     productId: REVENUECAT_MONTHLY_PACKAGE_ID,
   },
   {
     id: 'annual',
     label: 'Annual',
-    amount: '$59.99',
-    subtitle: 'Build the practice. $5/mo · save 37%',
     productId: REVENUECAT_ANNUAL_PACKAGE_ID,
     badge: 'BEST VALUE',
   },
@@ -136,6 +132,9 @@ export const PaywallScreen: React.FC = () => {
   const [selectedPlanId, setSelectedPlanId] = useState<PlanId>(REVENUECAT_DEFAULT_PLAN_ID);
   const [isPurchasing, setIsPurchasing] = useState(false);
   const [isRestoring, setIsRestoring] = useState(false);
+  const [packagePresentations, setPackagePresentations] = useState<
+    Record<string, RevenueCatPackagePresentation>
+  >({});
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const slideAnim = useRef(new Animated.Value(20)).current;
 
@@ -153,6 +152,27 @@ export const PaywallScreen: React.FC = () => {
     });
     return () => backHandler.remove();
   }, [navigation]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    void revenueCatService
+      .getPackagePresentations(PLAN_OPTIONS.map((plan) => plan.productId))
+      .then((presentations) => {
+        if (!cancelled) {
+          setPackagePresentations(presentations);
+        }
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setPackagePresentations({});
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const handleBackToHome = () => {
     navigation.reset({
@@ -218,11 +238,33 @@ export const PaywallScreen: React.FC = () => {
     () => PLAN_OPTIONS.find((plan) => plan.id === selectedPlanId) ?? PLAN_OPTIONS[0],
     [selectedPlanId]
   );
+  const selectedPresentation = packagePresentations[selectedPlan.productId];
   const ctaLabel = 'FORGE MY PRACTICE';
 
   const sigilSource = latestAnchor?.enhancedImageUrl ?? null;
   const sigilSvg = latestAnchor?.reinforcedSigilSvg ?? latestAnchor?.baseSigilSvg ?? null;
   const previewHeight = Math.round(height * 0.48);
+
+  const getPlanAmount = (plan: PlanConfig) =>
+    packagePresentations[plan.productId]?.priceString ?? 'App Store price';
+
+  const getPlanSubtitle = (plan: PlanConfig) => {
+    const presentation = packagePresentations[plan.productId];
+
+    if (plan.id === 'annual') {
+      return presentation?.pricePerMonthString
+        ? `${presentation.pricePerMonthString}/mo billed annually`
+        : 'Billed annually';
+    }
+
+    return 'Auto-renews monthly';
+  };
+
+  const openLegalUrl = (url: string) => {
+    Linking.openURL(url).catch(() => {
+      Alert.alert('Unavailable', 'Unable to open that link right now.');
+    });
+  };
 
   return (
     <View style={styles.root}>
@@ -342,7 +384,7 @@ export const PaywallScreen: React.FC = () => {
                       key={plan.id}
                       onPress={() => setSelectedPlanId(plan.id)}
                       accessibilityRole="button"
-                      accessibilityLabel={`${plan.label} plan ${plan.amount}`}
+                      accessibilityLabel={`${plan.label} plan ${getPlanAmount(plan)}`}
                       testID={`paywall-plan-${plan.id}`}
                       style={({ pressed }) => [
                         styles.planCard,
@@ -372,9 +414,9 @@ export const PaywallScreen: React.FC = () => {
 
                           <View style={styles.planPriceWrap}>
                             <Text style={[styles.planAmount, isSelected && styles.planAmountSelected]}>
-                              {plan.amount}
+                              {getPlanAmount(plan)}
                             </Text>
-                            <Text style={styles.planSubtitle}>{plan.subtitle}</Text>
+                            <Text style={styles.planSubtitle}>{getPlanSubtitle(plan)}</Text>
                           </View>
                         </>
                       )}
@@ -397,7 +439,30 @@ export const PaywallScreen: React.FC = () => {
                 <Text style={styles.ctaText}>{isPurchasing ? 'Processing…' : ctaLabel}</Text>
               </Pressable>
 
-              <Text style={styles.trialNote}>Cancel anytime. Your anchors stay.</Text>
+              <Text style={styles.trialNote}>
+                {selectedPresentation?.introPriceString
+                  ? `${selectedPresentation.introPriceString} intro offer if eligible. Auto-renews unless canceled at least 24 hours before renewal.`
+                  : 'Auto-renews unless canceled at least 24 hours before renewal.'}
+              </Text>
+
+              <View style={styles.legalRow}>
+                <Pressable
+                  onPress={() => openLegalUrl(LEGAL_URLS.termsOfService)}
+                  accessibilityRole="button"
+                  accessibilityLabel="Open terms of service"
+                  style={({ pressed }) => [styles.legalButton, pressed && styles.signInPressed]}
+                >
+                  <Text style={styles.legalText}>Terms</Text>
+                </Pressable>
+                <Pressable
+                  onPress={() => openLegalUrl(LEGAL_URLS.privacyPolicy)}
+                  accessibilityRole="button"
+                  accessibilityLabel="Open privacy policy"
+                  style={({ pressed }) => [styles.legalButton, pressed && styles.signInPressed]}
+                >
+                  <Text style={styles.legalText}>Privacy</Text>
+                </Pressable>
+              </View>
 
               <Pressable
                 onPress={handleRestorePurchase}
@@ -720,7 +785,24 @@ const styles = StyleSheet.create({
     fontFamily: typography.fonts.bodySerifItalic,
     fontSize: 12,
     color: withAlpha(colors.bone, 0.3),
-    marginBottom: 14,
+    lineHeight: 18,
+    marginBottom: 12,
+  },
+  legalRow: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    gap: 18,
+    marginBottom: 8,
+  },
+  legalButton: {
+    paddingVertical: 4,
+    paddingHorizontal: 2,
+  },
+  legalText: {
+    fontFamily: typography.fonts.bodySerif,
+    fontSize: 12,
+    color: withAlpha(colors.bone, 0.52),
+    textDecorationLine: 'underline',
   },
   signInButton: {
     alignItems: 'center',

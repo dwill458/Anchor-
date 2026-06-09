@@ -32,6 +32,11 @@ interface RingGlowCanvasProps {
   tier?: PerformanceTier;
 }
 
+const clamp01 = (value: number): number => {
+  'worklet';
+  return Math.max(0, Math.min(1, value));
+};
+
 function hexToRgb(hex: string): [number, number, number] {
   const h = hex.replace('#', '');
   return [
@@ -111,7 +116,7 @@ export const RingGlowCanvas: React.FC<RingGlowCanvasProps> = ({
     const cy = W / 2;
     // Scale factor: designed at 76px reference size
     const s = W > 0 ? W / 76 : 1;
-    const ity = svIntensity.value;
+    const ity = clamp01(svIntensity.value);
     const rr = svR.value;
     const gg = svG.value;
     const bb = svB.value;
@@ -167,7 +172,7 @@ export const RingGlowCanvas: React.FC<RingGlowCanvasProps> = ({
       cnv.rotate(t * 22 * DEG, 0, 0); // ~22 deg/s CW
       for (let i = 0; i < 8; i++) {
         const a = (i / 8) * Math.PI * 2;
-        const flicker = (0.45 + Math.sin(t * 2.2 + i * 0.9) * 0.55) * ity;
+        const flicker = clamp01((0.45 + Math.sin(t * 2.2 + i * 0.9) * 0.55) * ity);
         const p = paints.dots[i];
         p.setColor(Skia.Color(`rgba(${rr},${gg},${bb},${flicker})`));
         cnv.drawCircle(Math.cos(a) * 28 * s, Math.sin(a) * 28 * s, 1.8 * s, p);

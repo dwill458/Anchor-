@@ -122,7 +122,7 @@ export const TrialSignUpScreen: React.FC = () => {
         user: result.user,
         token: result.token,
         preserveCompletedOnboarding: true,
-        launchTrialPurchase: true,
+        launchTrialPurchase: false,
       });
       navigateToVaultDestination(navigation, 'replace');
     } catch (err: any) {
@@ -192,7 +192,7 @@ export const TrialSignUpScreen: React.FC = () => {
               </Text>
               <Text style={styles.subheadline}>
                 Save your anchor and sync your practice across devices.
-                {'\n'}Cancel anytime — no payment now.
+                {'\n'}No payment today. Subscribe only if you want to continue after the 7-day trial.
               </Text>
             </View>
 
@@ -264,7 +264,9 @@ export const TrialSignUpScreen: React.FC = () => {
               )}
             </TouchableOpacity>
 
-            <Text style={styles.legalText}>No payment required. Cancel anytime.</Text>
+            <Text style={styles.legalText}>
+              No payment required today. If you subscribe later, pricing will be shown before purchase.
+            </Text>
 
             {/* Skip */}
             <TouchableOpacity

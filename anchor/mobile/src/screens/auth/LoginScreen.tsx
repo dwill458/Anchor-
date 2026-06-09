@@ -23,12 +23,6 @@ import {
 import { LinearGradient } from 'expo-linear-gradient';
 import { StackNavigationProp } from '@react-navigation/stack';
 import * as AppleAuthentication from 'expo-apple-authentication';
-let GoogleSigninButton: any = null;
-try {
-  GoogleSigninButton = require('@react-native-google-signin/google-signin').GoogleSigninButton;
-} catch {
-  // Native module not available in this build
-}
 import { colors, typography } from '@/theme';
 import { ENABLE_GOOGLE_SIGN_IN } from '@/config';
 import { useAuthStore } from '../../stores/authStore';
@@ -430,25 +424,17 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ navigation, route }) =
 
                   {showGoogleSignIn ? (
                     <View style={styles.ssoButtonWrap}>
-                      {GoogleSigninButton ? (
-                        <GoogleSigninButton
-                          size={GoogleSigninButton.Size.Wide}
-                          color={GoogleSigninButton.Color.Dark}
-                          style={styles.googleButton}
-                          onPress={() => {
-                            void handleGoogleSignIn();
-                          }}
-                          disabled={loading}
-                        />
-                      ) : (
-                        <TouchableOpacity
-                          style={styles.googleButton}
-                          onPress={() => void handleGoogleSignIn()}
-                          disabled={loading}
-                        >
-                          <Text style={styles.googleFallbackText}>Continue with Google</Text>
-                        </TouchableOpacity>
-                      )}
+                      <TouchableOpacity
+                        style={[styles.googleButton, loading ? styles.ssoButtonDisabled : null]}
+                        onPress={() => void handleGoogleSignIn()}
+                        disabled={loading}
+                        activeOpacity={0.85}
+                      >
+                        <View style={styles.googleBadge}>
+                          <Text style={styles.googleBadgeText}>G</Text>
+                        </View>
+                        <Text style={styles.googleButtonText}>Continue with Google</Text>
+                      </TouchableOpacity>
                     </View>
                   ) : null}
                 </View>
@@ -687,12 +673,38 @@ const styles = StyleSheet.create({
   googleButton: {
     width: '100%',
     height: 48,
+    borderRadius: 11,
+    backgroundColor: '#FFFFFF',
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 12,
+    gap: 10,
+    borderWidth: 1,
+    borderColor: 'rgba(8,12,16,0.08)',
   },
-  googleFallbackText: {
-    color: colors.bone,
-    fontFamily: typography.fonts.bodySerif,
-    fontSize: 15,
+  googleBadge: {
+    width: 24,
+    height: 24,
+    borderRadius: 6,
+    backgroundColor: '#FFFFFF',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  googleBadgeText: {
+    color: '#4285F4',
+    fontFamily: typography.fonts.headingBold,
+    fontSize: 18,
+    lineHeight: 20,
+  },
+  googleButtonText: {
+    flex: 1,
+    color: '#1F1F1F',
+    fontFamily: typography.fonts.body,
+    fontSize: 14,
     textAlign: 'center',
+  },
+  ssoButtonDisabled: {
+    opacity: 0.65,
   },
   dividerRow: {
     flexDirection: 'row',

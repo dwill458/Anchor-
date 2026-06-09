@@ -386,7 +386,7 @@ const SignalVisual: React.FC = () => {
 };
 
 // eslint-disable-next-line @typescript-eslint/no-var-requires
-const successAnchor = require('../../../assets/success anchor onboarding.webp') as number;
+const successAnchor = require('../../../assets/success_anchor_onboarding.png') as number;
 
 const FinalVisual: React.FC = () => {
   const pulse = useRef(new Animated.Value(1)).current;

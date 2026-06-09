@@ -20,6 +20,7 @@ jest.mock('@/services/RevenueCatService', () => ({
   default: {
     purchasePackageByIdentifier: jest.fn(),
     restorePurchases: jest.fn(),
+    getPackagePresentations: jest.fn().mockResolvedValue({}),
   },
 }));
 

@@ -35,8 +35,6 @@ export function useTrialStatus(): TrialStatus {
     const remoteCompedAccess = useSubscriptionStore((s) => s.remoteCompedAccess);
     const devOverrideEnabled = useSubscriptionStore((s) => s.devOverrideEnabled);
     const devTierOverride = useSubscriptionStore((s) => s.devTierOverride);
-    const rcSynced = useSubscriptionStore((s) => s.rcSynced);
-    const rcHasActiveEntitlement = useSubscriptionStore((s) => s.hasActiveEntitlement);
     const developerMasterAccountEnabled = useSettingsStore(
         (s) => s.developerMasterAccountEnabled
     );
@@ -107,9 +105,13 @@ export function useTrialStatus(): TrialStatus {
     const daysRemaining = computeDaysRemaining(trialStartDate);
     const isSubscribed = subscriptionStatus === 'active';
 
-    // Before RC syncs use local clock; after sync require the entitlement (closes reinstall bypass)
-    const localTrialActive = subscriptionStatus === 'trial' && daysRemaining > 0;
-    const isTrialActive = rcSynced ? (rcHasActiveEntitlement && !isSubscribed) : localTrialActive;
+    // RC only tracks paid entitlements — it has no concept of this app's local 7-day trial.
+    // Using rcHasActiveEntitlement to gate trial access would expire every new free-trial user
+    // the moment RC syncs. Instead, rely on the local clock:
+    //   - 'trial' + (null trialStartDate OR days remaining) → active
+    //   - 'expired' (set by useTrialInit after 7 days) → expired
+    //   - 'active' (set by applyTrialStatus on paid purchase) → isSubscribed = true
+    const isTrialActive = subscriptionStatus === 'trial' && (trialStartDate === null || daysRemaining > 0);
     const hasExpired = !isSubscribed && !isTrialActive;
 
     return {
