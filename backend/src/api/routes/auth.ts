@@ -535,7 +535,15 @@ router.get(
       }
 
       const exportContext = { authUid, userId: user.id };
-      const [anchors, activations, charges, orders, syncQueue, burnedAnchors, flaggedContent] = await Promise.all([
+      const [
+        anchors,
+        activations,
+        charges,
+        orders,
+        syncQueue,
+        burnedAnchors,
+        flaggedContent,
+      ] = await Promise.all([
         getExportSection(
           'anchors',
           exportContext,
