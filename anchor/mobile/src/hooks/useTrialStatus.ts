@@ -9,7 +9,7 @@
  * if (hasExpired && !isSubscribed) { // show paywall }
  */
 
-import { useSubscriptionStore, computeDaysRemaining } from '@/stores/subscriptionStore';
+import { useSubscriptionStore } from '@/stores/subscriptionStore';
 import { useSettingsStore } from '@/stores/settingsStore';
 
 export interface TrialStatus {
@@ -31,7 +31,11 @@ export interface TrialStatus {
 
 export function useTrialStatus(): TrialStatus {
     const subscriptionStatus = useSubscriptionStore((s) => s.subscriptionStatus);
-    const trialStartDate = useSubscriptionStore((s) => s.trialStartDate);
+    const isInTrial = useSubscriptionStore((s) => s.isInTrial);
+    const isSubscribedSnapshot = useSubscriptionStore((s) => s.isSubscribed);
+    const hasActiveEntitlementSnapshot = useSubscriptionStore((s) => s.hasActiveEntitlement);
+    const daysRemainingSnapshot = useSubscriptionStore((s) => s.daysRemaining);
+    const trialExpiredSnapshot = useSubscriptionStore((s) => s.trialExpired);
     const remoteCompedAccess = useSubscriptionStore((s) => s.remoteCompedAccess);
     const devOverrideEnabled = useSubscriptionStore((s) => s.devOverrideEnabled);
     const devTierOverride = useSubscriptionStore((s) => s.devTierOverride);
@@ -102,24 +106,20 @@ export function useTrialStatus(): TrialStatus {
         };
     }
 
-    const daysRemaining = computeDaysRemaining(trialStartDate);
-    const isSubscribed = subscriptionStatus === 'active';
-
-    // RC only tracks paid entitlements — it has no concept of this app's local 7-day trial.
-    // Using rcHasActiveEntitlement to gate trial access would expire every new free-trial user
-    // the moment RC syncs. Instead, rely on the local clock:
-    //   - 'trial' + (null trialStartDate OR days remaining) → active
-    //   - 'expired' (set by useTrialInit after 7 days) → expired
-    //   - 'active' (set by applyTrialStatus on paid purchase) → isSubscribed = true
-    const isTrialActive = subscriptionStatus === 'trial' && (trialStartDate === null || daysRemaining > 0);
-    const hasExpired = !isSubscribed && !isTrialActive;
+    const isSubscribed = subscriptionStatus === 'active' || isSubscribedSnapshot;
+    const isTrialActive = subscriptionStatus === 'trial' || isInTrial;
+    const hasActiveEntitlement =
+        hasActiveEntitlementSnapshot || isSubscribed || isTrialActive;
+    const hasExpired =
+        !hasActiveEntitlement && (subscriptionStatus === 'expired' || trialExpiredSnapshot);
+    const daysRemaining = daysRemainingSnapshot ?? 0;
 
     return {
         isTrialActive,
         isSubscribed,
         hasExpired,
         trialExpired: hasExpired,
-        hasActiveEntitlement: isSubscribed || isTrialActive,
+        hasActiveEntitlement,
         daysRemaining,
         subscriptionStatus,
     };

@@ -55,7 +55,7 @@ export const ConfirmUnchargedBurnSheet: React.FC<ConfirmUnchargedBurnSheetProps>
           <Pressable style={styles.sheet} onPress={(e) => e.stopPropagation()}>
             <View style={styles.handle} />
 
-            <Text style={styles.title}>Unplanted Intention</Text>
+            <Text style={styles.title}>Uncharged Anchor</Text>
 
             {intentionText && (
               <Text style={styles.intention} numberOfLines={2}>
@@ -64,9 +64,10 @@ export const ConfirmUnchargedBurnSheet: React.FC<ConfirmUnchargedBurnSheetProps>
             )}
 
             <Text style={styles.body}>
-              Your intention has not been implanted. Releasing this anchor now will disperse its energy before it has been grounded.
-              {"\n\n"}
-              Are you certain you wish to proceed with the ritual of release?
+              This anchor has not been charged yet. If you release it now, you will lose it
+              before it becomes part of your practice.
+              {'\n\n'}
+              Release it anyway?
             </Text>
 
             <View style={styles.actions}>
@@ -75,7 +76,7 @@ export const ConfirmUnchargedBurnSheet: React.FC<ConfirmUnchargedBurnSheetProps>
                 onPress={handleConfirm}
                 activeOpacity={0.8}
               >
-                <Text style={styles.confirmButtonText}>Release Anyway</Text>
+                <Text style={styles.confirmButtonText}>Release Anchor</Text>
               </TouchableOpacity>
 
               <TouchableOpacity
@@ -83,7 +84,7 @@ export const ConfirmUnchargedBurnSheet: React.FC<ConfirmUnchargedBurnSheetProps>
                 onPress={handleCancel}
                 activeOpacity={0.8}
               >
-                <Text style={styles.cancelButtonText}>Keep & Ground</Text>
+                <Text style={styles.cancelButtonText}>Keep Anchor</Text>
               </TouchableOpacity>
             </View>
           </Pressable>

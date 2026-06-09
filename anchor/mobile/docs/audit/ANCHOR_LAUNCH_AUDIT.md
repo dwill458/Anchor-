@@ -80,7 +80,7 @@ Severity: `BLOCKER` | `HIGH` | `MEDIUM` | `LOW` | `NOTE`
 
 ## SECTION 3 — PRO / FREE GATING
 
-Freemium is removed: `entitlements.ts:20-44` returns **identical** flags for `free` and `pro`. Access is gated by a **single trial-expiry boundary** at the navigation root (`RootNavigator.tsx:82` → `TrialEndScreen`/`Paywall`).
+Freemium is removed: `entitlements.ts:20-44` returns **identical** flags for `free` and `pro`. Access is gated by a **single trial-expiry boundary** driven by `App.tsx` (`showExpiredTrialPaywall` → `resetRoot` → `'Paywall'` route). The conditional `TrialEndScreen` registration was removed from `RootNavigator`; the `Paywall` route is the sole paywall entry point.
 
 | Feature | Tier | UI gate | Logic gate | Notes |
 |---|---|---|---|---|

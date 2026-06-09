@@ -11,6 +11,7 @@ import {
   Alert,
   Animated,
   Easing,
+  Image,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -89,6 +90,11 @@ const HEADLINES: Record<HeadlineId, { eyebrow: string; titleA: string; titleB: s
     titleEm: 'Anchor.',
     sub: 'Continue with unlimited forging, priming, and lock-screen export.',
   },
+};
+
+const DISMISS_COPY: Record<PaywallSource, string> = {
+  post_trial: "Not ready today? Close this and keep practicing. Your anchor will be here when you're ready.",
+  gated_feature: 'Not ready today? Close this and keep practicing. Come back anytime for the full experience.',
 };
 
 const FALLBACK_PLAN_VALUES = {
@@ -261,6 +267,11 @@ function OrbitRing({ reduceMotion }: { reduceMotion: boolean }) {
 }
 
 function HeroSigil({ anchor }: { anchor: Anchor | null }) {
+  const artworkUri =
+    anchor?.enhancedImageUrl ??
+    ((anchor as { sigilUri?: string | null; finalImageUrl?: string | null } | null)?.sigilUri ??
+      (anchor as { finalImageUrl?: string | null } | null)?.finalImageUrl ??
+      null);
   const sigilXml = anchor?.reinforcedSigilSvg || anchor?.baseSigilSvg || null;
   const reduceMotion = useReduceMotionEnabled();
 
@@ -269,7 +280,14 @@ function HeroSigil({ anchor }: { anchor: Anchor | null }) {
       <View style={styles.sigilHalo} />
       <OrbitRing reduceMotion={reduceMotion} />
       <View style={styles.sigilCore} testID="paywall-primary-anchor">
-        {sigilXml ? (
+        {artworkUri ? (
+          <Image
+            source={{ uri: artworkUri }}
+            style={styles.sigilArtwork}
+            resizeMode="cover"
+            testID="paywall-primary-anchor-image"
+          />
+        ) : sigilXml ? (
           <SvgXml xml={sigilXml} width={46} height={46} testID="paywall-primary-anchor-svg" />
         ) : (
           <FallbackAnchorMark size={46} />
@@ -353,6 +371,7 @@ export const PaywallScreen: React.FC = () => {
   const plans = useMemo(() => buildPlans(offeringMetadata), [offeringMetadata]);
   const selectedPlan = plans[selectedPlanId];
   const headline = HEADLINES[PAYWALL_EXPERIMENT.headline];
+  const dismissCopy = DISMISS_COPY[source];
   const showRecap = PAYWALL_EXPERIMENT.showRecap && (source === 'post_trial' || forgedCount + totalPrimes + primeStreak > 0);
 
   useEffect(() => {
@@ -394,7 +413,7 @@ export const PaywallScreen: React.FC = () => {
 
   const handleDismiss = useCallback(() => {
     AnalyticsService.track('paywall_dismissed', { source });
-    navigation.goBack();
+    navigation.reset({ index: 0, routes: [{ name: 'Main' }] });
   }, [navigation, source]);
 
   const handleSelectPlan = useCallback((plan: PlanId) => {
@@ -505,6 +524,7 @@ export const PaywallScreen: React.FC = () => {
               <Text style={styles.titleEm}>{headline.titleEm}</Text>
             </Text>
             <Text style={styles.sub}>{headline.sub}</Text>
+            <Text style={styles.dismissCopy}>{dismissCopy}</Text>
 
             {showRecap ? (
               <View testID="paywall-recap">
@@ -613,7 +633,7 @@ const styles = StyleSheet.create({
   },
   closeButton: {
     position: 'absolute',
-    top: 8,
+    top: 18,
     right: 14,
     width: 44,
     height: 44,
@@ -668,18 +688,23 @@ const styles = StyleSheet.create({
     backgroundColor: colors.sanctuary.goldBright,
   },
   sigilCore: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
+    width: 86,
+    height: 86,
+    borderRadius: 43,
     backgroundColor: '#100820',
     borderWidth: 1,
     borderColor: withAlpha(colors.gold, 0.3),
     alignItems: 'center',
     justifyContent: 'center',
+    overflow: 'hidden',
     shadowColor: colors.purple,
     shadowOpacity: 0.5,
     shadowRadius: 30,
     elevation: 6,
+  },
+  sigilArtwork: {
+    width: '100%',
+    height: '100%',
   },
   anchorCap: {
     fontFamily: typography.fonts.mono,
@@ -719,6 +744,15 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginTop: 8,
     maxWidth: 310,
+  },
+  dismissCopy: {
+    fontFamily: typography.fonts.bodySerif,
+    fontSize: 13,
+    lineHeight: 19,
+    color: withAlpha(colors.bone, 0.52),
+    textAlign: 'center',
+    marginTop: 12,
+    maxWidth: 320,
   },
   recap: {
     flexDirection: 'row',
@@ -795,11 +829,7 @@ const styles = StyleSheet.create({
   },
   planSelected: {
     borderColor: withAlpha(colors.gold, 0.65),
-    backgroundColor: withAlpha(colors.gold, 0.08),
-    shadowColor: colors.gold,
-    shadowOpacity: 0.12,
-    shadowRadius: 30,
-    elevation: 5,
+    backgroundColor: withAlpha(colors.bone, 0.025),
   },
   planPressed: {
     transform: [{ scale: 0.99 }],

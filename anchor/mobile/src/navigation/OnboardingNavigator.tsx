@@ -1,7 +1,7 @@
 /**
  * OnboardingNavigator - Stack navigator for first-run onboarding
  *
- * Flow: LogoBreath (500ms) → Welcome → (5-screen narrative)
+ * Flow: LogoBreath (500ms) → Narrative onboarding → account entry
  */
 
 import React from 'react';

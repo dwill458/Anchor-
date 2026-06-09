@@ -3,16 +3,6 @@ import { persist, createJSONStorage } from 'zustand/middleware';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { SubscriptionStatus } from '@/types';
 
-const TRIAL_DURATION_DAYS = 7;
-
-/** Derive days remaining from a stored ISO trialStartDate string. */
-function computeDaysRemaining(trialStartDate: string | null): number {
-    if (!trialStartDate) return 0;
-    const msElapsed = Date.now() - new Date(trialStartDate).getTime();
-    const daysElapsed = Math.floor(msElapsed / 86_400_000);
-    return Math.max(0, TRIAL_DURATION_DAYS - daysElapsed);
-}
-
 interface TrialStatusSnapshot {
     isInTrial: boolean;
     isSubscribed: boolean;
@@ -26,8 +16,7 @@ interface SubscriptionState extends TrialStatusSnapshot {
     rcTier: SubscriptionStatus;
     remoteCompedAccess: boolean;
 
-    // Trial state (local, AsyncStorage-persisted)
-    trialStartDate: string | null;
+    // Account-backed entitlement cache (persisted for cold starts)
     subscriptionStatus: 'trial' | 'active' | 'expired';
 
     // Developer override controls
@@ -39,13 +28,13 @@ interface SubscriptionState extends TrialStatusSnapshot {
 
     // Actions
     setRcTier: (tier: SubscriptionStatus) => void;
-    setTrialStartDate: (date: string) => void;
     setSubscriptionStatus: (status: 'trial' | 'active' | 'expired') => void;
     setTrialState: (snapshot: TrialStatusSnapshot) => void;
     setRemoteCompedAccess: (enabled: boolean) => void;
     setDevOverrideEnabled: (enabled: boolean) => void;
     setDevTierOverride: (tier: 'free' | 'pro' | 'trial' | 'expired') => void;
     setRcSynced: (synced: boolean) => void;
+    resetEntitlementState: () => void;
     resetOverrides: () => void;
 
     // Computed values (accessed via selectors or the hook)
@@ -57,8 +46,7 @@ export const useSubscriptionStore = create<SubscriptionState>()(
         (set, get) => ({
             rcTier: 'free',
             remoteCompedAccess: false,
-            trialStartDate: null,
-            subscriptionStatus: 'trial',
+            subscriptionStatus: 'expired',
             devOverrideEnabled: false,
             devTierOverride: 'pro',
             rcSynced: false,
@@ -71,13 +59,22 @@ export const useSubscriptionStore = create<SubscriptionState>()(
             trialExpired: false,
 
             setRcTier: (tier) => set({ rcTier: tier }),
-            setTrialStartDate: (date) => set({ trialStartDate: date }),
             setSubscriptionStatus: (status) => set({ subscriptionStatus: status }),
             setTrialState: (snapshot) => set(snapshot),
             setRemoteCompedAccess: (enabled) => set({ remoteCompedAccess: enabled }),
             setDevOverrideEnabled: (enabled) => set({ devOverrideEnabled: enabled }),
             setDevTierOverride: (tier) => set({ devTierOverride: tier }),
             setRcSynced: (synced) => set({ rcSynced: synced }),
+            resetEntitlementState: () => set({
+                rcTier: 'free',
+                subscriptionStatus: 'expired',
+                rcSynced: false,
+                isInTrial: false,
+                isSubscribed: false,
+                hasActiveEntitlement: false,
+                daysRemaining: null,
+                trialExpired: false,
+            }),
 
             resetOverrides: () => set({
                 devOverrideEnabled: false,
@@ -91,9 +88,7 @@ export const useSubscriptionStore = create<SubscriptionState>()(
                     rcTier,
                     remoteCompedAccess,
                     subscriptionStatus,
-                    trialStartDate,
                     hasActiveEntitlement,
-                    rcSynced,
                 } = get();
 
                 if (__DEV__ && devOverrideEnabled) {
@@ -104,16 +99,14 @@ export const useSubscriptionStore = create<SubscriptionState>()(
 
                 if (remoteCompedAccess) return 'pro';
 
-                // Active paid subscription always wins
-                if (rcTier.startsWith('pro') || subscriptionStatus === 'active') return 'pro';
-
-                // After RC has confirmed state, require entitlement (closes reinstall trial bypass)
-                if (rcSynced) {
-                    return hasActiveEntitlement ? 'pro' : 'free';
+                if (
+                    rcTier.startsWith('pro') ||
+                    subscriptionStatus === 'active' ||
+                    subscriptionStatus === 'trial' ||
+                    hasActiveEntitlement
+                ) {
+                    return 'pro';
                 }
-
-                // Before RC sync: fall back to local trial clock (offline UX cache)
-                if (subscriptionStatus === 'trial' && computeDaysRemaining(trialStartDate) > 0) return 'pro';
 
                 return 'free';
             },
@@ -121,14 +114,20 @@ export const useSubscriptionStore = create<SubscriptionState>()(
         {
             name: 'anchor-subscription-override-storage',
             storage: createJSONStorage(() => AsyncStorage),
-            version: 2,
+            version: 3,
             migrate: (persistedState: any, version: number) => {
-                // v1 → v2: add trialStartDate and subscriptionStatus
-                if (version < 2) {
+                if (version < 3) {
+                    const nextStatus =
+                        persistedState?.subscriptionStatus === 'active' ? 'active' : 'expired';
+
                     return {
                         ...persistedState,
-                        trialStartDate: persistedState.trialStartDate ?? null,
-                        subscriptionStatus: persistedState.subscriptionStatus ?? 'trial',
+                        subscriptionStatus: nextStatus,
+                        isInTrial: false,
+                        isSubscribed: nextStatus === 'active',
+                        hasActiveEntitlement: nextStatus === 'active',
+                        daysRemaining: null,
+                        trialExpired: nextStatus === 'expired',
                     };
                 }
                 return persistedState;
@@ -136,11 +135,13 @@ export const useSubscriptionStore = create<SubscriptionState>()(
             partialize: (state) => ({
                 devOverrideEnabled: state.devOverrideEnabled,
                 devTierOverride: state.devTierOverride,
-                trialStartDate: state.trialStartDate,
                 subscriptionStatus: state.subscriptionStatus,
+                isInTrial: state.isInTrial,
+                isSubscribed: state.isSubscribed,
+                hasActiveEntitlement: state.hasActiveEntitlement,
+                daysRemaining: state.daysRemaining,
+                trialExpired: state.trialExpired,
             }),
         }
     )
 );
-
-export { computeDaysRemaining, TRIAL_DURATION_DAYS };

@@ -211,6 +211,21 @@ describe('anchorStore', () => {
 
       expect(result.current.currentAnchorId).toBe('anchor-2');
     });
+
+    it('recalculates total primes when activation counts change', () => {
+      const { result } = renderHook(() => useAnchorStore());
+      const anchors = [
+        createMockAnchor({ id: 'anchor-1', activationCount: 1 }),
+        createMockAnchor({ id: 'anchor-2', activationCount: 2 }),
+      ];
+
+      act(() => {
+        result.current.setAnchors(anchors);
+        result.current.updateAnchor('anchor-2', { activationCount: 5 });
+      });
+
+      expect(result.current.totalPrimes).toBe(6);
+    });
   });
 
   describe('removeAnchor', () => {
@@ -254,11 +269,14 @@ describe('anchorStore', () => {
   });
 
   describe('incrementTotalPrimes', () => {
-    it('increments lifetime prime count', () => {
+    it('reconciles lifetime prime count from anchor activation totals', () => {
       const { result } = renderHook(() => useAnchorStore());
 
       act(() => {
-        result.current.incrementTotalPrimes();
+        result.current.setAnchors([
+          createMockAnchor({ id: 'anchor-1', activationCount: 0 }),
+        ]);
+        result.current.updateAnchor('anchor-1', { activationCount: 2 });
         result.current.incrementTotalPrimes();
       });
 

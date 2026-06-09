@@ -39,6 +39,17 @@ export const FirstAnchorAccountGateScreen: React.FC = () => {
   const setDevOverrideEnabled = useSubscriptionStore((s) => s.setDevOverrideEnabled);
   const setDevTierOverride = useSubscriptionStore((s) => s.setDevTierOverride);
   const { isTrialActive, hasExpired } = useTrialStatus();
+  const accountIntroCopy = React.useMemo(() => {
+    if (hasExpired) {
+      return 'Sign in to recover this anchor, or create an account to save it and choose a plan before entering the Vault.';
+    }
+
+    if (isTrialActive) {
+      return 'Your trial access is active. Sign in or create an account to save this anchor to your Vault and keep your progress attached to you.';
+    }
+
+    return 'Create an account to save this anchor to your Vault. New accounts begin with a 7-day free trial, and no card is required to start.';
+  }, [hasExpired, isTrialActive]);
 
   React.useEffect(() => {
     if (!pendingFirstAnchorDraft) {
@@ -114,10 +125,10 @@ export const FirstAnchorAccountGateScreen: React.FC = () => {
       <SafeAreaView style={styles.safeArea}>
         <View style={styles.content}>
           <Text style={styles.eyebrow}>FIRST VAULT ENTRY</Text>
-          <Text style={styles.title}>Create an account to keep this anchor.</Text>
+          <Text style={styles.title}>Your first anchor is ready.</Text>
           <Text style={styles.body}>
-            Your first anchor is ready. We need an account before it can enter your Vault so it
-            stays attached to you and syncs correctly.
+            We need an account before it can enter your Vault so it stays attached to you and
+            syncs correctly.
           </Text>
 
           <View style={styles.card}>
@@ -128,9 +139,9 @@ export const FirstAnchorAccountGateScreen: React.FC = () => {
                 </Text>
                 <Text style={styles.cardBody}>
                   {isFinalizingPendingFirstAnchor
-                    ? 'We are attaching your first anchor to this account and replaying your ritual progress.'
+                    ? 'We are attaching your first anchor to this account and replaying the progress you already made.'
                     : pendingFirstAnchorError ||
-                      'You are signed in. Finish syncing your first anchor to continue into the Vault.'}
+                      'You are signed in. Finish saving this anchor to continue into the Vault.'}
                 </Text>
 
                 {isFinalizingPendingFirstAnchor ? (
@@ -166,9 +177,7 @@ export const FirstAnchorAccountGateScreen: React.FC = () => {
             ) : (
               <>
                 <Text style={styles.cardTitle}>Account required</Text>
-                <Text style={styles.cardBody}>
-                  Sign up or sign in to save this first anchor before entering the Vault.
-                </Text>
+                <Text style={styles.cardBody}>{accountIntroCopy}</Text>
 
                 <TouchableOpacity
                   style={styles.primaryButton}

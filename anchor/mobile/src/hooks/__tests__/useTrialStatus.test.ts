@@ -2,23 +2,19 @@ import { renderHook } from '@testing-library/react-native';
 import { useTrialStatus } from '../useTrialStatus';
 
 let mockState = {
-  subscriptionStatus: 'trial' as 'trial' | 'active' | 'expired',
-  trialStartDate: null as string | null,
+  subscriptionStatus: 'expired' as 'trial' | 'active' | 'expired',
+  isInTrial: false,
+  isSubscribed: false,
+  hasActiveEntitlement: false,
+  daysRemaining: null as number | null,
+  trialExpired: false,
   remoteCompedAccess: false,
   devOverrideEnabled: false,
   devTierOverride: 'pro' as 'free' | 'pro' | 'trial' | 'expired',
-  rcSynced: false,
-  hasActiveEntitlement: false,
 };
 
 jest.mock('@/stores/subscriptionStore', () => ({
   useSubscriptionStore: (selector: (state: typeof mockState) => unknown) => selector(mockState),
-  computeDaysRemaining: (trialStartDate: string | null) => {
-    if (!trialStartDate) return 0;
-    const start = new Date(trialStartDate).getTime();
-    const elapsedDays = Math.floor((Date.now() - start) / 86_400_000);
-    return Math.max(0, 7 - elapsedDays);
-  },
 }));
 
 jest.mock('@/stores/settingsStore', () => ({
@@ -27,32 +23,37 @@ jest.mock('@/stores/settingsStore', () => ({
 }));
 
 describe('useTrialStatus', () => {
-  it('returns active trial state', () => {
+  it('returns active trial state from RevenueCat-backed snapshot', () => {
     mockState = {
       subscriptionStatus: 'trial',
-      trialStartDate: new Date().toISOString(),
+      isInTrial: true,
+      isSubscribed: false,
+      hasActiveEntitlement: true,
+      daysRemaining: 6,
+      trialExpired: false,
       remoteCompedAccess: false,
       devOverrideEnabled: false,
       devTierOverride: 'pro',
-      rcSynced: false,
-      hasActiveEntitlement: false,
     };
 
     const { result } = renderHook(() => useTrialStatus());
 
     expect(result.current.isTrialActive).toBe(true);
     expect(result.current.hasActiveEntitlement).toBe(true);
+    expect(result.current.daysRemaining).toBe(6);
   });
 
   it('returns subscribed state', () => {
     mockState = {
       subscriptionStatus: 'active',
-      trialStartDate: null,
+      isInTrial: false,
+      isSubscribed: true,
+      hasActiveEntitlement: true,
+      daysRemaining: null,
+      trialExpired: false,
       remoteCompedAccess: false,
       devOverrideEnabled: false,
       devTierOverride: 'pro',
-      rcSynced: false,
-      hasActiveEntitlement: false,
     };
 
     const { result } = renderHook(() => useTrialStatus());
@@ -64,12 +65,14 @@ describe('useTrialStatus', () => {
   it('returns expired state', () => {
     mockState = {
       subscriptionStatus: 'expired',
-      trialStartDate: null,
+      isInTrial: false,
+      isSubscribed: false,
+      hasActiveEntitlement: false,
+      daysRemaining: 0,
+      trialExpired: true,
       remoteCompedAccess: false,
       devOverrideEnabled: false,
       devTierOverride: 'pro',
-      rcSynced: false,
-      hasActiveEntitlement: false,
     };
 
     const { result } = renderHook(() => useTrialStatus());
@@ -81,12 +84,14 @@ describe('useTrialStatus', () => {
   it('treats remote comped access as subscribed', () => {
     mockState = {
       subscriptionStatus: 'expired',
-      trialStartDate: null,
+      isInTrial: false,
+      isSubscribed: false,
+      hasActiveEntitlement: false,
+      daysRemaining: 0,
+      trialExpired: true,
       remoteCompedAccess: true,
       devOverrideEnabled: false,
       devTierOverride: 'pro',
-      rcSynced: false,
-      hasActiveEntitlement: false,
     };
 
     const { result } = renderHook(() => useTrialStatus());
@@ -96,61 +101,23 @@ describe('useTrialStatus', () => {
     expect(result.current.subscriptionStatus).toBe('active');
   });
 
-  it('returns trial active (not expired) when trialStartDate is null and status is trial', () => {
+  it('keeps a persisted trial active before the next RevenueCat refresh', () => {
     mockState = {
       subscriptionStatus: 'trial',
-      trialStartDate: null,
+      isInTrial: false,
+      isSubscribed: false,
+      hasActiveEntitlement: false,
+      daysRemaining: null,
+      trialExpired: false,
       remoteCompedAccess: false,
       devOverrideEnabled: false,
       devTierOverride: 'pro',
-      rcSynced: false,
-      hasActiveEntitlement: false,
     };
 
     const { result } = renderHook(() => useTrialStatus());
 
     expect(result.current.isTrialActive).toBe(true);
     expect(result.current.hasExpired).toBe(false);
-  });
-
-  it('does not expire a new user when RC has synced with no paid entitlement (post-onboarding race)', () => {
-    // RC syncs during onboarding and returns hasActiveEntitlement=false (no paid sub).
-    // Trial hasn't been stamped yet. RC does not track our free trial, so the user
-    // should remain in trial regardless of RC sync state.
-    mockState = {
-      subscriptionStatus: 'trial',
-      trialStartDate: null,
-      remoteCompedAccess: false,
-      devOverrideEnabled: false,
-      devTierOverride: 'pro',
-      rcSynced: true,
-      hasActiveEntitlement: false,
-    };
-
-    const { result } = renderHook(() => useTrialStatus());
-
-    expect(result.current.isTrialActive).toBe(true);
-    expect(result.current.hasExpired).toBe(false);
-  });
-
-  it('does not expire a user mid-trial when RC has synced with no paid entitlement', () => {
-    // RC syncs after trial is stamped. RC returns no paid entitlement (normal for trial users).
-    // Trial has 5 days left — should still be active.
-    const fiveDaysAgo = new Date(Date.now() - 5 * 86_400_000).toISOString();
-    mockState = {
-      subscriptionStatus: 'trial',
-      trialStartDate: fiveDaysAgo,
-      remoteCompedAccess: false,
-      devOverrideEnabled: false,
-      devTierOverride: 'pro',
-      rcSynced: true,
-      hasActiveEntitlement: false,
-    };
-
-    const { result } = renderHook(() => useTrialStatus());
-
-    expect(result.current.isTrialActive).toBe(true);
-    expect(result.current.hasExpired).toBe(false);
-    expect(result.current.daysRemaining).toBe(2);
+    expect(result.current.daysRemaining).toBe(0);
   });
 });

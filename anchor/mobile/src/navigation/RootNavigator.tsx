@@ -7,67 +7,30 @@
  * Flow:
  * - First-time users: Onboarding
  * - Returning users: Main
- * - Expired trial after onboarding: PaywallScreen presented over Main
+ * - Expired trial after onboarding: PaywallScreen presented over Main via
+ *   `App.tsx` (resetRoot once RevenueCat confirms the entitlement is expired)
  * - Profile: Accessed via header avatar (modal)
  */
 
-import React, { useEffect } from 'react';
+import React from 'react';
 import type { NavigatorScreenParams } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { OnboardingNavigator } from './OnboardingNavigator';
 import { MainTabNavigator } from './MainTabNavigator';
 import { ProfileStackNavigator } from './ProfileStackNavigator';
 import { PaywallScreen } from '../screens/paywall/PaywallScreen';
-import TrialEndScreen from '../screens/TrialEndScreen';
 import { useAuthStore } from '../stores/authStore';
 import { useSettingsStore } from '../stores/settingsStore';
-import { useSubscriptionStore } from '../stores/subscriptionStore';
-import { useTrialStatus } from '../hooks/useTrialStatus';
 import type { ProfileStackParamList } from './ProfileStackNavigator';
 
 export type RootNavigatorParamList = {
   Onboarding: undefined;
   Main: undefined;
   Paywall: { source?: 'post_trial' | 'gated_feature' } | undefined;
-  TrialEndScreen: undefined;
   Settings: NavigatorScreenParams<ProfileStackParamList> | undefined;
 };
 
 const Stack = createNativeStackNavigator<RootNavigatorParamList>();
-
-/**
- * useTrialInit — sets trialStartDate when onboarding is complete/bypassed if not already set,
- * and transitions expired trials to 'expired' status on every mount.
- */
-function useTrialInit(showOnboarding: boolean) {
-  const trialStartDate = useSubscriptionStore((s) => s.trialStartDate);
-  const subscriptionStatus = useSubscriptionStore((s) => s.subscriptionStatus);
-  const setTrialStartDate = useSubscriptionStore((s) => s.setTrialStartDate);
-  const setSubscriptionStatus = useSubscriptionStore((s) => s.setSubscriptionStatus);
-
-  useEffect(() => {
-    // If user is still in onboarding, do not stamp the trial start date yet
-    if (showOnboarding) {
-      return;
-    }
-
-    // First launch post-onboarding: stamp the trial start date
-    if (!trialStartDate && subscriptionStatus !== 'active') {
-      setTrialStartDate(new Date().toISOString());
-      setSubscriptionStatus('trial');
-      return;
-    }
-
-    // Daily check: expire the trial if 7 days have passed
-    if (trialStartDate && subscriptionStatus === 'trial') {
-      const msElapsed = Date.now() - new Date(trialStartDate).getTime();
-      const daysElapsed = Math.floor(msElapsed / 86_400_000);
-      if (daysElapsed >= 7) {
-        setSubscriptionStatus('expired');
-      }
-    }
-  }, [trialStartDate, subscriptionStatus, setTrialStartDate, setSubscriptionStatus, showOnboarding]);
-}
 
 export const RootNavigator: React.FC = () => {
   const { hasCompletedOnboarding } = useAuthStore();
@@ -81,11 +44,6 @@ export const RootNavigator: React.FC = () => {
     __DEV__ && (developerSkipOnboardingEnabled || developerMasterAccountEnabled);
   const showOnboarding = !shouldBypassOnboarding && !hasCompletedOnboarding;
 
-  useTrialInit(showOnboarding);
-
-  const { hasExpired, isSubscribed } = useTrialStatus();
-  const showTrialEnd = !showOnboarding && hasExpired && !isSubscribed;
-
   return (
     <Stack.Navigator screenOptions={{ headerShown: false }}>
       {showOnboarding ? (
@@ -93,13 +51,6 @@ export const RootNavigator: React.FC = () => {
       ) : (
         <>
           <Stack.Screen name="Main" component={MainTabNavigator} />
-          {showTrialEnd && (
-            <Stack.Screen
-              name="TrialEndScreen"
-              component={TrialEndScreen}
-              options={{ animation: 'default' }}
-            />
-          )}
           {/* Profile/Settings as modal */}
           <Stack.Screen
             name="Settings"

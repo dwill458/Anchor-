@@ -11,7 +11,6 @@ import { useNavigation, useRoute, type RouteProp } from '@react-navigation/nativ
 import type { StackNavigationProp } from '@react-navigation/stack';
 import { OptimizedImage, SigilSvg } from '@/components/common';
 import { useAnchorStore } from '@/stores/anchorStore';
-import { useAuthStore } from '@/stores/authStore';
 import type { RootStackParamList } from '@/types';
 import { colors, spacing, typography } from '@/theme';
 
@@ -21,7 +20,6 @@ type SaveProgressRouteProp = RouteProp<RootStackParamList, 'SaveProgress'>;
 export const SaveProgressScreen: React.FC = () => {
   const navigation = useNavigation<NavigationProp>();
   const route = useRoute<SaveProgressRouteProp>();
-  const completeOnboarding = useAuthStore((state) => state.completeOnboarding);
   const anchor = useAnchorStore((state) => state.getAnchorById(route.params.anchorId));
   const enhancedImageUrl = anchor?.enhancedImageUrl ?? null;
   const sigilSvg = anchor?.reinforcedSigilSvg ?? anchor?.baseSigilSvg ?? '';
@@ -39,11 +37,6 @@ export const SaveProgressScreen: React.FC = () => {
     });
   };
 
-  const handleSkip = () => {
-    completeOnboarding();
-    navigation.replace('Vault');
-  };
-
   return (
     <View style={styles.container}>
       <LinearGradient
@@ -56,7 +49,7 @@ export const SaveProgressScreen: React.FC = () => {
           <Text style={styles.eyebrow}>SAVE PROGRESS</Text>
           <Text style={styles.title}>Your first anchor is ready.</Text>
           <Text style={styles.body}>
-            Create a free account now so this anchor stays with you before you enter the Vault.
+            Create an account or sign in to save this first anchor before you enter the Vault.
           </Text>
         </View>
 
@@ -100,14 +93,6 @@ export const SaveProgressScreen: React.FC = () => {
             activeOpacity={0.7}
           >
             <Text style={styles.secondaryText}>I already have an account</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={styles.skipButton}
-            onPress={handleSkip}
-            activeOpacity={0.7}
-          >
-            <Text style={styles.skipText}>Skip for now</Text>
           </TouchableOpacity>
         </View>
       </SafeAreaView>
@@ -236,14 +221,5 @@ const styles = StyleSheet.create({
     ...typography.body,
     fontSize: typography.sizes.body1,
     color: colors.text.secondary,
-  },
-  skipButton: {
-    paddingVertical: spacing.sm,
-    alignItems: 'center',
-  },
-  skipText: {
-    ...typography.body,
-    fontSize: typography.sizes.body2,
-    color: colors.text.tertiary,
   },
 });

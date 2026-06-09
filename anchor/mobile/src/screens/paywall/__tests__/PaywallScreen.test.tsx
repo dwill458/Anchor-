@@ -2,6 +2,8 @@ import React from 'react';
 import { StyleSheet } from 'react-native';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react-native';
 import type { Anchor } from '@/types';
+import { colors } from '@/theme';
+import { withAlpha } from '@/utils/color';
 
 const mockNavigate = jest.fn();
 const mockGoBack = jest.fn();
@@ -129,6 +131,9 @@ describe('PaywallScreen', () => {
     expect(screen.getByText('Annual')).toBeTruthy();
     expect(screen.queryByText('Lifetime')).toBeNull();
     expect(screen.getByText('Continue my practice')).toBeTruthy();
+    expect(
+      screen.getByText("Not ready today? Close this and keep practicing. Your anchor will be here when you're ready.")
+    ).toBeTruthy();
   });
 
   it('selects annual by default', () => {
@@ -139,6 +144,15 @@ describe('PaywallScreen', () => {
     expect(
       StyleSheet.flatten(screen.getByTestId('paywall-plan-check-annual').props.style).backgroundColor
     ).toBe('#f0cb6a');
+  });
+
+  it('dismisses straight to Main from the close button', () => {
+    render(<PaywallScreen />);
+
+    fireEvent.press(screen.getByLabelText('Dismiss paywall'));
+
+    expect(mockReset).toHaveBeenCalledWith({ index: 0, routes: [{ name: 'Main' }] });
+    expect(mockGoBack).not.toHaveBeenCalled();
   });
 
   it('changes plan selection without purchasing on card press', () => {
@@ -232,6 +246,24 @@ describe('PaywallScreen', () => {
     expect(screen.getByTestId('paywall-primary-anchor-svg').props.xml).toContain('winner');
   });
 
+  it('prefers enhanced artwork for the hero when available', () => {
+    mockAnchorState.anchors = [
+      buildAnchor({
+        id: 'anchor-enhanced',
+        activationCount: 8,
+        reinforcedSigilSvg: '<svg><path d="winner" /></svg>',
+        enhancedImageUrl: 'https://example.com/enhanced-anchor.png',
+      }),
+    ];
+
+    render(<PaywallScreen />);
+
+    expect(screen.getByTestId('paywall-primary-anchor-image').props.source).toEqual({
+      uri: 'https://example.com/enhanced-anchor.png',
+    });
+    expect(screen.queryByTestId('paywall-primary-anchor-svg')).toBeNull();
+  });
+
   it('uses recency as the primary-anchor tie breaker', () => {
     mockAnchorState.anchors = [
       buildAnchor({
@@ -251,6 +283,15 @@ describe('PaywallScreen', () => {
     render(<PaywallScreen />);
 
     expect(screen.getByTestId('paywall-primary-anchor-svg').props.xml).toContain('newer');
+  });
+
+  it('keeps the selected annual card free of an interior gold wash', () => {
+    render(<PaywallScreen />);
+
+    const annualPlan = screen.getByTestId('paywall-plan-annual');
+    const annualPlanStyle = StyleSheet.flatten(annualPlan.props.style);
+
+    expect(annualPlanStyle.backgroundColor).toBe(withAlpha(colors.bone, 0.025));
   });
 
   it('renders recap stats from progression and anchor state', () => {

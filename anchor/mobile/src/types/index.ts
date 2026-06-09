@@ -825,10 +825,6 @@ export type MainTabParamList = {
 export type OnboardingStackParamList = {
   LogoBreath: undefined;
   Welcome: undefined;
-  Reframe: undefined;
-  HowItWorks: undefined;
-  DailyLoop: undefined;
-  SaveProgress: undefined;
   Login: AuthScreenParams | undefined;
   SignUp: AuthScreenParams | undefined;
 };

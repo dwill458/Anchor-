@@ -12,8 +12,8 @@ beforeEach(() => {
     result.current.setRcTier('free');
     result.current.resetOverrides();
     result.current.setRemoteCompedAccess(false);
+    result.current.resetEntitlementState();
     useSubscriptionStore.setState({
-      trialStartDate: null,
       subscriptionStatus: 'expired',
       remoteCompedAccess: false,
     });
@@ -118,6 +118,12 @@ describe('subscriptionStore', () => {
       expect(result.current.getEffectiveTier()).toBe('pro');
     });
 
+    it('returns pro when persisted subscription status is trial', () => {
+      const { result } = renderHook(() => useSubscriptionStore());
+      act(() => result.current.setSubscriptionStatus('trial'));
+      expect(result.current.getEffectiveTier()).toBe('pro');
+    });
+
     it('returns pro when devOverrideEnabled and devTierOverride is pro', () => {
       const { result } = renderHook(() => useSubscriptionStore());
       act(() => {
@@ -161,6 +167,33 @@ describe('subscriptionStore', () => {
         result.current.setRcTier('free');
       });
       expect(result.current.getEffectiveTier()).toBe('free');
+    });
+  });
+
+  describe('resetEntitlementState', () => {
+    it('clears cached entitlement fields on sign-out', () => {
+      const { result } = renderHook(() => useSubscriptionStore());
+
+      act(() => {
+        result.current.setSubscriptionStatus('trial');
+        result.current.setTrialState({
+          isInTrial: true,
+          isSubscribed: false,
+          hasActiveEntitlement: true,
+          daysRemaining: 7,
+          trialExpired: false,
+        });
+        result.current.setRcTier('pro');
+        result.current.setRcSynced(true);
+        result.current.resetEntitlementState();
+      });
+
+      expect(result.current.subscriptionStatus).toBe('expired');
+      expect(result.current.isInTrial).toBe(false);
+      expect(result.current.hasActiveEntitlement).toBe(false);
+      expect(result.current.daysRemaining).toBeNull();
+      expect(result.current.rcTier).toBe('free');
+      expect(result.current.rcSynced).toBe(false);
     });
   });
 });

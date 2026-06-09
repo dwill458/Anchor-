@@ -7,6 +7,7 @@
 import { useAuthStore } from '../authStore';
 import { useAnchorStore } from '../anchorStore';
 import { useSessionStore } from '../sessionStore';
+import { useSubscriptionStore } from '../subscriptionStore';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as SecureStore from 'expo-secure-store';
 import { apiClient } from '@/services/ApiClient';
@@ -82,6 +83,7 @@ describe('authStore', () => {
       lastSyncedAt: null,
       currentAnchorId: undefined,
     });
+    useSubscriptionStore.getState().resetEntitlementState();
     jest.clearAllMocks();
   });
 
@@ -425,6 +427,28 @@ describe('authStore', () => {
       expect(state.profileData).toBeNull();
       expect(state.profileLastFetched).toBeNull();
       expect(state.isOfflineMode).toBe(false);
+    });
+
+    it('should clear cached subscription entitlement state', () => {
+      useSubscriptionStore.setState({
+        subscriptionStatus: 'trial',
+        rcTier: 'pro',
+        rcSynced: true,
+        isInTrial: true,
+        isSubscribed: false,
+        hasActiveEntitlement: true,
+        daysRemaining: 7,
+        trialExpired: false,
+      });
+
+      useAuthStore.getState().signOut();
+
+      const state = useSubscriptionStore.getState();
+      expect(state.subscriptionStatus).toBe('expired');
+      expect(state.rcTier).toBe('free');
+      expect(state.rcSynced).toBe(false);
+      expect(state.hasActiveEntitlement).toBe(false);
+      expect(state.daysRemaining).toBeNull();
     });
 
     it('should clear the vault and session history on sign out', () => {

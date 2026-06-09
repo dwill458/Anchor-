@@ -3,13 +3,12 @@
  *
  * Flow: FirstPrimeCompleteScreen (tap) → here → Vault (Sanctuary)
  *
- * Three exits:
+ * Two exits:
  *  1. Start Free Trial  — signs up then navigates to Vault
- *  2. Skip              — navigates directly to Vault
- *  3. Sign In           — navigates to Login (which lands in Vault on success)
+ *  2. Sign In           — navigates to Login (which lands in Vault on success)
  */
 
-import React, { useRef, useState, useEffect, useCallback } from 'react';
+import React, { useRef, useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -99,10 +98,6 @@ export const TrialSignUpScreen: React.FC = () => {
     ).start();
   }, [fadeAnim, slideAnim, glowAnim]);
 
-  const goToVault = useCallback(() => {
-    navigation.replace('Vault');
-  }, [navigation]);
-
   const handleSignUp = async () => {
     if (!email.trim()) {
       setError('Please enter your email address');
@@ -122,7 +117,7 @@ export const TrialSignUpScreen: React.FC = () => {
         user: result.user,
         token: result.token,
         preserveCompletedOnboarding: true,
-        launchTrialPurchase: false,
+        launchTrialPurchase: true,
       });
       navigateToVaultDestination(navigation, 'replace');
     } catch (err: any) {
@@ -164,7 +159,7 @@ export const TrialSignUpScreen: React.FC = () => {
             {/* Sign-in link */}
             <TouchableOpacity
               style={styles.signInBtn}
-              onPress={() => navigation.navigate('Login')}
+              onPress={() => navigation.navigate('Login', { context: 'save_progress' })}
               hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
             >
               <Text style={styles.signInText}>Sign In</Text>
@@ -267,15 +262,6 @@ export const TrialSignUpScreen: React.FC = () => {
             <Text style={styles.legalText}>
               No payment required today. If you subscribe later, pricing will be shown before purchase.
             </Text>
-
-            {/* Skip */}
-            <TouchableOpacity
-              style={styles.skipBtn}
-              onPress={goToVault}
-              hitSlop={{ top: 14, bottom: 14, left: 20, right: 20 }}
-            >
-              <Text style={styles.skipText}>Continue without an account →</Text>
-            </TouchableOpacity>
 
           </Animated.View>
         </ScrollView>
@@ -498,16 +484,5 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginBottom: 28,
     opacity: 0.65,
-  },
-
-  skipBtn: {
-    alignItems: 'center',
-    paddingVertical: 10,
-  },
-  skipText: {
-    fontFamily: typography.fontFamily.sans,
-    color: colors.silver,
-    fontSize: 14,
-    letterSpacing: 0.3,
   },
 });

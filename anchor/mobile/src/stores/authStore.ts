@@ -958,6 +958,7 @@ export const useAuthStore = create<AuthState>()(
         }
 
         applyCompedAccessToSubscriptionStore(null);
+        useSubscriptionStore.getState().resetEntitlementState();
         useAnchorStore.getState().clearAnchors();
         useSessionStore.getState().reset();
         useTeachingStore.getState().reset();
@@ -971,8 +972,6 @@ export const useAuthStore = create<AuthState>()(
           profileLastFetched: null,
           ...createClearedPendingFirstAnchorState(),
         });
-        // Intentionally preserved: local trial cache is device-level/offline UX state.
-        // Do not clear anchor-subscription-override-storage on account sign-out.
         void Promise.all([
           clearNotificationSession(),
           encryptedPersistStorage.removeItem(ANCHOR_VAULT_STORAGE_KEY),

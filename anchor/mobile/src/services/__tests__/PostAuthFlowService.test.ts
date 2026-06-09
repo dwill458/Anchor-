@@ -5,6 +5,7 @@ import { useAuthStore } from '@/stores/authStore';
 const mockMigrateAnchors = jest.fn();
 const mockLogIn = jest.fn();
 const mockRefreshTrialStatus = jest.fn();
+const mockPurchaseDefaultTrialPackage = jest.fn();
 const mockHydrateAuthenticatedData = jest.fn();
 const mockFinalizePendingFirstAnchorDraft = jest.fn();
 
@@ -22,7 +23,7 @@ jest.mock('@/services/RevenueCatService', () => ({
   default: {
     logIn: (...args: unknown[]) => mockLogIn(...args),
     refreshTrialStatus: (...args: unknown[]) => mockRefreshTrialStatus(...args),
-    purchaseDefaultTrialPackage: jest.fn(),
+    purchaseDefaultTrialPackage: (...args: unknown[]) => mockPurchaseDefaultTrialPackage(...args),
   },
 }));
 
@@ -56,6 +57,7 @@ describe('PostAuthFlowService', () => {
     } as any);
 
     mockFinalizePendingFirstAnchorDraft.mockResolvedValue(true);
+    mockPurchaseDefaultTrialPackage.mockReset();
   });
 
   it('migrates all local anchors during post-auth setup', async () => {
@@ -124,5 +126,35 @@ describe('PostAuthFlowService', () => {
     expect(mockHydrateAuthenticatedData).toHaveBeenNthCalledWith(2, {
       skipAnchorRefresh: false,
     });
+  });
+
+  it('launches the trial purchase flow for account-creation paths', async () => {
+    const user = createMockUser({ id: 'user-123' });
+
+    mockLogIn.mockResolvedValue({ hasActiveEntitlement: false });
+    mockPurchaseDefaultTrialPackage.mockResolvedValue({
+      dismissed: false,
+      status: {
+        isInTrial: true,
+        isSubscribed: false,
+        hasActiveEntitlement: true,
+        daysRemaining: 7,
+        trialExpired: false,
+      },
+    });
+    mockMigrateAnchors.mockResolvedValue([]);
+    mockHydrateAuthenticatedData.mockResolvedValue(undefined);
+
+    const result = await PostAuthFlowService.run({
+      user,
+      token: 'token-123',
+      preserveCompletedOnboarding: true,
+      launchTrialPurchase: true,
+    });
+
+    expect(mockPurchaseDefaultTrialPackage).toHaveBeenCalledTimes(1);
+    expect(mockRefreshTrialStatus).not.toHaveBeenCalled();
+    expect(result.trialStatus.isInTrial).toBe(true);
+    expect(result.hasActiveEntitlement).toBe(true);
   });
 });

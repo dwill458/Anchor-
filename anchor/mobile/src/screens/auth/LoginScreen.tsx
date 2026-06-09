@@ -134,7 +134,10 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ navigation, route }) =
     }
   };
 
-  const completeAuth = async (result: Awaited<ReturnType<typeof AuthService.signInWithEmail>>) => {
+  const completeAuth = async (
+    result: Awaited<ReturnType<typeof AuthService.signInWithEmail>>,
+    launchTrialPurchase: boolean
+  ) => {
     await PostAuthFlowService.run({
       user: result.user,
       token: result.token,
@@ -143,7 +146,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ navigation, route }) =
         context === 'first_anchor_gate' ||
         context === 'save_progress' ||
         context === 'paywall',
-      launchTrialPurchase: false,
+      launchTrialPurchase,
     });
 
     const shouldRouteThroughFirstAnchorGate = Boolean(
@@ -174,7 +177,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ navigation, route }) =
         hasCompletedOnboarding:
           context === 'first_anchor_gate' || context === 'save_progress' ? true : undefined,
       });
-      await completeAuth(result);
+      await completeAuth(result, false);
     } catch (err: any) {
       setError(err.message || 'Login failed');
     } finally {
@@ -199,7 +202,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ navigation, route }) =
         hasCompletedOnboarding:
           context === 'first_anchor_gate' || context === 'save_progress' ? true : undefined,
       });
-      await completeAuth(result);
+      await completeAuth(result, true);
     } catch (err: any) {
       setError(err.message || 'Sign up failed');
     } finally {
@@ -240,7 +243,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ navigation, route }) =
     void (async () => {
       try {
         const result = await AuthService.signInWithApple();
-        await completeAuth(result);
+        await completeAuth(result, !isSignIn);
       } catch (err: any) {
         if (err?.code === 'ERR_REQUEST_CANCELED') {
           return;
@@ -260,7 +263,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ navigation, route }) =
     void (async () => {
       try {
         const result = await AuthService.signInWithGoogle();
-        await completeAuth(result);
+        await completeAuth(result, !isSignIn);
       } catch (err: any) {
         if (err?.message === 'Google sign-in was cancelled.') {
           return;

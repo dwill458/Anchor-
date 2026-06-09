@@ -177,6 +177,7 @@ export const useAnchorStore = create<AnchorState>()(
 
           return {
             anchors: nextAnchors,
+            totalPrimes: calculateTotalPrimes(nextAnchors),
             currentAnchorId: shouldPromoteCurrent ? id : state.currentAnchorId,
             error: null,
           };
@@ -194,11 +195,9 @@ export const useAnchorStore = create<AnchorState>()(
         }),
 
       incrementTotalPrimes: () => {
-        const nextTotalPrimes = get().totalPrimes + 1;
-
-        set({
-          totalPrimes: nextTotalPrimes,
-        });
+        set((state) => ({
+          totalPrimes: calculateTotalPrimes(state.anchors),
+        }));
       },
 
       recordPrimeSession: () => {

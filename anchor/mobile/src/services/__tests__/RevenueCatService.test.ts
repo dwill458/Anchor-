@@ -30,6 +30,7 @@ const mockPurchases = {
   purchasePackage: jest.fn(),
   restorePurchases: jest.fn(),
   addCustomerInfoUpdateListener: jest.fn(),
+  removeCustomerInfoUpdateListener: jest.fn(),
 };
 
 jest.mock('react-native-purchases', () => {
@@ -221,5 +222,38 @@ describe('RevenueCatService', () => {
     await expect(
       RevenueCatService.purchasePackageByIdentifier('test_product')
     ).rejects.toThrow('[RevenueCat] Package "test_product" was not found in the available offerings.');
+  });
+
+  it('syncs the store on customer info updates and removes the listener on unsubscribe', () => {
+    const listener = jest.fn();
+    const unsubscribe = RevenueCatService.addCustomerInfoUpdateListener(listener);
+
+    expect(mockPurchases.addCustomerInfoUpdateListener).toHaveBeenCalledTimes(1);
+    const wrappedListener = mockPurchases.addCustomerInfoUpdateListener.mock.calls[0][0];
+
+    // Simulate a server-driven entitlement change (renewal, cancellation, etc.)
+    wrappedListener(activeCustomerInfo);
+    expect(mockSetRcTier).toHaveBeenCalledWith('pro');
+    expect(mockSetRcSynced).toHaveBeenCalledWith(true);
+    expect(listener).toHaveBeenCalledWith(activeCustomerInfo);
+
+    // Unsubscribe must remove the exact same wrapped reference.
+    unsubscribe();
+    expect(mockPurchases.removeCustomerInfoUpdateListener).toHaveBeenCalledWith(wrappedListener);
+  });
+
+  it('returns a no-op unsubscribe when the listener API is unavailable', () => {
+    const original = mockPurchases.addCustomerInfoUpdateListener;
+    // Simulate an older SDK that lacks the listener API entirely.
+    (mockPurchases as { addCustomerInfoUpdateListener?: unknown }).addCustomerInfoUpdateListener =
+      undefined;
+
+    try {
+      const unsubscribe = RevenueCatService.addCustomerInfoUpdateListener(jest.fn());
+      expect(() => unsubscribe()).not.toThrow();
+      expect(mockPurchases.removeCustomerInfoUpdateListener).not.toHaveBeenCalled();
+    } finally {
+      mockPurchases.addCustomerInfoUpdateListener = original;
+    }
   });
 });

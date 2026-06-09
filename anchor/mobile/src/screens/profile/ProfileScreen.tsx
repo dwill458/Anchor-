@@ -131,6 +131,7 @@ const VaultCell: React.FC<{
 
   return (
     <View
+      testID={`vault-cell-${anchor.id}`}
       style={[
         styles.vaultCell,
         isBurned ? styles.vaultBurnedCell : styles.vaultActiveCell,
@@ -147,7 +148,10 @@ const VaultCell: React.FC<{
         >
           <OptimizedImage
             uri={enhancedImageUrl}
-            style={styles.vaultArtwork}
+            style={[
+              styles.vaultArtwork,
+              isBurned ? styles.vaultArtworkBurned : null,
+            ]}
             resizeMode="cover"
           />
           {isBurned ? <View style={styles.vaultBurnedImageWash} /> : null}
@@ -166,6 +170,12 @@ const VaultCell: React.FC<{
           />
         </View>
       )}
+      {isBurned ? (
+        <View
+          testID={`vault-burned-overlay-${anchor.id}`}
+          style={styles.vaultBurnedVeil}
+        />
+      ) : null}
       {isBurned ? <View style={styles.emberDot} /> : null}
     </View>
   );
@@ -1006,8 +1016,8 @@ const styles = StyleSheet.create({
     borderColor: withAlpha(colors.gold, 0.14),
   },
   vaultBurnedCell: {
-    backgroundColor: withAlpha(colors.charcoal, 0.8),
-    borderColor: withAlpha(colors.bone, 0.08),
+    backgroundColor: withAlpha(colors.charcoal, 0.94),
+    borderColor: withAlpha(colors.silver, 0.16),
   },
   vaultGlow: {
     position: 'absolute',
@@ -1027,15 +1037,22 @@ const styles = StyleSheet.create({
     width: '100%',
     height: '100%',
   },
+  vaultArtworkBurned: {
+    opacity: 0.3,
+  },
   vaultBurnedImageWash: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: withAlpha(colors.black, 0.34),
+    backgroundColor: withAlpha(colors.charcoal, 0.52),
   },
   vaultSigilWrap: {
     opacity: 0.94,
   },
   vaultSigilWrapBurned: {
-    opacity: 0.48,
+    opacity: 0.24,
+  },
+  vaultBurnedVeil: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: withAlpha(colors.silver, 0.1),
   },
   emberDot: {
     position: 'absolute',
