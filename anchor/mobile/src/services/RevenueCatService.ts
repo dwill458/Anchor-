@@ -1,8 +1,10 @@
 import { Platform } from 'react-native';
 import {
   REVENUECAT_API_KEY,
+  REVENUECAT_ANNUAL_PACKAGE_ID,
   REVENUECAT_DEFAULT_PACKAGE_ID,
   REVENUECAT_ENTITLEMENT_ID,
+  REVENUECAT_MONTHLY_PACKAGE_ID,
 } from '@/config';
 import { useSubscriptionStore } from '@/stores/subscriptionStore';
 import { logger } from '@/utils/logger';
@@ -28,8 +30,20 @@ interface CustomerInfo {
   };
 }
 
+interface RevenueCatProduct {
+  identifier?: string;
+  price?: number;
+  priceString?: string;
+  pricePerMonth?: number | null;
+  pricePerMonthString?: string | null;
+  pricePerYear?: number | null;
+  pricePerYearString?: string | null;
+  currencyCode?: string;
+}
+
 interface RevenueCatPackage {
   identifier?: string;
+  product?: RevenueCatProduct;
 }
 
 interface RevenueCatOffering {
@@ -61,6 +75,24 @@ interface RevenueCatPurchases {
 
 /** Callback type for CustomerInfo update listeners. */
 export type CustomerInfoUpdateListener = (customerInfo: CustomerInfo) => void;
+
+export type RevenueCatPlanId = 'monthly' | 'annual';
+
+export interface RevenueCatPlanDisplayMetadata {
+  planId: RevenueCatPlanId;
+  packageId: string;
+  price: number | null;
+  priceString: string | null;
+  pricePerMonth: number | null;
+  pricePerMonthString: string | null;
+  pricePerYear: number | null;
+  pricePerYearString: string | null;
+  currencyCode: string | null;
+}
+
+export type RevenueCatOfferingDisplayMetadata = Partial<
+  Record<RevenueCatPlanId, RevenueCatPlanDisplayMetadata>
+>;
 
 const DEFAULT_TRIAL_STATUS: TrialStatusSnapshot = {
   isInTrial: false,
@@ -168,6 +200,26 @@ function isUserCancelled(error: unknown): boolean {
       : '';
 
   return message.includes('cancel') || message.includes('dismiss');
+}
+
+function buildPlanMetadata(
+  planId: RevenueCatPlanId,
+  packageId: string,
+  pkg: RevenueCatPackage | undefined
+): RevenueCatPlanDisplayMetadata | undefined {
+  if (!pkg) return undefined;
+
+  return {
+    planId,
+    packageId,
+    price: typeof pkg.product?.price === 'number' ? pkg.product.price : null,
+    priceString: pkg.product?.priceString ?? null,
+    pricePerMonth: typeof pkg.product?.pricePerMonth === 'number' ? pkg.product.pricePerMonth : null,
+    pricePerMonthString: pkg.product?.pricePerMonthString ?? null,
+    pricePerYear: typeof pkg.product?.pricePerYear === 'number' ? pkg.product.pricePerYear : null,
+    pricePerYearString: pkg.product?.pricePerYearString ?? null,
+    currencyCode: pkg.product?.currencyCode ?? null,
+  };
 }
 
 class RevenueCatService {
@@ -306,6 +358,35 @@ class RevenueCatService {
       }
       logger.error('[RevenueCatService] Failed to purchase package', error);
       throw error;
+    }
+  }
+
+  async getOfferingDisplayMetadata(): Promise<RevenueCatOfferingDisplayMetadata> {
+    const purchases = getPurchasesModule();
+    if (!purchases?.getOfferings) {
+      return {};
+    }
+
+    try {
+      const offerings = await purchases.getOfferings();
+      const availablePackages = offerings.current?.availablePackages ?? [];
+      const monthlyPackage = availablePackages.find(
+        (pkg) => pkg.identifier === REVENUECAT_MONTHLY_PACKAGE_ID
+      );
+      const annualPackage = availablePackages.find(
+        (pkg) => pkg.identifier === REVENUECAT_ANNUAL_PACKAGE_ID
+      );
+      const metadata: RevenueCatOfferingDisplayMetadata = {};
+      const monthlyMetadata = buildPlanMetadata('monthly', REVENUECAT_MONTHLY_PACKAGE_ID, monthlyPackage);
+      const annualMetadata = buildPlanMetadata('annual', REVENUECAT_ANNUAL_PACKAGE_ID, annualPackage);
+
+      if (monthlyMetadata) metadata.monthly = monthlyMetadata;
+      if (annualMetadata) metadata.annual = annualMetadata;
+
+      return metadata;
+    } catch (error) {
+      logger.warn('[RevenueCatService] Failed to load offering display metadata', error);
+      return {};
     }
   }
 
