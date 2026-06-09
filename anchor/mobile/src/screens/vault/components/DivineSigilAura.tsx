@@ -13,6 +13,11 @@ import {
 import { colors } from '@/theme';
 import type { PerformanceTier } from '@/hooks/usePerformanceTier';
 
+const clamp01 = (v: number): number => {
+  'worklet';
+  return v < 0 ? 0 : v > 1 ? 1 : v;
+};
+
 const TAU = Math.PI * 2;
 
 interface DivineSigilAuraProps {
@@ -153,6 +158,22 @@ export const DivineSigilAura: React.FC<DivineSigilAuraProps> = ({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [rays.length, particleCount]);
 
+  // ── Pre-allocate color buffers — avoids Skia.Color() calls inside worklets ─
+  // Calling Skia.Color() inside useDerivedValue corrupts the JSI Float32Array
+  // buffer on the worklet thread (RNSkia 2.x). Pre-cache here; mutate only
+  // the alpha component ([3]) in the worklet, matching ChargedGlowCanvas.
+  const cachedColors = useMemo(() => ({
+    haloOuter: [Skia.Color(`${colors.gold}55`), Skia.Color('rgba(0,0,0,0)')],
+    haloInner: [Skia.Color('rgba(255,220,110,0.9)'), Skia.Color('rgba(0,0,0,0)')],
+    rays: Array.from({ length: rays.length }, () => Skia.Color('rgba(255,218,122,1)')),
+    outerDots: Array.from({ length: 24 }, () => Skia.Color('rgba(255,224,125,1)')),
+    innerDots: Array.from({ length: 16 }, () => Skia.Color('rgba(255,224,125,1)')),
+    particles: Array.from({ length: particleCount }, () => Skia.Color('rgba(255,232,163,1)')),
+    sparkles: Array.from({ length: particleCount }, () => Skia.Color('rgba(255,245,204,1)')),
+    streaks: Array.from({ length: 5 }, () => Skia.Color('rgba(255,228,156,1)')),
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }), [rays.length, particleCount]);
+
   // ── Animations ────────────────────────────────────────────────────────────
   useEffect(() => {
     if (!enabled || reduceMotionEnabled || tierSuppressed || process.env.NODE_ENV === 'test') {
@@ -215,8 +236,10 @@ export const DivineSigilAura: React.FC<DivineSigilAuraProps> = ({
   }, [animationsEnabled, breath, fallbackBreath, spinSlow, spinFast, ascendProgress]);
 
   // ── Single SkPicture worklet — replaces 100+ individual React components ──
-  // rays/particles/streaks are serialized to UI thread once on worklet creation.
-  // paints are Skia JSI HostObjects, transferred safely across the thread boundary.
+  // rays/particles/streaks/cachedColors are serialized to worklet thread once.
+  // paints and cachedColors are Skia JSI HostObjects transferred safely.
+  // Alpha is mutated on pre-cached Float32Array buffers (no Skia.Color() in
+  // the worklet) to avoid JSI buffer corruption on RNSkia 2.x worklet threads.
   const picture = useDerivedValue(() => {
     const sl = spinSlow.value * TAU;
     const sf = spinFast.value * TAU;
@@ -230,11 +253,11 @@ export const DivineSigilAura: React.FC<DivineSigilAuraProps> = ({
 
     // 1. Outer halo
     {
-      const opacity = 0.22 + p * 0.22;
+      const opacity = clamp01(0.22 + p * 0.22);
       const shader = Skia.Shader.MakeRadialGradient(
         { x: center, y: center },
         maxRadius,
-        [Skia.Color(`${colors.gold}55`), Skia.Color('rgba(0,0,0,0)')],
+        cachedColors.haloOuter,
         [0, 1],
         TileMode.Clamp
       );
@@ -246,12 +269,12 @@ export const DivineSigilAura: React.FC<DivineSigilAuraProps> = ({
 
     // 2. Inner pulsing halo
     {
-      const opacity = 0.3 + p * 0.34;
+      const opacity = clamp01(0.3 + p * 0.34);
       const innerRadius = maxRadius * (0.35 + p * 0.23);
       const shader = Skia.Shader.MakeRadialGradient(
         { x: center, y: center },
         innerRadius > 0 ? innerRadius : 1,
-        [Skia.Color('rgba(255,220,110,0.9)'), Skia.Color('rgba(0,0,0,0)')],
+        cachedColors.haloInner,
         [0, 1],
         TileMode.Clamp
       );
@@ -266,35 +289,38 @@ export const DivineSigilAura: React.FC<DivineSigilAuraProps> = ({
       const ray = rays[i];
       const angle = ray.angle + sl * ray.speed;
       const rayPulse = 0.38 + p * 0.62;
-      const opacity = ray.opacity * rayPulse;
       const strokeWidth = ray.width * (0.45 + p * 0.75);
       const x2 = center + Math.cos(angle) * maxRadius * ray.length;
       const y2 = center + Math.sin(angle) * maxRadius * ray.length;
+      const c = cachedColors.rays[i];
+      c[3] = clamp01(ray.opacity * rayPulse);
       const paint = paints.rays[i];
       paint.setStrokeWidth(strokeWidth);
-      paint.setColor(Skia.Color(`rgba(255,218,122,${opacity})`));
+      paint.setColor(c);
       cnv.drawLine(center, center, x2, y2, paint);
     }
 
     // 4. Outer ring — 24 dots, CW
     for (let i = 0; i < 24; i++) {
       const angle = (i / 24) * TAU + sl * 0.24;
-      const opacity = 0.45 * (0.65 + p * 0.45);
       const dotX = center + Math.cos(angle) * maxRadius * 0.84;
       const dotY = center + Math.sin(angle) * maxRadius * 0.84;
+      const c = cachedColors.outerDots[i];
+      c[3] = clamp01(0.45 * (0.65 + p * 0.45));
       const paint = paints.outerDots[i];
-      paint.setColor(Skia.Color(`rgba(255,224,125,${opacity})`));
+      paint.setColor(c);
       cnv.drawCircle(dotX, dotY, 2.25, paint);
     }
 
     // 5. Inner ring — 16 dots, CCW
     for (let i = 0; i < 16; i++) {
       const angle = (i / 16) * TAU - sf * 0.35;
-      const opacity = 0.5 * (0.65 + p * 0.45);
       const dotX = center + Math.cos(angle) * maxRadius * 0.64;
       const dotY = center + Math.sin(angle) * maxRadius * 0.64;
+      const c = cachedColors.innerDots[i];
+      c[3] = clamp01(0.5 * (0.65 + p * 0.45));
       const paint = paints.innerDots[i];
-      paint.setColor(Skia.Color(`rgba(255,224,125,${opacity})`));
+      paint.setColor(c);
       cnv.drawCircle(dotX, dotY, 1.9, paint);
     }
 
@@ -307,15 +333,19 @@ export const DivineSigilAura: React.FC<DivineSigilAuraProps> = ({
       const px = center + Math.cos(angle) * r;
       const py = center + Math.sin(angle) * r;
       const flicker = 0.35 + Math.abs(Math.sin(sf * 2.4 + pt.angle)) * 0.65;
-      const opacity = pt.opacity * flicker * (0.5 + p * 0.5);
+      const opacity = clamp01(pt.opacity * flicker * (0.5 + p * 0.5));
+      const cp = cachedColors.particles[i];
+      cp[3] = opacity;
       const paint = paints.particles[i];
-      paint.setColor(Skia.Color(`rgba(255,232,163,${opacity})`));
+      paint.setColor(cp);
       cnv.drawCircle(px, py, pt.size, paint);
 
       if (pt.sparkle && opacity > 0.58) {
+        const cs = cachedColors.sparkles[i];
+        cs[3] = clamp01(opacity * 0.9);
         const sp = paints.sparkles[i];
         sp.setStrokeWidth(0.75);
-        sp.setColor(Skia.Color(`rgba(255,245,204,${opacity * 0.9})`));
+        sp.setColor(cs);
         cnv.drawLine(px - 4, py, px + 4, py, sp);
         cnv.drawLine(px, py - 4, px, py + 4, sp);
       }
@@ -332,13 +362,15 @@ export const DivineSigilAura: React.FC<DivineSigilAuraProps> = ({
         maxRadius * 0.16 -
         local * maxRadius * 0.6;
       const endY = startY - streak.length;
-      const fadeIn = Math.min(1, local / 0.16);
+      const fadeIn = local / 0.16 < 1 ? local / 0.16 : 1;
       const fadeOut = local > 0.72 ? (1 - local) / 0.28 : 1;
-      const opacity = Math.max(0, fadeIn * fadeOut * 0.85);
+      const opacity = clamp01(fadeIn * fadeOut * 0.85);
       if (opacity > 0.01) {
+        const c = cachedColors.streaks[i];
+        c[3] = opacity;
         const paint = paints.streaks[i];
         paint.setStrokeWidth(1.1);
-        paint.setColor(Skia.Color(`rgba(255,228,156,${opacity})`));
+        paint.setColor(c);
         cnv.drawLine(startX, startY, startX, endY, paint);
       }
     }

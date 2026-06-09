@@ -177,7 +177,7 @@ export const DataPrivacyScreen: React.FC = () => {
                                 <Text style={styles.overviewTitle}>Privacy First</Text>
                             </View>
                             <Text style={styles.overviewText}>
-                                Your anchors and intentions are your own. We collect your email address via Firebase Authentication, anonymised crash reports via Sentry, and send your intention text to Google's Gemini AI to generate your sigil. We never share your data for advertising.
+                                Your anchors and intentions are your own. Anchor stores your account email, Anchor content, subscription state, reminder preferences, and push notification tokens needed to send practice reminders. We send your intention text to Google's Gemini AI to generate sigil artwork and use Sentry for crash and performance diagnostics. We do not use your data for advertising.
                             </Text>
                         </CardWrapper>
                     </View>
@@ -201,7 +201,7 @@ export const DataPrivacyScreen: React.FC = () => {
                         />
                         <PrivacyItem
                             label="Offline Status"
-                            helperText="Review actions waiting to be synced with the cloud."
+                            helperText="Review actions and notification settings waiting to be synced with the cloud."
                             value="All systems synced"
                             icon={CloudCheck}
                         />
@@ -233,7 +233,7 @@ export const DataPrivacyScreen: React.FC = () => {
                     {/* Footer */}
                     <View style={styles.footer}>
                         <Text style={styles.footerText}>
-                            Your anchors are stored securely on our servers. We do not sell or share your data with third parties.
+                            Profile photos and exported artwork stay on your device unless you choose to share them. We do not sell your personal data.
                         </Text>
                     </View>
                 </ScrollView>

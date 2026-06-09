@@ -58,6 +58,7 @@ jest.mock('@/services/RevenueCatService', () => ({
     getOfferingDisplayMetadata: jest.fn(),
     purchasePackageByIdentifier: jest.fn(),
     restorePurchases: jest.fn(),
+    getPackagePresentations: jest.fn().mockResolvedValue({}),
   },
 }));
 
