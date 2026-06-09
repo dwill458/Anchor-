@@ -28,7 +28,7 @@ import type { ProfileStackParamList } from './ProfileStackNavigator';
 export type RootNavigatorParamList = {
   Onboarding: undefined;
   Main: undefined;
-  Paywall: undefined;
+  Paywall: { source?: 'post_trial' | 'gated_feature' } | undefined;
   TrialEndScreen: undefined;
   Settings: NavigatorScreenParams<ProfileStackParamList> | undefined;
 };

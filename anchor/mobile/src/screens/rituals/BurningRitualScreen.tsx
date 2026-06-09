@@ -59,12 +59,21 @@ export const BurningRitualScreen: React.FC = () => {
       try {
         await post(`/api/anchors/${anchorId}/burn`, {});
       } catch (error) {
-        AnalyticsService.track(AnalyticsEvents.BURN_FAILED, { anchor_id: anchorId });
-        ErrorTrackingService.captureException(
-          error instanceof Error ? error : new Error('Unknown error during anchor burn'),
-          { screen: 'BurningRitualScreen' }
-        );
-        throw error;
+        const msg = error instanceof Error ? error.message : '';
+        // 404 = anchor already deleted (e.g. previous attempt succeeded but response was lost)
+        // "already archived" = anchor archived via another path — either way it's gone
+        const isAlreadyGone =
+          msg === 'Anchor not found' || msg === 'Anchor is already archived';
+
+        if (!isAlreadyGone) {
+          AnalyticsService.track(AnalyticsEvents.BURN_FAILED, { anchor_id: anchorId });
+          ErrorTrackingService.captureException(
+            error instanceof Error ? error : new Error('Unknown error during anchor burn'),
+            { screen: 'BurningRitualScreen' }
+          );
+          throw error;
+        }
+        // Anchor is confirmed gone from server — fall through to local release
       }
     }
 

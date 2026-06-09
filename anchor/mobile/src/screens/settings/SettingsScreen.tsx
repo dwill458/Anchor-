@@ -7,6 +7,7 @@ import {
   ScrollView,
   StyleSheet,
   Text,
+  TextInput,
   TouchableOpacity,
   View,
 } from 'react-native';
@@ -87,12 +88,31 @@ export const SettingsScreen: React.FC = () => {
   const signOut = useAuthStore((state) => state.signOut);
   const reveal = useSettingsReveal();
   const [timePickerTarget, setTimePickerTarget] = useState<'wake' | 'reminder' | null>(null);
+  const [showSetPasswordModal, setShowSetPasswordModal] = useState(false);
+  const [spEmail, setSpEmail] = useState('');
+  const [spPassword, setSpPassword] = useState('');
+  const [spConfirm, setSpConfirm] = useState('');
+  const [spError, setSpError] = useState('');
+  const [spLoading, setSpLoading] = useState(false);
+  const [spShowPass, setSpShowPass] = useState(false);
+  const [spShowConfirm, setSpShowConfirm] = useState(false);
   const hasMarkedReadyRef = useRef(false);
   const frameRef = useRef<number | null>(null);
   const appVersion = Constants.expoConfig?.version ?? '1.0.0';
   const DeveloperToolsSection = __DEV__
     ? require('@/components/settings/DeveloperToolsSection').DeveloperToolsSection
     : null;
+
+  const firebaseEmail = isAuthenticated
+    ? AuthService.getCurrentFirebaseUser?.()?.email?.trim() ?? ''
+    : '';
+  const accountEmail = user?.email?.trim() || profileEmail || firebaseEmail;
+  const canSetPassword = isAuthenticated && !AuthService.getLinkedProviders().includes('password');
+  const accountSubtitle = isAuthenticated
+    ? accountEmail
+      ? 'Synced to this account'
+      : 'Syncing account details...'
+    : 'Not signed in';
 
   const handleRootLayout = useCallback(() => {
     if (hasMarkedReadyRef.current || frameRef.current !== null) {
@@ -196,6 +216,39 @@ export const SettingsScreen: React.FC = () => {
     );
   }, [navigation, signOut, setHasCompletedOnboarding]);
 
+  const handleOpenSetPassword = useCallback(() => {
+    setSpEmail(accountEmail || firebaseEmail || '');
+    setSpPassword('');
+    setSpConfirm('');
+    setSpError('');
+    setSpLoading(false);
+    setSpShowPass(false);
+    setSpShowConfirm(false);
+    setShowSetPasswordModal(true);
+  }, [accountEmail, firebaseEmail]);
+
+  const handleSubmitSetPassword = useCallback(async () => {
+    if (spPassword.length < 6) {
+      setSpError('Password must be at least 6 characters.');
+      return;
+    }
+    if (spPassword !== spConfirm) {
+      setSpError('Passwords do not match.');
+      return;
+    }
+    setSpLoading(true);
+    setSpError('');
+    try {
+      await AuthService.linkEmailPassword(spEmail, spPassword);
+      setShowSetPasswordModal(false);
+      Alert.alert('Password Set', 'You can now sign in with your email and password.');
+    } catch (error) {
+      setSpError(error instanceof Error ? error.message : 'Failed to set password.');
+    } finally {
+      setSpLoading(false);
+    }
+  }, [spEmail, spPassword, spConfirm]);
+
   const handleResetOnboarding = useCallback(async () => {
     setHasCompletedOnboarding(false);
   }, [setHasCompletedOnboarding]);
@@ -207,16 +260,6 @@ export const SettingsScreen: React.FC = () => {
   const handleSupport = () => {
     Linking.openURL(LEGAL_URLS.support);
   };
-
-  const firebaseEmail = isAuthenticated
-    ? AuthService.getCurrentFirebaseUser?.()?.email?.trim() ?? ''
-    : '';
-  const accountEmail = user?.email?.trim() || profileEmail || firebaseEmail;
-  const accountSubtitle = isAuthenticated
-    ? accountEmail
-      ? 'Synced to this account'
-      : 'Syncing account details...'
-    : 'Not signed in';
 
   useEffect(
     () => () => {
@@ -456,6 +499,14 @@ export const SettingsScreen: React.FC = () => {
               value={accountEmail || 'Not signed in'}
               type="static"
             />
+            {canSetPassword ? (
+              <SettingsRow
+                title="Set Password"
+                subtitle="Add email sign-in to your account"
+                type="chevron"
+                onPress={handleOpenSetPassword}
+              />
+            ) : null}
             {isAuthenticated ? (
               <SettingsRow title="Sign Out" type="chevron" onPress={handleSignOut} />
             ) : (
@@ -610,6 +661,80 @@ export const SettingsScreen: React.FC = () => {
           </Pressable>
         </Pressable>
       </Modal>
+      <Modal
+        visible={showSetPasswordModal}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowSetPasswordModal(false)}
+      >
+        <Pressable style={styles.hourPickerOverlay} onPress={() => setShowSetPasswordModal(false)}>
+          <Pressable style={styles.hourPickerCard} onPress={() => {}}>
+            <Text style={styles.hourPickerTitle}>Set Password</Text>
+            <Text style={styles.setPasswordSubtitle}>
+              Add a password so you can also sign in with your email.
+            </Text>
+            <View style={styles.setPasswordFields}>
+              <TextInput
+                style={styles.setPasswordInput}
+                value={spEmail}
+                onChangeText={setSpEmail}
+                keyboardType="email-address"
+                autoCapitalize="none"
+                autoCorrect={false}
+                placeholder="Email"
+                placeholderTextColor="rgba(245,245,220,0.3)"
+              />
+              <View style={styles.setPasswordInputRow}>
+                <TextInput
+                  style={[styles.setPasswordInput, styles.setPasswordInputFlex]}
+                  value={spPassword}
+                  onChangeText={setSpPassword}
+                  secureTextEntry={!spShowPass}
+                  placeholder="New password"
+                  placeholderTextColor="rgba(245,245,220,0.3)"
+                  autoCapitalize="none"
+                  autoCorrect={false}
+                />
+                <TouchableOpacity
+                  style={styles.setPasswordEye}
+                  onPress={() => setSpShowPass((v) => !v)}
+                >
+                  <Text style={styles.setPasswordEyeText}>{spShowPass ? 'Hide' : 'Show'}</Text>
+                </TouchableOpacity>
+              </View>
+              <View style={styles.setPasswordInputRow}>
+                <TextInput
+                  style={[styles.setPasswordInput, styles.setPasswordInputFlex]}
+                  value={spConfirm}
+                  onChangeText={setSpConfirm}
+                  secureTextEntry={!spShowConfirm}
+                  placeholder="Confirm password"
+                  placeholderTextColor="rgba(245,245,220,0.3)"
+                  autoCapitalize="none"
+                  autoCorrect={false}
+                />
+                <TouchableOpacity
+                  style={styles.setPasswordEye}
+                  onPress={() => setSpShowConfirm((v) => !v)}
+                >
+                  <Text style={styles.setPasswordEyeText}>{spShowConfirm ? 'Hide' : 'Show'}</Text>
+                </TouchableOpacity>
+              </View>
+              {spError ? <Text style={styles.setPasswordError}>{spError}</Text> : null}
+              <TouchableOpacity
+                style={[styles.setPasswordButton, spLoading && styles.setPasswordButtonDisabled]}
+                onPress={() => void handleSubmitSetPassword()}
+                disabled={spLoading}
+                activeOpacity={0.8}
+              >
+                <Text style={styles.setPasswordButtonText}>
+                  {spLoading ? 'Setting...' : 'Set Password'}
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </Pressable>
+        </Pressable>
+      </Modal>
     </View>
   );
 };
@@ -744,5 +869,68 @@ const styles = StyleSheet.create({
   },
   hourPickerOptionTextActive: {
     color: colors.gold,
+  },
+  setPasswordSubtitle: {
+    paddingHorizontal: 20,
+    paddingBottom: 16,
+    color: SETTINGS_MUTED_TEXT,
+    fontSize: 13,
+    fontFamily: 'Inter-Regular',
+    lineHeight: 18,
+  },
+  setPasswordFields: {
+    paddingHorizontal: 16,
+    paddingBottom: 8,
+    gap: 10,
+  },
+  setPasswordInput: {
+    backgroundColor: 'rgba(255,255,255,0.04)',
+    borderWidth: 1,
+    borderColor: 'rgba(212,175,55,0.2)',
+    borderRadius: 10,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    color: colors.bone,
+    fontSize: 14,
+    fontFamily: 'Inter-Regular',
+  },
+  setPasswordInputRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  setPasswordInputFlex: {
+    flex: 1,
+  },
+  setPasswordEye: {
+    paddingHorizontal: 4,
+    paddingVertical: 10,
+  },
+  setPasswordEyeText: {
+    color: colors.gold,
+    fontSize: 12,
+    fontFamily: 'Inter-Regular',
+  },
+  setPasswordError: {
+    color: '#e05252',
+    fontSize: 12,
+    fontFamily: 'Inter-Regular',
+  },
+  setPasswordButton: {
+    backgroundColor: 'rgba(212,175,55,0.12)',
+    borderWidth: 1,
+    borderColor: 'rgba(212,175,55,0.4)',
+    borderRadius: 12,
+    paddingVertical: 14,
+    alignItems: 'center',
+    marginTop: 4,
+  },
+  setPasswordButtonDisabled: {
+    opacity: 0.5,
+  },
+  setPasswordButtonText: {
+    color: colors.gold,
+    fontSize: 14,
+    fontFamily: 'Inter-SemiBold',
   },
 });

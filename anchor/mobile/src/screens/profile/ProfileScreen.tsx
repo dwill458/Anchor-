@@ -24,6 +24,7 @@ import { useProgressionData } from '@/hooks/useProgressionData';
 import { colors, spacing, typography } from '@/theme';
 import { withAlpha } from '@/utils/color';
 import { apiClient } from '@/services/ApiClient';
+import { persistProfilePhoto } from '@/services/ProfileMediaService';
 import { logger } from '@/utils/logger';
 import type { ApiResponse, Anchor, User } from '@/types';
 
@@ -242,17 +243,30 @@ export const ProfileScreen: React.FC = () => {
     mono: typeof mono;
     photo: string | null;
   }) => {
-    updateProfile(updates);
+    const persistedPhoto =
+      user?.id != null
+        ? await persistProfilePhoto({
+            userId: user.id,
+            photoUri: updates.photo,
+            previousPhotoUri: photo,
+          })
+        : updates.photo;
+    const nextUpdates = {
+      ...updates,
+      photo: persistedPhoto,
+    };
+
+    updateProfile(nextUpdates);
 
     if (user) {
-      const nextUser = { ...user, displayName: updates.name };
+      const nextUser = { ...user, displayName: nextUpdates.name };
       setUser(nextUser);
 
       try {
         const response = await apiClient.patch<ApiResponse<User>>(
           '/api/users/me',
           {
-            displayName: updates.name,
+            displayName: nextUpdates.name,
           }
         );
 

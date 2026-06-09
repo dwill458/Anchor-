@@ -3,8 +3,10 @@ import { useSubscriptionStore } from '@/stores/subscriptionStore';
 
 jest.mock('@/config', () => ({
   REVENUECAT_API_KEY: 'test_api_key',
+  REVENUECAT_ANNUAL_PACKAGE_ID: '$rc_annual',
   REVENUECAT_DEFAULT_PACKAGE_ID: 'test_package',
   REVENUECAT_ENTITLEMENT_ID: 'pro',
+  REVENUECAT_MONTHLY_PACKAGE_ID: '$rc_monthly',
 }));
 
 jest.mock('@/utils/logger', () => ({
@@ -134,6 +136,71 @@ describe('RevenueCatService', () => {
     expect(mockPurchases.restorePurchases).toHaveBeenCalled();
     expect(status.hasActiveEntitlement).toBe(true);
     expect(status.isSubscribed).toBe(true);
+  });
+
+  it('returns monthly and annual display metadata from current offerings', async () => {
+    mockPurchases.getOfferings.mockResolvedValueOnce({
+      current: {
+        availablePackages: [
+          {
+            identifier: '$rc_monthly',
+            product: {
+              identifier: 'anchor_monthly',
+              price: 7.99,
+              priceString: '$7.99',
+              pricePerMonth: 7.99,
+              pricePerMonthString: '$7.99',
+              pricePerYear: 95.88,
+              pricePerYearString: '$95.88',
+              currencyCode: 'USD',
+            },
+          },
+          {
+            identifier: '$rc_annual',
+            product: {
+              identifier: 'anchor_annual',
+              price: 59.99,
+              priceString: '$59.99',
+              pricePerMonth: 5,
+              pricePerMonthString: '$5.00',
+              pricePerYear: 59.99,
+              pricePerYearString: '$59.99',
+              currencyCode: 'USD',
+            },
+          },
+        ],
+      },
+    });
+
+    const metadata = await RevenueCatService.getOfferingDisplayMetadata();
+
+    expect(metadata.monthly).toEqual({
+      planId: 'monthly',
+      packageId: '$rc_monthly',
+      price: 7.99,
+      priceString: '$7.99',
+      pricePerMonth: 7.99,
+      pricePerMonthString: '$7.99',
+      pricePerYear: 95.88,
+      pricePerYearString: '$95.88',
+      currencyCode: 'USD',
+    });
+    expect(metadata.annual).toMatchObject({
+      planId: 'annual',
+      packageId: '$rc_annual',
+      price: 59.99,
+      priceString: '$59.99',
+      pricePerMonthString: '$5.00',
+      currencyCode: 'USD',
+    });
+  });
+
+  it('returns empty display metadata when offerings are missing', async () => {
+    mockPurchases.getOfferings.mockResolvedValueOnce({
+      current: null,
+    });
+
+    await expect(RevenueCatService.getOfferingDisplayMetadata()).resolves.toEqual({});
   });
 
   it('throws an error if no current offering is found', async () => {
