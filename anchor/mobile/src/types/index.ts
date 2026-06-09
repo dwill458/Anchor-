@@ -489,7 +489,7 @@ export type RootStackParamList = {
   TrialSignUp: undefined;
   AnchorDetail: { anchorId: string };
   AuthGate: undefined;
-  Paywall: undefined;
+  Paywall: { source?: 'post_trial' | 'gated_feature' } | undefined;
   CreateAnchor: undefined;
   /** First anchor creation after onboarding — shows new-user IntentionInputScreen */
   FirstAnchorCreation: undefined;

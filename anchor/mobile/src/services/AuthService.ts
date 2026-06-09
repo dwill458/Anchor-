@@ -207,6 +207,15 @@ export class AuthService {
     }
   }
 
+  static getLinkedProviders(): string[] {
+    return mockAuthEnabled ? ['mock'] : [];
+  }
+
+  static async linkEmailPassword(_email: string, _password: string): Promise<void> {
+    assertMockAuthEnabled();
+    await new Promise((resolve) => setTimeout(resolve, 500));
+  }
+
   static onAuthStateChanged(
     callback: (user: FirebaseUser | null) => void
   ): () => void {

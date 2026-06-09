@@ -28,7 +28,7 @@ import type { ProfileStackParamList } from './ProfileStackNavigator';
 export type RootNavigatorParamList = {
   Onboarding: undefined;
   Main: undefined;
-  Paywall: undefined;
+  Paywall: { source?: 'post_trial' | 'gated_feature' } | undefined;
   TrialEndScreen: undefined;
   Settings: NavigatorScreenParams<ProfileStackParamList> | undefined;
 };
@@ -36,17 +36,22 @@ export type RootNavigatorParamList = {
 const Stack = createNativeStackNavigator<RootNavigatorParamList>();
 
 /**
- * useTrialInit — sets trialStartDate on first app open if not already set,
+ * useTrialInit — sets trialStartDate when onboarding is complete/bypassed if not already set,
  * and transitions expired trials to 'expired' status on every mount.
  */
-function useTrialInit() {
+function useTrialInit(showOnboarding: boolean) {
   const trialStartDate = useSubscriptionStore((s) => s.trialStartDate);
   const subscriptionStatus = useSubscriptionStore((s) => s.subscriptionStatus);
   const setTrialStartDate = useSubscriptionStore((s) => s.setTrialStartDate);
   const setSubscriptionStatus = useSubscriptionStore((s) => s.setSubscriptionStatus);
 
   useEffect(() => {
-    // First launch: stamp the trial start date
+    // If user is still in onboarding, do not stamp the trial start date yet
+    if (showOnboarding) {
+      return;
+    }
+
+    // First launch post-onboarding: stamp the trial start date
     if (!trialStartDate && subscriptionStatus !== 'active') {
       setTrialStartDate(new Date().toISOString());
       setSubscriptionStatus('trial');
@@ -61,12 +66,10 @@ function useTrialInit() {
         setSubscriptionStatus('expired');
       }
     }
-  }, [trialStartDate, subscriptionStatus, setTrialStartDate, setSubscriptionStatus]);
+  }, [trialStartDate, subscriptionStatus, setTrialStartDate, setSubscriptionStatus, showOnboarding]);
 }
 
 export const RootNavigator: React.FC = () => {
-  useTrialInit();
-
   const { hasCompletedOnboarding } = useAuthStore();
   const developerMasterAccountEnabled = useSettingsStore(
     (state) => state.developerMasterAccountEnabled
@@ -77,6 +80,8 @@ export const RootNavigator: React.FC = () => {
   const shouldBypassOnboarding =
     __DEV__ && (developerSkipOnboardingEnabled || developerMasterAccountEnabled);
   const showOnboarding = !shouldBypassOnboarding && !hasCompletedOnboarding;
+
+  useTrialInit(showOnboarding);
 
   const { hasExpired, isSubscribed } = useTrialStatus();
   const showTrialEnd = !showOnboarding && hasExpired && !isSubscribed;

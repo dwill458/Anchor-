@@ -3,6 +3,7 @@
 set -euo pipefail
 
 platform="${1:-${EAS_BUILD_PLATFORM:-all}}"
+profile="${2:-${EAS_BUILD_PROFILE:-preview}}"
 
 required_vars=(
   EXPO_PUBLIC_API_URL
@@ -33,7 +34,10 @@ fi
 if [[ ${#missing[@]} -gt 0 ]]; then
   printf 'Missing required mobile release config:\n' >&2
   printf '  - %s\n' "${missing[@]}" >&2
-  exit 1
+  if [[ "$profile" == "production" ]]; then
+    exit 1
+  fi
+  echo "::warning::Config incomplete — continuing because profile is '$profile' (not production)"
 fi
 
 if [[ "$platform" != "android" ]] && [[ ! -f "GoogleService-Info.plist" ]]; then

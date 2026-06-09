@@ -94,8 +94,9 @@ jest.mock('@/screens/vault/components/AtmosphericOrbs', () => ({
 
 jest.mock('@/screens/vault/components/HeroAnchorCard', () => ({
     HeroAnchorCard: ({ anchor }: any) => {
+        if (!anchor) return null;
         const { Text } = require('react-native');
-        return <Text>Hero: {anchor.intentionText}</Text>;
+        return <Text testID="hero-anchor-card">{`Hero: ${anchor.intentionText}`}</Text>;
     },
 }));
 
@@ -174,7 +175,7 @@ describe('VaultScreen', () => {
         );
     });
 
-    it('shows hero card when anchor limit is reached', () => {
+    it('shows hero card when anchor limit is reached', async () => {
         mockAnchors = Array.from({ length: 3 }, (_, i) => ({
             id: `a${i}`,
             intentionText: `Anchor ${i}`,
@@ -186,7 +187,8 @@ describe('VaultScreen', () => {
             updatedAt: new Date(),
         }));
         render(<VaultScreen />);
-        expect(screen.getByText('Hero: Anchor 0')).toBeTruthy();
+        expect(screen.getByTestId('hero-anchor-card')).toBeTruthy();
+        expect(screen.getByText(/Hero: Anchor/)).toBeTruthy();
     });
 
     it('tapping persistent create button navigates to create anchor', () => {

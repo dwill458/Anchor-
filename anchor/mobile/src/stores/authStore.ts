@@ -18,7 +18,12 @@ import type {
 import { apiClient, fetchCompleteProfile } from '@/services/ApiClient';
 import { AuthService } from '@/services/AuthService';
 import { clearNotificationSession } from '@/services/NotificationSessionService';
+import {
+  saveProfileSnapshot,
+  saveSessionSnapshot,
+} from '@/services/UserLocalStateService';
 import { useAnchorStore } from '@/stores/anchorStore';
+import { useProfileStore } from '@/stores/profileStore';
 import { useSessionStore } from '@/stores/sessionStore';
 import { useSubscriptionStore } from '@/stores/subscriptionStore';
 import { useTeachingStore } from '@/stores/teachingStore';
@@ -381,6 +386,9 @@ export const useAuthStore = create<AuthState>()(
       // Actions
       setUser: (user) => {
         applyCompedAccessToSubscriptionStore(user);
+        if (user) {
+          useProfileStore.getState().syncFromUser(user);
+        }
         set((state) => {
           const hasCompletedOnboarding = user
             ? Boolean(user.hasCompletedOnboarding)
@@ -407,6 +415,7 @@ export const useAuthStore = create<AuthState>()(
 
       setSession: (user, token) => {
         applyCompedAccessToSubscriptionStore(user);
+        useProfileStore.getState().syncFromUser(user);
         set(() => {
           const hasCompletedOnboarding = Boolean(user.hasCompletedOnboarding);
 
@@ -553,6 +562,7 @@ export const useAuthStore = create<AuthState>()(
           const profileData = await fetchCompleteProfile();
           applyCompedAccessToSubscriptionStore(profileData.user);
           const hasCompletedOnboarding = Boolean(profileData.user.hasCompletedOnboarding);
+          useProfileStore.getState().syncFromUser(profileData.user);
           set({
             profileData,
             profileLastFetched: now,
@@ -913,6 +923,40 @@ export const useAuthStore = create<AuthState>()(
       },
 
       signOut: () => {
+        const userId = get().user?.id;
+        if (userId) {
+          const profileState = useProfileStore.getState();
+          const sessionState = useSessionStore.getState();
+          void Promise.all([
+            saveProfileSnapshot(userId, {
+              ownerUserId: profileState.ownerUserId,
+              name: profileState.name,
+              axiom: profileState.axiom,
+              timezone: profileState.timezone,
+              mono: profileState.mono,
+              photo: profileState.photo,
+              memberSince: profileState.memberSince,
+            }),
+            saveSessionSnapshot(userId, {
+              lastSession: sessionState.lastSession,
+              todayPractice: sessionState.todayPractice,
+              weeklyPractice: sessionState.weeklyPractice,
+              lastGraceDayUsedAt: sessionState.lastGraceDayUsedAt,
+              sessionLog: sessionState.sessionLog,
+              threadStrength: sessionState.threadStrength,
+              totalSessionsCount: sessionState.totalSessionsCount,
+              lastPrimedAt: sessionState.lastPrimedAt,
+              weekHistory: sessionState.weekHistory,
+              weekHistoryKey: sessionState.weekHistoryKey,
+              primingHistory: sessionState.primingHistory,
+              journeyWeekStart: sessionState.journeyWeekStart,
+              lastDecayDate: sessionState.lastDecayDate,
+            }),
+          ]).catch((error) => {
+            logger.warn('Failed to preserve local user state before sign out', error);
+          });
+        }
+
         applyCompedAccessToSubscriptionStore(null);
         useAnchorStore.getState().clearAnchors();
         useSessionStore.getState().reset();

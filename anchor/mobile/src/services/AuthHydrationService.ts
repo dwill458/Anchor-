@@ -1,11 +1,17 @@
 import { apiClient, fetchCompleteProfile } from '@/services/ApiClient';
+import {
+  loadProfileSnapshot,
+  loadSessionSnapshot,
+} from '@/services/UserLocalStateService';
 import { useAnchorStore } from '@/stores/anchorStore';
 import { useAuthStore } from '@/stores/authStore';
+import { useProfileStore } from '@/stores/profileStore';
 import { useSessionStore } from '@/stores/sessionStore';
 import { useSettingsStore } from '@/stores/settingsStore';
 import type { Anchor, ApiResponse, ProfileData, User, UserSettings } from '@/types';
 import { isBackendAnchorId } from '@/services/BackendAnchorService';
 import { buildPrimingHistoryEntry, type PrimingHistoryEntry } from '@/utils/primingAnalytics';
+import { logger } from '@/utils/logger';
 
 function normalizeDate(value?: Date | string | null): Date | undefined {
   if (!value) return undefined;
@@ -119,7 +125,10 @@ class AuthHydrationService {
           order: 'desc',
         },
       }),
-      apiClient.get<AccountExportResponse>('/api/auth/me/export'),
+      apiClient.get<AccountExportResponse>('/api/auth/me/export').catch((error) => {
+        logger.warn('[AuthHydrationService] Account export hydration failed', error);
+        return null;
+      }),
     ]);
 
     const normalizedProfileData = normalizeProfileData(profileData);
@@ -127,7 +136,7 @@ class AuthHydrationService {
       ? anchorsResponse.data.data.map(normalizeAnchor)
       : [];
     const primingHistory = mapExportActivationsToPrimingHistory(
-      exportResponse.data?.data?.account?.activations ?? []
+      exportResponse?.data?.data?.account?.activations ?? []
     );
 
     const authStore = useAuthStore.getState();
@@ -138,6 +147,14 @@ class AuthHydrationService {
       hasCompletedOnboarding: Boolean(normalizedProfileData.user.hasCompletedOnboarding),
       isOfflineMode: false,
     });
+    useProfileStore.getState().syncFromUser(normalizedProfileData.user);
+    const profileSnapshot = await loadProfileSnapshot(normalizedProfileData.user.id);
+    if (profileSnapshot) {
+      useProfileStore.getState().updateProfile({
+        ...profileSnapshot,
+        ownerUserId: normalizedProfileData.user.id,
+      });
+    }
     applyProfileSettings(normalizedProfileData.user.settings);
 
     if (!options.skipAnchorRefresh) {
@@ -155,6 +172,23 @@ class AuthHydrationService {
       anchors: remoteAnchors,
       primingHistory,
     });
+    const sessionSnapshot = await loadSessionSnapshot(normalizedProfileData.user.id);
+    if (sessionSnapshot) {
+      const sessionState = useSessionStore.getState();
+      const snapshotPrimingCount = Array.isArray(sessionSnapshot.primingHistory)
+        ? sessionSnapshot.primingHistory.length
+        : 0;
+      const currentPrimingCount = Array.isArray(sessionState.primingHistory)
+        ? sessionState.primingHistory.length
+        : 0;
+
+      if (
+        sessionState.totalSessionsCount <= sessionSnapshot.totalSessionsCount ||
+        currentPrimingCount < snapshotPrimingCount
+      ) {
+        useSessionStore.setState(sessionSnapshot as Partial<typeof sessionState>);
+      }
+    }
 
     useAuthStore.getState().computeStreak();
   }

@@ -3,6 +3,7 @@ import {
   Alert,
   Animated,
   Image,
+  Linking,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -21,12 +22,13 @@ import {
   REVENUECAT_DEFAULT_PLAN_ID,
   REVENUECAT_MONTHLY_PACKAGE_ID,
 } from '@/config';
+import { LEGAL_URLS } from '@/constants/legal';
 import { colors, typography } from '@/theme';
 import { withAlpha } from '@/utils/color';
 import { safeHaptics } from '@/utils/haptics';
 import { useAnchorStore } from '@/stores/anchorStore';
 import { useSettingsStore } from '@/stores/settingsStore';
-import revenueCatService from '@/services/RevenueCatService';
+import revenueCatService, { RevenueCatPackagePresentation } from '@/services/RevenueCatService';
 import { logger } from '@/utils/logger';
 import type { RootNavigatorParamList } from '@/navigation/RootNavigator';
 
@@ -35,9 +37,6 @@ type PlanId = 'annual' | 'monthly';
 type PlanConfig = {
   id: PlanId;
   label: string;
-  amount: string;
-  period: string;
-  description: string;
   productId: string;
   featured?: boolean;
 };
@@ -46,18 +45,12 @@ const PLANS: PlanConfig[] = [
   {
     id: 'annual',
     label: 'Annual',
-    amount: '$59.99',
-    period: '/year',
-    description: '$5/mo · best value',
     productId: REVENUECAT_ANNUAL_PACKAGE_ID,
     featured: true,
   },
   {
     id: 'monthly',
     label: 'Monthly',
-    amount: '$7.99',
-    period: '/month',
-    description: 'Pay as you go',
     productId: REVENUECAT_MONTHLY_PACKAGE_ID,
   },
 ];
@@ -81,6 +74,10 @@ export default function TrialEndScreen() {
   const hapticIntensity = useSettingsStore((s) => s.hapticIntensity);
   const [selectedId, setSelectedId] = useState<PlanId>(REVENUECAT_DEFAULT_PLAN_ID);
   const [isPurchasing, setIsPurchasing] = useState(false);
+  const [isRestoring, setIsRestoring] = useState(false);
+  const [packagePresentations, setPackagePresentations] = useState<
+    Record<string, RevenueCatPackagePresentation>
+  >({});
 
   const animations = useRef({
     fade: Array.from({ length: 5 }, () => new Animated.Value(0)),
@@ -118,6 +115,27 @@ export default function TrialEndScreen() {
     });
   }, []);
 
+  useEffect(() => {
+    let cancelled = false;
+
+    void revenueCatService
+      .getPackagePresentations(PLANS.map((plan) => plan.productId))
+      .then((presentations) => {
+        if (!cancelled) {
+          setPackagePresentations(presentations);
+        }
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setPackagePresentations({});
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   const latestAnchor = useMemo(() => {
     if (anchors.length === 0) return null;
     return (
@@ -133,6 +151,7 @@ export default function TrialEndScreen() {
   const sigilSvg = latestAnchor?.reinforcedSigilSvg ?? latestAnchor?.baseSigilSvg ?? null;
 
   const selectedPlan = PLANS.find((p) => p.id === selectedId) ?? PLANS[0];
+  const selectedPresentation = packagePresentations[selectedPlan.productId];
 
   const handlePurchase = async () => {
     triggerMedium();
@@ -155,11 +174,59 @@ export default function TrialEndScreen() {
     }
   };
 
+  const handleRestorePurchase = async () => {
+    if (isPurchasing || isRestoring) return;
+    setIsRestoring(true);
+    try {
+      const status = await revenueCatService.restorePurchases();
+      if (status.hasActiveEntitlement) {
+        navigation.reset({ index: 0, routes: [{ name: 'Main' }] });
+        return;
+      }
+      Alert.alert('Nothing to Restore', 'No active subscription found for this account.');
+    } catch (error: any) {
+      Alert.alert('Restore Failed', error?.message ?? 'Could not restore purchases.');
+    } finally {
+      setIsRestoring(false);
+    }
+  };
+
   const ctaLabel = isPurchasing
     ? 'Processing…'
     : selectedId === 'annual'
       ? 'Continue with Annual'
       : 'Continue with Monthly';
+
+  const getPlanAmount = (plan: PlanConfig) =>
+    packagePresentations[plan.productId]?.priceString ?? 'App Store price';
+
+  const getPlanPeriod = (plan: PlanConfig) => {
+    const presentation = packagePresentations[plan.productId];
+
+    if (plan.id === 'annual') {
+      return presentation?.subscriptionPeriod === 'P1Y' ? '/year' : '';
+    }
+
+    return presentation?.subscriptionPeriod === 'P1M' ? '/month' : '';
+  };
+
+  const getPlanDescription = (plan: PlanConfig) => {
+    const presentation = packagePresentations[plan.productId];
+
+    if (plan.id === 'annual') {
+      return presentation?.pricePerMonthString
+        ? `${presentation.pricePerMonthString}/mo · best value`
+        : 'Billed annually';
+    }
+
+    return 'Auto-renews monthly';
+  };
+
+  const openLegalUrl = (url: string) => {
+    Linking.openURL(url).catch(() => {
+      Alert.alert('Unavailable', 'Unable to open that link right now.');
+    });
+  };
 
 
   const handleTierPress = (id: PlanId) => {
@@ -227,7 +294,7 @@ export default function TrialEndScreen() {
                   key={plan.id}
                   onPress={() => handleTierPress(plan.id)}
                   accessibilityRole="button"
-                  accessibilityLabel={`${plan.label} plan, ${plan.amount} ${plan.period}`}
+                  accessibilityLabel={`${plan.label} plan, ${getPlanAmount(plan)} ${getPlanPeriod(plan)}`}
                   style={({ pressed }) => [
                     styles.tier,
                     isSelected && styles.tierSelected,
@@ -241,13 +308,13 @@ export default function TrialEndScreen() {
                   )}
                   <View style={styles.tierInfo}>
                     <Text style={styles.tierName}>{plan.label}</Text>
-                    <Text style={styles.tierDescription}>{plan.description}</Text>
+                    <Text style={styles.tierDescription}>{getPlanDescription(plan)}</Text>
                   </View>
                   <View style={styles.tierPriceWrap}>
                     <Text style={[styles.tierPrice, isSelected && styles.tierPriceSelected]}>
-                      {plan.amount}
+                      {getPlanAmount(plan)}
                     </Text>
-                    <Text style={styles.tierPeriod}>{plan.period}</Text>
+                    <Text style={styles.tierPeriod}>{getPlanPeriod(plan)}</Text>
                   </View>
                 </Pressable>
               );
@@ -258,16 +325,26 @@ export default function TrialEndScreen() {
           <Animated.View style={[styles.ctaSection, animatedStyle(3)]}>
             <Pressable
               onPress={handlePurchase}
-              disabled={isPurchasing}
+              disabled={isPurchasing || isRestoring}
               accessibilityRole="button"
               accessibilityLabel={ctaLabel}
               style={({ pressed }) => [
                 styles.btnPrimary,
                 pressed && styles.btnPrimaryPressed,
-                isPurchasing && styles.btnDisabled,
+                (isPurchasing || isRestoring) && styles.btnDisabled,
               ]}
             >
               <Text style={styles.btnPrimaryText}>{ctaLabel}</Text>
+            </Pressable>
+
+            <Pressable
+              onPress={handleRestorePurchase}
+              disabled={isPurchasing || isRestoring}
+              accessibilityRole="button"
+              accessibilityLabel="Restore previous purchase"
+              style={({ pressed }) => [styles.btnSecondary, pressed && styles.btnSecondaryPressed]}
+            >
+              <Text style={styles.btnSecondaryText}>{isRestoring ? 'Restoring…' : 'Restore Purchase'}</Text>
             </Pressable>
 
           </Animated.View>
@@ -275,8 +352,18 @@ export default function TrialEndScreen() {
           {/* ── Footer ── */}
           <Animated.View style={[styles.footer, animatedStyle(4)]}>
             <Text style={styles.footerText}>
-              {'Cancel anytime.\nBilled to your device account.'}
+              {selectedPresentation?.introPriceString
+                ? `${selectedPresentation.introPriceString} intro offer if eligible.\nAuto-renews unless canceled at least 24 hours before renewal.`
+                : 'Auto-renews unless canceled at least 24 hours before renewal.\nBilled to your device account.'}
             </Text>
+            <View style={styles.footerLinks}>
+              <Pressable onPress={() => openLegalUrl(LEGAL_URLS.termsOfService)}>
+                <Text style={styles.footerLinkText}>Terms</Text>
+              </Pressable>
+              <Pressable onPress={() => openLegalUrl(LEGAL_URLS.privacyPolicy)}>
+                <Text style={styles.footerLinkText}>Privacy</Text>
+              </Pressable>
+            </View>
           </Animated.View>
         </ScrollView>
       </SafeAreaView>
@@ -491,7 +578,20 @@ const styles = StyleSheet.create({
     textTransform: 'uppercase',
     color: colors.black,
   },
-
+  btnSecondary: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 6,
+  },
+  btnSecondaryPressed: {
+    opacity: 0.8,
+  },
+  btnSecondaryText: {
+    fontFamily: typography.fonts.bodySerif,
+    fontSize: 13,
+    color: withAlpha(colors.bone, 0.65),
+    textDecorationLine: 'underline',
+  },
 
   // Footer
   footer: {
@@ -503,5 +603,16 @@ const styles = StyleSheet.create({
     lineHeight: 18,
     color: withAlpha(colors.bone, 0.45),
     textAlign: 'center',
+  },
+  footerLinks: {
+    flexDirection: 'row',
+    gap: 20,
+    marginTop: 12,
+  },
+  footerLinkText: {
+    fontFamily: typography.fonts.bodySerif,
+    fontSize: 12,
+    color: withAlpha(colors.bone, 0.6),
+    textDecorationLine: 'underline',
   },
 });

@@ -35,6 +35,11 @@ interface ChargedGlowCanvasProps {
   tier?: PerformanceTier;
 }
 
+const clamp01 = (value: number): number => {
+  'worklet';
+  return Math.max(0, Math.min(1, value));
+};
+
 export const ChargedGlowCanvas: React.FC<ChargedGlowCanvasProps> = ({
   size,
   reduceMotionEnabled = false,
@@ -207,7 +212,7 @@ export const ChargedGlowCanvas: React.FC<ChargedGlowCanvasProps> = ({
 
     // ── 3. Sacred rays — linear gradient stroke, per-ray phase flicker ───
     raysInit.forEach((ray, idx) => {
-      const rayPulse = 0.4 + Math.sin(t * 1.2 + ray.phase) * 0.6;
+      const rayPulse = clamp01(0.4 + Math.sin(t * 1.2 + ray.phase) * 0.6);
       const angle    = ray.angle + t * ray.speed;
       const x2       = cx + Math.cos(angle) * ray.len * s;
       const y2       = cy + Math.sin(angle) * ray.len * s;
@@ -235,7 +240,7 @@ export const ChargedGlowCanvas: React.FC<ChargedGlowCanvasProps> = ({
     cnv.rotate(t * 0.3 * DEG, 0, 0);
     for (let i = 0; i < 24; i++) {
       const a    = (i / 24) * PI * 2;
-      const glow = 0.5 + Math.sin(t * 2 + i * 0.5) * 0.5;
+      const glow = clamp01(0.5 + Math.sin(t * 2 + i * 0.5) * 0.5);
       const p    = paints.outerDots[i];
       const c    = cachedColors.outerDots[i];
       c[3]       = glow;
@@ -250,7 +255,7 @@ export const ChargedGlowCanvas: React.FC<ChargedGlowCanvasProps> = ({
     cnv.rotate(-t * 0.5 * DEG, 0, 0);
     for (let i = 0; i < 16; i++) {
       const a    = (i / 16) * PI * 2;
-      const glow = 0.55 + Math.sin(t * 3 + i * 0.8) * 0.45;
+      const glow = clamp01(0.55 + Math.sin(t * 3 + i * 0.8) * 0.45);
       const p    = paints.innerDots[i];
       const c    = cachedColors.innerDots[i];
       c[3]       = glow;
@@ -267,8 +272,8 @@ export const ChargedGlowCanvas: React.FC<ChargedGlowCanvasProps> = ({
       const r       = pt.radius * s + wobble;
       const px      = cx + Math.cos(angle) * r;
       const py      = cy + Math.sin(angle) * r;
-      const flicker = 0.4 + Math.abs(Math.sin(t * 2 + angle * 3)) * 0.6;
-      const alpha   = Math.min(1, pt.opacity * flicker * 1.4);
+      const flicker = clamp01(0.4 + Math.abs(Math.sin(t * 2 + angle * 3)) * 0.6);
+      const alpha   = clamp01(pt.opacity * flicker * 1.4);
 
       const p = paints.particles[idx];
       const c = cachedColors.particles[idx];
@@ -296,7 +301,7 @@ export const ChargedGlowCanvas: React.FC<ChargedGlowCanvasProps> = ({
       const streakR     = (70 + i * 10) * s;
       const sx          = cx + Math.cos(streakAngle) * streakR;
       const sy          = cy + Math.sin(streakAngle) * streakR;
-      const alpha       = Math.sin(streakPhase * PI) * 0.9;
+      const alpha       = clamp01(Math.sin(streakPhase * PI) * 0.9);
 
       if (alpha > 0.01) {
         const len20  = 28 * s;
