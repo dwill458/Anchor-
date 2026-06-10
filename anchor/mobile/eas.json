@@ -45,6 +45,7 @@
     },
     "playstore": {
       "distribution": "internal",
+      "channel": "production",
       "env": {
         "EXPO_PUBLIC_APP_ENV": "production",
         "EXPO_PUBLIC_DEBUG_LOGGING": "false",

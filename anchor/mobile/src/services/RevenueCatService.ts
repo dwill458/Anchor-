@@ -99,8 +99,12 @@ interface RevenueCatPurchases {
   getOfferings?: () => Promise<RevenueCatOfferings>;
   purchasePackage?: (pkg: RevenueCatPackage) => Promise<RevenueCatPurchaseResult | CustomerInfo>;
   restorePurchases?: () => Promise<CustomerInfo>;
-  /** SDK v8+ listener API — resolves to an unsubscribe function. */
-  addCustomerInfoUpdateListener?: (listener: (info: CustomerInfo) => void) => () => void;
+  /**
+   * The native SDK registers the listener and returns void. Removal is done
+   * via removeCustomerInfoUpdateListener with the same listener reference.
+   */
+  addCustomerInfoUpdateListener?: (listener: (info: CustomerInfo) => void) => void;
+  removeCustomerInfoUpdateListener?: (listener: (info: CustomerInfo) => void) => boolean;
 }
 
 /** Callback type for CustomerInfo update listeners. */
@@ -196,8 +200,12 @@ function applyTrialStatus(status: TrialStatusSnapshot, synced = false): TrialSta
   if (synced) {
     subscriptionStore.setRcSynced(true);
   }
-  if (status.hasActiveEntitlement) {
+  if (status.isSubscribed) {
     subscriptionStore.setSubscriptionStatus('active');
+  } else if (status.isInTrial) {
+    subscriptionStore.setSubscriptionStatus('trial');
+  } else {
+    subscriptionStore.setSubscriptionStatus('expired');
   }
   return status;
 }
@@ -522,11 +530,20 @@ class RevenueCatService {
       return () => {};
     }
 
-    return purchases.addCustomerInfoUpdateListener((info) => {
+    const wrappedListener = (info: CustomerInfo) => {
       // Keep the Zustand store in sync on every entitlement change.
       applyTrialStatus(deriveTrialStatus(info), true);
       listener(info);
-    });
+    };
+
+    purchases.addCustomerInfoUpdateListener(wrappedListener);
+
+    // The native SDK returns void from add; unsubscribe via remove using the
+    // exact same wrapped reference so the listener does not leak across
+    // account switches or sign-out.
+    return () => {
+      purchases.removeCustomerInfoUpdateListener?.(wrappedListener);
+    };
   }
 
   /**

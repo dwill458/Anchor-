@@ -41,6 +41,7 @@ import { useAuthStore } from './src/stores/authStore';
 import { useForgeMomentStore } from './src/stores/forgeMomentStore';
 import { useSessionStore } from './src/stores/sessionStore';
 import { useSettingsStore } from './src/stores/settingsStore';
+import { useSubscriptionStore } from './src/stores/subscriptionStore';
 import { SettingsRevealProvider } from './src/components/transitions/SettingsRevealProvider';
 import type { RootNavigatorParamList } from './src/navigation/RootNavigator';
 import {
@@ -250,7 +251,18 @@ export default function App() {
     shouldBypassOnboarding
   );
   const { hasExpired, isSubscribed } = useTrialStatus();
-  const showExpiredTrialPaywall = !showOnboarding && hasExpired && !isSubscribed;
+  const rcSynced = useSubscriptionStore((state) => state.rcSynced);
+  const devOverrideEnabled = useSubscriptionStore((state) => state.devOverrideEnabled);
+  const remoteCompedAccess = useSubscriptionStore((state) => state.remoteCompedAccess);
+  // Suppress the post-trial paywall until RevenueCat has confirmed entitlement
+  // state at least once this session. On a clean install the persisted store
+  // defaults to "expired", so without this gate a real subscriber would see the
+  // paywall flash before logIn()/refreshTrialStatus() resolves. Dev overrides
+  // and comped access are authoritative immediately and bypass the gate.
+  const entitlementResolved =
+    rcSynced || (__DEV__ && devOverrideEnabled) || remoteCompedAccess;
+  const showExpiredTrialPaywall =
+    !showOnboarding && hasExpired && !isSubscribed && entitlementResolved;
   const [fontsLoaded] = useFonts({
     'Cinzel-Regular': Cinzel_400Regular,
     'Cinzel-SemiBold': Cinzel_600SemiBold,
@@ -499,6 +511,20 @@ export default function App() {
     }
 
     previousUserIdRef.current = user?.id ?? null;
+  }, [user?.id]);
+
+  useEffect(() => {
+    if (!user?.id) {
+      return undefined;
+    }
+
+    // Reflect server-driven entitlement changes (renewals, cancellations,
+    // refunds, billing retries) in real time. The service keeps the
+    // subscription store in sync on every update, so the paywall gate reacts
+    // without requiring a cold restart.
+    return revenueCatService.addCustomerInfoUpdateListener(() => {
+      // No-op: applyTrialStatus runs inside the service listener.
+    });
   }, [user?.id]);
 
   useEffect(() => {
