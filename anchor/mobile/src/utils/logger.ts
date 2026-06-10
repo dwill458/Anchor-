@@ -12,7 +12,10 @@ const isDebugLoggingEnabled = (): boolean => {
   }
 
   const envEnabled = process.env.EXPO_PUBLIC_DEBUG_LOGGING === 'true';
-  const runtimeEnabled = useSettingsStore.getState().debugLoggingEnabled;
+  const runtimeEnabled =
+    typeof useSettingsStore.getState === 'function'
+      ? useSettingsStore.getState().debugLoggingEnabled
+      : false;
   return envEnabled || runtimeEnabled;
 };
 

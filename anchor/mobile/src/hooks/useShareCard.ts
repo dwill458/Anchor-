@@ -3,6 +3,7 @@ import { Share } from 'react-native';
 import { useToast } from '@/components/ToastProvider';
 import { AnalyticsService } from '@/services/AnalyticsService';
 import type { ShareCardFormat, ShareCardRendererRef } from '@/components/ShareCardRenderer';
+import { logger } from '@/utils/logger';
 
 const CAPTURE_OPTIONS: Record<ShareCardFormat, { width: number; height: number; quality: number }> = {
   square: { width: 1080, height: 1080, quality: 0.95 },
@@ -100,7 +101,7 @@ export function useShareCard(
             return;
           }
         } catch (sharingError) {
-          console.warn('[useShareCard] expo-sharing unavailable, falling back to Share.share', sharingError);
+          logger.warn('[useShareCard] expo-sharing unavailable, falling back to Share.share', sharingError);
         }
 
         await Share.share({
@@ -109,7 +110,7 @@ export function useShareCard(
           url: normalizedUri,
         });
       } catch (error) {
-        console.error('[useShareCard] Failed to capture/share anchor card', error);
+        logger.error('[useShareCard] Failed to capture/share anchor card', error);
         toast.error('Unable to create share card. Please try again.');
       } finally {
         setIsLoading(false);

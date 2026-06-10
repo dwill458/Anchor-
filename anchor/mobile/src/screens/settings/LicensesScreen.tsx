@@ -13,6 +13,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Search, ExternalLink, ChevronDown, ChevronUp } from 'lucide-react-native';
 import { colors, typography } from '@/theme';
 import licensesDataRaw from '@/assets/licenses.json';
+import { logger } from '@/utils/logger';
 
 interface LicenseItem {
   key: string;
@@ -70,7 +71,7 @@ export const LicensesScreen: React.FC = () => {
         await Linking.openURL(url);
       }
     } catch (error) {
-      console.warn('Could not open link:', error);
+      logger.warn('Could not open link:', error);
     }
   };
 

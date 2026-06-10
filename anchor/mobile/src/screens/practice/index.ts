@@ -3,5 +3,5 @@
  */
 
 export { PracticeScreen } from './PracticeScreen';
-// DEFERRED: export { StabilizeRitualScreen } from './StabilizeRitualScreen';
+// DEFERRED: export { StabilizeRitualScreen } from './StabilizeRitualScreen'; — restore post-launch
 export { EvolveScreen } from './EvolveScreen';

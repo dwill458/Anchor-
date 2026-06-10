@@ -2,6 +2,7 @@ import { useState } from 'react';
 import type React from 'react';
 import { Share } from 'react-native';
 import ViewShot, { captureRef } from 'react-native-view-shot';
+import { logger } from '@/utils/logger';
 
 export function useWeeklyShare(viewShotRef: React.RefObject<ViewShot | null>) {
   const [isCapturing, setIsCapturing] = useState(false);
@@ -40,7 +41,7 @@ export function useWeeklyShare(viewShotRef: React.RefObject<ViewShot | null>) {
           return;
         }
       } catch (sharingError) {
-        console.warn('[WeeklyShare] expo-sharing unavailable, falling back to Share.share', sharingError);
+        logger.warn('[WeeklyShare] expo-sharing unavailable, falling back to Share.share', sharingError);
       }
 
       await Share.share({
@@ -48,7 +49,7 @@ export function useWeeklyShare(viewShotRef: React.RefObject<ViewShot | null>) {
         url: normalizedUri,
       });
     } catch (e) {
-      console.warn('[WeeklyShare] capture failed', e);
+      logger.warn('[WeeklyShare] capture failed', e);
     } finally {
       setIsCapturing(false);
     }

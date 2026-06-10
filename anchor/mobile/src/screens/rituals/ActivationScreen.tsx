@@ -161,7 +161,7 @@ export const ActivationScreen: React.FC = () => {
           durationSeconds: activationDurationSeconds,
           queuedAt: localActivationTime.toISOString(),
         });
-        toast.success('Activation saved for your first anchor');
+        toast.success('Prime session saved for your first anchor');
         return;
       }
 
@@ -178,7 +178,7 @@ export const ActivationScreen: React.FC = () => {
       }
 
       if (backendSyncFailed) {
-        toast.error('Activation completed but failed to sync. Will retry later.');
+        toast.error('Prime session completed but failed to sync. Will retry later.');
         return;
       }
 
@@ -215,7 +215,7 @@ export const ActivationScreen: React.FC = () => {
         });
       }
 
-      toast.success('Activation logged successfully');
+      toast.success('Prime session logged successfully');
     } catch (error) {
       if (error instanceof Error && error.message === 'Anchor not found') {
         toast.error('This anchor is no longer available.');
@@ -232,7 +232,7 @@ export const ActivationScreen: React.FC = () => {
         }
       );
 
-      toast.error('Activation completed but failed to sync. Will retry later.');
+      toast.error('Prime session completed but failed to sync. Will retry later.');
     }
   }, [
     activationDurationSeconds,

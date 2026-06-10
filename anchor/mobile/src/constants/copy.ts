@@ -35,6 +35,6 @@ export const ANCHOR_DETAILS_COPY = {
     primaryCTA: "Practice with this anchor",
     primarySubtitle: "Continue today with this symbol selected.",
     practiceCta: "Open Practice",
-    moreRituals: "More rituals",
+    moreRituals: "More sessions",
     burnConfirmation: "This ends the loop for this anchor."
 };

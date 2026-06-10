@@ -15,12 +15,14 @@
     "splash": {
       "image": "./assets/anchor-gold.png",
       "resizeMode": "contain",
-      "backgroundColor": "#1A1A1D"
+      "backgroundColor": "#080C10"
     },
     "assetBundlePatterns": [
       "**/*"
     ],
-    "runtimeVersion": "1.0.2",
+    "runtimeVersion": {
+      "policy": "appVersion"
+    },
     "updates": {
       "enabled": true,
       "checkAutomatically": "ON_LOAD",
@@ -155,10 +157,10 @@
           "image": "./assets/anchor-gold.png",
           "imageWidth": 200,
           "resizeMode": "contain",
-          "backgroundColor": "#1A1A1D",
+          "backgroundColor": "#080C10",
           "dark": {
             "image": "./assets/anchor-gold.png",
-            "backgroundColor": "#1A1A1D"
+            "backgroundColor": "#080C10"
           }
         }
       ],

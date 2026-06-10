@@ -352,7 +352,7 @@ class NotificationService {
     return this.scheduleNotification({
       identifier: NOTIFICATION_IDS.STREAK_PROTECTION,
       content: {
-        title: 'Prime Streak',
+        title: 'Thread Strength',
         body: 'Your anchor is waiting. A moment now keeps the thread alive.',
         sound: CUSTOM_NOTIFICATION_SOUND,
         data: this.buildPayload('streak_protection'),
@@ -598,7 +598,7 @@ class NotificationService {
       });
 
       await Notifications.setNotificationChannelAsync(NOTIFICATION_CHANNELS.STREAK_PROTECTION, {
-        name: 'Prime Streak',
+        name: 'Thread Strength',
         importance: Notifications.AndroidImportance.DEFAULT,
         lightColor: DEFAULT_LIGHT_COLOR,
         sound: CUSTOM_NOTIFICATION_SOUND,
@@ -734,7 +734,7 @@ class NotificationService {
           identifier,
           content: {
             title: 'Test: Prime Reminder',
-            body: 'Developer test for the ritual reminder notification.',
+            body: 'Developer test for the prime reminder notification.',
             sound: CUSTOM_NOTIFICATION_SOUND,
             data: this.buildPayload('ritual_reminder', {
               anchorId: 'dev-anchor',
@@ -750,8 +750,8 @@ class NotificationService {
         return {
           identifier,
           content: {
-            title: 'Test: Prime Streak',
-            body: 'Developer test for the streak protection notification.',
+            title: 'Test: Thread Strength',
+            body: 'Developer test for the thread-strength protection notification.',
             sound: CUSTOM_NOTIFICATION_SOUND,
             data: this.buildPayload('streak_protection'),
           },

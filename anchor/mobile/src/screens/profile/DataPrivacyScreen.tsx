@@ -84,7 +84,7 @@ export const DataPrivacyScreen: React.FC = () => {
     const handleExportData = () => {
         Alert.alert(
             'Export Data',
-            'Prepare a JSON export of your anchors, rituals, settings, and account activity to share or save.',
+            'Prepare a JSON export of your anchors, sessions, settings, and account activity to share or save.',
             [
                 { text: 'Cancel', style: 'cancel' },
                 {

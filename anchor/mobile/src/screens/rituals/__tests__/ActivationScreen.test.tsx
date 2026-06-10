@@ -1070,7 +1070,7 @@ describe('ActivationScreen', () => {
 
     expect(mockGoBack).toHaveBeenCalled();
     expect(mockToastError).toHaveBeenCalledWith(
-      'Activation completed but failed to sync. Will retry later.'
+      'Prime session completed but failed to sync. Will retry later.'
     );
   });
 

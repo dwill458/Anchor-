@@ -401,7 +401,7 @@ export const ChargeSetupScreen: React.FC = () => {
       </View>
 
       {/*
-        DEFERRED: old ChargeSetupScreen UI
+        DEFERRED: old ChargeSetupScreen UI — remove post-launch
         <ScrollView>{legacy ChargedGlowCanvas/PremiumAnchorGlow prime-selection layout}</ScrollView>
       */}
     </View>

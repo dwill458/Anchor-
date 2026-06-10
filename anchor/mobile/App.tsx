@@ -81,7 +81,7 @@ function isNetworkError(error: unknown): boolean {
 
 const { width } = Dimensions.get('window');
 const isWeb = Platform.OS === 'web';
-const SPLASH_BACKGROUND_COLOR = '#1A1A1D';
+const SPLASH_BACKGROUND_COLOR = '#080C10';
 
 if (!isWeb) {
   void SplashScreen.preventAutoHideAsync();
@@ -250,6 +250,9 @@ export default function App() {
     hasCompletedOnboarding,
     shouldBypassOnboarding
   );
+  // One-shot latch: true once the initial auth restore has settled. Must not
+  // track isLoading live — Login/SignUp re-use it and would unmount the app.
+  const [initialAuthResolved, setInitialAuthResolved] = React.useState(false);
   const { hasExpired, isSubscribed } = useTrialStatus();
   const rcSynced = useSubscriptionStore((state) => state.rcSynced);
   const devOverrideEnabled = useSubscriptionStore((state) => state.devOverrideEnabled);
@@ -274,7 +277,9 @@ export default function App() {
     'CormorantGaramond-Regular': CrimsonPro_400Regular,
     'CormorantGaramond-Italic': CrimsonPro_400Regular_Italic,
   });
-  const appIsReady = fontsLoaded && launchStateResolved;
+  // Hold the native splash until fonts are loaded AND auth state is determined,
+  // so the first visible frame is never a font-flash or an auth redirect jump.
+  const appIsReady = fontsLoaded && launchStateResolved && initialAuthResolved;
 
   useEffect(() => {
     if (!__DEV__) {
@@ -458,6 +463,25 @@ export default function App() {
       isActive = false;
       unsubscribe();
     };
+  }, []);
+
+  useEffect(() => {
+    // Declared after the auth-init effect so isLoading is already true here on
+    // mount. Latches once the initial restore settles, then unsubscribes so
+    // later isLoading toggles (sign-in/sign-up flows) cannot re-gate the app.
+    if (!useAuthStore.getState().isLoading) {
+      setInitialAuthResolved(true);
+      return undefined;
+    }
+
+    const unsubscribe = useAuthStore.subscribe((state) => {
+      if (!state.isLoading) {
+        setInitialAuthResolved(true);
+        unsubscribe();
+      }
+    });
+
+    return unsubscribe;
   }, []);
 
   useEffect(() => {

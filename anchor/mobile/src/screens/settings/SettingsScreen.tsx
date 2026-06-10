@@ -32,6 +32,7 @@ import {
   SETTINGS_MUTED_TEXT,
   SETTINGS_SCREEN_BACKGROUND,
 } from './shared';
+import { logger } from '@/utils/logger';
 
 const WEEKDAY_LABELS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 const SHOW_DEVELOPER_TOOLS =
@@ -143,7 +144,7 @@ export const SettingsScreen: React.FC = () => {
               await AuthService.signOut();
             } catch (error) {
               Alert.alert('Sign Out Failed', 'We could not sign you out right now.');
-              console.warn('[SettingsScreen] Failed to sign out cleanly', error);
+              logger.warn('[SettingsScreen] Failed to sign out cleanly', error);
               return;
             }
 
@@ -152,7 +153,7 @@ export const SettingsScreen: React.FC = () => {
               const { writeSecureValue } = require('@/stores/encryptedPersistStorage');
               await writeSecureValue('anchor-sync-retry-queue', '[]');
             } catch (error) {
-              console.warn('[SettingsScreen] Failed to clear sync retry queue on sign-out', error);
+              logger.warn('[SettingsScreen] Failed to clear sync retry queue on sign-out', error);
             }
 
             signOut();
@@ -190,7 +191,7 @@ export const SettingsScreen: React.FC = () => {
             } catch (error) {
               const message = error instanceof Error ? error.message : 'Failed to delete account';
               Alert.alert('Deletion Failed', message);
-              console.error('[SettingsScreen] Failed to delete account', error);
+              logger.error('[SettingsScreen] Failed to delete account', error);
               return;
             }
 
@@ -199,7 +200,7 @@ export const SettingsScreen: React.FC = () => {
               const { writeSecureValue } = require('@/stores/encryptedPersistStorage');
               await writeSecureValue('anchor-sync-retry-queue', '[]');
             } catch (error) {
-              console.warn('[SettingsScreen] Failed to clear sync retry queue after account deletion', error);
+              logger.warn('[SettingsScreen] Failed to clear sync retry queue after account deletion', error);
             }
 
             signOut();
@@ -280,7 +281,7 @@ export const SettingsScreen: React.FC = () => {
     }
 
     void fetchProfile().catch((error) => {
-      console.warn('[SettingsScreen] Failed to refresh account profile', error);
+      logger.warn('[SettingsScreen] Failed to refresh account profile', error);
     });
   }, [fetchProfile, firebaseEmail, isAuthenticated, setUser, user]);
 

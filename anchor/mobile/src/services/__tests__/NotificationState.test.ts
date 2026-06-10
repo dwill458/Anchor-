@@ -48,8 +48,8 @@ describe('NotificationState', () => {
   });
 
   it('computes minutes since wake time and floors before wake to zero', () => {
-    // 10:45 UTC = 2h45m after 8am UTC → 165 min; keeps test timezone-agnostic
-    jest.setSystemTime(new Date('2026-04-23T10:45:00.000Z'));
+    // Use a local timestamp so the expectation is stable across machine timezones.
+    jest.setSystemTime(new Date('2026-04-23T10:45:00.000'));
     expect(calculateMinutesSinceWakeTime(8)).toBe(165);
     expect(calculateMinutesSinceWakeTime(16)).toBe(0);
   });

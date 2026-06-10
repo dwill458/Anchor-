@@ -119,6 +119,14 @@ jest.mock('@/stores/authStore', () => ({
     selector ? selector(mockAuthStoreState) : mockAuthStoreState,
 }));
 
+jest.mock('@/services/AuthService', () => ({
+  AuthService: {
+    getCurrentFirebaseUser: jest.fn(() => null),
+    getLinkedProviders: jest.fn(() => []),
+    signOut: jest.fn(() => Promise.resolve()),
+  },
+}));
+
 const NotificationService = require('@/services/NotificationService').default;
 const { SettingsScreen } = require('../SettingsScreen');
 

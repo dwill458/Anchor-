@@ -513,7 +513,7 @@ export const PaywallScreen: React.FC = () => {
                   <View style={styles.recapDivider} />
                   <RecapStat value={totalPrimes} label="Sessions primed" />
                   <View style={styles.recapDivider} />
-                  <RecapStat value={primeStreak} label="Day streak" />
+                  <RecapStat value={primeStreak} label="Prime record" />
                 </View>
                 <Text style={styles.recapFoot}>
                   All of it stays the moment you <Text style={styles.recapFootStrong}>continue.</Text>

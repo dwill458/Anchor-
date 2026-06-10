@@ -5,11 +5,13 @@
 The iOS release path is intentionally split across a small set of sources:
 
 - Product config: `anchor/mobile/app.json`
+- Generated native project: `npx expo prebuild --platform ios --no-install` from `anchor/mobile/eas.json`
 - Runtime env: EAS environment variables / GitHub Actions `vars` and `secrets`
 - Firebase secret files: `GoogleService-Info.plist` and `google-services.json`
 - Release automation: `.github/workflows/eas-build.yml`
 
 Do not commit live `.env`, Firebase config files, or builder logs.
+Treat the generated Xcode project as disposable unless you intentionally decide to commit native iOS sources later.
 
 ## Required Release Config
 

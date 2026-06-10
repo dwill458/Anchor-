@@ -43,7 +43,7 @@ describe('DefaultChargeDisplay', () => {
     expect(screen.getByText('Focus')).toBeTruthy();
   });
 
-  it('displays Ritual mode correctly', () => {
+  it('displays Deep Practice mode correctly', () => {
     render(
       <DefaultChargeDisplay
         mode="ritual"
@@ -53,7 +53,7 @@ describe('DefaultChargeDisplay', () => {
       />
     );
 
-    expect(screen.getByText('Ritual')).toBeTruthy();
+    expect(screen.getByText('Deep Practice')).toBeTruthy();
   });
 
   it('formats and displays 2 minute duration correctly', () => {
@@ -178,7 +178,7 @@ describe('DefaultChargeDisplay', () => {
       />
     );
 
-    expect(screen.getByText('Ritual')).toBeTruthy();
+    expect(screen.getByText('Deep Practice')).toBeTruthy();
     expect(screen.getByText('10 min')).toBeTruthy();
   });
 });

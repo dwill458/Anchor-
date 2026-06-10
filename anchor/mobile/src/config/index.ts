@@ -45,6 +45,8 @@ export const ENABLE_LEGACY_SUPABASE_SYNC =
 export const ENABLE_MERCH = process.env.EXPO_PUBLIC_ENABLE_MERCH === 'true';
 
 if (!__DEV__ && (!REVENUECAT_API_KEY || !REVENUECAT_ENTITLEMENT_ID)) {
+  // KEEP: deliberate raw console diagnostic — logger is dev-gated and would
+  // silence this production misconfiguration signal.
   // eslint-disable-next-line no-console
   console.error('[config] RevenueCat env not injected — IAP will silently fail');
 }
