@@ -37,13 +37,13 @@ export type ProfileStackParamList = {
   DailyPracticeGoal: undefined;
   ThreadStrength: undefined;
   RestDays: undefined;
-  // DEFERRED: replaced by SessionDefaultsScreen.
+  // DEFERRED: replaced by SessionDefaultsScreen — remove post-launch.
   DefaultCharge: undefined;
-  // DEFERRED: replaced by SessionDefaultsScreen.
+  // DEFERRED: replaced by SessionDefaultsScreen — remove post-launch.
   DefaultActivation: undefined;
-  // DEFERRED: replaced by SessionDefaultsScreen.
+  // DEFERRED: replaced by SessionDefaultsScreen — remove post-launch.
   PrimingDefaults: undefined;
-  // DEFERRED: replaced by SessionDefaultsScreen.
+  // DEFERRED: replaced by SessionDefaultsScreen — remove post-launch.
   DefaultFocusMode: undefined;
   ThemeSelection: undefined;
   AccentColor: undefined;
@@ -153,7 +153,7 @@ export const ProfileStackNavigator: React.FC = () => {
           component={RestDaysScreen}
           options={{ headerShown: false }}
         />
-        {/* DEFERRED: legacy practice-settings routes replaced by SessionDefaultsScreen. */}
+        {/* DEFERRED: legacy practice-settings routes replaced by SessionDefaultsScreen — remove post-launch. */}
         <Stack.Screen
           name="ThemeSelection"
           component={ThemeSelectionScreen}

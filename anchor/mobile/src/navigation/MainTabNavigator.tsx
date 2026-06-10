@@ -109,7 +109,7 @@ const TABS = [
       />
     ),
   },
-  // DEFERRED: Re-enable Discovery when the tab has a functional destination and bottom-nav space is intentionally expanded back to three items.
+  // DEFERRED: Discovery tab — reintroduce post-launch Phase 3.
   // {
   //   label: 'DISCOVER',
   //   icon: (active: boolean) => (
@@ -263,7 +263,7 @@ export const MainTabNavigator: React.FC = () => {
         >
           <VaultStackNavigator onRouteChange={setVaultRouteName} />
           <PracticeStackNavigator onRouteChange={setPracticeRouteName} />
-          {/* DEFERRED: Restore DiscoverScreen here if the bottom nav returns to a three-tab layout. */}
+          {/* DEFERRED: Discovery tab — reintroduce post-launch Phase 3. */}
           {/* <DiscoverScreen /> */}
         </SwipeableTabContainer>
 

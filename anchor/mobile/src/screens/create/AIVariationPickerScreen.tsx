@@ -404,7 +404,7 @@ export const AIVariationPickerScreen: React.FC = () => {
                         </View>
                       )}
 
-                      {/* DEFERRED: Selected glow replaced by gold ring treatment. */}
+                      {/* DEFERRED: Selected glow replaced by gold ring treatment — post-launch. */}
                     </Animated.View>
 
                     {/* Label */}
@@ -422,7 +422,7 @@ export const AIVariationPickerScreen: React.FC = () => {
               scrollEnabled={false}
             />
           </Animated.View>
-          {/* DEFERRED: Move Symbolic Structure explanation to AnchorDetailScreen v1.1 */}
+          {/* DEFERRED: Move Symbolic Structure explanation to AnchorDetailScreen — v1.1 */}
 
           {/* Bottom spacer for button */}
           <View style={styles.bottomSpacer} />
@@ -467,7 +467,7 @@ export const AIVariationPickerScreen: React.FC = () => {
               <Text style={styles.continueArrow}>→</Text>
             </LinearGradient>
           </TouchableOpacity>
-          <Text style={styles.finalityNote}>This cannot be changed once sealed</Text>
+          <Text style={styles.finalityNote}>This cannot be changed once sealed.</Text>
         </Animated.View>
       </SafeAreaView>
     </View>

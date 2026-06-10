@@ -31,7 +31,7 @@ import { AnchorHero } from './components/AnchorHero';
 import { AnchorSelectorSheet } from './components/AnchorSelectorSheet';
 import { DailyGoalProgressCard } from './components/DailyGoalProgressCard';
 import { ThreadStrengthBlock, getThreadState } from './components/ThreadStrengthBlock';
-// DEFERRED: replaced by PracticeInfoModal to preserve rollback path.
+// DEFERRED: replaced by PracticeInfoModal to preserve rollback path — remove post-launch.
 // import { InfoSheet } from './components/InfoSheet';
 import { ModePortalTile } from './components/ModePortalTile';
 import { PracticeHubHeader } from './components/PracticeHubHeader';
@@ -41,7 +41,7 @@ import { useNotificationController } from '@/hooks/useNotificationController';
 import { ConfirmUnchargedBurnSheet } from '@/components/modals/ConfirmUnchargedBurnSheet';
 
 type PracticeNavigationProp = StackNavigationProp<PracticeStackParamList, 'PracticeHome'>;
-// DEFERRED: type PendingMode = 'charge' | 'stabilize' | 'burn' | 'quickActivate' | null;
+// DEFERRED: type PendingMode = 'charge' | 'stabilize' | 'burn' | 'quickActivate' | null; — restore post-launch
 type PendingMode = 'charge' | 'burn' | 'quickActivate' | null;
 
 const AUTO_TEACHING_KEY = 'practice_teaching_auto_seen_v2';
@@ -72,13 +72,13 @@ function engagementRecency(anchor: Anchor): number {
 
 function toModeFromSessionType(type: SessionLogEntry['type']): Exclude<PendingMode, null> {
   if (type === 'activate') return 'quickActivate';
-  // DEFERRED: if (type === 'stabilize') return 'stabilize';
+  // DEFERRED: if (type === 'stabilize') return 'stabilize'; — restore post-launch
   return 'charge';
 }
 
 function toModeTitle(mode: Exclude<PendingMode, null>): string {
   if (mode === 'quickActivate') return FOCUS_SESSION_TITLE;
-  // DEFERRED: if (mode === 'stabilize') return PRACTICE_COPY.rituals.stabilize.title;
+  // DEFERRED: if (mode === 'stabilize') return PRACTICE_COPY.rituals.stabilize.title; — restore post-launch
   if (mode === 'burn') return PRACTICE_COPY.rituals.burn.title;
   return PRACTICE_COPY.rituals.charge.title;
 }
@@ -660,7 +660,7 @@ export const PracticeScreen: React.FC = () => {
         onClose={() => setThreadSheetVisible(false)}
       />
 
-      {/* DEFERRED: previous practice teaching sheet retained for rollback.
+      {/* DEFERRED: previous practice teaching sheet retained for rollback — remove post-launch.
       <InfoSheet
         visible={infoVisible}
         onClose={() => {

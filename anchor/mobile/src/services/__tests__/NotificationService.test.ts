@@ -209,7 +209,7 @@ describe('NotificationService', () => {
     expect(Notifications.scheduleNotificationAsync).toHaveBeenCalledWith(
       expect.objectContaining({
         content: expect.objectContaining({
-          title: 'Prime Streak',
+          title: 'Thread Strength',
         }),
       })
     );

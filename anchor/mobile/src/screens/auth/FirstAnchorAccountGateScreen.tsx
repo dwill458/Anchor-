@@ -128,7 +128,7 @@ export const FirstAnchorAccountGateScreen: React.FC = () => {
                 </Text>
                 <Text style={styles.cardBody}>
                   {isFinalizingPendingFirstAnchor
-                    ? 'We are attaching your first anchor to this account and replaying your ritual progress.'
+                    ? 'We are attaching your first anchor to this account and replaying your session progress.'
                     : pendingFirstAnchorError ||
                       'You are signed in. Finish syncing your first anchor to continue into the Vault.'}
                 </Text>

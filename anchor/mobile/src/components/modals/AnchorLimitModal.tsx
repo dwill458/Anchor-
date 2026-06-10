@@ -112,7 +112,7 @@ export function AnchorLimitModal({
 
                 {/* Body Text */}
                 <Text style={styles.bodyText}>
-                  {/* DEFERRED: freemium tier removed, replaced by trial model */}
+                  {/* DEFERRED: freemium tier removed — replaced by trial model */}
                   Continue your practice by restoring active access or release one to continue.
                 </Text>
 
@@ -181,7 +181,7 @@ export function AnchorLimitModal({
 
                 {/* Body Text */}
                 <Text style={styles.bodyText}>
-                  {/* DEFERRED: freemium tier removed, replaced by trial model */}
+                  {/* DEFERRED: freemium tier removed — replaced by trial model */}
                   Continue your practice by restoring active access or release one to continue.
                 </Text>
 

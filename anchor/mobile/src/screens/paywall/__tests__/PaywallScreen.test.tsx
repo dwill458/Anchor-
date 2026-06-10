@@ -262,7 +262,7 @@ describe('PaywallScreen', () => {
     expect(screen.getByText('7')).toBeTruthy();
     expect(screen.getByText('Anchors forged')).toBeTruthy();
     expect(screen.getByText('Sessions primed')).toBeTruthy();
-    expect(screen.getByText('Day streak')).toBeTruthy();
+    expect(screen.getByText('Prime record')).toBeTruthy();
   });
 
   it('opens sign in from the paywall', () => {

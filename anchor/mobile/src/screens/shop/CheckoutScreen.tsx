@@ -23,6 +23,7 @@ import { colors, spacing, typography } from '@/theme';
 import { RootStackParamList } from '@/types';
 import { post } from '@/services/ApiClient';
 import * as Haptics from 'expo-haptics';
+import { logger } from '@/utils/logger';
 
 type CheckoutRouteProp = RouteProp<RootStackParamList, 'Checkout'>;
 type CheckoutNavigationProp = StackNavigationProp<RootStackParamList, 'Checkout'>;
@@ -90,7 +91,7 @@ export const CheckoutScreen: React.FC = () => {
             });
 
         } catch (error) {
-            console.error('Order error:', error);
+            logger.error('Order error:', error);
             setIsLoading(false);
         }
     };

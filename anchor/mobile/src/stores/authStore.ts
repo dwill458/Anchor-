@@ -744,7 +744,7 @@ export const useAuthStore = create<AuthState>()(
               );
 
               if (!activationResponse.data?.success || !activationResponse.data.data) {
-                throw new Error('Your first anchor was created, but activation did not sync.');
+                throw new Error('Your first anchor was created, but the prime session did not sync.');
               }
 
               finalizedAnchor = mergeServerAnchor(

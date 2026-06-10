@@ -196,7 +196,7 @@ export default function StructureForgeScreen() {
           </Pressable>
 
           {/*
-            // DEFERRED: Forge pill removed from header
+            // DEFERRED: Forge pill removed from header — post-launch
             <View style={styles.forgeBadge}>
               <Text style={styles.forgeEmoji}>🔥</Text>
               <Text style={styles.forgeText}>Forge</Text>
@@ -340,7 +340,7 @@ const styles = StyleSheet.create({
     fontSize: 22,
     color: colors.gold,
   },
-  // DEFERRED: Forge pill removed from header
+  // DEFERRED: Forge pill removed from header — post-launch
   // forgeBadge: {
   //   flexDirection: 'row',
   //   alignItems: 'center',
@@ -352,12 +352,12 @@ const styles = StyleSheet.create({
   //   paddingHorizontal: spacing.md - spacing.xs,
   //   gap: spacing.xs,
   // },
-  // DEFERRED: Forge pill removed from header
+  // DEFERRED: Forge pill removed from header — post-launch
   // forgeEmoji: {
   //   fontSize: 13,
   //   lineHeight: 15,
   // },
-  // DEFERRED: Forge pill removed from header
+  // DEFERRED: Forge pill removed from header — post-launch
   // forgeText: {
   //   fontFamily: typography.fonts.heading,
   //   fontSize: 11,

@@ -35,7 +35,7 @@ const THEMES: Theme[] = [
   {
     id: 'zen_architect',
     name: 'Zen Architect',
-    description: 'Dark navy backgrounds with subtle purple gradients, gold accents, and glassmorphic design. Calm, refined, and meditative.',
+    description: 'Dark navy backgrounds with subtle purple gradients, gold accents, and glassmorphic design. Calm, refined, and focused.',
   },
 ];
 

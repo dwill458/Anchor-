@@ -618,7 +618,7 @@ function renderActiveState({
       >
         <View>
           <Text style={styles.ctxSubLabel}>ACTIVE ANCHOR</Text>
-          {/* DEFERRED: removed duplicate intention - intention shown below medallion */}
+          {/* DEFERRED: removed duplicate intention — intention shown below medallion, remove post-launch */}
         </View>
       </Animated2.View>
 

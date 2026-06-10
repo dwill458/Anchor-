@@ -20,6 +20,7 @@ import { withAlpha } from '@/utils/color';
 import { detectTimezoneLabel, TIMEZONE_OPTIONS, type ProfileMono, type StoredProfile } from '@/stores/profileStore';
 import { PROFILE_AVATAR_SLOTS, ProfileAvatar, ProfileAvatarMarkCell } from '@/components/profile/ProfileAvatar';
 import { getAvatarByIndex } from '@/utils/avatarUtils';
+import { logger } from '@/utils/logger';
 
 interface EditProfileSheetProps {
   open: boolean;
@@ -33,14 +34,14 @@ type ImagePickerModule = typeof import('expo-image-picker');
 
 function getImagePickerModule(): ImagePickerModule | null {
   if (!requireOptionalNativeModule('ExponentImagePicker')) {
-    console.warn('[EditProfileSheet] ExponentImagePicker native module is unavailable in this build');
+    logger.warn('[EditProfileSheet] ExponentImagePicker native module is unavailable in this build');
     return null;
   }
 
   try {
     return require('expo-image-picker') as ImagePickerModule;
   } catch (error) {
-    console.warn('[EditProfileSheet] expo-image-picker is unavailable in this build', error);
+    logger.warn('[EditProfileSheet] expo-image-picker is unavailable in this build', error);
     return null;
   }
 }
