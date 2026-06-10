@@ -37,8 +37,23 @@ export const REVENUECAT_DEFAULT_PACKAGE_ID =
   process.env.EXPO_PUBLIC_REVENUECAT_DEFAULT_PACKAGE_ID ?? REVENUECAT_MONTHLY_PACKAGE_ID;
 export const REVENUECAT_DEFAULT_PLAN_ID =
   REVENUECAT_DEFAULT_PACKAGE_ID === REVENUECAT_ANNUAL_PACKAGE_ID ? 'annual' : 'monthly';
-export const GOOGLE_WEB_CLIENT_ID = process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID ?? '';
-export const GOOGLE_IOS_CLIENT_ID = process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID ?? '';
+const readOptionalPublicEnv = (value: string | undefined): string => {
+  const trimmed = value?.trim();
+  return trimmed && trimmed.length > 0 ? trimmed : '';
+};
+
+// Google OAuth client IDs are public identifiers, not secrets. Keep a
+// source-level fallback so preview/TestFlight builds still authenticate even
+// when EAS env injection is missing.
+const DEFAULT_GOOGLE_WEB_CLIENT_ID =
+  '930118716037-lvbff0r43v9rqo61drvpcr8ih499fu6l.apps.googleusercontent.com';
+const DEFAULT_GOOGLE_IOS_CLIENT_ID =
+  '930118716037-g86c5d1kj9a0kio795oai3mnmnf1ejek.apps.googleusercontent.com';
+
+export const GOOGLE_WEB_CLIENT_ID =
+  readOptionalPublicEnv(process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID) || DEFAULT_GOOGLE_WEB_CLIENT_ID;
+export const GOOGLE_IOS_CLIENT_ID =
+  readOptionalPublicEnv(process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID) || DEFAULT_GOOGLE_IOS_CLIENT_ID;
 export const ENABLE_GOOGLE_SIGN_IN = process.env.EXPO_PUBLIC_ENABLE_GOOGLE_SIGN_IN === 'true';
 export const ENABLE_LEGACY_SUPABASE_SYNC =
   process.env.EXPO_PUBLIC_ENABLE_LEGACY_SUPABASE_SYNC === 'true';

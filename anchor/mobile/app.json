@@ -2,7 +2,7 @@
   "expo": {
     "name": "Anchor",
     "slug": "anchor",
-    "version": "1.0.2",
+    "version": "1.0.5",
     "newArchEnabled": true,
     "platforms": [
       "ios",
@@ -20,9 +20,7 @@
     "assetBundlePatterns": [
       "**/*"
     ],
-    "runtimeVersion": {
-      "policy": "appVersion"
-    },
+    "runtimeVersion": "1.0.5",
     "updates": {
       "enabled": true,
       "checkAutomatically": "ON_LOAD",
@@ -118,7 +116,7 @@
         "monochromeImage": "./assets/anchor-monochrome.png"
       },
       "package": "com.anchorintentions.app",
-      "versionCode": 14,
+      "versionCode": 16,
       "googleServicesFile": "./google-services.json",
       "blockedPermissions": [
         "android.permission.RECORD_AUDIO",
