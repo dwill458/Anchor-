@@ -4,11 +4,11 @@ import {
   Text,
   StyleSheet,
   TouchableOpacity,
-  Dimensions,
   Alert,
   Pressable,
+  useWindowDimensions,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
 import Svg, { Path, G, SvgXml } from 'react-native-svg';
@@ -33,6 +33,7 @@ import {
   type TraceHintVariant,
 } from '@/constants/traceHints';
 import { stableIndex } from '@/utils/hash';
+import { isCompactPhoneViewport, isShortPhoneViewport } from '@/utils/layout';
 
 type ManualReinforcementRouteProp = RouteProp<RootStackParamList, 'ManualReinforcement'>;
 type ManualReinforcementNavigationProp = StackNavigationProp<
@@ -40,8 +41,6 @@ type ManualReinforcementNavigationProp = StackNavigationProp<
   'ManualReinforcement'
 >;
 
-const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
-const CANVAS_SIZE = Math.min(SCREEN_WIDTH - 48, SCREEN_HEIGHT * 0.5);
 const STROKE_WIDTH = 3;
 const GLOW_DISTANCE = 20; // Distance in pixels to trigger glow effect
 const HESITATION_DELAY_MS = 5000;
@@ -79,6 +78,8 @@ interface TraceHintState {
 export default function ManualReinforcementScreen() {
   const route = useRoute<ManualReinforcementRouteProp>();
   const navigation = useNavigation<ManualReinforcementNavigationProp>();
+  const insets = useSafeAreaInsets();
+  const { width, height } = useWindowDimensions();
   const { playSound } = useAudio();
   const getAnchorById = useAnchorStore((state) => state.getAnchorById);
   const activePostPrimeFlow = usePostPrimeTraceStore((state) => state.activeFlow);
@@ -111,6 +112,12 @@ export default function ManualReinforcementScreen() {
     isPostPrimeTrace && activePostPrimeFlow?.anchorId === route.params.anchorId
       ? activePostPrimeFlow.flowId
       : null;
+  const isCompactLayout = isCompactPhoneViewport(width, height);
+  const isShortLayout = isShortPhoneViewport(height);
+  const canvasSize = Math.min(
+    width - (isCompactLayout ? 40 : 48),
+    height * (isCompactLayout ? 0.42 : isShortLayout ? 0.46 : 0.5)
+  );
 
   // Drawing state
   const [strokes, setStrokes] = useState<Stroke[]>([]);
@@ -361,7 +368,7 @@ export default function ManualReinforcementScreen() {
     );
 
     return `
-      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${CANVAS_SIZE} ${CANVAS_SIZE}">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${canvasSize} ${canvasSize}">
         ${paths.join('\n')}
       </svg>
     `.trim();
@@ -493,9 +500,11 @@ export default function ManualReinforcementScreen() {
       <ZenBackground />
 
       {/* Header */}
-      <View style={styles.header}>
-        <Text style={styles.title}>{isPostPrimeTrace ? 'Trace to deepen' : 'Trace Your Structure'}</Text>
-        <Text style={styles.subtitle}>
+      <View style={[styles.header, isCompactLayout && styles.headerCompact]}>
+        <Text style={[styles.title, isCompactLayout && styles.titleCompact]}>
+          {isPostPrimeTrace ? 'Trace to deepen' : 'Trace Your Structure'}
+        </Text>
+        <Text style={[styles.subtitle, isCompactLayout && styles.subtitleCompact]}>
           {isPostPrimeTrace
             ? 'Refine and deepen'
             : 'Move slowly over the lines. Let your hand remember.'}
@@ -503,17 +512,17 @@ export default function ManualReinforcementScreen() {
       </View>
 
       {/* Drawing Canvas */}
-      <View style={styles.canvasContainer}>
+      <View style={[styles.canvasContainer, isCompactLayout && styles.canvasContainerCompact]}>
         <GestureDetector gesture={panGesture}>
           <View
-            style={styles.canvas}
+            style={[styles.canvas, isCompactLayout && styles.canvasCompact, { width: canvasSize, height: canvasSize }]}
             onLayout={() => {
               if (!canvasReady) {
                 setCanvasReady(true);
               }
             }}
           >
-            <Svg width={CANVAS_SIZE} height={CANVAS_SIZE} style={styles.svg}>
+            <Svg width={canvasSize} height={canvasSize} style={styles.svg}>
               {/* Base structure (faint underlay) */}
               <G opacity={0.3}>
                 <SvgXml xml={baseSigilSvg} width="100%" height="100%" color="#D4AF37" />
@@ -549,7 +558,7 @@ export default function ManualReinforcementScreen() {
 
         {!isPostPrimeTrace ? (
           <View style={styles.hintOverlay}>
-            <View style={styles.hintLine}>
+            <View style={[styles.hintLine, { width: canvasSize }]}>
               <UndertoneLine text={hintState.hint.copy} variant="default" />
             </View>
           </View>
@@ -557,7 +566,13 @@ export default function ManualReinforcementScreen() {
       </View>
 
       {/* Control Buttons */}
-      <View style={styles.controls}>
+      <View
+        style={[
+          styles.controls,
+          isCompactLayout && styles.controlsCompact,
+          { paddingBottom: Math.max(insets.bottom, spacing.lg) },
+        ]}
+      >
         <View style={styles.controlRow}>
           <TouchableOpacity
             style={[styles.controlButton, styles.secondaryButton]}
@@ -583,7 +598,7 @@ export default function ManualReinforcementScreen() {
         </View>
 
         <TouchableOpacity
-          style={styles.completeButton}
+          style={[styles.completeButton, isCompactLayout && styles.completeButtonCompact]}
           onPress={handleComplete}
           disabled={strokeCount === 0}
           accessibilityRole="button"
@@ -596,7 +611,7 @@ export default function ManualReinforcementScreen() {
         </TouchableOpacity>
 
         <TouchableOpacity
-          style={styles.skipButton}
+          style={[styles.skipButton, isCompactLayout && styles.skipButtonCompact]}
           onPress={handleSkip}
           accessibilityRole="button"
           accessibilityLabel={isPostPrimeTrace ? 'Skip' : 'Continue without tracing'}
@@ -666,12 +681,19 @@ const styles = StyleSheet.create({
     paddingTop: spacing.md,
     marginBottom: spacing.md,
   },
+  headerCompact: {
+    paddingTop: spacing.sm,
+    marginBottom: spacing.sm,
+  },
   title: {
     fontFamily: typography.fonts.heading,
     fontSize: 28,
     color: colors.gold,
     marginBottom: spacing.xs,
     textAlign: 'center',
+  },
+  titleCompact: {
+    fontSize: 24,
   },
   subtitle: {
     fontFamily: typography.fonts.body,
@@ -680,19 +702,27 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     lineHeight: 20,
   },
+  subtitleCompact: {
+    fontSize: 14,
+    lineHeight: 18,
+  },
   canvasContainer: {
     alignItems: 'center',
     marginBottom: spacing.xxl,
     position: 'relative',
   },
+  canvasContainerCompact: {
+    marginBottom: spacing.xl + spacing.xs,
+  },
   canvas: {
-    width: CANVAS_SIZE,
-    height: CANVAS_SIZE,
     backgroundColor: colors.background.card,
     borderRadius: spacing.md,
     borderWidth: 2,
     borderColor: colors.gold,
     overflow: 'hidden',
+  },
+  canvasCompact: {
+    borderRadius: spacing.sm + 2,
   },
   svg: {
     backgroundColor: 'transparent',
@@ -706,12 +736,14 @@ const styles = StyleSheet.create({
     pointerEvents: 'none',
   },
   hintLine: {
-    width: CANVAS_SIZE,
     paddingHorizontal: spacing.sm,
   },
   controls: {
     paddingHorizontal: spacing.lg,
     paddingBottom: spacing.lg,
+  },
+  controlsCompact: {
+    paddingHorizontal: spacing.md + 4,
   },
   controlRow: {
     flexDirection: 'row',
@@ -745,6 +777,9 @@ const styles = StyleSheet.create({
     backgroundColor: colors.gold,
     marginBottom: spacing.sm,
   },
+  completeButtonCompact: {
+    height: 52,
+  },
   completeButtonText: {
     fontFamily: typography.fonts.body,
     fontSize: typography.sizes.body1,
@@ -759,6 +794,9 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: 'rgba(255, 255, 255, 0.2)',
     borderRadius: spacing.sm,
+  },
+  skipButtonCompact: {
+    height: 42,
   },
   skipButtonText: {
     fontFamily: typography.fonts.body,

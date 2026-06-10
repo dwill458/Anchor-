@@ -5,7 +5,6 @@ import {
     TouchableOpacity,
     StyleSheet,
     Animated,
-    Dimensions,
     ActivityIndicator,
     ScrollView,
     useWindowDimensions,
@@ -28,10 +27,8 @@ import { ErrorTrackingService } from '@/services/ErrorTrackingService';
 import { post } from '@/services/ApiClient';
 import { logger } from '@/utils/logger';
 import { classifyToTierPreliminary } from '@/utils/tierClassifier';
+import { isCompactPhoneViewport, isShortPhoneViewport } from '@/utils/layout';
 import type { ApiResponse, Anchor } from '@/types';
-
-const { width: SCREEN_WIDTH } = Dimensions.get('window');
-const IMAGE_SIZE = SCREEN_WIDTH - 64; // Large centered image
 
 type AnchorRevealRouteProp = RouteProp<RootStackParamList, 'AnchorReveal'>;
 type AnchorRevealNavigationProp = StackNavigationProp<RootStackParamList, 'AnchorReveal'>;
@@ -78,8 +75,13 @@ export const AnchorRevealScreen: React.FC = () => {
         intentionAnalysis.hasFutureTense,
         intentionAnalysis.hasNegation
     );
-    const isCompactHeight = screenHeight <= 820;
-    const imageSize = Math.min(screenWidth - 64, isCompactHeight ? 272 : SCREEN_WIDTH - 64);
+    const isCompactLayout = isCompactPhoneViewport(screenWidth, screenHeight);
+    const isShortLayout = isShortPhoneViewport(screenHeight);
+    const contentHorizontal = isCompactLayout ? spacing.lg : spacing.xl;
+    const imageSize = Math.min(
+        screenWidth - (isCompactLayout ? 56 : 64),
+        isCompactLayout ? 248 : isShortLayout ? 272 : 320
+    );
 
     // Animations
     const fadeAnim = useRef(new Animated.Value(0)).current;
@@ -247,13 +249,21 @@ export const AnchorRevealScreen: React.FC = () => {
                     showsVerticalScrollIndicator={false}
                     contentContainerStyle={[
                         styles.scrollContent,
+                        isCompactLayout && styles.scrollContentCompact,
                         { paddingBottom: Math.max(insets.bottom, 20) },
                     ]}
                 >
-                <View style={styles.content}>
+                <View
+                    style={[
+                        styles.content,
+                        { paddingHorizontal: contentHorizontal },
+                        isCompactLayout && styles.contentCompact,
+                    ]}
+                >
                     <Animated.View
                         style={[
                             styles.imageContainer,
+                            isCompactLayout && styles.imageContainerCompact,
                             {
                                 width: imageSize,
                                 height: imageSize,
@@ -278,8 +288,8 @@ export const AnchorRevealScreen: React.FC = () => {
                                 <View style={styles.sigilWrapper}>
                                     <SigilSvg
                                         xml={reinforcedSigilSvg || baseSigilSvg}
-                                        width={imageSize - 80}
-                                        height={imageSize - 80}
+                                        width={imageSize - (isCompactLayout ? 64 : 80)}
+                                        height={imageSize - (isCompactLayout ? 64 : 80)}
                                         color={colors.gold}
                                     />
                                 </View>
@@ -297,10 +307,12 @@ export const AnchorRevealScreen: React.FC = () => {
                             },
                         ]}
                     >
-                        <Text style={styles.label}>ROOTED IN YOUR INTENTION</Text>
-                        <BlurView intensity={20} tint="dark" style={styles.intentionCard}>
+                        <Text style={[styles.label, isCompactLayout && styles.labelCompact]}>
+                            ROOTED IN YOUR INTENTION
+                        </Text>
+                        <BlurView intensity={20} tint="dark" style={[styles.intentionCard, isCompactLayout && styles.intentionCardCompact]}>
                             <View style={styles.intentionBorder} />
-                            <Text style={styles.intentionText}>
+                            <Text style={[styles.intentionText, isCompactLayout && styles.intentionTextCompact]}>
                                 {intentionText}
                             </Text>
                         </BlurView>
@@ -328,12 +340,13 @@ export const AnchorRevealScreen: React.FC = () => {
                 <Animated.View
                     style={[
                         styles.footer,
+                        isCompactLayout && styles.footerCompact,
                         { opacity: fadeAnim },
                     ]}
                 >
                     {/* Guide Mode Helper Text */}
                     {guideMode && (
-                        <Text style={styles.ctaHelperText}>
+                        <Text style={[styles.ctaHelperText, isCompactLayout && styles.ctaHelperTextCompact]}>
                             Take in the symbol, then choose how you want to prime it.
                         </Text>
                     )}
@@ -348,7 +361,7 @@ export const AnchorRevealScreen: React.FC = () => {
                     >
                         <LinearGradient
                             colors={[colors.gold, '#B8941F']}
-                            style={styles.continueGradient}
+                            style={[styles.continueGradient, isCompactLayout && styles.continueGradientCompact]}
                             start={{ x: 0, y: 0 }}
                             end={{ x: 1, y: 0 }}
                         >
@@ -356,8 +369,8 @@ export const AnchorRevealScreen: React.FC = () => {
                                 <ActivityIndicator color={colors.charcoal} size="small" />
                             ) : (
                                 <>
-                                    <Text style={styles.continueText}>BEGIN PRIMING</Text>
-                                    <Text style={styles.continueArrow}>→</Text>
+                                    <Text style={[styles.continueText, isCompactLayout && styles.continueTextCompact]}>BEGIN PRIMING</Text>
+                                    <Text style={[styles.continueArrow, isCompactLayout && styles.continueArrowCompact]}>→</Text>
                                 </>
                             )}
                         </LinearGradient>
@@ -379,6 +392,9 @@ const styles = StyleSheet.create({
     },
     scrollContent: {
         flexGrow: 1,
+    },
+    scrollContentCompact: {
+        paddingTop: spacing.xs,
     },
     header: {
         flexDirection: 'row',
@@ -407,12 +423,12 @@ const styles = StyleSheet.create({
         flex: 1,
         alignItems: 'center',
         justifyContent: 'flex-start',
-        paddingHorizontal: spacing.xl,
         paddingTop: spacing.md,
     },
+    contentCompact: {
+        paddingTop: spacing.sm,
+    },
     imageContainer: {
-        width: IMAGE_SIZE,
-        height: IMAGE_SIZE,
         marginBottom: 20,
         shadowColor: colors.gold,
         shadowOffset: { width: 0, height: 0 },
@@ -420,10 +436,13 @@ const styles = StyleSheet.create({
         shadowRadius: 30,
         elevation: 20,
     },
+    imageContainerCompact: {
+        marginBottom: 16,
+        shadowRadius: 22,
+    },
     imageCard: {
         width: '100%',
         height: '100%',
-        borderRadius: IMAGE_SIZE / 2,
         overflow: 'hidden',
         borderWidth: 1,
         borderColor: 'rgba(212, 175, 55, 0.3)',
@@ -440,7 +459,6 @@ const styles = StyleSheet.create({
     },
     glowOverlay: {
         ...StyleSheet.absoluteFillObject,
-        borderRadius: IMAGE_SIZE / 2,
         borderWidth: 2,
         borderColor: 'rgba(212, 175, 55, 0.1)',
     },
@@ -456,6 +474,10 @@ const styles = StyleSheet.create({
         textAlign: 'center',
         opacity: 0.8,
     },
+    labelCompact: {
+        fontSize: 10,
+        marginBottom: spacing.sm,
+    },
     intentionCard: {
         borderRadius: 16,
         padding: 24,
@@ -464,6 +486,10 @@ const styles = StyleSheet.create({
         backgroundColor: 'rgba(26, 26, 29, 0.4)',
         position: 'relative',
         overflow: 'hidden',
+    },
+    intentionCardCompact: {
+        padding: 18,
+        borderRadius: 14,
     },
     intentionBorder: {
         position: 'absolute',
@@ -481,6 +507,10 @@ const styles = StyleSheet.create({
         lineHeight: 28,
         textAlign: 'center',
     },
+    intentionTextCompact: {
+        fontSize: 16,
+        lineHeight: 24,
+    },
     guideHintContainer: {
         marginTop: spacing.md,
         paddingHorizontal: spacing.sm,
@@ -495,6 +525,10 @@ const styles = StyleSheet.create({
         paddingHorizontal: spacing.lg,
         paddingBottom: 20,
     },
+    footerCompact: {
+        paddingHorizontal: spacing.md + 4,
+        paddingBottom: 16,
+    },
     ctaHelperText: {
         ...typography.caption,
         fontSize: 13,
@@ -503,6 +537,9 @@ const styles = StyleSheet.create({
         marginBottom: spacing.sm,
         fontStyle: 'italic',
         letterSpacing: 0.3,
+    },
+    ctaHelperTextCompact: {
+        fontSize: 12,
     },
     continueButton: {
         borderRadius: 20,
@@ -520,6 +557,10 @@ const styles = StyleSheet.create({
         paddingVertical: 18,
         paddingHorizontal: 32,
     },
+    continueGradientCompact: {
+        paddingVertical: 16,
+        paddingHorizontal: 24,
+    },
     continueText: {
         fontSize: 16,
         fontWeight: '700',
@@ -527,9 +568,15 @@ const styles = StyleSheet.create({
         letterSpacing: 0.5,
         marginRight: 8,
     },
+    continueTextCompact: {
+        fontSize: 15,
+    },
     continueArrow: {
         fontSize: 20,
         color: colors.charcoal,
         fontWeight: '300',
+    },
+    continueArrowCompact: {
+        fontSize: 18,
     },
 });

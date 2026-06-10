@@ -38,6 +38,7 @@ import { safeHaptics } from '@/utils/haptics';
 import { RitualScaffold } from './RitualScaffold';
 import { useNotificationController } from '@/hooks/useNotificationController';
 import { useSettingsStore } from '@/stores/settingsStore';
+import { isCompactPhoneViewport, isShortPhoneViewport } from '@/utils/layout';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -278,8 +279,13 @@ export const FocusSession: React.FC<FocusSessionProps> = ({
   groundNoteText,
   groundNoteSecondary,
 }) => {
-  const { width } = useWindowDimensions();
-  const ANCHOR_SIZE = Math.min(Math.round(width * 0.68), 280);
+  const { width, height } = useWindowDimensions();
+  const isCompactLayout = isCompactPhoneViewport(width, height);
+  const isShortLayout = isShortPhoneViewport(height);
+  const ANCHOR_SIZE = Math.min(
+    Math.round(width * (isCompactLayout ? 0.56 : 0.68)),
+    isCompactLayout ? 220 : 280
+  );
   const RING_RADIUS = ANCHOR_SIZE / 2 + 22;
 
   const defaultDurationSeconds = useSettingsStore((state) => state.focusSessionDuration ?? 30);
@@ -964,38 +970,42 @@ export const FocusSession: React.FC<FocusSessionProps> = ({
   if (status === 'arrive') {
     return (
       <RitualScaffold>
-        <RNAnimated.View style={[styles.container, { opacity: arrivePhaseOpacity }]}>
+        <RNAnimated.View style={[styles.container, isCompactLayout && styles.containerCompact, { opacity: arrivePhaseOpacity }]}>
           <View style={styles.topBar}>
             <CloseButton onPress={onDismiss} testID="focus-session-dismiss" />
           </View>
-          <View style={[styles.center, { justifyContent: 'center' }]}>
-            <Animated.View style={[styles.haloRing, haloAnimatedStyle]}>
-              <View style={styles.haloInner}>
+          <View style={[styles.center, isCompactLayout && styles.centerCompact, { justifyContent: 'center' }]}>
+            <Animated.View style={[styles.haloRing, isCompactLayout && styles.haloRingCompact, haloAnimatedStyle]}>
+              <View style={[styles.haloInner, isCompactLayout && styles.haloInnerCompact]}>
                 <AnchorHero anchorImageUri={anchorImageUri} size={ANCHOR_SIZE * 0.85} />
               </View>
             </Animated.View>
-            <View style={styles.landingTextWrap}>
-              <Text style={styles.landingTitle}>PREPARE</Text>
-              <Text style={styles.landingSub}>
+            <View style={[styles.landingTextWrap, isCompactLayout && styles.landingTextWrapCompact]}>
+              <Text style={[styles.landingTitle, isCompactLayout && styles.landingTitleCompact]}>PREPARE</Text>
+              <Text style={[styles.landingSub, isCompactLayout && styles.landingSubCompact]}>
                 Settle your mind.{'\n'}When you're centered, begin.
               </Text>
             </View>
             {!reduceIntentionVisibility && intentionText ? (
-              <View style={styles.landingIntentionWrap}>
+              <View style={[styles.landingIntentionWrap, isCompactLayout && styles.landingIntentionWrapCompact]}>
                 <Text style={styles.landingIntentionLabel}>INTENTION</Text>
-                <Text style={styles.landingIntentionText}>"{intentionText}"</Text>
+                <Text style={[styles.landingIntentionText, isCompactLayout && styles.landingIntentionTextCompact]}>"{intentionText}"</Text>
               </View>
             ) : null}
           </View>
-          <View style={styles.bottom}>
-            <Pressable onPress={handleBegin} style={styles.beginBtn} disabled={isBeginningSession}>
+          <View style={[styles.bottom, isCompactLayout && styles.bottomCompact]}>
+            <Pressable onPress={handleBegin} style={[styles.beginBtn, isCompactLayout && styles.beginBtnCompact]} disabled={isBeginningSession}>
               <LinearGradient
                 colors={[colors.gold, '#8a6f23']}
-                style={[styles.beginBtnGradient, isBeginningSession && styles.beginBtnGradientDisabled]}
+                style={[
+                  styles.beginBtnGradient,
+                  isCompactLayout && styles.beginBtnGradientCompact,
+                  isBeginningSession && styles.beginBtnGradientDisabled,
+                ]}
                 start={{ x: 0, y: 0 }}
                 end={{ x: 1, y: 1 }}
               >
-                <Text style={styles.beginBtnText}>Begin Session  →</Text>
+                <Text style={[styles.beginBtnText, isCompactLayout && styles.beginBtnTextCompact]}>Begin Session  →</Text>
               </LinearGradient>
             </Pressable>
           </View>
@@ -1006,7 +1016,7 @@ export const FocusSession: React.FC<FocusSessionProps> = ({
 
   return (
     <RitualScaffold>
-      <View style={styles.container}>
+      <View style={[styles.container, isCompactLayout && styles.containerCompact]}>
 
         {/* ── TOP BAR ── */}
         <View style={styles.topBar}>
@@ -1018,7 +1028,7 @@ export const FocusSession: React.FC<FocusSessionProps> = ({
         </View>
 
         {/* ── CENTER STAGE ── */}
-        <View style={styles.center}>
+        <View style={[styles.center, isCompactLayout && styles.centerCompact]}>
           <Pressable
             style={[styles.sigilStage, { width: ANCHOR_SIZE, height: ANCHOR_SIZE }]}
             onPressIn={isSeal ? handleSealPressIn : undefined}
@@ -1066,26 +1076,26 @@ export const FocusSession: React.FC<FocusSessionProps> = ({
           </Pressable>
 
           {isSeal ? (
-            <Text style={styles.sealHint}>Press and hold to seal</Text>
+            <Text style={[styles.sealHint, isCompactLayout && styles.sealHintCompact]}>Press and hold to seal</Text>
           ) : null}
         </View>
 
         {/* ── BOTTOM ── */}
-        <View style={styles.bottom}>
+        <View style={[styles.bottom, isCompactLayout && styles.bottomCompact]}>
           {isSeal ? (
-            <Text style={styles.sealSub}>When ready, press and hold the symbol above.</Text>
+            <Text style={[styles.sealSub, isCompactLayout && styles.sealSubCompact]}>When ready, press and hold the symbol above.</Text>
           ) : (
             <>
               {!reduceIntentionVisibility && intentionText ? (
-                <View style={styles.focusIntentionWrap}>
+                <View style={[styles.focusIntentionWrap, isCompactLayout && styles.focusIntentionWrapCompact]}>
                   <View style={styles.intentionLabelChip}>
                     <Text style={styles.intentionLabelText}>INTENTION</Text>
                   </View>
-                  <Text style={styles.focusIntentionText}>{intentionText}</Text>
+                  <Text style={[styles.focusIntentionText, isCompactLayout && styles.focusIntentionTextCompact]}>{intentionText}</Text>
                 </View>
               ) : null}
 
-              <Text style={styles.guidanceText} key={guidanceIdx}>
+              <Text style={[styles.guidanceText, isCompactLayout && styles.guidanceTextCompact]} key={guidanceIdx}>
                 {GUIDANCE[guidanceIdx]}
               </Text>
 
@@ -1099,14 +1109,14 @@ export const FocusSession: React.FC<FocusSessionProps> = ({
               ) : null}
 
               {status === 'running' && (
-                <Pressable onPress={handlePause} style={styles.pauseBtn}
+                <Pressable onPress={handlePause} style={[styles.pauseBtn, isShortLayout && styles.pauseBtnCompact]}
                   testID="focus-session-pause" accessibilityRole="button" accessibilityLabel="Pause">
                   <Pause color="#FFFFFF" size={14} strokeWidth={2.5} />
                   <Text style={styles.pauseBtnText}>Pause</Text>
                 </Pressable>
               )}
               {status === 'paused' && (
-                <Pressable onPress={handleResume} style={styles.pauseBtn}
+                <Pressable onPress={handleResume} style={[styles.pauseBtn, isShortLayout && styles.pauseBtnCompact]}
                   testID="focus-session-resume" accessibilityRole="button" accessibilityLabel="Resume">
                   <Play color="#FFFFFF" size={14} strokeWidth={2.5} />
                   <Text style={styles.pauseBtnText}>Resume</Text>
@@ -1131,6 +1141,9 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     paddingHorizontal: spacing.lg,
+  },
+  containerCompact: {
+    paddingHorizontal: spacing.md + 2,
   },
 
   // ── Top bar ──
@@ -1179,6 +1192,9 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     gap: spacing.lg,
   },
+  centerCompact: {
+    gap: spacing.md,
+  },
   sigilStage: {
     alignItems: 'center',
     justifyContent: 'center',
@@ -1220,6 +1236,10 @@ const styles = StyleSheet.create({
     textTransform: 'uppercase',
     textAlign: 'center',
   },
+  sealHintCompact: {
+    fontSize: 11,
+    letterSpacing: 2.4,
+  },
 
   // ── Bottom ──
   bottom: {
@@ -1229,6 +1249,11 @@ const styles = StyleSheet.create({
     minHeight: 120,
     justifyContent: 'flex-end',
     width: '100%',
+  },
+  bottomCompact: {
+    paddingBottom: spacing.lg,
+    gap: spacing.sm + 2,
+    minHeight: 88,
   },
   guidanceText: {
     fontFamily: typography.fontFamily.serif,
@@ -1241,6 +1266,10 @@ const styles = StyleSheet.create({
     textShadowOffset: { width: 0, height: 2 },
     textShadowRadius: 8,
   },
+  guidanceTextCompact: {
+    fontSize: 18,
+    lineHeight: 26,
+  },
 
   // ── Landing Screen ──
   haloRing: {
@@ -1250,6 +1279,9 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(212,175,55,0.15)',
     backgroundColor: 'rgba(212,175,55,0.03)',
   },
+  haloRingCompact: {
+    padding: 18,
+  },
   haloInner: {
     padding: 16,
     borderRadius: 999,
@@ -1257,10 +1289,17 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(212,175,55,0.3)',
     backgroundColor: 'rgba(12,16,24,0.6)',
   },
+  haloInnerCompact: {
+    padding: 12,
+  },
   landingTextWrap: {
     alignItems: 'center',
     marginTop: spacing.xl,
     gap: spacing.sm,
+  },
+  landingTextWrapCompact: {
+    marginTop: spacing.lg,
+    gap: spacing.xs + 2,
   },
   landingTitle: {
     fontFamily: typography.fontFamily.serif,
@@ -1268,12 +1307,20 @@ const styles = StyleSheet.create({
     letterSpacing: 6,
     color: colors.gold,
   },
+  landingTitleCompact: {
+    fontSize: 18,
+    letterSpacing: 4.5,
+  },
   landingSub: {
     fontFamily: typography.fontFamily.bodySerifItalic,
     fontSize: 18,
     color: BONE_SOFT,
     textAlign: 'center',
     lineHeight: 26,
+  },
+  landingSubCompact: {
+    fontSize: 16,
+    lineHeight: 22,
   },
   beginBtn: {
     width: '100%',
@@ -1285,10 +1332,16 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.25,
     shadowRadius: 12,
   },
+  beginBtnCompact: {
+    maxWidth: 248,
+  },
   beginBtnGradient: {
     paddingVertical: 18,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  beginBtnGradientCompact: {
+    paddingVertical: 16,
   },
   beginBtnGradientDisabled: {
     opacity: 0.86,
@@ -1300,6 +1353,10 @@ const styles = StyleSheet.create({
     letterSpacing: 1.5,
     color: '#080C10',
     textTransform: 'uppercase',
+  },
+  beginBtnTextCompact: {
+    fontSize: 14,
+    letterSpacing: 1.2,
   },
   pauseBtn: {
     paddingHorizontal: spacing.lg,
@@ -1325,6 +1382,10 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     lineHeight: 22,
   },
+  sealSubCompact: {
+    fontSize: 14,
+    lineHeight: 20,
+  },
   groundNoteWrap: {
     alignItems: 'center',
   },
@@ -1348,6 +1409,10 @@ const styles = StyleSheet.create({
     marginTop: spacing.md,
     paddingHorizontal: spacing.xl,
   },
+  landingIntentionWrapCompact: {
+    marginTop: spacing.sm + 2,
+    paddingHorizontal: spacing.lg,
+  },
   landingIntentionLabel: {
     fontFamily: typography.fontFamily.serif,
     fontSize: 10,
@@ -1364,11 +1429,19 @@ const styles = StyleSheet.create({
     lineHeight: 26,
     opacity: 0.9,
   },
+  landingIntentionTextCompact: {
+    fontSize: 16,
+    lineHeight: 22,
+  },
   focusIntentionWrap: {
     alignItems: 'center',
     marginBottom: spacing.sm,
     paddingHorizontal: spacing.lg,
     width: '100%',
+  },
+  focusIntentionWrapCompact: {
+    marginBottom: spacing.xs,
+    paddingHorizontal: spacing.md,
   },
   intentionLabelChip: {
     paddingHorizontal: spacing.sm,
@@ -1393,5 +1466,13 @@ const styles = StyleSheet.create({
     opacity: 0.85,
     lineHeight: 22,
     width: '100%',
+  },
+  focusIntentionTextCompact: {
+    fontSize: 14,
+    lineHeight: 20,
+  },
+  pauseBtnCompact: {
+    paddingHorizontal: spacing.md + 2,
+    paddingVertical: spacing.xs + 4,
   },
 });

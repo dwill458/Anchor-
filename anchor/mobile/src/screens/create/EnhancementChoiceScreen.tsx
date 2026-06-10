@@ -6,9 +6,9 @@ import {
   StyleSheet,
   ScrollView,
   Animated,
-  Dimensions,
   Platform,
   BackHandler,
+  useWindowDimensions,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -19,12 +19,11 @@ import { StackNavigationProp } from '@react-navigation/stack';
 import Svg, { Circle, Path } from 'react-native-svg';
 import { RootStackParamList } from '@/types';
 import { colors } from '@/theme';
-import { ScreenHeader, ZenBackground } from '@/components/common';
-import { useAuthStore } from '@/stores/authStore';
+import { ZenBackground } from '@/components/common';
 import * as Haptics from 'expo-haptics';
 import { typography } from '@/theme';
+import { isCompactPhoneViewport } from '@/utils/layout';
 
-const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const IS_ANDROID = Platform.OS === 'android';
 const OPTION_NAVIGATION_DELAY_MS = 300;
 
@@ -48,9 +47,8 @@ type EnhancementChoiceNavigationProp = StackNavigationProp<RootStackParamList, '
 export const EnhancementChoiceScreen: React.FC = () => {
   const navigation = useNavigation<EnhancementChoiceNavigationProp>();
   const route = useRoute<EnhancementChoiceRouteProp>();
-  const { anchorCount } = useAuthStore();
-  const isFirstAnchor = anchorCount === 0;
-  const styleCount = isFirstAnchor ? 4 : 6;
+  const { width, height } = useWindowDimensions();
+  const isCompactLayout = isCompactPhoneViewport(width, height);
 
   const ENHANCEMENT_OPTIONS: EnhancementOption[] = [
     {
@@ -234,21 +232,25 @@ export const EnhancementChoiceScreen: React.FC = () => {
 
         <ScrollView
           style={styles.scrollView}
-          contentContainerStyle={styles.scrollContent}
+          contentContainerStyle={[
+            styles.scrollContent,
+            isCompactLayout && styles.scrollContentCompact,
+          ]}
           showsVerticalScrollIndicator={false}
         >
           {/* Header Section */}
           <Animated.View
             style={[
               styles.titleSection,
+              isCompactLayout && styles.titleSectionCompact,
               {
                 opacity: fadeAnim,
                 transform: [{ translateY: slideAnim }],
               },
             ]}
           >
-            <Text style={styles.title}>Choose Expression</Text>
-            <Text style={styles.subtitle}>
+            <Text style={[styles.title, isCompactLayout && styles.titleCompact]}>Choose Expression</Text>
+            <Text style={[styles.subtitle, isCompactLayout && styles.subtitleCompact]}>
               “Your structure is set. Choose how it speaks.”
             </Text>
           </Animated.View>
@@ -257,6 +259,7 @@ export const EnhancementChoiceScreen: React.FC = () => {
           <Animated.View
             style={[
               styles.intentionSection,
+              isCompactLayout && styles.intentionSectionCompact,
               {
                 opacity: fadeAnim,
                 transform: [
@@ -272,18 +275,18 @@ export const EnhancementChoiceScreen: React.FC = () => {
           >
             {IS_ANDROID ? (
               <View style={[styles.intentionCard, styles.intentionCardAndroid]}>
-                <View style={styles.intentionContent}>
+                <View style={[styles.intentionContent, isCompactLayout && styles.intentionContentCompact]}>
                   <Text style={styles.intentionLabel}>ROOTED INTENTION</Text>
-                  <Text style={styles.intentionText}>“{intentionText}”</Text>
+                  <Text style={[styles.intentionText, isCompactLayout && styles.intentionTextCompact]}>“{intentionText}”</Text>
                   <RootedLetters letters={distilledLetters} />
                 </View>
                 <View style={styles.intentionBorder} />
               </View>
             ) : (
               <BlurView intensity={15} tint="dark" style={styles.intentionCard}>
-                <View style={styles.intentionContent}>
+                <View style={[styles.intentionContent, isCompactLayout && styles.intentionContentCompact]}>
                   <Text style={styles.intentionLabel}>ROOTED INTENTION</Text>
-                  <Text style={styles.intentionText}>“{intentionText}”</Text>
+                  <Text style={[styles.intentionText, isCompactLayout && styles.intentionTextCompact]}>“{intentionText}”</Text>
                   <RootedLetters letters={distilledLetters} />
                 </View>
                 <View style={styles.intentionBorder} />
@@ -295,6 +298,7 @@ export const EnhancementChoiceScreen: React.FC = () => {
           <Animated.View
             style={[
               styles.optionsSection,
+              isCompactLayout && styles.optionsSectionCompact,
               {
                 opacity: fadeAnim,
                 transform: [
@@ -316,6 +320,7 @@ export const EnhancementChoiceScreen: React.FC = () => {
                 style={[
                   styles.optionCardWrapper,
                   index === 0 && styles.firstCard,
+                  isCompactLayout && styles.optionCardWrapperCompact,
                 ]}
                 accessibilityRole="button"
                 accessibilityLabel={option.name}
@@ -345,9 +350,9 @@ export const EnhancementChoiceScreen: React.FC = () => {
                     />
                     <OptionCardContent
                       option={option}
-                      index={index}
                       isSelected={selectedOption === option.id}
                       refinePulseAnim={refinePulseAnim}
+                      compact={isCompactLayout}
                     />
                   </View>
                 ) : (
@@ -371,9 +376,9 @@ export const EnhancementChoiceScreen: React.FC = () => {
                     />
                     <OptionCardContent
                       option={option}
-                      index={index}
                       isSelected={selectedOption === option.id}
                       refinePulseAnim={refinePulseAnim}
+                      compact={isCompactLayout}
                     />
                   </BlurView>
                 )}
@@ -437,14 +442,14 @@ function RootedLetters({ letters }: { letters: string[] }) {
 
 function OptionCardContent({
   option,
-  index,
   isSelected,
   refinePulseAnim,
+  compact,
 }: {
   option: EnhancementOption;
-  index: number;
   isSelected: boolean;
   refinePulseAnim: Animated.Value;
+  compact: boolean;
 }) {
   const isEnhance = option.id === 'enhance';
   const isPure = option.id === 'pure';
@@ -452,11 +457,12 @@ function OptionCardContent({
   return (
     <View style={[
       styles.cardContent,
+      compact && styles.cardContentCompact,
       isEnhance && styles.cardContentGlow
     ]}>
       {/* Header */}
       <View style={styles.optionHeader}>
-        <View style={styles.emojiContainer}>
+        <View style={[styles.emojiContainer, compact && styles.emojiContainerCompact]}>
           <LinearGradient
             colors={
               isEnhance
@@ -485,19 +491,21 @@ function OptionCardContent({
         <View style={styles.titleContainer}>
           <Text style={[
             styles.optionName,
+            compact && styles.optionNameCompact,
             isPure && styles.optionNamePure,
           ]}>{option.name}</Text>
-          <Text style={styles.optionSubtitle}>{option.subtitle}</Text>
+          <Text style={[styles.optionSubtitle, compact && styles.optionSubtitleCompact]}>{option.subtitle}</Text>
         </View>
       </View>
 
       {/* Description */}
-      <Text style={styles.optionDescriptionCompact}>{option.description}</Text>
+      <Text style={[styles.optionDescriptionCompact, compact && styles.optionDescriptionCompactTight]}>{option.description}</Text>
 
       {/* Footer: Time + Arrow */}
-      <View style={styles.optionFooter}>
+      <View style={[styles.optionFooter, compact && styles.optionFooterCompact]}>
         <View style={[
           styles.timeContainerCompact,
+          compact && styles.timeContainerCompactTight,
           isPure && styles.timeContainerPure,
         ]}>
           {isEnhance ? (
@@ -507,6 +515,7 @@ function OptionCardContent({
           )}
           <Text style={[
             styles.timeText,
+            compact && styles.timeTextCompact,
             isPure && styles.timeTextPure,
           ]}>{option.estimatedTime}</Text>
         </View>
@@ -514,6 +523,7 @@ function OptionCardContent({
         <View style={styles.ctaContainer}>
           <Text style={[
             styles.ctaText,
+            compact && styles.ctaTextCompact,
             isEnhance && styles.ctaTextGold,
             isPure && styles.ctaTextPure,
           ]}>
@@ -540,6 +550,10 @@ const styles = StyleSheet.create({
     paddingHorizontal: 24,
     paddingBottom: 40,
   },
+  scrollContentCompact: {
+    paddingHorizontal: 20,
+    paddingBottom: 28,
+  },
   backButton: {
     paddingHorizontal: 24,
     paddingVertical: 12,
@@ -553,6 +567,10 @@ const styles = StyleSheet.create({
     paddingTop: 8,
     paddingBottom: 24,
   },
+  titleSectionCompact: {
+    paddingTop: 0,
+    paddingBottom: 18,
+  },
   title: {
     fontSize: 34,
     fontFamily: typography.fonts.heading,
@@ -562,6 +580,10 @@ const styles = StyleSheet.create({
     letterSpacing: 2,
     textTransform: 'uppercase',
   },
+  titleCompact: {
+    fontSize: 28,
+    marginBottom: 6,
+  },
   subtitle: {
     fontSize: 16,
     fontFamily: typography.fonts.body,
@@ -570,8 +592,15 @@ const styles = StyleSheet.create({
     fontStyle: 'italic',
     opacity: 0.8,
   },
+  subtitleCompact: {
+    fontSize: 15,
+    lineHeight: 21,
+  },
   intentionSection: {
     marginBottom: 32,
+  },
+  intentionSectionCompact: {
+    marginBottom: 22,
   },
   intentionCard: {
     borderRadius: 20,
@@ -586,6 +615,9 @@ const styles = StyleSheet.create({
   },
   intentionContent: {
     padding: 24,
+  },
+  intentionContentCompact: {
+    padding: 18,
   },
   intentionLabel: {
     fontSize: 10,
@@ -602,6 +634,11 @@ const styles = StyleSheet.create({
     color: colors.bone,
     lineHeight: 32,
     marginBottom: 16,
+  },
+  intentionTextCompact: {
+    fontSize: 18,
+    lineHeight: 26,
+    marginBottom: 12,
   },
   lettersRow: {
     flexDirection: 'row',
@@ -644,9 +681,15 @@ const styles = StyleSheet.create({
   optionsSection: {
     marginBottom: 24,
   },
+  optionsSectionCompact: {
+    marginBottom: 18,
+  },
   optionCardWrapper: {
     marginBottom: 20,
     position: 'relative',
+  },
+  optionCardWrapperCompact: {
+    marginBottom: 16,
   },
   firstCard: {
     marginBottom: 20,
@@ -692,6 +735,9 @@ const styles = StyleSheet.create({
     position: 'relative',
     zIndex: 1,
   },
+  cardContentCompact: {
+    padding: 18,
+  },
   cardContentGlow: {
   },
   recommendedBadge: {
@@ -723,6 +769,12 @@ const styles = StyleSheet.create({
     marginRight: 16,
     overflow: 'hidden',
   },
+  emojiContainerCompact: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    marginRight: 12,
+  },
   emojiGradient: {
     flex: 1,
     justifyContent: 'center',
@@ -742,6 +794,10 @@ const styles = StyleSheet.create({
     marginBottom: 4,
     letterSpacing: 0.5,
   },
+  optionNameCompact: {
+    fontSize: 16,
+    marginBottom: 2,
+  },
   optionNamePure: {
     color: 'rgba(245,245,220,0.55)',
   },
@@ -752,6 +808,10 @@ const styles = StyleSheet.create({
     lineHeight: 20,
     opacity: 0.8,
   },
+  optionSubtitleCompact: {
+    fontSize: 13,
+    lineHeight: 18,
+  },
   optionDescriptionCompact: {
     fontSize: 14,
     fontFamily: typography.fonts.body,
@@ -760,11 +820,19 @@ const styles = StyleSheet.create({
     marginBottom: 20,
     opacity: 0.7,
   },
+  optionDescriptionCompactTight: {
+    fontSize: 13,
+    lineHeight: 19,
+    marginBottom: 14,
+  },
   optionFooter: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     marginTop: 8,
+  },
+  optionFooterCompact: {
+    marginTop: 4,
   },
   timeContainerCompact: {
     flexDirection: 'row',
@@ -773,6 +841,10 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: 20,
+  },
+  timeContainerCompactTight: {
+    paddingHorizontal: 10,
+    paddingVertical: 5,
   },
   timeContainerPure: {
     backgroundColor: 'rgba(192,192,192,0.07)',
@@ -795,6 +867,9 @@ const styles = StyleSheet.create({
     color: colors.silver,
     opacity: 0.8,
   },
+  timeTextCompact: {
+    fontSize: 11,
+  },
   timeTextPure: {
     color: 'rgba(192,192,192,0.50)',
     opacity: 1,
@@ -809,6 +884,10 @@ const styles = StyleSheet.create({
     color: colors.silver,
     marginRight: 8,
     opacity: 0.9,
+  },
+  ctaTextCompact: {
+    fontSize: 13,
+    marginRight: 0,
   },
   ctaTextGold: {
     color: colors.gold,
