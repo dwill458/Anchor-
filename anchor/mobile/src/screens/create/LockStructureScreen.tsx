@@ -4,23 +4,22 @@ import {
   Text,
   StyleSheet,
   TouchableOpacity,
-  Dimensions,
   Animated,
   BackHandler,
   Platform,
+  useWindowDimensions,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useFocusEffect, useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { SvgXml } from 'react-native-svg';
 import { RootStackParamList, ReinforcementMetadata } from '@/types';
 import { colors, spacing, typography } from '@/theme';
+import { isCompactPhoneViewport, isShortPhoneViewport } from '@/utils/layout';
 
 type LockStructureRouteProp = RouteProp<RootStackParamList, 'LockStructure'>;
 type LockStructureNavigationProp = StackNavigationProp<RootStackParamList, 'LockStructure'>;
 
-const { width: SCREEN_WIDTH } = Dimensions.get('window');
-const STRUCTURE_SIZE = SCREEN_WIDTH - 96;
 const AUTO_ADVANCE_DELAY_MS = 2500;
 
 /**
@@ -40,6 +39,14 @@ const AUTO_ADVANCE_DELAY_MS = 2500;
 export default function LockStructureScreen() {
   const route = useRoute<LockStructureRouteProp>();
   const navigation = useNavigation<LockStructureNavigationProp>();
+  const insets = useSafeAreaInsets();
+  const { width, height } = useWindowDimensions();
+  const isCompactLayout = isCompactPhoneViewport(width, height);
+  const isShortLayout = isShortPhoneViewport(height);
+  const structureSize = Math.min(
+    width - (isCompactLayout ? 72 : 96),
+    isCompactLayout ? 260 : isShortLayout ? 288 : 320
+  );
 
   const {
     intentionText,
@@ -170,24 +177,32 @@ export default function LockStructureScreen() {
 
   return (
     <SafeAreaView style={styles.container}>
-      <View style={styles.content}>
+      <View
+        style={[
+          styles.content,
+          isCompactLayout && styles.contentCompact,
+          isShortLayout && styles.contentShort,
+          { paddingBottom: Math.max(insets.bottom, spacing.lg) },
+        ]}
+      >
         {/* Header */}
-        <View style={styles.header}>
-          <Text style={styles.title}>Foundation set</Text>
-          <Text style={styles.subtitle}>{getSupportingCopy()}</Text>
+        <View style={[styles.header, isCompactLayout && styles.headerCompact]}>
+          <Text style={[styles.title, isCompactLayout && styles.titleCompact]}>Foundation set</Text>
+          <Text style={[styles.subtitle, isCompactLayout && styles.subtitleCompact]}>{getSupportingCopy()}</Text>
         </View>
 
         {/* Structure Display */}
         <Animated.View
           style={[
             styles.structureContainer,
+            isCompactLayout && styles.structureContainerCompact,
             {
               opacity: fadeAnim,
               transform: [{ scale: scaleAnim }],
             },
           ]}
         >
-          <View style={styles.structureFrame}>
+          <View style={[styles.structureFrame, { width: structureSize, height: structureSize }]}>
             <SvgXml xml={displaySvg} width="90%" height="90%" color={colors.gold} />
           </View>
 
@@ -235,10 +250,22 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.lg,
     paddingTop: spacing.xl * 2,
     alignItems: 'center',
+    justifyContent: 'center',
+  },
+  contentCompact: {
+    paddingHorizontal: spacing.md + 4,
+    paddingTop: spacing.xl + spacing.md,
+  },
+  contentShort: {
+    paddingTop: spacing.xl,
   },
   header: {
     marginBottom: spacing.xl,
     alignItems: 'center',
+    maxWidth: 320,
+  },
+  headerCompact: {
+    marginBottom: spacing.lg,
   },
   title: {
     fontFamily: typography.fonts.heading,
@@ -249,27 +276,36 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     letterSpacing: 0.5,
   },
+  titleCompact: {
+    fontSize: 24,
+  },
   subtitle: {
     fontFamily: typography.fonts.body,
     fontSize: 16,
     color: '#9B9B9B',
     textAlign: 'center',
+    lineHeight: 22,
+  },
+  subtitleCompact: {
+    fontSize: 15,
+    lineHeight: 20,
   },
   structureContainer: {
     alignItems: 'center',
     marginBottom: spacing.xl * 2,
     position: 'relative',
   },
+  structureContainerCompact: {
+    marginBottom: spacing.xl,
+  },
   structureFrame: {
-    width: STRUCTURE_SIZE,
-    height: STRUCTURE_SIZE,
     backgroundColor: 'transparent',
     borderRadius: spacing.md,
     borderWidth: 3,
     borderColor: colors.gold,
     justifyContent: 'center',
     alignItems: 'center',
-    padding: spacing.lg,
+    padding: spacing.md,
   },
   lockBadge: {
     position: 'absolute',
@@ -287,11 +323,13 @@ const styles = StyleSheet.create({
   },
   metadataSection: {
     marginBottom: spacing.xl,
+    paddingHorizontal: spacing.sm,
   },
   metadataText: {
     fontFamily: typography.fonts.body,
     fontSize: 13,
     color: '#626262',
     textAlign: 'center',
+    lineHeight: 18,
   },
 });

@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, Pressable, Dimensions } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, Pressable, useWindowDimensions } from 'react-native';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -16,6 +16,7 @@ import { colors, spacing, typography } from '@/theme';
 import { SigilSvg, ZenBackground } from '@/components/common';
 import { generateAllVariants, SigilGenerationResult, SigilVariant } from '@/utils/sigil/traditional-generator';
 import { classifyToTierPreliminary } from '@/utils/tierClassifier';
+import { isCompactPhoneViewport, isShortPhoneViewport } from '@/utils/layout';
 
 type StructureType = 'focused' | 'ritual' | 'raw';
 type StructureCardType = StructureType | 'drawn';
@@ -23,10 +24,7 @@ type StructureCardType = StructureType | 'drawn';
 type StructureForgeRouteProp = RouteProp<RootStackParamList, 'StructureForge'>;
 type StructureForgeNavigationProp = StackNavigationProp<RootStackParamList, 'StructureForge'>;
 
-const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const CARD_GAP = spacing.sm + spacing.xs;
-const HORIZONTAL_PADDING = spacing.lg;
-const STRUCTURE_CARD_WIDTH = (SCREEN_WIDTH - HORIZONTAL_PADDING * 2 - CARD_GAP) / 2;
 
 const STRUCTURE_VARIANT_MAP = {
   focused: 'balanced',
@@ -96,10 +94,19 @@ export default function StructureForgeScreen() {
   const navigation = useNavigation<StructureForgeNavigationProp>();
   const route = useRoute<StructureForgeRouteProp>();
   const insets = useSafeAreaInsets();
+  const { width, height } = useWindowDimensions();
 
   const { intentionText, category, distilledLetters } = route.params;
   const intention = (route.params as RootStackParamList['StructureForge'] & { intention?: string }).intention
     ?? intentionText;
+  const isCompactLayout = isCompactPhoneViewport(width, height);
+  const isShortLayout = isShortPhoneViewport(height);
+  const horizontalPadding = isCompactLayout ? spacing.md + spacing.xs : spacing.lg;
+  const structureCardWidth = (width - horizontalPadding * 2 - CARD_GAP) / 2;
+  const previewSize = isCompactLayout ? 140 : isShortLayout ? 150 : 160;
+  const previewCanvasHeight = isCompactLayout ? 196 : isShortLayout ? 208 : 220;
+  const previewGlowSize = isCompactLayout ? 164 : isShortLayout ? 174 : 186;
+  const previewCoreSize = isCompactLayout ? 188 : isShortLayout ? 204 : 220;
 
   const [selectedStructure, setSelectedStructure] = useState<StructureCardType>('focused');
   const glowOpacity = useSharedValue(0.7);
@@ -181,11 +188,12 @@ export default function StructureForgeScreen() {
       <ScrollView
         contentContainerStyle={[
           styles.scrollContent,
+          isCompactLayout && styles.scrollContentCompact,
           { paddingBottom: insets.bottom + spacing.xxl + spacing.xl + spacing.md },
         ]}
         showsVerticalScrollIndicator={false}
       >
-        <View style={styles.headerRow}>
+        <View style={[styles.headerRow, { paddingHorizontal: horizontalPadding }]}>
           <Pressable
             style={styles.backButton}
             onPress={() => navigation.goBack()}
@@ -205,33 +213,74 @@ export default function StructureForgeScreen() {
           <View style={styles.headerSpacer} />
         </View>
 
-        <View style={styles.titleBlock}>
-          <Text style={styles.title}>Choose Your{`\n`}Structure</Text>
-          <Text style={styles.subtitle}>Select a frame that resonates with your intention.</Text>
+        <View style={[styles.titleBlock, { paddingHorizontal: horizontalPadding }, isCompactLayout && styles.titleBlockCompact]}>
+          <Text style={[styles.title, isCompactLayout && styles.titleCompact]}>Choose Your{`\n`}Structure</Text>
+          <Text style={[styles.subtitle, isCompactLayout && styles.subtitleCompact]}>
+            Select a frame that resonates with your intention.
+          </Text>
         </View>
 
-        <View style={styles.intentionTag}>
+        <View style={[styles.intentionTag, { marginHorizontal: horizontalPadding }]}>
           <Text style={styles.intentionLabel}>Anchor</Text>
           <View style={styles.intentionDivider} />
-          <Text style={styles.intentionText} numberOfLines={1}>
+          <Text
+            style={[
+              styles.intentionText,
+              { maxWidth: width - horizontalPadding * 4 },
+              isCompactLayout && styles.intentionTextCompact,
+            ]}
+            numberOfLines={1}
+          >
             {intention}
           </Text>
         </View>
 
-        <View style={styles.previewCanvas}>
-          <View style={styles.previewRadialCore} pointerEvents="none" />
-          <Animated.View style={[styles.previewGlow, previewGlowStyle]} pointerEvents="none" />
-          <View style={styles.previewCenter}>
+        <View
+          style={[
+            styles.previewCanvas,
+            {
+              marginHorizontal: horizontalPadding,
+              height: previewCanvasHeight,
+            },
+            isCompactLayout && styles.previewCanvasCompact,
+          ]}
+        >
+          <View
+            style={[
+              styles.previewRadialCore,
+              {
+                width: previewCoreSize,
+                height: previewCoreSize,
+                borderRadius: previewCoreSize / 2,
+              },
+            ]}
+            pointerEvents="none"
+          />
+          <Animated.View
+            style={[
+              styles.previewGlow,
+              previewGlowStyle,
+              {
+                width: previewGlowSize,
+                height: previewGlowSize,
+                borderRadius: previewGlowSize / 2,
+              },
+            ]}
+            pointerEvents="none"
+          />
+          <View style={[styles.previewCenter, { width: previewSize, height: previewSize }]}>
             {selectedVariantSvg ? (
-              <SigilSvg xml={selectedVariantSvg} width={160} height={160} color={colors.gold} />
+              <SigilSvg xml={selectedVariantSvg} width={previewSize} height={previewSize} color={colors.gold} />
             ) : null}
           </View>
           <Text style={styles.previewWatermark}>PREVIEW</Text>
         </View>
 
-        <Text style={styles.sectionLabel}>Available Structures</Text>
+        <Text style={[styles.sectionLabel, { paddingHorizontal: horizontalPadding }, isCompactLayout && styles.sectionLabelCompact]}>
+          Available Structures
+        </Text>
 
-        <View style={styles.structureRow}>
+        <View style={[styles.structureRow, { paddingHorizontal: horizontalPadding }]}>
           {STRUCTURES.map((structure) => {
             const isSelected = structure.type === selectedStructure;
             const cardIconXml = getStructureIconXml(structure);
@@ -244,7 +293,8 @@ export default function StructureForgeScreen() {
                   isSelected && styles.structureCardSelected,
                   isManualStructure && styles.manualStructureCard,
                   isSelected && isManualStructure && styles.manualStructureCardSelected,
-                  { width: STRUCTURE_CARD_WIDTH },
+                  isCompactLayout && styles.structureCardCompact,
+                  { width: structureCardWidth },
                 ]}
                 onPress={() => setSelectedStructure(structure.type)}
                 accessibilityRole="button"
@@ -257,20 +307,31 @@ export default function StructureForgeScreen() {
                   </View>
                 )}
 
-                <View style={styles.cardIconWrap}>
+                <View style={[styles.cardIconWrap, isCompactLayout && styles.cardIconWrapCompact]}>
                   {cardIconXml ? (
-                    <SigilSvg xml={cardIconXml} width={64} height={64} color={colors.gold} />
+                    <SigilSvg
+                      xml={cardIconXml}
+                      width={isCompactLayout ? 54 : 64}
+                      height={isCompactLayout ? 54 : 64}
+                      color={colors.gold}
+                    />
                   ) : null}
                 </View>
 
-                <Text style={styles.cardName}>{structure.label}</Text>
-                <Text style={styles.cardDescription}>{structure.description}</Text>
+                <Text style={[styles.cardName, isCompactLayout && styles.cardNameCompact]}>
+                  {structure.label}
+                </Text>
+                <Text style={[styles.cardDescription, isCompactLayout && styles.cardDescriptionCompact]}>
+                  {structure.description}
+                </Text>
               </Pressable>
             );
           })}
         </View>
 
-        <Text style={styles.activeHint}>{selectedConfig.label} selected</Text>
+        <Text style={[styles.activeHint, { paddingHorizontal: horizontalPadding }, isCompactLayout && styles.activeHintCompact]}>
+          {selectedConfig.label} selected
+        </Text>
       </ScrollView>
 
       <View style={styles.ctaWrapper} pointerEvents="box-none">
@@ -278,7 +339,11 @@ export default function StructureForgeScreen() {
           colors={[rgba(colors.navy, 0), colors.navy]}
           start={{ x: 0.5, y: 0 }}
           end={{ x: 0.5, y: 1 }}
-          style={[styles.ctaGradient, { paddingBottom: insets.bottom + spacing.md }]}
+          style={[
+            styles.ctaGradient,
+            isCompactLayout && styles.ctaGradientCompact,
+            { paddingHorizontal: horizontalPadding, paddingBottom: insets.bottom + spacing.md },
+          ]}
         >
           <Pressable
             style={styles.ctaShadowWrap}
@@ -295,7 +360,7 @@ export default function StructureForgeScreen() {
                 colors={[colors.gold, colors.forgeScreen.ctaMid, colors.forgeScreen.ctaEnd]}
                 start={{ x: 0, y: 0.5 }}
                 end={{ x: 1, y: 0.5 }}
-                style={styles.ctaButton}
+                style={[styles.ctaButton, isCompactLayout && styles.ctaButtonCompact]}
               >
                 <Text style={styles.ctaText}>Begin Forging</Text>
               </LinearGradient>
@@ -315,8 +380,10 @@ const styles = StyleSheet.create({
   scrollContent: {
     paddingTop: spacing.md + spacing.xs,
   },
+  scrollContentCompact: {
+    paddingTop: spacing.sm,
+  },
   headerRow: {
-    paddingHorizontal: spacing.lg,
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
@@ -364,8 +431,10 @@ const styles = StyleSheet.create({
   //   color: colors.gold,
   // },
   titleBlock: {
-    paddingHorizontal: spacing.lg,
     paddingTop: spacing.md,
+  },
+  titleBlockCompact: {
+    paddingTop: spacing.sm,
   },
   title: {
     fontFamily: typography.fonts.heading,
@@ -376,6 +445,10 @@ const styles = StyleSheet.create({
     textShadowOffset: { width: 0, height: 0 },
     textShadowRadius: 40,
   },
+  titleCompact: {
+    fontSize: 24,
+    lineHeight: 28,
+  },
   subtitle: {
     marginTop: spacing.sm - spacing.xs / 2,
     fontFamily: typography.fonts.body,
@@ -384,8 +457,11 @@ const styles = StyleSheet.create({
     color: colors.forgeScreen.textMuted,
     fontWeight: '300',
   },
+  subtitleCompact: {
+    fontSize: 13,
+    lineHeight: 18,
+  },
   intentionTag: {
-    marginHorizontal: spacing.lg,
     marginTop: spacing.sm + spacing.xs / 2,
     flexDirection: 'row',
     alignItems: 'center',
@@ -417,12 +493,12 @@ const styles = StyleSheet.create({
     lineHeight: 18,
     color: colors.forgeScreen.intentionText,
     fontStyle: 'italic',
-    maxWidth: SCREEN_WIDTH - spacing.lg * 4,
+  },
+  intentionTextCompact: {
+    fontSize: 12,
   },
   previewCanvas: {
-    marginHorizontal: spacing.lg,
     marginTop: spacing.md,
-    height: 220,
     borderRadius: 20,
     overflow: 'hidden',
     borderWidth: 1,
@@ -431,23 +507,19 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
+  previewCanvasCompact: {
+    marginTop: spacing.sm + spacing.xs,
+    borderRadius: 18,
+  },
   previewRadialCore: {
     position: 'absolute',
-    width: 220,
-    height: 220,
-    borderRadius: 110,
     backgroundColor: rgba(colors.deepPurple, 0.28),
   },
   previewGlow: {
     position: 'absolute',
-    width: 186,
-    height: 186,
-    borderRadius: 93,
     backgroundColor: rgba(colors.gold, 0.18),
   },
   previewCenter: {
-    width: 160,
-    height: 160,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -461,7 +533,6 @@ const styles = StyleSheet.create({
     color: colors.forgeScreen.previewWatermark,
   },
   sectionLabel: {
-    paddingHorizontal: spacing.lg,
     marginTop: spacing.md + spacing.xs / 2,
     fontFamily: typography.fonts.heading,
     fontSize: 10,
@@ -469,8 +540,12 @@ const styles = StyleSheet.create({
     color: colors.forgeScreen.textMuted,
     textTransform: 'uppercase',
   },
+  sectionLabelCompact: {
+    marginTop: spacing.sm + spacing.xs,
+    fontSize: 9,
+    letterSpacing: 2.5,
+  },
   structureRow: {
-    paddingHorizontal: spacing.lg,
     paddingTop: spacing.sm + spacing.xs,
     flexDirection: 'row',
     flexWrap: 'wrap',
@@ -487,6 +562,12 @@ const styles = StyleSheet.create({
     backgroundColor: colors.forgeScreen.cardSurface,
     alignItems: 'center',
     position: 'relative',
+  },
+  structureCardCompact: {
+    paddingTop: spacing.sm + spacing.xs / 2,
+    paddingHorizontal: spacing.sm,
+    paddingBottom: spacing.sm,
+    borderRadius: 14,
   },
   structureCardSelected: {
     borderColor: colors.gold,
@@ -526,6 +607,11 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     marginBottom: spacing.sm,
   },
+  cardIconWrapCompact: {
+    width: 54,
+    height: 54,
+    marginBottom: spacing.xs + 1,
+  },
   cardName: {
     fontFamily: typography.fonts.heading,
     fontSize: 11,
@@ -534,6 +620,9 @@ const styles = StyleSheet.create({
     marginBottom: spacing.xs,
     textAlign: 'center',
   },
+  cardNameCompact: {
+    fontSize: 10.5,
+  },
   cardDescription: {
     fontFamily: typography.fonts.body,
     fontSize: 10,
@@ -541,12 +630,18 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     color: colors.forgeScreen.textMuted,
   },
+  cardDescriptionCompact: {
+    fontSize: 9,
+    lineHeight: 12,
+  },
   activeHint: {
     marginTop: spacing.sm,
-    paddingHorizontal: spacing.lg,
     fontFamily: typography.fonts.body,
     fontSize: 11,
     color: rgba(colors.white, 0.65),
+  },
+  activeHintCompact: {
+    fontSize: 10,
   },
   ctaWrapper: {
     position: 'absolute',
@@ -556,7 +651,9 @@ const styles = StyleSheet.create({
   },
   ctaGradient: {
     paddingTop: spacing.xl,
-    paddingHorizontal: spacing.lg,
+  },
+  ctaGradientCompact: {
+    paddingTop: spacing.lg,
   },
   ctaShadowWrap: {
     shadowColor: colors.gold,
@@ -571,6 +668,10 @@ const styles = StyleSheet.create({
     borderRadius: 14,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  ctaButtonCompact: {
+    height: 50,
+    borderRadius: 12,
   },
   manualCtaButton: {
     backgroundColor: '#3E2C5B',

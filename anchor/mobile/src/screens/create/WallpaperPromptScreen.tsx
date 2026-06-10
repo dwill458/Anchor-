@@ -1,12 +1,14 @@
 import React, { useRef, useState } from 'react';
 import {
   Platform,
+  ScrollView,
   View,
   Text,
   StyleSheet,
   TouchableOpacity,
+  useWindowDimensions,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { SvgXml } from 'react-native-svg';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
@@ -21,6 +23,7 @@ import {
 import { OptimizedImage } from '@/components/common/OptimizedImage';
 import { exportAnchorArtwork } from '@/services/AnchorArtworkExportService';
 import { colors, spacing, typography } from '@/theme';
+import { isCompactPhoneViewport, isShortPhoneViewport } from '@/utils/layout';
 
 type WallpaperPromptRouteProp = RouteProp<RootStackParamList, 'WallpaperPrompt'>;
 type WallpaperPromptNavigationProp = StackNavigationProp<RootStackParamList, 'WallpaperPrompt'>;
@@ -28,12 +31,19 @@ type WallpaperPromptNavigationProp = StackNavigationProp<RootStackParamList, 'Wa
 export const WallpaperPromptScreen: React.FC = () => {
   const navigation = useNavigation<WallpaperPromptNavigationProp>();
   const route = useRoute<WallpaperPromptRouteProp>();
+  const insets = useSafeAreaInsets();
+  const { width, height } = useWindowDimensions();
   const setWallpaperPromptSeen = useAuthStore((state) => state.setWallpaperPromptSeen);
   const toast = useToast();
   const exportCanvasRef = useRef<AnchorArtworkExportCanvasHandle | null>(null);
   const [isExporting, setIsExporting] = useState(false);
 
   const { anchorId, intentionText, enhancedImageUrl, sigilSvg, returnTo } = route.params;
+  const isCompactLayout = isCompactPhoneViewport(width, height);
+  const isShortLayout = isShortPhoneViewport(height);
+  const phoneWidth = isCompactLayout ? 98 : 110;
+  const phoneHeight = isCompactLayout ? 196 : 220;
+  const sigilSize = isCompactLayout ? 64 : 72;
 
   const proceed = () => {
     if (returnTo === 'vault') {
@@ -97,81 +107,94 @@ export const WallpaperPromptScreen: React.FC = () => {
       <View style={[styles.corner, styles.cornerBR]} />
 
       <SafeAreaView style={styles.safeArea}>
-        {/* Phone mockup */}
-        <View style={styles.visualArea}>
-          <View style={styles.phoneMockup}>
-            <View style={styles.phoneNotch} />
-            <Text style={styles.phoneTime}>9:41</Text>
-            <View style={styles.phoneScreen}>
-              {enhancedImageUrl ? (
-                <View style={styles.phoneImageFrame}>
-                  <OptimizedImage
-                    uri={enhancedImageUrl}
-                    style={styles.phoneImage}
-                    resizeMode="contain"
-                  />
-                </View>
-              ) : sigilSvg ? (
-                <View style={styles.phoneImageFrame}>
-                  <SvgXml xml={sigilSvg} width={72} height={72} color={colors.gold} />
-                </View>
-              ) : (
-                <View style={styles.phoneSigilPlaceholder} />
-              )}
-              {/* Gold glow overlay */}
-              <View style={styles.phoneGlowOverlay} />
-            </View>
-            <Text style={styles.phoneLabel}>YOUR ANCHOR</Text>
-          </View>
-        </View>
-
-        {/* Text */}
-        <View style={styles.textArea}>
-          {/* Ornament */}
-          <View style={styles.ornament}>
-            <View style={styles.ornamentLine} />
-            <View style={styles.ornamentDiamond} />
-            <View style={styles.ornamentLine} />
-          </View>
-
-          <Text style={styles.eyebrow}>THIS ONLY WORKS IF YOU SEE IT.</Text>
-          <Text style={styles.headline}>
-            {'Set it as your '}
-            <Text style={styles.headlineGold}>lock screen.</Text>
-          </Text>
-          <Text style={styles.body}>
-            Every time you pick up your phone, it primes your next move. 100 exposures a day — that's the practice.
-          </Text>
-        </View>
-
-        {/* CTAs */}
-        <View style={styles.footer}>
-          <TouchableOpacity
-            style={styles.primaryBtn}
-            onPress={handleSetWallpaper}
-            activeOpacity={0.85}
-            disabled={isExporting}
-          >
-            <LinearGradient
-              colors={[colors.gold, '#B8941F']}
-              style={styles.primaryGradient}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 0 }}
+        <ScrollView
+          style={styles.scrollView}
+          contentInsetAdjustmentBehavior="automatic"
+          showsVerticalScrollIndicator={false}
+          contentContainerStyle={[
+            styles.scrollContent,
+            isCompactLayout && styles.scrollContentCompact,
+            { paddingBottom: Math.max(insets.bottom, 16) + 20 },
+          ]}
+        >
+          {/* Phone mockup */}
+          <View style={[styles.visualArea, isCompactLayout && styles.visualAreaCompact]}>
+            <View
+              style={[
+                styles.phoneMockup,
+                isCompactLayout && styles.phoneMockupCompact,
+                { width: phoneWidth, height: phoneHeight },
+              ]}
             >
-              <Text style={styles.primaryText}>
-                {isExporting ? 'PREPARING...' : 'SET AS WALLPAPER'}
-              </Text>
-            </LinearGradient>
-          </TouchableOpacity>
+              <View style={styles.phoneNotch} />
+              <Text style={[styles.phoneTime, isCompactLayout && styles.phoneTimeCompact]}>9:41</Text>
+              <View style={styles.phoneScreen}>
+                {enhancedImageUrl ? (
+                  <View style={styles.phoneImageFrame}>
+                    <OptimizedImage
+                      uri={enhancedImageUrl}
+                      style={styles.phoneImage}
+                      resizeMode="contain"
+                    />
+                  </View>
+                ) : sigilSvg ? (
+                  <View style={styles.phoneImageFrame}>
+                    <SvgXml xml={sigilSvg} width={sigilSize} height={sigilSize} color={colors.gold} />
+                  </View>
+                ) : (
+                  <View style={styles.phoneSigilPlaceholder} />
+                )}
+                <View style={styles.phoneGlowOverlay} />
+              </View>
+              <Text style={styles.phoneLabel}>YOUR ANCHOR</Text>
+            </View>
+          </View>
 
-          <TouchableOpacity
-            style={styles.ghostBtn}
-            onPress={handleMaybeLater}
-            activeOpacity={0.7}
-          >
-            <Text style={styles.ghostText}>Maybe later</Text>
-          </TouchableOpacity>
-        </View>
+          <View style={[styles.textArea, isCompactLayout && styles.textAreaCompact]}>
+            <View style={styles.ornament}>
+              <View style={styles.ornamentLine} />
+              <View style={styles.ornamentDiamond} />
+              <View style={styles.ornamentLine} />
+            </View>
+
+            <Text style={styles.eyebrow}>THIS ONLY WORKS IF YOU SEE IT.</Text>
+            <Text style={[styles.headline, isCompactLayout && styles.headlineCompact]}>
+              {'Set it as your '}
+              <Text style={styles.headlineGold}>lock screen.</Text>
+            </Text>
+            <Text style={[styles.body, isCompactLayout && styles.bodyCompact]}>
+              Every time you pick up your phone, it primes your next move. 100 exposures a day — that's the practice.
+            </Text>
+          </View>
+
+          <View style={[styles.footer, isShortLayout && styles.footerCompact]}>
+            <TouchableOpacity
+              style={styles.primaryBtn}
+              onPress={handleSetWallpaper}
+              activeOpacity={0.85}
+              disabled={isExporting}
+            >
+              <LinearGradient
+                colors={[colors.gold, '#B8941F']}
+                style={[styles.primaryGradient, isCompactLayout && styles.primaryGradientCompact]}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 0 }}
+              >
+                <Text style={styles.primaryText}>
+                  {isExporting ? 'PREPARING...' : 'SET AS WALLPAPER'}
+                </Text>
+              </LinearGradient>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.ghostBtn}
+              onPress={handleMaybeLater}
+              activeOpacity={0.7}
+            >
+              <Text style={styles.ghostText}>Maybe later</Text>
+            </TouchableOpacity>
+          </View>
+        </ScrollView>
       </SafeAreaView>
 
       <AnchorArtworkExportCanvas
@@ -200,6 +223,15 @@ const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
   },
+  scrollView: {
+    flex: 1,
+  },
+  scrollContent: {
+    flexGrow: 1,
+  },
+  scrollContentCompact: {
+    paddingTop: 4,
+  },
   // Corner L-shapes
   corner: {
     position: 'absolute',
@@ -218,6 +250,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+  visualAreaCompact: {
+    minHeight: 220,
+    flexGrow: 0,
+  },
   phoneMockup: {
     width: 110,
     height: 220,
@@ -232,6 +268,11 @@ const styles = StyleSheet.create({
     shadowRadius: 20,
     shadowOffset: { width: 0, height: 10 },
     elevation: 12,
+  },
+  phoneMockupCompact: {
+    borderRadius: 18,
+    shadowRadius: 16,
+    shadowOffset: { width: 0, height: 8 },
   },
   phoneNotch: {
     position: 'absolute',
@@ -254,6 +295,9 @@ const styles = StyleSheet.create({
     color: '#F5F5DC',
     letterSpacing: 1,
     zIndex: 2,
+  },
+  phoneTimeCompact: {
+    fontSize: 16,
   },
   phoneScreen: {
     position: 'absolute',
@@ -308,6 +352,10 @@ const styles = StyleSheet.create({
     paddingHorizontal: 36,
     paddingBottom: spacing.lg,
   },
+  textAreaCompact: {
+    paddingHorizontal: 24,
+    paddingBottom: spacing.md,
+  },
   ornament: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -343,6 +391,11 @@ const styles = StyleSheet.create({
     lineHeight: 32,
     marginBottom: 18,
   },
+  headlineCompact: {
+    fontSize: 22,
+    lineHeight: 28,
+    marginBottom: 14,
+  },
   headlineGold: {
     color: '#D4AF37',
     fontFamily: 'Cinzel-SemiBold',
@@ -354,11 +407,19 @@ const styles = StyleSheet.create({
     lineHeight: 27,
     letterSpacing: 0.2,
   },
+  bodyCompact: {
+    fontSize: 15,
+    lineHeight: 23,
+  },
   // CTAs
   footer: {
     paddingHorizontal: 36,
     paddingBottom: Platform.OS === 'android' ? 24 : 12,
     gap: 12,
+  },
+  footerCompact: {
+    paddingHorizontal: 24,
+    gap: 10,
   },
   primaryBtn: {
     borderRadius: 12,
@@ -373,6 +434,9 @@ const styles = StyleSheet.create({
     height: 56,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  primaryGradientCompact: {
+    height: 52,
   },
   primaryText: {
     fontFamily: 'Cinzel-SemiBold',

@@ -20,9 +20,9 @@ import {
   StyleSheet,
   ScrollView,
   Animated,
-  Dimensions,
   Alert,
   FlatList,
+  useWindowDimensions,
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -37,10 +37,7 @@ import { useTempStore } from '@/stores/anchorStore';
 import { OptimizedImage } from '@/components/common/OptimizedImage';
 import { ErrorTrackingService } from '@/services/ErrorTrackingService';
 import { PerformanceMonitoring } from '@/services/PerformanceMonitoring';
-
-const { width: screenWidth } = Dimensions.get('window');
-const CIRCLE_SIZE = (screenWidth / 2) - 20;
-const CIRCLE_RADIUS = CIRCLE_SIZE / 2;
+import { isCompactPhoneViewport } from '@/utils/layout';
 const MAX_VISIBLE_VARIATIONS = 2;
 const ROMAN_NUMERALS = ['I', 'II'] as const;
 const FORM_LABELS = ['Form I', 'Form II'] as const;
@@ -82,6 +79,12 @@ export const AIVariationPickerScreen: React.FC = () => {
   const navigation = useNavigation<EnhancedVersionPickerNavigationProp>();
   const route = useRoute<EnhancedVersionPickerRouteProp>();
   const insets = useSafeAreaInsets();
+  const { width, height } = useWindowDimensions();
+  const isCompactLayout = isCompactPhoneViewport(width, height);
+  const horizontalPadding = isCompactLayout ? 20 : 24;
+  const cardGap = isCompactLayout ? 10 : 12;
+  const circleSize = Math.floor((width - horizontalPadding * 2 - cardGap) / 2);
+  const circleRadius = circleSize / 2;
 
   // Extract params from route (Phase 3 ControlNet flow)
   const {
@@ -266,6 +269,7 @@ export const AIVariationPickerScreen: React.FC = () => {
           style={styles.scrollView}
           contentContainerStyle={[
             styles.scrollContent,
+            isCompactLayout && styles.scrollContentCompact,
             {
               paddingBottom: insets.bottom + 96,
             },
@@ -276,14 +280,15 @@ export const AIVariationPickerScreen: React.FC = () => {
           <Animated.View
             style={[
               styles.titleSection,
+              isCompactLayout && styles.titleSectionCompact,
               {
                 opacity: fadeAnim,
                 transform: [{ translateY: slideAnim }],
               },
             ]}
           >
-            <Text style={styles.title}>Select Your Expression</Text>
-            <Text style={styles.subtitle}>
+            <Text style={[styles.title, isCompactLayout && styles.titleCompact]}>Select Your Expression</Text>
+            <Text style={[styles.subtitle, isCompactLayout && styles.subtitleCompact]}>
               The structure of your intention is fixed. Choose the visual resonance that grounds your focus.
             </Text>
           </Animated.View>
@@ -292,6 +297,7 @@ export const AIVariationPickerScreen: React.FC = () => {
           <Animated.View
             style={[
               styles.styleInfoBox,
+              isCompactLayout && styles.styleInfoBoxCompact,
               {
                 opacity: fadeAnim,
                 transform: [{ translateY: slideAnim }],
@@ -325,7 +331,7 @@ export const AIVariationPickerScreen: React.FC = () => {
               },
             ]}
           >
-            <Text style={styles.intentionText}>
+            <Text style={[styles.intentionText, isCompactLayout && styles.intentionTextCompact]}>
               <Text style={styles.intentionTextEmphasis}>"{intentionText}"</Text>
             </Text>
           </Animated.View>
@@ -334,6 +340,7 @@ export const AIVariationPickerScreen: React.FC = () => {
           <Animated.View
             style={[
               styles.gridSection,
+              isCompactLayout && styles.gridSectionCompact,
               {
                 opacity: fadeAnim,
                 transform: [
@@ -347,16 +354,17 @@ export const AIVariationPickerScreen: React.FC = () => {
               },
             ]}
           >
-            <Text style={styles.guidanceText}>Trust your first instinct. Choose the form that feels most visceral.</Text>
+            <Text style={[styles.guidanceText, isCompactLayout && styles.guidanceTextCompact]}>Trust your first instinct. Choose the form that feels most visceral.</Text>
             <FlatList
               data={normalizedVariations}
               numColumns={2}
               keyExtractor={(item) => item.id}
               columnWrapperStyle={{
                 justifyContent: 'space-between',
-                paddingHorizontal: 0
+                paddingHorizontal: 0,
+                columnGap: cardGap,
               }}
-              style={{ marginTop: 40, marginBottom: 20, marginHorizontal: -4 }}
+              style={{ marginTop: isCompactLayout ? 28 : 40, marginBottom: 20 }}
               renderItem={({ item: variation, index }) => {
                 const isSelected = selectedIndex === index;
                 const shouldHydrateImage =
@@ -374,6 +382,7 @@ export const AIVariationPickerScreen: React.FC = () => {
                     <Animated.View
                       style={[
                         styles.variationCard,
+                        { width: circleSize, height: circleSize, borderRadius: circleRadius },
                         isSelected ? styles.variationCardSelected : styles.variationCardUnselected,
                       ]}
                     >
@@ -411,6 +420,7 @@ export const AIVariationPickerScreen: React.FC = () => {
                     <Text
                       style={[
                         styles.variationLabel,
+                        isCompactLayout && styles.variationLabelCompact,
                         isSelected ? styles.variationLabelSelected : styles.variationLabelUnselected,
                       ]}
                     >
@@ -432,6 +442,7 @@ export const AIVariationPickerScreen: React.FC = () => {
         <Animated.View
           style={[
             styles.continueContainer,
+            isCompactLayout && styles.continueContainerCompact,
             {
               paddingBottom: insets.bottom + 20,
             },
@@ -457,11 +468,11 @@ export const AIVariationPickerScreen: React.FC = () => {
           >
             <LinearGradient
               colors={[colors.gold, '#B8941F']}
-              style={styles.continueGradient}
+              style={[styles.continueGradient, isCompactLayout && styles.continueGradientCompact]}
               start={{ x: 0, y: 0 }}
               end={{ x: 1, y: 0 }}
             >
-              <Text style={styles.continueText}>
+              <Text style={[styles.continueText, isCompactLayout && styles.continueTextCompact]}>
                 Set Anchor
               </Text>
               <Text style={styles.continueArrow}>→</Text>
@@ -489,9 +500,16 @@ const styles = StyleSheet.create({
     paddingHorizontal: 24,
     flexGrow: 1,
   },
+  scrollContentCompact: {
+    paddingHorizontal: 20,
+  },
   titleSection: {
     paddingTop: 8,
     paddingBottom: 16,
+  },
+  titleSectionCompact: {
+    paddingTop: 0,
+    paddingBottom: 12,
   },
   title: {
     fontSize: 28,
@@ -501,10 +519,18 @@ const styles = StyleSheet.create({
     marginBottom: 12,
     letterSpacing: 0.5,
   },
+  titleCompact: {
+    fontSize: 24,
+    marginBottom: 8,
+  },
   subtitle: {
     fontSize: 15,
     color: colors.silver,
     lineHeight: 22,
+  },
+  subtitleCompact: {
+    fontSize: 14,
+    lineHeight: 20,
   },
   styleInfoBox: {
     flexDirection: 'row',
@@ -516,6 +542,10 @@ const styles = StyleSheet.create({
     marginBottom: 8,
     borderWidth: 1,
     borderColor: 'rgba(212, 175, 55, 0.3)',
+  },
+  styleInfoBoxCompact: {
+    paddingHorizontal: 12,
+    paddingVertical: 7,
   },
   styleInfoIcon: {
     fontSize: 24,
@@ -560,6 +590,9 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     letterSpacing: 0.5,
   },
+  intentionTextCompact: {
+    fontSize: 11,
+  },
   intentionTextEmphasis: {
     color: colors.bone,
     fontStyle: 'normal',
@@ -567,6 +600,10 @@ const styles = StyleSheet.create({
   gridSection: {
     marginTop: 16,
     marginBottom: 16,
+  },
+  gridSectionCompact: {
+    marginTop: 12,
+    marginBottom: 12,
   },
   guidanceText: {
     fontSize: 14,
@@ -576,6 +613,11 @@ const styles = StyleSheet.create({
     marginBottom: 12,
     opacity: 0.9,
     paddingHorizontal: 12,
+  },
+  guidanceTextCompact: {
+    fontSize: 13,
+    marginBottom: 8,
+    paddingHorizontal: 4,
   },
   grid: {
     flexDirection: 'row',
@@ -589,9 +631,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   variationCard: {
-    width: CIRCLE_SIZE,
-    height: CIRCLE_SIZE,
-    borderRadius: CIRCLE_RADIUS,
     overflow: 'hidden',
     backgroundColor: colors.charcoal,
     position: 'relative',
@@ -662,7 +701,7 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     bottom: 0,
-    borderRadius: CIRCLE_RADIUS,
+    borderRadius: 999,
     shadowColor: colors.gold,
     shadowOffset: { width: 0, height: 0 },
     shadowOpacity: 0.6,
@@ -674,6 +713,10 @@ const styles = StyleSheet.create({
     fontFamily: 'Cinzel-Regular',
     textAlign: 'center',
     marginTop: 10,
+  },
+  variationLabelCompact: {
+    fontSize: 12,
+    marginTop: 8,
   },
   variationLabelSelected: {
     color: '#D4AF37',
@@ -696,6 +739,10 @@ const styles = StyleSheet.create({
     paddingTop: 16,
     backgroundColor: 'transparent',
   },
+  continueContainerCompact: {
+    paddingHorizontal: 20,
+    paddingTop: 12,
+  },
   continueButton: {
     borderRadius: 20,
     overflow: 'hidden',
@@ -712,12 +759,19 @@ const styles = StyleSheet.create({
     paddingVertical: 18,
     paddingHorizontal: 32,
   },
+  continueGradientCompact: {
+    paddingVertical: 16,
+    paddingHorizontal: 24,
+  },
   continueText: {
     fontSize: 16,
     fontWeight: '700',
     color: colors.charcoal,
     letterSpacing: 0.5,
     marginRight: 8,
+  },
+  continueTextCompact: {
+    fontSize: 15,
   },
   continueArrow: {
     fontSize: 20,
