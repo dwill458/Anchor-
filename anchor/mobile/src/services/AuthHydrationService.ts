@@ -278,6 +278,41 @@ class AuthHydrationService {
 
     useAuthStore.getState().computeStreak();
   }
+
+  /**
+   * Self-healing thread/progress restore. Re-fetches the account export and
+   * rehydrates the session store (priming history → thread counts/strength)
+   * directly, so screens that show progress never depend solely on launch-time
+   * hydration. Returns true when priming history was restored.
+   */
+  async rehydrateSessionFromExport(): Promise<boolean> {
+    try {
+      const exportResult = await apiClient.get<AccountExportResponse>('/api/auth/me/export');
+      const exportAccount = exportResult.data?.data?.account;
+      const primingHistory = mapExportActivationsToPrimingHistory(
+        exportAccount?.activations ?? []
+      );
+
+      if (primingHistory.length === 0) {
+        return false;
+      }
+
+      const user = useAuthStore.getState().user;
+      const anchors = useAnchorStore.getState().anchors;
+      const totalActivations = Math.max(user?.totalActivations ?? 0, primingHistory.length);
+
+      useSessionStore.getState().hydrateFromBackend({
+        totalActivations,
+        currentStreak: user?.currentStreak ?? 0,
+        anchors,
+        primingHistory,
+      });
+      return true;
+    } catch (error) {
+      logger.warn('[AuthHydrationService] Session rehydrate from export failed', error);
+      return false;
+    }
+  }
 }
 
 export default new AuthHydrationService();
