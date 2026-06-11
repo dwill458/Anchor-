@@ -24,23 +24,39 @@ export const SUPABASE_URL = process.env.EXPO_PUBLIC_SUPABASE_URL ?? '';
 export const SUPABASE_ANON_KEY = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY ?? '';
 export const REVENUECAT_MONTHLY_PACKAGE_ID = '$rc_monthly';
 export const REVENUECAT_ANNUAL_PACKAGE_ID = '$rc_annual';
-const platformRevenueCatApiKey =
-  Platform.OS === 'ios'
-    ? process.env.EXPO_PUBLIC_REVENUECAT_IOS_API_KEY
-    : Platform.OS === 'android'
-      ? process.env.EXPO_PUBLIC_REVENUECAT_ANDROID_API_KEY
-      : undefined;
-export const REVENUECAT_API_KEY =
-  platformRevenueCatApiKey ?? process.env.EXPO_PUBLIC_REVENUECAT_API_KEY ?? '';
-export const REVENUECAT_ENTITLEMENT_ID = process.env.EXPO_PUBLIC_REVENUECAT_ENTITLEMENT_ID ?? '';
-export const REVENUECAT_DEFAULT_PACKAGE_ID =
-  process.env.EXPO_PUBLIC_REVENUECAT_DEFAULT_PACKAGE_ID ?? REVENUECAT_MONTHLY_PACKAGE_ID;
-export const REVENUECAT_DEFAULT_PLAN_ID =
-  REVENUECAT_DEFAULT_PACKAGE_ID === REVENUECAT_ANNUAL_PACKAGE_ID ? 'annual' : 'monthly';
+
 const readOptionalPublicEnv = (value: string | undefined): string => {
   const trimmed = value?.trim();
   return trimmed && trimmed.length > 0 ? trimmed : '';
 };
+
+// RevenueCat *SDK* keys are publishable client identifiers, not secrets — the
+// secret keys are the server-side `sk_...` keys, which never ship in the app.
+// Keep source-level fallbacks (same approach as the Google client IDs below) so
+// an OTA update bundled without EAS env injection still configures IAP instead
+// of silently shipping a blank paywall.
+const DEFAULT_REVENUECAT_IOS_API_KEY = 'appl_xtNGVPiFfkiUSuyuNdVTBQqhIia';
+const DEFAULT_REVENUECAT_ANDROID_API_KEY = 'goog_FrflxNtkvcxQTrcatSsJbLQqQSC';
+const DEFAULT_REVENUECAT_ENTITLEMENT_ID = 'pro';
+
+const platformRevenueCatApiKey =
+  Platform.OS === 'ios'
+    ? readOptionalPublicEnv(process.env.EXPO_PUBLIC_REVENUECAT_IOS_API_KEY) ||
+      DEFAULT_REVENUECAT_IOS_API_KEY
+    : Platform.OS === 'android'
+      ? readOptionalPublicEnv(process.env.EXPO_PUBLIC_REVENUECAT_ANDROID_API_KEY) ||
+        DEFAULT_REVENUECAT_ANDROID_API_KEY
+      : '';
+export const REVENUECAT_API_KEY =
+  platformRevenueCatApiKey || readOptionalPublicEnv(process.env.EXPO_PUBLIC_REVENUECAT_API_KEY);
+export const REVENUECAT_ENTITLEMENT_ID =
+  readOptionalPublicEnv(process.env.EXPO_PUBLIC_REVENUECAT_ENTITLEMENT_ID) ||
+  DEFAULT_REVENUECAT_ENTITLEMENT_ID;
+export const REVENUECAT_DEFAULT_PACKAGE_ID =
+  readOptionalPublicEnv(process.env.EXPO_PUBLIC_REVENUECAT_DEFAULT_PACKAGE_ID) ||
+  REVENUECAT_MONTHLY_PACKAGE_ID;
+export const REVENUECAT_DEFAULT_PLAN_ID =
+  REVENUECAT_DEFAULT_PACKAGE_ID === REVENUECAT_ANNUAL_PACKAGE_ID ? 'annual' : 'monthly';
 
 // Google OAuth client IDs are public identifiers, not secrets. Keep a
 // source-level fallback so preview/TestFlight builds still authenticate even
@@ -61,9 +77,11 @@ export const ENABLE_MERCH = process.env.EXPO_PUBLIC_ENABLE_MERCH === 'true';
 
 if (!__DEV__ && (!REVENUECAT_API_KEY || !REVENUECAT_ENTITLEMENT_ID)) {
   // KEEP: deliberate raw console diagnostic — logger is dev-gated and would
-  // silence this production misconfiguration signal.
+  // silence this production misconfiguration signal. With source-level
+  // fallbacks in place this should only ever fire on an unsupported platform
+  // (e.g. web) or if the fallbacks are removed — IAP would silently fail.
   // eslint-disable-next-line no-console
-  console.error('[config] RevenueCat env not injected — IAP will silently fail');
+  console.error('[config] RevenueCat key/entitlement missing — IAP will silently fail');
 }
 
 export const Config = {
