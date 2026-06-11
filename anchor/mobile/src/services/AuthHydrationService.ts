@@ -20,7 +20,7 @@ function normalizeDate(value?: Date | string | null): Date | undefined {
   return Number.isNaN(parsed.getTime()) ? undefined : parsed;
 }
 
-function normalizeAnchor(anchor: Anchor): Anchor {
+export function normalizeAnchor(anchor: Anchor): Anchor {
   return {
     ...anchor,
     createdAt: normalizeDate(anchor.createdAt) ?? new Date(),

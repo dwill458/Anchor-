@@ -40,13 +40,16 @@ import { useReduceMotionEnabled } from '@/hooks/useReduceMotionEnabled';
 import { AnalyticsService, AnalyticsEvents } from '../../services/AnalyticsService';
 import { ErrorTrackingService } from '../../services/ErrorTrackingService';
 import { PerformanceMonitoring } from '../../services/PerformanceMonitoring';
+import { apiClient } from '@/services/ApiClient';
+import { normalizeAnchor } from '@/services/AuthHydrationService';
+import { isBackendAnchorId } from '@/services/BackendAnchorService';
 import { SanctuaryHeader } from './components/SanctuaryHeader';
 import { AtmosphericOrbs } from './components/AtmosphericOrbs';
 import { HeroAnchorCard } from './components/HeroAnchorCard';
 import { AnchorStack } from './components/AnchorStack';
 import { ZenBackground } from '@/components/common';
 import { buildProfileGreeting } from '@/utils/profileGreeting';
-import type { Anchor, RootStackParamList } from '@/types';
+import type { Anchor, ApiResponse, RootStackParamList } from '@/types';
 import { colors, typography } from '@/theme';
 import { withAlpha } from '@/utils/color';
 import { useTabNavigation } from '@/contexts/TabNavigationContext';
@@ -223,6 +226,7 @@ export const VaultScreen: React.FC = () => {
   const isLoading = useAnchorStore((s) => s.isLoading);
   const setLoading = useAnchorStore((s) => s.setLoading);
   const setError = useAnchorStore((s) => s.setError);
+  const setAnchors = useAnchorStore((s) => s.setAnchors);
 
   const reduceMotionEnabled = useReduceMotionEnabled();
   const shouldReduceMotion = reduceMotionEnabled || !isVaultTabActive;
@@ -338,7 +342,25 @@ export const VaultScreen: React.FC = () => {
     setLoading(true);
     setError(null);
     try {
-      trace.putAttribute('anchor_count', String(anchorsLengthRef.current));
+      // Self-healing load: the Vault fetches the full anchor collection directly
+      // so it never depends solely on launch-time hydration. Without this, a
+      // failed/empty hydration leaves the Vault permanently empty with no recovery.
+      const response = await apiClient.get<ApiResponse<Anchor[]>>('/api/anchors', {
+        params: {
+          limit: 100,
+          orderBy: 'updatedAt',
+          order: 'desc',
+        },
+      });
+      const fetched = Array.isArray(response.data?.data)
+        ? response.data.data.map(normalizeAnchor)
+        : [];
+      // Preserve unsynced local-only anchors (temp ids) created before sync.
+      const preservedLocal = useAnchorStore
+        .getState()
+        .anchors.filter((a) => !isBackendAnchorId(a.id));
+      setAnchors([...fetched, ...preservedLocal]);
+      trace.putAttribute('anchor_count', String(fetched.length));
     } catch (error) {
       const msg = (error as Error).message;
       setError(msg);
@@ -352,7 +374,7 @@ export const VaultScreen: React.FC = () => {
       setLoading(false);
       trace.stop();
     }
-  }, [user, setLoading, setError, toast]);
+  }, [user, setLoading, setError, setAnchors, toast]);
 
   useEffect(() => { fetchAnchors(); }, [fetchAnchors]);
 
