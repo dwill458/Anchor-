@@ -495,9 +495,18 @@ export default function App() {
       return;
     }
 
+    // Wait for the first auth restore pass to settle before clearing any
+    // persisted state. Firebase session restoration is asynchronous on launch,
+    // so currentUser can be temporarily null even when the user is still signed
+    // in. Clearing here would wipe the encrypted vault/session stores before the
+    // authenticated callback has a chance to rehydrate them.
+    if (!initialAuthResolved) {
+      return;
+    }
+
     store.signOut();
     store.setLoading(false);
-  }, [developerMasterAccountEnabled]);
+  }, [developerMasterAccountEnabled, initialAuthResolved]);
 
   useEffect(() => {
     // Configure RevenueCat SDK anonymously on app start.
