@@ -1,3 +1,4 @@
+import type { Anchor } from '@/types';
 import type { StoredProfile } from '@/stores/profileStore';
 import { readSecureValue, writeSecureValue } from '@/stores/encryptedPersistStorage';
 import { logger } from '@/utils/logger';
@@ -53,8 +54,14 @@ export interface SessionSnapshot {
   lastDecayDate: string | null;
 }
 
+export interface AnchorSnapshot {
+  anchors: Anchor[];
+  currentAnchorId?: string;
+}
+
 const profileSnapshotKey = (userId: string) => `anchor:profile-snapshot:${userId}`;
 const sessionSnapshotKey = (userId: string) => `anchor:session-snapshot:${userId}`;
+const anchorSnapshotKey = (userId: string) => `anchor:anchor-snapshot:${userId}`;
 
 export async function saveProfileSnapshot(
   userId: string,
@@ -94,6 +101,27 @@ export async function loadSessionSnapshot(userId: string): Promise<SessionSnapsh
     return JSON.parse(rawSnapshot) as SessionSnapshot;
   } catch (error) {
     logger.warn('[UserLocalStateService] Failed to load session snapshot', error);
+    return null;
+  }
+}
+
+export async function saveAnchorSnapshot(
+  userId: string,
+  snapshot: AnchorSnapshot
+): Promise<void> {
+  await writeSecureValue(anchorSnapshotKey(userId), JSON.stringify(snapshot));
+}
+
+export async function loadAnchorSnapshot(userId: string): Promise<AnchorSnapshot | null> {
+  const rawSnapshot = await readSecureValue(anchorSnapshotKey(userId));
+  if (!rawSnapshot) {
+    return null;
+  }
+
+  try {
+    return JSON.parse(rawSnapshot) as AnchorSnapshot;
+  } catch (error) {
+    logger.warn('[UserLocalStateService] Failed to load anchor snapshot', error);
     return null;
   }
 }
