@@ -376,7 +376,13 @@ export const VaultScreen: React.FC = () => {
     }
   }, [user, setLoading, setError, setAnchors, toast]);
 
-  useEffect(() => { fetchAnchors(); }, [fetchAnchors]);
+  // Fire once on mount and whenever the authenticated user changes.
+  // Do NOT depend on `fetchAnchors` directly — its reference changes every
+  // render when `toast` (from useToast) is unstable, which would cause an
+  // infinite fetch loop and trigger rate-limiting.
+  useEffect(() => {
+    if (user?.id) void fetchAnchors();
+  }, [user?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Navigation handlers ───────────────────────────────────────────────────────
   const handleCreateAnchor = useCallback((): void => {
