@@ -22,6 +22,7 @@ import { useSessionStore } from '@/stores/sessionStore';
 import type { SessionLogEntry } from '@/stores/sessionStore';
 import { useSettingsStore } from '@/stores/settingsStore';
 import { countDailyGoalCompletions } from '@/services/DailyGoalNudgeService';
+import AuthHydrationService from '@/services/AuthHydrationService';
 import { safeHaptics } from '@/utils/haptics';
 import { colors, spacing, typography } from '@/theme';
 import { PRACTICE_COPY } from '@/constants/copy';
@@ -104,6 +105,21 @@ export const PracticeScreen: React.FC = () => {
   const lastPrimedAt = useSessionStore((s) => s.lastPrimedAt);
   const weekHistory = useSessionStore((s) => s.weekHistory);
   const applyDecay = useSessionStore((s) => s.applyDecay);
+  const primingHistory = useSessionStore((s) => s.primingHistory);
+
+  // Self-healing thread/progress restore: if priming history is empty (e.g. a
+  // failed/empty launch hydration), re-fetch the account export and rehydrate
+  // the session store so thread counts/strength reappear without depending on
+  // launch-time hydration. Runs at most once per mount.
+  const didAttemptThreadRehydrateRef = useRef(false);
+  useEffect(() => {
+    const hasPrimingHistory = Array.isArray(primingHistory) && primingHistory.length > 0;
+    if (hasPrimingHistory || didAttemptThreadRehydrateRef.current) {
+      return;
+    }
+    didAttemptThreadRehydrateRef.current = true;
+    void AuthHydrationService.rehydrateSessionFromExport();
+  }, [primingHistory]);
 
   const [selectorVisible, setSelectorVisible] = useState(false);
   const [infoVisible, setInfoVisible] = useState(false);
