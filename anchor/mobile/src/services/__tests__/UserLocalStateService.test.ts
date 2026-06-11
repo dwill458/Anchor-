@@ -1,9 +1,12 @@
+import { createMockAnchor } from '@/__tests__/utils/testUtils';
 import { useProfileStore } from '@/stores/profileStore';
 import { useSessionStore } from '@/stores/sessionStore';
 
 import {
+  loadAnchorSnapshot,
   loadProfileSnapshot,
   loadSessionSnapshot,
+  saveAnchorSnapshot,
   saveProfileSnapshot,
   saveSessionSnapshot,
 } from '../UserLocalStateService';
@@ -277,5 +280,27 @@ describe('UserLocalStateService', () => {
     expect(useSessionStore.getState().totalSessionsCount).toBe(3);
     expect(useSessionStore.getState().threadStrength).toBe(75);
     expect(useSessionStore.getState().primingHistory).toHaveLength(3);
+  });
+
+  it('restores saved anchor snapshots for the same user', async () => {
+    const anchor = createMockAnchor({
+      id: 'anchor-snapshot-1',
+      updatedAt: new Date('2026-06-08T10:00:00.000Z'),
+    });
+
+    await saveAnchorSnapshot('user-1', {
+      anchors: [anchor],
+      currentAnchorId: anchor.id,
+    });
+
+    const restoredAnchorSnapshot = await loadAnchorSnapshot('user-1');
+
+    expect(restoredAnchorSnapshot).not.toBeNull();
+    expect(restoredAnchorSnapshot).toEqual(
+      expect.objectContaining({
+        currentAnchorId: 'anchor-snapshot-1',
+        anchors: [expect.objectContaining({ id: 'anchor-snapshot-1' })],
+      })
+    );
   });
 });
