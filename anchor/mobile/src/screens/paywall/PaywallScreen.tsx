@@ -19,7 +19,7 @@ import {
 } from 'react-native';
 import { RouteProp, useNavigation, useRoute } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import Svg, { Circle, Path, SvgXml } from 'react-native-svg';
 import { OptimizedImage } from '@/components/common';
@@ -180,17 +180,13 @@ function buildPlans(metadata: RevenueCatOfferingDisplayMetadata): Record<PlanId,
   const monthly = buildPlanDisplay('monthly', metadata);
   const annual = buildPlanDisplay('annual', metadata);
   const monthlyYear = monthly.priceValue != null ? monthly.priceValue * 12 : null;
-  const savings =
-    monthlyYear != null && annual.priceValue != null && monthlyYear > annual.priceValue
-      ? Math.round(((monthlyYear - annual.priceValue) / monthlyYear) * 100)
-      : 37;
 
   return {
     monthly,
     annual: {
       ...annual,
       strikeLabel: monthlyYear ? formatCurrency(monthlyYear, annual.currencyCode) : '$95.88',
-      badge: `Best value · save ${savings}%`,
+      badge: null,
     },
   };
 }
@@ -343,6 +339,7 @@ export const PaywallScreen: React.FC = () => {
   const { forgedCount, totalPrimes } = useProgressionData();
   const reduceMotion = useReduceMotionEnabled();
 
+  const { top: safeTop } = useSafeAreaInsets();
   const [selectedPlanId, setSelectedPlanId] = useState<PlanId>(PAYWALL_EXPERIMENT.defaultPlan);
   const [offeringMetadata, setOfferingMetadata] = useState<RevenueCatOfferingDisplayMetadata>({});
   const [isPurchasing, setIsPurchasing] = useState(false);
@@ -476,7 +473,7 @@ export const PaywallScreen: React.FC = () => {
           onPress={handleDismiss}
           accessibilityRole="button"
           accessibilityLabel="Dismiss paywall"
-          style={({ pressed }) => [styles.closeButton, pressed && styles.pressed]}
+          style={({ pressed }) => [styles.closeButton, { top: safeTop + 10 }, pressed && styles.pressed]}
         >
           <CloseIcon />
         </Pressable>
