@@ -22,6 +22,7 @@ import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import Svg, { Circle, Path, SvgXml } from 'react-native-svg';
+import { OptimizedImage } from '@/components/common';
 import { AnalyticsService } from '@/services/AnalyticsService';
 import {
   REVENUECAT_ANNUAL_PACKAGE_ID,
@@ -262,6 +263,7 @@ function OrbitRing({ reduceMotion }: { reduceMotion: boolean }) {
 
 function HeroSigil({ anchor }: { anchor: Anchor | null }) {
   const sigilXml = anchor?.reinforcedSigilSvg || anchor?.baseSigilSvg || null;
+  const enhancedUrl = anchor?.enhancedImageUrl ?? null;
   const reduceMotion = useReduceMotionEnabled();
 
   return (
@@ -269,10 +271,16 @@ function HeroSigil({ anchor }: { anchor: Anchor | null }) {
       <View style={styles.sigilHalo} />
       <OrbitRing reduceMotion={reduceMotion} />
       <View style={styles.sigilCore} testID="paywall-primary-anchor">
-        {sigilXml ? (
-          <SvgXml xml={sigilXml} width={46} height={46} testID="paywall-primary-anchor-svg" />
+        {enhancedUrl ? (
+          <OptimizedImage
+            uri={enhancedUrl}
+            style={styles.sigilEnhanced}
+            resizeMode="cover"
+          />
+        ) : sigilXml ? (
+          <SvgXml xml={sigilXml} width={58} height={58} testID="paywall-primary-anchor-svg" />
         ) : (
-          <FallbackAnchorMark size={46} />
+          <FallbackAnchorMark size={58} />
         )}
       </View>
     </View>
@@ -310,12 +318,6 @@ function PlanCard({
         pressed && styles.planPressed,
       ]}
     >
-      {plan.badge ? (
-        <View style={styles.planBadge}>
-          <Text style={styles.planBadgeText}>{plan.badge}</Text>
-        </View>
-      ) : null}
-
       <View
         style={[styles.planCheck, selected && styles.planCheckSelected]}
         testID={`paywall-plan-check-${plan.id}`}
@@ -530,6 +532,13 @@ export const PaywallScreen: React.FC = () => {
             {PAYWALL_EXPERIMENT.showScarcity ? (
               <Text style={styles.scarcity}>Founding rate · locked for life if you continue now</Text>
             ) : null}
+
+            <Text style={styles.notReady}>
+              Not ready yet?{' '}
+              <Text style={styles.notReadyEm}>
+                Your practice and every anchor you've forged remain yours — always.
+              </Text>
+            </Text>
           </ScrollView>
 
           <LinearGradient
@@ -613,7 +622,7 @@ const styles = StyleSheet.create({
   },
   closeButton: {
     position: 'absolute',
-    top: 8,
+    top: 16,
     right: 14,
     width: 44,
     height: 44,
@@ -637,49 +646,55 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   sigilOuter: {
-    width: 116,
-    height: 116,
+    width: 150,
+    height: 150,
     alignItems: 'center',
     justifyContent: 'center',
     marginTop: 2,
   },
   sigilHalo: {
     position: 'absolute',
-    width: 112,
-    height: 112,
-    borderRadius: 56,
+    width: 148,
+    height: 148,
+    borderRadius: 74,
     backgroundColor: withAlpha(colors.gold, 0.1),
   },
   sigilRing: {
     position: 'absolute',
-    width: 98,
-    height: 98,
-    borderRadius: 49,
+    width: 130,
+    height: 130,
+    borderRadius: 65,
     borderWidth: 1,
     borderColor: withAlpha(colors.gold, 0.22),
   },
   sigilDot: {
     position: 'absolute',
     top: -3,
-    left: 47,
+    left: 62,
     width: 6,
     height: 6,
     borderRadius: 3,
     backgroundColor: colors.sanctuary.goldBright,
   },
   sigilCore: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
+    width: 110,
+    height: 110,
+    borderRadius: 55,
     backgroundColor: '#100820',
     borderWidth: 1,
     borderColor: withAlpha(colors.gold, 0.3),
     alignItems: 'center',
     justifyContent: 'center',
+    overflow: 'hidden',
     shadowColor: colors.purple,
     shadowOpacity: 0.5,
     shadowRadius: 30,
     elevation: 6,
+  },
+  sigilEnhanced: {
+    width: 110,
+    height: 110,
+    borderRadius: 55,
   },
   anchorCap: {
     fontFamily: typography.fonts.mono,
@@ -946,6 +961,17 @@ const styles = StyleSheet.create({
   },
   linkStrong: {
     color: colors.gold,
+  },
+  notReady: {
+    fontFamily: typography.fonts.bodySerifItalic,
+    fontSize: 13,
+    color: withAlpha(colors.bone, 0.38),
+    textAlign: 'center',
+    marginTop: 20,
+    maxWidth: 280,
+  },
+  notReadyEm: {
+    color: withAlpha(colors.bone, 0.55),
   },
 });
 
