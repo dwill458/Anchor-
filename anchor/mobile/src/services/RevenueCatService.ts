@@ -159,6 +159,21 @@ function getEntitlementInfo(customerInfo: CustomerInfo | null | undefined): Cust
     return activeEntitlement;
   }
 
+  // If the configured entitlement ID is missing or doesn't match the dashboard,
+  // fall back to the first active entitlement so a config mismatch doesn't block
+  // users who have a valid subscription.
+  const activeMap = customerInfo.entitlements?.active;
+  if (activeMap) {
+    const keys = Object.keys(activeMap);
+    if (keys.length > 0) {
+      logger.warn(
+        `[RevenueCatService] Entitlement "${REVENUECAT_ENTITLEMENT_ID}" not found in active entitlements; ` +
+          `falling back to "${keys[0]}". Set EXPO_PUBLIC_REVENUECAT_ENTITLEMENT_ID to match your RevenueCat dashboard.`
+      );
+      return activeMap[keys[0]];
+    }
+  }
+
   const allEntitlement = customerInfo.entitlements?.all?.[REVENUECAT_ENTITLEMENT_ID];
   return allEntitlement ?? null;
 }
