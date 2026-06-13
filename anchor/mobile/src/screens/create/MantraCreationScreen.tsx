@@ -1,4 +1,4 @@
-// DEFERRED: Mantra feature removed from launch flow. Reintroduce in v1.1.
+// DEFERRED: Mantra feature removed from launch flow — reintroduce in v1.1.
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Alert,

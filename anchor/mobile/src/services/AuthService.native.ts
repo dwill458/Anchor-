@@ -340,8 +340,7 @@ export class AuthService {
         throw new Error('Apple sign-in did not return an identity token.');
       }
 
-      const provider = new auth.OAuthProvider('apple.com');
-      const credential = provider.credential(appleCredential.identityToken, nonce);
+      const credential = auth.AppleAuthProvider.credential(appleCredential.identityToken, nonce);
       const firebaseCredential = await auth().signInWithCredential(credential);
 
       const displayName =

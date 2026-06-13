@@ -138,11 +138,11 @@ export const TodayAnchorCard: React.FC<TodayAnchorCardProps> = ({
           onPress={onActivate}
           activeOpacity={0.82}
           accessibilityRole="button"
-          accessibilityLabel={isActivating ? 'Charging' : formatActivationLabel(defaultActivationSeconds)}
+          accessibilityLabel={isActivating ? 'Priming' : formatActivationLabel(defaultActivationSeconds)}
           disabled={isActivating}
         >
           <Text style={styles.activateButtonText}>
-            {isActivating ? 'Charging...' : formatActivationLabel(defaultActivationSeconds)}
+            {isActivating ? 'Priming...' : formatActivationLabel(defaultActivationSeconds)}
           </Text>
         </TouchableOpacity>
 

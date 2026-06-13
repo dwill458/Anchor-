@@ -5,6 +5,7 @@ import {
   StyleSheet,
   Animated,
   Easing,
+  useWindowDimensions,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -13,6 +14,7 @@ import { StackNavigationProp } from '@react-navigation/stack';
 import * as Haptics from 'expo-haptics';
 import { RootStackParamList } from '@/types';
 import { colors } from '@/theme';
+import { isCompactPhoneViewport, isShortPhoneViewport } from '@/utils/layout';
 
 type DistillationAnimationRouteProp = RouteProp<RootStackParamList, 'DistillationAnimation'>;
 type DistillationAnimationNavigationProp = StackNavigationProp<RootStackParamList, 'DistillationAnimation'>;
@@ -47,6 +49,9 @@ interface LetterState {
 export default function DistillationAnimationScreen() {
   const route = useRoute<DistillationAnimationRouteProp>();
   const navigation = useNavigation<DistillationAnimationNavigationProp>();
+  const { width, height } = useWindowDimensions();
+  const isCompactLayout = isCompactPhoneViewport(width, height);
+  const isShortLayout = isShortPhoneViewport(height);
 
   const { intentionText, category, distilledLetters } = route.params;
 
@@ -414,21 +419,31 @@ export default function DistillationAnimationScreen() {
       />
 
       <SafeAreaView style={styles.safeArea}>
-        <View style={styles.content}>
+        <View
+          style={[
+            styles.content,
+            isCompactLayout && styles.contentCompact,
+            isShortLayout && styles.contentShort,
+          ]}
+        >
           {/* Phase Label */}
           <Animated.View
             style={[
               styles.phaseLabelContainer,
+              isCompactLayout && styles.phaseLabelContainerCompact,
               { transform: [{ scale: phaseLabelScale }] },
             ]}
           >
-            <Text style={styles.phaseLabel}>{phaseLabels[currentPhase]}</Text>
+            <Text style={[styles.phaseLabel, isCompactLayout && styles.phaseLabelCompact]}>
+              {phaseLabels[currentPhase]}
+            </Text>
           </Animated.View>
 
           {/* Animated Letter Display */}
           <Animated.View
             style={[
               styles.textContainer,
+              isCompactLayout && styles.textContainerCompact,
               {
                 transform: [
                   { scale: currentPhase <= 1 ? breathAnim : finalScale },
@@ -454,7 +469,9 @@ export default function DistillationAnimationScreen() {
                     <Animated.Text
                       key={idx}
                       style={[
-                        currentPhase <= 1 ? styles.displayTextSentence : styles.displayTextLetters,
+                        currentPhase <= 1
+                          ? [styles.displayTextSentence, isCompactLayout && styles.displayTextSentenceCompact]
+                          : [styles.displayTextLetters, isCompactLayout && styles.displayTextLettersCompact],
                         {
                           opacity: letter.opacity,
                           transform: [
@@ -472,7 +489,9 @@ export default function DistillationAnimationScreen() {
                   // Phase 3-4: Render only visible letters (distilled)
                   <Animated.Text
                     style={[
-                      currentPhase === 3 ? styles.displayTextLetters : styles.displayTextMerged,
+                      currentPhase === 3
+                        ? [styles.displayTextLetters, isCompactLayout && styles.displayTextLettersCompact]
+                        : [styles.displayTextMerged, isCompactLayout && styles.displayTextMergedCompact],
                       currentPhase >= 4 && { color: textColor },
                       { letterSpacing },
                     ]}
@@ -485,7 +504,7 @@ export default function DistillationAnimationScreen() {
           </Animated.View>
 
           {/* Progress Dots */}
-          <View style={styles.progressContainer}>
+          <View style={[styles.progressContainer, isCompactLayout && styles.progressContainerCompact]}>
             {phaseLabels.map((_, index) => (
               <Animated.View
                 key={index}
@@ -499,7 +518,9 @@ export default function DistillationAnimationScreen() {
           </View>
 
           {/* Mystical Subtitle */}
-          <Text style={styles.subtitle}>Let it settle</Text>
+          <Text style={[styles.subtitle, isCompactLayout && styles.subtitleCompact]}>
+            Let it settle
+          </Text>
         </View>
       </SafeAreaView>
     </View>
@@ -519,8 +540,17 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: 24,
   },
+  contentCompact: {
+    paddingHorizontal: 18,
+  },
+  contentShort: {
+    justifyContent: 'space-evenly',
+  },
   phaseLabelContainer: {
     marginBottom: 64,
+  },
+  phaseLabelContainerCompact: {
+    marginBottom: 40,
   },
   phaseLabel: {
     fontFamily: 'Cinzel-Regular',
@@ -529,12 +559,19 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     letterSpacing: 1,
   },
+  phaseLabelCompact: {
+    fontSize: 16,
+  },
   textContainer: {
     width: '100%',
     minHeight: 220,
     justifyContent: 'center',
     alignItems: 'center',
     paddingVertical: 32,
+  },
+  textContainerCompact: {
+    minHeight: 180,
+    paddingVertical: 20,
   },
   textGlow: {
     elevation: 20,
@@ -553,12 +590,20 @@ const styles = StyleSheet.create({
     color: colors.text.primary,
     letterSpacing: 0.5,
   },
+  displayTextSentenceCompact: {
+    fontSize: 22,
+    lineHeight: 32,
+  },
   displayTextLetters: {
     fontFamily: 'Cinzel-Regular',
     fontSize: 36,
     color: colors.text.primary,
     letterSpacing: 12,
     textAlign: 'center',
+  },
+  displayTextLettersCompact: {
+    fontSize: 28,
+    letterSpacing: 8,
   },
   displayTextMerged: {
     fontFamily: 'Cinzel-Regular',
@@ -567,12 +612,19 @@ const styles = StyleSheet.create({
     letterSpacing: 0,
     textAlign: 'center',
   },
+  displayTextMergedCompact: {
+    fontSize: 38,
+  },
   progressContainer: {
     flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'center',
     marginTop: 64,
     gap: 8,
+  },
+  progressContainerCompact: {
+    marginTop: 36,
+    gap: 6,
   },
   progressDot: {
     width: 8,
@@ -594,5 +646,9 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginTop: 32,
     fontStyle: 'italic',
+  },
+  subtitleCompact: {
+    marginTop: 22,
+    fontSize: 13,
   },
 });

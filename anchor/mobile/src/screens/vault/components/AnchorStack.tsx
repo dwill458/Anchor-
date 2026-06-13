@@ -107,7 +107,7 @@ export const AnchorStack: React.FC<AnchorStackProps> = ({
           />
         ))}
 
-        {/* DEFERRED: + NEW card replaced by persistent create CTA below scroll area */}
+        {/* DEFERRED: + NEW card replaced by persistent create CTA below scroll area — remove post-launch */}
         {/* <TouchableOpacity
           style={styles.addCard}
           onPress={_onAddPress}

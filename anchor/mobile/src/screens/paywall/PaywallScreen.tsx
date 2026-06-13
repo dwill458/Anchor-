@@ -419,12 +419,17 @@ export const PaywallScreen: React.FC = () => {
 
     try {
       const { status, dismissed } = await revenueCatService.purchasePackageByIdentifier(selectedPlan.packageId);
-      if (!dismissed && status.hasActiveEntitlement) {
-        AnalyticsService.track('paywall_converted', {
-          source,
-          plan: selectedPlanId,
-          productId: selectedPlan.packageId,
-        });
+      if (!dismissed) {
+        // The SDK only returns (without throwing) when the purchase was confirmed
+        // by the store. Navigate regardless of hasActiveEntitlement so a misconfigured
+        // entitlement ID can't leave a paying user stranded on the paywall.
+        if (status.hasActiveEntitlement) {
+          AnalyticsService.track('paywall_converted', {
+            source,
+            plan: selectedPlanId,
+            productId: selectedPlan.packageId,
+          });
+        }
         navigation.reset({ index: 0, routes: [{ name: 'Main' }] });
       }
     } catch (error: any) {
@@ -444,7 +449,7 @@ export const PaywallScreen: React.FC = () => {
       if (status.hasActiveEntitlement) {
         navigation.reset({ index: 0, routes: [{ name: 'Main' }] });
       } else {
-        Alert.alert('Nothing to restore', 'No active subscription was found for this account.');
+        Alert.alert('No subscription found', 'No active subscription was found for this account.');
       }
     } catch (error: any) {
       Alert.alert('Restore failed', error?.message ?? 'Could not restore purchases.');
@@ -513,7 +518,7 @@ export const PaywallScreen: React.FC = () => {
                   <View style={styles.recapDivider} />
                   <RecapStat value={totalPrimes} label="Sessions primed" />
                   <View style={styles.recapDivider} />
-                  <RecapStat value={primeStreak} label="Day streak" />
+                  <RecapStat value={primeStreak} label="Prime record" />
                 </View>
                 <Text style={styles.recapFoot}>
                   All of it stays the moment you <Text style={styles.recapFootStrong}>continue.</Text>

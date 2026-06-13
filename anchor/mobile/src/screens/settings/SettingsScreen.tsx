@@ -32,6 +32,7 @@ import {
   SETTINGS_MUTED_TEXT,
   SETTINGS_SCREEN_BACKGROUND,
 } from './shared';
+import { logger } from '@/utils/logger';
 
 const WEEKDAY_LABELS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 const SHOW_DEVELOPER_TOOLS =
@@ -143,7 +144,7 @@ export const SettingsScreen: React.FC = () => {
               await AuthService.signOut();
             } catch (error) {
               Alert.alert('Sign Out Failed', 'We could not sign you out right now.');
-              console.warn('[SettingsScreen] Failed to sign out cleanly', error);
+              logger.warn('[SettingsScreen] Failed to sign out cleanly', error);
               return;
             }
 
@@ -152,7 +153,7 @@ export const SettingsScreen: React.FC = () => {
               const { writeSecureValue } = require('@/stores/encryptedPersistStorage');
               await writeSecureValue('anchor-sync-retry-queue', '[]');
             } catch (error) {
-              console.warn('[SettingsScreen] Failed to clear sync retry queue on sign-out', error);
+              logger.warn('[SettingsScreen] Failed to clear sync retry queue on sign-out', error);
             }
 
             signOut();
@@ -178,7 +179,7 @@ export const SettingsScreen: React.FC = () => {
   const handleDeleteAccount = useCallback(() => {
     Alert.alert(
       'Delete Account',
-      'This action is permanent and cannot be undone. All your anchors and data will be deleted from our servers.',
+      'This action is permanent and cannot be undone. All your anchors and data will be deleted from our servers. \n\nImportant: Deleting your account will not cancel active subscriptions. Please cancel any active subscriptions through your App Store or Google Play account to prevent future billing.',
       [
         { text: 'Cancel', style: 'cancel' },
         {
@@ -190,7 +191,7 @@ export const SettingsScreen: React.FC = () => {
             } catch (error) {
               const message = error instanceof Error ? error.message : 'Failed to delete account';
               Alert.alert('Deletion Failed', message);
-              console.error('[SettingsScreen] Failed to delete account', error);
+              logger.error('[SettingsScreen] Failed to delete account', error);
               return;
             }
 
@@ -199,7 +200,7 @@ export const SettingsScreen: React.FC = () => {
               const { writeSecureValue } = require('@/stores/encryptedPersistStorage');
               await writeSecureValue('anchor-sync-retry-queue', '[]');
             } catch (error) {
-              console.warn('[SettingsScreen] Failed to clear sync retry queue after account deletion', error);
+              logger.warn('[SettingsScreen] Failed to clear sync retry queue after account deletion', error);
             }
 
             signOut();
@@ -280,7 +281,7 @@ export const SettingsScreen: React.FC = () => {
     }
 
     void fetchProfile().catch((error) => {
-      console.warn('[SettingsScreen] Failed to refresh account profile', error);
+      logger.warn('[SettingsScreen] Failed to refresh account profile', error);
     });
   }, [fetchProfile, firebaseEmail, isAuthenticated, setUser, user]);
 
@@ -591,18 +592,21 @@ export const SettingsScreen: React.FC = () => {
               onResetOnboarding={handleResetOnboarding}
             />
           ) : null}
-
-          <Text style={[styles.sectionLabel, styles.dangerLabel]}>Danger Zone</Text>
-          <SettingsSectionBlock>
-            <SettingsRow
-              title="Delete Account"
-              type="none"
-              titleColor="#e05252"
-              onPress={handleDeleteAccount}
-              style={styles.dangerRow}
-              showDivider={false}
-            />
-          </SettingsSectionBlock>
+          {isAuthenticated ? (
+            <>
+              <Text style={[styles.sectionLabel, styles.dangerLabel]}>Danger Zone</Text>
+              <SettingsSectionBlock>
+                <SettingsRow
+                  title="Delete Account"
+                  type="none"
+                  titleColor="#e05252"
+                  onPress={handleDeleteAccount}
+                  style={styles.dangerRow}
+                  showDivider={false}
+                />
+              </SettingsSectionBlock>
+            </>
+          ) : null}
 
           <View style={styles.bottomSpacer} />
         </ScrollView>

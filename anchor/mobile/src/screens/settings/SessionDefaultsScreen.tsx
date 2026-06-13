@@ -22,6 +22,7 @@ import {
   type SessionAudioMode,
 } from '@/stores/settingsStore';
 import { colors, spacing, typography } from '@/theme';
+import { logger } from '@/utils/logger';
 
 type SessionTab = 'focus' | 'prime';
 type FocusDurationOption = 10 | 30 | 60 | 120;
@@ -165,7 +166,7 @@ export const SessionDefaultsScreen: React.FC = () => {
         primeSessionDuration: resolvedPrimeDurationSeconds,
         primeSessionAudio: primeAudio,
       }).catch((error) => {
-        console.warn('[SessionDefaultsScreen] Failed to sync session defaults to profile', error);
+        logger.warn('[SessionDefaultsScreen] Failed to sync session defaults to profile', error);
       });
     }
     navigation.goBack();

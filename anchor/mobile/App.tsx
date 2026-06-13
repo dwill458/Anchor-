@@ -41,6 +41,7 @@ import { useAuthStore } from './src/stores/authStore';
 import { useForgeMomentStore } from './src/stores/forgeMomentStore';
 import { useSessionStore } from './src/stores/sessionStore';
 import { useSettingsStore } from './src/stores/settingsStore';
+import { useSubscriptionStore } from './src/stores/subscriptionStore';
 import { SettingsRevealProvider } from './src/components/transitions/SettingsRevealProvider';
 import type { RootNavigatorParamList } from './src/navigation/RootNavigator';
 import {
@@ -80,7 +81,7 @@ function isNetworkError(error: unknown): boolean {
 
 const { width } = Dimensions.get('window');
 const isWeb = Platform.OS === 'web';
-const SPLASH_BACKGROUND_COLOR = '#1A1A1D';
+const SPLASH_BACKGROUND_COLOR = '#080C10';
 
 if (!isWeb) {
   void SplashScreen.preventAutoHideAsync();
@@ -249,8 +250,22 @@ export default function App() {
     hasCompletedOnboarding,
     shouldBypassOnboarding
   );
+  // One-shot latch: true once the initial auth restore has settled. Must not
+  // track isLoading live — Login/SignUp re-use it and would unmount the app.
+  const [initialAuthResolved, setInitialAuthResolved] = React.useState(false);
   const { hasExpired, isSubscribed } = useTrialStatus();
-  const showExpiredTrialPaywall = !showOnboarding && hasExpired && !isSubscribed;
+  const rcSynced = useSubscriptionStore((state) => state.rcSynced);
+  const devOverrideEnabled = useSubscriptionStore((state) => state.devOverrideEnabled);
+  const remoteCompedAccess = useSubscriptionStore((state) => state.remoteCompedAccess);
+  // Suppress the post-trial paywall until RevenueCat has confirmed entitlement
+  // state at least once this session. On a clean install the persisted store
+  // defaults to "expired", so without this gate a real subscriber would see the
+  // paywall flash before logIn()/refreshTrialStatus() resolves. Dev overrides
+  // and comped access are authoritative immediately and bypass the gate.
+  const entitlementResolved =
+    rcSynced || (__DEV__ && devOverrideEnabled) || remoteCompedAccess;
+  const showExpiredTrialPaywall =
+    !showOnboarding && hasExpired && !isSubscribed && entitlementResolved;
   const [fontsLoaded] = useFonts({
     'Cinzel-Regular': Cinzel_400Regular,
     'Cinzel-SemiBold': Cinzel_600SemiBold,
@@ -262,7 +277,9 @@ export default function App() {
     'CormorantGaramond-Regular': CrimsonPro_400Regular,
     'CormorantGaramond-Italic': CrimsonPro_400Regular_Italic,
   });
-  const appIsReady = fontsLoaded && launchStateResolved;
+  // Hold the native splash until fonts are loaded AND auth state is determined,
+  // so the first visible frame is never a font-flash or an auth redirect jump.
+  const appIsReady = fontsLoaded && launchStateResolved && initialAuthResolved;
 
   useEffect(() => {
     if (!__DEV__) {
@@ -449,6 +466,25 @@ export default function App() {
   }, []);
 
   useEffect(() => {
+    // Declared after the auth-init effect so isLoading is already true here on
+    // mount. Latches once the initial restore settles, then unsubscribes so
+    // later isLoading toggles (sign-in/sign-up flows) cannot re-gate the app.
+    if (!useAuthStore.getState().isLoading) {
+      setInitialAuthResolved(true);
+      return undefined;
+    }
+
+    const unsubscribe = useAuthStore.subscribe((state) => {
+      if (!state.isLoading) {
+        setInitialAuthResolved(true);
+        unsubscribe();
+      }
+    });
+
+    return unsubscribe;
+  }, []);
+
+  useEffect(() => {
     if (AuthService.hasAuthenticatedSession()) {
       return;
     }
@@ -459,9 +495,18 @@ export default function App() {
       return;
     }
 
+    // Wait for the first auth restore pass to settle before clearing any
+    // persisted state. Firebase session restoration is asynchronous on launch,
+    // so currentUser can be temporarily null even when the user is still signed
+    // in. Clearing here would wipe the encrypted vault/session stores before the
+    // authenticated callback has a chance to rehydrate them.
+    if (!initialAuthResolved) {
+      return;
+    }
+
     store.signOut();
     store.setLoading(false);
-  }, [developerMasterAccountEnabled]);
+  }, [developerMasterAccountEnabled, initialAuthResolved]);
 
   useEffect(() => {
     // Configure RevenueCat SDK anonymously on app start.
@@ -499,6 +544,20 @@ export default function App() {
     }
 
     previousUserIdRef.current = user?.id ?? null;
+  }, [user?.id]);
+
+  useEffect(() => {
+    if (!user?.id) {
+      return undefined;
+    }
+
+    // Reflect server-driven entitlement changes (renewals, cancellations,
+    // refunds, billing retries) in real time. The service keeps the
+    // subscription store in sync on every update, so the paywall gate reacts
+    // without requiring a cold restart.
+    return revenueCatService.addCustomerInfoUpdateListener(() => {
+      // No-op: applyTrialStatus runs inside the service listener.
+    });
   }, [user?.id]);
 
   useEffect(() => {

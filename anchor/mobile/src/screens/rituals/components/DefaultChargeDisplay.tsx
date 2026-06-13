@@ -56,7 +56,9 @@ export const DefaultChargeDisplay: React.FC<DefaultChargeDisplayProps> = ({
   };
 
   const formatMode = (mode: 'focus' | 'ritual'): string => {
-    return mode === 'focus' ? 'Focus' : 'Ritual';
+    // return mode === 'focus' ? 'Focus' : 'Ritual';
+    // BRAND: verify copy — "Deep Practice" matches the mode card naming in ModeSelectionStep/DepthCard.
+    return mode === 'focus' ? 'Focus' : 'Deep Practice';
   };
 
   const handleChange = () => {

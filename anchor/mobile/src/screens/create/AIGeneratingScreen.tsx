@@ -4,14 +4,15 @@ import {
   Text,
   StyleSheet,
   Animated,
-  Dimensions,
   Platform,
   Alert,
+  useWindowDimensions,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { BlurView } from 'expo-blur';
 import { StatusBar } from 'expo-status-bar';
 import Svg, { Circle, G, Path } from 'react-native-svg';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { RootStackParamList, AIStyle } from '@/types';
@@ -24,8 +25,8 @@ import { useTrialStatus } from '@/hooks/useTrialStatus';
 import { ErrorTrackingService } from '@/services/ErrorTrackingService';
 import { PerformanceMonitoring } from '@/services/PerformanceMonitoring';
 import { AuthService } from '@/services/AuthService';
+import { isCompactPhoneViewport, isShortPhoneViewport } from '@/utils/layout';
 
-const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 const IS_ANDROID = Platform.OS === 'android';
 
 // Design System Colors (Zen Architect)
@@ -79,9 +80,17 @@ const PROGRESS_PHASES = {
 export default function AIGeneratingScreen() {
   const route = useRoute<AIGeneratingRouteProp>();
   const navigation = useNavigation<AIGeneratingNavigationProp>();
+  const { width, height } = useWindowDimensions();
   const user = useAuthStore((state) => state.user);
   const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
   const anchorCount = useAuthStore((state) => state.anchorCount);
+  const isCompactLayout = isCompactPhoneViewport(width, height);
+  const isShortLayout = isShortPhoneViewport(height);
+  const orbitSize = isCompactLayout ? 168 : 200;
+  const glowSize = isCompactLayout ? 188 : 220;
+  const centerSize = isCompactLayout ? 104 : 120;
+  const orb1Size = isCompactLayout ? 240 : 300;
+  const orb2Size = isCompactLayout ? 210 : 250;
   // All paid users get Flash (Nano Banana 2) by default.
   // Pro model escalated server-side on regeneration (attempt 2+).
   const { hasActiveEntitlement } = useTrialStatus();
@@ -1031,6 +1040,12 @@ export default function AIGeneratingScreen() {
           styles.orb,
           styles.orb1,
           {
+            width: orb1Size,
+            height: orb1Size,
+            top: -Math.round(orb1Size * 0.33),
+            right: -Math.round(orb1Size * 0.33),
+          },
+          {
             opacity: orb1Anim.interpolate({
               inputRange: [0, 1],
               outputRange: IS_ANDROID ? [0.06, 0.10] : [0.1, 0.15],
@@ -1051,6 +1066,12 @@ export default function AIGeneratingScreen() {
           styles.orb,
           styles.orb2,
           {
+            width: orb2Size,
+            height: orb2Size,
+            bottom: -Math.round(orb2Size * 0.32),
+            left: -Math.round(orb2Size * 0.32),
+          },
+          {
             opacity: orb2Anim.interpolate({
               inputRange: [0, 1],
               outputRange: IS_ANDROID ? [0.05, 0.08] : [0.08, 0.12],
@@ -1068,13 +1089,25 @@ export default function AIGeneratingScreen() {
       />
 
       {/* Main Content */}
-      <Animated.View style={[styles.content, { opacity: fadeAnim }]}>
+      <SafeAreaView style={styles.safeArea} edges={['top', 'bottom']}>
+      <Animated.View style={[styles.content, isCompactLayout && styles.contentCompact, { opacity: fadeAnim }]}>
         {/* Center Icon with Animations */}
-        <View style={styles.iconContainer}>
+        <View
+          style={[
+            styles.iconContainer,
+            isCompactLayout && styles.iconContainerCompact,
+            { width: orbitSize, height: orbitSize },
+          ]}
+        >
           {/* Outer glow */}
           <Animated.View
             style={[
               styles.glowRing,
+              {
+                width: glowSize,
+                height: glowSize,
+                borderRadius: glowSize / 2,
+              },
               {
                 opacity: glowOpacity,
                 transform: [{ scale: pulseAnim }],
@@ -1084,7 +1117,7 @@ export default function AIGeneratingScreen() {
 
           {/* Rotating outer circle with style-specific animation */}
           <Animated.View style={{ transform: getRotationTransform() }}>
-            <Svg width={200} height={200} viewBox="0 0 200 200">
+            <Svg width={orbitSize} height={orbitSize} viewBox="0 0 200 200">
               {/* Dashed outer circle */}
               <Circle
                 cx="100"
@@ -1104,16 +1137,20 @@ export default function AIGeneratingScreen() {
             style={[
               styles.centerIcon,
               {
+                width: centerSize,
+                height: centerSize,
+              },
+              {
                 transform: [{ scale: pulseAnim }],
               },
             ]}
           >
             {IS_ANDROID ? (
-              <View style={[styles.centerCircle, styles.centerCircleAndroid]}>
+              <View style={[styles.centerCircle, styles.centerCircleAndroid, { width: centerSize, height: centerSize, borderRadius: centerSize / 2 }]}>
                 {renderRefinementSeal()}
               </View>
             ) : (
-              <BlurView intensity={15} tint="dark" style={styles.centerCircle}>
+              <BlurView intensity={15} tint="dark" style={[styles.centerCircle, { width: centerSize, height: centerSize, borderRadius: centerSize / 2 }]}>
                 {renderRefinementSeal()}
               </BlurView>
             )}
@@ -1121,10 +1158,11 @@ export default function AIGeneratingScreen() {
         </View>
 
         {/* Loading Text */}
-        <View style={styles.loadingTextContainer}>
+        <View style={[styles.loadingTextContainer, isCompactLayout && styles.loadingTextContainerCompact]}>
           <Animated.Text
             style={[
               styles.loadingTextPrimary,
+              isCompactLayout && styles.loadingTextPrimaryCompact,
               {
                 opacity: fadeAnim,
               },
@@ -1135,6 +1173,7 @@ export default function AIGeneratingScreen() {
           <Animated.Text
             style={[
               styles.loadingTextSecondary,
+              isCompactLayout && styles.loadingTextSecondaryCompact,
               {
                 opacity: fadeAnim,
               },
@@ -1145,7 +1184,7 @@ export default function AIGeneratingScreen() {
         </View>
 
         {/* Progress Bar */}
-        <View style={styles.progressContainer}>
+        <View style={[styles.progressContainer, isCompactLayout && styles.progressContainerCompact]}>
           <View style={styles.progressBarBg}>
             <View
               style={[
@@ -1154,28 +1193,28 @@ export default function AIGeneratingScreen() {
               ]}
             />
           </View>
-          <Text style={styles.progressPhaseText}>{getProgressPhase()}</Text>
+          <Text style={[styles.progressPhaseText, isCompactLayout && styles.progressPhaseTextCompact]}>{getProgressPhase()}</Text>
         </View>
 
         {/* Intention Card */}
-        <View style={styles.intentionContainer}>
+        <View style={[styles.intentionContainer, isCompactLayout && styles.intentionContainerCompact]}>
           {IS_ANDROID ? (
-            <View style={[styles.intentionCard, styles.intentionCardAndroid]}>
+            <View style={[styles.intentionCard, styles.intentionCardAndroid, isCompactLayout && styles.intentionCardCompact]}>
               <Text style={styles.intentionLabel}>FORGING</Text>
-              <Text style={styles.intentionText}>"{intentionText}"</Text>
+              <Text style={[styles.intentionText, isCompactLayout && styles.intentionTextCompact]}>"{intentionText}"</Text>
               <View style={styles.intentionBorder} />
             </View>
           ) : (
-            <BlurView intensity={12} tint="dark" style={styles.intentionCard}>
+            <BlurView intensity={12} tint="dark" style={[styles.intentionCard, isCompactLayout && styles.intentionCardCompact]}>
               <Text style={styles.intentionLabel}>FORGING</Text>
-              <Text style={styles.intentionText}>"{intentionText}"</Text>
+              <Text style={[styles.intentionText, isCompactLayout && styles.intentionTextCompact]}>"{intentionText}"</Text>
               <View style={styles.intentionBorder} />
             </BlurView>
           )}
         </View>
 
         {/* Time Estimate */}
-        <View style={styles.timeEstimate}>
+        <View style={[styles.timeEstimate, isCompactLayout && styles.timeEstimateCompact]}>
           <Animated.View
             style={[
               styles.timeIcon,
@@ -1186,9 +1225,10 @@ export default function AIGeneratingScreen() {
           >
             <Text style={styles.timeIconText}>⏱</Text>
           </Animated.View>
-          <Text style={styles.timeText}>This usually takes about 30 seconds</Text>
+          <Text style={[styles.timeText, isShortLayout && styles.timeTextCompact]}>This usually takes about 30 seconds</Text>
         </View>
       </Animated.View>
+      </SafeAreaView>
     </View>
   );
 }
@@ -1197,6 +1237,9 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: colors.navy,
+  },
+  safeArea: {
+    flex: 1,
   },
   background: {
     position: 'absolute',
@@ -1211,16 +1254,8 @@ const styles = StyleSheet.create({
     backgroundColor: colors.gold,
   },
   orb1: {
-    width: 300,
-    height: 300,
-    top: -100,
-    right: -100,
   },
   orb2: {
-    width: 250,
-    height: 250,
-    bottom: -80,
-    left: -80,
   },
   content: {
     flex: 1,
@@ -1228,12 +1263,18 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: 32,
   },
+  contentCompact: {
+    paddingHorizontal: 24,
+  },
   iconContainer: {
     width: 200,
     height: 200,
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 48,
+  },
+  iconContainerCompact: {
+    marginBottom: 28,
   },
   glowRing: {
     position: 'absolute',
@@ -1272,6 +1313,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 40,
   },
+  loadingTextContainerCompact: {
+    marginBottom: 28,
+  },
   loadingTextPrimary: {
     fontSize: 22,
     fontWeight: '500',
@@ -1279,6 +1323,10 @@ const styles = StyleSheet.create({
     marginBottom: 12,
     letterSpacing: 0.5,
     textAlign: 'center',
+  },
+  loadingTextPrimaryCompact: {
+    fontSize: 20,
+    marginBottom: 10,
   },
   loadingTextSecondary: {
     fontSize: 16,
@@ -1288,9 +1336,15 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     opacity: 0.8,
   },
+  loadingTextSecondaryCompact: {
+    fontSize: 15,
+  },
   progressContainer: {
     width: '100%',
     marginBottom: 40,
+  },
+  progressContainerCompact: {
+    marginBottom: 28,
   },
   progressBarBg: {
     width: '100%',
@@ -1315,9 +1369,16 @@ const styles = StyleSheet.create({
     marginTop: 8,
     opacity: 0.7,
   },
+  progressPhaseTextCompact: {
+    fontSize: 12,
+    marginTop: 6,
+  },
   intentionContainer: {
     width: '100%',
     marginBottom: 24,
+  },
+  intentionContainerCompact: {
+    marginBottom: 18,
   },
   intentionCard: {
     borderRadius: 16,
@@ -1326,6 +1387,9 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(212, 175, 55, 0.3)',
     backgroundColor: 'rgba(26, 26, 29, 0.5)',
     position: 'relative',
+  },
+  intentionCardCompact: {
+    padding: 16,
   },
   intentionCardAndroid: {
     backgroundColor: 'rgba(26, 26, 29, 0.9)',
@@ -1343,6 +1407,10 @@ const styles = StyleSheet.create({
     fontStyle: 'italic',
     color: colors.bone,
     lineHeight: 24,
+  },
+  intentionTextCompact: {
+    fontSize: 15,
+    lineHeight: 22,
   },
   intentionBorder: {
     position: 'absolute',
@@ -1364,6 +1432,10 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: 'rgba(212, 175, 55, 0.2)',
   },
+  timeEstimateCompact: {
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+  },
   timeIcon: {
     marginRight: 10,
   },
@@ -1374,5 +1446,8 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: colors.silver,
     fontStyle: 'italic',
+  },
+  timeTextCompact: {
+    fontSize: 12,
   },
 });

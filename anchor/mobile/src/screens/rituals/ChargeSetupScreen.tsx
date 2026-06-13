@@ -26,6 +26,7 @@ import { OptimizedImage } from '@/components/common';
 import type { Anchor, RootStackParamList } from '@/types';
 import { spacing } from '@/theme';
 import { navigateToVaultDestination } from '@/navigation/firstAnchorGate';
+import { isCompactPhoneViewport, isShortPhoneViewport } from '@/utils/layout';
 
 type ChargeSetupRouteProp = RouteProp<RootStackParamList, 'ChargeSetup'>;
 type ChargeSetupNavigationProp = StackNavigationProp<RootStackParamList, 'ChargeSetup'>;
@@ -87,7 +88,7 @@ export const ChargeSetupScreen: React.FC = () => {
   const navigation = useNavigation<ChargeSetupNavigationProp>();
   const route = useRoute<ChargeSetupRouteProp>();
   const insets = useSafeAreaInsets();
-  const { height: screenHeight } = useWindowDimensions();
+  const { width: screenWidth, height: screenHeight } = useWindowDimensions();
   const { anchorId, returnTo, autoStartOnSelection = false } = route.params || {};
 
   const getAnchorById = useAnchorStore((state) => state.getAnchorById);
@@ -100,7 +101,17 @@ export const ChargeSetupScreen: React.FC = () => {
   const [enhancedArtworkFailed, setEnhancedArtworkFailed] = useState(false);
 
   const isNavigatingRef = useRef(false);
-  const heroHeight = Math.max(340, Math.min(460, Math.round(screenHeight * 0.52)));
+  const isCompactLayout = isCompactPhoneViewport(screenWidth, screenHeight);
+  const isShortLayout = isShortPhoneViewport(screenHeight);
+  const heroHeight = Math.max(
+    isCompactLayout ? 286 : 340,
+    Math.min(isCompactLayout ? 388 : 460, Math.round(screenHeight * (isCompactLayout ? 0.42 : 0.52)))
+  );
+  const artworkSize = isCompactLayout ? 172 : PRIME_ARTWORK_SIZE;
+  const artworkInnerSize = Math.round(artworkSize * 0.62);
+  const outerRingSize = artworkSize + (isCompactLayout ? 72 : 96);
+  const midRingSize = artworkSize + (isCompactLayout ? 26 : 41);
+  const innerRingSize = artworkSize - (isCompactLayout ? 26 : 14);
   const shouldShowEnhancedArtwork = Boolean(anchor?.enhancedImageUrl) && !enhancedArtworkFailed;
   const ringPulseOuter = useRef(new Animated.Value(1)).current;
   const ringPulseMid = useRef(new Animated.Value(1)).current;
@@ -275,23 +286,23 @@ export const ChargeSetupScreen: React.FC = () => {
 
         <View pointerEvents="none" style={styles.anchorHero}>
           <View style={styles.ringField}>
-            <Animated.View style={[styles.ring, styles.ringOuter, { opacity: ringPulseOuter }]} />
-            <Animated.View style={[styles.ring, styles.ringMid, { opacity: ringPulseMid }]} />
-            <Animated.View style={[styles.ring, styles.ringInner, { opacity: ringPulseInner }]} />
+            <Animated.View style={[styles.ring, { width: outerRingSize, height: outerRingSize, opacity: ringPulseOuter }]} />
+            <Animated.View style={[styles.ring, styles.ringMid, { width: midRingSize, height: midRingSize, opacity: ringPulseMid }]} />
+            <Animated.View style={[styles.ring, styles.ringInner, { width: innerRingSize, height: innerRingSize, opacity: ringPulseInner }]} />
           </View>
 
           <View style={styles.anchorOverlay}>
-            <View style={styles.anchorFrame}>
+            <View style={[styles.anchorFrame, { width: artworkSize, height: artworkSize, borderRadius: artworkSize / 2 }]}>
               {shouldShowEnhancedArtwork && anchor?.enhancedImageUrl ? (
                 <OptimizedImage
                   uri={anchor.enhancedImageUrl}
-                  style={styles.anchorImage}
+                  style={[styles.anchorImage, { width: artworkSize, height: artworkSize, borderRadius: artworkSize / 2 }]}
                   resizeMode="cover"
                   onError={() => setEnhancedArtworkFailed(true)}
                 />
               ) : (
-                <View style={styles.sigilFrame}>
-                  <SvgXml xml={structureSvg} width={PRIME_ARTWORK_SIZE * 0.62} height={PRIME_ARTWORK_SIZE * 0.62} />
+                <View style={[styles.sigilFrame, { width: artworkSize, height: artworkSize, borderRadius: artworkSize / 2 }]}>
+                  <SvgXml xml={structureSvg} width={artworkInnerSize} height={artworkInnerSize} />
                 </View>
               )}
             </View>
@@ -331,7 +342,10 @@ export const ChargeSetupScreen: React.FC = () => {
         <ScrollView
           bounces={false}
           showsVerticalScrollIndicator={false}
-          contentContainerStyle={styles.panelContent}
+          contentContainerStyle={[
+            styles.panelContent,
+            isCompactLayout && styles.panelContentCompact,
+          ]}
         >
           <View style={styles.badgeRow}>
             <LinearGradient
@@ -349,11 +363,11 @@ export const ChargeSetupScreen: React.FC = () => {
             />
           </View>
 
-          <Text style={styles.headline}>The Work Begins Now</Text>
-          <Text style={styles.subline}>Fix your anchor in mind.{'\n'}Choose your prime duration.</Text>
-          <Text style={styles.durationLabel}>SELECT DURATION</Text>
+          <Text style={[styles.headline, isCompactLayout && styles.headlineCompact]}>The Work Begins Now</Text>
+          <Text style={[styles.subline, isCompactLayout && styles.sublineCompact]}>Fix your anchor in mind.{'\n'}Choose your prime duration.</Text>
+          <Text style={[styles.durationLabel, isCompactLayout && styles.durationLabelCompact]}>SELECT DURATION</Text>
 
-          <View style={styles.cardsRow}>
+          <View style={[styles.cardsRow, isCompactLayout && styles.cardsRowCompact]}>
             {cards.map((card) => (
               <TouchableOpacity
                 key={card.choice}
@@ -363,17 +377,21 @@ export const ChargeSetupScreen: React.FC = () => {
                 accessibilityLabel={`${card.name} duration`}
                 accessibilityState={{ selected: card.isSelected }}
                 disabled={isTransitioning}
-                style={[styles.durationCard, card.isSelected ? styles.durationCardSelected : null]}
+                style={[
+                  styles.durationCard,
+                  isCompactLayout && styles.durationCardCompact,
+                  card.isSelected ? styles.durationCardSelected : null,
+                ]}
               >
                 {card.isSelected ? (
                   <View style={styles.checkCircle}>
                     <Text style={styles.checkText}>✓</Text>
                   </View>
                 ) : null}
-                <Text style={styles.cardIcon}>{card.icon}</Text>
-                <Text style={[styles.cardName, card.isSelected ? styles.cardNameSelected : null]}>{card.name}</Text>
-                <Text style={styles.cardLine}>{card.lineOne}</Text>
-                <Text style={styles.cardLine}>{card.lineTwo}</Text>
+                <Text style={[styles.cardIcon, isCompactLayout && styles.cardIconCompact]}>{card.icon}</Text>
+                <Text style={[styles.cardName, isCompactLayout && styles.cardNameCompact, card.isSelected ? styles.cardNameSelected : null]}>{card.name}</Text>
+                <Text style={[styles.cardLine, isCompactLayout && styles.cardLineCompact]}>{card.lineOne}</Text>
+                <Text style={[styles.cardLine, isCompactLayout && styles.cardLineCompact]}>{card.lineTwo}</Text>
               </TouchableOpacity>
             ))}
           </View>
@@ -390,18 +408,18 @@ export const ChargeSetupScreen: React.FC = () => {
               colors={['#C9A227', '#D4AF37', '#E8C84A']}
               start={{ x: 0, y: 0 }}
               end={{ x: 1, y: 1 }}
-              style={styles.ctaButton}
+              style={[styles.ctaButton, isCompactLayout && styles.ctaButtonCompact]}
             >
-              <Text style={styles.ctaText}>BEGIN PRIMING</Text>
+              <Text style={[styles.ctaText, isCompactLayout && styles.ctaTextCompact]}>BEGIN PRIMING</Text>
             </LinearGradient>
           </TouchableOpacity>
 
-          <Text style={styles.safetyText}>You can stop anytime.</Text>
+          <Text style={[styles.safetyText, isShortLayout && styles.safetyTextCompact]}>You can stop anytime.</Text>
         </ScrollView>
       </View>
 
       {/*
-        DEFERRED: old ChargeSetupScreen UI
+        DEFERRED: old ChargeSetupScreen UI — remove post-launch
         <ScrollView>{legacy ChargedGlowCanvas/PremiumAnchorGlow prime-selection layout}</ScrollView>
       */}
     </View>
@@ -564,6 +582,11 @@ const styles = StyleSheet.create({
     paddingHorizontal: 24,
     paddingBottom: 24,
   },
+  panelContentCompact: {
+    paddingTop: 18,
+    paddingHorizontal: 20,
+    paddingBottom: 16,
+  },
   badgeRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -589,6 +612,11 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginBottom: 10,
   },
+  headlineCompact: {
+    fontSize: 20,
+    lineHeight: 26,
+    marginBottom: 6,
+  },
   subline: {
     fontFamily: 'CormorantGaramond-Italic',
     fontSize: 16,
@@ -598,6 +626,11 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginBottom: 28,
   },
+  sublineCompact: {
+    fontSize: 14,
+    lineHeight: 18,
+    marginBottom: 18,
+  },
   durationLabel: {
     fontFamily: 'Cinzel-Regular',
     fontSize: 9,
@@ -606,10 +639,17 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginBottom: 14,
   },
+  durationLabelCompact: {
+    marginBottom: 10,
+  },
   cardsRow: {
     flexDirection: 'row',
     gap: 12,
     marginBottom: 20,
+  },
+  cardsRowCompact: {
+    gap: 8,
+    marginBottom: 14,
   },
   durationCard: {
     flex: 1,
@@ -623,6 +663,11 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 18,
     minHeight: 144,
+  },
+  durationCardCompact: {
+    paddingHorizontal: 8,
+    paddingVertical: 12,
+    minHeight: 116,
   },
   durationCardSelected: {
     borderColor: 'rgba(212,175,55,0.4)',
@@ -650,6 +695,10 @@ const styles = StyleSheet.create({
     fontSize: 26,
     marginBottom: 10,
   },
+  cardIconCompact: {
+    fontSize: 20,
+    marginBottom: 6,
+  },
   cardName: {
     fontFamily: 'Cinzel-Regular',
     fontSize: 12,
@@ -657,6 +706,10 @@ const styles = StyleSheet.create({
     color: BONE,
     textAlign: 'center',
     marginBottom: 6,
+  },
+  cardNameCompact: {
+    fontSize: 10,
+    marginBottom: 3,
   },
   cardNameSelected: {
     color: GOLD,
@@ -668,6 +721,10 @@ const styles = StyleSheet.create({
     color: SILVER,
     opacity: 0.7,
     textAlign: 'center',
+  },
+  cardLineCompact: {
+    fontSize: 10,
+    lineHeight: 13,
   },
   ctaTouchable: {
     width: '100%',
@@ -683,11 +740,18 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 4 },
     elevation: 8,
   },
+  ctaButtonCompact: {
+    paddingVertical: 14,
+  },
   ctaText: {
     fontFamily: 'Cinzel-Bold',
     fontSize: 13,
     letterSpacing: 3,
     color: BLACK,
+  },
+  ctaTextCompact: {
+    fontSize: 12,
+    letterSpacing: 2.4,
   },
   safetyText: {
     marginTop: 14,
@@ -696,6 +760,10 @@ const styles = StyleSheet.create({
     color: SILVER,
     opacity: 0.5,
     textAlign: 'center',
+  },
+  safetyTextCompact: {
+    marginTop: 12,
+    fontSize: 12,
   },
   errorContainer: {
     flex: 1,

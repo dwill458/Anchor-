@@ -21,6 +21,7 @@ import type { Anchor } from '@/types';
 import { SigilSvg } from '@/components/common/SigilSvg';
 import { WeeklyShareCard } from '@/components/share/WeeklyShareCard';
 import { generateWeeklyInsight } from '@/utils/weeklyInsight';
+import { logger } from '@/utils/logger';
 
 const GOLD = '#D4AF37';
 const NAVY = '#0F1419';
@@ -291,7 +292,7 @@ export function WeeklySummaryModal({
       setIsSharing(true);
       await shareWeek();
     } catch (error) {
-      console.warn('[WeeklySummaryModal] share failed', error);
+      logger.warn('[WeeklySummaryModal] share failed', error);
     } finally {
       setIsSharing(false);
     }

@@ -26,6 +26,7 @@ import type { UseCaseItem } from '@/components/onboarding/UseCaseCard';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { OnboardingStackParamList } from '@/types';
 import { colors, typography } from '@/theme';
+import { isCompactPhoneViewport, isShortPhoneViewport } from '@/utils/layout';
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 const anchorLogoOfficial = require('../../../assets/anchor-gold.png') as number;
 
@@ -450,11 +451,12 @@ const Ornament: React.FC = () => (
 export const NarrativeOnboardingScreen: React.FC<Props> = ({ navigation }) => {
   const { completeOnboarding, setShouldRedirectToCreation } = useAuthStore();
   const { width, height } = useWindowDimensions();
-  const isShortScreen = height < 810;
-  const isCompactLayout = isShortScreen || width < 390;
+  const isShortScreen = isShortPhoneViewport(height);
+  const isCompactLayout = isCompactPhoneViewport(width, height);
   const contentWidth = Math.min(width - (isCompactLayout ? 48 : 72), 360);
-  const visualScale = isShortScreen ? Math.max(0.72, (height * 0.34) / 320) : 1;
-  const visualAreaHeight = isShortScreen ? Math.round(height * 0.40) : 370;
+  const compactVisualScale = Math.max(0.76, Math.min(0.94, (height * 0.31) / 320));
+  const visualScale = isCompactLayout ? compactVisualScale : 1;
+  const visualAreaHeight = isCompactLayout ? Math.round(height * (isShortScreen ? 0.34 : 0.37)) : 370;
 
   const [currentSlide, setCurrentSlide] = useState(0);
   const slideOpacity = useRef(new Animated.Value(1)).current;
@@ -499,7 +501,7 @@ export const NarrativeOnboardingScreen: React.FC<Props> = ({ navigation }) => {
   const renderVisual = (slide: OnboardingSlide) => {
     const scaledSize = Math.round(visualScale * 320);
     const wrapSmall = (child: React.ReactNode): React.ReactNode =>
-      isShortScreen ? (
+      isCompactLayout ? (
         <View style={{ width: scaledSize, height: scaledSize, alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
           <View style={{ transform: [{ scale: visualScale }] }}>
             {child}
@@ -559,6 +561,7 @@ export const NarrativeOnboardingScreen: React.FC<Props> = ({ navigation }) => {
       <Animated.View
         style={[
           styles.slideContent,
+          isCompactLayout && styles.slideContentCompact,
           isShortScreen && styles.slideContentShort,
           { opacity: slideOpacity },
         ]}
@@ -587,7 +590,7 @@ export const NarrativeOnboardingScreen: React.FC<Props> = ({ navigation }) => {
       <View
         style={[
           styles.footer,
-          isShortScreen && styles.footerShort,
+          isCompactLayout && styles.footerShort,
           isCompactLayout && styles.footerCompact,
         ]}
       >
@@ -665,6 +668,7 @@ const styles = StyleSheet.create({
   skipBtn: { position: 'absolute', top: 54, right: 20, zIndex: 20, flexDirection: 'row', alignItems: 'center', paddingHorizontal: 10, paddingVertical: 5, borderRadius: 16, borderWidth: 1, borderColor: withAlpha(colors.bone, 0.18), backgroundColor: withAlpha(colors.bone, 0.05) },
   skipText: { fontFamily: typography.fonts.heading, fontSize: MICRO_FONT_SIZE + 1, letterSpacing: 2, color: colors.silver },
   slideContent: { flex: 1, paddingTop: 44 },
+  slideContentCompact: { paddingTop: 32 },
   slideContentShort: { paddingTop: 28 },
   visualArea: { height: 370, alignItems: 'center', justifyContent: 'center' },
   textArea: { flex: 1, paddingHorizontal: 36 },
@@ -675,13 +679,13 @@ const styles = StyleSheet.create({
   ornamentDiamond: { width: 5, height: 5, backgroundColor: colors.gold, opacity: 0.6, transform: [{ rotate: '45deg' }] },
   label: { fontFamily: typography.fonts.heading, fontSize: LABEL_FONT_SIZE, letterSpacing: 2.5, color: colors.gold, textTransform: 'uppercase', marginBottom: 14, opacity: 0.8 },
   headline: { fontFamily: typography.fonts.headingSemiBold, fontSize: typography.sizes.h2, color: colors.bone, lineHeight: typography.lineHeights.h2, marginBottom: 18, letterSpacing: -0.2 },
-  headlineCompact: { fontSize: 28, lineHeight: 34, marginBottom: 14 },
+  headlineCompact: { fontSize: 26, lineHeight: 32, marginBottom: 12 },
   headlineGold: { color: colors.gold, fontFamily: typography.fonts.headingSemiBold },
   body: { fontFamily: typography.fontFamily.sans, fontSize: BODY_FONT_SIZE, color: colors.silver, lineHeight: 27, letterSpacing: 0.2 },
-  bodyCompact: { fontSize: typography.fontSize.md, lineHeight: 24 },
+  bodyCompact: { fontSize: typography.fontSize.md - 1, lineHeight: 22 },
   footer: { paddingHorizontal: 36, paddingBottom: Platform.OS === 'android' ? 24 : 12, alignItems: 'center', gap: 24 },
   footerShort: { paddingBottom: Platform.OS === 'android' ? 16 : 12, gap: 16 },
-  footerCompact: { paddingHorizontal: 24 },
+  footerCompact: { paddingHorizontal: 24, gap: 18 },
   dots: { flexDirection: 'row', gap: 8, alignItems: 'center' },
   dot: { height: 6, borderRadius: 3 },
   dotActive: { width: 24, backgroundColor: colors.gold },

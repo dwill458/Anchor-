@@ -41,7 +41,7 @@ export const HapticFeedbackScreen: React.FC = () => {
 
         <InfoCard
           title="Tactile Connection"
-          body="Haptic feedback helps root you in the moment by pairing a physical sensation with your intention activations."
+          body="Haptic feedback helps root you in the moment by pairing a physical sensation with your prime sessions."
         />
       </ScrollView>
     </SafeAreaView>

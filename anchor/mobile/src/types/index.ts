@@ -618,7 +618,7 @@ export type RootStackParamList = {
     enhancementMetadata?: EnhancementMetadata;
   };
 
-  // DEFERRED: Mantra feature removed from launch flow. Reintroduce in v1.1.
+  // DEFERRED: Mantra feature removed from launch flow — reintroduce in v1.1.
   // MantraCreation: {
   //   intentionText: string;
   //   category: AnchorCategory;
@@ -775,13 +775,13 @@ export type RootStackParamList = {
   DailyPracticeGoal: undefined;
   ThreadStrength: undefined;
   RestDays: undefined;
-  // DEFERRED: replaced by SessionDefaultsScreen.
+  // DEFERRED: replaced by SessionDefaultsScreen — remove post-launch.
   DefaultCharge: undefined;
-  // DEFERRED: replaced by SessionDefaultsScreen.
+  // DEFERRED: replaced by SessionDefaultsScreen — remove post-launch.
   DefaultActivation: undefined;
-  // DEFERRED: replaced by SessionDefaultsScreen.
+  // DEFERRED: replaced by SessionDefaultsScreen — remove post-launch.
   PrimingDefaults: undefined;
-  // DEFERRED: replaced by SessionDefaultsScreen.
+  // DEFERRED: replaced by SessionDefaultsScreen — remove post-launch.
   DefaultFocusMode: undefined;
 
   // Appearance Settings
@@ -800,7 +800,7 @@ export type RootStackParamList = {
 
 export type PracticeStackParamList = {
   PracticeHome: undefined;
-  // DEFERRED: StabilizeRitual: { anchorId: string };
+  // DEFERRED: StabilizeRitual: { anchorId: string }; — restore post-launch
   Evolve: undefined;
   ConfirmBurn: {
     anchorId: string;

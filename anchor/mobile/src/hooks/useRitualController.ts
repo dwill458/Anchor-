@@ -138,7 +138,7 @@ export function useRitualController({
     ? currentPhase.instructions[
     currentInstructionIndex % currentPhase.instructions.length
     ]
-    : (isComplete && !isSealComplete ? 'Intention charged.\nHold your Anchor to seal it in.' : '');
+    : (isComplete && !isSealComplete ? 'Intention primed.\nHold your Anchor to seal it in.' : '');
 
   // ══════════════════════════════════════════════════════════════
   // LIFECYCLE: Timer

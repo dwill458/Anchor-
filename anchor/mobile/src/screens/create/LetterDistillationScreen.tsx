@@ -5,6 +5,7 @@ import {
   StyleSheet,
   Text,
   TouchableOpacity,
+  useWindowDimensions,
   View,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -17,6 +18,7 @@ import { useAuthStore } from '@/stores/authStore';
 import { useAnchorStore } from '@/stores/anchorStore';
 import { useAudio } from '@/hooks/useAudio';
 import { colors } from '@/theme';
+import { isCompactPhoneViewport, isShortPhoneViewport } from '@/utils/layout';
 
 type Props = {
   navigation: NativeStackNavigationProp<RootStackParamList, 'LetterDistillation'>;
@@ -39,11 +41,14 @@ const VOWELS = new Set(['A', 'E', 'I', 'O', 'U']);
 
 export default function LetterDistillationScreen({ route, navigation }: Props) {
   const { intentionText, distilledLetters, category } = route.params;
+  const { width, height } = useWindowDimensions();
   const { user, anchorCount } = useAuthStore((state) => ({
     user: state.user,
     anchorCount: state.anchorCount,
   }));
   const localAnchorCount = useAnchorStore((state) => state.anchors.length);
+  const isCompactLayout = isCompactPhoneViewport(width, height);
+  const isShortLayout = isShortPhoneViewport(height);
 
   // Step 2: unique alphabetic letters from raw intention (spaces removed, vowels kept)
   const step2Letters = useMemo(() => {
@@ -320,14 +325,14 @@ export default function LetterDistillationScreen({ route, navigation }: Props) {
   const textStyle = (() => {
     switch (activeStage.style) {
       case 'spaced':
-        return styles.textSpaced;
+        return [styles.textSpaced, isCompactLayout && styles.textSpacedCompact];
       case 'large':
-        return styles.textLarge;
+        return [styles.textLarge, isCompactLayout && styles.textLargeCompact];
       case 'glyph':
-        return styles.textGlyph;
+        return [styles.textGlyph, isCompactLayout && styles.textGlyphCompact];
       case 'sentence':
       default:
-        return styles.textSentence;
+        return [styles.textSentence, isCompactLayout && styles.textSentenceCompact];
     }
   })();
 
@@ -371,7 +376,7 @@ export default function LetterDistillationScreen({ route, navigation }: Props) {
 
         {showSkip ? (
           <TouchableOpacity
-            style={styles.skipButton}
+            style={[styles.skipButton, isCompactLayout && styles.skipButtonCompact]}
             onPress={skipAll}
             activeOpacity={0.8}
             accessibilityRole="button"
@@ -381,22 +386,35 @@ export default function LetterDistillationScreen({ route, navigation }: Props) {
           </TouchableOpacity>
         ) : null}
 
-        <Animated.View style={[styles.content, { opacity: fadeAnim }]}>
-          <View style={styles.topZone}>
-            <Text style={styles.stepCounter}>
+        <Animated.View
+          style={[
+            styles.content,
+            isCompactLayout && styles.contentCompact,
+            isShortLayout && styles.contentShort,
+            { opacity: fadeAnim },
+          ]}
+        >
+          <View style={[styles.topZone, isCompactLayout && styles.topZoneCompact]}>
+            <Text style={[styles.stepCounter, isCompactLayout && styles.stepCounterCompact]}>
               Step {currentStage + 1} of {stages.length}
             </Text>
-            <Text style={styles.phaseName}>{activeStage.phase}</Text>
-            <View style={styles.phaseDivider} />
+            <Text style={[styles.phaseName, isCompactLayout && styles.phaseNameCompact]}>
+              {activeStage.phase}
+            </Text>
+            <View style={[styles.phaseDivider, isCompactLayout && styles.phaseDividerCompact]} />
           </View>
 
-          <View style={styles.centerZone}>
-            <Text style={styles.stageLabel}>{activeStage.label}</Text>
+          <View style={[styles.centerZone, isCompactLayout && styles.centerZoneCompact]}>
+            <Text style={[styles.stageLabel, isCompactLayout && styles.stageLabelCompact]}>
+              {activeStage.label}
+            </Text>
             <Text style={[styles.mainTextBase, textStyle]}>{displayedText}</Text>
-            <Text style={styles.stageSubtitle}>{activeStage.subtitle}</Text>
+            <Text style={[styles.stageSubtitle, isCompactLayout && styles.stageSubtitleCompact]}>
+              {activeStage.subtitle}
+            </Text>
           </View>
 
-          <View style={styles.bottomZone}>
+          <View style={[styles.bottomZone, isCompactLayout && styles.bottomZoneCompact]}>
             <View style={styles.dots}>
               {stages.map((_, index) => {
                 const isActive = index === currentStage;
@@ -418,7 +436,7 @@ export default function LetterDistillationScreen({ route, navigation }: Props) {
                 );
               })}
             </View>
-            <Text style={styles.settleText}>
+            <Text style={[styles.settleText, isCompactLayout && styles.settleTextCompact]}>
               {currentStage < stages.length - 1 ? 'Let it settle' : 'Your anchor awaits'}
             </Text>
           </View>
@@ -445,6 +463,15 @@ const styles = StyleSheet.create({
     paddingHorizontal: 28,
     justifyContent: 'space-between',
   },
+  contentCompact: {
+    paddingTop: 54,
+    paddingBottom: 28,
+    paddingHorizontal: 22,
+  },
+  contentShort: {
+    paddingTop: 48,
+    paddingBottom: 22,
+  },
   skipButton: {
     position: 'absolute',
     top: 56,
@@ -457,6 +484,12 @@ const styles = StyleSheet.create({
     paddingVertical: 7,
     paddingHorizontal: 16,
   },
+  skipButtonCompact: {
+    top: 46,
+    right: 22,
+    paddingVertical: 6,
+    paddingHorizontal: 14,
+  },
   skipText: {
     fontFamily: 'Cinzel-Regular',
     fontSize: 9,
@@ -467,6 +500,9 @@ const styles = StyleSheet.create({
   topZone: {
     alignItems: 'center',
   },
+  topZoneCompact: {
+    marginBottom: 4,
+  },
   stepCounter: {
     fontFamily: 'Cinzel-Regular',
     fontSize: 9,
@@ -476,11 +512,19 @@ const styles = StyleSheet.create({
     opacity: 0.65,
     marginBottom: 10,
   },
+  stepCounterCompact: {
+    fontSize: 8,
+    letterSpacing: 4.5,
+    marginBottom: 8,
+  },
   phaseName: {
     fontFamily: 'CrimsonPro-Italic',
     fontSize: 21,
     letterSpacing: 0.5,
     color: '#e8e0d4',
+  },
+  phaseNameCompact: {
+    fontSize: 18,
   },
   phaseDivider: {
     width: 40,
@@ -489,11 +533,18 @@ const styles = StyleSheet.create({
     opacity: 0.5,
     marginTop: 14,
   },
+  phaseDividerCompact: {
+    width: 32,
+    marginTop: 12,
+  },
   centerZone: {
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
     gap: 18,
+  },
+  centerZoneCompact: {
+    gap: 14,
   },
   stageLabel: {
     fontFamily: 'Cinzel-Regular',
@@ -502,6 +553,10 @@ const styles = StyleSheet.create({
     color: colors.gold,
     textTransform: 'uppercase',
     opacity: 0.55,
+  },
+  stageLabelCompact: {
+    fontSize: 8,
+    letterSpacing: 4,
   },
   mainTextBase: {
     textAlign: 'center',
@@ -514,11 +569,21 @@ const styles = StyleSheet.create({
     lineHeight: 28,
     maxWidth: 300,
   },
+  textSentenceCompact: {
+    fontSize: 12,
+    lineHeight: 22,
+    letterSpacing: 2.2,
+    maxWidth: 260,
+  },
   textSpaced: {
     fontFamily: 'Courier',
     fontSize: 22,
     letterSpacing: 8,
     color: '#e8e0d4',
+  },
+  textSpacedCompact: {
+    fontSize: 18,
+    letterSpacing: 6,
   },
   textLarge: {
     fontFamily: 'Cinzel-Regular',
@@ -526,10 +591,17 @@ const styles = StyleSheet.create({
     letterSpacing: 16,
     color: '#D4AF37',
   },
+  textLargeCompact: {
+    fontSize: 28,
+    letterSpacing: 10,
+  },
   textGlyph: {
     fontSize: 80,
     color: '#D4AF37',
     letterSpacing: 0,
+  },
+  textGlyphCompact: {
+    fontSize: 64,
   },
   stageSubtitle: {
     fontFamily: 'CrimsonPro-Italic',
@@ -539,9 +611,16 @@ const styles = StyleSheet.create({
     marginTop: 8,
     textAlign: 'center',
   },
+  stageSubtitleCompact: {
+    fontSize: 12.5,
+    marginTop: 4,
+  },
   bottomZone: {
     alignItems: 'center',
     gap: 18,
+  },
+  bottomZoneCompact: {
+    gap: 14,
   },
   dots: {
     flexDirection: 'row',
@@ -569,6 +648,10 @@ const styles = StyleSheet.create({
     letterSpacing: 2,
     color: '#5a5450',
     textAlign: 'center',
+  },
+  settleTextCompact: {
+    fontSize: 12,
+    letterSpacing: 1.5,
   },
   orbOne: {
     position: 'absolute',

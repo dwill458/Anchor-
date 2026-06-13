@@ -19,6 +19,7 @@ import { apiClient, fetchCompleteProfile } from '@/services/ApiClient';
 import { AuthService } from '@/services/AuthService';
 import { clearNotificationSession } from '@/services/NotificationSessionService';
 import {
+  saveAnchorSnapshot,
   saveProfileSnapshot,
   saveSessionSnapshot,
 } from '@/services/UserLocalStateService';
@@ -744,7 +745,7 @@ export const useAuthStore = create<AuthState>()(
               );
 
               if (!activationResponse.data?.success || !activationResponse.data.data) {
-                throw new Error('Your first anchor was created, but activation did not sync.');
+                throw new Error('Your first anchor was created, but the prime session did not sync.');
               }
 
               finalizedAnchor = mergeServerAnchor(
@@ -927,7 +928,12 @@ export const useAuthStore = create<AuthState>()(
         if (userId) {
           const profileState = useProfileStore.getState();
           const sessionState = useSessionStore.getState();
+          const anchorState = useAnchorStore.getState();
           void Promise.all([
+            saveAnchorSnapshot(userId, {
+              anchors: anchorState.anchors,
+              currentAnchorId: anchorState.currentAnchorId,
+            }),
             saveProfileSnapshot(userId, {
               ownerUserId: profileState.ownerUserId,
               name: profileState.name,

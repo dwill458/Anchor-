@@ -27,6 +27,7 @@ import { useAnchorStore } from '@/stores/anchorStore';
 import { useAuthStore } from '@/stores/authStore';
 import { useSessionStore } from '@/stores/sessionStore';
 import { useSettingsStore } from '@/stores/settingsStore';
+import { logger } from '@/utils/logger';
 
 type NotificationStateWithSyncMetadata = SyncedNotificationState;
 
@@ -218,7 +219,7 @@ export const useNotificationController = () => {
         await saveState(syncedState);
       }
     } catch (err) {
-      console.error('[NotificationController] initOnAppOpen error:', err);
+      logger.error('[NotificationController] initOnAppOpen error:', err);
     } finally {
       setIsInitialized(true);
     }
@@ -248,7 +249,7 @@ export const useNotificationController = () => {
           await saveState(syncedState);
         }
       } catch (err) {
-        console.error('[NotificationController] syncGoalWithSettings error:', err);
+        logger.error('[NotificationController] syncGoalWithSettings error:', err);
       }
     };
 
@@ -315,7 +316,7 @@ export const useNotificationController = () => {
         await saveState(syncedState);
       }
     } catch (err) {
-      console.error('[NotificationController] handlePrimeComplete error:', err);
+      logger.error('[NotificationController] handlePrimeComplete error:', err);
     }
   }, [loadState, reconcile, saveState, scheduleMicroPrime, syncStateToServer, syncWithStores]);
 
@@ -329,7 +330,7 @@ export const useNotificationController = () => {
         await saveState(syncedState);
       }
     } catch (err) {
-      console.error('[NotificationController] handleBurnFlowEntered error:', err);
+      logger.error('[NotificationController] handleBurnFlowEntered error:', err);
     }
   }, [loadState, reconcile, saveState, syncStateToServer]);
 
@@ -356,7 +357,7 @@ export const useNotificationController = () => {
         await saveState(syncedState);
       }
     } catch (err) {
-      console.error('[NotificationController] handleSigilVaulted error:', err);
+      logger.error('[NotificationController] handleSigilVaulted error:', err);
     }
   }, [loadState, reconcile, saveState, syncStateToServer]);
 
@@ -372,7 +373,7 @@ export const useNotificationController = () => {
         await saveState(syncedState);
       }
     } catch (err) {
-      console.error('[NotificationController] updateActiveHours error:', err);
+      logger.error('[NotificationController] updateActiveHours error:', err);
     }
   }, [loadState, reconcile, saveState, scheduleMicroPrime, syncStateToServer]);
 
@@ -411,7 +412,7 @@ export const useNotificationController = () => {
         await saveState(syncedState);
       }
     } catch (err) {
-      console.error('[NotificationController] toggleNotifications error:', err);
+      logger.error('[NotificationController] toggleNotifications error:', err);
     }
   }, [loadState, reconcile, saveState, scheduleMicroPrime, syncStateToServer]);
 
@@ -427,7 +428,7 @@ export const useNotificationController = () => {
         await scheduleMicroPrime(state);
       }
     } catch (err) {
-      console.error('[NotificationController] setActiveSession error:', err);
+      logger.error('[NotificationController] setActiveSession error:', err);
     }
   }, [loadState, reconcile, saveState, scheduleMicroPrime]);
 
@@ -441,7 +442,7 @@ export const useNotificationController = () => {
         await saveState(syncedState);
       }
     } catch (err) {
-      console.error('[NotificationController] toggleWeaver error:', err);
+      logger.error('[NotificationController] toggleWeaver error:', err);
     }
   }, [loadState, reconcile, saveState, syncStateToServer]);
 

@@ -763,7 +763,7 @@ export const useSettingsStore = create<SettingsState>()(
     {
       name: 'anchor-settings-storage',
       storage: createJSONStorage(() => AsyncStorage),
-      // DEFERRED: version: 10,
+      // DEFERRED: version: 10, — restore post-launch
       version: 12,
       // Handle migration
       migrate: (persistedState: any, version: number) => {

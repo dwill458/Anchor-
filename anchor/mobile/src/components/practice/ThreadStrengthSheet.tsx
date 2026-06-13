@@ -395,8 +395,10 @@ const ThreadStrengthSheetContent: React.FC<ThreadStrengthSheetProps> = ({
 
             <View style={styles.statsRow}>
               <Stat value={history.totalSessions} label="Total Sessions" />
-              <Stat value={history.currentStreak} label="Current Streak" />
-              <Stat value={history.longestStreak} label="Longest Streak" />
+              {/* <Stat value={history.currentStreak} label="Current Streak" /> */}
+              {/* BRAND: verify copy */}
+              <Stat value={history.currentStreak} label="Constancy" />
+              <Stat value={history.longestStreak} label="Prime Record" />
               <Stat
                 value={`${history.deepPrimePercent}%`}
                 label="Deep Primes"

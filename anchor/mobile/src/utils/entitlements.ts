@@ -31,7 +31,7 @@ export function getEntitlements(tier: 'free' | 'pro'): Entitlements {
         };
     }
 
-    // DEFERRED: freemium tier removed, replaced by trial model
+    // DEFERRED: freemium tier removed — replaced by trial model
     return {
         tier: 'free',
         maxAnchors: Infinity,

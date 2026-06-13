@@ -504,7 +504,7 @@ const PrimerModal = ({ visible, onActivate, onSkip, onCancel, blurIntensity = 30
       <BlurView intensity={blurIntensity} tint="dark" style={StyleSheet.absoluteFillObject} />
       <View style={rs.modalContent}>
         <LinearGradient colors={CARD_GRADIENT} style={[rs.card, { padding: 24, paddingVertical: 32 }]}>
-          <Text style={rs.modalTitle}>Primer Activation</Text>
+          <Text style={rs.modalTitle}>Primer Session</Text>
           <Text style={rs.modalBody}>Primer: 10 seconds to bring it online.</Text>
 
           <View style={rs.modalActions}>
@@ -1016,7 +1016,7 @@ const AnchorDetailsScreen = ({ navigation, route }) => {
     if (isExporting) return;
     const perm = await MediaLibrary.requestPermissionsAsync();
     if (perm.status !== 'granted') {
-      toast.warning('Allow photo library access to save your sigil');
+      toast.warning('Allow photo library access to save your anchor');
       return;
     }
     setIsExporting(true);
@@ -1357,7 +1357,7 @@ const AnchorDetailsScreen = ({ navigation, route }) => {
           )}
         </FadeUp>
 
-        {/* DEFERRED: Direct ritual entry points live on Practice. Restore the secondary ritual sheet here only if the detail screen regains mode-launch responsibilities. */}
+        {/* DEFERRED: Direct ritual entry points live on Practice — restore the secondary ritual sheet here only if the detail screen regains mode-launch responsibilities. */}
 
         <FadeUp delay={320} animate={shouldAnimateIntro}>
           <LinearGradient
@@ -1441,7 +1441,7 @@ const AnchorDetailsScreen = ({ navigation, route }) => {
           </LinearGradient>
         </FadeUp>
 
-        {/* DEFERRED: Physical Anchor merchandising stays hidden until the flow, copy, and fulfillment path are functional again.
+        {/* DEFERRED: Print-on-demand physical anchor — finalize partner and reintroduce post-Apple review window.
         <FadeUp delay={360}>
           <LinearGradient
             colors={CARD_GRADIENT}
@@ -1558,7 +1558,7 @@ const AnchorDetailsScreen = ({ navigation, route }) => {
         />
       )}
 
-      {/* DEFERRED: MoreRitualsSheet stays off-screen while Anchor Details only routes into Practice. */}
+      {/* DEFERRED: MoreRitualsSheet stays off-screen while Anchor Details only routes into Practice — restore post-launch if needed. */}
       {/*
       <MoreRitualsSheet
         visible={moreRitualsVisible}

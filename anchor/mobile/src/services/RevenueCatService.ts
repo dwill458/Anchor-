@@ -70,6 +70,7 @@ interface RevenueCatOffering {
 
 interface RevenueCatOfferings {
   current?: RevenueCatOffering | null;
+  all?: Record<string, RevenueCatOffering> | null;
 }
 
 export interface RevenueCatPackagePresentation {
@@ -99,8 +100,12 @@ interface RevenueCatPurchases {
   getOfferings?: () => Promise<RevenueCatOfferings>;
   purchasePackage?: (pkg: RevenueCatPackage) => Promise<RevenueCatPurchaseResult | CustomerInfo>;
   restorePurchases?: () => Promise<CustomerInfo>;
-  /** SDK v8+ listener API — resolves to an unsubscribe function. */
-  addCustomerInfoUpdateListener?: (listener: (info: CustomerInfo) => void) => () => void;
+  /**
+   * The native SDK registers the listener and returns void. Removal is done
+   * via removeCustomerInfoUpdateListener with the same listener reference.
+   */
+  addCustomerInfoUpdateListener?: (listener: (info: CustomerInfo) => void) => void;
+  removeCustomerInfoUpdateListener?: (listener: (info: CustomerInfo) => void) => boolean;
 }
 
 /** Callback type for CustomerInfo update listeners. */
@@ -154,6 +159,21 @@ function getEntitlementInfo(customerInfo: CustomerInfo | null | undefined): Cust
     return activeEntitlement;
   }
 
+  // If the configured entitlement ID is missing or doesn't match the dashboard,
+  // fall back to the first active entitlement so a config mismatch doesn't block
+  // users who have a valid subscription.
+  const activeMap = customerInfo.entitlements?.active;
+  if (activeMap) {
+    const keys = Object.keys(activeMap);
+    if (keys.length > 0) {
+      logger.warn(
+        `[RevenueCatService] Entitlement "${REVENUECAT_ENTITLEMENT_ID}" not found in active entitlements; ` +
+          `falling back to "${keys[0]}". Set EXPO_PUBLIC_REVENUECAT_ENTITLEMENT_ID to match your RevenueCat dashboard.`
+      );
+      return activeMap[keys[0]];
+    }
+  }
+
   const allEntitlement = customerInfo.entitlements?.all?.[REVENUECAT_ENTITLEMENT_ID];
   return allEntitlement ?? null;
 }
@@ -196,8 +216,12 @@ function applyTrialStatus(status: TrialStatusSnapshot, synced = false): TrialSta
   if (synced) {
     subscriptionStore.setRcSynced(true);
   }
-  if (status.hasActiveEntitlement) {
+  if (status.isSubscribed) {
     subscriptionStore.setSubscriptionStatus('active');
+  } else if (status.isInTrial) {
+    subscriptionStore.setSubscriptionStatus('trial');
+  } else {
+    subscriptionStore.setSubscriptionStatus('expired');
   }
   return status;
 }
@@ -254,6 +278,44 @@ function buildPlanMetadata(
 }
 
 class RevenueCatService {
+  private resolveOfferingFromCollection(offerings: RevenueCatOfferings): RevenueCatOffering | null {
+    if (offerings.current) {
+      return offerings.current;
+    }
+
+    const allOfferings = offerings.all ? Object.entries(offerings.all) : [];
+    if (allOfferings.length === 0) {
+      return null;
+    }
+
+    const preferredOffering = allOfferings.find(([, offering]) => {
+      const packageIds = new Set((offering.availablePackages ?? []).map((pkg) => pkg.identifier));
+      return (
+        packageIds.has(REVENUECAT_DEFAULT_PACKAGE_ID) ||
+        packageIds.has(REVENUECAT_MONTHLY_PACKAGE_ID) ||
+        packageIds.has(REVENUECAT_ANNUAL_PACKAGE_ID)
+      );
+    });
+
+    if (preferredOffering) {
+      const [identifier, offering] = preferredOffering;
+      logger.warn(
+        `[RevenueCatService] offerings.current was empty; falling back to offering "${identifier}" from offerings.all`
+      );
+      return offering;
+    }
+
+    if (allOfferings.length === 1) {
+      const [identifier, offering] = allOfferings[0];
+      logger.warn(
+        `[RevenueCatService] offerings.current was empty; falling back to sole offering "${identifier}" from offerings.all`
+      );
+      return offering;
+    }
+
+    return null;
+  }
+
   private async getCurrentOffering(): Promise<RevenueCatOffering> {
     const purchases = getPurchasesModule();
     if (!purchases) {
@@ -264,9 +326,11 @@ class RevenueCatService {
     }
 
     const offerings = await purchases.getOfferings();
-    const currentOffering = offerings.current;
+    const currentOffering = this.resolveOfferingFromCollection(offerings);
     if (!currentOffering) {
-      throw new Error('[RevenueCat] No active offerings found. Please ensure you have set a Current Offering in the RevenueCat dashboard.');
+      throw new Error(
+        '[RevenueCat] No active offerings found. Please ensure you have set a Current Offering in the RevenueCat dashboard and that the offering includes $rc_monthly / $rc_annual for this app.'
+      );
     }
 
     return currentOffering;
@@ -414,7 +478,7 @@ class RevenueCatService {
 
     try {
       const offerings = await purchases.getOfferings();
-      const availablePackages = offerings.current?.availablePackages ?? [];
+      const availablePackages = this.resolveOfferingFromCollection(offerings)?.availablePackages ?? [];
       const monthlyPackage = availablePackages.find(
         (pkg) => pkg.identifier === REVENUECAT_MONTHLY_PACKAGE_ID
       );
@@ -522,11 +586,20 @@ class RevenueCatService {
       return () => {};
     }
 
-    return purchases.addCustomerInfoUpdateListener((info) => {
+    const wrappedListener = (info: CustomerInfo) => {
       // Keep the Zustand store in sync on every entitlement change.
       applyTrialStatus(deriveTrialStatus(info), true);
       listener(info);
-    });
+    };
+
+    purchases.addCustomerInfoUpdateListener(wrappedListener);
+
+    // The native SDK returns void from add; unsubscribe via remove using the
+    // exact same wrapped reference so the listener does not leak across
+    // account switches or sign-out.
+    return () => {
+      purchases.removeCustomerInfoUpdateListener?.(wrappedListener);
+    };
   }
 
   /**

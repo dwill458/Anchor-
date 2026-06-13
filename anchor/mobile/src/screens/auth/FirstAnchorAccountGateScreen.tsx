@@ -1,9 +1,11 @@
 import React from 'react';
 import {
   ActivityIndicator,
+  ScrollView,
   StyleSheet,
   Text,
   TouchableOpacity,
+  useWindowDimensions,
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -16,11 +18,13 @@ import { useSubscriptionStore } from '@/stores/subscriptionStore';
 import { useTrialStatus } from '@/hooks/useTrialStatus';
 import type { RootStackParamList } from '@/types';
 import { colors, spacing } from '@/theme';
+import { isCompactPhoneViewport, isShortPhoneViewport } from '@/utils/layout';
 
 type NavigationProp = StackNavigationProp<RootStackParamList, 'FirstAnchorAccountGate'>;
 
 export const FirstAnchorAccountGateScreen: React.FC = () => {
   const navigation = useNavigation<NavigationProp>();
+  const { width, height } = useWindowDimensions();
   const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
   const pendingFirstAnchorDraft = useAuthStore((state) => state.pendingFirstAnchorDraft);
   const isFinalizingPendingFirstAnchor = useAuthStore(
@@ -39,6 +43,8 @@ export const FirstAnchorAccountGateScreen: React.FC = () => {
   const setDevOverrideEnabled = useSubscriptionStore((s) => s.setDevOverrideEnabled);
   const setDevTierOverride = useSubscriptionStore((s) => s.setDevTierOverride);
   const { isTrialActive, hasExpired } = useTrialStatus();
+  const isCompactLayout = isCompactPhoneViewport(width, height);
+  const isShortLayout = isShortPhoneViewport(height);
 
   React.useEffect(() => {
     if (!pendingFirstAnchorDraft) {
@@ -112,103 +118,113 @@ export const FirstAnchorAccountGateScreen: React.FC = () => {
       />
 
       <SafeAreaView style={styles.safeArea}>
-        <View style={styles.content}>
-          <Text style={styles.eyebrow}>FIRST VAULT ENTRY</Text>
-          <Text style={styles.title}>Create an account to keep this anchor.</Text>
-          <Text style={styles.body}>
-            Your first anchor is ready. We need an account before it can enter your Vault so it
-            stays attached to you and syncs correctly.
-          </Text>
+        <ScrollView
+          style={styles.scrollView}
+          contentInsetAdjustmentBehavior="automatic"
+          showsVerticalScrollIndicator={false}
+          contentContainerStyle={[
+            styles.scrollContent,
+            isCompactLayout && styles.scrollContentCompact,
+          ]}
+        >
+          <View style={[styles.content, isShortLayout && styles.contentCompact]}>
+            <Text style={styles.eyebrow}>FIRST VAULT ENTRY</Text>
+            <Text style={[styles.title, isCompactLayout && styles.titleCompact]}>Create an account to keep this anchor.</Text>
+            <Text style={[styles.body, isCompactLayout && styles.bodyCompact]}>
+              Your first anchor is ready. We need an account before it can enter your Vault so it
+              stays attached to you and syncs correctly.
+            </Text>
 
-          <View style={styles.card}>
-            {showAuthenticatedState ? (
-              <>
-                <Text style={styles.cardTitle}>
-                  {isFinalizingPendingFirstAnchor ? 'Saving your first anchor' : 'Almost there'}
-                </Text>
-                <Text style={styles.cardBody}>
-                  {isFinalizingPendingFirstAnchor
-                    ? 'We are attaching your first anchor to this account and replaying your ritual progress.'
-                    : pendingFirstAnchorError ||
-                      'You are signed in. Finish syncing your first anchor to continue into the Vault.'}
-                </Text>
+            <View style={[styles.card, isCompactLayout && styles.cardCompact]}>
+              {showAuthenticatedState ? (
+                <>
+                  <Text style={[styles.cardTitle, isCompactLayout && styles.cardTitleCompact]}>
+                    {isFinalizingPendingFirstAnchor ? 'Saving your first anchor' : 'Almost there'}
+                  </Text>
+                  <Text style={[styles.cardBody, isCompactLayout && styles.cardBodyCompact]}>
+                    {isFinalizingPendingFirstAnchor
+                      ? 'We are attaching your first anchor to this account and replaying your session progress.'
+                      : pendingFirstAnchorError ||
+                        'You are signed in. Finish syncing your first anchor to continue into the Vault.'}
+                  </Text>
 
-                {isFinalizingPendingFirstAnchor ? (
-                  <View style={styles.loadingRow}>
-                    <ActivityIndicator color={colors.gold} />
-                    <Text style={styles.loadingText}>Finalizing account handoff...</Text>
-                  </View>
-                ) : (
-                  <>
-                    <TouchableOpacity
-                      style={styles.primaryButton}
-                      onPress={handleRetry}
-                      activeOpacity={0.85}
-                    >
-                      <LinearGradient
-                        colors={[colors.gold, '#B8941F']}
-                        style={styles.primaryGradient}
+                  {isFinalizingPendingFirstAnchor ? (
+                    <View style={styles.loadingRow}>
+                      <ActivityIndicator color={colors.gold} />
+                      <Text style={styles.loadingText}>Finalizing account handoff...</Text>
+                    </View>
+                  ) : (
+                    <>
+                      <TouchableOpacity
+                        style={styles.primaryButton}
+                        onPress={handleRetry}
+                        activeOpacity={0.85}
                       >
-                        <Text style={styles.primaryText}>Finish Saving My Anchor</Text>
-                      </LinearGradient>
-                    </TouchableOpacity>
+                        <LinearGradient
+                          colors={[colors.gold, '#B8941F']}
+                          style={[styles.primaryGradient, isCompactLayout && styles.primaryGradientCompact]}
+                        >
+                          <Text style={styles.primaryText}>Finish Saving My Anchor</Text>
+                        </LinearGradient>
+                      </TouchableOpacity>
 
-                    <TouchableOpacity
-                      style={styles.secondaryButton}
-                      onPress={handleSwitchAccount}
-                      activeOpacity={0.75}
-                    >
-                      <Text style={styles.secondaryText}>Use a different account</Text>
-                    </TouchableOpacity>
-                  </>
-                )}
-              </>
-            ) : (
-              <>
-                <Text style={styles.cardTitle}>Account required</Text>
-                <Text style={styles.cardBody}>
-                  Sign up or sign in to save this first anchor before entering the Vault.
-                </Text>
+                      <TouchableOpacity
+                        style={styles.secondaryButton}
+                        onPress={handleSwitchAccount}
+                        activeOpacity={0.75}
+                      >
+                        <Text style={styles.secondaryText}>Use a different account</Text>
+                      </TouchableOpacity>
+                    </>
+                  )}
+                </>
+              ) : (
+                <>
+                  <Text style={[styles.cardTitle, isCompactLayout && styles.cardTitleCompact]}>Account required</Text>
+                  <Text style={[styles.cardBody, isCompactLayout && styles.cardBodyCompact]}>
+                    Sign up or sign in to save this first anchor before entering the Vault.
+                  </Text>
 
-                <TouchableOpacity
-                  style={styles.primaryButton}
-                  onPress={handleCreateAccount}
-                  activeOpacity={0.85}
-                >
-                  <LinearGradient
-                    colors={[colors.gold, '#B8941F']}
-                    style={styles.primaryGradient}
+                  <TouchableOpacity
+                    style={styles.primaryButton}
+                    onPress={handleCreateAccount}
+                    activeOpacity={0.85}
                   >
-                    <Text style={styles.primaryText}>Create Account</Text>
-                  </LinearGradient>
-                </TouchableOpacity>
+                    <LinearGradient
+                      colors={[colors.gold, '#B8941F']}
+                      style={[styles.primaryGradient, isCompactLayout && styles.primaryGradientCompact]}
+                    >
+                      <Text style={styles.primaryText}>Create Account</Text>
+                    </LinearGradient>
+                  </TouchableOpacity>
 
-                <TouchableOpacity
-                  style={styles.secondaryButton}
-                  onPress={handleSignIn}
-                  activeOpacity={0.75}
-                >
-                  <Text style={styles.secondaryText}>I already have an account</Text>
-                </TouchableOpacity>
-              </>
-            )}
+                  <TouchableOpacity
+                    style={styles.secondaryButton}
+                    onPress={handleSignIn}
+                    activeOpacity={0.75}
+                  >
+                    <Text style={styles.secondaryText}>I already have an account</Text>
+                  </TouchableOpacity>
+                </>
+              )}
 
-            {__DEV__ && (
-              <View style={styles.devSkipContainer}>
-                <TouchableOpacity
-                  style={styles.devSkipButton}
-                  onPress={() => {
-                    setDevOverrideEnabled(true);
-                    setDevTierOverride('expired');
-                  }}
-                  activeOpacity={0.7}
-                >
-                  <Text style={styles.devSkipText}>[DEV] Simulate expired → TrialEndScreen</Text>
-                </TouchableOpacity>
-              </View>
-            )}
+              {__DEV__ && (
+                <View style={styles.devSkipContainer}>
+                  <TouchableOpacity
+                    style={styles.devSkipButton}
+                    onPress={() => {
+                      setDevOverrideEnabled(true);
+                      setDevTierOverride('expired');
+                    }}
+                    activeOpacity={0.7}
+                  >
+                    <Text style={styles.devSkipText}>[DEV] Simulate expired → TrialEndScreen</Text>
+                  </TouchableOpacity>
+                </View>
+              )}
+            </View>
           </View>
-        </View>
+        </ScrollView>
       </SafeAreaView>
     </View>
   );
@@ -222,11 +238,25 @@ const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
   },
-  content: {
+  scrollView: {
     flex: 1,
+  },
+  scrollContent: {
+    flexGrow: 1,
     justifyContent: 'center',
+    paddingVertical: spacing.xl,
+  },
+  scrollContentCompact: {
+    justifyContent: 'flex-start',
+    paddingVertical: spacing.lg,
+  },
+  content: {
     paddingHorizontal: spacing.xl,
     gap: spacing.lg,
+  },
+  contentCompact: {
+    paddingHorizontal: spacing.lg,
+    gap: spacing.md,
   },
   eyebrow: {
     fontFamily: 'Cinzel-Regular',
@@ -241,12 +271,20 @@ const styles = StyleSheet.create({
     lineHeight: 38,
     color: colors.bone,
   },
+  titleCompact: {
+    fontSize: 26,
+    lineHeight: 34,
+  },
   body: {
     fontFamily: 'CrimsonPro-Regular',
     fontSize: 18,
     lineHeight: 28,
     color: colors.silver,
     opacity: 0.9,
+  },
+  bodyCompact: {
+    fontSize: 16,
+    lineHeight: 24,
   },
   card: {
     borderRadius: 24,
@@ -256,17 +294,29 @@ const styles = StyleSheet.create({
     padding: spacing.xl,
     gap: spacing.md,
   },
+  cardCompact: {
+    padding: spacing.lg,
+    gap: spacing.sm,
+  },
   cardTitle: {
     fontFamily: 'Cinzel-SemiBold',
     fontSize: 20,
     lineHeight: 28,
     color: colors.bone,
   },
+  cardTitleCompact: {
+    fontSize: 18,
+    lineHeight: 24,
+  },
   cardBody: {
     fontFamily: 'Inter-Regular',
     fontSize: 15,
     lineHeight: 23,
     color: colors.text.secondary,
+  },
+  cardBodyCompact: {
+    fontSize: 14,
+    lineHeight: 21,
   },
   loadingRow: {
     flexDirection: 'row',
@@ -289,6 +339,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: spacing.lg,
+  },
+  primaryGradientCompact: {
+    minHeight: 52,
   },
   primaryText: {
     fontFamily: 'Cinzel-SemiBold',
