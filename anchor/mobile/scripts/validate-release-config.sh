@@ -29,6 +29,16 @@ if [[ "$platform" != "ios" ]] && [[ -z "${EXPO_PUBLIC_REVENUECAT_ANDROID_API_KEY
   missing+=("EXPO_PUBLIC_REVENUECAT_ANDROID_API_KEY or EXPO_PUBLIC_REVENUECAT_API_KEY")
 fi
 
+# Google Sign-In requires OAuth client IDs when the feature is enabled (default on).
+if [[ "${EXPO_PUBLIC_ENABLE_GOOGLE_SIGN_IN:-true}" != "false" ]]; then
+  if [[ "$platform" != "android" ]] && [[ -z "${EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID:-}" ]]; then
+    missing+=("EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID")
+  fi
+  if [[ -z "${EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID:-}" ]]; then
+    missing+=("EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID")
+  fi
+fi
+
 if [[ ${#missing[@]} -gt 0 ]]; then
   printf 'Missing required mobile release config:\n' >&2
   printf '  - %s\n' "${missing[@]}" >&2

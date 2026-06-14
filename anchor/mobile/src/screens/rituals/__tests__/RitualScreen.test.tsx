@@ -1,5 +1,5 @@
 import React from 'react';
-import { act, fireEvent, render, waitFor } from '@testing-library/react-native';
+import { fireEvent, render, waitFor } from '@testing-library/react-native';
 import { RitualScreen } from '../RitualScreen';
 import { createMockAnchor } from '@/__tests__/utils/testUtils';
 import { useAnchorStore } from '@/stores/anchorStore';
@@ -461,9 +461,10 @@ describe('RitualScreen', () => {
     await waitFor(() => expect(mockPrimeAmbientPlayer.play).toHaveBeenCalledTimes(2));
     await waitFor(() => expect(mockPrimeOpeningPlayer.play).toHaveBeenCalledTimes(2));
 
-    await act(async () => {
-      fireEvent.press(getByLabelText('Exit practice'));
-    });
+    // Open the exit confirmation. fireEvent is already act-wrapped; wrapping this
+    // in an extra `await act(async () => ...)` hangs because the screen's infinite
+    // Animated.loop animations keep React's work queue from ever settling.
+    fireEvent.press(getByLabelText('Exit practice'));
     fireEvent.press(getByText('Exit'));
 
     await waitFor(() => expect(mockPrimeOpeningPlayer.stop).toHaveBeenCalled(), {
