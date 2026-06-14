@@ -24,6 +24,7 @@ import * as AppleAuthentication from 'expo-apple-authentication';
 import { colors, typography } from '@/theme';
 import { ENABLE_GOOGLE_SIGN_IN } from '@/config';
 import { useAuthStore } from '../../stores/authStore';
+import { useSubscriptionStore } from '../../stores/subscriptionStore';
 import { AuthService } from '../../services/AuthService';
 import PostAuthFlowService from '../../services/PostAuthFlowService';
 import type { AuthScreenParams, OnboardingStackParamList, RootStackParamList } from '@/types';
@@ -46,7 +47,9 @@ export const SignUpScreen: React.FC<SignUpScreenProps> = ({ navigation, route })
   const [isAppleAvailable, setIsAppleAvailable] = useState(false);
 
   const hasCompletedOnboarding = useAuthStore((state) => state.hasCompletedOnboarding);
+  const setPreferredPlanId = useSubscriptionStore((state) => state.setPreferredPlanId);
   const context = route?.params?.context;
+  const preferredPlanId = route?.params?.preferredPlanId;
 
   const fadeAnim = React.useRef(new Animated.Value(0)).current;
 
@@ -80,6 +83,10 @@ export const SignUpScreen: React.FC<SignUpScreenProps> = ({ navigation, route })
   };
 
   const completeAuth = async (result: Awaited<ReturnType<typeof AuthService.signUpWithEmail>>) => {
+    if (preferredPlanId) {
+      setPreferredPlanId(preferredPlanId);
+    }
+
     await PostAuthFlowService.run({
       user: result.user,
       token: result.token,

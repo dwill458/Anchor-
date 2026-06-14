@@ -1,6 +1,7 @@
 import { createMockAnchor, createMockUser } from '@/__tests__/utils/testUtils';
 import { useAnchorStore } from '@/stores/anchorStore';
 import { useAuthStore } from '@/stores/authStore';
+import { useSubscriptionStore } from '@/stores/subscriptionStore';
 
 const mockMigrateAnchors = jest.fn();
 const mockLogIn = jest.fn();
@@ -39,6 +40,12 @@ describe('PostAuthFlowService', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     useAnchorStore.getState().clearAnchors();
+    useSubscriptionStore.setState({
+      trialStartDate: null,
+      subscriptionStatus: 'expired',
+      rcSynced: false,
+      hasActiveEntitlement: false,
+    });
     useAuthStore.setState({
       user: null,
       token: null,
@@ -59,7 +66,10 @@ describe('PostAuthFlowService', () => {
   });
 
   it('migrates all local anchors during post-auth setup', async () => {
-    const user = createMockUser({ id: 'user-123' });
+    const user = createMockUser({
+      id: 'user-123',
+      createdAt: new Date(),
+    });
     const localAnchor = createMockAnchor({ id: 'local-anchor', userId: 'user-123' });
     const foreignAnchor = createMockAnchor({ id: 'foreign-anchor', userId: 'user-other' });
 
@@ -78,6 +88,8 @@ describe('PostAuthFlowService', () => {
     });
 
     expect(mockMigrateAnchors).toHaveBeenCalledTimes(1);
+    expect(useSubscriptionStore.getState().subscriptionStatus).toBe('trial');
+    expect(useSubscriptionStore.getState().trialStartDate).toBe(user.createdAt.toISOString());
     expect(mockHydrateAuthenticatedData).toHaveBeenCalledWith({
       skipAnchorRefresh: false,
     });

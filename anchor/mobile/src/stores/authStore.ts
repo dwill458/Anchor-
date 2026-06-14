@@ -387,13 +387,11 @@ export const useAuthStore = create<AuthState>()(
       // Actions
       setUser: (user) => {
         applyCompedAccessToSubscriptionStore(user);
-        if (user) {
-          useProfileStore.getState().syncFromUser(user);
-        }
+        useProfileStore.getState().syncFromUser(user);
         set((state) => {
           const hasCompletedOnboarding = user
             ? Boolean(user.hasCompletedOnboarding)
-            : state.hasCompletedOnboarding;
+            : false;
 
           return {
             user: user
@@ -967,10 +965,12 @@ export const useAuthStore = create<AuthState>()(
         useAnchorStore.getState().clearAnchors();
         useSessionStore.getState().reset();
         useTeachingStore.getState().reset();
+        useProfileStore.getState().resetProfile();
         set({
           user: null,
           token: null,
           isAuthenticated: false,
+          hasCompletedOnboarding: false,
           isOfflineMode: false,
           anchorCount: 0,
           profileData: null,

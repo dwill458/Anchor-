@@ -36,6 +36,7 @@ export default function IntentionInputScreen() {
     const navigation = useNavigation<NavigationProp>();
     const { recordShown } = useTeachingStore();
 
+    const scrollViewRef = useRef<ScrollView>(null);
     const [intention, setIntention] = useState('');
     const [placeholder, setPlaceholder] = useState('');
     const [isFocused, setIsFocused] = useState(false);
@@ -170,6 +171,10 @@ export default function IntentionInputScreen() {
                 }
             }, 1200);
         }
+        // Scroll to end of ScrollView to make sure text box is visible above the keyboard
+        setTimeout(() => {
+            scrollViewRef.current?.scrollToEnd({ animated: true });
+        }, 150);
     };
 
     const handleBlur = () => {
@@ -226,17 +231,26 @@ export default function IntentionInputScreen() {
                     style={styles.keyboardView}
                 >
                     <ScrollView
+                        ref={scrollViewRef}
                         style={styles.scrollView}
                         contentContainerStyle={styles.scrollContent}
                         showsVerticalScrollIndicator={false}
                         keyboardShouldPersistTaps="handled"
                     >
                         {/* Title Section */}
-                        <Animated.View style={[styles.titleSection, { opacity: fadeAnim }]}>
-                            <Text style={styles.title}>What are you anchoring right now?</Text>
-                            <Text style={styles.subtitle}>
-                                Write a short, clear intention.{'\n'}One sentence is enough.
+                        <Animated.View style={[
+                            styles.titleSection,
+                            isFocused && styles.titleSectionFocused,
+                            { opacity: fadeAnim }
+                        ]}>
+                            <Text style={[styles.title, isFocused && styles.titleFocused]}>
+                                What are you anchoring right now?
                             </Text>
+                            {!isFocused && (
+                                <Text style={styles.subtitle}>
+                                    Write a short, clear intention.{'\n'}One sentence is enough.
+                                </Text>
+                            )}
                         </Animated.View>
 
                         {/* Intention Input */}
@@ -335,6 +349,10 @@ const styles = StyleSheet.create({
         paddingTop: height * 0.15,
         paddingBottom: spacing.xl,
     },
+    titleSectionFocused: {
+        paddingTop: Platform.OS === 'ios' ? spacing.md : spacing.sm,
+        paddingBottom: spacing.sm,
+    },
     title: {
         ...typography.heading,
         fontSize: 34,
@@ -342,6 +360,11 @@ const styles = StyleSheet.create({
         color: colors.gold,
         marginBottom: spacing.lg,
         letterSpacing: 0.3,
+    },
+    titleFocused: {
+        fontSize: 22,
+        lineHeight: 28,
+        marginBottom: spacing.xs,
     },
     subtitle: {
         ...typography.body,

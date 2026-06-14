@@ -345,76 +345,81 @@ export const ChargeSetupScreen: React.FC = () => {
           contentContainerStyle={[
             styles.panelContent,
             isCompactLayout && styles.panelContentCompact,
+            { flexGrow: 1, justifyContent: 'space-between' }
           ]}
         >
-          <View style={styles.badgeRow}>
-            <LinearGradient
-              colors={['transparent', 'rgba(212,175,55,0.3)']}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 0 }}
-              style={styles.badgeLine}
-            />
-            <Text style={styles.badgeText}>ANCHOR FORGED</Text>
-            <LinearGradient
-              colors={['rgba(212,175,55,0.3)', 'transparent']}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 0 }}
-              style={styles.badgeLine}
-            />
+          <View style={styles.topContent}>
+            <View style={styles.badgeRow}>
+              <LinearGradient
+                colors={['transparent', 'rgba(212,175,55,0.3)']}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 0 }}
+                style={styles.badgeLine}
+              />
+              <Text style={styles.badgeText}>ANCHOR FORGED</Text>
+              <LinearGradient
+                colors={['rgba(212,175,55,0.3)', 'transparent']}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 0 }}
+                style={styles.badgeLine}
+              />
+            </View>
+
+            <Text style={[styles.headline, isCompactLayout && styles.headlineCompact]}>The Work Begins Now</Text>
+            <Text style={[styles.subline, isCompactLayout && styles.sublineCompact]}>Fix your anchor in mind.{'\n'}Choose your prime duration.</Text>
+            <Text style={[styles.durationLabel, isCompactLayout && styles.durationLabelCompact]}>SELECT DURATION</Text>
+
+            <View style={[styles.cardsRow, isCompactLayout && styles.cardsRowCompact]}>
+              {cards.map((card) => (
+                <TouchableOpacity
+                  key={card.choice}
+                  activeOpacity={0.88}
+                  onPress={() => handleSelectDuration(card.choice)}
+                  accessibilityRole="radio"
+                  accessibilityLabel={`${card.name} duration`}
+                  accessibilityState={{ selected: card.isSelected }}
+                  disabled={isTransitioning}
+                  style={[
+                    styles.durationCard,
+                    isCompactLayout && styles.durationCardCompact,
+                    card.isSelected ? styles.durationCardSelected : null,
+                  ]}
+                >
+                  {card.isSelected ? (
+                    <View style={styles.checkCircle}>
+                      <Text style={styles.checkText}>✓</Text>
+                    </View>
+                  ) : null}
+                  <Text style={[styles.cardIcon, isCompactLayout && styles.cardIconCompact]}>{card.icon}</Text>
+                  <Text style={[styles.cardName, isCompactLayout && styles.cardNameCompact, card.isSelected ? styles.cardNameSelected : null]}>{card.name}</Text>
+                  <Text style={[styles.cardLine, isCompactLayout && styles.cardLineCompact]}>{card.lineOne}</Text>
+                  <Text style={[styles.cardLine, isCompactLayout && styles.cardLineCompact]}>{card.lineTwo}</Text>
+                </TouchableOpacity>
+              ))}
+            </View>
           </View>
 
-          <Text style={[styles.headline, isCompactLayout && styles.headlineCompact]}>The Work Begins Now</Text>
-          <Text style={[styles.subline, isCompactLayout && styles.sublineCompact]}>Fix your anchor in mind.{'\n'}Choose your prime duration.</Text>
-          <Text style={[styles.durationLabel, isCompactLayout && styles.durationLabelCompact]}>SELECT DURATION</Text>
-
-          <View style={[styles.cardsRow, isCompactLayout && styles.cardsRowCompact]}>
-            {cards.map((card) => (
-              <TouchableOpacity
-                key={card.choice}
-                activeOpacity={0.88}
-                onPress={() => handleSelectDuration(card.choice)}
-                accessibilityRole="radio"
-                accessibilityLabel={`${card.name} duration`}
-                accessibilityState={{ selected: card.isSelected }}
-                disabled={isTransitioning}
-                style={[
-                  styles.durationCard,
-                  isCompactLayout && styles.durationCardCompact,
-                  card.isSelected ? styles.durationCardSelected : null,
-                ]}
-              >
-                {card.isSelected ? (
-                  <View style={styles.checkCircle}>
-                    <Text style={styles.checkText}>✓</Text>
-                  </View>
-                ) : null}
-                <Text style={[styles.cardIcon, isCompactLayout && styles.cardIconCompact]}>{card.icon}</Text>
-                <Text style={[styles.cardName, isCompactLayout && styles.cardNameCompact, card.isSelected ? styles.cardNameSelected : null]}>{card.name}</Text>
-                <Text style={[styles.cardLine, isCompactLayout && styles.cardLineCompact]}>{card.lineOne}</Text>
-                <Text style={[styles.cardLine, isCompactLayout && styles.cardLineCompact]}>{card.lineTwo}</Text>
-              </TouchableOpacity>
-            ))}
-          </View>
-
-          <TouchableOpacity
-            onPress={() => handleBeginRitual()}
-            activeOpacity={0.9}
-            disabled={isTransitioning}
-            accessibilityRole="button"
-            accessibilityLabel="BEGIN PRIMING"
-            style={styles.ctaTouchable}
-          >
-            <LinearGradient
-              colors={['#C9A227', '#D4AF37', '#E8C84A']}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 1 }}
-              style={[styles.ctaButton, isCompactLayout && styles.ctaButtonCompact]}
+          <View style={styles.bottomActions}>
+            <TouchableOpacity
+              onPress={() => handleBeginRitual()}
+              activeOpacity={0.9}
+              disabled={isTransitioning}
+              accessibilityRole="button"
+              accessibilityLabel="BEGIN PRIMING"
+              style={styles.ctaTouchable}
             >
-              <Text style={[styles.ctaText, isCompactLayout && styles.ctaTextCompact]}>BEGIN PRIMING</Text>
-            </LinearGradient>
-          </TouchableOpacity>
+              <LinearGradient
+                colors={['#C9A227', '#D4AF37', '#E8C84A']}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+                style={[styles.ctaButton, isCompactLayout && styles.ctaButtonCompact]}
+              >
+                <Text style={[styles.ctaText, isCompactLayout && styles.ctaTextCompact]}>BEGIN PRIMING</Text>
+              </LinearGradient>
+            </TouchableOpacity>
 
-          <Text style={[styles.safetyText, isShortLayout && styles.safetyTextCompact]}>You can stop anytime.</Text>
+            <Text style={[styles.safetyText, isShortLayout && styles.safetyTextCompact]}>You can stop anytime.</Text>
+          </View>
         </ScrollView>
       </View>
 
@@ -764,6 +769,14 @@ const styles = StyleSheet.create({
   safetyTextCompact: {
     marginTop: 12,
     fontSize: 12,
+  },
+  topContent: {
+    width: '100%',
+  },
+  bottomActions: {
+    marginTop: spacing.md,
+    width: '100%',
+    alignItems: 'center',
   },
   errorContainer: {
     flex: 1,

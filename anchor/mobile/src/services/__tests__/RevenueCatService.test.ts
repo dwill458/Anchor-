@@ -17,6 +17,10 @@ jest.mock('@/utils/logger', () => ({
 }));
 
 jest.mock('@/stores/subscriptionStore', () => ({
+  isLocalTrialActive: (trialStartDate: string | null) => {
+    if (!trialStartDate) return false;
+    return Date.now() - new Date(trialStartDate).getTime() < 7 * 86_400_000;
+  },
   useSubscriptionStore: {
     getState: jest.fn(),
   },
@@ -44,21 +48,25 @@ describe('RevenueCatService', () => {
   const mockSetTrialState = jest.fn();
   const mockSetSubscriptionStatus = jest.fn();
   const mockSetRcSynced = jest.fn();
+  let mockSubscriptionState: Record<string, unknown>;
 
   beforeEach(() => {
     jest.clearAllMocks();
-    (useSubscriptionStore.getState as jest.Mock).mockReturnValue({
+    mockSubscriptionState = {
       setRcTier: mockSetRcTier,
       setTrialState: mockSetTrialState,
       setSubscriptionStatus: mockSetSubscriptionStatus,
       setRcSynced: mockSetRcSynced,
+      subscriptionStatus: 'expired',
+      trialStartDate: null,
       // Fields read by getCurrentStatus() (fallback path on caught errors)
       isInTrial: false,
       isSubscribed: false,
       hasActiveEntitlement: false,
       daysRemaining: null,
       trialExpired: false,
-    });
+    };
+    (useSubscriptionStore.getState as jest.Mock).mockImplementation(() => mockSubscriptionState);
   });
 
   const activeCustomerInfo = {
@@ -99,6 +107,17 @@ describe('RevenueCatService', () => {
     expect(mockPurchases.getCustomerInfo).toHaveBeenCalled();
     expect(status.hasActiveEntitlement).toBe(true);
     expect(mockSetRcTier).toHaveBeenCalledWith('pro');
+  });
+
+  it('preserves a valid local account trial when RevenueCat has no active entitlement', async () => {
+    mockSubscriptionState.subscriptionStatus = 'trial';
+    mockSubscriptionState.trialStartDate = new Date().toISOString();
+    mockPurchases.getCustomerInfo.mockResolvedValueOnce({});
+
+    const status = await RevenueCatService.refreshTrialStatus();
+
+    expect(status.hasActiveEntitlement).toBe(false);
+    expect(mockSetSubscriptionStatus).toHaveBeenCalledWith('trial');
   });
 
   it('purchases package by identifier successfully', async () => {

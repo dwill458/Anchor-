@@ -1,4 +1,4 @@
-export const COMPACT_PHONE_WIDTH = 393;
+export const COMPACT_PHONE_WIDTH = 415;
 export const COMPACT_PHONE_HEIGHT = 860;
 export const SHORT_PHONE_HEIGHT = 820;
 

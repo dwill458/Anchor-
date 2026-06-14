@@ -47,6 +47,7 @@ export default function ReturningIntentionScreen() {
     const anchorCount = useAnchorStore((state) => state.anchors.length);
     const { hasActiveEntitlement } = useTrialStatus();
 
+    const scrollViewRef = useRef<ScrollView>(null);
     const [intention, setIntention] = useState('');
     const [charCount, setCharCount] = useState(0);
     const [placeholder, setPlaceholder] = useState('');
@@ -189,6 +190,10 @@ export default function ReturningIntentionScreen() {
                 }
             }, 1200);
         }
+        // Scroll to end of ScrollView to make sure text box is visible above the keyboard
+        setTimeout(() => {
+            scrollViewRef.current?.scrollToEnd({ animated: true });
+        }, 150);
     };
 
     const handleBlur = () => {
@@ -297,6 +302,7 @@ export default function ReturningIntentionScreen() {
                     style={styles.keyboardView}
                 >
                     <ScrollView
+                        ref={scrollViewRef}
                         style={styles.scrollView}
                         contentContainerStyle={styles.scrollContent}
                         showsVerticalScrollIndicator={false}
@@ -306,13 +312,18 @@ export default function ReturningIntentionScreen() {
                         <Animated.View
                             style={[
                                 styles.titleSection,
+                                isFocused && styles.titleSectionFocused,
                                 { opacity: fadeAnim },
                             ]}
                         >
-                            <Text style={styles.title}>Create Another Anchor</Text>
-                            <Text style={styles.subtitle}>
-                                What intention needs your focus right now?
+                            <Text style={[styles.title, isFocused && styles.titleFocused]}>
+                                Create Another Anchor
                             </Text>
+                            {!isFocused && (
+                                <Text style={styles.subtitle}>
+                                    What intention needs your focus right now?
+                                </Text>
+                            )}
                         </Animated.View>
 
                         {/* Intention Input */}
@@ -424,6 +435,10 @@ const styles = StyleSheet.create({
         paddingTop: height * 0.15, // 15% screen height - locked system
         paddingBottom: spacing.xl,
     },
+    titleSectionFocused: {
+        paddingTop: Platform.OS === 'ios' ? spacing.md : spacing.sm,
+        paddingBottom: spacing.sm,
+    },
     title: {
         ...typography.heading,
         fontSize: 34, // Locked system headline
@@ -431,6 +446,11 @@ const styles = StyleSheet.create({
         color: colors.gold,
         marginBottom: spacing.lg, // 24px
         letterSpacing: 0.3, // Locked system
+    },
+    titleFocused: {
+        fontSize: 22,
+        lineHeight: 28,
+        marginBottom: spacing.xs,
     },
     subtitle: {
         ...typography.body,

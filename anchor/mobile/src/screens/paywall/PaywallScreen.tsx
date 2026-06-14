@@ -11,6 +11,8 @@ import {
   Alert,
   Animated,
   Easing,
+  Image,
+  Linking,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -29,7 +31,9 @@ import {
 } from '@/config';
 import { colors, typography } from '@/theme';
 import { withAlpha } from '@/utils/color';
+import { LEGAL_URLS } from '@/constants/legal';
 import { useAnchorStore } from '@/stores/anchorStore';
+import { useSubscriptionStore } from '@/stores/subscriptionStore';
 import { useProgressionData } from '@/hooks/useProgressionData';
 import { useReduceMotionEnabled } from '@/hooks/useReduceMotionEnabled';
 import revenueCatService, {
@@ -261,6 +265,7 @@ function OrbitRing({ reduceMotion }: { reduceMotion: boolean }) {
 }
 
 function HeroSigil({ anchor }: { anchor: Anchor | null }) {
+  const enhancedUrl = anchor?.enhancedImageUrl ?? null;
   const sigilXml = anchor?.reinforcedSigilSvg || anchor?.baseSigilSvg || null;
   const reduceMotion = useReduceMotionEnabled();
 
@@ -269,10 +274,12 @@ function HeroSigil({ anchor }: { anchor: Anchor | null }) {
       <View style={styles.sigilHalo} />
       <OrbitRing reduceMotion={reduceMotion} />
       <View style={styles.sigilCore} testID="paywall-primary-anchor">
-        {sigilXml ? (
-          <SvgXml xml={sigilXml} width={46} height={46} testID="paywall-primary-anchor-svg" />
+        {enhancedUrl ? (
+          <Image source={{ uri: enhancedUrl }} style={styles.sigilImage} resizeMode="contain" testID="paywall-primary-anchor-img" />
+        ) : sigilXml ? (
+          <SvgXml xml={sigilXml} width={96} height={96} testID="paywall-primary-anchor-svg" />
         ) : (
-          <FallbackAnchorMark size={46} />
+          <FallbackAnchorMark size={96} />
         )}
       </View>
     </View>
@@ -341,7 +348,10 @@ export const PaywallScreen: React.FC = () => {
   const { forgedCount, totalPrimes } = useProgressionData();
   const reduceMotion = useReduceMotionEnabled();
 
-  const [selectedPlanId, setSelectedPlanId] = useState<PlanId>(PAYWALL_EXPERIMENT.defaultPlan);
+  const preferredPlanId = useSubscriptionStore((state) => state.preferredPlanId);
+  const setPreferredPlanId = useSubscriptionStore((state) => state.setPreferredPlanId);
+  const initialPlanId = route.params?.preferredPlanId ?? preferredPlanId ?? PAYWALL_EXPERIMENT.defaultPlan;
+  const [selectedPlanId, setSelectedPlanId] = useState<PlanId>(initialPlanId);
   const [offeringMetadata, setOfferingMetadata] = useState<RevenueCatOfferingDisplayMetadata>({});
   const [isPurchasing, setIsPurchasing] = useState(false);
   const [isRestoring, setIsRestoring] = useState(false);
@@ -380,6 +390,13 @@ export const PaywallScreen: React.FC = () => {
   }, []);
 
   useEffect(() => {
+    if (route.params?.preferredPlanId) {
+      setSelectedPlanId(route.params.preferredPlanId);
+      setPreferredPlanId(route.params.preferredPlanId);
+    }
+  }, [route.params?.preferredPlanId, setPreferredPlanId]);
+
+  useEffect(() => {
     if (reduceMotion) {
       introOpacity.setValue(1);
       introTranslate.setValue(0);
@@ -399,15 +416,16 @@ export const PaywallScreen: React.FC = () => {
 
   const handleSelectPlan = useCallback((plan: PlanId) => {
     setSelectedPlanId(plan);
+    setPreferredPlanId(plan);
     AnalyticsService.track('paywall_plan_selected', { plan });
-  }, []);
+  }, [setPreferredPlanId]);
 
   const handleSignIn = useCallback(() => {
     navigation.navigate('Settings', {
       screen: 'Login',
-      params: { initialTab: 'signin', context: 'paywall' },
+      params: { initialTab: 'signin', context: 'paywall', preferredPlanId: selectedPlanId },
     });
-  }, [navigation]);
+  }, [navigation, selectedPlanId]);
 
   const handlePurchase = useCallback(async () => {
     if (isPurchasing || isRestoring) return;
@@ -578,6 +596,25 @@ export const PaywallScreen: React.FC = () => {
                 <Text style={styles.linkText}>Already subscribed? <Text style={styles.linkStrong}>Sign in</Text></Text>
               </Pressable>
             </View>
+            <View style={styles.legalLinks}>
+              <Pressable
+                onPress={() => void Linking.openURL(LEGAL_URLS.termsOfService)}
+                accessibilityRole="link"
+                accessibilityLabel="Terms of Use"
+                style={({ pressed }) => pressed && styles.pressed}
+              >
+                <Text style={styles.legalLinkText}>Terms of Use</Text>
+              </Pressable>
+              <Text style={styles.legalDivider}>·</Text>
+              <Pressable
+                onPress={() => void Linking.openURL(LEGAL_URLS.privacyPolicy)}
+                accessibilityRole="link"
+                accessibilityLabel="Privacy Policy"
+                style={({ pressed }) => pressed && styles.pressed}
+              >
+                <Text style={styles.legalLinkText}>Privacy Policy</Text>
+              </Pressable>
+            </View>
           </LinearGradient>
         </Animated.View>
       </SafeAreaView>
@@ -613,7 +650,7 @@ const styles = StyleSheet.create({
   },
   closeButton: {
     position: 'absolute',
-    top: 8,
+    top: 36,
     right: 14,
     width: 44,
     height: 44,
@@ -637,40 +674,40 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   sigilOuter: {
-    width: 116,
-    height: 116,
+    width: 172,
+    height: 172,
     alignItems: 'center',
     justifyContent: 'center',
     marginTop: 2,
   },
   sigilHalo: {
     position: 'absolute',
-    width: 112,
-    height: 112,
-    borderRadius: 56,
+    width: 168,
+    height: 168,
+    borderRadius: 84,
     backgroundColor: withAlpha(colors.gold, 0.1),
   },
   sigilRing: {
     position: 'absolute',
-    width: 98,
-    height: 98,
-    borderRadius: 49,
+    width: 150,
+    height: 150,
+    borderRadius: 75,
     borderWidth: 1,
     borderColor: withAlpha(colors.gold, 0.22),
   },
   sigilDot: {
     position: 'absolute',
     top: -3,
-    left: 47,
+    left: 72,
     width: 6,
     height: 6,
     borderRadius: 3,
     backgroundColor: colors.sanctuary.goldBright,
   },
   sigilCore: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
+    width: 120,
+    height: 120,
+    borderRadius: 60,
     backgroundColor: '#100820',
     borderWidth: 1,
     borderColor: withAlpha(colors.gold, 0.3),
@@ -680,6 +717,11 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.5,
     shadowRadius: 30,
     elevation: 6,
+  },
+  sigilImage: {
+    width: 104,
+    height: 104,
+    borderRadius: 52,
   },
   anchorCap: {
     fontFamily: typography.fonts.mono,
@@ -827,8 +869,6 @@ const styles = StyleSheet.create({
     width: 20,
     height: 20,
     borderRadius: 10,
-    borderWidth: 1,
-    borderColor: withAlpha(colors.bone, 0.16),
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -946,6 +986,24 @@ const styles = StyleSheet.create({
   },
   linkStrong: {
     color: colors.gold,
+  },
+  legalLinks: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginTop: 10,
+    gap: 8,
+  },
+  legalLinkText: {
+    fontFamily: typography.fonts.bodySerif,
+    fontSize: 12,
+    color: withAlpha(colors.bone, 0.4),
+    textDecorationLine: 'underline',
+  },
+  legalDivider: {
+    fontFamily: typography.fonts.bodySerif,
+    fontSize: 12,
+    color: withAlpha(colors.bone, 0.3),
   },
 });
 

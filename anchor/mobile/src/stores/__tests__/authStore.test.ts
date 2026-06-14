@@ -6,6 +6,7 @@
 
 import { useAuthStore } from '../authStore';
 import { useAnchorStore } from '../anchorStore';
+import { useProfileStore } from '../profileStore';
 import { useSessionStore } from '../sessionStore';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as SecureStore from 'expo-secure-store';
@@ -81,6 +82,15 @@ describe('authStore', () => {
       error: null,
       lastSyncedAt: null,
       currentAnchorId: undefined,
+    });
+    useProfileStore.setState({
+      ownerUserId: null,
+      name: '',
+      axiom: '',
+      timezone: '',
+      mono: 'initial',
+      photo: null,
+      memberSince: null,
     });
     jest.clearAllMocks();
   });
@@ -176,6 +186,19 @@ describe('authStore', () => {
 
       expect(useAuthStore.getState().hasCompletedOnboarding).toBe(false);
       expect(useAuthStore.getState().user?.hasCompletedOnboarding).toBe(false);
+    });
+
+    it('should clear onboarding status and profile when user is cleared', () => {
+      const { setUser, setHasCompletedOnboarding } = useAuthStore.getState();
+      setHasCompletedOnboarding(true);
+      setUser(createMockUser());
+      useProfileStore.getState().updateProfile({ name: 'Persisted Name' });
+
+      setUser(null);
+
+      expect(useAuthStore.getState().hasCompletedOnboarding).toBe(false);
+      expect(useProfileStore.getState().name).toBe('');
+      expect(useProfileStore.getState().ownerUserId).toBeNull();
     });
   });
 
@@ -427,6 +450,36 @@ describe('authStore', () => {
       expect(state.isOfflineMode).toBe(false);
     });
 
+    it('should reset the persisted profile store on sign out', () => {
+      useProfileStore.setState({
+        ownerUserId: 'user-123',
+        name: 'Signed In Name',
+        axiom: 'Stay sharp',
+        timezone: 'UTC-6',
+        mono: 'avatar_2',
+        photo: 'file://avatar.png',
+        memberSince: '2026-01-01T00:00:00.000Z',
+      });
+
+      useAuthStore.setState({
+        user: createMockUser(),
+        isAuthenticated: true,
+        hasCompletedOnboarding: true,
+      });
+
+      useAuthStore.getState().signOut();
+
+      expect(useProfileStore.getState()).toMatchObject({
+        ownerUserId: null,
+        name: '',
+        axiom: '',
+        timezone: '',
+        mono: 'initial',
+        photo: null,
+        memberSince: null,
+      });
+    });
+
     it('should clear the vault and session history on sign out', () => {
       useAnchorStore.getState().addAnchor(createMockAnchor());
       useSessionStore.setState({
@@ -457,7 +510,7 @@ describe('authStore', () => {
       expect(useSessionStore.getState().sessionLog).toEqual([]);
     });
 
-    it('should not affect onboarding status', () => {
+    it('should clear onboarding status', () => {
       const { setUser, setToken, completeOnboarding, signOut } = useAuthStore.getState();
 
       setUser(createMockUser());
@@ -468,8 +521,7 @@ describe('authStore', () => {
 
       signOut();
 
-      // Onboarding status should persist after sign out
-      expect(useAuthStore.getState().hasCompletedOnboarding).toBe(true);
+      expect(useAuthStore.getState().hasCompletedOnboarding).toBe(false);
     });
   });
 

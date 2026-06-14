@@ -96,7 +96,7 @@ describe('useTrialStatus', () => {
     expect(result.current.subscriptionStatus).toBe('active');
   });
 
-  it('returns trial active (not expired) when trialStartDate is null and status is trial', () => {
+  it('returns expired when trialStartDate is null and status is trial', () => {
     mockState = {
       subscriptionStatus: 'trial',
       trialStartDate: null,
@@ -109,17 +109,16 @@ describe('useTrialStatus', () => {
 
     const { result } = renderHook(() => useTrialStatus());
 
-    expect(result.current.isTrialActive).toBe(true);
-    expect(result.current.hasExpired).toBe(false);
+    expect(result.current.isTrialActive).toBe(false);
+    expect(result.current.hasExpired).toBe(true);
   });
 
   it('does not expire a new user when RC has synced with no paid entitlement (post-onboarding race)', () => {
     // RC syncs during onboarding and returns hasActiveEntitlement=false (no paid sub).
-    // Trial hasn't been stamped yet. RC does not track our free trial, so the user
-    // should remain in trial regardless of RC sync state.
+    // The account trial has already been seeded from the backend user creation time.
     mockState = {
       subscriptionStatus: 'trial',
-      trialStartDate: null,
+      trialStartDate: new Date().toISOString(),
       remoteCompedAccess: false,
       devOverrideEnabled: false,
       devTierOverride: 'pro',
