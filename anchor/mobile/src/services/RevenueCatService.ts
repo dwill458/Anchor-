@@ -6,7 +6,7 @@ import {
   REVENUECAT_ENTITLEMENT_ID,
   REVENUECAT_MONTHLY_PACKAGE_ID,
 } from '@/config';
-import { useSubscriptionStore } from '@/stores/subscriptionStore';
+import { isLocalTrialActive, useSubscriptionStore } from '@/stores/subscriptionStore';
 import { logger } from '@/utils/logger';
 
 export interface TrialStatusSnapshot {
@@ -195,6 +195,10 @@ function deriveTrialStatus(customerInfo: CustomerInfo | null | undefined): Trial
 
 function applyTrialStatus(status: TrialStatusSnapshot, synced = false): TrialStatusSnapshot {
   const subscriptionStore = useSubscriptionStore.getState();
+  const localTrialActive =
+    subscriptionStore.subscriptionStatus === 'trial' &&
+    isLocalTrialActive(subscriptionStore.trialStartDate);
+
   subscriptionStore.setRcTier(status.hasActiveEntitlement ? 'pro' : 'free');
   subscriptionStore.setTrialState(status);
   if (synced) {
@@ -203,6 +207,8 @@ function applyTrialStatus(status: TrialStatusSnapshot, synced = false): TrialSta
   if (status.isSubscribed) {
     subscriptionStore.setSubscriptionStatus('active');
   } else if (status.isInTrial) {
+    subscriptionStore.setSubscriptionStatus('trial');
+  } else if (localTrialActive) {
     subscriptionStore.setSubscriptionStatus('trial');
   } else {
     subscriptionStore.setSubscriptionStatus('expired');

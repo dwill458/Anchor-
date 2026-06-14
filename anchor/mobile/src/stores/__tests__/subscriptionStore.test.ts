@@ -16,6 +16,9 @@ beforeEach(() => {
       trialStartDate: null,
       subscriptionStatus: 'expired',
       remoteCompedAccess: false,
+      hasActiveEntitlement: false,
+      rcSynced: false,
+      preferredPlanId: 'annual',
     });
   });
 });
@@ -112,6 +115,38 @@ describe('subscriptionStore', () => {
       expect(result.current.getEffectiveTier()).toBe('free');
     });
 
+    it('returns pro for an active account trial after RevenueCat has synced without entitlement', () => {
+      const { result } = renderHook(() => useSubscriptionStore());
+      act(() => {
+        result.current.syncAccountTrial(new Date().toISOString());
+        result.current.setRcSynced(true);
+      });
+      expect(result.current.getEffectiveTier()).toBe('pro');
+    });
+
+    it('does not grant pro for a trial without a start date', () => {
+      const { result } = renderHook(() => useSubscriptionStore());
+      act(() => {
+        useSubscriptionStore.setState({
+          subscriptionStatus: 'trial',
+          trialStartDate: null,
+          rcSynced: true,
+          hasActiveEntitlement: false,
+        });
+      });
+      expect(result.current.getEffectiveTier()).toBe('free');
+    });
+
+    it('expires an account trial after the trial window', () => {
+      const { result } = renderHook(() => useSubscriptionStore());
+      const eightDaysAgo = new Date(Date.now() - 8 * 86_400_000).toISOString();
+      act(() => {
+        result.current.syncAccountTrial(eightDaysAgo);
+      });
+      expect(result.current.subscriptionStatus).toBe('expired');
+      expect(result.current.getEffectiveTier()).toBe('free');
+    });
+
     it('returns pro when rcTier starts with pro', () => {
       const { result } = renderHook(() => useSubscriptionStore());
       act(() => result.current.setRcTier('pro'));
@@ -161,6 +196,14 @@ describe('subscriptionStore', () => {
         result.current.setRcTier('free');
       });
       expect(result.current.getEffectiveTier()).toBe('free');
+    });
+  });
+
+  describe('preferredPlanId', () => {
+    it('persists the selected plan preference', () => {
+      const { result } = renderHook(() => useSubscriptionStore());
+      act(() => result.current.setPreferredPlanId('monthly'));
+      expect(result.current.preferredPlanId).toBe('monthly');
     });
   });
 });

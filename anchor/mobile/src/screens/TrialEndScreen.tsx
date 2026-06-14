@@ -28,6 +28,7 @@ import { withAlpha } from '@/utils/color';
 import { safeHaptics } from '@/utils/haptics';
 import { useAnchorStore } from '@/stores/anchorStore';
 import { useSettingsStore } from '@/stores/settingsStore';
+import { useSubscriptionStore } from '@/stores/subscriptionStore';
 import revenueCatService, { RevenueCatPackagePresentation } from '@/services/RevenueCatService';
 import { logger } from '@/utils/logger';
 import type { RootNavigatorParamList } from '@/navigation/RootNavigator';
@@ -72,7 +73,9 @@ export default function TrialEndScreen() {
     useNavigation<NativeStackNavigationProp<RootNavigatorParamList, 'TrialEndScreen'>>();
   const anchors = useAnchorStore((state) => state.anchors);
   const hapticIntensity = useSettingsStore((s) => s.hapticIntensity);
-  const [selectedId, setSelectedId] = useState<PlanId>(REVENUECAT_DEFAULT_PLAN_ID);
+  const preferredPlanId = useSubscriptionStore((s) => s.preferredPlanId);
+  const setPreferredPlanId = useSubscriptionStore((s) => s.setPreferredPlanId);
+  const [selectedId, setSelectedId] = useState<PlanId>(preferredPlanId ?? REVENUECAT_DEFAULT_PLAN_ID);
   const [isPurchasing, setIsPurchasing] = useState(false);
   const [isRestoring, setIsRestoring] = useState(false);
   const [packagePresentations, setPackagePresentations] = useState<
@@ -232,6 +235,7 @@ export default function TrialEndScreen() {
   const handleTierPress = (id: PlanId) => {
     triggerSelection();
     setSelectedId(id);
+    setPreferredPlanId(id);
     logger.info('[Analytics] trial_tier_selected', { tier: id });
   };
 

@@ -16,30 +16,81 @@ import { LinearGradient } from 'expo-linear-gradient';
 import Svg, { Circle, Defs, Path, RadialGradient, Rect, Stop, SvgXml } from 'react-native-svg';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { ZenBackground } from '@/components/common';
-import { REVENUECAT_DEFAULT_PLAN_ID } from '@/config';
+import {
+  REVENUECAT_ANNUAL_PACKAGE_ID,
+  REVENUECAT_MONTHLY_PACKAGE_ID,
+} from '@/config';
+import revenueCatService, {
+  type RevenueCatOfferingDisplayMetadata,
+  type RevenueCatPlanId,
+} from '@/services/RevenueCatService';
 import { useAnchorStore } from '@/stores/anchorStore';
 import { useAuthStore } from '@/stores/authStore';
+import { useSubscriptionStore } from '@/stores/subscriptionStore';
 import type { RootStackParamList } from '@/types';
 import { colors, typography } from '@/theme';
 import { withAlpha } from '@/utils/color';
 
 type AuthGateNavigationProp = StackNavigationProp<RootStackParamList, 'AuthGate'>;
+type PlanId = RevenueCatPlanId;
 
-const PREVIEW_FADE_ID = 'auth-gate-preview-fade';
-const VOID_GLOW_ID = 'auth-gate-void-glow';
-
-type PlanId = 'monthly' | 'annual';
-
-const PLAN_OPTIONS: Array<{
+type PlanDisplay = {
   id: PlanId;
   label: string;
   amount: string;
   subtitle: string;
   badge?: string;
-}> = [
-  { id: 'monthly', label: 'Monthly', amount: '$7.99', subtitle: 'per month' },
-  { id: 'annual', label: 'Annual', amount: '$59.99', subtitle: '$5/mo · save 37%', badge: 'BEST VALUE' },
-];
+};
+
+const PREVIEW_FADE_ID = 'auth-gate-preview-fade';
+const VOID_GLOW_ID = 'auth-gate-void-glow';
+const DEFAULT_PLAN_ID: PlanId = 'annual';
+
+const FALLBACK_PLAN_VALUES = {
+  monthly: {
+    label: 'Monthly',
+    amount: '$7.99',
+    subtitle: 'per month',
+    packageId: REVENUECAT_MONTHLY_PACKAGE_ID,
+  },
+  annual: {
+    label: 'Annual',
+    amount: '$59.99',
+    subtitle: '$5/mo · best value',
+    packageId: REVENUECAT_ANNUAL_PACKAGE_ID,
+  },
+} satisfies Record<PlanId, {
+  label: string;
+  amount: string;
+  subtitle: string;
+  packageId: string;
+}>;
+
+function buildPlanOptions(metadata: RevenueCatOfferingDisplayMetadata): PlanDisplay[] {
+  return (Object.keys(FALLBACK_PLAN_VALUES) as PlanId[]).map((id) => {
+    const fallback = FALLBACK_PLAN_VALUES[id];
+    const livePlan = metadata[id];
+
+    if (id === 'annual') {
+      return {
+        id,
+        label: fallback.label,
+        amount: livePlan?.priceString ?? fallback.amount,
+        subtitle: livePlan?.pricePerMonthString
+          ? `${livePlan.pricePerMonthString}/mo · best value`
+          : fallback.subtitle,
+        badge: 'BEST VALUE',
+      };
+    }
+
+    return {
+      id,
+      label: fallback.label,
+      amount: livePlan?.priceString ?? fallback.amount,
+      subtitle: fallback.subtitle,
+    };
+  });
+}
 
 const VoidGlowBackdrop = React.memo(function VoidGlowBackdrop() {
   return (
@@ -115,10 +166,13 @@ export default function AuthGateScreen() {
   const navigation = useNavigation<AuthGateNavigationProp>();
   const { height } = useWindowDimensions();
   const anchors = useAnchorStore((state) => state.anchors);
-  const [selectedPlanId, setSelectedPlanId] = useState<PlanId>(REVENUECAT_DEFAULT_PLAN_ID);
+  const [selectedPlanId, setSelectedPlanId] = useState<PlanId>(DEFAULT_PLAN_ID);
+  const [offeringMetadata, setOfferingMetadata] = useState<RevenueCatOfferingDisplayMetadata>({});
   const clearPendingForgeIntent = useAuthStore((state) => state.clearPendingForgeIntent);
+  const pendingForgeResumeTarget = useAuthStore((state) => state.pendingForgeResumeTarget);
   const clearPendingForgeResumeTarget = useAuthStore((state) => state.clearPendingForgeResumeTarget);
   const pendingFirstAnchorDraft = useAuthStore((state) => state.pendingFirstAnchorDraft);
+  const setPreferredPlanId = useSubscriptionStore((state) => state.setPreferredPlanId);
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const slideAnim = useRef(new Animated.Value(20)).current;
 
@@ -129,24 +183,58 @@ export default function AuthGateScreen() {
     ]).start();
   }, [fadeAnim, slideAnim]);
 
+  useEffect(() => {
+    let mounted = true;
+    revenueCatService.getOfferingDisplayMetadata().then((metadata) => {
+      if (mounted) {
+        setOfferingMetadata(metadata);
+      }
+    });
+
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
+  const planOptions = useMemo(() => buildPlanOptions(offeringMetadata), [offeringMetadata]);
+  const selectedPlan = useMemo(
+    () => planOptions.find((plan) => plan.id === selectedPlanId) ?? planOptions[0],
+    [planOptions, selectedPlanId]
+  );
+
   const handleDismiss = useCallback(() => {
     clearPendingForgeIntent();
     clearPendingForgeResumeTarget();
-    navigation.goBack();
-  }, [clearPendingForgeIntent, clearPendingForgeResumeTarget, navigation]);
+
+    if (pendingForgeResumeTarget && navigation.canGoBack()) {
+      navigation.goBack();
+      return;
+    }
+
+    navigation.replace('Vault');
+  }, [
+    clearPendingForgeIntent,
+    clearPendingForgeResumeTarget,
+    navigation,
+    pendingForgeResumeTarget,
+  ]);
 
   const handleCreateAccount = useCallback(() => {
+    setPreferredPlanId(selectedPlanId);
     navigation.navigate('Login', {
       initialTab: 'signup',
       context: pendingFirstAnchorDraft ? 'first_anchor_gate' : undefined,
+      preferredPlanId: selectedPlanId,
     });
-  }, [navigation, pendingFirstAnchorDraft]);
+  }, [navigation, pendingFirstAnchorDraft, selectedPlanId, setPreferredPlanId]);
 
   const handleSignIn = useCallback(() => {
+    setPreferredPlanId(selectedPlanId);
     navigation.navigate('Login', {
       context: pendingFirstAnchorDraft ? 'first_anchor_gate' : undefined,
+      preferredPlanId: selectedPlanId,
     });
-  }, [navigation, pendingFirstAnchorDraft]);
+  }, [navigation, pendingFirstAnchorDraft, selectedPlanId, setPreferredPlanId]);
 
   const latestAnchor = useMemo(() => {
     if (anchors.length === 0) {
@@ -163,14 +251,6 @@ export default function AuthGateScreen() {
   const sigilSource = latestAnchor?.enhancedImageUrl ?? null;
   const sigilSvg = latestAnchor?.reinforcedSigilSvg ?? latestAnchor?.baseSigilSvg ?? null;
   const previewHeight = Math.round(height * 0.48);
-  const selectedPlan = useMemo(
-    () => PLAN_OPTIONS.find((plan) => plan.id === selectedPlanId) ?? PLAN_OPTIONS[0],
-    [selectedPlanId]
-  );
-  const ctaLabel =
-    selectedPlan.id === 'annual'
-      ? 'Forge Free for 7 Days'
-      : `Start with ${selectedPlan.label}`;
 
   return (
     <View style={styles.root}>
@@ -183,10 +263,10 @@ export default function AuthGateScreen() {
           previewHeight={previewHeight}
           sigilSource={sigilSource}
           sigilSvg={sigilSvg}
+          planOptions={planOptions}
           selectedPlanId={selectedPlanId}
           setSelectedPlanId={setSelectedPlanId}
           selectedPlan={selectedPlan}
-          ctaLabel={ctaLabel}
           onDismiss={handleDismiss}
           onCreateAccount={handleCreateAccount}
           onSignIn={handleSignIn}
@@ -202,10 +282,10 @@ type AnimatedScreenProps = {
   previewHeight: number;
   sigilSource: string | null;
   sigilSvg: string | null;
+  planOptions: PlanDisplay[];
   selectedPlanId: PlanId;
   setSelectedPlanId: (id: PlanId) => void;
-  selectedPlan: (typeof PLAN_OPTIONS)[number];
-  ctaLabel: string;
+  selectedPlan: PlanDisplay | undefined;
   onDismiss: () => void;
   onCreateAccount: () => void;
   onSignIn: () => void;
@@ -217,14 +297,18 @@ const AnimatedScreen = React.memo(function AnimatedScreen({
   previewHeight,
   sigilSource,
   sigilSvg,
+  planOptions,
   selectedPlanId,
   setSelectedPlanId,
   selectedPlan,
-  ctaLabel,
   onDismiss,
   onCreateAccount,
   onSignIn,
 }: AnimatedScreenProps) {
+  const selectedPlanSummary = selectedPlan
+    ? `${selectedPlan.label} · ${selectedPlan.amount} ${selectedPlan.subtitle}`
+    : null;
+
   return (
     <View style={styles.screen}>
       <Animated.View
@@ -281,7 +365,7 @@ const AnimatedScreen = React.memo(function AnimatedScreen({
             </Pressable>
           </View>
 
-            <View style={styles.lockBadge}>
+          <View style={styles.lockBadge}>
             <LockBadgeIcon />
           </View>
 
@@ -299,11 +383,12 @@ const AnimatedScreen = React.memo(function AnimatedScreen({
 
             <Text style={styles.headline}>
               Your anchor is{'\n'}
-              ready to <Text style={styles.headlineForge}>forge.</Text>
+              ready to <Text style={styles.headlineForge}>continue.</Text>
             </Text>
 
             <Text style={styles.bodyCopy}>
-              Create an account to save your work, track your practice, and build more anchors.
+              Create an account to save your work and pick the plan you want before anything is
+              charged.
             </Text>
 
             <View style={styles.dividerRow}>
@@ -331,7 +416,7 @@ const AnimatedScreen = React.memo(function AnimatedScreen({
             </View>
 
             <View style={styles.planRow}>
-              {PLAN_OPTIONS.map((plan) => {
+              {planOptions.map((plan) => {
                 const isSelected = selectedPlanId === plan.id;
 
                 return (
@@ -339,12 +424,14 @@ const AnimatedScreen = React.memo(function AnimatedScreen({
                     key={plan.id}
                     onPress={() => setSelectedPlanId(plan.id)}
                     accessibilityRole="button"
+                    accessibilityState={{ selected: isSelected }}
                     accessibilityLabel={`${plan.label} plan ${plan.amount}`}
                     style={({ pressed }) => [
                       styles.planCard,
                       isSelected ? styles.planCardSelected : styles.planCardUnselected,
                       pressed && styles.planCardPressed,
                     ]}
+                    testID={`auth-gate-plan-${plan.id}`}
                   >
                     {plan.badge ? (
                       <View style={styles.planBadge}>
@@ -365,21 +452,22 @@ const AnimatedScreen = React.memo(function AnimatedScreen({
               })}
             </View>
 
-            <Text style={styles.planHint}>
-              Selected: <Text style={styles.planHintGold}>{selectedPlan.label}</Text>
-              {selectedPlan.subtitle ? ` · ${selectedPlan.subtitle}` : ''}
-            </Text>
+            {selectedPlanSummary ? (
+              <Text style={styles.planHint}>
+                Selected: <Text style={styles.planHintGold}>{selectedPlanSummary}</Text>
+              </Text>
+            ) : null}
 
             <Pressable
               onPress={onCreateAccount}
               accessibilityRole="button"
-              accessibilityLabel={`${ctaLabel || 'Forge Now'}, ${selectedPlan.label} selected`}
+              accessibilityLabel={`Create account to continue, ${selectedPlan?.label ?? 'Annual'} selected`}
               style={({ pressed }) => [styles.ctaButton, pressed && styles.ctaButtonPressed]}
             >
-              <Text style={styles.ctaText}>{ctaLabel || 'Forge Now'}</Text>
+              <Text style={styles.ctaText}>Create account to continue</Text>
             </Pressable>
 
-            <Text style={styles.trialNote}>Cancel anytime</Text>
+            <Text style={styles.trialNote}>You will confirm pricing after sign in</Text>
 
             <Pressable
               onPress={onSignIn}

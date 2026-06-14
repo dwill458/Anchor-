@@ -7,6 +7,9 @@ const mockNavigate = jest.fn();
 const mockGoBack = jest.fn();
 const mockReset = jest.fn();
 const mockTrack = jest.fn();
+const mockSetPreferredPlanId = jest.fn();
+let mockPreferredPlanId: 'monthly' | 'annual' = 'annual';
+let mockRouteParams: { preferredPlanId?: 'monthly' | 'annual'; source?: 'post_trial' | 'gated_feature' } | undefined;
 
 let mockAnchorState: {
   anchors: Anchor[];
@@ -25,11 +28,19 @@ jest.mock('@react-navigation/native', () => ({
     goBack: mockGoBack,
     reset: mockReset,
   }),
-  useRoute: () => ({ params: undefined }),
+  useRoute: () => ({ params: mockRouteParams }),
 }));
 
 jest.mock('@/stores/anchorStore', () => ({
   useAnchorStore: (selector: any) => selector(mockAnchorState),
+}));
+
+jest.mock('@/stores/subscriptionStore', () => ({
+  useSubscriptionStore: (selector: any) =>
+    selector({
+      preferredPlanId: mockPreferredPlanId,
+      setPreferredPlanId: mockSetPreferredPlanId,
+    }),
 }));
 
 jest.mock('@/hooks/useProgressionData', () => ({
@@ -96,6 +107,9 @@ describe('PaywallScreen', () => {
     mockGoBack.mockClear();
     mockReset.mockClear();
     mockTrack.mockClear();
+    mockSetPreferredPlanId.mockClear();
+    mockPreferredPlanId = 'annual';
+    mockRouteParams = undefined;
     mockAnchorState = {
       anchors: [
         buildAnchor({
@@ -141,12 +155,22 @@ describe('PaywallScreen', () => {
     ).toBe('#f0cb6a');
   });
 
+  it('uses the preferred plan from navigation params', () => {
+    mockRouteParams = { preferredPlanId: 'monthly' };
+
+    render(<PaywallScreen />);
+
+    expect(screen.getByTestId('paywall-plan-monthly').props.accessibilityState.selected).toBe(true);
+    expect(mockSetPreferredPlanId).toHaveBeenCalledWith('monthly');
+  });
+
   it('changes plan selection without purchasing on card press', () => {
     render(<PaywallScreen />);
 
     fireEvent.press(screen.getByTestId('paywall-plan-monthly'));
 
     expect(screen.getByTestId('paywall-plan-monthly').props.accessibilityState.selected).toBe(true);
+    expect(mockSetPreferredPlanId).toHaveBeenCalledWith('monthly');
     expect(revenueCatService.purchasePackageByIdentifier).not.toHaveBeenCalled();
     expect(mockTrack).toHaveBeenCalledWith('paywall_plan_selected', { plan: 'monthly' });
   });
@@ -275,6 +299,7 @@ describe('PaywallScreen', () => {
       params: {
         initialTab: 'signin',
         context: 'paywall',
+        preferredPlanId: 'annual',
       },
     });
   });

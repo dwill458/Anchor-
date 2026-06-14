@@ -4,13 +4,27 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { SubscriptionStatus } from '@/types';
 
 const TRIAL_DURATION_DAYS = 7;
+export type PreferredPlanId = 'monthly' | 'annual';
 
 /** Derive days remaining from a stored ISO trialStartDate string. */
 function computeDaysRemaining(trialStartDate: string | null): number {
     if (!trialStartDate) return 0;
-    const msElapsed = Date.now() - new Date(trialStartDate).getTime();
+    const trialStartMs = new Date(trialStartDate).getTime();
+    if (Number.isNaN(trialStartMs)) return 0;
+
+    const msElapsed = Date.now() - trialStartMs;
     const daysElapsed = Math.floor(msElapsed / 86_400_000);
-    return Math.max(0, TRIAL_DURATION_DAYS - daysElapsed);
+    return Math.min(TRIAL_DURATION_DAYS, Math.max(0, TRIAL_DURATION_DAYS - daysElapsed));
+}
+
+function normalizeTrialStartDate(value: Date | string): string | null {
+    const date = value instanceof Date ? value : new Date(value);
+    if (Number.isNaN(date.getTime())) return null;
+    return date.toISOString();
+}
+
+function isLocalTrialActive(trialStartDate: string | null): boolean {
+    return computeDaysRemaining(trialStartDate) > 0;
 }
 
 interface TrialStatusSnapshot {
@@ -29,6 +43,7 @@ interface SubscriptionState extends TrialStatusSnapshot {
     // Trial state (local, AsyncStorage-persisted)
     trialStartDate: string | null;
     subscriptionStatus: 'trial' | 'active' | 'expired';
+    preferredPlanId: PreferredPlanId;
 
     // Developer override controls
     devOverrideEnabled: boolean;
@@ -42,6 +57,8 @@ interface SubscriptionState extends TrialStatusSnapshot {
     setTrialStartDate: (date: string) => void;
     setSubscriptionStatus: (status: 'trial' | 'active' | 'expired') => void;
     setTrialState: (snapshot: TrialStatusSnapshot) => void;
+    syncAccountTrial: (startDate: Date | string) => void;
+    setPreferredPlanId: (planId: PreferredPlanId) => void;
     setRemoteCompedAccess: (enabled: boolean) => void;
     setDevOverrideEnabled: (enabled: boolean) => void;
     setDevTierOverride: (tier: 'free' | 'pro' | 'trial' | 'expired') => void;
@@ -58,7 +75,8 @@ export const useSubscriptionStore = create<SubscriptionState>()(
             rcTier: 'free',
             remoteCompedAccess: false,
             trialStartDate: null,
-            subscriptionStatus: 'trial',
+            subscriptionStatus: 'expired',
+            preferredPlanId: 'annual',
             devOverrideEnabled: false,
             devTierOverride: 'pro',
             rcSynced: false,
@@ -74,6 +92,31 @@ export const useSubscriptionStore = create<SubscriptionState>()(
             setTrialStartDate: (date) => set({ trialStartDate: date }),
             setSubscriptionStatus: (status) => set({ subscriptionStatus: status }),
             setTrialState: (snapshot) => set(snapshot),
+            syncAccountTrial: (startDate) => {
+                const normalizedStartDate = normalizeTrialStartDate(startDate);
+                if (!normalizedStartDate) {
+                    return;
+                }
+
+                set((state) => {
+                    if (state.subscriptionStatus === 'active') {
+                        return {};
+                    }
+
+                    const existingStartDate = normalizeTrialStartDate(state.trialStartDate ?? '');
+                    const effectiveStartDate =
+                        existingStartDate &&
+                        new Date(existingStartDate).getTime() < new Date(normalizedStartDate).getTime()
+                            ? existingStartDate
+                            : normalizedStartDate;
+
+                    return {
+                        trialStartDate: effectiveStartDate,
+                        subscriptionStatus: isLocalTrialActive(effectiveStartDate) ? 'trial' : 'expired',
+                    };
+                });
+            },
+            setPreferredPlanId: (preferredPlanId) => set({ preferredPlanId }),
             setRemoteCompedAccess: (enabled) => set({ remoteCompedAccess: enabled }),
             setDevOverrideEnabled: (enabled) => set({ devOverrideEnabled: enabled }),
             setDevTierOverride: (tier) => set({ devTierOverride: tier }),
@@ -95,6 +138,8 @@ export const useSubscriptionStore = create<SubscriptionState>()(
                     hasActiveEntitlement,
                     rcSynced,
                 } = get();
+                const localTrialActive =
+                    subscriptionStatus === 'trial' && isLocalTrialActive(trialStartDate);
 
                 if (__DEV__ && devOverrideEnabled) {
                     if (devTierOverride === 'expired' || devTierOverride === 'free') return 'free';
@@ -107,13 +152,14 @@ export const useSubscriptionStore = create<SubscriptionState>()(
                 // Active paid subscription always wins
                 if (rcTier.startsWith('pro') || subscriptionStatus === 'active') return 'pro';
 
-                // After RC has confirmed state, require entitlement (closes reinstall trial bypass)
+                // After RC has confirmed state, paid entitlement or the account-bound
+                // local trial may grant access. A null trial date never does.
                 if (rcSynced) {
-                    return hasActiveEntitlement ? 'pro' : 'free';
+                    return hasActiveEntitlement || localTrialActive ? 'pro' : 'free';
                 }
 
                 // Before RC sync: fall back to local trial clock (offline UX cache)
-                if (subscriptionStatus === 'trial' && computeDaysRemaining(trialStartDate) > 0) return 'pro';
+                if (localTrialActive) return 'pro';
 
                 return 'free';
             },
@@ -121,26 +167,43 @@ export const useSubscriptionStore = create<SubscriptionState>()(
         {
             name: 'anchor-subscription-override-storage',
             storage: createJSONStorage(() => AsyncStorage),
-            version: 2,
+            version: 3,
             migrate: (persistedState: any, version: number) => {
+                let nextState = persistedState ?? {};
+
                 // v1 → v2: add trialStartDate and subscriptionStatus
                 if (version < 2) {
-                    return {
-                        ...persistedState,
-                        trialStartDate: persistedState.trialStartDate ?? null,
-                        subscriptionStatus: persistedState.subscriptionStatus ?? 'trial',
+                    nextState = {
+                        ...nextState,
+                        trialStartDate: nextState.trialStartDate ?? null,
+                        subscriptionStatus: nextState.subscriptionStatus ?? 'trial',
                     };
                 }
-                return persistedState;
+
+                // v2 → v3: null trialStartDate no longer means active trial.
+                if (version < 3) {
+                    nextState = {
+                        ...nextState,
+                        preferredPlanId: nextState.preferredPlanId ?? 'annual',
+                        subscriptionStatus:
+                            nextState.subscriptionStatus === 'trial' &&
+                            !isLocalTrialActive(nextState.trialStartDate ?? null)
+                                ? 'expired'
+                                : nextState.subscriptionStatus,
+                    };
+                }
+
+                return nextState;
             },
             partialize: (state) => ({
                 devOverrideEnabled: state.devOverrideEnabled,
                 devTierOverride: state.devTierOverride,
                 trialStartDate: state.trialStartDate,
                 subscriptionStatus: state.subscriptionStatus,
+                preferredPlanId: state.preferredPlanId,
             }),
         }
     )
 );
 
-export { computeDaysRemaining, TRIAL_DURATION_DAYS };
+export { computeDaysRemaining, isLocalTrialActive, TRIAL_DURATION_DAYS };

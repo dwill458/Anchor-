@@ -4,6 +4,7 @@ import AuthHydrationService from '@/services/AuthHydrationService';
 import RevenueCatService, { TrialStatusSnapshot } from '@/services/RevenueCatService';
 import { useAnchorStore } from '@/stores/anchorStore';
 import { useAuthStore } from '@/stores/authStore';
+import { useSubscriptionStore } from '@/stores/subscriptionStore';
 import { logger } from '@/utils/logger';
 
 interface RunPostAuthFlowOptions {
@@ -31,6 +32,7 @@ class PostAuthFlowService {
       : user;
 
     authStore.setSession(patchedUser, token);
+    useSubscriptionStore.getState().syncAccountTrial(patchedUser.createdAt);
     if (preserveCompletedOnboarding) {
       authStore.setHasCompletedOnboarding(true);
     }

@@ -33,6 +33,7 @@ import { colors, typography } from '@/theme';
 import { withAlpha } from '@/utils/color';
 import { LEGAL_URLS } from '@/constants/legal';
 import { useAnchorStore } from '@/stores/anchorStore';
+import { useSubscriptionStore } from '@/stores/subscriptionStore';
 import { useProgressionData } from '@/hooks/useProgressionData';
 import { useReduceMotionEnabled } from '@/hooks/useReduceMotionEnabled';
 import revenueCatService, {
@@ -347,7 +348,10 @@ export const PaywallScreen: React.FC = () => {
   const { forgedCount, totalPrimes } = useProgressionData();
   const reduceMotion = useReduceMotionEnabled();
 
-  const [selectedPlanId, setSelectedPlanId] = useState<PlanId>(PAYWALL_EXPERIMENT.defaultPlan);
+  const preferredPlanId = useSubscriptionStore((state) => state.preferredPlanId);
+  const setPreferredPlanId = useSubscriptionStore((state) => state.setPreferredPlanId);
+  const initialPlanId = route.params?.preferredPlanId ?? preferredPlanId ?? PAYWALL_EXPERIMENT.defaultPlan;
+  const [selectedPlanId, setSelectedPlanId] = useState<PlanId>(initialPlanId);
   const [offeringMetadata, setOfferingMetadata] = useState<RevenueCatOfferingDisplayMetadata>({});
   const [isPurchasing, setIsPurchasing] = useState(false);
   const [isRestoring, setIsRestoring] = useState(false);
@@ -386,6 +390,13 @@ export const PaywallScreen: React.FC = () => {
   }, []);
 
   useEffect(() => {
+    if (route.params?.preferredPlanId) {
+      setSelectedPlanId(route.params.preferredPlanId);
+      setPreferredPlanId(route.params.preferredPlanId);
+    }
+  }, [route.params?.preferredPlanId, setPreferredPlanId]);
+
+  useEffect(() => {
     if (reduceMotion) {
       introOpacity.setValue(1);
       introTranslate.setValue(0);
@@ -405,15 +416,16 @@ export const PaywallScreen: React.FC = () => {
 
   const handleSelectPlan = useCallback((plan: PlanId) => {
     setSelectedPlanId(plan);
+    setPreferredPlanId(plan);
     AnalyticsService.track('paywall_plan_selected', { plan });
-  }, []);
+  }, [setPreferredPlanId]);
 
   const handleSignIn = useCallback(() => {
     navigation.navigate('Settings', {
       screen: 'Login',
-      params: { initialTab: 'signin', context: 'paywall' },
+      params: { initialTab: 'signin', context: 'paywall', preferredPlanId: selectedPlanId },
     });
-  }, [navigation]);
+  }, [navigation, selectedPlanId]);
 
   const handlePurchase = useCallback(async () => {
     if (isPurchasing || isRestoring) return;

@@ -145,10 +145,12 @@ export interface User {
 
 export type AuthScreenContext = 'onboarding' | 'first_anchor_gate' | 'save_progress' | 'paywall';
 export type AuthScreenInitialTab = 'signin' | 'signup';
+export type AuthPreferredPlanId = 'monthly' | 'annual';
 
 export interface AuthScreenParams {
   context?: AuthScreenContext;
   initialTab?: AuthScreenInitialTab;
+  preferredPlanId?: AuthPreferredPlanId;
 }
 
 export interface PendingFirstAnchorDraft {
@@ -489,7 +491,7 @@ export type RootStackParamList = {
   TrialSignUp: undefined;
   AnchorDetail: { anchorId: string };
   AuthGate: undefined;
-  Paywall: { source?: 'post_trial' | 'gated_feature' } | undefined;
+  Paywall: { source?: 'post_trial' | 'gated_feature'; preferredPlanId?: AuthPreferredPlanId } | undefined;
   CreateAnchor: undefined;
   /** First anchor creation after onboarding — shows new-user IntentionInputScreen */
   FirstAnchorCreation: undefined;
