@@ -232,6 +232,63 @@ describe('RevenueCatService', () => {
     ).rejects.toThrow('[RevenueCat] No active offerings found.');
   });
 
+  it('falls back to an offering from offerings.all when current is empty', async () => {
+    const pkg = { identifier: '$rc_monthly' };
+    mockPurchases.getOfferings.mockResolvedValueOnce({
+      current: null,
+      all: {
+        current_offering: { availablePackages: [pkg] },
+      },
+    });
+    mockPurchases.purchasePackage.mockResolvedValueOnce({ customerInfo: activeCustomerInfo });
+
+    const result = await RevenueCatService.purchasePackageByIdentifier('$rc_monthly');
+
+    expect(mockPurchases.purchasePackage).toHaveBeenCalledWith(pkg);
+    expect(result.status.hasActiveEntitlement).toBe(true);
+  });
+
+  it('uses offerings.all for display metadata when current is empty', async () => {
+    mockPurchases.getOfferings.mockResolvedValueOnce({
+      current: null,
+      all: {
+        current_offering: {
+          availablePackages: [
+            {
+              identifier: '$rc_monthly',
+              product: {
+                price: 7.99,
+                priceString: '$7.99',
+                pricePerMonth: 7.99,
+                pricePerMonthString: '$7.99',
+                pricePerYear: 95.88,
+                pricePerYearString: '$95.88',
+                currencyCode: 'USD',
+              },
+            },
+            {
+              identifier: '$rc_annual',
+              product: {
+                price: 59.99,
+                priceString: '$59.99',
+                pricePerMonth: 5,
+                pricePerMonthString: '$5.00',
+                pricePerYear: 59.99,
+                pricePerYearString: '$59.99',
+                currencyCode: 'USD',
+              },
+            },
+          ],
+        },
+      },
+    });
+
+    const metadata = await RevenueCatService.getOfferingDisplayMetadata();
+
+    expect(metadata.monthly?.priceString).toBe('$7.99');
+    expect(metadata.annual?.priceString).toBe('$59.99');
+  });
+
   it('throws an error if the selected package is not found in offerings', async () => {
     mockPurchases.getOfferings.mockResolvedValueOnce({
       current: { availablePackages: [] },

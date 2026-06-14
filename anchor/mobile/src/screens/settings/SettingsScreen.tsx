@@ -179,7 +179,7 @@ export const SettingsScreen: React.FC = () => {
   const handleDeleteAccount = useCallback(() => {
     Alert.alert(
       'Delete Account',
-      'This action is permanent and cannot be undone. All your anchors and data will be deleted from our servers.',
+      'This action is permanent and cannot be undone. All your anchors and data will be deleted from our servers. \n\nImportant: Deleting your account will not cancel active subscriptions. Please cancel any active subscriptions through your App Store or Google Play account to prevent future billing.',
       [
         { text: 'Cancel', style: 'cancel' },
         {
@@ -592,18 +592,21 @@ export const SettingsScreen: React.FC = () => {
               onResetOnboarding={handleResetOnboarding}
             />
           ) : null}
-
-          <Text style={[styles.sectionLabel, styles.dangerLabel]}>Danger Zone</Text>
-          <SettingsSectionBlock>
-            <SettingsRow
-              title="Delete Account"
-              type="none"
-              titleColor="#e05252"
-              onPress={handleDeleteAccount}
-              style={styles.dangerRow}
-              showDivider={false}
-            />
-          </SettingsSectionBlock>
+          {isAuthenticated ? (
+            <>
+              <Text style={[styles.sectionLabel, styles.dangerLabel]}>Danger Zone</Text>
+              <SettingsSectionBlock>
+                <SettingsRow
+                  title="Delete Account"
+                  type="none"
+                  titleColor="#e05252"
+                  onPress={handleDeleteAccount}
+                  style={styles.dangerRow}
+                  showDivider={false}
+                />
+              </SettingsSectionBlock>
+            </>
+          ) : null}
 
           <View style={styles.bottomSpacer} />
         </ScrollView>

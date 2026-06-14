@@ -14,6 +14,7 @@ required_vars=(
 )
 
 missing=()
+warnings=()
 
 for var_name in "${required_vars[@]}"; do
   if [[ -z "${!var_name:-}" ]]; then
@@ -29,8 +30,8 @@ if [[ "$platform" != "ios" ]] && [[ -z "${EXPO_PUBLIC_REVENUECAT_ANDROID_API_KEY
   missing+=("EXPO_PUBLIC_REVENUECAT_ANDROID_API_KEY or EXPO_PUBLIC_REVENUECAT_API_KEY")
 fi
 
-# Google Sign-In requires OAuth client IDs only when the app flag enables it.
-if [[ "${EXPO_PUBLIC_ENABLE_GOOGLE_SIGN_IN:-}" == "true" ]]; then
+# Google Sign-In requires OAuth client IDs when the app flag leaves it enabled.
+if [[ "${EXPO_PUBLIC_ENABLE_GOOGLE_SIGN_IN:-true}" != "false" ]]; then
   if [[ "$platform" != "android" ]] && [[ -z "${EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID:-}" ]]; then
     missing+=("EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID")
   fi
@@ -56,6 +57,44 @@ fi
 if [[ "$platform" != "ios" ]] && [[ ! -f "google-services.json" ]]; then
   echo "Missing google-services.json in anchor/mobile" >&2
   exit 1
+fi
+
+validate_revenuecat_key_prefix() {
+  local var_name="$1"
+  local expected_prefix="$2"
+  local value="${!var_name:-}"
+
+  if [[ -z "$value" ]]; then
+    return
+  fi
+
+  if [[ "$value" != "${expected_prefix}"* ]]; then
+    echo "$var_name must start with ${expected_prefix}" >&2
+    exit 1
+  fi
+}
+
+if [[ "$platform" != "android" ]]; then
+  if [[ -n "${EXPO_PUBLIC_REVENUECAT_IOS_API_KEY:-}" ]]; then
+    validate_revenuecat_key_prefix EXPO_PUBLIC_REVENUECAT_IOS_API_KEY appl_
+  elif [[ -n "${EXPO_PUBLIC_REVENUECAT_API_KEY:-}" ]]; then
+    validate_revenuecat_key_prefix EXPO_PUBLIC_REVENUECAT_API_KEY appl_
+    warnings+=("Using shared EXPO_PUBLIC_REVENUECAT_API_KEY for iOS; prefer EXPO_PUBLIC_REVENUECAT_IOS_API_KEY")
+  fi
+fi
+
+if [[ "$platform" != "ios" ]]; then
+  if [[ -n "${EXPO_PUBLIC_REVENUECAT_ANDROID_API_KEY:-}" ]]; then
+    validate_revenuecat_key_prefix EXPO_PUBLIC_REVENUECAT_ANDROID_API_KEY goog_
+  elif [[ -n "${EXPO_PUBLIC_REVENUECAT_API_KEY:-}" ]]; then
+    validate_revenuecat_key_prefix EXPO_PUBLIC_REVENUECAT_API_KEY goog_
+    warnings+=("Using shared EXPO_PUBLIC_REVENUECAT_API_KEY for Android; prefer EXPO_PUBLIC_REVENUECAT_ANDROID_API_KEY")
+  fi
+fi
+
+if [[ ${#warnings[@]} -gt 0 ]]; then
+  printf 'RevenueCat config warnings:\n' >&2
+  printf '  - %s\n' "${warnings[@]}" >&2
 fi
 
 echo "Mobile release config looks complete."

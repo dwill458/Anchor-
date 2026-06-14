@@ -20,27 +20,36 @@ export const API_URL =
     ? (process.env.EXPO_PUBLIC_DEV_API_URL ?? 'http://localhost:8000')
     : 'https://anchor-production-26bf.up.railway.app');
 
+const readOptionalPublicEnv = (value: string | undefined): string => {
+  const trimmed = value?.trim();
+  return trimmed && trimmed.length > 0 ? trimmed : '';
+};
+
 export const SUPABASE_URL = process.env.EXPO_PUBLIC_SUPABASE_URL ?? '';
 export const SUPABASE_ANON_KEY = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY ?? '';
 export const REVENUECAT_MONTHLY_PACKAGE_ID = '$rc_monthly';
 export const REVENUECAT_ANNUAL_PACKAGE_ID = '$rc_annual';
 const platformRevenueCatApiKey =
   Platform.OS === 'ios'
-    ? process.env.EXPO_PUBLIC_REVENUECAT_IOS_API_KEY
+    ? readOptionalPublicEnv(process.env.EXPO_PUBLIC_REVENUECAT_IOS_API_KEY)
     : Platform.OS === 'android'
-      ? process.env.EXPO_PUBLIC_REVENUECAT_ANDROID_API_KEY
-      : undefined;
-export const REVENUECAT_API_KEY =
-  platformRevenueCatApiKey ?? process.env.EXPO_PUBLIC_REVENUECAT_API_KEY ?? '';
+      ? readOptionalPublicEnv(process.env.EXPO_PUBLIC_REVENUECAT_ANDROID_API_KEY)
+      : '';
+const sharedRevenueCatApiKey = readOptionalPublicEnv(process.env.EXPO_PUBLIC_REVENUECAT_API_KEY);
+export const REVENUECAT_API_KEY = platformRevenueCatApiKey || sharedRevenueCatApiKey;
 export const REVENUECAT_ENTITLEMENT_ID = process.env.EXPO_PUBLIC_REVENUECAT_ENTITLEMENT_ID ?? '';
 export const REVENUECAT_DEFAULT_PACKAGE_ID =
   process.env.EXPO_PUBLIC_REVENUECAT_DEFAULT_PACKAGE_ID ?? REVENUECAT_MONTHLY_PACKAGE_ID;
 export const REVENUECAT_DEFAULT_PLAN_ID =
   REVENUECAT_DEFAULT_PACKAGE_ID === REVENUECAT_ANNUAL_PACKAGE_ID ? 'annual' : 'monthly';
-const readOptionalPublicEnv = (value: string | undefined): string => {
-  const trimmed = value?.trim();
-  return trimmed && trimmed.length > 0 ? trimmed : '';
-};
+
+const expectedRevenueCatApiKeyPrefix =
+  Platform.OS === 'ios' ? 'appl_' : Platform.OS === 'android' ? 'goog_' : '';
+const usingSharedRevenueCatFallback = !platformRevenueCatApiKey && sharedRevenueCatApiKey.length > 0;
+const hasRevenueCatApiKeyPrefixMismatch =
+  expectedRevenueCatApiKeyPrefix.length > 0 &&
+  REVENUECAT_API_KEY.length > 0 &&
+  !REVENUECAT_API_KEY.startsWith(expectedRevenueCatApiKeyPrefix);
 
 // Google OAuth client IDs are public identifiers, not secrets. Keep a
 // source-level fallback so preview/TestFlight builds still authenticate even
@@ -54,10 +63,34 @@ export const GOOGLE_WEB_CLIENT_ID =
   readOptionalPublicEnv(process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID) || DEFAULT_GOOGLE_WEB_CLIENT_ID;
 export const GOOGLE_IOS_CLIENT_ID =
   readOptionalPublicEnv(process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID) || DEFAULT_GOOGLE_IOS_CLIENT_ID;
-export const ENABLE_GOOGLE_SIGN_IN = process.env.EXPO_PUBLIC_ENABLE_GOOGLE_SIGN_IN === 'true';
+// Keep Google auth enabled unless it is explicitly disabled. EAS Update can
+// publish without injecting build-profile booleans, and treating "missing" as
+// false hides the login path in OTA bundles even when the native binary fully
+// supports Google auth.
+export const ENABLE_GOOGLE_SIGN_IN = process.env.EXPO_PUBLIC_ENABLE_GOOGLE_SIGN_IN !== 'false';
 export const ENABLE_LEGACY_SUPABASE_SYNC =
   process.env.EXPO_PUBLIC_ENABLE_LEGACY_SUPABASE_SYNC === 'true';
 export const ENABLE_MERCH = process.env.EXPO_PUBLIC_ENABLE_MERCH === 'true';
+
+if (usingSharedRevenueCatFallback && (Platform.OS === 'ios' || Platform.OS === 'android')) {
+  // KEEP: raw console diagnostic so Expo dev-client / OTA builds surface the
+  // exact env source even before the app logger is configured.
+  // eslint-disable-next-line no-console
+  console.warn(
+    `[config] RevenueCat is using shared EXPO_PUBLIC_REVENUECAT_API_KEY fallback on ${Platform.OS}. ` +
+      `Set the platform-specific key to avoid cross-platform key mixups.`
+  );
+}
+
+if (hasRevenueCatApiKeyPrefixMismatch) {
+  // KEEP: deliberate raw console diagnostic — this usually means the wrong
+  // public SDK key was injected for the current store platform.
+  // eslint-disable-next-line no-console
+  console.error(
+    `[config] RevenueCat ${Platform.OS} API key prefix mismatch — expected ${expectedRevenueCatApiKeyPrefix}..., ` +
+      `got ${REVENUECAT_API_KEY.slice(0, 5)}...`
+  );
+}
 
 if (!__DEV__ && (!REVENUECAT_API_KEY || !REVENUECAT_ENTITLEMENT_ID)) {
   // KEEP: deliberate raw console diagnostic — logger is dev-gated and would

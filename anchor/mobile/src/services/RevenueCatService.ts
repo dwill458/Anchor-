@@ -70,6 +70,7 @@ interface RevenueCatOffering {
 
 interface RevenueCatOfferings {
   current?: RevenueCatOffering | null;
+  all?: Record<string, RevenueCatOffering> | null;
 }
 
 export interface RevenueCatPackagePresentation {
@@ -268,6 +269,44 @@ function buildPlanMetadata(
 }
 
 class RevenueCatService {
+  private resolveOfferingFromCollection(offerings: RevenueCatOfferings): RevenueCatOffering | null {
+    if (offerings.current) {
+      return offerings.current;
+    }
+
+    const allOfferings = offerings.all ? Object.entries(offerings.all) : [];
+    if (allOfferings.length === 0) {
+      return null;
+    }
+
+    const preferredOffering = allOfferings.find(([, offering]) => {
+      const packageIds = new Set((offering.availablePackages ?? []).map((pkg) => pkg.identifier));
+      return (
+        packageIds.has(REVENUECAT_DEFAULT_PACKAGE_ID) ||
+        packageIds.has(REVENUECAT_MONTHLY_PACKAGE_ID) ||
+        packageIds.has(REVENUECAT_ANNUAL_PACKAGE_ID)
+      );
+    });
+
+    if (preferredOffering) {
+      const [identifier, offering] = preferredOffering;
+      logger.warn(
+        `[RevenueCatService] offerings.current was empty; falling back to offering "${identifier}" from offerings.all`
+      );
+      return offering;
+    }
+
+    if (allOfferings.length === 1) {
+      const [identifier, offering] = allOfferings[0];
+      logger.warn(
+        `[RevenueCatService] offerings.current was empty; falling back to sole offering "${identifier}" from offerings.all`
+      );
+      return offering;
+    }
+
+    return null;
+  }
+
   private async getCurrentOffering(): Promise<RevenueCatOffering> {
     const purchases = getPurchasesModule();
     if (!purchases) {
@@ -278,9 +317,11 @@ class RevenueCatService {
     }
 
     const offerings = await purchases.getOfferings();
-    const currentOffering = offerings.current;
+    const currentOffering = this.resolveOfferingFromCollection(offerings);
     if (!currentOffering) {
-      throw new Error('[RevenueCat] No active offerings found. Please ensure you have set a Current Offering in the RevenueCat dashboard.');
+      throw new Error(
+        '[RevenueCat] No active offerings found. Please ensure you have set a Current Offering in the RevenueCat dashboard and that the offering includes $rc_monthly / $rc_annual for this app.'
+      );
     }
 
     return currentOffering;
@@ -428,7 +469,7 @@ class RevenueCatService {
 
     try {
       const offerings = await purchases.getOfferings();
-      const availablePackages = offerings.current?.availablePackages ?? [];
+      const availablePackages = this.resolveOfferingFromCollection(offerings)?.availablePackages ?? [];
       const monthlyPackage = availablePackages.find(
         (pkg) => pkg.identifier === REVENUECAT_MONTHLY_PACKAGE_ID
       );

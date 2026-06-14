@@ -109,6 +109,7 @@ tmp/
 temp/
 *.tmp
 .cache/
+.codex-remote-attachments/
 graphify-out/cache/
 graphify-out/.graphify_*
 graphify-out/manifest.json

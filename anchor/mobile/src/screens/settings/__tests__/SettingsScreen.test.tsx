@@ -1,4 +1,5 @@
 import React from 'react';
+import { Alert } from 'react-native';
 import { fireEvent, render, waitFor } from '@testing-library/react-native';
 
 const mockUpdateSetting = jest.fn(() => Promise.resolve());
@@ -163,13 +164,45 @@ describe('SettingsScreen', () => {
     expect(screen.getAllByText('Not signed in').length).toBeGreaterThan(0);
     expect(screen.getByText('Sign In')).toBeTruthy();
     expect(screen.getByText('Create or reconnect your account')).toBeTruthy();
-    expect(screen.queryByText('Sign Out')).toBeNull();
+    expect(screen.queryByText('Danger Zone')).toBeNull();
+    expect(screen.queryByText('Delete Account')).toBeNull();
 
     fireEvent.press(screen.getByTestId('settings-row-Sign In'));
 
     expect(mockNavigate).toHaveBeenCalledWith('Login', {
       initialTab: 'signin',
     });
+  });
+
+  it('renders the Danger Zone and Delete Account option for authenticated users', () => {
+    mockAuthStoreState.user = {
+      id: 'user-1',
+      email: 'member@anchor.test',
+    };
+    mockAuthStoreState.isAuthenticated = true;
+
+    const screen = render(<SettingsScreen />);
+
+    expect(screen.getByText('Danger Zone')).toBeTruthy();
+    expect(screen.getByText('Delete Account')).toBeTruthy();
+  });
+
+  it('shows the correct subscription warning when Delete Account is pressed', () => {
+    const spyAlert = jest.spyOn(Alert, 'alert');
+    mockAuthStoreState.user = {
+      id: 'user-1',
+      email: 'member@anchor.test',
+    };
+    mockAuthStoreState.isAuthenticated = true;
+
+    const screen = render(<SettingsScreen />);
+    fireEvent.press(screen.getByTestId('settings-row-Delete Account'));
+
+    expect(spyAlert).toHaveBeenCalledWith(
+      'Delete Account',
+      expect.stringContaining('Deleting your account will not cancel active subscriptions. Please cancel any active subscriptions through your App Store or Google Play account to prevent future billing.'),
+      expect.any(Array)
+    );
   });
 
   it('requests permission before enabling notifications', async () => {
