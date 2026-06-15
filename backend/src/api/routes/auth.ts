@@ -64,6 +64,7 @@ function serializeUser(user: {
   id: string;
   email: string;
   displayName: string | null;
+  profilePictureUrl?: string | null;
   hasCompletedOnboarding: boolean;
   isComped: boolean;
   subscriptionStatus: string;
@@ -79,6 +80,7 @@ function serializeUser(user: {
   id: string;
   email: string;
   displayName: string | null;
+  profilePictureUrl?: string | null;
   hasCompletedOnboarding: boolean;
   isComped: boolean;
   subscriptionStatus: string;
@@ -95,6 +97,7 @@ function serializeUser(user: {
     id: user.id,
     email: user.email,
     displayName: user.displayName,
+    ...(user.profilePictureUrl && { profilePictureUrl: user.profilePictureUrl }),
     hasCompletedOnboarding: user.hasCompletedOnboarding,
     isComped: user.isComped,
     subscriptionStatus: user.subscriptionStatus,

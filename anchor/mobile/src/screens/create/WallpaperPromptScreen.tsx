@@ -10,7 +10,6 @@ import {
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
-import { SvgXml } from 'react-native-svg';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { RootStackParamList } from '@/types';
@@ -19,6 +18,7 @@ import { useToast } from '@/components/ToastProvider';
 import {
   AnchorArtworkExportCanvas,
   AnchorArtworkExportCanvasHandle,
+  SigilSvg,
 } from '@/components/common';
 import { OptimizedImage } from '@/components/common/OptimizedImage';
 import { exportAnchorArtwork } from '@/services/AnchorArtworkExportService';
@@ -139,7 +139,7 @@ export const WallpaperPromptScreen: React.FC = () => {
                   </View>
                 ) : sigilSvg ? (
                   <View style={styles.phoneImageFrame}>
-                    <SvgXml xml={sigilSvg} width={sigilSize} height={sigilSize} color={colors.gold} />
+                    <SigilSvg xml={sigilSvg} width={sigilSize} height={sigilSize} color={colors.gold} />
                   </View>
                 ) : (
                   <View style={styles.phoneSigilPlaceholder} />
