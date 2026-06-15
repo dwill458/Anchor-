@@ -109,6 +109,12 @@ function buildAudioStorageKey(userId: string, anchorId: string, mantraStyle: str
   return `mantras/${sanitizedUserId}/${sanitizedAnchorId}/${sanitizedStyle}.mp3`;
 }
 
+function buildProfilePictureStorageKey(userId: string, mimeType: string): string {
+  const sanitizedUserId = sanitizePathSegment(userId);
+  const extension = mimeType === 'image/png' ? 'png' : 'jpg';
+  return `profiles/${sanitizedUserId}/picture.${extension}`;
+}
+
 /**
  * Initialize R2 client (S3-compatible)
  */
@@ -410,6 +416,76 @@ export async function deleteAnchorFiles(userId: string, anchorId: string): Promi
   } catch (error) {
     logger.error('[Storage] Delete failed', error);
     // Don't throw - deletion is best-effort
+  }
+}
+
+/**
+ * Upload profile picture from base64 data URI
+ */
+export async function uploadProfilePicture(
+  userId: string,
+  base64Data: string,
+  mimeType: string = 'image/jpeg',
+  options?: UploadUrlOptions
+): Promise<string> {
+  try {
+    if (!base64Data || !base64Data.includes('base64,')) {
+      throw new Error('Invalid base64 data URI format');
+    }
+
+    const [, encodedData] = base64Data.split('base64,');
+    const buffer = Buffer.from(encodedData, 'base64');
+
+    if (buffer.length > 5 * 1024 * 1024) {
+      throw new Error('Profile picture exceeds 5MB limit');
+    }
+
+    const objectKey = buildProfilePictureStorageKey(userId, mimeType);
+    const client = getR2Client();
+    const bucket = getBucketName();
+
+    if (client) {
+      logger.info('[Storage] Uploading profile picture to R2', { userId, key: objectKey });
+      try {
+        await client.send(
+          new PutObjectCommand({
+            Bucket: bucket,
+            Key: objectKey,
+            Body: buffer,
+            ContentType: mimeType,
+            CacheControl: 'public, max-age=31536000',
+          })
+        );
+
+        return `${getPublicAssetBaseUrl(bucket)}/${objectKey}`;
+      } catch (r2Error) {
+        if (process.env.NODE_ENV === 'production') {
+          throw r2Error;
+        }
+
+        logger.warn('[Storage] R2 upload failed, falling back to local storage', {
+          error: r2Error instanceof Error ? r2Error.message : 'Unknown',
+        });
+      }
+    }
+
+    logger.info('[Storage] Uploading profile picture to local storage', { userId, key: objectKey });
+    const uploadsDir = path.join(process.cwd(), 'uploads');
+    const localFilePath = path.join(uploadsDir, objectKey);
+    const localDir = path.dirname(localFilePath);
+
+    if (!fs.existsSync(localDir)) {
+      fs.mkdirSync(localDir, { recursive: true });
+    }
+
+    fs.writeFileSync(localFilePath, buffer);
+    logger.info(`[Storage] Saved profile picture to local disk: ${localFilePath}`);
+    return buildLocalUploadUrl(objectKey, options);
+  } catch (error) {
+    logger.error('[Storage] Profile picture upload error', error);
+    throw new Error(
+      `Failed to upload profile picture: ${error instanceof Error ? error.message : 'Unknown error'}`
+    );
   }
 }
 
