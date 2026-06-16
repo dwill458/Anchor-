@@ -27,6 +27,7 @@ import type { Anchor, RootStackParamList } from '@/types';
 import { spacing } from '@/theme';
 import { navigateToVaultDestination } from '@/navigation/firstAnchorGate';
 import { isCompactPhoneViewport, isShortPhoneViewport } from '@/utils/layout';
+import { usePrimeSessionAccess } from '@/hooks/usePrimeSessionAccess';
 
 type ChargeSetupRouteProp = RouteProp<RootStackParamList, 'ChargeSetup'>;
 type ChargeSetupNavigationProp = StackNavigationProp<RootStackParamList, 'ChargeSetup'>;
@@ -94,6 +95,7 @@ export const ChargeSetupScreen: React.FC = () => {
   const getAnchorById = useAnchorStore((state) => state.getAnchorById);
   const setDefaultCharge = useSettingsStore((state) => state.setDefaultCharge);
   const anchor = getAnchorById(anchorId);
+  const primeSessionAccess = usePrimeSessionAccess();
 
   const [selectedDuration, setSelectedDuration] = useState<DurationChoice>('quick');
   const [reduceMotionEnabled, setReduceMotionEnabled] = useState(false);
@@ -206,6 +208,15 @@ export const ChargeSetupScreen: React.FC = () => {
     (choice: DurationChoice = selectedDuration) => {
       if (isNavigatingRef.current || isTransitioning) return;
 
+      const allowance = choice === 'quick' ? primeSessionAccess.focus : primeSessionAccess.deep;
+      if (!allowance.isAllowed) {
+        navigation.navigate('Paywall', {
+          source: 'gated_feature',
+          preferredPlanId: 'annual',
+        });
+        return;
+      }
+
       const config = chargeConfigByChoice[choice];
       isNavigatingRef.current = true;
       setIsTransitioning(true);
@@ -219,7 +230,7 @@ export const ChargeSetupScreen: React.FC = () => {
       void safeHaptics.impact(Haptics.ImpactFeedbackStyle.Medium);
       navigateToRitual(choice);
     },
-    [isTransitioning, navigateToRitual, selectedDuration, setDefaultCharge]
+    [isTransitioning, navigateToRitual, navigation, primeSessionAccess.deep, primeSessionAccess.focus, selectedDuration, setDefaultCharge]
   );
 
   const handleSelectDuration = useCallback(

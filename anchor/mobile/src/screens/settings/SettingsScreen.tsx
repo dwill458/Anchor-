@@ -156,7 +156,7 @@ export const SettingsScreen: React.FC = () => {
               logger.warn('[SettingsScreen] Failed to clear sync retry queue on sign-out', error);
             }
 
-            signOut();
+            await signOut();
             setHasCompletedOnboarding(false);
             navigation.dispatch(
               CommonActions.reset({
@@ -203,7 +203,7 @@ export const SettingsScreen: React.FC = () => {
               logger.warn('[SettingsScreen] Failed to clear sync retry queue after account deletion', error);
             }
 
-            signOut();
+            await signOut();
             setHasCompletedOnboarding(false);
             navigation.dispatch(
               CommonActions.reset({

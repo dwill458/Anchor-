@@ -8,6 +8,8 @@ export interface EntitlementsSnapshot {
   maxAnchors: number;
   aiStyleCount: number;
   aiVariationCount: number;
+  focusSessionsPerWeek: number;
+  deepPrimeSessionsPerWeek: number;
   canTraceAnchor: boolean;
   canForgeAnchor: boolean;
   canUseArchivedFilter: boolean;

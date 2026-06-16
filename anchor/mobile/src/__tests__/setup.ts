@@ -281,6 +281,7 @@ jest.mock('@react-native-firebase/auth', () => {
     currentUser: mockUser,
     signInWithEmailAndPassword: jest.fn(),
     createUserWithEmailAndPassword: jest.fn(),
+    sendPasswordResetEmail: jest.fn(),
     signOut: jest.fn(),
     onAuthStateChanged: jest.fn((_cb: unknown) => jest.fn()),
   };
@@ -295,6 +296,7 @@ jest.mock('@/services/AuthService', () => ({
     getIdToken: jest.fn().mockResolvedValue(null),
     getCurrentUser: jest.fn().mockReturnValue(null),
     getCachedUser: jest.fn().mockResolvedValue(null),
+    sendPasswordResetEmail: jest.fn().mockResolvedValue(undefined),
     signOut: jest.fn().mockResolvedValue(undefined),
   },
 }));
