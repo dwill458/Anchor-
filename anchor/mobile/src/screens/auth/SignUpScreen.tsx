@@ -27,7 +27,8 @@ import { useAuthStore } from '../../stores/authStore';
 import { useSubscriptionStore } from '../../stores/subscriptionStore';
 import { AuthService } from '../../services/AuthService';
 import PostAuthFlowService from '../../services/PostAuthFlowService';
-import type { AuthScreenParams, OnboardingStackParamList, RootStackParamList } from '@/types';
+import { navigateToVaultDestination } from '@/navigation/firstAnchorGate';
+import type { AuthScreenParams, RootStackParamList } from '@/types';
 
 type SignUpScreenNavigationProp = StackNavigationProp<RootStackParamList, 'SignUp'>;
 
@@ -82,18 +83,48 @@ export const SignUpScreen: React.FC<SignUpScreenProps> = ({ navigation, route })
     }
   };
 
+  const shouldMarkOnboardingCompletedForAuth = () =>
+    context == null ||
+    context === 'onboarding' ||
+    context === 'first_anchor_gate' ||
+    context === 'save_progress' ||
+    context === 'paywall';
+
+  const navigateAfterSuccessfulAuth = (target: 'Vault' | 'FirstAnchorAccountGate') => {
+    const routeNames = (navigation.getState?.().routeNames ?? []) as readonly string[];
+
+    if (routeNames.includes(target)) {
+      if (target === 'Vault') {
+        navigateToVaultDestination(navigation, 'replace');
+        return;
+      }
+
+      navigation.replace(target);
+      return;
+    }
+
+    if (
+      target === 'Vault' &&
+      (routeNames.includes('Profile') || routeNames.includes('Settings')) &&
+      navigation.canGoBack()
+    ) {
+      navigation.goBack();
+    }
+  };
+
   const completeAuth = async (result: Awaited<ReturnType<typeof AuthService.signUpWithEmail>>) => {
     if (preferredPlanId) {
       setPreferredPlanId(preferredPlanId);
     }
 
+    const shouldCompleteOnboardingAfterAuth =
+      hasCompletedOnboarding ||
+      shouldMarkOnboardingCompletedForAuth();
+
     await PostAuthFlowService.run({
       user: result.user,
       token: result.token,
-      preserveCompletedOnboarding:
-        hasCompletedOnboarding ||
-        context === 'first_anchor_gate' ||
-        context === 'save_progress',
+      preserveCompletedOnboarding: shouldCompleteOnboardingAfterAuth,
       launchTrialPurchase: false,
     });
 
@@ -102,11 +133,13 @@ export const SignUpScreen: React.FC<SignUpScreenProps> = ({ navigation, route })
     );
 
     if (context === 'first_anchor_gate') {
-      navigation.replace('FirstAnchorAccountGate');
+      navigateAfterSuccessfulAuth('FirstAnchorAccountGate');
     } else if (context === 'save_progress' && shouldRouteThroughFirstAnchorGate) {
-      navigation.replace('FirstAnchorAccountGate');
+      navigateAfterSuccessfulAuth('FirstAnchorAccountGate');
     } else if (context === 'save_progress') {
-      navigation.replace('Vault');
+      navigateAfterSuccessfulAuth('Vault');
+    } else if (context === 'paywall' || context == null || context === 'onboarding') {
+      navigateAfterSuccessfulAuth('Vault');
     }
   };
 
@@ -123,8 +156,8 @@ export const SignUpScreen: React.FC<SignUpScreenProps> = ({ navigation, route })
     setLoading(true);
     try {
       const result = await AuthService.signUpWithEmail(email, password, name, {
-        hasCompletedOnboarding:
-          context === 'first_anchor_gate' || context === 'save_progress' ? true : undefined,
+        hasCompletedOnboarding: shouldMarkOnboardingCompletedForAuth() ? true : undefined,
+        allowBackendCreate: true,
       });
       await completeAuth(result);
     } catch (err: any) {
@@ -139,7 +172,10 @@ export const SignUpScreen: React.FC<SignUpScreenProps> = ({ navigation, route })
     setLoading(true);
     void (async () => {
       try {
-        const result = await AuthService.signInWithApple();
+        const result = await AuthService.signInWithApple({
+          hasCompletedOnboarding: shouldMarkOnboardingCompletedForAuth() ? true : undefined,
+          allowBackendCreate: true,
+        });
         await completeAuth(result);
       } catch (err: any) {
         if (err?.code === 'ERR_REQUEST_CANCELED') {
@@ -159,7 +195,10 @@ export const SignUpScreen: React.FC<SignUpScreenProps> = ({ navigation, route })
     setLoading(true);
     void (async () => {
       try {
-        const result = await AuthService.signInWithGoogle();
+        const result = await AuthService.signInWithGoogle({
+          hasCompletedOnboarding: shouldMarkOnboardingCompletedForAuth() ? true : undefined,
+          allowBackendCreate: true,
+        });
         await completeAuth(result);
       } catch (err: any) {
         if (err?.message === 'Google sign-in was cancelled.') {

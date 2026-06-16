@@ -11,6 +11,7 @@ import Constants from 'expo-constants';
 import { LinearGradient } from 'expo-linear-gradient';
 import { StatusBar } from 'expo-status-bar';
 import { SvgXml } from 'react-native-svg';
+import * as FileSystem from 'expo-file-system/legacy';
 import { OptimizedImage } from '@/components/common';
 import { useAuthStore } from '@/stores/authStore';
 import { useAnchorStore } from '@/stores/anchorStore';
@@ -263,11 +264,24 @@ export const ProfileScreen: React.FC = () => {
       setUser(nextUser);
 
       try {
+        const body: Record<string, unknown> = {
+          displayName: nextUpdates.name,
+        };
+
+        if (persistedPhoto) {
+          const photoData = await FileSystem.readAsStringAsync(persistedPhoto, {
+            encoding: 'base64',
+          });
+          const mimeType = persistedPhoto.endsWith('.png')
+            ? 'image/png'
+            : 'image/jpeg';
+          body.profilePictureBase64 = `data:${mimeType};base64,${photoData}`;
+          body.profilePictureMimeType = mimeType;
+        }
+
         const response = await apiClient.patch<ApiResponse<User>>(
           '/api/users/me',
-          {
-            displayName: nextUpdates.name,
-          }
+          body
         );
 
         if (response.data?.success && response.data.data) {
@@ -275,7 +289,7 @@ export const ProfileScreen: React.FC = () => {
         }
       } catch (error) {
         logger.warn(
-          '[ProfileScreen] Failed to sync display name remotely',
+          '[ProfileScreen] Failed to sync profile remotely',
           error
         );
       }

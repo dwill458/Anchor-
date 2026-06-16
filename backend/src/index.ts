@@ -12,6 +12,7 @@ import rateLimit from 'express-rate-limit';
 import dotenv from 'dotenv';
 import path from 'path';
 import authRoutes from './api/routes/auth';
+import usersRoutes from './api/routes/users';
 import anchorRoutes from './api/routes/anchors';
 import aiRoutes from './api/routes/ai';
 import practiceRoutes from './api/routes/practice';
@@ -270,6 +271,9 @@ app.get('/', (_req: Request, res: Response) => {
 
 // Authentication routes
 app.use('/api/auth', authRoutes);
+
+// User routes
+app.use('/api/users', usersRoutes);
 
 // Anchor routes
 app.use('/api/anchors', anchorRoutes);
