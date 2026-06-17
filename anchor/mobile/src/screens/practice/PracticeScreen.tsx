@@ -350,14 +350,24 @@ export const PracticeScreen: React.FC = () => {
       }
 
       safeHaptics.selection();
-      navigateToVault('Ritual', {
+      if (durationSecondsOverride != null) {
+        navigateToVault('Ritual', {
+          anchorId: anchor.id,
+          ritualType: 'ritual',
+          durationSeconds: durationSecondsOverride,
+          returnTo: 'practice',
+        });
+        return;
+      }
+
+      navigateToVault('ChargeSetup', {
         anchorId: anchor.id,
-        ritualType: 'ritual',
-        durationSeconds: durationSecondsOverride ?? defaultDeepChargeSeconds,
         returnTo: 'practice',
+        initialDuration: 'deep',
+        autoStartOnSelection: true,
       });
     },
-    [defaultDeepChargeSeconds, navigateToVault, primeSessionAccess.deep.isAllowed, rootNavigation]
+    [navigateToVault, primeSessionAccess.deep.isAllowed, rootNavigation]
   );
 
   const startQuickActivate = useCallback(
