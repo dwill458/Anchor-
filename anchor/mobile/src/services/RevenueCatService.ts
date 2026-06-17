@@ -137,6 +137,7 @@ const DEFAULT_TRIAL_STATUS: TrialStatusSnapshot = {
   trialExpired: false,
 };
 
+let sdkConfigured = false;
 let configuredUserId: string | null = null;
 
 function getPurchasesModule(): RevenueCatPurchases | null {
@@ -348,14 +349,19 @@ class RevenueCatService {
       return;
     }
 
-    if (configuredUserId === userId) {
+    if (sdkConfigured) {
       return;
     }
 
-    purchases.configure({
+    const options: { apiKey: string; appUserID?: string } = {
       apiKey: REVENUECAT_API_KEY,
-      appUserID: userId,
-    });
+    };
+    if (userId) {
+      options.appUserID = userId;
+    }
+
+    purchases.configure(options);
+    sdkConfigured = true;
     configuredUserId = userId ?? null;
   }
 
@@ -365,9 +371,14 @@ class RevenueCatService {
       return applyTrialStatus(DEFAULT_TRIAL_STATUS);
     }
 
-    this.configure(userId);
+    this.configure();
+    if (configuredUserId === userId) {
+      return this.refreshTrialStatus();
+    }
+
     try {
       const response = await purchases.logIn(userId);
+      configuredUserId = userId;
       const status = deriveTrialStatus(extractCustomerInfo(response));
       return applyTrialStatus(status, true);
     } catch (error) {

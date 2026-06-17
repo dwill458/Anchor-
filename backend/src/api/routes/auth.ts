@@ -217,6 +217,7 @@ const SyncSchema = z.object({
   displayName: z.string().optional(),
   authProvider: z.enum(['email', 'google', 'apple']).optional(),
   hasCompletedOnboarding: z.boolean().optional(),
+  allowCreate: z.boolean().optional(),
 });
 
 const UpdateProfileSchema = z.object({
@@ -322,7 +323,12 @@ router.post(
       }
       const authUid = req.user.uid;
 
-      const { displayName, authProvider, hasCompletedOnboarding } = validate(SyncSchema, req.body);
+      const {
+        displayName,
+        authProvider,
+        hasCompletedOnboarding,
+        allowCreate = true,
+      } = validate(SyncSchema, req.body);
       const rawEmail = req.user.email;
 
       if (!rawEmail) {
@@ -388,6 +394,14 @@ router.post(
                     authUid,
                   },
                 });
+              }
+
+              if (!allowCreate) {
+                throw new AppError(
+                  'No Anchor account was found for this sign-in. Use the account email from your existing Anchor profile, or create a new account.',
+                  404,
+                  'USER_NOT_FOUND'
+                );
               }
 
               return tx.user.create({

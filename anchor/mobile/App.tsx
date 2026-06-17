@@ -36,19 +36,13 @@ import { RootNavigator } from './src/navigation';
 import { ErrorBoundary } from './src/components/ErrorBoundary';
 import { ToastProvider } from './src/components/ToastProvider';
 import { ForgeMomentOverlay } from './src/components/ForgeMomentOverlay';
-import { useTrialStatus } from './src/hooks/useTrialStatus';
 import { useAuthStore } from './src/stores/authStore';
 import { useForgeMomentStore } from './src/stores/forgeMomentStore';
 import { useSessionStore } from './src/stores/sessionStore';
 import { useSettingsStore } from './src/stores/settingsStore';
-import { useSubscriptionStore } from './src/stores/subscriptionStore';
 import { SettingsRevealProvider } from './src/components/transitions/SettingsRevealProvider';
 import type { RootNavigatorParamList } from './src/navigation/RootNavigator';
-import {
-  buildExpiredTrialPaywallNavigationState,
-  buildMainRootNavigationState,
-  shouldShowOnboardingFlow,
-} from './src/navigation/rootNavigationState';
+import { shouldShowOnboardingFlow } from './src/navigation/rootNavigationState';
 import type { Anchor } from './src/types';
 import { ErrorTrackingService, setupGlobalErrorHandler } from './src/services/ErrorTrackingService';
 import { PerformanceMonitoring, type PerformanceTrace } from './src/services/PerformanceMonitoring';
@@ -227,7 +221,6 @@ export default function App() {
   const navRef = useNavigationContainerRef<RootNavigatorParamList>();
   const routeNameRef = useRef<string | undefined>(undefined);
   const screenTraceRef = useRef<PerformanceTrace | null>(null);
-  const hasPresentedExpiredPaywallRef = useRef(false);
   const launchOpacity = useRef(new Animated.Value(1)).current;
   const [settingsHydrated, setSettingsHydrated] = React.useState(false);
   const [launchStateResolved, setLaunchStateResolved] = React.useState(false);
@@ -253,19 +246,6 @@ export default function App() {
   // One-shot latch: true once the initial auth restore has settled. Must not
   // track isLoading live — Login/SignUp re-use it and would unmount the app.
   const [initialAuthResolved, setInitialAuthResolved] = React.useState(false);
-  const { hasExpired, isSubscribed } = useTrialStatus();
-  const rcSynced = useSubscriptionStore((state) => state.rcSynced);
-  const devOverrideEnabled = useSubscriptionStore((state) => state.devOverrideEnabled);
-  const remoteCompedAccess = useSubscriptionStore((state) => state.remoteCompedAccess);
-  // Suppress the post-trial paywall until RevenueCat has confirmed entitlement
-  // state at least once this session. On a clean install the persisted store
-  // defaults to "expired", so without this gate a real subscriber would see the
-  // paywall flash before logIn()/refreshTrialStatus() resolves. Dev overrides
-  // and comped access are authoritative immediately and bypass the gate.
-  const entitlementResolved =
-    rcSynced || (__DEV__ && devOverrideEnabled) || remoteCompedAccess;
-  const showExpiredTrialPaywall =
-    !showOnboarding && hasExpired && !isSubscribed && entitlementResolved;
   const [fontsLoaded] = useFonts({
     'Cinzel-Regular': Cinzel_400Regular,
     'Cinzel-SemiBold': Cinzel_600SemiBold,
@@ -646,31 +626,6 @@ export default function App() {
       screenTraceRef.current = null;
     };
   }, []);
-
-  useEffect(() => {
-    if (!navRef.isReady()) {
-      return;
-    }
-
-    const currentRouteName = navRef.getCurrentRoute()?.name;
-    if (!currentRouteName) {
-      return;
-    }
-
-    if (showExpiredTrialPaywall) {
-      if (!hasPresentedExpiredPaywallRef.current) {
-        hasPresentedExpiredPaywallRef.current = true;
-        navRef.resetRoot(buildExpiredTrialPaywallNavigationState());
-      }
-      return;
-    }
-
-    hasPresentedExpiredPaywallRef.current = false;
-
-    if (currentRouteName === 'Paywall') {
-      navRef.resetRoot(buildMainRootNavigationState());
-    }
-  }, [navRef, showExpiredTrialPaywall]);
 
   if (!appIsReady) {
     return <View style={styles.fontLoadingFallback} />;

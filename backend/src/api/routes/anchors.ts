@@ -15,6 +15,7 @@ import { AppError } from '../middleware/errorHandler';
 import { prisma } from '../../lib/prisma';
 import { redisClient } from '../../lib/redis';
 import { logger } from '../../utils/logger';
+import { resolveStoredAssetUrl } from '../../services/StorageService';
 
 // Whitelist of columns that may be used in ORDER BY to prevent injection
 const ALLOWED_ORDER_BY = [
@@ -292,6 +293,25 @@ function extractVariationReservation(metadata: unknown): {
   };
 }
 
+async function resolveAnchorArtworkUrls<T extends { enhancedImageUrl?: string | null }>(
+  anchor: T
+): Promise<T> {
+  if (!anchor?.enhancedImageUrl) {
+    return anchor;
+  }
+
+  return {
+    ...anchor,
+    enhancedImageUrl: (await resolveStoredAssetUrl(anchor.enhancedImageUrl, 7 * 24 * 60 * 60)) ?? null,
+  };
+}
+
+async function resolveAnchorCollectionArtworkUrls<T extends { enhancedImageUrl?: string | null }>(
+  anchors: T[]
+): Promise<T[]> {
+  return Promise.all(anchors.map(resolveAnchorArtworkUrls));
+}
+
 // All anchor routes require authentication
 router.use(authMiddleware);
 
@@ -453,7 +473,7 @@ router.post('/', async (req: AuthRequest, res: Response, next: NextFunction) => 
     const userId = req.dbUser!.id;
     const variationReservation = extractVariationReservation(enhancementMetadata);
 
-    const anchor = await prisma.$transaction(async tx => {
+    const createdAnchor = await prisma.$transaction(async tx => {
       // Create anchor with new architecture fields
       const createdAnchor = await tx.anchor.create({
         data: {
@@ -543,6 +563,8 @@ router.post('/', async (req: AuthRequest, res: Response, next: NextFunction) => 
 
       return createdAnchor;
     });
+
+    const anchor = await resolveAnchorArtworkUrls(createdAnchor);
 
     res.status(201).json({
       success: true,
@@ -678,13 +700,14 @@ router.get('/', async (req: AuthRequest, res: Response, next: NextFunction) => {
       ...(cursor && { cursor: { id: cursor }, skip: 1 }),
     });
 
+    const resolvedAnchors = await resolveAnchorCollectionArtworkUrls(anchors);
     const nextCursor = anchors.length === limit ? anchors[anchors.length - 1].id : null;
 
     res.json({
       success: true,
-      data: anchors,
+      data: resolvedAnchors,
       meta: {
-        total: anchors.length,
+        total: resolvedAnchors.length,
         nextCursor,
       },
     });
@@ -781,9 +804,11 @@ router.get('/:id', async (req: AuthRequest, res: Response, next: NextFunction) =
       throw new AppError('Anchor not found', 404, 'ANCHOR_NOT_FOUND');
     }
 
+    const resolvedAnchor = await resolveAnchorArtworkUrls(anchor);
+
     res.json({
       success: true,
-      data: anchor,
+      data: resolvedAnchor,
     });
   } catch (error) {
     if (error instanceof AppError) {
@@ -898,10 +923,11 @@ router.put('/:id', async (req: AuthRequest, res: Response, next: NextFunction) =
     }
 
     const anchor = await prisma.anchor.findUnique({ where: { id } });
+    const resolvedAnchor = anchor ? await resolveAnchorArtworkUrls(anchor) : anchor;
 
     res.json({
       success: true,
-      data: anchor,
+      data: resolvedAnchor,
     });
   } catch (error) {
     if (error instanceof AppError) {
@@ -966,7 +992,7 @@ router.post('/:id/charge', async (req: AuthRequest, res: Response, next: NextFun
     const userId = req.dbUser!.id;
 
     const chargedAt = new Date();
-    const anchor = await prisma.$transaction(async tx => {
+    const chargedAnchor = await prisma.$transaction(async tx => {
       const existingAnchor = await tx.anchor.findFirst({
         where: { id, userId },
         select: { id: true, firstChargedAt: true },
@@ -1001,6 +1027,8 @@ router.post('/:id/charge', async (req: AuthRequest, res: Response, next: NextFun
       });
     });
 
+    const anchor = await resolveAnchorArtworkUrls(chargedAnchor);
+
     res.json({
       success: true,
       data: anchor,
@@ -1030,7 +1058,7 @@ router.post('/:id/activate', async (req: AuthRequest, res: Response, next: NextF
     const userId = req.dbUser!.id;
 
     const activatedAt = new Date();
-    const anchor = await prisma.$transaction(async tx => {
+    const activatedAnchor = await prisma.$transaction(async tx => {
       const existingAnchor = await tx.anchor.findFirst({
         where: { id, userId },
         select: {
@@ -1108,6 +1136,8 @@ router.post('/:id/activate', async (req: AuthRequest, res: Response, next: NextF
       return updatedAnchor;
     });
 
+    const anchor = await resolveAnchorArtworkUrls(activatedAnchor);
+
     res.json({
       success: true,
       data: anchor,
@@ -1145,7 +1175,7 @@ router.post('/:id/burn', async (req: AuthRequest, res: Response, next: NextFunct
     }
 
     // Use a transaction to ensure atomicity
-    const result = await prisma.$transaction(async tx => {
+    const burnedAnchor = await prisma.$transaction(async tx => {
       // 1. Create entry in burned_anchors
       const burnedAnchor = await tx.burnedAnchor.create({
         data: {
@@ -1169,6 +1199,8 @@ router.post('/:id/burn', async (req: AuthRequest, res: Response, next: NextFunct
 
       return burnedAnchor;
     });
+
+    const result = await resolveAnchorArtworkUrls(burnedAnchor);
 
     res.json({
       success: true,

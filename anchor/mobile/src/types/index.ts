@@ -155,14 +155,17 @@ export enum PlanetaryTier {
  * Maps legacy categories to the new 5-tier planetary system
  */
 export const CATEGORY_TO_TIER: Record<AnchorCategory, PlanetaryTier> = {
-  career: PlanetaryTier.JUPITER,
-  wealth: PlanetaryTier.JUPITER,
-  health: PlanetaryTier.MARS,
-  relationships: PlanetaryTier.VENUS,
-  personal_growth: PlanetaryTier.SATURN,
   desire: PlanetaryTier.SUN,
-  experience: PlanetaryTier.VENUS,
-  custom: PlanetaryTier.SATURN
+  health: PlanetaryTier.MARS,
+  career: PlanetaryTier.JUPITER,
+  relationships: PlanetaryTier.VENUS,
+  creativity: PlanetaryTier.SUN,
+  spirituality: PlanetaryTier.SATURN,
+  abundance: PlanetaryTier.JUPITER,
+  family: PlanetaryTier.VENUS,
+  learning: PlanetaryTier.SATURN,
+  adventure: PlanetaryTier.VENUS,
+  custom: PlanetaryTier.SATURN,
 };
 
 /**
@@ -785,6 +788,7 @@ export type RootStackParamList = {
     activationType: ActivationType;
     durationOverride?: number;
     returnTo?: 'vault' | 'practice' | 'detail' | 'reinforce';
+    initialDuration?: 'quick' | 'deep';
   };
 
   // Phase 3: Burning Ritual

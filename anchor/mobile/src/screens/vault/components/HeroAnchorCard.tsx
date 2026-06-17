@@ -36,13 +36,16 @@ const CIRCLE_SIZE = Math.min(SCREEN_WIDTH - H_PAD * 2 - 40, Math.round(SCREEN_HE
 
 function formatCategory(cat: AnchorCategory): string {
   const labels: Record<AnchorCategory, string> = {
-    career: 'Career',
-    health: 'Health',
-    wealth: 'Wealth',
-    relationships: 'Relationships',
-    personal_growth: 'Growth',
     desire: 'Desire',
-    experience: 'Experience',
+    health: 'Health',
+    career: 'Career',
+    relationships: 'Relationships',
+    creativity: 'Creativity',
+    spirituality: 'Spirituality',
+    abundance: 'Abundance',
+    family: 'Family',
+    learning: 'Learning',
+    adventure: 'Adventure',
     custom: 'Custom',
   };
   return labels[cat] ?? 'Custom';
