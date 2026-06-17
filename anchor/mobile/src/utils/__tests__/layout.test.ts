@@ -13,9 +13,12 @@ describe('layout viewport helpers', () => {
   });
 
   it('keeps smaller or shorter phones in compact mode', () => {
-    expect(isCompactPhoneViewport(COMPACT_PHONE_WIDTH, 915)).toBe(true);
-    expect(isCompactPhoneViewport(412, COMPACT_PHONE_HEIGHT)).toBe(true);
+    expect(isCompactPhoneViewport(COMPACT_PHONE_WIDTH, COMPACT_PHONE_HEIGHT)).toBe(true);
     expect(isCompactPhoneViewport(360, 915)).toBe(true);
+  });
+
+  it('treats iPhone 14 Pro-sized viewports as full layouts', () => {
+    expect(isCompactPhoneViewport(393, 852)).toBe(false);
   });
 
   it('flags only short viewports as short layouts', () => {

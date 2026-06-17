@@ -26,7 +26,7 @@ import {
   AIStyle,
 } from '../../services/AIEnhancer';
 import { generateMantra, getRecommendedMantraStyle } from '../../services/MantraGenerator';
-import { uploadImageFromUrl } from '../../services/StorageService';
+import { resolveStoredAssetUrl, uploadImageFromUrl } from '../../services/StorageService';
 import {
   generateAllMantraAudio,
   isTTSAvailable,
@@ -193,6 +193,18 @@ type ClientVariation = {
   seed: number;
   reusedFromPool: boolean;
 };
+
+async function resolveClientVariationUrls(
+  variations: ClientVariation[],
+  expiresIn: number = 7 * 24 * 60 * 60
+): Promise<ClientVariation[]> {
+  return Promise.all(
+    variations.map(async variation => ({
+      ...variation,
+      imageUrl: (await resolveStoredAssetUrl(variation.imageUrl, expiresIn)) ?? variation.imageUrl,
+    }))
+  );
+}
 
 /**
  * POST /api/ai/enhance
@@ -642,7 +654,10 @@ async function handleEnhance(req: AuthRequest, res: Response): Promise<void> {
       }
     }
 
-    const responseVariations = [...reservedPoolVariations, ...pooledGeneratedVariations];
+    const responseVariations = await resolveClientVariationUrls([
+      ...reservedPoolVariations,
+      ...pooledGeneratedVariations,
+    ]);
 
     if (responseVariations.length === 0) {
       logger.error('[AI Enhance] All variation uploads failed', { anchorId, style: styleChoice });

@@ -58,6 +58,7 @@ jest.mock('@/components/common', () => {
     return {
         BakedGlow: () => React.createElement(View, { testID: 'baked-glow' }),
         ChargedGlowCanvas: () => React.createElement(View, { testID: 'charged-glow-canvas' }),
+        SigilSvg: (props: any) => React.createElement(View, { testID: 'sigil-svg', ...props }),
         ZenBackground: (props: any) => {
             mockZenBackgroundProps(props);
             return React.createElement(View, { testID: 'zen-background' });

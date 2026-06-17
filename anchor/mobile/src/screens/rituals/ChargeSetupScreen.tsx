@@ -90,19 +90,20 @@ export const ChargeSetupScreen: React.FC = () => {
   const route = useRoute<ChargeSetupRouteProp>();
   const insets = useSafeAreaInsets();
   const { width: screenWidth, height: screenHeight } = useWindowDimensions();
-  const { anchorId, returnTo, autoStartOnSelection = false } = route.params || {};
+  const { anchorId, returnTo, autoStartOnSelection = false, initialDuration } = route.params || {};
 
   const getAnchorById = useAnchorStore((state) => state.getAnchorById);
   const setDefaultCharge = useSettingsStore((state) => state.setDefaultCharge);
   const anchor = getAnchorById(anchorId);
   const primeSessionAccess = usePrimeSessionAccess();
 
-  const [selectedDuration, setSelectedDuration] = useState<DurationChoice>('quick');
+  const [selectedDuration, setSelectedDuration] = useState<DurationChoice>(initialDuration ?? 'quick');
   const [reduceMotionEnabled, setReduceMotionEnabled] = useState(false);
   const [isTransitioning, setIsTransitioning] = useState(false);
   const [enhancedArtworkFailed, setEnhancedArtworkFailed] = useState(false);
 
   const isNavigatingRef = useRef(false);
+  const hasAutoStartedRef = useRef(false);
   const isCompactLayout = isCompactPhoneViewport(screenWidth, screenHeight);
   const isShortLayout = isShortPhoneViewport(screenHeight);
   const heroHeight = Math.max(
@@ -245,6 +246,18 @@ export const ChargeSetupScreen: React.FC = () => {
     },
     [autoStartOnSelection, handleBeginRitual, isTransitioning]
   );
+
+  useEffect(() => {
+    if (!autoStartOnSelection || !initialDuration || !anchor) {
+      return;
+    }
+    if (hasAutoStartedRef.current || isTransitioning) {
+      return;
+    }
+
+    hasAutoStartedRef.current = true;
+    handleBeginRitual(initialDuration);
+  }, [anchor, autoStartOnSelection, handleBeginRitual, initialDuration, isTransitioning]);
 
   const handleBack = useCallback(() => {
     if (isTransitioning) return;
