@@ -16,6 +16,7 @@ import usersRoutes from './api/routes/users';
 import anchorRoutes from './api/routes/anchors';
 import aiRoutes from './api/routes/ai';
 import practiceRoutes from './api/routes/practice';
+import merchRoutes from './api/routes/merch';
 import orderRoutes from './api/routes/orders';
 import contentRoutes from './api/routes/content';
 import { errorHandler, notFoundHandler } from './api/middleware/errorHandler';
@@ -280,6 +281,9 @@ app.use('/api/anchors', anchorRoutes);
 
 // Practice routes
 app.use('/api/practice', practiceRoutes);
+
+// Merch catalog routes
+app.use('/api/merch', merchRoutes);
 
 // AI Enhancement routes (Phase 2)
 app.use('/api/ai', aiRoutes);

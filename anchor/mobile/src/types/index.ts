@@ -803,6 +803,35 @@ export type RootStackParamList = {
   };
 
   // ═══════════════════════════════════════════════════
+  // SHOP / MERCHANDISE
+  // ═══════════════════════════════════════════════════
+  ProductSelection: {
+    anchorId: string;
+    sigilSvg: string;
+    intentionText: string;
+    artworkUri?: string;
+  };
+  ProductMockup: {
+    anchorId: string;
+    sigilSvg: string;
+    intentionText: string;
+    artworkUri?: string;
+    productType: 'print' | 'phone-case' | 'desk-mat';
+  };
+  Checkout: {
+    anchorId: string;
+    sigilSvg: string;
+    intentionText: string;
+    artworkUri?: string;
+    previewUrl?: string;
+    productType: string;
+    size: string;
+    color: string;
+    quantity: number;
+    subtotal: number;
+  };
+
+  // ═══════════════════════════════════════════════════
   // PROFILE & SETTINGS
   // ═══════════════════════════════════════════════════
   Settings: undefined;

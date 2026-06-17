@@ -11,7 +11,12 @@ import { AppError } from '../middleware/errorHandler';
 import { prisma } from '../../lib/prisma';
 import { env } from '../../config/env';
 import { rasterizeSVG } from '../../utils/svgRasterizer';
-import { uploadImageFromBuffer } from '../../services/StorageService';
+import { uploadImageAssetFromBuffer } from '../../services/StorageService';
+import {
+  createPrintfulOrder,
+  isPrintfulOrderCreationEnabled,
+  resolvePrintfulVariantId,
+} from '../../services/PrintfulService';
 
 const router = Router();
 
@@ -57,7 +62,7 @@ const ShippingInfoSchema = z.union([
 const CreateOrderSchema = z.object({
   anchorId: z.string().min(1),
   sigilSvg: z.string().min(1).optional(),
-  productType: z.enum(['print', 'keychain', 'hoodie', 't-shirt', 'phone-case']),
+  productType: z.enum(['print', 'phone-case', 'desk-mat']),
   size: z.string().min(1).max(50).optional(),
   color: z.string().min(1).max(50).optional(),
   shippingInfo: ShippingInfoSchema,
@@ -91,6 +96,9 @@ router.post('/', async (req: AuthRequest, res: Response, next: NextFunction) => 
     }
 
     const { anchorId, sigilSvg, productType, size, color, shippingInfo } = validationResult.data;
+    if (isPrintfulOrderCreationEnabled()) {
+      resolvePrintfulVariantId(productType, size, color);
+    }
 
     // Get user from database
     const user = await prisma.user.findUnique({
@@ -128,17 +136,19 @@ router.post('/', async (req: AuthRequest, res: Response, next: NextFunction) => 
       padding: 0.08,
     });
 
-    const anchorImageUrl = await uploadImageFromBuffer(
+    const anchorImageAsset = await uploadImageAssetFromBuffer(
       rasterizedArtwork.buffer,
       user.id,
       anchorId,
-      0
+      0,
+      { signedUrlExpiresIn: 7 * 24 * 60 * 60 }
     );
+    const anchorImageUrl = anchorImageAsset.url;
 
     // Calculate pricing (placeholder - would integrate with Printful API)
     const pricing = calculatePricing(productType);
 
-    // Create order
+    // Create local order before sending to Printful so external_id is stable.
     const order = await prisma.order.create({
       data: {
         userId: user.id,
@@ -157,9 +167,30 @@ router.post('/', async (req: AuthRequest, res: Response, next: NextFunction) => 
       },
     });
 
+    let responseOrder = order;
+    if (isPrintfulOrderCreationEnabled()) {
+      const printfulOrder = await createPrintfulOrder({
+        externalId: order.id,
+        productType,
+        size,
+        color,
+        quantity: 1,
+        artworkUrl: anchorImageAsset.externalUrl,
+        shippingInfo,
+      });
+
+      responseOrder = await prisma.order.update({
+        where: { id: order.id },
+        data: {
+          printfulOrderId: printfulOrder.id,
+          status: env.PRINTFUL_CONFIRM_ORDERS ? 'processing' : 'pending',
+        },
+      });
+    }
+
     res.status(201).json({
       success: true,
-      data: order,
+      data: responseOrder,
     });
   } catch (error) {
     return next(
@@ -217,10 +248,8 @@ function calculatePricing(productType: string): {
 } {
   const pricing: Record<string, { subtotal: number; shipping: number; tax: number }> = {
     print: { subtotal: 3500, shipping: 800, tax: 250 },
-    keychain: { subtotal: 1800, shipping: 500, tax: 150 },
-    hoodie: { subtotal: 6500, shipping: 1200, tax: 500 },
-    't-shirt': { subtotal: 3200, shipping: 800, tax: 250 },
     'phone-case': { subtotal: 2800, shipping: 600, tax: 200 },
+    'desk-mat': { subtotal: 4500, shipping: 900, tax: 350 },
   };
 
   const p = pricing[productType] || pricing['print'];
