@@ -14,6 +14,13 @@ import { logger } from '../utils/logger';
 
 interface UploadUrlOptions {
   baseUrl?: string;
+  signedUrlExpiresIn?: number;
+}
+
+interface UploadedImageAsset {
+  objectKey: string;
+  url: string;
+  externalUrl: string;
 }
 
 function isProduction(): boolean {
@@ -254,6 +261,22 @@ export async function uploadImageFromBuffer(
       `Failed to upload image from buffer: ${error instanceof Error ? error.message : 'Unknown error'}`
     );
   }
+}
+
+export async function uploadImageAssetFromBuffer(
+  imageBuffer: Buffer,
+  userId: string,
+  anchorId: string,
+  variationIndex: number,
+  options?: UploadUrlOptions
+): Promise<UploadedImageAsset> {
+  const url = await uploadImageFromBuffer(imageBuffer, userId, anchorId, variationIndex, options);
+
+  return {
+    objectKey: buildImageStorageKey(userId, anchorId, variationIndex),
+    url,
+    externalUrl: url,
+  };
 }
 
 // Maximum image size accepted from upstream AI providers (25 MB)
