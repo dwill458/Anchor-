@@ -9,7 +9,6 @@
       "android",
       "web"
     ],
-    "orientation": "portrait",
     "icon": "./assets/anchor-icon.png",
     "userInterfaceStyle": "dark",
     "splash": {
@@ -118,6 +117,7 @@
       "package": "com.anchorintentions.app",
       "versionCode": 16,
       "googleServicesFile": "./google-services.json",
+      "edgeToEdgeEnabled": true,
       "blockedPermissions": [
         "android.permission.RECORD_AUDIO",
         "android.permission.READ_MEDIA_AUDIO",
