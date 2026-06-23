@@ -2,14 +2,13 @@
   "expo": {
     "name": "Anchor",
     "slug": "anchor",
-    "version": "1.0.5",
+    "version": "1.0.7",
     "newArchEnabled": true,
     "platforms": [
       "ios",
       "android",
       "web"
     ],
-    "orientation": "portrait",
     "icon": "./assets/anchor-icon.png",
     "userInterfaceStyle": "dark",
     "splash": {
@@ -20,7 +19,7 @@
     "assetBundlePatterns": [
       "**/*"
     ],
-    "runtimeVersion": "1.0.5",
+    "runtimeVersion": "1.0.7",
     "updates": {
       "enabled": true,
       "checkAutomatically": "ON_LOAD",
@@ -31,7 +30,7 @@
       "supportsTablet": false,
       "usesAppleSignIn": true,
       "bundleIdentifier": "com.anchorintentions.app",
-      "buildNumber": "1",
+      "buildNumber": "6",
       "googleServicesFile": "./GoogleService-Info.plist",
       "infoPlist": {
         "NSCameraUsageDescription": "Anchor uses your camera so you can take a profile photo.",
@@ -116,8 +115,9 @@
         "monochromeImage": "./assets/anchor-monochrome.png"
       },
       "package": "com.anchorintentions.app",
-      "versionCode": 16,
+      "versionCode": 21,
       "googleServicesFile": "./google-services.json",
+      "edgeToEdgeEnabled": true,
       "blockedPermissions": [
         "android.permission.RECORD_AUDIO",
         "android.permission.READ_MEDIA_AUDIO",
