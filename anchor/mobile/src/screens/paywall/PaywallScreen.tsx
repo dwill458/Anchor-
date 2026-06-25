@@ -47,11 +47,13 @@ import type { RootNavigatorParamList } from '@/navigation/RootNavigator';
 type PaywallSource = 'post_trial' | 'gated_feature';
 type PlanId = RevenueCatPlanId;
 type HeadlineId = 'loss' | 'momentum' | 'direct';
+type StoreAvailability = 'loading' | 'available' | 'unavailable';
 
 type PlanDisplay = {
   id: PlanId;
   tier: string;
   packageId: string;
+  isAvailable: boolean;
   fallbackPrice: string;
   fallbackPriceValue: number;
   per: string;
@@ -118,6 +120,35 @@ const FALLBACK_PLAN_VALUES = {
   per: string;
 }>;
 
+const PURCHASE_UNAVAILABLE_TITLE = 'Purchases unavailable';
+const PURCHASE_UNAVAILABLE_MESSAGE =
+  'Purchases are temporarily unavailable. Please try again later or restore an existing subscription.';
+
+function hasAvailableStorePlan(metadata: RevenueCatOfferingDisplayMetadata): boolean {
+  return Boolean(metadata.monthly || metadata.annual);
+}
+
+function getSafePurchaseErrorMessage(error: unknown): string {
+  const rawMessage =
+    typeof error === 'object' && error != null && 'message' in error && typeof (error as { message?: unknown }).message === 'string'
+      ? (error as { message: string }).message.toLowerCase()
+      : '';
+
+  const isStoreConfigurationError =
+    rawMessage.includes('configuration') ||
+    rawMessage.includes('offering') ||
+    rawMessage.includes('dashboard') ||
+    rawMessage.includes('app store product') ||
+    rawMessage.includes('registered') ||
+    rawMessage.includes('package');
+
+  if (isStoreConfigurationError) {
+    return PURCHASE_UNAVAILABLE_MESSAGE;
+  }
+
+  return 'We could not complete the purchase. Please try again.';
+}
+
 function toTime(value?: Date | string): number {
   if (!value) return 0;
   const time = value instanceof Date ? value.getTime() : new Date(value).getTime();
@@ -164,6 +195,7 @@ function buildPlanDisplay(
     id,
     tier: fallback.tier,
     packageId: fallback.packageId,
+    isAvailable: Boolean(live),
     fallbackPrice: fallback.fallbackPrice,
     fallbackPriceValue: fallback.fallbackPriceValue,
     per: fallback.per,
@@ -298,22 +330,30 @@ function RecapStat({ value, label }: { value: number; label: string }) {
 function PlanCard({
   plan,
   selected,
+  storeAvailability,
   onPress,
 }: {
   plan: PlanDisplay;
   selected: boolean;
+  storeAvailability: StoreAvailability;
   onPress: (plan: PlanId) => void;
 }) {
+  const isPlanUnavailable = storeAvailability === 'unavailable' || (storeAvailability === 'available' && !plan.isAvailable);
+  const priceLabel = isPlanUnavailable ? 'Unavailable' : plan.priceLabel;
+  const perLabel = isPlanUnavailable ? 'App Store plan not loaded' : plan.per;
+
   return (
     <Pressable
       onPress={() => onPress(plan.id)}
       accessibilityRole="button"
       accessibilityState={{ selected }}
       accessibilityLabel={`${plan.tier} plan ${plan.priceLabel}`}
+      disabled={isPlanUnavailable}
       testID={`paywall-plan-${plan.id}`}
       style={({ pressed }) => [
         styles.plan,
         selected && styles.planSelected,
+        isPlanUnavailable && styles.planUnavailable,
         pressed && styles.planPressed,
       ]}
     >
@@ -330,10 +370,10 @@ function PlanCard({
         {selected ? <CheckIcon /> : null}
       </View>
       <Text style={[styles.planTier, selected && styles.planTierSelected]}>{plan.tier}</Text>
-      <Text style={[styles.planPrice, selected && styles.planPriceSelected]}>{plan.priceLabel}</Text>
-      <Text style={styles.planPer}>{plan.per}</Text>
+      <Text style={[styles.planPrice, selected && styles.planPriceSelected]}>{priceLabel}</Text>
+      <Text style={styles.planPer}>{perLabel}</Text>
       <Text style={styles.planStrike}>
-        {plan.strikeLabel && plan.unitLabel ? `${plan.strikeLabel} · ${plan.unitLabel}` : ' '}
+        {!isPlanUnavailable && plan.strikeLabel && plan.unitLabel ? `${plan.strikeLabel} · ${plan.unitLabel}` : ' '}
       </Text>
     </Pressable>
   );
@@ -353,6 +393,7 @@ export const PaywallScreen: React.FC = () => {
   const initialPlanId = route.params?.preferredPlanId ?? preferredPlanId ?? PAYWALL_EXPERIMENT.defaultPlan;
   const [selectedPlanId, setSelectedPlanId] = useState<PlanId>(initialPlanId);
   const [offeringMetadata, setOfferingMetadata] = useState<RevenueCatOfferingDisplayMetadata>({});
+  const [storeAvailability, setStoreAvailability] = useState<StoreAvailability>('loading');
   const [isPurchasing, setIsPurchasing] = useState(false);
   const [isRestoring, setIsRestoring] = useState(false);
 
@@ -362,6 +403,9 @@ export const PaywallScreen: React.FC = () => {
   const primaryAnchor = useMemo(() => selectPrimaryAnchor(anchors), [anchors]);
   const plans = useMemo(() => buildPlans(offeringMetadata), [offeringMetadata]);
   const selectedPlan = plans[selectedPlanId];
+  const isStoreLoading = storeAvailability === 'loading';
+  const isPurchaseUnavailable =
+    storeAvailability === 'unavailable' || (storeAvailability === 'available' && !offeringMetadata[selectedPlanId]);
   const headline = HEADLINES[PAYWALL_EXPERIMENT.headline];
   const showRecap = PAYWALL_EXPERIMENT.showRecap && (source === 'post_trial' || forgedCount + totalPrimes + primeStreak > 0);
 
@@ -381,13 +425,35 @@ export const PaywallScreen: React.FC = () => {
 
   useEffect(() => {
     let mounted = true;
-    revenueCatService.getOfferingDisplayMetadata().then((metadata) => {
-      if (mounted) setOfferingMetadata(metadata);
-    });
+    revenueCatService
+      .getOfferingDisplayMetadata()
+      .then((metadata) => {
+        if (!mounted) return;
+        setOfferingMetadata(metadata);
+        setStoreAvailability(hasAvailableStorePlan(metadata) ? 'available' : 'unavailable');
+      })
+      .catch((error) => {
+        logger.warn('[PaywallScreen] Failed to resolve RevenueCat offering metadata', error);
+        if (mounted) {
+          setStoreAvailability('unavailable');
+        }
+      });
     return () => {
       mounted = false;
     };
   }, []);
+
+  useEffect(() => {
+    if (storeAvailability !== 'available' || offeringMetadata[selectedPlanId]) {
+      return;
+    }
+
+    const availablePlanId = offeringMetadata.annual ? 'annual' : offeringMetadata.monthly ? 'monthly' : null;
+    if (availablePlanId) {
+      setSelectedPlanId(availablePlanId);
+      setPreferredPlanId(availablePlanId);
+    }
+  }, [offeringMetadata, selectedPlanId, setPreferredPlanId, storeAvailability]);
 
   useEffect(() => {
     if (route.params?.preferredPlanId) {
@@ -415,10 +481,14 @@ export const PaywallScreen: React.FC = () => {
   }, [navigation, source]);
 
   const handleSelectPlan = useCallback((plan: PlanId) => {
+    if (storeAvailability === 'available' && !offeringMetadata[plan]) {
+      return;
+    }
+
     setSelectedPlanId(plan);
     setPreferredPlanId(plan);
     AnalyticsService.track('paywall_plan_selected', { plan });
-  }, [setPreferredPlanId]);
+  }, [offeringMetadata, setPreferredPlanId, storeAvailability]);
 
   const handleSignIn = useCallback(() => {
     navigation.navigate('Settings', {
@@ -429,6 +499,15 @@ export const PaywallScreen: React.FC = () => {
 
   const handlePurchase = useCallback(async () => {
     if (isPurchasing || isRestoring) return;
+    if (isStoreLoading) {
+      Alert.alert('Loading purchase options', 'Please wait a moment while App Store pricing loads.');
+      return;
+    }
+    if (isPurchaseUnavailable) {
+      Alert.alert(PURCHASE_UNAVAILABLE_TITLE, PURCHASE_UNAVAILABLE_MESSAGE);
+      return;
+    }
+
     setIsPurchasing(true);
     AnalyticsService.track('paywall_cta_tapped', {
       plan: selectedPlanId,
@@ -446,11 +525,21 @@ export const PaywallScreen: React.FC = () => {
         navigation.reset({ index: 0, routes: [{ name: 'Main' }] });
       }
     } catch (error: any) {
-      Alert.alert('Purchase could not be completed', error?.message ?? 'Please try again.');
+      logger.error('[PaywallScreen] Purchase failed', error);
+      Alert.alert('Purchase could not be completed', getSafePurchaseErrorMessage(error));
     } finally {
       setIsPurchasing(false);
     }
-  }, [isPurchasing, isRestoring, navigation, selectedPlan.packageId, selectedPlanId, source]);
+  }, [
+    isPurchaseUnavailable,
+    isPurchasing,
+    isRestoring,
+    isStoreLoading,
+    navigation,
+    selectedPlan.packageId,
+    selectedPlanId,
+    source,
+  ]);
 
   const handleRestorePurchase = useCallback(async () => {
     if (isPurchasing || isRestoring) return;
@@ -471,11 +560,20 @@ export const PaywallScreen: React.FC = () => {
     }
   }, [isPurchasing, isRestoring, navigation, source]);
 
-  const ctaSub = PAYWALL_EXPERIMENT.perDayPrice && selectedPlan.priceValue
-    ? selectedPlanId === 'annual'
-      ? `less than ${formatCurrency(selectedPlan.priceValue / 365, selectedPlan.currencyCode)} / day · cancel anytime`
-      : `about ${formatCurrency(selectedPlan.priceValue / 30, selectedPlan.currencyCode)} / day · cancel anytime`
-    : `then ${selectedPlan.priceLabel} / ${selectedPlanId === 'annual' ? 'year' : 'month'} · cancel anytime`;
+  const ctaSub = isStoreLoading
+    ? 'Loading current App Store pricing...'
+    : isPurchaseUnavailable
+      ? 'Purchases are temporarily unavailable. Restore is still available.'
+      : PAYWALL_EXPERIMENT.perDayPrice && selectedPlan.priceValue
+        ? selectedPlanId === 'annual'
+          ? `less than ${formatCurrency(selectedPlan.priceValue / 365, selectedPlan.currencyCode)} / day · cancel anytime`
+          : `about ${formatCurrency(selectedPlan.priceValue / 30, selectedPlan.currencyCode)} / day · cancel anytime`
+        : `then ${selectedPlan.priceLabel} / ${selectedPlanId === 'annual' ? 'year' : 'month'} · cancel anytime`;
+  const ctaLabel = isStoreLoading
+    ? 'Loading plans...'
+    : isPurchaseUnavailable
+      ? 'Purchases unavailable'
+      : 'Continue my practice';
 
   return (
     <View style={styles.root}>
@@ -541,8 +639,18 @@ export const PaywallScreen: React.FC = () => {
 
             <Text style={styles.plansLabel}>Choose your plan</Text>
             <View style={styles.plans}>
-              <PlanCard plan={plans.monthly} selected={selectedPlanId === 'monthly'} onPress={handleSelectPlan} />
-              <PlanCard plan={plans.annual} selected={selectedPlanId === 'annual'} onPress={handleSelectPlan} />
+              <PlanCard
+                plan={plans.monthly}
+                selected={selectedPlanId === 'monthly'}
+                storeAvailability={storeAvailability}
+                onPress={handleSelectPlan}
+              />
+              <PlanCard
+                plan={plans.annual}
+                selected={selectedPlanId === 'annual'}
+                storeAvailability={storeAvailability}
+                onPress={handleSelectPlan}
+              />
             </View>
 
             {PAYWALL_EXPERIMENT.showScarcity ? (
@@ -558,20 +666,24 @@ export const PaywallScreen: React.FC = () => {
             <Pressable
               onPress={handlePurchase}
               accessibilityRole="button"
-              accessibilityLabel={`Continue my practice, ${selectedPlan.tier} selected`}
-              disabled={isPurchasing || isRestoring}
+              accessibilityLabel={
+                isPurchaseUnavailable || isStoreLoading
+                  ? ctaLabel
+                  : `Continue my practice, ${selectedPlan.tier} selected`
+              }
+              disabled={isPurchasing || isRestoring || isPurchaseUnavailable}
               style={({ pressed }) => [styles.ctaPressable, pressed && styles.ctaPressed]}
             >
               <LinearGradient
                 colors={['#F0CB6A', '#C9A84C', '#A8892E']}
                 start={{ x: 0, y: 0 }}
                 end={{ x: 1, y: 1 }}
-                style={[styles.cta, (isPurchasing || isRestoring) && styles.disabled]}
+                style={[styles.cta, (isPurchasing || isRestoring || isPurchaseUnavailable) && styles.disabled]}
               >
                 {isPurchasing ? (
                   <ActivityIndicator color="#100C04" />
                 ) : (
-                  <Text style={styles.ctaLabel}>Continue my practice</Text>
+                  <Text style={styles.ctaLabel}>{ctaLabel}</Text>
                 )}
               </LinearGradient>
             </Pressable>
@@ -842,6 +954,9 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.12,
     shadowRadius: 30,
     elevation: 5,
+  },
+  planUnavailable: {
+    opacity: 0.5,
   },
   planPressed: {
     transform: [{ scale: 0.99 }],

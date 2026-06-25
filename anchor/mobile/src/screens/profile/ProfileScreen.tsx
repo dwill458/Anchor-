@@ -263,8 +263,8 @@ export const ProfileScreen: React.FC = () => {
       setUser(nextUser);
 
       try {
-        const response = await apiClient.patch<ApiResponse<User>>(
-          '/api/users/me',
+        const response = await apiClient.put<ApiResponse<User>>(
+          '/api/auth/profile',
           {
             displayName: nextUpdates.name,
           }

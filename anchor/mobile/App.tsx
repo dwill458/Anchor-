@@ -3,13 +3,13 @@ import React, { useEffect, useRef } from 'react';
 import {
   Animated,
   AppState,
-  StatusBar,
   View,
   StyleSheet,
   Platform,
   Dimensions,
 } from 'react-native';
 import { useFonts } from 'expo-font';
+import { StatusBar } from 'expo-status-bar';
 import * as SplashScreen from 'expo-splash-screen';
 import * as Notifications from 'expo-notifications';
 import type { DevicePushToken } from 'expo-notifications';
@@ -699,6 +699,7 @@ export default function App() {
   }, [navRef]);
 
 
+
   useEffect(() => {
     const subscription = AppState.addEventListener('change', (nextState) => {
       if (nextState === 'active') {
@@ -796,7 +797,7 @@ export default function App() {
                       routeNameRef.current = currentRouteName;
                     }}
                   >
-                    <StatusBar barStyle="light-content" backgroundColor="#1A1A1D" />
+                    <StatusBar style="light" />
                     <RootNavigator />
                     <ForgeMomentOverlay
                       milestone={activeMilestone}
