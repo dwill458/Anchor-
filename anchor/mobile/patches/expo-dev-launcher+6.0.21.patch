@@ -2,7 +2,7 @@ diff --git a/node_modules/expo-dev-launcher/android/build.gradle b/node_modules/
 index 14ee7ab..ff4e99c 100644
 --- a/node_modules/expo-dev-launcher/android/build.gradle
 +++ b/node_modules/expo-dev-launcher/android/build.gradle
-@@ -108,8 +108,10 @@ dependencies {
+@@ -108,9 +108,11 @@ dependencies {
  
    implementation "androidx.compose.foundation:foundation-android:$composeVersion"
    implementation "androidx.compose.ui:ui:$composeVersion"
@@ -44,7 +44,7 @@ diff --git a/node_modules/expo-dev-launcher/android/src/main/AndroidManifest.xml
 index e0e5d89..747d32c 100644
 --- a/node_modules/expo-dev-launcher/android/src/main/AndroidManifest.xml
 +++ b/node_modules/expo-dev-launcher/android/src/main/AndroidManifest.xml
-@@ -1,6 +1 @@
+@@ -1,7 +1 @@
 -<manifest xmlns:android="http://schemas.android.com/apk/res/android">
 -  <application>
 -    <meta-data

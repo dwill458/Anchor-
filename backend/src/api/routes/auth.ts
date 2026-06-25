@@ -60,6 +60,8 @@ function normalizeEmail(email: string): string {
   return email.trim().toLowerCase();
 }
 
+const TRIAL_DURATION_MS = 7 * 24 * 60 * 60 * 1000;
+
 function serializeUser(user: {
   id: string;
   email: string;
@@ -75,6 +77,7 @@ function serializeUser(user: {
   stabilizeStreakDays: number;
   lastStabilizeAt: Date | null;
   createdAt: Date;
+  trialStartedAt?: Date | null;
 }): {
   id: string;
   email: string;
@@ -90,7 +93,12 @@ function serializeUser(user: {
   stabilizeStreakDays: number;
   lastStabilizeAt: Date | null;
   createdAt: Date;
+  trialStartedAt: Date;
+  isTrialExpired: boolean;
 } {
+  // Anchor the trial on trialStartedAt (resettable per-account), falling back to
+  // createdAt for records written before the column existed.
+  const trialAnchor = user.trialStartedAt ?? user.createdAt;
   return {
     id: user.id,
     email: user.email,
@@ -106,6 +114,8 @@ function serializeUser(user: {
     stabilizeStreakDays: user.stabilizeStreakDays,
     lastStabilizeAt: user.lastStabilizeAt,
     createdAt: user.createdAt,
+    trialStartedAt: trialAnchor,
+    isTrialExpired: Date.now() >= trialAnchor.getTime() + TRIAL_DURATION_MS,
   };
 }
 
