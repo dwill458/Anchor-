@@ -33,6 +33,9 @@ class PostAuthFlowService {
 
     authStore.setSession(patchedUser, token);
     useSubscriptionStore.getState().syncAccountTrial(patchedUser.createdAt);
+    if (patchedUser.isTrialExpired) {
+      useSubscriptionStore.getState().confirmServerExpiry();
+    }
     if (preserveCompletedOnboarding) {
       authStore.setHasCompletedOnboarding(true);
     }

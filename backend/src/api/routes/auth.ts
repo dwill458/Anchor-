@@ -60,6 +60,8 @@ function normalizeEmail(email: string): string {
   return email.trim().toLowerCase();
 }
 
+const TRIAL_DURATION_MS = 7 * 24 * 60 * 60 * 1000;
+
 function serializeUser(user: {
   id: string;
   email: string;
@@ -90,6 +92,7 @@ function serializeUser(user: {
   stabilizeStreakDays: number;
   lastStabilizeAt: Date | null;
   createdAt: Date;
+  isTrialExpired: boolean;
 } {
   return {
     id: user.id,
@@ -106,6 +109,7 @@ function serializeUser(user: {
     stabilizeStreakDays: user.stabilizeStreakDays,
     lastStabilizeAt: user.lastStabilizeAt,
     createdAt: user.createdAt,
+    isTrialExpired: Date.now() >= user.createdAt.getTime() + TRIAL_DURATION_MS,
   };
 }
 

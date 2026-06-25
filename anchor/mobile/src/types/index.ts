@@ -141,6 +141,7 @@ export interface User {
   stabilizeStreakDays: number;
   lastStabilizeAt?: Date;
   createdAt: Date;
+  isTrialExpired?: boolean;
 }
 
 export type AuthScreenContext = 'onboarding' | 'first_anchor_gate' | 'save_progress' | 'paywall';
