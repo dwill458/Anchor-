@@ -4,7 +4,6 @@ import AuthHydrationService from '@/services/AuthHydrationService';
 import RevenueCatService, { TrialStatusSnapshot } from '@/services/RevenueCatService';
 import { useAnchorStore } from '@/stores/anchorStore';
 import { useAuthStore } from '@/stores/authStore';
-import { useSubscriptionStore } from '@/stores/subscriptionStore';
 import { logger } from '@/utils/logger';
 
 interface RunPostAuthFlowOptions {
@@ -31,11 +30,8 @@ class PostAuthFlowService {
       ? { ...user, hasCompletedOnboarding: true }
       : user;
 
+    // setSession syncs the account-bound trial clock + server expiry centrally.
     authStore.setSession(patchedUser, token);
-    useSubscriptionStore.getState().syncAccountTrial(patchedUser.createdAt);
-    if (patchedUser.isTrialExpired) {
-      useSubscriptionStore.getState().confirmServerExpiry();
-    }
     if (preserveCompletedOnboarding) {
       authStore.setHasCompletedOnboarding(true);
     }
