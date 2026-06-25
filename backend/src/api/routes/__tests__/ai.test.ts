@@ -37,8 +37,10 @@ jest.mock('../../../services/AIEnhancer', () => ({
 }));
 
 const mockUploadImageFromUrl = jest.fn();
+const mockResolveStoredAssetUrl = jest.fn();
 jest.mock('../../../services/StorageService', () => ({
   uploadImageFromUrl: (...args: unknown[]) => mockUploadImageFromUrl(...args),
+  resolveStoredAssetUrl: (...args: unknown[]) => mockResolveStoredAssetUrl(...args),
 }));
 
 jest.mock('../../../services/MantraGenerator', () => ({
@@ -66,6 +68,7 @@ function buildApp(): Application {
 describe('POST /api/ai/enhance-controlnet', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    mockResolveStoredAssetUrl.mockImplementation(async (url: string) => url);
     mockPrisma.user.findUnique.mockResolvedValue({ id: 'db-user-1' });
     mockPrisma.anchor.findFirst.mockResolvedValue({ id: 'anchor-1' });
     mockPrisma.anchorVariationPool.updateMany.mockResolvedValue({ count: 0 });
@@ -78,7 +81,7 @@ describe('POST /api/ai/enhance-controlnet', () => {
     }));
   });
 
-  it('returns storage URLs exactly as returned by uploadImageFromUrl', async () => {
+  it('returns resolved storage URLs for client-visible variations', async () => {
     mockEnhanceSigilWithAI.mockResolvedValue({
       variations: [
         {
@@ -107,6 +110,9 @@ describe('POST /api/ai/enhance-controlnet', () => {
     mockUploadImageFromUrl.mockResolvedValue(
       'http://localhost:8000/uploads/anchors/db-user-1/anchor-1/123e4567-variation-0.png'
     );
+    mockResolveStoredAssetUrl.mockResolvedValueOnce(
+      'https://signed.example.com/anchors/db-user-1/anchor-1/123e4567-variation-0.png'
+    );
 
     const res = await request(buildApp()).post('/api/ai/enhance-controlnet').send({
       sigilSvg: '<svg><rect/></svg>',
@@ -116,10 +122,14 @@ describe('POST /api/ai/enhance-controlnet', () => {
 
     expect(res.status).toBe(200);
     expect(res.body.variations[0].imageUrl).toBe(
-      'http://localhost:8000/uploads/anchors/db-user-1/anchor-1/123e4567-variation-0.png'
+      'https://signed.example.com/anchors/db-user-1/anchor-1/123e4567-variation-0.png'
     );
     expect(res.body.variationUrls[0]).toBe(
-      'http://localhost:8000/uploads/anchors/db-user-1/anchor-1/123e4567-variation-0.png'
+      'https://signed.example.com/anchors/db-user-1/anchor-1/123e4567-variation-0.png'
+    );
+    expect(mockResolveStoredAssetUrl).toHaveBeenCalledWith(
+      'http://localhost:8000/uploads/anchors/db-user-1/anchor-1/123e4567-variation-0.png',
+      7 * 24 * 60 * 60
     );
   });
 

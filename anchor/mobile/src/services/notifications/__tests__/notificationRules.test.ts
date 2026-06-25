@@ -31,7 +31,7 @@ const anchor = (overrides: Partial<Anchor> = {}): Anchor => ({
   id: 'anchor-1',
   userId: 'user-1',
   intentionText: 'Build calm focus',
-  category: 'personal_growth',
+  category: 'desire',
   distilledLetters: ['B', 'C', 'F'],
   baseSigilSvg: '<svg />',
   structureVariant: 'balanced',
@@ -206,4 +206,3 @@ describe('notification rules', () => {
     ).toBe(false);
   });
 });
-

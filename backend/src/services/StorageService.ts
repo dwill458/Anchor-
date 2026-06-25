@@ -5,7 +5,13 @@
  * Stores AI-generated anchor images and mantra audio files.
  */
 
-import { S3Client, DeleteObjectCommand, PutObjectCommand } from '@aws-sdk/client-s3';
+import {
+  S3Client,
+  DeleteObjectCommand,
+  GetObjectCommand,
+  PutObjectCommand,
+} from '@aws-sdk/client-s3';
+import { getSignedUrl as presignS3Request } from '@aws-sdk/s3-request-presigner';
 import axios from 'axios';
 import fs from 'fs';
 import path from 'path';
@@ -14,6 +20,13 @@ import { logger } from '../utils/logger';
 
 interface UploadUrlOptions {
   baseUrl?: string;
+  signedUrlExpiresIn?: number;
+}
+
+interface UploadedImageAsset {
+  objectKey: string;
+  url: string;
+  externalUrl: string;
 }
 
 function isProduction(): boolean {
@@ -65,6 +78,14 @@ function normalizeBaseUrl(baseUrl?: string): string | undefined {
   return baseUrl.replace(/\/+$/, '');
 }
 
+function parseConfiguredUrl(value: string): URL | null {
+  try {
+    return new URL(value);
+  } catch {
+    return null;
+  }
+}
+
 function buildLocalUploadUrl(storageKey: string, options?: UploadUrlOptions): string {
   const configuredBaseUrl = normalizeBaseUrl(options?.baseUrl);
   if (configuredBaseUrl) {
@@ -89,6 +110,120 @@ function getPublicAssetBaseUrl(bucket: string): string {
   return `https://${bucket}.r2.cloudflarestorage.com`;
 }
 
+async function buildSignedObjectUrl(
+  client: S3Client,
+  bucket: string,
+  objectKey: string,
+  expiresIn: number = 3600
+): Promise<string> {
+  return presignS3Request(
+    client as any,
+    new GetObjectCommand({
+      Bucket: bucket,
+      Key: objectKey,
+    }) as any,
+    { expiresIn }
+  );
+}
+
+function extractObjectKeyFromPublicDomainUrl(assetUrl: URL, bucket: string): string | null {
+  const publicDomain = normalizeEnvValue(process.env.CLOUDFLARE_R2_PUBLIC_DOMAIN);
+  if (!publicDomain) {
+    return null;
+  }
+
+  const configuredUrl = parseConfiguredUrl(publicDomain);
+  if (configuredUrl) {
+    if (assetUrl.hostname !== configuredUrl.hostname) {
+      return null;
+    }
+
+    const configuredPath = configuredUrl.pathname.replace(/\/+$/, '');
+    const assetPath = assetUrl.pathname;
+
+    if (configuredPath && configuredPath !== '/' && !assetPath.startsWith(configuredPath)) {
+      return null;
+    }
+
+    return assetPath.slice(configuredPath.length).replace(/^\/+/, '') || null;
+  }
+
+  const normalizedHost = publicDomain.replace(/^https?:\/\//, '').replace(/\/.*$/, '');
+  if (assetUrl.hostname !== normalizedHost) {
+    return null;
+  }
+
+  return assetUrl.pathname.replace(/^\/+/, '') || null;
+}
+
+export function extractStorageObjectKey(assetUrl: string): string | null {
+  if (!assetUrl || assetUrl.startsWith('data:')) {
+    return null;
+  }
+
+  let parsedUrl: URL;
+  try {
+    parsedUrl = new URL(assetUrl);
+  } catch {
+    return null;
+  }
+
+  if (parsedUrl.protocol !== 'https:' && parsedUrl.protocol !== 'http:') {
+    return null;
+  }
+
+  const bucket = getBucketName();
+  const fromPublicDomain = extractObjectKeyFromPublicDomainUrl(parsedUrl, bucket);
+  if (fromPublicDomain) {
+    return fromPublicDomain;
+  }
+
+  if (parsedUrl.hostname.endsWith('.r2.cloudflarestorage.com')) {
+    const normalizedPath = parsedUrl.pathname.replace(/^\/+/, '');
+    if (!normalizedPath) {
+      return null;
+    }
+
+    const pathSegments = normalizedPath.split('/');
+    if (pathSegments[0] === bucket) {
+      return pathSegments.slice(1).join('/') || null;
+    }
+
+    return normalizedPath;
+  }
+
+  return null;
+}
+
+export async function resolveStoredAssetUrl(
+  assetUrl: string | null | undefined,
+  expiresIn: number = 3600
+): Promise<string | null | undefined> {
+  if (!assetUrl) {
+    return assetUrl;
+  }
+
+  const objectKey = extractStorageObjectKey(assetUrl);
+  if (!objectKey) {
+    return assetUrl;
+  }
+
+  const client = getR2Client();
+  if (!client) {
+    return assetUrl;
+  }
+
+  try {
+    return await buildSignedObjectUrl(client, getBucketName(), objectKey, expiresIn);
+  } catch (error) {
+    logger.warn('[Storage] Failed to resolve signed asset URL', {
+      error: error instanceof Error ? error.message : 'Unknown error',
+      objectKey,
+    });
+    return assetUrl;
+  }
+}
+
 function sanitizePathSegment(value: string): string {
   const trimmed = (value || '').trim();
   const sanitized = trimmed.replace(/[^a-zA-Z0-9_-]/g, '-').replace(/-+/g, '-');
@@ -107,6 +242,12 @@ function buildAudioStorageKey(userId: string, anchorId: string, mantraStyle: str
   const sanitizedAnchorId = sanitizePathSegment(anchorId);
   const sanitizedStyle = sanitizePathSegment(mantraStyle);
   return `mantras/${sanitizedUserId}/${sanitizedAnchorId}/${sanitizedStyle}.mp3`;
+}
+
+function buildProfilePictureStorageKey(userId: string, mimeType: string): string {
+  const sanitizedUserId = sanitizePathSegment(userId);
+  const extension = mimeType === 'image/png' ? 'png' : 'jpg';
+  return `profiles/${sanitizedUserId}/picture.${extension}`;
 }
 
 /**
@@ -181,6 +322,23 @@ export async function uploadImageFromBuffer(
   variationIndex: number,
   options?: UploadUrlOptions
 ): Promise<string> {
+  const asset = await uploadImageAssetFromBuffer(
+    imageBuffer,
+    userId,
+    anchorId,
+    variationIndex,
+    options
+  );
+  return asset.url;
+}
+
+export async function uploadImageAssetFromBuffer(
+  imageBuffer: Buffer,
+  userId: string,
+  anchorId: string,
+  variationIndex: number,
+  options?: UploadUrlOptions
+): Promise<UploadedImageAsset> {
   try {
     const objectKey = buildImageStorageKey(userId, anchorId, variationIndex);
     const client = getR2Client();
@@ -199,7 +357,19 @@ export async function uploadImageFromBuffer(
           })
         );
 
-        return `${getPublicAssetBaseUrl(bucket)}/${objectKey}`;
+        const url = `${getPublicAssetBaseUrl(bucket)}/${objectKey}`;
+        const externalUrl = await buildSignedObjectUrl(
+          client,
+          bucket,
+          objectKey,
+          options?.signedUrlExpiresIn ?? 3600
+        );
+
+        return {
+          objectKey,
+          url,
+          externalUrl,
+        };
       } catch (r2Error) {
         if (isProduction()) {
           throw r2Error;
@@ -229,7 +399,12 @@ export async function uploadImageFromBuffer(
       fs.writeFileSync(localFilePath, imageBuffer);
 
       logger.info(`[Storage] Saved buffer to local disk: ${localFilePath}`);
-      return buildLocalUploadUrl(objectKey, options);
+      const localUrl = buildLocalUploadUrl(objectKey, options);
+      return {
+        objectKey,
+        url: localUrl,
+        externalUrl: localUrl,
+      };
     } catch (localError) {
       // Local filesystem unavailable (e.g. ephemeral container) — return inline data URI
       // so dev/preview builds can still display the generated image.
@@ -240,7 +415,12 @@ export async function uploadImageFromBuffer(
         throw localError;
       }
 
-      return `data:image/png;base64,${imageBuffer.toString('base64')}`;
+      const dataUrl = `data:image/png;base64,${imageBuffer.toString('base64')}`;
+      return {
+        objectKey,
+        url: dataUrl,
+        externalUrl: dataUrl,
+      };
     }
   } catch (error) {
     logger.error('[Storage] Upload from buffer error', error);
@@ -414,13 +594,86 @@ export async function deleteAnchorFiles(userId: string, anchorId: string): Promi
 }
 
 /**
+ * Upload profile picture from base64 data URI
+ */
+export async function uploadProfilePicture(
+  userId: string,
+  base64Data: string,
+  mimeType: string = 'image/jpeg',
+  options?: UploadUrlOptions
+): Promise<string> {
+  try {
+    if (!base64Data || !base64Data.includes('base64,')) {
+      throw new Error('Invalid base64 data URI format');
+    }
+
+    const [, encodedData] = base64Data.split('base64,');
+    const buffer = Buffer.from(encodedData, 'base64');
+
+    if (buffer.length > 5 * 1024 * 1024) {
+      throw new Error('Profile picture exceeds 5MB limit');
+    }
+
+    const objectKey = buildProfilePictureStorageKey(userId, mimeType);
+    const client = getR2Client();
+    const bucket = getBucketName();
+
+    if (client) {
+      logger.info('[Storage] Uploading profile picture to R2', { userId, key: objectKey });
+      try {
+        await client.send(
+          new PutObjectCommand({
+            Bucket: bucket,
+            Key: objectKey,
+            Body: buffer,
+            ContentType: mimeType,
+            CacheControl: 'public, max-age=31536000',
+          })
+        );
+
+        return `${getPublicAssetBaseUrl(bucket)}/${objectKey}`;
+      } catch (r2Error) {
+        if (process.env.NODE_ENV === 'production') {
+          throw r2Error;
+        }
+
+        logger.warn('[Storage] R2 upload failed, falling back to local storage', {
+          error: r2Error instanceof Error ? r2Error.message : 'Unknown',
+        });
+      }
+    }
+
+    logger.info('[Storage] Uploading profile picture to local storage', { userId, key: objectKey });
+    const uploadsDir = path.join(process.cwd(), 'uploads');
+    const localFilePath = path.join(uploadsDir, objectKey);
+    const localDir = path.dirname(localFilePath);
+
+    if (!fs.existsSync(localDir)) {
+      fs.mkdirSync(localDir, { recursive: true });
+    }
+
+    fs.writeFileSync(localFilePath, buffer);
+    logger.info(`[Storage] Saved profile picture to local disk: ${localFilePath}`);
+    return buildLocalUploadUrl(objectKey, options);
+  } catch (error) {
+    logger.error('[Storage] Profile picture upload error', error);
+    throw new Error(
+      `Failed to upload profile picture: ${error instanceof Error ? error.message : 'Unknown error'}`
+    );
+  }
+}
+
+/**
  * Generate signed URL for private files (if needed)
  */
 export async function getSignedUrl(filePath: string, _expiresIn: number = 3600): Promise<string> {
-  // For now, return public URL
-  // In production, implement signed URLs for private content
+  const client = getR2Client();
   const bucket = getBucketName();
-  return `${getPublicAssetBaseUrl(bucket)}/${filePath}`;
+  if (!client) {
+    return `${getPublicAssetBaseUrl(bucket)}/${filePath}`;
+  }
+
+  return buildSignedObjectUrl(client, bucket, filePath, _expiresIn);
 }
 
 /**

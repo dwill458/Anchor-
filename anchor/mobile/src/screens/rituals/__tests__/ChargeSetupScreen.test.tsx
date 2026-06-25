@@ -173,6 +173,23 @@ describe('ChargeSetupScreen', () => {
         });
     });
 
+    it('auto-starts the initial deep duration when the route preselects it', () => {
+        Object.assign(mockRouteParams, {
+            autoStartOnSelection: true,
+            initialDuration: 'deep',
+            returnTo: 'practice',
+        });
+
+        render(<ChargeSetupScreen />);
+
+        expect(mockReplace).toHaveBeenCalledWith('Ritual', {
+            anchorId: 'anchor-123',
+            ritualType: 'ritual',
+            durationSeconds: 180,
+            returnTo: 'practice',
+        });
+    });
+
     it('renders the enhanced anchor artwork when available', () => {
         mockAnchor.enhancedImageUrl = 'https://example.com/enhanced-anchor.png';
 

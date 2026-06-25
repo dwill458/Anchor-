@@ -8,6 +8,10 @@ declare module '@aws-sdk/client-s3' {
     constructor(input: unknown);
   }
 
+  export class GetObjectCommand {
+    constructor(input: unknown);
+  }
+
   export class PutObjectCommand {
     constructor(input: unknown);
   }

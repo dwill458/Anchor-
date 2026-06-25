@@ -211,18 +211,18 @@ describe('PracticeScreen', () => {
     });
   });
 
-  it('navigates to Ritual with expected params when charging', async () => {
+  it('routes generic deep-prime entry through ChargeSetup from practice', async () => {
     mockAnchors = [buildAnchor('a99', 'Build consistency')];
     const screen = render(<PracticeScreen />);
 
     fireEvent.press(screen.getByText('DEEP PRIME'));
 
     await waitFor(() => {
-      expect(mockNavigateToVault).toHaveBeenCalledWith('Ritual', {
+      expect(mockNavigateToVault).toHaveBeenCalledWith('ChargeSetup', {
         anchorId: 'a99',
-        ritualType: 'ritual',
-        durationSeconds: 120,
         returnTo: 'practice',
+        initialDuration: 'deep',
+        autoStartOnSelection: true,
       });
     });
   });
@@ -241,11 +241,11 @@ describe('PracticeScreen', () => {
     fireEvent.press(screen.getByText('DEEP PRIME'));
 
     await waitFor(() => {
-      expect(mockNavigateToVault).toHaveBeenCalledWith('Ritual', {
+      expect(mockNavigateToVault).toHaveBeenCalledWith('ChargeSetup', {
         anchorId: 'a2',
-        ritualType: 'ritual',
-        durationSeconds: 120,
         returnTo: 'practice',
+        initialDuration: 'deep',
+        autoStartOnSelection: true,
       });
     });
   });
@@ -259,11 +259,11 @@ describe('PracticeScreen', () => {
     fireEvent.press(screen.getByText('DEEP PRIME'));
 
     await waitFor(() => {
-      expect(mockNavigateToVault).toHaveBeenCalledWith('Ritual', {
+      expect(mockNavigateToVault).toHaveBeenCalledWith('ChargeSetup', {
         anchorId: 'a77',
-        ritualType: 'ritual',
-        durationSeconds: 120,
         returnTo: 'practice',
+        initialDuration: 'deep',
+        autoStartOnSelection: true,
       });
     });
   });

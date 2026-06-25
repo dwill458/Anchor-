@@ -333,7 +333,7 @@ interface AuthState {
   finalizePendingFirstAnchorDraft: () => Promise<boolean>;
   setOfflineMode: (offline: boolean) => void;
   setIsGuest: (value: boolean) => void;
-  signOut: () => void;
+  signOut: () => Promise<void>;
 
   // NEW: Profile actions
   fetchProfile: () => Promise<void>;
@@ -921,44 +921,46 @@ export const useAuthStore = create<AuthState>()(
         return flags;
       },
 
-      signOut: () => {
+      signOut: async () => {
         const userId = get().user?.id;
         if (userId) {
           const profileState = useProfileStore.getState();
           const sessionState = useSessionStore.getState();
           const anchorState = useAnchorStore.getState();
-          void Promise.all([
-            saveAnchorSnapshot(userId, {
-              anchors: anchorState.anchors,
-              currentAnchorId: anchorState.currentAnchorId,
-            }),
-            saveProfileSnapshot(userId, {
-              ownerUserId: profileState.ownerUserId,
-              name: profileState.name,
-              axiom: profileState.axiom,
-              timezone: profileState.timezone,
-              mono: profileState.mono,
-              photo: profileState.photo,
-              memberSince: profileState.memberSince,
-            }),
-            saveSessionSnapshot(userId, {
-              lastSession: sessionState.lastSession,
-              todayPractice: sessionState.todayPractice,
-              weeklyPractice: sessionState.weeklyPractice,
-              lastGraceDayUsedAt: sessionState.lastGraceDayUsedAt,
-              sessionLog: sessionState.sessionLog,
-              threadStrength: sessionState.threadStrength,
-              totalSessionsCount: sessionState.totalSessionsCount,
-              lastPrimedAt: sessionState.lastPrimedAt,
-              weekHistory: sessionState.weekHistory,
-              weekHistoryKey: sessionState.weekHistoryKey,
-              primingHistory: sessionState.primingHistory,
-              journeyWeekStart: sessionState.journeyWeekStart,
-              lastDecayDate: sessionState.lastDecayDate,
-            }),
-          ]).catch((error) => {
+          try {
+            await Promise.all([
+              saveAnchorSnapshot(userId, {
+                anchors: anchorState.anchors,
+                currentAnchorId: anchorState.currentAnchorId,
+              }),
+              saveProfileSnapshot(userId, {
+                ownerUserId: profileState.ownerUserId,
+                name: profileState.name,
+                axiom: profileState.axiom,
+                timezone: profileState.timezone,
+                mono: profileState.mono,
+                photo: profileState.photo,
+                memberSince: profileState.memberSince,
+              }),
+              saveSessionSnapshot(userId, {
+                lastSession: sessionState.lastSession,
+                todayPractice: sessionState.todayPractice,
+                weeklyPractice: sessionState.weeklyPractice,
+                lastGraceDayUsedAt: sessionState.lastGraceDayUsedAt,
+                sessionLog: sessionState.sessionLog,
+                threadStrength: sessionState.threadStrength,
+                totalSessionsCount: sessionState.totalSessionsCount,
+                lastPrimedAt: sessionState.lastPrimedAt,
+                weekHistory: sessionState.weekHistory,
+                weekHistoryKey: sessionState.weekHistoryKey,
+                primingHistory: sessionState.primingHistory,
+                journeyWeekStart: sessionState.journeyWeekStart,
+                lastDecayDate: sessionState.lastDecayDate,
+              }),
+            ]);
+          } catch (error) {
             logger.warn('Failed to preserve local user state before sign out', error);
-          });
+          }
         }
 
         applyCompedAccessToSubscriptionStore(null);

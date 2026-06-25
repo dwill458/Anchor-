@@ -47,6 +47,11 @@ jest.mock('../../../lib/prisma', () => ({
   prisma: mockPrisma,
 }));
 
+const mockResolveStoredAssetUrl = jest.fn();
+jest.mock('../../../services/StorageService', () => ({
+  resolveStoredAssetUrl: (...args: unknown[]) => mockResolveStoredAssetUrl(...args),
+}));
+
 import { authMiddleware } from '../../middleware/auth';
 import anchorsRouter from '../anchors';
 
@@ -114,6 +119,7 @@ const VALID_CREATE_BODY = {
 
 beforeEach(() => {
   jest.clearAllMocks();
+  mockResolveStoredAssetUrl.mockImplementation(async (url: string | null | undefined) => url);
 
   // Default: auth passes and attaches mock user
   mockedAuthMiddleware.mockImplementation((req: any, _res: any, next: any) => {
@@ -272,6 +278,30 @@ describe('GET /api/anchors', () => {
     expect(res.body.success).toBe(true);
     expect(res.body.data).toHaveLength(1);
     expect(res.body.meta.total).toBe(1);
+  });
+
+  it('re-signs stored enhanced artwork URLs before returning them to the client', async () => {
+    (mockPrisma.user.findUnique as jest.Mock).mockResolvedValue(MOCK_DB_USER);
+    (mockPrisma.anchor.findMany as jest.Mock).mockResolvedValue([
+      {
+        ...MOCK_ANCHOR,
+        enhancedImageUrl: 'https://cdn.example.com/anchors/db-user-1/anchor-1/mock.png',
+      },
+    ]);
+    mockResolveStoredAssetUrl.mockResolvedValueOnce(
+      'https://signed.example.com/anchors/db-user-1/anchor-1/mock.png'
+    );
+
+    const res = await request(buildApp()).get('/api/anchors');
+
+    expect(res.status).toBe(200);
+    expect(res.body.data[0].enhancedImageUrl).toBe(
+      'https://signed.example.com/anchors/db-user-1/anchor-1/mock.png'
+    );
+    expect(mockResolveStoredAssetUrl).toHaveBeenCalledWith(
+      'https://cdn.example.com/anchors/db-user-1/anchor-1/mock.png',
+      7 * 24 * 60 * 60
+    );
   });
 
   it('selects only the supported anchor fields for list hydration', async () => {
