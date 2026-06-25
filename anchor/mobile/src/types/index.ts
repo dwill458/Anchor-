@@ -198,6 +198,9 @@ export interface User {
   stabilizeStreakDays: number;
   lastStabilizeAt?: Date;
   createdAt: Date;
+  // Server-authoritative trial anchor (resettable per-account). Optional for
+  // backward-compat with backends that predate the column.
+  trialStartedAt?: string;
   isTrialExpired?: boolean;
 }
 

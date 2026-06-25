@@ -134,14 +134,15 @@ function applyUserToSubscriptionStore(user: User | null): void {
   // Without this, on a fresh install (AsyncStorage empty → status defaults to
   // 'expired') with a restored Firebase session, RevenueCat can confirm "no
   // entitlement" before the trial start date is known, briefly gating an
-  // in-trial user behind the paywall. createdAt is the server-authoritative
-  // signup time; syncAccountTrial keeps the earliest known start date.
-  if (user?.createdAt) {
-    subscription.syncAccountTrial(user.createdAt);
-    // Server is the source of truth for expiry (defeats device-clock rollback).
-    if (user.isTrialExpired) {
-      subscription.confirmServerExpiry();
-    }
+  // in-trial user behind the paywall.
+  //
+  // trialStartedAt is the server-authoritative trial anchor (resettable per
+  // account); we trust it as the source of truth and let it replace any stale
+  // local clock — this is what allows a backend reset to reach existing beta
+  // devices. createdAt is the fallback for backends predating the column.
+  const trialAnchor = user?.trialStartedAt ?? user?.createdAt;
+  if (trialAnchor) {
+    subscription.applyServerTrial(trialAnchor, user?.isTrialExpired);
   }
 }
 
