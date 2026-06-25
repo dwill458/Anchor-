@@ -18,6 +18,7 @@ import {
   buildPasswordResetActionCodeSettings,
   normalizePasswordResetEmail,
 } from '@/services/passwordResetActionCodeSettings';
+import { sha256Hex } from '@/utils/hash';
 
 let GoogleSignin: any = null;
 import {
@@ -341,9 +342,9 @@ export class AuthService {
         throw new Error('Apple sign-in is not available on this device.');
       }
 
-      const nonce = generateNonce();
+      const rawNonce = generateNonce();
       const appleCredential = await AppleAuthentication.signInAsync({
-        nonce,
+        nonce: sha256Hex(rawNonce),
         requestedScopes: [
           AppleAuthentication.AppleAuthenticationScope.FULL_NAME,
           AppleAuthentication.AppleAuthenticationScope.EMAIL,
@@ -354,7 +355,7 @@ export class AuthService {
         throw new Error('Apple sign-in did not return an identity token.');
       }
 
-      const credential = auth.AppleAuthProvider.credential(appleCredential.identityToken, nonce);
+      const credential = auth.AppleAuthProvider.credential(appleCredential.identityToken, rawNonce);
       const firebaseCredential = await auth().signInWithCredential(credential);
 
       const displayName =

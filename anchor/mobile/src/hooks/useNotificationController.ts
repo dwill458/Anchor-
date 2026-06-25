@@ -29,7 +29,6 @@ import {
 } from '@/services/notifications/notificationSelector';
 import type {
   NotificationCategory,
-  NotificationMilestone,
   NotificationTone,
 } from '@/services/notifications/notificationTypes';
 import {
@@ -187,16 +186,24 @@ export const useNotificationController = () => {
     };
   }, []);
 
-  const cancelSmartNotifications = useCallback(async (context?: NotificationRuleContext) => {
+  const cancelSmartNotifications = useCallback(async (
+    context?: NotificationRuleContext,
+    keepIdentifier?: string | null
+  ) => {
+    const cancelUnless = (category: NotificationCategory, anchorId?: string) => {
+      if (keepIdentifier && NotificationService.getSmartNotificationId(category, anchorId) === keepIdentifier) {
+        return Promise.resolve();
+      }
+      return NotificationService.cancelSmartNotification(category, anchorId);
+    };
+
     await Promise.all(
-      SMART_NOTIFICATION_PRIORITY.map((category) =>
-        NotificationService.cancelSmartNotification(category)
-      )
+      SMART_NOTIFICATION_PRIORITY.map((category) => cancelUnless(category))
     );
 
     await Promise.all(
       (context?.anchors ?? []).map((anchor) =>
-        NotificationService.cancelSmartNotification('unfinished_anchor', anchor.localId ?? anchor.id)
+        cancelUnless('unfinished_anchor', anchor.localId ?? anchor.id)
       )
     );
   }, []);
@@ -206,41 +213,21 @@ export const useNotificationController = () => {
     result: NotificationRuleResult,
     templateId: string
   ): NotificationStateWithSyncMetadata => {
-    const now = new Date().toISOString();
-    const next: NotificationStateWithSyncMetadata = {
+    // NOTE: "sent" de-duplication state (lastNotificationSentAt, sentMilestones,
+    // unfinishedAnchorReminders[].sentAt) is intentionally NOT recorded here.
+    // Smart notifications are rescheduled on every reconcile (app open, settings
+    // change, prime complete, …), and that flow cancels all pending smart
+    // notifications first. Recording "sent" at schedule time made the rate-limit
+    // rules cancel a pending notification and then refuse to reschedule it, so it
+    // never fired. Delivery is now recorded when the OS actually delivers the
+    // notification — see recordNotificationDelivery wired in App.tsx.
+    return {
       ...state,
       lastTemplateIdByCategory: {
         ...(state.lastTemplateIdByCategory ?? {}),
         [result.category]: templateId,
       },
     };
-
-    if (result.category !== 'daily_prime') {
-      next.lastNotificationSentAt = {
-        ...(state.lastNotificationSentAt ?? {}),
-        [result.category]: now,
-      };
-    }
-
-    if (result.category === 'milestone' && result.milestone) {
-      next.sentMilestones = Array.from(
-        new Set([...(state.sentMilestones ?? []), result.milestone as NotificationMilestone])
-      );
-    }
-
-    if (result.category === 'unfinished_anchor' && result.anchorId) {
-      next.unfinishedAnchorReminders = {
-        ...(state.unfinishedAnchorReminders ?? {}),
-        [result.anchorId]: {
-          startedAt:
-            state.unfinishedAnchorReminders?.[result.anchorId]?.startedAt ??
-            new Date().toISOString(),
-          sentAt: now,
-        },
-      };
-    }
-
-    return next;
   }, []);
 
   const scheduleSmartNotifications = useCallback(async (
@@ -250,7 +237,6 @@ export const useNotificationController = () => {
     await NotificationService.cancelWeeklySummary();
 
     const context = buildRuleContext();
-    await cancelSmartNotifications(context);
 
     const permissionStatus = await NotificationService.getPermissionStatus();
     const stateWithPermission = {
@@ -261,7 +247,24 @@ export const useNotificationController = () => {
     const result = evaluateNotificationRules(stateWithPermission, context)
       .find((candidate) => candidate.eligible && candidate.fireDate);
 
-    if (!result?.fireDate) {
+    // `daily_prime` fires at a user-configurable time, so it must always be
+    // rescheduled to honor settings changes. The relative categories fire a few
+    // minutes out; if one is already pending, keep it so repeated reconciles
+    // don't keep pushing its fire time back (which previously meant it never
+    // fired). We cancel every other smart notification, then leave the winner in
+    // place.
+    const winnerId = result?.fireDate
+      ? NotificationService.getSmartNotificationId(result.category, result.anchorId)
+      : null;
+    const keepExisting = Boolean(
+      result?.fireDate &&
+      result.category !== 'daily_prime' &&
+      (await NotificationService.isSmartNotificationPending(result.category, result.anchorId))
+    );
+
+    await cancelSmartNotifications(context, keepExisting ? winnerId : null);
+
+    if (!result?.fireDate || keepExisting) {
       return stateWithPermission;
     }
 

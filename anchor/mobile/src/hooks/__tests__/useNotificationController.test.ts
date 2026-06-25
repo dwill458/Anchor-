@@ -6,6 +6,7 @@ import { useSettingsStore } from '@/stores/settingsStore';
 
 const mockScheduleSmartNotification = jest.fn();
 const mockCancelSmartNotification = jest.fn();
+const mockIsSmartNotificationPending = jest.fn();
 const mockCancelNotification = jest.fn();
 const mockCancelWeeklySummary = jest.fn();
 const mockGetPermissionStatus = jest.fn();
@@ -22,6 +23,9 @@ jest.mock('@/services/NotificationService', () => ({
   default: {
     scheduleSmartNotification: (...args: unknown[]) => mockScheduleSmartNotification(...args),
     cancelSmartNotification: (...args: unknown[]) => mockCancelSmartNotification(...args),
+    isSmartNotificationPending: (...args: unknown[]) => mockIsSmartNotificationPending(...args),
+    getSmartNotificationId: (category: string, anchorId?: string) =>
+      `smart-notification:${category}${anchorId ? `:${anchorId}` : ''}`,
     cancelNotification: (...args: unknown[]) => mockCancelNotification(...args),
     cancelWeeklySummary: (...args: unknown[]) => mockCancelWeeklySummary(...args),
     getPermissionStatus: (...args: unknown[]) => mockGetPermissionStatus(...args),
@@ -116,6 +120,7 @@ describe('useNotificationController', () => {
     mockRequestPermissions.mockResolvedValue(true);
     mockScheduleSmartNotification.mockResolvedValue('smart-id');
     mockCancelSmartNotification.mockResolvedValue(undefined);
+    mockIsSmartNotificationPending.mockResolvedValue(false);
     mockCancelNotification.mockResolvedValue(undefined);
     mockCancelWeeklySummary.mockResolvedValue(undefined);
     mockSyncNotificationStateToServer.mockResolvedValue(null);
@@ -173,6 +178,21 @@ describe('useNotificationController', () => {
         category: 'daily_prime',
       })
     );
+  });
+
+  it('keeps an already-pending relative notification instead of rescheduling it', async () => {
+    mockGetPermissionStatus.mockResolvedValue('granted');
+    // threadStrength 50 < threshold 70 -> thread_strength is the eligible winner.
+    mockSessionStoreGetState.mockReturnValue(createSessionState({ threadStrength: 50 }));
+    mockIsSmartNotificationPending.mockResolvedValue(true);
+
+    const { result } = renderHook(() => useNotificationController());
+
+    await waitFor(() => expect(result.current.isInitialized).toBe(true));
+
+    // Already pending -> must not reschedule, and must not cancel the winner.
+    expect(mockScheduleSmartNotification).not.toHaveBeenCalled();
+    expect(mockCancelSmartNotification).not.toHaveBeenCalledWith('thread_strength', undefined);
   });
 
   it('does not schedule daily prime after a Focus Session was completed today', async () => {

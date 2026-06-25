@@ -542,6 +542,27 @@ class NotificationService {
     await this.cancelReminder(this.buildSmartNotificationId(category, anchorId));
   }
 
+  /**
+   * Deterministic identifier for a smart notification. Lets callers reconcile
+   * against already-scheduled notifications without rescheduling them.
+   */
+  getSmartNotificationId(category: NotificationCategory, anchorId?: string): string {
+    return this.buildSmartNotificationId(category, anchorId);
+  }
+
+  /**
+   * Whether a smart notification for the given category/anchor is already
+   * scheduled and still pending delivery.
+   */
+  async isSmartNotificationPending(
+    category: NotificationCategory,
+    anchorId?: string
+  ): Promise<boolean> {
+    const identifier = this.buildSmartNotificationId(category, anchorId);
+    const scheduled = await this.getScheduledNotifications();
+    return scheduled.some((notification) => notification.identifier === identifier);
+  }
+
   async cancelNotification(id: string): Promise<void> {
     await this.cancelReminder(id);
   }

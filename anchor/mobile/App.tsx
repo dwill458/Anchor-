@@ -54,6 +54,7 @@ import { encryptedPersistStorage, readSecureValue } from './src/stores/encrypted
 import { logger } from './src/utils/logger';
 import revenueCatService from './src/services/RevenueCatService';
 import NotificationService from './src/services/NotificationService';
+import { recordNotificationDelivery } from './src/services/notifications/notificationDelivery';
 import { AnalyticsEvents, AnalyticsService } from './src/services/AnalyticsService';
 import AuthHydrationService from './src/services/AuthHydrationService';
 import {
@@ -655,11 +656,9 @@ export default function App() {
       handleNotificationResponse
     );
     const receivedSubscription = Notifications.addNotificationReceivedListener((notification) => {
-      trackNotificationPayload(
-        AnalyticsEvents.NOTIFICATION_SENT,
-        notification.request.content.data ?? {},
-        'sentAt'
-      );
+      const data = notification.request.content.data ?? {};
+      trackNotificationPayload(AnalyticsEvents.NOTIFICATION_SENT, data, 'sentAt');
+      void recordNotificationDelivery(data);
     });
 
     Notifications.getLastNotificationResponseAsync()
