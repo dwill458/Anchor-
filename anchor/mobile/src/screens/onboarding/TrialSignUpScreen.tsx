@@ -32,6 +32,7 @@ import type { RootStackParamList } from '@/types';
 import { colors, typography } from '@/theme';
 import { AuthService } from '@/services/AuthService';
 import PostAuthFlowService from '@/services/PostAuthFlowService';
+import RevenueCatService from '@/services/RevenueCatService';
 import { navigateToVaultDestination } from '@/navigation/firstAnchorGate';
 
 type TrialNavProp = StackNavigationProp<RootStackParamList, 'TrialSignUp'>;
@@ -61,6 +62,9 @@ export const TrialSignUpScreen: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [focusedField, setFocusedField] = useState<string | null>(null);
+  // Once the account exists, the user is committed to starting the trial — a
+  // dismissed store sheet must be retried (purchase only, not a re-signup).
+  const [accountReady, setAccountReady] = useState(false);
 
   const glowAnim = useRef(new Animated.Value(0)).current;
   const fadeAnim = useRef(new Animated.Value(0)).current;
@@ -103,7 +107,46 @@ export const TrialSignUpScreen: React.FC = () => {
     navigation.replace('Vault');
   }, [navigation]);
 
+  const proceedToVault = useCallback(() => {
+    navigateToVaultDestination(navigation, 'replace');
+  }, [navigation]);
+
+  /**
+   * Re-attempt only the store trial purchase (the account already exists).
+   * Used when the user dismissed the native store sheet and must retry.
+   *  - entitlement granted  → continue to Vault
+   *  - dismissed again       → stay blocked with a prompt
+   *  - billing threw         → don't trap the user; fall through to Vault
+   */
+  const retryTrialPurchase = useCallback(async () => {
+    setError('');
+    setLoading(true);
+    try {
+      const { status, dismissed } = await RevenueCatService.purchaseDefaultTrialPackage();
+      if (status.hasActiveEntitlement) {
+        proceedToVault();
+        return;
+      }
+      if (dismissed) {
+        setError('Start your free trial to continue.');
+      } else {
+        proceedToVault();
+      }
+    } catch {
+      // Billing unavailable/misconfigured — never strand the user on retry.
+      proceedToVault();
+    } finally {
+      setLoading(false);
+    }
+  }, [proceedToVault]);
+
   const handleSignUp = async () => {
+    // Account already created on a previous tap: only retry the store trial.
+    if (accountReady) {
+      await retryTrialPurchase();
+      return;
+    }
+
     if (!email.trim()) {
       setError('Please enter your email address');
       return;
@@ -118,13 +161,30 @@ export const TrialSignUpScreen: React.FC = () => {
       const result = await AuthService.signUpWithEmail(email.trim(), password, '', {
         hasCompletedOnboarding: true,
       });
-      await PostAuthFlowService.run({
+      const postAuth = await PostAuthFlowService.run({
         user: result.user,
         token: result.token,
         preserveCompletedOnboarding: true,
-        launchTrialPurchase: false,
+        // Start a real store free-trial so RevenueCat tracks the trial and
+        // auto-converts it to a paid subscription.
+        launchTrialPurchase: true,
       });
-      navigateToVaultDestination(navigation, 'replace');
+
+      if (postAuth.hasActiveEntitlement) {
+        proceedToVault();
+        return;
+      }
+
+      // The account now exists. If the user backed out of the store sheet,
+      // block here and require a retry. If billing was simply unavailable
+      // (misconfigured / offline), let them through on the fallback trial so
+      // onboarding can never brick.
+      if (postAuth.trialOutcome === 'dismissed') {
+        setAccountReady(true);
+        setError('Start your free trial to continue.');
+      } else {
+        proceedToVault();
+      }
     } catch (err: any) {
       setError(err.message || 'Sign up failed — please try again');
     } finally {
@@ -161,14 +221,16 @@ export const TrialSignUpScreen: React.FC = () => {
         >
           <Animated.View style={{ opacity: fadeAnim, transform: [{ translateY: slideAnim }] }}>
 
-            {/* Sign-in link */}
-            <TouchableOpacity
-              style={styles.signInBtn}
-              onPress={() => navigation.navigate('Login')}
-              hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
-            >
-              <Text style={styles.signInText}>Sign In</Text>
-            </TouchableOpacity>
+            {/* Sign-in link — hidden once the account exists (trial is required) */}
+            {!accountReady && (
+              <TouchableOpacity
+                style={styles.signInBtn}
+                onPress={() => navigation.navigate('Login')}
+                hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+              >
+                <Text style={styles.signInText}>Sign In</Text>
+              </TouchableOpacity>
+            )}
 
             {/* Hero */}
             <View style={styles.hero}>
@@ -213,8 +275,11 @@ export const TrialSignUpScreen: React.FC = () => {
               <View style={styles.ornamentLine} />
             </View>
 
-            {/* Form card */}
-            <View style={styles.card}>
+            {/* Form card — collapses once the account exists; the screen then
+                becomes a mandatory "start your free trial" wall. */}
+            <View style={[styles.card, accountReady && styles.cardHidden]}
+              pointerEvents={accountReady ? 'none' : 'auto'}
+            >
               {Platform.OS === 'ios' ? (
                 <BlurView intensity={20} tint="dark" style={StyleSheet.absoluteFill} />
               ) : (
@@ -268,14 +333,16 @@ export const TrialSignUpScreen: React.FC = () => {
               No payment required today. If you subscribe later, pricing will be shown before purchase.
             </Text>
 
-            {/* Skip */}
-            <TouchableOpacity
-              style={styles.skipBtn}
-              onPress={goToVault}
-              hitSlop={{ top: 14, bottom: 14, left: 20, right: 20 }}
-            >
-              <Text style={styles.skipText}>Continue without an account →</Text>
-            </TouchableOpacity>
+            {/* Skip — removed once committed: the trial is now required */}
+            {!accountReady && (
+              <TouchableOpacity
+                style={styles.skipBtn}
+                onPress={goToVault}
+                hitSlop={{ top: 14, bottom: 14, left: 20, right: 20 }}
+              >
+                <Text style={styles.skipText}>Continue without an account →</Text>
+              </TouchableOpacity>
+            )}
 
           </Animated.View>
         </ScrollView>
@@ -444,6 +511,12 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: withAlpha(colors.gold, 0.18),
     marginBottom: 14,
+  },
+  cardHidden: {
+    height: 0,
+    marginBottom: 0,
+    borderWidth: 0,
+    opacity: 0,
   },
   cardInner: {
     padding: 14,

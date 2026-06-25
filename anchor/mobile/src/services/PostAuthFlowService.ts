@@ -13,9 +13,22 @@ interface RunPostAuthFlowOptions {
   launchTrialPurchase: boolean;
 }
 
+/**
+ * Outcome of the optional store free-trial purchase.
+ *  - 'purchased'   — the store trial started (RevenueCat has an entitlement)
+ *  - 'dismissed'   — the user backed out of the native store sheet
+ *  - 'unavailable' — billing threw (misconfigured / offline / no offering)
+ *  - 'skipped'     — launchTrialPurchase was false; no purchase attempted
+ *
+ * Callers should block only on 'dismissed'. Treating 'unavailable' as a hard
+ * block would brick onboarding whenever the store/offering isn't wired yet.
+ */
+export type TrialPurchaseOutcome = 'purchased' | 'dismissed' | 'unavailable' | 'skipped';
+
 interface PostAuthFlowResult {
   hasActiveEntitlement: boolean;
   trialStatus: TrialStatusSnapshot;
+  trialOutcome: TrialPurchaseOutcome;
 }
 
 class PostAuthFlowService {
@@ -37,14 +50,21 @@ class PostAuthFlowService {
     }
 
     let trialStatus = await RevenueCatService.logIn(patchedUser.id);
+    let trialOutcome: TrialPurchaseOutcome = 'skipped';
 
-    if (launchTrialPurchase) {
+    if (launchTrialPurchase && trialStatus.hasActiveEntitlement) {
+      // Already entitled (returning subscriber or active store trial): never
+      // re-prompt a purchase. Treat as already-purchased.
+      trialOutcome = 'purchased';
+    } else if (launchTrialPurchase) {
       try {
         const purchaseResult = await RevenueCatService.purchaseDefaultTrialPackage();
         trialStatus = purchaseResult.status;
+        trialOutcome = purchaseResult.dismissed ? 'dismissed' : 'purchased';
       } catch (error) {
         logger.warn('[PostAuthFlowService] Trial purchase failed, refreshing entitlement state', error);
         trialStatus = await RevenueCatService.refreshTrialStatus();
+        trialOutcome = 'unavailable';
       }
     } else {
       trialStatus = await RevenueCatService.refreshTrialStatus();
@@ -89,6 +109,7 @@ class PostAuthFlowService {
     return {
       hasActiveEntitlement: trialStatus.hasActiveEntitlement,
       trialStatus,
+      trialOutcome,
     };
   }
 }

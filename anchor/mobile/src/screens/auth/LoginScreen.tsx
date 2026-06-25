@@ -177,11 +177,16 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ navigation, route }) =
       hasCompletedOnboarding ||
       shouldMarkOnboardingCompletedForAuth();
 
+    // Returning users without an active entitlement are offered the store
+    // free-trial too (so RevenueCat tracks them). The entitlement guard in
+    // PostAuthFlowService skips the prompt for anyone already subscribed/in
+    // trial, and login is never blocked on the outcome — dismissing the sheet
+    // still lets an existing user reach their account.
     await PostAuthFlowService.run({
       user: result.user,
       token: result.token,
       preserveCompletedOnboarding: shouldCompleteOnboardingAfterAuth,
-      launchTrialPurchase: false,
+      launchTrialPurchase: true,
     });
 
     const shouldRouteThroughFirstAnchorGate = Boolean(
@@ -286,7 +291,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ navigation, route }) =
       try {
         const result = await AuthService.signInWithApple({
           hasCompletedOnboarding: shouldMarkOnboardingCompletedForAuth() ? true : undefined,
-          allowBackendCreate: !isSignIn,
+          allowBackendCreate: true,
         });
         await completeAuth(result);
       } catch (err: any) {
@@ -309,7 +314,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ navigation, route }) =
       try {
         const result = await AuthService.signInWithGoogle({
           hasCompletedOnboarding: shouldMarkOnboardingCompletedForAuth() ? true : undefined,
-          allowBackendCreate: !isSignIn,
+          allowBackendCreate: true,
         });
         await completeAuth(result);
       } catch (err: any) {
