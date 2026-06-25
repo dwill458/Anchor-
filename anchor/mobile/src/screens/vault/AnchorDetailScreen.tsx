@@ -25,6 +25,7 @@ import { ChevronRight, Share2, Zap } from 'lucide-react-native';
 import { MoreRitualsSheet, RitualType } from '@/components/MoreRitualsSheet';
 import { useToast } from '@/components/ToastProvider';
 import { useTabNavigation } from '@/contexts/TabNavigationContext';
+import { ENABLE_MERCH } from '@/config';
 import { useAnchorStore } from '@/stores/anchorStore';
 import { useSettingsStore } from '@/stores/settingsStore';
 import { useSessionStore } from '@/stores/sessionStore';
@@ -1445,58 +1446,60 @@ const AnchorDetailsScreen = ({ navigation, route }) => {
           </LinearGradient>
         </FadeUp>
 
-        <FadeUp delay={360}>
-          <LinearGradient
-            colors={CARD_GRADIENT}
-            style={[s.card, s.cardGold]}
-          >
-            <Text style={s.physicalEyebrow}>PHYSICAL ANCHOR</Text>
-            <Text style={s.physicalSub}>Make this symbol tangible.</Text>
-            <View style={s.physicalRow}>
-              <View style={s.physicalThumb}>
-                {anchor.sigilUri ? (
-                  <Image
-                    source={{ uri: anchor.sigilUri }}
-                    style={s.physicalThumbImage}
-                    resizeMode="cover"
-                  />
-                ) : resolvedSigilSvg ? (
-                  <SigilSvg
-                    xml={resolvedSigilSvg}
-                    width={58}
-                    height={58}
-                    color={colors.gold}
-                  />
-                ) : (
-                  <LinearGradient
-                    colors={['#2a1a60', '#0f0830']}
-                    style={s.physicalThumbFallbackBg}
-                  >
-                    <Text style={s.physicalThumbFallback}>🎵</Text>
-                  </LinearGradient>
-                )}
-              </View>
-              <View style={{ flex: 1 }}>
-                <Text style={s.physicalCopyTitle}>Carry your anchor</Text>
-                <Text style={s.physicalCopyBody}>A quiet reminder you can carry.</Text>
-              </View>
-            </View>
-            <TouchableOpacity
-              activeOpacity={0.85}
-              style={{ marginBottom: spacing.sm + spacing.xs }}
-              onPress={() => Alert.alert('Physical Anchor', 'Physical anchor flow coming soon.')}
+        {ENABLE_MERCH && (
+          <FadeUp delay={360}>
+            <LinearGradient
+              colors={CARD_GRADIENT}
+              style={[s.card, s.cardGold]}
             >
-              <LinearGradient
-                colors={['#b8920a', '#d4a820', '#c49a15']}
-                start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}
-                style={s.createPhysicalBtn}
+              <Text style={s.physicalEyebrow}>PHYSICAL ANCHOR</Text>
+              <Text style={s.physicalSub}>Make this symbol tangible.</Text>
+              <View style={s.physicalRow}>
+                <View style={s.physicalThumb}>
+                  {anchor.sigilUri ? (
+                    <Image
+                      source={{ uri: anchor.sigilUri }}
+                      style={s.physicalThumbImage}
+                      resizeMode="cover"
+                    />
+                  ) : resolvedSigilSvg ? (
+                    <SigilSvg
+                      xml={resolvedSigilSvg}
+                      width={58}
+                      height={58}
+                      color={colors.gold}
+                    />
+                  ) : (
+                    <LinearGradient
+                      colors={['#2a1a60', '#0f0830']}
+                      style={s.physicalThumbFallbackBg}
+                    >
+                      <Text style={s.physicalThumbFallback}>🎵</Text>
+                    </LinearGradient>
+                  )}
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={s.physicalCopyTitle}>Carry your anchor</Text>
+                  <Text style={s.physicalCopyBody}>A quiet reminder you can carry.</Text>
+                </View>
+              </View>
+              <TouchableOpacity
+                activeOpacity={0.85}
+                style={{ marginBottom: spacing.sm + spacing.xs }}
+                onPress={() => Alert.alert('Physical Anchor', 'Physical anchor flow coming soon.')}
               >
-                <Text style={s.createPhysicalText}>CREATE PHYSICAL ANCHOR</Text>
-              </LinearGradient>
-            </TouchableOpacity>
-            <Text style={s.physicalTags}>Keychains · Prints · Apparel</Text>
-          </LinearGradient>
-        </FadeUp>
+                <LinearGradient
+                  colors={['#b8920a', '#d4a820', '#c49a15']}
+                  start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}
+                  style={s.createPhysicalBtn}
+                >
+                  <Text style={s.createPhysicalText}>CREATE PHYSICAL ANCHOR</Text>
+                </LinearGradient>
+              </TouchableOpacity>
+              <Text style={s.physicalTags}>Keychains · Prints · Apparel</Text>
+            </LinearGradient>
+          </FadeUp>
+        )}
 
         {/* ── DESTRUCTIVE ACTION ── */}
         {!anchor.isReleased && (

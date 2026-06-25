@@ -58,6 +58,7 @@ interface SubscriptionState extends TrialStatusSnapshot {
     setSubscriptionStatus: (status: 'trial' | 'active' | 'expired') => void;
     setTrialState: (snapshot: TrialStatusSnapshot) => void;
     syncAccountTrial: (startDate: Date | string) => void;
+    applyServerTrial: (startDate: Date | string, serverExpired?: boolean) => void;
     confirmServerExpiry: () => void;
     setPreferredPlanId: (planId: PreferredPlanId) => void;
     setRemoteCompedAccess: (enabled: boolean) => void;
@@ -114,6 +115,39 @@ export const useSubscriptionStore = create<SubscriptionState>()(
                     return {
                         trialStartDate: effectiveStartDate,
                         subscriptionStatus: isLocalTrialActive(effectiveStartDate) ? 'trial' : 'expired',
+                    };
+                });
+            },
+            applyServerTrial: (startDate, serverExpired) => {
+                // The server owns the trial anchor (trialStartedAt). Unlike
+                // syncAccountTrial — which keeps the EARLIEST date as an
+                // anti-tamper guard against cleared local storage — here we
+                // trust and REPLACE the local clock with the server value,
+                // because only the backend can mutate it. This is what lets a
+                // reset (e.g. migrating beta accounts to a fresh trial) actually
+                // take effect on devices that still hold a stale start date.
+                const normalizedStartDate = normalizeTrialStartDate(startDate);
+                if (!normalizedStartDate) {
+                    return;
+                }
+
+                set((state) => {
+                    // Never downgrade a paid subscriber.
+                    if (state.subscriptionStatus === 'active') {
+                        return {};
+                    }
+
+                    // Server clock is authoritative for expiry (defeats device
+                    // clock rollback). Fall back to local math only when the
+                    // backend predates the isTrialExpired field.
+                    const expired =
+                        typeof serverExpired === 'boolean'
+                            ? serverExpired
+                            : !isLocalTrialActive(normalizedStartDate);
+
+                    return {
+                        trialStartDate: normalizedStartDate,
+                        subscriptionStatus: expired ? 'expired' : 'trial',
                     };
                 });
             },

@@ -4,6 +4,11 @@ import { Share } from 'react-native';
 import * as Sharing from 'expo-sharing';
 import { AnchorDetailScreen } from '../AnchorDetailScreen';
 
+jest.mock('@/config', () => ({
+    ...jest.requireActual('@/config'),
+    ENABLE_MERCH: false,
+}));
+
 // Mock navigation
 const mockNavigate = jest.fn();
 const mockNavigateToPractice = jest.fn();
@@ -335,6 +340,12 @@ describe('AnchorDetailScreen', () => {
         expect(screen.getByText('SHARE MY ANCHOR')).toBeTruthy();
         expect(screen.getByText('SET AS WALLPAPER')).toBeTruthy();
         expect(screen.getByText('SAVE PNG')).toBeTruthy();
+    });
+
+    it('does not render the physical anchor CTA when merch is disabled', () => {
+        render(<AnchorDetailScreen navigation={navigation} route={route} />);
+        expect(screen.queryByText('PHYSICAL ANCHOR')).toBeNull();
+        expect(screen.queryByText('CREATE PHYSICAL ANCHOR')).toBeNull();
     });
 
     it('shares a branded anchor card from the detail screen', async () => {

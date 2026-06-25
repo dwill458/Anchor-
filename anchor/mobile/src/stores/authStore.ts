@@ -125,8 +125,25 @@ const createClearedPendingFirstAnchorState = () => ({
   pendingFirstAnchorError: null,
 });
 
-function applyCompedAccessToSubscriptionStore(user: User | null): void {
-  useSubscriptionStore.getState().setRemoteCompedAccess(user?.isComped === true);
+function applyUserToSubscriptionStore(user: User | null): void {
+  const subscription = useSubscriptionStore.getState();
+  subscription.setRemoteCompedAccess(user?.isComped === true);
+
+  // Seed the account-bound trial clock synchronously whenever a user is set, so
+  // it is in place before RevenueCat's async logIn() resolves and reads it.
+  // Without this, on a fresh install (AsyncStorage empty → status defaults to
+  // 'expired') with a restored Firebase session, RevenueCat can confirm "no
+  // entitlement" before the trial start date is known, briefly gating an
+  // in-trial user behind the paywall.
+  //
+  // trialStartedAt is the server-authoritative trial anchor (resettable per
+  // account); we trust it as the source of truth and let it replace any stale
+  // local clock — this is what allows a backend reset to reach existing beta
+  // devices. createdAt is the fallback for backends predating the column.
+  const trialAnchor = user?.trialStartedAt ?? user?.createdAt;
+  if (trialAnchor) {
+    subscription.applyServerTrial(trialAnchor, user?.isTrialExpired);
+  }
 }
 
 async function readLegacyAuthStorage(name: string): Promise<string | null> {
@@ -386,7 +403,7 @@ export const useAuthStore = create<AuthState>()(
 
       // Actions
       setUser: (user) => {
-        applyCompedAccessToSubscriptionStore(user);
+        applyUserToSubscriptionStore(user);
         useProfileStore.getState().syncFromUser(user);
         set((state) => {
           const hasCompletedOnboarding = user
@@ -413,7 +430,7 @@ export const useAuthStore = create<AuthState>()(
         }),
 
       setSession: (user, token) => {
-        applyCompedAccessToSubscriptionStore(user);
+        applyUserToSubscriptionStore(user);
         useProfileStore.getState().syncFromUser(user);
         set(() => {
           const hasCompletedOnboarding = Boolean(user.hasCompletedOnboarding);
@@ -484,7 +501,7 @@ export const useAuthStore = create<AuthState>()(
             createdAt: state.user?.createdAt ?? new Date(),
           });
 
-          applyCompedAccessToSubscriptionStore(developerUser);
+          applyUserToSubscriptionStore(developerUser);
 
           return {
             user: developerUser,
@@ -559,7 +576,7 @@ export const useAuthStore = create<AuthState>()(
           }
 
           const profileData = await fetchCompleteProfile();
-          applyCompedAccessToSubscriptionStore(profileData.user);
+          applyUserToSubscriptionStore(profileData.user);
           const hasCompletedOnboarding = Boolean(profileData.user.hasCompletedOnboarding);
           useProfileStore.getState().syncFromUser(profileData.user);
           set({
@@ -905,7 +922,7 @@ export const useAuthStore = create<AuthState>()(
               lastStabilizeAt: toDateOrNull(updatedUser.lastStabilizeAt) ?? undefined,
             };
 
-            applyCompedAccessToSubscriptionStore(normalizedUpdatedUser);
+            applyUserToSubscriptionStore(normalizedUpdatedUser);
 
             set((state) => ({
               user: state.user ? { ...state.user, ...normalizedUpdatedUser } : normalizedUpdatedUser,
@@ -963,7 +980,7 @@ export const useAuthStore = create<AuthState>()(
           }
         }
 
-        applyCompedAccessToSubscriptionStore(null);
+        applyUserToSubscriptionStore(null);
         useAnchorStore.getState().clearAnchors();
         useSessionStore.getState().reset();
         useTeachingStore.getState().reset();
@@ -999,7 +1016,7 @@ export const useAuthStore = create<AuthState>()(
       storage: createJSONStorage(() => encryptedAuthStorage),
       onRehydrateStorage: () => (state) => {
         if (state) {
-          applyCompedAccessToSubscriptionStore(state.user);
+          applyUserToSubscriptionStore(state.user);
           // One-shot navigation flags should never survive an app restart.
           state.setShouldRedirectToCreation(false);
           // Recompute streak immediately after store hydrates from disk

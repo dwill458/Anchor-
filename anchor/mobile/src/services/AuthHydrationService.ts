@@ -9,7 +9,6 @@ import { useAuthStore } from '@/stores/authStore';
 import { useProfileStore } from '@/stores/profileStore';
 import { useSessionStore } from '@/stores/sessionStore';
 import { useSettingsStore } from '@/stores/settingsStore';
-import { useSubscriptionStore } from '@/stores/subscriptionStore';
 import type { Anchor, ApiResponse, ProfileData, User, UserSettings } from '@/types';
 import { isBackendAnchorId } from '@/services/BackendAnchorService';
 import { buildPrimingHistoryEntry, type PrimingHistoryEntry } from '@/utils/primingAnalytics';
@@ -151,10 +150,7 @@ class AuthHydrationService {
       });
       useProfileStore.getState().syncFromUser(normalizedProfileData.user);
       applyProfileSettings(normalizedProfileData.user.settings);
-      useSubscriptionStore.getState().syncAccountTrial(normalizedProfileData.user.createdAt);
-      if (normalizedProfileData.user.isTrialExpired) {
-        useSubscriptionStore.getState().confirmServerExpiry();
-      }
+      // Trial clock + server expiry are synced centrally by authStore.setUser above.
     } else {
       logger.warn('[AuthHydrationService] Profile hydration failed', profileResult.reason);
     }
