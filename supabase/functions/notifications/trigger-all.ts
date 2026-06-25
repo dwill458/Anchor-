@@ -1,6 +1,7 @@
 import { createClient } from 'npm:@supabase/supabase-js@2';
 
-type NotificationType = 'WEAVER' | 'ALCHEMIST' | null;
+type NotificationCategory = 'daily_prime' | 'thread_strength' | 'weekly_recap' | 'milestone';
+type NotificationTone = 'direct' | 'encouraging' | 'reflective' | 'performance';
 
 type NotificationState = {
   miss_streak?: number;
@@ -15,12 +16,22 @@ type NotificationState = {
   total_primes_all_time?: number;
   alchemist_milestones_count?: number;
   last_sent_at?: string;
-  last_sent_type?: 'WEAVER' | 'ALCHEMIST' | 'MIRROR' | 'MICRO_PRIME';
+  last_sent_type?: NotificationCategory | 'WEAVER' | 'ALCHEMIST' | 'MIRROR' | 'MICRO_PRIME';
   last_sent_utc_date?: string;
   active_session?: boolean;
   active_hours_end?: number;
+  dailyPrimeTime?: string;
   timezone?: string;
   weaver_enabled?: boolean;
+  dailyPrimeEnabled?: boolean;
+  threadStrength?: number;
+  threadStrengthAlertsEnabled?: boolean;
+  threadStrengthThreshold?: number;
+  weeklyRecapEnabled?: boolean;
+  milestoneNotificationsEnabled?: boolean;
+  notificationTone?: NotificationTone;
+  lastNotificationSentAt?: Partial<Record<NotificationCategory, string>>;
+  sentMilestones?: string[];
   [key: string]: unknown;
 };
 
@@ -82,53 +93,123 @@ export const alreadySentToday = (state: NotificationState, now: Date): boolean =
   state.last_sent_utc_date === notificationDateString(now, state.timezone);
 
 export const isAllowedSendHour = (state: NotificationState, now: Date): boolean =>
-  localHourForTimezone(now, state.timezone) === (state.active_hours_end ?? DEFAULT_SEND_HOUR);
+  localHourForTimezone(now, state.timezone) === resolveSendHour(state);
 
-const evalWeaver = (state: NotificationState): boolean => {
-  const isStruggler =
-    (state.miss_streak ?? Number.MAX_SAFE_INTEGER) < 3 ||
-    Boolean(state.app_opened_in_last_5_days);
+const resolveSendHour = (state: NotificationState): number => {
+  const time = typeof state.dailyPrimeTime === 'string' ? state.dailyPrimeTime : null;
+  const match = time ? /^([0-1]?\d|2[0-3]):([0-5]\d)$/.exec(time) : null;
+  if (match) {
+    return Number(match[1]);
+  }
 
-  return (
-    Boolean(state.missed_yesterday) &&
-    isStruggler &&
-    !Boolean(state.primed_today) &&
-    state.weaver_enabled !== false
-  );
+  return state.active_hours_end ?? DEFAULT_SEND_HOUR;
 };
 
-const evalAlchemist = (state: NotificationState): boolean =>
-  (state.current_primes ?? 0) >= (state.goal_primes ?? Number.MAX_SAFE_INTEGER) &&
-  !Boolean(state.has_entered_burn_flow) &&
-  !Boolean(state.sigil_in_vault);
+const wasCategorySentRecently = (
+  state: NotificationState,
+  category: NotificationCategory,
+  now: Date,
+  windowMs: number
+): boolean => {
+  const sentAt = state.lastNotificationSentAt?.[category];
+  if (!sentAt) {
+    return false;
+  }
+
+  const sentDate = new Date(sentAt);
+  return !Number.isNaN(sentDate.getTime()) && now.getTime() - sentDate.getTime() < windowMs;
+};
+
+const evalDailyPrime = (state: NotificationState): boolean =>
+  state.dailyPrimeEnabled !== false &&
+  !Boolean(state.primed_today) &&
+  !Boolean(state.active_session);
+
+const evalThreadStrength = (state: NotificationState, now: Date): boolean =>
+  state.threadStrengthAlertsEnabled !== false &&
+  (state.threadStrength ?? 100) < (state.threadStrengthThreshold ?? 70) &&
+  !Boolean(state.primed_today) &&
+  !wasCategorySentRecently(state, 'thread_strength', now, 24 * 60 * 60 * 1000);
+
+const evalWeeklyRecap = (state: NotificationState, now: Date): boolean =>
+  Boolean(state.weeklyRecapEnabled) &&
+  (state.total_primes_this_week ?? 0) > 0 &&
+  !wasCategorySentRecently(state, 'weekly_recap', now, 7 * 24 * 60 * 60 * 1000);
 
 const resolvePriority = (eligible: {
-  alchemist: boolean;
-  weaver: boolean;
-}): NotificationType => {
-  if (eligible.alchemist) return 'ALCHEMIST';
-  if (eligible.weaver) return 'WEAVER';
+  milestone: boolean;
+  threadStrength: boolean;
+  weeklyRecap: boolean;
+  dailyPrime: boolean;
+}): NotificationCategory | null => {
+  if (eligible.milestone) return 'milestone';
+  if (eligible.threadStrength) return 'thread_strength';
+  if (eligible.weeklyRecap) return 'weekly_recap';
+  if (eligible.dailyPrime) return 'daily_prime';
   return null;
 };
 
-const isSovereign = (state: NotificationState): boolean =>
-  (state.total_primes_all_time ?? 0) >= 50 || (state.alchemist_milestones_count ?? 0) >= 3;
+const detectMilestone = (state: NotificationState): string | null => {
+  const sent = new Set(state.sentMilestones ?? []);
+  const total = state.total_primes_all_time ?? 0;
+  if (total >= 3 && !sent.has('sessions_3')) return 'sessions_3';
+  if (total >= 7 && !sent.has('sessions_7')) return 'sessions_7';
+  if (total >= 30 && !sent.has('sessions_30')) return 'sessions_30';
+  if ((state.threadStrength ?? 0) >= 100 && !sent.has('thread_strength_100')) {
+    return 'thread_strength_100';
+  }
+  return null;
+};
 
-const buildPayload = (type: NotificationType, state: NotificationState) => {
-  switch (type) {
-    case 'WEAVER':
+const getMilestoneLabel = (milestone?: string): string => {
+  switch (milestone) {
+    case 'sessions_3':
+      return '3 sessions completed';
+    case 'sessions_7':
+      return '7 sessions completed';
+    case 'sessions_30':
+      return '30 sessions completed';
+    case 'thread_strength_100':
+      return 'Thread Strength reached 100%';
+    default:
+      return 'Progress milestone';
+  }
+};
+
+const buildPayload = (category: NotificationCategory, state: NotificationState, milestone?: string) => {
+  const tone = state.notificationTone ?? 'encouraging';
+  switch (category) {
+    case 'daily_prime':
       return {
-        title: 'The thread is still here.',
-        body: 'One prime today ties the knot. Reconnect?',
+        title: 'Your anchor is ready',
+        body: "One Focus Session can reinforce today's thread.",
         deepLink: '/sanctuary',
+        templateId: 'daily_prime_direct_1',
+        tone,
       };
-    case 'ALCHEMIST':
+    case 'thread_strength':
       return {
-        title: isSovereign(state)
-          ? 'The thread is woven.'
-          : 'The anchor is complete.',
-        body: `${state.current_primes ?? 0} primes forged. Is it time to release to the Vault?`,
-        deepLink: '/burn-release',
+        title: 'Thread Strength is fading',
+        body: 'A short Focus Session can restore momentum.',
+        deepLink: '/sanctuary',
+        templateId: 'thread_strength_direct_1',
+        tone,
+      };
+    case 'weekly_recap':
+      return {
+        title: 'Your weekly pattern',
+        body: `You completed ${state.total_primes_this_week ?? 0} sessions this week.`,
+        deepLink: '/practice',
+        templateId: 'weekly_recap_direct_1',
+        tone,
+      };
+    case 'milestone':
+      return {
+        title: getMilestoneLabel(milestone),
+        body: 'The thread is holding.',
+        deepLink: '/sanctuary',
+        templateId: 'milestone_direct_7_sessions',
+        tone,
       };
     default:
       return null;
@@ -170,6 +251,10 @@ async function sendExpoPush(options: {
   title: string;
   body: string;
   deepLink: string;
+  category: NotificationCategory;
+  templateId: string;
+  tone: NotificationTone;
+  milestone?: string;
   expoPushToken: string;
 }): Promise<{ sent: boolean; invalidExpoToken?: boolean }> {
   const response = await fetch('https://exp.host/--/api/v2/push/send', {
@@ -185,6 +270,10 @@ async function sendExpoPush(options: {
       body: options.body,
       data: {
         deepLink: options.deepLink,
+        category: options.category,
+        templateId: options.templateId,
+        tone: options.tone,
+        milestone: options.milestone,
       },
     }),
   });
@@ -221,6 +310,10 @@ async function sendPush(options: {
   title: string;
   body: string;
   deepLink: string;
+  category: NotificationCategory;
+  templateId: string;
+  tone: NotificationTone;
+  milestone?: string;
   expoPushToken?: string | null;
   fcmToken?: string | null;
   apnsToken?: string | null;
@@ -266,6 +359,10 @@ async function sendPush(options: {
       },
       data: {
         deepLink: options.deepLink,
+        category: options.category,
+        templateId: options.templateId,
+        tone: options.tone,
+        milestone: options.milestone,
       },
     }),
   });
@@ -295,16 +392,24 @@ async function sendPush(options: {
 async function markNotificationSent(
   userId: string,
   existingState: NotificationState,
-  type: Exclude<NotificationType, null>,
+  category: NotificationCategory,
+  milestone?: string,
   existingUpdatedAt?: string | null
 ): Promise<void> {
   const now = new Date();
   const nextState: NotificationState = {
     ...existingState,
+    lastNotificationSentAt: {
+      ...(existingState.lastNotificationSentAt ?? {}),
+      [category]: now.toISOString(),
+    },
     last_sent_at: now.toISOString(),
-    last_sent_type: type,
+    last_sent_type: category,
     last_sent_utc_date: notificationDateString(now, existingState.timezone),
   };
+  if (category === 'milestone' && milestone) {
+    nextState.sentMilestones = Array.from(new Set([...(existingState.sentMilestones ?? []), milestone]));
+  }
 
   let query = supabase
     .from('users')
@@ -351,8 +456,10 @@ export async function handleTriggerAll(_req: Request): Promise<Response> {
       }
 
       const eligible = {
-        alchemist: evalAlchemist(state),
-        weaver: evalWeaver(state),
+        milestone: state.milestoneNotificationsEnabled !== false && detectMilestone(state) != null,
+        threadStrength: evalThreadStrength(state, now),
+        weeklyRecap: evalWeeklyRecap(state, now),
+        dailyPrime: evalDailyPrime(state),
       };
 
       const toFire = resolvePriority(eligible);
@@ -360,7 +467,8 @@ export async function handleTriggerAll(_req: Request): Promise<Response> {
         continue;
       }
 
-      const payload = buildPayload(toFire, state);
+      const milestone = toFire === 'milestone' ? detectMilestone(state) ?? undefined : undefined;
+      const payload = buildPayload(toFire, state, milestone);
       if (!payload) {
         continue;
       }
@@ -368,6 +476,8 @@ export async function handleTriggerAll(_req: Request): Promise<Response> {
       const result = await sendPush({
         userId: user.id,
         ...payload,
+        category: toFire,
+        milestone,
         expoPushToken: user.expo_push_token,
         fcmToken: user.fcm_token,
         apnsToken: user.apns_token,
@@ -381,7 +491,7 @@ export async function handleTriggerAll(_req: Request): Promise<Response> {
       }
 
       if (result.sent) {
-        await markNotificationSent(user.id, state, toFire, user.updated_at);
+        await markNotificationSent(user.id, state, toFire, milestone, user.updated_at);
       }
     }
 

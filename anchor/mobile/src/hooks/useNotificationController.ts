@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
+import { Alert } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import NotificationService from '@/services/NotificationService';
 import {
@@ -8,14 +9,29 @@ import {
   initializeNotificationState,
   isSameDay,
   isSameWeek,
+  normalizeNotificationState,
   NOTIFICATION_STATE_STORAGE_KEY,
 } from '@/services/NotificationState';
 import { isSovereign } from '@/services/NotificationPriority';
-import { NOTIFICATION_COPY } from '@/constants/NotificationCopy';
 import {
   countDailyGoalCompletions,
   localDateString,
 } from '@/services/DailyGoalNudgeService';
+import { AnalyticsEvents, AnalyticsService } from '@/services/AnalyticsService';
+import {
+  evaluateNotificationRules,
+  type NotificationRuleContext,
+  type NotificationRuleResult,
+} from '@/services/notifications/notificationRules';
+import {
+  renderNotificationTemplate,
+  selectNotificationTemplate,
+} from '@/services/notifications/notificationSelector';
+import type {
+  NotificationCategory,
+  NotificationMilestone,
+  NotificationTone,
+} from '@/services/notifications/notificationTypes';
 import {
   clearPushTokensFromServer,
   getPendingNotificationStateSync,
@@ -31,53 +47,22 @@ import { logger } from '@/utils/logger';
 
 type NotificationStateWithSyncMetadata = SyncedNotificationState;
 
-const NOTIFICATION_PRIORITY_ORDER = ['ALCHEMIST', 'WEAVER', 'MIRROR', 'MICRO_PRIME'] as const;
-
-const getNotificationDayString = (date: Date, timezone: string): string => {
-  const adjusted = new Date(date.getTime() - 2 * 60 * 60 * 1000);
-
-  try {
-    return new Intl.DateTimeFormat('en-CA', {
-      timeZone: timezone || 'UTC',
-      year: 'numeric',
-      month: '2-digit',
-      day: '2-digit',
-    }).format(adjusted);
-  } catch {
-    return adjusted.toISOString().slice(0, 10);
-  }
-};
-
-const wasHigherPriorityNotificationSentToday = (
-  state: NotificationStateWithSyncMetadata,
-  candidate: 'MIRROR' | 'MICRO_PRIME'
-): boolean => {
-  const lastSentType = state.last_sent_type;
-  if (!lastSentType || !state.last_sent_utc_date) {
-    return false;
-  }
-
-  const today = getNotificationDayString(new Date(), state.timezone);
-  if (state.last_sent_utc_date !== today) {
-    return false;
-  }
-
-  const candidatePriority = NOTIFICATION_PRIORITY_ORDER.indexOf(candidate);
-  const lastSentPriority = NOTIFICATION_PRIORITY_ORDER.indexOf(lastSentType);
-
-  return lastSentPriority !== -1 && candidatePriority !== -1 && lastSentPriority < candidatePriority;
-};
+const SMART_NOTIFICATION_PRIORITY: NotificationCategory[] = [
+  'milestone',
+  'thread_strength',
+  'unfinished_anchor',
+  'weekly_recap',
+  'daily_prime',
+];
 
 export const useNotificationController = () => {
   const [notifState, setNotifState] = useState<NotificationStateWithSyncMetadata | null>(null);
   const [isInitialized, setIsInitialized] = useState(false);
   const dailyPracticeGoal = useSettingsStore((state) => state.dailyPracticeGoal ?? 3);
-  const weeklySummaryDay = useSettingsStore((state) => state.weeklySummaryDay ?? 0);
-  const weeklySummaryTime = useSettingsStore((state) => state.weeklySummaryTime ?? '19:00');
 
   const loadState = useCallback(async (): Promise<NotificationStateWithSyncMetadata> => {
     const stored = await AsyncStorage.getItem(NOTIFICATION_STATE_STORAGE_KEY);
-    return stored ? JSON.parse(stored) : initializeNotificationState();
+    return normalizeNotificationState(stored ? JSON.parse(stored) : initializeNotificationState());
   }, []);
 
   const saveState = useCallback(async (state: NotificationStateWithSyncMetadata) => {
@@ -106,6 +91,24 @@ export const useNotificationController = () => {
 
     const currentPrimes = countDailyGoalCompletions(sessionState.sessionLog, now);
     const latestPrime = sessionState.primingHistory[0]?.completedAt ?? state.last_prime_at;
+    const unfinishedAnchorReminders = { ...(state.unfinishedAnchorReminders ?? {}) };
+    anchorState.anchors.forEach((anchor) => {
+      if (anchor.isCharged || anchor.isReleased || anchor.archivedAt) {
+        return;
+      }
+      const anchorId = anchor.localId ?? anchor.id;
+      if (!unfinishedAnchorReminders[anchorId]) {
+        const createdAt =
+          anchor.createdAt instanceof Date
+            ? anchor.createdAt
+            : new Date(anchor.createdAt);
+        unfinishedAnchorReminders[anchorId] = {
+          startedAt: Number.isNaN(createdAt.getTime())
+            ? now.toISOString()
+            : createdAt.toISOString(),
+        };
+      }
+    });
 
     return {
       ...state,
@@ -129,6 +132,8 @@ export const useNotificationController = () => {
       last_prime_at: latestPrime,
       has_reached_goal_today:
         state.has_reached_goal_today || currentPrimes >= dailyPracticeGoal,
+      threadStrength: sessionState.threadStrength,
+      unfinishedAnchorReminders,
     };
   }, [dailyPracticeGoal]);
 
@@ -169,34 +174,131 @@ export const useNotificationController = () => {
     return state;
   }, [syncWithStores]);
 
-  const scheduleMicroPrime = useCallback(async (state: NotificationStateWithSyncMetadata) => {
-    await NotificationService.cancelNotification('micro-prime');
+  const buildRuleContext = useCallback((): NotificationRuleContext => {
+    const sessionState = useSessionStore.getState();
+    const anchorState = useAnchorStore.getState();
 
-    if (
-      !state.notification_enabled ||
-      state.primed_today ||
-      wasHigherPriorityNotificationSentToday(state, 'MICRO_PRIME')
-    ) {
-      return;
+    return {
+      now: new Date(),
+      sessionLog: sessionState.sessionLog,
+      totalSessionsCount: sessionState.totalSessionsCount,
+      threadStrength: sessionState.threadStrength,
+      anchors: anchorState.anchors,
+    };
+  }, []);
+
+  const cancelSmartNotifications = useCallback(async (context?: NotificationRuleContext) => {
+    await Promise.all(
+      SMART_NOTIFICATION_PRIORITY.map((category) =>
+        NotificationService.cancelSmartNotification(category)
+      )
+    );
+
+    await Promise.all(
+      (context?.anchors ?? []).map((anchor) =>
+        NotificationService.cancelSmartNotification('unfinished_anchor', anchor.localId ?? anchor.id)
+      )
+    );
+  }, []);
+
+  const markSmartNotificationScheduled = useCallback((
+    state: NotificationStateWithSyncMetadata,
+    result: NotificationRuleResult,
+    templateId: string
+  ): NotificationStateWithSyncMetadata => {
+    const now = new Date().toISOString();
+    const next: NotificationStateWithSyncMetadata = {
+      ...state,
+      lastTemplateIdByCategory: {
+        ...(state.lastTemplateIdByCategory ?? {}),
+        [result.category]: templateId,
+      },
+    };
+
+    if (result.category !== 'daily_prime') {
+      next.lastNotificationSentAt = {
+        ...(state.lastNotificationSentAt ?? {}),
+        [result.category]: now,
+      };
     }
 
-    const tomorrow = new Date();
-    tomorrow.setDate(tomorrow.getDate() + 1);
-    tomorrow.setHours(state.active_hours_end, 0, 0, 0);
+    if (result.category === 'milestone' && result.milestone) {
+      next.sentMilestones = Array.from(
+        new Set([...(state.sentMilestones ?? []), result.milestone as NotificationMilestone])
+      );
+    }
 
-    const copy = state.sovereign_rank
-      ? NOTIFICATION_COPY.microPrime.sovereign
-      : NOTIFICATION_COPY.microPrime.standard;
+    if (result.category === 'unfinished_anchor' && result.anchorId) {
+      next.unfinishedAnchorReminders = {
+        ...(state.unfinishedAnchorReminders ?? {}),
+        [result.anchorId]: {
+          startedAt:
+            state.unfinishedAnchorReminders?.[result.anchorId]?.startedAt ??
+            new Date().toISOString(),
+          sentAt: now,
+        },
+      };
+    }
 
-    await NotificationService.scheduleLocalNotification({
-      id: 'micro-prime',
-      title: copy.title,
-      body: copy.body,
-      fireDate: tomorrow,
-      deepLink: '/sanctuary',
+    return next;
+  }, []);
+
+  const scheduleSmartNotifications = useCallback(async (
+    state: NotificationStateWithSyncMetadata
+  ): Promise<NotificationStateWithSyncMetadata> => {
+    await NotificationService.cancelNotification('micro-prime');
+    await NotificationService.cancelWeeklySummary();
+
+    const context = buildRuleContext();
+    await cancelSmartNotifications(context);
+
+    const permissionStatus = await NotificationService.getPermissionStatus();
+    const stateWithPermission = {
+      ...state,
+      notificationPermissionStatus: permissionStatus,
+    };
+
+    const result = evaluateNotificationRules(stateWithPermission, context)
+      .find((candidate) => candidate.eligible && candidate.fireDate);
+
+    if (!result?.fireDate) {
+      return stateWithPermission;
+    }
+
+    const template = selectNotificationTemplate({
+      category: result.category,
+      tone: stateWithPermission.notificationTone,
+      lastTemplateIdByCategory: stateWithPermission.lastTemplateIdByCategory,
+    });
+    const rendered = renderNotificationTemplate({
+      template,
+      variables: result.variables,
     });
 
-  }, []);
+    const notificationId = await NotificationService.scheduleSmartNotification({
+      category: result.category,
+      templateId: template.id,
+      tone: stateWithPermission.notificationTone,
+      title: rendered.title,
+      body: rendered.body,
+      fireDate: result.fireDate,
+      anchorId: result.anchorId,
+      milestone: result.milestone,
+    });
+
+    if (notificationId) {
+      AnalyticsService.track(AnalyticsEvents.NOTIFICATION_SCHEDULED, {
+        category: result.category,
+        templateId: template.id,
+        tone: stateWithPermission.notificationTone,
+        anchorId: result.anchorId,
+        sentAt: result.fireDate.toISOString(),
+      });
+      return markSmartNotificationScheduled(stateWithPermission, result, template.id);
+    }
+
+    return stateWithPermission;
+  }, [buildRuleContext, cancelSmartNotifications, markSmartNotificationScheduled]);
 
   const initOnAppOpen = useCallback(async () => {
     try {
@@ -212,8 +314,8 @@ export const useNotificationController = () => {
         state.sovereign_rank = true;
       }
 
+      state = await scheduleSmartNotifications(state);
       await saveState(state);
-      await scheduleMicroPrime(state);
       const syncedState = await syncStateToServer(state);
       if (syncedState) {
         await saveState(syncedState);
@@ -223,7 +325,7 @@ export const useNotificationController = () => {
     } finally {
       setIsInitialized(true);
     }
-  }, [loadState, reconcile, saveState, scheduleMicroPrime, syncStateToServer]);
+  }, [loadState, reconcile, saveState, scheduleSmartNotifications, syncStateToServer]);
 
   useEffect(() => {
     void initOnAppOpen();
@@ -243,8 +345,9 @@ export const useNotificationController = () => {
           return;
         }
 
-        await saveState(reconciledState);
-        const syncedState = await syncStateToServer(reconciledState);
+        const scheduledState = await scheduleSmartNotifications(reconciledState);
+        await saveState(scheduledState);
+        const syncedState = await syncStateToServer(scheduledState);
         if (syncedState && !cancelled) {
           await saveState(syncedState);
         }
@@ -258,34 +361,7 @@ export const useNotificationController = () => {
     return () => {
       cancelled = true;
     };
-  }, [dailyPracticeGoal, isInitialized, loadState, reconcile, saveState, syncStateToServer]);
-
-  useEffect(() => {
-    if (!isInitialized || !notifState) {
-      return;
-    }
-
-    const syncWeeklySummarySchedule = async () => {
-      if (!notifState.notification_enabled) {
-        await NotificationService.cancelWeeklySummary();
-        return;
-      }
-
-      if (wasHigherPriorityNotificationSentToday(notifState, 'MIRROR')) {
-        await NotificationService.cancelWeeklySummary();
-        return;
-      }
-
-      await NotificationService.scheduleWeeklySummary(weeklySummaryDay, weeklySummaryTime);
-    };
-
-    void syncWeeklySummarySchedule();
-  }, [
-    isInitialized,
-    notifState?.notification_enabled,
-    weeklySummaryDay,
-    weeklySummaryTime,
-  ]);
+  }, [dailyPracticeGoal, isInitialized, loadState, reconcile, saveState, scheduleSmartNotifications, syncStateToServer]);
 
   const handlePrimeComplete = useCallback(async () => {
     try {
@@ -309,8 +385,8 @@ export const useNotificationController = () => {
         state.sovereign_rank = true;
       }
 
+      state = await scheduleSmartNotifications(state);
       await saveState(state);
-      await scheduleMicroPrime(state);
       const syncedState = await syncStateToServer(state);
       if (syncedState) {
         await saveState(syncedState);
@@ -318,7 +394,7 @@ export const useNotificationController = () => {
     } catch (err) {
       logger.error('[NotificationController] handlePrimeComplete error:', err);
     }
-  }, [loadState, reconcile, saveState, scheduleMicroPrime, syncStateToServer, syncWithStores]);
+  }, [loadState, reconcile, saveState, scheduleSmartNotifications, syncStateToServer, syncWithStores]);
 
   const handleBurnFlowEntered = useCallback(async () => {
     try {
@@ -363,11 +439,12 @@ export const useNotificationController = () => {
 
   const updateActiveHours = useCallback(async (start: number, end: number) => {
     try {
-      const state = reconcile(await loadState());
+      let state = reconcile(await loadState());
       state.active_hours_start = start;
       state.active_hours_end = end;
+      state.dailyPrimeTime = `${String(end).padStart(2, '0')}:00`;
+      state = await scheduleSmartNotifications(state);
       await saveState(state);
-      await scheduleMicroPrime(state);
       const syncedState = await syncStateToServer(state);
       if (syncedState) {
         await saveState(syncedState);
@@ -375,38 +452,43 @@ export const useNotificationController = () => {
     } catch (err) {
       logger.error('[NotificationController] updateActiveHours error:', err);
     }
-  }, [loadState, reconcile, saveState, scheduleMicroPrime, syncStateToServer]);
+  }, [loadState, reconcile, saveState, scheduleSmartNotifications, syncStateToServer]);
 
   const toggleNotifications = useCallback(async (enabled: boolean) => {
     try {
-      const state = reconcile(await loadState());
+      let state = reconcile(await loadState());
       state.notification_enabled = enabled;
       useSettingsStore.setState({ weeklySummaryEnabled: enabled });
-      await saveState(state);
 
       const isAuthenticated = useAuthStore.getState().isAuthenticated;
 
       if (!enabled) {
         await NotificationService.cancelNotification('micro-prime');
         await NotificationService.cancelWeeklySummary();
+        await cancelSmartNotifications(buildRuleContext());
         if (isAuthenticated) {
           await clearPushTokensFromServer();
         }
       } else {
-        await scheduleMicroPrime(state);
+        state = await scheduleSmartNotifications(state);
         if (isAuthenticated) {
           const registration = await NotificationService.getRemotePushRegistration();
           if (registration.permissionGranted) {
+            state.notificationPermissionStatus = 'granted';
+            AnalyticsService.track(AnalyticsEvents.NOTIFICATION_PERMISSION_GRANTED);
             await syncPushTokensToServer({
               expoPushToken: registration.expoPushToken,
               fcmToken: registration.fcmToken,
               apnsToken: registration.apnsToken,
             });
           } else {
+            state.notificationPermissionStatus = 'denied';
+            AnalyticsService.track(AnalyticsEvents.NOTIFICATION_PERMISSION_DENIED);
             await clearPushTokensFromServer();
           }
         }
       }
+      await saveState(state);
       const syncedState = await syncStateToServer(state);
       if (syncedState) {
         await saveState(syncedState);
@@ -414,23 +496,23 @@ export const useNotificationController = () => {
     } catch (err) {
       logger.error('[NotificationController] toggleNotifications error:', err);
     }
-  }, [loadState, reconcile, saveState, scheduleMicroPrime, syncStateToServer]);
+  }, [buildRuleContext, cancelSmartNotifications, loadState, reconcile, saveState, scheduleSmartNotifications, syncStateToServer]);
 
   const setActiveSession = useCallback(async (active: boolean) => {
     try {
-      const state = reconcile(await loadState());
+      let state = reconcile(await loadState());
       if (state.active_session === active) {
         return;
       }
       state.active_session = active;
-      await saveState(state);
       if (!active) {
-        await scheduleMicroPrime(state);
+        state = await scheduleSmartNotifications(state);
       }
+      await saveState(state);
     } catch (err) {
       logger.error('[NotificationController] setActiveSession error:', err);
     }
-  }, [loadState, reconcile, saveState, scheduleMicroPrime]);
+  }, [loadState, reconcile, saveState, scheduleSmartNotifications]);
 
   const toggleWeaver = useCallback(async (enabled: boolean) => {
     try {
@@ -446,6 +528,137 @@ export const useNotificationController = () => {
     }
   }, [loadState, reconcile, saveState, syncStateToServer]);
 
+  const updateNotificationPreferences = useCallback(async (updates: Partial<Pick<
+    NotificationState,
+    | 'dailyPrimeEnabled'
+    | 'dailyPrimeTime'
+    | 'threadStrengthAlertsEnabled'
+    | 'threadStrengthThreshold'
+    | 'unfinishedAnchorRemindersEnabled'
+    | 'weeklyRecapEnabled'
+    | 'milestoneNotificationsEnabled'
+    | 'notificationTone'
+  >>) => {
+    try {
+      let state = reconcile(await loadState());
+      state = {
+        ...state,
+        ...updates,
+        dailyPrimeTime: updates.dailyPrimeTime ?? state.dailyPrimeTime,
+        threadStrengthThreshold:
+          updates.threadStrengthThreshold != null
+            ? Math.min(100, Math.max(0, Math.round(updates.threadStrengthThreshold)))
+            : state.threadStrengthThreshold,
+        notificationTone: (updates.notificationTone ?? state.notificationTone) as NotificationTone,
+      };
+
+      state = await scheduleSmartNotifications(state);
+      await saveState(state);
+      const syncedState = await syncStateToServer(state);
+      if (syncedState) {
+        await saveState(syncedState);
+      }
+    } catch (err) {
+      logger.error('[NotificationController] updateNotificationPreferences error:', err);
+    }
+  }, [loadState, reconcile, saveState, scheduleSmartNotifications, syncStateToServer]);
+
+  const promptForNotificationPermission = useCallback(async () => {
+    try {
+      let state = reconcile(await loadState());
+      AnalyticsService.track(AnalyticsEvents.NOTIFICATION_PERMISSION_PROMPT_SHOWN);
+      const granted = await NotificationService.requestPermissions();
+
+      state.notificationPermissionStatus = granted ? 'granted' : 'denied';
+      state.notification_enabled = granted;
+
+      AnalyticsService.track(
+        granted
+          ? AnalyticsEvents.NOTIFICATION_PERMISSION_GRANTED
+          : AnalyticsEvents.NOTIFICATION_PERMISSION_DENIED
+      );
+
+      if (granted) {
+        state = await scheduleSmartNotifications(state);
+      } else {
+        await cancelSmartNotifications(buildRuleContext());
+      }
+
+      await saveState(state);
+      const syncedState = await syncStateToServer(state);
+      if (syncedState) {
+        await saveState(syncedState);
+      }
+    } catch (err) {
+      logger.error('[NotificationController] promptForNotificationPermission error:', err);
+    }
+  }, [
+    buildRuleContext,
+    cancelSmartNotifications,
+    loadState,
+    reconcile,
+    saveState,
+    scheduleSmartNotifications,
+    syncStateToServer,
+  ]);
+
+  const showNotificationSoftAsk = useCallback(async () => {
+    try {
+      const state = reconcile(await loadState());
+      if (
+        state.softAskShownAt ||
+        state.notificationPermissionStatus !== 'undetermined'
+      ) {
+        return;
+      }
+
+      const shownAt = new Date().toISOString();
+      await saveState({ ...state, softAskShownAt: shownAt });
+
+      Alert.alert(
+        'Keep your anchor active?',
+        'Anchor can remind you to prime once a day, at the time you choose.',
+        [
+          {
+            text: 'Not now',
+            style: 'cancel',
+            onPress: () => {
+              void (async () => {
+                const dismissedState = reconcile(await loadState());
+                dismissedState.softAskDismissedAt = new Date().toISOString();
+                await saveState(dismissedState);
+                await syncStateToServer(dismissedState);
+              })();
+            },
+          },
+          {
+            text: 'Enable reminders',
+            onPress: () => {
+              void promptForNotificationPermission();
+            },
+          },
+        ]
+      );
+    } catch (err) {
+      logger.error('[NotificationController] showNotificationSoftAsk error:', err);
+    }
+  }, [loadState, promptForNotificationPermission, reconcile, saveState, syncStateToServer]);
+
+  const handleAnchorSaved = useCallback(async () => {
+    await showNotificationSoftAsk();
+    try {
+      let state = reconcile(await loadState());
+      state = await scheduleSmartNotifications(state);
+      await saveState(state);
+      const syncedState = await syncStateToServer(state);
+      if (syncedState) {
+        await saveState(syncedState);
+      }
+    } catch (err) {
+      logger.error('[NotificationController] handleAnchorSaved error:', err);
+    }
+  }, [loadState, reconcile, saveState, scheduleSmartNotifications, showNotificationSoftAsk, syncStateToServer]);
+
   return {
     notifState,
     isInitialized,
@@ -453,8 +666,11 @@ export const useNotificationController = () => {
     handleBurnFlowEntered,
     handleSigilVaulted,
     updateActiveHours,
+    updateNotificationPreferences,
     toggleNotifications,
     setActiveSession,
     toggleWeaver,
+    showNotificationSoftAsk,
+    handleAnchorSaved,
   };
 };

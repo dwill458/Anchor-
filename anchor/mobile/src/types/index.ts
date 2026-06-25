@@ -198,6 +198,7 @@ export interface User {
   stabilizeStreakDays: number;
   lastStabilizeAt?: Date;
   createdAt: Date;
+  isTrialExpired?: boolean;
 }
 
 export type AuthScreenContext = 'onboarding' | 'first_anchor_gate' | 'save_progress' | 'paywall';
@@ -753,6 +754,7 @@ export type RootStackParamList = {
     anchorId: string;
     returnTo?: 'vault' | 'practice' | 'detail';
     autoStartOnSelection?: boolean;
+    initialDuration?: 'quick' | 'deep';
   };
   BreathingAnimation: {
     source?: 'charge' | 'practice';
@@ -835,6 +837,25 @@ export type RootStackParamList = {
 
   // Data & Privacy Settings
   DataPrivacy: undefined;
+
+  // Deferred merch flow. Kept typed while ENABLE_MERCH gates production access.
+  ProductSelection: {
+    anchorId: string;
+    sigilSvg: string;
+    intentionText: string;
+  };
+  ProductMockup: {
+    anchorId: string;
+    sigilSvg: string;
+    intentionText: string;
+    productType: 'print' | 'hoodie' | 'keychain' | 't-shirt' | 'phone-case';
+  };
+  Checkout: {
+    anchorId: string;
+    productType: 'print' | 'hoodie' | 'keychain' | 't-shirt' | 'phone-case';
+    size: string;
+    color: string;
+  };
 };
 
 export type PracticeStackParamList = {

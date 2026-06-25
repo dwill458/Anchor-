@@ -8,12 +8,21 @@ const mockRequestPermissions = jest.fn(() => Promise.resolve(true));
 const mockToggleNotifications = jest.fn(() => Promise.resolve());
 const mockUpdateActiveHours = jest.fn(() => Promise.resolve());
 const mockToggleWeaver = jest.fn(() => Promise.resolve());
+const mockUpdateNotificationPreferences = jest.fn(() => Promise.resolve());
 const mockNotifState = {
   notification_enabled: true,
   active_hours_start: 8,
   active_hours_end: 21,
   sovereign_rank: false,
   weaver_enabled: true,
+  dailyPrimeEnabled: true,
+  dailyPrimeTime: '21:00',
+  threadStrengthAlertsEnabled: true,
+  threadStrengthThreshold: 70,
+  unfinishedAnchorRemindersEnabled: true,
+  weeklyRecapEnabled: false,
+  milestoneNotificationsEnabled: true,
+  notificationTone: 'encouraging',
 };
 const mockFetchProfile = jest.fn(() => Promise.resolve());
 const mockNavigate = jest.fn();
@@ -112,6 +121,7 @@ jest.mock('../../../hooks/useNotificationController', () => ({
     toggleNotifications: mockToggleNotifications,
     updateActiveHours: mockUpdateActiveHours,
     toggleWeaver: mockToggleWeaver,
+    updateNotificationPreferences: mockUpdateNotificationPreferences,
   }),
 }));
 
@@ -229,6 +239,30 @@ describe('SettingsScreen', () => {
     await waitFor(() => {
       expect(mockRequestPermissions).toHaveBeenCalled();
       expect(mockToggleNotifications).not.toHaveBeenCalled();
+    });
+  });
+
+  it('renders Phase 1 notification controls and updates preferences', async () => {
+    mockNotifState.notification_enabled = true;
+    const screen = render(<SettingsScreen />);
+
+    expect(screen.getByText('Daily Prime Reminder')).toBeTruthy();
+    expect(screen.getByText('Thread Strength Alerts')).toBeTruthy();
+    expect(screen.getByText('Unfinished Anchor Reminders')).toBeTruthy();
+    expect(screen.getByText('Weekly Progress Recap')).toBeTruthy();
+    expect(screen.getByText('Milestone Celebrations')).toBeTruthy();
+    expect(screen.getByText('Notification Tone')).toBeTruthy();
+
+    fireEvent.press(screen.getByTestId('settings-row-Thread Threshold'));
+    fireEvent.press(screen.getByTestId('settings-row-Notification Tone'));
+
+    await waitFor(() => {
+      expect(mockUpdateNotificationPreferences).toHaveBeenCalledWith({
+        threadStrengthThreshold: 85,
+      });
+      expect(mockUpdateNotificationPreferences).toHaveBeenCalledWith({
+        notificationTone: 'reflective',
+      });
     });
   });
 

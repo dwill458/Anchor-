@@ -58,6 +58,7 @@ interface SubscriptionState extends TrialStatusSnapshot {
     setSubscriptionStatus: (status: 'trial' | 'active' | 'expired') => void;
     setTrialState: (snapshot: TrialStatusSnapshot) => void;
     syncAccountTrial: (startDate: Date | string) => void;
+    confirmServerExpiry: () => void;
     setPreferredPlanId: (planId: PreferredPlanId) => void;
     setRemoteCompedAccess: (enabled: boolean) => void;
     setDevOverrideEnabled: (enabled: boolean) => void;
@@ -116,6 +117,10 @@ export const useSubscriptionStore = create<SubscriptionState>()(
                     };
                 });
             },
+            confirmServerExpiry: () => set((state) => {
+                if (state.subscriptionStatus === 'active') return {};
+                return { subscriptionStatus: 'expired' };
+            }),
             setPreferredPlanId: (preferredPlanId) => set({ preferredPlanId }),
             setRemoteCompedAccess: (enabled) => set({ remoteCompedAccess: enabled }),
             setDevOverrideEnabled: (enabled) => set({ devOverrideEnabled: enabled }),

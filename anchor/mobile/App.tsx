@@ -3,13 +3,13 @@ import React, { useEffect, useRef } from 'react';
 import {
   Animated,
   AppState,
-  StatusBar,
   View,
   StyleSheet,
   Platform,
   Dimensions,
 } from 'react-native';
 import { useFonts } from 'expo-font';
+import { StatusBar } from 'expo-status-bar';
 import * as SplashScreen from 'expo-splash-screen';
 import * as Notifications from 'expo-notifications';
 import type { DevicePushToken } from 'expo-notifications';
@@ -54,6 +54,7 @@ import { encryptedPersistStorage, readSecureValue } from './src/stores/encrypted
 import { logger } from './src/utils/logger';
 import revenueCatService from './src/services/RevenueCatService';
 import NotificationService from './src/services/NotificationService';
+import { AnalyticsEvents, AnalyticsService } from './src/services/AnalyticsService';
 import AuthHydrationService from './src/services/AuthHydrationService';
 import {
   clearPushTokensFromServer,
@@ -606,6 +607,77 @@ export default function App() {
     };
   }, [user?.id]);
 
+  useEffect(() => {
+    const trackNotificationPayload = (
+      eventName: string,
+      payload: Record<string, unknown>,
+      timestampKey: 'sentAt' | 'openedAt'
+    ) => {
+      const category = typeof payload.category === 'string' ? payload.category : undefined;
+      const templateId = typeof payload.templateId === 'string' ? payload.templateId : undefined;
+      const tone = typeof payload.tone === 'string' ? payload.tone : undefined;
+      const anchorId = typeof payload.anchorId === 'string' ? payload.anchorId : undefined;
+
+      AnalyticsService.track(eventName, {
+        category,
+        templateId,
+        tone,
+        anchorId,
+        [timestampKey]: new Date().toISOString(),
+        completedSessionAfterOpen: timestampKey === 'openedAt' ? false : undefined,
+      });
+    };
+
+    const handleNotificationResponse = (response: Notifications.NotificationResponse) => {
+      const payload = response.notification.request.content.data ?? {};
+      trackNotificationPayload(AnalyticsEvents.NOTIFICATION_OPENED, payload, 'openedAt');
+
+      const action = NotificationService.handleNotificationClick(response);
+      if (!navRef.isReady()) {
+        return;
+      }
+
+      switch (action.action) {
+        case 'open_ritual_reminder':
+        case 'open_daily_reminder':
+        case 'open_streak_protection':
+        case 'open_weekly_summary':
+        case 'open_notification_category':
+          navRef.navigate('Main');
+          break;
+        case 'unknown':
+        default:
+          break;
+      }
+    };
+
+    const subscription = Notifications.addNotificationResponseReceivedListener(
+      handleNotificationResponse
+    );
+    const receivedSubscription = Notifications.addNotificationReceivedListener((notification) => {
+      trackNotificationPayload(
+        AnalyticsEvents.NOTIFICATION_SENT,
+        notification.request.content.data ?? {},
+        'sentAt'
+      );
+    });
+
+    Notifications.getLastNotificationResponseAsync()
+      .then((response) => {
+        if (response) {
+          handleNotificationResponse(response);
+        }
+      })
+      .catch((error) => {
+        logger.warn('[Notifications] Failed to read launch notification response', error);
+      });
+
+    return () => {
+      subscription.remove();
+      receivedSubscription.remove();
+    };
+  }, [navRef]);
+
 
 
   useEffect(() => {
@@ -680,7 +752,7 @@ export default function App() {
                       routeNameRef.current = currentRouteName;
                     }}
                   >
-                    <StatusBar barStyle="light-content" backgroundColor="#1A1A1D" />
+                    <StatusBar style="light" />
                     <RootNavigator />
                     <ForgeMomentOverlay
                       milestone={activeMilestone}

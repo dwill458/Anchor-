@@ -12,6 +12,11 @@ import type {
 } from 'expo-notifications';
 import { Platform } from 'react-native';
 import { ServiceError } from './ServiceErrors';
+import type {
+  NotificationCategory,
+  NotificationPermissionStatus,
+  NotificationTone,
+} from '@/services/notifications/notificationTypes';
 
 // Configure notification behavior
 Notifications.setNotificationHandler({
@@ -41,6 +46,7 @@ export const NOTIFICATION_IDS = {
   STREAK_PROTECTION: 'streak-protection-id',
   WEEKLY_SUMMARY: 'weekly-summary-id',
   RITUAL_REMINDER_PREFIX: 'ritual-reminder',
+  SMART_PREFIX: 'smart-notification',
 };
 
 const DEV_TEST_NOTIFICATION_ID_PREFIX = 'dev-test';
@@ -55,9 +61,12 @@ export type NotificationType =
 
 export interface NotificationPayload {
   type: NotificationType;
+  category?: NotificationCategory;
+  templateId?: string;
+  tone?: NotificationTone;
   anchorId?: string;
   goal?: number;
-  milestone?: number;
+  milestone?: number | string;
   reminderId?: string;
   environment?: string;
   [key: string]: unknown;
@@ -68,6 +77,7 @@ export type NotificationClickAction =
   | { action: 'open_ritual_reminder'; anchorId: string }
   | { action: 'open_streak_protection' }
   | { action: 'open_weekly_summary' }
+  | { action: 'open_notification_category'; category: NotificationCategory; anchorId?: string }
   | { action: 'unknown' };
 
 export interface RemotePushRegistration {
@@ -192,6 +202,25 @@ class NotificationService {
         fcmToken: null,
         apnsToken: null,
       };
+    }
+  }
+
+  async getPermissionStatus(): Promise<NotificationPermissionStatus> {
+    try {
+      const status = await Notifications.getPermissionsAsync();
+      if (this.hasGrantedPermissions(status)) {
+        return 'granted';
+      }
+      return status.status === 'denied' ? 'denied' : 'undetermined';
+    } catch (error) {
+      this.recordError(
+        new ServiceError(
+          'notifications/permission-request-failed',
+          'Failed to read notification permission status.',
+          error
+        )
+      );
+      return 'undetermined';
     }
   }
 
@@ -460,6 +489,59 @@ class NotificationService {
     });
   }
 
+  async scheduleSmartNotification(options: {
+    category: NotificationCategory;
+    templateId: string;
+    tone: NotificationTone;
+    title: string;
+    body: string;
+    fireDate: Date;
+    anchorId?: string;
+    milestone?: string;
+    deepLink?: string;
+  }): Promise<string | null> {
+    if (!(options.fireDate instanceof Date) || Number.isNaN(options.fireDate.getTime())) {
+      this.recordError(
+        new ServiceError(
+          'notifications/invalid-time',
+          'Invalid smart notification fire date. Expected a valid Date.'
+        )
+      );
+      return null;
+    }
+
+    const identifier = this.buildSmartNotificationId(options.category, options.anchorId);
+    await this.cancelReminder(identifier);
+
+    return this.scheduleNotification({
+      identifier,
+      content: {
+        title: options.title,
+        body: options.body,
+        sound: CUSTOM_NOTIFICATION_SOUND,
+        data: this.buildPayload(this.mapCategoryToLegacyType(options.category), {
+          category: options.category,
+          templateId: options.templateId,
+          tone: options.tone,
+          anchorId: options.anchorId,
+          milestone: options.milestone,
+          deepLink: options.deepLink ?? this.defaultDeepLinkForCategory(options.category),
+        }),
+      },
+      trigger: this.buildDateTrigger(
+        options.fireDate,
+        this.channelForCategory(options.category)
+      ),
+    });
+  }
+
+  async cancelSmartNotification(
+    category: NotificationCategory,
+    anchorId?: string
+  ): Promise<void> {
+    await this.cancelReminder(this.buildSmartNotificationId(category, anchorId));
+  }
+
   async cancelNotification(id: string): Promise<void> {
     await this.cancelReminder(id);
   }
@@ -493,6 +575,14 @@ class NotificationService {
       const payload = this.extractPayload(notification);
       if (!payload || typeof payload.type !== 'string') {
         return { action: 'unknown' };
+      }
+
+      if (payload.category) {
+        return {
+          action: 'open_notification_category',
+          category: payload.category,
+          anchorId: payload.anchorId,
+        };
       }
 
       switch (payload.type) {
@@ -684,6 +774,54 @@ class NotificationService {
 
   private buildDailyGoalCheckpointId(milestone: number): string {
     return `${NOTIFICATION_IDS.DAILY_GOAL_CHECKPOINT_PREFIX}:${milestone}`;
+  }
+
+  private buildSmartNotificationId(category: NotificationCategory, anchorId?: string): string {
+    return `${NOTIFICATION_IDS.SMART_PREFIX}:${category}${anchorId ? `:${anchorId}` : ''}`;
+  }
+
+  private mapCategoryToLegacyType(category: NotificationCategory): NotificationType {
+    switch (category) {
+      case 'daily_prime':
+        return 'daily_reminder';
+      case 'thread_strength':
+        return 'streak_protection';
+      case 'unfinished_anchor':
+        return 'ritual_reminder';
+      case 'weekly_recap':
+        return 'weekly_summary';
+      case 'milestone':
+        return 'daily_goal_checkpoint';
+    }
+  }
+
+  private defaultDeepLinkForCategory(category: NotificationCategory): string {
+    switch (category) {
+      case 'unfinished_anchor':
+        return '/vault';
+      case 'weekly_recap':
+        return '/practice';
+      case 'daily_prime':
+      case 'thread_strength':
+      case 'milestone':
+      default:
+        return '/sanctuary';
+    }
+  }
+
+  private channelForCategory(category: NotificationCategory): string {
+    switch (category) {
+      case 'weekly_recap':
+        return NOTIFICATION_CHANNELS.WEEKLY_SUMMARY;
+      case 'thread_strength':
+        return NOTIFICATION_CHANNELS.STREAK_PROTECTION;
+      case 'unfinished_anchor':
+        return NOTIFICATION_CHANNELS.RITUAL_REMINDERS;
+      case 'daily_prime':
+      case 'milestone':
+      default:
+        return NOTIFICATION_CHANNELS.DAILY_REMINDERS;
+    }
   }
 
   private buildDeveloperTestRequest(

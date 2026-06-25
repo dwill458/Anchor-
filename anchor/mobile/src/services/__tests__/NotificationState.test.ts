@@ -30,6 +30,16 @@ describe('NotificationState', () => {
       notification_enabled: true,
       sovereign_rank: false,
       active_session: false,
+      threadStrength: 50,
+      dailyPrimeEnabled: true,
+      dailyPrimeTime: '21:00',
+      threadStrengthAlertsEnabled: true,
+      threadStrengthThreshold: 70,
+      unfinishedAnchorRemindersEnabled: true,
+      weeklyRecapEnabled: false,
+      milestoneNotificationsEnabled: true,
+      notificationTone: 'encouraging',
+      notificationPermissionStatus: 'undetermined',
     });
     expect(typeof state.timezone).toBe('string');
     expect(new Date(state.last_app_open_at).toISOString()).toBe('2026-04-23T14:30:00.000Z');

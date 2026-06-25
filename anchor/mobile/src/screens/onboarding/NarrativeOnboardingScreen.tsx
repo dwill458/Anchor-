@@ -28,7 +28,7 @@ import type { OnboardingStackParamList } from '@/types';
 import { colors, typography } from '@/theme';
 import { isCompactPhoneViewport, isShortPhoneViewport } from '@/utils/layout';
 // eslint-disable-next-line @typescript-eslint/no-var-requires
-const anchorLogoOfficial = require('../../../assets/anchor-gold.png') as number;
+const anchorLogoOfficial = require('../../assets/images/anchor-gold.png') as number;
 
 type Props = NativeStackScreenProps<OnboardingStackParamList, 'Welcome'>;
 
