@@ -19,7 +19,13 @@ let mockAnchors: any[] = [];
 let mockIsLoading = false;
 let mockIsAuthenticated = true;
 let mockHasActiveEntitlement = true;
+let mockHasCompletedOnboarding = false;
+let mockPendingFirstAnchorDraft: any = null;
+let mockLegacyGuestMigrationDismissed = false;
 const mockSetPendingForgeResumeTarget = jest.fn();
+const mockSetLegacyGuestMigrationDismissed = jest.fn((value: boolean) => {
+    mockLegacyGuestMigrationDismissed = value;
+});
 
 jest.mock('@/stores/anchorStore', () => ({
     useAnchorStore: (selector: any) => {
@@ -39,7 +45,11 @@ jest.mock('@/stores/authStore', () => ({
         const state = {
             user: { id: 'test-user', displayName: 'Test User', stabilizeStreakDays: 0, lastStabilizeAt: null },
             isAuthenticated: mockIsAuthenticated,
+            hasCompletedOnboarding: mockHasCompletedOnboarding,
             anchorCount: 0,
+            pendingFirstAnchorDraft: mockPendingFirstAnchorDraft,
+            legacyGuestMigrationDismissed: mockLegacyGuestMigrationDismissed,
+            setLegacyGuestMigrationDismissed: mockSetLegacyGuestMigrationDismissed,
             shouldRedirectToCreation: false,
             setShouldRedirectToCreation: jest.fn(),
             setPendingForgeResumeTarget: mockSetPendingForgeResumeTarget,
@@ -136,6 +146,10 @@ describe('VaultScreen', () => {
         mockIsLoading = false;
         mockIsAuthenticated = true;
         mockHasActiveEntitlement = true;
+        mockHasCompletedOnboarding = false;
+        mockPendingFirstAnchorDraft = null;
+        mockLegacyGuestMigrationDismissed = false;
+        mockSetLegacyGuestMigrationDismissed.mockClear();
     });
 
     it('renders empty state when no anchors', () => {
@@ -257,7 +271,7 @@ describe('VaultScreen', () => {
         expect(screen.queryByText('CREATE NEW ANCHOR')).toBeNull();
     });
 
-    it('routes unauthenticated returning users to the create flow', () => {
+    it('routes unauthenticated returning users to account creation before creating another anchor', () => {
         mockIsAuthenticated = false;
         mockAnchors = [{
             id: 'a1',
@@ -273,7 +287,112 @@ describe('VaultScreen', () => {
         render(<VaultScreen />);
         fireEvent.press(screen.getByLabelText('Create new anchor'));
 
-        expect(mockNavigate).toHaveBeenCalledWith('CreateAnchor');
+        expect(mockNavigate).toHaveBeenCalledWith('Login', {
+            context: 'save_progress',
+            initialTab: 'signup',
+        });
+    });
+
+    it('shows the legacy guest migration banner for returning guests in Sanctuary', () => {
+        mockIsAuthenticated = false;
+        mockHasCompletedOnboarding = true;
+        mockAnchors = [{
+            id: 'a1',
+            intentionText: 'Build focus',
+            category: 'career',
+            isCharged: false,
+            activationCount: 0,
+            baseSigilSvg: '<svg></svg>',
+            createdAt: new Date(),
+            updatedAt: new Date(),
+        }];
+
+        render(<VaultScreen />);
+
+        expect(screen.getByText('Save your Sanctuary.')).toBeTruthy();
+        expect(screen.getByText(/Create your account to keep these anchors/)).toBeTruthy();
+        fireEvent.press(screen.getByText('Save & Create Account'));
+        expect(mockNavigate).toHaveBeenCalledWith('Login', {
+            context: 'save_progress',
+            initialTab: 'signup',
+        });
+    });
+
+    it('shows the account nudge for no-account pending anchors already in Sanctuary', () => {
+        mockIsAuthenticated = false;
+        mockPendingFirstAnchorDraft = {
+            tempAnchorId: 'a1',
+            source: 'onboarding_first_anchor',
+            requiresAccountGate: false,
+            createdAt: new Date(),
+        };
+        mockAnchors = [{
+            id: 'a1',
+            intentionText: 'Build focus',
+            category: 'career',
+            isCharged: false,
+            activationCount: 0,
+            baseSigilSvg: '<svg></svg>',
+            createdAt: new Date(),
+            updatedAt: new Date(),
+        }];
+
+        render(<VaultScreen />);
+
+        expect(screen.getByText('Save your Sanctuary.')).toBeTruthy();
+        expect(screen.getByText('CREATE ACCOUNT TO CONTINUE')).toBeTruthy();
+
+        fireEvent.press(screen.getByLabelText('Create new anchor'));
+
+        expect(mockNavigate).toHaveBeenCalledWith('Login', {
+            context: 'save_progress',
+            initialTab: 'signup',
+        });
+    });
+
+    it('persists dismissal for the legacy guest migration banner', () => {
+        mockIsAuthenticated = false;
+        mockHasCompletedOnboarding = true;
+        mockAnchors = [{
+            id: 'a1',
+            intentionText: 'Build focus',
+            category: 'career',
+            isCharged: false,
+            activationCount: 0,
+            baseSigilSvg: '<svg></svg>',
+            createdAt: new Date(),
+            updatedAt: new Date(),
+        }];
+
+        render(<VaultScreen />);
+
+        fireEvent.press(screen.getByText('✕'));
+        expect(mockSetLegacyGuestMigrationDismissed).toHaveBeenCalledWith(true);
+    });
+
+    it('does not show the legacy guest migration banner for pending first-anchor guests', () => {
+        mockIsAuthenticated = false;
+        mockHasCompletedOnboarding = true;
+        mockPendingFirstAnchorDraft = {
+            tempAnchorId: 'a1',
+            source: 'onboarding_first_anchor',
+            requiresAccountGate: true,
+            createdAt: new Date(),
+        };
+        mockAnchors = [{
+            id: 'a1',
+            intentionText: 'Build focus',
+            category: 'career',
+            isCharged: false,
+            activationCount: 0,
+            baseSigilSvg: '<svg></svg>',
+            createdAt: new Date(),
+            updatedAt: new Date(),
+        }];
+
+        render(<VaultScreen />);
+
+        expect(screen.queryByText('Save your Sanctuary.')).toBeNull();
     });
 
     it('routes authenticated users without entitlement to the create flow', () => {

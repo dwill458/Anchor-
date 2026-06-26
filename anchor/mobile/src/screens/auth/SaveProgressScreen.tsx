@@ -13,10 +13,10 @@ import { useNavigation, useRoute, type RouteProp } from '@react-navigation/nativ
 import type { StackNavigationProp } from '@react-navigation/stack';
 import { OptimizedImage, SigilSvg } from '@/components/common';
 import { useAnchorStore } from '@/stores/anchorStore';
-import { useAuthStore } from '@/stores/authStore';
 import type { RootStackParamList } from '@/types';
 import { colors, spacing, typography } from '@/theme';
 import { isCompactPhoneViewport, isShortPhoneViewport } from '@/utils/layout';
+import { NO_ACCOUNT_SIGN_UP_PARAMS } from '@/utils/noAccountAccess';
 
 type NavigationProp = StackNavigationProp<RootStackParamList, 'SaveProgress'>;
 type SaveProgressRouteProp = RouteProp<RootStackParamList, 'SaveProgress'>;
@@ -26,7 +26,6 @@ export const SaveProgressScreen: React.FC = () => {
   const route = useRoute<SaveProgressRouteProp>();
   const insets = useSafeAreaInsets();
   const { width, height } = useWindowDimensions();
-  const completeOnboarding = useAuthStore((state) => state.completeOnboarding);
   const anchor = useAnchorStore((state) => state.getAnchorById(route.params.anchorId));
   const enhancedImageUrl = anchor?.enhancedImageUrl ?? null;
   const sigilSvg = anchor?.reinforcedSigilSvg ?? anchor?.baseSigilSvg ?? '';
@@ -36,21 +35,13 @@ export const SaveProgressScreen: React.FC = () => {
   const sigilSize = Math.round(previewSize * 0.72);
 
   const handleCreateAccount = () => {
-    navigation.navigate('SignUp', {
-      context: 'save_progress',
-      initialTab: 'signup',
-    });
+    navigation.navigate('Login', NO_ACCOUNT_SIGN_UP_PARAMS);
   };
 
   const handleSignIn = () => {
     navigation.navigate('Login', {
       context: 'save_progress',
     });
-  };
-
-  const handleSkip = () => {
-    completeOnboarding();
-    navigation.replace('Vault');
   };
 
   return (
@@ -73,9 +64,11 @@ export const SaveProgressScreen: React.FC = () => {
         >
           <View style={[styles.header, isCompactLayout && styles.headerCompact]}>
             <Text style={styles.eyebrow}>SAVE PROGRESS</Text>
-            <Text style={[styles.title, isCompactLayout && styles.titleCompact]}>Your first anchor is ready.</Text>
+            <Text style={[styles.title, isCompactLayout && styles.titleCompact]}>
+              Save this anchor. Enter Sanctuary.
+            </Text>
             <Text style={[styles.body, isCompactLayout && styles.bodyCompact]}>
-              Create a free account now so this anchor stays with you before you enter the Vault.
+              Create your account to save this anchor, enter Sanctuary, and keep your practice synced across devices.
             </Text>
           </View>
 
@@ -115,7 +108,7 @@ export const SaveProgressScreen: React.FC = () => {
                 end={{ x: 1, y: 0 }}
                 style={[styles.primaryGradient, isCompactLayout && styles.primaryGradientCompact]}
               >
-                <Text style={styles.primaryText}>Create Account</Text>
+                <Text style={styles.primaryText}>Save Anchor & Create Account</Text>
               </LinearGradient>
             </TouchableOpacity>
 
@@ -125,14 +118,6 @@ export const SaveProgressScreen: React.FC = () => {
               activeOpacity={0.7}
             >
               <Text style={styles.secondaryText}>I already have an account</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={styles.skipButton}
-              onPress={handleSkip}
-              activeOpacity={0.7}
-            >
-              <Text style={styles.skipText}>Skip for now</Text>
             </TouchableOpacity>
           </View>
         </ScrollView>
@@ -309,14 +294,6 @@ const styles = StyleSheet.create({
     ...typography.body,
     fontSize: typography.sizes.body1,
     color: colors.text.secondary,
-  },
-  skipButton: {
-    paddingVertical: spacing.sm,
-    alignItems: 'center',
-  },
-  skipText: {
-    ...typography.body,
-    fontSize: typography.sizes.body2,
-    color: colors.text.tertiary,
+    textAlign: 'center',
   },
 });

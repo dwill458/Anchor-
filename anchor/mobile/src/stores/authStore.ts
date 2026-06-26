@@ -125,8 +125,25 @@ const createClearedPendingFirstAnchorState = () => ({
   pendingFirstAnchorError: null,
 });
 
-function applyCompedAccessToSubscriptionStore(user: User | null): void {
-  useSubscriptionStore.getState().setRemoteCompedAccess(user?.isComped === true);
+function applyUserToSubscriptionStore(user: User | null): void {
+  const subscription = useSubscriptionStore.getState();
+  subscription.setRemoteCompedAccess(user?.isComped === true);
+
+  // Seed the account-bound trial clock synchronously whenever a user is set, so
+  // it is in place before RevenueCat's async logIn() resolves and reads it.
+  // Without this, on a fresh install (AsyncStorage empty → status defaults to
+  // 'expired') with a restored Firebase session, RevenueCat can confirm "no
+  // entitlement" before the trial start date is known, briefly gating an
+  // in-trial user behind the paywall.
+  //
+  // trialStartedAt is the server-authoritative trial anchor (resettable per
+  // account); we trust it as the source of truth and let it replace any stale
+  // local clock — this is what allows a backend reset to reach existing beta
+  // devices. createdAt is the fallback for backends predating the column.
+  const trialAnchor = user?.trialStartedAt ?? user?.createdAt;
+  if (trialAnchor) {
+    subscription.applyServerTrial(trialAnchor, user?.isTrialExpired);
+  }
 }
 
 async function readLegacyAuthStorage(name: string): Promise<string | null> {
@@ -333,7 +350,7 @@ interface AuthState {
   finalizePendingFirstAnchorDraft: () => Promise<boolean>;
   setOfflineMode: (offline: boolean) => void;
   setIsGuest: (value: boolean) => void;
-  signOut: () => void;
+  signOut: () => Promise<void>;
 
   // NEW: Profile actions
   fetchProfile: () => Promise<void>;
@@ -346,6 +363,8 @@ interface AuthState {
   // Wallpaper prompt
   wallpaperPromptSeen: boolean;
   setWallpaperPromptSeen: (seen: boolean) => void;
+  legacyGuestMigrationDismissed: boolean;
+  setLegacyGuestMigrationDismissed: (dismissed: boolean) => void;
 
   // Stabilize (Practice)
   recordStabilize: (anchorId: string) => Promise<{
@@ -381,19 +400,18 @@ export const useAuthStore = create<AuthState>()(
       profileData: null,
       profileLastFetched: null,
       wallpaperPromptSeen: false,
+      legacyGuestMigrationDismissed: false,
       isOfflineMode: false,
       isGuest: false,
 
       // Actions
       setUser: (user) => {
-        applyCompedAccessToSubscriptionStore(user);
-        if (user) {
-          useProfileStore.getState().syncFromUser(user);
-        }
+        applyUserToSubscriptionStore(user);
+        useProfileStore.getState().syncFromUser(user);
         set((state) => {
           const hasCompletedOnboarding = user
             ? Boolean(user.hasCompletedOnboarding)
-            : state.hasCompletedOnboarding;
+            : false;
 
           return {
             user: user
@@ -415,7 +433,7 @@ export const useAuthStore = create<AuthState>()(
         }),
 
       setSession: (user, token) => {
-        applyCompedAccessToSubscriptionStore(user);
+        applyUserToSubscriptionStore(user);
         useProfileStore.getState().syncFromUser(user);
         set(() => {
           const hasCompletedOnboarding = Boolean(user.hasCompletedOnboarding);
@@ -486,7 +504,7 @@ export const useAuthStore = create<AuthState>()(
             createdAt: state.user?.createdAt ?? new Date(),
           });
 
-          applyCompedAccessToSubscriptionStore(developerUser);
+          applyUserToSubscriptionStore(developerUser);
 
           return {
             user: developerUser,
@@ -548,6 +566,9 @@ export const useAuthStore = create<AuthState>()(
       setWallpaperPromptSeen: (wallpaperPromptSeen) =>
         set({ wallpaperPromptSeen }),
 
+      setLegacyGuestMigrationDismissed: (legacyGuestMigrationDismissed) =>
+        set({ legacyGuestMigrationDismissed }),
+
       // NEW: Fetch profile with 5-minute cache TTL
       fetchProfile: async () => {
         try {
@@ -561,7 +582,7 @@ export const useAuthStore = create<AuthState>()(
           }
 
           const profileData = await fetchCompleteProfile();
-          applyCompedAccessToSubscriptionStore(profileData.user);
+          applyUserToSubscriptionStore(profileData.user);
           const hasCompletedOnboarding = Boolean(profileData.user.hasCompletedOnboarding);
           useProfileStore.getState().syncFromUser(profileData.user);
           set({
@@ -907,7 +928,7 @@ export const useAuthStore = create<AuthState>()(
               lastStabilizeAt: toDateOrNull(updatedUser.lastStabilizeAt) ?? undefined,
             };
 
-            applyCompedAccessToSubscriptionStore(normalizedUpdatedUser);
+            applyUserToSubscriptionStore(normalizedUpdatedUser);
 
             set((state) => ({
               user: state.user ? { ...state.user, ...normalizedUpdatedUser } : normalizedUpdatedUser,
@@ -923,58 +944,63 @@ export const useAuthStore = create<AuthState>()(
         return flags;
       },
 
-      signOut: () => {
+      signOut: async () => {
         const userId = get().user?.id;
         if (userId) {
           const profileState = useProfileStore.getState();
           const sessionState = useSessionStore.getState();
           const anchorState = useAnchorStore.getState();
-          void Promise.all([
-            saveAnchorSnapshot(userId, {
-              anchors: anchorState.anchors,
-              currentAnchorId: anchorState.currentAnchorId,
-            }),
-            saveProfileSnapshot(userId, {
-              ownerUserId: profileState.ownerUserId,
-              name: profileState.name,
-              axiom: profileState.axiom,
-              timezone: profileState.timezone,
-              mono: profileState.mono,
-              photo: profileState.photo,
-              memberSince: profileState.memberSince,
-            }),
-            saveSessionSnapshot(userId, {
-              lastSession: sessionState.lastSession,
-              todayPractice: sessionState.todayPractice,
-              weeklyPractice: sessionState.weeklyPractice,
-              lastGraceDayUsedAt: sessionState.lastGraceDayUsedAt,
-              sessionLog: sessionState.sessionLog,
-              threadStrength: sessionState.threadStrength,
-              totalSessionsCount: sessionState.totalSessionsCount,
-              lastPrimedAt: sessionState.lastPrimedAt,
-              weekHistory: sessionState.weekHistory,
-              weekHistoryKey: sessionState.weekHistoryKey,
-              primingHistory: sessionState.primingHistory,
-              journeyWeekStart: sessionState.journeyWeekStart,
-              lastDecayDate: sessionState.lastDecayDate,
-            }),
-          ]).catch((error) => {
+          try {
+            await Promise.all([
+              saveAnchorSnapshot(userId, {
+                anchors: anchorState.anchors,
+                currentAnchorId: anchorState.currentAnchorId,
+              }),
+              saveProfileSnapshot(userId, {
+                ownerUserId: profileState.ownerUserId,
+                name: profileState.name,
+                axiom: profileState.axiom,
+                timezone: profileState.timezone,
+                mono: profileState.mono,
+                photo: profileState.photo,
+                memberSince: profileState.memberSince,
+              }),
+              saveSessionSnapshot(userId, {
+                lastSession: sessionState.lastSession,
+                todayPractice: sessionState.todayPractice,
+                weeklyPractice: sessionState.weeklyPractice,
+                lastGraceDayUsedAt: sessionState.lastGraceDayUsedAt,
+                sessionLog: sessionState.sessionLog,
+                threadStrength: sessionState.threadStrength,
+                totalSessionsCount: sessionState.totalSessionsCount,
+                lastPrimedAt: sessionState.lastPrimedAt,
+                weekHistory: sessionState.weekHistory,
+                weekHistoryKey: sessionState.weekHistoryKey,
+                primingHistory: sessionState.primingHistory,
+                journeyWeekStart: sessionState.journeyWeekStart,
+                lastDecayDate: sessionState.lastDecayDate,
+              }),
+            ]);
+          } catch (error) {
             logger.warn('Failed to preserve local user state before sign out', error);
-          });
+          }
         }
 
-        applyCompedAccessToSubscriptionStore(null);
+        applyUserToSubscriptionStore(null);
         useAnchorStore.getState().clearAnchors();
         useSessionStore.getState().reset();
         useTeachingStore.getState().reset();
+        useProfileStore.getState().resetProfile();
         set({
           user: null,
           token: null,
           isAuthenticated: false,
+          hasCompletedOnboarding: false,
           isOfflineMode: false,
           anchorCount: 0,
           profileData: null,
           profileLastFetched: null,
+          legacyGuestMigrationDismissed: false,
           ...createClearedPendingFirstAnchorState(),
         });
         // Intentionally preserved: local trial cache is device-level/offline UX state.
@@ -997,7 +1023,7 @@ export const useAuthStore = create<AuthState>()(
       storage: createJSONStorage(() => encryptedAuthStorage),
       onRehydrateStorage: () => (state) => {
         if (state) {
-          applyCompedAccessToSubscriptionStore(state.user);
+          applyUserToSubscriptionStore(state.user);
           // One-shot navigation flags should never survive an app restart.
           state.setShouldRedirectToCreation(false);
           // Recompute streak immediately after store hydrates from disk
@@ -1018,6 +1044,7 @@ export const useAuthStore = create<AuthState>()(
         profileData: state.profileData,
         profileLastFetched: state.profileLastFetched,
         wallpaperPromptSeen: state.wallpaperPromptSeen,
+        legacyGuestMigrationDismissed: state.legacyGuestMigrationDismissed,
         isGuest: state.isGuest,
       }),
     }

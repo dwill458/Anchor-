@@ -32,6 +32,8 @@ import {
   SETTINGS_MUTED_TEXT,
   SETTINGS_SCREEN_BACKGROUND,
 } from './shared';
+import { useTrialStatus } from '@/hooks/useTrialStatus';
+import { NO_ACCOUNT_SIGN_UP_PARAMS } from '@/utils/noAccountAccess';
 import { logger } from '@/utils/logger';
 
 const WEEKDAY_LABELS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
@@ -79,7 +81,11 @@ export const SettingsScreen: React.FC = () => {
     (state) => state.threadStrengthSensitivity ?? 'balanced'
   );
   const restDays = useSettingsStore((state) => state.restDays ?? []);
-  const { notifState, toggleNotifications, updateActiveHours, toggleWeaver } = useNotificationController();
+  const {
+    notifState,
+    toggleNotifications,
+    updateNotificationPreferences,
+  } = useNotificationController();
   const user = useAuthStore((state) => state.user);
   const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
   const profileEmail = useAuthStore((state) => state.profileData?.user?.email?.trim() ?? '');
@@ -87,8 +93,9 @@ export const SettingsScreen: React.FC = () => {
   const setUser = useAuthStore((state) => state.setUser);
   const setHasCompletedOnboarding = useAuthStore((state) => state.setHasCompletedOnboarding);
   const signOut = useAuthStore((state) => state.signOut);
+  const { isSubscribed, isTrialActive, daysRemaining } = useTrialStatus();
   const reveal = useSettingsReveal();
-  const [timePickerTarget, setTimePickerTarget] = useState<'wake' | 'reminder' | null>(null);
+  const [timePickerTarget, setTimePickerTarget] = useState<'dailyPrime' | null>(null);
   const [showSetPasswordModal, setShowSetPasswordModal] = useState(false);
   const [spEmail, setSpEmail] = useState('');
   const [spPassword, setSpPassword] = useState('');
@@ -113,7 +120,26 @@ export const SettingsScreen: React.FC = () => {
     ? accountEmail
       ? 'Synced to this account'
       : 'Syncing account details...'
-    : 'Not signed in';
+    : 'Create an account to save your anchors and sync across devices';
+  const subscriptionPlanLabel = !isAuthenticated
+    ? 'No account'
+    : isSubscribed
+      ? 'Active'
+      : isTrialActive
+        ? 'Trial'
+        : 'Inactive';
+  const subscriptionPlanSubtitle = !isAuthenticated
+    ? 'Create an account to manage billing and restore purchases.'
+    : isSubscribed
+      ? 'Subscription linked to this account'
+      : isTrialActive
+        ? `${daysRemaining} day${daysRemaining === 1 ? '' : 's'} remaining in your free trial`
+        : 'Upgrade to unlock subscription benefits.';
+  const subscriptionSummary = !isAuthenticated
+    ? 'Save your anchors, sync across devices, and reconnect future purchases with an account.'
+    : isSubscribed || isTrialActive
+      ? '· Unlimited anchors\n· Advanced customization\n· Manual creation tools'
+      : 'Upgrade to unlock unlimited anchors, advanced customization, and manual creation tools.';
 
   const handleRootLayout = useCallback(() => {
     if (hasMarkedReadyRef.current || frameRef.current !== null) {
@@ -156,7 +182,7 @@ export const SettingsScreen: React.FC = () => {
               logger.warn('[SettingsScreen] Failed to clear sync retry queue on sign-out', error);
             }
 
-            signOut();
+            await signOut();
             setHasCompletedOnboarding(false);
             navigation.dispatch(
               CommonActions.reset({
@@ -172,8 +198,13 @@ export const SettingsScreen: React.FC = () => {
 
   const handleSignIn = useCallback(() => {
     navigation.navigate('Login', {
+      context: 'save_progress',
       initialTab: 'signin',
     });
+  }, [navigation]);
+
+  const handleCreateAccount = useCallback(() => {
+    navigation.navigate('Login', NO_ACCOUNT_SIGN_UP_PARAMS);
   }, [navigation]);
 
   const handleDeleteAccount = useCallback(() => {
@@ -203,7 +234,7 @@ export const SettingsScreen: React.FC = () => {
               logger.warn('[SettingsScreen] Failed to clear sync retry queue after account deletion', error);
             }
 
-            signOut();
+            await signOut();
             setHasCompletedOnboarding(false);
             navigation.dispatch(
               CommonActions.reset({
@@ -292,23 +323,44 @@ export const SettingsScreen: React.FC = () => {
     return `${hour12}:00 ${meridiem}`;
   }, []);
 
+  const formatTimeLabel = useCallback((time: string | null | undefined) => {
+    const match = /^([0-1]?\d|2[0-3]):([0-5]\d)$/.exec(time ?? '');
+    if (!match) {
+      return formatHourLabel(21);
+    }
+
+    return formatHourLabel(Number(match[1]));
+  }, [formatHourLabel]);
+
   const handleTimeSelection = useCallback(
     async (hour: number) => {
-      if (timePickerTarget === 'wake') {
-        await updateActiveHours(hour, notifState?.active_hours_end ?? 21);
-      } else if (timePickerTarget === 'reminder') {
-        await updateActiveHours(notifState?.active_hours_start ?? 8, hour);
+      if (timePickerTarget === 'dailyPrime') {
+        await updateNotificationPreferences({
+          dailyPrimeTime: `${String(hour).padStart(2, '0')}:00`,
+        });
       }
 
       setTimePickerTarget(null);
     },
     [
-      notifState?.active_hours_end,
-      notifState?.active_hours_start,
       timePickerTarget,
-      updateActiveHours,
+      updateNotificationPreferences,
     ]
   );
+
+  const cycleThreadThreshold = useCallback(() => {
+    const current = notifState?.threadStrengthThreshold ?? 70;
+    const next = current >= 85 ? 60 : current >= 70 ? 85 : 70;
+    void updateNotificationPreferences({ threadStrengthThreshold: next });
+  }, [notifState?.threadStrengthThreshold, updateNotificationPreferences]);
+
+  const cycleNotificationTone = useCallback(() => {
+    const order = ['direct', 'encouraging', 'reflective', 'performance'] as const;
+    const current = notifState?.notificationTone ?? 'encouraging';
+    const index = order.indexOf(current);
+    const next = order[(index + 1) % order.length];
+    void updateNotificationPreferences({ notificationTone: next });
+  }, [notifState?.notificationTone, updateNotificationPreferences]);
 
   const sessionSummary =
     focusSessionMode === 'deep'
@@ -414,7 +466,7 @@ export const SettingsScreen: React.FC = () => {
 
             <SettingsRow
               title="Notifications"
-              subtitle="Enable Prime reminders and weekly reflections"
+              subtitle="Enable calm practice reminders"
               type="toggle"
               toggleValue={notifState?.notification_enabled ?? true}
               onToggle={(value) => {
@@ -442,28 +494,77 @@ export const SettingsScreen: React.FC = () => {
             {notifState?.notification_enabled ? (
               <>
                 <SettingsRow
-                  title="Wake Time"
-                  subtitle="When your active day begins"
-                  value={formatHourLabel(notifState?.active_hours_start ?? 8)}
-                  type="chevron"
-                  onPress={() => setTimePickerTarget('wake')}
-                  disabled={isLoading}
-                />
-                <SettingsRow
-                  title="Reminder Time"
-                  subtitle="When Micro-Prime fires if you haven't primed"
-                  value={formatHourLabel(notifState?.active_hours_end ?? 21)}
-                  type="chevron"
-                  onPress={() => setTimePickerTarget('reminder')}
-                  disabled={isLoading}
-                  showDivider={true}
-                />
-                <SettingsRow
-                  title="Recovery Nudges"
-                  subtitle="Gentle reminder when you've missed a day"
+                  title="Daily Prime Reminder"
+                  subtitle="One reminder if no Focus Session or Deep Prime is complete"
                   type="toggle"
-                  toggleValue={notifState?.weaver_enabled ?? true}
-                  onToggle={async (enabled) => void toggleWeaver(enabled)}
+                  toggleValue={notifState?.dailyPrimeEnabled ?? true}
+                  onToggle={(enabled) => void updateNotificationPreferences({ dailyPrimeEnabled: enabled })}
+                  disabled={isLoading}
+                />
+                <SettingsRow
+                  title="Daily Reminder Time"
+                  subtitle="The time Anchor checks whether a prime would help"
+                  value={formatTimeLabel(notifState?.dailyPrimeTime ?? '21:00')}
+                  type="chevron"
+                  onPress={() => setTimePickerTarget('dailyPrime')}
+                  disabled={isLoading || !(notifState?.dailyPrimeEnabled ?? true)}
+                />
+                <SettingsRow
+                  title="Thread Strength Alerts"
+                  subtitle="Only when Thread Strength drops below your threshold"
+                  type="toggle"
+                  toggleValue={notifState?.threadStrengthAlertsEnabled ?? true}
+                  onToggle={(enabled) =>
+                    void updateNotificationPreferences({ threadStrengthAlertsEnabled: enabled })
+                  }
+                  disabled={isLoading}
+                />
+                <SettingsRow
+                  title="Thread Threshold"
+                  subtitle="Tap to change the alert threshold"
+                  value={`${notifState?.threadStrengthThreshold ?? 70}%`}
+                  type="chevron"
+                  onPress={cycleThreadThreshold}
+                  disabled={isLoading}
+                />
+                <SettingsRow
+                  title="Unfinished Anchor Reminders"
+                  subtitle="One reminder when an anchor stays unsealed"
+                  type="toggle"
+                  toggleValue={notifState?.unfinishedAnchorRemindersEnabled ?? true}
+                  onToggle={(enabled) =>
+                    void updateNotificationPreferences({ unfinishedAnchorRemindersEnabled: enabled })
+                  }
+                  disabled={isLoading}
+                />
+                <SettingsRow
+                  title="Weekly Progress Recap"
+                  subtitle="A quiet weekly summary when there is activity"
+                  type="toggle"
+                  toggleValue={notifState?.weeklyRecapEnabled ?? false}
+                  onToggle={(enabled) =>
+                    void updateNotificationPreferences({ weeklyRecapEnabled: enabled })
+                  }
+                  disabled={isLoading}
+                />
+                <SettingsRow
+                  title="Milestone Celebrations"
+                  subtitle="Earned progress moments"
+                  type="toggle"
+                  toggleValue={notifState?.milestoneNotificationsEnabled ?? true}
+                  onToggle={(enabled) =>
+                    void updateNotificationPreferences({ milestoneNotificationsEnabled: enabled })
+                  }
+                  disabled={isLoading}
+                />
+                <SettingsRow
+                  title="Notification Tone"
+                  subtitle="Tap to cycle the copy style"
+                  value={(notifState?.notificationTone ?? 'encouraging')
+                    .replace('_', ' ')
+                    .replace(/^\w/, (char) => char.toUpperCase())}
+                  type="chevron"
+                  onPress={cycleNotificationTone}
                   disabled={isLoading}
                   showDivider={false}
                 />
@@ -511,12 +612,20 @@ export const SettingsScreen: React.FC = () => {
             {isAuthenticated ? (
               <SettingsRow title="Sign Out" type="chevron" onPress={handleSignOut} />
             ) : (
-              <SettingsRow
-                title="Sign In"
-                subtitle="Create or reconnect your account"
-                type="chevron"
-                onPress={handleSignIn}
-              />
+              <>
+                <SettingsRow
+                  title="Create Account"
+                  subtitle="Save your anchors and sync across devices"
+                  type="chevron"
+                  onPress={handleCreateAccount}
+                />
+                <SettingsRow
+                  title="Sign In"
+                  subtitle="Reconnect an existing account"
+                  type="chevron"
+                  onPress={handleSignIn}
+                />
+              </>
             )}
             <SettingsRow
               title="Privacy Policy"
@@ -548,17 +657,31 @@ export const SettingsScreen: React.FC = () => {
 
           <Text style={styles.sectionLabel}>Subscription</Text>
           <SettingsSectionBlock>
-            <SettingsRow title="Current Plan" value="Active" type="static" />
+            <SettingsRow
+              title="Current Plan"
+              subtitle={subscriptionPlanSubtitle}
+              value={subscriptionPlanLabel}
+              type="static"
+            />
             <View style={styles.benefitsRow}>
               <Text style={styles.benefitsText}>
-                {'· Unlimited anchors\n· Advanced customization\n· Manual creation tools'}
+                {subscriptionSummary}
               </Text>
             </View>
-            <SettingsRow
-              title="Manage Subscription"
-              type="chevron"
-              onPress={() => navigation.navigate('Paywall' as never)}
-            />
+            {isAuthenticated ? (
+              <SettingsRow
+                title="Manage Subscription"
+                type="chevron"
+                onPress={() => navigation.navigate('Paywall' as never)}
+              />
+            ) : (
+              <SettingsRow
+                title="Create Account"
+                subtitle="Start your trial and keep access tied to you"
+                type="chevron"
+                onPress={handleCreateAccount}
+              />
+            )}
             <SettingsRow
               title="Restore Purchase"
               type="chevron"
@@ -620,11 +743,7 @@ export const SettingsScreen: React.FC = () => {
         <Pressable style={styles.hourPickerOverlay} onPress={() => setTimePickerTarget(null)}>
           <Pressable style={styles.hourPickerCard} onPress={() => {}}>
             <Text style={styles.hourPickerTitle}>
-              {timePickerTarget === 'wake'
-                ? 'Select Wake Time'
-                : timePickerTarget === 'reminder'
-                  ? 'Select Reminder Time'
-                  : 'Select Time'}
+              Select Daily Reminder Time
             </Text>
             <ScrollView
               style={styles.hourPickerList}
@@ -632,10 +751,7 @@ export const SettingsScreen: React.FC = () => {
               showsVerticalScrollIndicator={false}
             >
               {Array.from({ length: 24 }, (_, hour) => {
-                const activeHour =
-                  timePickerTarget === 'wake'
-                    ? notifState?.active_hours_start ?? 8
-                    : notifState?.active_hours_end ?? 21;
+                const activeHour = Number((notifState?.dailyPrimeTime ?? '21:00').slice(0, 2));
                 const isSelected = activeHour === hour;
 
                 return (

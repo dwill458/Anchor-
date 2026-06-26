@@ -8,15 +8,33 @@ const mockRequestPermissions = jest.fn(() => Promise.resolve(true));
 const mockToggleNotifications = jest.fn(() => Promise.resolve());
 const mockUpdateActiveHours = jest.fn(() => Promise.resolve());
 const mockToggleWeaver = jest.fn(() => Promise.resolve());
+const mockUpdateNotificationPreferences = jest.fn(() => Promise.resolve());
 const mockNotifState = {
   notification_enabled: true,
   active_hours_start: 8,
   active_hours_end: 21,
   sovereign_rank: false,
   weaver_enabled: true,
+  dailyPrimeEnabled: true,
+  dailyPrimeTime: '21:00',
+  threadStrengthAlertsEnabled: true,
+  threadStrengthThreshold: 70,
+  unfinishedAnchorRemindersEnabled: true,
+  weeklyRecapEnabled: false,
+  milestoneNotificationsEnabled: true,
+  notificationTone: 'encouraging',
 };
 const mockFetchProfile = jest.fn(() => Promise.resolve());
 const mockNavigate = jest.fn();
+const mockTrialStatus = {
+  isTrialActive: false,
+  isSubscribed: true,
+  hasExpired: false,
+  trialExpired: false,
+  hasActiveEntitlement: true,
+  daysRemaining: 0,
+  subscriptionStatus: 'active' as const,
+};
 const mockSettings = {
   openDailyAnchorAutomatically: false,
   practiceGuidanceEnabled: true,
@@ -112,12 +130,17 @@ jest.mock('../../../hooks/useNotificationController', () => ({
     toggleNotifications: mockToggleNotifications,
     updateActiveHours: mockUpdateActiveHours,
     toggleWeaver: mockToggleWeaver,
+    updateNotificationPreferences: mockUpdateNotificationPreferences,
   }),
 }));
 
 jest.mock('@/stores/authStore', () => ({
   useAuthStore: (selector?: (state: typeof mockAuthStoreState) => unknown) =>
     selector ? selector(mockAuthStoreState) : mockAuthStoreState,
+}));
+
+jest.mock('@/hooks/useTrialStatus', () => ({
+  useTrialStatus: () => mockTrialStatus,
 }));
 
 jest.mock('@/services/AuthService', () => ({
@@ -143,6 +166,15 @@ describe('SettingsScreen', () => {
     };
     mockAuthStoreState.isAuthenticated = true;
     mockAuthStoreState.profileData = null;
+    Object.assign(mockTrialStatus, {
+      isTrialActive: false,
+      isSubscribed: true,
+      hasExpired: false,
+      trialExpired: false,
+      hasActiveEntitlement: true,
+      daysRemaining: 0,
+      subscriptionStatus: 'active',
+    });
   });
 
   it('renders the synced account email instead of placeholder copy', () => {
@@ -158,18 +190,37 @@ describe('SettingsScreen', () => {
   it('shows a sign-in link for signed-out users', () => {
     mockAuthStoreState.user = null as any;
     mockAuthStoreState.isAuthenticated = false;
+    Object.assign(mockTrialStatus, {
+      isTrialActive: false,
+      isSubscribed: false,
+      hasExpired: true,
+      trialExpired: true,
+      hasActiveEntitlement: false,
+      daysRemaining: 0,
+      subscriptionStatus: 'expired',
+    });
 
     const screen = render(<SettingsScreen />);
 
     expect(screen.getAllByText('Not signed in').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('Create Account').length).toBeGreaterThan(0);
     expect(screen.getByText('Sign In')).toBeTruthy();
-    expect(screen.getByText('Create or reconnect your account')).toBeTruthy();
+    expect(screen.getByText('Create an account to save your anchors and sync across devices')).toBeTruthy();
+    expect(screen.getByText('No account')).toBeTruthy();
     expect(screen.queryByText('Danger Zone')).toBeNull();
     expect(screen.queryByText('Delete Account')).toBeNull();
+
+    fireEvent.press(screen.getAllByTestId('settings-row-Create Account')[0]);
+
+    expect(mockNavigate).toHaveBeenCalledWith('Login', {
+      context: 'save_progress',
+      initialTab: 'signup',
+    });
 
     fireEvent.press(screen.getByTestId('settings-row-Sign In'));
 
     expect(mockNavigate).toHaveBeenCalledWith('Login', {
+      context: 'save_progress',
       initialTab: 'signin',
     });
   });
@@ -229,6 +280,30 @@ describe('SettingsScreen', () => {
     await waitFor(() => {
       expect(mockRequestPermissions).toHaveBeenCalled();
       expect(mockToggleNotifications).not.toHaveBeenCalled();
+    });
+  });
+
+  it('renders Phase 1 notification controls and updates preferences', async () => {
+    mockNotifState.notification_enabled = true;
+    const screen = render(<SettingsScreen />);
+
+    expect(screen.getByText('Daily Prime Reminder')).toBeTruthy();
+    expect(screen.getByText('Thread Strength Alerts')).toBeTruthy();
+    expect(screen.getByText('Unfinished Anchor Reminders')).toBeTruthy();
+    expect(screen.getByText('Weekly Progress Recap')).toBeTruthy();
+    expect(screen.getByText('Milestone Celebrations')).toBeTruthy();
+    expect(screen.getByText('Notification Tone')).toBeTruthy();
+
+    fireEvent.press(screen.getByTestId('settings-row-Thread Threshold'));
+    fireEvent.press(screen.getByTestId('settings-row-Notification Tone'));
+
+    await waitFor(() => {
+      expect(mockUpdateNotificationPreferences).toHaveBeenCalledWith({
+        threadStrengthThreshold: 85,
+      });
+      expect(mockUpdateNotificationPreferences).toHaveBeenCalledWith({
+        notificationTone: 'reflective',
+      });
     });
   });
 

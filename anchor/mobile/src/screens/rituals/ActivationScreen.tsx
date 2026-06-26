@@ -46,6 +46,8 @@ import {
   isFirstPrimeForAnchor as isAnchorFirstPrime,
   needsChargeStateBackfill,
 } from '@/utils/anchorPriming';
+import { usePrimeSessionAccess } from '@/hooks/usePrimeSessionAccess';
+import { NO_ACCOUNT_SIGN_UP_PARAMS } from '@/utils/noAccountAccess';
 
 type ActivationRouteProp = RouteProp<RootStackParamList, 'ActivationRitual'>;
 type ActivationNavigationProp = NativeStackNavigationProp<RootStackParamList, 'ActivationRitual'>;
@@ -73,6 +75,7 @@ export const ActivationScreen: React.FC = () => {
   const { handlePrimeComplete } = useNotificationController();
   const beginPostPrimeTraceFlow = usePostPrimeTraceStore((state) => state.beginFlow);
   const activeFlow = usePostPrimeTraceStore((state) => state.activeFlow);
+  const primeSessionAccess = usePrimeSessionAccess();
   const anchor = getAnchorById(anchorId);
   const isPendingFirstAnchor = pendingFirstAnchorDraft?.tempAnchorId === anchorId;
   const anchorHeroUri = anchor
@@ -83,6 +86,46 @@ export const ActivationScreen: React.FC = () => {
   const isAnchorMissing = !anchor;
 
   useMissingAnchorRedirect(!isAnchorMissing, navigation);
+
+  useEffect(() => {
+    if (isAnchorMissing || primeSessionAccess.focus.isAllowed) {
+      return;
+    }
+
+    const parentNavigation = navigation.getParent?.();
+    const task = InteractionManager.runAfterInteractions(() => {
+      navigation.goBack();
+      requestAnimationFrame(() => {
+        if (parentNavigation?.navigate) {
+          if (primeSessionAccess.isNoAccountSanctuaryUser) {
+            parentNavigation.navigate('Login', NO_ACCOUNT_SIGN_UP_PARAMS);
+          } else {
+            parentNavigation.navigate('Paywall', {
+              source: 'gated_feature',
+              preferredPlanId: 'annual',
+            });
+          }
+          return;
+        }
+
+        if (primeSessionAccess.isNoAccountSanctuaryUser) {
+          navigation.navigate('Login', NO_ACCOUNT_SIGN_UP_PARAMS);
+        } else {
+          navigation.navigate('Paywall', {
+            source: 'gated_feature',
+            preferredPlanId: 'annual',
+          });
+        }
+      });
+    });
+
+    return () => task.cancel();
+  }, [
+    isAnchorMissing,
+    navigation,
+    primeSessionAccess.focus.isAllowed,
+    primeSessionAccess.isNoAccountSanctuaryUser,
+  ]);
 
   // Ground Note (Pattern 2): shown on first charge session, guide ON
   const groundNoteTeaching = useTeachingGate({

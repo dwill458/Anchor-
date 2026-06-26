@@ -2,27 +2,17 @@ import React from 'react';
 import { fireEvent, render } from '@testing-library/react-native';
 import { SaveProgressScreen } from '../SaveProgressScreen';
 
-const mockReplace = jest.fn();
 const mockNavigate = jest.fn();
-const mockCompleteOnboarding = jest.fn();
 
 jest.mock('@react-navigation/native', () => ({
   useNavigation: jest.fn(() => ({
     navigate: mockNavigate,
-    replace: mockReplace,
   })),
   useRoute: jest.fn(() => ({
     params: {
       anchorId: 'anchor-1',
     },
   })),
-}));
-
-jest.mock('@/stores/authStore', () => ({
-  useAuthStore: (selector: (s: Record<string, unknown>) => unknown) =>
-    selector({
-      completeOnboarding: mockCompleteOnboarding,
-    }),
 }));
 
 const mockGetAnchorById = jest.fn();
@@ -60,9 +50,9 @@ describe('SaveProgressScreen', () => {
   it('renders the save progress sheet', () => {
     const { getByText } = render(<SaveProgressScreen />);
     expect(getByText('SAVE PROGRESS')).toBeTruthy();
-    expect(getByText('Create Account')).toBeTruthy();
+    expect(getByText('Save this anchor. Enter Sanctuary.')).toBeTruthy();
+    expect(getByText('Save Anchor & Create Account')).toBeTruthy();
     expect(getByText('I already have an account')).toBeTruthy();
-    expect(getByText('Skip for now')).toBeTruthy();
   });
 
   it('shows the anchor intention text', () => {
@@ -70,10 +60,10 @@ describe('SaveProgressScreen', () => {
     expect(getByText('I move with focus')).toBeTruthy();
   });
 
-  it('navigates to SignUp when Create Account is pressed', () => {
+  it('navigates to account creation when the primary CTA is pressed', () => {
     const { getByText } = render(<SaveProgressScreen />);
-    fireEvent.press(getByText('Create Account'));
-    expect(mockNavigate).toHaveBeenCalledWith('SignUp', {
+    fireEvent.press(getByText('Save Anchor & Create Account'));
+    expect(mockNavigate).toHaveBeenCalledWith('Login', {
       context: 'save_progress',
       initialTab: 'signup',
     });
@@ -85,13 +75,6 @@ describe('SaveProgressScreen', () => {
     expect(mockNavigate).toHaveBeenCalledWith('Login', {
       context: 'save_progress',
     });
-  });
-
-  it('completes onboarding and navigates to Vault on skip', () => {
-    const { getByText } = render(<SaveProgressScreen />);
-    fireEvent.press(getByText('Skip for now'));
-    expect(mockCompleteOnboarding).toHaveBeenCalled();
-    expect(mockReplace).toHaveBeenCalledWith('Vault');
   });
 
   it('renders empty anchor thumbnail when anchorSvg is empty', () => {

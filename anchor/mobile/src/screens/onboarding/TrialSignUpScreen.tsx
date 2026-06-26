@@ -3,10 +3,10 @@
  *
  * Flow: FirstPrimeCompleteScreen (tap) → here → Vault (Sanctuary)
  *
- * Three exits:
- *  1. Start Free Trial  — signs up then navigates to Vault
- *  2. Skip              — navigates directly to Vault
- *  3. Sign In           — navigates to Login (which lands in Vault on success)
+ * Exits:
+ *  1. Create account + start free trial — signs up, launches RevenueCat,
+ *     then navigates to Vault
+ *  2. Sign In                           — navigates to Login
  */
 
 import React, { useRef, useState, useEffect, useCallback } from 'react';
@@ -26,22 +26,52 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { BlurView } from 'expo-blur';
 import Svg, { Defs, RadialGradient, Rect, Stop } from 'react-native-svg';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useRoute, type RouteProp } from '@react-navigation/native';
 import type { StackNavigationProp } from '@react-navigation/stack';
-import type { RootStackParamList } from '@/types';
+import type { RootStackParamList, TrialSignUpSource } from '@/types';
 import { colors, typography } from '@/theme';
 import { AuthService } from '@/services/AuthService';
 import PostAuthFlowService from '@/services/PostAuthFlowService';
+import RevenueCatService from '@/services/RevenueCatService';
 import { navigateToVaultDestination } from '@/navigation/firstAnchorGate';
 
 type TrialNavProp = StackNavigationProp<RootStackParamList, 'TrialSignUp'>;
+type TrialRouteProp = RouteProp<RootStackParamList, 'TrialSignUp'>;
 
-const BENEFITS = [
-  { icon: '⚡', label: 'Forge unlimited anchors' },
-  { icon: '✦', label: 'AI anchor enhancement' },
-  { icon: '◎', label: 'Full practice tracking & Constancy' },
-  { icon: '☁', label: 'Sync across devices' },
-];
+const SCREEN_COPY: Record<
+  TrialSignUpSource,
+  {
+    benefits: Array<{ icon: string; label: string }>;
+    headline: string;
+    subheadline: string;
+    cta: string;
+  }
+> = {
+  save_progress: {
+    benefits: [
+      { icon: '☁', label: 'Save this anchor to your Sanctuary' },
+      { icon: '◎', label: 'Enter Sanctuary with your full practice history' },
+      { icon: '✦', label: 'Unlock AI enhancement and premium rituals' },
+      { icon: '⚡', label: 'Sync seamlessly across devices' },
+    ],
+    headline: `Save your anchor.\nEnter Sanctuary.`,
+    subheadline:
+      'Create your account and start your free trial to save this anchor, unlock Sanctuary, and keep your practice synced across devices.\nNo payment today. Cancel before renewal if you do not want to continue.',
+    cta: 'CREATE ACCOUNT & START TRIAL',
+  },
+  legacy_guest: {
+    benefits: [
+      { icon: '☁', label: 'Save your existing Sanctuary to your account' },
+      { icon: '◎', label: 'Keep your anchors and practice history together' },
+      { icon: '✦', label: 'Unlock new anchor creation and premium rituals' },
+      { icon: '⚡', label: 'Sync your Sanctuary seamlessly across devices' },
+    ],
+    headline: `Save your Sanctuary.\nKeep every anchor.`,
+    subheadline:
+      'Accounts are now required for Sanctuary going forward. Create your account and start your free trial to keep these anchors, continue your practice, and sync everything across devices.\nNo payment today. Cancel before renewal if you do not want to continue.',
+    cta: 'SAVE SANCTUARY & START TRIAL',
+  },
+};
 
 const withAlpha = (hex: string, alpha: number): string => {
   const normalized = hex.replace('#', '');
@@ -55,12 +85,18 @@ const withAlpha = (hex: string, alpha: number): string => {
 
 export const TrialSignUpScreen: React.FC = () => {
   const navigation = useNavigation<TrialNavProp>();
+  const route = useRoute<TrialRouteProp>();
+  const source = route.params?.source ?? 'save_progress';
+  const copy = SCREEN_COPY[source];
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [focusedField, setFocusedField] = useState<string | null>(null);
+  // Once the account exists, the user is committed to starting the trial — a
+  // dismissed store sheet must be retried (purchase only, not a re-signup).
+  const [accountReady, setAccountReady] = useState(false);
 
   const glowAnim = useRef(new Animated.Value(0)).current;
   const fadeAnim = useRef(new Animated.Value(0)).current;
@@ -99,11 +135,46 @@ export const TrialSignUpScreen: React.FC = () => {
     ).start();
   }, [fadeAnim, slideAnim, glowAnim]);
 
-  const goToVault = useCallback(() => {
-    navigation.replace('Vault');
+  const proceedToVault = useCallback(() => {
+    navigateToVaultDestination(navigation, 'replace');
   }, [navigation]);
 
+  /**
+   * Re-attempt only the store trial purchase (the account already exists).
+   * Used when the user dismissed the native store sheet and must retry.
+   *  - entitlement granted  → continue to Vault
+   *  - dismissed again       → stay blocked with a prompt
+   *  - billing threw         → don't trap the user; fall through to Vault
+   */
+  const retryTrialPurchase = useCallback(async () => {
+    setError('');
+    setLoading(true);
+    try {
+      const { status, dismissed } = await RevenueCatService.purchaseDefaultTrialPackage();
+      if (status.hasActiveEntitlement) {
+        proceedToVault();
+        return;
+      }
+      if (dismissed) {
+        setError('Start your free trial to continue.');
+      } else {
+        proceedToVault();
+      }
+    } catch {
+      // Billing unavailable/misconfigured — never strand the user on retry.
+      proceedToVault();
+    } finally {
+      setLoading(false);
+    }
+  }, [proceedToVault]);
+
   const handleSignUp = async () => {
+    // Account already created on a previous tap: only retry the store trial.
+    if (accountReady) {
+      await retryTrialPurchase();
+      return;
+    }
+
     if (!email.trim()) {
       setError('Please enter your email address');
       return;
@@ -118,13 +189,30 @@ export const TrialSignUpScreen: React.FC = () => {
       const result = await AuthService.signUpWithEmail(email.trim(), password, '', {
         hasCompletedOnboarding: true,
       });
-      await PostAuthFlowService.run({
+      const postAuth = await PostAuthFlowService.run({
         user: result.user,
         token: result.token,
         preserveCompletedOnboarding: true,
-        launchTrialPurchase: false,
+        // Start a real store free-trial so RevenueCat tracks the trial and
+        // auto-converts it to a paid subscription.
+        launchTrialPurchase: true,
       });
-      navigateToVaultDestination(navigation, 'replace');
+
+      if (postAuth.hasActiveEntitlement) {
+        proceedToVault();
+        return;
+      }
+
+      // The account now exists. If the user backed out of the store sheet,
+      // block here and require a retry. If billing was simply unavailable
+      // (misconfigured / offline), let them through on the fallback trial so
+      // onboarding can never brick.
+      if (postAuth.trialOutcome === 'dismissed') {
+        setAccountReady(true);
+        setError('Start your free trial to continue.');
+      } else {
+        proceedToVault();
+      }
     } catch (err: any) {
       setError(err.message || 'Sign up failed — please try again');
     } finally {
@@ -161,14 +249,16 @@ export const TrialSignUpScreen: React.FC = () => {
         >
           <Animated.View style={{ opacity: fadeAnim, transform: [{ translateY: slideAnim }] }}>
 
-            {/* Sign-in link */}
-            <TouchableOpacity
-              style={styles.signInBtn}
-              onPress={() => navigation.navigate('Login')}
-              hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
-            >
-              <Text style={styles.signInText}>Sign In</Text>
-            </TouchableOpacity>
+            {/* Sign-in link — hidden once the account exists (trial is required) */}
+            {!accountReady && (
+              <TouchableOpacity
+                style={styles.signInBtn}
+                onPress={() => navigation.navigate('Login')}
+                hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+              >
+                <Text style={styles.signInText}>Sign In</Text>
+              </TouchableOpacity>
+            )}
 
             {/* Hero */}
             <View style={styles.hero}>
@@ -187,18 +277,13 @@ export const TrialSignUpScreen: React.FC = () => {
                 <Text style={styles.trialBadgeText}>7-DAY FREE TRIAL</Text>
               </View>
 
-              <Text style={styles.headline}>
-                All access.{'\n'}Free for a week.
-              </Text>
-              <Text style={styles.subheadline}>
-                Save your anchor and sync your practice across devices.
-                {'\n'}No payment today. Subscribe only if you want to continue after the 7-day trial.
-              </Text>
+              <Text style={styles.headline}>{copy.headline}</Text>
+              <Text style={styles.subheadline}>{copy.subheadline}</Text>
             </View>
 
             {/* Benefits list */}
             <View style={styles.benefits}>
-              {BENEFITS.map((b) => (
+              {copy.benefits.map((b) => (
                 <View key={b.label} style={styles.benefitRow}>
                   <Text style={styles.benefitIcon}>{b.icon}</Text>
                   <Text style={styles.benefitLabel}>{b.label}</Text>
@@ -213,8 +298,11 @@ export const TrialSignUpScreen: React.FC = () => {
               <View style={styles.ornamentLine} />
             </View>
 
-            {/* Form card */}
-            <View style={styles.card}>
+            {/* Form card — collapses once the account exists; the screen then
+                becomes a mandatory "start your free trial" wall. */}
+            <View style={[styles.card, accountReady && styles.cardHidden]}
+              pointerEvents={accountReady ? 'none' : 'auto'}
+            >
               {Platform.OS === 'ios' ? (
                 <BlurView intensity={20} tint="dark" style={StyleSheet.absoluteFill} />
               ) : (
@@ -260,22 +348,15 @@ export const TrialSignUpScreen: React.FC = () => {
               {loading ? (
                 <ActivityIndicator color={colors.navy} />
               ) : (
-                <Text style={styles.ctaText}>START FREE TRIAL</Text>
+                <Text style={styles.ctaText}>
+                  {accountReady ? 'START FREE TRIAL' : copy.cta}
+                </Text>
               )}
             </TouchableOpacity>
 
             <Text style={styles.legalText}>
-              No payment required today. If you subscribe later, pricing will be shown before purchase.
+              No payment required today. Pricing and renewal terms are shown in the store sheet before purchase.
             </Text>
-
-            {/* Skip */}
-            <TouchableOpacity
-              style={styles.skipBtn}
-              onPress={goToVault}
-              hitSlop={{ top: 14, bottom: 14, left: 20, right: 20 }}
-            >
-              <Text style={styles.skipText}>Continue without an account →</Text>
-            </TouchableOpacity>
 
           </Animated.View>
         </ScrollView>
@@ -445,6 +526,12 @@ const styles = StyleSheet.create({
     borderColor: withAlpha(colors.gold, 0.18),
     marginBottom: 14,
   },
+  cardHidden: {
+    height: 0,
+    marginBottom: 0,
+    borderWidth: 0,
+    opacity: 0,
+  },
   cardInner: {
     padding: 14,
     gap: 10,
@@ -496,18 +583,7 @@ const styles = StyleSheet.create({
     color: colors.silver,
     fontSize: 12,
     textAlign: 'center',
-    marginBottom: 28,
+    marginBottom: 12,
     opacity: 0.65,
-  },
-
-  skipBtn: {
-    alignItems: 'center',
-    paddingVertical: 10,
-  },
-  skipText: {
-    fontFamily: typography.fontFamily.sans,
-    color: colors.silver,
-    fontSize: 14,
-    letterSpacing: 0.3,
   },
 });
