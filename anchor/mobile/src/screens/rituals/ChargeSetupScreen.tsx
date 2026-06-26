@@ -28,6 +28,7 @@ import { spacing } from '@/theme';
 import { navigateToVaultDestination } from '@/navigation/firstAnchorGate';
 import { isCompactPhoneViewport, isShortPhoneViewport } from '@/utils/layout';
 import { usePrimeSessionAccess } from '@/hooks/usePrimeSessionAccess';
+import { NO_ACCOUNT_SIGN_UP_PARAMS } from '@/utils/noAccountAccess';
 
 type ChargeSetupRouteProp = RouteProp<RootStackParamList, 'ChargeSetup'>;
 type ChargeSetupNavigationProp = StackNavigationProp<RootStackParamList, 'ChargeSetup'>;
@@ -57,7 +58,7 @@ const FALLBACK_SIGIL_SVG = `
 `.trim();
 
 
-const chargeConfigByChoice = {
+const QUICK_CHARGE_CONFIG = {
   quick: {
     mode: 'focus' as const,
     preset: '30s' as const,
@@ -69,17 +70,28 @@ const chargeConfigByChoice = {
     lineOne: '30 seconds',
     lineTwo: 'Daily reset',
   },
-  deep: {
-    mode: 'ritual' as const,
+};
+
+const getPrimePreset = (durationSeconds: number) => {
+  if (durationSeconds === 120) {
+    return { preset: '2m' as const, customMinutes: undefined };
+  }
+  if (durationSeconds === 300) {
+    return { preset: '5m' as const, customMinutes: undefined };
+  }
+  if (durationSeconds === 600) {
+    return { preset: '10m' as const, customMinutes: undefined };
+  }
+
+  return {
     preset: 'custom' as const,
-    customMinutes: 3,
-    ritualType: 'ritual' as const,
-    durationSeconds: 180,
-    icon: '🔥',
-    name: 'Deep Prime',
-    lineOne: '2 – 10 minutes',
-    lineTwo: 'Deep focus',
-  },
+    customMinutes: Math.max(2, Math.round(durationSeconds / 60)),
+  };
+};
+
+const formatMinutesLabel = (durationSeconds: number) => {
+  const minutes = Math.max(2, Math.round(durationSeconds / 60));
+  return `${minutes} minute${minutes === 1 ? '' : 's'}`;
 };
 
 const getPrimeStructureSvg = (anchor?: Anchor): string =>
@@ -94,6 +106,7 @@ export const ChargeSetupScreen: React.FC = () => {
 
   const getAnchorById = useAnchorStore((state) => state.getAnchorById);
   const setDefaultCharge = useSettingsStore((state) => state.setDefaultCharge);
+  const primeSessionDuration = useSettingsStore((state) => state.primeSessionDuration ?? 120);
   const anchor = getAnchorById(anchorId);
   const primeSessionAccess = usePrimeSessionAccess();
 
@@ -120,6 +133,24 @@ export const ChargeSetupScreen: React.FC = () => {
   const ringPulseMid = useRef(new Animated.Value(1)).current;
   const ringPulseInner = useRef(new Animated.Value(1)).current;
   const structureSvg = useMemo(() => getPrimeStructureSvg(anchor), [anchor]);
+  const chargeConfigByChoice = useMemo(() => {
+    const deepPreset = getPrimePreset(primeSessionDuration);
+
+    return {
+      ...QUICK_CHARGE_CONFIG,
+      deep: {
+        mode: 'ritual' as const,
+        preset: deepPreset.preset,
+        customMinutes: deepPreset.customMinutes,
+        ritualType: 'ritual' as const,
+        durationSeconds: primeSessionDuration,
+        icon: '🔥',
+        name: 'Deep Prime',
+        lineOne: formatMinutesLabel(primeSessionDuration),
+        lineTwo: 'Deep focus',
+      },
+    };
+  }, [primeSessionDuration]);
 
   useEffect(() => {
     AccessibilityInfo.isReduceMotionEnabled().then((v) => setReduceMotionEnabled(v));
@@ -202,7 +233,7 @@ export const ChargeSetupScreen: React.FC = () => {
         });
       }
     },
-    [anchorId, navigation, returnTo]
+    [anchorId, chargeConfigByChoice, navigation, returnTo]
   );
 
   const handleBeginRitual = useCallback(
@@ -211,10 +242,14 @@ export const ChargeSetupScreen: React.FC = () => {
 
       const allowance = choice === 'quick' ? primeSessionAccess.focus : primeSessionAccess.deep;
       if (!allowance.isAllowed) {
-        navigation.navigate('Paywall', {
-          source: 'gated_feature',
-          preferredPlanId: 'annual',
-        });
+        if (primeSessionAccess.isNoAccountSanctuaryUser) {
+          navigation.navigate('Login', NO_ACCOUNT_SIGN_UP_PARAMS);
+        } else {
+          navigation.navigate('Paywall', {
+            source: 'gated_feature',
+            preferredPlanId: 'annual',
+          });
+        }
         return;
       }
 
@@ -231,7 +266,17 @@ export const ChargeSetupScreen: React.FC = () => {
       void safeHaptics.impact(Haptics.ImpactFeedbackStyle.Medium);
       navigateToRitual(choice);
     },
-    [isTransitioning, navigateToRitual, navigation, primeSessionAccess.deep, primeSessionAccess.focus, selectedDuration, setDefaultCharge]
+    [
+      chargeConfigByChoice,
+      isTransitioning,
+      navigateToRitual,
+      navigation,
+      primeSessionAccess.deep,
+      primeSessionAccess.focus,
+      primeSessionAccess.isNoAccountSanctuaryUser,
+      selectedDuration,
+      setDefaultCharge,
+    ]
   );
 
   const handleSelectDuration = useCallback(

@@ -220,4 +220,89 @@ describe('GeminiImageService', () => {
       }
     });
   });
+
+  describe('prompt generation', () => {
+    it('adds style-specific uniqueness signatures for all supported styles', () => {
+      const service = new GeminiImageService();
+      const supportedStyles = [
+        'architectural_trace',
+        'minimal_line',
+        'lunar_etch',
+        'watercolor',
+        'ink_brush',
+        'sacred_geometry',
+        'gold_leaf',
+        'cosmic',
+        'obsidian_mono',
+        'aurora_glow',
+        'ember_trace',
+        'resonance_rings',
+        'echo_chamber',
+        'monolith_ink',
+        'celestial_grid',
+      ];
+
+      supportedStyles.forEach(style => {
+        const prompt = (service as any).createPrompt('steady focus', style, 0);
+        expect(prompt).toContain('UNIQUENESS MANDATE');
+        expect(prompt).toMatch(/SIGNATURE FOR THIS RENDER:/);
+      });
+    });
+
+    it('adds a uniqueness mandate for celestial_grid prompts', () => {
+      const service = new GeminiImageService();
+
+      const prompt = (service as any).createPrompt(
+        'My discipline outlasts my motivation',
+        'celestial_grid',
+        0
+      );
+
+      expect(prompt).toContain('UNIQUENESS MANDATE');
+      expect(prompt).toContain('Do NOT fall back to a generic centered zodiac wheel');
+      expect(prompt).toContain('CELESTIAL SIGNATURE FOR THIS RENDER');
+      expect(prompt).toContain('Grid topology:');
+      expect(prompt).toContain('Framing system:');
+      expect(prompt).toContain('Star-node behavior:');
+    });
+
+    it('produces distinct celestial_grid prompts for different intentions', () => {
+      const service = new GeminiImageService();
+
+      const promptA = (service as any).createPrompt(
+        'I think before I speak',
+        'celestial_grid',
+        0
+      );
+      const promptB = (service as any).createPrompt(
+        'My discipline outlasts my motivation',
+        'celestial_grid',
+        0
+      );
+
+      expect(promptA).not.toEqual(promptB);
+    });
+
+    it('cycles stance variants across variation indexes', () => {
+      const service = new GeminiImageService();
+
+      const promptA = (service as any).createPrompt('steady focus', 'celestial_grid', 0);
+      const promptB = (service as any).createPrompt('steady focus', 'celestial_grid', 1);
+
+      expect(promptA).toContain('COMPOSITIONAL STANCE — VARIATION A (CENTRED)');
+      expect(promptB).toContain('COMPOSITIONAL STANCE — VARIATION B (ASYMMETRICAL)');
+    });
+
+    it('adds a non-generic uniqueness signature for gold_leaf prompts', () => {
+      const service = new GeminiImageService();
+
+      const prompt = (service as any).createPrompt('radiant confidence', 'gold_leaf', 0);
+
+      expect(prompt).toContain('GOLD LEAF SIGNATURE FOR THIS RENDER');
+      expect(prompt).toContain('Gold texture:');
+      expect(prompt).toContain('Spread pattern:');
+      expect(prompt).toContain('Substrate:');
+      expect(prompt).toContain('Glow behavior:');
+    });
+  });
 });

@@ -155,4 +155,31 @@ describe('primeSessionAccess', () => {
     expect(allowance.hasUnlimitedAccess).toBe(true);
     expect(allowance.isAllowed).toBe(true);
   });
+
+  it('supports stricter explicit limits for no-account sanctuary users', () => {
+    const focusAllowance = getPrimeSessionAllowance({
+      tier: 'free',
+      kind: 'focus',
+      primingHistory: history,
+      now: currentDate,
+      enforceLimits: true,
+      limitOverride: 2,
+    });
+
+    const deepAllowance = getPrimeSessionAllowance({
+      tier: 'free',
+      kind: 'deep',
+      primingHistory: history,
+      now: currentDate,
+      enforceLimits: true,
+      limitOverride: 0,
+    });
+
+    expect(focusAllowance.limit).toBe(2);
+    expect(focusAllowance.remaining).toBe(0);
+    expect(focusAllowance.isAllowed).toBe(false);
+    expect(deepAllowance.limit).toBe(0);
+    expect(deepAllowance.remaining).toBe(0);
+    expect(deepAllowance.isAllowed).toBe(false);
+  });
 });

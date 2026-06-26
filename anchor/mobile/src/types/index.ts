@@ -207,6 +207,7 @@ export interface User {
 export type AuthScreenContext = 'onboarding' | 'first_anchor_gate' | 'save_progress' | 'paywall';
 export type AuthScreenInitialTab = 'signin' | 'signup';
 export type AuthPreferredPlanId = 'monthly' | 'annual';
+export type TrialSignUpSource = 'save_progress' | 'legacy_guest';
 
 export interface AuthScreenParams {
   context?: AuthScreenContext;
@@ -549,7 +550,7 @@ export type RootStackParamList = {
   Vault: undefined;
   FirstAnchorAccountGate: undefined;
   SaveProgress: { anchorId: string };
-  TrialSignUp: undefined;
+  TrialSignUp: { source?: TrialSignUpSource } | undefined;
   AnchorDetail: { anchorId: string };
   AuthGate: undefined;
   Paywall: { source?: 'post_trial' | 'gated_feature'; preferredPlanId?: AuthPreferredPlanId } | undefined;

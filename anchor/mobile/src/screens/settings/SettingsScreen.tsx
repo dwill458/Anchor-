@@ -32,6 +32,8 @@ import {
   SETTINGS_MUTED_TEXT,
   SETTINGS_SCREEN_BACKGROUND,
 } from './shared';
+import { useTrialStatus } from '@/hooks/useTrialStatus';
+import { NO_ACCOUNT_SIGN_UP_PARAMS } from '@/utils/noAccountAccess';
 import { logger } from '@/utils/logger';
 
 const WEEKDAY_LABELS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
@@ -91,6 +93,7 @@ export const SettingsScreen: React.FC = () => {
   const setUser = useAuthStore((state) => state.setUser);
   const setHasCompletedOnboarding = useAuthStore((state) => state.setHasCompletedOnboarding);
   const signOut = useAuthStore((state) => state.signOut);
+  const { isSubscribed, isTrialActive, daysRemaining } = useTrialStatus();
   const reveal = useSettingsReveal();
   const [timePickerTarget, setTimePickerTarget] = useState<'dailyPrime' | null>(null);
   const [showSetPasswordModal, setShowSetPasswordModal] = useState(false);
@@ -117,7 +120,26 @@ export const SettingsScreen: React.FC = () => {
     ? accountEmail
       ? 'Synced to this account'
       : 'Syncing account details...'
-    : 'Not signed in';
+    : 'Create an account to save your anchors and sync across devices';
+  const subscriptionPlanLabel = !isAuthenticated
+    ? 'No account'
+    : isSubscribed
+      ? 'Active'
+      : isTrialActive
+        ? 'Trial'
+        : 'Inactive';
+  const subscriptionPlanSubtitle = !isAuthenticated
+    ? 'Create an account to manage billing and restore purchases.'
+    : isSubscribed
+      ? 'Subscription linked to this account'
+      : isTrialActive
+        ? `${daysRemaining} day${daysRemaining === 1 ? '' : 's'} remaining in your free trial`
+        : 'Upgrade to unlock subscription benefits.';
+  const subscriptionSummary = !isAuthenticated
+    ? 'Save your anchors, sync across devices, and reconnect future purchases with an account.'
+    : isSubscribed || isTrialActive
+      ? '· Unlimited anchors\n· Advanced customization\n· Manual creation tools'
+      : 'Upgrade to unlock unlimited anchors, advanced customization, and manual creation tools.';
 
   const handleRootLayout = useCallback(() => {
     if (hasMarkedReadyRef.current || frameRef.current !== null) {
@@ -176,8 +198,13 @@ export const SettingsScreen: React.FC = () => {
 
   const handleSignIn = useCallback(() => {
     navigation.navigate('Login', {
+      context: 'save_progress',
       initialTab: 'signin',
     });
+  }, [navigation]);
+
+  const handleCreateAccount = useCallback(() => {
+    navigation.navigate('Login', NO_ACCOUNT_SIGN_UP_PARAMS);
   }, [navigation]);
 
   const handleDeleteAccount = useCallback(() => {
@@ -585,12 +612,20 @@ export const SettingsScreen: React.FC = () => {
             {isAuthenticated ? (
               <SettingsRow title="Sign Out" type="chevron" onPress={handleSignOut} />
             ) : (
-              <SettingsRow
-                title="Sign In"
-                subtitle="Create or reconnect your account"
-                type="chevron"
-                onPress={handleSignIn}
-              />
+              <>
+                <SettingsRow
+                  title="Create Account"
+                  subtitle="Save your anchors and sync across devices"
+                  type="chevron"
+                  onPress={handleCreateAccount}
+                />
+                <SettingsRow
+                  title="Sign In"
+                  subtitle="Reconnect an existing account"
+                  type="chevron"
+                  onPress={handleSignIn}
+                />
+              </>
             )}
             <SettingsRow
               title="Privacy Policy"
@@ -622,17 +657,31 @@ export const SettingsScreen: React.FC = () => {
 
           <Text style={styles.sectionLabel}>Subscription</Text>
           <SettingsSectionBlock>
-            <SettingsRow title="Current Plan" value="Active" type="static" />
+            <SettingsRow
+              title="Current Plan"
+              subtitle={subscriptionPlanSubtitle}
+              value={subscriptionPlanLabel}
+              type="static"
+            />
             <View style={styles.benefitsRow}>
               <Text style={styles.benefitsText}>
-                {'· Unlimited anchors\n· Advanced customization\n· Manual creation tools'}
+                {subscriptionSummary}
               </Text>
             </View>
-            <SettingsRow
-              title="Manage Subscription"
-              type="chevron"
-              onPress={() => navigation.navigate('Paywall' as never)}
-            />
+            {isAuthenticated ? (
+              <SettingsRow
+                title="Manage Subscription"
+                type="chevron"
+                onPress={() => navigation.navigate('Paywall' as never)}
+              />
+            ) : (
+              <SettingsRow
+                title="Create Account"
+                subtitle="Start your trial and keep access tied to you"
+                type="chevron"
+                onPress={handleCreateAccount}
+              />
+            )}
             <SettingsRow
               title="Restore Purchase"
               type="chevron"

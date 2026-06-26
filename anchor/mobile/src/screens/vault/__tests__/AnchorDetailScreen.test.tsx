@@ -23,6 +23,11 @@ const mockZenBackgroundProps = jest.fn();
 const mockDel = jest.fn();
 const mockRemoveAnchor = jest.fn();
 let mockPerfTier: 'high' | 'medium' | 'low' = 'high';
+let mockAuthState: any = {
+    user: { id: 'user-123' },
+    isAuthenticated: true,
+    pendingFirstAnchorDraft: null,
+};
 const mockAnchor = {
     id: 'anchor-123',
     intentionText: 'Test Intention',
@@ -102,8 +107,7 @@ jest.mock('@/stores/anchorStore', () => ({
 }));
 jest.mock('@/stores/authStore', () => ({
     useAuthStore: (selector: any) => {
-        const state = { user: null };
-        return selector ? selector(state) : state;
+        return selector ? selector(mockAuthState) : mockAuthState;
     }
 }));
 jest.mock('@/stores/settingsStore', () => ({
@@ -262,6 +266,11 @@ describe('AnchorDetailScreen', () => {
         mockDel.mockReset();
         mockRemoveAnchor.mockReset();
         mockPerfTier = 'high';
+        mockAuthState = {
+            user: { id: 'user-123' },
+            isAuthenticated: true,
+            pendingFirstAnchorDraft: null,
+        };
         mockAnchor.enhancedImageUrl = undefined;
         mockAnchor.sigilUri = undefined;
         mockAnchor.isCharged = false;
@@ -404,6 +413,26 @@ describe('AnchorDetailScreen', () => {
         await waitFor(() => {
             expect(screen.getByText('SAVE PNG')).toBeTruthy();
         });
+        expect(Share.share).not.toHaveBeenCalled();
+    });
+
+    it('blocks all export actions for no-account sanctuary users', async () => {
+        mockAuthState = { user: null, isAuthenticated: false, pendingFirstAnchorDraft: null };
+
+        render(<AnchorDetailScreen navigation={navigation} route={route} />);
+
+        expect(screen.getByText('CREATE ACCOUNT TO EXPORT')).toBeTruthy();
+
+        fireEvent.press(screen.getByText('CREATE ACCOUNT TO EXPORT'));
+        fireEvent.press(screen.getByText('SET AS WALLPAPER'));
+        fireEvent.press(screen.getByText('SAVE PNG'));
+
+        expect(mockNavigate).toHaveBeenCalledWith('Login', {
+            context: 'save_progress',
+            initialTab: 'signup',
+        });
+        expect(mockCaptureRef).not.toHaveBeenCalled();
+        expect(mockSaveToLibraryAsync).not.toHaveBeenCalled();
         expect(Share.share).not.toHaveBeenCalled();
     });
 

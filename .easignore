@@ -1,5 +1,8 @@
 .agents/
+.agent/
 .claude/
+.codex/
+.codex-remote-attachments/
 backend/
 ai-service/
 anchor-v2/
@@ -11,7 +14,9 @@ anchor/mobile/patches/
 yu/
 supabase/
 .git/
+.tmp-pr-*/
 .DS_Store
+node_modules/
 # Root files
 /*.png
 /*.log

@@ -56,6 +56,7 @@ export function getPrimeSessionAllowance(params: {
   primingHistory: unknown;
   now?: Date;
   enforceLimits?: boolean;
+  limitOverride?: number;
 }): PrimeSessionAllowance {
   const {
     tier,
@@ -63,13 +64,15 @@ export function getPrimeSessionAllowance(params: {
     primingHistory,
     now = new Date(),
     enforceLimits = true,
+    limitOverride,
   } = params;
   const entitlements = getEntitlements(tier);
   const usage = getWeeklyPrimeUsage(primingHistory, now);
   const limit =
-    kind === 'focus'
+    limitOverride ??
+    (kind === 'focus'
       ? entitlements.focusSessionsPerWeek
-      : entitlements.deepPrimeSessionsPerWeek;
+      : entitlements.deepPrimeSessionsPerWeek);
   const used = kind === 'focus' ? usage.focusUsed : usage.deepUsed;
   const hasUnlimitedAccess = !enforceLimits || !Number.isFinite(limit);
   const remaining = hasUnlimitedAccess ? Infinity : Math.max(0, limit - used);

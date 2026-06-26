@@ -363,6 +363,8 @@ interface AuthState {
   // Wallpaper prompt
   wallpaperPromptSeen: boolean;
   setWallpaperPromptSeen: (seen: boolean) => void;
+  legacyGuestMigrationDismissed: boolean;
+  setLegacyGuestMigrationDismissed: (dismissed: boolean) => void;
 
   // Stabilize (Practice)
   recordStabilize: (anchorId: string) => Promise<{
@@ -398,6 +400,7 @@ export const useAuthStore = create<AuthState>()(
       profileData: null,
       profileLastFetched: null,
       wallpaperPromptSeen: false,
+      legacyGuestMigrationDismissed: false,
       isOfflineMode: false,
       isGuest: false,
 
@@ -562,6 +565,9 @@ export const useAuthStore = create<AuthState>()(
 
       setWallpaperPromptSeen: (wallpaperPromptSeen) =>
         set({ wallpaperPromptSeen }),
+
+      setLegacyGuestMigrationDismissed: (legacyGuestMigrationDismissed) =>
+        set({ legacyGuestMigrationDismissed }),
 
       // NEW: Fetch profile with 5-minute cache TTL
       fetchProfile: async () => {
@@ -994,6 +1000,7 @@ export const useAuthStore = create<AuthState>()(
           anchorCount: 0,
           profileData: null,
           profileLastFetched: null,
+          legacyGuestMigrationDismissed: false,
           ...createClearedPendingFirstAnchorState(),
         });
         // Intentionally preserved: local trial cache is device-level/offline UX state.
@@ -1037,6 +1044,7 @@ export const useAuthStore = create<AuthState>()(
         profileData: state.profileData,
         profileLastFetched: state.profileLastFetched,
         wallpaperPromptSeen: state.wallpaperPromptSeen,
+        legacyGuestMigrationDismissed: state.legacyGuestMigrationDismissed,
         isGuest: state.isGuest,
       }),
     }

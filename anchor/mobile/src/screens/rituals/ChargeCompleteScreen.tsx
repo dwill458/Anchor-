@@ -61,7 +61,6 @@ export const ChargeCompleteScreen: React.FC = () => {
 
   const getAnchorById = useAnchorStore((state) => state.getAnchorById);
   const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
-  const wallpaperPromptSeen = useAuthStore((state) => state.wallpaperPromptSeen);
   const pendingFirstAnchorDraft = useAuthStore((state) => state.pendingFirstAnchorDraft);
   const isPendingFirstAnchor = pendingFirstAnchorDraft?.tempAnchorId === anchorId;
   const { recordSession } = useSessionStore();
@@ -205,18 +204,6 @@ export const ChargeCompleteScreen: React.FC = () => {
     // Show save progress gate for guest users completing their first anchor
     if (!isAuthenticated && isPendingFirstAnchor) {
       navigation.navigate('SaveProgress', { anchorId });
-      return;
-    }
-
-    // Re-fire wallpaper prompt for guest users after their first practice session
-    if (!isAuthenticated && !wallpaperPromptSeen && anchor) {
-      navigation.navigate('WallpaperPrompt', {
-        anchorId,
-        intentionText: anchor.intentionText,
-        enhancedImageUrl: anchor.enhancedImageUrl ?? undefined,
-        sigilSvg: (anchor.reinforcedSigilSvg ?? anchor.baseSigilSvg) ?? undefined,
-        returnTo: 'vault',
-      });
       return;
     }
 

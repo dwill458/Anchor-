@@ -47,6 +47,7 @@ import {
   needsChargeStateBackfill,
 } from '@/utils/anchorPriming';
 import { usePrimeSessionAccess } from '@/hooks/usePrimeSessionAccess';
+import { NO_ACCOUNT_SIGN_UP_PARAMS } from '@/utils/noAccountAccess';
 
 type ActivationRouteProp = RouteProp<RootStackParamList, 'ActivationRitual'>;
 type ActivationNavigationProp = NativeStackNavigationProp<RootStackParamList, 'ActivationRitual'>;
@@ -96,22 +97,35 @@ export const ActivationScreen: React.FC = () => {
       navigation.goBack();
       requestAnimationFrame(() => {
         if (parentNavigation?.navigate) {
-          parentNavigation.navigate('Paywall', {
-            source: 'gated_feature',
-            preferredPlanId: 'annual',
-          });
+          if (primeSessionAccess.isNoAccountSanctuaryUser) {
+            parentNavigation.navigate('Login', NO_ACCOUNT_SIGN_UP_PARAMS);
+          } else {
+            parentNavigation.navigate('Paywall', {
+              source: 'gated_feature',
+              preferredPlanId: 'annual',
+            });
+          }
           return;
         }
 
-        navigation.navigate('Paywall', {
-          source: 'gated_feature',
-          preferredPlanId: 'annual',
-        });
+        if (primeSessionAccess.isNoAccountSanctuaryUser) {
+          navigation.navigate('Login', NO_ACCOUNT_SIGN_UP_PARAMS);
+        } else {
+          navigation.navigate('Paywall', {
+            source: 'gated_feature',
+            preferredPlanId: 'annual',
+          });
+        }
       });
     });
 
     return () => task.cancel();
-  }, [isAnchorMissing, navigation, primeSessionAccess.focus.isAllowed]);
+  }, [
+    isAnchorMissing,
+    navigation,
+    primeSessionAccess.focus.isAllowed,
+    primeSessionAccess.isNoAccountSanctuaryUser,
+  ]);
 
   // Ground Note (Pattern 2): shown on first charge session, guide ON
   const groundNoteTeaching = useTeachingGate({

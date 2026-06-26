@@ -41,6 +41,7 @@ import { useAppPerformanceTier } from '@/hooks/useAppPerformanceTier';
 import { useNotificationController } from '@/hooks/useNotificationController';
 import { usePrimeSessionAccess } from '@/hooks/usePrimeSessionAccess';
 import { ConfirmUnchargedBurnSheet } from '@/components/modals/ConfirmUnchargedBurnSheet';
+import { NO_ACCOUNT_SIGN_UP_PARAMS } from '@/utils/noAccountAccess';
 
 type PracticeNavigationProp = StackNavigationProp<PracticeStackParamList, 'PracticeHome'>;
 // DEFERRED: type PendingMode = 'charge' | 'stabilize' | 'burn' | 'quickActivate' | null; — restore post-launch
@@ -342,10 +343,14 @@ export const PracticeScreen: React.FC = () => {
   const startCharge = useCallback(
     (anchor: Anchor, durationSecondsOverride?: number) => {
       if (!primeSessionAccess.deep.isAllowed) {
-        rootNavigation.navigate('Paywall', {
-          source: 'gated_feature',
-          preferredPlanId: 'annual',
-        });
+        if (primeSessionAccess.isNoAccountSanctuaryUser) {
+          rootNavigation.navigate('Login', NO_ACCOUNT_SIGN_UP_PARAMS);
+        } else {
+          rootNavigation.navigate('Paywall', {
+            source: 'gated_feature',
+            preferredPlanId: 'annual',
+          });
+        }
         return;
       }
 
@@ -367,16 +372,25 @@ export const PracticeScreen: React.FC = () => {
         autoStartOnSelection: true,
       });
     },
-    [navigateToVault, primeSessionAccess.deep.isAllowed, rootNavigation]
+    [
+      navigateToVault,
+      primeSessionAccess.deep.isAllowed,
+      primeSessionAccess.isNoAccountSanctuaryUser,
+      rootNavigation,
+    ]
   );
 
   const startQuickActivate = useCallback(
     (anchor: Anchor, durationOverride = focusSessionDuration) => {
       if (!primeSessionAccess.focus.isAllowed) {
-        rootNavigation.navigate('Paywall', {
-          source: 'gated_feature',
-          preferredPlanId: 'annual',
-        });
+        if (primeSessionAccess.isNoAccountSanctuaryUser) {
+          rootNavigation.navigate('Login', NO_ACCOUNT_SIGN_UP_PARAMS);
+        } else {
+          rootNavigation.navigate('Paywall', {
+            source: 'gated_feature',
+            preferredPlanId: 'annual',
+          });
+        }
         return;
       }
 
@@ -388,7 +402,13 @@ export const PracticeScreen: React.FC = () => {
         returnTo: 'practice',
       });
     },
-    [focusSessionDuration, navigateToVault, primeSessionAccess.focus.isAllowed, rootNavigation]
+    [
+      focusSessionDuration,
+      navigateToVault,
+      primeSessionAccess.focus.isAllowed,
+      primeSessionAccess.isNoAccountSanctuaryUser,
+      rootNavigation,
+    ]
   );
 
   const startBurn = useCallback(

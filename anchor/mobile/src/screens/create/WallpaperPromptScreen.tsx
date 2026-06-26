@@ -24,6 +24,7 @@ import { OptimizedImage } from '@/components/common/OptimizedImage';
 import { exportAnchorArtwork } from '@/services/AnchorArtworkExportService';
 import { colors, spacing, typography } from '@/theme';
 import { isCompactPhoneViewport, isShortPhoneViewport } from '@/utils/layout';
+import { isNoAccountSanctuaryUser, NO_ACCOUNT_SIGN_UP_PARAMS } from '@/utils/noAccountAccess';
 
 type WallpaperPromptRouteProp = RouteProp<RootStackParamList, 'WallpaperPrompt'>;
 type WallpaperPromptNavigationProp = StackNavigationProp<RootStackParamList, 'WallpaperPrompt'>;
@@ -34,11 +35,18 @@ export const WallpaperPromptScreen: React.FC = () => {
   const insets = useSafeAreaInsets();
   const { width, height } = useWindowDimensions();
   const setWallpaperPromptSeen = useAuthStore((state) => state.setWallpaperPromptSeen);
+  const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
+  const pendingFirstAnchorDraft = useAuthStore((state) => state.pendingFirstAnchorDraft);
   const toast = useToast();
   const exportCanvasRef = useRef<AnchorArtworkExportCanvasHandle | null>(null);
   const [isExporting, setIsExporting] = useState(false);
 
   const { anchorId, intentionText, enhancedImageUrl, sigilSvg, returnTo } = route.params;
+  const isNoAccountExportBlocked = isNoAccountSanctuaryUser({
+    isAuthenticated: Boolean(isAuthenticated),
+    pendingFirstAnchorDraft,
+    sanctuaryAnchorCount: anchorId ? 1 : 0,
+  });
   const isCompactLayout = isCompactPhoneViewport(width, height);
   const isShortLayout = isShortPhoneViewport(height);
   const phoneWidth = isCompactLayout ? 98 : 110;
@@ -58,6 +66,11 @@ export const WallpaperPromptScreen: React.FC = () => {
   };
 
   const handleSetWallpaper = async () => {
+    if (isNoAccountExportBlocked) {
+      navigation.navigate('Login', NO_ACCOUNT_SIGN_UP_PARAMS);
+      return;
+    }
+
     setWallpaperPromptSeen(true);
     setIsExporting(true);
     try {
@@ -159,11 +172,15 @@ export const WallpaperPromptScreen: React.FC = () => {
 
             <Text style={styles.eyebrow}>THIS ONLY WORKS IF YOU SEE IT.</Text>
             <Text style={[styles.headline, isCompactLayout && styles.headlineCompact]}>
-              {'Set it as your '}
-              <Text style={styles.headlineGold}>lock screen.</Text>
+              {isNoAccountExportBlocked ? 'Save your anchor ' : 'Set it as your '}
+              <Text style={styles.headlineGold}>
+                {isNoAccountExportBlocked ? 'first.' : 'lock screen.'}
+              </Text>
             </Text>
             <Text style={[styles.body, isCompactLayout && styles.bodyCompact]}>
-              Every time you pick up your phone, it primes your next move. 100 exposures a day — that's the practice.
+              {isNoAccountExportBlocked
+                ? 'Create an account to export this anchor.'
+                : "Every time you pick up your phone, it primes your next move. 100 exposures a day — that's the practice."}
             </Text>
           </View>
 
@@ -181,7 +198,11 @@ export const WallpaperPromptScreen: React.FC = () => {
                 end={{ x: 1, y: 0 }}
               >
                 <Text style={styles.primaryText}>
-                  {isExporting ? 'PREPARING...' : 'SET AS WALLPAPER'}
+                  {isExporting
+                    ? 'PREPARING...'
+                    : isNoAccountExportBlocked
+                      ? 'CREATE ACCOUNT'
+                      : 'SET AS WALLPAPER'}
                 </Text>
               </LinearGradient>
             </TouchableOpacity>

@@ -26,6 +26,15 @@ const mockNotifState = {
 };
 const mockFetchProfile = jest.fn(() => Promise.resolve());
 const mockNavigate = jest.fn();
+const mockTrialStatus = {
+  isTrialActive: false,
+  isSubscribed: true,
+  hasExpired: false,
+  trialExpired: false,
+  hasActiveEntitlement: true,
+  daysRemaining: 0,
+  subscriptionStatus: 'active' as const,
+};
 const mockSettings = {
   openDailyAnchorAutomatically: false,
   practiceGuidanceEnabled: true,
@@ -130,6 +139,10 @@ jest.mock('@/stores/authStore', () => ({
     selector ? selector(mockAuthStoreState) : mockAuthStoreState,
 }));
 
+jest.mock('@/hooks/useTrialStatus', () => ({
+  useTrialStatus: () => mockTrialStatus,
+}));
+
 jest.mock('@/services/AuthService', () => ({
   AuthService: {
     getCurrentFirebaseUser: jest.fn(() => null),
@@ -153,6 +166,15 @@ describe('SettingsScreen', () => {
     };
     mockAuthStoreState.isAuthenticated = true;
     mockAuthStoreState.profileData = null;
+    Object.assign(mockTrialStatus, {
+      isTrialActive: false,
+      isSubscribed: true,
+      hasExpired: false,
+      trialExpired: false,
+      hasActiveEntitlement: true,
+      daysRemaining: 0,
+      subscriptionStatus: 'active',
+    });
   });
 
   it('renders the synced account email instead of placeholder copy', () => {
@@ -168,18 +190,37 @@ describe('SettingsScreen', () => {
   it('shows a sign-in link for signed-out users', () => {
     mockAuthStoreState.user = null as any;
     mockAuthStoreState.isAuthenticated = false;
+    Object.assign(mockTrialStatus, {
+      isTrialActive: false,
+      isSubscribed: false,
+      hasExpired: true,
+      trialExpired: true,
+      hasActiveEntitlement: false,
+      daysRemaining: 0,
+      subscriptionStatus: 'expired',
+    });
 
     const screen = render(<SettingsScreen />);
 
     expect(screen.getAllByText('Not signed in').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('Create Account').length).toBeGreaterThan(0);
     expect(screen.getByText('Sign In')).toBeTruthy();
-    expect(screen.getByText('Create or reconnect your account')).toBeTruthy();
+    expect(screen.getByText('Create an account to save your anchors and sync across devices')).toBeTruthy();
+    expect(screen.getByText('No account')).toBeTruthy();
     expect(screen.queryByText('Danger Zone')).toBeNull();
     expect(screen.queryByText('Delete Account')).toBeNull();
+
+    fireEvent.press(screen.getAllByTestId('settings-row-Create Account')[0]);
+
+    expect(mockNavigate).toHaveBeenCalledWith('Login', {
+      context: 'save_progress',
+      initialTab: 'signup',
+    });
 
     fireEvent.press(screen.getByTestId('settings-row-Sign In'));
 
     expect(mockNavigate).toHaveBeenCalledWith('Login', {
+      context: 'save_progress',
       initialTab: 'signin',
     });
   });
