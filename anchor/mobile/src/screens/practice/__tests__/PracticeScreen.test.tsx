@@ -2,7 +2,6 @@ import React from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { fireEvent, render, waitFor } from '@testing-library/react-native';
 import { PracticeScreen } from '../PracticeScreen';
-import { isoWeekKey } from '@/utils/primingAnalytics';
 
 jest.mock('react-native-reanimated', () => {
   const Reanimated = require('react-native-reanimated/mock');
@@ -23,7 +22,6 @@ const mockSetCurrentAnchor = jest.fn((id?: string) => {
 let mockAnchors: any[] = [];
 let mockCurrentAnchorId: string | undefined;
 let mockSessionLog: any[] = [];
-let mockPrimingHistory: any[] = [];
 let mockThreadStrength = 10;
 let mockTotalSessionsCount = 0;
 let mockLastPrimedAt: string | null = null;
@@ -74,8 +72,8 @@ jest.mock('@/stores/anchorStore', () => ({
 jest.mock('@/stores/authStore', () => ({
   useAuthStore: (selector: any) =>
     selector
-      ? selector(mockAuthState)
-      : mockAuthState,
+      ? selector({ user: { stabilizeStreakDays: 2, lastStabilizeAt: new Date().toISOString() } })
+      : { user: { stabilizeStreakDays: 2, lastStabilizeAt: new Date().toISOString() } },
 }));
 
 jest.mock('@/stores/sessionStore', () => ({
@@ -83,7 +81,6 @@ jest.mock('@/stores/sessionStore', () => ({
     const state = {
       todayPractice: { sessionsCount: 0, totalSeconds: 0, date: '2026-02-21' },
       sessionLog: mockSessionLog,
-      primingHistory: mockPrimingHistory,
       threadStrength: mockThreadStrength,
       totalSessionsCount: mockTotalSessionsCount,
       lastPrimedAt: mockLastPrimedAt,
@@ -127,28 +124,6 @@ function localDateString(d: Date): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 }
 
-let mockAuthState: any = {
-  user: { stabilizeStreakDays: 2, lastStabilizeAt: new Date().toISOString() },
-  isAuthenticated: true,
-  pendingFirstAnchorDraft: null,
-};
-
-function buildCurrentWeekPrimeEntry(id: string, type: 'activate' | 'reinforce') {
-  const now = new Date();
-  return {
-    id,
-    anchorId: 'a1',
-    type,
-    completedAt: now.toISOString(),
-    localDate: localDateString(now),
-    weekKey: isoWeekKey(now),
-    weekStart: localDateString(now),
-    weekdayIndex: 0,
-    hourOfDay: 9,
-    timeOfDay: 'morning',
-  };
-}
-
 describe('PracticeScreen', () => {
   beforeEach(() => {
     (AsyncStorage.getItem as jest.Mock).mockResolvedValue('1');
@@ -168,12 +143,6 @@ describe('PracticeScreen', () => {
     mockSettingsState.dailyPracticeGoal = 3;
     mockAnchors = [];
     mockSessionLog = [];
-    mockPrimingHistory = [];
-    mockAuthState = {
-      user: { stabilizeStreakDays: 2, lastStabilizeAt: new Date().toISOString() },
-      isAuthenticated: true,
-      pendingFirstAnchorDraft: null,
-    };
     mockThreadStrength = 10;
     mockTotalSessionsCount = 0;
     mockLastPrimedAt = null;
@@ -242,18 +211,18 @@ describe('PracticeScreen', () => {
     });
   });
 
-  it('routes generic deep-prime entry through ChargeSetup from practice', async () => {
+  it('navigates to Ritual with expected params when charging', async () => {
     mockAnchors = [buildAnchor('a99', 'Build consistency')];
     const screen = render(<PracticeScreen />);
 
     fireEvent.press(screen.getByText('DEEP PRIME'));
 
     await waitFor(() => {
-      expect(mockNavigateToVault).toHaveBeenCalledWith('ChargeSetup', {
+      expect(mockNavigateToVault).toHaveBeenCalledWith('Ritual', {
         anchorId: 'a99',
+        ritualType: 'ritual',
+        durationSeconds: 120,
         returnTo: 'practice',
-        initialDuration: 'deep',
-        autoStartOnSelection: true,
       });
     });
   });
@@ -272,11 +241,11 @@ describe('PracticeScreen', () => {
     fireEvent.press(screen.getByText('DEEP PRIME'));
 
     await waitFor(() => {
-      expect(mockNavigateToVault).toHaveBeenCalledWith('ChargeSetup', {
+      expect(mockNavigateToVault).toHaveBeenCalledWith('Ritual', {
         anchorId: 'a2',
+        ritualType: 'ritual',
+        durationSeconds: 120,
         returnTo: 'practice',
-        initialDuration: 'deep',
-        autoStartOnSelection: true,
       });
     });
   });
@@ -290,11 +259,11 @@ describe('PracticeScreen', () => {
     fireEvent.press(screen.getByText('DEEP PRIME'));
 
     await waitFor(() => {
-      expect(mockNavigateToVault).toHaveBeenCalledWith('ChargeSetup', {
+      expect(mockNavigateToVault).toHaveBeenCalledWith('Ritual', {
         anchorId: 'a77',
+        ritualType: 'ritual',
+        durationSeconds: 120,
         returnTo: 'practice',
-        initialDuration: 'deep',
-        autoStartOnSelection: true,
       });
     });
   });
@@ -431,42 +400,6 @@ describe('PracticeScreen', () => {
       expect(screen.getByText('Deep Prime')).toBeTruthy();
       expect(screen.getByText('Seal')).toBeTruthy();
       expect(screen.getByText('Got It')).toBeTruthy();
-    });
-  });
-
-  it('routes no-account deep prime attempts to account creation', async () => {
-    mockAuthState = { user: null, isAuthenticated: false, pendingFirstAnchorDraft: null };
-    mockAnchors = [buildAnchor('a1', 'Keep the thread')];
-
-    const screen = render(<PracticeScreen />);
-    fireEvent.press(screen.getByText('DEEP PRIME'));
-
-    await waitFor(() => {
-      expect(mockNavigate).toHaveBeenCalledWith('Login', {
-        context: 'save_progress',
-        initialTab: 'signup',
-      });
-      expect(mockNavigateToVault).not.toHaveBeenCalled();
-    });
-  });
-
-  it('routes no-account users to account creation after two focus sessions in the week', async () => {
-    mockAuthState = { user: null, isAuthenticated: false, pendingFirstAnchorDraft: null };
-    mockAnchors = [buildAnchor('a1', 'Keep the thread')];
-    mockPrimingHistory = [
-      buildCurrentWeekPrimeEntry('focus-1', 'activate'),
-      buildCurrentWeekPrimeEntry('focus-2', 'activate'),
-    ];
-
-    const screen = render(<PracticeScreen />);
-    fireEvent.press(screen.getByText('Restore Thread'));
-
-    await waitFor(() => {
-      expect(mockNavigate).toHaveBeenCalledWith('Login', {
-        context: 'save_progress',
-        initialTab: 'signup',
-      });
-      expect(mockNavigateToVault).not.toHaveBeenCalled();
     });
   });
 });

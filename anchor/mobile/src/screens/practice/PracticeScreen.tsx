@@ -39,9 +39,7 @@ import { PracticeHubHeader } from './components/PracticeHubHeader';
 import { resolveBurnArtworkUri } from '@/screens/rituals/utils/resolveBurnArtworkUri';
 import { useAppPerformanceTier } from '@/hooks/useAppPerformanceTier';
 import { useNotificationController } from '@/hooks/useNotificationController';
-import { usePrimeSessionAccess } from '@/hooks/usePrimeSessionAccess';
 import { ConfirmUnchargedBurnSheet } from '@/components/modals/ConfirmUnchargedBurnSheet';
-import { NO_ACCOUNT_SIGN_UP_PARAMS } from '@/utils/noAccountAccess';
 
 type PracticeNavigationProp = StackNavigationProp<PracticeStackParamList, 'PracticeHome'>;
 // DEFERRED: type PendingMode = 'charge' | 'stabilize' | 'burn' | 'quickActivate' | null; — restore post-launch
@@ -90,9 +88,6 @@ export const PracticeScreen: React.FC = () => {
   useNotificationController();
 
   const navigation = useNavigation<PracticeNavigationProp>();
-  const rootNavigation = navigation as unknown as {
-    navigate: (screen: string, params?: unknown) => void;
-  };
   const { navigateToVault, registerTabNav, activeTabIndex } = useTabNavigation();
   const isPracticeTabActive = activeTabIndex == null ? true : activeTabIndex === 1;
   const insets = useSafeAreaInsets();
@@ -111,7 +106,6 @@ export const PracticeScreen: React.FC = () => {
   const weekHistory = useSessionStore((s) => s.weekHistory);
   const applyDecay = useSessionStore((s) => s.applyDecay);
   const primingHistory = useSessionStore((s) => s.primingHistory);
-  const primeSessionAccess = usePrimeSessionAccess();
 
   // Self-healing thread/progress restore: if priming history is empty (e.g. a
   // failed/empty launch hydration), re-fetch the account export and rehydrate
@@ -342,58 +336,19 @@ export const PracticeScreen: React.FC = () => {
 
   const startCharge = useCallback(
     (anchor: Anchor, durationSecondsOverride?: number) => {
-      if (!primeSessionAccess.deep.isAllowed) {
-        if (primeSessionAccess.isNoAccountSanctuaryUser) {
-          rootNavigation.navigate('Login', NO_ACCOUNT_SIGN_UP_PARAMS);
-        } else {
-          rootNavigation.navigate('Paywall', {
-            source: 'gated_feature',
-            preferredPlanId: 'annual',
-          });
-        }
-        return;
-      }
-
       safeHaptics.selection();
-      if (durationSecondsOverride != null) {
-        navigateToVault('Ritual', {
-          anchorId: anchor.id,
-          ritualType: 'ritual',
-          durationSeconds: durationSecondsOverride,
-          returnTo: 'practice',
-        });
-        return;
-      }
-
-      navigateToVault('ChargeSetup', {
+      navigateToVault('Ritual', {
         anchorId: anchor.id,
+        ritualType: 'ritual',
+        durationSeconds: durationSecondsOverride ?? defaultDeepChargeSeconds,
         returnTo: 'practice',
-        initialDuration: 'deep',
-        autoStartOnSelection: true,
       });
     },
-    [
-      navigateToVault,
-      primeSessionAccess.deep.isAllowed,
-      primeSessionAccess.isNoAccountSanctuaryUser,
-      rootNavigation,
-    ]
+    [defaultDeepChargeSeconds, navigateToVault]
   );
 
   const startQuickActivate = useCallback(
     (anchor: Anchor, durationOverride = focusSessionDuration) => {
-      if (!primeSessionAccess.focus.isAllowed) {
-        if (primeSessionAccess.isNoAccountSanctuaryUser) {
-          rootNavigation.navigate('Login', NO_ACCOUNT_SIGN_UP_PARAMS);
-        } else {
-          rootNavigation.navigate('Paywall', {
-            source: 'gated_feature',
-            preferredPlanId: 'annual',
-          });
-        }
-        return;
-      }
-
       safeHaptics.selection();
       navigateToVault('ActivationRitual', {
         anchorId: anchor.id,
@@ -402,13 +357,7 @@ export const PracticeScreen: React.FC = () => {
         returnTo: 'practice',
       });
     },
-    [
-      focusSessionDuration,
-      navigateToVault,
-      primeSessionAccess.focus.isAllowed,
-      primeSessionAccess.isNoAccountSanctuaryUser,
-      rootNavigation,
-    ]
+    [focusSessionDuration, navigateToVault]
   );
 
   const startBurn = useCallback(

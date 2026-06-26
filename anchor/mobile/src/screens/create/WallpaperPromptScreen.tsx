@@ -10,6 +10,7 @@ import {
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
+import { SvgXml } from 'react-native-svg';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { RootStackParamList } from '@/types';
@@ -18,13 +19,11 @@ import { useToast } from '@/components/ToastProvider';
 import {
   AnchorArtworkExportCanvas,
   AnchorArtworkExportCanvasHandle,
-  SigilSvg,
 } from '@/components/common';
 import { OptimizedImage } from '@/components/common/OptimizedImage';
 import { exportAnchorArtwork } from '@/services/AnchorArtworkExportService';
 import { colors, spacing, typography } from '@/theme';
 import { isCompactPhoneViewport, isShortPhoneViewport } from '@/utils/layout';
-import { isNoAccountSanctuaryUser, NO_ACCOUNT_SIGN_UP_PARAMS } from '@/utils/noAccountAccess';
 
 type WallpaperPromptRouteProp = RouteProp<RootStackParamList, 'WallpaperPrompt'>;
 type WallpaperPromptNavigationProp = StackNavigationProp<RootStackParamList, 'WallpaperPrompt'>;
@@ -35,18 +34,11 @@ export const WallpaperPromptScreen: React.FC = () => {
   const insets = useSafeAreaInsets();
   const { width, height } = useWindowDimensions();
   const setWallpaperPromptSeen = useAuthStore((state) => state.setWallpaperPromptSeen);
-  const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
-  const pendingFirstAnchorDraft = useAuthStore((state) => state.pendingFirstAnchorDraft);
   const toast = useToast();
   const exportCanvasRef = useRef<AnchorArtworkExportCanvasHandle | null>(null);
   const [isExporting, setIsExporting] = useState(false);
 
   const { anchorId, intentionText, enhancedImageUrl, sigilSvg, returnTo } = route.params;
-  const isNoAccountExportBlocked = isNoAccountSanctuaryUser({
-    isAuthenticated: Boolean(isAuthenticated),
-    pendingFirstAnchorDraft,
-    sanctuaryAnchorCount: anchorId ? 1 : 0,
-  });
   const isCompactLayout = isCompactPhoneViewport(width, height);
   const isShortLayout = isShortPhoneViewport(height);
   const phoneWidth = isCompactLayout ? 98 : 110;
@@ -66,11 +58,6 @@ export const WallpaperPromptScreen: React.FC = () => {
   };
 
   const handleSetWallpaper = async () => {
-    if (isNoAccountExportBlocked) {
-      navigation.navigate('Login', NO_ACCOUNT_SIGN_UP_PARAMS);
-      return;
-    }
-
     setWallpaperPromptSeen(true);
     setIsExporting(true);
     try {
@@ -152,7 +139,7 @@ export const WallpaperPromptScreen: React.FC = () => {
                   </View>
                 ) : sigilSvg ? (
                   <View style={styles.phoneImageFrame}>
-                    <SigilSvg xml={sigilSvg} width={sigilSize} height={sigilSize} color={colors.gold} />
+                    <SvgXml xml={sigilSvg} width={sigilSize} height={sigilSize} color={colors.gold} />
                   </View>
                 ) : (
                   <View style={styles.phoneSigilPlaceholder} />
@@ -172,15 +159,11 @@ export const WallpaperPromptScreen: React.FC = () => {
 
             <Text style={styles.eyebrow}>THIS ONLY WORKS IF YOU SEE IT.</Text>
             <Text style={[styles.headline, isCompactLayout && styles.headlineCompact]}>
-              {isNoAccountExportBlocked ? 'Save your anchor ' : 'Set it as your '}
-              <Text style={styles.headlineGold}>
-                {isNoAccountExportBlocked ? 'first.' : 'lock screen.'}
-              </Text>
+              {'Set it as your '}
+              <Text style={styles.headlineGold}>lock screen.</Text>
             </Text>
             <Text style={[styles.body, isCompactLayout && styles.bodyCompact]}>
-              {isNoAccountExportBlocked
-                ? 'Create an account to export this anchor.'
-                : "Every time you pick up your phone, it primes your next move. 100 exposures a day — that's the practice."}
+              Every time you pick up your phone, it primes your next move. 100 exposures a day — that's the practice.
             </Text>
           </View>
 
@@ -198,11 +181,7 @@ export const WallpaperPromptScreen: React.FC = () => {
                 end={{ x: 1, y: 0 }}
               >
                 <Text style={styles.primaryText}>
-                  {isExporting
-                    ? 'PREPARING...'
-                    : isNoAccountExportBlocked
-                      ? 'CREATE ACCOUNT'
-                      : 'SET AS WALLPAPER'}
+                  {isExporting ? 'PREPARING...' : 'SET AS WALLPAPER'}
                 </Text>
               </LinearGradient>
             </TouchableOpacity>

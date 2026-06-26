@@ -558,41 +558,41 @@ UNIQUENESS MANDATE:
 
 COSMIC SIGNATURE FOR THIS RENDER:
 - Nebula behavior: ${pick(
-          [
-            'spiraling around the sigil like a tidal galaxy',
-            'splitting diagonally across the frame in opposing currents',
-            'forming a quiet halo with distant bursts at the perimeter',
-            'streaming behind the sigil as a comet-like wake',
-          ],
-          'nebula'
-        )}
+        [
+          'spiraling around the sigil like a tidal galaxy',
+          'splitting diagonally across the frame in opposing currents',
+          'forming a quiet halo with distant bursts at the perimeter',
+          'streaming behind the sigil as a comet-like wake',
+        ],
+        'nebula'
+      )}
 - Light source: ${pick(
-          [
-            'core radiance emerging from one sigil intersection',
-            'backlit starlight flaring from behind the lower plane',
-            'side-lit cosmic glow with one bright diagonal beam',
-            'diffused auric bloom distributed across the surrounding field',
-          ],
-          'light'
-        )}
+        [
+          'core radiance emerging from one sigil intersection',
+          'backlit starlight flaring from behind the lower plane',
+          'side-lit cosmic glow with one bright diagonal beam',
+          'diffused auric bloom distributed across the surrounding field',
+        ],
+        'light'
+      )}
 - Color temperature: ${pick(
-          [
-            'cool blue-violet with amber accents',
-            'midnight teal with pale gold heat',
-            'indigo-black with electric cyan veins',
-            'deep ultramarine with warm ember clouds',
-          ],
-          'color'
-        )}
+        [
+          'cool blue-violet with amber accents',
+          'midnight teal with pale gold heat',
+          'indigo-black with electric cyan veins',
+          'deep ultramarine with warm ember clouds',
+        ],
+        'color'
+      )}
 - Framing: ${pick(
-          [
-            'wide open negative space around the sigil',
-            'one cropped orbital ring intersecting the frame',
-            'an off-axis triangular energy field behind the sigil',
-            'a layered deep-space field that pulls outward toward the edges',
-          ],
-          'frame'
-        )}
+        [
+          'wide open negative space around the sigil',
+          'one cropped orbital ring intersecting the frame',
+          'an off-axis triangular energy field behind the sigil',
+          'a layered deep-space field that pulls outward toward the edges',
+        ],
+        'frame'
+      )}
 - Density: ${density}
 - Focal behavior: ${focus}`;
     }
@@ -606,32 +606,32 @@ UNIQUENESS MANDATE:
 
 ARCHITECTURAL SIGNATURE FOR THIS RENDER:
 - Drafting framework: ${pick(
-          [
-            'offset plan-view construction lines with one dominant axis',
-            'compass-drawn arc system intersecting a restrained orthographic grid',
-            'section-cut geometry with stacked horizontal datum lines',
-            'survey-style guide rails with diagonal calibration marks',
-          ],
-          'framework'
-        )}
+        [
+          'offset plan-view construction lines with one dominant axis',
+          'compass-drawn arc system intersecting a restrained orthographic grid',
+          'section-cut geometry with stacked horizontal datum lines',
+          'survey-style guide rails with diagonal calibration marks',
+        ],
+        'framework'
+      )}
 - Measurement language: ${pick(
-          [
-            'crosshairs and indexing ticks concentrated near one quadrant',
-            'broken radius marks and partial circles instead of a full instrument ring',
-            'fine annotation-like indicators with no readable text',
-            'elevation-style reference bands fading toward the margins',
-          ],
-          'measure'
-        )}
+        [
+          'crosshairs and indexing ticks concentrated near one quadrant',
+          'broken radius marks and partial circles instead of a full instrument ring',
+          'fine annotation-like indicators with no readable text',
+          'elevation-style reference bands fading toward the margins',
+        ],
+        'measure'
+      )}
 - Surface atmosphere: ${pick(
-          [
-            'cool vellum glow over deep slate',
-            'aged blueprint indigo with pale chalk lines',
-            'smoked parchment with silver-white drafting strokes',
-            'charcoal drafting board with quiet metallic highlights',
-          ],
-          'surface'
-        )}
+        [
+          'cool vellum glow over deep slate',
+          'aged blueprint indigo with pale chalk lines',
+          'smoked parchment with silver-white drafting strokes',
+          'charcoal drafting board with quiet metallic highlights',
+        ],
+        'surface'
+      )}
 - Ornament placement: ${ornament}
 - Density: ${density}`;
     }
@@ -645,32 +645,32 @@ UNIQUENESS MANDATE:
 
 MINIMAL LINE SIGNATURE FOR THIS RENDER:
 - Stroke behavior: ${pick(
-          [
-            'one continuous engraving logic with only a few decisive breaks',
-            'slightly varied line weight at structural pivots only',
-            'ultra-clean monoline with one emphasized terminal stroke',
-            'hairline precision anchored by a single heavier axis',
-          ],
-          'stroke'
-        )}
+        [
+          'one continuous engraving logic with only a few decisive breaks',
+          'slightly varied line weight at structural pivots only',
+          'ultra-clean monoline with one emphasized terminal stroke',
+          'hairline precision anchored by a single heavier axis',
+        ],
+        'stroke'
+      )}
 - Negative-space strategy: ${pick(
-          [
-            'broad open margins around the sigil',
-            'one side intentionally quieter than the other',
-            'a central pool of darkness with peripheral fine marks only',
-            'tight crop near one edge with otherwise open surrounding space',
-          ],
-          'space'
-        )}
+        [
+          'broad open margins around the sigil',
+          'one side intentionally quieter than the other',
+          'a central pool of darkness with peripheral fine marks only',
+          'tight crop near one edge with otherwise open surrounding space',
+        ],
+        'space'
+      )}
 - Contrast field: ${pick(
-          [
-            'bright silver-white strokes over velvet black',
-            'soft moon-white lines over dark graphite',
-            'cold platinum lines over near-black navy',
-            'chalk-light lines over smoked charcoal',
-          ],
-          'contrast'
-        )}
+        [
+          'bright silver-white strokes over velvet black',
+          'soft moon-white lines over dark graphite',
+          'cold platinum lines over near-black navy',
+          'chalk-light lines over smoked charcoal',
+        ],
+        'contrast'
+      )}
 - Focal behavior: ${focus}
 - Ornament placement: ${ornament}`;
     }
@@ -684,32 +684,32 @@ UNIQUENESS MANDATE:
 
 LUNAR SIGNATURE FOR THIS RENDER:
 - Lunar phase behavior: ${pick(
-          [
-            'crescent glints concentrated along one arc of the sigil',
-            'a quiet gibbous halo implied behind the upper structure',
-            'phase fragments distributed as micro-etchings near the border only',
-            'an eclipse-like shadow bite shaping the surrounding atmosphere',
-          ],
-          'phase'
-        )}
+        [
+          'crescent glints concentrated along one arc of the sigil',
+          'a quiet gibbous halo implied behind the upper structure',
+          'phase fragments distributed as micro-etchings near the border only',
+          'an eclipse-like shadow bite shaping the surrounding atmosphere',
+        ],
+        'phase'
+      )}
 - Metallic bloom: ${pick(
-          [
-            'cool silver with faint blue iridescence',
-            'pewter-white engraving with sharp moonlit edges',
-            'platinum highlights with soft mercury sheen',
-            'frosted silver radiance against matte darkness',
-          ],
-          'metal'
-        )}
+        [
+          'cool silver with faint blue iridescence',
+          'pewter-white engraving with sharp moonlit edges',
+          'platinum highlights with soft mercury sheen',
+          'frosted silver radiance against matte darkness',
+        ],
+        'metal'
+      )}
 - Darkness treatment: ${pick(
-          [
-            'deep black void with one pocket of mist',
-            'charcoal night field with subtle vignette falloff',
-            'inky navy shadow with restrained reflective dust',
-            'velvet midnight with selective silver haze',
-          ],
-          'darkness'
-        )}
+        [
+          'deep black void with one pocket of mist',
+          'charcoal night field with subtle vignette falloff',
+          'inky navy shadow with restrained reflective dust',
+          'velvet midnight with selective silver haze',
+        ],
+        'darkness'
+      )}
 - Density: ${density}
 - Focal behavior: ${focus}`;
     }
@@ -723,41 +723,41 @@ UNIQUENESS MANDATE:
 
 WATERCOLOR SIGNATURE FOR THIS RENDER:
 - Wash movement: ${pick(
-          [
-            'diagonal washes flowing across the frame',
-            'a pooled bloom concentrated beneath the sigil',
-            'soft circular diffusion radiating outward in uneven tides',
-            'layered translucent bands moving from one edge toward the center',
-          ],
-          'wash'
-        )}
+        [
+          'diagonal washes flowing across the frame',
+          'a pooled bloom concentrated beneath the sigil',
+          'soft circular diffusion radiating outward in uneven tides',
+          'layered translucent bands moving from one edge toward the center',
+        ],
+        'wash'
+      )}
 - Edge behavior: ${pick(
-          [
-            'feathered pigment blooms at outer edges only',
-            'dry-brush breaks around one side of the sigil',
-            'soft tide lines with restrained granulation',
-            'selective backruns creating organic depth away from the main strokes',
-          ],
-          'edge'
-        )}
+        [
+          'feathered pigment blooms at outer edges only',
+          'dry-brush breaks around one side of the sigil',
+          'soft tide lines with restrained granulation',
+          'selective backruns creating organic depth away from the main strokes',
+        ],
+        'edge'
+      )}
 - Paper atmosphere: ${pick(
-          [
-            'warm cotton paper grain',
-            'cool pressed paper texture',
-            'ivory deckled-paper mood',
-            'weathered watercolor sheet with subtle tooth',
-          ],
-          'paper'
-        )}
+        [
+          'warm cotton paper grain',
+          'cool pressed paper texture',
+          'ivory deckled-paper mood',
+          'weathered watercolor sheet with subtle tooth',
+        ],
+        'paper'
+      )}
 - Palette logic: ${pick(
-          [
-            'two dominant jewel tones with one accent color',
-            'muted nocturne palette with one bright bloom',
-            'earth-and-water pairing with restrained gold hints',
-            'cool spectrum with a single warm counterpoint',
-          ],
-          'palette'
-        )}
+        [
+          'two dominant jewel tones with one accent color',
+          'muted nocturne palette with one bright bloom',
+          'earth-and-water pairing with restrained gold hints',
+          'cool spectrum with a single warm counterpoint',
+        ],
+        'palette'
+      )}
 - Density: ${density}`;
     }
 
@@ -770,32 +770,32 @@ UNIQUENESS MANDATE:
 
 INK BRUSH SIGNATURE FOR THIS RENDER:
 - Brush pressure: ${pick(
-          [
-            'heavy opening pressure tapering to fine exits',
-            'dry-brush friction around select structural corners',
-            'quiet, even pressure with one forceful accent stroke nearby',
-            'bold saturated marks contrasted with ghosted peripheral traces',
-          ],
-          'pressure'
-        )}
+        [
+          'heavy opening pressure tapering to fine exits',
+          'dry-brush friction around select structural corners',
+          'quiet, even pressure with one forceful accent stroke nearby',
+          'bold saturated marks contrasted with ghosted peripheral traces',
+        ],
+        'pressure'
+      )}
 - Ink atmosphere: ${pick(
-          [
-            'dense sumi pools near the lower plane',
-            'mist-like diluted ink drifting away from the form',
-            'controlled feathering at one directional edge',
-            'splintered dry texture in the outer field only',
-          ],
-          'ink'
-        )}
+        [
+          'dense sumi pools near the lower plane',
+          'mist-like diluted ink drifting away from the form',
+          'controlled feathering at one directional edge',
+          'splintered dry texture in the outer field only',
+        ],
+        'ink'
+      )}
 - Empty-space strategy: ${pick(
-          [
-            'large untouched paper field above the sigil',
-            'negative space opening on one side like a breath pause',
-            'compressed lower composition with open upper air',
-            'balanced void encircling the central structure',
-          ],
-          'void'
-        )}
+        [
+          'large untouched paper field above the sigil',
+          'negative space opening on one side like a breath pause',
+          'compressed lower composition with open upper air',
+          'balanced void encircling the central structure',
+        ],
+        'void'
+      )}
 - Directional motion: ${focus}
 - Ornament placement: ${ornament}`;
     }
@@ -809,41 +809,41 @@ UNIQUENESS MANDATE:
 
 SACRED GEOMETRY SIGNATURE FOR THIS RENDER:
 - Primary geometry pairing: ${pick(
-          [
-            'Flower of Life with one dominant golden spiral',
-            'Metatron-inspired lattice with Vesica intersections',
-            'Sri Yantra depth field with concentric orbit geometry',
-            'Seed-of-Life foundation with angular Platonic projections',
-          ],
-          'pairing'
-        )}
+        [
+          'Flower of Life with one dominant golden spiral',
+          'Metatron-inspired lattice with Vesica intersections',
+          'Sri Yantra depth field with concentric orbit geometry',
+          'Seed-of-Life foundation with angular Platonic projections',
+        ],
+        'pairing'
+      )}
 - Scale hierarchy: ${pick(
-          [
-            'one monumental geometry system with smaller subordinate echoes',
-            'foreground geometry tight around the sigil and larger forms beyond it',
-            'layered small-to-large transitions from center to edge',
-            'two competing geometry scales held in deliberate tension',
-          ],
-          'scale'
-        )}
+        [
+          'one monumental geometry system with smaller subordinate echoes',
+          'foreground geometry tight around the sigil and larger forms beyond it',
+          'layered small-to-large transitions from center to edge',
+          'two competing geometry scales held in deliberate tension',
+        ],
+        'scale'
+      )}
 - Color separation: ${pick(
-          [
-            'indigo, amber, and teal as distinct layer families',
-            'violet and gold dominance with cool blue separators',
-            'dusty rose against deep cyan and muted brass',
-            'multicolor jewel-tone bands with one neutral structural layer',
-          ],
-          'color'
-        )}
+        [
+          'indigo, amber, and teal as distinct layer families',
+          'violet and gold dominance with cool blue separators',
+          'dusty rose against deep cyan and muted brass',
+          'multicolor jewel-tone bands with one neutral structural layer',
+        ],
+        'color'
+      )}
 - Spatial layering: ${pick(
-          [
-            'transparent overlaps with visible depth stacking',
-            'one geometry system faded into the far background',
-            'interleaved opacities creating a prismatic field',
-            'a dense core with cleaner outer geometry bands',
-          ],
-          'layer'
-        )}
+        [
+          'transparent overlaps with visible depth stacking',
+          'one geometry system faded into the far background',
+          'interleaved opacities creating a prismatic field',
+          'a dense core with cleaner outer geometry bands',
+        ],
+        'layer'
+      )}
 - Density: ${density}`;
     }
 
@@ -856,41 +856,41 @@ UNIQUENESS MANDATE:
 
 GOLD LEAF SIGNATURE FOR THIS RENDER:
 - Gold texture: ${pick(
-          [
-            'cracked antique leaf with irregular seams',
-            'liquid gold bloom with soft pooled edges',
-            'scattered leaf fragments with sharp reflective shards',
-            'burnished matte gold interrupted by bright polished flashes',
-          ],
-          'gold'
-        )}
+        [
+          'cracked antique leaf with irregular seams',
+          'liquid gold bloom with soft pooled edges',
+          'scattered leaf fragments with sharp reflective shards',
+          'burnished matte gold interrupted by bright polished flashes',
+        ],
+        'gold'
+      )}
 - Spread pattern: ${pick(
-          [
-            'gold concentrated near the sigil with sparse outer dust',
-            'one sweeping gilded plume crossing the field',
-            'fragment trails leading toward one quadrant',
-            'halo-like bloom behind the structure with minimal edge fallout',
-          ],
-          'spread'
-        )}
+        [
+          'gold concentrated near the sigil with sparse outer dust',
+          'one sweeping gilded plume crossing the field',
+          'fragment trails leading toward one quadrant',
+          'halo-like bloom behind the structure with minimal edge fallout',
+        ],
+        'spread'
+      )}
 - Substrate: ${pick(
-          [
-            'aged parchment umber',
-            'velvet midnight indigo',
-            'warm black mineral ground',
-            'smoked charcoal with subtle paper fiber',
-          ],
-          'substrate'
-        )}
+        [
+          'aged parchment umber',
+          'velvet midnight indigo',
+          'warm black mineral ground',
+          'smoked charcoal with subtle paper fiber',
+        ],
+        'substrate'
+      )}
 - Glow behavior: ${pick(
-          [
-            'quiet inner radiance',
-            'selective bright flares on a few edges only',
-            'ambient metallic haze diffused outward',
-            'one dominant luminous band with restrained surrounding shimmer',
-          ],
-          'glow'
-        )}
+        [
+          'quiet inner radiance',
+          'selective bright flares on a few edges only',
+          'ambient metallic haze diffused outward',
+          'one dominant luminous band with restrained surrounding shimmer',
+        ],
+        'glow'
+      )}
 - Focal behavior: ${focus}`;
     }
 
@@ -903,32 +903,32 @@ UNIQUENESS MANDATE:
 
 OBSIDIAN SIGNATURE FOR THIS RENDER:
 - Glass behavior: ${pick(
-          [
-            'deep glossy obsidian with one controlled reflective plane',
-            'matte-black volcanic glass with sparse specular edges',
-            'smoked mirror texture with softened reflections',
-            'fractured glass sheen implied in the outer field only',
-          ],
-          'glass'
-        )}
+        [
+          'deep glossy obsidian with one controlled reflective plane',
+          'matte-black volcanic glass with sparse specular edges',
+          'smoked mirror texture with softened reflections',
+          'fractured glass sheen implied in the outer field only',
+        ],
+        'glass'
+      )}
 - Reflection placement: ${pick(
-          [
-            'one diagonal reflection crossing behind the sigil',
-            'low horizontal gleam near the base',
-            'small peripheral glints with a dark untouched center',
-            'upper-corner reflections fading into black',
-          ],
-          'reflection'
-        )}
+        [
+          'one diagonal reflection crossing behind the sigil',
+          'low horizontal gleam near the base',
+          'small peripheral glints with a dark untouched center',
+          'upper-corner reflections fading into black',
+        ],
+        'reflection'
+      )}
 - Darkness depth: ${pick(
-          [
-            'layered charcoal-to-black gradients',
-            'near-total black with one subtle smoky pocket',
-            'cool obsidian depth with faint indigo undertones',
-            'black-on-black separation through texture rather than color',
-          ],
-          'darkness'
-        )}
+        [
+          'layered charcoal-to-black gradients',
+          'near-total black with one subtle smoky pocket',
+          'cool obsidian depth with faint indigo undertones',
+          'black-on-black separation through texture rather than color',
+        ],
+        'darkness'
+      )}
 - Contrast geometry: ${focus}
 - Ornament placement: ${ornament}`;
     }
@@ -942,41 +942,41 @@ UNIQUENESS MANDATE:
 
 AURORA SIGNATURE FOR THIS RENDER:
 - Curtain movement: ${pick(
-          [
-            'vertical light curtains bending around one side of the sigil',
-            'diagonal aurora sweep crossing the full frame',
-            'arched polar glow gathering above the sigil',
-            'split-stream aurora currents moving in opposite directions',
-          ],
-          'curtain'
-        )}
+        [
+          'vertical light curtains bending around one side of the sigil',
+          'diagonal aurora sweep crossing the full frame',
+          'arched polar glow gathering above the sigil',
+          'split-stream aurora currents moving in opposite directions',
+        ],
+        'curtain'
+      )}
 - Hue dominance: ${pick(
-          [
-            'green-violet dominance with blue restraint',
-            'icy cyan and indigo with a subtle magenta countertone',
-            'blue-green glow with rare gold spill',
-            'violet-heavy aurora with cold white highlights',
-          ],
-          'hue'
-        )}
+        [
+          'green-violet dominance with blue restraint',
+          'icy cyan and indigo with a subtle magenta countertone',
+          'blue-green glow with rare gold spill',
+          'violet-heavy aurora with cold white highlights',
+        ],
+        'hue'
+      )}
 - Light diffusion: ${pick(
-          [
-            'soft atmospheric veils',
-            'sharper luminous ribbons at one edge only',
-            'fog-like color bloom across the outer field',
-            'layered translucent curtains with visible separation',
-          ],
-          'diffusion'
-        )}
+        [
+          'soft atmospheric veils',
+          'sharper luminous ribbons at one edge only',
+          'fog-like color bloom across the outer field',
+          'layered translucent curtains with visible separation',
+        ],
+        'diffusion'
+      )}
 - Horizon handling: ${pick(
-          [
-            'no visible horizon, only sky depth',
-            'a low dark grounding band beneath the form',
-            'subtle eclipse-like base shadow',
-            'one peripheral darkness shelf anchoring the color',
-          ],
-          'horizon'
-        )}
+        [
+          'no visible horizon, only sky depth',
+          'a low dark grounding band beneath the form',
+          'subtle eclipse-like base shadow',
+          'one peripheral darkness shelf anchoring the color',
+        ],
+        'horizon'
+      )}
 - Density: ${density}`;
     }
 
@@ -989,41 +989,41 @@ UNIQUENESS MANDATE:
 
 EMBER SIGNATURE FOR THIS RENDER:
 - Heat distribution: ${pick(
-          [
-            'brightest heat concentrated at a few intersections only',
-            'one directional heat gradient running across the sigil',
-            'inner-core heat with cooler outer traces',
-            'edge-glow intensifying along one lower segment',
-          ],
-          'heat'
-        )}
+        [
+          'brightest heat concentrated at a few intersections only',
+          'one directional heat gradient running across the sigil',
+          'inner-core heat with cooler outer traces',
+          'edge-glow intensifying along one lower segment',
+        ],
+        'heat'
+      )}
 - Cooling pattern: ${pick(
-          [
-            'rapid blackened cooling around the brightest edges',
-            'deep iron tones fading into ember orange',
-            'smoky ash halos around hot points',
-            'charred matte field with tiny residual heat veins',
-          ],
-          'cooling'
-        )}
+        [
+          'rapid blackened cooling around the brightest edges',
+          'deep iron tones fading into ember orange',
+          'smoky ash halos around hot points',
+          'charred matte field with tiny residual heat veins',
+        ],
+        'cooling'
+      )}
 - Spark field: ${pick(
-          [
-            'few drifting sparks near one quadrant',
-            'forge dust suspended close to the structure',
-            'scattered cinder trails leading outward',
-            'minimal spark activity with one bright particulate cluster',
-          ],
-          'sparks'
-        )}
+        [
+          'few drifting sparks near one quadrant',
+          'forge dust suspended close to the structure',
+          'scattered cinder trails leading outward',
+          'minimal spark activity with one bright particulate cluster',
+        ],
+        'sparks'
+      )}
 - Forge atmosphere: ${pick(
-          [
-            'smoky crucible darkness',
-            'clean black void with radiant heat shimmer',
-            'industrial soot haze held behind the sigil',
-            'volcanic darkness with faint metallic residue',
-          ],
-          'forge'
-        )}
+        [
+          'smoky crucible darkness',
+          'clean black void with radiant heat shimmer',
+          'industrial soot haze held behind the sigil',
+          'volcanic darkness with faint metallic residue',
+        ],
+        'forge'
+      )}
 - Focal behavior: ${focus}`;
     }
 
@@ -1036,41 +1036,41 @@ UNIQUENESS MANDATE:
 
 RESONANCE SIGNATURE FOR THIS RENDER:
 - Ring spacing: ${pick(
-          [
-            'tight inner rings opening into wider outer intervals',
-            'irregular pulse gaps suggesting changing intensity',
-            'few monumental rings with small harmonic echoes',
-            'layered micro-rings near one focal zone and broader rings elsewhere',
-          ],
-          'spacing'
-        )}
+        [
+          'tight inner rings opening into wider outer intervals',
+          'irregular pulse gaps suggesting changing intensity',
+          'few monumental rings with small harmonic echoes',
+          'layered micro-rings near one focal zone and broader rings elsewhere',
+        ],
+        'spacing'
+      )}
 - Wave clarity: ${pick(
-          [
-            'crisp concentric circles with soft peripheral fade',
-            'slightly blurred echoes around a sharp core',
-            'thin luminous lines with intermittent breaks',
-            'transparent layered rings building depth rather than brightness',
-          ],
-          'clarity'
-        )}
+        [
+          'crisp concentric circles with soft peripheral fade',
+          'slightly blurred echoes around a sharp core',
+          'thin luminous lines with intermittent breaks',
+          'transparent layered rings building depth rather than brightness',
+        ],
+        'clarity'
+      )}
 - Pulse origin: ${pick(
-          [
-            'centered on one sigil intersection',
-            'slightly offset from center for directional tension',
-            'emerging from beneath the lower half of the sigil',
-            'distributed across two unequal resonance nodes',
-          ],
-          'origin'
-        )}
+        [
+          'centered on one sigil intersection',
+          'slightly offset from center for directional tension',
+          'emerging from beneath the lower half of the sigil',
+          'distributed across two unequal resonance nodes',
+        ],
+        'origin'
+      )}
 - Luminosity pattern: ${pick(
-          [
-            'silver-white pulses on deep black',
-            'soft blue resonance with pale violet traces',
-            'amber-white echo lines over charcoal',
-            'cool monochrome with one brighter inner ring',
-          ],
-          'light'
-        )}
+        [
+          'silver-white pulses on deep black',
+          'soft blue resonance with pale violet traces',
+          'amber-white echo lines over charcoal',
+          'cool monochrome with one brighter inner ring',
+        ],
+        'light'
+      )}
 - Density: ${density}`;
     }
 
@@ -1083,41 +1083,41 @@ UNIQUENESS MANDATE:
 
 ECHO SIGNATURE FOR THIS RENDER:
 - Ripple distortion: ${pick(
-          [
-            'clean ripples bending around one side of the sigil',
-            'slightly elliptical echoes rather than perfect circles',
-            'compressed lower ripples with open upper air',
-            'directional ripple shear moving toward one edge',
-          ],
-          'ripple'
-        )}
+        [
+          'clean ripples bending around one side of the sigil',
+          'slightly elliptical echoes rather than perfect circles',
+          'compressed lower ripples with open upper air',
+          'directional ripple shear moving toward one edge',
+        ],
+        'ripple'
+      )}
 - Chamber depth: ${pick(
-          [
-            'near-field echoes with a dark distant background',
-            'stacked translucent rings fading into a shallow void',
-            'deep chamber darkness with only a few visible echo planes',
-            'misty layered space suggesting sound traveling through fog',
-          ],
-          'depth'
-        )}
+        [
+          'near-field echoes with a dark distant background',
+          'stacked translucent rings fading into a shallow void',
+          'deep chamber darkness with only a few visible echo planes',
+          'misty layered space suggesting sound traveling through fog',
+        ],
+        'depth'
+      )}
 - Fade pattern: ${pick(
-          [
-            'quick falloff after the first few rings',
-            'slow long-tail resonance to the margins',
-            'broken fade with quiet pockets of silence',
-            'one side fading faster than the other',
-          ],
-          'fade'
-        )}
+        [
+          'quick falloff after the first few rings',
+          'slow long-tail resonance to the margins',
+          'broken fade with quiet pockets of silence',
+          'one side fading faster than the other',
+        ],
+        'fade'
+      )}
 - Tonal restraint: ${pick(
-          [
-            'near-monochrome graphite and white',
-            'cold silver-blue with minimal variance',
-            'smoked charcoal with pale pearl lines',
-            'black-and-bone contrast with subdued glow',
-          ],
-          'tone'
-        )}
+        [
+          'near-monochrome graphite and white',
+          'cold silver-blue with minimal variance',
+          'smoked charcoal with pale pearl lines',
+          'black-and-bone contrast with subdued glow',
+        ],
+        'tone'
+      )}
 - Focal behavior: ${focus}`;
     }
 
@@ -1130,41 +1130,41 @@ UNIQUENESS MANDATE:
 
 MONOLITH SIGNATURE FOR THIS RENDER:
 - Monument scale: ${pick(
-          [
-            'the sigil feels carved into a towering slab beyond the frame',
-            'a compact but extremely weighty central monument',
-            'one oversized structural plane dominating the composition',
-            'stacked stone-like mass implied behind the preserved linework',
-          ],
-          'scale'
-        )}
+        [
+          'the sigil feels carved into a towering slab beyond the frame',
+          'a compact but extremely weighty central monument',
+          'one oversized structural plane dominating the composition',
+          'stacked stone-like mass implied behind the preserved linework',
+        ],
+        'scale'
+      )}
 - Material feel: ${pick(
-          [
-            'dry volcanic stone',
-            'ink-black basalt with faint chisel grain',
-            'matte mineral surface with subtle dust',
-            'blackened concrete monolith with quiet texture',
-          ],
-          'material'
-        )}
+        [
+          'dry volcanic stone',
+          'ink-black basalt with faint chisel grain',
+          'matte mineral surface with subtle dust',
+          'blackened concrete monolith with quiet texture',
+        ],
+        'material'
+      )}
 - Shadow mass: ${pick(
-          [
-            'a deep shadow shelf beneath the form',
-            'broad side-shadow weighting one edge',
-            'near-total darkness swallowing the outer field',
-            'layered matte blacks separated by faint ambient lift',
-          ],
-          'shadow'
-        )}
+        [
+          'a deep shadow shelf beneath the form',
+          'broad side-shadow weighting one edge',
+          'near-total darkness swallowing the outer field',
+          'layered matte blacks separated by faint ambient lift',
+        ],
+        'shadow'
+      )}
 - Empty-space strategy: ${pick(
-          [
-            'vast negative space around the monument',
-            'tight crop against one margin with open opposite space',
-            'low composition with towering emptiness above',
-            'symmetrical stillness with a dark breathing border',
-          ],
-          'space'
-        )}
+        [
+          'vast negative space around the monument',
+          'tight crop against one margin with open opposite space',
+          'low composition with towering emptiness above',
+          'symmetrical stillness with a dark breathing border',
+        ],
+        'space'
+      )}
 - Density: ${density}`;
     }
 

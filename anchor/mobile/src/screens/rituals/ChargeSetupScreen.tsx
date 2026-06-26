@@ -27,8 +27,6 @@ import type { Anchor, RootStackParamList } from '@/types';
 import { spacing } from '@/theme';
 import { navigateToVaultDestination } from '@/navigation/firstAnchorGate';
 import { isCompactPhoneViewport, isShortPhoneViewport } from '@/utils/layout';
-import { usePrimeSessionAccess } from '@/hooks/usePrimeSessionAccess';
-import { NO_ACCOUNT_SIGN_UP_PARAMS } from '@/utils/noAccountAccess';
 
 type ChargeSetupRouteProp = RouteProp<RootStackParamList, 'ChargeSetup'>;
 type ChargeSetupNavigationProp = StackNavigationProp<RootStackParamList, 'ChargeSetup'>;
@@ -58,7 +56,7 @@ const FALLBACK_SIGIL_SVG = `
 `.trim();
 
 
-const QUICK_CHARGE_CONFIG = {
+const chargeConfigByChoice = {
   quick: {
     mode: 'focus' as const,
     preset: '30s' as const,
@@ -70,28 +68,17 @@ const QUICK_CHARGE_CONFIG = {
     lineOne: '30 seconds',
     lineTwo: 'Daily reset',
   },
-};
-
-const getPrimePreset = (durationSeconds: number) => {
-  if (durationSeconds === 120) {
-    return { preset: '2m' as const, customMinutes: undefined };
-  }
-  if (durationSeconds === 300) {
-    return { preset: '5m' as const, customMinutes: undefined };
-  }
-  if (durationSeconds === 600) {
-    return { preset: '10m' as const, customMinutes: undefined };
-  }
-
-  return {
+  deep: {
+    mode: 'ritual' as const,
     preset: 'custom' as const,
-    customMinutes: Math.max(2, Math.round(durationSeconds / 60)),
-  };
-};
-
-const formatMinutesLabel = (durationSeconds: number) => {
-  const minutes = Math.max(2, Math.round(durationSeconds / 60));
-  return `${minutes} minute${minutes === 1 ? '' : 's'}`;
+    customMinutes: 3,
+    ritualType: 'ritual' as const,
+    durationSeconds: 180,
+    icon: '🔥',
+    name: 'Deep Prime',
+    lineOne: '2 – 10 minutes',
+    lineTwo: 'Deep focus',
+  },
 };
 
 const getPrimeStructureSvg = (anchor?: Anchor): string =>
@@ -102,21 +89,18 @@ export const ChargeSetupScreen: React.FC = () => {
   const route = useRoute<ChargeSetupRouteProp>();
   const insets = useSafeAreaInsets();
   const { width: screenWidth, height: screenHeight } = useWindowDimensions();
-  const { anchorId, returnTo, autoStartOnSelection = false, initialDuration } = route.params || {};
+  const { anchorId, returnTo, autoStartOnSelection = false } = route.params || {};
 
   const getAnchorById = useAnchorStore((state) => state.getAnchorById);
   const setDefaultCharge = useSettingsStore((state) => state.setDefaultCharge);
-  const primeSessionDuration = useSettingsStore((state) => state.primeSessionDuration ?? 120);
   const anchor = getAnchorById(anchorId);
-  const primeSessionAccess = usePrimeSessionAccess();
 
-  const [selectedDuration, setSelectedDuration] = useState<DurationChoice>(initialDuration ?? 'quick');
+  const [selectedDuration, setSelectedDuration] = useState<DurationChoice>('quick');
   const [reduceMotionEnabled, setReduceMotionEnabled] = useState(false);
   const [isTransitioning, setIsTransitioning] = useState(false);
   const [enhancedArtworkFailed, setEnhancedArtworkFailed] = useState(false);
 
   const isNavigatingRef = useRef(false);
-  const hasAutoStartedRef = useRef(false);
   const isCompactLayout = isCompactPhoneViewport(screenWidth, screenHeight);
   const isShortLayout = isShortPhoneViewport(screenHeight);
   const heroHeight = Math.max(
@@ -133,24 +117,6 @@ export const ChargeSetupScreen: React.FC = () => {
   const ringPulseMid = useRef(new Animated.Value(1)).current;
   const ringPulseInner = useRef(new Animated.Value(1)).current;
   const structureSvg = useMemo(() => getPrimeStructureSvg(anchor), [anchor]);
-  const chargeConfigByChoice = useMemo(() => {
-    const deepPreset = getPrimePreset(primeSessionDuration);
-
-    return {
-      ...QUICK_CHARGE_CONFIG,
-      deep: {
-        mode: 'ritual' as const,
-        preset: deepPreset.preset,
-        customMinutes: deepPreset.customMinutes,
-        ritualType: 'ritual' as const,
-        durationSeconds: primeSessionDuration,
-        icon: '🔥',
-        name: 'Deep Prime',
-        lineOne: formatMinutesLabel(primeSessionDuration),
-        lineTwo: 'Deep focus',
-      },
-    };
-  }, [primeSessionDuration]);
 
   useEffect(() => {
     AccessibilityInfo.isReduceMotionEnabled().then((v) => setReduceMotionEnabled(v));
@@ -233,25 +199,12 @@ export const ChargeSetupScreen: React.FC = () => {
         });
       }
     },
-    [anchorId, chargeConfigByChoice, navigation, returnTo]
+    [anchorId, navigation, returnTo]
   );
 
   const handleBeginRitual = useCallback(
     (choice: DurationChoice = selectedDuration) => {
       if (isNavigatingRef.current || isTransitioning) return;
-
-      const allowance = choice === 'quick' ? primeSessionAccess.focus : primeSessionAccess.deep;
-      if (!allowance.isAllowed) {
-        if (primeSessionAccess.isNoAccountSanctuaryUser) {
-          navigation.navigate('Login', NO_ACCOUNT_SIGN_UP_PARAMS);
-        } else {
-          navigation.navigate('Paywall', {
-            source: 'gated_feature',
-            preferredPlanId: 'annual',
-          });
-        }
-        return;
-      }
 
       const config = chargeConfigByChoice[choice];
       isNavigatingRef.current = true;
@@ -266,17 +219,7 @@ export const ChargeSetupScreen: React.FC = () => {
       void safeHaptics.impact(Haptics.ImpactFeedbackStyle.Medium);
       navigateToRitual(choice);
     },
-    [
-      chargeConfigByChoice,
-      isTransitioning,
-      navigateToRitual,
-      navigation,
-      primeSessionAccess.deep,
-      primeSessionAccess.focus,
-      primeSessionAccess.isNoAccountSanctuaryUser,
-      selectedDuration,
-      setDefaultCharge,
-    ]
+    [isTransitioning, navigateToRitual, selectedDuration, setDefaultCharge]
   );
 
   const handleSelectDuration = useCallback(
@@ -291,18 +234,6 @@ export const ChargeSetupScreen: React.FC = () => {
     },
     [autoStartOnSelection, handleBeginRitual, isTransitioning]
   );
-
-  useEffect(() => {
-    if (!autoStartOnSelection || !initialDuration || !anchor) {
-      return;
-    }
-    if (hasAutoStartedRef.current || isTransitioning) {
-      return;
-    }
-
-    hasAutoStartedRef.current = true;
-    handleBeginRitual(initialDuration);
-  }, [anchor, autoStartOnSelection, handleBeginRitual, initialDuration, isTransitioning]);
 
   const handleBack = useCallback(() => {
     if (isTransitioning) return;
@@ -414,81 +345,76 @@ export const ChargeSetupScreen: React.FC = () => {
           contentContainerStyle={[
             styles.panelContent,
             isCompactLayout && styles.panelContentCompact,
-            { flexGrow: 1, justifyContent: 'space-between' }
           ]}
         >
-          <View style={styles.topContent}>
-            <View style={styles.badgeRow}>
-              <LinearGradient
-                colors={['transparent', 'rgba(212,175,55,0.3)']}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 0 }}
-                style={styles.badgeLine}
-              />
-              <Text style={styles.badgeText}>ANCHOR FORGED</Text>
-              <LinearGradient
-                colors={['rgba(212,175,55,0.3)', 'transparent']}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 0 }}
-                style={styles.badgeLine}
-              />
-            </View>
-
-            <Text style={[styles.headline, isCompactLayout && styles.headlineCompact]}>The Work Begins Now</Text>
-            <Text style={[styles.subline, isCompactLayout && styles.sublineCompact]}>Fix your anchor in mind.{'\n'}Choose your prime duration.</Text>
-            <Text style={[styles.durationLabel, isCompactLayout && styles.durationLabelCompact]}>SELECT DURATION</Text>
-
-            <View style={[styles.cardsRow, isCompactLayout && styles.cardsRowCompact]}>
-              {cards.map((card) => (
-                <TouchableOpacity
-                  key={card.choice}
-                  activeOpacity={0.88}
-                  onPress={() => handleSelectDuration(card.choice)}
-                  accessibilityRole="radio"
-                  accessibilityLabel={`${card.name} duration`}
-                  accessibilityState={{ selected: card.isSelected }}
-                  disabled={isTransitioning}
-                  style={[
-                    styles.durationCard,
-                    isCompactLayout && styles.durationCardCompact,
-                    card.isSelected ? styles.durationCardSelected : null,
-                  ]}
-                >
-                  {card.isSelected ? (
-                    <View style={styles.checkCircle}>
-                      <Text style={styles.checkText}>✓</Text>
-                    </View>
-                  ) : null}
-                  <Text style={[styles.cardIcon, isCompactLayout && styles.cardIconCompact]}>{card.icon}</Text>
-                  <Text style={[styles.cardName, isCompactLayout && styles.cardNameCompact, card.isSelected ? styles.cardNameSelected : null]}>{card.name}</Text>
-                  <Text style={[styles.cardLine, isCompactLayout && styles.cardLineCompact]}>{card.lineOne}</Text>
-                  <Text style={[styles.cardLine, isCompactLayout && styles.cardLineCompact]}>{card.lineTwo}</Text>
-                </TouchableOpacity>
-              ))}
-            </View>
+          <View style={styles.badgeRow}>
+            <LinearGradient
+              colors={['transparent', 'rgba(212,175,55,0.3)']}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 0 }}
+              style={styles.badgeLine}
+            />
+            <Text style={styles.badgeText}>ANCHOR FORGED</Text>
+            <LinearGradient
+              colors={['rgba(212,175,55,0.3)', 'transparent']}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 0 }}
+              style={styles.badgeLine}
+            />
           </View>
 
-          <View style={styles.bottomActions}>
-            <TouchableOpacity
-              onPress={() => handleBeginRitual()}
-              activeOpacity={0.9}
-              disabled={isTransitioning}
-              accessibilityRole="button"
-              accessibilityLabel="BEGIN PRIMING"
-              style={styles.ctaTouchable}
-            >
-              <LinearGradient
-                colors={['#C9A227', '#D4AF37', '#E8C84A']}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 1 }}
-                style={[styles.ctaButton, isCompactLayout && styles.ctaButtonCompact]}
+          <Text style={[styles.headline, isCompactLayout && styles.headlineCompact]}>The Work Begins Now</Text>
+          <Text style={[styles.subline, isCompactLayout && styles.sublineCompact]}>Fix your anchor in mind.{'\n'}Choose your prime duration.</Text>
+          <Text style={[styles.durationLabel, isCompactLayout && styles.durationLabelCompact]}>SELECT DURATION</Text>
+
+          <View style={[styles.cardsRow, isCompactLayout && styles.cardsRowCompact]}>
+            {cards.map((card) => (
+              <TouchableOpacity
+                key={card.choice}
+                activeOpacity={0.88}
+                onPress={() => handleSelectDuration(card.choice)}
+                accessibilityRole="radio"
+                accessibilityLabel={`${card.name} duration`}
+                accessibilityState={{ selected: card.isSelected }}
+                disabled={isTransitioning}
+                style={[
+                  styles.durationCard,
+                  isCompactLayout && styles.durationCardCompact,
+                  card.isSelected ? styles.durationCardSelected : null,
+                ]}
               >
-                <Text style={[styles.ctaText, isCompactLayout && styles.ctaTextCompact]}>BEGIN PRIMING</Text>
-              </LinearGradient>
-            </TouchableOpacity>
-
-            <Text style={[styles.safetyText, isShortLayout && styles.safetyTextCompact]}>You can stop anytime.</Text>
+                {card.isSelected ? (
+                  <View style={styles.checkCircle}>
+                    <Text style={styles.checkText}>✓</Text>
+                  </View>
+                ) : null}
+                <Text style={[styles.cardIcon, isCompactLayout && styles.cardIconCompact]}>{card.icon}</Text>
+                <Text style={[styles.cardName, isCompactLayout && styles.cardNameCompact, card.isSelected ? styles.cardNameSelected : null]}>{card.name}</Text>
+                <Text style={[styles.cardLine, isCompactLayout && styles.cardLineCompact]}>{card.lineOne}</Text>
+                <Text style={[styles.cardLine, isCompactLayout && styles.cardLineCompact]}>{card.lineTwo}</Text>
+              </TouchableOpacity>
+            ))}
           </View>
+
+          <TouchableOpacity
+            onPress={() => handleBeginRitual()}
+            activeOpacity={0.9}
+            disabled={isTransitioning}
+            accessibilityRole="button"
+            accessibilityLabel="BEGIN PRIMING"
+            style={styles.ctaTouchable}
+          >
+            <LinearGradient
+              colors={['#C9A227', '#D4AF37', '#E8C84A']}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+              style={[styles.ctaButton, isCompactLayout && styles.ctaButtonCompact]}
+            >
+              <Text style={[styles.ctaText, isCompactLayout && styles.ctaTextCompact]}>BEGIN PRIMING</Text>
+            </LinearGradient>
+          </TouchableOpacity>
+
+          <Text style={[styles.safetyText, isShortLayout && styles.safetyTextCompact]}>You can stop anytime.</Text>
         </ScrollView>
       </View>
 
@@ -838,14 +764,6 @@ const styles = StyleSheet.create({
   safetyTextCompact: {
     marginTop: 12,
     fontSize: 12,
-  },
-  topContent: {
-    width: '100%',
-  },
-  bottomActions: {
-    marginTop: spacing.md,
-    width: '100%',
-    alignItems: 'center',
   },
   errorContainer: {
     flex: 1,

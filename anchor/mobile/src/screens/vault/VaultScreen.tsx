@@ -58,7 +58,6 @@ import { useSettingsStore } from '@/stores/settingsStore';
 import { WeeklySummaryModal } from '@/components/WeeklySummaryModal'; import { useWeeklySummaryTrigger } from '@/hooks/useWeeklySummaryTrigger';
 import { VaultGridModal } from './components/VaultGridModal';
 import { hasIgnited, isAnchorReleased } from './utils/anchorStateHelpers';
-import { isNoAccountSanctuaryUser, NO_ACCOUNT_SIGN_UP_PARAMS } from '@/utils/noAccountAccess';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -83,21 +82,19 @@ const GHOST_SIGIL_2 = `<svg viewBox="0 0 45 45" fill="none" stroke="#D4AF37" str
 // ─── GuestReturnBanner ───────────────────────────────────────────────────────
 
 interface GuestReturnBannerProps {
-  onStartMigration: () => void;
+  onPractice: () => void;
   onDismiss: () => void;
 }
 
-function GuestReturnBanner({ onStartMigration, onDismiss }: GuestReturnBannerProps) {
+function GuestReturnBanner({ onPractice, onDismiss }: GuestReturnBannerProps) {
   return (
     <View style={bannerStyles.container}>
       <View style={bannerStyles.textWrap}>
-        <Text style={bannerStyles.title}>Save your Sanctuary.</Text>
-        <Text style={bannerStyles.sub}>
-          Create your account to keep these anchors and sync your practice.
-        </Text>
+        <Text style={bannerStyles.title}>Your anchor is here.</Text>
+        <Text style={bannerStyles.sub}>Ready to practice?</Text>
       </View>
-      <TouchableOpacity onPress={onStartMigration} style={bannerStyles.cta} activeOpacity={0.8}>
-        <Text style={bannerStyles.ctaText}>Save & Create Account</Text>
+      <TouchableOpacity onPress={onPractice} style={bannerStyles.cta} activeOpacity={0.8}>
+        <Text style={bannerStyles.ctaText}>Begin</Text>
       </TouchableOpacity>
       <TouchableOpacity onPress={onDismiss} style={bannerStyles.dismiss} activeOpacity={0.6} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
         <Text style={bannerStyles.dismissText}>✕</Text>
@@ -134,8 +131,8 @@ const bannerStyles = StyleSheet.create({
   sub: {
     fontFamily: typography.fonts.bodySerif,
     fontSize: 13,
+    fontWeight: '300',
     color: withAlpha(colors.bone, 0.6),
-    lineHeight: 18,
   },
   cta: {
     paddingHorizontal: 14,
@@ -147,10 +144,9 @@ const bannerStyles = StyleSheet.create({
   ctaText: {
     fontFamily: typography.fonts.headingBold,
     fontSize: 11,
-    letterSpacing: 0.8,
+    letterSpacing: 1.2,
     textTransform: 'uppercase',
     color: colors.gold,
-    textAlign: 'center',
   },
   dismiss: {
     padding: 4,
@@ -213,13 +209,7 @@ export const VaultScreen: React.FC = () => {
   const isVaultTabActive = activeTabIndex == null ? true : activeTabIndex === 0;
 
   const { user, isAuthenticated } = useAuthStore();
-  const pendingFirstAnchorDraft = useAuthStore((state) => state.pendingFirstAnchorDraft);
-  const legacyGuestMigrationDismissed = useAuthStore(
-    (state) => state.legacyGuestMigrationDismissed
-  );
-  const setLegacyGuestMigrationDismissed = useAuthStore(
-    (state) => state.setLegacyGuestMigrationDismissed
-  );
+  const [bannerDismissed, setBannerDismissed] = useState(false);
   const profileName = useProfileStore((state) => state.name);
   const profileTimezone = useProfileStore((state) => state.timezone);
   const developerForceStreakBreakEnabled = useSettingsStore(
@@ -249,15 +239,6 @@ export const VaultScreen: React.FC = () => {
   const sanctuaryAnchors = useMemo(
     () => anchors.filter((anchor) => !isAnchorReleased(anchor)),
     [anchors]
-  );
-  const isNoAccountSanctuary = useMemo(
-    () =>
-      isNoAccountSanctuaryUser({
-        isAuthenticated,
-        pendingFirstAnchorDraft,
-        sanctuaryAnchorCount: sanctuaryAnchors.length,
-      }),
-    [isAuthenticated, pendingFirstAnchorDraft, sanctuaryAnchors.length]
   );
 
   const autoPrimary = useMemo(() => selectPrimaryAnchor(sanctuaryAnchors), [sanctuaryAnchors]);
@@ -405,11 +386,6 @@ export const VaultScreen: React.FC = () => {
 
   // ── Navigation handlers ───────────────────────────────────────────────────────
   const handleCreateAnchor = useCallback((): void => {
-    if (isNoAccountSanctuary) {
-      navigation.navigate('Login', NO_ACCOUNT_SIGN_UP_PARAMS);
-      return;
-    }
-
     // DEFERRED: freemium — anchor limit gate removed; trial/active users have unlimited anchors
     // if (isFree && anchors.length >= features.maxAnchors) {
     //   AnalyticsService.track(AnalyticsEvents.ANCHOR_LIMIT_REACHED, {
@@ -425,7 +401,7 @@ export const VaultScreen: React.FC = () => {
       has_existing_anchors: anchors.length > 0,
     });
     navigation.push(anchors.length === 0 ? 'FirstAnchorCreation' : 'CreateAnchor');
-  }, [anchors.length, isNoAccountSanctuary, navigation]);
+  }, [anchors.length, navigation]);
 
   const handleAnchorPress = useCallback(
     (anchorId: string): void => {
@@ -461,10 +437,6 @@ export const VaultScreen: React.FC = () => {
     }
   }, [focusSessionMode, primeSessionDuration, primaryAnchor, navigation]);
 
-  const handleLegacyGuestMigration = useCallback((): void => {
-    navigation.navigate('Login', NO_ACCOUNT_SIGN_UP_PARAMS);
-  }, [navigation]);
-
   // ── Render ────────────────────────────────────────────────────────────────────
 
   if (isLoading && anchors.length === 0) {
@@ -497,10 +469,10 @@ export const VaultScreen: React.FC = () => {
             />
           </Animated2.View>
 
-          {isNoAccountSanctuary && !legacyGuestMigrationDismissed && (
+          {!isAuthenticated && sanctuaryAnchors.length > 0 && !bannerDismissed && (
             <GuestReturnBanner
-              onStartMigration={handleLegacyGuestMigration}
-              onDismiss={() => setLegacyGuestMigrationDismissed(true)}
+              onPractice={handleActivate}
+              onDismiss={() => setBannerDismissed(true)}
             />
           )}
 
@@ -541,9 +513,7 @@ export const VaultScreen: React.FC = () => {
               <View style={styles.plusRing}>
                 <Text style={styles.plusIcon}>+</Text>
               </View>
-              <Text style={styles.createLabel}>
-                {isNoAccountSanctuary ? 'CREATE ACCOUNT TO CONTINUE' : 'CREATE NEW ANCHOR'}
-              </Text>
+              <Text style={styles.createLabel}>CREATE NEW ANCHOR</Text>
             </TouchableOpacity>
           </View>
         )}

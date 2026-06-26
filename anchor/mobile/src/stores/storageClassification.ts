@@ -32,7 +32,6 @@ export const STORAGE_CLASSIFICATION_MATRIX: StoreClassificationMatrix = {
     profileData: 'identity',
     profileLastFetched: 'low_sensitivity_preferences',
     wallpaperPromptSeen: 'low_sensitivity_preferences',
-    legacyGuestMigrationDismissed: 'low_sensitivity_preferences',
   },
   anchorStore: {
     anchors: 'high_sensitivity_telemetry',

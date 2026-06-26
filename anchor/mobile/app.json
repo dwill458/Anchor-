@@ -2,7 +2,7 @@
   "expo": {
     "name": "Anchor",
     "slug": "anchor",
-    "version": "1.0.9",
+    "version": "1.0.7",
     "newArchEnabled": true,
     "platforms": [
       "ios",
@@ -19,7 +19,7 @@
     "assetBundlePatterns": [
       "**/*"
     ],
-    "runtimeVersion": "1.0.9",
+    "runtimeVersion": "1.0.7",
     "updates": {
       "enabled": true,
       "checkAutomatically": "ON_LOAD",
@@ -30,7 +30,7 @@
       "supportsTablet": false,
       "usesAppleSignIn": true,
       "bundleIdentifier": "com.anchorintentions.app",
-      "buildNumber": "10",
+      "buildNumber": "6",
       "googleServicesFile": "./GoogleService-Info.plist",
       "infoPlist": {
         "NSCameraUsageDescription": "Anchor uses your camera so you can take a profile photo.",
@@ -110,22 +110,20 @@
     "android": {
       "allowBackup": false,
       "adaptiveIcon": {
-        "foregroundImage": "./assets/anchor-adaptive-foreground.png",
+        "foregroundImage": "./assets/anchor-gold.png",
         "backgroundColor": "#1A1A1D",
-        "monochromeImage": "./assets/anchor-adaptive-monochrome.png"
+        "monochromeImage": "./assets/anchor-monochrome.png"
       },
       "package": "com.anchorintentions.app",
-      "versionCode": 28,
+      "versionCode": 21,
       "googleServicesFile": "./google-services.json",
       "edgeToEdgeEnabled": true,
       "blockedPermissions": [
         "android.permission.RECORD_AUDIO",
-        "android.permission.READ_EXTERNAL_STORAGE",
         "android.permission.READ_MEDIA_AUDIO",
         "android.permission.READ_MEDIA_IMAGES",
         "android.permission.READ_MEDIA_VISUAL_USER_SELECTED",
-        "android.permission.READ_MEDIA_VIDEO",
-        "android.permission.WRITE_EXTERNAL_STORAGE"
+        "android.permission.READ_MEDIA_VIDEO"
       ],
       "permissions": [
         "android.permission.MODIFY_AUDIO_SETTINGS",

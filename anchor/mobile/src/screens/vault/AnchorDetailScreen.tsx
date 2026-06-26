@@ -25,9 +25,7 @@ import { ChevronRight, Share2, Zap } from 'lucide-react-native';
 import { MoreRitualsSheet, RitualType } from '@/components/MoreRitualsSheet';
 import { useToast } from '@/components/ToastProvider';
 import { useTabNavigation } from '@/contexts/TabNavigationContext';
-import { ENABLE_MERCH } from '@/config';
 import { useAnchorStore } from '@/stores/anchorStore';
-import { useAuthStore } from '@/stores/authStore';
 import { useSettingsStore } from '@/stores/settingsStore';
 import { useSessionStore } from '@/stores/sessionStore';
 import { del, post } from '@/services/ApiClient';
@@ -51,7 +49,6 @@ import Reanimated, {
 import { DivineSigilAura } from './components/DivineSigilAura';
 import {
   ChargedGlowCanvas,
-  SigilSvg,
   ZenBackground,
 } from '@/components/common';
 import { useAppPerformanceTier } from '@/hooks/useAppPerformanceTier';
@@ -63,7 +60,6 @@ import { ConfirmDeleteAnchorSheet } from '@/components/modals/ConfirmDeleteAncho
 import ShareCardRenderer from '@/components/ShareCardRenderer';
 import { useShareCard } from '@/hooks/useShareCard';
 import { logger } from '@/utils/logger';
-import { isNoAccountSanctuaryUser, NO_ACCOUNT_SIGN_UP_PARAMS } from '@/utils/noAccountAccess';
 
 const { width: SCREEN_W } = Dimensions.get('window');
 const SIGIL_CIRCLE_SIZE = Math.round(SCREEN_W * 0.62);
@@ -181,7 +177,6 @@ const toDisplayAnchor = (rawAnchor) => {
     practiceActivateDays:
       rawAnchor.practiceActivateDays ??
       Math.min(rawAnchor.activationCount ?? 0, 7),
-    reinforcedSigilSvg: rawAnchor.reinforcedSigilSvg ?? null,
     baseSigilSvg: rawAnchor.baseSigilSvg ?? '',
     enhancedImageUrl: rawAnchor.enhancedImageUrl,
   };
@@ -573,8 +568,6 @@ const AnchorDetailsScreen = ({ navigation, route }) => {
   const toast = useToast();
   const getAnchorById = useAnchorStore((state) => state.getAnchorById);
   const removeAnchor = useAnchorStore((state) => state.removeAnchor);
-  const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
-  const pendingFirstAnchorDraft = useAuthStore((state) => state.pendingFirstAnchorDraft);
   const defaultActivation = useSettingsStore((s) => s.defaultActivation);
   const setDefaultActivation = useSettingsStore((s) => s.setDefaultActivation);
   const sessionLog = useSessionStore((s) => s.sessionLog);
@@ -639,21 +632,11 @@ const AnchorDetailsScreen = ({ navigation, route }) => {
         practiceCreate: true,
         practiceCharge: false,
         practiceActivateDays: 0,
-        reinforcedSigilSvg: null,
         baseSigilSvg: '',
         enhancedImageUrl: null,
       },
     [sourceAnchor] // eslint-disable-line react-hooks/exhaustive-deps
   );
-  const resolvedSigilSvg = anchor.reinforcedSigilSvg ?? anchor.baseSigilSvg ?? '';
-  const isNoAccountExportBlocked = isNoAccountSanctuaryUser({
-    isAuthenticated: Boolean(isAuthenticated),
-    pendingFirstAnchorDraft,
-    sanctuaryAnchorCount: anchor.id ? 1 : 0,
-  });
-  const handleAccountRequired = useCallback(() => {
-    navigation?.navigate('Login', NO_ACCOUNT_SIGN_UP_PARAMS);
-  }, [navigation]);
   const anchorPractice = useMemo(() => {
     if (!anchorId) {
       return {
@@ -977,11 +960,6 @@ const AnchorDetailsScreen = ({ navigation, route }) => {
 
   useEffect(() => {
     if (!pendingExportAction) return;
-    if (isNoAccountExportBlocked) {
-      setPendingExportAction(null);
-      setIsExporting(false);
-      return;
-    }
 
     let cancelled = false;
 
@@ -1032,14 +1010,10 @@ const AnchorDetailsScreen = ({ navigation, route }) => {
       cancelled = true;
       task.cancel();
     };
-  }, [isNoAccountExportBlocked, pendingExportAction]);
+  }, [pendingExportAction]);
 
   const handleDownloadPNG = async () => {
     if (isExporting) return;
-    if (isNoAccountExportBlocked) {
-      handleAccountRequired();
-      return;
-    }
     const perm = await MediaLibrary.requestPermissionsAsync();
     if (perm.status !== 'granted') {
       toast.warning('Allow photo library access to save your anchor');
@@ -1051,10 +1025,6 @@ const AnchorDetailsScreen = ({ navigation, route }) => {
 
   const handleSetWallpaper = async () => {
     if (isExporting) return;
-    if (isNoAccountExportBlocked) {
-      handleAccountRequired();
-      return;
-    }
     const perm = await MediaLibrary.requestPermissionsAsync();
     if (perm.status !== 'granted') {
       toast.warning('Allow photo library access to share your anchor');
@@ -1066,10 +1036,6 @@ const AnchorDetailsScreen = ({ navigation, route }) => {
 
   const handleShareAnchor = useCallback(() => {
     if (isShareCardLoading) {
-      return;
-    }
-    if (isNoAccountExportBlocked) {
-      handleAccountRequired();
       return;
     }
 
@@ -1098,8 +1064,6 @@ const AnchorDetailsScreen = ({ navigation, route }) => {
     anchor.intention,
     anchorPractice.currentStreak,
     captureAndShare,
-    handleAccountRequired,
-    isNoAccountExportBlocked,
     isShareCardLoading,
     setShareCardRendered,
     shareFormat,
@@ -1276,10 +1240,10 @@ const AnchorDetailsScreen = ({ navigation, route }) => {
                       style={[s.sigilImage, anchor.charged && s.chargedSigilImage, anchor.isReleased && s.releasedSigilImage]}
                       resizeMode="cover"
                     />
-                  ) : resolvedSigilSvg ? (
+                  ) : anchor.baseSigilSvg ? (
                     <View style={[s.sigilPlaceholder, Platform.OS === 'android' && s.sigilPlaceholderAndroid, isLowPerfDevice && s.lowPerfNoSigilShadow, anchor.charged && s.chargedSigilPlaceholder]}>
-                      <SigilSvg
-                        xml={resolvedSigilSvg}
+                      <SvgXml
+                        xml={anchor.baseSigilSvg}
                         width={SIGIL_CIRCLE_SIZE * (anchor.charged ? 0.72 : 1)}
                         height={SIGIL_CIRCLE_SIZE * (anchor.charged ? 0.72 : 1)}
                       />
@@ -1403,9 +1367,7 @@ const AnchorDetailsScreen = ({ navigation, route }) => {
             <Text style={s.exportEyebrow}>WALLPAPER & EXPORT</Text>
             <Text style={s.exportTitle}>Keep your anchor where you will actually see it.</Text>
             <Text style={s.exportBody}>
-              {isNoAccountExportBlocked
-                ? 'Create your account to export this anchor.'
-                : 'Share a branded card for messages and social, save the raw PNG, or open the wallpaper flow when you want the symbol on your lock screen.'}
+              Share a branded card for messages and social, save the raw PNG, or open the wallpaper flow when you want the symbol on your lock screen.
             </Text>
             <View style={s.exportActionRow}>
               <View style={s.formatToggleRow}>
@@ -1435,21 +1397,13 @@ const AnchorDetailsScreen = ({ navigation, route }) => {
                 activeOpacity={0.85}
                 disabled={isShareCardLoading}
                 onPress={handleShareAnchor}
-                style={[
-                  s.exportActionButton,
-                  s.exportActionPrimary,
-                  (isShareCardLoading || isNoAccountExportBlocked) && s.exportActionDisabled,
-                ]}
+                style={[s.exportActionButton, s.exportActionPrimary, isShareCardLoading && s.exportActionDisabled]}
                 testID="anchor-detail-share-button"
               >
                 <View style={s.exportActionPrimaryContent}>
                   <Share2 size={16} color={colors.background.primary} />
                   <Text style={s.exportActionPrimaryText}>
-                    {isShareCardLoading
-                      ? 'Sharing...'
-                      : isNoAccountExportBlocked
-                        ? 'CREATE ACCOUNT TO EXPORT'
-                        : 'SHARE MY ANCHOR'}
+                    {isShareCardLoading ? 'Sharing...' : 'SHARE MY ANCHOR'}
                   </Text>
                 </View>
               </TouchableOpacity>
@@ -1464,7 +1418,7 @@ const AnchorDetailsScreen = ({ navigation, route }) => {
                     s.exportActionButton,
                     s.exportActionSecondary,
                     s.exportActionHalf,
-                    (isExporting || isNoAccountExportBlocked) && s.exportActionDisabled,
+                    isExporting && s.exportActionDisabled,
                   ]}
                   testID="anchor-detail-set-wallpaper-button"
                 >
@@ -1476,19 +1430,8 @@ const AnchorDetailsScreen = ({ navigation, route }) => {
                 <TouchableOpacity
                   accessibilityRole="button"
                   activeOpacity={0.85}
-                  onPress={() => {
-                    if (isNoAccountExportBlocked) {
-                      handleAccountRequired();
-                      return;
-                    }
-                    setShowExportSheet(true);
-                  }}
-                  style={[
-                    s.exportActionButton,
-                    s.exportActionSecondary,
-                    s.exportActionHalf,
-                    isNoAccountExportBlocked && s.exportActionDisabled,
-                  ]}
+                  onPress={() => setShowExportSheet(true)}
+                  style={[s.exportActionButton, s.exportActionSecondary, s.exportActionHalf]}
                   testID="anchor-detail-download-png-button"
                 >
                   <Text style={s.exportActionSecondaryText}>SAVE PNG</Text>
@@ -1498,60 +1441,59 @@ const AnchorDetailsScreen = ({ navigation, route }) => {
           </LinearGradient>
         </FadeUp>
 
-        {ENABLE_MERCH && (
-          <FadeUp delay={360}>
-            <LinearGradient
-              colors={CARD_GRADIENT}
-              style={[s.card, s.cardGold]}
-            >
-              <Text style={s.physicalEyebrow}>PHYSICAL ANCHOR</Text>
-              <Text style={s.physicalSub}>Make this symbol tangible.</Text>
-              <View style={s.physicalRow}>
-                <View style={s.physicalThumb}>
-                  {anchor.sigilUri ? (
-                    <Image
-                      source={{ uri: anchor.sigilUri }}
-                      style={s.physicalThumbImage}
-                      resizeMode="cover"
-                    />
-                  ) : resolvedSigilSvg ? (
-                    <SigilSvg
-                      xml={resolvedSigilSvg}
-                      width={58}
-                      height={58}
-                      color={colors.gold}
-                    />
-                  ) : (
-                    <LinearGradient
-                      colors={['#2a1a60', '#0f0830']}
-                      style={s.physicalThumbFallbackBg}
-                    >
-                      <Text style={s.physicalThumbFallback}>🎵</Text>
-                    </LinearGradient>
-                  )}
-                </View>
-                <View style={{ flex: 1 }}>
-                  <Text style={s.physicalCopyTitle}>Carry your anchor</Text>
-                  <Text style={s.physicalCopyBody}>A quiet reminder you can carry.</Text>
-                </View>
+        {/* DEFERRED: Print-on-demand physical anchor — finalize partner and reintroduce post-Apple review window.
+        <FadeUp delay={360}>
+          <LinearGradient
+            colors={CARD_GRADIENT}
+            style={[s.card, s.cardGold]}
+          >
+            <Text style={s.physicalEyebrow}>PHYSICAL ANCHOR</Text>
+            <Text style={s.physicalSub}>Make this symbol tangible.</Text>
+            <View style={s.physicalRow}>
+              <View style={s.physicalThumb}>
+                {anchor.sigilUri ? (
+                  <Image
+                    source={{ uri: anchor.sigilUri }}
+                    style={s.physicalThumbImage}
+                    resizeMode="cover"
+                  />
+                ) : anchor.baseSigilSvg ? (
+                  <SvgXml
+                    xml={anchor.baseSigilSvg}
+                    width={58}
+                    height={58}
+                  />
+                ) : (
+                  <LinearGradient
+                    colors={['#2a1a60', '#0f0830']}
+                    style={s.physicalThumbFallbackBg}
+                  >
+                    <Text style={s.physicalThumbFallback}>🎵</Text>
+                  </LinearGradient>
+                )}
               </View>
-              <TouchableOpacity
-                activeOpacity={0.85}
-                style={{ marginBottom: spacing.sm + spacing.xs }}
-                onPress={() => Alert.alert('Physical Anchor', 'Physical anchor flow coming soon.')}
+              <View style={{ flex: 1 }}>
+                <Text style={s.physicalCopyTitle}>Carry your anchor</Text>
+                <Text style={s.physicalCopyBody}>A quiet reminder you can carry.</Text>
+              </View>
+            </View>
+            <TouchableOpacity
+              activeOpacity={0.85}
+              style={{ marginBottom: spacing.sm + spacing.xs }}
+              onPress={() => Alert.alert('Physical Anchor', 'Physical anchor flow coming soon.')}
+            >
+              <LinearGradient
+                colors={['#b8920a', '#d4a820', '#c49a15']}
+                start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}
+                style={s.createPhysicalBtn}
               >
-                <LinearGradient
-                  colors={['#b8920a', '#d4a820', '#c49a15']}
-                  start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}
-                  style={s.createPhysicalBtn}
-                >
-                  <Text style={s.createPhysicalText}>CREATE PHYSICAL ANCHOR</Text>
-                </LinearGradient>
-              </TouchableOpacity>
-              <Text style={s.physicalTags}>Keychains · Prints · Apparel</Text>
-            </LinearGradient>
-          </FadeUp>
-        )}
+                <Text style={s.createPhysicalText}>CREATE PHYSICAL ANCHOR</Text>
+              </LinearGradient>
+            </TouchableOpacity>
+            <Text style={s.physicalTags}>Keychains · Prints · Apparel</Text>
+          </LinearGradient>
+        </FadeUp>
+        */}
 
         {/* ── DESTRUCTIVE ACTION ── */}
         {!anchor.isReleased && (
@@ -1588,8 +1530,8 @@ const AnchorDetailsScreen = ({ navigation, route }) => {
           <View style={{ width: 1170 * 0.65, aspectRatio: 1, alignItems: 'center', justifyContent: 'center' }}>
             {anchor.sigilUri ? (
               <Image source={{ uri: anchor.sigilUri }} style={{ width: '100%', height: '100%', borderRadius: 999 }} resizeMode="cover" />
-            ) : resolvedSigilSvg ? (
-              <SigilSvg xml={resolvedSigilSvg} width={1170 * 0.65} height={1170 * 0.65} />
+            ) : anchor.baseSigilSvg ? (
+              <SvgXml xml={anchor.baseSigilSvg} width={1170 * 0.65} height={1170 * 0.65} />
             ) : null}
           </View>
           <Text style={{ color: '#F5F5DC', fontFamily: 'CormorantGaramond-Regular', fontSize: 28, textAlign: 'center', marginTop: 48, paddingHorizontal: 80 }}>
@@ -1651,7 +1593,7 @@ const AnchorDetailsScreen = ({ navigation, route }) => {
       />
 
       <ExportAnchorSheet
-        isVisible={showExportSheet && !isNoAccountExportBlocked}
+        isVisible={showExportSheet}
         onClose={() => setShowExportSheet(false)}
         sigilSvg={anchor.baseSigilSvg}
         sigilUri={anchor.sigilUri}

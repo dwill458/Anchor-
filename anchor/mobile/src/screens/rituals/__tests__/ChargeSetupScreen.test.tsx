@@ -5,11 +5,6 @@ import { ChargeSetupScreen } from '../ChargeSetupScreen';
 // Mock navigation
 const mockNavigate = jest.fn();
 const mockReplace = jest.fn();
-const mockSetDefaultCharge = jest.fn();
-const mockSettingsState = {
-    defaultCharge: { mode: 'focus', preset: '1m' as const },
-    primeSessionDuration: 120,
-};
 const mockRouteParams: Record<string, unknown> = { anchorId: 'anchor-123' };
 const mockAnchor = {
     id: 'anchor-123',
@@ -43,9 +38,8 @@ jest.mock('@/stores/authStore', () => ({ useAuthStore: () => ({ anchorCount: 1 }
 jest.mock('@/stores/settingsStore', () => ({
     useSettingsStore: (selector: any) => {
         const state = {
-            defaultCharge: mockSettingsState.defaultCharge,
-            primeSessionDuration: mockSettingsState.primeSessionDuration,
-            setDefaultCharge: mockSetDefaultCharge,
+            defaultCharge: { mode: 'focus', preset: '1m' },
+            setDefaultCharge: jest.fn()
         };
         return selector ? selector(state) : state;
     }
@@ -115,9 +109,6 @@ describe('ChargeSetupScreen', () => {
     beforeEach(() => {
         mockNavigate.mockClear();
         mockReplace.mockClear();
-        mockSetDefaultCharge.mockClear();
-        mockSettingsState.defaultCharge = { mode: 'focus', preset: '1m' };
-        mockSettingsState.primeSessionDuration = 120;
         Object.keys(mockRouteParams).forEach((key) => delete mockRouteParams[key]);
         Object.assign(mockRouteParams, { anchorId: 'anchor-123' });
         mockAnchor.baseSigilSvg = '<svg></svg>';
@@ -165,7 +156,7 @@ describe('ChargeSetupScreen', () => {
         // Both pill options are rendered
         expect(screen.getByText('Quick Prime')).toBeTruthy();
         expect(screen.getByText('Deep Prime')).toBeTruthy();
-        expect(screen.getByText('2 minutes')).toBeTruthy();
+        expect(screen.getByText('2 – 10 minutes')).toBeTruthy();
     });
 
     it('starts the selected path immediately in auto-start mode', () => {
@@ -177,57 +168,8 @@ describe('ChargeSetupScreen', () => {
         expect(mockReplace).toHaveBeenCalledWith('Ritual', {
             anchorId: 'anchor-123',
             ritualType: 'ritual',
-            durationSeconds: 120,
-            returnTo: undefined,
-        });
-        expect(mockSetDefaultCharge).toHaveBeenCalledWith({
-            mode: 'ritual',
-            preset: '2m',
-            customMinutes: undefined,
-        });
-    });
-
-    it('auto-starts the initial deep duration when the route preselects it', () => {
-        Object.assign(mockRouteParams, {
-            autoStartOnSelection: true,
-            initialDuration: 'deep',
-            returnTo: 'practice',
-        });
-
-        render(<ChargeSetupScreen />);
-
-        expect(mockReplace).toHaveBeenCalledWith('Ritual', {
-            anchorId: 'anchor-123',
-            ritualType: 'ritual',
-            durationSeconds: 120,
-            returnTo: 'practice',
-        });
-        expect(mockSetDefaultCharge).toHaveBeenCalledWith({
-            mode: 'ritual',
-            preset: '2m',
-            customMinutes: undefined,
-        });
-    });
-
-    it('uses the stored custom Deep Prime duration when set to 3 minutes', () => {
-        mockSettingsState.primeSessionDuration = 180;
-
-        render(<ChargeSetupScreen />);
-
-        expect(screen.getByText('3 minutes')).toBeTruthy();
-        fireEvent.press(screen.getByLabelText('Deep Prime duration'));
-        fireEvent.press(screen.getByLabelText('BEGIN PRIMING'));
-
-        expect(mockReplace).toHaveBeenCalledWith('Ritual', {
-            anchorId: 'anchor-123',
-            ritualType: 'ritual',
             durationSeconds: 180,
             returnTo: undefined,
-        });
-        expect(mockSetDefaultCharge).toHaveBeenCalledWith({
-            mode: 'ritual',
-            preset: 'custom',
-            customMinutes: 3,
         });
     });
 

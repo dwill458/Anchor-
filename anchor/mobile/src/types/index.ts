@@ -75,70 +75,17 @@ export interface Anchor {
 }
 
 /**
- * Available anchor categories with keywords
+ * Available anchor categories
  */
 export type AnchorCategory =
-  | 'desire'
-  | 'health'
   | 'career'
+  | 'health'
+  | 'wealth'
   | 'relationships'
-  | 'creativity'
-  | 'spirituality'
-  | 'abundance'
-  | 'family'
-  | 'learning'
-  | 'adventure'
+  | 'personal_growth'
+  | 'desire'
+  | 'experience'
   | 'custom';
-
-/**
- * Category metadata with keywords and descriptions
- */
-export const CATEGORY_METADATA: Record<AnchorCategory, { keywords: string[]; description: string }> = {
-  desire: {
-    keywords: ['passion', 'attraction', 'want', 'goal', 'aspiration', 'longing'],
-    description: 'Personal desires, passions, and aspirations',
-  },
-  health: {
-    keywords: ['wellness', 'fitness', 'healing', 'vitality', 'energy', 'recovery'],
-    description: 'Physical and mental wellbeing',
-  },
-  career: {
-    keywords: ['work', 'professional', 'job', 'success', 'ambition', 'calling'],
-    description: 'Career growth and professional development',
-  },
-  relationships: {
-    keywords: ['love', 'connection', 'friendship', 'intimacy', 'bond', 'partnership'],
-    description: 'Romantic and personal relationships',
-  },
-  creativity: {
-    keywords: ['art', 'expression', 'innovation', 'craft', 'creation', 'inspiration'],
-    description: 'Creative pursuits and artistic expression',
-  },
-  spirituality: {
-    keywords: ['meditation', 'mindfulness', 'sacred', 'consciousness', 'awakening', 'purpose'],
-    description: 'Spiritual growth and inner awareness',
-  },
-  abundance: {
-    keywords: ['finances', 'prosperity', 'wealth', 'money', 'flow', 'generosity'],
-    description: 'Financial wellbeing and material abundance',
-  },
-  family: {
-    keywords: ['parents', 'children', 'siblings', 'kin', 'home', 'belonging'],
-    description: 'Family bonds and household harmony',
-  },
-  learning: {
-    keywords: ['education', 'skill', 'knowledge', 'growth', 'mastery', 'development'],
-    description: 'Learning, education, and skill development',
-  },
-  adventure: {
-    keywords: ['travel', 'exploration', 'experience', 'journey', 'discovery', 'freedom'],
-    description: 'Travel, exploration, and new experiences',
-  },
-  custom: {
-    keywords: ['personal', 'unique', 'bespoke'],
-    description: 'Custom intention categories',
-  },
-};
 
 /**
  * Planetary Tier for Anchor classification (5-tier system)
@@ -155,17 +102,14 @@ export enum PlanetaryTier {
  * Maps legacy categories to the new 5-tier planetary system
  */
 export const CATEGORY_TO_TIER: Record<AnchorCategory, PlanetaryTier> = {
-  desire: PlanetaryTier.SUN,
-  health: PlanetaryTier.MARS,
   career: PlanetaryTier.JUPITER,
+  wealth: PlanetaryTier.JUPITER,
+  health: PlanetaryTier.MARS,
   relationships: PlanetaryTier.VENUS,
-  creativity: PlanetaryTier.SUN,
-  spirituality: PlanetaryTier.SATURN,
-  abundance: PlanetaryTier.JUPITER,
-  family: PlanetaryTier.VENUS,
-  learning: PlanetaryTier.SATURN,
-  adventure: PlanetaryTier.VENUS,
-  custom: PlanetaryTier.SATURN,
+  personal_growth: PlanetaryTier.SATURN,
+  desire: PlanetaryTier.SUN,
+  experience: PlanetaryTier.VENUS,
+  custom: PlanetaryTier.SATURN
 };
 
 /**
@@ -185,7 +129,6 @@ export interface User {
   id: string;
   email: string;
   displayName?: string;
-  profilePictureUrl?: string | null;
   hasCompletedOnboarding?: boolean;
   isComped?: boolean;
   settings?: UserSettings | null;
@@ -198,21 +141,14 @@ export interface User {
   stabilizeStreakDays: number;
   lastStabilizeAt?: Date;
   createdAt: Date;
-  // Server-authoritative trial anchor (resettable per-account). Optional for
-  // backward-compat with backends that predate the column.
-  trialStartedAt?: string;
-  isTrialExpired?: boolean;
 }
 
 export type AuthScreenContext = 'onboarding' | 'first_anchor_gate' | 'save_progress' | 'paywall';
 export type AuthScreenInitialTab = 'signin' | 'signup';
-export type AuthPreferredPlanId = 'monthly' | 'annual';
-export type TrialSignUpSource = 'save_progress' | 'legacy_guest';
 
 export interface AuthScreenParams {
   context?: AuthScreenContext;
   initialTab?: AuthScreenInitialTab;
-  preferredPlanId?: AuthPreferredPlanId;
 }
 
 export interface PendingFirstAnchorDraft {
@@ -550,10 +486,10 @@ export type RootStackParamList = {
   Vault: undefined;
   FirstAnchorAccountGate: undefined;
   SaveProgress: { anchorId: string };
-  TrialSignUp: { source?: TrialSignUpSource } | undefined;
+  TrialSignUp: undefined;
   AnchorDetail: { anchorId: string };
   AuthGate: undefined;
-  Paywall: { source?: 'post_trial' | 'gated_feature'; preferredPlanId?: AuthPreferredPlanId } | undefined;
+  Paywall: { source?: 'post_trial' | 'gated_feature' } | undefined;
   CreateAnchor: undefined;
   /** First anchor creation after onboarding — shows new-user IntentionInputScreen */
   FirstAnchorCreation: undefined;
@@ -758,7 +694,6 @@ export type RootStackParamList = {
     anchorId: string;
     returnTo?: 'vault' | 'practice' | 'detail';
     autoStartOnSelection?: boolean;
-    initialDuration?: 'quick' | 'deep';
   };
   BreathingAnimation: {
     source?: 'charge' | 'practice';
@@ -794,7 +729,6 @@ export type RootStackParamList = {
     activationType: ActivationType;
     durationOverride?: number;
     returnTo?: 'vault' | 'practice' | 'detail' | 'reinforce';
-    initialDuration?: 'quick' | 'deep';
   };
 
   // Phase 3: Burning Ritual
@@ -810,6 +744,27 @@ export type RootStackParamList = {
     intention: string;
     sigilSvg: string;
     enhancedImageUrl?: string;
+  };
+
+  // ═══════════════════════════════════════════════════
+  // SHOP / MERCHANDISE
+  // ═══════════════════════════════════════════════════
+  ProductSelection: {
+    anchorId: string;
+    sigilSvg: string;
+    intentionText: string;
+  };
+  ProductMockup: {
+    anchorId: string;
+    sigilSvg: string;
+    intentionText: string;
+    productType: 'print' | 'hoodie' | 'keychain' | 't-shirt' | 'phone-case';
+  };
+  Checkout: {
+    anchorId: string;
+    productType: string;
+    size: string;
+    color: string;
   };
 
   // ═══════════════════════════════════════════════════
@@ -841,25 +796,6 @@ export type RootStackParamList = {
 
   // Data & Privacy Settings
   DataPrivacy: undefined;
-
-  // Deferred merch flow. Kept typed while ENABLE_MERCH gates production access.
-  ProductSelection: {
-    anchorId: string;
-    sigilSvg: string;
-    intentionText: string;
-  };
-  ProductMockup: {
-    anchorId: string;
-    sigilSvg: string;
-    intentionText: string;
-    productType: 'print' | 'hoodie' | 'keychain' | 't-shirt' | 'phone-case';
-  };
-  Checkout: {
-    anchorId: string;
-    productType: 'print' | 'hoodie' | 'keychain' | 't-shirt' | 'phone-case';
-    size: string;
-    color: string;
-  };
 };
 
 export type PracticeStackParamList = {

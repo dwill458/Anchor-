@@ -3,7 +3,7 @@
  *
  * Features:
  * - Explains value of account (save progress, sync)
- * - Options: Create account or Sign in
+ * - Options: Create account, Sign in, or Skip
  * - Strong CTA to create first Anchor
  */
 
@@ -18,6 +18,7 @@ import {
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { ArrowRight, Cloud, Lock, Zap } from 'lucide-react-native';
+import { useAuthStore } from '@/stores/authStore';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { OnboardingStackParamList } from '@/types';
 import { colors, spacing, typography } from '@/theme';
@@ -40,12 +41,20 @@ const BENEFITS = [
 ];
 
 export const SaveProgressScreen: React.FC<Props> = ({ navigation }) => {
+  const { completeOnboarding } = useAuthStore();
+
   const handleCreateAccount = () => {
     navigation.navigate('Login', { initialTab: 'signup' });
   };
 
   const handleSignIn = () => {
     navigation.navigate('Login');
+  };
+
+  const handleSkip = () => {
+    // Skip account creation and complete onboarding
+    completeOnboarding();
+    // Navigation will be handled by RootNavigator
   };
 
   return (
@@ -112,6 +121,15 @@ export const SaveProgressScreen: React.FC<Props> = ({ navigation }) => {
             activeOpacity={0.7}
           >
             <Text style={styles.secondaryText}>Already have an account? Sign in</Text>
+          </TouchableOpacity>
+
+          {/* Tertiary CTA - Skip */}
+          <TouchableOpacity
+            style={styles.skipButton}
+            onPress={handleSkip}
+            activeOpacity={0.7}
+          >
+            <Text style={styles.skipText}>Skip for now</Text>
           </TouchableOpacity>
         </View>
       </LinearGradient>
@@ -220,5 +238,14 @@ const styles = StyleSheet.create({
     ...typography.body,
     fontSize: typography.sizes.body1,
     color: colors.text.secondary,
+  },
+  skipButton: {
+    paddingVertical: spacing.sm,
+    alignItems: 'center',
+  },
+  skipText: {
+    ...typography.body,
+    fontSize: typography.sizes.body2,
+    color: colors.text.tertiary,
   },
 });

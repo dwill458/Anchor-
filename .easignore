@@ -1,22 +1,16 @@
 .agents/
-.agent/
 .claude/
-.codex/
-.codex-remote-attachments/
 backend/
 ai-service/
 anchor-v2/
 archive/
 design/
 docs/
-/scripts/
-anchor/mobile/patches/
+scripts/
 yu/
 supabase/
 .git/
-.tmp-pr-*/
 .DS_Store
-node_modules/
 # Root files
 /*.png
 /*.log
@@ -33,5 +27,4 @@ anchor/mobile/android/.gradle/
 anchor/mobile/android/app/build/
 anchor/mobile/android/build/
 anchor/mobile/node_modules/
-graphify-out/
 
