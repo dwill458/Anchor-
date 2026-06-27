@@ -101,6 +101,7 @@ const MOCK_DB_USER = {
   stabilizeStreakDays: 0,
   lastStabilizeAt: null,
   createdAt: new Date('2024-01-01'),
+  trialStartedAt: new Date(),
   updatedAt: new Date('2024-01-01'),
   lastSeenAt: new Date('2024-01-01'),
 };
@@ -161,6 +162,8 @@ describe('POST /api/auth/sync', () => {
     expect(res.status).toBe(200);
     expect(res.body.success).toBe(true);
     expect(res.body.data.email).toBe('test@example.com');
+    expect(res.body.data.trialStartedAt).toBe(MOCK_DB_USER.trialStartedAt.toISOString());
+    expect(res.body.data.isTrialExpired).toBe(false);
     expect(mockPrisma.$transaction).toHaveBeenCalledTimes(1);
     expect(mockPrisma.user.findUnique).toHaveBeenCalledTimes(1);
     expect(mockPrisma.user.update).toHaveBeenCalledTimes(1);
@@ -342,6 +345,8 @@ describe('GET /api/auth/me', () => {
     expect(res.status).toBe(200);
     expect(res.body.data.email).toBe('test@example.com');
     expect(res.body.data.isComped).toBe(false);
+    expect(res.body.data.trialStartedAt).toBe(MOCK_DB_USER.trialStartedAt.toISOString());
+    expect(res.body.data.isTrialExpired).toBe(false);
     expect(res.body.data.settings).toBeDefined();
   });
 

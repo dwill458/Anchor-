@@ -62,6 +62,8 @@ function normalizeUser(data: User): User {
     stabilizesTotal: data.stabilizesTotal ?? 0,
     stabilizeStreakDays: data.stabilizeStreakDays ?? 0,
     lastStabilizeAt: data.lastStabilizeAt ? normalizeDate(data.lastStabilizeAt) : undefined,
+    trialStartedAt: data.trialStartedAt ? normalizeDate(data.trialStartedAt) : undefined,
+    isTrialExpired: data.isTrialExpired === true,
   };
 }
 

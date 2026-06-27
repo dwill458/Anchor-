@@ -143,7 +143,6 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ navigation, route }) =
         context === 'first_anchor_gate' ||
         context === 'save_progress' ||
         context === 'paywall',
-      launchTrialPurchase: false,
     });
 
     const shouldRouteThroughFirstAnchorGate = Boolean(

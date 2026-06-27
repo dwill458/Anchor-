@@ -23,6 +23,8 @@ export const createMockUser = (overrides?: Partial<User>): User => ({
   stabilizesTotal: 0,
   stabilizeStreakDays: 0,
   createdAt: new Date('2024-01-01'),
+  trialStartedAt: new Date('2024-01-01'),
+  isTrialExpired: true,
   ...overrides,
 });
 

@@ -2,11 +2,10 @@ import { Platform } from 'react-native';
 import {
   REVENUECAT_API_KEY,
   REVENUECAT_ANNUAL_PACKAGE_ID,
-  REVENUECAT_DEFAULT_PACKAGE_ID,
   REVENUECAT_ENTITLEMENT_ID,
   REVENUECAT_MONTHLY_PACKAGE_ID,
 } from '@/config';
-import { useSubscriptionStore } from '@/stores/subscriptionStore';
+import { computeDaysRemaining, useSubscriptionStore } from '@/stores/subscriptionStore';
 import { logger } from '@/utils/logger';
 
 export interface TrialStatusSnapshot {
@@ -211,6 +210,10 @@ function deriveTrialStatus(customerInfo: CustomerInfo | null | undefined): Trial
 
 function applyTrialStatus(status: TrialStatusSnapshot, synced = false): TrialStatusSnapshot {
   const subscriptionStore = useSubscriptionStore.getState();
+  const hasActiveLocalTrial =
+    subscriptionStore.subscriptionStatus === 'trial' &&
+    computeDaysRemaining(subscriptionStore.trialStartDate) > 0;
+
   subscriptionStore.setRcTier(status.hasActiveEntitlement ? 'pro' : 'free');
   subscriptionStore.setTrialState(status);
   if (synced) {
@@ -220,7 +223,7 @@ function applyTrialStatus(status: TrialStatusSnapshot, synced = false): TrialSta
     subscriptionStore.setSubscriptionStatus('active');
   } else if (status.isInTrial) {
     subscriptionStore.setSubscriptionStatus('trial');
-  } else {
+  } else if (!hasActiveLocalTrial) {
     subscriptionStore.setSubscriptionStatus('expired');
   }
   return status;
@@ -291,7 +294,6 @@ class RevenueCatService {
     const preferredOffering = allOfferings.find(([, offering]) => {
       const packageIds = new Set((offering.availablePackages ?? []).map((pkg) => pkg.identifier));
       return (
-        packageIds.has(REVENUECAT_DEFAULT_PACKAGE_ID) ||
         packageIds.has(REVENUECAT_MONTHLY_PACKAGE_ID) ||
         packageIds.has(REVENUECAT_ANNUAL_PACKAGE_ID)
       );
@@ -398,46 +400,6 @@ class RevenueCatService {
     } catch (error) {
       logger.error('[RevenueCatService] refreshTrialStatus failed', error);
       return this.getCurrentStatus();
-    }
-  }
-
-  async purchaseDefaultTrialPackage(): Promise<{
-    status: TrialStatusSnapshot;
-    dismissed: boolean;
-  }> {
-    const purchases = getPurchasesModule();
-    if (!purchases) {
-      throw new Error('[RevenueCat] Billing service is unavailable. The native module react-native-purchases is not loaded.');
-    }
-    if (!purchases.getOfferings || !purchases.purchasePackage) {
-      throw new Error('[RevenueCat] Billing service is misconfigured or unavailable on this platform.');
-    }
-
-    try {
-      const currentOffering = await this.getCurrentOffering();
-      const availablePackages = currentOffering.availablePackages ?? [];
-      const selectedPackage = this.findPackageByIdentifier(
-        availablePackages,
-        REVENUECAT_DEFAULT_PACKAGE_ID
-      );
-
-      const response = await purchases.purchasePackage(selectedPackage);
-      const status = deriveTrialStatus(extractCustomerInfo(response));
-      return {
-        status: applyTrialStatus(status, true),
-        dismissed: false,
-      };
-    } catch (error) {
-      if (isUserCancelled(error)) {
-        logger.warn('[RevenueCatService] Trial purchase was dismissed by the user');
-        return {
-          status: await this.refreshTrialStatus(),
-          dismissed: true,
-        };
-      }
-
-      logger.error('[RevenueCatService] Failed to purchase trial package', error);
-      throw error;
     }
   }
 

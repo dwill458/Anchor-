@@ -29,9 +29,11 @@ import { useAnchorStore } from '@/stores/anchorStore';
 import { useSettingsStore } from '@/stores/settingsStore';
 import { useSessionStore } from '@/stores/sessionStore';
 import { del, post } from '@/services/ApiClient';
-import { exportAnchorArtwork } from '@/services/AnchorArtworkExportService';
+import {
+  requestPhotoLibrarySavePermission,
+  savePngToPhotoLibrary,
+} from '@/services/AnchorArtworkExportService';
 import { captureRef } from 'react-native-view-shot';
-import * as MediaLibrary from 'expo-media-library';
 import { safeHaptics } from '@/utils/haptics';
 import * as Haptics from 'expo-haptics';
 import { colors, spacing, typography } from '@/theme';
@@ -579,7 +581,7 @@ const AnchorDetailsScreen = ({ navigation, route }) => {
   const [pendingExportAction, setPendingExportAction] = useState<'download' | 'wallpaper' | null>(null);
   const anchorCardRef = useRef<View>(null);
   const [isExporting, setIsExporting] = useState(false);
-  const mediaLibraryPermissionRef = useRef<MediaLibrary.PermissionResponse | null>(null);
+  const mediaLibraryPermissionGrantedRef = useRef(false);
   const [showExportSheet, setShowExportSheet] = useState(false);
   const [confirmUnchargedBurnVisible, setConfirmUnchargedBurnVisible] = useState(false);
   const [confirmDeleteVisible, setConfirmDeleteVisible] = useState(false);
@@ -948,11 +950,11 @@ const AnchorDetailsScreen = ({ navigation, route }) => {
   };
 
   const ensureMediaLibraryPermission = async () => {
-    if (mediaLibraryPermissionRef.current?.granted) return true;
+    if (mediaLibraryPermissionGrantedRef.current) return true;
     try {
-      const result = await MediaLibrary.requestPermissionsAsync();
-      mediaLibraryPermissionRef.current = result;
-      return Boolean(result?.granted);
+      const granted = await requestPhotoLibrarySavePermission();
+      mediaLibraryPermissionGrantedRef.current = granted;
+      return granted;
     } catch {
       return false;
     }
@@ -982,10 +984,10 @@ const AnchorDetailsScreen = ({ navigation, route }) => {
             }
 
             const uri = await captureRef(anchorCardRef, { format: 'png', quality: 1 });
-            await MediaLibrary.saveToLibraryAsync(uri);
+            const savedUri = await savePngToPhotoLibrary(uri, 'anchor-wallpaper.png');
 
             if (pendingExportAction === 'wallpaper') {
-              await Share.share({ url: uri });
+              await Share.share({ url: savedUri });
               toast.info('Save the image, then set it as your wallpaper in Settings');
             } else {
               toast.success('Anchor saved to your photo library');
@@ -1014,8 +1016,8 @@ const AnchorDetailsScreen = ({ navigation, route }) => {
 
   const handleDownloadPNG = async () => {
     if (isExporting) return;
-    const perm = await MediaLibrary.requestPermissionsAsync();
-    if (perm.status !== 'granted') {
+    const granted = await ensureMediaLibraryPermission();
+    if (!granted) {
       toast.warning('Allow photo library access to save your anchor');
       return;
     }
@@ -1025,8 +1027,8 @@ const AnchorDetailsScreen = ({ navigation, route }) => {
 
   const handleSetWallpaper = async () => {
     if (isExporting) return;
-    const perm = await MediaLibrary.requestPermissionsAsync();
-    if (perm.status !== 'granted') {
+    const granted = await ensureMediaLibraryPermission();
+    if (!granted) {
       toast.warning('Allow photo library access to share your anchor');
       return;
     }

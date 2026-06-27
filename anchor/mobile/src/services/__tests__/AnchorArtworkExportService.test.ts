@@ -1,4 +1,5 @@
 import { Platform, Share } from 'react-native';
+import * as FileSystem from 'expo-file-system/legacy';
 import * as MediaLibrary from 'expo-media-library';
 import {
   exportAnchorArtwork,
@@ -20,11 +21,18 @@ describe('AnchorArtworkExportService', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
+    jest.spyOn(Date, 'now').mockReturnValue(1710000000000);
     setPlatform('ios', '17.0');
     captureArtwork.mockResolvedValue('file:///tmp/anchor.png');
     (MediaLibrary.requestPermissionsAsync as jest.Mock).mockResolvedValue({ granted: true });
     (MediaLibrary.saveToLibraryAsync as jest.Mock).mockResolvedValue(undefined);
+    (FileSystem.makeDirectoryAsync as jest.Mock).mockResolvedValue(undefined);
+    (FileSystem.copyAsync as jest.Mock).mockResolvedValue(undefined);
     jest.spyOn(Share, 'share').mockResolvedValue({ action: 'sharedAction' } as any);
+  });
+
+  afterEach(() => {
+    jest.restoreAllMocks();
   });
 
   it('shares generated artwork for wallpaper export', async () => {
@@ -62,7 +70,13 @@ describe('AnchorArtworkExportService', () => {
     });
 
     expect(MediaLibrary.requestPermissionsAsync).not.toHaveBeenCalled();
-    expect(MediaLibrary.saveToLibraryAsync).toHaveBeenCalledWith('file:///tmp/anchor.png');
+    expect(FileSystem.copyAsync).toHaveBeenCalledWith({
+      from: 'file:///tmp/anchor.png',
+      to: 'file:///cache/anchor-exports/sacred-loop-wallpaper-1710000000000.png',
+    });
+    expect(MediaLibrary.saveToLibraryAsync).toHaveBeenCalledWith(
+      'file:///cache/anchor-exports/sacred-loop-wallpaper-1710000000000.png'
+    );
     expect(result).toEqual({
       filename: 'sacred-loop-wallpaper.png',
       localUri: 'file:///tmp/anchor.png',
@@ -83,7 +97,9 @@ describe('AnchorArtworkExportService', () => {
     });
 
     expect(MediaLibrary.requestPermissionsAsync).toHaveBeenCalledWith(true);
-    expect(MediaLibrary.saveToLibraryAsync).toHaveBeenCalledWith('file:///tmp/anchor.png');
+    expect(MediaLibrary.saveToLibraryAsync).toHaveBeenCalledWith(
+      'file:///cache/anchor-exports/sacred-loop-wallpaper-1710000000000.png'
+    );
   });
 
   it('surfaces a permission error when photo access is denied', async () => {

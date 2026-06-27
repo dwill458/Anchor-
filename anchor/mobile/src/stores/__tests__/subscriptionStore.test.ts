@@ -16,6 +16,8 @@ beforeEach(() => {
       trialStartDate: null,
       subscriptionStatus: 'expired',
       remoteCompedAccess: false,
+      rcSynced: false,
+      hasActiveEntitlement: false,
     });
   });
 });
@@ -151,6 +153,37 @@ describe('subscriptionStore', () => {
         result.current.setRemoteCompedAccess(true);
       });
       expect(result.current.getEffectiveTier()).toBe('pro');
+    });
+
+    it('returns pro for an active local trial even after RevenueCat sync', () => {
+      const { result } = renderHook(() => useSubscriptionStore());
+      act(() => {
+        result.current.setTrialStartDate(new Date().toISOString());
+        result.current.setSubscriptionStatus('trial');
+        result.current.setRcSynced(true);
+      });
+      expect(result.current.getEffectiveTier()).toBe('pro');
+    });
+
+    it('syncs the trial timer from the server account timestamp', () => {
+      const { result } = renderHook(() => useSubscriptionStore());
+      const serverStart = new Date('2026-06-01T00:00:00.000Z').toISOString();
+      act(() => {
+        result.current.syncTrialFromServer(serverStart, false);
+      });
+
+      expect(result.current.trialStartDate).toBe(serverStart);
+      expect(result.current.subscriptionStatus).toBe('trial');
+    });
+
+    it('expires the local trial from the server expiry flag', () => {
+      const { result } = renderHook(() => useSubscriptionStore());
+      act(() => {
+        result.current.syncTrialFromServer(new Date('2026-06-01T00:00:00.000Z'), true);
+      });
+
+      expect(result.current.trialStartDate).toBe('2026-06-01T00:00:00.000Z');
+      expect(result.current.subscriptionStatus).toBe('expired');
     });
 
     it('ignores dev override when devOverrideEnabled is false', () => {

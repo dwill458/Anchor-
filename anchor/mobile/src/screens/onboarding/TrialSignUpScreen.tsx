@@ -122,7 +122,6 @@ export const TrialSignUpScreen: React.FC = () => {
         user: result.user,
         token: result.token,
         preserveCompletedOnboarding: true,
-        launchTrialPurchase: false,
       });
       navigateToVaultDestination(navigation, 'replace');
     } catch (err: any) {
