@@ -37,24 +37,137 @@ export interface UserProperties {
  * AnalyticsService.screen('VaultScreen');
  * ```
  */
+import { Platform } from 'react-native';
+import Constants from 'expo-constants';
+import PostHog from 'posthog-react-native';
 import { logger } from '@/utils/logger';
+
+interface AnalyticsConfig {
+  enabled?: boolean;
+  posthogApiKey?: string;
+  posthogHost?: string;
+}
+
+const DEFAULT_POSTHOG_HOST = 'https://us.i.posthog.com';
+const SENSITIVE_PROPERTY_KEYS = new Set([
+  'email',
+  'displayname',
+  'display_name',
+  'intention',
+  'intentiontext',
+  'intention_text',
+  'mantra',
+  'prompt',
+  'ai_prompt',
+  'generated_prompt',
+  'message',
+  'error_message',
+  'image',
+  'image_url',
+  'artwork',
+  'svg',
+  'base64',
+  'uri',
+]);
+
+const readPublicEnv = (value: string | undefined): string => value?.trim() ?? '';
+
+const appVersion = Constants.expoConfig?.version ?? 'unknown';
+
+const sanitizeAnalyticsValue = (value: unknown): unknown => {
+  if (Array.isArray(value)) {
+    return value.map(sanitizeAnalyticsValue);
+  }
+
+  if (!value || typeof value !== 'object' || value instanceof Date) {
+    return value;
+  }
+
+  return Object.entries(value as Record<string, unknown>).reduce<Record<string, unknown>>(
+    (sanitized, [key, nestedValue]) => {
+      const normalizedKey = key.toLowerCase().replace(/[^a-z0-9_]/g, '');
+      if (!SENSITIVE_PROPERTY_KEYS.has(normalizedKey)) {
+        sanitized[key] = sanitizeAnalyticsValue(nestedValue);
+      }
+      return sanitized;
+    },
+    {}
+  );
+};
+
+export const sanitizeAnalyticsProperties = (
+  properties?: Record<string, any>
+): Record<string, any> | undefined => {
+  if (!properties) {
+    return undefined;
+  }
+
+  return sanitizeAnalyticsValue(properties) as Record<string, any>;
+};
 
 class Analytics {
   private enabled: boolean = true;
   private userId: string | null = null;
   private userProperties: UserProperties = {};
+  private posthog: any = null;
+  private initialized = false;
+
+  private canSendToPostHog(): boolean {
+    return this.enabled && this.posthog != null;
+  }
+
+  private safelyCallPostHog(action: string, callback: () => void): void {
+    if (!this.canSendToPostHog()) {
+      return;
+    }
+
+    try {
+      callback();
+    } catch (error) {
+      logger.warn(`[Analytics] PostHog ${action} failed`, error);
+    }
+  }
 
   /**
    * Initialize analytics
    */
-  initialize(config?: { enabled?: boolean }): void {
-    this.enabled = config?.enabled ?? true;
+  initialize(config?: AnalyticsConfig): void {
+    const envEnabled = process.env.EXPO_PUBLIC_ANALYTICS_ENABLED !== 'false';
+    this.enabled = config?.enabled ?? envEnabled;
 
     logger.info('[Analytics] Initialized', { enabled: this.enabled });
 
-    // INTEGRATION: Wire your analytics provider here before shipping.
-    // Example: Mixpanel.init(process.env.EXPO_PUBLIC_MIXPANEL_TOKEN);
-    // Example: amplitude.getInstance().init(process.env.EXPO_PUBLIC_AMPLITUDE_KEY);
+    if (this.initialized) {
+      try {
+        this.posthog?.[this.enabled ? 'optIn' : 'optOut']?.();
+      } catch (error) {
+        logger.warn('[Analytics] PostHog opt state update failed', error);
+      }
+      return;
+    }
+
+    const posthogApiKey =
+      config?.posthogApiKey ?? readPublicEnv(process.env.EXPO_PUBLIC_POSTHOG_API_KEY);
+    const posthogHost =
+      config?.posthogHost ??
+      readPublicEnv(process.env.EXPO_PUBLIC_POSTHOG_HOST) ??
+      DEFAULT_POSTHOG_HOST;
+
+    if (!this.enabled || !posthogApiKey) {
+      this.initialized = true;
+      logger.warn('[Analytics] PostHog disabled or missing API key');
+      return;
+    }
+
+    this.posthog = new PostHog(posthogApiKey, {
+      host: posthogHost || DEFAULT_POSTHOG_HOST,
+      disabled: !this.enabled,
+      disableGeoip: true,
+      enableSessionReplay: false,
+      captureAppLifecycleEvents: true,
+    });
+
+    this.initialized = true;
   }
 
   /**
@@ -66,11 +179,13 @@ class Analytics {
     this.userId = userId;
     this.userProperties = { ...this.userProperties, ...properties };
 
-    logger.info('[Analytics] Identify', { userId, properties });
+    const safeProperties = sanitizeAnalyticsProperties(properties);
 
-    // INTEGRATION: Identify user in your analytics provider.
-    // Example: Mixpanel.identify(userId);
-    // Example: Mixpanel.getPeople().set(properties);
+    logger.info('[Analytics] Identify', { userId, properties: safeProperties });
+
+    this.safelyCallPostHog('identify', () => {
+      this.posthog.identify(userId, safeProperties);
+    });
   }
 
   /**
@@ -82,7 +197,9 @@ class Analytics {
     const event: AnalyticsEvent = {
       name: eventName,
       properties: {
-        ...properties,
+        app_version: appVersion,
+        platform: Platform.OS,
+        ...sanitizeAnalyticsProperties(properties),
         userId: this.userId,
         timestamp: new Date().toISOString(),
       },
@@ -91,9 +208,9 @@ class Analytics {
 
     logger.info('[Analytics] Track', event);
 
-    // INTEGRATION: Track event in your analytics provider.
-    // Example: Mixpanel.track(eventName, properties);
-    // Example: amplitude.getInstance().logEvent(eventName, properties);
+    this.safelyCallPostHog('capture', () => {
+      this.posthog.capture(eventName, event.properties);
+    });
   }
 
   /**
@@ -113,11 +230,15 @@ class Analytics {
     if (!this.enabled) return;
 
     this.userProperties = { ...this.userProperties, ...properties };
+    const safeProperties = sanitizeAnalyticsProperties(properties);
 
-    logger.info('[Analytics] Set user properties', properties);
+    logger.info('[Analytics] Set user properties', safeProperties);
 
-    // INTEGRATION: Set user properties in your analytics provider.
-    // Example: Mixpanel.getPeople().set(properties);
+    if (this.userId) {
+      this.safelyCallPostHog('set user properties', () => {
+        this.posthog.identify(this.userId, safeProperties);
+      });
+    }
   }
 
   /**
@@ -127,9 +248,6 @@ class Analytics {
     if (!this.enabled) return;
 
     logger.info('[Analytics] Increment', { property, value });
-
-    // INTEGRATION: Increment property in your analytics provider.
-    // Example: Mixpanel.getPeople().increment(property, value);
   }
 
   /**
@@ -143,8 +261,9 @@ class Analytics {
 
     logger.info('[Analytics] Reset');
 
-    // INTEGRATION: Reset in your analytics provider.
-    // Example: Mixpanel.reset();
+    this.safelyCallPostHog('reset', () => {
+      this.posthog.reset();
+    });
   }
 
   /**
@@ -154,6 +273,12 @@ class Analytics {
     this.enabled = enabled;
 
     logger.info('[Analytics] Set enabled', enabled);
+
+    try {
+      this.posthog?.[enabled ? 'optIn' : 'optOut']?.();
+    } catch (error) {
+      logger.warn(`[Analytics] PostHog ${enabled ? 'opt in' : 'opt out'} failed`, error);
+    }
   }
 }
 
@@ -231,4 +356,14 @@ export const AnalyticsEvents = {
   // Errors
   ERROR_OCCURRED: 'error_occurred',
   API_ERROR: 'api_error',
+
+  // Friction tracking
+  FLOW_STARTED: 'flow_started',
+  FLOW_STEP_VIEWED: 'flow_step_viewed',
+  FLOW_STEP_COMPLETED: 'flow_step_completed',
+  FLOW_STEP_ABANDONED: 'flow_step_abandoned',
+  FLOW_BLOCKED: 'flow_blocked',
+  FLOW_RETRY: 'flow_retry',
+  FLOW_ERROR: 'flow_error',
+  FLOW_COMPLETED: 'flow_completed',
 } as const;

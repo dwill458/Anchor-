@@ -8,6 +8,7 @@ import { post } from '@/services/ApiClient';
 import { useAnchorStore } from '@/stores/anchorStore';
 import { useAuthStore } from '@/stores/authStore';
 import { AnalyticsEvents, AnalyticsService } from '@/services/AnalyticsService';
+import { FrictionAnalytics } from '@/services/FrictionAnalytics';
 import { ErrorTrackingService } from '@/services/ErrorTrackingService';
 import { useTeachingStore } from '@/stores/teachingStore';
 import { useTeachingGate } from '@/utils/useTeachingGate';
@@ -67,6 +68,10 @@ export const BurningRitualScreen: React.FC = () => {
 
         if (!isAlreadyGone) {
           AnalyticsService.track(AnalyticsEvents.BURN_FAILED, { anchor_id: anchorId });
+          FrictionAnalytics.flowError('burn_release', 'burning_ritual', 'backend_burn_failed', {
+            anchor_id: anchorId,
+            message: msg,
+          });
           ErrorTrackingService.captureException(
             error instanceof Error ? error : new Error('Unknown error during anchor burn'),
             { screen: 'BurningRitualScreen' }
@@ -82,6 +87,10 @@ export const BurningRitualScreen: React.FC = () => {
     await queueProgressionMilestonesFromStores();
     await handleSigilVaulted();
     AnalyticsService.track(AnalyticsEvents.BURN_COMPLETED, { anchor_id: anchorId });
+    FrictionAnalytics.completeFlow('burn_release', {
+      anchor_id: anchorId,
+      result: 'burn_completed',
+    });
 
     // Set first-burn flag (once)
     if (!userFlags.hasCompletedFirstBurn) {

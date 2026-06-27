@@ -37,6 +37,7 @@ import { useTempStore } from '@/stores/anchorStore';
 import { OptimizedImage } from '@/components/common/OptimizedImage';
 import { ErrorTrackingService } from '@/services/ErrorTrackingService';
 import { PerformanceMonitoring } from '@/services/PerformanceMonitoring';
+import { FrictionAnalytics } from '@/services/FrictionAnalytics';
 import { isCompactPhoneViewport } from '@/utils/layout';
 const MAX_VISIBLE_VARIATIONS = 2;
 const ROMAN_NUMERALS = ['I', 'II'] as const;
@@ -205,11 +206,20 @@ export const AIVariationPickerScreen: React.FC = () => {
 
       if (!imageUrl) {
         trace.stop({ success: false, reason: 'missing_image_url' });
+        FrictionAnalytics.flowBlocked('anchor_creation', 'variation_picker', 'missing_image_url', {
+          selected_index: selectedIndex,
+          variation_count: normalizedVariations.length,
+        });
         Alert.alert('Error', 'Invalid variation selected. Please try again.');
         return;
       }
 
       trace.stop({ success: true });
+      FrictionAnalytics.stepCompleted('anchor_creation', 'variation_picker', {
+        selected_index: selectedIndex,
+        variation_count: normalizedVariations.length,
+        heavy_inline: selectedVariation.isHeavyInline,
+      });
       ErrorTrackingService.addBreadcrumb('Variation selected', 'ai.variation_picker', {
         selected_index: selectedIndex,
         heavy_inline: selectedVariation.isHeavyInline,
@@ -247,6 +257,10 @@ export const AIVariationPickerScreen: React.FC = () => {
       });
     } catch (err) {
       trace.stop({ success: false });
+      FrictionAnalytics.flowError('anchor_creation', 'variation_picker', 'selection_failed', {
+        selected_index: selectedIndex,
+        variation_count: normalizedVariations.length,
+      });
       ErrorTrackingService.captureException(err, {
         screen: 'AIVariationPickerScreen',
         action: 'continue_with_variation',

@@ -24,6 +24,7 @@ import { useSettingsStore } from '@/stores/settingsStore';
 import { analyzeIntention, getGuidanceText } from '@/utils/intentionPatterns';
 import { OptimizedImage, SigilSvg } from '@/components/common';
 import { ErrorTrackingService } from '@/services/ErrorTrackingService';
+import { FrictionAnalytics } from '@/services/FrictionAnalytics';
 import { post } from '@/services/ApiClient';
 import { logger } from '@/utils/logger';
 import { classifyToTierPreliminary } from '@/utils/tierClassifier';
@@ -174,6 +175,11 @@ export const AnchorRevealScreen: React.FC = () => {
             }
         } catch (err) {
             logger.warn('[AnchorReveal] Failed to save anchor to backend, proceeding locally', err);
+            FrictionAnalytics.flowError('anchor_creation', 'anchor_reveal', 'backend_save_failed', {
+                is_first_anchor: isGuestFirstAnchor,
+                category,
+                has_enhanced_image: Boolean(enhancedImageUrl),
+            });
             ErrorTrackingService.captureException(err, {
                 screen: 'AnchorRevealScreen',
                 action: 'save_anchor_to_backend',
@@ -204,6 +210,16 @@ export const AnchorRevealScreen: React.FC = () => {
             updatedAt: new Date(),
         });
         incrementAnchorCount();
+        FrictionAnalytics.stepCompleted('anchor_creation', 'anchor_reveal', {
+            is_first_anchor: isGuestFirstAnchor,
+            category,
+            has_enhanced_image: Boolean(enhancedImageUrl),
+        });
+        FrictionAnalytics.completeFlow('anchor_creation', {
+            is_first_anchor: isGuestFirstAnchor,
+            category,
+            next_step: wallpaperPromptSeen ? 'charge_setup' : 'wallpaper_prompt',
+        });
 
         // Clear heavy temporary data once the anchor record is created.
         setTempEnhancedImage(null);

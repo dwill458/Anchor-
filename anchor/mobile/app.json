@@ -115,6 +115,7 @@
         "monochromeImage": "./assets/anchor-monochrome.png"
       },
       "package": "com.anchorintentions.app",
+      "playStoreUrl": "https://play.google.com/store/apps/details?id=com.anchorintentions.app",
       "versionCode": 28,
       "googleServicesFile": "./google-services.json",
       "edgeToEdgeEnabled": true,
@@ -188,7 +189,8 @@
           "photosPermission": "Anchor accesses your photo library so you can choose a profile photo and save exported anchor artwork.",
           "isAccessMediaLocationEnabled": false
         }
-      ]
+      ],
+      "expo-localization"
     ],
     "extra": {
       "eas": {

@@ -38,6 +38,7 @@ import { AnchorGridSkeleton } from '../../components/skeletons/AnchorCardSkeleto
 // import { useSubscription } from '../../hooks/useSubscription';
 import { useReduceMotionEnabled } from '@/hooks/useReduceMotionEnabled';
 import { AnalyticsService, AnalyticsEvents } from '../../services/AnalyticsService';
+import { FrictionAnalytics } from '@/services/FrictionAnalytics';
 import { ErrorTrackingService } from '../../services/ErrorTrackingService';
 import { PerformanceMonitoring } from '../../services/PerformanceMonitoring';
 import { apiClient } from '@/services/ApiClient';
@@ -399,6 +400,16 @@ export const VaultScreen: React.FC = () => {
     AnalyticsService.track(AnalyticsEvents.ANCHOR_CREATION_STARTED, {
       source: 'vault',
       has_existing_anchors: anchors.length > 0,
+    });
+    FrictionAnalytics.startFlow('anchor_creation', {
+      source: 'vault',
+      anchor_count: anchors.length,
+      is_first_anchor: anchors.length === 0,
+    });
+    FrictionAnalytics.stepCompleted('anchor_creation', 'create_cta', {
+      source: 'vault',
+      anchor_count: anchors.length,
+      is_first_anchor: anchors.length === 0,
     });
     navigation.push(anchors.length === 0 ? 'FirstAnchorCreation' : 'CreateAnchor');
   }, [anchors.length, navigation]);

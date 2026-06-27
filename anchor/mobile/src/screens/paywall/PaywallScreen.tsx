@@ -23,6 +23,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import Svg, { Circle, Path, SvgXml } from 'react-native-svg';
 import { AnalyticsService } from '@/services/AnalyticsService';
+import { FrictionAnalytics } from '@/services/FrictionAnalytics';
 import {
   REVENUECAT_ANNUAL_PACKAGE_ID,
   REVENUECAT_MONTHLY_PACKAGE_ID,
@@ -367,6 +368,11 @@ export const PaywallScreen: React.FC = () => {
       defaultPlan: PAYWALL_EXPERIMENT.defaultPlan,
       headline: PAYWALL_EXPERIMENT.headline,
     });
+    FrictionAnalytics.stepViewed('paywall', 'paywall', {
+      source,
+      default_plan: PAYWALL_EXPERIMENT.defaultPlan,
+      headline: PAYWALL_EXPERIMENT.headline,
+    });
   }, [source]);
 
   useEffect(() => {
@@ -394,12 +400,14 @@ export const PaywallScreen: React.FC = () => {
 
   const handleDismiss = useCallback(() => {
     AnalyticsService.track('paywall_dismissed', { source });
+    FrictionAnalytics.stepAbandoned('paywall', 'paywall', 'dismissed', { source });
     navigation.goBack();
   }, [navigation, source]);
 
   const handleSelectPlan = useCallback((plan: PlanId) => {
     setSelectedPlanId(plan);
     AnalyticsService.track('paywall_plan_selected', { plan });
+    FrictionAnalytics.stepCompleted('paywall', 'plan_selection', { plan });
   }, []);
 
   const handleSignIn = useCallback(() => {
@@ -416,6 +424,11 @@ export const PaywallScreen: React.FC = () => {
       plan: selectedPlanId,
       productId: selectedPlan.packageId,
     });
+    FrictionAnalytics.stepCompleted('paywall', 'purchase_cta', {
+      source,
+      plan: selectedPlanId,
+      product_id: selectedPlan.packageId,
+    });
 
     try {
       const { status, dismissed } = await revenueCatService.purchasePackageByIdentifier(selectedPlan.packageId);
@@ -429,10 +442,32 @@ export const PaywallScreen: React.FC = () => {
             plan: selectedPlanId,
             productId: selectedPlan.packageId,
           });
+          FrictionAnalytics.completeFlow('paywall', {
+            source,
+            plan: selectedPlanId,
+            product_id: selectedPlan.packageId,
+          });
+        } else {
+          FrictionAnalytics.flowBlocked('paywall', 'purchase_confirmation', 'missing_entitlement', {
+            source,
+            plan: selectedPlanId,
+            product_id: selectedPlan.packageId,
+          });
         }
         navigation.reset({ index: 0, routes: [{ name: 'Main' }] });
+      } else {
+        FrictionAnalytics.stepAbandoned('paywall', 'store_purchase', 'store_sheet_dismissed', {
+          source,
+          plan: selectedPlanId,
+          product_id: selectedPlan.packageId,
+        });
       }
     } catch (error: any) {
+      FrictionAnalytics.flowError('paywall', 'purchase', 'purchase_failed', {
+        source,
+        plan: selectedPlanId,
+        product_id: selectedPlan.packageId,
+      });
       Alert.alert('Purchase could not be completed', error?.message ?? 'Please try again.');
     } finally {
       setIsPurchasing(false);
@@ -443,15 +478,24 @@ export const PaywallScreen: React.FC = () => {
     if (isPurchasing || isRestoring) return;
     setIsRestoring(true);
     AnalyticsService.track('paywall_restore_tapped', { source });
+    FrictionAnalytics.stepCompleted('paywall', 'restore_cta', { source });
 
     try {
       const status = await revenueCatService.restorePurchases();
       if (status.hasActiveEntitlement) {
+        FrictionAnalytics.completeFlow('paywall', {
+          source,
+          reason: 'restore_success',
+        });
         navigation.reset({ index: 0, routes: [{ name: 'Main' }] });
       } else {
+        FrictionAnalytics.flowBlocked('paywall', 'restore', 'no_subscription_found', { source });
         Alert.alert('No subscription found', 'No active subscription was found for this account.');
       }
     } catch (error: any) {
+      FrictionAnalytics.flowError('paywall', 'restore', 'restore_failed', {
+        source,
+      });
       Alert.alert('Restore failed', error?.message ?? 'Could not restore purchases.');
     } finally {
       setIsRestoring(false);

@@ -2,7 +2,11 @@
  * AnalyticsService Tests
  */
 
-import { AnalyticsService, AnalyticsEvents } from '../AnalyticsService';
+import {
+  AnalyticsEvents,
+  AnalyticsService,
+  sanitizeAnalyticsProperties,
+} from '../AnalyticsService';
 
 beforeEach(() => {
   AnalyticsService.setEnabled(true);
@@ -128,6 +132,29 @@ describe('AnalyticsService', () => {
       expect(AnalyticsEvents.ACTIVATION_RITUAL_COMPLETED).toBe('activation_ritual_completed');
       expect(AnalyticsEvents.APP_OPENED).toBe('app_opened');
       expect(AnalyticsEvents.SIGN_OUT).toBe('sign_out');
+    });
+  });
+
+  describe('sanitizeAnalyticsProperties', () => {
+    it('removes sensitive top-level and nested properties', () => {
+      expect(
+        sanitizeAnalyticsProperties({
+          category: 'health',
+          email: 'person@example.com',
+          intentionText: 'private intention',
+          prompt: 'private prompt',
+          nested: {
+            mantra: 'private mantra',
+            safe: true,
+            image_url: 'https://example.com/private.png',
+          },
+        })
+      ).toEqual({
+        category: 'health',
+        nested: {
+          safe: true,
+        },
+      });
     });
   });
 });
