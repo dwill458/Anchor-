@@ -125,8 +125,13 @@ const createClearedPendingFirstAnchorState = () => ({
   pendingFirstAnchorError: null,
 });
 
-function applyCompedAccessToSubscriptionStore(user: User | null): void {
-  useSubscriptionStore.getState().setRemoteCompedAccess(user?.isComped === true);
+function applySubscriptionStateFromUser(user: User | null): void {
+  const subscriptionStore = useSubscriptionStore.getState();
+  subscriptionStore.setRemoteCompedAccess(user?.isComped === true);
+
+  if (user) {
+    subscriptionStore.syncTrialFromServer(user.trialStartedAt, user.isTrialExpired);
+  }
 }
 
 async function readLegacyAuthStorage(name: string): Promise<string | null> {
@@ -386,7 +391,7 @@ export const useAuthStore = create<AuthState>()(
 
       // Actions
       setUser: (user) => {
-        applyCompedAccessToSubscriptionStore(user);
+        applySubscriptionStateFromUser(user);
         if (user) {
           useProfileStore.getState().syncFromUser(user);
         }
@@ -415,7 +420,7 @@ export const useAuthStore = create<AuthState>()(
         }),
 
       setSession: (user, token) => {
-        applyCompedAccessToSubscriptionStore(user);
+        applySubscriptionStateFromUser(user);
         useProfileStore.getState().syncFromUser(user);
         set(() => {
           const hasCompletedOnboarding = Boolean(user.hasCompletedOnboarding);
@@ -486,7 +491,7 @@ export const useAuthStore = create<AuthState>()(
             createdAt: state.user?.createdAt ?? new Date(),
           });
 
-          applyCompedAccessToSubscriptionStore(developerUser);
+          applySubscriptionStateFromUser(developerUser);
 
           return {
             user: developerUser,
@@ -561,7 +566,7 @@ export const useAuthStore = create<AuthState>()(
           }
 
           const profileData = await fetchCompleteProfile();
-          applyCompedAccessToSubscriptionStore(profileData.user);
+          applySubscriptionStateFromUser(profileData.user);
           const hasCompletedOnboarding = Boolean(profileData.user.hasCompletedOnboarding);
           useProfileStore.getState().syncFromUser(profileData.user);
           set({
@@ -907,7 +912,7 @@ export const useAuthStore = create<AuthState>()(
               lastStabilizeAt: toDateOrNull(updatedUser.lastStabilizeAt) ?? undefined,
             };
 
-            applyCompedAccessToSubscriptionStore(normalizedUpdatedUser);
+            applySubscriptionStateFromUser(normalizedUpdatedUser);
 
             set((state) => ({
               user: state.user ? { ...state.user, ...normalizedUpdatedUser } : normalizedUpdatedUser,
@@ -963,7 +968,7 @@ export const useAuthStore = create<AuthState>()(
           });
         }
 
-        applyCompedAccessToSubscriptionStore(null);
+        applySubscriptionStateFromUser(null);
         useAnchorStore.getState().clearAnchors();
         useSessionStore.getState().reset();
         useTeachingStore.getState().reset();
@@ -997,7 +1002,7 @@ export const useAuthStore = create<AuthState>()(
       storage: createJSONStorage(() => encryptedAuthStorage),
       onRehydrateStorage: () => (state) => {
         if (state) {
-          applyCompedAccessToSubscriptionStore(state.user);
+          applySubscriptionStateFromUser(state.user);
           // One-shot navigation flags should never survive an app restart.
           state.setShouldRedirectToCreation(false);
           // Recompute streak immediately after store hydrates from disk

@@ -8,6 +8,8 @@ import { AnchorDetailScreen } from '../AnchorDetailScreen';
 const mockNavigate = jest.fn();
 const mockNavigateToPractice = jest.fn();
 const mockExportAnchorArtwork = jest.fn();
+const mockRequestPhotoLibrarySavePermission = jest.fn();
+const mockSavePngToPhotoLibrary = jest.fn();
 const mockCaptureRef = jest.fn();
 const mockRequestPermissionsAsync = jest.fn();
 const mockSaveToLibraryAsync = jest.fn();
@@ -181,6 +183,8 @@ jest.mock('@/services/ApiClient', () => ({
 
 jest.mock('@/services/AnchorArtworkExportService', () => ({
     exportAnchorArtwork: (...args: any[]) => mockExportAnchorArtwork(...args),
+    requestPhotoLibrarySavePermission: (...args: any[]) => mockRequestPhotoLibrarySavePermission(...args),
+    savePngToPhotoLibrary: (...args: any[]) => mockSavePngToPhotoLibrary(...args),
 }));
 
 jest.mock('@/components/ToastProvider', () => ({
@@ -246,6 +250,8 @@ describe('AnchorDetailScreen', () => {
         jest.restoreAllMocks();
         mockNavigate.mockClear();
         mockExportAnchorArtwork.mockReset();
+        mockRequestPhotoLibrarySavePermission.mockReset();
+        mockSavePngToPhotoLibrary.mockReset();
         mockCaptureRef.mockReset();
         mockRequestPermissionsAsync.mockReset();
         mockSaveToLibraryAsync.mockReset();
@@ -266,6 +272,8 @@ describe('AnchorDetailScreen', () => {
             mode: 'wallpaper',
         });
         mockCaptureRef.mockResolvedValue('file:///tmp/anchor-card.png');
+        mockRequestPhotoLibrarySavePermission.mockResolvedValue(true);
+        mockSavePngToPhotoLibrary.mockResolvedValue('file:///tmp/anchor-card-saved.png');
         mockRequestPermissionsAsync.mockResolvedValue({ status: 'granted', granted: true });
         mockSaveToLibraryAsync.mockResolvedValue(undefined);
         jest.spyOn(Share, 'share').mockResolvedValue({ action: 'sharedAction' } as any);
@@ -381,8 +389,11 @@ describe('AnchorDetailScreen', () => {
         fireEvent.press(screen.getByText('SET AS WALLPAPER'));
         await waitFor(() => {
             expect(mockCaptureRef).toHaveBeenCalled();
-            expect(mockSaveToLibraryAsync).toHaveBeenCalledWith('file:///tmp/anchor-card.png');
-            expect(Share.share).toHaveBeenCalledWith({ url: 'file:///tmp/anchor-card.png' });
+            expect(mockSavePngToPhotoLibrary).toHaveBeenCalledWith(
+                'file:///tmp/anchor-card.png',
+                'anchor-wallpaper.png'
+            );
+            expect(Share.share).toHaveBeenCalledWith({ url: 'file:///tmp/anchor-card-saved.png' });
         });
     });
 

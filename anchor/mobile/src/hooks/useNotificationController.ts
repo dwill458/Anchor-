@@ -198,10 +198,35 @@ export const useNotificationController = () => {
 
   }, []);
 
+  const reconcilePermissionState = useCallback(async (
+    state: NotificationStateWithSyncMetadata
+  ): Promise<NotificationStateWithSyncMetadata> => {
+    if (!state.notification_enabled) {
+      return state;
+    }
+
+    const hasPermissions = await NotificationService.hasPermissions();
+    if (hasPermissions) {
+      return state;
+    }
+
+    await NotificationService.cancelNotification('micro-prime');
+    await NotificationService.cancelWeeklySummary();
+    if (useAuthStore.getState().isAuthenticated) {
+      await clearPushTokensFromServer();
+    }
+
+    return {
+      ...state,
+      notification_enabled: false,
+    };
+  }, []);
+
   const initOnAppOpen = useCallback(async () => {
     try {
       let state = await loadState();
       state = reconcile(state);
+      state = await reconcilePermissionState(state);
       state.last_app_open_at = new Date().toISOString();
       state.app_opened_in_last_5_days = true;
 
@@ -223,7 +248,14 @@ export const useNotificationController = () => {
     } finally {
       setIsInitialized(true);
     }
-  }, [loadState, reconcile, saveState, scheduleMicroPrime, syncStateToServer]);
+  }, [
+    loadState,
+    reconcile,
+    reconcilePermissionState,
+    saveState,
+    scheduleMicroPrime,
+    syncStateToServer,
+  ]);
 
   useEffect(() => {
     void initOnAppOpen();
@@ -238,7 +270,7 @@ export const useNotificationController = () => {
 
     const syncGoalWithSettings = async () => {
       try {
-        const reconciledState = reconcile(await loadState());
+        const reconciledState = await reconcilePermissionState(reconcile(await loadState()));
         if (cancelled) {
           return;
         }
@@ -258,7 +290,15 @@ export const useNotificationController = () => {
     return () => {
       cancelled = true;
     };
-  }, [dailyPracticeGoal, isInitialized, loadState, reconcile, saveState, syncStateToServer]);
+  }, [
+    dailyPracticeGoal,
+    isInitialized,
+    loadState,
+    reconcile,
+    reconcilePermissionState,
+    saveState,
+    syncStateToServer,
+  ]);
 
   useEffect(() => {
     if (!isInitialized || !notifState) {

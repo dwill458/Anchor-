@@ -60,6 +60,7 @@ jest.mock('expo-media-library', () => ({
 }));
 
 const mockExpoFileSystem = {
+  cacheDirectory: 'file:///cache/',
   documentDirectory: 'file:///documents/',
   readAsStringAsync: jest.fn(() => Promise.resolve('')),
   copyAsync: jest.fn(() => Promise.resolve()),

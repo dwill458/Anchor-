@@ -87,7 +87,6 @@ export const SignUpScreen: React.FC<SignUpScreenProps> = ({ navigation, route })
         hasCompletedOnboarding ||
         context === 'first_anchor_gate' ||
         context === 'save_progress',
-      launchTrialPurchase: false,
     });
 
     const shouldRouteThroughFirstAnchorGate = Boolean(

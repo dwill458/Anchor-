@@ -1,6 +1,7 @@
 import { createMockAnchor, createMockUser } from '@/__tests__/utils/testUtils';
 import { useAnchorStore } from '@/stores/anchorStore';
 import { useAuthStore } from '@/stores/authStore';
+import { useSubscriptionStore } from '@/stores/subscriptionStore';
 
 const mockMigrateAnchors = jest.fn();
 const mockLogIn = jest.fn();
@@ -22,7 +23,6 @@ jest.mock('@/services/RevenueCatService', () => ({
   default: {
     logIn: (...args: unknown[]) => mockLogIn(...args),
     refreshTrialStatus: (...args: unknown[]) => mockRefreshTrialStatus(...args),
-    purchaseDefaultTrialPackage: jest.fn(),
   },
 }));
 
@@ -39,6 +39,10 @@ describe('PostAuthFlowService', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     useAnchorStore.getState().clearAnchors();
+    useSubscriptionStore.setState({
+      trialStartDate: null,
+      subscriptionStatus: 'trial',
+    });
     useAuthStore.setState({
       user: null,
       token: null,
@@ -74,7 +78,6 @@ describe('PostAuthFlowService', () => {
       user,
       token: 'token-123',
       preserveCompletedOnboarding: false,
-      launchTrialPurchase: false,
     });
 
     expect(mockMigrateAnchors).toHaveBeenCalledTimes(1);
@@ -114,7 +117,6 @@ describe('PostAuthFlowService', () => {
       user,
       token: 'token-123',
       preserveCompletedOnboarding: false,
-      launchTrialPurchase: false,
     });
 
     expect(mockHydrateAuthenticatedData).toHaveBeenNthCalledWith(1, {
@@ -124,5 +126,28 @@ describe('PostAuthFlowService', () => {
     expect(mockHydrateAuthenticatedData).toHaveBeenNthCalledWith(2, {
       skipAnchorRefresh: false,
     });
+  });
+
+  it('syncs the local trial timer from the server user payload during post-auth setup', async () => {
+    const trialStartedAt = new Date('2026-06-20T00:00:00.000Z');
+    const user = createMockUser({
+      id: 'user-123',
+      trialStartedAt,
+      isTrialExpired: false,
+    });
+
+    mockLogIn.mockResolvedValue({ hasActiveEntitlement: false });
+    mockRefreshTrialStatus.mockResolvedValue({ hasActiveEntitlement: false });
+    mockMigrateAnchors.mockResolvedValue([]);
+    mockHydrateAuthenticatedData.mockResolvedValue(undefined);
+
+    await PostAuthFlowService.run({
+      user,
+      token: 'token-123',
+      preserveCompletedOnboarding: false,
+    });
+
+    expect(useSubscriptionStore.getState().trialStartDate).toBe(trialStartedAt.toISOString());
+    expect(useSubscriptionStore.getState().subscriptionStatus).toBe('trial');
   });
 });

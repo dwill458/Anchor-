@@ -105,13 +105,9 @@ export function useTrialStatus(): TrialStatus {
     const daysRemaining = computeDaysRemaining(trialStartDate);
     const isSubscribed = subscriptionStatus === 'active';
 
-    // RC only tracks paid entitlements — it has no concept of this app's local 7-day trial.
-    // Using rcHasActiveEntitlement to gate trial access would expire every new free-trial user
-    // the moment RC syncs. Instead, rely on the local clock:
-    //   - 'trial' + (null trialStartDate OR days remaining) → active
-    //   - 'expired' (set by useTrialInit after 7 days) → expired
-    //   - 'active' (set by applyTrialStatus on paid purchase) → isSubscribed = true
-    const isTrialActive = subscriptionStatus === 'trial' && (trialStartDate === null || daysRemaining > 0);
+    // RC tracks paid entitlements; the app's no-card trial uses the local
+    // timestamp stamped during account/session setup.
+    const isTrialActive = subscriptionStatus === 'trial' && daysRemaining > 0;
     const hasExpired = !isSubscribed && !isTrialActive;
 
     return {

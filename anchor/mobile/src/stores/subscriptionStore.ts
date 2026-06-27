@@ -40,6 +40,7 @@ interface SubscriptionState extends TrialStatusSnapshot {
     // Actions
     setRcTier: (tier: SubscriptionStatus) => void;
     setTrialStartDate: (date: string) => void;
+    syncTrialFromServer: (trialStartedAt?: Date | string | null, isTrialExpired?: boolean) => void;
     setSubscriptionStatus: (status: 'trial' | 'active' | 'expired') => void;
     setTrialState: (snapshot: TrialStatusSnapshot) => void;
     setRemoteCompedAccess: (enabled: boolean) => void;
@@ -72,6 +73,27 @@ export const useSubscriptionStore = create<SubscriptionState>()(
 
             setRcTier: (tier) => set({ rcTier: tier }),
             setTrialStartDate: (date) => set({ trialStartDate: date }),
+            syncTrialFromServer: (trialStartedAt, isTrialExpired = false) => {
+                if (!trialStartedAt) return;
+
+                const parsed =
+                    trialStartedAt instanceof Date
+                        ? trialStartedAt
+                        : new Date(trialStartedAt);
+
+                if (Number.isNaN(parsed.getTime())) return;
+
+                const currentStatus = get().subscriptionStatus;
+                set({
+                    trialStartDate: parsed.toISOString(),
+                    subscriptionStatus:
+                        currentStatus === 'active'
+                            ? currentStatus
+                            : isTrialExpired
+                                ? 'expired'
+                                : 'trial',
+                });
+            },
             setSubscriptionStatus: (status) => set({ subscriptionStatus: status }),
             setTrialState: (snapshot) => set(snapshot),
             setRemoteCompedAccess: (enabled) => set({ remoteCompedAccess: enabled }),
@@ -107,13 +129,12 @@ export const useSubscriptionStore = create<SubscriptionState>()(
                 // Active paid subscription always wins
                 if (rcTier.startsWith('pro') || subscriptionStatus === 'active') return 'pro';
 
-                // After RC has confirmed state, require entitlement (closes reinstall trial bypass)
+                // Local no-card trial remains authoritative for the in-app timer.
+                if (subscriptionStatus === 'trial' && computeDaysRemaining(trialStartDate) > 0) return 'pro';
+
                 if (rcSynced) {
                     return hasActiveEntitlement ? 'pro' : 'free';
                 }
-
-                // Before RC sync: fall back to local trial clock (offline UX cache)
-                if (subscriptionStatus === 'trial' && computeDaysRemaining(trialStartDate) > 0) return 'pro';
 
                 return 'free';
             },
