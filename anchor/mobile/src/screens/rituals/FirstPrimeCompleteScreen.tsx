@@ -25,6 +25,7 @@ import { useSettingsStore } from '@/stores/settingsStore';
 import { useAudio } from '@/hooks/useAudio';
 import { useNotificationController } from '@/hooks/useNotificationController';
 import { AnalyticsService } from '@/services/AnalyticsService';
+import { FrictionAnalytics } from '@/services/FrictionAnalytics';
 import { colors, spacing, typography } from '@/theme';
 import type { RootStackParamList } from '@/types';
 import { navigateToVaultDestination } from '@/navigation/firstAnchorGate';
@@ -176,6 +177,11 @@ export const FirstPrimeCompleteScreen: React.FC = () => {
       });
       void queueProgressionMilestonesFromStores();
       void handlePrimeComplete();
+      FrictionAnalytics.completeFlow('activation', {
+        anchor_id: anchorId,
+        result: 'first_prime_completed',
+        session_count: sessionCount,
+      });
       AnalyticsService.track('first_prime_completed', {
         anchor_id: anchorId,
         intention_id: anchor?.id ?? anchorId,

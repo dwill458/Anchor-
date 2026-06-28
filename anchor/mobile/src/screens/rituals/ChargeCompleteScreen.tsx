@@ -35,6 +35,7 @@ import { InstructionGlassCard } from './components/InstructionGlassCard';
 import { CompletionModal } from './components/CompletionModal';
 import { navigateToVaultDestination } from '@/navigation/firstAnchorGate';
 import { AnalyticsService } from '@/services/AnalyticsService';
+import { FrictionAnalytics } from '@/services/FrictionAnalytics';
 import { PostPrimeTraceModal } from './components/PostPrimeTraceModal';
 import { usePostPrimeTraceStore } from '@/stores/postPrimeTraceStore';
 import {
@@ -138,6 +139,11 @@ export const ChargeCompleteScreen: React.FC = () => {
 
     if (completedPostPrimeTrace) {
       useSessionStore.getState().bumpThreadStrength(2);
+      FrictionAnalytics.completeFlow('activation', {
+        anchor_id: anchorId,
+        result: 'post_prime_trace_completed',
+        session_duration_seconds: routeDurationSeconds ?? primeSessionDuration,
+      });
       AnalyticsService.track('post_prime_trace_completed', {
         anchor_id: anchorId,
         session_duration_seconds: routeDurationSeconds ?? primeSessionDuration,

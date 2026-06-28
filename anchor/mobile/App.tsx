@@ -38,6 +38,7 @@ import { ToastProvider } from './src/components/ToastProvider';
 import { ForgeMomentOverlay } from './src/components/ForgeMomentOverlay';
 import { useTrialStatus } from './src/hooks/useTrialStatus';
 import { useAuthStore } from './src/stores/authStore';
+import { useAnchorStore } from './src/stores/anchorStore';
 import { useForgeMomentStore } from './src/stores/forgeMomentStore';
 import { useSessionStore } from './src/stores/sessionStore';
 import { useSettingsStore } from './src/stores/settingsStore';
@@ -52,6 +53,9 @@ import {
 import type { Anchor } from './src/types';
 import { ErrorTrackingService, setupGlobalErrorHandler } from './src/services/ErrorTrackingService';
 import { PerformanceMonitoring, type PerformanceTrace } from './src/services/PerformanceMonitoring';
+import { AnalyticsService } from './src/services/AnalyticsService';
+import { FrictionAnalytics } from './src/services/FrictionAnalytics';
+import type { FrictionEventProperties } from './src/services/FrictionAnalytics';
 import { monitoringConfig } from './src/config/monitoring';
 import { AuthService } from './src/services/AuthService';
 
@@ -221,6 +225,7 @@ export default function App() {
   const computeStreak = useAuthStore((state) => state.computeStreak);
   const user = useAuthStore((state) => state.user);
   const dailyPracticeGoal = useSettingsStore((state) => state.dailyPracticeGoal);
+  const anchorCount = useAnchorStore((state) => state.anchors.length);
   const lastSessionId = useSessionStore((state) => state.lastSession?.id);
   const activeMilestone = useForgeMomentStore((state) => state.activeMilestone);
   const dismissMilestone = useForgeMomentStore((state) => state.dismissMilestone);
@@ -266,6 +271,19 @@ export default function App() {
     rcSynced || (__DEV__ && devOverrideEnabled) || remoteCompedAccess;
   const showExpiredTrialPaywall =
     !showOnboarding && hasExpired && !isSubscribed && entitlementResolved;
+  const subscriptionStatus = React.useMemo<FrictionEventProperties['subscription_status']>(() => {
+    if (isSubscribed) return 'pro';
+    if (hasExpired) return 'expired';
+    if (!entitlementResolved) return 'unknown';
+    return 'trial';
+  }, [entitlementResolved, hasExpired, isSubscribed]);
+  const trackingContext = React.useMemo(
+    () => ({
+      anchor_count: anchorCount,
+      subscription_status: subscriptionStatus,
+    }),
+    [anchorCount, subscriptionStatus]
+  );
   const [fontsLoaded] = useFonts({
     'Cinzel-Regular': Cinzel_400Regular,
     'Cinzel-SemiBold': Cinzel_600SemiBold,
@@ -521,11 +539,13 @@ export default function App() {
     });
     setupGlobalErrorHandler();
     PerformanceMonitoring.initialize({ enabled: true });
+    AnalyticsService.initialize();
   }, []);
 
   useEffect(() => {
     if (user?.id) {
       ErrorTrackingService.setUser(user.id);
+      AnalyticsService.identify(user.id);
       // Log in to RevenueCat with the Firebase UID so purchases are linked to this account.
       revenueCatService.logIn(user.id).catch((error) => {
         logger.warn('[RevenueCat] logIn failed', error);
@@ -534,6 +554,8 @@ export default function App() {
     }
 
     ErrorTrackingService.clearUser();
+    AnalyticsService.reset();
+    FrictionAnalytics.reset();
   }, [user?.displayName, user?.email, user?.id]);
 
   useEffect(() => {
@@ -698,6 +720,7 @@ export default function App() {
 
                       routeNameRef.current = initialRouteName;
                       ErrorTrackingService.trackNavigation(undefined, initialRouteName);
+                      FrictionAnalytics.trackRouteViewed(initialRouteName, trackingContext);
                       screenTraceRef.current = PerformanceMonitoring.startTrace(
                         `screen_${initialRouteName}`,
                         { route: initialRouteName }
@@ -722,6 +745,10 @@ export default function App() {
                       );
 
                       ErrorTrackingService.trackNavigation(previousRouteName, currentRouteName);
+                      FrictionAnalytics.trackRouteViewed(currentRouteName, {
+                        from_route: previousRouteName,
+                        ...trackingContext,
+                      });
                       routeNameRef.current = currentRouteName;
                     }}
                   >

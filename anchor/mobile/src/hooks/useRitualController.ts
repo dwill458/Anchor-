@@ -15,6 +15,7 @@ import {
   formatTime,
 } from '@/config/ritualConfigs';
 import { ErrorTrackingService } from '@/services/ErrorTrackingService';
+import { FrictionAnalytics } from '@/services/FrictionAnalytics';
 import { useAudio } from '@/hooks/useAudio';
 import { useSettingsStore } from '@/stores/settingsStore';
 
@@ -268,6 +269,11 @@ export function useRitualController({
       duration_seconds: config.totalDurationSeconds,
       phase_count: config.phases.length,
     });
+    FrictionAnalytics.stepCompleted('activation', 'ritual_started', {
+      duration_seconds: config.totalDurationSeconds,
+      phase_count: config.phases.length,
+      audio_mode: sessionAudioMode,
+    });
     void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
   }, [
     config.totalDurationSeconds,
@@ -289,6 +295,9 @@ export function useRitualController({
     ErrorTrackingService.addBreadcrumb('Ritual paused', 'ritual.lifecycle', {
       elapsed_seconds: elapsedSeconds,
     });
+    FrictionAnalytics.stepAbandoned('activation', 'ritual', 'paused', {
+      elapsed_seconds: elapsedSeconds,
+    });
   }, [elapsedSeconds]);
 
   const resume = useCallback(() => {
@@ -299,6 +308,9 @@ export function useRitualController({
         ? playSound('prime-begin', 1, true)
         : null;
     ErrorTrackingService.addBreadcrumb('Ritual resumed', 'ritual.lifecycle', {
+      elapsed_seconds: elapsedSeconds,
+    });
+    FrictionAnalytics.flowRetry('activation', 'ritual', {
       elapsed_seconds: elapsedSeconds,
     });
   }, [elapsedSeconds, manageSessionAudioExternally, playSound, sessionAudioMode]);
@@ -316,12 +328,16 @@ export function useRitualController({
     elapsedAtPauseRef.current = 0;
     clearAllIntervals();
     ErrorTrackingService.addBreadcrumb('Ritual reset', 'ritual.lifecycle');
+    FrictionAnalytics.stepAbandoned('activation', 'ritual', 'reset');
   }, [clearAllIntervals]);
 
   const handleRitualComplete = useCallback(() => {
     setIsActive(false);
     setIsComplete(true);
     ErrorTrackingService.addBreadcrumb('Ritual timer completed', 'ritual.lifecycle', {
+      elapsed_seconds: config.totalDurationSeconds,
+    });
+    FrictionAnalytics.stepCompleted('activation', 'ritual_timer', {
       elapsed_seconds: config.totalDurationSeconds,
     });
 
@@ -363,6 +379,7 @@ export function useRitualController({
     setIsSealActive(false);
     setSealProgress(0);
     ErrorTrackingService.addBreadcrumb('Ritual seal hold canceled', 'ritual.seal');
+    FrictionAnalytics.stepAbandoned('activation', 'seal_hold', 'canceled');
 
     if (sealIntervalRef.current) {
       clearInterval(sealIntervalRef.current);
@@ -379,6 +396,9 @@ export function useRitualController({
     }
 
     ErrorTrackingService.addBreadcrumb('Ritual sealed', 'ritual.seal', {
+      elapsed_seconds: elapsedSeconds,
+    });
+    FrictionAnalytics.stepCompleted('activation', 'seal_hold', {
       elapsed_seconds: elapsedSeconds,
     });
 

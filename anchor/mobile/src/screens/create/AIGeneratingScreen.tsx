@@ -25,6 +25,7 @@ import { useTrialStatus } from '@/hooks/useTrialStatus';
 import { ErrorTrackingService } from '@/services/ErrorTrackingService';
 import { PerformanceMonitoring } from '@/services/PerformanceMonitoring';
 import { AuthService } from '@/services/AuthService';
+import { FrictionAnalytics } from '@/services/FrictionAnalytics';
 import { isCompactPhoneViewport, isShortPhoneViewport } from '@/utils/layout';
 
 const IS_ANDROID = Platform.OS === 'android';
@@ -663,6 +664,12 @@ export default function AIGeneratingScreen() {
 
     isGeneratingRef.current = true;
     clearGenerationResources();
+    FrictionAnalytics.stepCompleted('anchor_creation', 'ai_generation_started', {
+      style_id: styleChoice,
+      category,
+      attempt: generationAttemptRef.current,
+      has_reinforced_svg: Boolean(reinforcedSigilSvg),
+    });
 
     const controller = new AbortController();
     abortControllerRef.current = controller;
@@ -727,6 +734,13 @@ export default function AIGeneratingScreen() {
 
       trace.putAttribute('variation_count', Array.isArray(result.variations) ? result.variations.length : 0);
       trace.stop({ success: true });
+      FrictionAnalytics.stepCompleted('anchor_creation', 'ai_generating', {
+        style_id: styleChoice,
+        category,
+        variation_count: Array.isArray(result.variations) ? result.variations.length : 0,
+        generation_time_ms:
+          typeof result.generationTime === 'number' ? result.generationTime * 1000 : undefined,
+      });
       ErrorTrackingService.addBreadcrumb('AI enhancement completed', 'ai.enhance', {
         style_choice: styleChoice,
         variation_count: Array.isArray(result.variations) ? result.variations.length : 0,
@@ -773,15 +787,23 @@ export default function AIGeneratingScreen() {
       setProgress(0);
 
       let errorMessage = 'Failed to enhance anchor. Please try again.';
+      let errorCode = 'ai_generation_failed';
       if (error instanceof Error) {
         if (error.name === 'AbortError') {
           errorMessage = 'Generation timed out. The AI is taking too long. Please try again.';
+          errorCode = 'ai_generation_timeout';
         } else if (error.message.includes('Network')) {
           errorMessage = 'Network error. Please check your connection and try again.';
+          errorCode = 'network_error';
         } else {
           errorMessage = error.message;
         }
       }
+      FrictionAnalytics.flowError('anchor_creation', 'ai_generating', errorCode, {
+        style_id: styleChoice,
+        category,
+        attempt: generationAttemptRef.current,
+      });
 
       ErrorTrackingService.captureException(error, {
         screen: 'AIGeneratingScreen',
@@ -795,13 +817,23 @@ export default function AIGeneratingScreen() {
           text: 'Try Again',
           onPress: () => {
             generationAttemptRef.current += 1;
+            FrictionAnalytics.flowRetry('anchor_creation', 'ai_generating', {
+              style_id: styleChoice,
+              category,
+            });
             void generateAIVariations();
           },
         },
         {
           text: 'Go Back',
           style: 'cancel',
-          onPress: () => navigation.goBack(),
+          onPress: () => {
+            FrictionAnalytics.stepAbandoned('anchor_creation', 'ai_generating', 'go_back_after_error', {
+              style_id: styleChoice,
+              category,
+            });
+            navigation.goBack();
+          },
         },
       ]);
     } finally {

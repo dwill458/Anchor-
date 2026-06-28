@@ -23,6 +23,11 @@ import { apiClient } from '@/services/ApiClient';
 import BackendAnchorService, { isBackendAnchorId } from '@/services/BackendAnchorService';
 import { ErrorTrackingService } from '@/services/ErrorTrackingService';
 import { AnalyticsService } from '@/services/AnalyticsService';
+import { FrictionAnalytics } from '@/services/FrictionAnalytics';
+import {
+  recordReviewSignal,
+  requestReviewIfEligible,
+} from '@/services/reviewPromptService';
 import { useToast } from '@/components/ToastProvider';
 import { logger } from '@/utils/logger';
 import { RitualScaffold } from './components/RitualScaffold';
@@ -103,6 +108,7 @@ export const ActivationScreen: React.FC = () => {
   const exitingRef = React.useRef(false);
   const sessionCompletedRef = React.useRef(false);
   const hasLoggedActivationRef = React.useRef(false);
+  const activationSyncFailedRef = React.useRef(false);
   const focusSessionExitAudioHandlerRef = React.useRef<(() => Promise<void>) | null>(null);
   const completionTransitionTaskRef = React.useRef<{ cancel?: () => void } | null>(null);
 
@@ -131,6 +137,7 @@ export const ActivationScreen: React.FC = () => {
   const logActivationInBackground = useCallback(async (): Promise<void> => {
     if (hasLoggedActivationRef.current) return;
     hasLoggedActivationRef.current = true;
+    activationSyncFailedRef.current = false;
 
     const localActivationTime = new Date();
     const currentActivationCount = anchor?.activationCount ?? 0;
@@ -178,6 +185,7 @@ export const ActivationScreen: React.FC = () => {
       }
 
       if (backendSyncFailed) {
+        activationSyncFailedRef.current = true;
         toast.error('Prime session completed but failed to sync. Will retry later.');
         return;
       }
@@ -218,6 +226,7 @@ export const ActivationScreen: React.FC = () => {
       toast.success('Prime session logged successfully');
     } catch (error) {
       if (error instanceof Error && error.message === 'Anchor not found') {
+        activationSyncFailedRef.current = true;
         toast.error('This anchor is no longer available.');
         navigateToVaultDestination(navigation, 'replace');
         return;
@@ -232,6 +241,7 @@ export const ActivationScreen: React.FC = () => {
         }
       );
 
+      activationSyncFailedRef.current = true;
       toast.error('Prime session completed but failed to sync. Will retry later.');
     }
   }, [
@@ -248,6 +258,24 @@ export const ActivationScreen: React.FC = () => {
     toast,
     updateAnchor,
   ]);
+
+  const scheduleReviewRequestAfterHomeReturn = useCallback(() => {
+    if (isPendingFirstAnchor || (returnTo !== 'practice' && returnTo !== 'vault')) {
+      return;
+    }
+
+    InteractionManager.runAfterInteractions(() => {
+      void requestReviewIfEligible('focus_session_complete', {
+        isReturningToHomeAfterFocusSession: true,
+        recentSessionFailed: activationSyncFailedRef.current,
+        isOnboarding: false,
+        isAnchorCreation: false,
+        isPaywall: false,
+        isActiveFocusSession: false,
+        isActiveDeepPrimeSession: false,
+      });
+    });
+  }, [isPendingFirstAnchor, returnTo]);
 
   // Show completion modal instead of immediately going back
   const handleSessionCompleted = useCallback(() => {
@@ -334,6 +362,11 @@ export const ActivationScreen: React.FC = () => {
 
     if (completedPostPrimeTrace) {
       bumpThreadStrength(2);
+      FrictionAnalytics.completeFlow('activation', {
+        anchor_id: anchorId,
+        result: 'post_prime_trace_completed',
+        session_duration_seconds: activationDurationSeconds,
+      });
       AnalyticsService.track('post_prime_trace_completed', {
         anchor_id: anchorId,
         session_duration_seconds: activationDurationSeconds,
@@ -436,6 +469,7 @@ export const ActivationScreen: React.FC = () => {
       reflectionWord,
       completedAt: new Date().toISOString(),
     });
+    void recordReviewSignal('focus_session_completed');
     await queueProgressionMilestonesFromStores();
 
     if (returnTo === 'practice') {
@@ -443,6 +477,7 @@ export const ActivationScreen: React.FC = () => {
         navigation.popToTop();
       }
       navigateToPractice();
+      scheduleReviewRequestAfterHomeReturn();
     } else if (returnTo === 'reinforce') {
       navigation.replace('Ritual', {
         anchorId,
@@ -457,6 +492,7 @@ export const ActivationScreen: React.FC = () => {
         navigation.replace('SaveProgress', { anchorId });
       } else {
         navigateToVaultDestination(navigation, 'replace');
+        scheduleReviewRequestAfterHomeReturn();
       }
     } else {
       navigation.goBack();
@@ -472,6 +508,7 @@ export const ActivationScreen: React.FC = () => {
     handlePrimeComplete,
     focusSessionAudio,
     returnTo,
+    scheduleReviewRequestAfterHomeReturn,
   ]);
 
   if (isAnchorMissing) {
