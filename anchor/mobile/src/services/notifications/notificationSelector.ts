@@ -74,4 +74,3 @@ export function hasSentCategoryToday(
     sentDate.getMonth() === now.getMonth() &&
     sentDate.getDate() === now.getDate();
 }
-

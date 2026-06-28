@@ -185,4 +185,3 @@ export const getAllNotificationCopy = (): string[] =>
   Object.values(NOTIFICATION_TEMPLATES)
     .flat()
     .flatMap((template) => [template.title, template.body]);
-

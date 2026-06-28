@@ -1,7 +1,10 @@
 // @ts-nocheck
 import { useCallback, useState } from 'react';
 import { captureRef } from 'react-native-view-shot';
-import * as MediaLibrary from 'expo-media-library';
+import {
+  requestPhotoLibrarySavePermission,
+  savePngToPhotoLibrary,
+} from '@/services/AnchorArtworkExportService';
 
 const SIZE_ESTIMATES = {
   square:    { standard: 350_000,   high: 2_800_000 },
@@ -19,8 +22,8 @@ export function useDownloadAnchor() {
       setError(null);
 
       try {
-        const perm = await MediaLibrary.requestPermissionsAsync();
-        if (perm.status !== 'granted') {
+        const hasPermission = await requestPhotoLibrarySavePermission();
+        if (!hasPermission) {
           setError('Photos permission required. Enable in Settings.');
           return null;
         }
@@ -33,10 +36,10 @@ export function useDownloadAnchor() {
           });
         });
 
-        await MediaLibrary.saveToLibraryAsync(uri);
+        const savedUri = await savePngToPhotoLibrary(uri, `anchor-${format}.png`);
 
         const size = SIZE_ESTIMATES[format]?.[resolution] ?? 500_000;
-        return { uri, size };
+        return { uri: savedUri, size };
       } catch {
         setError('Export failed. Please try again.');
         return null;

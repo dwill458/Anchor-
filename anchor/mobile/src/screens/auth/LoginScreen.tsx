@@ -28,6 +28,8 @@ import { ENABLE_GOOGLE_SIGN_IN } from '@/config';
 import { useAuthStore } from '../../stores/authStore';
 import { useSubscriptionStore } from '../../stores/subscriptionStore';
 import { AuthService } from '../../services/AuthService';
+import { AnalyticsEvents, AnalyticsService } from '@/services/AnalyticsService';
+import { FrictionAnalytics } from '@/services/FrictionAnalytics';
 import PostAuthFlowService from '../../services/PostAuthFlowService';
 import { navigateToVaultDestination } from '@/navigation/firstAnchorGate';
 import type {
@@ -205,18 +207,37 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ navigation, route }) =
     resetError();
     if (!email.trim() || !password) {
       setError('Please enter both email and password');
+      FrictionAnalytics.flowBlocked('onboarding_auth', 'login', 'missing_credentials', { context });
       return;
     }
 
     setLoading(true);
+    FrictionAnalytics.stepCompleted('onboarding_auth', 'auth_started', {
+      provider: 'email',
+      mode: 'signin',
+      context,
+    });
     try {
       const result = await AuthService.signInWithEmail(email, password, {
         hasCompletedOnboarding: shouldMarkOnboardingCompletedForAuth() ? true : undefined,
         allowBackendCreate: false,
       });
       await completeAuth(result);
+      AnalyticsService.track(AnalyticsEvents.SIGN_IN_COMPLETED, {
+        provider: 'email',
+        context,
+      });
+      FrictionAnalytics.completeFlow('onboarding_auth', {
+        provider: 'email',
+        mode: 'signin',
+        context,
+      });
     } catch (err: any) {
       setError(err.message || 'Login failed');
+      FrictionAnalytics.flowError('onboarding_auth', 'login', 'signin_failed', {
+        provider: 'email',
+        context,
+      });
     } finally {
       setLoading(false);
     }
@@ -226,22 +247,42 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ navigation, route }) =
     resetError();
     if (!name.trim() || !email.trim() || !password || !confirmPassword) {
       setError('Please fill in all fields');
+      FrictionAnalytics.flowBlocked('onboarding_auth', 'signup', 'missing_fields', { context });
       return;
     }
     if (password !== confirmPassword) {
       setError('Passwords do not match');
+      FrictionAnalytics.flowBlocked('onboarding_auth', 'signup', 'password_mismatch', { context });
       return;
     }
 
     setLoading(true);
+    FrictionAnalytics.stepCompleted('onboarding_auth', 'auth_started', {
+      provider: 'email',
+      mode: 'signup',
+      context,
+    });
     try {
       const result = await AuthService.signUpWithEmail(email, password, name, {
         hasCompletedOnboarding: shouldMarkOnboardingCompletedForAuth() ? true : undefined,
         allowBackendCreate: true,
       });
       await completeAuth(result);
+      AnalyticsService.track(AnalyticsEvents.SIGN_UP_COMPLETED, {
+        provider: 'email',
+        context,
+      });
+      FrictionAnalytics.completeFlow('onboarding_auth', {
+        provider: 'email',
+        mode: 'signup',
+        context,
+      });
     } catch (err: any) {
       setError(err.message || 'Sign up failed');
+      FrictionAnalytics.flowError('onboarding_auth', 'signup', 'signup_failed', {
+        provider: 'email',
+        context,
+      });
     } finally {
       setLoading(false);
     }
@@ -282,6 +323,11 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ navigation, route }) =
   const handleAppleSignIn = () => {
     resetError();
     setLoading(true);
+    FrictionAnalytics.stepCompleted('onboarding_auth', 'auth_started', {
+      provider: 'apple',
+      mode: tab,
+      context,
+    });
     void (async () => {
       try {
         const result = await AuthService.signInWithApple({
@@ -289,12 +335,30 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ navigation, route }) =
           allowBackendCreate: !isSignIn,
         });
         await completeAuth(result);
+        AnalyticsService.track(
+          tab === 'signup' ? AnalyticsEvents.SIGN_UP_COMPLETED : AnalyticsEvents.SIGN_IN_COMPLETED,
+          {
+            provider: 'apple',
+            context,
+          }
+        );
+        FrictionAnalytics.completeFlow('onboarding_auth', {
+          provider: 'apple',
+          mode: tab,
+          context,
+        });
       } catch (err: any) {
         if (err?.code === 'ERR_REQUEST_CANCELED') {
+          FrictionAnalytics.stepAbandoned('onboarding_auth', 'apple_auth', 'provider_cancelled', {
+            context,
+          });
           return;
         }
         const message = err?.message || 'Apple sign-in failed';
         setError(message);
+        FrictionAnalytics.flowError('onboarding_auth', 'apple_auth', 'apple_auth_failed', {
+          context,
+        });
         Alert.alert('Apple sign-in', message);
       } finally {
         setLoading(false);
@@ -305,6 +369,11 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ navigation, route }) =
   const handleGoogleSignIn = () => {
     resetError();
     setLoading(true);
+    FrictionAnalytics.stepCompleted('onboarding_auth', 'auth_started', {
+      provider: 'google',
+      mode: tab,
+      context,
+    });
     void (async () => {
       try {
         const result = await AuthService.signInWithGoogle({
@@ -312,12 +381,30 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ navigation, route }) =
           allowBackendCreate: !isSignIn,
         });
         await completeAuth(result);
+        AnalyticsService.track(
+          tab === 'signup' ? AnalyticsEvents.SIGN_UP_COMPLETED : AnalyticsEvents.SIGN_IN_COMPLETED,
+          {
+            provider: 'google',
+            context,
+          }
+        );
+        FrictionAnalytics.completeFlow('onboarding_auth', {
+          provider: 'google',
+          mode: tab,
+          context,
+        });
       } catch (err: any) {
         if (err?.message === 'Google sign-in was cancelled.') {
+          FrictionAnalytics.stepAbandoned('onboarding_auth', 'google_auth', 'provider_cancelled', {
+            context,
+          });
           return;
         }
         const message = err?.message || 'Google sign-in failed';
         setError(message);
+        FrictionAnalytics.flowError('onboarding_auth', 'google_auth', 'google_auth_failed', {
+          context,
+        });
         Alert.alert('Google sign-in', message);
       } finally {
         setLoading(false);

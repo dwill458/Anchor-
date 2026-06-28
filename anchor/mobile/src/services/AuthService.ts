@@ -40,6 +40,8 @@ const createMockUser = (overrides: Partial<User> = {}): User => ({
   stabilizesTotal: 0,
   stabilizeStreakDays: 0,
   createdAt: new Date(),
+  trialStartedAt: new Date().toISOString(),
+  isTrialExpired: false,
   ...overrides,
 });
 

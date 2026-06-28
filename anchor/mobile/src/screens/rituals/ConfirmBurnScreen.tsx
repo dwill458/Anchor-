@@ -24,6 +24,7 @@ import * as Haptics from 'expo-haptics';
 import { colors, spacing } from '@/theme';
 import { RootStackParamList } from '@/types';
 import { AnalyticsEvents, AnalyticsService } from '@/services/AnalyticsService';
+import { FrictionAnalytics } from '@/services/FrictionAnalytics';
 import { ErrorTrackingService } from '@/services/ErrorTrackingService';
 import { ChargedGlowCanvas, OptimizedImage } from '@/components/common';
 import { safeHaptics } from '@/utils/haptics';
@@ -154,22 +155,29 @@ export const ConfirmBurnScreen: React.FC = () => {
 
   const handleBack = useCallback(() => {
     if (currentStep === 'release') {
+      FrictionAnalytics.stepAbandoned('burn_release', 'release_input', 'back_to_reflect', {
+        anchor_id: anchorId,
+      });
       setCurrentStep('reflect');
       setReleaseText('');
       return;
     }
 
     confirmLeave(() => {
+      FrictionAnalytics.stepAbandoned('burn_release', currentStep, 'leave_confirmed', {
+        anchor_id: anchorId,
+      });
       isLeavingRef.current = true;
       navigation.goBack();
     });
-  }, [confirmLeave, currentStep, navigation]);
+  }, [anchorId, confirmLeave, currentStep, navigation]);
 
   const handleContinue = () => {
     if (!isAuthVerified) return;
 
     if (currentStep === 'reflect') {
       void safeHaptics.impact(Haptics.ImpactFeedbackStyle.Light);
+      FrictionAnalytics.stepCompleted('burn_release', 'reflect', { anchor_id: anchorId });
       setCurrentStep('release');
       return;
     }
@@ -180,6 +188,10 @@ export const ConfirmBurnScreen: React.FC = () => {
     Keyboard.dismiss();
 
     AnalyticsService.track(AnalyticsEvents.BURN_INITIATED, {
+      anchor_id: anchorId,
+      source: 'confirm_burn_screen',
+    });
+    FrictionAnalytics.stepCompleted('burn_release', 'release_input', {
       anchor_id: anchorId,
       source: 'confirm_burn_screen',
     });

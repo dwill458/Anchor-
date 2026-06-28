@@ -2,7 +2,6 @@ import { Platform } from 'react-native';
 import {
   REVENUECAT_API_KEY,
   REVENUECAT_ANNUAL_PACKAGE_ID,
-  REVENUECAT_DEFAULT_PACKAGE_ID,
   REVENUECAT_ENTITLEMENT_ID,
   REVENUECAT_MONTHLY_PACKAGE_ID,
 } from '@/config';
@@ -160,6 +159,21 @@ function getEntitlementInfo(customerInfo: CustomerInfo | null | undefined): Cust
     return activeEntitlement;
   }
 
+  // If the configured entitlement ID is missing or doesn't match the dashboard,
+  // fall back to the first active entitlement so a config mismatch doesn't block
+  // users who have a valid subscription.
+  const activeMap = customerInfo.entitlements?.active;
+  if (activeMap) {
+    const keys = Object.keys(activeMap);
+    if (keys.length > 0) {
+      logger.warn(
+        `[RevenueCatService] Entitlement "${REVENUECAT_ENTITLEMENT_ID}" not found in active entitlements; ` +
+          `falling back to "${keys[0]}". Set EXPO_PUBLIC_REVENUECAT_ENTITLEMENT_ID to match your RevenueCat dashboard.`
+      );
+      return activeMap[keys[0]];
+    }
+  }
+
   const allEntitlement = customerInfo.entitlements?.all?.[REVENUECAT_ENTITLEMENT_ID];
   return allEntitlement ?? null;
 }
@@ -283,7 +297,6 @@ class RevenueCatService {
     const preferredOffering = allOfferings.find(([, offering]) => {
       const packageIds = new Set((offering.availablePackages ?? []).map((pkg) => pkg.identifier));
       return (
-        packageIds.has(REVENUECAT_DEFAULT_PACKAGE_ID) ||
         packageIds.has(REVENUECAT_MONTHLY_PACKAGE_ID) ||
         packageIds.has(REVENUECAT_ANNUAL_PACKAGE_ID)
       );
@@ -400,46 +413,6 @@ class RevenueCatService {
     } catch (error) {
       logger.error('[RevenueCatService] refreshTrialStatus failed', error);
       return this.getCurrentStatus();
-    }
-  }
-
-  async purchaseDefaultTrialPackage(): Promise<{
-    status: TrialStatusSnapshot;
-    dismissed: boolean;
-  }> {
-    const purchases = getPurchasesModule();
-    if (!purchases) {
-      throw new Error('[RevenueCat] Billing service is unavailable. The native module react-native-purchases is not loaded.');
-    }
-    if (!purchases.getOfferings || !purchases.purchasePackage) {
-      throw new Error('[RevenueCat] Billing service is misconfigured or unavailable on this platform.');
-    }
-
-    try {
-      const currentOffering = await this.getCurrentOffering();
-      const availablePackages = currentOffering.availablePackages ?? [];
-      const selectedPackage = this.findPackageByIdentifier(
-        availablePackages,
-        REVENUECAT_DEFAULT_PACKAGE_ID
-      );
-
-      const response = await purchases.purchasePackage(selectedPackage);
-      const status = deriveTrialStatus(extractCustomerInfo(response));
-      return {
-        status: applyTrialStatus(status, true),
-        dismissed: false,
-      };
-    } catch (error) {
-      if (isUserCancelled(error)) {
-        logger.warn('[RevenueCatService] Trial purchase was dismissed by the user');
-        return {
-          status: await this.refreshTrialStatus(),
-          dismissed: true,
-        };
-      }
-
-      logger.error('[RevenueCatService] Failed to purchase trial package', error);
-      throw error;
     }
   }
 

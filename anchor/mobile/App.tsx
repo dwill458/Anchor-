@@ -37,6 +37,7 @@ import { ErrorBoundary } from './src/components/ErrorBoundary';
 import { ToastProvider } from './src/components/ToastProvider';
 import { ForgeMomentOverlay } from './src/components/ForgeMomentOverlay';
 import { useAuthStore } from './src/stores/authStore';
+import { useAnchorStore } from './src/stores/anchorStore';
 import { useForgeMomentStore } from './src/stores/forgeMomentStore';
 import { useSessionStore } from './src/stores/sessionStore';
 import { useSettingsStore } from './src/stores/settingsStore';
@@ -46,6 +47,7 @@ import { shouldShowOnboardingFlow } from './src/navigation/rootNavigationState';
 import type { Anchor } from './src/types';
 import { ErrorTrackingService, setupGlobalErrorHandler } from './src/services/ErrorTrackingService';
 import { PerformanceMonitoring, type PerformanceTrace } from './src/services/PerformanceMonitoring';
+import { FrictionAnalytics } from './src/services/FrictionAnalytics';
 import { monitoringConfig } from './src/config/monitoring';
 import { AuthService } from './src/services/AuthService';
 
@@ -216,6 +218,8 @@ export default function App() {
   const computeStreak = useAuthStore((state) => state.computeStreak);
   const user = useAuthStore((state) => state.user);
   const dailyPracticeGoal = useSettingsStore((state) => state.dailyPracticeGoal);
+  const analyticsEnabled = useSettingsStore((state) => state.analyticsEnabled);
+  const anchorCount = useAnchorStore((state) => state.anchors.length);
   const lastSessionId = useSessionStore((state) => state.lastSession?.id);
   const activeMilestone = useForgeMomentStore((state) => state.activeMilestone);
   const dismissMilestone = useForgeMomentStore((state) => state.dismissMilestone);
@@ -224,6 +228,9 @@ export default function App() {
   const screenTraceRef = useRef<PerformanceTrace | null>(null);
   const launchOpacity = useRef(new Animated.Value(1)).current;
   const [settingsHydrated, setSettingsHydrated] = React.useState(false);
+  const [analyticsPreferenceHydrated, setAnalyticsPreferenceHydrated] = React.useState(() =>
+    useSettingsStore.persist.hasHydrated()
+  );
   const [launchStateResolved, setLaunchStateResolved] = React.useState(false);
   const [initialNavigationState, setInitialNavigationState] = React.useState<
     InitialState | undefined
@@ -247,6 +254,12 @@ export default function App() {
   // One-shot latch: true once the initial auth restore has settled. Must not
   // track isLoading live — Login/SignUp re-use it and would unmount the app.
   const [initialAuthResolved, setInitialAuthResolved] = React.useState(false);
+  const trackingContext = React.useMemo(
+    () => ({
+      anchor_count: anchorCount,
+    }),
+    [anchorCount]
+  );
   const [fontsLoaded] = useFonts({
     'Cinzel-Regular': Cinzel_400Regular,
     'Cinzel-SemiBold': Cinzel_600SemiBold,
@@ -261,6 +274,8 @@ export default function App() {
   // Hold the native splash until fonts are loaded AND auth state is determined,
   // so the first visible frame is never a font-flash or an auth redirect jump.
   const appIsReady = fontsLoaded && launchStateResolved && initialAuthResolved;
+  const effectiveAnalyticsEnabled =
+    process.env.EXPO_PUBLIC_ANALYTICS_ENABLED !== 'false' && analyticsEnabled;
 
   useEffect(() => {
     if (!__DEV__) {
@@ -308,6 +323,17 @@ export default function App() {
     return () => {
       isMounted = false;
     };
+  }, []);
+
+  useEffect(() => {
+    if (useSettingsStore.persist.hasHydrated()) {
+      setAnalyticsPreferenceHydrated(true);
+      return undefined;
+    }
+
+    return useSettingsStore.persist.onFinishHydration(() => {
+      setAnalyticsPreferenceHydrated(true);
+    });
   }, []);
 
   useEffect(() => {
@@ -505,8 +531,17 @@ export default function App() {
   }, []);
 
   useEffect(() => {
+    if (!analyticsPreferenceHydrated) {
+      return;
+    }
+
+    AnalyticsService.initialize({ enabled: effectiveAnalyticsEnabled });
+  }, [analyticsPreferenceHydrated, effectiveAnalyticsEnabled]);
+
+  useEffect(() => {
     if (user?.id) {
       ErrorTrackingService.setUser(user.id);
+      AnalyticsService.identify(user.id);
       // Log in to RevenueCat with the Firebase UID so purchases are linked to this account.
       revenueCatService.logIn(user.id).catch((error) => {
         logger.warn('[RevenueCat] logIn failed', error);
@@ -515,6 +550,8 @@ export default function App() {
     }
 
     ErrorTrackingService.clearUser();
+    AnalyticsService.reset();
+    FrictionAnalytics.reset();
   }, [user?.displayName, user?.email, user?.id]);
 
   useEffect(() => {
@@ -725,6 +762,7 @@ export default function App() {
 
                       routeNameRef.current = initialRouteName;
                       ErrorTrackingService.trackNavigation(undefined, initialRouteName);
+                      FrictionAnalytics.trackRouteViewed(initialRouteName, trackingContext);
                       screenTraceRef.current = PerformanceMonitoring.startTrace(
                         `screen_${initialRouteName}`,
                         { route: initialRouteName }
@@ -749,6 +787,10 @@ export default function App() {
                       );
 
                       ErrorTrackingService.trackNavigation(previousRouteName, currentRouteName);
+                      FrictionAnalytics.trackRouteViewed(currentRouteName, {
+                        from_route: previousRouteName,
+                        ...trackingContext,
+                      });
                       routeNameRef.current = currentRouteName;
                     }}
                   >

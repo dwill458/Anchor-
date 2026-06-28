@@ -52,7 +52,7 @@ import * as Speech from 'expo-speech';
 import { navigateToVaultDestination } from '@/navigation/firstAnchorGate';
 import { isFirstPrimeForAnchor as isAnchorFirstPrime } from '@/utils/anchorPriming';
 import { useNotificationController } from '@/hooks/useNotificationController';
-import { AnalyticsService } from '@/services/AnalyticsService';
+import { AnalyticsEvents, AnalyticsService } from '@/services/AnalyticsService';
 import { PostPrimeTraceModal } from './components/PostPrimeTraceModal';
 import { usePostPrimeTraceStore } from '@/stores/postPrimeTraceStore';
 import {
@@ -1172,6 +1172,29 @@ export const RitualScreen: React.FC = () => {
       firstChargedAt: anchor?.firstChargedAt ?? chargedAt,
       chargeCount: (anchor?.chargeCount ?? 0) + 1,
     });
+
+    const chargeMode = isDeepRitual ? 'deep' : 'quick';
+    AnalyticsService.track(AnalyticsEvents.ANCHOR_CHARGED, {
+      anchor_id: effectiveAnchorId,
+      source: 'ritual',
+      charge_type: chargeType,
+      charge_mode: chargeMode,
+      duration_seconds: config.totalDurationSeconds,
+      backend_synced: !backendSyncFailed,
+      is_first_prime: isFirstPrimeForAnchor,
+    });
+    AnalyticsService.track(
+      isDeepRitual
+        ? AnalyticsEvents.DEEP_CHARGE_COMPLETED
+        : AnalyticsEvents.QUICK_CHARGE_COMPLETED,
+      {
+        anchor_id: effectiveAnchorId,
+        source: 'ritual',
+        duration_seconds: config.totalDurationSeconds,
+        backend_synced: !backendSyncFailed,
+        is_first_prime: isFirstPrimeForAnchor,
+      }
+    );
 
     if (backendSyncFailed && isMountedRef.current) {
       Alert.alert('Saved Locally', 'Anchor charge saved. Sync will retry later.');

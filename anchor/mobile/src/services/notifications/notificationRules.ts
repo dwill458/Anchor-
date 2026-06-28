@@ -311,4 +311,3 @@ function isSameLocalDay(value: string | undefined, now: Date): boolean {
     date.getMonth() === now.getMonth() &&
     date.getDate() === now.getDate();
 }
-

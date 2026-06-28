@@ -19,11 +19,14 @@ import { useSettingsState } from '@/hooks/useSettings';
 import { useSettingsStore } from '@/stores/settingsStore';
 import { useSettingsReveal } from '@/components/transitions/SettingsRevealProvider';
 import { AuthService } from '@/services/AuthService';
+import { openStoreListing } from '@/services/reviewPromptService';
 import { useAuthStore } from '@/stores/authStore';
 import type { RootStackParamList } from '@/types';
 import { LEGAL_URLS, SUPPORT_EMAIL, SUPPORT_EMAIL_URL } from '@/constants/legal';
 import { SettingsRow } from '@/components/settings/SettingsRow';
 import { SettingsSectionBlock } from '@/components/settings/SettingsSectionBlock';
+import { useTeachingStore } from '@/stores/teachingStore';
+import { AnalyticsEvents, AnalyticsService } from '@/services/AnalyticsService';
 import NotificationService from '@/services/NotificationService';
 import { useNotificationController } from '../../hooks/useNotificationController';
 import { colors } from '@/theme';
@@ -71,6 +74,8 @@ export const SettingsScreen: React.FC = () => {
   const focusSessionAudio = useSettingsStore((state) => state.focusSessionAudio ?? 'ambient');
   const primeSessionDuration = useSettingsStore((state) => state.primeSessionDuration ?? 120);
   const primeSessionAudio = useSettingsStore((state) => state.primeSessionAudio ?? 'ambient');
+  const analyticsEnabled = useSettingsStore((state) => state.analyticsEnabled);
+  const setAnalyticsEnabled = useSettingsStore((state) => state.setAnalyticsEnabled);
   const dailyPracticeGoal = useSettingsStore((state) => state.dailyPracticeGoal ?? 3);
   const dailyPracticeGoalPreset = useSettingsStore(
     (state) => state.dailyPracticeGoalPreset ?? 'three'
@@ -145,6 +150,9 @@ export const SettingsScreen: React.FC = () => {
           style: 'destructive',
           onPress: async () => {
             try {
+              AnalyticsService.track(AnalyticsEvents.SIGN_OUT, {
+                source: 'settings',
+              });
               await AuthService.signOut();
             } catch (error) {
               Alert.alert('Sign Out Failed', 'We could not sign you out right now.');
@@ -179,6 +187,23 @@ export const SettingsScreen: React.FC = () => {
       initialTab: 'signin',
     });
   }, [navigation]);
+
+  const handleResetTeachingTips = useCallback(() => {
+    Alert.alert(
+      'Reset teaching tips?',
+      'Anchor will show guidance again the next time it is useful.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Reset Tips',
+          onPress: () => {
+            useTeachingStore.getState().reset();
+            AnalyticsService.track('teaching_reset');
+          },
+        },
+      ],
+    );
+  }, []);
 
   const handleDeleteAccount = useCallback(() => {
     Alert.alert(
@@ -265,6 +290,13 @@ export const SettingsScreen: React.FC = () => {
   const handleSupport = () => {
     Linking.openURL(LEGAL_URLS.support);
   };
+
+  const handleRateAnchor = useCallback(async () => {
+    const opened = await openStoreListing();
+    if (!opened) {
+      Alert.alert('Rate Anchor', 'The store listing is not available in this build.');
+    }
+  }, []);
 
   useEffect(
     () => () => {
@@ -429,11 +461,36 @@ export const SettingsScreen: React.FC = () => {
               disabled={isLoading}
             />
             <SettingsRow
-              title="Practice Guidance"
-              subtitle="Gentle in-context tips during new practices"
+              title="Guide Mode"
+              subtitle="Show helpful guidance while you create and practice."
               type="toggle"
               toggleValue={settings.practiceGuidanceEnabled}
-              onToggle={(value) => updateSetting('practiceGuidanceEnabled', value)}
+              onToggle={(value) => {
+                updateSetting('practiceGuidanceEnabled', value);
+                AnalyticsService.track('guide_mode_toggled', { enabled: value });
+              }}
+              disabled={isLoading}
+            />
+            <SettingsRow
+              title="Analytics"
+              subtitle="Share usage and reliability signals."
+              type="toggle"
+              toggleValue={analyticsEnabled}
+              onToggle={(value) => {
+                setAnalyticsEnabled(value);
+                const effectiveEnabled = process.env.EXPO_PUBLIC_ANALYTICS_ENABLED !== 'false' && value;
+                AnalyticsService.setEnabled(effectiveEnabled);
+                if (effectiveEnabled) {
+                  AnalyticsService.track('analytics_opted_in', { source: 'settings' });
+                }
+              }}
+              disabled={isLoading}
+            />
+            <SettingsRow
+              title="Reset Teaching Tips"
+              subtitle="Show dismissed guidance again."
+              type="chevron"
+              onPress={handleResetTeachingTips}
               disabled={isLoading}
             />
 
@@ -644,6 +701,12 @@ export const SettingsScreen: React.FC = () => {
           <Text style={styles.sectionLabel}>About Anchor</Text>
           <SettingsSectionBlock>
             <SettingsRow title="App Version" value={appVersion} type="static" />
+            <SettingsRow
+              title="Rate Anchor"
+              subtitle="Help others discover a better way to lock in."
+              type="chevron"
+              onPress={() => void handleRateAnchor()}
+            />
             <SettingsRow
               title="Contact Support"
               subtitle={SUPPORT_EMAIL}

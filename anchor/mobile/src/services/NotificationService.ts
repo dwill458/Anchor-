@@ -127,6 +127,30 @@ class NotificationService {
   }
 
   /**
+   * Check current notification permission without showing the OS prompt.
+   */
+  async hasPermissions(): Promise<boolean> {
+    this.lastError = null;
+    try {
+      if (IS_ANDROID) {
+        await this.ensureAndroidChannels();
+      }
+
+      const status = await Notifications.getPermissionsAsync();
+      return this.hasGrantedPermissions(status);
+    } catch (error) {
+      this.recordError(
+        new ServiceError(
+          'notifications/permission-request-failed',
+          'Failed to check notification permissions.',
+          error
+        )
+      );
+      return false;
+    }
+  }
+
+  /**
    * Request notification permissions.
    */
   async requestPermissions(): Promise<boolean> {
@@ -988,6 +1012,10 @@ class NotificationService {
     }
 
     try {
+      if (IS_ANDROID) {
+        await this.ensureAndroidChannels();
+      }
+
       return await Notifications.scheduleNotificationAsync(request);
     } catch (error: any) {
       const errorMessage = error?.message ? ` ${error.message}` : '';

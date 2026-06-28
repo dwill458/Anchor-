@@ -48,4 +48,3 @@ describe('notification templates', () => {
     expect(next.id).toBe(first.id);
   });
 });
-

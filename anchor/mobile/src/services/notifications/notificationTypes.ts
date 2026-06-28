@@ -38,4 +38,3 @@ export interface UnfinishedAnchorReminderState {
 }
 
 export type UnfinishedAnchorReminderMap = Record<string, UnfinishedAnchorReminderState>;
-

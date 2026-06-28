@@ -301,6 +301,7 @@ const withDeveloperSettingsDefaults = (
     developerWeeklySummaryPreviewToken: 0,
     debugLoggingEnabled:
       persistedState?.debugLoggingEnabled ?? getDefaultDebugLoggingEnabled(),
+    analyticsEnabled: persistedState?.analyticsEnabled ?? true,
     ...overrides,
   };
 };
@@ -349,6 +350,7 @@ export interface SettingsState {
   developerDeleteWithoutBurnEnabled: boolean;
   developerWeeklySummaryPreviewToken: number;
   debugLoggingEnabled: boolean;
+  analyticsEnabled: boolean;
   /** Guide Mode — contextual first-time hints. true = on-only + both; false = both only. */
   guideMode: boolean;
 
@@ -397,6 +399,7 @@ export interface SettingsState {
   triggerDeveloperWeeklySummaryPreview: () => void;
   clearDeveloperWeeklySummaryPreview: () => void;
   setDebugLoggingEnabled: (enabled: boolean) => void;
+  setAnalyticsEnabled: (enabled: boolean) => void;
   setDevPerfTierOverride: (override: PerformanceTierOverride) => void;
 
   // Utility Actions
@@ -446,6 +449,7 @@ const DEFAULT_SETTINGS = {
   developerDeleteWithoutBurnEnabled: false,
   developerWeeklySummaryPreviewToken: 0,
   debugLoggingEnabled: __DEV__ && process.env.EXPO_PUBLIC_DEBUG_LOGGING === 'true',
+  analyticsEnabled: true,
   guideMode: true,
   devPerfTierOverride: 'auto' as PerformanceTierOverride,
 };
@@ -743,6 +747,13 @@ export const useSettingsStore = create<SettingsState>()(
         });
       },
 
+      setAnalyticsEnabled: (enabled) => {
+        triggerHaptic();
+        set({
+          analyticsEnabled: enabled,
+        });
+      },
+
       setGuideMode: (enabled) => {
         triggerHaptic();
         set({ guideMode: enabled });
@@ -764,7 +775,7 @@ export const useSettingsStore = create<SettingsState>()(
       name: 'anchor-settings-storage',
       storage: createJSONStorage(() => AsyncStorage),
       // DEFERRED: version: 10, — restore post-launch
-      version: 12,
+      version: 13,
       // Handle migration
       migrate: (persistedState: any, version: number) => {
         if (version === 11) {
@@ -927,6 +938,7 @@ export const useSettingsStore = create<SettingsState>()(
         developerForceStreakBreakEnabled: state.developerForceStreakBreakEnabled,
         developerDeleteWithoutBurnEnabled: state.developerDeleteWithoutBurnEnabled,
         debugLoggingEnabled: state.debugLoggingEnabled,
+        analyticsEnabled: state.analyticsEnabled,
         guideMode: state.guideMode,
       }),
     }

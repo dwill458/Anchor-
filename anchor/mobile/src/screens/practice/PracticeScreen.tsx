@@ -32,6 +32,8 @@ import { AnchorHero } from './components/AnchorHero';
 import { AnchorSelectorSheet } from './components/AnchorSelectorSheet';
 import { DailyGoalProgressCard } from './components/DailyGoalProgressCard';
 import { ThreadStrengthBlock, getThreadState } from './components/ThreadStrengthBlock';
+import { MicroTeachCard, MicroTeachInfoChip } from '@/components/teaching';
+import { useTeachingGate } from '@/utils/useTeachingGate';
 // DEFERRED: replaced by PracticeInfoModal to preserve rollback path — remove post-launch.
 // import { InfoSheet } from './components/InfoSheet';
 import { ModePortalTile } from './components/ModePortalTile';
@@ -132,6 +134,11 @@ export const PracticeScreen: React.FC = () => {
   const [autoTeachingSeen, setAutoTeachingSeen] = useState<boolean | null>(null);
   const [confirmUnchargedBurnVisible, setConfirmUnchargedBurnVisible] = useState(false);
   const [threadSheetVisible, setThreadSheetVisible] = useState(false);
+
+  const threadStrengthTeaching = useTeachingGate({
+    screenId: 'practice_home',
+    candidateIds: ['practice_thread_strength_v1'],
+  });
 
   useEffect(() => {
     registerTabNav(1, navigation);
@@ -590,6 +597,20 @@ export const PracticeScreen: React.FC = () => {
             </Pressable>
           </Animated.View>
 
+          <Animated.View style={[threadStyle, styles.threadTeachingRow]}>
+            <MicroTeachInfoChip
+              teachingIds="practice_thread_strength_v1"
+              screenId="practice_home"
+              sheetTitle="Thread Strength"
+            />
+          </Animated.View>
+
+          <MicroTeachCard
+            teaching={threadStrengthTeaching}
+            screenId="practice_home"
+            style={styles.threadTeachingCard}
+          />
+
           <Animated.View style={threadStyle}>
             <DailyGoalProgressCard
               completedCount={completedGoalSessions}
@@ -751,6 +772,14 @@ const styles = StyleSheet.create({
   },
   portalsWrap: {
     gap: spacing.sm,
+  },
+  threadTeachingRow: {
+    marginTop: spacing.xs,
+    marginBottom: spacing.sm,
+    alignItems: 'flex-start',
+  },
+  threadTeachingCard: {
+    marginBottom: spacing.md,
   },
   threadPressable: {
     position: 'relative',

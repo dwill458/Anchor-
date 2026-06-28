@@ -54,12 +54,19 @@ jest.mock('expo-speech', () => ({
   isSpeakingAsync: jest.fn(() => Promise.resolve(false)),
 }));
 
+jest.mock('expo-store-review', () => ({
+  hasAction: jest.fn(() => Promise.resolve(true)),
+  requestReview: jest.fn(() => Promise.resolve()),
+  storeUrl: jest.fn(() => null),
+}));
+
 jest.mock('expo-media-library', () => ({
   requestPermissionsAsync: jest.fn(() => Promise.resolve({ granted: true })),
   saveToLibraryAsync: jest.fn(() => Promise.resolve()),
 }));
 
 const mockExpoFileSystem = {
+  cacheDirectory: 'file:///cache/',
   documentDirectory: 'file:///documents/',
   readAsStringAsync: jest.fn(() => Promise.resolve('')),
   copyAsync: jest.fn(() => Promise.resolve()),
@@ -73,6 +80,17 @@ const mockExpoFileSystem = {
 
 jest.mock('expo-file-system', () => mockExpoFileSystem);
 jest.mock('expo-file-system/legacy', () => mockExpoFileSystem);
+
+jest.mock('posthog-react-native', () => ({
+  __esModule: true,
+  default: jest.fn().mockImplementation(() => ({
+    capture: jest.fn(),
+    identify: jest.fn(),
+    optIn: jest.fn(),
+    optOut: jest.fn(),
+    reset: jest.fn(),
+  })),
+}));
 
 jest.mock('expo-secure-store', () => {
   const store = new Map<string, string>();

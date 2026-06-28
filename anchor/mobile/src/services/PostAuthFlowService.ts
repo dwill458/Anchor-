@@ -10,7 +10,7 @@ interface RunPostAuthFlowOptions {
   user: User;
   token: string;
   preserveCompletedOnboarding: boolean;
-  launchTrialPurchase: boolean;
+  launchTrialPurchase?: boolean;
 }
 
 interface PostAuthFlowResult {
@@ -23,7 +23,6 @@ class PostAuthFlowService {
     user,
     token,
     preserveCompletedOnboarding,
-    launchTrialPurchase,
   }: RunPostAuthFlowOptions): Promise<PostAuthFlowResult> {
     const authStore = useAuthStore.getState();
     const patchedUser = preserveCompletedOnboarding
@@ -36,19 +35,8 @@ class PostAuthFlowService {
       authStore.setHasCompletedOnboarding(true);
     }
 
-    let trialStatus = await RevenueCatService.logIn(patchedUser.id);
-
-    if (launchTrialPurchase) {
-      try {
-        const purchaseResult = await RevenueCatService.purchaseDefaultTrialPackage();
-        trialStatus = purchaseResult.status;
-      } catch (error) {
-        logger.warn('[PostAuthFlowService] Trial purchase failed, refreshing entitlement state', error);
-        trialStatus = await RevenueCatService.refreshTrialStatus();
-      }
-    } else {
-      trialStatus = await RevenueCatService.refreshTrialStatus();
-    }
+    await RevenueCatService.logIn(patchedUser.id);
+    const trialStatus = await RevenueCatService.refreshTrialStatus();
 
     const anchorStore = useAnchorStore.getState();
     if (AnchorSyncService.isConfigured()) {
