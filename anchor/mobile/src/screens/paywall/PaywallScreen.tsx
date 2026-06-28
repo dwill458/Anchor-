@@ -11,6 +11,8 @@ import {
   Alert,
   Animated,
   Easing,
+  Image,
+  Linking,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -30,7 +32,9 @@ import {
 } from '@/config';
 import { colors, typography } from '@/theme';
 import { withAlpha } from '@/utils/color';
+import { LEGAL_URLS } from '@/constants/legal';
 import { useAnchorStore } from '@/stores/anchorStore';
+import { useSubscriptionStore } from '@/stores/subscriptionStore';
 import { useProgressionData } from '@/hooks/useProgressionData';
 import { useReduceMotionEnabled } from '@/hooks/useReduceMotionEnabled';
 import revenueCatService, {
@@ -44,11 +48,13 @@ import type { RootNavigatorParamList } from '@/navigation/RootNavigator';
 type PaywallSource = 'post_trial' | 'gated_feature';
 type PlanId = RevenueCatPlanId;
 type HeadlineId = 'loss' | 'momentum' | 'direct';
+type StoreAvailability = 'loading' | 'available' | 'unavailable';
 
 type PlanDisplay = {
   id: PlanId;
   tier: string;
   packageId: string;
+  isAvailable: boolean;
   fallbackPrice: string;
   fallbackPriceValue: number;
   per: string;
@@ -115,6 +121,35 @@ const FALLBACK_PLAN_VALUES = {
   per: string;
 }>;
 
+const PURCHASE_UNAVAILABLE_TITLE = 'Purchases unavailable';
+const PURCHASE_UNAVAILABLE_MESSAGE =
+  'Purchases are temporarily unavailable. Please try again later or restore an existing subscription.';
+
+function hasAvailableStorePlan(metadata: RevenueCatOfferingDisplayMetadata): boolean {
+  return Boolean(metadata.monthly || metadata.annual);
+}
+
+function getSafePurchaseErrorMessage(error: unknown): string {
+  const rawMessage =
+    typeof error === 'object' && error != null && 'message' in error && typeof (error as { message?: unknown }).message === 'string'
+      ? (error as { message: string }).message.toLowerCase()
+      : '';
+
+  const isStoreConfigurationError =
+    rawMessage.includes('configuration') ||
+    rawMessage.includes('offering') ||
+    rawMessage.includes('dashboard') ||
+    rawMessage.includes('app store product') ||
+    rawMessage.includes('registered') ||
+    rawMessage.includes('package');
+
+  if (isStoreConfigurationError) {
+    return PURCHASE_UNAVAILABLE_MESSAGE;
+  }
+
+  return 'We could not complete the purchase. Please try again.';
+}
+
 function toTime(value?: Date | string): number {
   if (!value) return 0;
   const time = value instanceof Date ? value.getTime() : new Date(value).getTime();
@@ -161,6 +196,7 @@ function buildPlanDisplay(
     id,
     tier: fallback.tier,
     packageId: fallback.packageId,
+    isAvailable: Boolean(live),
     fallbackPrice: fallback.fallbackPrice,
     fallbackPriceValue: fallback.fallbackPriceValue,
     per: fallback.per,
@@ -262,6 +298,7 @@ function OrbitRing({ reduceMotion }: { reduceMotion: boolean }) {
 }
 
 function HeroSigil({ anchor }: { anchor: Anchor | null }) {
+  const enhancedUrl = anchor?.enhancedImageUrl ?? null;
   const sigilXml = anchor?.reinforcedSigilSvg || anchor?.baseSigilSvg || null;
   const reduceMotion = useReduceMotionEnabled();
 
@@ -270,10 +307,12 @@ function HeroSigil({ anchor }: { anchor: Anchor | null }) {
       <View style={styles.sigilHalo} />
       <OrbitRing reduceMotion={reduceMotion} />
       <View style={styles.sigilCore} testID="paywall-primary-anchor">
-        {sigilXml ? (
-          <SvgXml xml={sigilXml} width={46} height={46} testID="paywall-primary-anchor-svg" />
+        {enhancedUrl ? (
+          <Image source={{ uri: enhancedUrl }} style={styles.sigilImage} resizeMode="contain" testID="paywall-primary-anchor-img" />
+        ) : sigilXml ? (
+          <SvgXml xml={sigilXml} width={96} height={96} testID="paywall-primary-anchor-svg" />
         ) : (
-          <FallbackAnchorMark size={46} />
+          <FallbackAnchorMark size={96} />
         )}
       </View>
     </View>
@@ -292,22 +331,30 @@ function RecapStat({ value, label }: { value: number; label: string }) {
 function PlanCard({
   plan,
   selected,
+  storeAvailability,
   onPress,
 }: {
   plan: PlanDisplay;
   selected: boolean;
+  storeAvailability: StoreAvailability;
   onPress: (plan: PlanId) => void;
 }) {
+  const isPlanUnavailable = storeAvailability === 'unavailable' || (storeAvailability === 'available' && !plan.isAvailable);
+  const priceLabel = isPlanUnavailable ? 'Unavailable' : plan.priceLabel;
+  const perLabel = isPlanUnavailable ? 'App Store plan not loaded' : plan.per;
+
   return (
     <Pressable
       onPress={() => onPress(plan.id)}
       accessibilityRole="button"
       accessibilityState={{ selected }}
       accessibilityLabel={`${plan.tier} plan ${plan.priceLabel}`}
+      disabled={isPlanUnavailable}
       testID={`paywall-plan-${plan.id}`}
       style={({ pressed }) => [
         styles.plan,
         selected && styles.planSelected,
+        isPlanUnavailable && styles.planUnavailable,
         pressed && styles.planPressed,
       ]}
     >
@@ -324,10 +371,10 @@ function PlanCard({
         {selected ? <CheckIcon /> : null}
       </View>
       <Text style={[styles.planTier, selected && styles.planTierSelected]}>{plan.tier}</Text>
-      <Text style={[styles.planPrice, selected && styles.planPriceSelected]}>{plan.priceLabel}</Text>
-      <Text style={styles.planPer}>{plan.per}</Text>
+      <Text style={[styles.planPrice, selected && styles.planPriceSelected]}>{priceLabel}</Text>
+      <Text style={styles.planPer}>{perLabel}</Text>
       <Text style={styles.planStrike}>
-        {plan.strikeLabel && plan.unitLabel ? `${plan.strikeLabel} · ${plan.unitLabel}` : ' '}
+        {!isPlanUnavailable && plan.strikeLabel && plan.unitLabel ? `${plan.strikeLabel} · ${plan.unitLabel}` : ' '}
       </Text>
     </Pressable>
   );
@@ -342,8 +389,12 @@ export const PaywallScreen: React.FC = () => {
   const { forgedCount, totalPrimes } = useProgressionData();
   const reduceMotion = useReduceMotionEnabled();
 
-  const [selectedPlanId, setSelectedPlanId] = useState<PlanId>(PAYWALL_EXPERIMENT.defaultPlan);
+  const preferredPlanId = useSubscriptionStore((state) => state.preferredPlanId);
+  const setPreferredPlanId = useSubscriptionStore((state) => state.setPreferredPlanId);
+  const initialPlanId = route.params?.preferredPlanId ?? preferredPlanId ?? PAYWALL_EXPERIMENT.defaultPlan;
+  const [selectedPlanId, setSelectedPlanId] = useState<PlanId>(initialPlanId);
   const [offeringMetadata, setOfferingMetadata] = useState<RevenueCatOfferingDisplayMetadata>({});
+  const [storeAvailability, setStoreAvailability] = useState<StoreAvailability>('loading');
   const [isPurchasing, setIsPurchasing] = useState(false);
   const [isRestoring, setIsRestoring] = useState(false);
 
@@ -353,6 +404,9 @@ export const PaywallScreen: React.FC = () => {
   const primaryAnchor = useMemo(() => selectPrimaryAnchor(anchors), [anchors]);
   const plans = useMemo(() => buildPlans(offeringMetadata), [offeringMetadata]);
   const selectedPlan = plans[selectedPlanId];
+  const isStoreLoading = storeAvailability === 'loading';
+  const isPurchaseUnavailable =
+    storeAvailability === 'unavailable' || (storeAvailability === 'available' && !offeringMetadata[selectedPlanId]);
   const headline = HEADLINES[PAYWALL_EXPERIMENT.headline];
   const showRecap = PAYWALL_EXPERIMENT.showRecap && (source === 'post_trial' || forgedCount + totalPrimes + primeStreak > 0);
 
@@ -377,13 +431,42 @@ export const PaywallScreen: React.FC = () => {
 
   useEffect(() => {
     let mounted = true;
-    revenueCatService.getOfferingDisplayMetadata().then((metadata) => {
-      if (mounted) setOfferingMetadata(metadata);
-    });
+    revenueCatService
+      .getOfferingDisplayMetadata()
+      .then((metadata) => {
+        if (!mounted) return;
+        setOfferingMetadata(metadata);
+        setStoreAvailability(hasAvailableStorePlan(metadata) ? 'available' : 'unavailable');
+      })
+      .catch((error) => {
+        logger.warn('[PaywallScreen] Failed to resolve RevenueCat offering metadata', error);
+        if (mounted) {
+          setStoreAvailability('unavailable');
+        }
+      });
     return () => {
       mounted = false;
     };
   }, []);
+
+  useEffect(() => {
+    if (storeAvailability !== 'available' || offeringMetadata[selectedPlanId]) {
+      return;
+    }
+
+    const availablePlanId = offeringMetadata.annual ? 'annual' : offeringMetadata.monthly ? 'monthly' : null;
+    if (availablePlanId) {
+      setSelectedPlanId(availablePlanId);
+      setPreferredPlanId(availablePlanId);
+    }
+  }, [offeringMetadata, selectedPlanId, setPreferredPlanId, storeAvailability]);
+
+  useEffect(() => {
+    if (route.params?.preferredPlanId) {
+      setSelectedPlanId(route.params.preferredPlanId);
+      setPreferredPlanId(route.params.preferredPlanId);
+    }
+  }, [route.params?.preferredPlanId, setPreferredPlanId]);
 
   useEffect(() => {
     if (reduceMotion) {
@@ -405,20 +488,34 @@ export const PaywallScreen: React.FC = () => {
   }, [navigation, source]);
 
   const handleSelectPlan = useCallback((plan: PlanId) => {
+    if (storeAvailability === 'available' && !offeringMetadata[plan]) {
+      return;
+    }
+
     setSelectedPlanId(plan);
+    setPreferredPlanId(plan);
     AnalyticsService.track('paywall_plan_selected', { plan });
     FrictionAnalytics.stepCompleted('paywall', 'plan_selection', { plan });
-  }, []);
+  }, [offeringMetadata, setPreferredPlanId, storeAvailability]);
 
   const handleSignIn = useCallback(() => {
     navigation.navigate('Settings', {
       screen: 'Login',
-      params: { initialTab: 'signin', context: 'paywall' },
+      params: { initialTab: 'signin', context: 'paywall', preferredPlanId: selectedPlanId },
     });
-  }, [navigation]);
+  }, [navigation, selectedPlanId]);
 
   const handlePurchase = useCallback(async () => {
     if (isPurchasing || isRestoring) return;
+    if (isStoreLoading) {
+      Alert.alert('Loading purchase options', 'Please wait a moment while App Store pricing loads.');
+      return;
+    }
+    if (isPurchaseUnavailable) {
+      Alert.alert(PURCHASE_UNAVAILABLE_TITLE, PURCHASE_UNAVAILABLE_MESSAGE);
+      return;
+    }
+
     setIsPurchasing(true);
     AnalyticsService.track('paywall_cta_tapped', {
       plan: selectedPlanId,
@@ -468,11 +565,21 @@ export const PaywallScreen: React.FC = () => {
         plan: selectedPlanId,
         product_id: selectedPlan.packageId,
       });
-      Alert.alert('Purchase could not be completed', error?.message ?? 'Please try again.');
+      logger.error('[PaywallScreen] Purchase failed', error);
+      Alert.alert('Purchase could not be completed', getSafePurchaseErrorMessage(error));
     } finally {
       setIsPurchasing(false);
     }
-  }, [isPurchasing, isRestoring, navigation, selectedPlan.packageId, selectedPlanId, source]);
+  }, [
+    isPurchaseUnavailable,
+    isPurchasing,
+    isRestoring,
+    isStoreLoading,
+    navigation,
+    selectedPlan.packageId,
+    selectedPlanId,
+    source,
+  ]);
 
   const handleRestorePurchase = useCallback(async () => {
     if (isPurchasing || isRestoring) return;
@@ -502,11 +609,20 @@ export const PaywallScreen: React.FC = () => {
     }
   }, [isPurchasing, isRestoring, navigation, source]);
 
-  const ctaSub = PAYWALL_EXPERIMENT.perDayPrice && selectedPlan.priceValue
-    ? selectedPlanId === 'annual'
-      ? `less than ${formatCurrency(selectedPlan.priceValue / 365, selectedPlan.currencyCode)} / day · cancel anytime`
-      : `about ${formatCurrency(selectedPlan.priceValue / 30, selectedPlan.currencyCode)} / day · cancel anytime`
-    : `then ${selectedPlan.priceLabel} / ${selectedPlanId === 'annual' ? 'year' : 'month'} · cancel anytime`;
+  const ctaSub = isStoreLoading
+    ? 'Loading current App Store pricing...'
+    : isPurchaseUnavailable
+      ? 'Purchases are temporarily unavailable. Restore is still available.'
+      : PAYWALL_EXPERIMENT.perDayPrice && selectedPlan.priceValue
+        ? selectedPlanId === 'annual'
+          ? `less than ${formatCurrency(selectedPlan.priceValue / 365, selectedPlan.currencyCode)} / day · cancel anytime`
+          : `about ${formatCurrency(selectedPlan.priceValue / 30, selectedPlan.currencyCode)} / day · cancel anytime`
+        : `then ${selectedPlan.priceLabel} / ${selectedPlanId === 'annual' ? 'year' : 'month'} · cancel anytime`;
+  const ctaLabel = isStoreLoading
+    ? 'Loading plans...'
+    : isPurchaseUnavailable
+      ? 'Purchases unavailable'
+      : 'Continue my practice';
 
   return (
     <View style={styles.root}>
@@ -572,8 +688,18 @@ export const PaywallScreen: React.FC = () => {
 
             <Text style={styles.plansLabel}>Choose your plan</Text>
             <View style={styles.plans}>
-              <PlanCard plan={plans.monthly} selected={selectedPlanId === 'monthly'} onPress={handleSelectPlan} />
-              <PlanCard plan={plans.annual} selected={selectedPlanId === 'annual'} onPress={handleSelectPlan} />
+              <PlanCard
+                plan={plans.monthly}
+                selected={selectedPlanId === 'monthly'}
+                storeAvailability={storeAvailability}
+                onPress={handleSelectPlan}
+              />
+              <PlanCard
+                plan={plans.annual}
+                selected={selectedPlanId === 'annual'}
+                storeAvailability={storeAvailability}
+                onPress={handleSelectPlan}
+              />
             </View>
 
             {PAYWALL_EXPERIMENT.showScarcity ? (
@@ -589,20 +715,24 @@ export const PaywallScreen: React.FC = () => {
             <Pressable
               onPress={handlePurchase}
               accessibilityRole="button"
-              accessibilityLabel={`Continue my practice, ${selectedPlan.tier} selected`}
-              disabled={isPurchasing || isRestoring}
+              accessibilityLabel={
+                isPurchaseUnavailable || isStoreLoading
+                  ? ctaLabel
+                  : `Continue my practice, ${selectedPlan.tier} selected`
+              }
+              disabled={isPurchasing || isRestoring || isPurchaseUnavailable}
               style={({ pressed }) => [styles.ctaPressable, pressed && styles.ctaPressed]}
             >
               <LinearGradient
                 colors={['#F0CB6A', '#C9A84C', '#A8892E']}
                 start={{ x: 0, y: 0 }}
                 end={{ x: 1, y: 1 }}
-                style={[styles.cta, (isPurchasing || isRestoring) && styles.disabled]}
+                style={[styles.cta, (isPurchasing || isRestoring || isPurchaseUnavailable) && styles.disabled]}
               >
                 {isPurchasing ? (
                   <ActivityIndicator color="#100C04" />
                 ) : (
-                  <Text style={styles.ctaLabel}>Continue my practice</Text>
+                  <Text style={styles.ctaLabel}>{ctaLabel}</Text>
                 )}
               </LinearGradient>
             </Pressable>
@@ -625,6 +755,25 @@ export const PaywallScreen: React.FC = () => {
                 style={({ pressed }) => pressed && styles.pressed}
               >
                 <Text style={styles.linkText}>Already subscribed? <Text style={styles.linkStrong}>Sign in</Text></Text>
+              </Pressable>
+            </View>
+            <View style={styles.legalLinks}>
+              <Pressable
+                onPress={() => void Linking.openURL(LEGAL_URLS.termsOfService)}
+                accessibilityRole="link"
+                accessibilityLabel="Terms of Use"
+                style={({ pressed }) => pressed && styles.pressed}
+              >
+                <Text style={styles.legalLinkText}>Terms of Use</Text>
+              </Pressable>
+              <Text style={styles.legalDivider}>·</Text>
+              <Pressable
+                onPress={() => void Linking.openURL(LEGAL_URLS.privacyPolicy)}
+                accessibilityRole="link"
+                accessibilityLabel="Privacy Policy"
+                style={({ pressed }) => pressed && styles.pressed}
+              >
+                <Text style={styles.legalLinkText}>Privacy Policy</Text>
               </Pressable>
             </View>
           </LinearGradient>
@@ -662,7 +811,7 @@ const styles = StyleSheet.create({
   },
   closeButton: {
     position: 'absolute',
-    top: 8,
+    top: 36,
     right: 14,
     width: 44,
     height: 44,
@@ -686,40 +835,40 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   sigilOuter: {
-    width: 116,
-    height: 116,
+    width: 172,
+    height: 172,
     alignItems: 'center',
     justifyContent: 'center',
     marginTop: 2,
   },
   sigilHalo: {
     position: 'absolute',
-    width: 112,
-    height: 112,
-    borderRadius: 56,
+    width: 168,
+    height: 168,
+    borderRadius: 84,
     backgroundColor: withAlpha(colors.gold, 0.1),
   },
   sigilRing: {
     position: 'absolute',
-    width: 98,
-    height: 98,
-    borderRadius: 49,
+    width: 150,
+    height: 150,
+    borderRadius: 75,
     borderWidth: 1,
     borderColor: withAlpha(colors.gold, 0.22),
   },
   sigilDot: {
     position: 'absolute',
     top: -3,
-    left: 47,
+    left: 72,
     width: 6,
     height: 6,
     borderRadius: 3,
     backgroundColor: colors.sanctuary.goldBright,
   },
   sigilCore: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
+    width: 120,
+    height: 120,
+    borderRadius: 60,
     backgroundColor: '#100820',
     borderWidth: 1,
     borderColor: withAlpha(colors.gold, 0.3),
@@ -729,6 +878,11 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.5,
     shadowRadius: 30,
     elevation: 6,
+  },
+  sigilImage: {
+    width: 104,
+    height: 104,
+    borderRadius: 52,
   },
   anchorCap: {
     fontFamily: typography.fonts.mono,
@@ -850,6 +1004,9 @@ const styles = StyleSheet.create({
     shadowRadius: 30,
     elevation: 5,
   },
+  planUnavailable: {
+    opacity: 0.5,
+  },
   planPressed: {
     transform: [{ scale: 0.99 }],
   },
@@ -876,8 +1033,6 @@ const styles = StyleSheet.create({
     width: 20,
     height: 20,
     borderRadius: 10,
-    borderWidth: 1,
-    borderColor: withAlpha(colors.bone, 0.16),
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -995,6 +1150,24 @@ const styles = StyleSheet.create({
   },
   linkStrong: {
     color: colors.gold,
+  },
+  legalLinks: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginTop: 10,
+    gap: 8,
+  },
+  legalLinkText: {
+    fontFamily: typography.fonts.bodySerif,
+    fontSize: 12,
+    color: withAlpha(colors.bone, 0.4),
+    textDecorationLine: 'underline',
+  },
+  legalDivider: {
+    fontFamily: typography.fonts.bodySerif,
+    fontSize: 12,
+    color: withAlpha(colors.bone, 0.3),
   },
 });
 

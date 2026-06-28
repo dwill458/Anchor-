@@ -17,10 +17,9 @@ jest.mock('@/utils/logger', () => ({
 }));
 
 jest.mock('@/stores/subscriptionStore', () => ({
-  computeDaysRemaining: (trialStartDate: string | null) => {
-    if (!trialStartDate) return 0;
-    const elapsedDays = Math.floor((Date.now() - new Date(trialStartDate).getTime()) / 86_400_000);
-    return Math.max(0, 7 - elapsedDays);
+  isLocalTrialActive: (trialStartDate: string | null) => {
+    if (!trialStartDate) return false;
+    return Date.now() - new Date(trialStartDate).getTime() < 7 * 86_400_000;
   },
   useSubscriptionStore: {
     getState: jest.fn(),
@@ -49,23 +48,25 @@ describe('RevenueCatService', () => {
   const mockSetTrialState = jest.fn();
   const mockSetSubscriptionStatus = jest.fn();
   const mockSetRcSynced = jest.fn();
+  let mockSubscriptionState: Record<string, unknown>;
 
   beforeEach(() => {
     jest.clearAllMocks();
-    (useSubscriptionStore.getState as jest.Mock).mockReturnValue({
+    mockSubscriptionState = {
       setRcTier: mockSetRcTier,
       setTrialState: mockSetTrialState,
       setSubscriptionStatus: mockSetSubscriptionStatus,
       setRcSynced: mockSetRcSynced,
+      subscriptionStatus: 'expired',
+      trialStartDate: null,
       // Fields read by getCurrentStatus() (fallback path on caught errors)
       isInTrial: false,
       isSubscribed: false,
       hasActiveEntitlement: false,
       daysRemaining: null,
       trialExpired: false,
-      trialStartDate: null,
-      subscriptionStatus: 'expired',
-    });
+    };
+    (useSubscriptionStore.getState as jest.Mock).mockImplementation(() => mockSubscriptionState);
   });
 
   const activeCustomerInfo = {
@@ -108,6 +109,17 @@ describe('RevenueCatService', () => {
     expect(mockSetRcTier).toHaveBeenCalledWith('pro');
   });
 
+  it('preserves a valid local account trial when RevenueCat has no active entitlement', async () => {
+    mockSubscriptionState.subscriptionStatus = 'trial';
+    mockSubscriptionState.trialStartDate = new Date().toISOString();
+    mockPurchases.getCustomerInfo.mockResolvedValueOnce({});
+
+    const status = await RevenueCatService.refreshTrialStatus();
+
+    expect(status.hasActiveEntitlement).toBe(false);
+    expect(mockSetSubscriptionStatus).toHaveBeenCalledWith('trial');
+  });
+
   it('purchases package by identifier successfully', async () => {
     const pkg = { identifier: 'test_product' };
     mockPurchases.getOfferings.mockResolvedValueOnce({
@@ -134,30 +146,6 @@ describe('RevenueCatService', () => {
 
     expect(result.dismissed).toBe(true);
     expect(result.status.hasActiveEntitlement).toBe(false);
-  });
-
-  it('preserves an active local trial when RevenueCat has no paid entitlement', async () => {
-    (useSubscriptionStore.getState as jest.Mock).mockReturnValueOnce({
-      setRcTier: mockSetRcTier,
-      setTrialState: mockSetTrialState,
-      setSubscriptionStatus: mockSetSubscriptionStatus,
-      setRcSynced: mockSetRcSynced,
-      isInTrial: false,
-      isSubscribed: false,
-      hasActiveEntitlement: false,
-      daysRemaining: null,
-      trialExpired: false,
-      trialStartDate: new Date().toISOString(),
-      subscriptionStatus: 'trial',
-    });
-    mockPurchases.getCustomerInfo.mockResolvedValueOnce({});
-
-    const status = await RevenueCatService.refreshTrialStatus();
-
-    expect(status.hasActiveEntitlement).toBe(false);
-    expect(mockSetRcTier).toHaveBeenCalledWith('free');
-    expect(mockSetRcSynced).toHaveBeenCalledWith(true);
-    expect(mockSetSubscriptionStatus).not.toHaveBeenCalledWith('expired');
   });
 
   it('restores purchases', async () => {

@@ -84,7 +84,11 @@ export const SettingsScreen: React.FC = () => {
     (state) => state.threadStrengthSensitivity ?? 'balanced'
   );
   const restDays = useSettingsStore((state) => state.restDays ?? []);
-  const { notifState, toggleNotifications, updateActiveHours, toggleWeaver } = useNotificationController();
+  const {
+    notifState,
+    toggleNotifications,
+    updateNotificationPreferences,
+  } = useNotificationController();
   const user = useAuthStore((state) => state.user);
   const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
   const profileEmail = useAuthStore((state) => state.profileData?.user?.email?.trim() ?? '');
@@ -93,7 +97,7 @@ export const SettingsScreen: React.FC = () => {
   const setHasCompletedOnboarding = useAuthStore((state) => state.setHasCompletedOnboarding);
   const signOut = useAuthStore((state) => state.signOut);
   const reveal = useSettingsReveal();
-  const [timePickerTarget, setTimePickerTarget] = useState<'wake' | 'reminder' | null>(null);
+  const [timePickerTarget, setTimePickerTarget] = useState<'dailyPrime' | null>(null);
   const [showSetPasswordModal, setShowSetPasswordModal] = useState(false);
   const [spEmail, setSpEmail] = useState('');
   const [spPassword, setSpPassword] = useState('');
@@ -164,7 +168,7 @@ export const SettingsScreen: React.FC = () => {
               logger.warn('[SettingsScreen] Failed to clear sync retry queue on sign-out', error);
             }
 
-            signOut();
+            await signOut();
             setHasCompletedOnboarding(false);
             navigation.dispatch(
               CommonActions.reset({
@@ -228,7 +232,7 @@ export const SettingsScreen: React.FC = () => {
               logger.warn('[SettingsScreen] Failed to clear sync retry queue after account deletion', error);
             }
 
-            signOut();
+            await signOut();
             setHasCompletedOnboarding(false);
             navigation.dispatch(
               CommonActions.reset({
@@ -324,23 +328,44 @@ export const SettingsScreen: React.FC = () => {
     return `${hour12}:00 ${meridiem}`;
   }, []);
 
+  const formatTimeLabel = useCallback((time: string | null | undefined) => {
+    const match = /^([0-1]?\d|2[0-3]):([0-5]\d)$/.exec(time ?? '');
+    if (!match) {
+      return formatHourLabel(21);
+    }
+
+    return formatHourLabel(Number(match[1]));
+  }, [formatHourLabel]);
+
   const handleTimeSelection = useCallback(
     async (hour: number) => {
-      if (timePickerTarget === 'wake') {
-        await updateActiveHours(hour, notifState?.active_hours_end ?? 21);
-      } else if (timePickerTarget === 'reminder') {
-        await updateActiveHours(notifState?.active_hours_start ?? 8, hour);
+      if (timePickerTarget === 'dailyPrime') {
+        await updateNotificationPreferences({
+          dailyPrimeTime: `${String(hour).padStart(2, '0')}:00`,
+        });
       }
 
       setTimePickerTarget(null);
     },
     [
-      notifState?.active_hours_end,
-      notifState?.active_hours_start,
       timePickerTarget,
-      updateActiveHours,
+      updateNotificationPreferences,
     ]
   );
+
+  const cycleThreadThreshold = useCallback(() => {
+    const current = notifState?.threadStrengthThreshold ?? 70;
+    const next = current >= 85 ? 60 : current >= 70 ? 85 : 70;
+    void updateNotificationPreferences({ threadStrengthThreshold: next });
+  }, [notifState?.threadStrengthThreshold, updateNotificationPreferences]);
+
+  const cycleNotificationTone = useCallback(() => {
+    const order = ['direct', 'encouraging', 'reflective', 'performance'] as const;
+    const current = notifState?.notificationTone ?? 'encouraging';
+    const index = order.indexOf(current);
+    const next = order[(index + 1) % order.length];
+    void updateNotificationPreferences({ notificationTone: next });
+  }, [notifState?.notificationTone, updateNotificationPreferences]);
 
   const sessionSummary =
     focusSessionMode === 'deep'
@@ -471,7 +496,7 @@ export const SettingsScreen: React.FC = () => {
 
             <SettingsRow
               title="Notifications"
-              subtitle="Enable Prime reminders and weekly reflections"
+              subtitle="Enable calm practice reminders"
               type="toggle"
               toggleValue={notifState?.notification_enabled ?? true}
               onToggle={(value) => {
@@ -499,28 +524,77 @@ export const SettingsScreen: React.FC = () => {
             {notifState?.notification_enabled ? (
               <>
                 <SettingsRow
-                  title="Wake Time"
-                  subtitle="When your active day begins"
-                  value={formatHourLabel(notifState?.active_hours_start ?? 8)}
-                  type="chevron"
-                  onPress={() => setTimePickerTarget('wake')}
-                  disabled={isLoading}
-                />
-                <SettingsRow
-                  title="Reminder Time"
-                  subtitle="When Micro-Prime fires if you haven't primed"
-                  value={formatHourLabel(notifState?.active_hours_end ?? 21)}
-                  type="chevron"
-                  onPress={() => setTimePickerTarget('reminder')}
-                  disabled={isLoading}
-                  showDivider={true}
-                />
-                <SettingsRow
-                  title="Recovery Nudges"
-                  subtitle="Gentle reminder when you've missed a day"
+                  title="Daily Prime Reminder"
+                  subtitle="One reminder if no Focus Session or Deep Prime is complete"
                   type="toggle"
-                  toggleValue={notifState?.weaver_enabled ?? true}
-                  onToggle={async (enabled) => void toggleWeaver(enabled)}
+                  toggleValue={notifState?.dailyPrimeEnabled ?? true}
+                  onToggle={(enabled) => void updateNotificationPreferences({ dailyPrimeEnabled: enabled })}
+                  disabled={isLoading}
+                />
+                <SettingsRow
+                  title="Daily Reminder Time"
+                  subtitle="The time Anchor checks whether a prime would help"
+                  value={formatTimeLabel(notifState?.dailyPrimeTime ?? '21:00')}
+                  type="chevron"
+                  onPress={() => setTimePickerTarget('dailyPrime')}
+                  disabled={isLoading || !(notifState?.dailyPrimeEnabled ?? true)}
+                />
+                <SettingsRow
+                  title="Thread Strength Alerts"
+                  subtitle="Only when Thread Strength drops below your threshold"
+                  type="toggle"
+                  toggleValue={notifState?.threadStrengthAlertsEnabled ?? true}
+                  onToggle={(enabled) =>
+                    void updateNotificationPreferences({ threadStrengthAlertsEnabled: enabled })
+                  }
+                  disabled={isLoading}
+                />
+                <SettingsRow
+                  title="Thread Threshold"
+                  subtitle="Tap to change the alert threshold"
+                  value={`${notifState?.threadStrengthThreshold ?? 70}%`}
+                  type="chevron"
+                  onPress={cycleThreadThreshold}
+                  disabled={isLoading}
+                />
+                <SettingsRow
+                  title="Unfinished Anchor Reminders"
+                  subtitle="One reminder when an anchor stays unsealed"
+                  type="toggle"
+                  toggleValue={notifState?.unfinishedAnchorRemindersEnabled ?? true}
+                  onToggle={(enabled) =>
+                    void updateNotificationPreferences({ unfinishedAnchorRemindersEnabled: enabled })
+                  }
+                  disabled={isLoading}
+                />
+                <SettingsRow
+                  title="Weekly Progress Recap"
+                  subtitle="A quiet weekly summary when there is activity"
+                  type="toggle"
+                  toggleValue={notifState?.weeklyRecapEnabled ?? false}
+                  onToggle={(enabled) =>
+                    void updateNotificationPreferences({ weeklyRecapEnabled: enabled })
+                  }
+                  disabled={isLoading}
+                />
+                <SettingsRow
+                  title="Milestone Celebrations"
+                  subtitle="Earned progress moments"
+                  type="toggle"
+                  toggleValue={notifState?.milestoneNotificationsEnabled ?? true}
+                  onToggle={(enabled) =>
+                    void updateNotificationPreferences({ milestoneNotificationsEnabled: enabled })
+                  }
+                  disabled={isLoading}
+                />
+                <SettingsRow
+                  title="Notification Tone"
+                  subtitle="Tap to cycle the copy style"
+                  value={(notifState?.notificationTone ?? 'encouraging')
+                    .replace('_', ' ')
+                    .replace(/^\w/, (char) => char.toUpperCase())}
+                  type="chevron"
+                  onPress={cycleNotificationTone}
                   disabled={isLoading}
                   showDivider={false}
                 />
@@ -683,11 +757,7 @@ export const SettingsScreen: React.FC = () => {
         <Pressable style={styles.hourPickerOverlay} onPress={() => setTimePickerTarget(null)}>
           <Pressable style={styles.hourPickerCard} onPress={() => {}}>
             <Text style={styles.hourPickerTitle}>
-              {timePickerTarget === 'wake'
-                ? 'Select Wake Time'
-                : timePickerTarget === 'reminder'
-                  ? 'Select Reminder Time'
-                  : 'Select Time'}
+              Select Daily Reminder Time
             </Text>
             <ScrollView
               style={styles.hourPickerList}
@@ -695,10 +765,7 @@ export const SettingsScreen: React.FC = () => {
               showsVerticalScrollIndicator={false}
             >
               {Array.from({ length: 24 }, (_, hour) => {
-                const activeHour =
-                  timePickerTarget === 'wake'
-                    ? notifState?.active_hours_start ?? 8
-                    : notifState?.active_hours_end ?? 21;
+                const activeHour = Number((notifState?.dailyPrimeTime ?? '21:00').slice(0, 2));
                 const isSelected = activeHour === hour;
 
                 return (

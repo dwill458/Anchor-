@@ -25,6 +25,7 @@ import { ChevronRight, Share2, Zap } from 'lucide-react-native';
 import { MoreRitualsSheet, RitualType } from '@/components/MoreRitualsSheet';
 import { useToast } from '@/components/ToastProvider';
 import { useTabNavigation } from '@/contexts/TabNavigationContext';
+import { ENABLE_MERCH } from '@/config';
 import { useAnchorStore } from '@/stores/anchorStore';
 import { useSettingsStore } from '@/stores/settingsStore';
 import { useSessionStore } from '@/stores/sessionStore';
@@ -54,6 +55,7 @@ import Reanimated, {
 import { DivineSigilAura } from './components/DivineSigilAura';
 import {
   ChargedGlowCanvas,
+  SigilSvg,
   ZenBackground,
 } from '@/components/common';
 import { useAppPerformanceTier } from '@/hooks/useAppPerformanceTier';
@@ -182,6 +184,7 @@ const toDisplayAnchor = (rawAnchor) => {
     practiceActivateDays:
       rawAnchor.practiceActivateDays ??
       Math.min(rawAnchor.activationCount ?? 0, 7),
+    reinforcedSigilSvg: rawAnchor.reinforcedSigilSvg ?? null,
     baseSigilSvg: rawAnchor.baseSigilSvg ?? '',
     enhancedImageUrl: rawAnchor.enhancedImageUrl,
   };
@@ -641,6 +644,7 @@ const AnchorDetailsScreen = ({ navigation, route }) => {
         practiceCreate: true,
         practiceCharge: false,
         practiceActivateDays: 0,
+        reinforcedSigilSvg: null,
         baseSigilSvg: '',
         enhancedImageUrl: null,
       },
@@ -655,6 +659,8 @@ const AnchorDetailsScreen = ({ navigation, route }) => {
       released: Boolean(anchor.isReleased),
     });
   }, [anchorId]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const resolvedSigilSvg = anchor.reinforcedSigilSvg ?? anchor.baseSigilSvg ?? '';
   const anchorPractice = useMemo(() => {
     if (!anchorId) {
       return {
@@ -1262,10 +1268,10 @@ const AnchorDetailsScreen = ({ navigation, route }) => {
                       style={[s.sigilImage, anchor.charged && s.chargedSigilImage, anchor.isReleased && s.releasedSigilImage]}
                       resizeMode="cover"
                     />
-                  ) : anchor.baseSigilSvg ? (
+                  ) : resolvedSigilSvg ? (
                     <View style={[s.sigilPlaceholder, Platform.OS === 'android' && s.sigilPlaceholderAndroid, isLowPerfDevice && s.lowPerfNoSigilShadow, anchor.charged && s.chargedSigilPlaceholder]}>
-                      <SvgXml
-                        xml={anchor.baseSigilSvg}
+                      <SigilSvg
+                        xml={resolvedSigilSvg}
                         width={SIGIL_CIRCLE_SIZE * (anchor.charged ? 0.72 : 1)}
                         height={SIGIL_CIRCLE_SIZE * (anchor.charged ? 0.72 : 1)}
                       />
@@ -1474,59 +1480,60 @@ const AnchorDetailsScreen = ({ navigation, route }) => {
           </LinearGradient>
         </FadeUp>
 
-        {/* DEFERRED: Print-on-demand physical anchor — finalize partner and reintroduce post-Apple review window.
-        <FadeUp delay={360}>
-          <LinearGradient
-            colors={CARD_GRADIENT}
-            style={[s.card, s.cardGold]}
-          >
-            <Text style={s.physicalEyebrow}>PHYSICAL ANCHOR</Text>
-            <Text style={s.physicalSub}>Make this symbol tangible.</Text>
-            <View style={s.physicalRow}>
-              <View style={s.physicalThumb}>
-                {anchor.sigilUri ? (
-                  <Image
-                    source={{ uri: anchor.sigilUri }}
-                    style={s.physicalThumbImage}
-                    resizeMode="cover"
-                  />
-                ) : anchor.baseSigilSvg ? (
-                  <SvgXml
-                    xml={anchor.baseSigilSvg}
-                    width={58}
-                    height={58}
-                  />
-                ) : (
-                  <LinearGradient
-                    colors={['#2a1a60', '#0f0830']}
-                    style={s.physicalThumbFallbackBg}
-                  >
-                    <Text style={s.physicalThumbFallback}>🎵</Text>
-                  </LinearGradient>
-                )}
-              </View>
-              <View style={{ flex: 1 }}>
-                <Text style={s.physicalCopyTitle}>Carry your anchor</Text>
-                <Text style={s.physicalCopyBody}>A quiet reminder you can carry.</Text>
-              </View>
-            </View>
-            <TouchableOpacity
-              activeOpacity={0.85}
-              style={{ marginBottom: spacing.sm + spacing.xs }}
-              onPress={() => Alert.alert('Physical Anchor', 'Physical anchor flow coming soon.')}
+        {ENABLE_MERCH && (
+          <FadeUp delay={360}>
+            <LinearGradient
+              colors={CARD_GRADIENT}
+              style={[s.card, s.cardGold]}
             >
-              <LinearGradient
-                colors={['#b8920a', '#d4a820', '#c49a15']}
-                start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}
-                style={s.createPhysicalBtn}
+              <Text style={s.physicalEyebrow}>PHYSICAL ANCHOR</Text>
+              <Text style={s.physicalSub}>Make this symbol tangible.</Text>
+              <View style={s.physicalRow}>
+                <View style={s.physicalThumb}>
+                  {anchor.sigilUri ? (
+                    <Image
+                      source={{ uri: anchor.sigilUri }}
+                      style={s.physicalThumbImage}
+                      resizeMode="cover"
+                    />
+                  ) : resolvedSigilSvg ? (
+                    <SigilSvg
+                      xml={resolvedSigilSvg}
+                      width={58}
+                      height={58}
+                      color={colors.gold}
+                    />
+                  ) : (
+                    <LinearGradient
+                      colors={['#2a1a60', '#0f0830']}
+                      style={s.physicalThumbFallbackBg}
+                    >
+                      <Text style={s.physicalThumbFallback}>🎵</Text>
+                    </LinearGradient>
+                  )}
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={s.physicalCopyTitle}>Carry your anchor</Text>
+                  <Text style={s.physicalCopyBody}>A quiet reminder you can carry.</Text>
+                </View>
+              </View>
+              <TouchableOpacity
+                activeOpacity={0.85}
+                style={{ marginBottom: spacing.sm + spacing.xs }}
+                onPress={() => Alert.alert('Physical Anchor', 'Physical anchor flow coming soon.')}
               >
-                <Text style={s.createPhysicalText}>CREATE PHYSICAL ANCHOR</Text>
-              </LinearGradient>
-            </TouchableOpacity>
-            <Text style={s.physicalTags}>Keychains · Prints · Apparel</Text>
-          </LinearGradient>
-        </FadeUp>
-        */}
+                <LinearGradient
+                  colors={['#b8920a', '#d4a820', '#c49a15']}
+                  start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}
+                  style={s.createPhysicalBtn}
+                >
+                  <Text style={s.createPhysicalText}>CREATE PHYSICAL ANCHOR</Text>
+                </LinearGradient>
+              </TouchableOpacity>
+              <Text style={s.physicalTags}>Keychains · Prints · Apparel</Text>
+            </LinearGradient>
+          </FadeUp>
+        )}
 
         {/* ── DESTRUCTIVE ACTION ── */}
         {!anchor.isReleased && (
@@ -1563,8 +1570,8 @@ const AnchorDetailsScreen = ({ navigation, route }) => {
           <View style={{ width: 1170 * 0.65, aspectRatio: 1, alignItems: 'center', justifyContent: 'center' }}>
             {anchor.sigilUri ? (
               <Image source={{ uri: anchor.sigilUri }} style={{ width: '100%', height: '100%', borderRadius: 999 }} resizeMode="cover" />
-            ) : anchor.baseSigilSvg ? (
-              <SvgXml xml={anchor.baseSigilSvg} width={1170 * 0.65} height={1170 * 0.65} />
+            ) : resolvedSigilSvg ? (
+              <SigilSvg xml={resolvedSigilSvg} width={1170 * 0.65} height={1170 * 0.65} />
             ) : null}
           </View>
           <Text style={{ color: '#F5F5DC', fontFamily: 'CormorantGaramond-Regular', fontSize: 28, textAlign: 'center', marginTop: 48, paddingHorizontal: 80 }}>

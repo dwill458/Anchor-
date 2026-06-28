@@ -59,3 +59,14 @@ errors*.txt
 branches.txt
 vault_diff.txt
 android.view.*
+
+# QA / debug capture artifacts (throwaway device screenshots & UI dumps)
+qa_*.png
+qa_*.xml
+screen.png
+screen_*.png
+expo-qr-code.png
+
+# Local export/build output checks
+dist_android_check/
+dist_android_check2/

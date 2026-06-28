@@ -150,6 +150,7 @@ class AuthHydrationService {
       });
       useProfileStore.getState().syncFromUser(normalizedProfileData.user);
       applyProfileSettings(normalizedProfileData.user.settings);
+      // Trial clock + server expiry are synced centrally by authStore.setUser above.
     } else {
       logger.warn('[AuthHydrationService] Profile hydration failed', profileResult.reason);
     }

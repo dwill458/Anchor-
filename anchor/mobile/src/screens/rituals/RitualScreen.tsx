@@ -62,6 +62,7 @@ import {
 import { useMissingAnchorRedirect } from './utils/useMissingAnchorRedirect';
 import { useDeepPrimeSessionAudio } from './hooks/useDeepPrimeSessionAudio';
 import { queueProgressionMilestonesFromStores } from '@/utils/progressionMilestones';
+import { usePrimeSessionAccess } from '@/hooks/usePrimeSessionAccess';
 
 // Single source of truth: derive each segment's width from the global progressAnim,
 // which is already wall-clock-driven by useRitualController + the progressAnim effect.
@@ -280,6 +281,7 @@ export const RitualScreen: React.FC = () => {
   const beginPostPrimeTraceFlow = usePostPrimeTraceStore((state) => state.beginFlow);
   const activeFlow = usePostPrimeTraceStore((state) => state.activeFlow);
   const bumpThreadStrength = useSessionStore((state) => state.bumpThreadStrength);
+  const primeSessionAccess = usePrimeSessionAccess();
   const anchor = getAnchorById(anchorId);
   const sigilSvg = anchor?.reinforcedSigilSvg ?? anchor?.baseSigilSvg ?? '';
   const isAnchorMissing = !anchor;
@@ -322,6 +324,33 @@ export const RitualScreen: React.FC = () => {
   const deepEmberHaloSize = deepHeroSize * 0.94;
 
   useMissingAnchorRedirect(!isAnchorMissing, navigation);
+
+  useEffect(() => {
+    if (isAnchorMissing || primeSessionAccess.deep.isAllowed) {
+      return;
+    }
+
+    const parentNavigation = navigation.getParent?.();
+    const task = InteractionManager.runAfterInteractions(() => {
+      navigation.goBack();
+      requestAnimationFrame(() => {
+        if (parentNavigation?.navigate) {
+          parentNavigation.navigate('Paywall', {
+            source: 'gated_feature',
+            preferredPlanId: 'annual',
+          });
+          return;
+        }
+
+        navigation.navigate('Paywall', {
+          source: 'gated_feature',
+          preferredPlanId: 'annual',
+        });
+      });
+    });
+
+    return () => task.cancel();
+  }, [isAnchorMissing, navigation, primeSessionAccess.deep.isAllowed]);
 
   useEffect(() => {
     const task = InteractionManager.runAfterInteractions(() => {

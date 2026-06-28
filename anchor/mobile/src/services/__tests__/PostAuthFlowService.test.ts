@@ -23,6 +23,7 @@ jest.mock('@/services/RevenueCatService', () => ({
   default: {
     logIn: (...args: unknown[]) => mockLogIn(...args),
     refreshTrialStatus: (...args: unknown[]) => mockRefreshTrialStatus(...args),
+    purchaseDefaultTrialPackage: jest.fn(),
   },
 }));
 
@@ -41,7 +42,9 @@ describe('PostAuthFlowService', () => {
     useAnchorStore.getState().clearAnchors();
     useSubscriptionStore.setState({
       trialStartDate: null,
-      subscriptionStatus: 'trial',
+      subscriptionStatus: 'expired',
+      rcSynced: false,
+      hasActiveEntitlement: false,
     });
     useAuthStore.setState({
       user: null,
@@ -63,7 +66,13 @@ describe('PostAuthFlowService', () => {
   });
 
   it('migrates all local anchors during post-auth setup', async () => {
-    const user = createMockUser({ id: 'user-123' });
+    const trialStartedAt = new Date().toISOString();
+    const user = createMockUser({
+      id: 'user-123',
+      createdAt: new Date(trialStartedAt),
+      trialStartedAt,
+      isTrialExpired: false,
+    });
     const localAnchor = createMockAnchor({ id: 'local-anchor', userId: 'user-123' });
     const foreignAnchor = createMockAnchor({ id: 'foreign-anchor', userId: 'user-other' });
 
@@ -78,9 +87,12 @@ describe('PostAuthFlowService', () => {
       user,
       token: 'token-123',
       preserveCompletedOnboarding: false,
+      launchTrialPurchase: false,
     });
 
     expect(mockMigrateAnchors).toHaveBeenCalledTimes(1);
+    expect(useSubscriptionStore.getState().subscriptionStatus).toBe('trial');
+    expect(useSubscriptionStore.getState().trialStartDate).toBe(trialStartedAt);
     expect(mockHydrateAuthenticatedData).toHaveBeenCalledWith({
       skipAnchorRefresh: false,
     });
@@ -117,6 +129,7 @@ describe('PostAuthFlowService', () => {
       user,
       token: 'token-123',
       preserveCompletedOnboarding: false,
+      launchTrialPurchase: false,
     });
 
     expect(mockHydrateAuthenticatedData).toHaveBeenNthCalledWith(1, {
@@ -126,28 +139,5 @@ describe('PostAuthFlowService', () => {
     expect(mockHydrateAuthenticatedData).toHaveBeenNthCalledWith(2, {
       skipAnchorRefresh: false,
     });
-  });
-
-  it('syncs the local trial timer from the server user payload during post-auth setup', async () => {
-    const trialStartedAt = new Date('2026-06-20T00:00:00.000Z');
-    const user = createMockUser({
-      id: 'user-123',
-      trialStartedAt,
-      isTrialExpired: false,
-    });
-
-    mockLogIn.mockResolvedValue({ hasActiveEntitlement: false });
-    mockRefreshTrialStatus.mockResolvedValue({ hasActiveEntitlement: false });
-    mockMigrateAnchors.mockResolvedValue([]);
-    mockHydrateAuthenticatedData.mockResolvedValue(undefined);
-
-    await PostAuthFlowService.run({
-      user,
-      token: 'token-123',
-      preserveCompletedOnboarding: false,
-    });
-
-    expect(useSubscriptionStore.getState().trialStartDate).toBe(trialStartedAt.toISOString());
-    expect(useSubscriptionStore.getState().subscriptionStatus).toBe('trial');
   });
 });

@@ -6,6 +6,7 @@
 
 import { useAuthStore } from '../authStore';
 import { useAnchorStore } from '../anchorStore';
+import { useProfileStore } from '../profileStore';
 import { useSessionStore } from '../sessionStore';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as SecureStore from 'expo-secure-store';
@@ -17,6 +18,15 @@ import type { Anchor, User } from '@/types';
 jest.mock('@react-native-async-storage/async-storage', () =>
   require('@react-native-async-storage/async-storage/jest/async-storage-mock')
 );
+
+jest.mock('@/services/UserLocalStateService', () => ({
+  saveAnchorSnapshot: jest.fn().mockResolvedValue(undefined),
+  saveProfileSnapshot: jest.fn().mockResolvedValue(undefined),
+  saveSessionSnapshot: jest.fn().mockResolvedValue(undefined),
+  loadAnchorSnapshot: jest.fn().mockResolvedValue(null),
+  loadProfileSnapshot: jest.fn().mockResolvedValue(null),
+  loadSessionSnapshot: jest.fn().mockResolvedValue(null),
+}));
 
 describe('authStore', () => {
   // Helper to create mock user
@@ -81,6 +91,15 @@ describe('authStore', () => {
       error: null,
       lastSyncedAt: null,
       currentAnchorId: undefined,
+    });
+    useProfileStore.setState({
+      ownerUserId: null,
+      name: '',
+      axiom: '',
+      timezone: '',
+      mono: 'initial',
+      photo: null,
+      memberSince: null,
     });
     jest.clearAllMocks();
   });
@@ -176,6 +195,19 @@ describe('authStore', () => {
 
       expect(useAuthStore.getState().hasCompletedOnboarding).toBe(false);
       expect(useAuthStore.getState().user?.hasCompletedOnboarding).toBe(false);
+    });
+
+    it('should clear onboarding status and profile when user is cleared', () => {
+      const { setUser, setHasCompletedOnboarding } = useAuthStore.getState();
+      setHasCompletedOnboarding(true);
+      setUser(createMockUser());
+      useProfileStore.getState().updateProfile({ name: 'Persisted Name' });
+
+      setUser(null);
+
+      expect(useAuthStore.getState().hasCompletedOnboarding).toBe(false);
+      expect(useProfileStore.getState().name).toBe('');
+      expect(useProfileStore.getState().ownerUserId).toBeNull();
     });
   });
 
@@ -318,43 +350,43 @@ describe('authStore', () => {
   });
 
   describe('signOut', () => {
-    it('should clear user', () => {
+    it('should clear user', async () => {
       const { setUser, signOut } = useAuthStore.getState();
 
       setUser(createMockUser());
       expect(useAuthStore.getState().user).not.toBeNull();
 
-      signOut();
+      await signOut();
 
       const { user } = useAuthStore.getState();
       expect(user).toBeNull();
     });
 
-    it('should clear token', () => {
+    it('should clear token', async () => {
       const { setToken, signOut } = useAuthStore.getState();
 
       setToken('auth-token-123');
       expect(useAuthStore.getState().token).not.toBeNull();
 
-      signOut();
+      await signOut();
 
       const { token } = useAuthStore.getState();
       expect(token).toBeNull();
     });
 
-    it('should set isAuthenticated to false', () => {
+    it('should set isAuthenticated to false', async () => {
       const { setUser, signOut } = useAuthStore.getState();
 
       setUser(createMockUser());
       expect(useAuthStore.getState().isAuthenticated).toBe(true);
 
-      signOut();
+      await signOut();
 
       const { isAuthenticated } = useAuthStore.getState();
       expect(isAuthenticated).toBe(false);
     });
 
-    it('should clear all auth state', () => {
+    it('should clear all auth state', async () => {
       const { setUser, setToken, signOut } = useAuthStore.getState();
 
       // Set up authenticated state
@@ -364,7 +396,7 @@ describe('authStore', () => {
       expect(useAuthStore.getState().token).not.toBeNull();
       expect(useAuthStore.getState().isAuthenticated).toBe(true);
 
-      signOut();
+      await signOut();
 
       const state = useAuthStore.getState();
       expect(state.user).toBeNull();
@@ -372,7 +404,7 @@ describe('authStore', () => {
       expect(state.isAuthenticated).toBe(false);
     });
 
-    it('should clear pending first-anchor and resume state', () => {
+    it('should clear pending first-anchor and resume state', async () => {
       useAuthStore.setState({
         shouldRedirectToCreation: true,
         pendingForgeIntent: 'Return to the anchor I started',
@@ -394,7 +426,7 @@ describe('authStore', () => {
         pendingFirstAnchorError: 'Failed to sync pending anchor',
       });
 
-      useAuthStore.getState().signOut();
+      await useAuthStore.getState().signOut();
 
       const state = useAuthStore.getState();
       expect(state.shouldRedirectToCreation).toBe(false);
@@ -406,7 +438,7 @@ describe('authStore', () => {
       expect(state.pendingFirstAnchorError).toBeNull();
     });
 
-    it('should clear cached profile and offline session flags', () => {
+    it('should clear cached profile and offline session flags', async () => {
       useAuthStore.setState({
         user: createMockUser(),
         token: 'token-123',
@@ -419,7 +451,7 @@ describe('authStore', () => {
         profileLastFetched: Date.now(),
       });
 
-      useAuthStore.getState().signOut();
+      await useAuthStore.getState().signOut();
 
       const state = useAuthStore.getState();
       expect(state.profileData).toBeNull();
@@ -427,7 +459,37 @@ describe('authStore', () => {
       expect(state.isOfflineMode).toBe(false);
     });
 
-    it('should clear the vault and session history on sign out', () => {
+    it('should reset the persisted profile store on sign out', async () => {
+      useProfileStore.setState({
+        ownerUserId: 'user-123',
+        name: 'Signed In Name',
+        axiom: 'Stay sharp',
+        timezone: 'UTC-6',
+        mono: 'avatar_2',
+        photo: 'file://avatar.png',
+        memberSince: '2026-01-01T00:00:00.000Z',
+      });
+
+      useAuthStore.setState({
+        user: createMockUser(),
+        isAuthenticated: true,
+        hasCompletedOnboarding: true,
+      });
+
+      await useAuthStore.getState().signOut();
+
+      expect(useProfileStore.getState()).toMatchObject({
+        ownerUserId: null,
+        name: '',
+        axiom: '',
+        timezone: '',
+        mono: 'initial',
+        photo: null,
+        memberSince: null,
+      });
+    });
+
+    it('should clear the vault and session history on sign out', async () => {
       useAnchorStore.getState().addAnchor(createMockAnchor());
       useSessionStore.setState({
         lastSession: {
@@ -450,14 +512,14 @@ describe('authStore', () => {
         ],
       } as any);
 
-      useAuthStore.getState().signOut();
+      await useAuthStore.getState().signOut();
 
       expect(useAnchorStore.getState().anchors).toEqual([]);
       expect(useSessionStore.getState().lastSession).toBeNull();
       expect(useSessionStore.getState().sessionLog).toEqual([]);
     });
 
-    it('should not affect onboarding status', () => {
+    it('should clear onboarding status', async () => {
       const { setUser, setToken, completeOnboarding, signOut } = useAuthStore.getState();
 
       setUser(createMockUser());
@@ -466,10 +528,9 @@ describe('authStore', () => {
 
       expect(useAuthStore.getState().hasCompletedOnboarding).toBe(true);
 
-      signOut();
+      await signOut();
 
-      // Onboarding status should persist after sign out
-      expect(useAuthStore.getState().hasCompletedOnboarding).toBe(true);
+      expect(useAuthStore.getState().hasCompletedOnboarding).toBe(false);
     });
   });
 
@@ -572,7 +633,7 @@ describe('authStore', () => {
       expect(state.isLoading).toBe(false);
     });
 
-    it('should handle complete logout flow', () => {
+    it('should handle complete logout flow', async () => {
       const { setUser, setToken, signOut } = useAuthStore.getState();
 
       // Set up authenticated state
@@ -581,7 +642,7 @@ describe('authStore', () => {
       expect(useAuthStore.getState().isAuthenticated).toBe(true);
 
       // Sign out
-      signOut();
+      await signOut();
 
       const state = useAuthStore.getState();
       expect(state.user).toBeNull();

@@ -6,7 +6,8 @@ anchor-v2/
 archive/
 design/
 docs/
-scripts/
+/scripts/
+anchor/mobile/patches/
 yu/
 supabase/
 .git/
@@ -27,4 +28,5 @@ anchor/mobile/android/.gradle/
 anchor/mobile/android/app/build/
 anchor/mobile/android/build/
 anchor/mobile/node_modules/
+graphify-out/
 

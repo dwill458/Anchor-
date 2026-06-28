@@ -5,7 +5,7 @@ import {
   REVENUECAT_ENTITLEMENT_ID,
   REVENUECAT_MONTHLY_PACKAGE_ID,
 } from '@/config';
-import { computeDaysRemaining, useSubscriptionStore } from '@/stores/subscriptionStore';
+import { isLocalTrialActive, useSubscriptionStore } from '@/stores/subscriptionStore';
 import { logger } from '@/utils/logger';
 
 export interface TrialStatusSnapshot {
@@ -136,6 +136,7 @@ const DEFAULT_TRIAL_STATUS: TrialStatusSnapshot = {
   trialExpired: false,
 };
 
+let sdkConfigured = false;
 let configuredUserId: string | null = null;
 
 function getPurchasesModule(): RevenueCatPurchases | null {
@@ -210,9 +211,9 @@ function deriveTrialStatus(customerInfo: CustomerInfo | null | undefined): Trial
 
 function applyTrialStatus(status: TrialStatusSnapshot, synced = false): TrialStatusSnapshot {
   const subscriptionStore = useSubscriptionStore.getState();
-  const hasActiveLocalTrial =
+  const localTrialActive =
     subscriptionStore.subscriptionStatus === 'trial' &&
-    computeDaysRemaining(subscriptionStore.trialStartDate) > 0;
+    isLocalTrialActive(subscriptionStore.trialStartDate);
 
   subscriptionStore.setRcTier(status.hasActiveEntitlement ? 'pro' : 'free');
   subscriptionStore.setTrialState(status);
@@ -223,7 +224,9 @@ function applyTrialStatus(status: TrialStatusSnapshot, synced = false): TrialSta
     subscriptionStore.setSubscriptionStatus('active');
   } else if (status.isInTrial) {
     subscriptionStore.setSubscriptionStatus('trial');
-  } else if (!hasActiveLocalTrial) {
+  } else if (localTrialActive) {
+    subscriptionStore.setSubscriptionStatus('trial');
+  } else {
     subscriptionStore.setSubscriptionStatus('expired');
   }
   return status;
@@ -359,14 +362,19 @@ class RevenueCatService {
       return;
     }
 
-    if (configuredUserId === userId) {
+    if (sdkConfigured) {
       return;
     }
 
-    purchases.configure({
+    const options: { apiKey: string; appUserID?: string } = {
       apiKey: REVENUECAT_API_KEY,
-      appUserID: userId,
-    });
+    };
+    if (userId) {
+      options.appUserID = userId;
+    }
+
+    purchases.configure(options);
+    sdkConfigured = true;
     configuredUserId = userId ?? null;
   }
 
@@ -376,9 +384,14 @@ class RevenueCatService {
       return applyTrialStatus(DEFAULT_TRIAL_STATUS);
     }
 
-    this.configure(userId);
+    this.configure();
+    if (configuredUserId === userId) {
+      return this.refreshTrialStatus();
+    }
+
     try {
       const response = await purchases.logIn(userId);
+      configuredUserId = userId;
       const status = deriveTrialStatus(extractCustomerInfo(response));
       return applyTrialStatus(status, true);
     } catch (error) {

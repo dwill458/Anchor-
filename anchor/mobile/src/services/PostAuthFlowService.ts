@@ -10,6 +10,7 @@ interface RunPostAuthFlowOptions {
   user: User;
   token: string;
   preserveCompletedOnboarding: boolean;
+  launchTrialPurchase?: boolean;
 }
 
 interface PostAuthFlowResult {
@@ -28,6 +29,7 @@ class PostAuthFlowService {
       ? { ...user, hasCompletedOnboarding: true }
       : user;
 
+    // setSession syncs the account-bound trial clock + server expiry centrally.
     authStore.setSession(patchedUser, token);
     if (preserveCompletedOnboarding) {
       authStore.setHasCompletedOnboarding(true);

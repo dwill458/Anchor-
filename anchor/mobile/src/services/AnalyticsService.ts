@@ -383,6 +383,15 @@ export const AnalyticsEvents = {
   SHOP_VIEWED: 'shop_viewed',
   PROFILE_VIEWED: 'profile_viewed',
 
+  // Notifications
+  NOTIFICATION_PERMISSION_PROMPT_SHOWN: 'notification_permission_prompt_shown',
+  NOTIFICATION_PERMISSION_GRANTED: 'notification_permission_granted',
+  NOTIFICATION_PERMISSION_DENIED: 'notification_permission_denied',
+  NOTIFICATION_SCHEDULED: 'notification_scheduled',
+  NOTIFICATION_SENT: 'notification_sent',
+  NOTIFICATION_OPENED: 'notification_opened',
+  NOTIFICATION_ACTION_COMPLETED: 'notification_action_completed',
+
   // Merch / Physical Anchors
   MERCH_INITIATED_FROM_ANCHOR_DETAILS: 'merch_initiated_from_anchor_details',
   MERCH_PRODUCT_SELECTED: 'merch_product_selected',

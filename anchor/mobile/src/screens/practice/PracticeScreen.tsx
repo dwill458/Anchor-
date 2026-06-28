@@ -41,6 +41,7 @@ import { PracticeHubHeader } from './components/PracticeHubHeader';
 import { resolveBurnArtworkUri } from '@/screens/rituals/utils/resolveBurnArtworkUri';
 import { useAppPerformanceTier } from '@/hooks/useAppPerformanceTier';
 import { useNotificationController } from '@/hooks/useNotificationController';
+import { usePrimeSessionAccess } from '@/hooks/usePrimeSessionAccess';
 import { ConfirmUnchargedBurnSheet } from '@/components/modals/ConfirmUnchargedBurnSheet';
 
 type PracticeNavigationProp = StackNavigationProp<PracticeStackParamList, 'PracticeHome'>;
@@ -90,6 +91,9 @@ export const PracticeScreen: React.FC = () => {
   useNotificationController();
 
   const navigation = useNavigation<PracticeNavigationProp>();
+  const rootNavigation = navigation as unknown as {
+    navigate: (screen: string, params?: unknown) => void;
+  };
   const { navigateToVault, registerTabNav, activeTabIndex } = useTabNavigation();
   const isPracticeTabActive = activeTabIndex == null ? true : activeTabIndex === 1;
   const insets = useSafeAreaInsets();
@@ -108,6 +112,7 @@ export const PracticeScreen: React.FC = () => {
   const weekHistory = useSessionStore((s) => s.weekHistory);
   const applyDecay = useSessionStore((s) => s.applyDecay);
   const primingHistory = useSessionStore((s) => s.primingHistory);
+  const primeSessionAccess = usePrimeSessionAccess();
 
   // Self-healing thread/progress restore: if priming history is empty (e.g. a
   // failed/empty launch hydration), re-fetch the account export and rehydrate
@@ -343,19 +348,45 @@ export const PracticeScreen: React.FC = () => {
 
   const startCharge = useCallback(
     (anchor: Anchor, durationSecondsOverride?: number) => {
+      if (!primeSessionAccess.deep.isAllowed) {
+        rootNavigation.navigate('Paywall', {
+          source: 'gated_feature',
+          preferredPlanId: 'annual',
+        });
+        return;
+      }
+
       safeHaptics.selection();
-      navigateToVault('Ritual', {
+      if (durationSecondsOverride != null) {
+        navigateToVault('Ritual', {
+          anchorId: anchor.id,
+          ritualType: 'ritual',
+          durationSeconds: durationSecondsOverride,
+          returnTo: 'practice',
+        });
+        return;
+      }
+
+      navigateToVault('ChargeSetup', {
         anchorId: anchor.id,
-        ritualType: 'ritual',
-        durationSeconds: durationSecondsOverride ?? defaultDeepChargeSeconds,
         returnTo: 'practice',
+        initialDuration: 'deep',
+        autoStartOnSelection: true,
       });
     },
-    [defaultDeepChargeSeconds, navigateToVault]
+    [navigateToVault, primeSessionAccess.deep.isAllowed, rootNavigation]
   );
 
   const startQuickActivate = useCallback(
     (anchor: Anchor, durationOverride = focusSessionDuration) => {
+      if (!primeSessionAccess.focus.isAllowed) {
+        rootNavigation.navigate('Paywall', {
+          source: 'gated_feature',
+          preferredPlanId: 'annual',
+        });
+        return;
+      }
+
       safeHaptics.selection();
       navigateToVault('ActivationRitual', {
         anchorId: anchor.id,
@@ -364,7 +395,7 @@ export const PracticeScreen: React.FC = () => {
         returnTo: 'practice',
       });
     },
-    [focusSessionDuration, navigateToVault]
+    [focusSessionDuration, navigateToVault, primeSessionAccess.focus.isAllowed, rootNavigation]
   );
 
   const startBurn = useCallback(

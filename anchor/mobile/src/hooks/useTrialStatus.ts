@@ -105,8 +105,8 @@ export function useTrialStatus(): TrialStatus {
     const daysRemaining = computeDaysRemaining(trialStartDate);
     const isSubscribed = subscriptionStatus === 'active';
 
-    // RC tracks paid entitlements; the app's no-card trial uses the local
-    // timestamp stamped during account/session setup.
+    // RC only tracks store entitlements. The no-card trial is account-bound
+    // client state seeded from the backend user creation timestamp.
     const isTrialActive = subscriptionStatus === 'trial' && daysRemaining > 0;
     const hasExpired = !isSubscribed && !isTrialActive;
 

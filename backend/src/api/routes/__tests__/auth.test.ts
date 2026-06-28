@@ -247,6 +247,47 @@ describe('POST /api/auth/sync', () => {
     );
   });
 
+  it('links an existing user by email when sign-in sync disallows creation', async () => {
+    (mockPrisma.user.findUnique as jest.Mock).mockResolvedValueOnce(null);
+    (mockPrisma.user.findFirst as jest.Mock).mockResolvedValueOnce(MOCK_DB_USER);
+    (mockPrisma.user.update as jest.Mock).mockResolvedValue({
+      ...MOCK_DB_USER,
+      authUid: 'firebase-uid-1',
+      authProvider: 'google',
+    });
+    (mockPrisma.userSettings.upsert as jest.Mock).mockResolvedValue(MOCK_SETTINGS);
+
+    const res = await request(buildApp())
+      .post('/api/auth/sync')
+      .send({ displayName: 'Test User', authProvider: 'google', allowCreate: false });
+
+    expect(res.status).toBe(200);
+    expect(mockPrisma.user.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { id: MOCK_DB_USER.id },
+        data: expect.objectContaining({
+          authUid: 'firebase-uid-1',
+          authProvider: 'google',
+        }),
+      })
+    );
+    expect(mockPrisma.user.create).not.toHaveBeenCalled();
+  });
+
+  it('does not create a user when sign-in sync disallows creation and no match exists', async () => {
+    (mockPrisma.user.findUnique as jest.Mock).mockResolvedValueOnce(null);
+    (mockPrisma.user.findFirst as jest.Mock).mockResolvedValueOnce(null);
+
+    const res = await request(buildApp())
+      .post('/api/auth/sync')
+      .send({ displayName: 'Test User', authProvider: 'google', allowCreate: false });
+
+    expect(res.status).toBe(404);
+    expect(res.body.error.code).toBe('USER_NOT_FOUND');
+    expect(mockPrisma.user.create).not.toHaveBeenCalled();
+    expect(mockPrisma.userSettings.upsert).not.toHaveBeenCalled();
+  });
+
   it('creates a user when no auth uid or email match exists', async () => {
     (mockPrisma.user.findUnique as jest.Mock)
       .mockResolvedValueOnce(null);

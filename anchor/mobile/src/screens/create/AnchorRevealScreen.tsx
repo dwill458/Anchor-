@@ -28,6 +28,7 @@ import { AnalyticsEvents, AnalyticsService } from '@/services/AnalyticsService';
 import { FrictionAnalytics } from '@/services/FrictionAnalytics';
 import { post } from '@/services/ApiClient';
 import { isBackendAnchorId } from '@/services/BackendAnchorService';
+import { useNotificationController } from '@/hooks/useNotificationController';
 import { logger } from '@/utils/logger';
 import { classifyToTierPreliminary } from '@/utils/tierClassifier';
 import { isCompactPhoneViewport, isShortPhoneViewport } from '@/utils/layout';
@@ -53,6 +54,7 @@ export const AnchorRevealScreen: React.FC = () => {
         (state) => state.enqueuePendingFirstAnchorMutation
     );
     const clearPendingFirstAnchorState = useAuthStore((state) => state.clearPendingFirstAnchorState);
+    const { handleAnchorSaved } = useNotificationController();
     const [isSaving, setIsSaving] = useState(false);
 
     const {
@@ -231,6 +233,7 @@ export const AnchorRevealScreen: React.FC = () => {
             category,
             next_step: wallpaperPromptSeen ? 'charge_setup' : 'wallpaper_prompt',
         });
+        void handleAnchorSaved();
 
         // Clear heavy temporary data once the anchor record is created.
         setTempEnhancedImage(null);
