@@ -19,11 +19,14 @@ import { useSettingsState } from '@/hooks/useSettings';
 import { useSettingsStore } from '@/stores/settingsStore';
 import { useSettingsReveal } from '@/components/transitions/SettingsRevealProvider';
 import { AuthService } from '@/services/AuthService';
+import { openStoreListing } from '@/services/reviewPromptService';
 import { useAuthStore } from '@/stores/authStore';
 import type { RootStackParamList } from '@/types';
 import { LEGAL_URLS, SUPPORT_EMAIL, SUPPORT_EMAIL_URL } from '@/constants/legal';
 import { SettingsRow } from '@/components/settings/SettingsRow';
 import { SettingsSectionBlock } from '@/components/settings/SettingsSectionBlock';
+import { useTeachingStore } from '@/stores/teachingStore';
+import { AnalyticsService } from '@/services/AnalyticsService';
 import NotificationService from '@/services/NotificationService';
 import { useNotificationController } from '../../hooks/useNotificationController';
 import { colors } from '@/theme';
@@ -176,6 +179,23 @@ export const SettingsScreen: React.FC = () => {
     });
   }, [navigation]);
 
+  const handleResetTeachingTips = useCallback(() => {
+    Alert.alert(
+      'Reset teaching tips?',
+      'Anchor will show guidance again the next time it is useful.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Reset Tips',
+          onPress: () => {
+            useTeachingStore.getState().reset();
+            AnalyticsService.track('teaching_reset');
+          },
+        },
+      ],
+    );
+  }, []);
+
   const handleDeleteAccount = useCallback(() => {
     Alert.alert(
       'Delete Account',
@@ -261,6 +281,13 @@ export const SettingsScreen: React.FC = () => {
   const handleSupport = () => {
     Linking.openURL(LEGAL_URLS.support);
   };
+
+  const handleRateAnchor = useCallback(async () => {
+    const opened = await openStoreListing();
+    if (!opened) {
+      Alert.alert('Rate Anchor', 'The store listing is not available in this build.');
+    }
+  }, []);
 
   useEffect(
     () => () => {
@@ -404,11 +431,21 @@ export const SettingsScreen: React.FC = () => {
               disabled={isLoading}
             />
             <SettingsRow
-              title="Practice Guidance"
-              subtitle="Gentle in-context tips during new practices"
+              title="Guide Mode"
+              subtitle="Show helpful guidance while you create and practice."
               type="toggle"
               toggleValue={settings.practiceGuidanceEnabled}
-              onToggle={(value) => updateSetting('practiceGuidanceEnabled', value)}
+              onToggle={(value) => {
+                updateSetting('practiceGuidanceEnabled', value);
+                AnalyticsService.track('guide_mode_toggled', { enabled: value });
+              }}
+              disabled={isLoading}
+            />
+            <SettingsRow
+              title="Reset Teaching Tips"
+              subtitle="Show dismissed guidance again."
+              type="chevron"
+              onPress={handleResetTeachingTips}
               disabled={isLoading}
             />
 
@@ -570,6 +607,12 @@ export const SettingsScreen: React.FC = () => {
           <Text style={styles.sectionLabel}>About Anchor</Text>
           <SettingsSectionBlock>
             <SettingsRow title="App Version" value={appVersion} type="static" />
+            <SettingsRow
+              title="Rate Anchor"
+              subtitle="Help others discover a better way to lock in."
+              type="chevron"
+              onPress={() => void handleRateAnchor()}
+            />
             <SettingsRow
               title="Contact Support"
               subtitle={SUPPORT_EMAIL}

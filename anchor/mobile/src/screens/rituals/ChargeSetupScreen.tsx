@@ -23,6 +23,8 @@ import { useAnchorStore } from '@/stores/anchorStore';
 import { useSettingsStore } from '@/stores/settingsStore';
 import { safeHaptics } from '@/utils/haptics';
 import { OptimizedImage } from '@/components/common';
+import { MicroTeachInline } from '@/components/teaching';
+import { useTeachingGate } from '@/utils/useTeachingGate';
 import type { Anchor, RootStackParamList } from '@/types';
 import { spacing } from '@/theme';
 import { navigateToVaultDestination } from '@/navigation/firstAnchorGate';
@@ -90,6 +92,11 @@ export const ChargeSetupScreen: React.FC = () => {
   const insets = useSafeAreaInsets();
   const { width: screenWidth, height: screenHeight } = useWindowDimensions();
   const { anchorId, returnTo, autoStartOnSelection = false } = route.params || {};
+
+  const chargeSetupTeaching = useTeachingGate({
+    screenId: 'charge_setup',
+    candidateIds: ['charge_setup_first_time_v1'],
+  });
 
   const getAnchorById = useAnchorStore((state) => state.getAnchorById);
   const setDefaultCharge = useSettingsStore((state) => state.setDefaultCharge);
@@ -366,6 +373,12 @@ export const ChargeSetupScreen: React.FC = () => {
           <Text style={[styles.headline, isCompactLayout && styles.headlineCompact]}>The Work Begins Now</Text>
           <Text style={[styles.subline, isCompactLayout && styles.sublineCompact]}>Fix your anchor in mind.{'\n'}Choose your prime duration.</Text>
           <Text style={[styles.durationLabel, isCompactLayout && styles.durationLabelCompact]}>SELECT DURATION</Text>
+
+          <MicroTeachInline
+            teaching={chargeSetupTeaching}
+            screenId="charge_setup"
+            style={{ textAlign: 'center', alignSelf: 'center' }}
+          />
 
           <View style={[styles.cardsRow, isCompactLayout && styles.cardsRowCompact]}>
             {cards.map((card) => (

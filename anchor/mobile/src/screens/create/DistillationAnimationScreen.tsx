@@ -15,6 +15,8 @@ import * as Haptics from 'expo-haptics';
 import { RootStackParamList } from '@/types';
 import { colors } from '@/theme';
 import { isCompactPhoneViewport, isShortPhoneViewport } from '@/utils/layout';
+import { MicroTeachHintRow } from '@/components/teaching';
+import { useTeachingGate } from '@/utils/useTeachingGate';
 
 type DistillationAnimationRouteProp = RouteProp<RootStackParamList, 'DistillationAnimation'>;
 type DistillationAnimationNavigationProp = StackNavigationProp<RootStackParamList, 'DistillationAnimation'>;
@@ -54,6 +56,11 @@ export default function DistillationAnimationScreen() {
   const isShortLayout = isShortPhoneViewport(height);
 
   const { intentionText, category, distilledLetters } = route.params;
+
+  const distillationTeaching = useTeachingGate({
+    screenId: 'distillation',
+    candidateIds: ['distillation_first_time_v1'],
+  });
 
   const [currentPhase, setCurrentPhase] = useState(0);
   const [letters, setLetters] = useState<LetterState[]>([]);
@@ -521,6 +528,8 @@ export default function DistillationAnimationScreen() {
           <Text style={[styles.subtitle, isCompactLayout && styles.subtitleCompact]}>
             Let it settle
           </Text>
+
+          <MicroTeachHintRow teaching={distillationTeaching} screenId="distillation" />
         </View>
       </SafeAreaView>
     </View>
