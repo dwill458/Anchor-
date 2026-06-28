@@ -28,6 +28,7 @@ import { useTabNavigation } from '@/contexts/TabNavigationContext';
 import { useAnchorStore } from '@/stores/anchorStore';
 import { useSettingsStore } from '@/stores/settingsStore';
 import { useSessionStore } from '@/stores/sessionStore';
+import { AnalyticsEvents, AnalyticsService } from '@/services/AnalyticsService';
 import { del, post } from '@/services/ApiClient';
 import {
   requestPhotoLibrarySavePermission,
@@ -645,6 +646,15 @@ const AnchorDetailsScreen = ({ navigation, route }) => {
       },
     [sourceAnchor] // eslint-disable-line react-hooks/exhaustive-deps
   );
+  useEffect(() => {
+    if (!anchorId) return;
+    AnalyticsService.track(AnalyticsEvents.ANCHOR_DETAIL_VIEWED, {
+      anchor_id: anchorId,
+      source: routeAnchor ? 'navigation_params' : 'store',
+      charged: Boolean(anchor.charged),
+      released: Boolean(anchor.isReleased),
+    });
+  }, [anchorId]); // eslint-disable-line react-hooks/exhaustive-deps
   const anchorPractice = useMemo(() => {
     if (!anchorId) {
       return {
@@ -952,6 +962,10 @@ const AnchorDetailsScreen = ({ navigation, route }) => {
     }
 
     removeAnchor(anchorId);
+    AnalyticsService.track(AnalyticsEvents.ANCHOR_DELETED, {
+      anchor_id: anchorId,
+      source: 'anchor_detail',
+    });
     navigation.popToTop();
   };
 

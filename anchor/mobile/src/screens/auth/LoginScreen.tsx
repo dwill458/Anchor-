@@ -27,6 +27,7 @@ import { colors, typography } from '@/theme';
 import { ENABLE_GOOGLE_SIGN_IN } from '@/config';
 import { useAuthStore } from '../../stores/authStore';
 import { AuthService } from '../../services/AuthService';
+import { AnalyticsEvents, AnalyticsService } from '@/services/AnalyticsService';
 import { FrictionAnalytics } from '@/services/FrictionAnalytics';
 import PostAuthFlowService from '../../services/PostAuthFlowService';
 import type {
@@ -181,6 +182,10 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ navigation, route }) =
           context === 'first_anchor_gate' || context === 'save_progress' ? true : undefined,
       });
       await completeAuth(result);
+      AnalyticsService.track(AnalyticsEvents.SIGN_IN_COMPLETED, {
+        provider: 'email',
+        context,
+      });
       FrictionAnalytics.completeFlow('onboarding_auth', {
         provider: 'email',
         mode: 'signin',
@@ -222,6 +227,10 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ navigation, route }) =
           context === 'first_anchor_gate' || context === 'save_progress' ? true : undefined,
       });
       await completeAuth(result);
+      AnalyticsService.track(AnalyticsEvents.SIGN_UP_COMPLETED, {
+        provider: 'email',
+        context,
+      });
       FrictionAnalytics.completeFlow('onboarding_auth', {
         provider: 'email',
         mode: 'signup',
@@ -277,6 +286,13 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ navigation, route }) =
       try {
         const result = await AuthService.signInWithApple();
         await completeAuth(result);
+        AnalyticsService.track(
+          tab === 'signup' ? AnalyticsEvents.SIGN_UP_COMPLETED : AnalyticsEvents.SIGN_IN_COMPLETED,
+          {
+            provider: 'apple',
+            context,
+          }
+        );
         FrictionAnalytics.completeFlow('onboarding_auth', {
           provider: 'apple',
           mode: tab,
@@ -313,6 +329,13 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ navigation, route }) =
       try {
         const result = await AuthService.signInWithGoogle();
         await completeAuth(result);
+        AnalyticsService.track(
+          tab === 'signup' ? AnalyticsEvents.SIGN_UP_COMPLETED : AnalyticsEvents.SIGN_IN_COMPLETED,
+          {
+            provider: 'google',
+            context,
+          }
+        );
         FrictionAnalytics.completeFlow('onboarding_auth', {
           provider: 'google',
           mode: tab,

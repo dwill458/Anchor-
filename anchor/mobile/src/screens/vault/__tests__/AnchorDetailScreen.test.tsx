@@ -198,6 +198,10 @@ jest.mock('@/components/ToastProvider', () => ({
 }));
 
 jest.mock('@/services/AnalyticsService', () => ({
+    AnalyticsEvents: {
+        ANCHOR_DETAIL_VIEWED: 'anchor_detail_viewed',
+        ANCHOR_DELETED: 'anchor_deleted',
+    },
     AnalyticsService: {
         track: (...args: any[]) => mockAnalyticsTrack(...args),
     },

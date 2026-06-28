@@ -24,8 +24,10 @@ import { useSettingsStore } from '@/stores/settingsStore';
 import { analyzeIntention, getGuidanceText } from '@/utils/intentionPatterns';
 import { OptimizedImage, SigilSvg } from '@/components/common';
 import { ErrorTrackingService } from '@/services/ErrorTrackingService';
+import { AnalyticsEvents, AnalyticsService } from '@/services/AnalyticsService';
 import { FrictionAnalytics } from '@/services/FrictionAnalytics';
 import { post } from '@/services/ApiClient';
+import { isBackendAnchorId } from '@/services/BackendAnchorService';
 import { logger } from '@/utils/logger';
 import { classifyToTierPreliminary } from '@/utils/tierClassifier';
 import { isCompactPhoneViewport, isShortPhoneViewport } from '@/utils/layout';
@@ -210,6 +212,15 @@ export const AnchorRevealScreen: React.FC = () => {
             updatedAt: new Date(),
         });
         incrementAnchorCount();
+        AnalyticsService.track(AnalyticsEvents.ANCHOR_CREATION_COMPLETED, {
+            anchor_id: anchorId,
+            source: isGuestFirstAnchor ? 'onboarding_first_anchor' : 'anchor_reveal',
+            category,
+            is_first_anchor: isGuestFirstAnchor,
+            has_enhanced_image: Boolean(enhancedImageUrl),
+            structure_variant: structureVariant || 'balanced',
+            backend_synced: isBackendAnchorId(anchorId),
+        });
         FrictionAnalytics.stepCompleted('anchor_creation', 'anchor_reveal', {
             is_first_anchor: isGuestFirstAnchor,
             category,

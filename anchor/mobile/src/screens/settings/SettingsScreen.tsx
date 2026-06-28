@@ -26,7 +26,7 @@ import { LEGAL_URLS, SUPPORT_EMAIL, SUPPORT_EMAIL_URL } from '@/constants/legal'
 import { SettingsRow } from '@/components/settings/SettingsRow';
 import { SettingsSectionBlock } from '@/components/settings/SettingsSectionBlock';
 import { useTeachingStore } from '@/stores/teachingStore';
-import { AnalyticsService } from '@/services/AnalyticsService';
+import { AnalyticsEvents, AnalyticsService } from '@/services/AnalyticsService';
 import NotificationService from '@/services/NotificationService';
 import { useNotificationController } from '../../hooks/useNotificationController';
 import { colors } from '@/theme';
@@ -74,6 +74,8 @@ export const SettingsScreen: React.FC = () => {
   const focusSessionAudio = useSettingsStore((state) => state.focusSessionAudio ?? 'ambient');
   const primeSessionDuration = useSettingsStore((state) => state.primeSessionDuration ?? 120);
   const primeSessionAudio = useSettingsStore((state) => state.primeSessionAudio ?? 'ambient');
+  const analyticsEnabled = useSettingsStore((state) => state.analyticsEnabled);
+  const setAnalyticsEnabled = useSettingsStore((state) => state.setAnalyticsEnabled);
   const dailyPracticeGoal = useSettingsStore((state) => state.dailyPracticeGoal ?? 3);
   const dailyPracticeGoalPreset = useSettingsStore(
     (state) => state.dailyPracticeGoalPreset ?? 'three'
@@ -144,6 +146,9 @@ export const SettingsScreen: React.FC = () => {
           style: 'destructive',
           onPress: async () => {
             try {
+              AnalyticsService.track(AnalyticsEvents.SIGN_OUT, {
+                source: 'settings',
+              });
               await AuthService.signOut();
             } catch (error) {
               Alert.alert('Sign Out Failed', 'We could not sign you out right now.');
@@ -438,6 +443,21 @@ export const SettingsScreen: React.FC = () => {
               onToggle={(value) => {
                 updateSetting('practiceGuidanceEnabled', value);
                 AnalyticsService.track('guide_mode_toggled', { enabled: value });
+              }}
+              disabled={isLoading}
+            />
+            <SettingsRow
+              title="Analytics"
+              subtitle="Share usage and reliability signals."
+              type="toggle"
+              toggleValue={analyticsEnabled}
+              onToggle={(value) => {
+                setAnalyticsEnabled(value);
+                const effectiveEnabled = process.env.EXPO_PUBLIC_ANALYTICS_ENABLED !== 'false' && value;
+                AnalyticsService.setEnabled(effectiveEnabled);
+                if (effectiveEnabled) {
+                  AnalyticsService.track('analytics_opted_in', { source: 'settings' });
+                }
               }}
               disabled={isLoading}
             />

@@ -17,6 +17,7 @@
  *   - bottom_hint:  suppressed for remainder of session after one fades
  */
 
+import { useRef } from 'react';
 import { TEACHINGS, type TeachingContent } from '@/constants/teaching';
 import { useTeachingStore } from '@/stores/teachingStore';
 import { useSettingsStore } from '@/stores/settingsStore';
@@ -49,6 +50,21 @@ function trackSuppressed(id: string, reason: string, guideMode: boolean): void {
 export function useTeachingGate(context: TeachingGateContext): TeachingContent | null {
   const guideMode = useSettingsStore((s) => s.guideMode);
   const store = useTeachingStore();
+  const retainedTeachingRef = useRef<{
+    screenId: string;
+    candidateKey: string;
+    teaching: TeachingContent;
+  } | null>(null);
+  const candidateKey = context.candidateIds.join('\u0000');
+
+  const retainedTeaching = retainedTeachingRef.current;
+  if (
+    retainedTeaching &&
+    retainedTeaching.screenId === context.screenId &&
+    retainedTeaching.candidateKey === candidateKey
+  ) {
+    return retainedTeaching.teaching;
+  }
 
   // Pattern-level cooldowns — computed once per render
   const veilCardBlocked = store.lastVeilCardAt
@@ -91,8 +107,14 @@ export function useTeachingGate(context: TeachingGateContext): TeachingContent |
     }
 
     // First candidate to clear all gates wins
+    retainedTeachingRef.current = {
+      screenId: context.screenId,
+      candidateKey,
+      teaching: content,
+    };
     return content;
   }
 
+  retainedTeachingRef.current = null;
   return null;
 }

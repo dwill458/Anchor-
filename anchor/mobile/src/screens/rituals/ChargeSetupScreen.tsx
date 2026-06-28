@@ -25,6 +25,7 @@ import { safeHaptics } from '@/utils/haptics';
 import { OptimizedImage } from '@/components/common';
 import { MicroTeachInline } from '@/components/teaching';
 import { useTeachingGate } from '@/utils/useTeachingGate';
+import { AnalyticsEvents, AnalyticsService } from '@/services/AnalyticsService';
 import type { Anchor, RootStackParamList } from '@/types';
 import { spacing } from '@/theme';
 import { navigateToVaultDestination } from '@/navigation/firstAnchorGate';
@@ -222,6 +223,25 @@ export const ChargeSetupScreen: React.FC = () => {
         preset: config.preset,
         customMinutes: config.customMinutes,
       });
+
+      AnalyticsService.track(AnalyticsEvents.CHARGE_STARTED, {
+        anchor_id: anchorId,
+        source: 'charge_setup',
+        mode: choice,
+        duration_seconds: config.durationSeconds,
+        return_to: returnTo,
+      });
+      AnalyticsService.track(
+        choice === 'quick'
+          ? AnalyticsEvents.QUICK_CHARGE_STARTED
+          : AnalyticsEvents.DEEP_CHARGE_STARTED,
+        {
+          anchor_id: anchorId,
+          source: 'charge_setup',
+          duration_seconds: config.durationSeconds,
+          return_to: returnTo,
+        }
+      );
 
       void safeHaptics.impact(Haptics.ImpactFeedbackStyle.Medium);
       navigateToRitual(choice);

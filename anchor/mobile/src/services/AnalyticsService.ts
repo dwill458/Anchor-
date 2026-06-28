@@ -111,9 +111,39 @@ class Analytics {
   private userProperties: UserProperties = {};
   private posthog: any = null;
   private initialized = false;
+  private posthogApiKey = '';
+  private posthogHost = DEFAULT_POSTHOG_HOST;
 
   private canSendToPostHog(): boolean {
     return this.enabled && this.posthog != null;
+  }
+
+  private readConfig(config?: AnalyticsConfig): void {
+    this.posthogApiKey =
+      config?.posthogApiKey ?? readPublicEnv(process.env.EXPO_PUBLIC_POSTHOG_API_KEY);
+    const posthogHost =
+      config?.posthogHost ?? readPublicEnv(process.env.EXPO_PUBLIC_POSTHOG_HOST);
+    this.posthogHost = posthogHost || DEFAULT_POSTHOG_HOST;
+  }
+
+  private ensurePostHogClient(): boolean {
+    if (this.posthog) {
+      return true;
+    }
+
+    if (!this.posthogApiKey) {
+      return false;
+    }
+
+    this.posthog = new PostHog(this.posthogApiKey, {
+      host: this.posthogHost,
+      disabled: !this.enabled,
+      disableGeoip: true,
+      enableSessionReplay: false,
+      captureAppLifecycleEvents: true,
+    });
+
+    return true;
   }
 
   private safelyCallPostHog(action: string, callback: () => void): void {
@@ -134,10 +164,16 @@ class Analytics {
   initialize(config?: AnalyticsConfig): void {
     const envEnabled = process.env.EXPO_PUBLIC_ANALYTICS_ENABLED !== 'false';
     this.enabled = config?.enabled ?? envEnabled;
+    this.readConfig(config);
 
     logger.info('[Analytics] Initialized', { enabled: this.enabled });
 
     if (this.initialized) {
+      if (this.enabled && !this.ensurePostHogClient()) {
+        logger.warn('[Analytics] PostHog missing API key');
+        return;
+      }
+
       try {
         this.posthog?.[this.enabled ? 'optIn' : 'optOut']?.();
       } catch (error) {
@@ -146,28 +182,17 @@ class Analytics {
       return;
     }
 
-    const posthogApiKey =
-      config?.posthogApiKey ?? readPublicEnv(process.env.EXPO_PUBLIC_POSTHOG_API_KEY);
-    const posthogHost =
-      config?.posthogHost ??
-      readPublicEnv(process.env.EXPO_PUBLIC_POSTHOG_HOST) ??
-      DEFAULT_POSTHOG_HOST;
+    this.initialized = true;
 
-    if (!this.enabled || !posthogApiKey) {
-      this.initialized = true;
-      logger.warn('[Analytics] PostHog disabled or missing API key');
+    if (!this.enabled) {
+      logger.warn('[Analytics] PostHog disabled');
       return;
     }
 
-    this.posthog = new PostHog(posthogApiKey, {
-      host: posthogHost || DEFAULT_POSTHOG_HOST,
-      disabled: !this.enabled,
-      disableGeoip: true,
-      enableSessionReplay: false,
-      captureAppLifecycleEvents: true,
-    });
-
-    this.initialized = true;
+    if (!this.ensurePostHogClient()) {
+      logger.warn('[Analytics] PostHog missing API key');
+      return;
+    }
   }
 
   /**
@@ -273,6 +298,16 @@ class Analytics {
     this.enabled = enabled;
 
     logger.info('[Analytics] Set enabled', enabled);
+
+    if (enabled && !this.initialized) {
+      this.initialize({ enabled });
+      return;
+    }
+
+    if (enabled && !this.ensurePostHogClient()) {
+      logger.warn('[Analytics] PostHog missing API key');
+      return;
+    }
 
     try {
       this.posthog?.[enabled ? 'optIn' : 'optOut']?.();

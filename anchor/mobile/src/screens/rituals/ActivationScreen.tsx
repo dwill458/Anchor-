@@ -22,7 +22,7 @@ import { colors, spacing, typography } from '@/theme';
 import { apiClient } from '@/services/ApiClient';
 import BackendAnchorService, { isBackendAnchorId } from '@/services/BackendAnchorService';
 import { ErrorTrackingService } from '@/services/ErrorTrackingService';
-import { AnalyticsService } from '@/services/AnalyticsService';
+import { AnalyticsEvents, AnalyticsService } from '@/services/AnalyticsService';
 import { FrictionAnalytics } from '@/services/FrictionAnalytics';
 import {
   recordReviewSignal,
@@ -150,6 +150,19 @@ export const ActivationScreen: React.FC = () => {
     let effectiveAnchorId = anchorId;
     let backendSyncFailed = false;
 
+    const trackActivationCompleted = (backendSynced: boolean, queued = false) => {
+      const properties = {
+        anchor_id: effectiveAnchorId,
+        activation_type: activationType || 'visual',
+        duration_seconds: activationDurationSeconds,
+        backend_synced: backendSynced,
+        queued,
+        is_first_prime: isFirstPrimeForAnchor,
+      };
+      AnalyticsService.track(AnalyticsEvents.ANCHOR_ACTIVATED, properties);
+      AnalyticsService.track(AnalyticsEvents.ACTIVATION_RITUAL_COMPLETED, properties);
+    };
+
     updateAnchor(anchorId, {
       activationCount: currentActivationCount + 1,
       lastActivatedAt: localActivationTime,
@@ -169,6 +182,7 @@ export const ActivationScreen: React.FC = () => {
           queuedAt: localActivationTime.toISOString(),
         });
         toast.success('Prime session saved for your first anchor');
+        trackActivationCompleted(false, true);
         return;
       }
 
@@ -187,6 +201,7 @@ export const ActivationScreen: React.FC = () => {
       if (backendSyncFailed) {
         activationSyncFailedRef.current = true;
         toast.error('Prime session completed but failed to sync. Will retry later.');
+        trackActivationCompleted(false);
         return;
       }
 
@@ -224,6 +239,7 @@ export const ActivationScreen: React.FC = () => {
       }
 
       toast.success('Prime session logged successfully');
+      trackActivationCompleted(true);
     } catch (error) {
       if (error instanceof Error && error.message === 'Anchor not found') {
         activationSyncFailedRef.current = true;
@@ -243,6 +259,7 @@ export const ActivationScreen: React.FC = () => {
 
       activationSyncFailedRef.current = true;
       toast.error('Prime session completed but failed to sync. Will retry later.');
+      trackActivationCompleted(false);
     }
   }, [
     activationDurationSeconds,

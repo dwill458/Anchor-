@@ -225,6 +225,7 @@ export default function App() {
   const computeStreak = useAuthStore((state) => state.computeStreak);
   const user = useAuthStore((state) => state.user);
   const dailyPracticeGoal = useSettingsStore((state) => state.dailyPracticeGoal);
+  const analyticsEnabled = useSettingsStore((state) => state.analyticsEnabled);
   const anchorCount = useAnchorStore((state) => state.anchors.length);
   const lastSessionId = useSessionStore((state) => state.lastSession?.id);
   const activeMilestone = useForgeMomentStore((state) => state.activeMilestone);
@@ -235,6 +236,9 @@ export default function App() {
   const hasPresentedExpiredPaywallRef = useRef(false);
   const launchOpacity = useRef(new Animated.Value(1)).current;
   const [settingsHydrated, setSettingsHydrated] = React.useState(false);
+  const [analyticsPreferenceHydrated, setAnalyticsPreferenceHydrated] = React.useState(() =>
+    useSettingsStore.persist.hasHydrated()
+  );
   const [launchStateResolved, setLaunchStateResolved] = React.useState(false);
   const [initialNavigationState, setInitialNavigationState] = React.useState<
     InitialState | undefined
@@ -298,6 +302,8 @@ export default function App() {
   // Hold the native splash until fonts are loaded AND auth state is determined,
   // so the first visible frame is never a font-flash or an auth redirect jump.
   const appIsReady = fontsLoaded && launchStateResolved && initialAuthResolved;
+  const effectiveAnalyticsEnabled =
+    process.env.EXPO_PUBLIC_ANALYTICS_ENABLED !== 'false' && analyticsEnabled;
 
   useEffect(() => {
     if (!__DEV__) {
@@ -345,6 +351,17 @@ export default function App() {
     return () => {
       isMounted = false;
     };
+  }, []);
+
+  useEffect(() => {
+    if (useSettingsStore.persist.hasHydrated()) {
+      setAnalyticsPreferenceHydrated(true);
+      return undefined;
+    }
+
+    return useSettingsStore.persist.onFinishHydration(() => {
+      setAnalyticsPreferenceHydrated(true);
+    });
   }, []);
 
   useEffect(() => {
@@ -539,8 +556,15 @@ export default function App() {
     });
     setupGlobalErrorHandler();
     PerformanceMonitoring.initialize({ enabled: true });
-    AnalyticsService.initialize();
   }, []);
+
+  useEffect(() => {
+    if (!analyticsPreferenceHydrated) {
+      return;
+    }
+
+    AnalyticsService.initialize({ enabled: effectiveAnalyticsEnabled });
+  }, [analyticsPreferenceHydrated, effectiveAnalyticsEnabled]);
 
   useEffect(() => {
     if (user?.id) {

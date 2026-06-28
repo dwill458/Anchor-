@@ -14,6 +14,7 @@ import { AuthRequest, authMiddleware, DEV_MASTER_UID } from '../middleware/auth'
 import { AppError } from '../middleware/errorHandler';
 import { prisma } from '../../lib/prisma';
 import { redisClient } from '../../lib/redis';
+import { BackendAnalyticsService } from '../../services/AnalyticsService';
 import { logger } from '../../utils/logger';
 
 // Whitelist of columns that may be used in ORDER BY to prevent injection
@@ -544,6 +545,14 @@ router.post('/', async (req: AuthRequest, res: Response, next: NextFunction) => 
       return createdAnchor;
     });
 
+    BackendAnalyticsService.track('anchor_creation_completed', userId, {
+      anchor_id: anchor.id,
+      category: anchor.category,
+      structure_variant: anchor.structureVariant,
+      has_enhanced_image: Boolean(anchor.enhancedImageUrl),
+      backend_confirmed: true,
+    });
+
     res.status(201).json({
       success: true,
       data: anchor,
@@ -935,6 +944,11 @@ router.delete('/:id', async (req: AuthRequest, res: Response, next: NextFunction
       throw new AppError('Anchor not found', 404, 'ANCHOR_NOT_FOUND');
     }
 
+    BackendAnalyticsService.track('anchor_deleted', userId, {
+      anchor_id: id,
+      backend_confirmed: true,
+    });
+
     res.json({
       success: true,
       data: {
@@ -999,6 +1013,14 @@ router.post('/:id/charge', async (req: AuthRequest, res: Response, next: NextFun
           chargeMethod: chargeType.includes('quick') ? 'quick' : 'deep',
         },
       });
+    });
+
+    BackendAnalyticsService.track('anchor_charged', userId, {
+      anchor_id: anchor.id,
+      charge_type: chargeType,
+      charge_mode: chargeType.includes('quick') ? 'quick' : 'deep',
+      duration_seconds: durationSeconds,
+      backend_confirmed: true,
     });
 
     res.json({
@@ -1108,6 +1130,19 @@ router.post('/:id/activate', async (req: AuthRequest, res: Response, next: NextF
       return updatedAnchor;
     });
 
+    BackendAnalyticsService.track('anchor_activated', userId, {
+      anchor_id: anchor.id,
+      activation_type: activationType,
+      duration_seconds: durationSeconds,
+      backend_confirmed: true,
+    });
+    BackendAnalyticsService.track('activation_ritual_completed', userId, {
+      anchor_id: anchor.id,
+      activation_type: activationType,
+      duration_seconds: durationSeconds,
+      backend_confirmed: true,
+    });
+
     res.json({
       success: true,
       data: anchor,
@@ -1168,6 +1203,13 @@ router.post('/:id/burn', async (req: AuthRequest, res: Response, next: NextFunct
       });
 
       return burnedAnchor;
+    });
+
+    BackendAnalyticsService.track('burn_completed', userId, {
+      anchor_id: anchor.id,
+      burned_anchor_id: result.id,
+      activation_count: anchor.activationCount,
+      backend_confirmed: true,
     });
 
     res.json({
