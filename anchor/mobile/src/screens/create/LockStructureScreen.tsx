@@ -15,6 +15,8 @@ import { StackNavigationProp } from '@react-navigation/stack';
 import { SvgXml } from 'react-native-svg';
 import { RootStackParamList, ReinforcementMetadata } from '@/types';
 import { colors, spacing, typography } from '@/theme';
+import { MicroTeachHintRow } from '@/components/teaching';
+import { useTeachingGate } from '@/utils/useTeachingGate';
 import { isCompactPhoneViewport, isShortPhoneViewport } from '@/utils/layout';
 
 type LockStructureRouteProp = RouteProp<RootStackParamList, 'LockStructure'>;
@@ -43,6 +45,10 @@ export default function LockStructureScreen() {
   const { width, height } = useWindowDimensions();
   const isCompactLayout = isCompactPhoneViewport(width, height);
   const isShortLayout = isShortPhoneViewport(height);
+  const lockTeaching = useTeachingGate({
+    screenId: 'lock_structure',
+    candidateIds: ['lock_structure_first_time_v1'],
+  });
   const structureSize = Math.min(
     width - (isCompactLayout ? 72 : 96),
     isCompactLayout ? 260 : isShortLayout ? 288 : 320
@@ -225,6 +231,8 @@ export default function LockStructureScreen() {
             {getVariantDisplayName(structureVariant)} structure · Letters: {distilledLetters.join(' ')}
           </Text>
         </View>
+
+        <MicroTeachHintRow teaching={lockTeaching} screenId="lock_structure" />
       </View>
     </SafeAreaView>
   );

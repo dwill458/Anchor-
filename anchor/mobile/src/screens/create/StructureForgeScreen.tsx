@@ -14,6 +14,8 @@ import Animated, {
 import { RootStackParamList } from '@/types';
 import { colors, spacing, typography } from '@/theme';
 import { SigilSvg, ZenBackground } from '@/components/common';
+import { MicroTeachInline } from '@/components/teaching';
+import { useTeachingGate } from '@/utils/useTeachingGate';
 import { generateAllVariants, SigilGenerationResult, SigilVariant } from '@/utils/sigil/traditional-generator';
 import { classifyToTierPreliminary } from '@/utils/tierClassifier';
 import { isCompactPhoneViewport, isShortPhoneViewport } from '@/utils/layout';
@@ -101,6 +103,11 @@ export default function StructureForgeScreen() {
     ?? intentionText;
   const isCompactLayout = isCompactPhoneViewport(width, height);
   const isShortLayout = isShortPhoneViewport(height);
+
+  const structureTeaching = useTeachingGate({
+    screenId: 'structure_forge',
+    candidateIds: ['structure_forge_first_time_v1'],
+  });
   const horizontalPadding = isCompactLayout ? spacing.md + spacing.xs : spacing.lg;
   const structureCardWidth = (width - horizontalPadding * 2 - CARD_GAP) / 2;
   const previewSize = isCompactLayout ? 140 : isShortLayout ? 150 : 160;
@@ -218,6 +225,7 @@ export default function StructureForgeScreen() {
           <Text style={[styles.subtitle, isCompactLayout && styles.subtitleCompact]}>
             Select a frame that resonates with your intention.
           </Text>
+          <MicroTeachInline teaching={structureTeaching} screenId="structure_forge" />
         </View>
 
         <View style={[styles.intentionTag, { marginHorizontal: horizontalPadding }]}>

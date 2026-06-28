@@ -37,6 +37,8 @@ import { captureRef } from 'react-native-view-shot';
 import { safeHaptics } from '@/utils/haptics';
 import * as Haptics from 'expo-haptics';
 import { colors, spacing, typography } from '@/theme';
+import { MicroTeachHintRow, MicroTeachInfoChip } from '@/components/teaching';
+import { useTeachingGate } from '@/utils/useTeachingGate';
 import { calculateStreak } from '@/utils/streakHelpers';
 import Reanimated, {
   Easing as ReanimatedEasing,
@@ -568,6 +570,10 @@ const AnchorDetailsScreen = ({ navigation, route }) => {
   const shouldAnimateIntro = perfTier === 'high';
   const { navigateToPractice } = useTabNavigation();
   const toast = useToast();
+  const anchorReuseTeaching = useTeachingGate({
+    screenId: 'anchor_detail',
+    candidateIds: ['anchor_reuse_v1'],
+  });
   const getAnchorById = useAnchorStore((state) => state.getAnchorById);
   const removeAnchor = useAnchorStore((state) => state.removeAnchor);
   const defaultActivation = useSettingsStore((s) => s.defaultActivation);
@@ -1297,6 +1303,17 @@ const AnchorDetailsScreen = ({ navigation, route }) => {
                   </View>
 
                   <Text style={s.miniAffirmation}>The symbol is becoming part of you.</Text>
+
+                  <View style={{ marginTop: spacing.sm }}>
+                    <MicroTeachInfoChip
+                      teachingIds="anchor_history_v1"
+                      screenId="anchor_detail"
+                      label="Why this matters"
+                      sheetTitle="Your history"
+                    />
+                  </View>
+
+                  <MicroTeachHintRow teaching={anchorReuseTeaching} screenId="anchor_detail" />
 
                   {/* Distilled row */}
                   <View style={s.distilledSection}>
