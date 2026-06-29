@@ -195,6 +195,12 @@ app.use(
   })
 );
 
+// Profile-picture uploads send base64 image bodies (validated up to 5MB raw in
+// StorageService). Base64 inflates payloads by ~33%, so this route needs a larger
+// body limit than the global parser. Registered first so it consumes the body
+// before the 1mb parser below — body-parser skips once req._body is set.
+app.use('/api/users', express.json({ limit: '8mb' }));
+
 // Limit request body size to prevent memory exhaustion attacks
 app.use(express.json({ limit: '1mb' }));
 app.use(express.urlencoded({ extended: true, limit: '1mb' }));

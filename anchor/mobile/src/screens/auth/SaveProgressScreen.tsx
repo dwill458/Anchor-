@@ -13,7 +13,6 @@ import { useNavigation, useRoute, type RouteProp } from '@react-navigation/nativ
 import type { StackNavigationProp } from '@react-navigation/stack';
 import { OptimizedImage, SigilSvg } from '@/components/common';
 import { useAnchorStore } from '@/stores/anchorStore';
-import { useAuthStore } from '@/stores/authStore';
 import type { RootStackParamList } from '@/types';
 import { colors, spacing, typography } from '@/theme';
 import { isCompactPhoneViewport, isShortPhoneViewport } from '@/utils/layout';
@@ -26,7 +25,6 @@ export const SaveProgressScreen: React.FC = () => {
   const route = useRoute<SaveProgressRouteProp>();
   const insets = useSafeAreaInsets();
   const { width, height } = useWindowDimensions();
-  const completeOnboarding = useAuthStore((state) => state.completeOnboarding);
   const anchor = useAnchorStore((state) => state.getAnchorById(route.params.anchorId));
   const enhancedImageUrl = anchor?.enhancedImageUrl ?? null;
   const sigilSvg = anchor?.reinforcedSigilSvg ?? anchor?.baseSigilSvg ?? '';
@@ -46,11 +44,6 @@ export const SaveProgressScreen: React.FC = () => {
     navigation.navigate('Login', {
       context: 'save_progress',
     });
-  };
-
-  const handleSkip = () => {
-    completeOnboarding();
-    navigation.replace('Vault');
   };
 
   return (
@@ -76,6 +69,9 @@ export const SaveProgressScreen: React.FC = () => {
             <Text style={[styles.title, isCompactLayout && styles.titleCompact]}>Your first anchor is ready.</Text>
             <Text style={[styles.body, isCompactLayout && styles.bodyCompact]}>
               Create a free account now so this anchor stays with you before you enter the Vault.
+            </Text>
+            <Text style={[styles.trialNote, isCompactLayout && styles.trialNoteCompact]}>
+              Creating your account starts your free 7-day trial — full access, no card required, cancel anytime.
             </Text>
           </View>
 
@@ -125,14 +121,6 @@ export const SaveProgressScreen: React.FC = () => {
               activeOpacity={0.7}
             >
               <Text style={styles.secondaryText}>I already have an account</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={styles.skipButton}
-              onPress={handleSkip}
-              activeOpacity={0.7}
-            >
-              <Text style={styles.skipText}>Skip for now</Text>
             </TouchableOpacity>
           </View>
         </ScrollView>
@@ -310,13 +298,16 @@ const styles = StyleSheet.create({
     fontSize: typography.sizes.body1,
     color: colors.text.secondary,
   },
-  skipButton: {
-    paddingVertical: spacing.sm,
-    alignItems: 'center',
-  },
-  skipText: {
+  trialNote: {
     ...typography.body,
     fontSize: typography.sizes.body2,
-    color: colors.text.tertiary,
+    color: colors.gold,
+    textAlign: 'center',
+    lineHeight: 20,
+    marginTop: spacing.xs,
+  },
+  trialNoteCompact: {
+    fontSize: typography.sizes.caption,
+    lineHeight: 18,
   },
 });

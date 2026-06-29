@@ -2,27 +2,17 @@ import React from 'react';
 import { fireEvent, render } from '@testing-library/react-native';
 import { SaveProgressScreen } from '../SaveProgressScreen';
 
-const mockReplace = jest.fn();
 const mockNavigate = jest.fn();
-const mockCompleteOnboarding = jest.fn();
 
 jest.mock('@react-navigation/native', () => ({
   useNavigation: jest.fn(() => ({
     navigate: mockNavigate,
-    replace: mockReplace,
   })),
   useRoute: jest.fn(() => ({
     params: {
       anchorId: 'anchor-1',
     },
   })),
-}));
-
-jest.mock('@/stores/authStore', () => ({
-  useAuthStore: (selector: (s: Record<string, unknown>) => unknown) =>
-    selector({
-      completeOnboarding: mockCompleteOnboarding,
-    }),
 }));
 
 const mockGetAnchorById = jest.fn();
@@ -62,7 +52,14 @@ describe('SaveProgressScreen', () => {
     expect(getByText('SAVE PROGRESS')).toBeTruthy();
     expect(getByText('Create Account')).toBeTruthy();
     expect(getByText('I already have an account')).toBeTruthy();
-    expect(getByText('Skip for now')).toBeTruthy();
+    expect(
+      getByText(/Creating your account starts your free 7-day trial/i)
+    ).toBeTruthy();
+  });
+
+  it('does not offer a skip option (account required before Vault)', () => {
+    const { queryByText } = render(<SaveProgressScreen />);
+    expect(queryByText('Skip for now')).toBeNull();
   });
 
   it('shows the anchor intention text', () => {
@@ -85,13 +82,6 @@ describe('SaveProgressScreen', () => {
     expect(mockNavigate).toHaveBeenCalledWith('Login', {
       context: 'save_progress',
     });
-  });
-
-  it('completes onboarding and navigates to Vault on skip', () => {
-    const { getByText } = render(<SaveProgressScreen />);
-    fireEvent.press(getByText('Skip for now'));
-    expect(mockCompleteOnboarding).toHaveBeenCalled();
-    expect(mockReplace).toHaveBeenCalledWith('Vault');
   });
 
   it('renders empty anchor thumbnail when anchorSvg is empty', () => {
