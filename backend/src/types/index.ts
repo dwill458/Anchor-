@@ -118,7 +118,10 @@ export type AnchorCategory =
 /**
  * Category metadata with keywords and descriptions
  */
-export const CATEGORY_METADATA: Record<AnchorCategory, { keywords: string[]; description: string }> = {
+export const CATEGORY_METADATA: Record<
+  AnchorCategory,
+  { keywords: string[]; description: string }
+> = {
   desire: {
     keywords: ['passion', 'attraction', 'want', 'goal', 'aspiration', 'longing'],
     description: 'Personal desires, passions, and aspirations',

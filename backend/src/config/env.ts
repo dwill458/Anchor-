@@ -221,7 +221,8 @@ export function validateEnv(): EnvConfig {
         )
       ),
       POSTHOG_API_KEY: validateString('POSTHOG_API_KEY', process.env.POSTHOG_API_KEY),
-      POSTHOG_HOST: validateString('POSTHOG_HOST', process.env.POSTHOG_HOST) ?? 'https://us.i.posthog.com',
+      POSTHOG_HOST:
+        validateString('POSTHOG_HOST', process.env.POSTHOG_HOST) ?? 'https://us.i.posthog.com',
     };
 
     // In production, critical variables must be present.

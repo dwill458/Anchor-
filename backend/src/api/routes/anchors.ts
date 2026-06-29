@@ -303,7 +303,8 @@ async function resolveAnchorArtworkUrls<T extends { enhancedImageUrl?: string | 
 
   return {
     ...anchor,
-    enhancedImageUrl: (await resolveStoredAssetUrl(anchor.enhancedImageUrl, 7 * 24 * 60 * 60)) ?? null,
+    enhancedImageUrl:
+      (await resolveStoredAssetUrl(anchor.enhancedImageUrl, 7 * 24 * 60 * 60)) ?? null,
   };
 }
 
