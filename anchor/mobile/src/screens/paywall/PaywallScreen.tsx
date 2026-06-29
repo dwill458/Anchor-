@@ -24,7 +24,7 @@ import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import Svg, { Circle, Path, SvgXml } from 'react-native-svg';
-import { AnalyticsService } from '@/services/AnalyticsService';
+import { AnalyticsService, AnalyticsEvents } from '@/services/AnalyticsService';
 import { FrictionAnalytics } from '@/services/FrictionAnalytics';
 import {
   REVENUECAT_ANNUAL_PACKAGE_ID,
@@ -535,6 +535,12 @@ export const PaywallScreen: React.FC = () => {
         // entitlement ID can't leave a paying user stranded on the paywall.
         if (status.hasActiveEntitlement) {
           AnalyticsService.track('paywall_converted', {
+            source,
+            plan: selectedPlanId,
+            productId: selectedPlan.packageId,
+          });
+          // Canonical trial-funnel exit (mirrors paywall_converted with trial context).
+          AnalyticsService.track(AnalyticsEvents.TRIAL_CONVERTED, {
             source,
             plan: selectedPlanId,
             productId: selectedPlan.packageId,

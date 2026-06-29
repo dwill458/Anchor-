@@ -16,6 +16,7 @@ import type {
   User,
 } from '@/types';
 import { apiClient, fetchCompleteProfile } from '@/services/ApiClient';
+import { AnalyticsService } from '@/services/AnalyticsService';
 import { AuthService } from '@/services/AuthService';
 import { clearNotificationSession } from '@/services/NotificationSessionService';
 import {
@@ -26,7 +27,7 @@ import {
 import { useAnchorStore } from '@/stores/anchorStore';
 import { useProfileStore } from '@/stores/profileStore';
 import { useSessionStore } from '@/stores/sessionStore';
-import { useSubscriptionStore } from '@/stores/subscriptionStore';
+import { useSubscriptionStore, computeDaysRemaining } from '@/stores/subscriptionStore';
 import { useTeachingStore } from '@/stores/teachingStore';
 import { calculateStreak } from '@/utils/streakHelpers';
 import {
@@ -144,6 +145,30 @@ function applyUserToSubscriptionStore(user: User | null): void {
   if (trialAnchor) {
     subscription.applyServerTrial(trialAnchor, user?.isTrialExpired);
   }
+
+  // Mirror trial/conversion state into analytics (PostHog) so the funnel can be
+  // measured without RevenueCat. The backend remains the source of truth — this
+  // is read-only reporting that refreshes whenever the user record changes
+  // (login, profile fetch, rehydrate). Sign-out (user === null) resets identity.
+  if (!user) {
+    AnalyticsService.reset();
+    return;
+  }
+
+  const trialStartIso = trialAnchor
+    ? (trialAnchor instanceof Date ? trialAnchor.toISOString() : new Date(trialAnchor).toISOString())
+    : undefined;
+
+  AnalyticsService.identify(user.id, {
+    subscriptionStatus: user.subscriptionStatus,
+    trial_started_at: trialStartIso,
+    trial_expired: user.isTrialExpired === true,
+    trial_days_remaining: trialStartIso ? computeDaysRemaining(trialStartIso) : 0,
+    is_comped: user.isComped === true,
+    converted: user.subscriptionStatus.startsWith('pro'),
+    totalAnchorsCreated: user.totalAnchorsCreated,
+    currentStreak: user.currentStreak,
+  });
 }
 
 async function readLegacyAuthStorage(name: string): Promise<string | null> {

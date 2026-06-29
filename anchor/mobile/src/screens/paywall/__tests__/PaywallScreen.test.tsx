@@ -55,6 +55,7 @@ jest.mock('@/services/AnalyticsService', () => ({
   AnalyticsService: {
     track: (...args: any[]) => mockTrack(...args),
   },
+  AnalyticsEvents: jest.requireActual('@/services/AnalyticsService').AnalyticsEvents,
 }));
 
 jest.mock('@/utils/logger', () => ({

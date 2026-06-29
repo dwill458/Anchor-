@@ -272,6 +272,8 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ navigation, route }) =
         provider: 'email',
         context,
       });
+      // No-card trial begins at account creation; mark the funnel entry.
+      AnalyticsService.track(AnalyticsEvents.TRIAL_STARTED, { provider: 'email', context });
       FrictionAnalytics.completeFlow('onboarding_auth', {
         provider: 'email',
         mode: 'signup',
@@ -342,6 +344,9 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ navigation, route }) =
             context,
           }
         );
+        if (tab === 'signup') {
+          AnalyticsService.track(AnalyticsEvents.TRIAL_STARTED, { provider: 'apple', context });
+        }
         FrictionAnalytics.completeFlow('onboarding_auth', {
           provider: 'apple',
           mode: tab,
@@ -388,6 +393,9 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ navigation, route }) =
             context,
           }
         );
+        if (tab === 'signup') {
+          AnalyticsService.track(AnalyticsEvents.TRIAL_STARTED, { provider: 'google', context });
+        }
         FrictionAnalytics.completeFlow('onboarding_auth', {
           provider: 'google',
           mode: tab,
