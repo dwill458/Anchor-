@@ -10,24 +10,59 @@ import { AuthRequest, authMiddleware } from '../middleware/auth';
 import { AppError } from '../middleware/errorHandler';
 import { prisma } from '../../lib/prisma';
 import { env } from '../../config/env';
+import { rasterizeSVG } from '../../utils/svgRasterizer';
+import { uploadImageFromBuffer } from '../../services/StorageService';
 
 const router = Router();
 
 // Zod validation schemas
+const ShippingInfoSchema = z
+  .union([
+    z.object({
+      name: z.string().min(1).max(100),
+      email: z.string().email().optional(),
+      addressLine1: z.string().min(1).max(100),
+      addressLine2: z.string().max(100).optional().nullable(),
+      city: z.string().min(1).max(100),
+      state: z.string().min(1).max(100),
+      postalCode: z.string().min(1).max(20),
+      country: z.string().min(2).max(10),
+    }),
+    z.object({
+      name: z.string().min(1).max(100),
+      email: z.string().email().optional(),
+      address: z.string().min(1).max(100),
+      addressLine2: z.string().max(100).optional().nullable(),
+      city: z.string().min(1).max(100),
+      state: z.string().min(1).max(100),
+      zip: z.string().min(1).max(20),
+      country: z.string().min(2).max(10).optional(),
+    }),
+  ])
+  .transform(value => {
+    if ('addressLine1' in value) {
+      return value;
+    }
+
+    return {
+      name: value.name,
+      email: value.email,
+      addressLine1: value.address,
+      addressLine2: value.addressLine2 ?? null,
+      city: value.city,
+      state: value.state,
+      postalCode: value.zip,
+      country: value.country ?? 'US',
+    };
+  });
+
 const CreateOrderSchema = z.object({
   anchorId: z.string().min(1),
+  sigilSvg: z.string().min(1).optional(),
   productType: z.enum(['print', 'keychain', 'hoodie', 't-shirt', 'phone-case']),
   size: z.string().min(1).max(50).optional(),
   color: z.string().min(1).max(50).optional(),
-  shippingInfo: z.object({
-    name: z.string().min(1).max(100),
-    addressLine1: z.string().min(1).max(100),
-    addressLine2: z.string().max(100).optional().nullable(),
-    city: z.string().min(1).max(100),
-    state: z.string().min(1).max(100),
-    postalCode: z.string().min(1).max(20),
-    country: z.string().min(2).max(10),
-  }),
+  shippingInfo: ShippingInfoSchema,
 });
 
 // All order routes require authentication
@@ -57,7 +92,7 @@ router.post('/', async (req: AuthRequest, res: Response, next: NextFunction) => 
       throw new AppError(`Validation error: ${message}`, 400, 'VALIDATION_ERROR');
     }
 
-    const { anchorId, productType, size, color, shippingInfo } = validationResult.data;
+    const { anchorId, sigilSvg, productType, size, color, shippingInfo } = validationResult.data;
 
     // Get user from database
     const user = await prisma.user.findUnique({
@@ -80,6 +115,28 @@ router.post('/', async (req: AuthRequest, res: Response, next: NextFunction) => 
       throw new AppError('Anchor not found', 404, 'ANCHOR_NOT_FOUND');
     }
 
+    const sourceSvg = sigilSvg || anchor.reinforcedSigilSvg || anchor.baseSigilSvg;
+    if (!sourceSvg) {
+      throw new AppError('Anchor artwork is missing', 400, 'ANCHOR_ARTWORK_MISSING');
+    }
+
+    const rasterizedArtwork = await rasterizeSVG(sourceSvg, {
+      width: 2048,
+      height: 2048,
+      backgroundColor: 'transparent',
+      strokeColor: '#000000',
+      enhanceEdges: false,
+      strokeMultiplier: 1.25,
+      padding: 0.08,
+    });
+
+    const anchorImageUrl = await uploadImageFromBuffer(
+      rasterizedArtwork.buffer,
+      user.id,
+      anchorId,
+      0
+    );
+
     // Calculate pricing (placeholder - would integrate with Printful API)
     const pricing = calculatePricing(productType);
 
@@ -90,7 +147,7 @@ router.post('/', async (req: AuthRequest, res: Response, next: NextFunction) => 
         productType,
         productVariant: `${size} - ${color}`,
         quantity: 1,
-        anchorImageUrl: anchor.enhancedImageUrl || anchor.baseSigilSvg,
+        anchorImageUrl,
         subtotalCents: pricing.subtotal,
         shippingCents: pricing.shipping,
         taxCents: pricing.tax,

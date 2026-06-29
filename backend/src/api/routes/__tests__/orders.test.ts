@@ -18,6 +18,18 @@ jest.mock('../../../config/env', () => ({
     ENABLE_MERCH: true,
   },
 }));
+jest.mock('../../../utils/svgRasterizer', () => ({
+  rasterizeSVG: jest.fn().mockResolvedValue({
+    buffer: Buffer.from('mock-png'),
+    width: 2048,
+    height: 2048,
+    size: 8,
+    processingTimeMs: 1,
+  }),
+}));
+jest.mock('../../../services/StorageService', () => ({
+  uploadImageFromBuffer: jest.fn().mockResolvedValue('https://cdn.example.com/mock.png'),
+}));
 
 // orders.ts uses the shared Prisma singleton.
 const mockPrismaInstance = {
@@ -39,8 +51,12 @@ jest.mock('../../../lib/prisma', () => ({
 
 import { authMiddleware } from '../../middleware/auth';
 import ordersRouter from '../orders';
+import { rasterizeSVG } from '../../../utils/svgRasterizer';
+import { uploadImageFromBuffer } from '../../../services/StorageService';
 
 const mockedAuthMiddleware = authMiddleware as jest.Mock;
+const mockedRasterizeSVG = rasterizeSVG as jest.Mock;
+const mockedUploadImageFromBuffer = uploadImageFromBuffer as jest.Mock;
 
 // ── App setup ─────────────────────────────────────────────────────────────────
 
@@ -79,12 +95,15 @@ const MOCK_ORDER = {
 
 const VALID_CREATE_BODY = {
   anchorId: 'anchor-1',
+  sigilSvg: '<svg viewBox="0 0 100 100"></svg>',
   productType: 'print',
   size: 'M',
   color: 'black',
   shippingInfo: {
     name: 'Jane Doe',
+    email: 'jane@example.com',
     addressLine1: '123 Main St',
+    addressLine2: null,
     city: 'NYC',
     state: 'NY',
     postalCode: '10001',
@@ -109,6 +128,8 @@ describe('POST /api/orders', () => {
     mockPrismaInstance.user.findUnique.mockResolvedValue(MOCK_DB_USER);
     mockPrismaInstance.anchor.findFirst.mockResolvedValue(MOCK_ANCHOR);
     mockPrismaInstance.order.create.mockResolvedValue(MOCK_ORDER);
+    mockedRasterizeSVG.mockClear();
+    mockedUploadImageFromBuffer.mockClear();
   });
 
   it('creates an order and returns 201', async () => {
@@ -130,6 +151,55 @@ describe('POST /api/orders', () => {
           quantity: 1,
           currency: 'USD',
           status: 'pending',
+          anchorImageUrl: 'https://cdn.example.com/mock.png',
+        }),
+      })
+    );
+  });
+
+  it('rasterizes the provided SVG and uploads the generated image', async () => {
+    await request(app).post('/api/orders').send(VALID_CREATE_BODY);
+
+    expect(mockedRasterizeSVG).toHaveBeenCalledWith(
+      VALID_CREATE_BODY.sigilSvg,
+      expect.objectContaining({
+        width: 2048,
+        height: 2048,
+        backgroundColor: 'transparent',
+      })
+    );
+    expect(mockedUploadImageFromBuffer).toHaveBeenCalledWith(
+      expect.any(Buffer),
+      'db-user-1',
+      'anchor-1',
+      0
+    );
+  });
+
+  it('supports legacy shippingInfo field names', async () => {
+    const legacyBody = {
+      ...VALID_CREATE_BODY,
+      shippingInfo: {
+        name: 'Jane Doe',
+        email: 'jane@example.com',
+        address: '123 Main St',
+        city: 'NYC',
+        state: 'NY',
+        zip: '10001',
+      },
+    };
+
+    const res = await request(app).post('/api/orders').send(legacyBody);
+    expect(res.status).toBe(201);
+    expect(mockPrismaInstance.order.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          shippingName: 'Jane Doe',
+          shippingAddress: expect.objectContaining({
+            addressLine1: '123 Main St',
+            postalCode: '10001',
+            country: 'US',
+          }),
         }),
       })
     );

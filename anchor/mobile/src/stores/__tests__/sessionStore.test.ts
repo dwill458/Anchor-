@@ -395,4 +395,62 @@ describe('sessionStore', () => {
       expect(result.current.threadStrength).toBe(100);
     });
   });
+
+  describe('hydrateFromBackend', () => {
+    it('restores backend progress when local session state is partial', () => {
+      const { result } = renderHook(() => useSessionStore());
+      const firstCompletedAt = '2026-06-08T10:00:00.000Z';
+      const secondCompletedAt = '2026-06-09T10:00:00.000Z';
+
+      act(() => {
+        useSessionStore.setState({
+          totalSessionsCount: 1,
+          primingHistory: [],
+          sessionLog: [],
+          threadStrength: 50,
+          lastPrimedAt: null,
+        });
+
+        result.current.hydrateFromBackend({
+          totalActivations: 5,
+          currentStreak: 3,
+          anchors: [{ lastActivatedAt: new Date(secondCompletedAt) }],
+          primingHistory: [
+            {
+              id: 'activation-1',
+              anchorId: 'anchor-1',
+              type: 'activate',
+              completedAt: firstCompletedAt,
+              localDate: localDateString(new Date(firstCompletedAt)),
+              weekKey: '2026-W24',
+              weekStart: '2026-06-08',
+              weekdayIndex: 0,
+              hourOfDay: 10,
+              timeOfDay: 'morning',
+            },
+            {
+              id: 'activation-2',
+              anchorId: 'anchor-1',
+              type: 'reinforce',
+              completedAt: secondCompletedAt,
+              localDate: localDateString(new Date(secondCompletedAt)),
+              weekKey: '2026-W24',
+              weekStart: '2026-06-08',
+              weekdayIndex: 1,
+              hourOfDay: 10,
+              timeOfDay: 'morning',
+            },
+          ],
+        });
+      });
+
+      expect(result.current.totalSessionsCount).toBe(5);
+      expect(result.current.primingHistory).toHaveLength(2);
+      expect(result.current.primingHistory[0]).toEqual(
+        expect.objectContaining({ id: 'activation-2' })
+      );
+      expect(result.current.lastPrimedAt).toBe(localDateString(new Date(secondCompletedAt)));
+      expect(result.current.threadStrength).toBe(75);
+    });
+  });
 });

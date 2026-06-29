@@ -23,10 +23,14 @@ import { useAnchorStore } from '@/stores/anchorStore';
 import { useSettingsStore } from '@/stores/settingsStore';
 import { safeHaptics } from '@/utils/haptics';
 import { OptimizedImage } from '@/components/common';
+import { MicroTeachInline } from '@/components/teaching';
+import { useTeachingGate } from '@/utils/useTeachingGate';
+import { AnalyticsEvents, AnalyticsService } from '@/services/AnalyticsService';
 import type { Anchor, RootStackParamList } from '@/types';
 import { spacing } from '@/theme';
 import { navigateToVaultDestination } from '@/navigation/firstAnchorGate';
 import { isCompactPhoneViewport, isShortPhoneViewport } from '@/utils/layout';
+import { usePrimeSessionAccess } from '@/hooks/usePrimeSessionAccess';
 
 type ChargeSetupRouteProp = RouteProp<RootStackParamList, 'ChargeSetup'>;
 type ChargeSetupNavigationProp = StackNavigationProp<RootStackParamList, 'ChargeSetup'>;
@@ -89,18 +93,25 @@ export const ChargeSetupScreen: React.FC = () => {
   const route = useRoute<ChargeSetupRouteProp>();
   const insets = useSafeAreaInsets();
   const { width: screenWidth, height: screenHeight } = useWindowDimensions();
-  const { anchorId, returnTo, autoStartOnSelection = false } = route.params || {};
+  const { anchorId, returnTo, autoStartOnSelection = false, initialDuration } = route.params || {};
+
+  const chargeSetupTeaching = useTeachingGate({
+    screenId: 'charge_setup',
+    candidateIds: ['charge_setup_first_time_v1'],
+  });
 
   const getAnchorById = useAnchorStore((state) => state.getAnchorById);
   const setDefaultCharge = useSettingsStore((state) => state.setDefaultCharge);
   const anchor = getAnchorById(anchorId);
+  const primeSessionAccess = usePrimeSessionAccess();
 
-  const [selectedDuration, setSelectedDuration] = useState<DurationChoice>('quick');
+  const [selectedDuration, setSelectedDuration] = useState<DurationChoice>(initialDuration ?? 'quick');
   const [reduceMotionEnabled, setReduceMotionEnabled] = useState(false);
   const [isTransitioning, setIsTransitioning] = useState(false);
   const [enhancedArtworkFailed, setEnhancedArtworkFailed] = useState(false);
 
   const isNavigatingRef = useRef(false);
+  const hasAutoStartedRef = useRef(false);
   const isCompactLayout = isCompactPhoneViewport(screenWidth, screenHeight);
   const isShortLayout = isShortPhoneViewport(screenHeight);
   const heroHeight = Math.max(
@@ -206,6 +217,15 @@ export const ChargeSetupScreen: React.FC = () => {
     (choice: DurationChoice = selectedDuration) => {
       if (isNavigatingRef.current || isTransitioning) return;
 
+      const allowance = choice === 'quick' ? primeSessionAccess.focus : primeSessionAccess.deep;
+      if (!allowance.isAllowed) {
+        navigation.navigate('Paywall', {
+          source: 'gated_feature',
+          preferredPlanId: 'annual',
+        });
+        return;
+      }
+
       const config = chargeConfigByChoice[choice];
       isNavigatingRef.current = true;
       setIsTransitioning(true);
@@ -216,10 +236,29 @@ export const ChargeSetupScreen: React.FC = () => {
         customMinutes: config.customMinutes,
       });
 
+      AnalyticsService.track(AnalyticsEvents.CHARGE_STARTED, {
+        anchor_id: anchorId,
+        source: 'charge_setup',
+        mode: choice,
+        duration_seconds: config.durationSeconds,
+        return_to: returnTo,
+      });
+      AnalyticsService.track(
+        choice === 'quick'
+          ? AnalyticsEvents.QUICK_CHARGE_STARTED
+          : AnalyticsEvents.DEEP_CHARGE_STARTED,
+        {
+          anchor_id: anchorId,
+          source: 'charge_setup',
+          duration_seconds: config.durationSeconds,
+          return_to: returnTo,
+        }
+      );
+
       void safeHaptics.impact(Haptics.ImpactFeedbackStyle.Medium);
       navigateToRitual(choice);
     },
-    [isTransitioning, navigateToRitual, selectedDuration, setDefaultCharge]
+    [isTransitioning, navigateToRitual, navigation, primeSessionAccess.deep, primeSessionAccess.focus, selectedDuration, setDefaultCharge]
   );
 
   const handleSelectDuration = useCallback(
@@ -234,6 +273,18 @@ export const ChargeSetupScreen: React.FC = () => {
     },
     [autoStartOnSelection, handleBeginRitual, isTransitioning]
   );
+
+  useEffect(() => {
+    if (!autoStartOnSelection || !initialDuration || !anchor) {
+      return;
+    }
+    if (hasAutoStartedRef.current || isTransitioning) {
+      return;
+    }
+
+    hasAutoStartedRef.current = true;
+    handleBeginRitual(initialDuration);
+  }, [anchor, autoStartOnSelection, handleBeginRitual, initialDuration, isTransitioning]);
 
   const handleBack = useCallback(() => {
     if (isTransitioning) return;
@@ -345,76 +396,87 @@ export const ChargeSetupScreen: React.FC = () => {
           contentContainerStyle={[
             styles.panelContent,
             isCompactLayout && styles.panelContentCompact,
+            { flexGrow: 1, justifyContent: 'space-between' }
           ]}
         >
-          <View style={styles.badgeRow}>
-            <LinearGradient
-              colors={['transparent', 'rgba(212,175,55,0.3)']}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 0 }}
-              style={styles.badgeLine}
+          <View style={styles.topContent}>
+            <View style={styles.badgeRow}>
+              <LinearGradient
+                colors={['transparent', 'rgba(212,175,55,0.3)']}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 0 }}
+                style={styles.badgeLine}
+              />
+              <Text style={styles.badgeText}>ANCHOR FORGED</Text>
+              <LinearGradient
+                colors={['rgba(212,175,55,0.3)', 'transparent']}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 0 }}
+                style={styles.badgeLine}
+              />
+            </View>
+
+            <Text style={[styles.headline, isCompactLayout && styles.headlineCompact]}>The Work Begins Now</Text>
+            <Text style={[styles.subline, isCompactLayout && styles.sublineCompact]}>Fix your anchor in mind.{'\n'}Choose your prime duration.</Text>
+            <Text style={[styles.durationLabel, isCompactLayout && styles.durationLabelCompact]}>SELECT DURATION</Text>
+
+            <MicroTeachInline
+              teaching={chargeSetupTeaching}
+              screenId="charge_setup"
+              style={{ textAlign: 'center', alignSelf: 'center' }}
             />
-            <Text style={styles.badgeText}>ANCHOR FORGED</Text>
-            <LinearGradient
-              colors={['rgba(212,175,55,0.3)', 'transparent']}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 0 }}
-              style={styles.badgeLine}
-            />
+
+            <View style={[styles.cardsRow, isCompactLayout && styles.cardsRowCompact]}>
+              {cards.map((card) => (
+                <TouchableOpacity
+                  key={card.choice}
+                  activeOpacity={0.88}
+                  onPress={() => handleSelectDuration(card.choice)}
+                  accessibilityRole="radio"
+                  accessibilityLabel={`${card.name} duration`}
+                  accessibilityState={{ selected: card.isSelected }}
+                  disabled={isTransitioning}
+                  style={[
+                    styles.durationCard,
+                    isCompactLayout && styles.durationCardCompact,
+                    card.isSelected ? styles.durationCardSelected : null,
+                  ]}
+                >
+                  {card.isSelected ? (
+                    <View style={styles.checkCircle}>
+                      <Text style={styles.checkText}>✓</Text>
+                    </View>
+                  ) : null}
+                  <Text style={[styles.cardIcon, isCompactLayout && styles.cardIconCompact]}>{card.icon}</Text>
+                  <Text style={[styles.cardName, isCompactLayout && styles.cardNameCompact, card.isSelected ? styles.cardNameSelected : null]}>{card.name}</Text>
+                  <Text style={[styles.cardLine, isCompactLayout && styles.cardLineCompact]}>{card.lineOne}</Text>
+                  <Text style={[styles.cardLine, isCompactLayout && styles.cardLineCompact]}>{card.lineTwo}</Text>
+                </TouchableOpacity>
+              ))}
+            </View>
           </View>
 
-          <Text style={[styles.headline, isCompactLayout && styles.headlineCompact]}>The Work Begins Now</Text>
-          <Text style={[styles.subline, isCompactLayout && styles.sublineCompact]}>Fix your anchor in mind.{'\n'}Choose your prime duration.</Text>
-          <Text style={[styles.durationLabel, isCompactLayout && styles.durationLabelCompact]}>SELECT DURATION</Text>
-
-          <View style={[styles.cardsRow, isCompactLayout && styles.cardsRowCompact]}>
-            {cards.map((card) => (
-              <TouchableOpacity
-                key={card.choice}
-                activeOpacity={0.88}
-                onPress={() => handleSelectDuration(card.choice)}
-                accessibilityRole="radio"
-                accessibilityLabel={`${card.name} duration`}
-                accessibilityState={{ selected: card.isSelected }}
-                disabled={isTransitioning}
-                style={[
-                  styles.durationCard,
-                  isCompactLayout && styles.durationCardCompact,
-                  card.isSelected ? styles.durationCardSelected : null,
-                ]}
-              >
-                {card.isSelected ? (
-                  <View style={styles.checkCircle}>
-                    <Text style={styles.checkText}>✓</Text>
-                  </View>
-                ) : null}
-                <Text style={[styles.cardIcon, isCompactLayout && styles.cardIconCompact]}>{card.icon}</Text>
-                <Text style={[styles.cardName, isCompactLayout && styles.cardNameCompact, card.isSelected ? styles.cardNameSelected : null]}>{card.name}</Text>
-                <Text style={[styles.cardLine, isCompactLayout && styles.cardLineCompact]}>{card.lineOne}</Text>
-                <Text style={[styles.cardLine, isCompactLayout && styles.cardLineCompact]}>{card.lineTwo}</Text>
-              </TouchableOpacity>
-            ))}
-          </View>
-
-          <TouchableOpacity
-            onPress={() => handleBeginRitual()}
-            activeOpacity={0.9}
-            disabled={isTransitioning}
-            accessibilityRole="button"
-            accessibilityLabel="BEGIN PRIMING"
-            style={styles.ctaTouchable}
-          >
-            <LinearGradient
-              colors={['#C9A227', '#D4AF37', '#E8C84A']}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 1 }}
-              style={[styles.ctaButton, isCompactLayout && styles.ctaButtonCompact]}
+          <View style={styles.bottomActions}>
+            <TouchableOpacity
+              onPress={() => handleBeginRitual()}
+              activeOpacity={0.9}
+              disabled={isTransitioning}
+              accessibilityRole="button"
+              accessibilityLabel="BEGIN PRIMING"
+              style={styles.ctaTouchable}
             >
-              <Text style={[styles.ctaText, isCompactLayout && styles.ctaTextCompact]}>BEGIN PRIMING</Text>
-            </LinearGradient>
-          </TouchableOpacity>
+              <LinearGradient
+                colors={['#C9A227', '#D4AF37', '#E8C84A']}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+                style={[styles.ctaButton, isCompactLayout && styles.ctaButtonCompact]}
+              >
+                <Text style={[styles.ctaText, isCompactLayout && styles.ctaTextCompact]}>BEGIN PRIMING</Text>
+              </LinearGradient>
+            </TouchableOpacity>
 
-          <Text style={[styles.safetyText, isShortLayout && styles.safetyTextCompact]}>You can stop anytime.</Text>
+            <Text style={[styles.safetyText, isShortLayout && styles.safetyTextCompact]}>You can stop anytime.</Text>
+          </View>
         </ScrollView>
       </View>
 
@@ -764,6 +826,14 @@ const styles = StyleSheet.create({
   safetyTextCompact: {
     marginTop: 12,
     fontSize: 12,
+  },
+  topContent: {
+    width: '100%',
+  },
+  bottomActions: {
+    marginTop: spacing.md,
+    width: '100%',
+    alignItems: 'center',
   },
   errorContainer: {
     flex: 1,

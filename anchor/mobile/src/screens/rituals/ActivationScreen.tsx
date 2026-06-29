@@ -22,7 +22,7 @@ import { colors, spacing, typography } from '@/theme';
 import { apiClient } from '@/services/ApiClient';
 import BackendAnchorService, { isBackendAnchorId } from '@/services/BackendAnchorService';
 import { ErrorTrackingService } from '@/services/ErrorTrackingService';
-import { AnalyticsService } from '@/services/AnalyticsService';
+import { AnalyticsEvents, AnalyticsService } from '@/services/AnalyticsService';
 import { FrictionAnalytics } from '@/services/FrictionAnalytics';
 import {
   recordReviewSignal,
@@ -51,6 +51,7 @@ import {
   isFirstPrimeForAnchor as isAnchorFirstPrime,
   needsChargeStateBackfill,
 } from '@/utils/anchorPriming';
+import { usePrimeSessionAccess } from '@/hooks/usePrimeSessionAccess';
 
 type ActivationRouteProp = RouteProp<RootStackParamList, 'ActivationRitual'>;
 type ActivationNavigationProp = NativeStackNavigationProp<RootStackParamList, 'ActivationRitual'>;
@@ -78,6 +79,7 @@ export const ActivationScreen: React.FC = () => {
   const { handlePrimeComplete } = useNotificationController();
   const beginPostPrimeTraceFlow = usePostPrimeTraceStore((state) => state.beginFlow);
   const activeFlow = usePostPrimeTraceStore((state) => state.activeFlow);
+  const primeSessionAccess = usePrimeSessionAccess();
   const anchor = getAnchorById(anchorId);
   const isPendingFirstAnchor = pendingFirstAnchorDraft?.tempAnchorId === anchorId;
   const anchorHeroUri = anchor
@@ -88,6 +90,33 @@ export const ActivationScreen: React.FC = () => {
   const isAnchorMissing = !anchor;
 
   useMissingAnchorRedirect(!isAnchorMissing, navigation);
+
+  useEffect(() => {
+    if (isAnchorMissing || primeSessionAccess.focus.isAllowed) {
+      return;
+    }
+
+    const parentNavigation = navigation.getParent?.();
+    const task = InteractionManager.runAfterInteractions(() => {
+      navigation.goBack();
+      requestAnimationFrame(() => {
+        if (parentNavigation?.navigate) {
+          parentNavigation.navigate('Paywall', {
+            source: 'gated_feature',
+            preferredPlanId: 'annual',
+          });
+          return;
+        }
+
+        navigation.navigate('Paywall', {
+          source: 'gated_feature',
+          preferredPlanId: 'annual',
+        });
+      });
+    });
+
+    return () => task.cancel();
+  }, [isAnchorMissing, navigation, primeSessionAccess.focus.isAllowed]);
 
   // Ground Note (Pattern 2): shown on first charge session, guide ON
   const groundNoteTeaching = useTeachingGate({
@@ -150,6 +179,19 @@ export const ActivationScreen: React.FC = () => {
     let effectiveAnchorId = anchorId;
     let backendSyncFailed = false;
 
+    const trackActivationCompleted = (backendSynced: boolean, queued = false) => {
+      const properties = {
+        anchor_id: effectiveAnchorId,
+        activation_type: activationType || 'visual',
+        duration_seconds: activationDurationSeconds,
+        backend_synced: backendSynced,
+        queued,
+        is_first_prime: isFirstPrimeForAnchor,
+      };
+      AnalyticsService.track(AnalyticsEvents.ANCHOR_ACTIVATED, properties);
+      AnalyticsService.track(AnalyticsEvents.ACTIVATION_RITUAL_COMPLETED, properties);
+    };
+
     updateAnchor(anchorId, {
       activationCount: currentActivationCount + 1,
       lastActivatedAt: localActivationTime,
@@ -169,6 +211,7 @@ export const ActivationScreen: React.FC = () => {
           queuedAt: localActivationTime.toISOString(),
         });
         toast.success('Prime session saved for your first anchor');
+        trackActivationCompleted(false, true);
         return;
       }
 
@@ -187,6 +230,7 @@ export const ActivationScreen: React.FC = () => {
       if (backendSyncFailed) {
         activationSyncFailedRef.current = true;
         toast.error('Prime session completed but failed to sync. Will retry later.');
+        trackActivationCompleted(false);
         return;
       }
 
@@ -224,6 +268,7 @@ export const ActivationScreen: React.FC = () => {
       }
 
       toast.success('Prime session logged successfully');
+      trackActivationCompleted(true);
     } catch (error) {
       if (error instanceof Error && error.message === 'Anchor not found') {
         activationSyncFailedRef.current = true;
@@ -243,6 +288,7 @@ export const ActivationScreen: React.FC = () => {
 
       activationSyncFailedRef.current = true;
       toast.error('Prime session completed but failed to sync. Will retry later.');
+      trackActivationCompleted(false);
     }
   }, [
     activationDurationSeconds,

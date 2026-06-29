@@ -219,6 +219,31 @@ function derivePrimingHistoryFromSessionLog(sessionLog: unknown): PrimingHistory
     .filter((entry): entry is PrimingHistoryEntry => entry !== null);
 }
 
+function sortPrimingHistory(entries: PrimingHistoryEntry[]): PrimingHistoryEntry[] {
+  return entries
+    .slice()
+    .sort(
+      (left, right) =>
+        new Date(right.completedAt).getTime() - new Date(left.completedAt).getTime()
+    );
+}
+
+function mergePrimingHistory(
+  existingEntries: PrimingHistoryEntry[],
+  incomingEntries: PrimingHistoryEntry[]
+): PrimingHistoryEntry[] {
+  const merged = new Map<string, PrimingHistoryEntry>();
+
+  existingEntries.forEach((entry) => {
+    merged.set(entry.id, entry);
+  });
+  incomingEntries.forEach((entry) => {
+    merged.set(entry.id, entry);
+  });
+
+  return sortPrimingHistory(Array.from(merged.values()));
+}
+
 // ─── Store ────────────────────────────────────────────────────────────────────
 
 export const useSessionStore = create<SessionState>()(
@@ -427,25 +452,37 @@ export const useSessionStore = create<SessionState>()(
       },
 
       hydrateFromBackend: ({ totalActivations, currentStreak, anchors, primingHistory }) => {
-        const { totalSessionsCount } = get();
-
-        // Only seed if the local store is empty but the backend has data.
-        if (totalSessionsCount > 0 || totalActivations === 0) return;
-
+        const state = get();
         const now = new Date();
         const currentWeekKey = isoWeekKey(now);
         const hydratedPrimingHistory = coercePrimingHistory(primingHistory);
-        const sortedPrimingHistory = hydratedPrimingHistory
-          .slice()
-          .sort(
-            (left, right) =>
-              new Date(right.completedAt).getTime() - new Date(left.completedAt).getTime()
-          );
+        const existingPrimingHistory = coercePrimingHistory(state.primingHistory);
+        const sortedPrimingHistory = mergePrimingHistory(
+          existingPrimingHistory,
+          hydratedPrimingHistory
+        );
         const latestAnchorActivation = anchors.reduce<Date | null>((latest, anchor) => {
           if (!anchor.lastActivatedAt) return latest;
           if (!latest || anchor.lastActivatedAt > latest) return anchor.lastActivatedAt;
           return latest;
         }, null);
+        const backendProgressCount = Math.max(totalActivations, hydratedPrimingHistory.length);
+        const localProgressCount = Math.max(
+          state.totalSessionsCount,
+          existingPrimingHistory.length
+        );
+        const hasBackendProgress =
+          backendProgressCount > 0 ||
+          hydratedPrimingHistory.length > 0 ||
+          latestAnchorActivation != null;
+        const backendIsMoreComplete =
+          backendProgressCount > localProgressCount ||
+          hydratedPrimingHistory.length > existingPrimingHistory.length;
+        const shouldSeedEmptyLocalStore = localProgressCount === 0 && hasBackendProgress;
+
+        if (!hasBackendProgress || (!backendIsMoreComplete && !shouldSeedEmptyLocalStore)) {
+          return;
+        }
 
         const mostRecentEntry = sortedPrimingHistory[0] ?? null;
         const lastPrimedAt = mostRecentEntry
@@ -484,7 +521,11 @@ export const useSessionStore = create<SessionState>()(
         }));
 
         set({
-          totalSessionsCount: totalActivations,
+          totalSessionsCount: Math.max(
+            totalActivations,
+            state.totalSessionsCount,
+            sortedPrimingHistory.length
+          ),
           lastPrimedAt,
           threadStrength,
           lastSession: sessionLog[0] ?? null,

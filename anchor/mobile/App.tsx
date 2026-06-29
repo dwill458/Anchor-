@@ -36,26 +36,18 @@ import { RootNavigator } from './src/navigation';
 import { ErrorBoundary } from './src/components/ErrorBoundary';
 import { ToastProvider } from './src/components/ToastProvider';
 import { ForgeMomentOverlay } from './src/components/ForgeMomentOverlay';
-import { useTrialStatus } from './src/hooks/useTrialStatus';
 import { useAuthStore } from './src/stores/authStore';
 import { useAnchorStore } from './src/stores/anchorStore';
 import { useForgeMomentStore } from './src/stores/forgeMomentStore';
 import { useSessionStore } from './src/stores/sessionStore';
 import { useSettingsStore } from './src/stores/settingsStore';
-import { useSubscriptionStore } from './src/stores/subscriptionStore';
 import { SettingsRevealProvider } from './src/components/transitions/SettingsRevealProvider';
 import type { RootNavigatorParamList } from './src/navigation/RootNavigator';
-import {
-  buildExpiredTrialPaywallNavigationState,
-  buildMainRootNavigationState,
-  shouldShowOnboardingFlow,
-} from './src/navigation/rootNavigationState';
+import { shouldShowOnboardingFlow } from './src/navigation/rootNavigationState';
 import type { Anchor } from './src/types';
 import { ErrorTrackingService, setupGlobalErrorHandler } from './src/services/ErrorTrackingService';
 import { PerformanceMonitoring, type PerformanceTrace } from './src/services/PerformanceMonitoring';
-import { AnalyticsService } from './src/services/AnalyticsService';
 import { FrictionAnalytics } from './src/services/FrictionAnalytics';
-import type { FrictionEventProperties } from './src/services/FrictionAnalytics';
 import { monitoringConfig } from './src/config/monitoring';
 import { AuthService } from './src/services/AuthService';
 
@@ -64,6 +56,7 @@ import { encryptedPersistStorage, readSecureValue } from './src/stores/encrypted
 import { logger } from './src/utils/logger';
 import revenueCatService from './src/services/RevenueCatService';
 import NotificationService from './src/services/NotificationService';
+import { AnalyticsEvents, AnalyticsService } from './src/services/AnalyticsService';
 import AuthHydrationService from './src/services/AuthHydrationService';
 import {
   clearPushTokensFromServer,
@@ -225,6 +218,7 @@ export default function App() {
   const computeStreak = useAuthStore((state) => state.computeStreak);
   const user = useAuthStore((state) => state.user);
   const dailyPracticeGoal = useSettingsStore((state) => state.dailyPracticeGoal);
+  const analyticsEnabled = useSettingsStore((state) => state.analyticsEnabled);
   const anchorCount = useAnchorStore((state) => state.anchors.length);
   const lastSessionId = useSessionStore((state) => state.lastSession?.id);
   const activeMilestone = useForgeMomentStore((state) => state.activeMilestone);
@@ -232,9 +226,11 @@ export default function App() {
   const navRef = useNavigationContainerRef<RootNavigatorParamList>();
   const routeNameRef = useRef<string | undefined>(undefined);
   const screenTraceRef = useRef<PerformanceTrace | null>(null);
-  const hasPresentedExpiredPaywallRef = useRef(false);
   const launchOpacity = useRef(new Animated.Value(1)).current;
   const [settingsHydrated, setSettingsHydrated] = React.useState(false);
+  const [analyticsPreferenceHydrated, setAnalyticsPreferenceHydrated] = React.useState(() =>
+    useSettingsStore.persist.hasHydrated()
+  );
   const [launchStateResolved, setLaunchStateResolved] = React.useState(false);
   const [initialNavigationState, setInitialNavigationState] = React.useState<
     InitialState | undefined
@@ -258,31 +254,11 @@ export default function App() {
   // One-shot latch: true once the initial auth restore has settled. Must not
   // track isLoading live — Login/SignUp re-use it and would unmount the app.
   const [initialAuthResolved, setInitialAuthResolved] = React.useState(false);
-  const { hasExpired, isSubscribed } = useTrialStatus();
-  const rcSynced = useSubscriptionStore((state) => state.rcSynced);
-  const devOverrideEnabled = useSubscriptionStore((state) => state.devOverrideEnabled);
-  const remoteCompedAccess = useSubscriptionStore((state) => state.remoteCompedAccess);
-  // Suppress the post-trial paywall until RevenueCat has confirmed entitlement
-  // state at least once this session. On a clean install the persisted store
-  // defaults to "expired", so without this gate a real subscriber would see the
-  // paywall flash before logIn()/refreshTrialStatus() resolves. Dev overrides
-  // and comped access are authoritative immediately and bypass the gate.
-  const entitlementResolved =
-    rcSynced || (__DEV__ && devOverrideEnabled) || remoteCompedAccess;
-  const showExpiredTrialPaywall =
-    !showOnboarding && hasExpired && !isSubscribed && entitlementResolved;
-  const subscriptionStatus = React.useMemo<FrictionEventProperties['subscription_status']>(() => {
-    if (isSubscribed) return 'pro';
-    if (hasExpired) return 'expired';
-    if (!entitlementResolved) return 'unknown';
-    return 'trial';
-  }, [entitlementResolved, hasExpired, isSubscribed]);
   const trackingContext = React.useMemo(
     () => ({
       anchor_count: anchorCount,
-      subscription_status: subscriptionStatus,
     }),
-    [anchorCount, subscriptionStatus]
+    [anchorCount]
   );
   const [fontsLoaded] = useFonts({
     'Cinzel-Regular': Cinzel_400Regular,
@@ -298,6 +274,8 @@ export default function App() {
   // Hold the native splash until fonts are loaded AND auth state is determined,
   // so the first visible frame is never a font-flash or an auth redirect jump.
   const appIsReady = fontsLoaded && launchStateResolved && initialAuthResolved;
+  const effectiveAnalyticsEnabled =
+    process.env.EXPO_PUBLIC_ANALYTICS_ENABLED !== 'false' && analyticsEnabled;
 
   useEffect(() => {
     if (!__DEV__) {
@@ -345,6 +323,17 @@ export default function App() {
     return () => {
       isMounted = false;
     };
+  }, []);
+
+  useEffect(() => {
+    if (useSettingsStore.persist.hasHydrated()) {
+      setAnalyticsPreferenceHydrated(true);
+      return undefined;
+    }
+
+    return useSettingsStore.persist.onFinishHydration(() => {
+      setAnalyticsPreferenceHydrated(true);
+    });
   }, []);
 
   useEffect(() => {
@@ -539,8 +528,15 @@ export default function App() {
     });
     setupGlobalErrorHandler();
     PerformanceMonitoring.initialize({ enabled: true });
-    AnalyticsService.initialize();
   }, []);
+
+  useEffect(() => {
+    if (!analyticsPreferenceHydrated) {
+      return;
+    }
+
+    AnalyticsService.initialize({ enabled: effectiveAnalyticsEnabled });
+  }, [analyticsPreferenceHydrated, effectiveAnalyticsEnabled]);
 
   useEffect(() => {
     if (user?.id) {
@@ -648,6 +644,77 @@ export default function App() {
     };
   }, [user?.id]);
 
+  useEffect(() => {
+    const trackNotificationPayload = (
+      eventName: string,
+      payload: Record<string, unknown>,
+      timestampKey: 'sentAt' | 'openedAt'
+    ) => {
+      const category = typeof payload.category === 'string' ? payload.category : undefined;
+      const templateId = typeof payload.templateId === 'string' ? payload.templateId : undefined;
+      const tone = typeof payload.tone === 'string' ? payload.tone : undefined;
+      const anchorId = typeof payload.anchorId === 'string' ? payload.anchorId : undefined;
+
+      AnalyticsService.track(eventName, {
+        category,
+        templateId,
+        tone,
+        anchorId,
+        [timestampKey]: new Date().toISOString(),
+        completedSessionAfterOpen: timestampKey === 'openedAt' ? false : undefined,
+      });
+    };
+
+    const handleNotificationResponse = (response: Notifications.NotificationResponse) => {
+      const payload = response.notification.request.content.data ?? {};
+      trackNotificationPayload(AnalyticsEvents.NOTIFICATION_OPENED, payload, 'openedAt');
+
+      const action = NotificationService.handleNotificationClick(response);
+      if (!navRef.isReady()) {
+        return;
+      }
+
+      switch (action.action) {
+        case 'open_ritual_reminder':
+        case 'open_daily_reminder':
+        case 'open_streak_protection':
+        case 'open_weekly_summary':
+        case 'open_notification_category':
+          navRef.navigate('Main');
+          break;
+        case 'unknown':
+        default:
+          break;
+      }
+    };
+
+    const subscription = Notifications.addNotificationResponseReceivedListener(
+      handleNotificationResponse
+    );
+    const receivedSubscription = Notifications.addNotificationReceivedListener((notification) => {
+      trackNotificationPayload(
+        AnalyticsEvents.NOTIFICATION_SENT,
+        notification.request.content.data ?? {},
+        'sentAt'
+      );
+    });
+
+    Notifications.getLastNotificationResponseAsync()
+      .then((response) => {
+        if (response) {
+          handleNotificationResponse(response);
+        }
+      })
+      .catch((error) => {
+        logger.warn('[Notifications] Failed to read launch notification response', error);
+      });
+
+    return () => {
+      subscription.remove();
+      receivedSubscription.remove();
+    };
+  }, [navRef]);
+
 
 
   useEffect(() => {
@@ -668,31 +735,6 @@ export default function App() {
       screenTraceRef.current = null;
     };
   }, []);
-
-  useEffect(() => {
-    if (!navRef.isReady()) {
-      return;
-    }
-
-    const currentRouteName = navRef.getCurrentRoute()?.name;
-    if (!currentRouteName) {
-      return;
-    }
-
-    if (showExpiredTrialPaywall) {
-      if (!hasPresentedExpiredPaywallRef.current) {
-        hasPresentedExpiredPaywallRef.current = true;
-        navRef.resetRoot(buildExpiredTrialPaywallNavigationState());
-      }
-      return;
-    }
-
-    hasPresentedExpiredPaywallRef.current = false;
-
-    if (currentRouteName === 'Paywall') {
-      navRef.resetRoot(buildMainRootNavigationState());
-    }
-  }, [navRef, showExpiredTrialPaywall]);
 
   if (!appIsReady) {
     return <View style={styles.fontLoadingFallback} />;

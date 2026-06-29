@@ -18,6 +18,8 @@ import { safeHaptics } from '@/utils/haptics';
 import type { AIStyle, RootStackParamList, SigilVariant } from '@/types';
 import { colors, spacing, typography } from '@/theme';
 import { ZenBackground } from '@/components/common';
+import { MicroTeachInline } from '@/components/teaching';
+import { useTeachingGate } from '@/utils/useTeachingGate';
 import { API_URL } from '@/config';
 
 type StyleCategory = 'all' | 'modern' | 'luminous' | 'mystic' | 'geometric' | 'organic';
@@ -187,6 +189,11 @@ export default function RefineExpressionScreen() {
   const navigation = useNavigation<StyleSelectionNavigationProp>();
   const insets = useSafeAreaInsets();
 
+  const styleTeaching = useTeachingGate({
+    screenId: 'style_selection',
+    candidateIds: ['style_selection_first_time_v1'],
+  });
+
   const params = (route.params ?? {}) as StyleSelectionParams;
   const intention = (params.intention ?? params.intentionText ?? '').trim();
   const sigilSvg = params.sigilSvg ?? params.reinforcedSigilSvg ?? params.baseSigilSvg;
@@ -313,6 +320,7 @@ export default function RefineExpressionScreen() {
         <View style={styles.heroBlock}>
           <Text style={styles.heroTitle}>Refine Expression</Text>
           <Text style={styles.heroSubtitle}>Adjust the finish. The structure remains unchanged.</Text>
+          <MicroTeachInline teaching={styleTeaching} screenId="style_selection" />
         </View>
 
         <View style={styles.lockRow}>

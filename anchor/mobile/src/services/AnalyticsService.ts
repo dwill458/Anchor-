@@ -18,6 +18,13 @@ export interface UserProperties {
   subscriptionStatus?: string;
   totalAnchorsCreated?: number;
   currentStreak?: number;
+  // Trial / conversion funnel (no-card trial is tracked here since RevenueCat
+  // only sees store entitlements, not the account-bound trial).
+  trial_started_at?: string;
+  trial_expired?: boolean;
+  trial_days_remaining?: number;
+  is_comped?: boolean;
+  converted?: boolean;
 }
 
 /**
@@ -111,9 +118,39 @@ class Analytics {
   private userProperties: UserProperties = {};
   private posthog: any = null;
   private initialized = false;
+  private posthogApiKey = '';
+  private posthogHost = DEFAULT_POSTHOG_HOST;
 
   private canSendToPostHog(): boolean {
     return this.enabled && this.posthog != null;
+  }
+
+  private readConfig(config?: AnalyticsConfig): void {
+    this.posthogApiKey =
+      config?.posthogApiKey ?? readPublicEnv(process.env.EXPO_PUBLIC_POSTHOG_API_KEY);
+    const posthogHost =
+      config?.posthogHost ?? readPublicEnv(process.env.EXPO_PUBLIC_POSTHOG_HOST);
+    this.posthogHost = posthogHost || DEFAULT_POSTHOG_HOST;
+  }
+
+  private ensurePostHogClient(): boolean {
+    if (this.posthog) {
+      return true;
+    }
+
+    if (!this.posthogApiKey) {
+      return false;
+    }
+
+    this.posthog = new PostHog(this.posthogApiKey, {
+      host: this.posthogHost,
+      disabled: !this.enabled,
+      disableGeoip: true,
+      enableSessionReplay: false,
+      captureAppLifecycleEvents: true,
+    });
+
+    return true;
   }
 
   private safelyCallPostHog(action: string, callback: () => void): void {
@@ -134,10 +171,16 @@ class Analytics {
   initialize(config?: AnalyticsConfig): void {
     const envEnabled = process.env.EXPO_PUBLIC_ANALYTICS_ENABLED !== 'false';
     this.enabled = config?.enabled ?? envEnabled;
+    this.readConfig(config);
 
     logger.info('[Analytics] Initialized', { enabled: this.enabled });
 
     if (this.initialized) {
+      if (this.enabled && !this.ensurePostHogClient()) {
+        logger.warn('[Analytics] PostHog missing API key');
+        return;
+      }
+
       try {
         this.posthog?.[this.enabled ? 'optIn' : 'optOut']?.();
       } catch (error) {
@@ -146,28 +189,17 @@ class Analytics {
       return;
     }
 
-    const posthogApiKey =
-      config?.posthogApiKey ?? readPublicEnv(process.env.EXPO_PUBLIC_POSTHOG_API_KEY);
-    const posthogHost =
-      config?.posthogHost ??
-      readPublicEnv(process.env.EXPO_PUBLIC_POSTHOG_HOST) ??
-      DEFAULT_POSTHOG_HOST;
+    this.initialized = true;
 
-    if (!this.enabled || !posthogApiKey) {
-      this.initialized = true;
-      logger.warn('[Analytics] PostHog disabled or missing API key');
+    if (!this.enabled) {
+      logger.warn('[Analytics] PostHog disabled');
       return;
     }
 
-    this.posthog = new PostHog(posthogApiKey, {
-      host: posthogHost || DEFAULT_POSTHOG_HOST,
-      disabled: !this.enabled,
-      disableGeoip: true,
-      enableSessionReplay: false,
-      captureAppLifecycleEvents: true,
-    });
-
-    this.initialized = true;
+    if (!this.ensurePostHogClient()) {
+      logger.warn('[Analytics] PostHog missing API key');
+      return;
+    }
   }
 
   /**
@@ -274,6 +306,16 @@ class Analytics {
 
     logger.info('[Analytics] Set enabled', enabled);
 
+    if (enabled && !this.initialized) {
+      this.initialize({ enabled });
+      return;
+    }
+
+    if (enabled && !this.ensurePostHogClient()) {
+      logger.warn('[Analytics] PostHog missing API key');
+      return;
+    }
+
     try {
       this.posthog?.[enabled ? 'optIn' : 'optOut']?.();
     } catch (error) {
@@ -337,6 +379,11 @@ export const AnalyticsEvents = {
   UPGRADE_INITIATED: 'upgrade_initiated',
   BURN_TO_MAKE_ROOM_INITIATED: 'burn_to_make_room_initiated',
 
+  // Trial lifecycle (no-card trial — funnel measured here, not via RevenueCat)
+  TRIAL_STARTED: 'trial_started',
+  TRIAL_EXPIRED: 'trial_expired',
+  TRIAL_CONVERTED: 'trial_converted',
+
   // Features
   MANUAL_FORGE_OPENED: 'manual_forge_opened',
   MANUAL_FORGE_COMPLETED: 'manual_forge_completed',
@@ -347,6 +394,15 @@ export const AnalyticsEvents = {
   DISCOVER_VIEWED: 'discover_viewed',
   SHOP_VIEWED: 'shop_viewed',
   PROFILE_VIEWED: 'profile_viewed',
+
+  // Notifications
+  NOTIFICATION_PERMISSION_PROMPT_SHOWN: 'notification_permission_prompt_shown',
+  NOTIFICATION_PERMISSION_GRANTED: 'notification_permission_granted',
+  NOTIFICATION_PERMISSION_DENIED: 'notification_permission_denied',
+  NOTIFICATION_SCHEDULED: 'notification_scheduled',
+  NOTIFICATION_SENT: 'notification_sent',
+  NOTIFICATION_OPENED: 'notification_opened',
+  NOTIFICATION_ACTION_COMPLETED: 'notification_action_completed',
 
   // Merch / Physical Anchors
   MERCH_INITIATED_FROM_ANCHOR_DETAILS: 'merch_initiated_from_anchor_details',

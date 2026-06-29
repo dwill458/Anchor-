@@ -100,15 +100,73 @@ export interface EnhancementMetadata {
 // ============================================================================
 
 /**
- * Available anchor categories
+ * Available anchor categories with keywords
  */
 export type AnchorCategory =
-  | 'career'
+  | 'desire'
   | 'health'
-  | 'wealth'
+  | 'career'
   | 'relationships'
-  | 'personal_growth'
+  | 'creativity'
+  | 'spirituality'
+  | 'abundance'
+  | 'family'
+  | 'learning'
+  | 'adventure'
   | 'custom';
+
+/**
+ * Category metadata with keywords and descriptions
+ */
+export const CATEGORY_METADATA: Record<
+  AnchorCategory,
+  { keywords: string[]; description: string }
+> = {
+  desire: {
+    keywords: ['passion', 'attraction', 'want', 'goal', 'aspiration', 'longing'],
+    description: 'Personal desires, passions, and aspirations',
+  },
+  health: {
+    keywords: ['wellness', 'fitness', 'healing', 'vitality', 'energy', 'recovery'],
+    description: 'Physical and mental wellbeing',
+  },
+  career: {
+    keywords: ['work', 'professional', 'job', 'success', 'ambition', 'calling'],
+    description: 'Career growth and professional development',
+  },
+  relationships: {
+    keywords: ['love', 'connection', 'friendship', 'intimacy', 'bond', 'partnership'],
+    description: 'Romantic and personal relationships',
+  },
+  creativity: {
+    keywords: ['art', 'expression', 'innovation', 'craft', 'creation', 'inspiration'],
+    description: 'Creative pursuits and artistic expression',
+  },
+  spirituality: {
+    keywords: ['meditation', 'mindfulness', 'sacred', 'consciousness', 'awakening', 'purpose'],
+    description: 'Spiritual growth and inner awareness',
+  },
+  abundance: {
+    keywords: ['finances', 'prosperity', 'wealth', 'money', 'flow', 'generosity'],
+    description: 'Financial wellbeing and material abundance',
+  },
+  family: {
+    keywords: ['parents', 'children', 'siblings', 'kin', 'home', 'belonging'],
+    description: 'Family bonds and household harmony',
+  },
+  learning: {
+    keywords: ['education', 'skill', 'knowledge', 'growth', 'mastery', 'development'],
+    description: 'Learning, education, and skill development',
+  },
+  adventure: {
+    keywords: ['travel', 'exploration', 'experience', 'journey', 'discovery', 'freedom'],
+    description: 'Travel, exploration, and new experiences',
+  },
+  custom: {
+    keywords: ['personal', 'unique', 'bespoke'],
+    description: 'Custom intention categories',
+  },
+};
 
 /**
  * Planetary Tier for Anchor classification (5-tier system)
@@ -122,15 +180,25 @@ export enum PlanetaryTier {
 }
 
 /**
- * Maps legacy categories to the new 5-tier planetary system
+ * Maps anchor categories to the 5-tier planetary system
+ * Saturn: Discipline, boundaries, structure
+ * Jupiter: Growth, expansion, abundance
+ * Mars: Action, energy, physicality
+ * Sun: Identity, clarity, authenticity
+ * Venus: Harmony, peace, relationships
  */
 export const CATEGORY_TO_TIER: Record<AnchorCategory, PlanetaryTier> = {
-  career: PlanetaryTier.JUPITER,
-  wealth: PlanetaryTier.JUPITER,
-  health: PlanetaryTier.MARS,
-  relationships: PlanetaryTier.VENUS,
-  personal_growth: PlanetaryTier.SATURN,
-  custom: PlanetaryTier.SATURN,
+  desire: PlanetaryTier.JUPITER, // Growth and expansion of aspirations
+  health: PlanetaryTier.MARS, // Physical energy and vitality
+  career: PlanetaryTier.JUPITER, // Professional growth and expansion
+  relationships: PlanetaryTier.VENUS, // Harmony and connection
+  creativity: PlanetaryTier.SUN, // Self-expression and identity
+  spirituality: PlanetaryTier.SATURN, // Discipline and inner structure
+  abundance: PlanetaryTier.JUPITER, // Material growth and expansion
+  family: PlanetaryTier.VENUS, // Harmony within the home
+  learning: PlanetaryTier.SATURN, // Discipline and mastery
+  adventure: PlanetaryTier.MARS, // Action and physicality
+  custom: PlanetaryTier.SATURN, // User-defined structure
 };
 
 // ============================================================================
@@ -364,7 +432,17 @@ export function isSigilVariant(value: string): value is SigilVariant {
  * Type guard for AnchorCategory
  */
 export function isAnchorCategory(value: string): value is AnchorCategory {
-  return ['career', 'health', 'wealth', 'relationships', 'personal_growth', 'custom'].includes(
-    value
-  );
+  return [
+    'desire',
+    'health',
+    'career',
+    'relationships',
+    'creativity',
+    'spirituality',
+    'abundance',
+    'family',
+    'learning',
+    'adventure',
+    'custom',
+  ].includes(value);
 }

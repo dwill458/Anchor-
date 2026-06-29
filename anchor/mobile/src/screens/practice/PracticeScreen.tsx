@@ -32,6 +32,8 @@ import { AnchorHero } from './components/AnchorHero';
 import { AnchorSelectorSheet } from './components/AnchorSelectorSheet';
 import { DailyGoalProgressCard } from './components/DailyGoalProgressCard';
 import { ThreadStrengthBlock, getThreadState } from './components/ThreadStrengthBlock';
+import { MicroTeachCard, MicroTeachInfoChip } from '@/components/teaching';
+import { useTeachingGate } from '@/utils/useTeachingGate';
 // DEFERRED: replaced by PracticeInfoModal to preserve rollback path — remove post-launch.
 // import { InfoSheet } from './components/InfoSheet';
 import { ModePortalTile } from './components/ModePortalTile';
@@ -39,6 +41,7 @@ import { PracticeHubHeader } from './components/PracticeHubHeader';
 import { resolveBurnArtworkUri } from '@/screens/rituals/utils/resolveBurnArtworkUri';
 import { useAppPerformanceTier } from '@/hooks/useAppPerformanceTier';
 import { useNotificationController } from '@/hooks/useNotificationController';
+import { usePrimeSessionAccess } from '@/hooks/usePrimeSessionAccess';
 import { ConfirmUnchargedBurnSheet } from '@/components/modals/ConfirmUnchargedBurnSheet';
 
 type PracticeNavigationProp = StackNavigationProp<PracticeStackParamList, 'PracticeHome'>;
@@ -88,6 +91,9 @@ export const PracticeScreen: React.FC = () => {
   useNotificationController();
 
   const navigation = useNavigation<PracticeNavigationProp>();
+  const rootNavigation = navigation as unknown as {
+    navigate: (screen: string, params?: unknown) => void;
+  };
   const { navigateToVault, registerTabNav, activeTabIndex } = useTabNavigation();
   const isPracticeTabActive = activeTabIndex == null ? true : activeTabIndex === 1;
   const insets = useSafeAreaInsets();
@@ -106,6 +112,7 @@ export const PracticeScreen: React.FC = () => {
   const weekHistory = useSessionStore((s) => s.weekHistory);
   const applyDecay = useSessionStore((s) => s.applyDecay);
   const primingHistory = useSessionStore((s) => s.primingHistory);
+  const primeSessionAccess = usePrimeSessionAccess();
 
   // Self-healing thread/progress restore: if priming history is empty (e.g. a
   // failed/empty launch hydration), re-fetch the account export and rehydrate
@@ -127,6 +134,11 @@ export const PracticeScreen: React.FC = () => {
   const [autoTeachingSeen, setAutoTeachingSeen] = useState<boolean | null>(null);
   const [confirmUnchargedBurnVisible, setConfirmUnchargedBurnVisible] = useState(false);
   const [threadSheetVisible, setThreadSheetVisible] = useState(false);
+
+  const threadStrengthTeaching = useTeachingGate({
+    screenId: 'practice_home',
+    candidateIds: ['practice_thread_strength_v1'],
+  });
 
   useEffect(() => {
     registerTabNav(1, navigation);
@@ -336,19 +348,45 @@ export const PracticeScreen: React.FC = () => {
 
   const startCharge = useCallback(
     (anchor: Anchor, durationSecondsOverride?: number) => {
+      if (!primeSessionAccess.deep.isAllowed) {
+        rootNavigation.navigate('Paywall', {
+          source: 'gated_feature',
+          preferredPlanId: 'annual',
+        });
+        return;
+      }
+
       safeHaptics.selection();
-      navigateToVault('Ritual', {
+      if (durationSecondsOverride != null) {
+        navigateToVault('Ritual', {
+          anchorId: anchor.id,
+          ritualType: 'ritual',
+          durationSeconds: durationSecondsOverride,
+          returnTo: 'practice',
+        });
+        return;
+      }
+
+      navigateToVault('ChargeSetup', {
         anchorId: anchor.id,
-        ritualType: 'ritual',
-        durationSeconds: durationSecondsOverride ?? defaultDeepChargeSeconds,
         returnTo: 'practice',
+        initialDuration: 'deep',
+        autoStartOnSelection: true,
       });
     },
-    [defaultDeepChargeSeconds, navigateToVault]
+    [navigateToVault, primeSessionAccess.deep.isAllowed, rootNavigation]
   );
 
   const startQuickActivate = useCallback(
     (anchor: Anchor, durationOverride = focusSessionDuration) => {
+      if (!primeSessionAccess.focus.isAllowed) {
+        rootNavigation.navigate('Paywall', {
+          source: 'gated_feature',
+          preferredPlanId: 'annual',
+        });
+        return;
+      }
+
       safeHaptics.selection();
       navigateToVault('ActivationRitual', {
         anchorId: anchor.id,
@@ -357,7 +395,7 @@ export const PracticeScreen: React.FC = () => {
         returnTo: 'practice',
       });
     },
-    [focusSessionDuration, navigateToVault]
+    [focusSessionDuration, navigateToVault, primeSessionAccess.focus.isAllowed, rootNavigation]
   );
 
   const startBurn = useCallback(
@@ -559,6 +597,20 @@ export const PracticeScreen: React.FC = () => {
             </Pressable>
           </Animated.View>
 
+          <Animated.View style={[threadStyle, styles.threadTeachingRow]}>
+            <MicroTeachInfoChip
+              teachingIds="practice_thread_strength_v1"
+              screenId="practice_home"
+              sheetTitle="Thread Strength"
+            />
+          </Animated.View>
+
+          <MicroTeachCard
+            teaching={threadStrengthTeaching}
+            screenId="practice_home"
+            style={styles.threadTeachingCard}
+          />
+
           <Animated.View style={threadStyle}>
             <DailyGoalProgressCard
               completedCount={completedGoalSessions}
@@ -720,6 +772,14 @@ const styles = StyleSheet.create({
   },
   portalsWrap: {
     gap: spacing.sm,
+  },
+  threadTeachingRow: {
+    marginTop: spacing.xs,
+    marginBottom: spacing.sm,
+    alignItems: 'flex-start',
+  },
+  threadTeachingCard: {
+    marginBottom: spacing.md,
   },
   threadPressable: {
     position: 'relative',

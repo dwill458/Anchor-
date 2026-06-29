@@ -26,13 +26,15 @@ import * as AppleAuthentication from 'expo-apple-authentication';
 import { colors, typography } from '@/theme';
 import { ENABLE_GOOGLE_SIGN_IN } from '@/config';
 import { useAuthStore } from '../../stores/authStore';
+import { useSubscriptionStore } from '../../stores/subscriptionStore';
 import { AuthService } from '../../services/AuthService';
+import { AnalyticsEvents, AnalyticsService } from '@/services/AnalyticsService';
 import { FrictionAnalytics } from '@/services/FrictionAnalytics';
 import PostAuthFlowService from '../../services/PostAuthFlowService';
+import { navigateToVaultDestination } from '@/navigation/firstAnchorGate';
 import type {
   AuthScreenInitialTab,
   AuthScreenParams,
-  OnboardingStackParamList,
   RootStackParamList,
 } from '@/types';
 
@@ -63,7 +65,9 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ navigation, route }) =
   const [isAppleAvailable, setIsAppleAvailable] = useState(false);
 
   const hasCompletedOnboarding = useAuthStore((state) => state.hasCompletedOnboarding);
+  const setPreferredPlanId = useSubscriptionStore((state) => state.setPreferredPlanId);
   const context = route?.params?.context;
+  const preferredPlanId = route?.params?.preferredPlanId;
 
   useEffect(() => {
     setTab(initialTab);
@@ -135,15 +139,51 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ navigation, route }) =
     }
   };
 
+  const shouldMarkOnboardingCompletedForAuth = () =>
+    context == null ||
+    context === 'onboarding' ||
+    context === 'first_anchor_gate' ||
+    context === 'save_progress' ||
+    context === 'paywall';
+
+  const navigateAfterSuccessfulAuth = (target: 'Vault' | 'FirstAnchorAccountGate') => {
+    const routeNames = (navigation.getState?.().routeNames ?? []) as readonly string[];
+
+    if (routeNames.includes(target)) {
+      if (target === 'Vault') {
+        navigateToVaultDestination(navigation, 'replace');
+        return;
+      }
+
+      navigation.replace(target);
+      return;
+    }
+
+    // Profile/settings auth is presented as a modal stack over Main. Close it
+    // after sign-in so the user returns to the now-authenticated app surface.
+    if (
+      target === 'Vault' &&
+      (routeNames.includes('Profile') || routeNames.includes('Settings')) &&
+      navigation.canGoBack()
+    ) {
+      navigation.goBack();
+    }
+  };
+
   const completeAuth = async (result: Awaited<ReturnType<typeof AuthService.signInWithEmail>>) => {
+    if (preferredPlanId) {
+      setPreferredPlanId(preferredPlanId);
+    }
+
+    const shouldCompleteOnboardingAfterAuth =
+      hasCompletedOnboarding ||
+      shouldMarkOnboardingCompletedForAuth();
+
     await PostAuthFlowService.run({
       user: result.user,
       token: result.token,
-      preserveCompletedOnboarding:
-        hasCompletedOnboarding ||
-        context === 'first_anchor_gate' ||
-        context === 'save_progress' ||
-        context === 'paywall',
+      preserveCompletedOnboarding: shouldCompleteOnboardingAfterAuth,
+      launchTrialPurchase: false,
     });
 
     const shouldRouteThroughFirstAnchorGate = Boolean(
@@ -151,13 +191,15 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ navigation, route }) =
     );
 
     if (context === 'first_anchor_gate') {
-      navigation.replace('FirstAnchorAccountGate');
+      navigateAfterSuccessfulAuth('FirstAnchorAccountGate');
     } else if (context === 'save_progress' && shouldRouteThroughFirstAnchorGate) {
-      navigation.replace('FirstAnchorAccountGate');
+      navigateAfterSuccessfulAuth('FirstAnchorAccountGate');
     } else if (context === 'save_progress') {
-      navigation.replace('Vault');
+      navigateAfterSuccessfulAuth('Vault');
     } else if (context === 'paywall') {
-      navigation.replace('Vault');
+      navigateAfterSuccessfulAuth('Vault');
+    } else if (context == null || context === 'onboarding') {
+      navigateAfterSuccessfulAuth('Vault');
     }
   };
 
@@ -177,10 +219,14 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ navigation, route }) =
     });
     try {
       const result = await AuthService.signInWithEmail(email, password, {
-        hasCompletedOnboarding:
-          context === 'first_anchor_gate' || context === 'save_progress' ? true : undefined,
+        hasCompletedOnboarding: shouldMarkOnboardingCompletedForAuth() ? true : undefined,
+        allowBackendCreate: false,
       });
       await completeAuth(result);
+      AnalyticsService.track(AnalyticsEvents.SIGN_IN_COMPLETED, {
+        provider: 'email',
+        context,
+      });
       FrictionAnalytics.completeFlow('onboarding_auth', {
         provider: 'email',
         mode: 'signin',
@@ -218,10 +264,16 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ navigation, route }) =
     });
     try {
       const result = await AuthService.signUpWithEmail(email, password, name, {
-        hasCompletedOnboarding:
-          context === 'first_anchor_gate' || context === 'save_progress' ? true : undefined,
+        hasCompletedOnboarding: shouldMarkOnboardingCompletedForAuth() ? true : undefined,
+        allowBackendCreate: true,
       });
       await completeAuth(result);
+      AnalyticsService.track(AnalyticsEvents.SIGN_UP_COMPLETED, {
+        provider: 'email',
+        context,
+      });
+      // No-card trial begins at account creation; mark the funnel entry.
+      AnalyticsService.track(AnalyticsEvents.TRIAL_STARTED, { provider: 'email', context });
       FrictionAnalytics.completeFlow('onboarding_auth', {
         provider: 'email',
         mode: 'signup',
@@ -249,15 +301,20 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ navigation, route }) =
 
   const handleForgotPassword = async () => {
     resetError();
-    if (!email.trim()) {
+    const resetEmail = email.trim().toLowerCase();
+
+    if (!resetEmail) {
       setError('Enter your email first to reset your password');
       return;
     }
 
     setLoading(true);
     try {
-      await AuthService.sendPasswordResetEmail(email);
-      Alert.alert('Reset email sent', `A reset link was sent to ${email.trim()}.`);
+      await AuthService.sendPasswordResetEmail(resetEmail);
+      Alert.alert(
+        'Reset email sent',
+        `If an Anchor account exists for ${resetEmail}, a reset link will arrive shortly.`
+      );
     } catch (err: any) {
       setError(err.message || 'Unable to send password reset email');
     } finally {
@@ -275,8 +332,21 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ navigation, route }) =
     });
     void (async () => {
       try {
-        const result = await AuthService.signInWithApple();
+        const result = await AuthService.signInWithApple({
+          hasCompletedOnboarding: shouldMarkOnboardingCompletedForAuth() ? true : undefined,
+          allowBackendCreate: !isSignIn,
+        });
         await completeAuth(result);
+        AnalyticsService.track(
+          tab === 'signup' ? AnalyticsEvents.SIGN_UP_COMPLETED : AnalyticsEvents.SIGN_IN_COMPLETED,
+          {
+            provider: 'apple',
+            context,
+          }
+        );
+        if (tab === 'signup') {
+          AnalyticsService.track(AnalyticsEvents.TRIAL_STARTED, { provider: 'apple', context });
+        }
         FrictionAnalytics.completeFlow('onboarding_auth', {
           provider: 'apple',
           mode: tab,
@@ -311,8 +381,21 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ navigation, route }) =
     });
     void (async () => {
       try {
-        const result = await AuthService.signInWithGoogle();
+        const result = await AuthService.signInWithGoogle({
+          hasCompletedOnboarding: shouldMarkOnboardingCompletedForAuth() ? true : undefined,
+          allowBackendCreate: !isSignIn,
+        });
         await completeAuth(result);
+        AnalyticsService.track(
+          tab === 'signup' ? AnalyticsEvents.SIGN_UP_COMPLETED : AnalyticsEvents.SIGN_IN_COMPLETED,
+          {
+            provider: 'google',
+            context,
+          }
+        );
+        if (tab === 'signup') {
+          AnalyticsService.track(AnalyticsEvents.TRIAL_STARTED, { provider: 'google', context });
+        }
         FrictionAnalytics.completeFlow('onboarding_auth', {
           provider: 'google',
           mode: tab,

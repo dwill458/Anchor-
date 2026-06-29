@@ -46,6 +46,8 @@ export interface EnvConfig {
   // Monitoring
   SENTRY_DSN?: string;
   SENTRY_TRACES_SAMPLE_RATE: number;
+  POSTHOG_API_KEY?: string;
+  POSTHOG_HOST: string;
 }
 
 class EnvValidationError extends Error {
@@ -218,6 +220,9 @@ export function validateEnv(): EnvConfig {
           validateNumber('SENTRY_TRACES_SAMPLE_RATE', process.env.SENTRY_TRACES_SAMPLE_RATE, 0.1)
         )
       ),
+      POSTHOG_API_KEY: validateString('POSTHOG_API_KEY', process.env.POSTHOG_API_KEY),
+      POSTHOG_HOST:
+        validateString('POSTHOG_HOST', process.env.POSTHOG_HOST) ?? 'https://us.i.posthog.com',
     };
 
     // In production, critical variables must be present.

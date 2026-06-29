@@ -229,6 +229,204 @@ export const TEACHINGS: Record<string, TeachingContent> = {
     cooldownMs: 0,
   },
 
+  // ── Mid Creation Flow ───────────────────────────────────────────────────────
+
+  distillation_first_time_v1: {
+    teachingId: 'distillation_first_time_v1',
+    screen: 'distillation',
+    trigger: 'first_time',
+    guideOnly: true,
+    tier: 'both',
+    copy: 'Your words are distilling into a smaller signal.',
+    copySecondary: 'From sentence to symbol.',
+    pattern: 'bottom_hint',
+    tone: 'grounding',
+    maxShows: 1,
+    cooldownMs: 0,
+  },
+
+  structure_forge_first_time_v1: {
+    teachingId: 'structure_forge_first_time_v1',
+    screen: 'structure_forge',
+    trigger: 'first_time',
+    guideOnly: true,
+    tier: 'both',
+    copy: "The structure is the anchor's foundation. Choose focus, not decoration.",
+    pattern: 'inline_whisper',
+    tone: 'grounding',
+    maxShows: 1,
+    cooldownMs: 0,
+  },
+
+  lock_structure_first_time_v1: {
+    teachingId: 'lock_structure_first_time_v1',
+    screen: 'lock_structure',
+    trigger: 'first_time',
+    guideOnly: true,
+    tier: 'both',
+    copy: 'Locking preserves the core form so the anchor stays tied to your intention.',
+    pattern: 'bottom_hint',
+    tone: 'grounding',
+    maxShows: 1,
+    cooldownMs: 0,
+  },
+
+  enhancement_choice_first_time_v1: {
+    teachingId: 'enhancement_choice_first_time_v1',
+    screen: 'enhancement_choice',
+    trigger: 'first_time',
+    guideOnly: true,
+    tier: 'both',
+    title: 'Keep or refine',
+    copy: 'AI styling changes the visual finish, not the structure. Your original anchor stays the source.',
+    pattern: 'glass_card',
+    tone: 'reframe',
+    maxShows: 1,
+    cooldownMs: 0,
+  },
+
+  style_selection_first_time_v1: {
+    teachingId: 'style_selection_first_time_v1',
+    screen: 'style_selection',
+    trigger: 'first_time',
+    guideOnly: true,
+    tier: 'both',
+    copy: 'Styles change the finish, not the meaning. Choose what draws your eye.',
+    pattern: 'inline_whisper',
+    tone: 'whisper',
+    maxShows: 1,
+    cooldownMs: 0,
+  },
+
+  // ── Practice / Focus ────────────────────────────────────────────────────────
+
+  practice_thread_strength_v1: {
+    teachingId: 'practice_thread_strength_v1',
+    screen: 'practice_home',
+    trigger: 'first_time',
+    guideOnly: true,
+    tier: 'both',
+    title: 'Thread Strength',
+    copy: 'Thread Strength reflects recent practice. It can fade, but it can also rebuild.',
+    pattern: 'glass_card',
+    tone: 'grounding',
+    maxShows: 1,
+    cooldownMs: 0,
+  },
+
+  // The three practice modes — rendered as stacked blocks in the modes
+  // explainer sheet. Ungated (shown on demand via an info chip).
+  mode_prime_v1: {
+    teachingId: 'mode_prime_v1',
+    screen: 'practice_home',
+    trigger: 'always',
+    guideOnly: false,
+    tier: 'both',
+    title: 'Prime',
+    copy: 'Prime builds fast recall of your symbol.',
+    pattern: 'glass_card',
+    tone: 'grounding',
+    maxShows: 0,
+    cooldownMs: 0,
+  },
+
+  mode_stabilize_v1: {
+    teachingId: 'mode_stabilize_v1',
+    screen: 'practice_home',
+    trigger: 'always',
+    guideOnly: false,
+    tier: 'both',
+    title: 'Stabilize',
+    copy: 'Stabilize settles attention so the state lasts.',
+    pattern: 'glass_card',
+    tone: 'grounding',
+    maxShows: 0,
+    cooldownMs: 0,
+  },
+
+  mode_release_v1: {
+    teachingId: 'mode_release_v1',
+    screen: 'practice_home',
+    trigger: 'always',
+    guideOnly: false,
+    tier: 'both',
+    title: 'Release',
+    copy: 'Release closes completed work so you can move cleanly.',
+    pattern: 'glass_card',
+    tone: 'closure',
+    maxShows: 0,
+    cooldownMs: 0,
+  },
+
+  charge_setup_first_time_v1: {
+    teachingId: 'charge_setup_first_time_v1',
+    screen: 'charge_setup',
+    trigger: 'first_time',
+    guideOnly: true,
+    tier: 'both',
+    copy: 'Short sessions still count. Consistency matters more than intensity.',
+    pattern: 'inline_whisper',
+    tone: 'encouragement',
+    maxShows: 1,
+    cooldownMs: 0,
+  },
+
+  stabilize_intro_v1: {
+    teachingId: 'stabilize_intro_v1',
+    screen: 'evolve',
+    trigger: 'first_time',
+    guideOnly: true,
+    tier: 'both',
+    copy: 'Stabilize returns you to an existing anchor instead of making a new one.',
+    pattern: 'bottom_hint',
+    tone: 'grounding',
+    maxShows: 1,
+    cooldownMs: 0,
+  },
+
+  // ── Vault / Home / Detail ───────────────────────────────────────────────────
+
+  vault_intro_first_time_v1: {
+    teachingId: 'vault_intro_first_time_v1',
+    screen: 'vault',
+    trigger: 'first_time',
+    guideOnly: true,
+    tier: 'both',
+    title: 'Your anchors',
+    copy: 'Each anchor is a visual cue tied to one intention. Return to it to reconnect with that focus.',
+    pattern: 'glass_card',
+    tone: 'grounding',
+    maxShows: 1,
+    cooldownMs: 0,
+  },
+
+  anchor_reuse_v1: {
+    teachingId: 'anchor_reuse_v1',
+    screen: 'anchor_detail',
+    trigger: 'first_time',
+    guideOnly: true,
+    tier: 'both',
+    copy: "You don't need a new anchor each time. Returning to one strengthens it.",
+    pattern: 'bottom_hint',
+    tone: 'grounding',
+    maxShows: 1,
+    cooldownMs: 0,
+  },
+
+  anchor_history_v1: {
+    teachingId: 'anchor_history_v1',
+    screen: 'anchor_detail',
+    trigger: 'always',
+    guideOnly: false,
+    tier: 'both',
+    title: 'Your history',
+    copy: "Your history shows how often you've returned to this focus over time.",
+    pattern: 'glass_card',
+    tone: 'grounding',
+    maxShows: 0,
+    cooldownMs: 0,
+  },
+
   // DEFERRED: freemium — paywall teaching cards removed; per-feature gates replaced by single trial expiry gate.
   // Restore these if per-feature upsell teaching cards are re-introduced post-RevenueCat.
   //

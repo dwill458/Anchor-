@@ -8,14 +8,17 @@
 import { Anchor, RedactedAnchor, AnchorCategory } from '../types';
 
 const CATEGORY_LABELS: Record<AnchorCategory, string> = {
-  career: 'Career',
-  health: 'Health',
-  wealth: 'Wealth',
-  relationships: 'Relationships',
-  personal_growth: 'Personal Growth',
-  custom: 'Custom',
   desire: 'Desire',
-  experience: 'Experience',
+  health: 'Health',
+  career: 'Career',
+  relationships: 'Relationships',
+  creativity: 'Creativity',
+  spirituality: 'Spirituality',
+  abundance: 'Abundance',
+  family: 'Family',
+  learning: 'Learning',
+  adventure: 'Adventure',
+  custom: 'Custom',
 };
 
 /**

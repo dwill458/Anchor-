@@ -13,7 +13,7 @@ import {
     Easing,
     AccessibilityInfo,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
@@ -34,8 +34,10 @@ type NavigationProp = StackNavigationProp<RootStackParamList, 'CreateAnchor'>;
 
 export default function IntentionInputScreen() {
     const navigation = useNavigation<NavigationProp>();
+    const insets = useSafeAreaInsets();
     const { recordShown } = useTeachingStore();
 
+    const scrollViewRef = useRef<ScrollView>(null);
     const [intention, setIntention] = useState('');
     const [placeholder, setPlaceholder] = useState('');
     const [isFocused, setIsFocused] = useState(false);
@@ -170,6 +172,10 @@ export default function IntentionInputScreen() {
                 }
             }, 1200);
         }
+        // Scroll to end of ScrollView to make sure text box is visible above the keyboard
+        setTimeout(() => {
+            scrollViewRef.current?.scrollToEnd({ animated: true });
+        }, 150);
     };
 
     const handleBlur = () => {
@@ -223,20 +229,32 @@ export default function IntentionInputScreen() {
             <SafeAreaView style={styles.safeArea}>
                 <KeyboardAvoidingView
                     behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+                    keyboardVerticalOffset={Platform.OS === 'ios' ? insets.top + spacing.sm : 0}
                     style={styles.keyboardView}
                 >
                     <ScrollView
+                        ref={scrollViewRef}
                         style={styles.scrollView}
                         contentContainerStyle={styles.scrollContent}
+                        contentInsetAdjustmentBehavior="always"
+                        keyboardDismissMode={Platform.OS === 'ios' ? 'interactive' : 'on-drag'}
                         showsVerticalScrollIndicator={false}
                         keyboardShouldPersistTaps="handled"
                     >
                         {/* Title Section */}
-                        <Animated.View style={[styles.titleSection, { opacity: fadeAnim }]}>
-                            <Text style={styles.title}>What are you anchoring right now?</Text>
-                            <Text style={styles.subtitle}>
-                                Write a short, clear intention.{'\n'}One sentence is enough.
+                        <Animated.View style={[
+                            styles.titleSection,
+                            isFocused && styles.titleSectionFocused,
+                            { opacity: fadeAnim }
+                        ]}>
+                            <Text style={[styles.title, isFocused && styles.titleFocused]}>
+                                What are you anchoring right now?
                             </Text>
+                            {!isFocused && (
+                                <Text style={styles.subtitle}>
+                                    Write a short, clear intention.{'\n'}One sentence is enough.
+                                </Text>
+                            )}
                         </Animated.View>
 
                         {/* Intention Input */}
@@ -257,6 +275,7 @@ export default function IntentionInputScreen() {
                                     returnKeyType="none"
                                     blurOnSubmit={false}
                                     enablesReturnKeyAutomatically={false}
+                                    selectionColor={colors.gold}
                                     accessibilityLabel="What are you anchoring right now?"
                                 />
                             </Animated.View>
@@ -328,12 +347,17 @@ const styles = StyleSheet.create({
         flex: 1,
     },
     scrollContent: {
+        flexGrow: 1,
         paddingHorizontal: spacing.xl,
         paddingBottom: spacing.lg,  // 24px — breathing room above CTA when keyboard open
     },
     titleSection: {
         paddingTop: height * 0.15,
         paddingBottom: spacing.xl,
+    },
+    titleSectionFocused: {
+        paddingTop: Platform.OS === 'ios' ? spacing.md : spacing.sm,
+        paddingBottom: spacing.sm,
     },
     title: {
         ...typography.heading,
@@ -342,6 +366,11 @@ const styles = StyleSheet.create({
         color: colors.gold,
         marginBottom: spacing.lg,
         letterSpacing: 0.3,
+    },
+    titleFocused: {
+        fontSize: 22,
+        lineHeight: 28,
+        marginBottom: spacing.xs,
     },
     subtitle: {
         ...typography.body,
@@ -366,6 +395,9 @@ const styles = StyleSheet.create({
         color: colors.text.primary,
         lineHeight: 28,
         minHeight: 90,
+        paddingTop: spacing.xs,
+        paddingBottom: spacing.xs,
+        paddingHorizontal: 0,
         textAlignVertical: 'top',
     },
     microCopy: {

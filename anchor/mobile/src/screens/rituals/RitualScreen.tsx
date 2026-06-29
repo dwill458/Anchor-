@@ -52,7 +52,7 @@ import * as Speech from 'expo-speech';
 import { navigateToVaultDestination } from '@/navigation/firstAnchorGate';
 import { isFirstPrimeForAnchor as isAnchorFirstPrime } from '@/utils/anchorPriming';
 import { useNotificationController } from '@/hooks/useNotificationController';
-import { AnalyticsService } from '@/services/AnalyticsService';
+import { AnalyticsEvents, AnalyticsService } from '@/services/AnalyticsService';
 import { PostPrimeTraceModal } from './components/PostPrimeTraceModal';
 import { usePostPrimeTraceStore } from '@/stores/postPrimeTraceStore';
 import {
@@ -62,6 +62,7 @@ import {
 import { useMissingAnchorRedirect } from './utils/useMissingAnchorRedirect';
 import { useDeepPrimeSessionAudio } from './hooks/useDeepPrimeSessionAudio';
 import { queueProgressionMilestonesFromStores } from '@/utils/progressionMilestones';
+import { usePrimeSessionAccess } from '@/hooks/usePrimeSessionAccess';
 
 // Single source of truth: derive each segment's width from the global progressAnim,
 // which is already wall-clock-driven by useRitualController + the progressAnim effect.
@@ -280,6 +281,7 @@ export const RitualScreen: React.FC = () => {
   const beginPostPrimeTraceFlow = usePostPrimeTraceStore((state) => state.beginFlow);
   const activeFlow = usePostPrimeTraceStore((state) => state.activeFlow);
   const bumpThreadStrength = useSessionStore((state) => state.bumpThreadStrength);
+  const primeSessionAccess = usePrimeSessionAccess();
   const anchor = getAnchorById(anchorId);
   const sigilSvg = anchor?.reinforcedSigilSvg ?? anchor?.baseSigilSvg ?? '';
   const isAnchorMissing = !anchor;
@@ -322,6 +324,33 @@ export const RitualScreen: React.FC = () => {
   const deepEmberHaloSize = deepHeroSize * 0.94;
 
   useMissingAnchorRedirect(!isAnchorMissing, navigation);
+
+  useEffect(() => {
+    if (isAnchorMissing || primeSessionAccess.deep.isAllowed) {
+      return;
+    }
+
+    const parentNavigation = navigation.getParent?.();
+    const task = InteractionManager.runAfterInteractions(() => {
+      navigation.goBack();
+      requestAnimationFrame(() => {
+        if (parentNavigation?.navigate) {
+          parentNavigation.navigate('Paywall', {
+            source: 'gated_feature',
+            preferredPlanId: 'annual',
+          });
+          return;
+        }
+
+        navigation.navigate('Paywall', {
+          source: 'gated_feature',
+          preferredPlanId: 'annual',
+        });
+      });
+    });
+
+    return () => task.cancel();
+  }, [isAnchorMissing, navigation, primeSessionAccess.deep.isAllowed]);
 
   useEffect(() => {
     const task = InteractionManager.runAfterInteractions(() => {
@@ -1143,6 +1172,29 @@ export const RitualScreen: React.FC = () => {
       firstChargedAt: anchor?.firstChargedAt ?? chargedAt,
       chargeCount: (anchor?.chargeCount ?? 0) + 1,
     });
+
+    const chargeMode = isDeepRitual ? 'deep' : 'quick';
+    AnalyticsService.track(AnalyticsEvents.ANCHOR_CHARGED, {
+      anchor_id: effectiveAnchorId,
+      source: 'ritual',
+      charge_type: chargeType,
+      charge_mode: chargeMode,
+      duration_seconds: config.totalDurationSeconds,
+      backend_synced: !backendSyncFailed,
+      is_first_prime: isFirstPrimeForAnchor,
+    });
+    AnalyticsService.track(
+      isDeepRitual
+        ? AnalyticsEvents.DEEP_CHARGE_COMPLETED
+        : AnalyticsEvents.QUICK_CHARGE_COMPLETED,
+      {
+        anchor_id: effectiveAnchorId,
+        source: 'ritual',
+        duration_seconds: config.totalDurationSeconds,
+        backend_synced: !backendSyncFailed,
+        is_first_prime: isFirstPrimeForAnchor,
+      }
+    );
 
     if (backendSyncFailed && isMountedRef.current) {
       Alert.alert('Saved Locally', 'Anchor charge saved. Sync will retry later.');

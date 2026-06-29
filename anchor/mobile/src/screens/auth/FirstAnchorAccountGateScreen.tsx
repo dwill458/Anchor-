@@ -105,7 +105,7 @@ export const FirstAnchorAccountGateScreen: React.FC = () => {
   const handleSwitchAccount = React.useCallback(async () => {
     clearPendingFirstAnchorError();
     await AuthService.signOut().catch(() => undefined);
-    signOut();
+    await signOut();
   }, [clearPendingFirstAnchorError, signOut]);
 
   const showAuthenticatedState = isAuthenticated;

@@ -52,6 +52,9 @@ import { ZenBackground } from '@/components/common';
 import { buildProfileGreeting } from '@/utils/profileGreeting';
 import type { Anchor, ApiResponse, RootStackParamList } from '@/types';
 import { colors, typography } from '@/theme';
+import { MicroTeachCard, MicroTeachInfoChip } from '@/components/teaching';
+import { useTeachingGate } from '@/utils/useTeachingGate';
+import type { TeachingContent } from '@/constants/teaching';
 import { withAlpha } from '@/utils/color';
 import { useTabNavigation } from '@/contexts/TabNavigationContext';
 import { isHighEndDevice } from '@/utils/deviceTier';
@@ -210,6 +213,10 @@ export const VaultScreen: React.FC = () => {
   const isVaultTabActive = activeTabIndex == null ? true : activeTabIndex === 0;
 
   const { user, isAuthenticated } = useAuthStore();
+  const vaultTeaching = useTeachingGate({
+    screenId: 'vault',
+    candidateIds: ['vault_intro_first_time_v1'],
+  });
   const [bannerDismissed, setBannerDismissed] = useState(false);
   const profileName = useProfileStore((state) => state.name);
   const profileTimezone = useProfileStore((state) => state.timezone);
@@ -504,6 +511,7 @@ export const VaultScreen: React.FC = () => {
                 handleCreateAnchor,
                 onViewAll: () => setGridVisible(true),
                 isDeepPrimeMode: focusSessionMode === 'deep',
+                vaultTeaching,
               })}
         </ScrollView>
 
@@ -632,6 +640,7 @@ interface ActiveStateProps {
   handleCreateAnchor: () => void;
   onViewAll: () => void;
   isDeepPrimeMode: boolean;
+  vaultTeaching: TeachingContent | null;
 }
 
 function renderActiveState({
@@ -645,6 +654,7 @@ function renderActiveState({
   handleCreateAnchor,
   onViewAll,
   isDeepPrimeMode,
+  vaultTeaching,
 }: ActiveStateProps) {
   const isCharged = primaryAnchor.isCharged;
 
@@ -659,7 +669,19 @@ function renderActiveState({
           <Text style={styles.ctxSubLabel}>ACTIVE ANCHOR</Text>
           {/* DEFERRED: removed duplicate intention — intention shown below medallion, remove post-launch */}
         </View>
+        <MicroTeachInfoChip
+          teachingIds="vault_intro_first_time_v1"
+          screenId="vault"
+          label="What's an anchor?"
+          sheetTitle="Your anchors"
+        />
       </Animated2.View>
+
+      <MicroTeachCard
+        teaching={vaultTeaching}
+        screenId="vault"
+        style={styles.vaultTeachingCard}
+      />
 
       {/* ── Hero card ── */}
       <Animated2.View
@@ -896,6 +918,10 @@ const styles = StyleSheet.create({
     color: 'rgba(212,175,55,0.4)',
     textTransform: 'uppercase',
     marginBottom: 2,
+  },
+  vaultTeachingCard: {
+    marginTop: 10,
+    marginHorizontal: H_PAD,
   },
   heroWrap: {
     marginTop: 10,
