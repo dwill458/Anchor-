@@ -46,10 +46,10 @@ const GOLD_BRIGHT = '#F0CB6A';
 const GOLD_MID = '#C9A84C';
 const GOLD_DEEP = '#A8892E';
 const BONE = '#F5F0E8';
-const DISC_SIGIL_SIZE = 108;
-const FALLBACK_SIGIL_SIZE = 86;
-const ORBIT_SIZE = 230;
-const ORBIT_OFFSET = -6;
+const DISC_SIGIL_SIZE = 152;
+const FALLBACK_SIGIL_SIZE = 122;
+const ORBIT_SIZE = 242;
+const ORBIT_OFFSET = 15;
 
 const useEntranceStyle = (value: SharedValue<number>) =>
   useAnimatedStyle(() => ({
@@ -152,10 +152,11 @@ export const SaveProgressScreen: React.FC = () => {
   const clearPendingFirstAnchorError = useAuthStore((state) => state.clearPendingFirstAnchorError);
   const signOut = useAuthStore((state) => state.signOut);
 
-  const orbitProgress = useSharedValue(0);
   const floatY = useSharedValue(0);
   const haloOpacity = useSharedValue(0.6);
   const haloScale = useSharedValue(1);
+  const pulseScale = useSharedValue(reduceMotionEnabled ? 1 : 0);
+  const spinProgress = useSharedValue(0);
   const ctaShineX = useSharedValue(-1.3);
   const wave1 = useSharedValue(reduceMotionEnabled ? 1 : 0);
   const wave2 = useSharedValue(reduceMotionEnabled ? 1 : 0);
@@ -176,10 +177,11 @@ export const SaveProgressScreen: React.FC = () => {
 
   useEffect(() => {
     if (reduceMotionEnabled) {
-      orbitProgress.value = 0;
       floatY.value = 0;
       haloOpacity.value = 0.72;
       haloScale.value = 1;
+      pulseScale.value = 1;
+      spinProgress.value = 0;
       ctaShineX.value = 2.4;
       wave1.value = 1;
       wave2.value = 1;
@@ -188,12 +190,6 @@ export const SaveProgressScreen: React.FC = () => {
       return;
     }
 
-    orbitProgress.value = 0;
-    orbitProgress.value = withRepeat(
-      withTiming(360, { duration: 24000, easing: Easing.linear }),
-      -1,
-      false
-    );
     floatY.value = withRepeat(
       withTiming(-5, { duration: 3500, easing: Easing.inOut(Easing.sin) }),
       -1,
@@ -205,9 +201,21 @@ export const SaveProgressScreen: React.FC = () => {
       true
     );
     haloScale.value = withRepeat(
-      withTiming(1.05, { duration: 4000, easing: Easing.inOut(Easing.sin) }),
+      withTiming(1.04, { duration: 4000, easing: Easing.inOut(Easing.sin) }),
       -1,
       true
+    );
+    pulseScale.value = 0;
+    pulseScale.value = withRepeat(
+      withTiming(1, { duration: 900, easing: Easing.inOut(Easing.sin) }),
+      -1,
+      true
+    );
+    spinProgress.value = 0;
+    spinProgress.value = withRepeat(
+      withTiming(360, { duration: 7000, easing: Easing.linear }),
+      -1,
+      false
     );
     ctaShineX.value = withRepeat(
       withTiming(2.7, { duration: 5000, easing: Easing.inOut(Easing.sin) }),
@@ -223,17 +231,14 @@ export const SaveProgressScreen: React.FC = () => {
     floatY,
     haloOpacity,
     haloScale,
+    pulseScale,
     reduceMotionEnabled,
-    orbitProgress,
+    spinProgress,
     wave1,
     wave2,
     wave3,
     wave4,
   ]);
-
-  const orbitDotStyle = useAnimatedStyle(() => ({
-    transform: [{ rotate: `${orbitProgress.value}deg` }],
-  }));
 
   const floatStyle = useAnimatedStyle(() => ({
     transform: [{ translateY: floatY.value }],
@@ -242,6 +247,15 @@ export const SaveProgressScreen: React.FC = () => {
   const haloStyle = useAnimatedStyle(() => ({
     opacity: haloOpacity.value,
     transform: [{ scale: haloScale.value }],
+  }));
+
+  const medallionPulseStyle = useAnimatedStyle(() => ({
+    opacity: reduceMotionEnabled ? 0.55 : 0.95 - pulseScale.value * 0.78,
+    transform: [{ scale: reduceMotionEnabled ? 1 : 0.92 + pulseScale.value * 0.22 }],
+  }));
+
+  const spinningGlowStyle = useAnimatedStyle(() => ({
+    transform: [{ rotate: `${spinProgress.value}deg` }],
   }));
 
   const ctaShineStyle = useAnimatedStyle(() => ({
@@ -399,15 +413,41 @@ export const SaveProgressScreen: React.FC = () => {
           <Animated.View style={[styles.hero, wave3Style]}>
             <Animated.View style={[styles.medallion, floatStyle]}>
               <Animated.View style={[styles.halo, haloStyle]} />
+              <View style={styles.medallionGlowFloor} />
               <View style={styles.orbit} />
-              <Animated.View pointerEvents="none" style={[styles.orbitDotTrack, orbitDotStyle]}>
-                <View style={styles.orbitDotAnchor}>
-                  <View style={styles.orbitDotGlow} />
-                  <View style={styles.orbitDot} />
-                </View>
-              </Animated.View>
               <View style={styles.ringInner} />
               <AnchorDisc anchor={anchor} />
+              <Animated.View
+                pointerEvents="none"
+                style={[styles.spinningGlow, spinningGlowStyle]}
+              >
+                <Svg width="100%" height="100%" viewBox="0 0 266 266">
+                  <Circle
+                    cx="133"
+                    cy="133"
+                    r="122"
+                    stroke={withAlpha(GOLD_BRIGHT, 0.82)}
+                    strokeWidth="8"
+                    strokeDasharray="72 34"
+                    strokeLinecap="round"
+                    fill="none"
+                  />
+                  <Circle
+                    cx="133"
+                    cy="133"
+                    r="108"
+                    stroke={withAlpha(colors.gold, 0.4)}
+                    strokeWidth="3"
+                    strokeDasharray="28 44"
+                    strokeLinecap="round"
+                    fill="none"
+                  />
+                </Svg>
+              </Animated.View>
+              <Animated.View
+                pointerEvents="none"
+                style={[styles.medallionPulse, medallionPulseStyle]}
+              />
             </Animated.View>
             <View style={styles.plateWrap}>
               <View style={styles.plateMeta}>
@@ -605,26 +645,50 @@ const styles = StyleSheet.create({
   hero: {
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 22,
-    minHeight: 300,
-    paddingVertical: 10,
+    gap: 16,
+    minHeight: 368,
+    paddingVertical: 6,
   },
   medallion: {
     alignItems: 'center',
     justifyContent: 'center',
-    width: 218,
-    height: 218,
+    width: 272,
+    height: 272,
     alignSelf: 'center',
   },
   halo: {
     position: 'absolute',
-    width: 278,
-    height: 278,
-    borderRadius: 139,
-    backgroundColor: 'rgba(212,175,55,0.11)',
+    width: 258,
+    height: 258,
+    borderRadius: 129,
+    backgroundColor: 'rgba(212,175,55,0.12)',
     shadowColor: colors.gold,
-    shadowOpacity: 0.32,
-    shadowRadius: 36,
+    shadowOpacity: 0.24,
+    shadowRadius: 24,
+    elevation: 2,
+  },
+  medallionPulse: {
+    position: 'absolute',
+    width: 252,
+    height: 252,
+    borderRadius: 126,
+    borderWidth: 4,
+    borderColor: withAlpha(GOLD_BRIGHT, 0.82),
+    backgroundColor: 'transparent',
+  },
+  spinningGlow: {
+    position: 'absolute',
+    width: 266,
+    height: 266,
+    borderRadius: 133,
+    opacity: 0.86,
+  },
+  medallionGlowFloor: {
+    position: 'absolute',
+    width: 238,
+    height: 238,
+    borderRadius: 119,
+    backgroundColor: withAlpha(GOLD_BRIGHT, 0.08),
   },
   orbit: {
     position: 'absolute',
@@ -637,59 +701,18 @@ const styles = StyleSheet.create({
     borderStyle: 'dashed',
     borderColor: withAlpha(colors.gold, 0.18),
   },
-  orbitDotTrack: {
-    position: 'absolute',
-    top: ORBIT_OFFSET,
-    left: ORBIT_OFFSET,
-    width: ORBIT_SIZE,
-    height: ORBIT_SIZE,
-    borderRadius: ORBIT_SIZE / 2,
-    alignItems: 'center',
-  },
-  orbitDotAnchor: {
-    position: 'absolute',
-    top: -5,
-    left: 0,
-    right: 0,
-    height: 16,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  orbitDotGlow: {
-    position: 'absolute',
-    width: 18,
-    height: 18,
-    borderRadius: 9,
-    backgroundColor: withAlpha(colors.gold, 0.22),
-    shadowColor: colors.gold,
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.9,
-    shadowRadius: 12,
-    elevation: 8,
-  },
-  orbitDot: {
-    width: 7,
-    height: 7,
-    borderRadius: 3.5,
-    backgroundColor: colors.gold,
-    shadowColor: colors.gold,
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.95,
-    shadowRadius: 10,
-    elevation: 10,
-  },
   ringInner: {
     position: 'absolute',
-    width: 198,
-    height: 198,
-    borderRadius: 99,
-    borderWidth: 1,
-    borderColor: withAlpha(colors.gold, 0.1),
+    width: 226,
+    height: 226,
+    borderRadius: 113,
+    borderWidth: 1.2,
+    borderColor: withAlpha(colors.gold, 0.16),
   },
   disc: {
-    width: 158,
-    height: 158,
-    borderRadius: 79,
+    width: 224,
+    height: 224,
+    borderRadius: 112,
     backgroundColor: '#140d26',
     overflow: 'hidden',
     alignItems: 'center',
@@ -702,33 +725,33 @@ const styles = StyleSheet.create({
   },
   discRingOuter: {
     position: 'absolute',
-    width: 156,
-    height: 156,
-    borderRadius: 78,
-    borderWidth: 1,
-    borderColor: withAlpha(colors.gold, 0.08),
+    width: 222,
+    height: 222,
+    borderRadius: 111,
+    borderWidth: 1.1,
+    borderColor: withAlpha(colors.gold, 0.12),
   },
   discRingA: {
     position: 'absolute',
-    width: 120,
-    height: 120,
-    borderRadius: 60,
+    width: 172,
+    height: 172,
+    borderRadius: 86,
     borderWidth: 0.6,
     borderColor: withAlpha(colors.gold, 0.14),
   },
   discRingB: {
     position: 'absolute',
-    width: 84,
-    height: 84,
-    borderRadius: 42,
+    width: 122,
+    height: 122,
+    borderRadius: 61,
     borderWidth: 0.6,
     borderColor: withAlpha(colors.gold, 0.12),
   },
   discRingC: {
     position: 'absolute',
-    width: 48,
-    height: 48,
-    borderRadius: 24,
+    width: 72,
+    height: 72,
+    borderRadius: 36,
     borderWidth: 0.6,
     borderColor: withAlpha(colors.gold, 0.1),
   },
