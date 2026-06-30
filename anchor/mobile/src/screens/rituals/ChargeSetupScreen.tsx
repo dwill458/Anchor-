@@ -24,6 +24,7 @@ import { useSettingsStore } from '@/stores/settingsStore';
 import { safeHaptics } from '@/utils/haptics';
 import { OptimizedImage } from '@/components/common';
 import { MicroTeachInline } from '@/components/teaching';
+import { useTabNavigation } from '@/contexts/TabNavigationContext';
 import { useTeachingGate } from '@/utils/useTeachingGate';
 import { AnalyticsEvents, AnalyticsService } from '@/services/AnalyticsService';
 import type { Anchor, RootStackParamList } from '@/types';
@@ -42,8 +43,8 @@ const GOLD_DIM = '#A8892A';
 const BONE = '#F5F5DC';
 const SILVER = '#C0C0C0';
 const BLACK = '#080C10';
-const PANEL_OVERLAP = 24;
-const PRIME_ARTWORK_SIZE = 214;
+const PANEL_OVERLAP = 34;
+const PRIME_ARTWORK_SIZE = 176;
 
 const FALLBACK_SIGIL_SVG = `
 <svg viewBox="0 0 240 240" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
@@ -59,6 +60,31 @@ const FALLBACK_SIGIL_SVG = `
 </svg>
 `.trim();
 
+const BOLT_ICON_SVG = `
+<svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+  <path
+    d="M13 2 4 14h6l-1 8 9-12h-6l1-8z"
+    fill="none"
+    stroke="#D4AF37"
+    stroke-width="1.5"
+    stroke-linecap="round"
+    stroke-linejoin="round"
+  />
+</svg>
+`.trim();
+
+const FLAME_ICON_SVG = `
+<svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+  <path
+    d="M12 2c1 3-2 4-2 7a3 3 0 0 0 6 0c1.5 1.5 2 3.5 2 5a6 6 0 0 1-12 0c0-4 3-6 4-9 0.5-1.2 1.4-2.2 2-3z"
+    fill="none"
+    stroke="#D4AF37"
+    stroke-width="1.5"
+    stroke-linecap="round"
+    stroke-linejoin="round"
+  />
+</svg>
+`.trim();
 
 const chargeConfigByChoice = {
   quick: {
@@ -67,10 +93,10 @@ const chargeConfigByChoice = {
     customMinutes: undefined,
     ritualType: 'focus' as const,
     durationSeconds: 30,
-    icon: '⚡',
+    iconSvg: BOLT_ICON_SVG,
     name: 'Quick Prime',
     lineOne: '30 seconds',
-    lineTwo: 'Daily reset',
+    lineTwo: 'Best for daily consistency',
   },
   deep: {
     mode: 'ritual' as const,
@@ -78,10 +104,10 @@ const chargeConfigByChoice = {
     customMinutes: 3,
     ritualType: 'ritual' as const,
     durationSeconds: 180,
-    icon: '🔥',
+    iconSvg: FLAME_ICON_SVG,
     name: 'Deep Prime',
     lineOne: '2 – 10 minutes',
-    lineTwo: 'Deep focus',
+    lineTwo: 'Best for focused work',
   },
 };
 
@@ -91,9 +117,16 @@ const getPrimeStructureSvg = (anchor?: Anchor): string =>
 export const ChargeSetupScreen: React.FC = () => {
   const navigation = useNavigation<ChargeSetupNavigationProp>();
   const route = useRoute<ChargeSetupRouteProp>();
+  const { navigateToPractice } = useTabNavigation();
   const insets = useSafeAreaInsets();
   const { width: screenWidth, height: screenHeight } = useWindowDimensions();
-  const { anchorId, returnTo, autoStartOnSelection = false, initialDuration } = route.params || {};
+  const {
+    anchorId,
+    returnTo,
+    autoStartOnSelection = false,
+    initialDuration,
+    fromOnboarding = false,
+  } = route.params || {};
 
   const chargeSetupTeaching = useTeachingGate({
     screenId: 'charge_setup',
@@ -114,19 +147,21 @@ export const ChargeSetupScreen: React.FC = () => {
   const hasAutoStartedRef = useRef(false);
   const isCompactLayout = isCompactPhoneViewport(screenWidth, screenHeight);
   const isShortLayout = isShortPhoneViewport(screenHeight);
-  const heroHeight = Math.max(
-    isCompactLayout ? 286 : 340,
-    Math.min(isCompactLayout ? 388 : 460, Math.round(screenHeight * (isCompactLayout ? 0.42 : 0.52)))
+  const heroHeight = Math.round(screenHeight * (isCompactLayout ? 0.44 : 0.48));
+  const artworkSize = Math.round(
+    Math.min(screenWidth - (isCompactLayout ? 100 : 120), screenHeight * (isCompactLayout ? 0.24 : 0.27))
   );
-  const artworkSize = isCompactLayout ? 172 : PRIME_ARTWORK_SIZE;
-  const artworkInnerSize = Math.round(artworkSize * 0.62);
-  const outerRingSize = artworkSize + (isCompactLayout ? 72 : 96);
-  const midRingSize = artworkSize + (isCompactLayout ? 26 : 41);
-  const innerRingSize = artworkSize - (isCompactLayout ? 26 : 14);
+  const artworkInnerSize = Math.round(artworkSize * 0.6);
+  const glowBackdropSize = artworkSize + (isCompactLayout ? 30 : 40);
+  const outerRingSize = artworkSize + (isCompactLayout ? 56 : 70);
+  const midRingSize = artworkSize + (isCompactLayout ? 22 : 28);
+  const innerRingSize = artworkSize - (isCompactLayout ? 12 : 6);
+  const heroVisualOffset = Math.round(isCompactLayout ? 8 : 12);
   const shouldShowEnhancedArtwork = Boolean(anchor?.enhancedImageUrl) && !enhancedArtworkFailed;
   const ringPulseOuter = useRef(new Animated.Value(1)).current;
   const ringPulseMid = useRef(new Animated.Value(1)).current;
   const ringPulseInner = useRef(new Animated.Value(1)).current;
+  const glowBreath = useRef(new Animated.Value(0.5)).current;
   const structureSvg = useMemo(() => getPrimeStructureSvg(anchor), [anchor]);
 
   useEffect(() => {
@@ -179,6 +214,37 @@ export const ChargeSetupScreen: React.FC = () => {
       rings.forEach((ring) => ring.stopAnimation());
     };
   }, [reduceMotionEnabled, ringPulseInner, ringPulseMid, ringPulseOuter]);
+
+  useEffect(() => {
+    if (reduceMotionEnabled) {
+      glowBreath.setValue(0.5);
+      return;
+    }
+
+    const breathe = Animated.loop(
+      Animated.sequence([
+        Animated.timing(glowBreath, {
+          toValue: 1,
+          duration: 5000,
+          easing: Easing.inOut(Easing.sin),
+          useNativeDriver: true,
+        }),
+        Animated.timing(glowBreath, {
+          toValue: 0.5,
+          duration: 5000,
+          easing: Easing.inOut(Easing.sin),
+          useNativeDriver: true,
+        }),
+      ]),
+    );
+
+    breathe.start();
+
+    return () => {
+      breathe.stop();
+      glowBreath.stopAnimation();
+    };
+  }, [glowBreath, reduceMotionEnabled]);
 
   useFocusEffect(
     useCallback(() => {
@@ -296,6 +362,32 @@ export const ChargeSetupScreen: React.FC = () => {
     }
   }, [isTransitioning, navigation, autoStartOnSelection]);
 
+  const handlePrimeLater = useCallback(() => {
+    if (isTransitioning || !anchorId) return;
+
+    void safeHaptics.selection();
+
+    if (fromOnboarding && anchor) {
+      navigation.replace('SaveProgress', { anchor });
+      return;
+    }
+
+    if (returnTo === 'practice') {
+      if (typeof navigation.popToTop === 'function') {
+        navigation.popToTop();
+      }
+      navigateToPractice();
+      return;
+    }
+
+    if (returnTo === 'detail') {
+      navigation.replace('AnchorDetail', { anchorId });
+      return;
+    }
+
+    navigateToVaultDestination(navigation, 'replace');
+  }, [anchor, anchorId, fromOnboarding, isTransitioning, navigateToPractice, navigation, returnTo]);
+
   if (!anchorId || !anchor) {
     return (
       <View style={styles.screen}>
@@ -335,31 +427,6 @@ export const ChargeSetupScreen: React.FC = () => {
           pointerEvents="none"
         />
 
-        <View pointerEvents="none" style={styles.anchorHero}>
-          <View style={styles.ringField}>
-            <Animated.View style={[styles.ring, { width: outerRingSize, height: outerRingSize, opacity: ringPulseOuter }]} />
-            <Animated.View style={[styles.ring, styles.ringMid, { width: midRingSize, height: midRingSize, opacity: ringPulseMid }]} />
-            <Animated.View style={[styles.ring, styles.ringInner, { width: innerRingSize, height: innerRingSize, opacity: ringPulseInner }]} />
-          </View>
-
-          <View style={styles.anchorOverlay}>
-            <View style={[styles.anchorFrame, { width: artworkSize, height: artworkSize, borderRadius: artworkSize / 2 }]}>
-              {shouldShowEnhancedArtwork && anchor?.enhancedImageUrl ? (
-                <OptimizedImage
-                  uri={anchor.enhancedImageUrl}
-                  style={[styles.anchorImage, { width: artworkSize, height: artworkSize, borderRadius: artworkSize / 2 }]}
-                  resizeMode="cover"
-                  onError={() => setEnhancedArtworkFailed(true)}
-                />
-              ) : (
-                <View style={[styles.sigilFrame, { width: artworkSize, height: artworkSize, borderRadius: artworkSize / 2 }]}>
-                  <SvgXml xml={structureSvg} width={artworkInnerSize} height={artworkInnerSize} />
-                </View>
-              )}
-            </View>
-          </View>
-        </View>
-
         <View style={[styles.navBar, { paddingTop: insets.top + 8 }]}>
           <TouchableOpacity
             onPress={handleBack}
@@ -373,11 +440,46 @@ export const ChargeSetupScreen: React.FC = () => {
               <Text style={styles.closeButtonText}>✕</Text>
             </BlurView>
           </TouchableOpacity>
+        </View>
 
-          <View style={styles.titleShell}>
-            <BlurView intensity={18} tint="dark" style={styles.titleBlur}>
-              <Text style={styles.navTitle}>Prime Your Anchor</Text>
-            </BlurView>
+        <View style={styles.heroEyebrowRow}>
+          <Text style={styles.heroEyebrowText}>ANCHOR READY</Text>
+        </View>
+
+        <View pointerEvents="none" style={[styles.anchorHero, { transform: [{ translateY: heroVisualOffset }] }]}>
+          <Animated.View
+            style={[
+              styles.glowBackdrop,
+              {
+                width: glowBackdropSize,
+                height: glowBackdropSize,
+                borderRadius: glowBackdropSize / 2,
+                opacity: glowBreath,
+              },
+            ]}
+          />
+
+          <View style={styles.ringField}>
+            <Animated.View style={[styles.ring, { width: outerRingSize, height: outerRingSize, opacity: ringPulseOuter }]} />
+            <Animated.View style={[styles.ring, styles.ringMid, { width: midRingSize, height: midRingSize, opacity: ringPulseMid }]} />
+            <Animated.View style={[styles.ring, styles.ringInner, { width: innerRingSize, height: innerRingSize, opacity: ringPulseInner }]} />
+          </View>
+
+          <View style={styles.anchorOverlay}>
+            <View style={[styles.anchorFrame, { width: artworkSize, height: artworkSize, borderRadius: artworkSize / 2 }]}>
+              {shouldShowEnhancedArtwork && anchor?.enhancedImageUrl ? (
+                <OptimizedImage
+                  uri={anchor.enhancedImageUrl}
+                  style={[styles.anchorImage, { width: artworkSize, height: artworkSize, borderRadius: artworkSize / 2 }]}
+                  resizeMode="contain"
+                  onError={() => setEnhancedArtworkFailed(true)}
+                />
+              ) : (
+                <View style={[styles.sigilFrame, { width: artworkSize, height: artworkSize, borderRadius: artworkSize / 2 }]}>
+                  <SvgXml xml={structureSvg} width={artworkInnerSize} height={artworkInnerSize} />
+                </View>
+              )}
+            </View>
           </View>
         </View>
       </View>
@@ -396,11 +498,10 @@ export const ChargeSetupScreen: React.FC = () => {
           contentContainerStyle={[
             styles.panelContent,
             isCompactLayout && styles.panelContentCompact,
-            { flexGrow: 1, justifyContent: 'space-between' }
           ]}
         >
           <View style={styles.topContent}>
-            <View style={styles.badgeRow}>
+            <View style={[styles.badgeRow, isCompactLayout && styles.badgeRowCompact]}>
               <LinearGradient
                 colors={['transparent', 'rgba(212,175,55,0.3)']}
                 start={{ x: 0, y: 0 }}
@@ -416,8 +517,8 @@ export const ChargeSetupScreen: React.FC = () => {
               />
             </View>
 
-            <Text style={[styles.headline, isCompactLayout && styles.headlineCompact]}>The Work Begins Now</Text>
-            <Text style={[styles.subline, isCompactLayout && styles.sublineCompact]}>Fix your anchor in mind.{'\n'}Choose your prime duration.</Text>
+            <Text style={[styles.headline, isCompactLayout && styles.headlineCompact]}>Choose Your Prime</Text>
+            <Text style={[styles.subline, isCompactLayout && styles.sublineCompact]}>Start short. Build the thread.</Text>
             <Text style={[styles.durationLabel, isCompactLayout && styles.durationLabelCompact]}>SELECT DURATION</Text>
 
             <MicroTeachInline
@@ -447,22 +548,27 @@ export const ChargeSetupScreen: React.FC = () => {
                       <Text style={styles.checkText}>✓</Text>
                     </View>
                   ) : null}
-                  <Text style={[styles.cardIcon, isCompactLayout && styles.cardIconCompact]}>{card.icon}</Text>
+                  <SvgXml
+                    xml={card.iconSvg}
+                    width={isCompactLayout ? 18 : 22}
+                    height={isCompactLayout ? 18 : 22}
+                    style={[styles.cardIcon, isCompactLayout && styles.cardIconCompact]}
+                  />
                   <Text style={[styles.cardName, isCompactLayout && styles.cardNameCompact, card.isSelected ? styles.cardNameSelected : null]}>{card.name}</Text>
-                  <Text style={[styles.cardLine, isCompactLayout && styles.cardLineCompact]}>{card.lineOne}</Text>
+                  <Text style={[styles.cardLine, styles.cardLineTime, isCompactLayout && styles.cardLineCompact]}>{card.lineOne}</Text>
                   <Text style={[styles.cardLine, isCompactLayout && styles.cardLineCompact]}>{card.lineTwo}</Text>
                 </TouchableOpacity>
               ))}
             </View>
           </View>
 
-          <View style={styles.bottomActions}>
+          <View style={[styles.bottomActions, isCompactLayout && styles.bottomActionsCompact]}>
             <TouchableOpacity
               onPress={() => handleBeginRitual()}
               activeOpacity={0.9}
               disabled={isTransitioning}
               accessibilityRole="button"
-              accessibilityLabel="BEGIN PRIMING"
+              accessibilityLabel="Begin Priming"
               style={styles.ctaTouchable}
             >
               <LinearGradient
@@ -471,8 +577,22 @@ export const ChargeSetupScreen: React.FC = () => {
                 end={{ x: 1, y: 1 }}
                 style={[styles.ctaButton, isCompactLayout && styles.ctaButtonCompact]}
               >
-                <Text style={[styles.ctaText, isCompactLayout && styles.ctaTextCompact]}>BEGIN PRIMING</Text>
+                <Text style={[styles.ctaText, isCompactLayout && styles.ctaTextCompact]}>Begin Priming</Text>
               </LinearGradient>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              onPress={handlePrimeLater}
+              activeOpacity={0.6}
+              disabled={isTransitioning}
+              accessibilityRole="button"
+              accessibilityLabel="Prime later"
+              style={[styles.secondaryCtaButton, isCompactLayout && styles.secondaryCtaButtonCompact]}
+              hitSlop={{ top: 10, bottom: 10, left: 16, right: 16 }}
+            >
+              <Text style={[styles.secondaryCtaText, isCompactLayout && styles.secondaryCtaTextCompact]}>
+                Prime later
+              </Text>
             </TouchableOpacity>
 
             <Text style={[styles.safetyText, isShortLayout && styles.safetyTextCompact]}>You can stop anytime.</Text>
@@ -499,9 +619,26 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
   },
   anchorHero: {
-    ...StyleSheet.absoluteFillObject,
+    flex: 1,
+    width: '100%',
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  glowBackdrop: {
+    position: 'absolute',
+    backgroundColor: 'rgba(212,175,55,0.09)',
+  },
+  heroEyebrowRow: {
+    width: '100%',
+    alignItems: 'center',
+    paddingTop: 10,
+  },
+  heroEyebrowText: {
+    fontFamily: 'Cinzel-SemiBold',
+    fontSize: 11,
+    letterSpacing: 3.6,
+    color: GOLD,
+    textAlign: 'center',
   },
   ringField: {
     position: 'absolute',
@@ -516,7 +653,7 @@ const styles = StyleSheet.create({
     position: 'absolute',
     borderRadius: 999,
     borderWidth: 1,
-    borderColor: 'rgba(212,175,55,0.45)',
+    borderColor: 'rgba(212,175,55,0.2)',
   },
   ringOuter: {
     width: 310,
@@ -525,12 +662,12 @@ const styles = StyleSheet.create({
   ringMid: {
     width: 255,
     height: 255,
-    borderColor: 'rgba(212,175,55,0.32)',
+    borderColor: 'rgba(212,175,55,0.16)',
   },
   ringInner: {
     width: 200,
     height: 200,
-    borderColor: 'rgba(212,175,55,0.5)',
+    borderColor: 'rgba(212,175,55,0.26)',
   },
   anchorOverlay: {
     position: 'absolute',
@@ -571,14 +708,10 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(8,12,16,0.82)',
   },
   navBar: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
+    width: '100%',
     zIndex: 10,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
     paddingHorizontal: 20,
   },
   navButton: {
@@ -602,27 +735,6 @@ const styles = StyleSheet.create({
     lineHeight: 16,
     marginTop: Platform.OS === 'android' ? -1 : 0,
   },
-  titleShell: {
-    flex: 1,
-    marginRight: 52,
-    borderRadius: 24,
-    overflow: 'hidden',
-  },
-  titleBlur: {
-    borderRadius: 24,
-    borderWidth: 1,
-    borderColor: 'rgba(212,175,55,0.25)',
-    backgroundColor: 'rgba(8,12,16,0.7)',
-    paddingVertical: 10,
-    paddingHorizontal: 18,
-  },
-  navTitle: {
-    fontFamily: 'Cinzel-Regular',
-    fontSize: 13,
-    letterSpacing: 1.6,
-    color: GOLD,
-    textAlign: 'center',
-  },
   panel: {
     flex: 1,
     backgroundColor: NAVY,
@@ -640,12 +752,12 @@ const styles = StyleSheet.create({
     height: 1,
   },
   panelContent: {
-    paddingTop: 28,
+    paddingTop: 24,
     paddingHorizontal: 24,
     paddingBottom: 24,
   },
   panelContentCompact: {
-    paddingTop: 18,
+    paddingTop: 16,
     paddingHorizontal: 20,
     paddingBottom: 16,
   },
@@ -653,7 +765,10 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 10,
-    marginBottom: 14,
+    marginBottom: 16,
+  },
+  badgeRowCompact: {
+    marginBottom: 12,
   },
   badgeLine: {
     flex: 1,
@@ -668,30 +783,30 @@ const styles = StyleSheet.create({
   },
   headline: {
     fontFamily: 'Cinzel-SemiBold',
-    fontSize: 26,
-    lineHeight: 32,
+    fontSize: 24,
+    lineHeight: 30,
     color: BONE,
     textAlign: 'center',
-    marginBottom: 10,
+    marginBottom: 12,
   },
   headlineCompact: {
-    fontSize: 20,
-    lineHeight: 26,
-    marginBottom: 6,
+    fontSize: 19,
+    lineHeight: 24,
+    marginBottom: 9,
   },
   subline: {
     fontFamily: 'CormorantGaramond-Italic',
-    fontSize: 16,
-    lineHeight: 22,
+    fontSize: 15,
+    lineHeight: 20,
     color: SILVER,
     opacity: 0.85,
     textAlign: 'center',
     marginBottom: 28,
   },
   sublineCompact: {
-    fontSize: 14,
-    lineHeight: 18,
-    marginBottom: 18,
+    fontSize: 13,
+    lineHeight: 17,
+    marginBottom: 22,
   },
   durationLabel: {
     fontFamily: 'Cinzel-Regular',
@@ -699,19 +814,18 @@ const styles = StyleSheet.create({
     letterSpacing: 3,
     color: GOLD_DIM,
     textAlign: 'center',
-    marginBottom: 14,
+    marginBottom: 20,
   },
   durationLabelCompact: {
-    marginBottom: 10,
+    marginBottom: 15,
   },
   cardsRow: {
     flexDirection: 'row',
+    alignItems: 'stretch',
     gap: 12,
-    marginBottom: 20,
   },
   cardsRowCompact: {
     gap: 8,
-    marginBottom: 14,
   },
   durationCard: {
     flex: 1,
@@ -722,14 +836,14 @@ const styles = StyleSheet.create({
     borderWidth: 0.8,
     borderColor: 'rgba(255,255,255,0.06)',
     backgroundColor: 'rgba(255,255,255,0.04)',
-    paddingHorizontal: 12,
+    paddingHorizontal: 14,
     paddingVertical: 18,
-    minHeight: 144,
+    minHeight: 150,
   },
   durationCardCompact: {
-    paddingHorizontal: 8,
+    paddingHorizontal: 10,
     paddingVertical: 12,
-    minHeight: 116,
+    minHeight: 120,
   },
   durationCardSelected: {
     borderColor: 'rgba(212,175,55,0.4)',
@@ -754,11 +868,9 @@ const styles = StyleSheet.create({
     lineHeight: 12,
   },
   cardIcon: {
-    fontSize: 26,
     marginBottom: 10,
   },
   cardIconCompact: {
-    fontSize: 20,
     marginBottom: 6,
   },
   cardName: {
@@ -767,7 +879,7 @@ const styles = StyleSheet.create({
     letterSpacing: 1,
     color: BONE,
     textAlign: 'center',
-    marginBottom: 6,
+    marginBottom: 4,
   },
   cardNameCompact: {
     fontSize: 10,
@@ -778,15 +890,20 @@ const styles = StyleSheet.create({
   },
   cardLine: {
     fontFamily: 'CormorantGaramond-Italic',
-    fontSize: 12,
-    lineHeight: 16,
+    fontSize: 11,
+    lineHeight: 15,
     color: SILVER,
     opacity: 0.7,
     textAlign: 'center',
   },
   cardLineCompact: {
-    fontSize: 10,
+    fontSize: 9.5,
     lineHeight: 13,
+  },
+  cardLineTime: {
+    color: BONE,
+    opacity: 0.75,
+    marginBottom: 4,
   },
   ctaTouchable: {
     width: '100%',
@@ -815,25 +932,47 @@ const styles = StyleSheet.create({
     fontSize: 12,
     letterSpacing: 2.4,
   },
-  safetyText: {
-    marginTop: 14,
+  secondaryCtaButton: {
+    marginTop: 20,
+    paddingVertical: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  secondaryCtaButtonCompact: {
+    marginTop: 16,
+  },
+  secondaryCtaText: {
     fontFamily: 'CormorantGaramond-Italic',
-    fontSize: 13,
+    fontSize: 14,
+    letterSpacing: 0.4,
     color: SILVER,
-    opacity: 0.5,
+    opacity: 0.85,
+  },
+  secondaryCtaTextCompact: {
+    fontSize: 13,
+  },
+  safetyText: {
+    marginTop: 16,
+    fontFamily: 'CormorantGaramond-Italic',
+    fontSize: 12,
+    color: SILVER,
+    opacity: 0.45,
     textAlign: 'center',
   },
   safetyTextCompact: {
-    marginTop: 12,
-    fontSize: 12,
+    marginTop: 13,
+    fontSize: 11,
   },
   topContent: {
     width: '100%',
   },
   bottomActions: {
-    marginTop: spacing.md,
+    marginTop: 32,
     width: '100%',
     alignItems: 'center',
+  },
+  bottomActionsCompact: {
+    marginTop: 26,
   },
   errorContainer: {
     flex: 1,

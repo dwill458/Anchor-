@@ -5,6 +5,7 @@ import { ChargeSetupScreen } from '../ChargeSetupScreen';
 // Mock navigation
 const mockNavigate = jest.fn();
 const mockReplace = jest.fn();
+const mockPopToTop = jest.fn();
 const mockRouteParams: Record<string, unknown> = { anchorId: 'anchor-123' };
 const mockAnchor = {
     id: 'anchor-123',
@@ -17,11 +18,17 @@ const mockAnchor = {
 
 jest.mock('@react-navigation/native', () => ({
     ...jest.requireActual('@react-navigation/native'),
-    useNavigation: () => ({ navigate: mockNavigate, replace: mockReplace, goBack: jest.fn() }),
+    useNavigation: () => ({ navigate: mockNavigate, replace: mockReplace, goBack: jest.fn(), popToTop: mockPopToTop }),
     useRoute: () => ({ params: mockRouteParams }),
     useFocusEffect: jest.fn((cb: any) => {
         const React = require('react');
         React.useEffect(cb, [cb]);
+    }),
+}));
+
+jest.mock('@/contexts/TabNavigationContext', () => ({
+    useTabNavigation: () => ({
+        navigateToPractice: jest.fn(),
     }),
 }));
 
@@ -34,7 +41,13 @@ jest.mock('@/stores/anchorStore', () => ({
         return selector ? selector(state) : state;
     }
 }));
-jest.mock('@/stores/authStore', () => ({ useAuthStore: () => ({ anchorCount: 1 }) }));
+jest.mock('@/stores/authStore', () => {
+    const useAuthStore = jest.fn(() => ({ anchorCount: 1 })) as jest.Mock & {
+        getState: () => { pendingFirstAnchorDraft: null };
+    };
+    useAuthStore.getState = () => ({ pendingFirstAnchorDraft: null });
+    return { useAuthStore };
+});
 jest.mock('@/stores/settingsStore', () => ({
     useSettingsStore: (selector: any) => {
         const state = {
@@ -109,6 +122,7 @@ describe('ChargeSetupScreen', () => {
     beforeEach(() => {
         mockNavigate.mockClear();
         mockReplace.mockClear();
+        mockPopToTop.mockClear();
         Object.keys(mockRouteParams).forEach((key) => delete mockRouteParams[key]);
         Object.assign(mockRouteParams, { anchorId: 'anchor-123' });
         mockAnchor.baseSigilSvg = '<svg></svg>';
@@ -117,7 +131,7 @@ describe('ChargeSetupScreen', () => {
 
     it('stub: renders anchor focal point', () => {
         render(<ChargeSetupScreen />);
-        expect(screen.getByText('Prime Your Anchor')).toBeTruthy();
+        expect(screen.getByText('ANCHOR READY')).toBeTruthy();
     });
 
     it('stub: selecting deep depth shows duration picker', () => {
@@ -125,7 +139,7 @@ describe('ChargeSetupScreen', () => {
         // Deep Prime pill is available
         expect(screen.getByLabelText('Deep Prime duration')).toBeTruthy();
         fireEvent.press(screen.getByLabelText('Deep Prime duration'));
-        expect(screen.getByLabelText('BEGIN PRIMING')).toBeTruthy();
+        expect(screen.getByLabelText('Begin Priming')).toBeTruthy();
     });
 
     it('stub: selecting light depth shows duration picker', () => {
@@ -133,20 +147,20 @@ describe('ChargeSetupScreen', () => {
         // Quick Prime pill is available
         expect(screen.getByLabelText('Quick Prime duration')).toBeTruthy();
         fireEvent.press(screen.getByLabelText('Quick Prime duration'));
-        expect(screen.getByLabelText('BEGIN PRIMING')).toBeTruthy();
+        expect(screen.getByLabelText('Begin Priming')).toBeTruthy();
     });
 
     it('stub: Begin button disabled until depth and duration selected', () => {
         render(<ChargeSetupScreen />);
         // Screen defaults to 'quick' selection, so the button is always present
         // The heading label confirms the screen loaded
-        expect(screen.getByText('The Work Begins Now')).toBeTruthy();
+        expect(screen.getByText('Choose Your Prime')).toBeTruthy();
     });
 
     it('stub: Begin button enabled after both selections', () => {
         render(<ChargeSetupScreen />);
         fireEvent.press(screen.getByLabelText('Quick Prime duration'));
-        expect(screen.getByLabelText('BEGIN PRIMING')).toBeTruthy();
+        expect(screen.getByLabelText('Begin Priming')).toBeTruthy();
     });
 
     it('stub: shows quick path for returning users', () => {
@@ -157,6 +171,24 @@ describe('ChargeSetupScreen', () => {
         expect(screen.getByText('Quick Prime')).toBeTruthy();
         expect(screen.getByText('Deep Prime')).toBeTruthy();
         expect(screen.getByText('2 – 10 minutes')).toBeTruthy();
+    });
+
+    it('routes Prime later to SaveProgress when launched from onboarding', () => {
+        Object.assign(mockRouteParams, { fromOnboarding: true, returnTo: 'vault' });
+
+        render(<ChargeSetupScreen />);
+        fireEvent.press(screen.getByLabelText('Prime later'));
+
+        expect(mockReplace).toHaveBeenCalledWith('SaveProgress', {
+            anchor: expect.objectContaining({ id: 'anchor-123' }),
+        });
+    });
+
+    it('routes Prime later to Vault outside onboarding', () => {
+        render(<ChargeSetupScreen />);
+        fireEvent.press(screen.getByLabelText('Prime later'));
+
+        expect(mockReplace).toHaveBeenCalledWith('Vault');
     });
 
     it('starts the selected path immediately in auto-start mode', () => {

@@ -408,7 +408,7 @@ describe('authStore', () => {
       useAuthStore.setState({
         shouldRedirectToCreation: true,
         pendingForgeIntent: 'Return to the anchor I started',
-        pendingForgeResumeTarget: 'FirstAnchorAccountGate',
+        pendingForgeResumeTarget: 'CreateAnchor',
         pendingFirstAnchorDraft: {
           tempAnchorId: 'pending-anchor-1',
           source: 'onboarding_first_anchor',

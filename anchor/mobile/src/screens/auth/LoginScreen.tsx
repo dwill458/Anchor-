@@ -26,6 +26,7 @@ import * as AppleAuthentication from 'expo-apple-authentication';
 import { colors, typography } from '@/theme';
 import { ENABLE_GOOGLE_SIGN_IN } from '@/config';
 import { useAuthStore } from '../../stores/authStore';
+import { useAnchorStore } from '@/stores/anchorStore';
 import { useSubscriptionStore } from '../../stores/subscriptionStore';
 import { AuthService } from '../../services/AuthService';
 import { AnalyticsEvents, AnalyticsService } from '@/services/AnalyticsService';
@@ -56,12 +57,10 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ navigation, route }) =
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [confirmPassword, setConfirmPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [focusedField, setFocusedField] = useState<FocusedField>(null);
   const [showPassword, setShowPassword] = useState(false);
-  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [isAppleAvailable, setIsAppleAvailable] = useState(false);
 
   const hasCompletedOnboarding = useAuthStore((state) => state.hasCompletedOnboarding);
@@ -146,28 +145,38 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ navigation, route }) =
     context === 'save_progress' ||
     context === 'paywall';
 
-  const navigateAfterSuccessfulAuth = (target: 'Vault' | 'FirstAnchorAccountGate') => {
+  const navigateAfterSuccessfulAuth = (target: 'Vault') => {
     const routeNames = (navigation.getState?.().routeNames ?? []) as readonly string[];
 
     if (routeNames.includes(target)) {
-      if (target === 'Vault') {
-        navigateToVaultDestination(navigation, 'replace');
-        return;
-      }
-
-      navigation.replace(target);
+      navigateToVaultDestination(navigation, 'replace');
       return;
     }
 
     // Profile/settings auth is presented as a modal stack over Main. Close it
     // after sign-in so the user returns to the now-authenticated app surface.
     if (
-      target === 'Vault' &&
       (routeNames.includes('Profile') || routeNames.includes('Settings')) &&
       navigation.canGoBack()
     ) {
       navigation.goBack();
     }
+  };
+
+  // Hand off to the SaveProgress gate, which finalizes the pending first anchor
+  // (attaches it to the new account) before entering the Vault.
+  const finalizeFirstAnchorThenVault = () => {
+    const routeNames = (navigation.getState?.().routeNames ?? []) as readonly string[];
+    const anchorId =
+      route?.params?.anchorId ?? useAuthStore.getState().pendingFirstAnchorDraft?.tempAnchorId;
+    const anchor = anchorId ? useAnchorStore.getState().getAnchorById(anchorId) : null;
+    if (anchorId && routeNames.includes('SaveProgress')) {
+      if (anchor) {
+        navigation.replace('SaveProgress', { anchor });
+        return;
+      }
+    }
+    navigateAfterSuccessfulAuth('Vault');
   };
 
   const completeAuth = async (result: Awaited<ReturnType<typeof AuthService.signInWithEmail>>) => {
@@ -191,9 +200,9 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ navigation, route }) =
     );
 
     if (context === 'first_anchor_gate') {
-      navigateAfterSuccessfulAuth('FirstAnchorAccountGate');
+      finalizeFirstAnchorThenVault();
     } else if (context === 'save_progress' && shouldRouteThroughFirstAnchorGate) {
-      navigateAfterSuccessfulAuth('FirstAnchorAccountGate');
+      finalizeFirstAnchorThenVault();
     } else if (context === 'save_progress') {
       navigateAfterSuccessfulAuth('Vault');
     } else if (context === 'paywall') {
@@ -245,14 +254,14 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ navigation, route }) =
 
   const handleSignUp = async () => {
     resetError();
-    if (!name.trim() || !email.trim() || !password || !confirmPassword) {
-      setError('Please fill in all fields');
+    if (!email.trim() || !password) {
+      setError('Please enter your email and a password');
       FrictionAnalytics.flowBlocked('onboarding_auth', 'signup', 'missing_fields', { context });
       return;
     }
-    if (password !== confirmPassword) {
-      setError('Passwords do not match');
-      FrictionAnalytics.flowBlocked('onboarding_auth', 'signup', 'password_mismatch', { context });
+    if (password.length < 8) {
+      setError('Password must be at least 8 characters');
+      FrictionAnalytics.flowBlocked('onboarding_auth', 'signup', 'password_too_short', { context });
       return;
     }
 
@@ -594,9 +603,9 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ navigation, route }) =
                 </View>
 
                 {!isSignIn
-                  ? renderField('name', 'FULL NAME', name, setName, {
+                  ? renderField('name', 'NAME (OPTIONAL)', name, setName, {
                     autoCapitalize: 'words',
-                    placeholder: 'Your name',
+                    placeholder: 'What should we call you?',
                   })
                   : null}
 
@@ -606,22 +615,12 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ navigation, route }) =
                 })}
 
                 {renderField('password', 'PASSWORD', password, setPassword, {
-                  placeholder: '••••••••',
+                  placeholder: 'At least 8 characters',
                   secureTextEntry: true,
                   showToggle: true,
                   shown: showPassword,
                   onToggle: () => setShowPassword((current) => !current),
                 })}
-
-                {!isSignIn
-                  ? renderField('confirmPassword', 'CONFIRM PASSWORD', confirmPassword, setConfirmPassword, {
-                    placeholder: '••••••••',
-                    secureTextEntry: true,
-                    showToggle: true,
-                    shown: showConfirmPassword,
-                    onToggle: () => setShowConfirmPassword((current) => !current),
-                  })
-                  : null}
 
                 {error ? <Text style={styles.errorText}>{error}</Text> : null}
 

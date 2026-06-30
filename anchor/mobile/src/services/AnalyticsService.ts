@@ -383,6 +383,8 @@ export const AnalyticsEvents = {
   TRIAL_STARTED: 'trial_started',
   TRIAL_EXPIRED: 'trial_expired',
   TRIAL_CONVERTED: 'trial_converted',
+  TRIAL_BANNER_VIEWED: 'trial_banner_viewed',
+  TRIAL_BANNER_TAPPED: 'trial_banner_tapped',
 
   // Features
   MANUAL_FORGE_OPENED: 'manual_forge_opened',

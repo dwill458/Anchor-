@@ -33,6 +33,7 @@ import { AnchorSelectorSheet } from './components/AnchorSelectorSheet';
 import { DailyGoalProgressCard } from './components/DailyGoalProgressCard';
 import { ThreadStrengthBlock, getThreadState } from './components/ThreadStrengthBlock';
 import { MicroTeachCard, MicroTeachInfoChip } from '@/components/teaching';
+import { TrialCountdownBanner } from '@/components/TrialCountdownBanner';
 import { useTeachingGate } from '@/utils/useTeachingGate';
 // DEFERRED: replaced by PracticeInfoModal to preserve rollback path — remove post-launch.
 // import { InfoSheet } from './components/InfoSheet';
@@ -134,6 +135,7 @@ export const PracticeScreen: React.FC = () => {
   const [autoTeachingSeen, setAutoTeachingSeen] = useState<boolean | null>(null);
   const [confirmUnchargedBurnVisible, setConfirmUnchargedBurnVisible] = useState(false);
   const [threadSheetVisible, setThreadSheetVisible] = useState(false);
+  const [threadTeachingDismissed, setThreadTeachingDismissed] = useState(false);
 
   const threadStrengthTeaching = useTeachingGate({
     screenId: 'practice_home',
@@ -573,6 +575,17 @@ export const PracticeScreen: React.FC = () => {
             />
           </Animated.View>
 
+          <TrialCountdownBanner
+            surface="practice_home"
+            onPressUpgrade={() => {
+              markInteraction();
+              rootNavigation.navigate('Paywall', {
+                source: 'gated_feature',
+                preferredPlanId: 'annual',
+              });
+            }}
+          />
+
           <Animated.View style={threadStyle}>
             <Pressable
               accessibilityRole="button"
@@ -597,18 +610,21 @@ export const PracticeScreen: React.FC = () => {
             </Pressable>
           </Animated.View>
 
-          <Animated.View style={[threadStyle, styles.threadTeachingRow]}>
-            <MicroTeachInfoChip
-              teachingIds="practice_thread_strength_v1"
-              screenId="practice_home"
-              sheetTitle="Thread Strength"
-            />
-          </Animated.View>
+          {!threadStrengthTeaching || threadTeachingDismissed ? (
+            <Animated.View style={[threadStyle, styles.threadTeachingRow]}>
+              <MicroTeachInfoChip
+                teachingIds="practice_thread_strength_v1"
+                screenId="practice_home"
+                sheetTitle="Thread Strength"
+              />
+            </Animated.View>
+          ) : null}
 
           <MicroTeachCard
             teaching={threadStrengthTeaching}
             screenId="practice_home"
             style={styles.threadTeachingCard}
+            onDismiss={() => setThreadTeachingDismissed(true)}
           />
 
           <Animated.View style={threadStyle}>

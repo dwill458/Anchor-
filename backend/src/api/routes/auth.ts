@@ -167,6 +167,15 @@ function buildUserSyncPayload(input: {
   };
 }
 
+function isUniqueEmailConflict(error: unknown): error is Prisma.PrismaClientKnownRequestError {
+  return (
+    error instanceof Prisma.PrismaClientKnownRequestError &&
+    error.code === 'P2002' &&
+    Array.isArray(error.meta?.target) &&
+    error.meta.target.includes('email')
+  );
+}
+
 function buildSettingsUpsertData(settings: {
   notificationsEnabled?: boolean;
   dailyReminderTime?: string;
@@ -414,13 +423,40 @@ router.post(
                 );
               }
 
-              return tx.user.create({
-                data: {
-                  authUid,
-                  ...syncPayload,
-                  hasCompletedOnboarding: hasCompletedOnboarding === true,
-                },
-              });
+              try {
+                return await tx.user.create({
+                  data: {
+                    authUid,
+                    ...syncPayload,
+                    hasCompletedOnboarding: hasCompletedOnboarding === true,
+                  },
+                });
+              } catch (error) {
+                if (!isUniqueEmailConflict(error)) {
+                  throw error;
+                }
+
+                const userCreatedByConcurrentSync = await tx.user.findFirst({
+                  where: {
+                    email: {
+                      equals: email,
+                      mode: 'insensitive',
+                    },
+                  },
+                });
+
+                if (!userCreatedByConcurrentSync) {
+                  throw error;
+                }
+
+                return tx.user.update({
+                  where: { id: userCreatedByConcurrentSync.id },
+                  data: {
+                    ...syncPayload,
+                    authUid,
+                  },
+                });
+              }
             })();
 
         await tx.userSettings.upsert({

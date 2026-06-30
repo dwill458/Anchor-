@@ -10,7 +10,7 @@ const mockNavigation = {
   navigate: jest.fn(),
   goBack: jest.fn(),
   canGoBack: jest.fn(() => true),
-  getState: jest.fn(() => ({ routeNames: ['Login', 'Vault', 'FirstAnchorAccountGate'] })),
+  getState: jest.fn(() => ({ routeNames: ['Login', 'Vault', 'SaveProgress'] })),
 };
 
 jest.mock('expo-apple-authentication', () => ({

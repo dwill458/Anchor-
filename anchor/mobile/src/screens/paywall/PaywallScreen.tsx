@@ -37,6 +37,7 @@ import { useAnchorStore } from '@/stores/anchorStore';
 import { useSubscriptionStore } from '@/stores/subscriptionStore';
 import { useProgressionData } from '@/hooks/useProgressionData';
 import { useReduceMotionEnabled } from '@/hooks/useReduceMotionEnabled';
+import { useTrialStatus } from '@/hooks/useTrialStatus';
 import revenueCatService, {
   type RevenueCatOfferingDisplayMetadata,
   type RevenueCatPlanId,
@@ -388,6 +389,7 @@ export const PaywallScreen: React.FC = () => {
   const primeStreak = useAnchorStore((state) => state.primeStreak);
   const { forgedCount, totalPrimes } = useProgressionData();
   const reduceMotion = useReduceMotionEnabled();
+  const { daysRemaining, subscriptionStatus } = useTrialStatus();
 
   const preferredPlanId = useSubscriptionStore((state) => state.preferredPlanId);
   const setPreferredPlanId = useSubscriptionStore((state) => state.setPreferredPlanId);
@@ -421,13 +423,17 @@ export const PaywallScreen: React.FC = () => {
       source,
       defaultPlan: PAYWALL_EXPERIMENT.defaultPlan,
       headline: PAYWALL_EXPERIMENT.headline,
+      trial_days_remaining: daysRemaining,
+      trial_status: subscriptionStatus,
     });
     FrictionAnalytics.stepViewed('paywall', 'paywall', {
       source,
       default_plan: PAYWALL_EXPERIMENT.defaultPlan,
       headline: PAYWALL_EXPERIMENT.headline,
+      trial_days_remaining: daysRemaining,
+      trial_status: subscriptionStatus,
     });
-  }, [source]);
+  }, [source, daysRemaining, subscriptionStatus]);
 
   useEffect(() => {
     let mounted = true;

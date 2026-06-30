@@ -51,6 +51,18 @@ jest.mock('@/hooks/useReduceMotionEnabled', () => ({
   useReduceMotionEnabled: () => true,
 }));
 
+jest.mock('@/hooks/useTrialStatus', () => ({
+  useTrialStatus: () => ({
+    isTrialActive: false,
+    isSubscribed: false,
+    hasExpired: true,
+    trialExpired: true,
+    hasActiveEntitlement: false,
+    daysRemaining: 0,
+    subscriptionStatus: 'expired',
+  }),
+}));
+
 jest.mock('@/services/AnalyticsService', () => ({
   AnalyticsService: {
     track: (...args: any[]) => mockTrack(...args),

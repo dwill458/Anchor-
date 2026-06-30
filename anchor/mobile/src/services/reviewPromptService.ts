@@ -1,7 +1,15 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import Constants from 'expo-constants';
-import * as StoreReview from 'expo-store-review';
 import { Linking, Platform } from 'react-native';
+
+// expo-store-review requires a native module not available in older dev client builds.
+// Lazy-load it so a missing native module degrades gracefully instead of crashing.
+let StoreReview: typeof import('expo-store-review') | null = null;
+try {
+  StoreReview = require('expo-store-review');
+} catch {
+  // Native module not available in this dev client build — all review calls are no-ops.
+}
 import { useAnchorStore } from '@/stores/anchorStore';
 import { useSessionStore } from '@/stores/sessionStore';
 import type { SessionLogEntry } from '@/stores/sessionStore';
@@ -178,6 +186,11 @@ export const requestReviewIfEligible = async (
     return false;
   }
 
+  if (!StoreReview) {
+    devLog('native review module unavailable', { source });
+    return false;
+  }
+
   const canAsk = await StoreReview.hasAction();
   if (!canAsk) {
     devLog('native review action unavailable', { source });
@@ -200,7 +213,7 @@ export const requestReviewIfEligible = async (
 };
 
 export const openStoreListing = async (): Promise<boolean> => {
-  const configuredStoreUrl = StoreReview.storeUrl();
+  const configuredStoreUrl = StoreReview?.storeUrl();
   if (configuredStoreUrl && (await openUrl(configuredStoreUrl))) {
     return true;
   }
