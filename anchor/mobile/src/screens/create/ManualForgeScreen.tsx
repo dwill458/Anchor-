@@ -411,7 +411,7 @@ export default function ManualForgeScreen() {
 
     } catch (error) {
       logger.error('Error saving manual sigil:', error);
-      Alert.alert('Error', 'Failed to save your anchor.');
+      Alert.alert('Save failed', 'Your anchor could not be saved. Your drawing is still here — try again.');
     }
   };
 
