@@ -100,9 +100,13 @@ to route errors to Sentry breadcrumbs. Low risk, do alongside copy pass.
 - **401 handling** (`ApiClient.ts:214`): throws "Session expired. Please sign in again." but nothing
   signs the user out or routes them to auth — a user with a genuinely revoked session can hit a
   loop of failing calls. Needs a design decision (auto-refresh vs sign-out prompt); defer.
-- **`anchorStore.removeAnchor`** doesn't cancel a queued sync retry for that anchor
+- ~~**`anchorStore.removeAnchor`** doesn't cancel a queued sync retry for that anchor
   (`AnchorSyncService.enqueueRetry`) — a deleted anchor could be resurrected by a later
-  `flushPendingSync`. Verify against `AnchorSyncService` semantics before changing.
+  `flushPendingSync`.~~ **(fixed in 1.1)** Deletion now tombstones the anchor and cancels
+  queued retries (`AnchorSyncService.markAnchorDeleted`); burn/release cancels queued
+  pre-burn snapshots (`cancelQueuedSync`); `flushPendingSync` and `applySyncedAnchor` refuse
+  to re-add locally removed anchors or un-release burned ones. Regression tests:
+  `stores/__tests__/anchorStoreSyncInvalidation.test.ts`, `services/__tests__/AnchorSyncService.test.ts`.
 - **VaultScreen fetch merge** (`VaultScreen.tsx:385`): `[...fetched, ...preservedLocal]` depends on
   backend returning `localId` for dedupe in `mergeAnchors`. Confirmed OK today; note for backend
   contract tests.

@@ -16,6 +16,9 @@ Run on iOS + Android release-candidate builds. ✅ = pass, ❌ = fail (file issu
 - [ ] Sign in restores anchors, streak, trial state
 - [ ] Vault loads offline (persisted anchors render; calm error toast, not raw error text)
 - [ ] Anchor created offline syncs when connectivity returns (retry queue)
+- [ ] **Create anchor offline → delete it → reconnect → deleted anchor does not reappear (1.1 fix)**
+- [ ] **Edit anchor offline → burn it → reconnect → burned anchor stays released, not back in active vault (1.1 fix)**
+- [ ] **Delete one anchor while another has a pending offline sync → the other anchor still syncs (1.1 fix)**
 - [ ] Sign out → sign in as different account → no data bleed between accounts
 
 ## C. No anchors vs. multiple anchors

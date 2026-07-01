@@ -121,4 +121,99 @@ describe('AnchorSyncService', () => {
     expect(migratedAnchors[0].id).toBe('local-anchor-1');
     expect(global.fetch).toHaveBeenCalledTimes(1);
   });
+
+  describe('cancelQueuedSync', () => {
+    it('removes queued retries only for the given anchor', async () => {
+      const anchorA = createAnchor();
+      const anchorB = createAnchor({ id: 'local-anchor-2', localId: 'local-anchor-2' });
+      await AnchorSyncService.enqueueRetry(anchorA, 'user-1');
+      await AnchorSyncService.enqueueRetry(anchorB, 'user-1');
+
+      await AnchorSyncService.cancelQueuedSync(['local-anchor-1']);
+
+      (global.fetch as jest.Mock).mockResolvedValue({
+        ok: true,
+        json: async () => ([
+          {
+            id: 'cloud-uuid-2',
+            user_id: 'user-1',
+            local_id: 'local-anchor-2',
+            intention: 'Stay focused',
+            category: 'career',
+            distilled_letters: ['S', 'T', 'Y', 'F', 'C', 'S'],
+            svg_data: '<svg></svg>',
+            base_sigil_svg: '<svg></svg>',
+            structure_variant: 'balanced',
+            style_variant: 'balanced',
+            is_charged: false,
+            activation_count: 0,
+            created_at: '2025-01-01T00:00:00.000Z',
+            updated_at: '2025-01-01T00:00:00.000Z',
+          },
+        ]),
+      });
+
+      const flushedAnchors = await AnchorSyncService.flushRetryQueue('user-1');
+
+      expect(flushedAnchors).toHaveLength(1);
+      expect(flushedAnchors[0].localId).toBe('local-anchor-2');
+      expect(global.fetch).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  describe('markAnchorDeleted', () => {
+    it('drops the queued retry and blocks the anchor from being re-enqueued', async () => {
+      const anchor = createAnchor();
+      await AnchorSyncService.enqueueRetry(anchor, 'user-1');
+
+      await AnchorSyncService.markAnchorDeleted(['local-anchor-1']);
+
+      // A late failure callback tries to queue the deleted anchor again.
+      await AnchorSyncService.enqueueRetry(anchor, 'user-1');
+
+      const flushedAnchors = await AnchorSyncService.flushRetryQueue('user-1');
+
+      expect(flushedAnchors).toHaveLength(0);
+      expect(global.fetch).not.toHaveBeenCalled();
+    });
+
+    it('drops tombstoned items at flush time even if they were queued earlier', async () => {
+      const anchorA = createAnchor();
+      const anchorB = createAnchor({ id: 'local-anchor-2', localId: 'local-anchor-2' });
+      await AnchorSyncService.enqueueRetry(anchorA, 'user-1');
+      await AnchorSyncService.enqueueRetry(anchorB, 'user-1');
+
+      // Tombstone written without touching the queue (simulates a cancel that
+      // raced with a concurrent enqueue).
+      await AsyncStorage.setItem('anchor-sync-tombstones', JSON.stringify(['local-anchor-1']));
+
+      (global.fetch as jest.Mock).mockResolvedValue({
+        ok: true,
+        json: async () => ([
+          {
+            id: 'cloud-uuid-2',
+            user_id: 'user-1',
+            local_id: 'local-anchor-2',
+            intention: 'Stay focused',
+            category: 'career',
+            distilled_letters: ['S', 'T', 'Y', 'F', 'C', 'S'],
+            svg_data: '<svg></svg>',
+            base_sigil_svg: '<svg></svg>',
+            structure_variant: 'balanced',
+            style_variant: 'balanced',
+            is_charged: false,
+            activation_count: 0,
+            created_at: '2025-01-01T00:00:00.000Z',
+            updated_at: '2025-01-01T00:00:00.000Z',
+          },
+        ]),
+      });
+
+      const flushedAnchors = await AnchorSyncService.flushRetryQueue('user-1');
+
+      expect(flushedAnchors).toHaveLength(1);
+      expect(flushedAnchors[0].localId).toBe('local-anchor-2');
+      expect(global.fetch).toHaveBeenCalledTimes(1);
+    });
+  });
 });
