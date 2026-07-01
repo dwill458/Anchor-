@@ -353,7 +353,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ navigation, route }) =
             context,
           }
         );
-        if (tab === 'signup') {
+        if (result.isNewUser) {
           AnalyticsService.track(AnalyticsEvents.TRIAL_STARTED, { provider: 'apple', context });
         }
         FrictionAnalytics.completeFlow('onboarding_auth', {
@@ -402,7 +402,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ navigation, route }) =
             context,
           }
         );
-        if (tab === 'signup') {
+        if (result.isNewUser) {
           AnalyticsService.track(AnalyticsEvents.TRIAL_STARTED, { provider: 'google', context });
         }
         FrictionAnalytics.completeFlow('onboarding_auth', {

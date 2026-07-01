@@ -385,58 +385,19 @@ router.post(
         lastSeenAt,
       });
 
-      const user = await prisma.$transaction(async tx => {
-        const existingByAuthUid = await tx.user.findUnique({
-          where: { authUid },
-        });
+      const user = await prisma
+        .$transaction(async tx => {
+          const existingByAuthUid = await tx.user.findUnique({
+            where: { authUid },
+          });
 
-        const syncedUser = existingByAuthUid
-          ? await tx.user.update({
-              where: { authUid },
-              data: syncPayload,
-            })
-          : await (async () => {
-              const existingByEmail = await tx.user.findFirst({
-                where: {
-                  email: {
-                    equals: email,
-                    mode: 'insensitive',
-                  },
-                },
-              });
-
-              if (existingByEmail) {
-                return tx.user.update({
-                  where: { id: existingByEmail.id },
-                  data: {
-                    ...syncPayload,
-                    authUid,
-                  },
-                });
-              }
-
-              if (!allowCreate) {
-                throw new AppError(
-                  'No Anchor account was found for this sign-in. Use the account email from your existing Anchor profile, or create a new account.',
-                  404,
-                  'USER_NOT_FOUND'
-                );
-              }
-
-              try {
-                return await tx.user.create({
-                  data: {
-                    authUid,
-                    ...syncPayload,
-                    hasCompletedOnboarding: hasCompletedOnboarding === true,
-                  },
-                });
-              } catch (error) {
-                if (!isUniqueEmailConflict(error)) {
-                  throw error;
-                }
-
-                const userCreatedByConcurrentSync = await tx.user.findFirst({
+          const syncedUser = existingByAuthUid
+            ? await tx.user.update({
+                where: { authUid },
+                data: syncPayload,
+              })
+            : await (async () => {
+                const existingByEmail = await tx.user.findFirst({
                   where: {
                     email: {
                       equals: email,
@@ -445,28 +406,81 @@ router.post(
                   },
                 });
 
-                if (!userCreatedByConcurrentSync) {
-                  throw error;
+                if (existingByEmail) {
+                  return tx.user.update({
+                    where: { id: existingByEmail.id },
+                    data: {
+                      ...syncPayload,
+                      authUid,
+                    },
+                  });
                 }
 
-                return tx.user.update({
-                  where: { id: userCreatedByConcurrentSync.id },
+                if (!allowCreate) {
+                  throw new AppError(
+                    'No Anchor account was found for this sign-in. Use the account email from your existing Anchor profile, or create a new account.',
+                    404,
+                    'USER_NOT_FOUND'
+                  );
+                }
+
+                // If this races with a concurrent sync inserting the same email, let the
+                // unique-constraint error propagate out of this transaction. Postgres aborts
+                // the whole transaction once a statement errors, so the recovery lookup below
+                // runs in a fresh transaction rather than reusing this aborted one.
+                return tx.user.create({
                   data: {
-                    ...syncPayload,
                     authUid,
+                    ...syncPayload,
+                    hasCompletedOnboarding: hasCompletedOnboarding === true,
                   },
                 });
-              }
-            })();
+              })();
 
-        await tx.userSettings.upsert({
-          where: { userId: syncedUser.id },
-          update: {},
-          create: { userId: syncedUser.id },
+          await tx.userSettings.upsert({
+            where: { userId: syncedUser.id },
+            update: {},
+            create: { userId: syncedUser.id },
+          });
+
+          return syncedUser;
+        })
+        .catch(async error => {
+          if (!isUniqueEmailConflict(error)) {
+            throw error;
+          }
+
+          return prisma.$transaction(async tx => {
+            const userCreatedByConcurrentSync = await tx.user.findFirst({
+              where: {
+                email: {
+                  equals: email,
+                  mode: 'insensitive',
+                },
+              },
+            });
+
+            if (!userCreatedByConcurrentSync) {
+              throw error;
+            }
+
+            const syncedUser = await tx.user.update({
+              where: { id: userCreatedByConcurrentSync.id },
+              data: {
+                ...syncPayload,
+                authUid,
+              },
+            });
+
+            await tx.userSettings.upsert({
+              where: { userId: syncedUser.id },
+              update: {},
+              create: { userId: syncedUser.id },
+            });
+
+            return syncedUser;
+          });
         });
-
-        return syncedUser;
-      });
 
       res.json({
         success: true,
