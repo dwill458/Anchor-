@@ -417,7 +417,7 @@ export const ThreadStrengthSheet: React.FC<ThreadStrengthSheetProps> = ({
               <View style={styles.gaugeText}>
                 <Text style={styles.gaugeTitle}>This Anchor Only</Text>
                 <Text style={styles.gaugeBody}>
-                  {data.totalSessions} {data.totalSessions === 1 ? 'session' : 'sessions'} total.
+                  Thread Strength grows when you come back to this anchor consistently.
                   {'\n'}
                   {tagline}
                 </Text>

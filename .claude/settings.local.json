@@ -2,7 +2,10 @@
   "permissions": {
     "allow": [
       "Bash(git add:*)",
-      "Bash(git commit:*)"
+      "Bash(git commit:*)",
+      "PowerShell($p = \\(netstat -ano | findstr \":8081\" | Select-String \"LISTENING\" | ForEach-Object { \\($_ -split '\\\\s+'\\)[-1] } | Select-Object -First 1\\); if \\($p\\) { Stop-Process -Id $p -Force; Write-Host \"Killed PID $p\" } else { Write-Host \"Nothing on 8081\" })",
+      "PowerShell(& \"C:\\\\Users\\\\dwill\\\\AppData\\\\Local\\\\Android\\\\Sdk\\\\platform-tools\\\\adb.exe\" devices)",
+      "PowerShell(& \"C:\\\\Users\\\\dwill\\\\AppData\\\\Local\\\\Android\\\\Sdk\\\\platform-tools\\\\adb.exe\" reverse --list)"
     ]
   }
 }

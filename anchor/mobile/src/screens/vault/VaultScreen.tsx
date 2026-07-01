@@ -698,7 +698,7 @@ function renderActiveState({
           teachingIds="vault_intro_first_time_v1"
           screenId="vault"
           label="What's an anchor?"
-          sheetTitle="Your anchors"
+          sheetTitle="What's an anchor?"
         />
       </Animated2.View>
 

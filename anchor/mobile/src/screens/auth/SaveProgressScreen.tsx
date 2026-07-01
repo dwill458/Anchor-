@@ -48,6 +48,7 @@ const GOLD_DEEP = '#A8892E';
 const BONE = '#F5F0E8';
 const DISC_SIGIL_SIZE = 152;
 const FALLBACK_SIGIL_SIZE = 122;
+const DISC_ARTWORK_RADIUS = 18;
 const ORBIT_SIZE = 242;
 const ORBIT_OFFSET = 15;
 
@@ -108,11 +109,13 @@ const AnchorDisc = ({ anchor }: { anchor: Anchor }) => {
       <View style={styles.discRingC} />
       <View style={styles.discSigilWrap}>
         {anchor.enhancedImageUrl ? (
-          <Image
-            source={{ uri: anchor.enhancedImageUrl }}
-            style={styles.discSigilImage}
-            resizeMode="contain"
-          />
+          <View style={styles.discSigilImageClip}>
+            <Image
+              source={{ uri: anchor.enhancedImageUrl }}
+              style={styles.discSigilImage}
+              resizeMode="contain"
+            />
+          </View>
         ) : sigilXml ? (
           <SvgXml xml={sigilXml} width={DISC_SIGIL_SIZE} height={DISC_SIGIL_SIZE} />
         ) : (
@@ -761,9 +764,16 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+  discSigilImageClip: {
+    width: DISC_SIGIL_SIZE,
+    height: DISC_SIGIL_SIZE,
+    borderRadius: DISC_ARTWORK_RADIUS,
+    overflow: 'hidden',
+  },
   discSigilImage: {
     width: DISC_SIGIL_SIZE,
     height: DISC_SIGIL_SIZE,
+    borderRadius: DISC_ARTWORK_RADIUS,
   },
   plateWrap: {
     alignItems: 'center',

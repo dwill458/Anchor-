@@ -1322,18 +1322,22 @@ const AnchorDetailsScreen = ({ navigation, route }) => {
                     </View>
                   </View>
 
-                  <Text style={s.miniAffirmation}>The symbol is becoming part of you.</Text>
+                  <Text style={s.miniAffirmation}>Each return strengthens the signal.</Text>
 
                   <View style={{ marginTop: spacing.sm }}>
                     <MicroTeachInfoChip
                       teachingIds="anchor_history_v1"
                       screenId="anchor_detail"
                       label="Why this matters"
-                      sheetTitle="Your history"
+                      sheetTitle="Why this matters"
                     />
                   </View>
 
-                  <MicroTeachHintRow teaching={anchorReuseTeaching} screenId="anchor_detail" />
+                  <MicroTeachHintRow
+                    teaching={anchorReuseTeaching}
+                    screenId="anchor_detail"
+                    showPin={false}
+                  />
 
                   {/* Distilled row */}
                   <View style={s.distilledSection}>
