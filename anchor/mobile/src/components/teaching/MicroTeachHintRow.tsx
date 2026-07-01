@@ -16,12 +16,14 @@ interface MicroTeachHintRowProps {
   teaching: TeachingContent | null;
   screenId: string;
   style?: StyleProp<ViewStyle>;
+  showPin?: boolean;
 }
 
 export const MicroTeachHintRow: React.FC<MicroTeachHintRowProps> = ({
   teaching,
   screenId,
   style,
+  showPin = true,
 }) => {
   const reduceMotion = useReduceMotionEnabled();
   const opacity = useRef(new Animated.Value(0)).current;
@@ -46,7 +48,7 @@ export const MicroTeachHintRow: React.FC<MicroTeachHintRowProps> = ({
 
   return (
     <Animated.View style={[styles.row, { opacity }, style]} pointerEvents="none">
-      <View style={styles.pin} />
+      {showPin ? <View style={styles.pin} /> : null}
       <View style={styles.textBlock}>
         <Animated.Text style={styles.primary}>{teaching.copy}</Animated.Text>
         {teaching.copySecondary ? (
