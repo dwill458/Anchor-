@@ -37,7 +37,6 @@ const ROUTE_FLOW_STEPS: Record<string, RouteFlowStep> = {
   Welcome: { flow: 'onboarding_auth', step: 'narrative' },
   Login: { flow: 'onboarding_auth', step: 'login' },
   SignUp: { flow: 'onboarding_auth', step: 'signup' },
-  FirstAnchorAccountGate: { flow: 'onboarding_auth', step: 'first_anchor_account_gate' },
   SaveProgress: { flow: 'onboarding_auth', step: 'save_progress' },
   AuthGate: { flow: 'onboarding_auth', step: 'auth_gate' },
   TrialSignUp: { flow: 'onboarding_auth', step: 'trial_signup' },

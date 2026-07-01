@@ -478,6 +478,41 @@ describe('RitualScreen', () => {
     });
   }, 20000);
 
+  it('routes an abandoned first-anchor Deep Prime into SaveProgress instead of the Vault', async () => {
+    const navigation = require('@react-navigation/native');
+    navigation.useRoute.mockReturnValue({
+      params: {
+        anchorId: 'test-anchor-id',
+        ritualType: 'ritual',
+        durationSeconds: 120,
+        returnTo: 'vault',
+      },
+    });
+    (useAuthStore as unknown as jest.Mock).mockImplementation((selector: any) => {
+      const state = {
+        pendingFirstAnchorDraft: { tempAnchorId: 'test-anchor-id' },
+      };
+      return typeof selector === 'function' ? selector(state) : state;
+    });
+
+    const { getByLabelText, getByText } = render(<RitualScreen />);
+
+    fireEvent.press(getByText(/Begin priming/i));
+
+    // Abandon the session before it completes.
+    fireEvent.press(getByLabelText('Exit practice'));
+    fireEvent.press(getByText('Exit'));
+
+    await waitFor(
+      () =>
+        expect(mockReplace).toHaveBeenCalledWith('SaveProgress', {
+          anchor: expect.objectContaining({ id: 'test-anchor-id' }),
+        }),
+      { timeout: 2000 }
+    );
+    expect(mockNavigateToVaultDestination).not.toHaveBeenCalled();
+  }, 20000);
+
   it('plays the 5-minute Deep Prime cues at the scheduled timestamps', async () => {
     const navigation = require('@react-navigation/native');
     const now = 1_700_000_500_000;

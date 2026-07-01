@@ -36,7 +36,6 @@ import {
 } from '../screens/rituals';
 import {
   AuthGateScreen,
-  FirstAnchorAccountGateScreen,
   LoginScreen,
   SaveProgressScreen,
   SignUpScreen,
@@ -102,11 +101,6 @@ export const VaultStackNavigator: React.FC<VaultStackNavigatorProps> = ({ onRout
         options={{
           headerShown: false,
         }}
-      />
-      <Stack.Screen
-        name="FirstAnchorAccountGate"
-        component={FirstAnchorAccountGateScreen}
-        options={{ headerShown: false, gestureEnabled: false }}
       />
       <Stack.Screen
         name="SaveProgress"

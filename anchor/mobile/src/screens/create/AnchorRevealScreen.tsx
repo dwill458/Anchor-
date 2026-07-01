@@ -29,6 +29,7 @@ import { FrictionAnalytics } from '@/services/FrictionAnalytics';
 import { post } from '@/services/ApiClient';
 import { isBackendAnchorId } from '@/services/BackendAnchorService';
 import { useNotificationController } from '@/hooks/useNotificationController';
+import { DailyReminderPrompt } from '@/components/notifications';
 import { logger } from '@/utils/logger';
 import { classifyToTierPreliminary } from '@/utils/tierClassifier';
 import { isCompactPhoneViewport, isShortPhoneViewport } from '@/utils/layout';
@@ -54,8 +55,10 @@ export const AnchorRevealScreen: React.FC = () => {
         (state) => state.enqueuePendingFirstAnchorMutation
     );
     const clearPendingFirstAnchorState = useAuthStore((state) => state.clearPendingFirstAnchorState);
-    const { handleAnchorSaved } = useNotificationController();
+    const { handleAnchorSaved, notifState } = useNotificationController();
     const [isSaving, setIsSaving] = useState(false);
+    const [reminderCardVisible, setReminderCardVisible] = useState(false);
+    const pendingNavRef = useRef<{ anchorId: string; isGuestFirstAnchor: boolean } | null>(null);
 
     const {
         intentionText,
@@ -122,6 +125,34 @@ export const AnchorRevealScreen: React.FC = () => {
 
     const handleBack = () => {
         navigation.goBack();
+    };
+
+    const navigateAfterSave = (anchorId: string, isGuestFirstAnchor: boolean) => {
+        if (!wallpaperPromptSeen) {
+            navigation.replace('WallpaperPrompt', {
+                anchorId,
+                intentionText,
+                enhancedImageUrl: enhancedImageUrl || undefined,
+                sigilSvg: reinforcedSigilSvg || baseSigilSvg,
+                fromOnboarding: isGuestFirstAnchor,
+            });
+        } else {
+            navigation.replace('ChargeSetup', {
+                anchorId,
+                autoStartOnSelection: true,
+                returnTo: 'vault',
+                fromOnboarding: isGuestFirstAnchor,
+            });
+        }
+    };
+
+    const handleReminderDismiss = () => {
+        setReminderCardVisible(false);
+        const pending = pendingNavRef.current;
+        pendingNavRef.current = null;
+        if (pending) {
+            navigateAfterSave(pending.anchorId, pending.isGuestFirstAnchor);
+        }
     };
 
     const handleContinue = async () => {
@@ -238,20 +269,21 @@ export const AnchorRevealScreen: React.FC = () => {
         // Clear heavy temporary data once the anchor record is created.
         setTempEnhancedImage(null);
 
-        if (!wallpaperPromptSeen) {
-            navigation.replace('WallpaperPrompt', {
-                anchorId,
-                intentionText,
-                enhancedImageUrl: enhancedImageUrl || undefined,
-                sigilSvg: reinforcedSigilSvg || baseSigilSvg,
-            });
-        } else {
-            navigation.replace('ChargeSetup', {
-                anchorId,
-                autoStartOnSelection: true,
-                returnTo: 'vault',
-            });
+        // First-anchor moment: offer a calm daily-reminder card before moving on.
+        // We only surface it once, and only while permission is still undetermined.
+        const isFirstAnchor = existingAnchorCount === 0;
+        const shouldShowReminder =
+            isFirstAnchor &&
+            notifState?.notificationPermissionStatus === 'undetermined' &&
+            !notifState?.firstAnchorReminderPromptCompleted;
+
+        if (shouldShowReminder) {
+            pendingNavRef.current = { anchorId, isGuestFirstAnchor };
+            setReminderCardVisible(true);
+            return;
         }
+
+        navigateAfterSave(anchorId, isGuestFirstAnchor);
     };
 
     return (
@@ -408,6 +440,12 @@ export const AnchorRevealScreen: React.FC = () => {
                 </Animated.View>
                 </ScrollView>
             </SafeAreaView>
+
+            <DailyReminderPrompt
+                visible={reminderCardVisible}
+                variant="first_anchor"
+                onDismiss={handleReminderDismiss}
+            />
         </View>
     );
 };

@@ -16,6 +16,8 @@ import { colors, spacing, typography } from '@/theme';
 import { useAuthStore } from '@/stores/authStore';
 import { useAnchorStore } from '@/stores/anchorStore';
 import { useSettingsStore } from '@/stores/settingsStore';
+import { MicroTeachInline } from '@/components/teaching';
+import { useTeachingGate } from '@/utils/useTeachingGate';
 
 import { RitualScaffold } from '@/screens/rituals/components/RitualScaffold';
 import { RitualTopBar } from '@/screens/rituals/components/RitualTopBar';
@@ -86,6 +88,10 @@ export const EvolveScreen: React.FC = () => {
     (state) => state.developerForceStreakBreakEnabled
   );
   const getActiveAnchors = useAnchorStore((state) => state.getActiveAnchors);
+  const evolveTeaching = useTeachingGate({
+    screenId: 'evolve',
+    candidateIds: ['evolve_intro_v1'],
+  });
 
   const activeAnchors = getActiveAnchors();
   const hasAnchors = activeAnchors.length > 0;
@@ -176,6 +182,7 @@ export const EvolveScreen: React.FC = () => {
         <View style={styles.header}>
           <Text style={styles.subtitle}>Expand Your Sanctuary.</Text>
           <Text style={styles.stats}>{statsLine}</Text>
+          <MicroTeachInline teaching={evolveTeaching} screenId="evolve" />
         </View>
 
         <View style={styles.pathList}>

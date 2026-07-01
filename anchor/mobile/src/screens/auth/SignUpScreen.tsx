@@ -24,6 +24,7 @@ import * as AppleAuthentication from 'expo-apple-authentication';
 import { colors, typography } from '@/theme';
 import { ENABLE_GOOGLE_SIGN_IN } from '@/config';
 import { useAuthStore } from '../../stores/authStore';
+import { useAnchorStore } from '@/stores/anchorStore';
 import { useSubscriptionStore } from '../../stores/subscriptionStore';
 import { AuthService } from '../../services/AuthService';
 import { FrictionAnalytics } from '@/services/FrictionAnalytics';
@@ -42,7 +43,6 @@ export const SignUpScreen: React.FC<SignUpScreenProps> = ({ navigation, route })
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [confirmPassword, setConfirmPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [focusedField, setFocusedField] = useState<string | null>(null);
@@ -91,26 +91,36 @@ export const SignUpScreen: React.FC<SignUpScreenProps> = ({ navigation, route })
     context === 'save_progress' ||
     context === 'paywall';
 
-  const navigateAfterSuccessfulAuth = (target: 'Vault' | 'FirstAnchorAccountGate') => {
+  const navigateAfterSuccessfulAuth = (target: 'Vault') => {
     const routeNames = (navigation.getState?.().routeNames ?? []) as readonly string[];
 
     if (routeNames.includes(target)) {
-      if (target === 'Vault') {
-        navigateToVaultDestination(navigation, 'replace');
-        return;
-      }
-
-      navigation.replace(target);
+      navigateToVaultDestination(navigation, 'replace');
       return;
     }
 
     if (
-      target === 'Vault' &&
       (routeNames.includes('Profile') || routeNames.includes('Settings')) &&
       navigation.canGoBack()
     ) {
       navigation.goBack();
     }
+  };
+
+  // Hand off to the SaveProgress gate, which finalizes the pending first anchor
+  // (attaches it to the new account) before entering the Vault.
+  const finalizeFirstAnchorThenVault = () => {
+    const routeNames = (navigation.getState?.().routeNames ?? []) as readonly string[];
+    const anchorId =
+      route?.params?.anchorId ?? useAuthStore.getState().pendingFirstAnchorDraft?.tempAnchorId;
+    const anchor = anchorId ? useAnchorStore.getState().getAnchorById(anchorId) : null;
+    if (anchorId && routeNames.includes('SaveProgress')) {
+      if (anchor) {
+        navigation.replace('SaveProgress', { anchor });
+        return;
+      }
+    }
+    navigateAfterSuccessfulAuth('Vault');
   };
 
   const completeAuth = async (result: Awaited<ReturnType<typeof AuthService.signUpWithEmail>>) => {
@@ -134,9 +144,9 @@ export const SignUpScreen: React.FC<SignUpScreenProps> = ({ navigation, route })
     );
 
     if (context === 'first_anchor_gate') {
-      navigateAfterSuccessfulAuth('FirstAnchorAccountGate');
+      finalizeFirstAnchorThenVault();
     } else if (context === 'save_progress' && shouldRouteThroughFirstAnchorGate) {
-      navigateAfterSuccessfulAuth('FirstAnchorAccountGate');
+      finalizeFirstAnchorThenVault();
     } else if (context === 'save_progress') {
       navigateAfterSuccessfulAuth('Vault');
     } else if (context === 'paywall' || context == null || context === 'onboarding') {
@@ -146,14 +156,14 @@ export const SignUpScreen: React.FC<SignUpScreenProps> = ({ navigation, route })
 
   const handleSignUp = async () => {
     resetError();
-    if (!name.trim() || !email.trim() || !password || !confirmPassword) {
-      setError('Please fill in all fields');
+    if (!email.trim() || !password) {
+      setError('Please enter your email and a password');
       FrictionAnalytics.flowBlocked('onboarding_auth', 'signup', 'missing_fields', { context });
       return;
     }
-    if (password !== confirmPassword) {
-      setError('Passwords do not match');
-      FrictionAnalytics.flowBlocked('onboarding_auth', 'signup', 'password_mismatch', { context });
+    if (password.length < 8) {
+      setError('Password must be at least 8 characters');
+      FrictionAnalytics.flowBlocked('onboarding_auth', 'signup', 'password_too_short', { context });
       return;
     }
     setLoading(true);
@@ -335,12 +345,12 @@ export const SignUpScreen: React.FC<SignUpScreenProps> = ({ navigation, route })
                   </View>
 
                   <View style={styles.inputGroup}>
-                    <Text style={styles.label}>Full Name</Text>
+                    <Text style={styles.label}>Name (optional)</Text>
                     <TextInput
                       style={[styles.input, focusedField === 'name' && styles.inputFocused]}
                       value={name}
                       onChangeText={setName}
-                      placeholder="Enter your name"
+                      placeholder="What should we call you?"
                       placeholderTextColor={colors.silver}
                       autoCapitalize="words"
                       onFocus={() => setFocusedField('name')}
@@ -369,24 +379,10 @@ export const SignUpScreen: React.FC<SignUpScreenProps> = ({ navigation, route })
                       style={[styles.input, focusedField === 'password' && styles.inputFocused]}
                       value={password}
                       onChangeText={setPassword}
-                      placeholder="••••••••"
+                      placeholder="At least 8 characters"
                       placeholderTextColor={colors.silver}
                       secureTextEntry
                       onFocus={() => setFocusedField('password')}
-                      onBlur={() => setFocusedField(null)}
-                    />
-                  </View>
-
-                  <View style={styles.inputGroup}>
-                    <Text style={styles.label}>Confirm Password</Text>
-                    <TextInput
-                      style={[styles.input, focusedField === 'confirm' && styles.inputFocused]}
-                      value={confirmPassword}
-                      onChangeText={setConfirmPassword}
-                      placeholder="••••••••"
-                      placeholderTextColor={colors.silver}
-                      secureTextEntry
-                      onFocus={() => setFocusedField('confirm')}
                       onBlur={() => setFocusedField(null)}
                     />
                   </View>

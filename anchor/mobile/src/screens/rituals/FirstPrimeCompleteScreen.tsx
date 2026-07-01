@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   Animated,
   Dimensions,
@@ -24,6 +24,7 @@ import { useSessionStore } from '@/stores/sessionStore';
 import { useSettingsStore } from '@/stores/settingsStore';
 import { useAudio } from '@/hooks/useAudio';
 import { useNotificationController } from '@/hooks/useNotificationController';
+import { DailyReminderPrompt } from '@/components/notifications';
 import { AnalyticsService } from '@/services/AnalyticsService';
 import { FrictionAnalytics } from '@/services/FrictionAnalytics';
 import { colors, spacing, typography } from '@/theme';
@@ -75,11 +76,13 @@ export const FirstPrimeCompleteScreen: React.FC = () => {
   const recordSession = useSessionStore((state) => state.recordSession);
   const primeSessionAudio = useSettingsStore((state) => state.primeSessionAudio ?? 'ambient');
   const { playSound } = useAudio();
-  const { handlePrimeComplete } = useNotificationController();
+  const { handlePrimeComplete, notifState } = useNotificationController();
   const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
 
   const anchor = getAnchorById(anchorId);
   const hasRecordedRef = useRef(false);
+  const reminderShownRef = useRef(false);
+  const [reminderCardVisible, setReminderCardVisible] = useState(false);
 
   const glowBreath = useRef(new Animated.Value(0)).current;
   const ringSpinA = useRef(new Animated.Value(0)).current;
@@ -382,7 +385,7 @@ export const FirstPrimeCompleteScreen: React.FC = () => {
     updateAnchor,
   ]);
 
-  const handleDismiss = () => {
+  const performDismiss = () => {
     if (returnTo === 'practice') {
       const nav = navigation as unknown as { popToTop?: () => void };
       nav.popToTop?.();
@@ -396,12 +399,33 @@ export const FirstPrimeCompleteScreen: React.FC = () => {
     }
 
     // First-time flow: show save gate before sanctuary for unauthenticated users
-    if (!isAuthenticated) {
-      navigation.replace('SaveProgress', { anchorId });
+    if (!isAuthenticated && anchor) {
+      navigation.replace('SaveProgress', { anchor });
       return;
     }
 
     navigateToVaultDestination(navigation, 'replace');
+  };
+
+  // Fallback moment: if the user skipped the first-anchor reminder card and
+  // notification permission is still undetermined, offer it once here before
+  // returning to the Sanctuary.
+  const shouldShowFallbackReminder =
+    notifState?.notificationPermissionStatus === 'undetermined' &&
+    !notifState?.fallbackReminderPromptCompleted;
+
+  const handleDismiss = () => {
+    if (shouldShowFallbackReminder && !reminderShownRef.current) {
+      reminderShownRef.current = true;
+      setReminderCardVisible(true);
+      return;
+    }
+    performDismiss();
+  };
+
+  const handleReminderDismiss = () => {
+    setReminderCardVisible(false);
+    performDismiss();
   };
 
   if (!anchor) {
@@ -547,6 +571,12 @@ export const FirstPrimeCompleteScreen: React.FC = () => {
           </FadeUp>
         </Pressable>
       </SafeAreaView>
+
+      <DailyReminderPrompt
+        visible={reminderCardVisible}
+        variant="fallback"
+        onDismiss={handleReminderDismiss}
+      />
     </View>
   );
 };

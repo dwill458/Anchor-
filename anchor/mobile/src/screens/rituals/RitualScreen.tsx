@@ -1114,8 +1114,15 @@ export const RitualScreen: React.FC = () => {
       return;
     }
 
+    if (returnTo === 'vault' && isPendingFirstAnchor && anchor) {
+      // Guest's first anchor: even when the prime session is abandoned early,
+      // the account gate must run before the Vault becomes reachable.
+      navigation.replace('SaveProgress', { anchor });
+      return;
+    }
+
     navigateToVaultDestination(navigation);
-  }, [anchorId, clearDeepTimerInterval, fadeOutDeepPrimeAudio, navigateToPractice, navigation, returnTo]);
+  }, [anchor, anchorId, clearDeepTimerInterval, fadeOutDeepPrimeAudio, isPendingFirstAnchor, navigateToPractice, navigation, returnTo]);
 
   const continueFromSeal = useCallback(async () => {
     let chargeType: 'initial_quick' | 'initial_deep' | 'recharge' = 'initial_quick';
