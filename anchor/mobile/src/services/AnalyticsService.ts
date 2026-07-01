@@ -18,6 +18,13 @@ export interface UserProperties {
   subscriptionStatus?: string;
   totalAnchorsCreated?: number;
   currentStreak?: number;
+  // Trial / conversion funnel (no-card trial is tracked here since RevenueCat
+  // only sees store entitlements, not the account-bound trial).
+  trial_started_at?: string;
+  trial_expired?: boolean;
+  trial_days_remaining?: number;
+  is_comped?: boolean;
+  converted?: boolean;
 }
 
 /**
@@ -371,6 +378,13 @@ export const AnalyticsEvents = {
   ANCHOR_LIMIT_REACHED: 'anchor_limit_reached',
   UPGRADE_INITIATED: 'upgrade_initiated',
   BURN_TO_MAKE_ROOM_INITIATED: 'burn_to_make_room_initiated',
+
+  // Trial lifecycle (no-card trial — funnel measured here, not via RevenueCat)
+  TRIAL_STARTED: 'trial_started',
+  TRIAL_EXPIRED: 'trial_expired',
+  TRIAL_CONVERTED: 'trial_converted',
+  TRIAL_BANNER_VIEWED: 'trial_banner_viewed',
+  TRIAL_BANNER_TAPPED: 'trial_banner_tapped',
 
   // Features
   MANUAL_FORGE_OPENED: 'manual_forge_opened',

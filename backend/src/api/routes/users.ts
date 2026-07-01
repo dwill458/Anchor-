@@ -43,10 +43,8 @@ router.patch('/me', authMiddleware, async (req: AuthRequest, res: Response, next
       throw new AppError('User not authenticated', 401, 'UNAUTHORIZED');
     }
 
-    const { displayName, profilePictureUrl, profilePictureBase64, profilePictureMimeType } = validate(
-      UpdateProfileSchema,
-      req.body
-    );
+    const { displayName, profilePictureUrl, profilePictureBase64, profilePictureMimeType } =
+      validate(UpdateProfileSchema, req.body);
 
     const user = await prisma.user.findUnique({
       where: { authUid: req.user.uid },
@@ -76,7 +74,7 @@ router.patch('/me', authMiddleware, async (req: AuthRequest, res: Response, next
           id: user.id,
           email: user.email,
           displayName: user.displayName,
-          profilePictureUrl: (user as any).profilePictureUrl,
+          profilePictureUrl: user.profilePictureUrl,
         },
       });
       return;
@@ -93,7 +91,7 @@ router.patch('/me', authMiddleware, async (req: AuthRequest, res: Response, next
         id: updatedUser.id,
         email: updatedUser.email,
         displayName: updatedUser.displayName,
-        profilePictureUrl: (updatedUser as any).profilePictureUrl,
+        profilePictureUrl: updatedUser.profilePictureUrl,
       },
     });
   } catch (error) {

@@ -11,6 +11,7 @@
 
 import express, { Application } from 'express';
 import request from 'supertest';
+import { Prisma } from '@prisma/client';
 import { errorHandler } from '../../middleware/errorHandler';
 
 // ── Mocks ────────────────────────────────────────────────────────────────────
@@ -301,6 +302,55 @@ describe('POST /api/auth/sync', () => {
 
     expect(res.status).toBe(200);
     expect(mockPrisma.user.create).toHaveBeenCalledTimes(1);
+  });
+
+  it('recovers when a concurrent sync creates the same email first', async () => {
+    const uniqueEmailConflict = new Prisma.PrismaClientKnownRequestError(
+      'Unique constraint failed on the fields: (`email`)',
+      {
+        code: 'P2002',
+        clientVersion: 'test',
+        meta: { target: ['email'] },
+      }
+    );
+
+    (mockPrisma.user.findUnique as jest.Mock).mockResolvedValueOnce(null);
+    (mockPrisma.user.findFirst as jest.Mock)
+      .mockResolvedValueOnce(null)
+      .mockResolvedValueOnce({
+        ...MOCK_DB_USER,
+        authUid: 'firebase-uid-from-winning-request',
+      });
+    (mockPrisma.user.create as jest.Mock).mockRejectedValueOnce(uniqueEmailConflict);
+    (mockPrisma.user.update as jest.Mock).mockResolvedValue({
+      ...MOCK_DB_USER,
+      authProvider: 'google',
+    });
+    (mockPrisma.userSettings.upsert as jest.Mock).mockResolvedValue(MOCK_SETTINGS);
+
+    const res = await request(buildApp())
+      .post('/api/auth/sync')
+      .send({ displayName: 'Test User', authProvider: 'google' });
+
+    expect(res.status).toBe(200);
+    expect(res.body.success).toBe(true);
+    expect(mockPrisma.user.create).toHaveBeenCalledTimes(1);
+    expect(mockPrisma.user.findFirst).toHaveBeenCalledTimes(2);
+    expect(mockPrisma.user.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { id: MOCK_DB_USER.id },
+        data: expect.objectContaining({
+          authUid: 'firebase-uid-1',
+          authProvider: 'google',
+          email: 'test@example.com',
+        }),
+      })
+    );
+    expect(mockPrisma.userSettings.upsert).toHaveBeenCalledWith({
+      where: { userId: MOCK_DB_USER.id },
+      update: {},
+      create: { userId: MOCK_DB_USER.id },
+    });
   });
 
   it('links an existing user by email case-insensitively and normalizes the stored email', async () => {

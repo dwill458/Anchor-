@@ -450,8 +450,8 @@ export const ActivationScreen: React.FC = () => {
     }
 
     if (returnTo === 'vault') {
-      if (isPendingFirstAnchor) {
-        navigation.replace('SaveProgress', { anchorId });
+      if (isPendingFirstAnchor && anchor) {
+        navigation.replace('SaveProgress', { anchor });
       } else {
         navigateToVaultDestination(navigation, 'replace');
       }
@@ -459,7 +459,7 @@ export const ActivationScreen: React.FC = () => {
     }
 
     navigation.goBack();
-  }, [anchorId, isPendingFirstAnchor, navigateToPractice, navigation, returnTo]);
+  }, [anchor, anchorId, isPendingFirstAnchor, navigateToPractice, navigation, returnTo]);
 
   const promptExitSession = useCallback(() => {
     setShowExitWarning(true);
@@ -534,8 +534,8 @@ export const ActivationScreen: React.FC = () => {
     } else if (returnTo === 'detail') {
       navigation.navigate('AnchorDetail', { anchorId });
     } else if (returnTo === 'vault') {
-      if (isPendingFirstAnchor) {
-        navigation.replace('SaveProgress', { anchorId });
+      if (isPendingFirstAnchor && anchor) {
+        navigation.replace('SaveProgress', { anchor });
       } else {
         navigateToVaultDestination(navigation, 'replace');
         scheduleReviewRequestAfterHomeReturn();
@@ -544,6 +544,7 @@ export const ActivationScreen: React.FC = () => {
       navigation.goBack();
     }
   }, [
+    anchor,
     anchorId,
     activationDurationSeconds,
     isPendingFirstAnchor,

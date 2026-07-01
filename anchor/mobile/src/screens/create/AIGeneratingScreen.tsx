@@ -628,7 +628,7 @@ export default function AIGeneratingScreen() {
         Alert.alert('Account Required', 'Sign in before generating AI artwork.', [
           {
             text: 'Sign In',
-            onPress: () => navigation.replace('FirstAnchorAccountGate'),
+            onPress: () => navigation.replace('Login', {}),
           },
           {
             text: 'Go Back',

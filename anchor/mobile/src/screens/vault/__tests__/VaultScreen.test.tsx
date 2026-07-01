@@ -3,13 +3,14 @@ import { render, screen, fireEvent } from '@testing-library/react-native';
 
 // Mock navigation
 const mockNavigate = jest.fn();
+const mockReplace = jest.fn();
 jest.mock('@react-navigation/native', () => ({
     ...jest.requireActual('@react-navigation/native'),
     useNavigation: () => ({
         navigate: mockNavigate,
         push: mockNavigate,
         goBack: jest.fn(),
-        replace: jest.fn(),
+        replace: mockReplace,
     }),
     useRoute: () => ({ params: {} }),
 }));
@@ -19,6 +20,7 @@ let mockAnchors: any[] = [];
 let mockIsLoading = false;
 let mockIsAuthenticated = true;
 let mockHasActiveEntitlement = true;
+let mockPendingFirstAnchorDraft: { tempAnchorId: string } | null = null;
 const mockSetPendingForgeResumeTarget = jest.fn();
 
 jest.mock('@/stores/anchorStore', () => ({
@@ -43,6 +45,7 @@ jest.mock('@/stores/authStore', () => ({
             shouldRedirectToCreation: false,
             setShouldRedirectToCreation: jest.fn(),
             setPendingForgeResumeTarget: mockSetPendingForgeResumeTarget,
+            pendingFirstAnchorDraft: mockPendingFirstAnchorDraft,
         };
         return selector ? selector(state) : state;
     }
@@ -131,11 +134,37 @@ import { VaultScreen } from '../VaultScreen';
 describe('VaultScreen', () => {
     beforeEach(() => {
         mockNavigate.mockClear();
+        mockReplace.mockClear();
         mockSetPendingForgeResumeTarget.mockClear();
         mockAnchors = [];
         mockIsLoading = false;
         mockIsAuthenticated = true;
         mockHasActiveEntitlement = true;
+        mockPendingFirstAnchorDraft = null;
+    });
+
+    it('redirects an un-accounted guest with a pending first anchor to SaveProgress', () => {
+        mockIsAuthenticated = false;
+        mockPendingFirstAnchorDraft = { tempAnchorId: 'pending-first-anchor-1' };
+        mockAnchors = [{
+            id: 'pending-first-anchor-1',
+            intentionText: 'Build focus',
+            category: 'career',
+            isCharged: false,
+            activationCount: 0,
+            baseSigilSvg: '<svg></svg>',
+            createdAt: new Date(),
+            updatedAt: new Date(),
+        }];
+
+        render(<VaultScreen />);
+
+        expect(mockReplace).toHaveBeenCalledWith('SaveProgress', {
+            anchor: expect.objectContaining({ id: 'pending-first-anchor-1' }),
+        });
+        // Vault contents must never render for an un-accounted guest.
+        expect(screen.queryByTestId('hero-anchor-card')).toBeNull();
+        expect(screen.queryByText('CREATE NEW ANCHOR')).toBeNull();
     });
 
     it('renders empty state when no anchors', () => {

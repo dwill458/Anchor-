@@ -9,4 +9,3 @@ export { SignUpScreen } from './SignUpScreen';
 export { SaveProgressScreen } from './SaveProgressScreen';
 export { OnboardingScreen } from './OnboardingScreen';
 export { default as AuthGateScreen } from './AuthGateScreen';
-export { FirstAnchorAccountGateScreen } from './FirstAnchorAccountGateScreen';

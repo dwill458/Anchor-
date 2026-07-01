@@ -16,43 +16,45 @@ import { uploadImageFromBuffer } from '../../services/StorageService';
 const router = Router();
 
 // Zod validation schemas
-const ShippingInfoSchema = z.union([
-  z.object({
-    name: z.string().min(1).max(100),
-    email: z.string().email().optional(),
-    addressLine1: z.string().min(1).max(100),
-    addressLine2: z.string().max(100).optional().nullable(),
-    city: z.string().min(1).max(100),
-    state: z.string().min(1).max(100),
-    postalCode: z.string().min(1).max(20),
-    country: z.string().min(2).max(10),
-  }),
-  z.object({
-    name: z.string().min(1).max(100),
-    email: z.string().email().optional(),
-    address: z.string().min(1).max(100),
-    addressLine2: z.string().max(100).optional().nullable(),
-    city: z.string().min(1).max(100),
-    state: z.string().min(1).max(100),
-    zip: z.string().min(1).max(20),
-    country: z.string().min(2).max(10).optional(),
-  }),
-]).transform((value) => {
-  if ('addressLine1' in value) {
-    return value;
-  }
+const ShippingInfoSchema = z
+  .union([
+    z.object({
+      name: z.string().min(1).max(100),
+      email: z.string().email().optional(),
+      addressLine1: z.string().min(1).max(100),
+      addressLine2: z.string().max(100).optional().nullable(),
+      city: z.string().min(1).max(100),
+      state: z.string().min(1).max(100),
+      postalCode: z.string().min(1).max(20),
+      country: z.string().min(2).max(10),
+    }),
+    z.object({
+      name: z.string().min(1).max(100),
+      email: z.string().email().optional(),
+      address: z.string().min(1).max(100),
+      addressLine2: z.string().max(100).optional().nullable(),
+      city: z.string().min(1).max(100),
+      state: z.string().min(1).max(100),
+      zip: z.string().min(1).max(20),
+      country: z.string().min(2).max(10).optional(),
+    }),
+  ])
+  .transform(value => {
+    if ('addressLine1' in value) {
+      return value;
+    }
 
-  return {
-    name: value.name,
-    email: value.email,
-    addressLine1: value.address,
-    addressLine2: value.addressLine2 ?? null,
-    city: value.city,
-    state: value.state,
-    postalCode: value.zip,
-    country: value.country ?? 'US',
-  };
-});
+    return {
+      name: value.name,
+      email: value.email,
+      addressLine1: value.address,
+      addressLine2: value.addressLine2 ?? null,
+      city: value.city,
+      state: value.state,
+      postalCode: value.zip,
+      country: value.country ?? 'US',
+    };
+  });
 
 const CreateOrderSchema = z.object({
   anchorId: z.string().min(1),

@@ -316,6 +316,10 @@ jest.mock('@/services/AuthService', () => ({
     getCachedUser: jest.fn().mockResolvedValue(null),
     sendPasswordResetEmail: jest.fn().mockResolvedValue(undefined),
     signOut: jest.fn().mockResolvedValue(undefined),
+    signInWithEmail: jest.fn(),
+    signUpWithEmail: jest.fn(),
+    signInWithApple: jest.fn(),
+    signInWithGoogle: jest.fn(),
   },
 }));
 

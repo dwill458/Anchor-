@@ -639,7 +639,7 @@ export default function ManualReinforcementScreen() {
               <Text style={styles.modalBody}>
                 {isPostPrimeTrace
                   ? 'You can return to your reflection without tracing again.'
-                  : 'Some find tracing deepens their focus. It&apos;s completely optional.'}
+                  : "Some find tracing deepens their focus. It's completely optional."}
               </Text>
 
               <TouchableOpacity

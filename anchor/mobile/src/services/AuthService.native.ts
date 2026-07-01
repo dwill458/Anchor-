@@ -247,7 +247,8 @@ async function syncUserWithBackend(
 async function buildAuthResult(
   firebaseUser: FirebaseAuthTypes.User,
   displayNameOverride?: string,
-  options?: AuthSyncOptions
+  options?: AuthSyncOptions,
+  firebaseIsNewUser?: boolean
 ): Promise<AuthResult> {
   const idToken = await firebaseUser.getIdToken();
   const user = await syncUserWithBackend(firebaseUser, idToken, displayNameOverride, options);
@@ -257,7 +258,10 @@ async function buildAuthResult(
   return {
     user,
     token: idToken,
-    isNewUser: !user.hasCompletedOnboarding,
+    // Prefer Firebase's own "was a new auth user created" signal — it's accurate even
+    // when credential sign-in (e.g. Apple/Google) links an existing account instead of
+    // creating one. Fall back to the onboarding heuristic where no credential is available.
+    isNewUser: firebaseIsNewUser ?? !user.hasCompletedOnboarding,
   };
 }
 
@@ -273,10 +277,12 @@ export class AuthService {
   ): Promise<AuthResult> {
     try {
       const credential = await auth().signInWithEmailAndPassword(email.trim(), password);
-      return await buildAuthResult(credential.user, undefined, {
-        ...options,
-        allowBackendCreate: false,
-      });
+      return await buildAuthResult(
+        credential.user,
+        undefined,
+        { ...options, allowBackendCreate: false },
+        credential.additionalUserInfo?.isNewUser
+      );
     } catch (error) {
       await auth().signOut().catch(() => undefined);
       logger.error('Failed to sign in with email', error);
@@ -300,7 +306,12 @@ export class AuthService {
       }
 
       const currentUser = auth().currentUser ?? credential.user;
-      return await buildAuthResult(currentUser, trimmedName, options);
+      return await buildAuthResult(
+        currentUser,
+        trimmedName,
+        options,
+        credential.additionalUserInfo?.isNewUser
+      );
     } catch (error) {
       logger.error('Failed to sign up with email', error);
       await auth().signOut().catch(() => undefined);
@@ -325,10 +336,12 @@ export class AuthService {
 
       const credential = auth.GoogleAuthProvider.credential(idToken);
       const firebaseCredential = await auth().signInWithCredential(credential);
-      return await buildAuthResult(firebaseCredential.user, undefined, {
-        ...options,
-        allowBackendCreate: options?.allowBackendCreate ?? false,
-      });
+      return await buildAuthResult(
+        firebaseCredential.user,
+        undefined,
+        { ...options, allowBackendCreate: options?.allowBackendCreate ?? false },
+        firebaseCredential.additionalUserInfo?.isNewUser
+      );
     } catch (error) {
       await auth().signOut().catch(() => undefined);
       logger.error('Failed to sign in with Google', error);
@@ -371,10 +384,12 @@ export class AuthService {
       }
 
       const currentUser = auth().currentUser ?? firebaseCredential.user;
-      return await buildAuthResult(currentUser, displayName, {
-        ...options,
-        allowBackendCreate: options?.allowBackendCreate ?? false,
-      });
+      return await buildAuthResult(
+        currentUser,
+        displayName,
+        { ...options, allowBackendCreate: options?.allowBackendCreate ?? false },
+        firebaseCredential.additionalUserInfo?.isNewUser
+      );
     } catch (error) {
       await auth().signOut().catch(() => undefined);
       logger.error('Failed to sign in with Apple', error);

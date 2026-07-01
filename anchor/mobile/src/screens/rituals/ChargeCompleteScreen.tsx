@@ -209,8 +209,8 @@ export const ChargeCompleteScreen: React.FC = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
 
     // Show save progress gate for guest users completing their first anchor
-    if (!isAuthenticated && isPendingFirstAnchor) {
-      navigation.navigate('SaveProgress', { anchorId });
+    if (!isAuthenticated && isPendingFirstAnchor && anchor) {
+      navigation.navigate('SaveProgress', { anchor });
       return;
     }
 

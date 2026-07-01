@@ -227,6 +227,11 @@ export const VaultScreen: React.FC = () => {
   const primeSessionDuration = useSettingsStore((state) => state.primeSessionDuration ?? 120);
   const shouldRedirectToCreation = useAuthStore((s) => s.shouldRedirectToCreation);
   const setShouldRedirectToCreation = useAuthStore((s) => s.setShouldRedirectToCreation);
+  const pendingFirstAnchorDraft = useAuthStore((s) => s.pendingFirstAnchorDraft);
+
+  // Account-gate backstop: a guest who forged their first anchor can never land
+  // on the Vault without an account, regardless of which screen routed here.
+  const mustGateFirstAnchor = !isAuthenticated && Boolean(pendingFirstAnchorDraft);
 
   const anchors = useAnchorStore((s) => s.anchors);
   const currentAnchorId = useAnchorStore((s) => s.currentAnchorId);
@@ -322,6 +327,16 @@ export const VaultScreen: React.FC = () => {
   const pulseDotStyle = useAnimatedStyle(() => ({
     opacity: pulseDotOpacity.value,
   }));
+
+  // ── Account gate backstop ────────────────────────────────────────────────────
+  useEffect(() => {
+    if (mustGateFirstAnchor && pendingFirstAnchorDraft) {
+      const anchor = anchors.find((item) => item.id === pendingFirstAnchorDraft.tempAnchorId);
+      if (anchor) {
+        navigation.replace('SaveProgress', { anchor });
+      }
+    }
+  }, [anchors, mustGateFirstAnchor, pendingFirstAnchorDraft, navigation]);
 
   // ── Redirect to creation ─────────────────────────────────────────────────────
   useEffect(() => {
@@ -456,6 +471,16 @@ export const VaultScreen: React.FC = () => {
   }, [focusSessionMode, primeSessionDuration, primaryAnchor, navigation]);
 
   // ── Render ────────────────────────────────────────────────────────────────────
+
+  // Hold a bare background while the account-gate redirect fires — never expose
+  // the Vault contents to an un-accounted guest.
+  if (mustGateFirstAnchor) {
+    return (
+      <View style={styles.container}>
+        <ZenBackground variant="sanctuary" showGrain showVignette />
+      </View>
+    );
+  }
 
   if (isLoading && anchors.length === 0) {
     return (

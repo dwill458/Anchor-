@@ -244,12 +244,14 @@ export const AnchorRevealScreen: React.FC = () => {
                 intentionText,
                 enhancedImageUrl: enhancedImageUrl || undefined,
                 sigilSvg: reinforcedSigilSvg || baseSigilSvg,
+                fromOnboarding: isGuestFirstAnchor,
             });
         } else {
             navigation.replace('ChargeSetup', {
                 anchorId,
                 autoStartOnSelection: true,
                 returnTo: 'vault',
+                fromOnboarding: isGuestFirstAnchor,
             });
         }
     };

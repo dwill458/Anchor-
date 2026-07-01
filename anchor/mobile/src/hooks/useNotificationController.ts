@@ -470,7 +470,10 @@ export const useNotificationController = () => {
           await clearPushTokensFromServer();
         }
       } else {
-        state = await scheduleSmartNotifications(state);
+        // Request OS permission BEFORE scheduling. getRemotePushRegistration()
+        // triggers the permission prompt; scheduleSmartNotifications() reads the
+        // resulting permission status, so on a first-time enable scheduling must
+        // run after the prompt or every rule is rejected as undetermined.
         if (isAuthenticated) {
           const registration = await NotificationService.getRemotePushRegistration();
           if (registration.permissionGranted) {
@@ -487,6 +490,7 @@ export const useNotificationController = () => {
             await clearPushTokensFromServer();
           }
         }
+        state = await scheduleSmartNotifications(state);
       }
       await saveState(state);
       const syncedState = await syncStateToServer(state);

@@ -24,7 +24,7 @@ import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import Svg, { Circle, Path, SvgXml } from 'react-native-svg';
-import { AnalyticsService } from '@/services/AnalyticsService';
+import { AnalyticsService, AnalyticsEvents } from '@/services/AnalyticsService';
 import { FrictionAnalytics } from '@/services/FrictionAnalytics';
 import {
   REVENUECAT_ANNUAL_PACKAGE_ID,
@@ -37,6 +37,7 @@ import { useAnchorStore } from '@/stores/anchorStore';
 import { useSubscriptionStore } from '@/stores/subscriptionStore';
 import { useProgressionData } from '@/hooks/useProgressionData';
 import { useReduceMotionEnabled } from '@/hooks/useReduceMotionEnabled';
+import { useTrialStatus } from '@/hooks/useTrialStatus';
 import revenueCatService, {
   type RevenueCatOfferingDisplayMetadata,
   type RevenueCatPlanId,
@@ -388,6 +389,7 @@ export const PaywallScreen: React.FC = () => {
   const primeStreak = useAnchorStore((state) => state.primeStreak);
   const { forgedCount, totalPrimes } = useProgressionData();
   const reduceMotion = useReduceMotionEnabled();
+  const { daysRemaining, subscriptionStatus } = useTrialStatus();
 
   const preferredPlanId = useSubscriptionStore((state) => state.preferredPlanId);
   const setPreferredPlanId = useSubscriptionStore((state) => state.setPreferredPlanId);
@@ -421,13 +423,17 @@ export const PaywallScreen: React.FC = () => {
       source,
       defaultPlan: PAYWALL_EXPERIMENT.defaultPlan,
       headline: PAYWALL_EXPERIMENT.headline,
+      trial_days_remaining: daysRemaining,
+      trial_status: subscriptionStatus,
     });
     FrictionAnalytics.stepViewed('paywall', 'paywall', {
       source,
       default_plan: PAYWALL_EXPERIMENT.defaultPlan,
       headline: PAYWALL_EXPERIMENT.headline,
+      trial_days_remaining: daysRemaining,
+      trial_status: subscriptionStatus,
     });
-  }, [source]);
+  }, [source, daysRemaining, subscriptionStatus]);
 
   useEffect(() => {
     let mounted = true;
@@ -535,6 +541,12 @@ export const PaywallScreen: React.FC = () => {
         // entitlement ID can't leave a paying user stranded on the paywall.
         if (status.hasActiveEntitlement) {
           AnalyticsService.track('paywall_converted', {
+            source,
+            plan: selectedPlanId,
+            productId: selectedPlan.packageId,
+          });
+          // Canonical trial-funnel exit (mirrors paywall_converted with trial context).
+          AnalyticsService.track(AnalyticsEvents.TRIAL_CONVERTED, {
             source,
             plan: selectedPlanId,
             productId: selectedPlan.packageId,

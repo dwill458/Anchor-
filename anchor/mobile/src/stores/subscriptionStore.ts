@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { SubscriptionStatus } from '@/types';
+import { AnalyticsService, AnalyticsEvents } from '@/services/AnalyticsService';
 
 const TRIAL_DURATION_DAYS = 7;
 export type PreferredPlanId = 'monthly' | 'annual';
@@ -131,6 +132,8 @@ export const useSubscriptionStore = create<SubscriptionState>()(
                     return;
                 }
 
+                const prevStatus = get().subscriptionStatus;
+
                 set((state) => {
                     // Never downgrade a paid subscriber.
                     if (state.subscriptionStatus === 'active') {
@@ -150,11 +153,28 @@ export const useSubscriptionStore = create<SubscriptionState>()(
                         subscriptionStatus: expired ? 'expired' : 'trial',
                     };
                 });
+
+                // Emit once on the genuine trial→expired transition. Persisted
+                // state means a returning expired user (prev already 'expired')
+                // never re-fires.
+                if (prevStatus === 'trial' && get().subscriptionStatus === 'expired') {
+                    AnalyticsService.track(AnalyticsEvents.TRIAL_EXPIRED, {
+                        trial_started_at: normalizedStartDate,
+                    });
+                }
             },
-            confirmServerExpiry: () => set((state) => {
-                if (state.subscriptionStatus === 'active') return {};
-                return { subscriptionStatus: 'expired' };
-            }),
+            confirmServerExpiry: () => {
+                const prevStatus = get().subscriptionStatus;
+                set((state) => {
+                    if (state.subscriptionStatus === 'active') return {};
+                    return { subscriptionStatus: 'expired' };
+                });
+                if (prevStatus === 'trial' && get().subscriptionStatus === 'expired') {
+                    AnalyticsService.track(AnalyticsEvents.TRIAL_EXPIRED, {
+                        trial_started_at: get().trialStartDate ?? undefined,
+                    });
+                }
+            },
             setPreferredPlanId: (preferredPlanId) => set({ preferredPlanId }),
             setRemoteCompedAccess: (enabled) => set({ remoteCompedAccess: enabled }),
             setDevOverrideEnabled: (enabled) => set({ devOverrideEnabled: enabled }),

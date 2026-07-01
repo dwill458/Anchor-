@@ -212,6 +212,7 @@ export interface AuthScreenParams {
   context?: AuthScreenContext;
   initialTab?: AuthScreenInitialTab;
   preferredPlanId?: AuthPreferredPlanId;
+  anchorId?: string;
 }
 
 export interface PendingFirstAnchorDraft {
@@ -547,8 +548,7 @@ export type RootStackParamList = {
   // VAULT & ANCHOR MANAGEMENT
   // ═══════════════════════════════════════════════════
   Vault: undefined;
-  FirstAnchorAccountGate: undefined;
-  SaveProgress: { anchorId: string };
+  SaveProgress: { anchor: Anchor };
   TrialSignUp: undefined;
   AnchorDetail: { anchorId: string };
   AuthGate: undefined;
@@ -752,12 +752,14 @@ export type RootStackParamList = {
     enhancedImageUrl?: string;
     sigilSvg?: string;
     returnTo?: 'charge_setup' | 'vault';
+    fromOnboarding?: boolean;
   };
   ChargeSetup: {
     anchorId: string;
     returnTo?: 'vault' | 'practice' | 'detail';
     autoStartOnSelection?: boolean;
     initialDuration?: 'quick' | 'deep';
+    fromOnboarding?: boolean;
   };
   BreathingAnimation: {
     source?: 'charge' | 'practice';

@@ -396,8 +396,8 @@ export const FirstPrimeCompleteScreen: React.FC = () => {
     }
 
     // First-time flow: show save gate before sanctuary for unauthenticated users
-    if (!isAuthenticated) {
-      navigation.replace('SaveProgress', { anchorId });
+    if (!isAuthenticated && anchor) {
+      navigation.replace('SaveProgress', { anchor });
       return;
     }
 
