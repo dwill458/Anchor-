@@ -9,6 +9,10 @@ import type { Anchor, AnchorCategory, EnhancementMetadata, ReinforcementMetadata
 import { logger } from '@/utils/logger';
 
 const RETRY_QUEUE_KEY = 'anchor-sync-retry-queue';
+// Tombstones hold only anchor reference ids (no intention text or sigil data),
+// so plain AsyncStorage is fine here.
+const TOMBSTONE_KEY = 'anchor-sync-tombstones';
+const MAX_TOMBSTONES = 200;
 
 interface AnchorRetryQueueItem {
   userId: string;
@@ -203,6 +207,31 @@ async function writeQueue(items: AnchorRetryQueueItem[]): Promise<void> {
   await writeSecureValue(RETRY_QUEUE_KEY, JSON.stringify(items));
 }
 
+async function readTombstones(): Promise<string[]> {
+  try {
+    const raw = await AsyncStorage.getItem(TOMBSTONE_KEY);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw) as unknown;
+    return Array.isArray(parsed)
+      ? parsed.filter((id): id is string => typeof id === 'string')
+      : [];
+  } catch (error) {
+    logger.warn('[AnchorSyncService] Failed to read sync tombstones', error);
+    return [];
+  }
+}
+
+async function writeTombstones(ids: string[]): Promise<void> {
+  await AsyncStorage.setItem(TOMBSTONE_KEY, JSON.stringify(ids.slice(-MAX_TOMBSTONES)));
+}
+
+function anchorMatchesAnyReference(anchor: Anchor, referenceIds: Set<string>): boolean {
+  return (
+    referenceIds.has(anchor.id) ||
+    (anchor.localId != null && referenceIds.has(anchor.localId))
+  );
+}
+
 class AnchorSyncService {
   isConfigured(): boolean {
     return isConfigured();
@@ -264,6 +293,13 @@ class AnchorSyncService {
       return;
     }
 
+    // Never queue a sync for an anchor the user has already deleted — a late
+    // failure callback must not resurrect it.
+    const tombstones = new Set(await readTombstones());
+    if (anchorMatchesAnyReference(anchor, tombstones)) {
+      return;
+    }
+
     const queue = await readQueue();
     const localReferenceId = getLocalReferenceId(anchor);
     const deduped = queue.filter(
@@ -288,10 +324,16 @@ class AnchorSyncService {
       return [];
     }
 
+    const tombstones = new Set(await readTombstones());
     const remaining: AnchorRetryQueueItem[] = [];
     const flushedAnchors: Anchor[] = [];
 
     for (const item of queue) {
+      // Drop queued syncs for anchors deleted since they were enqueued.
+      if (anchorMatchesAnyReference(item.anchor, tombstones)) {
+        continue;
+      }
+
       if (item.userId !== userId) {
         remaining.push(item);
         continue;
@@ -308,6 +350,47 @@ class AnchorSyncService {
 
     await writeQueue(remaining);
     return flushedAnchors;
+  }
+
+  /**
+   * Remove any queued sync retries for the given anchor reference ids
+   * (anchor id and/or localId). Used when an anchor is burned/released so a
+   * stale pre-burn snapshot cannot be re-synced later.
+   *
+   * Intentionally not gated on isConfigured() — cancellation must clear stale
+   * queue entries even if the sync flag has since been toggled off.
+   */
+  async cancelQueuedSync(referenceIds: string[]): Promise<void> {
+    if (referenceIds.length === 0) {
+      return;
+    }
+
+    const refs = new Set(referenceIds);
+    const queue = await readQueue();
+    const remaining = queue.filter((item) => !anchorMatchesAnyReference(item.anchor, refs));
+
+    if (remaining.length !== queue.length) {
+      await writeQueue(remaining);
+    }
+  }
+
+  /**
+   * Mark an anchor as deleted for sync purposes: cancel any queued retries
+   * and record a tombstone so late failure callbacks cannot re-enqueue it and
+   * queue flushes cannot recreate it.
+   */
+  async markAnchorDeleted(referenceIds: string[]): Promise<void> {
+    if (referenceIds.length === 0) {
+      return;
+    }
+
+    const tombstones = await readTombstones();
+    const merged = [
+      ...tombstones.filter((id) => !referenceIds.includes(id)),
+      ...referenceIds,
+    ];
+    await writeTombstones(merged);
+    await this.cancelQueuedSync(referenceIds);
   }
 }
 

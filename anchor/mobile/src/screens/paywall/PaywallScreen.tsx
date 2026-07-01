@@ -615,7 +615,11 @@ export const PaywallScreen: React.FC = () => {
       FrictionAnalytics.flowError('paywall', 'restore', 'restore_failed', {
         source,
       });
-      Alert.alert('Restore failed', error?.message ?? 'Could not restore purchases.');
+      logger.error('[PaywallScreen] Restore failed', error);
+      Alert.alert(
+        'Restore failed',
+        'We could not restore purchases right now. Check your connection and try again.'
+      );
     } finally {
       setIsRestoring(false);
     }

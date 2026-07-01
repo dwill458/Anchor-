@@ -288,7 +288,7 @@ export const SealAnchorScreen: React.FC = () => {
       }, 1200);
     } catch (error) {
       logger.warn('Failed to update anchor locally', error);
-      Alert.alert('Error', 'Failed to save seal. Please try again.');
+      Alert.alert('Save failed', 'Your seal could not be saved. Please try again.');
     }
   };
 

@@ -1034,7 +1034,7 @@ export const RitualScreen: React.FC = () => {
     } catch (error) {
       isCompletingRef.current = false;
       logger.warn('Failed to update anchor locally', error);
-      Alert.alert('Error', 'Failed to save charge. Please try again.');
+      Alert.alert('Save failed', 'Your charge could not be saved. Please try again.');
     }
   }
 

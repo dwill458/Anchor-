@@ -561,11 +561,11 @@ export const MantraCreationScreen: React.FC = () => {
         <Pressable style={[styles.tabPill, styles.tabPillActive]}>
           <Text style={styles.tabActiveText}>Sonic</Text>
         </Pressable>
-        <Pressable style={styles.tabPill} onPress={() => Alert.alert('Coming soon', 'Coming soon')}>
+        <Pressable style={styles.tabPill} onPress={() => Alert.alert('Coming soon', 'Visual anchors are on the way in a future update.')}>
           <Text style={styles.tabMutedText}>Visual</Text>
           <Text style={styles.tabSoonText}>Soon</Text>
         </Pressable>
-        <Pressable style={styles.tabPill} onPress={() => Alert.alert('Coming soon', 'Coming soon')}>
+        <Pressable style={styles.tabPill} onPress={() => Alert.alert('Coming soon', 'Somatic anchors are on the way in a future update.')}>
           <Text style={styles.tabMutedText}>Somatic</Text>
           <Text style={styles.tabSoonText}>Soon</Text>
         </Pressable>

@@ -843,7 +843,7 @@ const AnchorDetailsScreen = ({ navigation, route }) => {
 
   const handleActivatePress = () => {
     if (!anchorId) {
-      Alert.alert('Anchor unavailable', 'Unable to activate because no anchor ID was provided.');
+      Alert.alert('Anchor unavailable', 'This anchor could not be opened. Go back to your vault and try again.');
       return;
     }
 
@@ -1128,7 +1128,7 @@ const AnchorDetailsScreen = ({ navigation, route }) => {
       await post('/content/flag', { anchorId, imageUrl, reason });
       Alert.alert('Reported', 'Thank you. Our team will review this content.');
     } catch {
-      Alert.alert('Error', 'Could not submit report. Please try again.');
+      Alert.alert('Report not sent', 'Your report could not be submitted. Please try again.');
     }
   };
 

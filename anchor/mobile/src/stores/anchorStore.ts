@@ -182,7 +182,18 @@ export const useAnchorStore = create<AnchorState>()(
           };
         }),
 
-      removeAnchor: (id) =>
+      removeAnchor: (id) => {
+        const target = get().getAnchorById(id);
+        const referenceIds = Array.from(
+          new Set([id, target?.id, target?.localId].filter((value): value is string => Boolean(value)))
+        );
+
+        // Tombstone the anchor and drop any queued sync retries so a later
+        // queue flush (or a late failure callback) cannot resurrect it.
+        void AnchorSyncService.markAnchorDeleted(referenceIds).catch((error) => {
+          logger.warn('[anchorStore] Failed to invalidate queued sync for removed anchor', error);
+        });
+
         set((state) => {
           const nextAnchors = state.anchors.filter((anchor) => !matchesAnchorReference(anchor, id));
 
@@ -191,7 +202,8 @@ export const useAnchorStore = create<AnchorState>()(
             totalPrimes: calculateTotalPrimes(nextAnchors),
             error: null,
           };
-        }),
+        });
+      },
 
       incrementTotalPrimes: () => {
         const nextTotalPrimes = get().totalPrimes + 1;
@@ -267,9 +279,24 @@ export const useAnchorStore = create<AnchorState>()(
 
       applySyncedAnchor: (referenceId, anchor) =>
         set((state) => {
+          const existingAnchor = state.anchors.find((candidate) =>
+            matchesAnchorReference(candidate, referenceId)
+          );
+
+          // The anchor was removed while its sync was in flight — applying the
+          // synced snapshot would resurrect it. Keep it deleted.
+          if (!existingAnchor) {
+            return { error: null };
+          }
+
           const syncedAnchor = {
             ...anchor,
             localId: anchor.localId ?? referenceId,
+            // A sync started before a burn must not return the anchor to the
+            // active vault: preserve local released/archived state.
+            isReleased: existingAnchor.isReleased || anchor.isReleased,
+            releasedAt: existingAnchor.releasedAt ?? normalizeDate(anchor.releasedAt),
+            archivedAt: existingAnchor.archivedAt ?? normalizeDate(anchor.archivedAt),
           };
 
           return {
@@ -304,7 +331,31 @@ export const useAnchorStore = create<AnchorState>()(
         const syncedAnchors = await AnchorSyncService.flushRetryQueue(authStore.user.id);
         if (syncedAnchors.length > 0) {
           set((state) => {
-            const nextAnchors = mergeAnchors(state.anchors, syncedAnchors);
+            // Queued retries hold snapshots that may predate a local delete or
+            // burn. Only merge back anchors that still exist locally, and never
+            // let a stale snapshot pull a released/archived anchor back into
+            // the active vault.
+            const applicableAnchors = syncedAnchors.filter((syncedAnchor) => {
+              const localAnchor = state.anchors.find(
+                (anchor) =>
+                  matchesAnchorReference(anchor, syncedAnchor.localId ?? syncedAnchor.id) ||
+                  matchesAnchorReference(anchor, syncedAnchor.id)
+              );
+
+              if (!localAnchor) {
+                return false;
+              }
+
+              const localIsRetired = Boolean(localAnchor.isReleased || localAnchor.archivedAt);
+              const syncedIsRetired = Boolean(syncedAnchor.isReleased || syncedAnchor.archivedAt);
+              return !(localIsRetired && !syncedIsRetired);
+            });
+
+            if (applicableAnchors.length === 0) {
+              return { error: null };
+            }
+
+            const nextAnchors = mergeAnchors(state.anchors, applicableAnchors);
 
             return {
               anchors: nextAnchors,
@@ -316,7 +367,19 @@ export const useAnchorStore = create<AnchorState>()(
         }
       },
 
-      releaseAnchor: (id) =>
+      releaseAnchor: (id) => {
+        const target = get().getAnchorById(id);
+        const referenceIds = Array.from(
+          new Set([id, target?.id, target?.localId].filter((value): value is string => Boolean(value)))
+        );
+
+        // Drop queued sync retries holding a pre-burn snapshot so a later
+        // flush cannot return the burned anchor to the active vault. No
+        // tombstone: the anchor still exists locally as released/archived.
+        void AnchorSyncService.cancelQueuedSync(referenceIds).catch((error) => {
+          logger.warn('[anchorStore] Failed to cancel queued sync for released anchor', error);
+        });
+
         set((state) => {
           const nextAnchors = state.anchors.map((anchor) =>
             matchesAnchorReference(anchor, id)
@@ -333,7 +396,8 @@ export const useAnchorStore = create<AnchorState>()(
             anchors: nextAnchors,
             error: null,
           };
-        }),
+        });
+      },
     }),
     {
       name: 'anchor-vault-storage',
