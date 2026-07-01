@@ -4,7 +4,9 @@ import { DailyReminderPrompt } from '../DailyReminderPrompt';
 
 const mockMarkReminderPromptShown = jest.fn(() => Promise.resolve());
 const mockCompleteReminderPrompt = jest.fn(() => Promise.resolve());
-const mockSetDailyPrimeReminder = jest.fn(() => Promise.resolve('granted' as const));
+const mockSetDailyPrimeReminder = jest.fn(
+  (): Promise<'granted' | 'denied'> => Promise.resolve('granted')
+);
 
 jest.mock('@/hooks/useNotificationController', () => ({
   useNotificationController: () => ({
