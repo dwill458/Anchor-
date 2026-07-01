@@ -545,6 +545,27 @@ export const useNotificationController = () => {
   >>) => {
     try {
       let state = reconcile(await loadState());
+
+      if (updates.dailyPrimeEnabled === false && state.dailyPrimeEnabled) {
+        AnalyticsService.track(AnalyticsEvents.DAILY_PRIME_REMINDER_DISABLED, {
+          source: 'settings',
+        });
+      } else if (updates.dailyPrimeEnabled === true && !state.dailyPrimeEnabled) {
+        AnalyticsService.track(AnalyticsEvents.DAILY_PRIME_REMINDER_SCHEDULED, {
+          source: 'settings',
+          time: updates.dailyPrimeTime ?? state.dailyPrimeTime,
+        });
+      }
+      if (
+        typeof updates.dailyPrimeTime === 'string' &&
+        updates.dailyPrimeTime !== state.dailyPrimeTime
+      ) {
+        AnalyticsService.track(AnalyticsEvents.DAILY_PRIME_REMINDER_TIME_CHANGED, {
+          source: 'settings',
+          time: updates.dailyPrimeTime,
+        });
+      }
+
       state = {
         ...state,
         ...updates,
@@ -649,7 +670,9 @@ export const useNotificationController = () => {
   }, [loadState, promptForNotificationPermission, reconcile, saveState, syncStateToServer]);
 
   const handleAnchorSaved = useCallback(async () => {
-    await showNotificationSoftAsk();
+    // The daily-reminder prompt card (shown on the Anchor completion screen and,
+    // as a fallback, after the first prime) now owns the permission ask. We only
+    // reconcile + reschedule here so state stays fresh after a save.
     try {
       let state = reconcile(await loadState());
       state = await scheduleSmartNotifications(state);
@@ -661,7 +684,123 @@ export const useNotificationController = () => {
     } catch (err) {
       logger.error('[NotificationController] handleAnchorSaved error:', err);
     }
-  }, [loadState, reconcile, saveState, scheduleSmartNotifications, showNotificationSoftAsk, syncStateToServer]);
+  }, [loadState, reconcile, saveState, scheduleSmartNotifications, syncStateToServer]);
+
+  /**
+   * Record that the daily-reminder prompt card was shown for a given moment.
+   * Tracks the first time the prompt is surfaced without nagging on re-entry.
+   */
+  const markReminderPromptShown = useCallback(async (
+    source: 'first_anchor' | 'fallback'
+  ) => {
+    try {
+      const state = reconcile(await loadState());
+      AnalyticsService.track(AnalyticsEvents.NOTIFICATION_PROMPT_CARD_VIEWED, { source });
+      if (!state.notificationPromptShownAt) {
+        state.notificationPromptShownAt = new Date().toISOString();
+        await saveState(state);
+        const syncedState = await syncStateToServer(state);
+        if (syncedState) {
+          await saveState(syncedState);
+        }
+      }
+    } catch (err) {
+      logger.error('[NotificationController] markReminderPromptShown error:', err);
+    }
+  }, [loadState, reconcile, saveState, syncStateToServer]);
+
+  /**
+   * Mark a reminder prompt moment as resolved so we never nag the user there
+   * again — regardless of whether they scheduled, denied, or skipped.
+   */
+  const completeReminderPrompt = useCallback(async (
+    source: 'first_anchor' | 'fallback'
+  ) => {
+    try {
+      const state = reconcile(await loadState());
+      if (source === 'first_anchor') {
+        state.firstAnchorReminderPromptCompleted = true;
+      } else {
+        state.fallbackReminderPromptCompleted = true;
+      }
+      await saveState(state);
+      const syncedState = await syncStateToServer(state);
+      if (syncedState) {
+        await saveState(syncedState);
+      }
+    } catch (err) {
+      logger.error('[NotificationController] completeReminderPrompt error:', err);
+    }
+  }, [loadState, reconcile, saveState, syncStateToServer]);
+
+  /**
+   * Triggered only after the user has expressed clear intent (tapped
+   * "Set Daily Reminder" and chosen a time). Fires the native OS permission
+   * prompt, and on grant enables + schedules the daily prime reminder.
+   * Returns the resulting permission status.
+   */
+  const setDailyPrimeReminder = useCallback(async (
+    time: string,
+    source: 'first_anchor' | 'fallback'
+  ): Promise<'granted' | 'denied'> => {
+    try {
+      let state = reconcile(await loadState());
+
+      AnalyticsService.track(AnalyticsEvents.NOTIFICATION_PERMISSION_PROMPT_SHOWN, { source });
+      const granted = await NotificationService.requestPermissions();
+
+      state.notificationPermissionStatus = granted ? 'granted' : 'denied';
+      state.notification_enabled = granted;
+      if (!state.notificationPromptShownAt) {
+        state.notificationPromptShownAt = new Date().toISOString();
+      }
+
+      if (granted) {
+        state.dailyPrimeEnabled = true;
+        state.dailyPrimeTime = time;
+        AnalyticsService.track(AnalyticsEvents.NOTIFICATION_PERMISSION_GRANTED, { source });
+
+        if (useAuthStore.getState().isAuthenticated) {
+          const registration = await NotificationService.getRemotePushRegistration();
+          if (registration.permissionGranted) {
+            await syncPushTokensToServer({
+              expoPushToken: registration.expoPushToken,
+              fcmToken: registration.fcmToken,
+              apnsToken: registration.apnsToken,
+            });
+          }
+        }
+
+        state = await scheduleSmartNotifications(state);
+        AnalyticsService.track(AnalyticsEvents.DAILY_PRIME_REMINDER_SCHEDULED, {
+          source,
+          time,
+        });
+      } else {
+        AnalyticsService.track(AnalyticsEvents.NOTIFICATION_PERMISSION_DENIED, { source });
+        await cancelSmartNotifications(buildRuleContext());
+      }
+
+      await saveState(state);
+      const syncedState = await syncStateToServer(state);
+      if (syncedState) {
+        await saveState(syncedState);
+      }
+
+      return granted ? 'granted' : 'denied';
+    } catch (err) {
+      logger.error('[NotificationController] setDailyPrimeReminder error:', err);
+      return 'denied';
+    }
+  }, [
+    buildRuleContext,
+    cancelSmartNotifications,
+    loadState,
+    reconcile,
+    saveState,
+    scheduleSmartNotifications,
+    syncStateToServer,
+  ]);
 
   return {
     notifState,
@@ -676,5 +815,8 @@ export const useNotificationController = () => {
     toggleWeaver,
     showNotificationSoftAsk,
     handleAnchorSaved,
+    markReminderPromptShown,
+    completeReminderPrompt,
+    setDailyPrimeReminder,
   };
 };
