@@ -138,6 +138,14 @@ jest.mock('@/services/AuthService', () => ({
   },
 }));
 
+const mockRestorePurchases = jest.fn();
+jest.mock('@/services/RevenueCatService', () => ({
+  __esModule: true,
+  default: {
+    restorePurchases: (...args: unknown[]) => mockRestorePurchases(...args),
+  },
+}));
+
 const NotificationService = require('@/services/NotificationService').default;
 const { SettingsScreen } = require('../SettingsScreen');
 
@@ -262,6 +270,64 @@ describe('SettingsScreen', () => {
       });
       expect(mockUpdateNotificationPreferences).toHaveBeenCalledWith({
         notificationTone: 'reflective',
+      });
+    });
+  });
+
+  describe('Restore Purchase', () => {
+    const trialStatus = (hasActiveEntitlement: boolean) => ({
+      isInTrial: false,
+      isSubscribed: hasActiveEntitlement,
+      hasActiveEntitlement,
+      daysRemaining: null,
+      trialExpired: false,
+    });
+
+    it('restores through RevenueCatService and confirms when an entitlement is found', async () => {
+      const spyAlert = jest.spyOn(Alert, 'alert');
+      mockRestorePurchases.mockResolvedValueOnce(trialStatus(true));
+
+      const screen = render(<SettingsScreen />);
+      fireEvent.press(screen.getByTestId('settings-row-Restore Purchase'));
+
+      await waitFor(() => {
+        expect(mockRestorePurchases).toHaveBeenCalled();
+        expect(spyAlert).toHaveBeenCalledWith(
+          'Purchases restored',
+          expect.stringContaining('Pro access')
+        );
+      });
+    });
+
+    it('tells the user when no subscription is found', async () => {
+      const spyAlert = jest.spyOn(Alert, 'alert');
+      mockRestorePurchases.mockResolvedValueOnce(trialStatus(false));
+
+      const screen = render(<SettingsScreen />);
+      fireEvent.press(screen.getByTestId('settings-row-Restore Purchase'));
+
+      await waitFor(() => {
+        expect(spyAlert).toHaveBeenCalledWith(
+          'No subscription found',
+          expect.stringContaining('No active subscription')
+        );
+      });
+    });
+
+    it('shows calm failure copy without internal details when restore throws', async () => {
+      const spyAlert = jest.spyOn(Alert, 'alert');
+      mockRestorePurchases.mockRejectedValueOnce(
+        new Error('[RevenueCat] Billing service is unavailable.')
+      );
+
+      const screen = render(<SettingsScreen />);
+      fireEvent.press(screen.getByTestId('settings-row-Restore Purchase'));
+
+      await waitFor(() => {
+        expect(spyAlert).toHaveBeenCalledWith(
+          'Restore failed',
+          expect.not.stringContaining('RevenueCat')
+        );
       });
     });
   });
