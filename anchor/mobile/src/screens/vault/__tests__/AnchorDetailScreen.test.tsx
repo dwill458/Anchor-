@@ -314,7 +314,7 @@ describe('AnchorDetailScreen', () => {
         render(<AnchorDetailScreen navigation={navigation} route={route} />);
         expect(screen.getByText('Dormant')).toBeTruthy();
         expect(screen.getByText('Thread Strength')).toBeTruthy();
-        expect(screen.getByText('The symbol is becoming part of you.')).toBeTruthy();
+        expect(screen.getByText('Each return strengthens the signal.')).toBeTruthy();
         expect(screen.getByTestId('anchor-detail-streak-value').props.children[0]).toBe(1);
     });
 

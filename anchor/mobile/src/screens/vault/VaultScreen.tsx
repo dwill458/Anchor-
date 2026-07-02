@@ -387,7 +387,7 @@ export const VaultScreen: React.FC = () => {
     } catch (error) {
       const msg = (error as Error).message;
       setError(msg);
-      toast.error(`Failed to load anchors: ${msg}`);
+      toast.error("We couldn't load your anchors. Check your connection and try again.");
       ErrorTrackingService.captureException(error as Error, {
         screen: 'VaultScreen',
         action: 'fetch_anchors',
@@ -698,7 +698,7 @@ function renderActiveState({
           teachingIds="vault_intro_first_time_v1"
           screenId="vault"
           label="What's an anchor?"
-          sheetTitle="Your anchors"
+          sheetTitle="What's an anchor?"
         />
       </Animated2.View>
 

@@ -843,7 +843,7 @@ const AnchorDetailsScreen = ({ navigation, route }) => {
 
   const handleActivatePress = () => {
     if (!anchorId) {
-      Alert.alert('Anchor unavailable', 'Unable to activate because no anchor ID was provided.');
+      Alert.alert('Anchor unavailable', 'This anchor could not be opened. Go back to your vault and try again.');
       return;
     }
 
@@ -1128,7 +1128,7 @@ const AnchorDetailsScreen = ({ navigation, route }) => {
       await post('/content/flag', { anchorId, imageUrl, reason });
       Alert.alert('Reported', 'Thank you. Our team will review this content.');
     } catch {
-      Alert.alert('Error', 'Could not submit report. Please try again.');
+      Alert.alert('Report not sent', 'Your report could not be submitted. Please try again.');
     }
   };
 
@@ -1322,18 +1322,22 @@ const AnchorDetailsScreen = ({ navigation, route }) => {
                     </View>
                   </View>
 
-                  <Text style={s.miniAffirmation}>The symbol is becoming part of you.</Text>
+                  <Text style={s.miniAffirmation}>Each return strengthens the signal.</Text>
 
                   <View style={{ marginTop: spacing.sm }}>
                     <MicroTeachInfoChip
                       teachingIds="anchor_history_v1"
                       screenId="anchor_detail"
                       label="Why this matters"
-                      sheetTitle="Your history"
+                      sheetTitle="Why this matters"
                     />
                   </View>
 
-                  <MicroTeachHintRow teaching={anchorReuseTeaching} screenId="anchor_detail" />
+                  <MicroTeachHintRow
+                    teaching={anchorReuseTeaching}
+                    screenId="anchor_detail"
+                    showPin={false}
+                  />
 
                   {/* Distilled row */}
                   <View style={s.distilledSection}>

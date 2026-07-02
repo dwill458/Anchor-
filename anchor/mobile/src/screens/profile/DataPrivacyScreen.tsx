@@ -134,7 +134,7 @@ export const DataPrivacyScreen: React.FC = () => {
                             await AsyncStorage.multiRemove(CACHE_KEYS);
                             Alert.alert('Cleared', 'Local cache has been successfully cleared.');
                         } catch {
-                            Alert.alert('Error', 'Could not clear cache. Please try again.');
+                            Alert.alert('Cache not cleared', 'The local cache could not be cleared. Please try again.');
                         } finally {
                             setIsClearingCache(false);
                         }
@@ -146,7 +146,7 @@ export const DataPrivacyScreen: React.FC = () => {
 
     const openUrl = (url: string) => {
         Linking.openURL(url).catch(() => {
-            Alert.alert('Error', 'Could not open the link.');
+            Alert.alert('Link unavailable', 'This link could not be opened right now.');
         });
     };
 

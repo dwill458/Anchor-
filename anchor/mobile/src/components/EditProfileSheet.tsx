@@ -138,7 +138,7 @@ export const EditProfileSheet: React.FC<EditProfileSheetProps> = ({
   const pickFromLibrary = async () => {
     const ImagePicker = getImagePickerModule();
     if (!ImagePicker) {
-      Alert.alert('Unavailable', 'Photo picking is not available in this installed build. Rebuild or reinstall the app to enable it.');
+      Alert.alert('Photos unavailable', 'Photo selection is not available in this version of Anchor. Please update the app and try again.');
       return;
     }
 
@@ -163,7 +163,7 @@ export const EditProfileSheet: React.FC<EditProfileSheetProps> = ({
   const takePhoto = async () => {
     const ImagePicker = getImagePickerModule();
     if (!ImagePicker) {
-      Alert.alert('Unavailable', 'Camera capture is not available in this installed build. Rebuild or reinstall the app to enable it.');
+      Alert.alert('Camera unavailable', 'The camera is not available in this version of Anchor. Please update the app and try again.');
       return;
     }
 

@@ -28,6 +28,7 @@ import { SettingsSectionBlock } from '@/components/settings/SettingsSectionBlock
 import { useTeachingStore } from '@/stores/teachingStore';
 import { AnalyticsEvents, AnalyticsService } from '@/services/AnalyticsService';
 import NotificationService from '@/services/NotificationService';
+import revenueCatService from '@/services/RevenueCatService';
 import { useNotificationController } from '../../hooks/useNotificationController';
 import { colors } from '@/theme';
 import {
@@ -50,20 +51,31 @@ const formatDurationLabel = (durationSeconds: number): string => {
   return `${minutes} min`;
 };
 
-const restorePurchases = async (): Promise<void> => {
-  try {
-    const purchasesModule = require('react-native-purchases');
-    const purchases = purchasesModule?.default ?? purchasesModule;
-    if (typeof purchases?.restorePurchases === 'function') {
-      await purchases.restorePurchases();
-      Alert.alert('Restore Purchase', 'Your purchases were restored.');
-      return;
-    }
-  } catch {
-    // RevenueCat is not available in this build.
-  }
+let restoreInFlight = false;
 
-  Alert.alert('Restore Purchase', 'RevenueCat restorePurchases() is not available in this build.');
+const restorePurchases = async (): Promise<void> => {
+  if (restoreInFlight) return;
+  restoreInFlight = true;
+
+  try {
+    const status = await revenueCatService.restorePurchases();
+    if (status.hasActiveEntitlement) {
+      Alert.alert('Purchases restored', 'Your Pro access is active again.');
+    } else {
+      Alert.alert(
+        'No subscription found',
+        'No active subscription was found for this account. If you subscribed with a different store account, switch to it and try again.'
+      );
+    }
+  } catch (error) {
+    logger.warn('[SettingsScreen] Restore purchases failed', error);
+    Alert.alert(
+      'Restore failed',
+      'We could not restore purchases right now. Check your connection and try again.'
+    );
+  } finally {
+    restoreInFlight = false;
+  }
 };
 
 export const SettingsScreen: React.FC = () => {
