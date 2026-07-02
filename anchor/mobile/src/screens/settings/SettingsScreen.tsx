@@ -30,6 +30,7 @@ import { AnalyticsEvents, AnalyticsService } from '@/services/AnalyticsService';
 import NotificationService from '@/services/NotificationService';
 import revenueCatService from '@/services/RevenueCatService';
 import { useNotificationController } from '../../hooks/useNotificationController';
+import { useReduceMotionEnabled } from '@/hooks/useReduceMotionEnabled';
 import { colors } from '@/theme';
 import {
   formatHapticFeedbackLabel,
@@ -88,6 +89,8 @@ export const SettingsScreen: React.FC = () => {
   const primeSessionAudio = useSettingsStore((state) => state.primeSessionAudio ?? 'ambient');
   const analyticsEnabled = useSettingsStore((state) => state.analyticsEnabled);
   const setAnalyticsEnabled = useSettingsStore((state) => state.setAnalyticsEnabled);
+  const setReduceMotion = useSettingsStore((state) => state.setReduceMotion);
+  const reduceMotionEnabled = useReduceMotionEnabled();
   const dailyPracticeGoal = useSettingsStore((state) => state.dailyPracticeGoal ?? 3);
   const dailyPracticeGoalPreset = useSettingsStore(
     (state) => state.dailyPracticeGoalPreset ?? 'three'
@@ -480,6 +483,17 @@ export const SettingsScreen: React.FC = () => {
               onToggle={(value) => {
                 updateSetting('practiceGuidanceEnabled', value);
                 AnalyticsService.track('guide_mode_toggled', { enabled: value });
+              }}
+              disabled={isLoading}
+            />
+            <SettingsRow
+              title="Reduce Motion"
+              subtitle="Calm ambient animation. Follows your device setting until you change it."
+              type="toggle"
+              toggleValue={reduceMotionEnabled}
+              onToggle={(value) => {
+                setReduceMotion(value ? 'on' : 'off');
+                AnalyticsService.track('reduce_motion_toggled', { enabled: value });
               }}
               disabled={isLoading}
             />
