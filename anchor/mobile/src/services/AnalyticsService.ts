@@ -406,6 +406,14 @@ export const AnalyticsEvents = {
   NOTIFICATION_OPENED: 'notification_opened',
   NOTIFICATION_ACTION_COMPLETED: 'notification_action_completed',
 
+  // Daily Prime reminder prompt (post first-anchor / fallback moment)
+  NOTIFICATION_PROMPT_CARD_VIEWED: 'notification_prompt_card_viewed',
+  NOTIFICATION_SET_DAILY_REMINDER_TAPPED: 'notification_set_daily_reminder_tapped',
+  NOTIFICATION_NOT_NOW_TAPPED: 'notification_not_now_tapped',
+  DAILY_PRIME_REMINDER_SCHEDULED: 'daily_prime_reminder_scheduled',
+  DAILY_PRIME_REMINDER_DISABLED: 'daily_prime_reminder_disabled',
+  DAILY_PRIME_REMINDER_TIME_CHANGED: 'daily_prime_reminder_time_changed',
+
   // Merch / Physical Anchors
   MERCH_INITIATED_FROM_ANCHOR_DETAILS: 'merch_initiated_from_anchor_details',
   MERCH_PRODUCT_SELECTED: 'merch_product_selected',

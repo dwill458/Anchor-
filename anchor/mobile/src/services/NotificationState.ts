@@ -49,6 +49,10 @@ export interface NotificationState {
   unfinishedAnchorReminders: UnfinishedAnchorReminderMap;
   softAskShownAt: string | null;
   softAskDismissedAt: string | null;
+  // Daily Prime reminder prompt (post first-anchor / fallback moment)
+  notificationPromptShownAt: string | null;
+  firstAnchorReminderPromptCompleted: boolean;
+  fallbackReminderPromptCompleted: boolean;
 }
 
 export const getMonday12AMLocal = (): string => {
@@ -100,6 +104,9 @@ export const initializeNotificationState = (): NotificationState => ({
   unfinishedAnchorReminders: {},
   softAskShownAt: null,
   softAskDismissedAt: null,
+  notificationPromptShownAt: null,
+  firstAnchorReminderPromptCompleted: false,
+  fallbackReminderPromptCompleted: false,
 });
 
 export const normalizeNotificationState = (
