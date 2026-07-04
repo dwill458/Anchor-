@@ -289,6 +289,27 @@ export const VaultScreen: React.FC = () => {
     [now, profileName, profileTimezone, user?.displayName]
   );
 
+  // Weekly Thread Review "Release" routes into the existing burn/release flow.
+  const handleReleaseFromReview = useCallback(
+    (anchorId: string) => {
+      const anchor = anchors.find(
+        (item) => item.id === anchorId || item.localId === anchorId
+      );
+      if (!anchor) {
+        return;
+      }
+
+      dismiss();
+      navigation.navigate('ConfirmBurn', {
+        anchorId: anchor.id,
+        intention: anchor.intentionText,
+        sigilSvg: anchor.reinforcedSigilSvg ?? anchor.baseSigilSvg ?? '',
+        enhancedImageUrl: anchor.enhancedImageUrl ?? undefined,
+      });
+    },
+    [anchors, dismiss, navigation]
+  );
+
   // ── Empty-state orbit animation ───────────────────────────────────────────────
   const orbitRotation = useSharedValue(0);
   const pulseDotOpacity = useSharedValue(1);
@@ -562,7 +583,11 @@ export const VaultScreen: React.FC = () => {
           </View>
         )}
       </SafeAreaView>
-      <WeeklySummaryModal visible={shouldShow} onDismiss={dismiss} />
+      <WeeklySummaryModal
+        visible={shouldShow}
+        onDismiss={dismiss}
+        onReleaseAnchor={handleReleaseFromReview}
+      />
       <VaultGridModal
         visible={gridVisible}
         onDismiss={() => setGridVisible(false)}
