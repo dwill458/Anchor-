@@ -11,6 +11,7 @@ export type SessionAudioMode = 'silent' | 'ambient';
 export type DailyPracticeGoalPreset = 'once' | 'three' | 'five' | 'custom';
 export type ThreadStrengthSensitivity = 'lenient' | 'balanced' | 'strict';
 export type RestDayPolicy = 'build' | 'neutral';
+export type ReduceMotionPreference = 'system' | 'on' | 'off';
 
 export interface DefaultChargeSetting {
   mode: ChargeMode;
@@ -107,6 +108,9 @@ const normalizeRestDays = (value: unknown): number[] => {
 
 const normalizeRestDayPolicy = (value: unknown): RestDayPolicy =>
   value === 'neutral' ? 'neutral' : 'build';
+
+const normalizeReduceMotionPreference = (value: unknown): ReduceMotionPreference =>
+  value === 'on' || value === 'off' ? value : 'system';
 
 const deriveFocusSessionDuration = (persistedState: any): number => {
   if (typeof persistedState?.focusSessionDuration === 'number') {
@@ -293,6 +297,7 @@ const withDeveloperSettingsDefaults = (
     ),
     restDays: normalizeRestDays(clampedState?.restDays),
     restDayPolicy: normalizeRestDayPolicy(clampedState?.restDayPolicy),
+    reduceMotion: normalizeReduceMotionPreference(clampedState?.reduceMotion),
     developerSkipOnboardingEnabled: persistedState?.developerSkipOnboardingEnabled ?? false,
     developerFlowTestingEnabled: persistedState?.developerFlowTestingEnabled ?? false,
     developerForceStreakBreakEnabled: persistedState?.developerForceStreakBreakEnabled ?? false,
@@ -335,6 +340,8 @@ export interface SettingsState {
   theme: 'zen_architect' | 'dark' | 'light';
   accentColor: string; // Hex color code
   vaultView: 'grid' | 'list';
+  /** Ambient-animation preference. 'system' follows the OS reduce-motion flag. */
+  reduceMotion: ReduceMotionPreference;
 
   // Audio & Haptics
   mantraVoice: 'my_voice' | 'generated';
@@ -383,6 +390,7 @@ export interface SettingsState {
   setTheme: (theme: 'zen_architect' | 'dark' | 'light') => void;
   setAccentColor: (color: string) => void;
   setVaultView: (view: 'grid' | 'list') => void;
+  setReduceMotion: (preference: ReduceMotionPreference) => void;
 
   // Actions - Audio & Haptics
   setMantraVoice: (voice: 'my_voice' | 'generated') => void;
@@ -436,6 +444,7 @@ const DEFAULT_SETTINGS = {
   theme: 'zen_architect' as const,
   accentColor: '#D4AF37',
   vaultView: 'grid' as const,
+  reduceMotion: 'system' as ReduceMotionPreference,
   mantraVoice: 'generated' as const,
   generatedVoiceStyle: 'calm' as const,
   hapticIntensity: 70,
@@ -649,6 +658,13 @@ export const useSettingsStore = create<SettingsState>()(
         triggerHaptic();
         set({
           vaultView: view,
+        });
+      },
+
+      setReduceMotion: (preference) => {
+        triggerHaptic();
+        set({
+          reduceMotion: normalizeReduceMotionPreference(preference),
         });
       },
 
@@ -924,6 +940,7 @@ export const useSettingsStore = create<SettingsState>()(
         theme: state.theme,
         accentColor: state.accentColor,
         vaultView: state.vaultView,
+        reduceMotion: state.reduceMotion,
         mantraVoice: state.mantraVoice,
         generatedVoiceStyle: state.generatedVoiceStyle,
         hapticIntensity: state.hapticIntensity,
