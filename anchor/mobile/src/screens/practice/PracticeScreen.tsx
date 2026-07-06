@@ -21,7 +21,10 @@ import { useAnchorStore } from '@/stores/anchorStore';
 import { useSessionStore } from '@/stores/sessionStore';
 import type { SessionLogEntry } from '@/stores/sessionStore';
 import { useSettingsStore } from '@/stores/settingsStore';
+import { useLocationPrimingStore } from '@/stores/locationPrimingStore';
+import type { LocationPrimingSuggestion } from '@/utils/locationPriming';
 import { countDailyGoalCompletions } from '@/services/DailyGoalNudgeService';
+import { AnalyticsEvents, AnalyticsService } from '@/services/AnalyticsService';
 import AuthHydrationService from '@/services/AuthHydrationService';
 import { safeHaptics } from '@/utils/haptics';
 import { colors, spacing, typography } from '@/theme';
@@ -53,6 +56,14 @@ const AUTO_TEACHING_KEY = 'practice_teaching_auto_seen_v2';
 const DEEP_CHARGE_MINUTES_MIN = 2;
 const DEEP_CHARGE_MINUTES_MAX = 30;
 const FOCUS_SESSION_TITLE = 'FOCUS SESSION';
+
+function formatSuggestedDuration(seconds: number): string {
+  if (seconds < 60) {
+    return `${seconds} sec`;
+  }
+
+  return `${Math.round(seconds / 60)} min`;
+}
 
 function getDefaultDeepChargeSeconds(primeSessionDuration: number): number {
   return Math.min(
@@ -106,6 +117,9 @@ export const PracticeScreen: React.FC = () => {
   const primeSessionDuration = useSettingsStore((state) => state.primeSessionDuration ?? 120);
   const focusSessionDuration = useSettingsStore((state) => state.focusSessionDuration ?? 30);
   const dailyPracticeGoal = useSettingsStore((state) => state.dailyPracticeGoal ?? 3);
+  const resolveLocationPrimingSuggestion = useLocationPrimingStore(
+    (state) => state.resolveActiveSuggestion
+  );
   const sessionLog = useSessionStore((s) => s.sessionLog);
   const threadStrength = useSessionStore((s) => s.threadStrength);
   const totalSessionsCount = useSessionStore((s) => s.totalSessionsCount);
@@ -136,6 +150,8 @@ export const PracticeScreen: React.FC = () => {
   const [confirmUnchargedBurnVisible, setConfirmUnchargedBurnVisible] = useState(false);
   const [threadSheetVisible, setThreadSheetVisible] = useState(false);
   const [threadTeachingDismissed, setThreadTeachingDismissed] = useState(false);
+  const [locationPrimingSuggestion, setLocationPrimingSuggestion] =
+    useState<LocationPrimingSuggestion | null>(null);
 
   const threadStrengthTeaching = useTeachingGate({
     screenId: 'practice_home',
@@ -188,13 +204,27 @@ export const PracticeScreen: React.FC = () => {
   const threadState = getThreadState(threadStrength, lastPrimedAt);
   const isFading = threadState === 'fading';
   const hasPrimedToday = lastPrimedAt === localDateString(new Date());
-  const todayMode: 'focusSession' | 'deepPrime' = threadStrength < 40 ? 'focusSession' : 'deepPrime';
-  const ctaTitle = isFading ? 'Restore Thread' : PRACTICE_COPY.primaryCTA;
-  const ctaSubtitle = isFading
-    ? (todayMode === 'focusSession'
+  const locationPreset = locationPrimingSuggestion?.zone.preset;
+  const todayMode: 'focusSession' | 'deepPrime' =
+    locationPreset?.sessionType === 'focus'
+      ? 'focusSession'
+      : locationPreset?.sessionType === 'prime'
+        ? 'deepPrime'
+        : threadStrength < 40
+          ? 'focusSession'
+          : 'deepPrime';
+  const ctaTitle = locationPrimingSuggestion
+    ? `Prime at ${locationPrimingSuggestion.zone.label}`
+    : isFading
+      ? 'Restore Thread'
+      : PRACTICE_COPY.primaryCTA;
+  const ctaSubtitle = locationPreset
+    ? `${locationPreset.sessionType === 'focus' ? 'Focus Session' : 'Deep Prime'} · ${formatSuggestedDuration(locationPreset.durationSeconds)}`
+    : isFading
+      ? (todayMode === 'focusSession'
         ? 'Focus Session · 10–60 sec to restore'
         : 'Deep Prime · 2 min to restore')
-    : (todayMode === 'focusSession'
+      : (todayMode === 'focusSession'
         ? 'Focus Session · 10–60 sec'
         : 'Deep Prime · 2 min to custom');
 
@@ -303,6 +333,28 @@ export const PracticeScreen: React.FC = () => {
     }, [applyDecay])
   );
 
+  useFocusEffect(
+    useCallback(() => {
+      let isActive = true;
+
+      resolveLocationPrimingSuggestion()
+        .then((suggestion) => {
+          if (isActive) {
+            setLocationPrimingSuggestion(suggestion);
+          }
+        })
+        .catch(() => {
+          if (isActive) {
+            setLocationPrimingSuggestion(null);
+          }
+        });
+
+      return () => {
+        isActive = false;
+      };
+    }, [resolveLocationPrimingSuggestion])
+  );
+
   const headerAnim = useSharedValue(0);
   const threadAnim = useSharedValue(0);
   const heroAnim = useSharedValue(0);
@@ -349,7 +401,11 @@ export const PracticeScreen: React.FC = () => {
   }));
 
   const startCharge = useCallback(
-    (anchor: Anchor, durationSecondsOverride?: number) => {
+    (
+      anchor: Anchor,
+      durationSecondsOverride?: number,
+      audioModeOverride?: 'silent' | 'ambient'
+    ) => {
       if (!primeSessionAccess.deep.isAllowed) {
         rootNavigation.navigate('Paywall', {
           source: 'gated_feature',
@@ -364,6 +420,7 @@ export const PracticeScreen: React.FC = () => {
           anchorId: anchor.id,
           ritualType: 'ritual',
           durationSeconds: durationSecondsOverride,
+          audioModeOverride,
           returnTo: 'practice',
         });
         return;
@@ -380,7 +437,11 @@ export const PracticeScreen: React.FC = () => {
   );
 
   const startQuickActivate = useCallback(
-    (anchor: Anchor, durationOverride = focusSessionDuration) => {
+    (
+      anchor: Anchor,
+      durationOverride = focusSessionDuration,
+      audioModeOverride?: 'silent' | 'ambient'
+    ) => {
       if (!primeSessionAccess.focus.isAllowed) {
         rootNavigation.navigate('Paywall', {
           source: 'gated_feature',
@@ -394,6 +455,7 @@ export const PracticeScreen: React.FC = () => {
         anchorId: anchor.id,
         activationType: 'visual',
         durationOverride,
+        audioModeOverride,
         returnTo: 'practice',
       });
     },
@@ -443,6 +505,42 @@ export const PracticeScreen: React.FC = () => {
     },
     [selectedAnchor, startBurn, startCharge, startQuickActivate]
   );
+
+  const runTodayPractice = useCallback(() => {
+    const target = selectedAnchor;
+    if (!target) {
+      setPendingMode(todayMode === 'focusSession' ? 'quickActivate' : 'charge');
+      setSelectorVisible(true);
+      return;
+    }
+
+    if (locationPreset && locationPrimingSuggestion) {
+      AnalyticsService.track(AnalyticsEvents.CHARGE_STARTED, {
+        source: 'practice_location_preset',
+        location_preset_applied: true,
+        session_type: locationPreset.sessionType,
+        duration_seconds: locationPreset.durationSeconds,
+      });
+
+      if (locationPreset.sessionType === 'focus') {
+        startQuickActivate(target, locationPreset.durationSeconds, locationPreset.audioMode);
+        return;
+      }
+
+      startCharge(target, locationPreset.durationSeconds, locationPreset.audioMode);
+      return;
+    }
+
+    runMode(todayMode === 'focusSession' ? 'quickActivate' : 'charge');
+  }, [
+    locationPreset,
+    locationPrimingSuggestion,
+    runMode,
+    selectedAnchor,
+    startCharge,
+    startQuickActivate,
+    todayMode,
+  ]);
 
   const handleSelectAnchor = useCallback(
     (anchor: Anchor) => {
@@ -651,7 +749,7 @@ export const PracticeScreen: React.FC = () => {
                 accessibilityRole="button"
                 onPress={() => {
                   markInteraction();
-                  runMode(todayMode === 'focusSession' ? 'quickActivate' : 'charge');
+                  runTodayPractice();
                 }}
                 style={({ pressed }) => [
                   styles.ctaPressable,

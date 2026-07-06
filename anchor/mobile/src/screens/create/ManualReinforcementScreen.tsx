@@ -21,6 +21,7 @@ import { useAuthStore } from '@/stores/authStore';
 import { useAnchorStore } from '@/stores/anchorStore';
 import { useAudio } from '@/hooks/useAudio';
 import { usePostPrimeTraceStore } from '@/stores/postPrimeTraceStore';
+import { useSettingsStore } from '@/stores/settingsStore';
 import { useTeachingStore } from '@/stores/teachingStore';
 import { AnalyticsService } from '@/services/AnalyticsService';
 import {
@@ -84,6 +85,9 @@ export default function ManualReinforcementScreen() {
   const getAnchorById = useAnchorStore((state) => state.getAnchorById);
   const activePostPrimeFlow = usePostPrimeTraceStore((state) => state.activeFlow);
   const finishPostPrimeTraceFlow = usePostPrimeTraceStore((state) => state.finishFlow);
+  const recordTraceSkipped = useSettingsStore((state) => state.recordTraceSkipped);
+  const resetTraceSkipStreak = useSettingsStore((state) => state.resetTraceSkipStreak);
+  const setTraceDefaultEnabled = useSettingsStore((state) => state.setTraceDefaultEnabled);
 
   const isPostPrimeTrace = route.params.source === 'post_prime_trace';
   const postPrimeAnchor = getAnchorById(
@@ -128,6 +132,8 @@ export default function ManualReinforcementScreen() {
   const [hasStartedDrawing, setHasStartedDrawing] = useState(false);
   const [canvasReady, setCanvasReady] = useState(false);
   const [showSkipModal, setShowSkipModal] = useState(false);
+  const [showTraceDefaultPrompt, setShowTraceDefaultPrompt] = useState(false);
+  const pendingSkipTimeSpentMsRef = useRef<number | null>(null);
   const startTime = useRef(Date.now());
 
   const userSeed = useAuthStore((state) => state.user?.id ?? 'anon');
@@ -377,6 +383,7 @@ export default function ManualReinforcementScreen() {
   const handleComplete = () => {
     const timeSpentMs = Date.now() - startTime.current;
     const reinforcedSvg = strokesToSvg();
+    resetTraceSkipStreak();
 
     if (!isPostPrimeTrace && strokeCount > 0) {
       setUserFlag('hasTracedBefore', true);
@@ -407,15 +414,7 @@ export default function ManualReinforcementScreen() {
     });
   };
 
-  const handleSkip = () => {
-    setShowSkipModal(true);
-  };
-
-  const handleConfirmSkip = () => {
-    const timeSpentMs = Date.now() - startTime.current;
-
-    setShowSkipModal(false);
-
+  const continueAfterSkip = useCallback((timeSpentMs: number) => {
     if (isPostPrimeTrace) {
       resolvePostPrimeTrace('skipped');
       return;
@@ -436,10 +435,59 @@ export default function ManualReinforcementScreen() {
         timeSpentMs,
       },
     });
+  }, [
+    baseSigilSvg,
+    category,
+    distilledLetters,
+    intentionText,
+    isPostPrimeTrace,
+    navigation,
+    resolvePostPrimeTrace,
+    structureVariant,
+  ]);
+
+  const handleSkip = () => {
+    setShowSkipModal(true);
+  };
+
+  const handleConfirmSkip = () => {
+    const timeSpentMs = Date.now() - startTime.current;
+    setShowSkipModal(false);
+
+    const nextSkipStreak = recordTraceSkipped();
+
+    if (nextSkipStreak === 3) {
+      pendingSkipTimeSpentMsRef.current = timeSpentMs;
+      setShowTraceDefaultPrompt(true);
+      return;
+    }
+
+    continueAfterSkip(timeSpentMs);
   };
 
   const handleCancelSkip = () => {
     setShowSkipModal(false);
+  };
+
+  // DEFERRED: the confirmed-skip path now branches to the inline adaptive
+  // tracing prompt after each streak of 3 before continuing.
+
+  const handleDisableTraceDefault = () => {
+    const timeSpentMs = pendingSkipTimeSpentMsRef.current ?? Date.now() - startTime.current;
+    pendingSkipTimeSpentMsRef.current = null;
+    setShowTraceDefaultPrompt(false);
+    setTraceDefaultEnabled(false);
+    resetTraceSkipStreak();
+    AnalyticsService.track('trace_default_disabled', { source: 'adaptive_prompt' });
+    continueAfterSkip(timeSpentMs);
+  };
+
+  const handleKeepTraceDefault = () => {
+    const timeSpentMs = pendingSkipTimeSpentMsRef.current ?? Date.now() - startTime.current;
+    pendingSkipTimeSpentMsRef.current = null;
+    setShowTraceDefaultPrompt(false);
+    resetTraceSkipStreak();
+    continueAfterSkip(timeSpentMs);
   };
 
   const handleClearLast = () => {
@@ -613,13 +661,43 @@ export default function ManualReinforcementScreen() {
         <TouchableOpacity
           style={[styles.skipButton, isCompactLayout && styles.skipButtonCompact]}
           onPress={handleSkip}
+          disabled={showTraceDefaultPrompt}
           accessibilityRole="button"
           accessibilityLabel={isPostPrimeTrace ? 'Skip' : 'Continue without tracing'}
+          accessibilityState={{ disabled: showTraceDefaultPrompt }}
         >
           <Text style={styles.skipButtonText}>
             {isPostPrimeTrace ? 'Skip' : 'Continue without tracing'}
           </Text>
         </TouchableOpacity>
+
+        {showTraceDefaultPrompt ? (
+          <View style={styles.traceDefaultPrompt}>
+            <Text style={styles.traceDefaultPromptText}>
+              Skip tracing by default? You can turn it back on in Settings.
+            </Text>
+            <View style={styles.traceDefaultPromptActions}>
+              <TouchableOpacity
+                style={styles.traceDefaultPromptPrimary}
+                onPress={handleDisableTraceDefault}
+                accessibilityRole="button"
+                accessibilityLabel="Yes, skip by default"
+              >
+                <Text style={styles.traceDefaultPromptPrimaryText}>
+                  Yes, skip by default
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.traceDefaultPromptSecondary}
+                onPress={handleKeepTraceDefault}
+                accessibilityRole="button"
+                accessibilityLabel="No, keep asking"
+              >
+                <Text style={styles.traceDefaultPromptSecondaryText}>No, keep asking</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        ) : null}
       </View>
 
       {/* Skip Confirmation Modal */}
@@ -799,6 +877,50 @@ const styles = StyleSheet.create({
     height: 42,
   },
   skipButtonText: {
+    fontFamily: typography.fonts.body,
+    fontSize: typography.sizes.body2,
+    color: colors.text.secondary,
+  },
+  traceDefaultPrompt: {
+    marginTop: spacing.md,
+    borderRadius: spacing.sm,
+    borderWidth: 1,
+    borderColor: 'rgba(212, 175, 55, 0.28)',
+    backgroundColor: 'rgba(10, 13, 18, 0.86)',
+    padding: spacing.md,
+  },
+  traceDefaultPromptText: {
+    fontFamily: typography.fonts.body,
+    fontSize: typography.sizes.body2,
+    lineHeight: 20,
+    color: colors.bone,
+    textAlign: 'center',
+    marginBottom: spacing.md,
+  },
+  traceDefaultPromptActions: {
+    gap: spacing.sm,
+  },
+  traceDefaultPromptPrimary: {
+    minHeight: 44,
+    borderRadius: spacing.sm,
+    backgroundColor: colors.gold,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: spacing.md,
+  },
+  traceDefaultPromptPrimaryText: {
+    fontFamily: typography.fonts.body,
+    fontSize: typography.sizes.body2,
+    fontWeight: '600',
+    color: colors.charcoal,
+  },
+  traceDefaultPromptSecondary: {
+    minHeight: 40,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: spacing.md,
+  },
+  traceDefaultPromptSecondaryText: {
     fontFamily: typography.fonts.body,
     fontSize: typography.sizes.body2,
     color: colors.text.secondary,

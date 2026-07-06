@@ -259,7 +259,14 @@ export const RitualScreen: React.FC = () => {
   const navigation = useNavigation<RitualNavigationProp>();
   const { navigateToPractice } = useTabNavigation();
   const route = useRoute<RitualRouteProp>();
-  const { anchorId, ritualType, durationSeconds, mantraAudioEnabled, returnTo } = route.params;
+  const {
+    anchorId,
+    ritualType,
+    durationSeconds,
+    mantraAudioEnabled,
+    audioModeOverride,
+    returnTo,
+  } = route.params;
   const isMountedRef = useRef(true);
   const isCompletingRef = useRef(false);
   const exitingRef = useRef(false);
@@ -276,7 +283,9 @@ export const RitualScreen: React.FC = () => {
   const focusSessionDuration = useSettingsStore((state) => state.focusSessionDuration ?? 30);
   const primeSessionDuration = useSettingsStore((state) => state.primeSessionDuration ?? 120);
   const primeSessionAudio = useSettingsStore((state) => state.primeSessionAudio ?? 'ambient');
+  const resolvedPrimeSessionAudio = audioModeOverride ?? primeSessionAudio;
   const reduceIntentionVisibility = useSettingsStore((state) => state.reduceIntentionVisibility ?? false);
+  const traceDefaultEnabled = useSettingsStore((state) => state.traceDefaultEnabled ?? true);
   const { handlePrimeComplete } = useNotificationController();
   const beginPostPrimeTraceFlow = usePostPrimeTraceStore((state) => state.beginFlow);
   const activeFlow = usePostPrimeTraceStore((state) => state.activeFlow);
@@ -378,7 +387,7 @@ export const RitualScreen: React.FC = () => {
   );
   const shouldUseDeepPrimeImmersiveAudio =
     isDeepRitual &&
-    primeSessionAudio === 'ambient' &&
+    resolvedPrimeSessionAudio === 'ambient' &&
     SUPPORTED_DEEP_PRIME_GUIDED_DURATIONS.has(config.totalDurationSeconds);
   const [isLanding, setIsLanding] = useState(isDeepRitual);
 
@@ -1051,6 +1060,7 @@ export const RitualScreen: React.FC = () => {
     const flowId = beginPostPrimeTraceFlow(anchorId);
     setPendingPostPrimeFlowId(flowId);
     setShowPostPrimeTrace(false);
+    setShowCompletion(false);
 
     navigation.navigate('ManualReinforcement', {
       source: 'post_prime_trace',
@@ -1228,7 +1238,7 @@ export const RitualScreen: React.FC = () => {
         anchorId,
         type: 'reinforce',
         durationSeconds: config.totalDurationSeconds,
-        mode: primeSessionAudio,
+        mode: resolvedPrimeSessionAudio,
         completedAt: new Date().toISOString(),
       });
       await queueProgressionMilestonesFromStores();
@@ -1255,7 +1265,7 @@ export const RitualScreen: React.FC = () => {
     isFirstPrimeForAnchor,
     isPendingFirstAnchor,
     navigation,
-    primeSessionAudio,
+    resolvedPrimeSessionAudio,
     recordSession,
     returnTo,
     ritualType,
@@ -1294,7 +1304,7 @@ export const RitualScreen: React.FC = () => {
       anchorId,
       type: 'reinforce',
       durationSeconds: config.totalDurationSeconds,
-      mode: primeSessionAudio,
+      mode: resolvedPrimeSessionAudio,
       completedAt: new Date().toISOString(),
       reflectionWord,
     });
@@ -1302,7 +1312,7 @@ export const RitualScreen: React.FC = () => {
     await queueProgressionMilestonesFromStores();
     await handlePrimeComplete();
     exitRitual();
-  }, [anchorId, config.totalDurationSeconds, primeSessionAudio, recordSession, handlePrimeComplete, exitRitual]);
+  }, [anchorId, config.totalDurationSeconds, resolvedPrimeSessionAudio, recordSession, handlePrimeComplete, exitRitual]);
 
   useEffect(() => {
     if (typeof navigation.addListener !== 'function') return () => undefined;
@@ -2615,6 +2625,7 @@ export const RitualScreen: React.FC = () => {
           anchor={anchor}
           onTrace={handleBeginPostPrimeTrace}
           onSkip={handleSkipPostPrimeTrace}
+          compact={!traceDefaultEnabled}
         />
         <CompletionModal
           visible={showCompletion}

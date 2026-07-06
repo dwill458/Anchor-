@@ -302,6 +302,11 @@ const withDeveloperSettingsDefaults = (
     debugLoggingEnabled:
       persistedState?.debugLoggingEnabled ?? getDefaultDebugLoggingEnabled(),
     analyticsEnabled: persistedState?.analyticsEnabled ?? true,
+    traceDefaultEnabled: persistedState?.traceDefaultEnabled ?? true,
+    traceSkipStreak:
+      typeof persistedState?.traceSkipStreak === 'number'
+        ? Math.max(0, Math.round(persistedState.traceSkipStreak))
+        : 0,
     ...overrides,
   };
 };
@@ -351,6 +356,8 @@ export interface SettingsState {
   developerWeeklySummaryPreviewToken: number;
   debugLoggingEnabled: boolean;
   analyticsEnabled: boolean;
+  traceDefaultEnabled: boolean;
+  traceSkipStreak: number;
   /** Guide Mode — contextual first-time hints. true = on-only + both; false = both only. */
   guideMode: boolean;
 
@@ -400,6 +407,9 @@ export interface SettingsState {
   clearDeveloperWeeklySummaryPreview: () => void;
   setDebugLoggingEnabled: (enabled: boolean) => void;
   setAnalyticsEnabled: (enabled: boolean) => void;
+  setTraceDefaultEnabled: (enabled: boolean) => void;
+  recordTraceSkipped: () => number;
+  resetTraceSkipStreak: () => void;
   setDevPerfTierOverride: (override: PerformanceTierOverride) => void;
 
   // Utility Actions
@@ -450,6 +460,8 @@ const DEFAULT_SETTINGS = {
   developerWeeklySummaryPreviewToken: 0,
   debugLoggingEnabled: __DEV__ && process.env.EXPO_PUBLIC_DEBUG_LOGGING === 'true',
   analyticsEnabled: true,
+  traceDefaultEnabled: true,
+  traceSkipStreak: 0,
   guideMode: true,
   devPerfTierOverride: 'auto' as PerformanceTierOverride,
 };
@@ -754,6 +766,30 @@ export const useSettingsStore = create<SettingsState>()(
         });
       },
 
+      setTraceDefaultEnabled: (enabled) => {
+        triggerHaptic();
+        set({
+          traceDefaultEnabled: enabled,
+        });
+      },
+
+      recordTraceSkipped: () => {
+        let nextStreak = 0;
+        set((state) => {
+          nextStreak = Math.max(0, state.traceSkipStreak ?? 0) + 1;
+          return {
+            traceSkipStreak: nextStreak,
+          };
+        });
+        return nextStreak;
+      },
+
+      resetTraceSkipStreak: () => {
+        set({
+          traceSkipStreak: 0,
+        });
+      },
+
       setGuideMode: (enabled) => {
         triggerHaptic();
         set({ guideMode: enabled });
@@ -939,6 +975,8 @@ export const useSettingsStore = create<SettingsState>()(
         developerDeleteWithoutBurnEnabled: state.developerDeleteWithoutBurnEnabled,
         debugLoggingEnabled: state.debugLoggingEnabled,
         analyticsEnabled: state.analyticsEnabled,
+        traceDefaultEnabled: state.traceDefaultEnabled,
+        traceSkipStreak: state.traceSkipStreak,
         guideMode: state.guideMode,
       }),
     }

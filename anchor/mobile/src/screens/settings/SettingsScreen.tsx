@@ -88,6 +88,8 @@ export const SettingsScreen: React.FC = () => {
   const primeSessionAudio = useSettingsStore((state) => state.primeSessionAudio ?? 'ambient');
   const analyticsEnabled = useSettingsStore((state) => state.analyticsEnabled);
   const setAnalyticsEnabled = useSettingsStore((state) => state.setAnalyticsEnabled);
+  const traceDefaultEnabled = useSettingsStore((state) => state.traceDefaultEnabled ?? true);
+  const setTraceDefaultEnabled = useSettingsStore((state) => state.setTraceDefaultEnabled);
   const dailyPracticeGoal = useSettingsStore((state) => state.dailyPracticeGoal ?? 3);
   const dailyPracticeGoalPreset = useSettingsStore(
     (state) => state.dailyPracticeGoalPreset ?? 'three'
@@ -216,6 +218,17 @@ export const SettingsScreen: React.FC = () => {
       ],
     );
   }, []);
+
+  const handleTraceDefaultToggle = useCallback(
+    (enabled: boolean) => {
+      setTraceDefaultEnabled(enabled);
+      AnalyticsService.track(
+        enabled ? 'trace_default_enabled' : 'trace_default_disabled',
+        { source: 'settings' }
+      );
+    },
+    [setTraceDefaultEnabled]
+  );
 
   const handleDeleteAccount = useCallback(() => {
     Alert.alert(
@@ -454,6 +467,14 @@ export const SettingsScreen: React.FC = () => {
               type="toggle"
               toggleValue={settings.reduceIntentionVisibility}
               onToggle={(value) => updateSetting('reduceIntentionVisibility', value)}
+              disabled={isLoading}
+            />
+            <SettingsRow
+              title="Trace Structures"
+              subtitle="Show the tracing step by default while creating and priming."
+              type="toggle"
+              toggleValue={traceDefaultEnabled}
+              onToggle={handleTraceDefaultToggle}
               disabled={isLoading}
               showDivider={false}
             />

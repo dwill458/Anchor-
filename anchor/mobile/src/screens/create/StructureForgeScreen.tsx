@@ -15,6 +15,7 @@ import { RootStackParamList } from '@/types';
 import { colors, spacing, typography } from '@/theme';
 import { SigilSvg, ZenBackground } from '@/components/common';
 import { MicroTeachInline } from '@/components/teaching';
+import { useSettingsStore } from '@/stores/settingsStore';
 import { useTeachingGate } from '@/utils/useTeachingGate';
 import { generateAllVariants, SigilGenerationResult, SigilVariant } from '@/utils/sigil/traditional-generator';
 import { classifyToTierPreliminary } from '@/utils/tierClassifier';
@@ -99,6 +100,7 @@ export default function StructureForgeScreen() {
   const { width, height } = useWindowDimensions();
 
   const { intentionText, category, distilledLetters } = route.params;
+  const traceDefaultEnabled = useSettingsStore((state) => state.traceDefaultEnabled ?? true);
   const intention = (route.params as RootStackParamList['StructureForge'] & { intention?: string }).intention
     ?? intentionText;
   const isCompactLayout = isCompactPhoneViewport(width, height);
@@ -163,6 +165,19 @@ export default function StructureForgeScreen() {
   const selectedVariantSvg = getStructureIconXml(selectedConfig);
   const isManualStructureSelected = selectedConfig.isManual === true;
 
+  const navigateToTraceStructure = () => {
+    (navigation as unknown as { navigate: (...args: any[]) => void }).navigate('ManualReinforcement', {
+      source: 'creation',
+      intention,
+      structureType: selectedStructure as StructureType,
+      intentionText,
+      category,
+      distilledLetters,
+      baseSigilSvg: selectedVariantSvg,
+      structureVariant: STRUCTURE_VARIANT_MAP[selectedStructure as StructureType],
+    });
+  };
+
   const handleBeginForging = () => {
     if (isManualStructureSelected) {
       (navigation as unknown as { navigate: (...args: any[]) => void }).navigate('ManualForge', {
@@ -176,16 +191,27 @@ export default function StructureForgeScreen() {
 
     if (!selectedVariantSvg) return;
 
-    (navigation as unknown as { navigate: (...args: any[]) => void }).navigate('ManualReinforcement', {
-      source: 'creation',
-      intention,
-      structureType: selectedStructure as StructureType,
-      intentionText,
-      category,
-      distilledLetters,
-      baseSigilSvg: selectedVariantSvg,
-      structureVariant: STRUCTURE_VARIANT_MAP[selectedStructure as StructureType],
-    });
+    if (!traceDefaultEnabled) {
+      // DEFERRED: navigateToTraceStructure(); — default-on trace screen path remains above.
+      (navigation as unknown as { navigate: (...args: any[]) => void }).navigate('LockStructure', {
+        intentionText,
+        category,
+        distilledLetters,
+        baseSigilSvg: selectedVariantSvg,
+        reinforcedSigilSvg: undefined,
+        structureVariant: STRUCTURE_VARIANT_MAP[selectedStructure as StructureType],
+        reinforcementMetadata: {
+          completed: false,
+          skipped: true,
+          strokeCount: 0,
+          fidelityScore: 0,
+          timeSpentMs: 0,
+        },
+      });
+      return;
+    }
+
+    navigateToTraceStructure();
   };
 
   return (
@@ -340,6 +366,16 @@ export default function StructureForgeScreen() {
         <Text style={[styles.activeHint, { paddingHorizontal: horizontalPadding }, isCompactLayout && styles.activeHintCompact]}>
           {selectedConfig.label} selected
         </Text>
+        {!traceDefaultEnabled && !isManualStructureSelected ? (
+          <Pressable
+            style={[styles.traceLink, { marginHorizontal: horizontalPadding }]}
+            onPress={navigateToTraceStructure}
+            accessibilityRole="button"
+            accessibilityLabel="Trace"
+          >
+            <Text style={styles.traceLinkText}>Trace</Text>
+          </Pressable>
+        ) : null}
       </ScrollView>
 
       <View style={styles.ctaWrapper} pointerEvents="box-none">
@@ -650,6 +686,18 @@ const styles = StyleSheet.create({
   },
   activeHintCompact: {
     fontSize: 10,
+  },
+  traceLink: {
+    alignSelf: 'flex-start',
+    marginTop: spacing.sm,
+    paddingVertical: spacing.xs,
+  },
+  traceLinkText: {
+    fontFamily: typography.fonts.body,
+    fontSize: 13,
+    color: colors.gold,
+    textDecorationLine: 'underline',
+    textDecorationColor: colors.gold,
   },
   ctaWrapper: {
     position: 'absolute',

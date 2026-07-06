@@ -12,7 +12,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
-import { ArrowLeft, Clock3, Music4, VolumeX } from 'lucide-react-native';
+import { ArrowLeft, Clock3, MapPin, Music4, Plus, Trash2, VolumeX } from 'lucide-react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { updateUserSettings } from '@/services/ApiClient';
 import { useAuthStore } from '@/stores/authStore';
@@ -21,6 +21,11 @@ import {
   type FocusSessionMode,
   type SessionAudioMode,
 } from '@/stores/settingsStore';
+import {
+  useLocationPrimingStore,
+  type LocationPrimingPreset,
+  type LocationPrimingZone,
+} from '@/stores/locationPrimingStore';
 import { colors, spacing, typography } from '@/theme';
 import { logger } from '@/utils/logger';
 
@@ -92,6 +97,121 @@ const DurationButton: React.FC<{
   </TouchableOpacity>
 );
 
+const LocationZoneEditor: React.FC<{
+  zone: LocationPrimingZone;
+  onUpdate: (update: Partial<LocationPrimingZone>) => void;
+  onDelete: () => void;
+}> = ({ zone, onUpdate, onDelete }) => {
+  const durationOptions =
+    zone.preset.sessionType === 'focus'
+      ? FOCUS_DURATION_OPTIONS
+      : PRIME_DURATION_OPTIONS;
+
+  const updatePreset = (update: Partial<LocationPrimingPreset>) => {
+    onUpdate({
+      preset: {
+        ...zone.preset,
+        ...update,
+      },
+    } as Partial<LocationPrimingZone>);
+  };
+
+  return (
+    <View style={styles.placeCard}>
+      <View style={styles.placeHeader}>
+        <View style={styles.placeTitleRow}>
+          <MapPin color={colors.gold} size={15} />
+          <TextInput
+            accessibilityLabel="Place name"
+            value={zone.label}
+            onChangeText={(label) => onUpdate({ label } as Partial<LocationPrimingZone>)}
+            style={styles.placeNameInput}
+            placeholder="Place name"
+            placeholderTextColor="rgba(192,192,192,0.45)"
+          />
+        </View>
+        <TouchableOpacity
+          accessibilityRole="button"
+          accessibilityLabel={`Delete ${zone.label}`}
+          activeOpacity={0.75}
+          onPress={onDelete}
+          style={styles.placeIconButton}
+        >
+          <Trash2 color="rgba(192,192,192,0.72)" size={16} />
+        </TouchableOpacity>
+      </View>
+
+      <View style={styles.placeControlsRow}>
+        <TouchableOpacity
+          accessibilityRole="button"
+          accessibilityState={{ selected: zone.enabled }}
+          activeOpacity={0.85}
+          onPress={() => onUpdate({ enabled: !zone.enabled } as Partial<LocationPrimingZone>)}
+          style={[styles.placeChip, zone.enabled && styles.selectedButton]}
+        >
+          <Text style={[styles.placeChipText, zone.enabled && styles.selectedButtonText]}>
+            {zone.enabled ? 'On' : 'Off'}
+          </Text>
+        </TouchableOpacity>
+        <View style={styles.radiusRow}>
+          <Text style={styles.customLabel}>Radius</Text>
+          <TextInput
+            accessibilityLabel={`${zone.label} radius in meters`}
+            keyboardType={Platform.OS === 'ios' ? 'number-pad' : 'numeric'}
+            value={String(zone.radiusMeters)}
+            onChangeText={(value) => {
+              const radiusMeters = Number(value.replace(/[^0-9]/g, '') || 150);
+              onUpdate({ radiusMeters } as Partial<LocationPrimingZone>);
+            }}
+            style={styles.radiusInput}
+            maxLength={4}
+          />
+          <Text style={styles.customLabel}>m</Text>
+        </View>
+      </View>
+
+      <View style={styles.placeSegmentRow}>
+        <DurationButton
+          label="Focus"
+          selected={zone.preset.sessionType === 'focus'}
+          onPress={() => updatePreset({ sessionType: 'focus', durationSeconds: 30 })}
+        />
+        <DurationButton
+          label="Prime"
+          selected={zone.preset.sessionType === 'prime'}
+          onPress={() => updatePreset({ sessionType: 'prime', durationSeconds: 120 })}
+        />
+      </View>
+
+      <View style={styles.placeDurationGrid}>
+        {durationOptions.map((option) => (
+          <DurationButton
+            key={option.value}
+            label={option.label}
+            selected={zone.preset.durationSeconds === option.value}
+            onPress={() => updatePreset({ durationSeconds: option.value })}
+          />
+        ))}
+      </View>
+
+      <View style={styles.audioGrid}>
+        <AudioOptionButton
+          icon={<VolumeX color={zone.preset.audioMode === 'silent' ? colors.gold : colors.silver} size={15} />}
+          label="Silent"
+          selected={zone.preset.audioMode === 'silent'}
+          onPress={() => updatePreset({ audioMode: 'silent' })}
+        />
+        <AudioOptionButton
+          icon={<Music4 color={zone.preset.audioMode === 'ambient' ? colors.gold : colors.silver} size={15} />}
+          label="Ambient"
+          selected={zone.preset.audioMode === 'ambient'}
+          onPress={() => updatePreset({ audioMode: 'ambient' })}
+        />
+      </View>
+    </View>
+  );
+};
+
 export const SessionDefaultsScreen: React.FC = () => {
   const navigation = useNavigation();
   const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
@@ -106,6 +226,14 @@ export const SessionDefaultsScreen: React.FC = () => {
   const setFocusSessionAudio = useSettingsStore((state) => state.setFocusSessionAudio);
   const setPrimeSessionDuration = useSettingsStore((state) => state.setPrimeSessionDuration);
   const setPrimeSessionAudio = useSettingsStore((state) => state.setPrimeSessionAudio);
+  const locationSuggestionsEnabled = useLocationPrimingStore((state) => state.enabled);
+  const locationZones = useLocationPrimingStore((state) => state.zones);
+  const setLocationSuggestionsEnabled = useLocationPrimingStore((state) => state.setEnabled);
+  const addLocationZoneFromCurrentLocation = useLocationPrimingStore(
+    (state) => state.addZoneFromCurrentLocation
+  );
+  const updateLocationZone = useLocationPrimingStore((state) => state.updateZone);
+  const deleteLocationZone = useLocationPrimingStore((state) => state.deleteZone);
 
   const [activeTab, setActiveTab] = useState<SessionTab>(
     focusSessionMode === 'deep' ? 'prime' : 'focus'
@@ -121,6 +249,8 @@ export const SessionDefaultsScreen: React.FC = () => {
     String(Math.round(storedPrimeDuration / 60))
   );
   const [primeAudio, setPrimeAudio] = useState<SessionAudioMode>(storedPrimeAudio);
+  const [isAddingPlace, setIsAddingPlace] = useState(false);
+  const [placeStatus, setPlaceStatus] = useState<string | null>(null);
   const pillTranslate = useRef(new Animated.Value(activeTab === 'focus' ? 0 : 1)).current;
   const tabPillWidth = (screenWidth - 56) / 2;
 
@@ -170,6 +300,46 @@ export const SessionDefaultsScreen: React.FC = () => {
       });
     }
     navigation.goBack();
+  };
+
+  const addCurrentPlace = async () => {
+    if (isAddingPlace) {
+      return;
+    }
+
+    setIsAddingPlace(true);
+    setPlaceStatus(null);
+
+    const preset: LocationPrimingPreset =
+      activeTab === 'focus'
+        ? {
+          sessionType: 'focus',
+          durationSeconds: focusDuration,
+          audioMode: focusAudio,
+        }
+        : {
+          sessionType: 'prime',
+          durationSeconds: resolvedPrimeDurationSeconds,
+          audioMode: primeAudio,
+        };
+
+    try {
+      const zone = await addLocationZoneFromCurrentLocation({
+        label: `Place ${locationZones.length + 1}`,
+        radiusMeters: 200,
+        preset,
+      });
+      setPlaceStatus(
+        zone
+          ? 'Place saved on this device.'
+          : 'Location unavailable or permission denied.'
+      );
+    } catch (error) {
+      logger.warn('[SessionDefaultsScreen] Failed to add location priming place', error);
+      setPlaceStatus('Location unavailable or permission denied.');
+    } finally {
+      setIsAddingPlace(false);
+    }
   };
 
   return (
@@ -335,6 +505,55 @@ export const SessionDefaultsScreen: React.FC = () => {
             </>
           )}
 
+          <View style={styles.sectionDivider} />
+
+          <View style={styles.section}>
+            <View style={styles.placeSectionHeader}>
+              <View>
+                <Text style={styles.sectionLabel}>Places</Text>
+                <Text style={styles.sectionDescription}>Use nearby saved places to preselect a session preset.</Text>
+              </View>
+              <TouchableOpacity
+                accessibilityRole="switch"
+                accessibilityState={{ checked: locationSuggestionsEnabled }}
+                activeOpacity={0.85}
+                onPress={() => setLocationSuggestionsEnabled(!locationSuggestionsEnabled)}
+                style={[styles.placeToggle, locationSuggestionsEnabled && styles.selectedButton]}
+              >
+                <Text style={[styles.placeToggleText, locationSuggestionsEnabled && styles.selectedButtonText]}>
+                  {locationSuggestionsEnabled ? 'On' : 'Off'}
+                </Text>
+              </TouchableOpacity>
+            </View>
+
+            <TouchableOpacity
+              accessibilityRole="button"
+              accessibilityLabel="Add current place"
+              activeOpacity={0.85}
+              disabled={isAddingPlace}
+              onPress={addCurrentPlace}
+              style={[styles.addPlaceButton, isAddingPlace && styles.disabledButton]}
+            >
+              <Plus color={colors.gold} size={16} />
+              <Text style={styles.addPlaceButtonText}>
+                {isAddingPlace ? 'Adding...' : 'Add Current Place'}
+              </Text>
+            </TouchableOpacity>
+
+            {placeStatus ? <Text style={styles.placeStatusText}>{placeStatus}</Text> : null}
+
+            <View style={styles.placesList}>
+              {locationZones.map((zone) => (
+                <LocationZoneEditor
+                  key={zone.id}
+                  zone={zone}
+                  onUpdate={(update) => updateLocationZone(zone.id, update)}
+                  onDelete={() => deleteLocationZone(zone.id)}
+                />
+              ))}
+            </View>
+          </View>
+
           <View style={styles.infoCard}>
             <Text style={styles.infoTitle}>{infoContent.title}</Text>
             <Text style={styles.infoBody}>{infoContent.body}</Text>
@@ -478,6 +697,9 @@ const styles = StyleSheet.create({
   selectedButtonText: {
     color: colors.gold,
   },
+  disabledButton: {
+    opacity: 0.55,
+  },
   sectionDivider: {
     height: StyleSheet.hairlineWidth,
     backgroundColor: 'rgba(212,175,55,0.08)',
@@ -507,6 +729,143 @@ const styles = StyleSheet.create({
     fontSize: 12,
     letterSpacing: 0.8,
     fontFamily: typography.fonts.heading,
+  },
+  placeSectionHeader: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
+    gap: 14,
+  },
+  placeToggle: {
+    minWidth: 58,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: 'rgba(212,175,55,0.28)',
+    backgroundColor: '#1C2530',
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    alignItems: 'center',
+  },
+  placeToggleText: {
+    color: colors.bone,
+    fontSize: 11,
+    letterSpacing: 0.8,
+    fontFamily: typography.fonts.heading,
+  },
+  addPlaceButton: {
+    marginTop: 4,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: 'rgba(212,175,55,0.28)',
+    backgroundColor: '#1C2530',
+    paddingHorizontal: 14,
+    paddingVertical: 13,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+  },
+  addPlaceButtonText: {
+    color: colors.bone,
+    fontSize: 12,
+    letterSpacing: 0.8,
+    fontFamily: typography.fonts.heading,
+  },
+  placeStatusText: {
+    marginTop: 10,
+    color: 'rgba(192,192,192,0.72)',
+    fontSize: 13,
+    lineHeight: 18,
+    fontFamily: typography.fonts.bodySerifItalic,
+  },
+  placesList: {
+    marginTop: 14,
+    gap: 12,
+  },
+  placeCard: {
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(212,175,55,0.18)',
+    backgroundColor: 'rgba(28,37,48,0.78)',
+    padding: 14,
+    gap: 12,
+  },
+  placeHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 10,
+  },
+  placeTitleRow: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  placeNameInput: {
+    flex: 1,
+    paddingVertical: 0,
+    color: colors.bone,
+    fontSize: 16,
+    fontFamily: typography.fonts.heading,
+  },
+  placeIconButton: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(255,255,255,0.04)',
+  },
+  placeControlsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  placeChip: {
+    minWidth: 58,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: 'rgba(212,175,55,0.28)',
+    backgroundColor: '#15202A',
+    paddingVertical: 11,
+    alignItems: 'center',
+  },
+  placeChipText: {
+    color: colors.bone,
+    fontSize: 11,
+    letterSpacing: 0.8,
+    fontFamily: typography.fonts.heading,
+  },
+  radiusRow: {
+    flex: 1,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: 'rgba(212,175,55,0.2)',
+    backgroundColor: '#15202A',
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+  },
+  radiusInput: {
+    minWidth: 48,
+    paddingVertical: 0,
+    color: colors.bone,
+    fontSize: 15,
+    textAlign: 'center',
+    fontFamily: typography.fonts.heading,
+  },
+  placeSegmentRow: {
+    flexDirection: 'row',
+    gap: 10,
+  },
+  placeDurationGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 10,
   },
   customRow: {
     marginTop: 10,

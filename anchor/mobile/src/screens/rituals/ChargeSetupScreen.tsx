@@ -21,6 +21,8 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { SvgXml } from 'react-native-svg';
 import { useAnchorStore } from '@/stores/anchorStore';
 import { useSettingsStore } from '@/stores/settingsStore';
+import { useLocationPrimingStore } from '@/stores/locationPrimingStore';
+import type { LocationPrimingSuggestion } from '@/utils/locationPriming';
 import { safeHaptics } from '@/utils/haptics';
 import { OptimizedImage } from '@/components/common';
 import { MicroTeachInline } from '@/components/teaching';
@@ -114,6 +116,9 @@ const chargeConfigByChoice = {
 const getPrimeStructureSvg = (anchor?: Anchor): string =>
   anchor?.baseSigilSvg?.trim() || anchor?.reinforcedSigilSvg?.trim() || FALLBACK_SIGIL_SVG;
 
+const formatPresetDuration = (seconds: number): string =>
+  seconds < 60 ? `${seconds}s` : `${Math.round(seconds / 60)} min`;
+
 export const ChargeSetupScreen: React.FC = () => {
   const navigation = useNavigation<ChargeSetupNavigationProp>();
   const route = useRoute<ChargeSetupRouteProp>();
@@ -135,10 +140,16 @@ export const ChargeSetupScreen: React.FC = () => {
 
   const getAnchorById = useAnchorStore((state) => state.getAnchorById);
   const setDefaultCharge = useSettingsStore((state) => state.setDefaultCharge);
+  const resolveLocationPrimingSuggestion = useLocationPrimingStore(
+    (state) => state.resolveActiveSuggestion
+  );
   const anchor = getAnchorById(anchorId);
   const primeSessionAccess = usePrimeSessionAccess();
 
   const [selectedDuration, setSelectedDuration] = useState<DurationChoice>(initialDuration ?? 'quick');
+  const [hasManuallySelectedDuration, setHasManuallySelectedDuration] = useState(false);
+  const [locationPrimingSuggestion, setLocationPrimingSuggestion] =
+    useState<LocationPrimingSuggestion | null>(null);
   const [reduceMotionEnabled, setReduceMotionEnabled] = useState(false);
   const [isTransitioning, setIsTransitioning] = useState(false);
   const [enhancedArtworkFailed, setEnhancedArtworkFailed] = useState(false);
@@ -257,26 +268,73 @@ export const ChargeSetupScreen: React.FC = () => {
     }, [isTransitioning])
   );
 
+  useFocusEffect(
+    useCallback(() => {
+      let isActive = true;
+
+      resolveLocationPrimingSuggestion()
+        .then((suggestion) => {
+          if (!isActive) {
+            return;
+          }
+
+          setLocationPrimingSuggestion(suggestion);
+          if (suggestion && !hasManuallySelectedDuration) {
+            setSelectedDuration(
+              suggestion.zone.preset.sessionType === 'focus' ? 'quick' : 'deep'
+            );
+          }
+        })
+        .catch(() => {
+          if (isActive) {
+            setLocationPrimingSuggestion(null);
+          }
+        });
+
+      return () => {
+        isActive = false;
+      };
+    }, [hasManuallySelectedDuration, resolveLocationPrimingSuggestion])
+  );
+
+  const getLocationPresetForChoice = useCallback(
+    (choice: DurationChoice) => {
+      if (hasManuallySelectedDuration || !locationPrimingSuggestion) {
+        return null;
+      }
+
+      const preset = locationPrimingSuggestion.zone.preset;
+      const presetChoice: DurationChoice = preset.sessionType === 'focus' ? 'quick' : 'deep';
+      return presetChoice === choice ? preset : null;
+    },
+    [hasManuallySelectedDuration, locationPrimingSuggestion]
+  );
+
   const navigateToRitual = useCallback(
     (choice: DurationChoice) => {
       const config = chargeConfigByChoice[choice];
+      const locationPreset = getLocationPresetForChoice(choice);
+      const durationOverride = locationPreset?.durationSeconds ?? config.durationSeconds;
+      const audioModeOverride = locationPreset?.audioMode;
       if (choice === 'quick') {
         navigation.replace('ActivationRitual', {
           anchorId,
           activationType: 'visual',
-          durationOverride: config.durationSeconds,
+          durationOverride,
+          audioModeOverride,
           returnTo,
         });
       } else {
         navigation.replace('Ritual', {
           anchorId,
           ritualType: config.ritualType as any,
-          durationSeconds: config.durationSeconds,
+          durationSeconds: durationOverride,
+          audioModeOverride,
           returnTo,
         });
       }
     },
-    [anchorId, navigation, returnTo]
+    [anchorId, getLocationPresetForChoice, navigation, returnTo]
   );
 
   const handleBeginRitual = useCallback(
@@ -293,21 +351,30 @@ export const ChargeSetupScreen: React.FC = () => {
       }
 
       const config = chargeConfigByChoice[choice];
+      const locationPreset = getLocationPresetForChoice(choice);
       isNavigatingRef.current = true;
       setIsTransitioning(true);
 
-      setDefaultCharge({
-        mode: config.mode,
-        preset: config.preset,
-        customMinutes: config.customMinutes,
-      });
+      if (!locationPreset) {
+        setDefaultCharge({
+          mode: config.mode,
+          preset: config.preset,
+          customMinutes: config.customMinutes,
+        });
+      }
 
       AnalyticsService.track(AnalyticsEvents.CHARGE_STARTED, {
         anchor_id: anchorId,
         source: 'charge_setup',
         mode: choice,
-        duration_seconds: config.durationSeconds,
+        duration_seconds: locationPreset?.durationSeconds ?? config.durationSeconds,
         return_to: returnTo,
+        ...(locationPreset
+          ? {
+            location_preset_applied: true,
+            session_type: locationPreset.sessionType,
+          }
+          : {}),
       });
       AnalyticsService.track(
         choice === 'quick'
@@ -316,20 +383,36 @@ export const ChargeSetupScreen: React.FC = () => {
         {
           anchor_id: anchorId,
           source: 'charge_setup',
-          duration_seconds: config.durationSeconds,
+          duration_seconds: locationPreset?.durationSeconds ?? config.durationSeconds,
           return_to: returnTo,
+          ...(locationPreset
+            ? {
+              location_preset_applied: true,
+              session_type: locationPreset.sessionType,
+            }
+            : {}),
         }
       );
 
       void safeHaptics.impact(Haptics.ImpactFeedbackStyle.Medium);
       navigateToRitual(choice);
     },
-    [isTransitioning, navigateToRitual, navigation, primeSessionAccess.deep, primeSessionAccess.focus, selectedDuration, setDefaultCharge]
+    [
+      getLocationPresetForChoice,
+      isTransitioning,
+      navigateToRitual,
+      navigation,
+      primeSessionAccess.deep,
+      primeSessionAccess.focus,
+      selectedDuration,
+      setDefaultCharge,
+    ]
   );
 
   const handleSelectDuration = useCallback(
     (choice: DurationChoice) => {
       if (isTransitioning) return;
+      setHasManuallySelectedDuration(true);
       setSelectedDuration(choice);
       void safeHaptics.selection();
 
@@ -387,6 +470,8 @@ export const ChargeSetupScreen: React.FC = () => {
 
     navigateToVaultDestination(navigation, 'replace');
   }, [anchor, anchorId, fromOnboarding, isTransitioning, navigateToPractice, navigation, returnTo]);
+
+  const activeLocationPreset = getLocationPresetForChoice(selectedDuration);
 
   if (!anchorId || !anchor) {
     return (
@@ -526,6 +611,15 @@ export const ChargeSetupScreen: React.FC = () => {
               screenId="charge_setup"
               style={{ textAlign: 'center', alignSelf: 'center' }}
             />
+
+            {activeLocationPreset && locationPrimingSuggestion ? (
+              <View style={styles.locationPresetPill}>
+                <Text style={styles.locationPresetLabel}>PLACE PRESET</Text>
+                <Text style={styles.locationPresetText}>
+                  {locationPrimingSuggestion.zone.label} · {formatPresetDuration(activeLocationPreset.durationSeconds)} · {activeLocationPreset.audioMode === 'ambient' ? 'Ambient' : 'Silent'}
+                </Text>
+              </View>
+            ) : null}
 
             <View style={[styles.cardsRow, isCompactLayout && styles.cardsRowCompact]}>
               {cards.map((card) => (
@@ -818,6 +912,32 @@ const styles = StyleSheet.create({
   },
   durationLabelCompact: {
     marginBottom: 15,
+  },
+  locationPresetPill: {
+    alignSelf: 'center',
+    maxWidth: '100%',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(212,175,55,0.24)',
+    backgroundColor: 'rgba(212,175,55,0.07)',
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    marginBottom: 16,
+    alignItems: 'center',
+  },
+  locationPresetLabel: {
+    fontFamily: 'Cinzel-Regular',
+    fontSize: 8,
+    letterSpacing: 2.2,
+    color: GOLD_DIM,
+    marginBottom: 4,
+  },
+  locationPresetText: {
+    fontFamily: 'CormorantGaramond-Italic',
+    fontSize: 13,
+    lineHeight: 18,
+    color: BONE,
+    textAlign: 'center',
   },
   cardsRow: {
     flexDirection: 'row',
