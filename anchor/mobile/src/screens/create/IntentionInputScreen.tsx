@@ -12,6 +12,7 @@ import {
     Dimensions,
     Easing,
     AccessibilityInfo,
+    Keyboard,
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
@@ -38,6 +39,7 @@ export default function IntentionInputScreen() {
     const { recordShown } = useTeachingStore();
 
     const scrollViewRef = useRef<ScrollView>(null);
+    const textInputRef = useRef<TextInput>(null);
     const [intention, setIntention] = useState('');
     const [placeholder, setPlaceholder] = useState('');
     const [isFocused, setIsFocused] = useState(false);
@@ -178,6 +180,21 @@ export default function IntentionInputScreen() {
         }, 150);
     };
 
+    const restoreLayoutAfterKeyboard = React.useCallback(() => {
+        textInputRef.current?.blur();
+        setIsFocused(false);
+        if (idleTimerRef.current) clearTimeout(idleTimerRef.current);
+
+        requestAnimationFrame(() => {
+            scrollViewRef.current?.scrollTo({ y: 0, animated: true });
+        });
+    }, []);
+
+    useEffect(() => {
+        const subscription = Keyboard.addListener('keyboardDidHide', restoreLayoutAfterKeyboard);
+        return () => subscription.remove();
+    }, [restoreLayoutAfterKeyboard]);
+
     const handleBlur = () => {
         setIsFocused(false);
         if (idleTimerRef.current) clearTimeout(idleTimerRef.current);
@@ -261,6 +278,7 @@ export default function IntentionInputScreen() {
                         <Animated.View style={[styles.section, { opacity: fadeAnim }]}>
                             <Animated.View style={[styles.inputContainer, { borderColor: inputBorderColor }]}>
                                 <TextInput
+                                    ref={textInputRef}
                                     style={styles.textInput}
                                     value={intention}
                                     onChangeText={handleIntentionChange}

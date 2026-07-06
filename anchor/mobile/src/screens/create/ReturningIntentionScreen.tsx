@@ -13,10 +13,11 @@ import {
     Easing,
     AccessibilityInfo,
     BackHandler,
+    Keyboard,
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
-import { useNavigation } from '@react-navigation/native';
+import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { RootStackParamList } from '@/types';
 import { distillIntention } from '@/utils/sigil/distillation';
@@ -49,9 +50,13 @@ export default function ReturningIntentionScreen() {
     const { hasActiveEntitlement } = useTrialStatus();
 
     const scrollViewRef = useRef<ScrollView>(null);
+    const textInputRef = useRef<TextInput>(null);
     const [intention, setIntention] = useState('');
     const [charCount, setCharCount] = useState(0);
     const [placeholder, setPlaceholder] = useState('');
+    const [isFocused, setIsFocused] = useState(false);
+    const [canSubmit, setCanSubmit] = useState(false);
+    const focusAnim = useRef(new Animated.Value(0)).current;
 
     // Teaching: Undertone state
     const [undertoneText, setUndertoneText] = useState<string | null>(null);
@@ -108,11 +113,44 @@ export default function ReturningIntentionScreen() {
         "Honor my boundaries"
     ];
 
+    const clearTransientTimers = React.useCallback(() => {
+        if (idleTimerRef.current) {
+            clearTimeout(idleTimerRef.current);
+            idleTimerRef.current = null;
+        }
+        if (nudgeDebounceRef.current) {
+            clearTimeout(nudgeDebounceRef.current);
+            nudgeDebounceRef.current = null;
+        }
+    }, []);
+
+    const resetDraftState = React.useCallback(() => {
+        clearTransientTimers();
+        setIntention('');
+        setCharCount(0);
+        setCanSubmit(false);
+        setIsFocused(false);
+        setUndertoneText(null);
+        setNudge(null);
+        undertoneOpacity.setValue(0);
+        focusAnim.setValue(0);
+
+        requestAnimationFrame(() => {
+            scrollViewRef.current?.scrollTo({ y: 0, animated: false });
+        });
+    }, [clearTransientTimers, focusAnim, undertoneOpacity]);
+
+    useFocusEffect(
+        React.useCallback(() => {
+            resetDraftState();
+            return clearTransientTimers;
+        }, [clearTransientTimers, resetDraftState])
+    );
+
     // Cleanup idle timer on unmount
     useEffect(() => () => {
-        if (idleTimerRef.current) clearTimeout(idleTimerRef.current);
-        if (nudgeDebounceRef.current) clearTimeout(nudgeDebounceRef.current);
-    }, []);
+        clearTransientTimers();
+    }, [clearTransientTimers]);
 
     // Handle Android hardware back button — go back to sanctuary instead of closing the app
     useEffect(() => {
@@ -149,10 +187,6 @@ export default function ReturningIntentionScreen() {
             clearPendingForgeIntent();
         }
     }, [clearPendingForgeIntent, intention.length, pendingForgeIntent]);
-
-    const [isFocused, setIsFocused] = useState(false);
-    const [canSubmit, setCanSubmit] = useState(false);
-    const focusAnim = useRef(new Animated.Value(0)).current;
 
     // Subtle focus glow animation (locked system easing)
     useEffect(() => {
@@ -196,6 +230,24 @@ export default function ReturningIntentionScreen() {
             scrollViewRef.current?.scrollToEnd({ animated: true });
         }, 150);
     };
+
+    const restoreLayoutAfterKeyboard = React.useCallback(() => {
+        textInputRef.current?.blur();
+        setIsFocused(false);
+        if (idleTimerRef.current) {
+            clearTimeout(idleTimerRef.current);
+            idleTimerRef.current = null;
+        }
+
+        requestAnimationFrame(() => {
+            scrollViewRef.current?.scrollTo({ y: 0, animated: true });
+        });
+    }, []);
+
+    useEffect(() => {
+        const subscription = Keyboard.addListener('keyboardDidHide', restoreLayoutAfterKeyboard);
+        return () => subscription.remove();
+    }, [restoreLayoutAfterKeyboard]);
 
     const handleBlur = () => {
         setIsFocused(false);
@@ -350,6 +402,7 @@ export default function ReturningIntentionScreen() {
                                 ]}
                             >
                                 <TextInput
+                                    ref={textInputRef}
                                     style={styles.textInput}
                                     value={intention}
                                     onChangeText={handleIntentionChange}

@@ -773,6 +773,7 @@ export type RootStackParamList = {
     ritualType: 'focus' | 'ritual' | 'quick' | 'deep'; // Legacy types for compatibility
     durationSeconds?: number; // Optional custom duration for focus/ritual modes
     mantraAudioEnabled?: boolean;
+    audioModeOverride?: 'silent' | 'ambient';
     returnTo?: 'vault' | 'practice' | 'detail';
   };
   SealAnchor: { anchorId: string; returnTo?: 'vault' | 'practice' | 'detail' };
@@ -794,6 +795,7 @@ export type RootStackParamList = {
     anchorId: string;
     activationType: ActivationType;
     durationOverride?: number;
+    audioModeOverride?: 'silent' | 'ambient';
     returnTo?: 'vault' | 'practice' | 'detail' | 'reinforce';
     initialDuration?: 'quick' | 'deep';
   };

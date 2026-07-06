@@ -60,7 +60,7 @@ export const ActivationScreen: React.FC = () => {
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const { navigateToPractice } = useTabNavigation();
   const route = useRoute<ActivationRouteProp>();
-  const { anchorId, activationType, durationOverride, returnTo } = route.params;
+  const { anchorId, activationType, durationOverride, audioModeOverride, returnTo } = route.params;
   const toast = useToast();
 
   const getAnchorById = useAnchorStore((state) => state.getAnchorById);
@@ -74,6 +74,8 @@ export const ActivationScreen: React.FC = () => {
   );
   const focusSessionDuration = useSettingsStore((state) => state.focusSessionDuration ?? 30);
   const focusSessionAudio = useSettingsStore((state) => state.focusSessionAudio ?? 'ambient');
+  const resolvedFocusSessionAudio = audioModeOverride ?? focusSessionAudio;
+  const traceDefaultEnabled = useSettingsStore((state) => state.traceDefaultEnabled ?? true);
   const { recordSession, bumpThreadStrength } = useSessionStore();
   const { recordShown } = useTeachingStore();
   const { handlePrimeComplete } = useNotificationController();
@@ -330,9 +332,11 @@ export const ActivationScreen: React.FC = () => {
     recordPrimeSession();
   }, [recordPrimeSession]);
 
-  const showReflectionModal = useCallback(() => {
+  const showReflectionModal = useCallback((options?: { keepTraceLink?: boolean }) => {
     sessionCompletedRef.current = true;
-    setShowPostPrimeTrace(false);
+    if (!options?.keepTraceLink) {
+      setShowPostPrimeTrace(false);
+    }
     setShowExitWarning(false);
 
     completionTransitionTaskRef.current?.cancel?.();
@@ -359,11 +363,20 @@ export const ActivationScreen: React.FC = () => {
 
     if (shouldOfferPostPrimeTrace) {
       setShowPostPrimeTrace(true);
+      if (!traceDefaultEnabled) {
+        showReflectionModal({ keepTraceLink: true });
+      }
       return;
     }
 
     showReflectionModal();
-  }, [handlePrimeComplete, isFirstPrimeForAnchor, logActivationInBackground, showReflectionModal]);
+  }, [
+    handlePrimeComplete,
+    isFirstPrimeForAnchor,
+    logActivationInBackground,
+    showReflectionModal,
+    traceDefaultEnabled,
+  ]);
 
   const handleSkipPostPrimeTrace = useCallback(() => {
     showReflectionModal();
@@ -375,6 +388,7 @@ export const ActivationScreen: React.FC = () => {
     const flowId = beginPostPrimeTraceFlow(anchorId);
     setPendingPostPrimeFlowId(flowId);
     setShowPostPrimeTrace(false);
+    setShowCompletion(false);
 
     navigation.navigate('ManualReinforcement', {
       source: 'post_prime_trace',
@@ -511,7 +525,7 @@ export const ActivationScreen: React.FC = () => {
       anchorId,
       type: 'activate',
       durationSeconds: activationDurationSeconds,
-      mode: focusSessionAudio,
+      mode: resolvedFocusSessionAudio,
       reflectionWord,
       completedAt: new Date().toISOString(),
     });
@@ -553,7 +567,7 @@ export const ActivationScreen: React.FC = () => {
     navigation,
     recordSession,
     handlePrimeComplete,
-    focusSessionAudio,
+    resolvedFocusSessionAudio,
     returnTo,
     scheduleReviewRequestAfterHomeReturn,
   ]);
@@ -574,6 +588,7 @@ export const ActivationScreen: React.FC = () => {
         intentionText={anchor.intentionText}
         anchorImageUri={anchorHeroUri}
         durationSeconds={activationDurationSeconds}
+        audioModeOverride={audioModeOverride}
         onComplete={handleComplete}
         onSessionCompleted={handleSessionCompleted}
         groundNoteText={groundNoteTeaching?.copy}
@@ -594,6 +609,7 @@ export const ActivationScreen: React.FC = () => {
         anchor={anchor}
         onTrace={handleBeginPostPrimeTrace}
         onSkip={handleSkipPostPrimeTrace}
+        compact={!traceDefaultEnabled}
       />
       <CompletionModal
         visible={showCompletion}

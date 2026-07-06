@@ -27,6 +27,8 @@ interface CustomerInfo {
     active?: Record<string, CustomerEntitlementInfo>;
     all?: Record<string, CustomerEntitlementInfo>;
   };
+  activeSubscriptions?: string[];
+  allPurchasedProductIdentifiers?: string[];
 }
 
 interface RevenueCatProduct {
@@ -178,6 +180,16 @@ function getEntitlementInfo(customerInfo: CustomerInfo | null | undefined): Cust
   return allEntitlement ?? null;
 }
 
+function getActiveStoreSubscriptionIds(customerInfo: CustomerInfo | null | undefined): string[] {
+  if (!Array.isArray(customerInfo?.activeSubscriptions)) {
+    return [];
+  }
+
+  return customerInfo.activeSubscriptions.filter(
+    (productId): productId is string => typeof productId === 'string' && productId.length > 0
+  );
+}
+
 function getDaysRemaining(expirationDate?: string | null): number | null {
   if (!expirationDate) return null;
   const expiration = new Date(expirationDate);
@@ -191,12 +203,29 @@ function getDaysRemaining(expirationDate?: string | null): number | null {
 
 function deriveTrialStatus(customerInfo: CustomerInfo | null | undefined): TrialStatusSnapshot {
   const entitlement = getEntitlementInfo(customerInfo);
+  const activeStoreSubscriptionIds = getActiveStoreSubscriptionIds(customerInfo);
+
+  if (!entitlement && activeStoreSubscriptionIds.length > 0) {
+    logger.warn(
+      '[RevenueCatService] Active store subscription found without an active entitlement; granting paid access from customerInfo.activeSubscriptions. Check RevenueCat entitlement/product mapping.',
+      { activeStoreSubscriptionIds }
+    );
+    return {
+      isInTrial: false,
+      isSubscribed: true,
+      hasActiveEntitlement: true,
+      daysRemaining: null,
+      trialExpired: false,
+    };
+  }
+
   if (!entitlement) {
     return DEFAULT_TRIAL_STATUS;
   }
 
-  const isActive = entitlement.isActive === true;
-  const isInTrial = isActive && entitlement.periodType === 'trial';
+  const isActive = entitlement.isActive === true || activeStoreSubscriptionIds.length > 0;
+  const periodType = typeof entitlement.periodType === 'string' ? entitlement.periodType.toLowerCase() : '';
+  const isInTrial = isActive && periodType === 'trial';
   const isSubscribed = isActive && !isInTrial;
   const daysRemaining = getDaysRemaining(entitlement.expirationDate);
 

@@ -65,6 +65,25 @@ jest.mock('expo-media-library', () => ({
   saveToLibraryAsync: jest.fn(() => Promise.resolve()),
 }));
 
+jest.mock('expo-location', () => ({
+  Accuracy: {
+    Balanced: 3,
+  },
+  getForegroundPermissionsAsync: jest.fn(() => Promise.resolve({ status: 'denied' })),
+  requestForegroundPermissionsAsync: jest.fn(() => Promise.resolve({ status: 'denied' })),
+  hasServicesEnabledAsync: jest.fn(() => Promise.resolve(false)),
+  getLastKnownPositionAsync: jest.fn(() => Promise.resolve(null)),
+  getCurrentPositionAsync: jest.fn(() =>
+    Promise.resolve({
+      coords: {
+        latitude: 0,
+        longitude: 0,
+        accuracy: 20,
+      },
+    })
+  ),
+}));
+
 const mockExpoFileSystem = {
   cacheDirectory: 'file:///cache/',
   documentDirectory: 'file:///documents/',

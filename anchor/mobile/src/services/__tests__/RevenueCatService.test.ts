@@ -109,6 +109,46 @@ describe('RevenueCatService', () => {
     expect(mockSetRcTier).toHaveBeenCalledWith('pro');
   });
 
+  it('grants access when RevenueCat reports active subscriptions without entitlement mapping', async () => {
+    mockPurchases.getCustomerInfo.mockResolvedValueOnce({
+      entitlements: {
+        active: {},
+        all: {},
+      },
+      activeSubscriptions: ['anchor_annual'],
+      allPurchasedProductIdentifiers: ['anchor_annual'],
+    });
+
+    const status = await RevenueCatService.refreshTrialStatus();
+
+    expect(status.hasActiveEntitlement).toBe(true);
+    expect(status.isSubscribed).toBe(true);
+    expect(status.isInTrial).toBe(false);
+    expect(mockSetRcTier).toHaveBeenCalledWith('pro');
+    expect(mockSetSubscriptionStatus).toHaveBeenCalledWith('active');
+  });
+
+  it('recognizes uppercase RevenueCat trial period values', async () => {
+    mockPurchases.getCustomerInfo.mockResolvedValueOnce({
+      entitlements: {
+        active: {
+          pro: {
+            isActive: true,
+            periodType: 'TRIAL',
+            expirationDate: new Date(Date.now() + 86400000).toISOString(),
+          },
+        },
+      },
+    });
+
+    const status = await RevenueCatService.refreshTrialStatus();
+
+    expect(status.hasActiveEntitlement).toBe(true);
+    expect(status.isInTrial).toBe(true);
+    expect(status.isSubscribed).toBe(false);
+    expect(mockSetSubscriptionStatus).toHaveBeenCalledWith('trial');
+  });
+
   it('preserves a valid local account trial when RevenueCat has no active entitlement', async () => {
     mockSubscriptionState.subscriptionStatus = 'trial';
     mockSubscriptionState.trialStartDate = new Date().toISOString();

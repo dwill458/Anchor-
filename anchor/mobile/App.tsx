@@ -62,6 +62,7 @@ import {
   clearPushTokensFromServer,
   syncPushTokensToServer,
 } from './src/services/NotificationSyncService';
+import { initWidgetDataSync } from './src/widgets/widgetDataBridge';
 
 function isNetworkError(error: unknown): boolean {
   if (!(error instanceof Error)) return false;
@@ -389,6 +390,13 @@ export default function App() {
   useEffect(() => {
     developerMasterAccountEnabledRef.current = developerMasterAccountEnabled;
   }, [developerMasterAccountEnabled]);
+
+  // Mirror session/anchor state into the home screen widgets. Subscribes to
+  // the stores, so prime completions, decay, and hydration all propagate
+  // without touching those flows.
+  useEffect(() => {
+    initWidgetDataSync();
+  }, []);
 
   useEffect(() => {
     AuthService.initialize();

@@ -32,6 +32,7 @@ import { safeHaptics } from '@/utils/haptics';
 import { useTeachingStore } from '@/stores/teachingStore';
 import { useToast } from '@/components/ToastProvider';
 import { TEACHINGS } from '@/constants/teaching';
+import { WidgetDeepLinkHandler } from '@/widgets/WidgetDeepLinkHandler';
 
 // ─── Tab Button ───────────────────────────────────────────────────────────────
 
@@ -254,6 +255,8 @@ export const MainTabNavigator: React.FC = () => {
 
   return (
     <TabNavigationProvider onIndexChange={handleIndexChange} activeIndex={activeIndex}>
+      {/* Routes the home screen widget CTA (anchor://practice) to the Practice tab */}
+      <WidgetDeepLinkHandler />
       <View style={styles.container}>
         <SwipeableTabContainer
           activeIndex={activeIndex}
