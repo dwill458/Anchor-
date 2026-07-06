@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react';
 import { AccessibilityInfo } from 'react-native';
+import { useSettingsStore } from '@/stores/settingsStore';
 
-export const useReduceMotionEnabled = (): boolean => {
+export const useSystemReduceMotionEnabled = (): boolean => {
   const [reduceMotionEnabled, setReduceMotionEnabled] = useState(false);
 
   useEffect(() => {
@@ -31,4 +32,21 @@ export const useReduceMotionEnabled = (): boolean => {
   }, []);
 
   return reduceMotionEnabled;
+};
+
+/**
+ * Effective reduce-motion state: the in-app Settings preference wins; 'system'
+ * (the default) follows the OS flag. On Android the OS flag is also true when
+ * "Remove animations" is on or the animator scale is 0, so the in-app override
+ * is the only way for those users to get ambient animation back.
+ */
+export const useReduceMotionEnabled = (): boolean => {
+  const preference = useSettingsStore((state) => state.reduceMotion ?? 'system');
+  const systemReduceMotionEnabled = useSystemReduceMotionEnabled();
+
+  if (preference === 'system') {
+    return systemReduceMotionEnabled;
+  }
+
+  return preference === 'on';
 };
