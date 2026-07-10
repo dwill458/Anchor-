@@ -1,6 +1,6 @@
 import { useMemo } from 'react';
 import { useSessionStore } from '@/stores/sessionStore';
-import { useSubscriptionStore } from '@/stores/subscriptionStore';
+import { useEntitlements } from '@/hooks/useEntitlements';
 import {
   getPrimeSessionAllowance,
   type PrimeSessionAllowance,
@@ -8,35 +8,33 @@ import {
 
 export interface PrimeSessionAccessSnapshot {
   limitsActive: boolean;
-  tier: 'free' | 'pro';
+  tier: 'free' | 'trial' | 'pro';
   focus: PrimeSessionAllowance;
   deep: PrimeSessionAllowance;
 }
 
 export function usePrimeSessionAccess(): PrimeSessionAccessSnapshot {
-  const tier = useSubscriptionStore((state) => state.getEffectiveTier());
-  const rcSynced = useSubscriptionStore((state) => state.rcSynced);
-  const devOverrideEnabled = useSubscriptionStore((state) => state.devOverrideEnabled);
   const primingHistory = useSessionStore((state) => state.primingHistory);
+  const entitlements = useEntitlements();
 
   return useMemo(() => {
-    const limitsActive = tier === 'free' && (rcSynced || (__DEV__ && devOverrideEnabled));
+    const limitsActive = entitlements.isFree;
 
     return {
       limitsActive,
-      tier,
+      tier: entitlements.tier,
       focus: getPrimeSessionAllowance({
-        tier,
+        tier: entitlements.tier,
         kind: 'focus',
         primingHistory,
         enforceLimits: limitsActive,
       }),
       deep: getPrimeSessionAllowance({
-        tier,
+        tier: entitlements.tier,
         kind: 'deep',
         primingHistory,
         enforceLimits: limitsActive,
       }),
     };
-  }, [devOverrideEnabled, primingHistory, rcSynced, tier]);
+  }, [entitlements.isFree, entitlements.tier, primingHistory]);
 }

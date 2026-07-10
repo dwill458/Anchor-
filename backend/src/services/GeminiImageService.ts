@@ -8,6 +8,7 @@
 import { GoogleGenAI } from '@google/genai';
 import sharp from 'sharp';
 import { logger } from '../utils/logger';
+import { buildStylePrompt, getStyleNegativePrompt } from './stylePromptLibrary';
 
 // Re-exporting interfaces for compatibility
 export interface ImageVariation {
@@ -211,14 +212,17 @@ export class GeminiImageService {
       totalTimeSeconds: totalTime,
       costUSD: this.getCostEstimate(numberOfVariations, tier),
       prompt: prompt,
-      negativePrompt:
-        'text, words, letters, numbers, numerals, watermark, readable characters, dollar sign, currency symbols, coins, cash, banknotes, bank logos, charts, graphs, clipart, sticker, icon pack, photorealistic, human face, human figure, literal objects, blurry, low quality, distorted geometry, altered structure, warped lines',
+      negativePrompt: getStyleNegativePrompt(styleApproach),
       model: modelConfig.modelId,
       tier,
     };
   }
 
   private createPrompt(intention: string, style: string, variationIndex: number = 0): string {
+    return buildStylePrompt(intention, style, variationIndex);
+  }
+
+  private createLegacyPrompt(intention: string, style: string, variationIndex: number = 0): string {
     const archetypeBlock = this.getArchetypeMotifs(intention);
     const uniquenessBlock = this.buildUniquenessBlock(intention, style, variationIndex);
 

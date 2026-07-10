@@ -39,6 +39,18 @@ type AnchorRequestConfig = InternalAxiosRequestConfig & {
   _anchorUserSyncRetried?: boolean;
 };
 
+export class ApiClientError extends Error {
+  constructor(
+    message: string,
+    public readonly code?: string,
+    public readonly status?: number
+  ) {
+    super(message);
+    this.name = 'ApiClientError';
+    Object.setPrototypeOf(this, ApiClientError.prototype);
+  }
+}
+
 // ============================================================================
 // Request Interceptor - Add Auth Token
 // ============================================================================
@@ -193,6 +205,7 @@ apiClient.interceptors.response.use(
     }
 
     let apiMessage: string | undefined;
+    let apiCode: string | undefined;
     if (typeof apiError === 'string') {
       apiMessage = apiError;
     } else if (
@@ -202,10 +215,12 @@ apiClient.interceptors.response.use(
       typeof apiError.message === 'string'
     ) {
       apiMessage = apiError.message;
+      apiCode =
+        'code' in apiError && typeof apiError.code === 'string' ? apiError.code : undefined;
     }
 
     if (apiMessage) {
-      throw new Error(apiMessage);
+      throw new ApiClientError(apiMessage, apiCode, error.response.status);
     }
 
     // Handle HTTP status codes

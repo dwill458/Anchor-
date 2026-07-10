@@ -18,13 +18,18 @@ import { ProfileStackNavigator } from './ProfileStackNavigator';
 import { PaywallScreen } from '../screens/paywall/PaywallScreen';
 import { useAuthStore } from '../stores/authStore';
 import { useSettingsStore } from '../stores/settingsStore';
-import type { AuthPreferredPlanId } from '../types';
+import type { AuthPreferredPlanId, PaywallSource } from '../types';
 import type { ProfileStackParamList } from './ProfileStackNavigator';
 
 export type RootNavigatorParamList = {
   Onboarding: undefined;
   Main: undefined;
-  Paywall: { source?: 'post_trial' | 'gated_feature'; preferredPlanId?: AuthPreferredPlanId } | undefined;
+  Paywall:
+    | {
+        source?: PaywallSource;
+        preferredPlanId?: AuthPreferredPlanId;
+      }
+    | undefined;
   Settings: NavigatorScreenParams<ProfileStackParamList> | undefined;
 };
 

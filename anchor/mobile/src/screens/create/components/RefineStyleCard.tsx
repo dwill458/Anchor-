@@ -1,22 +1,22 @@
 import React, { useEffect } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleProp, StyleSheet, Text, View, ViewStyle } from 'react-native';
 import { BlurView } from 'expo-blur';
+import { LinearGradient } from 'expo-linear-gradient';
 import Animated, {
-  withDelay,
   interpolate,
   interpolateColor,
   useAnimatedStyle,
   useSharedValue,
-  withSequence,
+  withDelay,
   withSpring,
   withTiming,
 } from 'react-native-reanimated';
 import {
+  Check,
   Cloud,
   Compass,
   Crown,
   Flame,
-  Lock,
   Palette,
   Repeat,
   ShieldCheck,
@@ -25,19 +25,21 @@ import {
   Target,
   Waves,
   Zap,
-  Check,
   type LucideIcon,
 } from 'lucide-react-native';
 import { colors, spacing, typography } from '@/theme';
 import type { RefineStyleIconName, RefineStyleOption } from '../constants/refineStyles';
 
+export type RefineStyleCardVariant = 'core' | 'featured' | 'recommended' | 'seasonal' | 'filtered';
+
 interface RefineStyleCardProps {
   option: RefineStyleOption;
   index: number;
   isSelected: boolean;
-  isLocked: boolean;
   onSelect: (option: RefineStyleOption) => void;
-  onLockedPress: (option: RefineStyleOption) => void;
+  variant?: RefineStyleCardVariant;
+  badgeLabel?: string;
+  style?: StyleProp<ViewStyle>;
 }
 
 const ICONS: Record<RefineStyleIconName, LucideIcon> = {
@@ -57,129 +59,148 @@ const ICONS: Record<RefineStyleIconName, LucideIcon> = {
 
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
+const getPaletteColors = (paletteLane: string): [string, string, string] => {
+  if (paletteLane.includes('aurora')) return ['rgba(112, 91, 178, 0.34)', 'rgba(108, 196, 204, 0.28)', 'rgba(212, 175, 55, 0.24)'];
+  if (paletteLane.includes('ember') || paletteLane.includes('solar')) return ['rgba(212, 123, 55, 0.32)', 'rgba(212, 175, 55, 0.28)', 'rgba(93, 46, 33, 0.25)'];
+  if (paletteLane.includes('moon') || paletteLane.includes('silver')) return ['rgba(192, 192, 192, 0.24)', 'rgba(142, 128, 184, 0.22)', 'rgba(245, 245, 220, 0.15)'];
+  if (paletteLane.includes('obsidian') || paletteLane.includes('charcoal')) return ['rgba(255, 255, 255, 0.08)', 'rgba(20, 24, 31, 0.86)', 'rgba(192, 192, 192, 0.18)'];
+  if (paletteLane.includes('violet') || paletteLane.includes('purple') || paletteLane.includes('night')) return ['rgba(92, 62, 137, 0.34)', 'rgba(28, 17, 47, 0.72)', 'rgba(212, 175, 55, 0.18)'];
+  if (paletteLane.includes('gold')) return ['rgba(212, 175, 55, 0.3)', 'rgba(70, 50, 20, 0.5)', 'rgba(245, 245, 220, 0.14)'];
+
+  return ['rgba(245, 245, 220, 0.12)', 'rgba(62, 44, 91, 0.22)', 'rgba(212, 175, 55, 0.14)'];
+};
+
 export function RefineStyleCard({
   option,
   index,
   isSelected,
-  isLocked,
   onSelect,
-  onLockedPress,
+  variant = 'core',
+  badgeLabel,
+  style,
 }: RefineStyleCardProps) {
   const pressScale = useSharedValue(1);
   const mountProgress = useSharedValue(0);
   const selectionProgress = useSharedValue(isSelected ? 1 : 0);
-  const lockProgress = useSharedValue(isLocked ? 1 : 0);
-  const shakeX = useSharedValue(0);
   const Icon = ICONS[option.iconName];
+  const isFeatured = variant === 'featured';
+  const isSeasonal = variant === 'seasonal';
+  const displayBadge = badgeLabel ?? option.badgeLabel;
+  const paletteColors = getPaletteColors(option.paletteLane);
 
   useEffect(() => {
-    mountProgress.value = withDelay(index * 45, withTiming(1, { duration: 360 }));
+    mountProgress.value = withDelay(Math.min(index, 8) * 40, withTiming(1, { duration: 320 }));
   }, [index, mountProgress]);
 
   useEffect(() => {
-    selectionProgress.value = withTiming(isSelected ? 1 : 0, { duration: 260 });
+    selectionProgress.value = withTiming(isSelected ? 1 : 0, { duration: 240 });
   }, [isSelected, selectionProgress]);
-
-  useEffect(() => {
-    lockProgress.value = withTiming(isLocked ? 1 : 0, { duration: 180 });
-  }, [isLocked, lockProgress]);
 
   const animatedCard = useAnimatedStyle(() => {
     const borderColor = interpolateColor(
       selectionProgress.value,
       [0, 1],
-      ['rgba(255, 255, 255, 0.14)', 'rgba(212, 175, 55, 0.95)']
+      [
+        isSeasonal ? 'rgba(156, 134, 196, 0.24)' : 'rgba(245, 245, 220, 0.1)',
+        'rgba(212, 175, 55, 0.96)',
+      ]
     );
 
     return {
       borderColor,
+      opacity: mountProgress.value,
       transform: [
         { translateY: interpolate(mountProgress.value, [0, 1], [10, 0]) },
-        { translateX: shakeX.value },
         { scale: pressScale.value },
-        { scale: interpolate(selectionProgress.value, [0, 1], [1, 1.015]) },
       ],
-      opacity: mountProgress.value,
-      shadowOpacity: interpolate(selectionProgress.value, [0, 1], [0.06, 0.35]),
-      shadowRadius: interpolate(selectionProgress.value, [0, 1], [5, 14]),
+      shadowOpacity: interpolate(selectionProgress.value, [0, 1], [0.08, 0.32]),
+      shadowRadius: interpolate(selectionProgress.value, [0, 1], [8, 20]),
       elevation: interpolate(selectionProgress.value, [0, 1], [1, 8]),
     };
   });
 
-  const selectedIconTint = useAnimatedStyle(() => ({
+  const selectedLayerStyle = useAnimatedStyle(() => ({
     opacity: selectionProgress.value,
   }));
 
-  const lockOverlayStyle = useAnimatedStyle(() => ({ opacity: lockProgress.value }));
-  const checkBadgeStyle = useAnimatedStyle(() => ({ opacity: selectionProgress.value }));
-
-  function handlePress() {
-    if (isLocked) {
-      shakeX.value = withSequence(
-        withTiming(-5, { duration: 50 }),
-        withTiming(5, { duration: 50 }),
-        withTiming(-4, { duration: 45 }),
-        withTiming(4, { duration: 45 }),
-        withTiming(0, { duration: 55 })
-      );
-      onLockedPress(option);
-      return;
-    }
-
-    onSelect(option);
-  }
-
   return (
     <AnimatedPressable
-      onPress={handlePress}
+      onPress={() => onSelect(option)}
       onPressIn={() => {
         pressScale.value = withTiming(0.98, { duration: 90 });
       }}
       onPressOut={() => {
         pressScale.value = withSpring(1, { stiffness: 260, damping: 18 });
       }}
-      style={[styles.card, animatedCard]}
+      style={[
+        styles.card,
+        isFeatured && styles.cardFeatured,
+        isSeasonal && styles.cardSeasonal,
+        variant === 'recommended' && styles.cardRecommended,
+        style,
+        animatedCard,
+      ]}
       accessibilityRole="button"
-      accessibilityLabel={`${option.title} style`}
-      accessibilityHint={isLocked ? 'Locked. Double tap to open upgrade options.' : option.shortDescription}
-      accessibilityState={{ selected: isSelected, disabled: isLocked }}
+      accessibilityLabel={`${option.displayName} style`}
+      accessibilityHint={option.shortDescription}
+      accessibilityState={{ selected: isSelected }}
     >
-      <BlurView intensity={12} tint="dark" style={styles.blurLayer}>
-        <View style={styles.iconWrap}>
-          <Icon size={30} color="rgba(245, 245, 220, 0.75)" />
-          <Animated.View style={[styles.selectedIconLayer, selectedIconTint]} pointerEvents="none">
-            <Icon size={30} color={colors.gold} />
-          </Animated.View>
+      <BlurView intensity={14} tint="dark" style={styles.blurLayer}>
+        <LinearGradient
+          colors={[paletteColors[0], paletteColors[1], 'rgba(8, 10, 18, 0)']}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={styles.paletteWash}
+          pointerEvents="none"
+        />
+        <Animated.View style={[styles.selectedWash, selectedLayerStyle]} pointerEvents="none" />
+
+        <View style={[styles.preview, isFeatured && styles.previewFeatured, isSeasonal && styles.previewSeasonal]}>
+          <LinearGradient
+            colors={paletteColors}
+            start={{ x: 0, y: 0.15 }}
+            end={{ x: 1, y: 0.85 }}
+            style={StyleSheet.absoluteFill}
+          />
+          <View style={styles.previewAura} />
+          <View style={styles.previewLinePrimary} />
+          <View style={styles.previewLineSecondary} />
+          <Icon size={isFeatured ? 28 : 24} color="rgba(245, 245, 220, 0.82)" strokeWidth={1.5} />
         </View>
 
-        <Text style={styles.title}>{option.title}</Text>
-        <Text style={styles.category}>{option.category}</Text>
-        {!!option.shortDescription && (
-          <Text style={styles.description} numberOfLines={2}>
+        <View style={styles.textBlock}>
+          <View style={styles.titleRow}>
+            <Text style={[styles.title, isFeatured && styles.titleFeatured]} numberOfLines={2}>
+              {option.displayName}
+            </Text>
+            {isSelected && (
+              <Animated.View style={[styles.checkBadge, selectedLayerStyle]}>
+                <Check size={14} color={colors.charcoal} strokeWidth={3} />
+              </Animated.View>
+            )}
+          </View>
+
+          <Text style={styles.category} numberOfLines={1}>
+            {option.category} / {option.family}
+          </Text>
+
+          <Text style={[styles.description, isFeatured && styles.descriptionFeatured]} numberOfLines={isFeatured ? 3 : 2}>
             {option.shortDescription}
           </Text>
-        )}
+        </View>
 
-        {option.recommendedForFirstAnchor && (
-          <View style={styles.recommendedChip}>
-            <Text style={styles.recommendedText}>RECOMMENDED</Text>
-          </View>
-        )}
-
-        {isSelected && (
-          <Animated.View style={[styles.checkBadge, checkBadgeStyle]}>
-            <Check size={14} color={colors.charcoal} strokeWidth={3} />
-          </Animated.View>
-        )}
-
-        {isLocked && (
-          <Animated.View style={[styles.lockOverlay, lockOverlayStyle]}>
-            <View style={styles.lockBadge}>
-              <Lock size={14} color={colors.gold} />
-              <Text style={styles.lockText}>MEMBER</Text>
+        <View style={styles.badgeRow}>
+          {displayBadge ? (
+            <View style={[styles.badge, isSeasonal && styles.badgeSeasonal]}>
+              <View style={styles.badgeDot} />
+              <Text style={[styles.badgeText, isSeasonal && styles.badgeTextSeasonal]}>{displayBadge}</Text>
             </View>
-          </Animated.View>
-        )}
+          ) : (
+            <Text style={styles.materialText} numberOfLines={1}>
+              {option.compositionFamily}
+            </Text>
+          )}
+        </View>
       </BlurView>
     </AnimatedPressable>
   );
@@ -187,106 +208,173 @@ export function RefineStyleCard({
 
 const styles = StyleSheet.create({
   card: {
-    flex: 1,
-    height: 188,
+    minHeight: 176,
     borderRadius: 16,
     overflow: 'hidden',
-    borderWidth: 1.2,
-    backgroundColor: colors.ritual.glass,
+    borderWidth: 1,
+    backgroundColor: 'rgba(16, 21, 28, 0.82)',
     shadowColor: colors.gold,
-    shadowOffset: { width: 0, height: 4 },
+    shadowOffset: { width: 0, height: 6 },
+  },
+  cardFeatured: {
+    minHeight: 222,
+    borderRadius: 20,
+    backgroundColor: 'rgba(31, 21, 50, 0.88)',
+  },
+  cardRecommended: {
+    backgroundColor: 'rgba(24, 24, 31, 0.9)',
+  },
+  cardSeasonal: {
+    minHeight: 154,
+    backgroundColor: 'rgba(24, 16, 40, 0.78)',
   },
   blurLayer: {
     flex: 1,
-    paddingVertical: spacing.md,
-    paddingHorizontal: spacing.md,
-    borderWidth: 1,
-    borderColor: 'rgba(212, 175, 55, 0.12)',
+    padding: spacing.md,
     borderRadius: 16,
+    overflow: 'hidden',
   },
-  iconWrap: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: 'rgba(245, 245, 220, 0.04)',
-    marginBottom: spacing.sm,
-  },
-  selectedIconLayer: {
+  paletteWash: {
     ...StyleSheet.absoluteFillObject,
+    opacity: 0.72,
+  },
+  selectedWash: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(212, 175, 55, 0.08)',
+  },
+  preview: {
+    width: 48,
+    height: 48,
+    borderRadius: 14,
     alignItems: 'center',
     justifyContent: 'center',
+    overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: 'rgba(212, 175, 55, 0.24)',
+    marginBottom: spacing.md,
+    backgroundColor: 'rgba(245, 245, 220, 0.04)',
+  },
+  previewFeatured: {
+    width: 72,
+    height: 64,
+    borderRadius: 16,
+    marginBottom: spacing.lg,
+  },
+  previewSeasonal: {
+    borderColor: 'rgba(203, 184, 232, 0.34)',
+  },
+  previewAura: {
+    position: 'absolute',
+    width: 58,
+    height: 58,
+    borderRadius: 29,
+    backgroundColor: 'rgba(245, 245, 220, 0.12)',
+  },
+  previewLinePrimary: {
+    position: 'absolute',
+    width: 36,
+    height: 1,
+    backgroundColor: 'rgba(212, 175, 55, 0.55)',
+    transform: [{ rotate: '26deg' }],
+  },
+  previewLineSecondary: {
+    position: 'absolute',
+    width: 28,
+    height: 1,
+    backgroundColor: 'rgba(245, 245, 220, 0.28)',
+    transform: [{ rotate: '-32deg' }],
+  },
+  textBlock: {
+    gap: spacing.xs,
+  },
+  titleRow: {
+    minHeight: 38,
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: spacing.sm,
   },
   title: {
-    fontFamily: typography.fonts.bodyBold,
+    flex: 1,
+    fontFamily: typography.fonts.headingSemiBold,
     fontSize: 15,
+    lineHeight: 19,
     color: colors.text.primary,
-    marginBottom: spacing.xs,
+  },
+  titleFeatured: {
+    fontSize: 20,
+    lineHeight: 24,
   },
   category: {
-    fontFamily: typography.fonts.body,
-    fontSize: 10,
-    letterSpacing: 1.15,
-    color: 'rgba(245, 245, 220, 0.72)',
-    marginBottom: spacing.xs,
+    fontFamily: typography.fonts.mono,
+    fontSize: 8.5,
+    letterSpacing: 1.5,
+    color: 'rgba(245, 245, 220, 0.56)',
+    textTransform: 'uppercase',
   },
   description: {
-    fontFamily: typography.fonts.body,
-    fontSize: 12,
-    color: colors.text.secondary,
+    fontFamily: typography.fonts.bodySerifItalic,
+    fontSize: 13,
     lineHeight: 17,
-    marginBottom: spacing.sm,
+    color: colors.text.secondary,
   },
-  recommendedChip: {
-    alignSelf: 'flex-start',
-    borderRadius: 999,
-    backgroundColor: 'rgba(212, 175, 55, 0.18)',
-    borderWidth: 1,
-    borderColor: 'rgba(212, 175, 55, 0.48)',
-    paddingHorizontal: spacing.sm,
-    paddingVertical: 2,
+  descriptionFeatured: {
+    fontSize: 14,
+    lineHeight: 19,
+  },
+  badgeRow: {
     marginTop: 'auto',
+    paddingTop: spacing.md,
+    minHeight: 30,
   },
-  recommendedText: {
-    fontFamily: typography.fonts.bodyBold,
-    fontSize: 9,
+  badge: {
+    alignSelf: 'flex-start',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: 'rgba(212, 175, 55, 0.4)',
+    backgroundColor: 'rgba(212, 175, 55, 0.13)',
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 4,
+  },
+  badgeSeasonal: {
+    borderColor: 'rgba(203, 184, 232, 0.4)',
+    backgroundColor: 'rgba(156, 134, 196, 0.14)',
+  },
+  badgeDot: {
+    width: 4,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: colors.gold,
+  },
+  badgeText: {
+    fontFamily: typography.fonts.mono,
+    fontSize: 8,
+    letterSpacing: 1.2,
     color: colors.gold,
-    letterSpacing: 0.8,
+    textTransform: 'uppercase',
+  },
+  badgeTextSeasonal: {
+    color: '#CBB8E8',
+  },
+  materialText: {
+    fontFamily: typography.fonts.mono,
+    fontSize: 8,
+    letterSpacing: 1.2,
+    color: 'rgba(245, 245, 220, 0.36)',
+    textTransform: 'uppercase',
   },
   checkBadge: {
-    position: 'absolute',
-    top: spacing.sm,
-    right: spacing.sm,
-    width: 22,
-    height: 22,
-    borderRadius: 11,
+    width: 24,
+    height: 24,
+    borderRadius: 12,
     backgroundColor: colors.gold,
     alignItems: 'center',
     justifyContent: 'center',
-  },
-  lockOverlay: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(10, 12, 18, 0.45)',
-    alignItems: 'flex-end',
-    justifyContent: 'flex-start',
-    padding: spacing.sm,
-  },
-  lockBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    borderRadius: 999,
-    paddingHorizontal: spacing.sm,
-    paddingVertical: 4,
-    backgroundColor: 'rgba(15, 20, 25, 0.92)',
-    borderWidth: 1,
-    borderColor: 'rgba(212, 175, 55, 0.55)',
-    gap: 4,
-  },
-  lockText: {
-    fontFamily: typography.fonts.bodyBold,
-    fontSize: 10,
-    color: colors.gold,
-    letterSpacing: 0.7,
+    shadowColor: colors.gold,
+    shadowOpacity: 0.45,
+    shadowRadius: 12,
+    shadowOffset: { width: 0, height: 0 },
   },
 });

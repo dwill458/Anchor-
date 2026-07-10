@@ -1,21 +1,9 @@
 import axios from 'axios';
+import { VALID_AI_STYLES } from '../services/stylePromptLibrary';
 
 const API_URL = `${process.env.API_BASE_URL || 'http://localhost:8000'}/api/ai`;
 
-const styles = [
-  'watercolor',
-  'sacred_geometry',
-  'ink_brush',
-  'gold_leaf',
-  'cosmic',
-  'minimal_line',
-  'obsidian_mono',
-  'aurora_glow',
-  'ember_trace',
-  'echo_chamber',
-  'monolith_ink',
-  'celestial_grid',
-];
+const styles = VALID_AI_STYLES;
 
 const mockSigilSvg =
   '<svg width="100" height="100"><circle cx="50" cy="50" r="40" stroke="black" fill="none" /></svg>';

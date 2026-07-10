@@ -1,48 +1,27 @@
 import { useMemo } from 'react';
-import { useSubscriptionStore } from '@/stores/subscriptionStore';
-import { getEntitlements } from '@/utils/entitlements';
-import { useTrialStatus } from '@/hooks/useTrialStatus';
+import { Entitlements } from '@/utils/entitlements';
+import { useEntitlements } from '@/hooks/useEntitlements';
 
-export interface EntitlementsSnapshot {
-  tier: 'free' | 'pro';
-  maxAnchors: number;
-  aiStyleCount: number;
-  aiVariationCount: number;
-  focusSessionsPerWeek: number;
-  deepPrimeSessionsPerWeek: number;
-  canTraceAnchor: boolean;
-  canForgeAnchor: boolean;
-  canUseArchivedFilter: boolean;
-  canExportHD: boolean;
-}
+export type EntitlementsSnapshot = Entitlements;
 
 interface EntitlementsViewState {
-  tier: 'free' | 'pro';
+  tier: 'free' | 'trial' | 'pro';
   isPro: boolean;
   isFree: boolean;
   getEntitlements: () => EntitlementsSnapshot;
 }
 
 export function useEntitlementsStore<T>(selector: (state: EntitlementsViewState) => T): T {
-  const effectiveTier = useSubscriptionStore((state) => state.getEffectiveTier());
-  const { hasActiveEntitlement } = useTrialStatus();
-
-  const snapshot = useMemo<EntitlementsSnapshot>(() => {
-    const entitlements = getEntitlements(effectiveTier);
-    return {
-      ...entitlements,
-      tier: effectiveTier,
-    };
-  }, [effectiveTier]);
+  const snapshot = useEntitlements();
 
   const viewState = useMemo<EntitlementsViewState>(
     () => ({
-      tier: effectiveTier,
-      isPro: effectiveTier === 'pro' || hasActiveEntitlement,
-      isFree: effectiveTier === 'free' && !hasActiveEntitlement,
+      tier: snapshot.tier,
+      isPro: snapshot.isPro,
+      isFree: snapshot.isFree,
       getEntitlements: () => snapshot,
     }),
-    [effectiveTier, hasActiveEntitlement, snapshot]
+    [snapshot]
   );
 
   return selector(viewState);

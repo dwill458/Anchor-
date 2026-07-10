@@ -15,15 +15,32 @@ export type SigilVariant = 'dense' | 'balanced' | 'minimal';
 
 /**
  * AI style options (ControlNet-based style transfer)
- * Validated styles from spike phase
+ * Launch library styles are organized as 12 core, 4 featured, and 4 seasonal styles.
  */
-export type AIStyle =
-  | 'watercolor'
-  | 'sacred_geometry'
-  | 'ink_brush'
-  | 'gold_leaf'
-  | 'cosmic'
-  | 'minimal_line';
+export const AI_STYLE_IDS = [
+  'architectural_trace',
+  'lunar_etch',
+  'resonance_rings',
+  'watercolor',
+  'ink_brush',
+  'gold_leaf',
+  'cosmic',
+  'minimal_line',
+  'obsidian_mono',
+  'aurora_glow',
+  'ember_trace',
+  'monolith_ink',
+  'celestial_grid',
+  'echo_chamber',
+  'prism_veil',
+  'verdigris_relic',
+  'solar_halo',
+  'tideglass',
+  'sacred_geometry',
+  'velvet_ember',
+] as const;
+
+export type AIStyle = (typeof AI_STYLE_IDS)[number];
 
 /**
  * Legacy AI styles (deprecated, kept for backward compatibility)
@@ -350,7 +367,7 @@ export interface StylePromptConfig {
 /**
  * Validated style prompts from spike phase
  */
-export const STYLE_PROMPTS: Record<AIStyle, StylePromptConfig> = {
+export const STYLE_PROMPTS: Partial<Record<AIStyle, StylePromptConfig>> = {
   watercolor: {
     name: 'watercolor',
     method: 'lineart',
@@ -411,14 +428,7 @@ export const STYLE_PROMPTS: Record<AIStyle, StylePromptConfig> = {
  * Type guard for AIStyle
  */
 export function isAIStyle(value: string): value is AIStyle {
-  return [
-    'watercolor',
-    'sacred_geometry',
-    'ink_brush',
-    'gold_leaf',
-    'cosmic',
-    'minimal_line',
-  ].includes(value);
+  return (AI_STYLE_IDS as readonly string[]).includes(value);
 }
 
 /**

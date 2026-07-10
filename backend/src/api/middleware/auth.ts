@@ -35,7 +35,12 @@ export interface AuthRequest extends Request {
     email?: string;
   };
   /** DB-resolved user record — populated by the resolveDbUser middleware in routers */
-  dbUser?: { id: string };
+  dbUser?: {
+    id: string;
+    subscriptionStatus?: string;
+    isComped?: boolean;
+    trialStartedAt?: Date;
+  };
 }
 
 /**

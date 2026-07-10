@@ -407,8 +407,13 @@ export const PracticeScreen: React.FC = () => {
       audioModeOverride?: 'silent' | 'ambient'
     ) => {
       if (!primeSessionAccess.deep.isAllowed) {
+        AnalyticsService.track('free_weekly_sessions_used', {
+          source: 'practice_deep_prime',
+          remaining_weekly_free_sessions: primeSessionAccess.deep.remaining,
+          tier: primeSessionAccess.tier,
+        });
         rootNavigation.navigate('Paywall', {
-          source: 'gated_feature',
+          source: 'free_weekly_sessions_used',
           preferredPlanId: 'annual',
         });
         return;
@@ -430,7 +435,6 @@ export const PracticeScreen: React.FC = () => {
         anchorId: anchor.id,
         returnTo: 'practice',
         initialDuration: 'deep',
-        autoStartOnSelection: true,
       });
     },
     [navigateToVault, primeSessionAccess.deep.isAllowed, rootNavigation]
@@ -443,8 +447,13 @@ export const PracticeScreen: React.FC = () => {
       audioModeOverride?: 'silent' | 'ambient'
     ) => {
       if (!primeSessionAccess.focus.isAllowed) {
+        AnalyticsService.track('free_weekly_sessions_used', {
+          source: 'practice_focus_session',
+          remaining_weekly_free_sessions: primeSessionAccess.focus.remaining,
+          tier: primeSessionAccess.tier,
+        });
         rootNavigation.navigate('Paywall', {
-          source: 'gated_feature',
+          source: 'free_weekly_sessions_used',
           preferredPlanId: 'annual',
         });
         return;

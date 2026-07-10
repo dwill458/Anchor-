@@ -267,6 +267,27 @@ describe('ChargeSetupScreen', () => {
         });
     });
 
+    it('preselects the initial deep duration without auto-starting when auto-start is off', () => {
+        Object.assign(mockRouteParams, {
+            initialDuration: 'deep',
+            returnTo: 'practice',
+        });
+
+        render(<ChargeSetupScreen />);
+
+        expect(screen.getByLabelText('Deep Prime duration').props.accessibilityState).toEqual(
+            expect.objectContaining({
+                selected: true,
+            })
+        );
+        expect(mockReplace).not.toHaveBeenCalledWith(
+            'Ritual',
+            expect.objectContaining({
+                anchorId: 'anchor-123',
+            })
+        );
+    });
+
     it('renders the enhanced anchor artwork when available', () => {
         mockAnchor.enhancedImageUrl = 'https://example.com/enhanced-anchor.png';
 
