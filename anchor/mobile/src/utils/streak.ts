@@ -53,16 +53,16 @@ const utcDay = (d: Date): number => Math.floor(d.getTime() / 86_400_000);
  */
 export function calculateStreakWithGrace(
   activations: { completedAt?: string; createdAt?: string }[],
-  lastGraceDayUsedAt: string | null
+  lastGraceDayUsedAt: string | null,
+  now: Date = new Date()
 ): StreakWithGraceResult {
   // Normalise: accept both completedAt (SessionLogEntry) and createdAt (Activation)
   const normalised = activations
     .map((a) => ({ createdAt: a.completedAt ?? a.createdAt ?? '' }))
     .filter((a) => a.createdAt !== '');
 
-  const base = calculateStreak(normalised);
+  const base = calculateStreak(normalised, now);
 
-  const now = new Date();
   const todayUtc = utcDay(now);
   const canUseGraceDay = _canUseGraceDay(lastGraceDayUsedAt, now);
 
@@ -86,7 +86,7 @@ export function calculateStreakWithGrace(
     // Inject a synthetic "yesterday" entry so calculateStreak sees continuity
     const yesterday = new Date((todayUtc - 1) * 86_400_000).toISOString();
     const withYesterday = [...normalised, { createdAt: yesterday }];
-    const bridged = calculateStreak(withYesterday);
+    const bridged = calculateStreak(withYesterday, now);
 
     return {
       currentStreak: bridged.currentStreak,

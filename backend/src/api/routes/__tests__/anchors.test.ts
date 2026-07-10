@@ -28,6 +28,7 @@ const mockPrisma = {
   },
   anchor: {
     create: jest.fn(),
+    count: jest.fn(),
     findMany: jest.fn(),
     findFirst: jest.fn(),
     findUnique: jest.fn(),
@@ -40,6 +41,7 @@ const mockPrisma = {
   anchorVariationPool: {
     updateMany: jest.fn(),
   },
+  $queryRaw: jest.fn(),
   $transaction: jest.fn(),
 };
 
@@ -50,6 +52,11 @@ jest.mock('../../../lib/prisma', () => ({
 const mockResolveStoredAssetUrl = jest.fn();
 jest.mock('../../../services/StorageService', () => ({
   resolveStoredAssetUrl: (...args: unknown[]) => mockResolveStoredAssetUrl(...args),
+}));
+
+const mockGetRevenueCatAccess = jest.fn();
+jest.mock('../../../services/RevenueCatEntitlementService', () => ({
+  getRevenueCatAccess: (...args: unknown[]) => mockGetRevenueCatAccess(...args),
 }));
 
 import { authMiddleware } from '../../middleware/auth';
@@ -73,7 +80,14 @@ function buildApp(): Application {
 // ── Fixtures ─────────────────────────────────────────────────────────────────
 
 const MOCK_USER_AUTH = { uid: 'firebase-uid-1', email: 'test@example.com' };
-const MOCK_DB_USER = { id: 'db-user-1', authUid: 'firebase-uid-1', email: 'test@example.com' };
+const MOCK_DB_USER = {
+  id: 'db-user-1',
+  authUid: 'firebase-uid-1',
+  email: 'test@example.com',
+  subscriptionStatus: 'free',
+  isComped: false,
+  trialStartedAt: new Date(),
+};
 
 const MOCK_ANCHOR = {
   id: 'anchor-1',
@@ -134,7 +148,10 @@ beforeEach(() => {
     return callback;
   });
   (mockPrisma.anchor.updateMany as jest.Mock).mockResolvedValue({ count: 0 });
+  (mockPrisma.anchor.count as jest.Mock).mockResolvedValue(0);
+  (mockPrisma.$queryRaw as jest.Mock).mockResolvedValue([{ '?column?': 1 }]);
   (mockPrisma.anchorVariationPool.updateMany as jest.Mock).mockResolvedValue({ count: 1 });
+  mockGetRevenueCatAccess.mockResolvedValue(null);
 });
 
 // ═════════════════════════════════════════════════════════════════════════════
@@ -195,6 +212,66 @@ describe('POST /api/anchors', () => {
 
     expect(res.status).toBe(404);
     expect(res.body.error.code).toBe('USER_NOT_FOUND');
+  });
+
+  it('returns 403 when an expired Free user creates an anchor', async () => {
+    (mockPrisma.user.findUnique as jest.Mock).mockResolvedValue({
+      ...MOCK_DB_USER,
+      trialStartedAt: new Date('2026-01-01T00:00:00.000Z'),
+    });
+
+    const res = await request(buildApp()).post('/api/anchors').send(VALID_CREATE_BODY);
+
+    expect(res.status).toBe(403);
+    expect(res.body.error.code).toBe('CREATE_ANCHOR_FREE_LOCKED');
+    expect(mockPrisma.anchor.create).not.toHaveBeenCalled();
+  });
+
+  it('returns 403 when a trial user has created 7 trial anchors', async () => {
+    (mockPrisma.user.findUnique as jest.Mock).mockResolvedValue(MOCK_DB_USER);
+    (mockPrisma.anchor.count as jest.Mock).mockResolvedValue(7);
+
+    const res = await request(buildApp()).post('/api/anchors').send(VALID_CREATE_BODY);
+
+    expect(res.status).toBe(403);
+    expect(res.body.error.code).toBe('TRIAL_ANCHOR_CAP_REACHED');
+    expect(mockPrisma.anchor.create).not.toHaveBeenCalled();
+  });
+
+  it('returns 429 when a paid Pro user has created 10 anchors today', async () => {
+    (mockPrisma.user.findUnique as jest.Mock).mockResolvedValue({
+      ...MOCK_DB_USER,
+      subscriptionStatus: 'pro',
+    });
+    (mockPrisma.anchor.count as jest.Mock).mockResolvedValue(10);
+
+    const res = await request(buildApp()).post('/api/anchors').send(VALID_CREATE_BODY);
+
+    expect(res.status).toBe(429);
+    expect(res.body.error.code).toBe('PRO_DAILY_ANCHOR_CAP_REACHED');
+    expect(mockPrisma.anchor.create).not.toHaveBeenCalled();
+  });
+
+  it('syncs active RevenueCat access before applying paid Pro limits', async () => {
+    (mockPrisma.user.findUnique as jest.Mock).mockResolvedValue(MOCK_DB_USER);
+    (mockPrisma.anchor.create as jest.Mock).mockResolvedValue(MOCK_ANCHOR);
+    (mockPrisma.user.update as jest.Mock).mockResolvedValue(MOCK_DB_USER);
+    mockGetRevenueCatAccess.mockResolvedValue({
+      isActive: true,
+      productIdentifier: 'anchor_pro_annual',
+    });
+
+    const res = await request(buildApp()).post('/api/anchors').send(VALID_CREATE_BODY);
+
+    expect(res.status).toBe(201);
+    expect(mockPrisma.user.update).toHaveBeenNthCalledWith(1, {
+      where: { id: MOCK_DB_USER.id },
+      data: {
+        subscriptionStatus: 'pro',
+        subscriptionId: 'anchor_pro_annual',
+      },
+    });
+    expect(mockPrisma.$queryRaw).toHaveBeenCalledTimes(1);
   });
 
   it('returns 500 on unexpected database error', async () => {

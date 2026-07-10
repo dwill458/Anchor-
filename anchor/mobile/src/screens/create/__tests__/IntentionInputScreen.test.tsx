@@ -11,9 +11,19 @@ jest.mock('@react-navigation/native', () => ({
     useRoute: () => ({ params: {} }),
 }));
 
-// Mock stores with minimal required state
-jest.mock('@/stores/anchorStore', () => ({ useAnchorStore: () => ({ anchors: [], isLoading: false }) }));
-jest.mock('@/stores/authStore', () => ({ useAuthStore: () => ({ user: null, anchorCount: 0 }) }));
+// Mock stores with minimal required state (selector-aware, matching zustand's API)
+jest.mock('@/stores/anchorStore', () => ({
+    useAnchorStore: (selector?: (state: Record<string, unknown>) => unknown) => {
+        const state = { anchors: [], isLoading: false };
+        return selector ? selector(state) : state;
+    },
+}));
+jest.mock('@/stores/authStore', () => ({
+    useAuthStore: (selector?: (state: Record<string, unknown>) => unknown) => {
+        const state = { user: null, anchorCount: 0, isAuthenticated: false };
+        return selector ? selector(state) : state;
+    },
+}));
 
 jest.mock('@/stores/teachingStore', () => ({
     useTeachingStore: () => ({ recordShown: jest.fn() }),

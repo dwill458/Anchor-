@@ -39,7 +39,12 @@ jest.mock('@/stores/anchorStore', () => ({
 }));
 
 jest.mock('@/hooks/useTrialStatus', () => ({
-  useTrialStatus: () => ({ hasActiveEntitlement: mockHasActiveEntitlement }),
+  useTrialStatus: () => ({
+    isTrialActive: false,
+    isSubscribed: mockHasActiveEntitlement,
+    trialExpired: !mockHasActiveEntitlement,
+    hasActiveEntitlement: mockHasActiveEntitlement,
+  }),
 }));
 
 jest.mock('@/stores/teachingStore', () => ({
@@ -130,7 +135,10 @@ describe('ReturningIntentionScreen', () => {
 
     expect(mockSetPendingForgeIntent).toHaveBeenCalledWith('Hold steady');
     expect(mockSetPendingForgeResumeTarget).toHaveBeenCalledWith('CreateAnchor');
-    expect(mockNavigate).toHaveBeenCalledWith('Paywall');
+    expect(mockNavigate).toHaveBeenCalledWith('Paywall', {
+      source: 'create_anchor_free_locked',
+      preferredPlanId: 'annual',
+    });
   });
 
   it.each([

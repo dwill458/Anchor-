@@ -1,11 +1,12 @@
 import { isoWeekKey, type PrimingHistoryEntry } from './primingAnalytics';
-import { getEntitlements } from './entitlements';
+import { FREE_WEEKLY_SESSION_LIMIT } from './entitlements';
 
 export type PrimeSessionKind = 'focus' | 'deep';
 
 export interface WeeklyPrimeUsage {
   focusUsed: number;
   deepUsed: number;
+  totalUsed: number;
   weekKey: string;
 }
 
@@ -39,19 +40,21 @@ export function getWeeklyPrimeUsage(
       } else if (entry.type === 'reinforce') {
         usage.deepUsed += 1;
       }
+      usage.totalUsed += 1;
 
       return usage;
     },
     {
       focusUsed: 0,
       deepUsed: 0,
+      totalUsed: 0,
       weekKey,
     }
   );
 }
 
 export function getPrimeSessionAllowance(params: {
-  tier: 'free' | 'pro';
+  tier: 'free' | 'trial' | 'pro';
   kind: PrimeSessionKind;
   primingHistory: unknown;
   now?: Date;
@@ -64,15 +67,12 @@ export function getPrimeSessionAllowance(params: {
     now = new Date(),
     enforceLimits = true,
   } = params;
-  const entitlements = getEntitlements(tier);
   const usage = getWeeklyPrimeUsage(primingHistory, now);
-  const limit =
-    kind === 'focus'
-      ? entitlements.focusSessionsPerWeek
-      : entitlements.deepPrimeSessionsPerWeek;
-  const used = kind === 'focus' ? usage.focusUsed : usage.deepUsed;
-  const hasUnlimitedAccess = !enforceLimits || !Number.isFinite(limit);
-  const remaining = hasUnlimitedAccess ? Infinity : Math.max(0, limit - used);
+  const hasUnlimitedAccess = !enforceLimits || tier !== 'free';
+  const limit = hasUnlimitedAccess ? Infinity : FREE_WEEKLY_SESSION_LIMIT;
+  const remaining = hasUnlimitedAccess
+    ? Infinity
+    : Math.max(0, FREE_WEEKLY_SESSION_LIMIT - usage.totalUsed);
 
   return {
     kind,

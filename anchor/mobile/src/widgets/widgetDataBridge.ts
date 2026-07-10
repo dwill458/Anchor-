@@ -91,7 +91,11 @@ export interface WidgetSnapshotInputs {
 export function buildWidgetSnapshot(inputs: WidgetSnapshotInputs): WidgetSnapshot {
   const now = inputs.now ?? new Date();
   const today = localDateString(now);
-  const streakResult = calculateStreakWithGrace(inputs.primingHistory, inputs.lastGraceDayUsedAt);
+  const streakResult = calculateStreakWithGrace(
+    inputs.primingHistory,
+    inputs.lastGraceDayUsedAt,
+    now
+  );
 
   return {
     anchorName: selectWidgetAnchorName(inputs.anchors, inputs.currentAnchorId),

@@ -61,6 +61,7 @@ describe('primeSessionAccess', () => {
     expect(getWeeklyPrimeUsage(history, currentDate)).toEqual({
       focusUsed: 2,
       deepUsed: 1,
+      totalUsed: 3,
       weekKey,
     });
   });
@@ -120,6 +121,19 @@ describe('primeSessionAccess', () => {
     const allowance = getPrimeSessionAllowance({
       tier: 'pro',
       kind: 'deep',
+      primingHistory: history,
+      now: currentDate,
+    });
+
+    expect(allowance.hasUnlimitedAccess).toBe(true);
+    expect(allowance.isAllowed).toBe(true);
+    expect(allowance.remaining).toBe(Infinity);
+  });
+
+  it('leaves trial users unlimited', () => {
+    const allowance = getPrimeSessionAllowance({
+      tier: 'trial',
+      kind: 'focus',
       primingHistory: history,
       now: currentDate,
     });

@@ -246,7 +246,6 @@ describe('PracticeScreen', () => {
         anchorId: 'a99',
         returnTo: 'practice',
         initialDuration: 'deep',
-        autoStartOnSelection: true,
       });
     });
   });
@@ -309,7 +308,6 @@ describe('PracticeScreen', () => {
         anchorId: 'a2',
         returnTo: 'practice',
         initialDuration: 'deep',
-        autoStartOnSelection: true,
       });
     });
   });
@@ -327,7 +325,6 @@ describe('PracticeScreen', () => {
         anchorId: 'a77',
         returnTo: 'practice',
         initialDuration: 'deep',
-        autoStartOnSelection: true,
       });
     });
   });

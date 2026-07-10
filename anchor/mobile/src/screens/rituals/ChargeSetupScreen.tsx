@@ -343,8 +343,13 @@ export const ChargeSetupScreen: React.FC = () => {
 
       const allowance = choice === 'quick' ? primeSessionAccess.focus : primeSessionAccess.deep;
       if (!allowance.isAllowed) {
+        AnalyticsService.track('free_weekly_sessions_used', {
+          source: choice === 'quick' ? 'charge_setup_quick' : 'charge_setup_deep',
+          remaining_weekly_free_sessions: allowance.remaining,
+          tier: primeSessionAccess.tier,
+        });
         navigation.navigate('Paywall', {
-          source: 'gated_feature',
+          source: 'free_weekly_sessions_used',
           preferredPlanId: 'annual',
         });
         return;

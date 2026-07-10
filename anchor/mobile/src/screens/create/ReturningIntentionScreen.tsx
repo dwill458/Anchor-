@@ -12,6 +12,7 @@ import {
     Dimensions,
     Easing,
     AccessibilityInfo,
+    Alert,
     BackHandler,
     Keyboard,
 } from 'react-native';
@@ -30,7 +31,8 @@ import { AnalyticsService } from '@/services/AnalyticsService';
 import { TEACHINGS } from '@/constants/teaching';
 import { useAuthStore } from '@/stores/authStore';
 import { useAnchorStore } from '@/stores/anchorStore';
-import { useTrialStatus } from '@/hooks/useTrialStatus';
+import { useEntitlements } from '@/hooks/useEntitlements';
+import { getAnchorCreationLimitCopy } from '@/utils/entitlements';
 import { analyzeIntention, detectGibberish, getGuidanceText } from '@/utils/intentionPatterns';
 
 const { height } = Dimensions.get('window');
@@ -47,7 +49,7 @@ export default function ReturningIntentionScreen() {
     const clearPendingForgeIntent = useAuthStore((state) => state.clearPendingForgeIntent);
     const setPendingForgeResumeTarget = useAuthStore((state) => state.setPendingForgeResumeTarget);
     const anchorCount = useAnchorStore((state) => state.anchors.length);
-    const { hasActiveEntitlement } = useTrialStatus();
+    const entitlements = useEntitlements();
 
     const scrollViewRef = useRef<ScrollView>(null);
     const textInputRef = useRef<TextInput>(null);
@@ -310,10 +312,34 @@ export default function ReturningIntentionScreen() {
                 return;
             }
 
-            if (isAuthenticated && !hasActiveEntitlement) {
+            if (isAuthenticated && !entitlements.canCreateAnchor) {
+                const reason = entitlements.anchorCreationLimitReason;
+                if (reason === 'pro_daily_anchor_cap_reached') {
+                    const copy = getAnchorCreationLimitCopy(reason);
+                    AnalyticsService.track(reason, {
+                        source: 'returning_intention',
+                        anchors_created_today: entitlements.anchorsCreatedToday,
+                        tier: entitlements.tier,
+                    });
+                    Alert.alert(copy?.title ?? 'Daily creation limit reached', copy?.body, [
+                        { text: copy?.cta ?? 'Return to Sanctuary', onPress: () => navigation.goBack() },
+                    ]);
+                    return;
+                }
+
                 setPendingForgeIntent(intention);
                 setPendingForgeResumeTarget('CreateAnchor');
-                navigation.navigate('Paywall');
+                if (reason) {
+                    AnalyticsService.track(reason, {
+                        source: 'returning_intention',
+                        anchors_created_during_trial: entitlements.anchorsCreatedDuringTrial,
+                        tier: entitlements.tier,
+                    });
+                    navigation.navigate('Paywall', {
+                        source: reason,
+                        preferredPlanId: 'annual',
+                    });
+                }
                 return;
             }
 

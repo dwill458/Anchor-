@@ -32,6 +32,7 @@ import {
 } from '@/config';
 import { colors, typography } from '@/theme';
 import { withAlpha } from '@/utils/color';
+import { getAnchorCreationLimitCopy, getPracticeLimitCopy } from '@/utils/entitlements';
 import { LEGAL_URLS } from '@/constants/legal';
 import { useAnchorStore } from '@/stores/anchorStore';
 import { useSubscriptionStore } from '@/stores/subscriptionStore';
@@ -43,13 +44,25 @@ import revenueCatService, {
   type RevenueCatPlanId,
 } from '@/services/RevenueCatService';
 import { logger } from '@/utils/logger';
-import type { Anchor } from '@/types';
+import type { Anchor, PaywallSource } from '@/types';
 import type { RootNavigatorParamList } from '@/navigation/RootNavigator';
 
-type PaywallSource = 'post_trial' | 'gated_feature';
 type PlanId = RevenueCatPlanId;
 type HeadlineId = 'loss' | 'momentum' | 'direct';
 type StoreAvailability = 'loading' | 'available' | 'unavailable';
+
+function getPaywallSourceCopy(source: PaywallSource) {
+  switch (source) {
+    case 'create_anchor_free_locked':
+    case 'trial_anchor_cap_reached':
+      return getAnchorCreationLimitCopy(source);
+    case 'free_weekly_sessions_used':
+    case 'premium_practice_locked':
+      return getPracticeLimitCopy(source);
+    default:
+      return null;
+  }
+}
 
 type PlanDisplay = {
   id: PlanId;
@@ -409,6 +422,7 @@ export const PaywallScreen: React.FC = () => {
   const isStoreLoading = storeAvailability === 'loading';
   const isPurchaseUnavailable =
     storeAvailability === 'unavailable' || (storeAvailability === 'available' && !offeringMetadata[selectedPlanId]);
+  const sourceCopy = getPaywallSourceCopy(source);
   const headline = HEADLINES[PAYWALL_EXPERIMENT.headline];
   const showRecap = PAYWALL_EXPERIMENT.showRecap && (source === 'post_trial' || forgedCount + totalPrimes + primeStreak > 0);
 
@@ -524,6 +538,7 @@ export const PaywallScreen: React.FC = () => {
 
     setIsPurchasing(true);
     AnalyticsService.track('paywall_cta_tapped', {
+      source,
       plan: selectedPlanId,
       productId: selectedPlan.packageId,
     });
@@ -638,7 +653,7 @@ export const PaywallScreen: React.FC = () => {
     ? 'Loading plans...'
     : isPurchaseUnavailable
       ? 'Purchases unavailable'
-      : 'Continue my practice';
+      : sourceCopy?.cta ?? 'Continue my practice';
 
   return (
     <View style={styles.root}>
@@ -678,14 +693,18 @@ export const PaywallScreen: React.FC = () => {
             <HeroSigil anchor={primaryAnchor} />
             <Text style={styles.anchorCap}>Your anchor</Text>
 
-            <Text style={styles.eyebrow}>{headline.eyebrow}</Text>
-            <Text style={styles.title}>
-              {headline.titleA}
-              {'\n'}
-              {headline.titleB ? `${headline.titleB} ` : ''}
-              <Text style={styles.titleEm}>{headline.titleEm}</Text>
-            </Text>
-            <Text style={styles.sub}>{headline.sub}</Text>
+            <Text style={styles.eyebrow}>{sourceCopy ? 'Anchor Pro' : headline.eyebrow}</Text>
+            {sourceCopy ? (
+              <Text style={styles.title}>{sourceCopy.title}</Text>
+            ) : (
+              <Text style={styles.title}>
+                {headline.titleA}
+                {'\n'}
+                {headline.titleB ? `${headline.titleB} ` : ''}
+                <Text style={styles.titleEm}>{headline.titleEm}</Text>
+              </Text>
+            )}
+            <Text style={styles.sub}>{sourceCopy?.body ?? headline.sub}</Text>
 
             {showRecap ? (
               <View testID="paywall-recap">

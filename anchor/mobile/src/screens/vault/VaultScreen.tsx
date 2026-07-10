@@ -8,6 +8,7 @@
 
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
+  Alert,
   InteractionManager,
   ScrollView,
   StyleSheet,
@@ -62,6 +63,8 @@ import { useSettingsStore } from '@/stores/settingsStore';
 import { WeeklySummaryModal } from '@/components/WeeklySummaryModal'; import { useWeeklySummaryTrigger } from '@/hooks/useWeeklySummaryTrigger';
 import { VaultGridModal } from './components/VaultGridModal';
 import { hasIgnited, isAnchorReleased } from './utils/anchorStateHelpers';
+import { useEntitlements } from '@/hooks/useEntitlements';
+import { getAnchorCreationLimitCopy } from '@/utils/entitlements';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -234,6 +237,7 @@ export const VaultScreen: React.FC = () => {
   const mustGateFirstAnchor = !isAuthenticated && Boolean(pendingFirstAnchorDraft);
 
   const anchors = useAnchorStore((s) => s.anchors);
+  const entitlements = useEntitlements();
   const currentAnchorId = useAnchorStore((s) => s.currentAnchorId);
   const setCurrentAnchor = useAnchorStore((s) => s.setCurrentAnchor);
   const isLoading = useAnchorStore((s) => s.isLoading);
@@ -430,16 +434,36 @@ export const VaultScreen: React.FC = () => {
 
   // ── Navigation handlers ───────────────────────────────────────────────────────
   const handleCreateAnchor = useCallback((): void => {
-    // DEFERRED: freemium — anchor limit gate removed; trial/active users have unlimited anchors
-    // if (isFree && anchors.length >= features.maxAnchors) {
-    //   AnalyticsService.track(AnalyticsEvents.ANCHOR_LIMIT_REACHED, {
-    //     current_count: anchors.length,
-    //     max_count: features.maxAnchors,
-    //     tier: 'free',
-    //   });
-    //   setShowAnchorLimitModal(true);
-    //   return;
-    // }
+    // Guests may forge their first anchor before any entitlement exists,
+    // mirroring the bypass in IntentionInputScreen.
+    const isGuestFirstAnchor = !isAuthenticated && anchors.length === 0;
+    if (!isGuestFirstAnchor && !entitlements.canCreateAnchor) {
+      const reason = entitlements.anchorCreationLimitReason;
+      if (!reason) return;
+
+      AnalyticsService.track(reason, {
+        source: 'vault',
+        anchor_count: anchors.length,
+        anchors_created_today: entitlements.anchorsCreatedToday,
+        anchors_created_during_trial: entitlements.anchorsCreatedDuringTrial,
+        tier: entitlements.tier,
+      });
+
+      if (reason === 'pro_daily_anchor_cap_reached') {
+        const copy = getAnchorCreationLimitCopy(reason);
+        Alert.alert(copy?.title ?? 'Daily creation limit reached', copy?.body, [
+          { text: copy?.cta ?? 'Return to Sanctuary' },
+        ]);
+        return;
+      }
+
+      navigation.navigate('Paywall', {
+        source: reason,
+        preferredPlanId: 'annual',
+      });
+      return;
+    }
+
     AnalyticsService.track(AnalyticsEvents.ANCHOR_CREATION_STARTED, {
       source: 'vault',
       has_existing_anchors: anchors.length > 0,
@@ -455,7 +479,7 @@ export const VaultScreen: React.FC = () => {
       is_first_anchor: anchors.length === 0,
     });
     navigation.push(anchors.length === 0 ? 'FirstAnchorCreation' : 'CreateAnchor');
-  }, [anchors.length, navigation]);
+  }, [anchors.length, entitlements, isAuthenticated, navigation]);
 
   const handleAnchorPress = useCallback(
     (anchorId: string): void => {
@@ -472,6 +496,22 @@ export const VaultScreen: React.FC = () => {
 
   const handleActivate = useCallback((): void => {
     if (!primaryAnchor) return;
+    if (!entitlements.canStartPracticeSession) {
+      const reason = entitlements.practiceLimitReason;
+      if (reason) {
+        AnalyticsService.track(reason, {
+          source: 'vault_prime_cta',
+          remaining_weekly_free_sessions: entitlements.remainingWeeklyFreeSessions,
+          tier: entitlements.tier,
+        });
+        navigation.navigate('Paywall', {
+          source: reason,
+          preferredPlanId: 'annual',
+        });
+      }
+      return;
+    }
+
     if (focusSessionMode === 'deep') {
       // Deep prime -- launch the full ritual/charge flow using the stored duration
       navigation.navigate('Ritual', {
@@ -489,7 +529,7 @@ export const VaultScreen: React.FC = () => {
     } else {
       navigation.navigate('ChargeSetup', { anchorId: primaryAnchor.id });
     }
-  }, [focusSessionMode, primeSessionDuration, primaryAnchor, navigation]);
+  }, [entitlements, focusSessionMode, primeSessionDuration, primaryAnchor, navigation]);
 
   // ── Render ────────────────────────────────────────────────────────────────────
 

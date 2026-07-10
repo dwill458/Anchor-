@@ -336,12 +336,12 @@ describe('AIEnhancer Service', () => {
       expect(result.variations).toHaveLength(2);
       expect(result.styleApplied).toBe('gold_leaf');
       expect(result.variationUrls[0]).toContain('dicebear.com');
-      expect(result.prompt).toContain('Restore and beautify');
-      expect(result.prompt).toContain('I am strong and confident'); // Intention included
+      expect(result.prompt).toContain('STRUCTURAL PRESERVATION — ABSOLUTE PRIORITY');
+      expect(result.prompt).toContain('This sigil embodies the intention "I am strong and confident"');
       expect(result.controlMethod).toBe('canny');
     });
 
-    it('should include symbol instructions for recognized keywords', async () => {
+    it('should include non-literal intention signal instructions for recognized keywords', async () => {
       process.env.REPLICATE_API_TOKEN = 'your-replicate-token';
 
       const request: ControlNetEnhancementRequest = {
@@ -353,12 +353,13 @@ describe('AIEnhancer Service', () => {
 
       const result = await enhanceSigilWithControlNet(request);
 
-      // Should include success-related symbols
-      expect(result.prompt).toContain('success');
-      expect(result.prompt).toContain('crowns, ascending paths, mountain peaks');
+      expect(result.prompt).toContain('INTENTION SIGNAL LAYER');
+      expect(result.prompt).toContain('upward lift or outward expansion');
+      expect(result.prompt).toContain('never a literal figure, weapon, crown, or trophy');
+      expect(result.prompt).not.toContain('crowns, ascending paths, mountain peaks');
     });
 
-    it('should handle strength/gym keywords with specific symbols', async () => {
+    it('should handle strength/gym keywords without literal object symbols', async () => {
       process.env.REPLICATE_API_TOKEN = 'your-replicate-token';
 
       const request: ControlNetEnhancementRequest = {
@@ -370,9 +371,8 @@ describe('AIEnhancer Service', () => {
 
       const result = await enhanceSigilWithControlNet(request);
 
-      // "I am strong at the gym" — "strong" keyword is matched first (longer than "gym")
-      // so expect the strong/power symbols
-      expect(result.prompt).toMatch(/flexed muscles|barbells|iron weights/);
+      expect(result.prompt).toContain('upward lift or outward expansion');
+      expect(result.prompt).not.toMatch(/flexed muscles|barbells|iron weights/);
     });
 
     it('should throw error for invalid style choice', async () => {
@@ -580,12 +580,26 @@ describe('AIEnhancer Service', () => {
 
   describe('Style Coverage', () => {
     const allStyles: AIStyle[] = [
+      'architectural_trace',
+      'lunar_etch',
+      'resonance_rings',
       'watercolor',
-      'sacred_geometry',
       'ink_brush',
       'gold_leaf',
       'cosmic',
       'minimal_line',
+      'obsidian_mono',
+      'aurora_glow',
+      'ember_trace',
+      'monolith_ink',
+      'celestial_grid',
+      'echo_chamber',
+      'prism_veil',
+      'verdigris_relic',
+      'solar_halo',
+      'tideglass',
+      'sacred_geometry',
+      'velvet_ember',
     ];
 
     it.each(allStyles)('should handle %s style correctly', async style => {
@@ -601,8 +615,9 @@ describe('AIEnhancer Service', () => {
 
       expect(result.styleApplied).toBe(style);
       expect(result.variations).toHaveLength(2);
-      expect(result.prompt).toContain('Restore and beautify');
-      expect(result.negativePrompt).toContain('extra lines, decorative circle');
+      expect(result.prompt).toContain('STRUCTURAL PRESERVATION — ABSOLUTE PRIORITY');
+      expect(result.prompt).toContain('STYLE-SPECIFIC ART DIRECTION');
+      expect(result.negativePrompt).toContain('distorted geometry');
     });
   });
 });

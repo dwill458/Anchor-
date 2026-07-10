@@ -74,6 +74,11 @@ const STYLE_NAMES: Record<string, string> = {
   minimal_line: 'Minimal Line',
   obsidian_mono: 'Obsidian Mono',
   echo_chamber: 'Echo Chamber',
+  prism_veil: 'Prism Veil',
+  verdigris_relic: 'Verdigris Relic',
+  solar_halo: 'Solar Halo',
+  tideglass: 'Tideglass',
+  velvet_ember: 'Velvet Ember',
 };
 
 export const AIVariationPickerScreen: React.FC = () => {

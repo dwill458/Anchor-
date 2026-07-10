@@ -12,24 +12,20 @@
  * }
  */
 
-import { useSubscriptionStore } from '@/stores/subscriptionStore';
-import { getEntitlements, Entitlements } from '@/utils/entitlements';
-import { useTrialStatus } from '@/hooks/useTrialStatus';
+import { Entitlements } from '@/utils/entitlements';
+import { useEntitlements } from '@/hooks/useEntitlements';
 
 /**
  * Main subscription hook
  * Returns Pro status and feature flags
  */
 export function useSubscription() {
-  const store = useSubscriptionStore();
-  const { hasActiveEntitlement } = useTrialStatus();
-  const effectiveTier = store.getEffectiveTier();
-  const entitlements = getEntitlements(effectiveTier);
+  const entitlements = useEntitlements();
 
   return {
-    isPro: effectiveTier === 'pro' || hasActiveEntitlement,
-    isFree: effectiveTier === 'free' && !hasActiveEntitlement,
-    tier: effectiveTier,
+    isPro: entitlements.isPro,
+    isFree: entitlements.isFree,
+    tier: entitlements.tier,
     features: entitlements,
   };
 }

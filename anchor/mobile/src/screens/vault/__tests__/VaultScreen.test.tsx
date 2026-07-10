@@ -54,7 +54,12 @@ jest.mock('@/hooks/useSubscription', () => ({
     useSubscription: () => ({ isFree: true, features: { maxAnchors: 3 } })
 }));
 jest.mock('@/hooks/useTrialStatus', () => ({
-    useTrialStatus: () => ({ hasActiveEntitlement: mockHasActiveEntitlement }),
+    useTrialStatus: () => ({
+        isTrialActive: false,
+        isSubscribed: mockHasActiveEntitlement,
+        trialExpired: !mockHasActiveEntitlement,
+        hasActiveEntitlement: mockHasActiveEntitlement,
+    }),
 }));
 jest.mock('@/contexts/TabNavigationContext', () => ({
     useTabNavigation: () => ({
@@ -305,7 +310,7 @@ describe('VaultScreen', () => {
         expect(mockNavigate).toHaveBeenCalledWith('CreateAnchor');
     });
 
-    it('routes authenticated users without entitlement to the create flow', () => {
+    it('routes authenticated users without entitlement to the paywall', () => {
         mockHasActiveEntitlement = false;
         mockAnchors = [{
             id: 'a1',
@@ -321,6 +326,20 @@ describe('VaultScreen', () => {
         render(<VaultScreen />);
         fireEvent.press(screen.getByLabelText('Create new anchor'));
 
-        expect(mockNavigate).toHaveBeenCalledWith('CreateAnchor');
+        expect(mockNavigate).toHaveBeenCalledWith('Paywall', {
+            source: 'create_anchor_free_locked',
+            preferredPlanId: 'annual',
+        });
+    });
+
+    it('lets unauthenticated guests without entitlement forge their first anchor', () => {
+        mockIsAuthenticated = false;
+        mockHasActiveEntitlement = false;
+        mockAnchors = [];
+
+        render(<VaultScreen />);
+        fireEvent.press(screen.getByLabelText('Forge your first anchor'));
+
+        expect(mockNavigate).toHaveBeenCalledWith('FirstAnchorCreation');
     });
 });

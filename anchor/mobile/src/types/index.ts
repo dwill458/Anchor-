@@ -451,21 +451,34 @@ export interface EnhancementMetadata {
  * Updated to reflect validated styles from spike phase
  */
 export type AIStyle =
-  | 'watercolor'
-  | 'sacred_geometry'
-  | 'ink_brush'
-  | 'gold_leaf'
-  | 'cosmic'
   | 'architectural_trace'
   | 'lunar_etch'
   | 'resonance_rings'
+  | 'watercolor'
+  | 'ink_brush'
+  | 'gold_leaf'
+  | 'cosmic'
   | 'minimal_line'
   | 'obsidian_mono'
   | 'aurora_glow'
   | 'ember_trace'
-  | 'echo_chamber'
   | 'monolith_ink'
-  | 'celestial_grid';
+  | 'celestial_grid'
+  | 'echo_chamber'
+  | 'prism_veil'
+  | 'verdigris_relic'
+  | 'solar_halo'
+  | 'tideglass'
+  | 'sacred_geometry'
+  | 'velvet_ember';
+
+export type PaywallSource =
+  | 'post_trial'
+  | 'gated_feature'
+  | 'create_anchor_free_locked'
+  | 'trial_anchor_cap_reached'
+  | 'free_weekly_sessions_used'
+  | 'premium_practice_locked';
 
 export interface GeneratedVariation {
   variationId?: string;
@@ -552,7 +565,12 @@ export type RootStackParamList = {
   TrialSignUp: undefined;
   AnchorDetail: { anchorId: string };
   AuthGate: undefined;
-  Paywall: { source?: 'post_trial' | 'gated_feature'; preferredPlanId?: AuthPreferredPlanId } | undefined;
+  Paywall:
+    | {
+      source?: PaywallSource;
+      preferredPlanId?: AuthPreferredPlanId;
+    }
+    | undefined;
   CreateAnchor: undefined;
   /** First anchor creation after onboarding — shows new-user IntentionInputScreen */
   FirstAnchorCreation: undefined;

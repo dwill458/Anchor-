@@ -102,16 +102,22 @@ export const ActivationScreen: React.FC = () => {
     const task = InteractionManager.runAfterInteractions(() => {
       navigation.goBack();
       requestAnimationFrame(() => {
+        AnalyticsService.track('free_weekly_sessions_used', {
+          source: 'activation_screen_backstop',
+          remaining_weekly_free_sessions: primeSessionAccess.focus.remaining,
+          tier: primeSessionAccess.tier,
+        });
+
         if (parentNavigation?.navigate) {
           parentNavigation.navigate('Paywall', {
-            source: 'gated_feature',
+            source: 'free_weekly_sessions_used',
             preferredPlanId: 'annual',
           });
           return;
         }
 
         navigation.navigate('Paywall', {
-          source: 'gated_feature',
+          source: 'free_weekly_sessions_used',
           preferredPlanId: 'annual',
         });
       });
