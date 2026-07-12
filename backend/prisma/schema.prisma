@@ -69,6 +69,11 @@ model Anchor {
   userId                String
   user                  User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
+  // Client-generated key for POST /api/anchors so a retried request (e.g. after
+  // the client never received the response) returns the original anchor instead
+  // of creating a duplicate.
+  idempotencyKey        String?  @unique @map("idempotency_key")
+
   // Intention & Category
   intentionText         String
   category              String   // 'desire', 'health', 'career', 'relationships', 'creativity', 'spirituality', 'abundance', 'family', 'learning', 'adventure', 'custom'

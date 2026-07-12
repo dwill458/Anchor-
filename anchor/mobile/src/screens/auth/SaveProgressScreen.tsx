@@ -429,7 +429,8 @@ export const SaveProgressScreen: React.FC = () => {
               YOUR FIRST ANCHOR{'\n'}IS <Text style={styles.titleGold}>READY.</Text>
             </Animated.Text>
             <Animated.Text style={[styles.body, wave2Style]}>
-              Create a free account so this anchor stays with you before you enter the Sanctuary.
+              You made this. Create a free account to keep it synced, recover it on a new phone,
+              and return to it whenever you need it.
             </Animated.Text>
           </View>
 

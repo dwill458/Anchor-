@@ -5,7 +5,13 @@
       "Bash(git commit:*)",
       "PowerShell($p = \\(netstat -ano | findstr \":8081\" | Select-String \"LISTENING\" | ForEach-Object { \\($_ -split '\\\\s+'\\)[-1] } | Select-Object -First 1\\); if \\($p\\) { Stop-Process -Id $p -Force; Write-Host \"Killed PID $p\" } else { Write-Host \"Nothing on 8081\" })",
       "PowerShell(& \"C:\\\\Users\\\\dwill\\\\AppData\\\\Local\\\\Android\\\\Sdk\\\\platform-tools\\\\adb.exe\" devices)",
-      "PowerShell(& \"C:\\\\Users\\\\dwill\\\\AppData\\\\Local\\\\Android\\\\Sdk\\\\platform-tools\\\\adb.exe\" reverse --list)"
+      "PowerShell(& \"C:\\\\Users\\\\dwill\\\\AppData\\\\Local\\\\Android\\\\Sdk\\\\platform-tools\\\\adb.exe\" reverse --list)",
+      "PowerShell(& 'C:\\\\Users\\\\dwill\\\\AppData\\\\Local\\\\Android\\\\Sdk\\\\platform-tools\\\\adb.exe' reverse tcp:8081 tcp:8081)",
+      "mcp__railway__environment_status",
+      "Bash(RAILWAY_CALLER=\"skill:use-railway@1.3.5\" railway link --help)",
+      "Bash(RAILWAY_CALLER=\"skill:use-railway@1.3.5\" railway link --project c41a295a-49be-4fa1-b099-6c1a2f0edef3 --environment production --json)",
+      "Bash(RAILWAY_CALLER=\"skill:use-railway@1.3.5\" railway link --project c41a295a-49be-4fa1-b099-6c1a2f0edef3 --environment production --service Anchor- --json)",
+      "Bash(RAILWAY_CALLER=\"skill:use-railway@1.3.5\" railway logs --service Anchor- --lines 500 --json)"
     ]
   }
 }

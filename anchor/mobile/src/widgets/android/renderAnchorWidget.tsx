@@ -24,19 +24,44 @@ export function renderAnchorWidgetByName(
 
   switch (widgetName) {
     case 'AnchorMediumWidget':
-      return <AnchorMediumWidget primed={primed} anchorName={snapshot.anchorName} />;
+      return (
+        <AnchorMediumWidget
+          primed={primed}
+          anchorName={snapshot.anchorName}
+          sigilSvg={snapshot.sigilSvg}
+          anchorTotalSessions={snapshot.anchorTotalSessions ?? 0}
+          anchorDayStreak={snapshot.anchorDayStreak ?? 0}
+          anchorDeepPrimeSessions={snapshot.anchorDeepPrimeSessions ?? 0}
+        />
+      );
     case 'AnchorLargeWidget':
       return (
         <AnchorLargeWidget
           primed={primed}
           anchorName={snapshot.anchorName}
+          sigilSvg={snapshot.sigilSvg}
           streak={snapshot.streak}
+          threadStrength={snapshot.threadStrength ?? 0}
+          totalSessions={snapshot.totalSessions ?? 0}
+          focusSessions={snapshot.focusSessions ?? 0}
+          deepPrimeSessions={snapshot.deepPrimeSessions ?? 0}
+          deepPrimePercent={snapshot.deepPrimePercent ?? 0}
+          longestStreak={snapshot.longestStreak ?? 0}
+          sensitivityLabel={snapshot.sensitivityLabel ?? 'Balanced'}
+          sensitivityNote={snapshot.sensitivityNote ?? '1 grace day before decay begins.'}
+          currentWeek={snapshot.currentWeek ?? []}
           history={snapshot.history}
           today={today}
         />
       );
     case 'AnchorSmallWidget':
     default:
-      return <AnchorSmallWidget primed={primed} />;
+      return (
+        <AnchorSmallWidget
+          primed={primed}
+          anchorId={snapshot.anchorId}
+          sigilSvg={snapshot.sigilSvg}
+        />
+      );
   }
 }

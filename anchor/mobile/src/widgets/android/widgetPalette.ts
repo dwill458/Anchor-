@@ -103,3 +103,19 @@ export function buildGlyphMarkup({ strokeWidth, stroke, opacity, glow }: GlyphOp
 export function buildGlyphSvg(options: GlyphOptions): string {
   return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 130">${buildGlyphMarkup(options)}</svg>`;
 }
+
+/**
+ * Android's SVG renderer does not resolve CSS `currentColor` consistently.
+ * Replace it in the stored sigil while preserving the user's actual geometry.
+ */
+export function colorizeAnchorSigilSvg(
+  sigilSvg: string | null | undefined,
+  color: string
+): string | null {
+  const normalized = sigilSvg?.trim();
+  if (!normalized || !/<svg\b/i.test(normalized)) {
+    return null;
+  }
+
+  return normalized.replace(/currentColor/gi, color);
+}

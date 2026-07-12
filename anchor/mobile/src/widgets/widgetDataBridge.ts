@@ -16,11 +16,18 @@ import { Platform } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useSessionStore } from '@/stores/sessionStore';
 import { useAnchorStore } from '@/stores/anchorStore';
+import { useSettingsStore, type ThreadStrengthSensitivity } from '@/stores/settingsStore';
 import { calculateStreakWithGrace } from '@/utils/streak';
-import { addDays, localDateString, type PrimingHistoryEntry } from '@/utils/primingAnalytics';
+import {
+  addDays,
+  localDateString,
+  startOfIsoWeek,
+  type PrimingHistoryEntry,
+} from '@/utils/primingAnalytics';
 import { logger } from '@/utils/logger';
 import type { Anchor } from '@/types';
 import {
+  createEmptyWidgetSnapshot,
   WIDGET_FALLBACK_ANCHOR_NAME,
   WIDGET_HISTORY_DAYS,
   WIDGET_LAST_SYNC_STORAGE_KEY,
@@ -28,6 +35,7 @@ import {
   WIDGET_SNAPSHOT_STORAGE_KEY,
   type WidgetHistoryDay,
   type WidgetSnapshot,
+  type WidgetWeekDay,
 } from './widgetTypes';
 
 // ─── Pure snapshot builders (exported for tests) ────────────────────────────
@@ -63,6 +71,187 @@ export function buildWidgetHistory(
   return days;
 }
 
+const SENSITIVITY_COPY: Record<
+  ThreadStrengthSensitivity,
+  { label: string; note: string }
+> = {
+  lenient: { label: 'Lenient', note: '2 grace days before decay begins.' },
+  balanced: { label: 'Balanced', note: '1 grace day before decay begins.' },
+  strict: { label: 'Strict', note: 'Any missed day begins decay.' },
+};
+
+interface ClassifiedWidgetSession extends PrimingHistoryEntry {
+  dateKey: string;
+  timestamp: number;
+  displayType: 'focus' | 'deep';
+}
+
+/**
+ * Keeps the large widget's summary in step with the Thread Strength sheet:
+ * duplicate completion events are ignored, and the first reinforce for an
+ * anchor is treated as Focus rather than Deep Prime.
+ */
+function classifyWidgetSessions(entries: PrimingHistoryEntry[]): ClassifiedWidgetSession[] {
+  const seenIds = new Set<string>();
+  const lastSignatureTime = new Map<string, number>();
+  const anchorsWithPriorPrime = new Set<string>();
+  const sorted = entries
+    .filter((entry) => entry.type === 'activate' || entry.type === 'reinforce')
+    .map((entry) => ({
+      ...entry,
+      dateKey: entry.localDate,
+      timestamp: new Date(entry.completedAt).getTime(),
+    }))
+    .filter((entry) => !Number.isNaN(entry.timestamp))
+    .sort((left, right) => left.timestamp - right.timestamp);
+
+  const classified: ClassifiedWidgetSession[] = [];
+  for (const entry of sorted) {
+    if (seenIds.has(entry.id)) {
+      continue;
+    }
+    seenIds.add(entry.id);
+
+    const signature = `${entry.anchorId}|${entry.type}`;
+    const previousTime = lastSignatureTime.get(signature);
+    if (previousTime != null && Math.abs(entry.timestamp - previousTime) <= 5_000) {
+      continue;
+    }
+    lastSignatureTime.set(signature, entry.timestamp);
+
+    const displayType =
+      entry.type === 'reinforce' && anchorsWithPriorPrime.has(entry.anchorId)
+        ? 'deep'
+        : 'focus';
+    classified.push({ ...entry, displayType });
+    anchorsWithPriorPrime.add(entry.anchorId);
+  }
+
+  return classified;
+}
+
+function longestSessionStreak(sessions: ClassifiedWidgetSession[]): number {
+  const dates = Array.from(new Set(sessions.map((session) => session.dateKey))).sort();
+  let longest = 0;
+  let running = 0;
+  let previous: Date | null = null;
+
+  for (const dateKey of dates) {
+    const date = new Date(`${dateKey}T00:00:00`);
+    const isConsecutive = previous != null && date.getTime() - previous.getTime() === 86_400_000;
+    running = isConsecutive ? running + 1 : 1;
+    longest = Math.max(longest, running);
+    previous = date;
+  }
+
+  return longest;
+}
+
+/**
+ * Consecutive-day session streak ending today (or yesterday, so an unprimed
+ * morning doesn't zero the number). No grace days — this is the raw per-anchor
+ * thread shown on the 4×2; the practice-wide `streak` keeps grace handling.
+ */
+function currentSessionStreak(sessions: ClassifiedWidgetSession[], now: Date): number {
+  const dates = new Set(sessions.map((session) => session.dateKey));
+  let cursor = now;
+  if (!dates.has(localDateString(cursor))) {
+    cursor = addDays(cursor, -1);
+    if (!dates.has(localDateString(cursor))) {
+      return 0;
+    }
+  }
+
+  let streak = 0;
+  while (dates.has(localDateString(cursor))) {
+    streak += 1;
+    cursor = addDays(cursor, -1);
+  }
+  return streak;
+}
+
+/** Per-anchor metrics for the medium widget, scoped to one anchor's sessions. */
+function buildAnchorMetrics(
+  primingHistory: PrimingHistoryEntry[],
+  anchorId: string | null,
+  now: Date
+): Pick<WidgetSnapshot, 'anchorTotalSessions' | 'anchorDayStreak' | 'anchorDeepPrimeSessions'> {
+  if (!anchorId) {
+    return { anchorTotalSessions: 0, anchorDayStreak: 0, anchorDeepPrimeSessions: 0 };
+  }
+  const sessions = classifyWidgetSessions(
+    primingHistory.filter((entry) => entry.anchorId === anchorId)
+  );
+  return {
+    anchorTotalSessions: sessions.length,
+    anchorDayStreak: currentSessionStreak(sessions, now),
+    anchorDeepPrimeSessions: sessions.filter((session) => session.displayType === 'deep').length,
+  };
+}
+
+function buildCurrentWeek(
+  sessions: ClassifiedWidgetSession[],
+  now: Date
+): WidgetWeekDay[] {
+  const today = localDateString(now);
+  const byDate = new Map<string, { focus: boolean; deep: boolean }>();
+  for (const session of sessions) {
+    const value = byDate.get(session.dateKey) ?? { focus: false, deep: false };
+    value[session.displayType] = true;
+    byDate.set(session.dateKey, value);
+  }
+
+  return ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map((label, index) => {
+    const date = addDays(startOfIsoWeek(now), index);
+    const dateKey = localDateString(date);
+    const value = byDate.get(dateKey) ?? { focus: false, deep: false };
+    return {
+      label,
+      date: dateKey,
+      hasFocus: value.focus,
+      hasDeep: value.deep,
+      isToday: dateKey === today,
+      isFuture: dateKey > today,
+    };
+  });
+}
+
+function buildWidgetSummary(
+  primingHistory: PrimingHistoryEntry[],
+  now: Date,
+  threadStrength: number,
+  sensitivity: ThreadStrengthSensitivity
+): Pick<
+  WidgetSnapshot,
+  | 'threadStrength'
+  | 'totalSessions'
+  | 'focusSessions'
+  | 'deepPrimeSessions'
+  | 'deepPrimePercent'
+  | 'longestStreak'
+  | 'sensitivityLabel'
+  | 'sensitivityNote'
+  | 'currentWeek'
+> {
+  const sessions = classifyWidgetSessions(primingHistory);
+  const deepPrimeSessions = sessions.filter((session) => session.displayType === 'deep').length;
+  const focusSessions = sessions.length - deepPrimeSessions;
+  const totalSessions = sessions.length;
+  const sensitivityCopy = SENSITIVITY_COPY[sensitivity] ?? SENSITIVITY_COPY.balanced;
+
+  return {
+    threadStrength: Math.max(0, Math.min(100, Math.round(threadStrength))),
+    totalSessions,
+    focusSessions,
+    deepPrimeSessions,
+    deepPrimePercent: totalSessions > 0 ? Math.round((deepPrimeSessions / totalSessions) * 100) : 0,
+    longestStreak: longestSessionStreak(sessions),
+    sensitivityLabel: sensitivityCopy.label,
+    sensitivityNote: sensitivityCopy.note,
+    currentWeek: buildCurrentWeek(sessions, now),
+  };
+}
+
 /**
  * Mirrors PracticeScreen's anchor resolution: the explicitly selected anchor
  * when it is still active, otherwise the most recently updated active anchor
@@ -72,11 +261,18 @@ export function selectWidgetAnchorName(
   anchors: Anchor[],
   currentAnchorId: string | undefined
 ): string {
-  const activeAnchors = anchors.filter((anchor) => !anchor.isReleased && !anchor.archivedAt);
-  const selected =
-    activeAnchors.find((anchor) => anchor.id === currentAnchorId) ?? activeAnchors[0];
+  const selected = selectWidgetAnchor(anchors, currentAnchorId);
   const name = selected?.intentionText?.trim();
   return name && name.length > 0 ? name : WIDGET_FALLBACK_ANCHOR_NAME;
+}
+
+/** Resolves the same active anchor used by PracticeScreen for widget content. */
+export function selectWidgetAnchor(
+  anchors: Anchor[],
+  currentAnchorId: string | undefined
+): Anchor | undefined {
+  const activeAnchors = anchors.filter((anchor) => !anchor.isReleased && !anchor.archivedAt);
+  return activeAnchors.find((anchor) => anchor.id === currentAnchorId) ?? activeAnchors[0];
 }
 
 export interface WidgetSnapshotInputs {
@@ -85,6 +281,8 @@ export interface WidgetSnapshotInputs {
   primingHistory: PrimingHistoryEntry[];
   lastPrimedAt: string | null;
   lastGraceDayUsedAt: string | null;
+  threadStrength?: number;
+  threadStrengthSensitivity?: ThreadStrengthSensitivity;
   now?: Date;
 }
 
@@ -96,11 +294,25 @@ export function buildWidgetSnapshot(inputs: WidgetSnapshotInputs): WidgetSnapsho
     inputs.lastGraceDayUsedAt,
     now
   );
+  const selectedAnchor = selectWidgetAnchor(inputs.anchors, inputs.currentAnchorId);
+  const sigilSvg =
+    selectedAnchor?.baseSigilSvg?.trim() || selectedAnchor?.reinforcedSigilSvg?.trim() || null;
+  const summary = buildWidgetSummary(
+    inputs.primingHistory,
+    now,
+    inputs.threadStrength ?? 0,
+    inputs.threadStrengthSensitivity ?? 'balanced'
+  );
 
   return {
-    anchorName: selectWidgetAnchorName(inputs.anchors, inputs.currentAnchorId),
+    ...createEmptyWidgetSnapshot(),
+    anchorId: selectedAnchor?.id ?? null,
+    anchorName: selectedAnchor?.intentionText?.trim() || WIDGET_FALLBACK_ANCHOR_NAME,
+    sigilSvg,
     primedToday: inputs.lastPrimedAt === today,
     streak: streakResult.currentStreak,
+    ...summary,
+    ...buildAnchorMetrics(inputs.primingHistory, selectedAnchor?.id ?? null, now),
     history: buildWidgetHistory(inputs.primingHistory, now),
     lastPrimedDate: inputs.lastPrimedAt,
   };
@@ -146,6 +358,7 @@ export async function syncWidgetData(): Promise<void> {
   try {
     const sessionState = useSessionStore.getState();
     const anchorState = useAnchorStore.getState();
+    const settingsState = useSettingsStore.getState();
 
     const snapshot = buildWidgetSnapshot({
       anchors: anchorState.anchors,
@@ -153,6 +366,8 @@ export async function syncWidgetData(): Promise<void> {
       primingHistory: sessionState.primingHistory,
       lastPrimedAt: sessionState.lastPrimedAt,
       lastGraceDayUsedAt: sessionState.lastGraceDayUsedAt,
+      threadStrength: sessionState.threadStrength,
+      threadStrengthSensitivity: settingsState.threadStrengthSensitivity,
     });
     const json = JSON.stringify(snapshot);
 
@@ -205,6 +420,7 @@ export function initWidgetDataSync(): void {
   unsubscribers = [
     useSessionStore.subscribe(scheduleSync),
     useAnchorStore.subscribe(scheduleSync),
+    useSettingsStore.subscribe(scheduleSync),
   ];
   scheduleSync();
 }

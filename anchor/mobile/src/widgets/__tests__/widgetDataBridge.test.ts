@@ -11,8 +11,12 @@ import {
   buildWidgetSnapshot,
   selectWidgetAnchorName,
 } from '../widgetDataBridge';
-import { isWidgetPracticeDeepLink } from '../WidgetDeepLinkHandler';
-import { WIDGET_FALLBACK_ANCHOR_NAME, WIDGET_HISTORY_DAYS } from '../widgetTypes';
+import { getWidgetPrimeAnchorId, isWidgetPracticeDeepLink } from '../WidgetDeepLinkHandler';
+import {
+  buildWidgetPrimeDeepLink,
+  WIDGET_FALLBACK_ANCHOR_NAME,
+  WIDGET_HISTORY_DAYS,
+} from '../widgetTypes';
 import { buildPrimingHistoryEntry, localDateString } from '@/utils/primingAnalytics';
 import type { PrimingHistoryEntry } from '@/utils/primingAnalytics';
 import type { Anchor } from '@/types';
@@ -23,11 +27,12 @@ const NOW = new Date(2026, 6, 5, 12, 0, 0);
 function primeEntry(
   isoDate: string,
   type: 'activate' | 'reinforce',
-  suffix = '0'
+  suffix = '0',
+  anchorId = 'anchor-1'
 ): PrimingHistoryEntry {
   const entry = buildPrimingHistoryEntry({
-    id: `${isoDate}-${type}-${suffix}`,
-    anchorId: 'anchor-1',
+    id: `${isoDate}-${type}-${anchorId}-${suffix}`,
+    anchorId,
     type,
     completedAt: `${isoDate}T09:30:00.000`,
   });
@@ -123,7 +128,13 @@ describe('selectWidgetAnchorName', () => {
 
 describe('buildWidgetSnapshot', () => {
   const baseInputs = {
-    anchors: [makeAnchor({ id: 'a', intentionText: 'Deep work every morning' })],
+    anchors: [
+      makeAnchor({
+        id: 'a',
+        intentionText: 'Deep work every morning',
+        baseSigilSvg: '<svg viewBox="0 0 100 100"><path stroke="currentColor" /></svg>',
+      }),
+    ],
     currentAnchorId: 'a',
     lastGraceDayUsedAt: null,
     now: NOW,
@@ -156,8 +167,101 @@ describe('buildWidgetSnapshot', () => {
       lastPrimedAt: null,
     });
     expect(snapshot.anchorName).toBe('Deep work every morning');
+    expect(snapshot.anchorId).toBe('a');
+    expect(snapshot.sigilSvg).toContain('currentColor');
     expect(snapshot.history).toHaveLength(WIDGET_HISTORY_DAYS);
     expect(snapshot.streak).toBe(0);
+  });
+
+  it('mirrors Thread Strength summary values into the large-widget snapshot', () => {
+    const snapshot = buildWidgetSnapshot({
+      ...baseInputs,
+      primingHistory: [
+        primeEntry('2026-07-02', 'activate'),
+        primeEntry('2026-07-03', 'reinforce'),
+        primeEntry('2026-07-04', 'activate'),
+        primeEntry('2026-07-05', 'activate'),
+      ],
+      lastPrimedAt: '2026-07-05',
+      threadStrength: 39,
+      threadStrengthSensitivity: 'strict',
+    });
+
+    expect(snapshot.threadStrength).toBe(39);
+    expect(snapshot.totalSessions).toBe(4);
+    expect(snapshot.focusSessions).toBe(3);
+    expect(snapshot.deepPrimeSessions).toBe(1);
+    expect(snapshot.deepPrimePercent).toBe(25);
+    expect(snapshot.longestStreak).toBe(4);
+    expect(snapshot.sensitivityLabel).toBe('Strict');
+    expect(snapshot.currentWeek.find((day) => day.date === '2026-07-05')).toMatchObject({
+      isToday: true,
+      hasFocus: true,
+    });
+  });
+
+  it('scopes the medium-widget anchor metrics to the selected anchor only', () => {
+    const snapshot = buildWidgetSnapshot({
+      ...baseInputs,
+      primingHistory: [
+        // Selected anchor "a": 2-day thread, one deep prime
+        primeEntry('2026-07-04', 'activate', '0', 'a'),
+        primeEntry('2026-07-05', 'activate', '0', 'a'),
+        primeEntry('2026-07-05', 'reinforce', '0', 'a'),
+        // Another anchor's sessions must not leak into the anchor metrics
+        primeEntry('2026-07-01', 'activate', '0', 'other'),
+        primeEntry('2026-07-02', 'activate', '0', 'other'),
+        primeEntry('2026-07-05', 'activate', '0', 'other'),
+      ],
+      lastPrimedAt: '2026-07-05',
+    });
+
+    expect(snapshot.anchorTotalSessions).toBe(3);
+    expect(snapshot.anchorDayStreak).toBe(2);
+    expect(snapshot.anchorDeepPrimeSessions).toBe(1);
+    // Practice-wide totals still count everything
+    expect(snapshot.totalSessions).toBe(6);
+  });
+
+  it('keeps the anchor day thread alive when the last session was yesterday', () => {
+    const snapshot = buildWidgetSnapshot({
+      ...baseInputs,
+      primingHistory: [
+        primeEntry('2026-07-03', 'activate', '0', 'a'),
+        primeEntry('2026-07-04', 'activate', '0', 'a'),
+      ],
+      lastPrimedAt: '2026-07-04',
+    });
+    expect(snapshot.anchorDayStreak).toBe(2);
+
+    const broken = buildWidgetSnapshot({
+      ...baseInputs,
+      primingHistory: [primeEntry('2026-07-03', 'activate', '0', 'a')],
+      lastPrimedAt: '2026-07-03',
+    });
+    expect(broken.anchorDayStreak).toBe(0);
+  });
+
+  it('zeroes anchor metrics when no active anchor exists', () => {
+    const snapshot = buildWidgetSnapshot({
+      ...baseInputs,
+      anchors: [],
+      currentAnchorId: undefined,
+      primingHistory: [primeEntry('2026-07-05', 'activate')],
+      lastPrimedAt: '2026-07-05',
+    });
+    expect(snapshot.anchorTotalSessions).toBe(0);
+    expect(snapshot.anchorDayStreak).toBe(0);
+    expect(snapshot.anchorDeepPrimeSessions).toBe(0);
+  });
+});
+
+describe('widget prime deep link', () => {
+  it('preserves the selected anchor id in the 2×2 widget target', () => {
+    const url = buildWidgetPrimeDeepLink('anchor/with spaces');
+    expect(url).toBe('anchor://prime?anchorId=anchor%2Fwith%20spaces');
+    expect(getWidgetPrimeAnchorId(url)).toBe('anchor/with spaces');
+    expect(getWidgetPrimeAnchorId('anchor://practice')).toBeNull();
   });
 });
 

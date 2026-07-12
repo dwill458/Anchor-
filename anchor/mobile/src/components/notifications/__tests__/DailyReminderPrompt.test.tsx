@@ -33,7 +33,7 @@ describe('DailyReminderPrompt', () => {
     await waitFor(() => expect(mockMarkReminderPromptShown).toHaveBeenCalledWith('first_anchor'));
   });
 
-  it('walks the first-anchor flow: intent -> time -> schedule -> success', async () => {
+  it('schedules the first-anchor reminder with the 8 AM smart default', async () => {
     const onDismiss = jest.fn();
     const { getByText, queryByText } = render(
       <DailyReminderPrompt visible variant="first_anchor" onDismiss={onDismiss} />
@@ -42,13 +42,7 @@ describe('DailyReminderPrompt', () => {
     expect(getByText('Keep This Anchor Alive')).toBeTruthy();
 
     await act(async () => {
-      fireEvent.press(getByText('Set Daily Reminder'));
-    });
-    // Time step
-    expect(getByText('Morning')).toBeTruthy();
-
-    await act(async () => {
-      fireEvent.press(getByText('Morning'));
+      fireEvent.press(getByText('Set 8:00 AM Reminder'));
     });
 
     expect(mockSetDailyPrimeReminder).toHaveBeenCalledWith('08:00', 'first_anchor');
@@ -60,6 +54,23 @@ describe('DailyReminderPrompt', () => {
     });
     expect(mockCompleteReminderPrompt).toHaveBeenCalledWith('first_anchor');
     expect(onDismiss).toHaveBeenCalled();
+  });
+
+  it('lets a first-anchor user choose another time before scheduling', async () => {
+    const { getByText } = render(
+      <DailyReminderPrompt visible variant="first_anchor" onDismiss={jest.fn()} />
+    );
+
+    await act(async () => {
+      fireEvent.press(getByText('Choose a different time'));
+    });
+    expect(getByText('Morning')).toBeTruthy();
+
+    await act(async () => {
+      fireEvent.press(getByText('Afternoon'));
+    });
+
+    expect(mockSetDailyPrimeReminder).toHaveBeenCalledWith('15:00', 'first_anchor');
   });
 
   it('dismisses without scheduling when the user taps Not Now', async () => {

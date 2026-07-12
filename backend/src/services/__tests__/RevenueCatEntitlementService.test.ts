@@ -84,4 +84,46 @@ describe('RevenueCatEntitlementService', () => {
 
     await expect(getRevenueCatAccess('user-1')).resolves.toBeNull();
   });
+
+  it('bypasses a cached entitlement after a completed purchase or restore', async () => {
+    const getSpy = jest.spyOn(axios, 'get')
+      .mockResolvedValueOnce({
+        data: {
+          subscriber: {
+            entitlements: {
+              pro: {
+                expires_date: '2026-07-20T00:00:00.000Z',
+                product_identifier: 'anchor_pro_monthly',
+              },
+            },
+          },
+        },
+      })
+      .mockResolvedValueOnce({
+        data: {
+          subscriber: {
+            entitlements: {
+              pro: {
+                expires_date: '2026-08-20T00:00:00.000Z',
+                product_identifier: 'anchor_pro_annual',
+              },
+            },
+          },
+        },
+      });
+    const now = new Date('2026-07-10T00:00:00.000Z');
+
+    await expect(getRevenueCatAccess('fresh-user', now)).resolves.toEqual({
+      isActive: true,
+      productIdentifier: 'anchor_pro_monthly',
+    });
+    await expect(
+      getRevenueCatAccess('fresh-user', now, { forceRefresh: true })
+    ).resolves.toEqual({
+      isActive: true,
+      productIdentifier: 'anchor_pro_annual',
+    });
+
+    expect(getSpy).toHaveBeenCalledTimes(2);
+  });
 });

@@ -174,6 +174,23 @@ describe('RevenueCatService', () => {
     expect(result.status.hasActiveEntitlement).toBe(true);
   });
 
+  it('can defer client unlock state until the server confirms a completed purchase', async () => {
+    const pkg = { identifier: 'test_product' };
+    mockPurchases.getOfferings.mockResolvedValueOnce({
+      current: { availablePackages: [pkg] },
+    });
+    mockPurchases.purchasePackage.mockResolvedValueOnce({ customerInfo: activeCustomerInfo });
+
+    const result = await RevenueCatService.purchasePackageByIdentifier('test_product', {
+      syncStatus: false,
+    });
+
+    expect(result.status.hasActiveEntitlement).toBe(true);
+    expect(mockSetRcTier).not.toHaveBeenCalled();
+    expect(mockSetTrialState).not.toHaveBeenCalled();
+    expect(mockSetSubscriptionStatus).not.toHaveBeenCalled();
+  });
+
   it('handles user cancellation during purchase', async () => {
     const pkg = { identifier: 'test_product' };
     mockPurchases.getOfferings.mockResolvedValueOnce({
@@ -329,13 +346,15 @@ describe('RevenueCatService', () => {
     expect(metadata.annual?.priceString).toBe('$59.99');
   });
 
-  it('throws an error if the selected package is not found in offerings', async () => {
+  it('does not substitute another package when the selected package is missing', async () => {
+    const unrelatedPackage = { identifier: '$rc_annual' };
     mockPurchases.getOfferings.mockResolvedValueOnce({
-      current: { availablePackages: [] },
+      current: { availablePackages: [unrelatedPackage] },
     });
 
     await expect(
       RevenueCatService.purchasePackageByIdentifier('test_product')
-    ).rejects.toThrow('[RevenueCat] Package "test_product" was not found in the available offerings.');
+    ).rejects.toThrow('[RevenueCat] Package "test_product" was not found in the current offering.');
+    expect(mockPurchases.purchasePackage).not.toHaveBeenCalled();
   });
 });

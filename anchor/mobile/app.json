@@ -116,7 +116,7 @@
     "android": {
       "allowBackup": false,
       "adaptiveIcon": {
-        "foregroundImage": "./assets/anchor-adaptive-foreground.png",
+        "foregroundImage": "./assets/anchor-adaptive-foreground-v2.png",
         "backgroundColor": "#1A1A1D",
         "monochromeImage": "./assets/anchor-monochrome.png"
       },

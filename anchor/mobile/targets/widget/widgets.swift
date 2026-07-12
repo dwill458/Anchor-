@@ -1,5 +1,6 @@
 import WidgetKit
 import SwiftUI
+import Foundation
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Snapshot model — contract lives in src/widgets/widgetTypes.ts and is written
@@ -13,16 +14,28 @@ struct WidgetHistoryDay: Decodable {
 }
 
 struct WidgetSnapshot: Decodable {
+    let anchorId: String?
     let anchorName: String
+    let sigilSvg: String?
     let primedToday: Bool
     let streak: Int
+    // Selected-anchor-only metrics (medium widget row). Optional so snapshots
+    // written before these fields existed still decode.
+    let anchorTotalSessions: Int?
+    let anchorDayStreak: Int?
+    let anchorDeepPrimeSessions: Int?
     let history: [WidgetHistoryDay]
     let lastPrimedDate: String?
 
     static let empty = WidgetSnapshot(
+        anchorId: nil,
         anchorName: "Anchor",
+        sigilSvg: nil,
         primedToday: false,
         streak: 0,
+        anchorTotalSessions: 0,
+        anchorDayStreak: 0,
+        anchorDeepPrimeSessions: 0,
         history: [],
         lastPrimedDate: nil
     )
@@ -44,9 +57,14 @@ struct WidgetSnapshot: Decodable {
         }
         let today = AnchorDates.dayString(Date())
         return WidgetSnapshot(
+            anchorId: "preview-anchor",
             anchorName: "Deep Work Every Morning",
+            sigilSvg: nil,
             primedToday: true,
             streak: 6,
+            anchorTotalSessions: 24,
+            anchorDayStreak: 6,
+            anchorDeepPrimeSessions: 5,
             history: history,
             lastPrimedDate: today
         )
@@ -259,6 +277,15 @@ struct AnchorGlyph: View {
 struct SmallWidgetView: View {
     var entry: AnchorEntry
 
+    private var primeURL: URL? {
+        guard let anchorId = entry.snapshot.anchorId else {
+            return URL(string: "anchor://practice")
+        }
+        var components = URLComponents(string: "anchor://prime")
+        components?.queryItems = [URLQueryItem(name: "anchorId", value: anchorId)]
+        return components?.url
+    }
+
     var body: some View {
         let primed = entry.primed
         GeometryReader { geo in
@@ -282,6 +309,7 @@ struct SmallWidgetView: View {
             }
         }
         .widgetRing(primed: primed)
+        .widgetURL(primeURL)
         .containerBackground(for: .widget) { AnchorPalette.bg }
     }
 }
@@ -317,6 +345,25 @@ struct ArrowIcon: Shape {
         path.move(to: pt(5, 12)); path.addLine(to: pt(18, 12))
         path.move(to: pt(13, 6)); path.addLine(to: pt(19, 12)); path.addLine(to: pt(13, 18))
         return path
+    }
+}
+
+struct MediumMetric: View {
+    let value: String
+    let label: String
+    var color: Color = AnchorPalette.gold
+
+    var body: some View {
+        VStack(spacing: 2) {
+            Text(value)
+                .font(AnchorFont.displaySemiBold(16))
+                .foregroundColor(color)
+            Text(label)
+                .font(AnchorFont.display(7))
+                .kerning(0.85)
+                .foregroundColor(AnchorPalette.silverLabel)
+        }
+        .frame(maxWidth: .infinity)
     }
 }
 
@@ -360,6 +407,21 @@ struct MediumWidgetView: View {
                     }
                 }
                 Spacer(minLength: 0)
+            }
+
+            Spacer(minLength: 0)
+
+            // This anchor's metrics — the 4×4 carries the practice-wide numbers
+            HStack(spacing: 0) {
+                MediumMetric(value: String(entry.snapshot.anchorTotalSessions ?? 0), label: "SESSIONS")
+                Rectangle().fill(Color.white.opacity(0.07)).frame(width: 1, height: 24)
+                MediumMetric(value: String(entry.snapshot.anchorDayStreak ?? 0), label: "DAY THREAD")
+                Rectangle().fill(Color.white.opacity(0.07)).frame(width: 1, height: 24)
+                MediumMetric(
+                    value: String(entry.snapshot.anchorDeepPrimeSessions ?? 0),
+                    label: "DEEP PRIMES",
+                    color: AnchorPalette.heatDeep[3]
+                )
             }
 
             Spacer(minLength: 0)

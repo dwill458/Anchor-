@@ -149,6 +149,7 @@ const CreateAnchorSchema = z.object({
   mantraText: z.string().optional(),
   mantraPronunciation: z.string().optional(),
   mantraAudioUrl: z.string().optional(),
+  idempotencyKey: z.string().min(1).max(200).optional(),
 });
 
 const UpdateAnchorSchema = z.object({
@@ -575,10 +576,32 @@ router.post('/', async (req: AuthRequest, res: Response, next: NextFunction) => 
       mantraText,
       mantraPronunciation,
       mantraAudioUrl,
+      idempotencyKey,
     } = validate(CreateAnchorExtendedSchema, req.body);
 
     const userId = req.dbUser!.id;
     const variationReservation = extractVariationReservation(enhancementMetadata);
+
+    if (idempotencyKey) {
+      const existing = await prisma.anchor.findUnique({ where: { idempotencyKey } });
+      if (existing) {
+        if (existing.userId !== userId) {
+          next(
+            new AppError(
+              'Idempotency key already used by another user',
+              409,
+              'IDEMPOTENCY_KEY_CONFLICT'
+            )
+          );
+          return;
+        }
+        // The client already created this anchor on a previous attempt (it just never
+        // saw the response) — return the existing anchor instead of making a duplicate.
+        const anchor = await resolveAnchorArtworkUrls(existing);
+        res.status(200).json({ success: true, data: anchor });
+        return;
+      }
+    }
 
     await syncRevenueCatSubscription(req.dbUser!);
 
@@ -589,6 +612,7 @@ router.post('/', async (req: AuthRequest, res: Response, next: NextFunction) => 
       const createdAnchor = await tx.anchor.create({
         data: {
           userId,
+          idempotencyKey: idempotencyKey || null,
           intentionText,
           category,
           distilledLetters,
@@ -693,6 +717,24 @@ router.post('/', async (req: AuthRequest, res: Response, next: NextFunction) => 
     if (error instanceof AppError) {
       next(error);
       return;
+    }
+
+    if (
+      error instanceof Prisma.PrismaClientKnownRequestError &&
+      error.code === 'P2002' &&
+      (error.meta?.target as string[] | undefined)?.includes('idempotency_key') &&
+      typeof req.body?.idempotencyKey === 'string'
+    ) {
+      // Lost the race with a concurrent retry using the same idempotency key —
+      // the other request created the anchor, so return it instead of erroring.
+      const existing = await prisma.anchor.findUnique({
+        where: { idempotencyKey: req.body.idempotencyKey },
+      });
+      if (existing && existing.userId === req.dbUser?.id) {
+        const anchor = await resolveAnchorArtworkUrls(existing);
+        res.status(200).json({ success: true, data: anchor });
+        return;
+      }
     }
 
     if (error instanceof Prisma.PrismaClientKnownRequestError) {

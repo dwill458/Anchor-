@@ -1,7 +1,9 @@
 /**
  * AnchorMediumWidget — 4×2 home screen widget.
  *
- * Glyph + anchor name + state line, with a full-width CTA:
+ * Glyph + anchor name + state line, a metrics row scoped to the selected
+ * anchor (the 4×4 shows practice-wide numbers; this shows just this anchor's),
+ * and a full-width CTA:
  *  - not primed: solid gold "Prime Now" (spark icon)
  *  - primed:     quiet outlined "Open Focus" (arrow icon)
  * Both CTA states deep-link into the Practice tab (Focus session entry point).
@@ -13,14 +15,17 @@ import { WIDGET_PRACTICE_DEEP_LINK } from '../widgetTypes';
 import {
   BONE,
   buildGlyphSvg,
+  colorizeAnchorSigilSvg,
   CTA_BORDER_PRIMED,
   DIM_GLYPH,
   FONT_DISPLAY,
+  FONT_DISPLAY_SEMIBOLD,
   FONT_SERIF_SEMIBOLD,
   GOLD,
   MUTED_LABEL,
   RING_NOT_PRIMED,
   RING_PRIMED,
+  SILVER_LABEL,
   WIDGET_BG,
   WIDGET_CORNER_RADIUS,
 } from './widgetPalette';
@@ -28,6 +33,11 @@ import {
 interface AnchorMediumWidgetProps {
   primed: boolean;
   anchorName: string;
+  sigilSvg: string | null;
+  /** Metrics scoped to this anchor only (not practice-wide) */
+  anchorTotalSessions: number;
+  anchorDayStreak: number;
+  anchorDeepPrimeSessions: number;
 }
 
 /** State dot, with a soft halo when primed (0 0 6px rgba(212,175,55,0.7)) */
@@ -70,7 +80,48 @@ function buildAuraSvg(): string {
   );
 }
 
-export function AnchorMediumWidget({ primed, anchorName }: AnchorMediumWidgetProps) {
+function Metric({ value, label, color = GOLD }: { value: string; label: string; color?: string }) {
+  return (
+    <FlexWidget style={{ flex: 1, alignItems: 'center', flexDirection: 'column' }}>
+      <TextWidget
+        text={value}
+        style={{
+          fontFamily: FONT_DISPLAY_SEMIBOLD,
+          fontSize: 16,
+          color: color as `#${string}`,
+          textAlign: 'center',
+        }}
+      />
+      <TextWidget
+        text={label}
+        style={{
+          fontFamily: FONT_DISPLAY,
+          fontSize: 7,
+          letterSpacing: 0.85,
+          color: SILVER_LABEL,
+          textAlign: 'center',
+          marginTop: 2,
+        }}
+      />
+    </FlexWidget>
+  );
+}
+
+export function AnchorMediumWidget({
+  primed,
+  anchorName,
+  sigilSvg,
+  anchorTotalSessions,
+  anchorDayStreak,
+  anchorDeepPrimeSessions,
+}: AnchorMediumWidgetProps) {
+  const glyphSvg = colorizeAnchorSigilSvg(sigilSvg, primed ? GOLD : DIM_GLYPH) ?? buildGlyphSvg({
+    strokeWidth: 5.2,
+    stroke: primed ? GOLD : DIM_GLYPH,
+    opacity: primed ? 1 : 0.9,
+    glow: primed,
+  });
+
   return (
     <OverlapWidget
       clickAction="OPEN_APP"
@@ -107,12 +158,7 @@ export function AnchorMediumWidget({ primed, anchorName }: AnchorMediumWidgetPro
           style={{ width: 'match_parent', flexDirection: 'row', alignItems: 'center' }}
         >
           <SvgWidget
-            svg={buildGlyphSvg({
-              strokeWidth: 5.2,
-              stroke: primed ? GOLD : DIM_GLYPH,
-              opacity: primed ? 1 : 0.9,
-              glow: primed,
-            })}
+            svg={glyphSvg}
             style={{ width: 30, height: 33, marginRight: 13 }}
           />
           <FlexWidget style={{ flex: 1, flexDirection: 'column' }}>
@@ -150,6 +196,22 @@ export function AnchorMediumWidget({ primed, anchorName }: AnchorMediumWidgetPro
               />
             </FlexWidget>
           </FlexWidget>
+        </FlexWidget>
+
+        {/* ── This anchor's metrics (practice-wide numbers live on the 4×4) ── */}
+        <FlexWidget
+          style={{
+            width: 'match_parent',
+            height: 34,
+            flexDirection: 'row',
+            alignItems: 'center',
+          }}
+        >
+          <Metric value={String(anchorTotalSessions)} label="SESSIONS" />
+          <FlexWidget style={{ width: 1, height: 24, backgroundColor: '#FFFFFF12' }} />
+          <Metric value={String(anchorDayStreak)} label="DAY THREAD" />
+          <FlexWidget style={{ width: 1, height: 24, backgroundColor: '#FFFFFF12' }} />
+          <Metric value={String(anchorDeepPrimeSessions)} label="DEEP PRIMES" color="#9D74CF" />
         </FlexWidget>
 
         {/* ── CTA — deep-links to the Practice tab in both states ── */}

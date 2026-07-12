@@ -27,6 +27,7 @@ import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { OnboardingStackParamList } from '@/types';
 import { colors, typography } from '@/theme';
 import { isCompactPhoneViewport, isShortPhoneViewport } from '@/utils/layout';
+import { getOnboardingProgressPercent } from '@/utils/onboardingProgress';
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 const anchorLogoOfficial = require('../../assets/images/anchor-gold.png') as number;
 
@@ -449,7 +450,7 @@ const Ornament: React.FC = () => (
 // ---------------------------------------------------------------------------
 
 export const NarrativeOnboardingScreen: React.FC<Props> = ({ navigation }) => {
-  const { completeOnboarding, setShouldRedirectToCreation } = useAuthStore();
+  const { completeOnboarding, setShouldRedirectToCreation, setIsGuest } = useAuthStore();
   const { width, height } = useWindowDimensions();
   const isShortScreen = isShortPhoneViewport(height);
   const isCompactLayout = isCompactPhoneViewport(width, height);
@@ -498,6 +499,13 @@ export const NarrativeOnboardingScreen: React.FC<Props> = ({ navigation }) => {
 
   const handleSkip = () => goToSlide(TOTAL - 1);
 
+  const handleDevSkipToHome = () => {
+    // Dev-build only: jump straight to Home with no account, bypassing onboarding entirely.
+    setIsGuest(true);
+    setShouldRedirectToCreation(false);
+    completeOnboarding();
+  };
+
   const renderVisual = (slide: OnboardingSlide) => {
     const scaledSize = Math.round(visualScale * 320);
     const wrapSmall = (child: React.ReactNode): React.ReactNode =>
@@ -530,6 +538,7 @@ export const NarrativeOnboardingScreen: React.FC<Props> = ({ navigation }) => {
   };
 
   const slide = SLIDES[currentSlide];
+  const progressPercent = getOnboardingProgressPercent(currentSlide, TOTAL);
 
   return (
     <SafeAreaView style={styles.container}>
@@ -555,6 +564,17 @@ export const NarrativeOnboardingScreen: React.FC<Props> = ({ navigation }) => {
           hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
         >
           <Text style={styles.skipText}>SKIP</Text>
+        </TouchableOpacity>
+      )}
+
+      {/* Dev-build only bypass — jumps straight to Home, no account created */}
+      {__DEV__ && currentSlide === 0 && (
+        <TouchableOpacity
+          style={styles.devSkipBtn}
+          onPress={handleDevSkipToHome}
+          hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+        >
+          <Text style={styles.devSkipBtnText}>DEV: SKIP TO HOME</Text>
         </TouchableOpacity>
       )}
 
@@ -594,6 +614,19 @@ export const NarrativeOnboardingScreen: React.FC<Props> = ({ navigation }) => {
           isCompactLayout && styles.footerCompact,
         ]}
       >
+        <View
+          style={styles.progressGroup}
+          accessibilityRole="progressbar"
+          accessibilityValue={{ min: 0, max: 100, now: progressPercent }}
+        >
+          <View style={styles.progressTrack}>
+            <View style={[styles.progressFill, { width: `${progressPercent}%` }]} />
+          </View>
+          <Text style={styles.progressText}>
+            STEP {currentSlide + 1} OF {TOTAL} · {progressPercent}% SET UP
+          </Text>
+        </View>
+
         <View style={styles.dots}>
           {SLIDES.map((_, i) => (
             <TouchableOpacity
@@ -667,6 +700,8 @@ const styles = StyleSheet.create({
   signInBtnText: { fontFamily: typography.fonts.heading, fontSize: MICRO_FONT_SIZE + 1, letterSpacing: 1.8, color: colors.gold },
   skipBtn: { position: 'absolute', top: 54, right: 20, zIndex: 20, flexDirection: 'row', alignItems: 'center', paddingHorizontal: 10, paddingVertical: 5, borderRadius: 16, borderWidth: 1, borderColor: withAlpha(colors.bone, 0.18), backgroundColor: withAlpha(colors.bone, 0.05) },
   skipText: { fontFamily: typography.fonts.heading, fontSize: MICRO_FONT_SIZE + 1, letterSpacing: 2, color: colors.silver },
+  devSkipBtn: { position: 'absolute', top: 92, alignSelf: 'center', zIndex: 20, paddingHorizontal: 10, paddingVertical: 4, borderRadius: 12, borderWidth: 1, borderStyle: 'dashed', borderColor: 'rgba(255,90,90,0.5)', backgroundColor: 'rgba(255,90,90,0.08)' },
+  devSkipBtnText: { fontFamily: typography.fonts.heading, fontSize: MICRO_FONT_SIZE, letterSpacing: 1.5, color: '#FF5A5A' },
   slideContent: { flex: 1, paddingTop: 44 },
   slideContentCompact: { paddingTop: 32 },
   slideContentShort: { paddingTop: 28 },
@@ -686,6 +721,10 @@ const styles = StyleSheet.create({
   footer: { paddingHorizontal: 36, paddingBottom: Platform.OS === 'android' ? 24 : 12, alignItems: 'center', gap: 24 },
   footerShort: { paddingBottom: Platform.OS === 'android' ? 16 : 12, gap: 16 },
   footerCompact: { paddingHorizontal: 24, gap: 18 },
+  progressGroup: { width: '100%', gap: 7 },
+  progressTrack: { width: '100%', height: 3, borderRadius: 2, backgroundColor: withAlpha(colors.bone, 0.14), overflow: 'hidden' },
+  progressFill: { height: '100%', borderRadius: 2, backgroundColor: colors.gold },
+  progressText: { alignSelf: 'center', fontFamily: typography.fonts.heading, fontSize: MICRO_FONT_SIZE, letterSpacing: 1.8, color: withAlpha(colors.bone, 0.5) },
   dots: { flexDirection: 'row', gap: 8, alignItems: 'center' },
   dot: { height: 6, borderRadius: 3 },
   dotActive: { width: 24, backgroundColor: colors.gold },
