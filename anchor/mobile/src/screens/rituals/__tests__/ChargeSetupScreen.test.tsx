@@ -6,6 +6,11 @@ import { ChargeSetupScreen } from '../ChargeSetupScreen';
 const mockNavigate = jest.fn();
 const mockReplace = jest.fn();
 const mockPopToTop = jest.fn();
+const mockSetDefaultCharge = jest.fn();
+let mockLocationPrimingSuggestion: any = null;
+const mockResolveLocationPrimingSuggestion = jest.fn(() =>
+    Promise.resolve(mockLocationPrimingSuggestion)
+);
 const mockRouteParams: Record<string, unknown> = { anchorId: 'anchor-123' };
 const mockAnchor = {
     id: 'anchor-123',
@@ -52,10 +57,17 @@ jest.mock('@/stores/settingsStore', () => ({
     useSettingsStore: (selector: any) => {
         const state = {
             defaultCharge: { mode: 'focus', preset: '1m' },
-            setDefaultCharge: jest.fn()
+            setDefaultCharge: mockSetDefaultCharge
         };
         return selector ? selector(state) : state;
     }
+}));
+
+jest.mock('@/stores/locationPrimingStore', () => ({
+    useLocationPrimingStore: (selector: any) =>
+        selector({
+            resolveActiveSuggestion: mockResolveLocationPrimingSuggestion,
+        }),
 }));
 
 jest.mock('@/utils/haptics', () => ({
@@ -127,6 +139,9 @@ describe('ChargeSetupScreen', () => {
         Object.assign(mockRouteParams, { anchorId: 'anchor-123' });
         mockAnchor.baseSigilSvg = '<svg></svg>';
         mockAnchor.enhancedImageUrl = undefined;
+        mockLocationPrimingSuggestion = null;
+        mockResolveLocationPrimingSuggestion.mockClear();
+        mockSetDefaultCharge.mockClear();
     });
 
     it('stub: renders anchor focal point', () => {
@@ -205,6 +220,36 @@ describe('ChargeSetupScreen', () => {
         });
     });
 
+    it('preselects and starts a matching location preset without changing saved defaults', async () => {
+        mockLocationPrimingSuggestion = {
+            distanceMeters: 18,
+            zone: {
+                label: 'Gym',
+                preset: {
+                    sessionType: 'prime',
+                    durationSeconds: 300,
+                    audioMode: 'silent',
+                },
+            },
+        };
+
+        render(<ChargeSetupScreen />);
+
+        expect(await screen.findByText('PLACE PRESET')).toBeTruthy();
+        expect(screen.getByText('Gym · 5 min · Silent')).toBeTruthy();
+
+        fireEvent.press(screen.getByLabelText('Begin Priming'));
+
+        expect(mockReplace).toHaveBeenCalledWith('Ritual', {
+            anchorId: 'anchor-123',
+            ritualType: 'ritual',
+            durationSeconds: 300,
+            audioModeOverride: 'silent',
+            returnTo: undefined,
+        });
+        expect(mockSetDefaultCharge).not.toHaveBeenCalled();
+    });
+
     it('auto-starts the initial deep duration when the route preselects it', () => {
         Object.assign(mockRouteParams, {
             autoStartOnSelection: true,
@@ -220,6 +265,27 @@ describe('ChargeSetupScreen', () => {
             durationSeconds: 180,
             returnTo: 'practice',
         });
+    });
+
+    it('preselects the initial deep duration without auto-starting when auto-start is off', () => {
+        Object.assign(mockRouteParams, {
+            initialDuration: 'deep',
+            returnTo: 'practice',
+        });
+
+        render(<ChargeSetupScreen />);
+
+        expect(screen.getByLabelText('Deep Prime duration').props.accessibilityState).toEqual(
+            expect.objectContaining({
+                selected: true,
+            })
+        );
+        expect(mockReplace).not.toHaveBeenCalledWith(
+            'Ritual',
+            expect.objectContaining({
+                anchorId: 'anchor-123',
+            })
+        );
     });
 
     it('renders the enhanced anchor artwork when available', () => {

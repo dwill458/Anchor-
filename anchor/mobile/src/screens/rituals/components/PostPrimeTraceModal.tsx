@@ -20,6 +20,7 @@ interface PostPrimeTraceModalProps {
   anchor: Anchor;
   onTrace: () => void;
   onSkip: () => void;
+  compact?: boolean;
 }
 
 export const PostPrimeTraceModal: React.FC<PostPrimeTraceModalProps> = ({
@@ -27,6 +28,7 @@ export const PostPrimeTraceModal: React.FC<PostPrimeTraceModalProps> = ({
   anchor,
   onTrace,
   onSkip,
+  compact = false,
 }) => {
   const reduceMotionEnabled = useReduceMotionEnabled();
   const opacity = useSharedValue(0);
@@ -57,6 +59,23 @@ export const PostPrimeTraceModal: React.FC<PostPrimeTraceModalProps> = ({
 
   if (!visible) {
     return null;
+  }
+
+  if (compact) {
+    return (
+      <View style={styles.compactWrap} pointerEvents="box-none">
+        <TouchableOpacity
+          style={styles.compactLink}
+          onPress={onTrace}
+          activeOpacity={0.72}
+          accessibilityRole="button"
+          accessibilityLabel="Trace"
+          testID="post-prime-trace-link"
+        >
+          <Text style={styles.compactLinkText}>Trace</Text>
+        </TouchableOpacity>
+      </View>
+    );
   }
 
   return (
@@ -124,6 +143,30 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: spacing.xl,
+  },
+  compactWrap: {
+    position: 'absolute',
+    right: spacing.lg,
+    bottom: spacing.xl,
+    zIndex: 200,
+    elevation: 20,
+  },
+  compactLink: {
+    minHeight: 36,
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: 'rgba(212, 175, 55, 0.36)',
+    backgroundColor: 'rgba(10, 13, 18, 0.78)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: spacing.md,
+  },
+  compactLinkText: {
+    fontSize: typography.sizes.body2,
+    fontFamily: typography.fonts.bodyBold,
+    color: colors.gold,
+    textDecorationLine: 'underline',
+    textDecorationColor: colors.gold,
   },
   container: {
     width: '100%',

@@ -12,6 +12,8 @@ import {
     Dimensions,
     Easing,
     AccessibilityInfo,
+    Alert,
+    Keyboard,
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
@@ -27,6 +29,10 @@ import { useTeachingStore } from '@/stores/teachingStore';
 import { AnalyticsService } from '@/services/AnalyticsService';
 import { TEACHINGS } from '@/constants/teaching';
 import { useIntentionValidation } from '@/hooks/useIntentionValidation';
+import { useEntitlements } from '@/hooks/useEntitlements';
+import { getAnchorCreationLimitCopy } from '@/utils/entitlements';
+import { useAuthStore } from '@/stores/authStore';
+import { useAnchorStore } from '@/stores/anchorStore';
 
 const { height } = Dimensions.get('window');
 
@@ -38,11 +44,15 @@ export default function IntentionInputScreen() {
     const { recordShown } = useTeachingStore();
 
     const scrollViewRef = useRef<ScrollView>(null);
+    const textInputRef = useRef<TextInput>(null);
     const [intention, setIntention] = useState('');
     const [placeholder, setPlaceholder] = useState('');
     const [isFocused, setIsFocused] = useState(false);
     const [delayedCanSubmit, setDelayedCanSubmit] = useState(false);
     const intentionValidation = useIntentionValidation(intention);
+    const entitlements = useEntitlements();
+    const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
+    const anchorCount = useAnchorStore((state) => state.anchors.length);
 
     // Teaching: Undertone state
     const [undertoneText, setUndertoneText] = useState<string | null>(null);
@@ -178,6 +188,21 @@ export default function IntentionInputScreen() {
         }, 150);
     };
 
+    const restoreLayoutAfterKeyboard = React.useCallback(() => {
+        textInputRef.current?.blur();
+        setIsFocused(false);
+        if (idleTimerRef.current) clearTimeout(idleTimerRef.current);
+
+        requestAnimationFrame(() => {
+            scrollViewRef.current?.scrollTo({ y: 0, animated: true });
+        });
+    }, []);
+
+    useEffect(() => {
+        const subscription = Keyboard.addListener('keyboardDidHide', restoreLayoutAfterKeyboard);
+        return () => subscription.remove();
+    }, [restoreLayoutAfterKeyboard]);
+
     const handleBlur = () => {
         setIsFocused(false);
         if (idleTimerRef.current) clearTimeout(idleTimerRef.current);
@@ -206,6 +231,33 @@ export default function IntentionInputScreen() {
 
     const handleContinue = () => {
         if (delayedCanSubmit) {
+            const isGuestFirstAnchor = !isAuthenticated && anchorCount === 0;
+            if (!isGuestFirstAnchor && !entitlements.canCreateAnchor) {
+                const reason = entitlements.anchorCreationLimitReason;
+                if (!reason) return;
+
+                AnalyticsService.track(reason, {
+                    source: 'first_anchor_creation',
+                    anchors_created_today: entitlements.anchorsCreatedToday,
+                    anchors_created_during_trial: entitlements.anchorsCreatedDuringTrial,
+                    tier: entitlements.tier,
+                });
+
+                if (reason === 'pro_daily_anchor_cap_reached') {
+                    const copy = getAnchorCreationLimitCopy(reason);
+                    Alert.alert(copy?.title ?? 'Daily creation limit reached', copy?.body, [
+                        { text: copy?.cta ?? 'Return to Sanctuary', onPress: () => navigation.goBack() },
+                    ]);
+                    return;
+                }
+
+                navigation.navigate('Paywall', {
+                    source: reason,
+                    preferredPlanId: 'annual',
+                });
+                return;
+            }
+
             const distillation = distillIntention(intention);
             const category = detectCategoryFromText(intention);
             navigation.navigate('LetterDistillation', {
@@ -261,6 +313,7 @@ export default function IntentionInputScreen() {
                         <Animated.View style={[styles.section, { opacity: fadeAnim }]}>
                             <Animated.View style={[styles.inputContainer, { borderColor: inputBorderColor }]}>
                                 <TextInput
+                                    ref={textInputRef}
                                     style={styles.textInput}
                                     value={intention}
                                     onChangeText={handleIntentionChange}

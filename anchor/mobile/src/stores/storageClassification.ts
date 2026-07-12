@@ -76,5 +76,7 @@ export const STORAGE_CLASSIFICATION_MATRIX: StoreClassificationMatrix = {
     hapticsEnabled: 'low_sensitivity_preferences',
     soundEnabled: 'low_sensitivity_preferences',
     colorScheme: 'low_sensitivity_preferences',
+    traceDefaultEnabled: 'low_sensitivity_preferences',
+    traceSkipStreak: 'high_sensitivity_telemetry',
   },
 };

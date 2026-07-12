@@ -237,8 +237,8 @@ describe('useNotificationController', () => {
     expect(mockScheduleSmartNotification).toHaveBeenCalled();
   });
 
-  it('shows the soft ask after an anchor is saved only once', async () => {
-    jest.spyOn(Alert, 'alert').mockImplementation(jest.fn());
+  it('does not show a blocking alert when an anchor is saved (the reminder card owns the ask)', async () => {
+    const alertSpy = jest.spyOn(Alert, 'alert').mockImplementation(jest.fn());
     const { result } = renderHook(() => useNotificationController());
 
     await waitFor(() => expect(result.current.isInitialized).toBe(true));
@@ -247,23 +247,63 @@ describe('useNotificationController', () => {
       await result.current.handleAnchorSaved();
     });
 
-    expect(Alert.alert).toHaveBeenCalledWith(
-      'Keep your anchor active?',
-      'Anchor can remind you to prime once a day, at the time you choose.',
-      expect.any(Array)
-    );
+    expect(alertSpy).not.toHaveBeenCalled();
+    expect(asyncStorage.setItem).toHaveBeenCalled();
+  });
 
-    const softAskWrite = asyncStorage.setItem.mock.calls
-      .map((call) => JSON.parse(call[1] ?? '{}'))
-      .find((state) => state.softAskShownAt);
-    expect(softAskWrite).toBeTruthy();
-    const savedState = softAskWrite;
-    asyncStorage.getItem.mockResolvedValue(JSON.stringify(savedState));
+  it('schedules the daily prime reminder after permission is granted', async () => {
+    mockRequestPermissions.mockResolvedValue(true);
+    mockGetPermissionStatus.mockResolvedValue('granted');
+    const { result } = renderHook(() => useNotificationController());
 
+    await waitFor(() => expect(result.current.isInitialized).toBe(true));
+
+    let status: 'granted' | 'denied' = 'denied';
     await act(async () => {
-      await result.current.handleAnchorSaved();
+      status = await result.current.setDailyPrimeReminder('08:00', 'first_anchor');
     });
 
-    expect(Alert.alert).toHaveBeenCalledTimes(1);
+    expect(status).toBe('granted');
+    expect(mockRequestPermissions).toHaveBeenCalled();
+
+    const savedState = JSON.parse(asyncStorage.setItem.mock.calls.at(-1)?.[1] ?? '{}');
+    expect(savedState).toMatchObject({
+      notificationPermissionStatus: 'granted',
+      notification_enabled: true,
+      dailyPrimeEnabled: true,
+      dailyPrimeTime: '08:00',
+    });
+  });
+
+  it('records a denied permission without scheduling when the user declines', async () => {
+    mockRequestPermissions.mockResolvedValue(false);
+    const { result } = renderHook(() => useNotificationController());
+
+    await waitFor(() => expect(result.current.isInitialized).toBe(true));
+
+    let status: 'granted' | 'denied' = 'granted';
+    await act(async () => {
+      status = await result.current.setDailyPrimeReminder('20:00', 'fallback');
+    });
+
+    expect(status).toBe('denied');
+    const savedState = JSON.parse(asyncStorage.setItem.mock.calls.at(-1)?.[1] ?? '{}');
+    expect(savedState).toMatchObject({
+      notificationPermissionStatus: 'denied',
+      notification_enabled: false,
+    });
+  });
+
+  it('marks a reminder prompt moment as completed so it is not shown again', async () => {
+    const { result } = renderHook(() => useNotificationController());
+
+    await waitFor(() => expect(result.current.isInitialized).toBe(true));
+
+    await act(async () => {
+      await result.current.completeReminderPrompt('first_anchor');
+    });
+
+    const savedState = JSON.parse(asyncStorage.setItem.mock.calls.at(-1)?.[1] ?? '{}');
+    expect(savedState.firstAnchorReminderPromptCompleted).toBe(true);
   });
 });

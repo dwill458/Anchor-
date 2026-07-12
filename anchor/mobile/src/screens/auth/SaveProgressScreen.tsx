@@ -23,6 +23,7 @@ import { Check } from 'lucide-react-native';
 import Svg, { Circle, Path, SvgXml } from 'react-native-svg';
 import Animated, {
   Easing,
+  ReduceMotion,
   type SharedValue,
   useAnimatedStyle,
   useSharedValue,
@@ -48,7 +49,7 @@ const GOLD_DEEP = '#A8892E';
 const BONE = '#F5F0E8';
 const DISC_SIGIL_SIZE = 152;
 const FALLBACK_SIGIL_SIZE = 122;
-const DISC_ARTWORK_RADIUS = 18;
+const DISC_ARTWORK_RADIUS = DISC_SIGIL_SIZE / 2;
 const ORBIT_SIZE = 242;
 const ORBIT_OFFSET = 15;
 
@@ -113,7 +114,7 @@ const AnchorDisc = ({ anchor }: { anchor: Anchor }) => {
             <Image
               source={{ uri: anchor.enhancedImageUrl }}
               style={styles.discSigilImage}
-              resizeMode="contain"
+              resizeMode="cover"
             />
           </View>
         ) : sigilXml ? (
@@ -193,42 +194,61 @@ export const SaveProgressScreen: React.FC = () => {
       return;
     }
 
+    // reduceMotionEnabled above is the single reduce-motion gate for this
+    // screen, so opt out of Reanimated's implicit ReduceMotion.System —
+    // otherwise Android devices with "Remove animations" (or animator scale 0)
+    // silently cancel the infinite repeats and the medallion freezes.
+    const ambient = { reduceMotion: ReduceMotion.Never };
+    const entrance = { duration: 600, easing: Easing.out(Easing.cubic), ...ambient };
+
     floatY.value = withRepeat(
-      withTiming(-5, { duration: 3500, easing: Easing.inOut(Easing.sin) }),
+      withTiming(-5, { duration: 3500, easing: Easing.inOut(Easing.sin), ...ambient }),
       -1,
-      true
+      true,
+      undefined,
+      ReduceMotion.Never
     );
     haloOpacity.value = withRepeat(
-      withTiming(0.85, { duration: 4000, easing: Easing.inOut(Easing.sin) }),
+      withTiming(0.85, { duration: 4000, easing: Easing.inOut(Easing.sin), ...ambient }),
       -1,
-      true
+      true,
+      undefined,
+      ReduceMotion.Never
     );
     haloScale.value = withRepeat(
-      withTiming(1.04, { duration: 4000, easing: Easing.inOut(Easing.sin) }),
+      withTiming(1.04, { duration: 4000, easing: Easing.inOut(Easing.sin), ...ambient }),
       -1,
-      true
+      true,
+      undefined,
+      ReduceMotion.Never
     );
     pulseScale.value = 0;
     pulseScale.value = withRepeat(
-      withTiming(1, { duration: 900, easing: Easing.inOut(Easing.sin) }),
+      withTiming(1, { duration: 900, easing: Easing.inOut(Easing.sin), ...ambient }),
       -1,
-      true
+      true,
+      undefined,
+      ReduceMotion.Never
     );
     spinProgress.value = 0;
     spinProgress.value = withRepeat(
-      withTiming(360, { duration: 7000, easing: Easing.linear }),
+      withTiming(360, { duration: 7000, easing: Easing.linear, ...ambient }),
       -1,
-      false
+      false,
+      undefined,
+      ReduceMotion.Never
     );
     ctaShineX.value = withRepeat(
-      withTiming(2.7, { duration: 5000, easing: Easing.inOut(Easing.sin) }),
+      withTiming(2.7, { duration: 5000, easing: Easing.inOut(Easing.sin), ...ambient }),
       -1,
-      false
+      false,
+      undefined,
+      ReduceMotion.Never
     );
-    wave1.value = withDelay(50, withTiming(1, { duration: 600, easing: Easing.out(Easing.cubic) }));
-    wave2.value = withDelay(140, withTiming(1, { duration: 600, easing: Easing.out(Easing.cubic) }));
-    wave3.value = withDelay(240, withTiming(1, { duration: 600, easing: Easing.out(Easing.cubic) }));
-    wave4.value = withDelay(340, withTiming(1, { duration: 600, easing: Easing.out(Easing.cubic) }));
+    wave1.value = withDelay(50, withTiming(1, entrance), ReduceMotion.Never);
+    wave2.value = withDelay(140, withTiming(1, entrance), ReduceMotion.Never);
+    wave3.value = withDelay(240, withTiming(1, entrance), ReduceMotion.Never);
+    wave4.value = withDelay(340, withTiming(1, entrance), ReduceMotion.Never);
   }, [
     ctaShineX,
     floatY,
@@ -409,7 +429,8 @@ export const SaveProgressScreen: React.FC = () => {
               YOUR FIRST ANCHOR{'\n'}IS <Text style={styles.titleGold}>READY.</Text>
             </Animated.Text>
             <Animated.Text style={[styles.body, wave2Style]}>
-              Create a free account so this anchor stays with you before you enter the Sanctuary.
+              You made this. Create a free account to keep it synced, recover it on a new phone,
+              and return to it whenever you need it.
             </Animated.Text>
           </View>
 

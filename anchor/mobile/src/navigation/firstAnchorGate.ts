@@ -8,7 +8,10 @@ export type VaultEntryRouteName = 'Vault';
 export type VaultNavigationLike = {
   navigate: (...args: any[]) => void;
   replace?: (...args: any[]) => void;
+  reset?: (...args: any[]) => void;
 };
+
+type VaultNavigationAction = 'navigate' | 'replace' | 'reset';
 
 /**
  * A guest who has forged their first anchor but has not yet created an account
@@ -40,12 +43,16 @@ export function getVaultEntryRouteName(): VaultEntryRouteName {
 
 export function navigateToVaultDestination(
   navigation: VaultNavigationLike,
-  action: 'navigate' | 'replace' = 'navigate'
+  action: VaultNavigationAction = 'navigate'
 ): void {
   // Account gate first: an unauthenticated guest with a pending first anchor can
   // never slip into the Vault, regardless of which exit/back path called us.
   const gate = getPendingFirstAnchorGate();
   if (gate) {
+    if (action === 'reset' && typeof navigation.reset === 'function') {
+      navigation.reset({ index: 0, routes: [{ name: 'SaveProgress', params: gate }] });
+      return;
+    }
     if (action === 'replace' && typeof navigation.replace === 'function') {
       navigation.replace('SaveProgress', gate);
       return;
@@ -55,6 +62,11 @@ export function navigateToVaultDestination(
   }
 
   const routeName = getVaultEntryRouteName();
+
+  if (action === 'reset' && typeof navigation.reset === 'function') {
+    navigation.reset({ index: 0, routes: [{ name: routeName }] });
+    return;
+  }
 
   if (action === 'replace' && typeof navigation.replace === 'function') {
     navigation.replace(routeName);

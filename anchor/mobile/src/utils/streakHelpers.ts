@@ -19,7 +19,8 @@ export interface StreakResult {
  *  - Empty input returns all zeros
  */
 export function calculateStreak(
-  activations: { createdAt: Date | string }[]
+  activations: { createdAt: Date | string }[],
+  now: Date = new Date()
 ): StreakResult {
   if (activations.length === 0) {
     return { currentStreak: 0, longestStreak: 0, lastActivatedAt: null };
@@ -43,7 +44,7 @@ export function calculateStreak(
   // Unique days, sorted descending
   const uniqueDays = [...new Set(dates.map(utcDay))].sort((a, b) => b - a);
 
-  const todayUtc = utcDay(new Date());
+  const todayUtc = utcDay(now);
 
   // ── Current streak ────────────────────────────────────────────────────────
   // Streak is still alive if the most-recent activation day is today or

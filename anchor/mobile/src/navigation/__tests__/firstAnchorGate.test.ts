@@ -34,14 +34,14 @@ const setAuthState = (overrides: Record<string, unknown>) => {
 };
 
 describe('firstAnchorGate', () => {
-  let navigation: { navigate: jest.Mock; replace: jest.Mock };
+  let navigation: { navigate: jest.Mock; replace: jest.Mock; reset: jest.Mock };
 
   beforeEach(() => {
     jest.clearAllMocks();
     mockAnchorGetState.mockReturnValue({
       getAnchorById: jest.fn(() => mockAnchor),
     });
-    navigation = { navigate: jest.fn(), replace: jest.fn() };
+    navigation = { navigate: jest.fn(), replace: jest.fn(), reset: jest.fn() };
   });
 
   describe('getPendingFirstAnchorGate', () => {
@@ -104,6 +104,31 @@ describe('firstAnchorGate', () => {
       navigateToVaultDestination(navigation, 'replace');
 
       expect(navigation.replace).toHaveBeenCalledWith('Vault');
+    });
+
+    it('can reset the stack to the Vault', () => {
+      setAuthState({ isAuthenticated: true, pendingFirstAnchorDraft: null });
+
+      navigateToVaultDestination(navigation, 'reset');
+
+      expect(navigation.reset).toHaveBeenCalledWith({
+        index: 0,
+        routes: [{ name: 'Vault' }],
+      });
+    });
+
+    it('can reset the stack to SaveProgress for a pending-first-anchor guest', () => {
+      setAuthState({
+        isAuthenticated: false,
+        pendingFirstAnchorDraft: { tempAnchorId: 'pending-first-anchor-1' },
+      });
+
+      navigateToVaultDestination(navigation, 'reset');
+
+      expect(navigation.reset).toHaveBeenCalledWith({
+        index: 0,
+        routes: [{ name: 'SaveProgress', params: { anchor: mockAnchor } }],
+      });
     });
   });
 });

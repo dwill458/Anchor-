@@ -25,13 +25,11 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import Svg, { Circle, Path, SvgXml } from 'react-native-svg';
 import { AnalyticsService, AnalyticsEvents } from '@/services/AnalyticsService';
+import { refreshServerEntitlement } from '@/services/BillingService';
 import { FrictionAnalytics } from '@/services/FrictionAnalytics';
-import {
-  REVENUECAT_ANNUAL_PACKAGE_ID,
-  REVENUECAT_MONTHLY_PACKAGE_ID,
-} from '@/config';
 import { colors, typography } from '@/theme';
 import { withAlpha } from '@/utils/color';
+import { getAnchorCreationLimitCopy, getPracticeLimitCopy } from '@/utils/entitlements';
 import { LEGAL_URLS } from '@/constants/legal';
 import { useAnchorStore } from '@/stores/anchorStore';
 import { useSubscriptionStore } from '@/stores/subscriptionStore';
@@ -43,21 +41,31 @@ import revenueCatService, {
   type RevenueCatPlanId,
 } from '@/services/RevenueCatService';
 import { logger } from '@/utils/logger';
-import type { Anchor } from '@/types';
+import type { Anchor, PaywallSource } from '@/types';
 import type { RootNavigatorParamList } from '@/navigation/RootNavigator';
 
-type PaywallSource = 'post_trial' | 'gated_feature';
 type PlanId = RevenueCatPlanId;
 type HeadlineId = 'loss' | 'momentum' | 'direct';
 type StoreAvailability = 'loading' | 'available' | 'unavailable';
 
+function getPaywallSourceCopy(source: PaywallSource) {
+  switch (source) {
+    case 'create_anchor_free_locked':
+    case 'trial_anchor_cap_reached':
+      return getAnchorCreationLimitCopy(source);
+    case 'free_weekly_sessions_used':
+    case 'premium_practice_locked':
+      return getPracticeLimitCopy(source);
+    default:
+      return null;
+  }
+}
+
 type PlanDisplay = {
   id: PlanId;
   tier: string;
-  packageId: string;
+  packageId: string | null;
   isAvailable: boolean;
-  fallbackPrice: string;
-  fallbackPriceValue: number;
   per: string;
   priceLabel: string;
   priceValue: number | null;
@@ -78,10 +86,10 @@ const PAYWALL_EXPERIMENT = {
 const HEADLINES: Record<HeadlineId, { eyebrow: string; titleA: string; titleB: string; titleEm: string; sub: string }> = {
   loss: {
     eyebrow: 'Your free trial has ended',
-    titleA: 'Your practice is',
-    titleB: 'still',
-    titleEm: 'here.',
-    sub: "Seven days in, the thread is forming. Don't let it go slack now.",
+    titleA: "Don't lose access",
+    titleB: 'to what you',
+    titleEm: 'built.',
+    sub: 'Your anchors and progress are safe. Continue to keep your practice within reach when you need it.',
   },
   momentum: {
     eyebrow: 'Seven days complete',
@@ -99,26 +107,17 @@ const HEADLINES: Record<HeadlineId, { eyebrow: string; titleA: string; titleB: s
   },
 };
 
-const FALLBACK_PLAN_VALUES = {
+const PLAN_DESCRIPTORS = {
   monthly: {
     tier: 'Monthly',
-    packageId: REVENUECAT_MONTHLY_PACKAGE_ID,
-    fallbackPrice: '$7.99',
-    fallbackPriceValue: 7.99,
     per: 'per month',
   },
   annual: {
     tier: 'Annual',
-    packageId: REVENUECAT_ANNUAL_PACKAGE_ID,
-    fallbackPrice: '$59.99',
-    fallbackPriceValue: 59.99,
     per: 'per year',
   },
 } satisfies Record<PlanId, {
   tier: string;
-  packageId: string;
-  fallbackPrice: string;
-  fallbackPriceValue: number;
   per: string;
 }>;
 
@@ -127,7 +126,10 @@ const PURCHASE_UNAVAILABLE_MESSAGE =
   'Purchases are temporarily unavailable. Please try again later or restore an existing subscription.';
 
 function hasAvailableStorePlan(metadata: RevenueCatOfferingDisplayMetadata): boolean {
-  return Boolean(metadata.monthly || metadata.annual);
+  return (['monthly', 'annual'] as const).some((planId) => {
+    const plan = metadata[planId];
+    return Boolean(plan?.packageId && plan.price != null);
+  });
 }
 
 function getSafePurchaseErrorMessage(error: unknown): string {
@@ -187,25 +189,23 @@ function buildPlanDisplay(
   id: PlanId,
   metadata: RevenueCatOfferingDisplayMetadata
 ): PlanDisplay {
-  const fallback = FALLBACK_PLAN_VALUES[id];
+  const descriptor = PLAN_DESCRIPTORS[id];
   const live = metadata[id];
-  const priceValue = live?.price ?? fallback.fallbackPriceValue;
-  const priceLabel = live?.priceString ?? fallback.fallbackPrice;
-  const currencyCode = live?.currencyCode ?? 'USD';
+  const priceValue = live?.price ?? null;
+  const priceLabel = live?.priceString ?? 'Loading…';
+  const currencyCode = live?.currencyCode ?? null;
 
   return {
     id,
-    tier: fallback.tier,
-    packageId: fallback.packageId,
-    isAvailable: Boolean(live),
-    fallbackPrice: fallback.fallbackPrice,
-    fallbackPriceValue: fallback.fallbackPriceValue,
-    per: fallback.per,
+    tier: descriptor.tier,
+    packageId: live?.packageId ?? null,
+    isAvailable: Boolean(live?.packageId && priceValue != null),
+    per: descriptor.per,
     priceLabel,
     priceValue,
     currencyCode,
     unitLabel:
-      id === 'annual'
+      id === 'annual' && priceValue != null
         ? `${live?.pricePerMonthString ?? formatCurrency(priceValue / 12, currencyCode)}/mo`
         : null,
     strikeLabel: null,
@@ -217,17 +217,26 @@ function buildPlans(metadata: RevenueCatOfferingDisplayMetadata): Record<PlanId,
   const monthly = buildPlanDisplay('monthly', metadata);
   const annual = buildPlanDisplay('annual', metadata);
   const monthlyYear = monthly.priceValue != null ? monthly.priceValue * 12 : null;
-  const savings =
-    monthlyYear != null && annual.priceValue != null && monthlyYear > annual.priceValue
-      ? Math.round(((monthlyYear - annual.priceValue) / monthlyYear) * 100)
-      : 37;
+  const hasComparableLivePrices =
+    monthly.isAvailable &&
+    annual.isAvailable &&
+    monthlyYear != null &&
+    annual.priceValue != null &&
+    monthly.currencyCode != null &&
+    monthly.currencyCode === annual.currencyCode &&
+    monthlyYear > annual.priceValue;
+  const savings = hasComparableLivePrices && annual.priceValue != null && monthlyYear != null
+    ? Math.round(((monthlyYear - annual.priceValue) / monthlyYear) * 100)
+    : null;
 
   return {
     monthly,
     annual: {
       ...annual,
-      strikeLabel: monthlyYear ? formatCurrency(monthlyYear, annual.currencyCode) : '$95.88',
-      badge: `Best value · save ${savings}%`,
+      strikeLabel: hasComparableLivePrices && monthlyYear != null
+        ? formatCurrency(monthlyYear, annual.currencyCode)
+        : null,
+      badge: savings != null ? `Best value · save ${savings}%` : null,
     },
   };
 }
@@ -340,16 +349,21 @@ function PlanCard({
   storeAvailability: StoreAvailability;
   onPress: (plan: PlanId) => void;
 }) {
-  const isPlanUnavailable = storeAvailability === 'unavailable' || (storeAvailability === 'available' && !plan.isAvailable);
-  const priceLabel = isPlanUnavailable ? 'Unavailable' : plan.priceLabel;
-  const perLabel = isPlanUnavailable ? 'App Store plan not loaded' : plan.per;
+  const isLoading = storeAvailability === 'loading';
+  const isPlanUnavailable = storeAvailability !== 'available' || !plan.isAvailable;
+  const priceLabel = isLoading ? 'Loading…' : isPlanUnavailable ? 'Unavailable' : plan.priceLabel;
+  const perLabel = isLoading
+    ? 'Current App Store pricing'
+    : isPlanUnavailable
+      ? 'App Store plan not loaded'
+      : plan.per;
 
   return (
     <Pressable
       onPress={() => onPress(plan.id)}
       accessibilityRole="button"
       accessibilityState={{ selected }}
-      accessibilityLabel={`${plan.tier} plan ${plan.priceLabel}`}
+      accessibilityLabel={`${plan.tier} plan ${priceLabel}`}
       disabled={isPlanUnavailable}
       testID={`paywall-plan-${plan.id}`}
       style={({ pressed }) => [
@@ -393,6 +407,7 @@ export const PaywallScreen: React.FC = () => {
 
   const preferredPlanId = useSubscriptionStore((state) => state.preferredPlanId);
   const setPreferredPlanId = useSubscriptionStore((state) => state.setPreferredPlanId);
+  const applyServerEntitlement = useSubscriptionStore((state) => state.applyServerEntitlement);
   const initialPlanId = route.params?.preferredPlanId ?? preferredPlanId ?? PAYWALL_EXPERIMENT.defaultPlan;
   const [selectedPlanId, setSelectedPlanId] = useState<PlanId>(initialPlanId);
   const [offeringMetadata, setOfferingMetadata] = useState<RevenueCatOfferingDisplayMetadata>({});
@@ -408,7 +423,8 @@ export const PaywallScreen: React.FC = () => {
   const selectedPlan = plans[selectedPlanId];
   const isStoreLoading = storeAvailability === 'loading';
   const isPurchaseUnavailable =
-    storeAvailability === 'unavailable' || (storeAvailability === 'available' && !offeringMetadata[selectedPlanId]);
+    storeAvailability !== 'available' || !selectedPlan.isAvailable || !selectedPlan.packageId;
+  const sourceCopy = getPaywallSourceCopy(source);
   const headline = HEADLINES[PAYWALL_EXPERIMENT.headline];
   const showRecap = PAYWALL_EXPERIMENT.showRecap && (source === 'post_trial' || forgedCount + totalPrimes + primeStreak > 0);
 
@@ -456,16 +472,16 @@ export const PaywallScreen: React.FC = () => {
   }, []);
 
   useEffect(() => {
-    if (storeAvailability !== 'available' || offeringMetadata[selectedPlanId]) {
+    if (storeAvailability !== 'available' || plans[selectedPlanId].isAvailable) {
       return;
     }
 
-    const availablePlanId = offeringMetadata.annual ? 'annual' : offeringMetadata.monthly ? 'monthly' : null;
+    const availablePlanId = plans.annual.isAvailable ? 'annual' : plans.monthly.isAvailable ? 'monthly' : null;
     if (availablePlanId) {
       setSelectedPlanId(availablePlanId);
       setPreferredPlanId(availablePlanId);
     }
-  }, [offeringMetadata, selectedPlanId, setPreferredPlanId, storeAvailability]);
+  }, [plans, selectedPlanId, setPreferredPlanId, storeAvailability]);
 
   useEffect(() => {
     if (route.params?.preferredPlanId) {
@@ -494,7 +510,7 @@ export const PaywallScreen: React.FC = () => {
   }, [navigation, source]);
 
   const handleSelectPlan = useCallback((plan: PlanId) => {
-    if (storeAvailability === 'available' && !offeringMetadata[plan]) {
+    if (storeAvailability !== 'available' || !plans[plan].isAvailable) {
       return;
     }
 
@@ -502,7 +518,7 @@ export const PaywallScreen: React.FC = () => {
     setPreferredPlanId(plan);
     AnalyticsService.track('paywall_plan_selected', { plan });
     FrictionAnalytics.stepCompleted('paywall', 'plan_selection', { plan });
-  }, [offeringMetadata, setPreferredPlanId, storeAvailability]);
+  }, [plans, setPreferredPlanId, storeAvailability]);
 
   const handleSignIn = useCallback(() => {
     navigation.navigate('Settings', {
@@ -522,67 +538,98 @@ export const PaywallScreen: React.FC = () => {
       return;
     }
 
+    const packageId = selectedPlan.packageId;
+    if (!packageId) {
+      Alert.alert(PURCHASE_UNAVAILABLE_TITLE, PURCHASE_UNAVAILABLE_MESSAGE);
+      return;
+    }
+
     setIsPurchasing(true);
     AnalyticsService.track('paywall_cta_tapped', {
+      source,
       plan: selectedPlanId,
-      productId: selectedPlan.packageId,
+      productId: packageId,
     });
     FrictionAnalytics.stepCompleted('paywall', 'purchase_cta', {
       source,
       plan: selectedPlanId,
-      product_id: selectedPlan.packageId,
+      product_id: packageId,
     });
 
     try {
-      const { status, dismissed } = await revenueCatService.purchasePackageByIdentifier(selectedPlan.packageId);
-      if (!dismissed) {
-        // The SDK only returns (without throwing) when the purchase was confirmed
-        // by the store. Navigate regardless of hasActiveEntitlement so a misconfigured
-        // entitlement ID can't leave a paying user stranded on the paywall.
-        if (status.hasActiveEntitlement) {
-          AnalyticsService.track('paywall_converted', {
-            source,
-            plan: selectedPlanId,
-            productId: selectedPlan.packageId,
-          });
-          // Canonical trial-funnel exit (mirrors paywall_converted with trial context).
-          AnalyticsService.track(AnalyticsEvents.TRIAL_CONVERTED, {
-            source,
-            plan: selectedPlanId,
-            productId: selectedPlan.packageId,
-          });
-          FrictionAnalytics.completeFlow('paywall', {
-            source,
-            plan: selectedPlanId,
-            product_id: selectedPlan.packageId,
-          });
-        } else {
-          FrictionAnalytics.flowBlocked('paywall', 'purchase_confirmation', 'missing_entitlement', {
-            source,
-            plan: selectedPlanId,
-            product_id: selectedPlan.packageId,
-          });
-        }
-        navigation.reset({ index: 0, routes: [{ name: 'Main' }] });
-      } else {
+      const { dismissed } = await revenueCatService.purchasePackageByIdentifier(packageId, {
+        syncStatus: false,
+      });
+      if (dismissed) {
         FrictionAnalytics.stepAbandoned('paywall', 'store_purchase', 'store_sheet_dismissed', {
           source,
           plan: selectedPlanId,
-          product_id: selectedPlan.packageId,
+          product_id: packageId,
         });
+        setIsPurchasing(false);
+        return;
       }
     } catch (error: any) {
       FrictionAnalytics.flowError('paywall', 'purchase', 'purchase_failed', {
         source,
         plan: selectedPlanId,
-        product_id: selectedPlan.packageId,
+        product_id: packageId,
       });
       logger.error('[PaywallScreen] Purchase failed', error);
       Alert.alert('Purchase could not be completed', getSafePurchaseErrorMessage(error));
+      setIsPurchasing(false);
+      return;
+    }
+
+    try {
+      const access = await refreshServerEntitlement();
+      if (!access.hasActiveEntitlement) {
+        FrictionAnalytics.flowBlocked('paywall', 'purchase_confirmation', 'server_entitlement_inactive', {
+          source,
+          plan: selectedPlanId,
+          product_id: packageId,
+        });
+        Alert.alert(
+          'Purchase is still being confirmed',
+          'Your purchase was completed, but access is still being confirmed. Your receipt is safe. Try again in a moment, or restore purchases.'
+        );
+        return;
+      }
+
+      applyServerEntitlement(true);
+      AnalyticsService.track('paywall_converted', {
+        source,
+        plan: selectedPlanId,
+        productId: packageId,
+      });
+      // Canonical trial-funnel exit (mirrors paywall_converted with trial context).
+      AnalyticsService.track(AnalyticsEvents.TRIAL_CONVERTED, {
+        source,
+        plan: selectedPlanId,
+        productId: packageId,
+      });
+      FrictionAnalytics.completeFlow('paywall', {
+        source,
+        plan: selectedPlanId,
+        product_id: packageId,
+      });
+      navigation.reset({ index: 0, routes: [{ name: 'Main' }] });
+    } catch (error) {
+      FrictionAnalytics.flowError('paywall', 'purchase_confirmation', 'billing_confirmation_failed', {
+        source,
+        plan: selectedPlanId,
+        product_id: packageId,
+      });
+      logger.error('[PaywallScreen] Billing confirmation failed after purchase', error);
+      Alert.alert(
+        'Purchase is still being confirmed',
+        'Your purchase was completed, but we could not confirm access yet. Your receipt is safe. Try again in a moment, or restore purchases.'
+      );
     } finally {
       setIsPurchasing(false);
     }
   }, [
+    applyServerEntitlement,
     isPurchaseUnavailable,
     isPurchasing,
     isRestoring,
@@ -600,17 +647,7 @@ export const PaywallScreen: React.FC = () => {
     FrictionAnalytics.stepCompleted('paywall', 'restore_cta', { source });
 
     try {
-      const status = await revenueCatService.restorePurchases();
-      if (status.hasActiveEntitlement) {
-        FrictionAnalytics.completeFlow('paywall', {
-          source,
-          reason: 'restore_success',
-        });
-        navigation.reset({ index: 0, routes: [{ name: 'Main' }] });
-      } else {
-        FrictionAnalytics.flowBlocked('paywall', 'restore', 'no_subscription_found', { source });
-        Alert.alert('No subscription found', 'No active subscription was found for this account.');
-      }
+      await revenueCatService.restorePurchases({ syncStatus: false });
     } catch (error: any) {
       FrictionAnalytics.flowError('paywall', 'restore', 'restore_failed', {
         source,
@@ -620,10 +657,37 @@ export const PaywallScreen: React.FC = () => {
         'Restore failed',
         'We could not restore purchases right now. Check your connection and try again.'
       );
+      setIsRestoring(false);
+      return;
+    }
+
+    try {
+      const access = await refreshServerEntitlement();
+      if (!access.hasActiveEntitlement) {
+        FrictionAnalytics.flowBlocked('paywall', 'restore', 'no_subscription_found', { source });
+        Alert.alert('No subscription found', 'No active subscription was found for this account.');
+        return;
+      }
+
+      applyServerEntitlement(true);
+      FrictionAnalytics.completeFlow('paywall', {
+        source,
+        reason: 'restore_success',
+      });
+      navigation.reset({ index: 0, routes: [{ name: 'Main' }] });
+    } catch (error) {
+      FrictionAnalytics.flowError('paywall', 'restore_confirmation', 'billing_confirmation_failed', {
+        source,
+      });
+      logger.error('[PaywallScreen] Billing confirmation failed after restore', error);
+      Alert.alert(
+        'Restore is still being confirmed',
+        'Your restore was completed, but we could not confirm access yet. Try again in a moment.'
+      );
     } finally {
       setIsRestoring(false);
     }
-  }, [isPurchasing, isRestoring, navigation, source]);
+  }, [applyServerEntitlement, isPurchasing, isRestoring, navigation, source]);
 
   const ctaSub = isStoreLoading
     ? 'Loading current App Store pricing...'
@@ -638,7 +702,7 @@ export const PaywallScreen: React.FC = () => {
     ? 'Loading plans...'
     : isPurchaseUnavailable
       ? 'Purchases unavailable'
-      : 'Continue my practice';
+      : sourceCopy?.cta ?? 'Continue my practice';
 
   return (
     <View style={styles.root}>
@@ -678,14 +742,18 @@ export const PaywallScreen: React.FC = () => {
             <HeroSigil anchor={primaryAnchor} />
             <Text style={styles.anchorCap}>Your anchor</Text>
 
-            <Text style={styles.eyebrow}>{headline.eyebrow}</Text>
-            <Text style={styles.title}>
-              {headline.titleA}
-              {'\n'}
-              {headline.titleB ? `${headline.titleB} ` : ''}
-              <Text style={styles.titleEm}>{headline.titleEm}</Text>
-            </Text>
-            <Text style={styles.sub}>{headline.sub}</Text>
+            <Text style={styles.eyebrow}>{sourceCopy ? 'Anchor Pro' : headline.eyebrow}</Text>
+            {sourceCopy ? (
+              <Text style={styles.title}>{sourceCopy.title}</Text>
+            ) : (
+              <Text style={styles.title}>
+                {headline.titleA}
+                {'\n'}
+                {headline.titleB ? `${headline.titleB} ` : ''}
+                <Text style={styles.titleEm}>{headline.titleEm}</Text>
+              </Text>
+            )}
+            <Text style={styles.sub}>{sourceCopy?.body ?? headline.sub}</Text>
 
             {showRecap ? (
               <View testID="paywall-recap">
@@ -697,12 +765,17 @@ export const PaywallScreen: React.FC = () => {
                   <RecapStat value={primeStreak} label="Prime record" />
                 </View>
                 <Text style={styles.recapFoot}>
-                  All of it stays the moment you <Text style={styles.recapFootStrong}>continue.</Text>
+                  Keep it within reach as you <Text style={styles.recapFootStrong}>continue.</Text>
                 </Text>
               </View>
             ) : null}
 
             <Text style={styles.plansLabel}>Choose your plan</Text>
+            {plans.annual.strikeLabel ? (
+              <Text style={styles.priceComparison} testID="paywall-price-comparison">
+                Paying monthly totals {plans.annual.strikeLabel} each year.
+              </Text>
+            ) : null}
             <View style={styles.plans}>
               <PlanCard
                 plan={plans.monthly}
@@ -732,7 +805,9 @@ export const PaywallScreen: React.FC = () => {
               onPress={handlePurchase}
               accessibilityRole="button"
               accessibilityLabel={
-                isPurchaseUnavailable || isStoreLoading
+                isPurchasing
+                  ? 'Completing purchase and confirming access'
+                  : isPurchaseUnavailable || isStoreLoading
                   ? ctaLabel
                   : `Continue my practice, ${selectedPlan.tier} selected`
               }
@@ -746,7 +821,10 @@ export const PaywallScreen: React.FC = () => {
                 style={[styles.cta, (isPurchasing || isRestoring || isPurchaseUnavailable) && styles.disabled]}
               >
                 {isPurchasing ? (
-                  <ActivityIndicator color="#100C04" />
+                  <View style={styles.ctaLoading}>
+                    <ActivityIndicator color="#100C04" />
+                    <Text style={styles.ctaLoadingLabel}>Completing purchase…</Text>
+                  </View>
                 ) : (
                   <Text style={styles.ctaLabel}>{ctaLabel}</Text>
                 )}
@@ -1093,6 +1171,14 @@ const styles = StyleSheet.create({
     marginTop: 8,
     textAlign: 'center',
   },
+  priceComparison: {
+    fontFamily: typography.fonts.bodySerifItalic,
+    fontSize: 13,
+    color: withAlpha(colors.bone, 0.54),
+    textAlign: 'center',
+    marginTop: -4,
+    marginBottom: 12,
+  },
   scarcity: {
     fontFamily: typography.fonts.mono,
     fontSize: 10,
@@ -1133,6 +1219,18 @@ const styles = StyleSheet.create({
     fontFamily: typography.fonts.headingBold,
     fontSize: 14,
     letterSpacing: 2.8,
+    color: '#100C04',
+    textTransform: 'uppercase',
+  },
+  ctaLoading: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  ctaLoadingLabel: {
+    fontFamily: typography.fonts.headingBold,
+    fontSize: 12,
+    letterSpacing: 1.7,
     color: '#100C04',
     textTransform: 'uppercase',
   },

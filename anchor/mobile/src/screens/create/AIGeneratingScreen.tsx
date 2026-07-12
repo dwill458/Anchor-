@@ -67,6 +67,11 @@ const STYLE_REFINEMENT_PHRASES: Record<AIStyle, string> = {
   echo_chamber: 'Layering resonant echoes',
   monolith_ink: 'Grounding bold structural weight',
   celestial_grid: 'Synchronizing astral geometry',
+  prism_veil: 'Refracting translucent color fields',
+  verdigris_relic: 'Aging copper patina and mineral depth',
+  solar_halo: 'Warming disciplined solar radiance',
+  tideglass: 'Washing sea-glass light through the field',
+  velvet_ember: 'Deepening velvet shadow and ember glow',
 };
 
 /**

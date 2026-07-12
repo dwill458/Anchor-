@@ -58,6 +58,35 @@ describe('subscriptionStore', () => {
     });
   });
 
+  describe('applyServerEntitlement', () => {
+    it('unlocks the local UI only after the server confirms active access', () => {
+      const { result } = renderHook(() => useSubscriptionStore());
+
+      act(() => result.current.applyServerEntitlement(true));
+
+      expect(result.current.rcTier).toBe('pro');
+      expect(result.current.subscriptionStatus).toBe('active');
+      expect(result.current.hasActiveEntitlement).toBe(true);
+      expect(result.current.isSubscribed).toBe(true);
+      expect(result.current.rcSynced).toBe(true);
+    });
+
+    it('records a confirmed lack of paid access without retaining a stale pro tier', () => {
+      const { result } = renderHook(() => useSubscriptionStore());
+
+      act(() => {
+        result.current.applyServerEntitlement(true);
+        result.current.applyServerEntitlement(false);
+      });
+
+      expect(result.current.rcTier).toBe('free');
+      expect(result.current.subscriptionStatus).toBe('expired');
+      expect(result.current.hasActiveEntitlement).toBe(false);
+      expect(result.current.isSubscribed).toBe(false);
+      expect(result.current.trialExpired).toBe(true);
+    });
+  });
+
   describe('setDevOverrideEnabled', () => {
     it('enables the dev override', () => {
       const { result } = renderHook(() => useSubscriptionStore());

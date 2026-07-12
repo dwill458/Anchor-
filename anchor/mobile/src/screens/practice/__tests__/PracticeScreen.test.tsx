@@ -27,6 +27,11 @@ let mockTotalSessionsCount = 0;
 let mockLastPrimedAt: string | null = null;
 let mockWeekHistory = [false, false, false, false, false, false, false];
 const mockApplyDecay = jest.fn();
+let mockLocationPrimingSuggestion: any = null;
+const mockResolveLocationPrimingSuggestion = jest.fn(() =>
+  Promise.resolve(mockLocationPrimingSuggestion)
+);
+const mockAnalyticsTrack = jest.fn();
 
 const mockSettingsState: any = {
   defaultActivation: { mode: 'silent', unit: 'seconds', value: 30 },
@@ -96,6 +101,22 @@ jest.mock('@/stores/settingsStore', () => ({
   useSettingsStore: (selector: any) => (selector ? selector(mockSettingsState) : mockSettingsState),
 }));
 
+jest.mock('@/stores/locationPrimingStore', () => ({
+  useLocationPrimingStore: (selector: any) =>
+    selector({
+      resolveActiveSuggestion: mockResolveLocationPrimingSuggestion,
+    }),
+}));
+
+jest.mock('@/services/AnalyticsService', () => ({
+  AnalyticsEvents: {
+    CHARGE_STARTED: 'charge_started',
+  },
+  AnalyticsService: {
+    track: (...args: any[]) => mockAnalyticsTrack(...args),
+  },
+}));
+
 jest.mock('@/utils/haptics', () => ({
   safeHaptics: {
     selection: jest.fn(),
@@ -148,6 +169,9 @@ describe('PracticeScreen', () => {
     mockLastPrimedAt = null;
     mockWeekHistory = [false, false, false, false, false, false, false];
     mockApplyDecay.mockReset();
+    mockLocationPrimingSuggestion = null;
+    mockResolveLocationPrimingSuggestion.mockClear();
+    mockAnalyticsTrack.mockClear();
   });
 
   it('renders the updated primary CTA and current mode labels', async () => {
@@ -222,8 +246,47 @@ describe('PracticeScreen', () => {
         anchorId: 'a99',
         returnTo: 'practice',
         initialDuration: 'deep',
-        autoStartOnSelection: true,
       });
+    });
+  });
+
+  it('uses a location preset from the primary CTA without exposing place data in analytics', async () => {
+    mockAnchors = [buildAnchor('a66', 'Practice at the studio')];
+    mockLocationPrimingSuggestion = {
+      distanceMeters: 12,
+      zone: {
+        id: 'zone-1',
+        label: 'Studio',
+        preset: {
+          sessionType: 'focus',
+          durationSeconds: 60,
+          audioMode: 'silent',
+        },
+      },
+    };
+    const screen = render(<PracticeScreen />);
+
+    await waitFor(() => {
+      expect(screen.getByText('Prime at Studio')).toBeTruthy();
+      expect(screen.getByText('Focus Session · 1 min')).toBeTruthy();
+    });
+
+    fireEvent.press(screen.getByText('Prime at Studio'));
+
+    await waitFor(() => {
+      expect(mockNavigateToVault).toHaveBeenCalledWith('ActivationRitual', {
+        anchorId: 'a66',
+        activationType: 'visual',
+        durationOverride: 60,
+        audioModeOverride: 'silent',
+        returnTo: 'practice',
+      });
+    });
+    expect(mockAnalyticsTrack).toHaveBeenCalledWith('charge_started', {
+      source: 'practice_location_preset',
+      location_preset_applied: true,
+      session_type: 'focus',
+      duration_seconds: 60,
     });
   });
 
@@ -245,7 +308,6 @@ describe('PracticeScreen', () => {
         anchorId: 'a2',
         returnTo: 'practice',
         initialDuration: 'deep',
-        autoStartOnSelection: true,
       });
     });
   });
@@ -263,7 +325,6 @@ describe('PracticeScreen', () => {
         anchorId: 'a77',
         returnTo: 'practice',
         initialDuration: 'deep',
-        autoStartOnSelection: true,
       });
     });
   });

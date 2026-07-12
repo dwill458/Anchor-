@@ -30,6 +30,7 @@ import { AnalyticsEvents, AnalyticsService } from '@/services/AnalyticsService';
 import NotificationService from '@/services/NotificationService';
 import revenueCatService from '@/services/RevenueCatService';
 import { useNotificationController } from '../../hooks/useNotificationController';
+import { useReduceMotionEnabled } from '@/hooks/useReduceMotionEnabled';
 import { colors } from '@/theme';
 import {
   formatHapticFeedbackLabel,
@@ -88,6 +89,10 @@ export const SettingsScreen: React.FC = () => {
   const primeSessionAudio = useSettingsStore((state) => state.primeSessionAudio ?? 'ambient');
   const analyticsEnabled = useSettingsStore((state) => state.analyticsEnabled);
   const setAnalyticsEnabled = useSettingsStore((state) => state.setAnalyticsEnabled);
+  const traceDefaultEnabled = useSettingsStore((state) => state.traceDefaultEnabled ?? true);
+  const setTraceDefaultEnabled = useSettingsStore((state) => state.setTraceDefaultEnabled);
+  const setReduceMotion = useSettingsStore((state) => state.setReduceMotion);
+  const reduceMotionEnabled = useReduceMotionEnabled();
   const dailyPracticeGoal = useSettingsStore((state) => state.dailyPracticeGoal ?? 3);
   const dailyPracticeGoalPreset = useSettingsStore(
     (state) => state.dailyPracticeGoalPreset ?? 'three'
@@ -216,6 +221,17 @@ export const SettingsScreen: React.FC = () => {
       ],
     );
   }, []);
+
+  const handleTraceDefaultToggle = useCallback(
+    (enabled: boolean) => {
+      setTraceDefaultEnabled(enabled);
+      AnalyticsService.track(
+        enabled ? 'trace_default_enabled' : 'trace_default_disabled',
+        { source: 'settings' }
+      );
+    },
+    [setTraceDefaultEnabled]
+  );
 
   const handleDeleteAccount = useCallback(() => {
     Alert.alert(
@@ -455,6 +471,14 @@ export const SettingsScreen: React.FC = () => {
               toggleValue={settings.reduceIntentionVisibility}
               onToggle={(value) => updateSetting('reduceIntentionVisibility', value)}
               disabled={isLoading}
+            />
+            <SettingsRow
+              title="Trace Structures"
+              subtitle="Show the tracing step by default while creating and priming."
+              type="toggle"
+              toggleValue={traceDefaultEnabled}
+              onToggle={handleTraceDefaultToggle}
+              disabled={isLoading}
               showDivider={false}
             />
           </SettingsSectionBlock>
@@ -480,6 +504,17 @@ export const SettingsScreen: React.FC = () => {
               onToggle={(value) => {
                 updateSetting('practiceGuidanceEnabled', value);
                 AnalyticsService.track('guide_mode_toggled', { enabled: value });
+              }}
+              disabled={isLoading}
+            />
+            <SettingsRow
+              title="Reduce Motion"
+              subtitle="Calm ambient animation. Follows your device setting until you change it."
+              type="toggle"
+              toggleValue={reduceMotionEnabled}
+              onToggle={(value) => {
+                setReduceMotion(value ? 'on' : 'off');
+                AnalyticsService.track('reduce_motion_toggled', { enabled: value });
               }}
               disabled={isLoading}
             />

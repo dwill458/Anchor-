@@ -11,6 +11,7 @@ export type SessionAudioMode = 'silent' | 'ambient';
 export type DailyPracticeGoalPreset = 'once' | 'three' | 'five' | 'custom';
 export type ThreadStrengthSensitivity = 'lenient' | 'balanced' | 'strict';
 export type RestDayPolicy = 'build' | 'neutral';
+export type ReduceMotionPreference = 'system' | 'on' | 'off';
 
 export interface DefaultChargeSetting {
   mode: ChargeMode;
@@ -107,6 +108,9 @@ const normalizeRestDays = (value: unknown): number[] => {
 
 const normalizeRestDayPolicy = (value: unknown): RestDayPolicy =>
   value === 'neutral' ? 'neutral' : 'build';
+
+const normalizeReduceMotionPreference = (value: unknown): ReduceMotionPreference =>
+  value === 'on' || value === 'off' ? value : 'system';
 
 const deriveFocusSessionDuration = (persistedState: any): number => {
   if (typeof persistedState?.focusSessionDuration === 'number') {
@@ -293,6 +297,7 @@ const withDeveloperSettingsDefaults = (
     ),
     restDays: normalizeRestDays(clampedState?.restDays),
     restDayPolicy: normalizeRestDayPolicy(clampedState?.restDayPolicy),
+    reduceMotion: normalizeReduceMotionPreference(clampedState?.reduceMotion),
     developerSkipOnboardingEnabled: persistedState?.developerSkipOnboardingEnabled ?? false,
     developerFlowTestingEnabled: persistedState?.developerFlowTestingEnabled ?? false,
     developerForceStreakBreakEnabled: persistedState?.developerForceStreakBreakEnabled ?? false,
@@ -302,6 +307,11 @@ const withDeveloperSettingsDefaults = (
     debugLoggingEnabled:
       persistedState?.debugLoggingEnabled ?? getDefaultDebugLoggingEnabled(),
     analyticsEnabled: persistedState?.analyticsEnabled ?? true,
+    traceDefaultEnabled: persistedState?.traceDefaultEnabled ?? true,
+    traceSkipStreak:
+      typeof persistedState?.traceSkipStreak === 'number'
+        ? Math.max(0, Math.round(persistedState.traceSkipStreak))
+        : 0,
     ...overrides,
   };
 };
@@ -335,6 +345,8 @@ export interface SettingsState {
   theme: 'zen_architect' | 'dark' | 'light';
   accentColor: string; // Hex color code
   vaultView: 'grid' | 'list';
+  /** Ambient-animation preference. 'system' follows the OS reduce-motion flag. */
+  reduceMotion: ReduceMotionPreference;
 
   // Audio & Haptics
   mantraVoice: 'my_voice' | 'generated';
@@ -351,6 +363,8 @@ export interface SettingsState {
   developerWeeklySummaryPreviewToken: number;
   debugLoggingEnabled: boolean;
   analyticsEnabled: boolean;
+  traceDefaultEnabled: boolean;
+  traceSkipStreak: number;
   /** Guide Mode — contextual first-time hints. true = on-only + both; false = both only. */
   guideMode: boolean;
 
@@ -383,6 +397,7 @@ export interface SettingsState {
   setTheme: (theme: 'zen_architect' | 'dark' | 'light') => void;
   setAccentColor: (color: string) => void;
   setVaultView: (view: 'grid' | 'list') => void;
+  setReduceMotion: (preference: ReduceMotionPreference) => void;
 
   // Actions - Audio & Haptics
   setMantraVoice: (voice: 'my_voice' | 'generated') => void;
@@ -400,6 +415,9 @@ export interface SettingsState {
   clearDeveloperWeeklySummaryPreview: () => void;
   setDebugLoggingEnabled: (enabled: boolean) => void;
   setAnalyticsEnabled: (enabled: boolean) => void;
+  setTraceDefaultEnabled: (enabled: boolean) => void;
+  recordTraceSkipped: () => number;
+  resetTraceSkipStreak: () => void;
   setDevPerfTierOverride: (override: PerformanceTierOverride) => void;
 
   // Utility Actions
@@ -436,6 +454,7 @@ const DEFAULT_SETTINGS = {
   theme: 'zen_architect' as const,
   accentColor: '#D4AF37',
   vaultView: 'grid' as const,
+  reduceMotion: 'system' as ReduceMotionPreference,
   mantraVoice: 'generated' as const,
   generatedVoiceStyle: 'calm' as const,
   hapticIntensity: 70,
@@ -450,6 +469,8 @@ const DEFAULT_SETTINGS = {
   developerWeeklySummaryPreviewToken: 0,
   debugLoggingEnabled: __DEV__ && process.env.EXPO_PUBLIC_DEBUG_LOGGING === 'true',
   analyticsEnabled: true,
+  traceDefaultEnabled: true,
+  traceSkipStreak: 0,
   guideMode: true,
   devPerfTierOverride: 'auto' as PerformanceTierOverride,
 };
@@ -652,6 +673,13 @@ export const useSettingsStore = create<SettingsState>()(
         });
       },
 
+      setReduceMotion: (preference) => {
+        triggerHaptic();
+        set({
+          reduceMotion: normalizeReduceMotionPreference(preference),
+        });
+      },
+
       setMantraVoice: (voice) => {
         triggerHaptic();
         set({
@@ -751,6 +779,30 @@ export const useSettingsStore = create<SettingsState>()(
         triggerHaptic();
         set({
           analyticsEnabled: enabled,
+        });
+      },
+
+      setTraceDefaultEnabled: (enabled) => {
+        triggerHaptic();
+        set({
+          traceDefaultEnabled: enabled,
+        });
+      },
+
+      recordTraceSkipped: () => {
+        let nextStreak = 0;
+        set((state) => {
+          nextStreak = Math.max(0, state.traceSkipStreak ?? 0) + 1;
+          return {
+            traceSkipStreak: nextStreak,
+          };
+        });
+        return nextStreak;
+      },
+
+      resetTraceSkipStreak: () => {
+        set({
+          traceSkipStreak: 0,
         });
       },
 
@@ -924,6 +976,7 @@ export const useSettingsStore = create<SettingsState>()(
         theme: state.theme,
         accentColor: state.accentColor,
         vaultView: state.vaultView,
+        reduceMotion: state.reduceMotion,
         mantraVoice: state.mantraVoice,
         generatedVoiceStyle: state.generatedVoiceStyle,
         hapticIntensity: state.hapticIntensity,
@@ -939,6 +992,8 @@ export const useSettingsStore = create<SettingsState>()(
         developerDeleteWithoutBurnEnabled: state.developerDeleteWithoutBurnEnabled,
         debugLoggingEnabled: state.debugLoggingEnabled,
         analyticsEnabled: state.analyticsEnabled,
+        traceDefaultEnabled: state.traceDefaultEnabled,
+        traceSkipStreak: state.traceSkipStreak,
         guideMode: state.guideMode,
       }),
     }

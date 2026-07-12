@@ -5,6 +5,7 @@ import {
     TouchableOpacity,
     StyleSheet,
     Animated,
+    Alert,
     ActivityIndicator,
     ScrollView,
     useWindowDimensions,
@@ -26,13 +27,16 @@ import { OptimizedImage, SigilSvg } from '@/components/common';
 import { ErrorTrackingService } from '@/services/ErrorTrackingService';
 import { AnalyticsEvents, AnalyticsService } from '@/services/AnalyticsService';
 import { FrictionAnalytics } from '@/services/FrictionAnalytics';
-import { post } from '@/services/ApiClient';
+import { ApiClientError, post } from '@/services/ApiClient';
 import { isBackendAnchorId } from '@/services/BackendAnchorService';
 import { useNotificationController } from '@/hooks/useNotificationController';
+import { DailyReminderPrompt } from '@/components/notifications';
 import { logger } from '@/utils/logger';
 import { classifyToTierPreliminary } from '@/utils/tierClassifier';
 import { isCompactPhoneViewport, isShortPhoneViewport } from '@/utils/layout';
 import type { ApiResponse, Anchor } from '@/types';
+import { useEntitlements } from '@/hooks/useEntitlements';
+import { getAnchorCreationLimitCopy } from '@/utils/entitlements';
 
 type AnchorRevealRouteProp = RouteProp<RootStackParamList, 'AnchorReveal'>;
 type AnchorRevealNavigationProp = StackNavigationProp<RootStackParamList, 'AnchorReveal'>;
@@ -54,8 +58,11 @@ export const AnchorRevealScreen: React.FC = () => {
         (state) => state.enqueuePendingFirstAnchorMutation
     );
     const clearPendingFirstAnchorState = useAuthStore((state) => state.clearPendingFirstAnchorState);
-    const { handleAnchorSaved } = useNotificationController();
+    const { handleAnchorSaved, notifState } = useNotificationController();
+    const entitlements = useEntitlements();
     const [isSaving, setIsSaving] = useState(false);
+    const [reminderCardVisible, setReminderCardVisible] = useState(false);
+    const pendingNavRef = useRef<{ anchorId: string; isGuestFirstAnchor: boolean } | null>(null);
 
     const {
         intentionText,
@@ -124,18 +131,73 @@ export const AnchorRevealScreen: React.FC = () => {
         navigation.goBack();
     };
 
+    const navigateAfterSave = (anchorId: string, isGuestFirstAnchor: boolean) => {
+        if (!wallpaperPromptSeen) {
+            navigation.replace('WallpaperPrompt', {
+                anchorId,
+                intentionText,
+                enhancedImageUrl: enhancedImageUrl || undefined,
+                sigilSvg: reinforcedSigilSvg || baseSigilSvg,
+                fromOnboarding: isGuestFirstAnchor,
+            });
+        } else {
+            navigation.replace('ChargeSetup', {
+                anchorId,
+                autoStartOnSelection: true,
+                returnTo: 'vault',
+                fromOnboarding: isGuestFirstAnchor,
+            });
+        }
+    };
+
+    const handleReminderDismiss = () => {
+        setReminderCardVisible(false);
+        const pending = pendingNavRef.current;
+        pendingNavRef.current = null;
+        if (pending) {
+            navigateAfterSave(pending.anchorId, pending.isGuestFirstAnchor);
+        }
+    };
+
     const handleContinue = async () => {
         if (isSaving) return;
+        const isGuestFirstAnchor = !isAuthenticated && existingAnchorCount === 0;
+        if (!isGuestFirstAnchor && !entitlements.canCreateAnchor) {
+            const reason = entitlements.anchorCreationLimitReason;
+            if (!reason) return;
+
+            AnalyticsService.track(reason, {
+                source: 'anchor_reveal',
+                anchors_created_today: entitlements.anchorsCreatedToday,
+                anchors_created_during_trial: entitlements.anchorsCreatedDuringTrial,
+                tier: entitlements.tier,
+            });
+
+            if (reason === 'pro_daily_anchor_cap_reached') {
+                const copy = getAnchorCreationLimitCopy(reason);
+                Alert.alert(copy?.title ?? 'Daily creation limit reached', copy?.body, [
+                    { text: copy?.cta ?? 'Return to Sanctuary', onPress: () => navigation.goBack() },
+                ]);
+                return;
+            }
+
+            navigation.navigate('Paywall', {
+                source: reason,
+                preferredPlanId: 'annual',
+            });
+            return;
+        }
+
         setIsSaving(true);
 
         ErrorTrackingService.addBreadcrumb('Anchor reveal continued', 'create.anchor_reveal', {
             has_image: Boolean(enhancedImageUrl),
         });
 
-        const isGuestFirstAnchor = !isAuthenticated && existingAnchorCount === 0;
+        const idempotencyKey = `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
         let anchorId = isGuestFirstAnchor
-            ? `pending-first-anchor-${Date.now()}`
-            : `anchor-${Date.now()}`;
+            ? `pending-first-anchor-${idempotencyKey}`
+            : `anchor-${idempotencyKey}`;
 
         const { tier, confidenceScore, isCustomFallback } = classifyToTierPreliminary(intentionText);
 
@@ -154,8 +216,11 @@ export const AnchorRevealScreen: React.FC = () => {
                     queuedAt: new Date().toISOString(),
                 });
             } else {
-                // Persist anchor to backend — this is the source of truth
-                const response = await post<ApiResponse<Anchor>>('/api/anchors', {
+                // Persist anchor to backend — this is the source of truth.
+                // idempotencyKey lets a retried request return the anchor that was
+                // already created rather than creating a duplicate, so a single
+                // network-only retry (no response received either way) is safe here.
+                const anchorPayload = {
                     intentionText,
                     category,
                     distilledLetters,
@@ -167,8 +232,24 @@ export const AnchorRevealScreen: React.FC = () => {
                     enhancementMetadata: enhancementMetadata || undefined,
                     planetaryTier: tier,
                     classifierVersion: 2,
-                    classifierMeta: { confidenceScore, isCustomFallback }
-                });
+                    classifierMeta: { confidenceScore, isCustomFallback },
+                    idempotencyKey,
+                };
+
+                let response: ApiResponse<Anchor> | undefined;
+                try {
+                    response = await post<ApiResponse<Anchor>>('/api/anchors', anchorPayload);
+                } catch (firstAttemptErr) {
+                    const isNetworkError =
+                        !(firstAttemptErr instanceof ApiClientError) &&
+                        firstAttemptErr instanceof Error &&
+                        firstAttemptErr.message === 'Network error. Please check your connection.';
+                    if (!isNetworkError) {
+                        throw firstAttemptErr;
+                    }
+                    await new Promise(resolve => setTimeout(resolve, 500));
+                    response = await post<ApiResponse<Anchor>>('/api/anchors', anchorPayload);
+                }
 
                 if (response?.success && response?.data?.id) {
                     anchorId = response.data.id;
@@ -178,11 +259,44 @@ export const AnchorRevealScreen: React.FC = () => {
                 }
             }
         } catch (err) {
+            const serverLimitReason =
+                err instanceof ApiClientError && err.code === 'PRO_DAILY_ANCHOR_CAP_REACHED'
+                    ? 'pro_daily_anchor_cap_reached'
+                    : err instanceof ApiClientError && err.code === 'TRIAL_ANCHOR_CAP_REACHED'
+                        ? 'trial_anchor_cap_reached'
+                        : err instanceof ApiClientError && err.code === 'CREATE_ANCHOR_FREE_LOCKED'
+                            ? 'create_anchor_free_locked'
+                            : null;
+
+            if (serverLimitReason) {
+                AnalyticsService.track(serverLimitReason, {
+                    source: 'anchor_reveal_server',
+                    tier: entitlements.tier,
+                });
+
+                if (serverLimitReason === 'pro_daily_anchor_cap_reached') {
+                    const copy = getAnchorCreationLimitCopy(serverLimitReason);
+                    Alert.alert(copy?.title ?? 'Daily creation limit reached', copy?.body, [
+                        { text: copy?.cta ?? 'Return to Sanctuary', onPress: () => navigation.goBack() },
+                    ]);
+                } else {
+                    navigation.navigate('Paywall', {
+                        source: serverLimitReason,
+                        preferredPlanId: 'annual',
+                    });
+                }
+                return;
+            }
+
             logger.warn('[AnchorReveal] Failed to save anchor to backend, proceeding locally', err);
             FrictionAnalytics.flowError('anchor_creation', 'anchor_reveal', 'backend_save_failed', {
                 is_first_anchor: isGuestFirstAnchor,
                 category,
                 has_enhanced_image: Boolean(enhancedImageUrl),
+                error_code: err instanceof ApiClientError ? err.code : undefined,
+                error_status: err instanceof ApiClientError ? err.status : undefined,
+                error_message: err instanceof Error ? err.message : undefined,
+                idempotency_key: idempotencyKey,
             });
             ErrorTrackingService.captureException(err, {
                 screen: 'AnchorRevealScreen',
@@ -238,22 +352,21 @@ export const AnchorRevealScreen: React.FC = () => {
         // Clear heavy temporary data once the anchor record is created.
         setTempEnhancedImage(null);
 
-        if (!wallpaperPromptSeen) {
-            navigation.replace('WallpaperPrompt', {
-                anchorId,
-                intentionText,
-                enhancedImageUrl: enhancedImageUrl || undefined,
-                sigilSvg: reinforcedSigilSvg || baseSigilSvg,
-                fromOnboarding: isGuestFirstAnchor,
-            });
-        } else {
-            navigation.replace('ChargeSetup', {
-                anchorId,
-                autoStartOnSelection: true,
-                returnTo: 'vault',
-                fromOnboarding: isGuestFirstAnchor,
-            });
+        // First-anchor moment: offer a calm daily-reminder card before moving on.
+        // We only surface it once, and only while permission is still undetermined.
+        const isFirstAnchor = existingAnchorCount === 0;
+        const shouldShowReminder =
+            isFirstAnchor &&
+            notifState?.notificationPermissionStatus === 'undetermined' &&
+            !notifState?.firstAnchorReminderPromptCompleted;
+
+        if (shouldShowReminder) {
+            pendingNavRef.current = { anchorId, isGuestFirstAnchor };
+            setReminderCardVisible(true);
+            return;
         }
+
+        navigateAfterSave(anchorId, isGuestFirstAnchor);
     };
 
     return (
@@ -410,6 +523,12 @@ export const AnchorRevealScreen: React.FC = () => {
                 </Animated.View>
                 </ScrollView>
             </SafeAreaView>
+
+            <DailyReminderPrompt
+                visible={reminderCardVisible}
+                variant="first_anchor"
+                onDismiss={handleReminderDismiss}
+            />
         </View>
     );
 };

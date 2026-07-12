@@ -15,6 +15,7 @@ import { AppError } from '../middleware/errorHandler';
 import { prisma } from '../../lib/prisma';
 import { redisClient } from '../../lib/redis';
 import { BackendAnalyticsService } from '../../services/AnalyticsService';
+import { getRevenueCatAccess } from '../../services/RevenueCatEntitlementService';
 import { logger } from '../../utils/logger';
 import { resolveStoredAssetUrl } from '../../services/StorageService';
 
@@ -67,6 +68,9 @@ const ANCHOR_LIST_SELECT: Prisma.AnchorSelect = {
 };
 
 const router = Router();
+const TRIAL_ANCHOR_LIMIT = 7;
+const PAID_PRO_DAILY_ANCHOR_LIMIT = 10;
+const TRIAL_DURATION_DAYS = 7;
 
 const aiHourlyLimiterStore =
   process.env.NODE_ENV === 'test' || !process.env.REDIS_URL
@@ -145,6 +149,7 @@ const CreateAnchorSchema = z.object({
   mantraText: z.string().optional(),
   mantraPronunciation: z.string().optional(),
   mantraAudioUrl: z.string().optional(),
+  idempotencyKey: z.string().min(1).max(200).optional(),
 });
 
 const UpdateAnchorSchema = z.object({
@@ -314,6 +319,102 @@ async function resolveAnchorCollectionArtworkUrls<T extends { enhancedImageUrl?:
   return Promise.all(anchors.map(resolveAnchorArtworkUrls));
 }
 
+function addDays(date: Date, days: number): Date {
+  const next = new Date(date);
+  next.setUTCDate(next.getUTCDate() + days);
+  return next;
+}
+
+function getUtcDayRange(now: Date): { start: Date; end: Date } {
+  const start = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
+  const end = addDays(start, 1);
+  return { start, end };
+}
+
+async function assertCanCreateAnchor(tx: Prisma.TransactionClient, userId: string): Promise<void> {
+  // Serialize count + create for this user so concurrent requests cannot both
+  // observe the same count and exceed the configured cap.
+  await tx.$queryRaw`SELECT 1 FROM "users" WHERE "id" = ${userId} FOR UPDATE`;
+
+  const user = await tx.user.findUnique({
+    where: { id: userId },
+    select: {
+      subscriptionStatus: true,
+      isComped: true,
+      trialStartedAt: true,
+    },
+  });
+
+  if (!user) {
+    throw new AppError('User not found', 404, 'USER_NOT_FOUND');
+  }
+
+  const now = new Date();
+  const paidPro =
+    user.isComped || user.subscriptionStatus === 'pro' || user.subscriptionStatus === 'pro_annual';
+
+  if (paidPro) {
+    const { start, end } = getUtcDayRange(now);
+    const createdToday = await tx.anchor.count({
+      where: {
+        userId,
+        createdAt: {
+          gte: start,
+          lt: end,
+        },
+      },
+    });
+
+    if (createdToday >= PAID_PRO_DAILY_ANCHOR_LIMIT) {
+      throw new AppError('Daily creation limit reached', 429, 'PRO_DAILY_ANCHOR_CAP_REACHED');
+    }
+    return;
+  }
+
+  const trialStartedAt = user.trialStartedAt;
+  const trialEndsAt = addDays(trialStartedAt, TRIAL_DURATION_DAYS);
+  const isTrialActive = now < trialEndsAt;
+
+  if (!isTrialActive) {
+    throw new AppError('Create more anchors with Pro', 403, 'CREATE_ANCHOR_FREE_LOCKED');
+  }
+
+  const trialAnchorCount = await tx.anchor.count({
+    where: {
+      userId,
+      createdAt: {
+        gte: trialStartedAt,
+        lt: trialEndsAt,
+      },
+    },
+  });
+
+  if (trialAnchorCount >= TRIAL_ANCHOR_LIMIT) {
+    throw new AppError('Trial anchor limit reached', 403, 'TRIAL_ANCHOR_CAP_REACHED');
+  }
+}
+
+async function syncRevenueCatSubscription(user: NonNullable<AuthRequest['dbUser']>): Promise<void> {
+  if (user.isComped) return;
+
+  const access = await getRevenueCatAccess(user.id);
+  if (!access) return;
+
+  const persistedPaid =
+    user.subscriptionStatus === 'pro' || user.subscriptionStatus === 'pro_annual';
+  if (persistedPaid === access.isActive) return;
+
+  const subscriptionStatus = access.isActive ? 'pro' : 'free';
+  await prisma.user.update({
+    where: { id: user.id },
+    data: {
+      subscriptionStatus,
+      subscriptionId: access.productIdentifier,
+    },
+  });
+  user.subscriptionStatus = subscriptionStatus;
+}
+
 // All anchor routes require authentication
 router.use(authMiddleware);
 
@@ -332,7 +433,12 @@ router.use(async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
     const user = await prisma.user.findUnique({
       where: { authUid: req.user.uid },
-      select: { id: true },
+      select: {
+        id: true,
+        subscriptionStatus: true,
+        isComped: true,
+        trialStartedAt: true,
+      },
     });
     if (!user) {
       next(new AppError('User not found', 404, 'USER_NOT_FOUND'));
@@ -470,16 +576,43 @@ router.post('/', async (req: AuthRequest, res: Response, next: NextFunction) => 
       mantraText,
       mantraPronunciation,
       mantraAudioUrl,
+      idempotencyKey,
     } = validate(CreateAnchorExtendedSchema, req.body);
 
     const userId = req.dbUser!.id;
     const variationReservation = extractVariationReservation(enhancementMetadata);
 
+    if (idempotencyKey) {
+      const existing = await prisma.anchor.findUnique({ where: { idempotencyKey } });
+      if (existing) {
+        if (existing.userId !== userId) {
+          next(
+            new AppError(
+              'Idempotency key already used by another user',
+              409,
+              'IDEMPOTENCY_KEY_CONFLICT'
+            )
+          );
+          return;
+        }
+        // The client already created this anchor on a previous attempt (it just never
+        // saw the response) — return the existing anchor instead of making a duplicate.
+        const anchor = await resolveAnchorArtworkUrls(existing);
+        res.status(200).json({ success: true, data: anchor });
+        return;
+      }
+    }
+
+    await syncRevenueCatSubscription(req.dbUser!);
+
     const createdAnchor = await prisma.$transaction(async tx => {
+      await assertCanCreateAnchor(tx, userId);
+
       // Create anchor with new architecture fields
       const createdAnchor = await tx.anchor.create({
         data: {
           userId,
+          idempotencyKey: idempotencyKey || null,
           intentionText,
           category,
           distilledLetters,
@@ -584,6 +717,24 @@ router.post('/', async (req: AuthRequest, res: Response, next: NextFunction) => 
     if (error instanceof AppError) {
       next(error);
       return;
+    }
+
+    if (
+      error instanceof Prisma.PrismaClientKnownRequestError &&
+      error.code === 'P2002' &&
+      (error.meta?.target as string[] | undefined)?.includes('idempotency_key') &&
+      typeof req.body?.idempotencyKey === 'string'
+    ) {
+      // Lost the race with a concurrent retry using the same idempotency key —
+      // the other request created the anchor, so return it instead of erroring.
+      const existing = await prisma.anchor.findUnique({
+        where: { idempotencyKey: req.body.idempotencyKey },
+      });
+      if (existing && existing.userId === req.dbUser?.id) {
+        const anchor = await resolveAnchorArtworkUrls(existing);
+        res.status(200).json({ success: true, data: anchor });
+        return;
+      }
     }
 
     if (error instanceof Prisma.PrismaClientKnownRequestError) {

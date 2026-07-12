@@ -109,6 +109,46 @@ describe('RevenueCatService', () => {
     expect(mockSetRcTier).toHaveBeenCalledWith('pro');
   });
 
+  it('grants access when RevenueCat reports active subscriptions without entitlement mapping', async () => {
+    mockPurchases.getCustomerInfo.mockResolvedValueOnce({
+      entitlements: {
+        active: {},
+        all: {},
+      },
+      activeSubscriptions: ['anchor_annual'],
+      allPurchasedProductIdentifiers: ['anchor_annual'],
+    });
+
+    const status = await RevenueCatService.refreshTrialStatus();
+
+    expect(status.hasActiveEntitlement).toBe(true);
+    expect(status.isSubscribed).toBe(true);
+    expect(status.isInTrial).toBe(false);
+    expect(mockSetRcTier).toHaveBeenCalledWith('pro');
+    expect(mockSetSubscriptionStatus).toHaveBeenCalledWith('active');
+  });
+
+  it('recognizes uppercase RevenueCat trial period values', async () => {
+    mockPurchases.getCustomerInfo.mockResolvedValueOnce({
+      entitlements: {
+        active: {
+          pro: {
+            isActive: true,
+            periodType: 'TRIAL',
+            expirationDate: new Date(Date.now() + 86400000).toISOString(),
+          },
+        },
+      },
+    });
+
+    const status = await RevenueCatService.refreshTrialStatus();
+
+    expect(status.hasActiveEntitlement).toBe(true);
+    expect(status.isInTrial).toBe(true);
+    expect(status.isSubscribed).toBe(false);
+    expect(mockSetSubscriptionStatus).toHaveBeenCalledWith('trial');
+  });
+
   it('preserves a valid local account trial when RevenueCat has no active entitlement', async () => {
     mockSubscriptionState.subscriptionStatus = 'trial';
     mockSubscriptionState.trialStartDate = new Date().toISOString();
@@ -132,6 +172,23 @@ describe('RevenueCatService', () => {
     expect(mockPurchases.purchasePackage).toHaveBeenCalledWith(pkg);
     expect(result.dismissed).toBe(false);
     expect(result.status.hasActiveEntitlement).toBe(true);
+  });
+
+  it('can defer client unlock state until the server confirms a completed purchase', async () => {
+    const pkg = { identifier: 'test_product' };
+    mockPurchases.getOfferings.mockResolvedValueOnce({
+      current: { availablePackages: [pkg] },
+    });
+    mockPurchases.purchasePackage.mockResolvedValueOnce({ customerInfo: activeCustomerInfo });
+
+    const result = await RevenueCatService.purchasePackageByIdentifier('test_product', {
+      syncStatus: false,
+    });
+
+    expect(result.status.hasActiveEntitlement).toBe(true);
+    expect(mockSetRcTier).not.toHaveBeenCalled();
+    expect(mockSetTrialState).not.toHaveBeenCalled();
+    expect(mockSetSubscriptionStatus).not.toHaveBeenCalled();
   });
 
   it('handles user cancellation during purchase', async () => {
@@ -289,13 +346,15 @@ describe('RevenueCatService', () => {
     expect(metadata.annual?.priceString).toBe('$59.99');
   });
 
-  it('throws an error if the selected package is not found in offerings', async () => {
+  it('does not substitute another package when the selected package is missing', async () => {
+    const unrelatedPackage = { identifier: '$rc_annual' };
     mockPurchases.getOfferings.mockResolvedValueOnce({
-      current: { availablePackages: [] },
+      current: { availablePackages: [unrelatedPackage] },
     });
 
     await expect(
       RevenueCatService.purchasePackageByIdentifier('test_product')
-    ).rejects.toThrow('[RevenueCat] Package "test_product" was not found in the available offerings.');
+    ).rejects.toThrow('[RevenueCat] Package "test_product" was not found in the current offering.');
+    expect(mockPurchases.purchasePackage).not.toHaveBeenCalled();
   });
 });

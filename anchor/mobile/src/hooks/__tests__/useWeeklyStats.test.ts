@@ -177,10 +177,25 @@ describe('useWeeklyStats', () => {
     expect(result.current.dominantAnchor?.id).toBe('anchor-1');
     expect(result.current.dominantAnchor?.weeklyPrimeCount).toBe(2);
     expect(result.current.dominantAnchor?.threadStrength).toBe(83);
+    // Ranked list covers all active anchors, weakest Thread Strength first.
+    expect(result.current.rankedAnchors).toEqual([
+      {
+        id: 'anchor-2',
+        intention: 'Train with calm precision',
+        threadStrength: 14,
+        weeklyPrimeCount: 1,
+      },
+      {
+        id: 'anchor-1',
+        intention: 'Close the right deals',
+        threadStrength: 29,
+        weeklyPrimeCount: 2,
+      },
+    ]);
   });
 
   it('defaults new users to week 1 with empty insight fallbacks', () => {
-    jest.setSystemTime(new Date(2026, 3, 13, 9, 0, 0));
+    jest.setSystemTime(new Date(2026, 3, 13, 13, 0, 0));
 
     const { result } = renderHook(() => useWeeklyStats());
 
@@ -195,7 +210,7 @@ describe('useWeeklyStats', () => {
   });
 
   it('falls back to the sole active anchor when there are no weekly primes', () => {
-    jest.setSystemTime(new Date(2026, 3, 13, 9, 0, 0));
+    jest.setSystemTime(new Date(2026, 3, 13, 13, 0, 0));
 
     useAnchorStore.getState().setAnchors([
       createMockAnchor({

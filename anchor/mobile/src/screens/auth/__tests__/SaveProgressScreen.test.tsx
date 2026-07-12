@@ -98,7 +98,7 @@ describe('SaveProgressScreen', () => {
 
     expect(getByText('SAVE YOUR ANCHOR')).toBeTruthy();
     expect(getByText(/YOUR FIRST ANCHOR/)).toBeTruthy();
-    expect(getByText(/Create a free account so this anchor stays with you/i)).toBeTruthy();
+    expect(getByText(/You made this\. Create a free account to keep it synced/i)).toBeTruthy();
     expect(getByText('FORGED JUST NOW')).toBeTruthy();
     expect(getByText('Listen before reacting')).toBeTruthy();
     expect(getByText('SAVE MY ANCHOR')).toBeTruthy();

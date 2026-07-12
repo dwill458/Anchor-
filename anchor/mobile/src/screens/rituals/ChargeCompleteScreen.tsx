@@ -69,6 +69,7 @@ export const ChargeCompleteScreen: React.FC = () => {
   const defaultCharge = useSettingsStore((state) => state.defaultCharge);
   const primeSessionDuration = useSettingsStore((state) => state.primeSessionDuration ?? 120);
   const primeSessionAudio = useSettingsStore((state) => state.primeSessionAudio ?? 'ambient');
+  const traceDefaultEnabled = useSettingsStore((state) => state.traceDefaultEnabled ?? true);
   const reduceMotionEnabled = useReduceMotionEnabled();
   const { handlePrimeComplete } = useNotificationController();
   const anchor = getAnchorById(anchorId);
@@ -90,6 +91,11 @@ export const ChargeCompleteScreen: React.FC = () => {
       const shouldOffer = await isPostPrimeTraceEligible();
       if (shouldOffer) {
         setShowPostPrimeTrace(true);
+        if (!traceDefaultEnabled) {
+          InteractionManager.runAfterInteractions(() => {
+            setShowCompletion(true);
+          });
+        }
       } else {
         InteractionManager.runAfterInteractions(() => {
           setShowCompletion(true);
@@ -97,7 +103,7 @@ export const ChargeCompleteScreen: React.FC = () => {
       }
     }
     checkEligibility();
-  }, []);
+  }, [traceDefaultEnabled]);
 
   const handleSkipPostPrimeTrace = () => {
     setShowPostPrimeTrace(false);
@@ -112,6 +118,7 @@ export const ChargeCompleteScreen: React.FC = () => {
     const flowId = beginPostPrimeTraceFlow(anchorId);
     setPendingPostPrimeFlowId(flowId);
     setShowPostPrimeTrace(false);
+    setShowCompletion(false);
 
     navigation.navigate('ManualReinforcement', {
       source: 'post_prime_trace',
@@ -231,7 +238,7 @@ export const ChargeCompleteScreen: React.FC = () => {
     } else if (returnTo === 'detail') {
       navigation.navigate('AnchorDetail', { anchorId });
     } else {
-      navigateToVaultDestination(navigation);
+      navigateToVaultDestination(navigation, 'reset');
     }
   };
 
@@ -359,6 +366,7 @@ export const ChargeCompleteScreen: React.FC = () => {
         anchor={anchor}
         onTrace={handleBeginPostPrimeTrace}
         onSkip={handleSkipPostPrimeTrace}
+        compact={!traceDefaultEnabled}
       />
 
       {/* CompletionModal shows first before the vault CTAs */}

@@ -27,6 +27,8 @@ interface CustomerInfo {
     active?: Record<string, CustomerEntitlementInfo>;
     all?: Record<string, CustomerEntitlementInfo>;
   };
+  activeSubscriptions?: string[];
+  allPurchasedProductIdentifiers?: string[];
 }
 
 interface RevenueCatProduct {
@@ -128,6 +130,14 @@ export type RevenueCatOfferingDisplayMetadata = Partial<
   Record<RevenueCatPlanId, RevenueCatPlanDisplayMetadata>
 >;
 
+/**
+ * Use server-confirmed status for a purchase/restore when a screen needs the
+ * backend to be the unlock authority. The default preserves normal SDK syncs.
+ */
+interface RevenueCatStatusSyncOptions {
+  syncStatus?: boolean;
+}
+
 const DEFAULT_TRIAL_STATUS: TrialStatusSnapshot = {
   isInTrial: false,
   isSubscribed: false,
@@ -178,6 +188,16 @@ function getEntitlementInfo(customerInfo: CustomerInfo | null | undefined): Cust
   return allEntitlement ?? null;
 }
 
+function getActiveStoreSubscriptionIds(customerInfo: CustomerInfo | null | undefined): string[] {
+  if (!Array.isArray(customerInfo?.activeSubscriptions)) {
+    return [];
+  }
+
+  return customerInfo.activeSubscriptions.filter(
+    (productId): productId is string => typeof productId === 'string' && productId.length > 0
+  );
+}
+
 function getDaysRemaining(expirationDate?: string | null): number | null {
   if (!expirationDate) return null;
   const expiration = new Date(expirationDate);
@@ -191,12 +211,29 @@ function getDaysRemaining(expirationDate?: string | null): number | null {
 
 function deriveTrialStatus(customerInfo: CustomerInfo | null | undefined): TrialStatusSnapshot {
   const entitlement = getEntitlementInfo(customerInfo);
+  const activeStoreSubscriptionIds = getActiveStoreSubscriptionIds(customerInfo);
+
+  if (!entitlement && activeStoreSubscriptionIds.length > 0) {
+    logger.warn(
+      '[RevenueCatService] Active store subscription found without an active entitlement; granting paid access from customerInfo.activeSubscriptions. Check RevenueCat entitlement/product mapping.',
+      { activeStoreSubscriptionIds }
+    );
+    return {
+      isInTrial: false,
+      isSubscribed: true,
+      hasActiveEntitlement: true,
+      daysRemaining: null,
+      trialExpired: false,
+    };
+  }
+
   if (!entitlement) {
     return DEFAULT_TRIAL_STATUS;
   }
 
-  const isActive = entitlement.isActive === true;
-  const isInTrial = isActive && entitlement.periodType === 'trial';
+  const isActive = entitlement.isActive === true || activeStoreSubscriptionIds.length > 0;
+  const periodType = typeof entitlement.periodType === 'string' ? entitlement.periodType.toLowerCase() : '';
+  const isInTrial = isActive && periodType === 'trial';
   const isSubscribed = isActive && !isInTrial;
   const daysRemaining = getDaysRemaining(entitlement.expirationDate);
 
@@ -230,6 +267,14 @@ function applyTrialStatus(status: TrialStatusSnapshot, synced = false): TrialSta
     subscriptionStore.setSubscriptionStatus('expired');
   }
   return status;
+}
+
+function applyStatusWhenEnabled(
+  status: TrialStatusSnapshot,
+  options: RevenueCatStatusSyncOptions,
+  synced = true
+): TrialStatusSnapshot {
+  return options.syncStatus === false ? status : applyTrialStatus(status, synced);
 }
 
 function extractCustomerInfo(
@@ -345,12 +390,10 @@ class RevenueCatService {
     availablePackages: RevenueCatPackage[],
     productId: string
   ): RevenueCatPackage {
-    const selectedPackage =
-      availablePackages.find((pkg) => pkg.identifier === productId) ??
-      availablePackages[0];
+    const selectedPackage = availablePackages.find((pkg) => pkg.identifier === productId);
 
     if (!selectedPackage) {
-      throw new Error(`[RevenueCat] Package "${productId}" was not found in the available offerings. Please verify your RevenueCat package mappings and Google Play Console product IDs.`);
+      throw new Error(`[RevenueCat] Package "${productId}" was not found in the current offering. Please verify your RevenueCat package mappings and store product IDs.`);
     }
 
     return selectedPackage;
@@ -400,7 +443,7 @@ class RevenueCatService {
     }
   }
 
-  async refreshTrialStatus(): Promise<TrialStatusSnapshot> {
+  async refreshTrialStatus(options: RevenueCatStatusSyncOptions = {}): Promise<TrialStatusSnapshot> {
     const purchases = getPurchasesModule();
     if (!purchases?.getCustomerInfo) {
       return applyTrialStatus(DEFAULT_TRIAL_STATUS);
@@ -409,14 +452,14 @@ class RevenueCatService {
     try {
       const customerInfo = await purchases.getCustomerInfo();
       const status = deriveTrialStatus(customerInfo);
-      return applyTrialStatus(status, true);
+      return applyStatusWhenEnabled(status, options);
     } catch (error) {
       logger.error('[RevenueCatService] refreshTrialStatus failed', error);
       return this.getCurrentStatus();
     }
   }
 
-  async purchasePackageByIdentifier(productId: string): Promise<{
+  async purchasePackageByIdentifier(productId: string, options: RevenueCatStatusSyncOptions = {}): Promise<{
     status: TrialStatusSnapshot;
     dismissed: boolean;
   }> {
@@ -435,10 +478,10 @@ class RevenueCatService {
 
       const response = await purchases.purchasePackage(selectedPackage);
       const status = deriveTrialStatus(extractCustomerInfo(response));
-      return { status: applyTrialStatus(status, true), dismissed: false };
+      return { status: applyStatusWhenEnabled(status, options), dismissed: false };
     } catch (error) {
       if (isUserCancelled(error)) {
-        return { status: await this.refreshTrialStatus(), dismissed: true };
+        return { status: await this.refreshTrialStatus(options), dismissed: true };
       }
       logger.error('[RevenueCatService] Failed to purchase package', error);
       throw error;
@@ -474,7 +517,7 @@ class RevenueCatService {
     }
   }
 
-  async restorePurchases(): Promise<TrialStatusSnapshot> {
+  async restorePurchases(options: RevenueCatStatusSyncOptions = {}): Promise<TrialStatusSnapshot> {
     const purchases = getPurchasesModule();
     if (!purchases) {
       throw new Error('[RevenueCat] Billing service is unavailable. The native module react-native-purchases is not loaded.');
@@ -486,7 +529,7 @@ class RevenueCatService {
     try {
       const customerInfo = await purchases.restorePurchases();
       const status = deriveTrialStatus(customerInfo);
-      return applyTrialStatus(status, true);
+      return applyStatusWhenEnabled(status, options);
     } catch (error) {
       logger.error('[RevenueCatService] restorePurchases failed', error);
       throw error;
