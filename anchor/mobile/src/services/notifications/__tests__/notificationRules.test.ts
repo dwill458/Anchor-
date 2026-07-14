@@ -90,6 +90,28 @@ describe('notification rules', () => {
     expect(result.eligible).toBe(true);
   });
 
+  it('keeps tomorrow queued after practice is completed today', () => {
+    const result = evaluateDailyPrime(
+      baseState({ dailyPrimeTime: '21:00' }),
+      context({
+        now: new Date('2026-06-24T15:00:00.000Z'),
+        sessionLog: [
+          {
+            id: 'session-1',
+            anchorId: 'anchor-1',
+            type: 'activate',
+            durationSeconds: 30,
+            mode: 'silent',
+            completedAt: '2026-06-24T14:00:00.000Z',
+          },
+        ],
+      })
+    );
+
+    expect(result.eligible).toBe(true);
+    expect(result.fireDate).toEqual(new Date(2026, 5, 25, 21, 0, 0, 0));
+  });
+
   it('fires thread strength below threshold and respects daily practice', () => {
     expect(evaluateThreadStrength(baseState(), context({ threadStrength: 69 })).eligible).toBe(true);
     expect(

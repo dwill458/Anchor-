@@ -15,47 +15,47 @@ datasource db {
 // ============================================================================
 
 model User {
-  id                    String   @id @default(uuid())
-  email                 String   @unique
-  passwordHash          String?
-  displayName           String?
-  profilePictureUrl     String?
-  authProvider          String   // 'email', 'google', 'apple'
-  authUid               String   @unique
-  isComped              Boolean  @default(false)
-  subscriptionStatus    String   @default("free") // 'free', 'pro', 'pro_annual'
-  subscriptionId        String?
-  createdAt             DateTime @default(now())
+  id                     String    @id @default(uuid())
+  email                  String    @unique
+  passwordHash           String?
+  displayName            String?
+  profilePictureUrl      String?
+  authProvider           String // 'email', 'google', 'apple'
+  authUid                String    @unique
+  isComped               Boolean   @default(false)
+  subscriptionStatus     String    @default("free") // 'free', 'pro', 'pro_annual'
+  subscriptionId         String?
+  createdAt              DateTime  @default(now())
   // Trial anchor — separate from createdAt so it can be reset per-account
   // (e.g. migrating beta accounts onto a fresh trial at production launch).
-  trialStartedAt        DateTime @default(now())
-  updatedAt             DateTime @updatedAt
-  lastSeenAt            DateTime?
-  hasCompletedOnboarding Boolean @default(false)
+  trialStartedAt         DateTime  @default(now())
+  updatedAt              DateTime  @updatedAt
+  lastSeenAt             DateTime?
+  hasCompletedOnboarding Boolean   @default(false)
 
   // Stats
-  totalAnchorsCreated   Int      @default(0)
-  totalActivations      Int      @default(0)
-  currentStreak         Int      @default(0)
-  longestStreak         Int      @default(0)
-  stabilizesTotal       Int      @default(0)
-  stabilizeStreakDays   Int      @default(0)
-  lastStabilizeAt       DateTime?
-  notificationState     Json?    @map("notification_state")
-  expoPushToken         String?  @map("expo_push_token")
-  fcmToken              String?  @map("fcm_token")
-  apnsToken             String?  @map("apns_token")
-  notificationsEnabled  Boolean  @default(true) @map("notifications_enabled")
+  totalAnchorsCreated  Int       @default(0)
+  totalActivations     Int       @default(0)
+  currentStreak        Int       @default(0)
+  longestStreak        Int       @default(0)
+  stabilizesTotal      Int       @default(0)
+  stabilizeStreakDays  Int       @default(0)
+  lastStabilizeAt      DateTime?
+  notificationState    Json?     @map("notification_state")
+  expoPushToken        String?   @map("expo_push_token")
+  fcmToken             String?   @map("fcm_token")
+  apnsToken            String?   @map("apns_token")
+  notificationsEnabled Boolean   @default(true) @map("notifications_enabled")
 
   // Relations
-  anchors               Anchor[]
-  activations           Activation[]
-  charges               Charge[]
-  orders                Order[]
-  settings              UserSettings?
-  burnedAnchors         BurnedAnchor[]
-  flaggedContent        FlaggedContent[]
-  syncQueue             SyncQueue[]
+  anchors        Anchor[]
+  activations    Activation[]
+  charges        Charge[]
+  orders         Order[]
+  settings       UserSettings?
+  burnedAnchors  BurnedAnchor[]
+  flaggedContent FlaggedContent[]
+  syncQueue      SyncQueue[]
 
   @@map("users")
 }
@@ -65,132 +65,132 @@ model User {
 // ============================================================================
 
 model Anchor {
-  id                    String   @id @default(uuid())
-  userId                String
-  user                  User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id     String @id @default(uuid())
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   // Client-generated key for POST /api/anchors so a retried request (e.g. after
   // the client never received the response) returns the original anchor instead
   // of creating a duplicate.
-  idempotencyKey        String?  @unique @map("idempotency_key")
+  idempotencyKey String? @unique @map("idempotency_key")
 
   // Intention & Category
-  intentionText         String
-  category              String   // 'desire', 'health', 'career', 'relationships', 'creativity', 'spirituality', 'abundance', 'family', 'learning', 'adventure', 'custom'
-  planetaryTier         String?  @default("saturn") // 'saturn', 'jupiter', 'mars', 'sun', 'venus'
-  classifierVersion     Int      @default(1) // 1=old 8-cat, 2=new 5-tier
-  classifierMeta        Json?    // {confidenceScore, llmUsed, timestamp}
+  intentionText     String
+  category          String // 'desire', 'health', 'career', 'relationships', 'creativity', 'spirituality', 'abundance', 'family', 'learning', 'adventure', 'custom'
+  planetaryTier     String? @default("saturn") // 'saturn', 'jupiter', 'mars', 'sun', 'venus'
+  classifierVersion Int     @default(1) // 1=old 8-cat, 2=new 5-tier
+  classifierMeta    Json? // {confidenceScore, llmUsed, timestamp}
 
   // ───────────────────────────────────────────────────
   // STRUCTURE LINEAGE (New Architecture)
   // ───────────────────────────────────────────────────
   // Deterministic structure from traditional generator (source of truth)
-  baseSigilSvg          String?  @db.Text
+  baseSigilSvg String? @db.Text
 
   // User-traced reinforcement version (if manual reinforcement completed)
-  reinforcedSigilSvg    String?  @db.Text
+  reinforcedSigilSvg String? @db.Text
 
   // AI-styled appearance image URL (if AI enhancement applied)
-  enhancedImageUrl      String?
+  enhancedImageUrl String?
 
   // ───────────────────────────────────────────────────
   // CREATION PATH METADATA (New Architecture)
   // ───────────────────────────────────────────────────
   // Which deterministic variant was chosen: 'dense' | 'balanced' | 'minimal'
-  structureVariant      String   @default("balanced")
+  structureVariant String @default("balanced")
 
   // Manual reinforcement session data (if user traced the structure)
   reinforcementMetadata Json?
 
   // AI enhancement details (if AI styling was applied)
-  enhancementMetadata   Json?
+  enhancementMetadata Json?
 
   // ───────────────────────────────────────────────────
   // LEGACY FIELDS (Deprecated - kept for backward compatibility)
   // ───────────────────────────────────────────────────
-  distilledLetters      String[]
-  generationMethod      String   @default("automated") // 'automated', 'manual'
-  enhancementStatus     String   @default("pending") // 'pending', 'generating', 'complete', 'error'
-  selectedSymbols       Json?    // Array of symbols selected by intention analysis
-  aiStyle               String?  // 'grimoire', 'minimal', 'cosmic', etc.
-  variationUrls         Json?    // Array of generated variation URLs
+  distilledLetters  String[]
+  generationMethod  String   @default("automated") // 'automated', 'manual'
+  enhancementStatus String   @default("pending") // 'pending', 'generating', 'complete', 'error'
+  selectedSymbols   Json? // Array of symbols selected by intention analysis
+  aiStyle           String? // 'grimoire', 'minimal', 'cosmic', etc.
+  variationUrls     Json? // Array of generated variation URLs
 
   // ───────────────────────────────────────────────────
   // MANTRA
   // ───────────────────────────────────────────────────
-  mantraText            String?
-  mantraPronunciation   String?
-  mantraAudioUrl        String?
+  mantraText          String?
+  mantraPronunciation String?
+  mantraAudioUrl      String?
 
   // ───────────────────────────────────────────────────
   // CHARGING STATUS
   // ───────────────────────────────────────────────────
-  isCharged             Boolean  @default(false)
-  chargeCount           Int      @default(0)
-  chargedAt             DateTime?
-  firstChargedAt        DateTime?
-  ignitedAt             DateTime?
-  chargeMethod          String?  // 'quick', 'deep'
+  isCharged      Boolean   @default(false)
+  chargeCount    Int       @default(0)
+  chargedAt      DateTime?
+  firstChargedAt DateTime?
+  ignitedAt      DateTime?
+  chargeMethod   String? // 'quick', 'deep'
 
   // ───────────────────────────────────────────────────
   // ACTIVATION STATS
   // ───────────────────────────────────────────────────
-  activationCount       Int      @default(0)
-  lastActivatedAt       DateTime?
+  activationCount Int       @default(0)
+  lastActivatedAt DateTime?
 
   // ───────────────────────────────────────────────────
   // SHARING & ARCHIVING
   // ───────────────────────────────────────────────────
-  isShared              Boolean  @default(false)
-  sharedAt              DateTime?
-  isArchived            Boolean  @default(false)
-  archivedAt            DateTime?
+  isShared   Boolean   @default(false)
+  sharedAt   DateTime?
+  isArchived Boolean   @default(false)
+  archivedAt DateTime?
 
   // ───────────────────────────────────────────────────
   // TIMESTAMPS
   // ───────────────────────────────────────────────────
-  createdAt             DateTime @default(now())
-  updatedAt             DateTime @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   // Relations
-  activations           Activation[]
-  charges               Charge[]
+  activations Activation[]
+  charges     Charge[]
 
   @@index([userId])
-  @@index([userId, isArchived])         // covers all vault queries (always filter isArchived=false)
-  @@index([userId, isCharged])          // covers isCharged filter in GET /api/anchors
-  @@index([userId, updatedAt])          // covers default orderBy (updatedAt desc)
-  @@index([userId, createdAt])          // covers createdAt orderBy
+  @@index([userId, isArchived]) // covers all vault queries (always filter isArchived=false)
+  @@index([userId, isCharged]) // covers isCharged filter in GET /api/anchors
+  @@index([userId, updatedAt]) // covers default orderBy (updatedAt desc)
+  @@index([userId, createdAt]) // covers createdAt orderBy
   @@index([category])
   @@index([isShared])
   @@map("anchors")
 }
 
 model AnchorVariationPool {
-  id                   String   @id @default(cuid())
+  id                   String    @id @default(cuid())
   fingerprint          String
-  intentionKey         String   @map("intention_key")
-  structureHash        String   @map("structure_hash")
-  styleChoice          String   @map("style_choice")
-  imageUrl             String   @map("image_url")
-  status               String   @default("available") // 'available' | 'reserved' | 'consumed'
-  reservedByRequestId  String?  @map("reserved_by_request_id")
+  intentionKey         String    @map("intention_key")
+  structureHash        String    @map("structure_hash")
+  styleChoice          String    @map("style_choice")
+  imageUrl             String    @map("image_url")
+  status               String    @default("available") // 'available' | 'reserved' | 'consumed'
+  reservedByRequestId  String?   @map("reserved_by_request_id")
   reservedAt           DateTime? @map("reserved_at")
   reservedUntil        DateTime? @map("reserved_until")
-  selectedByAnchorId   String?  @map("selected_by_anchor_id")
+  selectedByAnchorId   String?   @map("selected_by_anchor_id")
   selectedAt           DateTime? @map("selected_at")
-  sourceProvider       String?  @map("source_provider")
-  sourceModel          String?  @map("source_model")
-  sourcePrompt         String?  @map("source_prompt") @db.Text
-  sourceNegativePrompt String?  @map("source_negative_prompt") @db.Text
+  sourceProvider       String?   @map("source_provider")
+  sourceModel          String?   @map("source_model")
+  sourcePrompt         String?   @map("source_prompt") @db.Text
+  sourceNegativePrompt String?   @map("source_negative_prompt") @db.Text
   seed                 Int?
-  structureMatchScore  Float?   @map("structure_match_score")
-  iouScore             Float?   @map("iou_score")
-  edgeOverlapScore     Float?   @map("edge_overlap_score")
-  structurePreserved   Boolean? @map("structure_preserved")
+  structureMatchScore  Float?    @map("structure_match_score")
+  iouScore             Float?    @map("iou_score")
+  edgeOverlapScore     Float?    @map("edge_overlap_score")
+  structurePreserved   Boolean?  @map("structure_preserved")
   classification       String?
-  createdAt            DateTime @default(now()) @map("created_at")
-  updatedAt            DateTime @updatedAt @map("updated_at")
+  createdAt            DateTime  @default(now()) @map("created_at")
+  updatedAt            DateTime  @updatedAt @map("updated_at")
 
   @@index([fingerprint, status])
   @@index([reservedByRequestId])
@@ -204,34 +204,38 @@ model AnchorVariationPool {
 // ============================================================================
 
 model Activation {
-  id                    String   @id @default(uuid())
-  userId                String
-  user                  User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  anchorId              String
-  anchor                Anchor   @relation(fields: [anchorId], references: [id], onDelete: Cascade)
+  id       String @id @default(uuid())
+  userId   String
+  user     User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  anchorId String
+  anchor   Anchor @relation(fields: [anchorId], references: [id], onDelete: Cascade)
 
-  activationType        String   // 'visual', 'mantra', 'deep'
-  durationSeconds       Int?
-  activatedAt           DateTime @default(now())
+  activationType  String // 'visual', 'mantra', 'deep'
+  durationSeconds Int?
+  clientEventId   String?  @map("client_event_id")
+  activatedAt     DateTime @default(now())
 
+  @@unique([userId, clientEventId])
   @@index([userId, anchorId])
   @@index([activatedAt])
   @@map("activations")
 }
 
 model Charge {
-  id                    String   @id @default(uuid())
-  userId                String
-  user                  User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  anchorId              String
-  anchor                Anchor   @relation(fields: [anchorId], references: [id], onDelete: Cascade)
+  id       String @id @default(uuid())
+  userId   String
+  user     User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  anchorId String
+  anchor   Anchor @relation(fields: [anchorId], references: [id], onDelete: Cascade)
 
-  chargeType            String   // 'initial_quick', 'initial_deep', 'recharge'
-  durationSeconds       Int?
-  ambientSound          String?
-  completed             Boolean  @default(false)
-  chargedAt             DateTime @default(now())
+  chargeType      String // 'initial_quick', 'initial_deep', 'recharge'
+  durationSeconds Int?
+  ambientSound    String?
+  completed       Boolean  @default(false)
+  clientEventId   String?  @map("client_event_id")
+  chargedAt       DateTime @default(now())
 
+  @@unique([userId, clientEventId])
   @@index([userId, anchorId])
   @@map("charges")
 }
@@ -241,18 +245,23 @@ model Charge {
 // ============================================================================
 
 model BurnedAnchor {
-  id                    String   @id @default(uuid())
-  originalAnchorId      String   @unique
-  userId                String
-  user                  User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  intentionText         String
-  category              String
-  distilledLetters      String[]
-  baseSigilSvg          String?  @db.Text
-  enhancedImageUrl      String?
-  activationCount       Int
-  createdAt             DateTime
-  burnedAt              DateTime @default(now())
+  id                String   @id @default(uuid())
+  originalAnchorId  String   @unique
+  userId            String
+  user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  intentionText     String
+  category          String
+  distilledLetters  String[]
+  baseSigilSvg      String?  @db.Text
+  enhancedImageUrl  String?
+  activationCount   Int
+  // Immutable practice snapshots retained when the source Anchor is deleted.
+  // The live Activation/Charge rows cascade with Anchor, so these JSON arrays
+  // are the server-restorable lifetime history for burned anchors.
+  activationHistory Json     @default("[]") @map("activation_history")
+  chargeHistory     Json     @default("[]") @map("charge_history")
+  createdAt         DateTime
+  burnedAt          DateTime @default(now())
 
   @@index([userId])
   @@map("burned_anchors")
@@ -263,35 +272,35 @@ model BurnedAnchor {
 // ============================================================================
 
 model Order {
-  id                    String   @id @default(uuid())
-  userId                String
-  user                  User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id     String @id @default(uuid())
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   // Printful Integration
-  printfulOrderId       String?
-  status                String   @default("pending") // 'pending', 'processing', 'shipped', 'delivered', 'cancelled'
+  printfulOrderId String?
+  status          String  @default("pending") // 'pending', 'processing', 'shipped', 'delivered', 'cancelled'
 
   // Product Details
-  productType           String   // 'hoodie', 't-shirt', 'keychain', 'print', 'phone-case'
-  productVariant        String   // Size, color, etc.
-  quantity              Int      @default(1)
-  anchorImageUrl        String?  // URL of the anchor design used
+  productType    String // 'hoodie', 't-shirt', 'keychain', 'print', 'phone-case'
+  productVariant String // Size, color, etc.
+  quantity       Int     @default(1)
+  anchorImageUrl String? // URL of the anchor design used
 
   // Pricing (in cents)
-  subtotalCents         Int
-  shippingCents         Int
-  taxCents              Int
-  totalCents            Int
-  currency              String   @default("USD")
+  subtotalCents Int
+  shippingCents Int
+  taxCents      Int
+  totalCents    Int
+  currency      String @default("USD")
 
   // Shipping
-  shippingName          String?
-  shippingAddress       Json?
-  trackingNumber        String?
+  shippingName    String?
+  shippingAddress Json?
+  trackingNumber  String?
 
   // Timestamps
-  createdAt             DateTime @default(now())
-  updatedAt             DateTime @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@index([userId])
   @@index([status])
@@ -303,27 +312,27 @@ model Order {
 // ============================================================================
 
 model UserSettings {
-  userId                String   @id
-  user                  User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId String @id
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   // Notifications
-  notificationsEnabled  Boolean  @default(true)
-  dailyReminderTime     String   @default("08:00") // HH:MM format
-  streakProtection      Boolean  @default(true)
+  notificationsEnabled Boolean @default(true)
+  dailyReminderTime    String  @default("08:00") // HH:MM format
+  streakProtection     Boolean @default(true)
 
   // Defaults
-  defaultChargeDuration Int      @default(300) // seconds
-  focusSessionMode      String   @default("quick")
-  focusSessionDuration  Int      @default(30) // seconds
-  focusSessionAudio     String   @default("ambient")
-  primeSessionDuration   Int      @default(120) // seconds
-  primeSessionAudio     String   @default("ambient")
-  hapticIntensity       Int      @default(3)   // 1-5 scale
+  defaultChargeDuration Int    @default(300) // seconds
+  focusSessionMode      String @default("quick")
+  focusSessionDuration  Int    @default(30) // seconds
+  focusSessionAudio     String @default("ambient")
+  primeSessionDuration  Int    @default(120) // seconds
+  primeSessionAudio     String @default("ambient")
+  hapticIntensity       Int    @default(3) // 1-5 scale
 
   // UI Preferences
-  vaultViewType         String   @default("grid") // 'grid' or 'list'
+  vaultViewType String @default("grid") // 'grid' or 'list'
 
-  updatedAt             DateTime @updatedAt
+  updatedAt DateTime @updatedAt
 
   @@map("user_settings")
 }
@@ -351,15 +360,15 @@ model FlaggedContent {
 // ============================================================================
 
 model SyncQueue {
-  id                    String   @id @default(uuid())
-  userId                String
-  user                  User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  action                String   // 'create_anchor', 'activate', 'charge', etc.
-  entityType            String   // 'anchor', 'activation', 'charge'
-  entityData            Json
-  status                String   @default("pending") // 'pending', 'synced', 'failed'
-  createdAt             DateTime @default(now())
-  syncedAt              DateTime?
+  id         String    @id @default(uuid())
+  userId     String
+  user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  action     String // 'create_anchor', 'activate', 'charge', etc.
+  entityType String // 'anchor', 'activation', 'charge'
+  entityData Json
+  status     String    @default("pending") // 'pending', 'synced', 'failed'
+  createdAt  DateTime  @default(now())
+  syncedAt   DateTime?
 
   @@index([userId, status])
   @@map("sync_queue")

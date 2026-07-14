@@ -55,6 +55,21 @@ export const STORAGE_CLASSIFICATION_MATRIX: StoreClassificationMatrix = {
     journeyWeekStart: 'high_sensitivity_telemetry',
     lastDecayDate: 'high_sensitivity_telemetry',
   },
+  milestoneLedger: {
+    scopeId: 'identity',
+    revision: 'low_sensitivity_preferences',
+    awards: 'high_sensitivity_telemetry',
+    outbox: 'high_sensitivity_telemetry',
+    opaqueAwards: 'high_sensitivity_telemetry',
+    opaqueOutbox: 'high_sensitivity_telemetry',
+    legacyMigratedAt: 'high_sensitivity_telemetry',
+    progressionBaselineVersion: 'low_sensitivity_preferences',
+  },
+  forgeMomentStore: {
+    scopeId: 'session_only',
+    activeMilestone: 'session_only',
+    queuedMilestones: 'session_only',
+  },
   teachingStore: {
     schemaVersion: 'low_sensitivity_preferences',
     showCounts: 'high_sensitivity_telemetry',

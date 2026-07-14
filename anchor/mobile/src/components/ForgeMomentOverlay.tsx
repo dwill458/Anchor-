@@ -27,6 +27,7 @@ import type { ForgeMomentMilestone } from '@/stores/forgeMomentStore';
 
 interface ForgeMomentOverlayProps {
   milestone: ForgeMomentMilestone | null;
+  onShown: () => void;
   onDismiss: () => void;
 }
 
@@ -257,6 +258,7 @@ const RankIcon: React.FC<{ name: string; size?: number }> = ({ name, size = 24 }
 
 export const ForgeMomentOverlay: React.FC<ForgeMomentOverlayProps> = ({
   milestone,
+  onShown,
   onDismiss,
 }) => {
   const insets = useSafeAreaInsets();
@@ -271,6 +273,7 @@ export const ForgeMomentOverlay: React.FC<ForgeMomentOverlayProps> = ({
 
     entry.setValue(0);
     fadeOut.setValue(1);
+    onShown();
 
     Animated.timing(entry, {
       toValue: 1,
@@ -294,7 +297,7 @@ export const ForgeMomentOverlay: React.FC<ForgeMomentOverlayProps> = ({
       clearTimeout(fadeTimer);
       clearTimeout(dismissTimer);
     };
-  }, [entry, fadeOut, milestone, onDismiss]);
+  }, [entry, fadeOut, milestone, onDismiss, onShown]);
 
   const containerSize = Math.min(width * 0.82, 320);
   const outerRingSize = containerSize * 0.94;

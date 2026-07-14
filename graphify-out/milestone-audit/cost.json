@@ -1,0 +1,27 @@
+{
+  "runs": [
+    {
+      "date": "2026-07-12T21:11:49.305405+00:00",
+      "input_tokens": 0,
+      "output_tokens": 0,
+      "files": 66,
+      "note": "subagent usage telemetry unavailable; token fields remain zero"
+    },
+    {
+      "date": "2026-07-12T22:24:21.483212+00:00",
+      "input_tokens": 0,
+      "output_tokens": 0,
+      "files": 66,
+      "note": "AST-only code graph refresh; no LLM semantic extraction required"
+    },
+    {
+      "date": "2026-07-12T22:27:58.589070+00:00",
+      "input_tokens": 0,
+      "output_tokens": 0,
+      "files": 66,
+      "note": "Final AST-only code graph refresh; no LLM semantic extraction required"
+    }
+  ],
+  "total_input_tokens": 0,
+  "total_output_tokens": 0
+}

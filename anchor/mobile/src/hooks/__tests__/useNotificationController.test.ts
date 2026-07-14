@@ -175,7 +175,7 @@ describe('useNotificationController', () => {
     );
   });
 
-  it('does not schedule daily prime after a Focus Session was completed today', async () => {
+  it('schedules the next-day daily prime after a Focus Session was completed today', async () => {
     mockGetPermissionStatus.mockResolvedValue('granted');
     mockSessionStoreGetState.mockReturnValue(createSessionState({
       sessionLog: [
@@ -210,7 +210,12 @@ describe('useNotificationController', () => {
 
     await waitFor(() => expect(result.current.isInitialized).toBe(true));
 
-    expect(mockScheduleSmartNotification).not.toHaveBeenCalled();
+    expect(mockScheduleSmartNotification).toHaveBeenCalledWith(
+      expect.objectContaining({
+        category: 'daily_prime',
+        fireDate: new Date(2026, 5, 25, 21, 0, 0, 0),
+      })
+    );
   });
 
   it('persists preference changes and reschedules through the smart scheduler', async () => {

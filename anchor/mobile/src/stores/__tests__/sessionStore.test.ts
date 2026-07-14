@@ -119,6 +119,20 @@ describe('sessionStore', () => {
       expect(result.current.sessionLog).toHaveLength(1);
     });
 
+    it('deduplicates a retried completion by its stable event ID', () => {
+      const { result } = renderHook(() => useSessionStore());
+      const entry = makeEntry({ type: 'reinforce' });
+      act(() => {
+        result.current.recordSession({ ...entry, idempotencyKey: 'practice-event-retry' });
+        result.current.recordSession({ ...entry, idempotencyKey: 'practice-event-retry' });
+      });
+
+      expect(result.current.sessionLog).toHaveLength(1);
+      expect(result.current.primingHistory).toHaveLength(1);
+      expect(result.current.totalSessionsCount).toBe(1);
+      expect(result.current.threadStrength).toBe(90);
+    });
+
     it('sets lastSession to the recorded entry', () => {
       const { result } = renderHook(() => useSessionStore());
       act(() => result.current.recordSession(makeEntry({ anchorId: 'anchor-abc' })));

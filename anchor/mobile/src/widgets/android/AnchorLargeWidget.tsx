@@ -73,25 +73,26 @@ function buildPurpleAuraSvg(): string {
   );
 }
 
-// The SVG is rendered with FIT_CENTER by Android's ImageView. Keep the grid
-// intentionally generous and let it use the card's horizontal breathing room
-// so the cells grow on-screen instead of being scaled back to the old size.
-const CELL = 16;
-const GAP = 5;
+// Keep this aspect ratio close to the dedicated SvgWidget below. Android uses
+// FIT_CENTER for SVGs; a tall canvas was shrinking the entire calendar to fit
+// vertically and leaving most of the lower card empty.
+const CELL = 17;
+const GAP = 4;
 const CELL_RADIUS = 4;
-const MONTH_LABEL_HEIGHT = 17;
+const MONTH_LABEL_HEIGHT = 13;
 const GRID_WIDTH = WIDGET_HISTORY_WEEKS * CELL + (WIDGET_HISTORY_WEEKS - 1) * GAP;
 const GRID_HEIGHT = MONTH_LABEL_HEIGHT + 7 * CELL + 6 * GAP;
+const HEATMAP_RENDER_HEIGHT = 130;
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
-function buildStrengthArcSvg(value: number): string {
+function buildStrengthRingSvg(value: number): string {
   const clamped = Math.max(0, Math.min(100, Math.round(value)));
-  const arcLength = 69.1;
-  const dashOffset = arcLength * (1 - clamped / 100);
+  const circumference = 100.53;
+  const dashOffset = circumference * (1 - clamped / 100);
   return (
-    '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 56 34">' +
-    `<path d="M 6 28 A 22 22 0 0 1 50 28" fill="none" stroke="#FFFFFF" stroke-opacity="0.08" stroke-width="4" stroke-linecap="round"/>` +
-    `<path d="M 6 28 A 22 22 0 0 1 50 28" fill="none" stroke="${GOLD}" stroke-opacity="0.95" stroke-width="4" stroke-linecap="round" stroke-dasharray="${arcLength}" stroke-dashoffset="${dashOffset}"/>` +
+    '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 44 44">' +
+    '<circle cx="22" cy="22" r="16" fill="#0D1119" fill-opacity="0.7" stroke="#FFFFFF" stroke-opacity="0.08" stroke-width="3.5"/>' +
+    `<circle cx="22" cy="22" r="16" fill="none" stroke="${GOLD}" stroke-opacity="0.95" stroke-width="3.5" stroke-linecap="round" stroke-dasharray="${circumference}" stroke-dashoffset="${dashOffset}" transform="rotate(-90 22 22)"/>` +
     '</svg>'
   );
 }
@@ -338,28 +339,31 @@ export function AnchorLargeWidget({
               }}
             />
           </FlexWidget>
-          <FlexWidget style={{ width: 48, alignItems: 'center', flexDirection: 'column' }}>
-            <OverlapWidget style={{ width: 48, height: 28 }}>
-              <SvgWidget svg={buildStrengthArcSvg(threadStrength)} style={{ width: 48, height: 28 }} />
+          <FlexWidget
+            style={{ width: 52, alignItems: 'center', flexDirection: 'column', marginRight: 2 }}
+          >
+            <OverlapWidget style={{ width: 42, height: 42 }}>
+              <SvgWidget svg={buildStrengthRingSvg(threadStrength)} style={{ width: 42, height: 42 }} />
               <TextWidget
                 text={`${Math.round(threadStrength)}%`}
                 style={{
                   fontFamily: FONT_DISPLAY_SEMIBOLD,
-                  fontSize: 9,
+                  fontSize: 8.5,
                   color: GOLD,
                   textAlign: 'center',
-                  marginTop: 9,
+                  marginTop: 16,
                 }}
               />
             </OverlapWidget>
             <TextWidget
-              text="STRENGTH"
+              text="THREAD STRENGTH"
               style={{
                 fontFamily: FONT_DISPLAY,
-                fontSize: 6.5,
-                letterSpacing: 0.9,
+                fontSize: 5.25,
+                letterSpacing: 0.45,
                 color: SILVER_LABEL,
-                marginTop: 1,
+                marginTop: 2,
+                textAlign: 'center',
               }}
             />
           </FlexWidget>
@@ -369,18 +373,18 @@ export function AnchorLargeWidget({
         <FlexWidget
           style={{
             width: 'match_parent',
-            height: 32,
+            height: 28,
             flexDirection: 'row',
             alignItems: 'center',
-            marginTop: 8,
+            marginTop: 6,
           }}
         >
           <Metric value={String(totalSessions)} label="TOTAL SESSIONS" />
-          <FlexWidget style={{ width: 1, height: 22, backgroundColor: '#FFFFFF12' }} />
+          <FlexWidget style={{ width: 1, height: 19, backgroundColor: '#FFFFFF12' }} />
           <Metric value={String(streak)} label="CONSTANCY" />
-          <FlexWidget style={{ width: 1, height: 22, backgroundColor: '#FFFFFF12' }} />
+          <FlexWidget style={{ width: 1, height: 19, backgroundColor: '#FFFFFF12' }} />
           <Metric value={String(longestStreak)} label="PRIME RECORD" />
-          <FlexWidget style={{ width: 1, height: 22, backgroundColor: '#FFFFFF12' }} />
+          <FlexWidget style={{ width: 1, height: 19, backgroundColor: '#FFFFFF12' }} />
           <Metric value={`${deepPrimePercent}%`} label="DEEP PRIMES" color="#9D74CF" />
         </FlexWidget>
 
@@ -388,10 +392,10 @@ export function AnchorLargeWidget({
         <FlexWidget
           style={{
             width: 'match_parent',
-            height: 19,
+            height: 17,
             flexDirection: 'row',
             alignItems: 'center',
-            marginTop: 5,
+            marginTop: 4,
             paddingHorizontal: 8,
             borderRadius: 6,
             borderWidth: 1,
@@ -408,7 +412,7 @@ export function AnchorLargeWidget({
           />
         </FlexWidget>
 
-        <FlexWidget style={{ width: 'match_parent', flexDirection: 'column', marginTop: 6 }}>
+        <FlexWidget style={{ width: 'match_parent', flexDirection: 'column', marginTop: 5 }}>
           <FlexWidget style={{ width: 'match_parent', flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
             <TextWidget
               text="SESSION BREAKDOWN"
@@ -424,7 +428,7 @@ export function AnchorLargeWidget({
               width: 'match_parent',
               height: 5,
               flexDirection: 'row',
-              marginTop: 4,
+              marginTop: 3,
               borderRadius: 3,
               overflow: 'hidden',
               backgroundColor: '#FFFFFF0F',
@@ -437,12 +441,12 @@ export function AnchorLargeWidget({
 
         {/* ── Current week rhythm ── */}
         {currentWeek.length === 7 ? (
-          <FlexWidget style={{ width: 'match_parent', flexDirection: 'column', marginTop: 6 }}>
+          <FlexWidget style={{ width: 'match_parent', flexDirection: 'column', marginTop: 5 }}>
             <TextWidget
               text="THIS WEEK"
               style={{ fontFamily: FONT_DISPLAY, fontSize: 7, letterSpacing: 1.05, color: SILVER_LABEL }}
             />
-            <FlexWidget style={{ width: 'match_parent', flexDirection: 'row', marginTop: 4 }}>
+            <FlexWidget style={{ width: 'match_parent', flexDirection: 'row', marginTop: 3 }}>
               {currentWeek.map((day) => <WeekDot key={day.date} day={day} />)}
             </FlexWidget>
           </FlexWidget>
@@ -452,11 +456,11 @@ export function AnchorLargeWidget({
         <FlexWidget
           style={{
             width: 'match_parent',
-            flex: 1,
             flexDirection: 'column',
-            justifyContent: 'center',
-            marginTop: 6,
-            marginBottom: 6,
+            height: 146,
+            justifyContent: 'flex-start',
+            marginTop: 5,
+            marginBottom: 5,
           }}
         >
           <FlexWidget style={{ width: 'match_parent', flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
@@ -471,7 +475,7 @@ export function AnchorLargeWidget({
           </FlexWidget>
           <SvgWidget
             svg={buildHeatmapSvg(history, today, primed)}
-            style={{ width: 'match_parent', height: 'match_parent', marginHorizontal: -14 }}
+            style={{ width: 'match_parent', height: HEATMAP_RENDER_HEIGHT }}
           />
         </FlexWidget>
 

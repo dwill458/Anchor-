@@ -1,0 +1,1001 @@
+{
+  "communities": {
+    "16": [
+      "anchorpriming_ts",
+      "utils_anchorpriming_anchorlike",
+      "utils_anchorpriming_haschargemarkers",
+      "utils_anchorpriming_hasanchorprimehistory",
+      "utils_anchorpriming_isfirstprimeforanchor",
+      "utils_anchorpriming_needschargestatebackfill",
+      "utils_anchorpriming_buildrecoveredchargestate",
+      "tests_anchorpriming_test_ts",
+      "tests_anchorpriming_test_anchor",
+      "tests_anchorpriming_test_fallbacktime",
+      "tests_anchorpriming_test_lastactivatedat"
+    ],
+    "12": [
+      "avatarutils_ts",
+      "utils_avatarutils_default_avatars",
+      "utils_avatarutils_getavatarbyindex",
+      "utils_avatarutils_getdefaultavatar",
+      "tests_avatarutils_test_ts",
+      "tests_avatarutils_test_avatar",
+      "tests_avatarutils_test_avatar0",
+      "tests_avatarutils_test_avatar10",
+      "tests_avatarutils_test_avatar1",
+      "tests_avatarutils_test_avatar11",
+      "tests_avatarutils_test_avatar9",
+      "tests_avatarutils_test_avatarneg1",
+      "tests_avatarutils_test_avatarneg10",
+      "tests_avatarutils_test_avatar2"
+    ],
+    "30": [
+      "categorydetection_ts",
+      "utils_categorydetection_category_keywords",
+      "utils_categorydetection_detectcategoryfromtext",
+      "tierclassifier_ts",
+      "utils_tierclassifier_classificationresult",
+      "utils_tierclassifier_classifytotierpreliminary"
+    ],
+    "61": [
+      "color_ts",
+      "utils_color_withalpha"
+    ],
+    "55": [
+      "dateutils_ts",
+      "utils_dateutils_getadjusteddatestring"
+    ],
+    "45": [
+      "developermasteraccount_ts",
+      "utils_developermasteraccount_isdevelopermasteraccountenabled",
+      "utils_developermasteraccount_createdevelopermasteruser"
+    ],
+    "46": [
+      "devicetier_ts",
+      "utils_devicetier_screen",
+      "utils_devicetier_pixelratio"
+    ],
+    "0": [
+      "entitlements_ts",
+      "utils_entitlements_entitlementtier",
+      "utils_entitlements_anchorcreationlimitreason",
+      "utils_entitlements_practicelimitreason",
+      "utils_entitlements_entitlements",
+      "utils_entitlements_entitlementinput",
+      "utils_entitlements_limitcopy",
+      "utils_entitlements_free_features",
+      "utils_entitlements_pro_features",
+      "utils_entitlements_todate",
+      "utils_entitlements_adddays",
+      "utils_entitlements_issameutcday",
+      "utils_entitlements_countanchorscreatedtoday",
+      "utils_entitlements_countanchorscreatedduringtrial",
+      "utils_entitlements_countweeklypracticesessions",
+      "utils_entitlements_getanchorcreationlimitcopy",
+      "utils_entitlements_getpracticelimitcopy",
+      "utils_entitlements_computeentitlements",
+      "utils_entitlements_getentitlements",
+      "primesessionaccess_ts",
+      "utils_primesessionaccess_primesessionkind",
+      "utils_primesessionaccess_weeklyprimeusage",
+      "utils_primesessionaccess_primesessionallowance",
+      "utils_primesessionaccess_normalizepriminghistory",
+      "utils_primesessionaccess_getweeklyprimeusage",
+      "utils_primesessionaccess_getprimesessionallowance",
+      "priminganalytics_ts",
+      "utils_priminganalytics_primingsessiontype",
+      "utils_priminganalytics_timeofdaybucket",
+      "utils_priminganalytics_priminghistoryentry",
+      "utils_priminganalytics_weekday_names",
+      "utils_priminganalytics_time_of_day_labels",
+      "utils_priminganalytics_createlocaldate",
+      "utils_priminganalytics_parselocaldatestring",
+      "utils_priminganalytics_localdatestring",
+      "utils_priminganalytics_adddays",
+      "utils_priminganalytics_startofisoweek",
+      "utils_priminganalytics_localweekstartstring",
+      "utils_priminganalytics_isoweekkey",
+      "utils_priminganalytics_isoweeknumber",
+      "utils_priminganalytics_getisoweekdayindex",
+      "utils_priminganalytics_gettimeofdaybucket",
+      "utils_priminganalytics_isprimingsessiontype",
+      "utils_priminganalytics_buildpriminghistoryentry",
+      "utils_priminganalytics_diffweeksinclusive",
+      "tests_entitlements_test_ts",
+      "tests_entitlements_test_now",
+      "tests_entitlements_test_anchors",
+      "tests_entitlements_test_sessions",
+      "tests_entitlements_test_entitlements",
+      "tests_entitlements_test_capped",
+      "tests_entitlements_test_nextday",
+      "tests_primesessionaccess_test_ts",
+      "tests_primesessionaccess_test_currentdate",
+      "tests_primesessionaccess_test_history",
+      "tests_primesessionaccess_test_allowance"
+    ],
+    "1": [
+      "haptics_ts",
+      "utils_haptics_safehaptics",
+      "logger_ts",
+      "utils_logger_isdebugloggingenabled",
+      "utils_logger_logger",
+      "sigil_gridregistry_ts",
+      "sigil_gridregistry_gridconfig",
+      "sigil_gridregistry_grid_registry",
+      "sigil_gridregistry_getgridconfig",
+      "sigil_traditional_generator_test_ts",
+      "sigil_traditional_generator_test_first",
+      "sigil_traditional_generator_test_second",
+      "sigil_traditional_generator_test_letters",
+      "sigil_traditional_generator_test_result",
+      "sigil_traditional_generator_test_results",
+      "sigil_traditional_generator_test_dense",
+      "sigil_traditional_generator_test_balanced",
+      "sigil_traditional_generator_test_minimal",
+      "sigil_traditional_generator_ts",
+      "sigil_traditional_generator_sigilvariant",
+      "sigil_traditional_generator_sigilgenerationresult",
+      "sigil_traditional_generator_sigil_result_cache",
+      "sigil_traditional_generator_lettertonumber",
+      "sigil_traditional_generator_normalizelettersinput",
+      "sigil_traditional_generator_processintent",
+      "sigil_traditional_generator_createseed",
+      "sigil_traditional_generator_seededunit",
+      "sigil_traditional_generator_jitter",
+      "sigil_traditional_generator_createsigilpath",
+      "sigil_traditional_generator_createborder",
+      "sigil_traditional_generator_calculatestrokewidth",
+      "sigil_traditional_generator_generatetruesigil",
+      "sigil_traditional_generator_generateallvariants",
+      "sigil_traditional_generator_variant_metadata",
+      "tests_logger_test_ts"
+    ],
+    "9": [
+      "hash_ts",
+      "utils_hash_hash32fnv1a",
+      "utils_hash_stableindex",
+      "milestonetracking_ts",
+      "utils_milestonetracking_milestonedates",
+      "utils_milestonetracking_milestonerecordresult",
+      "utils_milestonetracking_milestoneawardstatus",
+      "utils_milestonetracking_milestoneaward",
+      "utils_milestonetracking_milestoneledger",
+      "utils_milestonetracking_milestonebackfillresult",
+      "utils_milestonetracking_milestonerecordoptions",
+      "utils_milestonetracking_empty_milestone_dates",
+      "utils_milestonetracking_listeners",
+      "utils_milestonetracking_mutationchain",
+      "utils_milestonetracking_notifylisteners",
+      "utils_milestonetracking_normalizedscopeid",
+      "utils_milestonetracking_isrankormarkmilestoneid",
+      "utils_milestonetracking_getmilestoneledgerstoragekey",
+      "utils_milestonetracking_emptyledger",
+      "utils_milestonetracking_runserialized",
+      "utils_milestonetracking_sanitizeaward",
+      "utils_milestonetracking_sanitizeledger",
+      "utils_milestonetracking_writeledger",
+      "utils_milestonetracking_legacyaward",
+      "utils_milestonetracking_migratelegacyledger",
+      "utils_milestonetracking_readledger",
+      "utils_milestonetracking_getmilestoneledger",
+      "utils_milestonetracking_datesfromledger",
+      "utils_milestonetracking_getmilestonedates",
+      "utils_milestonetracking_checkandrecordmilestones",
+      "utils_milestonetracking_backfillmilestonedates",
+      "utils_milestonetracking_getpendingmilestoneawards",
+      "utils_milestonetracking_transitionmilestone",
+      "utils_milestonetracking_markmilestoneshown",
+      "utils_milestonetracking_markmilestonedismissed",
+      "utils_milestonetracking_subscribetomilestonedates",
+      "utils_progression_rankname",
+      "utils_progression_markname",
+      "utils_progression_rankmetrics",
+      "utils_progression_gettotalprimes",
+      "utils_progression_getpracticedays",
+      "utils_progression_getreleasedanchorcount",
+      "utils_progression_getcurrentrank",
+      "utils_progression_getearnedranknames",
+      "utils_progression_getearnedmarknames",
+      "progressionmilestones_ts",
+      "utils_progressionmilestones_getprogressionsnapshot",
+      "utils_progressionmilestones_initializeprogressionmilestonesfromstores",
+      "utils_progressionmilestones_queueprogressionmilestonesfromstores",
+      "tests_hash_test_ts",
+      "tests_hash_test_index",
+      "tests_milestonetracking_test_ts",
+      "tests_milestonetracking_test_nextscope",
+      "tests_milestonetracking_test_scopeid",
+      "tests_milestonetracking_test_metrics",
+      "tests_milestonetracking_test_basekey",
+      "tests_milestonetracking_test_listener",
+      "tests_milestonetracking_test_unsubscribe"
+    ],
+    "13": [
+      "intentionpatterns_ts",
+      "utils_intentionpatterns_intentionpatterndetection",
+      "utils_intentionpatterns_detectfuturetense",
+      "utils_intentionpatterns_detectnegation",
+      "utils_intentionpatterns_detectgibberish",
+      "utils_intentionpatterns_analyzeintention",
+      "utils_intentionpatterns_getguidancetext",
+      "tests_intentionpatterns_test_ts",
+      "tests_intentionpatterns_test_res1",
+      "tests_intentionpatterns_test_res2",
+      "tests_intentionpatterns_test_res3",
+      "tests_intentionpatterns_test_res4",
+      "tests_intentionpatterns_test_text"
+    ],
+    "35": [
+      "layout_ts",
+      "utils_layout_iscompactphoneviewport",
+      "utils_layout_isshortphoneviewport",
+      "tests_layout_test_ts"
+    ],
+    "10": [
+      "locationpriming_ts",
+      "utils_locationpriming_locationprimingsessiontype",
+      "utils_locationpriming_locationprimingaudiomode",
+      "utils_locationpriming_locationprimingpreset",
+      "utils_locationpriming_locationprimingzone",
+      "utils_locationpriming_locationprimingdevicelocation",
+      "utils_locationpriming_locationprimingsuggestion",
+      "utils_locationpriming_roundcoordinate",
+      "utils_locationpriming_clamplocationprimingradius",
+      "utils_locationpriming_normalizelocationprimingpreset",
+      "utils_locationpriming_distancemeters",
+      "utils_locationpriming_matchlocationprimingzone",
+      "utils_locationpriming_getforegroundlocationforpriming",
+      "utils_locationpriming_requestcurrentlocationforpriming",
+      "tests_locationpriming_test_ts",
+      "tests_locationpriming_test_makezone",
+      "tests_locationpriming_test_suggestion"
+    ],
+    "50": [
+      "onboardingprogress_ts",
+      "utils_onboardingprogress_getonboardingprogresspercent",
+      "tests_onboardingprogress_test_ts"
+    ],
+    "32": [
+      "postprimetraceeligibility_ts",
+      "utils_postprimetraceeligibility_parsestoreddate",
+      "utils_postprimetraceeligibility_ispostprimetraceeligible",
+      "utils_postprimetraceeligibility_markpostprimetraceattemptstarted",
+      "tests_postprimetraceeligibility_test_ts"
+    ],
+    "2": [
+      "practicedepth_ts",
+      "practicerank_ts",
+      "progression_ts",
+      "utils_progression_depthname",
+      "utils_progression_rankrequirementkey",
+      "utils_progression_depthrequirementkey",
+      "utils_progression_requirementstatus",
+      "utils_progression_ranktier",
+      "utils_progression_depthtier",
+      "utils_progression_marktier",
+      "utils_progression_anchorprimestats",
+      "utils_progression_rankstate",
+      "utils_progression_rankprogressstate",
+      "utils_progression_depthstate",
+      "utils_progression_depthprogressstate",
+      "utils_progression_deepestpracticeanchorstate",
+      "utils_progression_markstate",
+      "utils_progression_markprogressstate",
+      "utils_progression_normalizedprogressionsession",
+      "utils_progression_rank_tiers",
+      "utils_progression_depth_tiers",
+      "utils_progression_mark_tiers",
+      "utils_progression_buildrequirementstatus",
+      "utils_progression_getrankrequirementstatuses",
+      "utils_progression_getdepthrequirementstatuses",
+      "utils_progression_meetsallrequirements",
+      "utils_progression_averageprogress",
+      "utils_progression_findcurrenttier",
+      "utils_progression_findnexttier",
+      "utils_progression_getnormalizedprogressionsessions",
+      "utils_progression_getnextrankprogress",
+      "utils_progression_getanchorprimestats",
+      "utils_progression_getanchordepth",
+      "utils_progression_getanchordepthprogress",
+      "utils_progression_getdeepestpracticeanchor",
+      "utils_progression_getnextmark",
+      "utils_progression_getmarkprogress",
+      "utils_progression_formatrankguidance",
+      "utils_progression_formatdepthguidance",
+      "utils_progression_formatrequirementguidance",
+      "tests_practiceprogress_test_ts",
+      "tests_practiceprogress_test_createprimingentry",
+      "tests_practiceprogress_test_progress",
+      "tests_practiceprogress_test_anchors",
+      "tests_practiceprogress_test_sessions"
+    ],
+    "17": [
+      "privacyhelpers_ts",
+      "utils_privacyhelpers_category_labels",
+      "utils_privacyhelpers_redactanchor",
+      "utils_privacyhelpers_redactanchors",
+      "tests_privacyhelpers_test_ts",
+      "tests_privacyhelpers_test_mockbaseanchor",
+      "tests_privacyhelpers_test_result",
+      "tests_privacyhelpers_test_customanchor",
+      "tests_privacyhelpers_test_nocategoryanchor",
+      "tests_privacyhelpers_test_anchors",
+      "tests_privacyhelpers_test_results"
+    ],
+    "14": [
+      "profilegreeting_ts",
+      "utils_profilegreeting_extractfirstname",
+      "utils_profilegreeting_gethourfortimezone",
+      "utils_profilegreeting_buildprofilegreeting",
+      "progressiontimezone_ts",
+      "utils_progressiontimezone_progressiontimezoneinfo",
+      "utils_progressiontimezone_parseutcoffsetminutes",
+      "utils_progressiontimezone_extractianatimezone",
+      "utils_progressiontimezone_formatdatefromparts",
+      "utils_progressiontimezone_getprogressiontimezoneinfo",
+      "utils_progressiontimezone_toprogressionlocaldatestring",
+      "utils_progressiontimezone_getprogressionhourfortimezone",
+      "tests_profilegreeting_test_ts"
+    ],
+    "3": [
+      "streak_ts",
+      "utils_streak_streakwithgraceresult",
+      "utils_streak_utcday",
+      "utils_streak_calculatestreakwithgrace",
+      "utils_streak_canusegraceday",
+      "streakhelpers_ts",
+      "utils_streakhelpers_streakresult",
+      "utils_streakhelpers_calculatestreak",
+      "tests_streak_test_ts",
+      "tests_streak_test_daysago",
+      "tests_streak_test_now",
+      "tests_streak_test_sevendaysago",
+      "tests_streak_test_eightdaysago",
+      "tests_streak_test_sixdaysago",
+      "tests_streak_test_today",
+      "tests_streak_test_result",
+      "tests_streak_test_activations",
+      "tests_streak_test_lastused",
+      "tests_streakhelpers_test_ts",
+      "tests_streakhelpers_test_daysago",
+      "tests_streakhelpers_test_result",
+      "tests_streakhelpers_test_today",
+      "tests_streakhelpers_test_activations",
+      "tests_streakhelpers_test_recent",
+      "tests_streakhelpers_test_older"
+    ],
+    "41": [
+      "threadstrength_ts",
+      "utils_threadstrength_decay_start_day",
+      "utils_threadstrength_getthreaddecaystartday",
+      "utils_threadstrength_calculatethreaddecay"
+    ],
+    "21": [
+      "useteachinggate_ts",
+      "utils_useteachinggate_teachinggatecontext",
+      "utils_useteachinggate_tracksuppressed",
+      "utils_useteachinggate_useteachinggate",
+      "tests_useteachinggate_test_tsx",
+      "tests_useteachinggate_test_teachingprobe",
+      "tests_useteachinggate_test_seen",
+      "tests_useteachinggate_test_firstvisit"
+    ],
+    "24": [
+      "weeklyinsight_ts",
+      "utils_weeklyinsight_weeklyinsightinput",
+      "utils_weeklyinsight_generateweeklyinsight",
+      "tests_weeklyinsight_test_ts",
+      "tests_weeklyinsight_test_baseinput",
+      "tests_weeklyinsight_test_input",
+      "tests_weeklyinsight_test_result"
+    ],
+    "42": [
+      "weeklyreviewwindow_ts",
+      "utils_weeklyreviewwindow_iswithinweeklyreviewwindow",
+      "utils_weeklyreviewwindow_reviewspreviousweekwindow",
+      "tests_weeklyreviewwindow_test_ts"
+    ],
+    "7": [
+      "sigil_abstract_symbol_generator_test_ts",
+      "sigil_abstract_symbol_generator_test_testletters",
+      "sigil_abstract_symbol_generator_test_result",
+      "sigil_abstract_symbol_generator_test_resultlower",
+      "sigil_abstract_symbol_generator_test_resultupper",
+      "sigil_abstract_symbol_generator_test_resultnormal",
+      "sigil_abstract_symbol_generator_test_resultwithunsupported",
+      "sigil_abstract_symbol_generator_test_results",
+      "sigil_abstract_symbol_generator_ts",
+      "sigil_abstract_symbol_generator_sigilvariant",
+      "sigil_abstract_symbol_generator_sigilgenerationresult",
+      "sigil_abstract_symbol_generator_letter_vectors",
+      "sigil_abstract_symbol_generator_transformconfig",
+      "sigil_abstract_symbol_generator_seededrandom",
+      "sigil_abstract_symbol_generator_gettransform",
+      "sigil_abstract_symbol_generator_createtransformstring",
+      "sigil_abstract_symbol_generator_createdecorations",
+      "sigil_abstract_symbol_generator_createborder",
+      "sigil_abstract_symbol_generator_generateabstractsigil",
+      "sigil_abstract_symbol_generator_generateallvariants",
+      "sigil_abstract_symbol_generator_variant_metadata",
+      "sigil_index_test_ts",
+      "sigil_index_ts"
+    ],
+    "6": [
+      "sigil_conversion_performance_test_ts",
+      "sigil_conversion_performance_test_sample_intentions",
+      "sigil_conversion_performance_test_builduniqueintention",
+      "sigil_conversion_performance_test_coldstartedat",
+      "sigil_conversion_performance_test_intention",
+      "sigil_conversion_performance_test_distillation",
+      "sigil_conversion_performance_test_variants",
+      "sigil_conversion_performance_test_warmstartedat",
+      "sigil_distillation_test_ts",
+      "sigil_distillation_test_result",
+      "sigil_distillation_test_summary",
+      "sigil_distillation_test_validation",
+      "sigil_distillation_test_longstring",
+      "sigil_distillation_ts",
+      "sigil_distillation_distillationresult",
+      "sigil_distillation_distillation_cache",
+      "sigil_distillation_toupperalphacode",
+      "sigil_distillation_isvowelcode",
+      "sigil_distillation_extractalphacharacters",
+      "sigil_distillation_extractconsonants",
+      "sigil_distillation_containsalphabeticcharacter",
+      "sigil_distillation_distillintention",
+      "sigil_distillation_getdistillationsummary",
+      "sigil_distillation_validateintention"
+    ],
+    "29": [
+      "sigil_lettervectors_test_ts",
+      "sigil_lettervectors_test_keys",
+      "sigil_lettervectors_ts",
+      "sigil_lettervectors_dense_vectors",
+      "sigil_lettervectors_balanced_vectors",
+      "sigil_lettervectors_minimal_vectors"
+    ],
+    "18": [
+      "sigil_readme_md",
+      "sigil_readme_sigil_generation_utilities",
+      "sigil_readme_letter_distillation",
+      "sigil_readme_algorithm_austin_osman_spare_method",
+      "sigil_readme_examples",
+      "sigil_readme_codeblock_1",
+      "sigil_readme_api",
+      "sigil_readme_distillintention_intentiontext_string_distillationresult",
+      "sigil_readme_codeblock_2",
+      "sigil_readme_validateintention_intentiontext_string_validationresult",
+      "sigil_readme_codeblock_3",
+      "sigil_readme_getdistillationsummary_result_distillationresult_string",
+      "sigil_readme_codeblock_4",
+      "sigil_readme_usage_in_anchor_creation_flow",
+      "sigil_readme_testing",
+      "sigil_readme_codeblock_5",
+      "sigil_readme_implementation_notes",
+      "sigil_readme_future_enhancements"
+    ],
+    "25": [
+      "anchorpriming_has_charge_markers",
+      "anchorpriming_has_anchor_prime_history",
+      "anchorpriming_is_first_prime_for_anchor",
+      "anchorpriming_needs_charge_state_backfill",
+      "anchorpriming_build_recovered_charge_state",
+      "anchorpriming_charge_state_recovery"
+    ],
+    "44": [
+      "avatarutils_default_avatars",
+      "avatarutils_get_avatar_by_index",
+      "avatarutils_get_default_avatar"
+    ],
+    "53": [
+      "categorydetection_category_keywords",
+      "categorydetection_detect_category_from_text"
+    ],
+    "62": [
+      "color_with_alpha"
+    ],
+    "54": [
+      "dateutils_get_adjusted_date_string",
+      "dateutils_adjusted_calendar_day"
+    ],
+    "34": [
+      "developermasteraccount_master_account_id",
+      "developermasteraccount_is_enabled",
+      "developermasteraccount_create_user",
+      "developermasteraccount_master_account"
+    ],
+    "56": [
+      "devicetier_is_high_end_device",
+      "devicetier_expensive_animation_gating"
+    ],
+    "4": [
+      "entitlements_free_weekly_session_limit",
+      "entitlements_to_date",
+      "entitlements_add_days",
+      "entitlements_is_same_utc_day",
+      "entitlements_count_anchors_created_today",
+      "entitlements_count_anchors_created_during_trial",
+      "entitlements_count_weekly_practice_sessions",
+      "entitlements_compute_entitlements",
+      "entitlements_get_entitlements",
+      "entitlements_central_access_policy",
+      "primesessionaccess_normalize_history",
+      "primesessionaccess_get_weekly_usage",
+      "primesessionaccess_get_allowance",
+      "priminganalytics_create_local_date",
+      "priminganalytics_parse_local_date_string",
+      "priminganalytics_local_date_string",
+      "priminganalytics_start_of_iso_week",
+      "priminganalytics_local_week_start_string",
+      "priminganalytics_iso_week_key",
+      "priminganalytics_iso_week_number",
+      "priminganalytics_get_iso_weekday_index",
+      "priminganalytics_get_time_of_day_bucket",
+      "priminganalytics_build_history_entry",
+      "priminganalytics_diff_weeks_inclusive"
+    ],
+    "63": [
+      "entitlements_get_anchor_creation_limit_copy"
+    ],
+    "64": [
+      "entitlements_get_practice_limit_copy"
+    ],
+    "15": [
+      "haptics_safe_impact",
+      "haptics_safe_selection",
+      "haptics_safe_notification",
+      "haptics_expo_impact_async",
+      "haptics_expo_selection_async",
+      "haptics_expo_notification_async",
+      "logger_is_debug_enabled",
+      "logger_info",
+      "logger_warn",
+      "logger_error",
+      "logger_debug",
+      "logger_settings_get_state"
+    ],
+    "57": [
+      "hash_hash32_fnv1a",
+      "hash_stable_index"
+    ],
+    "27": [
+      "intentionpatterns_last_analyzed_text",
+      "intentionpatterns_detect_future_tense",
+      "intentionpatterns_detect_negation",
+      "intentionpatterns_detect_gibberish",
+      "intentionpatterns_analyze_intention",
+      "intentionpatterns_get_guidance_text"
+    ],
+    "65": [
+      "layout_is_compact_phone_viewport"
+    ],
+    "66": [
+      "layout_is_short_phone_viewport"
+    ],
+    "67": [
+      "locationpriming_round_coordinate"
+    ],
+    "68": [
+      "locationpriming_clamp_radius"
+    ],
+    "69": [
+      "locationpriming_normalize_preset"
+    ],
+    "58": [
+      "locationpriming_distance_meters",
+      "locationpriming_match_zone"
+    ],
+    "23": [
+      "locationpriming_get_foreground_location",
+      "locationpriming_request_current_location",
+      "locationpriming_services_enabled",
+      "locationpriming_get_permissions",
+      "locationpriming_request_permissions",
+      "locationpriming_get_last_known",
+      "locationpriming_get_current"
+    ],
+    "11": [
+      "milestonetracking_listener_registry",
+      "milestonetracking_notify_listeners",
+      "milestonetracking_sanitize_dates",
+      "milestonetracking_write_dates",
+      "milestonetracking_get_dates",
+      "milestonetracking_check_and_record",
+      "milestonetracking_backfill",
+      "milestonetracking_subscribe",
+      "milestonetracking_get_earned_rank_names",
+      "milestonetracking_get_earned_mark_names",
+      "milestonetracking_asyncstorage_get_item",
+      "milestonetracking_asyncstorage_set_item",
+      "milestonetracking_sanitize_sheet_dates",
+      "milestonetracking_write_sheet_dates",
+      "milestonetracking_get_sheet_dates",
+      "milestonetracking_check_and_record_sheet",
+      "milestonetracking_backfill_sheet"
+    ],
+    "70": [
+      "onboardingprogress_get_percent"
+    ],
+    "28": [
+      "postprimetraceeligibility_parse_stored_date",
+      "postprimetraceeligibility_is_eligible",
+      "postprimetraceeligibility_mark_started",
+      "postprimetraceeligibility_asyncstorage_get_item",
+      "postprimetraceeligibility_asyncstorage_set_item",
+      "postprimetraceeligibility_settings_get_state"
+    ],
+    "71": [
+      "practicedepth_compatibility_exports"
+    ],
+    "72": [
+      "practicerank_compatibility_exports"
+    ],
+    "73": [
+      "priminganalytics_add_days"
+    ],
+    "74": [
+      "priminganalytics_is_session_type"
+    ],
+    "39": [
+      "privacyhelpers_category_labels",
+      "privacyhelpers_redact_anchor",
+      "privacyhelpers_redact_anchors",
+      "privacyhelpers_privacy_safe_redaction"
+    ],
+    "5": [
+      "traditional-generator_generate_true_sigil",
+      "traditional-generator_generate_all_variants",
+      "traditional-generator_normalize_letters_input",
+      "traditional-generator_process_intent",
+      "traditional-generator_letter_to_number",
+      "traditional-generator_create_seed",
+      "traditional-generator_seeded_unit",
+      "traditional-generator_jitter",
+      "traditional-generator_create_sigil_path",
+      "traditional-generator_create_border",
+      "traditional-generator_calculate_stroke_width",
+      "traditional-generator_get_grid_config",
+      "traditional-generator_sigil_result_cache",
+      "traditional-generator_logger_error",
+      "traditional-generator_kamea_grid_sigil_generation",
+      "traditional-generator_deterministic_hand_drawn_svg",
+      "sigil-readme_sigil_generation_utilities",
+      "sigil-readme_letter_distillation",
+      "sigil-readme_austin_osman_spare_method",
+      "sigil-readme_distill_intention",
+      "sigil-readme_validate_intention",
+      "sigil-readme_get_distillation_summary",
+      "sigil-readme_anchor_creation_flow",
+      "sigil-readme_traditional_sigil_generation"
+    ],
+    "31": [
+      "anchorpriming-test_suite",
+      "anchorpriming-test_has_history",
+      "anchorpriming-test_is_first_prime",
+      "anchorpriming-test_needs_backfill",
+      "anchorpriming-test_build_recovered_state"
+    ],
+    "43": [
+      "avatarutils-test_suite",
+      "avatarutils-test_get_by_index",
+      "avatarutils-test_get_default"
+    ],
+    "22": [
+      "entitlements-test_suite",
+      "entitlements-test_compute",
+      "entitlements-test_priming_history",
+      "primesessionaccess-test_suite",
+      "primesessionaccess-test_usage",
+      "primesessionaccess-test_allowance",
+      "primesessionaccess-test_history"
+    ],
+    "47": [
+      "hash-test_suite",
+      "hash-test_hash32fnv1a",
+      "hash-test_stable_index"
+    ],
+    "26": [
+      "intentionpatterns-test_suite",
+      "intentionpatterns-test_analyze",
+      "intentionpatterns-test_future",
+      "intentionpatterns-test_negation",
+      "intentionpatterns-test_gibberish",
+      "intentionpatterns-test_guidance"
+    ],
+    "48": [
+      "layout-test_suite",
+      "layout-test_compact",
+      "layout-test_short"
+    ],
+    "36": [
+      "locationpriming-test_suite",
+      "locationpriming-test_match_zone",
+      "locationpriming-test_foreground_location",
+      "locationpriming-test_expo_location"
+    ],
+    "37": [
+      "logger-test_suite",
+      "logger-test_info",
+      "logger-test_settings_store",
+      "logger-test_debug_setting"
+    ],
+    "8": [
+      "milestonetracking-test_suite",
+      "milestonetracking-test_get_dates",
+      "milestonetracking-test_check_record",
+      "milestonetracking-test_backfill_dates",
+      "milestonetracking-test_subscribe",
+      "milestonetracking-test_async_storage",
+      "milestonetracking-test_prelaunch",
+      "practiceprogress-test_suite",
+      "practiceprogress-test_rank",
+      "practiceprogress-test_depth",
+      "practiceprogress-test_depth_progress",
+      "practiceprogress-test_deepest",
+      "practiceprogress-test_mark",
+      "practiceprogress-test_days",
+      "practiceprogress-test_history",
+      "streak-test_suite",
+      "streak-test_can_use_grace",
+      "streak-test_calculate_with_grace",
+      "streak-test_grace_bridge",
+      "streakhelpers-test_suite",
+      "streakhelpers-test_calculate"
+    ],
+    "59": [
+      "onboardingprogress-test_suite",
+      "onboardingprogress-test_percent"
+    ],
+    "38": [
+      "postprimetrace-test_suite",
+      "postprimetrace-test_is_eligible",
+      "postprimetrace-test_mark_attempt",
+      "postprimetrace-test_storage"
+    ],
+    "49": [
+      "privacyhelpers-test_suite",
+      "privacyhelpers-test_redact_anchor",
+      "privacyhelpers-test_redact_anchors"
+    ],
+    "60": [
+      "profilegreeting-test_suite",
+      "profilegreeting-test_build"
+    ],
+    "40": [
+      "useteachinggate-test_suite",
+      "useteachinggate-test_probe",
+      "useteachinggate-test_hook",
+      "useteachinggate-test_store"
+    ],
+    "51": [
+      "weeklyinsight-test_suite",
+      "weeklyinsight-test_generate",
+      "weeklyinsight-test_priority_rules"
+    ],
+    "52": [
+      "weeklyreviewwindow-test_suite",
+      "weeklyreviewwindow-test_within",
+      "weeklyreviewwindow-test_previous"
+    ]
+  },
+  "cohesion": {
+    "16": 0.3090909090909091,
+    "12": 0.17582417582417584,
+    "30": 0.4666666666666667,
+    "61": 1.0,
+    "55": 1.0,
+    "45": 0.6666666666666666,
+    "46": 0.6666666666666666,
+    "0": 0.05909090909090909,
+    "1": 0.08571428571428572,
+    "9": 0.07743496672716274,
+    "13": 0.2564102564102564,
+    "35": 0.8333333333333334,
+    "10": 0.13970588235294118,
+    "50": 1.0,
+    "32": 0.7,
+    "2": 0.0696969696969697,
+    "17": 0.21818181818181817,
+    "14": 0.28205128205128205,
+    "3": 0.11,
+    "41": 0.6666666666666666,
+    "21": 0.35714285714285715,
+    "24": 0.38095238095238093,
+    "42": 0.8333333333333334,
+    "7": 0.15019762845849802,
+    "6": 0.13768115942028986,
+    "29": 0.5333333333333333,
+    "18": 0.1111111111111111,
+    "25": 0.3333333333333333,
+    "44": 1.0,
+    "53": 1.0,
+    "62": 1.0,
+    "54": 1.0,
+    "34": 0.5,
+    "56": 1.0,
+    "4": 0.09782608695652174,
+    "63": 1.0,
+    "64": 1.0,
+    "15": 0.16666666666666666,
+    "57": 1.0,
+    "27": 0.4,
+    "65": 1.0,
+    "66": 1.0,
+    "67": 1.0,
+    "68": 1.0,
+    "69": 1.0,
+    "58": 1.0,
+    "23": 0.38095238095238093,
+    "11": 0.16911764705882354,
+    "70": 1.0,
+    "28": 0.3333333333333333,
+    "71": 1.0,
+    "72": 1.0,
+    "73": 1.0,
+    "74": 1.0,
+    "39": 0.5,
+    "5": 0.08695652173913043,
+    "31": 0.4,
+    "43": 0.6666666666666666,
+    "22": 0.38095238095238093,
+    "47": 0.6666666666666666,
+    "26": 0.3333333333333333,
+    "48": 0.6666666666666666,
+    "36": 0.5,
+    "37": 0.6666666666666666,
+    "8": 0.11428571428571428,
+    "59": 1.0,
+    "38": 0.6666666666666666,
+    "49": 0.6666666666666666,
+    "60": 1.0,
+    "40": 0.5,
+    "51": 0.6666666666666666,
+    "52": 0.6666666666666666
+  },
+  "gods": [
+    {
+      "id": "traditional-generator_generate_true_sigil",
+      "label": "generateTrueSigil",
+      "degree": 12
+    },
+    {
+      "id": "utils_milestonetracking_backfillmilestonedates",
+      "label": "backfillMilestoneDates()",
+      "degree": 10
+    },
+    {
+      "id": "sigil_traditional_generator_generatetruesigil",
+      "label": "generateTrueSigil()",
+      "degree": 10
+    },
+    {
+      "id": "utils_milestonetracking_checkandrecordmilestones",
+      "label": "checkAndRecordMilestones()",
+      "degree": 9
+    },
+    {
+      "id": "utils_priminganalytics_isoweekkey",
+      "label": "isoWeekKey()",
+      "degree": 9
+    },
+    {
+      "id": "utils_progressionmilestones_queueprogressionmilestonesfromstores",
+      "label": "queueProgressionMilestonesFromStores()",
+      "degree": 9
+    },
+    {
+      "id": "utils_progression_getcurrentrank",
+      "label": "getCurrentRank()",
+      "degree": 8
+    },
+    {
+      "id": "sigil_distillation_distillintention",
+      "label": "distillIntention()",
+      "degree": 8
+    },
+    {
+      "id": "sigil_readme_letter_distillation",
+      "label": "Letter Distillation",
+      "degree": 8
+    },
+    {
+      "id": "utils_milestonetracking_normalizedscopeid",
+      "label": "normalizedScopeId()",
+      "degree": 7
+    }
+  ],
+  "surprises": [
+    {
+      "source": "generateTrueSigil",
+      "target": "Traditional Sigil Generation",
+      "source_files": [
+        "anchor/mobile/src/utils/sigil/traditional-generator.ts",
+        "anchor/mobile/src/utils/sigil/README.md"
+      ],
+      "confidence": "INFERRED",
+      "relation": "references",
+      "why": "inferred connection - not explicitly stated in source; crosses file types (code ↔ doc); peripheral node `Traditional Sigil Generation` unexpectedly reaches hub `generateTrueSigil`"
+    },
+    {
+      "source": "EntitlementInput",
+      "target": "PrimingHistoryEntry",
+      "source_files": [
+        "entitlements.ts",
+        "primingAnalytics.ts"
+      ],
+      "confidence": "EXTRACTED",
+      "relation": "references",
+      "why": "connects across different repos/directories; peripheral node `EntitlementInput` unexpectedly reaches hub `PrimingHistoryEntry`"
+    },
+    {
+      "source": "getNormalizedProgressionSessions()",
+      "target": "toProgressionLocalDateString()",
+      "source_files": [
+        "progression.ts",
+        "progressionTimezone.ts"
+      ],
+      "confidence": "EXTRACTED",
+      "relation": "calls",
+      "why": "connects across different repos/directories; bridges separate communities"
+    },
+    {
+      "source": "utcDay()",
+      "target": "calculateStreak()",
+      "source_files": [
+        "streak.ts",
+        "streakHelpers.ts"
+      ],
+      "confidence": "INFERRED",
+      "relation": "calls",
+      "why": "inferred connection - not explicitly stated in source; connects across different repos/directories"
+    },
+    {
+      "source": "detectCategoryFromText()",
+      "target": "classifyToTierPreliminary()",
+      "source_files": [
+        "categoryDetection.ts",
+        "tierClassifier.ts"
+      ],
+      "confidence": "EXTRACTED",
+      "relation": "calls",
+      "why": "connects across different repos/directories"
+    }
+  ],
+  "questions": [
+    {
+      "type": "bridge_node",
+      "question": "Why does `logger` connect `Community 1` to `Community 9`?",
+      "why": "High betweenness centrality (0.035) - this node is a cross-community bridge."
+    },
+    {
+      "type": "bridge_node",
+      "question": "Why does `distillIntention()` connect `Community 6` to `Community 7`?",
+      "why": "High betweenness centrality (0.020) - this node is a cross-community bridge."
+    },
+    {
+      "type": "bridge_node",
+      "question": "Why does `PrimingHistoryEntry` connect `Community 0` to `Community 2`?",
+      "why": "High betweenness centrality (0.018) - this node is a cross-community bridge."
+    },
+    {
+      "type": "verify_inferred",
+      "question": "Are the 2 inferred relationships involving `generateTrueSigil` (e.g. with `Traditional Sigil Generation` and `Deterministic Hand-Drawn SVG`) actually correct?",
+      "why": "`generateTrueSigil` has 2 INFERRED edges - model-reasoned connections that need verification."
+    },
+    {
+      "type": "isolated_nodes",
+      "question": "What connects `AnchorLike`, `DEFAULT_AVATARS`, `CATEGORY_KEYWORDS` to the rest of the system?",
+      "why": "267 weakly-connected nodes found - possible documentation gaps or missing edges."
+    },
+    {
+      "type": "low_cohesion",
+      "question": "Should `Community 0` be split into smaller, more focused modules?",
+      "why": "Cohesion score 0.05909090909090909 - nodes in this community are weakly interconnected."
+    },
+    {
+      "type": "low_cohesion",
+      "question": "Should `Community 1` be split into smaller, more focused modules?",
+      "why": "Cohesion score 0.08571428571428572 - nodes in this community are weakly interconnected."
+    }
+  ]
+}

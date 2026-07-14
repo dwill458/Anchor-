@@ -14,6 +14,10 @@ export interface PrimingHistoryEntry {
   timeOfDay: TimeOfDayBucket;
 }
 
+export function createPracticeEventId(): string {
+  return `practice-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+}
+
 export const WEEKDAY_NAMES = [
   'Monday',
   'Tuesday',

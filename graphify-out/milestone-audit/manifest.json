@@ -1,0 +1,332 @@
+{
+  "C:\\Users\\dwill\\.gemini\\antigravity\\scratch\\Anchor\\anchor\\mobile\\src\\utils\\anchorPriming.ts": {
+    "mtime": 1779404383.915741,
+    "ast_hash": "c33dd12d5a3f2d5df2a22a4a74b17334",
+    "semantic_hash": "c33dd12d5a3f2d5df2a22a4a74b17334"
+  },
+  "C:\\Users\\dwill\\.gemini\\antigravity\\scratch\\Anchor\\anchor\\mobile\\src\\utils\\avatarUtils.ts": {
+    "mtime": 1778902723.6067696,
+    "ast_hash": "4a2ba0215df14ee21bfb4d0620aece5f",
+    "semantic_hash": "4a2ba0215df14ee21bfb4d0620aece5f"
+  },
+  "C:\\Users\\dwill\\.gemini\\antigravity\\scratch\\Anchor\\anchor\\mobile\\src\\utils\\categoryDetection.ts": {
+    "mtime": 1782630433.7408006,
+    "ast_hash": "9bdbd6e93ebe76a80d866f094089931b",
+    "semantic_hash": "9bdbd6e93ebe76a80d866f094089931b"
+  },
+  "C:\\Users\\dwill\\.gemini\\antigravity\\scratch\\Anchor\\anchor\\mobile\\src\\utils\\color.ts": {
+    "mtime": 1778902723.6102054,
+    "ast_hash": "d1550e6fbdf3b419c8c2c6a190d80473",
+    "semantic_hash": "d1550e6fbdf3b419c8c2c6a190d80473"
+  },
+  "C:\\Users\\dwill\\.gemini\\antigravity\\scratch\\Anchor\\anchor\\mobile\\src\\utils\\dateUtils.ts": {
+    "mtime": 1778902723.6127374,
+    "ast_hash": "913458a0b6e96da473d40f773853449b",
+    "semantic_hash": "913458a0b6e96da473d40f773853449b"
+  },
+  "C:\\Users\\dwill\\.gemini\\antigravity\\scratch\\Anchor\\anchor\\mobile\\src\\utils\\developerMasterAccount.ts": {
+    "mtime": 1778902723.6147766,
+    "ast_hash": "52ae5474ce501bc97b316c0dce18a549",
+    "semantic_hash": "52ae5474ce501bc97b316c0dce18a549"
+  },
+  "C:\\Users\\dwill\\.gemini\\antigravity\\scratch\\Anchor\\anchor\\mobile\\src\\utils\\deviceTier.ts": {
+    "mtime": 1778902723.616263,
+    "ast_hash": "29e7f1de0f6ee993af49df97215ccc61",
+    "semantic_hash": "29e7f1de0f6ee993af49df97215ccc61"
+  },
+  "C:\\Users\\dwill\\.gemini\\antigravity\\scratch\\Anchor\\anchor\\mobile\\src\\utils\\entitlements.ts": {
+    "mtime": 1783658745.1354089,
+    "ast_hash": "8b5710ad7c36bb6313c5882490012d05",
+    "semantic_hash": "8b5710ad7c36bb6313c5882490012d05"
+  },
+  "C:\\Users\\dwill\\.gemini\\antigravity\\scratch\\Anchor\\anchor\\mobile\\src\\utils\\haptics.ts": {
+    "mtime": 1778902723.6186187,
+    "ast_hash": "8ba07a9bb7667b192e52e6284f4dc4ac",
+    "semantic_hash": "8ba07a9bb7667b192e52e6284f4dc4ac"
+  },
+  "C:\\Users\\dwill\\.gemini\\antigravity\\scratch\\Anchor\\anchor\\mobile\\src\\utils\\hash.ts": {
+    "mtime": 1782464520.5985923,
+    "ast_hash": "4c13843c7a7eb4958bddf2e3a0a6c8e3",
+    "semantic_hash": "4c13843c7a7eb4958bddf2e3a0a6c8e3"
+  },
+  "C:\\Users\\dwill\\.gemini\\antigravity\\scratch\\Anchor\\anchor\\mobile\\src\\utils\\intentionPatterns.ts": {
+    "mtime": 1778902723.622073,
+    "ast_hash": "09e13453620279b554187bfda4c48ca8",
+    "semantic_hash": "09e13453620279b554187bfda4c48ca8"
+  },
+  "C:\\Users\\dwill\\.gemini\\antigravity\\scratch\\Anchor\\anchor\\mobile\\src\\utils\\layout.ts": {
+    "mtime": 1782630433.7439356,
+    "ast_hash": "2f2229ed58053d863b2e14149d486b3e",
+    "semantic_hash": "2f2229ed58053d863b2e14149d486b3e"
+  },
+  "C:\\Users\\dwill\\.gemini\\antigravity\\scratch\\Anchor\\anchor\\mobile\\src\\utils\\locationPriming.ts": {
+    "mtime": 1783223166.1774185,
+    "ast_hash": "d1681c58308cb3ec1f21af753baee981",
+    "semantic_hash": "d1681c58308cb3ec1f21af753baee981"
+  },
+  "C:\\Users\\dwill\\.gemini\\antigravity\\scratch\\Anchor\\anchor\\mobile\\src\\utils\\logger.ts": {
+    "mtime": 1781053149.3814907,
+    "ast_hash": "e03f86777f5f09752893b14fc32d4afa",
+    "semantic_hash": "e03f86777f5f09752893b14fc32d4afa"
+  },
+  "C:\\Users\\dwill\\.gemini\\antigravity\\scratch\\Anchor\\anchor\\mobile\\src\\utils\\milestoneTracking.ts": {
+    "mtime": 1783895186.5369916,
+    "ast_hash": "d51cc81782d5adf5233085da9d5d424b",
+    "semantic_hash": "d51cc81782d5adf5233085da9d5d424b"
+  },
+  "C:\\Users\\dwill\\.gemini\\antigravity\\scratch\\Anchor\\anchor\\mobile\\src\\utils\\onboardingProgress.ts": {
+    "mtime": 1783830521.70376,
+    "ast_hash": "655d21742b1c811b11a5eb16a8914a8b",
+    "semantic_hash": "655d21742b1c811b11a5eb16a8914a8b"
+  },
+  "C:\\Users\\dwill\\.gemini\\antigravity\\scratch\\Anchor\\anchor\\mobile\\src\\utils\\postPrimeTraceEligibility.ts": {
+    "mtime": 1778902723.6272733,
+    "ast_hash": "abb655e47428fa6c541b36a4ee8b6403",
+    "semantic_hash": "abb655e47428fa6c541b36a4ee8b6403"
+  },
+  "C:\\Users\\dwill\\.gemini\\antigravity\\scratch\\Anchor\\anchor\\mobile\\src\\utils\\practiceDepth.ts": {
+    "mtime": 1779242661.7125719,
+    "ast_hash": "bcd8ba96e69e066ae1b2ae7b05bba2d5",
+    "semantic_hash": "bcd8ba96e69e066ae1b2ae7b05bba2d5"
+  },
+  "C:\\Users\\dwill\\.gemini\\antigravity\\scratch\\Anchor\\anchor\\mobile\\src\\utils\\practiceRank.ts": {
+    "mtime": 1779242661.711566,
+    "ast_hash": "96062bd92210591f25d59681e621da66",
+    "semantic_hash": "96062bd92210591f25d59681e621da66"
+  },
+  "C:\\Users\\dwill\\.gemini\\antigravity\\scratch\\Anchor\\anchor\\mobile\\src\\utils\\primeSessionAccess.ts": {
+    "mtime": 1783318424.2950182,
+    "ast_hash": "c41a68edba037072c945adb8121f3067",
+    "semantic_hash": "c41a68edba037072c945adb8121f3067"
+  },
+  "C:\\Users\\dwill\\.gemini\\antigravity\\scratch\\Anchor\\anchor\\mobile\\src\\utils\\primingAnalytics.ts": {
+    "mtime": 1778902723.6294553,
+    "ast_hash": "a0224de76222333ddf6c00960134a8ee",
+    "semantic_hash": "a0224de76222333ddf6c00960134a8ee"
+  },
+  "C:\\Users\\dwill\\.gemini\\antigravity\\scratch\\Anchor\\anchor\\mobile\\src\\utils\\privacyHelpers.ts": {
+    "mtime": 1782630433.747014,
+    "ast_hash": "f29813ef522ab8202a25dbeadc7cfa2c",
+    "semantic_hash": "f29813ef522ab8202a25dbeadc7cfa2c"
+  },
+  "C:\\Users\\dwill\\.gemini\\antigravity\\scratch\\Anchor\\anchor\\mobile\\src\\utils\\profileGreeting.ts": {
+    "mtime": 1779242860.305012,
+    "ast_hash": "37c30a7a4c50e226f43b728f5c8296fa",
+    "semantic_hash": "37c30a7a4c50e226f43b728f5c8296fa"
+  },
+  "C:\\Users\\dwill\\.gemini\\antigravity\\scratch\\Anchor\\anchor\\mobile\\src\\utils\\progression.ts": {
+    "mtime": 1779242623.9029899,
+    "ast_hash": "a595d162fecd227e5ef4459a197b1e03",
+    "semantic_hash": "a595d162fecd227e5ef4459a197b1e03"
+  },
+  "C:\\Users\\dwill\\.gemini\\antigravity\\scratch\\Anchor\\anchor\\mobile\\src\\utils\\progressionMilestones.ts": {
+    "mtime": 1783894362.2582002,
+    "ast_hash": "faaa757fd88c48894b84d5f1e681abc1",
+    "semantic_hash": "faaa757fd88c48894b84d5f1e681abc1"
+  },
+  "C:\\Users\\dwill\\.gemini\\antigravity\\scratch\\Anchor\\anchor\\mobile\\src\\utils\\progressionTimezone.ts": {
+    "mtime": 1779242462.2906773,
+    "ast_hash": "cd798f5d0fa9177bb34442584757a440",
+    "semantic_hash": "cd798f5d0fa9177bb34442584757a440"
+  },
+  "C:\\Users\\dwill\\.gemini\\antigravity\\scratch\\Anchor\\anchor\\mobile\\src\\utils\\streak.ts": {
+    "mtime": 1783560755.2008536,
+    "ast_hash": "bcfe84da0c12b97a0291013e48adec1e",
+    "semantic_hash": "bcfe84da0c12b97a0291013e48adec1e"
+  },
+  "C:\\Users\\dwill\\.gemini\\antigravity\\scratch\\Anchor\\anchor\\mobile\\src\\utils\\streakHelpers.ts": {
+    "mtime": 1783560749.0669415,
+    "ast_hash": "dfc15862d2b08194b0481a6ba4e8e153",
+    "semantic_hash": "dfc15862d2b08194b0481a6ba4e8e153"
+  },
+  "C:\\Users\\dwill\\.gemini\\antigravity\\scratch\\Anchor\\anchor\\mobile\\src\\utils\\threadStrength.ts": {
+    "mtime": 1778902723.6554132,
+    "ast_hash": "bde34016b0032d65a67647015412b520",
+    "semantic_hash": "bde34016b0032d65a67647015412b520"
+  },
+  "C:\\Users\\dwill\\.gemini\\antigravity\\scratch\\Anchor\\anchor\\mobile\\src\\utils\\tierClassifier.ts": {
+    "mtime": 1778902723.656032,
+    "ast_hash": "640c4121b4622d2e9fb72b94dbf55b02",
+    "semantic_hash": "640c4121b4622d2e9fb72b94dbf55b02"
+  },
+  "C:\\Users\\dwill\\.gemini\\antigravity\\scratch\\Anchor\\anchor\\mobile\\src\\utils\\useTeachingGate.ts": {
+    "mtime": 1782629377.399743,
+    "ast_hash": "ca0a10556820c2a72b69db1ee80f3cf4",
+    "semantic_hash": "ca0a10556820c2a72b69db1ee80f3cf4"
+  },
+  "C:\\Users\\dwill\\.gemini\\antigravity\\scratch\\Anchor\\anchor\\mobile\\src\\utils\\weeklyInsight.ts": {
+    "mtime": 1778902723.656032,
+    "ast_hash": "9a24c304ca4dd00f758d54fc8c3efe43",
+    "semantic_hash": "9a24c304ca4dd00f758d54fc8c3efe43"
+  },
+  "C:\\Users\\dwill\\.gemini\\antigravity\\scratch\\Anchor\\anchor\\mobile\\src\\utils\\weeklyReviewWindow.ts": {
+    "mtime": 1783311018.4581308,
+    "ast_hash": "6d16b83e361cfa5a57d475da2c80599a",
+    "semantic_hash": "6d16b83e361cfa5a57d475da2c80599a"
+  },
+  "C:\\Users\\dwill\\.gemini\\antigravity\\scratch\\Anchor\\anchor\\mobile\\src\\utils\\sigil\\abstract-symbol-generator.test.ts": {
+    "mtime": 1779239121.975212,
+    "ast_hash": "3bbbd7eaa351d3c524f73eb00a0dc87f",
+    "semantic_hash": "3bbbd7eaa351d3c524f73eb00a0dc87f"
+  },
+  "C:\\Users\\dwill\\.gemini\\antigravity\\scratch\\Anchor\\anchor\\mobile\\src\\utils\\sigil\\abstract-symbol-generator.ts": {
+    "mtime": 1778902723.6359813,
+    "ast_hash": "bb6ee7feb96299067c005fce39e04867",
+    "semantic_hash": "bb6ee7feb96299067c005fce39e04867"
+  },
+  "C:\\Users\\dwill\\.gemini\\antigravity\\scratch\\Anchor\\anchor\\mobile\\src\\utils\\sigil\\conversion.performance.test.ts": {
+    "mtime": 1778902723.6374354,
+    "ast_hash": "90ac627379832fccc18a02c39e9bb468",
+    "semantic_hash": "90ac627379832fccc18a02c39e9bb468"
+  },
+  "C:\\Users\\dwill\\.gemini\\antigravity\\scratch\\Anchor\\anchor\\mobile\\src\\utils\\sigil\\distillation.test.ts": {
+    "mtime": 1778902723.642659,
+    "ast_hash": "806adc25011c508185843e38ce847680",
+    "semantic_hash": "806adc25011c508185843e38ce847680"
+  },
+  "C:\\Users\\dwill\\.gemini\\antigravity\\scratch\\Anchor\\anchor\\mobile\\src\\utils\\sigil\\distillation.ts": {
+    "mtime": 1778902723.6438067,
+    "ast_hash": "bd552dc9291f905d52cccff0c062ddb1",
+    "semantic_hash": "bd552dc9291f905d52cccff0c062ddb1"
+  },
+  "C:\\Users\\dwill\\.gemini\\antigravity\\scratch\\Anchor\\anchor\\mobile\\src\\utils\\sigil\\gridRegistry.ts": {
+    "mtime": 1778902723.6459808,
+    "ast_hash": "1c4af4475f2c62db45fa3906283eea80",
+    "semantic_hash": "1c4af4475f2c62db45fa3906283eea80"
+  },
+  "C:\\Users\\dwill\\.gemini\\antigravity\\scratch\\Anchor\\anchor\\mobile\\src\\utils\\sigil\\index.test.ts": {
+    "mtime": 1779239100.8042014,
+    "ast_hash": "25e796dbcd9ab71c19638d5a52243d1d",
+    "semantic_hash": "25e796dbcd9ab71c19638d5a52243d1d"
+  },
+  "C:\\Users\\dwill\\.gemini\\antigravity\\scratch\\Anchor\\anchor\\mobile\\src\\utils\\sigil\\index.ts": {
+    "mtime": 1778902723.6465726,
+    "ast_hash": "ae7c180616cb46b3e6443873f8c5bb21",
+    "semantic_hash": "ae7c180616cb46b3e6443873f8c5bb21"
+  },
+  "C:\\Users\\dwill\\.gemini\\antigravity\\scratch\\Anchor\\anchor\\mobile\\src\\utils\\sigil\\letterVectors.test.ts": {
+    "mtime": 1779239089.5412211,
+    "ast_hash": "ebd91d5159c372e09eb94957fca7872e",
+    "semantic_hash": "ebd91d5159c372e09eb94957fca7872e"
+  },
+  "C:\\Users\\dwill\\.gemini\\antigravity\\scratch\\Anchor\\anchor\\mobile\\src\\utils\\sigil\\letterVectors.ts": {
+    "mtime": 1778902723.6476781,
+    "ast_hash": "fdb099ffbb48564c56206ced588036cd",
+    "semantic_hash": "fdb099ffbb48564c56206ced588036cd"
+  },
+  "C:\\Users\\dwill\\.gemini\\antigravity\\scratch\\Anchor\\anchor\\mobile\\src\\utils\\sigil\\traditional-generator.test.ts": {
+    "mtime": 1778902723.6489322,
+    "ast_hash": "4c42a2b82618d1df7252dac4d19c1de0",
+    "semantic_hash": "4c42a2b82618d1df7252dac4d19c1de0"
+  },
+  "C:\\Users\\dwill\\.gemini\\antigravity\\scratch\\Anchor\\anchor\\mobile\\src\\utils\\sigil\\traditional-generator.ts": {
+    "mtime": 1780078681.5369353,
+    "ast_hash": "b7e6e781eee2cdc0fe0bb6334859b7c6",
+    "semantic_hash": "b7e6e781eee2cdc0fe0bb6334859b7c6"
+  },
+  "C:\\Users\\dwill\\.gemini\\antigravity\\scratch\\Anchor\\anchor\\mobile\\src\\utils\\__tests__\\anchorPriming.test.ts": {
+    "mtime": 1779404383.930693,
+    "ast_hash": "2ddc64bec5ca925e522179b1046c3b5f",
+    "semantic_hash": "2ddc64bec5ca925e522179b1046c3b5f"
+  },
+  "C:\\Users\\dwill\\.gemini\\antigravity\\scratch\\Anchor\\anchor\\mobile\\src\\utils\\__tests__\\avatarUtils.test.ts": {
+    "mtime": 1779239210.8829262,
+    "ast_hash": "510e47fc7f6518c9beb5591d679ae742",
+    "semantic_hash": "510e47fc7f6518c9beb5591d679ae742"
+  },
+  "C:\\Users\\dwill\\.gemini\\antigravity\\scratch\\Anchor\\anchor\\mobile\\src\\utils\\__tests__\\entitlements.test.ts": {
+    "mtime": 1783658747.88935,
+    "ast_hash": "b7dc4308a414ccbf716786f45f857965",
+    "semantic_hash": "b7dc4308a414ccbf716786f45f857965"
+  },
+  "C:\\Users\\dwill\\.gemini\\antigravity\\scratch\\Anchor\\anchor\\mobile\\src\\utils\\__tests__\\hash.test.ts": {
+    "mtime": 1782464520.596637,
+    "ast_hash": "98d8dcf2ac5e3cd77047db0a98d0035e",
+    "semantic_hash": "98d8dcf2ac5e3cd77047db0a98d0035e"
+  },
+  "C:\\Users\\dwill\\.gemini\\antigravity\\scratch\\Anchor\\anchor\\mobile\\src\\utils\\__tests__\\intentionPatterns.test.ts": {
+    "mtime": 1779239234.0875165,
+    "ast_hash": "58e9d2827925eab691fc94072d1934b0",
+    "semantic_hash": "58e9d2827925eab691fc94072d1934b0"
+  },
+  "C:\\Users\\dwill\\.gemini\\antigravity\\scratch\\Anchor\\anchor\\mobile\\src\\utils\\__tests__\\layout.test.ts": {
+    "mtime": 1782630433.738669,
+    "ast_hash": "7578a0c766b1c804d074f663e9da773d",
+    "semantic_hash": "7578a0c766b1c804d074f663e9da773d"
+  },
+  "C:\\Users\\dwill\\.gemini\\antigravity\\scratch\\Anchor\\anchor\\mobile\\src\\utils\\__tests__\\locationPriming.test.ts": {
+    "mtime": 1783223641.3007493,
+    "ast_hash": "40f1e63ba75842ed99575c29af9a02e2",
+    "semantic_hash": "40f1e63ba75842ed99575c29af9a02e2"
+  },
+  "C:\\Users\\dwill\\.gemini\\antigravity\\scratch\\Anchor\\anchor\\mobile\\src\\utils\\__tests__\\logger.test.ts": {
+    "mtime": 1778902723.598292,
+    "ast_hash": "52b84a2dd487d606da4cb98b18ba4720",
+    "semantic_hash": "52b84a2dd487d606da4cb98b18ba4720"
+  },
+  "C:\\Users\\dwill\\.gemini\\antigravity\\scratch\\Anchor\\anchor\\mobile\\src\\utils\\__tests__\\milestoneTracking.test.ts": {
+    "mtime": 1783894569.1940994,
+    "ast_hash": "f89456169c029709f0bde91ebb7f003c",
+    "semantic_hash": "f89456169c029709f0bde91ebb7f003c"
+  },
+  "C:\\Users\\dwill\\.gemini\\antigravity\\scratch\\Anchor\\anchor\\mobile\\src\\utils\\__tests__\\onboardingProgress.test.ts": {
+    "mtime": 1783831356.9117987,
+    "ast_hash": "a8da2f265b77604bc538aeb6b5f51cd3",
+    "semantic_hash": "a8da2f265b77604bc538aeb6b5f51cd3"
+  },
+  "C:\\Users\\dwill\\.gemini\\antigravity\\scratch\\Anchor\\anchor\\mobile\\src\\utils\\__tests__\\postPrimeTraceEligibility.test.ts": {
+    "mtime": 1778902723.602821,
+    "ast_hash": "30385f386f8f3bd21f1882fe7dc8805d",
+    "semantic_hash": "30385f386f8f3bd21f1882fe7dc8805d"
+  },
+  "C:\\Users\\dwill\\.gemini\\antigravity\\scratch\\Anchor\\anchor\\mobile\\src\\utils\\__tests__\\practiceProgress.test.ts": {
+    "mtime": 1779243004.396847,
+    "ast_hash": "84b1d7a2f6ea568e47fc841e429b1064",
+    "semantic_hash": "84b1d7a2f6ea568e47fc841e429b1064"
+  },
+  "C:\\Users\\dwill\\.gemini\\antigravity\\scratch\\Anchor\\anchor\\mobile\\src\\utils\\__tests__\\primeSessionAccess.test.ts": {
+    "mtime": 1783318767.9739647,
+    "ast_hash": "02dff6267135d430c7d2bec77779661e",
+    "semantic_hash": "02dff6267135d430c7d2bec77779661e"
+  },
+  "C:\\Users\\dwill\\.gemini\\antigravity\\scratch\\Anchor\\anchor\\mobile\\src\\utils\\__tests__\\privacyHelpers.test.ts": {
+    "mtime": 1779243135.3836942,
+    "ast_hash": "22471b918ff5434d9f73b4aa10bfd174",
+    "semantic_hash": "22471b918ff5434d9f73b4aa10bfd174"
+  },
+  "C:\\Users\\dwill\\.gemini\\antigravity\\scratch\\Anchor\\anchor\\mobile\\src\\utils\\__tests__\\profileGreeting.test.ts": {
+    "mtime": 1778902723.6067696,
+    "ast_hash": "49e158700a9dc3effa0a5ca2cc3a6c51",
+    "semantic_hash": "49e158700a9dc3effa0a5ca2cc3a6c51"
+  },
+  "C:\\Users\\dwill\\.gemini\\antigravity\\scratch\\Anchor\\anchor\\mobile\\src\\utils\\__tests__\\streak.test.ts": {
+    "mtime": 1779239055.045666,
+    "ast_hash": "a00c256b3b106721429bdeac8f16f216",
+    "semantic_hash": "a00c256b3b106721429bdeac8f16f216"
+  },
+  "C:\\Users\\dwill\\.gemini\\antigravity\\scratch\\Anchor\\anchor\\mobile\\src\\utils\\__tests__\\streakHelpers.test.ts": {
+    "mtime": 1778902723.6067696,
+    "ast_hash": "28e3c6f02775de653af78b6615d1dd6e",
+    "semantic_hash": "28e3c6f02775de653af78b6615d1dd6e"
+  },
+  "C:\\Users\\dwill\\.gemini\\antigravity\\scratch\\Anchor\\anchor\\mobile\\src\\utils\\__tests__\\useTeachingGate.test.tsx": {
+    "mtime": 1782629401.6074526,
+    "ast_hash": "7b14a8fd422456b014a403a28782e0c7",
+    "semantic_hash": "7b14a8fd422456b014a403a28782e0c7"
+  },
+  "C:\\Users\\dwill\\.gemini\\antigravity\\scratch\\Anchor\\anchor\\mobile\\src\\utils\\__tests__\\weeklyInsight.test.ts": {
+    "mtime": 1779239077.144717,
+    "ast_hash": "8a7cd40143769de53efd91181a0b0fb5",
+    "semantic_hash": "8a7cd40143769de53efd91181a0b0fb5"
+  },
+  "C:\\Users\\dwill\\.gemini\\antigravity\\scratch\\Anchor\\anchor\\mobile\\src\\utils\\__tests__\\weeklyReviewWindow.test.ts": {
+    "mtime": 1783311018.456118,
+    "ast_hash": "be75c37e52b27c5ca94c179bd9c86e43",
+    "semantic_hash": "be75c37e52b27c5ca94c179bd9c86e43"
+  },
+  "C:\\Users\\dwill\\.gemini\\antigravity\\scratch\\Anchor\\anchor\\mobile\\src\\utils\\sigil\\README.md": {
+    "mtime": 1778902723.6352148,
+    "ast_hash": "7331f861e845eae41a2b71c718aff4c7",
+    "semantic_hash": "7331f861e845eae41a2b71c718aff4c7"
+  }
+}

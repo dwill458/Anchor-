@@ -223,6 +223,8 @@ export default function App() {
   const anchorCount = useAnchorStore((state) => state.anchors.length);
   const lastSessionId = useSessionStore((state) => state.lastSession?.id);
   const activeMilestone = useForgeMomentStore((state) => state.activeMilestone);
+  const hydrateMilestoneScope = useForgeMomentStore((state) => state.hydrateScope);
+  const markActiveMilestoneShown = useForgeMomentStore((state) => state.markActiveShown);
   const dismissMilestone = useForgeMomentStore((state) => state.dismissMilestone);
   const navRef = useNavigationContainerRef<RootNavigatorParamList>();
   const routeNameRef = useRef<string | undefined>(undefined);
@@ -243,6 +245,16 @@ export default function App() {
   );
   const developerMasterAccountEnabledRef = useRef(developerMasterAccountEnabled);
   const previousUserIdRef = useRef<string | null>(null);
+
+  React.useEffect(() => {
+    void hydrateMilestoneScope(user?.id ?? null);
+  }, [hydrateMilestoneScope, user?.id]);
+  const handleActiveMilestoneShown = React.useCallback(() => {
+    void markActiveMilestoneShown();
+  }, [markActiveMilestoneShown]);
+  const handleDismissMilestone = React.useCallback(() => {
+    void dismissMilestone();
+  }, [dismissMilestone]);
   const developerSkipOnboardingEnabled = useSettingsStore(
     (state) => state.developerSkipOnboardingEnabled
   );
@@ -806,7 +818,8 @@ export default function App() {
                     <RootNavigator />
                     <ForgeMomentOverlay
                       milestone={activeMilestone}
-                      onDismiss={dismissMilestone}
+                      onShown={handleActiveMilestoneShown}
+                      onDismiss={handleDismissMilestone}
                     />
                   </NavigationContainer>
                 </SettingsRevealProvider>

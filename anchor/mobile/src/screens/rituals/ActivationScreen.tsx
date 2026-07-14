@@ -52,6 +52,7 @@ import {
   needsChargeStateBackfill,
 } from '@/utils/anchorPriming';
 import { usePrimeSessionAccess } from '@/hooks/usePrimeSessionAccess';
+import { createPracticeEventId } from '@/utils/primingAnalytics';
 
 type ActivationRouteProp = RouteProp<RootStackParamList, 'ActivationRitual'>;
 type ActivationNavigationProp = NativeStackNavigationProp<RootStackParamList, 'ActivationRitual'>;
@@ -144,8 +145,11 @@ export const ActivationScreen: React.FC = () => {
   const [pendingPostPrimeFlowId, setPendingPostPrimeFlowId] = useState<string | null>(null);
   const exitingRef = React.useRef(false);
   const sessionCompletedRef = React.useRef(false);
+  const completionStartedRef = React.useRef(false);
+  const hasRecordedRef = React.useRef(false);
   const hasLoggedActivationRef = React.useRef(false);
   const activationSyncFailedRef = React.useRef(false);
+  const completionEventIdRef = React.useRef(createPracticeEventId());
   const focusSessionExitAudioHandlerRef = React.useRef<(() => Promise<void>) | null>(null);
   const completionTransitionTaskRef = React.useRef<{ cancel?: () => void } | null>(null);
 
@@ -216,6 +220,7 @@ export const ActivationScreen: React.FC = () => {
           tempAnchorId: anchorId,
           activationType: activationType || 'visual',
           durationSeconds: activationDurationSeconds,
+          idempotencyKey: completionEventIdRef.current,
           queuedAt: localActivationTime.toISOString(),
         });
         toast.success('Prime session saved for your first anchor');
@@ -245,6 +250,7 @@ export const ActivationScreen: React.FC = () => {
       const response = await apiClient.post(`/api/anchors/${effectiveAnchorId}/activate`, {
         activationType: activationType || 'visual',
         durationSeconds: activationDurationSeconds,
+        idempotencyKey: completionEventIdRef.current,
       });
 
       if (response.data.data) {
@@ -353,6 +359,10 @@ export const ActivationScreen: React.FC = () => {
   }, []);
 
   const handleComplete = useCallback(async () => {
+    if (completionStartedRef.current) {
+      return;
+    }
+    completionStartedRef.current = true;
     sessionCompletedRef.current = true;
     setShowExitWarning(false);
 
@@ -522,12 +532,18 @@ export const ActivationScreen: React.FC = () => {
   }, [handleComplete, promptExitSession]);
 
   const handleCompletionDone = useCallback(async (reflectionWord?: string) => {
+    if (hasRecordedRef.current) {
+      return;
+    }
+    hasRecordedRef.current = true;
+
     setShowCompletion(false);
     setShowExitWarning(false);
     exitingRef.current = true;
 
     // Record session locally
-    recordSession({
+    const completionEventId = recordSession({
+      idempotencyKey: completionEventIdRef.current,
       anchorId,
       type: 'activate',
       durationSeconds: activationDurationSeconds,
@@ -536,7 +552,7 @@ export const ActivationScreen: React.FC = () => {
       completedAt: new Date().toISOString(),
     });
     void recordReviewSignal('focus_session_completed');
-    await queueProgressionMilestonesFromStores();
+    await queueProgressionMilestonesFromStores({ sourceEventId: completionEventId });
 
     if (returnTo === 'practice') {
       if (typeof navigation.popToTop === 'function') {

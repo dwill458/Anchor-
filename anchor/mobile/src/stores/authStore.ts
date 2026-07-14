@@ -29,6 +29,7 @@ import { useProfileStore } from '@/stores/profileStore';
 import { useSessionStore } from '@/stores/sessionStore';
 import { useSubscriptionStore, computeDaysRemaining } from '@/stores/subscriptionStore';
 import { useTeachingStore } from '@/stores/teachingStore';
+import { useForgeMomentStore } from '@/stores/forgeMomentStore';
 import { calculateStreak } from '@/utils/streakHelpers';
 import {
   createDeveloperMasterUser,
@@ -758,6 +759,9 @@ export const useAuthStore = create<AuthState>()(
                 {
                   chargeType: mutation.chargeType,
                   durationSeconds: mutation.durationSeconds,
+                  ...(mutation.idempotencyKey
+                    ? { idempotencyKey: mutation.idempotencyKey }
+                    : {}),
                 }
               );
 
@@ -781,6 +785,9 @@ export const useAuthStore = create<AuthState>()(
                 {
                   activationType: mutation.activationType,
                   durationSeconds: mutation.durationSeconds,
+                  ...(mutation.idempotencyKey
+                    ? { idempotencyKey: mutation.idempotencyKey }
+                    : {}),
                 }
               );
 
@@ -1005,10 +1012,19 @@ export const useAuthStore = create<AuthState>()(
           }
         }
 
+        // Auth callbacks can overlap. If a different account was established
+        // while the previous account's snapshots were being saved, the stale
+        // sign-out must not clear the new account's stores or presenter.
+        const currentUserId = get().user?.id;
+        if (currentUserId && currentUserId !== userId) {
+          return;
+        }
+
         applyUserToSubscriptionStore(null);
         useAnchorStore.getState().clearAnchors();
         useSessionStore.getState().reset();
         useTeachingStore.getState().reset();
+        useForgeMomentStore.getState().resetMilestones();
         useProfileStore.getState().resetProfile();
         set({
           user: null,

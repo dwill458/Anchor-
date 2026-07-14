@@ -63,6 +63,7 @@ import { useMissingAnchorRedirect } from './utils/useMissingAnchorRedirect';
 import { useDeepPrimeSessionAudio } from './hooks/useDeepPrimeSessionAudio';
 import { queueProgressionMilestonesFromStores } from '@/utils/progressionMilestones';
 import { usePrimeSessionAccess } from '@/hooks/usePrimeSessionAccess';
+import { createPracticeEventId } from '@/utils/primingAnalytics';
 
 // Single source of truth: derive each segment's width from the global progressAnim,
 // which is already wall-clock-driven by useRitualController + the progressAnim effect.
@@ -269,6 +270,8 @@ export const RitualScreen: React.FC = () => {
   } = route.params;
   const isMountedRef = useRef(true);
   const isCompletingRef = useRef(false);
+  const hasFinalizedRef = useRef(false);
+  const completionEventIdRef = useRef(createPracticeEventId());
   const exitingRef = useRef(false);
   const mantraIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
@@ -1141,6 +1144,11 @@ export const RitualScreen: React.FC = () => {
   }, [anchor, anchorId, clearDeepTimerInterval, fadeOutDeepPrimeAudio, isPendingFirstAnchor, navigateToPractice, navigation, returnTo]);
 
   const continueFromSeal = useCallback(async () => {
+    if (hasFinalizedRef.current) {
+      return;
+    }
+    hasFinalizedRef.current = true;
+
     let chargeType: 'initial_quick' | 'initial_deep' | 'recharge' = 'initial_quick';
 
     if (ritualType === 'quick' || ritualType === 'focus') {
@@ -1158,6 +1166,7 @@ export const RitualScreen: React.FC = () => {
         tempAnchorId: anchorId,
         chargeType,
         durationSeconds: config.totalDurationSeconds,
+        idempotencyKey: completionEventIdRef.current,
         queuedAt: new Date().toISOString(),
       });
     } else {
@@ -1178,6 +1187,7 @@ export const RitualScreen: React.FC = () => {
           await apiClient.post(`/api/anchors/${effectiveAnchorId}/charge`, {
             chargeType,
             durationSeconds: config.totalDurationSeconds,
+            idempotencyKey: completionEventIdRef.current,
           });
         } catch (syncError) {
           backendSyncFailed = true;
@@ -1234,20 +1244,22 @@ export const RitualScreen: React.FC = () => {
         sessionCount: 1,
         threadStrength: 1,
         durationSeconds: config.totalDurationSeconds,
+        completionEventId: completionEventIdRef.current,
         returnTo,
       });
       return;
     }
 
     if (isDeepRitual) {
-      recordSession({
+      const completionEventId = recordSession({
+        idempotencyKey: completionEventIdRef.current,
         anchorId,
         type: 'reinforce',
         durationSeconds: config.totalDurationSeconds,
         mode: resolvedPrimeSessionAudio,
         completedAt: new Date().toISOString(),
       });
-      await queueProgressionMilestonesFromStores();
+      await queueProgressionMilestonesFromStores({ sourceEventId: completionEventId });
       await handlePrimeComplete();
       await exitRitual();
       return;
@@ -1257,6 +1269,7 @@ export const RitualScreen: React.FC = () => {
     navigation.replace('ChargeComplete', {
       anchorId: effectiveAnchorId,
       durationSeconds: config.totalDurationSeconds,
+      completionEventId: completionEventIdRef.current,
       returnTo,
     });
   }, [
@@ -1303,10 +1316,16 @@ export const RitualScreen: React.FC = () => {
   }
 
   const handleCompletionDone = useCallback(async (reflectionWord?: string) => {
+    if (hasFinalizedRef.current) {
+      return;
+    }
+    hasFinalizedRef.current = true;
+
     setShowCompletion(false);
     exitingRef.current = true;
 
-    recordSession({
+    const completionEventId = recordSession({
+      idempotencyKey: completionEventIdRef.current,
       anchorId,
       type: 'reinforce',
       durationSeconds: config.totalDurationSeconds,
@@ -1315,7 +1334,7 @@ export const RitualScreen: React.FC = () => {
       reflectionWord,
     });
 
-    await queueProgressionMilestonesFromStores();
+    await queueProgressionMilestonesFromStores({ sourceEventId: completionEventId });
     await handlePrimeComplete();
     exitRitual();
   }, [anchorId, config.totalDurationSeconds, resolvedPrimeSessionAudio, recordSession, handlePrimeComplete, exitRitual]);

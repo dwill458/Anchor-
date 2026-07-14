@@ -425,11 +425,13 @@ describe('RitualScreen', () => {
 
     dateNowSpy.mockReturnValue(now + 30_600);
     fireEvent(getByTestId('deep-prime-seal'), 'pressIn');
+    fireEvent(getByTestId('deep-prime-seal'), 'pressIn');
     dateNowSpy.mockReturnValue(now + 33_500);
 
     await waitFor(() => expect(mockUpdateAnchor).toHaveBeenCalled(), {
       timeout: 4000,
     });
+    expect(mockRecordSession).toHaveBeenCalledTimes(1);
     expect(mockRecordSession).toHaveBeenCalledWith(
       expect.objectContaining({
         anchorId: 'test-anchor-id',
@@ -437,8 +439,9 @@ describe('RitualScreen', () => {
         durationSeconds: 30,
       })
     );
-    expect(mockHandlePrimeComplete).toHaveBeenCalled();
-    expect(mockNavigateToPractice).toHaveBeenCalled();
+    expect(mockQueueProgressionMilestones).toHaveBeenCalledTimes(1);
+    expect(mockHandlePrimeComplete).toHaveBeenCalledTimes(1);
+    expect(mockNavigateToPractice).toHaveBeenCalledTimes(1);
     expect(queryByTestId('completion-modal-done')).toBeNull();
 
     unmount();
