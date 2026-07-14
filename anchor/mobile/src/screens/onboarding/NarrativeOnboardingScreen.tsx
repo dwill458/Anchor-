@@ -538,7 +538,7 @@ export const NarrativeOnboardingScreen: React.FC<Props> = ({ navigation }) => {
   };
 
   const slide = SLIDES[currentSlide];
-  const progressPercent = getOnboardingProgressPercent(currentSlide, TOTAL);
+  const slideProgressPercent = getOnboardingProgressPercent(currentSlide, TOTAL);
 
   return (
     <SafeAreaView style={styles.container}>
@@ -617,13 +617,18 @@ export const NarrativeOnboardingScreen: React.FC<Props> = ({ navigation }) => {
         <View
           style={styles.progressGroup}
           accessibilityRole="progressbar"
-          accessibilityValue={{ min: 0, max: 100, now: progressPercent }}
+          accessibilityValue={{
+            min: 1,
+            max: TOTAL,
+            now: currentSlide + 1,
+            text: `Slide ${currentSlide + 1} of ${TOTAL}`,
+          }}
         >
           <View style={styles.progressTrack}>
-            <View style={[styles.progressFill, { width: `${progressPercent}%` }]} />
+            <View style={[styles.progressFill, { width: `${slideProgressPercent}%` }]} />
           </View>
           <Text style={styles.progressText}>
-            STEP {currentSlide + 1} OF {TOTAL} · {progressPercent}% SET UP
+            SLIDE {currentSlide + 1} OF {TOTAL}
           </Text>
         </View>
 

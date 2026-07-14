@@ -251,6 +251,227 @@ describe('AuthHydrationService', () => {
     ]);
   });
 
+  it('restores Deep Prime and burned-anchor lifetime history without making burned anchors active', async () => {
+    const user = createMockUser({
+      id: 'user-lifetime-history',
+      totalAnchorsCreated: 2,
+      totalActivations: 2,
+      currentStreak: 2,
+      hasCompletedOnboarding: true,
+    });
+    const activeAnchor = createMockAnchor({
+      id: '11111111-1111-4111-8111-111111111111',
+      userId: user.id,
+      activationCount: 2,
+      updatedAt: new Date('2026-07-11T12:00:00.000Z'),
+    });
+
+    mockFetchCompleteProfile.mockResolvedValue({
+      user,
+      stats: {},
+      activeAnchors: [],
+    });
+    mockApiGet.mockImplementation(async (url: string) => {
+      if (url === '/api/anchors') {
+        return { data: { data: [activeAnchor] } };
+      }
+
+      if (url === '/api/auth/me/export') {
+        return {
+          data: {
+            data: {
+              exportVersion: 2,
+              account: {
+                anchors: [activeAnchor],
+                activations: [
+                  {
+                    id: 'activation-live',
+                    anchorId: activeAnchor.id,
+                    activationType: 'visual',
+                    durationSeconds: 30,
+                    activatedAt: '2026-07-08T12:00:00.000Z',
+                  },
+                ],
+                charges: [
+                  // /activate creates this matching first-charge row; hydration
+                  // must not turn it into a second practice session.
+                  {
+                    id: 'charge-live-duplicate',
+                    anchorId: activeAnchor.id,
+                    chargeType: 'initial_quick',
+                    durationSeconds: 30,
+                    completed: true,
+                    chargedAt: '2026-07-08T12:00:00.000Z',
+                  },
+                  {
+                    id: 'charge-live-deep',
+                    anchorId: activeAnchor.id,
+                    chargeType: 'recharge',
+                    durationSeconds: 300,
+                    completed: true,
+                    chargedAt: '2026-07-09T12:00:00.000Z',
+                  },
+                ],
+              },
+              burnedAnchors: [
+                {
+                  id: 'burned-snapshot-1',
+                  originalAnchorId: '22222222-2222-4222-8222-222222222222',
+                  userId: user.id,
+                  intentionText: 'Released intention',
+                  category: 'custom',
+                  distilledLetters: ['R'],
+                  baseSigilSvg: '<svg/>',
+                  enhancedImageUrl: null,
+                  activationCount: 2,
+                  activationHistory: [
+                    {
+                      id: 'activation-burned',
+                      anchorId: '22222222-2222-4222-8222-222222222222',
+                      activationType: 'mantra',
+                      durationSeconds: 60,
+                      activatedAt: '2026-07-10T12:00:00.000Z',
+                    },
+                  ],
+                  chargeHistory: [
+                    {
+                      id: 'charge-burned-deep',
+                      anchorId: '22222222-2222-4222-8222-222222222222',
+                      chargeType: 'initial_deep',
+                      durationSeconds: 300,
+                      completed: true,
+                      chargedAt: '2026-07-11T12:00:00.000Z',
+                    },
+                  ],
+                  createdAt: '2026-07-01T12:00:00.000Z',
+                  burnedAt: '2026-07-12T12:00:00.000Z',
+                },
+                {
+                  id: 'foreign-burned-snapshot',
+                  originalAnchorId: '33333333-3333-4333-8333-333333333333',
+                  userId: 'another-user',
+                  intentionText: 'Do not hydrate',
+                  category: 'custom',
+                  distilledLetters: ['X'],
+                  activationCount: 50,
+                  activationHistory: [],
+                  chargeHistory: [],
+                  createdAt: '2026-07-01T12:00:00.000Z',
+                  burnedAt: '2026-07-12T12:00:00.000Z',
+                },
+              ],
+            },
+          },
+        };
+      }
+
+      throw new Error(`Unexpected url: ${url}`);
+    });
+
+    await AuthHydrationService.hydrateAuthenticatedData();
+
+    const anchorState = useAnchorStore.getState();
+    const sessionState = useSessionStore.getState();
+    expect(anchorState.anchors).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ id: activeAnchor.id }),
+        expect.objectContaining({
+          id: '22222222-2222-4222-8222-222222222222',
+          isReleased: true,
+          releasedAt: expect.any(Date),
+          archivedAt: expect.any(Date),
+          activationCount: 2,
+        }),
+      ])
+    );
+    expect(anchorState.anchors).toHaveLength(2);
+    expect(anchorState.getActiveAnchors().map(anchor => anchor.id)).toEqual([activeAnchor.id]);
+    expect(anchorState.currentAnchorId).toBe(activeAnchor.id);
+    expect(anchorState.totalPrimes).toBe(4);
+
+    expect(sessionState.primingHistory.map(entry => entry.id)).toEqual([
+      'charge-burned-deep',
+      'activation-burned',
+      'charge-live-deep',
+      'activation-live',
+    ]);
+    expect(sessionState.primingHistory).not.toEqual(
+      expect.arrayContaining([expect.objectContaining({ id: 'charge-live-duplicate' })])
+    );
+    expect(sessionState.primingHistory.filter(entry => entry.type === 'reinforce')).toHaveLength(2);
+    expect(new Set(sessionState.primingHistory.map(entry => entry.localDate)).size).toBe(4);
+    expect(sessionState.totalSessionsCount).toBe(4);
+  });
+
+  it('does not resurrect a stale active snapshot after the server has burned that anchor', async () => {
+    const user = createMockUser({
+      id: 'user-burned-snapshot',
+      totalAnchorsCreated: 1,
+      totalActivations: 3,
+    });
+    const originalAnchorId = '44444444-4444-4444-8444-444444444444';
+    const staleSnapshotAnchor = createMockAnchor({
+      id: originalAnchorId,
+      userId: user.id,
+      activationCount: 3,
+    });
+    await saveAnchorSnapshot(user.id, {
+      anchors: [staleSnapshotAnchor],
+      currentAnchorId: originalAnchorId,
+    });
+
+    mockFetchCompleteProfile.mockResolvedValue({
+      user,
+      stats: {},
+      activeAnchors: [],
+    });
+    mockApiGet.mockImplementation(async (url: string) => {
+      if (url === '/api/anchors') {
+        return { data: { data: [] } };
+      }
+      if (url === '/api/auth/me/export') {
+        return {
+          data: {
+            data: {
+              exportVersion: 2,
+              account: { anchors: [], activations: [], charges: [] },
+              burnedAnchors: [
+                {
+                  id: 'burned-snapshot-legacy',
+                  originalAnchorId,
+                  userId: user.id,
+                  intentionText: staleSnapshotAnchor.intentionText,
+                  category: staleSnapshotAnchor.category,
+                  distilledLetters: staleSnapshotAnchor.distilledLetters,
+                  baseSigilSvg: staleSnapshotAnchor.baseSigilSvg,
+                  activationCount: 3,
+                  activationHistory: [],
+                  chargeHistory: [],
+                  createdAt: staleSnapshotAnchor.createdAt.toISOString(),
+                  burnedAt: '2026-07-12T12:00:00.000Z',
+                },
+              ],
+            },
+          },
+        };
+      }
+      throw new Error(`Unexpected url: ${url}`);
+    });
+
+    await AuthHydrationService.hydrateAuthenticatedData();
+
+    expect(useAnchorStore.getState().anchors).toEqual([
+      expect.objectContaining({
+        id: originalAnchorId,
+        isReleased: true,
+        archivedAt: expect.any(Date),
+      }),
+    ]);
+    expect(useAnchorStore.getState().getActiveAnchors()).toEqual([]);
+    expect(useAnchorStore.getState().currentAnchorId).toBeUndefined();
+    expect(useSessionStore.getState().totalSessionsCount).toBe(3);
+  });
+
   it('keeps local progress when anchor hydration fails after login', async () => {
     const localTempAnchor = createMockAnchor({
       id: 'anchor-local-only',
@@ -539,5 +760,125 @@ describe('AuthHydrationService', () => {
       expect.objectContaining({ id: 'activation-server-history' }),
     ]);
     expect(useSessionStore.getState().lastPrimedAt).toBe('2026-06-08');
+  });
+
+  it('merges the local and server copy of one completion by client event ID', async () => {
+    const user = createMockUser({
+      id: 'user-event-identity',
+      totalActivations: 1,
+      currentStreak: 1,
+    });
+    const anchor = createMockAnchor({
+      id: '55555555-5555-4555-8555-555555555555',
+      userId: user.id,
+      activationCount: 1,
+    });
+    useSessionStore.getState().recordSession({
+      idempotencyKey: 'practice-shared-event',
+      anchorId: anchor.id,
+      type: 'activate',
+      durationSeconds: 30,
+      mode: 'silent',
+      completedAt: '2026-07-12T10:05:00.000Z',
+    });
+    mockFetchCompleteProfile.mockResolvedValue({ user, stats: {}, activeAnchors: [] });
+    mockApiGet.mockImplementation(async (url: string) => {
+      if (url === '/api/anchors') return { data: { data: [anchor] } };
+      if (url === '/api/auth/me/export') {
+        return {
+          data: {
+            data: {
+              exportVersion: 2,
+              account: {
+                anchors: [anchor],
+                activations: [
+                  {
+                    id: 'database-activation-id',
+                    clientEventId: 'practice-shared-event',
+                    anchorId: anchor.id,
+                    activationType: 'visual',
+                    durationSeconds: 30,
+                    activatedAt: '2026-07-12T10:00:00.000Z',
+                  },
+                ],
+                charges: [],
+              },
+              burnedAnchors: [],
+            },
+          },
+        };
+      }
+      throw new Error(`Unexpected url: ${url}`);
+    });
+
+    await AuthHydrationService.hydrateAuthenticatedData();
+
+    expect(useSessionStore.getState().primingHistory).toEqual([
+      expect.objectContaining({ id: 'practice-shared-event' }),
+    ]);
+    expect(useSessionStore.getState().totalSessionsCount).toBe(1);
+  });
+
+  it('does not trust a partial v2 export enough to resurrect a stale snapshot', async () => {
+    const user = createMockUser({
+      id: 'user-partial-v2',
+      totalAnchorsCreated: 1,
+      hasCompletedOnboarding: true,
+    });
+    const staleAnchor = createMockAnchor({ id: 'server-anchor-already-burned' });
+    useAuthStore.setState({ user, token: 'token', isAuthenticated: true } as any);
+    await saveAnchorSnapshot(user.id, {
+      anchors: [staleAnchor],
+      currentAnchorId: staleAnchor.id,
+    });
+    mockFetchCompleteProfile.mockResolvedValue({ user, stats: {}, activeAnchors: [] });
+    mockApiGet.mockImplementation(async (url: string) => {
+      if (url === '/api/anchors') return { data: { data: [] } };
+      if (url === '/api/auth/me/export') {
+        return {
+          data: {
+            data: {
+              exportVersion: 2,
+              account: { anchors: [], activations: [], charges: [] },
+              // burnedAnchors is missing, so v2 is explicitly incomplete.
+            },
+          },
+        };
+      }
+      throw new Error(`Unexpected url: ${url}`);
+    });
+
+    await AuthHydrationService.hydrateAuthenticatedData();
+
+    expect(useAnchorStore.getState().anchors).toEqual([]);
+    expect(useAnchorStore.getState().currentAnchorId).toBeUndefined();
+  });
+
+  it('abandons hydration when the active account changes mid-request', async () => {
+    const userA = createMockUser({ id: 'user-a' });
+    const userB = createMockUser({ id: 'user-b' });
+    const accountBAnchor = createMockAnchor({ id: 'account-b-anchor', userId: userB.id });
+    let resolveProfile: ((value: unknown) => void) | undefined;
+    const profilePromise = new Promise(resolve => {
+      resolveProfile = resolve;
+    });
+    useAuthStore.setState({ user: userA, token: 'token-a', isAuthenticated: true } as any);
+    mockFetchCompleteProfile.mockReturnValue(profilePromise);
+    mockApiGet.mockImplementation(async (url: string) => {
+      if (url === '/api/anchors') return { data: { data: [] } };
+      if (url === '/api/auth/me/export') throw new Error('export unavailable');
+      throw new Error(`Unexpected url: ${url}`);
+    });
+
+    const hydration = AuthHydrationService.hydrateAuthenticatedData();
+    useAuthStore.setState({ user: userB, token: 'token-b', isAuthenticated: true } as any);
+    useAnchorStore.getState().setAnchors([accountBAnchor]);
+    resolveProfile?.({ user: userA, stats: {}, activeAnchors: [] });
+    await hydration;
+
+    expect(useAuthStore.getState().user?.id).toBe(userB.id);
+    expect(useAnchorStore.getState().anchors).toEqual([
+      expect.objectContaining({ id: accountBAnchor.id }),
+    ]);
   });
 });

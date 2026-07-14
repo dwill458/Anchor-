@@ -8,7 +8,7 @@ jest.mock('react-native-android-widget', () => ({
 import { buildHeatmapSvg } from '../AnchorLargeWidget';
 
 describe('buildHeatmapSvg', () => {
-  it('renders a larger grid with month labels aligned to week columns', () => {
+  it('renders the full-width grid with month labels aligned to week columns', () => {
     const svg = buildHeatmapSvg([], '2026-07-31', false);
 
     expect(svg).toContain('>Mar</text>');
@@ -16,7 +16,7 @@ describe('buildHeatmapSvg', () => {
     expect(svg).toContain('>May</text>');
     expect(svg).toContain('>Jun</text>');
     expect(svg).toContain('>Jul</text>');
-    expect(svg).toContain('viewBox="-3 -3 379 165"');
-    expect(svg).toContain('x="0" y="17" width="16" height="16"');
+    expect(svg).toContain('viewBox="-3 -3 380 162"');
+    expect(svg).toContain('x="0" y="13" width="17" height="17"');
   });
 });

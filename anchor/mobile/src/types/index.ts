@@ -235,6 +235,7 @@ export type PendingFirstAnchorMutation =
     tempAnchorId: string;
     chargeType: ChargeType;
     durationSeconds: number;
+    idempotencyKey?: string;
     queuedAt: string;
   }
   | {
@@ -242,6 +243,7 @@ export type PendingFirstAnchorMutation =
     tempAnchorId: string;
     activationType: ActivationType;
     durationSeconds: number;
+    idempotencyKey?: string;
     queuedAt: string;
   };
 
@@ -798,6 +800,7 @@ export type RootStackParamList = {
   ChargeComplete: {
     anchorId: string;
     durationSeconds?: number;
+    completionEventId?: string;
     returnTo?: 'vault' | 'practice' | 'detail';
   };
   FirstPrimeComplete: {
@@ -805,6 +808,7 @@ export type RootStackParamList = {
     sessionCount: number;
     threadStrength: number;
     durationSeconds: number;
+    completionEventId?: string;
     returnTo?: 'vault' | 'practice' | 'detail';
   };
 

@@ -12,6 +12,10 @@ import { apiClient } from '@/services/ApiClient';
 import { useAuthStore } from '@/stores/authStore';
 import { useSettingsStore } from '@/stores/settingsStore';
 import {
+  JOURNEY_MILESTONE_IDS,
+  JOURNEY_TEACHING_CONTENT_ID_BY_MILESTONE,
+} from '@/constants/milestones';
+import {
   buildPrimingHistoryEntry,
   getIsoWeekdayIndex,
   isoWeekKey,
@@ -44,6 +48,10 @@ interface DayPractice {
   sessionsCount: number;
   totalSeconds: number;
 }
+
+type SessionRecordInput = Omit<SessionLogEntry, 'id'> & {
+  idempotencyKey?: string;
+};
 
 interface WeekPractice {
   /** ISO week key: YYYY-WNN */
@@ -84,7 +92,7 @@ interface SessionState {
   lastDecayDate: string | null;
 
   // Actions
-  recordSession: (entry: Omit<SessionLogEntry, 'id'>) => void;
+  recordSession: (entry: SessionRecordInput) => string;
   consumeGraceDay: () => void;
   /** Call on app foreground to reset today counters if the local date has rolled over */
   resetIfNewDay: () => void;
@@ -251,13 +259,21 @@ export const useSessionStore = create<SessionState>()(
     (set, get) => ({
       ...createInitialSessionState(),
 
-      recordSession: (entry) => {
+      recordSession: (input) => {
+        const { idempotencyKey, ...entry } = input;
+        const id = idempotencyKey?.trim() || `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+        const existing = get();
+        if (
+          existing.sessionLog.some(session => session.id === id) ||
+          existing.primingHistory.some(session => session.id === id)
+        ) {
+          return id;
+        }
         // Apply decay before granting any priming gains so sessions started
         // from non-PracticeScreen routes (e.g. Vault → ActivationRitual) don't
         // skip missed-day decay and inflate thread strength on stale values.
         get().applyDecay();
 
-        const id = `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
         const full: SessionLogEntry = { id, ...entry };
 
         const completedAtDate = new Date(entry.completedAt);
@@ -356,7 +372,9 @@ export const useSessionStore = create<SessionState>()(
           !teaching.userFlags.hasCompletedFirstCharge
         ) {
           teaching.setUserFlag('hasCompletedFirstCharge', true);
-          teaching.queueMilestone('milestone_first_charge_v1');
+          teaching.queueMilestone(
+            JOURNEY_TEACHING_CONTENT_ID_BY_MILESTONE[JOURNEY_MILESTONE_IDS.firstPrime]
+          );
         }
         if (entry.type === 'stabilize' && !teaching.userFlags.hasCompletedFirstStabilize) {
           teaching.setUserFlag('hasCompletedFirstStabilize', true);
@@ -375,6 +393,7 @@ export const useSessionStore = create<SessionState>()(
             });
           }
         }
+        return id;
       },
 
       consumeGraceDay: () => {

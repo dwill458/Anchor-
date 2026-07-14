@@ -10,6 +10,7 @@ import { ActivationScreen } from '../ActivationScreen';
 import { useAnchorStore } from '@/stores/anchorStore';
 import { useAuthStore } from '@/stores/authStore';
 import { useSettingsStore } from '@/stores/settingsStore';
+import { useSessionStore } from '@/stores/sessionStore';
 import { apiClient } from '@/services/ApiClient';
 import { ErrorTrackingService } from '@/services/ErrorTrackingService';
 import { createMockAnchor } from '@/__tests__/utils/testUtils';
@@ -41,6 +42,8 @@ const mockGuidance120ClosingPlayer = createMockManagedPlayer();
 const mockHandlePrimeComplete = jest.fn();
 const mockSetActiveSession = jest.fn();
 const mockRecordPrimeSession = jest.fn();
+const mockRecordSession = jest.fn();
+const mockQueueProgressionMilestones = jest.fn();
 const mockIsPostPrimeTraceEligible = jest.fn().mockResolvedValue(false);
 const mockMarkPostPrimeTraceAttemptStarted = jest.fn().mockResolvedValue(undefined);
 const mockNavigateToVaultDestination = jest.fn();
@@ -102,6 +105,7 @@ jest.mock('@/contexts/TabNavigationContext', () => ({
 
 jest.mock('@/stores/anchorStore');
 jest.mock('@/stores/settingsStore');
+jest.mock('@/stores/sessionStore');
 jest.mock('@/services/ApiClient');
 jest.mock('@/services/ErrorTrackingService');
 jest.mock('@/hooks/useAudio', () => ({
@@ -135,6 +139,10 @@ jest.mock('@/utils/postPrimeTraceEligibility', () => ({
 }));
 jest.mock('@/navigation/firstAnchorGate', () => ({
   navigateToVaultDestination: (...args: any[]) => mockNavigateToVaultDestination(...args),
+}));
+jest.mock('@/utils/progressionMilestones', () => ({
+  queueProgressionMilestonesFromStores: (...args: any[]) =>
+    mockQueueProgressionMilestones(...args),
 }));
 
 // Helper: make useSettingsStore call the selector so values resolve correctly
@@ -242,6 +250,9 @@ describe('ActivationScreen', () => {
     mockSetActiveSession.mockReset();
     mockSetActiveSession.mockResolvedValue(undefined);
     mockRecordPrimeSession.mockReset();
+    mockRecordSession.mockReset();
+    mockQueueProgressionMilestones.mockReset();
+    mockQueueProgressionMilestones.mockResolvedValue(undefined);
     mockIsPostPrimeTraceEligible.mockReset();
     mockIsPostPrimeTraceEligible.mockResolvedValue(false);
     mockMarkPostPrimeTraceAttemptStarted.mockReset();
@@ -293,6 +304,17 @@ describe('ActivationScreen', () => {
       applySyncedAnchor: mockApplySyncedAnchor,
       totalPrimes: 0,
       anchors: mockAnchors,
+    }));
+    (useSessionStore as unknown as jest.Mock).mockImplementation((selector?: any) => {
+      const state = {
+        recordSession: mockRecordSession,
+        bumpThreadStrength: jest.fn(),
+      };
+      return typeof selector === 'function' ? selector(state) : state;
+    });
+    (useSessionStore as any).getState = jest.fn(() => ({
+      primingHistory: [],
+      sessionLog: [],
     }));
 
     mockSettingsState();
@@ -720,11 +742,33 @@ describe('ActivationScreen', () => {
 
     await waitFor(() => expect(apiClient.post).toHaveBeenCalledWith(
       `/api/anchors/${TEST_ANCHOR_UUID}/activate`,
-      {
+      expect.objectContaining({
         activationType: 'visual',
         durationSeconds: TEST_ACTIVATION_DURATION_SECONDS,
-      }
+        idempotencyKey: expect.any(String),
+      })
     ));
+  });
+
+  it('records and exits only once when completion callbacks re-enter', async () => {
+    const { getByTestId, getByLabelText } = render(<ActivationScreen />);
+
+    const seal = await waitFor(() => getByTestId('focus-session-continue'), {
+      timeout: 4000,
+    });
+    fireEvent.press(seal);
+    fireEvent.press(seal);
+
+    const done = await waitFor(() => getByTestId('completion-modal-done'));
+    const skip = getByLabelText('Skip reflection');
+    fireEvent.press(done);
+    fireEvent.press(skip);
+    fireEvent.press(done);
+
+    await waitFor(() => expect(mockGoBack).toHaveBeenCalledTimes(1));
+    expect(mockHandlePrimeComplete).toHaveBeenCalledTimes(1);
+    expect(mockRecordSession).toHaveBeenCalledTimes(1);
+    expect(mockQueueProgressionMilestones).toHaveBeenCalledTimes(1);
   });
 
   it('updates local activation immediately on seal', async () => {
@@ -862,10 +906,11 @@ describe('ActivationScreen', () => {
     await waitFor(() => {
       expect(apiClient.post).toHaveBeenCalledWith(
         `/api/anchors/${TEST_ANCHOR_UUID}/activate`,
-        {
+        expect.objectContaining({
           activationType: 'audio',
           durationSeconds: TEST_ACTIVATION_DURATION_SECONDS,
-        }
+          idempotencyKey: expect.any(String),
+        })
       );
     });
   });
@@ -889,10 +934,11 @@ describe('ActivationScreen', () => {
     await waitFor(() => {
       expect(apiClient.post).toHaveBeenCalledWith(
         `/api/anchors/${TEST_ANCHOR_UUID}/activate`,
-        {
+        expect.objectContaining({
           activationType: 'visual',
           durationSeconds: TEST_ACTIVATION_DURATION_SECONDS,
-        }
+          idempotencyKey: expect.any(String),
+        })
       );
     });
   });
@@ -1163,10 +1209,11 @@ describe('ActivationScreen', () => {
       expect(apiClient.post).toHaveBeenNthCalledWith(
         2,
         `/api/anchors/${SERVER_ANCHOR_UUID}/activate`,
-        {
+        expect.objectContaining({
           activationType: 'visual',
           durationSeconds: TEST_ACTIVATION_DURATION_SECONDS,
-        }
+          idempotencyKey: expect.any(String),
+        })
       );
     });
   });

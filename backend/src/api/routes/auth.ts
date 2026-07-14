@@ -614,40 +614,24 @@ router.get(
       const exportContext = { authUid, userId: user.id };
       const [anchors, activations, charges, orders, syncQueue, burnedAnchors, flaggedContent] =
         await Promise.all([
-          getExportSection(
-            'anchors',
-            exportContext,
-            () =>
-              prisma.anchor.findMany({
-                where: { userId: user.id },
-                orderBy: { createdAt: 'desc' },
-                include: {
-                  activations: { orderBy: { activatedAt: 'desc' } },
-                  charges: { orderBy: { chargedAt: 'desc' } },
-                },
-              }),
-            []
-          ),
-          getExportSection(
-            'activations',
-            exportContext,
-            () =>
-              prisma.activation.findMany({
-                where: { userId: user.id },
-                orderBy: { activatedAt: 'desc' },
-              }),
-            []
-          ),
-          getExportSection(
-            'charges',
-            exportContext,
-            () =>
-              prisma.charge.findMany({
-                where: { userId: user.id },
-                orderBy: { chargedAt: 'desc' },
-              }),
-            []
-          ),
+          // Progression-critical sections fail the whole export instead of
+          // returning a deceptively complete v2 payload with missing history.
+          prisma.anchor.findMany({
+            where: { userId: user.id },
+            orderBy: { createdAt: 'desc' },
+            include: {
+              activations: { orderBy: { activatedAt: 'desc' } },
+              charges: { orderBy: { chargedAt: 'desc' } },
+            },
+          }),
+          prisma.activation.findMany({
+            where: { userId: user.id },
+            orderBy: { activatedAt: 'desc' },
+          }),
+          prisma.charge.findMany({
+            where: { userId: user.id },
+            orderBy: { chargedAt: 'desc' },
+          }),
           getExportSection(
             'orders',
             exportContext,
@@ -668,16 +652,10 @@ router.get(
               }),
             []
           ),
-          getExportSection(
-            'burnedAnchors',
-            exportContext,
-            () =>
-              prisma.burnedAnchor.findMany({
-                where: { userId: user.id },
-                orderBy: { burnedAt: 'desc' },
-              }),
-            []
-          ),
+          prisma.burnedAnchor.findMany({
+            where: { userId: user.id },
+            orderBy: { burnedAt: 'desc' },
+          }),
           getExportSection(
             'flaggedContent',
             exportContext,
@@ -696,7 +674,9 @@ router.get(
       res.json({
         success: true,
         data: {
-          exportVersion: 1,
+          // v2 adds burned-anchor activation/charge snapshots so lifetime
+          // progression can be reconstructed after the source rows cascade.
+          exportVersion: 2,
           exportedAt: new Date().toISOString(),
           account: {
             ...exportedUser,

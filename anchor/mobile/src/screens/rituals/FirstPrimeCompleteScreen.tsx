@@ -32,6 +32,7 @@ import type { RootStackParamList } from '@/types';
 import { navigateToVaultDestination } from '@/navigation/firstAnchorGate';
 import { queueProgressionMilestonesFromStores } from '@/utils/progressionMilestones';
 import { buildRecoveredChargeState } from '@/utils/anchorPriming';
+import { createPracticeEventId } from '@/utils/primingAnalytics';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -67,7 +68,16 @@ export const FirstPrimeCompleteScreen: React.FC = () => {
   const navigation = useNavigation<FirstPrimeCompleteNavigationProp>();
   const { navigateToPractice } = useTabNavigation();
   const route = useRoute<FirstPrimeCompleteRouteProp>();
-  const { anchorId, sessionCount, threadStrength, durationSeconds, returnTo } = route.params;
+  const {
+    anchorId,
+    sessionCount,
+    threadStrength,
+    durationSeconds,
+    completionEventId: routeCompletionEventId,
+    returnTo,
+  } = route.params;
+  const fallbackCompletionEventIdRef = useRef(createPracticeEventId());
+  const completionEventId = routeCompletionEventId ?? fallbackCompletionEventIdRef.current;
 
   const getAnchorById = useAnchorStore((state) => state.getAnchorById);
   const updateAnchor = useAnchorStore((state) => state.updateAnchor);
@@ -159,38 +169,47 @@ export const FirstPrimeCompleteScreen: React.FC = () => {
   useEffect(() => {
     if (!hasRecordedRef.current) {
       hasRecordedRef.current = true;
+      const sessionState = useSessionStore.getState();
+      const alreadyRecorded =
+        sessionState.sessionLog.some(session => session.id === completionEventId) ||
+        sessionState.primingHistory.some(session => session.id === completionEventId);
 
-      // Count the very first priming session toward lifetime Total Primes
-      const currentActivationCount = useAnchorStore.getState().getAnchorById(anchorId)?.activationCount ?? 0;
-      const recoveredChargeState = buildRecoveredChargeState(anchor, new Date());
-      updateAnchor(anchorId, {
-        ...recoveredChargeState,
-        activationCount: currentActivationCount + 1,
-        lastActivatedAt: new Date(),
-      });
-      incrementTotalPrimes();
-      recordPrimeSession();
+      if (!alreadyRecorded) {
+        // Count the very first priming session toward lifetime Total Primes.
+        const currentActivationCount =
+          useAnchorStore.getState().getAnchorById(anchorId)?.activationCount ?? 0;
+        const recoveredChargeState = buildRecoveredChargeState(anchor, new Date());
+        updateAnchor(anchorId, {
+          ...recoveredChargeState,
+          activationCount: currentActivationCount + 1,
+          lastActivatedAt: new Date(),
+        });
+        incrementTotalPrimes();
+        recordPrimeSession();
 
-      recordSession({
-        anchorId,
-        type: 'reinforce',
-        durationSeconds,
-        mode: primeSessionAudio,
-        completedAt: new Date().toISOString(),
-      });
-      void queueProgressionMilestonesFromStores();
-      void handlePrimeComplete();
-      FrictionAnalytics.completeFlow('activation', {
-        anchor_id: anchorId,
-        result: 'first_prime_completed',
-        session_count: sessionCount,
-      });
-      AnalyticsService.track('first_prime_completed', {
-        anchor_id: anchorId,
-        intention_id: anchor?.id ?? anchorId,
-        session_count: sessionCount,
-        timestamp: new Date().toISOString(),
-      });
+        recordSession({
+          idempotencyKey: completionEventId,
+          anchorId,
+          type: 'reinforce',
+          durationSeconds,
+          mode: primeSessionAudio,
+          completedAt: new Date().toISOString(),
+        });
+        void handlePrimeComplete();
+        FrictionAnalytics.completeFlow('activation', {
+          anchor_id: anchorId,
+          result: 'first_prime_completed',
+          session_count: sessionCount,
+        });
+        AnalyticsService.track('first_prime_completed', {
+          anchor_id: anchorId,
+          intention_id: anchor?.id ?? anchorId,
+          session_count: sessionCount,
+          timestamp: new Date().toISOString(),
+        });
+      }
+      // Safe to retry after a crash between the session write and award write.
+      void queueProgressionMilestonesFromStores({ sourceEventId: completionEventId });
     }
 
     const entranceAnimations = [
@@ -362,6 +381,7 @@ export const FirstPrimeCompleteScreen: React.FC = () => {
     barAnim,
     cardAnim,
     checkAnim,
+    completionEventId,
     primeSessionAudio,
     dividerAnim,
     durationSeconds,

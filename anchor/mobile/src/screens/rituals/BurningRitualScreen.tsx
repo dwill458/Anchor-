@@ -18,6 +18,10 @@ import { resolveBurnArtworkUri } from './utils/resolveBurnArtworkUri';
 import { AuthService } from '@/services/AuthService';
 import { useNotificationController } from '../../hooks/useNotificationController';
 import { queueProgressionMilestonesFromStores } from '@/utils/progressionMilestones';
+import {
+  JOURNEY_MILESTONE_IDS,
+  JOURNEY_TEACHING_CONTENT_ID_BY_MILESTONE,
+} from '@/constants/milestones';
 
 type BurningRitualRouteProp = RouteProp<RootStackParamList, 'BurningRitual'>;
 type BurningRitualNavigationProp = StackNavigationProp<RootStackParamList, 'BurningRitual'>;
@@ -84,7 +88,7 @@ export const BurningRitualScreen: React.FC = () => {
 
     // Local update happens for everyone
     releaseAnchor(anchorId);
-    await queueProgressionMilestonesFromStores();
+    await queueProgressionMilestonesFromStores({ sourceEventId: `release:${anchorId}` });
     await handleSigilVaulted();
     AnalyticsService.track(AnalyticsEvents.BURN_COMPLETED, { anchor_id: anchorId });
     FrictionAnalytics.completeFlow('burn_release', {
@@ -95,7 +99,9 @@ export const BurningRitualScreen: React.FC = () => {
     // Set first-burn flag (once)
     if (!userFlags.hasCompletedFirstBurn) {
       setUserFlag('hasCompletedFirstBurn', true);
-      queueMilestone('milestone_first_burn_v1');
+      queueMilestone(
+        JOURNEY_TEACHING_CONTENT_ID_BY_MILESTONE[JOURNEY_MILESTONE_IDS.firstRelease]
+      );
     }
 
     // Post-burn Signal Pulse — fires for ALL users on every burn ([both])

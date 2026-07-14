@@ -503,6 +503,89 @@ describe('GET /api/auth/me/export', () => {
     expect(res.body.data.account.orders).toEqual([]);
     expect(res.body.data.account.passwordHash).toBeUndefined();
   });
+
+  it('fails closed when a progression-critical export section is unavailable', async () => {
+    (mockPrisma.user.findUnique as jest.Mock).mockResolvedValue({
+      ...MOCK_DB_USER,
+      settings: MOCK_SETTINGS,
+    });
+    (mockPrisma.anchor.findMany as jest.Mock).mockResolvedValue([]);
+    (mockPrisma.activation.findMany as jest.Mock).mockResolvedValue([]);
+    (mockPrisma.charge.findMany as jest.Mock).mockResolvedValue([]);
+    (mockPrisma.order.findMany as jest.Mock).mockResolvedValue([]);
+    (mockPrisma.syncQueue.findMany as jest.Mock).mockResolvedValue([]);
+    (mockPrisma.burnedAnchor.findMany as jest.Mock).mockRejectedValue(
+      new Error('burned history unavailable')
+    );
+    (mockPrisma.flaggedContent.findMany as jest.Mock).mockResolvedValue([]);
+
+    const res = await request(buildApp()).get('/api/auth/me/export');
+
+    expect(res.status).toBe(500);
+    expect(res.body.error.code).toBe('EXPORT_ERROR');
+  });
+
+  it('exports only the authenticated account burned-anchor practice snapshots as v2', async () => {
+    const burnedAnchor = {
+      id: 'burned-1',
+      originalAnchorId: 'anchor-1',
+      userId: 'db-user-1',
+      intentionText: 'Archived intention',
+      category: 'custom',
+      distilledLetters: ['A'],
+      baseSigilSvg: '<svg/>',
+      enhancedImageUrl: null,
+      activationCount: 2,
+      activationHistory: [
+        {
+          id: 'activation-1',
+          anchorId: 'anchor-1',
+          activationType: 'visual',
+          durationSeconds: 30,
+          activatedAt: '2026-07-10T09:00:00.000Z',
+        },
+      ],
+      chargeHistory: [
+        {
+          id: 'charge-1',
+          anchorId: 'anchor-1',
+          chargeType: 'initial_deep',
+          durationSeconds: 300,
+          completed: true,
+          chargedAt: '2026-07-11T10:00:00.000Z',
+        },
+      ],
+      createdAt: new Date('2026-07-01T00:00:00.000Z'),
+      burnedAt: new Date('2026-07-12T00:00:00.000Z'),
+    };
+    (mockPrisma.user.findUnique as jest.Mock).mockResolvedValue({
+      ...MOCK_DB_USER,
+      settings: MOCK_SETTINGS,
+    });
+    (mockPrisma.anchor.findMany as jest.Mock).mockResolvedValue([]);
+    (mockPrisma.activation.findMany as jest.Mock).mockResolvedValue([]);
+    (mockPrisma.charge.findMany as jest.Mock).mockResolvedValue([]);
+    (mockPrisma.order.findMany as jest.Mock).mockResolvedValue([]);
+    (mockPrisma.syncQueue.findMany as jest.Mock).mockResolvedValue([]);
+    (mockPrisma.burnedAnchor.findMany as jest.Mock).mockResolvedValue([burnedAnchor]);
+    (mockPrisma.flaggedContent.findMany as jest.Mock).mockResolvedValue([]);
+
+    const res = await request(buildApp()).get('/api/auth/me/export');
+
+    expect(res.status).toBe(200);
+    expect(res.body.data.exportVersion).toBe(2);
+    expect(mockPrisma.burnedAnchor.findMany).toHaveBeenCalledWith({
+      where: { userId: 'db-user-1' },
+      orderBy: { burnedAt: 'desc' },
+    });
+    expect(res.body.data.burnedAnchors).toEqual([
+      expect.objectContaining({
+        originalAnchorId: 'anchor-1',
+        activationHistory: [expect.objectContaining({ id: 'activation-1' })],
+        chargeHistory: [expect.objectContaining({ id: 'charge-1' })],
+      }),
+    ]);
+  });
 });
 
 // ═════════════════════════════════════════════════════════════════════════════

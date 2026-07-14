@@ -44,6 +44,7 @@ import {
 } from '@/utils/postPrimeTraceEligibility';
 import { useMissingAnchorRedirect } from './utils/useMissingAnchorRedirect';
 import { queueProgressionMilestonesFromStores } from '@/utils/progressionMilestones';
+import { createPracticeEventId } from '@/utils/primingAnalytics';
 
 const { width } = Dimensions.get('window');
 const SYMBOL_SIZE = Math.min(width * 0.42, 180);
@@ -58,7 +59,14 @@ export const ChargeCompleteScreen: React.FC = () => {
   const navigation = useNavigation<ChargeCompleteNavigationProp>();
   const { navigateToPractice } = useTabNavigation();
   const route = useRoute<ChargeCompleteRouteProp>();
-  const { anchorId, durationSeconds: routeDurationSeconds, returnTo } = route.params;
+  const {
+    anchorId,
+    durationSeconds: routeDurationSeconds,
+    completionEventId: routeCompletionEventId,
+    returnTo,
+  } = route.params;
+  const fallbackCompletionEventIdRef = useRef(createPracticeEventId());
+  const completionEventId = routeCompletionEventId ?? fallbackCompletionEventIdRef.current;
 
   const getAnchorById = useAnchorStore((state) => state.getAnchorById);
   const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
@@ -265,7 +273,8 @@ export const ChargeCompleteScreen: React.FC = () => {
     const durationSeconds =
       routeDurationSeconds ?? primeSessionDuration ?? presetSeconds[defaultCharge.preset] ?? 300;
 
-    recordSession({
+    const recordedEventId = recordSession({
+      idempotencyKey: completionEventId,
       anchorId,
       type: 'reinforce',
       durationSeconds,
@@ -274,7 +283,7 @@ export const ChargeCompleteScreen: React.FC = () => {
       completedAt: new Date().toISOString(),
     });
 
-    await queueProgressionMilestonesFromStores();
+    await queueProgressionMilestonesFromStores({ sourceEventId: recordedEventId });
     // Fire-and-forget — notification sync + server update should not block the UI transition
     handlePrimeComplete();
 

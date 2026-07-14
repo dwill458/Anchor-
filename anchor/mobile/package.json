@@ -95,5 +95,10 @@
     "sharp": "^0.34.5",
     "typescript": "~5.9.2"
   },
+  "reanimated": {
+    "staticFeatureFlags": {
+      "ANDROID_SYNCHRONOUSLY_UPDATE_UI_PROPS": true
+    }
+  },
   "private": true
 }
