@@ -475,6 +475,7 @@ export function AnchorLargeWidget({
           </FlexWidget>
           <SvgWidget
             svg={buildHeatmapSvg(history, today, primed)}
+            scaleToFill
             style={{ width: 'match_parent', height: HEATMAP_RENDER_HEIGHT }}
           />
         </FlexWidget>

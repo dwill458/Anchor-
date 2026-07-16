@@ -1,6 +1,6 @@
 import React from 'react';
 import { StyleSheet } from 'react-native';
-import { render } from '@testing-library/react-native';
+import { fireEvent, render } from '@testing-library/react-native';
 
 jest.mock('react-native-reanimated', () => {
   const Reanimated = require('react-native-reanimated/mock');
@@ -90,6 +90,17 @@ function parseIconProps(node: { props: { children: string } }) {
 }
 
 describe('CustomTabBar', () => {
+  it('maps the Sanctuary and Practice buttons to their matching tab indices', () => {
+    const onTabPress = jest.fn();
+    const { getByText } = render(<CustomTabBar activeIndex={0} onTabPress={onTabPress} />);
+
+    fireEvent.press(getByText('PRACTICE'));
+    fireEvent.press(getByText('SANCTUARY'));
+
+    expect(onTabPress).toHaveBeenNthCalledWith(1, 1);
+    expect(onTabPress).toHaveBeenNthCalledWith(2, 0);
+  });
+
   it('renders only the active tab indicator and applies the requested bar chrome', () => {
     const { getByTestId, queryByTestId } = render(
       <CustomTabBar activeIndex={0} onTabPress={jest.fn()} />

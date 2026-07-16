@@ -14,6 +14,7 @@ jest.mock('react-native-reanimated', () => {
 
 const mockNavigate = jest.fn();
 const mockNavigateToVault = jest.fn();
+const mockNavigateToPaywall = jest.fn();
 const mockRegisterTabNav = jest.fn();
 const mockSetCurrentAnchor = jest.fn((id?: string) => {
   mockCurrentAnchorId = id;
@@ -57,6 +58,7 @@ jest.mock('@react-navigation/native', () => {
 jest.mock('@/contexts/TabNavigationContext', () => ({
   useTabNavigation: () => ({
     navigateToVault: mockNavigateToVault,
+    navigateToPaywall: mockNavigateToPaywall,
     registerTabNav: mockRegisterTabNav,
     activeTabIndex: 1,
   }),
@@ -150,6 +152,7 @@ describe('PracticeScreen', () => {
     (AsyncStorage.getItem as jest.Mock).mockResolvedValue('1');
     mockNavigate.mockReset();
     mockNavigateToVault.mockReset();
+    mockNavigateToPaywall.mockReset();
     mockRegisterTabNav.mockReset();
     mockSetCurrentAnchor.mockClear();
     mockSetCurrentAnchor.mockImplementation((id?: string) => {

@@ -311,4 +311,32 @@ describe('useNotificationController', () => {
     const savedState = JSON.parse(asyncStorage.setItem.mock.calls.at(-1)?.[1] ?? '{}');
     expect(savedState.firstAnchorReminderPromptCompleted).toBe(true);
   });
+
+  it('offers the first-anchor reminder after permission was already granted', async () => {
+    mockGetPermissionStatus.mockResolvedValue('granted');
+    const { result } = renderHook(() => useNotificationController());
+
+    await waitFor(() => expect(result.current.isInitialized).toBe(true));
+
+    let canOffer = false;
+    await act(async () => {
+      canOffer = await result.current.canOfferFirstAnchorReminder();
+    });
+
+    expect(canOffer).toBe(true);
+  });
+
+  it('does not offer the first-anchor reminder after permission was denied', async () => {
+    mockGetPermissionStatus.mockResolvedValue('denied');
+    const { result } = renderHook(() => useNotificationController());
+
+    await waitFor(() => expect(result.current.isInitialized).toBe(true));
+
+    let canOffer = true;
+    await act(async () => {
+      canOffer = await result.current.canOfferFirstAnchorReminder();
+    });
+
+    expect(canOffer).toBe(false);
+  });
 });

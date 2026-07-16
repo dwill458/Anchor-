@@ -40,6 +40,8 @@ interface TabNavigationContextValue {
   ) => void;
   /** Switch to Practice tab */
   navigateToPractice: () => void;
+  /** Open the root-level paywall from either tab's independent stack. */
+  navigateToPaywall: (params?: RootStackParamList['Paywall']) => void;
   /** Register the navigation object from a tab's root screen */
   registerTabNav: (tabIndex: TabIndex, nav: any) => void;
   /** Currently selected top-level tab index */
@@ -51,12 +53,14 @@ const TabNavigationContext = createContext<TabNavigationContextValue | null>(nul
 interface TabNavigationProviderProps {
   children: React.ReactNode;
   onIndexChange: (index: number) => void;
+  onNavigateToPaywall: (params?: RootStackParamList['Paywall']) => void;
   activeIndex?: number;
 }
 
 export const TabNavigationProvider: React.FC<TabNavigationProviderProps> = ({
   children,
   onIndexChange,
+  onNavigateToPaywall,
   activeIndex = 0,
 }) => {
   // Refs to each tab's root screen navigation — registered by VaultScreen + PracticeScreen
@@ -89,7 +93,13 @@ export const TabNavigationProvider: React.FC<TabNavigationProviderProps> = ({
 
   return (
     <TabNavigationContext.Provider
-      value={{ navigateToVault, navigateToPractice, registerTabNav, activeTabIndex: activeIndex }}
+      value={{
+        navigateToVault,
+        navigateToPractice,
+        navigateToPaywall: onNavigateToPaywall,
+        registerTabNav,
+        activeTabIndex: activeIndex,
+      }}
     >
       {children}
     </TabNavigationContext.Provider>

@@ -103,10 +103,7 @@ export const PracticeScreen: React.FC = () => {
   useNotificationController();
 
   const navigation = useNavigation<PracticeNavigationProp>();
-  const rootNavigation = navigation as unknown as {
-    navigate: (screen: string, params?: unknown) => void;
-  };
-  const { navigateToVault, registerTabNav, activeTabIndex } = useTabNavigation();
+  const { navigateToVault, navigateToPaywall, registerTabNav, activeTabIndex } = useTabNavigation();
   const isPracticeTabActive = activeTabIndex == null ? true : activeTabIndex === 1;
   const insets = useSafeAreaInsets();
   const reduceMotion = useReducedMotion();
@@ -412,7 +409,7 @@ export const PracticeScreen: React.FC = () => {
           remaining_weekly_free_sessions: primeSessionAccess.deep.remaining,
           tier: primeSessionAccess.tier,
         });
-        rootNavigation.navigate('Paywall', {
+        navigateToPaywall({
           source: 'free_weekly_sessions_used',
           preferredPlanId: 'annual',
         });
@@ -437,7 +434,7 @@ export const PracticeScreen: React.FC = () => {
         initialDuration: 'deep',
       });
     },
-    [navigateToVault, primeSessionAccess.deep.isAllowed, rootNavigation]
+    [navigateToPaywall, navigateToVault, primeSessionAccess.deep.isAllowed]
   );
 
   const startQuickActivate = useCallback(
@@ -452,7 +449,7 @@ export const PracticeScreen: React.FC = () => {
           remaining_weekly_free_sessions: primeSessionAccess.focus.remaining,
           tier: primeSessionAccess.tier,
         });
-        rootNavigation.navigate('Paywall', {
+        navigateToPaywall({
           source: 'free_weekly_sessions_used',
           preferredPlanId: 'annual',
         });
@@ -468,7 +465,7 @@ export const PracticeScreen: React.FC = () => {
         returnTo: 'practice',
       });
     },
-    [focusSessionDuration, navigateToVault, primeSessionAccess.focus.isAllowed, rootNavigation]
+    [focusSessionDuration, navigateToPaywall, navigateToVault, primeSessionAccess.focus.isAllowed]
   );
 
   const startBurn = useCallback(
@@ -686,7 +683,7 @@ export const PracticeScreen: React.FC = () => {
             surface="practice_home"
             onPressUpgrade={() => {
               markInteraction();
-              rootNavigation.navigate('Paywall', {
+              navigateToPaywall({
                 source: 'gated_feature',
                 preferredPlanId: 'annual',
               });
