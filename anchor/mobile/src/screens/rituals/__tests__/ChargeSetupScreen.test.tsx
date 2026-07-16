@@ -215,7 +215,7 @@ describe('ChargeSetupScreen', () => {
         expect(mockReplace).toHaveBeenCalledWith('Ritual', {
             anchorId: 'anchor-123',
             ritualType: 'ritual',
-            durationSeconds: 180,
+            durationSeconds: 120,
             returnTo: undefined,
         });
     });
@@ -262,7 +262,7 @@ describe('ChargeSetupScreen', () => {
         expect(mockReplace).toHaveBeenCalledWith('Ritual', {
             anchorId: 'anchor-123',
             ritualType: 'ritual',
-            durationSeconds: 180,
+            durationSeconds: 120,
             returnTo: 'practice',
         });
     });

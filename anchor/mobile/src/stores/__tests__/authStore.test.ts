@@ -532,6 +532,18 @@ describe('authStore', () => {
 
       expect(useAuthStore.getState().hasCompletedOnboarding).toBe(false);
     });
+
+    it('resets the wallpaper prompt state for the next account', async () => {
+      useAuthStore.setState({
+        user: createMockUser(),
+        isAuthenticated: true,
+        wallpaperPromptSeen: true,
+      });
+
+      await useAuthStore.getState().signOut();
+
+      expect(useAuthStore.getState().wallpaperPromptSeen).toBe(false);
+    });
   });
 
   describe('Persistence', () => {
@@ -612,6 +624,16 @@ describe('authStore', () => {
   });
 
   describe('State Integration', () => {
+    it('does not carry the wallpaper prompt state to a different account', () => {
+      const { setSession } = useAuthStore.getState();
+      setSession(createMockUser({ id: 'first-account' }), 'first-token');
+      useAuthStore.getState().setWallpaperPromptSeen(true);
+
+      setSession(createMockUser({ id: 'second-account' }), 'second-token');
+
+      expect(useAuthStore.getState().wallpaperPromptSeen).toBe(false);
+    });
+
     it('should handle complete login flow', () => {
       const { setLoading, setUser, setToken } = useAuthStore.getState();
 

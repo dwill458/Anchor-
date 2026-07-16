@@ -103,9 +103,9 @@ const chargeConfigByChoice = {
   deep: {
     mode: 'ritual' as const,
     preset: 'custom' as const,
-    customMinutes: 3,
+    customMinutes: 2,
     ritualType: 'ritual' as const,
-    durationSeconds: 180,
+    durationSeconds: 120,
     iconSvg: FLAME_ICON_SVG,
     name: 'Deep Prime',
     lineOne: '2 – 10 minutes',

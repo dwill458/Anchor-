@@ -687,6 +687,35 @@ export const useNotificationController = () => {
   }, [loadState, reconcile, saveState, scheduleSmartNotifications, syncStateToServer]);
 
   /**
+   * Resolve reminder eligibility at the first-Anchor moment instead of relying
+   * on the hook's initial asynchronous hydration. This prevents a fast
+   * onboarding path from silently skipping the prompt while `notifState` is
+   * still null. If permission was already granted, we still offer the card so
+   * the new account can choose its reminder time; a denied permission remains
+   * respected.
+   */
+  const canOfferFirstAnchorReminder = useCallback(async (): Promise<boolean> => {
+    try {
+      const state = reconcile(await loadState());
+      const notificationPermissionStatus = await NotificationService.getPermissionStatus();
+      const refreshedState = {
+        ...state,
+        notificationPermissionStatus,
+      };
+
+      await saveState(refreshedState);
+
+      return (
+        notificationPermissionStatus !== 'denied' &&
+        !refreshedState.firstAnchorReminderPromptCompleted
+      );
+    } catch (err) {
+      logger.warn('[NotificationController] Failed to resolve first-anchor reminder eligibility', err);
+      return false;
+    }
+  }, [loadState, reconcile, saveState]);
+
+  /**
    * Record that the daily-reminder prompt card was shown for a given moment.
    * Tracks the first time the prompt is surfaced without nagging on re-entry.
    */
@@ -815,6 +844,7 @@ export const useNotificationController = () => {
     toggleWeaver,
     showNotificationSoftAsk,
     handleAnchorSaved,
+    canOfferFirstAnchorReminder,
     markReminderPromptShown,
     completeReminderPrompt,
     setDailyPrimeReminder,

@@ -21,6 +21,8 @@ let mockIsLoading = false;
 let mockIsAuthenticated = true;
 let mockHasActiveEntitlement = true;
 let mockPendingFirstAnchorDraft: { tempAnchorId: string } | null = null;
+let mockPerformanceTier: 'high' | 'medium' | 'low' = 'high';
+let mockReduceMotionEnabled = true;
 const mockSetPendingForgeResumeTarget = jest.fn();
 
 jest.mock('@/stores/anchorStore', () => ({
@@ -69,7 +71,11 @@ jest.mock('@/contexts/TabNavigationContext', () => ({
 }));
 
 jest.mock('@/hooks/useReduceMotionEnabled', () => ({
-    useReduceMotionEnabled: () => true,
+    useReduceMotionEnabled: () => mockReduceMotionEnabled,
+}));
+
+jest.mock('@/hooks/useAppPerformanceTier', () => ({
+    useAppPerformanceTier: () => mockPerformanceTier,
 }));
 
 jest.mock('@/components/ToastProvider', () => ({
@@ -97,7 +103,10 @@ jest.mock('@/screens/vault/components/SanctuaryHeader', () => ({
 }));
 
 jest.mock('@/screens/vault/components/AtmosphericOrbs', () => ({
-    AtmosphericOrbs: () => null,
+    AtmosphericOrbs: ({ reduceMotionEnabled }: { reduceMotionEnabled: boolean }) => {
+        const { Text } = require('react-native');
+        return <Text testID="atmospheric-orbs">{reduceMotionEnabled ? 'static' : 'animated'}</Text>;
+    },
 }));
 
 jest.mock('@/screens/vault/components/HeroAnchorCard', () => ({
@@ -146,6 +155,8 @@ describe('VaultScreen', () => {
         mockIsAuthenticated = true;
         mockHasActiveEntitlement = true;
         mockPendingFirstAnchorDraft = null;
+        mockPerformanceTier = 'high';
+        mockReduceMotionEnabled = true;
     });
 
     it('redirects an un-accounted guest with a pending first anchor to SaveProgress', () => {
@@ -199,6 +210,23 @@ describe('VaultScreen', () => {
         mockAnchors = [];
         render(<VaultScreen />);
         expect(screen.getByText('Loading...')).toBeTruthy();
+    });
+
+    it('renders the atmospheric orb animation on high-tier Android-class devices', () => {
+        mockReduceMotionEnabled = false;
+        mockPerformanceTier = 'high';
+
+        render(<VaultScreen />);
+
+        expect(screen.getByText('animated')).toBeTruthy();
+    });
+
+    it('skips the expensive atmospheric orb layer on lower-tier devices', () => {
+        mockPerformanceTier = 'medium';
+
+        render(<VaultScreen />);
+
+        expect(screen.queryByTestId('atmospheric-orbs')).toBeNull();
     });
 
     it('tapping forge button navigates to anchor creation', () => {

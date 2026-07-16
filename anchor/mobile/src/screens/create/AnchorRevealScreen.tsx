@@ -58,11 +58,15 @@ export const AnchorRevealScreen: React.FC = () => {
         (state) => state.enqueuePendingFirstAnchorMutation
     );
     const clearPendingFirstAnchorState = useAuthStore((state) => state.clearPendingFirstAnchorState);
-    const { handleAnchorSaved, notifState } = useNotificationController();
+    const { handleAnchorSaved, canOfferFirstAnchorReminder } = useNotificationController();
     const entitlements = useEntitlements();
     const [isSaving, setIsSaving] = useState(false);
     const [reminderCardVisible, setReminderCardVisible] = useState(false);
     const pendingNavRef = useRef<{ anchorId: string; isGuestFirstAnchor: boolean } | null>(null);
+    // State updates do not take effect until React re-renders. Keep a synchronous
+    // guard across the whole create-and-reminder flow so a second tap cannot start
+    // another request while an async continuation is still pending.
+    const creationInFlightRef = useRef(false);
 
     const {
         intentionText,
@@ -160,7 +164,7 @@ export const AnchorRevealScreen: React.FC = () => {
     };
 
     const handleContinue = async () => {
-        if (isSaving) return;
+        if (isSaving || creationInFlightRef.current) return;
         const isGuestFirstAnchor = !isAuthenticated && existingAnchorCount === 0;
         if (!isGuestFirstAnchor && !entitlements.canCreateAnchor) {
             const reason = entitlements.anchorCreationLimitReason;
@@ -188,6 +192,7 @@ export const AnchorRevealScreen: React.FC = () => {
             return;
         }
 
+        creationInFlightRef.current = true;
         setIsSaving(true);
 
         ErrorTrackingService.addBreadcrumb('Anchor reveal continued', 'create.anchor_reveal', {
@@ -265,6 +270,8 @@ export const AnchorRevealScreen: React.FC = () => {
                         preferredPlanId: 'annual',
                     });
                 }
+                creationInFlightRef.current = false;
+                setIsSaving(false);
                 return;
             }
 
@@ -279,8 +286,6 @@ export const AnchorRevealScreen: React.FC = () => {
                 action: 'save_anchor_to_backend',
             });
             // Continue with local fallback — don't block the user
-        } finally {
-            setIsSaving(false);
         }
 
         addAnchor({
@@ -329,12 +334,10 @@ export const AnchorRevealScreen: React.FC = () => {
         setTempEnhancedImage(null);
 
         // First-anchor moment: offer a calm daily-reminder card before moving on.
-        // We only surface it once, and only while permission is still undetermined.
+        // We surface it once unless this device has already denied permission.
         const isFirstAnchor = existingAnchorCount === 0;
         const shouldShowReminder =
-            isFirstAnchor &&
-            notifState?.notificationPermissionStatus === 'undetermined' &&
-            !notifState?.firstAnchorReminderPromptCompleted;
+            isFirstAnchor && await canOfferFirstAnchorReminder();
 
         if (shouldShowReminder) {
             pendingNavRef.current = { anchorId, isGuestFirstAnchor };
@@ -479,6 +482,7 @@ export const AnchorRevealScreen: React.FC = () => {
                         style={styles.continueButton}
                         accessibilityRole="button"
                         accessibilityLabel="Begin Priming"
+                        testID="begin-priming-button"
                     >
                         <LinearGradient
                             colors={[colors.gold, '#B8941F']}

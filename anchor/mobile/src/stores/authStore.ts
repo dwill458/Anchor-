@@ -431,6 +431,7 @@ export const useAuthStore = create<AuthState>()(
         applyUserToSubscriptionStore(user);
         useProfileStore.getState().syncFromUser(user);
         set((state) => {
+          const isSameAccount = state.user?.id === user?.id;
           const hasCompletedOnboarding = user
             ? Boolean(user.hasCompletedOnboarding)
             : false;
@@ -445,6 +446,9 @@ export const useAuthStore = create<AuthState>()(
               : null,
             isAuthenticated: !!user,
             hasCompletedOnboarding,
+            // This prompt belongs to the account's first Anchor, not the device.
+            // A new account must never inherit another account's "seen" state.
+            wallpaperPromptSeen: isSameAccount ? state.wallpaperPromptSeen : false,
           };
         });
       },
@@ -457,7 +461,8 @@ export const useAuthStore = create<AuthState>()(
       setSession: (user, token) => {
         applyUserToSubscriptionStore(user);
         useProfileStore.getState().syncFromUser(user);
-        set(() => {
+        set((state) => {
+          const isSameAccount = state.user?.id === user.id;
           const hasCompletedOnboarding = Boolean(user.hasCompletedOnboarding);
 
           return {
@@ -470,6 +475,9 @@ export const useAuthStore = create<AuthState>()(
             isAuthenticated: true,
             hasCompletedOnboarding,
             isLoading: false,
+            // Keep the prompt state for a returning account, but reset it when
+            // authentication establishes a different account on this device.
+            wallpaperPromptSeen: isSameAccount ? state.wallpaperPromptSeen : false,
           };
         });
       },
@@ -1019,6 +1027,7 @@ export const useAuthStore = create<AuthState>()(
           anchorCount: 0,
           profileData: null,
           profileLastFetched: null,
+          wallpaperPromptSeen: false,
           ...createClearedPendingFirstAnchorState(),
         });
         // Intentionally preserved: local trial cache is device-level/offline UX state.

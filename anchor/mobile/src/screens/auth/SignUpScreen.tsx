@@ -285,7 +285,7 @@ export const SignUpScreen: React.FC<SignUpScreenProps> = ({ navigation, route })
 
       <SafeAreaView style={styles.safeArea}>
         <KeyboardAvoidingView
-          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
           style={styles.keyboardAvoid}
         >
           <ScrollView
