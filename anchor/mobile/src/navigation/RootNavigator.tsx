@@ -28,6 +28,7 @@ export type RootNavigatorParamList = {
     | {
         source?: PaywallSource;
         preferredPlanId?: AuthPreferredPlanId;
+        resumeTarget?: { kind: 'visualize_prepare'; anchorId: string };
       }
     | undefined;
   Settings: NavigatorScreenParams<ProfileStackParamList> | undefined;

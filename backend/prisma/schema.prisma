@@ -54,6 +54,8 @@ model User {
   orders         Order[]
   settings       UserSettings?
   burnedAnchors  BurnedAnchor[]
+  practiceSessions PracticeSession[]
+  visualizationScenes VisualizationScene[]
   flaggedContent FlaggedContent[]
   syncQueue      SyncQueue[]
 
@@ -155,6 +157,8 @@ model Anchor {
   // Relations
   activations Activation[]
   charges     Charge[]
+  practiceSessions PracticeSession[]
+  visualizationScene VisualizationScene?
 
   @@index([userId])
   @@index([userId, isArchived]) // covers all vault queries (always filter isArchived=false)
@@ -238,6 +242,55 @@ model Charge {
   @@unique([userId, clientEventId])
   @@index([userId, anchorId])
   @@map("charges")
+}
+
+// Canonical practice history. Legacy Activation/Charge rows remain in place
+// for backward compatibility and are merged during account restoration.
+model PracticeSession {
+  id                       String   @id
+  userId                   String
+  user                     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  anchorId                 String?
+  anchor                   Anchor?  @relation(fields: [anchorId], references: [id], onDelete: SetNull)
+  anchorLocalId            String?  @map("anchor_local_id")
+  anchorServerIdSnapshot   String?  @map("anchor_server_id_snapshot")
+  practiceMode             String   @map("practice_mode")
+  plannedDurationSeconds   Int      @map("planned_duration_seconds")
+  completedDurationSeconds Int      @map("completed_duration_seconds")
+  completionStatus         String   @default("completed") @map("completion_status")
+  startedAt                DateTime @map("started_at")
+  completedAt              DateTime @map("completed_at")
+  guidanceVoice            String   @map("guidance_voice")
+  backgroundAudio          String   @map("background_audio")
+  sceneSnapshot            String?  @db.Text @map("scene_snapshot")
+  nextAction               String?  @db.Text @map("next_action")
+  clientVersion            String?  @map("client_version")
+  createdAt                DateTime @default(now()) @map("created_at")
+  updatedAt                DateTime @updatedAt @map("updated_at")
+
+  @@index([userId, completedAt])
+  @@index([userId, practiceMode])
+  @@index([userId, anchorId])
+  @@map("practice_sessions")
+}
+
+model VisualizationScene {
+  id                 String   @id @default(uuid())
+  userId             String
+  user               User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  anchorId           String   @unique
+  anchor             Anchor   @relation(fields: [anchorId], references: [id], onDelete: Cascade)
+  currentText        String   @db.Text @map("current_text")
+  originalSuggestion String   @db.Text @map("original_suggestion")
+  generationSource   String   @map("generation_source")
+  generationVersion  String   @map("generation_version")
+  clientUpdatedAt    DateTime @map("client_updated_at")
+  createdAt          DateTime @default(now()) @map("created_at")
+  updatedAt          DateTime @updatedAt @map("updated_at")
+
+  @@unique([userId, anchorId])
+  @@index([userId, updatedAt])
+  @@map("visualization_scenes")
 }
 
 // ============================================================================
@@ -327,6 +380,8 @@ model UserSettings {
   focusSessionAudio     String @default("ambient")
   primeSessionDuration  Int    @default(120) // seconds
   primeSessionAudio     String @default("ambient")
+  sessionAudioDefaults  Json   @default("{\"focus\":{\"guidanceVoice\":\"female\",\"backgroundAudio\":\"ambient\"},\"deep_prime\":{\"guidanceVoice\":\"female\",\"backgroundAudio\":\"ambient\"},\"visualize\":{\"guidanceVoice\":\"female\",\"backgroundAudio\":\"ambient\"}}")
+  visualizeSessionDuration Int @default(180)
   hapticIntensity       Int    @default(3) // 1-5 scale
 
   // UI Preferences

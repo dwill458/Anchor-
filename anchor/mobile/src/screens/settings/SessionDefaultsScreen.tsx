@@ -12,14 +12,13 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
-import { ArrowLeft, Clock3, MapPin, Music4, Plus, Trash2, VolumeX } from 'lucide-react-native';
+import { ArrowLeft, Clock3, MapPin, Plus, Trash2 } from 'lucide-react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { updateUserSettings } from '@/services/ApiClient';
 import { useAuthStore } from '@/stores/authStore';
 import {
   useSettingsStore,
   type FocusSessionMode,
-  type SessionAudioMode,
 } from '@/stores/settingsStore';
 import {
   useLocationPrimingStore,
@@ -28,10 +27,18 @@ import {
 } from '@/stores/locationPrimingStore';
 import { colors, spacing, typography } from '@/theme';
 import { logger } from '@/utils/logger';
+import { VoiceAndSoundControls } from '@/components/settings/VoiceAndSoundControls';
+import { AnalyticsService } from '@/services/AnalyticsService';
+import {
+  DEFAULT_SESSION_AUDIO_DEFAULTS,
+  type SessionAudioDefaults,
+  type SessionAudioDefaultsByType,
+} from '@/types/sessionAudio';
 
-type SessionTab = 'focus' | 'prime';
+type SessionTab = 'focus' | 'prime' | 'visualize';
 type FocusDurationOption = 10 | 30 | 60 | 120;
 type PrimeDurationOption = 120 | 300 | 600 | 900 | 'custom';
+type VisualizeDurationOption = 60 | 180 | 300;
 
 const FOCUS_DURATION_OPTIONS: Array<{ label: string; value: FocusDurationOption }> = [
   { label: '10s', value: 10 },
@@ -61,25 +68,6 @@ const resolveInitialPrimeSelection = (durationSeconds: number): PrimeDurationOpt
 
   return 'custom';
 };
-
-const AudioOptionButton: React.FC<{
-  icon: React.ReactNode;
-  label: string;
-  selected: boolean;
-  onPress: () => void;
-}> = ({ icon, label, selected, onPress }) => (
-  <TouchableOpacity
-    accessibilityRole="button"
-    accessibilityLabel={`Set session audio to ${label}`}
-    accessibilityState={{ selected }}
-    activeOpacity={0.85}
-    onPress={onPress}
-    style={[styles.modeButton, selected && styles.selectedButton]}
-  >
-    <View style={styles.modeButtonIcon}>{icon}</View>
-    <Text style={[styles.modeButtonText, selected && styles.selectedButtonText]}>{label}</Text>
-  </TouchableOpacity>
-);
 
 const DurationButton: React.FC<{
   label: string;
@@ -194,20 +182,15 @@ const LocationZoneEditor: React.FC<{
         ))}
       </View>
 
-      <View style={styles.audioGrid}>
-        <AudioOptionButton
-          icon={<VolumeX color={zone.preset.audioMode === 'silent' ? colors.gold : colors.silver} size={15} />}
-          label="Silent"
-          selected={zone.preset.audioMode === 'silent'}
-          onPress={() => updatePreset({ audioMode: 'silent' })}
-        />
-        <AudioOptionButton
-          icon={<Music4 color={zone.preset.audioMode === 'ambient' ? colors.gold : colors.silver} size={15} />}
-          label="Ambient"
-          selected={zone.preset.audioMode === 'ambient'}
-          onPress={() => updatePreset({ audioMode: 'ambient' })}
-        />
-      </View>
+      <Text style={styles.placeAudioLabel}>Voice & Sound</Text>
+      <VoiceAndSoundControls
+        value={zone.preset.audioConfiguration}
+        onChange={(audioConfiguration) => updatePreset({ audioConfiguration })}
+        sessionType={zone.preset.sessionType === 'focus' ? 'focus' : 'deep_prime'}
+        durationSeconds={zone.preset.durationSeconds}
+        showHeading={false}
+        showPreview={false}
+      />
     </View>
   );
 };
@@ -215,17 +198,26 @@ const LocationZoneEditor: React.FC<{
 export const SessionDefaultsScreen: React.FC = () => {
   const navigation = useNavigation();
   const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
+  const ownerUserId = useAuthStore((state) => state.user?.id ?? null);
   const focusSessionMode = useSettingsStore((state) => state.focusSessionMode ?? 'quick');
   const { width: screenWidth } = useWindowDimensions();
   const storedFocusDuration = useSettingsStore((state) => state.focusSessionDuration ?? 30);
-  const storedFocusAudio = useSettingsStore((state) => state.focusSessionAudio ?? 'ambient');
   const storedPrimeDuration = useSettingsStore((state) => state.primeSessionDuration ?? 120);
-  const storedPrimeAudio = useSettingsStore((state) => state.primeSessionAudio ?? 'ambient');
+  const storedVisualizeDuration = useSettingsStore(
+    (state) => state.visualizeSessionDuration ?? 180
+  );
+  const storedSessionAudioDefaults = useSettingsStore(
+    (state) => state.sessionAudioDefaults ?? DEFAULT_SESSION_AUDIO_DEFAULTS
+  );
   const setFocusSessionMode = useSettingsStore((state) => state.setFocusSessionMode);
   const setFocusSessionDuration = useSettingsStore((state) => state.setFocusSessionDuration);
-  const setFocusSessionAudio = useSettingsStore((state) => state.setFocusSessionAudio);
   const setPrimeSessionDuration = useSettingsStore((state) => state.setPrimeSessionDuration);
-  const setPrimeSessionAudio = useSettingsStore((state) => state.setPrimeSessionAudio);
+  const setVisualizeSessionDuration = useSettingsStore(
+    (state) => state.setVisualizeSessionDuration
+  );
+  const setSessionAudioDefaultsByType = useSettingsStore(
+    (state) => state.setSessionAudioDefaultsByType
+  );
   const locationSuggestionsEnabled = useLocationPrimingStore((state) => state.enabled);
   const locationZones = useLocationPrimingStore((state) => state.zones);
   const setLocationSuggestionsEnabled = useLocationPrimingStore((state) => state.setEnabled);
@@ -241,22 +233,32 @@ export const SessionDefaultsScreen: React.FC = () => {
   const [focusDuration, setFocusDuration] = useState<FocusDurationOption>(
     (storedFocusDuration as FocusDurationOption) ?? 30
   );
-  const [focusAudio, setFocusAudio] = useState<SessionAudioMode>(storedFocusAudio);
+  const [focusAudioDefaults, setFocusAudioDefaults] = useState<SessionAudioDefaults>(
+    storedSessionAudioDefaults.focus
+  );
   const [primeSelection, setPrimeSelection] = useState<PrimeDurationOption>(
     resolveInitialPrimeSelection(storedPrimeDuration)
   );
   const [customPrimeMinutes, setCustomPrimeMinutes] = useState(
     String(Math.round(storedPrimeDuration / 60))
   );
-  const [primeAudio, setPrimeAudio] = useState<SessionAudioMode>(storedPrimeAudio);
+  const [primeAudioDefaults, setPrimeAudioDefaults] = useState<SessionAudioDefaults>(
+    storedSessionAudioDefaults.deep_prime
+  );
+  const [visualizeDuration, setVisualizeDuration] = useState<VisualizeDurationOption>(
+    storedVisualizeDuration
+  );
+  const [visualizeAudioDefaults, setVisualizeAudioDefaults] = useState<SessionAudioDefaults>(
+    storedSessionAudioDefaults.visualize
+  );
   const [isAddingPlace, setIsAddingPlace] = useState(false);
   const [placeStatus, setPlaceStatus] = useState<string | null>(null);
   const pillTranslate = useRef(new Animated.Value(activeTab === 'focus' ? 0 : 1)).current;
-  const tabPillWidth = (screenWidth - 56) / 2;
+  const tabPillWidth = (screenWidth - 56) / 3;
 
   useEffect(() => {
     Animated.spring(pillTranslate, {
-      toValue: activeTab === 'focus' ? 0 : 1,
+      toValue: activeTab === 'focus' ? 0 : activeTab === 'prime' ? 1 : 2,
       useNativeDriver: true,
       friction: 8,
       tension: 85,
@@ -276,25 +278,53 @@ export const SessionDefaultsScreen: React.FC = () => {
       title: 'About Focus Sessions',
       body: 'Brief, precise priming. Reinforces the neurological bond between your anchor and intention - fast enough to use anywhere.',
     }
-    : {
+    : activeTab === 'prime' ? {
       title: 'About Prime Sessions',
       body: 'Extended immersive practice. Deepens the motor-memory trace for days when you have time to go further in.',
+    } : {
+      title: 'About Visualize Sessions',
+      body: 'A five-phase guided practice for rehearsing the behavior and felt experience behind your intention.',
     };
 
   const saveDefaults = () => {
-    const nextMode: FocusSessionMode = activeTab === 'prime' ? 'deep' : 'quick';
+    const nextMode: FocusSessionMode =
+      activeTab === 'visualize'
+        ? focusSessionMode
+        : activeTab === 'prime'
+          ? 'deep'
+          : 'quick';
+    const nextSessionAudioDefaults: SessionAudioDefaultsByType = {
+      focus: focusAudioDefaults,
+      deep_prime: primeAudioDefaults,
+      visualize: visualizeAudioDefaults,
+    };
     setFocusSessionMode(nextMode);
     setFocusSessionDuration(focusDuration);
-    setFocusSessionAudio(focusAudio);
     setPrimeSessionDuration(resolvedPrimeDurationSeconds);
-    setPrimeSessionAudio(primeAudio);
+    setVisualizeSessionDuration(visualizeDuration);
+    setSessionAudioDefaultsByType(nextSessionAudioDefaults, ownerUserId);
+    (['focus', 'deep_prime', 'visualize'] as const).forEach((sessionType) => {
+      const previous = storedSessionAudioDefaults[sessionType];
+      const next = nextSessionAudioDefaults[sessionType];
+      if (
+        previous.guidanceVoice !== next.guidanceVoice ||
+        previous.backgroundAudio !== next.backgroundAudio
+      ) {
+        AnalyticsService.track('session_audio_default_changed', {
+          session_type: sessionType,
+          guidance_voice: next.guidanceVoice,
+          background_audio: next.backgroundAudio,
+          source: 'default',
+        });
+      }
+    });
     if (isAuthenticated) {
       void updateUserSettings({
         focusSessionMode: nextMode,
         focusSessionDuration: focusDuration,
-        focusSessionAudio: focusAudio,
         primeSessionDuration: resolvedPrimeDurationSeconds,
-        primeSessionAudio: primeAudio,
+        visualizeSessionDuration: visualizeDuration,
+        sessionAudioDefaults: nextSessionAudioDefaults,
       }).catch((error) => {
         logger.warn('[SessionDefaultsScreen] Failed to sync session defaults to profile', error);
       });
@@ -315,12 +345,12 @@ export const SessionDefaultsScreen: React.FC = () => {
         ? {
           sessionType: 'focus',
           durationSeconds: focusDuration,
-          audioMode: focusAudio,
+          audioConfiguration: focusAudioDefaults,
         }
         : {
           sessionType: 'prime',
           durationSeconds: resolvedPrimeDurationSeconds,
-          audioMode: primeAudio,
+          audioConfiguration: primeAudioDefaults,
         };
 
     try {
@@ -368,8 +398,8 @@ export const SessionDefaultsScreen: React.FC = () => {
                 transform: [
                   {
                     translateX: pillTranslate.interpolate({
-                      inputRange: [0, 1],
-                      outputRange: [0, tabPillWidth],
+                      inputRange: [0, 1, 2],
+                      outputRange: [0, tabPillWidth, tabPillWidth * 2],
                     }),
                   },
                 ],
@@ -386,6 +416,17 @@ export const SessionDefaultsScreen: React.FC = () => {
           >
             <Text style={[styles.tabButtonText, activeTab === 'focus' && styles.tabButtonTextActive]}>
               ⚡ Focus
+            </Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            activeOpacity={0.8}
+            accessibilityRole="button"
+            accessibilityState={{ selected: activeTab === 'visualize' }}
+            onPress={() => setActiveTab('visualize')}
+            style={styles.tabButton}
+          >
+            <Text style={[styles.tabButtonText, activeTab === 'visualize' && styles.tabButtonTextActive]}>
+              ◇ Visualize
             </Text>
           </TouchableOpacity>
           <TouchableOpacity
@@ -426,25 +467,15 @@ export const SessionDefaultsScreen: React.FC = () => {
               <View style={styles.sectionDivider} />
 
               <View style={styles.section}>
-                <Text style={styles.sectionLabel}>Mode</Text>
-                <Text style={styles.sectionDescription}>How you want to show up for each session.</Text>
-                <View style={styles.audioGrid}>
-                  <AudioOptionButton
-                    icon={<VolumeX color={focusAudio === 'silent' ? colors.gold : colors.silver} size={15} />}
-                    label="Silent"
-                    selected={focusAudio === 'silent'}
-                    onPress={() => setFocusAudio('silent')}
-                  />
-                  <AudioOptionButton
-                    icon={<Music4 color={focusAudio === 'ambient' ? colors.gold : colors.silver} size={15} />}
-                    label="Ambient"
-                    selected={focusAudio === 'ambient'}
-                    onPress={() => setFocusAudio('ambient')}
-                  />
-                </View>
+                <VoiceAndSoundControls
+                  value={focusAudioDefaults}
+                  onChange={setFocusAudioDefaults}
+                  sessionType="focus"
+                  durationSeconds={focusDuration}
+                />
               </View>
             </>
-          ) : (
+          ) : activeTab === 'prime' ? (
             <>
               <View style={styles.section}>
                 <Text style={styles.sectionLabel}>Duration</Text>
@@ -485,29 +516,45 @@ export const SessionDefaultsScreen: React.FC = () => {
               <View style={styles.sectionDivider} />
 
               <View style={styles.section}>
-                <Text style={styles.sectionLabel}>Mode</Text>
-                <Text style={styles.sectionDescription}>How you want to show up for each session.</Text>
-                <View style={styles.audioGrid}>
-                  <AudioOptionButton
-                    icon={<VolumeX color={primeAudio === 'silent' ? colors.gold : colors.silver} size={15} />}
-                    label="Silent"
-                    selected={primeAudio === 'silent'}
-                    onPress={() => setPrimeAudio('silent')}
-                  />
-                  <AudioOptionButton
-                    icon={<Music4 color={primeAudio === 'ambient' ? colors.gold : colors.silver} size={15} />}
-                    label="Ambient"
-                    selected={primeAudio === 'ambient'}
-                    onPress={() => setPrimeAudio('ambient')}
-                  />
+                <VoiceAndSoundControls
+                  value={primeAudioDefaults}
+                  onChange={setPrimeAudioDefaults}
+                  sessionType="deep_prime"
+                  durationSeconds={resolvedPrimeDurationSeconds}
+                />
+              </View>
+            </>
+          ) : (
+            <>
+              <View style={styles.section}>
+                <Text style={styles.sectionLabel}>Duration</Text>
+                <Text style={styles.sectionDescription}>Choose a 1, 3, or 5 minute visualization.</Text>
+                <View style={styles.primeDurationGrid}>
+                  {([60, 180, 300] as const).map((duration) => (
+                    <DurationButton
+                      key={duration}
+                      label={`${duration / 60} min`}
+                      selected={visualizeDuration === duration}
+                      onPress={() => setVisualizeDuration(duration)}
+                    />
+                  ))}
                 </View>
+              </View>
+              <View style={styles.sectionDivider} />
+              <View style={styles.section}>
+                <VoiceAndSoundControls
+                  value={visualizeAudioDefaults}
+                  onChange={setVisualizeAudioDefaults}
+                  sessionType="visualize"
+                  durationSeconds={visualizeDuration}
+                />
               </View>
             </>
           )}
 
-          <View style={styles.sectionDivider} />
+          {activeTab !== 'visualize' ? <View style={styles.sectionDivider} /> : null}
 
-          <View style={styles.section}>
+          {activeTab !== 'visualize' ? <View style={styles.section}>
             <View style={styles.placeSectionHeader}>
               <View>
                 <Text style={styles.sectionLabel}>Places</Text>
@@ -552,7 +599,7 @@ export const SessionDefaultsScreen: React.FC = () => {
                 />
               ))}
             </View>
-          </View>
+          </View> : null}
 
           <View style={styles.infoCard}>
             <Text style={styles.infoTitle}>{infoContent.title}</Text>
@@ -705,30 +752,13 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(212,175,55,0.08)',
     marginVertical: 24,
   },
-  audioGrid: {
-    flexDirection: 'row',
-    gap: 10,
-  },
-  modeButton: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-    borderRadius: 10,
-    borderWidth: 1,
-    borderColor: 'rgba(212,175,55,0.28)',
-    backgroundColor: '#1C2530',
-    paddingVertical: 14,
-  },
-  modeButtonIcon: {
-    marginTop: 1,
-  },
-  modeButtonText: {
-    color: colors.bone,
-    fontSize: 12,
-    letterSpacing: 0.8,
+  placeAudioLabel: {
+    color: colors.gold,
     fontFamily: typography.fonts.heading,
+    fontSize: 13,
+    letterSpacing: 0.7,
+    marginBottom: 2,
+    marginTop: 8,
   },
   placeSectionHeader: {
     flexDirection: 'row',

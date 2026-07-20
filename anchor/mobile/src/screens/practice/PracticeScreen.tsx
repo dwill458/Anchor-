@@ -5,7 +5,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import type { StackNavigationProp } from '@react-navigation/stack';
-import { Flame, Zap, ChevronRight } from 'lucide-react-native';
+import { Eye, Flame, Zap, ChevronRight } from 'lucide-react-native';
 import Animated, {
   Easing,
   useAnimatedStyle,
@@ -46,11 +46,18 @@ import { resolveBurnArtworkUri } from '@/screens/rituals/utils/resolveBurnArtwor
 import { useAppPerformanceTier } from '@/hooks/useAppPerformanceTier';
 import { useNotificationController } from '@/hooks/useNotificationController';
 import { usePrimeSessionAccess } from '@/hooks/usePrimeSessionAccess';
+import { useTrialStatus } from '@/hooks/useTrialStatus';
+import { ENABLE_VISUALIZE } from '@/config';
 import { ConfirmUnchargedBurnSheet } from '@/components/modals/ConfirmUnchargedBurnSheet';
+import {
+  DEFAULT_SESSION_AUDIO_DEFAULTS,
+  resolveSessionAudioConfiguration,
+  type SessionAudioDefaults,
+} from '@/types/sessionAudio';
 
 type PracticeNavigationProp = StackNavigationProp<PracticeStackParamList, 'PracticeHome'>;
 // DEFERRED: type PendingMode = 'charge' | 'stabilize' | 'burn' | 'quickActivate' | null; — restore post-launch
-type PendingMode = 'charge' | 'burn' | 'quickActivate' | null;
+type PendingMode = 'charge' | 'burn' | 'quickActivate' | 'visualize' | null;
 
 const AUTO_TEACHING_KEY = 'practice_teaching_auto_seen_v2';
 const DEEP_CHARGE_MINUTES_MIN = 2;
@@ -88,6 +95,7 @@ function engagementRecency(anchor: Anchor): number {
 
 function toModeFromSessionType(type: SessionLogEntry['type']): Exclude<PendingMode, null> {
   if (type === 'activate') return 'quickActivate';
+  if (type === 'visualize') return 'visualize';
   // DEFERRED: if (type === 'stabilize') return 'stabilize'; — restore post-launch
   return 'charge';
 }
@@ -96,6 +104,7 @@ function toModeTitle(mode: Exclude<PendingMode, null>): string {
   if (mode === 'quickActivate') return FOCUS_SESSION_TITLE;
   // DEFERRED: if (mode === 'stabilize') return PRACTICE_COPY.rituals.stabilize.title; — restore post-launch
   if (mode === 'burn') return PRACTICE_COPY.rituals.burn.title;
+  if (mode === 'visualize') return 'VISUALIZE';
   return PRACTICE_COPY.rituals.charge.title;
 }
 
@@ -113,6 +122,9 @@ export const PracticeScreen: React.FC = () => {
   const setCurrentAnchor = useAnchorStore((state) => state.setCurrentAnchor);
   const primeSessionDuration = useSettingsStore((state) => state.primeSessionDuration ?? 120);
   const focusSessionDuration = useSettingsStore((state) => state.focusSessionDuration ?? 30);
+  const sessionAudioDefaults = useSettingsStore(
+    (state) => state.sessionAudioDefaults ?? DEFAULT_SESSION_AUDIO_DEFAULTS
+  );
   const dailyPracticeGoal = useSettingsStore((state) => state.dailyPracticeGoal ?? 3);
   const resolveLocationPrimingSuggestion = useLocationPrimingStore(
     (state) => state.resolveActiveSuggestion
@@ -125,6 +137,7 @@ export const PracticeScreen: React.FC = () => {
   const applyDecay = useSessionStore((s) => s.applyDecay);
   const primingHistory = useSessionStore((s) => s.primingHistory);
   const primeSessionAccess = usePrimeSessionAccess();
+  const visualizeAccess = useTrialStatus();
 
   // Self-healing thread/progress restore: if priming history is empty (e.g. a
   // failed/empty launch hydration), re-fetch the account export and rehydrate
@@ -149,6 +162,14 @@ export const PracticeScreen: React.FC = () => {
   const [threadTeachingDismissed, setThreadTeachingDismissed] = useState(false);
   const [locationPrimingSuggestion, setLocationPrimingSuggestion] =
     useState<LocationPrimingSuggestion | null>(null);
+
+  useEffect(() => {
+    if (ENABLE_VISUALIZE) {
+      AnalyticsService.track(AnalyticsEvents.VISUALIZE_CARD_VIEWED, {
+        tier: visualizeAccess.subscriptionStatus,
+      });
+    }
+  }, [visualizeAccess.subscriptionStatus]);
 
   const threadStrengthTeaching = useTeachingGate({
     screenId: 'practice_home',
@@ -401,7 +422,7 @@ export const PracticeScreen: React.FC = () => {
     (
       anchor: Anchor,
       durationSecondsOverride?: number,
-      audioModeOverride?: 'silent' | 'ambient'
+      audioOverride?: SessionAudioDefaults
     ) => {
       if (!primeSessionAccess.deep.isAllowed) {
         AnalyticsService.track('free_weekly_sessions_used', {
@@ -422,7 +443,10 @@ export const PracticeScreen: React.FC = () => {
           anchorId: anchor.id,
           ritualType: 'ritual',
           durationSeconds: durationSecondsOverride,
-          audioModeOverride,
+          audioConfiguration: resolveSessionAudioConfiguration(
+            sessionAudioDefaults.deep_prime,
+            audioOverride
+          ),
           returnTo: 'practice',
         });
         return;
@@ -434,14 +458,14 @@ export const PracticeScreen: React.FC = () => {
         initialDuration: 'deep',
       });
     },
-    [navigateToPaywall, navigateToVault, primeSessionAccess.deep.isAllowed]
+    [navigateToPaywall, navigateToVault, primeSessionAccess.deep.isAllowed, sessionAudioDefaults.deep_prime]
   );
 
   const startQuickActivate = useCallback(
     (
       anchor: Anchor,
       durationOverride = focusSessionDuration,
-      audioModeOverride?: 'silent' | 'ambient'
+      audioOverride?: SessionAudioDefaults
     ) => {
       if (!primeSessionAccess.focus.isAllowed) {
         AnalyticsService.track('free_weekly_sessions_used', {
@@ -461,11 +485,14 @@ export const PracticeScreen: React.FC = () => {
         anchorId: anchor.id,
         activationType: 'visual',
         durationOverride,
-        audioModeOverride,
+        audioConfiguration: resolveSessionAudioConfiguration(
+          sessionAudioDefaults.focus,
+          audioOverride
+        ),
         returnTo: 'practice',
       });
     },
-    [focusSessionDuration, navigateToPaywall, navigateToVault, primeSessionAccess.focus.isAllowed]
+    [focusSessionDuration, navigateToPaywall, navigateToVault, primeSessionAccess.focus.isAllowed, sessionAudioDefaults.focus]
   );
 
   const startBurn = useCallback(
@@ -505,11 +532,17 @@ export const PracticeScreen: React.FC = () => {
         startCharge(target);
       } else if (mode === 'quickActivate') {
         startQuickActivate(target);
+      } else if (mode === 'visualize') {
+        AnalyticsService.track(AnalyticsEvents.VISUALIZE_SELECTED, {
+          anchor_id: target.id,
+          tier: visualizeAccess.subscriptionStatus,
+        });
+        navigateToVault('VisualizePreparation', { anchorId: target.id, source: 'practice' });
       } else {
         startBurn(target);
       }
     },
-    [selectedAnchor, startBurn, startCharge, startQuickActivate]
+    [navigateToVault, selectedAnchor, startBurn, startCharge, startQuickActivate, visualizeAccess.subscriptionStatus]
   );
 
   const runTodayPractice = useCallback(() => {
@@ -529,11 +562,15 @@ export const PracticeScreen: React.FC = () => {
       });
 
       if (locationPreset.sessionType === 'focus') {
-        startQuickActivate(target, locationPreset.durationSeconds, locationPreset.audioMode);
+        startQuickActivate(
+          target,
+          locationPreset.durationSeconds,
+          locationPreset.audioConfiguration
+        );
         return;
       }
 
-      startCharge(target, locationPreset.durationSeconds, locationPreset.audioMode);
+      startCharge(target, locationPreset.durationSeconds, locationPreset.audioConfiguration);
       return;
     }
 
@@ -786,7 +823,7 @@ export const PracticeScreen: React.FC = () => {
           )}
 
           <Animated.View style={[styles.portalsWrap, portalsStyle]}>
-            <Text style={styles.sectionLabel}>Other modes</Text>
+            <Text style={styles.sectionLabel}>Choose your practice</Text>
             <ModePortalTile
               variant="charge"
               title={PRACTICE_COPY.rituals.charge.title}
@@ -804,6 +841,23 @@ export const PracticeScreen: React.FC = () => {
                 runMode('charge');
               }}
             />
+            {ENABLE_VISUALIZE ? (
+              <ModePortalTile
+                variant="visualize"
+                title="VISUALIZE"
+                meaning="Rehearse a specific future moment where this intention is already real."
+                durationHint="1–5 min · Guided"
+                badge="PRO"
+                icon={<Eye size={16} color={colors.gold} />}
+                onPress={() => {
+                  markInteraction();
+                  if (!visualizeAccess.hasActiveEntitlement) {
+                    AnalyticsService.track(AnalyticsEvents.VISUALIZE_PRO_LOCK_VIEWED, { tier: visualizeAccess.subscriptionStatus });
+                  }
+                  runMode('visualize');
+                }}
+              />
+            ) : null}
             <ModePortalTile
               variant="stabilize"
               title={FOCUS_SESSION_TITLE}

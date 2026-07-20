@@ -27,9 +27,11 @@ import {
 import { useAnchorStore } from '@/stores/anchorStore';
 import { useProfileStore } from '@/stores/profileStore';
 import { useSessionStore } from '@/stores/sessionStore';
+import { useSettingsStore } from '@/stores/settingsStore';
 import { useSubscriptionStore, computeDaysRemaining } from '@/stores/subscriptionStore';
 import { useTeachingStore } from '@/stores/teachingStore';
 import { useForgeMomentStore } from '@/stores/forgeMomentStore';
+import { useVisualizationSceneStore } from '@/stores/visualizationSceneStore';
 import { calculateStreak } from '@/utils/streakHelpers';
 import {
   createDeveloperMasterUser,
@@ -1011,6 +1013,7 @@ export const useAuthStore = create<AuthState>()(
                 weekHistory: sessionState.weekHistory,
                 weekHistoryKey: sessionState.weekHistoryKey,
                 primingHistory: sessionState.primingHistory,
+                practiceHistory: sessionState.practiceHistory,
                 journeyWeekStart: sessionState.journeyWeekStart,
                 lastDecayDate: sessionState.lastDecayDate,
               }),
@@ -1033,7 +1036,9 @@ export const useAuthStore = create<AuthState>()(
         useSessionStore.getState().reset();
         useTeachingStore.getState().reset();
         useForgeMomentStore.getState().resetMilestones();
+        useVisualizationSceneStore.getState().clearActiveAccount();
         useProfileStore.getState().resetProfile();
+        useSettingsStore.getState().bindSessionAudioDefaultsOwner(null);
         set({
           user: null,
           token: null,

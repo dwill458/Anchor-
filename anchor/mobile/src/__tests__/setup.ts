@@ -54,6 +54,32 @@ jest.mock('expo-speech', () => ({
   isSpeakingAsync: jest.fn(() => Promise.resolve(false)),
 }));
 
+jest.mock('expo-audio', () => ({
+  createAudioPlayer: jest.fn(() => ({
+    addListener: jest.fn(() => ({ remove: jest.fn() })),
+    currentTime: 0,
+    isLoaded: true,
+    loop: false,
+    pause: jest.fn(),
+    play: jest.fn(),
+    remove: jest.fn(),
+    seekTo: jest.fn(() => Promise.resolve()),
+    volume: 1,
+  })),
+  setAudioModeAsync: jest.fn(() => Promise.resolve()),
+  useAudioRecorder: jest.fn(() => ({
+    prepareToRecordAsync: jest.fn(),
+    record: jest.fn(),
+    stop: jest.fn(),
+    uri: null,
+  })),
+  AudioModule: {
+    requestRecordingPermissionsAsync: jest.fn(() => Promise.resolve({ granted: false })),
+    setAudioModeAsync: jest.fn(() => Promise.resolve()),
+  },
+  RecordingPresets: { HIGH_QUALITY: {} },
+}));
+
 jest.mock('expo-store-review', () => ({
   hasAction: jest.fn(() => Promise.resolve(true)),
   requestReview: jest.fn(() => Promise.resolve()),

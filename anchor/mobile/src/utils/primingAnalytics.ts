@@ -1,4 +1,4 @@
-export type PrimingSessionType = 'activate' | 'reinforce';
+export type PrimingSessionType = 'activate' | 'reinforce' | 'visualize';
 export type TimeOfDayBucket = 'late_night' | 'morning' | 'afternoon' | 'evening';
 
 export interface PrimingHistoryEntry {
@@ -106,7 +106,7 @@ export function getTimeOfDayBucket(hourOfDay: number): TimeOfDayBucket {
 }
 
 export function isPrimingSessionType(value: string): value is PrimingSessionType {
-  return value === 'activate' || value === 'reinforce';
+  return value === 'activate' || value === 'reinforce' || value === 'visualize';
 }
 
 export function buildPrimingHistoryEntry(params: {

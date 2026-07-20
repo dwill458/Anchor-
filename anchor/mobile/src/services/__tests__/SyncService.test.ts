@@ -90,6 +90,13 @@ describe('SyncService', () => {
       focusSessionAudio: 'silent',
       primeSessionDuration: 120,
       primeSessionAudio: 'silent',
+      sessionAudioDefaults: {
+        focus: { guidanceVoice: 'female', backgroundAudio: 'ambient' },
+        deep_prime: { guidanceVoice: 'female', backgroundAudio: 'ambient' },
+      },
+      sessionAudioDefaultsOwnerUserId: null,
+      sessionAudioDefaultsOwnerInitialized: false,
+      sessionAudioDefaultsUpdatedAt: null,
     } as any);
 
     SyncService.setMockConfig({ enabled: false, anchors: [], profile: null });
@@ -153,6 +160,11 @@ describe('SyncService', () => {
         focusSessionAudio: 'ambient',
         primeSessionDuration: 300,
         primeSessionAudio: 'ambient',
+        sessionAudioDefaults: {
+          focus: { guidanceVoice: 'none', backgroundAudio: 'ambient' },
+          deep_prime: { guidanceVoice: 'female', backgroundAudio: 'off' },
+          visualize: { guidanceVoice: 'female', backgroundAudio: 'ambient' },
+        },
         hapticIntensity: 3,
         vaultViewType: 'grid',
         updatedAt: new Date('2024-01-04T00:00:00.000Z'),
@@ -168,5 +180,13 @@ describe('SyncService', () => {
     expect(useSettingsStore.getState().focusSessionAudio).toBe('ambient');
     expect(useSettingsStore.getState().primeSessionDuration).toBe(300);
     expect(useSettingsStore.getState().primeSessionAudio).toBe('ambient');
+    expect(useSettingsStore.getState().sessionAudioDefaults).toEqual({
+      focus: { guidanceVoice: 'none', backgroundAudio: 'ambient' },
+      deep_prime: { guidanceVoice: 'female', backgroundAudio: 'off' },
+      visualize: { guidanceVoice: 'female', backgroundAudio: 'ambient' },
+    });
+    expect(useSettingsStore.getState().sessionAudioDefaultsOwnerUserId).toBe(
+      'user-1',
+    );
   });
 });

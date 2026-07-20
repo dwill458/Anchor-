@@ -24,6 +24,10 @@ const SERVER_ANCHOR_UUID = 'c3d4e5f6-7890-4abc-8def-012345678901';
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 const mockNavigateToPractice = jest.fn();
 const mockCreateManagedPlayer = jest.fn();
+const mockCreateSessionAudioPlayer = jest.fn(
+  (_asset: unknown, options: { trackId?: string }) =>
+    mockCreateManagedPlayer(options.trackId ?? 'missing-focus-track', options)
+);
 const mockPlaySound = jest.fn();
 const createMockManagedPlayer = () => ({
   pause: jest.fn(),
@@ -114,6 +118,11 @@ jest.mock('@/hooks/useAudio', () => ({
     playSound: mockPlaySound,
   }),
 }));
+jest.mock('@/hooks/useSessionAudio', () => ({
+  useSessionAudio: () => ({
+    createSessionAudioPlayer: mockCreateSessionAudioPlayer,
+  }),
+}));
 jest.mock('@/components/ToastProvider', () => ({
   useToast: jest.fn(() => ({
     success: jest.fn(),
@@ -154,6 +163,13 @@ const mockSettingsState = (overrides: Record<string, unknown> = {}) => {
     reduceIntentionVisibility: false,
     primeSessionDuration: 120,
     ...overrides,
+  } as any;
+  base.sessionAudioDefaults = overrides.sessionAudioDefaults ?? {
+    focus:
+      base.focusSessionAudio === 'ambient'
+        ? { guidanceVoice: 'female', backgroundAudio: 'ambient' }
+        : { guidanceVoice: 'none', backgroundAudio: 'off' },
+    deep_prime: { guidanceVoice: 'female', backgroundAudio: 'ambient' },
   };
   (useSettingsStore as unknown as jest.Mock).mockImplementation((selector: any) =>
     typeof selector === 'function' ? selector(base) : base
@@ -179,14 +195,15 @@ describe('ActivationScreen', () => {
     jest.clearAllMocks();
     mockCreateManagedPlayer.mockReset();
     mockCreateManagedPlayer.mockImplementation((key: string) => {
-      if (key === 'focus-session-ambient') return mockAmbientPlayer;
-      if (key === 'focus-session-120s-opening') return mockGuidance120OpeningPlayer;
-      if (key === 'focus-session-120s-grounding') return mockGuidance120GroundingPlayer;
-      if (key === 'focus-session-120s-deepening') return mockGuidance120DeepeningPlayer;
-      if (key === 'focus-session-120s-closing') return mockGuidance120ClosingPlayer;
-      if (key === 'focus-session-60s-start') return mockGuidance60StartPlayer;
-      if (key === 'focus-session-60s-middle') return mockGuidance60MiddlePlayer;
-      if (key === 'focus-session-60s-end') return mockGuidance60EndPlayer;
+      const normalizedKey = key.replace(/-male$/, '');
+      if (normalizedKey === 'focus-session-ambient') return mockAmbientPlayer;
+      if (normalizedKey === 'focus-session-120s-opening') return mockGuidance120OpeningPlayer;
+      if (normalizedKey === 'focus-session-120s-grounding') return mockGuidance120GroundingPlayer;
+      if (normalizedKey === 'focus-session-120s-deepening') return mockGuidance120DeepeningPlayer;
+      if (normalizedKey === 'focus-session-120s-closing') return mockGuidance120ClosingPlayer;
+      if (normalizedKey === 'focus-session-60s-start') return mockGuidance60StartPlayer;
+      if (normalizedKey === 'focus-session-60s-middle') return mockGuidance60MiddlePlayer;
+      if (normalizedKey === 'focus-session-60s-end') return mockGuidance60EndPlayer;
       return null;
     });
     mockPlaySound.mockClear();
@@ -510,6 +527,34 @@ describe('ActivationScreen', () => {
 
     unmount();
     dateNowSpy.mockRestore();
+  });
+
+  it('plays loudness-matched male Focus guidance without substituting female audio', () => {
+    const navigation = require('@react-navigation/native');
+    navigation.useRoute.mockReturnValue({
+      params: {
+        anchorId: TEST_ANCHOR_UUID,
+        activationType: 'visual',
+        durationOverride: 60,
+        audioConfiguration: {
+          guidanceVoice: 'male',
+          backgroundAudio: 'off',
+          source: 'session_override',
+        },
+      },
+    });
+
+    const { unmount } = render(<ActivationScreen />);
+
+    expect(mockCreateManagedPlayer).toHaveBeenCalledWith(
+      'focus-session-60s-start-male',
+      expect.objectContaining({
+        volume: 0.447,
+        onFinish: expect.any(Function),
+      })
+    );
+    expect(mockGuidance60StartPlayer.play).toHaveBeenCalledTimes(1);
+    unmount();
   });
 
   it('starts, ducks, pauses, resumes, and cleans up the ambient bed during a voice-guided focus session', async () => {

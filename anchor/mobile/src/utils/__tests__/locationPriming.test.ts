@@ -2,6 +2,7 @@ import * as Location from 'expo-location';
 import {
   matchLocationPrimingZone,
   getForegroundLocationForPriming,
+  normalizeLocationPrimingPreset,
   type LocationPrimingZone,
 } from '../locationPriming';
 
@@ -14,7 +15,7 @@ const makeZone = (overrides: Partial<LocationPrimingZone> = {}): LocationPriming
   preset: overrides.preset ?? {
     sessionType: 'focus',
     durationSeconds: 30,
-    audioMode: 'ambient',
+    audioConfiguration: { guidanceVoice: 'female', backgroundAudio: 'ambient' },
   },
   enabled: overrides.enabled ?? true,
   createdAt: overrides.createdAt ?? '2026-01-01T00:00:00.000Z',
@@ -86,5 +87,19 @@ describe('location priming resolver', () => {
 
     await expect(getForegroundLocationForPriming()).resolves.toBeNull();
     expect(Location.getForegroundPermissionsAsync).not.toHaveBeenCalled();
+  });
+
+  it('migrates a legacy place preset into independent Voice & Sound axes', () => {
+    expect(
+      normalizeLocationPrimingPreset({
+        sessionType: 'focus',
+        durationSeconds: 30,
+        audioMode: 'silent',
+      } as any)
+    ).toEqual({
+      sessionType: 'focus',
+      durationSeconds: 30,
+      audioConfiguration: { guidanceVoice: 'none', backgroundAudio: 'off' },
+    });
   });
 });

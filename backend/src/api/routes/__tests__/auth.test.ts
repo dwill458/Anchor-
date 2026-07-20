@@ -44,6 +44,12 @@ const mockPrisma = {
   charge: {
     findMany: jest.fn(),
   },
+  practiceSession: {
+    findMany: jest.fn(),
+  },
+  visualizationScene: {
+    findMany: jest.fn(),
+  },
   order: {
     findMany: jest.fn(),
   },
@@ -118,7 +124,13 @@ const MOCK_SETTINGS = {
   focusSessionDuration: 30,
   focusSessionAudio: 'ambient',
   primeSessionDuration: 120,
+  visualizeSessionDuration: 180,
   primeSessionAudio: 'ambient',
+  sessionAudioDefaults: {
+    focus: { guidanceVoice: 'female', backgroundAudio: 'ambient' },
+    deep_prime: { guidanceVoice: 'female', backgroundAudio: 'ambient' },
+    visualize: { guidanceVoice: 'female', backgroundAudio: 'ambient' },
+  },
   hapticIntensity: 3,
   vaultViewType: 'grid',
   updatedAt: new Date('2024-01-01'),
@@ -132,6 +144,8 @@ beforeEach(() => {
   (mockPrisma.$transaction as jest.Mock).mockImplementation(async (callback: any) =>
     callback(mockPrisma)
   );
+  (mockPrisma.practiceSession.findMany as jest.Mock).mockResolvedValue([]);
+  (mockPrisma.visualizationScene.findMany as jest.Mock).mockResolvedValue([]);
 
   mockedGetFirebaseAdmin.mockReturnValue({
     auth: () => ({
@@ -222,8 +236,7 @@ describe('POST /api/auth/sync', () => {
   });
 
   it('links an existing user by email when auth uid changes', async () => {
-    (mockPrisma.user.findUnique as jest.Mock)
-      .mockResolvedValueOnce(null);
+    (mockPrisma.user.findUnique as jest.Mock).mockResolvedValueOnce(null);
     (mockPrisma.user.findFirst as jest.Mock).mockResolvedValueOnce(MOCK_DB_USER);
     (mockPrisma.user.update as jest.Mock).mockResolvedValue({
       ...MOCK_DB_USER,
@@ -290,8 +303,7 @@ describe('POST /api/auth/sync', () => {
   });
 
   it('creates a user when no auth uid or email match exists', async () => {
-    (mockPrisma.user.findUnique as jest.Mock)
-      .mockResolvedValueOnce(null);
+    (mockPrisma.user.findUnique as jest.Mock).mockResolvedValueOnce(null);
     (mockPrisma.user.findFirst as jest.Mock).mockResolvedValueOnce(null);
     (mockPrisma.user.create as jest.Mock).mockResolvedValue(MOCK_DB_USER);
     (mockPrisma.userSettings.upsert as jest.Mock).mockResolvedValue(MOCK_SETTINGS);
@@ -315,12 +327,10 @@ describe('POST /api/auth/sync', () => {
     );
 
     (mockPrisma.user.findUnique as jest.Mock).mockResolvedValueOnce(null);
-    (mockPrisma.user.findFirst as jest.Mock)
-      .mockResolvedValueOnce(null)
-      .mockResolvedValueOnce({
-        ...MOCK_DB_USER,
-        authUid: 'firebase-uid-from-winning-request',
-      });
+    (mockPrisma.user.findFirst as jest.Mock).mockResolvedValueOnce(null).mockResolvedValueOnce({
+      ...MOCK_DB_USER,
+      authUid: 'firebase-uid-from-winning-request',
+    });
     (mockPrisma.user.create as jest.Mock).mockRejectedValueOnce(uniqueEmailConflict);
     (mockPrisma.user.update as jest.Mock).mockResolvedValue({
       ...MOCK_DB_USER,
@@ -464,6 +474,12 @@ describe('GET /api/auth/me/export', () => {
     (mockPrisma.anchor.findMany as jest.Mock).mockResolvedValue([]);
     (mockPrisma.activation.findMany as jest.Mock).mockResolvedValue([]);
     (mockPrisma.charge.findMany as jest.Mock).mockResolvedValue([]);
+    (mockPrisma.practiceSession.findMany as jest.Mock).mockResolvedValue([
+      { id: 'session-1', sceneSnapshot: 'I follow through calmly.' },
+    ]);
+    (mockPrisma.visualizationScene.findMany as jest.Mock).mockResolvedValue([
+      { id: 'scene-1', currentText: 'I follow through calmly.' },
+    ]);
     (mockPrisma.order.findMany as jest.Mock).mockResolvedValue([]);
     (mockPrisma.syncQueue.findMany as jest.Mock).mockResolvedValue([]);
     (mockPrisma.burnedAnchor.findMany as jest.Mock).mockResolvedValue([]);
@@ -479,6 +495,13 @@ describe('GET /api/auth/me/export', () => {
       orderBy: { createdAt: 'desc' },
     });
     expect(res.body.data.account.passwordHash).toBeUndefined();
+    expect(res.body.data.exportVersion).toBe(3);
+    expect(res.body.data.account.practiceSessions).toEqual([
+      expect.objectContaining({ id: 'session-1' }),
+    ]);
+    expect(res.body.data.account.visualizationScenes).toEqual([
+      expect.objectContaining({ id: 'scene-1' }),
+    ]);
   });
 
   it('returns partial export data when an optional export section fails', async () => {
@@ -525,7 +548,7 @@ describe('GET /api/auth/me/export', () => {
     expect(res.body.error.code).toBe('EXPORT_ERROR');
   });
 
-  it('exports only the authenticated account burned-anchor practice snapshots as v2', async () => {
+  it('exports only the authenticated account burned-anchor snapshots while retaining v2 fields in v3', async () => {
     const burnedAnchor = {
       id: 'burned-1',
       originalAnchorId: 'anchor-1',
@@ -573,7 +596,7 @@ describe('GET /api/auth/me/export', () => {
     const res = await request(buildApp()).get('/api/auth/me/export');
 
     expect(res.status).toBe(200);
-    expect(res.body.data.exportVersion).toBe(2);
+    expect(res.body.data.exportVersion).toBe(3);
     expect(mockPrisma.burnedAnchor.findMany).toHaveBeenCalledWith({
       where: { userId: 'db-user-1' },
       orderBy: { burnedAt: 'desc' },
@@ -652,16 +675,58 @@ describe('PUT /api/auth/settings', () => {
       primeSessionAudio: 'silent',
     });
 
-    const res = await request(buildApp())
-      .put('/api/auth/settings')
-      .send({
-        focusSessionAudio: 'silent',
-        primeSessionAudio: 'silent',
-      });
+    const res = await request(buildApp()).put('/api/auth/settings').send({
+      focusSessionAudio: 'silent',
+      primeSessionAudio: 'silent',
+    });
 
     expect(res.status).toBe(200);
     expect(res.body.data.focusSessionAudio).toBe('silent');
     expect(res.body.data.primeSessionAudio).toBe('silent');
+  });
+
+  it('validates and persists structured Voice & Sound defaults', async () => {
+    const sessionAudioDefaults = {
+      focus: { guidanceVoice: 'none', backgroundAudio: 'ambient' },
+      deep_prime: { guidanceVoice: 'male', backgroundAudio: 'off' },
+      visualize: { guidanceVoice: 'female', backgroundAudio: 'ambient' },
+    };
+    (mockPrisma.user.findUnique as jest.Mock).mockResolvedValue(MOCK_DB_USER);
+    (mockPrisma.userSettings.upsert as jest.Mock).mockResolvedValue({
+      ...MOCK_SETTINGS,
+      sessionAudioDefaults,
+    });
+
+    const res = await request(buildApp()).put('/api/auth/settings').send({ sessionAudioDefaults });
+
+    expect(res.status).toBe(200);
+    expect(res.body.data.sessionAudioDefaults).toEqual(sessionAudioDefaults);
+    expect(mockPrisma.userSettings.upsert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        create: expect.objectContaining({ sessionAudioDefaults }),
+        update: expect.objectContaining({ sessionAudioDefaults }),
+      })
+    );
+  });
+
+  it.each([
+    {
+      focus: { guidanceVoice: 'robot', backgroundAudio: 'ambient' },
+      deep_prime: { guidanceVoice: 'female', backgroundAudio: 'ambient' },
+      visualize: { guidanceVoice: 'female', backgroundAudio: 'ambient' },
+    },
+    {
+      focus: { guidanceVoice: 'female', backgroundAudio: 'loud' },
+      deep_prime: { guidanceVoice: 'female', backgroundAudio: 'ambient' },
+      visualize: { guidanceVoice: 'female', backgroundAudio: 'ambient' },
+    },
+    {
+      focus: { guidanceVoice: 'female', backgroundAudio: 'ambient' },
+    },
+  ])('rejects malformed structured Voice & Sound defaults', async sessionAudioDefaults => {
+    const res = await request(buildApp()).put('/api/auth/settings').send({ sessionAudioDefaults });
+    expect(res.status).toBe(400);
+    expect(mockPrisma.userSettings.upsert).not.toHaveBeenCalled();
   });
 
   it('updates session mode and duration defaults and returns 200', async () => {
@@ -673,13 +738,11 @@ describe('PUT /api/auth/settings', () => {
       primeSessionDuration: 300,
     });
 
-    const res = await request(buildApp())
-      .put('/api/auth/settings')
-      .send({
-        focusSessionMode: 'deep',
-        focusSessionDuration: 60,
-        primeSessionDuration: 300,
-      });
+    const res = await request(buildApp()).put('/api/auth/settings').send({
+      focusSessionMode: 'deep',
+      focusSessionDuration: 60,
+      primeSessionDuration: 300,
+    });
 
     expect(res.status).toBe(200);
     expect(res.body.data.focusSessionMode).toBe('deep');

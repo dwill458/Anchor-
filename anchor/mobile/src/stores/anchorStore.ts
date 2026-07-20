@@ -14,6 +14,7 @@ import AnchorSyncService from '@/services/AnchorSyncService';
 import { useAuthStore } from '@/stores/authStore';
 import { getAdjustedDateString } from '@/utils/dateUtils';
 import { logger } from '@/utils/logger';
+import { useVisualizationSceneStore } from './visualizationSceneStore';
 import {
   JOURNEY_MILESTONE_IDS,
   JOURNEY_TEACHING_CONTENT_ID_BY_MILESTONE,
@@ -199,6 +200,7 @@ export const useAnchorStore = create<AnchorState>()(
         void AnchorSyncService.markAnchorDeleted(referenceIds).catch((error) => {
           logger.warn('[anchorStore] Failed to invalidate queued sync for removed anchor', error);
         });
+        useVisualizationSceneStore.getState().removeForAnchor(referenceIds);
 
         set((state) => {
           const nextAnchors = state.anchors.filter((anchor) => !matchesAnchorReference(anchor, id));
@@ -385,6 +387,7 @@ export const useAnchorStore = create<AnchorState>()(
         void AnchorSyncService.cancelQueuedSync(referenceIds).catch((error) => {
           logger.warn('[anchorStore] Failed to cancel queued sync for released anchor', error);
         });
+        useVisualizationSceneStore.getState().removeForAnchor(referenceIds);
 
         set((state) => {
           const nextAnchors = state.anchors.map((anchor) =>

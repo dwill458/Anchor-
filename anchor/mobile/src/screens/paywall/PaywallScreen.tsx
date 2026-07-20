@@ -42,6 +42,7 @@ import revenueCatService, {
 } from '@/services/RevenueCatService';
 import { logger } from '@/utils/logger';
 import type { Anchor, PaywallSource } from '@/types';
+import { useNavigationResumeStore } from '@/stores/navigationResumeStore';
 import type { RootNavigatorParamList } from '@/navigation/RootNavigator';
 
 type PlanId = RevenueCatPlanId;
@@ -613,6 +614,7 @@ export const PaywallScreen: React.FC = () => {
         plan: selectedPlanId,
         product_id: packageId,
       });
+      useNavigationResumeStore.getState().setTarget(route.params?.resumeTarget ?? null);
       navigation.reset({ index: 0, routes: [{ name: 'Main' }] });
     } catch (error) {
       FrictionAnalytics.flowError('paywall', 'purchase_confirmation', 'billing_confirmation_failed', {
@@ -674,6 +676,7 @@ export const PaywallScreen: React.FC = () => {
         source,
         reason: 'restore_success',
       });
+      useNavigationResumeStore.getState().setTarget(route.params?.resumeTarget ?? null);
       navigation.reset({ index: 0, routes: [{ name: 'Main' }] });
     } catch (error) {
       FrictionAnalytics.flowError('paywall', 'restore_confirmation', 'billing_confirmation_failed', {

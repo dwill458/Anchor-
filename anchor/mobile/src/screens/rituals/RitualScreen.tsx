@@ -30,6 +30,7 @@ import { useTabNavigation } from '@/contexts/TabNavigationContext';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { useAnchorStore } from '@/stores/anchorStore';
 import { useAuthStore } from '@/stores/authStore';
+import { PracticeCompletionService } from '@/services/PracticeCompletionService';
 import { useSessionStore } from '@/stores/sessionStore';
 import { useSettingsStore } from '@/stores/settingsStore';
 import { useRitualController } from '@/hooks/useRitualController';
@@ -64,6 +65,21 @@ import { useDeepPrimeSessionAudio } from './hooks/useDeepPrimeSessionAudio';
 import { queueProgressionMilestonesFromStores } from '@/utils/progressionMilestones';
 import { usePrimeSessionAccess } from '@/hooks/usePrimeSessionAccess';
 import { createPracticeEventId } from '@/utils/primingAnalytics';
+import {
+  SessionAudioOverrideSheet,
+  VoiceAndSoundSummaryRow,
+} from '@/components/settings/SessionAudioOverrideSheet';
+import {
+  legacyAudioModeToSessionAudioDefaults,
+  DEFAULT_SESSION_AUDIO_DEFAULTS,
+  resolveSessionAudioConfiguration,
+  type SessionAudioConfiguration,
+  type SessionAudioDefaults,
+} from '@/types/sessionAudio';
+import { resolveSessionAudioPlan } from '@/services/SessionAudioManifest';
+import { trackSessionStartedWithAudio } from '@/services/SessionAudioAnalytics';
+import { stopVoicePreview } from '@/services/VoicePreviewService';
+import { persistSessionAudioDefaults } from '@/services/SessionAudioPreferencesService';
 
 // Single source of truth: derive each segment's width from the global progressAnim,
 // which is already wall-clock-driven by useRitualController + the progressAnim effect.
@@ -118,7 +134,6 @@ const DEEP_PRIME_BREATH_HOLD_S = 1;
 const DEEP_PRIME_BREATH_EXHALE_S = 5;
 const DEEP_PRIME_BREATH_TOTAL_S =
   DEEP_PRIME_BREATH_INHALE_S + DEEP_PRIME_BREATH_HOLD_S + DEEP_PRIME_BREATH_EXHALE_S;
-const SUPPORTED_DEEP_PRIME_GUIDED_DURATIONS = new Set([120, 300, 600, 900]);
 const SEAL_HEADLINE = 'Seal Your Intention';
 const SEAL_SUPPORT_LINE =
   'Breathe with the rhythm. Let each exhale settle your intention into the symbol.';
@@ -265,6 +280,7 @@ export const RitualScreen: React.FC = () => {
     ritualType,
     durationSeconds,
     mantraAudioEnabled,
+    audioConfiguration,
     audioModeOverride,
     returnTo,
   } = route.params;
@@ -272,6 +288,7 @@ export const RitualScreen: React.FC = () => {
   const isCompletingRef = useRef(false);
   const hasFinalizedRef = useRef(false);
   const completionEventIdRef = useRef(createPracticeEventId());
+  const sessionStartedWithAudioRef = useRef(false);
   const exitingRef = useRef(false);
   const mantraIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
@@ -285,8 +302,9 @@ export const RitualScreen: React.FC = () => {
   const soundEffectsEnabled = useSettingsStore((state) => state.soundEffectsEnabled);
   const focusSessionDuration = useSettingsStore((state) => state.focusSessionDuration ?? 30);
   const primeSessionDuration = useSettingsStore((state) => state.primeSessionDuration ?? 120);
-  const primeSessionAudio = useSettingsStore((state) => state.primeSessionAudio ?? 'ambient');
-  const resolvedPrimeSessionAudio = audioModeOverride ?? primeSessionAudio;
+  const sessionAudioDefaults = useSettingsStore(
+    (state) => state.sessionAudioDefaults ?? DEFAULT_SESSION_AUDIO_DEFAULTS
+  );
   const reduceIntentionVisibility = useSettingsStore((state) => state.reduceIntentionVisibility ?? false);
   const traceDefaultEnabled = useSettingsStore((state) => state.traceDefaultEnabled ?? true);
   const { handlePrimeComplete } = useNotificationController();
@@ -385,6 +403,27 @@ export const RitualScreen: React.FC = () => {
       : primeSessionDuration);
   const config = getRitualConfig(ritualType, resolvedDurationSeconds);
   const isDeepRitual = ritualType === 'ritual' || ritualType === 'deep';
+  const sessionAudioType = isDeepRitual ? 'deep_prime' : 'focus';
+  const [resolvedSessionAudio, setResolvedSessionAudio] =
+    useState<SessionAudioConfiguration>(() =>
+      audioConfiguration ??
+      resolveSessionAudioConfiguration(
+        sessionAudioDefaults[sessionAudioType],
+        audioModeOverride
+          ? legacyAudioModeToSessionAudioDefaults(audioModeOverride)
+          : undefined
+      )
+    );
+  const [showAudioOverride, setShowAudioOverride] = useState(false);
+  const sessionAudioPlan = useMemo(
+    () =>
+      resolveSessionAudioPlan({
+        sessionType: sessionAudioType,
+        durationSeconds: config.totalDurationSeconds,
+        configuration: resolvedSessionAudio,
+      }),
+    [config.totalDurationSeconds, resolvedSessionAudio, sessionAudioType]
+  );
   const deepPhaseTrackHorizontalPadding = 20;
   const deepPhaseTrackGap = 4;
   const deepPhaseSegmentWidth = Math.max(
@@ -394,10 +433,6 @@ export const RitualScreen: React.FC = () => {
       deepPhaseTrackGap * Math.max(0, config.phases.length - 1)) /
       Math.max(1, config.phases.length)
   );
-  const shouldUseDeepPrimeImmersiveAudio =
-    isDeepRitual &&
-    resolvedPrimeSessionAudio === 'ambient' &&
-    SUPPORTED_DEEP_PRIME_GUIDED_DURATIONS.has(config.totalDurationSeconds);
   const [isLanding, setIsLanding] = useState(isDeepRitual);
 
   const arrivePhaseEnabled =
@@ -463,14 +498,15 @@ export const RitualScreen: React.FC = () => {
     onComplete: handleRitualComplete,
     onPhaseChange: handlePhaseChange,
     onSealComplete: handleSealComplete,
-    manageSessionAudioExternally: shouldUseDeepPrimeImmersiveAudio,
+    manageSessionAudioExternally: isDeepRitual,
+    audioConfiguration: resolvedSessionAudio,
   });
   const {
     fadeOutAndStop: fadeOutDeepPrimeAudio,
     hasVoiceGuidance: shouldHideDeepPrimeGuidanceText,
   } = useDeepPrimeSessionAudio({
-    durationSeconds: config.totalDurationSeconds,
-    enabled: shouldUseDeepPrimeImmersiveAudio,
+    plan: sessionAudioPlan,
+    remainingMs: deepRemainingMs,
     isActive: state.isActive,
     isComplete: state.isComplete,
   });
@@ -663,6 +699,11 @@ export const RitualScreen: React.FC = () => {
   }, [isArrivePhase]);
 
   const handleBeginPriming = () => {
+    stopVoicePreview();
+    if (!sessionStartedWithAudioRef.current) {
+      sessionStartedWithAudioRef.current = true;
+      trackSessionStartedWithAudio(sessionAudioPlan);
+    }
     setIsLanding(false);
     if (isDeepRitual) {
       deepSealAutoCompleteStartedRef.current = false;
@@ -1215,6 +1256,10 @@ export const RitualScreen: React.FC = () => {
       duration_seconds: config.totalDurationSeconds,
       backend_synced: !backendSyncFailed,
       is_first_prime: isFirstPrimeForAnchor,
+      guidance_voice: sessionAudioPlan.configuration.guidanceVoice,
+      requested_guidance_voice: sessionAudioPlan.requestedConfiguration.guidanceVoice,
+      background_audio: sessionAudioPlan.configuration.backgroundAudio,
+      audio_source: sessionAudioPlan.configuration.source,
     });
     AnalyticsService.track(
       isDeepRitual
@@ -1226,6 +1271,10 @@ export const RitualScreen: React.FC = () => {
         duration_seconds: config.totalDurationSeconds,
         backend_synced: !backendSyncFailed,
         is_first_prime: isFirstPrimeForAnchor,
+        guidance_voice: sessionAudioPlan.configuration.guidanceVoice,
+        requested_guidance_voice: sessionAudioPlan.requestedConfiguration.guidanceVoice,
+        background_audio: sessionAudioPlan.configuration.backgroundAudio,
+        audio_source: sessionAudioPlan.configuration.source,
       }
     );
 
@@ -1245,19 +1294,36 @@ export const RitualScreen: React.FC = () => {
         threadStrength: 1,
         durationSeconds: config.totalDurationSeconds,
         completionEventId: completionEventIdRef.current,
+        audioConfiguration: sessionAudioPlan.configuration,
         returnTo,
       });
       return;
     }
 
     if (isDeepRitual) {
+      const completedAt = new Date().toISOString();
       const completionEventId = recordSession({
         idempotencyKey: completionEventIdRef.current,
         anchorId,
         type: 'reinforce',
         durationSeconds: config.totalDurationSeconds,
-        mode: resolvedPrimeSessionAudio,
-        completedAt: new Date().toISOString(),
+        mode:
+          sessionAudioPlan.configuration.backgroundAudio === 'ambient' ||
+          sessionAudioPlan.configuration.guidanceVoice !== 'none'
+            ? 'ambient'
+            : 'silent',
+        audioConfiguration: sessionAudioPlan.configuration,
+        completedAt,
+      });
+      void PracticeCompletionService.queueLegacyCompletion({
+        id: completionEventId,
+        anchorId,
+        anchorLocalId: anchor?.localId,
+        practiceMode: 'deep_prime',
+        durationSeconds: config.totalDurationSeconds,
+        completedAt,
+        guidanceVoice: sessionAudioPlan.configuration.guidanceVoice,
+        backgroundAudio: sessionAudioPlan.configuration.backgroundAudio,
       });
       await queueProgressionMilestonesFromStores({ sourceEventId: completionEventId });
       await handlePrimeComplete();
@@ -1270,6 +1336,7 @@ export const RitualScreen: React.FC = () => {
       anchorId: effectiveAnchorId,
       durationSeconds: config.totalDurationSeconds,
       completionEventId: completionEventIdRef.current,
+      audioConfiguration: sessionAudioPlan.configuration,
       returnTo,
     });
   }, [
@@ -1284,10 +1351,11 @@ export const RitualScreen: React.FC = () => {
     isFirstPrimeForAnchor,
     isPendingFirstAnchor,
     navigation,
-    resolvedPrimeSessionAudio,
+    resolvedSessionAudio,
     recordSession,
     returnTo,
     ritualType,
+    sessionAudioPlan,
     updateAnchor,
   ]);
 
@@ -1324,20 +1392,36 @@ export const RitualScreen: React.FC = () => {
     setShowCompletion(false);
     exitingRef.current = true;
 
+    const completedAt = new Date().toISOString();
     const completionEventId = recordSession({
       idempotencyKey: completionEventIdRef.current,
       anchorId,
       type: 'reinforce',
       durationSeconds: config.totalDurationSeconds,
-      mode: resolvedPrimeSessionAudio,
-      completedAt: new Date().toISOString(),
+      mode:
+        sessionAudioPlan.configuration.backgroundAudio === 'ambient' ||
+        sessionAudioPlan.configuration.guidanceVoice !== 'none'
+          ? 'ambient'
+          : 'silent',
+      audioConfiguration: sessionAudioPlan.configuration,
+      completedAt,
       reflectionWord,
+    });
+    void PracticeCompletionService.queueLegacyCompletion({
+      id: completionEventId,
+      anchorId,
+      anchorLocalId: anchor?.localId,
+      practiceMode: 'deep_prime',
+      durationSeconds: config.totalDurationSeconds,
+      completedAt,
+      guidanceVoice: sessionAudioPlan.configuration.guidanceVoice,
+      backgroundAudio: sessionAudioPlan.configuration.backgroundAudio,
     });
 
     await queueProgressionMilestonesFromStores({ sourceEventId: completionEventId });
     await handlePrimeComplete();
     exitRitual();
-  }, [anchorId, config.totalDurationSeconds, resolvedPrimeSessionAudio, recordSession, handlePrimeComplete, exitRitual]);
+  }, [anchorId, config.totalDurationSeconds, sessionAudioPlan, recordSession, handlePrimeComplete, exitRitual]);
 
   useEffect(() => {
     if (typeof navigation.addListener !== 'function') return () => undefined;
@@ -1875,6 +1959,10 @@ export const RitualScreen: React.FC = () => {
                     isCompactHeight ? styles.landingBottomSectionCompact : null,
                   ]}
                 >
+                  <VoiceAndSoundSummaryRow
+                    value={resolvedSessionAudio}
+                    onPress={() => setShowAudioOverride(true)}
+                  />
                   <Pressable onPress={handleBeginPriming} style={styles.landingBeginBtn}>
                     <LinearGradient
                       colors={['#D4AF37', '#8a6f23']}
@@ -1889,6 +1977,20 @@ export const RitualScreen: React.FC = () => {
                     {config.phases.length} phases. Close your eyes between guidance.
                   </Text>
                 </View>
+                <SessionAudioOverrideSheet
+                  visible={showAudioOverride}
+                  sessionType="deep_prime"
+                  durationSeconds={config.totalDurationSeconds}
+                  initialValue={resolvedSessionAudio}
+                  onCancel={() => setShowAudioOverride(false)}
+                  onConfirm={(value: SessionAudioDefaults, makeDefault: boolean) => {
+                    setResolvedSessionAudio({ ...value, source: 'session_override' });
+                    setShowAudioOverride(false);
+                    if (makeDefault) {
+                      void persistSessionAudioDefaults('deep_prime', value).catch(() => undefined);
+                    }
+                  }}
+                />
               </View>
             ) : (
               <>

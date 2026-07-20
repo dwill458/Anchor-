@@ -41,6 +41,8 @@ const C = {
   bone: '#F5F5DC',
   purpleBright: '#7B5EA7',
   purpleMid: '#5a4080',
+  visualizeBright: '#3F75B5',
+  visualizeDeep: '#173A67',
 };
 
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
@@ -144,10 +146,11 @@ const Stat: React.FC<{
 const WeekDot: React.FC<{
   day: ThreadHistorySheetWeekDay;
 }> = ({ day }) => {
-  const content = day.hasFocus || day.hasDeep || day.isToday ? '✓' : '—';
+  const content = day.hasFocus || day.hasDeep || day.hasVisualize || day.isToday ? '✓' : '—';
   const dotStyle = [
     styles.weekDot,
-    day.hasFocus && !day.hasDeep ? styles.weekDotFocus : null,
+    day.hasFocus && !day.hasDeep && !day.hasVisualize ? styles.weekDotFocus : null,
+    day.hasVisualize ? styles.weekDotVisualize : null,
     day.isToday ? styles.weekDotToday : null,
     day.isFuture ? styles.future : null,
   ];
@@ -155,15 +158,19 @@ const WeekDot: React.FC<{
   return (
     <View style={styles.weekDay}>
       <Text style={styles.weekDayLabel}>{day.label}</Text>
-      {day.hasDeep && !day.isToday ? (
+      {(day.hasDeep || day.hasVisualize) && !day.isToday ? (
         <ExpoLinearGradient
-          colors={['rgba(212,175,55,0.12)', 'rgba(123,94,167,0.20)']}
+          colors={
+            day.hasVisualize
+              ? ['rgba(23,58,103,0.55)', 'rgba(63,117,181,0.34)']
+              : ['rgba(212,175,55,0.12)', 'rgba(123,94,167,0.20)']
+          }
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 1 }}
           style={[styles.weekDot, styles.weekDotDeep, day.isFuture && styles.future]}
         >
           <Text style={styles.weekCheck}>{content}</Text>
-          <View style={styles.deepPip} />
+          <View style={[styles.deepPip, day.hasVisualize && styles.visualizePip]} />
         </ExpoLinearGradient>
       ) : (
         <View style={dotStyle}>
@@ -184,13 +191,23 @@ const HeatmapCell: React.FC<{
   pulseOpacity: Animated.Value;
 }> = ({ day, weekIndex, dayIndex, onPress, pulseOpacity }) => {
   const deepHeight = deepSliceHeight(day.deepCount);
+  const visualizeHeight = deepSliceHeight(day.visualizeCount);
   const cell = (
     <Pressable
       accessibilityRole="button"
-      accessibilityLabel={`${day.date}, ${day.focusCount} Focus sessions, ${day.deepCount} Deep Primes`}
+      accessibilityLabel={`${day.date}, ${day.focusCount} Focus sessions, ${day.deepCount} Deep Primes, ${day.visualizeCount} Visualize sessions`}
       onPress={() => onPress(day, weekIndex, dayIndex)}
       style={[styles.hmCell, day.isFuture && styles.hmCellFuture]}
     >
+      <View
+        style={[
+          styles.visualizeSlice,
+          {
+            height: visualizeHeight,
+            backgroundColor: day.visualizeCount > 0 ? C.visualizeBright : 'transparent',
+          },
+        ]}
+      />
       <View
         style={[
           styles.deepSlice,
@@ -420,7 +437,7 @@ const ThreadStrengthSheetContent: React.FC<ThreadStrengthSheetProps> = ({
             <View style={styles.ratioSection}>
               <View style={styles.ratioLabelRow}>
                 <Text style={styles.sectionLabel}>Session Breakdown</Text>
-                <Text style={styles.ratioRight}>{history.deepPrimePercent}% Deep Primes</Text>
+                <Text style={styles.ratioRight}>{history.totalSessions} sessions</Text>
               </View>
               <View style={styles.ratioTrack}>
                 <ExpoLinearGradient
@@ -429,7 +446,9 @@ const ThreadStrengthSheetContent: React.FC<ThreadStrengthSheetProps> = ({
                   end={{ x: 1, y: 0 }}
                   style={[
                     styles.ratioFocus,
-                    { width: `${100 - history.deepPrimePercent}%` },
+                    {
+                      width: `${history.totalSessions > 0 ? (history.focusCount / history.totalSessions) * 100 : 0}%`,
+                    },
                   ]}
                 />
                 <ExpoLinearGradient
@@ -441,10 +460,22 @@ const ThreadStrengthSheetContent: React.FC<ThreadStrengthSheetProps> = ({
                     { width: `${history.deepPrimePercent}%` },
                   ]}
                 />
+                <ExpoLinearGradient
+                  colors={[C.visualizeDeep, C.visualizeBright]}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 0 }}
+                  style={[
+                    styles.ratioVisualize,
+                    {
+                      width: `${history.totalSessions > 0 ? (history.visualizeCount / history.totalSessions) * 100 : 0}%`,
+                    },
+                  ]}
+                />
               </View>
               <View style={styles.ratioSubRow}>
                 <Text style={styles.ratioSub}>{history.focusCount} Focus sessions</Text>
                 <Text style={styles.ratioSub}>{history.deepCount} Deep Primes</Text>
+                <Text style={styles.ratioSub}>{history.visualizeCount} Visualize</Text>
               </View>
             </View>
 
@@ -517,6 +548,13 @@ const ThreadStrengthSheetContent: React.FC<ThreadStrengthSheetProps> = ({
                         <Text style={styles.tooltipValue}>{tooltip.day.deepCount}</Text>
                       </View>
                     ) : null}
+                    {tooltip.day.visualizeCount > 0 ? (
+                      <View style={styles.tooltipRow}>
+                        <View style={[styles.tooltipDot, { backgroundColor: C.visualizeBright }]} />
+                        <Text style={styles.tooltipLabel}>Visualize</Text>
+                        <Text style={styles.tooltipValue}>{tooltip.day.visualizeCount}</Text>
+                      </View>
+                    ) : null}
                   </View>
                 ) : null}
               </View>
@@ -542,6 +580,10 @@ const ThreadStrengthSheetContent: React.FC<ThreadStrengthSheetProps> = ({
                     <View style={[styles.legendSwatch, { backgroundColor: C.purpleBright }]} />
                     <Text style={styles.legendText}>Deep Prime</Text>
                   </View>
+                  <View style={styles.legendItem}>
+                    <View style={[styles.legendSwatch, { backgroundColor: C.visualizeBright }]} />
+                    <Text style={styles.legendText}>Visualize</Text>
+                  </View>
                 </View>
                 <View style={styles.legendScale}>
                   <Text style={styles.legendScaleLabel}>Less</Text>
@@ -560,7 +602,7 @@ const ThreadStrengthSheetContent: React.FC<ThreadStrengthSheetProps> = ({
                   <Animated.View style={[styles.heatmapTip, { opacity: tipOpacity }]}>
                     <Text style={styles.heatmapTipArrow}>↑</Text>
                     <Text style={styles.heatmapTipText}>
-                      Purple = Deep Prime · Gold = Focus
+                      Blue = Visualize · Purple = Deep Prime · Gold = Focus
                     </Text>
                   </Animated.View>
                 </Pressable>
@@ -756,6 +798,9 @@ const styles = StyleSheet.create({
   ratioDeep: {
     height: 6,
   },
+  ratioVisualize: {
+    height: 6,
+  },
   ratioSubRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -805,6 +850,9 @@ const styles = StyleSheet.create({
   weekDotDeep: {
     borderColor: 'rgba(212,175,55,0.35)',
   },
+  weekDotVisualize: {
+    borderColor: 'rgba(63,117,181,0.72)',
+  },
   weekDotToday: {
     backgroundColor: C.gold,
     borderColor: C.gold,
@@ -832,6 +880,9 @@ const styles = StyleSheet.create({
     backgroundColor: C.purpleBright,
     borderWidth: 1.5,
     borderColor: C.navySheet,
+  },
+  visualizePip: {
+    backgroundColor: C.visualizeBright,
   },
   future: {
     opacity: 0.3,
@@ -891,6 +942,10 @@ const styles = StyleSheet.create({
     opacity: 0.15,
   },
   deepSlice: {
+    width: '100%',
+    flexShrink: 0,
+  },
+  visualizeSlice: {
     width: '100%',
     flexShrink: 0,
   },

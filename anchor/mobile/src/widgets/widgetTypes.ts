@@ -42,6 +42,7 @@ export interface WidgetSnapshot {
   totalSessions: number;
   focusSessions: number;
   deepPrimeSessions: number;
+  visualizeSessions: number;
   deepPrimePercent: number;
   longestStreak: number;
   sensitivityLabel: string;
@@ -53,6 +54,7 @@ export interface WidgetSnapshot {
   anchorTotalSessions: number;
   anchorDayStreak: number;
   anchorDeepPrimeSessions: number;
+  anchorVisualizeSessions: number;
   currentWeek: WidgetWeekDay[];
   /** Most recent ~126 days (18 weeks), oldest first */
   history: WidgetHistoryDay[];
@@ -106,6 +108,7 @@ export function createEmptyWidgetSnapshot(): WidgetSnapshot {
     totalSessions: 0,
     focusSessions: 0,
     deepPrimeSessions: 0,
+    visualizeSessions: 0,
     deepPrimePercent: 0,
     longestStreak: 0,
     sensitivityLabel: 'Balanced',
@@ -113,6 +116,7 @@ export function createEmptyWidgetSnapshot(): WidgetSnapshot {
     anchorTotalSessions: 0,
     anchorDayStreak: 0,
     anchorDeepPrimeSessions: 0,
+    anchorVisualizeSessions: 0,
     currentWeek: [],
     history: [],
     lastPrimedDate: null,

@@ -71,6 +71,7 @@ export const ENABLE_GOOGLE_SIGN_IN = process.env.EXPO_PUBLIC_ENABLE_GOOGLE_SIGN_
 export const ENABLE_LEGACY_SUPABASE_SYNC =
   process.env.EXPO_PUBLIC_ENABLE_LEGACY_SUPABASE_SYNC === 'true';
 export const ENABLE_MERCH = process.env.EXPO_PUBLIC_ENABLE_MERCH === 'true';
+export const ENABLE_VISUALIZE = process.env.EXPO_PUBLIC_ENABLE_VISUALIZE === 'true';
 export const IOS_BUNDLE_ID = 'com.anchorintentions.app';
 export const ANDROID_PACKAGE_NAME = 'com.anchorintentions.app';
 export const PASSWORD_RESET_CONTINUE_URL = readOptionalPublicEnv(
@@ -122,6 +123,7 @@ export const Config = {
   ENABLE_GOOGLE_SIGN_IN,
   ENABLE_LEGACY_SUPABASE_SYNC,
   ENABLE_MERCH,
+  ENABLE_VISUALIZE,
   IOS_BUNDLE_ID,
   ANDROID_PACKAGE_NAME,
   PASSWORD_RESET_CONTINUE_URL,

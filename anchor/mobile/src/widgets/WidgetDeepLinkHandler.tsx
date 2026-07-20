@@ -16,14 +16,17 @@
  * fallback.
  */
 
-import { useEffect, useRef } from 'react';
-import { Linking } from 'react-native';
-import { useTabNavigation } from '@/contexts/TabNavigationContext';
-import { useAnchorStore } from '@/stores/anchorStore';
+import { useEffect, useRef } from "react";
+import { Linking } from "react-native";
+import { useTabNavigation } from "@/contexts/TabNavigationContext";
+import { useAnchorStore } from "@/stores/anchorStore";
+import { ENABLE_VISUALIZE } from "@/config";
 
 let initialUrlConsumed = false;
 
-export function isWidgetPracticeDeepLink(url: string | null | undefined): boolean {
+export function isWidgetPracticeDeepLink(
+  url: string | null | undefined,
+): boolean {
   if (!url) {
     return false;
   }
@@ -31,11 +34,29 @@ export function isWidgetPracticeDeepLink(url: string | null | undefined): boolea
   return /^anchor:\/\/+practice\/?$/i.test(url.trim());
 }
 
-export function getWidgetPrimeAnchorId(url: string | null | undefined): string | null {
+export function getWidgetPrimeAnchorId(
+  url: string | null | undefined,
+): string | null {
   if (!url) return null;
   const match = url.trim().match(/^anchor:\/\/+prime\/?\?anchorId=([^&]+)$/i);
   if (!match) return null;
 
+  try {
+    const anchorId = decodeURIComponent(match[1]);
+    return anchorId.length > 0 ? anchorId : null;
+  } catch {
+    return null;
+  }
+}
+
+export function getVisualizeAnchorId(
+  url: string | null | undefined,
+): string | null {
+  if (!url) return null;
+  const match = url
+    .trim()
+    .match(/^anchor:\/\/+visualize\/?\?anchorId=([^&]+)$/i);
+  if (!match) return null;
   try {
     const anchorId = decodeURIComponent(match[1]);
     return anchorId.length > 0 ? anchorId : null;
@@ -52,14 +73,32 @@ export function WidgetDeepLinkHandler(): null {
   navigateToVaultRef.current = navigateToVault;
 
   const handleUrl = (url: string | null | undefined) => {
+    const visualizeAnchorId = getVisualizeAnchorId(url);
+    if (visualizeAnchorId) {
+      if (!ENABLE_VISUALIZE) {
+        navigateToPracticeRef.current();
+        return;
+      }
+      const anchor = useAnchorStore.getState().getAnchorById(visualizeAnchorId);
+      if (anchor && !anchor.isReleased && !anchor.archivedAt) {
+        useAnchorStore.getState().setCurrentAnchor(anchor.id);
+        navigateToVaultRef.current("VisualizePreparation", {
+          anchorId: anchor.id,
+          source: "deep_link",
+        });
+        return;
+      }
+      navigateToPracticeRef.current();
+      return;
+    }
     const anchorId = getWidgetPrimeAnchorId(url);
     if (anchorId) {
       const anchor = useAnchorStore.getState().getAnchorById(anchorId);
       if (anchor) {
         useAnchorStore.getState().setCurrentAnchor(anchor.id);
-        navigateToVaultRef.current('ChargeSetup', {
+        navigateToVaultRef.current("ChargeSetup", {
           anchorId: anchor.id,
-          returnTo: 'practice',
+          returnTo: "practice",
         });
         return;
       }
@@ -78,7 +117,7 @@ export function WidgetDeepLinkHandler(): null {
       });
     }
 
-    const subscription = Linking.addEventListener('url', ({ url }) => {
+    const subscription = Linking.addEventListener("url", ({ url }) => {
       handleUrl(url);
     });
     return () => subscription.remove();

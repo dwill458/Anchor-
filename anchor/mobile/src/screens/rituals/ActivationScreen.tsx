@@ -53,6 +53,16 @@ import {
 } from '@/utils/anchorPriming';
 import { usePrimeSessionAccess } from '@/hooks/usePrimeSessionAccess';
 import { createPracticeEventId } from '@/utils/primingAnalytics';
+import {
+  DEFAULT_SESSION_AUDIO_DEFAULTS,
+  legacyAudioModeToSessionAudioDefaults,
+  resolveSessionAudioConfiguration,
+  type SessionAudioConfiguration,
+  type SessionAudioDefaults,
+} from '@/types/sessionAudio';
+import { persistSessionAudioDefaults } from '@/services/SessionAudioPreferencesService';
+import { resolveSessionAudioPlan } from '@/services/SessionAudioManifest';
+import { PracticeCompletionService } from '@/services/PracticeCompletionService';
 
 type ActivationRouteProp = RouteProp<RootStackParamList, 'ActivationRitual'>;
 type ActivationNavigationProp = NativeStackNavigationProp<RootStackParamList, 'ActivationRitual'>;
@@ -61,7 +71,14 @@ export const ActivationScreen: React.FC = () => {
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const { navigateToPractice } = useTabNavigation();
   const route = useRoute<ActivationRouteProp>();
-  const { anchorId, activationType, durationOverride, audioModeOverride, returnTo } = route.params;
+  const {
+    anchorId,
+    activationType,
+    durationOverride,
+    audioConfiguration,
+    audioModeOverride,
+    returnTo,
+  } = route.params;
   const toast = useToast();
 
   const getAnchorById = useAnchorStore((state) => state.getAnchorById);
@@ -74,8 +91,19 @@ export const ActivationScreen: React.FC = () => {
     (state) => state.enqueuePendingFirstAnchorMutation
   );
   const focusSessionDuration = useSettingsStore((state) => state.focusSessionDuration ?? 30);
-  const focusSessionAudio = useSettingsStore((state) => state.focusSessionAudio ?? 'ambient');
-  const resolvedFocusSessionAudio = audioModeOverride ?? focusSessionAudio;
+  const focusSessionAudioDefaults = useSettingsStore(
+    (state) => state.sessionAudioDefaults?.focus ?? DEFAULT_SESSION_AUDIO_DEFAULTS.focus
+  );
+  const [resolvedFocusSessionAudio, setResolvedFocusSessionAudio] =
+    useState<SessionAudioConfiguration>(() =>
+      audioConfiguration ??
+      resolveSessionAudioConfiguration(
+        focusSessionAudioDefaults,
+        audioModeOverride
+          ? legacyAudioModeToSessionAudioDefaults(audioModeOverride)
+          : undefined
+      )
+    );
   const traceDefaultEnabled = useSettingsStore((state) => state.traceDefaultEnabled ?? true);
   const { recordSession, bumpThreadStrength } = useSessionStore();
   const { recordShown } = useTeachingStore();
@@ -174,6 +202,15 @@ export const ActivationScreen: React.FC = () => {
 
     return Math.max(10, Math.min(120, Math.round(focusSessionDuration)));
   }, [durationOverride, focusSessionDuration]);
+  const focusSessionAudioPlan = useMemo(
+    () =>
+      resolveSessionAudioPlan({
+        sessionType: 'focus',
+        durationSeconds: activationDurationSeconds,
+        configuration: resolvedFocusSessionAudio,
+      }),
+    [activationDurationSeconds, resolvedFocusSessionAudio]
+  );
 
   const logActivationInBackground = useCallback(async (): Promise<void> => {
     if (hasLoggedActivationRef.current) return;
@@ -199,6 +236,11 @@ export const ActivationScreen: React.FC = () => {
         backend_synced: backendSynced,
         queued,
         is_first_prime: isFirstPrimeForAnchor,
+        guidance_voice: focusSessionAudioPlan.configuration.guidanceVoice,
+        requested_guidance_voice:
+          focusSessionAudioPlan.requestedConfiguration.guidanceVoice,
+        background_audio: focusSessionAudioPlan.configuration.backgroundAudio,
+        audio_source: focusSessionAudioPlan.configuration.source,
       };
       AnalyticsService.track(AnalyticsEvents.ANCHOR_ACTIVATED, properties);
       AnalyticsService.track(AnalyticsEvents.ACTIVATION_RITUAL_COMPLETED, properties);
@@ -314,6 +356,7 @@ export const ActivationScreen: React.FC = () => {
     incrementTotalPrimes,
     isPendingFirstAnchor,
     isFirstPrimeForAnchor,
+    focusSessionAudioPlan,
     shouldBackfillChargeState,
     toast,
     updateAnchor,
@@ -542,14 +585,30 @@ export const ActivationScreen: React.FC = () => {
     exitingRef.current = true;
 
     // Record session locally
+    const completedAt = new Date().toISOString();
     const completionEventId = recordSession({
       idempotencyKey: completionEventIdRef.current,
       anchorId,
       type: 'activate',
       durationSeconds: activationDurationSeconds,
-      mode: resolvedFocusSessionAudio,
+      mode:
+        focusSessionAudioPlan.configuration.backgroundAudio === 'ambient' ||
+        focusSessionAudioPlan.configuration.guidanceVoice !== 'none'
+          ? 'ambient'
+          : 'silent',
+      audioConfiguration: focusSessionAudioPlan.configuration,
       reflectionWord,
-      completedAt: new Date().toISOString(),
+      completedAt,
+    });
+    void PracticeCompletionService.queueLegacyCompletion({
+      id: completionEventId,
+      anchorId,
+      anchorLocalId: anchor?.localId,
+      practiceMode: 'focus',
+      durationSeconds: activationDurationSeconds,
+      completedAt,
+      guidanceVoice: focusSessionAudioPlan.configuration.guidanceVoice,
+      backgroundAudio: focusSessionAudioPlan.configuration.backgroundAudio,
     });
     void recordReviewSignal('focus_session_completed');
     await queueProgressionMilestonesFromStores({ sourceEventId: completionEventId });
@@ -589,7 +648,7 @@ export const ActivationScreen: React.FC = () => {
     navigation,
     recordSession,
     handlePrimeComplete,
-    resolvedFocusSessionAudio,
+    focusSessionAudioPlan,
     returnTo,
     scheduleReviewRequestAfterHomeReturn,
   ]);
@@ -610,7 +669,13 @@ export const ActivationScreen: React.FC = () => {
         intentionText={anchor.intentionText}
         anchorImageUri={anchorHeroUri}
         durationSeconds={activationDurationSeconds}
-        audioModeOverride={audioModeOverride}
+        audioConfiguration={resolvedFocusSessionAudio}
+        onAudioConfigurationChange={(value: SessionAudioDefaults, makeDefault: boolean) => {
+          setResolvedFocusSessionAudio({ ...value, source: 'session_override' });
+          if (makeDefault) {
+            void persistSessionAudioDefaults('focus', value).catch(() => undefined);
+          }
+        }}
         onComplete={handleComplete}
         onSessionCompleted={handleSessionCompleted}
         groundNoteText={groundNoteTeaching?.copy}

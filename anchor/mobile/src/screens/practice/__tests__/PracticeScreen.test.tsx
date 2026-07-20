@@ -38,6 +38,10 @@ const mockSettingsState: any = {
   defaultActivation: { mode: 'silent', unit: 'seconds', value: 30 },
   defaultCharge: { mode: 'ritual', preset: '5m', customMinutes: undefined },
   dailyPracticeGoal: 3,
+  sessionAudioDefaults: {
+    focus: { guidanceVoice: 'female', backgroundAudio: 'ambient' },
+    deep_prime: { guidanceVoice: 'female', backgroundAudio: 'ambient' },
+  },
 };
 
 jest.mock('@react-navigation/native', () => {
@@ -263,7 +267,7 @@ describe('PracticeScreen', () => {
         preset: {
           sessionType: 'focus',
           durationSeconds: 60,
-          audioMode: 'silent',
+          audioConfiguration: { guidanceVoice: 'none', backgroundAudio: 'off' },
         },
       },
     };
@@ -281,7 +285,11 @@ describe('PracticeScreen', () => {
         anchorId: 'a66',
         activationType: 'visual',
         durationOverride: 60,
-        audioModeOverride: 'silent',
+        audioConfiguration: {
+          guidanceVoice: 'none',
+          backgroundAudio: 'off',
+          source: 'session_override',
+        },
         returnTo: 'practice',
       });
     });
@@ -353,6 +361,11 @@ describe('PracticeScreen', () => {
         anchorId: 'a55',
         activationType: 'visual',
         durationOverride: 30,
+        audioConfiguration: {
+          guidanceVoice: 'female',
+          backgroundAudio: 'ambient',
+          source: 'default',
+        },
         returnTo: 'practice',
       });
     });
