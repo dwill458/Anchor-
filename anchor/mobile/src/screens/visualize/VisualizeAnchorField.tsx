@@ -16,6 +16,7 @@ interface VisualizeAnchorFieldProps {
   active: boolean;
   reduceMotion: boolean;
   performanceTier: PerformanceTier;
+  heroSize: number;
   compact?: boolean;
   children: React.ReactNode;
 }
@@ -70,13 +71,14 @@ const startRotationLoop = (
   return animation;
 };
 
-export const VisualizeAnchorField: React.FC<VisualizeAnchorFieldProps> = ({
+const VisualizeAnchorFieldComponent: React.FC<VisualizeAnchorFieldProps> = ({
   phase,
   phaseProgress,
   totalProgress,
   active,
   reduceMotion,
   performanceTier,
+  heroSize,
   compact = false,
   children,
 }) => {
@@ -260,6 +262,11 @@ export const VisualizeAnchorField: React.FC<VisualizeAnchorFieldProps> = ({
     0.86,
     presentation.glow + totalProgress * 0.12,
   );
+  const fieldSize = Math.min(heroSize + 84, 380);
+  const outerRingSize = fieldSize - 8;
+  const orbitSize = Math.round(fieldSize * 0.76);
+  const traceSize = Math.round(fieldSize * 0.66);
+  const glowSize = heroSize + 16;
 
   return (
     <View
@@ -267,7 +274,11 @@ export const VisualizeAnchorField: React.FC<VisualizeAnchorFieldProps> = ({
       pointerEvents="none"
       accessibilityElementsHidden
       importantForAccessibility="no-hide-descendants"
-      style={[styles.field, compact && styles.fieldCompact]}
+      style={[
+        styles.field,
+        { width: fieldSize, height: fieldSize },
+        compact && styles.fieldCompact,
+      ]}
     >
       <LinearGradient
         colors={['rgba(101,153,204,0)', `rgba(87,139,190,${0.08 + presentation.depth * 0.08})`, 'rgba(101,153,204,0)']}
@@ -303,8 +314,9 @@ export const VisualizeAnchorField: React.FC<VisualizeAnchorFieldProps> = ({
       ) : null}
 
       <Animated.View
-        style={[
+          style={[
           styles.wideRing,
+          { width: outerRingSize, height: outerRingSize, borderRadius: outerRingSize / 2 },
           { opacity: ringOpacity, transform: [{ scale: ringScale }, { rotate }] },
         ]}
         renderToHardwareTextureAndroid={Platform.OS === 'android'}
@@ -316,6 +328,7 @@ export const VisualizeAnchorField: React.FC<VisualizeAnchorFieldProps> = ({
       <Animated.View
         style={[
           styles.violetOrbit,
+          { width: orbitSize, height: orbitSize, borderRadius: orbitSize / 2 },
           {
             opacity: 0.2 + presentation.depth * 0.22,
             transform: [{ rotate: rotate }],
@@ -328,13 +341,14 @@ export const VisualizeAnchorField: React.FC<VisualizeAnchorFieldProps> = ({
       <Animated.View
         style={[
           styles.goldTrace,
+          { width: traceSize, height: traceSize },
           {
             opacity: 0.28 + presentation.glow * 0.34,
             transform: [{ rotate: shimmerRotate }],
           },
         ]}
       >
-        <Svg width={224} height={224} viewBox="0 0 224 224">
+        <Svg width={traceSize} height={traceSize} viewBox="0 0 224 224">
           <Circle
             cx="112"
             cy="112"
@@ -358,6 +372,7 @@ export const VisualizeAnchorField: React.FC<VisualizeAnchorFieldProps> = ({
       <Animated.View
         style={[
           styles.anchorGlow,
+          { width: glowSize, height: glowSize, borderRadius: glowSize / 2 },
           {
             opacity: accumulatedGlow,
             transform: [{ scale: pulseScale }, { scale: breathScale }],
@@ -367,6 +382,7 @@ export const VisualizeAnchorField: React.FC<VisualizeAnchorFieldProps> = ({
       <Animated.View
         style={[
           styles.anchor,
+          { width: heroSize, height: heroSize },
           { transform: [{ scale: pulseScale }, { scale: breathScale }] },
         ]}
       >
@@ -376,10 +392,53 @@ export const VisualizeAnchorField: React.FC<VisualizeAnchorFieldProps> = ({
   );
 };
 
+/**
+ * The session screen re-renders ~10x/second (100ms elapsed tick) so it can
+ * animate the countdown and the bottom progress bar. This field, however, is a
+ * heavy tree (nested Animated.Views, SVG, gradients, particles) whose motion is
+ * driven entirely by its own native-driver loops — the per-tick `phaseProgress`
+ * / `totalProgress` props only feed the seal-pulse trigger and a subtle glow.
+ * Skipping re-renders that don't change either keeps that motion identical while
+ * cutting this subtree's render work by an order of magnitude on-device.
+ */
+const areFieldPropsEqual = (
+  prev: VisualizeAnchorFieldProps,
+  next: VisualizeAnchorFieldProps,
+): boolean => {
+  if (
+    prev.phase !== next.phase ||
+    prev.active !== next.active ||
+    prev.reduceMotion !== next.reduceMotion ||
+    prev.performanceTier !== next.performanceTier ||
+    prev.heroSize !== next.heroSize ||
+    prev.compact !== next.compact
+  ) {
+    return false;
+  }
+  // `children` is the Anchor lens, which only depends on the anchor + heroSize
+  // (both stable for a session, heroSize compared above). Ignoring its per-render
+  // identity is what lets the memo actually engage.
+
+  // Glow drifts with totalProgress; 2-decimal quantization stays smooth to the
+  // eye while collapsing the 10Hz stream into a handful of updates per session.
+  if (
+    Math.round(prev.totalProgress * 100) !== Math.round(next.totalProgress * 100)
+  ) {
+    return false;
+  }
+  // The seal pulse fires once when its threshold is crossed mid-"seal" phase.
+  const prevSealArmed = prev.phase === 'seal' && prev.phaseProgress >= 0.82;
+  const nextSealArmed = next.phase === 'seal' && next.phaseProgress >= 0.82;
+  return prevSealArmed === nextSealArmed;
+};
+
+export const VisualizeAnchorField = React.memo(
+  VisualizeAnchorFieldComponent,
+  areFieldPropsEqual,
+);
+
 const styles = StyleSheet.create({
   field: {
-    width: 330,
-    height: 330,
     alignItems: 'center',
     justifyContent: 'center',
     position: 'relative',
@@ -411,16 +470,13 @@ const styles = StyleSheet.create({
   },
   wideRing: {
     position: 'absolute',
-    width: 286,
-    height: 286,
-    borderRadius: 143,
     borderWidth: 1,
     borderColor: 'rgba(112,167,216,0.7)',
   },
   ringTick: {
     position: 'absolute',
     top: -2,
-    left: 138,
+    left: '49%',
     width: 8,
     height: 3,
     borderRadius: 2,
@@ -429,7 +485,7 @@ const styles = StyleSheet.create({
   ringTickOpposite: {
     position: 'absolute',
     bottom: -1,
-    left: 140,
+    left: '50%',
     width: 4,
     height: 2,
     borderRadius: 1,
@@ -437,9 +493,6 @@ const styles = StyleSheet.create({
   },
   violetOrbit: {
     position: 'absolute',
-    width: 252,
-    height: 252,
-    borderRadius: 126,
     borderWidth: 1,
     borderColor: 'rgba(145,111,202,0.25)',
   },
@@ -454,8 +507,6 @@ const styles = StyleSheet.create({
   },
   goldTrace: {
     position: 'absolute',
-    width: 224,
-    height: 224,
   },
   sealPulse: {
     position: 'absolute',
@@ -468,16 +519,11 @@ const styles = StyleSheet.create({
   },
   anchorGlow: {
     position: 'absolute',
-    width: 184,
-    height: 184,
-    borderRadius: 92,
     backgroundColor: 'rgba(212,175,55,0.13)',
     borderWidth: 1,
     borderColor: 'rgba(225,191,83,0.25)',
   },
   anchor: {
-    width: 170,
-    height: 170,
     alignItems: 'center',
     justifyContent: 'center',
   },

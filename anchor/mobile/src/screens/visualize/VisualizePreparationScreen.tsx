@@ -1,7 +1,6 @@
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
-  Image,
   Keyboard,
   KeyboardAvoidingView,
   Platform,
@@ -13,7 +12,7 @@ import {
   useWindowDimensions,
   View,
 } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
+import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import {
   ArrowLeft,
   LockKeyhole,
@@ -21,7 +20,6 @@ import {
   RotateCcw,
 } from "lucide-react-native";
 import { LinearGradient } from "expo-linear-gradient";
-import { SvgXml } from "react-native-svg";
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
 
 import type { RootStackParamList } from "@/types";
@@ -43,10 +41,8 @@ import { colors, spacing, typography } from "@/theme";
 import type { SessionAudioDefaults } from "@/types/sessionAudio";
 import { MicroTeachCard } from "@/components/teaching";
 import { useTeachingGate } from "@/utils/useTeachingGate";
-import {
-  getPreparationArtworkSize,
-  shouldPinPreparationCta,
-} from "./visualizePresentation";
+import { getVisualizationLensSize, shouldPinPreparationCta } from "./visualizePresentation";
+import { VisualizationAnchorLens, VisualizationPrimaryButton } from './VisualizationPrimitives';
 
 type Props = NativeStackScreenProps<RootStackParamList, "VisualizePreparation">;
 
@@ -55,6 +51,7 @@ export const VisualizePreparationScreen: React.FC<Props> = ({
   route,
 }) => {
   const window = useWindowDimensions();
+  const insets = useSafeAreaInsets();
   const anchor = useAnchorStore((state) =>
     state.getAnchorById(route.params.anchorId),
   );
@@ -99,6 +96,7 @@ export const VisualizePreparationScreen: React.FC<Props> = ({
   const [viewportHeight, setViewportHeight] = useState(0);
   const [contentHeight, setContentHeight] = useState(0);
   const [stickyCta, setStickyCta] = useState(false);
+  const startingRef = useRef(false);
   const sceneTeaching = useTeachingGate({
     screenId: "visualize_preparation",
     candidateIds: ["visualize_scene_explainer"],
@@ -115,8 +113,9 @@ export const VisualizePreparationScreen: React.FC<Props> = ({
   );
   const hasUnsavedChanges =
     !!scene && normalizeVisualizationSceneText(sceneText) !== savedSceneText;
-  const artworkSize = getPreparationArtworkSize(window.height);
+  const artworkSize = getVisualizationLensSize('entrance', window.width);
   const compactHeight = window.height < 780;
+  const stickyButtonHeight = 52 + 10 + insets.bottom;
 
   useEffect(() => {
     AnalyticsService.track(AnalyticsEvents.VISUALIZE_PREPARATION_VIEWED, {
@@ -247,6 +246,20 @@ export const VisualizePreparationScreen: React.FC<Props> = ({
   if (!anchor) return <View style={styles.container} />;
 
   const start = async () => {
+    // Guard against double-taps: saveScene() is awaited before we navigate, so
+    // a second press could otherwise fire a duplicate replace("VisualizeSession").
+    if (startingRef.current) return;
+    startingRef.current = true;
+    try {
+      await runStart();
+    } finally {
+      // Only the success path navigates away; reset so paywall/validation/error
+      // exits stay tappable.
+      startingRef.current = false;
+    }
+  };
+
+  const runStart = async () => {
     if (!hasActiveEntitlement) {
       AnalyticsService.track(AnalyticsEvents.VISUALIZE_PRO_LOCK_VIEWED, {
         anchor_id: anchor.id,
@@ -279,23 +292,15 @@ export const VisualizePreparationScreen: React.FC<Props> = ({
   };
 
   const beginCta = (
-    <Pressable
+    <View
       testID={stickyCta ? "visualize-begin-sticky" : "visualize-begin-inline"}
-      accessibilityRole="button"
-      onPress={() => void start()}
       style={[styles.begin, stickyCta && styles.beginSticky]}
     >
-      <LinearGradient
-        colors={["#E0BD4E", "#AC8120"]}
-        style={styles.beginGradient}
-      >
-        <Text style={styles.beginText}>
-          {hasActiveEntitlement
-            ? "BEGIN VISUALIZATION"
-            : "UNLOCK VISUALIZE"}
-        </Text>
-      </LinearGradient>
-    </Pressable>
+      <VisualizationPrimaryButton
+        label={hasActiveEntitlement ? "BEGIN VISUALIZATION" : "UNLOCK VISUALIZE"}
+        onPress={() => void start()}
+      />
+    </View>
   );
 
   return (
@@ -325,7 +330,7 @@ export const VisualizePreparationScreen: React.FC<Props> = ({
             contentContainerStyle={[
               styles.content,
               compactHeight && styles.contentCompact,
-              stickyCta && styles.contentWithStickyCta,
+              stickyCta && { paddingBottom: stickyButtonHeight + 28 },
             ]}
             keyboardShouldPersistTaps="handled"
             keyboardDismissMode={Platform.OS === "ios" ? "interactive" : "on-drag"}
@@ -342,17 +347,8 @@ export const VisualizePreparationScreen: React.FC<Props> = ({
             Rehearse a real behavior through five quiet phases. Your Anchor
             supports the scene—it never becomes literal imagery.
           </Text>
-          <View style={[styles.artwork, { height: artworkSize }]}>
-            <View style={styles.artGlow} />
-            {imageUrl ? (
-              <Image
-                source={{ uri: imageUrl }}
-                style={styles.artImage}
-                resizeMode="contain"
-              />
-            ) : sigilSvg ? (
-              <SvgXml xml={sigilSvg} width={138} height={138} />
-            ) : null}
+          <View style={[styles.artwork, { height: artworkSize + 8 }]}>
+            <VisualizationAnchorLens size={artworkSize} imageUrl={imageUrl} svg={sigilSvg} />
           </View>
           <View style={styles.intentionCard}>
             <Text style={styles.sceneLabel}>ORIGINAL INTENTION</Text>
@@ -405,7 +401,7 @@ export const VisualizePreparationScreen: React.FC<Props> = ({
                 <View style={styles.sceneActions}>
                   <Pressable
                     onPress={() => void tryAnother()}
-                    style={styles.textButton}
+                    style={styles.sceneActionButton}
                   >
                     <RefreshCw color={colors.gold} size={14} />
                     <Text style={styles.textButtonLabel}>Try Another</Text>
@@ -420,7 +416,7 @@ export const VisualizePreparationScreen: React.FC<Props> = ({
                         );
                       }
                     }}
-                    style={styles.textButton}
+                    style={styles.sceneActionButton}
                   >
                     <RotateCcw color={colors.gold} size={14} />
                     <Text style={styles.textButtonLabel}>Restore Original</Text>
@@ -460,7 +456,7 @@ export const VisualizePreparationScreen: React.FC<Props> = ({
             {!stickyCta ? beginCta : null}
           </ScrollView>
           {stickyCta && !keyboardVisible ? (
-            <View style={styles.stickyCta}>{beginCta}</View>
+            <View style={[styles.stickyCta, { paddingBottom: insets.bottom + 8 }]}>{beginCta}</View>
           ) : null}
         </KeyboardAvoidingView>
         <SessionConfigurationSheet
@@ -520,7 +516,6 @@ const styles = StyleSheet.create({
     alignItems: "stretch",
   },
   contentCompact: { paddingHorizontal: 20, paddingBottom: 16 },
-  contentWithStickyCta: { paddingBottom: 92 },
   eyebrow: {
     color: colors.gold,
     fontFamily: typography.fonts.body,
@@ -543,24 +538,14 @@ const styles = StyleSheet.create({
     fontSize: 13,
     lineHeight: 18,
     textAlign: "center",
-    marginTop: 8,
+    marginTop: 5,
   },
-  artwork: { alignItems: "center", justifyContent: "center" },
-  artGlow: {
-    position: "absolute",
-    width: 150,
-    height: 150,
-    borderRadius: 75,
-    backgroundColor: "rgba(38,91,142,.22)",
-    borderWidth: 1,
-    borderColor: "rgba(212,175,55,.2)",
-  },
-  artImage: { width: 142, height: 142 },
+  artwork: { alignItems: "center", justifyContent: "center", marginTop: 2 },
   sceneCard: {
     marginTop: 14,
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-    borderRadius: 18,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    borderRadius: 25,
     backgroundColor: "rgba(5,17,31,.72)",
     borderWidth: 1,
     borderColor: "rgba(212,175,55,.2)",
@@ -597,14 +582,21 @@ const styles = StyleSheet.create({
   sceneActions: {
     flexDirection: "row",
     justifyContent: "space-between",
-    marginTop: 7,
+    marginTop: 9,
     gap: 8,
   },
-  textButton: {
+  sceneActionButton: {
+    flex: 1,
     minHeight: 44,
     flexDirection: "row",
     alignItems: "center",
+    justifyContent: "center",
     gap: 6,
+    paddingHorizontal: 8,
+    borderRadius: 13,
+    backgroundColor: "rgba(212,175,55,.06)",
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: "rgba(212,175,55,.18)",
   },
   textButtonLabel: {
     color: colors.gold,
@@ -634,24 +626,12 @@ const styles = StyleSheet.create({
     lineHeight: 19,
   },
   teachingCard: { marginTop: 12 },
-  begin: { marginTop: 12, borderRadius: 17, overflow: "hidden" },
+  begin: { marginTop: 12 },
   beginSticky: { marginTop: 0 },
-  beginGradient: {
-    minHeight: 52,
-    paddingVertical: 15,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  beginText: {
-    color: "#07111D",
-    fontFamily: typography.fonts.heading,
-    fontSize: 12,
-    letterSpacing: 1.4,
-  },
   intentionCard: {
     paddingHorizontal: 14,
     paddingVertical: 11,
-    borderRadius: 15,
+    borderRadius: 25,
     backgroundColor: "rgba(5,17,31,.48)",
     borderWidth: 1,
     borderColor: "rgba(255,255,255,.07)",
@@ -662,7 +642,7 @@ const styles = StyleSheet.create({
     fontSize: 14,
     lineHeight: 19,
   },
-  configurationBlock: { marginTop: 14 },
+  configurationBlock: { marginTop: 14, marginBottom: 2 },
   stickyCta: {
     position: "absolute",
     left: 0,

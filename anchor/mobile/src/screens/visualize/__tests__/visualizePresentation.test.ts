@@ -1,6 +1,6 @@
 import {
   VISUALIZE_PHASE_PRESENTATION,
-  getPreparationArtworkSize,
+  getVisualizationLensSize,
   getVisualizePresentationPhase,
   getVisualizeSegmentState,
   shouldPinPreparationCta,
@@ -47,18 +47,22 @@ describe('Visualize presentation', () => {
     expect(shouldPinPreparationCta(900, 760, true)).toBe(false);
   });
 
-  it('keeps the entrance artwork within the requested responsive range', () => {
-    expect(getPreparationArtworkSize(667)).toBe(180);
-    expect(getPreparationArtworkSize(844)).toBe(192);
+  it('sizes each circular Anchor Lens responsively without exceeding its maximum', () => {
+    expect(getVisualizationLensSize('entrance', 360)).toBe(187);
+    expect(getVisualizationLensSize('practice', 360)).toBe(259);
+    expect(getVisualizationLensSize('completion', 360)).toBe(202);
+    expect(getVisualizationLensSize('entrance', 480)).toBe(210);
+    expect(getVisualizationLensSize('practice', 480)).toBe(290);
+    expect(getVisualizationLensSize('completion', 480)).toBe(225);
   });
 
   it.each([
-    ['small Android', 667, 820, 600, true, 180],
-    ['standard iPhone', 844, 748, 760, false, 192],
+    ['small Android', 360, 820, 600, true, 187],
+    ['standard iPhone', 390, 748, 760, false, 203],
   ] as const)(
     'adapts the entrance layout for a %s viewport',
-    (_device, screenHeight, contentHeight, viewportHeight, pinned, artworkSize) => {
-      expect(getPreparationArtworkSize(screenHeight)).toBe(artworkSize);
+    (_device, screenWidth, contentHeight, viewportHeight, pinned, artworkSize) => {
+      expect(getVisualizationLensSize('entrance', screenWidth)).toBe(artworkSize);
       expect(
         shouldPinPreparationCta(contentHeight, viewportHeight, false),
       ).toBe(pinned);
