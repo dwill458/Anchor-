@@ -213,10 +213,6 @@ jest.mock('@/services/AnalyticsService', () => ({
     },
 }));
 
-jest.mock('@/components/MoreRitualsSheet', () => ({
-    MoreRitualsSheet: () => null,
-}));
-
 jest.mock('@/components/ShareCardRenderer', () => {
     const React = require('react');
     const { View } = require('react-native');
@@ -308,6 +304,7 @@ describe('AnchorDetailScreen', () => {
         render(<AnchorDetailScreen navigation={navigation} route={route} />);
         expect(screen.getByText('Ready to prime?')).toBeTruthy();
         expect(screen.getByText('Open Practice')).toBeTruthy();
+        expect(screen.queryByText('Visualize')).toBeNull();
     });
 
     it('stub: shows the compact priming stats', () => {

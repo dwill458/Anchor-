@@ -34,6 +34,7 @@ import {
   WIDGET_NAMES,
   WIDGET_SNAPSHOT_STORAGE_KEY,
   type WidgetHistoryDay,
+  type WidgetPracticeType,
   type WidgetSnapshot,
   type WidgetWeekDay,
 } from './widgetTypes';
@@ -50,14 +51,24 @@ export function buildWidgetHistory(
   primingHistory: PrimingHistoryEntry[],
   now: Date = new Date()
 ): WidgetHistoryDay[] {
-  const byDate = new Map<string, { count: number; deep: boolean }>();
-  for (const entry of primingHistory) {
-    const existing = byDate.get(entry.localDate) ?? { count: 0, deep: false };
+  const byDate = new Map<string, { count: number; deep: boolean; mode: WidgetPracticeType; timestamp: number }>();
+  for (const entry of classifyWidgetSessions(primingHistory)) {
+    const existing = byDate.get(entry.dateKey) ?? {
+      count: 0,
+      deep: false,
+      mode: entry.displayType,
+      timestamp: Number.NEGATIVE_INFINITY,
+    };
     existing.count += 1;
-    if (entry.type === 'reinforce') {
+    if (entry.displayType === 'deep_prime') {
       existing.deep = true;
     }
-    byDate.set(entry.localDate, existing);
+    // The latest completion is the deterministic color for a mixed-mode day.
+    if (entry.timestamp >= existing.timestamp) {
+      existing.mode = entry.displayType;
+      existing.timestamp = entry.timestamp;
+    }
+    byDate.set(entry.dateKey, existing);
   }
 
   const days: WidgetHistoryDay[] = [];
@@ -66,7 +77,7 @@ export function buildWidgetHistory(
     const dayData = byDate.get(date);
     const count = dayData?.count ?? 0;
     const level = (count === 0 ? 0 : count === 1 ? 1 : count === 2 ? 2 : 3) as 0 | 1 | 2 | 3;
-    days.push({ date, level, deep: dayData?.deep ?? false });
+    days.push({ date, level, deep: dayData?.deep ?? false, mode: dayData?.mode });
   }
   return days;
 }
@@ -83,7 +94,31 @@ const SENSITIVITY_COPY: Record<
 interface ClassifiedWidgetSession extends PrimingHistoryEntry {
   dateKey: string;
   timestamp: number;
-  displayType: 'focus' | 'deep' | 'visualize';
+  displayType: WidgetPracticeType;
+}
+
+const WIDGET_PRACTICE_TYPE_ALIASES: Record<string, WidgetPracticeType> = {
+  focus: 'focus',
+  focus_session: 'focus',
+  activation: 'focus',
+  activate: 'focus',
+  deep_prime: 'deep_prime',
+  deepprime: 'deep_prime',
+  deep: 'deep_prime',
+  prime: 'deep_prime',
+  reinforce: 'deep_prime',
+  visualize: 'visualize',
+  visualization: 'visualize',
+  visualize_mode: 'visualize',
+};
+
+/** Normalizes legacy session labels for widgets without rewriting history. */
+export function normalizeWidgetPracticeType(value: unknown): WidgetPracticeType | null {
+  if (typeof value !== 'string') {
+    return null;
+  }
+  const normalized = value.trim().toLowerCase().replace(/[\s-]+/g, '_');
+  return WIDGET_PRACTICE_TYPE_ALIASES[normalized] ?? null;
 }
 
 /**
@@ -96,12 +131,24 @@ function classifyWidgetSessions(entries: PrimingHistoryEntry[]): ClassifiedWidge
   const lastSignatureTime = new Map<string, number>();
   const anchorsWithPriorPrime = new Set<string>();
   const sorted = entries
-    .filter((entry) => entry.type === 'activate' || entry.type === 'reinforce' || entry.type === 'visualize')
-    .map((entry) => ({
-      ...entry,
-      dateKey: entry.localDate,
-      timestamp: new Date(entry.completedAt).getTime(),
-    }))
+    .map((entry) => {
+      const rawEntry = entry as PrimingHistoryEntry & { type?: unknown; practiceMode?: unknown };
+      // A persisted practiceMode is more specific than the older generic
+      // activate/reinforce event type. This keeps Visualize out of Focus.
+      const displayType =
+        normalizeWidgetPracticeType(rawEntry.practiceMode) ??
+        normalizeWidgetPracticeType(rawEntry.type);
+      return displayType
+        ? {
+            ...entry,
+            displayType,
+            rawType: typeof rawEntry.type === 'string' ? rawEntry.type : '',
+            dateKey: entry.localDate,
+            timestamp: new Date(entry.completedAt).getTime(),
+          }
+        : null;
+    })
+    .filter((entry): entry is NonNullable<typeof entry> => entry != null)
     .filter((entry) => !Number.isNaN(entry.timestamp))
     .sort((left, right) => left.timestamp - right.timestamp);
 
@@ -119,11 +166,10 @@ function classifyWidgetSessions(entries: PrimingHistoryEntry[]): ClassifiedWidge
     }
     lastSignatureTime.set(signature, entry.timestamp);
 
-    const displayType = entry.type === 'visualize'
-      ? 'visualize'
-      : entry.type === 'reinforce' && anchorsWithPriorPrime.has(entry.anchorId)
-        ? 'deep'
-        : 'focus';
+    const displayType =
+      entry.rawType === 'reinforce' && entry.displayType === 'deep_prime' && !anchorsWithPriorPrime.has(entry.anchorId)
+        ? 'focus'
+        : entry.displayType;
     classified.push({ ...entry, displayType });
     anchorsWithPriorPrime.add(entry.anchorId);
   }
@@ -186,7 +232,7 @@ function buildAnchorMetrics(
   return {
     anchorTotalSessions: sessions.length,
     anchorDayStreak: currentSessionStreak(sessions, now),
-    anchorDeepPrimeSessions: sessions.filter((session) => session.displayType === 'deep').length,
+    anchorDeepPrimeSessions: sessions.filter((session) => session.displayType === 'deep_prime').length,
     anchorVisualizeSessions: sessions.filter((session) => session.displayType === 'visualize').length,
   };
 }
@@ -196,22 +242,24 @@ function buildCurrentWeek(
   now: Date
 ): WidgetWeekDay[] {
   const today = localDateString(now);
-  const byDate = new Map<string, { focus: boolean; deep: boolean }>();
+  const byDate = new Map<string, { focus: boolean; deep: boolean; visualize: boolean }>();
   for (const session of sessions) {
-    const value = byDate.get(session.dateKey) ?? { focus: false, deep: false };
-    if (session.displayType !== 'visualize') value[session.displayType] = true;
+    const value = byDate.get(session.dateKey) ?? { focus: false, deep: false, visualize: false };
+    if (session.displayType === 'deep_prime') value.deep = true;
+    else value[session.displayType] = true;
     byDate.set(session.dateKey, value);
   }
 
   return ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map((label, index) => {
     const date = addDays(startOfIsoWeek(now), index);
     const dateKey = localDateString(date);
-    const value = byDate.get(dateKey) ?? { focus: false, deep: false };
+    const value = byDate.get(dateKey) ?? { focus: false, deep: false, visualize: false };
     return {
       label,
       date: dateKey,
       hasFocus: value.focus,
       hasDeep: value.deep,
+      hasVisualize: value.visualize,
       isToday: dateKey === today,
       isFuture: dateKey > today,
     };
@@ -237,7 +285,7 @@ function buildWidgetSummary(
   | 'currentWeek'
 > {
   const sessions = classifyWidgetSessions(primingHistory);
-  const deepPrimeSessions = sessions.filter((session) => session.displayType === 'deep').length;
+  const deepPrimeSessions = sessions.filter((session) => session.displayType === 'deep_prime').length;
   const visualizeSessions = sessions.filter((session) => session.displayType === 'visualize').length;
   const focusSessions = sessions.length - deepPrimeSessions - visualizeSessions;
   const totalSessions = sessions.length;
@@ -280,6 +328,29 @@ export function selectWidgetAnchor(
   return activeAnchors.find((anchor) => anchor.id === currentAnchorId) ?? activeAnchors[0];
 }
 
+function hashWidgetArtwork(value: string): string {
+  let hash = 2166136261;
+  for (let index = 0; index < value.length; index += 1) {
+    hash ^= value.charCodeAt(index);
+    hash = Math.imul(hash, 16777619);
+  }
+  return (hash >>> 0).toString(16);
+}
+
+function selectWidgetArtwork(anchor: Anchor | undefined): Pick<WidgetSnapshot, 'sigilSvg' | 'artworkSource' | 'artworkVersion'> {
+  const reinforced = anchor?.reinforcedSigilSvg?.trim();
+  const base = anchor?.baseSigilSvg?.trim();
+  const sigilSvg = reinforced || base || null;
+  const artworkSource = reinforced ? 'reinforced_svg' : base ? 'base_svg' : 'fallback';
+  const changedAt = anchor?.updatedAt instanceof Date ? anchor.updatedAt.toISOString() : String(anchor?.updatedAt ?? '');
+
+  return {
+    sigilSvg,
+    artworkSource,
+    artworkVersion: anchor && sigilSvg ? `${anchor.userId}:${anchor.id}:${changedAt}:${hashWidgetArtwork(sigilSvg)}` : null,
+  };
+}
+
 export interface WidgetSnapshotInputs {
   anchors: Anchor[];
   currentAnchorId: string | undefined;
@@ -300,8 +371,7 @@ export function buildWidgetSnapshot(inputs: WidgetSnapshotInputs): WidgetSnapsho
     now
   );
   const selectedAnchor = selectWidgetAnchor(inputs.anchors, inputs.currentAnchorId);
-  const sigilSvg =
-    selectedAnchor?.baseSigilSvg?.trim() || selectedAnchor?.reinforcedSigilSvg?.trim() || null;
+  const artwork = selectWidgetArtwork(selectedAnchor);
   const summary = buildWidgetSummary(
     inputs.primingHistory,
     now,
@@ -313,7 +383,7 @@ export function buildWidgetSnapshot(inputs: WidgetSnapshotInputs): WidgetSnapsho
     ...createEmptyWidgetSnapshot(),
     anchorId: selectedAnchor?.id ?? null,
     anchorName: selectedAnchor?.intentionText?.trim() || WIDGET_FALLBACK_ANCHOR_NAME,
-    sigilSvg,
+    ...artwork,
     primedToday: inputs.lastPrimedAt === today,
     streak: streakResult.currentStreak,
     ...summary,

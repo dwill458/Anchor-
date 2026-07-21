@@ -435,6 +435,12 @@ function buildPracticeHistory(
       anchorId: activation.anchorId,
       type: activation.activationType === 'deep' ? 'reinforce' : 'activate',
       completedAt: activation.activatedAt,
+      practiceMode:
+        activation.activationType === 'visual'
+          ? 'visualize'
+          : activation.activationType === 'deep'
+            ? 'deep'
+            : 'focus',
     });
     if (entry) entries.set(entry.id, entry);
   });
@@ -454,6 +460,7 @@ function buildPracticeHistory(
       anchorId: charge.anchorId,
       type: 'reinforce',
       completedAt: charge.chargedAt,
+      practiceMode: 'deep',
     });
     if (entry) entries.set(entry.id, entry);
   });

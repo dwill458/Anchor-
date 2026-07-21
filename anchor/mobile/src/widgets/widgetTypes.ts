@@ -10,6 +10,8 @@
  * renderers, which run in a headless JS context.
  */
 
+export type WidgetPracticeType = 'focus' | 'deep_prime' | 'visualize';
+
 export interface WidgetHistoryDay {
   /** Local YYYY-MM-DD */
   date: string;
@@ -17,6 +19,11 @@ export interface WidgetHistoryDay {
   level: 0 | 1 | 2 | 3;
   /** True when the day included a reinforce ("Deep Prime") session */
   deep: boolean;
+  /**
+   * The latest completed canonical practice mode for the day. Intensity is
+   * always based on the total count, while this determines the cell color.
+   */
+  mode?: WidgetPracticeType;
 }
 
 export interface WidgetWeekDay {
@@ -24,6 +31,7 @@ export interface WidgetWeekDay {
   date: string;
   hasFocus: boolean;
   hasDeep: boolean;
+  hasVisualize: boolean;
   isToday: boolean;
   isFuture: boolean;
 }
@@ -34,6 +42,10 @@ export interface WidgetSnapshot {
   anchorName: string;
   /** The selected anchor's deterministic sigil SVG. */
   sigilSvg: string | null;
+  /** Source selected from the anchor's saved visual lineage. */
+  artworkSource: 'reinforced_svg' | 'base_svg' | 'fallback';
+  /** Account-scoped source version used to invalidate stale widget snapshots. */
+  artworkVersion: string | null;
   primedToday: boolean;
   /** "Day Thread" count shown on the large widget */
   streak: number;
@@ -102,6 +114,8 @@ export function createEmptyWidgetSnapshot(): WidgetSnapshot {
     anchorId: null,
     anchorName: WIDGET_FALLBACK_ANCHOR_NAME,
     sigilSvg: null,
+    artworkSource: 'fallback',
+    artworkVersion: null,
     primedToday: false,
     streak: 0,
     threadStrength: 0,

@@ -100,15 +100,16 @@ export const SwipeableTabContainer: React.FC<SwipeableTabContainerProps> = ({
     };
   }, [tabCount]);
 
-  // Sync position when activeIndex changes externally (tab button press)
-  // Uses 200ms ease-out crossfade for tab switches
+  // Sync position whenever the selected tab changes. `gestureActive.value` is
+  // owned by the UI thread, so reading it here is not a reliable guard: a tab
+  // button press can update `activeIndex` while the JS-side value still looks
+  // like an in-progress gesture. Skipping this update leaves the tab bar on
+  // the new tab while the old page remains visible.
   useEffect(() => {
-    if (!gestureActive.value) {
-      if (reducedMotion) {
-        position.value = activeIndex;
-      } else {
-        position.value = withTiming(activeIndex, CROSSFADE_TIMING_CONFIG);
-      }
+    if (reducedMotion) {
+      position.value = activeIndex;
+    } else {
+      position.value = withTiming(activeIndex, CROSSFADE_TIMING_CONFIG);
     }
   }, [activeIndex, reducedMotion]);
 

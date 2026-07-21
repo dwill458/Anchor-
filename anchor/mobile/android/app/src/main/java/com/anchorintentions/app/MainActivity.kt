@@ -1,3 +1,4 @@
+import expo.modules.splashscreen.SplashScreenManager
 package com.anchorintentions.app
 
 import android.os.Build

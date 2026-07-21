@@ -60,6 +60,23 @@ describe('AnalyticsService', () => {
     });
   });
 
+  describe('trackAnonymous', () => {
+    it('tracks lifecycle events without throwing', () => {
+      AnalyticsService.identify('user-should-not-be-attached');
+      expect(() =>
+        AnalyticsService.trackAnonymous(AnalyticsEvents.SPLASH_STARTED, {
+          authState: 'signed_in',
+          startupOutcome: 'success',
+        })
+      ).not.toThrow();
+    });
+
+    it('does not throw when analytics is disabled', () => {
+      AnalyticsService.setEnabled(false);
+      expect(() => AnalyticsService.trackAnonymous(AnalyticsEvents.SPLASH_COMPLETED)).not.toThrow();
+    });
+  });
+
   describe('screen', () => {
     it('tracks a screen view without throwing', () => {
       expect(() => AnalyticsService.screen('VaultScreen')).not.toThrow();
@@ -132,6 +149,10 @@ describe('AnalyticsService', () => {
       expect(AnalyticsEvents.ACTIVATION_RITUAL_COMPLETED).toBe('activation_ritual_completed');
       expect(AnalyticsEvents.APP_OPENED).toBe('app_opened');
       expect(AnalyticsEvents.SIGN_OUT).toBe('sign_out');
+      expect(AnalyticsEvents.SPLASH_STARTED).toBe('splash_started');
+      expect(AnalyticsEvents.SPLASH_COMPLETED).toBe('splash_completed');
+      expect(AnalyticsEvents.SPLASH_SKIPPED_REDUCE_MOTION).toBe('splash_skipped_reduce_motion');
+      expect(AnalyticsEvents.SPLASH_STARTUP_WAITED).toBe('splash_startup_waited');
     });
   });
 

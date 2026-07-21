@@ -255,6 +255,31 @@ class Analytics {
   }
 
   /**
+   * Track lifecycle telemetry without attaching the identified user field.
+   * Splash/startup events must remain free of personal information.
+   */
+  trackAnonymous(eventName: string, properties?: Record<string, any>): void {
+    if (!this.enabled) return;
+
+    const event: AnalyticsEvent = {
+      name: eventName,
+      properties: {
+        app_version: appVersion,
+        platform: Platform.OS,
+        ...sanitizeAnalyticsProperties(properties),
+        timestamp: new Date().toISOString(),
+      },
+      timestamp: new Date(),
+    };
+
+    logger.info('[Analytics] Track anonymous', event);
+
+    this.safelyCallPostHog('capture anonymous', () => {
+      this.posthog.capture(eventName, event.properties);
+    });
+  }
+
+  /**
    * Track screen view
    */
   screen(screenName: string, properties?: Record<string, any>): void {
@@ -341,6 +366,10 @@ export const AnalyticsEvents = {
   // App lifecycle
   APP_OPENED: 'app_opened',
   APP_BACKGROUNDED: 'app_backgrounded',
+  SPLASH_STARTED: 'splash_started',
+  SPLASH_COMPLETED: 'splash_completed',
+  SPLASH_SKIPPED_REDUCE_MOTION: 'splash_skipped_reduce_motion',
+  SPLASH_STARTUP_WAITED: 'splash_startup_waited',
 
   // Authentication
   SIGN_UP_STARTED: 'sign_up_started',
