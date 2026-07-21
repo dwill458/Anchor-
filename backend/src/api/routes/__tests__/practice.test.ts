@@ -272,6 +272,12 @@ describe('canonical practice sessions', () => {
     completionStatus: 'completed',
     startedAt: new Date(Date.now() - 180_000).toISOString(),
     completedAt,
+    localDateKey: completedAt.slice(0, 10),
+    timeZone: 'UTC',
+    utcOffsetMinutesAtCompletion: 0,
+    completionSource: 'practice_screen',
+    schemaVersion: 2,
+    legacyType: null,
     guidanceVoice: 'none',
     backgroundAudio: 'ambient',
     sceneSnapshot: 'I meet the moment calmly and follow through with steady attention.',
@@ -347,6 +353,26 @@ describe('canonical practice sessions', () => {
       .post('/api/practice/sessions')
       .send({ ...body, completedDurationSeconds: 90 });
     expect(partial.status).toBe(400);
+  });
+
+  it('rejects invalid timezone metadata and a mismatched local date', async () => {
+    const invalidZone = await request(app)
+      .post('/api/practice/sessions')
+      .send({ ...body, timeZone: 'Not/A_Real_Zone' });
+    expect(invalidZone.status).toBe(400);
+
+    const wrongDate = await request(app)
+      .post('/api/practice/sessions')
+      .send({ ...body, localDateKey: '2001-01-01' });
+    expect(wrongDate.status).toBe(400);
+  });
+
+  it('rejects a UTC offset that does not match the completion timezone', async () => {
+    const response = await request(app)
+      .post('/api/practice/sessions')
+      .send({ ...body, utcOffsetMinutesAtCompletion: 300 });
+
+    expect(response.status).toBe(400);
   });
 
   it('updates next action only for an account-owned session', async () => {

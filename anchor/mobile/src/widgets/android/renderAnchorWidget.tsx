@@ -45,6 +45,8 @@ export function renderAnchorWidgetByName(
           totalSessions={snapshot.totalSessions ?? 0}
           focusSessions={snapshot.focusSessions ?? 0}
           deepPrimeSessions={snapshot.deepPrimeSessions ?? 0}
+          visualizeSessions={snapshot.visualizeSessions ?? 0}
+          releaseSessions={snapshot.releaseSessions ?? 0}
           deepPrimePercent={snapshot.deepPrimePercent ?? 0}
           longestStreak={snapshot.longestStreak ?? 0}
           sensitivityLabel={snapshot.sensitivityLabel ?? 'Balanced'}

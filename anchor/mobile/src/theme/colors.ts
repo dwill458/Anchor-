@@ -12,7 +12,14 @@ export const colors = {
   navy: '#0F1419',
   black: '#080C10',
   gold: '#D4AF37',
-  bone: '#F5F5DC',
+  bone: '#F5F0E8',
+
+  practiceMode: {
+    deepPrime: { primary: '#D4AF37', bright: '#F0CB6A' },
+    visualize: { primary: '#78B4D1' },
+    focus: { primary: '#AD99D2' },
+    release: { primary: '#C8875A' },
+  },
 
   // Accent Colors
   deepPurple: '#3E2C5B',

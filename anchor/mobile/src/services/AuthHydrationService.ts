@@ -1,35 +1,62 @@
-import { apiClient, fetchCompleteProfile } from '@/services/ApiClient';
+import { apiClient, fetchCompleteProfile } from "@/services/ApiClient";
 import {
   loadAnchorSnapshot,
   loadProfileSnapshot,
   loadSessionSnapshot,
-} from '@/services/UserLocalStateService';
-import { useAnchorStore } from '@/stores/anchorStore';
-import { useAuthStore } from '@/stores/authStore';
-import { useProfileStore } from '@/stores/profileStore';
-import { useSessionStore } from '@/stores/sessionStore';
-import { useSettingsStore } from '@/stores/settingsStore';
+} from "@/services/UserLocalStateService";
+import { useAnchorStore } from "@/stores/anchorStore";
+import { useAuthStore } from "@/stores/authStore";
+import { useProfileStore } from "@/stores/profileStore";
+import { useSessionStore } from "@/stores/sessionStore";
+import { useSettingsStore } from "@/stores/settingsStore";
 import type {
   Anchor,
   ApiResponse,
   ProfileData,
   User,
   UserSettings,
-} from '@/types';
-import { isBackendAnchorId } from '@/services/BackendAnchorService';
+} from "@/types";
+import { isBackendAnchorId } from "@/services/BackendAnchorService";
 import {
   buildPrimingHistoryEntry,
   type PrimingHistoryEntry,
-} from '@/utils/primingAnalytics';
-import { logger } from '@/utils/logger';
-import { initializeProgressionMilestonesFromStores } from '@/utils/progressionMilestones';
-import { applyRemoteSessionAudioPreferences } from '@/services/SessionAudioPreferencesService';
+} from "@/utils/primingAnalytics";
+import { logger } from "@/utils/logger";
+import { initializeProgressionMilestonesFromStores } from "@/utils/progressionMilestones";
+import { applyRemoteSessionAudioPreferences } from "@/services/SessionAudioPreferencesService";
 import type {
-  PracticeMode,
   PracticeSessionRecord,
   VisualizationScene,
-} from '@/types/practice';
-import { useVisualizationSceneStore } from '@/stores/visualizationSceneStore';
+} from "@/types/practice";
+import {
+  normalizePracticeMode,
+  type PracticeCompletionSource,
+} from "@/types/practice";
+import {
+  getCompletionTimeContext,
+  isValidLocalDateKey,
+  PRACTICE_SESSION_SCHEMA_VERSION,
+} from "@/utils/practiceTime";
+import { useVisualizationSceneStore } from "@/stores/visualizationSceneStore";
+import { AnalyticsEvents, AnalyticsService } from "@/services/AnalyticsService";
+
+const reportedPracticeMigrations = new Set<string>();
+
+function reportPracticeMigration(
+  accountId: string,
+  outcome: "completed" | "failed",
+  properties: Record<string, string | number | boolean>,
+): void {
+  const key = `${accountId}:${outcome}`;
+  if (reportedPracticeMigrations.has(key)) return;
+  reportedPracticeMigrations.add(key);
+  AnalyticsService.track(
+    outcome === "completed"
+      ? AnalyticsEvents.PRACTICE_DATA_MIGRATION_COMPLETED
+      : AnalyticsEvents.PRACTICE_DATA_MIGRATION_FAILED,
+    { migration_version: PRACTICE_SESSION_SCHEMA_VERSION, ...properties },
+  );
+}
 
 function normalizeDate(value?: Date | string | null): Date | undefined {
   if (!value) return undefined;
@@ -114,7 +141,7 @@ type ExportActivation = {
   id: string;
   clientEventId?: string | null;
   anchorId: string;
-  activationType: 'visual' | 'mantra' | 'deep';
+  activationType: "visual" | "mantra" | "deep";
   durationSeconds?: number | null;
   activatedAt: string;
 };
@@ -123,7 +150,7 @@ type ExportCharge = {
   id: string;
   clientEventId?: string | null;
   anchorId: string;
-  chargeType: 'initial_quick' | 'initial_deep' | 'recharge';
+  chargeType: "initial_quick" | "initial_deep" | "recharge";
   durationSeconds?: number | null;
   completed?: boolean;
   chargedAt: string;
@@ -161,15 +188,15 @@ type AccountExportResponse = {
 };
 
 function hasCompleteProgressionExport(
-  data: AccountExportResponse['data'],
-): data is NonNullable<AccountExportResponse['data']> & {
+  data: AccountExportResponse["data"],
+): data is NonNullable<AccountExportResponse["data"]> & {
   exportVersion: number;
   account: { anchors: Anchor[]; activations: unknown[]; charges: unknown[] };
   burnedAnchors: unknown[];
 } {
   return Boolean(
     data &&
-    typeof data.exportVersion === 'number' &&
+    typeof data.exportVersion === "number" &&
     data.exportVersion >= 2 &&
     data.account &&
     Array.isArray(data.account.anchors) &&
@@ -180,8 +207,8 @@ function hasCompleteProgressionExport(
 }
 
 function hasLegacyPracticeExport(
-  data: AccountExportResponse['data'],
-): data is NonNullable<AccountExportResponse['data']> & {
+  data: AccountExportResponse["data"],
+): data is NonNullable<AccountExportResponse["data"]> & {
   account: { anchors?: Anchor[]; activations: unknown[]; charges?: unknown[] };
 } {
   return Boolean(
@@ -193,11 +220,11 @@ function hasLegacyPracticeExport(
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
-  return value != null && typeof value === 'object' && !Array.isArray(value);
+  return value != null && typeof value === "object" && !Array.isArray(value);
 }
 
 function isValidDateString(value: unknown): value is string {
-  return typeof value === 'string' && !Number.isNaN(new Date(value).getTime());
+  return typeof value === "string" && !Number.isNaN(new Date(value).getTime());
 }
 
 function readExportActivations(value: unknown): ExportActivation[] {
@@ -208,13 +235,13 @@ function readExportActivations(value: unknown): ExportActivation[] {
   return value.filter((entry): entry is ExportActivation => {
     if (!isRecord(entry)) return false;
     return (
-      typeof entry.id === 'string' &&
+      typeof entry.id === "string" &&
       (entry.clientEventId == null ||
-        typeof entry.clientEventId === 'string') &&
-      typeof entry.anchorId === 'string' &&
-      (entry.activationType === 'visual' ||
-        entry.activationType === 'mantra' ||
-        entry.activationType === 'deep') &&
+        typeof entry.clientEventId === "string") &&
+      typeof entry.anchorId === "string" &&
+      (entry.activationType === "visual" ||
+        entry.activationType === "mantra" ||
+        entry.activationType === "deep") &&
       isValidDateString(entry.activatedAt)
     );
   });
@@ -228,14 +255,14 @@ function readExportCharges(value: unknown): ExportCharge[] {
   return value.filter((entry): entry is ExportCharge => {
     if (!isRecord(entry)) return false;
     return (
-      typeof entry.id === 'string' &&
+      typeof entry.id === "string" &&
       (entry.clientEventId == null ||
-        typeof entry.clientEventId === 'string') &&
-      typeof entry.anchorId === 'string' &&
-      (entry.chargeType === 'initial_quick' ||
-        entry.chargeType === 'initial_deep' ||
-        entry.chargeType === 'recharge') &&
-      (entry.completed === undefined || typeof entry.completed === 'boolean') &&
+        typeof entry.clientEventId === "string") &&
+      typeof entry.anchorId === "string" &&
+      (entry.chargeType === "initial_quick" ||
+        entry.chargeType === "initial_deep" ||
+        entry.chargeType === "recharge") &&
+      (entry.completed === undefined || typeof entry.completed === "boolean") &&
       isValidDateString(entry.chargedAt)
     );
   });
@@ -249,14 +276,14 @@ function readExportBurnedAnchors(value: unknown): ExportBurnedAnchor[] {
   return value.filter((entry): entry is ExportBurnedAnchor => {
     if (!isRecord(entry)) return false;
     return (
-      typeof entry.id === 'string' &&
-      typeof entry.originalAnchorId === 'string' &&
-      typeof entry.userId === 'string' &&
-      typeof entry.intentionText === 'string' &&
-      typeof entry.category === 'string' &&
+      typeof entry.id === "string" &&
+      typeof entry.originalAnchorId === "string" &&
+      typeof entry.userId === "string" &&
+      typeof entry.intentionText === "string" &&
+      typeof entry.category === "string" &&
       Array.isArray(entry.distilledLetters) &&
-      entry.distilledLetters.every((letter) => typeof letter === 'string') &&
-      typeof entry.activationCount === 'number' &&
+      entry.distilledLetters.every((letter) => typeof letter === "string") &&
+      typeof entry.activationCount === "number" &&
       Number.isFinite(entry.activationCount) &&
       isValidDateString(entry.createdAt) &&
       isValidDateString(entry.burnedAt)
@@ -272,53 +299,86 @@ function readCanonicalPracticeSessions(
   return value.flatMap((entry) => {
     if (
       !isRecord(entry) ||
-      typeof entry.id !== 'string' ||
+      typeof entry.id !== "string" ||
       !isValidDateString(entry.startedAt) ||
       !isValidDateString(entry.completedAt)
     )
       return [];
-    const practiceMode = entry.practiceMode as PracticeMode;
+    const practiceMode = normalizePracticeMode(entry.practiceMode);
+    if (!practiceMode) return [];
     if (
-      !['focus', 'deep_prime', 'visualize', 'stabilize'].includes(practiceMode)
+      typeof entry.plannedDurationSeconds !== "number" ||
+      typeof entry.completedDurationSeconds !== "number"
     )
       return [];
-    if (
-      typeof entry.plannedDurationSeconds !== 'number' ||
-      typeof entry.completedDurationSeconds !== 'number'
-    )
-      return [];
+    const completedAt = entry.completedAt;
+    const timeContext = getCompletionTimeContext(new Date(completedAt));
+    const completionSource: PracticeCompletionSource = [
+      "practice_screen",
+      "anchor_detail",
+      "notification",
+      "widget",
+      "deep_link",
+      "restored",
+      "unknown",
+    ].includes(String(entry.completionSource))
+      ? (entry.completionSource as PracticeCompletionSource)
+      : "restored";
     return [
       {
         id: entry.id,
         accountId,
-        anchorId: typeof entry.anchorId === 'string' ? entry.anchorId : null,
+        anchorId: typeof entry.anchorId === "string" ? entry.anchorId : null,
         anchorLocalId:
-          typeof entry.anchorLocalId === 'string' ? entry.anchorLocalId : null,
+          typeof entry.anchorLocalId === "string" ? entry.anchorLocalId : null,
         anchorServerId:
-          typeof entry.anchorServerIdSnapshot === 'string'
+          typeof entry.anchorServerIdSnapshot === "string"
             ? entry.anchorServerIdSnapshot
             : null,
         practiceMode,
         plannedDurationSeconds: entry.plannedDurationSeconds,
         completedDurationSeconds: entry.completedDurationSeconds,
-        completionStatus: 'completed' as const,
+        completionStatus: "completed" as const,
         startedAt: entry.startedAt,
-        completedAt: entry.completedAt,
+        completedAt,
+        localDateKey:
+          typeof entry.localDateKey === "string" &&
+          isValidLocalDateKey(entry.localDateKey)
+            ? entry.localDateKey
+            : timeContext.localDateKey,
+        timeZone:
+          typeof entry.timeZone === "string" && entry.timeZone.length <= 100
+            ? entry.timeZone
+            : timeContext.timeZone,
+        utcOffsetMinutesAtCompletion:
+          typeof entry.utcOffsetMinutesAtCompletion === "number" &&
+          Number.isInteger(entry.utcOffsetMinutesAtCompletion)
+            ? entry.utcOffsetMinutesAtCompletion
+            : timeContext.utcOffsetMinutesAtCompletion,
+        completionSource,
+        schemaVersion:
+          typeof entry.schemaVersion === "number" &&
+          Number.isInteger(entry.schemaVersion)
+            ? entry.schemaVersion
+            : PRACTICE_SESSION_SCHEMA_VERSION,
+        legacyType:
+          typeof entry.legacyType === "string" ? entry.legacyType : null,
         guidanceVoice:
-          entry.guidanceVoice === 'male' || entry.guidanceVoice === 'none'
+          entry.guidanceVoice === "male" || entry.guidanceVoice === "none"
             ? entry.guidanceVoice
-            : 'female',
+            : "female",
         backgroundAudio:
-          entry.backgroundAudio === 'off'
-            ? ('off' as const)
-            : ('ambient' as const),
+          entry.backgroundAudio === "off"
+            ? ("off" as const)
+            : ("ambient" as const),
         sceneSnapshot:
-          typeof entry.sceneSnapshot === 'string' ? entry.sceneSnapshot : null,
+          typeof entry.sceneSnapshot === "string" ? entry.sceneSnapshot : null,
         nextAction:
-          typeof entry.nextAction === 'string' ? entry.nextAction : null,
+          typeof entry.nextAction === "string" ? entry.nextAction : null,
         clientVersion:
-          typeof entry.clientVersion === 'string' ? entry.clientVersion : null,
-        syncState: 'synced' as const,
+          typeof entry.clientVersion === "string" ? entry.clientVersion : null,
+        metadata: isRecord(entry.metadata) ? entry.metadata : undefined,
+        syncState: "synced" as const,
       },
     ];
   });
@@ -332,29 +392,29 @@ function readVisualizationScenes(
   return value.flatMap((entry) => {
     if (
       !isRecord(entry) ||
-      typeof entry.anchorId !== 'string' ||
-      typeof entry.currentText !== 'string' ||
-      typeof entry.originalSuggestion !== 'string' ||
+      typeof entry.anchorId !== "string" ||
+      typeof entry.currentText !== "string" ||
+      typeof entry.originalSuggestion !== "string" ||
       !isValidDateString(entry.clientUpdatedAt)
     )
       return [];
     return [
       {
-        id: typeof entry.id === 'string' ? entry.id : undefined,
+        id: typeof entry.id === "string" ? entry.id : undefined,
         accountId,
         anchorId: entry.anchorId,
         anchorLocalId: null,
         currentText: entry.currentText,
         originalSuggestion: entry.originalSuggestion,
         generationSource:
-          entry.generationSource === 'gemini' ||
-          entry.generationSource === 'user_edited'
+          entry.generationSource === "gemini" ||
+          entry.generationSource === "user_edited"
             ? entry.generationSource
-            : 'deterministic_fallback',
+            : "deterministic_fallback",
         generationVersion:
-          typeof entry.generationVersion === 'string'
+          typeof entry.generationVersion === "string"
             ? entry.generationVersion
-            : 'scene-v1',
+            : "scene-v1",
         clientUpdatedAt: entry.clientUpdatedAt,
         createdAt: isValidDateString(entry.createdAt)
           ? entry.createdAt
@@ -362,7 +422,7 @@ function readVisualizationScenes(
         updatedAt: isValidDateString(entry.updatedAt)
           ? entry.updatedAt
           : undefined,
-        syncState: 'synced' as const,
+        syncState: "synced" as const,
       },
     ];
   });
@@ -374,7 +434,7 @@ function mergeLegacyAndCanonicalHistory(
 ): PrimingHistoryEntry[] {
   const result = new Map<string, PrimingHistoryEntry>();
   canonical
-    .filter((session) => session.practiceMode !== 'stabilize')
+    .filter((session) => session.practiceMode !== "release")
     .forEach((session) => {
       const anchorId =
         session.anchorId ?? session.anchorLocalId ?? session.anchorServerId;
@@ -383,11 +443,11 @@ function mergeLegacyAndCanonicalHistory(
         id: session.id,
         anchorId,
         type:
-          session.practiceMode === 'focus'
-            ? 'activate'
-            : session.practiceMode === 'visualize'
-              ? 'visualize'
-              : 'reinforce',
+          session.practiceMode === "focus"
+            ? "activate"
+            : session.practiceMode === "visualize"
+              ? "visualize"
+              : "reinforce",
         completedAt: session.completedAt,
       });
       if (entry) result.set(entry.id, entry);
@@ -433,7 +493,7 @@ function buildPracticeHistory(
     const entry = buildPrimingHistoryEntry({
       id: activation.clientEventId || activation.id,
       anchorId: activation.anchorId,
-      type: activation.activationType === 'deep' ? 'reinforce' : 'activate',
+      type: activation.activationType === "deep" ? "reinforce" : "activate",
       completedAt: activation.activatedAt,
     });
     if (entry) entries.set(entry.id, entry);
@@ -452,7 +512,7 @@ function buildPracticeHistory(
     const entry = buildPrimingHistoryEntry({
       id: charge.clientEventId || charge.id,
       anchorId: charge.anchorId,
-      type: 'reinforce',
+      type: "reinforce",
       completedAt: charge.chargedAt,
     });
     if (entry) entries.set(entry.id, entry);
@@ -496,11 +556,11 @@ function mapBurnedAnchorToArchive(burnedAnchor: ExportBurnedAnchor): Anchor {
     id: burnedAnchor.originalAnchorId,
     userId: burnedAnchor.userId,
     intentionText: burnedAnchor.intentionText,
-    category: burnedAnchor.category as Anchor['category'],
+    category: burnedAnchor.category as Anchor["category"],
     distilledLetters: burnedAnchor.distilledLetters,
-    baseSigilSvg: burnedAnchor.baseSigilSvg ?? '',
+    baseSigilSvg: burnedAnchor.baseSigilSvg ?? "",
     enhancedImageUrl: burnedAnchor.enhancedImageUrl ?? undefined,
-    structureVariant: 'balanced',
+    structureVariant: "balanced",
     isCharged: burnedAnchor.activationCount > 0 || practiceHistory.length > 0,
     chargeCount: completedCharges.length,
     chargedAt: chargeDates[chargeDates.length - 1],
@@ -534,14 +594,14 @@ class AuthHydrationService {
     const [profileResult, anchorsResult, exportResult] =
       await Promise.allSettled([
         fetchCompleteProfile(),
-        apiClient.get<ApiResponse<Anchor[]>>('/api/anchors', {
+        apiClient.get<ApiResponse<Anchor[]>>("/api/anchors", {
           params: {
             limit: 100,
-            orderBy: 'updatedAt',
-            order: 'desc',
+            orderBy: "updatedAt",
+            order: "desc",
           },
         }),
-        apiClient.get<AccountExportResponse>('/api/auth/me/export'),
+        apiClient.get<AccountExportResponse>("/api/auth/me/export"),
       ]);
 
     if (!isCurrentAccount()) return;
@@ -555,7 +615,7 @@ class AuthHydrationService {
     let canonicalPracticeHistory: PracticeSessionRecord[] = [];
     let resolvedUserId = expectedUserId;
 
-    if (profileResult.status === 'fulfilled') {
+    if (profileResult.status === "fulfilled") {
       normalizedProfileData = normalizeProfileData(profileResult.value);
       if (!isCurrentAccount()) return;
       if (expectedUserId && normalizedProfileData.user.id !== expectedUserId)
@@ -580,37 +640,37 @@ class AuthHydrationService {
       // Trial clock + server expiry are synced centrally by authStore.setUser above.
     } else {
       logger.warn(
-        '[AuthHydrationService] Profile hydration failed',
+        "[AuthHydrationService] Profile hydration failed",
         profileResult.reason,
       );
     }
 
     if (!expectedUserId || !isCurrentAccount()) {
       throw new Error(
-        'Authenticated hydration requires a stable account owner.',
+        "Authenticated hydration requires a stable account owner.",
       );
     }
 
-    if (anchorsResult.status === 'fulfilled') {
+    if (anchorsResult.status === "fulfilled") {
       remoteAnchors = Array.isArray(anchorsResult.value.data?.data)
         ? anchorsResult.value.data.data.map(normalizeAnchor)
         : [];
     } else {
       logger.warn(
-        '[AuthHydrationService] Anchor hydration failed',
+        "[AuthHydrationService] Anchor hydration failed",
         anchorsResult.reason,
       );
     }
 
     const exportData =
-      exportResult.status === 'fulfilled'
+      exportResult.status === "fulfilled"
         ? exportResult.value.data?.data
         : undefined;
     const hasCompleteExport = hasCompleteProgressionExport(exportData);
     const hasLegacyExport = hasLegacyPracticeExport(exportData);
     const hasInvalidV2Export = Boolean(
       exportData &&
-      typeof exportData.exportVersion === 'number' &&
+      typeof exportData.exportVersion === "number" &&
       exportData.exportVersion >= 2 &&
       !hasCompleteExport,
     );
@@ -620,7 +680,7 @@ class AuthHydrationService {
         ? exportAccount.anchors
             .filter(
               (anchor): anchor is Anchor =>
-                anchor != null && typeof anchor.id === 'string',
+                anchor != null && typeof anchor.id === "string",
             )
             .map(normalizeAnchor)
         : [];
@@ -668,9 +728,22 @@ class AuthHydrationService {
       }
     } else {
       logger.warn(
-        '[AuthHydrationService] Account export hydration failed or was incomplete',
-        exportResult.status === 'rejected' ? exportResult.reason : undefined,
+        "[AuthHydrationService] Account export hydration failed or was incomplete",
+        exportResult.status === "rejected" ? exportResult.reason : undefined,
       );
+      if (resolvedUserId) {
+        reportPracticeMigration(resolvedUserId, "failed", {
+          reason: hasInvalidV2Export
+            ? "incomplete_v2_export"
+            : exportResult.status === "rejected"
+              ? "export_request_failed"
+              : "unsupported_export",
+          export_version:
+            exportData && typeof exportData.exportVersion === "number"
+              ? exportData.exportVersion
+              : 0,
+        });
+      }
     }
 
     const anchorSnapshot = resolvedUserId
@@ -705,12 +778,12 @@ class AuthHydrationService {
       const shouldUseExportAnchors =
         (hasCompleteExport || hasLegacyExport) &&
         exportAnchors.length > 0 &&
-        (anchorsResult.status === 'rejected' || remoteAnchors.length === 0);
+        (anchorsResult.status === "rejected" || remoteAnchors.length === 0);
       const shouldUseAnchorSnapshot =
         !hasInvalidV2Export &&
         !shouldUseExportAnchors &&
         normalizedSnapshotAnchors.length > 0 &&
-        (anchorsResult.status === 'rejected' ||
+        (anchorsResult.status === "rejected" ||
           (remoteAnchors.length === 0 &&
             ((normalizedProfileData?.user.totalAnchorsCreated ?? 0) > 0 ||
               (authStore.user?.totalAnchorsCreated ?? 0) > 0)));
@@ -762,7 +835,7 @@ class AuthHydrationService {
       if (
         !shouldUseExportAnchors &&
         !shouldUseAnchorSnapshot &&
-        anchorsResult.status === 'fulfilled'
+        anchorsResult.status === "fulfilled"
       ) {
         anchorStore.markSynced();
       }
@@ -794,12 +867,20 @@ class AuthHydrationService {
         exportedLifetimeCount,
       );
       useSessionStore.getState().hydrateFromBackend({
+        accountId: resolvedUserId ?? undefined,
         totalActivations,
         currentStreak: hydratedUser?.currentStreak ?? 0,
         anchors: remoteAnchors,
         primingHistory,
         practiceHistory: canonicalPracticeHistory,
       });
+      if (resolvedUserId) {
+        reportPracticeMigration(resolvedUserId, "completed", {
+          canonical_session_count: canonicalPracticeHistory.length,
+          restored_history_count: primingHistory.length,
+          included_released_anchors: archivedAnchors.length > 0,
+        });
+      }
     }
 
     const sessionSnapshot = resolvedUserId
@@ -826,7 +907,7 @@ class AuthHydrationService {
     }
 
     const restoredFromRemote =
-      normalizedProfileData != null || anchorsResult.status === 'fulfilled';
+      normalizedProfileData != null || anchorsResult.status === "fulfilled";
     const restoredFromSnapshot =
       anchorSnapshot != null ||
       profileSnapshot != null ||
@@ -834,12 +915,12 @@ class AuthHydrationService {
 
     if (!restoredFromRemote && !restoredFromSnapshot) {
       const failureReasons = [
-        profileResult.status === 'rejected' ? profileResult.reason : null,
-        anchorsResult.status === 'rejected' ? anchorsResult.reason : null,
+        profileResult.status === "rejected" ? profileResult.reason : null,
+        anchorsResult.status === "rejected" ? anchorsResult.reason : null,
       ].filter(Boolean);
       throw failureReasons[0] instanceof Error
         ? failureReasons[0]
-        : new Error('Authenticated hydration failed.');
+        : new Error("Authenticated hydration failed.");
     }
 
     if (!isCurrentAccount()) return;
@@ -858,7 +939,7 @@ class AuthHydrationService {
       const initiatingUserId = useAuthStore.getState().user?.id;
       if (!initiatingUserId) return false;
       const exportResult = await apiClient.get<AccountExportResponse>(
-        '/api/auth/me/export',
+        "/api/auth/me/export",
       );
       const exportData = exportResult.data?.data;
       if (
@@ -917,7 +998,7 @@ class AuthHydrationService {
       ].reduce(
         (total, anchor) =>
           total +
-          (typeof anchor?.activationCount === 'number' &&
+          (typeof anchor?.activationCount === "number" &&
           Number.isFinite(anchor.activationCount)
             ? anchor.activationCount
             : 0),
@@ -936,6 +1017,7 @@ class AuthHydrationService {
       const anchors = useAnchorStore.getState().anchors;
 
       useSessionStore.getState().hydrateFromBackend({
+        accountId: initiatingUserId,
         totalActivations,
         currentStreak: user?.currentStreak ?? 0,
         anchors,
@@ -945,7 +1027,7 @@ class AuthHydrationService {
       return true;
     } catch (error) {
       logger.warn(
-        '[AuthHydrationService] Session rehydrate from export failed',
+        "[AuthHydrationService] Session rehydrate from export failed",
         error,
       );
       return false;

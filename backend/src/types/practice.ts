@@ -1,4 +1,4 @@
-export const PRACTICE_MODES = ['focus', 'deep_prime', 'visualize', 'stabilize'] as const;
+export const PRACTICE_MODES = ['deep_prime', 'visualize', 'focus', 'release'] as const;
 export type PracticeMode = (typeof PRACTICE_MODES)[number];
 
 export const GUIDANCE_VOICES = ['female', 'male', 'none'] as const;

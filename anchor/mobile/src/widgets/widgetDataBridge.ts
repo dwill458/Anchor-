@@ -17,6 +17,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useSessionStore } from '@/stores/sessionStore';
 import { useAnchorStore } from '@/stores/anchorStore';
 import { useSettingsStore, type ThreadStrengthSensitivity } from '@/stores/settingsStore';
+import { useAuthStore } from '@/stores/authStore';
 import { calculateStreakWithGrace } from '@/utils/streak';
 import {
   addDays,
@@ -26,6 +27,8 @@ import {
 } from '@/utils/primingAnalytics';
 import { logger } from '@/utils/logger';
 import type { Anchor } from '@/types';
+import type { PracticeMode, PracticeSessionRecord } from '@/types/practice';
+import { selectCanonicalPracticeEvents, buildThreadStrengthSnapshot } from '@/utils/practiceMetrics';
 import {
   createEmptyWidgetSnapshot,
   WIDGET_FALLBACK_ANCHOR_NAME,
@@ -50,13 +53,18 @@ export function buildWidgetHistory(
   primingHistory: PrimingHistoryEntry[],
   now: Date = new Date()
 ): WidgetHistoryDay[] {
-  const byDate = new Map<string, { count: number; deep: boolean }>();
+  const hasCanonicalMode = primingHistory.some(
+    (entry) => Boolean((entry as PrimingHistoryEntry & { canonicalMode?: PracticeMode }).canonicalMode),
+  );
+  const byDate = new Map<string, { count: number; deep: boolean; dominantMode: PracticeMode | null }>();
   for (const entry of primingHistory) {
-    const existing = byDate.get(entry.localDate) ?? { count: 0, deep: false };
+    const canonicalMode = (entry as PrimingHistoryEntry & { canonicalMode?: PracticeMode }).canonicalMode;
+    const existing = byDate.get(entry.localDate) ?? { count: 0, deep: false, dominantMode: null };
     existing.count += 1;
-    if (entry.type === 'reinforce') {
+    if (canonicalMode === 'deep_prime' || (!canonicalMode && entry.type === 'reinforce')) {
       existing.deep = true;
     }
+    if (canonicalMode) existing.dominantMode = canonicalMode;
     byDate.set(entry.localDate, existing);
   }
 
@@ -66,7 +74,12 @@ export function buildWidgetHistory(
     const dayData = byDate.get(date);
     const count = dayData?.count ?? 0;
     const level = (count === 0 ? 0 : count === 1 ? 1 : count === 2 ? 2 : 3) as 0 | 1 | 2 | 3;
-    days.push({ date, level, deep: dayData?.deep ?? false });
+    days.push({
+      date,
+      level,
+      deep: dayData?.deep ?? false,
+      ...(hasCanonicalMode ? { dominantMode: dayData?.dominantMode ?? null } : {}),
+    });
   }
   return days;
 }
@@ -83,7 +96,7 @@ const SENSITIVITY_COPY: Record<
 interface ClassifiedWidgetSession extends PrimingHistoryEntry {
   dateKey: string;
   timestamp: number;
-  displayType: 'focus' | 'deep' | 'visualize';
+  displayType: 'focus' | 'deep' | 'visualize' | 'release';
 }
 
 /**
@@ -119,11 +132,14 @@ function classifyWidgetSessions(entries: PrimingHistoryEntry[]): ClassifiedWidge
     }
     lastSignatureTime.set(signature, entry.timestamp);
 
-    const displayType = entry.type === 'visualize'
-      ? 'visualize'
-      : entry.type === 'reinforce' && anchorsWithPriorPrime.has(entry.anchorId)
-        ? 'deep'
-        : 'focus';
+    const canonicalMode = (entry as PrimingHistoryEntry & { canonicalMode?: PracticeMode }).canonicalMode;
+    const displayType = canonicalMode
+      ? canonicalMode === 'deep_prime' ? 'deep' : canonicalMode
+      : entry.type === 'visualize'
+        ? 'visualize'
+        : entry.type === 'reinforce' && anchorsWithPriorPrime.has(entry.anchorId)
+          ? 'deep'
+          : 'focus';
     classified.push({ ...entry, displayType });
     anchorsWithPriorPrime.add(entry.anchorId);
   }
@@ -196,22 +212,25 @@ function buildCurrentWeek(
   now: Date
 ): WidgetWeekDay[] {
   const today = localDateString(now);
-  const byDate = new Map<string, { focus: boolean; deep: boolean }>();
+  const byDate = new Map<string, { focus: boolean; deep: boolean; dominantMode: PracticeMode | null }>();
   for (const session of sessions) {
-    const value = byDate.get(session.dateKey) ?? { focus: false, deep: false };
-    if (session.displayType !== 'visualize') value[session.displayType] = true;
+    const value = byDate.get(session.dateKey) ?? { focus: false, deep: false, dominantMode: null };
+    if (session.displayType === 'focus') value.focus = true;
+    if (session.displayType === 'deep') value.deep = true;
+    value.dominantMode = session.displayType === 'deep' ? 'deep_prime' : session.displayType;
     byDate.set(session.dateKey, value);
   }
 
   return ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map((label, index) => {
     const date = addDays(startOfIsoWeek(now), index);
     const dateKey = localDateString(date);
-    const value = byDate.get(dateKey) ?? { focus: false, deep: false };
+    const value = byDate.get(dateKey) ?? { focus: false, deep: false, dominantMode: null };
     return {
       label,
       date: dateKey,
       hasFocus: value.focus,
       hasDeep: value.deep,
+      dominantMode: value.dominantMode,
       isToday: dateKey === today,
       isFuture: dateKey > today,
     };
@@ -230,6 +249,7 @@ function buildWidgetSummary(
   | 'focusSessions'
   | 'deepPrimeSessions'
   | 'visualizeSessions'
+  | 'releaseSessions'
   | 'deepPrimePercent'
   | 'longestStreak'
   | 'sensitivityLabel'
@@ -239,7 +259,8 @@ function buildWidgetSummary(
   const sessions = classifyWidgetSessions(primingHistory);
   const deepPrimeSessions = sessions.filter((session) => session.displayType === 'deep').length;
   const visualizeSessions = sessions.filter((session) => session.displayType === 'visualize').length;
-  const focusSessions = sessions.length - deepPrimeSessions - visualizeSessions;
+  const releaseSessions = sessions.filter((session) => session.displayType === 'release').length;
+  const focusSessions = sessions.length - deepPrimeSessions - visualizeSessions - releaseSessions;
   const totalSessions = sessions.length;
   const sensitivityCopy = SENSITIVITY_COPY[sensitivity] ?? SENSITIVITY_COPY.balanced;
 
@@ -249,6 +270,7 @@ function buildWidgetSummary(
     focusSessions,
     deepPrimeSessions,
     visualizeSessions,
+    releaseSessions,
     deepPrimePercent: totalSessions > 0 ? Math.round((deepPrimeSessions / totalSessions) * 100) : 0,
     longestStreak: longestSessionStreak(sessions),
     sensitivityLabel: sensitivityCopy.label,
@@ -284,6 +306,8 @@ export interface WidgetSnapshotInputs {
   anchors: Anchor[];
   currentAnchorId: string | undefined;
   primingHistory: PrimingHistoryEntry[];
+  practiceHistory?: PracticeSessionRecord[];
+  accountId?: string | null;
   lastPrimedAt: string | null;
   lastGraceDayUsedAt: string | null;
   threadStrength?: number;
@@ -291,11 +315,39 @@ export interface WidgetSnapshotInputs {
   now?: Date;
 }
 
+function canonicalToWidgetHistory(
+  events: PracticeSessionRecord[],
+  accountId: string | null | undefined,
+  now: Date,
+): Array<PrimingHistoryEntry & { canonicalMode: PracticeMode }> {
+  return selectCanonicalPracticeEvents(events, accountId, now).map((event) => {
+    const completedAt = new Date(event.completedAt);
+    const localNoon = new Date(`${event.localDateKey}T12:00:00`);
+    return {
+      id: event.id,
+      anchorId: event.anchorId ?? event.anchorLocalId ?? event.anchorServerId ?? 'released-anchor',
+      type: event.practiceMode === 'deep_prime' ? 'reinforce' : event.practiceMode === 'visualize' ? 'visualize' : 'activate',
+      completedAt: event.completedAt,
+      localDate: event.localDateKey,
+      weekKey: `${localNoon.getFullYear()}-W${String(Math.ceil((((localNoon.getTime() - new Date(localNoon.getFullYear(), 0, 1).getTime()) / 86_400_000) + new Date(localNoon.getFullYear(), 0, 1).getDay() + 1) / 7)).padStart(2, '0')}`,
+      weekStart: localDateString(startOfIsoWeek(localNoon)),
+      weekdayIndex: (localNoon.getDay() + 6) % 7,
+      hourOfDay: completedAt.getHours(),
+      timeOfDay: completedAt.getHours() < 12 ? 'morning' : completedAt.getHours() < 17 ? 'afternoon' : 'evening',
+      canonicalMode: event.practiceMode,
+    } as PrimingHistoryEntry & { canonicalMode: PracticeMode };
+  });
+}
+
 export function buildWidgetSnapshot(inputs: WidgetSnapshotInputs): WidgetSnapshot {
   const now = inputs.now ?? new Date();
   const today = localDateString(now);
+  const useCanonical = inputs.practiceHistory != null && Boolean(inputs.accountId);
+  const sourceHistory = useCanonical
+    ? canonicalToWidgetHistory(inputs.practiceHistory ?? [], inputs.accountId, now)
+    : inputs.primingHistory;
   const streakResult = calculateStreakWithGrace(
-    inputs.primingHistory,
+    sourceHistory,
     inputs.lastGraceDayUsedAt,
     now
   );
@@ -303,9 +355,18 @@ export function buildWidgetSnapshot(inputs: WidgetSnapshotInputs): WidgetSnapsho
   const sigilSvg =
     selectedAnchor?.baseSigilSvg?.trim() || selectedAnchor?.reinforcedSigilSvg?.trim() || null;
   const summary = buildWidgetSummary(
-    inputs.primingHistory,
+    sourceHistory,
     now,
-    inputs.threadStrength ?? 0,
+    useCanonical
+      ? buildThreadStrengthSnapshot({
+          events: inputs.practiceHistory ?? [],
+          accountId: inputs.accountId,
+          dailyGoal: 3,
+          sensitivity: inputs.threadStrengthSensitivity ?? 'balanced',
+          restDays: [],
+          now,
+        }).score
+      : inputs.threadStrength ?? 0,
     inputs.threadStrengthSensitivity ?? 'balanced'
   );
 
@@ -314,12 +375,12 @@ export function buildWidgetSnapshot(inputs: WidgetSnapshotInputs): WidgetSnapsho
     anchorId: selectedAnchor?.id ?? null,
     anchorName: selectedAnchor?.intentionText?.trim() || WIDGET_FALLBACK_ANCHOR_NAME,
     sigilSvg,
-    primedToday: inputs.lastPrimedAt === today,
+    primedToday: sourceHistory.some((entry) => entry.localDate === today),
     streak: streakResult.currentStreak,
     ...summary,
-    ...buildAnchorMetrics(inputs.primingHistory, selectedAnchor?.id ?? null, now),
-    history: buildWidgetHistory(inputs.primingHistory, now),
-    lastPrimedDate: inputs.lastPrimedAt,
+    ...buildAnchorMetrics(sourceHistory, selectedAnchor?.id ?? null, now),
+    history: buildWidgetHistory(sourceHistory, now),
+    lastPrimedDate: sourceHistory[sourceHistory.length - 1]?.localDate ?? inputs.lastPrimedAt,
   };
 }
 
@@ -364,11 +425,14 @@ export async function syncWidgetData(): Promise<void> {
     const sessionState = useSessionStore.getState();
     const anchorState = useAnchorStore.getState();
     const settingsState = useSettingsStore.getState();
+    const accountId = useAuthStore.getState().user?.id ?? null;
 
     const snapshot = buildWidgetSnapshot({
       anchors: anchorState.anchors,
       currentAnchorId: anchorState.currentAnchorId,
       primingHistory: sessionState.primingHistory,
+      practiceHistory: sessionState.practiceHistory,
+      accountId,
       lastPrimedAt: sessionState.lastPrimedAt,
       lastGraceDayUsedAt: sessionState.lastGraceDayUsedAt,
       threadStrength: sessionState.threadStrength,

@@ -89,6 +89,8 @@ export const CompletionModal: React.FC<CompletionModalProps> = ({
 
   const headline =
     sessionType === 'activate' ? 'Anchor set.' : 'Imprint strengthened.';
+  const accentColor =
+    sessionType === 'activate' ? colors.practiceMode.focus.primary : colors.gold;
   const sigilSvg = anchor.reinforcedSigilSvg ?? anchor.baseSigilSvg;
 
   // Seal Whisper: fade in on modal open, auto-fade after 5s
@@ -206,7 +208,7 @@ export const CompletionModal: React.FC<CompletionModalProps> = ({
           {/* Sigil with gold glow */}
           <View style={styles.sigilArea}>
             <Animated.View
-              style={[styles.glowRing, glowRingStyle]}
+              style={[styles.glowRing, { borderColor: `${accentColor}4D` }, glowRingStyle]}
             />
             <View style={styles.sigilGlowWrap}>
               <PremiumAnchorGlow
@@ -230,7 +232,7 @@ export const CompletionModal: React.FC<CompletionModalProps> = ({
           </View>
 
           {/* Headline */}
-          <Text style={styles.headline}>{headline}</Text>
+          <Text style={[styles.headline, { color: accentColor }]}>{headline}</Text>
           <Text style={styles.subhead}>One word to seal it</Text>
 
           {/* Seal Whisper (Pattern 5) */}
@@ -250,12 +252,12 @@ export const CompletionModal: React.FC<CompletionModalProps> = ({
               return (
                 <TouchableOpacity
                   key={word}
-                  style={[styles.chip, isActive && styles.chipActive]}
+                  style={[styles.chip, isActive && styles.chipActive, isActive && { borderColor: accentColor, backgroundColor: `${accentColor}1A` }]}
                   onPress={() => handleSelectWord(word)}
                   accessibilityRole="button"
                   accessibilityState={{ selected: isActive }}
                 >
-                  <Text style={[styles.chipText, isActive && styles.chipTextActive]}>
+                  <Text style={[styles.chipText, isActive && styles.chipTextActive, isActive && { color: accentColor }]}>
                     {word}
                   </Text>
                 </TouchableOpacity>
@@ -281,7 +283,7 @@ export const CompletionModal: React.FC<CompletionModalProps> = ({
 
           {/* CTAs */}
           <TouchableOpacity
-            style={[styles.doneButton, isSubmitting && styles.ctaDisabled]}
+            style={[styles.doneButton, { backgroundColor: accentColor, shadowColor: accentColor }, isSubmitting && styles.ctaDisabled]}
             onPress={handleDone}
             disabled={isSubmitting}
             activeOpacity={0.82}

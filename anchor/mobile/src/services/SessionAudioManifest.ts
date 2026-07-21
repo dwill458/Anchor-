@@ -12,7 +12,7 @@ import {
 } from '@/services/visualizeAudioManifest';
 
 export const SESSION_AUDIO_LOCALE = 'en-US';
-export const VISUALIZE_VOICE_PLAYBACK_GAIN = 0.4;
+export const VISUALIZE_VOICE_PLAYBACK_GAIN = 0.2;
 
 export type AudioAssetReference = AudioSource;
 

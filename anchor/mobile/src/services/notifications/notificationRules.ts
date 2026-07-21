@@ -1,5 +1,7 @@
 import type { Anchor } from '@/types';
 import type { SessionLogEntry } from '@/stores/sessionStore';
+import type { PracticeSessionRecord } from '@/types/practice';
+import { selectCanonicalPracticeEvents } from '@/utils/practiceMetrics';
 import { localDateString } from '@/services/DailyGoalNudgeService';
 import type {
   LastNotificationSentAt,
@@ -32,6 +34,8 @@ export interface NotificationRuleState {
 export interface NotificationRuleContext {
   now: Date;
   sessionLog: SessionLogEntry[];
+  practiceHistory?: PracticeSessionRecord[];
+  accountId?: string | null;
   totalSessionsCount: number;
   threadStrength: number;
   anchors: Anchor[];
@@ -57,6 +61,18 @@ export function hasCompletedPrimeToday(sessionLog: SessionLogEntry[], now: Date)
     const completedAt = new Date(entry.completedAt);
     return !Number.isNaN(completedAt.getTime()) && localDateString(completedAt) === today;
   });
+}
+
+function completedCanonicalEvents(context: NotificationRuleContext): PracticeSessionRecord[] | null {
+  if (context.practiceHistory == null || !context.accountId) return null;
+  return selectCanonicalPracticeEvents(context.practiceHistory, context.accountId, context.now);
+}
+
+function hasCompletedPracticeToday(context: NotificationRuleContext): boolean {
+  const canonical = completedCanonicalEvents(context);
+  return canonical
+    ? canonical.some((entry) => entry.localDateKey === localDateString(context.now))
+    : hasCompletedPrimeToday(context.sessionLog, context.now);
 }
 
 export function parseReminderTime(time: string): { hour: number; minute: number } | null {
@@ -126,7 +142,7 @@ export function evaluateDailyPrime(
   context: NotificationRuleContext
 ): NotificationRuleResult {
   const fireDate = nextReminderFireDate(state.dailyPrimeTime, context.now);
-  const completedToday = hasCompletedPrimeToday(context.sessionLog, context.now);
+  const completedToday = hasCompletedPracticeToday(context);
 
   // A completed session suppresses only today's reminder. The scheduler
   // replaces deterministic notification IDs whenever app state changes, so
@@ -166,7 +182,7 @@ export function evaluateThreadStrength(
     state.threadStrengthAlertsEnabled &&
     canSendCategory(state, 'thread_strength', context.now) &&
     context.threadStrength < state.threadStrengthThreshold &&
-    !hasCompletedPrimeToday(context.sessionLog, context.now) &&
+    !hasCompletedPracticeToday(context) &&
     !sentRecently
   );
 
@@ -216,12 +232,15 @@ export function evaluateWeeklyRecap(
   state: NotificationRuleState,
   context: NotificationRuleContext
 ): NotificationRuleResult {
-  const weeklySessions = context.sessionLog.filter((entry) => {
+  const canonical = completedCanonicalEvents(context);
+  const weeklySessionCount = canonical
+    ? canonical.filter((entry) => context.now.getTime() - new Date(entry.completedAt).getTime() < 7 * DAY_MS).length
+    : context.sessionLog.filter((entry) => {
     const completedAt = new Date(entry.completedAt);
     return !Number.isNaN(completedAt.getTime()) &&
       context.now.getTime() - completedAt.getTime() < 7 * DAY_MS &&
       (entry.type === 'activate' || entry.type === 'reinforce' || entry.type === 'visualize');
-  });
+    }).length;
   const strongestAnchor = context.anchors
     .filter((anchor) => !anchor.isReleased && !anchor.archivedAt)
     .sort((left, right) => (right.activationCount ?? 0) - (left.activationCount ?? 0))[0];
@@ -231,7 +250,7 @@ export function evaluateWeeklyRecap(
     state.weeklyRecapEnabled &&
     canSendCategory(state, 'weekly_recap', context.now) &&
     !sentThisWeek &&
-    (weeklySessions.length > 0 || context.anchors.length > 0)
+    (weeklySessionCount > 0 || context.anchors.length > 0)
   );
 
   return {
@@ -239,7 +258,7 @@ export function evaluateWeeklyRecap(
     eligible,
     fireDate: eligible ? new Date(context.now.getTime() + 5 * 60 * 1000) : undefined,
     variables: {
-      sessionCount: weeklySessions.length,
+      sessionCount: weeklySessionCount,
       anchorName: strongestAnchor ? `${strongestAnchor.category} anchor` : 'your anchor',
       threadStrength: Math.round(context.threadStrength),
     },

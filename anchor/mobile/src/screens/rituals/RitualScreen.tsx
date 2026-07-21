@@ -1315,7 +1315,7 @@ export const RitualScreen: React.FC = () => {
         audioConfiguration: sessionAudioPlan.configuration,
         completedAt,
       });
-      void PracticeCompletionService.queueLegacyCompletion({
+      await PracticeCompletionService.queueLegacyCompletion({
         id: completionEventId,
         anchorId,
         anchorLocalId: anchor?.localId,
@@ -1324,6 +1324,7 @@ export const RitualScreen: React.FC = () => {
         completedAt,
         guidanceVoice: sessionAudioPlan.configuration.guidanceVoice,
         backgroundAudio: sessionAudioPlan.configuration.backgroundAudio,
+        source: returnTo === 'practice' ? 'practice_screen' : 'anchor_detail',
       });
       await queueProgressionMilestonesFromStores({ sourceEventId: completionEventId });
       await handlePrimeComplete();
@@ -1407,7 +1408,7 @@ export const RitualScreen: React.FC = () => {
       completedAt,
       reflectionWord,
     });
-    void PracticeCompletionService.queueLegacyCompletion({
+    await PracticeCompletionService.queueLegacyCompletion({
       id: completionEventId,
       anchorId,
       anchorLocalId: anchor?.localId,
@@ -1416,6 +1417,7 @@ export const RitualScreen: React.FC = () => {
       completedAt,
       guidanceVoice: sessionAudioPlan.configuration.guidanceVoice,
       backgroundAudio: sessionAudioPlan.configuration.backgroundAudio,
+      source: returnTo === 'practice' ? 'practice_screen' : 'anchor_detail',
     });
 
     await queueProgressionMilestonesFromStores({ sourceEventId: completionEventId });

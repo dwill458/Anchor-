@@ -6,6 +6,7 @@
 
 import { NextFunction, Router, Response } from 'express';
 import { z } from 'zod';
+import type { PracticeSession, Prisma } from '@prisma/client';
 import { AuthRequest, authMiddleware } from '../middleware/auth';
 import { AppError } from '../middleware/errorHandler';
 import { prisma } from '../../lib/prisma';
@@ -21,6 +22,26 @@ import { requireVisualizeAccess } from '../../services/PracticeAccessService';
 const router = Router();
 const MS_PER_DAY = 24 * 60 * 60 * 1000;
 const NEXT_ACTION_MAX_LENGTH = 240;
+const COMPLETION_SOURCES = [
+  'practice_screen',
+  'anchor_detail',
+  'notification',
+  'widget',
+  'deep_link',
+  'restored',
+  'unknown',
+] as const;
+
+type AuthenticatedPracticeUser = Prisma.UserGetPayload<{
+  select: {
+    id: true;
+    authUid: true;
+    isComped: true;
+    subscriptionStatus: true;
+    subscriptionId: true;
+    trialStartedAt: true;
+  };
+}>;
 
 // --- Zod schemas ---
 
@@ -37,6 +58,31 @@ const StabilizeSchema = z.object({
 });
 
 const IsoDateSchema = z.string().datetime({ offset: true });
+const LocalDateKeySchema = z
+  .string()
+  .regex(/^\d{4}-\d{2}-\d{2}$/)
+  .refine(value => {
+    const [year, month, day] = value.split('-').map(Number);
+    const date = new Date(Date.UTC(year, month - 1, day));
+    return (
+      date.getUTCFullYear() === year &&
+      date.getUTCMonth() === month - 1 &&
+      date.getUTCDate() === day
+    );
+  }, 'Must be a real calendar date');
+const TimeZoneSchema = z
+  .string()
+  .trim()
+  .min(1)
+  .max(100)
+  .refine(value => {
+    try {
+      new Intl.DateTimeFormat('en-US', { timeZone: value }).format();
+      return true;
+    } catch {
+      return false;
+    }
+  }, 'Must be a valid IANA time zone');
 const PracticeSessionSchema = z
   .object({
     id: z.string().min(1).max(200),
@@ -49,11 +95,18 @@ const PracticeSessionSchema = z
     completionStatus: z.literal('completed'),
     startedAt: IsoDateSchema,
     completedAt: IsoDateSchema,
+    localDateKey: LocalDateKeySchema,
+    timeZone: TimeZoneSchema,
+    utcOffsetMinutesAtCompletion: z.number().int().min(-840).max(840),
+    completionSource: z.enum(COMPLETION_SOURCES),
+    schemaVersion: z.number().int().min(1).max(100),
+    legacyType: z.string().trim().min(1).max(100).nullable().optional(),
     guidanceVoice: z.enum(GUIDANCE_VOICES),
     backgroundAudio: z.enum(BACKGROUND_AUDIO_MODES),
     sceneSnapshot: z.string().max(180).nullable().optional(),
     nextAction: z.string().trim().min(1).max(NEXT_ACTION_MAX_LENGTH).nullable().optional(),
     clientVersion: z.string().max(100).nullable().optional(),
+    metadata: z.record(z.unknown()).optional(),
   })
   .strict();
 
@@ -101,7 +154,7 @@ const getLocalDayDiff = (
 // All practice routes require authentication
 router.use(authMiddleware);
 
-async function getAuthenticatedUser(req: AuthRequest) {
+async function getAuthenticatedUser(req: AuthRequest): Promise<AuthenticatedPracticeUser> {
   if (!req.user) throw new AppError('User not authenticated', 401, 'UNAUTHORIZED');
   const user = await prisma.user.findUnique({
     where: { authUid: req.user.uid },
@@ -118,7 +171,7 @@ async function getAuthenticatedUser(req: AuthRequest) {
   return user;
 }
 
-function assertValidCompletedSession(input: z.infer<typeof PracticeSessionSchema>) {
+function assertValidCompletedSession(input: z.infer<typeof PracticeSessionSchema>): void {
   const startedAt = new Date(input.startedAt);
   const completedAt = new Date(input.completedAt);
   if (completedAt < startedAt || completedAt.getTime() > Date.now() + 5 * 60 * 1000) {
@@ -126,6 +179,50 @@ function assertValidCompletedSession(input: z.infer<typeof PracticeSessionSchema
   }
   if (input.completedDurationSeconds > input.plannedDurationSeconds + 5) {
     throw new AppError('Completed duration exceeds the planned session', 400, 'VALIDATION_ERROR');
+  }
+  const localParts = new Intl.DateTimeFormat('en-US', {
+    timeZone: input.timeZone,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).formatToParts(completedAt);
+  const part = (type: Intl.DateTimeFormatPartTypes): string | undefined =>
+    localParts.find(value => value.type === type)?.value;
+  const expectedLocalDateKey = `${part('year')}-${part('month')}-${part('day')}`;
+  if (input.localDateKey !== expectedLocalDateKey) {
+    throw new AppError(
+      'Local practice date does not match completion timezone',
+      400,
+      'VALIDATION_ERROR'
+    );
+  }
+  const wallClockParts = new Intl.DateTimeFormat('en-US', {
+    timeZone: input.timeZone,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hourCycle: 'h23',
+  }).formatToParts(completedAt);
+  const wallPart = (type: Intl.DateTimeFormatPartTypes): number =>
+    Number(wallClockParts.find(value => value.type === type)?.value);
+  const wallClockAsUtc = Date.UTC(
+    wallPart('year'),
+    wallPart('month') - 1,
+    wallPart('day'),
+    wallPart('hour'),
+    wallPart('minute'),
+    wallPart('second')
+  );
+  const expectedOffset = Math.round((wallClockAsUtc - completedAt.getTime()) / 60_000);
+  if (input.utcOffsetMinutesAtCompletion !== expectedOffset) {
+    throw new AppError(
+      'Practice time-zone offset does not match completion timezone',
+      400,
+      'VALIDATION_ERROR'
+    );
   }
   if (input.practiceMode === 'visualize') {
     if (
@@ -143,7 +240,7 @@ function assertValidCompletedSession(input: z.infer<typeof PracticeSessionSchema
 }
 
 function immutableSessionMatches(
-  existing: any,
+  existing: PracticeSession,
   input: z.infer<typeof PracticeSessionSchema>
 ): boolean {
   const expectedServerAnchorSnapshot = input.anchorServerId ?? input.anchorId;
@@ -161,6 +258,12 @@ function immutableSessionMatches(
     existing.completionStatus === input.completionStatus &&
     existing.startedAt.getTime() === new Date(input.startedAt).getTime() &&
     existing.completedAt.getTime() === new Date(input.completedAt).getTime() &&
+    existing.localDateKey === input.localDateKey &&
+    existing.timeZone === input.timeZone &&
+    existing.utcOffsetMinutesAtCompletion === input.utcOffsetMinutesAtCompletion &&
+    existing.completionSource === input.completionSource &&
+    existing.schemaVersion === input.schemaVersion &&
+    existing.legacyType === (input.legacyType ?? null) &&
     existing.guidanceVoice === input.guidanceVoice &&
     existing.backgroundAudio === input.backgroundAudio &&
     existing.sceneSnapshot === (input.sceneSnapshot ?? null)
@@ -212,11 +315,18 @@ router.post('/sessions', async (req: AuthRequest, res: Response, next: NextFunct
           completionStatus: input.completionStatus,
           startedAt: new Date(input.startedAt),
           completedAt: new Date(input.completedAt),
+          localDateKey: input.localDateKey,
+          timeZone: input.timeZone,
+          utcOffsetMinutesAtCompletion: input.utcOffsetMinutesAtCompletion,
+          completionSource: input.completionSource,
+          schemaVersion: input.schemaVersion,
+          legacyType: input.legacyType ?? null,
           guidanceVoice: input.guidanceVoice,
           backgroundAudio: input.backgroundAudio,
           sceneSnapshot: input.sceneSnapshot ?? null,
           nextAction: input.nextAction ?? null,
           clientVersion: input.clientVersion ?? null,
+          metadata: input.metadata as Prisma.InputJsonValue | undefined,
         },
       });
       // Focus/Deep Prime retain their existing legacy activation/charge writes

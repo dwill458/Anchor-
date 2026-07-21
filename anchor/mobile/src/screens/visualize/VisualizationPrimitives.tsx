@@ -11,8 +11,13 @@ import {
 import { LinearGradient } from 'expo-linear-gradient';
 import { SvgXml } from 'react-native-svg';
 
-import { colors, typography } from '@/theme';
+import { colors as themeColors, typography } from '@/theme';
 import type { VisualizeSegmentState } from './visualizePresentation';
+
+const colors = {
+  ...themeColors,
+  gold: themeColors.practiceMode.visualize.primary,
+};
 
 type LensProps = {
   size: number;
@@ -129,14 +134,14 @@ const styles = StyleSheet.create({
     position: 'absolute',
     backgroundColor: 'rgba(68,128,182,0.18)',
     borderWidth: 1,
-    borderColor: 'rgba(212,175,55,0.18)',
+    borderColor: 'rgba(120,180,209,0.18)',
   },
   lens: {
     alignItems: 'center',
     justifyContent: 'center',
     overflow: 'hidden',
     borderWidth: 1,
-    borderColor: 'rgba(212,175,55,0.78)',
+    borderColor: 'rgba(120,180,209,0.78)',
   },
   lensInset: {
     overflow: 'hidden',
@@ -148,7 +153,7 @@ const styles = StyleSheet.create({
   progressSegments: { flexDirection: 'row', gap: 5, alignSelf: 'stretch' },
   segmentWrap: { flex: 1, height: 12, justifyContent: 'center', position: 'relative' },
   segment: { height: 2, borderRadius: 2, backgroundColor: 'rgba(128,151,170,0.3)' },
-  segment_completed: { backgroundColor: 'rgba(212,175,55,0.58)' },
+  segment_completed: { backgroundColor: 'rgba(120,180,209,0.58)' },
   segment_current: {
     height: 3,
     backgroundColor: colors.gold,
