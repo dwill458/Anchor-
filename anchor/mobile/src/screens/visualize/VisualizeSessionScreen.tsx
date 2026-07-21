@@ -31,8 +31,13 @@ import { PracticeCompletionService } from "@/services/PracticeCompletionService"
 import { AnalyticsEvents, AnalyticsService } from "@/services/AnalyticsService";
 import { resolveSessionAudioPlan } from "@/services/SessionAudioManifest";
 import { getVisualizeSessionAudioManifest } from "@/services/visualizeAudioManifest";
-import { colors, typography } from "@/theme";
+import { colors as themeColors, typography } from "@/theme";
 import { safeHaptics } from "@/utils/haptics";
+
+const colors = {
+  ...themeColors,
+  gold: themeColors.practiceMode.visualize.primary,
+};
 import { VisualizeAnchorField } from "./VisualizeAnchorField";
 import {
   VISUALIZE_PHASE_PRESENTATION,
@@ -108,16 +113,7 @@ export const VisualizeSessionScreen: React.FC<Props> = ({
         guidanceVoice: route.params.guidanceVoice,
         backgroundAudio: route.params.backgroundAudio,
         sceneSnapshot: route.params.sceneText,
-      });
-      AnalyticsService.track(AnalyticsEvents.PRACTICE_SESSION_COMPLETED, {
-        practice_mode: "visualize",
-        session_id: sessionIdRef.current,
-        anchor_id: anchor.id,
-        duration_seconds: route.params.durationSeconds,
-        guidance_voice: route.params.guidanceVoice,
-        background_audio: route.params.backgroundAudio,
-        sync_outcome: "queued",
-        completed_at: completedAt,
+        source: route.params.source,
       });
     },
     [accountId, anchor, route.params],
@@ -223,6 +219,7 @@ export const VisualizeSessionScreen: React.FC<Props> = ({
       anchorId: route.params.anchorId,
       sessionId: sessionIdRef.current,
       durationSeconds: route.params.durationSeconds,
+      source: route.params.source,
     });
   }, [
     engine.state,
@@ -736,7 +733,7 @@ const styles = StyleSheet.create({
     height: 72,
     borderRadius: 36,
     borderWidth: 1,
-    borderColor: "rgba(232,198,91,.58)",
+    borderColor: "rgba(120,180,209,.58)",
   },
   waveform: {
     position: "absolute",

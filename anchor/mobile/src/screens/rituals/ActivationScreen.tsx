@@ -600,7 +600,7 @@ export const ActivationScreen: React.FC = () => {
       reflectionWord,
       completedAt,
     });
-    void PracticeCompletionService.queueLegacyCompletion({
+    await PracticeCompletionService.queueLegacyCompletion({
       id: completionEventId,
       anchorId,
       anchorLocalId: anchor?.localId,
@@ -609,6 +609,7 @@ export const ActivationScreen: React.FC = () => {
       completedAt,
       guidanceVoice: focusSessionAudioPlan.configuration.guidanceVoice,
       backgroundAudio: focusSessionAudioPlan.configuration.backgroundAudio,
+      source: returnTo === 'practice' ? 'practice_screen' : 'anchor_detail',
     });
     void recordReviewSignal('focus_session_completed');
     await queueProgressionMilestonesFromStores({ sourceEventId: completionEventId });

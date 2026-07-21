@@ -17,6 +17,7 @@ export interface WidgetHistoryDay {
   level: 0 | 1 | 2 | 3;
   /** True when the day included a reinforce ("Deep Prime") session */
   deep: boolean;
+  dominantMode?: 'deep_prime' | 'visualize' | 'focus' | 'release' | null;
 }
 
 export interface WidgetWeekDay {
@@ -24,6 +25,7 @@ export interface WidgetWeekDay {
   date: string;
   hasFocus: boolean;
   hasDeep: boolean;
+  dominantMode?: 'deep_prime' | 'visualize' | 'focus' | 'release' | null;
   isToday: boolean;
   isFuture: boolean;
 }
@@ -43,6 +45,7 @@ export interface WidgetSnapshot {
   focusSessions: number;
   deepPrimeSessions: number;
   visualizeSessions: number;
+  releaseSessions: number;
   deepPrimePercent: number;
   longestStreak: number;
   sensitivityLabel: string;
@@ -109,6 +112,7 @@ export function createEmptyWidgetSnapshot(): WidgetSnapshot {
     focusSessions: 0,
     deepPrimeSessions: 0,
     visualizeSessions: 0,
+    releaseSessions: 0,
     deepPrimePercent: 0,
     longestStreak: 0,
     sensitivityLabel: 'Balanced',

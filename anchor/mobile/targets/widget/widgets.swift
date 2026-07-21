@@ -11,6 +11,7 @@ struct WidgetHistoryDay: Decodable {
     let date: String
     let level: Int
     let deep: Bool
+    let dominantMode: String?
 }
 
 struct WidgetSnapshot: Decodable {
@@ -52,7 +53,12 @@ struct WidgetSnapshot: Decodable {
             let level = active ? (seed % 3) + 1 : 0
             let deep = active && recency > 0.55 && seed % 13 == 0
             history.append(
-                WidgetHistoryDay(date: AnchorDates.dayString(day), level: level, deep: deep)
+                WidgetHistoryDay(
+                    date: AnchorDates.dayString(day),
+                    level: level,
+                    deep: deep,
+                    dominantMode: deep ? "deep_prime" : "focus"
+                )
             )
         }
         let today = AnchorDates.dayString(Date())
@@ -121,14 +127,13 @@ enum AnchorPalette {
     static let ringPrimed = Color(hex: 0xD4AF37, alpha: 0.16)
     static let ctaBorderPrimed = Color(hex: 0xD4AF37, alpha: 0.4)
 
-    /// Heatmap: Focus (gold) levels 0–3
+    /// Neutral empty cells and Deep Prime (gold) intensity levels.
     static let heatGold: [Color] = [
         Color(hex: 0x161A1F), Color(hex: 0x57491F), Color(hex: 0x9C7C26), Color(hex: 0xE8C860),
     ]
-    /// Heatmap: Deep Prime (Deep Purple) levels 1–3 (index 0 unused)
-    static let heatDeep: [Color] = [
-        Color(hex: 0x161A1F), Color(hex: 0x5C4079), Color(hex: 0x7E58A6), Color(hex: 0x9D74CF),
-    ]
+    static let heatFocus = [Color(hex: 0x161A1F), Color(hex: 0x463C58), Color(hex: 0x75658F), Color(hex: 0xAD99D2)]
+    static let heatVisualize = [Color(hex: 0x161A1F), Color(hex: 0x304B59), Color(hex: 0x517B90), Color(hex: 0x78B4D1)]
+    static let heatRelease = [Color(hex: 0x161A1F), Color(hex: 0x543A2A), Color(hex: 0x895C3D), Color(hex: 0xC8875A)]
 }
 
 enum AnchorFont {
@@ -420,7 +425,7 @@ struct MediumWidgetView: View {
                 MediumMetric(
                     value: String(entry.snapshot.anchorDeepPrimeSessions ?? 0),
                     label: "DEEP PRIMES",
-                    color: AnchorPalette.heatDeep[3]
+                    color: AnchorPalette.heatGold[3]
                 )
             }
 
@@ -527,7 +532,12 @@ struct HeatmapView: View {
                         color = primed ? AnchorPalette.heatGold[3] : AnchorPalette.heatGold[0]
                     } else if let day, day.level > 0 {
                         let level = min(max(day.level, 1), 3)
-                        color = day.deep ? AnchorPalette.heatDeep[level] : AnchorPalette.heatGold[level]
+                        switch day.dominantMode {
+                        case "focus": color = AnchorPalette.heatFocus[level]
+                        case "visualize": color = AnchorPalette.heatVisualize[level]
+                        case "release": color = AnchorPalette.heatRelease[level]
+                        default: color = AnchorPalette.heatGold[level]
+                        }
                     } else {
                         color = AnchorPalette.heatGold[0]
                     }
@@ -617,13 +627,13 @@ struct LargeWidgetView: View {
             HStack {
                 HStack(spacing: 6) {
                     LegendSwatch(color: AnchorPalette.gold)
-                    Text("FOCUS")
+                    Text("DEEP PRIME")
                         .font(AnchorFont.display(8.5))
                         .kerning(1.19)
                         .foregroundColor(AnchorPalette.silverLabel)
-                    LegendSwatch(color: AnchorPalette.heatDeep[3])
+                    LegendSwatch(color: AnchorPalette.heatFocus[3])
                         .padding(.leading, 9)
-                    Text("DEEP PRIME")
+                    Text("FOCUS")
                         .font(AnchorFont.display(8.5))
                         .kerning(1.19)
                         .foregroundColor(AnchorPalette.silverLabel)

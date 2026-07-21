@@ -480,7 +480,7 @@ const styles = StyleSheet.create({
     width: 8,
     height: 3,
     borderRadius: 2,
-    backgroundColor: 'rgba(212,175,55,0.75)',
+    backgroundColor: 'rgba(120,180,209,0.75)',
   },
   ringTickOpposite: {
     position: 'absolute',
@@ -489,12 +489,12 @@ const styles = StyleSheet.create({
     width: 4,
     height: 2,
     borderRadius: 1,
-    backgroundColor: 'rgba(145,111,202,0.65)',
+    backgroundColor: 'rgba(120,180,209,0.65)',
   },
   violetOrbit: {
     position: 'absolute',
     borderWidth: 1,
-    borderColor: 'rgba(145,111,202,0.25)',
+    borderColor: 'rgba(120,180,209,0.25)',
   },
   violetThread: {
     position: 'absolute',
@@ -503,7 +503,7 @@ const styles = StyleSheet.create({
     width: 3,
     height: 3,
     borderRadius: 2,
-    backgroundColor: 'rgba(170,137,225,0.84)',
+    backgroundColor: 'rgba(120,180,209,0.84)',
   },
   goldTrace: {
     position: 'absolute',
@@ -514,12 +514,12 @@ const styles = StyleSheet.create({
     height: 206,
     borderRadius: 103,
     borderWidth: 1,
-    borderColor: 'rgba(232,198,91,0.8)',
-    backgroundColor: 'rgba(212,175,55,0.05)',
+    borderColor: 'rgba(120,180,209,0.8)',
+    backgroundColor: 'rgba(120,180,209,0.05)',
   },
   anchorGlow: {
     position: 'absolute',
-    backgroundColor: 'rgba(212,175,55,0.13)',
+    backgroundColor: 'rgba(120,180,209,0.13)',
     borderWidth: 1,
     borderColor: 'rgba(225,191,83,0.25)',
   },

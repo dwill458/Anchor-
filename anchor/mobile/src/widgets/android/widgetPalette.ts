@@ -9,45 +9,54 @@
  * with layered low-opacity strokes and radial gradients inside the SVGs.
  */
 
-export const WIDGET_BG = '#080C10';
-export const GOLD = '#D4AF37';
-export const BONE = '#F5F5DC';
-export const DIM_GLYPH = '#3d4147';
-export const MUTED_LABEL = '#9a9488';
-export const FAINT_LABEL = '#8a8577';
-export const SILVER_LABEL = '#C0C0C0';
+export const WIDGET_BG = "#080C10";
+export const GOLD = "#D4AF37";
+export const BONE = "#F5F0E8";
+export const DIM_GLYPH = "#3d4147";
+export const MUTED_LABEL = "#9a9488";
+export const FAINT_LABEL = "#8a8577";
+export const SILVER_LABEL = "#C0C0C0";
 
 /**
  * FIX #1 (small widget, not-primed): visible silver ring —
  * rgba(192,192,192,0.14). Replaces the near-invisible rgba(255,255,255,0.05)
  * ring; without it the dim glyph reads as a rendering error. Required.
  */
-export const RING_NOT_PRIMED = '#C0C0C024'; // rgba(192,192,192,0.14)
+export const RING_NOT_PRIMED = "#C0C0C024"; // rgba(192,192,192,0.14)
 /** Primed ring: rgba(212,175,55,0.16) */
-export const RING_PRIMED = '#D4AF3729';
+export const RING_PRIMED = "#D4AF3729";
 /** Medium CTA border (primed): rgba(212,175,55,0.4) */
-export const CTA_BORDER_PRIMED = '#D4AF3766';
+export const CTA_BORDER_PRIMED = "#D4AF3766";
 
 export const WIDGET_CORNER_RADIUS = 26;
 
-/** Heatmap cell colors by level — Focus (gold) family */
-export const HEAT_GOLD: Record<0 | 1 | 2 | 3, string> = {
-  0: '#161a1f',
-  1: '#57491f',
-  2: '#9c7c26',
-  3: '#E8C860',
-};
-/** Deep Prime (Deep Purple) family — intentional brand tie-in */
-export const HEAT_DEEP: Record<1 | 2 | 3, string> = {
-  1: '#5c4079',
-  2: '#7e58a6',
-  3: '#9d74cf',
-};
+/** Heatmap cell colors by level — Deep Prime (gold) family. */
+export const HEAT_GOLD = {
+  0: "#161a1f",
+  1: "#57491f",
+  2: "#9c7c26",
+  3: "#E8C860",
+} as const satisfies Record<0 | 1 | 2 | 3, `#${string}`>;
+export const HEAT_FOCUS = {
+  1: "#554B68",
+  2: "#81729D",
+  3: "#AD99D2",
+} as const satisfies Record<1 | 2 | 3, `#${string}`>;
+export const HEAT_VISUALIZE = {
+  1: "#3B5967",
+  2: "#5A879D",
+  3: "#78B4D1",
+} as const satisfies Record<1 | 2 | 3, `#${string}`>;
+export const HEAT_RELEASE = {
+  1: "#60412B",
+  2: "#966544",
+  3: "#C8875A",
+} as const satisfies Record<1 | 2 | 3, `#${string}`>;
 
 /** Widget font families — file basenames registered via the plugin `fonts` option */
-export const FONT_SERIF_SEMIBOLD = 'CrimsonPro_600SemiBold';
-export const FONT_DISPLAY = 'Cinzel_500Medium';
-export const FONT_DISPLAY_SEMIBOLD = 'Cinzel_600SemiBold';
+export const FONT_SERIF_SEMIBOLD = "CrimsonPro_600SemiBold";
+export const FONT_DISPLAY = "Cinzel_500Medium";
+export const FONT_DISPLAY_SEMIBOLD = "Cinzel_600SemiBold";
 
 /**
  * The anchor glyph paths (viewBox 0 0 120 130) — same geometry in every
@@ -65,12 +74,16 @@ function glyphPaths(): string {
   );
 }
 
-function glyphGroup(stroke: string, strokeWidth: number, opacity: number): string {
+function glyphGroup(
+  stroke: string,
+  strokeWidth: number,
+  opacity: number,
+): string {
   return (
     `<g fill="none" stroke="${stroke}" stroke-width="${strokeWidth}" ` +
     `stroke-linecap="round" stroke-linejoin="round" opacity="${opacity}">` +
     glyphPaths() +
-    '</g>'
+    "</g>"
   );
 }
 
@@ -88,8 +101,13 @@ export interface GlyphOptions {
  * Returns the glyph as SVG inner markup (no <svg> wrapper) in glyph
  * coordinate space (120 × 130). Compose inside an <svg> or a transformed <g>.
  */
-export function buildGlyphMarkup({ strokeWidth, stroke, opacity, glow }: GlyphOptions): string {
-  let markup = '';
+export function buildGlyphMarkup({
+  strokeWidth,
+  stroke,
+  opacity,
+  glow,
+}: GlyphOptions): string {
+  let markup = "";
   if (glow) {
     // drop-shadow(0 0 ~7px gold) approximation: two soft under-strokes
     markup += glyphGroup(GOLD, strokeWidth * 4.2, 0.12);
@@ -110,7 +128,7 @@ export function buildGlyphSvg(options: GlyphOptions): string {
  */
 export function colorizeAnchorSigilSvg(
   sigilSvg: string | null | undefined,
-  color: string
+  color: string,
 ): string | null {
   const normalized = sigilSvg?.trim();
   if (!normalized || !/<svg\b/i.test(normalized)) {

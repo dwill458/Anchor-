@@ -30,9 +30,16 @@ import {
 } from '@/utils/threadStrength';
 import type { SessionAudioConfiguration } from '@/types/sessionAudio';
 import {
+  normalizePracticeMode,
   PRACTICE_THREAD_STRENGTH_GAINS,
   type PracticeSessionRecord,
+  type UnknownPracticeHistoryRecord,
 } from '@/types/practice';
+import {
+  getCompletionTimeContext,
+  PRACTICE_SESSION_SCHEMA_VERSION,
+  stablePracticeFingerprint,
+} from '@/utils/practiceTime';
 
 export type SessionType = 'activate' | 'reinforce' | 'visualize' | 'stabilize';
 export type SessionMode = 'silent' | 'mantra' | 'ambient';
@@ -94,6 +101,8 @@ interface SessionState {
   primingHistory: PrimingHistoryEntry[];
   /** Canonical uncapped completed-practice history. */
   practiceHistory: PracticeSessionRecord[];
+  /** Unrecognized legacy records retained for diagnostics, never metrics. */
+  unknownPracticeHistory: UnknownPracticeHistoryRecord[];
   /** Monday date for the user's first tracked priming week. */
   journeyWeekStart: string | null;
   /** YYYY-MM-DD of the last day decay was applied — prevents double-apply. */
@@ -102,6 +111,12 @@ interface SessionState {
   // Actions
   recordSession: (entry: SessionRecordInput) => string;
   recordPracticeSession: (entry: PracticeSessionRecord) => string;
+  appendCanonicalPracticeSession: (entry: PracticeSessionRecord) => string;
+  markPracticeSessionSynced: (id: string) => void;
+  updatePracticeSessionNextAction: (
+    id: string,
+    nextAction: string | null,
+  ) => void;
   consumeGraceDay: () => void;
   /** Call on app foreground to reset today counters if the local date has rolled over */
   resetIfNewDay: () => void;
@@ -114,6 +129,7 @@ interface SessionState {
    * No-op if the local store already has recorded sessions.
    */
   hydrateFromBackend: (params: {
+    accountId?: string;
     totalActivations: number;
     currentStreak: number;
     anchors: Array<{ lastActivatedAt?: Date }>;
@@ -146,6 +162,9 @@ const createInitialSessionState = (): Omit<
   SessionState,
   | 'recordSession'
   | 'recordPracticeSession'
+  | 'appendCanonicalPracticeSession'
+  | 'markPracticeSessionSynced'
+  | 'updatePracticeSessionNextAction'
   | 'consumeGraceDay'
   | 'resetIfNewDay'
   | 'applyDecay'
@@ -165,6 +184,7 @@ const createInitialSessionState = (): Omit<
   weekHistoryKey: isoWeekKey(new Date()),
   primingHistory: [],
   practiceHistory: [],
+  unknownPracticeHistory: [],
   journeyWeekStart: null,
   lastDecayDate: null,
 });
@@ -175,7 +195,19 @@ function getPracticeSessionGain(type: SessionType): number {
   if (type === 'activate') return PRACTICE_THREAD_STRENGTH_GAINS.focus;
   if (type === 'reinforce') return PRACTICE_THREAD_STRENGTH_GAINS.deep_prime;
   if (type === 'visualize') return PRACTICE_THREAD_STRENGTH_GAINS.visualize;
-  return PRACTICE_THREAD_STRENGTH_GAINS.stabilize;
+  return 0;
+}
+
+function sortCanonicalPracticeHistory(
+  entries: PracticeSessionRecord[],
+): PracticeSessionRecord[] {
+  return Array.from(new Map(entries.map((entry) => [entry.id, entry])).values())
+    .sort(
+      (left, right) =>
+        new Date(right.completedAt).getTime() -
+          new Date(left.completedAt).getTime() ||
+        right.id.localeCompare(left.id),
+    );
 }
 
 function parseLocalDate(dateString: string): Date {
@@ -534,6 +566,15 @@ export const useSessionStore = create<SessionState>()(
       recordPracticeSession: (entry) => {
         if (get().practiceHistory.some((session) => session.id === entry.id))
           return entry.id;
+        if (entry.practiceMode === 'release') {
+          set((state) => ({
+            practiceHistory: sortCanonicalPracticeHistory([
+              entry,
+              ...state.practiceHistory,
+            ]),
+          }));
+          return entry.id;
+        }
         const legacyType: SessionType =
           entry.practiceMode === 'focus'
             ? 'activate'
@@ -559,20 +600,41 @@ export const useSessionStore = create<SessionState>()(
           completedAt: entry.completedAt,
         });
         set((state) => ({
-          practiceHistory: [entry, ...state.practiceHistory]
-            .filter(
-              (session, index, sessions) =>
-                sessions.findIndex(
-                  (candidate) => candidate.id === session.id,
-                ) === index,
-            )
-            .sort(
-              (left, right) =>
-                new Date(right.completedAt).getTime() -
-                new Date(left.completedAt).getTime(),
-            ),
+          practiceHistory: sortCanonicalPracticeHistory([
+            entry,
+            ...state.practiceHistory,
+          ]),
         }));
         return entry.id;
+      },
+
+      appendCanonicalPracticeSession: (entry) => {
+        if (get().practiceHistory.some((session) => session.id === entry.id)) {
+          return entry.id;
+        }
+        set((state) => ({
+          practiceHistory: sortCanonicalPracticeHistory([
+            entry,
+            ...state.practiceHistory,
+          ]),
+        }));
+        return entry.id;
+      },
+
+      markPracticeSessionSynced: (id) => {
+        set((state) => ({
+          practiceHistory: state.practiceHistory.map((entry) =>
+            entry.id === id ? { ...entry, syncState: 'synced' } : entry,
+          ),
+        }));
+      },
+
+      updatePracticeSessionNextAction: (id, nextAction) => {
+        set((state) => ({
+          practiceHistory: state.practiceHistory.map((entry) =>
+            entry.id === id ? { ...entry, nextAction } : entry,
+          ),
+        }));
       },
 
       consumeGraceDay: () => {
@@ -679,6 +741,7 @@ export const useSessionStore = create<SessionState>()(
       },
 
       hydrateFromBackend: ({
+        accountId,
         totalActivations,
         currentStreak,
         anchors,
@@ -696,17 +759,22 @@ export const useSessionStore = create<SessionState>()(
           existingPrimingHistory,
           hydratedPrimingHistory,
         );
-        const mergedPracticeHistory = Array.from(
-          new Map(
-            [...state.practiceHistory, ...(practiceHistory ?? [])].map(
-              (entry) => [entry.id, entry],
+        const incomingAccountId = accountId ?? practiceHistory?.[0]?.accountId;
+        const mergedPracticeHistory = sortCanonicalPracticeHistory([
+          ...state.practiceHistory
+            .filter(
+              (entry) =>
+                !incomingAccountId ||
+                entry.accountId === incomingAccountId ||
+                entry.accountId === 'legacy',
+            )
+            .map((entry) =>
+              incomingAccountId && entry.accountId === 'legacy'
+                ? { ...entry, accountId: incomingAccountId }
+                : entry,
             ),
-          ).values(),
-        ).sort(
-          (a, b) =>
-            new Date(b.completedAt).getTime() -
-            new Date(a.completedAt).getTime(),
-        );
+          ...(practiceHistory ?? []),
+        ]);
         const latestAnchorActivation = anchors.reduce<Date | null>(
           (latest, anchor) => {
             if (!anchor.lastActivatedAt) return latest;
@@ -832,7 +900,7 @@ export const useSessionStore = create<SessionState>()(
     {
       name: 'anchor-session-storage',
       storage: createJSONStorage(() => encryptedPersistStorage),
-      version: 4,
+      version: 5,
       migrate: (persistedState: unknown, version: number) => {
         const s = (persistedState as Partial<SessionState>) ?? {};
         const migratedState: Partial<SessionState> = { ...s };
@@ -896,6 +964,10 @@ export const useSessionStore = create<SessionState>()(
             completionStatus: 'completed',
             startedAt: entry.completedAt,
             completedAt: entry.completedAt,
+            ...getCompletionTimeContext(new Date(entry.completedAt)),
+            completionSource: 'restored',
+            schemaVersion: PRACTICE_SESSION_SCHEMA_VERSION,
+            legacyType: entry.type,
             guidanceVoice: 'none',
             backgroundAudio: 'off',
             sceneSnapshot: null,
@@ -903,6 +975,64 @@ export const useSessionStore = create<SessionState>()(
             clientVersion: null,
             syncState: 'synced',
           }));
+        }
+
+        if (version < 5) {
+          const unknownPracticeHistory: UnknownPracticeHistoryRecord[] = [
+            ...(migratedState.unknownPracticeHistory ?? []),
+          ];
+          migratedState.practiceHistory = (
+            migratedState.practiceHistory ?? []
+          ).flatMap((entry) => {
+            if (!entry || typeof entry !== 'object') return [];
+            const rawMode = (entry as unknown as { practiceMode?: unknown })
+              .practiceMode;
+            const practiceMode = normalizePracticeMode(rawMode);
+            if (!practiceMode) {
+              const raw = entry as unknown as Record<string, unknown>;
+              unknownPracticeHistory.push({
+                fingerprint: stablePracticeFingerprint([
+                  raw.id,
+                  rawMode,
+                  raw.completedAt,
+                  raw.anchorId,
+                ]),
+                accountId:
+                  typeof raw.accountId === 'string' ? raw.accountId : 'legacy',
+                legacyType:
+                  typeof rawMode === 'string' ? rawMode : 'unknown',
+                completedAt:
+                  typeof raw.completedAt === 'string' ? raw.completedAt : null,
+                raw,
+              });
+              return [];
+            }
+            const completedAt = new Date(entry.completedAt);
+            if (Number.isNaN(completedAt.getTime())) return [];
+            const time = getCompletionTimeContext(completedAt);
+            return [
+              {
+                ...entry,
+                practiceMode,
+                ...time,
+                completionSource: entry.completionSource ?? 'restored',
+                schemaVersion:
+                  entry.schemaVersion ?? PRACTICE_SESSION_SCHEMA_VERSION,
+                legacyType:
+                  entry.legacyType ??
+                  (entry.practiceMode === 'deep_prime'
+                    ? 'reinforce'
+                    : entry.practiceMode === 'focus'
+                      ? 'activate'
+                      : entry.practiceMode),
+              } as PracticeSessionRecord,
+            ];
+          });
+          migratedState.unknownPracticeHistory = Array.from(
+            new Map(
+              unknownPracticeHistory.map((entry) => [entry.fingerprint, entry]),
+            ).values(),
+          );
         }
 
         return migratedState as SessionState;

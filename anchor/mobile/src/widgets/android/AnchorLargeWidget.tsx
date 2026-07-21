@@ -32,8 +32,10 @@ import {
   FONT_DISPLAY_SEMIBOLD,
   FONT_SERIF_SEMIBOLD,
   GOLD,
-  HEAT_DEEP,
+  HEAT_FOCUS,
   HEAT_GOLD,
+  HEAT_RELEASE,
+  HEAT_VISUALIZE,
   RING_NOT_PRIMED,
   RING_PRIMED,
   SILVER_LABEL,
@@ -50,6 +52,8 @@ interface AnchorLargeWidgetProps {
   totalSessions: number;
   focusSessions: number;
   deepPrimeSessions: number;
+  visualizeSessions: number;
+  releaseSessions: number;
   deepPrimePercent: number;
   longestStreak: number;
   sensitivityLabel: string;
@@ -125,7 +129,14 @@ function Metric({ value, label, color = GOLD }: { value: string; label: string; 
 }
 
 function WeekDot({ day }: { day: WidgetWeekDay }) {
-  const active = day.hasFocus || day.hasDeep || day.isToday;
+  const active = Boolean(day.dominantMode) || day.hasFocus || day.hasDeep;
+  const modeColor = day.dominantMode === 'focus'
+    ? HEAT_FOCUS[3]
+    : day.dominantMode === 'visualize'
+      ? HEAT_VISUALIZE[3]
+      : day.dominantMode === 'release'
+        ? HEAT_RELEASE[3]
+        : HEAT_GOLD[3];
   return (
     <FlexWidget style={{ flex: 1, alignItems: 'center', flexDirection: 'column' }}>
       <TextWidget
@@ -145,17 +156,17 @@ function WeekDot({ day }: { day: WidgetWeekDay }) {
           borderRadius: 10,
           alignItems: 'center',
           justifyContent: 'center',
-          backgroundColor: day.isToday ? GOLD : day.hasDeep ? '#5C4079' : active ? '#57491F' : '#161A1F',
-          borderWidth: day.isToday ? 0 : 1,
-          borderColor: day.hasDeep ? '#9D74CF' : '#2A2E32',
+          backgroundColor: active ? modeColor : '#161A1F',
+          borderWidth: 1,
+          borderColor: day.isToday ? GOLD : active ? modeColor : '#2A2E32',
         }}
       >
         <TextWidget
-          text={active ? '✓' : '—'}
+          text={active ? '✓' : day.isToday ? '·' : '—'}
           style={{
             fontFamily: FONT_DISPLAY_SEMIBOLD,
             fontSize: 8,
-            color: day.isToday ? WIDGET_BG : GOLD,
+            color: active ? WIDGET_BG : GOLD,
           }}
         />
       </FlexWidget>
@@ -219,7 +230,14 @@ export function buildHeatmapSvg(
         // regardless of raw session counts.
         fill = primed ? HEAT_GOLD[3] : HEAT_GOLD[0];
       } else if (day && day.level > 0) {
-        fill = day.deep ? HEAT_DEEP[day.level as 1 | 2 | 3] : HEAT_GOLD[day.level];
+        const level = day.level as 1 | 2 | 3;
+        fill = day.dominantMode === 'focus'
+          ? HEAT_FOCUS[level]
+          : day.dominantMode === 'visualize'
+            ? HEAT_VISUALIZE[level]
+            : day.dominantMode === 'release'
+              ? HEAT_RELEASE[level]
+              : HEAT_GOLD[level];
       } else {
         fill = HEAT_GOLD[0];
       }
@@ -266,6 +284,8 @@ export function AnchorLargeWidget({
   totalSessions,
   focusSessions,
   deepPrimeSessions,
+  visualizeSessions,
+  releaseSessions,
   deepPrimePercent,
   longestStreak,
   sensitivityLabel,
@@ -385,7 +405,7 @@ export function AnchorLargeWidget({
           <FlexWidget style={{ width: 1, height: 19, backgroundColor: '#FFFFFF12' }} />
           <Metric value={String(longestStreak)} label="PRIME RECORD" />
           <FlexWidget style={{ width: 1, height: 19, backgroundColor: '#FFFFFF12' }} />
-          <Metric value={`${deepPrimePercent}%`} label="DEEP PRIMES" color="#9D74CF" />
+          <Metric value={`${deepPrimePercent}%`} label="DEEP PRIMES" color="#D4AF37" />
         </FlexWidget>
 
         {/* ── Sensitivity + session breakdown ── */}
@@ -420,7 +440,7 @@ export function AnchorLargeWidget({
             />
             <TextWidget
               text={`${deepPrimeSessions} DEEP PRIMES`}
-              style={{ fontFamily: FONT_DISPLAY, fontSize: 6.5, letterSpacing: 0.55, color: '#9D74CF' }}
+              style={{ fontFamily: FONT_DISPLAY, fontSize: 6.5, letterSpacing: 0.55, color: '#D4AF37' }}
             />
           </FlexWidget>
           <FlexWidget
@@ -434,8 +454,10 @@ export function AnchorLargeWidget({
               backgroundColor: '#FFFFFF0F',
             }}
           >
-            <FlexWidget style={{ flex: Math.max(0.001, focusSessions), backgroundColor: '#D4AF37' }} />
-            <FlexWidget style={{ flex: Math.max(0.001, deepPrimeSessions), backgroundColor: '#7E58A6' }} />
+            <FlexWidget style={{ flex: Math.max(0.001, deepPrimeSessions), backgroundColor: '#D4AF37' }} />
+            <FlexWidget style={{ flex: Math.max(0.001, visualizeSessions), backgroundColor: '#78B4D1' }} />
+            <FlexWidget style={{ flex: Math.max(0.001, focusSessions), backgroundColor: '#AD99D2' }} />
+            <FlexWidget style={{ flex: Math.max(0.001, releaseSessions), backgroundColor: '#C8875A' }} />
           </FlexWidget>
         </FlexWidget>
 
@@ -490,7 +512,7 @@ export function AnchorLargeWidget({
           }}
         >
           <FlexWidget style={{ flexDirection: 'row', alignItems: 'center' }}>
-            <LegendSwatch color={GOLD} />
+            <LegendSwatch color={HEAT_FOCUS[3]} />
             <TextWidget
               text="FOCUS"
               style={{
@@ -501,7 +523,7 @@ export function AnchorLargeWidget({
                 marginLeft: 6,
               }}
             />
-            <LegendSwatch color={HEAT_DEEP[3]} marginLeft={15} />
+            <LegendSwatch color={GOLD} marginLeft={15} />
             <TextWidget
               text="DEEP PRIME"
               style={{

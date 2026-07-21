@@ -260,11 +260,18 @@ model PracticeSession {
   completionStatus         String   @default("completed") @map("completion_status")
   startedAt                DateTime @map("started_at")
   completedAt              DateTime @map("completed_at")
+  localDateKey             String   @map("local_date_key")
+  timeZone                 String   @map("time_zone")
+  utcOffsetMinutesAtCompletion Int  @map("utc_offset_minutes_at_completion")
+  completionSource         String   @map("completion_source")
+  schemaVersion            Int      @default(2) @map("schema_version")
+  legacyType               String?  @map("legacy_type")
   guidanceVoice            String   @map("guidance_voice")
   backgroundAudio          String   @map("background_audio")
   sceneSnapshot            String?  @db.Text @map("scene_snapshot")
   nextAction               String?  @db.Text @map("next_action")
   clientVersion            String?  @map("client_version")
+  metadata                 Json?
   createdAt                DateTime @default(now()) @map("created_at")
   updatedAt                DateTime @updatedAt @map("updated_at")
 

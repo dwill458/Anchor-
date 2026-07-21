@@ -29,7 +29,7 @@ import { colors, typography } from '@/theme';
 import { isCompactPhoneViewport, isShortPhoneViewport } from '@/utils/layout';
 import { getOnboardingProgressPercent } from '@/utils/onboardingProgress';
 // eslint-disable-next-line @typescript-eslint/no-var-requires
-const anchorLogoOfficial = require('../../assets/images/anchor-gold.png') as number;
+const anchorLogoOfficial = require('../../assets/images/anchor-logo-official.png') as number;
 
 type Props = NativeStackScreenProps<OnboardingStackParamList, 'Welcome'>;
 
@@ -69,48 +69,48 @@ const SLIDES: OnboardingSlide[] = [
   {
     id: 0,
     label: '01 / The Problem',
-    headline: 'Your brain has **unfinished business.**',
-    body: "Every intention that hasn't been locked down is running in the background — draining your focus before you begin.",
+    headline: 'Your goals get\n**lost in the noise.**',
+    body: 'Even a clear intention can fade once the day begins. Without something visible to return to, distraction takes over.',
     visual: 'orbits',
     cta: 'Next',
   },
   {
     id: 1,
     label: '02 / The Gap',
-    headline: "The goal isn't the problem. **The trigger is.**",
-    body: "You know what you want. You don't have something to snap you into it — something your brain recognizes instantly, before doubt can form.",
+    headline: "The goal isn't the\nproblem. **The cue is.**",
+    body: "You know what you want. What's missing is something your mind can recognize instantly and return to before doubt or distraction takes over.",
     visual: 'signal',
     cta: 'Next',
   },
   {
     id: 2,
     label: '03 / The Mechanism',
-    headline: 'Anchor **forges** your intention into a visual trigger.',
-    body: 'In seconds, your words become a symbol your brain recognizes before conscious thought kicks in.',
+    headline: 'Anchor turns your\nintention into a personal\n**visual cue.**',
+    body: 'This is visual goal setting made personal. Your words become a one-of-one symbol you can recognize and return to at a glance.',
     visual: 'forge',
     cta: 'Next',
   },
   {
     id: 3,
     label: '04 / The Practice',
-    headline: 'Used before the moments **that matter.**',
-    body: 'Not a reminder. A primer. The 10 seconds that change your next 4 hours.',
+    headline: 'Use it before the\n**moments that matter.**',
+    body: 'Not a reminder. A primer. Return to your Anchor before deep work, training, or any moment that demands your full attention.',
     visual: 'usecases',
     cta: 'Next',
   },
   {
     id: 4,
     label: '05 / Begin',
-    headline: 'Forge your first anchor **now.**',
-    body: 'It takes 30 seconds. Set it as your lock screen. See what happens today.',
+    headline: 'Create your first\n**anchor now.**',
+    body: 'Start with one intention. Turn it into a personal visual cue you can keep, practice with, and return to throughout your day.',
     visual: 'final',
-    cta: 'Forge Your First Anchor →',
+    cta: 'Create Your First Anchor →',
   },
 ];
 
 const USE_CASES: UseCaseItem[] = [
-  { label: 'Deep Work', description: 'Before a 4-hour coding block', iconType: 'code' },
-  { label: 'Physical', description: 'Before hitting a new PR at the gym', iconType: 'lift' },
+  { label: 'Deep Work', description: 'Before a focused work session', iconType: 'code' },
+  { label: 'Physical', description: 'Before training or pursuing a new personal best', iconType: 'lift' },
   { label: 'High Stakes', description: 'Before a pitch, presentation, or interview', iconType: 'pitch' },
 ];
 
@@ -151,7 +151,7 @@ const OrbitsVisual: React.FC = () => {
   const rot1 = useRef(new Animated.Value(0)).current;
   const rot2 = useRef(new Animated.Value(0)).current;
   const rot3 = useRef(new Animated.Value(0)).current;
-  const words = ['FOCUS', 'POWER', 'CLARITY', 'DRIVE', 'WILL'];
+  const words = ['FOCUS', 'POWER', 'CLARITY', 'DRIVE'];
   const wordAnims = useRef(words.map(() => new Animated.Value(0))).current;
 
   React.useEffect(() => {
@@ -189,7 +189,6 @@ const OrbitsVisual: React.FC = () => {
     { top: '20%', right: '8%' },
     { bottom: '28%', left: '6%' },
     { bottom: '18%', right: '6%' },
-    { top: '48%', left: '0%' },
   ];
 
   return (
@@ -217,7 +216,13 @@ const OrbitsVisual: React.FC = () => {
       ))}
 
       <View style={visual.orbits.center}>
-        <Image source={anchorLogoOfficial} style={{ width: 140, height: 140 }} resizeMode="contain" />
+        <Image
+          source={anchorLogoOfficial}
+          style={{ width: 140, height: 140 }}
+          resizeMode="contain"
+          accessible
+          accessibilityLabel="Anchor logo"
+        />
       </View>
 
       {words.map((word, i) => (
@@ -418,7 +423,7 @@ const FinalVisual: React.FC = () => {
         <Image source={successAnchor} style={{ width: 200, height: 200, borderRadius: 100 }} resizeMode="contain" />
       </Animated.View>
       <View style={visual.final.badge}>
-        <Text style={visual.final.badgeText}>30 SEC TO FORGE</Text>
+        <Text style={visual.final.badgeText}>START WITH ONE INTENTION</Text>
       </View>
     </View>
   );

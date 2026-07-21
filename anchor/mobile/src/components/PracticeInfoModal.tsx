@@ -18,7 +18,7 @@ interface PracticeInfoModalProps {
 }
 
 type ModeCard = {
-  key: 'imprint' | 'deep-prime' | 'seal';
+  key: 'focus' | 'deep-prime' | 'visualize' | 'release';
   title: string;
   action: string;
   description: string;
@@ -34,44 +34,28 @@ const SHEET_BORDER = 'rgba(212,175,55,0.15)';
 const HANDLE_COLOR = 'rgba(192,192,192,0.25)';
 const OVERLAY_COLOR = 'rgba(8,12,16,0.6)';
 const GOLD_DIM = '#8A7020';
-const SEAL_TEXT = '#9B89C4';
-
 const MODE_CARDS: ModeCard[] = [
-  {
-    key: 'imprint',
-    title: 'Imprint',
-    action: 'Trace or hold. Active or still.',
-    description:
-      'Build the anchor into your visual memory. Focus Session: trace and lock in. Stabilize: sit with it and let it settle.',
-    accent: colors.gold,
-    iconStroke: colors.gold,
-    surface: 'rgba(212,175,55,0.06)',
-    border: 'rgba(212,175,55,0.2)',
-    iconSurface: 'rgba(212,175,55,0.15)',
-  },
   {
     key: 'deep-prime',
     title: 'Deep Prime',
-    action: 'Extended focus. Customizable duration.',
-    description:
-      'When you have time and want to go deeper. Sustained attention builds thicker thread strength.',
-    accent: colors.silver,
-    iconStroke: colors.silver,
-    surface: 'rgba(192,192,192,0.04)',
-    border: 'rgba(192,192,192,0.15)',
-    iconSurface: 'rgba(192,192,192,0.1)',
+    action: 'Build sustained attention.',
+    description: 'Stay with your anchor long enough for the intention to settle and compound.',
+    accent: '#D4AF37', iconStroke: '#D4AF37', surface: 'rgba(212,175,55,0.06)', border: 'rgba(212,175,55,0.2)', iconSurface: 'rgba(212,175,55,0.15)',
   },
   {
-    key: 'seal',
-    title: 'Seal',
-    action: 'Close the loop. Release the hold.',
-    description:
-      'Finalize the session with release. The anchor locks deepest when you step back and let go.',
-    accent: SEAL_TEXT,
-    iconStroke: SEAL_TEXT,
-    surface: 'rgba(62,44,91,0.2)',
-    border: 'rgba(62,44,91,0.5)',
-    iconSurface: 'rgba(62,44,91,0.4)',
+    key: 'visualize', title: 'Visualize', action: 'Rehearse the moment.',
+    description: 'Picture a specific future moment where the intention is already real.',
+    accent: '#78B4D1', iconStroke: '#78B4D1', surface: 'rgba(120,180,209,0.06)', border: 'rgba(120,180,209,0.2)', iconSurface: 'rgba(120,180,209,0.15)',
+  },
+  {
+    key: 'focus', title: 'Focus Session', action: 'Reset drifting attention.',
+    description: 'Use a short session to return quickly to the anchor and the next step.',
+    accent: '#AD99D2', iconStroke: '#AD99D2', surface: 'rgba(173,153,210,0.06)', border: 'rgba(173,153,210,0.2)', iconSurface: 'rgba(173,153,210,0.15)',
+  },
+  {
+    key: 'release', title: 'Release', action: 'Close the completed loop.',
+    description: 'Let go when an intention has completed its work while preserving its history.',
+    accent: '#C8875A', iconStroke: '#C8875A', surface: 'rgba(200,135,90,0.06)', border: 'rgba(200,135,90,0.2)', iconSurface: 'rgba(200,135,90,0.15)',
   },
 ];
 
@@ -86,7 +70,7 @@ function ModeGlyph({ mode, stroke }: { mode: ModeCard['key']; stroke: string }) 
     );
   }
 
-  if (mode === 'seal') {
+  if (mode === 'release') {
     return (
       <View style={styles.glyphFrame}>
         <View style={[styles.sealArc, styles.sealArcLeft, { borderColor: stroke }]} />
@@ -186,10 +170,9 @@ export const PracticeInfoModal: React.FC<PracticeInfoModalProps> = ({
         >
           <View style={styles.handle} />
 
-          <Text style={styles.title}>Three Modes to Prime</Text>
+          <Text style={styles.title}>Four Ways to Practice</Text>
           <Text style={styles.subtitle}>
-            Three core priming modes. Four ways to practice them. Whenever time allows,
-            build thread strength.
+            Each completed practice strengthens the same thread in a different way.
           </Text>
 
           <ScrollView

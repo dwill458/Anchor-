@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect } from 'react';
+import React, { useCallback, useEffect, useRef } from 'react';
 import { RouteProp, useNavigation, useRoute } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { useTabNavigation } from '@/contexts/TabNavigationContext';
@@ -22,6 +22,8 @@ import {
   JOURNEY_MILESTONE_IDS,
   JOURNEY_TEACHING_CONTENT_ID_BY_MILESTONE,
 } from '@/constants/milestones';
+import { PracticeCompletionService } from '@/services/PracticeCompletionService';
+import { createPracticeEventId } from '@/utils/primingAnalytics';
 
 type BurningRitualRouteProp = RouteProp<RootStackParamList, 'BurningRitual'>;
 type BurningRitualNavigationProp = StackNavigationProp<RootStackParamList, 'BurningRitual'>;
@@ -33,12 +35,17 @@ export const BurningRitualScreen: React.FC = () => {
   const releaseAnchor = useAnchorStore((state) => state.releaseAnchor);
   const getAnchorById = useAnchorStore((state) => state.getAnchorById);
   const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
+  const accountId = useAuthStore((state) => state.user?.id ?? null);
   const { setUserFlag, queueMilestone, recordShown, userFlags } = useTeachingStore();
   const toast = useToast();
   const { handleBurnFlowEntered, handleSigilVaulted } = useNotificationController();
 
   const { anchorId, sigilSvg, enhancedImageUrl } = route.params;
   const anchor = getAnchorById(anchorId);
+  const releaseAnchorSnapshotRef = useRef(anchor);
+  const releaseEventIdRef = useRef(createPracticeEventId());
+  const releaseStartedAtRef = useRef(new Date().toISOString());
+  if (anchor) releaseAnchorSnapshotRef.current = anchor;
   const resolvedSigilSvg = sigilSvg || anchor?.reinforcedSigilSvg || anchor?.baseSigilSvg || '';
   const resolvedEnhancedImageUrl = enhancedImageUrl || resolveBurnArtworkUri(anchor);
 
@@ -60,6 +67,28 @@ export const BurningRitualScreen: React.FC = () => {
       if (!token) {
         throw new Error('Auth session stale');
       }
+
+      const releaseAnchorSnapshot = releaseAnchorSnapshotRef.current;
+      if (!accountId || !releaseAnchorSnapshot) {
+        throw new Error('Release history could not be tied to this account and anchor.');
+      }
+
+      const elapsedSeconds = Math.max(
+        1,
+        Math.round(
+          (Date.now() - new Date(releaseStartedAtRef.current).getTime()) / 1000,
+        ),
+      );
+      // Durably persist the canonical release before the server deletes its
+      // anchor relation. Retrying this callback reuses the same event ID.
+      await PracticeCompletionService.commitReleaseCompletion({
+        id: releaseEventIdRef.current,
+        accountId,
+        anchor: releaseAnchorSnapshot,
+        startedAt: releaseStartedAtRef.current,
+        durationSeconds: elapsedSeconds,
+        source: 'anchor_detail',
+      });
 
       try {
         await post(`/api/anchors/${anchorId}/burn`, {});
@@ -88,7 +117,10 @@ export const BurningRitualScreen: React.FC = () => {
 
     // Local update happens for everyone
     releaseAnchor(anchorId);
-    await queueProgressionMilestonesFromStores({ sourceEventId: `release:${anchorId}` });
+    if (accountId) void PracticeCompletionService.flush(accountId);
+    await queueProgressionMilestonesFromStores({
+      sourceEventId: releaseEventIdRef.current,
+    });
     await handleSigilVaulted();
     AnalyticsService.track(AnalyticsEvents.BURN_COMPLETED, { anchor_id: anchorId });
     FrictionAnalytics.completeFlow('burn_release', {
@@ -124,6 +156,7 @@ export const BurningRitualScreen: React.FC = () => {
     }
   }, [
     anchorId,
+    accountId,
     isAuthenticated,
     releaseAnchor,
     handleSigilVaulted,

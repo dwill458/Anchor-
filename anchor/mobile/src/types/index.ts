@@ -584,11 +584,13 @@ export type RootStackParamList = {
     sceneText: string;
     guidanceVoice: 'female' | 'male' | 'none';
     backgroundAudio: 'ambient' | 'off';
+    source?: 'practice_screen' | 'anchor_detail' | 'deep_link';
   };
   VisualizeCompletion: {
     anchorId: string;
     sessionId: string;
     durationSeconds: 60 | 180 | 300;
+    source?: 'practice_screen' | 'anchor_detail' | 'deep_link';
   };
   AuthGate: undefined;
   Paywall:
@@ -920,6 +922,7 @@ export type RootStackParamList = {
 
 export type PracticeStackParamList = {
   PracticeHome: undefined;
+  ThreadStrengthDetail: undefined;
   // DEFERRED: StabilizeRitual: { anchorId: string }; — restore post-launch
   Evolve: undefined;
   ConfirmBurn: {

@@ -8,6 +8,9 @@ import { AnalyticsEvents, AnalyticsService } from '@/services/AnalyticsService';
 import { ErrorTrackingService } from '@/services/ErrorTrackingService';
 import { AuthService } from '@/services/AuthService';
 
+const mockCommitReleaseCompletion = jest.fn().mockResolvedValue({ id: 'release-event' });
+const mockFlushPractice = jest.fn().mockResolvedValue(undefined);
+
 jest.mock('@react-navigation/native', () => ({
   useRoute: jest.fn(() => ({
     params: {
@@ -31,6 +34,12 @@ jest.mock('@/stores/authStore', () => ({
 jest.mock('@/services/ApiClient');
 jest.mock('@/services/AnalyticsService');
 jest.mock('@/services/ErrorTrackingService');
+jest.mock('@/services/PracticeCompletionService', () => ({
+  PracticeCompletionService: {
+    commitReleaseCompletion: (...args: any[]) => mockCommitReleaseCompletion(...args),
+    flush: (...args: any[]) => mockFlushPractice(...args),
+  },
+}));
 jest.mock('@/services/AuthService', () => ({
   AuthService: {
     getIdToken: jest.fn(),
@@ -125,7 +134,7 @@ describe('BurningRitualScreen', () => {
   let mockGoBack: jest.Mock;
   let mockPopToTop: jest.Mock;
   let mockReleaseAnchor: jest.Mock;
-  let mockAuthState = { isAuthenticated: true };
+  let mockAuthState = { isAuthenticated: true, user: { id: 'user-1' } };
 
   beforeEach(() => {
     jest.clearAllMocks();
@@ -133,7 +142,7 @@ describe('BurningRitualScreen', () => {
     mockGoBack = jest.fn();
     mockPopToTop = jest.fn();
     mockReleaseAnchor = jest.fn();
-    mockAuthState = { isAuthenticated: true };
+    mockAuthState = { isAuthenticated: true, user: { id: 'user-1' } };
     (AuthService.getIdToken as jest.Mock).mockResolvedValue('token');
 
     const navigation = require('@react-navigation/native');
@@ -267,7 +276,7 @@ describe('BurningRitualScreen', () => {
   });
 
   it('blocks burn commit when auth state is stale and there is no token', async () => {
-    mockAuthState = { isAuthenticated: true };
+    mockAuthState = { isAuthenticated: true, user: { id: 'user-1' } };
     (useAuthStore as unknown as jest.Mock).mockImplementation((selector: any) =>
       selector
         ? selector(mockAuthState)

@@ -67,7 +67,7 @@ export const ForgeDemo: React.FC<ForgeDemoProps> = ({ isActive, onForgeComplete 
     timersRef.current.push(t1);
   }, [phase, intentionOpacity, sigilOpacity, sigilGlow, onForgeComplete]);
 
-  const btnLabel = phase === 'idle' ? '⚡ FORGE' : phase === 'forging' ? 'Forging...' : '✓ Forged';
+  const btnLabel = phase === 'idle' ? '⚡ FORGE' : phase === 'forging' ? 'Forging...' : '✓ Your Anchor';
   const btnActive = phase === 'idle';
 
   return (
