@@ -80,8 +80,8 @@ function buildPurpleAuraSvg(): string {
 // Keep this aspect ratio close to the dedicated SvgWidget below. Android uses
 // FIT_CENTER for SVGs; a tall canvas was shrinking the entire calendar to fit
 // vertically and leaving most of the lower card empty.
-const CELL = 17;
-const GAP = 4;
+const CELL = 14;
+const GAP = 3;
 const CELL_RADIUS = 4;
 const MONTH_LABEL_HEIGHT = 13;
 const GRID_WIDTH = WIDGET_HISTORY_WEEKS * CELL + (WIDGET_HISTORY_WEEKS - 1) * GAP;
@@ -226,12 +226,14 @@ export function buildHeatmapSvg(
 
       let fill: string;
       if (isToday) {
-        // Spec: today's cell is level-3 gold when primed, empty when not —
-        // regardless of raw session counts.
-        fill = primed ? HEAT_GOLD[3] : HEAT_GOLD[0];
+        fill = day?.mode === 'visualize'
+          ? HEAT_VISUALIZE[day.level || 1]
+          : primed ? HEAT_GOLD[3] : HEAT_GOLD[0];
       } else if (day && day.level > 0) {
         const level = day.level as 1 | 2 | 3;
-        fill = day.dominantMode === 'focus'
+        fill = day.mode === 'visualize'
+          ? HEAT_VISUALIZE[level]
+          : day.dominantMode === 'focus'
           ? HEAT_FOCUS[level]
           : day.dominantMode === 'visualize'
             ? HEAT_VISUALIZE[level]

@@ -9,6 +9,7 @@
 import {
   buildWidgetHistory,
   buildWidgetSnapshot,
+  normalizeWidgetPracticeType,
   selectWidgetAnchorName,
 } from '../widgetDataBridge';
 import { getWidgetPrimeAnchorId, isWidgetPracticeDeepLink } from '../WidgetDeepLinkHandler';
@@ -77,21 +78,21 @@ describe('buildWidgetHistory', () => {
     const history = buildWidgetHistory(entries, NOW);
     const byDate = new Map(history.map((day) => [day.date, day]));
 
-    expect(byDate.get('2026-07-05')).toEqual({ date: '2026-07-05', level: 1, deep: false });
-    expect(byDate.get('2026-07-04')).toEqual({ date: '2026-07-04', level: 2, deep: false });
-    expect(byDate.get('2026-07-01')).toEqual({ date: '2026-07-01', level: 3, deep: false });
+    expect(byDate.get('2026-07-05')).toEqual({ date: '2026-07-05', level: 1, deep: false, mode: 'focus' });
+    expect(byDate.get('2026-07-04')).toEqual({ date: '2026-07-04', level: 2, deep: false, mode: 'focus' });
+    expect(byDate.get('2026-07-01')).toEqual({ date: '2026-07-01', level: 3, deep: false, mode: 'focus' });
     expect(byDate.get('2026-07-03')).toEqual({ date: '2026-07-03', level: 0, deep: false });
   });
 
   it('flags days containing a reinforce session as deep', () => {
     const entries = [
-      primeEntry('2026-07-04', 'reinforce'),
+      { ...primeEntry('2026-07-04', 'reinforce'), completedAt: '2026-07-04T10:30:00.000' },
       primeEntry('2026-07-04', 'activate', 'b'),
     ];
     const history = buildWidgetHistory(entries, NOW);
     const day = history.find((d) => d.date === '2026-07-04');
 
-    expect(day).toEqual({ date: '2026-07-04', level: 2, deep: true });
+    expect(day).toEqual({ date: '2026-07-04', level: 2, deep: true, mode: 'deep_prime' });
   });
 
   it('ignores sessions older than the trailing window', () => {
@@ -169,8 +170,67 @@ describe('buildWidgetSnapshot', () => {
     expect(snapshot.anchorName).toBe('Deep work every morning');
     expect(snapshot.anchorId).toBe('a');
     expect(snapshot.sigilSvg).toContain('currentColor');
+    expect(snapshot.artworkSource).toBe('base_svg');
+    expect(snapshot.artworkVersion).toContain('user-1:a:');
     expect(snapshot.history).toHaveLength(WIDGET_HISTORY_DAYS);
     expect(snapshot.streak).toBe(0);
+  });
+
+  it('prefers the final reinforced SVG and changes the artwork version when it changes', () => {
+    const first = buildWidgetSnapshot({
+      ...baseInputs,
+      anchors: [makeAnchor({
+        id: 'a',
+        baseSigilSvg: '<svg viewBox="0 0 10 10"><path id="base" /></svg>',
+        reinforcedSigilSvg: '<svg viewBox="0 0 10 10"><path id="final" /></svg>',
+      })],
+      primingHistory: [],
+      lastPrimedAt: null,
+    });
+    const changed = buildWidgetSnapshot({
+      ...baseInputs,
+      anchors: [makeAnchor({
+        id: 'a',
+        baseSigilSvg: '<svg viewBox="0 0 10 10"><path id="base" /></svg>',
+        reinforcedSigilSvg: '<svg viewBox="0 0 10 10"><path id="final-v2" /></svg>',
+      })],
+      primingHistory: [],
+      lastPrimedAt: null,
+    });
+
+    expect(first.sigilSvg).toContain('final');
+    expect(first.sigilSvg).not.toContain('base');
+    expect(first.artworkSource).toBe('reinforced_svg');
+    expect(changed.artworkVersion).not.toBe(first.artworkVersion);
+  });
+
+  it('treats Visualize and legacy aliases as independent practice types', () => {
+    expect(normalizeWidgetPracticeType('focus_session')).toBe('focus');
+    expect(normalizeWidgetPracticeType('deepPrime')).toBe('deep_prime');
+    expect(normalizeWidgetPracticeType('visualization')).toBe('visualize');
+    expect(normalizeWidgetPracticeType('visualize_mode')).toBe('visualize');
+
+    const visualize = {
+      ...primeEntry('2026-07-05', 'activate'),
+      id: 'visualize-session',
+      type: 'visualization',
+      practiceMode: 'visualize',
+      completedAt: '2026-07-05T10:30:00.000',
+    } as unknown as PrimingHistoryEntry;
+    const snapshot = buildWidgetSnapshot({
+      ...baseInputs,
+      primingHistory: [primeEntry('2026-07-05', 'activate'), visualize],
+      lastPrimedAt: '2026-07-05',
+    });
+
+    expect(snapshot.totalSessions).toBe(2);
+    expect(snapshot.focusSessions).toBe(1);
+    expect(snapshot.visualizeSessions).toBe(1);
+    expect(snapshot.currentWeek.find((day) => day.date === '2026-07-05')).toMatchObject({
+      hasFocus: true,
+      hasVisualize: true,
+    });
+    expect(snapshot.history[snapshot.history.length - 1]).toMatchObject({ level: 2, mode: 'visualize' });
   });
 
   it('mirrors Thread Strength summary values into the large-widget snapshot', () => {

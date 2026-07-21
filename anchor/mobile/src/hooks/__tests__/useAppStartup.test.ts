@@ -60,4 +60,3 @@ describe('useAppStartup', () => {
     expect(result.current.status).toBe('fatal');
   });
 });
-

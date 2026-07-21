@@ -63,6 +63,7 @@ export function renderAnchorWidgetByName(
           primed={primed}
           anchorId={snapshot.anchorId}
           sigilSvg={snapshot.sigilSvg}
+          artworkImageUri={null}
         />
       );
   }

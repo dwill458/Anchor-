@@ -43,9 +43,9 @@ export const HEAT_FOCUS = {
   3: "#AD99D2",
 } as const satisfies Record<1 | 2 | 3, `#${string}`>;
 export const HEAT_VISUALIZE = {
-  1: "#3B5967",
-  2: "#5A879D",
-  3: "#78B4D1",
+  1: "#173A67",
+  2: "#2C5F99",
+  3: "#3F75B5",
 } as const satisfies Record<1 | 2 | 3, `#${string}`>;
 export const HEAT_RELEASE = {
   1: "#60412B",
