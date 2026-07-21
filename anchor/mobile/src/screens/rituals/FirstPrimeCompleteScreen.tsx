@@ -522,7 +522,7 @@ export const FirstPrimeCompleteScreen: React.FC = () => {
       return;
     }
 
-    navigateToVaultDestination(navigation, "replace");
+    navigateToVaultDestination(navigation, "reset");
   };
 
   // Fallback moment: if the user skipped the first-anchor reminder card and

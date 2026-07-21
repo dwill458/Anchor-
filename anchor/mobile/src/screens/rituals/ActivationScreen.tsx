@@ -329,7 +329,7 @@ export const ActivationScreen: React.FC = () => {
       if (error instanceof Error && error.message === 'Anchor not found') {
         activationSyncFailedRef.current = true;
         toast.error('This anchor is no longer available.');
-        navigateToVaultDestination(navigation, 'replace');
+        navigateToVaultDestination(navigation, 'reset');
         return;
       }
 
@@ -526,7 +526,7 @@ export const ActivationScreen: React.FC = () => {
       if (isPendingFirstAnchor && anchor) {
         navigation.replace('SaveProgress', { anchor });
       } else {
-        navigateToVaultDestination(navigation, 'replace');
+        navigateToVaultDestination(navigation, 'reset');
       }
       return;
     }
@@ -633,7 +633,7 @@ export const ActivationScreen: React.FC = () => {
       if (isPendingFirstAnchor && anchor) {
         navigation.replace('SaveProgress', { anchor });
       } else {
-        navigateToVaultDestination(navigation, 'replace');
+        navigateToVaultDestination(navigation, 'reset');
         scheduleReviewRequestAfterHomeReturn();
       }
     } else {

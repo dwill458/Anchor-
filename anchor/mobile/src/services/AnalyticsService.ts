@@ -255,6 +255,31 @@ class Analytics {
   }
 
   /**
+   * Track lifecycle telemetry without attaching the identified user field.
+   * Splash/startup events must remain free of personal information.
+   */
+  trackAnonymous(eventName: string, properties?: Record<string, any>): void {
+    if (!this.enabled) return;
+
+    const event: AnalyticsEvent = {
+      name: eventName,
+      properties: {
+        app_version: appVersion,
+        platform: Platform.OS,
+        ...sanitizeAnalyticsProperties(properties),
+        timestamp: new Date().toISOString(),
+      },
+      timestamp: new Date(),
+    };
+
+    logger.info('[Analytics] Track anonymous', event);
+
+    this.safelyCallPostHog('capture anonymous', () => {
+      this.posthog.capture(eventName, event.properties);
+    });
+  }
+
+  /**
    * Track screen view
    */
   screen(screenName: string, properties?: Record<string, any>): void {
@@ -341,6 +366,10 @@ export const AnalyticsEvents = {
   // App lifecycle
   APP_OPENED: 'app_opened',
   APP_BACKGROUNDED: 'app_backgrounded',
+  SPLASH_STARTED: 'splash_started',
+  SPLASH_COMPLETED: 'splash_completed',
+  SPLASH_SKIPPED_REDUCE_MOTION: 'splash_skipped_reduce_motion',
+  SPLASH_STARTUP_WAITED: 'splash_startup_waited',
 
   // Authentication
   SIGN_UP_STARTED: 'sign_up_started',
@@ -426,13 +455,6 @@ export const AnalyticsEvents = {
   PRACTICE_SESSION_ENDED_EARLY: 'practice_session_ended_early',
   PRACTICE_PHASE_REACHED: 'practice_phase_reached',
   PRACTICE_SESSION_COMPLETED: 'practice_session_completed',
-  PRACTICE_MODE_SELECTED: 'practice_mode_selected',
-  PRACTICE_CURRENT_ANCHOR_CHANGED: 'practice_current_anchor_changed',
-  THREAD_STRENGTH_OPENED: 'thread_strength_opened',
-  PRACTICE_DATA_MIGRATION_COMPLETED: 'practice_data_migration_completed',
-  PRACTICE_DATA_MIGRATION_FAILED: 'practice_data_migration_failed',
-  PRACTICE_SYNC_FAILED: 'practice_sync_failed',
-  PRACTICE_DUPLICATE_PREVENTED: 'practice_duplicate_prevented',
   VISUALIZE_NEXT_ACTION_SAVED: 'visualize_next_action_saved',
   VISUALIZE_PRACTICE_AGAIN_SELECTED: 'visualize_practice_again_selected',
   VISUALIZE_RETURN_TO_SANCTUARY_SELECTED: 'visualize_return_to_sanctuary_selected',

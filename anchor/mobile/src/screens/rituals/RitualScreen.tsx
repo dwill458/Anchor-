@@ -1181,7 +1181,7 @@ export const RitualScreen: React.FC = () => {
       return;
     }
 
-    navigateToVaultDestination(navigation);
+    navigateToVaultDestination(navigation, 'reset');
   }, [anchor, anchorId, clearDeepTimerInterval, fadeOutDeepPrimeAudio, isPendingFirstAnchor, navigateToPractice, navigation, returnTo]);
 
   const continueFromSeal = useCallback(async () => {

@@ -465,7 +465,7 @@ export const ChargeSetupScreen: React.FC = () => {
     if (isTransitioning) return;
     if (autoStartOnSelection) {
       // Came from creation flow — navigate to Vault so the new anchor is visible
-      navigateToVaultDestination(navigation);
+      navigateToVaultDestination(navigation, 'reset');
     } else {
       navigation.goBack();
     }
@@ -494,7 +494,7 @@ export const ChargeSetupScreen: React.FC = () => {
       return;
     }
 
-    navigateToVaultDestination(navigation, 'replace');
+    navigateToVaultDestination(navigation, 'reset');
   }, [anchor, anchorId, fromOnboarding, isTransitioning, navigateToPractice, navigation, returnTo]);
 
   const activeLocationPreset = getLocationPresetForChoice(selectedDuration);
