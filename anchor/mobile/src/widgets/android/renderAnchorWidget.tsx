@@ -17,7 +17,8 @@ import { AnchorLargeWidget } from './AnchorLargeWidget';
 
 export function renderAnchorWidgetByName(
   widgetName: WidgetName | string,
-  snapshot: WidgetSnapshot
+  snapshot: WidgetSnapshot,
+  dimensions?: { width: number; height: number }
 ): React.ReactElement {
   const today = localDateString(new Date());
   const primed = snapshot.lastPrimedDate === today;
@@ -45,6 +46,7 @@ export function renderAnchorWidgetByName(
           totalSessions={snapshot.totalSessions ?? 0}
           focusSessions={snapshot.focusSessions ?? 0}
           deepPrimeSessions={snapshot.deepPrimeSessions ?? 0}
+          visualizeSessions={snapshot.visualizeSessions ?? 0}
           deepPrimePercent={snapshot.deepPrimePercent ?? 0}
           longestStreak={snapshot.longestStreak ?? 0}
           sensitivityLabel={snapshot.sensitivityLabel ?? 'Balanced'}
@@ -52,6 +54,8 @@ export function renderAnchorWidgetByName(
           currentWeek={snapshot.currentWeek ?? []}
           history={snapshot.history}
           today={today}
+          widgetWidth={dimensions?.width}
+          widgetHeight={dimensions?.height}
         />
       );
     case 'AnchorSmallWidget':
@@ -61,6 +65,7 @@ export function renderAnchorWidgetByName(
           primed={primed}
           anchorId={snapshot.anchorId}
           sigilSvg={snapshot.sigilSvg}
+          artworkImageUri={snapshot.artworkImageUri}
         />
       );
   }

@@ -43,6 +43,12 @@ export const HEAT_DEEP: Record<1 | 2 | 3, string> = {
   2: '#7e58a6',
   3: '#9d74cf',
 };
+/** Visualize (blue) family — aligned with the in-app Visualize experience. */
+export const HEAT_VISUALIZE: Record<1 | 2 | 3, string> = {
+  1: '#173A67',
+  2: '#2C5F99',
+  3: '#3F75B5',
+};
 
 /** Widget font families — file basenames registered via the plugin `fonts` option */
 export const FONT_SERIF_SEMIBOLD = 'CrimsonPro_600SemiBold';

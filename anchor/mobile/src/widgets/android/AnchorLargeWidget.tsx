@@ -34,6 +34,7 @@ import {
   GOLD,
   HEAT_DEEP,
   HEAT_GOLD,
+  HEAT_VISUALIZE,
   RING_NOT_PRIMED,
   RING_PRIMED,
   SILVER_LABEL,
@@ -50,6 +51,7 @@ interface AnchorLargeWidgetProps {
   totalSessions: number;
   focusSessions: number;
   deepPrimeSessions: number;
+  visualizeSessions: number;
   deepPrimePercent: number;
   longestStreak: number;
   sensitivityLabel: string;
@@ -58,6 +60,9 @@ interface AnchorLargeWidgetProps {
   history: WidgetHistoryDay[];
   /** Local YYYY-MM-DD used as "today" for grid placement */
   today: string;
+  /** Launcher-reported dimensions keep spacing stable across Android skins. */
+  widgetWidth?: number;
+  widgetHeight?: number;
 }
 
 /** radial-gradient(120% 60% at 82% -6%, rgba(62,44,91,0.24), transparent 60%) — both states */
@@ -76,14 +81,24 @@ function buildPurpleAuraSvg(): string {
 // Keep this aspect ratio close to the dedicated SvgWidget below. Android uses
 // FIT_CENTER for SVGs; a tall canvas was shrinking the entire calendar to fit
 // vertically and leaving most of the lower card empty.
-const CELL = 17;
-const GAP = 4;
+const MIN_CELL = 13;
+const MAX_CELL = 19;
+const GAP = 3;
 const CELL_RADIUS = 4;
 const MONTH_LABEL_HEIGHT = 13;
-const GRID_WIDTH = WIDGET_HISTORY_WEEKS * CELL + (WIDGET_HISTORY_WEEKS - 1) * GAP;
-const GRID_HEIGHT = MONTH_LABEL_HEIGHT + 7 * CELL + 6 * GAP;
-const HEATMAP_RENDER_HEIGHT = 130;
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+
+function heatmapSizing(availableWidth = 320) {
+  const cell = Math.max(
+    MIN_CELL,
+    Math.min(MAX_CELL, Math.floor((availableWidth - (WIDGET_HISTORY_WEEKS - 1) * GAP) / WIDGET_HISTORY_WEEKS))
+  );
+  return {
+    cell,
+    width: WIDGET_HISTORY_WEEKS * cell + (WIDGET_HISTORY_WEEKS - 1) * GAP,
+    height: MONTH_LABEL_HEIGHT + 7 * cell + 6 * GAP,
+  };
+}
 
 function buildStrengthRingSvg(value: number): string {
   const clamped = Math.max(0, Math.min(100, Math.round(value)));
@@ -125,7 +140,14 @@ function Metric({ value, label, color = GOLD }: { value: string; label: string; 
 }
 
 function WeekDot({ day }: { day: WidgetWeekDay }) {
-  const active = day.hasFocus || day.hasDeep || day.isToday;
+  const active = day.hasFocus || day.hasDeep || day.hasVisualize || day.isToday;
+  const modeColor = day.hasVisualize
+    ? HEAT_VISUALIZE[2]
+    : day.hasDeep
+      ? HEAT_DEEP[2]
+      : day.hasFocus || day.isToday
+        ? HEAT_GOLD[1]
+        : HEAT_GOLD[0];
   return (
     <FlexWidget style={{ flex: 1, alignItems: 'center', flexDirection: 'column' }}>
       <TextWidget
@@ -145,9 +167,9 @@ function WeekDot({ day }: { day: WidgetWeekDay }) {
           borderRadius: 10,
           alignItems: 'center',
           justifyContent: 'center',
-          backgroundColor: day.isToday ? GOLD : day.hasDeep ? '#5C4079' : active ? '#57491F' : '#161A1F',
+          backgroundColor: modeColor as `#${string}`,
           borderWidth: day.isToday ? 0 : 1,
-          borderColor: day.hasDeep ? '#9D74CF' : '#2A2E32',
+          borderColor: (day.hasVisualize ? HEAT_VISUALIZE[3] : day.hasDeep ? HEAT_DEEP[3] : '#2A2E32') as `#${string}`,
         }}
       >
         <TextWidget
@@ -155,7 +177,7 @@ function WeekDot({ day }: { day: WidgetWeekDay }) {
           style={{
             fontFamily: FONT_DISPLAY_SEMIBOLD,
             fontSize: 8,
-            color: day.isToday ? WIDGET_BG : GOLD,
+            color: day.isToday ? WIDGET_BG : day.hasVisualize ? BONE : GOLD,
           }}
         />
       </FlexWidget>
@@ -171,11 +193,13 @@ function WeekDot({ day }: { day: WidgetWeekDay }) {
 export function buildHeatmapSvg(
   history: WidgetHistoryDay[],
   today: string,
-  primed: boolean
+  primed: boolean,
+  availableWidth?: number
 ): string {
+  const { cell, width: gridWidth, height: gridHeight } = heatmapSizing(availableWidth);
   const todayDate = parseLocalDateString(today);
   if (!todayDate) {
-    return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${GRID_WIDTH} ${GRID_HEIGHT}"></svg>`;
+    return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${gridWidth} ${gridHeight}"></svg>`;
   }
 
   const byDate = new Map<string, WidgetHistoryDay>();
@@ -193,7 +217,7 @@ export function buildHeatmapSvg(
     const month = weekStart.getMonth();
     if (month !== lastMonth) {
       monthLabels +=
-        `<text x="${col * (CELL + GAP)}" y="10" fill="${FAINT_LABEL}" opacity="0.85" ` +
+        `<text x="${col * (cell + GAP)}" y="10" fill="${FAINT_LABEL}" opacity="0.85" ` +
         'font-family="sans-serif" font-size="8" letter-spacing="0.4">' +
         `${MONTHS[month]}</text>`;
     }
@@ -208,18 +232,24 @@ export function buildHeatmapSvg(
         continue; // future days in the current week stay empty
       }
 
-      const x = col * (CELL + GAP);
-      const y = MONTH_LABEL_HEIGHT + row * (CELL + GAP);
+      const x = col * (cell + GAP);
+      const y = MONTH_LABEL_HEIGHT + row * (cell + GAP);
       const day = byDate.get(cellDate);
       const isToday = cellDate === today;
 
       let fill: string;
       if (isToday) {
-        // Spec: today's cell is level-3 gold when primed, empty when not —
-        // regardless of raw session counts.
-        fill = primed ? HEAT_GOLD[3] : HEAT_GOLD[0];
+        fill = day?.mode === 'visualize'
+          ? HEAT_VISUALIZE[day.level || 1]
+          : day?.mode === 'deep_prime' || (day?.mode == null && day?.deep)
+            ? HEAT_DEEP[(day?.level || 1) as 1 | 2 | 3]
+            : primed ? HEAT_GOLD[3] : HEAT_GOLD[0];
       } else if (day && day.level > 0) {
-        fill = day.deep ? HEAT_DEEP[day.level as 1 | 2 | 3] : HEAT_GOLD[day.level];
+        fill = day.mode === 'visualize'
+          ? HEAT_VISUALIZE[day.level as 1 | 2 | 3]
+          : day.mode === 'deep_prime' || (day.mode == null && day.deep)
+            ? HEAT_DEEP[day.level as 1 | 2 | 3]
+            : HEAT_GOLD[day.level];
       } else {
         fill = HEAT_GOLD[0];
       }
@@ -227,16 +257,16 @@ export function buildHeatmapSvg(
       if (isToday && primed) {
         // Glow approximation: soft gold halo + warm inner ring
         rects +=
-          `<rect x="${x - 2.5}" y="${y - 2.5}" width="${CELL + 5}" height="${CELL + 5}" rx="${CELL_RADIUS + 1.5}" fill="${GOLD}" opacity="0.38"/>` +
-          `<rect x="${x}" y="${y}" width="${CELL}" height="${CELL}" rx="${CELL_RADIUS}" fill="${fill}" stroke="#FFF0BE" stroke-opacity="0.6" stroke-width="1"/>`;
+          `<rect x="${x - 2.5}" y="${y - 2.5}" width="${cell + 5}" height="${cell + 5}" rx="${CELL_RADIUS + 1.5}" fill="${fill}" opacity="0.38"/>` +
+          `<rect x="${x}" y="${y}" width="${cell}" height="${cell}" rx="${CELL_RADIUS}" fill="${fill}" stroke="#FFF0BE" stroke-opacity="0.6" stroke-width="1"/>`;
       } else {
-        rects += `<rect x="${x}" y="${y}" width="${CELL}" height="${CELL}" rx="${CELL_RADIUS}" fill="${fill}"/>`;
+        rects += `<rect x="${x}" y="${y}" width="${cell}" height="${cell}" rx="${CELL_RADIUS}" fill="${fill}"/>`;
       }
     }
   }
 
   return (
-    `<svg xmlns="http://www.w3.org/2000/svg" viewBox="-3 -3 ${GRID_WIDTH + 6} ${GRID_HEIGHT + 6}">` +
+    `<svg xmlns="http://www.w3.org/2000/svg" viewBox="-3 -3 ${gridWidth + 6} ${gridHeight + 6}">` +
     monthLabels +
     rects +
     '</svg>'
@@ -266,6 +296,7 @@ export function AnchorLargeWidget({
   totalSessions,
   focusSessions,
   deepPrimeSessions,
+  visualizeSessions,
   deepPrimePercent,
   longestStreak,
   sensitivityLabel,
@@ -273,7 +304,12 @@ export function AnchorLargeWidget({
   currentWeek,
   history,
   today,
+  widgetWidth,
+  widgetHeight,
 }: AnchorLargeWidgetProps) {
+  const contentWidth = Math.max(260, (widgetWidth ?? 344) - 24);
+  const availableHeight = widgetHeight ?? 344;
+  const heatmapHeight = Math.max(118, Math.min(196, availableHeight - 208));
   const glyphSvg = colorizeAnchorSigilSvg(sigilSvg, primed ? GOLD : DIM_GLYPH) ?? buildGlyphSvg({
     strokeWidth: 5.4,
     stroke: primed ? GOLD : DIM_GLYPH,
@@ -304,9 +340,7 @@ export function AnchorLargeWidget({
           height: 'match_parent',
           width: 'match_parent',
           flexDirection: 'column',
-          paddingTop: 16,
-          paddingHorizontal: 18,
-          paddingBottom: 13,
+          padding: 12,
         }}
       >
         {/* ── Header: anchor identity + the same strength signal as the sheet ── */}
@@ -376,7 +410,7 @@ export function AnchorLargeWidget({
             height: 28,
             flexDirection: 'row',
             alignItems: 'center',
-            marginTop: 6,
+            marginTop: 8,
           }}
         >
           <Metric value={String(totalSessions)} label="TOTAL SESSIONS" />
@@ -412,15 +446,15 @@ export function AnchorLargeWidget({
           />
         </FlexWidget>
 
-        <FlexWidget style={{ width: 'match_parent', flexDirection: 'column', marginTop: 5 }}>
+        <FlexWidget style={{ width: 'match_parent', flexDirection: 'column', marginTop: 8 }}>
           <FlexWidget style={{ width: 'match_parent', flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
             <TextWidget
               text="SESSION BREAKDOWN"
               style={{ fontFamily: FONT_DISPLAY, fontSize: 7, letterSpacing: 1.05, color: SILVER_LABEL }}
             />
             <TextWidget
-              text={`${deepPrimeSessions} DEEP PRIMES`}
-              style={{ fontFamily: FONT_DISPLAY, fontSize: 6.5, letterSpacing: 0.55, color: '#9D74CF' }}
+              text={`${focusSessions} F · ${deepPrimeSessions} D · ${visualizeSessions} V`}
+              style={{ fontFamily: FONT_DISPLAY, fontSize: 6.5, letterSpacing: 0.55, color: SILVER_LABEL }}
             />
           </FlexWidget>
           <FlexWidget
@@ -436,12 +470,13 @@ export function AnchorLargeWidget({
           >
             <FlexWidget style={{ flex: Math.max(0.001, focusSessions), backgroundColor: '#D4AF37' }} />
             <FlexWidget style={{ flex: Math.max(0.001, deepPrimeSessions), backgroundColor: '#7E58A6' }} />
+            <FlexWidget style={{ flex: Math.max(0.001, visualizeSessions), backgroundColor: HEAT_VISUALIZE[3] as `#${string}` }} />
           </FlexWidget>
         </FlexWidget>
 
         {/* ── Current week rhythm ── */}
         {currentWeek.length === 7 ? (
-          <FlexWidget style={{ width: 'match_parent', flexDirection: 'column', marginTop: 5 }}>
+          <FlexWidget style={{ width: 'match_parent', flexDirection: 'column', marginTop: 8 }}>
             <TextWidget
               text="THIS WEEK"
               style={{ fontFamily: FONT_DISPLAY, fontSize: 7, letterSpacing: 1.05, color: SILVER_LABEL }}
@@ -457,10 +492,10 @@ export function AnchorLargeWidget({
           style={{
             width: 'match_parent',
             flexDirection: 'column',
-            height: 146,
-            justifyContent: 'flex-start',
-            marginTop: 5,
-            marginBottom: 5,
+            height: heatmapHeight,
+            justifyContent: 'center',
+            marginTop: 8,
+            marginBottom: 4,
           }}
         >
           <FlexWidget style={{ width: 'match_parent', flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
@@ -474,9 +509,9 @@ export function AnchorLargeWidget({
             />
           </FlexWidget>
           <SvgWidget
-            svg={buildHeatmapSvg(history, today, primed)}
+            svg={buildHeatmapSvg(history, today, primed, contentWidth)}
             scaleToFill
-            style={{ width: 'match_parent', height: HEATMAP_RENDER_HEIGHT }}
+            style={{ width: 'match_parent', height: heatmapHeight - 17 }}
           />
         </FlexWidget>
 
@@ -504,6 +539,17 @@ export function AnchorLargeWidget({
             <LegendSwatch color={HEAT_DEEP[3]} marginLeft={15} />
             <TextWidget
               text="DEEP PRIME"
+              style={{
+                fontFamily: FONT_DISPLAY,
+                fontSize: 7,
+                letterSpacing: 0.8,
+                color: SILVER_LABEL,
+                marginLeft: 6,
+              }}
+            />
+            <LegendSwatch color={HEAT_VISUALIZE[3]} marginLeft={12} />
+            <TextWidget
+              text="VISUALIZE"
               style={{
                 fontFamily: FONT_DISPLAY,
                 fontSize: 7,

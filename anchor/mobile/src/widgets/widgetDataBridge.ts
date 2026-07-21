@@ -14,6 +14,7 @@
 
 import { Platform } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import * as FileSystem from 'expo-file-system/legacy';
 import { useSessionStore } from '@/stores/sessionStore';
 import { useAnchorStore } from '@/stores/anchorStore';
 import { useSettingsStore, type ThreadStrengthSensitivity } from '@/stores/settingsStore';
@@ -52,23 +53,31 @@ export function buildWidgetHistory(
   now: Date = new Date()
 ): WidgetHistoryDay[] {
   const byDate = new Map<string, { count: number; deep: boolean; mode: WidgetPracticeType; timestamp: number }>();
-  for (const entry of classifyWidgetSessions(primingHistory)) {
-    const existing = byDate.get(entry.dateKey) ?? {
+  for (const entry of primingHistory) {
+    const rawEntry = entry as PrimingHistoryEntry & { type?: unknown; practiceMode?: unknown };
+    const mode =
+      normalizeWidgetPracticeType(rawEntry.practiceMode) ??
+      normalizeWidgetPracticeType(rawEntry.type);
+    const timestamp = new Date(entry.completedAt).getTime();
+    if (!mode || Number.isNaN(timestamp)) {
+      continue;
+    }
+    const existing = byDate.get(entry.localDate) ?? {
       count: 0,
       deep: false,
-      mode: entry.displayType,
+      mode,
       timestamp: Number.NEGATIVE_INFINITY,
     };
     existing.count += 1;
-    if (entry.displayType === 'deep_prime') {
+    if (mode === 'deep_prime') {
       existing.deep = true;
     }
     // The latest completion is the deterministic color for a mixed-mode day.
-    if (entry.timestamp >= existing.timestamp) {
-      existing.mode = entry.displayType;
-      existing.timestamp = entry.timestamp;
+    if (timestamp >= existing.timestamp) {
+      existing.mode = mode;
+      existing.timestamp = timestamp;
     }
-    byDate.set(entry.dateKey, existing);
+    byDate.set(entry.localDate, existing);
   }
 
   const days: WidgetHistoryDay[] = [];
@@ -77,7 +86,11 @@ export function buildWidgetHistory(
     const dayData = byDate.get(date);
     const count = dayData?.count ?? 0;
     const level = (count === 0 ? 0 : count === 1 ? 1 : count === 2 ? 2 : 3) as 0 | 1 | 2 | 3;
-    days.push({ date, level, deep: dayData?.deep ?? false, mode: dayData?.mode });
+    const day: WidgetHistoryDay = { date, level, deep: dayData?.deep ?? false };
+    if (dayData?.mode) {
+      day.mode = dayData.mode;
+    }
+    days.push(day);
   }
   return days;
 }
@@ -123,13 +136,12 @@ export function normalizeWidgetPracticeType(value: unknown): WidgetPracticeType 
 
 /**
  * Keeps the large widget's summary in step with the Thread Strength sheet:
- * duplicate completion events are ignored, and the first reinforce for an
- * anchor is treated as Focus rather than Deep Prime.
+ * duplicate completion events are ignored while every completed practice is
+ * assigned one explicit canonical display type.
  */
 function classifyWidgetSessions(entries: PrimingHistoryEntry[]): ClassifiedWidgetSession[] {
   const seenIds = new Set<string>();
   const lastSignatureTime = new Map<string, number>();
-  const anchorsWithPriorPrime = new Set<string>();
   const sorted = entries
     .map((entry) => {
       const rawEntry = entry as PrimingHistoryEntry & { type?: unknown; practiceMode?: unknown };
@@ -166,12 +178,7 @@ function classifyWidgetSessions(entries: PrimingHistoryEntry[]): ClassifiedWidge
     }
     lastSignatureTime.set(signature, entry.timestamp);
 
-    const displayType =
-      entry.rawType === 'reinforce' && entry.displayType === 'deep_prime' && !anchorsWithPriorPrime.has(entry.anchorId)
-        ? 'focus'
-        : entry.displayType;
-    classified.push({ ...entry, displayType });
-    anchorsWithPriorPrime.add(entry.anchorId);
+    classified.push({ ...entry, displayType: entry.displayType });
   }
 
   return classified;
@@ -337,17 +344,28 @@ function hashWidgetArtwork(value: string): string {
   return (hash >>> 0).toString(16);
 }
 
-function selectWidgetArtwork(anchor: Anchor | undefined): Pick<WidgetSnapshot, 'sigilSvg' | 'artworkSource' | 'artworkVersion'> {
+function selectWidgetArtwork(anchor: Anchor | undefined): Pick<WidgetSnapshot, 'sigilSvg' | 'artworkImageUri' | 'artworkSource' | 'artworkVersion'> {
   const reinforced = anchor?.reinforcedSigilSvg?.trim();
   const base = anchor?.baseSigilSvg?.trim();
   const sigilSvg = reinforced || base || null;
-  const artworkSource = reinforced ? 'reinforced_svg' : base ? 'base_svg' : 'fallback';
+  const enhancedImageUrl = anchor?.enhancedImageUrl?.trim();
+  const artworkSource = enhancedImageUrl
+    ? 'enhanced_image'
+    : reinforced
+      ? 'reinforced_svg'
+      : base
+        ? 'base_svg'
+        : 'fallback';
   const changedAt = anchor?.updatedAt instanceof Date ? anchor.updatedAt.toISOString() : String(anchor?.updatedAt ?? '');
+  const artworkPayload = enhancedImageUrl || sigilSvg || '';
 
   return {
     sigilSvg,
+    artworkImageUri: enhancedImageUrl || null,
     artworkSource,
-    artworkVersion: anchor && sigilSvg ? `${anchor.userId}:${anchor.id}:${changedAt}:${hashWidgetArtwork(sigilSvg)}` : null,
+    artworkVersion: anchor && artworkPayload
+      ? `${anchor.userId}:${anchor.id}:${changedAt}:${hashWidgetArtwork(artworkPayload)}`
+      : null,
   };
 }
 
@@ -399,17 +417,82 @@ let lastWrittenJson: string | null = null;
 let syncTimer: ReturnType<typeof setTimeout> | null = null;
 let unsubscribers: Array<() => void> = [];
 
+async function cacheAndroidArtwork(snapshot: WidgetSnapshot): Promise<WidgetSnapshot> {
+  if (
+    Platform.OS !== 'android' ||
+    snapshot.artworkSource !== 'enhanced_image' ||
+    !snapshot.artworkImageUri ||
+    !snapshot.artworkVersion
+  ) {
+    return snapshot;
+  }
+
+  if (snapshot.artworkImageUri.startsWith('file://')) {
+    logger.debug('[widgetDataBridge] Android artwork cache hit', {
+      selectedAnchorId: snapshot.anchorId,
+      source: 'enhanced_image',
+    });
+    return snapshot;
+  }
+
+  const cacheRoot = FileSystem.cacheDirectory;
+  if (!cacheRoot || !snapshot.anchorId) {
+    logger.debug('[widgetDataBridge] Android artwork fallback', {
+      selectedAnchorId: snapshot.anchorId,
+      reason: 'cache directory or anchor id unavailable',
+    });
+    return { ...snapshot, artworkImageUri: null, artworkSource: 'fallback' };
+  }
+
+  const cacheDirectory = `${cacheRoot}anchor-widget-artwork/${snapshot.anchorId}/`;
+  const cacheUri = `${cacheDirectory}${hashWidgetArtwork(snapshot.artworkVersion)}.img`;
+  try {
+    await FileSystem.makeDirectoryAsync(cacheDirectory, { intermediates: true });
+    const existing = await FileSystem.getInfoAsync(cacheUri);
+    if (!existing.exists) {
+      logger.debug('[widgetDataBridge] Android artwork cache miss', {
+        selectedAnchorId: snapshot.anchorId,
+        source: snapshot.artworkImageUri,
+      });
+      await FileSystem.downloadAsync(snapshot.artworkImageUri, cacheUri);
+    } else {
+      logger.debug('[widgetDataBridge] Android artwork cache hit', {
+        selectedAnchorId: snapshot.anchorId,
+        source: snapshot.artworkImageUri,
+      });
+    }
+    return { ...snapshot, artworkImageUri: cacheUri };
+  } catch (error) {
+    logger.debug('[widgetDataBridge] Android artwork fallback', {
+      selectedAnchorId: snapshot.anchorId,
+      reason: 'enhanced image cache/download failed',
+      error,
+    });
+    return { ...snapshot, artworkImageUri: null, artworkSource: 'fallback' };
+  }
+}
+
 async function pushSnapshotToAndroidWidgets(snapshot: WidgetSnapshot): Promise<void> {
   // Required inside the platform guard so the Android-only native module is
   // never touched on iOS.
   const { requestWidgetUpdate } = require('react-native-android-widget');
   const { renderAnchorWidgetByName } = require('./android/renderAnchorWidget');
 
+  logger.debug('[widgetDataBridge] Android artwork render', {
+    selectedAnchorId: snapshot.anchorId,
+    source: snapshot.artworkSource,
+    version: snapshot.artworkVersion,
+    svgDirectRender: snapshot.artworkImageUri == null && snapshot.sigilSvg != null,
+    conversion: 'not-required (AndroidSVG parses the composed SVG)',
+    fallbackReason: snapshot.artworkSource === 'fallback' ? 'final artwork cache/load failed or no saved SVG' : undefined,
+  });
+
   await Promise.all(
     WIDGET_NAMES.map((widgetName) =>
       requestWidgetUpdate({
         widgetName,
-        renderWidget: () => renderAnchorWidgetByName(widgetName, snapshot),
+        renderWidget: (widgetInfo: { width: number; height: number }) =>
+          renderAnchorWidgetByName(widgetName, snapshot, widgetInfo),
         widgetNotFound: () => {
           // Widget of this size not placed on any home screen — nothing to update.
         },
@@ -435,7 +518,7 @@ export async function syncWidgetData(): Promise<void> {
     const anchorState = useAnchorStore.getState();
     const settingsState = useSettingsStore.getState();
 
-    const snapshot = buildWidgetSnapshot({
+    let snapshot = buildWidgetSnapshot({
       anchors: anchorState.anchors,
       currentAnchorId: anchorState.currentAnchorId,
       primingHistory: sessionState.primingHistory,
@@ -444,11 +527,20 @@ export async function syncWidgetData(): Promise<void> {
       threadStrength: sessionState.threadStrength,
       threadStrengthSensitivity: settingsState.threadStrengthSensitivity,
     });
+    snapshot = await cacheAndroidArtwork(snapshot);
     const json = JSON.stringify(snapshot);
 
     if (json === lastWrittenJson) {
+      logger.debug('[widgetDataBridge] snapshot cache hit', {
+        selectedAnchorId: snapshot.anchorId,
+        artworkVersion: snapshot.artworkVersion,
+      });
       return;
     }
+    logger.debug('[widgetDataBridge] snapshot cache miss', {
+      selectedAnchorId: snapshot.anchorId,
+      artworkVersion: snapshot.artworkVersion,
+    });
     lastWrittenJson = json;
 
     await AsyncStorage.setItem(WIDGET_SNAPSHOT_STORAGE_KEY, json);
