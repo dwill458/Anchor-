@@ -10,6 +10,7 @@ import { useAuthStore } from '@/stores/authStore';
 import { useSettingsStore } from '@/stores/settingsStore';
 import type { Anchor, ApiResponse, ProfileData, RedactedAnchor, User } from '@/types';
 import { ServiceError } from './ServiceErrors';
+import { applyRemoteSessionAudioPreferences } from './SessionAudioPreferencesService';
 
 export interface SyncMockConfig {
   enabled: boolean;
@@ -73,8 +74,15 @@ const applyProfileSettings = (user: User): void => {
     focusSessionDuration: user.settings?.focusSessionDuration ?? current.focusSessionDuration,
     focusSessionAudio: user.settings?.focusSessionAudio ?? current.focusSessionAudio,
     primeSessionDuration: user.settings?.primeSessionDuration ?? current.primeSessionDuration,
+    visualizeSessionDuration:
+      user.settings?.visualizeSessionDuration === 60 || user.settings?.visualizeSessionDuration === 300
+        ? user.settings.visualizeSessionDuration
+        : user.settings?.visualizeSessionDuration === 180
+          ? 180
+          : current.visualizeSessionDuration,
     primeSessionAudio: user.settings?.primeSessionAudio ?? current.primeSessionAudio,
   }));
+  applyRemoteSessionAudioPreferences(user.id, user.settings);
 };
 
 /**

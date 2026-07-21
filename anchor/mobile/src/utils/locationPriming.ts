@@ -1,12 +1,20 @@
 import * as Location from 'expo-location';
+import {
+  legacyAudioModeToSessionAudioDefaults,
+  normalizeSessionAudioDefaults,
+  type LegacySessionAudioMode,
+  type SessionAudioDefaults,
+} from '@/types/sessionAudio';
 
 export type LocationPrimingSessionType = 'focus' | 'prime';
-export type LocationPrimingAudioMode = 'silent' | 'ambient';
+export type LocationPrimingAudioMode = LegacySessionAudioMode;
 
 export interface LocationPrimingPreset {
   sessionType: LocationPrimingSessionType;
   durationSeconds: number;
-  audioMode: LocationPrimingAudioMode;
+  audioConfiguration: SessionAudioDefaults;
+  /** Read only by the idempotent v1 → v2 migration. */
+  audioMode?: LocationPrimingAudioMode;
 }
 
 export interface LocationPrimingZone {
@@ -58,8 +66,12 @@ export function normalizeLocationPrimingPreset(
 ): LocationPrimingPreset {
   const sessionType: LocationPrimingSessionType =
     preset.sessionType === 'prime' ? 'prime' : 'focus';
-  const audioMode: LocationPrimingAudioMode =
+  const legacyAudioMode: LocationPrimingAudioMode =
     preset.audioMode === 'silent' ? 'silent' : 'ambient';
+  const audioConfiguration = normalizeSessionAudioDefaults(
+    preset.audioConfiguration,
+    legacyAudioModeToSessionAudioDefaults(legacyAudioMode)
+  );
   const rawDuration = Number.isFinite(preset.durationSeconds)
     ? Math.round(preset.durationSeconds)
     : sessionType === 'prime'
@@ -72,7 +84,7 @@ export function normalizeLocationPrimingPreset(
       sessionType === 'prime'
         ? Math.min(7200, Math.max(120, rawDuration))
         : Math.min(120, Math.max(10, rawDuration)),
-    audioMode,
+    audioConfiguration,
   };
 }
 

@@ -83,7 +83,7 @@ const SENSITIVITY_COPY: Record<
 interface ClassifiedWidgetSession extends PrimingHistoryEntry {
   dateKey: string;
   timestamp: number;
-  displayType: 'focus' | 'deep';
+  displayType: 'focus' | 'deep' | 'visualize';
 }
 
 /**
@@ -96,7 +96,7 @@ function classifyWidgetSessions(entries: PrimingHistoryEntry[]): ClassifiedWidge
   const lastSignatureTime = new Map<string, number>();
   const anchorsWithPriorPrime = new Set<string>();
   const sorted = entries
-    .filter((entry) => entry.type === 'activate' || entry.type === 'reinforce')
+    .filter((entry) => entry.type === 'activate' || entry.type === 'reinforce' || entry.type === 'visualize')
     .map((entry) => ({
       ...entry,
       dateKey: entry.localDate,
@@ -119,8 +119,9 @@ function classifyWidgetSessions(entries: PrimingHistoryEntry[]): ClassifiedWidge
     }
     lastSignatureTime.set(signature, entry.timestamp);
 
-    const displayType =
-      entry.type === 'reinforce' && anchorsWithPriorPrime.has(entry.anchorId)
+    const displayType = entry.type === 'visualize'
+      ? 'visualize'
+      : entry.type === 'reinforce' && anchorsWithPriorPrime.has(entry.anchorId)
         ? 'deep'
         : 'focus';
     classified.push({ ...entry, displayType });
@@ -175,9 +176,9 @@ function buildAnchorMetrics(
   primingHistory: PrimingHistoryEntry[],
   anchorId: string | null,
   now: Date
-): Pick<WidgetSnapshot, 'anchorTotalSessions' | 'anchorDayStreak' | 'anchorDeepPrimeSessions'> {
+): Pick<WidgetSnapshot, 'anchorTotalSessions' | 'anchorDayStreak' | 'anchorDeepPrimeSessions' | 'anchorVisualizeSessions'> {
   if (!anchorId) {
-    return { anchorTotalSessions: 0, anchorDayStreak: 0, anchorDeepPrimeSessions: 0 };
+    return { anchorTotalSessions: 0, anchorDayStreak: 0, anchorDeepPrimeSessions: 0, anchorVisualizeSessions: 0 };
   }
   const sessions = classifyWidgetSessions(
     primingHistory.filter((entry) => entry.anchorId === anchorId)
@@ -186,6 +187,7 @@ function buildAnchorMetrics(
     anchorTotalSessions: sessions.length,
     anchorDayStreak: currentSessionStreak(sessions, now),
     anchorDeepPrimeSessions: sessions.filter((session) => session.displayType === 'deep').length,
+    anchorVisualizeSessions: sessions.filter((session) => session.displayType === 'visualize').length,
   };
 }
 
@@ -197,7 +199,7 @@ function buildCurrentWeek(
   const byDate = new Map<string, { focus: boolean; deep: boolean }>();
   for (const session of sessions) {
     const value = byDate.get(session.dateKey) ?? { focus: false, deep: false };
-    value[session.displayType] = true;
+    if (session.displayType !== 'visualize') value[session.displayType] = true;
     byDate.set(session.dateKey, value);
   }
 
@@ -227,6 +229,7 @@ function buildWidgetSummary(
   | 'totalSessions'
   | 'focusSessions'
   | 'deepPrimeSessions'
+  | 'visualizeSessions'
   | 'deepPrimePercent'
   | 'longestStreak'
   | 'sensitivityLabel'
@@ -235,7 +238,8 @@ function buildWidgetSummary(
 > {
   const sessions = classifyWidgetSessions(primingHistory);
   const deepPrimeSessions = sessions.filter((session) => session.displayType === 'deep').length;
-  const focusSessions = sessions.length - deepPrimeSessions;
+  const visualizeSessions = sessions.filter((session) => session.displayType === 'visualize').length;
+  const focusSessions = sessions.length - deepPrimeSessions - visualizeSessions;
   const totalSessions = sessions.length;
   const sensitivityCopy = SENSITIVITY_COPY[sensitivity] ?? SENSITIVITY_COPY.balanced;
 
@@ -244,6 +248,7 @@ function buildWidgetSummary(
     totalSessions,
     focusSessions,
     deepPrimeSessions,
+    visualizeSessions,
     deepPrimePercent: totalSessions > 0 ? Math.round((deepPrimeSessions / totalSessions) * 100) : 0,
     longestStreak: longestSessionStreak(sessions),
     sensitivityLabel: sensitivityCopy.label,

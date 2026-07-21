@@ -143,6 +143,10 @@ describe('AnalyticsService', () => {
           email: 'person@example.com',
           intentionText: 'private intention',
           prompt: 'private prompt',
+          scene: 'private scene',
+          scene_snapshot: 'private snapshot',
+          next_action: 'private action',
+          text_content: 'private text',
           nested: {
             mantra: 'private mantra',
             safe: true,

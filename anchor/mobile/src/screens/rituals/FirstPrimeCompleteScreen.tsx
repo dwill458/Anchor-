@@ -27,12 +27,17 @@ import { useNotificationController } from '@/hooks/useNotificationController';
 import { DailyReminderPrompt } from '@/components/notifications';
 import { AnalyticsService } from '@/services/AnalyticsService';
 import { FrictionAnalytics } from '@/services/FrictionAnalytics';
+import { PracticeCompletionService } from '@/services/PracticeCompletionService';
 import { colors, spacing, typography } from '@/theme';
 import type { RootStackParamList } from '@/types';
 import { navigateToVaultDestination } from '@/navigation/firstAnchorGate';
 import { queueProgressionMilestonesFromStores } from '@/utils/progressionMilestones';
 import { buildRecoveredChargeState } from '@/utils/anchorPriming';
 import { createPracticeEventId } from '@/utils/primingAnalytics';
+import {
+  DEFAULT_SESSION_AUDIO_DEFAULTS,
+  resolveSessionAudioConfiguration,
+} from '@/types/sessionAudio';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -74,6 +79,7 @@ export const FirstPrimeCompleteScreen: React.FC = () => {
     threadStrength,
     durationSeconds,
     completionEventId: routeCompletionEventId,
+    audioConfiguration: routeAudioConfiguration,
     returnTo,
   } = route.params;
   const fallbackCompletionEventIdRef = useRef(createPracticeEventId());
@@ -84,7 +90,10 @@ export const FirstPrimeCompleteScreen: React.FC = () => {
   const incrementTotalPrimes = useAnchorStore((state) => state.incrementTotalPrimes);
   const recordPrimeSession = useAnchorStore((state) => state.recordPrimeSession);
   const recordSession = useSessionStore((state) => state.recordSession);
-  const primeSessionAudio = useSettingsStore((state) => state.primeSessionAudio ?? 'ambient');
+  const primeSessionAudioDefaults = useSettingsStore(
+    (state) =>
+      state.sessionAudioDefaults?.deep_prime ?? DEFAULT_SESSION_AUDIO_DEFAULTS.deep_prime
+  );
   const { playSound } = useAudio();
   const { handlePrimeComplete, notifState } = useNotificationController();
   const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
@@ -187,13 +196,31 @@ export const FirstPrimeCompleteScreen: React.FC = () => {
         incrementTotalPrimes();
         recordPrimeSession();
 
-        recordSession({
+        const audioConfiguration =
+          routeAudioConfiguration ?? resolveSessionAudioConfiguration(primeSessionAudioDefaults);
+        const completedAt = new Date().toISOString();
+        const recordedEventId = recordSession({
           idempotencyKey: completionEventId,
           anchorId,
           type: 'reinforce',
           durationSeconds,
-          mode: primeSessionAudio,
-          completedAt: new Date().toISOString(),
+          mode:
+            audioConfiguration.backgroundAudio === 'ambient' ||
+            audioConfiguration.guidanceVoice !== 'none'
+              ? 'ambient'
+              : 'silent',
+          audioConfiguration,
+          completedAt,
+        });
+        void PracticeCompletionService.queueLegacyCompletion({
+          id: recordedEventId,
+          anchorId,
+          anchorLocalId: anchor?.localId,
+          practiceMode: 'deep_prime',
+          durationSeconds,
+          completedAt,
+          guidanceVoice: audioConfiguration.guidanceVoice,
+          backgroundAudio: audioConfiguration.backgroundAudio,
         });
         void handlePrimeComplete();
         FrictionAnalytics.completeFlow('activation', {
@@ -382,7 +409,8 @@ export const FirstPrimeCompleteScreen: React.FC = () => {
     cardAnim,
     checkAnim,
     completionEventId,
-    primeSessionAudio,
+    primeSessionAudioDefaults,
+    routeAudioConfiguration,
     dividerAnim,
     durationSeconds,
     footerAnim,

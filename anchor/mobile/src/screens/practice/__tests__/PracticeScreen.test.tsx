@@ -14,6 +14,7 @@ jest.mock('react-native-reanimated', () => {
 
 const mockNavigate = jest.fn();
 const mockNavigateToVault = jest.fn();
+const mockNavigateToPaywall = jest.fn();
 const mockRegisterTabNav = jest.fn();
 const mockSetCurrentAnchor = jest.fn((id?: string) => {
   mockCurrentAnchorId = id;
@@ -37,6 +38,10 @@ const mockSettingsState: any = {
   defaultActivation: { mode: 'silent', unit: 'seconds', value: 30 },
   defaultCharge: { mode: 'ritual', preset: '5m', customMinutes: undefined },
   dailyPracticeGoal: 3,
+  sessionAudioDefaults: {
+    focus: { guidanceVoice: 'female', backgroundAudio: 'ambient' },
+    deep_prime: { guidanceVoice: 'female', backgroundAudio: 'ambient' },
+  },
 };
 
 jest.mock('@react-navigation/native', () => {
@@ -57,6 +62,7 @@ jest.mock('@react-navigation/native', () => {
 jest.mock('@/contexts/TabNavigationContext', () => ({
   useTabNavigation: () => ({
     navigateToVault: mockNavigateToVault,
+    navigateToPaywall: mockNavigateToPaywall,
     registerTabNav: mockRegisterTabNav,
     activeTabIndex: 1,
   }),
@@ -150,6 +156,7 @@ describe('PracticeScreen', () => {
     (AsyncStorage.getItem as jest.Mock).mockResolvedValue('1');
     mockNavigate.mockReset();
     mockNavigateToVault.mockReset();
+    mockNavigateToPaywall.mockReset();
     mockRegisterTabNav.mockReset();
     mockSetCurrentAnchor.mockClear();
     mockSetCurrentAnchor.mockImplementation((id?: string) => {
@@ -260,7 +267,7 @@ describe('PracticeScreen', () => {
         preset: {
           sessionType: 'focus',
           durationSeconds: 60,
-          audioMode: 'silent',
+          audioConfiguration: { guidanceVoice: 'none', backgroundAudio: 'off' },
         },
       },
     };
@@ -278,7 +285,11 @@ describe('PracticeScreen', () => {
         anchorId: 'a66',
         activationType: 'visual',
         durationOverride: 60,
-        audioModeOverride: 'silent',
+        audioConfiguration: {
+          guidanceVoice: 'none',
+          backgroundAudio: 'off',
+          source: 'session_override',
+        },
         returnTo: 'practice',
       });
     });
@@ -350,6 +361,11 @@ describe('PracticeScreen', () => {
         anchorId: 'a55',
         activationType: 'visual',
         durationOverride: 30,
+        audioConfiguration: {
+          guidanceVoice: 'female',
+          backgroundAudio: 'ambient',
+          source: 'default',
+        },
         returnTo: 'practice',
       });
     });

@@ -177,7 +177,7 @@ export const DataPrivacyScreen: React.FC = () => {
                                 <Text style={styles.overviewTitle}>Privacy First</Text>
                             </View>
                             <Text style={styles.overviewText}>
-                                Your anchors and intentions are your own. Anchor stores your account email, Anchor content, subscription state, reminder preferences, and push notification tokens needed to send practice reminders. We send your intention text to Google's Gemini AI to generate sigil artwork and use Sentry for crash and performance diagnostics. We do not use your data for advertising.
+                                Your anchors and intentions are your own. Anchor stores your account email, Anchor content, subscription state, reminder preferences, and push notification tokens needed to send practice reminders. We send your intention text to Google's Gemini AI to generate sigil artwork and, when you request it, Visualize scene suggestions. We use Sentry for crash and performance diagnostics. We do not use your data for advertising.
                             </Text>
                         </CardWrapper>
                     </View>

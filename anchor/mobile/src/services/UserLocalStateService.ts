@@ -2,14 +2,19 @@ import type { Anchor } from '@/types';
 import type { StoredProfile } from '@/stores/profileStore';
 import { readSecureValue, writeSecureValue } from '@/stores/encryptedPersistStorage';
 import { logger } from '@/utils/logger';
+import type { SessionAudioConfiguration } from '@/types/sessionAudio';
+import type { PracticeSessionRecord } from '@/types/practice';
+import type { SessionType } from '@/stores/sessionStore';
+import type { PrimingSessionType } from '@/utils/primingAnalytics';
 
 export interface SessionSnapshot {
   lastSession: {
     id: string;
     anchorId: string;
-    type: 'activate' | 'reinforce' | 'stabilize';
+    type: SessionType;
     durationSeconds: number;
     mode: 'silent' | 'mantra' | 'ambient';
+    audioConfiguration?: SessionAudioConfiguration;
     reflectionWord?: string;
     completedAt: string;
   } | null;
@@ -27,9 +32,10 @@ export interface SessionSnapshot {
   sessionLog: Array<{
     id: string;
     anchorId: string;
-    type: 'activate' | 'reinforce' | 'stabilize';
+    type: SessionType;
     durationSeconds: number;
     mode: 'silent' | 'mantra' | 'ambient';
+    audioConfiguration?: SessionAudioConfiguration;
     reflectionWord?: string;
     completedAt: string;
   }>;
@@ -41,7 +47,7 @@ export interface SessionSnapshot {
   primingHistory: Array<{
     id: string;
     anchorId: string;
-    type: 'activate' | 'reinforce';
+    type: PrimingSessionType;
     completedAt: string;
     localDate: string;
     weekKey: string;
@@ -50,6 +56,7 @@ export interface SessionSnapshot {
     hourOfDay: number;
     timeOfDay: string;
   }>;
+  practiceHistory?: PracticeSessionRecord[];
   journeyWeekStart: string | null;
   lastDecayDate: string | null;
 }

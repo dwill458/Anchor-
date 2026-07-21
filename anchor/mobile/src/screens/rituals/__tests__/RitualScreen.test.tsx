@@ -9,6 +9,10 @@ import { useSettingsStore } from '@/stores/settingsStore';
 
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 const mockCreateManagedPlayer = jest.fn();
+const mockCreateSessionAudioPlayer = jest.fn(
+  (_asset: unknown, options: { trackId?: string }) =>
+    mockCreateManagedPlayer(options.trackId ?? 'missing-deep-track', options)
+);
 const mockPlaySound = jest.fn();
 const mockHandlePrimeComplete = jest.fn();
 const mockNavigateToPractice = jest.fn();
@@ -112,6 +116,11 @@ jest.mock('@/hooks/useAudio', () => ({
     playSound: mockPlaySound,
   }),
 }));
+jest.mock('@/hooks/useSessionAudio', () => ({
+  useSessionAudio: () => ({
+    createSessionAudioPlayer: mockCreateSessionAudioPlayer,
+  }),
+}));
 jest.mock('@/hooks/useNotificationController', () => ({
   useNotificationController: () => ({
     handlePrimeComplete: mockHandlePrimeComplete,
@@ -175,6 +184,13 @@ const mockSettingsState = (overrides: Record<string, unknown> = {}) => {
     reduceIntentionVisibility: false,
     debugLoggingEnabled: false,
     ...overrides,
+  } as any;
+  base.sessionAudioDefaults = overrides.sessionAudioDefaults ?? {
+    focus: { guidanceVoice: 'female', backgroundAudio: 'ambient' },
+    deep_prime:
+      base.primeSessionAudio === 'ambient'
+        ? { guidanceVoice: 'female', backgroundAudio: 'ambient' }
+        : { guidanceVoice: 'none', backgroundAudio: 'off' },
   };
 
   (useSettingsStore as unknown as jest.Mock).mockImplementation((selector: any) =>
@@ -441,7 +457,9 @@ describe('RitualScreen', () => {
     );
     expect(mockQueueProgressionMilestones).toHaveBeenCalledTimes(1);
     expect(mockHandlePrimeComplete).toHaveBeenCalledTimes(1);
-    expect(mockNavigateToPractice).toHaveBeenCalledTimes(1);
+    await waitFor(() => expect(mockNavigateToPractice).toHaveBeenCalledTimes(1), {
+      timeout: 2000,
+    });
     expect(queryByTestId('completion-modal-done')).toBeNull();
 
     unmount();

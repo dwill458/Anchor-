@@ -58,7 +58,7 @@ import { useTeachingGate } from '@/utils/useTeachingGate';
 import type { TeachingContent } from '@/constants/teaching';
 import { withAlpha } from '@/utils/color';
 import { useTabNavigation } from '@/contexts/TabNavigationContext';
-import { isHighEndDevice } from '@/utils/deviceTier';
+import { useAppPerformanceTier } from '@/hooks/useAppPerformanceTier';
 import { useSettingsStore } from '@/stores/settingsStore';
 import { WeeklySummaryModal } from '@/components/WeeklySummaryModal'; import { useWeeklySummaryTrigger } from '@/hooks/useWeeklySummaryTrigger';
 import { VaultGridModal } from './components/VaultGridModal';
@@ -246,6 +246,10 @@ export const VaultScreen: React.FC = () => {
   const setAnchors = useAnchorStore((s) => s.setAnchors);
 
   const reduceMotionEnabled = useReduceMotionEnabled();
+  // Use the same device classification as the rest of the visual system. This
+  // explicitly recognizes recent Galaxy flagships (including the S24 Ultra),
+  // instead of relying solely on display resolution.
+  const performanceTier = useAppPerformanceTier();
   const shouldReduceMotion = reduceMotionEnabled || !isVaultTabActive;
   const toast = useToast();
   const { shouldShow, dismiss } = useWeeklySummaryTrigger();
@@ -557,7 +561,9 @@ export const VaultScreen: React.FC = () => {
   return (
     <View style={styles.container}>
       <ZenBackground variant="sanctuary" showOrbs={isVaultTabActive} showGrain showVignette />
-      {isHighEndDevice && <AtmosphericOrbs reduceMotionEnabled={shouldReduceMotion} />}
+      {performanceTier === 'high' && (
+        <AtmosphericOrbs reduceMotionEnabled={shouldReduceMotion} />
+      )}
 
       <SafeAreaView style={styles.safeArea} edges={['top']}>
         <ScrollView

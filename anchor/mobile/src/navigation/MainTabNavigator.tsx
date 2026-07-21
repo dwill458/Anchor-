@@ -11,6 +11,8 @@
 
 import React, { useCallback, useRef } from 'react';
 import { AppState, View, Text, StyleSheet, Pressable } from 'react-native';
+import { useNavigation } from '@react-navigation/native';
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Home, Zap } from 'lucide-react-native';
 import Animated, {
@@ -31,8 +33,13 @@ import { useAuthStore } from '@/stores/authStore';
 import { safeHaptics } from '@/utils/haptics';
 import { useTeachingStore } from '@/stores/teachingStore';
 import { useToast } from '@/components/ToastProvider';
+import { PracticeCompletionService } from '@/services/PracticeCompletionService';
+import VisualizationSceneService from '@/services/VisualizationSceneService';
 import { TEACHINGS } from '@/constants/teaching';
 import { WidgetDeepLinkHandler } from '@/widgets/WidgetDeepLinkHandler';
+import { ResumeTargetHandler } from './ResumeTargetHandler';
+import type { RootStackParamList } from '@/types';
+import type { RootNavigatorParamList } from './RootNavigator';
 
 // ─── Tab Button ───────────────────────────────────────────────────────────────
 
@@ -42,7 +49,11 @@ interface TabButtonProps {
   showDivider?: boolean;
 }
 
-const TabButton: React.FC<TabButtonProps> = ({ onPress, children, showDivider = false }) => {
+const TabButton: React.FC<TabButtonProps> = ({
+  onPress,
+  children,
+  showDivider = false,
+}) => {
   const scale = useSharedValue(1);
 
   const animatedStyle = useAnimatedStyle(() => ({
@@ -87,6 +98,7 @@ const TAB_ICON_STROKE_WIDTH = 1.8;
 
 const TABS = [
   {
+    index: 0,
     label: 'SANCTUARY',
     icon: (active: boolean) => (
       <Home
@@ -99,6 +111,7 @@ const TABS = [
     ),
   },
   {
+    index: 1,
     label: 'PRACTICE',
     icon: (active: boolean) => (
       <Zap
@@ -127,7 +140,10 @@ const TABS = [
 
 const ACTIVE_TAB_COUNT = TABS.length;
 
-export const CustomTabBar: React.FC<CustomTabBarProps> = ({ activeIndex, onTabPress }) => {
+export const CustomTabBar: React.FC<CustomTabBarProps> = ({
+  activeIndex,
+  onTabPress,
+}) => {
   const insets = useSafeAreaInsets();
   const isCompactTabSet = ACTIVE_TAB_COUNT < 3;
 
@@ -141,11 +157,11 @@ export const CustomTabBar: React.FC<CustomTabBarProps> = ({ activeIndex, onTabPr
       testID="custom-tab-bar"
     >
       {TABS.map((tab, index) => {
-        const isActive = activeIndex === index;
+        const isActive = activeIndex === tab.index;
         return (
           <TabButton
-            key={index}
-            onPress={() => onTabPress(index)}
+            key={tab.index}
+            onPress={() => onTabPress(tab.index)}
             showDivider={index < TABS.length - 1}
           >
             <View style={styles.col}>
@@ -155,10 +171,10 @@ export const CustomTabBar: React.FC<CustomTabBarProps> = ({ activeIndex, onTabPr
                   testID={`tab-indicator-${tab.label.toLowerCase()}`}
                 />
               )}
-              <View style={styles.iconWrap}>
-                {tab.icon(isActive)}
-              </View>
-              <Text style={[styles.colLabel, isActive && styles.colLabelActive]}>
+              <View style={styles.iconWrap}>{tab.icon(isActive)}</View>
+              <Text
+                style={[styles.colLabel, isActive && styles.colLabelActive]}
+              >
                 {tab.label}
               </Text>
             </View>
@@ -172,18 +188,39 @@ export const CustomTabBar: React.FC<CustomTabBarProps> = ({ activeIndex, onTabPr
 // ─── Main Navigator ───────────────────────────────────────────────────────────
 
 export const MainTabNavigator: React.FC = () => {
-  const openDailyAnchorAutomatically = useSettingsStore((state) => state.openDailyAnchorAutomatically);
+  const rootNavigation =
+    useNavigation<NativeStackNavigationProp<RootNavigatorParamList>>();
+  const openDailyAnchorAutomatically = useSettingsStore(
+    (state) => state.openDailyAnchorAutomatically,
+  );
   const anchorCount = useAnchorStore((state) => state.anchors.length);
-  const shouldRedirectToCreation = useAuthStore((state) => state.shouldRedirectToCreation);
+  const shouldRedirectToCreation = useAuthStore(
+    (state) => state.shouldRedirectToCreation,
+  );
   const hasCheckedAutoOpen = useRef(false);
   const autoOpenTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const toast = useToast();
 
   const [activeIndex, setActiveIndex] = React.useState(0);
   const [vaultRouteName, setVaultRouteName] = React.useState(
-    shouldRedirectToCreation ? 'FirstAnchorCreation' : 'Vault'
+    shouldRedirectToCreation ? 'FirstAnchorCreation' : 'Vault',
   );
-  const [practiceRouteName, setPracticeRouteName] = React.useState('PracticeHome');
+  const [practiceRouteName, setPracticeRouteName] =
+    React.useState('PracticeHome');
+
+  const flushPracticeWrites = useCallback(() => {
+    const accountId = useAuthStore.getState().user?.id;
+    if (!accountId) return;
+    void PracticeCompletionService.flush(accountId);
+    void VisualizationSceneService.flushPending(
+      useAnchorStore.getState().anchors,
+      accountId,
+    );
+  }, []);
+
+  React.useEffect(() => {
+    flushPracticeWrites();
+  }, [flushPracticeWrites]);
 
   React.useEffect(() => {
     if (shouldRedirectToCreation) {
@@ -196,6 +233,16 @@ export const MainTabNavigator: React.FC = () => {
     setActiveIndex(index);
   }, []);
 
+  // Practice owns an independent navigation container, so its local navigation
+  // object cannot resolve RootNavigator's Paywall route. Keep that boundary in
+  // the tab host and expose only this typed intent to child tabs.
+  const handlePaywallNavigation = useCallback(
+    (params?: RootStackParamList['Paywall']) => {
+      rootNavigation.navigate('Paywall', params);
+    },
+    [rootNavigation],
+  );
+
   const isTabBarVisible = React.useMemo(() => {
     if (activeIndex === 0) return vaultRouteName === 'Vault';
     if (activeIndex === 1) return practiceRouteName === 'PracticeHome';
@@ -204,7 +251,11 @@ export const MainTabNavigator: React.FC = () => {
 
   // Auto-open daily anchor
   React.useEffect(() => {
-    if (openDailyAnchorAutomatically && anchorCount > 0 && !hasCheckedAutoOpen.current) {
+    if (
+      openDailyAnchorAutomatically &&
+      anchorCount > 0 &&
+      !hasCheckedAutoOpen.current
+    ) {
       hasCheckedAutoOpen.current = true;
       autoOpenTimerRef.current = setTimeout(() => {
         setActiveIndex(0);
@@ -240,6 +291,7 @@ export const MainTabNavigator: React.FC = () => {
 
     const subscription = AppState.addEventListener('change', (nextState) => {
       if (nextState === 'active') {
+        flushPracticeWrites();
         clearDrainTimer();
         drain();
       } else {
@@ -251,12 +303,17 @@ export const MainTabNavigator: React.FC = () => {
       subscription.remove();
       clearDrainTimer();
     };
-  }, [toast]);
+  }, [flushPracticeWrites, toast]);
 
   return (
-    <TabNavigationProvider onIndexChange={handleIndexChange} activeIndex={activeIndex}>
+    <TabNavigationProvider
+      onIndexChange={handleIndexChange}
+      onNavigateToPaywall={handlePaywallNavigation}
+      activeIndex={activeIndex}
+    >
       {/* Routes the home screen widget CTA (anchor://practice) to the Practice tab */}
       <WidgetDeepLinkHandler />
+      <ResumeTargetHandler />
       <View style={styles.container}>
         <SwipeableTabContainer
           activeIndex={activeIndex}
@@ -271,7 +328,10 @@ export const MainTabNavigator: React.FC = () => {
         </SwipeableTabContainer>
 
         {isTabBarVisible && (
-          <CustomTabBar activeIndex={activeIndex} onTabPress={handleIndexChange} />
+          <CustomTabBar
+            activeIndex={activeIndex}
+            onTabPress={handleIndexChange}
+          />
         )}
       </View>
     </TabNavigationProvider>

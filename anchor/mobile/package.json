@@ -9,6 +9,8 @@
     "ios": "expo run:ios",
     "web": "expo start --web",
     "postinstall": "patch-package && node ./scripts/apply-eas-android-patches.js",
+    "build:visualize-audio": "node ./scripts/build-visualize-audio.mjs build",
+    "validate:visualize-audio": "node ./scripts/build-visualize-audio.mjs validate",
     "validate:firebase-config": "node ./scripts/validate-firebase-config.js",
     "test": "jest",
     "test:watch": "jest --watch",

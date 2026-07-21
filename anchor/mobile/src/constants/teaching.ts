@@ -314,6 +314,20 @@ export const TEACHINGS: Record<string, TeachingContent> = {
     cooldownMs: 0,
   },
 
+  visualize_scene_explainer: {
+    teachingId: 'visualize_scene_explainer',
+    screen: 'visualize_preparation',
+    trigger: 'first_time',
+    guideOnly: true,
+    tier: 'both',
+    title: 'Why a scene?',
+    copy: 'A specific moment is easier to mentally rehearse than an abstract goal. We created one from your intention. Tap Edit to make it yours.',
+    pattern: 'glass_card',
+    tone: 'grounding',
+    maxShows: 1,
+    cooldownMs: 0,
+  },
+
   // The three practice modes — rendered as stacked blocks in the modes
   // explainer sheet. Ungated (shown on demand via an info chip).
   mode_prime_v1: {

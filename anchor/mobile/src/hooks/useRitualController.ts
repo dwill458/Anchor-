@@ -17,7 +17,7 @@ import {
 import { ErrorTrackingService } from '@/services/ErrorTrackingService';
 import { FrictionAnalytics } from '@/services/FrictionAnalytics';
 import { useAudio } from '@/hooks/useAudio';
-import { useSettingsStore } from '@/stores/settingsStore';
+import type { SessionAudioConfiguration } from '@/types/sessionAudio';
 
 export interface RitualState {
   // Time tracking
@@ -64,6 +64,7 @@ export interface UseRitualControllerOptions {
   onPhaseChange?: (phase: RitualPhase, index: number) => void;
   onSealComplete?: () => void;
   manageSessionAudioExternally?: boolean;
+  audioConfiguration: SessionAudioConfiguration;
 }
 
 /**
@@ -75,11 +76,11 @@ export function useRitualController({
   onPhaseChange,
   onSealComplete,
   manageSessionAudioExternally = false,
+  audioConfiguration,
 }: UseRitualControllerOptions): RitualController {
   const { playSound } = useAudio();
-  const focusSessionAudio = useSettingsStore((state) => state.focusSessionAudio ?? 'ambient');
-  const primeSessionAudio = useSettingsStore((state) => state.primeSessionAudio ?? 'ambient');
-  const sessionAudioMode = config.id.startsWith('focus') ? focusSessionAudio : primeSessionAudio;
+  const sessionAudioMode =
+    audioConfiguration.backgroundAudio === 'ambient' ? 'ambient' : 'silent';
   // ══════════════════════════════════════════════════════════════
   // STATE
   // ══════════════════════════════════════════════════════════════

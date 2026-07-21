@@ -4,6 +4,12 @@
  * Core domain types and interfaces used throughout the application.
  */
 
+import type {
+  SessionAudioConfiguration,
+  SessionAudioDefaultsByType,
+} from './sessionAudio';
+export * from './sessionAudio';
+
 // ============================================================================
 // Core Domain Types
 // ============================================================================
@@ -263,9 +269,14 @@ export interface UserSettings {
   defaultChargeDuration: number; // in seconds
   focusSessionMode: 'quick' | 'deep';
   focusSessionDuration: number;
+  /** @deprecated Read sessionAudioDefaults instead. Retained for rolling migration. */
   focusSessionAudio: 'silent' | 'ambient';
   primeSessionDuration: number;
+  visualizeSessionDuration?: number;
+  /** @deprecated Read sessionAudioDefaults instead. Retained for rolling migration. */
   primeSessionAudio: 'silent' | 'ambient';
+  /** Voice & Sound defaults. Optional while older backends roll forward. */
+  sessionAudioDefaults?: SessionAudioDefaultsByType;
   hapticIntensity: number; // 1-5 scale
   vaultViewType: 'grid' | 'list';
   updatedAt: Date;
@@ -566,11 +577,25 @@ export type RootStackParamList = {
   SaveProgress: { anchor: Anchor };
   TrialSignUp: undefined;
   AnchorDetail: { anchorId: string };
+  VisualizePreparation: { anchorId: string; source?: string };
+  VisualizeSession: {
+    anchorId: string;
+    durationSeconds: 60 | 180 | 300;
+    sceneText: string;
+    guidanceVoice: 'female' | 'male' | 'none';
+    backgroundAudio: 'ambient' | 'off';
+  };
+  VisualizeCompletion: {
+    anchorId: string;
+    sessionId: string;
+    durationSeconds: 60 | 180 | 300;
+  };
   AuthGate: undefined;
   Paywall:
     | {
       source?: PaywallSource;
       preferredPlanId?: AuthPreferredPlanId;
+      resumeTarget?: { kind: 'visualize_prepare'; anchorId: string };
     }
     | undefined;
   CreateAnchor: undefined;
@@ -793,6 +818,8 @@ export type RootStackParamList = {
     ritualType: 'focus' | 'ritual' | 'quick' | 'deep'; // Legacy types for compatibility
     durationSeconds?: number; // Optional custom duration for focus/ritual modes
     mantraAudioEnabled?: boolean;
+    audioConfiguration?: SessionAudioConfiguration;
+    /** @deprecated Compatibility for location presets saved before Voice & Sound v2. */
     audioModeOverride?: 'silent' | 'ambient';
     returnTo?: 'vault' | 'practice' | 'detail';
   };
@@ -801,6 +828,7 @@ export type RootStackParamList = {
     anchorId: string;
     durationSeconds?: number;
     completionEventId?: string;
+    audioConfiguration?: SessionAudioConfiguration;
     returnTo?: 'vault' | 'practice' | 'detail';
   };
   FirstPrimeComplete: {
@@ -809,6 +837,7 @@ export type RootStackParamList = {
     threadStrength: number;
     durationSeconds: number;
     completionEventId?: string;
+    audioConfiguration?: SessionAudioConfiguration;
     returnTo?: 'vault' | 'practice' | 'detail';
   };
 
@@ -817,6 +846,8 @@ export type RootStackParamList = {
     anchorId: string;
     activationType: ActivationType;
     durationOverride?: number;
+    audioConfiguration?: SessionAudioConfiguration;
+    /** @deprecated Compatibility for location presets saved before Voice & Sound v2. */
     audioModeOverride?: 'silent' | 'ambient';
     returnTo?: 'vault' | 'practice' | 'detail' | 'reinforce';
     initialDuration?: 'quick' | 'deep';

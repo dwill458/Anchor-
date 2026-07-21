@@ -7,6 +7,7 @@ export interface DayData {
   date: string;
   focusCount: number;
   deepCount: number;
+  visualizeCount: number;
   isToday: boolean;
   isFuture: boolean;
 }
@@ -19,6 +20,7 @@ export interface ThreadHistoryResult {
   deepPrimePercent: number;
   focusCount: number;
   deepCount: number;
+  visualizeCount: number;
   threadStrength: number;
   sensitivityLabel: string;
   sensitivityNote: string;
@@ -27,6 +29,7 @@ export interface ThreadHistoryResult {
     date: string;
     hasFocus: boolean;
     hasDeep: boolean;
+    hasVisualize: boolean;
     isToday: boolean;
     isFuture: boolean;
   }[];
@@ -82,14 +85,14 @@ function daysBetween(left: string, right: string): number {
 type ClassifiedPrimingEntry = PrimingHistoryEntry & {
   dateKey: string;
   timestamp: number;
-  displayType: 'focus' | 'deep';
+  displayType: 'focus' | 'deep' | 'visualize';
 };
 
 function classifyPrimingEntries(entries: PrimingHistoryEntry[]): ClassifiedPrimingEntry[] {
   const seenIds = new Set<string>();
   const sorted = entries
     .map((entry) => {
-      if (entry.type !== 'activate' && entry.type !== 'reinforce') {
+      if (entry.type !== 'activate' && entry.type !== 'reinforce' && entry.type !== 'visualize') {
         return null;
       }
 
@@ -141,7 +144,9 @@ function classifyPrimingEntries(entries: PrimingHistoryEntry[]): ClassifiedPrimi
     // The initial first-prime completion is stored as "reinforce", but it is
     // not a user-initiated Deep Prime. Count it as non-deep for display stats.
     const displayType =
-      entry.type === 'reinforce' && anchorsWithPriorPrime.has(entry.anchorId)
+      entry.type === 'visualize'
+        ? 'visualize'
+        : entry.type === 'reinforce' && anchorsWithPriorPrime.has(entry.anchorId)
         ? 'deep'
         : 'focus';
 
@@ -164,26 +169,30 @@ export function useThreadHistory(): ThreadHistoryResult {
     const todayKey = localDateKey(today);
     const entries = Array.isArray(primingHistory) ? primingHistory : [];
     const classifiedEntries = classifyPrimingEntries(entries);
-    const countsByDate = new Map<string, { focusCount: number; deepCount: number }>();
+    const countsByDate = new Map<string, { focusCount: number; deepCount: number; visualizeCount: number }>();
 
     for (const entry of classifiedEntries) {
-      const counts = countsByDate.get(entry.dateKey) ?? { focusCount: 0, deepCount: 0 };
+      const counts = countsByDate.get(entry.dateKey) ?? { focusCount: 0, deepCount: 0, visualizeCount: 0 };
       if (entry.displayType === 'focus') {
         counts.focusCount += 1;
-      } else {
+      } else if (entry.displayType === 'deep') {
         counts.deepCount += 1;
+      } else {
+        counts.visualizeCount += 1;
       }
       countsByDate.set(entry.dateKey, counts);
     }
 
     let focusCount = 0;
     let deepCount = 0;
+    let visualizeCount = 0;
     countsByDate.forEach((counts) => {
       focusCount += counts.focusCount;
       deepCount += counts.deepCount;
+      visualizeCount += counts.visualizeCount;
     });
 
-    const totalSessions = focusCount + deepCount;
+    const totalSessions = focusCount + deepCount + visualizeCount;
     const deepPrimePercent =
       totalSessions > 0 ? Math.round((deepCount / totalSessions) * 100) : 0;
 
@@ -196,11 +205,12 @@ export function useThreadHistory(): ThreadHistoryResult {
       for (let dayIndex = 0; dayIndex < 7; dayIndex += 1) {
         const date = addDays(heatmapStart, weekIndex * 7 + dayIndex);
         const dateKey = localDateKey(date);
-        const counts = countsByDate.get(dateKey) ?? { focusCount: 0, deepCount: 0 };
+        const counts = countsByDate.get(dateKey) ?? { focusCount: 0, deepCount: 0, visualizeCount: 0 };
         week.push({
           date: dateKey,
           focusCount: counts.focusCount,
           deepCount: counts.deepCount,
+          visualizeCount: counts.visualizeCount,
           isToday: dateKey === todayKey,
           isFuture: date.getTime() > today.getTime(),
         });
@@ -210,7 +220,7 @@ export function useThreadHistory(): ThreadHistoryResult {
 
     const hasSession = (dateKey: string): boolean => {
       const counts = countsByDate.get(dateKey);
-      return !!counts && counts.focusCount + counts.deepCount > 0;
+      return !!counts && counts.focusCount + counts.deepCount + counts.visualizeCount > 0;
     };
 
     let currentStreak = 0;
@@ -249,12 +259,13 @@ export function useThreadHistory(): ThreadHistoryResult {
     const currentWeekDays = labels.map((label, index) => {
       const date = addDays(isoMonday, index);
       const dateKey = localDateKey(date);
-      const counts = countsByDate.get(dateKey) ?? { focusCount: 0, deepCount: 0 };
+      const counts = countsByDate.get(dateKey) ?? { focusCount: 0, deepCount: 0, visualizeCount: 0 };
       return {
         label,
         date: dateKey,
         hasFocus: counts.focusCount > 0,
         hasDeep: counts.deepCount > 0,
+        hasVisualize: counts.visualizeCount > 0,
         isToday: dateKey === todayKey,
         isFuture: date.getTime() > today.getTime(),
       };
@@ -270,6 +281,7 @@ export function useThreadHistory(): ThreadHistoryResult {
       deepPrimePercent,
       focusCount,
       deepCount,
+      visualizeCount,
       threadStrength,
       sensitivityLabel: sensitivityCopy.label,
       sensitivityNote: sensitivityCopy.note,

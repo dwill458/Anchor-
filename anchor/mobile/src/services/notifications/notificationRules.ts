@@ -51,7 +51,7 @@ export function hasCompletedPrimeToday(sessionLog: SessionLogEntry[], now: Date)
   const today = localDateString(now);
 
   return sessionLog.some((entry) => {
-    if (entry.type !== 'activate' && entry.type !== 'reinforce') {
+    if (entry.type !== 'activate' && entry.type !== 'reinforce' && entry.type !== 'visualize') {
       return false;
     }
     const completedAt = new Date(entry.completedAt);
@@ -220,7 +220,7 @@ export function evaluateWeeklyRecap(
     const completedAt = new Date(entry.completedAt);
     return !Number.isNaN(completedAt.getTime()) &&
       context.now.getTime() - completedAt.getTime() < 7 * DAY_MS &&
-      (entry.type === 'activate' || entry.type === 'reinforce');
+      (entry.type === 'activate' || entry.type === 'reinforce' || entry.type === 'visualize');
   });
   const strongestAnchor = context.anchors
     .filter((anchor) => !anchor.isReleased && !anchor.archivedAt)
