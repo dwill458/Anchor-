@@ -131,5 +131,17 @@ export const shouldPinPreparationCta = (
 ): boolean =>
   !keyboardVisible && viewportHeight > 0 && contentHeight > viewportHeight + 1;
 
-export const getPreparationArtworkSize = (screenHeight: number): number =>
-  screenHeight < 720 ? 180 : 192;
+export type VisualizationLensVariant = 'entrance' | 'practice' | 'completion';
+
+export const getVisualizationLensSize = (
+  variant: VisualizationLensVariant,
+  screenWidth: number,
+): number => {
+  const sizes: Record<VisualizationLensVariant, [number, number]> = {
+    entrance: [0.52, 210],
+    practice: [0.72, 290],
+    completion: [0.56, 225],
+  };
+  const [ratio, maximum] = sizes[variant];
+  return Math.min(Math.round(screenWidth * ratio), maximum);
+};

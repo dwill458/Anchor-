@@ -251,6 +251,8 @@ export const ChargeCompleteScreen: React.FC = () => {
     }
 
     if (returnTo === 'practice') {
+      const nav = navigation as unknown as { popToTop?: () => void };
+      nav.popToTop?.();
       navigateToPractice();
     } else if (returnTo === 'detail') {
       navigation.navigate('AnchorDetail', { anchorId });

@@ -1,16 +1,15 @@
 import React, { useMemo, useState } from "react";
 import {
-  Image,
   Pressable,
   ScrollView,
   StyleSheet,
   Text,
   TextInput,
+  useWindowDimensions,
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
-import { SvgXml } from "react-native-svg";
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
 
 import type { RootStackParamList } from "@/types";
@@ -20,6 +19,12 @@ import { useSessionStore } from "@/stores/sessionStore";
 import { PracticeCompletionService } from "@/services/PracticeCompletionService";
 import { AnalyticsEvents, AnalyticsService } from "@/services/AnalyticsService";
 import { colors, typography } from "@/theme";
+import { getVisualizationLensSize } from './visualizePresentation';
+import {
+  VisualizationAnchorLens,
+  VisualizationPhaseProgress,
+  VisualizationPrimaryButton,
+} from './VisualizationPrimitives';
 
 type Props = NativeStackScreenProps<RootStackParamList, "VisualizeCompletion">;
 
@@ -27,6 +32,7 @@ export const VisualizeCompletionScreen: React.FC<Props> = ({
   navigation,
   route,
 }) => {
+  const window = useWindowDimensions();
   const anchor = useAnchorStore((state) =>
     state.getAnchorById(route.params.anchorId),
   );
@@ -45,6 +51,7 @@ export const VisualizeCompletionScreen: React.FC<Props> = ({
       `${route.params.durationSeconds / 60} minute${route.params.durationSeconds === 60 ? "" : "s"}`,
     [route.params.durationSeconds],
   );
+  const lensSize = getVisualizationLensSize('completion', window.width);
 
   const saveNextAction = async () => {
     if (!accountId || !nextAction.trim()) return;
@@ -74,23 +81,18 @@ export const VisualizeCompletionScreen: React.FC<Props> = ({
           keyboardShouldPersistTaps="handled"
         >
           <Text style={styles.eyebrow}>MENTAL REHEARSAL COMPLETE</Text>
-          <Text style={styles.title}>Visualization Complete</Text>
+          <Text style={styles.title}>SCENE REHEARSED</Text>
           <Text style={styles.subtitle}>
             You rehearsed the moment, practiced how you would respond, and
             connected that experience to your anchor.
           </Text>
-          <View style={styles.artwork}>
-            <View style={styles.glow} />
-            {anchor?.enhancedImageUrl ? (
-              <Image
-                source={{ uri: anchor.enhancedImageUrl }}
-                style={styles.image}
-                resizeMode="contain"
-              />
-            ) : sigilSvg ? (
-              <SvgXml xml={sigilSvg} width={145} height={145} />
-            ) : null}
+          <View style={[styles.artwork, { height: lensSize + 16 }]}>
+            <VisualizationAnchorLens size={lensSize} imageUrl={anchor?.enhancedImageUrl} svg={sigilSvg} />
           </View>
+          <VisualizationPhaseProgress
+            label="FIVE PHASES COMPLETE"
+            segmentStates={['completed', 'completed', 'completed', 'completed', 'completed']}
+          />
 
           <View style={styles.summaryCard}>
             <Text style={styles.actionLabel}>SESSION SUMMARY</Text>
@@ -134,9 +136,10 @@ export const VisualizeCompletionScreen: React.FC<Props> = ({
             </View>
           ) : null}
 
-          <View style={styles.spacer} />
-          <Pressable
-            onPress={() => {
+          <View style={styles.actionSection}>
+            <VisualizationPrimaryButton
+              label="PRACTICE AGAIN"
+              onPress={() => {
               AnalyticsService.track(
                 AnalyticsEvents.VISUALIZE_PRACTICE_AGAIN_SELECTED,
                 { anchor_id: route.params.anchorId },
@@ -145,11 +148,8 @@ export const VisualizeCompletionScreen: React.FC<Props> = ({
                 anchorId: route.params.anchorId,
                 source: "practice_again",
               });
-            }}
-            style={styles.primary}
-          >
-            <Text style={styles.primaryText}>PRACTICE AGAIN</Text>
-          </Pressable>
+              }}
+            />
           <Pressable
             onPress={() => {
               AnalyticsService.track(
@@ -162,6 +162,7 @@ export const VisualizeCompletionScreen: React.FC<Props> = ({
           >
             <Text style={styles.secondaryText}>RETURN TO SANCTUARY</Text>
           </Pressable>
+          </View>
         </ScrollView>
       </SafeAreaView>
     </LinearGradient>
@@ -174,7 +175,7 @@ const styles = StyleSheet.create({
   content: {
     flexGrow: 1,
     paddingHorizontal: 26,
-    paddingTop: 30,
+    paddingTop: 20,
     paddingBottom: 20,
     alignItems: "stretch",
   },
@@ -191,7 +192,7 @@ const styles = StyleSheet.create({
     fontSize: 29,
     lineHeight: 38,
     textAlign: "center",
-    marginTop: 15,
+    marginTop: 10,
   },
   subtitle: {
     color: "rgba(224,231,239,.62)",
@@ -201,24 +202,15 @@ const styles = StyleSheet.create({
     textAlign: "center",
     marginTop: 9,
   },
-  artwork: { height: 170, alignItems: "center", justifyContent: "center" },
-  glow: {
-    position: "absolute",
-    width: 145,
-    height: 145,
-    borderRadius: 73,
-    backgroundColor: "rgba(212,175,55,.08)",
-    borderWidth: 1,
-    borderColor: "rgba(212,175,55,.24)",
-  },
-  image: { width: 130, height: 130 },
+  artwork: { alignItems: "center", justifyContent: "center", marginTop: 2 },
   summaryCard: {
-    borderRadius: 19,
-    padding: 16,
+    borderRadius: 25,
+    padding: 17,
     backgroundColor: "rgba(5,17,31,.5)",
     borderWidth: 1,
     borderColor: "rgba(255,255,255,.08)",
-    marginBottom: 12,
+    marginTop: 14,
+    marginBottom: 10,
   },
   summaryMeta: {
     color: "#F4EDD8",
@@ -233,14 +225,14 @@ const styles = StyleSheet.create({
     marginTop: 10,
   },
   summaryText: {
-    color: "rgba(244,237,216,.68)",
+    color: "rgba(244,237,216,.76)",
     fontFamily: typography.fonts.body,
     fontSize: 12,
     lineHeight: 18,
     marginTop: 3,
   },
   actionCard: {
-    borderRadius: 19,
+    borderRadius: 25,
     padding: 17,
     backgroundColor: "rgba(5,17,31,.66)",
     borderWidth: 1,
@@ -271,19 +263,7 @@ const styles = StyleSheet.create({
   inputFooter: { flexDirection: "row", justifyContent: "space-between" },
   count: { color: "rgba(255,255,255,.3)", fontSize: 10 },
   save: { color: colors.gold, fontFamily: typography.fonts.body, fontSize: 12 },
-  spacer: { flex: 1 },
-  primary: {
-    backgroundColor: colors.gold,
-    borderRadius: 17,
-    paddingVertical: 17,
-    alignItems: "center",
-  },
-  primaryText: {
-    color: "#071321",
-    fontFamily: typography.fonts.heading,
-    fontSize: 12,
-    letterSpacing: 1.5,
-  },
+  actionSection: { marginTop: 16 },
   secondary: { paddingVertical: 18, alignItems: "center" },
   secondaryText: {
     color: "rgba(244,237,216,.72)",

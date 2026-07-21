@@ -2,7 +2,7 @@
   <string name="app_name">Anchor</string>
   <string name="expo_splash_screen_resize_mode" translatable="false">contain</string>
   <string name="expo_splash_screen_status_bar_translucent" translatable="false">false</string>
-  <string name="expo_runtime_version">1.1.0</string>
+  <string name="expo_runtime_version">1.1.2</string>
   <string name="widget_anchorsmallwidget_description" translatable="false">Your anchor at a glance — glows gold once you prime.</string>
   <string name="widget_anchormediumwidget_description" translatable="false">Today\'s anchor with a one-tap way into your Focus session.</string>
   <string name="widget_anchorlargewidget_description" translatable="false">Your day thread and 18 weeks of session history.</string>

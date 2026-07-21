@@ -9,7 +9,6 @@ import {
   Alert,
   Animated,
   Easing,
-  Image,
   Pressable,
   StyleSheet,
   Text,
@@ -19,7 +18,6 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Pause, Play, X } from "lucide-react-native";
 import { LinearGradient } from "expo-linear-gradient";
-import { SvgXml } from "react-native-svg";
 import { useKeepAwake } from "expo-keep-awake";
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
 
@@ -38,9 +36,11 @@ import { safeHaptics } from "@/utils/haptics";
 import { VisualizeAnchorField } from "./VisualizeAnchorField";
 import {
   VISUALIZE_PHASE_PRESENTATION,
+  getVisualizationLensSize,
   getVisualizePresentationPhase,
   getVisualizeSegmentState,
 } from "./visualizePresentation";
+import { VisualizationAnchorLens, VisualizationPhaseProgress } from './VisualizationPrimitives';
 import { useVisualizeSessionAudio } from "./useVisualizeSessionAudio";
 import { useVisualizeSessionEngine } from "./useVisualizeSessionEngine";
 
@@ -81,11 +81,8 @@ export const VisualizeSessionScreen: React.FC<Props> = ({
   const copyOpacity = useRef(new Animated.Value(1)).current;
   const copyTranslateY = useRef(new Animated.Value(0)).current;
   const phaseReveal = useRef(new Animated.Value(1)).current;
-  const supportReveal = useRef(new Animated.Value(1)).current;
   const directiveReveal = useRef(new Animated.Value(1)).current;
   const sceneReveal = useRef(new Animated.Value(1)).current;
-  const segmentPulse = useRef(new Animated.Value(1)).current;
-  const transitionLight = useRef(new Animated.Value(0)).current;
   const audioWave = useRef(new Animated.Value(0)).current;
   const iconReveal = useRef(new Animated.Value(1)).current;
   const feedbackOpacity = useRef(new Animated.Value(0)).current;
@@ -262,7 +259,6 @@ export const VisualizeSessionScreen: React.FC<Props> = ({
       copyOpacity.setValue(1);
       copyTranslateY.setValue(0);
       phaseReveal.setValue(1);
-      supportReveal.setValue(1);
       directiveReveal.setValue(1);
       sceneReveal.setValue(1);
       return;
@@ -292,7 +288,6 @@ export const VisualizeSessionScreen: React.FC<Props> = ({
       copyOpacity.setValue(1);
       copyTranslateY.setValue(7);
       phaseReveal.setValue(0);
-      supportReveal.setValue(0);
       directiveReveal.setValue(0);
       sceneReveal.setValue(0);
 
@@ -307,12 +302,6 @@ export const VisualizeSessionScreen: React.FC<Props> = ({
           Animated.timing(phaseReveal, {
             toValue: 1,
             duration: 220,
-            easing: Easing.out(Easing.cubic),
-            useNativeDriver: true,
-          }),
-          Animated.timing(supportReveal, {
-            toValue: 1,
-            duration: 230,
             easing: Easing.out(Easing.cubic),
             useNativeDriver: true,
           }),
@@ -343,48 +332,7 @@ export const VisualizeSessionScreen: React.FC<Props> = ({
     phaseReveal,
     reduceMotion,
     sceneReveal,
-    supportReveal,
   ]);
-
-  useEffect(() => {
-    segmentPulse.stopAnimation();
-    transitionLight.stopAnimation();
-    if (reduceMotion) {
-      segmentPulse.setValue(1);
-      transitionLight.setValue(0.5);
-      return;
-    }
-    segmentPulse.setValue(1);
-    transitionLight.setValue(0);
-    Animated.sequence([
-      Animated.timing(segmentPulse, {
-        toValue: 1.65,
-        duration: 180,
-        easing: Easing.out(Easing.cubic),
-        useNativeDriver: true,
-      }),
-      Animated.timing(segmentPulse, {
-        toValue: 1,
-        duration: 360,
-        easing: Easing.inOut(Easing.sin),
-        useNativeDriver: true,
-      }),
-    ]).start();
-    Animated.sequence([
-      Animated.timing(transitionLight, {
-        toValue: 1,
-        duration: 360,
-        easing: Easing.out(Easing.cubic),
-        useNativeDriver: true,
-      }),
-      Animated.timing(transitionLight, {
-        toValue: 0,
-        duration: 280,
-        easing: Easing.in(Easing.cubic),
-        useNativeDriver: true,
-      }),
-    ]).start();
-  }, [engine.phase.id, reduceMotion, segmentPulse, transitionLight]);
 
   useEffect(() => {
     audioWave.stopAnimation();
@@ -430,8 +378,6 @@ export const VisualizeSessionScreen: React.FC<Props> = ({
   useEffect(
     () => () => {
       phaseTransitionRef.current?.stop();
-      segmentPulse.stopAnimation();
-      transitionLight.stopAnimation();
       audioWave.stopAnimation();
       iconReveal.stopAnimation();
       feedbackOpacity.stopAnimation();
@@ -439,8 +385,6 @@ export const VisualizeSessionScreen: React.FC<Props> = ({
       audioWave,
       feedbackOpacity,
       iconReveal,
-      segmentPulse,
-      transitionLight,
     ],
   );
 
@@ -497,6 +441,8 @@ export const VisualizeSessionScreen: React.FC<Props> = ({
     (phase) => phase.id === engine.phase.id,
   );
   const sigilSvg = anchor.reinforcedSigilSvg || anchor.baseSigilSvg || "";
+  const heroSize = getVisualizationLensSize('practice', window.width);
+  const phaseLabel = `PHASE ${currentPhaseIndex + 1} OF ${engine.schedule.length} · ${presentation.title}`;
 
   return (
     <Pressable
@@ -533,62 +479,12 @@ export const VisualizeSessionScreen: React.FC<Props> = ({
           <View style={styles.circleButton} />
         </Animated.View>
 
-        <View
-          style={styles.phaseProgress}
-          accessibilityRole="progressbar"
-          accessibilityLabel={`${VISUALIZE_PHASE_PRESENTATION[currentPresentationPhase].title} phase`}
-          accessibilityValue={{
-            min: 0,
-            max: 100,
-            now: Math.round(engine.totalProgress * 100),
-            text: `Phase ${currentPhaseIndex + 1} of ${engine.schedule.length}`,
-          }}
-        >
-          {engine.schedule.map((phase, index) => {
-            const state = getVisualizeSegmentState(index, currentPhaseIndex);
-            const phasePresentation =
-              VISUALIZE_PHASE_PRESENTATION[
-                getVisualizePresentationPhase(phase.id)
-              ];
-            return (
-              <View
-                key={phase.id}
-                accessible
-                accessibilityLabel={`${phasePresentation.title}, ${state}`}
-                style={styles.phaseSegmentWrap}
-              >
-                <Animated.View
-                  style={[
-                    styles.phaseSegment,
-                    state === "completed" && styles.phaseSegmentReached,
-                    state === "current" && styles.phaseSegmentCurrent,
-                    state === "current" && {
-                      transform: [{ scaleY: segmentPulse }],
-                    },
-                  ]}
-                />
-                {state === "current" ? (
-                  <Animated.View
-                    style={[
-                      styles.phaseMarker,
-                      {
-                        opacity: transitionLight,
-                        transform: [
-                          {
-                            translateX: transitionLight.interpolate({
-                              inputRange: [0, 1],
-                              outputRange: [-12, 12],
-                            }),
-                          },
-                        ],
-                      },
-                    ]}
-                  />
-                ) : null}
-              </View>
-            );
-          })}
-        </View>
+        <VisualizationPhaseProgress
+          label={phaseLabel}
+          segmentStates={engine.schedule.map((_, index) =>
+            getVisualizeSegmentState(index, currentPhaseIndex),
+          )}
+        />
 
         <View style={styles.stage}>
           <VisualizeAnchorField
@@ -598,17 +494,10 @@ export const VisualizeSessionScreen: React.FC<Props> = ({
             active={engine.state === "running"}
             reduceMotion={reduceMotion}
             performanceTier={performanceTier}
+            heroSize={heroSize}
             compact={window.height < 720}
           >
-            {anchor.enhancedImageUrl ? (
-              <Image
-                source={{ uri: anchor.enhancedImageUrl }}
-                style={styles.artImage}
-                resizeMode="contain"
-              />
-            ) : sigilSvg ? (
-              <SvgXml xml={sigilSvg} width={150} height={150} />
-            ) : null}
+            <VisualizationAnchorLens size={heroSize} imageUrl={anchor.enhancedImageUrl} svg={sigilSvg} />
           </VisualizeAnchorField>
         </View>
 
@@ -621,17 +510,12 @@ export const VisualizeSessionScreen: React.FC<Props> = ({
             },
           ]}
         >
-          <Animated.Text style={[styles.phaseTitle, { opacity: phaseReveal }]}>
-            {presentation.title}
-          </Animated.Text>
-          <Animated.Text
-            style={[styles.phaseSubtitle, { opacity: supportReveal }]}
-          >
-            {presentation.supportingInstruction}
-          </Animated.Text>
           <Animated.View
             style={[styles.directiveHaze, { opacity: directiveReveal }]}
           >
+            <Animated.Text style={[styles.phaseTitle, { opacity: phaseReveal }]}>
+              {presentation.title}
+            </Animated.Text>
             <Text accessibilityLiveRegion="polite" style={styles.cue}>
               {engine.currentCue?.text ?? presentation.supportingInstruction}
             </Text>
@@ -786,52 +670,14 @@ const styles = StyleSheet.create({
     fontVariant: ["tabular-nums"],
     fontSize: 14,
   },
-  phaseProgress: {
-    flexDirection: "row",
-    gap: 5,
-    paddingHorizontal: 26,
-    height: 12,
-    alignItems: "center",
-  },
-  phaseSegmentWrap: {
-    flex: 1,
-    height: 12,
-    justifyContent: "center",
-    position: "relative",
-  },
-  phaseSegment: {
-    height: 2,
-    borderRadius: 2,
-    backgroundColor: "rgba(104,121,139,.24)",
-  },
-  phaseSegmentReached: { backgroundColor: "rgba(212,175,55,.45)" },
-  phaseSegmentCurrent: {
-    height: 3,
-    backgroundColor: colors.gold,
-    shadowColor: colors.gold,
-    shadowOpacity: 0.52,
-    shadowRadius: 5,
-    shadowOffset: { width: 0, height: 0 },
-    elevation: 2,
-  },
-  phaseMarker: {
-    position: "absolute",
-    top: 0,
-    left: "50%",
-    width: 4,
-    height: 4,
-    borderRadius: 2,
-    backgroundColor: "#F2D982",
-  },
   stage: {
     flex: 1,
     minHeight: 228,
     alignItems: "center",
     justifyContent: "center",
   },
-  artImage: { width: 155, height: 155 },
   copy: {
-    minHeight: 220,
+    minHeight: 202,
     paddingHorizontal: 30,
     alignItems: "center",
     justifyContent: "flex-start",
@@ -840,37 +686,31 @@ const styles = StyleSheet.create({
     color: colors.gold,
     fontFamily: typography.fonts.heading,
     fontSize: 12,
-    letterSpacing: 3.2,
-  },
-  phaseSubtitle: {
-    color: "rgba(224,231,239,.58)",
-    fontFamily: typography.fonts.body,
-    fontSize: 13,
-    marginTop: 8,
-    textAlign: "center",
+    letterSpacing: 2.7,
+    marginBottom: 7,
   },
   directiveHaze: {
     width: "100%",
-    marginTop: 18,
-    paddingHorizontal: 14,
-    paddingVertical: 11,
-    borderRadius: 18,
-    backgroundColor: "rgba(6,17,31,.26)",
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: "rgba(229,238,247,.08)",
+    marginTop: 14,
+    paddingHorizontal: 18,
+    paddingVertical: 14,
+    borderRadius: 25,
+    backgroundColor: "rgba(6,17,31,.46)",
+    borderWidth: 1,
+    borderColor: "rgba(224,237,248,.1)",
   },
   cue: {
     color: "#F4EDD8",
-    fontFamily: typography.fonts.heading,
-    fontSize: 21,
-    lineHeight: 29,
+    fontFamily: typography.fonts.body,
+    fontSize: 16,
+    lineHeight: 23,
     textAlign: "center",
   },
   sceneSupport: {
-    color: "rgba(213,227,240,.55)",
+    color: "rgba(244,237,216,.78)",
     fontFamily: typography.fonts.body,
-    fontSize: 13,
-    lineHeight: 20,
+    fontSize: 14,
+    lineHeight: 22,
     textAlign: "center",
     marginTop: 12,
   },
