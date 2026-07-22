@@ -564,5 +564,59 @@ describe('sessionStore', () => {
 
       expect(result.current.threadStrength).toBe(90);
     });
+
+    it('rebinds locally-persisted legacy-owned practice history to the authenticated account even when no new backend progress arrives', () => {
+      const { result } = renderHook(() => useSessionStore());
+      const completedAt = new Date().toISOString();
+
+      act(() => {
+        useSessionStore.setState({
+          totalSessionsCount: 1,
+          primingHistory: [],
+          practiceHistory: [
+            {
+              id: 'legacy-session-1',
+              accountId: 'legacy',
+              anchorId: 'anchor-1',
+              anchorLocalId: null,
+              anchorServerId: 'anchor-1',
+              practiceMode: 'focus',
+              plannedDurationSeconds: 30,
+              completedDurationSeconds: 30,
+              completionStatus: 'completed',
+              startedAt: completedAt,
+              completedAt,
+              localDateKey: localDateString(new Date(completedAt)),
+              timeZone: 'UTC',
+              utcOffsetMinutesAtCompletion: 0,
+              completionSource: 'restored',
+              schemaVersion: 1,
+              legacyType: 'activate',
+              guidanceVoice: 'none',
+              backgroundAudio: 'off',
+              sceneSnapshot: null,
+              nextAction: null,
+              clientVersion: null,
+              syncState: 'synced',
+            },
+          ],
+        });
+
+        // No new priming/practice data from the backend — this mirrors the
+        // self-healing rehydrate call finding nothing new to add, but local
+        // state still owns a canonical session under the placeholder
+        // 'legacy' account from a pre-migration restore.
+        result.current.hydrateFromBackend({
+          accountId: 'user-123',
+          totalActivations: 1,
+          currentStreak: 0,
+          anchors: [],
+          primingHistory: [],
+        });
+      });
+
+      expect(result.current.practiceHistory).toHaveLength(1);
+      expect(result.current.practiceHistory[0].accountId).toBe('user-123');
+    });
   });
 });

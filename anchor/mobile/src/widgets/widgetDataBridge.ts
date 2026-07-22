@@ -28,7 +28,12 @@ import {
 import { logger } from '@/utils/logger';
 import type { Anchor } from '@/types';
 import type { PracticeMode, PracticeSessionRecord } from '@/types/practice';
-import { selectCanonicalPracticeEvents, buildThreadStrengthSnapshot } from '@/utils/practiceMetrics';
+import {
+  selectCanonicalPracticeEvents,
+  buildThreadStrengthSnapshot,
+  PRACTICE_CONSTANCY_WINDOW_DAYS,
+  type ThreadStrengthSnapshot,
+} from '@/utils/practiceMetrics';
 import {
   createEmptyWidgetSnapshot,
   WIDGET_FALLBACK_ANCHOR_NAME,
@@ -142,9 +147,11 @@ export function normalizeWidgetPracticeType(value: unknown): WidgetPracticeType 
 }
 
 /**
- * Keeps the large widget's summary in step with the Thread Strength sheet:
- * duplicate completion events are ignored, and the first reinforce for an
- * anchor is treated as Focus rather than Deep Prime.
+ * Legacy (pre-canonical-ledger) classifier: duplicate completion events are
+ * ignored, and the first reinforce for an anchor is treated as Focus rather
+ * than Deep Prime. Only used when there is no signed-in account with a
+ * canonical practice ledger to read from — see `buildWidgetSummaryFromThreadStrength`
+ * for the path that actually mirrors the Thread Strength sheet exactly.
  */
 function classifyWidgetSessions(entries: PrimingHistoryEntry[]): ClassifiedWidgetSession[] {
   const seenIds = new Set<string>();
@@ -192,6 +199,18 @@ function classifyWidgetSessions(entries: PrimingHistoryEntry[]): ClassifiedWidge
   }
 
   return classified;
+}
+
+/** % of the trailing 30 days (inclusive of today) with at least one session. */
+function computeConstancyPercent(sessions: ClassifiedWidgetSession[], now: Date): number {
+  const today = localDateString(now);
+  const windowStart = localDateString(addDays(now, -(PRACTICE_CONSTANCY_WINDOW_DAYS - 1)));
+  const activeDates = new Set(
+    sessions
+      .map((session) => session.dateKey)
+      .filter((dateKey) => dateKey >= windowStart && dateKey <= today)
+  );
+  return Math.round((activeDates.size / PRACTICE_CONSTANCY_WINDOW_DAYS) * 100);
 }
 
 function longestSessionStreak(sessions: ClassifiedWidgetSession[]): number {
@@ -300,6 +319,7 @@ function buildWidgetSummary(
   | 'visualizeSessions'
   | 'releaseSessions'
   | 'deepPrimePercent'
+  | 'constancyPercent'
   | 'longestStreak'
   | 'sensitivityLabel'
   | 'sensitivityNote'
@@ -321,10 +341,71 @@ function buildWidgetSummary(
     visualizeSessions,
     releaseSessions,
     deepPrimePercent: totalSessions > 0 ? Math.round((deepPrimeSessions / totalSessions) * 100) : 0,
+    constancyPercent: computeConstancyPercent(sessions, now),
     longestStreak: longestSessionStreak(sessions),
     sensitivityLabel: sensitivityCopy.label,
     sensitivityNote: sensitivityCopy.note,
     currentWeek: buildCurrentWeek(sessions, now),
+  };
+}
+
+/**
+ * Canonical-ledger path: derives the large widget's summary directly from
+ * the same `ThreadStrengthSnapshot` the Thread Strength sheet renders, so
+ * every number on the 4×4 (total sessions, constancy, prime record, deep
+ * prime %) is identical to the sheet rather than independently recomputed.
+ */
+function widgetWeekFromThreadStrength(snapshot: ThreadStrengthSnapshot): WidgetWeekDay[] {
+  return snapshot.currentWeek.map((day) => {
+    const aggregate = snapshot.dailyAggregates.get(day.localDateKey);
+    return {
+      label: day.label,
+      date: day.localDateKey,
+      hasFocus: (aggregate?.byMode.focus ?? 0) > 0,
+      hasDeep: (aggregate?.byMode.deep_prime ?? 0) > 0,
+      hasVisualize: (aggregate?.byMode.visualize ?? 0) > 0,
+      dominantMode: aggregate?.dominantMode ?? null,
+      isToday: day.isToday,
+      isFuture: day.isFuture,
+    };
+  });
+}
+
+function buildWidgetSummaryFromThreadStrength(
+  snapshot: ThreadStrengthSnapshot,
+  sensitivity: ThreadStrengthSensitivity
+): Pick<
+  WidgetSnapshot,
+  | 'threadStrength'
+  | 'totalSessions'
+  | 'focusSessions'
+  | 'deepPrimeSessions'
+  | 'visualizeSessions'
+  | 'releaseSessions'
+  | 'deepPrimePercent'
+  | 'constancyPercent'
+  | 'longestStreak'
+  | 'sensitivityLabel'
+  | 'sensitivityNote'
+  | 'currentWeek'
+> {
+  const countFor = (mode: PracticeMode): number =>
+    snapshot.sessionBreakdown.find((row) => row.mode === mode)?.count ?? 0;
+  const sensitivityCopy = SENSITIVITY_COPY[sensitivity] ?? SENSITIVITY_COPY.balanced;
+
+  return {
+    threadStrength: snapshot.score,
+    totalSessions: snapshot.totalSessions,
+    focusSessions: countFor('focus'),
+    deepPrimeSessions: countFor('deep_prime'),
+    visualizeSessions: countFor('visualize'),
+    releaseSessions: countFor('release'),
+    deepPrimePercent: snapshot.deepPrimePercent,
+    constancyPercent: snapshot.constancyPercent,
+    longestStreak: snapshot.primeRecordDays,
+    sensitivityLabel: sensitivityCopy.label,
+    sensitivityNote: sensitivityCopy.note,
+    currentWeek: widgetWeekFromThreadStrength(snapshot),
   };
 }
 
@@ -430,21 +511,20 @@ export function buildWidgetSnapshot(inputs: WidgetSnapshotInputs): WidgetSnapsho
   );
   const selectedAnchor = selectWidgetAnchor(inputs.anchors, inputs.currentAnchorId);
   const artwork = selectWidgetArtwork(selectedAnchor);
-  const summary = buildWidgetSummary(
-    sourceHistory,
-    now,
-    useCanonical
-      ? buildThreadStrengthSnapshot({
+  const sensitivity = inputs.threadStrengthSensitivity ?? 'balanced';
+  const summary = useCanonical
+    ? buildWidgetSummaryFromThreadStrength(
+        buildThreadStrengthSnapshot({
           events: inputs.practiceHistory ?? [],
           accountId: inputs.accountId,
           dailyGoal: 3,
-          sensitivity: inputs.threadStrengthSensitivity ?? 'balanced',
+          sensitivity,
           restDays: [],
           now,
-        }).score
-      : inputs.threadStrength ?? 0,
-    inputs.threadStrengthSensitivity ?? 'balanced'
-  );
+        }),
+        sensitivity
+      )
+    : buildWidgetSummary(sourceHistory, now, inputs.threadStrength ?? 0, sensitivity);
 
   return {
     ...createEmptyWidgetSnapshot(),
@@ -476,7 +556,8 @@ async function pushSnapshotToAndroidWidgets(snapshot: WidgetSnapshot): Promise<v
     WIDGET_NAMES.map((widgetName) =>
       requestWidgetUpdate({
         widgetName,
-        renderWidget: () => renderAnchorWidgetByName(widgetName, snapshot),
+        renderWidget: (info: { width: number; height: number }) =>
+          renderAnchorWidgetByName(widgetName, snapshot, { width: info.width, height: info.height }),
         widgetNotFound: () => {
           // Widget of this size not placed on any home screen — nothing to update.
         },

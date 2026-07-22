@@ -399,7 +399,7 @@ export const VaultScreen: React.FC = () => {
       // failed/empty hydration leaves the Vault permanently empty with no recovery.
       const response = await apiClient.get<ApiResponse<Anchor[]>>('/api/anchors', {
         params: {
-          limit: 100,
+          limit: 500,
           orderBy: 'updatedAt',
           order: 'desc',
         },

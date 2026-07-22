@@ -171,25 +171,28 @@ export const PracticeScreen: React.FC = () => {
   const lastPrimedAt = useSessionStore((s) => s.lastPrimedAt);
   const weekHistory = useSessionStore((s) => s.weekHistory);
   const applyDecay = useSessionStore((s) => s.applyDecay);
-  const primingHistory = useSessionStore((s) => s.primingHistory);
   const primeSessionAccess = usePrimeSessionAccess();
   const visualizeAccess = useTrialStatus();
   const practiceMetrics = usePracticeMetrics();
 
-  // Self-healing thread/progress restore: if priming history is empty (e.g. a
-  // failed/empty launch hydration), re-fetch the account export and rehydrate
-  // the session store so thread counts/strength reappear without depending on
-  // launch-time hydration. Runs at most once per mount.
+  // Self-healing thread/progress restore: if the canonical, account-scoped
+  // practice stats shown on screen are empty (e.g. a failed/empty launch
+  // hydration, or locally-persisted sessions still owned by a stale 'legacy'
+  // account binding), re-fetch the account export and rehydrate the session
+  // store so thread counts/strength reappear without depending on
+  // launch-time hydration. Checking canonical stats (not legacy
+  // primingHistory) matters post-redesign: primingHistory can be non-empty
+  // while the account-scoped practiceHistory that Thread Strength now reads
+  // from is still empty. Runs at most once per mount.
   const didAttemptThreadRehydrateRef = useRef(false);
   useEffect(() => {
-    const hasPrimingHistory =
-      Array.isArray(primingHistory) && primingHistory.length > 0;
-    if (hasPrimingHistory || didAttemptThreadRehydrateRef.current) {
+    const hasCanonicalStats = practiceMetrics.totalSessions > 0;
+    if (hasCanonicalStats || didAttemptThreadRehydrateRef.current) {
       return;
     }
     didAttemptThreadRehydrateRef.current = true;
     void AuthHydrationService.rehydrateSessionFromExport();
-  }, [primingHistory]);
+  }, [practiceMetrics.totalSessions]);
 
   const [selectorVisible, setSelectorVisible] = useState(false);
   const [infoVisible, setInfoVisible] = useState(false);
