@@ -3,7 +3,6 @@ import {
   Animated,
   Dimensions,
   FlatList,
-  Image,
   Modal,
   Platform,
   Pressable,
@@ -14,6 +13,7 @@ import {
 } from 'react-native';
 import { BlurView } from 'expo-blur';
 import { SvgXml } from 'react-native-svg';
+import { OptimizedImage } from '@/components/common';
 import { colors, typography } from '@/theme';
 import type { Anchor } from '@/types';
 import { withAlpha } from '@/utils/color';
@@ -82,8 +82,8 @@ export const VaultGridModal: React.FC<VaultGridModalProps> = ({
         >
           <View style={styles.sigilThumb}>
             {imageUrl ? (
-              <Image
-                source={{ uri: imageUrl }}
+              <OptimizedImage
+                uri={imageUrl}
                 style={styles.thumbImage}
                 resizeMode="cover"
               />
@@ -148,6 +148,7 @@ export const VaultGridModal: React.FC<VaultGridModalProps> = ({
             showsVerticalScrollIndicator={false}
             getItemLayout={getItemLayout}
             removeClippedSubviews={Platform.OS === 'android'}
+            initialNumToRender={12}
             maxToRenderPerBatch={8}
             windowSize={5}
           />

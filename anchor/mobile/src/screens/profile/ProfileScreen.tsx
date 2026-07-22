@@ -225,14 +225,18 @@ export const ProfileScreen: React.FC = () => {
       ),
     [anchors]
   );
+  const displayVaultAnchors = useMemo(
+    () => (vaultAnchors.length > 16 ? vaultAnchors.slice(-16) : vaultAnchors),
+    [vaultAnchors]
+  );
   const paddedVaultAnchors = useMemo(() => {
-    const remainder = vaultAnchors.length % 4;
+    const remainder = displayVaultAnchors.length % 4;
     const placeholders = remainder === 0 ? 0 : 4 - remainder;
     return [
-      ...vaultAnchors,
+      ...displayVaultAnchors,
       ...Array.from({ length: placeholders }).map(() => undefined),
     ];
-  }, [vaultAnchors]);
+  }, [displayVaultAnchors]);
 
   const cellSize = Math.floor((width - spacing.lg * 2 - GRID_GAP * 3) / 4);
   const appVersion = Constants.expoConfig?.version ?? '1.0.0';

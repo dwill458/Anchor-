@@ -5,17 +5,22 @@
 
 import React from 'react';
 import {
-  Image,
-  ScrollView,
+  FlatList,
+  Platform,
   StyleSheet,
   Text,
   TouchableOpacity,
   View,
 } from 'react-native';
 import { SvgXml } from 'react-native-svg';
+import { OptimizedImage } from '@/components/common';
 import { colors } from '@/theme';
 import type { Anchor } from '@/types';
 import { hasIgnited, isAnchorReleased } from '../utils/anchorStateHelpers';
+
+const CARD_WIDTH = 80;
+const CARD_GAP = 10;
+const ITEM_LAYOUT_SIZE = CARD_WIDTH + CARD_GAP;
 
 // ─── StackCard ────────────────────────────────────────────────────────────────
 
@@ -42,8 +47,8 @@ const StackCard = React.memo<StackCardProps>(({ anchor, onPress }) => {
     >
       <View style={styles.sigilThumb}>
         {imageUrl ? (
-          <Image
-            source={{ uri: imageUrl }}
+          <OptimizedImage
+            uri={imageUrl}
             style={styles.thumbImage}
             resizeMode="cover"
           />
@@ -83,6 +88,22 @@ export const AnchorStack: React.FC<AnchorStackProps> = ({
     onAnchorPress(id);
   }, [onAnchorPress]);
 
+  const renderItem = React.useCallback(
+    ({ item }: { item: Anchor }) => (
+      <StackCard anchor={item} onPress={handlePress} />
+    ),
+    [handlePress]
+  );
+
+  const getItemLayout = React.useCallback(
+    (_data: ArrayLike<Anchor> | null | undefined, index: number) => ({
+      length: ITEM_LAYOUT_SIZE,
+      offset: ITEM_LAYOUT_SIZE * index,
+      index,
+    }),
+    []
+  );
+
   return (
     <View style={styles.container}>
       {/* Section header */}
@@ -93,32 +114,20 @@ export const AnchorStack: React.FC<AnchorStackProps> = ({
         </TouchableOpacity>
       </View>
 
-      {/* Scroll row */}
-      <ScrollView
+      {/* Horizontal virtualized row */}
+      <FlatList
         horizontal
+        data={visibleAnchors}
+        keyExtractor={(item) => item.id}
+        renderItem={renderItem}
+        getItemLayout={getItemLayout}
         showsHorizontalScrollIndicator={false}
         contentContainerStyle={styles.scrollContent}
-      >
-        {visibleAnchors.map((anchor) => (
-          <StackCard
-            key={anchor.id}
-            anchor={anchor}
-            onPress={handlePress}
-          />
-        ))}
-
-        {/* DEFERRED: + NEW card replaced by persistent create CTA below scroll area — remove post-launch */}
-        {/* <TouchableOpacity
-          style={styles.addCard}
-          onPress={_onAddPress}
-          activeOpacity={0.7}
-          accessibilityRole="button"
-          accessibilityLabel="Forge new anchor"
-        >
-          <Text style={styles.addPlus}>+</Text>
-          <Text style={styles.addLabel}>NEW</Text>
-        </TouchableOpacity> */}
-      </ScrollView>
+        initialNumToRender={5}
+        maxToRenderPerBatch={5}
+        windowSize={3}
+        removeClippedSubviews={Platform.OS === 'android'}
+      />
     </View>
   );
 };

@@ -27,14 +27,14 @@ const normalizeDate = (value?: Date | string): Date | undefined => {
 
 const normalizeAnchor = (anchor: Anchor): Anchor => ({
   ...anchor,
-  createdAt: normalizeDate(anchor.createdAt) ?? new Date(),
-  updatedAt: normalizeDate(anchor.updatedAt) ?? new Date(),
-  chargedAt: normalizeDate(anchor.chargedAt),
-  firstChargedAt: normalizeDate(anchor.firstChargedAt),
-  ignitedAt: normalizeDate(anchor.ignitedAt),
-  lastActivatedAt: normalizeDate(anchor.lastActivatedAt),
-  releasedAt: normalizeDate(anchor.releasedAt),
-  archivedAt: normalizeDate(anchor.archivedAt),
+  createdAt: anchor.createdAt instanceof Date ? anchor.createdAt : normalizeDate(anchor.createdAt) ?? new Date(),
+  updatedAt: anchor.updatedAt instanceof Date ? anchor.updatedAt : normalizeDate(anchor.updatedAt) ?? new Date(),
+  chargedAt: anchor.chargedAt instanceof Date ? anchor.chargedAt : normalizeDate(anchor.chargedAt),
+  firstChargedAt: anchor.firstChargedAt instanceof Date ? anchor.firstChargedAt : normalizeDate(anchor.firstChargedAt),
+  ignitedAt: anchor.ignitedAt instanceof Date ? anchor.ignitedAt : normalizeDate(anchor.ignitedAt),
+  lastActivatedAt: anchor.lastActivatedAt instanceof Date ? anchor.lastActivatedAt : normalizeDate(anchor.lastActivatedAt),
+  releasedAt: anchor.releasedAt instanceof Date ? anchor.releasedAt : normalizeDate(anchor.releasedAt),
+  archivedAt: anchor.archivedAt instanceof Date ? anchor.archivedAt : normalizeDate(anchor.archivedAt),
 });
 
 const matchesAnchorReference = (anchor: Anchor, referenceId: string): boolean =>

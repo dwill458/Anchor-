@@ -29,4 +29,15 @@ describe('buildHeatmapSvg', () => {
 
     expect(svg).toContain('fill="#2C5F99"');
   });
+
+  it('shrinks cells to fit a narrower widget width instead of leaving the default cell size', () => {
+    const wide = buildHeatmapSvg([], '2026-07-31', false, 320);
+    const narrow = buildHeatmapSvg([], '2026-07-31', false, 260);
+
+    const wideViewBox = wide.match(/viewBox="([^"]+)"/)?.[1];
+    const narrowViewBox = narrow.match(/viewBox="([^"]+)"/)?.[1];
+
+    expect(wideViewBox).not.toBe(narrowViewBox);
+    expect(narrow).toContain('x="0" y="13" width="13"');
+  });
 });

@@ -56,6 +56,8 @@ export interface WidgetSnapshot {
   visualizeSessions: number;
   releaseSessions: number;
   deepPrimePercent: number;
+  /** % of the trailing 30 days with at least one session — matches the Thread Strength sheet's CONSTANCY stat. */
+  constancyPercent: number;
   longestStreak: number;
   sensitivityLabel: string;
   sensitivityNote: string;
@@ -125,6 +127,7 @@ export function createEmptyWidgetSnapshot(): WidgetSnapshot {
     visualizeSessions: 0,
     releaseSessions: 0,
     deepPrimePercent: 0,
+    constancyPercent: 0,
     longestStreak: 0,
     sensitivityLabel: 'Balanced',
     sensitivityNote: '1 grace day before decay begins.',

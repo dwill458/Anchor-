@@ -760,6 +760,7 @@ export const useSessionStore = create<SessionState>()(
           hydratedPrimingHistory,
         );
         const incomingAccountId = accountId ?? practiceHistory?.[0]?.accountId;
+        let reassignedLegacyPracticeHistory = false;
         const mergedPracticeHistory = sortCanonicalPracticeHistory([
           ...state.practiceHistory
             .filter(
@@ -768,11 +769,13 @@ export const useSessionStore = create<SessionState>()(
                 entry.accountId === incomingAccountId ||
                 entry.accountId === 'legacy',
             )
-            .map((entry) =>
-              incomingAccountId && entry.accountId === 'legacy'
-                ? { ...entry, accountId: incomingAccountId }
-                : entry,
-            ),
+            .map((entry) => {
+              if (incomingAccountId && entry.accountId === 'legacy') {
+                reassignedLegacyPracticeHistory = true;
+                return { ...entry, accountId: incomingAccountId };
+              }
+              return entry;
+            }),
           ...(practiceHistory ?? []),
         ]);
         const latestAnchorActivation = anchors.reduce<Date | null>(
@@ -806,7 +809,10 @@ export const useSessionStore = create<SessionState>()(
           !hasBackendProgress ||
           (!backendIsMoreComplete && !shouldSeedEmptyLocalStore)
         ) {
-          if (mergedPracticeHistory.length !== state.practiceHistory.length) {
+          if (
+            reassignedLegacyPracticeHistory ||
+            mergedPracticeHistory.length !== state.practiceHistory.length
+          ) {
             set({ practiceHistory: mergedPracticeHistory });
           }
           return;
