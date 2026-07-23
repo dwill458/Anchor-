@@ -68,6 +68,22 @@ describe("canonical practice metrics", () => {
     expect(selected.map((row) => row.id)).toEqual(["same"]);
   });
 
+  it("treats un-rebound 'legacy' entries as belonging to the signed-in account", () => {
+    const selected = selectCanonicalPracticeEvents(
+      [
+        event("legacy-1", "deep_prime", "2026-07-20T10:00:00.000Z", {
+          accountId: "legacy",
+        }),
+        event("other-account", "release", "2026-07-21T11:00:00.000Z", {
+          accountId: "account-2",
+        }),
+      ],
+      "account-1",
+      now,
+    );
+    expect(selected.map((row) => row.id)).toEqual(["legacy-1"]);
+  });
+
   it("uses the persisted local day and the latest completion to break a dominant-mode tie", () => {
     const rows = [
       event("deep", "deep_prime", "2026-07-22T01:00:00.000Z", {
