@@ -19,6 +19,7 @@
 import { useEffect, useRef } from "react";
 import { Linking } from "react-native";
 import { useTabNavigation } from "@/contexts/TabNavigationContext";
+import { usePracticeEntry } from "@/hooks/usePracticeEntry";
 import { useAnchorStore } from "@/stores/anchorStore";
 import { ENABLE_VISUALIZE } from "@/config";
 
@@ -66,11 +67,12 @@ export function getVisualizeAnchorId(
 }
 
 export function WidgetDeepLinkHandler(): null {
-  const { navigateToPractice, navigateToVault } = useTabNavigation();
+  const { navigateToPractice } = useTabNavigation();
+  const { startPractice } = usePracticeEntry();
   const navigateToPracticeRef = useRef(navigateToPractice);
   navigateToPracticeRef.current = navigateToPractice;
-  const navigateToVaultRef = useRef(navigateToVault);
-  navigateToVaultRef.current = navigateToVault;
+  const startPracticeRef = useRef(startPractice);
+  startPracticeRef.current = startPractice;
 
   const handleUrl = (url: string | null | undefined) => {
     const visualizeAnchorId = getVisualizeAnchorId(url);
@@ -82,9 +84,10 @@ export function WidgetDeepLinkHandler(): null {
       const anchor = useAnchorStore.getState().getAnchorById(visualizeAnchorId);
       if (anchor && !anchor.isReleased && !anchor.archivedAt) {
         useAnchorStore.getState().setCurrentAnchor(anchor.id);
-        navigateToVaultRef.current("VisualizePreparation", {
+        startPracticeRef.current({
+          mode: "visualize",
           anchorId: anchor.id,
-          source: "deep_link",
+          source: "widget",
         });
         return;
       }
@@ -96,9 +99,10 @@ export function WidgetDeepLinkHandler(): null {
       const anchor = useAnchorStore.getState().getAnchorById(anchorId);
       if (anchor) {
         useAnchorStore.getState().setCurrentAnchor(anchor.id);
-        navigateToVaultRef.current("ChargeSetup", {
+        startPracticeRef.current({
+          mode: "deepPrime",
           anchorId: anchor.id,
-          returnTo: "practice",
+          source: "widget",
         });
         return;
       }

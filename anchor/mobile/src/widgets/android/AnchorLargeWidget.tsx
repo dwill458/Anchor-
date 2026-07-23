@@ -10,7 +10,7 @@
  */
 
 import React from 'react';
-import { FlexWidget, OverlapWidget, SvgWidget, TextWidget } from 'react-native-android-widget';
+import { FlexWidget, ImageWidget, OverlapWidget, SvgWidget, TextWidget } from 'react-native-android-widget';
 import {
   addDays,
   localDateString,
@@ -46,6 +46,8 @@ interface AnchorLargeWidgetProps {
   primed: boolean;
   anchorName: string;
   sigilSvg: string | null;
+  /** Final exported/rasterized visual when the selected anchor has one. */
+  artworkImageUri: string | null;
   streak: number;
   threadStrength: number;
   totalSessions: number;
@@ -291,6 +293,7 @@ export function AnchorLargeWidget({
   primed,
   anchorName,
   sigilSvg,
+  artworkImageUri,
   streak,
   threadStrength,
   totalSessions,
@@ -307,9 +310,11 @@ export function AnchorLargeWidget({
   widgetWidth,
   widgetHeight,
 }: AnchorLargeWidgetProps) {
-  const contentWidth = Math.max(260, (widgetWidth ?? 344) - 24);
+  const contentWidth = Math.max(1, (widgetWidth ?? 344) - 24);
   const availableHeight = widgetHeight ?? 344;
-  const heatmapHeight = Math.max(118, Math.min(196, availableHeight - 208));
+  // Keep the calendar as the flexible section. The old 118dp floor left the
+  // 4×4 card visually empty on launchers that report a compact height.
+  const heatmapHeight = Math.max(164, Math.min(232, availableHeight - 176));
   const glyphSvg = colorizeAnchorSigilSvg(sigilSvg, primed ? GOLD : DIM_GLYPH) ?? buildGlyphSvg({
     strokeWidth: 5.4,
     stroke: primed ? GOLD : DIM_GLYPH,
@@ -345,10 +350,21 @@ export function AnchorLargeWidget({
       >
         {/* ── Header: anchor identity + the same strength signal as the sheet ── */}
         <FlexWidget style={{ width: 'match_parent', flexDirection: 'row', alignItems: 'center' }}>
-          <SvgWidget
-            svg={glyphSvg}
-            style={{ width: 26, height: 29, marginRight: 10 }}
-          />
+          {artworkImageUri ? (
+            <ImageWidget
+              image={artworkImageUri as `data:image${string}`}
+              imageWidth={34}
+              imageHeight={34}
+              radius={17}
+              resizeMode="contain"
+              style={{ width: 34, height: 34, marginRight: 10 }}
+            />
+          ) : (
+            <SvgWidget
+              svg={glyphSvg}
+              style={{ width: 34, height: 34, marginRight: 10 }}
+            />
+          )}
           <FlexWidget style={{ flex: 1, flexDirection: 'column' }}>
             <TextWidget
               text={anchorName}

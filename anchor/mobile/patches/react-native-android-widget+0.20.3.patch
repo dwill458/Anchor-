@@ -49,6 +49,27 @@ index 7bee272..37dbe69 100644
              view.setImageDrawable(pd);
          } catch (SVGParseException | IOException e) {
              e.printStackTrace();
+diff --git a/node_modules/react-native-android-widget/lib/typescript/widgets/ImageWidget.d.ts b/node_modules/react-native-android-widget/lib/typescript/widgets/ImageWidget.d.ts
+index 7af43af..6a038d3 100644
+--- a/node_modules/react-native-android-widget/lib/typescript/widgets/ImageWidget.d.ts
++++ b/node_modules/react-native-android-widget/lib/typescript/widgets/ImageWidget.d.ts
+@@ -6,6 +6,7 @@ interface ImageWidgetInternalProps extends CommonInternalProps {
+     imageWidth: number;
+     imageHeight: number;
+     image: Pick<ImageResolvedAssetSource, 'uri'>;
++    resizeMode?: 'contain';
+ }
+ type ImageWidgetStyle = CommonStyleProps;
+ export type ImageWidgetSource = ImageRequireSource | `http:${string}` | `https:${string}` | `data:image${string}`;
+@@ -28,6 +29,8 @@ export interface ImageWidgetProps extends ClickActionProps {
+      * Image radius
+      */
+     radius?: number;
++    /** Preserves the image aspect ratio within its widget bounds. */
++    resizeMode?: 'contain';
+ }
+ export declare function ImageWidget(_: ImageWidgetProps): null;
+ export declare namespace ImageWidget {
 diff --git a/node_modules/react-native-android-widget/lib/typescript/widgets/SvgWidget.d.ts b/node_modules/react-native-android-widget/lib/typescript/widgets/SvgWidget.d.ts
 index 9d0a2f7..b462a2c 100644
 --- a/node_modules/react-native-android-widget/lib/typescript/widgets/SvgWidget.d.ts

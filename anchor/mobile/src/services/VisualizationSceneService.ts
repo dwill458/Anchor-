@@ -33,6 +33,23 @@ const FALLBACKS: Record<string, string> = {
     "I enter a real moment that calls for this intention, choose the matching response, and follow through calmly.",
 };
 
+const intentionProofScene = (intentionText?: string): string | null => {
+  const intention = intentionText?.toLowerCase() ?? '';
+  if (/trust|decision|choose|choice|second-guess|confidence/.test(intention)) {
+    return 'I name the choice in front of me, communicate it clearly, and move forward without second-guessing.';
+  }
+  if (/boundary|boundaries|say no|protect|limit/.test(intention)) {
+    return 'I recognize the boundary I need, state it clearly, and stay steady when the moment asks me to bend it.';
+  }
+  if (/finish|follow through|discipline|consistent|habit|complete/.test(intention)) {
+    return 'I begin the next useful step, stay with it when it becomes difficult, and finish what I came to do.';
+  }
+  if (/speak|communicat|honest|express|voice/.test(intention)) {
+    return 'I say what I mean with a steady voice, stay connected to what matters, and respond with care.';
+  }
+  return null;
+};
+
 export function normalizeVisualizationSceneText(value: string): string {
   return value.replace(/\s+/g, " ").trim();
 }
@@ -53,10 +70,10 @@ export function validateVisualizationSceneText(value: string): string | null {
 }
 
 export function buildFallbackSceneSuggestions(
-  anchor: Pick<Anchor, "category">,
+  anchor: Pick<Anchor, "category"> & { intentionText?: string },
 ): string[] {
   return [
-    FALLBACKS[anchor.category] ?? FALLBACKS.custom,
+    intentionProofScene(anchor.intentionText) ?? FALLBACKS[anchor.category] ?? FALLBACKS.custom,
     "I notice the moment this intention is needed, steady myself, and choose the response I want to make familiar.",
     "I move through a specific challenge with this intention guiding my posture, words, and next action.",
   ];

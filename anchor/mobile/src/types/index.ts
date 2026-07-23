@@ -9,6 +9,7 @@ import type {
   SessionAudioDefaultsByType,
 } from './sessionAudio';
 export * from './sessionAudio';
+import type { PracticeEntrySource } from './practice';
 
 // ============================================================================
 // Core Domain Types
@@ -345,6 +346,7 @@ export interface ApiResponse<T = any> {
   meta?: {
     page?: number;
     total?: number;
+    nextCursor?: string | null;
   };
 }
 
@@ -589,6 +591,7 @@ export type RootStackParamList = {
     anchorId: string;
     sessionId: string;
     durationSeconds: 60 | 180 | 300;
+    sceneText?: string;
   };
   AuthGate: undefined;
   Paywall:
@@ -859,6 +862,8 @@ export type RootStackParamList = {
     intention: string;
     sigilSvg: string;
     enhancedImageUrl?: string;
+    returnTo?: 'vault' | 'practice' | 'detail';
+    source?: PracticeEntrySource;
   };
 
   BurningRitual: {
@@ -866,6 +871,8 @@ export type RootStackParamList = {
     intention: string;
     sigilSvg: string;
     enhancedImageUrl?: string;
+    returnTo?: 'vault' | 'practice' | 'detail';
+    source?: PracticeEntrySource;
   };
 
   // ═══════════════════════════════════════════════════
@@ -922,17 +929,102 @@ export type PracticeStackParamList = {
   PracticeHome: undefined;
   // DEFERRED: StabilizeRitual: { anchorId: string }; — restore post-launch
   Evolve: undefined;
+  ChargeSetup: {
+    anchorId: string;
+    returnTo?: 'practice';
+    autoStartOnSelection?: boolean;
+    initialDuration?: 'quick' | 'deep';
+    fromOnboarding?: boolean;
+    source?: PracticeEntrySource;
+  };
+  BreathingAnimation: {
+    source?: 'charge' | 'practice';
+    anchorId?: string;
+    mode?: string;
+    duration?: number;
+    returnTo?: 'practice';
+  };
+  Ritual: {
+    anchorId: string;
+    ritualType: 'focus' | 'ritual' | 'quick' | 'deep';
+    durationSeconds?: number;
+    mantraAudioEnabled?: boolean;
+    audioConfiguration?: SessionAudioConfiguration;
+    audioModeOverride?: 'silent' | 'ambient';
+    returnTo?: 'practice';
+    source?: PracticeEntrySource;
+  };
+  SealAnchor: { anchorId: string; returnTo?: 'practice' };
+  ChargeComplete: {
+    anchorId: string;
+    durationSeconds?: number;
+    completionEventId?: string;
+    audioConfiguration?: SessionAudioConfiguration;
+    returnTo?: 'practice';
+  };
+  FirstPrimeComplete: {
+    anchorId: string;
+    sessionCount: number;
+    threadStrength: number;
+    durationSeconds: number;
+    completionEventId?: string;
+    audioConfiguration?: SessionAudioConfiguration;
+    returnTo?: 'practice';
+  };
+  ActivationRitual: {
+    anchorId: string;
+    activationType: ActivationType;
+    durationOverride?: number;
+    audioConfiguration?: SessionAudioConfiguration;
+    audioModeOverride?: 'silent' | 'ambient';
+    returnTo?: 'practice';
+    initialDuration?: 'quick' | 'deep';
+    source?: PracticeEntrySource;
+  };
+  ManualReinforcement:
+    | {
+      source: 'post_prime_trace';
+      anchorId: string;
+    }
+    | {
+      source: 'creation';
+      intentionText: string;
+      category: AnchorCategory;
+      distilledLetters: string[];
+      baseSigilSvg: string;
+      structureVariant: SigilVariant;
+      reinforcedSigilSvg?: string;
+      reinforcementMetadata?: ReinforcementMetadata;
+    };
+  VisualizePreparation: { anchorId: string; source?: PracticeEntrySource };
+  VisualizeSession: {
+    anchorId: string;
+    durationSeconds: 60 | 180 | 300;
+    sceneText: string;
+    guidanceVoice: 'female' | 'male' | 'none';
+    backgroundAudio: 'ambient' | 'off';
+  };
+  VisualizeCompletion: {
+    anchorId: string;
+    sessionId: string;
+    durationSeconds: 60 | 180 | 300;
+    sceneText?: string;
+  };
   ConfirmBurn: {
     anchorId: string;
     intention: string;
     sigilSvg: string;
     enhancedImageUrl?: string;
+    returnTo?: 'practice';
+    source?: PracticeEntrySource;
   };
   BurningRitual: {
     anchorId: string;
     intention: string;
     sigilSvg: string;
     enhancedImageUrl?: string;
+    returnTo?: 'practice';
+    source?: PracticeEntrySource;
   };
 };
 

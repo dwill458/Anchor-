@@ -1,13 +1,13 @@
 import {
-  VISUALIZE_DURATIONS_SECONDS,
+  VISUALIZE_DURATIONS,
   VISUALIZE_PHASE_IDS,
-  getVisualizeSessionAudioManifest,
-  type VisualizeDurationSeconds,
+  getVisualizeSessionConfig,
+  type VisualizeDuration,
   type VisualizePhaseId,
-} from '@/services/visualizeAudioManifest';
+} from '@/screens/visualize/visualizeSessionConfig';
 
-export const VISUALIZATION_DURATIONS_SECONDS = VISUALIZE_DURATIONS_SECONDS;
-export type VisualizationDurationSeconds = VisualizeDurationSeconds;
+export const VISUALIZATION_DURATIONS_SECONDS = VISUALIZE_DURATIONS;
+export type VisualizationDurationSeconds = VisualizeDuration;
 
 export const VISUALIZATION_PHASE_IDS = VISUALIZE_PHASE_IDS;
 export type VisualizationPhaseId = VisualizePhaseId;
@@ -22,7 +22,18 @@ export interface VisualizationPhaseSchedule {
 export function buildVisualizationSchedule(
   totalSeconds: VisualizationDurationSeconds
 ): VisualizationPhaseSchedule[] {
-  return getVisualizeSessionAudioManifest(totalSeconds).phases.map(phase => ({ ...phase }));
+  let startSeconds = 0;
+  return getVisualizeSessionConfig(totalSeconds).phases.map((phase) => {
+    const durationSeconds = phase.durationMs / 1_000;
+    const schedulePhase = {
+      id: phase.id,
+      durationSeconds,
+      startSeconds,
+      endSeconds: startSeconds + durationSeconds,
+    };
+    startSeconds += durationSeconds;
+    return schedulePhase;
+  });
 }
 
 export function getVisualizationPhaseAtElapsed(

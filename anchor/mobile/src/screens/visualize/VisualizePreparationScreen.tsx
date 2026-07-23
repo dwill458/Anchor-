@@ -41,6 +41,7 @@ import { colors, spacing, typography } from "@/theme";
 import type { SessionAudioDefaults } from "@/types/sessionAudio";
 import { MicroTeachCard } from "@/components/teaching";
 import { useTeachingGate } from "@/utils/useTeachingGate";
+import { useTabNavigation } from "@/contexts/TabNavigationContext";
 import { getVisualizationLensSize, shouldPinPreparationCta } from "./visualizePresentation";
 import { VisualizationAnchorLens, VisualizationPrimaryButton } from './VisualizationPrimitives';
 
@@ -52,6 +53,7 @@ export const VisualizePreparationScreen: React.FC<Props> = ({
 }) => {
   const window = useWindowDimensions();
   const insets = useSafeAreaInsets();
+  const { navigateToPaywall } = useTabNavigation();
   const anchor = useAnchorStore((state) =>
     state.getAnchorById(route.params.anchorId),
   );
@@ -269,7 +271,7 @@ export const VisualizePreparationScreen: React.FC<Props> = ({
         anchor_id: anchor.id,
         tier: subscriptionStatus,
       });
-      navigation.navigate("Paywall", {
+      navigateToPaywall({
         source: "gated_feature",
         preferredPlanId: "annual",
         resumeTarget: { kind: "visualize_prepare", anchorId: anchor.id },

@@ -8,6 +8,28 @@ export const PRACTICE_MODES = [
 ] as const;
 export type PracticeMode = (typeof PRACTICE_MODES)[number];
 
+/** Modes accepted by the single session-entry boundary. */
+export const PRACTICE_ENTRY_MODES = [
+  'focus',
+  'deepPrime',
+  'visualize',
+  'release',
+] as const;
+export type PracticeEntryMode = (typeof PRACTICE_ENTRY_MODES)[number];
+
+/** Stable source labels used to audit every practice entry point. */
+export type PracticeEntrySource =
+  | 'practice_hero'
+  | 'practice_deep_prime_card'
+  | 'practice_focus_card'
+  | 'practice_visualize_card'
+  | 'practice_release_card'
+  | 'anchor_detail'
+  | 'sanctuary_prime_anchor'
+  | 'widget'
+  | 'shortcut'
+  | 'evolve';
+
 export const PRACTICE_THREAD_STRENGTH_GAINS: Readonly<
   Record<PracticeMode, number>
 > = {

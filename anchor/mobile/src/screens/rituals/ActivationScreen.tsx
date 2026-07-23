@@ -69,7 +69,7 @@ type ActivationNavigationProp = NativeStackNavigationProp<RootStackParamList, 'A
 
 export const ActivationScreen: React.FC = () => {
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
-  const { navigateToPractice } = useTabNavigation();
+  const { navigateToPractice, navigateToPaywall } = useTabNavigation();
   const route = useRoute<ActivationRouteProp>();
   const {
     anchorId,
@@ -127,7 +127,6 @@ export const ActivationScreen: React.FC = () => {
       return;
     }
 
-    const parentNavigation = navigation.getParent?.();
     const task = InteractionManager.runAfterInteractions(() => {
       navigation.goBack();
       requestAnimationFrame(() => {
@@ -137,15 +136,7 @@ export const ActivationScreen: React.FC = () => {
           tier: primeSessionAccess.tier,
         });
 
-        if (parentNavigation?.navigate) {
-          parentNavigation.navigate('Paywall', {
-            source: 'free_weekly_sessions_used',
-            preferredPlanId: 'annual',
-          });
-          return;
-        }
-
-        navigation.navigate('Paywall', {
+        navigateToPaywall({
           source: 'free_weekly_sessions_used',
           preferredPlanId: 'annual',
         });
@@ -153,7 +144,7 @@ export const ActivationScreen: React.FC = () => {
     });
 
     return () => task.cancel();
-  }, [isAnchorMissing, navigation, primeSessionAccess.focus.isAllowed]);
+  }, [isAnchorMissing, navigateToPaywall, navigation, primeSessionAccess.focus.isAllowed]);
 
   // Ground Note (Pattern 2): shown on first charge session, guide ON
   const groundNoteTeaching = useTeachingGate({

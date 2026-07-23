@@ -69,8 +69,9 @@ export function buildSmallWidgetSvg(primed: boolean, sigilSvg: string | null): s
 
   return (
     '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 150 150">' +
+    '<defs><clipPath id="artworkClip"><circle cx="75" cy="75" r="48"/></clipPath></defs>' +
     aura +
-    glyph +
+    `<g clip-path="url(#artworkClip)">${glyph}</g>` +
     '</svg>'
   );
 }
@@ -100,10 +101,11 @@ export function AnchorSmallWidget({ primed, anchorId, sigilSvg, artworkImageUri 
         {artworkImageUri ? (
           <ImageWidget
             image={artworkImageUri as `data:image${string}`}
-            imageWidth={96}
-            imageHeight={96}
+            imageWidth={92}
+            imageHeight={92}
+            radius={46}
             resizeMode="contain"
-            style={{ width: 96, height: 96, marginLeft: 27, marginTop: 27 }}
+            style={{ width: 92, height: 92, marginLeft: 29, marginTop: 29 }}
           />
         ) : null}
       </OverlapWidget>

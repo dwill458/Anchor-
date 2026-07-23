@@ -43,7 +43,7 @@ describe('SessionAudioManifest', () => {
       }
     }
 
-    expect(GUIDED_AUDIO_MANIFEST.filter((track) => track.voice === 'male')).toHaveLength(110);
+    expect(GUIDED_AUDIO_MANIFEST.filter((track) => track.voice === 'male')).toHaveLength(71);
     expect(
       isSessionAudioSelectionAvailable({
         sessionType: 'focus',
@@ -117,7 +117,7 @@ describe('SessionAudioManifest', () => {
     );
 
     expect(VISUALIZE_VOICE_PLAYBACK_GAIN).toBe(0.4);
-    expect(visualizeTracks).toHaveLength(142);
+    expect(visualizeTracks).toHaveLength(64);
     expect(visualizeTracks.every(track => track.playbackGain === 0.4)).toBe(true);
   });
 });

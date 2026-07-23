@@ -11,7 +11,7 @@ import {
 import { LinearGradient } from 'expo-linear-gradient';
 import { SvgXml } from 'react-native-svg';
 
-import { colors, typography } from '@/theme';
+import { typography } from '@/theme';
 import type { VisualizeSegmentState } from './visualizePresentation';
 
 type LensProps = {
@@ -148,11 +148,11 @@ const styles = StyleSheet.create({
   progressSegments: { flexDirection: 'row', gap: 5, alignSelf: 'stretch' },
   segmentWrap: { flex: 1, height: 12, justifyContent: 'center', position: 'relative' },
   segment: { height: 2, borderRadius: 2, backgroundColor: 'rgba(128,151,170,0.3)' },
-  segment_completed: { backgroundColor: 'rgba(212,175,55,0.58)' },
+  segment_completed: { backgroundColor: 'rgba(91,172,219,0.72)' },
   segment_current: {
     height: 3,
-    backgroundColor: colors.gold,
-    shadowColor: colors.gold,
+    backgroundColor: '#6CC5F3',
+    shadowColor: '#6CC5F3',
     shadowOpacity: 0.38,
     shadowRadius: 5,
     shadowOffset: { width: 0, height: 0 },
@@ -167,14 +167,14 @@ const styles = StyleSheet.create({
     height: 6,
     marginLeft: -3,
     borderRadius: 3,
-    backgroundColor: '#F2D982',
-    shadowColor: colors.gold,
+    backgroundColor: '#B9E8FA',
+    shadowColor: '#6CC5F3',
     shadowOpacity: 0.45,
     shadowRadius: 4,
     shadowOffset: { width: 0, height: 0 },
   },
   progressLabel: {
-    color: colors.gold,
+    color: '#8ED4F5',
     fontFamily: typography.fonts.body,
     fontSize: 9,
     letterSpacing: 2.1,

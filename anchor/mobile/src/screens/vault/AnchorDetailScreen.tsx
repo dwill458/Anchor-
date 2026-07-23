@@ -30,7 +30,7 @@ import { SvgXml } from 'react-native-svg';
 import { ChevronRight, Share2, Zap } from 'lucide-react-native';
 import { MoreRitualsSheet, RitualType } from '@/components/MoreRitualsSheet';
 import { useToast } from '@/components/ToastProvider';
-import { useTabNavigation } from '@/contexts/TabNavigationContext';
+import { usePracticeEntry } from '@/hooks/usePracticeEntry';
 import { ENABLE_MERCH, ENABLE_VISUALIZE } from '@/config';
 import { useAnchorStore } from '@/stores/anchorStore';
 import { useSettingsStore } from '@/stores/settingsStore';
@@ -646,7 +646,7 @@ const AnchorDetailsScreen = ({ navigation, route }) => {
   const isLowPerfDevice = perfTier === 'low';
   const isReducedEffectsDevice = perfTier !== 'high';
   const shouldAnimateIntro = perfTier === 'high';
-  const { navigateToPractice } = useTabNavigation();
+  const { startPractice } = usePracticeEntry();
   const toast = useToast();
   const anchorReuseTeaching = useTeachingGate({
     screenId: 'anchor_detail',
@@ -961,11 +961,11 @@ const AnchorDetailsScreen = ({ navigation, route }) => {
       return;
     }
 
-    navigation.navigate('ActivationRitual', {
+    startPractice({
+      mode: 'focus',
       anchorId,
-      activationType: 'visual',
-      durationOverride: getDurationSeconds(),
-      returnTo: 'detail',
+      source: 'anchor_detail',
+      durationSeconds: getDurationSeconds(),
     });
   };
 
@@ -989,21 +989,21 @@ const AnchorDetailsScreen = ({ navigation, route }) => {
 
   const executeReinforce = () => {
     setPrimerVisible(false);
-    navigation.navigate('Ritual', {
+    startPractice({
+      mode: 'deepPrime',
       anchorId,
-      ritualType: 'ritual',
+      source: 'anchor_detail',
       durationSeconds: 300,
-      returnTo: 'detail',
     });
   };
 
   const handlePrimerActivate = () => {
     setPrimerVisible(false);
-    navigation.navigate('ActivationRitual', {
+    startPractice({
+      mode: 'focus',
       anchorId,
-      activationType: 'visual',
-      durationOverride: 10,
-      returnTo: 'reinforce',
+      source: 'anchor_detail',
+      durationSeconds: 10,
     });
   };
 
@@ -1024,8 +1024,10 @@ const AnchorDetailsScreen = ({ navigation, route }) => {
 
     const burnAnchor = storeAnchor ?? sourceAnchor;
 
-    navigation.navigate('ConfirmBurn', {
+    startPractice({
+      mode: 'release',
       anchorId,
+      source: 'anchor_detail',
       intention:
         burnAnchor?.intentionText ?? burnAnchor?.intention ?? anchor.intention,
       sigilSvg:
@@ -1040,7 +1042,9 @@ const AnchorDetailsScreen = ({ navigation, route }) => {
 
   const handlePracticePress = () => {
     safeHaptics.impact(Haptics.ImpactFeedbackStyle.Medium);
-    navigateToPractice();
+    if (anchorId) {
+      startPractice({ mode: 'deepPrime', anchorId, source: 'anchor_detail' });
+    }
   };
 
   const handleMoreRitualsPress = () => {
@@ -1055,19 +1059,18 @@ const AnchorDetailsScreen = ({ navigation, route }) => {
     if (type === 'burn') {
       handleBurn();
     } else if (type === 'quickActivate' || type === 'charge') {
-      navigation.navigate('ActivationRitual', {
+      startPractice({
+        mode: 'focus',
         anchorId,
-        activationType: 'visual',
-        durationOverride:
-          durationSeconds ?? (type === 'quickActivate' ? 30 : 180),
-        returnTo: 'detail',
+        source: 'anchor_detail',
+        durationSeconds: durationSeconds ?? (type === 'quickActivate' ? 30 : 180),
       });
     } else if (type === 'stabilize') {
-      navigation.navigate('Ritual', {
+      startPractice({
+        mode: 'deepPrime',
         anchorId,
-        ritualType: 'ritual',
+        source: 'anchor_detail',
         durationSeconds: durationSeconds ?? 180,
-        returnTo: 'detail',
       });
     }
   };
@@ -1666,7 +1669,8 @@ const AnchorDetailsScreen = ({ navigation, route }) => {
                   anchor_id: anchor.id,
                   source: 'anchor_detail',
                 });
-                navigation.navigate('VisualizePreparation', {
+                startPractice({
+                  mode: 'visualize',
                   anchorId: anchor.id,
                   source: 'anchor_detail',
                 });

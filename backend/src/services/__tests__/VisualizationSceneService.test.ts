@@ -41,4 +41,14 @@ describe('VisualizationSceneService', () => {
       expect(suggestions.every(validateVisualizationScene)).toBe(true);
     }
   });
+
+  it('keeps intention proof specific when the intention is about trusting decisions', () => {
+    const suggestions = buildDeterministicSceneSuggestions({
+      intention: 'I trust my decisions and stop second-guessing myself.',
+      category: 'relationships',
+    });
+    expect(suggestions[0]).toContain('choice');
+    expect(suggestions[0]).toContain('move forward');
+    expect(suggestions[0]).not.toContain('meaningful conversation');
+  });
 });

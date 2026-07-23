@@ -99,7 +99,9 @@ export const VisualizeCompletionScreen: React.FC<Props> = ({
             <Text style={styles.summaryMeta}>Duration · {durationLabel}</Text>
             <Text style={styles.summaryLabel}>Scene</Text>
             <Text style={styles.summaryText}>
-              {completedSession?.sceneSnapshot}
+              {completedSession?.sceneSnapshot ||
+                route.params.sceneText ||
+                'Scene unavailable'}
             </Text>
             <Text style={styles.summaryLabel}>Intention</Text>
             <Text style={styles.summaryText}>{anchor?.intentionText}</Text>
