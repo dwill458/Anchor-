@@ -206,11 +206,7 @@ export function validateEnv(): EnvConfig {
         process.env.COMPED_ACCESS_EMAILS
       ),
       ENABLE_MERCH: validateBoolean('ENABLE_MERCH', process.env.ENABLE_MERCH, false),
-      ENABLE_VISUALIZE: validateBoolean(
-        'ENABLE_VISUALIZE',
-        process.env.ENABLE_VISUALIZE,
-        false
-      ),
+      ENABLE_VISUALIZE: validateBoolean('ENABLE_VISUALIZE', process.env.ENABLE_VISUALIZE, false),
       EXPOSE_ERROR_STACK: validateBoolean(
         'EXPOSE_ERROR_STACK',
         process.env.EXPOSE_ERROR_STACK,
