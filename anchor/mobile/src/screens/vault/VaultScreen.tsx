@@ -65,6 +65,7 @@ import { VaultGridModal } from './components/VaultGridModal';
 import { hasIgnited, isAnchorReleased } from './utils/anchorStateHelpers';
 import { useEntitlements } from '@/hooks/useEntitlements';
 import { getAnchorCreationLimitCopy } from '@/utils/entitlements';
+import { usePracticeEntry } from '@/hooks/usePracticeEntry';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -213,6 +214,7 @@ const getFadeUp = (delay: number, disabled: boolean) => {
 export const VaultScreen: React.FC = () => {
   const navigation = useNavigation<VaultScreenNavigationProp>();
   const { registerTabNav, activeTabIndex } = useTabNavigation();
+  const { startPractice } = usePracticeEntry();
   const isVaultTabActive = activeTabIndex == null ? true : activeTabIndex === 0;
 
   const { user, isAuthenticated } = useAuthStore();
@@ -255,6 +257,9 @@ export const VaultScreen: React.FC = () => {
   const { shouldShow, dismiss } = useWeeklySummaryTrigger();
   const [now, setNow] = useState(() => new Date());
   const [gridVisible, setGridVisible] = useState(false);
+  const [nextAnchorCursor, setNextAnchorCursor] = useState<string | null>(null);
+  const [isLoadingMoreAnchors, setIsLoadingMoreAnchors] = useState(false);
+  const isLoadingMoreAnchorsRef = React.useRef(false);
 
   // ── Derived state ────────────────────────────────────────────────────────────
   const sanctuaryAnchors = useMemo(
@@ -308,14 +313,16 @@ export const VaultScreen: React.FC = () => {
       }
 
       dismiss();
-      navigation.navigate('ConfirmBurn', {
+      startPractice({
+        mode: 'release',
         anchorId: anchor.id,
+        source: 'shortcut',
         intention: anchor.intentionText,
         sigilSvg: anchor.reinforcedSigilSvg ?? anchor.baseSigilSvg ?? '',
         enhancedImageUrl: anchor.enhancedImageUrl ?? undefined,
       });
     },
-    [anchors, dismiss, navigation]
+    [anchors, dismiss, startPractice]
   );
 
   // ── Empty-state orbit animation ───────────────────────────────────────────────
@@ -412,6 +419,7 @@ export const VaultScreen: React.FC = () => {
         .getState()
         .anchors.filter((a) => !isBackendAnchorId(a.id));
       setAnchors([...fetched, ...preservedLocal]);
+      setNextAnchorCursor(response.data?.meta?.nextCursor ?? null);
       trace.putAttribute('anchor_count', String(fetched.length));
     } catch (error) {
       const msg = (error as Error).message;
@@ -427,6 +435,39 @@ export const VaultScreen: React.FC = () => {
       trace.stop();
     }
   }, [user, setLoading, setError, setAnchors, toast]);
+
+  const loadMoreAnchors = useCallback(async (): Promise<void> => {
+    if (!user || !nextAnchorCursor || isLoadingMoreAnchorsRef.current) return;
+
+    isLoadingMoreAnchorsRef.current = true;
+    setIsLoadingMoreAnchors(true);
+    try {
+      const response = await apiClient.get<ApiResponse<Anchor[]>>('/api/anchors', {
+        params: {
+          limit: 100,
+          cursor: nextAnchorCursor,
+          orderBy: 'updatedAt',
+          order: 'desc',
+        },
+      });
+      const fetched = Array.isArray(response.data?.data)
+        ? response.data.data.map(normalizeAnchor)
+        : [];
+
+      // Fetch only the page the user reaches, then merge it into the existing store.
+      setAnchors([...useAnchorStore.getState().anchors, ...fetched]);
+      setNextAnchorCursor(response.data?.meta?.nextCursor ?? null);
+    } catch (error) {
+      ErrorTrackingService.captureException(error as Error, {
+        screen: 'VaultScreen',
+        action: 'load_more_anchors',
+        user_id: user.id,
+      });
+    } finally {
+      isLoadingMoreAnchorsRef.current = false;
+      setIsLoadingMoreAnchors(false);
+    }
+  }, [nextAnchorCursor, setAnchors, user]);
 
   // Fire once on mount and whenever the authenticated user changes.
   // Do NOT depend on `fetchAnchors` directly — its reference changes every
@@ -500,40 +541,27 @@ export const VaultScreen: React.FC = () => {
 
   const handleActivate = useCallback((): void => {
     if (!primaryAnchor) return;
-    if (!entitlements.canStartPracticeSession) {
-      const reason = entitlements.practiceLimitReason;
-      if (reason) {
-        AnalyticsService.track(reason, {
-          source: 'vault_prime_cta',
-          remaining_weekly_free_sessions: entitlements.remainingWeeklyFreeSessions,
-          tier: entitlements.tier,
-        });
-        navigation.navigate('Paywall', {
-          source: reason,
-          preferredPlanId: 'annual',
-        });
-      }
-      return;
-    }
-
     if (focusSessionMode === 'deep') {
-      // Deep prime -- launch the full ritual/charge flow using the stored duration
-      navigation.navigate('Ritual', {
+      startPractice({
+        mode: 'deepPrime',
         anchorId: primaryAnchor.id,
-        ritualType: 'ritual',
+        source: 'sanctuary_prime_anchor',
         durationSeconds: primeSessionDuration,
-        returnTo: 'vault',
       });
     } else if (hasIgnited(primaryAnchor)) {
-      // Quick / focus session
-      navigation.navigate('ActivationRitual', {
+      startPractice({
+        mode: 'focus',
         anchorId: primaryAnchor.id,
-        activationType: 'visual',
+        source: 'sanctuary_prime_anchor',
       });
     } else {
-      navigation.navigate('ChargeSetup', { anchorId: primaryAnchor.id });
+      startPractice({
+        mode: 'deepPrime',
+        anchorId: primaryAnchor.id,
+        source: 'sanctuary_prime_anchor',
+      });
     }
-  }, [entitlements, focusSessionMode, primeSessionDuration, primaryAnchor, navigation]);
+  }, [focusSessionMode, primeSessionDuration, primaryAnchor, startPractice]);
 
   // ── Render ────────────────────────────────────────────────────────────────────
 
@@ -639,6 +667,9 @@ export const VaultScreen: React.FC = () => {
         onDismiss={() => setGridVisible(false)}
         anchors={sanctuaryAnchors}
         onAnchorPress={handleAnchorPress}
+        onLoadMore={loadMoreAnchors}
+        hasMore={nextAnchorCursor != null}
+        isLoadingMore={isLoadingMoreAnchors}
       />
     </View>
   );

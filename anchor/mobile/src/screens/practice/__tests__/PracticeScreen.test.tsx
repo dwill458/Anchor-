@@ -14,6 +14,7 @@ jest.mock('react-native-reanimated', () => {
 
 const mockNavigate = jest.fn();
 const mockNavigateToVault = jest.fn();
+const mockNavigateToPractice = jest.fn();
 const mockNavigateToPaywall = jest.fn();
 const mockRegisterTabNav = jest.fn();
 const mockSetCurrentAnchor = jest.fn((id?: string) => {
@@ -67,6 +68,7 @@ jest.mock('@react-navigation/native', () => {
 jest.mock('@/contexts/TabNavigationContext', () => ({
   useTabNavigation: () => ({
     navigateToVault: mockNavigateToVault,
+    navigateToPractice: mockNavigateToPractice,
     navigateToPaywall: mockNavigateToPaywall,
     registerTabNav: mockRegisterTabNav,
     activeTabIndex: 1,
@@ -80,6 +82,7 @@ jest.mock('@/stores/anchorStore', () => ({
       getActiveAnchors: () => mockAnchors,
       currentAnchorId: mockCurrentAnchorId,
       setCurrentAnchor: mockSetCurrentAnchor,
+      getAnchorById: (id: string) => mockAnchors.find((anchor) => anchor.id === id),
     };
     return selector ? selector(state) : state;
   },
@@ -176,6 +179,7 @@ describe('PracticeScreen', () => {
     (AsyncStorage.getItem as jest.Mock).mockResolvedValue('1');
     mockNavigate.mockReset();
     mockNavigateToVault.mockReset();
+    mockNavigateToPractice.mockReset();
     mockNavigateToPaywall.mockReset();
     mockRegisterTabNav.mockReset();
     mockSetCurrentAnchor.mockClear();
@@ -188,6 +192,7 @@ describe('PracticeScreen', () => {
     mockSettingsState.defaultCharge.mode = 'ritual';
     mockSettingsState.defaultCharge.preset = '5m';
     mockSettingsState.defaultCharge.customMinutes = undefined;
+    mockSettingsState.primeSessionDuration = 120;
     mockSettingsState.dailyPracticeGoal = 3;
     mockAnchors = [];
     mockSessionLog = [];
@@ -211,8 +216,8 @@ describe('PracticeScreen', () => {
     expect(screen.getByText("TODAY'S GOAL")).toBeTruthy();
     expect(screen.getByText('0 of 3 sessions complete')).toBeTruthy();
     expect(screen.getByText('3 sessions remaining today')).toBeTruthy();
-    expect(screen.getByText('BEGIN DEEP PRIME')).toBeTruthy();
-    expect(screen.getByText('2 min • Focus on clarity')).toBeTruthy();
+    expect(screen.getByText('Restore Thread')).toBeTruthy();
+    expect(screen.getByText('Focus Session · 10–60 sec to restore')).toBeTruthy();
     expect(screen.getByText('DEEP PRIME')).toBeTruthy();
     expect(screen.getAllByText('FOCUS SESSION').length).toBeGreaterThan(0);
     expect(screen.getByText('RELEASE')).toBeTruthy();
@@ -225,6 +230,111 @@ describe('PracticeScreen', () => {
     await waitFor(() => {
       expect(screen.getAllByText('Choose your anchor').length).toBeGreaterThan(0);
       expect(screen.getByPlaceholderText('Search anchors')).toBeTruthy();
+    });
+  });
+
+  it('uses one hero Pressable for center, text, subtitle, and arrow taps', async () => {
+    mockThreadStrength = 80;
+    mockAnchors = [buildAnchor('hero-anchor', 'Hero target')];
+    // buildAnchor defaults to an already-primed anchor, so Deep Prime skips
+    // the Choose Your Prime setup screen and starts the ritual directly.
+    const targetExpectation = {
+      anchorId: 'hero-anchor',
+      ritualType: 'ritual',
+      durationSeconds: 120,
+      audioConfiguration: { guidanceVoice: 'female', backgroundAudio: 'ambient', source: 'default' },
+      returnTo: 'practice',
+      source: 'practice_hero',
+    };
+
+    const tapTargets = [
+      'practice-hero-deep-prime',
+      "TODAY'S PRACTICE",
+      'Begin Priming',
+      'Deep Prime · 2 min to custom',
+      'practice-hero-deep-prime-arrow',
+    ];
+
+    for (const target of tapTargets) {
+      mockNavigateToPractice.mockClear();
+      const screen = render(<PracticeScreen />);
+      fireEvent.press(
+        target.startsWith('practice-') ? screen.getByTestId(target) : screen.getByText(target)
+      );
+
+      await waitFor(() => {
+        expect(mockNavigateToPractice).toHaveBeenCalledTimes(1);
+        expect(mockNavigateToPractice).toHaveBeenCalledWith('Ritual', targetExpectation);
+      });
+      expect(mockNavigateToVault).not.toHaveBeenCalled();
+      expect(mockNavigate).not.toHaveBeenCalledWith('AnchorDetail', expect.anything());
+      screen.unmount();
+    }
+  });
+
+  it('locks the hero and smaller Deep Prime card against repeated navigation', async () => {
+    mockThreadStrength = 80;
+    mockAnchors = [buildAnchor('rapid-anchor', 'Rapid target')];
+    const screen = render(<PracticeScreen />);
+    const hero = screen.getByTestId('practice-hero-deep-prime');
+
+    fireEvent.press(hero);
+    fireEvent.press(hero);
+    fireEvent.press(hero);
+    fireEvent.press(hero);
+    fireEvent.press(hero);
+
+    await waitFor(() => {
+      expect(mockNavigateToPractice).toHaveBeenCalledTimes(1);
+    });
+    expect(mockNavigateToPractice).toHaveBeenCalledWith('Ritual', {
+      anchorId: 'rapid-anchor',
+      ritualType: 'ritual',
+      durationSeconds: 120,
+      audioConfiguration: { guidanceVoice: 'female', backgroundAudio: 'ambient', source: 'default' },
+      returnTo: 'practice',
+      source: 'practice_hero',
+    });
+    expect(mockNavigateToVault).not.toHaveBeenCalled();
+    expect(mockNavigate).not.toHaveBeenCalledWith('AnchorDetail', expect.anything());
+  });
+
+  it('routes the smaller Deep Prime card through the same canonical entry', async () => {
+    mockAnchors = [buildAnchor('card-anchor', 'Card target')];
+    const screen = render(<PracticeScreen />);
+
+    fireEvent.press(screen.getByTestId('practice-deep-prime-card'));
+
+    await waitFor(() => {
+      expect(mockNavigateToPractice).toHaveBeenCalledTimes(1);
+      expect(mockNavigateToPractice).toHaveBeenCalledWith('Ritual', {
+        anchorId: 'card-anchor',
+        ritualType: 'ritual',
+        durationSeconds: 120,
+        audioConfiguration: { guidanceVoice: 'female', backgroundAudio: 'ambient', source: 'default' },
+        returnTo: 'practice',
+        source: 'practice_deep_prime_card',
+      });
+    });
+    expect(mockNavigateToVault).not.toHaveBeenCalled();
+    expect(mockNavigate).not.toHaveBeenCalledWith('AnchorDetail', expect.anything());
+  });
+
+  it('shows the Choose Your Prime setup screen for an anchor that has never been primed', async () => {
+    mockAnchors = [
+      buildAnchor('unprimed-anchor', 'Fresh anchor', { isCharged: false, activationCount: 0 }),
+    ];
+    const screen = render(<PracticeScreen />);
+
+    fireEvent.press(screen.getByTestId('practice-deep-prime-card'));
+
+    await waitFor(() => {
+      expect(mockNavigateToPractice).toHaveBeenCalledWith('ChargeSetup', {
+        anchorId: 'unprimed-anchor',
+        returnTo: 'practice',
+        initialDuration: 'deep',
+        source: 'practice_deep_prime_card',
+      });
     });
   });
 
@@ -263,22 +373,25 @@ describe('PracticeScreen', () => {
     });
   });
 
-  it('routes generic deep-prime entry through ChargeSetup from practice', async () => {
+  it('routes generic deep-prime entry directly into the ritual for an already-primed anchor', async () => {
     mockAnchors = [buildAnchor('a99', 'Build consistency')];
     const screen = render(<PracticeScreen />);
 
     fireEvent.press(screen.getByText('DEEP PRIME'));
 
     await waitFor(() => {
-      expect(mockNavigateToVault).toHaveBeenCalledWith('ChargeSetup', {
+      expect(mockNavigateToPractice).toHaveBeenCalledWith('Ritual', {
         anchorId: 'a99',
+        ritualType: 'ritual',
+        durationSeconds: 120,
+        audioConfiguration: { guidanceVoice: 'female', backgroundAudio: 'ambient', source: 'default' },
         returnTo: 'practice',
-        initialDuration: 'deep',
+        source: 'practice_deep_prime_card',
       });
     });
   });
 
-  it('keeps the primary CTA as Deep Prime when a location suggestion exists', async () => {
+  it('uses a location preset from the primary CTA without exposing place data in analytics', async () => {
     mockAnchors = [buildAnchor('a66', 'Practice at the studio')];
     mockLocationPrimingSuggestion = {
       distanceMeters: 12,
@@ -294,16 +407,33 @@ describe('PracticeScreen', () => {
     };
     const screen = render(<PracticeScreen />);
 
-    fireEvent.press(screen.getByText('BEGIN DEEP PRIME'));
+    await waitFor(() => {
+      expect(screen.getByText('Prime at Studio')).toBeTruthy();
+      expect(screen.getByText('Focus Session · 1 min')).toBeTruthy();
+    });
+
+    fireEvent.press(screen.getByText('Prime at Studio'));
 
     await waitFor(() => {
-      expect(mockNavigateToVault).toHaveBeenCalledWith('ChargeSetup', {
+      expect(mockNavigateToPractice).toHaveBeenCalledWith('ActivationRitual', {
         anchorId: 'a66',
+        activationType: 'visual',
+        durationOverride: 60,
+        audioConfiguration: {
+          guidanceVoice: 'none',
+          backgroundAudio: 'off',
+          source: 'session_override',
+        },
         returnTo: 'practice',
-        initialDuration: 'deep',
+        source: 'practice_hero',
       });
     });
-    expect(mockAnalyticsTrack).not.toHaveBeenCalledWith('charge_started', expect.objectContaining({ source: 'practice_location_preset' }));
+    expect(mockAnalyticsTrack).toHaveBeenCalledWith('charge_started', {
+      source: 'practice_location_preset',
+      location_preset_applied: true,
+      session_type: 'focus',
+      duration_seconds: 60,
+    });
   });
 
   it('routes ritual flow using the anchor selected in current-anchor selector', async () => {
@@ -320,32 +450,37 @@ describe('PracticeScreen', () => {
     fireEvent.press(screen.getByText('DEEP PRIME'));
 
     await waitFor(() => {
-      expect(mockNavigateToVault).toHaveBeenCalledWith('ChargeSetup', {
+      expect(mockNavigateToPractice).toHaveBeenCalledWith('Ritual', {
         anchorId: 'a2',
+        ritualType: 'ritual',
+        durationSeconds: 120,
+        audioConfiguration: { guidanceVoice: 'female', backgroundAudio: 'ambient', source: 'default' },
         returnTo: 'practice',
-        initialDuration: 'deep',
+        source: 'practice_deep_prime_card',
       });
     });
   });
 
   it('uses the default deep charge duration from settings', async () => {
-    mockSettingsState.defaultCharge.preset = 'custom';
-    mockSettingsState.defaultCharge.customMinutes = 14;
+    mockSettingsState.primeSessionDuration = 14 * 60;
     mockAnchors = [buildAnchor('a77', 'Steady growth')];
     const screen = render(<PracticeScreen />);
 
     fireEvent.press(screen.getByText('DEEP PRIME'));
 
     await waitFor(() => {
-      expect(mockNavigateToVault).toHaveBeenCalledWith('ChargeSetup', {
+      expect(mockNavigateToPractice).toHaveBeenCalledWith('Ritual', {
         anchorId: 'a77',
+        ritualType: 'ritual',
+        durationSeconds: 14 * 60,
+        audioConfiguration: { guidanceVoice: 'female', backgroundAudio: 'ambient', source: 'default' },
         returnTo: 'practice',
-        initialDuration: 'deep',
+        source: 'practice_deep_prime_card',
       });
     });
   });
 
-  it('uses the primary CTA to start Deep Prime regardless of the last ritual type', async () => {
+  it('uses the primary CTA to quick-restart the last ritual type for the selected anchor', async () => {
     mockAnchors = [buildAnchor('a55', 'Stay steady')];
     mockSessionLog = [
       {
@@ -359,13 +494,20 @@ describe('PracticeScreen', () => {
     ];
 
     const screen = render(<PracticeScreen />);
-    fireEvent.press(screen.getByText('BEGIN DEEP PRIME'));
+    fireEvent.press(screen.getByText('Restore Thread'));
 
     await waitFor(() => {
-      expect(mockNavigateToVault).toHaveBeenCalledWith('ChargeSetup', {
+      expect(mockNavigateToPractice).toHaveBeenCalledWith('ActivationRitual', {
         anchorId: 'a55',
+        activationType: 'visual',
+        durationOverride: 30,
+        audioConfiguration: {
+          guidanceVoice: 'female',
+          backgroundAudio: 'ambient',
+          source: 'default',
+        },
         returnTo: 'practice',
-        initialDuration: 'deep',
+        source: 'practice_hero',
       });
     });
   });
@@ -384,22 +526,24 @@ describe('PracticeScreen', () => {
     fireEvent.press(screen.getByText('RELEASE'));
 
     await waitFor(() => {
-      expect(mockNavigate).toHaveBeenCalledWith('ConfirmBurn', {
+      expect(mockNavigateToPractice).toHaveBeenCalledWith('ConfirmBurn', {
         anchorId: 'a88',
         intention: 'Legacy intention',
         sigilSvg: '<svg>reinforced</svg>',
         enhancedImageUrl: undefined,
+        returnTo: 'practice',
+        source: 'practice_release_card',
       });
     });
   });
 
-  it('keeps Deep Prime sub-copy after the user has already practiced today', async () => {
+  it('shows focus-session sub-copy after the user has already primed today', async () => {
     mockAnchors = [buildAnchor('a3', 'Keep momentum')];
     mockLastPrimedAt = localDateString(new Date());
 
     const screen = render(<PracticeScreen />);
 
-    expect(screen.getByText('2 min • Keep momentum')).toBeTruthy();
+    expect(screen.getByText('Focus Session · 10–60 sec')).toBeTruthy();
   });
 
   it('shows partial progress toward the daily goal from activate and reinforce sessions', async () => {

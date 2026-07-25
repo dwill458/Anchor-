@@ -12,15 +12,13 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import { SvgXml } from 'react-native-svg';
-import { OptimizedImage } from '@/components/common';
 import { colors } from '@/theme';
 import type { Anchor } from '@/types';
 import { hasIgnited, isAnchorReleased } from '../utils/anchorStateHelpers';
+import { AnchorArtworkThumbnail } from './AnchorArtworkThumbnail';
 
 const CARD_WIDTH = 80;
 const CARD_GAP = 10;
-const ITEM_LAYOUT_SIZE = CARD_WIDTH + CARD_GAP;
 
 // ─── StackCard ────────────────────────────────────────────────────────────────
 
@@ -46,23 +44,21 @@ const StackCard = React.memo<StackCardProps>(({ anchor, onPress }) => {
       accessibilityLabel={anchor.intentionText}
     >
       <View style={styles.sigilThumb}>
-        {imageUrl ? (
-          <OptimizedImage
-            uri={imageUrl}
-            style={styles.thumbImage}
-            resizeMode="cover"
-          />
-        ) : (
-          <View style={styles.sigilFallback}>
-            <SvgXml xml={sigilXml} width={36} height={36} />
-          </View>
-        )}
+        <AnchorArtworkThumbnail
+          imageUrl={imageUrl}
+          sigilXml={sigilXml}
+          imageStyle={styles.thumbImage}
+          fallbackStyle={styles.sigilFallback}
+          fallbackSize={36}
+        />
       </View>
       <Text style={styles.cardLabel} numberOfLines={2}>{label}</Text>
       <View style={[styles.statusDot, hasIgnited(anchor) ? styles.dotCharged : styles.dotUncharged]} />
     </TouchableOpacity>
   );
 });
+
+const StackCardSeparator = () => <View style={styles.itemSeparator} />;
 
 // ─── AnchorStack ─────────────────────────────────────────────────────────────
 
@@ -89,19 +85,19 @@ export const AnchorStack: React.FC<AnchorStackProps> = ({
   }, [onAnchorPress]);
 
   const renderItem = React.useCallback(
-    ({ item }: { item: Anchor }) => (
-      <StackCard anchor={item} onPress={handlePress} />
-    ),
-    [handlePress]
+    ({ item }: { item: Anchor }) => <StackCard anchor={item} onPress={handlePress} />,
+    [handlePress],
   );
 
+  const keyExtractor = React.useCallback((item: Anchor) => item.id, []);
+
   const getItemLayout = React.useCallback(
-    (_data: ArrayLike<Anchor> | null | undefined, index: number) => ({
-      length: ITEM_LAYOUT_SIZE,
-      offset: ITEM_LAYOUT_SIZE * index,
+    (_: ArrayLike<Anchor> | null | undefined, index: number) => ({
+      length: CARD_WIDTH + CARD_GAP,
+      offset: (CARD_WIDTH + CARD_GAP) * index,
       index,
     }),
-    []
+    [],
   );
 
   return (
@@ -114,18 +110,19 @@ export const AnchorStack: React.FC<AnchorStackProps> = ({
         </TouchableOpacity>
       </View>
 
-      {/* Horizontal virtualized row */}
+      {/* Scroll row */}
       <FlatList
         horizontal
         data={visibleAnchors}
-        keyExtractor={(item) => item.id}
         renderItem={renderItem}
-        getItemLayout={getItemLayout}
+        keyExtractor={keyExtractor}
+        ItemSeparatorComponent={StackCardSeparator}
         showsHorizontalScrollIndicator={false}
         contentContainerStyle={styles.scrollContent}
-        initialNumToRender={5}
-        maxToRenderPerBatch={5}
-        windowSize={3}
+        getItemLayout={getItemLayout}
+        initialNumToRender={6}
+        maxToRenderPerBatch={6}
+        windowSize={5}
         removeClippedSubviews={Platform.OS === 'android'}
       />
     </View>
@@ -156,11 +153,13 @@ const styles = StyleSheet.create({
     color: 'rgba(192,192,192,0.4)',
   },
   scrollContent: {
-    gap: 10,
     paddingRight: 2,
   },
+  itemSeparator: {
+    width: CARD_GAP,
+  },
   stackCard: {
-    width: 80,
+    width: CARD_WIDTH,
     backgroundColor: 'rgba(255,255,255,0.025)',
     borderWidth: 1,
     borderColor: 'rgba(212,175,55,0.08)',

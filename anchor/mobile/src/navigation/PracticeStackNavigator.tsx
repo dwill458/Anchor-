@@ -11,7 +11,23 @@ import { ErrorBoundary } from '@/components/ErrorBoundary';
 import type { PracticeStackParamList } from '@/types';
 // DEFERRED: import { PracticeScreen, StabilizeRitualScreen, EvolveScreen } from '@/screens/practice'; — restore post-launch
 import { PracticeScreen, EvolveScreen, ThreadStrengthDetailScreen } from '@/screens/practice';
-import { ConfirmBurnScreen, BurningRitualScreen } from '@/screens/rituals';
+import {
+  ActivationScreen,
+  BreathingAnimation,
+  ChargeCompleteScreen,
+  ChargeSetupScreen,
+  ConfirmBurnScreen,
+  BurningRitualScreen,
+  FirstPrimeCompleteScreen,
+  RitualScreen,
+  SealAnchorScreen,
+} from '@/screens/rituals';
+import { ManualReinforcementScreen } from '@/screens/create';
+import {
+  VisualizeCompletionScreen,
+  VisualizePreparationScreen,
+  VisualizeSessionScreen,
+} from '@/screens/visualize';
 
 const Stack = createNativeStackNavigator<PracticeStackParamList>();
 
@@ -52,6 +68,61 @@ export const PracticeStackNavigator: React.FC<PracticeStackNavigatorProps> = ({ 
           <Stack.Screen name="PracticeHome" component={PracticeScreen} />
           <Stack.Screen name="ThreadStrengthDetail" component={ThreadStrengthDetailScreen} />
           <Stack.Screen name="Evolve" component={EvolveScreen} />
+          <Stack.Screen
+            name="ChargeSetup"
+            component={ChargeSetupScreen}
+            options={{ animation: 'fade_from_bottom' }}
+          />
+          <Stack.Screen
+            name="BreathingAnimation"
+            component={BreathingAnimation}
+            options={{ animation: 'fade_from_bottom' }}
+          />
+          <Stack.Screen
+            name="Ritual"
+            component={RitualScreen}
+            options={{ animation: 'fade_from_bottom' }}
+          />
+          <Stack.Screen
+            name="SealAnchor"
+            component={SealAnchorScreen}
+            options={{ animation: 'fade_from_bottom' }}
+          />
+          <Stack.Screen
+            name="ChargeComplete"
+            component={ChargeCompleteScreen}
+            options={{ animation: 'fade_from_bottom' }}
+          />
+          <Stack.Screen
+            name="FirstPrimeComplete"
+            component={FirstPrimeCompleteScreen}
+            options={{ animation: 'fade_from_bottom' }}
+          />
+          <Stack.Screen
+            name="ActivationRitual"
+            component={ActivationScreen}
+            options={{ animation: 'fade_from_bottom' }}
+          />
+          <Stack.Screen
+            name="ManualReinforcement"
+            component={ManualReinforcementScreen}
+            options={{ animation: 'fade_from_bottom' }}
+          />
+          <Stack.Screen
+            name="VisualizePreparation"
+            component={VisualizePreparationScreen}
+            options={{ animation: 'fade_from_bottom' }}
+          />
+          <Stack.Screen
+            name="VisualizeSession"
+            component={VisualizeSessionScreen}
+            options={{ animation: 'none' }}
+          />
+          <Stack.Screen
+            name="VisualizeCompletion"
+            component={VisualizeCompletionScreen}
+            options={{ animation: 'none' }}
+          />
           <Stack.Screen
             name="ConfirmBurn"
             component={ConfirmBurnScreen}

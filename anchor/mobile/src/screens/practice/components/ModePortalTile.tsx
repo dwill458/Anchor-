@@ -20,6 +20,8 @@ interface ModePortalTileProps {
   style?: StyleProp<ViewStyle>;
   onPress: () => void;
   badge?: string;
+  testID?: string;
+  disabled?: boolean;
 }
 
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
@@ -34,6 +36,8 @@ export const ModePortalTile: React.FC<ModePortalTileProps> = ({
   style,
   onPress,
   badge,
+  testID,
+  disabled = false,
 }) => {
   const pressed = useSharedValue(0);
   const isFeatured = variant === 'charge';
@@ -64,15 +68,20 @@ export const ModePortalTile: React.FC<ModePortalTileProps> = ({
 
   return (
     <AnimatedPressable
+      testID={testID}
       onPress={onPress}
       onPressIn={handlePressIn}
       onPressOut={handlePressOut}
       accessibilityRole="button"
+      accessibilityState={{ disabled }}
+      disabled={disabled}
+      hitSlop={8}
+      pointerEvents={disabled ? 'none' : 'auto'}
       style={[styles.pressable, style, animatedCard]}
     >
-      <View style={[styles.card, isFeatured ? styles.cardFeatured : styles.cardSecondary, isBurn && styles.cardBurn]}>
-        <View style={styles.topRow}>
-          <View style={[styles.iconWrap, isFeatured ? styles.iconFeatured : styles.iconSecondary]}>{icon}</View>
+      <View pointerEvents="none" style={[styles.card, isFeatured ? styles.cardFeatured : styles.cardSecondary, isBurn && styles.cardBurn]}>
+        <View pointerEvents="none" style={styles.topRow}>
+          <View pointerEvents="none" style={[styles.iconWrap, isFeatured ? styles.iconFeatured : styles.iconSecondary]}>{icon}</View>
           {badge ? <Text style={styles.badge}>{badge}</Text> : <Animated.View style={[styles.dot, dotStyle]} />}
         </View>
         <Text style={isFeatured ? styles.titleFeatured : styles.titleSecondary}>{title}</Text>

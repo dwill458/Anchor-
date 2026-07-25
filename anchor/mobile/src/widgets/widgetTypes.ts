@@ -41,8 +41,10 @@ export interface WidgetSnapshot {
   anchorName: string;
   /** The selected anchor's deterministic sigil SVG. */
   sigilSvg: string | null;
+  /** Locally cached final raster artwork, when an enhancement was selected. */
+  artworkImageUri: string | null;
   /** Source selected from the anchor's saved visual lineage. */
-  artworkSource: 'reinforced_svg' | 'base_svg' | 'fallback';
+  artworkSource: 'enhanced_image' | 'reinforced_svg' | 'base_svg' | 'fallback';
   /** Account-scoped source version used to invalidate stale widget snapshots. */
   artworkVersion: string | null;
   primedToday: boolean;
@@ -116,6 +118,7 @@ export function createEmptyWidgetSnapshot(): WidgetSnapshot {
     anchorId: null,
     anchorName: WIDGET_FALLBACK_ANCHOR_NAME,
     sigilSvg: null,
+    artworkImageUri: null,
     artworkSource: 'fallback',
     artworkVersion: null,
     primedToday: false,

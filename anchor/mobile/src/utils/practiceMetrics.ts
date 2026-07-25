@@ -34,6 +34,7 @@ export interface WeeklyActivityDay {
   label: string;
   localDateKey: string;
   count: number;
+  byMode: Record<PracticeMode, number>;
   isToday: boolean;
   isFuture: boolean;
 }
@@ -352,10 +353,12 @@ export function buildThreadStrengthSnapshot(params: {
   ];
   const currentWeek = labels.map((label, index) => {
     const date = addDays(currentMonday, index);
+    const dayAggregate = daily.get(date);
     return {
       label,
       localDateKey: date,
-      count: daily.get(date)?.total ?? 0,
+      count: dayAggregate?.total ?? 0,
+      byMode: dayAggregate?.byMode ?? emptyModeCounts(),
       isToday: date === today,
       isFuture: date > today,
     };

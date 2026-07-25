@@ -85,16 +85,20 @@ export const UseCaseCard: React.FC<UseCaseCardProps> = ({ item, index, isActive 
   }, [isActive, index, translateX, opacity]);
 
   return (
-    <Animated.View style={[styles.card, { opacity, transform: [{ translateX }] }]}>
-      <View style={styles.iconBox}>
+    <Animated.View
+      style={[styles.card, { opacity, transform: [{ translateX }] }]}
+      accessible
+      accessibilityLabel={`${item.label}. ${item.description}`}
+    >
+      <View style={styles.iconBox} accessible={false}>
         <SvgXml xml={ICON_SVGS[item.iconType]} width={18} height={18} />
       </View>
       <View style={styles.textBox}>
         <Text style={styles.label}>{item.label.toUpperCase()}</Text>
         <Text style={styles.description}>{item.description}</Text>
       </View>
-      <View style={styles.sigilBox}>
-        <Image source={ANCHOR_IMAGES[item.iconType]} style={styles.anchorImage} resizeMode="contain" />
+      <View style={styles.artworkBox} accessible={false}>
+        <Image source={ANCHOR_IMAGES[item.iconType]} style={styles.anchorImage} resizeMode="contain" accessible={false} />
       </View>
     </Animated.View>
   );
@@ -106,11 +110,12 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: 'rgba(212,175,55,0.12)',
     borderRadius: 10,
-    paddingVertical: 14,
-    paddingHorizontal: 18,
+    minHeight: 80,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 14,
+    gap: 12,
   },
   iconBox: {
     width: 36,
@@ -131,7 +136,7 @@ const styles = StyleSheet.create({
     fontSize: 11,
     letterSpacing: 1.5,
     color: '#D4AF37',
-    marginBottom: 3,
+    marginBottom: 4,
   },
   description: {
     fontFamily: 'CrimsonPro-Regular',
@@ -139,12 +144,12 @@ const styles = StyleSheet.create({
     color: '#C0C0C0',
     lineHeight: 18,
   },
-  sigilBox: {
+  artworkBox: {
     flexShrink: 0,
   },
   anchorImage: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
   },
 });

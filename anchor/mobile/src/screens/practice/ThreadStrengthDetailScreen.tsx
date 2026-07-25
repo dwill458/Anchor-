@@ -170,7 +170,25 @@ export const ThreadStrengthDetailScreen: React.FC = () => {
     >();
   const metrics = usePracticeMetrics();
   const heatMapScrollRef = useRef<ScrollView>(null);
-  const weeklyMax = Math.max(1, ...metrics.currentWeek.map((day) => day.count));
+  const thisWeekTotal = metrics.currentWeek.reduce(
+    (sum, day) => sum + day.count,
+    0,
+  );
+  const weeklyMax = Math.max(
+    0,
+    ...metrics.currentWeek.map((day) => day.count),
+  );
+  let maxScale = 5;
+  if (weeklyMax > 25) {
+    maxScale = Math.ceil(weeklyMax / 10) * 10;
+  } else if (weeklyMax > 12) {
+    maxScale = 30;
+  } else if (weeklyMax > 5) {
+    maxScale = 15;
+  } else {
+    maxScale = 5;
+  }
+  const midScale = Math.round(maxScale / 2);
 
   return (
     <View style={styles.screen}>
@@ -300,27 +318,83 @@ export const ThreadStrengthDetailScreen: React.FC = () => {
           <View style={styles.section}>
             <SectionLabel>WEEKLY ACTIVITY</SectionLabel>
             <Card style={styles.weekCard}>
-              <View style={styles.weekChart}>
-                {metrics.currentWeek.map((day) => (
-                  <View key={day.localDateKey} style={styles.weekDay}>
-                    <Text style={styles.weekCount}>{day.count}</Text>
-                    <View
-                      style={[
-                        styles.weekBar,
-                        {
-                          height: Math.max(5, (day.count / weeklyMax) * 30),
-                          backgroundColor:
-                            day.count > 0
-                              ? colors.gold
-                              : "rgba(255,255,255,0.06)",
-                        },
-                      ]}
-                    />
-                    <Text style={styles.weekLabel}>
-                      {day.label.slice(0, 1)}
-                    </Text>
+              <View style={styles.weekHeader}>
+                <Text style={styles.weekHeaderTitle}>
+                  This Week:{" "}
+                  <Text style={styles.weekHeaderCount}>{thisWeekTotal}</Text>{" "}
+                  session{thisWeekTotal === 1 ? "" : "s"}
+                </Text>
+              </View>
+
+              <View style={styles.weekChartArea}>
+                <View style={styles.yAxis}>
+                  <Text style={styles.yAxisLabel}>{maxScale}</Text>
+                  <Text style={styles.yAxisLabel}>{midScale}</Text>
+                  <Text style={styles.yAxisLabel}>0</Text>
+                </View>
+
+                <View style={styles.chartGrid}>
+                  <View style={styles.gridLineTop} />
+                  <View style={styles.gridLineMid} />
+                  <View style={styles.gridLineBot} />
+
+                  <View style={styles.weekColumns}>
+                    {metrics.currentWeek.map((day) => {
+                      const totalBarHeight =
+                        day.count > 0
+                          ? Math.max(
+                              12,
+                              Math.round((day.count / maxScale) * 100),
+                            )
+                          : 0;
+                      return (
+                        <View key={day.localDateKey} style={styles.weekColumn}>
+                          <View style={styles.barArea}>
+                            {day.count > 0 ? (
+                              <View
+                                style={[
+                                  styles.stackedBar,
+                                  { height: totalBarHeight },
+                                ]}
+                              >
+                                {(
+                                  [
+                                    "deep_prime",
+                                    "visualize",
+                                    "focus",
+                                    "release",
+                                  ] as PracticeMode[]
+                                ).map((mode) => {
+                                  const modeCount = day.byMode[mode];
+                                  if (modeCount <= 0) return null;
+                                  return (
+                                    <View
+                                      key={mode}
+                                      style={{
+                                        flex: modeCount,
+                                        backgroundColor: MODE_META[mode].color,
+                                      }}
+                                    />
+                                  );
+                                })}
+                              </View>
+                            ) : (
+                              <View style={styles.emptyBarBase} />
+                            )}
+                          </View>
+                          <Text
+                            style={[
+                              styles.weekDayLabel,
+                              day.isToday && styles.todayLabel,
+                            ]}
+                          >
+                            {day.label.slice(0, 3).toUpperCase()}
+                          </Text>
+                        </View>
+                      );
+                    })}
                   </View>
-                ))}
+                </View>
               </View>
             </Card>
           </View>
@@ -501,30 +575,105 @@ const styles = StyleSheet.create({
     gap: 5,
   },
   densityCell: { width: 7, height: 7, borderRadius: 2 },
-  weekCard: { paddingHorizontal: 16, paddingTop: 12, paddingBottom: 10 },
-  weekChart: {
-    height: 58,
+  weekCard: { paddingHorizontal: 16, paddingTop: 14, paddingBottom: 14 },
+  weekHeader: {
     flexDirection: "row",
-    alignItems: "flex-end",
-    gap: 7,
+    justifyContent: "flex-end",
+    marginBottom: 12,
   },
-  weekDay: {
+  weekHeaderTitle: {
+    fontFamily: typography.fontFamily.sans,
+    fontSize: 12,
+    color: "rgba(245,240,232,0.42)",
+  },
+  weekHeaderCount: {
+    fontFamily: typography.fontFamily.serifBold,
+    fontSize: 14,
+    color: colors.gold,
+  },
+  weekChartArea: {
+    flexDirection: "row",
+    alignItems: "stretch",
+    gap: 10,
+  },
+  yAxis: {
+    width: 22,
+    height: 100,
+    justifyContent: "space-between",
+  },
+  yAxisLabel: {
+    fontFamily: typography.fontFamily.sans,
+    fontSize: 10,
+    color: "rgba(245,240,232,0.32)",
+    textAlign: "right",
+  },
+  chartGrid: {
     flex: 1,
+    height: 124,
+    justifyContent: "space-between",
+    position: "relative",
+  },
+  gridLineTop: {
+    position: "absolute",
+    top: 6,
+    left: 0,
+    right: 0,
+    height: 1,
+    backgroundColor: "rgba(255,255,255,0.05)",
+  },
+  gridLineMid: {
+    position: "absolute",
+    top: 56,
+    left: 0,
+    right: 0,
+    height: 1,
+    backgroundColor: "rgba(255,255,255,0.05)",
+  },
+  gridLineBot: {
+    position: "absolute",
+    top: 100,
+    left: 0,
+    right: 0,
+    height: 1,
+    backgroundColor: "rgba(255,255,255,0.08)",
+  },
+  weekColumns: {
+    flexDirection: "row",
     height: "100%",
+    zIndex: 1,
+  },
+  weekColumn: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
+  barArea: {
+    height: 100,
+    width: "100%",
     alignItems: "center",
     justifyContent: "flex-end",
-    gap: 5,
   },
-  weekCount: {
+  stackedBar: {
+    width: 20,
+    borderRadius: 4,
+    overflow: "hidden",
+    flexDirection: "column-reverse",
+  },
+  emptyBarBase: {
+    width: 20,
+    height: 2,
+    borderRadius: 1,
+    backgroundColor: "rgba(255,255,255,0.06)",
+  },
+  weekDayLabel: {
     fontFamily: typography.fontFamily.sans,
     fontSize: 9.5,
-    color: "rgba(245,240,232,0.62)",
+    letterSpacing: 0.5,
+    color: "rgba(245,240,232,0.36)",
   },
-  weekBar: { width: 20, maxWidth: "100%", borderRadius: 4 },
-  weekLabel: {
-    fontFamily: typography.fontFamily.sans,
-    fontSize: 9,
-    color: "rgba(245,240,232,0.32)",
+  todayLabel: {
+    color: colors.gold,
+    fontFamily: typography.fontFamily.sansBold,
   },
   footer: {
     marginTop: 20,

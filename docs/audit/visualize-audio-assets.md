@@ -306,3 +306,13 @@ The supplied female `VIZ_1M_ARRIVE_01.mp3` is preserved but is not mapped to pro
 
 - Status: PASS
 - Errors: 0
+
+## Runtime loop policy
+
+Visualize creates one ambient player for the whole session. The 60-second
+asset is played once and fades at completion. The 180- and 300-second
+production derivatives are configured with sound-object looping so a future
+asset-length overrun cannot cause JavaScript stop/replay gaps. If the original
+167.941-second ambient master is used again, it must first be replaced with a
+loop-safe, crossfaded edit with clean waveform-crossing points; it must not be
+manually restarted from JavaScript.

@@ -42,6 +42,7 @@ export function renderAnchorWidgetByName(
           primed={primed}
           anchorName={snapshot.anchorName}
           sigilSvg={snapshot.sigilSvg}
+          artworkImageUri={snapshot.artworkImageUri}
           streak={snapshot.streak}
           threadStrength={snapshot.threadStrength ?? 0}
           totalSessions={snapshot.totalSessions ?? 0}
@@ -67,7 +68,7 @@ export function renderAnchorWidgetByName(
           primed={primed}
           anchorId={snapshot.anchorId}
           sigilSvg={snapshot.sigilSvg}
-          artworkImageUri={null}
+          artworkImageUri={snapshot.artworkImageUri}
         />
       );
   }

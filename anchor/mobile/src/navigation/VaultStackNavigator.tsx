@@ -133,8 +133,8 @@ export const VaultStackNavigator: React.FC<VaultStackNavigatorProps> = ({ onRout
         options={{ headerShown: false }}
       />
       <Stack.Screen name="VisualizePreparation" component={VisualizePreparationScreen} options={{ headerShown: false }} />
-      <Stack.Screen name="VisualizeSession" component={VisualizeSessionScreen} options={{ headerShown: false, gestureEnabled: false, animation: 'fade' }} />
-      <Stack.Screen name="VisualizeCompletion" component={VisualizeCompletionScreen} options={{ headerShown: false, gestureEnabled: false, animation: 'fade' }} />
+      <Stack.Screen name="VisualizeSession" component={VisualizeSessionScreen} options={{ headerShown: false, gestureEnabled: false, animation: 'none' }} />
+      <Stack.Screen name="VisualizeCompletion" component={VisualizeCompletionScreen} options={{ headerShown: false, gestureEnabled: false, animation: 'none' }} />
       <Stack.Screen
         name="FirstAnchorCreation"
         component={IntentionInputScreen}

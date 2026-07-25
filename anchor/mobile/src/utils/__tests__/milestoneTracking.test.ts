@@ -81,6 +81,21 @@ describe('milestoneTracking', () => {
     expect(ledger.outbox).toEqual(['rank.practitioner', 'mark.first_return']);
   });
 
+  it('encodes colon-separated journal keys before writing to SecureStore', async () => {
+    const scopeId = nextScope('secure-key');
+
+    await checkAndRecordMilestones(
+      { totalPrimes: 10, practiceDays: 3, releasedAnchors: 0 },
+      { scopeId }
+    );
+
+    const storedKeys = ((SecureStore.setItemAsync as jest.Mock).mock.calls as [string, string][]).map(
+      ([key]) => key
+    );
+    expect(storedKeys.some((key) => key.includes(':'))).toBe(false);
+    expect(storedKeys.every((key) => /^[A-Za-z0-9._-]+$/.test(key))).toBe(true);
+  });
+
   it('serializes concurrent mutations without duplicating or losing awards', async () => {
     const scopeId = nextScope('concurrent');
     const [first, second] = await Promise.all([

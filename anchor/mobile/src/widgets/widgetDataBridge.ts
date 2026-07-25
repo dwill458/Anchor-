@@ -443,20 +443,30 @@ function hashWidgetArtwork(value: string): string {
 
 function selectWidgetArtwork(anchor: Anchor | undefined): Pick<
   WidgetSnapshot,
-  'sigilSvg' | 'artworkSource' | 'artworkVersion'
+  'sigilSvg' | 'artworkImageUri' | 'artworkSource' | 'artworkVersion'
 > {
   const reinforced = anchor?.reinforcedSigilSvg?.trim();
   const base = anchor?.baseSigilSvg?.trim();
+  const enhancedImageUrl = anchor?.enhancedImageUrl?.trim();
   const sigilSvg = reinforced || base || null;
-  const artworkSource = reinforced ? 'reinforced_svg' : base ? 'base_svg' : 'fallback';
+  const artworkSource = enhancedImageUrl
+    ? 'enhanced_image'
+    : reinforced
+      ? 'reinforced_svg'
+      : base
+        ? 'base_svg'
+        : 'fallback';
   const changedAt =
     anchor?.updatedAt instanceof Date ? anchor.updatedAt.toISOString() : String(anchor?.updatedAt ?? '');
 
   return {
     sigilSvg,
+    artworkImageUri: enhancedImageUrl || null,
     artworkSource,
     artworkVersion:
-      anchor && sigilSvg ? `${anchor.userId}:${anchor.id}:${changedAt}:${hashWidgetArtwork(sigilSvg)}` : null,
+      anchor && (enhancedImageUrl || sigilSvg)
+        ? `${anchor.userId}:${anchor.id}:${changedAt}:${hashWidgetArtwork(enhancedImageUrl || sigilSvg || '')}`
+        : null,
   };
 }
 

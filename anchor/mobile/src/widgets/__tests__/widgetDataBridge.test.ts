@@ -206,6 +206,23 @@ describe('buildWidgetSnapshot', () => {
     expect(changed.artworkVersion).not.toBe(first.artworkVersion);
   });
 
+  it('prefers a finalized enhanced image while retaining its saved SVG as a graceful fallback', () => {
+    const snapshot = buildWidgetSnapshot({
+      ...baseInputs,
+      anchors: [makeAnchor({
+        id: 'a',
+        reinforcedSigilSvg: '<svg viewBox="0 0 10 10"><path id="final" /></svg>',
+        enhancedImageUrl: 'https://example.com/final-anchor.png',
+      })],
+      primingHistory: [],
+      lastPrimedAt: null,
+    });
+
+    expect(snapshot.artworkSource).toBe('enhanced_image');
+    expect(snapshot.artworkImageUri).toBe('https://example.com/final-anchor.png');
+    expect(snapshot.sigilSvg).toContain('final');
+  });
+
   it('treats Visualize and legacy aliases as independent practice types', () => {
     expect(normalizeWidgetPracticeType('focus_session')).toBe('focus');
     expect(normalizeWidgetPracticeType('deepPrime')).toBe('deep_prime');

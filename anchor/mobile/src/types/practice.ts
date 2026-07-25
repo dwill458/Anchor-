@@ -8,34 +8,42 @@ export const PRACTICE_MODES = [
 ] as const;
 export type PracticeMode = (typeof PRACTICE_MODES)[number];
 
-export const PRACTICE_MODE_LABELS: Readonly<Record<PracticeMode, string>> = {
+export const PRACTICE_MODE_LABELS: Record<PracticeMode, string> = {
   deep_prime: 'Deep Prime',
   visualize: 'Visualize',
   focus: 'Focus Session',
   release: 'Release',
 };
 
-export const PRACTICE_MODE_THEME = {
-  deep_prime: {
-    label: PRACTICE_MODE_LABELS.deep_prime,
-    primary: '#D4AF37',
-    bright: '#F0CB6A',
-  },
-  visualize: {
-    label: PRACTICE_MODE_LABELS.visualize,
-    primary: '#78B4D1',
-  },
-  focus: {
-    label: PRACTICE_MODE_LABELS.focus,
-    primary: '#AD99D2',
-  },
-  release: {
-    label: PRACTICE_MODE_LABELS.release,
-    primary: '#C8875A',
-  },
-} as const;
+export const PRACTICE_MODE_THEME: Record<PracticeMode, { primary: string }> = {
+  deep_prime: { primary: '#D4AF37' },
+  visualize: { primary: '#78B4D1' },
+  focus: { primary: '#AD99D2' },
+  release: { primary: '#C8875A' },
+};
 
-/** Existing product weighting: Deep Prime compounds faster than base practice. */
+/** Modes accepted by the single session-entry boundary. */
+export const PRACTICE_ENTRY_MODES = [
+  'focus',
+  'deepPrime',
+  'visualize',
+  'release',
+] as const;
+export type PracticeEntryMode = (typeof PRACTICE_ENTRY_MODES)[number];
+
+/** Stable source labels used to audit every practice entry point. */
+export type PracticeEntrySource =
+  | 'practice_hero'
+  | 'practice_deep_prime_card'
+  | 'practice_focus_card'
+  | 'practice_visualize_card'
+  | 'practice_release_card'
+  | 'anchor_detail'
+  | 'sanctuary_prime_anchor'
+  | 'widget'
+  | 'shortcut'
+  | 'evolve';
+
 export const PRACTICE_THREAD_STRENGTH_GAINS: Readonly<
   Record<PracticeMode, number>
 > = {

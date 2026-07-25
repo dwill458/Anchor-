@@ -1,4 +1,6 @@
 export type PrimingSessionType = 'activate' | 'reinforce' | 'visualize';
+/** Canonical user-facing practice modes; optional on older persisted events. */
+export type PracticeDisplayMode = 'focus' | 'deep' | 'visualize';
 export type TimeOfDayBucket = 'late_night' | 'morning' | 'afternoon' | 'evening';
 
 export interface PrimingHistoryEntry {
@@ -12,6 +14,8 @@ export interface PrimingHistoryEntry {
   weekdayIndex: number;
   hourOfDay: number;
   timeOfDay: TimeOfDayBucket;
+  /** The completed practice route when available; retained without mutating legacy history. */
+  practiceMode?: PracticeDisplayMode;
 }
 
 export function createPracticeEventId(): string {
@@ -114,6 +118,7 @@ export function buildPrimingHistoryEntry(params: {
   anchorId: string;
   type: PrimingSessionType;
   completedAt: string;
+  practiceMode?: PracticeDisplayMode;
 }): PrimingHistoryEntry | null {
   const completedAtDate = new Date(params.completedAt);
   if (Number.isNaN(completedAtDate.getTime())) {
@@ -133,6 +138,7 @@ export function buildPrimingHistoryEntry(params: {
     weekdayIndex: getIsoWeekdayIndex(completedAtDate),
     hourOfDay,
     timeOfDay: getTimeOfDayBucket(hourOfDay),
+    practiceMode: params.practiceMode,
   };
 }
 

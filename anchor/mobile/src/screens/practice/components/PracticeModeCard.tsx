@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Platform } from 'react-native';
+import { View, Text, StyleSheet, Pressable, Platform } from 'react-native';
 import { BlurView } from 'expo-blur';
 import * as Haptics from 'expo-haptics';
 import { colors, spacing, typography } from '@/theme';
@@ -35,48 +35,61 @@ export const PracticeModeCard: React.FC<PracticeModeCardProps> = ({
     };
 
     return (
-        <TouchableOpacity
-            style={styles.container}
+        <Pressable
+            style={({ pressed }) => [
+                styles.container,
+                pressed && !isLocked && styles.pressed,
+            ]}
             onPress={handlePress}
-            activeOpacity={isLocked ? 1 : 0.7}
+            hitSlop={8}
+            accessibilityRole="button"
+            accessibilityState={{ disabled: Boolean(isLocked) }}
         >
-            <View style={[
+            <View pointerEvents="none" style={[
                 styles.card,
                 Platform.OS === 'android' && styles.androidCard,
                 isLocked && styles.lockedCard
             ]}>
                 {Platform.OS === 'ios' && (
-                    <BlurView intensity={10} tint="dark" style={StyleSheet.absoluteFill} />
+                    <BlurView
+                        intensity={10}
+                        tint="dark"
+                        style={StyleSheet.absoluteFill}
+                        pointerEvents="none"
+                    />
                 )}
 
-                <View style={styles.content}>
-                    <View style={styles.headerRow}>
+                <View pointerEvents="none" style={styles.content}>
+                    <View pointerEvents="none" style={styles.headerRow}>
                         <Text style={[styles.title, isLocked && styles.lockedText]}>{title}</Text>
                         {meta && <Text style={styles.meta}>{meta}</Text>}
                     </View>
 
-                    <Text style={styles.subtext}>{subtext}</Text>
+                    <Text pointerEvents="none" style={styles.subtext}>{subtext}</Text>
 
                     {cta && !isLocked && (
-                        <View style={styles.ctaContainer}>
-                            <Text style={styles.ctaText}>{cta}</Text>
+                        <View pointerEvents="none" style={styles.ctaContainer}>
+                            <Text pointerEvents="none" style={styles.ctaText}>{cta}</Text>
                         </View>
                     )}
 
                     {isLocked && lockCopy && (
-                        <View style={styles.lockContainer}>
-                            <Text style={styles.lockText}>🔒 {lockCopy}</Text>
+                        <View pointerEvents="none" style={styles.lockContainer}>
+                            <Text pointerEvents="none" style={styles.lockText}>🔒 {lockCopy}</Text>
                         </View>
                     )}
                 </View>
             </View>
-        </TouchableOpacity>
+        </Pressable>
     );
 };
 
 const styles = StyleSheet.create({
     container: {
         marginBottom: spacing.md,
+    },
+    pressed: {
+        opacity: 0.7,
     },
     card: {
         borderRadius: 16,

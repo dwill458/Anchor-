@@ -23,6 +23,7 @@ import { RitualScaffold } from '@/screens/rituals/components/RitualScaffold';
 import { RitualTopBar } from '@/screens/rituals/components/RitualTopBar';
 import { useNavigation } from '@react-navigation/native';
 import { useTabNavigation } from '@/contexts/TabNavigationContext';
+import { usePracticeEntry } from '@/hooks/usePracticeEntry';
 import { StackNavigationProp } from '@react-navigation/stack';
 
 type EvolveNavProp = StackNavigationProp<PracticeStackParamList, 'Evolve'>;
@@ -83,6 +84,7 @@ const GlassCard: React.FC<{ children: React.ReactNode; style?: any }> = ({ child
 export const EvolveScreen: React.FC = () => {
   const navigation = useNavigation<EvolveNavProp>();
   const { navigateToVault } = useTabNavigation();
+  const { startPractice } = usePracticeEntry();
   const user = useAuthStore((state) => state.user);
   const developerForceStreakBreakEnabled = useSettingsStore(
     (state) => state.developerForceStreakBreakEnabled
@@ -168,7 +170,11 @@ export const EvolveScreen: React.FC = () => {
       return;
     }
 
-    navigateToVault('Ritual', { anchorId: anchor.id, ritualType: 'focus' });
+    startPractice({
+      mode: 'focus',
+      anchorId: anchor.id,
+      source: 'evolve',
+    });
   };
 
   return (

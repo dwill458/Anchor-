@@ -61,6 +61,7 @@ import {
   syncPushTokensToServer,
 } from './src/services/NotificationSyncService';
 import { initWidgetDataSync } from './src/widgets/widgetDataBridge';
+import { WIDGETS_ENABLED } from './src/config';
 import { useAppStartup } from './src/hooks/useAppStartup';
 import { SplashController } from './src/components/splash/SplashController';
 import { SPLASH_BACKGROUND_COLOR } from './src/components/splash/splashAnimation.constants';
@@ -389,7 +390,9 @@ export default function App() {
   // the stores, so prime completions, decay, and hydration all propagate
   // without touching those flows.
   useEffect(() => {
-    initWidgetDataSync();
+    if (WIDGETS_ENABLED) {
+      initWidgetDataSync();
+    }
   }, []);
 
   useEffect(() => {

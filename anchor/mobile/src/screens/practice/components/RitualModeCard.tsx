@@ -58,16 +58,16 @@ export const RitualModeCard: React.FC<RitualModeCardProps> = ({
       accessibilityRole="button"
       style={[styles.pressable, pressStyle]}
     >
-      <GlassCard style={styles.card} contentStyle={styles.content}>
+      <GlassCard pointerEvents="none" style={styles.card} contentStyle={styles.content}>
         <Animated.View pointerEvents="none" style={[styles.glowPulse, glowStyle]} />
-        <View style={styles.topRow}>
-          <View style={styles.iconWrap}>{icon}</View>
-          {meta ? <Text style={styles.meta}>{meta}</Text> : null}
+        <View pointerEvents="none" style={styles.topRow}>
+          <View pointerEvents="none" style={styles.iconWrap}>{icon}</View>
+          {meta ? <Text pointerEvents="none" style={styles.meta}>{meta}</Text> : null}
         </View>
-        <Text style={styles.title}>{title}</Text>
-        <Text style={styles.description}>{description}</Text>
-        <View style={styles.ctaWrap}>
-          <Text style={styles.cta}>{cta}</Text>
+        <Text pointerEvents="none" style={styles.title}>{title}</Text>
+        <Text pointerEvents="none" style={styles.description}>{description}</Text>
+        <View pointerEvents="none" style={styles.ctaWrap}>
+          <Text pointerEvents="none" style={styles.cta}>{cta}</Text>
         </View>
       </GlassCard>
     </AnimatedPressable>

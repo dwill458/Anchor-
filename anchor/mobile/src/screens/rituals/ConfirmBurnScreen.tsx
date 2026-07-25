@@ -52,7 +52,7 @@ export const ConfirmBurnScreen: React.FC = () => {
   const route = useRoute<ConfirmBurnRouteProp>();
   const navigation = useNavigation<ConfirmBurnNavigationProp>();
   const { navigateToVault } = useTabNavigation();
-  const { anchorId, intention, sigilSvg, enhancedImageUrl } = route.params;
+  const { anchorId, intention, sigilSvg, enhancedImageUrl, returnTo, source } = route.params;
   const getAnchorById = useAnchorStore((state) => state.getAnchorById);
   const { recordShown } = useTeachingStore();
   const { hasActiveEntitlement } = useTrialStatus();
@@ -206,6 +206,8 @@ export const ConfirmBurnScreen: React.FC = () => {
       intention,
       sigilSvg: resolvedSigilSvg,
       enhancedImageUrl: resolvedEnhancedImageUrl,
+      ...(returnTo ? { returnTo } : {}),
+      ...(source ? { source } : {}),
     });
   };
 
