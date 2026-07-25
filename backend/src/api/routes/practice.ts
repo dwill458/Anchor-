@@ -5,6 +5,7 @@
  */
 
 import { NextFunction, Router, Response } from 'express';
+import { PracticeSession } from '@prisma/client';
 import { z } from 'zod';
 import { AuthRequest, authMiddleware } from '../middleware/auth';
 import { AppError } from '../middleware/errorHandler';
@@ -143,7 +144,7 @@ function assertValidCompletedSession(input: z.infer<typeof PracticeSessionSchema
 }
 
 function immutableSessionMatches(
-  existing: any,
+  existing: PracticeSession,
   input: z.infer<typeof PracticeSessionSchema>
 ): boolean {
   const expectedServerAnchorSnapshot = input.anchorServerId ?? input.anchorId;

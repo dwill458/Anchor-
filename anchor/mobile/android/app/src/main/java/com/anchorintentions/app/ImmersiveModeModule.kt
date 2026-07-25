@@ -14,8 +14,9 @@ class ImmersiveModeModule(
 
   @ReactMethod
   fun enter() {
-    reactContext.currentActivity?.runOnUiThread {
-      it.window.decorView.systemUiVisibility =
+    val activity = reactContext.currentActivity ?: return
+    activity.runOnUiThread {
+      activity.window.decorView.systemUiVisibility =
         View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY or
           View.SYSTEM_UI_FLAG_FULLSCREEN or
           View.SYSTEM_UI_FLAG_HIDE_NAVIGATION or
@@ -27,8 +28,9 @@ class ImmersiveModeModule(
 
   @ReactMethod
   fun exit() {
-    reactContext.currentActivity?.runOnUiThread {
-      it.window.decorView.systemUiVisibility = View.SYSTEM_UI_FLAG_LAYOUT_STABLE
+    val activity = reactContext.currentActivity ?: return
+    activity.runOnUiThread {
+      activity.window.decorView.systemUiVisibility = View.SYSTEM_UI_FLAG_LAYOUT_STABLE
     }
   }
 }
