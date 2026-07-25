@@ -38,6 +38,10 @@ import {
   SETTINGS_SCREEN_BACKGROUND,
 } from './shared';
 import { logger } from '@/utils/logger';
+import {
+  DEFAULT_SESSION_AUDIO_DEFAULTS,
+  formatCompactSessionAudioSummary,
+} from '@/types/sessionAudio';
 
 const WEEKDAY_LABELS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 const SHOW_DEVELOPER_TOOLS =
@@ -84,9 +88,10 @@ export const SettingsScreen: React.FC = () => {
   const { settings, updateSetting, resetSettings, isLoading } = useSettingsState();
   const focusSessionMode = useSettingsStore((state) => state.focusSessionMode ?? 'quick');
   const focusSessionDuration = useSettingsStore((state) => state.focusSessionDuration ?? 30);
-  const focusSessionAudio = useSettingsStore((state) => state.focusSessionAudio ?? 'ambient');
   const primeSessionDuration = useSettingsStore((state) => state.primeSessionDuration ?? 120);
-  const primeSessionAudio = useSettingsStore((state) => state.primeSessionAudio ?? 'ambient');
+  const sessionAudioDefaults = useSettingsStore(
+    (state) => state.sessionAudioDefaults ?? DEFAULT_SESSION_AUDIO_DEFAULTS
+  );
   const analyticsEnabled = useSettingsStore((state) => state.analyticsEnabled);
   const setAnalyticsEnabled = useSettingsStore((state) => state.setAnalyticsEnabled);
   const traceDefaultEnabled = useSettingsStore((state) => state.traceDefaultEnabled ?? true);
@@ -397,8 +402,8 @@ export const SettingsScreen: React.FC = () => {
 
   const sessionSummary =
     focusSessionMode === 'deep'
-      ? `Deep Prime · ${formatDurationLabel(primeSessionDuration)} · ${primeSessionAudio === 'ambient' ? 'Ambient' : 'Silent'}`
-      : `Quick Prime · ${formatDurationLabel(focusSessionDuration)} · ${focusSessionAudio === 'ambient' ? 'Ambient' : 'Silent'}`;
+      ? `Deep Prime · ${formatDurationLabel(primeSessionDuration)} · ${formatCompactSessionAudioSummary(sessionAudioDefaults.deep_prime)}`
+      : `Quick Prime · ${formatDurationLabel(focusSessionDuration)} · ${formatCompactSessionAudioSummary(sessionAudioDefaults.focus)}`;
 
   const goalSummary =
     dailyPracticeGoalPreset === 'once'

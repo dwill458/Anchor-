@@ -4,7 +4,11 @@ import { useAuthStore } from '@/stores/authStore';
 import { useProfileStore } from '@/stores/profileStore';
 import { useSessionStore } from '@/stores/sessionStore';
 import { useSettingsStore } from '@/stores/settingsStore';
-import { saveAnchorSnapshot, saveProfileSnapshot, saveSessionSnapshot } from '../UserLocalStateService';
+import {
+  saveAnchorSnapshot,
+  saveProfileSnapshot,
+  saveSessionSnapshot,
+} from '../UserLocalStateService';
 
 const mockApiGet = jest.fn();
 const mockFetchCompleteProfile = jest.fn();
@@ -13,7 +17,8 @@ jest.mock('@/services/ApiClient', () => ({
   apiClient: {
     get: (...args: unknown[]) => mockApiGet(...args),
   },
-  fetchCompleteProfile: (...args: unknown[]) => mockFetchCompleteProfile(...args),
+  fetchCompleteProfile: (...args: unknown[]) =>
+    mockFetchCompleteProfile(...args),
 }));
 
 import AuthHydrationService from '../AuthHydrationService';
@@ -26,7 +31,11 @@ describe('AuthHydrationService', () => {
     useSessionStore.setState({
       lastSession: null,
       todayPractice: { date: '2026-05-18', sessionsCount: 0, totalSeconds: 0 },
-      weeklyPractice: { weekKey: '2026-W21', sessionsCount: 0, totalSeconds: 0 },
+      weeklyPractice: {
+        weekKey: '2026-W21',
+        sessionsCount: 0,
+        totalSeconds: 0,
+      },
       lastGraceDayUsedAt: null,
       sessionLog: [],
       threadStrength: 50,
@@ -58,6 +67,13 @@ describe('AuthHydrationService', () => {
       focusSessionAudio: 'silent',
       primeSessionDuration: 120,
       primeSessionAudio: 'silent',
+      sessionAudioDefaults: {
+        focus: { guidanceVoice: 'female', backgroundAudio: 'ambient' },
+        deep_prime: { guidanceVoice: 'female', backgroundAudio: 'ambient' },
+      },
+      sessionAudioDefaultsOwnerUserId: null,
+      sessionAudioDefaultsOwnerInitialized: false,
+      sessionAudioDefaultsUpdatedAt: null,
     } as any);
   });
 
@@ -118,6 +134,11 @@ describe('AuthHydrationService', () => {
           focusSessionAudio: 'ambient',
           primeSessionDuration: 300,
           primeSessionAudio: 'ambient',
+          sessionAudioDefaults: {
+            focus: { guidanceVoice: 'none', backgroundAudio: 'ambient' },
+            deep_prime: { guidanceVoice: 'female', backgroundAudio: 'off' },
+            visualize: { guidanceVoice: 'female', backgroundAudio: 'ambient' },
+          },
           hapticIntensity: 3,
           vaultViewType: 'grid',
           updatedAt: new Date(),
@@ -133,11 +154,11 @@ describe('AuthHydrationService', () => {
       expect.arrayContaining([
         expect.objectContaining({ id: 'server-anchor-1' }),
         expect.objectContaining({ id: 'anchor-1779092632674' }),
-      ])
+      ]),
     );
     expect(useSessionStore.getState().primingHistory).toHaveLength(1);
     expect(useSessionStore.getState().lastPrimedAt).toBe(
-      `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}-${String(new Date().getDate()).padStart(2, '0')}`
+      `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}-${String(new Date().getDate()).padStart(2, '0')}`,
     );
     expect(useSessionStore.getState().weekHistory.some(Boolean)).toBe(true);
     expect(useSettingsStore.getState().focusSessionMode).toBe('deep');
@@ -145,6 +166,11 @@ describe('AuthHydrationService', () => {
     expect(useSettingsStore.getState().focusSessionAudio).toBe('ambient');
     expect(useSettingsStore.getState().primeSessionDuration).toBe(300);
     expect(useSettingsStore.getState().primeSessionAudio).toBe('ambient');
+    expect(useSettingsStore.getState().sessionAudioDefaults).toEqual({
+      focus: { guidanceVoice: 'none', backgroundAudio: 'ambient' },
+      deep_prime: { guidanceVoice: 'female', backgroundAudio: 'off' },
+      visualize: { guidanceVoice: 'female', backgroundAudio: 'ambient' },
+    });
   });
 
   it('hydrates profile and anchors when account export fails', async () => {
@@ -181,7 +207,9 @@ describe('AuthHydrationService', () => {
 
     await AuthHydrationService.hydrateAuthenticatedData();
 
-    expect(useAuthStore.getState().user).toEqual(expect.objectContaining({ id: user.id }));
+    expect(useAuthStore.getState().user).toEqual(
+      expect.objectContaining({ id: user.id }),
+    );
     expect(useAuthStore.getState().hasCompletedOnboarding).toBe(true);
     expect(useAnchorStore.getState().anchors).toEqual([
       expect.objectContaining({ id: 'server-anchor-2' }),
@@ -244,11 +272,242 @@ describe('AuthHydrationService', () => {
     expect(useAnchorStore.getState().anchors).toEqual([
       expect.objectContaining({ id: 'server-anchor-export-fallback' }),
     ]);
-    expect(useAnchorStore.getState().currentAnchorId).toBe('server-anchor-export-fallback');
+    expect(useAnchorStore.getState().currentAnchorId).toBe(
+      'server-anchor-export-fallback',
+    );
     expect(useSessionStore.getState().totalSessionsCount).toBe(1);
     expect(useSessionStore.getState().primingHistory).toEqual([
       expect.objectContaining({ id: 'activation-export-fallback' }),
     ]);
+  });
+
+  it('restores Deep Prime and burned-anchor lifetime history without making burned anchors active', async () => {
+    const user = createMockUser({
+      id: 'user-lifetime-history',
+      totalAnchorsCreated: 2,
+      totalActivations: 2,
+      currentStreak: 2,
+      hasCompletedOnboarding: true,
+    });
+    const activeAnchor = createMockAnchor({
+      id: '11111111-1111-4111-8111-111111111111',
+      userId: user.id,
+      activationCount: 2,
+      updatedAt: new Date('2026-07-11T12:00:00.000Z'),
+    });
+
+    mockFetchCompleteProfile.mockResolvedValue({
+      user,
+      stats: {},
+      activeAnchors: [],
+    });
+    mockApiGet.mockImplementation(async (url: string) => {
+      if (url === '/api/anchors') {
+        return { data: { data: [activeAnchor] } };
+      }
+
+      if (url === '/api/auth/me/export') {
+        return {
+          data: {
+            data: {
+              exportVersion: 2,
+              account: {
+                anchors: [activeAnchor],
+                activations: [
+                  {
+                    id: 'activation-live',
+                    anchorId: activeAnchor.id,
+                    activationType: 'visual',
+                    durationSeconds: 30,
+                    activatedAt: '2026-07-08T12:00:00.000Z',
+                  },
+                ],
+                charges: [
+                  // /activate creates this matching first-charge row; hydration
+                  // must not turn it into a second practice session.
+                  {
+                    id: 'charge-live-duplicate',
+                    anchorId: activeAnchor.id,
+                    chargeType: 'initial_quick',
+                    durationSeconds: 30,
+                    completed: true,
+                    chargedAt: '2026-07-08T12:00:00.000Z',
+                  },
+                  {
+                    id: 'charge-live-deep',
+                    anchorId: activeAnchor.id,
+                    chargeType: 'recharge',
+                    durationSeconds: 300,
+                    completed: true,
+                    chargedAt: '2026-07-09T12:00:00.000Z',
+                  },
+                ],
+              },
+              burnedAnchors: [
+                {
+                  id: 'burned-snapshot-1',
+                  originalAnchorId: '22222222-2222-4222-8222-222222222222',
+                  userId: user.id,
+                  intentionText: 'Released intention',
+                  category: 'custom',
+                  distilledLetters: ['R'],
+                  baseSigilSvg: '<svg/>',
+                  enhancedImageUrl: null,
+                  activationCount: 2,
+                  activationHistory: [
+                    {
+                      id: 'activation-burned',
+                      anchorId: '22222222-2222-4222-8222-222222222222',
+                      activationType: 'mantra',
+                      durationSeconds: 60,
+                      activatedAt: '2026-07-10T12:00:00.000Z',
+                    },
+                  ],
+                  chargeHistory: [
+                    {
+                      id: 'charge-burned-deep',
+                      anchorId: '22222222-2222-4222-8222-222222222222',
+                      chargeType: 'initial_deep',
+                      durationSeconds: 300,
+                      completed: true,
+                      chargedAt: '2026-07-11T12:00:00.000Z',
+                    },
+                  ],
+                  createdAt: '2026-07-01T12:00:00.000Z',
+                  burnedAt: '2026-07-12T12:00:00.000Z',
+                },
+                {
+                  id: 'foreign-burned-snapshot',
+                  originalAnchorId: '33333333-3333-4333-8333-333333333333',
+                  userId: 'another-user',
+                  intentionText: 'Do not hydrate',
+                  category: 'custom',
+                  distilledLetters: ['X'],
+                  activationCount: 50,
+                  activationHistory: [],
+                  chargeHistory: [],
+                  createdAt: '2026-07-01T12:00:00.000Z',
+                  burnedAt: '2026-07-12T12:00:00.000Z',
+                },
+              ],
+            },
+          },
+        };
+      }
+
+      throw new Error(`Unexpected url: ${url}`);
+    });
+
+    await AuthHydrationService.hydrateAuthenticatedData();
+
+    const anchorState = useAnchorStore.getState();
+    const sessionState = useSessionStore.getState();
+    expect(anchorState.anchors).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ id: activeAnchor.id }),
+        expect.objectContaining({
+          id: '22222222-2222-4222-8222-222222222222',
+          isReleased: true,
+          releasedAt: expect.any(Date),
+          archivedAt: expect.any(Date),
+          activationCount: 2,
+        }),
+      ]),
+    );
+    expect(anchorState.anchors).toHaveLength(2);
+    expect(anchorState.getActiveAnchors().map((anchor) => anchor.id)).toEqual([
+      activeAnchor.id,
+    ]);
+    expect(anchorState.currentAnchorId).toBe(activeAnchor.id);
+    expect(anchorState.totalPrimes).toBe(4);
+
+    expect(sessionState.primingHistory.map((entry) => entry.id)).toEqual([
+      'charge-burned-deep',
+      'activation-burned',
+      'charge-live-deep',
+      'activation-live',
+    ]);
+    expect(sessionState.primingHistory).not.toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ id: 'charge-live-duplicate' }),
+      ]),
+    );
+    expect(
+      sessionState.primingHistory.filter((entry) => entry.type === 'reinforce'),
+    ).toHaveLength(2);
+    expect(
+      new Set(sessionState.primingHistory.map((entry) => entry.localDate)).size,
+    ).toBe(4);
+    expect(sessionState.totalSessionsCount).toBe(4);
+  });
+
+  it('does not resurrect a stale active snapshot after the server has burned that anchor', async () => {
+    const user = createMockUser({
+      id: 'user-burned-snapshot',
+      totalAnchorsCreated: 1,
+      totalActivations: 3,
+    });
+    const originalAnchorId = '44444444-4444-4444-8444-444444444444';
+    const staleSnapshotAnchor = createMockAnchor({
+      id: originalAnchorId,
+      userId: user.id,
+      activationCount: 3,
+    });
+    await saveAnchorSnapshot(user.id, {
+      anchors: [staleSnapshotAnchor],
+      currentAnchorId: originalAnchorId,
+    });
+
+    mockFetchCompleteProfile.mockResolvedValue({
+      user,
+      stats: {},
+      activeAnchors: [],
+    });
+    mockApiGet.mockImplementation(async (url: string) => {
+      if (url === '/api/anchors') {
+        return { data: { data: [] } };
+      }
+      if (url === '/api/auth/me/export') {
+        return {
+          data: {
+            data: {
+              exportVersion: 2,
+              account: { anchors: [], activations: [], charges: [] },
+              burnedAnchors: [
+                {
+                  id: 'burned-snapshot-legacy',
+                  originalAnchorId,
+                  userId: user.id,
+                  intentionText: staleSnapshotAnchor.intentionText,
+                  category: staleSnapshotAnchor.category,
+                  distilledLetters: staleSnapshotAnchor.distilledLetters,
+                  baseSigilSvg: staleSnapshotAnchor.baseSigilSvg,
+                  activationCount: 3,
+                  activationHistory: [],
+                  chargeHistory: [],
+                  createdAt: staleSnapshotAnchor.createdAt.toISOString(),
+                  burnedAt: '2026-07-12T12:00:00.000Z',
+                },
+              ],
+            },
+          },
+        };
+      }
+      throw new Error(`Unexpected url: ${url}`);
+    });
+
+    await AuthHydrationService.hydrateAuthenticatedData();
+
+    expect(useAnchorStore.getState().anchors).toEqual([
+      expect.objectContaining({
+        id: originalAnchorId,
+        isReleased: true,
+        archivedAt: expect.any(Date),
+      }),
+    ]);
+    expect(useAnchorStore.getState().getActiveAnchors()).toEqual([]);
+    expect(useAnchorStore.getState().currentAnchorId).toBeUndefined();
+    expect(useSessionStore.getState().totalSessionsCount).toBe(3);
   });
 
   it('keeps local progress when anchor hydration fails after login', async () => {
@@ -305,9 +564,13 @@ describe('AuthHydrationService', () => {
       throw new Error(`Unexpected url: ${url}`);
     });
 
-    await expect(AuthHydrationService.hydrateAuthenticatedData()).resolves.toBeUndefined();
+    await expect(
+      AuthHydrationService.hydrateAuthenticatedData(),
+    ).resolves.toBeUndefined();
 
-    expect(useAuthStore.getState().user).toEqual(expect.objectContaining({ id: user.id }));
+    expect(useAuthStore.getState().user).toEqual(
+      expect.objectContaining({ id: user.id }),
+    );
     expect(useAnchorStore.getState().anchors).toEqual([
       expect.objectContaining({ id: 'anchor-local-only' }),
     ]);
@@ -355,8 +618,16 @@ describe('AuthHydrationService', () => {
         mode: 'ambient',
         completedAt,
       },
-      todayPractice: { date: '2026-06-08', sessionsCount: 1, totalSeconds: 120 },
-      weeklyPractice: { weekKey: '2026-W24', sessionsCount: 1, totalSeconds: 120 },
+      todayPractice: {
+        date: '2026-06-08',
+        sessionsCount: 1,
+        totalSeconds: 120,
+      },
+      weeklyPractice: {
+        weekKey: '2026-W24',
+        sessionsCount: 1,
+        totalSeconds: 120,
+      },
       lastGraceDayUsedAt: null,
       sessionLog: [
         {
@@ -391,10 +662,14 @@ describe('AuthHydrationService', () => {
       lastDecayDate: '2026-06-08',
     });
 
-    mockFetchCompleteProfile.mockRejectedValue(new Error('PROFILE_FETCH_FAILED'));
+    mockFetchCompleteProfile.mockRejectedValue(
+      new Error('PROFILE_FETCH_FAILED'),
+    );
     mockApiGet.mockRejectedValue(new Error('REMOTE_FETCH_FAILED'));
 
-    await expect(AuthHydrationService.hydrateAuthenticatedData()).resolves.toBeUndefined();
+    await expect(
+      AuthHydrationService.hydrateAuthenticatedData(),
+    ).resolves.toBeUndefined();
 
     expect(useProfileStore.getState()).toEqual(
       expect.objectContaining({
@@ -402,19 +677,21 @@ describe('AuthHydrationService', () => {
         name: 'Snapshot User',
         axiom: 'Steady hands.',
         mono: 'avatar_2',
-      })
+      }),
     );
     expect(useSessionStore.getState()).toEqual(
       expect.objectContaining({
         totalSessionsCount: 17,
         threadStrength: 90,
         lastPrimedAt: '2026-06-08',
-      })
+      }),
     );
     expect(useAnchorStore.getState().anchors).toEqual([
       expect.objectContaining({ id: 'anchor-local-fallback' }),
     ]);
-    expect(useAnchorStore.getState().currentAnchorId).toBe('anchor-local-fallback');
+    expect(useAnchorStore.getState().currentAnchorId).toBe(
+      'anchor-local-fallback',
+    );
   });
 
   it('restores anchor snapshot when remote anchor list is empty but the user has saved progress', async () => {
@@ -460,12 +737,16 @@ describe('AuthHydrationService', () => {
       throw new Error(`Unexpected url: ${url}`);
     });
 
-    await expect(AuthHydrationService.hydrateAuthenticatedData()).resolves.toBeUndefined();
+    await expect(
+      AuthHydrationService.hydrateAuthenticatedData(),
+    ).resolves.toBeUndefined();
 
     expect(useAnchorStore.getState().anchors).toEqual([
       expect.objectContaining({ id: 'anchor-snapshot-only' }),
     ]);
-    expect(useAnchorStore.getState().currentAnchorId).toBe('anchor-snapshot-only');
+    expect(useAnchorStore.getState().currentAnchorId).toBe(
+      'anchor-snapshot-only',
+    );
   });
 
   it('does not let stale session snapshots overwrite server-hydrated practice history', async () => {
@@ -485,7 +766,11 @@ describe('AuthHydrationService', () => {
     await saveSessionSnapshot(user.id, {
       lastSession: null,
       todayPractice: { date: '2026-06-08', sessionsCount: 0, totalSeconds: 0 },
-      weeklyPractice: { weekKey: '2026-W24', sessionsCount: 0, totalSeconds: 0 },
+      weeklyPractice: {
+        weekKey: '2026-W24',
+        sessionsCount: 0,
+        totalSeconds: 0,
+      },
       lastGraceDayUsedAt: null,
       sessionLog: [],
       threadStrength: 50,
@@ -539,5 +824,150 @@ describe('AuthHydrationService', () => {
       expect.objectContaining({ id: 'activation-server-history' }),
     ]);
     expect(useSessionStore.getState().lastPrimedAt).toBe('2026-06-08');
+  });
+
+  it('merges the local and server copy of one completion by client event ID', async () => {
+    const user = createMockUser({
+      id: 'user-event-identity',
+      totalActivations: 1,
+      currentStreak: 1,
+    });
+    const anchor = createMockAnchor({
+      id: '55555555-5555-4555-8555-555555555555',
+      userId: user.id,
+      activationCount: 1,
+    });
+    useSessionStore.getState().recordSession({
+      idempotencyKey: 'practice-shared-event',
+      anchorId: anchor.id,
+      type: 'activate',
+      durationSeconds: 30,
+      mode: 'silent',
+      completedAt: '2026-07-12T10:05:00.000Z',
+    });
+    mockFetchCompleteProfile.mockResolvedValue({
+      user,
+      stats: {},
+      activeAnchors: [],
+    });
+    mockApiGet.mockImplementation(async (url: string) => {
+      if (url === '/api/anchors') return { data: { data: [anchor] } };
+      if (url === '/api/auth/me/export') {
+        return {
+          data: {
+            data: {
+              exportVersion: 2,
+              account: {
+                anchors: [anchor],
+                activations: [
+                  {
+                    id: 'database-activation-id',
+                    clientEventId: 'practice-shared-event',
+                    anchorId: anchor.id,
+                    activationType: 'visual',
+                    durationSeconds: 30,
+                    activatedAt: '2026-07-12T10:00:00.000Z',
+                  },
+                ],
+                charges: [],
+              },
+              burnedAnchors: [],
+            },
+          },
+        };
+      }
+      throw new Error(`Unexpected url: ${url}`);
+    });
+
+    await AuthHydrationService.hydrateAuthenticatedData();
+
+    expect(useSessionStore.getState().primingHistory).toEqual([
+      expect.objectContaining({ id: 'practice-shared-event' }),
+    ]);
+    expect(useSessionStore.getState().totalSessionsCount).toBe(1);
+  });
+
+  it('does not trust a partial v2 export enough to resurrect a stale snapshot', async () => {
+    const user = createMockUser({
+      id: 'user-partial-v2',
+      totalAnchorsCreated: 1,
+      hasCompletedOnboarding: true,
+    });
+    const staleAnchor = createMockAnchor({
+      id: 'server-anchor-already-burned',
+    });
+    useAuthStore.setState({
+      user,
+      token: 'token',
+      isAuthenticated: true,
+    } as any);
+    await saveAnchorSnapshot(user.id, {
+      anchors: [staleAnchor],
+      currentAnchorId: staleAnchor.id,
+    });
+    mockFetchCompleteProfile.mockResolvedValue({
+      user,
+      stats: {},
+      activeAnchors: [],
+    });
+    mockApiGet.mockImplementation(async (url: string) => {
+      if (url === '/api/anchors') return { data: { data: [] } };
+      if (url === '/api/auth/me/export') {
+        return {
+          data: {
+            data: {
+              exportVersion: 2,
+              account: { anchors: [], activations: [], charges: [] },
+              // burnedAnchors is missing, so v2 is explicitly incomplete.
+            },
+          },
+        };
+      }
+      throw new Error(`Unexpected url: ${url}`);
+    });
+
+    await AuthHydrationService.hydrateAuthenticatedData();
+
+    expect(useAnchorStore.getState().anchors).toEqual([]);
+    expect(useAnchorStore.getState().currentAnchorId).toBeUndefined();
+  });
+
+  it('abandons hydration when the active account changes mid-request', async () => {
+    const userA = createMockUser({ id: 'user-a' });
+    const userB = createMockUser({ id: 'user-b' });
+    const accountBAnchor = createMockAnchor({
+      id: 'account-b-anchor',
+      userId: userB.id,
+    });
+    let resolveProfile: ((value: unknown) => void) | undefined;
+    const profilePromise = new Promise((resolve) => {
+      resolveProfile = resolve;
+    });
+    useAuthStore.setState({
+      user: userA,
+      token: 'token-a',
+      isAuthenticated: true,
+    } as any);
+    mockFetchCompleteProfile.mockReturnValue(profilePromise);
+    mockApiGet.mockImplementation(async (url: string) => {
+      if (url === '/api/anchors') return { data: { data: [] } };
+      if (url === '/api/auth/me/export') throw new Error('export unavailable');
+      throw new Error(`Unexpected url: ${url}`);
+    });
+
+    const hydration = AuthHydrationService.hydrateAuthenticatedData();
+    useAuthStore.setState({
+      user: userB,
+      token: 'token-b',
+      isAuthenticated: true,
+    } as any);
+    useAnchorStore.getState().setAnchors([accountBAnchor]);
+    resolveProfile?.({ user: userA, stats: {}, activeAnchors: [] });
+    await hydration;
+
+    expect(useAuthStore.getState().user?.id).toBe(userB.id);
+    expect(useAnchorStore.getState().anchors).toEqual([
+      expect.objectContaining({ id: accountBAnchor.id }),
+    ]);
   });
 });

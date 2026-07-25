@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   Animated,
   Easing,
@@ -27,6 +27,7 @@ import type { ForgeMomentMilestone } from '@/stores/forgeMomentStore';
 
 interface ForgeMomentOverlayProps {
   milestone: ForgeMomentMilestone | null;
+  onShown: () => void;
   onDismiss: () => void;
 }
 
@@ -257,20 +258,25 @@ const RankIcon: React.FC<{ name: string; size?: number }> = ({ name, size = 24 }
 
 export const ForgeMomentOverlay: React.FC<ForgeMomentOverlayProps> = ({
   milestone,
+  onShown,
   onDismiss,
 }) => {
   const insets = useSafeAreaInsets();
   const { width, height } = useWindowDimensions();
   const entry = useRef(new Animated.Value(0)).current;
   const fadeOut = useRef(new Animated.Value(1)).current;
+  const [acceptsTouches, setAcceptsTouches] = useState(false);
 
   useEffect(() => {
     if (!milestone) {
+      setAcceptsTouches(false);
       return;
     }
 
+    setAcceptsTouches(true);
     entry.setValue(0);
     fadeOut.setValue(1);
+    onShown();
 
     Animated.timing(entry, {
       toValue: 1,
@@ -280,6 +286,9 @@ export const ForgeMomentOverlay: React.FC<ForgeMomentOverlayProps> = ({
     }).start();
 
     const fadeTimer = setTimeout(() => {
+      // The overlay is visually gone before dismissal runs. Stop it from
+      // holding the responder during that transition window.
+      setAcceptsTouches(false);
       Animated.timing(fadeOut, {
         toValue: 0,
         duration: EXIT_DURATION_MS,
@@ -294,7 +303,7 @@ export const ForgeMomentOverlay: React.FC<ForgeMomentOverlayProps> = ({
       clearTimeout(fadeTimer);
       clearTimeout(dismissTimer);
     };
-  }, [entry, fadeOut, milestone, onDismiss]);
+  }, [entry, fadeOut, milestone, onDismiss, onShown]);
 
   const containerSize = Math.min(width * 0.82, 320);
   const outerRingSize = containerSize * 0.94;
@@ -335,18 +344,24 @@ export const ForgeMomentOverlay: React.FC<ForgeMomentOverlayProps> = ({
 
   return (
     <Animated.View pointerEvents="box-none" style={[StyleSheet.absoluteFillObject, { opacity: overlayOpacity }]}>
-      <Pressable style={styles.overlayRoot} onPress={onDismiss}>
+      <Pressable
+        pointerEvents={acceptsTouches ? 'auto' : 'none'}
+        style={styles.overlayRoot}
+        onPress={onDismiss}
+      >
         <LinearGradient
+          pointerEvents="none"
           colors={['#1a0a30', '#110620', '#0d0518', colors.black]}
           locations={[0, 0.35, 0.68, 1]}
           style={StyleSheet.absoluteFillObject}
         />
 
-        <View style={[styles.nebulaGlow, styles.nebulaLeft]} />
-        <View style={[styles.nebulaGlow, styles.nebulaRight]} />
-        <View style={[styles.goldBloom, { top: height * 0.22 }]} />
+        <View pointerEvents="none" style={[styles.nebulaGlow, styles.nebulaLeft]} />
+        <View pointerEvents="none" style={[styles.nebulaGlow, styles.nebulaRight]} />
+        <View pointerEvents="none" style={[styles.goldBloom, { top: height * 0.22 }]} />
 
         <Svg
+          pointerEvents="none"
           width={width}
           height={height}
           viewBox={`0 0 ${Math.max(width, 390)} ${Math.max(height, 844)}`}
@@ -396,7 +411,10 @@ export const ForgeMomentOverlay: React.FC<ForgeMomentOverlayProps> = ({
           })}
         </Svg>
 
-        <View style={[styles.content, { paddingTop: insets.top + 32, paddingBottom: insets.bottom + 32 }]}>
+        <View
+          pointerEvents="none"
+          style={[styles.content, { paddingTop: insets.top + 32, paddingBottom: insets.bottom + 32 }]}
+        >
           <Animated.View
             style={[
               styles.ringContainer,

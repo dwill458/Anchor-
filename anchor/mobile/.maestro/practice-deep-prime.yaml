@@ -1,0 +1,14 @@
+appId: com.anchor.mobile
+---
+# Requires the app to start with an authenticated account containing one active
+# anchor. Maestro taps a testID at its center, intentionally exercising the
+# complete hero surface rather than the decorative arrow.
+- launchApp
+- tapOn: "PRACTICE"
+- assertVisible:
+    id: practice-hero-deep-prime
+- tapOn:
+    id: practice-hero-deep-prime
+- assertVisible:
+    id: deep-prime-entry
+- assertNotVisible: "Anchor Details"

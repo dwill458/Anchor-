@@ -199,9 +199,10 @@ export const AnchorRevealScreen: React.FC = () => {
             has_image: Boolean(enhancedImageUrl),
         });
 
+        const idempotencyKey = `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
         let anchorId = isGuestFirstAnchor
-            ? `pending-first-anchor-${Date.now()}`
-            : `anchor-${Date.now()}`;
+            ? `pending-first-anchor-${idempotencyKey}`
+            : `anchor-${idempotencyKey}`;
 
         const { tier, confidenceScore, isCustomFallback } = classifyToTierPreliminary(intentionText);
 
@@ -220,8 +221,11 @@ export const AnchorRevealScreen: React.FC = () => {
                     queuedAt: new Date().toISOString(),
                 });
             } else {
-                // Persist anchor to backend — this is the source of truth
-                const response = await post<ApiResponse<Anchor>>('/api/anchors', {
+                // Persist anchor to backend — this is the source of truth.
+                // idempotencyKey lets a retried request return the anchor that was
+                // already created rather than creating a duplicate, so a single
+                // network-only retry (no response received either way) is safe here.
+                const anchorPayload = {
                     intentionText,
                     category,
                     distilledLetters,
@@ -233,8 +237,24 @@ export const AnchorRevealScreen: React.FC = () => {
                     enhancementMetadata: enhancementMetadata || undefined,
                     planetaryTier: tier,
                     classifierVersion: 2,
-                    classifierMeta: { confidenceScore, isCustomFallback }
-                });
+                    classifierMeta: { confidenceScore, isCustomFallback },
+                    idempotencyKey,
+                };
+
+                let response: ApiResponse<Anchor> | undefined;
+                try {
+                    response = await post<ApiResponse<Anchor>>('/api/anchors', anchorPayload);
+                } catch (firstAttemptErr) {
+                    const isNetworkError =
+                        !(firstAttemptErr instanceof ApiClientError) &&
+                        firstAttemptErr instanceof Error &&
+                        firstAttemptErr.message === 'Network error. Please check your connection.';
+                    if (!isNetworkError) {
+                        throw firstAttemptErr;
+                    }
+                    await new Promise(resolve => setTimeout(resolve, 500));
+                    response = await post<ApiResponse<Anchor>>('/api/anchors', anchorPayload);
+                }
 
                 if (response?.success && response?.data?.id) {
                     anchorId = response.data.id;
@@ -280,6 +300,10 @@ export const AnchorRevealScreen: React.FC = () => {
                 is_first_anchor: isGuestFirstAnchor,
                 category,
                 has_enhanced_image: Boolean(enhancedImageUrl),
+                error_code: err instanceof ApiClientError ? err.code : undefined,
+                error_status: err instanceof ApiClientError ? err.status : undefined,
+                error_message: err instanceof Error ? err.message : undefined,
+                idempotency_key: idempotencyKey,
             });
             ErrorTrackingService.captureException(err, {
                 screen: 'AnchorRevealScreen',

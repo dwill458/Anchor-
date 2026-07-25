@@ -5,13 +5,23 @@
  */
 
 import { NextFunction, Router, Response } from 'express';
+import { PracticeSession } from '@prisma/client';
 import { z } from 'zod';
 import { AuthRequest, authMiddleware } from '../middleware/auth';
 import { AppError } from '../middleware/errorHandler';
 import { prisma } from '../../lib/prisma';
+import {
+  BACKGROUND_AUDIO_MODES,
+  GUIDANCE_VOICES,
+  PRACTICE_MODES,
+  VISUALIZE_DURATIONS_SECONDS,
+} from '../../types/practice';
+import { validateVisualizationScene } from '../../services/VisualizationSceneService';
+import { requireVisualizeAccess } from '../../services/PracticeAccessService';
 
 const router = Router();
 const MS_PER_DAY = 24 * 60 * 60 * 1000;
+const NEXT_ACTION_MAX_LENGTH = 240;
 
 // --- Zod schemas ---
 
@@ -26,6 +36,38 @@ const StabilizeSchema = z.object({
   lastStabilizeTimezoneOffsetMinutes: z.number().min(-840).max(840).nullable().optional(),
   stabilizeStreakDaysClient: z.number().min(1).optional(),
 });
+
+const IsoDateSchema = z.string().datetime({ offset: true });
+const PracticeSessionSchema = z
+  .object({
+    id: z.string().min(1).max(200),
+    anchorId: z.string().min(1).max(200).nullable(),
+    anchorLocalId: z.string().min(1).max(200).nullable().optional(),
+    anchorServerId: z.string().min(1).max(200).nullable().optional(),
+    practiceMode: z.enum(PRACTICE_MODES),
+    plannedDurationSeconds: z.number().int().min(1).max(7200),
+    completedDurationSeconds: z.number().int().min(1).max(7200),
+    completionStatus: z.literal('completed'),
+    startedAt: IsoDateSchema,
+    completedAt: IsoDateSchema,
+    guidanceVoice: z.enum(GUIDANCE_VOICES),
+    backgroundAudio: z.enum(BACKGROUND_AUDIO_MODES),
+    sceneSnapshot: z.string().max(180).nullable().optional(),
+    nextAction: z.string().trim().min(1).max(NEXT_ACTION_MAX_LENGTH).nullable().optional(),
+    clientVersion: z.string().max(100).nullable().optional(),
+  })
+  .strict();
+
+const PracticeSessionQuerySchema = z.object({
+  cursor: z.string().min(1).max(200).optional(),
+  limit: z.coerce.number().int().min(1).max(100).default(50),
+  anchorId: z.string().min(1).max(200).optional(),
+  practiceMode: z.enum(PRACTICE_MODES).optional(),
+});
+
+const NextActionSchema = z
+  .object({ nextAction: z.string().trim().min(1).max(NEXT_ACTION_MAX_LENGTH).nullable() })
+  .strict();
 
 // Validates req.body against a schema; throws AppError on failure.
 function validate<T>(schema: z.ZodSchema<T>, data: unknown): T {
@@ -59,6 +101,202 @@ const getLocalDayDiff = (
 
 // All practice routes require authentication
 router.use(authMiddleware);
+
+async function getAuthenticatedUser(req: AuthRequest) {
+  if (!req.user) throw new AppError('User not authenticated', 401, 'UNAUTHORIZED');
+  const user = await prisma.user.findUnique({
+    where: { authUid: req.user.uid },
+    select: {
+      id: true,
+      authUid: true,
+      isComped: true,
+      subscriptionStatus: true,
+      subscriptionId: true,
+      trialStartedAt: true,
+    },
+  });
+  if (!user) throw new AppError('User not found', 404, 'USER_NOT_FOUND');
+  return user;
+}
+
+function assertValidCompletedSession(input: z.infer<typeof PracticeSessionSchema>) {
+  const startedAt = new Date(input.startedAt);
+  const completedAt = new Date(input.completedAt);
+  if (completedAt < startedAt || completedAt.getTime() > Date.now() + 5 * 60 * 1000) {
+    throw new AppError('Invalid practice timestamps', 400, 'VALIDATION_ERROR');
+  }
+  if (input.completedDurationSeconds > input.plannedDurationSeconds + 5) {
+    throw new AppError('Completed duration exceeds the planned session', 400, 'VALIDATION_ERROR');
+  }
+  if (input.practiceMode === 'visualize') {
+    if (
+      !(VISUALIZE_DURATIONS_SECONDS as readonly number[]).includes(input.plannedDurationSeconds)
+    ) {
+      throw new AppError('Unsupported Visualize duration', 400, 'VALIDATION_ERROR');
+    }
+    if (input.completedDurationSeconds !== input.plannedDurationSeconds) {
+      throw new AppError('Visualize must reach its completion boundary', 400, 'VALIDATION_ERROR');
+    }
+    if (!validateVisualizationScene(input.sceneSnapshot)) {
+      throw new AppError('A valid scene snapshot is required', 400, 'VALIDATION_ERROR');
+    }
+  }
+}
+
+function immutableSessionMatches(
+  existing: PracticeSession,
+  input: z.infer<typeof PracticeSessionSchema>
+): boolean {
+  const expectedServerAnchorSnapshot = input.anchorServerId ?? input.anchorId;
+  const anchorRelationMatches =
+    existing.anchorId === input.anchorId ||
+    (existing.anchorId === null &&
+      existing.anchorServerIdSnapshot === expectedServerAnchorSnapshot);
+  return (
+    anchorRelationMatches &&
+    existing.anchorLocalId === (input.anchorLocalId ?? null) &&
+    existing.anchorServerIdSnapshot === (input.anchorServerId ?? input.anchorId ?? null) &&
+    existing.practiceMode === input.practiceMode &&
+    existing.plannedDurationSeconds === input.plannedDurationSeconds &&
+    existing.completedDurationSeconds === input.completedDurationSeconds &&
+    existing.completionStatus === input.completionStatus &&
+    existing.startedAt.getTime() === new Date(input.startedAt).getTime() &&
+    existing.completedAt.getTime() === new Date(input.completedAt).getTime() &&
+    existing.guidanceVoice === input.guidanceVoice &&
+    existing.backgroundAudio === input.backgroundAudio &&
+    existing.sceneSnapshot === (input.sceneSnapshot ?? null)
+  );
+}
+
+router.post('/sessions', async (req: AuthRequest, res: Response, next: NextFunction) => {
+  try {
+    const input = validate(PracticeSessionSchema, req.body ?? {});
+    assertValidCompletedSession(input);
+    const user = await getAuthenticatedUser(req);
+    if (input.practiceMode === 'visualize') await requireVisualizeAccess(user);
+
+    const existing = await prisma.practiceSession.findUnique({ where: { id: input.id } });
+    if (existing) {
+      if (existing.userId !== user.id || !immutableSessionMatches(existing, input)) {
+        throw new AppError('Session ID has already been used', 409, 'SESSION_ID_CONFLICT');
+      }
+      res.json({ success: true, data: existing, idempotent: true });
+      return;
+    }
+
+    let relationAnchorId: string | null = null;
+    if (input.anchorId) {
+      const referencedAnchor = await prisma.anchor.findUnique({
+        where: { id: input.anchorId },
+        select: { id: true, userId: true },
+      });
+      if (referencedAnchor && referencedAnchor.userId !== user.id) {
+        throw new AppError('Anchor not found', 404, 'ANCHOR_NOT_FOUND');
+      }
+      // A session completed before a delete/release remains valid. If the
+      // anchor has since been deleted, retain its snapshots without restoring
+      // a live relation.
+      relationAnchorId = referencedAnchor?.id ?? null;
+    }
+
+    const created = await prisma.$transaction(async tx => {
+      const session = await tx.practiceSession.create({
+        data: {
+          id: input.id,
+          userId: user.id,
+          anchorId: relationAnchorId,
+          anchorLocalId: input.anchorLocalId ?? null,
+          anchorServerIdSnapshot: input.anchorServerId ?? input.anchorId,
+          practiceMode: input.practiceMode,
+          plannedDurationSeconds: input.plannedDurationSeconds,
+          completedDurationSeconds: input.completedDurationSeconds,
+          completionStatus: input.completionStatus,
+          startedAt: new Date(input.startedAt),
+          completedAt: new Date(input.completedAt),
+          guidanceVoice: input.guidanceVoice,
+          backgroundAudio: input.backgroundAudio,
+          sceneSnapshot: input.sceneSnapshot ?? null,
+          nextAction: input.nextAction ?? null,
+          clientVersion: input.clientVersion ?? null,
+        },
+      });
+      // Focus/Deep Prime retain their existing legacy activation/charge writes
+      // during compatibility. Visualize has no legacy row, so it owns the
+      // compatibility counters here.
+      if (relationAnchorId && input.practiceMode === 'visualize') {
+        await tx.anchor.update({
+          where: { id: relationAnchorId },
+          data: {
+            activationCount: { increment: 1 },
+            lastActivatedAt: new Date(input.completedAt),
+          },
+        });
+        await tx.user.update({
+          where: { id: user.id },
+          data: { totalActivations: { increment: 1 } },
+        });
+      }
+      return session;
+    });
+    res.status(201).json({ success: true, data: created, idempotent: false });
+  } catch (error) {
+    if (error instanceof AppError) return next(error);
+    return next(new AppError('Failed to record practice session', 500, 'PRACTICE_ERROR'));
+  }
+});
+
+router.get('/sessions', async (req: AuthRequest, res: Response, next: NextFunction) => {
+  try {
+    const query = validate(PracticeSessionQuerySchema, req.query);
+    const limit = query.limit ?? 50;
+    const user = await getAuthenticatedUser(req);
+    const rows = await prisma.practiceSession.findMany({
+      where: {
+        userId: user.id,
+        ...(query.anchorId
+          ? { OR: [{ anchorId: query.anchorId }, { anchorLocalId: query.anchorId }] }
+          : {}),
+        ...(query.practiceMode ? { practiceMode: query.practiceMode } : {}),
+      },
+      orderBy: [{ completedAt: 'desc' }, { id: 'desc' }],
+      take: limit + 1,
+      ...(query.cursor ? { cursor: { id: query.cursor }, skip: 1 } : {}),
+    });
+    const hasMore = rows.length > limit;
+    const data = hasMore ? rows.slice(0, limit) : rows;
+    res.json({
+      success: true,
+      data,
+      pagination: { nextCursor: hasMore ? (data[data.length - 1]?.id ?? null) : null, hasMore },
+    });
+  } catch (error) {
+    if (error instanceof AppError) return next(error);
+    return next(new AppError('Failed to load practice sessions', 500, 'PRACTICE_ERROR'));
+  }
+});
+
+router.patch(
+  '/sessions/:id/next-action',
+  async (req: AuthRequest, res: Response, next: NextFunction) => {
+    try {
+      const { nextAction } = validate(NextActionSchema, req.body ?? {});
+      const user = await getAuthenticatedUser(req);
+      const existing = await prisma.practiceSession.findFirst({
+        where: { id: req.params.id, userId: user.id },
+      });
+      if (!existing)
+        throw new AppError('Practice session not found', 404, 'PRACTICE_SESSION_NOT_FOUND');
+      const updated = await prisma.practiceSession.update({
+        where: { id: existing.id },
+        data: { nextAction },
+      });
+      res.json({ success: true, data: updated });
+    } catch (error) {
+      if (error instanceof AppError) return next(error);
+      return next(new AppError('Failed to save next action', 500, 'PRACTICE_ERROR'));
+    }
+  }
+);
 
 /**
  * POST /api/practice/stabilize

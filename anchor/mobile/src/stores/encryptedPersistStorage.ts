@@ -12,6 +12,25 @@ type AsyncStateStorage = StateStorage & {
 const SECURE_META_SUFFIX = '__secure_meta';
 const SECURE_CHUNK_PREFIX = '__secure_chunk_';
 const SECURE_CHUNK_SIZE = 1800;
+const SECURE_STORE_KEY_PATTERN = /^[A-Za-z0-9._-]+$/;
+
+/**
+ * Android SecureStore accepts only alphanumeric characters plus `.`, `-`, and
+ * `_` in its key names. Some higher-level storage namespaces use separators
+ * such as `:`, so encode only those keys before calling the native module.
+ *
+ * Already-valid keys are retained verbatim to preserve existing persisted
+ * state across this update.
+ */
+function secureStoreKey(key: string): string {
+  if (SECURE_STORE_KEY_PATTERN.test(key)) {
+    return key;
+  }
+
+  return `anchor-secure-${Array.from(key, (character) =>
+    character.codePointAt(0)!.toString(36)
+  ).join('-')}`;
+}
 
 interface SecureChunkMeta {
   chunks: number;
@@ -36,7 +55,7 @@ function splitIntoChunks(value: string): string[] {
 }
 
 async function readSecureMeta(name: string): Promise<SecureChunkMeta | null> {
-  const rawMeta = await SecureStore.getItemAsync(secureMetaKey(name));
+  const rawMeta = await SecureStore.getItemAsync(secureStoreKey(secureMetaKey(name)));
   if (!rawMeta) return null;
 
   try {
@@ -54,10 +73,10 @@ async function clearSecureChunks(name: string): Promise<void> {
   const existingMeta = await readSecureMeta(name);
   if (existingMeta) {
     for (let i = 0; i < existingMeta.chunks; i += 1) {
-      await SecureStore.deleteItemAsync(secureChunkKey(name, i));
+      await SecureStore.deleteItemAsync(secureStoreKey(secureChunkKey(name, i)));
     }
   }
-  await SecureStore.deleteItemAsync(secureMetaKey(name));
+  await SecureStore.deleteItemAsync(secureStoreKey(secureMetaKey(name)));
 }
 
 export async function readSecureValue(name: string): Promise<string | null> {
@@ -66,7 +85,7 @@ export async function readSecureValue(name: string): Promise<string | null> {
 
   const chunks = await Promise.all(
     Array.from({ length: meta.chunks }, (_, index) =>
-      SecureStore.getItemAsync(secureChunkKey(name, index))
+      SecureStore.getItemAsync(secureStoreKey(secureChunkKey(name, index)))
     )
   );
 
@@ -84,11 +103,13 @@ export async function writeSecureValue(name: string, value: string): Promise<voi
 
   const chunks = splitIntoChunks(value);
   await Promise.all(
-    chunks.map((chunk, index) => SecureStore.setItemAsync(secureChunkKey(name, index), chunk))
+    chunks.map((chunk, index) =>
+      SecureStore.setItemAsync(secureStoreKey(secureChunkKey(name, index)), chunk)
+    )
   );
 
   const meta: SecureChunkMeta = { chunks: chunks.length };
-  await SecureStore.setItemAsync(secureMetaKey(name), JSON.stringify(meta));
+  await SecureStore.setItemAsync(secureStoreKey(secureMetaKey(name)), JSON.stringify(meta));
 }
 
 async function migrateLegacyAsyncStorageValue(name: string): Promise<string | null> {

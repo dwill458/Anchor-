@@ -21,7 +21,14 @@ interface DailyThreadDetailsSheetProps {
 }
 
 function formatSessionLabel(session: SessionLogEntry): string {
-  const type = session.type === 'activate' ? 'Charge' : session.type === 'stabilize' ? 'Stabilize' : 'Reinforce';
+  const type =
+    session.type === 'activate'
+      ? 'Focus'
+      : session.type === 'visualize'
+        ? 'Visualize'
+        : session.type === 'stabilize'
+          ? 'Stabilize'
+          : 'Deep Prime';
   const when = new Date(session.completedAt);
   const dateLabel = Number.isNaN(when.getTime()) ? '' : when.toLocaleDateString();
   return `${type} • ${dateLabel}`;

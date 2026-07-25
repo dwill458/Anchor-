@@ -8,7 +8,7 @@ import Animated, {
 } from 'react-native-reanimated';
 import { colors, spacing, typography } from '@/theme';
 
-type PortalVariant = 'charge' | 'stabilize' | 'burn';
+type PortalVariant = 'charge' | 'stabilize' | 'visualize' | 'burn';
 
 interface ModePortalTileProps {
   variant: PortalVariant;
@@ -19,6 +19,9 @@ interface ModePortalTileProps {
   icon: React.ReactNode;
   style?: StyleProp<ViewStyle>;
   onPress: () => void;
+  badge?: string;
+  testID?: string;
+  disabled?: boolean;
 }
 
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
@@ -32,6 +35,9 @@ export const ModePortalTile: React.FC<ModePortalTileProps> = ({
   icon,
   style,
   onPress,
+  badge,
+  testID,
+  disabled = false,
 }) => {
   const pressed = useSharedValue(0);
   const isFeatured = variant === 'charge';
@@ -62,16 +68,21 @@ export const ModePortalTile: React.FC<ModePortalTileProps> = ({
 
   return (
     <AnimatedPressable
+      testID={testID}
       onPress={onPress}
       onPressIn={handlePressIn}
       onPressOut={handlePressOut}
       accessibilityRole="button"
+      accessibilityState={{ disabled }}
+      disabled={disabled}
+      hitSlop={8}
+      pointerEvents={disabled ? 'none' : 'auto'}
       style={[styles.pressable, style, animatedCard]}
     >
-      <View style={[styles.card, isFeatured ? styles.cardFeatured : styles.cardSecondary, isBurn && styles.cardBurn]}>
-        <View style={styles.topRow}>
-          <View style={[styles.iconWrap, isFeatured ? styles.iconFeatured : styles.iconSecondary]}>{icon}</View>
-          <Animated.View style={[styles.dot, dotStyle]} />
+      <View pointerEvents="none" style={[styles.card, isFeatured ? styles.cardFeatured : styles.cardSecondary, isBurn && styles.cardBurn]}>
+        <View pointerEvents="none" style={styles.topRow}>
+          <View pointerEvents="none" style={[styles.iconWrap, isFeatured ? styles.iconFeatured : styles.iconSecondary]}>{icon}</View>
+          {badge ? <Text style={styles.badge}>{badge}</Text> : <Animated.View style={[styles.dot, dotStyle]} />}
         </View>
         <Text style={isFeatured ? styles.titleFeatured : styles.titleSecondary}>{title}</Text>
         <Text style={isFeatured ? styles.meaningFeatured : styles.meaningSecondary}>{meaning}</Text>
@@ -139,6 +150,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.practice.cardDotBorder,
   },
+  badge: { color: colors.gold, fontFamily: typography.fontFamily.sans, fontSize: 9, letterSpacing: 1.2, borderWidth: 1, borderColor: colors.practice.cardIconBorder, borderRadius: 999, paddingHorizontal: 8, paddingVertical: 4 },
   titleFeatured: {
     fontFamily: typography.fontFamily.serifSemiBold,
     fontSize: 16,

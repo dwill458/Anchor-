@@ -27,8 +27,11 @@ import {
 import { useAnchorStore } from '@/stores/anchorStore';
 import { useProfileStore } from '@/stores/profileStore';
 import { useSessionStore } from '@/stores/sessionStore';
+import { useSettingsStore } from '@/stores/settingsStore';
 import { useSubscriptionStore, computeDaysRemaining } from '@/stores/subscriptionStore';
 import { useTeachingStore } from '@/stores/teachingStore';
+import { useForgeMomentStore } from '@/stores/forgeMomentStore';
+import { useVisualizationSceneStore } from '@/stores/visualizationSceneStore';
 import { calculateStreak } from '@/utils/streakHelpers';
 import {
   createDeveloperMasterUser,
@@ -766,6 +769,9 @@ export const useAuthStore = create<AuthState>()(
                 {
                   chargeType: mutation.chargeType,
                   durationSeconds: mutation.durationSeconds,
+                  ...(mutation.idempotencyKey
+                    ? { idempotencyKey: mutation.idempotencyKey }
+                    : {}),
                 }
               );
 
@@ -789,6 +795,9 @@ export const useAuthStore = create<AuthState>()(
                 {
                   activationType: mutation.activationType,
                   durationSeconds: mutation.durationSeconds,
+                  ...(mutation.idempotencyKey
+                    ? { idempotencyKey: mutation.idempotencyKey }
+                    : {}),
                 }
               );
 
@@ -1004,6 +1013,7 @@ export const useAuthStore = create<AuthState>()(
                 weekHistory: sessionState.weekHistory,
                 weekHistoryKey: sessionState.weekHistoryKey,
                 primingHistory: sessionState.primingHistory,
+                practiceHistory: sessionState.practiceHistory,
                 journeyWeekStart: sessionState.journeyWeekStart,
                 lastDecayDate: sessionState.lastDecayDate,
               }),
@@ -1013,11 +1023,22 @@ export const useAuthStore = create<AuthState>()(
           }
         }
 
+        // Auth callbacks can overlap. If a different account was established
+        // while the previous account's snapshots were being saved, the stale
+        // sign-out must not clear the new account's stores or presenter.
+        const currentUserId = get().user?.id;
+        if (currentUserId && currentUserId !== userId) {
+          return;
+        }
+
         applyUserToSubscriptionStore(null);
         useAnchorStore.getState().clearAnchors();
         useSessionStore.getState().reset();
         useTeachingStore.getState().reset();
+        useForgeMomentStore.getState().resetMilestones();
+        useVisualizationSceneStore.getState().clearActiveAccount();
         useProfileStore.getState().resetProfile();
+        useSettingsStore.getState().bindSessionAudioDefaultsOwner(null);
         set({
           user: null,
           token: null,

@@ -1,3 +1,40 @@
+diff --git a/node_modules/react-native-android-widget/android/src/main/java/com/reactnativeandroidwidget/builder/widget/ImageWidget.java b/node_modules/react-native-android-widget/android/src/main/java/com/reactnativeandroidwidget/builder/widget/ImageWidget.java
+index 4f5ca01..fa309ee 100644
+--- a/node_modules/react-native-android-widget/android/src/main/java/com/reactnativeandroidwidget/builder/widget/ImageWidget.java
++++ b/node_modules/react-native-android-widget/android/src/main/java/com/reactnativeandroidwidget/builder/widget/ImageWidget.java
+@@ -24,9 +24,11 @@ public class ImageWidget extends BaseWidget<ImageView> {
+ 
+     @Override
+     protected void applyProps() {
++        boolean contain = props.hasKey("resizeMode") && "contain".equals(props.getString("resizeMode"));
+         Bitmap bitmapFromURL = getBitmapFromURL(props.getMap("image").getString("uri"),
+             dpToPx(props.getDouble("imageWidth")),
+-            dpToPx(props.getDouble("imageHeight"))
++            dpToPx(props.getDouble("imageHeight")),
++            contain
+         );
+ 
+         RoundedBitmapDrawable bitmapDrawable =
+@@ -36,16 +38,17 @@ public class ImageWidget extends BaseWidget<ImageView> {
+             bitmapDrawable.setCornerRadius(dpToPx(props.getDouble("radius")));
+         }
+ 
++        view.setScaleType(contain ? ImageView.ScaleType.FIT_CENTER : ImageView.ScaleType.FIT_XY);
+         view.setImageDrawable(bitmapDrawable);
+     }
+ 
+-    private Bitmap getBitmapFromURL(String src, int width, int height) {
++    private Bitmap getBitmapFromURL(String src, int width, int height, boolean contain) {
+         try {
+             Bitmap bitmap = ResourceUtils.getBitmap(appContext, src);
+             if (bitmap == null) {
+                 return null;
+             }
+-            return Bitmap.createScaledBitmap(bitmap, width, height, true);
++            return contain ? bitmap : Bitmap.createScaledBitmap(bitmap, width, height, true);
+         } catch (IOException e) {
+             e.printStackTrace();
+             return null;
 diff --git a/node_modules/react-native-android-widget/android/src/main/java/com/reactnativeandroidwidget/builder/widget/SvgWidget.java b/node_modules/react-native-android-widget/android/src/main/java/com/reactnativeandroidwidget/builder/widget/SvgWidget.java
 index 7bee272..37dbe69 100644
 --- a/node_modules/react-native-android-widget/android/src/main/java/com/reactnativeandroidwidget/builder/widget/SvgWidget.java
@@ -12,6 +49,27 @@ index 7bee272..37dbe69 100644
              view.setImageDrawable(pd);
          } catch (SVGParseException | IOException e) {
              e.printStackTrace();
+diff --git a/node_modules/react-native-android-widget/lib/typescript/widgets/ImageWidget.d.ts b/node_modules/react-native-android-widget/lib/typescript/widgets/ImageWidget.d.ts
+index 7af43af..6a038d3 100644
+--- a/node_modules/react-native-android-widget/lib/typescript/widgets/ImageWidget.d.ts
++++ b/node_modules/react-native-android-widget/lib/typescript/widgets/ImageWidget.d.ts
+@@ -6,6 +6,7 @@ interface ImageWidgetInternalProps extends CommonInternalProps {
+     imageWidth: number;
+     imageHeight: number;
+     image: Pick<ImageResolvedAssetSource, 'uri'>;
++    resizeMode?: 'contain';
+ }
+ type ImageWidgetStyle = CommonStyleProps;
+ export type ImageWidgetSource = ImageRequireSource | `http:${string}` | `https:${string}` | `data:image${string}`;
+@@ -28,6 +29,8 @@ export interface ImageWidgetProps extends ClickActionProps {
+      * Image radius
+      */
+     radius?: number;
++    /** Preserves the image aspect ratio within its widget bounds. */
++    resizeMode?: 'contain';
+ }
+ export declare function ImageWidget(_: ImageWidgetProps): null;
+ export declare namespace ImageWidget {
 diff --git a/node_modules/react-native-android-widget/lib/typescript/widgets/SvgWidget.d.ts b/node_modules/react-native-android-widget/lib/typescript/widgets/SvgWidget.d.ts
 index 9d0a2f7..b462a2c 100644
 --- a/node_modules/react-native-android-widget/lib/typescript/widgets/SvgWidget.d.ts
@@ -30,6 +88,34 @@ index 9d0a2f7..b462a2c 100644
      /**
       * SVG file loaded with `require('./path/to/svg/file')`,
       * SVG string, or a path to svg starting with "http:" or "https:"
+diff --git a/node_modules/react-native-android-widget/src/widgets/ImageWidget.tsx b/node_modules/react-native-android-widget/src/widgets/ImageWidget.tsx
+index 88ad819..ed95887 100644
+--- a/node_modules/react-native-android-widget/src/widgets/ImageWidget.tsx
++++ b/node_modules/react-native-android-widget/src/widgets/ImageWidget.tsx
+@@ -15,6 +15,7 @@ interface ImageWidgetInternalProps extends CommonInternalProps {
+   imageWidth: number;
+   imageHeight: number;
+   image: Pick<ImageResolvedAssetSource, 'uri'>;
++  resizeMode?: 'contain';
+ }
+ 
+ type ImageWidgetStyle = CommonStyleProps;
+@@ -45,6 +46,8 @@ export interface ImageWidgetProps extends ClickActionProps {
+    * Image radius
+    */
+   radius?: number;
++  /** Preserves the image aspect ratio within its widget bounds. */
++  resizeMode?: 'contain';
+ }
+ 
+ export function ImageWidget(_: ImageWidgetProps) {
+@@ -64,5 +67,6 @@ ImageWidget.convertProps = (
+         ? Image.resolveAssetSource(props.image)
+         : { uri: props.image },
+     ...(props.radius ? { radius: props.radius } : {}),
++    ...(props.resizeMode ? { resizeMode: props.resizeMode } : {}),
+   };
+ };
 diff --git a/node_modules/react-native-android-widget/src/widgets/SvgWidget.tsx b/node_modules/react-native-android-widget/src/widgets/SvgWidget.tsx
 index 935e738..fccf030 100644
 --- a/node_modules/react-native-android-widget/src/widgets/SvgWidget.tsx

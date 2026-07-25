@@ -29,4 +29,5 @@ anchor/mobile/android/app/build/
 anchor/mobile/android/build/
 anchor/mobile/node_modules/
 graphify-out/
+.codex-pr-worktree/
 

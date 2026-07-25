@@ -22,6 +22,7 @@ import type { StackNavigationProp } from '@react-navigation/stack';
 import { Check } from 'lucide-react-native';
 import Svg, { Circle, Path, SvgXml } from 'react-native-svg';
 import Animated, {
+  cancelAnimation,
   Easing,
   ReduceMotion,
   type SharedValue,
@@ -179,89 +180,111 @@ export const SaveProgressScreen: React.FC = () => {
     });
   }, [anchor.id, hasPng, hasSvg]);
 
-  useEffect(() => {
-    if (reduceMotionEnabled) {
+  useFocusEffect(
+    React.useCallback(() => {
+      if (reduceMotionEnabled) {
+        floatY.value = 0;
+        haloOpacity.value = 0.72;
+        haloScale.value = 1;
+        pulseScale.value = 1;
+        spinProgress.value = 0;
+        ctaShineX.value = 2.4;
+        wave1.value = 1;
+        wave2.value = 1;
+        wave3.value = 1;
+        wave4.value = 1;
+        return;
+      }
+
+      // reduceMotionEnabled above is the single reduce-motion gate for this
+      // screen, so opt out of Reanimated's implicit ReduceMotion.System —
+      // otherwise Android devices with "Remove animations" (or animator scale 0)
+      // silently cancel the infinite repeats and the medallion freezes.
+      const ambient = { reduceMotion: ReduceMotion.Never };
+      const entrance = { duration: 600, easing: Easing.out(Easing.cubic), ...ambient };
+
       floatY.value = 0;
-      haloOpacity.value = 0.72;
+      haloOpacity.value = 0.6;
       haloScale.value = 1;
-      pulseScale.value = 1;
+      pulseScale.value = 0;
       spinProgress.value = 0;
-      ctaShineX.value = 2.4;
-      wave1.value = 1;
-      wave2.value = 1;
-      wave3.value = 1;
-      wave4.value = 1;
-      return;
-    }
+      ctaShineX.value = -1.3;
 
-    // reduceMotionEnabled above is the single reduce-motion gate for this
-    // screen, so opt out of Reanimated's implicit ReduceMotion.System —
-    // otherwise Android devices with "Remove animations" (or animator scale 0)
-    // silently cancel the infinite repeats and the medallion freezes.
-    const ambient = { reduceMotion: ReduceMotion.Never };
-    const entrance = { duration: 600, easing: Easing.out(Easing.cubic), ...ambient };
+      floatY.value = withRepeat(
+        withTiming(-5, { duration: 3500, easing: Easing.inOut(Easing.sin), ...ambient }),
+        -1,
+        true,
+        undefined,
+        ReduceMotion.Never
+      );
+      haloOpacity.value = withRepeat(
+        withTiming(0.85, { duration: 4000, easing: Easing.inOut(Easing.sin), ...ambient }),
+        -1,
+        true,
+        undefined,
+        ReduceMotion.Never
+      );
+      haloScale.value = withRepeat(
+        withTiming(1.04, { duration: 4000, easing: Easing.inOut(Easing.sin), ...ambient }),
+        -1,
+        true,
+        undefined,
+        ReduceMotion.Never
+      );
+      pulseScale.value = 0;
+      pulseScale.value = withRepeat(
+        withTiming(1, { duration: 900, easing: Easing.inOut(Easing.sin), ...ambient }),
+        -1,
+        true,
+        undefined,
+        ReduceMotion.Never
+      );
+      spinProgress.value = 0;
+      spinProgress.value = withRepeat(
+        withTiming(360, { duration: 7000, easing: Easing.linear, ...ambient }),
+        -1,
+        false,
+        undefined,
+        ReduceMotion.Never
+      );
+      ctaShineX.value = withRepeat(
+        withTiming(2.7, { duration: 5000, easing: Easing.inOut(Easing.sin), ...ambient }),
+        -1,
+        false,
+        undefined,
+        ReduceMotion.Never
+      );
+      wave1.value = withDelay(50, withTiming(1, entrance), ReduceMotion.Never);
+      wave2.value = withDelay(140, withTiming(1, entrance), ReduceMotion.Never);
+      wave3.value = withDelay(240, withTiming(1, entrance), ReduceMotion.Never);
+      wave4.value = withDelay(340, withTiming(1, entrance), ReduceMotion.Never);
 
-    floatY.value = withRepeat(
-      withTiming(-5, { duration: 3500, easing: Easing.inOut(Easing.sin), ...ambient }),
-      -1,
-      true,
-      undefined,
-      ReduceMotion.Never
-    );
-    haloOpacity.value = withRepeat(
-      withTiming(0.85, { duration: 4000, easing: Easing.inOut(Easing.sin), ...ambient }),
-      -1,
-      true,
-      undefined,
-      ReduceMotion.Never
-    );
-    haloScale.value = withRepeat(
-      withTiming(1.04, { duration: 4000, easing: Easing.inOut(Easing.sin), ...ambient }),
-      -1,
-      true,
-      undefined,
-      ReduceMotion.Never
-    );
-    pulseScale.value = 0;
-    pulseScale.value = withRepeat(
-      withTiming(1, { duration: 900, easing: Easing.inOut(Easing.sin), ...ambient }),
-      -1,
-      true,
-      undefined,
-      ReduceMotion.Never
-    );
-    spinProgress.value = 0;
-    spinProgress.value = withRepeat(
-      withTiming(360, { duration: 7000, easing: Easing.linear, ...ambient }),
-      -1,
-      false,
-      undefined,
-      ReduceMotion.Never
-    );
-    ctaShineX.value = withRepeat(
-      withTiming(2.7, { duration: 5000, easing: Easing.inOut(Easing.sin), ...ambient }),
-      -1,
-      false,
-      undefined,
-      ReduceMotion.Never
-    );
-    wave1.value = withDelay(50, withTiming(1, entrance), ReduceMotion.Never);
-    wave2.value = withDelay(140, withTiming(1, entrance), ReduceMotion.Never);
-    wave3.value = withDelay(240, withTiming(1, entrance), ReduceMotion.Never);
-    wave4.value = withDelay(340, withTiming(1, entrance), ReduceMotion.Never);
-  }, [
-    ctaShineX,
-    floatY,
-    haloOpacity,
-    haloScale,
-    pulseScale,
-    reduceMotionEnabled,
-    spinProgress,
-    wave1,
-    wave2,
-    wave3,
-    wave4,
-  ]);
+      return () => {
+        cancelAnimation(floatY);
+        cancelAnimation(haloOpacity);
+        cancelAnimation(haloScale);
+        cancelAnimation(pulseScale);
+        cancelAnimation(spinProgress);
+        cancelAnimation(ctaShineX);
+        cancelAnimation(wave1);
+        cancelAnimation(wave2);
+        cancelAnimation(wave3);
+        cancelAnimation(wave4);
+      };
+    }, [
+      ctaShineX,
+      floatY,
+      haloOpacity,
+      haloScale,
+      pulseScale,
+      reduceMotionEnabled,
+      spinProgress,
+      wave1,
+      wave2,
+      wave3,
+      wave4,
+    ])
+  );
 
   const floatStyle = useAnimatedStyle(() => ({
     transform: [{ translateY: floatY.value }],
@@ -429,7 +452,8 @@ export const SaveProgressScreen: React.FC = () => {
               YOUR FIRST ANCHOR{'\n'}IS <Text style={styles.titleGold}>READY.</Text>
             </Animated.Text>
             <Animated.Text style={[styles.body, wave2Style]}>
-              Create a free account so this anchor stays with you before you enter the Sanctuary.
+              You made this. Create a free account to keep it synced, recover it on a new phone,
+              and return to it whenever you need it.
             </Animated.Text>
           </View>
 
@@ -442,6 +466,7 @@ export const SaveProgressScreen: React.FC = () => {
               <AnchorDisc anchor={anchor} />
               <Animated.View
                 pointerEvents="none"
+                renderToHardwareTextureAndroid
                 style={[styles.spinningGlow, spinningGlowStyle]}
               >
                 <Svg width="100%" height="100%" viewBox="0 0 266 266">

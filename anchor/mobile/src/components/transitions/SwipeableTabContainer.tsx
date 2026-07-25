@@ -12,8 +12,9 @@
  */
 
 import React, { useCallback, useEffect, useState } from 'react';
-import { Dimensions, InteractionManager, StyleSheet } from 'react-native';
+import { Dimensions, StyleSheet } from 'react-native';
 import Animated, {
+  cancelAnimation,
   Easing,
   useSharedValue,
   useAnimatedStyle,
@@ -80,35 +81,18 @@ export const SwipeableTabContainer: React.FC<SwipeableTabContainerProps> = ({
     });
   }, [activeIndex]);
 
+  // Sync position whenever the selected tab changes. `gestureActive.value` is
+  // owned by the UI thread. A tab-button press must cancel any in-flight pan
+  // before starting the crossfade; otherwise the old pan worklet can continue
+  // writing the old page position after React has selected the new tab.
   useEffect(() => {
-    const task = InteractionManager.runAfterInteractions(() => {
-      setMountedTabs((prev) => {
-        if (prev.size >= tabCount) {
-          return prev;
-        }
+    gestureActive.value = false;
+    cancelAnimation(position);
 
-        const next = new Set(prev);
-        for (let index = 0; index < tabCount; index += 1) {
-          next.add(index);
-        }
-        return next;
-      });
-    });
-
-    return () => {
-      task.cancel();
-    };
-  }, [tabCount]);
-
-  // Sync position when activeIndex changes externally (tab button press)
-  // Uses 200ms ease-out crossfade for tab switches
-  useEffect(() => {
-    if (!gestureActive.value) {
-      if (reducedMotion) {
-        position.value = activeIndex;
-      } else {
-        position.value = withTiming(activeIndex, CROSSFADE_TIMING_CONFIG);
-      }
+    if (reducedMotion) {
+      position.value = activeIndex;
+    } else {
+      position.value = withTiming(activeIndex, CROSSFADE_TIMING_CONFIG);
     }
   }, [activeIndex, reducedMotion]);
 
@@ -127,6 +111,10 @@ export const SwipeableTabContainer: React.FC<SwipeableTabContainerProps> = ({
       gestureActive.value = true;
     })
     .onUpdate((event) => {
+      if (!gestureActive.value) {
+        return;
+      }
+
       // Convert translation to position offset
       const offset = -event.translationX / SCREEN_WIDTH;
       const newPosition = activeIndex + offset;
@@ -141,6 +129,13 @@ export const SwipeableTabContainer: React.FC<SwipeableTabContainerProps> = ({
       }
     })
     .onEnd((event) => {
+      // The selected tab may have changed from a tab-button press while this
+      // pan was settling. In that case the tab-button transition owns the
+      // position and this stale gesture must not write it back.
+      if (!gestureActive.value) {
+        return;
+      }
+
       gestureActive.value = false;
 
       const velocity = -event.velocityX;
@@ -171,6 +166,9 @@ export const SwipeableTabContainer: React.FC<SwipeableTabContainerProps> = ({
       if (targetIndex !== activeIndex) {
         runOnJS(handleIndexChange)(targetIndex);
       }
+    })
+    .onFinalize(() => {
+      gestureActive.value = false;
     });
 
   return (
@@ -230,6 +228,7 @@ const TabPage: React.FC<TabPageProps> = ({
 
   return (
     <Animated.View
+      testID={`tab-page-${index}`}
       style={[styles.page, animatedStyle]}
       pointerEvents={isActive ? 'auto' : 'none'}
     >

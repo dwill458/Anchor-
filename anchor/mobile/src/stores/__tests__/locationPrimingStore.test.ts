@@ -33,7 +33,7 @@ describe('locationPrimingStore', () => {
       preset: {
         sessionType: 'focus',
         durationSeconds: 60,
-        audioMode: 'silent',
+        audioConfiguration: { guidanceVoice: 'none', backgroundAudio: 'off' },
       },
     });
 
@@ -46,7 +46,7 @@ describe('locationPrimingStore', () => {
       preset: {
         sessionType: 'focus',
         durationSeconds: 60,
-        audioMode: 'silent',
+        audioConfiguration: { guidanceVoice: 'none', backgroundAudio: 'off' },
       },
     });
     expect(useLocationPrimingStore.getState().enabled).toBe(true);
@@ -65,7 +65,7 @@ describe('locationPrimingStore', () => {
         preset: {
           sessionType: 'prime',
           durationSeconds: 300,
-          audioMode: 'ambient',
+          audioConfiguration: { guidanceVoice: 'female', backgroundAudio: 'ambient' },
         },
       })
     ).resolves.toBeNull();
@@ -86,7 +86,7 @@ describe('locationPrimingStore', () => {
           preset: {
             sessionType: 'focus',
             durationSeconds: 30,
-            audioMode: 'ambient',
+            audioConfiguration: { guidanceVoice: 'female', backgroundAudio: 'ambient' },
           },
           enabled: true,
           createdAt: now,
@@ -100,7 +100,7 @@ describe('locationPrimingStore', () => {
       preset: {
         sessionType: 'prime',
         durationSeconds: 300,
-        audioMode: 'silent',
+        audioConfiguration: { guidanceVoice: 'none', backgroundAudio: 'off' },
       },
     });
 
@@ -109,7 +109,7 @@ describe('locationPrimingStore', () => {
       preset: {
         sessionType: 'prime',
         durationSeconds: 300,
-        audioMode: 'silent',
+        audioConfiguration: { guidanceVoice: 'none', backgroundAudio: 'off' },
       },
     });
 

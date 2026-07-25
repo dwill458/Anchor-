@@ -5,6 +5,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 
 interface GlassCardProps {
   children: React.ReactNode;
+  pointerEvents?: 'auto' | 'none' | 'box-none' | 'box-only';
   style?: StyleProp<ViewStyle>;
   contentStyle?: StyleProp<ViewStyle>;
   intensity?: number;
@@ -23,6 +24,7 @@ const DEFAULT_GLOW_COLORS: readonly [string, string, string] = [
 
 export const GlassCard: React.FC<GlassCardProps> = ({
   children,
+  pointerEvents = 'auto',
   style,
   contentStyle,
   intensity = 24,
@@ -42,9 +44,15 @@ export const GlassCard: React.FC<GlassCardProps> = ({
         },
         style,
       ]}
+      pointerEvents={pointerEvents}
     >
       {Platform.OS === 'ios' ? (
-        <BlurView intensity={intensity} tint="dark" style={StyleSheet.absoluteFillObject} />
+        <BlurView
+          intensity={intensity}
+          tint="dark"
+          style={StyleSheet.absoluteFillObject}
+          pointerEvents="none"
+        />
       ) : null}
       {showInnerGlow ? (
         <LinearGradient

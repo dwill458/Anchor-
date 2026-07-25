@@ -3,6 +3,15 @@ import { persist, createJSONStorage } from 'zustand/middleware';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Haptics from 'expo-haptics';
 import type { PerformanceTierOverride } from '@/hooks/usePerformanceTier';
+import {
+  DEFAULT_SESSION_AUDIO_DEFAULTS,
+  migrateLegacySessionAudioDefaults,
+  normalizeSessionAudioDefaults,
+  normalizeSessionAudioDefaultsByType,
+  type SessionAudioDefaults,
+  type SessionAudioDefaultsByType,
+  type SessionAudioSessionType,
+} from '@/types/sessionAudio';
 
 export type ChargeMode = 'focus' | 'ritual';
 export type ChargeDurationPreset = '30s' | '1m' | '2m' | '5m' | '10m' | 'custom';
@@ -12,6 +21,11 @@ export type DailyPracticeGoalPreset = 'once' | 'three' | 'five' | 'custom';
 export type ThreadStrengthSensitivity = 'lenient' | 'balanced' | 'strict';
 export type RestDayPolicy = 'build' | 'neutral';
 export type ReduceMotionPreference = 'system' | 'on' | 'off';
+export type LastSessionDurationByMode = {
+  focus: number;
+  deep_prime: number;
+  visualize: 60 | 180 | 300;
+};
 
 export interface DefaultChargeSetting {
   mode: ChargeMode;
@@ -41,6 +55,12 @@ const clampFocusSessionDuration = (value: number): number =>
 
 const clampPrimeSessionDuration = (value: number): number =>
   clampNumber(value, 120, 7200);
+
+const clampVisualizeSessionDuration = (value: unknown): 60 | 180 | 300 => {
+  const numeric = Number(value);
+  if (numeric === 60 || numeric === 300) return numeric;
+  return 180;
+};
 
 const normalizeSessionAudioMode = (value: unknown): SessionAudioMode =>
   value === 'ambient' ? 'ambient' : 'silent';
@@ -277,6 +297,16 @@ const withDeveloperSettingsDefaults = (
   const derivedFocusSessionMode =
     clampedState?.focusSessionMode ??
     (clampedState?.defaultCharge?.mode === 'ritual' ? 'deep' : 'quick');
+  const sessionAudioDefaults = migrateLegacySessionAudioDefaults(clampedState);
+  const sessionAudioDefaultsOwnerUserId =
+    typeof clampedState?.sessionAudioDefaultsOwnerUserId === 'string'
+      ? clampedState.sessionAudioDefaultsOwnerUserId
+      : null;
+  const sessionAudioDefaultsUpdatedAt =
+    typeof clampedState?.sessionAudioDefaultsUpdatedAt === 'string' &&
+    Number.isFinite(Date.parse(clampedState.sessionAudioDefaultsUpdatedAt))
+      ? new Date(clampedState.sessionAudioDefaultsUpdatedAt).toISOString()
+      : null;
 
   return {
     ...clampedState,
@@ -285,6 +315,33 @@ const withDeveloperSettingsDefaults = (
     focusSessionAudio: deriveFocusSessionAudio(clampedState),
     primeSessionDuration: derivePrimeSessionDuration(clampedState),
     primeSessionAudio: normalizeSessionAudioMode(clampedState?.primeSessionAudio),
+    visualizeSessionDuration: clampVisualizeSessionDuration(
+      clampedState?.visualizeSessionDuration
+    ),
+    lastSessionDurationByMode: {
+      focus: deriveFocusSessionDuration({
+        focusSessionDuration: clampedState?.lastSessionDurationByMode?.focus ??
+          clampedState?.focusSessionDuration,
+      }),
+      deep_prime: derivePrimeSessionDuration({
+        primeSessionDuration: clampedState?.lastSessionDurationByMode?.deep_prime ??
+          clampedState?.primeSessionDuration,
+      }),
+      visualize: clampVisualizeSessionDuration(
+        clampedState?.lastSessionDurationByMode?.visualize ??
+          clampedState?.visualizeSessionDuration
+      ),
+    },
+    lastSessionDurationOwnerUserId:
+      typeof clampedState?.lastSessionDurationOwnerUserId === 'string'
+        ? clampedState.lastSessionDurationOwnerUserId
+        : null,
+    sessionAudioDefaults,
+    sessionAudioDefaultsOwnerUserId,
+    sessionAudioDefaultsOwnerInitialized:
+      clampedState?.sessionAudioDefaultsOwnerInitialized === true ||
+      sessionAudioDefaultsOwnerUserId != null,
+    sessionAudioDefaultsUpdatedAt,
     dailyPracticeGoal,
     dailyPracticeGoalPreset: normalizeDailyPracticeGoalPreset(
       clampedState?.dailyPracticeGoalPreset,
@@ -325,9 +382,18 @@ export interface SettingsState {
   defaultActivation: DefaultActivationSetting;
   focusSessionMode: FocusSessionMode;
   focusSessionDuration: number;
+  /** @deprecated Migration mirror only; active consumers use sessionAudioDefaults. */
   focusSessionAudio: SessionAudioMode;
   primeSessionDuration: number;
+  visualizeSessionDuration: 60 | 180 | 300;
+  lastSessionDurationByMode: LastSessionDurationByMode;
+  lastSessionDurationOwnerUserId: string | null;
+  /** @deprecated Migration mirror only; active consumers use sessionAudioDefaults. */
   primeSessionAudio: SessionAudioMode;
+  sessionAudioDefaults: SessionAudioDefaultsByType;
+  sessionAudioDefaultsOwnerUserId: string | null;
+  sessionAudioDefaultsOwnerInitialized: boolean;
+  sessionAudioDefaultsUpdatedAt: string | null;
 
   openDailyAnchorAutomatically: boolean;
   dailyPracticeGoal: number;
@@ -377,9 +443,31 @@ export interface SettingsState {
   setDefaultActivationMode: (mode: ActivationMode) => void;
   setFocusSessionMode: (mode: FocusSessionMode) => void;
   setFocusSessionDuration: (durationSeconds: number) => void;
+  /** @deprecated Use setSessionAudioDefaults. */
   setFocusSessionAudio: (mode: SessionAudioMode) => void;
   setPrimeSessionDuration: (durationSeconds: number) => void;
+  setVisualizeSessionDuration: (durationSeconds: number) => void;
+  setLastSessionDuration: (
+    mode: keyof LastSessionDurationByMode,
+    durationSeconds: number
+  ) => void;
+  /** @deprecated Use setSessionAudioDefaults. */
   setPrimeSessionAudio: (mode: SessionAudioMode) => void;
+  setSessionAudioDefaults: (
+    sessionType: SessionAudioSessionType,
+    defaults: SessionAudioDefaults,
+    ownerUserId?: string | null
+  ) => void;
+  setSessionAudioDefaultsByType: (
+    defaults: SessionAudioDefaultsByType,
+    ownerUserId?: string | null
+  ) => void;
+  bindSessionAudioDefaultsOwner: (ownerUserId: string | null) => void;
+  applyRemoteSessionAudioDefaults: (params: {
+    ownerUserId: string;
+    defaults: SessionAudioDefaultsByType;
+    updatedAt?: Date | string | null;
+  }) => 'applied' | 'local_newer' | 'wrong_account';
   setGuideMode: (enabled: boolean) => void;
   setOpenDailyAnchorAutomatically: (enabled: boolean) => void;
   setDailyPracticeGoal: (goal: number) => void;
@@ -439,7 +527,18 @@ const DEFAULT_SETTINGS = {
   focusSessionDuration: 30,
   focusSessionAudio: 'ambient' as SessionAudioMode,
   primeSessionDuration: 120,
+  visualizeSessionDuration: 180 as const,
+  lastSessionDurationByMode: {
+    focus: 30,
+    deep_prime: 120,
+    visualize: 180,
+  } as LastSessionDurationByMode,
+  lastSessionDurationOwnerUserId: null as string | null,
   primeSessionAudio: 'ambient' as SessionAudioMode,
+  sessionAudioDefaults: normalizeSessionAudioDefaultsByType(DEFAULT_SESSION_AUDIO_DEFAULTS),
+  sessionAudioDefaultsOwnerUserId: null as string | null,
+  sessionAudioDefaultsOwnerInitialized: false,
+  sessionAudioDefaultsUpdatedAt: null as string | null,
   openDailyAnchorAutomatically: false,
   dailyPracticeGoal: 3,
   dailyPracticeGoalPreset: 'three' as DailyPracticeGoalPreset,
@@ -487,7 +586,7 @@ const triggerHaptic = () => {
  */
 export const useSettingsStore = create<SettingsState>()(
   persist(
-    (set) => ({
+    (set, get) => ({
       // Initial state with defaults
       ...DEFAULT_SETTINGS,
 
@@ -566,11 +665,142 @@ export const useSettingsStore = create<SettingsState>()(
         });
       },
 
+      setVisualizeSessionDuration: (durationSeconds) => {
+        triggerHaptic();
+        set({ visualizeSessionDuration: clampVisualizeSessionDuration(durationSeconds) });
+      },
+
+      setLastSessionDuration: (mode, durationSeconds) => {
+        set((state) => ({
+          lastSessionDurationByMode: {
+            ...state.lastSessionDurationByMode,
+            [mode]:
+              mode === 'focus'
+                ? clampFocusSessionDuration(durationSeconds)
+                : mode === 'deep_prime'
+                  ? clampPrimeSessionDuration(durationSeconds)
+                  : clampVisualizeSessionDuration(durationSeconds),
+          },
+          lastSessionDurationOwnerUserId: state.sessionAudioDefaultsOwnerUserId,
+        }));
+      },
+
       setPrimeSessionAudio: (mode) => {
         triggerHaptic();
         set({
           primeSessionAudio: mode,
         });
+      },
+
+      setSessionAudioDefaults: (sessionType, defaults, ownerUserId) => {
+        triggerHaptic();
+        set((state) => ({
+          sessionAudioDefaults: {
+            ...state.sessionAudioDefaults,
+            [sessionType]: normalizeSessionAudioDefaults(
+              defaults,
+              state.sessionAudioDefaults[sessionType]
+            ),
+          },
+          sessionAudioDefaultsOwnerUserId:
+            ownerUserId === undefined ? state.sessionAudioDefaultsOwnerUserId : ownerUserId,
+          sessionAudioDefaultsOwnerInitialized:
+            ownerUserId === undefined
+              ? state.sessionAudioDefaultsOwnerInitialized
+              : true,
+          sessionAudioDefaultsUpdatedAt: new Date().toISOString(),
+        }));
+      },
+
+      setSessionAudioDefaultsByType: (defaults, ownerUserId) => {
+        triggerHaptic();
+        set((state) => ({
+          sessionAudioDefaults: normalizeSessionAudioDefaultsByType(
+            defaults,
+            state.sessionAudioDefaults
+          ),
+          sessionAudioDefaultsOwnerUserId:
+            ownerUserId === undefined ? state.sessionAudioDefaultsOwnerUserId : ownerUserId,
+          sessionAudioDefaultsOwnerInitialized:
+            ownerUserId === undefined
+              ? state.sessionAudioDefaultsOwnerInitialized
+              : true,
+          sessionAudioDefaultsUpdatedAt: new Date().toISOString(),
+        }));
+      },
+
+      bindSessionAudioDefaultsOwner: (ownerUserId) => {
+        const current = get();
+        if (
+          current.sessionAudioDefaultsOwnerInitialized &&
+          current.sessionAudioDefaultsOwnerUserId === ownerUserId &&
+          current.lastSessionDurationOwnerUserId === ownerUserId
+        ) {
+          return;
+        }
+
+        if (!current.sessionAudioDefaultsOwnerInitialized && ownerUserId != null) {
+          set({
+            sessionAudioDefaultsOwnerUserId: ownerUserId,
+            sessionAudioDefaultsOwnerInitialized: true,
+            lastSessionDurationByMode: {
+              focus: DEFAULT_SETTINGS.focusSessionDuration,
+              deep_prime: DEFAULT_SETTINGS.primeSessionDuration,
+              visualize: DEFAULT_SETTINGS.visualizeSessionDuration,
+            },
+            lastSessionDurationOwnerUserId: ownerUserId,
+          });
+          return;
+        }
+
+        set({
+          sessionAudioDefaults: normalizeSessionAudioDefaultsByType(
+            DEFAULT_SESSION_AUDIO_DEFAULTS
+          ),
+          sessionAudioDefaultsOwnerUserId: ownerUserId,
+          sessionAudioDefaultsOwnerInitialized: true,
+          sessionAudioDefaultsUpdatedAt: null,
+          lastSessionDurationByMode: {
+            focus: DEFAULT_SETTINGS.focusSessionDuration,
+            deep_prime: DEFAULT_SETTINGS.primeSessionDuration,
+            visualize: DEFAULT_SETTINGS.visualizeSessionDuration,
+          },
+          lastSessionDurationOwnerUserId: ownerUserId,
+        });
+      },
+
+      applyRemoteSessionAudioDefaults: ({ ownerUserId, defaults, updatedAt }) => {
+        const current = get();
+        if (
+          current.sessionAudioDefaultsOwnerInitialized &&
+          current.sessionAudioDefaultsOwnerUserId !== ownerUserId
+        ) {
+          return 'wrong_account';
+        }
+
+        const localTimestamp = current.sessionAudioDefaultsUpdatedAt
+          ? Date.parse(current.sessionAudioDefaultsUpdatedAt)
+          : 0;
+        const remoteTimestamp = updatedAt ? new Date(updatedAt).getTime() : 0;
+        if (
+          current.sessionAudioDefaultsOwnerUserId === ownerUserId &&
+          Number.isFinite(localTimestamp) &&
+          localTimestamp > 0 &&
+          (!Number.isFinite(remoteTimestamp) || localTimestamp > remoteTimestamp)
+        ) {
+          return 'local_newer';
+        }
+
+        set({
+          sessionAudioDefaults: normalizeSessionAudioDefaultsByType(defaults),
+          sessionAudioDefaultsOwnerUserId: ownerUserId,
+          sessionAudioDefaultsOwnerInitialized: true,
+          sessionAudioDefaultsUpdatedAt:
+            Number.isFinite(remoteTimestamp) && remoteTimestamp > 0
+              ? new Date(remoteTimestamp).toISOString()
+              : null,
+        });
+        return 'applied';
       },
 
       setOpenDailyAnchorAutomatically: (enabled) => {
@@ -827,7 +1057,7 @@ export const useSettingsStore = create<SettingsState>()(
       name: 'anchor-settings-storage',
       storage: createJSONStorage(() => AsyncStorage),
       // DEFERRED: version: 10, — restore post-launch
-      version: 13,
+      version: 15,
       // Handle migration
       migrate: (persistedState: any, version: number) => {
         if (version === 11) {
@@ -964,7 +1194,14 @@ export const useSettingsStore = create<SettingsState>()(
         focusSessionDuration: state.focusSessionDuration,
         focusSessionAudio: state.focusSessionAudio,
         primeSessionDuration: state.primeSessionDuration,
+        visualizeSessionDuration: state.visualizeSessionDuration,
+        lastSessionDurationByMode: state.lastSessionDurationByMode,
+        lastSessionDurationOwnerUserId: state.lastSessionDurationOwnerUserId,
         primeSessionAudio: state.primeSessionAudio,
+        sessionAudioDefaults: state.sessionAudioDefaults,
+        sessionAudioDefaultsOwnerUserId: state.sessionAudioDefaultsOwnerUserId,
+        sessionAudioDefaultsOwnerInitialized: state.sessionAudioDefaultsOwnerInitialized,
+        sessionAudioDefaultsUpdatedAt: state.sessionAudioDefaultsUpdatedAt,
         openDailyAnchorAutomatically: state.openDailyAnchorAutomatically,
         dailyPracticeGoal: state.dailyPracticeGoal,
         dailyPracticeGoalPreset: state.dailyPracticeGoalPreset,

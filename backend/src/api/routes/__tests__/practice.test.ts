@@ -18,10 +18,26 @@ const mockPrisma = {
     findUnique: jest.fn(),
     update: jest.fn(),
   },
+  anchor: {
+    findFirst: jest.fn(),
+    findUnique: jest.fn(),
+    update: jest.fn(),
+  },
+  practiceSession: {
+    findUnique: jest.fn(),
+    findFirst: jest.fn(),
+    findMany: jest.fn(),
+    create: jest.fn(),
+    update: jest.fn(),
+  },
+  $transaction: jest.fn(),
 };
 
 jest.mock('../../../lib/prisma', () => ({
   prisma: mockPrisma,
+}));
+jest.mock('../../../services/PracticeAccessService', () => ({
+  requireVisualizeAccess: jest.fn().mockResolvedValue(undefined),
 }));
 
 import { authMiddleware } from '../../middleware/auth';
@@ -72,6 +88,14 @@ describe('POST /api/practice/stabilize', () => {
     });
 
     mockPrisma.user.findUnique.mockResolvedValue(MOCK_DB_USER);
+    mockPrisma.practiceSession.findUnique.mockResolvedValue(null);
+    mockPrisma.practiceSession.findFirst.mockResolvedValue(null);
+    mockPrisma.practiceSession.findMany.mockResolvedValue([]);
+    mockPrisma.anchor.findFirst.mockResolvedValue({ id: 'anchor-1' });
+    mockPrisma.anchor.findUnique.mockResolvedValue({ id: 'anchor-1', userId: MOCK_DB_USER.id });
+    mockPrisma.anchor.update.mockResolvedValue({ id: 'anchor-1' });
+    mockPrisma.user.update.mockResolvedValue({ id: MOCK_DB_USER.id });
+    mockPrisma.$transaction.mockImplementation(async (callback: any) => callback(mockPrisma));
     mockPrisma.user.update.mockResolvedValue({
       ...MOCK_DB_USER,
       stabilizesTotal: 11,
@@ -231,5 +255,155 @@ describe('POST /api/practice/stabilize', () => {
     const res = await request(app).post('/api/practice/stabilize').send(VALID_BODY);
 
     expect(res.status).toBe(500);
+  });
+});
+
+describe('canonical practice sessions', () => {
+  let app: Application;
+  const completedAt = new Date().toISOString();
+  const body = {
+    id: 'client-session-1',
+    anchorId: 'anchor-1',
+    anchorLocalId: 'local-anchor-1',
+    anchorServerId: 'anchor-1',
+    practiceMode: 'visualize',
+    plannedDurationSeconds: 180,
+    completedDurationSeconds: 180,
+    completionStatus: 'completed',
+    startedAt: new Date(Date.now() - 180_000).toISOString(),
+    completedAt,
+    guidanceVoice: 'none',
+    backgroundAudio: 'ambient',
+    sceneSnapshot: 'I meet the moment calmly and follow through with steady attention.',
+    nextAction: null,
+    clientVersion: '1.0.0',
+  };
+
+  beforeEach(() => {
+    app = buildApp();
+    jest.clearAllMocks();
+    mockedAuthMiddleware.mockImplementation((req: any, _res: any, next: any) => {
+      req.user = MOCK_AUTH_USER;
+      next();
+    });
+    mockPrisma.user.findUnique.mockResolvedValue({
+      ...MOCK_DB_USER,
+      isComped: true,
+      subscriptionStatus: 'pro',
+      subscriptionId: 'pro',
+      trialStartedAt: new Date(),
+    });
+    mockPrisma.anchor.findFirst.mockResolvedValue({ id: 'anchor-1' });
+    mockPrisma.anchor.findUnique.mockResolvedValue({ id: 'anchor-1', userId: MOCK_DB_USER.id });
+    mockPrisma.practiceSession.findUnique.mockResolvedValue(null);
+    mockPrisma.practiceSession.findFirst.mockResolvedValue(null);
+    mockPrisma.practiceSession.findMany.mockResolvedValue([]);
+    mockPrisma.practiceSession.create.mockImplementation(async ({ data }: any) => ({
+      ...data,
+      startedAt: new Date(data.startedAt),
+      completedAt: new Date(data.completedAt),
+    }));
+    mockPrisma.anchor.update.mockResolvedValue({ id: 'anchor-1' });
+    mockPrisma.user.update.mockResolvedValue({ id: MOCK_DB_USER.id });
+    mockPrisma.$transaction.mockImplementation(async (callback: any) => callback(mockPrisma));
+  });
+
+  it('creates a completed Visualize session idempotently', async () => {
+    const created = await request(app).post('/api/practice/sessions').send(body);
+    expect(created.status).toBe(201);
+    expect(created.body.data.id).toBe(body.id);
+
+    mockPrisma.practiceSession.findUnique.mockResolvedValue({
+      ...body,
+      userId: MOCK_DB_USER.id,
+      anchorServerIdSnapshot: body.anchorServerId,
+      startedAt: new Date(body.startedAt),
+      completedAt: new Date(body.completedAt),
+    });
+    const retry = await request(app).post('/api/practice/sessions').send(body);
+    expect(retry.status).toBe(200);
+    expect(retry.body.idempotent).toBe(true);
+  });
+
+  it('returns conflict when an id is reused with incompatible immutable data', async () => {
+    mockPrisma.practiceSession.findUnique.mockResolvedValue({
+      ...body,
+      userId: MOCK_DB_USER.id,
+      anchorServerIdSnapshot: body.anchorServerId,
+      plannedDurationSeconds: 60,
+      startedAt: new Date(body.startedAt),
+      completedAt: new Date(body.completedAt),
+    });
+    const response = await request(app).post('/api/practice/sessions').send(body);
+    expect(response.status).toBe(409);
+  });
+
+  it('rejects invalid Visualize scene text and partial completion', async () => {
+    const invalidScene = await request(app)
+      .post('/api/practice/sessions')
+      .send({ ...body, sceneSnapshot: 'x'.repeat(181) });
+    expect(invalidScene.status).toBe(400);
+    const partial = await request(app)
+      .post('/api/practice/sessions')
+      .send({ ...body, completedDurationSeconds: 90 });
+    expect(partial.status).toBe(400);
+  });
+
+  it('updates next action only for an account-owned session', async () => {
+    mockPrisma.practiceSession.findFirst.mockResolvedValue({
+      id: body.id,
+      userId: MOCK_DB_USER.id,
+    });
+    mockPrisma.practiceSession.update.mockResolvedValue({
+      id: body.id,
+      nextAction: 'Open the draft.',
+    });
+    const response = await request(app)
+      .patch(`/api/practice/sessions/${body.id}/next-action`)
+      .send({ nextAction: 'Open the draft.' });
+    expect(response.status).toBe(200);
+
+    mockPrisma.practiceSession.findFirst.mockResolvedValue(null);
+    const missing = await request(app)
+      .patch('/api/practice/sessions/someone-elses/next-action')
+      .send({ nextAction: 'No.' });
+    expect(missing.status).toBe(404);
+  });
+
+  it('retains a completed session after its anchor was deleted without recreating it', async () => {
+    mockPrisma.anchor.findUnique.mockResolvedValue(null);
+    const response = await request(app).post('/api/practice/sessions').send(body);
+    expect(response.status).toBe(201);
+    expect(mockPrisma.practiceSession.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          anchorId: null,
+          anchorLocalId: body.anchorLocalId,
+          anchorServerIdSnapshot: body.anchorServerId,
+        }),
+      })
+    );
+    expect(mockPrisma.anchor.update).not.toHaveBeenCalled();
+  });
+
+  it('accepts an identical retry after the anchor relation was set null', async () => {
+    mockPrisma.practiceSession.findUnique.mockResolvedValue({
+      ...body,
+      anchorId: null,
+      anchorServerIdSnapshot: body.anchorServerId,
+      userId: MOCK_DB_USER.id,
+      startedAt: new Date(body.startedAt),
+      completedAt: new Date(body.completedAt),
+    });
+    const response = await request(app).post('/api/practice/sessions').send(body);
+    expect(response.status).toBe(200);
+    expect(response.body.idempotent).toBe(true);
+  });
+
+  it('rejects a live anchor owned by another account', async () => {
+    mockPrisma.anchor.findUnique.mockResolvedValue({ id: body.anchorId, userId: 'other-user' });
+    const response = await request(app).post('/api/practice/sessions').send(body);
+    expect(response.status).toBe(404);
+    expect(mockPrisma.practiceSession.create).not.toHaveBeenCalled();
   });
 });

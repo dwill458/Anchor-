@@ -16,8 +16,10 @@ import usersRoutes from './api/routes/users';
 import anchorRoutes from './api/routes/anchors';
 import aiRoutes from './api/routes/ai';
 import practiceRoutes from './api/routes/practice';
+import visualizationSceneRoutes from './api/routes/visualizationScenes';
 import orderRoutes from './api/routes/orders';
 import contentRoutes from './api/routes/content';
+import billingRoutes from './api/routes/billing';
 import { errorHandler, notFoundHandler } from './api/middleware/errorHandler';
 import { logger } from './utils/logger';
 import { env } from './config/env';
@@ -278,10 +280,14 @@ app.get('/', (_req: Request, res: Response) => {
 // Authentication routes
 app.use('/api/auth', authRoutes);
 
+// Billing access is confirmed server-side against RevenueCat after store purchase.
+app.use('/api/billing', billingRoutes);
+
 // User routes
 app.use('/api/users', usersRoutes);
 
 // Anchor routes
+app.use('/api/anchors', visualizationSceneRoutes);
 app.use('/api/anchors', anchorRoutes);
 
 // Practice routes

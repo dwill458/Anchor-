@@ -42,7 +42,7 @@ const TIME_OPTIONS: ReminderTimeOption[] = [
   { label: 'Evening', time: '20:00', hint: '8:00 PM' },
 ];
 
-const FALLBACK_DEFAULT_TIME = '08:00';
+const DEFAULT_REMINDER_TIME = '08:00';
 
 const COPY: Record<ReminderPromptVariant, {
   title: string;
@@ -52,8 +52,8 @@ const COPY: Record<ReminderPromptVariant, {
 }> = {
   first_anchor: {
     title: 'Keep This Anchor Alive',
-    body: 'Anchors work best when they’re returned to with intention. Choose a time, and Anchor will give you one quiet nudge to prime it.',
-    primary: 'Set Daily Reminder',
+    body: 'Anchors work best when they’re returned to with intention. We’ll start with one quiet 8:00 AM nudge—you can choose a different time now or change it anytime.',
+    primary: 'Set 8:00 AM Reminder',
     secondary: 'Not Now',
   },
   fallback: {
@@ -118,12 +118,13 @@ export const DailyReminderPrompt: React.FC<DailyReminderPromptProps> = ({
     AnalyticsService.track(AnalyticsEvents.NOTIFICATION_SET_DAILY_REMINDER_TAPPED, {
       source: variant,
     });
-    if (variant === 'fallback') {
-      void handleSchedule(FALLBACK_DEFAULT_TIME);
-      return;
-    }
-    setStep('time');
+    void handleSchedule(DEFAULT_REMINDER_TIME);
   }, [variant, handleSchedule]);
+
+  const handleChooseDifferentTime = useCallback(() => {
+    void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    setStep('time');
+  }, []);
 
   const handleSecondary = useCallback(() => {
     void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -181,6 +182,18 @@ export const DailyReminderPrompt: React.FC<DailyReminderPromptProps> = ({
                   )}
                 </LinearGradient>
               </TouchableOpacity>
+
+              {variant === 'first_anchor' ? (
+                <TouchableOpacity
+                  onPress={handleChooseDifferentTime}
+                  activeOpacity={0.7}
+                  style={styles.changeTimeButton}
+                  accessibilityRole="button"
+                  accessibilityLabel="Choose a different reminder time"
+                >
+                  <Text style={styles.changeTimeText}>Choose a different time</Text>
+                </TouchableOpacity>
+              ) : null}
 
               <TouchableOpacity
                 onPress={handleSecondary}
@@ -401,6 +414,17 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: 'rgba(192, 192, 192, 0.7)',
     letterSpacing: 0.5,
+  },
+  changeTimeButton: {
+    marginTop: spacing.md,
+    paddingVertical: spacing.xs,
+    alignItems: 'center',
+  },
+  changeTimeText: {
+    fontFamily: typography.fonts.body,
+    fontSize: 14,
+    color: 'rgba(212, 175, 55, 0.82)',
+    textDecorationLine: 'underline',
   },
   optionsWrap: {
     width: '100%',

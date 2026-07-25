@@ -10,9 +10,9 @@ import {
   View,
 } from 'react-native';
 import { useProgressionData } from '@/hooks/useProgressionData';
+import { useAuthStore } from '@/stores/authStore';
 import {
-  backfillMilestoneDates,
-  checkAndRecordMilestones,
+  DEVICE_LOCAL_MILESTONE_SCOPE,
   getMilestoneDates,
 } from '@/utils/milestoneTracking';
 import { colors, spacing, typography } from '@/theme';
@@ -225,6 +225,9 @@ export const ProgressionSheet: React.FC<ProgressionSheetProps> = ({
   onClose,
 }) => {
   const progression = useProgressionData();
+  const milestoneScopeId = useAuthStore(
+    (state) => state.user?.id ?? DEVICE_LOCAL_MILESTONE_SCOPE
+  );
   const [milestoneDates, setMilestoneDates] = useState<MilestoneDates>({
     rank: {},
     mark: {},
@@ -241,19 +244,13 @@ export const ProgressionSheet: React.FC<ProgressionSheetProps> = ({
     ? 0
     : progression.deepestPractice.progress * 100;
 
-  // Load multi-factor milestone dates when sheet opens
+  // The sheet is a read model. Awarding and migration happen in the ledger service,
+  // never as a side effect of opening progress UI.
   useEffect(() => {
     if (!visible) return;
 
     const loadDates = async () => {
-      const metrics = {
-        totalPrimes: progression.totalPrimes,
-        practiceDays: progression.practiceDays,
-        releasedAnchors: progression.releasedAnchors,
-      };
-      await backfillMilestoneDates(metrics);
-      await checkAndRecordMilestones(metrics);
-      const dates = await getMilestoneDates();
+      const dates = await getMilestoneDates(milestoneScopeId);
       setMilestoneDates(dates);
       setMilestoneDatesLoaded(true);
     };
@@ -261,9 +258,7 @@ export const ProgressionSheet: React.FC<ProgressionSheetProps> = ({
     loadDates();
   }, [
     visible,
-    progression.totalPrimes,
-    progression.practiceDays,
-    progression.releasedAnchors,
+    milestoneScopeId,
   ]);
 
   // Animate tracks on open; reset on close

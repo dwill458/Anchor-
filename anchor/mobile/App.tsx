@@ -1,12 +1,10 @@
 import 'react-native-gesture-handler';
 import React, { useEffect, useRef } from 'react';
 import {
-  Animated,
   AppState,
   View,
   StyleSheet,
   Platform,
-  Dimensions,
 } from 'react-native';
 import { useFonts } from 'expo-font';
 import { StatusBar } from 'expo-status-bar';
@@ -63,6 +61,9 @@ import {
   syncPushTokensToServer,
 } from './src/services/NotificationSyncService';
 import { initWidgetDataSync } from './src/widgets/widgetDataBridge';
+import { useAppStartup } from './src/hooks/useAppStartup';
+import { SplashController } from './src/components/splash/SplashController';
+import { SPLASH_BACKGROUND_COLOR } from './src/components/splash/splashAnimation.constants';
 
 function isNetworkError(error: unknown): boolean {
   if (!(error instanceof Error)) return false;
@@ -77,15 +78,13 @@ function isNetworkError(error: unknown): boolean {
   );
 }
 
-const { width } = Dimensions.get('window');
 const isWeb = Platform.OS === 'web';
-const SPLASH_BACKGROUND_COLOR = '#080C10';
 
 if (!isWeb) {
   void SplashScreen.preventAutoHideAsync();
   SplashScreen.setOptions({
-    duration: 400,
-    fade: true,
+    duration: 0,
+    fade: false,
   });
 }
 
@@ -109,7 +108,6 @@ const PRIME_ON_LAUNCH_KEY = '@anchor_prime_on_launch';
 const ANCHOR_VAULT_STORAGE_KEY = 'anchor-vault-storage';
 const RECOVERY_DUMP_MARKER_KEY = '@anchor_recovery_dump_complete';
 const RECOVERY_DUMP_VAULT_KEY = '@anchor_recovery_dump_vault';
-const PRIME_ON_LAUNCH_FADE_DURATION_MS = 300;
 
 function parseStoredBoolean(rawValue: string | null): boolean {
   if (rawValue == null) {
@@ -223,12 +221,15 @@ export default function App() {
   const anchorCount = useAnchorStore((state) => state.anchors.length);
   const lastSessionId = useSessionStore((state) => state.lastSession?.id);
   const activeMilestone = useForgeMomentStore((state) => state.activeMilestone);
+  const hydrateMilestoneScope = useForgeMomentStore((state) => state.hydrateScope);
+  const markActiveMilestoneShown = useForgeMomentStore((state) => state.markActiveShown);
   const dismissMilestone = useForgeMomentStore((state) => state.dismissMilestone);
   const navRef = useNavigationContainerRef<RootNavigatorParamList>();
   const routeNameRef = useRef<string | undefined>(undefined);
   const screenTraceRef = useRef<PerformanceTrace | null>(null);
-  const launchOpacity = useRef(new Animated.Value(1)).current;
   const [settingsHydrated, setSettingsHydrated] = React.useState(false);
+  const [essentialDataSettled, setEssentialDataSettled] = React.useState(false);
+  const [startupSafeFailure, setStartupSafeFailure] = React.useState(false);
   const [analyticsPreferenceHydrated, setAnalyticsPreferenceHydrated] = React.useState(() =>
     useSettingsStore.persist.hasHydrated()
   );
@@ -236,13 +237,23 @@ export default function App() {
   const [initialNavigationState, setInitialNavigationState] = React.useState<
     InitialState | undefined
   >(undefined);
-  const [shouldFadePrimeOnLaunch, setShouldFadePrimeOnLaunch] = React.useState(false);
+  const startupStartedAtRef = useRef(Date.now());
   const hasCompletedOnboarding = useAuthStore((state) => state.hasCompletedOnboarding);
   const developerMasterAccountEnabled = useSettingsStore(
     (state) => state.developerMasterAccountEnabled
   );
   const developerMasterAccountEnabledRef = useRef(developerMasterAccountEnabled);
   const previousUserIdRef = useRef<string | null>(null);
+
+  React.useEffect(() => {
+    void hydrateMilestoneScope(user?.id ?? null);
+  }, [hydrateMilestoneScope, user?.id]);
+  const handleActiveMilestoneShown = React.useCallback(() => {
+    void markActiveMilestoneShown();
+  }, [markActiveMilestoneShown]);
+  const handleDismissMilestone = React.useCallback(() => {
+    void dismissMilestone();
+  }, [dismissMilestone]);
   const developerSkipOnboardingEnabled = useSettingsStore(
     (state) => state.developerSkipOnboardingEnabled
   );
@@ -261,7 +272,7 @@ export default function App() {
     }),
     [anchorCount]
   );
-  const [fontsLoaded] = useFonts({
+  const [fontsLoaded, fontLoadError] = useFonts({
     'Cinzel-Regular': Cinzel_400Regular,
     'Cinzel-SemiBold': Cinzel_600SemiBold,
     'Cinzel-Bold': Cinzel_700Bold,
@@ -272,9 +283,15 @@ export default function App() {
     'CormorantGaramond-Regular': CrimsonPro_400Regular,
     'CormorantGaramond-Italic': CrimsonPro_400Regular_Italic,
   });
-  // Hold the native splash until fonts are loaded AND auth state is determined,
-  // so the first visible frame is never a font-flash or an auth redirect jump.
-  const appIsReady = fontsLoaded && launchStateResolved && initialAuthResolved;
+  const startup = useAppStartup({
+    fontsReady: fontsLoaded || Boolean(fontLoadError),
+    settingsHydrated,
+    authRestorationSettled: initialAuthResolved,
+    essentialDataSettled,
+    primeOnLaunchResolved: launchStateResolved,
+    safeFailure: startupSafeFailure || Boolean(fontLoadError),
+  });
+  const appIsReady = startup.isReady;
   const effectiveAnalyticsEnabled =
     process.env.EXPO_PUBLIC_ANALYTICS_ENABLED !== 'false' && analyticsEnabled;
 
@@ -314,6 +331,7 @@ export default function App() {
     loadSettingsSnapshot()
       .catch((error) => {
         logger.error('Failed to hydrate settings snapshot', error);
+        setStartupSafeFailure(true);
       })
       .finally(() => {
         if (isMounted) {
@@ -347,12 +365,10 @@ export default function App() {
         }
 
         setInitialNavigationState(initialState);
-        const shouldFade = initialState != null;
-        setShouldFadePrimeOnLaunch(shouldFade);
-        launchOpacity.setValue(shouldFade ? 0 : 1);
       })
       .catch((error) => {
         logger.error('Failed to resolve Prime on Launch initial state', error);
+        setStartupSafeFailure(true);
       })
       .finally(() => {
         if (isMounted) {
@@ -363,29 +379,7 @@ export default function App() {
     return () => {
       isMounted = false;
     };
-  }, [launchOpacity]);
-
-  useEffect(() => {
-    if (!launchStateResolved || !shouldFadePrimeOnLaunch) {
-      return;
-    }
-
-    Animated.timing(launchOpacity, {
-      toValue: 1,
-      duration: PRIME_ON_LAUNCH_FADE_DURATION_MS,
-      useNativeDriver: true,
-    }).start();
-  }, [launchOpacity, launchStateResolved, shouldFadePrimeOnLaunch]);
-
-  useEffect(() => {
-    if (!appIsReady || isWeb) {
-      return;
-    }
-
-    void SplashScreen.hideAsync().catch((error) => {
-      logger.warn('[SplashScreen] Failed to hide native splash screen', error);
-    });
-  }, [appIsReady]);
+  }, []);
 
   useEffect(() => {
     developerMasterAccountEnabledRef.current = developerMasterAccountEnabled;
@@ -420,6 +414,7 @@ export default function App() {
           store.signOut();
         }
         store.setLoading(false);
+        setEssentialDataSettled(true);
         return;
       }
 
@@ -434,6 +429,7 @@ export default function App() {
         if (!session) {
           store.signOut();
           store.setLoading(false);
+          setEssentialDataSettled(true);
           return;
         }
 
@@ -447,6 +443,11 @@ export default function App() {
           });
         } catch (hydrationError) {
           logger.warn('Authenticated session restored, but data hydration failed', hydrationError);
+          setStartupSafeFailure(true);
+        } finally {
+          if (isActive && currentVersion === authStateVersion) {
+            setEssentialDataSettled(true);
+          }
         }
       } catch (error) {
         if (!isActive || currentVersion !== authStateVersion) {
@@ -463,6 +464,7 @@ export default function App() {
             store.setSession(cached, token);
             store.setOfflineMode(true);
             store.setLoading(false);
+            setEssentialDataSettled(true);
             logger.warn('Network unreachable — restored session from cache (offline mode)');
             return;
           }
@@ -471,6 +473,8 @@ export default function App() {
         logger.error('Failed to restore authenticated session', error);
         store.signOut();
         store.setLoading(false);
+        setStartupSafeFailure(true);
+        setEssentialDataSettled(true);
       }
     });
 
@@ -754,7 +758,7 @@ export default function App() {
         <GestureHandlerRootView style={{ flex: 1 }}>
           <SafeAreaProvider>
             <View style={styles.webContainer}>
-              <Animated.View style={[styles.appContainer, { opacity: launchOpacity }]}>
+              <View style={styles.appContainer}>
                 <SettingsRevealProvider navigationRef={navRef}>
                   <NavigationContainer
                     ref={navRef}
@@ -806,11 +810,18 @@ export default function App() {
                     <RootNavigator />
                     <ForgeMomentOverlay
                       milestone={activeMilestone}
-                      onDismiss={dismissMilestone}
+                      onShown={handleActiveMilestoneShown}
+                      onDismiss={handleDismissMilestone}
                     />
                   </NavigationContainer>
                 </SettingsRevealProvider>
-              </Animated.View>
+              </View>
+              <SplashController
+                startupReady={appIsReady}
+                startupOutcome={startup.outcome}
+                startupStartedAt={startupStartedAtRef.current}
+                authState={user?.id ? 'signed_in' : 'signed_out'}
+              />
             </View>
           </SafeAreaProvider>
         </GestureHandlerRootView>

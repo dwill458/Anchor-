@@ -176,6 +176,23 @@ function isUniqueEmailConflict(error: unknown): error is Prisma.PrismaClientKnow
   );
 }
 
+type GuidanceVoice = 'female' | 'male' | 'none';
+type BackgroundAudioMode = 'ambient' | 'off';
+type SessionAudioDefaultsPayload = {
+  focus: {
+    guidanceVoice: GuidanceVoice;
+    backgroundAudio: BackgroundAudioMode;
+  };
+  deep_prime: {
+    guidanceVoice: GuidanceVoice;
+    backgroundAudio: BackgroundAudioMode;
+  };
+  visualize: {
+    guidanceVoice: GuidanceVoice;
+    backgroundAudio: BackgroundAudioMode;
+  };
+};
+
 function buildSettingsUpsertData(settings: {
   notificationsEnabled?: boolean;
   dailyReminderTime?: string;
@@ -185,7 +202,9 @@ function buildSettingsUpsertData(settings: {
   focusSessionDuration?: number;
   focusSessionAudio?: 'silent' | 'ambient';
   primeSessionDuration?: number;
+  visualizeSessionDuration?: number;
   primeSessionAudio?: 'silent' | 'ambient';
+  sessionAudioDefaults?: SessionAudioDefaultsPayload;
   hapticIntensity?: number;
   vaultViewType?: 'grid' | 'list';
 }): {
@@ -197,7 +216,9 @@ function buildSettingsUpsertData(settings: {
   focusSessionDuration?: number;
   focusSessionAudio?: 'silent' | 'ambient';
   primeSessionDuration?: number;
+  visualizeSessionDuration?: number;
   primeSessionAudio?: 'silent' | 'ambient';
+  sessionAudioDefaults?: Prisma.InputJsonValue;
   hapticIntensity?: number;
   vaultViewType?: 'grid' | 'list';
 } {
@@ -210,7 +231,9 @@ function buildSettingsUpsertData(settings: {
     focusSessionDuration,
     focusSessionAudio,
     primeSessionDuration,
+    visualizeSessionDuration,
     primeSessionAudio,
+    sessionAudioDefaults,
     hapticIntensity,
     vaultViewType,
   } = settings;
@@ -224,7 +247,9 @@ function buildSettingsUpsertData(settings: {
     ...(focusSessionDuration !== undefined && { focusSessionDuration }),
     ...(focusSessionAudio !== undefined && { focusSessionAudio }),
     ...(primeSessionDuration !== undefined && { primeSessionDuration }),
+    ...(visualizeSessionDuration !== undefined && { visualizeSessionDuration }),
     ...(primeSessionAudio !== undefined && { primeSessionAudio }),
+    ...(sessionAudioDefaults !== undefined && { sessionAudioDefaults }),
     ...(hapticIntensity !== undefined && { hapticIntensity }),
     ...(vaultViewType && { vaultViewType }),
   };
@@ -243,6 +268,21 @@ const UpdateProfileSchema = z.object({
   displayName: z.string().min(1).max(100).optional(),
 });
 
+const SessionAudioDefaultsSchema = z
+  .object({
+    guidanceVoice: z.enum(['female', 'male', 'none']),
+    backgroundAudio: z.enum(['ambient', 'off']),
+  })
+  .strict();
+
+const SessionAudioDefaultsByTypeSchema = z
+  .object({
+    focus: SessionAudioDefaultsSchema,
+    deep_prime: SessionAudioDefaultsSchema,
+    visualize: SessionAudioDefaultsSchema,
+  })
+  .strict();
+
 const UpdateSettingsSchema = z.object({
   notificationsEnabled: z.boolean().optional(),
   dailyReminderTime: z
@@ -255,7 +295,9 @@ const UpdateSettingsSchema = z.object({
   focusSessionDuration: z.number().min(10).max(120).optional(),
   focusSessionAudio: z.enum(['silent', 'ambient']).optional(),
   primeSessionDuration: z.number().min(120).max(7200).optional(),
+  visualizeSessionDuration: z.union([z.literal(60), z.literal(180), z.literal(300)]).optional(),
   primeSessionAudio: z.enum(['silent', 'ambient']).optional(),
+  sessionAudioDefaults: SessionAudioDefaultsByTypeSchema.optional(),
   hapticIntensity: z.number().min(1).max(5).optional(),
   vaultViewType: z.enum(['grid', 'list']).optional(),
 });
@@ -612,83 +654,78 @@ router.get(
       }
 
       const exportContext = { authUid, userId: user.id };
-      const [anchors, activations, charges, orders, syncQueue, burnedAnchors, flaggedContent] =
-        await Promise.all([
-          getExportSection(
-            'anchors',
-            exportContext,
-            () =>
-              prisma.anchor.findMany({
-                where: { userId: user.id },
-                orderBy: { createdAt: 'desc' },
-                include: {
-                  activations: { orderBy: { activatedAt: 'desc' } },
-                  charges: { orderBy: { chargedAt: 'desc' } },
-                },
-              }),
-            []
-          ),
-          getExportSection(
-            'activations',
-            exportContext,
-            () =>
-              prisma.activation.findMany({
-                where: { userId: user.id },
-                orderBy: { activatedAt: 'desc' },
-              }),
-            []
-          ),
-          getExportSection(
-            'charges',
-            exportContext,
-            () =>
-              prisma.charge.findMany({
-                where: { userId: user.id },
-                orderBy: { chargedAt: 'desc' },
-              }),
-            []
-          ),
-          getExportSection(
-            'orders',
-            exportContext,
-            () =>
-              prisma.order.findMany({
-                where: { userId: user.id },
-                orderBy: { createdAt: 'desc' },
-              }),
-            []
-          ),
-          getExportSection(
-            'syncQueue',
-            exportContext,
-            () =>
-              prisma.syncQueue.findMany({
-                where: { userId: user.id },
-                orderBy: { createdAt: 'desc' },
-              }),
-            []
-          ),
-          getExportSection(
-            'burnedAnchors',
-            exportContext,
-            () =>
-              prisma.burnedAnchor.findMany({
-                where: { userId: user.id },
-                orderBy: { burnedAt: 'desc' },
-              }),
-            []
-          ),
-          getExportSection(
-            'flaggedContent',
-            exportContext,
-            () =>
-              prisma.flaggedContent.findMany({
-                where: buildFlaggedContentUserWhere(user),
-                orderBy: { createdAt: 'desc' },
-              }),
-            []
-          ),
-        ]);
+      const [
+        anchors,
+        activations,
+        charges,
+        practiceSessions,
+        visualizationScenes,
+        orders,
+        syncQueue,
+        burnedAnchors,
+        flaggedContent,
+      ] = await Promise.all([
+        // Progression-critical sections fail the whole export instead of
+        // returning a deceptively complete v2 payload with missing history.
+        prisma.anchor.findMany({
+          where: { userId: user.id },
+          orderBy: { createdAt: 'desc' },
+          include: {
+            activations: { orderBy: { activatedAt: 'desc' } },
+            charges: { orderBy: { chargedAt: 'desc' } },
+          },
+        }),
+        prisma.activation.findMany({
+          where: { userId: user.id },
+          orderBy: { activatedAt: 'desc' },
+        }),
+        prisma.charge.findMany({
+          where: { userId: user.id },
+          orderBy: { chargedAt: 'desc' },
+        }),
+        prisma.practiceSession.findMany({
+          where: { userId: user.id },
+          orderBy: { completedAt: 'desc' },
+        }),
+        prisma.visualizationScene.findMany({
+          where: { userId: user.id },
+          orderBy: { updatedAt: 'desc' },
+        }),
+        getExportSection(
+          'orders',
+          exportContext,
+          () =>
+            prisma.order.findMany({
+              where: { userId: user.id },
+              orderBy: { createdAt: 'desc' },
+            }),
+          []
+        ),
+        getExportSection(
+          'syncQueue',
+          exportContext,
+          () =>
+            prisma.syncQueue.findMany({
+              where: { userId: user.id },
+              orderBy: { createdAt: 'desc' },
+            }),
+          []
+        ),
+        prisma.burnedAnchor.findMany({
+          where: { userId: user.id },
+          orderBy: { burnedAt: 'desc' },
+        }),
+        getExportSection(
+          'flaggedContent',
+          exportContext,
+          () =>
+            prisma.flaggedContent.findMany({
+              where: buildFlaggedContentUserWhere(user),
+              orderBy: { createdAt: 'desc' },
+            }),
+          []
+        ),
+      ]);
       const { passwordHash: _passwordHash, ...exportedUser } = user as typeof user & {
         passwordHash?: string | null;
       };
@@ -696,13 +733,17 @@ router.get(
       res.json({
         success: true,
         data: {
-          exportVersion: 1,
+          // v3 adds canonical practice sessions and account-scoped scenes while
+          // retaining every v2 field for older clients.
+          exportVersion: 3,
           exportedAt: new Date().toISOString(),
           account: {
             ...exportedUser,
             anchors,
             activations,
             charges,
+            practiceSessions,
+            visualizationScenes,
             orders,
           },
           burnedAnchors,
@@ -780,7 +821,9 @@ router.put(
  * - focusSessionDuration: Number in seconds (optional)
  * - focusSessionAudio: 'silent' | 'ambient' (optional)
  * - primeSessionDuration: Number in seconds (optional)
+ * - visualizeSessionDuration: 60, 180, or 300 seconds (optional)
  * - primeSessionAudio: 'silent' | 'ambient' (optional)
+ * - sessionAudioDefaults: validated Voice & Sound defaults for Focus, Deep Prime, and Visualize (optional)
  * - hapticIntensity: Number 1-5 (optional)
  * - vaultViewType: 'grid' | 'list' (optional)
  */
@@ -803,7 +846,9 @@ router.put(
         focusSessionDuration,
         focusSessionAudio,
         primeSessionDuration,
+        visualizeSessionDuration,
         primeSessionAudio,
+        sessionAudioDefaults,
         hapticIntensity,
         vaultViewType,
       } = validate(UpdateSettingsSchema, req.body);
@@ -817,7 +862,9 @@ router.put(
         focusSessionDuration,
         focusSessionAudio,
         primeSessionDuration,
+        visualizeSessionDuration,
         primeSessionAudio,
+        sessionAudioDefaults,
         hapticIntensity,
         vaultViewType,
       });

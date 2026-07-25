@@ -51,7 +51,7 @@ export function hasCompletedPrimeToday(sessionLog: SessionLogEntry[], now: Date)
   const today = localDateString(now);
 
   return sessionLog.some((entry) => {
-    if (entry.type !== 'activate' && entry.type !== 'reinforce') {
+    if (entry.type !== 'activate' && entry.type !== 'reinforce' && entry.type !== 'visualize') {
       return false;
     }
     const completedAt = new Date(entry.completedAt);
@@ -126,11 +126,26 @@ export function evaluateDailyPrime(
   context: NotificationRuleContext
 ): NotificationRuleResult {
   const fireDate = nextReminderFireDate(state.dailyPrimeTime, context.now);
+  const completedToday = hasCompletedPrimeToday(context.sessionLog, context.now);
+
+  // A completed session suppresses only today's reminder. The scheduler
+  // replaces deterministic notification IDs whenever app state changes, so
+  // making the rule wholly ineligible here would cancel the already-queued
+  // reminder and leave nothing scheduled for tomorrow.
+  if (
+    fireDate &&
+    completedToday &&
+    fireDate.getFullYear() === context.now.getFullYear() &&
+    fireDate.getMonth() === context.now.getMonth() &&
+    fireDate.getDate() === context.now.getDate()
+  ) {
+    fireDate.setDate(fireDate.getDate() + 1);
+  }
+
   const eligible = Boolean(
     state.dailyPrimeEnabled &&
     fireDate &&
-    canSendCategory(state, 'daily_prime', context.now) &&
-    !hasCompletedPrimeToday(context.sessionLog, context.now)
+    canSendCategory(state, 'daily_prime', context.now)
   );
 
   return {
@@ -205,7 +220,7 @@ export function evaluateWeeklyRecap(
     const completedAt = new Date(entry.completedAt);
     return !Number.isNaN(completedAt.getTime()) &&
       context.now.getTime() - completedAt.getTime() < 7 * DAY_MS &&
-      (entry.type === 'activate' || entry.type === 'reinforce');
+      (entry.type === 'activate' || entry.type === 'reinforce' || entry.type === 'visualize');
   });
   const strongestAnchor = context.anchors
     .filter((anchor) => !anchor.isReleased && !anchor.archivedAt)

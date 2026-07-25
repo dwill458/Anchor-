@@ -18,6 +18,10 @@ import { resolveBurnArtworkUri } from './utils/resolveBurnArtworkUri';
 import { AuthService } from '@/services/AuthService';
 import { useNotificationController } from '../../hooks/useNotificationController';
 import { queueProgressionMilestonesFromStores } from '@/utils/progressionMilestones';
+import {
+  JOURNEY_MILESTONE_IDS,
+  JOURNEY_TEACHING_CONTENT_ID_BY_MILESTONE,
+} from '@/constants/milestones';
 
 type BurningRitualRouteProp = RouteProp<RootStackParamList, 'BurningRitual'>;
 type BurningRitualNavigationProp = StackNavigationProp<RootStackParamList, 'BurningRitual'>;
@@ -25,7 +29,7 @@ type BurningRitualNavigationProp = StackNavigationProp<RootStackParamList, 'Burn
 export const BurningRitualScreen: React.FC = () => {
   const route = useRoute<BurningRitualRouteProp>();
   const navigation = useNavigation<BurningRitualNavigationProp>();
-  const { navigateToVault } = useTabNavigation();
+  const { navigateToVault, navigateToPractice } = useTabNavigation();
   const releaseAnchor = useAnchorStore((state) => state.releaseAnchor);
   const getAnchorById = useAnchorStore((state) => state.getAnchorById);
   const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
@@ -33,7 +37,7 @@ export const BurningRitualScreen: React.FC = () => {
   const toast = useToast();
   const { handleBurnFlowEntered, handleSigilVaulted } = useNotificationController();
 
-  const { anchorId, sigilSvg, enhancedImageUrl } = route.params;
+  const { anchorId, sigilSvg, enhancedImageUrl, returnTo } = route.params;
   const anchor = getAnchorById(anchorId);
   const resolvedSigilSvg = sigilSvg || anchor?.reinforcedSigilSvg || anchor?.baseSigilSvg || '';
   const resolvedEnhancedImageUrl = enhancedImageUrl || resolveBurnArtworkUri(anchor);
@@ -84,7 +88,7 @@ export const BurningRitualScreen: React.FC = () => {
 
     // Local update happens for everyone
     releaseAnchor(anchorId);
-    await queueProgressionMilestonesFromStores();
+    await queueProgressionMilestonesFromStores({ sourceEventId: `release:${anchorId}` });
     await handleSigilVaulted();
     AnalyticsService.track(AnalyticsEvents.BURN_COMPLETED, { anchor_id: anchorId });
     FrictionAnalytics.completeFlow('burn_release', {
@@ -95,7 +99,9 @@ export const BurningRitualScreen: React.FC = () => {
     // Set first-burn flag (once)
     if (!userFlags.hasCompletedFirstBurn) {
       setUserFlag('hasCompletedFirstBurn', true);
-      queueMilestone('milestone_first_burn_v1');
+      queueMilestone(
+        JOURNEY_TEACHING_CONTENT_ID_BY_MILESTONE[JOURNEY_MILESTONE_IDS.firstRelease]
+      );
     }
 
     // Post-burn Signal Pulse — fires for ALL users on every burn ([both])
@@ -135,8 +141,12 @@ export const BurningRitualScreen: React.FC = () => {
     } else {
       navigation.goBack();
     }
+    if (returnTo === 'practice') {
+      navigateToPractice();
+      return;
+    }
     navigateToVault();
-  }, [navigation, navigateToVault]);
+  }, [navigation, navigateToPractice, navigateToVault, returnTo]);
 
   const handleReturnToAnchor = useCallback(() => {
     navigation.goBack();

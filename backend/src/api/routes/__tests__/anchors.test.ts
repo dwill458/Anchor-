@@ -14,6 +14,7 @@
 
 import express, { Application } from 'express';
 import request from 'supertest';
+import { Prisma } from '@prisma/client';
 import { errorHandler } from '../../middleware/errorHandler';
 
 // ── Mocks ────────────────────────────────────────────────────────────────────
@@ -29,14 +30,15 @@ const mockPrisma = {
   anchor: {
     create: jest.fn(),
     count: jest.fn(),
+    delete: jest.fn(),
     findMany: jest.fn(),
     findFirst: jest.fn(),
     findUnique: jest.fn(),
     update: jest.fn(),
     updateMany: jest.fn(),
   },
-  charge: { create: jest.fn() },
-  activation: { create: jest.fn() },
+  charge: { create: jest.fn(), findFirst: jest.fn() },
+  activation: { create: jest.fn(), findFirst: jest.fn() },
   burnedAnchor: { create: jest.fn() },
   anchorVariationPool: {
     updateMany: jest.fn(),
@@ -151,6 +153,8 @@ beforeEach(() => {
   (mockPrisma.anchor.count as jest.Mock).mockResolvedValue(0);
   (mockPrisma.$queryRaw as jest.Mock).mockResolvedValue([{ '?column?': 1 }]);
   (mockPrisma.anchorVariationPool.updateMany as jest.Mock).mockResolvedValue({ count: 1 });
+  (mockPrisma.charge.findFirst as jest.Mock).mockResolvedValue(null);
+  (mockPrisma.activation.findFirst as jest.Mock).mockResolvedValue(null);
   mockGetRevenueCatAccess.mockResolvedValue(null);
 });
 
@@ -592,6 +596,7 @@ describe('DELETE /api/anchors/:id', () => {
 
     expect(res.status).toBe(404);
   });
+
 });
 
 // ═════════════════════════════════════════════════════════════════════════════
@@ -654,6 +659,20 @@ describe('POST /api/anchors/:id/charge', () => {
       .send(VALID_CHARGE_BODY);
 
     expect(res.status).toBe(404);
+  });
+
+  it('returns the existing anchor without incrementing for a repeated completion event', async () => {
+    (mockPrisma.user.findUnique as jest.Mock).mockResolvedValue(MOCK_DB_USER);
+    (mockPrisma.charge.findFirst as jest.Mock).mockResolvedValue({ id: 'charge-existing' });
+    (mockPrisma.anchor.findFirst as jest.Mock).mockResolvedValue(MOCK_ANCHOR);
+
+    const res = await request(buildApp())
+      .post('/api/anchors/anchor-1/charge')
+      .send({ ...VALID_CHARGE_BODY, idempotencyKey: 'practice-event-1' });
+
+    expect(res.status).toBe(200);
+    expect(mockPrisma.$transaction).not.toHaveBeenCalled();
+    expect(mockPrisma.charge.create).not.toHaveBeenCalled();
   });
 });
 
@@ -821,6 +840,20 @@ describe('POST /api/anchors/:id/activate', () => {
 
     expect(res.status).toBe(404);
   });
+
+  it('returns the existing anchor without incrementing for a repeated activation event', async () => {
+    (mockPrisma.user.findUnique as jest.Mock).mockResolvedValue(MOCK_DB_USER);
+    (mockPrisma.activation.findFirst as jest.Mock).mockResolvedValue({ id: 'activation-existing' });
+    (mockPrisma.anchor.findFirst as jest.Mock).mockResolvedValue(MOCK_ANCHOR);
+
+    const res = await request(buildApp())
+      .post('/api/anchors/anchor-1/activate')
+      .send({ ...VALID_ACTIVATE_BODY, idempotencyKey: 'practice-event-2' });
+
+    expect(res.status).toBe(200);
+    expect(mockPrisma.$transaction).not.toHaveBeenCalled();
+    expect(mockPrisma.activation.create).not.toHaveBeenCalled();
+  });
 });
 
 // ═════════════════════════════════════════════════════════════════════════════
@@ -847,16 +880,106 @@ describe('POST /api/anchors/:id/burn', () => {
     expect(mockPrisma.$transaction).not.toHaveBeenCalled();
   });
 
-  it('burns anchor atomically and returns { burned: true }', async () => {
+  it('snapshots owned activation and charge history before deleting the anchor', async () => {
+    const activation = {
+      id: 'activation-1',
+      anchorId: 'anchor-1',
+      activationType: 'visual',
+      durationSeconds: 30,
+      activatedAt: new Date('2026-07-10T09:00:00.000Z'),
+    };
+    const charge = {
+      id: 'charge-1',
+      anchorId: 'anchor-1',
+      chargeType: 'initial_deep',
+      durationSeconds: 300,
+      completed: true,
+      chargedAt: new Date('2026-07-11T10:00:00.000Z'),
+    };
+    const ownedAnchor = {
+      ...MOCK_ANCHOR,
+      activationCount: 2,
+      activations: [activation],
+      charges: [charge],
+    };
+    const burnedSnapshot = {
+      id: 'burned-1',
+      originalAnchorId: MOCK_ANCHOR.id,
+      userId: MOCK_DB_USER.id,
+      activationCount: 2,
+      activationHistory: [],
+      chargeHistory: [],
+      burnedAt: new Date('2026-07-12T10:00:00.000Z'),
+    };
+
     (mockPrisma.user.findUnique as jest.Mock).mockResolvedValue(MOCK_DB_USER);
-    (mockPrisma.anchor.findFirst as jest.Mock).mockResolvedValue(MOCK_ANCHOR);
-    (mockPrisma.$transaction as jest.Mock).mockResolvedValue([]);
+    (mockPrisma.anchor.findFirst as jest.Mock).mockResolvedValue(ownedAnchor);
+    (mockPrisma.burnedAnchor.create as jest.Mock).mockResolvedValue(burnedSnapshot);
+    (mockPrisma.anchor.delete as jest.Mock).mockResolvedValue(ownedAnchor);
 
     const res = await request(buildApp()).post('/api/anchors/anchor-1/burn');
 
     expect(res.status).toBe(200);
     expect(res.body.data.burned).toBe(true);
     expect(mockPrisma.$transaction).toHaveBeenCalledTimes(1);
+    expect(mockPrisma.$transaction).toHaveBeenCalledWith(
+      expect.any(Function),
+      { isolationLevel: Prisma.TransactionIsolationLevel.Serializable }
+    );
+    expect(mockPrisma.anchor.findFirst).toHaveBeenCalledWith({
+      where: { id: 'anchor-1', userId: 'db-user-1' },
+      include: expect.objectContaining({
+        activations: expect.any(Object),
+        charges: expect.any(Object),
+      }),
+    });
+    expect(mockPrisma.burnedAnchor.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        originalAnchorId: 'anchor-1',
+        userId: 'db-user-1',
+        activationHistory: [
+          expect.objectContaining({
+            id: 'activation-1',
+            activatedAt: '2026-07-10T09:00:00.000Z',
+          }),
+        ],
+        chargeHistory: [
+          expect.objectContaining({
+            id: 'charge-1',
+            chargedAt: '2026-07-11T10:00:00.000Z',
+          }),
+        ],
+      }),
+    });
+    expect(mockPrisma.anchor.delete).toHaveBeenCalledWith({
+      where: { id: 'anchor-1' },
+    });
+  });
+
+  it('retries a serialization conflict so no concurrent practice event is lost', async () => {
+    const conflict = new Prisma.PrismaClientKnownRequestError('serialization conflict', {
+      code: 'P2034',
+      clientVersion: 'test',
+    });
+    const ownedAnchor = { ...MOCK_ANCHOR, activations: [], charges: [] };
+    const burnedSnapshot = {
+      id: 'burned-retry',
+      originalAnchorId: MOCK_ANCHOR.id,
+      userId: MOCK_DB_USER.id,
+      burnedAt: new Date(),
+    };
+    (mockPrisma.user.findUnique as jest.Mock).mockResolvedValue(MOCK_DB_USER);
+    (mockPrisma.anchor.findFirst as jest.Mock).mockResolvedValue(ownedAnchor);
+    (mockPrisma.burnedAnchor.create as jest.Mock).mockResolvedValue(burnedSnapshot);
+    (mockPrisma.anchor.delete as jest.Mock).mockResolvedValue(ownedAnchor);
+    (mockPrisma.$transaction as jest.Mock)
+      .mockRejectedValueOnce(conflict)
+      .mockImplementationOnce(async (callback: any) => callback(mockPrisma));
+
+    const res = await request(buildApp()).post('/api/anchors/anchor-1/burn');
+
+    expect(res.status).toBe(200);
+    expect(mockPrisma.$transaction).toHaveBeenCalledTimes(2);
   });
 
   it('returns 400 when anchor is already archived', async () => {
@@ -889,10 +1012,13 @@ describe('POST /api/anchors/:id/burn', () => {
 
     expect(res.status).toBe(404);
     expect(res.body.error.code).toBe('ANCHOR_NOT_FOUND');
-    expect(mockPrisma.anchor.findFirst).toHaveBeenCalledWith({
-      where: { id: 'foreign-anchor', userId: 'db-user-1' },
-    });
-    expect(mockPrisma.$transaction).not.toHaveBeenCalled();
+    expect(mockPrisma.anchor.findFirst).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { id: 'foreign-anchor', userId: 'db-user-1' },
+      })
+    );
+    expect(mockPrisma.burnedAnchor.create).not.toHaveBeenCalled();
+    expect(mockPrisma.anchor.delete).not.toHaveBeenCalled();
   });
 
   it('returns 500 when transaction fails', async () => {

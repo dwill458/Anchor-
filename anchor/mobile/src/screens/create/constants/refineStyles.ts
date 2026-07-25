@@ -22,7 +22,20 @@ export type RefineStyleIconName =
   | 'Flame'
   | 'Repeat'
   | 'ShieldCheck'
-  | 'Palette';
+  | 'Palette'
+  | 'AudioLines'
+  | 'Brush'
+  | 'CircleDotDashed'
+  | 'Cuboid'
+  | 'DraftingCompass'
+  | 'Feather'
+  | 'Gem'
+  | 'Hexagon'
+  | 'Moon'
+  | 'Orbit'
+  | 'SunMedium'
+  | 'Telescope'
+  | 'WandSparkles';
 
 export type RefineStyleFilter =
   | 'all'
@@ -97,7 +110,7 @@ export const REFINE_STYLES: RefineStyleOption[] = [
     isRecommended: true,
     badgeLabel: 'Recommended',
     sortOrder: 10,
-    iconName: 'Sliders',
+    iconName: 'DraftingCompass',
     recommendationCategories: ['career', 'learning', 'custom'],
     recommendationKeywords: ['focus', 'clarity', 'discipline', 'build', 'plan', 'study'],
   },
@@ -120,7 +133,7 @@ export const REFINE_STYLES: RefineStyleOption[] = [
     isLimited: false,
     isRecommended: false,
     sortOrder: 20,
-    iconName: 'Crown',
+    iconName: 'Moon',
     recommendationCategories: ['spirituality', 'relationships', 'family'],
     recommendationKeywords: ['moon', 'reflect', 'calm', 'night', 'intuition', 'trust'],
   },
@@ -143,7 +156,7 @@ export const REFINE_STYLES: RefineStyleOption[] = [
     isLimited: false,
     isRecommended: false,
     sortOrder: 30,
-    iconName: 'Repeat',
+    iconName: 'AudioLines',
     recommendationCategories: ['relationships', 'family', 'spirituality'],
     recommendationKeywords: ['connect', 'listen', 'return', 'repeat', 'pattern', 'practice'],
   },
@@ -166,7 +179,7 @@ export const REFINE_STYLES: RefineStyleOption[] = [
     isLimited: false,
     isRecommended: false,
     sortOrder: 40,
-    iconName: 'Waves',
+    iconName: 'Brush',
     recommendationCategories: ['health', 'relationships', 'family'],
     recommendationKeywords: ['heal', 'calm', 'soften', 'peace', 'gentle', 'rest'],
   },
@@ -189,7 +202,7 @@ export const REFINE_STYLES: RefineStyleOption[] = [
     isLimited: false,
     isRecommended: false,
     sortOrder: 50,
-    iconName: 'Zap',
+    iconName: 'Feather',
     recommendationCategories: ['creativity', 'relationships'],
     recommendationKeywords: ['create', 'flow', 'voice', 'move', 'express', 'art'],
   },
@@ -212,7 +225,7 @@ export const REFINE_STYLES: RefineStyleOption[] = [
     isLimited: false,
     isRecommended: false,
     sortOrder: 60,
-    iconName: 'Crown',
+    iconName: 'Gem',
     recommendationCategories: ['abundance', 'desire', 'career'],
     recommendationKeywords: ['wealth', 'worth', 'shine', 'receive', 'success', 'confidence'],
   },
@@ -235,7 +248,7 @@ export const REFINE_STYLES: RefineStyleOption[] = [
     isLimited: false,
     isRecommended: false,
     sortOrder: 70,
-    iconName: 'Sparkles',
+    iconName: 'Orbit',
     recommendationCategories: ['spirituality', 'adventure', 'desire'],
     recommendationKeywords: ['expand', 'dream', 'vision', 'future', 'wonder', 'open'],
   },
@@ -259,7 +272,7 @@ export const REFINE_STYLES: RefineStyleOption[] = [
     isRecommended: true,
     badgeLabel: 'Recommended',
     sortOrder: 80,
-    iconName: 'Target',
+    iconName: 'CircleDotDashed',
     recommendationCategories: ['health', 'career', 'learning'],
     recommendationKeywords: ['simplify', 'focus', 'clear', 'steady', 'quiet', 'less'],
   },
@@ -305,7 +318,7 @@ export const REFINE_STYLES: RefineStyleOption[] = [
     isLimited: false,
     isRecommended: false,
     sortOrder: 100,
-    iconName: 'Cloud',
+    iconName: 'WandSparkles',
     recommendationCategories: ['health', 'creativity', 'spirituality'],
     recommendationKeywords: ['glow', 'soften', 'heal', 'light', 'open', 'breathe'],
   },
@@ -351,7 +364,7 @@ export const REFINE_STYLES: RefineStyleOption[] = [
     isLimited: false,
     isRecommended: false,
     sortOrder: 120,
-    iconName: 'Target',
+    iconName: 'Cuboid',
     recommendationCategories: ['career', 'health', 'desire'],
     recommendationKeywords: ['strong', 'stable', 'ground', 'commit', 'endure', 'stand'],
   },
@@ -376,7 +389,7 @@ export const REFINE_STYLES: RefineStyleOption[] = [
     badgeLabel: 'Featured',
     collectionName: 'Launch Featured',
     sortOrder: 10,
-    iconName: 'Palette',
+    iconName: 'Telescope',
     recommendationCategories: ['adventure', 'learning', 'spirituality'],
     recommendationKeywords: ['navigate', 'map', 'learn', 'explore', 'direction', 'stars'],
   },
@@ -401,7 +414,7 @@ export const REFINE_STYLES: RefineStyleOption[] = [
     badgeLabel: 'Featured',
     collectionName: 'Launch Featured',
     sortOrder: 20,
-    iconName: 'Repeat',
+    iconName: 'AudioLines',
     recommendationCategories: ['creativity', 'relationships', 'custom'],
     recommendationKeywords: ['voice', 'memory', 'signal', 'repeat', 'listen', 'practice'],
   },
@@ -426,7 +439,7 @@ export const REFINE_STYLES: RefineStyleOption[] = [
     badgeLabel: 'New',
     collectionName: 'Launch Featured',
     sortOrder: 30,
-    iconName: 'Sparkles',
+    iconName: 'Gem',
     recommendationCategories: ['creativity', 'learning', 'relationships'],
     recommendationKeywords: ['clarity', 'perceive', 'shift', 'layer', 'refine', 'see'],
   },
@@ -477,7 +490,7 @@ export const REFINE_STYLES: RefineStyleOption[] = [
     collectionName: 'Seasonal Launch',
     availableUntil: '2026-09-21',
     sortOrder: 10,
-    iconName: 'Crown',
+    iconName: 'SunMedium',
     recommendationCategories: ['desire', 'career', 'abundance'],
     recommendationKeywords: ['sun', 'radiant', 'confidence', 'purpose', 'clear', 'bright'],
   },
@@ -529,7 +542,7 @@ export const REFINE_STYLES: RefineStyleOption[] = [
     collectionName: 'Seasonal Launch',
     availableUntil: '2026-09-21',
     sortOrder: 30,
-    iconName: 'Compass',
+    iconName: 'Hexagon',
     recommendationCategories: ['spirituality', 'learning', 'custom'],
     recommendationKeywords: ['meaning', 'purpose', 'order', 'trust', 'center', 'align'],
   },

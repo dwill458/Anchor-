@@ -52,15 +52,33 @@ import {
   needsChargeStateBackfill,
 } from '@/utils/anchorPriming';
 import { usePrimeSessionAccess } from '@/hooks/usePrimeSessionAccess';
+import { createPracticeEventId } from '@/utils/primingAnalytics';
+import {
+  DEFAULT_SESSION_AUDIO_DEFAULTS,
+  legacyAudioModeToSessionAudioDefaults,
+  resolveSessionAudioConfiguration,
+  type SessionAudioConfiguration,
+  type SessionAudioDefaults,
+} from '@/types/sessionAudio';
+import { persistSessionAudioDefaults } from '@/services/SessionAudioPreferencesService';
+import { resolveSessionAudioPlan } from '@/services/SessionAudioManifest';
+import { PracticeCompletionService } from '@/services/PracticeCompletionService';
 
 type ActivationRouteProp = RouteProp<RootStackParamList, 'ActivationRitual'>;
 type ActivationNavigationProp = NativeStackNavigationProp<RootStackParamList, 'ActivationRitual'>;
 
 export const ActivationScreen: React.FC = () => {
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
-  const { navigateToPractice } = useTabNavigation();
+  const { navigateToPractice, navigateToPaywall } = useTabNavigation();
   const route = useRoute<ActivationRouteProp>();
-  const { anchorId, activationType, durationOverride, audioModeOverride, returnTo } = route.params;
+  const {
+    anchorId,
+    activationType,
+    durationOverride,
+    audioConfiguration,
+    audioModeOverride,
+    returnTo,
+  } = route.params;
   const toast = useToast();
 
   const getAnchorById = useAnchorStore((state) => state.getAnchorById);
@@ -73,8 +91,19 @@ export const ActivationScreen: React.FC = () => {
     (state) => state.enqueuePendingFirstAnchorMutation
   );
   const focusSessionDuration = useSettingsStore((state) => state.focusSessionDuration ?? 30);
-  const focusSessionAudio = useSettingsStore((state) => state.focusSessionAudio ?? 'ambient');
-  const resolvedFocusSessionAudio = audioModeOverride ?? focusSessionAudio;
+  const focusSessionAudioDefaults = useSettingsStore(
+    (state) => state.sessionAudioDefaults?.focus ?? DEFAULT_SESSION_AUDIO_DEFAULTS.focus
+  );
+  const [resolvedFocusSessionAudio, setResolvedFocusSessionAudio] =
+    useState<SessionAudioConfiguration>(() =>
+      audioConfiguration ??
+      resolveSessionAudioConfiguration(
+        focusSessionAudioDefaults,
+        audioModeOverride
+          ? legacyAudioModeToSessionAudioDefaults(audioModeOverride)
+          : undefined
+      )
+    );
   const traceDefaultEnabled = useSettingsStore((state) => state.traceDefaultEnabled ?? true);
   const { recordSession, bumpThreadStrength } = useSessionStore();
   const { recordShown } = useTeachingStore();
@@ -98,7 +127,6 @@ export const ActivationScreen: React.FC = () => {
       return;
     }
 
-    const parentNavigation = navigation.getParent?.();
     const task = InteractionManager.runAfterInteractions(() => {
       navigation.goBack();
       requestAnimationFrame(() => {
@@ -108,15 +136,7 @@ export const ActivationScreen: React.FC = () => {
           tier: primeSessionAccess.tier,
         });
 
-        if (parentNavigation?.navigate) {
-          parentNavigation.navigate('Paywall', {
-            source: 'free_weekly_sessions_used',
-            preferredPlanId: 'annual',
-          });
-          return;
-        }
-
-        navigation.navigate('Paywall', {
+        navigateToPaywall({
           source: 'free_weekly_sessions_used',
           preferredPlanId: 'annual',
         });
@@ -124,7 +144,7 @@ export const ActivationScreen: React.FC = () => {
     });
 
     return () => task.cancel();
-  }, [isAnchorMissing, navigation, primeSessionAccess.focus.isAllowed]);
+  }, [isAnchorMissing, navigateToPaywall, navigation, primeSessionAccess.focus.isAllowed]);
 
   // Ground Note (Pattern 2): shown on first charge session, guide ON
   const groundNoteTeaching = useTeachingGate({
@@ -144,8 +164,11 @@ export const ActivationScreen: React.FC = () => {
   const [pendingPostPrimeFlowId, setPendingPostPrimeFlowId] = useState<string | null>(null);
   const exitingRef = React.useRef(false);
   const sessionCompletedRef = React.useRef(false);
+  const completionStartedRef = React.useRef(false);
+  const hasRecordedRef = React.useRef(false);
   const hasLoggedActivationRef = React.useRef(false);
   const activationSyncFailedRef = React.useRef(false);
+  const completionEventIdRef = React.useRef(createPracticeEventId());
   const focusSessionExitAudioHandlerRef = React.useRef<(() => Promise<void>) | null>(null);
   const completionTransitionTaskRef = React.useRef<{ cancel?: () => void } | null>(null);
 
@@ -170,6 +193,15 @@ export const ActivationScreen: React.FC = () => {
 
     return Math.max(10, Math.min(120, Math.round(focusSessionDuration)));
   }, [durationOverride, focusSessionDuration]);
+  const focusSessionAudioPlan = useMemo(
+    () =>
+      resolveSessionAudioPlan({
+        sessionType: 'focus',
+        durationSeconds: activationDurationSeconds,
+        configuration: resolvedFocusSessionAudio,
+      }),
+    [activationDurationSeconds, resolvedFocusSessionAudio]
+  );
 
   const logActivationInBackground = useCallback(async (): Promise<void> => {
     if (hasLoggedActivationRef.current) return;
@@ -195,6 +227,11 @@ export const ActivationScreen: React.FC = () => {
         backend_synced: backendSynced,
         queued,
         is_first_prime: isFirstPrimeForAnchor,
+        guidance_voice: focusSessionAudioPlan.configuration.guidanceVoice,
+        requested_guidance_voice:
+          focusSessionAudioPlan.requestedConfiguration.guidanceVoice,
+        background_audio: focusSessionAudioPlan.configuration.backgroundAudio,
+        audio_source: focusSessionAudioPlan.configuration.source,
       };
       AnalyticsService.track(AnalyticsEvents.ANCHOR_ACTIVATED, properties);
       AnalyticsService.track(AnalyticsEvents.ACTIVATION_RITUAL_COMPLETED, properties);
@@ -216,6 +253,7 @@ export const ActivationScreen: React.FC = () => {
           tempAnchorId: anchorId,
           activationType: activationType || 'visual',
           durationSeconds: activationDurationSeconds,
+          idempotencyKey: completionEventIdRef.current,
           queuedAt: localActivationTime.toISOString(),
         });
         toast.success('Prime session saved for your first anchor');
@@ -245,6 +283,7 @@ export const ActivationScreen: React.FC = () => {
       const response = await apiClient.post(`/api/anchors/${effectiveAnchorId}/activate`, {
         activationType: activationType || 'visual',
         durationSeconds: activationDurationSeconds,
+        idempotencyKey: completionEventIdRef.current,
       });
 
       if (response.data.data) {
@@ -308,6 +347,7 @@ export const ActivationScreen: React.FC = () => {
     incrementTotalPrimes,
     isPendingFirstAnchor,
     isFirstPrimeForAnchor,
+    focusSessionAudioPlan,
     shouldBackfillChargeState,
     toast,
     updateAnchor,
@@ -353,6 +393,10 @@ export const ActivationScreen: React.FC = () => {
   }, []);
 
   const handleComplete = useCallback(async () => {
+    if (completionStartedRef.current) {
+      return;
+    }
+    completionStartedRef.current = true;
     sessionCompletedRef.current = true;
     setShowExitWarning(false);
 
@@ -522,21 +566,43 @@ export const ActivationScreen: React.FC = () => {
   }, [handleComplete, promptExitSession]);
 
   const handleCompletionDone = useCallback(async (reflectionWord?: string) => {
+    if (hasRecordedRef.current) {
+      return;
+    }
+    hasRecordedRef.current = true;
+
     setShowCompletion(false);
     setShowExitWarning(false);
     exitingRef.current = true;
 
     // Record session locally
-    recordSession({
+    const completedAt = new Date().toISOString();
+    const completionEventId = recordSession({
+      idempotencyKey: completionEventIdRef.current,
       anchorId,
       type: 'activate',
       durationSeconds: activationDurationSeconds,
-      mode: resolvedFocusSessionAudio,
+      mode:
+        focusSessionAudioPlan.configuration.backgroundAudio === 'ambient' ||
+        focusSessionAudioPlan.configuration.guidanceVoice !== 'none'
+          ? 'ambient'
+          : 'silent',
+      audioConfiguration: focusSessionAudioPlan.configuration,
       reflectionWord,
-      completedAt: new Date().toISOString(),
+      completedAt,
+    });
+    void PracticeCompletionService.queueLegacyCompletion({
+      id: completionEventId,
+      anchorId,
+      anchorLocalId: anchor?.localId,
+      practiceMode: 'focus',
+      durationSeconds: activationDurationSeconds,
+      completedAt,
+      guidanceVoice: focusSessionAudioPlan.configuration.guidanceVoice,
+      backgroundAudio: focusSessionAudioPlan.configuration.backgroundAudio,
     });
     void recordReviewSignal('focus_session_completed');
-    await queueProgressionMilestonesFromStores();
+    await queueProgressionMilestonesFromStores({ sourceEventId: completionEventId });
 
     if (returnTo === 'practice') {
       if (typeof navigation.popToTop === 'function') {
@@ -573,7 +639,7 @@ export const ActivationScreen: React.FC = () => {
     navigation,
     recordSession,
     handlePrimeComplete,
-    resolvedFocusSessionAudio,
+    focusSessionAudioPlan,
     returnTo,
     scheduleReviewRequestAfterHomeReturn,
   ]);
@@ -594,7 +660,13 @@ export const ActivationScreen: React.FC = () => {
         intentionText={anchor.intentionText}
         anchorImageUri={anchorHeroUri}
         durationSeconds={activationDurationSeconds}
-        audioModeOverride={audioModeOverride}
+        audioConfiguration={resolvedFocusSessionAudio}
+        onAudioConfigurationChange={(value: SessionAudioDefaults, makeDefault: boolean) => {
+          setResolvedFocusSessionAudio({ ...value, source: 'session_override' });
+          if (makeDefault) {
+            void persistSessionAudioDefaults('focus', value).catch(() => undefined);
+          }
+        }}
         onComplete={handleComplete}
         onSessionCompleted={handleSessionCompleted}
         groundNoteText={groundNoteTeaching?.copy}

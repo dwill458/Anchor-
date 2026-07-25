@@ -148,7 +148,7 @@ export default function RefineExpressionScreen() {
     visibleCoreStyles.length > 0 ||
     visibleSeasonalStyles.length > 0;
 
-  const gridGap = 12;
+  const gridGap = spacing.sm;
   const gridCardWidth = Math.floor((screenWidth - spacing.lg * 2 - gridGap) / 2);
   const seasonalCardWidth = Math.floor((screenWidth - spacing.lg * 2 - spacing.md * 2 - gridGap) / 2);
   const featuredCardWidth = Math.min(286, Math.max(238, screenWidth * 0.72));
@@ -218,24 +218,40 @@ export default function RefineExpressionScreen() {
   ]);
 
   const renderGrid = useCallback(
-    (stylesToRender: RefineStyleOption[], variant: 'core' | 'seasonal' | 'filtered' = 'core') => (
-      <View style={[styles.grid, variant === 'seasonal' && styles.seasonalGrid]}>
-        {stylesToRender.map((style, index) => (
-          <View
-            key={style.id}
-            style={[styles.gridItem, { width: variant === 'seasonal' ? seasonalCardWidth : gridCardWidth }]}
-          >
-            <RefineStyleCard
-              option={style}
-              index={index}
-              isSelected={selectedStyleId === style.id}
-              onSelect={handleStyleSelect}
-              variant={variant}
-            />
+    (stylesToRender: RefineStyleOption[], variant: 'core' | 'seasonal' | 'filtered' = 'core') => {
+      const renderCard = (style: RefineStyleOption, index: number) => (
+        <View key={style.id} style={[styles.gridItem, { width: variant === 'seasonal' ? seasonalCardWidth : gridCardWidth }]}>
+          <RefineStyleCard
+            option={style}
+            index={index}
+            isSelected={selectedStyleId === style.id}
+            onSelect={handleStyleSelect}
+            variant={variant}
+          />
+        </View>
+      );
+
+      if (variant === 'seasonal') {
+        const seasonalRows: RefineStyleOption[][] = [];
+
+        for (let index = 0; index < stylesToRender.length; index += 2) {
+          seasonalRows.push(stylesToRender.slice(index, index + 2));
+        }
+
+        return (
+          <View style={styles.seasonalGrid}>
+            {seasonalRows.map((row, rowIndex) => (
+              <View key={`seasonal-row-${rowIndex}`} style={styles.seasonalRow}>
+                {row.map((style, columnIndex) => renderCard(style, rowIndex * 2 + columnIndex))}
+                {row.length === 1 ? <View style={[styles.gridItem, { width: seasonalCardWidth }]} /> : null}
+              </View>
+            ))}
           </View>
-        ))}
-      </View>
-    ),
+        );
+      }
+
+      return <View style={styles.grid}>{stylesToRender.map(renderCard)}</View>;
+    },
     [gridCardWidth, handleStyleSelect, seasonalCardWidth, selectedStyleId]
   );
 
@@ -654,10 +670,18 @@ const styles = StyleSheet.create({
     paddingTop: spacing.md,
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 12,
+    rowGap: spacing.sm,
+    columnGap: spacing.sm,
   },
   seasonalGrid: {
     paddingHorizontal: spacing.md,
+    paddingTop: spacing.md,
+    rowGap: spacing.md,
+  },
+  seasonalRow: {
+    width: '100%',
+    flexDirection: 'row',
+    justifyContent: 'space-between',
   },
   gridItem: {
     flexGrow: 0,

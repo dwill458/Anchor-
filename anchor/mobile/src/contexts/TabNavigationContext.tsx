@@ -2,14 +2,15 @@
  * TabNavigationContext
  *
  * Provides cross-tab navigation for screens inside VaultStack or PracticeStack
- * that need to navigate to a different tab (e.g., Practice→Vault's ActivationRitual).
+ * that need to navigate to a different tab. Practice session routes are owned
+ * by PracticeStack, so callers should use navigateToPractice for session entry.
  *
  * Replaces the old `navigation.getParent()?.navigate('Vault', ...)` pattern
  * that broke when we moved from @react-navigation/bottom-tabs to SwipeableTabContainer.
  *
  * Usage:
  *   const { navigateToVault, navigateToPractice } = useTabNavigation();
- *   navigateToVault('ActivationRitual', { anchorId: '...', activationType: 'visual' });
+ *   navigateToVault('AnchorDetail', { anchorId: '...' });
  *   navigateToPractice();
  *
  * Registration (call from each tab's root screen on mount):
@@ -22,7 +23,7 @@
  */
 
 import React, { createContext, useCallback, useContext, useRef } from 'react';
-import type { RootStackParamList } from '@/types';
+import type { PracticeStackParamList, RootStackParamList } from '@/types';
 
 type TabIndex = 0 | 1 | 2;
 
@@ -38,8 +39,11 @@ interface TabNavigationContextValue {
     screen?: RouteName,
     params?: RootStackParamList[RouteName]
   ) => void;
-  /** Switch to Practice tab */
-  navigateToPractice: () => void;
+  /** Switch to Practice tab, optionally pushing a route on PracticeStack. */
+  navigateToPractice: <RouteName extends keyof PracticeStackParamList>(
+    screen?: RouteName,
+    params?: PracticeStackParamList[RouteName]
+  ) => void;
   /** Open the root-level paywall from either tab's independent stack. */
   navigateToPaywall: (params?: RootStackParamList['Paywall']) => void;
   /** Register the navigation object from a tab's root screen */
@@ -65,9 +69,15 @@ export const TabNavigationProvider: React.FC<TabNavigationProviderProps> = ({
 }) => {
   // Refs to each tab's root screen navigation — registered by VaultScreen + PracticeScreen
   const tabNavRefs = useRef<(any | null)[]>([null, null, null]);
+  const pendingPracticeRouteRef = useRef<{ screen: string; params?: unknown } | null>(null);
 
   const registerTabNav = useCallback((tabIndex: TabIndex, nav: any) => {
     tabNavRefs.current[tabIndex] = nav;
+    if (tabIndex === 1 && nav && pendingPracticeRouteRef.current) {
+      const pending = pendingPracticeRouteRef.current;
+      pendingPracticeRouteRef.current = null;
+      nav.push(pending.screen, pending.params);
+    }
   }, []);
 
   const navigateToVault = useCallback(
@@ -87,9 +97,26 @@ export const TabNavigationProvider: React.FC<TabNavigationProviderProps> = ({
     [onIndexChange],
   );
 
-  const navigateToPractice = useCallback(() => {
-    onIndexChange(1);
-  }, [onIndexChange]);
+  const navigateToPractice = useCallback(
+    <RouteName extends keyof PracticeStackParamList>(
+      screen?: RouteName,
+      params?: PracticeStackParamList[RouteName]
+    ) => {
+      if (screen) {
+        const practiceNavigation = tabNavRefs.current[1];
+        if (practiceNavigation) {
+          practiceNavigation.push(screen, params);
+        } else {
+          pendingPracticeRouteRef.current = { screen: String(screen), params };
+        }
+      }
+
+      if (activeIndex !== 1) {
+        onIndexChange(1);
+      }
+    },
+    [activeIndex, onIndexChange]
+  );
 
   return (
     <TabNavigationContext.Provider

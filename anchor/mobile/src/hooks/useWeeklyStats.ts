@@ -4,6 +4,7 @@ import { useSessionStore } from '@/stores/sessionStore';
 import { calculateStreak } from '@/utils/streakHelpers';
 import { reviewsPreviousWeekWindow } from '@/utils/weeklyReviewWindow';
 import type { Anchor } from '@/types';
+import { PRACTICE_THREAD_STRENGTH_GAINS } from '@/types/practice';
 import {
   TIME_OF_DAY_LABELS,
   WEEKDAY_NAMES,
@@ -91,7 +92,9 @@ export interface WeeklyStats {
 }
 
 function getSessionGain(entry: { type: PrimingHistoryEntry['type'] }): number {
-  return entry.type === 'reinforce' ? 40 : 25;
+  if (entry.type === 'reinforce') return PRACTICE_THREAD_STRENGTH_GAINS.deep_prime;
+  if (entry.type === 'visualize') return PRACTICE_THREAD_STRENGTH_GAINS.visualize;
+  return PRACTICE_THREAD_STRENGTH_GAINS.focus;
 }
 
 function clamp(value: number, min: number, max: number): number {

@@ -4,6 +4,13 @@
  * Core domain types and interfaces used throughout the application.
  */
 
+import type {
+  SessionAudioConfiguration,
+  SessionAudioDefaultsByType,
+} from './sessionAudio';
+export * from './sessionAudio';
+import type { PracticeEntrySource } from './practice';
+
 // ============================================================================
 // Core Domain Types
 // ============================================================================
@@ -235,6 +242,7 @@ export type PendingFirstAnchorMutation =
     tempAnchorId: string;
     chargeType: ChargeType;
     durationSeconds: number;
+    idempotencyKey?: string;
     queuedAt: string;
   }
   | {
@@ -242,6 +250,7 @@ export type PendingFirstAnchorMutation =
     tempAnchorId: string;
     activationType: ActivationType;
     durationSeconds: number;
+    idempotencyKey?: string;
     queuedAt: string;
   };
 
@@ -261,9 +270,14 @@ export interface UserSettings {
   defaultChargeDuration: number; // in seconds
   focusSessionMode: 'quick' | 'deep';
   focusSessionDuration: number;
+  /** @deprecated Read sessionAudioDefaults instead. Retained for rolling migration. */
   focusSessionAudio: 'silent' | 'ambient';
   primeSessionDuration: number;
+  visualizeSessionDuration?: number;
+  /** @deprecated Read sessionAudioDefaults instead. Retained for rolling migration. */
   primeSessionAudio: 'silent' | 'ambient';
+  /** Voice & Sound defaults. Optional while older backends roll forward. */
+  sessionAudioDefaults?: SessionAudioDefaultsByType;
   hapticIntensity: number; // 1-5 scale
   vaultViewType: 'grid' | 'list';
   updatedAt: Date;
@@ -332,6 +346,7 @@ export interface ApiResponse<T = any> {
   meta?: {
     page?: number;
     total?: number;
+    nextCursor?: string | null;
   };
 }
 
@@ -564,11 +579,26 @@ export type RootStackParamList = {
   SaveProgress: { anchor: Anchor };
   TrialSignUp: undefined;
   AnchorDetail: { anchorId: string };
+  VisualizePreparation: { anchorId: string; source?: string };
+  VisualizeSession: {
+    anchorId: string;
+    durationSeconds: 60 | 180 | 300;
+    sceneText: string;
+    guidanceVoice: 'female' | 'male' | 'none';
+    backgroundAudio: 'ambient' | 'off';
+  };
+  VisualizeCompletion: {
+    anchorId: string;
+    sessionId: string;
+    durationSeconds: 60 | 180 | 300;
+    sceneText?: string;
+  };
   AuthGate: undefined;
   Paywall:
     | {
       source?: PaywallSource;
       preferredPlanId?: AuthPreferredPlanId;
+      resumeTarget?: { kind: 'visualize_prepare'; anchorId: string };
     }
     | undefined;
   CreateAnchor: undefined;
@@ -791,6 +821,8 @@ export type RootStackParamList = {
     ritualType: 'focus' | 'ritual' | 'quick' | 'deep'; // Legacy types for compatibility
     durationSeconds?: number; // Optional custom duration for focus/ritual modes
     mantraAudioEnabled?: boolean;
+    audioConfiguration?: SessionAudioConfiguration;
+    /** @deprecated Compatibility for location presets saved before Voice & Sound v2. */
     audioModeOverride?: 'silent' | 'ambient';
     returnTo?: 'vault' | 'practice' | 'detail';
   };
@@ -798,6 +830,8 @@ export type RootStackParamList = {
   ChargeComplete: {
     anchorId: string;
     durationSeconds?: number;
+    completionEventId?: string;
+    audioConfiguration?: SessionAudioConfiguration;
     returnTo?: 'vault' | 'practice' | 'detail';
   };
   FirstPrimeComplete: {
@@ -805,6 +839,8 @@ export type RootStackParamList = {
     sessionCount: number;
     threadStrength: number;
     durationSeconds: number;
+    completionEventId?: string;
+    audioConfiguration?: SessionAudioConfiguration;
     returnTo?: 'vault' | 'practice' | 'detail';
   };
 
@@ -813,6 +849,8 @@ export type RootStackParamList = {
     anchorId: string;
     activationType: ActivationType;
     durationOverride?: number;
+    audioConfiguration?: SessionAudioConfiguration;
+    /** @deprecated Compatibility for location presets saved before Voice & Sound v2. */
     audioModeOverride?: 'silent' | 'ambient';
     returnTo?: 'vault' | 'practice' | 'detail' | 'reinforce';
     initialDuration?: 'quick' | 'deep';
@@ -824,6 +862,8 @@ export type RootStackParamList = {
     intention: string;
     sigilSvg: string;
     enhancedImageUrl?: string;
+    returnTo?: 'vault' | 'practice' | 'detail';
+    source?: PracticeEntrySource;
   };
 
   BurningRitual: {
@@ -831,6 +871,8 @@ export type RootStackParamList = {
     intention: string;
     sigilSvg: string;
     enhancedImageUrl?: string;
+    returnTo?: 'vault' | 'practice' | 'detail';
+    source?: PracticeEntrySource;
   };
 
   // ═══════════════════════════════════════════════════
@@ -887,17 +929,102 @@ export type PracticeStackParamList = {
   PracticeHome: undefined;
   // DEFERRED: StabilizeRitual: { anchorId: string }; — restore post-launch
   Evolve: undefined;
+  ChargeSetup: {
+    anchorId: string;
+    returnTo?: 'practice';
+    autoStartOnSelection?: boolean;
+    initialDuration?: 'quick' | 'deep';
+    fromOnboarding?: boolean;
+    source?: PracticeEntrySource;
+  };
+  BreathingAnimation: {
+    source?: 'charge' | 'practice';
+    anchorId?: string;
+    mode?: string;
+    duration?: number;
+    returnTo?: 'practice';
+  };
+  Ritual: {
+    anchorId: string;
+    ritualType: 'focus' | 'ritual' | 'quick' | 'deep';
+    durationSeconds?: number;
+    mantraAudioEnabled?: boolean;
+    audioConfiguration?: SessionAudioConfiguration;
+    audioModeOverride?: 'silent' | 'ambient';
+    returnTo?: 'practice';
+    source?: PracticeEntrySource;
+  };
+  SealAnchor: { anchorId: string; returnTo?: 'practice' };
+  ChargeComplete: {
+    anchorId: string;
+    durationSeconds?: number;
+    completionEventId?: string;
+    audioConfiguration?: SessionAudioConfiguration;
+    returnTo?: 'practice';
+  };
+  FirstPrimeComplete: {
+    anchorId: string;
+    sessionCount: number;
+    threadStrength: number;
+    durationSeconds: number;
+    completionEventId?: string;
+    audioConfiguration?: SessionAudioConfiguration;
+    returnTo?: 'practice';
+  };
+  ActivationRitual: {
+    anchorId: string;
+    activationType: ActivationType;
+    durationOverride?: number;
+    audioConfiguration?: SessionAudioConfiguration;
+    audioModeOverride?: 'silent' | 'ambient';
+    returnTo?: 'practice';
+    initialDuration?: 'quick' | 'deep';
+    source?: PracticeEntrySource;
+  };
+  ManualReinforcement:
+    | {
+      source: 'post_prime_trace';
+      anchorId: string;
+    }
+    | {
+      source: 'creation';
+      intentionText: string;
+      category: AnchorCategory;
+      distilledLetters: string[];
+      baseSigilSvg: string;
+      structureVariant: SigilVariant;
+      reinforcedSigilSvg?: string;
+      reinforcementMetadata?: ReinforcementMetadata;
+    };
+  VisualizePreparation: { anchorId: string; source?: PracticeEntrySource };
+  VisualizeSession: {
+    anchorId: string;
+    durationSeconds: 60 | 180 | 300;
+    sceneText: string;
+    guidanceVoice: 'female' | 'male' | 'none';
+    backgroundAudio: 'ambient' | 'off';
+  };
+  VisualizeCompletion: {
+    anchorId: string;
+    sessionId: string;
+    durationSeconds: 60 | 180 | 300;
+    sceneText?: string;
+  };
   ConfirmBurn: {
     anchorId: string;
     intention: string;
     sigilSvg: string;
     enhancedImageUrl?: string;
+    returnTo?: 'practice';
+    source?: PracticeEntrySource;
   };
   BurningRitual: {
     anchorId: string;
     intention: string;
     sigilSvg: string;
     enhancedImageUrl?: string;
+    returnTo?: 'practice';
+    source?: PracticeEntrySource;
   };
 };
 

@@ -1,6 +1,7 @@
 /**
- * WidgetDeepLinkHandler — routes the widget CTA deep link
- * (anchor://practice) to the Practice tab.
+ * WidgetDeepLinkHandler — routes widget deep links into the correct app flow:
+ * anchor://practice opens the Practice tab, while anchor://prime?anchorId=…
+ * opens the prime picker for that anchor.
  *
  * The main tabs are a custom pager (SwipeableTabContainer), not a React
  * Navigation tab navigator, so URL routing can't go through a NavigationContainer
@@ -15,13 +16,18 @@
  * fallback.
  */
 
-import { useEffect, useRef } from 'react';
-import { Linking } from 'react-native';
-import { useTabNavigation } from '@/contexts/TabNavigationContext';
+import { useEffect, useRef } from "react";
+import { Linking } from "react-native";
+import { useTabNavigation } from "@/contexts/TabNavigationContext";
+import { usePracticeEntry } from "@/hooks/usePracticeEntry";
+import { useAnchorStore } from "@/stores/anchorStore";
+import { ENABLE_VISUALIZE } from "@/config";
 
 let initialUrlConsumed = false;
 
-export function isWidgetPracticeDeepLink(url: string | null | undefined): boolean {
+export function isWidgetPracticeDeepLink(
+  url: string | null | undefined,
+): boolean {
   if (!url) {
     return false;
   }
@@ -29,25 +35,94 @@ export function isWidgetPracticeDeepLink(url: string | null | undefined): boolea
   return /^anchor:\/\/+practice\/?$/i.test(url.trim());
 }
 
+export function getWidgetPrimeAnchorId(
+  url: string | null | undefined,
+): string | null {
+  if (!url) return null;
+  const match = url.trim().match(/^anchor:\/\/+prime\/?\?anchorId=([^&]+)$/i);
+  if (!match) return null;
+
+  try {
+    const anchorId = decodeURIComponent(match[1]);
+    return anchorId.length > 0 ? anchorId : null;
+  } catch {
+    return null;
+  }
+}
+
+export function getVisualizeAnchorId(
+  url: string | null | undefined,
+): string | null {
+  if (!url) return null;
+  const match = url
+    .trim()
+    .match(/^anchor:\/\/+visualize\/?\?anchorId=([^&]+)$/i);
+  if (!match) return null;
+  try {
+    const anchorId = decodeURIComponent(match[1]);
+    return anchorId.length > 0 ? anchorId : null;
+  } catch {
+    return null;
+  }
+}
+
 export function WidgetDeepLinkHandler(): null {
   const { navigateToPractice } = useTabNavigation();
+  const { startPractice } = usePracticeEntry();
   const navigateToPracticeRef = useRef(navigateToPractice);
   navigateToPracticeRef.current = navigateToPractice;
+  const startPracticeRef = useRef(startPractice);
+  startPracticeRef.current = startPractice;
+
+  const handleUrl = (url: string | null | undefined) => {
+    const visualizeAnchorId = getVisualizeAnchorId(url);
+    if (visualizeAnchorId) {
+      if (!ENABLE_VISUALIZE) {
+        navigateToPracticeRef.current();
+        return;
+      }
+      const anchor = useAnchorStore.getState().getAnchorById(visualizeAnchorId);
+      if (anchor && !anchor.isReleased && !anchor.archivedAt) {
+        useAnchorStore.getState().setCurrentAnchor(anchor.id);
+        startPracticeRef.current({
+          mode: "visualize",
+          anchorId: anchor.id,
+          source: "widget",
+        });
+        return;
+      }
+      navigateToPracticeRef.current();
+      return;
+    }
+    const anchorId = getWidgetPrimeAnchorId(url);
+    if (anchorId) {
+      const anchor = useAnchorStore.getState().getAnchorById(anchorId);
+      if (anchor) {
+        useAnchorStore.getState().setCurrentAnchor(anchor.id);
+        startPracticeRef.current({
+          mode: "deepPrime",
+          anchorId: anchor.id,
+          source: "widget",
+        });
+        return;
+      }
+    }
+
+    if (isWidgetPracticeDeepLink(url)) {
+      navigateToPracticeRef.current();
+    }
+  };
 
   useEffect(() => {
     if (!initialUrlConsumed) {
       initialUrlConsumed = true;
       void Linking.getInitialURL().then((url) => {
-        if (isWidgetPracticeDeepLink(url)) {
-          navigateToPracticeRef.current();
-        }
+        handleUrl(url);
       });
     }
 
-    const subscription = Linking.addEventListener('url', ({ url }) => {
-      if (isWidgetPracticeDeepLink(url)) {
-        navigateToPracticeRef.current();
-      }
+    const subscription = Linking.addEventListener("url", ({ url }) => {
+      handleUrl(url);
     });
     return () => subscription.remove();
   }, []);

@@ -319,6 +319,8 @@ export async function updateUserSettings(
       | 'focusSessionAudio'
       | 'primeSessionDuration'
       | 'primeSessionAudio'
+      | 'visualizeSessionDuration'
+      | 'sessionAudioDefaults'
     >
   >
 ): Promise<UserSettings> {

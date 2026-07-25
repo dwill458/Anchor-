@@ -1,5 +1,5 @@
 /**
- * NarrativeOnboardingScreen — v1.1 "Industrial Magic"
+ * NarrativeOnboardingScreen — visual goal setting introduction
  *
  * 5-screen Cognitive Priming Utility onboarding flow.
  */
@@ -27,8 +27,10 @@ import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { OnboardingStackParamList } from '@/types';
 import { colors, typography } from '@/theme';
 import { isCompactPhoneViewport, isShortPhoneViewport } from '@/utils/layout';
+import { getOnboardingProgressPercent } from '@/utils/onboardingProgress';
+import { useReduceMotionEnabled } from '@/hooks/useReduceMotionEnabled';
 // eslint-disable-next-line @typescript-eslint/no-var-requires
-const anchorLogoOfficial = require('../../assets/images/anchor-gold.png') as number;
+const anchorLogoOfficial = require('../../assets/images/anchor-visual-goal-setting-logo.png') as number;
 
 type Props = NativeStackScreenProps<OnboardingStackParamList, 'Welcome'>;
 
@@ -67,50 +69,50 @@ interface OnboardingSlide {
 const SLIDES: OnboardingSlide[] = [
   {
     id: 0,
-    label: '01 / The Problem',
-    headline: 'Your brain has **unfinished business.**',
-    body: "Every intention that hasn't been locked down is running in the background — draining your focus before you begin.",
+    label: '01 / THE PROBLEM',
+    headline: 'YOUR GOALS GET\n**LOST IN THE NOISE.**',
+    body: 'Even a clear intention can fade once the day begins. Without something visible to return to, distraction takes over.',
     visual: 'orbits',
     cta: 'Next',
   },
   {
     id: 1,
-    label: '02 / The Gap',
-    headline: "The goal isn't the problem. **The trigger is.**",
-    body: "You know what you want. You don't have something to snap you into it — something your brain recognizes instantly, before doubt can form.",
+    label: '02 / THE GAP',
+    headline: 'THE GOAL ISN’T THE\nPROBLEM. **THE CUE IS.**',
+    body: 'You know what you want. What’s missing is a visual cue you can return to before doubt or distraction takes over.',
     visual: 'signal',
     cta: 'Next',
   },
   {
     id: 2,
-    label: '03 / The Mechanism',
-    headline: 'Anchor **forges** your intention into a visual trigger.',
-    body: 'In seconds, your words become a symbol your brain recognizes before conscious thought kicks in.',
+    label: '03 / THE MECHANISM',
+    headline: 'ANCHOR TURNS YOUR\nINTENTION INTO A\nPERSONAL **VISUAL CUE.**',
+    body: 'This is visual goal setting made personal. Your words become a unique symbol you can return to at a glance.',
     visual: 'forge',
     cta: 'Next',
   },
   {
     id: 3,
-    label: '04 / The Practice',
-    headline: 'Used before the moments **that matter.**',
-    body: 'Not a reminder. A primer. The 10 seconds that change your next 4 hours.',
+    label: '04 / THE PRACTICE',
+    headline: 'USE IT BEFORE THE\n**MOMENTS THAT MATTER.**',
+    body: 'Not a reminder. A primer. Return to your Anchor before deep work, training, or any moment that demands your full attention.',
     visual: 'usecases',
     cta: 'Next',
   },
   {
     id: 4,
-    label: '05 / Begin',
-    headline: 'Forge your first anchor **now.**',
-    body: 'It takes 30 seconds. Set it as your lock screen. See what happens today.',
+    label: '05 / BEGIN',
+    headline: 'CREATE YOUR FIRST\n**ANCHOR NOW.**',
+    body: 'Start with one intention. Turn it into a visual anchor you can practice with and return to throughout your day.',
     visual: 'final',
-    cta: 'Forge Your First Anchor →',
+    cta: 'CREATE YOUR FIRST ANCHOR →',
   },
 ];
 
 const USE_CASES: UseCaseItem[] = [
-  { label: 'Deep Work', description: 'Before a 4-hour coding block', iconType: 'code' },
-  { label: 'Physical', description: 'Before hitting a new PR at the gym', iconType: 'lift' },
-  { label: 'High Stakes', description: 'Before a pitch, presentation, or interview', iconType: 'pitch' },
+  { label: 'DEEP WORK', description: 'Before a focused work session', iconType: 'code' },
+  { label: 'PHYSICAL', description: 'Before training or pursuing a new personal best', iconType: 'lift' },
+  { label: 'HIGH STAKES', description: 'Before a pitch, presentation, or interview', iconType: 'pitch' },
 ];
 
 const TOTAL = SLIDES.length;
@@ -146,14 +148,24 @@ const AmbientBleed: React.FC = () => (
 // Visual sub-components
 // ---------------------------------------------------------------------------
 
-const OrbitsVisual: React.FC = () => {
+const OrbitsVisual: React.FC<{ reduceMotion: boolean }> = ({ reduceMotion }) => {
   const rot1 = useRef(new Animated.Value(0)).current;
   const rot2 = useRef(new Animated.Value(0)).current;
   const rot3 = useRef(new Animated.Value(0)).current;
-  const words = ['FOCUS', 'POWER', 'CLARITY', 'DRIVE', 'WILL'];
+  const logoLight = useRef(new Animated.Value(0.55)).current;
+  const words = ['CLARITY', 'DRIVE'];
   const wordAnims = useRef(words.map(() => new Animated.Value(0))).current;
 
   React.useEffect(() => {
+    if (reduceMotion) {
+      rot1.setValue(0);
+      rot2.setValue(0);
+      rot3.setValue(0);
+      logoLight.setValue(0.7);
+      wordAnims.forEach((animation) => animation.setValue(0.1));
+      return undefined;
+    }
+
     const makeOrbit = (val: Animated.Value, dur: number, reverse = false) =>
       Animated.loop(
         Animated.timing(val, {
@@ -162,33 +174,41 @@ const OrbitsVisual: React.FC = () => {
           easing: Easing.linear,
           useNativeDriver: true,
         })
-      ).start();
+      );
 
-    makeOrbit(rot1, 18000);
-    makeOrbit(rot2, 12000, true);
-    makeOrbit(rot3, 8000);
-
-    wordAnims.forEach((anim, i) => {
+    const animations: Animated.CompositeAnimation[] = [
+      makeOrbit(rot1, 24000),
+      makeOrbit(rot2, 18000, true),
+      makeOrbit(rot3, 14000),
       Animated.loop(
         Animated.sequence([
-          Animated.delay(i * 800),
-          Animated.timing(anim, { toValue: 1, duration: 1200, useNativeDriver: true }),
-          Animated.timing(anim, { toValue: 0, duration: 1200, useNativeDriver: true }),
-          Animated.delay(Math.max(400, 4000 - 800 * i)),
+          Animated.timing(logoLight, { toValue: 1, duration: 2200, easing: EASE_IN_OUT, useNativeDriver: true }),
+          Animated.timing(logoLight, { toValue: 0.5, duration: 2200, easing: EASE_IN_OUT, useNativeDriver: true }),
         ])
-      ).start();
+      ),
+    ];
+
+    wordAnims.forEach((anim, i) => {
+      animations.push(Animated.loop(
+        Animated.sequence([
+          Animated.delay(i * 800),
+          Animated.timing(anim, { toValue: 0.13, duration: 1800, useNativeDriver: true }),
+          Animated.timing(anim, { toValue: 0.04, duration: 1800, useNativeDriver: true }),
+          Animated.delay(1800),
+        ])
+      ));
     });
-  }, [rot1, rot2, rot3, wordAnims]);
+
+    animations.forEach((animation) => animation.start());
+    return () => animations.forEach((animation) => animation.stop());
+  }, [logoLight, reduceMotion, rot1, rot2, rot3, wordAnims]);
 
   const spin = (val: Animated.Value) =>
     val.interpolate({ inputRange: [-1, 1], outputRange: ['-360deg', '360deg'] });
 
   const POSITIONS: Array<object> = [
-    { top: '10%', left: '5%' },
-    { top: '20%', right: '8%' },
-    { bottom: '28%', left: '6%' },
-    { bottom: '18%', right: '6%' },
-    { top: '48%', left: '0%' },
+    { top: '14%', left: '7%' },
+    { bottom: '22%', right: '8%' },
   ];
 
   return (
@@ -200,6 +220,7 @@ const OrbitsVisual: React.FC = () => {
       ].map(({ size, anim, opacity }, i) => (
         <Animated.View
           key={i}
+          accessible={false}
           style={[
             visual.orbits.ring,
             {
@@ -216,12 +237,22 @@ const OrbitsVisual: React.FC = () => {
       ))}
 
       <View style={visual.orbits.center}>
-        <Image source={anchorLogoOfficial} style={{ width: 140, height: 140 }} resizeMode="contain" />
+        <View style={visual.orbits.logoAtmosphere} />
+        <Image
+          source={anchorLogoOfficial}
+          style={visual.orbits.logo}
+          resizeMode="contain"
+          accessible
+          accessibilityRole="image"
+          accessibilityLabel="Anchor visual goal setting logo"
+        />
+        <Animated.View pointerEvents="none" style={[visual.orbits.logoLight, { opacity: logoLight }]} />
       </View>
 
       {words.map((word, i) => (
         <Animated.Text
           key={word}
+          accessible={false}
           style={[
             visual.orbits.word,
             POSITIONS[i],
@@ -245,7 +276,7 @@ const OrbitsVisual: React.FC = () => {
   );
 };
 
-const SignalVisual: React.FC = () => {
+const SignalVisual: React.FC<{ reduceMotion: boolean }> = ({ reduceMotion }) => {
   const haloOpacity = useRef(new Animated.Value(0.5)).current;
   const outerOrbitRotation = useRef(new Animated.Value(0)).current;
   const innerOrbitRotation = useRef(new Animated.Value(0)).current;
@@ -256,6 +287,18 @@ const SignalVisual: React.FC = () => {
   const seedOpacity = useRef(new Animated.Value(0.4)).current;
 
   React.useEffect(() => {
+    if (reduceMotion) {
+      haloOpacity.setValue(0.7);
+      outerOrbitRotation.setValue(0);
+      innerOrbitRotation.setValue(0);
+      glowScale.setValue(1);
+      glowOpacity.setValue(0.7);
+      coronaScale.setValue(1);
+      coronaOpacity.setValue(0.45);
+      seedOpacity.setValue(0.75);
+      return undefined;
+    }
+
     const animations = [
       Animated.loop(
         Animated.sequence([
@@ -303,16 +346,14 @@ const SignalVisual: React.FC = () => {
 
     animations.forEach((animation) => animation.start());
 
-    return () => {
-      animations.forEach((animation) => animation.stop());
-    };
-  }, []);
+    return () => animations.forEach((animation) => animation.stop());
+  }, [coronaOpacity, coronaScale, glowOpacity, glowScale, haloOpacity, innerOrbitRotation, outerOrbitRotation, reduceMotion, seedOpacity]);
 
   const outerSpin = outerOrbitRotation.interpolate({ inputRange: [0, 1], outputRange: ['0deg', '360deg'] });
   const innerSpin = innerOrbitRotation.interpolate({ inputRange: [0, 1], outputRange: ['360deg', '0deg'] });
 
   return (
-    <View style={visual.signal.container}>
+    <View style={visual.signal.container} accessible={false}>
       <Animated.View style={[visual.signal.ambientHalo, { opacity: haloOpacity }]}>
         <Svg width="100%" height="100%" viewBox="0 0 380 380">
           <Defs>
@@ -389,35 +430,47 @@ const SignalVisual: React.FC = () => {
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 const successAnchor = require('../../../assets/success_anchor_onboarding.png') as number;
 
-const FinalVisual: React.FC = () => {
+const FinalVisual: React.FC<{ reduceMotion: boolean }> = ({ reduceMotion }) => {
   const pulse = useRef(new Animated.Value(1)).current;
   const ringRot = useRef(new Animated.Value(0)).current;
 
   React.useEffect(() => {
-    Animated.loop(
+    if (reduceMotion) {
+      pulse.setValue(1);
+      ringRot.setValue(0);
+      return undefined;
+    }
+
+    const pulseAnimation = Animated.loop(
       Animated.sequence([
-        Animated.timing(pulse, { toValue: 1.1, duration: 1500, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
-        Animated.timing(pulse, { toValue: 1.0, duration: 1500, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
+        Animated.timing(pulse, { toValue: 1.06, duration: 1800, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
+        Animated.timing(pulse, { toValue: 1.0, duration: 1800, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
       ])
-    ).start();
-    Animated.loop(
-      Animated.timing(ringRot, { toValue: 1, duration: 20000, easing: Easing.linear, useNativeDriver: true })
-    ).start();
-  }, [pulse, ringRot]);
+    );
+    const ringAnimation = Animated.loop(
+      Animated.timing(ringRot, { toValue: 1, duration: 28000, easing: Easing.linear, useNativeDriver: true })
+    );
+    pulseAnimation.start();
+    ringAnimation.start();
+    return () => {
+      pulseAnimation.stop();
+      ringAnimation.stop();
+    };
+  }, [pulse, reduceMotion, ringRot]);
 
   const spin = ringRot.interpolate({ inputRange: [0, 1], outputRange: ['0deg', '360deg'] });
 
   return (
-    <View style={visual.final.container}>
+    <View style={visual.final.container} accessible={false}>
       <View style={visual.final.glow} />
       <Animated.View style={[visual.final.ring, { transform: [{ rotate: spin }] }]}>
         <View style={visual.final.ringDot} />
       </Animated.View>
       <Animated.View style={{ transform: [{ scale: pulse }] }}>
-        <Image source={successAnchor} style={{ width: 200, height: 200, borderRadius: 100 }} resizeMode="contain" />
+        <Image source={successAnchor} style={{ width: 200, height: 200, borderRadius: 100 }} resizeMode="contain" accessible={false} />
       </Animated.View>
       <View style={visual.final.badge}>
-        <Text style={visual.final.badgeText}>30 SEC TO FORGE</Text>
+        <Text style={visual.final.badgeText}>1 INTENTION → 1 ANCHOR</Text>
       </View>
     </View>
   );
@@ -449,7 +502,8 @@ const Ornament: React.FC = () => (
 // ---------------------------------------------------------------------------
 
 export const NarrativeOnboardingScreen: React.FC<Props> = ({ navigation }) => {
-  const { completeOnboarding, setShouldRedirectToCreation } = useAuthStore();
+  const { completeOnboarding, setShouldRedirectToCreation, setIsGuest } = useAuthStore();
+  const reduceMotion = useReduceMotionEnabled();
   const { width, height } = useWindowDimensions();
   const isShortScreen = isShortPhoneViewport(height);
   const isCompactLayout = isCompactPhoneViewport(width, height);
@@ -469,20 +523,20 @@ export const NarrativeOnboardingScreen: React.FC<Props> = ({ navigation }) => {
 
       Animated.timing(slideOpacity, {
         toValue: 0,
-        duration: 150,
+        duration: reduceMotion ? 0 : 150,
         useNativeDriver: true,
       }).start(() => {
         setCurrentSlide(index);
         Animated.timing(slideOpacity, {
           toValue: 1,
-          duration: 200,
+          duration: reduceMotion ? 0 : 200,
           useNativeDriver: true,
         }).start(() => {
           transitioning.current = false;
         });
       });
     },
-    [currentSlide, slideOpacity]
+    [currentSlide, reduceMotion, slideOpacity]
   );
 
   const handleCTA = () => {
@@ -498,6 +552,13 @@ export const NarrativeOnboardingScreen: React.FC<Props> = ({ navigation }) => {
 
   const handleSkip = () => goToSlide(TOTAL - 1);
 
+  const handleDevSkipToHome = () => {
+    // Dev-build only: jump straight to Home with no account, bypassing onboarding entirely.
+    setIsGuest(true);
+    setShouldRedirectToCreation(false);
+    completeOnboarding();
+  };
+
   const renderVisual = (slide: OnboardingSlide) => {
     const scaledSize = Math.round(visualScale * 320);
     const wrapSmall = (child: React.ReactNode): React.ReactNode =>
@@ -510,8 +571,8 @@ export const NarrativeOnboardingScreen: React.FC<Props> = ({ navigation }) => {
       ) : child;
 
     switch (slide.visual) {
-      case 'orbits':    return wrapSmall(<OrbitsVisual />);
-      case 'signal':    return wrapSmall(<SignalVisual />);
+      case 'orbits':    return wrapSmall(<OrbitsVisual reduceMotion={reduceMotion} />);
+      case 'signal':    return wrapSmall(<SignalVisual reduceMotion={reduceMotion} />);
       case 'forge':     return <ForgeDemo isActive={currentSlide === 2} />;
       case 'usecases':  return (
         <View style={[styles.useCasesWrapper, { width: contentWidth }]}>
@@ -525,11 +586,12 @@ export const NarrativeOnboardingScreen: React.FC<Props> = ({ navigation }) => {
           ))}
         </View>
       );
-      case 'final':     return wrapSmall(<FinalVisual />);
+      case 'final':     return wrapSmall(<FinalVisual reduceMotion={reduceMotion} />);
     }
   };
 
   const slide = SLIDES[currentSlide];
+  const slideProgressPercent = getOnboardingProgressPercent(currentSlide, TOTAL);
 
   return (
     <SafeAreaView style={styles.container}>
@@ -543,8 +605,10 @@ export const NarrativeOnboardingScreen: React.FC<Props> = ({ navigation }) => {
           style={styles.signInBtn}
           onPress={() => navigation.navigate('Login')}
           hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+          accessibilityRole="button"
+          accessibilityLabel="Sign in to Anchor"
         >
-          <Text style={styles.signInBtnText}>Sign In</Text>
+          <Text style={styles.signInBtnText} maxFontSizeMultiplier={1.3}>Sign In</Text>
         </TouchableOpacity>
       )}
 
@@ -553,8 +617,21 @@ export const NarrativeOnboardingScreen: React.FC<Props> = ({ navigation }) => {
           style={styles.skipBtn}
           onPress={handleSkip}
           hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+          accessibilityRole="button"
+          accessibilityLabel="Skip onboarding"
         >
-          <Text style={styles.skipText}>SKIP</Text>
+          <Text style={styles.skipText} maxFontSizeMultiplier={1.3}>SKIP</Text>
+        </TouchableOpacity>
+      )}
+
+      {/* Dev-build only bypass — jumps straight to Home, no account created */}
+      {__DEV__ && currentSlide === 0 && (
+        <TouchableOpacity
+          style={styles.devSkipBtn}
+          onPress={handleDevSkipToHome}
+          hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+        >
+          <Text style={styles.devSkipBtnText}>DEV: SKIP TO HOME</Text>
         </TouchableOpacity>
       )}
 
@@ -578,6 +655,8 @@ export const NarrativeOnboardingScreen: React.FC<Props> = ({ navigation }) => {
               styles.headline,
               isCompactLayout && styles.headlineCompact,
             ]}
+            adjustsFontSizeToFit
+            minimumFontScale={0.9}
           >
             {renderHeadline(slide.headline)}
           </Text>
@@ -594,20 +673,54 @@ export const NarrativeOnboardingScreen: React.FC<Props> = ({ navigation }) => {
           isCompactLayout && styles.footerCompact,
         ]}
       >
+        <View
+          style={styles.progressGroup}
+          accessibilityRole="progressbar"
+          accessibilityValue={{
+            min: 1,
+            max: TOTAL,
+            now: currentSlide + 1,
+            text: `Slide ${currentSlide + 1} of ${TOTAL}`,
+          }}
+        >
+          <View style={styles.progressTrack}>
+            <View style={[styles.progressFill, { width: `${slideProgressPercent}%` }]} />
+          </View>
+          <Text style={styles.progressText}>
+            SLIDE {currentSlide + 1} OF {TOTAL}
+          </Text>
+        </View>
+
         <View style={styles.dots}>
           {SLIDES.map((_, i) => (
             <TouchableOpacity
               key={i}
               onPress={() => goToSlide(i)}
               hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+              accessibilityRole="button"
+              accessibilityLabel={`Go to slide ${i + 1}: ${SLIDES[i].label.replace(/^\d+\s\/\s/, '')}`}
+              accessibilityState={{ selected: i === currentSlide }}
             >
               <View style={[styles.dot, i === currentSlide ? styles.dotActive : styles.dotInactive]} />
             </TouchableOpacity>
           ))}
         </View>
 
-        <TouchableOpacity style={styles.ctaBtn} onPress={handleCTA} activeOpacity={0.85}>
-          <Text style={styles.ctaText}>{slide.cta}</Text>
+        <TouchableOpacity
+          style={styles.ctaBtn}
+          onPress={handleCTA}
+          activeOpacity={0.85}
+          accessibilityRole="button"
+          accessibilityLabel={slide.cta}
+        >
+          <Text
+            style={styles.ctaText}
+            numberOfLines={1}
+            adjustsFontSizeToFit
+            minimumFontScale={0.8}
+          >
+            {slide.cta}
+          </Text>
         </TouchableOpacity>
       </View>
     </SafeAreaView>
@@ -623,8 +736,10 @@ const visual = {
     container: { width: 320, height: 320, alignItems: 'center', justifyContent: 'center', position: 'relative' } as const,
     ring: { position: 'absolute', borderWidth: 1, borderColor: colors.gold } as const,
     dot: { position: 'absolute', width: 6, height: 6, borderRadius: 3, backgroundColor: colors.gold, top: -3, left: '50%', marginLeft: -3, shadowColor: colors.gold, shadowOpacity: 0.8, shadowRadius: 4, shadowOffset: { width: 0, height: 0 } } as const,
-    center: { position: 'absolute', alignItems: 'center', justifyContent: 'center', width: 155, height: 155 } as const,
-    anchorGlowRing: { position: 'absolute', width: 162, height: 162, borderRadius: 81, backgroundColor: 'transparent', borderWidth: 1, borderColor: withAlpha(colors.gold, 0.45), shadowColor: colors.gold, shadowOpacity: 0.9, shadowRadius: 24, shadowOffset: { width: 0, height: 0 }, elevation: 12 } as const,
+    center: { position: 'absolute', alignItems: 'center', justifyContent: 'center', width: 176, height: 176 } as const,
+    logoAtmosphere: { position: 'absolute', width: 166, height: 166, borderRadius: 83, backgroundColor: withAlpha(colors.deepPurple, 0.52), shadowColor: colors.deepPurple, shadowOpacity: 0.85, shadowRadius: 32, shadowOffset: { width: 0, height: 0 }, elevation: 4 } as const,
+    logo: { width: 160, height: 160, zIndex: 1 } as const,
+    logoLight: { position: 'absolute', width: 16, height: 16, borderRadius: 8, backgroundColor: colors.gold, zIndex: 2, shadowColor: colors.gold, shadowOpacity: 0.9, shadowRadius: 12, shadowOffset: { width: 0, height: 0 }, elevation: 8 } as const,
     word: { position: 'absolute', fontFamily: typography.fonts.heading, fontSize: DETAIL_FONT_SIZE, color: colors.gold, letterSpacing: 1.5 } as const,
   }),
   signal: StyleSheet.create({
@@ -646,8 +761,8 @@ const visual = {
     glow: { position: 'absolute', width: 280, height: 280, borderRadius: 140, backgroundColor: withAlpha(colors.gold, 0.08) } as const,
     ring: { position: 'absolute', width: 280, height: 280, borderRadius: 140, borderWidth: 1, borderColor: withAlpha(colors.gold, 0.2) } as const,
     ringDot: { position: 'absolute', width: 8, height: 8, borderRadius: 4, backgroundColor: colors.gold, top: -4, left: '50%', marginLeft: -4, shadowColor: colors.gold, shadowOpacity: 0.9, shadowRadius: 6, shadowOffset: { width: 0, height: 0 } } as const,
-    badge: { position: 'absolute', bottom: 0, right: 0, backgroundColor: withAlpha(colors.deepPurple, 0.9), borderWidth: 1, borderColor: withAlpha(colors.gold, 0.3), borderRadius: 20, paddingHorizontal: 12, paddingVertical: 5 } as const,
-    badgeText: { fontFamily: typography.fonts.heading, fontSize: MICRO_FONT_SIZE, letterSpacing: 1.5, color: colors.gold } as const,
+    badge: { position: 'absolute', bottom: -3, alignSelf: 'center', backgroundColor: withAlpha(colors.deepPurple, 0.9), borderWidth: 1, borderColor: withAlpha(colors.gold, 0.3), borderRadius: 20, paddingHorizontal: 12, paddingVertical: 5 } as const,
+    badgeText: { fontFamily: typography.fonts.heading, fontSize: MICRO_FONT_SIZE, letterSpacing: 1.1, color: colors.gold } as const,
   }),
 };
 
@@ -667,11 +782,13 @@ const styles = StyleSheet.create({
   signInBtnText: { fontFamily: typography.fonts.heading, fontSize: MICRO_FONT_SIZE + 1, letterSpacing: 1.8, color: colors.gold },
   skipBtn: { position: 'absolute', top: 54, right: 20, zIndex: 20, flexDirection: 'row', alignItems: 'center', paddingHorizontal: 10, paddingVertical: 5, borderRadius: 16, borderWidth: 1, borderColor: withAlpha(colors.bone, 0.18), backgroundColor: withAlpha(colors.bone, 0.05) },
   skipText: { fontFamily: typography.fonts.heading, fontSize: MICRO_FONT_SIZE + 1, letterSpacing: 2, color: colors.silver },
+  devSkipBtn: { position: 'absolute', top: 92, alignSelf: 'center', zIndex: 20, paddingHorizontal: 10, paddingVertical: 4, borderRadius: 12, borderWidth: 1, borderStyle: 'dashed', borderColor: 'rgba(255,90,90,0.5)', backgroundColor: 'rgba(255,90,90,0.08)' },
+  devSkipBtnText: { fontFamily: typography.fonts.heading, fontSize: MICRO_FONT_SIZE, letterSpacing: 1.5, color: '#FF5A5A' },
   slideContent: { flex: 1, paddingTop: 44 },
   slideContentCompact: { paddingTop: 32 },
   slideContentShort: { paddingTop: 28 },
   visualArea: { height: 370, alignItems: 'center', justifyContent: 'center' },
-  textArea: { flex: 1, paddingHorizontal: 36 },
+  textArea: { flex: 1, paddingHorizontal: 36, paddingBottom: 4 },
   textAreaCompact: { paddingHorizontal: 24 },
   useCasesWrapper: { gap: 10, alignSelf: 'center' },
   ornament: { flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 10 },
@@ -682,10 +799,14 @@ const styles = StyleSheet.create({
   headlineCompact: { fontSize: 26, lineHeight: 32, marginBottom: 12 },
   headlineGold: { color: colors.gold, fontFamily: typography.fonts.headingSemiBold },
   body: { fontFamily: typography.fontFamily.sans, fontSize: BODY_FONT_SIZE, color: colors.silver, lineHeight: 27, letterSpacing: 0.2 },
-  bodyCompact: { fontSize: typography.fontSize.md - 1, lineHeight: 22 },
+  bodyCompact: { fontSize: BODY_FONT_SIZE, lineHeight: 24 },
   footer: { paddingHorizontal: 36, paddingBottom: Platform.OS === 'android' ? 24 : 12, alignItems: 'center', gap: 24 },
   footerShort: { paddingBottom: Platform.OS === 'android' ? 16 : 12, gap: 16 },
   footerCompact: { paddingHorizontal: 24, gap: 18 },
+  progressGroup: { width: '100%', gap: 7 },
+  progressTrack: { width: '100%', height: 3, borderRadius: 2, backgroundColor: withAlpha(colors.bone, 0.14), overflow: 'hidden' },
+  progressFill: { height: '100%', borderRadius: 2, backgroundColor: colors.gold },
+  progressText: { alignSelf: 'center', fontFamily: typography.fonts.heading, fontSize: MICRO_FONT_SIZE, letterSpacing: 1.8, color: withAlpha(colors.bone, 0.5) },
   dots: { flexDirection: 'row', gap: 8, alignItems: 'center' },
   dot: { height: 6, borderRadius: 3 },
   dotActive: { width: 24, backgroundColor: colors.gold },

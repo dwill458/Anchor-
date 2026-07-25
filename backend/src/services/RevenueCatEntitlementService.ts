@@ -21,6 +21,11 @@ export interface RevenueCatAccessSnapshot {
   productIdentifier: string | null;
 }
 
+export interface RevenueCatAccessOptions {
+  /** Bypass the short-lived cache after a store-confirmed purchase or restore. */
+  forceRefresh?: boolean;
+}
+
 interface CachedSnapshot {
   value: RevenueCatAccessSnapshot;
   cachedUntil: number;
@@ -42,13 +47,14 @@ function isEntitlementActive(entitlement: RevenueCatEntitlement | undefined, now
  */
 export async function getRevenueCatAccess(
   appUserId: string,
-  now: Date = new Date()
+  now: Date = new Date(),
+  options: RevenueCatAccessOptions = {}
 ): Promise<RevenueCatAccessSnapshot | null> {
   const apiKey = process.env.REVENUECAT_API_KEY?.trim();
   if (!apiKey) return null;
 
   const cached = cache.get(appUserId);
-  if (cached && cached.cachedUntil > now.getTime()) {
+  if (!options.forceRefresh && cached && cached.cachedUntil > now.getTime()) {
     return cached.value;
   }
 

@@ -28,6 +28,7 @@ import { useAnchorStore } from '@/stores/anchorStore';
 import { useSubscriptionStore } from '../../stores/subscriptionStore';
 import { AuthService } from '../../services/AuthService';
 import { FrictionAnalytics } from '@/services/FrictionAnalytics';
+import { ErrorTrackingService } from '@/services/ErrorTrackingService';
 import PostAuthFlowService from '../../services/PostAuthFlowService';
 import { navigateToVaultDestination } from '@/navigation/firstAnchorGate';
 import type { AuthScreenParams, RootStackParamList } from '@/types';
@@ -188,6 +189,12 @@ export const SignUpScreen: React.FC<SignUpScreenProps> = ({ navigation, route })
       FrictionAnalytics.flowError('onboarding_auth', 'signup', 'signup_failed', {
         provider: 'email',
         context,
+        error_code: err?.code,
+        error_message: err?.message,
+      });
+      ErrorTrackingService.captureException(err, {
+        screen: 'SignUpScreen',
+        action: 'signup_email',
       });
     } finally {
       setLoading(false);
@@ -225,6 +232,12 @@ export const SignUpScreen: React.FC<SignUpScreenProps> = ({ navigation, route })
         setError(message);
         FrictionAnalytics.flowError('onboarding_auth', 'apple_auth', 'apple_auth_failed', {
           context,
+          error_code: err?.code,
+          error_message: message,
+        });
+        ErrorTrackingService.captureException(err, {
+          screen: 'SignUpScreen',
+          action: 'apple_sign_in',
         });
         Alert.alert('Apple sign-up', message);
       } finally {
@@ -264,6 +277,12 @@ export const SignUpScreen: React.FC<SignUpScreenProps> = ({ navigation, route })
         setError(message);
         FrictionAnalytics.flowError('onboarding_auth', 'google_auth', 'google_auth_failed', {
           context,
+          error_code: err?.code,
+          error_message: message,
+        });
+        ErrorTrackingService.captureException(err, {
+          screen: 'SignUpScreen',
+          action: 'google_sign_in',
         });
         Alert.alert('Google sign-up', message);
       } finally {

@@ -5,7 +5,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import type { StackNavigationProp } from '@react-navigation/stack';
-import { Flame, Zap, ChevronRight } from 'lucide-react-native';
+import { Eye, Flame, Zap, ChevronRight } from 'lucide-react-native';
 import Animated, {
   Easing,
   useAnimatedStyle,
@@ -15,6 +15,7 @@ import Animated, {
   withTiming,
 } from 'react-native-reanimated';
 import type { Anchor, PracticeStackParamList } from '@/types';
+import type { PracticeEntrySource } from '@/types/practice';
 import { ZenBackground } from '@/components/common';
 import { useTabNavigation } from '@/contexts/TabNavigationContext';
 import { useAnchorStore } from '@/stores/anchorStore';
@@ -45,12 +46,19 @@ import { PracticeHubHeader } from './components/PracticeHubHeader';
 import { resolveBurnArtworkUri } from '@/screens/rituals/utils/resolveBurnArtworkUri';
 import { useAppPerformanceTier } from '@/hooks/useAppPerformanceTier';
 import { useNotificationController } from '@/hooks/useNotificationController';
-import { usePrimeSessionAccess } from '@/hooks/usePrimeSessionAccess';
+import { useTrialStatus } from '@/hooks/useTrialStatus';
+import { usePracticeEntry } from '@/hooks/usePracticeEntry';
+import { ENABLE_VISUALIZE } from '@/config';
 import { ConfirmUnchargedBurnSheet } from '@/components/modals/ConfirmUnchargedBurnSheet';
+import {
+  DEFAULT_SESSION_AUDIO_DEFAULTS,
+  resolveSessionAudioConfiguration,
+  type SessionAudioDefaults,
+} from '@/types/sessionAudio';
 
 type PracticeNavigationProp = StackNavigationProp<PracticeStackParamList, 'PracticeHome'>;
 // DEFERRED: type PendingMode = 'charge' | 'stabilize' | 'burn' | 'quickActivate' | null; — restore post-launch
-type PendingMode = 'charge' | 'burn' | 'quickActivate' | null;
+type PendingMode = 'charge' | 'burn' | 'quickActivate' | 'visualize' | null;
 
 const AUTO_TEACHING_KEY = 'practice_teaching_auto_seen_v2';
 const DEEP_CHARGE_MINUTES_MIN = 2;
@@ -88,6 +96,7 @@ function engagementRecency(anchor: Anchor): number {
 
 function toModeFromSessionType(type: SessionLogEntry['type']): Exclude<PendingMode, null> {
   if (type === 'activate') return 'quickActivate';
+  if (type === 'visualize') return 'visualize';
   // DEFERRED: if (type === 'stabilize') return 'stabilize'; — restore post-launch
   return 'charge';
 }
@@ -96,6 +105,7 @@ function toModeTitle(mode: Exclude<PendingMode, null>): string {
   if (mode === 'quickActivate') return FOCUS_SESSION_TITLE;
   // DEFERRED: if (mode === 'stabilize') return PRACTICE_COPY.rituals.stabilize.title; — restore post-launch
   if (mode === 'burn') return PRACTICE_COPY.rituals.burn.title;
+  if (mode === 'visualize') return 'VISUALIZE';
   return PRACTICE_COPY.rituals.charge.title;
 }
 
@@ -103,7 +113,7 @@ export const PracticeScreen: React.FC = () => {
   useNotificationController();
 
   const navigation = useNavigation<PracticeNavigationProp>();
-  const { navigateToVault, navigateToPaywall, registerTabNav, activeTabIndex } = useTabNavigation();
+  const { navigateToPaywall, registerTabNav, activeTabIndex } = useTabNavigation();
   const isPracticeTabActive = activeTabIndex == null ? true : activeTabIndex === 1;
   const insets = useSafeAreaInsets();
   const reduceMotion = useReducedMotion();
@@ -113,6 +123,9 @@ export const PracticeScreen: React.FC = () => {
   const setCurrentAnchor = useAnchorStore((state) => state.setCurrentAnchor);
   const primeSessionDuration = useSettingsStore((state) => state.primeSessionDuration ?? 120);
   const focusSessionDuration = useSettingsStore((state) => state.focusSessionDuration ?? 30);
+  const sessionAudioDefaults = useSettingsStore(
+    (state) => state.sessionAudioDefaults ?? DEFAULT_SESSION_AUDIO_DEFAULTS
+  );
   const dailyPracticeGoal = useSettingsStore((state) => state.dailyPracticeGoal ?? 3);
   const resolveLocationPrimingSuggestion = useLocationPrimingStore(
     (state) => state.resolveActiveSuggestion
@@ -124,7 +137,12 @@ export const PracticeScreen: React.FC = () => {
   const weekHistory = useSessionStore((s) => s.weekHistory);
   const applyDecay = useSessionStore((s) => s.applyDecay);
   const primingHistory = useSessionStore((s) => s.primingHistory);
-  const primeSessionAccess = usePrimeSessionAccess();
+  const visualizeAccess = useTrialStatus();
+  const {
+    startPractice,
+    isNavigationLocked,
+    releaseNavigationLock,
+  } = usePracticeEntry();
 
   // Self-healing thread/progress restore: if priming history is empty (e.g. a
   // failed/empty launch hydration), re-fetch the account export and rehydrate
@@ -143,12 +161,21 @@ export const PracticeScreen: React.FC = () => {
   const [selectorVisible, setSelectorVisible] = useState(false);
   const [infoVisible, setInfoVisible] = useState(false);
   const [pendingMode, setPendingMode] = useState<PendingMode>(null);
+  const [pendingSource, setPendingSource] = useState<PracticeEntrySource | null>(null);
   const [autoTeachingSeen, setAutoTeachingSeen] = useState<boolean | null>(null);
   const [confirmUnchargedBurnVisible, setConfirmUnchargedBurnVisible] = useState(false);
   const [threadSheetVisible, setThreadSheetVisible] = useState(false);
   const [threadTeachingDismissed, setThreadTeachingDismissed] = useState(false);
   const [locationPrimingSuggestion, setLocationPrimingSuggestion] =
     useState<LocationPrimingSuggestion | null>(null);
+
+  useEffect(() => {
+    if (ENABLE_VISUALIZE) {
+      AnalyticsService.track(AnalyticsEvents.VISUALIZE_CARD_VIEWED, {
+        tier: visualizeAccess.subscriptionStatus,
+      });
+    }
+  }, [visualizeAccess.subscriptionStatus]);
 
   const threadStrengthTeaching = useTeachingGate({
     screenId: 'practice_home',
@@ -176,6 +203,13 @@ export const PracticeScreen: React.FC = () => {
     if (selectableAnchors.length === 0) return undefined;
     return selectableAnchors[0];
   }, [selectableAnchors]);
+
+  useFocusEffect(
+    useCallback(() => {
+      releaseNavigationLock();
+      return () => undefined;
+    }, [activeTabIndex, releaseNavigationLock])
+  );
 
   useFocusEffect(
     useCallback(() => {
@@ -401,121 +435,112 @@ export const PracticeScreen: React.FC = () => {
     (
       anchor: Anchor,
       durationSecondsOverride?: number,
-      audioModeOverride?: 'silent' | 'ambient'
+      audioOverride?: SessionAudioDefaults,
+      source: 'practice_hero' | 'practice_deep_prime_card' = 'practice_deep_prime_card'
     ) => {
-      if (!primeSessionAccess.deep.isAllowed) {
-        AnalyticsService.track('free_weekly_sessions_used', {
-          source: 'practice_deep_prime',
-          remaining_weekly_free_sessions: primeSessionAccess.deep.remaining,
-          tier: primeSessionAccess.tier,
-        });
-        navigateToPaywall({
-          source: 'free_weekly_sessions_used',
-          preferredPlanId: 'annual',
-        });
-        return;
-      }
-
-      safeHaptics.selection();
-      if (durationSecondsOverride != null) {
-        navigateToVault('Ritual', {
-          anchorId: anchor.id,
-          ritualType: 'ritual',
-          durationSeconds: durationSecondsOverride,
-          audioModeOverride,
-          returnTo: 'practice',
-        });
-        return;
-      }
-
-      navigateToVault('ChargeSetup', {
+      const started = startPractice({
+        mode: 'deepPrime',
         anchorId: anchor.id,
-        returnTo: 'practice',
-        initialDuration: 'deep',
+        source,
+        durationSeconds: durationSecondsOverride,
+        audioConfiguration: audioOverride
+          ? resolveSessionAudioConfiguration(sessionAudioDefaults.deep_prime, audioOverride)
+          : undefined,
       });
+      if (started) safeHaptics.selection();
+      return started;
     },
-    [navigateToPaywall, navigateToVault, primeSessionAccess.deep.isAllowed]
+    [sessionAudioDefaults.deep_prime, startPractice]
   );
 
   const startQuickActivate = useCallback(
     (
       anchor: Anchor,
       durationOverride = focusSessionDuration,
-      audioModeOverride?: 'silent' | 'ambient'
+      audioOverride?: SessionAudioDefaults,
+      source: 'practice_hero' | 'practice_focus_card' = 'practice_focus_card'
     ) => {
-      if (!primeSessionAccess.focus.isAllowed) {
-        AnalyticsService.track('free_weekly_sessions_used', {
-          source: 'practice_focus_session',
-          remaining_weekly_free_sessions: primeSessionAccess.focus.remaining,
-          tier: primeSessionAccess.tier,
-        });
-        navigateToPaywall({
-          source: 'free_weekly_sessions_used',
-          preferredPlanId: 'annual',
-        });
-        return;
-      }
-
-      safeHaptics.selection();
-      navigateToVault('ActivationRitual', {
+      const started = startPractice({
+        mode: 'focus',
         anchorId: anchor.id,
-        activationType: 'visual',
-        durationOverride,
-        audioModeOverride,
-        returnTo: 'practice',
+        source,
+        durationSeconds: durationOverride,
+        audioConfiguration: audioOverride
+          ? resolveSessionAudioConfiguration(sessionAudioDefaults.focus, audioOverride)
+          : undefined,
+      });
+      if (started) safeHaptics.selection();
+      return started;
+    },
+    [focusSessionDuration, sessionAudioDefaults.focus, startPractice]
+  );
+
+  const executeBurn = useCallback(
+    (anchor: Anchor, source: PracticeEntrySource = 'practice_release_card') => {
+      setConfirmUnchargedBurnVisible(false);
+      startPractice({
+        mode: 'release',
+        anchorId: anchor.id,
+        source,
+        intention:
+          anchor.intentionText ?? (anchor as Anchor & { intention?: string }).intention ?? '',
+        sigilSvg: anchor.reinforcedSigilSvg ?? anchor.baseSigilSvg ?? '',
+        enhancedImageUrl: resolveBurnArtworkUri(anchor),
       });
     },
-    [focusSessionDuration, navigateToPaywall, navigateToVault, primeSessionAccess.focus.isAllowed]
+    [startPractice]
   );
 
   const startBurn = useCallback(
-    (anchor: Anchor) => {
+    (anchor: Anchor, source: PracticeEntrySource = 'practice_release_card') => {
       safeHaptics.selection();
       if (!anchor.isCharged) {
         setConfirmUnchargedBurnVisible(true);
         return;
       }
-      executeBurn(anchor);
+      executeBurn(anchor, source);
     },
-    []
-  );
-
-  const executeBurn = useCallback(
-    (anchor: Anchor) => {
-      setConfirmUnchargedBurnVisible(false);
-      navigation.navigate('ConfirmBurn', {
-        anchorId: anchor.id,
-        intention: anchor.intentionText ?? (anchor as Anchor & { intention?: string }).intention ?? '',
-        sigilSvg: anchor.reinforcedSigilSvg ?? anchor.baseSigilSvg ?? '',
-        enhancedImageUrl: resolveBurnArtworkUri(anchor),
-      });
-    },
-    [navigation]
+    [executeBurn]
   );
 
   const runMode = useCallback(
-    (mode: Exclude<PendingMode, null>, anchor?: Anchor) => {
+    (
+      mode: Exclude<PendingMode, null>,
+      anchor?: Anchor,
+      source: PracticeEntrySource = 'practice_deep_prime_card'
+    ) => {
       const target = anchor ?? selectedAnchor;
       if (!target) {
         setPendingMode(mode);
+        setPendingSource(source);
         setSelectorVisible(true);
         return;
       }
       if (mode === 'charge') {
-        startCharge(target);
+        startCharge(target, undefined, undefined, source === 'practice_hero' ? source : 'practice_deep_prime_card');
       } else if (mode === 'quickActivate') {
-        startQuickActivate(target);
+        startQuickActivate(target, focusSessionDuration, undefined, source === 'practice_hero' ? source : 'practice_focus_card');
+      } else if (mode === 'visualize') {
+        AnalyticsService.track(AnalyticsEvents.VISUALIZE_SELECTED, {
+          anchor_id: target.id,
+          tier: visualizeAccess.subscriptionStatus,
+        });
+        startPractice({ mode: 'visualize', anchorId: target.id, source: 'practice_visualize_card' });
       } else {
-        startBurn(target);
+        startBurn(
+          target,
+          source === 'practice_hero' ? source : 'practice_release_card'
+        );
       }
     },
-    [selectedAnchor, startBurn, startCharge, startQuickActivate]
+    [focusSessionDuration, selectedAnchor, startBurn, startCharge, startPractice, startQuickActivate, visualizeAccess.subscriptionStatus]
   );
 
   const runTodayPractice = useCallback(() => {
     const target = selectedAnchor;
     if (!target) {
       setPendingMode(todayMode === 'focusSession' ? 'quickActivate' : 'charge');
+      setPendingSource('practice_hero');
       setSelectorVisible(true);
       return;
     }
@@ -529,15 +554,29 @@ export const PracticeScreen: React.FC = () => {
       });
 
       if (locationPreset.sessionType === 'focus') {
-        startQuickActivate(target, locationPreset.durationSeconds, locationPreset.audioMode);
+        startQuickActivate(
+          target,
+          locationPreset.durationSeconds,
+          locationPreset.audioConfiguration,
+          'practice_hero'
+        );
         return;
       }
 
-      startCharge(target, locationPreset.durationSeconds, locationPreset.audioMode);
+      startCharge(
+        target,
+        locationPreset.durationSeconds,
+        locationPreset.audioConfiguration,
+        'practice_hero'
+      );
       return;
     }
 
-    runMode(todayMode === 'focusSession' ? 'quickActivate' : 'charge');
+    runMode(
+      todayMode === 'focusSession' ? 'quickActivate' : 'charge',
+      undefined,
+      'practice_hero'
+    );
   }, [
     locationPreset,
     locationPrimingSuggestion,
@@ -557,7 +596,9 @@ export const PracticeScreen: React.FC = () => {
       markInteraction();
       setSelectorVisible(false);
       const pendingModeSelection = pendingMode;
+      const pendingSourceSelection = pendingSource;
       setPendingMode(null);
+      setPendingSource(null);
       setCurrentAnchor(anchor.id);
 
       const applySelection = () => {
@@ -565,7 +606,7 @@ export const PracticeScreen: React.FC = () => {
         // practice state. If the selector was opened from a mode tile, continue
         // into that explicitly requested ritual for the chosen anchor.
         if (pendingModeSelection) {
-          runMode(pendingModeSelection, anchor);
+          runMode(pendingModeSelection, anchor, pendingSourceSelection ?? undefined);
         }
         selectingAnchorRef.current = false;
       };
@@ -579,7 +620,7 @@ export const PracticeScreen: React.FC = () => {
 
       applySelection();
     },
-    [markInteraction, pendingMode, runMode, setCurrentAnchor]
+    [markInteraction, pendingMode, pendingSource, runMode, setCurrentAnchor]
   );
 
   const anchorNextRituals = useMemo<Record<string, string>>(() => {
@@ -615,17 +656,17 @@ export const PracticeScreen: React.FC = () => {
 
       if (session.type === 'reinforce') {
         const restartDuration = Math.max(30, Math.min(1800, Math.round(session.durationSeconds || defaultDeepChargeSeconds)));
-        startCharge(target, restartDuration);
+        startCharge(target, restartDuration, undefined, 'practice_hero');
         return;
       }
 
       if (session.type === 'activate') {
         const restartDuration = Math.max(10, Math.min(600, Math.round(session.durationSeconds || 30)));
-        startQuickActivate(target, restartDuration);
+        startQuickActivate(target, restartDuration, undefined, 'practice_hero');
         return;
       }
 
-      startCharge(target);
+      startCharge(target, undefined, undefined, 'practice_hero');
     },
     [defaultDeepChargeSeconds, selectedAnchor, startCharge, startQuickActivate]
   );
@@ -744,15 +785,22 @@ export const PracticeScreen: React.FC = () => {
               onPress={() => {
                 markInteraction();
                 setPendingMode(null);
+                setPendingSource(null);
                 setSelectorVisible(true);
               }}
             />
           </Animated.View>
 
           {suggestedRitual && (
-            <Animated.View style={portalsStyle}>
+            <Animated.View pointerEvents="box-none" style={portalsStyle}>
               <Pressable
+                testID="practice-hero-deep-prime"
                 accessibilityRole="button"
+                accessibilityLabel="Begin Deep Prime practice"
+                accessibilityState={{ disabled: isNavigationLocked }}
+                disabled={isNavigationLocked}
+                hitSlop={8}
+                pointerEvents={isNavigationLocked ? 'none' : 'auto'}
                 onPress={() => {
                   markInteraction();
                   runTodayPractice();
@@ -762,7 +810,8 @@ export const PracticeScreen: React.FC = () => {
                   { opacity: pressed ? 0.9 : 1, transform: [{ scale: pressed ? 0.98 : 1 }] },
                 ]}
               >
-                  <LinearGradient
+                    <LinearGradient
+                      pointerEvents="none"
                     colors={[
                       colors.practice.ctaGradientStart,
                       colors.practice.ctaGradientMid,
@@ -772,22 +821,33 @@ export const PracticeScreen: React.FC = () => {
                     end={{ x: 1, y: 1 }}
                     style={styles.ctaButton}
                   >
-                    <View style={styles.ctaLeft}>
+                    <View pointerEvents="none" style={styles.ctaLeft}>
                       <Text style={styles.ctaLabel}>TODAY'S PRACTICE</Text>
                       <Text style={styles.ctaTitle}>{ctaTitle}</Text>
                       <Text style={styles.ctaSubtitle}>{ctaSubtitle}</Text>
                     </View>
-                    <View style={styles.ctaArrow}>
-                      <ChevronRight size={18} color={colors.practice.ctaTextPrimary} />
+                    <View
+                      pointerEvents="none"
+                      accessible={false}
+                      testID="practice-hero-deep-prime-arrow"
+                      style={styles.ctaArrow}
+                    >
+                      <ChevronRight
+                        size={18}
+                        color={colors.practice.ctaTextPrimary}
+                        pointerEvents="none"
+                      />
                     </View>
                   </LinearGradient>
               </Pressable>
             </Animated.View>
           )}
 
-          <Animated.View style={[styles.portalsWrap, portalsStyle]}>
-            <Text style={styles.sectionLabel}>Other modes</Text>
+          <Animated.View pointerEvents="box-none" style={[styles.portalsWrap, portalsStyle]}>
+            <Text style={styles.sectionLabel}>Choose your practice</Text>
             <ModePortalTile
+              testID="practice-deep-prime-card"
+              disabled={isNavigationLocked}
               variant="charge"
               title={PRACTICE_COPY.rituals.charge.title}
               meaning={PRACTICE_COPY.rituals.charge.meaning}
@@ -801,10 +861,29 @@ export const PracticeScreen: React.FC = () => {
               icon={<Zap size={16} color={colors.gold} />}
               onPress={() => {
                 markInteraction();
-                runMode('charge');
+                runMode('charge', undefined, 'practice_deep_prime_card');
               }}
             />
+            {ENABLE_VISUALIZE ? (
+              <ModePortalTile
+                disabled={isNavigationLocked}
+                variant="visualize"
+                title="VISUALIZE"
+                meaning="Rehearse a specific future moment where this intention is already real."
+                durationHint="1–5 min · Guided"
+                badge="PRO"
+                icon={<Eye size={16} color={colors.gold} />}
+                onPress={() => {
+                  markInteraction();
+                  if (!visualizeAccess.hasActiveEntitlement) {
+                    AnalyticsService.track(AnalyticsEvents.VISUALIZE_PRO_LOCK_VIEWED, { tier: visualizeAccess.subscriptionStatus });
+                  }
+                  runMode('visualize', undefined, 'practice_visualize_card');
+                }}
+              />
+            ) : null}
             <ModePortalTile
+              disabled={isNavigationLocked}
               variant="stabilize"
               title={FOCUS_SESSION_TITLE}
               meaning={PRACTICE_COPY.rituals.quickActivate.meaning}
@@ -812,10 +891,11 @@ export const PracticeScreen: React.FC = () => {
               icon={<Zap size={16} color={colors.gold} />}
               onPress={() => {
                 markInteraction();
-                runMode('quickActivate');
+                runMode('quickActivate', undefined, 'practice_focus_card');
               }}
             />
             <ModePortalTile
+              disabled={isNavigationLocked}
               variant="burn"
               title={PRACTICE_COPY.rituals.burn.title}
               meaning={PRACTICE_COPY.rituals.burn.meaning}
@@ -823,7 +903,7 @@ export const PracticeScreen: React.FC = () => {
               icon={<Flame size={16} color={colors.gold} />}
               onPress={() => {
                 markInteraction();
-                runMode('burn');
+                runMode('burn', undefined, 'practice_release_card');
               }}
             />
           </Animated.View>
@@ -840,6 +920,7 @@ export const PracticeScreen: React.FC = () => {
         onClose={() => {
           setSelectorVisible(false);
           setPendingMode(null);
+          setPendingSource(null);
         }}
       />
 
@@ -921,6 +1002,7 @@ const styles = StyleSheet.create({
   },
   ctaButton: {
     borderRadius: 18,
+    minHeight: 48,
     padding: spacing.lg,
     flexDirection: 'row',
     alignItems: 'center',

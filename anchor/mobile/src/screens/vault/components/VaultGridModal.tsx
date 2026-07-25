@@ -3,7 +3,6 @@ import {
   Animated,
   Dimensions,
   FlatList,
-  Image,
   Modal,
   Platform,
   Pressable,
@@ -13,11 +12,11 @@ import {
   View,
 } from 'react-native';
 import { BlurView } from 'expo-blur';
-import { SvgXml } from 'react-native-svg';
 import { colors, typography } from '@/theme';
 import type { Anchor } from '@/types';
 import { withAlpha } from '@/utils/color';
 import { hasIgnited, isAnchorReleased } from '../utils/anchorStateHelpers';
+import { AnchorArtworkThumbnail } from './AnchorArtworkThumbnail';
 
 const { width } = Dimensions.get('window');
 const MODAL_WIDTH = width - 32;
@@ -31,13 +30,45 @@ interface VaultGridModalProps {
   onDismiss: () => void;
   anchors: Anchor[];
   onAnchorPress: (id: string) => void;
+  onLoadMore: () => void;
+  hasMore: boolean;
+  isLoadingMore: boolean;
 }
+
+interface VaultGridItemProps {
+  anchor: Anchor;
+  onPress: (id: string) => void;
+}
+
+const VaultGridItem = React.memo<VaultGridItemProps>(({ anchor, onPress }) => {
+  const imageUrl = anchor.enhancedImageUrl;
+  const sigilXml = anchor.reinforcedSigilSvg ?? anchor.baseSigilSvg;
+  const handlePress = React.useCallback(() => onPress(anchor.id), [anchor.id, onPress]);
+
+  return (
+    <TouchableOpacity style={styles.gridItem} onPress={handlePress} activeOpacity={0.7}>
+      <View style={styles.sigilThumb}>
+        <AnchorArtworkThumbnail
+          imageUrl={imageUrl}
+          sigilXml={sigilXml}
+          imageStyle={styles.thumbImage}
+          fallbackStyle={styles.sigilFallback}
+          fallbackSize={ITEM_SIZE * 0.6}
+        />
+        <View style={[styles.statusDot, hasIgnited(anchor) ? styles.dotCharged : styles.dotUncharged]} />
+      </View>
+    </TouchableOpacity>
+  );
+});
 
 export const VaultGridModal: React.FC<VaultGridModalProps> = ({
   visible,
   onDismiss,
   anchors,
   onAnchorPress,
+  onLoadMore,
+  hasMore,
+  isLoadingMore,
 }) => {
   const visibleAnchors = React.useMemo(
     () => anchors.filter((anchor) => !isAnchorReleased(anchor)),
@@ -66,39 +97,24 @@ export const VaultGridModal: React.FC<VaultGridModalProps> = ({
     }
   }, [visible, fadeAnim, slideAnim]);
 
-  const renderItem = React.useCallback(
-    ({ item }: { item: Anchor }) => {
-      const imageUrl = item.enhancedImageUrl;
-      const sigilXml = item.reinforcedSigilSvg ?? item.baseSigilSvg;
-
-      return (
-        <TouchableOpacity
-          style={styles.gridItem}
-          onPress={() => {
-            onAnchorPress(item.id);
-            onDismiss();
-          }}
-          activeOpacity={0.7}
-        >
-          <View style={styles.sigilThumb}>
-            {imageUrl ? (
-              <Image
-                source={{ uri: imageUrl }}
-                style={styles.thumbImage}
-                resizeMode="cover"
-              />
-            ) : (
-              <View style={styles.sigilFallback}>
-                <SvgXml xml={sigilXml} width={ITEM_SIZE * 0.6} height={ITEM_SIZE * 0.6} />
-              </View>
-            )}
-            <View style={[styles.statusDot, hasIgnited(item) ? styles.dotCharged : styles.dotUncharged]} />
-          </View>
-        </TouchableOpacity>
-      );
+  const handleAnchorPress = React.useCallback(
+    (anchorId: string) => {
+      onAnchorPress(anchorId);
+      onDismiss();
     },
-    [onAnchorPress, onDismiss]
+    [onAnchorPress, onDismiss],
   );
+
+  const renderItem = React.useCallback(
+    ({ item }: { item: Anchor }) => <VaultGridItem anchor={item} onPress={handleAnchorPress} />,
+    [handleAnchorPress],
+  );
+
+  const keyExtractor = React.useCallback((item: Anchor) => item.id, []);
+
+  const handleEndReached = React.useCallback(() => {
+    if (hasMore && !isLoadingMore) onLoadMore();
+  }, [hasMore, isLoadingMore, onLoadMore]);
 
   const getItemLayout = React.useCallback(
     (_: any, index: number) => ({
@@ -108,6 +124,10 @@ export const VaultGridModal: React.FC<VaultGridModalProps> = ({
     }),
     []
   );
+
+  // Keeping a hidden Modal mounted retains its FlatList cells and image views.
+  // Unmount the sheet while closed so large collections have no background UI cost.
+  if (!visible) return null;
 
   return (
     <Modal
@@ -141,15 +161,19 @@ export const VaultGridModal: React.FC<VaultGridModalProps> = ({
           <FlatList
             data={visibleAnchors}
             renderItem={renderItem}
-            keyExtractor={(item) => item.id}
+            keyExtractor={keyExtractor}
             numColumns={NUM_COLUMNS}
             contentContainerStyle={styles.listContent}
             columnWrapperStyle={styles.columnWrapper}
             showsVerticalScrollIndicator={false}
             getItemLayout={getItemLayout}
             removeClippedSubviews={Platform.OS === 'android'}
-            maxToRenderPerBatch={8}
+            initialNumToRender={12}
+            maxToRenderPerBatch={12}
             windowSize={5}
+            updateCellsBatchingPeriod={50}
+            onEndReached={handleEndReached}
+            onEndReachedThreshold={0.5}
           />
         </Animated.View>
       </View>

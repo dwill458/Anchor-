@@ -23,6 +23,7 @@ import { SvgXml } from 'react-native-svg';
 import * as Haptics from 'expo-haptics';
 import { useAnchorStore } from '@/stores/anchorStore';
 import { useAuthStore } from '@/stores/authStore';
+import { PracticeCompletionService } from '@/services/PracticeCompletionService';
 import { useSessionStore } from '@/stores/sessionStore';
 import { useSettingsStore } from '@/stores/settingsStore';
 import type { RootStackParamList } from '@/types';
@@ -44,6 +45,11 @@ import {
 } from '@/utils/postPrimeTraceEligibility';
 import { useMissingAnchorRedirect } from './utils/useMissingAnchorRedirect';
 import { queueProgressionMilestonesFromStores } from '@/utils/progressionMilestones';
+import { createPracticeEventId } from '@/utils/primingAnalytics';
+import {
+  DEFAULT_SESSION_AUDIO_DEFAULTS,
+  resolveSessionAudioConfiguration,
+} from '@/types/sessionAudio';
 
 const { width } = Dimensions.get('window');
 const SYMBOL_SIZE = Math.min(width * 0.42, 180);
@@ -58,7 +64,15 @@ export const ChargeCompleteScreen: React.FC = () => {
   const navigation = useNavigation<ChargeCompleteNavigationProp>();
   const { navigateToPractice } = useTabNavigation();
   const route = useRoute<ChargeCompleteRouteProp>();
-  const { anchorId, durationSeconds: routeDurationSeconds, returnTo } = route.params;
+  const {
+    anchorId,
+    durationSeconds: routeDurationSeconds,
+    completionEventId: routeCompletionEventId,
+    audioConfiguration: routeAudioConfiguration,
+    returnTo,
+  } = route.params;
+  const fallbackCompletionEventIdRef = useRef(createPracticeEventId());
+  const completionEventId = routeCompletionEventId ?? fallbackCompletionEventIdRef.current;
 
   const getAnchorById = useAnchorStore((state) => state.getAnchorById);
   const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
@@ -68,7 +82,10 @@ export const ChargeCompleteScreen: React.FC = () => {
   const { recordSession } = useSessionStore();
   const defaultCharge = useSettingsStore((state) => state.defaultCharge);
   const primeSessionDuration = useSettingsStore((state) => state.primeSessionDuration ?? 120);
-  const primeSessionAudio = useSettingsStore((state) => state.primeSessionAudio ?? 'ambient');
+  const primeSessionAudioDefaults = useSettingsStore(
+    (state) =>
+      state.sessionAudioDefaults?.deep_prime ?? DEFAULT_SESSION_AUDIO_DEFAULTS.deep_prime
+  );
   const traceDefaultEnabled = useSettingsStore((state) => state.traceDefaultEnabled ?? true);
   const reduceMotionEnabled = useReduceMotionEnabled();
   const { handlePrimeComplete } = useNotificationController();
@@ -234,6 +251,8 @@ export const ChargeCompleteScreen: React.FC = () => {
     }
 
     if (returnTo === 'practice') {
+      const nav = navigation as unknown as { popToTop?: () => void };
+      nav.popToTop?.();
       navigateToPractice();
     } else if (returnTo === 'detail') {
       navigation.navigate('AnchorDetail', { anchorId });
@@ -265,16 +284,35 @@ export const ChargeCompleteScreen: React.FC = () => {
     const durationSeconds =
       routeDurationSeconds ?? primeSessionDuration ?? presetSeconds[defaultCharge.preset] ?? 300;
 
-    recordSession({
+    const audioConfiguration =
+      routeAudioConfiguration ?? resolveSessionAudioConfiguration(primeSessionAudioDefaults);
+    const completedAt = new Date().toISOString();
+    const recordedEventId = recordSession({
+      idempotencyKey: completionEventId,
       anchorId,
       type: 'reinforce',
       durationSeconds,
-      mode: primeSessionAudio,
+      mode:
+        audioConfiguration.backgroundAudio === 'ambient' ||
+        audioConfiguration.guidanceVoice !== 'none'
+          ? 'ambient'
+          : 'silent',
+      audioConfiguration,
       reflectionWord,
-      completedAt: new Date().toISOString(),
+      completedAt,
+    });
+    void PracticeCompletionService.queueLegacyCompletion({
+      id: recordedEventId,
+      anchorId,
+      anchorLocalId: anchor?.localId,
+      practiceMode: 'deep_prime',
+      durationSeconds,
+      completedAt,
+      guidanceVoice: audioConfiguration.guidanceVoice,
+      backgroundAudio: audioConfiguration.backgroundAudio,
     });
 
-    await queueProgressionMilestonesFromStores();
+    await queueProgressionMilestonesFromStores({ sourceEventId: recordedEventId });
     // Fire-and-forget — notification sync + server update should not block the UI transition
     handlePrimeComplete();
 

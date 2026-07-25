@@ -43,6 +43,12 @@ export const HEAT_DEEP: Record<1 | 2 | 3, string> = {
   2: '#7e58a6',
   3: '#9d74cf',
 };
+/** Visualize (blue) family — aligned with the in-app Visualize experience. */
+export const HEAT_VISUALIZE: Record<1 | 2 | 3, string> = {
+  1: '#173A67',
+  2: '#2C5F99',
+  3: '#3F75B5',
+};
 
 /** Widget font families — file basenames registered via the plugin `fonts` option */
 export const FONT_SERIF_SEMIBOLD = 'CrimsonPro_600SemiBold';
@@ -102,4 +108,20 @@ export function buildGlyphMarkup({ strokeWidth, stroke, opacity, glow }: GlyphOp
 /** Standalone glyph SVG (for the medium/large header glyphs) */
 export function buildGlyphSvg(options: GlyphOptions): string {
   return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 130">${buildGlyphMarkup(options)}</svg>`;
+}
+
+/**
+ * Android's SVG renderer does not resolve CSS `currentColor` consistently.
+ * Replace it in the stored sigil while preserving the user's actual geometry.
+ */
+export function colorizeAnchorSigilSvg(
+  sigilSvg: string | null | undefined,
+  color: string
+): string | null {
+  const normalized = sigilSvg?.trim();
+  if (!normalized || !/<svg\b/i.test(normalized)) {
+    return null;
+  }
+
+  return normalized.replace(/currentColor/gi, color);
 }

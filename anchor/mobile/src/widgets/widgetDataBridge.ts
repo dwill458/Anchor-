@@ -14,20 +14,30 @@
 
 import { Platform } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import * as FileSystem from 'expo-file-system/legacy';
 import { useSessionStore } from '@/stores/sessionStore';
 import { useAnchorStore } from '@/stores/anchorStore';
+import { useSettingsStore, type ThreadStrengthSensitivity } from '@/stores/settingsStore';
 import { calculateStreakWithGrace } from '@/utils/streak';
-import { addDays, localDateString, type PrimingHistoryEntry } from '@/utils/primingAnalytics';
+import {
+  addDays,
+  localDateString,
+  startOfIsoWeek,
+  type PrimingHistoryEntry,
+} from '@/utils/primingAnalytics';
 import { logger } from '@/utils/logger';
 import type { Anchor } from '@/types';
 import {
+  createEmptyWidgetSnapshot,
   WIDGET_FALLBACK_ANCHOR_NAME,
   WIDGET_HISTORY_DAYS,
   WIDGET_LAST_SYNC_STORAGE_KEY,
   WIDGET_NAMES,
   WIDGET_SNAPSHOT_STORAGE_KEY,
   type WidgetHistoryDay,
+  type WidgetPracticeType,
   type WidgetSnapshot,
+  type WidgetWeekDay,
 } from './widgetTypes';
 
 // ─── Pure snapshot builders (exported for tests) ────────────────────────────
@@ -42,12 +52,30 @@ export function buildWidgetHistory(
   primingHistory: PrimingHistoryEntry[],
   now: Date = new Date()
 ): WidgetHistoryDay[] {
-  const byDate = new Map<string, { count: number; deep: boolean }>();
+  const byDate = new Map<string, { count: number; deep: boolean; mode: WidgetPracticeType; timestamp: number }>();
   for (const entry of primingHistory) {
-    const existing = byDate.get(entry.localDate) ?? { count: 0, deep: false };
+    const rawEntry = entry as PrimingHistoryEntry & { type?: unknown; practiceMode?: unknown };
+    const mode =
+      normalizeWidgetPracticeType(rawEntry.practiceMode) ??
+      normalizeWidgetPracticeType(rawEntry.type);
+    const timestamp = new Date(entry.completedAt).getTime();
+    if (!mode || Number.isNaN(timestamp)) {
+      continue;
+    }
+    const existing = byDate.get(entry.localDate) ?? {
+      count: 0,
+      deep: false,
+      mode,
+      timestamp: Number.NEGATIVE_INFINITY,
+    };
     existing.count += 1;
-    if (entry.type === 'reinforce') {
+    if (mode === 'deep_prime') {
       existing.deep = true;
+    }
+    // The latest completion is the deterministic color for a mixed-mode day.
+    if (timestamp >= existing.timestamp) {
+      existing.mode = mode;
+      existing.timestamp = timestamp;
     }
     byDate.set(entry.localDate, existing);
   }
@@ -58,9 +86,230 @@ export function buildWidgetHistory(
     const dayData = byDate.get(date);
     const count = dayData?.count ?? 0;
     const level = (count === 0 ? 0 : count === 1 ? 1 : count === 2 ? 2 : 3) as 0 | 1 | 2 | 3;
-    days.push({ date, level, deep: dayData?.deep ?? false });
+    const day: WidgetHistoryDay = { date, level, deep: dayData?.deep ?? false };
+    if (dayData?.mode) {
+      day.mode = dayData.mode;
+    }
+    days.push(day);
   }
   return days;
+}
+
+const SENSITIVITY_COPY: Record<
+  ThreadStrengthSensitivity,
+  { label: string; note: string }
+> = {
+  lenient: { label: 'Lenient', note: '2 grace days before decay begins.' },
+  balanced: { label: 'Balanced', note: '1 grace day before decay begins.' },
+  strict: { label: 'Strict', note: 'Any missed day begins decay.' },
+};
+
+interface ClassifiedWidgetSession extends PrimingHistoryEntry {
+  dateKey: string;
+  timestamp: number;
+  displayType: WidgetPracticeType;
+}
+
+const WIDGET_PRACTICE_TYPE_ALIASES: Record<string, WidgetPracticeType> = {
+  focus: 'focus',
+  focus_session: 'focus',
+  activation: 'focus',
+  activate: 'focus',
+  deep_prime: 'deep_prime',
+  deepprime: 'deep_prime',
+  deep: 'deep_prime',
+  prime: 'deep_prime',
+  reinforce: 'deep_prime',
+  visualize: 'visualize',
+  visualization: 'visualize',
+  visualize_mode: 'visualize',
+};
+
+/** Normalizes legacy session labels for widgets without rewriting history. */
+export function normalizeWidgetPracticeType(value: unknown): WidgetPracticeType | null {
+  if (typeof value !== 'string') {
+    return null;
+  }
+  const normalized = value.trim().toLowerCase().replace(/[\s-]+/g, '_');
+  return WIDGET_PRACTICE_TYPE_ALIASES[normalized] ?? null;
+}
+
+/**
+ * Keeps the large widget's summary in step with the Thread Strength sheet:
+ * duplicate completion events are ignored while every completed practice is
+ * assigned one explicit canonical display type.
+ */
+function classifyWidgetSessions(entries: PrimingHistoryEntry[]): ClassifiedWidgetSession[] {
+  const seenIds = new Set<string>();
+  const lastSignatureTime = new Map<string, number>();
+  const sorted = entries
+    .map((entry) => {
+      const rawEntry = entry as PrimingHistoryEntry & { type?: unknown; practiceMode?: unknown };
+      // A persisted practiceMode is more specific than the older generic
+      // activate/reinforce event type. This keeps Visualize out of Focus.
+      const displayType =
+        normalizeWidgetPracticeType(rawEntry.practiceMode) ??
+        normalizeWidgetPracticeType(rawEntry.type);
+      return displayType
+        ? {
+            ...entry,
+            displayType,
+            rawType: typeof rawEntry.type === 'string' ? rawEntry.type : '',
+            dateKey: entry.localDate,
+            timestamp: new Date(entry.completedAt).getTime(),
+          }
+        : null;
+    })
+    .filter((entry): entry is NonNullable<typeof entry> => entry != null)
+    .filter((entry) => !Number.isNaN(entry.timestamp))
+    .sort((left, right) => left.timestamp - right.timestamp);
+
+  const classified: ClassifiedWidgetSession[] = [];
+  for (const entry of sorted) {
+    if (seenIds.has(entry.id)) {
+      continue;
+    }
+    seenIds.add(entry.id);
+
+    const signature = `${entry.anchorId}|${entry.type}`;
+    const previousTime = lastSignatureTime.get(signature);
+    if (previousTime != null && Math.abs(entry.timestamp - previousTime) <= 5_000) {
+      continue;
+    }
+    lastSignatureTime.set(signature, entry.timestamp);
+
+    classified.push({ ...entry, displayType: entry.displayType });
+  }
+
+  return classified;
+}
+
+function longestSessionStreak(sessions: ClassifiedWidgetSession[]): number {
+  const dates = Array.from(new Set(sessions.map((session) => session.dateKey))).sort();
+  let longest = 0;
+  let running = 0;
+  let previous: Date | null = null;
+
+  for (const dateKey of dates) {
+    const date = new Date(`${dateKey}T00:00:00`);
+    const isConsecutive = previous != null && date.getTime() - previous.getTime() === 86_400_000;
+    running = isConsecutive ? running + 1 : 1;
+    longest = Math.max(longest, running);
+    previous = date;
+  }
+
+  return longest;
+}
+
+/**
+ * Consecutive-day session streak ending today (or yesterday, so an unprimed
+ * morning doesn't zero the number). No grace days — this is the raw per-anchor
+ * thread shown on the 4×2; the practice-wide `streak` keeps grace handling.
+ */
+function currentSessionStreak(sessions: ClassifiedWidgetSession[], now: Date): number {
+  const dates = new Set(sessions.map((session) => session.dateKey));
+  let cursor = now;
+  if (!dates.has(localDateString(cursor))) {
+    cursor = addDays(cursor, -1);
+    if (!dates.has(localDateString(cursor))) {
+      return 0;
+    }
+  }
+
+  let streak = 0;
+  while (dates.has(localDateString(cursor))) {
+    streak += 1;
+    cursor = addDays(cursor, -1);
+  }
+  return streak;
+}
+
+/** Per-anchor metrics for the medium widget, scoped to one anchor's sessions. */
+function buildAnchorMetrics(
+  primingHistory: PrimingHistoryEntry[],
+  anchorId: string | null,
+  now: Date
+): Pick<WidgetSnapshot, 'anchorTotalSessions' | 'anchorDayStreak' | 'anchorDeepPrimeSessions' | 'anchorVisualizeSessions'> {
+  if (!anchorId) {
+    return { anchorTotalSessions: 0, anchorDayStreak: 0, anchorDeepPrimeSessions: 0, anchorVisualizeSessions: 0 };
+  }
+  const sessions = classifyWidgetSessions(
+    primingHistory.filter((entry) => entry.anchorId === anchorId)
+  );
+  return {
+    anchorTotalSessions: sessions.length,
+    anchorDayStreak: currentSessionStreak(sessions, now),
+    anchorDeepPrimeSessions: sessions.filter((session) => session.displayType === 'deep_prime').length,
+    anchorVisualizeSessions: sessions.filter((session) => session.displayType === 'visualize').length,
+  };
+}
+
+function buildCurrentWeek(
+  sessions: ClassifiedWidgetSession[],
+  now: Date
+): WidgetWeekDay[] {
+  const today = localDateString(now);
+  const byDate = new Map<string, { focus: boolean; deep: boolean; visualize: boolean }>();
+  for (const session of sessions) {
+    const value = byDate.get(session.dateKey) ?? { focus: false, deep: false, visualize: false };
+    if (session.displayType === 'deep_prime') value.deep = true;
+    else value[session.displayType] = true;
+    byDate.set(session.dateKey, value);
+  }
+
+  return ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map((label, index) => {
+    const date = addDays(startOfIsoWeek(now), index);
+    const dateKey = localDateString(date);
+    const value = byDate.get(dateKey) ?? { focus: false, deep: false, visualize: false };
+    return {
+      label,
+      date: dateKey,
+      hasFocus: value.focus,
+      hasDeep: value.deep,
+      hasVisualize: value.visualize,
+      isToday: dateKey === today,
+      isFuture: dateKey > today,
+    };
+  });
+}
+
+function buildWidgetSummary(
+  primingHistory: PrimingHistoryEntry[],
+  now: Date,
+  threadStrength: number,
+  sensitivity: ThreadStrengthSensitivity
+): Pick<
+  WidgetSnapshot,
+  | 'threadStrength'
+  | 'totalSessions'
+  | 'focusSessions'
+  | 'deepPrimeSessions'
+  | 'visualizeSessions'
+  | 'deepPrimePercent'
+  | 'longestStreak'
+  | 'sensitivityLabel'
+  | 'sensitivityNote'
+  | 'currentWeek'
+> {
+  const sessions = classifyWidgetSessions(primingHistory);
+  const deepPrimeSessions = sessions.filter((session) => session.displayType === 'deep_prime').length;
+  const visualizeSessions = sessions.filter((session) => session.displayType === 'visualize').length;
+  const focusSessions = sessions.length - deepPrimeSessions - visualizeSessions;
+  const totalSessions = sessions.length;
+  const sensitivityCopy = SENSITIVITY_COPY[sensitivity] ?? SENSITIVITY_COPY.balanced;
+
+  return {
+    threadStrength: Math.max(0, Math.min(100, Math.round(threadStrength))),
+    totalSessions,
+    focusSessions,
+    deepPrimeSessions,
+    visualizeSessions,
+    deepPrimePercent: totalSessions > 0 ? Math.round((deepPrimeSessions / totalSessions) * 100) : 0,
+    longestStreak: longestSessionStreak(sessions),
+    sensitivityLabel: sensitivityCopy.label,
+    sensitivityNote: sensitivityCopy.note,
+    currentWeek: buildCurrentWeek(sessions, now),
+  };
 }
 
 /**
@@ -72,11 +321,52 @@ export function selectWidgetAnchorName(
   anchors: Anchor[],
   currentAnchorId: string | undefined
 ): string {
-  const activeAnchors = anchors.filter((anchor) => !anchor.isReleased && !anchor.archivedAt);
-  const selected =
-    activeAnchors.find((anchor) => anchor.id === currentAnchorId) ?? activeAnchors[0];
+  const selected = selectWidgetAnchor(anchors, currentAnchorId);
   const name = selected?.intentionText?.trim();
   return name && name.length > 0 ? name : WIDGET_FALLBACK_ANCHOR_NAME;
+}
+
+/** Resolves the same active anchor used by PracticeScreen for widget content. */
+export function selectWidgetAnchor(
+  anchors: Anchor[],
+  currentAnchorId: string | undefined
+): Anchor | undefined {
+  const activeAnchors = anchors.filter((anchor) => !anchor.isReleased && !anchor.archivedAt);
+  return activeAnchors.find((anchor) => anchor.id === currentAnchorId) ?? activeAnchors[0];
+}
+
+function hashWidgetArtwork(value: string): string {
+  let hash = 2166136261;
+  for (let index = 0; index < value.length; index += 1) {
+    hash ^= value.charCodeAt(index);
+    hash = Math.imul(hash, 16777619);
+  }
+  return (hash >>> 0).toString(16);
+}
+
+function selectWidgetArtwork(anchor: Anchor | undefined): Pick<WidgetSnapshot, 'sigilSvg' | 'artworkImageUri' | 'artworkSource' | 'artworkVersion'> {
+  const reinforced = anchor?.reinforcedSigilSvg?.trim();
+  const base = anchor?.baseSigilSvg?.trim();
+  const sigilSvg = reinforced || base || null;
+  const enhancedImageUrl = anchor?.enhancedImageUrl?.trim();
+  const artworkSource = enhancedImageUrl
+    ? 'enhanced_image'
+    : reinforced
+      ? 'reinforced_svg'
+      : base
+        ? 'base_svg'
+        : 'fallback';
+  const changedAt = anchor?.updatedAt instanceof Date ? anchor.updatedAt.toISOString() : String(anchor?.updatedAt ?? '');
+  const artworkPayload = enhancedImageUrl || sigilSvg || '';
+
+  return {
+    sigilSvg,
+    artworkImageUri: enhancedImageUrl || null,
+    artworkSource,
+    artworkVersion: anchor && artworkPayload
+      ? `${anchor.userId}:${anchor.id}:${changedAt}:${hashWidgetArtwork(artworkPayload)}`
+      : null,
+  };
 }
 
 export interface WidgetSnapshotInputs {
@@ -85,6 +375,8 @@ export interface WidgetSnapshotInputs {
   primingHistory: PrimingHistoryEntry[];
   lastPrimedAt: string | null;
   lastGraceDayUsedAt: string | null;
+  threadStrength?: number;
+  threadStrengthSensitivity?: ThreadStrengthSensitivity;
   now?: Date;
 }
 
@@ -96,11 +388,24 @@ export function buildWidgetSnapshot(inputs: WidgetSnapshotInputs): WidgetSnapsho
     inputs.lastGraceDayUsedAt,
     now
   );
+  const selectedAnchor = selectWidgetAnchor(inputs.anchors, inputs.currentAnchorId);
+  const artwork = selectWidgetArtwork(selectedAnchor);
+  const summary = buildWidgetSummary(
+    inputs.primingHistory,
+    now,
+    inputs.threadStrength ?? 0,
+    inputs.threadStrengthSensitivity ?? 'balanced'
+  );
 
   return {
-    anchorName: selectWidgetAnchorName(inputs.anchors, inputs.currentAnchorId),
+    ...createEmptyWidgetSnapshot(),
+    anchorId: selectedAnchor?.id ?? null,
+    anchorName: selectedAnchor?.intentionText?.trim() || WIDGET_FALLBACK_ANCHOR_NAME,
+    ...artwork,
     primedToday: inputs.lastPrimedAt === today,
     streak: streakResult.currentStreak,
+    ...summary,
+    ...buildAnchorMetrics(inputs.primingHistory, selectedAnchor?.id ?? null, now),
     history: buildWidgetHistory(inputs.primingHistory, now),
     lastPrimedDate: inputs.lastPrimedAt,
   };
@@ -112,17 +417,82 @@ let lastWrittenJson: string | null = null;
 let syncTimer: ReturnType<typeof setTimeout> | null = null;
 let unsubscribers: Array<() => void> = [];
 
+async function cacheAndroidArtwork(snapshot: WidgetSnapshot): Promise<WidgetSnapshot> {
+  if (
+    Platform.OS !== 'android' ||
+    snapshot.artworkSource !== 'enhanced_image' ||
+    !snapshot.artworkImageUri ||
+    !snapshot.artworkVersion
+  ) {
+    return snapshot;
+  }
+
+  if (snapshot.artworkImageUri.startsWith('file://')) {
+    logger.debug('[widgetDataBridge] Android artwork cache hit', {
+      selectedAnchorId: snapshot.anchorId,
+      source: 'enhanced_image',
+    });
+    return snapshot;
+  }
+
+  const cacheRoot = FileSystem.cacheDirectory;
+  if (!cacheRoot || !snapshot.anchorId) {
+    logger.debug('[widgetDataBridge] Android artwork fallback', {
+      selectedAnchorId: snapshot.anchorId,
+      reason: 'cache directory or anchor id unavailable',
+    });
+    return { ...snapshot, artworkImageUri: null, artworkSource: 'fallback' };
+  }
+
+  const cacheDirectory = `${cacheRoot}anchor-widget-artwork/${snapshot.anchorId}/`;
+  const cacheUri = `${cacheDirectory}${hashWidgetArtwork(snapshot.artworkVersion)}.img`;
+  try {
+    await FileSystem.makeDirectoryAsync(cacheDirectory, { intermediates: true });
+    const existing = await FileSystem.getInfoAsync(cacheUri);
+    if (!existing.exists) {
+      logger.debug('[widgetDataBridge] Android artwork cache miss', {
+        selectedAnchorId: snapshot.anchorId,
+        source: snapshot.artworkImageUri,
+      });
+      await FileSystem.downloadAsync(snapshot.artworkImageUri, cacheUri);
+    } else {
+      logger.debug('[widgetDataBridge] Android artwork cache hit', {
+        selectedAnchorId: snapshot.anchorId,
+        source: snapshot.artworkImageUri,
+      });
+    }
+    return { ...snapshot, artworkImageUri: cacheUri };
+  } catch (error) {
+    logger.debug('[widgetDataBridge] Android artwork fallback', {
+      selectedAnchorId: snapshot.anchorId,
+      reason: 'enhanced image cache/download failed',
+      error,
+    });
+    return { ...snapshot, artworkImageUri: null, artworkSource: 'fallback' };
+  }
+}
+
 async function pushSnapshotToAndroidWidgets(snapshot: WidgetSnapshot): Promise<void> {
   // Required inside the platform guard so the Android-only native module is
   // never touched on iOS.
   const { requestWidgetUpdate } = require('react-native-android-widget');
   const { renderAnchorWidgetByName } = require('./android/renderAnchorWidget');
 
+  logger.debug('[widgetDataBridge] Android artwork render', {
+    selectedAnchorId: snapshot.anchorId,
+    source: snapshot.artworkSource,
+    version: snapshot.artworkVersion,
+    svgDirectRender: snapshot.artworkImageUri == null && snapshot.sigilSvg != null,
+    conversion: 'not-required (AndroidSVG parses the composed SVG)',
+    fallbackReason: snapshot.artworkSource === 'fallback' ? 'final artwork cache/load failed or no saved SVG' : undefined,
+  });
+
   await Promise.all(
     WIDGET_NAMES.map((widgetName) =>
       requestWidgetUpdate({
         widgetName,
-        renderWidget: () => renderAnchorWidgetByName(widgetName, snapshot),
+        renderWidget: (widgetInfo: { width: number; height: number }) =>
+          renderAnchorWidgetByName(widgetName, snapshot, widgetInfo),
         widgetNotFound: () => {
           // Widget of this size not placed on any home screen — nothing to update.
         },
@@ -146,19 +516,31 @@ export async function syncWidgetData(): Promise<void> {
   try {
     const sessionState = useSessionStore.getState();
     const anchorState = useAnchorStore.getState();
+    const settingsState = useSettingsStore.getState();
 
-    const snapshot = buildWidgetSnapshot({
+    let snapshot = buildWidgetSnapshot({
       anchors: anchorState.anchors,
       currentAnchorId: anchorState.currentAnchorId,
       primingHistory: sessionState.primingHistory,
       lastPrimedAt: sessionState.lastPrimedAt,
       lastGraceDayUsedAt: sessionState.lastGraceDayUsedAt,
+      threadStrength: sessionState.threadStrength,
+      threadStrengthSensitivity: settingsState.threadStrengthSensitivity,
     });
+    snapshot = await cacheAndroidArtwork(snapshot);
     const json = JSON.stringify(snapshot);
 
     if (json === lastWrittenJson) {
+      logger.debug('[widgetDataBridge] snapshot cache hit', {
+        selectedAnchorId: snapshot.anchorId,
+        artworkVersion: snapshot.artworkVersion,
+      });
       return;
     }
+    logger.debug('[widgetDataBridge] snapshot cache miss', {
+      selectedAnchorId: snapshot.anchorId,
+      artworkVersion: snapshot.artworkVersion,
+    });
     lastWrittenJson = json;
 
     await AsyncStorage.setItem(WIDGET_SNAPSHOT_STORAGE_KEY, json);
@@ -205,6 +587,7 @@ export function initWidgetDataSync(): void {
   unsubscribers = [
     useSessionStore.subscribe(scheduleSync),
     useAnchorStore.subscribe(scheduleSync),
+    useSettingsStore.subscribe(scheduleSync),
   ];
   scheduleSync();
 }

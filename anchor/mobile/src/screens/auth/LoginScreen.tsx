@@ -31,6 +31,7 @@ import { useSubscriptionStore } from '../../stores/subscriptionStore';
 import { AuthService } from '../../services/AuthService';
 import { AnalyticsEvents, AnalyticsService } from '@/services/AnalyticsService';
 import { FrictionAnalytics } from '@/services/FrictionAnalytics';
+import { ErrorTrackingService } from '@/services/ErrorTrackingService';
 import PostAuthFlowService from '../../services/PostAuthFlowService';
 import { navigateToVaultDestination } from '@/navigation/firstAnchorGate';
 import type {
@@ -293,6 +294,12 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ navigation, route }) =
       FrictionAnalytics.flowError('onboarding_auth', 'signup', 'signup_failed', {
         provider: 'email',
         context,
+        error_code: err?.code,
+        error_message: err?.message,
+      });
+      ErrorTrackingService.captureException(err, {
+        screen: 'LoginScreen',
+        action: 'signup_email',
       });
     } finally {
       setLoading(false);
@@ -372,6 +379,12 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ navigation, route }) =
         setError(message);
         FrictionAnalytics.flowError('onboarding_auth', 'apple_auth', 'apple_auth_failed', {
           context,
+          error_code: err?.code,
+          error_message: message,
+        });
+        ErrorTrackingService.captureException(err, {
+          screen: 'LoginScreen',
+          action: 'apple_sign_in',
         });
         Alert.alert('Apple sign-in', message);
       } finally {
@@ -421,6 +434,12 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ navigation, route }) =
         setError(message);
         FrictionAnalytics.flowError('onboarding_auth', 'google_auth', 'google_auth_failed', {
           context,
+          error_code: err?.code,
+          error_message: message,
+        });
+        ErrorTrackingService.captureException(err, {
+          screen: 'LoginScreen',
+          action: 'google_sign_in',
         });
         Alert.alert('Google sign-in', message);
       } finally {

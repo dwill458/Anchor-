@@ -41,6 +41,11 @@ import {
   SignUpScreen,
 } from '../screens/auth';
 import { TrialSignUpScreen } from '../screens/onboarding';
+import {
+  VisualizeCompletionScreen,
+  VisualizePreparationScreen,
+  VisualizeSessionScreen,
+} from '../screens/visualize';
 import type { RootStackParamList } from '@/types';
 import { colors } from '@/theme';
 import { useAuthStore } from '@/stores/authStore';
@@ -127,6 +132,9 @@ export const VaultStackNavigator: React.FC<VaultStackNavigatorProps> = ({ onRout
         component={AnchorDetailScreen}
         options={{ headerShown: false }}
       />
+      <Stack.Screen name="VisualizePreparation" component={VisualizePreparationScreen} options={{ headerShown: false }} />
+      <Stack.Screen name="VisualizeSession" component={VisualizeSessionScreen} options={{ headerShown: false, gestureEnabled: false, animation: 'none' }} />
+      <Stack.Screen name="VisualizeCompletion" component={VisualizeCompletionScreen} options={{ headerShown: false, gestureEnabled: false, animation: 'none' }} />
       <Stack.Screen
         name="FirstAnchorCreation"
         component={IntentionInputScreen}

@@ -121,7 +121,7 @@ export const useLocationPrimingStore = create<LocationPrimingState>()(
     {
       name: 'anchor-location-priming-storage',
       storage: createJSONStorage(() => encryptedPersistStorage),
-      version: 1,
+      version: 2,
       migrate: (persistedState: unknown) => {
         const state = (persistedState as Partial<LocationPrimingState>) ?? {};
         return {

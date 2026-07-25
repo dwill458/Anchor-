@@ -12,18 +12,30 @@ import Animated, {
   withTiming,
 } from 'react-native-reanimated';
 import {
-  Check,
+  AudioLines,
+  Brush,
+  CircleDotDashed,
   Cloud,
   Compass,
   Crown,
+  Cuboid,
+  DraftingCompass,
+  Feather,
   Flame,
+  Gem,
+  Hexagon,
+  Moon,
+  Orbit,
   Palette,
   Repeat,
   ShieldCheck,
   Sliders,
   Sparkles,
+  SunMedium,
   Target,
+  Telescope,
   Waves,
+  WandSparkles,
   Zap,
   type LucideIcon,
 } from 'lucide-react-native';
@@ -55,6 +67,19 @@ const ICONS: Record<RefineStyleIconName, LucideIcon> = {
   Repeat,
   ShieldCheck,
   Palette,
+  AudioLines,
+  Brush,
+  CircleDotDashed,
+  Cuboid,
+  DraftingCompass,
+  Feather,
+  Gem,
+  Hexagon,
+  Moon,
+  Orbit,
+  SunMedium,
+  Telescope,
+  WandSparkles,
 };
 
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
@@ -163,9 +188,11 @@ export function RefineStyleCard({
             style={StyleSheet.absoluteFill}
           />
           <View style={styles.previewAura} />
-          <View style={styles.previewLinePrimary} />
-          <View style={styles.previewLineSecondary} />
-          <Icon size={isFeatured ? 28 : 24} color="rgba(245, 245, 220, 0.82)" strokeWidth={1.5} />
+          <Icon
+            size={isFeatured ? 30 : isSeasonal ? 28 : 24}
+            color="rgba(245, 245, 220, 0.9)"
+            strokeWidth={1.45}
+          />
         </View>
 
         <View style={styles.textBlock}>
@@ -173,11 +200,6 @@ export function RefineStyleCard({
             <Text style={[styles.title, isFeatured && styles.titleFeatured]} numberOfLines={2}>
               {option.displayName}
             </Text>
-            {isSelected && (
-              <Animated.View style={[styles.checkBadge, selectedLayerStyle]}>
-                <Check size={14} color={colors.charcoal} strokeWidth={3} />
-              </Animated.View>
-            )}
           </View>
 
           <Text style={styles.category} numberOfLines={1}>
@@ -225,7 +247,7 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(24, 24, 31, 0.9)',
   },
   cardSeasonal: {
-    minHeight: 154,
+    minHeight: 190,
     backgroundColor: 'rgba(24, 16, 40, 0.78)',
   },
   blurLayer: {
@@ -261,6 +283,9 @@ const styles = StyleSheet.create({
     marginBottom: spacing.lg,
   },
   previewSeasonal: {
+    width: 54,
+    height: 54,
+    borderRadius: 16,
     borderColor: 'rgba(203, 184, 232, 0.34)',
   },
   previewAura: {
@@ -269,20 +294,6 @@ const styles = StyleSheet.create({
     height: 58,
     borderRadius: 29,
     backgroundColor: 'rgba(245, 245, 220, 0.12)',
-  },
-  previewLinePrimary: {
-    position: 'absolute',
-    width: 36,
-    height: 1,
-    backgroundColor: 'rgba(212, 175, 55, 0.55)',
-    transform: [{ rotate: '26deg' }],
-  },
-  previewLineSecondary: {
-    position: 'absolute',
-    width: 28,
-    height: 1,
-    backgroundColor: 'rgba(245, 245, 220, 0.28)',
-    transform: [{ rotate: '-32deg' }],
   },
   textBlock: {
     gap: spacing.xs,
@@ -364,17 +375,5 @@ const styles = StyleSheet.create({
     letterSpacing: 1.2,
     color: 'rgba(245, 245, 220, 0.36)',
     textTransform: 'uppercase',
-  },
-  checkBadge: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
-    backgroundColor: colors.gold,
-    alignItems: 'center',
-    justifyContent: 'center',
-    shadowColor: colors.gold,
-    shadowOpacity: 0.45,
-    shadowRadius: 12,
-    shadowOffset: { width: 0, height: 0 },
   },
 });

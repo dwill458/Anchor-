@@ -16,6 +16,7 @@ export interface EnvConfig {
   ALLOWED_ORIGINS?: string; // Comma-separated list of allowed origins
   COMPED_ACCESS_EMAILS?: string; // Comma/space-separated list of comped account emails
   ENABLE_MERCH: boolean;
+  ENABLE_VISUALIZE: boolean;
   EXPOSE_ERROR_STACK: boolean;
 
   // Auth (Optional - for future Firebase Admin integration)
@@ -55,6 +56,22 @@ class EnvValidationError extends Error {
     super(message);
     this.name = 'EnvValidationError';
   }
+}
+
+/**
+ * Resolves the Google Generative Language API key from either supported name.
+ *
+ * GOOGLE_API_KEY is canonical. GEMINI_API_KEY is accepted as an alias because
+ * production was provisioned under that name, which left the Visualize scene
+ * provider reading an unset variable. Consumers must read the normalized
+ * `env.GOOGLE_API_KEY` rather than either raw variable.
+ *
+ * Never log or return this value to a client.
+ */
+export function resolveGoogleApiKey(source: NodeJS.ProcessEnv = process.env): string | undefined {
+  const canonical = source.GOOGLE_API_KEY?.trim();
+  if (canonical) return canonical;
+  return source.GEMINI_API_KEY?.trim() || undefined;
 }
 
 function validateString(
@@ -188,7 +205,8 @@ export function validateEnv(): EnvConfig {
         'GOOGLE_CLOUD_CLIENT_EMAIL',
         process.env.GOOGLE_CLOUD_CLIENT_EMAIL
       ),
-      GOOGLE_API_KEY: validateString('GOOGLE_API_KEY', process.env.GOOGLE_API_KEY),
+      // Normalized: accepts GOOGLE_API_KEY (canonical) or GEMINI_API_KEY (alias).
+      GOOGLE_API_KEY: resolveGoogleApiKey(),
 
       // JWT (required in production)
       JWT_SECRET: validateString(
@@ -205,6 +223,7 @@ export function validateEnv(): EnvConfig {
         process.env.COMPED_ACCESS_EMAILS
       ),
       ENABLE_MERCH: validateBoolean('ENABLE_MERCH', process.env.ENABLE_MERCH, false),
+      ENABLE_VISUALIZE: validateBoolean('ENABLE_VISUALIZE', process.env.ENABLE_VISUALIZE, false),
       EXPOSE_ERROR_STACK: validateBoolean(
         'EXPOSE_ERROR_STACK',
         process.env.EXPOSE_ERROR_STACK,

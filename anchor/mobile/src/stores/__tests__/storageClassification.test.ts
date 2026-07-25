@@ -6,8 +6,20 @@ describe('storageClassification', () => {
     expect(STORAGE_CLASSIFICATION_MATRIX.authStore).toBeDefined();
     expect(STORAGE_CLASSIFICATION_MATRIX.anchorStore).toBeDefined();
     expect(STORAGE_CLASSIFICATION_MATRIX.sessionStore).toBeDefined();
+    expect(STORAGE_CLASSIFICATION_MATRIX.milestoneLedger).toBeDefined();
+    expect(STORAGE_CLASSIFICATION_MATRIX.forgeMomentStore).toBeDefined();
     expect(STORAGE_CLASSIFICATION_MATRIX.teachingStore).toBeDefined();
     expect(STORAGE_CLASSIFICATION_MATRIX.settingsStore).toBeDefined();
+  });
+
+  it('classifies milestone awards as sensitive and the presentation queue as session-only', () => {
+    expect(STORAGE_CLASSIFICATION_MATRIX.milestoneLedger.awards).toBe(
+      'high_sensitivity_telemetry'
+    );
+    expect(STORAGE_CLASSIFICATION_MATRIX.milestoneLedger.outbox).toBe(
+      'high_sensitivity_telemetry'
+    );
+    expect(STORAGE_CLASSIFICATION_MATRIX.forgeMomentStore.activeMilestone).toBe('session_only');
   });
 
   it('maps expected keys in authStore to storage classes', () => {
