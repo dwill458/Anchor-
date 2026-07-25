@@ -23,6 +23,7 @@ import {
   generateVisualizationSceneSuggestions,
   getVisualizationSceneConfigStatus,
   parseProviderSuggestions,
+  VISUALIZATION_SCENE_DEFAULT_MODEL,
   validateVisualizationScene,
 } from '../VisualizationSceneService';
 
@@ -59,6 +60,27 @@ describe('VisualizationSceneService', () => {
     expect(validateVisualizationScene('On Monday I meet the moment calmly.')).toBe(false);
     expect(validateVisualizationScene('I speak to my boss at the office.')).toBe(false);
     expect(validateVisualizationScene('I meet Sarah and respond calmly.')).toBe(false);
+  });
+
+  // Scenes are read aloud during a session, so second person is wrong even
+  // though it satisfies every other rule. The provider produced exactly this
+  // before the prompt required first person.
+  it('rejects second-person and imperative scenes', () => {
+    expect(
+      validateVisualizationScene('You silence your phone and begin the work you planned.')
+    ).toBe(false);
+    expect(
+      validateVisualizationScene('You stand upright, make eye contact, and speak clearly.')
+    ).toBe(false);
+    expect(validateVisualizationScene('Silence the phone and begin the work.')).toBe(false);
+  });
+
+  it('accepts first-person scenes regardless of pronoun form', () => {
+    expect(validateVisualizationScene('I silence my phone and begin.')).toBe(true);
+    expect(validateVisualizationScene('The urge rises and I let it pass.')).toBe(true);
+    expect(
+      validateVisualizationScene('Tension rises, and my shoulders stay loose as I answer.')
+    ).toBe(true);
   });
 
   it('returns three deterministic category suggestions without an API key', async () => {
@@ -147,7 +169,7 @@ describe('VisualizationSceneService', () => {
       expect(result.suggestions).toEqual(VALID_THREE);
       expect(result.rawCandidateCount).toBe(3);
       expect(result.validCandidateCount).toBe(3);
-      expect(result.model).toBe('gemini-2.0-flash');
+      expect(result.model).toBe(VISUALIZATION_SCENE_DEFAULT_MODEL);
     });
 
     it('falls back with insufficient_valid_scenes when two of three validate', async () => {
@@ -300,7 +322,7 @@ describe('VisualizationSceneService', () => {
       expect(status.providerKeyConfigured).toBe(true);
       expect(JSON.stringify(status)).not.toContain('super-secret-value');
       expect(typeof status.featureEnabled).toBe('boolean');
-      expect(status.model).toBe('gemini-2.0-flash');
+      expect(status.model).toBe(VISUALIZATION_SCENE_DEFAULT_MODEL);
       expect(status.modelExplicitlyConfigured).toBe(false);
     });
 
