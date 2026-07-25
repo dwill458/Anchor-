@@ -200,7 +200,21 @@ router.post(
         intention: anchor.intentionText,
         category: anchor.category,
       });
-      res.json({ success: true, data: result });
+      // fallbackReason is diagnostic only — the client forwards it to analytics and
+      // never renders it. Null whenever the provider succeeded.
+      res.json({
+        success: true,
+        data: {
+          suggestions: result.suggestions,
+          source: result.source,
+          version: result.version,
+          fallbackReason: result.source === 'deterministic_fallback' ? result.fallbackReason : null,
+          model: result.model,
+          latencyMs: result.latencyMs,
+          rawCandidateCount: result.rawCandidateCount,
+          validCandidateCount: result.validCandidateCount,
+        },
+      });
     } catch (error) {
       if (error instanceof AppError) return next(error);
       return next(new AppError('Failed to generate scene suggestions', 500, 'PRACTICE_ERROR'));
