@@ -59,6 +59,7 @@ export function renderAnchorWidgetByName(
           history={snapshot.history}
           today={today}
           widgetWidth={dimensions?.width}
+          widgetHeight={dimensions?.height}
         />
       );
     case 'AnchorSmallWidget':
@@ -68,7 +69,7 @@ export function renderAnchorWidgetByName(
           primed={primed}
           anchorId={snapshot.anchorId}
           sigilSvg={snapshot.sigilSvg}
-          artworkImageUri={null}
+          artworkImageUri={snapshot.artworkImageUri}
         />
       );
   }

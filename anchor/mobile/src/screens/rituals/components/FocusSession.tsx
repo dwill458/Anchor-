@@ -274,6 +274,7 @@ const AnchorHero: React.FC<AnchorHeroProps> = ({ anchorImageUri, size }) => {
 // Close button — matches prototype's circular glass pill
 const CloseButton: React.FC<{ onPress: () => void; testID?: string }> = ({ onPress, testID }) => (
   <Pressable onPress={onPress} style={styles.closeBtn} testID={testID}
+    hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
     accessibilityRole="button" accessibilityLabel="Dismiss focus session">
     <Text style={styles.closeBtnIcon}>✕</Text>
   </Pressable>

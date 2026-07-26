@@ -670,7 +670,7 @@ const styles = StyleSheet.create({
   sceneCard: {
     marginTop: 14,
     paddingHorizontal: 16,
-    paddingVertical: 14,
+    paddingVertical: 16,
     borderRadius: 25,
     backgroundColor: "rgba(5,17,31,.72)",
     borderWidth: 1,
@@ -691,13 +691,15 @@ const styles = StyleSheet.create({
   },
   sceneHeaderLabel: { marginBottom: 0 },
   sceneInput: {
-    minHeight: 68,
-    maxHeight: 92,
+    minHeight: 104,
+    maxHeight: 170,
     color: "#F5F0DF",
     fontFamily: typography.fonts.body,
     fontSize: 16,
     lineHeight: 24,
     textAlignVertical: "top",
+    paddingTop: 8,
+    paddingBottom: 8,
   },
   count: {
     color: "rgba(255,255,255,.35)",

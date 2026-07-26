@@ -21,7 +21,7 @@ import {
 } from "react-native-safe-area-context";
 import { useFocusEffect, useNavigation } from "@react-navigation/native";
 import type { StackNavigationProp } from "@react-navigation/stack";
-import { ChevronRight, Eye, Flame, Target, Zap } from "lucide-react-native";
+import { Eye, Flame, Zap, ChevronRight } from "lucide-react-native";
 import Animated, {
   Easing,
   useAnimatedStyle,
@@ -40,21 +40,14 @@ import type { SessionLogEntry } from '@/stores/sessionStore';
 import { useSettingsStore } from '@/stores/settingsStore';
 import { useLocationPrimingStore } from '@/stores/locationPrimingStore';
 import type { LocationPrimingSuggestion } from '@/utils/locationPriming';
-import { countDailyGoalCompletions } from '@/services/DailyGoalNudgeService';
 import { AnalyticsEvents, AnalyticsService } from '@/services/AnalyticsService';
 import AuthHydrationService from '@/services/AuthHydrationService';
 import { safeHaptics } from '@/utils/haptics';
 import { colors, spacing, typography } from '@/theme';
 import { PRACTICE_COPY } from '@/constants/copy';
 import { PracticeInfoModal } from '@/components/PracticeInfoModal';
-import { ThreadStrengthSheet } from '@/components/practice/ThreadStrengthSheet';
-import { AnchorHero } from './components/AnchorHero';
 import { AnchorSelectorSheet } from './components/AnchorSelectorSheet';
-import { DailyGoalProgressCard } from './components/DailyGoalProgressCard';
-import { ThreadStrengthBlock, getThreadState } from './components/ThreadStrengthBlock';
-import { MicroTeachCard, MicroTeachInfoChip } from '@/components/teaching';
-import { TrialCountdownBanner } from '@/components/TrialCountdownBanner';
-import { useTeachingGate } from '@/utils/useTeachingGate';
+import { getThreadState } from './components/ThreadStrengthBlock';
 // DEFERRED: replaced by PracticeInfoModal to preserve rollback path — remove post-launch.
 // import { InfoSheet } from './components/InfoSheet';
 import { ModePortalTile } from './components/ModePortalTile';
@@ -62,7 +55,6 @@ import { PracticeHubHeader } from './components/PracticeHubHeader';
 import { resolveBurnArtworkUri } from '@/screens/rituals/utils/resolveBurnArtworkUri';
 import { useAppPerformanceTier } from '@/hooks/useAppPerformanceTier';
 import { useNotificationController } from '@/hooks/useNotificationController';
-import { usePrimeSessionAccess } from '@/hooks/usePrimeSessionAccess';
 import { useTrialStatus } from '@/hooks/useTrialStatus';
 import { usePracticeEntry } from '@/hooks/usePracticeEntry';
 import { ENABLE_VISUALIZE } from '@/config';
@@ -73,6 +65,7 @@ import {
   type SessionAudioDefaults,
 } from "@/types/sessionAudio";
 import { usePracticeMetrics } from "@/hooks/usePracticeMetrics";
+import { PracticeOverviewCard } from "./components/PracticeOverviewCard";
 
 type PracticeNavigationProp = StackNavigationProp<
   PracticeStackParamList,
@@ -153,19 +146,14 @@ export const PracticeScreen: React.FC = () => {
   const sessionAudioDefaults = useSettingsStore(
     (state) => state.sessionAudioDefaults ?? DEFAULT_SESSION_AUDIO_DEFAULTS,
   );
-  const dailyPracticeGoal = useSettingsStore(
-    (state) => state.dailyPracticeGoal ?? 3,
-  );
   const resolveLocationPrimingSuggestion = useLocationPrimingStore(
     (state) => state.resolveActiveSuggestion,
   );
   const sessionLog = useSessionStore((s) => s.sessionLog);
   const threadStrength = useSessionStore((s) => s.threadStrength);
-  const totalSessionsCount = useSessionStore((s) => s.totalSessionsCount);
   const lastPrimedAt = useSessionStore((s) => s.lastPrimedAt);
-  const weekHistory = useSessionStore((s) => s.weekHistory);
   const applyDecay = useSessionStore((s) => s.applyDecay);
-  const primeSessionAccess = usePrimeSessionAccess();
+  const primingHistory = useSessionStore((s) => s.primingHistory);
   const visualizeAccess = useTrialStatus();
   const practiceMetrics = usePracticeMetrics();
   const {
@@ -174,15 +162,10 @@ export const PracticeScreen: React.FC = () => {
     releaseNavigationLock,
   } = usePracticeEntry();
 
-  // Self-healing thread/progress restore: if the canonical, account-scoped
-  // practice stats shown on screen are empty (e.g. a failed/empty launch
-  // hydration, or locally-persisted sessions still owned by a stale 'legacy'
-  // account binding), re-fetch the account export and rehydrate the session
-  // store so thread counts/strength reappear without depending on
-  // launch-time hydration. Checking canonical stats (not legacy
-  // primingHistory) matters post-redesign: primingHistory can be non-empty
-  // while the account-scoped practiceHistory that Thread Strength now reads
-  // from is still empty. Runs at most once per mount.
+  // Self-healing thread/progress restore: if priming history is empty (e.g. a
+  // failed/empty launch hydration), re-fetch the account export and rehydrate
+  // the session store so thread counts/strength reappear without depending on
+  // launch-time hydration. Runs at most once per mount.
   const didAttemptThreadRehydrateRef = useRef(false);
   useEffect(() => {
     const hasCanonicalStats = practiceMetrics.totalSessions > 0;
@@ -199,8 +182,6 @@ export const PracticeScreen: React.FC = () => {
   const [pendingSource, setPendingSource] = useState<PracticeEntrySource | null>(null);
   const [autoTeachingSeen, setAutoTeachingSeen] = useState<boolean | null>(null);
   const [confirmUnchargedBurnVisible, setConfirmUnchargedBurnVisible] = useState(false);
-  const [threadSheetVisible, setThreadSheetVisible] = useState(false);
-  const [threadTeachingDismissed, setThreadTeachingDismissed] = useState(false);
   const [locationPrimingSuggestion, setLocationPrimingSuggestion] =
     useState<LocationPrimingSuggestion | null>(null);
 
@@ -211,11 +192,6 @@ export const PracticeScreen: React.FC = () => {
       });
     }
   }, [visualizeAccess.subscriptionStatus]);
-
-  const threadStrengthTeaching = useTeachingGate({
-    screenId: "practice_home",
-    candidateIds: ["practice_thread_strength_v1"],
-  });
 
   useEffect(() => {
     registerTabNav(1, navigation);
@@ -306,10 +282,6 @@ export const PracticeScreen: React.FC = () => {
   const defaultDeepChargeSeconds = useMemo(
     () => getDefaultDeepChargeSeconds(primeSessionDuration),
     [primeSessionDuration],
-  );
-  const completedGoalSessions = useMemo(
-    () => countDailyGoalCompletions(sessionLog),
-    [sessionLog],
   );
 
   const interactionRef = useRef(false);
@@ -573,7 +545,15 @@ export const PracticeScreen: React.FC = () => {
         return;
       }
       if (mode === 'charge') {
-        startCharge(target, undefined, undefined, source === 'practice_hero' ? source : 'practice_deep_prime_card');
+        // ChargeSetup is only for choosing a duration on an anchor's first
+        // prime. Once it's been charged before, Deep Prime should drop
+        // straight into the ritual using the saved default duration.
+        startCharge(
+          target,
+          target.isCharged ? primeSessionDuration : undefined,
+          undefined,
+          source === 'practice_hero' ? source : 'practice_deep_prime_card'
+        );
       } else if (mode === 'quickActivate') {
         startQuickActivate(target, focusSessionDuration, undefined, source === 'practice_hero' ? source : 'practice_focus_card');
       } else if (mode === 'visualize') {
@@ -589,7 +569,7 @@ export const PracticeScreen: React.FC = () => {
         );
       }
     },
-    [focusSessionDuration, selectedAnchor, startBurn, startCharge, startPractice, startQuickActivate, visualizeAccess.subscriptionStatus]
+    [focusSessionDuration, primeSessionDuration, selectedAnchor, startBurn, startCharge, startPractice, startQuickActivate, visualizeAccess.subscriptionStatus]
   );
 
   const runTodayPractice = useCallback(() => {
@@ -788,72 +768,19 @@ export const PracticeScreen: React.FC = () => {
             />
           </Animated.View>
 
-          <TrialCountdownBanner
-            surface="practice_home"
-            onPressUpgrade={() => {
-              markInteraction();
-              navigateToPaywall({
-                source: "gated_feature",
-                preferredPlanId: "annual",
-              });
-            }}
-          />
-
           <Animated.View style={threadStyle}>
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel="View thread strength history"
-              onPress={() => {
-                markInteraction();
-                setThreadSheetVisible(true);
-              }}
-              style={({ pressed }) => [
-                styles.threadPressable,
-                pressed && styles.threadPressablePressed,
-              ]}
-            >
-              <ThreadStrengthBlock
-                threadStrength={threadStrength}
-                totalSessionsCount={totalSessionsCount}
-                lastPrimedAt={lastPrimedAt}
-                weekHistory={weekHistory}
-                anchor={selectedAnchor}
-              />
-              <Text style={styles.threadViewHint}>VIEW ▾</Text>
-            </Pressable>
-          </Animated.View>
-
-          {!threadStrengthTeaching || threadTeachingDismissed ? (
-            <Animated.View style={[threadStyle, styles.threadTeachingRow]}>
-              <MicroTeachInfoChip
-                teachingIds="practice_thread_strength_v1"
-                screenId="practice_home"
-                sheetTitle="Thread Strength"
-              />
-            </Animated.View>
-          ) : null}
-
-          <MicroTeachCard
-            teaching={threadStrengthTeaching}
-            screenId="practice_home"
-            style={styles.threadTeachingCard}
-            onDismiss={() => setThreadTeachingDismissed(true)}
-          />
-
-          <Animated.View style={threadStyle}>
-            <DailyGoalProgressCard
-              completedCount={completedGoalSessions}
-              goal={dailyPracticeGoal}
-            />
-          </Animated.View>
-
-          <Animated.View style={heroStyle}>
-            <AnchorHero
+            <PracticeOverviewCard
               anchor={selectedAnchor}
-              onPress={() => {
+              snapshot={practiceMetrics}
+              onOpenDetails={() => {
+                AnalyticsService.track(AnalyticsEvents.THREAD_STRENGTH_OPENED, {
+                  source: "practice_screen",
+                });
+                navigation.navigate("ThreadStrengthDetail");
+              }}
+              onOpenAnchor={() => {
                 markInteraction();
                 setPendingMode(null);
-                setPendingSource(null);
                 setSelectorVisible(true);
               }}
             />
@@ -955,8 +882,8 @@ export const PracticeScreen: React.FC = () => {
               variant="stabilize"
               title={FOCUS_SESSION_TITLE}
               meaning="A fast reset when your attention starts to drift."
-              durationHint="10–60 sec"
-              icon={<Target size={16} color={colors.gold} />}
+              durationHint="10–60 SEC"
+              icon={<Zap size={16} color={colors.gold} />}
               onPress={() => {
                 markInteraction();
                 runMode('quickActivate', undefined, 'practice_focus_card');
@@ -989,11 +916,6 @@ export const PracticeScreen: React.FC = () => {
           setPendingMode(null);
           setPendingSource(null);
         }}
-      />
-
-      <ThreadStrengthSheet
-        visible={threadSheetVisible}
-        onClose={() => setThreadSheetVisible(false)}
       />
 
       {/* DEFERRED: previous practice teaching sheet retained for rollback — remove post-launch.
@@ -1039,29 +961,6 @@ const styles = StyleSheet.create({
   },
   portalsWrap: {
     gap: spacing.sm,
-  },
-  threadTeachingRow: {
-    marginTop: spacing.xs,
-    marginBottom: spacing.sm,
-    alignItems: "flex-start",
-  },
-  threadTeachingCard: {
-    marginBottom: spacing.md,
-  },
-  threadPressable: {
-    position: "relative",
-  },
-  threadPressablePressed: {
-    opacity: 0.92,
-  },
-  threadViewHint: {
-    position: "absolute",
-    top: 14,
-    right: 16,
-    fontFamily: typography.fontFamily.sans,
-    fontSize: 10,
-    letterSpacing: 1.2,
-    color: "rgba(212,175,55,0.5)",
   },
   ctaPressable: {
     marginBottom: spacing.md,

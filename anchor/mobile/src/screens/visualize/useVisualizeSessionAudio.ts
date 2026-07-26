@@ -418,6 +418,7 @@ export function useVisualizeSessionAudio(params: {
       if (earlyExitInProgressRef.current) return;
       intentionalPauseRef.current = true;
       clearAmbientFade();
+      ambientWasPlayingRef.current = false;
       ambientRef.current?.pause();
       activeVoiceRef.current?.player.pause();
       previousActiveRef.current = false;
@@ -433,17 +434,19 @@ export function useVisualizeSessionAudio(params: {
         ? VISUALIZE_AMBIENT_LEVELS.guidedDucked
         : resting;
       if (ambientRef.current) {
-        // Reconcile after Android backgrounding without recreating the player.
+        // Reconcile after backgrounding without recreating the player.
         // Looping assets use the equivalent position in the source track.
         if (hasStartedRef.current && params.elapsedMs > 200) {
           const trackSeconds = params.manifest.ambient.expectedDurationSeconds;
           const targetSeconds = params.manifest.ambient.loop
             ? (params.elapsedMs / 1_000) % trackSeconds
             : Math.min(params.elapsedMs / 1_000, Math.max(0, trackSeconds - 0.1));
-          void ambientRef.current.seekTo(targetSeconds);
+          const currentPos = ambientRef.current.getCurrentTime();
+          if (Math.abs(currentPos - targetSeconds) > 1.5) {
+            void ambientRef.current.seekTo(targetSeconds);
+          }
         }
         ambientRef.current.play();
-        ambientWasPlayingRef.current = true;
         fadeAmbientTo(resumeTarget, params.manifest.ambient.fadeInMs);
       }
       activeVoiceRef.current?.player.play();

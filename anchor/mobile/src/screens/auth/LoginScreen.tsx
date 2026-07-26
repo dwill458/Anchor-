@@ -50,7 +50,7 @@ interface LoginScreenProps {
   route?: { params?: AuthScreenParams };
 }
 
-const ANCHOR_GOLD = require('../../assets/images/anchor-gold.png');
+const ANCHOR_GOLD = require('../../assets/images/anchor-logo-official.png');
 
 export const LoginScreen: React.FC<LoginScreenProps> = ({ navigation, route }) => {
   const initialTab = route?.params?.initialTab ?? 'signin';
@@ -524,7 +524,13 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ navigation, route }) =
               <Animated.View style={[styles.logoWrap, { transform: [{ translateY: floatAnim }] }]}>
                 <Animated.View style={[styles.logoGlow, { opacity: glowAnim }]} />
                 <Animated.View style={[styles.logoGlowOuter, { opacity: glowAnim }]} />
-                <Image source={ANCHOR_GOLD} style={styles.logoImage} resizeMode="contain" />
+                <Image
+                  source={ANCHOR_GOLD}
+                  style={styles.logoImage}
+                  resizeMode="contain"
+                  accessible
+                  accessibilityLabel="Anchor logo"
+                />
               </Animated.View>
 
               <Text style={styles.wordmark}>ANCHOR</Text>

@@ -2,7 +2,6 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import * as Haptics from 'expo-haptics';
 import { StatusBar } from 'expo-status-bar';
 import {
-  Alert,
   Animated,
   Easing,
   Pressable,
@@ -33,6 +32,7 @@ import { resolveSessionAudioPlan } from '@/services/SessionAudioManifest';
 import { getVisualizeSessionAudioManifest } from '@/services/visualizeAudioManifest';
 import { colors as themeColors, typography } from '@/theme';
 import { safeHaptics } from '@/utils/haptics';
+import { ConfirmModal } from '@/screens/rituals/components/ConfirmModal';
 
 const colors = {
   ...themeColors,
@@ -149,6 +149,8 @@ export const VisualizeSessionScreen: React.FC<Props> = ({
   const startedAnalyticsRef = useRef(false);
   const exitingRef = useRef(false);
   const exitPromptOpenRef = useRef(false);
+  const pendingNavigateRef = useRef<(() => void) | null>(null);
+  const [showExitModal, setShowExitModal] = useState(false);
   const [controlsVisible, setControlsVisible] = useState(true);
   const [feedback, setFeedback] = useState<'Paused' | 'Resumed' | null>(null);
   const controlsOpacity = useRef(new Animated.Value(1)).current;
@@ -292,9 +294,10 @@ export const VisualizeSessionScreen: React.FC<Props> = ({
       setControlsVisible(true);
       return;
     }
+    if (!controlsVisible) return;
     const timer = setTimeout(() => setControlsVisible(false), 4_500);
     return () => clearTimeout(timer);
-  }, [engine.state]);
+  }, [controlsVisible, engine.state]);
 
   useEffect(() => {
     Animated.timing(controlsOpacity, {
@@ -379,6 +382,8 @@ export const VisualizeSessionScreen: React.FC<Props> = ({
 
   const continueAfterExitPrompt = useCallback(() => {
     exitPromptOpenRef.current = false;
+    setShowExitModal(false);
+    pendingNavigateRef.current = null;
     engine.resume();
   }, [engine.resume]);
 
@@ -387,6 +392,7 @@ export const VisualizeSessionScreen: React.FC<Props> = ({
       if (exitingRef.current) return;
       exitingRef.current = true;
       exitPromptOpenRef.current = false;
+      setShowExitModal(false);
       engine.endEarly();
       void sessionAudio.fadeOutAndStop().finally(navigateAfterStop);
     },
@@ -394,28 +400,16 @@ export const VisualizeSessionScreen: React.FC<Props> = ({
   );
 
   const showEarlyExitPrompt = useCallback(
-    (navigateAfterStop: () => void) => {
+    (navigateAfterStop?: () => void) => {
       if (exitingRef.current || exitPromptOpenRef.current) return;
       exitPromptOpenRef.current = true;
+      if (navigateAfterStop) {
+        pendingNavigateRef.current = navigateAfterStop;
+      }
       engine.pause('exit_prompt');
-      Alert.alert(
-        'End visualization?',
-        'Your progress in this session will not be recorded.',
-        [
-          {
-            text: 'Continue Session',
-            style: 'cancel',
-            onPress: continueAfterExitPrompt,
-          },
-          {
-            text: 'End Session',
-            style: 'destructive',
-            onPress: () => confirmEarlyEnd(navigateAfterStop),
-          },
-        ],
-      );
+      setShowExitModal(true);
     },
-    [confirmEarlyEnd, continueAfterExitPrompt, engine.pause],
+    [engine.pause],
   );
 
   useEffect(() => {
@@ -486,18 +480,20 @@ export const VisualizeSessionScreen: React.FC<Props> = ({
   const phaseLabel = `PHASE ${currentPhaseIndex + 1} OF ${engine.schedule.length} · ${presentation.title}`;
 
   return (
-    <Pressable
-      style={styles.container}
-      onPress={() => setControlsVisible((value) => !value)}
-    >
+    <View style={styles.container}>
       <StatusBar hidden={immersive} style="light" />
       {immersive ? <KeepAwake /> : null}
       <LinearGradient
         colors={presentation.gradient}
         style={StyleSheet.absoluteFill}
       />
+      <Pressable
+        accessibilityLabel="Toggle controls"
+        style={StyleSheet.absoluteFill}
+        onPress={() => setControlsVisible((value) => !value)}
+      />
 
-      <SafeAreaView edges={['top', 'bottom']} style={styles.safe}>
+      <SafeAreaView edges={['top', 'bottom']} style={styles.safe} pointerEvents="box-none">
         <Animated.View
           pointerEvents={controlsVisible ? 'auto' : 'none'}
           style={[styles.topControls, { opacity: controlsOpacity }]}
@@ -674,7 +670,20 @@ export const VisualizeSessionScreen: React.FC<Props> = ({
           </Animated.View>
         </Animated.View>
       ) : null}
-    </Pressable>
+
+      <ConfirmModal
+        visible={showExitModal}
+        title="End visualization?"
+        body="Your progress in this session will not be recorded."
+        primaryCtaLabel="Continue Session"
+        secondaryCtaLabel="End Session"
+        onPrimary={continueAfterExitPrompt}
+        onSecondary={() => {
+          const navAction = pendingNavigateRef.current || (() => navigation.goBack());
+          confirmEarlyEnd(navAction);
+        }}
+      />
+    </View>
   );
 };
 

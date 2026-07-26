@@ -702,10 +702,10 @@ export const ActivationScreen: React.FC = () => {
         visible={showExitWarning}
         title="Exit Focus Session?"
         body="You will need to start over if you leave now."
-        primaryCtaLabel="Exit"
-        secondaryCtaLabel="Stay"
-        onPrimary={exitSession}
-        onSecondary={() => setShowExitWarning(false)}
+        primaryCtaLabel="Keep Practicing"
+        secondaryCtaLabel="Exit"
+        onPrimary={() => setShowExitWarning(false)}
+        onSecondary={exitSession}
       />
     </>
   );

@@ -68,6 +68,8 @@ interface AnchorLargeWidgetProps {
   today: string;
   /** Launcher-reported widget width (dp) — keeps heatmap cells square instead of stretched. */
   widgetWidth?: number;
+  /** Launcher-reported widget height (dp) — keeps the history section balanced. */
+  widgetHeight?: number;
 }
 
 /** radial-gradient(120% 60% at 82% -6%, rgba(62,44,91,0.24), transparent 60%) — both states */
@@ -316,9 +318,13 @@ export function AnchorLargeWidget({
   history,
   today,
   widgetWidth,
+  widgetHeight,
 }: AnchorLargeWidgetProps) {
-  // 18 (horizontal padding) subtracted twice to account for the card's paddingHorizontal.
-  const heatmapContentWidth = widgetWidth ? Math.max(220, widgetWidth - 36) : undefined;
+  const contentWidth = Math.max(1, (widgetWidth ?? 344) - 24);
+  const availableHeight = widgetHeight ?? 344;
+  // Keep the calendar as the flexible section. The old 118dp floor left the
+  // 4×4 card visually empty on launchers that report a compact height.
+  const heatmapHeight = Math.max(164, Math.min(232, availableHeight - 176));
   const glyphSvg = colorizeAnchorSigilSvg(sigilSvg, primed ? GOLD : DIM_GLYPH) ?? buildGlyphSvg({
     strokeWidth: 5.4,
     stroke: primed ? GOLD : DIM_GLYPH,
@@ -533,7 +539,7 @@ export function AnchorLargeWidget({
             />
           </FlexWidget>
           <SvgWidget
-            svg={buildHeatmapSvg(history, today, primed, heatmapContentWidth)}
+            svg={buildHeatmapSvg(history, today, primed, contentWidth)}
             scaleToFill
             style={{ width: 'match_parent', height: 'match_parent' }}
           />

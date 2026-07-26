@@ -253,7 +253,9 @@ export const SessionDefaultsScreen: React.FC = () => {
   );
   const [isAddingPlace, setIsAddingPlace] = useState(false);
   const [placeStatus, setPlaceStatus] = useState<string | null>(null);
-  const pillTranslate = useRef(new Animated.Value(activeTab === 'focus' ? 0 : 1)).current;
+  const pillTranslate = useRef(
+    new Animated.Value(activeTab === 'focus' ? 0 : activeTab === 'prime' ? 1 : 2)
+  ).current;
   const tabPillWidth = (screenWidth - 56) / 3;
 
   useEffect(() => {
@@ -421,23 +423,23 @@ export const SessionDefaultsScreen: React.FC = () => {
           <TouchableOpacity
             activeOpacity={0.8}
             accessibilityRole="button"
-            accessibilityState={{ selected: activeTab === 'visualize' }}
-            onPress={() => setActiveTab('visualize')}
-            style={styles.tabButton}
-          >
-            <Text style={[styles.tabButtonText, activeTab === 'visualize' && styles.tabButtonTextActive]}>
-              ◇ Visualize
-            </Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            activeOpacity={0.8}
-            accessibilityRole="button"
             accessibilityState={{ selected: activeTab === 'prime' }}
             onPress={() => setActiveTab('prime')}
             style={styles.tabButton}
           >
             <Text style={[styles.tabButtonText, activeTab === 'prime' && styles.tabButtonTextActive]}>
               ◎ Prime
+            </Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            activeOpacity={0.8}
+            accessibilityRole="button"
+            accessibilityState={{ selected: activeTab === 'visualize' }}
+            onPress={() => setActiveTab('visualize')}
+            style={styles.tabButton}
+          >
+            <Text style={[styles.tabButtonText, activeTab === 'visualize' && styles.tabButtonTextActive]}>
+              ◇ Visualize
             </Text>
           </TouchableOpacity>
         </View>

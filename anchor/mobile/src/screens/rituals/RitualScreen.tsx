@@ -2757,10 +2757,10 @@ export const RitualScreen: React.FC = () => {
           visible={showExitWarning}
           title="Exit Practice?"
           body="You will need to start over if you leave now."
-          primaryCtaLabel="Exit"
-          secondaryCtaLabel="Stay"
-          onPrimary={exitRitual}
-          onSecondary={() => setShowExitWarning(false)}
+          primaryCtaLabel="Keep Practicing"
+          secondaryCtaLabel="Exit"
+          onPrimary={() => setShowExitWarning(false)}
+          onSecondary={exitRitual}
         />
       </View>
     </RitualScaffold>
