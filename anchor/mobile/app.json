@@ -121,7 +121,7 @@
         "monochromeImage": "./assets/anchor-monochrome.png"
       },
       "package": "com.anchorintentions.app",
-      "versionCode": 32,
+      "versionCode": 33,
       "googleServicesFile": "./google-services.json",
       "edgeToEdgeEnabled": true,
       "blockedPermissions": [
@@ -210,12 +210,6 @@
         "expo-location",
         {
           "locationWhenInUsePermission": "Allow Anchor to suggest your local priming preset when you are near a saved place."
-        }
-      ],
-      [
-        "@bacons/apple-targets",
-        {
-          "appleTeamId": "GZAHS664L8"
         }
       ],
       [
