@@ -116,7 +116,7 @@
         "monochromeImage": "./assets/anchor-monochrome.png"
       },
       "package": "com.anchorintentions.app",
-      "versionCode": 34,
+      "versionCode": 35,
       "googleServicesFile": "./google-services.json",
       "edgeToEdgeEnabled": true,
       "blockedPermissions": [

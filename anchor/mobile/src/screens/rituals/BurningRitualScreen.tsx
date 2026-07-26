@@ -73,25 +73,31 @@ export const BurningRitualScreen: React.FC = () => {
         throw new Error('Release history could not be tied to this account and anchor.');
       }
 
-      const elapsedSeconds = Math.max(
-        1,
-        Math.round(
-          (Date.now() - new Date(releaseStartedAtRef.current).getTime()) / 1000,
-        ),
-      );
-      // Durably persist the canonical release before the server deletes its
-      // anchor relation. Retrying this callback reuses the same event ID.
-      await PracticeCompletionService.commitReleaseCompletion({
-        id: releaseEventIdRef.current,
-        accountId,
-        anchor: releaseAnchorSnapshot,
-        startedAt: releaseStartedAtRef.current,
-        durationSeconds: elapsedSeconds,
-        source: 'anchor_detail',
-      });
+      // Captured up front (via the ref) so the completion record has full
+      // anchor context even once the server deletes the anchor relation, but
+      // only actually committed — durably persisted, and counted toward
+      // Thread Strength — once the burn is confirmed. Retrying this callback
+      // reuses the same event ID.
+      const commitRelease = () => {
+        const elapsedSeconds = Math.max(
+          1,
+          Math.round(
+            (Date.now() - new Date(releaseStartedAtRef.current).getTime()) / 1000,
+          ),
+        );
+        return PracticeCompletionService.commitReleaseCompletion({
+          id: releaseEventIdRef.current,
+          accountId,
+          anchor: releaseAnchorSnapshot,
+          startedAt: releaseStartedAtRef.current,
+          durationSeconds: elapsedSeconds,
+          source: 'anchor_detail',
+        });
+      };
 
       try {
         await post(`/api/anchors/${anchorId}/burn`, {});
+        await commitRelease();
       } catch (error) {
         const msg = error instanceof Error ? error.message : '';
         // 404 = anchor already deleted (e.g. previous attempt succeeded but response was lost)
@@ -111,7 +117,8 @@ export const BurningRitualScreen: React.FC = () => {
           );
           throw error;
         }
-        // Anchor is confirmed gone from server — fall through to local release
+        // Anchor is confirmed gone from server — record the release, then fall through to local release
+        await commitRelease();
       }
     }
 

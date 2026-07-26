@@ -213,6 +213,23 @@ describe('BurningRitualScreen', () => {
       expect(ErrorTrackingService.captureException).toHaveBeenCalled();
       expect(getByTestId('commit-status').props.children).toBe('error');
     });
+    // A transient burn failure must not record a release completion — the
+    // anchor is still alive, so Thread Strength shouldn't count it.
+    expect(mockCommitReleaseCompletion).not.toHaveBeenCalled();
+  });
+
+  it('still records the release and completes locally when the anchor is already gone', async () => {
+    (post as jest.Mock).mockRejectedValue(new Error('Anchor not found'));
+    const { getByText, getByTestId } = render(<BurningRitualScreen />);
+
+    fireEvent.press(getByText('Run Commit'));
+
+    await waitFor(() => {
+      expect(getByTestId('commit-status').props.children).toBe('success');
+    });
+
+    expect(mockCommitReleaseCompletion).toHaveBeenCalledTimes(1);
+    expect(mockReleaseAnchor).toHaveBeenCalledWith('test-anchor-id');
   });
 
   it('navigates back to Vault when return-to-sanctuary is pressed', () => {
