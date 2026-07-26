@@ -31,13 +31,8 @@
       "supportsTablet": false,
       "usesAppleSignIn": true,
       "bundleIdentifier": "com.anchorintentions.app",
-      "buildNumber": "12",
+      "buildNumber": "13",
       "googleServicesFile": "./GoogleService-Info.plist",
-      "entitlements": {
-        "com.apple.security.application-groups": [
-          "group.com.anchorintentions.app.widget"
-        ]
-      },
       "infoPlist": {
         "NSCameraUsageDescription": "Anchor uses your camera so you can take a profile photo.",
         "NSFaceIDUsageDescription": "Anchor uses Face ID to keep your anchors secure.",
