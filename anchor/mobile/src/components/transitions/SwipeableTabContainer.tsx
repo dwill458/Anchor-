@@ -24,6 +24,7 @@
 import React, { useCallback, useState } from 'react';
 import { Dimensions, StyleSheet } from 'react-native';
 import Animated, {
+  cancelAnimation,
   Easing,
   useSharedValue,
   useAnimatedStyle,

@@ -42,6 +42,7 @@ export function renderAnchorWidgetByName(
           primed={primed}
           anchorName={snapshot.anchorName}
           sigilSvg={snapshot.sigilSvg}
+          artworkImageUri={snapshot.artworkImageUri}
           streak={snapshot.streak}
           threadStrength={snapshot.threadStrength ?? 0}
           totalSessions={snapshot.totalSessions ?? 0}

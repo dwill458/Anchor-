@@ -133,7 +133,7 @@ const formatPresetDuration = (seconds: number): string =>
 export const ChargeSetupScreen: React.FC = () => {
   const navigation = useNavigation<ChargeSetupNavigationProp>();
   const route = useRoute<ChargeSetupRouteProp>();
-  const { navigateToPractice } = useTabNavigation();
+  const { navigateToPractice, navigateToPaywall } = useTabNavigation();
   const insets = useSafeAreaInsets();
   const { width: screenWidth, height: screenHeight } = useWindowDimensions();
   const {
@@ -369,7 +369,7 @@ export const ChargeSetupScreen: React.FC = () => {
           remaining_weekly_free_sessions: allowance.remaining,
           tier: primeSessionAccess.tier,
         });
-        navigation.navigate('Paywall', {
+        navigateToPaywall({
           source: 'free_weekly_sessions_used',
           preferredPlanId: 'annual',
         });
@@ -427,6 +427,7 @@ export const ChargeSetupScreen: React.FC = () => {
       getLocationPresetForChoice,
       isTransitioning,
       navigateToRitual,
+      navigateToPaywall,
       navigation,
       primeSessionAccess.deep,
       primeSessionAccess.focus,
@@ -544,7 +545,7 @@ export const ChargeSetupScreen: React.FC = () => {
   }));
 
   return (
-    <View style={styles.screen}>
+    <View testID="deep-prime-entry" style={styles.screen}>
       <View style={[styles.heroSection, { height: heroHeight }]}>
         {/* Background gradient */}
         <LinearGradient

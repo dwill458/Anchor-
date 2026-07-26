@@ -43,7 +43,7 @@ describe('SessionAudioManifest', () => {
       }
     }
 
-    expect(GUIDED_AUDIO_MANIFEST.filter((track) => track.voice === 'male')).toHaveLength(110);
+    expect(GUIDED_AUDIO_MANIFEST.filter((track) => track.voice === 'male')).toHaveLength(71);
     expect(
       isSessionAudioSelectionAvailable({
         sessionType: 'focus',

@@ -5,8 +5,9 @@
  */
 
 import { NextFunction, Router, Response } from 'express';
+import { PracticeSession } from '@prisma/client';
 import { z } from 'zod';
-import type { PracticeSession, Prisma } from '@prisma/client';
+import type { Prisma } from '@prisma/client';
 import { AuthRequest, authMiddleware } from '../middleware/auth';
 import { AppError } from '../middleware/errorHandler';
 import { prisma } from '../../lib/prisma';

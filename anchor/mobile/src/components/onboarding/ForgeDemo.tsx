@@ -20,8 +20,8 @@ type Phase = 'idle' | 'forging' | 'complete';
 export const ForgeDemo: React.FC<ForgeDemoProps> = ({ isActive, onForgeComplete }) => {
   const [phase, setPhase] = useState<Phase>('idle');
   const intentionOpacity = useRef(new Animated.Value(1)).current;
-  const sigilOpacity = useRef(new Animated.Value(0)).current;
-  const sigilGlow = useRef(new Animated.Value(0)).current;
+  const anchorOpacity = useRef(new Animated.Value(0)).current;
+  const anchorGlow = useRef(new Animated.Value(0)).current;
   const timersRef = useRef<ReturnType<typeof setTimeout>[]>([]);
 
   const clearAllTimers = useCallback(() => {
@@ -33,9 +33,9 @@ export const ForgeDemo: React.FC<ForgeDemoProps> = ({ isActive, onForgeComplete 
     clearAllTimers();
     setPhase('idle');
     intentionOpacity.setValue(1);
-    sigilOpacity.setValue(0);
-    sigilGlow.setValue(0);
-  }, [clearAllTimers, intentionOpacity, sigilOpacity, sigilGlow]);
+    anchorOpacity.setValue(0);
+    anchorGlow.setValue(0);
+  }, [anchorGlow, anchorOpacity, clearAllTimers, intentionOpacity]);
 
   useEffect(() => {
     if (isActive) {
@@ -57,15 +57,15 @@ export const ForgeDemo: React.FC<ForgeDemoProps> = ({ isActive, onForgeComplete 
 
     const t1 = setTimeout(() => {
       Animated.sequence([
-        Animated.timing(sigilOpacity, { toValue: 1, duration: 600, useNativeDriver: true }),
-        Animated.timing(sigilGlow, { toValue: 1, duration: 400, useNativeDriver: true }),
+        Animated.timing(anchorOpacity, { toValue: 1, duration: 600, useNativeDriver: true }),
+        Animated.timing(anchorGlow, { toValue: 1, duration: 400, useNativeDriver: true }),
       ]).start();
       setPhase('complete');
       onForgeComplete?.();
     }, 900);
 
     timersRef.current.push(t1);
-  }, [phase, intentionOpacity, sigilOpacity, sigilGlow, onForgeComplete]);
+  }, [anchorGlow, anchorOpacity, phase, intentionOpacity, onForgeComplete]);
 
   const btnLabel = phase === 'idle' ? '⚡ FORGE' : phase === 'forging' ? 'Forging...' : '✓ Your Anchor';
   const btnActive = phase === 'idle';
@@ -77,13 +77,18 @@ export const ForgeDemo: React.FC<ForgeDemoProps> = ({ isActive, onForgeComplete 
           "Deep work for 4 hours"
         </Animated.Text>
 
-        <Animated.View style={[styles.sigilWrap, { opacity: sigilOpacity }]}>
+        <Animated.View style={[styles.anchorWrap, { opacity: anchorOpacity }]}>
           <Image
             source={forgeRevealAsset}
-            style={styles.sigil}
+            style={styles.anchor}
             resizeMode="contain"
+            accessible={false}
           />
         </Animated.View>
+
+        <View style={styles.confirmationBadge} accessible={false}>
+          <Text style={styles.confirmationBadgeText}>✓ YOUR ANCHOR</Text>
+        </View>
 
         <TouchableOpacity
           onPress={handleForge}
@@ -128,20 +133,36 @@ const styles = StyleSheet.create({
     color: '#C0C0C0',
     letterSpacing: 0.7,
   },
-  sigilWrap: {
+  anchorWrap: {
     width: 200,
     height: 200,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  sigil: {
+  anchor: {
     width: 200,
     height: 200,
+  },
+  confirmationBadge: {
+    position: 'absolute',
+    bottom: 62,
+    backgroundColor: 'rgba(62,44,91,0.86)',
+    borderWidth: 1,
+    borderColor: 'rgba(212,175,55,0.28)',
+    borderRadius: 14,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+  },
+  confirmationBadgeText: {
+    fontFamily: 'Cinzel-Regular',
+    fontSize: 8,
+    letterSpacing: 1.1,
+    color: '#D4AF37',
   },
   forgeBtn: {
     position: 'absolute',
     bottom: 20,
-    paddingHorizontal: 28,
+    paddingHorizontal: 20,
     paddingVertical: 8,
     backgroundColor: '#D4AF37',
     borderRadius: 6,

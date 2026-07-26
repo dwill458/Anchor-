@@ -1,5 +1,7 @@
 jest.mock('react-native-android-widget', () => ({
   FlexWidget: 'FlexWidget',
+  ImageWidget: 'ImageWidget',
+  OverlapWidget: 'OverlapWidget',
   SvgWidget: 'SvgWidget',
 }));
 
@@ -15,6 +17,8 @@ describe('buildSmallWidgetSvg', () => {
     expect(svg).toContain('id="saved-artwork"');
     expect(svg).toContain('stroke="#C0C0C0"');
     expect(svg).toContain('scale(1.2)');
+    expect(svg).toContain('<clipPath id="artworkClip"><circle cx="75" cy="75" r="48"/></clipPath>');
+    expect(svg).toContain('<g clip-path="url(#artworkClip)">');
     expect(svg).not.toContain('<svg x=');
   });
 

@@ -31,7 +31,7 @@ type BurningRitualNavigationProp = StackNavigationProp<RootStackParamList, 'Burn
 export const BurningRitualScreen: React.FC = () => {
   const route = useRoute<BurningRitualRouteProp>();
   const navigation = useNavigation<BurningRitualNavigationProp>();
-  const { navigateToVault } = useTabNavigation();
+  const { navigateToVault, navigateToPractice } = useTabNavigation();
   const releaseAnchor = useAnchorStore((state) => state.releaseAnchor);
   const getAnchorById = useAnchorStore((state) => state.getAnchorById);
   const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
@@ -40,7 +40,7 @@ export const BurningRitualScreen: React.FC = () => {
   const toast = useToast();
   const { handleBurnFlowEntered, handleSigilVaulted } = useNotificationController();
 
-  const { anchorId, sigilSvg, enhancedImageUrl } = route.params;
+  const { anchorId, sigilSvg, enhancedImageUrl, returnTo } = route.params;
   const anchor = getAnchorById(anchorId);
   const releaseAnchorSnapshotRef = useRef(anchor);
   const releaseEventIdRef = useRef(createPracticeEventId());
@@ -174,8 +174,12 @@ export const BurningRitualScreen: React.FC = () => {
     } else {
       navigation.goBack();
     }
+    if (returnTo === 'practice') {
+      navigateToPractice();
+      return;
+    }
     navigateToVault();
-  }, [navigation, navigateToVault]);
+  }, [navigation, navigateToPractice, navigateToVault, returnTo]);
 
   const handleReturnToAnchor = useCallback(() => {
     navigation.goBack();

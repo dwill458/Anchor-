@@ -1,6 +1,9 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 
-import { useSessionAudio, type ManagedSessionAudioPlayer } from '@/hooks/useSessionAudio';
+import {
+  useSessionAudio,
+  type ManagedSessionAudioPlayer,
+} from '@/hooks/useSessionAudio';
 import {
   getAmbientAudioTrackId,
   getGuidedAudioTrackId,
@@ -16,10 +19,10 @@ import {
   getNextDueVisualizeCue,
   getNextUnhandledVisualizeCue,
   getVisualizeAmbientRestingVolume,
-  getVisualizeFinalFadeRemainingMs,
   VISUALIZE_AMBIENT_LEVELS,
 } from './visualizeAudioState';
 
+const COMPLETION_TONE = require('../../assets/sounds/prime-complete.wav');
 const FADE_STEP_MS = 40;
 const EARLY_EXIT_FADE_MS = 350;
 
@@ -28,11 +31,16 @@ type PreparedCue = {
   player: ManagedSessionAudioPlayer;
 };
 
+/**
+ * Owns every mutable player for one Visualize route instance. The session
+ * screen never keys or remounts this hook on phase/prompt changes.
+ */
 export function useVisualizeSessionAudio(params: {
   plan: ResolvedSessionAudioPlan;
   manifest: VisualizeSessionAudioManifest;
   elapsedMs: number;
   isActive: boolean;
+  isCompleting?: boolean;
   isComplete: boolean;
   onInterruption: () => void;
 }) {
@@ -41,21 +49,29 @@ export function useVisualizeSessionAudio(params: {
   const ambientRef = useRef<ManagedSessionAudioPlayer | null>(null);
   const activeVoiceRef = useRef<PreparedCue | null>(null);
   const preparedVoiceRef = useRef<PreparedCue | null>(null);
+  const completionToneRef = useRef<ManagedSessionAudioPlayer | null>(null);
   const handledCueIdsRef = useRef(new Set<string>());
   const ambientFadeRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const ambientFadeFinishRef = useRef<(() => void) | null>(null);
-  const stopInFlightRef = useRef<Promise<void> | null>(null);
+  const earlyStopInFlightRef = useRef<Promise<void> | null>(null);
+  const completionInFlightRef = useRef<Promise<void> | null>(null);
   const ambientVolumeRef = useRef(0);
   const voiceActiveRef = useRef(false);
   const previousActiveRef = useRef(false);
   const hasStartedRef = useRef(false);
-  const finalFadeStartedRef = useRef(false);
   const ambientWasPlayingRef = useRef(false);
   const isActiveRef = useRef(params.isActive);
   const intentionalPauseRef = useRef(false);
   const earlyExitInProgressRef = useRef(false);
+  const mountedRef = useRef(true);
+  const generationRef = useRef(0);
 
   isActiveRef.current = params.isActive;
+
+  const isCurrent = useCallback(
+    (generation: number) => mountedRef.current && generationRef.current === generation,
+    [],
+  );
 
   const clearAmbientFade = useCallback(() => {
     if (ambientFadeRef.current) clearInterval(ambientFadeRef.current);
@@ -71,40 +87,40 @@ export function useVisualizeSessionAudio(params: {
     ambientRef.current?.setVolume(clamped);
   }, []);
 
-  const fadeAmbientTo = useCallback((target: number, durationMs: number, onFinish?: () => void) => {
-    if (!ambientRef.current) {
-      onFinish?.();
-      return;
-    }
-    clearAmbientFade();
-    if (!ambientRef.current) {
-      onFinish?.();
-      return;
-    }
-    const from = ambientVolumeRef.current;
-    const to = Math.max(0, Math.min(1, target));
-    const steps = Math.max(1, Math.ceil(durationMs / FADE_STEP_MS));
-    let step = 0;
-    if (durationMs <= 0 || Math.abs(from - to) < 0.001) {
-      setAmbientVolume(to);
-      onFinish?.();
-      return;
-    }
-    ambientFadeFinishRef.current = onFinish ?? null;
-    ambientFadeRef.current = setInterval(() => {
-      step += 1;
-      // Equal-power-style easing avoids an audible linear dip at low levels.
-      const progress = Math.sin((Math.min(1, step / steps) * Math.PI) / 2);
-      setAmbientVolume(from + (to - from) * progress);
-      if (step >= steps) {
-        if (ambientFadeRef.current) clearInterval(ambientFadeRef.current);
-        ambientFadeRef.current = null;
-        const finish = ambientFadeFinishRef.current;
-        ambientFadeFinishRef.current = null;
-        finish?.();
+  const fadeAmbientTo = useCallback(
+    (target: number, durationMs: number, onFinish?: () => void) => {
+      const player = ambientRef.current;
+      if (!player) {
+        onFinish?.();
+        return;
       }
-    }, FADE_STEP_MS);
-  }, [clearAmbientFade, setAmbientVolume]);
+      clearAmbientFade();
+      const from = ambientVolumeRef.current;
+      const to = Math.max(0, Math.min(1, target));
+      const steps = Math.max(1, Math.ceil(durationMs / FADE_STEP_MS));
+      if (durationMs <= 0 || Math.abs(from - to) < 0.001) {
+        setAmbientVolume(to);
+        onFinish?.();
+        return;
+      }
+      let step = 0;
+      ambientFadeFinishRef.current = onFinish ?? null;
+      ambientFadeRef.current = setInterval(() => {
+        step += 1;
+        // Equal-power-style easing prevents the low-level dip of a linear fade.
+        const progress = Math.sin((Math.min(1, step / steps) * Math.PI) / 2);
+        setAmbientVolume(from + (to - from) * progress);
+        if (step >= steps) {
+          if (ambientFadeRef.current) clearInterval(ambientFadeRef.current);
+          ambientFadeRef.current = null;
+          const finish = ambientFadeFinishRef.current;
+          ambientFadeFinishRef.current = null;
+          finish?.();
+        }
+      }, FADE_STEP_MS);
+    },
+    [clearAmbientFade, setAmbientVolume],
+  );
 
   const stopPreparedVoice = useCallback(() => {
     const prepared = preparedVoiceRef.current;
@@ -119,164 +135,283 @@ export function useVisualizeSessionAudio(params: {
     active?.player.stop();
   }, []);
 
-  const stopAmbient = useCallback((fadeMs = 0) => new Promise<void>(resolvePromise => {
-    const player = ambientRef.current;
-    if (!player) {
-      resolvePromise();
-      return;
-    }
-    const finish = () => {
-      if (ambientRef.current === player) {
-        ambientRef.current = null;
-        ambientWasPlayingRef.current = false;
-        ambientVolumeRef.current = 0;
-        player.stop();
-      }
-      resolvePromise();
-    };
-    if (fadeMs > 0) fadeAmbientTo(0, fadeMs, finish);
-    else finish();
-  }), [fadeAmbientTo]);
+  const stopCompletionTone = useCallback(() => {
+    const tone = completionToneRef.current;
+    completionToneRef.current = null;
+    tone?.stop();
+  }, []);
+
+  const stopAmbient = useCallback(
+    (fadeMs = 0): Promise<void> =>
+      new Promise((resolve) => {
+        const player = ambientRef.current;
+        if (!player) {
+          resolve();
+          return;
+        }
+        const finish = () => {
+          if (ambientRef.current === player) {
+            ambientRef.current = null;
+            ambientWasPlayingRef.current = false;
+            ambientVolumeRef.current = 0;
+            player.stop();
+          }
+          resolve();
+        };
+        if (fadeMs > 0) fadeAmbientTo(0, fadeMs, finish);
+        else finish();
+      }),
+    [fadeAmbientTo],
+  );
 
   const restoreAmbient = useCallback(() => {
-    if (finalFadeStartedRef.current) return;
+    if (completionInFlightRef.current || earlyExitInProgressRef.current) return;
     fadeAmbientTo(
       getVisualizeAmbientRestingVolume(params.plan.shouldPlayVoice),
       params.manifest.cues[0]?.duckingEnvelope.releaseMs ?? 400,
     );
-  }, [fadeAmbientTo, params.manifest.cues, params.plan.shouldPlayVoice]);
+  }, [
+    fadeAmbientTo,
+    params.manifest.cues,
+    params.plan.shouldPlayVoice,
+  ]);
 
-  const prepareCue = useCallback((cue: ResolvedVoiceCue | null) => {
-    if (
-      !cue ||
-      earlyExitInProgressRef.current ||
-      !params.plan.shouldPlayVoice ||
-      handledCueIdsRef.current.has(cue.phaseId)
-    ) return;
-    if (preparedVoiceRef.current?.cue.phaseId === cue.phaseId) return;
-    stopPreparedVoice();
-    const player = createSessionAudioPlayer(cue.track.asset, {
-      trackId: getGuidedAudioTrackId(cue.track),
-      volume: cue.track.playbackGain,
-      onFailure: () => {
-        handledCueIdsRef.current.add(cue.phaseId);
-        trackGuidedAudioLoadFailed(params.plan, cue.phaseId);
-        if (preparedVoiceRef.current?.cue.phaseId === cue.phaseId) preparedVoiceRef.current = null;
-        if (activeVoiceRef.current?.cue.phaseId === cue.phaseId) {
-          activeVoiceRef.current = null;
-          voiceActiveRef.current = false;
-          restoreAmbient();
-        }
-        setAudioTick(value => value + 1);
-      },
-      onFinish: () => {
-        if (activeVoiceRef.current?.cue.phaseId === cue.phaseId) {
-          activeVoiceRef.current = null;
-          voiceActiveRef.current = false;
-          restoreAmbient();
-          setAudioTick(value => value + 1);
-        }
-      },
-    });
-    if (player) preparedVoiceRef.current = { cue, player };
-    else handledCueIdsRef.current.add(cue.phaseId);
-  }, [createSessionAudioPlayer, params.plan, restoreAmbient, stopPreparedVoice]);
-
-  const playCue = useCallback((cue: ResolvedVoiceCue) => {
-    if (
-      earlyExitInProgressRef.current ||
-      handledCueIdsRef.current.has(cue.phaseId) ||
-      voiceActiveRef.current
-    ) return;
-    if (preparedVoiceRef.current?.cue.phaseId !== cue.phaseId) prepareCue(cue);
-    const prepared = preparedVoiceRef.current;
-    if (!prepared || prepared.cue.phaseId !== cue.phaseId) {
-      handledCueIdsRef.current.add(cue.phaseId);
-      return;
-    }
-    preparedVoiceRef.current = null;
-    activeVoiceRef.current = prepared;
-    voiceActiveRef.current = true;
-    handledCueIdsRef.current.add(cue.phaseId);
-    fadeAmbientTo(
-      VISUALIZE_AMBIENT_LEVELS.guidedDucked,
-      params.manifest.cues.find(item => item.id === cue.phaseId)?.duckingEnvelope.attackMs ?? 160,
-    );
-    prepared.player.play();
-
-    const nextDefinition = getNextUnhandledVisualizeCue(params.manifest.cues, handledCueIdsRef.current);
-    const next = nextDefinition
-      ? params.plan.voiceCues.find(item => item.phaseId === nextDefinition.id) ?? null
-      : null;
-    prepareCue(next);
-  }, [fadeAmbientTo, params.manifest.cues, params.plan.voiceCues, prepareCue]);
-
-  const fadeOutAndStop = useCallback((durationMs = EARLY_EXIT_FADE_MS): Promise<void> => {
-    if (stopInFlightRef.current) return stopInFlightRef.current;
-    earlyExitInProgressRef.current = true;
-    intentionalPauseRef.current = true;
-    clearAmbientFade();
-    stopActiveVoice();
-    stopPreparedVoice();
-    const stopOperation = stopAmbient(durationMs);
-    stopInFlightRef.current = stopOperation;
-    return stopOperation;
-  }, [clearAmbientFade, stopActiveVoice, stopAmbient, stopPreparedVoice]);
-
-  useEffect(() => {
-    handledCueIdsRef.current = new Set();
-    previousActiveRef.current = false;
-    hasStartedRef.current = false;
-    finalFadeStartedRef.current = false;
-    earlyExitInProgressRef.current = false;
-    stopInFlightRef.current = null;
-    intentionalPauseRef.current = true;
-    clearAmbientFade();
-    stopActiveVoice();
-    stopPreparedVoice();
-    void stopAmbient(0);
-
-    if (params.plan.shouldPlayAmbient && params.plan.ambientTrack) {
-      ambientRef.current = createSessionAudioPlayer(params.plan.ambientTrack.asset, {
-        loop: false,
-        trackId: getAmbientAudioTrackId(params.plan.ambientTrack),
-        volume: 0,
-        onFailure: () => trackAmbientAudioLoadFailed(params.plan),
-        onStatus: status => {
-          if (status.playing) ambientWasPlayingRef.current = true;
-          if (
-            ambientWasPlayingRef.current &&
-            !status.playing &&
-            !status.didJustFinish &&
-            isActiveRef.current &&
-            !intentionalPauseRef.current
-          ) {
-            ambientWasPlayingRef.current = false;
-            params.onInterruption();
+  const prepareCue = useCallback(
+    (cue: ResolvedVoiceCue | null, generation = generationRef.current) => {
+      if (
+        !cue ||
+        !isCurrent(generation) ||
+        earlyExitInProgressRef.current ||
+        completionInFlightRef.current ||
+        !params.plan.shouldPlayVoice ||
+        handledCueIdsRef.current.has(cue.phaseId)
+      )
+        return;
+      if (preparedVoiceRef.current?.cue.phaseId === cue.phaseId) return;
+      stopPreparedVoice();
+      const player = createSessionAudioPlayer(cue.track.asset, {
+        trackId: getGuidedAudioTrackId(cue.track),
+        volume: cue.track.playbackGain,
+        onFailure: () => {
+          if (!isCurrent(generation)) return;
+          handledCueIdsRef.current.add(cue.phaseId);
+          trackGuidedAudioLoadFailed(params.plan, cue.phaseId);
+          if (preparedVoiceRef.current?.cue.phaseId === cue.phaseId)
+            preparedVoiceRef.current = null;
+          if (activeVoiceRef.current?.cue.phaseId === cue.phaseId) {
+            activeVoiceRef.current = null;
+            voiceActiveRef.current = false;
+            restoreAmbient();
+          }
+          setAudioTick((value) => value + 1);
+        },
+        onFinish: () => {
+          if (!isCurrent(generation)) return;
+          if (activeVoiceRef.current?.cue.phaseId === cue.phaseId) {
+            activeVoiceRef.current = null;
+            voiceActiveRef.current = false;
+            restoreAmbient();
+            setAudioTick((value) => value + 1);
           }
         },
       });
+      if (player) preparedVoiceRef.current = { cue, player };
+      else handledCueIdsRef.current.add(cue.phaseId);
+    },
+    [
+      createSessionAudioPlayer,
+      isCurrent,
+      params.plan,
+      restoreAmbient,
+      stopPreparedVoice,
+    ],
+  );
+
+  const playCue = useCallback(
+    (cue: ResolvedVoiceCue) => {
+      if (
+        earlyExitInProgressRef.current ||
+        completionInFlightRef.current ||
+        handledCueIdsRef.current.has(cue.phaseId) ||
+        voiceActiveRef.current
+      )
+        return;
+      if (preparedVoiceRef.current?.cue.phaseId !== cue.phaseId) prepareCue(cue);
+      const prepared = preparedVoiceRef.current;
+      if (!prepared || prepared.cue.phaseId !== cue.phaseId) {
+        handledCueIdsRef.current.add(cue.phaseId);
+        return;
+      }
+      preparedVoiceRef.current = null;
+      activeVoiceRef.current = prepared;
+      voiceActiveRef.current = true;
+      handledCueIdsRef.current.add(cue.phaseId);
+      fadeAmbientTo(
+        VISUALIZE_AMBIENT_LEVELS.guidedDucked,
+        params.manifest.cues.find((item) => item.id === cue.phaseId)
+          ?.duckingEnvelope.attackMs ?? 160,
+      );
+      prepared.player.play();
+
+      const nextDefinition = getNextUnhandledVisualizeCue(
+        params.manifest.cues,
+        handledCueIdsRef.current,
+      );
+      const next = nextDefinition
+        ? params.plan.voiceCues.find(
+            (item) => item.phaseId === nextDefinition.id,
+          ) ?? null
+        : null;
+      prepareCue(next);
+    },
+    [
+      fadeAmbientTo,
+      params.manifest.cues,
+      params.plan.voiceCues,
+      prepareCue,
+    ],
+  );
+
+  const finishCompletion = useCallback(
+    (durationMs = params.manifest.ambient.fadeOutMs): Promise<void> => {
+      if (completionInFlightRef.current) return completionInFlightRef.current;
+      intentionalPauseRef.current = true;
+      stopActiveVoice();
+      stopPreparedVoice();
+      const operation = stopAmbient(durationMs).then(() => {
+        if (
+          !mountedRef.current ||
+          earlyExitInProgressRef.current ||
+          completionToneRef.current ||
+          (!params.plan.shouldPlayAmbient && !params.plan.shouldPlayVoice)
+        )
+          return;
+        const tone = createSessionAudioPlayer(COMPLETION_TONE, {
+          trackId: 'visualize-completion-cue',
+          volume: 0.34,
+        });
+        completionToneRef.current = tone;
+        tone?.play();
+      });
+      completionInFlightRef.current = operation;
+      return operation;
+    },
+    [
+      createSessionAudioPlayer,
+      params.manifest.ambient.fadeOutMs,
+      params.plan.shouldPlayAmbient,
+      params.plan.shouldPlayVoice,
+      stopActiveVoice,
+      stopAmbient,
+      stopPreparedVoice,
+    ],
+  );
+
+  const fadeOutAndStop = useCallback(
+    (durationMs = EARLY_EXIT_FADE_MS): Promise<void> => {
+      if (earlyStopInFlightRef.current) return earlyStopInFlightRef.current;
+      earlyExitInProgressRef.current = true;
+      intentionalPauseRef.current = true;
+      clearAmbientFade();
+      stopActiveVoice();
+      stopPreparedVoice();
+      stopCompletionTone();
+      const operation = stopAmbient(durationMs);
+      earlyStopInFlightRef.current = operation;
+      return operation;
+    },
+    [
+      clearAmbientFade,
+      stopActiveVoice,
+      stopAmbient,
+      stopCompletionTone,
+      stopPreparedVoice,
+    ],
+  );
+
+  useEffect(() => {
+    const generation = generationRef.current + 1;
+    generationRef.current = generation;
+    mountedRef.current = true;
+    handledCueIdsRef.current = new Set();
+    previousActiveRef.current = false;
+    hasStartedRef.current = false;
+    ambientWasPlayingRef.current = false;
+    earlyExitInProgressRef.current = false;
+    earlyStopInFlightRef.current = null;
+    completionInFlightRef.current = null;
+    intentionalPauseRef.current = true;
+    clearAmbientFade();
+    stopActiveVoice();
+    stopPreparedVoice();
+    stopCompletionTone();
+    void stopAmbient(0);
+
+    if (params.plan.shouldPlayAmbient && params.plan.ambientTrack) {
+      ambientRef.current = createSessionAudioPlayer(
+        params.plan.ambientTrack.asset,
+        {
+          loop: params.manifest.ambient.loop,
+          trackId: getAmbientAudioTrackId(params.plan.ambientTrack),
+          volume: 0,
+          onFailure: () => {
+            if (isCurrent(generation)) trackAmbientAudioLoadFailed(params.plan);
+          },
+          onStatus: (status) => {
+            if (!isCurrent(generation)) return;
+            if (status.playing) ambientWasPlayingRef.current = true;
+            if (
+              ambientWasPlayingRef.current &&
+              !status.playing &&
+              !status.didJustFinish &&
+              isActiveRef.current &&
+              !intentionalPauseRef.current
+            ) {
+              ambientWasPlayingRef.current = false;
+              params.onInterruption();
+            }
+          },
+        },
+      );
     }
-    if (params.plan.shouldPlayVoice) prepareCue(params.plan.voiceCues[0] ?? null);
+    if (params.plan.shouldPlayVoice) {
+      prepareCue(params.plan.voiceCues[0] ?? null, generation);
+    }
     intentionalPauseRef.current = false;
+
+    return () => {
+      mountedRef.current = false;
+      generationRef.current += 1;
+      intentionalPauseRef.current = true;
+      clearAmbientFade();
+      stopActiveVoice();
+      stopPreparedVoice();
+      stopCompletionTone();
+      void stopAmbient(0);
+    };
   }, [
     clearAmbientFade,
     createSessionAudioPlayer,
+    isCurrent,
+    params.manifest.ambient.loop,
     params.onInterruption,
     params.plan,
     prepareCue,
     stopActiveVoice,
     stopAmbient,
+    stopCompletionTone,
     stopPreparedVoice,
   ]);
 
   useEffect(() => {
-    if (params.isComplete) {
-      intentionalPauseRef.current = true;
-      stopActiveVoice();
-      stopPreparedVoice();
-      void stopAmbient(0);
+    if (params.isCompleting) {
       previousActiveRef.current = false;
+      void finishCompletion();
+      return;
+    }
+    if (params.isComplete) {
+      previousActiveRef.current = false;
+      intentionalPauseRef.current = true;
       return;
     }
     if (!params.isActive) {
@@ -291,37 +426,29 @@ export function useVisualizeSessionAudio(params: {
 
     intentionalPauseRef.current = false;
     if (!previousActiveRef.current) {
-      const resting = getVisualizeAmbientRestingVolume(params.plan.shouldPlayVoice);
+      const resting = getVisualizeAmbientRestingVolume(
+        params.plan.shouldPlayVoice,
+      );
       const resumeTarget = voiceActiveRef.current
         ? VISUALIZE_AMBIENT_LEVELS.guidedDucked
         : resting;
       if (ambientRef.current) {
+        // Reconcile after Android backgrounding without recreating the player.
+        // Looping assets use the equivalent position in the source track.
         if (hasStartedRef.current && params.elapsedMs > 200) {
-          void ambientRef.current.seekTo(params.elapsedMs / 1_000);
+          const trackSeconds = params.manifest.ambient.expectedDurationSeconds;
+          const targetSeconds = params.manifest.ambient.loop
+            ? (params.elapsedMs / 1_000) % trackSeconds
+            : Math.min(params.elapsedMs / 1_000, Math.max(0, trackSeconds - 0.1));
+          void ambientRef.current.seekTo(targetSeconds);
         }
         ambientRef.current.play();
         ambientWasPlayingRef.current = true;
-        const initialFadeRemaining = Math.max(0, params.manifest.ambient.fadeInMs - params.elapsedMs);
-        fadeAmbientTo(resumeTarget, initialFadeRemaining);
+        fadeAmbientTo(resumeTarget, params.manifest.ambient.fadeInMs);
       }
       activeVoiceRef.current?.player.play();
       previousActiveRef.current = true;
       hasStartedRef.current = true;
-    }
-
-    const remainingFadeMs = getVisualizeFinalFadeRemainingMs(
-      params.manifest.durationSeconds,
-      params.manifest.ambient.fadeOutMs,
-      params.elapsedMs,
-    );
-    if (remainingFadeMs != null) {
-      finalFadeStartedRef.current = true;
-      clearAmbientFade();
-      const fadeProgress = 1 - remainingFadeMs / params.manifest.ambient.fadeOutMs;
-      const baseVolume = voiceActiveRef.current
-        ? VISUALIZE_AMBIENT_LEVELS.guidedDucked
-        : getVisualizeAmbientRestingVolume(params.plan.shouldPlayVoice);
-      setAmbientVolume(baseVolume * Math.cos(clamp01(fadeProgress) * Math.PI / 2));
     }
 
     if (!voiceActiveRef.current) {
@@ -331,7 +458,9 @@ export function useVisualizeSessionAudio(params: {
         handledCueIdsRef.current,
       );
       if (definition) {
-        const cue = params.plan.voiceCues.find(item => item.phaseId === definition.id);
+        const cue = params.plan.voiceCues.find(
+          (item) => item.phaseId === definition.id,
+        );
         if (cue) playCue(cue);
         else handledCueIdsRef.current.add(definition.id);
       }
@@ -339,31 +468,20 @@ export function useVisualizeSessionAudio(params: {
   }, [
     clearAmbientFade,
     fadeAmbientTo,
+    finishCompletion,
     params.elapsedMs,
     params.isActive,
     params.isComplete,
+    params.isCompleting,
     params.manifest,
     params.plan.shouldPlayVoice,
     params.plan.voiceCues,
     playCue,
-    setAmbientVolume,
-    stopActiveVoice,
-    stopAmbient,
-    stopPreparedVoice,
   ]);
-
-  useEffect(() => () => {
-    intentionalPauseRef.current = true;
-    clearAmbientFade();
-    stopActiveVoice();
-    stopPreparedVoice();
-    void stopAmbient(0);
-  }, [clearAmbientFade, stopActiveVoice, stopAmbient, stopPreparedVoice]);
 
   return {
     fadeOutAndStop,
+    finishCompletion,
     hasVoiceGuidance: params.plan.shouldPlayVoice,
   };
 }
-
-const clamp01 = (value: number): number => Math.max(0, Math.min(1, value));

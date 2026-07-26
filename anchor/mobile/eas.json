@@ -16,6 +16,7 @@
         "EXPO_PUBLIC_ENABLE_MERCH": "false",
         "EXPO_PUBLIC_ENABLE_GOOGLE_SIGN_IN": "true",
         "EXPO_PUBLIC_ENABLE_MOCK_AUTH": "false",
+        "EXPO_PUBLIC_ENABLE_VISUALIZE": "true",
         "SENTRY_DISABLE_AUTO_UPLOAD": "true"
       },
       "android": {},
@@ -34,6 +35,7 @@
         "EXPO_PUBLIC_ENABLE_MERCH": "false",
         "EXPO_PUBLIC_ENABLE_GOOGLE_SIGN_IN": "true",
         "EXPO_PUBLIC_ENABLE_MOCK_AUTH": "false",
+        "EXPO_PUBLIC_ENABLE_VISUALIZE": "true",
         "SENTRY_DISABLE_AUTO_UPLOAD": "false"
       },
       "android": {
@@ -54,6 +56,7 @@
         "EXPO_PUBLIC_ENABLE_MERCH": "false",
         "EXPO_PUBLIC_ENABLE_GOOGLE_SIGN_IN": "true",
         "EXPO_PUBLIC_ENABLE_MOCK_AUTH": "false",
+        "EXPO_PUBLIC_ENABLE_VISUALIZE": "false",
         "SENTRY_DISABLE_AUTO_UPLOAD": "false"
       },
       "android": {
@@ -72,6 +75,7 @@
         "EXPO_PUBLIC_ENABLE_MERCH": "false",
         "EXPO_PUBLIC_ENABLE_GOOGLE_SIGN_IN": "true",
         "EXPO_PUBLIC_ENABLE_MOCK_AUTH": "false",
+        "EXPO_PUBLIC_ENABLE_VISUALIZE": "false",
         "SENTRY_DISABLE_AUTO_UPLOAD": "false"
       },
       "android": {

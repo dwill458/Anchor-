@@ -443,17 +443,27 @@ function hashWidgetArtwork(value: string): string {
 
 function selectWidgetArtwork(anchor: Anchor | undefined): Pick<
   WidgetSnapshot,
-  'sigilSvg' | 'artworkSource' | 'artworkVersion'
+  'sigilSvg' | 'artworkImageUri' | 'artworkSource' | 'artworkVersion'
 > {
   const reinforced = anchor?.reinforcedSigilSvg?.trim();
   const base = anchor?.baseSigilSvg?.trim();
+  const enhancedImageUri = anchor?.enhancedImageUrl?.trim() || null;
+  // The SVG is retained as a graceful fallback even when an enhanced raster
+  // image is the primary artwork, in case the widget can't load the image.
   const sigilSvg = reinforced || base || null;
-  const artworkSource = reinforced ? 'reinforced_svg' : base ? 'base_svg' : 'fallback';
+  const artworkSource = enhancedImageUri
+    ? 'enhanced_image'
+    : reinforced
+      ? 'reinforced_svg'
+      : base
+        ? 'base_svg'
+        : 'fallback';
   const changedAt =
     anchor?.updatedAt instanceof Date ? anchor.updatedAt.toISOString() : String(anchor?.updatedAt ?? '');
 
   return {
     sigilSvg,
+    artworkImageUri: enhancedImageUri,
     artworkSource,
     artworkVersion:
       anchor && sigilSvg ? `${anchor.userId}:${anchor.id}:${changedAt}:${hashWidgetArtwork(sigilSvg)}` : null,
